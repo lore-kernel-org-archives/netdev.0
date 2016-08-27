@@ -1,41 +1,150 @@
-From: Oleg Drokin <green@linuxhacker.ru>
-Subject: Re: [PATCH] bridge: Fix format string for %ul
-Date: Sat, 27 Aug 2016 11:58:00 -0400
-Message-ID: <95BF7F27-59F7-4BDA-941B-BB00C60423A4@linuxhacker.ru>
-References: <1472267428-810527-1-git-send-email-green@linuxhacker.ru> <11e50e3c-2e1f-4614-07e3-3bd144af4f94@cogentembedded.com>
-Mime-Version: 1.0 (Apple Message framework v1283)
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8BIT
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <11e50e3c-2e1f-4614-07e3-3bd144af4f94@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH net-next] tcp: add tcp_add_backlog()
+Date: Sat, 27 Aug 2016 09:13:58 -0700
+Message-ID: <CAK6E8=feHjgq-JK8L5Wd+2HZaLs7qicw1+W7gHUCN0e6RzL4TA@mail.gmail.com>
+References: <1472308674.14381.226.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Neal Cardwell <ncardwell@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f54.google.com ([209.85.214.54]:38344 "EHLO
+        mail-it0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753958AbcH0QOj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 27 Aug 2016 12:14:39 -0400
+Received: by mail-it0-f54.google.com with SMTP id g62so39204465ith.1
+        for <netdev@vger.kernel.org>; Sat, 27 Aug 2016 09:14:39 -0700 (PDT)
+In-Reply-To: <1472308674.14381.226.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Sat, Aug 27, 2016 at 7:37 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>
+> From: Eric Dumazet <edumazet@google.com>
+>
+> When TCP operates in lossy environments (between 1 and 10 % packet
+> losses), many SACK blocks can be exchanged, and I noticed we could
+> drop them on busy senders, if these SACK blocks have to be queued
+> into the socket backlog.
+>
+> While the main cause is the poor performance of RACK/SACK processing,
+I have a patch in preparation for this ;)
 
-On Aug 27, 2016, at 11:13 AM, Sergei Shtylyov wrote:
+> we can try to avoid these drops of valuable information that can lead to
+> spurious timeouts and retransmits.
+>
+> Cause of the drops is the skb->truesize overestimation caused by :
+>
+> - drivers allocating ~2048 (or more) bytes as a fragment to hold an
+>   Ethernet frame.
+>
+> - various pskb_may_pull() calls bringing the headers into skb->head
+>   might have pulled all the frame content, but skb->truesize could
+>   not be lowered, as the stack has no idea of each fragment truesize.
+>
+> The backlog drops are also more visible on bidirectional flows, since
+> their sk_rmem_alloc can be quite big.
+>
+> Let's add some room for the backlog, as only the socket owner
+> can selectively take action to lower memory needs, like collapsing
+> receive queues or partial ofo pruning.
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> ---
+>  include/net/tcp.h   |    1 +
+>  net/ipv4/tcp_ipv4.c |   33 +++++++++++++++++++++++++++++----
+>  net/ipv6/tcp_ipv6.c |    5 +----
+>  3 files changed, 31 insertions(+), 8 deletions(-)
+>
+> diff --git a/include/net/tcp.h b/include/net/tcp.h
+> index 25d64f6de69e1f639ed1531bf2d2df3f00fd76a2..5f5f09f6e019682ef29c864d2f43a8f247fcdd9a 100644
+> --- a/include/net/tcp.h
+> +++ b/include/net/tcp.h
+> @@ -1163,6 +1163,7 @@ static inline void tcp_prequeue_init(struct tcp_sock *tp)
+>  }
+>
+>  bool tcp_prequeue(struct sock *sk, struct sk_buff *skb);
+> +bool tcp_add_backlog(struct sock *sk, struct sk_buff *skb);
+>
+>  #undef STATE_TRACE
+>
+> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+> index ad41e8ecf796bba1bd6d9ed155ca4a57ced96844..53e80cd004b6ce401c3acbb4b243b243c5c3c4a3 100644
+> --- a/net/ipv4/tcp_ipv4.c
+> +++ b/net/ipv4/tcp_ipv4.c
+> @@ -1532,6 +1532,34 @@ bool tcp_prequeue(struct sock *sk, struct sk_buff *skb)
+>  }
+>  EXPORT_SYMBOL(tcp_prequeue);
+>
+> +bool tcp_add_backlog(struct sock *sk, struct sk_buff *skb)
+> +{
+> +       u32 limit = sk->sk_rcvbuf + sk->sk_sndbuf;
+> +
+> +       /* Only socket owner can try to collapse/prune rx queues
+> +        * to reduce memory overhead, so add a little headroom here.
+> +        * Few sockets backlog are possibly concurrently non empty.
+> +        */
+> +       limit += 64*1024;
+Just a thought: only add the headroom if ofo queue exists (e.g., signs
+of losses ore recovery).
 
-> Hello.
-> 
-> On 8/27/2016 6:10 AM, Oleg Drokin wrote:
-> 
->> %ul would print an unsigned value and a letter l,
->> likely it was %lu that was meant to print the long int,
->> but in reality the values printed there are just regular signed
-> 
->   Signed? Then you need probably "%d" or "%i"…
+btw is the added headroom subject to the memory pressure check?
 
-They are signed in the struct definition, but in reality they
-designate time, so could not be negative, I imagine?
+> +
+> +       /* In case all data was pulled from skb frags (in __pskb_pull_tail()),
+> +        * we can fix skb->truesize to its real value to avoid future drops.
+> +        * This is valid because skb is not yet charged to the socket.
+> +        * It has been noticed pure SACK packets were sometimes dropped
+> +        * (if cooked by drivers without copybreak feature).
+> +        */
+> +       if (!skb->data_len)
+> +               skb->truesize = SKB_TRUESIZE(skb_end_offset(skb));
+nice!
 
-> 
->> ints, so just dropping the l altogether.
->> 
->> Signed-off-by: Oleg Drokin <green@linuxhacker.ru>
-> [...]
-> 
-> MBR, Sergei
+> +
+> +       if (unlikely(sk_add_backlog(sk, skb, limit))) {
+> +               bh_unlock_sock(sk);
+> +               __NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPBACKLOGDROP);
+> +               return true;
+> +       }
+> +       return false;
+> +}
+> +EXPORT_SYMBOL(tcp_add_backlog);
+> +
+>  /*
+>   *     From tcp_input.c
+>   */
+> @@ -1662,10 +1690,7 @@ process:
+>         if (!sock_owned_by_user(sk)) {
+>                 if (!tcp_prequeue(sk, skb))
+>                         ret = tcp_v4_do_rcv(sk, skb);
+> -       } else if (unlikely(sk_add_backlog(sk, skb,
+> -                                          sk->sk_rcvbuf + sk->sk_sndbuf))) {
+> -               bh_unlock_sock(sk);
+> -               __NET_INC_STATS(net, LINUX_MIB_TCPBACKLOGDROP);
+> +       } else if (tcp_add_backlog(sk, skb)) {
+>                 goto discard_and_relse;
+>         }
+>         bh_unlock_sock(sk);
+> diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+> index e4f55683af314438da8a09473927213a140e6e5c..5bf460bd299ff61ae759e8e545ba6298a1d1373c 100644
+> --- a/net/ipv6/tcp_ipv6.c
+> +++ b/net/ipv6/tcp_ipv6.c
+> @@ -1467,10 +1467,7 @@ process:
+>         if (!sock_owned_by_user(sk)) {
+>                 if (!tcp_prequeue(sk, skb))
+>                         ret = tcp_v6_do_rcv(sk, skb);
+> -       } else if (unlikely(sk_add_backlog(sk, skb,
+> -                                          sk->sk_rcvbuf + sk->sk_sndbuf))) {
+> -               bh_unlock_sock(sk);
+> -               __NET_INC_STATS(net, LINUX_MIB_TCPBACKLOGDROP);
+> +       } else if (tcp_add_backlog(sk, skb)) {
+>                 goto discard_and_relse;
+>         }
+>         bh_unlock_sock(sk);
+>
+>
