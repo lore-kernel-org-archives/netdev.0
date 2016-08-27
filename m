@@ -1,238 +1,190 @@
 From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH net 1/2] ppp: avoid dealock on recursive xmit
-Date: Sat, 27 Aug 2016 22:22:32 +0200
-Message-ID: <20160827202232.3kb6xvkh5gnnbqlx@alphalink.fr>
+Subject: [PATCH net 2/2] ppp: declare PPP devices as LLTX
+Date: Sat, 27 Aug 2016 22:22:51 +0200
+Message-ID: <20160827202251.hpgikfuvaryla2qt@alphalink.fr>
 References: <cover.1472325935.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Paul Mackerras <paulus@samba.org>, Feng Gao <gfree.wind@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:55901 "EHLO
+Received: from zimbra.alphalink.fr ([217.15.80.77]:55923 "EHLO
         zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754922AbcH0UWg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 27 Aug 2016 16:22:36 -0400
+        with ESMTP id S1754792AbcH0UWz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 27 Aug 2016 16:22:55 -0400
 Content-Disposition: inline
 In-Reply-To: <cover.1472325935.git.g.nault@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In case of misconfiguration, a virtual PPP channel might send packets
-back to their parent PPP interface. This typically happens in
-misconfigured L2TP setups, where PPP's peer IP address is set with the
-IP of the L2TP peer.
-When that happens the system hangs due to PPP trying to recursively
-lock its xmit path.
+ppp_xmit_process() already locks the xmit path. If HARD_TX_LOCK() tries
+to hold the _xmit_lock we can get lock inversion.
 
-[  243.332155] BUG: spinlock recursion on CPU#1, accel-pppd/926
-[  243.333272]  lock: 0xffff880033d90f18, .magic: dead4ead, .owner: accel-pppd/926, .owner_cpu: 1
-[  243.334859] CPU: 1 PID: 926 Comm: accel-pppd Not tainted 4.8.0-rc2 #1
-[  243.336010] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Debian-1.8.2-1 04/01/2014
-[  243.336018]  ffff7fffffffffff ffff8800319a77a0 ffffffff8128de85 ffff880033d90f18
-[  243.336018]  ffff880033ad8000 ffff8800319a77d8 ffffffff810ad7c0 ffffffff0000039e
-[  243.336018]  ffff880033d90f18 ffff880033d90f60 ffff880033d90f18 ffff880033d90f28
-[  243.336018] Call Trace:
-[  243.336018]  [<ffffffff8128de85>] dump_stack+0x4f/0x65
-[  243.336018]  [<ffffffff810ad7c0>] spin_dump+0xe1/0xeb
-[  243.336018]  [<ffffffff810ad7f0>] spin_bug+0x26/0x28
-[  243.336018]  [<ffffffff810ad8b9>] do_raw_spin_lock+0x5c/0x160
-[  243.336018]  [<ffffffff815522aa>] _raw_spin_lock_bh+0x35/0x3c
-[  243.336018]  [<ffffffffa01a88e2>] ? ppp_push+0xa7/0x82d [ppp_generic]
-[  243.336018]  [<ffffffffa01a88e2>] ppp_push+0xa7/0x82d [ppp_generic]
-[  243.336018]  [<ffffffff810adada>] ? do_raw_spin_unlock+0xc2/0xcc
-[  243.336018]  [<ffffffff81084962>] ? preempt_count_sub+0x13/0xc7
-[  243.336018]  [<ffffffff81552438>] ? _raw_spin_unlock_irqrestore+0x34/0x49
-[  243.336018]  [<ffffffffa01ac657>] ppp_xmit_process+0x48/0x877 [ppp_generic]
-[  243.336018]  [<ffffffff81084962>] ? preempt_count_sub+0x13/0xc7
-[  243.336018]  [<ffffffff81408cd3>] ? skb_queue_tail+0x71/0x7c
-[  243.336018]  [<ffffffffa01ad1c5>] ppp_start_xmit+0x21b/0x22a [ppp_generic]
-[  243.336018]  [<ffffffff81426af1>] dev_hard_start_xmit+0x15e/0x32c
-[  243.336018]  [<ffffffff81454ed7>] sch_direct_xmit+0xd6/0x221
-[  243.336018]  [<ffffffff814273a8>] __dev_queue_xmit+0x52a/0x820
-[  243.336018]  [<ffffffff814276a9>] dev_queue_xmit+0xb/0xd
-[  243.336018]  [<ffffffff81430a3c>] neigh_direct_output+0xc/0xe
-[  243.336018]  [<ffffffff8146b5d7>] ip_finish_output2+0x4d2/0x548
-[  243.336018]  [<ffffffff8146a8e6>] ? dst_mtu+0x29/0x2e
-[  243.336018]  [<ffffffff8146d49c>] ip_finish_output+0x152/0x15e
-[  243.336018]  [<ffffffff8146df84>] ? ip_output+0x74/0x96
-[  243.336018]  [<ffffffff8146df9c>] ip_output+0x8c/0x96
-[  243.336018]  [<ffffffff8146d55e>] ip_local_out+0x41/0x4a
-[  243.336018]  [<ffffffff8146dd15>] ip_queue_xmit+0x531/0x5c5
-[  243.336018]  [<ffffffff814a82cd>] ? udp_set_csum+0x207/0x21e
-[  243.336018]  [<ffffffffa01f2f04>] l2tp_xmit_skb+0x582/0x5d7 [l2tp_core]
-[  243.336018]  [<ffffffffa01ea458>] pppol2tp_xmit+0x1eb/0x257 [l2tp_ppp]
-[  243.336018]  [<ffffffffa01acf17>] ppp_channel_push+0x91/0x102 [ppp_generic]
-[  243.336018]  [<ffffffffa01ad2d8>] ppp_write+0x104/0x11c [ppp_generic]
-[  243.336018]  [<ffffffff811a3c1e>] __vfs_write+0x56/0x120
-[  243.336018]  [<ffffffff81239801>] ? fsnotify_perm+0x27/0x95
-[  243.336018]  [<ffffffff8123ab01>] ? security_file_permission+0x4d/0x54
-[  243.336018]  [<ffffffff811a4ca4>] vfs_write+0xbd/0x11b
-[  243.336018]  [<ffffffff811a5a0a>] SyS_write+0x5e/0x96
-[  243.336018]  [<ffffffff81552a1b>] entry_SYSCALL_64_fastpath+0x13/0x94
+[  973.726130] ======================================================
+[  973.727311] [ INFO: possible circular locking dependency detected ]
+[  973.728546] 4.8.0-rc2 #1 Tainted: G           O
+[  973.728986] -------------------------------------------------------
+[  973.728986] accel-pppd/1806 is trying to acquire lock:
+[  973.728986]  (&qdisc_xmit_lock_key){+.-...}, at: [<ffffffff8146f6fe>] sch_direct_xmit+0x8d/0x221
+[  973.728986]
+[  973.728986] but task is already holding lock:
+[  973.728986]  (l2tp_sock){+.-...}, at: [<ffffffffa0202c4a>] l2tp_xmit_skb+0x1e8/0x5d7 [l2tp_core]
+[  973.728986]
+[  973.728986] which lock already depends on the new lock.
+[  973.728986]
+[  973.728986]
+[  973.728986] the existing dependency chain (in reverse order) is:
+[  973.728986]
+-> #3 (l2tp_sock){+.-...}:
+[  973.728986]        [<ffffffff810b3130>] lock_acquire+0x150/0x217
+[  973.728986]        [<ffffffff815752f4>] _raw_spin_lock+0x2d/0x3c
+[  973.728986]        [<ffffffffa0202c4a>] l2tp_xmit_skb+0x1e8/0x5d7 [l2tp_core]
+[  973.728986]        [<ffffffffa01b2466>] pppol2tp_xmit+0x1f2/0x25e [l2tp_ppp]
+[  973.728986]        [<ffffffffa0184f59>] ppp_channel_push+0xb5/0x14a [ppp_generic]
+[  973.728986]        [<ffffffffa01853ed>] ppp_write+0x104/0x11c [ppp_generic]
+[  973.728986]        [<ffffffff811b2ec6>] __vfs_write+0x56/0x120
+[  973.728986]        [<ffffffff811b3f4c>] vfs_write+0xbd/0x11b
+[  973.728986]        [<ffffffff811b4cb2>] SyS_write+0x5e/0x96
+[  973.728986]        [<ffffffff81575ba5>] entry_SYSCALL_64_fastpath+0x18/0xa8
+[  973.728986]
+-> #2 (&(&pch->downl)->rlock){+.-...}:
+[  973.728986]        [<ffffffff810b3130>] lock_acquire+0x150/0x217
+[  973.728986]        [<ffffffff81575334>] _raw_spin_lock_bh+0x31/0x40
+[  973.728986]        [<ffffffffa01808e2>] ppp_push+0xa7/0x82d [ppp_generic]
+[  973.728986]        [<ffffffffa0184675>] __ppp_xmit_process+0x48/0x877 [ppp_generic]
+[  973.728986]        [<ffffffffa018505b>] ppp_xmit_process+0x4b/0xaf [ppp_generic]
+[  973.728986]        [<ffffffffa01853f7>] ppp_write+0x10e/0x11c [ppp_generic]
+[  973.728986]        [<ffffffff811b2ec6>] __vfs_write+0x56/0x120
+[  973.728986]        [<ffffffff811b3f4c>] vfs_write+0xbd/0x11b
+[  973.728986]        [<ffffffff811b4cb2>] SyS_write+0x5e/0x96
+[  973.728986]        [<ffffffff81575ba5>] entry_SYSCALL_64_fastpath+0x18/0xa8
+[  973.728986]
+-> #1 (&(&ppp->wlock)->rlock){+.-...}:
+[  973.728986]        [<ffffffff810b3130>] lock_acquire+0x150/0x217
+[  973.728986]        [<ffffffff81575334>] _raw_spin_lock_bh+0x31/0x40
+[  973.728986]        [<ffffffffa0184654>] __ppp_xmit_process+0x27/0x877 [ppp_generic]
+[  973.728986]        [<ffffffffa018505b>] ppp_xmit_process+0x4b/0xaf [ppp_generic]
+[  973.728986]        [<ffffffffa01852da>] ppp_start_xmit+0x21b/0x22a [ppp_generic]
+[  973.728986]        [<ffffffff8143f767>] dev_hard_start_xmit+0x1a9/0x43d
+[  973.728986]        [<ffffffff8146f747>] sch_direct_xmit+0xd6/0x221
+[  973.728986]        [<ffffffff814401e4>] __dev_queue_xmit+0x62a/0x912
+[  973.728986]        [<ffffffff814404d7>] dev_queue_xmit+0xb/0xd
+[  973.728986]        [<ffffffff81449978>] neigh_direct_output+0xc/0xe
+[  973.728986]        [<ffffffff8150e62b>] ip6_finish_output2+0x5a9/0x623
+[  973.728986]        [<ffffffff81512128>] ip6_output+0x15e/0x16a
+[  973.728986]        [<ffffffff8153ef86>] dst_output+0x76/0x7f
+[  973.728986]        [<ffffffff8153f737>] mld_sendpack+0x335/0x404
+[  973.728986]        [<ffffffff81541c61>] mld_send_initial_cr.part.21+0x99/0xa2
+[  973.728986]        [<ffffffff8154441d>] ipv6_mc_dad_complete+0x42/0x71
+[  973.728986]        [<ffffffff8151c4bd>] addrconf_dad_completed+0x1cf/0x2ea
+[  973.728986]        [<ffffffff8151e4fa>] addrconf_dad_work+0x453/0x520
+[  973.728986]        [<ffffffff8107a393>] process_one_work+0x365/0x6f0
+[  973.728986]        [<ffffffff8107aecd>] worker_thread+0x2de/0x421
+[  973.728986]        [<ffffffff810816fb>] kthread+0x121/0x130
+[  973.728986]        [<ffffffff81575dbf>] ret_from_fork+0x1f/0x40
+[  973.728986]
+-> #0 (&qdisc_xmit_lock_key){+.-...}:
+[  973.728986]        [<ffffffff810b28d6>] __lock_acquire+0x1118/0x1483
+[  973.728986]        [<ffffffff810b3130>] lock_acquire+0x150/0x217
+[  973.728986]        [<ffffffff815752f4>] _raw_spin_lock+0x2d/0x3c
+[  973.728986]        [<ffffffff8146f6fe>] sch_direct_xmit+0x8d/0x221
+[  973.728986]        [<ffffffff814401e4>] __dev_queue_xmit+0x62a/0x912
+[  973.728986]        [<ffffffff814404d7>] dev_queue_xmit+0xb/0xd
+[  973.728986]        [<ffffffff81449978>] neigh_direct_output+0xc/0xe
+[  973.728986]        [<ffffffff81487811>] ip_finish_output2+0x5db/0x609
+[  973.728986]        [<ffffffff81489590>] ip_finish_output+0x152/0x15e
+[  973.728986]        [<ffffffff8148a0d4>] ip_output+0x8c/0x96
+[  973.728986]        [<ffffffff81489652>] ip_local_out+0x41/0x4a
+[  973.728986]        [<ffffffff81489e7d>] ip_queue_xmit+0x5a5/0x609
+[  973.728986]        [<ffffffffa0202fe4>] l2tp_xmit_skb+0x582/0x5d7 [l2tp_core]
+[  973.728986]        [<ffffffffa01b2466>] pppol2tp_xmit+0x1f2/0x25e [l2tp_ppp]
+[  973.728986]        [<ffffffffa0184f59>] ppp_channel_push+0xb5/0x14a [ppp_generic]
+[  973.728986]        [<ffffffffa01853ed>] ppp_write+0x104/0x11c [ppp_generic]
+[  973.728986]        [<ffffffff811b2ec6>] __vfs_write+0x56/0x120
+[  973.728986]        [<ffffffff811b3f4c>] vfs_write+0xbd/0x11b
+[  973.728986]        [<ffffffff811b4cb2>] SyS_write+0x5e/0x96
+[  973.728986]        [<ffffffff81575ba5>] entry_SYSCALL_64_fastpath+0x18/0xa8
+[  973.728986]
+[  973.728986] other info that might help us debug this:
+[  973.728986]
+[  973.728986] Chain exists of:
+  &qdisc_xmit_lock_key --> &(&pch->downl)->rlock --> l2tp_sock
 
-The main entry points for sending packets over a PPP unit are the
-.write() and .ndo_start_xmit() callbacks (simplified view):
+[  973.728986]  Possible unsafe locking scenario:
+[  973.728986]
+[  973.728986]        CPU0                    CPU1
+[  973.728986]        ----                    ----
+[  973.728986]   lock(l2tp_sock);
+[  973.728986]                                lock(&(&pch->downl)->rlock);
+[  973.728986]                                lock(l2tp_sock);
+[  973.728986]   lock(&qdisc_xmit_lock_key);
+[  973.728986]
+[  973.728986]  *** DEADLOCK ***
+[  973.728986]
+[  973.728986] 6 locks held by accel-pppd/1806:
+[  973.728986]  #0:  (&(&pch->downl)->rlock){+.-...}, at: [<ffffffffa0184efa>] ppp_channel_push+0x56/0x14a [ppp_generic]
+[  973.728986]  #1:  (l2tp_sock){+.-...}, at: [<ffffffffa0202c4a>] l2tp_xmit_skb+0x1e8/0x5d7 [l2tp_core]
+[  973.728986]  #2:  (rcu_read_lock){......}, at: [<ffffffff81486981>] rcu_lock_acquire+0x0/0x20
+[  973.728986]  #3:  (rcu_read_lock_bh){......}, at: [<ffffffff81486981>] rcu_lock_acquire+0x0/0x20
+[  973.728986]  #4:  (rcu_read_lock_bh){......}, at: [<ffffffff814340e3>] rcu_lock_acquire+0x0/0x20
+[  973.728986]  #5:  (dev->qdisc_running_key ?: &qdisc_running_key#2){+.....}, at: [<ffffffff8144011e>] __dev_queue_xmit+0x564/0x912
+[  973.728986]
+[  973.728986] stack backtrace:
+[  973.728986] CPU: 2 PID: 1806 Comm: accel-pppd Tainted: G           O    4.8.0-rc2 #1
+[  973.728986] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Debian-1.8.2-1 04/01/2014
+[  973.728986]  ffff7fffffffffff ffff88003436f850 ffffffff812a20f4 ffffffff82156e30
+[  973.728986]  ffffffff82156920 ffff88003436f890 ffffffff8115c759 ffff88003344ae00
+[  973.728986]  ffff88003344b5c0 0000000000000002 0000000000000006 ffff88003344b5e8
+[  973.728986] Call Trace:
+[  973.728986]  [<ffffffff812a20f4>] dump_stack+0x67/0x90
+[  973.728986]  [<ffffffff8115c759>] print_circular_bug+0x22e/0x23c
+[  973.728986]  [<ffffffff810b28d6>] __lock_acquire+0x1118/0x1483
+[  973.728986]  [<ffffffff810b3130>] lock_acquire+0x150/0x217
+[  973.728986]  [<ffffffff810b3130>] ? lock_acquire+0x150/0x217
+[  973.728986]  [<ffffffff8146f6fe>] ? sch_direct_xmit+0x8d/0x221
+[  973.728986]  [<ffffffff815752f4>] _raw_spin_lock+0x2d/0x3c
+[  973.728986]  [<ffffffff8146f6fe>] ? sch_direct_xmit+0x8d/0x221
+[  973.728986]  [<ffffffff8146f6fe>] sch_direct_xmit+0x8d/0x221
+[  973.728986]  [<ffffffff814401e4>] __dev_queue_xmit+0x62a/0x912
+[  973.728986]  [<ffffffff814404d7>] dev_queue_xmit+0xb/0xd
+[  973.728986]  [<ffffffff81449978>] neigh_direct_output+0xc/0xe
+[  973.728986]  [<ffffffff81487811>] ip_finish_output2+0x5db/0x609
+[  973.728986]  [<ffffffff81486853>] ? dst_mtu+0x29/0x2e
+[  973.728986]  [<ffffffff81489590>] ip_finish_output+0x152/0x15e
+[  973.728986]  [<ffffffff8148a0bc>] ? ip_output+0x74/0x96
+[  973.728986]  [<ffffffff8148a0d4>] ip_output+0x8c/0x96
+[  973.728986]  [<ffffffff81489652>] ip_local_out+0x41/0x4a
+[  973.728986]  [<ffffffff81489e7d>] ip_queue_xmit+0x5a5/0x609
+[  973.728986]  [<ffffffff814c559e>] ? udp_set_csum+0x207/0x21e
+[  973.728986]  [<ffffffffa0202fe4>] l2tp_xmit_skb+0x582/0x5d7 [l2tp_core]
+[  973.728986]  [<ffffffffa01b2466>] pppol2tp_xmit+0x1f2/0x25e [l2tp_ppp]
+[  973.728986]  [<ffffffffa0184f59>] ppp_channel_push+0xb5/0x14a [ppp_generic]
+[  973.728986]  [<ffffffffa01853ed>] ppp_write+0x104/0x11c [ppp_generic]
+[  973.728986]  [<ffffffff811b2ec6>] __vfs_write+0x56/0x120
+[  973.728986]  [<ffffffff8124c11d>] ? fsnotify_perm+0x27/0x95
+[  973.728986]  [<ffffffff8124d41d>] ? security_file_permission+0x4d/0x54
+[  973.728986]  [<ffffffff811b3f4c>] vfs_write+0xbd/0x11b
+[  973.728986]  [<ffffffff811b4cb2>] SyS_write+0x5e/0x96
+[  973.728986]  [<ffffffff81575ba5>] entry_SYSCALL_64_fastpath+0x18/0xa8
+[  973.728986]  [<ffffffff810ae0fa>] ? trace_hardirqs_off_caller+0x121/0x12f
 
-.write(unit fd) or .ndo_start_xmit()
-       \
-        CALL ppp_xmit_process()
-               \
-                LOCK unit's xmit path (ppp->wlock)
-                |
-                CALL ppp_push()
-                       \
-                        LOCK channel's xmit path (chan->downl)
-                        |
-                        CALL lower layer's .start_xmit() callback
-                               \
-                                ... might recursively call .ndo_start_xmit() ...
-                               /
-                        RETURN from .start_xmit()
-                        |
-                        UNLOCK channel's xmit path
-                       /
-                RETURN from ppp_push()
-                |
-                UNLOCK unit's xmit path
-               /
-        RETURN from ppp_xmit_process()
-
-Packets can also be directly sent on channels (e.g. LCP packets):
-
-.write(channel fd) or ppp_output_wakeup()
-       \
-        CALL ppp_channel_push()
-               \
-                LOCK channel's xmit path (chan->downl)
-                |
-                CALL lower layer's .start_xmit() callback
-                       \
-                        ... might call .ndo_start_xmit() ...
-                       /
-                RETURN from .start_xmit()
-                |
-                UNLOCK channel's xmit path
-               /
-        RETURN from ppp_channel_push()
-
-Key points about the lower layer's .start_xmit() callback:
-
-  * It can be called directly by a channel fd .write() or by
-    ppp_output_wakeup() or indirectly by a unit fd .write() or by
-    .ndo_start_xmit().
-
-  * In any case, it's always called with chan->downl held.
-
-  * It might route the packet back to its parent unit using
-    .ndo_start_xmit() as entry point.
-
-This patch detects and breaks recursion in ppp_xmit_process(). This
-function is a good candidate for the task because it's called early
-enough after .ndo_start_xmit(), it's always part of the recursion
-loop and it's on the path of whatever entry point is used to send
-a packet on a PPP unit.
-
-Recursion detection is done using the per-cpu ppp_xmit_recursion
-variable.
-
-Since ppp_channel_push() too locks the channel's xmit path and calls
-the lower layer's .start_xmit() callback, we need to also increment
-ppp_xmit_recursion there. However there's no need to check for
-recursion, as it's out of the recursion loop.
-
-Reported-by: Feng Gao <gfree.wind@gmail.com>
 Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
 ---
- drivers/net/ppp/ppp_generic.c | 52 +++++++++++++++++++++++++++++++++----------
- 1 file changed, 40 insertions(+), 12 deletions(-)
+ drivers/net/ppp/ppp_generic.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
 diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
-index f226db4..dc7da25 100644
+index dc7da25..6a15ee2 100644
 --- a/drivers/net/ppp/ppp_generic.c
 +++ b/drivers/net/ppp/ppp_generic.c
-@@ -1367,12 +1367,8 @@ static void ppp_setup(struct net_device *dev)
-  * Transmit-side routines.
-  */
+@@ -1354,6 +1354,8 @@ static void ppp_setup(struct net_device *dev)
+ 	dev->netdev_ops = &ppp_netdev_ops;
+ 	SET_NETDEV_DEVTYPE(dev, &ppp_type);
  
--/*
-- * Called to do any work queued up on the transmit side
-- * that can now be done.
-- */
--static void
--ppp_xmit_process(struct ppp *ppp)
-+/* Called to do any work queued up on the transmit side that can now be done */
-+static void __ppp_xmit_process(struct ppp *ppp)
- {
- 	struct sk_buff *skb;
- 
-@@ -1392,6 +1388,30 @@ ppp_xmit_process(struct ppp *ppp)
- 	ppp_xmit_unlock(ppp);
- }
- 
-+static DEFINE_PER_CPU(int, ppp_xmit_recursion);
++	dev->features |= NETIF_F_LLTX;
 +
-+static void ppp_xmit_process(struct ppp *ppp)
-+{
-+	local_bh_disable();
-+
-+	if (unlikely(__this_cpu_read(ppp_xmit_recursion)))
-+		goto err;
-+
-+	__this_cpu_inc(ppp_xmit_recursion);
-+	__ppp_xmit_process(ppp);
-+	__this_cpu_dec(ppp_xmit_recursion);
-+
-+	local_bh_enable();
-+
-+	return;
-+
-+err:
-+	local_bh_enable();
-+
-+	if (net_ratelimit())
-+		netdev_err(ppp->dev, "recursion detected\n");
-+}
-+
- static inline struct sk_buff *
- pad_compress_skb(struct ppp *ppp, struct sk_buff *skb)
- {
-@@ -1847,11 +1867,8 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
- }
- #endif /* CONFIG_PPP_MULTILINK */
- 
--/*
-- * Try to send data out on a channel.
-- */
--static void
--ppp_channel_push(struct channel *pch)
-+/* Try to send data out on a channel */
-+static void __ppp_channel_push(struct channel *pch)
- {
- 	struct sk_buff *skb;
- 	struct ppp *ppp;
-@@ -1876,11 +1893,22 @@ ppp_channel_push(struct channel *pch)
- 		read_lock_bh(&pch->upl);
- 		ppp = pch->ppp;
- 		if (ppp)
--			ppp_xmit_process(ppp);
-+			__ppp_xmit_process(ppp);
- 		read_unlock_bh(&pch->upl);
- 	}
- }
- 
-+static void ppp_channel_push(struct channel *pch)
-+{
-+	local_bh_disable();
-+
-+	__this_cpu_inc(ppp_xmit_recursion);
-+	__ppp_channel_push(pch);
-+	__this_cpu_dec(ppp_xmit_recursion);
-+
-+	local_bh_enable();
-+}
-+
- /*
-  * Receive-side routines.
-  */
+ 	dev->hard_header_len = PPP_HDRLEN;
+ 	dev->mtu = PPP_MRU;
+ 	dev->addr_len = 0;
 -- 
 2.9.3
