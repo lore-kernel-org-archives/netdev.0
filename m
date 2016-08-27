@@ -1,78 +1,51 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] ravb: avoid unused function warnings
-Date: Sun, 28 Aug 2016 00:48:10 +0300
-Message-ID: <31a6f978-0bb7-df20-ea81-2fc32c94b855@cogentembedded.com>
-References: <20160826153108.680850-1-arnd@arndb.de>
- <d26d8354-3ea3-29b0-d40c-253dd023e1e9@cogentembedded.com>
+From: Quentin Barnes <qbarnes@gmail.com>
+Subject: iptables, conntrack, and the raw table vs. L3DSR
+Date: Sat, 27 Aug 2016 16:55:38 -0500
+Message-ID: <20160827215538.GA36125@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Yoshihiro Kaneko <ykaneko0929@gmail.com>,
-        Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>,
-        Simon Horman <horms+renesas@verge.net.au>,
-        Masaru Nagai <masaru.nagai.vx@renesas.com>,
-        =?UTF-8?Q?Niklas_S=c3=b6derlund?=
-        <niklas.soderlund+renesas@ragnatech.se>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <d26d8354-3ea3-29b0-d40c-253dd023e1e9@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f51.google.com ([209.85.214.51]:38674 "EHLO
+        mail-it0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752002AbcH0Vzu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 27 Aug 2016 17:55:50 -0400
+Received: by mail-it0-f51.google.com with SMTP id g62so46543253ith.1
+        for <netdev@vger.kernel.org>; Sat, 27 Aug 2016 14:55:50 -0700 (PDT)
+Received: from gmail.com (c-98-212-204-93.hsd1.il.comcast.net. [98.212.204.93])
+        by smtp.gmail.com with ESMTPSA id v124sm2202158ita.22.2016.08.27.14.55.47
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Sat, 27 Aug 2016 14:55:48 -0700 (PDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Several years ago, I wrote an iptables module that rewrites packets'
+destination addresses based on the value in the DSCP field to
+implement Layer 3 Direct Server Return (L3DSR).  The main code of
+the iptables target module you can find here:
+https://github.com/yahoo/l3dsr/blob/master/linux/kmod-xt/xt_DADDR.c
 
-On 08/27/2016 01:48 AM, Sergei Shtylyov wrote:
+The iptable-daddr module has been in production since I wrote it
+with some limitations.  One of those limitations is it doesn't
+work well with conntrack modules.  I believe that's from the daddr
+rewriting confuses conntrack since changing a packet's daddr changes
+its 4-tuple not allowing conntrack to track a connection.
 
->> When CONFIG_PM_SLEEP is disabled, we get a couple of harmless warnings:
->>
->> drivers/net/ethernet/renesas/ravb_main.c:2117:12: error: 'ravb_resume'
->> defined but not used [-Werror=unused-function]
->> drivers/net/ethernet/renesas/ravb_main.c:2104:12: error: 'ravb_suspend'
->> defined but not used [-Werror=unused-function]
->>
->> The simplest solution here is to replace the #ifdef with __maybe_unused
->> annotations, which lets the compiler do the right thing by itself.
->>
->> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
->> Fixes: 0184165b2f42 ("ravb: add sleep PM suspend/resume support")
->
->    That was the patch I didn't review, sorry about that...
->
->> ---
->>  drivers/net/ethernet/renesas/ravb_main.c | 14 ++++----------
->>  1 file changed, 4 insertions(+), 10 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/renesas/ravb_main.c
->> b/drivers/net/ethernet/renesas/ravb_main.c
->> index cad23ba06904..630536bc72f9 100644
->> --- a/drivers/net/ethernet/renesas/ravb_main.c
->> +++ b/drivers/net/ethernet/renesas/ravb_main.c
-> [...]
->> @@ -2166,17 +2165,12 @@ static const struct dev_pm_ops ravb_dev_pm_ops = {
->>      SET_RUNTIME_PM_OPS(ravb_runtime_nop, ravb_runtime_nop, NULL)
->>  };
->>
->> -#define RAVB_PM_OPS (&ravb_dev_pm_ops)
->> -#else
->> -#define RAVB_PM_OPS NULL
->> -#endif
->> -
->>  static struct platform_driver ravb_driver = {
->>      .probe        = ravb_probe,
->>      .remove        = ravb_remove,
->>      .driver = {
->>          .name    = "ravb",
->> -        .pm    = RAVB_PM_OPS,
->> +        .pm    = &ravb_dev_pm_ops,
->
->    I guess it's safe to have this pointing to the 'struct dev_pm_ops' filled
-> with NULLs? Looking at the PM code left me somewhat unsure...
+Someone recently suggested I change the module from the "mangle"
+table to "raw", so it can be put in the prerouting chain ahead of
+conntrack.  That would let conntrack see the packet after its daddr
+update.  This approach seems to work fine in a test case letting
+L3DSR and conntrack apparently work in concert, but has me concerned
+that there might be unforeseen negative side-effects from using the
+raw table for doing mangling work.
 
-    Well, this means CONFIG_PM[_SLEEP] not defined anyway and the PM code 
-calling the methods absent, so it should be safe indeed...
+Can anyone think of any issues with having a mangle target module be
+invoked from the raw table?
 
-Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Or as an alternative if necessary, is there a possible/rational way
+to leave the module in the mangle table and then inform conntrack
+about the packet's daddr alteration?
 
-MBR, Sergei
+Quentin
