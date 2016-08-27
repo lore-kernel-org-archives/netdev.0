@@ -1,31 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] vxlan: remove the useless header file protocol.h
-Date: Fri, 26 Aug 2016 21:49:05 -0700 (PDT)
-Message-ID: <20160826.214905.1196336305689954074.davem@davemloft.net>
-References: <1471959044-29985-1-git-send-email-zyjzyj2000@gmail.com>
+Subject: Re: [PATCH -next] net: ethernet: ti: cpsw: fix error return code
+ in cpsw_set_channels()
+Date: Fri, 26 Aug 2016 21:50:08 -0700 (PDT)
+Message-ID: <20160826.215008.1804199901151222246.davem@davemloft.net>
+References: <1472222143-3604-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pabeni@redhat.com, daniel@iogearbox.net,
-        pshelar@nicira.com, aduyck@mirantis.com,
-        hannes@stressinduktion.org, jbenc@redhat.com
-To: zyjzyj2000@gmail.com
+Cc: mugunthanvnm@ti.com, grygorii.strashko@ti.com,
+        ivan.khoronzhuk@linaro.org, weiyongjun1@huawei.com,
+        linux-omap@vger.kernel.org, netdev@vger.kernel.org
+To: weiyj.lk@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34245 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:34256 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750798AbcH0EtH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 27 Aug 2016 00:49:07 -0400
-In-Reply-To: <1471959044-29985-1-git-send-email-zyjzyj2000@gmail.com>
+        with ESMTP id S1751152AbcH0EuJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 27 Aug 2016 00:50:09 -0400
+In-Reply-To: <1472222143-3604-1-git-send-email-weiyj.lk@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: zyjzyj2000@gmail.com
-Date: Tue, 23 Aug 2016 21:30:44 +0800
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Date: Fri, 26 Aug 2016 14:35:43 +0000
 
-> From: Zhu Yanjun <zyjzyj2000@gmail.com>
+> From: Wei Yongjun <weiyongjun1@huawei.com>
 > 
-> This header file is not used in vxlan.c file.
+> Fix to return a negative error code from the cpsw_fill_rx_channels()
+> error handling case instead of 0, as done elsewhere in this function.
 > 
-> Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
+> Fixes: ce52c744574b ("net: ethernet: ti: cpsw: add ethtool channels support")
+> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
 
-Applied to net-next, thanks.
+Applied.
