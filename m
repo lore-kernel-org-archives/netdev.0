@@ -1,45 +1,45 @@
-From: fgao@ikuai8.com
-Subject: [PATCH nf-next] netfilter: log: Check param to avoid overflow in nf_log_set
-Date: Sun, 28 Aug 2016 22:30:18 +0800
-Message-ID: <1472394618-5711-1-git-send-email-fgao@ikuai8.com>
-Cc: gfree.wind@gmail.com, Gao Feng <fgao@ikuai8.com>
-To: pablo@netfilter.org, kaber@trash.net, davem@davemloft.net,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v3 net-next 1/1] net_sched: Introduce skbmod action
+Date: Sun, 28 Aug 2016 07:48:06 -0700
+Message-ID: <20160828144804.GA48090@ast-mbp.thefacebook.com>
+References: <1472386756-23085-1-git-send-email-jhs@emojatatu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, daniel@iogearbox.net,
+        xiyou.wangcong@gmail.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from SMTPBG132.QQ.COM ([113.108.23.42]:53490 "EHLO smtpbg132.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752371AbcH1Oc2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 28 Aug 2016 10:32:28 -0400
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:33758 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752371AbcH1OsK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 28 Aug 2016 10:48:10 -0400
+Received: by mail-pf0-f182.google.com with SMTP id y134so43243132pfg.0
+        for <netdev@vger.kernel.org>; Sun, 28 Aug 2016 07:48:10 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1472386756-23085-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <fgao@ikuai8.com>
+On Sun, Aug 28, 2016 at 08:19:16AM -0400, Jamal Hadi Salim wrote:
+> --- /dev/null
+> +++ b/include/uapi/linux/tc_act/tc_skbmod.h
+> @@ -0,0 +1,49 @@
+> +/*
+> + * Copyright (c) 2016, Jamal Hadi Salim
+> + *
+> + * This program is free software; you can redistribute it and/or modify it
+> + * under the terms and conditions of the GNU General Public License,
+> + * version 2, as published by the Free Software Foundation.
+> + *
+> + * This program is distributed in the hope it will be useful, but WITHOUT
+> + * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+> + * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+> + * more details.
+> + *
+> + * You should have received a copy of the GNU General Public License along with
+> + * this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+> + * Place - Suite 330, Boston, MA 02111-1307 USA.
 
-The nf_log_set is an interface function, so it should do the strict sanity
-check of parameters. Add  one sanity check for pf, it could not exceed
-NFPROTO_NUMPROTO, and print error log when pf is invalid.
-
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
----
- net/netfilter/nf_log.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/net/netfilter/nf_log.c b/net/netfilter/nf_log.c
-index aa5847a..02ce0b9 100644
---- a/net/netfilter/nf_log.c
-+++ b/net/netfilter/nf_log.c
-@@ -43,8 +43,10 @@ void nf_log_set(struct net *net, u_int8_t pf, const struct nf_logger *logger)
- {
- 	const struct nf_logger *log;
- 
--	if (pf == NFPROTO_UNSPEC)
-+	if (pf == NFPROTO_UNSPEC || pf >= NFPROTO_NUMPROTO) {
-+		pr_err("Wrong pf(%d) for nf log", pf);
- 		return;
-+	}
- 
- 	mutex_lock(&nf_log_mutex);
- 	log = nft_log_dereference(net->nf.nf_loggers[pf]);
--- 
-1.9.1
+the address is incorrect.
+That's why it's recommended to skip this section in all headers.
+First paragraph in the above 'This program is ... GPL' would have been enough.
