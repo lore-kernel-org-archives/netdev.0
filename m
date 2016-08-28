@@ -1,66 +1,49 @@
-From: Eli Cooper <elicooper@gmx.com>
-Subject: [PATCH v2] ipv6: Use inbound ifaddr as source addresses for ICMPv6 errors
-Date: Sun, 28 Aug 2016 11:34:06 +0800
-Message-ID: <20160828033406.11269-1-elicooper@gmx.com>
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] [v9] net: emac: emac gigabit ethernet controller driver
+Date: Sun, 28 Aug 2016 00:50:48 -0400 (EDT)
+Message-ID: <20160828.005048.1178621280768183048.davem@davemloft.net>
+References: <1472161143-26417-1-git-send-email-timur@codeaurora.org>
+        <20160826.212939.1362447220540461922.davem@davemloft.net>
+        <57C186FF.6090702@codeaurora.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
+        shankerd@codeaurora.org, vikrams@codeaurora.org,
+        cov@codeaurora.org, gavidov@codeaurora.org, robh+dt@kernel.org,
+        andrew@lunn.ch, bjorn.andersson@linaro.org, mlangsdo@redhat.com,
+        jcm@redhat.com, agross@codeaurora.org, f.fainelli@gmail.com,
+        LinoSanfilippo@gmx.de
+To: timur@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.21]:54194 "EHLO mout.gmx.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754831AbcH1Der (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 27 Aug 2016 23:34:47 -0400
+Received: from shards.monkeyblade.net ([184.105.139.130]:35920 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750774AbcH1EvA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 28 Aug 2016 00:51:00 -0400
+In-Reply-To: <57C186FF.6090702@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-According to RFC 1885 2.2(c), the source address of ICMPv6
-errors in response to forwarded packets should be set to the
-unicast address of the forwarding interface in order to be helpful
-in diagnosis. Currently the selection of source address is based
-on the default route, without respect to the inbound interface.
+From: Timur Tabi <timur@codeaurora.org>
+Date: Sat, 27 Aug 2016 07:26:39 -0500
 
-This patch sets the source address of ICMPv6 error messages to
-the address of inbound interface, with the exception of
-'time exceeded' and 'packet to big' messages sent in ip6_forward(),
-where the address of OUTPUT device is forced as source address
-(however, it is NOT enforced as claimed without this patch).
+> David Miller wrote:
+>> From: Timur Tabi <timur@codeaurora.org>
+>> Date: Thu, 25 Aug 2016 16:39:03 -0500
+>>
+>>> +static const u8 duuid[] = {
+>>> +	0x77, 0x79, 0x60, 0xbf,
+>>> +	0x2d, 0xab,
+>>> +	0x9d, 0x4b,
+>>> +	0x94, 0xf0,
+>>> +	0xe1, 0x11, 0x98, 0x01, 0xa2, 0xba
+>>> +};
+>>
+>> This seems to be completely unused, please remove it.
+> 
+> Sorry, I missed that during my cleanup.  I'll remove it in v10.
+> 
+> I wonder why my compiler didn't complain about the unused static.
 
-Signed-off-by: Eli Cooper <elicooper@gmx.com>
----
-v2: changed to a switch statement
-
- net/ipv6/icmp.c | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
-
-diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
-index bd59c34..edb50b6 100644
---- a/net/ipv6/icmp.c
-+++ b/net/ipv6/icmp.c
-@@ -397,6 +397,7 @@ static void icmp6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info,
- 	struct sock *sk;
- 	struct ipv6_pinfo *np;
- 	const struct in6_addr *saddr = NULL;
-+	struct in6_addr tmp_saddr;
- 	struct dst_entry *dst;
- 	struct icmp6hdr tmp_hdr;
- 	struct flowi6 fl6;
-@@ -421,6 +422,17 @@ static void icmp6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info,
- 	 */
- 	addr_type = ipv6_addr_type(&hdr->daddr);
- 
-+	switch (type) {
-+	case ICMPV6_DEST_UNREACH:
-+	case ICMPV6_PKT_TOOBIG:
-+	case ICMPV6_TIME_EXCEED:
-+	case ICMPV6_PARAMPROB:
-+		if (!ipv6_dev_get_saddr(net, skb->dev, &hdr->saddr, 0,
-+					&tmp_saddr))
-+			saddr = &tmp_saddr;
-+		break;
-+	}
-+
- 	if (ipv6_chk_addr(net, &hdr->daddr, skb->dev, 0) ||
- 	    ipv6_chk_acast_addr_src(net, skb->dev, &hdr->daddr))
- 		saddr = &hdr->daddr;
--- 
-2.9.3
+Unused static "const" is not warned about.
