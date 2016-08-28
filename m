@@ -1,54 +1,53 @@
-From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-Subject: [PATCH v3 0/5] meson: Meson8b and GXBB DWMAC glue driver
-Date: Sun, 28 Aug 2016 18:16:32 +0200
-Message-ID: <20160828161637.9941-1-martin.blumenstingl@googlemail.com>
+From: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Subject: [PATCH v3 3/5] stmmac: introduce get_stmmac_bsp_priv() helper
+Date: Sun, 28 Aug 2016 18:16:35 +0200
+Message-ID: <20160828161637.9941-4-martin.blumenstingl@googlemail.com>
 References: <20160820093538.9707-1-martin.blumenstingl@googlemail.com>
-Cc: robh+dt@kernel.org, mark.rutland@arm.com, catalin.marinas@arm.com,
-        will.deacon@arm.com, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        sboyd@codeaurora.org, manabian@gmail.com, arnd@arndb.de,
-        Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-To: linux-amlogic@lists.infradead.org, khilman@baylibre.com,
-        carlo@caione.org, mturquette@baylibre.com, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:33684 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752567AbcH1QQ4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 28 Aug 2016 12:16:56 -0400
-In-Reply-To: <20160820093538.9707-1-martin.blumenstingl@googlemail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+ <20160828161637.9941-1-martin.blumenstingl@googlemail.com>
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
+        will.deacon-5wv7dgnIgG8@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        sboyd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org
+To: linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org,
+        carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org, mturquette-rdvid1DuHRBWk0Htik3J/w@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+        alexandre.torgue-qxv4g6HH51o@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160828161637.9941-1-martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This adds a DWMAC glue driver for the PRG_ETHERNET registers found in
-Meson8b and GXBB SoCs. Based on the "old" meson6b-dwmac glue driver
-the register layout is completely different.
-Thus I introduced a separate driver.
+From: Joachim Eastwood <manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
+Create a helper to retrive dwmac private data from a dev
+pointer. This is useful in PM callbacks and driver remove.
 
-Changes since v2:
-- fixed unloading the glue driver when built as module. This pulls in a
-  patch from Joachim Eastwood (thanks) to get our private data structure
-  (bsp_priv).
+Signed-off-by: Joachim Eastwood <manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Tested-by: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-Joachim Eastwood (1):
-  stmmac: introduce get_stmmac_bsp_priv() helper
-
-Martin Blumenstingl (4):
-  net: dt-bindings: Document the new Meson8b and GXBB DWMAC bindings
-  clk: gxbb: expose MPLL2 clock for use by DT
-  net: stmmac: add a glue driver for the Amlogic Meson 8b / GXBB DWMAC
-  ARM64: dts: meson-gxbb: use the new GXBB DWMAC glue driver
-
- .../devicetree/bindings/net/meson-dwmac.txt        |  45 ++-
- arch/arm64/boot/dts/amlogic/meson-gxbb.dtsi        |   8 +-
- drivers/clk/meson/gxbb.h                           |   2 +-
- drivers/net/ethernet/stmicro/stmmac/Makefile       |   2 +-
- .../net/ethernet/stmicro/stmmac/dwmac-meson8b.c    | 327 +++++++++++++++++++++
- .../net/ethernet/stmicro/stmmac/stmmac_platform.h  |   8 +
- include/dt-bindings/clock/gxbb-clkc.h              |   1 +
- 7 files changed, 380 insertions(+), 13 deletions(-)
- create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-meson8b.c
-
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
+index ffeb8d9..64e147f 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
+@@ -30,4 +30,12 @@ int stmmac_get_platform_resources(struct platform_device *pdev,
+ int stmmac_pltfr_remove(struct platform_device *pdev);
+ extern const struct dev_pm_ops stmmac_pltfr_pm_ops;
+ 
++static inline void *get_stmmac_bsp_priv(struct device *dev)
++{
++	struct net_device *ndev = dev_get_drvdata(dev);
++	struct stmmac_priv *priv = netdev_priv(ndev);
++
++	return priv->plat->bsp_priv;
++}
++
+ #endif /* __STMMAC_PLATFORM_H__ */
 -- 
 2.9.3
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
