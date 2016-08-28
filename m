@@ -1,111 +1,81 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [RFC v2 09/10] landlock: Handle cgroups (performance)
-Date: Sun, 28 Aug 2016 01:13:13 -0700
-Message-ID: <CALCETrXgQ+njtupXiKcOXG8ZRzD=n2LhT45NiJr1Ehob7bHskQ@mail.gmail.com>
+From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Subject: Re: [RFC v2 09/10] landlock: Handle cgroups
+Date: Sun, 28 Aug 2016 01:14:46 -0700
+Message-ID: <CALCETrUsa0U-q0EZaKKzy9u3pTDVQsk==tn-9RpPwNaq1E5WYg@mail.gmail.com>
 References: <1472121165-29071-1-git-send-email-mic@digikod.net>
  <1472121165-29071-10-git-send-email-mic@digikod.net> <20160826021432.GA8291@ast-mbp.thefacebook.com>
  <57C05BF0.8000706@digikod.net> <20160826230539.GA26683@ast-mbp.thefacebook.com>
- <57C19E6E.6040908@digikod.net> <20160827180642.GA38754@ast-mbp.thefacebook.com>
- <57C1EB72.2050703@digikod.net> <20160827204307.GA43714@ast-mbp.thefacebook.com>
- <57C202BF.7000207@digikod.net>
+ <CALCETrVK1yQw=8ckLn3dcB4LuKft0NOrvQFoyFRs98ON00WgBw@mail.gmail.com> <20160827181153.GB38754@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: "kernel-hardening@lists.openwall.com"
-        <kernel-hardening@lists.openwall.com>,
-        Alexei Starovoitov <ast@kernel.org>, Tejun Heo <tj@kernel.org>,
-        Sargun Dhillon <sargun@sargun.me>,
-        Network Development <netdev@vger.kernel.org>,
-        Linux API <linux-api@vger.kernel.org>,
-        Kees Cook <keescook@chromium.org>,
-        LSM List <linux-security-module@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "open list:CONTROL GROUP (CGROUP)" <cgroups@vger.kernel.org>,
-        "David S . Miller" <davem@davemloft.net>,
-        Daniel Mack <daniel@zonque.org>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic@digikod.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f179.google.com ([209.85.217.179]:35594 "EHLO
-        mail-ua0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755316AbcH1INe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 28 Aug 2016 04:13:34 -0400
-Received: by mail-ua0-f179.google.com with SMTP id i32so31781200uai.2
-        for <netdev@vger.kernel.org>; Sun, 28 Aug 2016 01:13:34 -0700 (PDT)
-In-Reply-To: <57C202BF.7000207@digikod.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: LSM List <linux-security-module-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Sargun Dhillon <sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        "open list:CONTROL GROUP (CGROUP)" <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>,
+        Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "kernel-hardening-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org"
+        <kernel-hardening-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org>,
+        Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+To: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160827181153.GB38754-+o4/htvd0TDFYCXBM6kdu7fOX0fSgVTm@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Aug 27, 2016 11:14 PM, "Micka=C3=ABl Sala=C3=BCn" <mic@digikod.net> wrot=
-e:
+On Aug 27, 2016 8:12 PM, "Alexei Starovoitov"
+<alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
 >
->
-> On 27/08/2016 22:43, Alexei Starovoitov wrote:
-> > On Sat, Aug 27, 2016 at 09:35:14PM +0200, Micka=C3=ABl Sala=C3=BCn wrot=
-e:
-> >> On 27/08/2016 20:06, Alexei Starovoitov wrote:
-> >>> On Sat, Aug 27, 2016 at 04:06:38PM +0200, Micka=C3=ABl Sala=C3=BCn wr=
-ote:
-> >>>> As said above, Landlock will not run an eBPF programs when not stric=
-tly
-> >>>> needed. Attaching to a cgroup will have the same performance impact =
-as
-> >>>> attaching to a process hierarchy.
-> >>>
-> >>> Having a prog per cgroup per lsm_hook is the only scalable way I
-> >>> could come up with. If you see another way, please propose.
-> >>> current->seccomp.landlock_prog is not the answer.
-> >>
-> >> Hum, I don't see the difference from a performance point of view betwe=
-en
-> >> a cgroup-based or a process hierarchy-based system.
-> >>
-> >> Maybe a better option should be to use an array of pointers with N
-> >> entries, one for each supported hook, instead of a unique pointer list=
-?
+> On Sat, Aug 27, 2016 at 12:30:36AM -0700, Andy Lutomirski wrote:
+> > > cgroup is the common way to group multiple tasks.
+> > > Without cgroup only parent<->child relationship will be possible,
+> > > which will limit usability of such lsm to a master task that controls
+> > > its children. Such api restriction would have been ok, if we could
+> > > extend it in the future, but unfortunately task-centric won't allow it
+> > > without creating a parallel lsm that is cgroup based.
+> > > Therefore I think we have to go with cgroup-centric api and your
+> > > application has to use cgroups from the start though only parent-child
+> > > would have been enough.
+> > > Also I don't think the kernel can afford two bpf based lsm. One task
+> > > based and another cgroup based, so we have to find common ground
+> > > that suits both use cases.
+> > > Having unprivliged access is a subset. There is no strong reason why
+> > > cgroup+lsm+bpf should be limited to root only always.
+> > > When we can guarantee no pointer leaks, we can allow unpriv.
 > >
-> > yes, clearly array dereference is faster than link list walk.
-> > Now the question is where to keep this prog_array[num_lsm_hooks] ?
-> > Since we cannot keep it inside task_struct, we have to allocate it.
-> > Every time the task is creted then. What to do on the fork? That
-> > will require changes all over. Then the obvious optimization would be
-> > to share this allocated array of prog pointers across multiple tasks...
-> > and little by little this new facility will look like cgroup.
-> > Hence the suggestion to put this array into cgroup from the start.
+> > I don't really understand what you mean.  In the context of landlock,
+> > which is a *sandbox*, can one of you explain a use case that
+> > materially benefits from this type of cgroup usage?  I haven't thought
+> > of one.
 >
-> I see your point :)
->
-> >
-> >> Anyway, being able to attach an LSM hook program to a cgroup thanks to
-> >> the new BPF_PROG_ATTACH seems a good idea (while keeping the possibili=
-ty
-> >> to use a process hierarchy). The downside will be to handle an LSM hoo=
-k
-> >> program which is not triggered by a seccomp-filter, but this should be
-> >> needed anyway to handle interruptions.
-> >
-> > what do you mean 'not triggered by seccomp' ?
-> > You're not suggesting that this lsm has to enable seccomp to be functio=
-nal?
-> > imo that's non starter due to overhead.
->
-> Yes, for now, it is triggered by a new seccomp filter return value
-> RET_LANDLOCK, which can take a 16-bit value called cookie. This must not
-> be needed but could be useful to bind a seccomp filter security policy
-> with a Landlock one. Waiting for Kees's point of view=E2=80=A6
+> In case of seccomp-like sandbox where parent controls child processes
+> cgroup is not needed. It's needed when container management software
+> needs to control a set of applications. If we can have one bpf-based lsm
+> that works via cgroup and without, I'd be fine with it. Right now
+> I haven't seen a plausible proposal to do that. Therefore cgroup based
+> api is a common api that works for sandbox as well, though requiring
+> parent to create a cgroup just to control a single child is cumbersome.
 >
 
-I'm not Kees, but I'd be okay with that.  I still think that doing
-this by process hierarchy a la seccomp will be easier to use and to
-understand (which is quite important for this kind of work) than doing
-it by cgroup.
+I don't believe that a common API can work to accomplish your goal.
+For privileged container management, the manager is trusted.  For
+unprivileged sandboxing, the manager is emphatically not trusted,
+which means you need special rules like NO_NEW_PRIVS, and, unless you
+want to start restricting setuid and such in some cgroups, you really
+do need a different interface for joining the sandbox than whatever
+the container manager is using.
 
-A feature I've wanted to add for a while is to have an fd that
-represents a seccomp layer, the idea being that you would set up your
-seccomp layer (with syscall filter, landlock hooks, etc) and then you
-would have a syscall to install that layer.  Then an unprivileged
-sandbox manager could set up its layer and still be able to inject new
-processes into it later on, no cgroups needed.
+What could make sense is to have one BPF-based LSM that supports both
+a seccomp-like unprivileged interface and a cgroup-based privileged
+interface.  Most of the code for it is the BPF part anyway -- all that
+the cgroup or seccomp part needs to do is to figure out which BPF
+program(s) to call.
 
---Andy
+Also, for container management software, you don't really need
+everything tied to cgroup -- you just need a way to cleanly add new
+processes to the same security context.
