@@ -1,50 +1,22 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [iproute2 2/3] police: improve usage message
-Date: Sun, 28 Aug 2016 08:52:41 -0400
-Message-ID: <1472388762-18035-2-git-send-email-jhs@emojatatu.com>
-References: <1472388762-18035-1-git-send-email-jhs@emojatatu.com>
-Cc: netdev@vger.kernel.org, Roman Mashak <mrv@mojatatu.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: stephen@networkplumber.org
+From: Jack <ebpmrhs@itajai.sc.gov.br>
+Subject: Hello Beautiful,
+Date: Sun, 28 Aug 2016 08:18:57 -0300 (BRT)
+Message-ID: <348957499.40949.1472383137347.JavaMail.zimbra__28803.806010592$1472389837$gmane$org@itajai.sc.gov.br>
+Reply-To: Jack <2936410069@qq.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f67.google.com ([209.85.214.67]:33534 "EHLO
-        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755261AbcH1M7K (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 28 Aug 2016 08:59:10 -0400
-Received: by mail-it0-f67.google.com with SMTP id d65so4279258ith.0
-        for <netdev@vger.kernel.org>; Sun, 28 Aug 2016 05:59:10 -0700 (PDT)
-In-Reply-To: <1472388762-18035-1-git-send-email-jhs@emojatatu.com>
+Received: from pmi-zmail.itajai.sc.gov.br ([177.200.207.150]:44193 "EHLO
+        pmi-zmail.itajai.sc.gov.br" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1755261AbcH1NKG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 28 Aug 2016 09:10:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roman Mashak <mrv@mojatatu.com>
+Good day dear, i hope this mail meets you well? my name is Jack, from the U.S. I know this may seem inappropriate so i ask for your forgiveness but i wish to get to know you better, if I may be so bold. I consider myself an easy-going man, adventurous, honest and fun loving person but I am currently looking for a relationship in which I will feel loved. I promise to answer any question that you may want to ask me...all i need is just your attention and the chance to know you more.
 
-Signed-off-by: Roman Mashak <mrv@mojatatu.com>
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
----
- tc/m_police.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+Please tell me more about yourself, if you do not mind. Hope to hear back from you soon.
 
-diff --git a/tc/m_police.c b/tc/m_police.c
-index d7fa8f6..226e20e 100644
---- a/tc/m_police.c
-+++ b/tc/m_police.c
-@@ -36,11 +36,12 @@ static void usage(void)
- {
- 	fprintf(stderr, "Usage: ... police rate BPS burst BYTES[/BYTES] [ mtu BYTES[/BYTES] ]\n");
- 	fprintf(stderr, "                [ peakrate BPS ] [ avrate BPS ] [ overhead BYTES ]\n");
--	fprintf(stderr, "                [ linklayer TYPE ] [ ACTIONTERM ]\n");
-+	fprintf(stderr, "                [ linklayer TYPE ] [ CONTROL ]\n");
- 
--	fprintf(stderr, "New Syntax ACTIONTERM := conform-exceed <EXCEEDACT>[/NOTEXCEEDACT]\n");
--	fprintf(stderr, "Where: *EXCEEDACT := pipe | ok | reclassify | drop | continue\n");
--	fprintf(stderr, "Where:  pipe is only valid for new syntax\n");
-+	fprintf(stderr, "Where: CONTROL := conform-exceed <EXCEEDACT>[/NOTEXCEEDACT]\n");
-+	fprintf(stderr, "                  Define how to handle packets which exceed (<EXCEEDACT>)\n");
-+	fprintf(stderr, "                  or conform (<NOTEXCEEDACT>) the configured bandwidth limit.\n");
-+	fprintf(stderr, "       EXCEEDACT/NOTEXCEEDACT := { pipe | ok | reclassify | drop | continue }\n");
- 	exit(-1);
- }
- 
--- 
-1.9.1
+Jack.
