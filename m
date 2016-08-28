@@ -1,60 +1,56 @@
-From: Eli Cooper <elicooper@gmx.com>
-Subject: Re: [PATCH v2] ipv6: Use inbound ifaddr as source addresses for
- ICMPv6 errors
-Date: Mon, 29 Aug 2016 02:34:32 +0800
-Message-ID: <446b91c5-c19c-c294-9644-670bc6313b48@gmx.com>
-References: <20160828033406.11269-1-elicooper@gmx.com>
- <20160828171800.gtdo764pvoyhgim4@alphalink.fr>
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH net-next 0/3] strp: Generalize stream parser to work with other socket types
+Date: Sun, 28 Aug 2016 14:43:16 -0700
+Message-ID: <1472420599-510735-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-To: Guillaume Nault <g.nault@alphalink.fr>
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>, <davejwatson@fb.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.18]:49470 "EHLO mout.gmx.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751220AbcH1SfL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 28 Aug 2016 14:35:11 -0400
-In-Reply-To: <20160828171800.gtdo764pvoyhgim4@alphalink.fr>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:51380 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751041AbcH1Vne (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 28 Aug 2016 17:43:34 -0400
+Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
+        by mx0b-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u7SLfwrI017068
+        for <netdev@vger.kernel.org>; Sun, 28 Aug 2016 14:43:33 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0b-00082601.pphosted.com with ESMTP id 2536p3mvg6-1
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Sun, 28 Aug 2016 14:43:33 -0700
+Received: from facebook.com (2401:db00:21:6030:face:0:92:0)     by
+ mx-out.facebook.com (10.102.107.99) with ESMTP id
+ 769cde0a6d6811e6b5000002c99293a0-e84f9aa0 for <netdev@vger.kernel.org>;        Sun,
+ 28 Aug 2016 14:43:31 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Add a read_sock protocol operation function that allows something like
+tcp_read_sock to be called for other protocol types.
 
+Specific changes in this patch set:
+  - Add read_sock function to proto_ops. This has the same signature as
+    tcp_read_sock. sk_read_actor_t is also defined in net.h.
+  - Set peek_len and read_sock proto_op functions for TCPv4 and TCPv6
+    stream ops.
+  - Remove references to tcp in strparser.
+  - Call peek_len and read_sock operations from strparser instead of
+    calling TCP specific functions.
 
-On 2016/8/29 1:18, Guillaume Nault wrote:
-> On Sun, Aug 28, 2016 at 11:34:06AM +0800, Eli Cooper wrote:
->> According to RFC 1885 2.2(c), the source address of ICMPv6
->> errors in response to forwarded packets should be set to the
->> unicast address of the forwarding interface in order to be helpful
->> in diagnosis.
->>
-> FWIW, this behaviour has been deprecated ten years ago by RFC 4443:
-> "The address SHOULD be chosen according to the rules that would be used
->  to select the source address for any other packet originated by the
->  node, given the destination address of the packet."
->
-> The door is left open for other address selection algorithms but, IMHO,
-> changing kernel's behaviour is better justified by real use cases
-> than by obsolete RFCs.
+Tom Herbert (3):
+  net: Add read_sock proto_op
+  tcp: Set read_sock and peek_len proto_ops
+  kcm: Remove TCP specific references from kcm and strparser
 
-I agree, sorry for the obsoleted RFC. This is actually motivated by a
-real use case: Say a Linux box is acting as a router that forwards
-packets with policy routing from two local networks to two uplinks,
-respectively. An outside host from is performing traceroute to a host on
-one of the LAN. If the kernel's default route is via the other LAN's
-uplink, it will send ICMPv6 packets with the source address that has
-nothing to do with the network in question, yet the message probably
-will reach the outside host.
+ include/linux/net.h       |  6 ++++++
+ include/net/strparser.h   |  2 +-
+ include/net/tcp.h         |  4 ++--
+ net/ipv4/af_inet.c        |  2 ++
+ net/ipv4/tcp.c            |  6 ++++++
+ net/ipv6/af_inet6.c       |  2 ++
+ net/kcm/kcmsock.c         | 30 +++++++++++++----------------
+ net/strparser/strparser.c | 48 ++++++++++++++++++++++++++++-------------------
+ 8 files changed, 61 insertions(+), 39 deletions(-)
 
-Here using the address of inbound or exiting interface as source address
-is evidently "a more informative choice." I surmise this is the reason
-why the comment reads "Force OUTPUT device used as source address" when
-dealing with hop limit exceeded packets in ip6_forward(), although not
-effectively so. The current behaviour not only confuses diagnosis, but
-also might be undesirable if the addresses of the networks are best kept
-secret from each other.
-
-Thanks,
-Eli
+-- 
+2.8.0.rc2
