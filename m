@@ -1,164 +1,61 @@
-From: William Tu <u9012063@gmail.com>
-Subject: Re: [net-next PATCH] e1000: add initial XDP support
-Date: Sun, 28 Aug 2016 08:56:53 -0700
-Message-ID: <CALDO+SZRutKYtL3O71FZJ_=_gsz+LH0_XWdhgqA49OYSXa-K+g@mail.gmail.com>
-References: <20160827071145.25345.84712.stgit@john-Precision-Tower-5810>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 net-next 1/1] net_sched: Introduce skbmod action
+Date: Sun, 28 Aug 2016 09:07:47 -0700
+Message-ID: <1472400467.14381.252.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1472386756-23085-1-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Brenden Blanco <bblanco@plumgrid.com>,
-        David Miller <davem@davemloft.net>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        john.r.fastabend@intel.com,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, daniel@iogearbox.net,
         xiyou.wangcong@gmail.com
-To: John Fastabend <john.fastabend@gmail.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f68.google.com ([209.85.214.68]:33377 "EHLO
-        mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752371AbcH1P5f (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 28 Aug 2016 11:57:35 -0400
-Received: by mail-it0-f68.google.com with SMTP id d65so4555300ith.0
-        for <netdev@vger.kernel.org>; Sun, 28 Aug 2016 08:57:34 -0700 (PDT)
-In-Reply-To: <20160827071145.25345.84712.stgit@john-Precision-Tower-5810>
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:33119 "EHLO
+        mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755661AbcH1QHt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 28 Aug 2016 12:07:49 -0400
+Received: by mail-pa0-f68.google.com with SMTP id vy10so7517193pac.0
+        for <netdev@vger.kernel.org>; Sun, 28 Aug 2016 09:07:49 -0700 (PDT)
+In-Reply-To: <1472386756-23085-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Sun, 2016-08-28 at 08:19 -0400, Jamal Hadi Salim wrote:
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Reading through the patch, I found some minor typos below.
+...
 
-On Sat, Aug 27, 2016 at 12:11 AM, John Fastabend
-<john.fastabend@gmail.com> wrote:
-> From: Alexei Starovoitov <ast@fb.com>
->
-> This patch adds initial support for XDP on e1000 driver. Note e1000
-> driver does not support page recycling in general which could be
-> added as a further improvement. However for XDP_DROP and XDP_XMIT
-
-I think you mean XDP_PASS instead of XDP_XMIT?
-
-> the xdp code paths will recycle pages.
->
-> This patch includes the rcu_read_lock/rcu_read_unlock pair noted by
-> Brenden Blanco in another pending patch.
->
->   net/mlx4_en: protect ring->xdp_prog with rcu_read_lock
->
-> CC: William Tu <u9012063@gmail.com>
-> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> ---
->  drivers/net/ethernet/intel/e1000/e1000.h      |    1
->  drivers/net/ethernet/intel/e1000/e1000_main.c |  168 ++++++++++++++++++++++++-
->  2 files changed, 165 insertions(+), 4 deletions(-)
->
-> +static void e1000_xmit_raw_frame(struct e1000_rx_buffer *rx_buffer_info,
-> +                                unsigned int len,
-> +                                struct net_device *netdev,
-> +                                struct e1000_adapter *adapter)
+> +static int tcf_skbmod_run(struct sk_buff *skb, const struct tc_action *a,
+> +			  struct tcf_result *res)
 > +{
-> +       struct netdev_queue *txq = netdev_get_tx_queue(netdev, 0);
-> +       struct e1000_hw *hw = &adapter->hw;
-> +       struct e1000_tx_ring *tx_ring;
+> +	struct tcf_skbmod *d = to_skbmod(a);
 > +
-> +       if (len > E1000_MAX_DATA_PER_TXD)
-> +               return;
+> +	spin_lock(&d->tcf_lock);
+> +	tcf_lastuse_update(&d->tcf_tm);
+> +	bstats_update(&d->tcf_bstats, skb);
 > +
-> +       /* e1000 only support a single txq at the moment so the queue is being
-> +        * shared with stack. To support this requires locking to ensure the
-> +        * stack and XPD are not running at the same time. Devices would
-> +        * multiple queues should allocate a separate queue space.
-> +        */
-
-XPD --> XDP
-Devices would --> with?
-
-> +       HARD_TX_LOCK(netdev, txq, smp_processor_id());
+> +	if (d->flags & SKBMOD_F_DMAC)
+> +		ether_addr_copy(eth_hdr(skb)->h_dest, d->eth_dst);
+> +	if (d->flags & SKBMOD_F_SMAC)
+> +		ether_addr_copy(eth_hdr(skb)->h_source, d->eth_src);
+> +	if (d->flags & SKBMOD_F_ETYPE)
+> +		eth_hdr(skb)->h_proto = d->eth_type;
+> +	if (d->flags & SKBMOD_F_SWAPMAC) {
+> +		u8 tmpaddr[ETH_ALEN];
+> +		/*XXX: I am sure we can come up with something more efficient */
+> +		ether_addr_copy(tmpaddr, eth_hdr(skb)->h_dest);
+> +		ether_addr_copy(eth_hdr(skb)->h_dest, eth_hdr(skb)->h_source);
+> +		ether_addr_copy(eth_hdr(skb)->h_source, tmpaddr);
+> +	}
 > +
-> +       tx_ring = adapter->tx_ring;
-> +
-> +       if (E1000_DESC_UNUSED(tx_ring) < 2)
-> +               return;
-> +
-> +       e1000_tx_map_rxpage(tx_ring, rx_buffer_info, len);
-> +
-> +       e1000_tx_queue(adapter, tx_ring, 0/*tx_flags*/, 1);
-> +
-> +       writel(tx_ring->next_to_use, hw->hw_addr + tx_ring->tdt);
-> +       mmiowb();
-> +
-> +       HARD_TX_UNLOCK(netdev, txq);
+> +	spin_unlock(&d->tcf_lock);
+> +	return d->tcf_action;
 > +}
-> +
->  #define NUM_REGS 38 /* 1 based count */
->  static void e1000_regdump(struct e1000_adapter *adapter)
->  {
-> @@ -4142,6 +4240,22 @@ static struct sk_buff *e1000_alloc_rx_skb(struct e1000_adapter *adapter,
->         return skb;
->  }
->
-> +static inline int e1000_call_bpf(struct bpf_prog *prog, void *data,
-> +                                unsigned int length)
-> +{
-> +       struct xdp_buff xdp;
-> +       int ret;
-> +
-> +       xdp.data = data;
-> +       xdp.data_end = data + length;
-> +
-> +       rcu_read_lock();
-> +       ret = BPF_PROG_RUN(prog, (void *)&xdp);
-> +       rcu_read_unlock();
-> +
-> +       return ret;
-> +}
-> +
->  /**
->   * e1000_clean_jumbo_rx_irq - Send received data up the network stack; legacy
->   * @adapter: board private structure
-> @@ -4160,12 +4274,15 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_adapter *adapter,
->         struct pci_dev *pdev = adapter->pdev;
->         struct e1000_rx_desc *rx_desc, *next_rxd;
->         struct e1000_rx_buffer *buffer_info, *next_buffer;
-> +       struct bpf_prog *prog;
->         u32 length;
->         unsigned int i;
->         int cleaned_count = 0;
->         bool cleaned = false;
->         unsigned int total_rx_bytes = 0, total_rx_packets = 0;
->
-> +       rcu_read_lock(); /* rcu lock needed here to protect xdp programs */
-> +       prog = READ_ONCE(adapter->prog);
-
-If having rcu_read_lock() here, do we still need another in e1000_call_bpf()?
 
 
->         i = rx_ring->next_to_clean;
->         rx_desc = E1000_RX_DESC(*rx_ring, i);
->         buffer_info = &rx_ring->buffer_info[i];
-> @@ -4188,15 +4305,57 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_adapter *adapter,
->                 prefetch(next_rxd);
->
->                 next_buffer = &rx_ring->buffer_info[i];
-> -
->                 cleaned = true;
->                 cleaned_count++;
-> +               length = le16_to_cpu(rx_desc->length);
-> +
-> +               if (prog) {
-> +                       struct page *p = buffer_info->rxbuf.page;
-> +                       dma_addr_t dma = buffer_info->dma;
-> +                       int act;
-> +
-> +                       if (unlikely(!(status & E1000_RXD_STAT_EOP))) {
-> +                               /* attached bpf disallows larger than page
-> +                                * packets, so this is hw error or corruption
-> +                                */
-> +                               pr_info_once("%s buggy !eop\n", netdev->name);
-> +                               break;
-> +                       }
-> +                       if (unlikely(rx_ring->rx_skb_top)) {
-> +                               pr_info_once("%s ring resizing bug\n",
-> +                                            netdev->name);
-> +                               break;
->
+Adding an action with a spinlock held in fast path in 2016 is
+a way to tell people : It is a toy, do not use it for real.
+
+Sorry guys. Friends do not let friends do that anymore.
+
+ 
