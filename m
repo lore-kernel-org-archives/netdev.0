@@ -1,57 +1,55 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 7/9] net/mlx5e: Fix memory leak if refreshing TIRs fails
-Date: Mon, 29 Aug 2016 01:13:48 +0300
-Message-ID: <1472422430-21583-8-git-send-email-saeedm@mellanox.com>
-References: <1472422430-21583-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Kamal Heib <kamalh@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:53059 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1756160AbcH1WOe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 28 Aug 2016 18:14:34 -0400
-In-Reply-To: <1472422430-21583-1-git-send-email-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Feng Gao <gfree.wind@gmail.com>
+Subject: Re: [PATCH nf-next] netfilter: log: Check param to avoid overflow in nf_log_set
+Date: Mon, 29 Aug 2016 06:36:14 +0800
+Message-ID: <CA+6hz4o+ma5A0oshA4ufRKXOd21yxES9PDWPJ291YRsEF3iHEg@mail.gmail.com>
+References: <1472394618-5711-1-git-send-email-fgao@ikuai8.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Patrick McHardy <kaber@trash.net>,
+        "David S. Miller" <davem@davemloft.net>,
+        Netfilter Developer Mailing List
+        <netfilter-devel@vger.kernel.org>, coreteam@netfilter.org,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Gao Feng <fgao@ikuai8.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1472394618-5711-1-git-send-email-fgao@ikuai8.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Kamal Heib <kamalh@mellanox.com>
+On Sun, Aug 28, 2016 at 10:30 PM,  <fgao@ikuai8.com> wrote:
+> From: Gao Feng <fgao@ikuai8.com>
+>
+> The nf_log_set is an interface function, so it should do the strict sanity
+> check of parameters. Add  one sanity check for pf, it could not exceed
+> NFPROTO_NUMPROTO, and print error log when pf is invalid.
+>
+> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+> ---
+>  net/netfilter/nf_log.c | 4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
+>
+> diff --git a/net/netfilter/nf_log.c b/net/netfilter/nf_log.c
+> index aa5847a..02ce0b9 100644
+> --- a/net/netfilter/nf_log.c
+> +++ b/net/netfilter/nf_log.c
+> @@ -43,8 +43,10 @@ void nf_log_set(struct net *net, u_int8_t pf, const struct nf_logger *logger)
+>  {
+>         const struct nf_logger *log;
+>
+> -       if (pf == NFPROTO_UNSPEC)
+> +       if (pf == NFPROTO_UNSPEC || pf >= NFPROTO_NUMPROTO) {
+> +               pr_err("Wrong pf(%d) for nf log", pf);
+>                 return;
+> +       }
+>
+>         mutex_lock(&nf_log_mutex);
+>         log = nft_log_dereference(net->nf.nf_loggers[pf]);
+> --
+> 1.9.1
+>
+>
 
-Free 'in' command object also when mlx5_core_modify_tir fails.
-
-Fixes: 724b2aa15126 ("net/mlx5e: TIRs management refactoring")
-Signed-off-by: Kamal Heib <kamalh@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en_common.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_common.c b/drivers/net/ethernet/mellanox/mlx5/core/en_common.c
-index 673043c..9cce153 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_common.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_common.c
-@@ -139,7 +139,7 @@ int mlx5e_refresh_tirs_self_loopback_enable(struct mlx5_core_dev *mdev)
- 	struct mlx5e_tir *tir;
- 	void *in;
- 	int inlen;
--	int err;
-+	int err = 0;
- 
- 	inlen = MLX5_ST_SZ_BYTES(modify_tir_in);
- 	in = mlx5_vzalloc(inlen);
-@@ -151,10 +151,11 @@ int mlx5e_refresh_tirs_self_loopback_enable(struct mlx5_core_dev *mdev)
- 	list_for_each_entry(tir, &mdev->mlx5e_res.td.tirs_list, list) {
- 		err = mlx5_core_modify_tir(mdev, tir->tirn, in, inlen);
- 		if (err)
--			return err;
-+			goto out;
- 	}
- 
-+out:
- 	kvfree(in);
- 
--	return 0;
-+	return err;
- }
--- 
-2.7.4
+BTW, another similar interface function "nf_log_register" checks
+sanity of param "pf".
+So I think nf_log_set also need to check if param "pf" exceeds the valid range.
