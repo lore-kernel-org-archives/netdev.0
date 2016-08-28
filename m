@@ -1,89 +1,66 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 8/9] net/mlx5: Add error prints when validate ETS failed
-Date: Mon, 29 Aug 2016 01:13:49 +0300
-Message-ID: <1472422430-21583-9-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net 3/9] net/mlx5e: Don't post fragmented MPWQE when RQ is disabled
+Date: Mon, 29 Aug 2016 01:13:44 +0300
+Message-ID: <1472422430-21583-4-git-send-email-saeedm@mellanox.com>
 References: <1472422430-21583-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:53049 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:53045 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1756151AbcH1WOe (ORCPT
+        with ESMTP id S1756153AbcH1WOe (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sun, 28 Aug 2016 18:14:34 -0400
 In-Reply-To: <1472422430-21583-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eran Ben Elisha <eranbe@mellanox.com>
+ICO (Internal control operations) SQ (Send Queue) is closed/disabled
+after RQ (Receive Queue).  After RQ is closed an ICO SQ completion
+might post a fragmented MPWQE (Multi Packet Work Queue Element) into
+that RQ.
 
-Upon set ETS failure due to user invalid input, add error prints to
-specify the exact error to the user.
+As on regular RQ post, check if we are allowed to post to that
+RQ (RQ is enabled). Cleanup in-progress UMR MPWQE on mlx5e_free_rx_descs
+if needed.
 
-Fixes: cdcf11212b22 ('net/mlx5e: Validate BW weight values of ETS')
-Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
+Fixes: bc77b240b3c5 ('net/mlx5e: Add fragmented memory support for RX multi packet WQE')
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c | 21 ++++++++++++++++-----
- 1 file changed, 16 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 4 ++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   | 6 ++++++
+ 2 files changed, 10 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c b/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
-index caa9a3c..762af16 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
-@@ -127,29 +127,40 @@ int mlx5e_dcbnl_ieee_setets_core(struct mlx5e_priv *priv, struct ieee_ets *ets)
- 	return mlx5_set_port_tc_bw_alloc(mdev, tc_tx_bw);
- }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 2463eba..e259eaa 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -534,6 +534,10 @@ static void mlx5e_free_rx_descs(struct mlx5e_rq *rq)
+ 	__be16 wqe_ix_be;
+ 	u16 wqe_ix;
  
--static int mlx5e_dbcnl_validate_ets(struct ieee_ets *ets)
-+static int mlx5e_dbcnl_validate_ets(struct net_device *netdev,
-+				    struct ieee_ets *ets)
- {
- 	int bw_sum = 0;
- 	int i;
++	/* UMR WQE (if in progress) is always at wq->head */
++	if (test_bit(MLX5E_RQ_STATE_UMR_WQE_IN_PROGRESS, &rq->state))
++		mlx5e_free_rx_fragmented_mpwqe(rq, &rq->wqe_info[wq->head]);
++
+ 	while (!mlx5_wq_ll_is_empty(wq)) {
+ 		wqe_ix_be = *wq->tail_next;
+ 		wqe_ix    = be16_to_cpu(wqe_ix_be);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+index fee1e47..b6f8ebb 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+@@ -506,6 +506,12 @@ void mlx5e_post_rx_fragmented_mpwqe(struct mlx5e_rq *rq)
+ 	struct mlx5e_rx_wqe *wqe = mlx5_wq_ll_get_wqe(wq, wq->head);
  
- 	/* Validate Priority */
- 	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
--		if (ets->prio_tc[i] >= MLX5E_MAX_PRIORITY)
-+		if (ets->prio_tc[i] >= MLX5E_MAX_PRIORITY) {
-+			netdev_err(netdev,
-+				   "Failed to validate ETS: priority value greater than max(%d)\n",
-+				    MLX5E_MAX_PRIORITY);
- 			return -EINVAL;
-+		}
- 	}
- 
- 	/* Validate Bandwidth Sum */
- 	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
- 		if (ets->tc_tsa[i] == IEEE_8021QAZ_TSA_ETS) {
--			if (!ets->tc_tx_bw[i])
-+			if (!ets->tc_tx_bw[i]) {
-+				netdev_err(netdev,
-+					   "Failed to validate ETS: BW 0 is illegal\n");
- 				return -EINVAL;
-+			}
- 
- 			bw_sum += ets->tc_tx_bw[i];
- 		}
- 	}
- 
--	if (bw_sum != 0 && bw_sum != 100)
-+	if (bw_sum != 0 && bw_sum != 100) {
-+		netdev_err(netdev,
-+			   "Failed to validate ETS: BW sum is illegal\n");
- 		return -EINVAL;
+ 	clear_bit(MLX5E_RQ_STATE_UMR_WQE_IN_PROGRESS, &rq->state);
++
++	if (unlikely(test_bit(MLX5E_RQ_STATE_FLUSH, &rq->state))) {
++		mlx5e_free_rx_fragmented_mpwqe(rq, &rq->wqe_info[wq->head]);
++		return;
 +	}
- 	return 0;
- }
- 
-@@ -159,7 +170,7 @@ static int mlx5e_dcbnl_ieee_setets(struct net_device *netdev,
- 	struct mlx5e_priv *priv = netdev_priv(netdev);
- 	int err;
- 
--	err = mlx5e_dbcnl_validate_ets(ets);
-+	err = mlx5e_dbcnl_validate_ets(netdev, ets);
- 	if (err)
- 		return err;
++
+ 	mlx5_wq_ll_push(wq, be16_to_cpu(wqe->next.next_wqe_index));
+ 	rq->stats.mpwqe_frag++;
  
 -- 
 2.7.4
