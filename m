@@ -1,59 +1,164 @@
-From: =?UTF-8?B?5ZCJ6Jek6Iux5piO?= <hideaki.yoshifuji@miraclelinux.com>
-Subject: Re: [PATCH net 1/2] ipv6: add missing netconf notif when 'all' is updated
-Date: Mon, 29 Aug 2016 23:13:30 +0900
-Message-ID: <CAPA1RqC1r0wDk31Bd7idkQpq4-qwE3wExy9o3s7eeA4D46teFw@mail.gmail.com>
-References: <1472465149-1163-1-git-send-email-nicolas.dichtel@6wind.com> <705293f5-0965-8d1c-1539-b70cbed6aea9@cogentembedded.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [RFCv2 01/16] add basic register-field manipulation macros
+Date: Mon, 29 Aug 2016 16:34:25 +0200
+Message-ID: <57C447F1.60807@iogearbox.net>
+References: <1472234775-29453-1-git-send-email-jakub.kicinski@netronome.com> <1472234775-29453-2-git-send-email-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-        David Miller <davem@davemloft.net>,
-        network dev <netdev@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ast@kernel.org, dinan.gunawardena@netronome.com, jiri@resnulli.us,
+        john.fastabend@gmail.com, kubakici@wp.pl
+To: Jakub Kicinski <jakub.kicinski@netronome.com>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f43.google.com ([209.85.214.43]:38385 "EHLO
-        mail-it0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932942AbcH2ONb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 10:13:31 -0400
-Received: by mail-it0-f43.google.com with SMTP id g62so98595980ith.1
-        for <netdev@vger.kernel.org>; Mon, 29 Aug 2016 07:13:30 -0700 (PDT)
-In-Reply-To: <705293f5-0965-8d1c-1539-b70cbed6aea9@cogentembedded.com>
+Received: from www62.your-server.de ([213.133.104.62]:40769 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756135AbcH2Oe3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 10:34:29 -0400
+In-Reply-To: <1472234775-29453-2-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 08/26/2016 08:06 PM, Jakub Kicinski wrote:
+> Common approach to accessing register fields is to define
+> structures or sets of macros containing mask and shift pair.
+> Operations on the register are then performed as follows:
+>
+>   field = (reg >> shift) & mask;
+>
+>   reg &= ~(mask << shift);
+>   reg |= (field & mask) << shift;
+>
+> Defining shift and mask separately is tedious.  Ivo van Doorn
+> came up with an idea of computing them at compilation time
+> based on a single shifted mask (later refined by Felix) which
+> can be used like this:
+>
+>   #define REG_FIELD 0x000ff000
+>
+>   field = FIELD_GET(REG_FIELD, reg);
+>
+>   reg &= ~REG_FIELD;
+>   reg |= FIELD_PREP(REG_FIELD, field);
+>
+> FIELD_{GET,PREP} macros take care of finding out what the
+> appropriate shift is based on compilation time ffs operation.
+>
+> GENMASK can be used to define registers (which is usually
+> less error-prone and easier to match with datasheets).
+>
+> This approach is the most convenient I've seen so to limit code
+> multiplication let's move the macros to a global header file.
+> Attempts to use static inlines instead of macros failed due
+> to false positive triggering of BUILD_BUG_ON()s, especially with
+> GCC < 6.0.
+>
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+[...]
+> + * Bitfield access macros
+> + *
+> + * FIELD_{GET,PREP} macros take as first parameter shifted mask
+> + * from which they extract the base mask and shift amount.
+> + * Mask must be a compilation time constant.
+> + *
+> + * Example:
+> + *
+> + *  #define REG_FIELD_A  GENMASK(6, 0)
+> + *  #define REG_FIELD_B  BIT(7)
+> + *  #define REG_FIELD_C  GENMASK(15, 8)
+> + *  #define REG_FIELD_D  GENMASK(31, 16)
+> + *
+> + * Get:
+> + *  a = FIELD_GET(REG_FIELD_A, reg);
+> + *  b = FIELD_GET(REG_FIELD_B, reg);
+> + *
+> + * Set:
+> + *  reg = FIELD_PREP(REG_FIELD_A, 1) |
+> + *	  FIELD_PREP(REG_FIELD_B, 0) |
+> + *	  FIELD_PREP(REG_FIELD_C, c) |
+> + *	  FIELD_PREP(REG_FIELD_D, 0x40);
+> + *
+> + * Modify:
+> + *  reg &= ~REG_FIELD_C;
+> + *  reg |= FIELD_PREP(REG_FIELD_C, c);
+> + */
+> +
+> +#define _bf_shf(x) (__builtin_ffsll(x) - 1)
+> +
+> +#define _BF_FIELD_CHECK(_mask, _reg, _val, _pfx)			\
 
-2016-08-29 22:00 GMT+09:00 Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>:
-> Hello.
->
-> On 8/29/2016 1:05 PM, Nicolas Dichtel wrote:
->
->> The 'default' value was not advertised.
->>
->> Fixes: f3a1bfb11ccb ("rtnl/ipv6: use netconf msg to advertise forwarding
->> status")
->> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->> ---
->>  net/ipv6/addrconf.c | 7 +++++++
->>  1 file changed, 7 insertions(+)
->>
->> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
->> index f418d2eaeddd..299f0656e87f 100644
->> --- a/net/ipv6/addrconf.c
->> +++ b/net/ipv6/addrconf.c
->> @@ -778,7 +778,14 @@ static int addrconf_fixup_forwarding(struct ctl_table
->> *table, int *p, int newf)
->>         }
->>
->>         if (p == &net->ipv6.devconf_all->forwarding) {
->> +               int old_dftl = net->ipv6.devconf_dflt->forwarding;
->> +
->>                 net->ipv6.devconf_dflt->forwarding = newf;
->> +               if ((!newf) ^ (!old_dftl))
->
->
->    IIUC, !'s are not necessary here (and more so the parens around them).
-> And perhaps ^ can be changed to != for clarity...
+Nit: if possible, please always use "__" instead of "_" as prefix, which is
+more common coding style in the kernel.
 
-No, it will break.
+> +	({								\
+> +		BUILD_BUG_ON_MSG(!__builtin_constant_p(_mask),		\
+> +				 _pfx "mask is not constant");		\
+> +		BUILD_BUG_ON_MSG(!(_mask), _pfx "mask is zero");	\
+> +		BUILD_BUG_ON_MSG(__builtin_constant_p(_val) ?		\
+> +				 ~((_mask) >> _bf_shf(_mask)) & (_val) : 0, \
+> +				 _pfx "value too large for the field"); \
+> +		BUILD_BUG_ON_MSG((_mask) > (typeof(_reg))~0ull,		\
+> +				 _pfx "type of reg too small for mask"); \
+> +		__BUILD_BUG_ON_NOT_POWER_OF_2((_mask) +			\
+> +					      (1ULL << _bf_shf(_mask))); \
+> +	})
+> +
+> +/**
+> + * FIELD_PREP() - prepare a bitfield element
+> + * @_mask: shifted mask defining the field's length and position
+> + * @_val:  value to put in the field
+> + *
+> + * FIELD_PREP() masks and shifts up the value.  The result should
+> + * be combined with other fields of the bitfield using logical OR.
+> + */
+> +#define FIELD_PREP(_mask, _val)						\
+> +	({								\
+> +		_BF_FIELD_CHECK(_mask, 0ULL, _val, "FIELD_PREP: ");	\
+> +		((typeof(_mask))(_val) << _bf_shf(_mask)) & (_mask);	\
+> +	})
+> +
+> +/**
+> + * FIELD_GET() - extract a bitfield element
+> + * @_mask: shifted mask defining the field's length and position
+> + * @_reg:  32bit value of entire bitfield
+> + *
+> + * FIELD_GET() extracts the field specified by @_mask from the
+> + * bitfield passed in as @_reg by masking and shifting it down.
+> + */
+> +#define FIELD_GET(_mask, _reg)						\
+> +	({								\
+> +		_BF_FIELD_CHECK(_mask, _reg, 0U, "FIELD_GET: ");	\
+> +		(typeof(_mask))(((_reg) & (_mask)) >> _bf_shf(_mask));	\
+> +	})
 
---yoshfuji
+No strong opinion, but FIELD_PREP() sounds a bit weird. Maybe rather a
+FIELD_GEN() (aka "generate") and FIELD_GET() pair?
+
+> +#endif
+> diff --git a/include/linux/bug.h b/include/linux/bug.h
+> index e51b0709e78d..292d6a10b0c2 100644
+> --- a/include/linux/bug.h
+> +++ b/include/linux/bug.h
+> @@ -13,6 +13,7 @@ enum bug_trap_type {
+>   struct pt_regs;
+>
+>   #ifdef __CHECKER__
+> +#define __BUILD_BUG_ON_NOT_POWER_OF_2(n) (0)
+>   #define BUILD_BUG_ON_NOT_POWER_OF_2(n) (0)
+>   #define BUILD_BUG_ON_ZERO(e) (0)
+>   #define BUILD_BUG_ON_NULL(e) ((void*)0)
+> @@ -24,6 +25,8 @@ struct pt_regs;
+>   #else /* __CHECKER__ */
+>
+>   /* Force a compilation error if a constant expression is not a power of 2 */
+> +#define __BUILD_BUG_ON_NOT_POWER_OF_2(n)	\
+> +	BUILD_BUG_ON(((n) & ((n) - 1)) != 0)
+
+Is there a reason BUILD_BUG_ON_NOT_POWER_OF_2(n) cannot be reused?
+
+Because the (n) == 0 check would trigger (although it shouldn't ...)?
+
+>   #define BUILD_BUG_ON_NOT_POWER_OF_2(n)			\
+>   	BUILD_BUG_ON((n) == 0 || (((n) & ((n) - 1)) != 0))
+>
+>
