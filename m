@@ -1,52 +1,35 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: [PATCH 0/8] SA11x0 DMA engine/IrDA updates
-Date: Mon, 29 Aug 2016 12:25:41 +0100
-Message-ID: <20160829112540.GF1041@n2100.armlinux.org.uk>
-References: <20160829100232.GC1041@n2100.armlinux.org.uk>
- <20160829102328.GA28796@n2100.armlinux.org.uk>
- <20160829110157.GE1041@n2100.armlinux.org.uk>
+From: "Bob" <alu_casting@163.com>
+Subject: RE:FW :Aluminum castings custom made.
+Date: Mon, 29 Aug 2016 19:28:39 +0800
+Message-ID: <201608291928396562581@a.0tan.net>
+Reply-To: alu_casting@163.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dan Williams <dan.j.williams@intel.com>,
-        Samuel Ortiz <samuel@sortiz.org>,
-        Vinod Koul <vinod.koul@intel.com>
-To: dmaengine@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        netdev@vger.kernel.org
+Content-Type: text/plain;
+        charset="GB2312"
+Content-Transfer-Encoding: base64
+To: "netdev" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:56828 "EHLO
-        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750909AbcH2LZz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 07:25:55 -0400
-Content-Disposition: inline
-In-Reply-To: <20160829110157.GE1041@n2100.armlinux.org.uk>
+Received: from [202.168.151.138] ([202.168.151.138]:60601 "EHLO a.0tan.net"
+        rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+        id S1757266AbcH2LZ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 29 Aug 2016 07:25:58 -0400
+Received: from wcjouzdg (unknown [122.246.218.187])
+        by a.0tan.net (Postfix) with ESMTPA id E7FAF3EC2
+        for <netdev@vger.kernel.org>; Mon, 29 Aug 2016 19:26:24 +0800 (CST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Following on from the previous series of patches, this updates the
-SA11x0 DMA engine code to use the modern method of lookup up DMA
-channels, and converts the SA11x0 IrDA driver to use this.  We then
-convert the SA11x0 IrDA driver to use gpiolib APIs to manipulate the
-transceiver FIR mode select, power and range signals.
-
-Obviously, as this is part of a larger series (and has dependencies
-on the previous series) this can not be applied to individual
-subsystem maintainer trees.
-
- arch/arm/mach-sa1100/assabet.c            | 44 ++++-----------
- arch/arm/mach-sa1100/collie.c             | 42 ++++----------
- arch/arm/mach-sa1100/generic.c            |  4 +-
- arch/arm/mach-sa1100/generic.h            |  3 +-
- arch/arm/mach-sa1100/h3100.c              | 48 ++++------------
- arch/arm/mach-sa1100/h3600.c              | 48 ++++------------
- drivers/dma/sa11x0-dma.c                  | 32 ++++++-----
- drivers/net/irda/sa1100_ir.c              | 91 ++++++++++++++++++++-----------
- include/linux/platform_data/irda-sa11x0.h | 20 -------
- include/linux/sa11x0-dma.h                | 24 --------
- 10 files changed, 127 insertions(+), 229 deletions(-)
- delete mode 100644 include/linux/platform_data/irda-sa11x0.h
- delete mode 100644 include/linux/sa11x0-dma.h
-
--- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+SGVsbG8sIA0KDQpXZSBhcmUgdGhlIG1hbnVmYWN0dXJlciBvZiBhbHVtaW51bSBjYXN0aW5nIHdp
+dGggbW9yZSB0aGFuIDEwIHllYXJzIGV4cGVyaWVuY2UuIA0KDQpBbGwga2luZHMgb2YgY2FzdGlu
+ZyBwcm9jZXNzZXM6IGFsdW1pbnVtIGRpZSBjYXN0aW5nLCBzYW5kIGNhc3RpbmcsIGdyYXZpdHkg
+cHJlbWFuZW50IG1vbGQgY2FzdGluZyB0byBtZWV0IHlvdXIgZGlmZmVyZW50IGRlbWFuZC4gRm9y
+IG1hbnkgcGFydHMsIHdlIGRldmVsb3BlZCBsb3cgcHJlc3N1cmUgZGllIGNhc3RpbmcgaW5zdGVh
+ZCBvZiBncmF2aXR5IGRpZSBjYXN0aW5nIGFuZCBzYW5kIGNhc3RpbmcsIHNvIHRoYXQgdGhleSBh
+cmUgbW9yZSBwcmVzc3VyZSB0aWdodCBhbmQgbGVhayBmcmVlLg0KDQo0MCUgb2Ygb3VyIHNoaXBt
+ZW50IGFyZSBmb3IgeW91ciBtYXJrZXQsIHdoaWNoIGFyZSBwcm92aW5nIG91ciBjb21wZXRpdGl2
+ZSBpbiBwcmljaW5nIGFuZCBxdWFsaXR5LiBZb3VyIGFueSBpbnF1aXJ5IHdpbGwgYmUgaGlnaGx5
+IGFwcHJlY2lhdGVkLg0KDQpiLnJnZHMgDQotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLSANCkJvYiBIdSANCk5pbmdibyBZaW56aG91IFh1
+c2hlbmcgTWFjaGluZXJ5IEZhY3RvcnkgDQpTa3lwZTogYm9iaHUxIA0KVGVsOiAwMDg2LTU3NC04
+ODEyODYwMyANCkNlbGw6IDAwODYtMTM5NTgzMiA3Nzc0IA0KYm9iQHhzLWFsdW1pbnVtY2FzdGlu
+Zy5jb20gDQp3d3cueHMtYWx1bWludW1jYXN0aW5nLmNvbQ==
