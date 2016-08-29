@@ -1,49 +1,43 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [RFC 2/9] ipv6: sr: add code base for control plane support of
- SR-IPv6
-Date: Mon, 29 Aug 2016 08:31:27 -0700
-Message-ID: <57C4554F.9000905@cumulusnetworks.com>
-References: <1472226767-9904-1-git-send-email-david.lebrun@uclouvain.be> <1472226767-9904-3-git-send-email-david.lebrun@uclouvain.be>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: [PATCH v4] brcmfmac: add missing header dependencies
+Date: Mon, 29 Aug 2016 17:31:50 +0200
+Message-ID: <CACna6rytnp7WsrdscwPOTvi=FajAtoF2V2ZKx34RUdjEOiZO1w@mail.gmail.com>
+References: <1472474375-29910-1-git-send-email-baoyou.xie@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Lebrun <david.lebrun@uclouvain.be>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:35274 "EHLO
-        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757647AbcH2Pba (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 11:31:30 -0400
-Received: by mail-pf0-f177.google.com with SMTP id x72so53197653pfd.2
-        for <netdev@vger.kernel.org>; Mon, 29 Aug 2016 08:31:30 -0700 (PDT)
-In-Reply-To: <1472226767-9904-3-git-send-email-david.lebrun@uclouvain.be>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Arend Van Spriel <arend.vanspriel@broadcom.com>,
+        Franky Lin <franky.lin@broadcom.com>,
+        Hante Meuleman <hante.meuleman@broadcom.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+        "open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
+        <brcm80211-dev-list.pdl@broadcom.com>,
+        Network Development <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Arnd Bergmann <arnd@arndb.de>, xie.baoyou@zte.com.cn
+To: Baoyou Xie <baoyou.xie@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1472474375-29910-1-git-send-email-baoyou.xie@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 8/26/16, 8:52 AM, David Lebrun wrote:
-> This patch adds the necessary hooks and structures to provide support
-> for SR-IPv6 control plane, essentially the Generic Netlink commands
-> that will be used for userspace control over the Segment Routing
-> kernel structures.
->
-> The genetlink commands provide control over two different structures:
-> tunnel source and HMAC data. The tunnel source is the source address
-> that will be used by default when encapsulating packets into an
-> outer IPv6 header + SRH. If the tunnel source is set to :: then an
-> address of the outgoing interface will be selected as the source.
->
-> The HMAC commands currently just return ENOTSUPP and will be implemented
-> in a future patch.
->
-> Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
->
-This looks fine. But, i am just trying to see if this can be rtnetlink.
-Have you considered it already ?.
-We would like to keep the API consistent or abstracted to accommodate SR-MPLS in the
-future too. so, any abstraction there will help.
+On 29 August 2016 at 14:39, Baoyou Xie <baoyou.xie@linaro.org> wrote:
+> We get 1 warning when build kernel with W=1:
+> drivers/net/wireless/broadcom/brcm80211/brcmfmac/tracepoint.c:23:6: warning: no previous prototype for '__brcmf_err' [-Wmissing-prototypes]
 
-what is your control-plane software using this ?
-quagga or any-other routing daemon ?
+building? I'm not native English, but I think so.
 
-Thanks,
-Roopa
+
+> In fact, this function is declared in brcmfmac/debug.h, so this patch
+> add missing header dependencies.
+
+adds
+
+
+> Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
+> Acked-by: Arnd Bergmann <arnd@arndb.de>
+
+Please don't resend patches just to add tags like that. This only
+increases a noise and patchwork handles this just fine, see:
+https://patchwork.kernel.org/patch/9303285/
+https://patchwork.kernel.org/patch/9303285/mbox/
