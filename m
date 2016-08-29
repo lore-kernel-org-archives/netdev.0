@@ -1,66 +1,46 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net v2 9/9] net: ethernet: mediatek: fix error handling
- inside mtk_mdio_init
-Date: Mon, 29 Aug 2016 15:15:58 +0200
-Message-ID: <20160829131558.GE12465@lunn.ch>
-References: <1472447003-30726-1-git-send-email-sean.wang@mediatek.com>
- <1472447003-30726-10-git-send-email-sean.wang@mediatek.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 net-next 1/1] net_sched: Introduce skbmod action
+Date: Mon, 29 Aug 2016 06:27:53 -0700
+Message-ID: <1472477273.14381.257.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1472386756-23085-1-git-send-email-jhs@emojatatu.com>
+         <1472400467.14381.252.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAM_iQpUPsqL7eee1Pp1LgRVssmbBGekKMMqsUrWQbDz1Nz4Xzg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: john@phrozen.org, davem@davemloft.net, nbd@openwrt.org,
-        netdev@vger.kernel.org, linux-mediatek@lists.infradead.org,
-        keyhaede@gmail.com
-To: sean.wang@mediatek.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+        David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:46773 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932930AbcH2NQF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 29 Aug 2016 09:16:05 -0400
-Content-Disposition: inline
-In-Reply-To: <1472447003-30726-10-git-send-email-sean.wang@mediatek.com>
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:32876 "EHLO
+        mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932942AbcH2N14 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 09:27:56 -0400
+Received: by mail-pa0-f67.google.com with SMTP id vy10so8997011pac.0
+        for <netdev@vger.kernel.org>; Mon, 29 Aug 2016 06:27:56 -0700 (PDT)
+In-Reply-To: <CAM_iQpUPsqL7eee1Pp1LgRVssmbBGekKMMqsUrWQbDz1Nz4Xzg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 29, 2016 at 01:03:23PM +0800, sean.wang@mediatek.com wrote:
-> From: Sean Wang <sean.wang@mediatek.com>
+On Sun, 2016-08-28 at 22:10 -0700, Cong Wang wrote:
+> On Sun, Aug 28, 2016 at 9:07 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> >
+> > Adding an action with a spinlock held in fast path in 2016 is
+> > a way to tell people : It is a toy, do not use it for real.
+> >
+> > Sorry guys. Friends do not let friends do that anymore.
+> >
 > 
-> return -ENODEV if no child is found in MDIO bus.
-
-Hi Sean
-
-Why is it an error not to have any children on the bus?
-
-Say i have a fibre optical module connected to the MAC. It is unlikely
-to have an MII interface, so i would not list it on the bus. With this
-change, if i have the mdio-bus node in my device tree, i don't get a
-working system. Without this change, it simply does not instantiate
-the MDIO device, and returns without an error.
-
-I think this patch should be dropped, or maybe a comment adding, why
-the current code returns 0 at this point.
-
-    Andrew
-
+> Please stop joking, this is not funny at all:
 > 
-> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
-> Acked-by: John Crispin <john@phrozen.org>
-> ---
->  drivers/net/ethernet/mediatek/mtk_eth_soc.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> index f741c6a..e48b2a4 100644
-> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> @@ -304,7 +304,7 @@ static int mtk_mdio_init(struct mtk_eth *eth)
->  	}
->  
->  	if (!of_device_is_available(mii_np)) {
-> -		ret = 0;
-> +		ret = -ENODEV;
->  		goto err_put_node;
->  	}
->  
-> -- 
-> 1.9.1
-> 
+> % git grep tcf_lock -- net/sched
+
+This is absolutely trivial to write this skbmod without taking a lock.
+
+If you guys do not care about that, I will simply NACK any new lazy
+code.
+
+Do not try to call me funny, simply acknowledge the mere facts and try
+to keep your calm Cong.
