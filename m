@@ -1,67 +1,35 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] kcm: fix a socket double free
-Date: Sun, 28 Aug 2016 21:28:26 -0700
-Message-ID: <1472444906-9566-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: dvyukov@google.com, Cong Wang <xiyou.wangcong@gmail.com>,
-        Tom Herbert <tom@herbertland.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33131 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750730AbcH2Eam (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 00:30:42 -0400
-Received: by mail-pf0-f195.google.com with SMTP id i6so8575051pfe.0
-        for <netdev@vger.kernel.org>; Sun, 28 Aug 2016 21:30:42 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 4/5] net_sched: fix use of uninitialized ethertype
+ variable in cls_flower
+Date: Mon, 29 Aug 2016 00:30:56 -0400 (EDT)
+Message-ID: <20160829.003056.872235296198766893.davem@davemloft.net>
+References: <20160826152546.604384-1-arnd@arndb.de>
+        <20160826152546.604384-5-arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, torvalds@linux-foundation.org,
+        hadarh@mellanox.com, jiri@mellanox.com, netdev@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160826152546.604384-5-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dmitry reported a double free on kcm socket, which could
-be easily reproduced by:
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Fri, 26 Aug 2016 17:25:45 +0200
 
-	#include <unistd.h>
-	#include <sys/syscall.h>
+> The addition of VLAN support caused a possible use of uninitialized
+> data if we encounter a zero TCA_FLOWER_KEY_ETH_TYPE key, as pointed
+> out by "gcc -Wmaybe-uninitialized":
+> 
+> net/sched/cls_flower.c: In function 'fl_change':
+> net/sched/cls_flower.c:366:22: error: 'ethertype' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> 
+> This changes the code to only set the ethertype field if it
+> was nonzero, as before the patch.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: 9399ae9a6cb2 ("net_sched: flower: Add vlan support")
 
-	int main()
-	{
-	  int fd = syscall(SYS_socket, 0x29ul, 0x5ul, 0x0ul, 0, 0, 0);
-	  syscall(SYS_ioctl, fd, 0x89e2ul, 0x20a98000ul, 0, 0, 0);
-	  return 0;
-	}
-
-This is because on the error path, after we install
-the new socket file, we call sock_release() to clean
-up the socket, which leaves the fd pointing to a freed
-socket. Fix this by calling sys_close() on that fd
-directly.
-
-Fixes: ab7ac4eb9832 ("kcm: Kernel Connection Multiplexor module")
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
-Cc: Tom Herbert <tom@herbertland.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/kcm/kcmsock.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/kcm/kcmsock.c b/net/kcm/kcmsock.c
-index cb39e05..4116932 100644
---- a/net/kcm/kcmsock.c
-+++ b/net/kcm/kcmsock.c
-@@ -13,6 +13,7 @@
- #include <linux/socket.h>
- #include <linux/uaccess.h>
- #include <linux/workqueue.h>
-+#include <linux/syscalls.h>
- #include <net/kcm.h>
- #include <net/netns/generic.h>
- #include <net/sock.h>
-@@ -2029,7 +2030,7 @@ static int kcm_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
- 			if (copy_to_user((void __user *)arg, &info,
- 					 sizeof(info))) {
- 				err = -EFAULT;
--				sock_release(newsock);
-+				sys_close(info.fd);
- 			}
- 		}
- 
--- 
-1.8.4.5
+Applied.
