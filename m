@@ -1,31 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] cxgb4/cxgb4vf: fix spelling mistake "provissioned" ->
- "provisioned"
-Date: Sun, 28 Aug 2016 23:42:16 -0400 (EDT)
-Message-ID: <20160828.234216.2068824408314040736.davem@davemloft.net>
-References: <20160828110702.10374-1-colin.king@canonical.com>
+Subject: Re: [PATCH] Documentation: networking: dsa: Remove platform device
+ TODO
+Date: Sun, 28 Aug 2016 23:43:31 -0400 (EDT)
+Message-ID: <20160828.234331.700123673021236307.davem@davemloft.net>
+References: <1472337260-7467-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: leedom@chelsio.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
+Cc: netdev@vger.kernel.org, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49112 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:49122 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755394AbcH2DmW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 28 Aug 2016 23:42:22 -0400
-In-Reply-To: <20160828110702.10374-1-colin.king@canonical.com>
+        with ESMTP id S932238AbcH2Dnd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 28 Aug 2016 23:43:33 -0400
+In-Reply-To: <1472337260-7467-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Colin King <colin.king@canonical.com>
-Date: Sun, 28 Aug 2016 12:07:02 +0100
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Sat, 27 Aug 2016 15:34:20 -0700
 
-> From: Colin Ian King <colin.king@canonical.com>
+> Since commit 83c0afaec7b7 ("net: dsa: Add new binding implementation"),
+> the shortcomings of the dsa platform device have been addressed, remove
+> that TODO item.
 > 
-> Trivial fix to spelling mistake in dev_warn message.
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
 Applied.
