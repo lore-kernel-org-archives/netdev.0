@@ -1,148 +1,77 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch iproute2 v2 2/2] tc: man: Add man entry for the matchall classifier.
-Date: Mon, 29 Aug 2016 21:01:01 +0200
-Message-ID: <1472497261-2881-3-git-send-email-jiri@resnulli.us>
-References: <1472497261-2881-1-git-send-email-jiri@resnulli.us>
-Cc: stephen@networkplumber.org, yotamg@mellanox.com,
-        eladr@mellanox.com, idosch@mellanox.com, nogahf@mellanox.com,
-        ogerlitz@mellanox.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35715 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755515AbcH2TBK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 15:01:10 -0400
-Received: by mail-wm0-f67.google.com with SMTP id i5so3210wmg.2
-        for <netdev@vger.kernel.org>; Mon, 29 Aug 2016 12:01:09 -0700 (PDT)
-In-Reply-To: <1472497261-2881-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: pull-request: wireless-drivers 2016-08-29
+Date: Mon, 29 Aug 2016 22:02:08 +0300
+Message-ID: <87h9a3iekv.fsf@kamboji.qca.qualcomm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yotam Gigi <yotamg@mellanox.com>
+Hi Dave,
 
-In addition to providing information about the mathcall filter and its
-configurations, the man entry contains examples for creating port
-mirorring entries.
+I'm quite backlogged after coming back from my vacation but luckily it
+has been pretty quiet. Here is the first batch of patches for 4.8, quite
+simple actually and not really anything special to mention. More to come
+later, most probably next week. Please let me know if there are any
+problems.
 
-Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- man/man8/Makefile      |  2 +-
- man/man8/tc-matchall.8 | 76 ++++++++++++++++++++++++++++++++++++++++++++++++++
- man/man8/tc.8          |  5 ++++
- 3 files changed, 82 insertions(+), 1 deletion(-)
- create mode 100644 man/man8/tc-matchall.8
+Kalle
 
-diff --git a/man/man8/Makefile b/man/man8/Makefile
-index 9badbed..9213769 100644
---- a/man/man8/Makefile
-+++ b/man/man8/Makefile
-@@ -14,7 +14,7 @@ MAN8PAGES = $(TARGETS) ip.8 arpd.8 lnstat.8 routel.8 rtacct.8 rtmon.8 rtpr.8 ss.
- 	tipc.8 tipc-bearer.8 tipc-link.8 tipc-media.8 tipc-nametable.8 \
- 	tipc-node.8 tipc-socket.8 \
- 	tc-basic.8 tc-cgroup.8 tc-flow.8 tc-flower.8 tc-fw.8 tc-route.8 \
--	tc-tcindex.8 tc-u32.8 \
-+	tc-tcindex.8 tc-u32.8 tc-matchall.8 \
- 	tc-connmark.8 tc-csum.8 tc-mirred.8 tc-nat.8 tc-pedit.8 tc-police.8 \
- 	tc-simple.8 tc-skbedit.8 tc-vlan.8 tc-xt.8 \
- 	devlink.8 devlink-dev.8 devlink-monitor.8 devlink-port.8 devlink-sb.8
-diff --git a/man/man8/tc-matchall.8 b/man/man8/tc-matchall.8
-new file mode 100644
-index 0000000..b927784
---- /dev/null
-+++ b/man/man8/tc-matchall.8
-@@ -0,0 +1,76 @@
-+.TH "Match-all classifier in tc" 8 "21 Oct 2015" "iproute2" "Linux"
-+
-+.SH NAME
-+matchall \- traffic control filter that matches every packet
-+.SH SYNOPSIS
-+.in +8
-+.ti -8
-+.BR tc " " filter " ... " matchall " [ "
-+.BR skip_sw " | " skip_hw
-+.R " ] [ "
-+.B action
-+.IR ACTION_SPEC " ] [ "
-+.B classid
-+.IR CLASSID " ]"
-+.SH DESCRIPTION
-+The
-+.B matchall
-+filter allows to classify every packet that flows on the port and run a
-+action on it.
-+.SH OPTIONS
-+.TP
-+.BI action " ACTION_SPEC"
-+Apply an action from the generic actions framework on matching packets.
-+.TP
-+.BI classid " CLASSID"
-+Push matching packets into the class identified by
-+.IR CLASSID .
-+.TP
-+.BI skip_sw
-+Do not process filter by software. If hardware has no offload support for this
-+filter, or TC offload is not enabled for the interface, operation will fail.
-+.TP
-+.BI skip_hw
-+Do not process filter by hardware.
-+.SH EXAMPLES
-+To create ingress mirroring from port eth1 to port eth2:
-+.RS
-+.EX
-+
-+tc qdisc  add dev eth1 handle ffff: ingress
-+tc filter add dev eth1 parent ffff:           \\
-+        matchall skip_sw                      \\
-+        action mirred egress mirror           \\
-+        dev eth2
-+.EE
-+.RE
-+
-+The first command creats an ingress qdisc with handle
-+.BR ffff:
-+on device
-+.BR eth1
-+where the second command attaches a matchall filters on it that mirrors the
-+pacets to device eth2.
-+
-+To create engress mirroring from port eth1 to port eth2:
-+.EX
-+
-+tc qdisc add dev eth1 handle 1: root prio
-+tc filter add dev eth1 parent 1:               \\
-+        matchall skip_sw                       \\
-+        action mirred egress mirror            \\
-+        dev eth2
-+.EE
-+.RE
-+
-+The first command creats an egress qdisc with handle
-+.BR 1:
-+that replaces the root qdisc on device
-+.BR eth1
-+where the second command attaches a matchall filters on it that mirrors the
-+pacets to device eth2.
-+
-+
-+.EE
-+.SH SEE ALSO
-+.BR tc (8),
-diff --git a/man/man8/tc.8 b/man/man8/tc.8
-index 4e99dca..7ee1c9c 100644
---- a/man/man8/tc.8
-+++ b/man/man8/tc.8
-@@ -187,6 +187,11 @@ u32
- Generic filtering on arbitrary packet data, assisted by syntax to abstract common operations. See
- .BR tc-u32 (8)
- for details.
-+.TP
-+matchall
-+Traffic control filter that matches every packet. See
-+.BR tc-matchall (8)
-+for details.
- 
- .SH CLASSLESS QDISCS
- The classless qdiscs are:
--- 
-2.5.5
+The following changes since commit 184ca823481c99dadd7d946e5afd4bb921eab30d:
+
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2016-08-17 17:26:58 -0700)
+
+are available in the git repository at:
+
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.git tags/wireless-drivers-for-davem-2016-08-29
+
+for you to fetch changes up to bb87f02b7e4ccdb614a83cbf840524de81e9b321:
+
+  Merge ath-current from ath.git (2016-08-29 21:39:04 +0300)
+
+----------------------------------------------------------------
+
+wireless-drivers fixes for 4.8
+
+ath9k
+
+* fix regression in client mode beacon configuration
+* fix a station pointer which resulted in spurious crashes
+
+mwifiex
+
+* fix large amsdu packets causing firmware hang
+
+brcmfmac
+
+* fix deadlock when removing interface
+* fix use of mutex in atomic context
+
+----------------------------------------------------------------
+Cathy Luo (1):
+      mwifiex: fix large amsdu packets causing firmware hang
+
+Felix Fietkau (2):
+      ath9k: fix client mode beacon configuration
+      ath9k: fix using sta->drv_priv before initializing it
+
+Kalle Valo (1):
+      Merge ath-current from ath.git
+
+mhiramat@kernel.org (2):
+      brcmfmac: Check rtnl_lock is locked when removing interface
+      brcmfmac: Change vif_event_lock to spinlock
+
+ drivers/net/wireless/ath/ath9k/main.c              |    9 ++++---
+ .../broadcom/brcm80211/brcmfmac/cfg80211.c         |   26 ++++++++++----------
+ .../broadcom/brcm80211/brcmfmac/cfg80211.h         |    2 +-
+ .../wireless/broadcom/brcm80211/brcmfmac/core.c    |    2 +-
+ .../net/wireless/broadcom/brcm80211/brcmfmac/p2p.c |    8 +++---
+ .../net/wireless/broadcom/brcm80211/brcmfmac/p2p.h |    2 +-
+ drivers/net/wireless/marvell/mwifiex/11n_aggr.c    |    3 ++-
+ 7 files changed, 28 insertions(+), 24 deletions(-)
