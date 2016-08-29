@@ -1,40 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] strp: Generalize stream parser to work
- with other socket types
-Date: Sun, 28 Aug 2016 23:34:50 -0400 (EDT)
-Message-ID: <20160828.233450.783176953748442286.davem@davemloft.net>
-References: <1472420599-510735-1-git-send-email-tom@herbertland.com>
+Subject: Re: [PATCH v3 0/5] meson: Meson8b and GXBB DWMAC glue driver
+Date: Sun, 28 Aug 2016 23:40:08 -0400 (EDT)
+Message-ID: <20160828.234008.445367966910278179.davem@davemloft.net>
+References: <20160820093538.9707-1-martin.blumenstingl@googlemail.com>
+        <20160828161637.9941-1-martin.blumenstingl@googlemail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-team@fb.com, davejwatson@fb.com
-To: tom@herbertland.com
+Cc: linux-amlogic@lists.infradead.org, khilman@baylibre.com,
+        carlo@caione.org, mturquette@baylibre.com, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com, robh+dt@kernel.org, mark.rutland@arm.com,
+        catalin.marinas@arm.com, will.deacon@arm.com,
+        netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, sboyd@codeaurora.org,
+        manabian@gmail.com, arnd@arndb.de
+To: martin.blumenstingl@googlemail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49010 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:49056 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755314AbcH2Dew (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 28 Aug 2016 23:34:52 -0400
-In-Reply-To: <1472420599-510735-1-git-send-email-tom@herbertland.com>
+        with ESMTP id S1755273AbcH2Dk1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 28 Aug 2016 23:40:27 -0400
+In-Reply-To: <20160828161637.9941-1-martin.blumenstingl@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <tom@herbertland.com>
-Date: Sun, 28 Aug 2016 14:43:16 -0700
+From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+Date: Sun, 28 Aug 2016 18:16:32 +0200
 
-> Add a read_sock protocol operation function that allows something like
-> tcp_read_sock to be called for other protocol types.
+> This adds a DWMAC glue driver for the PRG_ETHERNET registers found in
+> Meson8b and GXBB SoCs. Based on the "old" meson6b-dwmac glue driver
+> the register layout is completely different.
+> Thus I introduced a separate driver.
 > 
-> Specific changes in this patch set:
->   - Add read_sock function to proto_ops. This has the same signature as
->     tcp_read_sock. sk_read_actor_t is also defined in net.h.
->   - Set peek_len and read_sock proto_op functions for TCPv4 and TCPv6
->     stream ops.
->   - Remove references to tcp in strparser.
->   - Call peek_len and read_sock operations from strparser instead of
->     calling TCP specific functions.
+> Changes since v2:
+> - fixed unloading the glue driver when built as module. This pulls in a
+>   patch from Joachim Eastwood (thanks) to get our private data structure
+>   (bsp_priv).
 
-I'll apply this, but I want you to shore up these new ops.
-
-A check has to happen somewhere to make sure the proto_ops in
-question have a non-NULL read_sock and peek_len method before
-starting to use it.
+This doesn't apply cleanly at all to the net-next tree, so I have
+no idea where you expect these changes to be applied.
