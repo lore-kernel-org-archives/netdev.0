@@ -1,64 +1,59 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net v2 9/9] net: ethernet: mediatek: fix error handling
- inside mtk_mdio_init
-Date: Mon, 29 Aug 2016 18:36:28 +0200
-Message-ID: <20160829163628.GC17231@lunn.ch>
-References: <1472447003-30726-1-git-send-email-sean.wang@mediatek.com>
- <1472447003-30726-10-git-send-email-sean.wang@mediatek.com>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: [PATCH v4] brcmfmac: add missing header dependencies
+Date: Mon, 29 Aug 2016 18:39:25 +0200
+Message-ID: <CACna6rwBrT5Ei8oY1qfcCTa5J+xh9PyZUDwwghcXNX1U0E5vuw@mail.gmail.com>
+References: <1472474375-29910-1-git-send-email-baoyou.xie@linaro.org> <CACna6rytnp7WsrdscwPOTvi=FajAtoF2V2ZKx34RUdjEOiZO1w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: john@phrozen.org, davem@davemloft.net, nbd@openwrt.org,
-        netdev@vger.kernel.org, linux-mediatek@lists.infradead.org,
-        keyhaede@gmail.com
-To: sean.wang@mediatek.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:46969 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752597AbcH2Qgh (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 29 Aug 2016 12:36:37 -0400
-Content-Disposition: inline
-In-Reply-To: <1472447003-30726-10-git-send-email-sean.wang@mediatek.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Arend Van Spriel <arend.vanspriel@broadcom.com>,
+        Franky Lin <franky.lin@broadcom.com>,
+        Hante Meuleman <hante.meuleman@broadcom.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+        "open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
+        <brcm80211-dev-list.pdl@broadcom.com>,
+        Network Development <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Arnd Bergmann <arnd@arndb.de>, xie.baoyou@zte.com.cn
+To: Baoyou Xie <baoyou.xie@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACna6rytnp7WsrdscwPOTvi=FajAtoF2V2ZKx34RUdjEOiZO1w@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 29, 2016 at 01:03:23PM +0800, sean.wang@mediatek.com wrote:
-> From: Sean Wang <sean.wang@mediatek.com>
-> 
-> return -ENODEV if no child is found in MDIO bus.
+On 29 August 2016 at 17:42, Baoyou Xie <baoyou.xie@linaro.org> wrote:
+> On 29 August 2016 at 23:31, Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com> wr=
+ote:
+>>
+>> On 29 August 2016 at 14:39, Baoyou Xie <baoyou.xie@linaro.org> wrote:
+>> > We get 1 warning when build kernel with W=3D1:
+>> > drivers/net/wireless/broadcom/brcm80211/brcmfmac/tracepoint.c:23:6:
+>> > warning: no previous prototype for '__brcmf_err' [-Wmissing-prototypes=
+]
+>>
+>> building? I'm not native English, but I think so.
+>>
+>>
+>> > In fact, this function is declared in brcmfmac/debug.h, so this patch
+>> > add missing header dependencies.
+>>
+>> adds
+>>
+>>
+>> > Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
+>> > Acked-by: Arnd Bergmann <arnd@arndb.de>
+>>
+>> Please don't resend patches just to add tags like that. This only
+>> increases a noise and patchwork handles this just fine, see:
+>> https://patchwork.kernel.org/patch/9303285/
+>> https://patchwork.kernel.org/patch/9303285/mbox/
+>
+>
+> it modifies a typo biuld/build.
 
-The "no child" is wrong here, and got me confused. What the code is
-actually doing is of_device_is_available() which is looking to see if
-there is a status = "okay". So what the change log should say is:
+Please send your replies to all, not privately.
 
-Return -ENODEV if the MDIO bus is disabled in the device tree.
-
-Once that has been corrected:
-
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-
-    Andrew
-
-
-> 
-> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
-> Acked-by: John Crispin <john@phrozen.org>
-> ---
->  drivers/net/ethernet/mediatek/mtk_eth_soc.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> index f741c6a..e48b2a4 100644
-> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> @@ -304,7 +304,7 @@ static int mtk_mdio_init(struct mtk_eth *eth)
->  	}
->  
->  	if (!of_device_is_available(mii_np)) {
-> -		ret = 0;
-> +		ret = -ENODEV;
->  		goto err_put_node;
->  	}
->  
-> -- 
-> 1.9.1
-> 
+OK, so you should also include a changelog in the comments part of diff, e.=
+g.:
+V4: Fix typo in "biuld"
