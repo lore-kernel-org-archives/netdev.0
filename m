@@ -1,48 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/9] Mellanox 100G mlx5 fixes 2016-08-29
-Date: Sun, 28 Aug 2016 23:31:46 -0400 (EDT)
-Message-ID: <20160828.233146.701497700884731451.davem@davemloft.net>
-References: <1472422430-21583-1-git-send-email-saeedm@mellanox.com>
+Subject: Re: [PATCH net-next 0/3] strp: Generalize stream parser to work
+ with other socket types
+Date: Sun, 28 Aug 2016 23:34:50 -0400 (EDT)
+Message-ID: <20160828.233450.783176953748442286.davem@davemloft.net>
+References: <1472420599-510735-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: saeedm@mellanox.com
+Cc: netdev@vger.kernel.org, kernel-team@fb.com, davejwatson@fb.com
+To: tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48948 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:49010 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751610AbcH2Dby (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 28 Aug 2016 23:31:54 -0400
-In-Reply-To: <1472422430-21583-1-git-send-email-saeedm@mellanox.com>
+        with ESMTP id S1755314AbcH2Dew (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 28 Aug 2016 23:34:52 -0400
+In-Reply-To: <1472420599-510735-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm@mellanox.com>
-Date: Mon, 29 Aug 2016 01:13:41 +0300
+From: Tom Herbert <tom@herbertland.com>
+Date: Sun, 28 Aug 2016 14:43:16 -0700
 
-> This series contains some bug fixes for the mlx5 core and mlx5
-> ethernet driver.
+> Add a read_sock protocol operation function that allows something like
+> tcp_read_sock to be called for other protocol types.
 > 
-> From Saeed, Fix UMR to consider hardware translation table field
-> size limitation when calculating the maximum number of MTTs required
-> by the driver.  Three patches to speed-up netdevice close time by
-> serializing channel (SQs & RQs) destruction rather than issuing and
-> waiting for hardware interrupts to free them.
-> 
-> From Eran, Fix ethtool ring parameter reporting for striding RQ layout.
-> Add error prints on ETS validation failure.
-> 
-> From Kamal, Fix memory leak on error flow.
-> 
-> From Maor, Fix ethtool steering priorities number.
+> Specific changes in this patch set:
+>   - Add read_sock function to proto_ops. This has the same signature as
+>     tcp_read_sock. sk_read_actor_t is also defined in net.h.
+>   - Set peek_len and read_sock proto_op functions for TCPv4 and TCPv6
+>     stream ops.
+>   - Remove references to tcp in strparser.
+>   - Call peek_len and read_sock operations from strparser instead of
+>     calling TCP specific functions.
 
-Series applied.
+I'll apply this, but I want you to shore up these new ops.
 
-> For -stable of 4.7.y:
->   net/mlx5e: Limit UMR length to the device's limitation
->   net/mlx5e: Don't wait for RQ completions on close 
->   net/mlx5e: Don't post fragmented MPWQE when RQ is disabled
->   net/mlx5e: Don't wait for SQ completions on close
->   net/mlx5e: Add ethtool counter for TX xmit_more
-
-Queued up, thanks.
+A check has to happen somewhere to make sure the proto_ops in
+question have a non-NULL read_sock and peek_len method before
+starting to use it.
