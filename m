@@ -1,948 +1,142 @@
-From: Sargun Dhillon <sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org>
-Subject: [net-next RFC v2 4/9] bpf, security: Add Checmate security LSM and
- BPF program type
-Date: Mon, 29 Aug 2016 04:47:07 -0700
-Message-ID: <20160829114705.GA20877@ircssh.c.rugged-nimbus-611.internal>
+From: Sargun Dhillon <sargun@sargun.me>
+Subject: [net-next RFC v2 6/9] bpf: Share current_task_under_cgroup helper
+ and expose to Checmate programs
+Date: Mon, 29 Aug 2016 04:47:25 -0700
+Message-ID: <20160829114723.GA20889@ircssh.c.rugged-nimbus-611.internal>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-security-module-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, ast-b10kYP2dOMg@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: cgroups@vger.kernel.org, linux-security-module@vger.kernel.org,
+        daniel@iogearbox.net, ast@fb.com
+To: netdev@vger.kernel.org
+Return-path: <linux-security-module-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Sender: owner-linux-security-module@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds a minor LSM, Checmate. Checmate is a flexible programmable,
-extensible minor LSM that's coupled with cgroups and BPF. It is designed to
-enforce container-specific policies. It is also a cgroupv2 controller. By
-itself, it doesn't do very much, but in conjunction with a orchestrator
-complex policies can be installed on the cgroup hierarchy.
+This patch exposes the current_task_under_cgroup helper to Checmate
+programs. It can be used to implement exemptions for certain policies
+when using Checmate programs by wrapping a pre-compiled policy
+in a tail call along with this helper.
 
-These cgroup programs are tied to the kernel ABI version. If one tries
-to load a BPF program compiled against a different kernel version,
-an error will be thrown.
-
-Signed-off-by: Sargun Dhillon <sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org>
+Signed-off-by: Sargun Dhillon <sargun@sargun.me>
 ---
- include/linux/cgroup_subsys.h    |   4 +
- include/linux/checmate.h         | 108 +++++++
- include/uapi/linux/bpf.h         |   1 +
- kernel/bpf/syscall.c             |   2 +-
- security/Kconfig                 |   1 +
- security/Makefile                |   2 +
- security/checmate/Kconfig        |  11 +
- security/checmate/Makefile       |   3 +
- security/checmate/checmate_bpf.c |  68 +++++
- security/checmate/checmate_lsm.c | 610 +++++++++++++++++++++++++++++++++++++++
- 10 files changed, 809 insertions(+), 1 deletion(-)
- create mode 100644 include/linux/checmate.h
- create mode 100644 security/checmate/Kconfig
- create mode 100644 security/checmate/Makefile
- create mode 100644 security/checmate/checmate_bpf.c
- create mode 100644 security/checmate/checmate_lsm.c
+ include/linux/bpf.h              |  1 +
+ kernel/bpf/helpers.c             | 29 +++++++++++++++++++++++++++++
+ kernel/trace/bpf_trace.c         | 28 ----------------------------
+ security/checmate/checmate_bpf.c |  2 ++
+ 4 files changed, 32 insertions(+), 28 deletions(-)
 
-diff --git a/include/linux/cgroup_subsys.h b/include/linux/cgroup_subsys.h
-index 0df0336a..fbb7aa7 100644
---- a/include/linux/cgroup_subsys.h
-+++ b/include/linux/cgroup_subsys.h
-@@ -56,6 +56,10 @@ SUBSYS(hugetlb)
- SUBSYS(pids)
- #endif
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index 4e1fa57..5c5ed16 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -316,6 +316,7 @@ extern const struct bpf_func_proto bpf_skb_vlan_pop_proto;
+ extern const struct bpf_func_proto bpf_get_stackid_proto;
+ extern const struct bpf_func_proto bpf_get_current_task_proto;
+ extern const struct bpf_func_proto bpf_probe_read_proto;
++extern const struct bpf_func_proto bpf_current_task_under_cgroup_proto;
  
-+#if IS_ENABLED(CONFIG_SECURITY_CHECMATE)
-+SUBSYS(checmate)
-+#endif
-+
- /*
-  * The following subsystems are not supported on the default hierarchy.
-  */
-diff --git a/include/linux/checmate.h b/include/linux/checmate.h
-new file mode 100644
-index 0000000..4c4db4a
---- /dev/null
-+++ b/include/linux/checmate.h
-@@ -0,0 +1,108 @@
-+#ifndef _LINUX_CHECMATE_H_
-+#define _LINUX_CHECMATE_H_ 1
-+#include <linux/security.h>
-+
-+enum checmate_hook_num {
-+	/* CONFIG_SECURITY_NET hooks */
-+	CHECMATE_HOOK_UNIX_STREAM_CONNECT,
-+	CHECMATE_HOOK_UNIX_MAY_SEND,
-+	CHECMATE_HOOK_SOCKET_CREATE,
-+	CHECMATE_HOOK_SOCKET_POST_CREATE,
-+	CHECMATE_HOOK_SOCKET_BIND,
-+	CHECMATE_HOOK_SOCKET_CONNECT,
-+	CHECMATE_HOOK_SOCKET_LISTEN,
-+	CHECMATE_HOOK_SOCKET_ACCEPT,
-+	CHECMATE_HOOK_SOCKET_SENDMSG,
-+	CHECMATE_HOOK_SOCKET_RECVMSG,
-+	CHECMATE_HOOK_SOCKET_GETSOCKNAME,
-+	CHECMATE_HOOK_SOCKET_GETPEERNAME,
-+	CHECMATE_HOOK_SOCKET_GETSOCKOPT,
-+	CHECMATE_HOOK_SOCKET_SETSOCKOPT,
-+	CHECMATE_HOOK_SOCKET_SHUTDOWN,
-+	CHECMATE_HOOK_SOCKET_SOCK_RCV_SKB,
-+	CHECMATE_HOOK_SK_FREE_SECURITY,
-+	__CHECMATE_HOOK_MAX,
-+};
-+
-+/* CONFIG_SECURITY_NET contexts */
-+struct checmate_unix_stream_connect_ctx {
-+	struct sock *sock;
-+	struct sock *other;
-+	struct sock *newsk;
-+};
-+
-+struct checmate_unix_may_send_ctx {
-+	struct socket *sock;
-+	struct socket *other;
-+};
-+
-+struct checmate_socket_create_ctx {
-+	int family;
-+	int type;
-+	int protocol;
-+	int kern;
-+};
-+
-+struct checmate_socket_bind_ctx {
-+	struct socket *sock;
-+	struct sockaddr *address;
-+	int addrlen;
-+};
-+
-+struct checmate_socket_connect_ctx {
-+	struct socket *sock;
-+	struct sockaddr *address;
-+	int addrlen;
-+};
-+
-+struct checmate_socket_listen_ctx {
-+	struct socket *sock;
-+	int backlog;
-+};
-+
-+struct checmate_socket_accept_ctx {
-+	struct socket *sock;
-+	struct socket *newsock;
-+};
-+
-+struct checmate_socket_sendmsg_ctx {
-+	struct socket *sock;
-+	struct msghdr *msg;
-+	int size;
-+};
-+
-+struct checmate_socket_recvmsg_ctx {
-+	struct socket *sock;
-+	struct msghdr *msg;
-+	int size;
-+	int flags;
-+};
-+
-+struct checmate_socket_sock_rcv_skb_ctx {
-+	struct sock *sk;
-+	struct sk_buff *skb;
-+};
-+
-+struct checmate_sk_free_security_ctx {
-+	struct sock *sk;
-+};
-+
-+struct checmate_ctx {
-+	int hook;
-+	union {
-+/* CONFIG_SECURITY_NET contexts */
-+		struct checmate_unix_stream_connect_ctx	unix_stream_connect;
-+		struct checmate_unix_may_send_ctx	unix_may_send;
-+		struct checmate_socket_create_ctx	socket_create;
-+		struct checmate_socket_bind_ctx		socket_bind;
-+		struct checmate_socket_connect_ctx	socket_connect;
-+		struct checmate_socket_listen_ctx	socket_listen;
-+		struct checmate_socket_accept_ctx	socket_accept;
-+		struct checmate_socket_sendmsg_ctx	socket_sendmsg;
-+		struct checmate_socket_recvmsg_ctx	socket_recvmsg;
-+		struct checmate_socket_sock_rcv_skb_ctx	socket_sock_rcv_skb;
-+		struct checmate_sk_free_security_ctx	sk_free_security;
-+	};
-+};
-+
-+#endif /* _LINUX_CHECMATE_H_ */
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index e4c5a1b..91bc92f 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -95,6 +95,7 @@ enum bpf_prog_type {
- 	BPF_PROG_TYPE_SCHED_ACT,
- 	BPF_PROG_TYPE_TRACEPOINT,
- 	BPF_PROG_TYPE_XDP,
-+	BPF_PROG_TYPE_CHECMATE,
- };
- 
- #define BPF_PSEUDO_MAP_FD	1
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 228f962..6f4f7b0 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -741,7 +741,7 @@ static int bpf_prog_load(union bpf_attr *attr)
- 	if (attr->insn_cnt >= BPF_MAXINSNS)
- 		return -EINVAL;
- 
--	if (type == BPF_PROG_TYPE_KPROBE &&
-+	if ((type == BPF_PROG_TYPE_KPROBE || type == BPF_PROG_TYPE_CHECMATE) &&
- 	    attr->kern_version != LINUX_VERSION_CODE)
- 		return -EINVAL;
- 
-diff --git a/security/Kconfig b/security/Kconfig
-index df28f2b..c819539 100644
---- a/security/Kconfig
-+++ b/security/Kconfig
-@@ -152,6 +152,7 @@ source security/tomoyo/Kconfig
- source security/apparmor/Kconfig
- source security/loadpin/Kconfig
- source security/yama/Kconfig
-+source security/checmate/Kconfig
- 
- source security/integrity/Kconfig
- 
-diff --git a/security/Makefile b/security/Makefile
-index f2d71cd..6cc3342 100644
---- a/security/Makefile
-+++ b/security/Makefile
-@@ -8,6 +8,7 @@ subdir-$(CONFIG_SECURITY_SMACK)		+= smack
- subdir-$(CONFIG_SECURITY_TOMOYO)        += tomoyo
- subdir-$(CONFIG_SECURITY_APPARMOR)	+= apparmor
- subdir-$(CONFIG_SECURITY_YAMA)		+= yama
-+subdir-$(CONFIG_SECURITY_CHECMATE)	+= checmate
- subdir-$(CONFIG_SECURITY_LOADPIN)	+= loadpin
- 
- # always enable default capabilities
-@@ -25,6 +26,7 @@ obj-$(CONFIG_SECURITY_APPARMOR)		+= apparmor/
- obj-$(CONFIG_SECURITY_YAMA)		+= yama/
- obj-$(CONFIG_SECURITY_LOADPIN)		+= loadpin/
- obj-$(CONFIG_CGROUP_DEVICE)		+= device_cgroup.o
-+obj-$(CONFIG_SECURITY_CHECMATE)		+= checmate/
- 
- # Object integrity file lists
- subdir-$(CONFIG_INTEGRITY)		+= integrity
-diff --git a/security/checmate/Kconfig b/security/checmate/Kconfig
-new file mode 100644
-index 0000000..9dc76d1
---- /dev/null
-+++ b/security/checmate/Kconfig
-@@ -0,0 +1,11 @@
-+config SECURITY_CHECMATE
-+	bool "Checmate support"
-+	depends on SECURITY && SOCK_CGROUP_DATA
-+	default n
-+	help
-+	  This selects Checmate, which is an LSM that works in conjuncion with
-+	  cgroups and BPF in order to provide programmable, flexible, and
-+	  extensible security policies. Further information can be found in
-+	  Documentation/security/Checmate.txt
-+
-+	  If you are unsure how to answer this question, answer N.
-diff --git a/security/checmate/Makefile b/security/checmate/Makefile
-new file mode 100644
-index 0000000..c676773
---- /dev/null
-+++ b/security/checmate/Makefile
-@@ -0,0 +1,3 @@
-+obj-$(CONFIG_SECURITY_CHECMATE) := checmate.o
-+
-+checmate-y := checmate_bpf.o checmate_lsm.o
-diff --git a/security/checmate/checmate_bpf.c b/security/checmate/checmate_bpf.c
-new file mode 100644
-index 0000000..001225c
---- /dev/null
-+++ b/security/checmate/checmate_bpf.c
-@@ -0,0 +1,68 @@
-+/*
-+ * Checmate Linux Security Module
-+ *
-+ * Copyright (C) 2016 Sargun Dhillon <sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2, as
-+ * published by the Free Software Foundation.
-+ *
-+ */
-+
-+#include <linux/bpf.h>
-+#include <linux/checmate.h>
-+
-+static const struct bpf_func_proto *
-+checmate_prog_func_proto(enum bpf_func_id func_id)
-+{
-+	switch (func_id) {
-+	case BPF_FUNC_map_lookup_elem:
-+		return &bpf_map_lookup_elem_proto;
-+	case BPF_FUNC_map_update_elem:
-+		return &bpf_map_update_elem_proto;
-+	case BPF_FUNC_map_delete_elem:
-+		return &bpf_map_delete_elem_proto;
-+	case BPF_FUNC_probe_read:
-+		return &bpf_probe_read_proto;
-+	case BPF_FUNC_tail_call:
-+		return &bpf_tail_call_proto;
-+	case BPF_FUNC_get_current_pid_tgid:
-+		return &bpf_get_current_pid_tgid_proto;
-+	case BPF_FUNC_get_current_task:
-+		return &bpf_get_current_task_proto;
-+	case BPF_FUNC_get_current_uid_gid:
-+		return &bpf_get_current_uid_gid_proto;
-+	case BPF_FUNC_get_current_comm:
-+		return &bpf_get_current_comm_proto;
-+	case BPF_FUNC_trace_printk:
-+		return bpf_get_trace_printk_proto();
-+	default:
-+		return NULL;
-+	}
-+}
-+
-+static bool checmate_prog_is_valid_access(int off, int size,
-+					  enum bpf_access_type type,
-+					  enum bpf_reg_type *reg_type)
-+{
-+	if (type != BPF_READ)
-+		return false;
-+	if (off < 0 || off >= sizeof(struct checmate_ctx))
-+		return false;
-+	return true;
-+}
-+
-+static const struct bpf_verifier_ops checmate_prog_ops = {
-+	.get_func_proto		= checmate_prog_func_proto,
-+	.is_valid_access	= checmate_prog_is_valid_access,
-+};
-+
-+static struct bpf_prog_type_list checmate_tl = {
-+	.ops	= &checmate_prog_ops,
-+	.type	= BPF_PROG_TYPE_CHECMATE,
-+};
-+
-+void register_checmate_prog_ops(void)
-+{
-+	bpf_register_prog_type(&checmate_tl);
-+}
-diff --git a/security/checmate/checmate_lsm.c b/security/checmate/checmate_lsm.c
-new file mode 100644
-index 0000000..ef8514d
---- /dev/null
-+++ b/security/checmate/checmate_lsm.c
-@@ -0,0 +1,610 @@
-+/*
-+ * Checmate Linux Security Module
-+ *
-+ * Copyright (C) 2016 Sargun Dhillon <sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2, as
-+ * published by the Free Software Foundation.
-+ *
-+ */
-+
-+#include <linux/prctl.h>
-+#include <linux/checmate.h>
-+#include <linux/lsm_hooks.h>
-+#include <linux/mutex.h>
-+#include <linux/bpf.h>
-+#include <linux/filter.h>
+ /* Shared helpers among cBPF and eBPF. */
+ void bpf_user_rnd_init_once(void);
+diff --git a/kernel/bpf/helpers.c b/kernel/bpf/helpers.c
+index c439afc..ffaaa4b 100644
+--- a/kernel/bpf/helpers.c
++++ b/kernel/bpf/helpers.c
+@@ -17,6 +17,7 @@
+ #include <linux/sched.h>
+ #include <linux/uidgid.h>
+ #include <linux/uaccess.h>
 +#include <linux/cgroup.h>
-+#include <net/sock.h>
-+#include <net/request_sock.h>
-+
-+#define MAX_CHECMATE_INSTANCES 32
-+
-+/* Global mutex for any Checmate hook manipulation operations */
-+DEFINE_MUTEX(checmate_mutex);
-+
-+#define CHECMATE_CFTYPE(HOOK, NAME)			\
-+	{						\
-+		.name		= NAME,			\
-+		.private	= HOOK,			\
-+		.read_u64	= checmate_read_u64,	\
-+		.write_s64	= checmate_write_s64,	\
-+		.flags		= CFTYPE_NOT_ON_ROOT	\
-+	}
-+
-+extern void register_checmate_prog_ops(void);
-+
-+struct checmate_instance {
-+	struct list_head	list;
-+	struct rcu_head		rcu;
-+	struct bpf_prog		*prog;
-+};
-+
-+struct checmate_hook {
-+	struct list_head	instances;
-+	int			count;
-+};
-+
-+struct checmate_css {
-+	struct cgroup_subsys_state	css;
-+	struct checmate_hook		hooks[__CHECMATE_HOOK_MAX];
-+};
-+
-+static struct checmate_css *css_checmate(struct cgroup_subsys_state *css)
+ 
+ /* If kernel subsystem is allowing eBPF programs to call this function,
+  * inside its own verifier_ops->get_func_proto() callback it should return
+@@ -212,6 +213,34 @@ static u64 bpf_probe_read(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
+ 	return ret;
+ }
+ 
++static u64 bpf_current_task_under_cgroup(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
 +{
-+	return container_of(css, struct checmate_css, css);
-+}
-+
-+static struct checmate_css *parent_checmate(struct checmate_css *checmate)
-+{
-+	return css_checmate(checmate->css.parent);
-+}
-+
-+static struct cgroup_subsys_state *
-+checmate_css_alloc(struct cgroup_subsys_state *parent)
-+{
-+	struct checmate_css *checmate;
-+	int i;
-+
-+	checmate = kzalloc(sizeof(*checmate), GFP_KERNEL);
-+	if (!checmate)
-+		return ERR_PTR(-ENOMEM);
-+
-+	for (i = 0; i < ARRAY_SIZE(checmate->hooks); i++)
-+		INIT_LIST_HEAD(&checmate->hooks[i].instances);
-+
-+	return &checmate->css;
-+}
-+
-+/*
-+ * checmate_hook_free - Deallocate, and release resources for a given hook
-+ * @hook: The hook
-+ *
-+ * Always succeeds. Only to be used when hook is out of use, and therefore
-+ * doesn't use the RCU mechanism to cleanup he hook. Only use it for
-+ * retirement of a hook.
-+ */
-+static void checmate_hook_free(struct checmate_hook *hook)
-+{
-+	struct checmate_instance *instance, *next;
-+
-+	list_for_each_entry_safe(instance, next, &hook->instances, list) {
-+		list_del(&instance->list);
-+		bpf_prog_put(instance->prog);
-+		kfree(instance);
-+	}
-+}
-+
-+/*
-+ * checmate_css_free - Callback for css_free
-+ * @css: The cgroup_subsys_state to be freed
-+ */
-+static void checmate_css_free(struct cgroup_subsys_state *css)
-+{
-+	struct checmate_css *checmate = css_checmate(css);
-+	int i;
-+
-+	mutex_lock(&checmate_mutex);
-+	for (i = 0; i < ARRAY_SIZE(checmate->hooks); i++)
-+		checmate_hook_free(&checmate->hooks[i]);
-+
-+	kfree(checmate);
-+	mutex_unlock(&checmate_mutex);
-+}
-+
-+/*
-+ * checmate_instance_add - Add BPF program instance to a Checmate hook
-+ * @hook: The hook
-+ * @prog: A checmate BPF program
-+ *
-+ * Checks if the program is already part of the hook, and only adds new
-+ * programs.
-+ *
-+ * Returns 0 on success. -errno on failure.
-+ *
-+ * Requires that the Checmate mutex is held during the operation.
-+ */
-+static int checmate_instance_add(struct checmate_hook *hook,
-+				 struct bpf_prog *prog)
-+{
-+	struct checmate_instance *instance;
-+	int rc = 0;
-+
-+	if (hook->count >= MAX_CHECMATE_INSTANCES)
-+		return -ENOSPC;
-+
-+	list_for_each_entry(instance, &hook->instances, list) {
-+		if (instance->prog == prog) {
-+			bpf_prog_put(prog);
-+			rc = -EEXIST;
-+			goto err;
-+		}
-+	}
-+
-+	instance = kmalloc(sizeof(*instance), GFP_KERNEL);
-+	if (!instance) {
-+		rc = -ENOMEM;
-+		goto err;
-+	}
-+
-+	instance->prog = prog;
-+	list_add_tail_rcu(&instance->list, &hook->instances);
-+	hook->count++;
-+	return rc;
-+
-+err:
-+	bpf_prog_put(prog);
-+	return rc;
-+}
-+
-+/*
-+ * checmate_instance_cleanup_rcu - Cleans up a Checmate program instance
-+ * @rp: rcu_head pointer to a Checmate instance
-+ */
-+static void checmate_instance_cleanup_rcu(struct rcu_head *rp)
-+{
-+	struct checmate_instance *instance;
-+
-+	instance = container_of(rp, struct checmate_instance, rcu);
-+	bpf_prog_put(instance->prog);
-+	kfree(instance);
-+}
-+
-+/*
-+ * checmate_instance_remove - Remove Checmate program instance from a hook
-+ * @hook: The hook
-+ * @prog: A Checmate BPF program referred to by the instance.
-+ *
-+ * Returns 0 on success. -errno on failure.
-+ *
-+ * Requires that the Checmate mutex is held during the operation.
-+ */
-+static int checmate_instance_remove(struct checmate_hook *hook,
-+				    struct bpf_prog *prog)
-+{
-+	struct checmate_instance *instance, *next;
-+	int rc = -ENOENT;
-+
-+	list_for_each_entry_safe(instance, next, &hook->instances, list) {
-+		if (instance->prog == prog) {
-+			list_del_rcu(&instance->list);
-+			call_rcu(&instance->rcu, checmate_instance_cleanup_rcu);
-+			rc = 0;
-+			hook->count--;
-+			break;
-+		}
-+	}
-+	bpf_prog_put(prog);
-+
-+	return rc;
-+}
-+
-+/*
-+ * checmate_hook_reset - Remove all program instances from a Checmate hook
-+ * @hook: The hook
-+ *
-+ * Always succeeds.
-+ *
-+ * Requires that the Checmate mutex is held during the operation.
-+ */
-+static void checmate_hook_reset(struct checmate_hook *hook)
-+{
-+	struct checmate_instance *instance, *next;
-+
-+	list_for_each_entry_safe(instance, next, &hook->instances, list) {
-+		list_del_rcu(&instance->list);
-+		call_rcu(&instance->rcu, checmate_instance_cleanup_rcu);
-+	}
-+	hook->count = 0;
-+}
-+
-+/*
-+ * checmate_write_s64 - Handle a write to the checmate cgroup control file
-+ * @css: The given cgroup state that own's the hook
-+ * @cft: The given cftype that is being referenced, used to get the hook id.
-+ * @val: The bpf program fd that is involved in the operation, or 0.
-+ *
-+ * val == 0: Reset all programs in hook.
-+ * val > 0: Add the given program.
-+ * val < 0: Remove the given program.
-+ *
-+ * Returns 0 on success. -errno on failure.
-+ */
-+static int checmate_write_s64(struct cgroup_subsys_state *css,
-+			      struct cftype *cft, s64 val)
-+{
-+	struct checmate_css *checmate = css_checmate(css);
-+	struct checmate_hook *hook;
-+	struct bpf_prog *prog;
-+	int rc = 0;
-+
-+	hook = &checmate->hooks[cft->private];
-+	mutex_lock(&checmate_mutex);
-+	if (val == 0) {
-+		checmate_hook_reset(hook);
-+		goto out;
-+	}
-+
-+	/* If we're not resetting, we have to load, and check the program */
-+	prog = bpf_prog_get_type(abs(val), BPF_PROG_TYPE_CHECMATE);
-+	if (IS_ERR(prog))
-+		return PTR_ERR(prog);
-+
-+	if (val > 0)
-+		rc = checmate_instance_add(hook, prog);
-+	else
-+		rc = checmate_instance_remove(hook, prog);
-+
-+out:
-+	mutex_unlock(&checmate_mutex);
-+	return rc;
-+}
-+
-+/*
-+ * checmate_read_u64 - Read the number of programs loaded into a given hook
-+ * @css: The given cgroup state that own's the hook
-+ * @cft: The given cftype that is being referenced, used to get the hook id.
-+ *
-+ *
-+ * Returns number of programs loaded into hook. Always succeeds.
-+ */
-+static u64 checmate_read_u64(struct cgroup_subsys_state *css,
-+			     struct cftype *cft)
-+{
-+	struct checmate_css *checmate = css_checmate(css);
-+	struct checmate_hook *hook;
-+
-+	hook = &checmate->hooks[cft->private];
-+	return hook->count;
-+}
-+
-+static struct cftype checmate_files[] = {
-+#ifdef CONFIG_SECURITY_NETWORK
-+	CHECMATE_CFTYPE(CHECMATE_HOOK_UNIX_STREAM_CONNECT,
-+			"unix_stream_connect"),
-+	CHECMATE_CFTYPE(CHECMATE_HOOK_UNIX_MAY_SEND,
-+			"unix_may_send"),
-+	CHECMATE_CFTYPE(CHECMATE_HOOK_SOCKET_CREATE, "socket_create"),
-+	CHECMATE_CFTYPE(CHECMATE_HOOK_SOCKET_BIND, "socket_bind"),
-+	CHECMATE_CFTYPE(CHECMATE_HOOK_SOCKET_CONNECT, "socket_connect"),
-+	CHECMATE_CFTYPE(CHECMATE_HOOK_SOCKET_LISTEN, "socket_listen"),
-+	CHECMATE_CFTYPE(CHECMATE_HOOK_SOCKET_ACCEPT, "socket_accept"),
-+	CHECMATE_CFTYPE(CHECMATE_HOOK_SOCKET_SENDMSG, "socket_sendmsg"),
-+	CHECMATE_CFTYPE(CHECMATE_HOOK_SOCKET_RECVMSG, "socket_recvmsg"),
-+	CHECMATE_CFTYPE(CHECMATE_HOOK_SOCKET_SHUTDOWN, "socket_shutdown"),
-+	CHECMATE_CFTYPE(CHECMATE_HOOK_SOCKET_SOCK_RCV_SKB,
-+			"socket_sock_rcv_skb"),
-+	CHECMATE_CFTYPE(CHECMATE_HOOK_SK_FREE_SECURITY, "sk_free_security"),
-+#endif /* CONFIG_SECURITY_NETWORK */
-+	{}
-+};
-+
-+struct cgroup_subsys checmate_cgrp_subsys = {
-+	.css_alloc	= checmate_css_alloc,
-+	.css_free	= checmate_css_free,
-+	.dfl_cftypes	= checmate_files,
-+};
-+
-+/*
-+ * check_checmate_filters - Run all the BPF programs associated with a hook
-+ * @css: A pointer to the Checmate css
-+ * @ctx: A pointer to the Checmate ctx
-+ *
-+ * Return 0 on success, on first hook returning non-0, the error is returned
-+ * to the caller.
-+ */
-+static int checmate_check_filters(struct checmate_css *checmate,
-+				  struct checmate_ctx *ctx)
-+{
-+	struct checmate_instance *instance;
-+	struct checmate_hook *hook;
-+	int rc = 0;
-+
-+	hook = &checmate->hooks[ctx->hook];
-+
-+	rcu_read_lock();
-+	list_for_each_entry_rcu(instance, &hook->instances, list) {
-+		rc = BPF_PROG_RUN(instance->prog, (void *)ctx);
-+		if (rc)
-+			break;
-+	}
-+	rcu_read_unlock();
-+
-+	return rc;
-+}
-+
-+/*
-+ * call_bpf_int_hook - Walk the cgroup hierarchy, running filters up the chain
-+ * @hook: The Hook ID
-+ * @css: A pointer to the Checmate css
-+ * @cgrp: A pointer to the cgroup we're in, may be null or err
-+ *
-+ * Return 0 on success, on first hook erroring, the error is returned
-+ * to the caller.
-+ *
-+ * Requires that the context struct is populated before passing, but
-+ * the actual ctx->hook number is set by the function.
-+ */
-+static int call_bpf_int_hook(int hook, struct cgroup_subsys_state *css,
-+			     struct checmate_ctx *ctx)
-+{
-+	struct checmate_css *checmate;
-+	int rc = 0;
-+
-+	/* Fail open if we can't find the css / cgroup */
-+	if (unlikely(IS_ERR_OR_NULL(css)))
-+		goto out;
-+
-+	ctx->hook = hook;
-+
-+	for (checmate = css_checmate(css); parent_checmate(checmate);
-+	     checmate = parent_checmate(checmate)) {
-+		rc = checmate_check_filters(checmate, ctx);
-+		if (rc)
-+			break;
-+	}
-+
-+out:
-+	return rc;
-+}
-+
-+/*
-+ * call_bpf_void_hook - Run all the BPF programs associated with a hook
-+ * Wrapper around call_bpf_int_hook.
-+ */
-+static void call_bpf_void_hook(int hook, struct cgroup_subsys_state *css,
-+			       struct checmate_ctx *ctx)
-+{
-+	call_bpf_int_hook(hook, css, ctx);
-+}
-+
-+/*
-+ * css_from_sk - Get the Checmate CSS for an sk
-+ * @sk: The struct sock we're trying to get the CSS for.
-+ *
-+ * Return Checmate CSS on success, or NULL / ERR_PTR on failure. It will try
-+ * to return the effective CSS.
-+ */
-+static struct cgroup_subsys_state *css_from_sk(struct sock *sk)
-+{
-+	struct cgroup_subsys_state *css;
++	struct bpf_map *map = (struct bpf_map *)(long)r1;
++	struct bpf_array *array = container_of(map, struct bpf_array, map);
 +	struct cgroup *cgrp;
-+
-+	if (!sk_fullsock(sk))
-+		return ERR_PTR(-EINVAL);
-+	cgrp = sock_cgroup_ptr(&sk->sk_cgrp_data);
-+
-+	rcu_read_lock();
-+	do {
-+		css = rcu_dereference(cgrp->subsys[checmate_cgrp_id]);
-+		if (css)
-+			goto out;
-+		cgrp = cgroup_parent(cgrp);
-+	} while (cgrp);
-+
-+out:
-+	rcu_read_unlock();
-+
-+	return css;
-+}
-+
-+/*
-+ * css_from_sock - Get the Checmate CSS for a socket
-+ * @sock: The struct socket we're trying to get the CSS for.
-+ *
-+ * Return CSS on success. NULL / ERR_PTR on failure. It's a wrapper  around
-+ * css_from_sk.
-+ */
-+static struct cgroup_subsys_state *css_from_sock(struct socket *sock)
-+{
-+	struct sock *sk;
-+
-+	sk = sock->sk;
-+	if (!sk)
-+		return ERR_PTR(-ENOENT);
-+
-+	return css_from_sk(sk);
-+}
-+
-+/*
-+ * css_from_sock - Get the checmate CSS for the current task context.
-+ *
-+ * Return CSS success on success. ERR_PTR on failure. It checks to see if it's
-+ * being called from an interrupt as well.
-+ */
-+static struct cgroup_subsys_state *css_from_current(void)
-+{
-+	struct cgroup_subsys_state *css;
++	u32 idx = (u32)r2;
 +
 +	if (unlikely(in_interrupt()))
-+		return ERR_PTR(-ENOENT);
++		return -EINVAL;
 +
-+	rcu_read_lock();
-+	css = task_css(current, checmate_cgrp_id);
-+	rcu_read_unlock();
++	if (unlikely(idx >= array->map.max_entries))
++		return -E2BIG;
 +
-+	return css;
++	cgrp = READ_ONCE(array->ptrs[idx]);
++	if (unlikely(!cgrp))
++		return -EAGAIN;
++
++	return task_under_cgroup_hierarchy(current, cgrp);
 +}
 +
-+/* Checmate hooks */
-+#ifdef CONFIG_SECURITY_NETWORK
-+static int checmate_unix_stream_connect(struct sock *sock, struct sock *other,
-+					struct sock *newsk)
-+{
-+	struct cgroup_subsys_state *css;
-+	struct checmate_ctx ctx;
-+
-+	css = css_from_sk(sock);
-+	ctx.unix_stream_connect.sock = sock;
-+	ctx.unix_stream_connect.other = other;
-+	ctx.unix_stream_connect.newsk = newsk;
-+	return call_bpf_int_hook(CHECMATE_HOOK_UNIX_STREAM_CONNECT, css, &ctx);
-+}
-+
-+static int checmate_unix_may_send(struct socket *sock, struct socket *other)
-+{
-+	struct cgroup_subsys_state *css;
-+	struct checmate_ctx ctx;
-+
-+	css = css_from_sock(sock);
-+	ctx.unix_may_send.sock = sock;
-+	ctx.unix_may_send.other = other;
-+	return call_bpf_int_hook(CHECMATE_HOOK_UNIX_MAY_SEND, css, &ctx);
-+}
-+
-+static int checmate_socket_create(int family, int type, int protocol, int kern)
-+{
-+	struct cgroup_subsys_state *css;
-+	struct checmate_ctx ctx;
-+
-+	css = css_from_current();
-+	ctx.socket_create.family = family;
-+	ctx.socket_create.type = type;
-+	ctx.socket_create.protocol = protocol;
-+	ctx.socket_create.kern = kern;
-+	return call_bpf_int_hook(CHECMATE_HOOK_SOCKET_CREATE, css, &ctx);
-+}
-+
-+static int checmate_socket_bind(struct socket *sock, struct sockaddr *address,
-+				int addrlen)
-+{
-+	struct cgroup_subsys_state *css;
-+	struct checmate_ctx ctx;
-+
-+	css = css_from_sock(sock);
-+	ctx.socket_bind.sock = sock;
-+	ctx.socket_bind.address = address;
-+	ctx.socket_bind.addrlen = addrlen;
-+	return call_bpf_int_hook(CHECMATE_HOOK_SOCKET_BIND, css, &ctx);
-+}
-+
-+static int checmate_socket_connect(struct socket *sock,
-+				   struct sockaddr *address, int addrlen)
-+{
-+	struct cgroup_subsys_state *css;
-+	struct checmate_ctx ctx;
-+
-+	css = css_from_sock(sock);
-+	ctx.socket_connect.sock = sock;
-+	ctx.socket_connect.address = address;
-+	ctx.socket_connect.addrlen = addrlen;
-+	return call_bpf_int_hook(CHECMATE_HOOK_SOCKET_CONNECT, css, &ctx);
-+}
-+
-+static int checmate_socket_listen(struct socket *sock, int backlog)
-+{
-+	struct cgroup_subsys_state *css;
-+	struct checmate_ctx ctx;
-+
-+	css = css_from_sock(sock);
-+	ctx.socket_listen.sock = sock;
-+	ctx.socket_listen.backlog = backlog;
-+	return call_bpf_int_hook(CHECMATE_HOOK_SOCKET_LISTEN, css, &ctx);
-+}
-+
-+static int checmate_socket_accept(struct socket *sock, struct socket *newsock)
-+{
-+	struct cgroup_subsys_state *css;
-+	struct checmate_ctx ctx;
-+
-+	css = css_from_sock(sock);
-+	ctx.socket_accept.sock = sock;
-+	ctx.socket_accept.newsock = newsock;
-+	return call_bpf_int_hook(CHECMATE_HOOK_SOCKET_ACCEPT, css, &ctx);
-+}
-+
-+static int checmate_socket_sendmsg(struct socket *sock, struct msghdr *msg,
-+				   int size)
-+{
-+	struct cgroup_subsys_state *css;
-+	struct checmate_ctx ctx;
-+
-+	css = css_from_sock(sock);
-+	ctx.socket_sendmsg.sock = sock;
-+	ctx.socket_sendmsg.msg = msg;
-+	ctx.socket_sendmsg.size = size;
-+	return call_bpf_int_hook(CHECMATE_HOOK_SOCKET_SENDMSG, css, &ctx);
-+}
-+
-+static int checmate_socket_recvmsg(struct socket *sock, struct msghdr *msg,
-+				   int size, int flags)
-+{
-+	struct cgroup_subsys_state *css;
-+	struct checmate_ctx ctx;
-+
-+	css = css_from_sock(sock);
-+	ctx.socket_recvmsg.sock = sock;
-+	ctx.socket_recvmsg.msg = msg;
-+	ctx.socket_recvmsg.size = size;
-+	ctx.socket_recvmsg.flags = flags;
-+	return call_bpf_int_hook(CHECMATE_HOOK_SOCKET_RECVMSG, css, &ctx);
-+}
-+
-+static int checmate_socket_sock_rcv_skb(struct sock *sk, struct sk_buff *skb)
-+{
-+	struct cgroup_subsys_state *css;
-+	struct checmate_ctx ctx;
-+
-+	css = css_from_sk(sk);
-+	ctx.socket_sock_rcv_skb.sk = sk;
-+	ctx.socket_sock_rcv_skb.skb = skb;
-+	return call_bpf_int_hook(CHECMATE_HOOK_SOCKET_SOCK_RCV_SKB, css, &ctx);
-+}
-+
-+static void checmate_sk_free_security(struct sock *sk)
-+{
-+	struct cgroup_subsys_state *css;
-+	struct checmate_ctx ctx;
-+
-+	css = css_from_sk(sk);
-+	ctx.sk_free_security.sk = sk;
-+	return call_bpf_void_hook(CHECMATE_HOOK_SK_FREE_SECURITY, css, &ctx);
-+}
-+
-+#endif /* CONFIG_SECURITY_NETWORK */
-+
-+static struct security_hook_list checmate_hooks[] = {
-+#ifdef CONFIG_SECURITY_NETWORK
-+	LSM_HOOK_INIT(unix_stream_connect, checmate_unix_stream_connect),
-+	LSM_HOOK_INIT(unix_may_send, checmate_unix_may_send),
-+	LSM_HOOK_INIT(socket_create, checmate_socket_create),
-+	LSM_HOOK_INIT(socket_bind, checmate_socket_bind),
-+	LSM_HOOK_INIT(socket_connect, checmate_socket_connect),
-+	LSM_HOOK_INIT(socket_listen, checmate_socket_listen),
-+	LSM_HOOK_INIT(socket_accept, checmate_socket_accept),
-+	LSM_HOOK_INIT(socket_sendmsg, checmate_socket_sendmsg),
-+	LSM_HOOK_INIT(socket_recvmsg, checmate_socket_recvmsg),
-+	LSM_HOOK_INIT(socket_sock_rcv_skb, checmate_socket_sock_rcv_skb),
-+	LSM_HOOK_INIT(sk_free_security, checmate_sk_free_security),
-+#endif /* CONFIG_SECURITY_NETWORK */
++const struct bpf_func_proto bpf_current_task_under_cgroup_proto = {
++	.func           = bpf_current_task_under_cgroup,
++	.gpl_only       = false,
++	.ret_type       = RET_INTEGER,
++	.arg1_type      = ARG_CONST_MAP_PTR,
++	.arg2_type      = ARG_ANYTHING,
 +};
 +
-+static int __init checmate_setup(void)
-+{
-+	pr_info("Checmate activating.\n");
-+	register_checmate_prog_ops();
-+	security_add_hooks(checmate_hooks, ARRAY_SIZE(checmate_hooks));
-+	return 0;
-+}
-+late_initcall(checmate_setup);
+ const struct bpf_func_proto bpf_probe_read_proto = {
+ 	.func		= bpf_probe_read,
+ 	.gpl_only	= true,
+diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
+index cb96eda..3725df2 100644
+--- a/kernel/trace/bpf_trace.c
++++ b/kernel/trace/bpf_trace.c
+@@ -343,34 +343,6 @@ u64 bpf_event_output(struct bpf_map *map, u64 flags, void *meta, u64 meta_size,
+ 	return __bpf_perf_event_output(regs, map, flags, &raw);
+ }
+ 
+-static u64 bpf_current_task_under_cgroup(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
+-{
+-	struct bpf_map *map = (struct bpf_map *)(long)r1;
+-	struct bpf_array *array = container_of(map, struct bpf_array, map);
+-	struct cgroup *cgrp;
+-	u32 idx = (u32)r2;
+-
+-	if (unlikely(in_interrupt()))
+-		return -EINVAL;
+-
+-	if (unlikely(idx >= array->map.max_entries))
+-		return -E2BIG;
+-
+-	cgrp = READ_ONCE(array->ptrs[idx]);
+-	if (unlikely(!cgrp))
+-		return -EAGAIN;
+-
+-	return task_under_cgroup_hierarchy(current, cgrp);
+-}
+-
+-static const struct bpf_func_proto bpf_current_task_under_cgroup_proto = {
+-	.func           = bpf_current_task_under_cgroup,
+-	.gpl_only       = false,
+-	.ret_type       = RET_INTEGER,
+-	.arg1_type      = ARG_CONST_MAP_PTR,
+-	.arg2_type      = ARG_ANYTHING,
+-};
+-
+ static const struct bpf_func_proto *tracing_func_proto(enum bpf_func_id func_id)
+ {
+ 	switch (func_id) {
+diff --git a/security/checmate/checmate_bpf.c b/security/checmate/checmate_bpf.c
+index 24d6935..37ea609 100644
+--- a/security/checmate/checmate_bpf.c
++++ b/security/checmate/checmate_bpf.c
+@@ -91,6 +91,8 @@ checmate_prog_func_proto(enum bpf_func_id func_id)
+ 		return &bpf_probe_write_user_proto;
+ 	case BPF_FUNC_trace_printk:
+ 		return bpf_get_trace_printk_proto();
++	case BPF_FUNC_current_task_under_cgroup:
++		return &bpf_current_task_under_cgroup_proto;
+ 	default:
+ 		return NULL;
+ 	}
 -- 
 2.7.4
+
