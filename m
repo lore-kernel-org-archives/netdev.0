@@ -1,70 +1,66 @@
-From: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
-Subject: [PATCH net 3/3] qed: Clear dcbx memory buffers before the usage.
-Date: Mon, 29 Aug 2016 08:29:54 -0400
-Message-ID: <1472473794-11933-4-git-send-email-sudarsana.kalluru@qlogic.com>
-References: <1472473794-11933-1-git-send-email-sudarsana.kalluru@qlogic.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net v2 9/9] net: ethernet: mediatek: fix error handling
+ inside mtk_mdio_init
+Date: Mon, 29 Aug 2016 15:15:58 +0200
+Message-ID: <20160829131558.GE12465@lunn.ch>
+References: <1472447003-30726-1-git-send-email-sean.wang@mediatek.com>
+ <1472447003-30726-10-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@qlogic.com>,
-        <sudarsana.kalluru@qlogic.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: john@phrozen.org, davem@davemloft.net, nbd@openwrt.org,
+        netdev@vger.kernel.org, linux-mediatek@lists.infradead.org,
+        keyhaede@gmail.com
+To: sean.wang@mediatek.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:34344 "EHLO
-        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S933015AbcH2NNo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 09:13:44 -0400
-In-Reply-To: <1472473794-11933-1-git-send-email-sudarsana.kalluru@qlogic.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:46773 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932930AbcH2NQF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 29 Aug 2016 09:16:05 -0400
+Content-Disposition: inline
+In-Reply-To: <1472447003-30726-10-git-send-email-sean.wang@mediatek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch takes care of clearing the uninitialized buffer before using it.
-1. pfc pri-enable bitmap need to be cleared before setting the requested
-   enable bits. Without this, the un-touched values will be merged with
-   requested values and sent to MFW.
-2. The data in app-entry field need to be cleared before using it.
-3. Clear the output data buffer used in qed_dcbx_query_params().
+On Mon, Aug 29, 2016 at 01:03:23PM +0800, sean.wang@mediatek.com wrote:
+> From: Sean Wang <sean.wang@mediatek.com>
+> 
+> return -ENODEV if no child is found in MDIO bus.
 
-Signed-off-by: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
-Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
----
- drivers/net/ethernet/qlogic/qed/qed_dcbx.c | 4 ++++
- 1 file changed, 4 insertions(+)
+Hi Sean
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dcbx.c b/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
-index 192a886..ad023fe 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
-@@ -988,6 +988,7 @@ qed_dcbx_set_pfc_data(struct qed_hwfn *p_hwfn,
- 		if (p_params->pfc.prio[i])
- 			pfc_map |= BIT(i);
- 
-+	*pfc &= ~DCBX_PFC_PRI_EN_BITMAP_MASK;
- 	*pfc |= (pfc_map << DCBX_PFC_PRI_EN_BITMAP_SHIFT);
- 
- 	DP_VERBOSE(p_hwfn, QED_MSG_DCB, "pfc = 0x%x\n", *pfc);
-@@ -1062,6 +1063,7 @@ qed_dcbx_set_app_data(struct qed_hwfn *p_hwfn,
- 
- 	for (i = 0; i < DCBX_MAX_APP_PROTOCOL; i++) {
- 		entry = &p_app->app_pri_tbl[i].entry;
-+		*entry = 0;
- 		if (ieee) {
- 			*entry &= ~(DCBX_APP_SF_IEEE_MASK | DCBX_APP_SF_MASK);
- 			switch (p_params->app_entry[i].sf_ieee) {
-@@ -1193,6 +1195,7 @@ int qed_dcbx_get_config_params(struct qed_hwfn *p_hwfn,
- 		return -ENOMEM;
- 	}
- 
-+	memset(dcbx_info, 0, sizeof(*dcbx_info));
- 	rc = qed_dcbx_query_params(p_hwfn, dcbx_info, QED_DCBX_OPERATIONAL_MIB);
- 	if (rc) {
- 		kfree(dcbx_info);
-@@ -1230,6 +1233,7 @@ static struct qed_dcbx_get *qed_dcbnl_get_dcbx(struct qed_hwfn *hwfn,
- 		return NULL;
- 	}
- 
-+	memset(dcbx_info, 0, sizeof(*dcbx_info));
- 	if (qed_dcbx_query_params(hwfn, dcbx_info, type)) {
- 		kfree(dcbx_info);
- 		return NULL;
--- 
-1.8.3.1
+Why is it an error not to have any children on the bus?
+
+Say i have a fibre optical module connected to the MAC. It is unlikely
+to have an MII interface, so i would not list it on the bus. With this
+change, if i have the mdio-bus node in my device tree, i don't get a
+working system. Without this change, it simply does not instantiate
+the MDIO device, and returns without an error.
+
+I think this patch should be dropped, or maybe a comment adding, why
+the current code returns 0 at this point.
+
+    Andrew
+
+> 
+> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+> Acked-by: John Crispin <john@phrozen.org>
+> ---
+>  drivers/net/ethernet/mediatek/mtk_eth_soc.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+> index f741c6a..e48b2a4 100644
+> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+> @@ -304,7 +304,7 @@ static int mtk_mdio_init(struct mtk_eth *eth)
+>  	}
+>  
+>  	if (!of_device_is_available(mii_np)) {
+> -		ret = 0;
+> +		ret = -ENODEV;
+>  		goto err_put_node;
+>  	}
+>  
+> -- 
+> 1.9.1
+> 
