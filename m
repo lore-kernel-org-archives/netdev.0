@@ -1,99 +1,65 @@
-From: Sean Wang <sean.wang@mediatek.com>
-Subject: Re: [PATCH net v2 9/9] net: ethernet: mediatek: fix error handling inside mtk_mdio_init
-Date: Tue, 30 Aug 2016 00:10:03 +0800
-Message-ID: <1472487003-21584-1-git-send-email-sean.wang@mediatek.com>
-References: <20160829131558.GE12465@lunn.ch>
+From: Alexandre TORGUE <alexandre.torgue@st.com>
+Subject: [RESEND PATCH v6 0/3] Add Ethernet support on STM32F429
+Date: Mon, 29 Aug 2016 18:23:37 +0200
+Message-ID: <1472487820-5132-1-git-send-email-alexandre.torgue@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <john@phrozen.org>, <davem@davemloft.net>, <nbd@openwrt.org>,
-        <netdev@vger.kernel.org>, <linux-mediatek@lists.infradead.org>,
-        <keyhaede@gmail.com>
-To: <andrew@lunn.ch>
+Cc: <robh@kernel.org>, <manabian@gmail.com>
+To: <netdev@vger.kernel.org>, <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw02.mediatek.com ([210.61.82.184]:16975 "EHLO
-        mailgw02.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750786AbcH2QKJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 12:10:09 -0400
-In-Reply-To: <20160829131558.GE12465@lunn.ch>
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:48352 "EHLO
+        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751190AbcH2QYU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 12:24:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Date: Mon, 29 Aug 2016 15:15:58 +0200,Andrew Lunn wrote:
->On Mon, Aug 29, 2016 at 01:03:23PM +0800, sean.wang@mediatek.com wrote:
->> From: Sean Wang <sean.wang@mediatek.com>
->> 
->> return -ENODEV if no child is found in MDIO bus.
->
->Hi Sean
->
->Why is it an error not to have any children on the bus?
->
->Say i have a fibre optical module connected to the MAC. It is unlikely
->to have an MII interface, so i would not list it on the bus. With this
->change, if i have the mdio-bus node in my device tree, i don't get a
->working system. Without this change, it simply does not instantiate
->the MDIO device, and returns without an error.
->
->I think this patch should be dropped, or maybe a comment adding, why
->the current code returns 0 at this point.
->
->    Andrew
->
-Hi Andrew,
+STM32F429 Chip embeds a Synopsys 3.50a MAC IP.
 
-Sorry, i didn't add the comment enough and well on the patch for let you can't see 
-what i am done
+This series enhance current stmmac driver to control it (code already
+available) and adds basic glue for STM32F429 chip.
 
-the patch I just want to let driver know if device tree is defined well at the earlier time
+Changes since v5:
+ -Fix typo in bindings documentation patch.
+ -Change clocks names in stm32-dwmac glue driver / Documentation.
+ -After rebase, stm32 ethernet node is now available. It has to be updated
+according to new clocks names.
 
-although original driver still works without this patch 
+Changes since v4:
+ -Fix dirty copy/past in bindings documentation patch.
 
-the original logic on the driver is 
+Changes since v3:
+ -Fix "tx-clk" and "rx-clk" as required clocks. Driver and bindings are
+modified.
 
-1) returning -ENODEV if no mdio_bus defined in the device tree. 
+Changes since v2:
+ -Fix alphabetic order in Kconfig and Makefile.
+ -Improve code according to Joachim review.
+ -Binding: remove useless entry.
 
-2) returning -ENODEV inside ndo_init callback if no phy_dev detected on the bus
+Changes since v1:
+ -Fix Kbuild issue in Kconfig.
+ -Remove init/exit callbacks. Suspend/Resume and remove driver is no more
+driven in stmmac_pltfr but directly in dwmac-stm32 glue driver.
+ -Take into account Joachim review.
 
---
-after with the patch, the logic becomes
+Regards.
 
-1) returning -ENODEV if no mdio_bus defined in the device tree
+Alexandre.
 
-2) returning -ENODEV if no phy_dev defined in the device tree 
-a. that is used to check if the device tree about phy_dev is defined well
-b. and it could be aligned with the above 1) is doing
+Alexandre TORGUE (3):
+  net: ethernet: dwmac: add Ethernet glue logic for stm32 chip
+  Documentation: Bindings: Add STM32 DWMAC glue
+  net: ethernet: stmmac: add support of Synopsys 3.50a MAC IP
 
-3) returning -ENODEV inside ndo_init callback if no phy device detected on the bus 
-(that is used to test if phy_device is workable or encounters real phy problems)
+ .../devicetree/bindings/net/stm32-dwmac.txt        |  32 ++++
+ drivers/net/ethernet/stmicro/stmmac/Kconfig        |  12 ++
+ drivers/net/ethernet/stmicro/stmmac/Makefile       |   1 +
+ drivers/net/ethernet/stmicro/stmmac/dwmac-stm32.c  | 193 +++++++++++++++++++++
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   1 +
+ 5 files changed, 239 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/stm32-dwmac.txt
+ create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-stm32.c
 
-so add 2) help to make distinguish if it is a device tree definition 
-problem or a real phy problem at the earlier time
-
-this is my whole thought
-
-thanks,
-Sean
-
->> 
->> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
->> Acked-by: John Crispin <john@phrozen.org>
->> ---
->>  drivers/net/ethernet/mediatek/mtk_eth_soc.c | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->> 
->> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
->> index f741c6a..e48b2a4 100644
->> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
->> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
->> @@ -304,7 +304,7 @@ static int mtk_mdio_init(struct mtk_eth *eth)
->>  	}
->>  
->>  	if (!of_device_is_available(mii_np)) {
->> -		ret = 0;
->> +		ret = -ENODEV;
->>  		goto err_put_node;
->>  	}
->>  
->> -- 
->> 1.9.1
->
+-- 
+1.9.1
