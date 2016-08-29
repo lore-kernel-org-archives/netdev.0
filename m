@@ -1,58 +1,53 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/14] fm10k: remove fm10k_get_reta_size from namespace
-Date: Mon, 29 Aug 2016 02:13:36 -0700
-Message-ID: <1472462026-42133-5-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1472462026-42133-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        guru.anbalagane@oracle.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:61654 "EHLO mga03.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756790AbcH2JNu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 29 Aug 2016 05:13:50 -0400
-In-Reply-To: <1472462026-42133-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH nf-next] netfilter: log: Check param to avoid overflow in
+ nf_log_set
+Date: Mon, 29 Aug 2016 11:55:25 +0200
+Message-ID: <20160829095525.GB2407@salvia>
+References: <1472394618-5711-1-git-send-email-fgao@ikuai8.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, davem@davemloft.net,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, gfree.wind@gmail.com
+To: fgao@ikuai8.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1472394618-5711-1-git-send-email-fgao@ikuai8.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+On Sun, Aug 28, 2016 at 10:30:18PM +0800, fgao@ikuai8.com wrote:
+> From: Gao Feng <fgao@ikuai8.com>
+> 
+> The nf_log_set is an interface function, so it should do the strict sanity
+> check of parameters. Add  one sanity check for pf, it could not exceed
+> NFPROTO_NUMPROTO, and print error log when pf is invalid.
+> 
+> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+> ---
+>  net/netfilter/nf_log.c | 4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/netfilter/nf_log.c b/net/netfilter/nf_log.c
+> index aa5847a..02ce0b9 100644
+> --- a/net/netfilter/nf_log.c
+> +++ b/net/netfilter/nf_log.c
+> @@ -43,8 +43,10 @@ void nf_log_set(struct net *net, u_int8_t pf, const struct nf_logger *logger)
+>  {
+>  	const struct nf_logger *log;
+>  
+> -	if (pf == NFPROTO_UNSPEC)
+> +	if (pf == NFPROTO_UNSPEC || pf >= NFPROTO_NUMPROTO) {
+> +		pr_err("Wrong pf(%d) for nf log", pf);
+>  		return;
 
-The function is only used in fm10k_ethtool.c, so make it static.
+I'd suggest you change this function nf_log_set() to:
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/fm10k/fm10k.h         | 1 -
- drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c | 2 +-
- 2 files changed, 1 insertion(+), 2 deletions(-)
+        int nf_log_set(struct net *net, ...)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
-index 75429f2..e985069 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k.h
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
-@@ -496,7 +496,6 @@ int fm10k_close(struct net_device *netdev);
- 
- /* Ethtool */
- void fm10k_set_ethtool_ops(struct net_device *dev);
--u32 fm10k_get_reta_size(struct net_device *netdev);
- void fm10k_write_reta(struct fm10k_intfc *interface, const u32 *indir);
- 
- /* IOV */
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-index c04cbe9..adb7cb4 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-@@ -966,7 +966,7 @@ static int fm10k_set_priv_flags(struct net_device *netdev, u32 priv_flags)
- 	return 0;
- }
- 
--u32 fm10k_get_reta_size(struct net_device __always_unused *netdev)
-+static u32 fm10k_get_reta_size(struct net_device __always_unused *netdev)
- {
- 	return FM10K_RETA_SIZE * FM10K_RETA_ENTRIES_PER_REG;
- }
--- 
-2.7.4
+And update the callsites.
+
+Then, you can simply return -EOPNOTSUPP instead and remove that
+pr_err() message. This message is very unlikely to be displayed.
+
+Thanks!
