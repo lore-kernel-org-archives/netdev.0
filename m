@@ -1,63 +1,71 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net 1/2] ipv6: add missing netconf notif when 'all' is
- updated
-Date: Mon, 29 Aug 2016 19:50:42 +0300
-Message-ID: <e878cb1d-82ab-d7e6-b375-970ff0926ce1@cogentembedded.com>
-References: <1472465149-1163-1-git-send-email-nicolas.dichtel@6wind.com>
- <705293f5-0965-8d1c-1539-b70cbed6aea9@cogentembedded.com>
- <CAPA1RqC1r0wDk31Bd7idkQpq4-qwE3wExy9o3s7eeA4D46teFw@mail.gmail.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH net-next] tcp: add tcp_add_backlog()
+Date: Mon, 29 Aug 2016 09:53:42 -0700
+Message-ID: <CAK6E8=ciimMB+Xa2Fp4Rb7NEGsWt_XVVc-UM_68Ux30MwgdZug@mail.gmail.com>
+References: <1472308674.14381.226.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAK6E8=feHjgq-JK8L5Wd+2HZaLs7qicw1+W7gHUCN0e6RzL4TA@mail.gmail.com> <1472315121.14381.232.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-        David Miller <davem@davemloft.net>,
-        network dev <netdev@vger.kernel.org>
-To: =?UTF-8?B?5ZCJ6Jek6Iux5piO?= <hideaki.yoshifuji@miraclelinux.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Neal Cardwell <ncardwell@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f50.google.com ([209.85.215.50]:36015 "EHLO
-        mail-lf0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753029AbcH2Qvt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 12:51:49 -0400
-Received: by mail-lf0-f50.google.com with SMTP id g62so105009013lfe.3
-        for <netdev@vger.kernel.org>; Mon, 29 Aug 2016 09:50:46 -0700 (PDT)
-In-Reply-To: <CAPA1RqC1r0wDk31Bd7idkQpq4-qwE3wExy9o3s7eeA4D46teFw@mail.gmail.com>
+Received: from mail-it0-f51.google.com ([209.85.214.51]:34932 "EHLO
+        mail-it0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751008AbcH2QyX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 12:54:23 -0400
+Received: by mail-it0-f51.google.com with SMTP id x131so115383295ite.0
+        for <netdev@vger.kernel.org>; Mon, 29 Aug 2016 09:54:23 -0700 (PDT)
+In-Reply-To: <1472315121.14381.232.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/29/2016 05:13 PM, 吉藤英明 wrote:
-
->>> The 'default' value was not advertised.
->>>
->>> Fixes: f3a1bfb11ccb ("rtnl/ipv6: use netconf msg to advertise forwarding
->>> status")
->>> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->>> ---
->>>  net/ipv6/addrconf.c | 7 +++++++
->>>  1 file changed, 7 insertions(+)
->>>
->>> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
->>> index f418d2eaeddd..299f0656e87f 100644
->>> --- a/net/ipv6/addrconf.c
->>> +++ b/net/ipv6/addrconf.c
->>> @@ -778,7 +778,14 @@ static int addrconf_fixup_forwarding(struct ctl_table
->>> *table, int *p, int newf)
->>>         }
->>>
->>>         if (p == &net->ipv6.devconf_all->forwarding) {
->>> +               int old_dftl = net->ipv6.devconf_dflt->forwarding;
->>> +
->>>                 net->ipv6.devconf_dflt->forwarding = newf;
->>> +               if ((!newf) ^ (!old_dftl))
->>
->>
->>    IIUC, !'s are not necessary here (and more so the parens around them).
->> And perhaps ^ can be changed to != for clarity...
+On Sat, Aug 27, 2016 at 9:25 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
 >
-> No, it will break.
+> On Sat, 2016-08-27 at 09:13 -0700, Yuchung Cheng wrote:
+> > On Sat, Aug 27, 2016 at 7:37 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > >
+>
+> > > +       /* Only socket owner can try to collapse/prune rx queues
+> > > +        * to reduce memory overhead, so add a little headroom here.
+> > > +        * Few sockets backlog are possibly concurrently non empty.
+> > > +        */
+> > > +       limit += 64*1024;
+> > Just a thought: only add the headroom if ofo queue exists (e.g., signs
+> > of losses ore recovery).
+>
+> Testing the ofo would add a cache line miss, and likely slow down the
+> other cpu processing the other packets for this flow.
+>
+> Also, even if the ofo does not exist, the sk_rcvbuf budget can be
+> consumed by regular receive queue.
+>
+> We still need to be able to process incoming ACK, if both send and
+> receive queues are 'full'.
+>
+> >
+> > btw is the added headroom subject to the memory pressure check?
+>
+> Remind that the backlog check here is mostly to avoid some kind of DOS
+> attacks that we had in the past.
+>
+> While we should definitely prevents DOS attacks, we should also not drop
+> legitimate traffic.
+>
+> Here, number of backlogged sockets is limited by the number of cpus in
+> the host (if CONFIG_PREEMPT is disabled), or number of threads blocked
+> during a sendmsg()/recvmsg() (if CONFIG_PREEMPT is enabled)
+>
+> So we do not need to be ultra precise, just have a safe guard.
+>
+> The pressure check will be done at the time skbs will be added into a
+> receive/ofo queue in the very near future.
+Good to know. Thanks.
 
-    Well, if those variables are actually bit masks, ! seem to be needed 
-indeed. But ^ can be replaced by != anyway.
-
-> --yoshfuji
-
-MBR, Sergei
+>
+>
+> Thanks !
+>
+>
+>
