@@ -1,45 +1,117 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [RFC 4/9] ipv6: sr: add support for SRH encapsulation and injection
- with lwtunnels
-Date: Mon, 29 Aug 2016 07:52:40 -0700
-Message-ID: <57C44C38.4010203@cumulusnetworks.com>
-References: <1472226767-9904-1-git-send-email-david.lebrun@uclouvain.be> <1472226767-9904-5-git-send-email-david.lebrun@uclouvain.be>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [RFCv2 03/16] net: cls_bpf: limit hardware offload by software-only
+ flag
+Date: Mon, 29 Aug 2016 17:06:34 +0200
+Message-ID: <57C44F7A.5060501@iogearbox.net>
+References: <1472234775-29453-1-git-send-email-jakub.kicinski@netronome.com> <1472234775-29453-4-git-send-email-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Lebrun <david.lebrun@uclouvain.be>
+Cc: ast@kernel.org, dinan.gunawardena@netronome.com, jiri@resnulli.us,
+        john.fastabend@gmail.com, kubakici@wp.pl
+To: Jakub Kicinski <jakub.kicinski@netronome.com>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:33291 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757417AbcH2Ow5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 10:52:57 -0400
-Received: by mail-pf0-f182.google.com with SMTP id y134so52815385pfg.0
-        for <netdev@vger.kernel.org>; Mon, 29 Aug 2016 07:52:57 -0700 (PDT)
-In-Reply-To: <1472226767-9904-5-git-send-email-david.lebrun@uclouvain.be>
+Received: from www62.your-server.de ([213.133.104.62]:43947 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757440AbcH2PHE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 11:07:04 -0400
+In-Reply-To: <1472234775-29453-4-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/26/16, 8:52 AM, David Lebrun wrote:
-> This patch creates a new type of interfaceless lightweight tunnel (SEG6),
-> enabling the encapsulation and injection of SRH within locally emitted
-> packets and forwarded packets.
+On 08/26/2016 08:06 PM, Jakub Kicinski wrote:
+> Add cls_bpf support for the TCA_CLS_FLAGS_SKIP_HW flag.
+> Unlike U32 and flower cls_bpf already has some netlink
+> flags defined.  I chose to create a new attribute to be
+> able to use the same flag values as the above.
 >
-> From a configuration viewpoint, a seg6 tunnel would be configured as follows:
+> Unknown flags are ignored and not reported upon dump.
 >
->   ip -6 ro ad fc00::1/128 via <gw> encap seg6 mode encap segs fc42::1,fc42::2,fc42::3
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+[...]
+> @@ -55,6 +58,7 @@ struct cls_bpf_prog {
+>   static const struct nla_policy bpf_policy[TCA_BPF_MAX + 1] = {
+>   	[TCA_BPF_CLASSID]	= { .type = NLA_U32 },
+>   	[TCA_BPF_FLAGS]		= { .type = NLA_U32 },
+> +	[TCA_BPF_FLAGS_GEN]	= { .type = NLA_U32 },
+>   	[TCA_BPF_FD]		= { .type = NLA_U32 },
+>   	[TCA_BPF_NAME]		= { .type = NLA_NUL_STRING, .len = CLS_BPF_NAME_LEN },
+>   	[TCA_BPF_OPS_LEN]	= { .type = NLA_U16 },
+> @@ -156,6 +160,7 @@ static int cls_bpf_offload_cmd(struct tcf_proto *tp, struct cls_bpf_prog *prog,
+>   	bpf_offload.filter = prog->filter;
+>   	bpf_offload.name = prog->bpf_name;
+>   	bpf_offload.exts_integrated = prog->exts_integrated;
+> +	bpf_offload.gen_flags = prog->gen_flags;
 >
-> Any packet whose destination address is fc00::1 would thus be encapsulated
-> within an outer IPv6 header containing the SRH with three segments, and would
-> actually be routed to the first segment of the list. If `mode inline' was
-> specified instead of `mode encap', then the SRH would be directly inserted
-> after the IPv6 header without outer encapsulation.
+>   	return dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle,
+>   					     tp->protocol, &offload);
+> @@ -169,14 +174,14 @@ static void cls_bpf_offload(struct tcf_proto *tp, struct cls_bpf_prog *prog,
+>   	enum tc_clsbpf_command cmd;
 >
-> Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
-> ---
+>   	if (oldprog && oldprog->offloaded) {
+> -		if (tc_should_offload(dev, tp, 0)) {
+> +		if (tc_should_offload(dev, tp, prog->gen_flags)) {
+>   			cmd = TC_CLSBPF_REPLACE;
+>   		} else {
+>   			obj = oldprog;
+>   			cmd = TC_CLSBPF_DESTROY;
+>   		}
+>   	} else {
+> -		if (!tc_should_offload(dev, tp, 0))
+> +		if (!tc_should_offload(dev, tp, prog->gen_flags))
+>   			return;
+>   		cmd = TC_CLSBPF_ADD;
+>   	}
+> @@ -372,6 +377,7 @@ static int cls_bpf_modify_existing(struct net *net, struct tcf_proto *tp,
+>   {
+>   	bool is_bpf, is_ebpf, have_exts = false;
+>   	struct tcf_exts exts;
+> +	u32 gen_flags = 0;
+>   	int ret;
+>
+>   	is_bpf = tb[TCA_BPF_OPS_LEN] && tb[TCA_BPF_OPS];
+> @@ -396,8 +402,16 @@ static int cls_bpf_modify_existing(struct net *net, struct tcf_proto *tp,
+>
+>   		have_exts = bpf_flags & TCA_BPF_FLAG_ACT_DIRECT;
+>   	}
+> +	if (tb[TCA_BPF_FLAGS_GEN]) {
+> +		gen_flags = nla_get_u32(tb[TCA_BPF_FLAGS_GEN]);
+> +		/* Make sure dump doesn't report back flags we don't handle */
+> +		gen_flags &= CLS_BPF_SUPPORTED_GEN_FLAGS;
 
-You will need to account for lwtunnel headroom ?
-https://patchwork.ozlabs.org/patch/662632/
+Instead of above rather ...
 
-thanks,
-Roopa
+	if (gen_flags & ~CLS_BPF_SUPPORTED_GEN_FLAGS) {
+		ret = -EINVAL;
+		goto errout;
+	}
+
+... so that we can handle further additions properly like we do with
+tb[TCA_BPF_FLAGS]?
+
+> +		if (!tc_flags_valid(gen_flags))
+> +			return -EINVAL;
+
+Shouldn't we: goto errout?
+
+> +	}
+>
+>   	prog->exts_integrated = have_exts;
+> +	prog->gen_flags = gen_flags;
+>
+>   	ret = is_bpf ? cls_bpf_prog_from_ops(tb, prog) :
+>   		       cls_bpf_prog_from_efd(tb, prog, tp);
+> @@ -569,6 +583,9 @@ static int cls_bpf_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
+>   		bpf_flags |= TCA_BPF_FLAG_ACT_DIRECT;
+>   	if (bpf_flags && nla_put_u32(skb, TCA_BPF_FLAGS, bpf_flags))
+>   		goto nla_put_failure;
+> +	if (prog->gen_flags &&
+> +	    nla_put_u32(skb, TCA_BPF_FLAGS_GEN, prog->gen_flags))
+> +		goto nla_put_failure;
+>
+>   	nla_nest_end(skb, nest);
+
+Rest looks good:
+
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
