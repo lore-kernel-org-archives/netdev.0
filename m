@@ -1,59 +1,122 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next 0/3] strp: Generalize stream parser to work with
- other socket types
-Date: Mon, 29 Aug 2016 08:52:52 -0700
-Message-ID: <CALx6S37ycej_hnEEU95VN6gDAT_Q8mWcCpddqujWXeYtCWye3g@mail.gmail.com>
-References: <1472420599-510735-1-git-send-email-tom@herbertland.com> <20160828.233450.783176953748442286.davem@davemloft.net>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH] e1000: add initial XDP support
+Date: Mon, 29 Aug 2016 17:55:09 +0200
+Message-ID: <20160829175509.7ed19b89@redhat.com>
+References: <20160827071145.25345.84712.stgit@john-Precision-Tower-5810>
+        <b6cfb3c5-9c68-3ea7-48dd-7fbf666db751@mojatatu.com>
+        <20160829103047.3968a4d8@redhat.com>
+        <61de1b91-30b4-67ba-4192-834fa30757ea@mojatatu.com>
+        <20160829153905.50066865@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Kernel Team <kernel-team@fb.com>,
-        Dave Watson <davejwatson@fb.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.fastabend@gmail.com>, bblanco@plumgrid.com,
+        davem@davemloft.net, alexei.starovoitov@gmail.com,
+        john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        xiyou.wangcong@gmail.com, brouer@redhat.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f53.google.com ([209.85.214.53]:36333 "EHLO
-        mail-it0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753088AbcH2Pwx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 11:52:53 -0400
-Received: by mail-it0-f53.google.com with SMTP id e63so111925397ith.1
-        for <netdev@vger.kernel.org>; Mon, 29 Aug 2016 08:52:53 -0700 (PDT)
-In-Reply-To: <20160828.233450.783176953748442286.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:56094 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750984AbcH2PzP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 29 Aug 2016 11:55:15 -0400
+In-Reply-To: <20160829153905.50066865@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Aug 28, 2016 at 8:34 PM, David Miller <davem@davemloft.net> wrote:
-> From: Tom Herbert <tom@herbertland.com>
-> Date: Sun, 28 Aug 2016 14:43:16 -0700
->
->> Add a read_sock protocol operation function that allows something like
->> tcp_read_sock to be called for other protocol types.
->>
->> Specific changes in this patch set:
->>   - Add read_sock function to proto_ops. This has the same signature as
->>     tcp_read_sock. sk_read_actor_t is also defined in net.h.
->>   - Set peek_len and read_sock proto_op functions for TCPv4 and TCPv6
->>     stream ops.
->>   - Remove references to tcp in strparser.
->>   - Call peek_len and read_sock operations from strparser instead of
->>     calling TCP specific functions.
->
-> I'll apply this, but I want you to shore up these new ops.
->
-> A check has to happen somewhere to make sure the proto_ops in
-> question have a non-NULL read_sock and peek_len method before
-> starting to use it.
 
-Is the check in strp_init not enough?...
+Hi Jamal,
 
-@@ -424,9 +429,14 @@ static void strp_rx_msg_timeout(unsigned long arg)
- int strp_init(struct strparser *strp, struct sock *csk,
-              struct strp_callbacks *cb)
- {
-+       struct socket *sock = csk->sk_socket;
-+
-        if (!cb || !cb->rcv_msg || !cb->parse_msg)
-                return -EINVAL;
+I'm adding: drop a specific UDP port option to my script... But I does
+not match/drop the packets, command below does apply, but it does not
+work in practice
 
-+       if (!sock->ops->read_sock || !sock->ops->peek_len)
-+               return -EAFNOSUPPORT;
-+
+$ ./tc_ingress_drop.sh --verbose --dev mlx5p2 --port 9
+tc qdisc del dev mlx5p2 ingress
+tc qdisc add dev mlx5p2 ingress
+tc filter add dev mlx5p2 parent ffff: prio 4 protocol ip u32 match ip protocol 17 0xff match udp dst 9 0xffff flowid 1:1 action drop
+
+(Use-case is obviously to drop pktgen UDP packets.)
+
+I also tried with:
+
+ tc filter add dev mlx5p2 parent ffff: prio 4 protocol ip \
+  u32 \
+  match udp dst 9 0xffff \
+  match ip protocol 17 0xff flowid 1:1 action drop
+
+--Jesper
+(top post)
+
+On Mon, 29 Aug 2016 15:39:05 +0200 Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+
+> On Mon, 29 Aug 2016 06:53:53 -0400
+> Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> 
+> > On 16-08-29 04:30 AM, Jesper Dangaard Brouer wrote:
+> >   
+> > > Hi Jamal,
+> > >
+> > > Can you please provide a simple "tc" command that implements "tc drop"?
+> > >
+> > > Then, I'll add this to the series of tests I'm using for (what I call)
+> > > "zoom-in" benchmarking.
+> > >    
+> > 
+> > Thanks Jesper.  
+> 
+> I've created a script called tc_ingress_drop.sh[1] which uses the
+> commands you provided below.  Now people can easily use this script to
+> perform the benchmark you were requesting ;-)
+> 
+> [1] https://github.com/netoptimizer/network-testing/blob/master/bin/tc_ingress_drop.sh
+> 
+> Example to enable dropping:
+> 
+>  $ ./tc_ingress_drop.sh --dev mlx5p2 --verbose
+>  # (Not root, running with sudo)
+>  # Flush existing ingress qdisc on device :mlx5p2
+>  tc qdisc del dev mlx5p2 ingress
+>  tc qdisc add dev mlx5p2 ingress
+>  # Simply drop all ingress packets on device: mlx5p2
+>  tc filter add dev mlx5p2 parent ffff: prio 2 protocol ip u32 match u32 0 0 flowid 1:1 action drop
+> 
+> Example to disable again:
+>  ./tc_ingress_drop.sh --dev mlx5p2 --flush
+> 
+>  
+> > Something simple since this is done in ingress; lets say drop icmp
+> > packets:
+> > 
+> > export ETH=eth0
+> > export TC=/sbin/tc
+> > #delete existing ingress qdisc - flushes all filters/actions
+> > sudo $TC qdisc del dev $ETH ingress
+> > #re-add ingress
+> > sudo $TC qdisc add dev $ETH ingress
+> > #
+> > #simple rule to drop all icmp
+> > sudo $TC filter add dev $ETH parent ffff: prio 4 protocol ip \
+> > u32 match ip protocol 1 0xff flowid 1:1 \
+> > action drop
+> > 
+> > # other type of filters if you want to compare instead of above
+> > #
+> > # a)drop all
+> > sudo $TC filter add dev $ETH parent ffff: prio 2 protocol ip \
+> > u32 match u32 0 0 flowid 1:1 \
+> > action drop
+> > #b) drop if src is XXX
+> > sudo $TC filter add dev $ETH parent ffff: prio 2 protocol ip \
+> > u32 match ip src 192.168.100.1 flowid 1:1 \
+> > action drop
+> >   
+
+
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
