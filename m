@@ -1,8 +1,8 @@
 From: <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH net v2 4/9] net: ethernet: mediatek: remove redundant free_irq
- for devm_request_irq allocated irq
-Date: Mon, 29 Aug 2016 13:03:18 +0800
-Message-ID: <1472447003-30726-5-git-send-email-sean.wang@mediatek.com>
+Subject: [PATCH net v2 6/9] net: ethernet: mediatek: fix issue of driver
+ removal with interface is up
+Date: Mon, 29 Aug 2016 13:03:20 +0800
+Message-ID: <1472447003-30726-7-git-send-email-sean.wang@mediatek.com>
 References: <1472447003-30726-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -25,28 +25,33 @@ List-Id: netdev.vger.kernel.org
 
 From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
 
-these irqs are not used for shared irq and disabled during ethernet stops.
-irq requested by devm_request_irq is safe to be freed automatically on
-driver detach.
+mtk_stop() must be called to stop for freeing DMA
+resources acquired and restoring state changed by mtk_open()
+firstly when module removal.
 
 Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Acked-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 2 --
- 1 file changed, 2 deletions(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 518d987..2c5754e 100644
+index 17dd2f8..1001317 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -1510,8 +1510,6 @@ static void mtk_uninit(struct net_device *dev)
- 	phy_disconnect(mac->phy_dev);
- 	mtk_mdio_cleanup(eth);
- 	mtk_irq_disable(eth, ~0);
--	free_irq(eth->irq[1], dev);
--	free_irq(eth->irq[2], dev);
- }
+@@ -1903,6 +1903,14 @@ err_free_dev:
+ static int mtk_remove(struct platform_device *pdev)
+ {
+ 	struct mtk_eth *eth = platform_get_drvdata(pdev);
++	int i;
++
++	/* stop all devices to make sure that dma is properly shut down */
++	for (i = 0; i < MTK_MAC_COUNT; i++) {
++		if (!eth->netdev[i])
++			continue;
++		mtk_stop(eth->netdev[i]);
++	}
  
- static int mtk_do_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 	clk_disable_unprepare(eth->clks[MTK_CLK_GP1]);
+ 	clk_disable_unprepare(eth->clks[MTK_CLK_GP2]);
 -- 
 1.9.1
