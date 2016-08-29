@@ -1,7 +1,9 @@
 From: <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH net v2 0/9] net: ethernet: mediatek: a couple of fixes
-Date: Mon, 29 Aug 2016 13:03:14 +0800
-Message-ID: <1472447003-30726-1-git-send-email-sean.wang@mediatek.com>
+Subject: [PATCH net v2 1/9] net: ethernet: mediatek: fix fails from TX
+ housekeeping due to incorrect port setup
+Date: Mon, 29 Aug 2016 13:03:15 +0800
+Message-ID: <1472447003-30726-2-git-send-email-sean.wang@mediatek.com>
+References: <1472447003-30726-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -9,6 +11,7 @@ Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@p
  linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 To: <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1472447003-30726-1-git-send-email-sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
  <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
@@ -22,37 +25,47 @@ List-Id: netdev.vger.kernel.org
 
 From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
 
-a couple of fixes come out from integrating with linux-4.8 rc1
-they all are verified and workable on linux-4.8 rc1
+which net device the SKB is complete for depends on the forward port
+on txd4 on the corresponding TX descriptor, but the information isn't
+set up well in case of  SKB fragments that would lead to watchdog timeout
+from the upper layer, so fix it up.
 
-changes since v1:
-- usage of loops to work out if all required clock are ready instead
-of tedious coding
-- remove redundant pinctrl setup that is already done by core driver
-thanks for careful and patient reviewing by Andrew Lunn
-- splitting distinct changes into the separate patches
-- change variable naming from err to ret for readable coding
+Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+Acked-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
+---
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-Sean Wang (9):
-  net: ethernet: mediatek: fix fails from TX housekeeping due to
-    incorrect port setup
-  net: ethernet: mediatek: fix incorrect return value of devm_clk_get
-    with EPROBE_DEFER
-  net: ethernet: mediatek: fix API usage with skb_free_frag
-  net: ethernet: mediatek: remove redundant free_irq for
-    devm_request_irq allocated irq
-  net: ethernet: mediatek: fix logic unbalance between probe and remove
-  net: ethernet: mediatek: fix issue of driver removal with interface is
-    up
-  net: ethernet: mediatek: fix the missing of_node_put() after node is
-    used done inside mtk_mdio_init
-  net: ethernet: mediatek: use devm_mdiobus_alloc instead of
-    mdiobus_alloc inside mtk_mdio_init
-  net: ethernet: mediatek: fix error handling inside mtk_mdio_init
-
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 82 +++++++++++++++--------------
- drivers/net/ethernet/mediatek/mtk_eth_soc.h | 22 +++++---
- 2 files changed, 56 insertions(+), 48 deletions(-)
-
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+index 1801fd8..6e4a6ca 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -587,14 +587,15 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
+ 	dma_addr_t mapped_addr;
+ 	unsigned int nr_frags;
+ 	int i, n_desc = 1;
+-	u32 txd4 = 0;
++	u32 txd4 = 0, fport;
+ 
+ 	itxd = ring->next_free;
+ 	if (itxd == ring->last_free)
+ 		return -ENOMEM;
+ 
+ 	/* set the forward port */
+-	txd4 |= (mac->id + 1) << TX_DMA_FPORT_SHIFT;
++	fport = (mac->id + 1) << TX_DMA_FPORT_SHIFT;
++	txd4 |= fport;
+ 
+ 	tx_buf = mtk_desc_to_tx_buf(ring, itxd);
+ 	memset(tx_buf, 0, sizeof(*tx_buf));
+@@ -652,7 +653,7 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
+ 			WRITE_ONCE(txd->txd3, (TX_DMA_SWC |
+ 					       TX_DMA_PLEN0(frag_map_size) |
+ 					       last_frag * TX_DMA_LS0));
+-			WRITE_ONCE(txd->txd4, 0);
++			WRITE_ONCE(txd->txd4, fport);
+ 
+ 			tx_buf->skb = (struct sk_buff *)MTK_DMA_DUMMY_DESC;
+ 			tx_buf = mtk_desc_to_tx_buf(ring, txd);
 -- 
 1.9.1
