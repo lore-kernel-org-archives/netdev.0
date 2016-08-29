@@ -1,40 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] amd-xgbe: Reset running devices after resume
- from hibernate
-Date: Mon, 29 Aug 2016 00:26:44 -0400 (EDT)
-Message-ID: <20160829.002644.1483422041950202286.davem@davemloft.net>
-References: <1472199683-12098-1-git-send-email-james.morse@arm.com>
+From: Sean Wang <sean.wang@mediatek.com>
+Subject: Re: [RESEND PATCH net 06/10] net: ethernet: mediatek: fix the loss
+Date: Mon, 29 Aug 2016 12:27:13 +0800
+Message-ID: <1472444833-28693-1-git-send-email-sean.wang@mediatek.com>
+References: <20160826141759.GG25046@lunn.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, thomas.lendacky@amd.com
-To: james.morse@arm.com
+Content-Type: text/plain
+Cc: <john@phrozen.org>, <davem@davemloft.net>, <nbd@openwrt.org>,
+        <netdev@vger.kernel.org>, <linux-mediatek@lists.infradead.org>,
+        <keyhaede@gmail.com>
+To: <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49400 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750888AbcH2E0q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 00:26:46 -0400
-In-Reply-To: <1472199683-12098-1-git-send-email-james.morse@arm.com>
+Received: from mailgw01.mediatek.com ([210.61.82.183]:31233 "EHLO
+        mailgw01.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1750818AbcH2E1S (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 00:27:18 -0400
+In-Reply-To: <20160826141759.GG25046@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: James Morse <james.morse@arm.com>
-Date: Fri, 26 Aug 2016 09:21:23 +0100
+Date: Fri, 26 Aug 2016 16:17:59 +0200, Andrew Lunn wrote:
+>> Hi Andrew,
+>> 
+>> Here pinctrl is used to setup what function the group of the pins is
+>> for.
+>
+>Agreed.
+> 
+>> The group of the pins could be configured for the function provided 
+>> by the SoC, such as general purpose I/O or specific function such as
+>> ethernet depending on what products or boards you design for various 
+>> customers or vendors. Thanks for device tree introducing, it is easy 
+>> to find what resources the board needs including the pins usage is 
+>> also defined here.
+>
+>All clear. However, if the ethernet driver has loaded, it means the
+>device tree says the ethernet should be loaded, unless it happens to
+>be on some discoverable bus. And so the device tree node for the
+>ethernet should also contain the needed pinctrl properties.  The core
+>driver code should of seen these properties and already enabled the
+>correct pinctrl state before the driver probes.
+>
+>This is how every other driver works. Like i said, i don't think i've
+>seen any other driver do its own pinctrl. So i just need a simple
+>description, what is different here, why does this driver need to do
+>it, when no other does?
+>
+>    Andrew
+>
 
-> After resume from hibernate on arm64, any amd-xgbe devices that were
-> running when we hibernated are reported as down, even when it is not.
-> 
-> Re-plugging the cables does not cause the interface to come back, the
-> link must be marked as down then up via 'ip set link' using the serial
-> console.
-> 
-> This happens because the device has been power-cycled and possibly
-> re-initialised by firmware, whereas the driver's memory structures have
-> been restored from the hibernate image and the two do not agree.
-> 
-> Schedule a restart of the device after powerup in case the world changed
-> while we were asleep.
-> 
-> Signed-off-by: James Morse <james.morse@arm.com>
+You are right
+all that I need about pinctrl are all being done with core driver 
+as you said, so the patch I did seems the redundant work and i will remove 
+it from the patch set.
 
-Applied.
+thanks for your patient and careful reviewing and that also helps me getting 
+familiar with based driver with pinctrl more :)
+
+Sean
