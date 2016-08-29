@@ -1,34 +1,38 @@
-From: robert.foss-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org
+From: robert.foss@collabora.com
 Subject: [PATCH v3 2/5] net: asix: Avoid looping when the device is disconnected
 Date: Mon, 29 Aug 2016 09:32:16 -0400
-Message-ID: <00080a3858eea85e87951162adf8841a60632581.1472155176.git-series.robert.foss__20591.0462224439$1472477680$gmane$org@collabora.com>
+Message-ID: <00080a3858eea85e87951162adf8841a60632581.1472155176.git-series.robert.foss__19589.5306337208$1472477682$gmane$org@collabora.com>
 References: <cover.c702ef6af13be7c1282a2f2d3189281fdc327abe.1472155176.git-series.robert.foss@collabora.com>
-To: freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org, Dean_Jenkins-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org,
-        Mark_Craske-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-        robert.foss-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org, ivecera-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-        john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, vpalatin-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org,
-        stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, grundler-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org,
-        changchias-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
-        tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org,
-        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, vpalatin-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <cover.c702ef6af13be7c1282a2f2d3189281fdc327abe.1472155176.git-series.robert.foss-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-In-Reply-To: <cover.c702ef6af13be7c1282a2f2d3189281fdc327abe.1472155176.git-series.robert.foss-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-References: <cover.c702ef6af13be7c1282a2f2d3189281fdc327abe.1472155176.git-series.robert.foss-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: freddy@asix.com.tw, Dean_Jenkins@mentor.com,
+        Mark_Craske@mentor.com, davem@davemloft.net,
+        robert.foss@collabora.com, ivecera@redhat.com,
+        john.stultz@linaro.org, vpalatin@chromium.org,
+        stephen@networkplumber.org, grundler@chromium.org,
+        changchias@gmail.com, allan@asix.com.tw, andrew@lunn.ch,
+        tremyfr@gmail.com, colin.king@canonical.com,
+        linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, vpalatin@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bhuna.collabora.co.uk ([46.235.227.227]:52395 "EHLO
+        bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933393AbcH2Nco (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 09:32:44 -0400
+In-Reply-To: <cover.c702ef6af13be7c1282a2f2d3189281fdc327abe.1472155176.git-series.robert.foss@collabora.com>
+In-Reply-To: <cover.c702ef6af13be7c1282a2f2d3189281fdc327abe.1472155176.git-series.robert.foss@collabora.com>
+References: <cover.c702ef6af13be7c1282a2f2d3189281fdc327abe.1472155176.git-series.robert.foss@collabora.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Robert Foss <robert.foss-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+From: Robert Foss <robert.foss@collabora.com>
 
-From: Vincent Palatin <vpalatin-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+From: Vincent Palatin <vpalatin@chromium.org>
 
 Check the answers from the USB stack and avoid re-sending multiple times
 the request if the device has disappeared.
 
-Signed-off-by: Vincent Palatin <vpalatin-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Signed-off-by: Robert Foss <robert.foss-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Tested-by: Robert Foss <robert.foss-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+Signed-off-by: Vincent Palatin <vpalatin@chromium.org>
+Signed-off-by: Robert Foss <robert.foss@collabora.com>
+Tested-by: Robert Foss <robert.foss@collabora.com>
 ---
  drivers/net/usb/asix_common.c  | 56 +++++++++++++++++++++++++++--------
  drivers/net/usb/asix_devices.c |  2 +-
@@ -159,7 +163,3 @@ index aaa4290..ebeb730 100644
  		mdelay(1);
 -- 
 git-series 0.8.10
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
