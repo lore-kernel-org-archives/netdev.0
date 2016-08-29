@@ -1,53 +1,52 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [patch iproute2 1/2] tc: Add support for the matchall traffic
- classifier.
-Date: Mon, 29 Aug 2016 11:03:21 -0700
-Message-ID: <20160829110321.78959dc8@xeon-e3>
-References: <1471866986-3156-1-git-send-email-jiri@resnulli.us>
-        <1471866986-3156-2-git-send-email-jiri@resnulli.us>
+Subject: Re: [PATCH iproute2 1/2] tc: flower: Introduce vlan support
+Date: Mon, 29 Aug 2016 11:14:10 -0700
+Message-ID: <20160829111410.1a23a4bc@xeon-e3>
+References: <1471861494-8299-1-git-send-email-hadarh@mellanox.com>
+        <1471861494-8299-2-git-send-email-hadarh@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yotamg@mellanox.com, eladr@mellanox.com,
-        idosch@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Amir Vadai <amirva@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>
+To: Hadar Hen Zion <hadarh@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:33987 "EHLO
-        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755303AbcH2SDK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 14:03:10 -0400
-Received: by mail-pf0-f169.google.com with SMTP id p64so54416659pfb.1
-        for <netdev@vger.kernel.org>; Mon, 29 Aug 2016 11:03:10 -0700 (PDT)
-In-Reply-To: <1471866986-3156-2-git-send-email-jiri@resnulli.us>
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:33168 "EHLO
+        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756229AbcH2SOA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 14:14:00 -0400
+Received: by mail-pf0-f174.google.com with SMTP id y134so54358777pfg.0
+        for <netdev@vger.kernel.org>; Mon, 29 Aug 2016 11:13:59 -0700 (PDT)
+In-Reply-To: <1471861494-8299-2-git-send-email-hadarh@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 22 Aug 2016 13:56:25 +0200
-Jiri Pirko <jiri@resnulli.us> wrote:
+On Mon, 22 Aug 2016 13:24:53 +0300
+Hadar Hen Zion <hadarh@mellanox.com> wrote:
 
-> From: Yotam Gigi <yotamg@mellanox.com>
-> 
-> The matchall classifier matches every packet and allows the user to apply
-> actions on it. In addition, it supports the skip_sw and skip_hw (as can
-> be found on u32 and flower filter) that direct the kernel to skip the
-> software/hardware processing of the actions.
-> 
-> This filter is very useful in usecases where every packet should be
-> matched. For example, packet mirroring (SPAN) can be setup very easily
-> using that filter.
-> 
-> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> iff --git a/include/linux/tc_act/tc_vlan.h b/include/linux/tc_act/tc_vlan.h
+> index 31151ff..26ae695 100644
+> --- a/include/linux/tc_act/tc_vlan.h
+> +++ b/include/linux/tc_act/tc_vlan.h
+> @@ -16,6 +16,9 @@
+>  
+>  #define TCA_VLAN_ACT_POP	1
+>  #define TCA_VLAN_ACT_PUSH	2
+> +#define VLAN_PRIO_MASK		0x7
+> +#define VLAN_VID_MASK		0x0fff
+> +
+>  
+>  struct tc_vlan {
+>  	tc_gen;
 
-I am not a checkpatch purist, but these two should be addressed.
+I was going to apply this, it looks fine. But there is an issue
+you need to address first.
 
+All headers in iproute2 come from sanitized version of the kernel headers.
+This header does not match the version in net-next.
 
-WARNING: unnecessary whitespace before a quoted newline
-#81: FILE: tc/f_matchall.c:29:
-+	fprintf(stderr, "Usage: ... matchall [skip_sw | skip_hw] \n");
+net-next$ grep VLAN_PRIO_MASK usr/include/linux/tc_act/tc_vlan.h
 
-WARNING: braces {} are not necessary for single statement blocks
-#185: FILE: tc/f_matchall.c:133:
-+	if (tb[TCA_MATCHALL_ACT]) {
-+		tc_print_action(f, tb[TCA_MATCHALL_ACT]);
-+	}
+Please update the kernel header first, then resubmit the patch.
