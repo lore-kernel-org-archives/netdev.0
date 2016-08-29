@@ -1,74 +1,54 @@
-From: Chris Brandt <Chris.Brandt@renesas.com>
-Subject: RE: [PATCH] net: ethernet: renesas: sh_eth: do not access POST
- registers if not exist
-Date: Mon, 29 Aug 2016 14:41:18 +0000
-Message-ID: <SG2PR06MB11653F9E20F38972CA11EF328AE10@SG2PR06MB1165.apcprd06.prod.outlook.com>
-References: <20160826200107.20681-1-chris.brandt@renesas.com>
- <87690577-4526-ce66-6ce3-68ac8b20e737@cogentembedded.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [RFCv2 02/16] net: cls_bpf: add hardware offload
+Date: Mon, 29 Aug 2016 16:51:04 +0200
+Message-ID: <57C44BD8.2090402@iogearbox.net>
+References: <1472234775-29453-1-git-send-email-jakub.kicinski@netronome.com> <1472234775-29453-3-git-send-email-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Simon Horman <horms+renesas@verge.net.au>,
-        Geert Uytterhoeven <geert+renesas@glider.be>,
-        Daniel Palmer <daniel@0x0f.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-renesas-soc@vger.kernel.org"
-        <linux-renesas-soc@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        "David S . Miller" <davem@davemloft.net>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <87690577-4526-ce66-6ce3-68ac8b20e737@cogentembedded.com>
-Content-Language: en-US
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ast@kernel.org, dinan.gunawardena@netronome.com, jiri@resnulli.us,
+        john.fastabend@gmail.com, kubakici@wp.pl
+To: Jakub Kicinski <jakub.kicinski@netronome.com>,
+        netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:42494 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932884AbcH2OvJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 10:51:09 -0400
+In-Reply-To: <1472234775-29453-3-git-send-email-jakub.kicinski@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMDgvMjgvMjAxNiwgU2VyZ2VpIFNodHlseW92IHdyb3RlOg0KDQo+PiBUaGUgUlovQTEgaGFz
-IGEgVFNVLCBidXQgc2luY2UgaXQgb25seSBoYXMgb25lIEV0aGVybmV0IHBvcnQsIGl0IGRvZXMg
-DQo+PiBub3QgaGF2ZSBQT1NUIHJlZ2lzdGVycy4NCj4NCj4gICAgSSdtIG5vdCBzdXJlIHRoZSBy
-ZWFzb24gaXMgaGF2aW5nIG9uZSBwb3J0Li4uIGRvIHlvdSBoYXZlIHRoZSBvbGQgU0ggbWFudWFs
-cyBzb21ld2hlcmU/IDotKQ0KDQpZZXMsIEkgdXNlZCB0byBzdXBwb3J0IHRoZSBTSDc3NTcuIEl0
-IGhhZCBkdWFsIEVUSEVSIGFuZCBkdWFsIEdFVEhFUiAoYnV0IG9ubHkgdGhlIEdFVEhFUiBoYWQg
-YSBUU1UpLg0KDQpTaW5jZSB0aGUgR0VUSEVSIGhhZCAyIHBvcnRzLCBhbmQgdGhlIHNhbWUgVFNV
-IGlzIHVzZWQgZm9yIGJvdGgsIHRoZXJlIGlzIGFuIG9wdGlvbiB3aGVyZSBhcyB5b3UgcHV0IGlu
-IENBTSBlbnRyaWVzIGZvciBtdWx0aWNhc3QgZnJhbWUgYW5kIHN1Y2gsIHlvdSBjYW4gc2VsZWN0
-IGlmIHlvdSB3b3VsZCBsaWtlIENBTSBlbnRyeSBwYWNrZXRzIHJlY2VpdmVkIG9uIG9uZSBwb3J0
-IHRvIGJlIGF1dG9tYXRpY2FsbHkgcmVsYXllZCBvdmVyIHRvIHRoZSBvdGhlciBwb3J0IGZvciBw
-cm9jZXNzaW5nIChpZSwgYnJpZGdlIG5ldHdvcmspLg0KVGhlIFBPU1QxLVBPU1Q0IHJlZ2lzdGVy
-cyBhcmUgd2hhdCB5b3UgdXNlIHRvIHNlbGVjdCB3aGF0IENBTSBlbnRyaWVzIHlvdSB3YW50IHJl
-bGF5ZWQuDQoNCkZvciBleGFtcGxlOiANCg0KICAgUmVnaXN0ZXI6IENBTSBFbnRyeSBUYWJsZSBQ
-T1NUMSBSZWdpc3RlciAoVFNVX1BPU1QxKQ0KICAgICAgIEJpdHM6IDMxIHRvIDI4DQogICBCaXQg
-bmFtZTogUE9TVDBbMzowXQ0KRGVzY3JpcHRpb246IFRoZXNlIGJpdHMgc2V0IHRoZSBjb25kaXRp
-b25zIGZvciByZWZlcnJpbmcgdG8gQ0FNIGVudHJ5IHRhYmxlIDAuIEJ5DQogICAgICAgICAgICAg
-c2V0dGluZyBtdWx0aXBsZSBiaXRzIHRvIDEsIG11bHRpcGxlIGNvbmRpdGlvbnMgY2FuIGJlIHNl
-bGVjdGVkLg0KDQogICAgICAgICAgICAgUE9TVDBbM106IENBTSBlbnRyeSB0YWJsZSAwIGlzIHJl
-ZmVycmVkIHRvIGluIHBvcnQgMCByZWNlcHRpb24NCiAgICAgICAgICAgICBQT1NUMFsyXTogQ0FN
-IGVudHJ5IHRhYmxlIDAgaXMgcmVmZXJyZWQgdG8gaW4gcG9ydCAwIHRvIDEgcmVsYXkuDQogICAg
-ICAgICAgICAgUE9TVDBbMV06IENBTSBlbnRyeSB0YWJsZSAwIGlzIHJlZmVycmVkIHRvIGluIHBv
-cnQgMSByZWNlcHRpb24uDQogICAgICAgICAgICAgUE9TVDBbMF06IENBTSBlbnRyeSB0YWJsZSAw
-IGlzIHJlZmVycmVkIHRvIGluIHBvcnQgMSB0byAwIHJlbGF5DQoNCg0KU28sIGFzIHlvdSBjYW4g
-c2VlLCBoYXZpbmcgdGhlIFBPU1QgcmVnaXN0ZXJzIG1lYW5zIG5vdGhpbmcgaWYgeW91IG9ubHkg
-aGF2ZSAxIEV0aGVybmV0IHBvcnQgYXR0YWNoZWQgdG8gdGhlIFRTVS4NCg0KTm90ZSwgaWYgeW91
-IGxvb2sgYXQgZnVuY3Rpb24gc2hfZXRoX3RzdV9nZXRfcG9zdF9iaXQsIHRoZSByZWxheSBmdW5j
-dGlvbmFsaXR5IGlzIG5ldmVyIHVzZWQgYW55d2F5IGJlY2F1c2UgZWFjaCBlbnRyeSB3aWxsIG9u
-bHkgZXZlciBiZSBzZXQgdG8gInBvcnQgMCByZWNlcHRpb24iIG9yICJwb3J0IDEgcmVjZXB0aW9u
-Ii4NCg0KDQoNCj4+ICAJLnNoaWZ0X3JkMAk9IDEsDQo+PiAgfTsNCj4+DQo+PiBAQCAtMjQ2MCw2
-ICsyNDYxLDkgQEAgc3RhdGljIHZvaWQgc2hfZXRoX3RzdV9lbmFibGVfY2FtX2VudHJ5X3Bvc3Qo
-c3RydWN0IG5ldF9kZXZpY2UgKm5kZXYsDQo+PiAgCXUzMiB0bXA7DQo+PiAgCXZvaWQgKnJlZ19v
-ZmZzZXQ7DQo+Pg0KPj4gKwlpZiAobWRwLT5jZC0+dHN1X25vX3Bvc3QpDQo+PiArCQlyZXR1cm47
-DQo+PiArDQo+PiAgCXJlZ19vZmZzZXQgPSBzaF9ldGhfdHN1X2dldF9wb3N0X3JlZ19vZmZzZXQo
-bWRwLCBlbnRyeSk7DQo+DQo+ICAgIEknZCBjaGVjayBjaGVjayBmb3IgU0hfRVRIX09GRlNFVF9J
-TlZBTElEIGluIHRoZSBhYm92ZSBmdW5jdGlvbiBhbmQgcmV0dXJuIE5VTEwgaWYgc287IHRoZW4N
-Cj4gd2UgY2FuIGNoZWNrIGZvciBOVUxMIGhlcmUuLi4NCg0KVGhhdCB3YXMgc2ltaWxhciB0byBt
-eSBmaXJzdCBmaXguIEJ1dCwgdGhlbiBJIGdvdCB0byB0aGlua2luZyB0aGF0IGlmIGEgbmV3IFJa
-IGNvbWVzIG91dCB3aXRoIGR1YWwgRXRoZXJuZXQsIHRoZSBkZXNpZ25lcnMgbWlnaHQgYWRkIGlu
-IHRoZSBQT1NUIHJlZ2lzdGVycyBiYWNrIGluIHRoZSBUU1UuIEFuZCBpbiB0aGF0IGNhc2UsIGl0
-IHdvdWxkIGJlIG5pY2UgdG8gcmV1c2UgdGhlIHNoX2V0aF9pc19yel9mYXN0X2V0aGVyIGFycmF5
-IChqdXN0IGFkZCBpbiB0aGUgZXh0cmEgcmVnaXN0ZXJzKS4NCg0KQnV0Li4ubWF5YmUgY2hlY2tp
-bmcgZm9yIFNIX0VUSF9PRkZTRVRfSU5WQUxJRCBpcyBnb29kIGZvciBub3cgaW5zdGVhZCBvZiB3
-b3JyeWluZyBhYm91dCB0aGF0Lg0KDQoNCj4gT2gsIGFuZCBJJ2xsIGhhdmUgdG8gY29ycmVjdCB5
-b3VyIGxhbmd1YWdlIGFuZCB0ZXJtaW5vbG9neS4gOi0vIFNob3VsZCBiZQ0KPiAiaWYgdGhleSBk
-b24ndCBleGlzdCIgaW4gdGhlIHN1YmplY3QuDQoNCllhLCBteSBmaXJzdCBzdWJqZWN0IGxpbmUg
-d2FzIHRvbyBsb25nLCBzbyBJIGtlcHQgdHJ5aW5nIHRvIHNob3J0ZW4gaXQuLi4uYW5kIHRoZW4g
-aXQgdHVybiBpbnRvIGJhZCBncmFtbWVyLg0KDQpJIHRoaW5rIGEgbW9yZSBjbGVhciBzdWJqZWN0
-IGlzICJGaXggVFNVIHdpdGhvdXQgcmVsYXkgZmVhdHVyZSBhY2Nlc3NlcyINCg0KDQoNCg0KDQpD
-aHJpcw0K
+On 08/26/2016 08:06 PM, Jakub Kicinski wrote:
+> This patch adds hardware offload capability to cls_bpf classifier,
+> similar to what have been done with U32 and flower.
+>
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+
+[...]
+> diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+> index a459be5fe1c2..a86262f0d93a 100644
+> --- a/include/net/pkt_cls.h
+> +++ b/include/net/pkt_cls.h
+> @@ -486,4 +486,18 @@ struct tc_cls_matchall_offload {
+>   	unsigned long cookie;
+>   };
+>
+> +enum tc_clsbpf_command {
+> +	TC_CLSBPF_ADD,
+> +	TC_CLSBPF_REPLACE,
+> +	TC_CLSBPF_DESTROY,
+> +};
+> +
+> +struct tc_cls_bpf_offload {
+> +	enum tc_clsbpf_command command;
+> +	struct tcf_exts *exts;
+> +	struct bpf_prog *filter;
+
+Small nit: s/filter/prog/, I think prog is a more appropriate name since
+it's about more than just filtering. (I will rename it at some point for
+cls_bpf as well.)
+
+Rest looks good to me.
