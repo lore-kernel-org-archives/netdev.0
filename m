@@ -1,69 +1,53 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH net-next v4 0/3] net: mpls: fragmentation and gso fixes
- for locally originated traffic
-Date: Mon, 29 Aug 2016 14:29:51 +0200
-Message-ID: <20160829122949.GB25359@penelope.isobedori.kobe.vergenet.net>
-References: <1472094645-11452-1-git-send-email-dsa@cumulusnetworks.com>
- <20160826.114137.1990982027647137057.davem@davemloft.net>
- <20160829120729.GA25359@penelope.isobedori.kobe.vergenet.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dsa@cumulusnetworks.com, netdev@vger.kernel.org,
-        buytenh@wantstofly.org, ebiederm@xmission.com,
-        rshearma@brocade.com, tom@herbertland.com, tgraf@suug.ch,
-        olivier.dugeon@orange.com, alexander.duyck@gmail.com,
-        roopa@cumulusnetworks.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f52.google.com ([74.125.82.52]:34924 "EHLO
-        mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933240AbcH2M34 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 08:29:56 -0400
-Received: by mail-wm0-f52.google.com with SMTP id f65so76372570wmi.0
-        for <netdev@vger.kernel.org>; Mon, 29 Aug 2016 05:29:54 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160829120729.GA25359@penelope.isobedori.kobe.vergenet.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] net: xgene: fix backward compatibility fix
+Date: Mon, 29 Aug 2016 14:37:14 +0200
+Message-ID: <20160829123740.3336010-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Iyappan Subramanian <isubramanian@apm.com>,
+        Keyur Chudgar <kchudgar@apm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 29, 2016 at 02:07:30PM +0200, Simon Horman wrote:
-> On Fri, Aug 26, 2016 at 11:41:37AM -0700, David Miller wrote:
-> > From: David Ahern <dsa@cumulusnetworks.com>
-> > Date: Wed, 24 Aug 2016 20:10:42 -0700
-> > 
-> > > This series fixes mtu and fragmentation for tunnels using lwtunnel
-> > > output redirect, and fixes GSO for MPLS for locally originated traffic
-> > > reported by Lennert Buytenhek.
-> > > 
-> > > A follow on series will address fragmentation and GSO for forwarded
-> > > MPLS traffic. Hardware offload of GSO with MPLS also needs to be
-> > > addressed.
-> > > 
-> > > Simon: Can you verify this works with OVS for single and multiple
-> > >        labels?
-> > 
-> > Simon, I'm waiting on your testing before I apply this series.
-> 
-> Sorry for the delay. I will test it ASAP.
+A bugfix for backward compatibility handling introduced undefined
+behavior for the case that of_parse_phandle() does not return
+a valid entry, as "gcc -Wmaybe-unused" reports:
 
-Sorry once again for the delay,
+drivers/net/ethernet/apm/xgene/xgene_enet_hw.c: In function 'xgene_enet_phy_connect':
+drivers/net/ethernet/apm/xgene/xgene_enet_hw.c:776:6: error: 'phy_dev' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+drivers/net/ethernet/apm/xgene/xgene_enet_hw.c: In function 'xgene_enet_mdio_config':
+drivers/net/ethernet/apm/xgene/xgene_enet_hw.c:776:6: error: 'phy_dev' may be used uninitialized in this function [-Werror=maybe-uninitialized]
 
-I have tested this series for both of the following:
-* IPv4 in MPLS (just after the ethernet header)
-* IPv4 in MPLS in GRE (TEB)
+We can work around this by removing the check for zero "np", as
+of_phy_connect() will correctly handle a NULL argument so we fall
+back into the normal error handling case.
 
-Things seem to work fine.
+Note that I had previously fixed another bug that resulted in the
+exact same warning, but this is a different problem that was
+introduced after my original fix.
 
-Tested-by: Simon Horman <simon.horman@netronome.com>
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: 03377e381bf4 ("drivers: net: xgene: Fix backward compatibility")
+---
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.c | 4 ----
+ 1 file changed, 4 deletions(-)
 
-Expanding a little on the above:
-
-* I tested this using the test cases I have been working on for OvS here:
-  http://www.spinics.net/lists/netdev/msg391755.html
-
-  Those test make use of namespaces connected using veth and
-  push/pop_mpls actions.
-
-* As the above is quite new I also tested the patchset using my somewhat
-  more clumsy local test environment which uses KVM, virtio net and
-  push/pop_mpls actions.
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+index 321fb197621e..da413c8d3e19 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+@@ -761,10 +761,6 @@ int xgene_enet_phy_connect(struct net_device *ndev)
+ 	if (dev->of_node) {
+ 		for (i = 0 ; i < 2; i++) {
+ 			np = of_parse_phandle(dev->of_node, "phy-handle", i);
+-
+-			if (!np)
+-				continue;
+-
+ 			phy_dev = of_phy_connect(ndev, np,
+ 						 &xgene_enet_adjust_link,
+ 						 0, pdata->phy_mode);
+-- 
+2.9.0
