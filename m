@@ -1,45 +1,43 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH net-next v4 0/3] net: mpls: fragmentation and gso fixes
- for locally originated traffic
-Date: Mon, 29 Aug 2016 14:07:30 +0200
-Message-ID: <20160829120729.GA25359@penelope.isobedori.kobe.vergenet.net>
-References: <1472094645-11452-1-git-send-email-dsa@cumulusnetworks.com>
- <20160826.114137.1990982027647137057.davem@davemloft.net>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH] fix:gpio: mark symbols static where possible
+Date: Mon, 29 Aug 2016 15:14:05 +0300
+Message-ID: <87vayj3h82.fsf@purkki.adurom.net>
+References: <1472315228-14802-1-git-send-email-baoyou.xie@linaro.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: dsa@cumulusnetworks.com, netdev@vger.kernel.org,
-        buytenh@wantstofly.org, ebiederm@xmission.com,
-        rshearma@brocade.com, tom@herbertland.com, tgraf@suug.ch,
-        olivier.dugeon@orange.com, alexander.duyck@gmail.com,
-        roopa@cumulusnetworks.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:36348 "EHLO
-        mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932628AbcH2MHe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 08:07:34 -0400
-Received: by mail-wm0-f54.google.com with SMTP id q128so75667750wma.1
-        for <netdev@vger.kernel.org>; Mon, 29 Aug 2016 05:07:34 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160826.114137.1990982027647137057.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ath9k-devel@qca.qualcomm.com, linux-wireless@vger.kernel.org,
+        ath9k-devel@lists.ath9k.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, arnd@linaro.org,
+        xie.baoyou@zte.com.cn
+To: Baoyou Xie <baoyou.xie@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1472315228-14802-1-git-send-email-baoyou.xie@linaro.org> (Baoyou
+        Xie's message of "Sun, 28 Aug 2016 00:27:08 +0800")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 26, 2016 at 11:41:37AM -0700, David Miller wrote:
-> From: David Ahern <dsa@cumulusnetworks.com>
-> Date: Wed, 24 Aug 2016 20:10:42 -0700
-> 
-> > This series fixes mtu and fragmentation for tunnels using lwtunnel
-> > output redirect, and fixes GSO for MPLS for locally originated traffic
-> > reported by Lennert Buytenhek.
-> > 
-> > A follow on series will address fragmentation and GSO for forwarded
-> > MPLS traffic. Hardware offload of GSO with MPLS also needs to be
-> > addressed.
-> > 
-> > Simon: Can you verify this works with OVS for single and multiple
-> >        labels?
-> 
-> Simon, I'm waiting on your testing before I apply this series.
+Baoyou Xie <baoyou.xie@linaro.org> writes:
 
-Sorry for the delay. I will test it ASAP.
+> We get 1 warning about global functions without a declaration
+> in the ath9k gpio driver when building with W=1:
+> drivers/net/wireless/ath/ath9k/gpio.c:25:6: warning: no previous prototype for 'ath_fill_led_pin' [-Wmissing-prototypes]
+>
+> In fact, this function is only used in the file in which it is declared
+> and don't need a declaration, but can be made static.
+> so this patch marks it 'static'.
+>
+> Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
+> ---
+>  drivers/net/wireless/ath/ath9k/gpio.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+
+The commit title should be:
+
+ath9k: mark ath_fill_led_pin() static
+
+Check the wiki how to create titles:
+
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches#subject_name
+
+-- 
+Kalle Valo
