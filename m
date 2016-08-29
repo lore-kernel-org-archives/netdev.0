@@ -1,39 +1,39 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH net-next 0/6] perf, bpf: add support for bpf in sw/hw
- perf_events
-Date: Mon, 29 Aug 2016 12:58:00 +0200
-Message-ID: <20160829105800.GM10153@twins.programming.kicks-ass.net>
-References: <1472265084-1767670-1-git-send-email-ast@fb.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v3 net-next 1/1] net_sched: Introduce skbmod action
+Date: Mon, 29 Aug 2016 13:00:59 +0200
+Message-ID: <57C415EB.80806@iogearbox.net>
+References: <1472386756-23085-1-git-send-email-jhs@emojatatu.com> <1472400467.14381.252.camel@edumazet-glaptop3.roam.corp.google.com> <b075631d-92cc-d016-3786-aaacb3d5c13a@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Brendan Gregg <bgregg@netflix.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Arnaldo Carvalho de Melo <acme@infradead.org>,
-        Wang Nan <wangnan0@huawei.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel-team@fb.com
-To: Alexei Starovoitov <ast@fb.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1472265084-1767670-1-git-send-email-ast@fb.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        xiyou.wangcong@gmail.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:46792 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756545AbcH2LBD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 07:01:03 -0400
+In-Reply-To: <b075631d-92cc-d016-3786-aaacb3d5c13a@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 26, 2016 at 07:31:18PM -0700, Alexei Starovoitov wrote:
-> Hi Peter, Dave,
-> 
-> this patch set is a follow up to the discussion:
-> https://lkml.org/lkml/2016/8/4/304
+On 08/29/2016 12:38 PM, Jamal Hadi Salim wrote:
+> On 16-08-28 12:07 PM, Eric Dumazet wrote:
+>
+>> Adding an action with a spinlock held in fast path in 2016 is
+>> a way to tell people : It is a toy, do not use it for real.
+>>
+>> Sorry guys. Friends do not let friends do that anymore.
+>
+> Generally agree.
+> Cong says he is working on generic patches. Let me see if i can
+> try something. Trickery with RCU is not one of my virtues -
+> so i may get it wrong but hope you can comment.
 
-Please don't use lkml.org links, that site is broken too often.
+You could probably just keep these meta data in a separate struct
+managed by RCU that tcf_skbmod points to.
 
-The canonical reference is:
-
-  https://lkml.kernel.org/r/$MSGID
-
-That allows the kernel.org people to ensure the links stays valid by
-redirecting to a functional archive if the current one (marc.info) were
-to drop off the intarweb.
-
-Also, by including the msg-id, people can find the emails in their local
-archives.
+One more thing I commented on your last patch already is that you
+would also need f.e. skb_ensure_writable() before mangling.
