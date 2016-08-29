@@ -1,63 +1,42 @@
-From: Alexandre TORGUE <alexandre.torgue@st.com>
-Subject: [RESEND PATCH v6 2/3] Documentation: Bindings: Add STM32 DWMAC glue
-Date: Mon, 29 Aug 2016 18:23:39 +0200
-Message-ID: <1472487820-5132-3-git-send-email-alexandre.torgue@st.com>
-References: <1472487820-5132-1-git-send-email-alexandre.torgue@st.com>
+From: Rick Jones <rick.jones2@hpe.com>
+Subject: Re: [PATCH v2 net-next] documentation: Document issues with VMs and
+ XPS and drivers enabling it on their own
+Date: Mon, 29 Aug 2016 09:26:35 -0700
+Message-ID: <32d356cc-a7c7-2349-88a5-ab4652272ba1@hpe.com>
+References: <20160825225543.BFA562900836@tardy>
+ <CALx6S35myS9QTA7QhnDpL8ybC2c6S8LOp47iNEGS_zxXXVf4mw@mail.gmail.com>
+ <20160826.213550.1069021753459989756.davem@davemloft.net>
+ <CALx6S356MGsEiJkuTEfPLv=KGdfqZoz6Q2AJhPqp9yx-t2g15A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <robh@kernel.org>, <manabian@gmail.com>
-To: <netdev@vger.kernel.org>, <peppe.cavallaro@st.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Alexander Duyck <alexander.duyck@gmail.com>
+To: Tom Herbert <tom@herbertland.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:47511 "EHLO
-        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1754231AbcH2QYX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 12:24:23 -0400
-In-Reply-To: <1472487820-5132-1-git-send-email-alexandre.torgue@st.com>
+Received: from g4t3428.houston.hpe.com ([15.241.140.76]:31837 "EHLO
+        g4t3428.houston.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753682AbcH2Q0h (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 12:26:37 -0400
+In-Reply-To: <CALx6S356MGsEiJkuTEfPLv=KGdfqZoz6Q2AJhPqp9yx-t2g15A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexandre TORGUE <alexandre.torgue@gmail.com>
+On 08/27/2016 12:41 PM, Tom Herbert wrote:
+> On Fri, Aug 26, 2016 at 9:35 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Tom Herbert <tom@herbertland.com>
+>> Date: Thu, 25 Aug 2016 16:43:35 -0700
+>>
+>>> This seems like it will only confuse users even more. You've clearly
+>>> identified an issue, let's figure out how to fix it.
+>>
+>> I kinda feel the same way about this situation.
+>
+> I'm working on XFS (as the transmit analogue to RFS). We'll track
+> flows enough so that we should know when it's safe to move them.
 
-Acked-by: Rob Herring <robh@kernel.org>
-Signed-off-by: Alexandre TORGUE <alexandre.torgue@gmail.com>
+Is the XFS you are working on going to subsume XPS or will the two 
+continue to exist in parallel a la RPS and RFS?
 
-diff --git a/Documentation/devicetree/bindings/net/stm32-dwmac.txt b/Documentation/devicetree/bindings/net/stm32-dwmac.txt
-new file mode 100644
-index 0000000..c35afb7
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/stm32-dwmac.txt
-@@ -0,0 +1,32 @@
-+STMicroelectronics STM32 / MCU DWMAC glue layer controller
-+
-+This file documents platform glue layer for stmmac.
-+Please see stmmac.txt for the other unchanged properties.
-+
-+The device node has following properties.
-+
-+Required properties:
-+- compatible:  Should be "st,stm32-dwmac" to select glue, and
-+	       "snps,dwmac-3.50a" to select IP version.
-+- clocks: Must contain a phandle for each entry in clock-names.
-+- clock-names: Should be "stmmaceth" for the host clock.
-+	       Should be "mac-clk-tx" for the MAC TX clock.
-+	       Should be "mac-clk-rx" for the MAC RX clock.
-+- st,syscon : Should be phandle/offset pair. The phandle to the syscon node which
-+	      encompases the glue register, and the offset of the control register.
-+Example:
-+
-+	ethernet@40028000 {
-+		compatible = "st,stm32-dwmac", "snps,dwmac-3.50a";
-+		status = "disabled";
-+		reg = <0x40028000 0x8000>;
-+		reg-names = "stmmaceth";
-+		interrupts = <0 61 0>, <0 62 0>;
-+		interrupt-names = "macirq", "eth_wake_irq";
-+		clock-names = "stmmaceth", "mac-clk-tx", "mac-clk-rx";
-+		clocks = <&rcc 0 25>, <&rcc 0 26>, <&rcc 0 27>;
-+		st,syscon = <&syscfg 0x4>;
-+		snps,pbl = <8>;
-+		snps,mixed-burst;
-+		dma-ranges;
-+	};
--- 
-1.9.1
+rick jones
