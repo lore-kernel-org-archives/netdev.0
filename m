@@ -1,71 +1,161 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v2 1/4] net: dt-bindings: Document the new Meson8b and
- GXBB DWMAC bindings
-Date: Mon, 29 Aug 2016 15:31:12 +0200
-Message-ID: <201608291531.12188.arnd@arndb.de>
-References: <20160815164100.27766-1-martin.blumenstingl@googlemail.com>
- <4041259.IszN4229Cj@wuerfel>
- <CAFBinCDnHGf=wgvm9KzYQsf=kCrOUeO3bnEwdGy_OK-wgWkDug@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: mark.rutland@arm.com, devicetree@vger.kernel.org, alexandre.torgue@st.com,
- catalin.marinas@arm.com, mturquette@baylibre.com, sboyd@codeaurora.org,
- will.deacon@arm.com, robh+dt@kernel.org, khilman@baylibre.com,
- carlo@caione.org, peppe.cavallaro@st.com, linux-amlogic@lists.infradead.org,
- netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <CAFBinCDnHGf=wgvm9KzYQsf=kCrOUeO3bnEwdGy_OK-wgWkDug@mail.gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: robert.foss@collabora.com
+Subject: [PATCH v3 2/5] net: asix: Avoid looping when the device is disconnected
+Date: Mon, 29 Aug 2016 09:32:21 -0400
+Message-ID: <1472477566-32096-2-git-send-email-robert.foss@collabora.com>
+References: <cover.c702ef6af13be7c1282a2f2d3189281fdc327abe.1472155176.git-series.robert.foss@collabora.com>
+To: freddy@asix.com.tw, Dean_Jenkins@mentor.com,
+        Mark_Craske@mentor.com, davem@davemloft.net,
+        robert.foss@collabora.com, ivecera@redhat.com,
+        john.stultz@linaro.org, vpalatin@chromium.org,
+        stephen@networkplumber.org, grundler@chromium.org,
+        changchias@gmail.com, allan@asix.com.tw, andrew@lunn.ch,
+        tremyfr@gmail.com, colin.king@canonical.com,
+        linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, vpalatin@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bhuna.collabora.co.uk ([46.235.227.227]:52454 "EHLO
+        bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933452AbcH2Ncx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 09:32:53 -0400
+In-Reply-To: <cover.c702ef6af13be7c1282a2f2d3189281fdc327abe.1472155176.git-series.robert.foss@collabora.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sunday 28 August 2016, Martin Blumenstingl wrote:
-> On Mon, Aug 22, 2016 at 5:25 PM, Arnd Bergmann <arnd@arndb.de> wrote:
-> > It really depends on the kind of SoC. Some may have a suboptimal
-> > binding, on some others there may be a distinct register area that
-> > just contains a few additional registers for the dwmac.
-> the dwmac PHY configuration registers (2x32bit) on the GXBB SoC are
-> part of the "periphs" region/module. This is already defined as
-> "simple-bus" in meson-gxbb.dtsi, see [0]
-> On Meson8b this is slightly different: there is no specific "periphs"
-> region - there the dwmac PHY configuration registers are directly
-> located in the cbus region at a slightly different offset than on the
-> GXBB SoCs.
-> 
-> In the future we might need a third memory region because the latest
-> reference kernel contains some more PHY configuration registers on
-> newer SoCs (GXL = S905X).
-> 
-> Please let me know if you're OK with the dts definition in it's
-> current state - or let me know how you would like to change it.
-> 
-> PS: I will re-send the patches in a v3 in a few minutes because that
-> fixes a bug during module unload.
+From: Vincent Palatin <vpalatin@chromium.org>
 
-I don't really see a good way to describe this hardware then. If it
-was only the first case, I'd suggest marking the periphs bus node
-as "compatible="simple-bus","syscon";" so you could have a
-reference to it, but that doesn't seem to work well in the second
-case, unless you can a separate DT node just for the PHY config
-registers there.
+Check the answers from the USB stack and avoid re-sending multiple times
+the request if the device has disappeared.
 
-With the third case, is there any logic at all behind the
-register map?
+Signed-off-by: Vincent Palatin <vpalatin@chromium.org>
+Signed-off-by: Robert Foss <robert.foss@collabora.com>
+Tested-by: Robert Foss <robert.foss@collabora.com>
+---
+ drivers/net/usb/asix_common.c  | 56 +++++++++++++++++++++++++++++++++---------
+ drivers/net/usb/asix_devices.c |  2 ++
+ 2 files changed, 46 insertions(+), 12 deletions(-)
 
-Maybe someone else has a better idea for how to describe this.
-In general, we try to avoid overlapping "reg" properties, but I
-even see that the "periphs" node  on gxbb has a "reg" property
-(is this intentional) that overlaps with the registers in its
-ranges, so adding another one won't make this worse than it
-already is.
-
-	Arnd
+diff --git a/drivers/net/usb/asix_common.c b/drivers/net/usb/asix_common.c
+index 25609ee..f79eb12 100644
+--- a/drivers/net/usb/asix_common.c
++++ b/drivers/net/usb/asix_common.c
+@@ -428,13 +428,21 @@ int asix_mdio_read(struct net_device *netdev, int phy_id, int loc)
+ 	__le16 res;
+ 	u8 smsr;
+ 	int i = 0;
++	int ret;
+ 
+ 	mutex_lock(&dev->phy_mutex);
+ 	do {
+-		asix_set_sw_mii(dev, 0);
++		ret = asix_set_sw_mii(dev, 0);
++		if (ret == -ENODEV)
++			break;
+ 		usleep_range(1000, 1100);
+-		asix_read_cmd(dev, AX_CMD_STATMNGSTS_REG, 0, 0, 1, &smsr, 0);
+-	} while (!(smsr & AX_HOST_EN) && (i++ < 30));
++		ret = asix_read_cmd(dev, AX_CMD_STATMNGSTS_REG,
++				    0, 0, 1, &smsr, 0);
++	} while (!(smsr & AX_HOST_EN) && (i++ < 30) && (ret != -ENODEV));
++	if (ret == -ENODEV) {
++		mutex_unlock(&dev->phy_mutex);
++		return ret;
++	}
+ 
+ 	asix_read_cmd(dev, AX_CMD_READ_MII_REG, phy_id,
+ 				(__u16)loc, 2, &res, 0);
+@@ -453,16 +461,24 @@ void asix_mdio_write(struct net_device *netdev, int phy_id, int loc, int val)
+ 	__le16 res = cpu_to_le16(val);
+ 	u8 smsr;
+ 	int i = 0;
++	int ret;
+ 
+ 	netdev_dbg(dev->net, "asix_mdio_write() phy_id=0x%02x, loc=0x%02x, val=0x%04x\n",
+ 			phy_id, loc, val);
+ 
+ 	mutex_lock(&dev->phy_mutex);
+ 	do {
+-		asix_set_sw_mii(dev, 0);
++		ret = asix_set_sw_mii(dev, 0);
++		if (ret == -ENODEV)
++			break;
+ 		usleep_range(1000, 1100);
+-		asix_read_cmd(dev, AX_CMD_STATMNGSTS_REG, 0, 0, 1, &smsr, 0);
+-	} while (!(smsr & AX_HOST_EN) && (i++ < 30));
++		ret = asix_read_cmd(dev, AX_CMD_STATMNGSTS_REG,
++				    0, 0, 1, &smsr, 0);
++	} while (!(smsr & AX_HOST_EN) && (i++ < 30) && (ret != -ENODEV));
++	if (ret == -ENODEV) {
++		mutex_unlock(&dev->phy_mutex);
++		return;
++	}
+ 
+ 	asix_write_cmd(dev, AX_CMD_WRITE_MII_REG, phy_id,
+ 		       (__u16)loc, 2, &res, 0);
+@@ -476,13 +492,21 @@ int asix_mdio_read_nopm(struct net_device *netdev, int phy_id, int loc)
+ 	__le16 res;
+ 	u8 smsr;
+ 	int i = 0;
++	int ret;
+ 
+ 	mutex_lock(&dev->phy_mutex);
+ 	do {
+-		asix_set_sw_mii(dev, 1);
++		ret = asix_set_sw_mii(dev, 1);
++		if (ret == -ENODEV)
++			break;
+ 		usleep_range(1000, 1100);
+-		asix_read_cmd(dev, AX_CMD_STATMNGSTS_REG, 0, 0, 1, &smsr, 1);
+-	} while (!(smsr & AX_HOST_EN) && (i++ < 30));
++		ret = asix_read_cmd(dev, AX_CMD_STATMNGSTS_REG,
++				    0, 0, 1, &smsr, 1);
++	} while (!(smsr & AX_HOST_EN) && (i++ < 30) && (ret != -ENODEV));
++	if (ret == -ENODEV) {
++		mutex_unlock(&dev->phy_mutex);
++		return ret;
++	}
+ 
+ 	asix_read_cmd(dev, AX_CMD_READ_MII_REG, phy_id,
+ 		      (__u16)loc, 2, &res, 1);
+@@ -502,16 +526,24 @@ asix_mdio_write_nopm(struct net_device *netdev, int phy_id, int loc, int val)
+ 	__le16 res = cpu_to_le16(val);
+ 	u8 smsr;
+ 	int i = 0;
++	int ret;
+ 
+ 	netdev_dbg(dev->net, "asix_mdio_write() phy_id=0x%02x, loc=0x%02x, val=0x%04x\n",
+ 			phy_id, loc, val);
+ 
+ 	mutex_lock(&dev->phy_mutex);
+ 	do {
+-		asix_set_sw_mii(dev, 1);
++		ret = asix_set_sw_mii(dev, 1);
++		if (ret == -ENODEV)
++			break;
+ 		usleep_range(1000, 1100);
+-		asix_read_cmd(dev, AX_CMD_STATMNGSTS_REG, 0, 0, 1, &smsr, 1);
+-	} while (!(smsr & AX_HOST_EN) && (i++ < 30));
++		ret = asix_read_cmd(dev, AX_CMD_STATMNGSTS_REG,
++				    0, 0, 1, &smsr, 1);
++	} while (!(smsr & AX_HOST_EN) && (i++ < 30) && (ret != -ENODEV));
++	if (ret == -ENODEV) {
++		mutex_unlock(&dev->phy_mutex);
++		return;
++	}
+ 
+ 	asix_write_cmd(dev, AX_CMD_WRITE_MII_REG, phy_id,
+ 		       (__u16)loc, 2, &res, 1);
+diff --git a/drivers/net/usb/asix_devices.c b/drivers/net/usb/asix_devices.c
+index aaa4290..ebeb730 100644
+--- a/drivers/net/usb/asix_devices.c
++++ b/drivers/net/usb/asix_devices.c
+@@ -79,6 +79,8 @@ static u32 asix_get_phyid(struct usbnet *dev)
+ 	/* Poll for the rare case the FW or phy isn't ready yet.  */
+ 	for (i = 0; i < 100; i++) {
+ 		phy_reg = asix_mdio_read(dev->net, dev->mii.phy_id, MII_PHYSID1);
++		if (phy_reg < 0)
++			return 0;
+ 		if (phy_reg != 0 && phy_reg != 0xFFFF)
+ 			break;
+ 		mdelay(1);
+-- 
+2.7.4
