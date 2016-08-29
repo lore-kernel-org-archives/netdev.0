@@ -1,188 +1,59 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [RFCv2 01/16] add basic register-field manipulation macros
-Date: Mon, 29 Aug 2016 17:40:10 +0200
-Message-ID: <57C4575A.9090008@iogearbox.net>
-References: <1472234775-29453-1-git-send-email-jakub.kicinski@netronome.com>    <1472234775-29453-2-git-send-email-jakub.kicinski@netronome.com>        <57C447F1.60807@iogearbox.net> <20160829170739.2aab0893@laptop>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next 0/3] strp: Generalize stream parser to work with
+ other socket types
+Date: Mon, 29 Aug 2016 08:52:52 -0700
+Message-ID: <CALx6S37ycej_hnEEU95VN6gDAT_Q8mWcCpddqujWXeYtCWye3g@mail.gmail.com>
+References: <1472420599-510735-1-git-send-email-tom@herbertland.com> <20160828.233450.783176953748442286.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jakub Kicinski <jakub.kicinski@netronome.com>,
-        netdev@vger.kernel.org, ast@kernel.org,
-        dinan.gunawardena@netronome.com, jiri@resnulli.us,
-        john.fastabend@gmail.com
-To: Jakub Kicinski <kubakici@wp.pl>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Kernel Team <kernel-team@fb.com>,
+        Dave Watson <davejwatson@fb.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:47302 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933326AbcH2PkO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 11:40:14 -0400
-In-Reply-To: <20160829170739.2aab0893@laptop>
+Received: from mail-it0-f53.google.com ([209.85.214.53]:36333 "EHLO
+        mail-it0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753088AbcH2Pwx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 11:52:53 -0400
+Received: by mail-it0-f53.google.com with SMTP id e63so111925397ith.1
+        for <netdev@vger.kernel.org>; Mon, 29 Aug 2016 08:52:53 -0700 (PDT)
+In-Reply-To: <20160828.233450.783176953748442286.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/29/2016 05:07 PM, Jakub Kicinski wrote:
-> On Mon, 29 Aug 2016 16:34:25 +0200, Daniel Borkmann wrote:
->> On 08/26/2016 08:06 PM, Jakub Kicinski wrote:
->>> Common approach to accessing register fields is to define
->>> structures or sets of macros containing mask and shift pair.
->>> Operations on the register are then performed as follows:
->>>
->>>    field = (reg >> shift) & mask;
->>>
->>>    reg &= ~(mask << shift);
->>>    reg |= (field & mask) << shift;
->>>
->>> Defining shift and mask separately is tedious.  Ivo van Doorn
->>> came up with an idea of computing them at compilation time
->>> based on a single shifted mask (later refined by Felix) which
->>> can be used like this:
->>>
->>>    #define REG_FIELD 0x000ff000
->>>
->>>    field = FIELD_GET(REG_FIELD, reg);
->>>
->>>    reg &= ~REG_FIELD;
->>>    reg |= FIELD_PREP(REG_FIELD, field);
->>>
->>> FIELD_{GET,PREP} macros take care of finding out what the
->>> appropriate shift is based on compilation time ffs operation.
->>>
->>> GENMASK can be used to define registers (which is usually
->>> less error-prone and easier to match with datasheets).
->>>
->>> This approach is the most convenient I've seen so to limit code
->>> multiplication let's move the macros to a global header file.
->>> Attempts to use static inlines instead of macros failed due
->>> to false positive triggering of BUILD_BUG_ON()s, especially with
->>> GCC < 6.0.
->>>
->>> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
->> [...]
->>> + * Bitfield access macros
->>> + *
->>> + * FIELD_{GET,PREP} macros take as first parameter shifted mask
->>> + * from which they extract the base mask and shift amount.
->>> + * Mask must be a compilation time constant.
->>> + *
->>> + * Example:
->>> + *
->>> + *  #define REG_FIELD_A  GENMASK(6, 0)
->>> + *  #define REG_FIELD_B  BIT(7)
->>> + *  #define REG_FIELD_C  GENMASK(15, 8)
->>> + *  #define REG_FIELD_D  GENMASK(31, 16)
->>> + *
->>> + * Get:
->>> + *  a = FIELD_GET(REG_FIELD_A, reg);
->>> + *  b = FIELD_GET(REG_FIELD_B, reg);
->>> + *
->>> + * Set:
->>> + *  reg = FIELD_PREP(REG_FIELD_A, 1) |
->>> + *	  FIELD_PREP(REG_FIELD_B, 0) |
->>> + *	  FIELD_PREP(REG_FIELD_C, c) |
->>> + *	  FIELD_PREP(REG_FIELD_D, 0x40);
->>> + *
->>> + * Modify:
->>> + *  reg &= ~REG_FIELD_C;
->>> + *  reg |= FIELD_PREP(REG_FIELD_C, c);
->>> + */
->>> +
->>> +#define _bf_shf(x) (__builtin_ffsll(x) - 1)
->>> +
->>> +#define _BF_FIELD_CHECK(_mask, _reg, _val, _pfx)			\
+On Sun, Aug 28, 2016 at 8:34 PM, David Miller <davem@davemloft.net> wrote:
+> From: Tom Herbert <tom@herbertland.com>
+> Date: Sun, 28 Aug 2016 14:43:16 -0700
+>
+>> Add a read_sock protocol operation function that allows something like
+>> tcp_read_sock to be called for other protocol types.
 >>
->> Nit: if possible, please always use "__" instead of "_" as prefix, which is
->> more common coding style in the kernel.
+>> Specific changes in this patch set:
+>>   - Add read_sock function to proto_ops. This has the same signature as
+>>     tcp_read_sock. sk_read_actor_t is also defined in net.h.
+>>   - Set peek_len and read_sock proto_op functions for TCPv4 and TCPv6
+>>     stream ops.
+>>   - Remove references to tcp in strparser.
+>>   - Call peek_len and read_sock operations from strparser instead of
+>>     calling TCP specific functions.
 >
-> I went with single underscore, because my understanding was:
->   - no underscore - safe, "user-facing" API;
->   - two underscores - internal, make sure you know how to use it;
->   - single underscore - library internals, shouldn't be touched.
-
-That convention would be new to me, at least I haven't seen it much (see
-also recent comment on the act_tunnel set). Still think two underscores
-is generally preferred (unless this is somewhere documented otherwise).
-
-> I don't expect anyone to invoke those macros, the underscore is
-> there to avoid collisions.
+> I'll apply this, but I want you to shore up these new ops.
 >
->>> +	({								\
->>> +		BUILD_BUG_ON_MSG(!__builtin_constant_p(_mask),		\
->>> +				 _pfx "mask is not constant");		\
->>> +		BUILD_BUG_ON_MSG(!(_mask), _pfx "mask is zero");	\
->>> +		BUILD_BUG_ON_MSG(__builtin_constant_p(_val) ?		\
->>> +				 ~((_mask) >> _bf_shf(_mask)) & (_val) : 0, \
->>> +				 _pfx "value too large for the field"); \
->>> +		BUILD_BUG_ON_MSG((_mask) > (typeof(_reg))~0ull,		\
->>> +				 _pfx "type of reg too small for mask"); \
->>> +		__BUILD_BUG_ON_NOT_POWER_OF_2((_mask) +			\
->>> +					      (1ULL << _bf_shf(_mask))); \
->>> +	})
->>> +
->>> +/**
->>> + * FIELD_PREP() - prepare a bitfield element
->>> + * @_mask: shifted mask defining the field's length and position
->>> + * @_val:  value to put in the field
->>> + *
->>> + * FIELD_PREP() masks and shifts up the value.  The result should
->>> + * be combined with other fields of the bitfield using logical OR.
->>> + */
->>> +#define FIELD_PREP(_mask, _val)						\
->>> +	({								\
->>> +		_BF_FIELD_CHECK(_mask, 0ULL, _val, "FIELD_PREP: ");	\
->>> +		((typeof(_mask))(_val) << _bf_shf(_mask)) & (_mask);	\
->>> +	})
->>> +
->>> +/**
->>> + * FIELD_GET() - extract a bitfield element
->>> + * @_mask: shifted mask defining the field's length and position
->>> + * @_reg:  32bit value of entire bitfield
->>> + *
->>> + * FIELD_GET() extracts the field specified by @_mask from the
->>> + * bitfield passed in as @_reg by masking and shifting it down.
->>> + */
->>> +#define FIELD_GET(_mask, _reg)						\
->>> +	({								\
->>> +		_BF_FIELD_CHECK(_mask, _reg, 0U, "FIELD_GET: ");	\
->>> +		(typeof(_mask))(((_reg) & (_mask)) >> _bf_shf(_mask));	\
->>> +	})
->>
->> No strong opinion, but FIELD_PREP() sounds a bit weird. Maybe rather a
->> FIELD_GEN() (aka "generate") and FIELD_GET() pair?
->
-> FWIW PREP was suggested by Linus:
->
-> https://lkml.org/lkml/2016/8/17/384
+> A check has to happen somewhere to make sure the proto_ops in
+> question have a non-NULL read_sock and peek_len method before
+> starting to use it.
 
-Hmm, ok, fair enough.
+Is the check in strp_init not enough?...
 
->>> +#endif
->>> diff --git a/include/linux/bug.h b/include/linux/bug.h
->>> index e51b0709e78d..292d6a10b0c2 100644
->>> --- a/include/linux/bug.h
->>> +++ b/include/linux/bug.h
->>> @@ -13,6 +13,7 @@ enum bug_trap_type {
->>>    struct pt_regs;
->>>
->>>    #ifdef __CHECKER__
->>> +#define __BUILD_BUG_ON_NOT_POWER_OF_2(n) (0)
->>>    #define BUILD_BUG_ON_NOT_POWER_OF_2(n) (0)
->>>    #define BUILD_BUG_ON_ZERO(e) (0)
->>>    #define BUILD_BUG_ON_NULL(e) ((void*)0)
->>> @@ -24,6 +25,8 @@ struct pt_regs;
->>>    #else /* __CHECKER__ */
->>>
->>>    /* Force a compilation error if a constant expression is not a power of 2 */
->>> +#define __BUILD_BUG_ON_NOT_POWER_OF_2(n)	\
->>> +	BUILD_BUG_ON(((n) & ((n) - 1)) != 0)
->>
->> Is there a reason BUILD_BUG_ON_NOT_POWER_OF_2(n) cannot be reused?
->>
->> Because the (n) == 0 check would trigger (although it shouldn't ...)?
->
-> It would, I'm doing:
->    mask + lowest bit of mask
-> which will result in:
->    highest bit of mask << 1
-> which in turn will overflow for masks with highest bit set.
+@@ -424,9 +429,14 @@ static void strp_rx_msg_timeout(unsigned long arg)
+ int strp_init(struct strparser *strp, struct sock *csk,
+              struct strp_callbacks *cb)
+ {
++       struct socket *sock = csk->sk_socket;
++
+        if (!cb || !cb->rcv_msg || !cb->parse_msg)
+                return -EINVAL;
 
-Ahh, right.
++       if (!sock->ops->read_sock || !sock->ops->peek_len)
++               return -EAFNOSUPPORT;
++
