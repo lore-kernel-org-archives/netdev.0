@@ -1,28 +1,47 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v3] brcmfmac: add missing header dependencies
-Date: Mon, 29 Aug 2016 11:02:07 +0200
-Message-ID: <6640253.GDmR9LxZA8@wuerfel>
-References: <1472458485-24499-1-git-send-email-baoyou.xie@linaro.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: franky.lin@broadcom.com, hante.meuleman@broadcom.com,
-        kvalo@codeaurora.org, linux-wireless@vger.kernel.org,
-        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, xie.baoyou@zte.com.cn
-To: Baoyou Xie <baoyou.xie@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1472458485-24499-1-git-send-email-baoyou.xie@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/14] fm10k: print error code when pci_enable_device_mem fails during probe
+Date: Mon, 29 Aug 2016 02:13:39 -0700
+Message-ID: <1472462026-42133-8-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1472462026-42133-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        guru.anbalagane@oracle.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([134.134.136.65]:61654 "EHLO mga03.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1756888AbcH2JNu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 29 Aug 2016 05:13:50 -0400
+In-Reply-To: <1472462026-42133-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday, August 29, 2016 4:14:45 PM CEST Baoyou Xie wrote:
-> We get 1 warning when biuld kernel with W=1:
-> drivers/net/wireless/broadcom/brcm80211/brcmfmac/tracepoint.c:23:6: warning: no previous prototype for '__brcmf_err' [-Wmissing-prototypes]
-> 
-> In fact, this function is declared in brcmfmac/debug.h, so this patch
-> add missing header dependencies.
-> 
-> Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-Acked-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+index 11b2955..e5f37b7 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+@@ -1951,8 +1951,11 @@ static int fm10k_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	int err;
+ 
+ 	err = pci_enable_device_mem(pdev);
+-	if (err)
++	if (err) {
++		dev_err(&pdev->dev,
++			"PCI enable device failed: %d\n", err);
+ 		return err;
++	}
+ 
+ 	err = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(48));
+ 	if (err)
+-- 
+2.7.4
