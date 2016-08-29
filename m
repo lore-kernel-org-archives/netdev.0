@@ -1,67 +1,99 @@
-From: Jia He <hejianet@gmail.com>
-Subject: [RFC PATCH 5/6] ipv6: Remove useless parameter in __snmp6_fill_statsdev
-Date: Tue, 30 Aug 2016 00:03:59 +0800
-Message-ID: <1472486640-1111-6-git-send-email-hejianet@gmail.com>
-References: <1472486640-1111-1-git-send-email-hejianet@gmail.com>
-Cc: linux-sctp@vger.kernel.org, linux-kernel@vger.kernel.org,
-        davem@davemloft.net, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        Jia He <hejianet@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1472486640-1111-1-git-send-email-hejianet@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sean Wang <sean.wang@mediatek.com>
+Subject: Re: [PATCH net v2 9/9] net: ethernet: mediatek: fix error handling inside mtk_mdio_init
+Date: Tue, 30 Aug 2016 00:10:03 +0800
+Message-ID: <1472487003-21584-1-git-send-email-sean.wang@mediatek.com>
+References: <20160829131558.GE12465@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <john@phrozen.org>, <davem@davemloft.net>, <nbd@openwrt.org>,
+        <netdev@vger.kernel.org>, <linux-mediatek@lists.infradead.org>,
+        <keyhaede@gmail.com>
+To: <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailgw02.mediatek.com ([210.61.82.184]:16975 "EHLO
+        mailgw02.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1750786AbcH2QKJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 12:10:09 -0400
+In-Reply-To: <20160829131558.GE12465@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The parameter items(always ICMP6_MIB_MAX) is useless for __snmp6_fill_statsdev.
+Date: Mon, 29 Aug 2016 15:15:58 +0200,Andrew Lunn wrote:
+>On Mon, Aug 29, 2016 at 01:03:23PM +0800, sean.wang@mediatek.com wrote:
+>> From: Sean Wang <sean.wang@mediatek.com>
+>> 
+>> return -ENODEV if no child is found in MDIO bus.
+>
+>Hi Sean
+>
+>Why is it an error not to have any children on the bus?
+>
+>Say i have a fibre optical module connected to the MAC. It is unlikely
+>to have an MII interface, so i would not list it on the bus. With this
+>change, if i have the mdio-bus node in my device tree, i don't get a
+>working system. Without this change, it simply does not instantiate
+>the MDIO device, and returns without an error.
+>
+>I think this patch should be dropped, or maybe a comment adding, why
+>the current code returns 0 at this point.
+>
+>    Andrew
+>
+Hi Andrew,
 
-Signed-off-by: Jia He <hejianet@gmail.com>
----
- net/ipv6/addrconf.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+Sorry, i didn't add the comment enough and well on the patch for let you can't see 
+what i am done
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index df8425f..0fa5aa1 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4944,18 +4944,18 @@ static inline size_t inet6_if_nlmsg_size(void)
- }
- 
- static inline void __snmp6_fill_statsdev(u64 *stats, atomic_long_t *mib,
--				      int items, int bytes)
-+					int bytes)
- {
- 	int i;
--	int pad = bytes - sizeof(u64) * items;
-+	int pad = bytes - sizeof(u64) * ICMP6_MIB_MAX;
- 	BUG_ON(pad < 0);
- 
- 	/* Use put_unaligned() because stats may not be aligned for u64. */
--	put_unaligned(items, &stats[0]);
--	for (i = 1; i < items; i++)
-+	put_unaligned(ICMP6_MIB_MAX, &stats[0]);
-+	for (i = 1; i < ICMP6_MIB_MAX; i++)
- 		put_unaligned(atomic_long_read(&mib[i]), &stats[i]);
- 
--	memset(&stats[items], 0, pad);
-+	memset(&stats[ICMP6_MIB_MAX], 0, pad);
- }
- 
- static inline void __snmp6_fill_stats64(u64 *stats, void __percpu *mib,
-@@ -4988,7 +4988,7 @@ static void snmp6_fill_stats(u64 *stats, struct inet6_dev *idev, int attrtype,
- 				     offsetof(struct ipstats_mib, syncp));
- 		break;
- 	case IFLA_INET6_ICMP6STATS:
--		__snmp6_fill_statsdev(stats, idev->stats.icmpv6dev->mibs, ICMP6_MIB_MAX, bytes);
-+		__snmp6_fill_statsdev(stats, idev->stats.icmpv6dev->mibs, bytes);
- 		break;
- 	}
- }
--- 
-1.8.3.1
+the patch I just want to let driver know if device tree is defined well at the earlier time
+
+although original driver still works without this patch 
+
+the original logic on the driver is 
+
+1) returning -ENODEV if no mdio_bus defined in the device tree. 
+
+2) returning -ENODEV inside ndo_init callback if no phy_dev detected on the bus
+
+--
+after with the patch, the logic becomes
+
+1) returning -ENODEV if no mdio_bus defined in the device tree
+
+2) returning -ENODEV if no phy_dev defined in the device tree 
+a. that is used to check if the device tree about phy_dev is defined well
+b. and it could be aligned with the above 1) is doing
+
+3) returning -ENODEV inside ndo_init callback if no phy device detected on the bus 
+(that is used to test if phy_device is workable or encounters real phy problems)
+
+so add 2) help to make distinguish if it is a device tree definition 
+problem or a real phy problem at the earlier time
+
+this is my whole thought
+
+thanks,
+Sean
+
+>> 
+>> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+>> Acked-by: John Crispin <john@phrozen.org>
+>> ---
+>>  drivers/net/ethernet/mediatek/mtk_eth_soc.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>> 
+>> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+>> index f741c6a..e48b2a4 100644
+>> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+>> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+>> @@ -304,7 +304,7 @@ static int mtk_mdio_init(struct mtk_eth *eth)
+>>  	}
+>>  
+>>  	if (!of_device_is_available(mii_np)) {
+>> -		ret = 0;
+>> +		ret = -ENODEV;
+>>  		goto err_put_node;
+>>  	}
+>>  
+>> -- 
+>> 1.9.1
+>
