@@ -1,105 +1,202 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net-next] tcp: add tcp_add_backlog()
-Date: Mon, 29 Aug 2016 15:51:37 -0300
-Message-ID: <20160829185137.GC11144@localhost.localdomain>
-References: <1472308674.14381.226.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Neal Cardwell <ncardwell@google.com>,
-        Yuchung Cheng <ycheng@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch iproute2 v2 1/2] tc: Add support for the matchall traffic classifier.
+Date: Mon, 29 Aug 2016 21:01:00 +0200
+Message-ID: <1472497261-2881-2-git-send-email-jiri@resnulli.us>
+References: <1472497261-2881-1-git-send-email-jiri@resnulli.us>
+Cc: stephen@networkplumber.org, yotamg@mellanox.com,
+        eladr@mellanox.com, idosch@mellanox.com, nogahf@mellanox.com,
+        ogerlitz@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50156 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751378AbcH2Sxf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 29 Aug 2016 14:53:35 -0400
-Content-Disposition: inline
-In-Reply-To: <1472308674.14381.226.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:32837 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755515AbcH2TBH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 15:01:07 -0400
+Received: by mail-wm0-f65.google.com with SMTP id o80so13967wme.0
+        for <netdev@vger.kernel.org>; Mon, 29 Aug 2016 12:01:07 -0700 (PDT)
+In-Reply-To: <1472497261-2881-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 27, 2016 at 07:37:54AM -0700, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> When TCP operates in lossy environments (between 1 and 10 % packet
-> losses), many SACK blocks can be exchanged, and I noticed we could
-> drop them on busy senders, if these SACK blocks have to be queued
-> into the socket backlog.
-> 
-> While the main cause is the poor performance of RACK/SACK processing,
-> we can try to avoid these drops of valuable information that can lead to
-> spurious timeouts and retransmits.
-> 
-> Cause of the drops is the skb->truesize overestimation caused by :
-> 
-> - drivers allocating ~2048 (or more) bytes as a fragment to hold an
->   Ethernet frame.
-> 
-> - various pskb_may_pull() calls bringing the headers into skb->head
->   might have pulled all the frame content, but skb->truesize could
->   not be lowered, as the stack has no idea of each fragment truesize.
-> 
-> The backlog drops are also more visible on bidirectional flows, since
-> their sk_rmem_alloc can be quite big.
-> 
-> Let's add some room for the backlog, as only the socket owner
-> can selectively take action to lower memory needs, like collapsing
-> receive queues or partial ofo pruning.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Yuchung Cheng <ycheng@google.com>
-> Cc: Neal Cardwell <ncardwell@google.com>
-> ---
->  include/net/tcp.h   |    1 +
->  net/ipv4/tcp_ipv4.c |   33 +++++++++++++++++++++++++++++----
->  net/ipv6/tcp_ipv6.c |    5 +----
->  3 files changed, 31 insertions(+), 8 deletions(-)
-> 
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index 25d64f6de69e1f639ed1531bf2d2df3f00fd76a2..5f5f09f6e019682ef29c864d2f43a8f247fcdd9a 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -1163,6 +1163,7 @@ static inline void tcp_prequeue_init(struct tcp_sock *tp)
->  }
->  
->  bool tcp_prequeue(struct sock *sk, struct sk_buff *skb);
-> +bool tcp_add_backlog(struct sock *sk, struct sk_buff *skb);
->  
->  #undef STATE_TRACE
->  
-> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-> index ad41e8ecf796bba1bd6d9ed155ca4a57ced96844..53e80cd004b6ce401c3acbb4b243b243c5c3c4a3 100644
-> --- a/net/ipv4/tcp_ipv4.c
-> +++ b/net/ipv4/tcp_ipv4.c
-> @@ -1532,6 +1532,34 @@ bool tcp_prequeue(struct sock *sk, struct sk_buff *skb)
->  }
->  EXPORT_SYMBOL(tcp_prequeue);
->  
-> +bool tcp_add_backlog(struct sock *sk, struct sk_buff *skb)
-> +{
-> +	u32 limit = sk->sk_rcvbuf + sk->sk_sndbuf;
-> +
-> +	/* Only socket owner can try to collapse/prune rx queues
-> +	 * to reduce memory overhead, so add a little headroom here.
-> +	 * Few sockets backlog are possibly concurrently non empty.
-> +	 */
-> +	limit += 64*1024;
-> +
-> +	/* In case all data was pulled from skb frags (in __pskb_pull_tail()),
-> +	 * we can fix skb->truesize to its real value to avoid future drops.
-> +	 * This is valid because skb is not yet charged to the socket.
-> +	 * It has been noticed pure SACK packets were sometimes dropped
-> +	 * (if cooked by drivers without copybreak feature).
-> +	 */
-> +	if (!skb->data_len)
-> +		skb->truesize = SKB_TRUESIZE(skb_end_offset(skb));
+From: Yotam Gigi <yotamg@mellanox.com>
 
-Shouldn't __pskb_pull_tail() already fix this? As it seems the expected
-behavior and it would have a more global effect then. For drivers not
-using copybreak, that's needed here anyway, but maybe this help other
-protocols/situations too.
+The matchall classifier matches every packet and allows the user to apply
+actions on it. In addition, it supports the skip_sw and skip_hw (as can
+be found on u32 and flower filter) that direct the kernel to skip the
+software/hardware processing of the actions.
 
-Thanks,
-  Marcelo
+This filter is very useful in usecases where every packet should be
+matched. For example, packet mirroring (SPAN) can be setup very easily
+using that filter.
+
+Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ tc/Makefile     |   1 +
+ tc/f_matchall.c | 143 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 144 insertions(+)
+ create mode 100644 tc/f_matchall.c
+
+diff --git a/tc/Makefile b/tc/Makefile
+index 42747c5..8917eaf 100644
+--- a/tc/Makefile
++++ b/tc/Makefile
+@@ -67,6 +67,7 @@ TCMODULES += q_pie.o
+ TCMODULES += q_hhf.o
+ TCMODULES += q_clsact.o
+ TCMODULES += e_bpf.o
++TCMODULES += f_matchall.o
+ 
+ ifeq ($(TC_CONFIG_IPSET), y)
+   ifeq ($(TC_CONFIG_XT), y)
+diff --git a/tc/f_matchall.c b/tc/f_matchall.c
+new file mode 100644
+index 0000000..04e524e
+--- /dev/null
++++ b/tc/f_matchall.c
+@@ -0,0 +1,143 @@
++/*
++ * f_matchall.c		Match-all Classifier
++ *
++ *		This program is free software; you can distribute it and/or
++ *		modify it under the terms of the GNU General Public License
++ *		as published by the Free Software Foundation; either version
++ *		2 of the License, or (at your option) any later version.
++ *
++ * Authors:	Jiri Pirko <jiri@mellanox.com>, Yotam Gigi <yotamg@mellanox.com>
++ *
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <unistd.h>
++#include <syslog.h>
++#include <fcntl.h>
++#include <sys/socket.h>
++#include <netinet/in.h>
++#include <arpa/inet.h>
++#include <string.h>
++#include <linux/if.h>
++
++#include "utils.h"
++#include "tc_util.h"
++
++static void explain(void)
++{
++	fprintf(stderr, "Usage: ... matchall [skip_sw | skip_hw]\n");
++	fprintf(stderr, "                 [ action ACTION_SPEC ] [ classid CLASSID ]\n");
++	fprintf(stderr, "\n");
++	fprintf(stderr, "Where: SELECTOR := SAMPLE SAMPLE ...\n");
++	fprintf(stderr, "       FILTERID := X:Y:Z\n");
++	fprintf(stderr, "       ACTION_SPEC := ... look at individual actions\n");
++	fprintf(stderr, "\nNOTE: CLASSID is parsed as hexadecimal input.\n");
++}
++
++static int matchall_parse_opt(struct filter_util *qu, char *handle,
++			   int argc, char **argv, struct nlmsghdr *n)
++{
++	struct tcmsg *t = NLMSG_DATA(n);
++	struct rtattr *tail;
++	__u32 flags = 0;
++	long h = 0;
++
++	if (handle) {
++		h = strtol(handle, NULL, 0);
++		if (h == LONG_MIN || h == LONG_MAX) {
++			fprintf(stderr, "Illegal handle \"%s\", must be numeric.\n",
++			    handle);
++			return -1;
++		}
++	}
++	t->tcm_handle = h;
++
++	if (argc == 0)
++		return 0;
++
++	tail = (struct rtattr *)(((void *)n)+NLMSG_ALIGN(n->nlmsg_len));
++	addattr_l(n, MAX_MSG, TCA_OPTIONS, NULL, 0);
++
++	while (argc > 0) {
++		if (matches(*argv, "classid") == 0 ||
++			   strcmp(*argv, "flowid") == 0) {
++			unsigned int handle;
++
++			NEXT_ARG();
++			if (get_tc_classid(&handle, *argv)) {
++				fprintf(stderr, "Illegal \"classid\"\n");
++				return -1;
++			}
++			addattr_l(n, MAX_MSG, TCA_MATCHALL_CLASSID, &handle, 4);
++		} else if (matches(*argv, "action") == 0) {
++			NEXT_ARG();
++			if (parse_action(&argc, &argv, TCA_MATCHALL_ACT, n)) {
++				fprintf(stderr, "Illegal \"action\"\n");
++				return -1;
++			}
++			continue;
++
++		} else if (strcmp(*argv, "skip_hw") == 0) {
++			NEXT_ARG();
++			flags |= TCA_CLS_FLAGS_SKIP_HW;
++			continue;
++		} else if (strcmp(*argv, "skip_sw") == 0) {
++			NEXT_ARG();
++			flags |= TCA_CLS_FLAGS_SKIP_SW;
++			continue;
++		} else if (strcmp(*argv, "help") == 0) {
++			explain();
++			return -1;
++		} else {
++			fprintf(stderr, "What is \"%s\"?\n", *argv);
++			explain();
++			return -1;
++		}
++		argc--; argv++;
++	}
++
++	if (flags) {
++		if (!(flags ^ (TCA_CLS_FLAGS_SKIP_HW |
++			       TCA_CLS_FLAGS_SKIP_SW))) {
++			fprintf(stderr,
++				"skip_hw and skip_sw are mutually exclusive\n");
++			return -1;
++		}
++		addattr_l(n, MAX_MSG, TCA_MATCHALL_FLAGS, &flags, 4);
++	}
++
++	tail->rta_len = (((void *)n)+n->nlmsg_len) - (void *)tail;
++	return 0;
++}
++
++static int matchall_print_opt(struct filter_util *qu, FILE *f,
++			   struct rtattr *opt, __u32 handle)
++{
++	struct rtattr *tb[TCA_MATCHALL_MAX+1];
++
++	if (opt == NULL)
++		return 0;
++
++	parse_rtattr_nested(tb, TCA_MATCHALL_MAX, opt);
++
++	if (handle)
++		fprintf(f, "handle 0x%x ", handle);
++
++	if (tb[TCA_MATCHALL_CLASSID]) {
++		SPRINT_BUF(b1);
++		fprintf(f, "flowid %s ",
++			sprint_tc_classid(rta_getattr_u32(tb[TCA_MATCHALL_CLASSID]), b1));
++	}
++
++	if (tb[TCA_MATCHALL_ACT])
++		tc_print_action(f, tb[TCA_MATCHALL_ACT]);
++
++	return 0;
++}
++
++struct filter_util matchall_filter_util = {
++	.id = "matchall",
++	.parse_fopt = matchall_parse_opt,
++	.print_fopt = matchall_print_opt,
++};
+-- 
+2.5.5
