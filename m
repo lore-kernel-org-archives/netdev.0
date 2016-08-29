@@ -1,54 +1,45 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [RFCv2 02/16] net: cls_bpf: add hardware offload
-Date: Mon, 29 Aug 2016 16:51:04 +0200
-Message-ID: <57C44BD8.2090402@iogearbox.net>
-References: <1472234775-29453-1-git-send-email-jakub.kicinski@netronome.com> <1472234775-29453-3-git-send-email-jakub.kicinski@netronome.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [RFC 4/9] ipv6: sr: add support for SRH encapsulation and injection
+ with lwtunnels
+Date: Mon, 29 Aug 2016 07:52:40 -0700
+Message-ID: <57C44C38.4010203@cumulusnetworks.com>
+References: <1472226767-9904-1-git-send-email-david.lebrun@uclouvain.be> <1472226767-9904-5-git-send-email-david.lebrun@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: ast@kernel.org, dinan.gunawardena@netronome.com, jiri@resnulli.us,
-        john.fastabend@gmail.com, kubakici@wp.pl
-To: Jakub Kicinski <jakub.kicinski@netronome.com>,
-        netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Lebrun <david.lebrun@uclouvain.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:42494 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932884AbcH2OvJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 10:51:09 -0400
-In-Reply-To: <1472234775-29453-3-git-send-email-jakub.kicinski@netronome.com>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:33291 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757417AbcH2Ow5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 10:52:57 -0400
+Received: by mail-pf0-f182.google.com with SMTP id y134so52815385pfg.0
+        for <netdev@vger.kernel.org>; Mon, 29 Aug 2016 07:52:57 -0700 (PDT)
+In-Reply-To: <1472226767-9904-5-git-send-email-david.lebrun@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/26/2016 08:06 PM, Jakub Kicinski wrote:
-> This patch adds hardware offload capability to cls_bpf classifier,
-> similar to what have been done with U32 and flower.
+On 8/26/16, 8:52 AM, David Lebrun wrote:
+> This patch creates a new type of interfaceless lightweight tunnel (SEG6),
+> enabling the encapsulation and injection of SRH within locally emitted
+> packets and forwarded packets.
 >
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-
-[...]
-> diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-> index a459be5fe1c2..a86262f0d93a 100644
-> --- a/include/net/pkt_cls.h
-> +++ b/include/net/pkt_cls.h
-> @@ -486,4 +486,18 @@ struct tc_cls_matchall_offload {
->   	unsigned long cookie;
->   };
+> From a configuration viewpoint, a seg6 tunnel would be configured as follows:
 >
-> +enum tc_clsbpf_command {
-> +	TC_CLSBPF_ADD,
-> +	TC_CLSBPF_REPLACE,
-> +	TC_CLSBPF_DESTROY,
-> +};
-> +
-> +struct tc_cls_bpf_offload {
-> +	enum tc_clsbpf_command command;
-> +	struct tcf_exts *exts;
-> +	struct bpf_prog *filter;
+>   ip -6 ro ad fc00::1/128 via <gw> encap seg6 mode encap segs fc42::1,fc42::2,fc42::3
+>
+> Any packet whose destination address is fc00::1 would thus be encapsulated
+> within an outer IPv6 header containing the SRH with three segments, and would
+> actually be routed to the first segment of the list. If `mode inline' was
+> specified instead of `mode encap', then the SRH would be directly inserted
+> after the IPv6 header without outer encapsulation.
+>
+> Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
+> ---
 
-Small nit: s/filter/prog/, I think prog is a more appropriate name since
-it's about more than just filtering. (I will rename it at some point for
-cls_bpf as well.)
+You will need to account for lwtunnel headroom ?
+https://patchwork.ozlabs.org/patch/662632/
 
-Rest looks good to me.
+thanks,
+Roopa
