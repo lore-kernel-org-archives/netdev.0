@@ -1,63 +1,62 @@
-From: robert.foss-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org
-Subject: [PATCH v3 0/5] net/usb: asix driver improvements
-Date: Mon, 29 Aug 2016 09:32:14 -0400
-Message-ID: <cover.c702ef6af13be7c1282a2f2d3189281fdc327abe.1472155176.git-series.robert.foss__41532.5142363601$1472477745$gmane$org@collabora.com>
-To: freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org, Dean_Jenkins-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org,
-        Mark_Craske-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-        robert.foss-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org, ivecera-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-        john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, vpalatin-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org,
-        stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, grundler-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org,
-        changchias-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
-        tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org,
-        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, vpalatin-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: robert.foss@collabora.com
+Subject: [PATCH v3 5/5] net: asix: autoneg will set WRITE_MEDIUM reg
+Date: Mon, 29 Aug 2016 09:32:24 -0400
+Message-ID: <1472477566-32096-5-git-send-email-robert.foss@collabora.com>
+References: <cover.c702ef6af13be7c1282a2f2d3189281fdc327abe.1472155176.git-series.robert.foss@collabora.com>
+Cc: Grant Grundler <grundler@google.com>
+To: freddy@asix.com.tw, Dean_Jenkins@mentor.com,
+        Mark_Craske@mentor.com, davem@davemloft.net,
+        robert.foss@collabora.com, ivecera@redhat.com,
+        john.stultz@linaro.org, vpalatin@chromium.org,
+        stephen@networkplumber.org, grundler@chromium.org,
+        changchias@gmail.com, allan@asix.com.tw, andrew@lunn.ch,
+        tremyfr@gmail.com, colin.king@canonical.com,
+        linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, vpalatin@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bhuna.collabora.co.uk ([46.235.227.227]:52488 "EHLO
+        bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932923AbcH2NgK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 09:36:10 -0400
+In-Reply-To: <cover.c702ef6af13be7c1282a2f2d3189281fdc327abe.1472155176.git-series.robert.foss@collabora.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Robert Foss <robert.foss-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+From: Grant Grundler <grundler@chromium.org>
 
-This is a resubmission of v3, since the netdev
-mailinlist was not sent the previous submission.
+The miii_nway_restart() causes a PHY link change activity and
+ax88772_link_reset will be called. link_reset will set
+AX_CMD_WRITE_MEDIUM_MODE register correctly.
 
-This series improves power management of the asix driver.
+The asix_write_medium_mode in reset() fills in a default value to the register
+which may be different from the negotiation result. So do this first.
 
- - Suspend/resume support is improved to save needed registers.
- - Device disconnection is improved.
- - Fixes AX88772x resume failures
- - Implementes IEEE 802.3 spec section "22.2.4.1.1 Reset" correctly
- - Fixes AX_CMD_WRITE_MEDIUM_MODE being set incorrectly
+Ignore the ret value since it's ignored in XXX_link_reset() functions.
 
-Changes since v1:
-- Added proper metadata tags to series.
-- Added two more patches to series.
+Signed-off-by: Grant Grundler <grundler@google.com>
+Signed-off-by: Robert Foss <robert.foss@collabora.com>
+Tested-by: Robert Foss <robert.foss@collabora.com>
+---
+ drivers/net/usb/asix_devices.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-Changes since v2:
-- Added coverletter
-- Tested patches on AX88772A/AX88772B/AX88178/AX88179 hardware
-
-Allan Chou (1):
-  net: asix: Fix AX88772x resume failures
-
-Freddy Xin (1):
-  net: asix: Add in_pm parameter
-
-Grant Grundler (2):
-  net: asix: see 802.3 spec for phy reset
-  net: asix: autoneg will set WRITE_MEDIUM reg
-
-Vincent Palatin (1):
-  net: asix: Avoid looping when the device is disconnected
-
- drivers/net/usb/asix.h         |  40 ++-
- drivers/net/usb/asix_common.c  | 212 ++++++++++++----
- drivers/net/usb/asix_devices.c | 450 +++++++++++++++++++++++++++-------
- drivers/net/usb/ax88172a.c     |  29 +-
- 4 files changed, 575 insertions(+), 156 deletions(-)
-
+diff --git a/drivers/net/usb/asix_devices.c b/drivers/net/usb/asix_devices.c
+index dbcdda2..cce2495 100644
+--- a/drivers/net/usb/asix_devices.c
++++ b/drivers/net/usb/asix_devices.c
+@@ -928,12 +928,9 @@ static int ax88178_reset(struct usbnet *dev)
+ 	asix_mdio_write(dev->net, dev->mii.phy_id, MII_CTRL1000,
+ 			ADVERTISE_1000FULL);
+ 
++	asix_write_medium_mode(dev, AX88178_MEDIUM_DEFAULT, 0);
+ 	mii_nway_restart(&dev->mii);
+ 
+-	ret = asix_write_medium_mode(dev, AX88178_MEDIUM_DEFAULT, 0);
+-	if (ret < 0)
+-		return ret;
+-
+ 	/* Rewrite MAC address */
+ 	memcpy(data->mac_addr, dev->net->dev_addr, ETH_ALEN);
+ 	ret = asix_write_cmd(dev, AX_CMD_WRITE_NODE_ID, 0, 0, ETH_ALEN,
 -- 
-git-series 0.8.10
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.7.4
