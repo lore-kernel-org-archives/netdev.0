@@ -1,59 +1,42 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: [PATCH v4] brcmfmac: add missing header dependencies
-Date: Mon, 29 Aug 2016 18:39:25 +0200
-Message-ID: <CACna6rwBrT5Ei8oY1qfcCTa5J+xh9PyZUDwwghcXNX1U0E5vuw@mail.gmail.com>
-References: <1472474375-29910-1-git-send-email-baoyou.xie@linaro.org> <CACna6rytnp7WsrdscwPOTvi=FajAtoF2V2ZKx34RUdjEOiZO1w@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH 1/6] proc: Reduce cache miss in
+ {snmp,netstat}_seq_show
+Date: Mon, 29 Aug 2016 09:41:25 -0700
+Message-ID: <1472488885.14381.260.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1472486640-1111-1-git-send-email-hejianet@gmail.com>
+         <1472486640-1111-2-git-send-email-hejianet@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Arend Van Spriel <arend.vanspriel@broadcom.com>,
-        Franky Lin <franky.lin@broadcom.com>,
-        Hante Meuleman <hante.meuleman@broadcom.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
-        <brcm80211-dev-list.pdl@broadcom.com>,
-        Network Development <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Arnd Bergmann <arnd@arndb.de>, xie.baoyou@zte.com.cn
-To: Baoyou Xie <baoyou.xie@linaro.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        linux-kernel@vger.kernel.org, davem@davemloft.net,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>
+To: Jia He <hejianet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACna6rytnp7WsrdscwPOTvi=FajAtoF2V2ZKx34RUdjEOiZO1w@mail.gmail.com>
+In-Reply-To: <1472486640-1111-2-git-send-email-hejianet@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 29 August 2016 at 17:42, Baoyou Xie <baoyou.xie@linaro.org> wrote:
-> On 29 August 2016 at 23:31, Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com> wr=
-ote:
->>
->> On 29 August 2016 at 14:39, Baoyou Xie <baoyou.xie@linaro.org> wrote:
->> > We get 1 warning when build kernel with W=3D1:
->> > drivers/net/wireless/broadcom/brcm80211/brcmfmac/tracepoint.c:23:6:
->> > warning: no previous prototype for '__brcmf_err' [-Wmissing-prototypes=
-]
->>
->> building? I'm not native English, but I think so.
->>
->>
->> > In fact, this function is declared in brcmfmac/debug.h, so this patch
->> > add missing header dependencies.
->>
->> adds
->>
->>
->> > Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
->> > Acked-by: Arnd Bergmann <arnd@arndb.de>
->>
->> Please don't resend patches just to add tags like that. This only
->> increases a noise and patchwork handles this just fine, see:
->> https://patchwork.kernel.org/patch/9303285/
->> https://patchwork.kernel.org/patch/9303285/mbox/
->
->
-> it modifies a typo biuld/build.
+On Tue, 2016-08-30 at 00:03 +0800, Jia He wrote:
+> This patch exchanges the two loop for collecting the percpu statistics
+> data. This can aggregate the data by going through all the items of each
+> cpu sequentially. In snmp_seq_show, just use one buff copy to dislay the
+> Udp and UdpLite data because they are the same.
 
-Please send your replies to all, not privately.
+This is obviously not true.
 
-OK, so you should also include a changelog in the comments part of diff, e.=
-g.:
-V4: Fix typo in "biuld"
+On my laptop it seems it handled no UdpLite frames, but got plenty of
+Udp ones.
+
+$ grep Udp /proc/net/snmp
+Udp: InDatagrams NoPorts InErrors OutDatagrams RcvbufErrors SndbufErrors InCsumErrors
+Udp: 1555889 108318 0 3740780 0 0 0
+UdpLite: InDatagrams NoPorts InErrors OutDatagrams RcvbufErrors SndbufErrors InCsumErrors
+UdpLite: 0 0 0 0 0 0 0
