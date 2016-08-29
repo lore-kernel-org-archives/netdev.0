@@ -1,46 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 net-next 1/1] net_sched: Introduce skbmod action
-Date: Mon, 29 Aug 2016 06:27:53 -0700
-Message-ID: <1472477273.14381.257.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1472386756-23085-1-git-send-email-jhs@emojatatu.com>
-         <1472400467.14381.252.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAM_iQpUPsqL7eee1Pp1LgRVssmbBGekKMMqsUrWQbDz1Nz4Xzg@mail.gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v2 1/4] net: dt-bindings: Document the new Meson8b and
+ GXBB DWMAC bindings
+Date: Mon, 29 Aug 2016 15:31:12 +0200
+Message-ID: <201608291531.12188.arnd@arndb.de>
+References: <20160815164100.27766-1-martin.blumenstingl@googlemail.com>
+ <4041259.IszN4229Cj@wuerfel>
+ <CAFBinCDnHGf=wgvm9KzYQsf=kCrOUeO3bnEwdGy_OK-wgWkDug@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-        David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f67.google.com ([209.85.220.67]:32876 "EHLO
-        mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932942AbcH2N14 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 09:27:56 -0400
-Received: by mail-pa0-f67.google.com with SMTP id vy10so8997011pac.0
-        for <netdev@vger.kernel.org>; Mon, 29 Aug 2016 06:27:56 -0700 (PDT)
-In-Reply-To: <CAM_iQpUPsqL7eee1Pp1LgRVssmbBGekKMMqsUrWQbDz1Nz4Xzg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mark.rutland@arm.com, devicetree@vger.kernel.org, alexandre.torgue@st.com,
+ catalin.marinas@arm.com, mturquette@baylibre.com, sboyd@codeaurora.org,
+ will.deacon@arm.com, robh+dt@kernel.org, khilman@baylibre.com,
+ carlo@caione.org, peppe.cavallaro@st.com, linux-amlogic@lists.infradead.org,
+ netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <CAFBinCDnHGf=wgvm9KzYQsf=kCrOUeO3bnEwdGy_OK-wgWkDug@mail.gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2016-08-28 at 22:10 -0700, Cong Wang wrote:
-> On Sun, Aug 28, 2016 at 9:07 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >
-> > Adding an action with a spinlock held in fast path in 2016 is
-> > a way to tell people : It is a toy, do not use it for real.
-> >
-> > Sorry guys. Friends do not let friends do that anymore.
-> >
+On Sunday 28 August 2016, Martin Blumenstingl wrote:
+> On Mon, Aug 22, 2016 at 5:25 PM, Arnd Bergmann <arnd@arndb.de> wrote:
+> > It really depends on the kind of SoC. Some may have a suboptimal
+> > binding, on some others there may be a distinct register area that
+> > just contains a few additional registers for the dwmac.
+> the dwmac PHY configuration registers (2x32bit) on the GXBB SoC are
+> part of the "periphs" region/module. This is already defined as
+> "simple-bus" in meson-gxbb.dtsi, see [0]
+> On Meson8b this is slightly different: there is no specific "periphs"
+> region - there the dwmac PHY configuration registers are directly
+> located in the cbus region at a slightly different offset than on the
+> GXBB SoCs.
 > 
-> Please stop joking, this is not funny at all:
+> In the future we might need a third memory region because the latest
+> reference kernel contains some more PHY configuration registers on
+> newer SoCs (GXL = S905X).
 > 
-> % git grep tcf_lock -- net/sched
+> Please let me know if you're OK with the dts definition in it's
+> current state - or let me know how you would like to change it.
+> 
+> PS: I will re-send the patches in a v3 in a few minutes because that
+> fixes a bug during module unload.
 
-This is absolutely trivial to write this skbmod without taking a lock.
+I don't really see a good way to describe this hardware then. If it
+was only the first case, I'd suggest marking the periphs bus node
+as "compatible="simple-bus","syscon";" so you could have a
+reference to it, but that doesn't seem to work well in the second
+case, unless you can a separate DT node just for the PHY config
+registers there.
 
-If you guys do not care about that, I will simply NACK any new lazy
-code.
+With the third case, is there any logic at all behind the
+register map?
 
-Do not try to call me funny, simply acknowledge the mere facts and try
-to keep your calm Cong.
+Maybe someone else has a better idea for how to describe this.
+In general, we try to avoid overlapping "reg" properties, but I
+even see that the "periphs" node  on gxbb has a "reg" property
+(is this intentional) that overlaps with the registers in its
+ranges, so adding another one won't make this worse than it
+already is.
+
+	Arnd
