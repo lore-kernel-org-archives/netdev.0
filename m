@@ -1,126 +1,215 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [RFCv2 07/16] bpf: enable non-core use of the verfier
-Date: Mon, 29 Aug 2016 22:17:10 +0200
-Message-ID: <57C49846.1080608@iogearbox.net>
-References: <1472234775-29453-1-git-send-email-jakub.kicinski@netronome.com> <1472234775-29453-8-git-send-email-jakub.kicinski@netronome.com> <20160826232904.GA28873@ast-mbp.thefacebook.com> <20160827124004.43728202@jkicinski-Precision-T1700> <20160827173250.GA38477@ast-mbp> <57C4976C.4010501@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ast@kernel.org,
-        dinan.gunawardena@netronome.com, jiri@resnulli.us,
-        john.fastabend@gmail.com, kubakici@wp.pl
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:45366 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754081AbcH2URM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 16:17:12 -0400
-In-Reply-To: <57C4976C.4010501@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 2/3] net: dsa: mv88e6xxx: make switchdev DB ops generic
+Date: Mon, 29 Aug 2016 16:32:45 -0400
+Message-ID: <20160829203246.18811-3-vivien.didelot@savoirfairelinux.com>
+References: <20160829203246.18811-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160829203246.18811-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/29/2016 10:13 PM, Daniel Borkmann wrote:
-> On 08/27/2016 07:32 PM, Alexei Starovoitov wrote:
->> On Sat, Aug 27, 2016 at 12:40:04PM +0100, Jakub Kicinski wrote:
->>> On Fri, 26 Aug 2016 16:29:05 -0700, Alexei Starovoitov wrote:
->>>> On Fri, Aug 26, 2016 at 07:06:06PM +0100, Jakub Kicinski wrote:
->>>>> Advanced JIT compilers and translators may want to use
->>>>> eBPF verifier as a base for parsers or to perform custom
->>>>> checks and validations.
->>>>>
->>>>> Add ability for external users to invoke the verifier
->>>>> and provide callbacks to be invoked for every intruction
->>>>> checked.  For now only add most basic callback for
->>>>> per-instruction pre-interpretation checks is added.  More
->>>>> advanced users may also like to have per-instruction post
->>>>> callback and state comparison callback.
->>>>>
->>>>> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
->>>>
->>>> I like the apporach. Making verifier into 'bytecode parser'
->>>> that JITs can reuse is a good design choice.
->
-> +1
->
->>>> The only thing I would suggest is to tweak the verifier to
->>>> avoid in-place state recording. Then I think patch 8 for
->>>> clone/unclone of the program won't be needed, since verifier
->>>> will be read-only from bytecode point of view and patch 9
->>>> also will be slightly cleaner.
->>>> I think there are very few places in verifier that do this
->>>> state keeping inside insn. It was bugging me for some time.
->>>> Good time to clean that up.
->>>> Unless I misunderstand the patches 7,8,9...
->>>
->>> Agreed, I think the verifier only modifies the program to
->>> store pointer types in imm field.  I will try to come up
->>> a way around this, any suggestions?  Perhaps state_equal()
->>
->> probably array_of_insn_aux_data[num_insns] should do it.
->> Unlike reg_state that is forked on branches, this array
->> is only one.
->
-> This would be for struct nfp_insn_meta, right? So, struct
-> bpf_ext_parser_ops could become:
->
-> static const struct bpf_ext_parser_ops nfp_bpf_pops = {
->      .insn_hook = nfp_verify_insn,
->      .insn_size = sizeof(struct nfp_insn_meta),
-> };
->
-> ... where bpf_parse() would prealloc that f.e. in env->insn_meta[].
+The MDB support for the mv88e6xxx driver will be very similar to the FDB
+support, since it consists of loading/purging/dumping address to/from
+the Address Translation Unit (ATU).
 
-(Well, actually everything can live in env->private_data.)
+Prepare the support for MDB by making the FDB code accessing the ATU
+generic. The FDB operations now provide access to the unicast addresses
+while the MDB operations will provide access to the multicast addresses.
 
->>> logic could be modified to downgrade pointers to UNKONWNs
->>> when it detects other state had incompatible pointer type.
->>>
->>>> There is also small concern for patches 5 and 6 that add
->>>> more register state information. Potentially that extra
->>>> state can prevent states_equal() to recognize equivalent
->>>> states. Only patch 9 uses that info, right?
->>>
->>> 5 and 6 recognize more constant loads, those can only
->>> upgrade some UNKNOWN_VALUEs to CONST_IMMs.  So yes, if the
->>> verifier hits the CONST first and then tries with UNKNOWN
->>> it will have to reverify the path.
->
-> Agree, was also my concern when I read patch 5 and 6. It would
-> not only be related to types, but also different imm values,
-> where the memcmp() could fail on. Potentially the latter can be
-> avoided by only checking types which should be sufficient. Hmm,
-> maybe only bpf_parse() should go through this stricter mode since
-> only relevant for drivers (otoh downside would be that bugs
-> would end up less likely to be found).
->
->>>> Another question is do you need all state walking that
->>>> verifier does or single linear pass through insns
->>>> would have worked?
->>>> Looks like you're only using CONST_IMM and PTR_TO_CTX
->>>> state, right?
->>>
->>> I think I need all the parsing.  Right now I mostly need
->>> the verification to check that exit codes are specific
->>> CONST_IMMs.  Clang quite happily does this:
->>>
->>> r0 <- 0
->>> if (...)
->>>     r0 <- 1
->>> exit
->>
->> I see. Indeed then you'd need the verifier to walk all paths
->> to make sure constant return values.
->
-> I think this would still not cover the cases where you'd fetch
-> a return value/verdict from a map, but this should be ignored/
-> rejected for now, also since majority of programs are not written
-> in such a way.
->
->> If you only need yes/no check then such info can probably be
->> collected unconditionally during initial program load.
->> Like prog->cb_access flag.
->
-> One other comment wrt the header, when you move these things
-> there, would be good to prefix with bpf_* so that this doesn't
-> clash in future with other header files.
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6xxx/chip.c | 98 ++++++++++++++++++++++------------------
+ 1 file changed, 55 insertions(+), 43 deletions(-)
+
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index 750d01d..93abfff 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -2093,9 +2093,9 @@ static int _mv88e6xxx_atu_load(struct mv88e6xxx_chip *chip,
+ 	return _mv88e6xxx_atu_cmd(chip, entry->fid, GLOBAL_ATU_OP_LOAD_DB);
+ }
+ 
+-static int _mv88e6xxx_port_fdb_load(struct mv88e6xxx_chip *chip, int port,
+-				    const unsigned char *addr, u16 vid,
+-				    u8 state)
++static int mv88e6xxx_port_db_load_purge(struct mv88e6xxx_chip *chip, int port,
++					const unsigned char *addr, u16 vid,
++					u8 state)
+ {
+ 	struct mv88e6xxx_atu_entry entry = { 0 };
+ 	struct mv88e6xxx_vtu_stu_entry vlan;
+@@ -2134,15 +2134,12 @@ static void mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
+ 				   const struct switchdev_obj_port_fdb *fdb,
+ 				   struct switchdev_trans *trans)
+ {
+-	int state = is_multicast_ether_addr(fdb->addr) ?
+-		GLOBAL_ATU_DATA_STATE_MC_STATIC :
+-		GLOBAL_ATU_DATA_STATE_UC_STATIC;
+ 	struct mv88e6xxx_chip *chip = ds_to_priv(ds);
+ 
+ 	mutex_lock(&chip->reg_lock);
+-	if (_mv88e6xxx_port_fdb_load(chip, port, fdb->addr, fdb->vid, state))
+-		netdev_err(ds->ports[port].netdev,
+-			   "failed to load MAC address\n");
++	if (mv88e6xxx_port_db_load_purge(chip, port, fdb->addr, fdb->vid,
++					 GLOBAL_ATU_DATA_STATE_UC_STATIC))
++		netdev_err(ds->ports[port].netdev, "failed to load unicast MAC address\n");
+ 	mutex_unlock(&chip->reg_lock);
+ }
+ 
+@@ -2150,14 +2147,14 @@ static int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
+ 				  const struct switchdev_obj_port_fdb *fdb)
+ {
+ 	struct mv88e6xxx_chip *chip = ds_to_priv(ds);
+-	int ret;
++	int err;
+ 
+ 	mutex_lock(&chip->reg_lock);
+-	ret = _mv88e6xxx_port_fdb_load(chip, port, fdb->addr, fdb->vid,
+-				       GLOBAL_ATU_DATA_STATE_UNUSED);
++	err = mv88e6xxx_port_db_load_purge(chip, port, fdb->addr, fdb->vid,
++					   GLOBAL_ATU_DATA_STATE_UNUSED);
+ 	mutex_unlock(&chip->reg_lock);
+ 
+-	return ret;
++	return err;
+ }
+ 
+ static int _mv88e6xxx_atu_getnext(struct mv88e6xxx_chip *chip, u16 fid,
+@@ -2205,10 +2202,10 @@ static int _mv88e6xxx_atu_getnext(struct mv88e6xxx_chip *chip, u16 fid,
+ 	return 0;
+ }
+ 
+-static int _mv88e6xxx_port_fdb_dump_one(struct mv88e6xxx_chip *chip,
+-					u16 fid, u16 vid, int port,
+-					struct switchdev_obj_port_fdb *fdb,
+-					int (*cb)(struct switchdev_obj *obj))
++static int mv88e6xxx_port_db_dump_one(struct mv88e6xxx_chip *chip,
++				      u16 fid, u16 vid, int port,
++				      struct switchdev_obj *obj,
++				      int (*cb)(struct switchdev_obj *obj))
+ {
+ 	struct mv88e6xxx_atu_entry addr = {
+ 		.mac = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
+@@ -2222,72 +2219,87 @@ static int _mv88e6xxx_port_fdb_dump_one(struct mv88e6xxx_chip *chip,
+ 	do {
+ 		err = _mv88e6xxx_atu_getnext(chip, fid, &addr);
+ 		if (err)
+-			break;
++			return err;
+ 
+ 		if (addr.state == GLOBAL_ATU_DATA_STATE_UNUSED)
+ 			break;
+ 
+-		if (!addr.trunk && addr.portv_trunkid & BIT(port)) {
+-			bool is_static = addr.state ==
+-				(is_multicast_ether_addr(addr.mac) ?
+-				 GLOBAL_ATU_DATA_STATE_MC_STATIC :
+-				 GLOBAL_ATU_DATA_STATE_UC_STATIC);
++		if (addr.trunk || (addr.portv_trunkid & BIT(port)) == 0)
++			continue;
++
++		if (obj->id == SWITCHDEV_OBJ_ID_PORT_FDB) {
++			struct switchdev_obj_port_fdb *fdb;
+ 
++			if (!is_unicast_ether_addr(addr.mac))
++				continue;
++
++			fdb = SWITCHDEV_OBJ_PORT_FDB(obj);
+ 			fdb->vid = vid;
+ 			ether_addr_copy(fdb->addr, addr.mac);
+-			fdb->ndm_state = is_static ? NUD_NOARP : NUD_REACHABLE;
+-
+-			err = cb(&fdb->obj);
+-			if (err)
+-				break;
++			if (addr.state == GLOBAL_ATU_DATA_STATE_UC_STATIC)
++				fdb->ndm_state = NUD_NOARP;
++			else
++				fdb->ndm_state = NUD_REACHABLE;
+ 		}
++
++		err = cb(obj);
++		if (err)
++			return err;
+ 	} while (!is_broadcast_ether_addr(addr.mac));
+ 
+ 	return err;
+ }
+ 
+-static int mv88e6xxx_port_fdb_dump(struct dsa_switch *ds, int port,
+-				   struct switchdev_obj_port_fdb *fdb,
+-				   int (*cb)(struct switchdev_obj *obj))
++static int mv88e6xxx_port_db_dump(struct mv88e6xxx_chip *chip, int port,
++				  struct switchdev_obj *obj,
++				  int (*cb)(struct switchdev_obj *obj))
+ {
+-	struct mv88e6xxx_chip *chip = ds_to_priv(ds);
+ 	struct mv88e6xxx_vtu_stu_entry vlan = {
+ 		.vid = GLOBAL_VTU_VID_MASK, /* all ones */
+ 	};
+ 	u16 fid;
+ 	int err;
+ 
+-	mutex_lock(&chip->reg_lock);
+-
+ 	/* Dump port's default Filtering Information Database (VLAN ID 0) */
+ 	err = _mv88e6xxx_port_fid_get(chip, port, &fid);
+ 	if (err)
+-		goto unlock;
++		return err;
+ 
+-	err = _mv88e6xxx_port_fdb_dump_one(chip, fid, 0, port, fdb, cb);
++	err = mv88e6xxx_port_db_dump_one(chip, fid, 0, port, obj, cb);
+ 	if (err)
+-		goto unlock;
++		return err;
+ 
+ 	/* Dump VLANs' Filtering Information Databases */
+ 	err = _mv88e6xxx_vtu_vid_write(chip, vlan.vid);
+ 	if (err)
+-		goto unlock;
++		return err;
+ 
+ 	do {
+ 		err = _mv88e6xxx_vtu_getnext(chip, &vlan);
+ 		if (err)
+-			break;
++			return err;
+ 
+ 		if (!vlan.valid)
+ 			break;
+ 
+-		err = _mv88e6xxx_port_fdb_dump_one(chip, vlan.fid, vlan.vid,
+-						   port, fdb, cb);
++		err = mv88e6xxx_port_db_dump_one(chip, vlan.fid, vlan.vid, port,
++						 obj, cb);
+ 		if (err)
+-			break;
++			return err;
+ 	} while (vlan.vid < GLOBAL_VTU_VID_MASK);
+ 
+-unlock:
++	return err;
++}
++
++static int mv88e6xxx_port_fdb_dump(struct dsa_switch *ds, int port,
++				   struct switchdev_obj_port_fdb *fdb,
++				   int (*cb)(struct switchdev_obj *obj))
++{
++	struct mv88e6xxx_chip *chip = ds_to_priv(ds);
++	int err;
++
++	mutex_lock(&chip->reg_lock);
++	err = mv88e6xxx_port_db_dump(chip, port, &fdb->obj, cb);
+ 	mutex_unlock(&chip->reg_lock);
+ 
+ 	return err;
+-- 
+2.9.3
