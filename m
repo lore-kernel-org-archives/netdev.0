@@ -1,52 +1,63 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] iproute: disallow ip rule del without parameters
-Date: Mon, 29 Aug 2016 10:53:25 -0700
-Message-ID: <20160829105325.40230e41@xeon-e3>
-References: <20160824204252.2melotzdx6ftzgaq@ppc.Dlink>
+Subject: Re: [PATCH iproute2 net-next v3] bridge: vlan: add support to
+ display per-vlan statistics
+Date: Mon, 29 Aug 2016 10:59:58 -0700
+Message-ID: <20160829105958.66183ce3@xeon-e3>
+References: <1472128135-17318-1-git-send-email-nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
-To: "Andrey Jr. Melnikov" <temnota.am@gmail.com>
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:35483 "EHLO
-        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755524AbcH2RxO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 13:53:14 -0400
-Received: by mail-pf0-f169.google.com with SMTP id x72so54300204pfd.2
-        for <netdev@vger.kernel.org>; Mon, 29 Aug 2016 10:53:14 -0700 (PDT)
-In-Reply-To: <20160824204252.2melotzdx6ftzgaq@ppc.Dlink>
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:35677 "EHLO
+        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755647AbcH2R7z (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 13:59:55 -0400
+Received: by mail-pf0-f175.google.com with SMTP id x72so54349802pfd.2
+        for <netdev@vger.kernel.org>; Mon, 29 Aug 2016 10:59:47 -0700 (PDT)
+In-Reply-To: <1472128135-17318-1-git-send-email-nikolay@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 24 Aug 2016 23:43:00 +0300
-"Andrey Jr. Melnikov" <temnota.am@gmail.com> wrote:
+On Thu, 25 Aug 2016 14:28:55 +0200
+Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
 
-> Disallow run `ip rule del` without any parameter to avoid delete any first
-> rule from table.
+> This patch adds support for the stats argument to the bridge
+> vlan command which will display the per-vlan statistics and the device
+> each vlan belongs to with its flags. The supported command filtering
+> options are dev and vid. Also the man page is updated to explain the new
+> option.
+> The patch uses the new RTM_GETSTATS interface with a filter_mask to dump
+> all bridges and ports vlans. Later we can add support for using the
+> per-device dump and filter it in the kernel instead.
 > 
-> Signed-off-by: Andrey Jr. Melnikov <temnota.am@gmail.com>
+> Example:
+> $ bridge -s vlan show
+> port             vlan id
+> br0               1 Egress Untagged
+>                     RX: 2536 bytes 20 packets
+>                     TX: 2536 bytes 20 packets
+>                   101
+>                     RX: 43158 bytes 50 packets
+>                     TX: 43158 bytes 50 packets
+> eth1              1 Egress Untagged
+>                     RX: 2536 bytes 20 packets
+>                     TX: 2536 bytes 20 packets
+>                   100
+>                     RX: 0 bytes 0 packets
+>                     TX: 0 bytes 0 packets
+>                   101
+>                     RX: 43158 bytes 50 packets
+>                     TX: 43158 bytes 50 packets
+>                   102
+>                     RX: 16897 bytes 93 packets
+>                     TX: 0 bytes 0 packets
+> 
+> The format is the same as bridge vlan show but with stats, even though
+> under the hood the calls done to the kernel are different.
+> 
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 > ---
-> 
-> diff --git a/ip/iprule.c b/ip/iprule.c
-> index 8f24206..70562c5 100644
-> --- a/ip/iprule.c
-> +++ b/ip/iprule.c
-> @@ -346,6 +346,11 @@ static int iprule_modify(int cmd, int argc, char **argv)
->  		req.r.rtm_type = RTN_UNICAST;
->  	}
->  
-> +	if (cmd == RTM_DELRULE && argc == 0) {
-> +		fprintf(stderr, "\"ip rule del\" requires arguments.\n");
-> +		return -1;
-> +	}
-> +
->  	while (argc > 0) {
->  		if (strcmp(*argv, "not") == 0) {
->  			req.r.rtm_flags |= FIB_RULE_INVERT;
 
-
-Actually ip rule delete without arguments deletes all rules.
-Which could be a bug or feature depending on the user.
-I can imagine somebody is doing something like deleting all rules
-and putting in new ones for PBR.
+Applied to net-next branch
