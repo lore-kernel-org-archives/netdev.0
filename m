@@ -1,164 +1,74 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [RFCv2 01/16] add basic register-field manipulation macros
-Date: Mon, 29 Aug 2016 16:34:25 +0200
-Message-ID: <57C447F1.60807@iogearbox.net>
-References: <1472234775-29453-1-git-send-email-jakub.kicinski@netronome.com> <1472234775-29453-2-git-send-email-jakub.kicinski@netronome.com>
+From: Chris Brandt <Chris.Brandt@renesas.com>
+Subject: RE: [PATCH] net: ethernet: renesas: sh_eth: do not access POST
+ registers if not exist
+Date: Mon, 29 Aug 2016 14:41:18 +0000
+Message-ID: <SG2PR06MB11653F9E20F38972CA11EF328AE10@SG2PR06MB1165.apcprd06.prod.outlook.com>
+References: <20160826200107.20681-1-chris.brandt@renesas.com>
+ <87690577-4526-ce66-6ce3-68ac8b20e737@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: ast@kernel.org, dinan.gunawardena@netronome.com, jiri@resnulli.us,
-        john.fastabend@gmail.com, kubakici@wp.pl
-To: Jakub Kicinski <jakub.kicinski@netronome.com>,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:40769 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756135AbcH2Oe3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 10:34:29 -0400
-In-Reply-To: <1472234775-29453-2-git-send-email-jakub.kicinski@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Simon Horman <horms+renesas@verge.net.au>,
+        Geert Uytterhoeven <geert+renesas@glider.be>,
+        Daniel Palmer <daniel@0x0f.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-renesas-soc@vger.kernel.org"
+        <linux-renesas-soc@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <87690577-4526-ce66-6ce3-68ac8b20e737@cogentembedded.com>
+Content-Language: en-US
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/26/2016 08:06 PM, Jakub Kicinski wrote:
-> Common approach to accessing register fields is to define
-> structures or sets of macros containing mask and shift pair.
-> Operations on the register are then performed as follows:
->
->   field = (reg >> shift) & mask;
->
->   reg &= ~(mask << shift);
->   reg |= (field & mask) << shift;
->
-> Defining shift and mask separately is tedious.  Ivo van Doorn
-> came up with an idea of computing them at compilation time
-> based on a single shifted mask (later refined by Felix) which
-> can be used like this:
->
->   #define REG_FIELD 0x000ff000
->
->   field = FIELD_GET(REG_FIELD, reg);
->
->   reg &= ~REG_FIELD;
->   reg |= FIELD_PREP(REG_FIELD, field);
->
-> FIELD_{GET,PREP} macros take care of finding out what the
-> appropriate shift is based on compilation time ffs operation.
->
-> GENMASK can be used to define registers (which is usually
-> less error-prone and easier to match with datasheets).
->
-> This approach is the most convenient I've seen so to limit code
-> multiplication let's move the macros to a global header file.
-> Attempts to use static inlines instead of macros failed due
-> to false positive triggering of BUILD_BUG_ON()s, especially with
-> GCC < 6.0.
->
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-[...]
-> + * Bitfield access macros
-> + *
-> + * FIELD_{GET,PREP} macros take as first parameter shifted mask
-> + * from which they extract the base mask and shift amount.
-> + * Mask must be a compilation time constant.
-> + *
-> + * Example:
-> + *
-> + *  #define REG_FIELD_A  GENMASK(6, 0)
-> + *  #define REG_FIELD_B  BIT(7)
-> + *  #define REG_FIELD_C  GENMASK(15, 8)
-> + *  #define REG_FIELD_D  GENMASK(31, 16)
-> + *
-> + * Get:
-> + *  a = FIELD_GET(REG_FIELD_A, reg);
-> + *  b = FIELD_GET(REG_FIELD_B, reg);
-> + *
-> + * Set:
-> + *  reg = FIELD_PREP(REG_FIELD_A, 1) |
-> + *	  FIELD_PREP(REG_FIELD_B, 0) |
-> + *	  FIELD_PREP(REG_FIELD_C, c) |
-> + *	  FIELD_PREP(REG_FIELD_D, 0x40);
-> + *
-> + * Modify:
-> + *  reg &= ~REG_FIELD_C;
-> + *  reg |= FIELD_PREP(REG_FIELD_C, c);
-> + */
-> +
-> +#define _bf_shf(x) (__builtin_ffsll(x) - 1)
-> +
-> +#define _BF_FIELD_CHECK(_mask, _reg, _val, _pfx)			\
-
-Nit: if possible, please always use "__" instead of "_" as prefix, which is
-more common coding style in the kernel.
-
-> +	({								\
-> +		BUILD_BUG_ON_MSG(!__builtin_constant_p(_mask),		\
-> +				 _pfx "mask is not constant");		\
-> +		BUILD_BUG_ON_MSG(!(_mask), _pfx "mask is zero");	\
-> +		BUILD_BUG_ON_MSG(__builtin_constant_p(_val) ?		\
-> +				 ~((_mask) >> _bf_shf(_mask)) & (_val) : 0, \
-> +				 _pfx "value too large for the field"); \
-> +		BUILD_BUG_ON_MSG((_mask) > (typeof(_reg))~0ull,		\
-> +				 _pfx "type of reg too small for mask"); \
-> +		__BUILD_BUG_ON_NOT_POWER_OF_2((_mask) +			\
-> +					      (1ULL << _bf_shf(_mask))); \
-> +	})
-> +
-> +/**
-> + * FIELD_PREP() - prepare a bitfield element
-> + * @_mask: shifted mask defining the field's length and position
-> + * @_val:  value to put in the field
-> + *
-> + * FIELD_PREP() masks and shifts up the value.  The result should
-> + * be combined with other fields of the bitfield using logical OR.
-> + */
-> +#define FIELD_PREP(_mask, _val)						\
-> +	({								\
-> +		_BF_FIELD_CHECK(_mask, 0ULL, _val, "FIELD_PREP: ");	\
-> +		((typeof(_mask))(_val) << _bf_shf(_mask)) & (_mask);	\
-> +	})
-> +
-> +/**
-> + * FIELD_GET() - extract a bitfield element
-> + * @_mask: shifted mask defining the field's length and position
-> + * @_reg:  32bit value of entire bitfield
-> + *
-> + * FIELD_GET() extracts the field specified by @_mask from the
-> + * bitfield passed in as @_reg by masking and shifting it down.
-> + */
-> +#define FIELD_GET(_mask, _reg)						\
-> +	({								\
-> +		_BF_FIELD_CHECK(_mask, _reg, 0U, "FIELD_GET: ");	\
-> +		(typeof(_mask))(((_reg) & (_mask)) >> _bf_shf(_mask));	\
-> +	})
-
-No strong opinion, but FIELD_PREP() sounds a bit weird. Maybe rather a
-FIELD_GEN() (aka "generate") and FIELD_GET() pair?
-
-> +#endif
-> diff --git a/include/linux/bug.h b/include/linux/bug.h
-> index e51b0709e78d..292d6a10b0c2 100644
-> --- a/include/linux/bug.h
-> +++ b/include/linux/bug.h
-> @@ -13,6 +13,7 @@ enum bug_trap_type {
->   struct pt_regs;
->
->   #ifdef __CHECKER__
-> +#define __BUILD_BUG_ON_NOT_POWER_OF_2(n) (0)
->   #define BUILD_BUG_ON_NOT_POWER_OF_2(n) (0)
->   #define BUILD_BUG_ON_ZERO(e) (0)
->   #define BUILD_BUG_ON_NULL(e) ((void*)0)
-> @@ -24,6 +25,8 @@ struct pt_regs;
->   #else /* __CHECKER__ */
->
->   /* Force a compilation error if a constant expression is not a power of 2 */
-> +#define __BUILD_BUG_ON_NOT_POWER_OF_2(n)	\
-> +	BUILD_BUG_ON(((n) & ((n) - 1)) != 0)
-
-Is there a reason BUILD_BUG_ON_NOT_POWER_OF_2(n) cannot be reused?
-
-Because the (n) == 0 check would trigger (although it shouldn't ...)?
-
->   #define BUILD_BUG_ON_NOT_POWER_OF_2(n)			\
->   	BUILD_BUG_ON((n) == 0 || (((n) & ((n) - 1)) != 0))
->
->
+T24gMDgvMjgvMjAxNiwgU2VyZ2VpIFNodHlseW92IHdyb3RlOg0KDQo+PiBUaGUgUlovQTEgaGFz
+IGEgVFNVLCBidXQgc2luY2UgaXQgb25seSBoYXMgb25lIEV0aGVybmV0IHBvcnQsIGl0IGRvZXMg
+DQo+PiBub3QgaGF2ZSBQT1NUIHJlZ2lzdGVycy4NCj4NCj4gICAgSSdtIG5vdCBzdXJlIHRoZSBy
+ZWFzb24gaXMgaGF2aW5nIG9uZSBwb3J0Li4uIGRvIHlvdSBoYXZlIHRoZSBvbGQgU0ggbWFudWFs
+cyBzb21ld2hlcmU/IDotKQ0KDQpZZXMsIEkgdXNlZCB0byBzdXBwb3J0IHRoZSBTSDc3NTcuIEl0
+IGhhZCBkdWFsIEVUSEVSIGFuZCBkdWFsIEdFVEhFUiAoYnV0IG9ubHkgdGhlIEdFVEhFUiBoYWQg
+YSBUU1UpLg0KDQpTaW5jZSB0aGUgR0VUSEVSIGhhZCAyIHBvcnRzLCBhbmQgdGhlIHNhbWUgVFNV
+IGlzIHVzZWQgZm9yIGJvdGgsIHRoZXJlIGlzIGFuIG9wdGlvbiB3aGVyZSBhcyB5b3UgcHV0IGlu
+IENBTSBlbnRyaWVzIGZvciBtdWx0aWNhc3QgZnJhbWUgYW5kIHN1Y2gsIHlvdSBjYW4gc2VsZWN0
+IGlmIHlvdSB3b3VsZCBsaWtlIENBTSBlbnRyeSBwYWNrZXRzIHJlY2VpdmVkIG9uIG9uZSBwb3J0
+IHRvIGJlIGF1dG9tYXRpY2FsbHkgcmVsYXllZCBvdmVyIHRvIHRoZSBvdGhlciBwb3J0IGZvciBw
+cm9jZXNzaW5nIChpZSwgYnJpZGdlIG5ldHdvcmspLg0KVGhlIFBPU1QxLVBPU1Q0IHJlZ2lzdGVy
+cyBhcmUgd2hhdCB5b3UgdXNlIHRvIHNlbGVjdCB3aGF0IENBTSBlbnRyaWVzIHlvdSB3YW50IHJl
+bGF5ZWQuDQoNCkZvciBleGFtcGxlOiANCg0KICAgUmVnaXN0ZXI6IENBTSBFbnRyeSBUYWJsZSBQ
+T1NUMSBSZWdpc3RlciAoVFNVX1BPU1QxKQ0KICAgICAgIEJpdHM6IDMxIHRvIDI4DQogICBCaXQg
+bmFtZTogUE9TVDBbMzowXQ0KRGVzY3JpcHRpb246IFRoZXNlIGJpdHMgc2V0IHRoZSBjb25kaXRp
+b25zIGZvciByZWZlcnJpbmcgdG8gQ0FNIGVudHJ5IHRhYmxlIDAuIEJ5DQogICAgICAgICAgICAg
+c2V0dGluZyBtdWx0aXBsZSBiaXRzIHRvIDEsIG11bHRpcGxlIGNvbmRpdGlvbnMgY2FuIGJlIHNl
+bGVjdGVkLg0KDQogICAgICAgICAgICAgUE9TVDBbM106IENBTSBlbnRyeSB0YWJsZSAwIGlzIHJl
+ZmVycmVkIHRvIGluIHBvcnQgMCByZWNlcHRpb24NCiAgICAgICAgICAgICBQT1NUMFsyXTogQ0FN
+IGVudHJ5IHRhYmxlIDAgaXMgcmVmZXJyZWQgdG8gaW4gcG9ydCAwIHRvIDEgcmVsYXkuDQogICAg
+ICAgICAgICAgUE9TVDBbMV06IENBTSBlbnRyeSB0YWJsZSAwIGlzIHJlZmVycmVkIHRvIGluIHBv
+cnQgMSByZWNlcHRpb24uDQogICAgICAgICAgICAgUE9TVDBbMF06IENBTSBlbnRyeSB0YWJsZSAw
+IGlzIHJlZmVycmVkIHRvIGluIHBvcnQgMSB0byAwIHJlbGF5DQoNCg0KU28sIGFzIHlvdSBjYW4g
+c2VlLCBoYXZpbmcgdGhlIFBPU1QgcmVnaXN0ZXJzIG1lYW5zIG5vdGhpbmcgaWYgeW91IG9ubHkg
+aGF2ZSAxIEV0aGVybmV0IHBvcnQgYXR0YWNoZWQgdG8gdGhlIFRTVS4NCg0KTm90ZSwgaWYgeW91
+IGxvb2sgYXQgZnVuY3Rpb24gc2hfZXRoX3RzdV9nZXRfcG9zdF9iaXQsIHRoZSByZWxheSBmdW5j
+dGlvbmFsaXR5IGlzIG5ldmVyIHVzZWQgYW55d2F5IGJlY2F1c2UgZWFjaCBlbnRyeSB3aWxsIG9u
+bHkgZXZlciBiZSBzZXQgdG8gInBvcnQgMCByZWNlcHRpb24iIG9yICJwb3J0IDEgcmVjZXB0aW9u
+Ii4NCg0KDQoNCj4+ICAJLnNoaWZ0X3JkMAk9IDEsDQo+PiAgfTsNCj4+DQo+PiBAQCAtMjQ2MCw2
+ICsyNDYxLDkgQEAgc3RhdGljIHZvaWQgc2hfZXRoX3RzdV9lbmFibGVfY2FtX2VudHJ5X3Bvc3Qo
+c3RydWN0IG5ldF9kZXZpY2UgKm5kZXYsDQo+PiAgCXUzMiB0bXA7DQo+PiAgCXZvaWQgKnJlZ19v
+ZmZzZXQ7DQo+Pg0KPj4gKwlpZiAobWRwLT5jZC0+dHN1X25vX3Bvc3QpDQo+PiArCQlyZXR1cm47
+DQo+PiArDQo+PiAgCXJlZ19vZmZzZXQgPSBzaF9ldGhfdHN1X2dldF9wb3N0X3JlZ19vZmZzZXQo
+bWRwLCBlbnRyeSk7DQo+DQo+ICAgIEknZCBjaGVjayBjaGVjayBmb3IgU0hfRVRIX09GRlNFVF9J
+TlZBTElEIGluIHRoZSBhYm92ZSBmdW5jdGlvbiBhbmQgcmV0dXJuIE5VTEwgaWYgc287IHRoZW4N
+Cj4gd2UgY2FuIGNoZWNrIGZvciBOVUxMIGhlcmUuLi4NCg0KVGhhdCB3YXMgc2ltaWxhciB0byBt
+eSBmaXJzdCBmaXguIEJ1dCwgdGhlbiBJIGdvdCB0byB0aGlua2luZyB0aGF0IGlmIGEgbmV3IFJa
+IGNvbWVzIG91dCB3aXRoIGR1YWwgRXRoZXJuZXQsIHRoZSBkZXNpZ25lcnMgbWlnaHQgYWRkIGlu
+IHRoZSBQT1NUIHJlZ2lzdGVycyBiYWNrIGluIHRoZSBUU1UuIEFuZCBpbiB0aGF0IGNhc2UsIGl0
+IHdvdWxkIGJlIG5pY2UgdG8gcmV1c2UgdGhlIHNoX2V0aF9pc19yel9mYXN0X2V0aGVyIGFycmF5
+IChqdXN0IGFkZCBpbiB0aGUgZXh0cmEgcmVnaXN0ZXJzKS4NCg0KQnV0Li4ubWF5YmUgY2hlY2tp
+bmcgZm9yIFNIX0VUSF9PRkZTRVRfSU5WQUxJRCBpcyBnb29kIGZvciBub3cgaW5zdGVhZCBvZiB3
+b3JyeWluZyBhYm91dCB0aGF0Lg0KDQoNCj4gT2gsIGFuZCBJJ2xsIGhhdmUgdG8gY29ycmVjdCB5
+b3VyIGxhbmd1YWdlIGFuZCB0ZXJtaW5vbG9neS4gOi0vIFNob3VsZCBiZQ0KPiAiaWYgdGhleSBk
+b24ndCBleGlzdCIgaW4gdGhlIHN1YmplY3QuDQoNCllhLCBteSBmaXJzdCBzdWJqZWN0IGxpbmUg
+d2FzIHRvbyBsb25nLCBzbyBJIGtlcHQgdHJ5aW5nIHRvIHNob3J0ZW4gaXQuLi4uYW5kIHRoZW4g
+aXQgdHVybiBpbnRvIGJhZCBncmFtbWVyLg0KDQpJIHRoaW5rIGEgbW9yZSBjbGVhciBzdWJqZWN0
+IGlzICJGaXggVFNVIHdpdGhvdXQgcmVsYXkgZmVhdHVyZSBhY2Nlc3NlcyINCg0KDQoNCg0KDQpD
+aHJpcw0K
