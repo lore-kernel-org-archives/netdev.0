@@ -1,38 +1,52 @@
-From: Baoyou Xie <baoyou.xie@linaro.org>
-Subject: [PATCH v2] mISDN: mark symbols static where possible
-Date: Mon, 29 Aug 2016 20:54:08 +0800
-Message-ID: <1472475248-30147-1-git-send-email-baoyou.xie@linaro.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        arnd@arndb.de, baoyou.xie@linaro.org, xie.baoyou@zte.com.cn
-To: isdn@linux-pingi.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net v2 8/9] net: ethernet: mediatek: use
+ devm_mdiobus_alloc instead of mdiobus_alloc inside mtk_mdio_init
+Date: Mon, 29 Aug 2016 15:06:28 +0200
+Message-ID: <20160829130628.GD12465@lunn.ch>
+References: <1472447003-30726-1-git-send-email-sean.wang@mediatek.com>
+ <1472447003-30726-9-git-send-email-sean.wang@mediatek.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: john@phrozen.org, davem@davemloft.net, nbd@openwrt.org,
+        netdev@vger.kernel.org, linux-mediatek@lists.infradead.org,
+        keyhaede@gmail.com
+To: sean.wang@mediatek.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:46753 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1756604AbcH2NGj (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 29 Aug 2016 09:06:39 -0400
+Content-Disposition: inline
+In-Reply-To: <1472447003-30726-9-git-send-email-sean.wang@mediatek.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We get 1 warning when build kernel with W=1:
-drivers/isdn/hardware/mISDN/w6692.c:851:6: warning: no previous prototype for 'initW6692' [-Wmissing-prototypes]
+On Mon, Aug 29, 2016 at 01:03:22PM +0800, sean.wang@mediatek.com wrote:
+> From: Sean Wang <sean.wang@mediatek.com>
+> 
+> a lot of parts in the driver uses devm_* APIs to gain benefits from the
+> device resource management, so devm_mdiobus_alloc is also used instead
+> of mdiobus_alloc to have more elegant code flow.
+> 
+> Using common code provided by the devm_* helps to
+> 1) have simplified the code flow as [1] says
+> 2) decrease the risk of incorrect error handling by human
+> 3) only a few drivers used it since it ware proposed on linux 3.16,
+> so just hope to promote for this.
+> 
+> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+> 
+> ---
+> ref.
+> [1] https://patchwork.ozlabs.org/patch/344093/
+> ---
 
-In fact, this function is only used in the file in which it is declared
-and don't need a declaration, but can be made static.
-so this patch marks it 'static'.
+Hi Sean
 
-Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
----
- drivers/isdn/hardware/mISDN/w6692.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Your footnote is below the ---, so won't make it into the change log. 
 
-diff --git a/drivers/isdn/hardware/mISDN/w6692.c b/drivers/isdn/hardware/mISDN/w6692.c
-index 7416755..3b067ea 100644
---- a/drivers/isdn/hardware/mISDN/w6692.c
-+++ b/drivers/isdn/hardware/mISDN/w6692.c
-@@ -848,7 +848,7 @@ dbusy_timer_handler(struct dchannel *dch)
- 	}
- }
- 
--void initW6692(struct w6692_hw *card)
-+static void initW6692(struct w6692_hw *card)
- {
- 	u8	val;
- 
--- 
-2.7.4
+Apart from that,
+
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+
+    Andrew
