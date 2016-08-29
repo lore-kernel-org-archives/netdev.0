@@ -1,99 +1,133 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net 2/2] netconf: add a notif  when settings are created
-Date: Mon, 29 Aug 2016 12:05:49 +0200
-Message-ID: <1472465149-1163-2-git-send-email-nicolas.dichtel@6wind.com>
-References: <1472465149-1163-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:56066 "EHLO
-        proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756130AbcH2KLX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 06:11:23 -0400
-In-Reply-To: <1472465149-1163-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: fgao@ikuai8.com
+Subject: [PATCH v2 nf] netfilter: log: Check param to avoid overflow in nf_log_set
+Date: Mon, 29 Aug 2016 18:25:28 +0800
+Message-ID: <1472466328-5595-1-git-send-email-fgao@ikuai8.com>
+Cc: gfree.wind@gmail.com, Gao Feng <fgao@ikuai8.com>
+To: pablo@netfilter.org, davem@davemloft.net,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-All changes are notified, but the initial state was missing.
+From: Gao Feng <fgao@ikuai8.com>
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+The nf_log_set is an interface function, so it should do the strict sanity
+check of parameters. Convert the return value of nf_log_set as int instead
+of void. When the pf is invalid, return -EOPNOTSUPP.
+
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
 ---
- net/ipv4/devinet.c  | 11 +++++++----
- net/ipv6/addrconf.c |  9 ++++++++-
- 2 files changed, 15 insertions(+), 5 deletions(-)
+ v2: Use ARRAY_SIZE(net->nf.nf_loggers) instead of NFPROTO_NUMPROTO;
+     Return error code -EOPNOTSUPP when pf is invalid;
+ v1: Initial patch
 
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 415e117967c7..062a67ca9a21 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -2232,7 +2232,7 @@ static struct devinet_sysctl_table {
- };
+ include/net/netfilter/nf_log.h       | 2 +-
+ net/bridge/netfilter/nf_log_bridge.c | 3 +--
+ net/ipv4/netfilter/nf_log_arp.c      | 3 +--
+ net/ipv4/netfilter/nf_log_ipv4.c     | 3 +--
+ net/ipv6/netfilter/nf_log_ipv6.c     | 3 +--
+ net/netfilter/nf_log.c               | 8 +++++---
+ 6 files changed, 10 insertions(+), 12 deletions(-)
+
+diff --git a/include/net/netfilter/nf_log.h b/include/net/netfilter/nf_log.h
+index 83d855b..f4eebd0 100644
+--- a/include/net/netfilter/nf_log.h
++++ b/include/net/netfilter/nf_log.h
+@@ -60,7 +60,7 @@ struct nf_logger {
+ int nf_log_register(u_int8_t pf, struct nf_logger *logger);
+ void nf_log_unregister(struct nf_logger *logger);
  
- static int __devinet_sysctl_register(struct net *net, char *dev_name,
--					struct ipv4_devconf *p)
-+				     int ifindex, struct ipv4_devconf *p)
+-void nf_log_set(struct net *net, u_int8_t pf,
++int nf_log_set(struct net *net, u_int8_t pf,
+ 		const struct nf_logger *logger);
+ void nf_log_unset(struct net *net, const struct nf_logger *logger);
+ 
+diff --git a/net/bridge/netfilter/nf_log_bridge.c b/net/bridge/netfilter/nf_log_bridge.c
+index 5d9953a..1663df5 100644
+--- a/net/bridge/netfilter/nf_log_bridge.c
++++ b/net/bridge/netfilter/nf_log_bridge.c
+@@ -50,8 +50,7 @@ static struct nf_logger nf_bridge_logger __read_mostly = {
+ 
+ static int __net_init nf_log_bridge_net_init(struct net *net)
  {
- 	int i;
- 	struct devinet_sysctl_table *t;
-@@ -2255,6 +2255,8 @@ static int __devinet_sysctl_register(struct net *net, char *dev_name,
- 		goto free;
+-	nf_log_set(net, NFPROTO_BRIDGE, &nf_bridge_logger);
+-	return 0;
++	return nf_log_set(net, NFPROTO_BRIDGE, &nf_bridge_logger);
+ }
  
- 	p->sysctl = t;
+ static void __net_exit nf_log_bridge_net_exit(struct net *net)
+diff --git a/net/ipv4/netfilter/nf_log_arp.c b/net/ipv4/netfilter/nf_log_arp.c
+index e7ad950..73599f2 100644
+--- a/net/ipv4/netfilter/nf_log_arp.c
++++ b/net/ipv4/netfilter/nf_log_arp.c
+@@ -111,8 +111,7 @@ static struct nf_logger nf_arp_logger __read_mostly = {
+ 
+ static int __net_init nf_log_arp_net_init(struct net *net)
+ {
+-	nf_log_set(net, NFPROTO_ARP, &nf_arp_logger);
+-	return 0;
++	return nf_log_set(net, NFPROTO_ARP, &nf_arp_logger);
+ }
+ 
+ static void __net_exit nf_log_arp_net_exit(struct net *net)
+diff --git a/net/ipv4/netfilter/nf_log_ipv4.c b/net/ipv4/netfilter/nf_log_ipv4.c
+index 076aadd..20f2255 100644
+--- a/net/ipv4/netfilter/nf_log_ipv4.c
++++ b/net/ipv4/netfilter/nf_log_ipv4.c
+@@ -347,8 +347,7 @@ static struct nf_logger nf_ip_logger __read_mostly = {
+ 
+ static int __net_init nf_log_ipv4_net_init(struct net *net)
+ {
+-	nf_log_set(net, NFPROTO_IPV4, &nf_ip_logger);
+-	return 0;
++	return nf_log_set(net, NFPROTO_IPV4, &nf_ip_logger);
+ }
+ 
+ static void __net_exit nf_log_ipv4_net_exit(struct net *net)
+diff --git a/net/ipv6/netfilter/nf_log_ipv6.c b/net/ipv6/netfilter/nf_log_ipv6.c
+index 8dd8696..c1bcf69 100644
+--- a/net/ipv6/netfilter/nf_log_ipv6.c
++++ b/net/ipv6/netfilter/nf_log_ipv6.c
+@@ -379,8 +379,7 @@ static struct nf_logger nf_ip6_logger __read_mostly = {
+ 
+ static int __net_init nf_log_ipv6_net_init(struct net *net)
+ {
+-	nf_log_set(net, NFPROTO_IPV6, &nf_ip6_logger);
+-	return 0;
++	return nf_log_set(net, NFPROTO_IPV6, &nf_ip6_logger);
+ }
+ 
+ static void __net_exit nf_log_ipv6_net_exit(struct net *net)
+diff --git a/net/netfilter/nf_log.c b/net/netfilter/nf_log.c
+index aa5847a..30a17d6 100644
+--- a/net/netfilter/nf_log.c
++++ b/net/netfilter/nf_log.c
+@@ -39,12 +39,12 @@ static struct nf_logger *__find_logger(int pf, const char *str_logger)
+ 	return NULL;
+ }
+ 
+-void nf_log_set(struct net *net, u_int8_t pf, const struct nf_logger *logger)
++int nf_log_set(struct net *net, u_int8_t pf, const struct nf_logger *logger)
+ {
+ 	const struct nf_logger *log;
+ 
+-	if (pf == NFPROTO_UNSPEC)
+-		return;
++	if (pf == NFPROTO_UNSPEC || pf >= ARRAY_SIZE(net->nf.nf_loggers))
++		return -EOPNOTSUPP;
+ 
+ 	mutex_lock(&nf_log_mutex);
+ 	log = nft_log_dereference(net->nf.nf_loggers[pf]);
+@@ -52,6 +52,8 @@ void nf_log_set(struct net *net, u_int8_t pf, const struct nf_logger *logger)
+ 		rcu_assign_pointer(net->nf.nf_loggers[pf], logger);
+ 
+ 	mutex_unlock(&nf_log_mutex);
 +
-+	inet_netconf_notify_devconf(net, NETCONFA_ALL, ifindex, p);
- 	return 0;
++	return 0;
+ }
+ EXPORT_SYMBOL(nf_log_set);
  
- free:
-@@ -2286,7 +2288,7 @@ static int devinet_sysctl_register(struct in_device *idev)
- 	if (err)
- 		return err;
- 	err = __devinet_sysctl_register(dev_net(idev->dev), idev->dev->name,
--					&idev->cnf);
-+					idev->dev->ifindex, &idev->cnf);
- 	if (err)
- 		neigh_sysctl_unregister(idev->arp_parms);
- 	return err;
-@@ -2347,11 +2349,12 @@ static __net_init int devinet_init_net(struct net *net)
- 	}
- 
- #ifdef CONFIG_SYSCTL
--	err = __devinet_sysctl_register(net, "all", all);
-+	err = __devinet_sysctl_register(net, "all", NETCONFA_IFINDEX_ALL, all);
- 	if (err < 0)
- 		goto err_reg_all;
- 
--	err = __devinet_sysctl_register(net, "default", dflt);
-+	err = __devinet_sysctl_register(net, "default",
-+					NETCONFA_IFINDEX_DEFAULT, dflt);
- 	if (err < 0)
- 		goto err_reg_dflt;
- 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 299f0656e87f..bb3874d2f248 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -6032,7 +6032,7 @@ static const struct ctl_table addrconf_sysctl[] = {
- static int __addrconf_sysctl_register(struct net *net, char *dev_name,
- 		struct inet6_dev *idev, struct ipv6_devconf *p)
- {
--	int i;
-+	int i, ifindex;
- 	struct ctl_table *table;
- 	char path[sizeof("net/ipv6/conf/") + IFNAMSIZ];
- 
-@@ -6052,6 +6052,13 @@ static int __addrconf_sysctl_register(struct net *net, char *dev_name,
- 	if (!p->sysctl_header)
- 		goto free;
- 
-+	if (!strcmp(dev_name, "all"))
-+		ifindex = NETCONFA_IFINDEX_ALL;
-+	else if (!strcmp(dev_name, "default"))
-+		ifindex = NETCONFA_IFINDEX_DEFAULT;
-+	else
-+		ifindex = idev->dev->ifindex;
-+	inet6_netconf_notify_devconf(net, NETCONFA_ALL, ifindex, p);
- 	return 0;
- 
- free:
 -- 
-2.8.1
+1.9.1
+
