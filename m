@@ -1,38 +1,32 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Have the fix for softirq landed???
-Date: Mon, 29 Aug 2016 08:36:57 +0200
-Message-ID: <20160829083657.6111c558@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        Paolo Abeni <pabeni@redhat.com>
+From: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
+Subject: [ethtool PATCH v1 0/2] ethtool: add support for 1000BaseX and missing 10G link mode
+Date: Sun, 28 Aug 2016 23:56:48 -0700
+Message-ID: <1472453810-47177-1-git-send-email-vidya@cumulusnetworks.com>
+Cc: roopa@cumulusnetworks.com, dustin@cumulusnetworks.com
+To: linville@tuxdriver.com, netdev@vger.kernel.org, bwh@kernel.org,
+        davem@davemloft.net, decot@googlers.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55600 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750738AbcH2GhC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 29 Aug 2016 02:37:02 -0400
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:36216 "EHLO
+        mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756426AbcH2G47 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 02:56:59 -0400
+Received: by mail-pa0-f45.google.com with SMTP id ci2so6093889pad.3
+        for <netdev@vger.kernel.org>; Sun, 28 Aug 2016 23:56:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric and Paolo,
+From: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
 
-Back in May you discovered (IMHO) a serious bug in softirq.  It even got
-covered by LWN.net[1]. I've looked at the most recent git tree (linus
-and net-next), and cannot see any changes that fixes this.
-What is the progress in this area?
+This patchset enhances ethtool link mode bitmap to include
+missing interface modes for 1G/10G speeds
 
-LWN.net: "Threadable NAPI polling, softirqs, and proper fixes"
- [1] http://lwn.net/Articles/687617/
+Vidya Sagar Ravipati (2):
+  ethtool-copy.h:sync with net
+  ethtool: add support for 1000BaseX and missing 10G link mode
 
-Eric's proposed fix: http://lwn.net/Articles/687631/
+ ethtool-copy.h | 11 +++++++++--
+ ethtool.c      | 19 +++++++++++++++++++
+ 2 files changed, 28 insertions(+), 2 deletions(-)
 
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+2.1.4
