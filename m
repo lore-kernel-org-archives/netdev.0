@@ -1,95 +1,45 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next PATCH] e1000: add initial XDP support
-Date: Mon, 29 Aug 2016 15:39:05 +0200
-Message-ID: <20160829153905.50066865@redhat.com>
-References: <20160827071145.25345.84712.stgit@john-Precision-Tower-5810>
-        <b6cfb3c5-9c68-3ea7-48dd-7fbf666db751@mojatatu.com>
-        <20160829103047.3968a4d8@redhat.com>
-        <61de1b91-30b4-67ba-4192-834fa30757ea@mojatatu.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net 1/2] ipv6: add missing netconf notif when 'all' is
+ updated
+Date: Mon, 29 Aug 2016 15:42:56 +0200
+Message-ID: <9bb74290-07d9-8b7b-a039-7005f3b10cea@6wind.com>
+References: <1472465149-1163-1-git-send-email-nicolas.dichtel@6wind.com>
+ <705293f5-0965-8d1c-1539-b70cbed6aea9@cogentembedded.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.fastabend@gmail.com>, bblanco@plumgrid.com,
-        davem@davemloft.net, alexei.starovoitov@gmail.com,
-        john.r.fastabend@intel.com, netdev@vger.kernel.org,
-        xiyou.wangcong@gmail.com, brouer@redhat.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56008 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933302AbcH2NjL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 29 Aug 2016 09:39:11 -0400
-In-Reply-To: <61de1b91-30b4-67ba-4192-834fa30757ea@mojatatu.com>
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:35430 "EHLO
+        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932908AbcH2NnA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 09:43:00 -0400
+Received: by mail-wm0-f48.google.com with SMTP id f65so79220951wmi.0
+        for <netdev@vger.kernel.org>; Mon, 29 Aug 2016 06:42:59 -0700 (PDT)
+In-Reply-To: <705293f5-0965-8d1c-1539-b70cbed6aea9@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 29 Aug 2016 06:53:53 -0400
-Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-
-> On 16-08-29 04:30 AM, Jesper Dangaard Brouer wrote:
+Le 29/08/2016 à 15:00, Sergei Shtylyov a écrit :
+[snip]
+>>      if (p == &net->ipv6.devconf_all->forwarding) {
+>> +        int old_dftl = net->ipv6.devconf_dflt->forwarding;
+>> +
+>>          net->ipv6.devconf_dflt->forwarding = newf;
+>> +        if ((!newf) ^ (!old_dftl))
 > 
-> > Hi Jamal,
-> >
-> > Can you please provide a simple "tc" command that implements "tc drop"?
-> >
-> > Then, I'll add this to the series of tests I'm using for (what I call)
-> > "zoom-in" benchmarking.
-> >  
+>    IIUC, !'s are not necessary here (and more so the parens around them). And
+> perhaps ^ can be changed to != for clarity...
+Yes, but a lot of places in this code use that. So for consistency I use the same.
+
 > 
-> Thanks Jesper.
-
-I've created a script called tc_ingress_drop.sh[1] which uses the
-commands you provided below.  Now people can easily use this script to
-perform the benchmark you were requesting ;-)
-
-[1] https://github.com/netoptimizer/network-testing/blob/master/bin/tc_ingress_drop.sh
-
-Example to enable dropping:
-
- $ ./tc_ingress_drop.sh --dev mlx5p2 --verbose
- # (Not root, running with sudo)
- # Flush existing ingress qdisc on device :mlx5p2
- tc qdisc del dev mlx5p2 ingress
- tc qdisc add dev mlx5p2 ingress
- # Simply drop all ingress packets on device: mlx5p2
- tc filter add dev mlx5p2 parent ffff: prio 2 protocol ip u32 match u32 0 0 flowid 1:1 action drop
-
-Example to disable again:
- ./tc_ingress_drop.sh --dev mlx5p2 --flush
-
- 
-> Something simple since this is done in ingress; lets say drop icmp
-> packets:
-> 
-> export ETH=eth0
-> export TC=/sbin/tc
-> #delete existing ingress qdisc - flushes all filters/actions
-> sudo $TC qdisc del dev $ETH ingress
-> #re-add ingress
-> sudo $TC qdisc add dev $ETH ingress
-> #
-> #simple rule to drop all icmp
-> sudo $TC filter add dev $ETH parent ffff: prio 4 protocol ip \
-> u32 match ip protocol 1 0xff flowid 1:1 \
-> action drop
-> 
-> # other type of filters if you want to compare instead of above
-> #
-> # a)drop all
-> sudo $TC filter add dev $ETH parent ffff: prio 2 protocol ip \
-> u32 match u32 0 0 flowid 1:1 \
-> action drop
-> #b) drop if src is XXX
-> sudo $TC filter add dev $ETH parent ffff: prio 2 protocol ip \
-> u32 match ip src 192.168.100.1 flowid 1:1 \
-> action drop
-> 
-
-
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+>> +            inet6_netconf_notify_devconf(net, NETCONFA_FORWARDING,
+>> +                             NETCONFA_IFINDEX_DEFAULT,
+>> +                             net->ipv6.devconf_dflt);
+>> +
+>>          addrconf_forward_change(net, newf);
+>>          if ((!newf) ^ (!old))
+Here is an example.
