@@ -1,53 +1,40 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] net: xgene: fix backward compatibility fix
-Date: Mon, 29 Aug 2016 14:37:14 +0200
-Message-ID: <20160829123740.3336010-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Iyappan Subramanian <isubramanian@apm.com>,
-        Keyur Chudgar <kchudgar@apm.com>
+From: Baoyou Xie <baoyou.xie@linaro.org>
+Subject: [PATCH v4] brcmfmac: add missing header dependencies
+Date: Mon, 29 Aug 2016 20:39:35 +0800
+Message-ID: <1472474375-29910-1-git-send-email-baoyou.xie@linaro.org>
+Cc: linux-wireless@vger.kernel.org,
+        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, arnd@arndb.de, baoyou.xie@linaro.org,
+        xie.baoyou@zte.com.cn
+To: arend.vanspriel@broadcom.com, franky.lin@broadcom.com,
+        hante.meuleman@broadcom.com, kvalo@codeaurora.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-A bugfix for backward compatibility handling introduced undefined
-behavior for the case that of_parse_phandle() does not return
-a valid entry, as "gcc -Wmaybe-unused" reports:
+We get 1 warning when build kernel with W=1:
+drivers/net/wireless/broadcom/brcm80211/brcmfmac/tracepoint.c:23:6: warning: no previous prototype for '__brcmf_err' [-Wmissing-prototypes]
 
-drivers/net/ethernet/apm/xgene/xgene_enet_hw.c: In function 'xgene_enet_phy_connect':
-drivers/net/ethernet/apm/xgene/xgene_enet_hw.c:776:6: error: 'phy_dev' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-drivers/net/ethernet/apm/xgene/xgene_enet_hw.c: In function 'xgene_enet_mdio_config':
-drivers/net/ethernet/apm/xgene/xgene_enet_hw.c:776:6: error: 'phy_dev' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+In fact, this function is declared in brcmfmac/debug.h, so this patch
+add missing header dependencies.
 
-We can work around this by removing the check for zero "np", as
-of_phy_connect() will correctly handle a NULL argument so we fall
-back into the normal error handling case.
-
-Note that I had previously fixed another bug that resulted in the
-exact same warning, but this is a different problem that was
-introduced after my original fix.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: 03377e381bf4 ("drivers: net: xgene: Fix backward compatibility")
+Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
+Acked-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.c | 4 ----
- 1 file changed, 4 deletions(-)
+ drivers/net/wireless/broadcom/brcm80211/brcmfmac/tracepoint.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-index 321fb197621e..da413c8d3e19 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-@@ -761,10 +761,6 @@ int xgene_enet_phy_connect(struct net_device *ndev)
- 	if (dev->of_node) {
- 		for (i = 0 ; i < 2; i++) {
- 			np = of_parse_phandle(dev->of_node, "phy-handle", i);
--
--			if (!np)
--				continue;
--
- 			phy_dev = of_phy_connect(ndev, np,
- 						 &xgene_enet_adjust_link,
- 						 0, pdata->phy_mode);
+diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/tracepoint.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/tracepoint.c
+index a10f35c..fe67559 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/tracepoint.c
++++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/tracepoint.c
+@@ -19,6 +19,7 @@
+ #ifndef __CHECKER__
+ #define CREATE_TRACE_POINTS
+ #include "tracepoint.h"
++#include "debug.h"
+ 
+ void __brcmf_err(const char *func, const char *fmt, ...)
+ {
 -- 
-2.9.0
+2.7.4
