@@ -1,66 +1,113 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: Re: [PATCH v2] ipv6: Use inbound ifaddr as source addresses for
- ICMPv6 errors
-Date: Tue, 30 Aug 2016 21:51:56 +0200
-Message-ID: <20160830195156.3ibvpbi4254wnput@alphalink.fr>
-References: <20160828033406.11269-1-elicooper@gmx.com>
- <20160828171800.gtdo764pvoyhgim4@alphalink.fr>
- <446b91c5-c19c-c294-9644-670bc6313b48@gmx.com>
+From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
+Subject: Re: [RFC v2 00/10] Landlock LSM: Unprivileged sandboxing
+Date: Tue, 30 Aug 2016 21:51:36 +0200
+Message-ID: <57C5E3C8.1080103@digikod.net>
+References: <1472121165-29071-1-git-send-email-mic@digikod.net>
+ <CALCETrWw6fTTugSFcBhW=fv09GrSXQ+vZxuG0ewb+cod8nq4MQ@mail.gmail.com>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-To: Eli Cooper <elicooper@gmx.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:57074 "EHLO
-        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751118AbcH3TwA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2016 15:52:00 -0400
-Content-Disposition: inline
-In-Reply-To: <446b91c5-c19c-c294-9644-670bc6313b48@gmx.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="iS68pljTlh2L1r0VbXfQSnmHJ4I1fSRTV"
+Cc: LKML <linux-kernel@vger.kernel.org>, Alexei Starovoitov <ast@kernel.org>,
+        Arnd Bergmann <arnd@arndb.de>,
+        Casey Schaufler <casey@schaufler-ca.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Daniel Mack <daniel@zonque.org>, David Drysdale <drysdale@google.com>,
+        "David S . Miller"
+ <davem@davemloft.net>,
+        Elena Reshetova <elena.reshetova@intel.com>,
+        James Morris <james.l.morris@oracle.com>,
+        Kees Cook <keescook@chromium.org>, Paul Moore <pmoore@redhat.com>,
+        Sargun Dhillon <sargun@sargun.me>,
+        "Serge E . Hallyn" <serge@hallyn.com>, Will Drewry <wad@chromium.org>,
+        Kernel Hardening <kernel-hardening@lists.openwall.com>,
+        Linux API <linux-api@vger.kernel.org>,
+        LSM List <linux-security-module@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        Tejun Heo <tj@kernel.org
+To: Andy Lutomirski <luto@amacapital.net>
+Return-path: <kernel-hardening-return-4508-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <CALCETrWw6fTTugSFcBhW=fv09GrSXQ+vZxuG0ewb+cod8nq4MQ@mail.gmail.com>
+List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 29, 2016 at 02:34:32AM +0800, Eli Cooper wrote:
-> Hello,
-> 
-> 
-> On 2016/8/29 1:18, Guillaume Nault wrote:
-> > On Sun, Aug 28, 2016 at 11:34:06AM +0800, Eli Cooper wrote:
-> >> According to RFC 1885 2.2(c), the source address of ICMPv6
-> >> errors in response to forwarded packets should be set to the
-> >> unicast address of the forwarding interface in order to be helpful
-> >> in diagnosis.
-> >>
-> > FWIW, this behaviour has been deprecated ten years ago by RFC 4443:
-> > "The address SHOULD be chosen according to the rules that would be used
-> >  to select the source address for any other packet originated by the
-> >  node, given the destination address of the packet."
-> >
-> > The door is left open for other address selection algorithms but, IMHO,
-> > changing kernel's behaviour is better justified by real use cases
-> > than by obsolete RFCs.
-> 
-> I agree, sorry for the obsoleted RFC. This is actually motivated by a
-> real use case: Say a Linux box is acting as a router that forwards
-> packets with policy routing from two local networks to two uplinks,
-> respectively. An outside host from is performing traceroute to a host on
-> one of the LAN. If the kernel's default route is via the other LAN's
-> uplink, it will send ICMPv6 packets with the source address that has
-> nothing to do with the network in question, yet the message probably
-> will reach the outside host.
-> 
-> Here using the address of inbound or exiting interface as source address
-> is evidently "a more informative choice." I surmise this is the reason
-> why the comment reads "Force OUTPUT device used as source address" when
-> dealing with hop limit exceeded packets in ip6_forward(), although not
-> effectively so. The current behaviour not only confuses diagnosis, but
-> also might be undesirable if the addresses of the networks are best kept
-> secret from each other.
-> 
-That makes more sense indeed. Would be nice to have this use case in
-the commit message rather than the blind reference to the obsolete RFC.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--iS68pljTlh2L1r0VbXfQSnmHJ4I1fSRTV
+Content-Type: multipart/mixed; boundary="1tA95sEOkeODQ2R2gdE5d6A5uwahQeFil";
+ protected-headers="v1"
+From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
+To: Andy Lutomirski <luto@amacapital.net>
+Cc: LKML <linux-kernel@vger.kernel.org>, Alexei Starovoitov <ast@kernel.org>,
+ Arnd Bergmann <arnd@arndb.de>, Casey Schaufler <casey@schaufler-ca.com>,
+ Daniel Borkmann <daniel@iogearbox.net>, Daniel Mack <daniel@zonque.org>,
+ David Drysdale <drysdale@google.com>, "David S . Miller"
+ <davem@davemloft.net>, Elena Reshetova <elena.reshetova@intel.com>,
+ James Morris <james.l.morris@oracle.com>, Kees Cook <keescook@chromium.org>,
+ Paul Moore <pmoore@redhat.com>, Sargun Dhillon <sargun@sargun.me>,
+ "Serge E . Hallyn" <serge@hallyn.com>, Will Drewry <wad@chromium.org>,
+ Kernel Hardening <kernel-hardening@lists.openwall.com>,
+ Linux API <linux-api@vger.kernel.org>,
+ LSM List <linux-security-module@vger.kernel.org>,
+ Network Development <netdev@vger.kernel.org>, Tejun Heo <tj@kernel.org>
+Message-ID: <57C5E3C8.1080103@digikod.net>
+Subject: Re: [RFC v2 00/10] Landlock LSM: Unprivileged sandboxing
+References: <1472121165-29071-1-git-send-email-mic@digikod.net>
+ <CALCETrWw6fTTugSFcBhW=fv09GrSXQ+vZxuG0ewb+cod8nq4MQ@mail.gmail.com>
+In-Reply-To: <CALCETrWw6fTTugSFcBhW=fv09GrSXQ+vZxuG0ewb+cod8nq4MQ@mail.gmail.com>
 
-Regards,
+--1tA95sEOkeODQ2R2gdE5d6A5uwahQeFil
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Guillaume
+
+On 30/08/2016 18:06, Andy Lutomirski wrote:
+> On Thu, Aug 25, 2016 at 3:32 AM, Micka=C3=ABl Sala=C3=BCn <mic@digikod.=
+net> wrote:
+>> Hi,
+>>
+>> This series is a proof of concept to fill some missing part of seccomp=
+ as the
+>> ability to check syscall argument pointers or creating more dynamic se=
+curity
+>> policies. The goal of this new stackable Linux Security Module (LSM) c=
+alled
+>> Landlock is to allow any process, including unprivileged ones, to crea=
+te
+>> powerful security sandboxes comparable to the Seatbelt/XNU Sandbox or =
+the
+>> OpenBSD Pledge. This kind of sandbox help to mitigate the security imp=
+act of
+>> bugs or unexpected/malicious behaviors in userland applications.
+>=20
+> Micka=C3=ABl, will you be at KS and/or LPC?
+>=20
+
+I won't be at KS/LPC but I will give a talk at Kernel Recipes (Paris)
+for which registration will start Thursday (and will not last long). :)
+
+ Micka=C3=ABl
+
+
+--1tA95sEOkeODQ2R2gdE5d6A5uwahQeFil--
+
+--iS68pljTlh2L1r0VbXfQSnmHJ4I1fSRTV
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBCgAGBQJXxePNAAoJECLe/t9zvWqVD7gH/R/P8OY0f0gIgcwfp22iq+XG
+dj6V72UyTuwaYpECkpit9eaXPdvPLSSMezPIvTtl6FFJz0Y/5njuEEGL+K6L5zrk
+8xicrpS30jXmG2SPlGZSuWzWW3MThDGS2OLYKa/1FlWlwsxLIXQnyL7LsBihHV5C
+7M0YzJw3he/Ip/MyNVvfR+opibT9dA+ZTpoD//Q7e6Zk3RZi8BYMjzwhreRFmJTY
+3ZYjSzMXV1qHcz/alrFfc6UABKZ77WQu0kf2tAzykaSm4biqdMoWeuRYnxJi8JEg
+g7BCyS2fwqEPgpDfWpGMY2oVP1eexlrrg4j2LvU7rkaIJKY81BEX3kZtncEfVLg=
+=G+wn
+-----END PGP SIGNATURE-----
+
+--iS68pljTlh2L1r0VbXfQSnmHJ4I1fSRTV--
