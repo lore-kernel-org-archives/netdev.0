@@ -1,28 +1,49 @@
-From: Friedrich Mayrhofer <efucili@mendoza-conicet.gob.ar>
-Subject: Did you get my message?
-Date: Tue, 30 Aug 2016 04:41:38 -0300 (ART)
-Message-ID: <100147258.162941.1472542898790.JavaMail.root@correo.mendoza-conicet.gob.ar>
-Reply-To: Friedrich Mayrhofer <qatif6oil29gas@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net v2 1/2] ipv6: add missing netconf notif when 'all' is updated
+Date: Tue, 30 Aug 2016 10:09:21 +0200
+Message-ID: <1472544562-22581-1-git-send-email-nicolas.dichtel@6wind.com>
+References: <1472465149-1163-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org, hideaki.yoshifuji@miraclelinux.com,
+        Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.mendoza-conicet.gob.ar ([168.96.255.91]:49948 "EHLO
-        mx1.mendoza-conicet.gob.ar" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1757636AbcH3H4r (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2016 03:56:47 -0400
+Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:57004 "EHLO
+        proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755504AbcH3IJh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2016 04:09:37 -0400
+In-Reply-To: <1472465149-1163-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The 'default' value was not advertised.
 
+Fixes: f3a1bfb11ccb ("rtnl/ipv6: use netconf msg to advertise forwarding status")
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
 
-Hello,
+v2: fix a typo in the variable old_dflt
 
-This is the second time i am sending you this mail.
-I, Friedrich Mayrhofer and my wife has Donate $ 1,000,000.00 USD 
-to You, Email  Me personally for more details.
+ net/ipv6/addrconf.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
-Regards.
-
-Friedrich Mayrhofer
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index f418d2eaeddd..2a688171a188 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -778,7 +778,14 @@ static int addrconf_fixup_forwarding(struct ctl_table *table, int *p, int newf)
+ 	}
+ 
+ 	if (p == &net->ipv6.devconf_all->forwarding) {
++		int old_dflt = net->ipv6.devconf_dflt->forwarding;
++
+ 		net->ipv6.devconf_dflt->forwarding = newf;
++		if ((!newf) ^ (!old_dflt))
++			inet6_netconf_notify_devconf(net, NETCONFA_FORWARDING,
++						     NETCONFA_IFINDEX_DEFAULT,
++						     net->ipv6.devconf_dflt);
++
+ 		addrconf_forward_change(net, newf);
+ 		if ((!newf) ^ (!old))
+ 			inet6_netconf_notify_devconf(net, NETCONFA_FORWARDING,
+-- 
+2.8.1
