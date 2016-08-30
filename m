@@ -1,72 +1,54 @@
-From: Caesar Wang <wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Subject: [PATCH 2/4] net: stmmac: dwmac-rk: add pd_gmac support for rk3399
-Date: Wed, 31 Aug 2016 04:30:05 +0800
-Message-ID: <1472589008-7713-3-git-send-email-wxt@rock-chips.com>
-References: <1472589008-7713-1-git-send-email-wxt@rock-chips.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH net-next 1/6] net/mlx5e: Support DCBX CEE API
+Date: Tue, 30 Aug 2016 23:33:06 +0300
+Message-ID: <CAJ3xEMhKWh1_X9-SWdQHEGSUH0Z1EejCMLTXgyFizZ+-hU7Y8g@mail.gmail.com>
+References: <1472556595-9286-1-git-send-email-saeedm@mellanox.com> <1472556595-9286-2-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Brian Norris <briannorris-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
- Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>, dbasehore-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org,
- Douglas Anderson <dianders-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
- Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>, Caesar Wang <wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-To: Heiko Stuebner <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1472589008-7713-1-git-send-email-wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
-List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: Huy Nguyen <huyn@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f66.google.com ([209.85.218.66]:35950 "EHLO
+        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752054AbcH3UdH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2016 16:33:07 -0400
+Received: by mail-oi0-f66.google.com with SMTP id b22so2810001oii.3
+        for <netdev@vger.kernel.org>; Tue, 30 Aug 2016 13:33:07 -0700 (PDT)
+In-Reply-To: <1472556595-9286-2-git-send-email-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+On Tue, Aug 30, 2016 at 2:29 PM, Saeed Mahameed <saeedm@mellanox.com> wrote:
+> From: Huy Nguyen <huyn@mellanox.com>
+>
+> Add DCBX CEE API interface for CX4. Configurations are stored in a
+> temporary structure and are applied to the card's firmware when the
+> CEE's setall callback function is called.
+>
+> Note:
+>   priority group in CEE is equivalent to traffic class in ConnectX-4
+>   hardware spec.
+>
+>   bw allocation per priority in CEE is not supported because CX4
+>   only supports bw allocation per traffic class.
+>
+>   user priority in CEE does not have an equivalent term in CX4.
+>   Therefore, user priority to priority mapping in CEE is not supported.
 
-Add the gmac power domain support for rk3399, in order to save more
-power consumption.
+basically our drivers suits (mlx4/5) are not written to a certain HW,
+but rather to multiple (past, present and future) brands using dev
+caps advertized by the firmware towards the driver.
 
-Signed-off-by: David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Signed-off-by: Caesar Wang <wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
----
+I see here lots of CX4 explicit mentioning... so (1) try to avoid it
+or make the description more general (2) do you base your code on dev
+caps or hard coded assumptions?
 
- drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c | 7 +++++++
- 1 file changed, 7 insertions(+)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-index ea0e493..71a1ca5 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-@@ -30,6 +30,7 @@
- #include <linux/delay.h>
- #include <linux/mfd/syscon.h>
- #include <linux/regmap.h>
-+#include <linux/pm_runtime.h>
- 
- #include "stmmac_platform.h"
- 
-@@ -660,11 +661,17 @@ static int rk_gmac_init(struct platform_device *pdev, void *priv)
- 	if (ret)
- 		return ret;
- 
-+	pm_runtime_enable(&pdev->dev);
-+	pm_runtime_get_sync(&pdev->dev);
-+
- 	return 0;
- }
- 
- static void rk_gmac_powerdown(struct rk_priv_data *gmac)
- {
-+	pm_runtime_put_sync(&pdev->dev);
-+	pm_runtime_disable(&pdev->dev);
-+
- 	phy_power_on(gmac, false);
- 	gmac_clk_enable(gmac, false);
- }
--- 
-1.9.1
+> Test: see DCBX_LinuxDriverCX4 document section 6.4
+
+what's the relevancy for the upstream commit change log?
+
+> Signed-off-by: Huy Nguyen <huyn@mellanox.com>
+> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
