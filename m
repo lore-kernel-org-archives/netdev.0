@@ -1,57 +1,56 @@
-From: Russell King <rmk+kernel@armlinux.org.uk>
-Subject: [PATCH 4/4] net: smc91x: remove neponset specific oscillator hack
-Date: Tue, 30 Aug 2016 11:52:50 +0100
-Message-ID: <E1begew-00077B-LY@rmk-PC.armlinux.org.uk>
-References: <20160830105117.GM1041@n2100.armlinux.org.uk>
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: [RFCv2 16/16] nfp: bpf: add offload of TC direct action mode
+Date: Tue, 30 Aug 2016 12:52:52 +0200
+Message-ID: <20160830125252.011f08d3@laptop>
+References: <1472234775-29453-1-git-send-email-jakub.kicinski@netronome.com>
+        <1472234775-29453-17-git-send-email-jakub.kicinski@netronome.com>
+        <57C4A48F.6080403@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: Nicolas Pitre <nico@fluxnic.net>
-To: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jakub Kicinski <jakub.kicinski@netronome.com>,
+        netdev@vger.kernel.org, ast@kernel.org,
+        dinan.gunawardena@netronome.com, jiri@resnulli.us,
+        john.fastabend@gmail.com
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:36589 "EHLO
-        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758030AbcH3Kw4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2016 06:52:56 -0400
-In-Reply-To: <20160830105117.GM1041@n2100.armlinux.org.uk>
-Content-Disposition: inline
+Received: from mx3.wp.pl ([212.77.101.9]:34498 "EHLO mx3.wp.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1758159AbcH3Kw5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 30 Aug 2016 06:52:57 -0400
+In-Reply-To: <57C4A48F.6080403@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove the neponset specific oscillator hack from the smc91x driver,
-relying instead on the gpio controls provided.
+On Mon, 29 Aug 2016 23:09:35 +0200, Daniel Borkmann wrote:
+> > +	 *   0,1   ok        NOT SUPPORTED[1]
+> > +	 *   2   drop  0x22 -> drop,  count as stat1
+> > +	 *   4,5 nuke  0x02 -> drop
+> > +	 *   7  redir  0x44 -> redir, count as stat2
+> > +	 *   * unspec  0x11 -> pass,  count as stat0
+> > +	 *
+> > +	 * [1] We can't support OK and RECLASSIFY because we can't tell TC
+> > +	 *     the exact decision made.  We are forced to support UNSPEC
+> > +	 *     to handle aborts so that's the only one we handle for passing
+> > +	 *     packets up the stack.  
+> 
+> In da mode, RECLASSIFY is not supported, so this one could be scratched.
+> For the OK and UNSPEC part, couldn't both be treated the same (as in: OK /
+> pass to stack roughly equivalent as in sch_handle_ingress())? Or is the
+> issue that you cannot populate skb->tc_index when passing to stack (maybe
+> just fine to leave it at 0 for now)?
 
-Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
----
- drivers/net/ethernet/smsc/smc91x.c | 9 ---------
- 1 file changed, 9 deletions(-)
+The comment is a bit confus(ed|ing).  The problem is:
 
-diff --git a/drivers/net/ethernet/smsc/smc91x.c b/drivers/net/ethernet/smsc/smc91x.c
-index 43dbc1c7b9a5..e53aa640f0d7 100644
---- a/drivers/net/ethernet/smsc/smc91x.c
-+++ b/drivers/net/ethernet/smsc/smc91x.c
-@@ -92,11 +92,6 @@ static const char version[] =
- 
- #include "smc91x.h"
- 
--#if defined(CONFIG_ASSABET_NEPONSET)
--#include <mach/assabet.h>
--#include <mach/neponset.h>
--#endif
--
- #ifndef SMC_NOWAIT
- # define SMC_NOWAIT		0
- #endif
-@@ -2384,10 +2379,6 @@ static int smc_drv_probe(struct platform_device *pdev)
- 	ret = smc_request_attrib(pdev, ndev);
- 	if (ret)
- 		goto out_release_io;
--#if defined(CONFIG_ASSABET_NEPONSET)
--	if (machine_is_assabet() && machine_has_neponset())
--		neponset_ncr_set(NCR_ENET_OSC_EN);
--#endif
- 	if (lp->xtal) {
- 		ret = clk_prepare_enable(lp->xtal);
- 		if (ret)
--- 
-2.1.0
+tc filter add <filter1> skip_sw
+tc filter add <filter2> skip_hw
+
+If packet appears in the stack - was it because of OK or UNSPEC (or
+RECLASSIFY) in filter1?  Do we need to run filter2 or not?  Passing
+tc_index can be implemented the same way I do mark today.
+
+> Just curious, does TC_ACT_REDIRECT work in this scenario?
+
+I do the redirects in the card, all the problems stem from the
+difficulty of passing full ret code in the skb from the driver
+to tc_classify()/cls_bpf_classify().
