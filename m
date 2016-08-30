@@ -1,8 +1,7 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 1/8] rxrpc: Fix a potential NULL-pointer deref in
- rxrpc_abort_calls
-Date: Tue, 30 Aug 2016 16:41:44 +0100
-Message-ID: <147257170401.6391.16219091111450190401.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 4/8] afs: Miscellaneous simple cleanups
+Date: Tue, 30 Aug 2016 16:42:05 +0100
+Message-ID: <147257172524.6391.15054443509484866693.stgit@warthog.procyon.org.uk>
 References: <147257169706.6391.3116382288289485794.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,52 +14,42 @@ In-Reply-To: <147257169706.6391.3116382288289485794.stgit@warthog.procyon.org.uk
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The call pointer in a channel on a connection will be NULL if there's no
-active call on that channel.  rxrpc_abort_calls() needs to check for this
-before trying to take the call's state_lock.
+Remove one #ifndef'd-out variable and a couple of excessive blank lines.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/conn_event.c |   26 +++++++++++++++-----------
- 1 file changed, 15 insertions(+), 11 deletions(-)
+ fs/afs/cmservice.c |    6 ------
+ 1 file changed, 6 deletions(-)
 
-diff --git a/net/rxrpc/conn_event.c b/net/rxrpc/conn_event.c
-index 6296374df840..bb81801fb805 100644
---- a/net/rxrpc/conn_event.c
-+++ b/net/rxrpc/conn_event.c
-@@ -149,19 +149,23 @@ static void rxrpc_abort_calls(struct rxrpc_connection *conn, int state,
- 		call = rcu_dereference_protected(
- 			conn->channels[i].call,
- 			lockdep_is_held(&conn->channel_lock));
--		write_lock_bh(&call->state_lock);
--		if (call->state <= RXRPC_CALL_COMPLETE) {
--			call->state = state;
--			if (state == RXRPC_CALL_LOCALLY_ABORTED) {
--				call->local_abort = conn->local_abort;
--				set_bit(RXRPC_CALL_EV_CONN_ABORT, &call->events);
--			} else {
--				call->remote_abort = conn->remote_abort;
--				set_bit(RXRPC_CALL_EV_RCVD_ABORT, &call->events);
-+		if (call) {
-+			write_lock_bh(&call->state_lock);
-+			if (call->state <= RXRPC_CALL_COMPLETE) {
-+				call->state = state;
-+				if (state == RXRPC_CALL_LOCALLY_ABORTED) {
-+					call->local_abort = conn->local_abort;
-+					set_bit(RXRPC_CALL_EV_CONN_ABORT,
-+						&call->events);
-+				} else {
-+					call->remote_abort = conn->remote_abort;
-+					set_bit(RXRPC_CALL_EV_RCVD_ABORT,
-+						&call->events);
-+				}
-+				rxrpc_queue_call(call);
- 			}
--			rxrpc_queue_call(call);
-+			write_unlock_bh(&call->state_lock);
- 		}
--		write_unlock_bh(&call->state_lock);
+diff --git a/fs/afs/cmservice.c b/fs/afs/cmservice.c
+index 85737e96ab8b..ca32d891bbc3 100644
+--- a/fs/afs/cmservice.c
++++ b/fs/afs/cmservice.c
+@@ -17,10 +17,6 @@
+ #include "internal.h"
+ #include "afs_cm.h"
+ 
+-#if 0
+-struct workqueue_struct *afs_cm_workqueue;
+-#endif  /*  0  */
+-
+ static int afs_deliver_cb_init_call_back_state(struct afs_call *,
+ 					       struct sk_buff *, bool);
+ static int afs_deliver_cb_init_call_back_state3(struct afs_call *,
+@@ -282,7 +278,6 @@ static int afs_deliver_cb_callback(struct afs_call *call, struct sk_buff *skb,
+ 		break;
  	}
  
- 	spin_unlock(&conn->channel_lock);
+-
+ 	call->state = AFS_CALL_REPLYING;
+ 
+ 	/* we'll need the file server record as that tells us which set of
+@@ -426,7 +421,6 @@ static void SRXAFSCB_ProbeUuid(struct work_struct *work)
+ 
+ 	_enter("");
+ 
+-
+ 	if (memcmp(r, &afs_uuid, sizeof(afs_uuid)) == 0)
+ 		reply.match = htonl(0);
+ 	else
