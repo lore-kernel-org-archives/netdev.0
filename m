@@ -1,131 +1,62 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 01/12] net: flow: Add l3mdev flow update
-Date: Tue, 30 Aug 2016 10:34:06 -0700
-Message-ID: <1472578457-26722-2-git-send-email-dsa@cumulusnetworks.com>
-References: <1472578457-26722-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net] l2tp: fix use-after-free during module unload
+Date: Tue, 30 Aug 2016 20:51:03 +0300
+Message-ID: <1083fbde-2227-2539-f855-a6311d20f813@cogentembedded.com>
+References: <f30d3c9f96a7de81af18061ac61a2d24ef179bf8.1472557704.git.sd@queasysnail.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Sabrina Dubroca <sd@queasysnail.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:35677 "EHLO
-        mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758751AbcH3Re0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2016 13:34:26 -0400
-Received: by mail-pa0-f45.google.com with SMTP id hb8so9518076pac.2
-        for <netdev@vger.kernel.org>; Tue, 30 Aug 2016 10:34:26 -0700 (PDT)
-In-Reply-To: <1472578457-26722-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mail-lf0-f50.google.com ([209.85.215.50]:35251 "EHLO
+        mail-lf0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933146AbcH3RvI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2016 13:51:08 -0400
+Received: by mail-lf0-f50.google.com with SMTP id f93so19368260lfi.2
+        for <netdev@vger.kernel.org>; Tue, 30 Aug 2016 10:51:07 -0700 (PDT)
+In-Reply-To: <f30d3c9f96a7de81af18061ac61a2d24ef179bf8.1472557704.git.sd@queasysnail.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add l3mdev hook to set FLOWI_FLAG_SKIP_NH_OIF flag and update oif/iif
-in flow struct if its oif or iif points to a device enslaved to an L3
-Master device. Only 1 needs to be converted to match the l3mdev FIB
-rule. This moves the flow adjustment for l3mdev to a single point
-catching all lookups. It is redundant for existing hooks (those are
-removed in later patches) but is needed for missed lookups such as
-PMTU updates.
+Hello.
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- include/net/l3mdev.h  |  6 ++++++
- net/ipv4/fib_rules.c  |  3 +++
- net/ipv6/fib6_rules.c |  3 +++
- net/l3mdev/l3mdev.c   | 35 +++++++++++++++++++++++++++++++++++
- 4 files changed, 47 insertions(+)
+On 08/30/2016 05:05 PM, Sabrina Dubroca wrote:
 
-diff --git a/include/net/l3mdev.h b/include/net/l3mdev.h
-index e90095091aa0..81e175e80537 100644
---- a/include/net/l3mdev.h
-+++ b/include/net/l3mdev.h
-@@ -49,6 +49,8 @@ struct l3mdev_ops {
- int l3mdev_fib_rule_match(struct net *net, struct flowi *fl,
- 			  struct fib_lookup_arg *arg);
- 
-+void l3mdev_update_flow(struct net *net, struct flowi *fl);
-+
- int l3mdev_master_ifindex_rcu(const struct net_device *dev);
- static inline int l3mdev_master_ifindex(struct net_device *dev)
- {
-@@ -290,6 +292,10 @@ int l3mdev_fib_rule_match(struct net *net, struct flowi *fl,
- {
- 	return 1;
- }
-+static inline
-+void l3mdev_update_flow(struct net *net, struct flowi *fl)
-+{
-+}
- #endif
- 
- #endif /* _NET_L3MDEV_H_ */
-diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
-index 6e9ea69e5f75..770bebed6b28 100644
---- a/net/ipv4/fib_rules.c
-+++ b/net/ipv4/fib_rules.c
-@@ -56,6 +56,9 @@ int __fib_lookup(struct net *net, struct flowi4 *flp,
- 	};
- 	int err;
- 
-+	/* update flow if oif or iif point to device enslaved to l3mdev */
-+	l3mdev_update_flow(net, flowi4_to_flowi(flp));
-+
- 	err = fib_rules_lookup(net->ipv4.rules_ops, flowi4_to_flowi(flp), 0, &arg);
- #ifdef CONFIG_IP_ROUTE_CLASSID
- 	if (arg.rule)
-diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
-index 5857c1fc8b67..eea23b57c6a5 100644
---- a/net/ipv6/fib6_rules.c
-+++ b/net/ipv6/fib6_rules.c
-@@ -38,6 +38,9 @@ struct dst_entry *fib6_rule_lookup(struct net *net, struct flowi6 *fl6,
- 		.flags = FIB_LOOKUP_NOREF,
- 	};
- 
-+	/* update flow if oif or iif point to device enslaved to l3mdev */
-+	l3mdev_update_flow(net, flowi6_to_flowi(fl6));
-+
- 	fib_rules_lookup(net->ipv6.fib6_rules_ops,
- 			 flowi6_to_flowi(fl6), flags, &arg);
- 
-diff --git a/net/l3mdev/l3mdev.c b/net/l3mdev/l3mdev.c
-index c4a1c3e84e12..43610e5acc4e 100644
---- a/net/l3mdev/l3mdev.c
-+++ b/net/l3mdev/l3mdev.c
-@@ -222,3 +222,38 @@ int l3mdev_fib_rule_match(struct net *net, struct flowi *fl,
- 
- 	return rc;
- }
-+
-+void l3mdev_update_flow(struct net *net, struct flowi *fl)
-+{
-+	struct net_device *dev;
-+	int ifindex;
-+
-+	rcu_read_lock();
-+
-+	if (fl->flowi_oif) {
-+		dev = dev_get_by_index_rcu(net, fl->flowi_oif);
-+		if (dev) {
-+			ifindex = l3mdev_master_ifindex_rcu(dev);
-+			if (ifindex) {
-+				fl->flowi_oif = ifindex;
-+				fl->flowi_flags |= FLOWI_FLAG_SKIP_NH_OIF;
-+				goto out;
-+			}
-+		}
-+	}
-+
-+	if (fl->flowi_iif) {
-+		dev = dev_get_by_index_rcu(net, fl->flowi_iif);
-+		if (dev) {
-+			ifindex = l3mdev_master_ifindex_rcu(dev);
-+			if (ifindex) {
-+				fl->flowi_iif = ifindex;
-+				fl->flowi_flags |= FLOWI_FLAG_SKIP_NH_OIF;
-+			}
-+		}
-+	}
-+
-+out:
-+	rcu_read_unlock();
-+}
-+EXPORT_SYMBOL_GPL(l3mdev_update_flow);
--- 
-2.1.4
+> Tunnel deletion is delayed by both a workqueue (l2tp_tunnel_delete -> wq
+>  -> l2tp_tunnel_del_work) and RCU (sk_destruct -> RCU ->
+> l2tp_tunnel_destruct).
+>
+> By the time l2tp_tunnel_destruct() runs to destroy the tunnel and finish
+> destroying the socket, the private data reserved via the net_generic
+> mechanism has already been freed, but l2tp_tunnel_destruct() actually
+> uses this data.
+>
+> Make sure tunnel deletion for the netns has completed before returning
+> from l2tp_net_exit() by first flushing the tunnel removal workqueue, and
+
+    The patch tells me the function is named l2tp_exit_net(). :-)
+
+> then waiting for RCU callbacks to complete.
+>
+> Fixes: 167eb17e0b17 ("l2tp: create tunnel sockets in the right namespace")
+> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+> ---
+>  net/l2tp/l2tp_core.c | 3 +++
+>  1 file changed, 3 insertions(+)
+>
+> diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+> index 1e40dacaa137..a2ed3bda4ddc 100644
+> --- a/net/l2tp/l2tp_core.c
+> +++ b/net/l2tp/l2tp_core.c
+> @@ -1855,6 +1855,9 @@ static __net_exit void l2tp_exit_net(struct net *net)
+>  		(void)l2tp_tunnel_delete(tunnel);
+>  	}
+>  	rcu_read_unlock_bh();
+> +
+> +	flush_workqueue(l2tp_wq);
+> +	rcu_barrier();
+>  }
+>
+>  static struct pernet_operations l2tp_net_ops = {
+
+MBR, Sergei
