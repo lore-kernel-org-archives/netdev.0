@@ -1,61 +1,78 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: [PATCH v4] brcmfmac: add missing header dependencies
-Date: Tue, 30 Aug 2016 19:08:33 +0300
-Message-ID: <87twe244u6.fsf@kamboji.qca.qualcomm.com>
-References: <1472474375-29910-1-git-send-email-baoyou.xie@linaro.org>
-        <CACna6rytnp7WsrdscwPOTvi=FajAtoF2V2ZKx34RUdjEOiZO1w@mail.gmail.com>
-        <CA+DQWkxpoScXLNhScNpwmLnaMhgVHoGLrH72dAm7OiOX2nW2vA@mail.gmail.com>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH net-next] rxrpc: Remove use of skbs from AFS
+Date: Tue, 30 Aug 2016 17:12:39 +0100
+Message-ID: <147257355931.20336.17674118285222987772.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: =?utf-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Arend Van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Franky Lin <franky.lin-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Hante Meuleman <hante.meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        "linux-wireless\@vger.kernel.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "open list\:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
-        <brcm80211-dev-list.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, xie.baoyou-Th6q7B73Y6EnDS1+zs4M5A@public.gmane.org
-To: Baoyou Xie <baoyou.xie-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CA+DQWkxpoScXLNhScNpwmLnaMhgVHoGLrH72dAm7OiOX2nW2vA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-        (Baoyou Xie's message of "Tue, 30 Aug 2016 19:15:35 +0800")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:39002 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754557AbcH3QMm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 30 Aug 2016 12:12:42 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Baoyou Xie <baoyou.xie-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org> writes:
 
-> On 29 August 2016 at 23:31, Rafał Miłecki <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->
->     On 29 August 2016 at 14:39, Baoyou Xie <baoyou.xie-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org> wrote:
->     > We get 1 warning when build kernel with W=1:
->     > drivers/net/wireless/broadcom/brcm80211/brcmfmac/tracepoint.c:23:6:
->     warning: no previous prototype for '__brcmf_err' [-Wmissing-prototypes]
->
->     building? I'm not native English, but I think so.
->    
->
->     > In fact, this function is declared in brcmfmac/debug.h, so this patch
->     > add missing header dependencies.
->
->     adds
->    
->
->     > Signed-off-by: Baoyou Xie <baoyou.xie-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
->     > Acked-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
->
->     Please don't resend patches just to add tags like that. This only
->     increases a noise and patchwork handles this just fine, see:
->     https://patchwork.kernel.org/patch/9303285/
->     https://patchwork.kernel.org/patch/9303285/mbox/
->
->
-> Do I need to resend a patch that fixes two typos(build/add)? or you modify them
-> on your way?
+Here's a single patch that removes the use of sk_buffs from fs/afs.  From
+this point on they'll be entirely retained within net/rxrpc and AFS just
+asks AF_RXRPC for linear buffers of data.  This needs to be applied on top
+of the just-posted preparatory patch set.
 
-I can fix those when I commit the patch.
+This makes some future developments easier/possible:
 
--- 
-Kalle Valo
+ (1) Simpler rxrpc_call usage counting.
+
+ (2) Earlier freeing of metadata sk_buffs.
+
+ (3) Rx phase shortcutting on abort/error.
+
+ (4) Encryption/decryption in the AFS fs contexts/threads and directly
+     between sk_buffs and AFS buffers.
+
+ (5) Synchronous waiting in reception for AFS.
+
+Changes:
+
+ (V2) Fixed afs_transfer_reply() whereby call->offset was incorrectly being
+      added to the buffer pointer (it doesn't matter as long as the reply
+      fits entirely inside a single packet).
+
+      Removed an unused goto-label and an unused variable.
+
+
+The patch can be found here also:
+
+	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-rewrite
+
+Tagged thusly:
+
+	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
+	rxrpc-rewrite-20160830-2v2
+
+David
+---
+David Howells (1):
+      rxrpc: Don't expose skbs to in-kernel users
+
+
+ Documentation/networking/rxrpc.txt |   72 +++---
+ fs/afs/cmservice.c                 |  142 ++++++------
+ fs/afs/fsclient.c                  |  148 +++++-------
+ fs/afs/internal.h                  |   33 +--
+ fs/afs/rxrpc.c                     |  439 +++++++++++++-----------------------
+ fs/afs/vlclient.c                  |    7 -
+ include/net/af_rxrpc.h             |   35 +--
+ net/rxrpc/af_rxrpc.c               |   29 +-
+ net/rxrpc/ar-internal.h            |   23 ++
+ net/rxrpc/call_accept.c            |   13 +
+ net/rxrpc/call_object.c            |    5 
+ net/rxrpc/conn_event.c             |    1 
+ net/rxrpc/input.c                  |   10 +
+ net/rxrpc/output.c                 |    2 
+ net/rxrpc/recvmsg.c                |  191 +++++++++++++---
+ net/rxrpc/skbuff.c                 |    1 
+ 16 files changed, 565 insertions(+), 586 deletions(-)
