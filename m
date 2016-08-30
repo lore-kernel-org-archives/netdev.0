@@ -1,53 +1,136 @@
-From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-Subject: Re: [PATCH v3 0/5] meson: Meson8b and GXBB DWMAC glue driver
-Date: Tue, 30 Aug 2016 20:49:28 +0200
-Message-ID: <CAFBinCCmg-+8mjd0Xc5c7bEWL9_S_4kizs_UMiiW9ATBH_G8iw@mail.gmail.com>
-References: <20160820093538.9707-1-martin.blumenstingl@googlemail.com>
- <20160828161637.9941-1-martin.blumenstingl@googlemail.com> <20160828.234008.445367966910278179.davem@davemloft.net>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: [RFC v2 09/10] landlock: Handle cgroups (performance)
+Date: Tue, 30 Aug 2016 11:55:13 -0700
+Message-ID: <CALCETrXU64+UApeKL_NogpBYk5kN7zA7UwkypZt8SYfvkuQrbA@mail.gmail.com>
+References: <1472121165-29071-1-git-send-email-mic@digikod.net>
+ <1472121165-29071-10-git-send-email-mic@digikod.net> <20160826021432.GA8291@ast-mbp.thefacebook.com>
+ <57C05BF0.8000706@digikod.net> <20160826230539.GA26683@ast-mbp.thefacebook.com>
+ <57C19E6E.6040908@digikod.net> <20160827180642.GA38754@ast-mbp.thefacebook.com>
+ <57C1EB72.2050703@digikod.net> <20160827204307.GA43714@ast-mbp.thefacebook.com>
+ <57C202BF.7000207@digikod.net> <CALCETrXgQ+njtupXiKcOXG8ZRzD=n2LhT45NiJr1Ehob7bHskQ@mail.gmail.com>
+ <57C2B21E.9040705@digikod.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: linux-amlogic@lists.infradead.org, carlo@caione.org,
-        mturquette@baylibre.com, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com, robh+dt@kernel.org, mark.rutland@arm.com,
-        catalin.marinas@arm.com, will.deacon@arm.com,
-        netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, sboyd@codeaurora.org,
-        manabian@gmail.com, arnd@arndb.de
-To: David Miller <davem@davemloft.net>, khilman@baylibre.com
+Content-Transfer-Encoding: quoted-printable
+Cc: "kernel-hardening@lists.openwall.com"
+        <kernel-hardening@lists.openwall.com>,
+        Alexei Starovoitov <ast@kernel.org>, Tejun Heo <tj@kernel.org>,
+        Sargun Dhillon <sargun@sargun.me>,
+        Network Development <netdev@vger.kernel.org>,
+        Linux API <linux-api@vger.kernel.org>,
+        Kees Cook <keescook@chromium.org>,
+        LSM List <linux-security-module@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "open list:CONTROL GROUP (CGROUP)" <cgroups@vger.kernel.org>,
+        "David S . Miller" <davem@davemloft.net>,
+        Daniel Mack <daniel@zonque.org>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic@digikod.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:38802 "EHLO
-        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755803AbcH3Stv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2016 14:49:51 -0400
-In-Reply-To: <20160828.234008.445367966910278179.davem@davemloft.net>
+Received: from mail-ua0-f175.google.com ([209.85.217.175]:36106 "EHLO
+        mail-ua0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750825AbcH3Sze (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2016 14:55:34 -0400
+Received: by mail-ua0-f175.google.com with SMTP id m60so49111506uam.3
+        for <netdev@vger.kernel.org>; Tue, 30 Aug 2016 11:55:34 -0700 (PDT)
+In-Reply-To: <57C2B21E.9040705@digikod.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 29, 2016 at 5:40 AM, David Miller <davem@davemloft.net> wrote:
-> From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-> Date: Sun, 28 Aug 2016 18:16:32 +0200
+On Sun, Aug 28, 2016 at 2:42 AM, Micka=C3=ABl Sala=C3=BCn <mic@digikod.net>=
+ wrote:
 >
->> This adds a DWMAC glue driver for the PRG_ETHERNET registers found in
->> Meson8b and GXBB SoCs. Based on the "old" meson6b-dwmac glue driver
->> the register layout is completely different.
->> Thus I introduced a separate driver.
+>
+> On 28/08/2016 10:13, Andy Lutomirski wrote:
+>> On Aug 27, 2016 11:14 PM, "Micka=C3=ABl Sala=C3=BCn" <mic@digikod.net> w=
+rote:
+>>>
+>>>
+>>> On 27/08/2016 22:43, Alexei Starovoitov wrote:
+>>>> On Sat, Aug 27, 2016 at 09:35:14PM +0200, Micka=C3=ABl Sala=C3=BCn wro=
+te:
+>>>>> On 27/08/2016 20:06, Alexei Starovoitov wrote:
+>>>>>> On Sat, Aug 27, 2016 at 04:06:38PM +0200, Micka=C3=ABl Sala=C3=BCn w=
+rote:
+>>>>>>> As said above, Landlock will not run an eBPF programs when not stri=
+ctly
+>>>>>>> needed. Attaching to a cgroup will have the same performance impact=
+ as
+>>>>>>> attaching to a process hierarchy.
+>>>>>>
+>>>>>> Having a prog per cgroup per lsm_hook is the only scalable way I
+>>>>>> could come up with. If you see another way, please propose.
+>>>>>> current->seccomp.landlock_prog is not the answer.
+>>>>>
+>>>>> Hum, I don't see the difference from a performance point of view betw=
+een
+>>>>> a cgroup-based or a process hierarchy-based system.
+>>>>>
+>>>>> Maybe a better option should be to use an array of pointers with N
+>>>>> entries, one for each supported hook, instead of a unique pointer lis=
+t?
+>>>>
+>>>> yes, clearly array dereference is faster than link list walk.
+>>>> Now the question is where to keep this prog_array[num_lsm_hooks] ?
+>>>> Since we cannot keep it inside task_struct, we have to allocate it.
+>>>> Every time the task is creted then. What to do on the fork? That
+>>>> will require changes all over. Then the obvious optimization would be
+>>>> to share this allocated array of prog pointers across multiple tasks..=
+.
+>>>> and little by little this new facility will look like cgroup.
+>>>> Hence the suggestion to put this array into cgroup from the start.
+>>>
+>>> I see your point :)
+>>>
+>>>>
+>>>>> Anyway, being able to attach an LSM hook program to a cgroup thanks t=
+o
+>>>>> the new BPF_PROG_ATTACH seems a good idea (while keeping the possibil=
+ity
+>>>>> to use a process hierarchy). The downside will be to handle an LSM ho=
+ok
+>>>>> program which is not triggered by a seccomp-filter, but this should b=
+e
+>>>>> needed anyway to handle interruptions.
+>>>>
+>>>> what do you mean 'not triggered by seccomp' ?
+>>>> You're not suggesting that this lsm has to enable seccomp to be functi=
+onal?
+>>>> imo that's non starter due to overhead.
+>>>
+>>> Yes, for now, it is triggered by a new seccomp filter return value
+>>> RET_LANDLOCK, which can take a 16-bit value called cookie. This must no=
+t
+>>> be needed but could be useful to bind a seccomp filter security policy
+>>> with a Landlock one. Waiting for Kees's point of view=E2=80=A6
+>>>
 >>
->> Changes since v2:
->> - fixed unloading the glue driver when built as module. This pulls in a
->>   patch from Joachim Eastwood (thanks) to get our private data structure
->>   (bsp_priv).
+>> I'm not Kees, but I'd be okay with that.  I still think that doing
+>> this by process hierarchy a la seccomp will be easier to use and to
+>> understand (which is quite important for this kind of work) than doing
+>> it by cgroup.
+>>
+>> A feature I've wanted to add for a while is to have an fd that
+>> represents a seccomp layer, the idea being that you would set up your
+>> seccomp layer (with syscall filter, landlock hooks, etc) and then you
+>> would have a syscall to install that layer.  Then an unprivileged
+>> sandbox manager could set up its layer and still be able to inject new
+>> processes into it later on, no cgroups needed.
 >
-> This doesn't apply cleanly at all to the net-next tree, so I have
-> no idea where you expect these changes to be applied.
-OK, maybe Kevin can me help out here as I think the patches should go
-to various trees.
+> A nice thing I didn't highlight about Landlock is that a process can
+> prepare a layer of rules (arraymap of handles + Landlock programs) and
+> pass the file descriptors of the Landlock programs to another process.
+> This process could then apply this programs to get sandboxed. However,
+> for now, because a Landlock program is only triggered by a seccomp
+> filter (which do not follow the Landlock programs as a FD), they will be
+> useless.
+>
+> The FD referring to an arraymap of handles can also be used to update a
+> map and change the behavior of a Landlock program. A master process can
+> then add or remove restrictions to another process hierarchy on the fly.
 
-I think patches 1, 3 and 4 should go through the net-next tree (as
-these touch drivers/net/ethernet/stmicro/stmmac/ and the corresponding
-documentation).
-Patch 2 should probably go through clk-meson-gxbb / clk-next (just
-like the other clk changes we had).
-The last patch (patch 5) should probably go through the ARM SoC tree
-(just like the other dts changes we had).
-
-@David, Kevin: would this be fine for you?
+Maybe this could be extended a little bit.  The fd could hold the
+seccomp filter *and* the LSM hook filters.  FMODE_EXECUTE could give
+the ability to install it and FMODE_WRITE could give the ability to
+modify it.
