@@ -1,72 +1,78 @@
-From: Nicolas Pitre <nico@fluxnic.net>
-Subject: Re: [PATCH 0/4] SA11x0 Clocks and removal of Neponset SMC91x hack
-Date: Tue, 30 Aug 2016 11:31:15 -0400 (EDT)
-Message-ID: <alpine.LFD.2.20.1608301129520.1525@knanqh.ubzr>
-References: <20160829120531.GG1041@n2100.armlinux.org.uk>
- <E1beLKT-0001U1-HK@rmk-PC.armlinux.org.uk>
- <20160830105117.GM1041@n2100.armlinux.org.uk>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH net-next 0/2] rxrpc: Preparation for removal of use of skbs
+ from AFS
+Date: Tue, 30 Aug 2016 16:39:31 +0100
+Message-ID: <147257157176.6286.15041125103134993769.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Russell King - ARM Linux <linux@armlinux.org.uk>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20160830105117.GM1041@n2100.armlinux.org.uk>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 30 Aug 2016, Russell King - ARM Linux wrote:
 
-> This mini-series (which follows several other series on which it
-> depends) gets rid of the Assabet/Neponset hack in the smc91x driver.
-> 
-> In order to do that, we need to get several pieces in place first:
-> * gpiolib support throughout SA11x0/Assabet/Neponset so that we can
->   represent control signals through gpiolib
-> * CCF support, so we can re-use the code in drivers/clk to implement
->   the external crystal oscillator attached to the SMC91x.  This
->   external crystal oscillator is enabled via a control signal.
-> 
-> This series:
-> - performs the SA11x0 CCF conversion
-> - adds an optional clock to SMC91x to cater for an external crystal
->   oscillator
-> - switches the Neponset code to provide a 'struct clk' representing
->   this oscillator
-> - removes the SMC91x hack to assert the enable signal
-> 
-> This results in the platform specific includes being removed from the
-> SMC91x driver.
-> 
-> Please ack these changes; due to the dependencies, I wish to merge
-> them through my tree.  Thanks.
+Here's a set of patches that prepare the way for the removal of the use of
+sk_buffs from fs/afs (they'll be entirely retained within net/rxrpc):
 
-Looks nice to me.
+ (1) Fix a potential NULL-pointer deref in rxrpc_abort_calls().
 
-Acked-by: Nicolas Pitre <nico@linaro.org>
+ (2) Condense all the terminal call state machine states to a single one
+     plus supplementary info.
 
->  arch/arm/Kconfig                   |   1 +
->  arch/arm/mach-sa1100/clock.c       | 191 +++++++++++++++++--------------------
->  arch/arm/mach-sa1100/neponset.c    |  42 ++++++++
->  drivers/net/ethernet/smsc/smc91x.c |  47 ++++++---
->  drivers/net/ethernet/smsc/smc91x.h |   1 +
->  5 files changed, 166 insertions(+), 116 deletions(-)
-> 
-> -- 
-> RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-> FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-> according to speedtest.net.
-> 
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
-> 
+ (3) Add a trace point for rxrpc call usage debugging.
+
+ (4) Cleanups and missing headers.
+
+ (5) Provide a way for AFS to ask about a call's peer address without
+     having an sk_buff to query.
+
+ (6) Use call->peer directly rather than going via call->conn (which might
+     be NULL).
+
+ (7) Pass struct socket * to various rxrpc kernel interface functions so
+     they can use that directly rather than getting it from the rxrpc_call
+     struct.
+
+The patches can be found here also (non-terminally on the branch):
+
+	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-rewrite
+
+Tagged thusly:
+
+	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
+	rxrpc-rewrite-20160830-1
+
+David
+---
+David Howells (2):
+      rxrpc: Fix a potential NULL-pointer deref in rxrpc_abort_calls
+      rxrpc: Pass struct socket * to more rxrpc kernel interface functions
+
+
+ Documentation/networking/rxrpc.txt |   18 ++++-
+ fs/afs/cmservice.c                 |   26 +++----
+ fs/afs/internal.h                  |    5 +
+ fs/afs/main.c                      |    1 
+ fs/afs/rxrpc.c                     |   28 ++++---
+ fs/afs/server.c                    |   11 ++-
+ include/net/af_rxrpc.h             |   12 ++-
+ include/trace/events/rxrpc.h       |   39 ++++++++++
+ net/rxrpc/af_rxrpc.c               |    5 +
+ net/rxrpc/ar-internal.h            |  135 +++++++++++++++++++++++++-----------
+ net/rxrpc/call_accept.c            |   24 ++----
+ net/rxrpc/call_event.c             |   63 +++++++----------
+ net/rxrpc/call_object.c            |  133 +++++++++++++++++++++++++++--------
+ net/rxrpc/conn_client.c            |    3 +
+ net/rxrpc/conn_event.c             |   53 ++++++++------
+ net/rxrpc/conn_object.c            |    4 +
+ net/rxrpc/input.c                  |   72 ++++++++++---------
+ net/rxrpc/output.c                 |   48 ++++++-------
+ net/rxrpc/peer_event.c             |   25 +++++--
+ net/rxrpc/peer_object.c            |   15 ++++
+ net/rxrpc/proc.c                   |    3 -
+ net/rxrpc/recvmsg.c                |   13 ++-
+ net/rxrpc/skbuff.c                 |    4 -
+ 23 files changed, 470 insertions(+), 270 deletions(-)
