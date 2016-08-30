@@ -1,32 +1,65 @@
-From: Vinod Koul <vinod.koul@intel.com>
-Subject: Re: [PATCH 4/8] dmaengine: sa11x0: unexport sa11x0_dma_filter_fn and
- clean up
-Date: Tue, 30 Aug 2016 21:28:28 +0530
-Message-ID: <20160830155828.GJ9355@localhost>
-References: <20160829112540.GF1041@n2100.armlinux.org.uk>
- <E1beKho-0001H5-TA@rmk-PC.armlinux.org.uk>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH net-next] rxrpc: Remove use of skbs from AFS
+Date: Tue, 30 Aug 2016 16:52:32 +0100
+Message-ID: <147257235268.6716.12062621584578937716.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dmaengine@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        netdev@vger.kernel.org, Dan Williams <dan.j.williams@intel.com>,
-        Samuel Ortiz <samuel@sortiz.org>
-To: Russell King <rmk+kernel@armlinux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:40716 "EHLO mga06.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753438AbcH3PuZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 30 Aug 2016 11:50:25 -0400
-Content-Disposition: inline
-In-Reply-To: <E1beKho-0001H5-TA@rmk-PC.armlinux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On Mon, Aug 29, 2016 at 12:26:20PM +0100, Russell King wrote:
-> As we now have no users of sa11x0_dma_filter_fn() in the tree, we can
-> unexport this function, and remove the now unused header file.
-
-Acked-by: Vinod Koul <vinod.koul@intel.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
--- 
-~Vinod
+Here's a single patch that removes the use of sk_buffs from fs/afs.  From
+this point on they'll be entirely retained within net/rxrpc and AFS just
+asks AF_RXRPC for linear buffers of data.  This needs to be applied on top
+of the just-posted preparatory patch set.
+
+This makes some future developments easier/possible:
+
+ (1) Simpler rxrpc_call usage counting.
+
+ (2) Earlier freeing of metadata sk_buffs.
+
+ (3) Rx phase shortcutting on abort/error.
+
+ (4) Encryption/decryption in the AFS fs contexts/threads and directly
+     between sk_buffs and AFS buffers.
+
+ (5) Synchronous waiting in reception for AFS.
+
+The patch can be found here also:
+
+	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-rewrite
+
+Tagged thusly:
+
+	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
+	rxrpc-rewrite-20160830-2
+
+David
+---
+David Howells (1):
+      rxrpc: Don't expose skbs to in-kernel users
+
+
+ Documentation/networking/rxrpc.txt |   72 +++---
+ fs/afs/cmservice.c                 |  142 ++++++------
+ fs/afs/fsclient.c                  |  148 +++++-------
+ fs/afs/internal.h                  |   34 +--
+ fs/afs/rxrpc.c                     |  439 +++++++++++++-----------------------
+ fs/afs/vlclient.c                  |    7 -
+ include/net/af_rxrpc.h             |   35 +--
+ net/rxrpc/af_rxrpc.c               |   29 +-
+ net/rxrpc/ar-internal.h            |   23 ++
+ net/rxrpc/call_accept.c            |   13 +
+ net/rxrpc/call_object.c            |    5 
+ net/rxrpc/conn_event.c             |    1 
+ net/rxrpc/input.c                  |   10 +
+ net/rxrpc/output.c                 |    2 
+ net/rxrpc/recvmsg.c                |  195 +++++++++++++---
+ net/rxrpc/skbuff.c                 |    1 
+ 16 files changed, 570 insertions(+), 586 deletions(-)
