@@ -1,67 +1,39 @@
-From: Miklos Szeredi <mszeredi@redhat.com>
-Subject: Re: kernel BUG at net/unix/garbage.c:149!"
-Date: Tue, 30 Aug 2016 11:39:58 +0200
-Message-ID: <CAOssrKc5Us_ci7gUQAHZyNH4EiXp=jApw_ucAR1KNOLwZmt6Gw@mail.gmail.com>
-References: <57BDAE06.1040400@kyup.com> <9dde3145-9128-ffef-1b84-e3bd429dd4e8@stressinduktion.org>
- <CAOssrKddiaWQX+v7FZTJg9mwyhxHJCDQQMUJVwP17-z1ATrKWA@mail.gmail.com>
- <CAOssrKedUEAcZThhd2FB9UPzhr+5ErLjB=3+1z1XdnFeP6wvmg@mail.gmail.com>
- <CAOssrKcfncAYsQWkfLGFgoOxAQJVT2hYVWdBA6Cw7hhO8RJ_wQ@mail.gmail.com> <57C55258.8070509@kyup.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH v2 nf] netfilter: log: Check param to avoid overflow in
+ nf_log_set
+Date: Tue, 30 Aug 2016 11:54:27 +0200
+Message-ID: <20160830095427.GA20414@salvia>
+References: <1472466328-5595-1-git-send-email-fgao@ikuai8.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        "Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>,
-        netdev@vger.kernel.org
-To: Nikolay Borisov <kernel@kyup.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <57C55258.8070509@kyup.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netfilter-devel@vger.kernel.org,
+        coreteam@netfilter.org, netdev@vger.kernel.org,
+        gfree.wind@gmail.com
+To: fgao@ikuai8.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:34228 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752344AbcH3Jyk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 30 Aug 2016 05:54:40 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 6F38212A68E
+        for <netdev@vger.kernel.org>; Tue, 30 Aug 2016 11:54:36 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 5DCFA114D67
+        for <netdev@vger.kernel.org>; Tue, 30 Aug 2016 11:54:36 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 7A54B100A79
+        for <netdev@vger.kernel.org>; Tue, 30 Aug 2016 11:54:32 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <1472466328-5595-1-git-send-email-fgao@ikuai8.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 30, 2016 at 11:31 AM, Nikolay Borisov <kernel@kyup.com> wrote:
->
->
-> On 08/30/2016 12:18 PM, Miklos Szeredi wrote:
->> On Tue, Aug 30, 2016 at 12:37 AM, Miklos Szeredi <mszeredi@redhat.com> wrote:
->>> On Sat, Aug 27, 2016 at 11:55 AM, Miklos Szeredi <mszeredi@redhat.com> wrote:
->>
->>> crash> list -H gc_inflight_list unix_sock.link -s unix_sock.inflight |
->>> grep counter | cut -d= -f2 | awk '{s+=$1} END {print s}'
->>> 130
->>> crash> p unix_tot_inflight
->>> unix_tot_inflight = $2 = 135
->>>
->>> We've lost track of a total of five inflight sockets, so it's not a
->>> one-off thing.  Really weird...  Now off to sleep, maybe I'll dream of
->>> the solution.
->>
->> Okay, found one bug: gc assumes that in-flight sockets that don't have
->> an external ref can't gain one while unix_gc_lock is held.  That is
->> true because unix_notinflight() will be called before detaching fds,
->> which takes unix_gc_lock.  Only MSG_PEEK was somehow overlooked.  That
->> one also clones the fds, also keeping them in the skb.  But through
->> MSG_PEEK an external reference can definitely be gained without ever
->> touching unix_gc_lock.
->>
->> Not sure whether the reported bug can be explained by this.  Can you
->> confirm the MSG_PEEK was used in the setup?
->>
->> Does someone want to write a stress test for SCM_RIGHTS + MSG_PEEK?
->>
->> Anyway, attaching a fix that works by acquiring unix_gc_lock in case
->> of MSG_PEEK also.  It is trivially correct, but I haven't tested it.
->
-> I have no way of being 100% sure but looking through nginx's source code
-> it seems they do utilize MSG_PEEK on several occasions. This issue has
-> been apparently very hard to reproduce since I have 100s of servers
-> running a lot of  NGINX processes and this has been triggered only once.
->
-> On a different note - if I inspect a live node without this patch should
-> the discrepancy between the gc_inflight_list and the unix_tot_inflight
-> be present VS with this patch applied?
+On Mon, Aug 29, 2016 at 06:25:28PM +0800, fgao@ikuai8.com wrote:
+> From: Gao Feng <fgao@ikuai8.com>
+> 
+> The nf_log_set is an interface function, so it should do the strict sanity
+> check of parameters. Convert the return value of nf_log_set as int instead
+> of void. When the pf is invalid, return -EOPNOTSUPP.
 
-May well be, since in the vmcore 4 in-flight sockets were "lost"
-before triggering the bug.  I guess the best way to check is with a
-systemtap script that walks the list with the gc lock.
-
-Thanks,
-Miklos
+Applied to nf-next, thanks.
