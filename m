@@ -1,95 +1,51 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next V3 4/4] net/sched: Introduce act_tunnel_key
-Date: Tue, 30 Aug 2016 05:27:52 -0700
-Message-ID: <1472560072.14381.288.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1472141627-27339-1-git-send-email-hadarh@mellanox.com>
-         <1472141627-27339-5-git-send-email-hadarh@mellanox.com>
-         <1472147334.14381.149.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAM_iQpXvS5KQ-3AaPjtHHRrexr48tTMSXpuJPFkOsz6caJP5EA@mail.gmail.com>
-         <1472238975.14381.192.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAM_iQpV=iCa_nyNRaTE=qkZvw+44mzN8sY01su0pLi2yqqpVmA@mail.gmail.com>
-         <20160830110308.GA7141@office.localdomain>
-         <20160830113956.GA10991@office.localdomain>
+Subject: Re: [PATCH v3 net-next 1/1] net_sched: Introduce skbmod action
+Date: Tue, 30 Aug 2016 05:35:18 -0700
+Message-ID: <1472560518.14381.291.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1472386756-23085-1-git-send-email-jhs@emojatatu.com>
+         <1472400467.14381.252.camel@edumazet-glaptop3.roam.corp.google.com>
+         <b075631d-92cc-d016-3786-aaacb3d5c13a@mojatatu.com>
+         <b117fac2-c73f-2d42-3843-52f9717224d9@mojatatu.com>
+         <1472494817.14381.267.camel@edumazet-glaptop3.roam.corp.google.com>
+         <2a6e36a6-f128-ba9d-4d69-90ff5383fb75@mojatatu.com>
+         <68852282-b009-7b5b-6887-1630935b1913@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@mellanox.com>, Jiri Benc <jbenc@redhat.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Amir Vadai <amirva@mellanox.com>
-To: Amir Vadai <amir@vadai.me>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, daniel@iogearbox.net,
+        xiyou.wangcong@gmail.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:35558 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758203AbcH3M1z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2016 08:27:55 -0400
-Received: by mail-pf0-f196.google.com with SMTP id h186so1108860pfg.2
-        for <netdev@vger.kernel.org>; Tue, 30 Aug 2016 05:27:54 -0700 (PDT)
-In-Reply-To: <20160830113956.GA10991@office.localdomain>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:33313 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758071AbcH3MfV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2016 08:35:21 -0400
+Received: by mail-pf0-f194.google.com with SMTP id i6so1121882pfe.0
+        for <netdev@vger.kernel.org>; Tue, 30 Aug 2016 05:35:20 -0700 (PDT)
+In-Reply-To: <68852282-b009-7b5b-6887-1630935b1913@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-08-30 at 14:39 +0300, Amir Vadai wrote:
-> On Tue, Aug 30, 2016 at 02:03:08PM +0300, Amir Vadai wrote:
-
-> > Regarding the specific action in this patchset, correct me if I'm wrong,
-> > but I think that the lock could be removed safely.
-
-Sure ;)
-
-> > 
-> > When the action is modified during traffic, an existing tcf_enc_metadata
-> > is not changed, but a new metadata is allocated and the pointer is
-> > replaced to point to the new one.
-> > I just need to make sure that when changing an action from 'release'
-> > into 'set' - tcf_enc_metadata will be set before the action type is
-> > changed - change the order of operations and add a memory barrier.
-> > Here is a pseudo code to explain:
-> > 
-> > metadata_new = new allocated metadata
-> > metadata_old = t->tcft_enc_metadata
-> > 
+On Tue, 2016-08-30 at 07:57 -0400, Jamal Hadi Salim wrote:
+>         rcu_assign_pointer(d->skbmod_p, p);
+>         if (ovr) {
+>                 spin_unlock_bh(&d->tcf_lock);
+>                 synchronize_rcu();
+>         }
 > 
-> Oh - I had a typo here:
-> Need to set the metadata and only after that, set the action:
-> 
-> t->tcft_enc_metadata = metadata_new
-> wmb()
+>         kfree(p_old);
 
-rcu_assign_pointer() is your friend, it auto documents the thing.
+Overall patch looks good Jamal, thanks.
 
 
-Note that you probably need to store in the allocated object :
+synchronize_rcu() might bee to expensive if you plan to change actions
+hundred of times per second.
 
-	dst,
-	tcf_action (a copy of it, read in tunnel_key_act()
-	tcft_action ( a copy of it, read in tunnel_key_act())
-	rcu_head rcu for kfree_rcu()
+You could instead add a 'struct rcu_head rcu;'  field in struct
+tcf_skbmod_params  (but make sure this is not exported to user space)
 
-> t->tcft_action = encapdecap
-> 
-> > t->tcft_action = encapdecap
-> > 
-> > /* make sure the compiler won't swap the setting of tcft_action with
-> >  * tcft_enc_metadata
-> >  */
-> > wmb()
-> > 
-> > t->tcft_enc_metadata = metadata_new
-> > release metadata_old
-> > 
-> > 
-> > This way, no need for lock between the init() and act() operations.
-> > 
-> > Please let me know if you see a problem with this approach.
-> > I will also change the stats to be percpu.
+Then :
 
-Right, check tcf_hash_create() last argument. (false -> true)
-
-Thanks.
+        if (ovr)
+                 spin_unlock_bh(&d->tcf_lock);
+         kfree_rcu(p_old, rcu);
