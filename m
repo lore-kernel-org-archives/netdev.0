@@ -1,65 +1,185 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [RFC v2 06/10] landlock: Add LSM hooks
-Date: Tue, 30 Aug 2016 11:56:33 -0700
-Message-ID: <CALCETrXRXxQ26caQW6Vh-NriDeSvnOb=yAu-F=3pvmd0Py+1Pg@mail.gmail.com>
-References: <1472121165-29071-1-git-send-email-mic@digikod.net> <1472121165-29071-7-git-send-email-mic@digikod.net>
+From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH V2] dt: net: enhance DWC EQoS binding to support Tegra186
+Date: Tue, 30 Aug 2016 14:01:52 -0500
+Message-ID: <20160830190152.GA25083@rob-hp-laptop>
+References: <20160824212046.2416-1-swarren@wwwdotorg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: "Serge E. Hallyn" <serge@hallyn.com>,
-        David Drysdale <drysdale@google.com>,
-        "kernel-hardening@lists.openwall.com"
-        <kernel-hardening@lists.openwall.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        James Morris <james.l.morris@oracle.com>,
-        Sargun Dhillon <sargun@sargun.me>,
-        Network Development <netdev@vger.kernel.org>,
-        Casey Schaufler <casey@schaufler-ca.com>,
-        Linux API <linux-api@vger.kernel.org>,
-        Kees Cook <keescook@chromium.org>,
-        LSM List <linux-security-module@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "David S . Miller" <davem@davemloft.net>,
-        Daniel Mack <daniel@zonque.org>, Arnd Bergmann <arnd@arndb.de>,
-        Will Drewry <wad@chromium.org>, Paul Moore <pmoore@redhat.com>,
-        Elena Reshetova <elena.reshetova@intel.com>,
-        Da
-To: =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic@digikod.net>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1472121165-29071-7-git-send-email-mic@digikod.net>
-Sender: owner-linux-security-module@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Lars Persson <lars.persson-VrBV9hrLPhE@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Stephen Warren <swarren-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
+To: Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20160824212046.2416-1-swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Aug 25, 2016 12:34 PM, "Micka=C3=ABl Sala=C3=BCn" <mic@digikod.net> wrot=
-e:
->
-> Add LSM hooks which can be used by userland through Landlock (eBPF)
-> programs. This programs are limited to a whitelist of functions (cf.
-> next commit). The eBPF program context is depicted by the struct
-> landlock_data (cf. include/uapi/linux/bpf.h):
-> * hook: LSM hook ID (useful when using the same program for multiple LSM
->   hooks);
-> * cookie: the 16-bit value from the seccomp filter that triggered this
->   Landlock program;
-> * args[6]: array of LSM hook arguments.
->
-> The LSM hook arguments can contain raw values as integers or
-> (unleakable) pointers. The only way to use the pointers are to pass them
-> to an eBPF function according to their types (e.g. the
-> bpf_landlock_cmp_fs_beneath_with_struct_file function can use a struct
-> file pointer).
->
-> For now, there is three hooks for file system access control:
-> * file_open;
-> * file_permission;
-> * mmap_file.
->
+On Wed, Aug 24, 2016 at 03:20:46PM -0600, Stephen Warren wrote:
+> From: Stephen Warren <swarren-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
+> 
+> The Synopsys DWC EQoS is a configurable IP block which supports multiple
+> options for bus type, clocking and reset structure, and feature list.
+> Extend the DT binding to define a "compatible value" for the configuration
+> contained in NVIDIA's Tegra186 SoC, and define some new properties and
+> list property entries required by that configuration.
+> 
+> Signed-off-by: Stephen Warren <swarren-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
+> ---
+> v2:
+> * Add an explicit compatible value for the Axis SoC's version of the EQOS
+>   IP; this allows the driver to handle any SoC-specific integration quirks
+>   that are required, rather than only knowing about the IP block in
+>   isolation. This is good general DT practice. The existing value is still
+>   documented to support existing DTs.
+> * Reworked the list of clocks the binding requires:
+>   - Combined "tx" and "phy_ref_clk"; for GMII/RGMII configurations, these
+>     are the same thing.
+>   - Added extra description to the "rx" and "tx" clocks, to make it clear
+>     exactly which HW clock they represent.
+>   - Made the new "tx" and "slave_bus" names more prominent than the
+>     original "phy_ref_clk" and "apb_pclk". The new names are more generic
+>     and should work for any enhanced version of the binding (e.g. to
+>     support additional PHY types). New compatible values will hopefully
+>     choose to require the new names.
+> * Added a couple extra clocks to the list that may need to be supported in
+>   future binding revisions.
+> * Fixed a typo; "clocks" -> "resets".
+> ---
+>  .../bindings/net/snps,dwc-qos-ethernet.txt         | 75 ++++++++++++++++++++--
+>  1 file changed, 71 insertions(+), 4 deletions(-)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt b/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt
+> index 51f8d2eba8d8..1d028259824a 100644
+> --- a/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt
+> +++ b/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt
+> @@ -1,21 +1,87 @@
+>  * Synopsys DWC Ethernet QoS IP version 4.10 driver (GMAC)
+>  
+> +This binding supports the Synopsys Designware Ethernet QoS (Quality Of Service)
+> +IP block. The IP supports multiple options for bus type, clocking and reset
+> +structure, and feature list. Consequently, a number of properties and list
+> +entries in properties are marked as optional, or only required in specific HW
+> +configurations.
+>  
+>  Required properties:
+> -- compatible: Should be "snps,dwc-qos-ethernet-4.10"
+> +- compatible: One of:
+> +  - "axis,artpec6-eqos", "snps,dwc-qos-ethernet-4.10"
+> +    Represents the IP core when integrated into the Axis ARTPEC-6 SoC.
+> +  - "nvidia,tegra186-eqos", "snps,dwc-qos-ethernet-4.10"
+> +    Represents the IP core when integrated into the NVIDIA Tegra186 SoC.
+> +  - "snps,dwc-qos-ethernet-4.10"
+> +    This combination is deprecated. It should be treated as equivalent to
+> +    "axis,artpec6-eqos", "snps,dwc-qos-ethernet-4.10". It is supported to be
+> +    compatible with earlier revisions of this binding.
+>  - reg: Address and length of the register set for the device
+> -- clocks: Phandles to the reference clock and the bus clock
+> -- clock-names: Should be "phy_ref_clk" for the reference clock and "apb_pclk"
+> -  for the bus clock.
+> +- clocks: Phandle and clock specifiers for each entry in clock-names, in the
+> +  same order. See ../clock/clock-bindings.txt.
+> +- clock-names: May contain any/all of the following depending on the IP
+> +  configuration, in any order:
 
-What's the purpose of exposing struct cred * to userspace?  It's
-primarily just an optimization to save a bit of RAM, and it's a
-dubious optimization at that.  What are you using it for?  Would it
-make more sense to use struct task_struct * or struct pid * instead?
+No, they should be in a defined order.
 
-Also, exposing struct cred * has a really weird side-effect: it allows
-(maybe even encourages) checking for pointer equality between two
-struct cred * objects.  Doing so will have erratic results.
+> +  - "tx"
+> +    (Alternate name "phy_ref_clk"; only one alternate must appear.)
+
+Obviously, the prior clocks were just made up for what someone needed at 
+the time and did not read the spec. I think it would be better to just 
+separate the old names and state they are deprecated and which 
+compatibles they are for.
+
+> +    The EQOS transmit path clock. The HW signal name is clk_tx_i.
+> +    In some configurations (e.g. GMII/RGMII), this clock also drives the PHY TX
+> +    path. In other configurations, other clocks (such as tx_125, rmii) may
+> +    drive the PHY TX path.
+> +  - "rx"
+> +    The EQOS receive path clock. The HW signal name is clk_rx_i.
+> +    In some configurations (e.g. GMII/RGMII), this clock also drives the PHY RX
+> +    path. In other configurations, other clocks (such as rx_125, pmarx_0,
+> +    pmarx_1, rmii) may drive the PHY RX path.
+> +  - "slave_bus"
+> +    (Alternate name "apb_pclk"; only one alternate must appear.)
+> +    The CPU/slave-bus (CSR) interface clock. Despite the name, this applies to
+> +    any bus type; APB, AHB, AXI, etc. The HW signal name is hclk_i (AHB) or
+> +    clk_csr_i (other buses).
+
+Sounds like 2 clocks here.
+
+> +  - "master_bus"
+> +    The master bus interface clock. Only required in configurations that use a
+> +    separate clock for the master and slave bus interfaces. The HW signal name
+> +    is hclk_i (AHB) or aclk_i (AXI).
+
+Sounds like 2 clocks. I'm guessing these are mutually exclusive based on 
+whether you configure the IP for AHB or AXI?
+
+> +  - "ptp_ref"
+> +    The PTP reference clock. The HW signal name is clk_ptp_ref_i.
+> +
+> +  Note: Support for additional IP configurations may require adding the
+> +  following clocks to this list in the future: clk_rx_125_i, clk_tx_125_i,
+> +  clk_pmarx_0_i, clk_pmarx1_i, clk_rmii_i, clk_revmii_rx_i, clk_revmii_tx_i.
+> +
+> +  The following compatible values require the following set of clocks:
+> +  - "nvidia,tegra186-eqos", "snps,dwc-qos-ethernet-4.10":
+> +    - "slave_bus"
+> +    - "master_bus"
+> +    - "rx"
+> +    - "tx"
+> +    - "ptp_ref"
+> +  - "axis,artpec6-eqos", "snps,dwc-qos-ethernet-4.10":
+> +    - "phy_ref_clk"
+> +    - "apb_clk"
+
+It would be good if this was marked deprecated and the full set of 
+clocks could be described and supported. Not sure if you can figure that 
+out. Is it really only 2 clocks, or these have multiple connections to 
+the same source.
+
+>  - interrupt-parent: Should be the phandle for the interrupt controller
+>    that services interrupts for this device
+>  - interrupts: Should contain the core's combined interrupt signal
+>  - phy-mode: See ethernet.txt file in the same directory
+> +- resets: Phandle and reset specifiers for each entry in reset-names, in the
+> +  same order. See ../reset/reset.txt.
+> +- reset-names: May contain any/all of the following depending on the IP
+> +  configuration, in any order:
+> +  - "eqos". The reset to the entire module. The HW signal name is hreset_n
+> +    (AHB) or aresetn_i (AXI).
+> +
+> +  The following compatible values require the following set of resets:
+> +  (the reset properties may be omitted if empty)
+> +  - "nvidia,tegra186-eqos", "snps,dwc-qos-ethernet-4.10":
+> +    - "eqos".
+> +  - "axis,artpec6-eqos", "snps,dwc-qos-ethernet-4.10":
+> +    - None.
+>  
+>  Optional properties:
+>  - dma-coherent: Present if dma operations are coherent
+>  - mac-address: See ethernet.txt in the same directory
+>  - local-mac-address: See ethernet.txt in the same directory
+> +- phy-reset-gpios: Phandle and specifier for any GPIO used to reset the PHY.
+> +  See ../gpio/gpio.txt.
+>  - snps,en-lpi: If present it enables use of the AXI low-power interface
+>  - snps,write-requests: Number of write requests that the AXI port can issue.
+>    It depends on the SoC configuration.
+> @@ -52,6 +118,7 @@ ethernet2@40010000 {
+>  	reg = <0x40010000 0x4000>;
+>  	phy-handle = <&phy2>;
+>  	phy-mode = "gmii";
+> +	phy-reset-gpios = <&gpioctlr 43 GPIO_ACTIVE_LOW>;
+>  
+>  	snps,en-tx-lpi-clockgating;
+>  	snps,en-lpi;
+> -- 
+> 2.9.3
+> 
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
