@@ -1,74 +1,147 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [RFCv2 16/16] nfp: bpf: add offload of TC direct action mode
-Date: Tue, 30 Aug 2016 22:02:10 +0200
-Message-ID: <57C5E642.2070600@iogearbox.net>
-References: <1472234775-29453-1-git-send-email-jakub.kicinski@netronome.com>        <1472234775-29453-17-git-send-email-jakub.kicinski@netronome.com>        <57C4A48F.6080403@iogearbox.net> <20160830125252.011f08d3@laptop>
+From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
+Subject: Re: [RFC v2 06/10] landlock: Add LSM hooks
+Date: Tue, 30 Aug 2016 22:10:39 +0200
+Message-ID: <57C5E83F.4000102@digikod.net>
+References: <1472121165-29071-1-git-send-email-mic@digikod.net>
+ <1472121165-29071-7-git-send-email-mic@digikod.net>
+ <CALCETrXRXxQ26caQW6Vh-NriDeSvnOb=yAu-F=3pvmd0Py+1Pg@mail.gmail.com>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jakub Kicinski <jakub.kicinski@netronome.com>,
-        netdev@vger.kernel.org, ast@kernel.org,
-        dinan.gunawardena@netronome.com, jiri@resnulli.us,
-        john.fastabend@gmail.com
-To: Jakub Kicinski <kubakici@wp.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:39494 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751420AbcH3UCN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2016 16:02:13 -0400
-In-Reply-To: <20160830125252.011f08d3@laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="q4baTCNlCIdcs24GXD4Lc8aKKqNVwLP2d"
+Cc: "Serge E. Hallyn" <serge@hallyn.com>,
+        David Drysdale
+ <drysdale@google.com>,
+        "kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        James Morris
+ <james.l.morris@oracle.com>,
+        Sargun Dhillon <sargun@sargun.me>,
+        Network Development <netdev@vger.kernel.org>,
+        Casey Schaufler <casey@schaufler-ca.com>,
+        Linux API <linux-api@vger.kernel.org>,
+        Kees Cook <keescook@chromium.org>,
+        LSM List <linux-security-module@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "David S . Miller" <davem@davemloft.net>,
+        Daniel Mack <daniel@zonque.org>, Arnd Bergmann <arnd@arndb.de>,
+        Will Drewry <wad@chromium.org>, Paul Moore <pmoore@redhat.com>,
+        Elena Reshetova <elena.reshetova@intel.com>,
+        Daniel Bo
+To: Andy Lutomirski <luto@amacapital.net>
+Return-path: <kernel-hardening-return-4510-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <CALCETrXRXxQ26caQW6Vh-NriDeSvnOb=yAu-F=3pvmd0Py+1Pg@mail.gmail.com>
+List-Id: netdev.vger.kernel.org
 
-On 08/30/2016 12:52 PM, Jakub Kicinski wrote:
-> On Mon, 29 Aug 2016 23:09:35 +0200, Daniel Borkmann wrote:
->>> +	 *   0,1   ok        NOT SUPPORTED[1]
->>> +	 *   2   drop  0x22 -> drop,  count as stat1
->>> +	 *   4,5 nuke  0x02 -> drop
->>> +	 *   7  redir  0x44 -> redir, count as stat2
->>> +	 *   * unspec  0x11 -> pass,  count as stat0
->>> +	 *
->>> +	 * [1] We can't support OK and RECLASSIFY because we can't tell TC
->>> +	 *     the exact decision made.  We are forced to support UNSPEC
->>> +	 *     to handle aborts so that's the only one we handle for passing
->>> +	 *     packets up the stack.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--q4baTCNlCIdcs24GXD4Lc8aKKqNVwLP2d
+Content-Type: multipart/mixed; boundary="vgLrvRiMv0fCqHB0WcX0hmlTLgDeqHfUv";
+ protected-headers="v1"
+From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
+To: Andy Lutomirski <luto@amacapital.net>
+Cc: "Serge E. Hallyn" <serge@hallyn.com>, David Drysdale
+ <drysdale@google.com>,
+ "kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>,
+ Alexei Starovoitov <ast@kernel.org>, James Morris
+ <james.l.morris@oracle.com>, Sargun Dhillon <sargun@sargun.me>,
+ Network Development <netdev@vger.kernel.org>,
+ Casey Schaufler <casey@schaufler-ca.com>,
+ Linux API <linux-api@vger.kernel.org>, Kees Cook <keescook@chromium.org>,
+ LSM List <linux-security-module@vger.kernel.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "David S . Miller" <davem@davemloft.net>, Daniel Mack <daniel@zonque.org>,
+ Arnd Bergmann <arnd@arndb.de>, Will Drewry <wad@chromium.org>,
+ Paul Moore <pmoore@redhat.com>, Elena Reshetova <elena.reshetova@intel.com>,
+ Daniel Borkmann <daniel@iogearbox.net>
+Message-ID: <57C5E83F.4000102@digikod.net>
+Subject: Re: [RFC v2 06/10] landlock: Add LSM hooks
+References: <1472121165-29071-1-git-send-email-mic@digikod.net>
+ <1472121165-29071-7-git-send-email-mic@digikod.net>
+ <CALCETrXRXxQ26caQW6Vh-NriDeSvnOb=yAu-F=3pvmd0Py+1Pg@mail.gmail.com>
+In-Reply-To: <CALCETrXRXxQ26caQW6Vh-NriDeSvnOb=yAu-F=3pvmd0Py+1Pg@mail.gmail.com>
+
+--vgLrvRiMv0fCqHB0WcX0hmlTLgDeqHfUv
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+
+On 30/08/2016 20:56, Andy Lutomirski wrote:
+> On Aug 25, 2016 12:34 PM, "Micka=C3=ABl Sala=C3=BCn" <mic@digikod.net> =
+wrote:
 >>
->> In da mode, RECLASSIFY is not supported, so this one could be scratched.
->> For the OK and UNSPEC part, couldn't both be treated the same (as in: OK /
->> pass to stack roughly equivalent as in sch_handle_ingress())? Or is the
->> issue that you cannot populate skb->tc_index when passing to stack (maybe
->> just fine to leave it at 0 for now)?
->
-> The comment is a bit confus(ed|ing).  The problem is:
->
-> tc filter add <filter1> skip_sw
-> tc filter add <filter2> skip_hw
->
-> If packet appears in the stack - was it because of OK or UNSPEC (or
-> RECLASSIFY) in filter1?  Do we need to run filter2 or not?  Passing
-> tc_index can be implemented the same way I do mark today.
+>> Add LSM hooks which can be used by userland through Landlock (eBPF)
+>> programs. This programs are limited to a whitelist of functions (cf.
+>> next commit). The eBPF program context is depicted by the struct
+>> landlock_data (cf. include/uapi/linux/bpf.h):
+>> * hook: LSM hook ID (useful when using the same program for multiple L=
+SM
+>>   hooks);
+>> * cookie: the 16-bit value from the seccomp filter that triggered this=
 
-Okay, I see, thanks for explaining. So, if passing tc_index (or any other
-meta data) can be implemented the same way as we do with mark already,
-could we store such verdict, say, in some unused skb->tc_verd bits (the
-skb->tc_index could be filled by the program already) and pass that up the
-stack to differentiate between them? There should be no prior user before
-ingress, so that patch 4 could become something like:
+>>   Landlock program;
+>> * args[6]: array of LSM hook arguments.
+>>
+>> The LSM hook arguments can contain raw values as integers or
+>> (unleakable) pointers. The only way to use the pointers are to pass th=
+em
+>> to an eBPF function according to their types (e.g. the
+>> bpf_landlock_cmp_fs_beneath_with_struct_file function can use a struct=
 
-   if (tc_skip_sw(prog->gen_flags)) {
-      filter_res = tc_map_hw_verd_to_act(skb);
-   } else if (at_ingress) {
-      ...
-   } ...
+>> file pointer).
+>>
+>> For now, there is three hooks for file system access control:
+>> * file_open;
+>> * file_permission;
+>> * mmap_file.
+>>
+>=20
+> What's the purpose of exposing struct cred * to userspace?  It's
+> primarily just an optimization to save a bit of RAM, and it's a
+> dubious optimization at that.  What are you using it for?  Would it
+> make more sense to use struct task_struct * or struct pid * instead?
+>=20
+> Also, exposing struct cred * has a really weird side-effect: it allows
+> (maybe even encourages) checking for pointer equality between two
+> struct cred * objects.  Doing so will have erratic results.
+>=20
 
-And I assume it wouldn't make any sense anyway to have a skip_sw filter
-being chained /after/ some skip_hw and the like, right?
+The pointers exposed in the ePBF context are not directly readable by an
+unprivileged eBPF program thanks to the strong typing of the Landlock
+context and the static eBPF verification. There is no way to leak a
+kernel pointer to userspace from an unprivileged eBPF program: pointer
+arithmetic and comparison are prohibited. Pointers can only be pass as
+argument to dedicated eBPF functions.
 
->> Just curious, does TC_ACT_REDIRECT work in this scenario?
->
-> I do the redirects in the card, all the problems stem from the
+For now, struct cred * is simply not used by any eBPF function and then
+not usable at all. It only exist here because I map the LSM hook
+arguments in a generic/automatic way to the eBPF context.
 
-Ok, cool.
+I'm planning to extend the Landlock context with extra pointers,
+whatever the LSM hook. We could then use task_struct, skb or any other
+kernel objects, in a safe way, with dedicated functions.
 
-> difficulty of passing full ret code in the skb from the driver
-> to tc_classify()/cls_bpf_classify().
+
+--vgLrvRiMv0fCqHB0WcX0hmlTLgDeqHfUv--
+
+--q4baTCNlCIdcs24GXD4Lc8aKKqNVwLP2d
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBCgAGBQJXxehAAAoJECLe/t9zvWqVO4cH+wQMEP+glVQA4Cq1jDX9aC7B
+2JDsiuoKepZb7kPUPiFguT751b6zIJd75Lx8XmDLFN5Yoxt7jzb6EIosvcFWOTWp
+aReN+U9Jg2+W7DHylXjByT/+vTrGZoWkNdZAoqWa9KgPMAJm69thZcieUhpNDtob
+S334bYOmWFtAYTbggm7JWzopYk0yutvN9xsltbNqW0K5UTzc/dSRKjxwN39BtB/u
+J13qkNbHCEwJ540iGej2UyBrj91vBaBwktP+WIMBy6HCrZ6DIY0AI2hlsK11ihUn
+lTJOmF57hq+3XKmVGCdKbiHffEAuhSsxXkIYmglA9lW2BB9hT0vitF1g/W7GGEo=
+=Va2h
+-----END PGP SIGNATURE-----
+
+--q4baTCNlCIdcs24GXD4Lc8aKKqNVwLP2d--
