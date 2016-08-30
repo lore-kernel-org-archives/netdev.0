@@ -1,186 +1,144 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 2/6] net/mlx5e: Read ETS settings directly from firmware
-Date: Tue, 30 Aug 2016 14:29:51 +0300
-Message-ID: <1472556595-9286-3-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 5/6] net/mlx5e: Add DCBX control interface
+Date: Tue, 30 Aug 2016 14:29:54 +0300
+Message-ID: <1472556595-9286-6-git-send-email-saeedm@mellanox.com>
 References: <1472556595-9286-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Huy Nguyen <huyn@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:56745 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:56739 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1758420AbcH3Lan (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2016 07:30:43 -0400
+        with ESMTP id S1758382AbcH3Lak (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2016 07:30:40 -0400
 In-Reply-To: <1472556595-9286-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Huy Nguyen <huyn@mellanox.com>
 
-Current implementation does not read the setting
-directly from FW when ieee_getets is called.
+1. Use setdcbx interface to set the DCBX mode to firmware or os.
+   If setdcbx is called with mode value of zero, the DCBX mode
+   is set to firmware.
 
-Solution:
-1. Read the ETS settings directly from firmware.
-2. For tc_tsa:
-   a. Initialize tc_tsa to vendor IEEE_8021QAZ_TSA_VENDOR at netdev
-      creation.
-   b. When reading ETS setting from FW, if the traffic class bandwidth
-      is less than 100, set tc_tsa to IEEE_8021QAZ_TSA_ETS. This
-      implementation solves the scenarios when the DCBX is in FW control
-      and willing bit is on which means the ETS setting is dictated
-      by remote switch.
+2. Add private ethtool flag "qos_with_dcbx_by_fw". When this
+   flag is "On", the DCBX is forced to firmware mode.
 
 Signed-off-by: Huy Nguyen <huyn@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |  6 ++--
- drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c | 35 ++++++++++++++++++----
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 26 ++++++++--------
- 3 files changed, 46 insertions(+), 21 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |  2 ++
+ drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c | 24 ++++++++++++++++++++-
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   | 25 ++++++++++++++++++++++
+ 3 files changed, 50 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 6919e3c..0d41287 100644
+index 806f5e8..501b1e4 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -203,9 +203,6 @@ struct mlx5e_params {
- 	u8  toeplitz_hash_key[40];
- 	u32 indirection_rqt[MLX5E_INDIR_RQT_SIZE];
- 	bool vlan_strip_disable;
--#ifdef CONFIG_MLX5_CORE_EN_DCB
--	struct ieee_ets ets;
--#endif
- 	bool rx_am_enabled;
+@@ -158,10 +158,12 @@ struct mlx5e_umr_wqe {
+ 
+ static const char mlx5e_priv_flags[][ETH_GSTRING_LEN] = {
+ 	"rx_cqe_moder",
++	"qos_with_dcbx_by_fw",
  };
  
-@@ -226,6 +223,9 @@ enum {
- 
- struct mlx5e_dcbx {
- 	struct mlx5e_cee_config    cee_cfg; /* pending configuration */
-+
-+	/* The only setting that cannot be read from FW */
-+	u8                         tc_tsa[IEEE_8021QAZ_MAX_TCS];
+ enum mlx5e_priv_flag {
+ 	MLX5E_PFLAG_RX_CQE_BASED_MODER = (1 << 0),
++	MLX5E_PFLAG_QOS_WITH_DCBX_BY_FW = (1 << 1),
  };
- #endif
  
+ #define MLX5E_SET_PRIV_FLAG(priv, pflag, enable)    \
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c b/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
-index b161dd9..1c10f9c 100644
+index 5d1b402..6c739c1 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
-@@ -45,12 +45,31 @@ static int mlx5e_dcbnl_ieee_getets(struct net_device *netdev,
- 				   struct ieee_ets *ets)
+@@ -54,6 +54,9 @@ static inline bool mlx5e_dcbnl_is_allowed(struct mlx5e_priv *priv)
+ 	if (dcbx->mode == MLX5E_DCBX_PARAM_VER_OPER_HOST)
+ 		return true;
+ 
++	if (priv->pflags & MLX5E_PFLAG_QOS_WITH_DCBX_BY_FW)
++		return true;
++
+ 	if (mlx5e_dcbnl_set_dcbx_mode(priv, MLX5E_DCBX_PARAM_VER_OPER_HOST))
+ 		return false;
+ 
+@@ -283,13 +286,32 @@ static int mlx5e_dcbnl_ieee_setpfc(struct net_device *dev,
+ 
+ static u8 mlx5e_dcbnl_getdcbx(struct net_device *dev)
+ {
+-	return DCB_CAP_DCBX_HOST |
++	struct mlx5e_priv *priv = netdev_priv(dev);
++	struct mlx5e_dcbx *dcbx = &priv->dcbx;
++	u8 mode = 0;
++
++	if (dcbx->mode == MLX5E_DCBX_PARAM_VER_OPER_HOST)
++		mode = DCB_CAP_DCBX_HOST;
++
++	return mode |
+ 	       DCB_CAP_DCBX_VER_IEEE |
+ 	       DCB_CAP_DCBX_VER_CEE;
+ }
+ 
+ static u8 mlx5e_dcbnl_setdcbx(struct net_device *dev, u8 mode)
+ {
++	struct mlx5e_priv *priv = netdev_priv(dev);
++	struct mlx5e_dcbx *dcbx = &priv->dcbx;
++
++	if ((!mode) && MLX5_CAP_GEN(priv->mdev, dcbx)) {
++		/* set dcbx to fw controlled */
++		if (dcbx->mode == MLX5E_DCBX_PARAM_VER_OPER_HOST)
++			if (!mlx5e_dcbnl_set_dcbx_mode(priv, MLX5E_DCBX_PARAM_VER_OPER_AUTO))
++				dcbx->mode = MLX5E_DCBX_PARAM_VER_OPER_AUTO;
++
++		return 0;
++	}
++
+ 	if (!mlx5e_dcbnl_is_allowed(netdev_priv(dev)))
+ 		return 1;
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index d1cd156..9bc26cd 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -1460,6 +1460,25 @@ static int mlx5e_handle_pflag(struct net_device *netdev,
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_MLX5_CORE_EN_DCB
++static int qos_with_dcbx_by_fw_handler(struct net_device *netdev, bool enable)
++{
++	struct mlx5e_priv *priv = netdev_priv(netdev);
++
++	if (!MLX5_CAP_GEN(priv->mdev, dcbx))
++		return -EPERM;
++
++	if (!enable)
++		return 0;
++
++	/* Not allow to turn on the flag if the dcbx mode is host */
++	if (priv->dcbx.mode == MLX5E_DCBX_PARAM_VER_OPER_HOST)
++		return -EPERM;
++
++	return 0;
++}
++#endif
++
+ static int mlx5e_set_priv_flags(struct net_device *netdev, u32 pflags)
  {
  	struct mlx5e_priv *priv = netdev_priv(netdev);
-+	struct mlx5_core_dev *mdev = priv->mdev;
-+	int i;
-+	int err = 0;
+@@ -1471,6 +1490,12 @@ static int mlx5e_set_priv_flags(struct net_device *netdev, u32 pflags)
+ 				 MLX5E_PFLAG_RX_CQE_BASED_MODER,
+ 				 set_pflag_rx_cqe_based_moder);
  
- 	if (!MLX5_CAP_GEN(priv->mdev, ets))
- 		return -ENOTSUPP;
- 
--	memcpy(ets, &priv->params.ets, sizeof(*ets));
--	return 0;
-+	ets->ets_cap = mlx5_max_tc(priv->mdev) + 1;
-+	for (i = 0; i < ets->ets_cap; i++) {
-+		err = mlx5_query_port_prio_tc(mdev, i, &ets->prio_tc[i]);
-+		if (err)
-+			return err;
-+	}
++#ifdef CONFIG_MLX5_CORE_EN_DCB
++	err  = mlx5e_handle_pflag(netdev, pflags,
++				  MLX5E_PFLAG_QOS_WITH_DCBX_BY_FW,
++				  qos_with_dcbx_by_fw_handler);
++#endif
 +
-+	for (i = 0; i < ets->ets_cap; i++) {
-+		err = mlx5_query_port_tc_bw_alloc(mdev, i, &ets->tc_tx_bw[i]);
-+		if (err)
-+			return err;
-+		if (ets->tc_tx_bw[i] < MLX5E_MAX_BW_ALLOC)
-+			priv->dcbx.tc_tsa[i] = IEEE_8021QAZ_TSA_ETS;
-+	}
-+
-+	memcpy(ets->tc_tsa, priv->dcbx.tc_tsa, sizeof(ets->tc_tsa));
-+
-+	return err;
- }
- 
- enum {
-@@ -127,7 +146,14 @@ int mlx5e_dcbnl_ieee_setets_core(struct mlx5e_priv *priv, struct ieee_ets *ets)
- 	if (err)
- 		return err;
- 
--	return mlx5_set_port_tc_bw_alloc(mdev, tc_tx_bw);
-+	err = mlx5_set_port_tc_bw_alloc(mdev, tc_tx_bw);
-+
-+	if (err)
-+		return err;
-+
-+	memcpy(priv->dcbx.tc_tsa, ets->tc_tsa, sizeof(ets->tc_tsa));
-+
-+	return err;
- }
- 
- static int mlx5e_dbcnl_validate_ets(struct net_device *netdev,
-@@ -181,9 +207,6 @@ static int mlx5e_dcbnl_ieee_setets(struct net_device *netdev,
- 	if (err)
- 		return err;
- 
--	memcpy(&priv->params.ets, ets, sizeof(*ets));
--	priv->params.ets.ets_cap = mlx5_max_tc(priv->mdev) + 1;
--
- 	return 0;
- }
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 03586ee..8f17928 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -2875,17 +2875,23 @@ u16 mlx5e_get_max_inline_cap(struct mlx5_core_dev *mdev)
- static void mlx5e_ets_init(struct mlx5e_priv *priv)
- {
- 	int i;
-+	struct ieee_ets ets;
- 
--	priv->params.ets.ets_cap = mlx5_max_tc(priv->mdev) + 1;
--	for (i = 0; i < priv->params.ets.ets_cap; i++) {
--		priv->params.ets.tc_tx_bw[i] = MLX5E_MAX_BW_ALLOC;
--		priv->params.ets.tc_tsa[i] = IEEE_8021QAZ_TSA_VENDOR;
--		priv->params.ets.prio_tc[i] = i;
-+	memset(&ets, 0, sizeof(ets));
-+	ets.ets_cap = mlx5_max_tc(priv->mdev) + 1;
-+	for (i = 0; i < ets.ets_cap; i++) {
-+		ets.tc_tx_bw[i] = MLX5E_MAX_BW_ALLOC;
-+		ets.tc_tsa[i] = IEEE_8021QAZ_TSA_VENDOR;
-+		ets.prio_tc[i] = i;
- 	}
- 
-+	memcpy(priv->dcbx.tc_tsa, ets.tc_tsa, sizeof(ets.tc_tsa));
-+
- 	/* tclass[prio=0]=1, tclass[prio=1]=0, tclass[prio=i]=i (for i>1) */
--	priv->params.ets.prio_tc[0] = 1;
--	priv->params.ets.prio_tc[1] = 0;
-+	ets.prio_tc[0] = 1;
-+	ets.prio_tc[1] = 0;
-+
-+	mlx5e_dcbnl_ieee_setets_core(priv, &ets);
- }
- #endif
- 
-@@ -3071,10 +3077,6 @@ static void mlx5e_build_nic_netdev_priv(struct mlx5_core_dev *mdev,
- 	priv->profile                      = profile;
- 	priv->ppriv                        = ppriv;
- 
--#ifdef CONFIG_MLX5_CORE_EN_DCB
--	mlx5e_ets_init(priv);
--#endif
--
- 	mutex_init(&priv->state_lock);
- 
- 	INIT_WORK(&priv->update_carrier_work, mlx5e_update_carrier_work);
-@@ -3347,7 +3349,7 @@ static int mlx5e_init_nic_tx(struct mlx5e_priv *priv)
- 	}
- 
- #ifdef CONFIG_MLX5_CORE_EN_DCB
--	mlx5e_dcbnl_ieee_setets_core(priv, &priv->params.ets);
-+	mlx5e_ets_init(priv);
- #endif
- 	return 0;
+ 	mutex_unlock(&priv->state_lock);
+ 	return err ? -EINVAL : 0;
  }
 -- 
 2.7.4
