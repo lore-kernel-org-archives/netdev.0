@@ -1,49 +1,61 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH net] l2tp: fix use-after-free during module unload
-Date: Tue, 30 Aug 2016 16:05:16 +0200
-Message-ID: <f30d3c9f96a7de81af18061ac61a2d24ef179bf8.1472557704.git.sd@queasysnail.net>
-Cc: Sabrina Dubroca <sd@queasysnail.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47012 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751590AbcH3OSW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 30 Aug 2016 10:18:22 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH] net: ethernet: renesas: sh_eth: do not access POST
+ registers if not exist
+Date: Tue, 30 Aug 2016 16:26:30 +0200
+Message-ID: <CAMuHMdXhSUbP+81K_1vRxvkqecQM2Pn0z5dPOmBQAfqBykdxGg@mail.gmail.com>
+References: <20160826200107.20681-1-chris.brandt@renesas.com>
+ <87690577-4526-ce66-6ce3-68ac8b20e737@cogentembedded.com> <SG2PR06MB11653F9E20F38972CA11EF328AE10@SG2PR06MB1165.apcprd06.prod.outlook.com>
+ <f456cca3-289c-67dc-f15c-5b475553cdde@cogentembedded.com> <SG2PR06MB1165DAEF1E16FFA7E2DC49308AE00@SG2PR06MB1165.apcprd06.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Simon Horman <horms+renesas@verge.net.au>,
+        Geert Uytterhoeven <geert+renesas@glider.be>,
+        Daniel Palmer <daniel@0x0f.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-renesas-soc@vger.kernel.org"
+        <linux-renesas-soc@vger.kernel.org>
+To: Chris Brandt <Chris.Brandt@renesas.com>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <SG2PR06MB1165DAEF1E16FFA7E2DC49308AE00@SG2PR06MB1165.apcprd06.prod.outlook.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tunnel deletion is delayed by both a workqueue (l2tp_tunnel_delete -> wq
- -> l2tp_tunnel_del_work) and RCU (sk_destruct -> RCU ->
-l2tp_tunnel_destruct).
+Hi Chris,
 
-By the time l2tp_tunnel_destruct() runs to destroy the tunnel and finish
-destroying the socket, the private data reserved via the net_generic
-mechanism has already been freed, but l2tp_tunnel_destruct() actually
-uses this data.
+On Tue, Aug 30, 2016 at 4:16 PM, Chris Brandt <Chris.Brandt@renesas.com> wr=
+ote:
+> On Aug 29, 2016, Sergei Shtylyov wrote:
+>>    SH7757 is not the only platform with TSU, there's e.g. R8A7740 ARM
+>> SoC which only has 1 GETHER channel...
+>
+> I don't have the R8A7740 manual (R-Mobile A1) so I can't see. But even if=
+ it does not have the POST registers, it might not hurt anything.
 
-Make sure tunnel deletion for the netns has completed before returning
-from l2tp_net_exit() by first flushing the tunnel removal workqueue, and
-then waiting for RCU callbacks to complete.
+R8a7740 does have the POST registers.
 
-Fixes: 167eb17e0b17 ("l2tp: create tunnel sockets in the right namespace")
-Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
----
- net/l2tp/l2tp_core.c | 3 +++
- 1 file changed, 3 insertions(+)
+> I just looked at the RZ/A1 register space and there seems to be dummy reg=
+isters in the POST1-4 area. I can write to them and read back what I wrote.=
+..which is all that the sh_eth driver cares about. I bet when the designers=
+ bring in the EtherC IP block, the entire register address is always popula=
+ted with a simple latch registers. And then, if a feature is not included (=
+like relay/POST), then nothing is hooked up on the back side of it.
 
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index 1e40dacaa137..a2ed3bda4ddc 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -1855,6 +1855,9 @@ static __net_exit void l2tp_exit_net(struct net *net)
- 		(void)l2tp_tunnel_delete(tunnel);
- 	}
- 	rcu_read_unlock_bh();
-+
-+	flush_workqueue(l2tp_wq);
-+	rcu_barrier();
- }
- 
- static struct pernet_operations l2tp_net_ops = {
--- 
-2.9.3
+What a waste of transistors...
+There are plenty of hidden registers in many IP blocks.
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k=
+.org
+
+In personal conversations with technical people, I call myself a hacker. Bu=
+t
+when I'm talking to journalists I just say "programmer" or something like t=
+hat.
+                                -- Linus Torvalds
