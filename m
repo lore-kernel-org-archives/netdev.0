@@ -1,104 +1,56 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net v2 2/2] netconf: add a notif  when settings are created
-Date: Tue, 30 Aug 2016 10:09:22 +0200
-Message-ID: <1472544562-22581-2-git-send-email-nicolas.dichtel@6wind.com>
-References: <1472465149-1163-1-git-send-email-nicolas.dichtel@6wind.com>
- <1472544562-22581-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, hideaki.yoshifuji@miraclelinux.com,
-        Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:56999 "EHLO
-        proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755504AbcH3IJd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2016 04:09:33 -0400
-In-Reply-To: <1472544562-22581-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: hejianet <hejianet@gmail.com>
+Subject: Re: [RFC PATCH 1/6] proc: Reduce cache miss in
+ {snmp,netstat}_seq_show
+Date: Tue, 30 Aug 2016 16:15:36 +0800
+Message-ID: <0c4f4f45-ec27-d1d3-45f8-a7ed8a4ca667@gmail.com>
+References: <1472486640-1111-1-git-send-email-hejianet@gmail.com>
+ <1472486640-1111-2-git-send-email-hejianet@gmail.com>
+ <1472488885.14381.260.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        linux-kernel@vger.kernel.org, davem@davemloft.net,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1472488885.14381.260.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-All changes are notified, but the initial state was missing.
+Hi Eric
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
 
-v2: no change
+On 8/30/16 12:41 AM, Eric Dumazet wrote:
+> On Tue, 2016-08-30 at 00:03 +0800, Jia He wrote:
+>> This patch exchanges the two loop for collecting the percpu statistics
+>> data. This can aggregate the data by going through all the items of each
+>> cpu sequentially. In snmp_seq_show, just use one buff copy to dislay the
+>> Udp and UdpLite data because they are the same.
+> This is obviously not true.
+>
+> On my laptop it seems it handled no UdpLite frames, but got plenty of
+> Udp ones.
+>
+> $ grep Udp /proc/net/snmp
+> Udp: InDatagrams NoPorts InErrors OutDatagrams RcvbufErrors SndbufErrors InCsumErrors
+> Udp: 1555889 108318 0 3740780 0 0 0
+> UdpLite: InDatagrams NoPorts InErrors OutDatagrams RcvbufErrors SndbufErrors InCsumErrors
+> UdpLite: 0 0 0 0 0 0 0
+Thanks, you are right. I misunderstand the comments of source codes.
+Will resend it
 
- net/ipv4/devinet.c  | 11 +++++++----
- net/ipv6/addrconf.c |  9 ++++++++-
- 2 files changed, 15 insertions(+), 5 deletions(-)
-
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 415e117967c7..062a67ca9a21 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -2232,7 +2232,7 @@ static struct devinet_sysctl_table {
- };
- 
- static int __devinet_sysctl_register(struct net *net, char *dev_name,
--					struct ipv4_devconf *p)
-+				     int ifindex, struct ipv4_devconf *p)
- {
- 	int i;
- 	struct devinet_sysctl_table *t;
-@@ -2255,6 +2255,8 @@ static int __devinet_sysctl_register(struct net *net, char *dev_name,
- 		goto free;
- 
- 	p->sysctl = t;
-+
-+	inet_netconf_notify_devconf(net, NETCONFA_ALL, ifindex, p);
- 	return 0;
- 
- free:
-@@ -2286,7 +2288,7 @@ static int devinet_sysctl_register(struct in_device *idev)
- 	if (err)
- 		return err;
- 	err = __devinet_sysctl_register(dev_net(idev->dev), idev->dev->name,
--					&idev->cnf);
-+					idev->dev->ifindex, &idev->cnf);
- 	if (err)
- 		neigh_sysctl_unregister(idev->arp_parms);
- 	return err;
-@@ -2347,11 +2349,12 @@ static __net_init int devinet_init_net(struct net *net)
- 	}
- 
- #ifdef CONFIG_SYSCTL
--	err = __devinet_sysctl_register(net, "all", all);
-+	err = __devinet_sysctl_register(net, "all", NETCONFA_IFINDEX_ALL, all);
- 	if (err < 0)
- 		goto err_reg_all;
- 
--	err = __devinet_sysctl_register(net, "default", dflt);
-+	err = __devinet_sysctl_register(net, "default",
-+					NETCONFA_IFINDEX_DEFAULT, dflt);
- 	if (err < 0)
- 		goto err_reg_dflt;
- 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 2a688171a188..bdf368eff5ab 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -6032,7 +6032,7 @@ static const struct ctl_table addrconf_sysctl[] = {
- static int __addrconf_sysctl_register(struct net *net, char *dev_name,
- 		struct inet6_dev *idev, struct ipv6_devconf *p)
- {
--	int i;
-+	int i, ifindex;
- 	struct ctl_table *table;
- 	char path[sizeof("net/ipv6/conf/") + IFNAMSIZ];
- 
-@@ -6052,6 +6052,13 @@ static int __addrconf_sysctl_register(struct net *net, char *dev_name,
- 	if (!p->sysctl_header)
- 		goto free;
- 
-+	if (!strcmp(dev_name, "all"))
-+		ifindex = NETCONFA_IFINDEX_ALL;
-+	else if (!strcmp(dev_name, "default"))
-+		ifindex = NETCONFA_IFINDEX_DEFAULT;
-+	else
-+		ifindex = idev->dev->ifindex;
-+	inet6_netconf_notify_devconf(net, NETCONFA_ALL, ifindex, p);
- 	return 0;
- 
- free:
--- 
-2.8.1
+B.R.
+Jia
+>
+>
+>
+> .
+>
