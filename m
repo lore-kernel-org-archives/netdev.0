@@ -1,42 +1,59 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net] tg3: Fix for disallow tx coalescing time to be 0
-Date: Tue, 30 Aug 2016 20:52:57 +0300
-Message-ID: <50f40ed7-cfed-9e17-8236-ee7242bd7ba1@cogentembedded.com>
-References: <1472567935-13177-1-git-send-email-ivecera@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: satish.baddipadige@broadcom.com, siva.kallam@broadcom.com,
-        michael.chan@broadcom.com
-To: Ivan Vecera <ivecera@redhat.com>, netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next] ixgbe: Eliminate useless message and improve logic
+Date: Tue, 30 Aug 2016 11:33:43 -0700
+Message-ID: <1472582023-53939-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        guru.anbalagane@oracle.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f41.google.com ([209.85.215.41]:34243 "EHLO
-        mail-lf0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756356AbcH3RxB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2016 13:53:01 -0400
-Received: by mail-lf0-f41.google.com with SMTP id p41so751573lfi.1
-        for <netdev@vger.kernel.org>; Tue, 30 Aug 2016 10:53:00 -0700 (PDT)
-In-Reply-To: <1472567935-13177-1-git-send-email-ivecera@redhat.com>
+Received: from mga07.intel.com ([134.134.136.100]:13906 "EHLO mga07.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1758987AbcH3Sdq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 30 Aug 2016 14:33:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Mark Rustad <mark.d.rustad@intel.com>
 
-On 08/30/2016 05:38 PM, Ivan Vecera wrote:
+Remove a useless log message and improve the logic for setting
+a PHY address from the contents of the MNG_IF_SEL register.
 
-> The recent commit 087d7a8c disallows to set Rx coalescing time to be 0
+Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 16 +++++-----------
+ 1 file changed, 5 insertions(+), 11 deletions(-)
 
-    You should specify both 12-digit SHA1 and the commit summary enclosed in ("").
-
-> as this stops generating interrupts for the incoming packets. I found
-> the zero Tx coalescing time stops generating interrupts similarly for
-> outgoing packets and fires Tx watchdog later. To avoid this, don't allow
-> to set Tx coalescing time to 0.
->
-> Cc: satish.baddipadige@broadcom.com
-> Cc: siva.kallam@broadcom.com
-> Cc: michael.chan@broadcom.com
-> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
-[...]
-
-MBR, Sergei
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+index fb1b819..e092a89 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+@@ -2394,18 +2394,12 @@ static void ixgbe_read_mng_if_sel_x550em(struct ixgbe_hw *hw)
+ 	/* If X552 (X550EM_a) and MDIO is connected to external PHY, then set
+ 	 * PHY address. This register field was has only been used for X552.
+ 	 */
+-	if (!hw->phy.nw_mng_if_sel) {
+-		if (hw->mac.type == ixgbe_mac_x550em_a) {
+-			struct ixgbe_adapter *adapter = hw->back;
+-
+-			e_warn(drv, "nw_mng_if_sel not set\n");
+-		}
+-		return;
++	if (hw->mac.type == ixgbe_mac_x550em_a &&
++	    hw->phy.nw_mng_if_sel & IXGBE_NW_MNG_IF_SEL_MDIO_ACT) {
++		hw->phy.mdio.prtad = (hw->phy.nw_mng_if_sel &
++				      IXGBE_NW_MNG_IF_SEL_MDIO_PHY_ADD) >>
++				     IXGBE_NW_MNG_IF_SEL_MDIO_PHY_ADD_SHIFT;
+ 	}
+-
+-	hw->phy.mdio.prtad = (hw->phy.nw_mng_if_sel &
+-			      IXGBE_NW_MNG_IF_SEL_MDIO_PHY_ADD) >>
+-			     IXGBE_NW_MNG_IF_SEL_MDIO_PHY_ADD_SHIFT;
+ }
+ 
+ /** ixgbe_init_phy_ops_X550em - PHY/SFP specific init
+-- 
+2.7.4
