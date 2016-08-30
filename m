@@ -1,70 +1,122 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: Re: [RFCv2 16/16] nfp: bpf: add offload of TC direct action mode
-Date: Tue, 30 Aug 2016 22:50:54 +0200
-Message-ID: <20160830225054.453e207b@laptop>
-References: <1472234775-29453-1-git-send-email-jakub.kicinski@netronome.com>
-        <1472234775-29453-17-git-send-email-jakub.kicinski@netronome.com>
-        <57C4A48F.6080403@iogearbox.net>
-        <20160830125252.011f08d3@laptop>
-        <57C5E642.2070600@iogearbox.net>
+From: Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>
+Subject: Re: [PATCH V2] dt: net: enhance DWC EQoS binding to support Tegra186
+Date: Tue, 30 Aug 2016 14:50:58 -0600
+Message-ID: <54b380c4-179f-2260-55dd-4220e65f8f46@wwwdotorg.org>
+References: <20160824212046.2416-1-swarren@wwwdotorg.org>
+ <20160830190152.GA25083@rob-hp-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jakub Kicinski <jakub.kicinski@netronome.com>,
-        netdev@vger.kernel.org, ast@kernel.org,
-        dinan.gunawardena@netronome.com, jiri@resnulli.us,
-        john.fastabend@gmail.com
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.wp.pl ([212.77.101.9]:14495 "EHLO mx3.wp.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750846AbcH3Uu7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 30 Aug 2016 16:50:59 -0400
-In-Reply-To: <57C5E642.2070600@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Lars Persson <lars.persson-VrBV9hrLPhE@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Stephen Warren <swarren-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
+To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160830190152.GA25083@rob-hp-laptop>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 30 Aug 2016 22:02:10 +0200, Daniel Borkmann wrote:
-> On 08/30/2016 12:52 PM, Jakub Kicinski wrote:
-> > On Mon, 29 Aug 2016 23:09:35 +0200, Daniel Borkmann wrote:  
->  [...]  
-> >>
-> >> In da mode, RECLASSIFY is not supported, so this one could be scratched.
-> >> For the OK and UNSPEC part, couldn't both be treated the same (as in: OK /
-> >> pass to stack roughly equivalent as in sch_handle_ingress())? Or is the
-> >> issue that you cannot populate skb->tc_index when passing to stack (maybe
-> >> just fine to leave it at 0 for now)?  
-> >
-> > The comment is a bit confus(ed|ing).  The problem is:
-> >
-> > tc filter add <filter1> skip_sw
-> > tc filter add <filter2> skip_hw
-> >
-> > If packet appears in the stack - was it because of OK or UNSPEC (or
-> > RECLASSIFY) in filter1?  Do we need to run filter2 or not?  Passing
-> > tc_index can be implemented the same way I do mark today.  
-> 
-> Okay, I see, thanks for explaining. So, if passing tc_index (or any other
-> meta data) can be implemented the same way as we do with mark already,
-> could we store such verdict, say, in some unused skb->tc_verd bits (the
-> skb->tc_index could be filled by the program already) and pass that up the
-> stack to differentiate between them? There should be no prior user before
-> ingress, so that patch 4 could become something like:
-> 
->    if (tc_skip_sw(prog->gen_flags)) {
->       filter_res = tc_map_hw_verd_to_act(skb);
->    } else if (at_ingress) {
->       ...
->    } ...
+On 08/30/2016 01:01 PM, Rob Herring wrote:
+> On Wed, Aug 24, 2016 at 03:20:46PM -0600, Stephen Warren wrote:
+>> From: Stephen Warren <swarren-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
+>>
+>> The Synopsys DWC EQoS is a configurable IP block which supports multiple
+>> options for bus type, clocking and reset structure, and feature list.
+>> Extend the DT binding to define a "compatible value" for the configuration
+>> contained in NVIDIA's Tegra186 SoC, and define some new properties and
+>> list property entries required by that configuration.
 
-This looks promising!
+>> diff --git a/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt b/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt
 
-> And I assume it wouldn't make any sense anyway to have a skip_sw filter
-> being chained /after/ some skip_hw and the like, right?
+>>  Required properties:
 
-Right.  I think it should be enforced by TC core or at least some shared
-code similar to tc_flags_valid() to reject offload attempts of filters
-which are not first in line from the wire.  Right now AFAICT enabling
-transparent offload with ethtool may result in things going down to HW
-completely out of order and user doesn't even have to specify the
-skip_* flags...
+>> -- clocks: Phandles to the reference clock and the bus clock
+>> -- clock-names: Should be "phy_ref_clk" for the reference clock and "apb_pclk"
+>> -  for the bus clock.
+>> +- clocks: Phandle and clock specifiers for each entry in clock-names, in the
+>> +  same order. See ../clock/clock-bindings.txt.
+>> +- clock-names: May contain any/all of the following depending on the IP
+>> +  configuration, in any order:
+>
+> No, they should be in a defined order.
+
+If the binding only defines "clocks", then yes the order must be specified.
+
+If the binding defines clock-names too, then the order is arbitrary 
+since all clocks must be looked up via clock-names. That's the entire 
+point of having a clock-names property.
+
+...
+>> +    The EQOS transmit path clock. The HW signal name is clk_tx_i.
+>> +    In some configurations (e.g. GMII/RGMII), this clock also drives the PHY TX
+>> +    path. In other configurations, other clocks (such as tx_125, rmii) may
+>> +    drive the PHY TX path.
+>> +  - "rx"
+>> +    The EQOS receive path clock. The HW signal name is clk_rx_i.
+>> +    In some configurations (e.g. GMII/RGMII), this clock also drives the PHY RX
+>> +    path. In other configurations, other clocks (such as rx_125, pmarx_0,
+>> +    pmarx_1, rmii) may drive the PHY RX path.
+>> +  - "slave_bus"
+>> +    (Alternate name "apb_pclk"; only one alternate must appear.)
+>> +    The CPU/slave-bus (CSR) interface clock. Despite the name, this applies to
+>> +    any bus type; APB, AHB, AXI, etc. The HW signal name is hclk_i (AHB) or
+>> +    clk_csr_i (other buses).
+>
+> Sounds like 2 clocks here.
+>
+>> +  - "master_bus"
+>> +    The master bus interface clock. Only required in configurations that use a
+>> +    separate clock for the master and slave bus interfaces. The HW signal name
+>> +    is hclk_i (AHB) or aclk_i (AXI).
+>
+> Sounds like 2 clocks. I'm guessing these are mutually exclusive based on
+> whether you configure the IP for AHB or AXI?
+
+Yes, my understanding is that the two clocks are mutually exclusive in 
+both cases.
+
+It seems simpler to have an entry in clocks/clock-names for each logical 
+purpose, so that the driver can always retrieve a "slave bus clock" and 
+a "master bus clock". That way, there's never any conditional code in 
+the driver; it just gets two fixed clock names and enables them, no 
+matter what the HW configuration.
+
+If the binding specifies 3 clocks, hclk_i, clk_csr_i, and aclk_i, then 
+the driver needs to know which subset of clocks to retrieve based on 
+compatible value or HW configuration. That seems like unnecessary 
+complexity. I suppose the driver could just attempt to retrieve all 3 
+clocks, and ignore any missing clocks, but that would allow malformed 
+DTs not to be noticed since the driver wouldn't validate the set of 
+clocks present, and could lead to the driver touching the HW without all 
+required clocks active, which at least in Tegra can lead to a HW hang.
+
+>> +  Note: Support for additional IP configurations may require adding the
+>> +  following clocks to this list in the future: clk_rx_125_i, clk_tx_125_i,
+>> +  clk_pmarx_0_i, clk_pmarx1_i, clk_rmii_i, clk_revmii_rx_i, clk_revmii_tx_i.
+>> +
+>> +  The following compatible values require the following set of clocks:
+>> +  - "nvidia,tegra186-eqos", "snps,dwc-qos-ethernet-4.10":
+>> +    - "slave_bus"
+>> +    - "master_bus"
+>> +    - "rx"
+>> +    - "tx"
+>> +    - "ptp_ref"
+>> +  - "axis,artpec6-eqos", "snps,dwc-qos-ethernet-4.10":
+>> +    - "phy_ref_clk"
+>> +    - "apb_clk"
+>
+> It would be good if this was marked deprecated and the full set of
+> clocks could be described and supported. Not sure if you can figure that
+> out. Is it really only 2 clocks, or these have multiple connections to
+> the same source.
+
+Lars, can you answer here?
+
+I deliberately didn't attempt to change the binding definition for the 
+existing use-case, since I'm not familiar with that SoC, and don't 
+relish changing DTs for a platform I can't test.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
