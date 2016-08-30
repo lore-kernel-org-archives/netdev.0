@@ -1,60 +1,66 @@
-From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Subject: Re: [PATCH net 1/2] ipv6: add missing netconf notif when 'all' is
- updated
-Date: Tue, 30 Aug 2016 11:51:29 +0900
-Message-ID: <21983bb4-de14-6811-865d-12f114f573b0@miraclelinux.com>
-References: <1472465149-1163-1-git-send-email-nicolas.dichtel@6wind.com>
+From: <sean.wang@mediatek.com>
+Subject: [PATCH net v3 1/9] net: ethernet: mediatek: fix fails from TX housekeeping due to incorrect port setup
+Date: Tue, 30 Aug 2016 10:59:17 +0800
+Message-ID: <1472525965-10661-2-git-send-email-sean.wang@mediatek.com>
+References: <1472525965-10661-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: hideaki.yoshifuji@miraclelinux.com, netdev@vger.kernel.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>, davem@davemloft.net
+Content-Type: text/plain
+Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
+        <linux-mediatek@lists.infradead.org>, <keyhaede@gmail.com>,
+        Sean Wang <sean.wang@mediatek.com>
+To: <john@phrozen.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:36231 "EHLO
-        mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754321AbcH3Cvd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 22:51:33 -0400
-Received: by mail-pa0-f53.google.com with SMTP id ci2so2400653pad.3
-        for <netdev@vger.kernel.org>; Mon, 29 Aug 2016 19:51:32 -0700 (PDT)
-In-Reply-To: <1472465149-1163-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from mailgw02.mediatek.com ([210.61.82.184]:63280 "EHLO
+        mailgw02.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1754688AbcH3C7v (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2016 22:59:51 -0400
+In-Reply-To: <1472525965-10661-1-git-send-email-sean.wang@mediatek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Sean Wang <sean.wang@mediatek.com>
 
+which net device the SKB is complete for depends on the forward port
+on txd4 on the corresponding TX descriptor, but the information isn't
+set up well in case of  SKB fragments that would lead to watchdog timeout
+from the upper layer, so fix it up.
 
-Nicolas Dichtel wrote:
-> The 'default' value was not advertised.
-> 
-> Fixes: f3a1bfb11ccb ("rtnl/ipv6: use netconf msg to advertise forwarding status")
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> ---
->  net/ipv6/addrconf.c | 7 +++++++
->  1 file changed, 7 insertions(+)
-> 
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index f418d2eaeddd..299f0656e87f 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -778,7 +778,14 @@ static int addrconf_fixup_forwarding(struct ctl_table *table, int *p, int newf)
->  	}
->  
->  	if (p == &net->ipv6.devconf_all->forwarding) {
-> +		int old_dftl = net->ipv6.devconf_dflt->forwarding;
+Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+Acked-by: John Crispin <john@phrozen.org>
+---
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-dflt, not dftl?
-
-> +
->  		net->ipv6.devconf_dflt->forwarding = newf;
-> +		if ((!newf) ^ (!old_dftl))
-> +			inet6_netconf_notify_devconf(net, NETCONFA_FORWARDING,
-> +						     NETCONFA_IFINDEX_DEFAULT,
-> +						     net->ipv6.devconf_dflt);
-> +
->  		addrconf_forward_change(net, newf);
->  		if ((!newf) ^ (!old))
->  			inet6_netconf_notify_devconf(net, NETCONFA_FORWARDING,
-> 
-
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+index 1801fd8..6e4a6ca 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -587,14 +587,15 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
+ 	dma_addr_t mapped_addr;
+ 	unsigned int nr_frags;
+ 	int i, n_desc = 1;
+-	u32 txd4 = 0;
++	u32 txd4 = 0, fport;
+ 
+ 	itxd = ring->next_free;
+ 	if (itxd == ring->last_free)
+ 		return -ENOMEM;
+ 
+ 	/* set the forward port */
+-	txd4 |= (mac->id + 1) << TX_DMA_FPORT_SHIFT;
++	fport = (mac->id + 1) << TX_DMA_FPORT_SHIFT;
++	txd4 |= fport;
+ 
+ 	tx_buf = mtk_desc_to_tx_buf(ring, itxd);
+ 	memset(tx_buf, 0, sizeof(*tx_buf));
+@@ -652,7 +653,7 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
+ 			WRITE_ONCE(txd->txd3, (TX_DMA_SWC |
+ 					       TX_DMA_PLEN0(frag_map_size) |
+ 					       last_frag * TX_DMA_LS0));
+-			WRITE_ONCE(txd->txd4, 0);
++			WRITE_ONCE(txd->txd4, fport);
+ 
+ 			tx_buf->skb = (struct sk_buff *)MTK_DMA_DUMMY_DESC;
+ 			tx_buf = mtk_desc_to_tx_buf(ring, txd);
 -- 
-Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
-Technical Division, MIRACLE LINUX CORPORATION
+1.9.1
