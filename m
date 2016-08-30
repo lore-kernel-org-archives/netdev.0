@@ -1,9 +1,10 @@
 From: Vinod Koul <vinod.koul@intel.com>
-Subject: Re: [PATCH 1/8] dmaengine: sa11x0: add DMA filters
-Date: Tue, 30 Aug 2016 21:27:29 +0530
-Message-ID: <20160830155729.GI9355@localhost>
+Subject: Re: [PATCH 4/8] dmaengine: sa11x0: unexport sa11x0_dma_filter_fn and
+ clean up
+Date: Tue, 30 Aug 2016 21:28:28 +0530
+Message-ID: <20160830155828.GJ9355@localhost>
 References: <20160829112540.GF1041@n2100.armlinux.org.uk>
- <E1beKhY-0001Gn-PB@rmk-PC.armlinux.org.uk>
+ <E1beKho-0001H5-TA@rmk-PC.armlinux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: dmaengine@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
@@ -11,20 +12,21 @@ Cc: dmaengine@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
         Samuel Ortiz <samuel@sortiz.org>
 To: Russell King <rmk+kernel@armlinux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:17167 "EHLO mga11.intel.com"
+Received: from mga06.intel.com ([134.134.136.31]:40716 "EHLO mga06.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751708AbcH3Pt1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 30 Aug 2016 11:49:27 -0400
+        id S1753438AbcH3PuZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 30 Aug 2016 11:50:25 -0400
 Content-Disposition: inline
-In-Reply-To: <E1beKhY-0001Gn-PB@rmk-PC.armlinux.org.uk>
+In-Reply-To: <E1beKho-0001H5-TA@rmk-PC.armlinux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 29, 2016 at 12:26:04PM +0100, Russell King wrote:
-> Add DMA filters for the sa11x0 DMA channels.  This will allow us to
-> migrate away from directly using the DMA filter function in drivers.
+On Mon, Aug 29, 2016 at 12:26:20PM +0100, Russell King wrote:
+> As we now have no users of sa11x0_dma_filter_fn() in the tree, we can
+> unexport this function, and remove the now unused header file.
 
 Acked-by: Vinod Koul <vinod.koul@intel.com>
+
 
 -- 
 ~Vinod
