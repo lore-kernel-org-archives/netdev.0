@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 2/7] netfilter: nfnetlink: use list_for_each_entry_safe to delete all objects
-Date: Tue, 30 Aug 2016 13:26:18 +0200
-Message-ID: <1472556383-6787-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 1/7] netfilter: nft_reject: restrict to INPUT/FORWARD/OUTPUT
+Date: Tue, 30 Aug 2016 13:26:17 +0200
+Message-ID: <1472556383-6787-2-git-send-email-pablo@netfilter.org>
 References: <1472556383-6787-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -12,56 +12,131 @@ List-Id: netdev.vger.kernel.org
 
 From: Liping Zhang <liping.zhang@spreadtrum.com>
 
-cttimeout and acct objects are deleted from the list while traversing
-it, so use list_for_each_entry is unsafe here.
+After I add the nft rule "nft add rule filter prerouting reject
+with tcp reset", kernel panic happened on my system:
+  NULL pointer dereference at ...
+  IP: [<ffffffff81b9db2f>] nf_send_reset+0xaf/0x400
+  Call Trace:
+  [<ffffffff81b9da80>] ? nf_reject_ip_tcphdr_get+0x160/0x160
+  [<ffffffffa0928061>] nft_reject_ipv4_eval+0x61/0xb0 [nft_reject_ipv4]
+  [<ffffffffa08e836a>] nft_do_chain+0x1fa/0x890 [nf_tables]
+  [<ffffffffa08e8170>] ? __nft_trace_packet+0x170/0x170 [nf_tables]
+  [<ffffffffa06e0900>] ? nf_ct_invert_tuple+0xb0/0xc0 [nf_conntrack]
+  [<ffffffffa07224d4>] ? nf_nat_setup_info+0x5d4/0x650 [nf_nat]
+  [...]
+
+Because in the PREROUTING chain, routing information is not exist,
+then we will dereference the NULL pointer and oops happen.
+
+So we restrict reject expression to INPUT, FORWARD and OUTPUT chain.
+This is consistent with iptables REJECT target.
 
 Signed-off-by: Liping Zhang <liping.zhang@spreadtrum.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nfnetlink_acct.c      | 6 +++---
- net/netfilter/nfnetlink_cttimeout.c | 5 +++--
- 2 files changed, 6 insertions(+), 5 deletions(-)
+ include/net/netfilter/nft_reject.h   |  4 ++++
+ net/ipv4/netfilter/nft_reject_ipv4.c |  1 +
+ net/ipv6/netfilter/nft_reject_ipv6.c |  1 +
+ net/netfilter/nft_reject.c           | 16 ++++++++++++++++
+ net/netfilter/nft_reject_inet.c      |  7 ++++++-
+ 5 files changed, 28 insertions(+), 1 deletion(-)
 
-diff --git a/net/netfilter/nfnetlink_acct.c b/net/netfilter/nfnetlink_acct.c
-index 70eb2f6a..d44d89b 100644
---- a/net/netfilter/nfnetlink_acct.c
-+++ b/net/netfilter/nfnetlink_acct.c
-@@ -343,12 +343,12 @@ static int nfnl_acct_del(struct net *net, struct sock *nfnl,
- 			 struct sk_buff *skb, const struct nlmsghdr *nlh,
- 			 const struct nlattr * const tb[])
+diff --git a/include/net/netfilter/nft_reject.h b/include/net/netfilter/nft_reject.h
+index 60fa153..02e28c5 100644
+--- a/include/net/netfilter/nft_reject.h
++++ b/include/net/netfilter/nft_reject.h
+@@ -8,6 +8,10 @@ struct nft_reject {
+ 
+ extern const struct nla_policy nft_reject_policy[];
+ 
++int nft_reject_validate(const struct nft_ctx *ctx,
++			const struct nft_expr *expr,
++			const struct nft_data **data);
++
+ int nft_reject_init(const struct nft_ctx *ctx,
+ 		    const struct nft_expr *expr,
+ 		    const struct nlattr * const tb[]);
+diff --git a/net/ipv4/netfilter/nft_reject_ipv4.c b/net/ipv4/netfilter/nft_reject_ipv4.c
+index c24f41c..2c2553b 100644
+--- a/net/ipv4/netfilter/nft_reject_ipv4.c
++++ b/net/ipv4/netfilter/nft_reject_ipv4.c
+@@ -46,6 +46,7 @@ static const struct nft_expr_ops nft_reject_ipv4_ops = {
+ 	.eval		= nft_reject_ipv4_eval,
+ 	.init		= nft_reject_init,
+ 	.dump		= nft_reject_dump,
++	.validate	= nft_reject_validate,
+ };
+ 
+ static struct nft_expr_type nft_reject_ipv4_type __read_mostly = {
+diff --git a/net/ipv6/netfilter/nft_reject_ipv6.c b/net/ipv6/netfilter/nft_reject_ipv6.c
+index 533cd57..92bda99 100644
+--- a/net/ipv6/netfilter/nft_reject_ipv6.c
++++ b/net/ipv6/netfilter/nft_reject_ipv6.c
+@@ -47,6 +47,7 @@ static const struct nft_expr_ops nft_reject_ipv6_ops = {
+ 	.eval		= nft_reject_ipv6_eval,
+ 	.init		= nft_reject_init,
+ 	.dump		= nft_reject_dump,
++	.validate	= nft_reject_validate,
+ };
+ 
+ static struct nft_expr_type nft_reject_ipv6_type __read_mostly = {
+diff --git a/net/netfilter/nft_reject.c b/net/netfilter/nft_reject.c
+index 0522fc9..c64de3f7 100644
+--- a/net/netfilter/nft_reject.c
++++ b/net/netfilter/nft_reject.c
+@@ -26,11 +26,27 @@ const struct nla_policy nft_reject_policy[NFTA_REJECT_MAX + 1] = {
+ };
+ EXPORT_SYMBOL_GPL(nft_reject_policy);
+ 
++int nft_reject_validate(const struct nft_ctx *ctx,
++			const struct nft_expr *expr,
++			const struct nft_data **data)
++{
++	return nft_chain_validate_hooks(ctx->chain,
++					(1 << NF_INET_LOCAL_IN) |
++					(1 << NF_INET_FORWARD) |
++					(1 << NF_INET_LOCAL_OUT));
++}
++EXPORT_SYMBOL_GPL(nft_reject_validate);
++
+ int nft_reject_init(const struct nft_ctx *ctx,
+ 		    const struct nft_expr *expr,
+ 		    const struct nlattr * const tb[])
  {
--	char *acct_name;
--	struct nf_acct *cur;
-+	struct nf_acct *cur, *tmp;
- 	int ret = -ENOENT;
-+	char *acct_name;
+ 	struct nft_reject *priv = nft_expr_priv(expr);
++	int err;
++
++	err = nft_reject_validate(ctx, expr, NULL);
++	if (err < 0)
++		return err;
  
- 	if (!tb[NFACCT_NAME]) {
--		list_for_each_entry(cur, &net->nfnl_acct_list, head)
-+		list_for_each_entry_safe(cur, tmp, &net->nfnl_acct_list, head)
- 			nfnl_acct_try_del(cur);
- 
- 		return 0;
-diff --git a/net/netfilter/nfnetlink_cttimeout.c b/net/netfilter/nfnetlink_cttimeout.c
-index 68216cd..f74fee1 100644
---- a/net/netfilter/nfnetlink_cttimeout.c
-+++ b/net/netfilter/nfnetlink_cttimeout.c
-@@ -350,12 +350,13 @@ static int cttimeout_del_timeout(struct net *net, struct sock *ctnl,
- 				 const struct nlmsghdr *nlh,
- 				 const struct nlattr * const cda[])
+ 	if (tb[NFTA_REJECT_TYPE] == NULL)
+ 		return -EINVAL;
+diff --git a/net/netfilter/nft_reject_inet.c b/net/netfilter/nft_reject_inet.c
+index 759ca52..e79d9ca 100644
+--- a/net/netfilter/nft_reject_inet.c
++++ b/net/netfilter/nft_reject_inet.c
+@@ -66,7 +66,11 @@ static int nft_reject_inet_init(const struct nft_ctx *ctx,
+ 				const struct nlattr * const tb[])
  {
--	struct ctnl_timeout *cur;
-+	struct ctnl_timeout *cur, *tmp;
- 	int ret = -ENOENT;
- 	char *name;
+ 	struct nft_reject *priv = nft_expr_priv(expr);
+-	int icmp_code;
++	int icmp_code, err;
++
++	err = nft_reject_validate(ctx, expr, NULL);
++	if (err < 0)
++		return err;
  
- 	if (!cda[CTA_TIMEOUT_NAME]) {
--		list_for_each_entry(cur, &net->nfct_timeout_list, head)
-+		list_for_each_entry_safe(cur, tmp, &net->nfct_timeout_list,
-+					 head)
- 			ctnl_timeout_try_del(net, cur);
+ 	if (tb[NFTA_REJECT_TYPE] == NULL)
+ 		return -EINVAL;
+@@ -124,6 +128,7 @@ static const struct nft_expr_ops nft_reject_inet_ops = {
+ 	.eval		= nft_reject_inet_eval,
+ 	.init		= nft_reject_inet_init,
+ 	.dump		= nft_reject_inet_dump,
++	.validate	= nft_reject_validate,
+ };
  
- 		return 0;
+ static struct nft_expr_type nft_reject_inet_type __read_mostly = {
 -- 
 2.1.4
 
