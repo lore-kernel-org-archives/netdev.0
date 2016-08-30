@@ -1,82 +1,102 @@
-From: Heiko =?ISO-8859-1?Q?St=FCbner?= <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>
-Subject: Re: [PATCH 3/4] arm64: dts: rockchip: support gmac for rk3399
-Date: Wed, 31 Aug 2016 00:07:51 +0200
-Message-ID: <1912883.KWCSTxJEHB@diego>
-References: <1472589008-7713-1-git-send-email-wxt@rock-chips.com> <1472589008-7713-4-git-send-email-wxt@rock-chips.com>
+From: Joe Stringer <joe-LZ6Gd1LRuIk@public.gmane.org>
+Subject: Re: [PATCH net-next v11 5/6] openvswitch: add layer 3
+ flow/port support
+Date: Tue, 30 Aug 2016 16:23:40 -0700
+Message-ID: <CAPWQB7Ggvsg3w8=ajjTQ5=UcHa8fCPPnCJ0va6PdXHsBUd8BFA@mail.gmail.com>
+References: <CAOrHB_CUPCfAPKfoco9GghiAZ=QyEqxpd90uo3NvEtG9STXMVA@mail.gmail.com>
+ <20160808151716.GA8477@penelope.isobedori.kobe.vergenet.net>
+ <CAOrHB_BYtGsWPSs2pxTjPajqFEP=5YySmqjc93NbdtY96-dYfw@mail.gmail.com>
+ <20160810102043.GE5451@penelope.isobedori.kobe.vergenet.net>
+ <CAPWQB7F4bSMUhzoCJhEk5bP7V_yOTvBQwDmzCXb6Jpa72ov76g@mail.gmail.com>
+ <20160822110444.GA29971@penelope.isobedori.kobe.vergenet.net>
+ <CAPWQB7EQhbcDEk==AmN58Qxndmd6oHpw8z78kj2Q4M4-mD7+Dw@mail.gmail.com>
+ <20160823085144.GA22304@penelope.isobedori.kobe.vergenet.net>
+ <20160825100833.GA31926@penelope.isobedori.kobe.vergenet.net>
+ <CAPWQB7G8RekHoTMNR5jAJGu7n2i8fNZ1=Fvj4XX_tXVSovpGug@mail.gmail.com>
+ <20160826091322.GE22464@penelope.isobedori.kobe.vergenet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        Brian Norris <briannorris-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-        Douglas Anderson <dianders-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-        dbasehore-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, Roger Chen <roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>,
-        Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>,
-        Jianqun Xu <jay.xu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
-        Xing Zheng <zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
-        Masahiro Yamada <yamada.masahiro-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>,
-        Elaine Zhang <zhangqing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
-        David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
-        Shunqian Zheng <zhengsq-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Caesar Wang <wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1472589008-7713-4-git-send-email-wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20160826091322.GE22464-ucRxlxcrRFEsysjaEhV7d2ey4e3TpSOZIxS8c3vjKQDk1uMJSBkQmQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Am Mittwoch, 31. August 2016, 04:30:06 schrieb Caesar Wang:
-> This patch adds needed gamc information for rk3399,
-> also support the gmac pd.
-> 
-> Signed-off-by: Roger Chen <roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-> Signed-off-by: Caesar Wang <wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-> ---
-> 
->  arch/arm64/boot/dts/rockchip/rk3399.dtsi | 90
-> ++++++++++++++++++++++++++++++++ 1 file changed, 90 insertions(+)
-> 
-> diff --git a/arch/arm64/boot/dts/rockchip/rk3399.dtsi
-> b/arch/arm64/boot/dts/rockchip/rk3399.dtsi index 32aebc8..53ac651 100644
-> --- a/arch/arm64/boot/dts/rockchip/rk3399.dtsi
-> +++ b/arch/arm64/boot/dts/rockchip/rk3399.dtsi
-> @@ -200,6 +200,26 @@
->  		};
->  	};
-> 
-> +	gmac: eth@fe300000 {
-> +		compatible = "rockchip,rk3399-gmac";
-> +		reg = <0x0 0xfe300000 0x0 0x10000>;
-> +		rockchip,grf = <&grf>;
-
-should move below the reset-names .
-
-> +		interrupts = <GIC_SPI 12 IRQ_TYPE_LEVEL_HIGH>;
-> +		interrupt-names = "macirq";
-> +		clocks = <&cru SCLK_MAC>, <&cru SCLK_MAC_RX>,
-> +			 <&cru SCLK_MAC_TX>, <&cru SCLK_MACREF>,
-> +			 <&cru SCLK_MACREF_OUT>, <&cru ACLK_GMAC>,
-> +			 <&cru PCLK_GMAC>;
-> +		clock-names = "stmmaceth", "mac_clk_rx",
-> +			      "mac_clk_tx", "clk_mac_ref",
-> +			      "clk_mac_refout", "aclk_mac",
-> +			      "pclk_mac";
-> +		resets = <&cru SRST_A_GMAC>;
-> +		reset-names = "stmmaceth";
-> +		power-domains = <&power RK3399_PD_GMAC>;
-
-The driver core should handle regular power-domain handling on device creation 
-already, right? So I should be able to apply patches 3 and 4 even without the 
-dwmac patches, right?
-
-Also if resending please move power-domains above resets
-
-
-Heiko
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+T24gMjYgQXVndXN0IDIwMTYgYXQgMDI6MTMsIFNpbW9uIEhvcm1hbiA8c2ltb24uaG9ybWFuQG5l
+dHJvbm9tZS5jb20+IHdyb3RlOgo+IE9uIFRodSwgQXVnIDI1LCAyMDE2IGF0IDA1OjMzOjU3UE0g
+LTA3MDAsIEpvZSBTdHJpbmdlciB3cm90ZToKPj4gT24gMjUgQXVndXN0IDIwMTYgYXQgMDM6MDgs
+IFNpbW9uIEhvcm1hbiA8c2ltb24uaG9ybWFuQG5ldHJvbm9tZS5jb20+IHdyb3RlOgo+PiA+IFBs
+ZWFzZSBmaW5kIG15IHdvcmtpbmcgcGF0Y2ggYmVsb3cuCj4+ID4KPj4gPiBGcm9tOiBTaW1vbiBI
+b3JtYW4gPGhvcm1zQHZlcmdlLm5ldC5hdT4KPj4gPiBTdWJqZWN0OiBbUEFUQ0hdIHN5c3RlbS10
+cmFmZmljOiBFeGVyY2lzZSBHU08KPj4gPgo+PiA+IEV4ZXJjaXNlIEdTTyBmb3I6IHVuZW5jYXBz
+dWxhdGVkOyBNUExTOyBHUkU7IGFuZCBNUExTIGluIEdSRS4KPj4gPgo+PiA+IFRoZXJlIGlzIHNj
+b3BlIHRvIGV4dGVuZCB0aGlzIHRlc3RpbmcgdG8gb3RoZXIgZW5jYXBzdWxhdGlvbiBmb3JtYXRz
+Cj4+ID4gaWYgZGVzaXJlZC4KPj4gPgo+PiA+IFRoaXMgaXMgbW90aXZhdGVkIGJ5IGEgZGVzaXJl
+IHRvIHRlc3QgR1JFIGFuZCBNUExTIGVuY2Fwc3VsYXRpb24gaW4KPj4gPiB0aGUgY29udGV4dCBv
+ZiBMMy9WUE4gKE1QTFMgb3ZlciBub24tVEVCIEdSRSB3b3JrKS4gVGhhdCBpcyBub3QKPj4gPiB0
+ZXN0ZWQgaGVyZSBidXQgdGVzdHMgZm9yIHRob3NlIGNhc2VzIHdvdWxkIGlkZWFseSBiZSBiYXNl
+ZCBvbiB0aG9zZSBpbgo+PiA+IHRoaXMgcGF0Y2guCj4+ID4KPj4gPiBTaWduZWQtb2ZmLWJ5OiBT
+aW1vbiBIb3JtYW4gPGhvcm1zQHZlcmdlLm5ldC5hdT4KPj4KPj4gSSByZWFsaXNlZCB0aGF0IHRo
+ZXNlIHRlc3RzIGRpc2FibGUgVFNPLCBidXQgdGhleSBkb24ndCBhY3R1YWxseSBjaGVjawo+PiBp
+ZiBHU08gaXMgZW5hYmxlZC4gTWF5YmUgaXQncyBzYWZlIHRvIGFzc3VtZSB0aGlzLCBidXQgaXQn
+cyBtb3JlCj4+IGV4cGxpY2l0IHRvIGFjdHVhbGx5IGxvb2sgZm9yIGl0IGluIHRoZSB0ZXN0cy4K
+Pgo+IEdvb2QgcG9pbnQsIEknbGwgc2VlIGFib3V0IGNoZWNraW5nIHRoYXQuCj4KPj4gV2l0aCBw
+YXJ0aWN1bGFyIHNldHVwcyAoZmVkb3JhMjMgaW4gcGFydGljdWxhciwgYm90aCBrZXJuZWwgYW5k
+Cj4+IHVzZXJzcGFjZSB0ZXN0c3VpdGVzKSBJIHNlZSB0aGlzOgo+Pgo+PiAuL3N5c3RlbS10cmFm
+ZmljLmF0OjM3MTogaXAgbmV0bnMgZXhlYyBhdF9uczAgc2ggPDwgTlNfRVhFQ19IRVJFRE9DCj4+
+IGlwIHJvdXRlIGFkZCAxMC4xLjIuMC8yNCBlbmNhcCBtcGxzIDEwMCB2aWEgaW5ldCAxMC4xLjEu
+MiBkZXYgbnNfZ3JlMAo+PiBOU19FWEVDX0hFUkVET0MKPj4gLS0tIC9kZXYvbnVsbCAyMDE2LTA4
+LTE5IDAxOjI4OjAyLjE1MTAwMDAwMCArMDAwMAo+PiArKysgL2hvbWUvZ2l0bGFiLXJ1bm5lci9i
+dWlsZHMvODNjNDliZmYvMC9yb290L2dpdGxhYi1vdnMvb3ZzL3Rlc3RzL3N5c3RlbS1rbW9kLXRl
+c3RzdWl0ZS5kaXIvYXQtZ3JvdXBzLzEwL3N0ZGVycgo+PiAyMDE2LTA4LTI1IDE3OjE2OjI3LjMy
+NDAwMDAwMCArMDAwMAo+PiBAQCAtMCwwICsxIEBACj4+ICtFcnJvcjogZWl0aGVyICJ0byIgaXMg
+ZHVwbGljYXRlLCBvciAiZW5jYXAiIGlzIGEgZ2FyYmFnZS4KPj4KPj4gSSdtIGd1ZXNzaW5nIHRo
+ZSBpcCB0b29sIGlzIGEgbGl0dGxlIG91dCBvZiBkYXRlLiBXZSBjb3VsZCBkZXRlY3QgYW5kCj4+
+IHNraXAgdGhpcyB3aXRoIHNvbWV0aGluZyBsaWtlOgo+Pgo+PiBBVF9TS0lQX0lGKFtpcCByb3V0
+ZSBoZWxwIDI+JjEgfCBncmVwIGVuY2FwXSkKPj4KPj4gaW4gdGhlIENIRUNLX01QTFMuCj4KPiBU
+aGFua3MsIEknbGwgYWRkIHNvbWV0aGluZyBsaWtlIHRoYXQuCj4KPj4gSG1tLCBJJ20gc3RpbGwg
+c2VlaW5nIHRoZSBiYWQgY291bnRzIG9mIHNlZ21lbnRzIHJldHJhbnNtaXRlZCBldmVuCj4+IHdp
+dGggdGhlIGRpZmYgY2hhbmdlIG9uIGEga2VybmVsIEkgaGF2ZSBidWlsdCBhdCBiZjBmNTAwYmQw
+MTkgKCJNZXJnZQo+PiB0YWcgJ3RyYWNlLXY0LjgtMScgb2YKPj4gZ2l0Oi8vZ2l0Lmtlcm5lbC5v
+cmcvcHViL3NjbS9saW51eC9rZXJuZWwvZ2l0L3Jvc3RlZHQvbGludXgtdHJhY2UiKS4KPj4gSWYg
+aXQncyBwYXNzaW5nIG9uIGxhdGVzdCBuZXQtbmV4dCB0aGVuIG1heWJlIEkganVzdCBuZWVkIHRv
+IHN3YXAgb3V0Cj4+IHRoYXQgYm94J3Mga2VybmVsIGZvciBhIG5ld2VyIGJ1aWxkLiBJJ2xsIHRy
+eSB0aGF0Lgo+Cj4gSXQgaXMgcG9zc2libGUgdGhhdCBpdCBpcyBkZXRlY3RpbmcgYSBidWcuCj4g
+V2hpY2ggdGVzdCBpcyBmYWlsaW5nPwoKRldJVyBJIHRyaWVkIHdpdGggYSBuZXdlciBidWlsZCwg
+Y29tbWl0IDlhMGE1YzRjYjFhZiAoIm5ldDoKc3lzdGVtcG9ydDogRml4IG9yZGVyaW5nIGluIGlu
+dHJsMl8qX21hc2tfY2xlYXIgbWFjcm8iKS4gSSBubyBsb25nZXIKc2VlIHRoZSBpc3N1ZS4KClVu
+Zm9ydHVuYXRlbHkgSSBsb3N0IG15IHRlc3Qgb3V0cHV0LiBJdCB3YXMgb25lIG9mIHRoZXNlIHR3
+bzoKCiAgODogZGF0YXBhdGggLSBwaW5nIG92ZXIgZ3JlIHR1bm5lbCAgICAgICAgICAgICAgICAg
+RkFJTEVECihzeXN0ZW0tdHJhZmZpYy5hdDoyOTQpCiAgOTogZGF0YXBhdGggLSBodHRwIG92ZXIg
+Z3JlIHR1bm5lbCAgICAgICAgICAgICAgICAgRkFJTEVECihzeXN0ZW0tdHJhZmZpYy5hdDozNDgp
+CgpJIGFsc28gcmVhbGlzZWQgdGhhdCBJIGRpZG4ndCBoYXZlIE1QTFMgcm91dGVyIGVuYWJsZWQg
+aW4gbXkga2VybmVsCmNvbmZpZyBzbyB0aGUgTVBMUyB0ZXN0cyB3ZXJlIGdldHRpbmcgc2tpcHBl
+ZC4gSSBlbmFibGVkIE1QTFNfUk9VVElORywKYnV0IG5vdyBJIHNlZSB0aGlzIGZhaWx1cmUgb24g
+dGhlICJodHRwIG92ZXIgbXBscyIgdGVzdHM6CgouL3N5c3RlbS10cmFmZmljLmF0OjExMTogaXAg
+bmV0bnMgZXhlYyBhdF9uczAgc2ggPDwgTlNfRVhFQ19IRVJFRE9DCmlwIHJvdXRlIGFkZCAxMC4x
+LjEuMC8yNCBlbmNhcCBtcGxzIDEwMCB2aWEgaW5ldCAxNzIuMzEuMS4yIGRldiBwMApOU19FWEVD
+X0hFUkVET0MKLS0tIC9kZXYvbnVsbCAyMDE2LTA4LTMwIDE1OjIyOjI4LjgxMzMxNjk0OCAtMDcw
+MAorKysgL2hvbWUvZ2l0bGFiLXJ1bm5lci9idWlsZHMvZjFkNGEyYmUvMC9yb290L2dpdGxhYi1v
+dnMvb3ZzL3Rlc3RzL3N5c3RlbS1rbW9kLXRlc3RzdWl0ZS5kaXIvYXQtZ3JvdXBzLzQvc3RkZXJy
+CjIwMTYtMDgtMzAgMTU6MzM6NDUuMTMzMzA2NTgxIC0wNzAwCkBAIC0wLDAgKzEgQEAKK1JUTkVU
+TElOSyBhbnN3ZXJzOiBPcGVyYXRpb24gbm90IHN1cHBvcnRlZAoKCj4gQXQgdGhpcyBzdGFnZSBJ
+IGhhdmUgbW9zdGx5IGFkZGVkIFRTTy9HU08gdGVzdGluZyB0byBleGlzdGluZyBjaGVja3MuCj4g
+UGVyaGFwcyBpdCB3b3VsZCBiZSBiZXR0ZXIgdG8gYnJlYWsgdGhlbSBvdXQgaW50byBzZXBhcmF0
+ZSBjaGVja3Mgc28KPiBwaW5nL2h0dHAgY2FuIGJlIGJlIGNoZWNrZWQgd2l0aG91dCBjb25zaWRl
+cmluZyBUU08vR1NPIHdoaWNoIG1heSBoYXZlIHNvbWUKPiB2YWx1ZSBpbiBzaXR1YXRpb25zIHdo
+ZXJlIFRTTy9HU08gaXMgYnJva2VuIHdoaWNoIGlzIGFjdHVhbGx5IHdoYXQgSSBhbQo+IGludGVy
+ZXN0ZWQgaW4gdGVzdGluZy4KClNvdW5kcyByZWFzb25hYmxlLgpfX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3
+aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
