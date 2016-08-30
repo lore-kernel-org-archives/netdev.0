@@ -1,72 +1,93 @@
-From: Caesar Wang <wxt@rock-chips.com>
-Subject: [PATCH 1/4] net: stmmac: dwmac-rk: fixes the gmac resume after PD on/off
-Date: Wed, 31 Aug 2016 04:30:04 +0800
-Message-ID: <1472589008-7713-2-git-send-email-wxt@rock-chips.com>
+From: Caesar Wang <wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+Subject: [PATCH 4/4] arm64: dts: rockchip: enable the gmac for rk3399 evb board
+Date: Wed, 31 Aug 2016 04:30:07 +0800
+Message-ID: <1472589008-7713-5-git-send-email-wxt@rock-chips.com>
 References: <1472589008-7713-1-git-send-email-wxt@rock-chips.com>
-Cc: linux-rockchip@lists.infradead.org,
-        Brian Norris <briannorris@chromium.org>,
-        Douglas Anderson <dianders@chromium.org>,
-        dbasehore@chromium.org, Roger Chen <roger.chen@rock-chips.com>,
-        Caesar Wang <wxt@rock-chips.com>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        linux-kernel@vger.kernel.org
-To: Heiko Stuebner <heiko@sntech.de>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1472589008-7713-1-git-send-email-wxt@rock-chips.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        Brian Norris <briannorris-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+        Douglas Anderson <dianders-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+        dbasehore-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, Caesar Wang <wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
+        Roger Chen <roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>,
+        Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>,
+        Masahiro Yamada <yamada.masahiro-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>,
+        Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+        Frank Wang <frank.wang-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
+        Jianqun Xu <jay.xu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Heiko Stuebner <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1472589008-7713-1-git-send-email-wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Roger Chen <roger.chen@rock-chips.com>
+We add the required and optional properties for evb board.
+See the [0] to get the detail information.
 
-GMAC Power Domain(PD) will be disabled during suspend.
-That will causes GRF registers reset.
-So corresponding GRF registers for GMAC must be setup again.
+[0]:
+Documentation/devicetree/bindings/net/rockchip-dwmac.txt
 
-Signed-off-by: Roger Chen <roger.chen@rock-chips.com>
-Signed-off-by: Caesar Wang <wxt@rock-chips.com>
+Signed-off-by: Roger Chen <roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+Signed-off-by: Caesar Wang <wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
 ---
 
- drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c | 20 +++++++++++---------
- 1 file changed, 11 insertions(+), 9 deletions(-)
+ arch/arm64/boot/dts/rockchip/rk3399-evb.dts | 31 +++++++++++++++++++++++++++++
+ 1 file changed, 31 insertions(+)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-index 9210591..ea0e493 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-@@ -629,6 +629,17 @@ static struct rk_priv_data *rk_gmac_setup(struct platform_device *pdev,
- 							"rockchip,grf");
- 	bsp_priv->pdev = pdev;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3399-evb.dts b/arch/arm64/boot/dts/rockchip/rk3399-evb.dts
+index d47b4e9..ed6f2e8 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3399-evb.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3399-evb.dts
+@@ -94,12 +94,43 @@
+ 		regulator-always-on;
+ 		regulator-boot-on;
+ 	};
++
++	clkin_gmac: external-gmac-clock {
++		compatible = "fixed-clock";
++		clock-frequency = <125000000>;
++		clock-output-names = "clkin_gmac";
++		#clock-cells = <0>;
++	};
++
++	vcc_phy: vcc-phy-regulator {
++		compatible = "regulator-fixed";
++		regulator-name = "vcc_phy";
++		regulator-always-on;
++		regulator-boot-on;
++	};
++
+ };
  
-+	gmac_clk_init(bsp_priv);
-+
-+	return bsp_priv;
-+}
-+
-+static int rk_gmac_init(struct platform_device *pdev, void *priv)
-+{
-+	struct rk_priv_data *bsp_priv = priv;
-+	int ret;
-+	struct device *dev = &pdev->dev;
-+
- 	/*rmii or rgmii*/
- 	if (bsp_priv->phy_iface == PHY_INTERFACE_MODE_RGMII) {
- 		dev_info(dev, "init for RGMII\n");
-@@ -641,15 +652,6 @@ static struct rk_priv_data *rk_gmac_setup(struct platform_device *pdev,
- 		dev_err(dev, "NO interface defined!\n");
- 	}
+ &emmc_phy {
+ 	status = "okay";
+ };
  
--	gmac_clk_init(bsp_priv);
--
--	return bsp_priv;
--}
--
--static int rk_gmac_powerup(struct rk_priv_data *bsp_priv)
--{
--	int ret;
--
- 	ret = phy_power_on(bsp_priv, true);
- 	if (ret)
- 		return ret;
++&gmac {
++	phy-supply = <&vcc_phy>;
++	phy-mode = "rgmii";
++	clock_in_out = "input";
++	snps,reset-gpio = <&gpio3 15 GPIO_ACTIVE_LOW>;
++	snps,reset-active-low;
++	snps,reset-delays-us = <0 10000 50000>;
++	assigned-clocks = <&cru SCLK_RMII_SRC>;
++	assigned-clock-parents = <&clkin_gmac>;
++	pinctrl-names = "default";
++	pinctrl-0 = <&rgmii_pins>;
++	tx_delay = <0x28>;
++	rx_delay = <0x11>;
++	status = "okay";
++};
++
+ &pwm0 {
+ 	status = "okay";
+ };
 -- 
 1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
