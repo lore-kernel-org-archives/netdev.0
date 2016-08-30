@@ -1,67 +1,63 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: pull-request: mac80211 2016-08-30
-Date: Tue, 30 Aug 2016 08:19:18 +0200
-Message-ID: <1472537959-8249-1-git-send-email-johannes@sipsolutions.net>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH RFC 0/2] net: Iterate over cpu_present_mask during
+ calculation of percpu statistics
+Date: Tue, 30 Aug 2016 08:55:13 +0200
+Message-ID: <20160830065513.GY10153@twins.programming.kicks-ass.net>
+References: <147249730528.18175.4772805024092024580.stgit@pro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:48754 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751966AbcH3GTZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 30 Aug 2016 02:19:25 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        yoshfuji@linux-ipv6.org, jmorris@namei.org, davem@davemloft.net,
+        edumazet@google.com, mingo@redhat.com, kaber@trash.net
+To: Kirill Tkhai <ktkhai@virtuozzo.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <147249730528.18175.4772805024092024580.stgit@pro>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+On Mon, Aug 29, 2016 at 10:03:48PM +0300, Kirill Tkhai wrote:
+> Many variables of statistics type are made percpu in kernel. This allows
+> to do not make them atomic or to do not use synchronization. The result
+> value is calculated as sum of values on every possible cpu.
+> 
+> The problem is this scales bad. The calculations may took a lot of time.
+> For example, some machine configurations have many possible cpus like below:
+> 
+> "smpboot: Allowing 192 CPUs, 160 hotplug CPUs"
+> 
+> There are only 32 real cpus, but 192 possible cpus.
 
-Nothing much, but we have three little fixes, see below. I've included the
-static inline so that BATMAN_ADV_BATMAN_V can be changed to be allowed w/o
-cfg80211 sooner, and it's a trivial change.
+This is fairly rare AFAIK. Its typically only found on machines with
+empty sockets (rare, because empty sockets are expensive) or broken
+BIOSes (I have one of the latter).
 
-Let me know if there's any problem.
+I've cured things by adding "possible_cpus=40" to the cmdline.
 
-Thanks,
-johannes
+> I had a report about very slow getifaddrs() on older kernel, when there are
+> possible only 590 getifaddrs calls/second on Xeon(R) CPU E5-2667 v3 @ 3.20GHz.
+> 
+> The patchset aims to begin solving of this problem. It makes possible to
+> iterate over present cpus mask instead of possible. When cpu is going down,
+> a statistics is being moved to an alive cpu. It's made in CPU_DYING callback,
+> which happens when machine is stopped. So, iteration  over present cpus mask
+> is safe under preemption disabled.
+> 
+> Patchset could exclude even offline cpus, but I didn't do that, because
+> the main problem seems to be possible cpus. Also, this would require to
+> do some changes in kernel/cpu.c, so I'd like to hear people opinion about
+> expediency of this before.
+> 
+> One more question is whether the whole kernel needs the same possibility
+> and the patchset should be more generic.
 
+I'd vote for no. This isn't a fundamental optimization, the thing is
+still O(n), we just reduced the n for one particular
+machine.
 
+[ and note that that machine is still wasting an enormous amount of
+memory actually _having_ all that per-cpu storage, which too is gone
+with the cmdline 'fix' ]
 
-The following changes since commit 2439ca0402091badb24415e1b073ba12b34ba423:
-
-  mac80211: Add ieee80211_hw pointer to get_expected_throughput (2016-08-05 14:23:25 +0200)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2016-08-30
-
-for you to fetch changes up to 61aaa0e8c1c15d9e045f0577f046be50f2f571ab:
-
-  cfg80211: Add stub for cfg80211_get_station() (2016-08-30 08:05:28 +0200)
-
-----------------------------------------------------------------
-Three little fixes:
- * revert a recent wext patch, which Ben Hutchings noticed was
-   wrong, and it turns out not to be necessary for any driver
-
- * fix an infinite loop that can occur under certain conditions
-   in mac80211's TDLS code (depending on regulatory information)
-
- * add a cfg80211_get_station() static inline when cfg80211 isn't
-   built, to allow other modules to not have to depend on it for it
-
-----------------------------------------------------------------
-Arik Nemtsov (1):
-      mac80211: TDLS: don't require beaconing for AP BW
-
-Johannes Berg (1):
-      Revert "wext: Fix 32 bit iwpriv compatibility issue with 64 bit Kernel"
-
-Linus Lüssing (1):
-      cfg80211: Add stub for cfg80211_get_station()
-
- include/net/cfg80211.h   |  9 +++++++++
- net/mac80211/tdls.c      |  7 ++++---
- net/wireless/wext-core.c | 25 ++-----------------------
- 3 files changed, 15 insertions(+), 26 deletions(-)
+On machines which really have 192 (or more) CPUs, this will still be as
+slow as ever.
