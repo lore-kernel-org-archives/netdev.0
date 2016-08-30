@@ -1,84 +1,67 @@
-From: Davide Caratti <dcaratti@redhat.com>
-Subject: [iproute PATCH 3/3] macsec: fix byte ordering on input/display of 'sci'
-Date: Tue, 30 Aug 2016 13:23:14 +0200
-Message-ID: <8584ea633c296a3075adcf4861e9b33d6378d897.1472552276.git.dcaratti@redhat.com>
-References: <cover.1472552276.git.dcaratti@redhat.com>
-Cc: stephen@networkplumber.org, sd@queasysnail.net, phil@nwl.cc
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53534 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1757841AbcH3LYB (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 30 Aug 2016 07:24:01 -0400
-In-Reply-To: <cover.1472552276.git.dcaratti@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 2/7] netfilter: nfnetlink: use list_for_each_entry_safe to delete all objects
+Date: Tue, 30 Aug 2016 13:26:18 +0200
+Message-ID: <1472556383-6787-3-git-send-email-pablo@netfilter.org>
+References: <1472556383-6787-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1472556383-6787-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-use get_be64() in place of get_u64() when parsing input 'sci' parameter,
-so that 'sci' can be entered using network byte order regardless the
-endianness of target system; use ntohll() when printing out 'sci'. While
-at it, improve documentation of 'sci' in ip-link.8.
+From: Liping Zhang <liping.zhang@spreadtrum.com>
 
-Signed-off-by: Davide Caratti <dcaratti@redhat.com>
+cttimeout and acct objects are deleted from the list while traversing
+it, so use list_for_each_entry is unsafe here.
+
+Signed-off-by: Liping Zhang <liping.zhang@spreadtrum.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- ip/ipmacsec.c         | 8 ++++----
- man/man8/ip-link.8.in | 4 +++-
- 2 files changed, 7 insertions(+), 5 deletions(-)
+ net/netfilter/nfnetlink_acct.c      | 6 +++---
+ net/netfilter/nfnetlink_cttimeout.c | 5 +++--
+ 2 files changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/ip/ipmacsec.c b/ip/ipmacsec.c
-index c75e9d3..2e670e9 100644
---- a/ip/ipmacsec.c
-+++ b/ip/ipmacsec.c
-@@ -134,7 +134,7 @@ static int get_an(__u8 *val, const char *arg)
- 
- static int get_sci(__u64 *sci, const char *arg)
+diff --git a/net/netfilter/nfnetlink_acct.c b/net/netfilter/nfnetlink_acct.c
+index 70eb2f6a..d44d89b 100644
+--- a/net/netfilter/nfnetlink_acct.c
++++ b/net/netfilter/nfnetlink_acct.c
+@@ -343,12 +343,12 @@ static int nfnl_acct_del(struct net *net, struct sock *nfnl,
+ 			 struct sk_buff *skb, const struct nlmsghdr *nlh,
+ 			 const struct nlattr * const tb[])
  {
--	return get_u64(sci, arg, 16);
-+	return get_be64(sci, arg, 16);
- }
+-	char *acct_name;
+-	struct nf_acct *cur;
++	struct nf_acct *cur, *tmp;
+ 	int ret = -ENOENT;
++	char *acct_name;
  
- static int get_port(__be16 *port, const char *arg)
-@@ -776,7 +776,7 @@ static void print_tx_sc(const char *prefix, __u64 sci, __u8 encoding_sa,
- 	struct rtattr *a;
- 	int rem;
+ 	if (!tb[NFACCT_NAME]) {
+-		list_for_each_entry(cur, &net->nfnl_acct_list, head)
++		list_for_each_entry_safe(cur, tmp, &net->nfnl_acct_list, head)
+ 			nfnl_acct_try_del(cur);
  
--	printf("%sTXSC: %016llx on SA %d\n", prefix, sci, encoding_sa);
-+	printf("%sTXSC: %016llx on SA %d\n", prefix, ntohll(sci), encoding_sa);
- 	print_secy_stats(prefix, secy_stats);
- 	print_txsc_stats(prefix, txsc_stats);
+ 		return 0;
+diff --git a/net/netfilter/nfnetlink_cttimeout.c b/net/netfilter/nfnetlink_cttimeout.c
+index 68216cd..f74fee1 100644
+--- a/net/netfilter/nfnetlink_cttimeout.c
++++ b/net/netfilter/nfnetlink_cttimeout.c
+@@ -350,12 +350,13 @@ static int cttimeout_del_timeout(struct net *net, struct sock *ctnl,
+ 				 const struct nlmsghdr *nlh,
+ 				 const struct nlattr * const cda[])
+ {
+-	struct ctnl_timeout *cur;
++	struct ctnl_timeout *cur, *tmp;
+ 	int ret = -ENOENT;
+ 	char *name;
  
-@@ -845,7 +845,7 @@ static void print_rx_sc(const char *prefix, __u64 sci, __u8 active,
- 	struct rtattr *a;
- 	int rem;
+ 	if (!cda[CTA_TIMEOUT_NAME]) {
+-		list_for_each_entry(cur, &net->nfct_timeout_list, head)
++		list_for_each_entry_safe(cur, tmp, &net->nfct_timeout_list,
++					 head)
+ 			ctnl_timeout_try_del(net, cur);
  
--	printf("%sRXSC: %016llx, state %s\n", prefix, sci,
-+	printf("%sRXSC: %016llx, state %s\n", prefix, ntohll(sci),
- 	       values_on_off[!!active]);
- 	print_rxsc_stats(prefix, rxsc_stats);
- 
-@@ -1018,7 +1018,7 @@ static void macsec_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 
- 	if (tb[IFLA_MACSEC_SCI]) {
- 		fprintf(f, "sci %016llx ",
--			rta_getattr_u64(tb[IFLA_MACSEC_SCI]));
-+			ntohll(rta_getattr_u64(tb[IFLA_MACSEC_SCI])));
- 	}
- 
- 	print_flag(f, tb, "protect", IFLA_MACSEC_PROTECT);
-diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
-index 6fb5ad6..ffc4160 100644
---- a/man/man8/ip-link.8.in
-+++ b/man/man8/ip-link.8.in
-@@ -989,7 +989,9 @@ interpreted as octal and hexadecimal, respectively.
- 
- .sp
- .BI sci " SCI "
--- sets the SCI for this MACsec device.
-+- sets the secure channel identifier for this MACsec device.
-+.I SCI
-+is a 64bit wide number in hexadecimal format.
- 
- .sp
- .BI cipher " CIPHER_SUITE "
+ 		return 0;
 -- 
-2.5.5
+2.1.4
+
