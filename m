@@ -1,43 +1,82 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [net-next PATCH] e1000: add initial XDP support
-Date: Tue, 30 Aug 2016 08:13:15 -0400
-Message-ID: <09886285-aeae-625d-9d0e-bec1c1944efe@mojatatu.com>
-References: <20160827071145.25345.84712.stgit@john-Precision-Tower-5810>
- <b6cfb3c5-9c68-3ea7-48dd-7fbf666db751@mojatatu.com>
- <20160829103047.3968a4d8@redhat.com>
- <61de1b91-30b4-67ba-4192-834fa30757ea@mojatatu.com>
- <20160829153905.50066865@redhat.com> <20160829175509.7ed19b89@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 net-next 1/1] net_sched: Introduce skbmod action
+Date: Tue, 30 Aug 2016 05:20:28 -0700
+Message-ID: <1472559628.14381.283.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1472386756-23085-1-git-send-email-jhs@emojatatu.com>
+         <1472400467.14381.252.camel@edumazet-glaptop3.roam.corp.google.com>
+         <b075631d-92cc-d016-3786-aaacb3d5c13a@mojatatu.com>
+         <b117fac2-c73f-2d42-3843-52f9717224d9@mojatatu.com>
+         <1472494817.14381.267.camel@edumazet-glaptop3.roam.corp.google.com>
+         <2a6e36a6-f128-ba9d-4d69-90ff5383fb75@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.fastabend@gmail.com>, bblanco@plumgrid.com,
-        davem@davemloft.net, alexei.starovoitov@gmail.com,
-        john.r.fastabend@intel.com, netdev@vger.kernel.org,
+Cc: davem@davemloft.net, netdev@vger.kernel.org, daniel@iogearbox.net,
         xiyou.wangcong@gmail.com
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f66.google.com ([209.85.214.66]:34888 "EHLO
-        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755916AbcH3MNS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2016 08:13:18 -0400
-Received: by mail-it0-f66.google.com with SMTP id f128so1833239ith.2
-        for <netdev@vger.kernel.org>; Tue, 30 Aug 2016 05:13:17 -0700 (PDT)
-In-Reply-To: <20160829175509.7ed19b89@redhat.com>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:34597 "EHLO
+        mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758071AbcH3MUb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2016 08:20:31 -0400
+Received: by mail-pa0-f50.google.com with SMTP id fi15so7207694pac.1
+        for <netdev@vger.kernel.org>; Tue, 30 Aug 2016 05:20:31 -0700 (PDT)
+In-Reply-To: <2a6e36a6-f128-ba9d-4d69-90ff5383fb75@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-08-29 11:55 AM, Jesper Dangaard Brouer wrote:
-> tc filter add dev mlx5p2 parent ffff: prio 4 protocol ip u32 match ip protocol 17 0xff match udp dst 9 0xffff flowid 1:1 action
+On Tue, 2016-08-30 at 07:12 -0400, Jamal Hadi Salim wrote:
+> On 16-08-29 02:20 PM, Eric Dumazet wrote:
+> 
+> >
+> > You would need to store everything in an object, managed by rcu.
+> >
+> > struct my_rcu_safe_struct {
+> >      u32 flags;
+> >      u8   eth_dst[ETH_ALEN];
+> >      u8   eth_src[ETH_ALEN];
+> >      __be16 eth_type;
+> > };
+> >
+> > And then allocate a new one when you need to update the infos (from
+> > tcf_skbmod_init(())
+> >
+> > RCU : Read Copy Update.
+> >
+> > Then in the reader you would use
+> >
+> > rcu_read_lock();
+> > myptr = rcu_dereference(d->ptr);
+> > if (myptr) {
+> >         if (myptr->flags & SKBMOD_F_DMAC)
+> >                  ether_addr_copy(eth_hdr(skb)->h_dest, myptr->eth_dst);
+> >          if (myptr->flags & SKBMOD_F_SMAC)
+> >                  ether_addr_copy(eth_hdr(skb)->h_source, myptr->eth_src);
+> >          if (myptr->flags & SKBMOD_F_ETYPE)
+> >                  eth_hdr(skb)->h_proto = myptr->eth_type;
+> > }
+> > rcu_read_unlock();
+> 
+> Thanks Eric.
+> This is the approach i thought Cong was going to take but in a way that
+> it applies to all actions.
+> It requires I do this extra allocation per update/create - I am not sure 
+> how much of a big deal that is (we take pride in our update rate).
+> Let me work and post something simple that captures these ideas
+> then wait to see what Cong has in mind for the general approach.
 
-Syntax is a little more convoluted  than that ;->. Try:
 
-sudo tc filter add dev eth0 parent ffff: prio 4 protocol ip u32 \
-match ip protocol 17 0xff \
-match ip dport 1900 0xffff \
-flowid 1:1 \
-action drop
+The percpu stats infra is already there, you have to change
+tcf_hash_create() last parameter to 'true'.
 
-Note, this will be more cycles than drop all.
+For example you have to add in struct my_rcu_safe_struct a 'struct
+rcu_head rcu;'  field to be able to use kfree_rcu() instead of
+synchronize_rcu()
 
-cheers,
-jamal
+Some very simple actions do not even need rcu_dereference()
+
+RCU have many different variants.
+
+Sometimes READ_ONCE() and WRITE_ONCE() are enough, when all the 'flags'
+can be in a single integer, and this avoids an extra dereference and
+possible cache miss.
