@@ -1,76 +1,49 @@
-From: "Benjamin Coddington" <bcodding-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net] sunrpc: fix UDP memory accounting
-Date: Tue, 30 Aug 2016 12:28:07 -0400
-Message-ID: <F9224521-4FC7-4647-8BB8-C92A841EE23D@redhat.com>
-References: <32a391a2469b4161dc2375c6b6374b8229b3dd37.1472126188.git.pabeni@redhat.com>
+From: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
+Subject: [PATCH] bonding: Remove deprecated create_singlethread_workqueue
+Date: Tue, 30 Aug 2016 22:02:01 +0530
+Message-ID: <20160830163201.GA25869@Karyakshetra>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        "Trond Myklebust" <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-        "Anna Schumaker" <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-        "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-        "Jeff Layton" <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        "Jan Stancek" <jstancek-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: "Paolo Abeni" <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <32a391a2469b4161dc2375c6b6374b8229b3dd37.1472126188.git.pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Tejun Heo <tj@kernel.org>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Jay Vosburgh <j.vosburgh@gmail.com>,
+        Veaceslav Falico <vfalico@gmail.com>,
+        Andy Gospodarek <gospo@cumulusnetworks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 25 Aug 2016, at 12:42, Paolo Abeni wrote:
+alloc_ordered_workqueue() with WQ_MEM_RECLAIM set, replaces
+deprecated create_singlethread_workqueue(). This is the identity
+conversion.
 
-> The commit f9b2ee714c5c ("SUNRPC: Move UDP receive data path
-> into a workqueue context"), as a side effect, moved the
-> skb_free_datagram() call outside the scope of the related socket
-> lock, but UDP sockets require such lock to be held for proper
-> memory accounting.
-> Fix it by replacing skb_free_datagram() with
-> skb_free_datagram_locked().
->
-> Fixes: f9b2ee714c5c ("SUNRPC: Move UDP receive data path into a 
-> workqueue context")
-> Reported-and-tested-by: Jan Stancek <jstancek-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+The workqueue "wq" queues multiple work items viz
+&bond->mcast_work, &nnw->work, &bond->mii_work, &bond->arp_work,
+&bond->alb_work, &bond->mii_work, &bond->ad_work, &bond->slave_arr_work
+which require strict execution ordering. Hence, an ordered dedicated
+workqueue has been used.
 
-Thanks for finding this. A similar fix in 2009 for svcsock.c was done by 
-Eric Dumazet:
-9d410c796067 ("net: fix sk_forward_alloc corruption")
+Since, it is a network driver, WQ_MEM_RECLAIM has been set to
+ensure forward progress under memory pressure.
 
-skb_free_datagram_locked() is used for all xprt types in svcsock.c, 
-should we use
-it for the xs_local_transport as well in xprtsock.c?
+Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
+---
+ drivers/net/bonding/bond_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Ben
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 941ec99..ebaf1a9 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4635,7 +4635,7 @@ static int bond_init(struct net_device *bond_dev)
 
-> ---
->  net/sunrpc/xprtsock.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-> index 8ede3bc..bf16883 100644
-> --- a/net/sunrpc/xprtsock.c
-> +++ b/net/sunrpc/xprtsock.c
-> @@ -1074,7 +1074,7 @@ static void xs_udp_data_receive(struct sock_xprt 
-> *transport)
->  		skb = skb_recv_datagram(sk, 0, 1, &err);
->  		if (skb != NULL) {
->  			xs_udp_data_read_skb(&transport->xprt, sk, skb);
-> -			skb_free_datagram(sk, skb);
-> +			skb_free_datagram_locked(sk, skb);
->  			continue;
->  		}
->  		if (!test_and_clear_bit(XPRT_SOCK_DATA_READY, 
-> &transport->sock_state))
-> -- 
-> 1.8.3.1
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-nfs" 
-> in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ 	netdev_dbg(bond_dev, "Begin bond_init\n");
+
+-	bond->wq = create_singlethread_workqueue(bond_dev->name);
++	bond->wq = alloc_ordered_workqueue(bond_dev->name, WQ_MEM_RECLAIM);
+ 	if (!bond->wq)
+ 		return -ENOMEM;
+
 --
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.1.4
