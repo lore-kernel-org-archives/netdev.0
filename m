@@ -1,70 +1,74 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [RFC v2 00/10] Landlock LSM: Unprivileged sandboxing
-Date: Tue, 30 Aug 2016 12:55:07 -0700
-Message-ID: <CALCETrX3XrG=VsUdiZJbd_J594D9YKbpOH9CoT6cFocWZpr8dw@mail.gmail.com>
-References: <1472121165-29071-1-git-send-email-mic@digikod.net>
- <CALCETrWw6fTTugSFcBhW=fv09GrSXQ+vZxuG0ewb+cod8nq4MQ@mail.gmail.com> <57C5E3C8.1080103@digikod.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [RFCv2 16/16] nfp: bpf: add offload of TC direct action mode
+Date: Tue, 30 Aug 2016 22:02:10 +0200
+Message-ID: <57C5E642.2070600@iogearbox.net>
+References: <1472234775-29453-1-git-send-email-jakub.kicinski@netronome.com>        <1472234775-29453-17-git-send-email-jakub.kicinski@netronome.com>        <57C4A48F.6080403@iogearbox.net> <20160830125252.011f08d3@laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Arnd Bergmann <arnd@arndb.de>,
-        Casey Schaufler <casey@schaufler-ca.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Daniel Mack <daniel@zonque.org>,
-        David Drysdale <drysdale@google.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Elena Reshetova <elena.reshetova@intel.com>,
-        James Morris <james.l.morris@oracle.com>,
-        Kees Cook <keescook@chromium.org>,
-        Paul Moore <pmoore@redhat.com>,
-        Sargun Dhillon <sargun@sargun.me>,
-        "Serge E . Hallyn" <serge@hallyn.com>,
-        Will Drewry <wad@chromium.org>,
-        Kernel Hardening <kernel-hardening@lists.openwall.com>,
-        Linux API <linux-api@vger.kernel.org>,
-        LSM List <linux-security-module@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-To: =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic@digikod.net>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jakub Kicinski <jakub.kicinski@netronome.com>,
+        netdev@vger.kernel.org, ast@kernel.org,
+        dinan.gunawardena@netronome.com, jiri@resnulli.us,
+        john.fastabend@gmail.com
+To: Jakub Kicinski <kubakici@wp.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f176.google.com ([209.85.217.176]:35701 "EHLO
-        mail-ua0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755413AbcH3Tz2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2016 15:55:28 -0400
-Received: by mail-ua0-f176.google.com with SMTP id i32so51996398uai.2
-        for <netdev@vger.kernel.org>; Tue, 30 Aug 2016 12:55:28 -0700 (PDT)
-In-Reply-To: <57C5E3C8.1080103@digikod.net>
+Received: from www62.your-server.de ([213.133.104.62]:39494 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751420AbcH3UCN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2016 16:02:13 -0400
+In-Reply-To: <20160830125252.011f08d3@laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 30, 2016 at 12:51 PM, Micka=C3=ABl Sala=C3=BCn <mic@digikod.net=
-> wrote:
->
-> On 30/08/2016 18:06, Andy Lutomirski wrote:
->> On Thu, Aug 25, 2016 at 3:32 AM, Micka=C3=ABl Sala=C3=BCn <mic@digikod.n=
-et> wrote:
->>> Hi,
->>>
->>> This series is a proof of concept to fill some missing part of seccomp =
-as the
->>> ability to check syscall argument pointers or creating more dynamic sec=
-urity
->>> policies. The goal of this new stackable Linux Security Module (LSM) ca=
-lled
->>> Landlock is to allow any process, including unprivileged ones, to creat=
-e
->>> powerful security sandboxes comparable to the Seatbelt/XNU Sandbox or t=
-he
->>> OpenBSD Pledge. This kind of sandbox help to mitigate the security impa=
-ct of
->>> bugs or unexpected/malicious behaviors in userland applications.
+On 08/30/2016 12:52 PM, Jakub Kicinski wrote:
+> On Mon, 29 Aug 2016 23:09:35 +0200, Daniel Borkmann wrote:
+>>> +	 *   0,1   ok        NOT SUPPORTED[1]
+>>> +	 *   2   drop  0x22 -> drop,  count as stat1
+>>> +	 *   4,5 nuke  0x02 -> drop
+>>> +	 *   7  redir  0x44 -> redir, count as stat2
+>>> +	 *   * unspec  0x11 -> pass,  count as stat0
+>>> +	 *
+>>> +	 * [1] We can't support OK and RECLASSIFY because we can't tell TC
+>>> +	 *     the exact decision made.  We are forced to support UNSPEC
+>>> +	 *     to handle aborts so that's the only one we handle for passing
+>>> +	 *     packets up the stack.
 >>
->> Micka=C3=ABl, will you be at KS and/or LPC?
->>
+>> In da mode, RECLASSIFY is not supported, so this one could be scratched.
+>> For the OK and UNSPEC part, couldn't both be treated the same (as in: OK /
+>> pass to stack roughly equivalent as in sch_handle_ingress())? Or is the
+>> issue that you cannot populate skb->tc_index when passing to stack (maybe
+>> just fine to leave it at 0 for now)?
 >
-> I won't be at KS/LPC but I will give a talk at Kernel Recipes (Paris)
-> for which registration will start Thursday (and will not last long). :)
+> The comment is a bit confus(ed|ing).  The problem is:
+>
+> tc filter add <filter1> skip_sw
+> tc filter add <filter2> skip_hw
+>
+> If packet appears in the stack - was it because of OK or UNSPEC (or
+> RECLASSIFY) in filter1?  Do we need to run filter2 or not?  Passing
+> tc_index can be implemented the same way I do mark today.
 
-There's a teeny tiny chance I'll be there.  I've done way too much
-traveling lately.
+Okay, I see, thanks for explaining. So, if passing tc_index (or any other
+meta data) can be implemented the same way as we do with mark already,
+could we store such verdict, say, in some unused skb->tc_verd bits (the
+skb->tc_index could be filled by the program already) and pass that up the
+stack to differentiate between them? There should be no prior user before
+ingress, so that patch 4 could become something like:
+
+   if (tc_skip_sw(prog->gen_flags)) {
+      filter_res = tc_map_hw_verd_to_act(skb);
+   } else if (at_ingress) {
+      ...
+   } ...
+
+And I assume it wouldn't make any sense anyway to have a skip_sw filter
+being chained /after/ some skip_hw and the like, right?
+
+>> Just curious, does TC_ACT_REDIRECT work in this scenario?
+>
+> I do the redirects in the card, all the problems stem from the
+
+Ok, cool.
+
+> difficulty of passing full ret code in the skb from the driver
+> to tc_classify()/cls_bpf_classify().
