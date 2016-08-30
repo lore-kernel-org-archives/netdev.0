@@ -1,45 +1,49 @@
-From: Chris Brandt <Chris.Brandt@renesas.com>
-Subject: RE: [PATCH] net: ethernet: renesas: sh_eth: do not access POST
- registers if not exist
-Date: Tue, 30 Aug 2016 14:16:41 +0000
-Message-ID: <SG2PR06MB1165DAEF1E16FFA7E2DC49308AE00@SG2PR06MB1165.apcprd06.prod.outlook.com>
-References: <20160826200107.20681-1-chris.brandt@renesas.com>
- <87690577-4526-ce66-6ce3-68ac8b20e737@cogentembedded.com>
- <SG2PR06MB11653F9E20F38972CA11EF328AE10@SG2PR06MB1165.apcprd06.prod.outlook.com>
- <f456cca3-289c-67dc-f15c-5b475553cdde@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Simon Horman <horms+renesas@verge.net.au>,
-        Geert Uytterhoeven <geert+renesas@glider.be>,
-        Daniel Palmer <daniel@0x0f.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-renesas-soc@vger.kernel.org"
-        <linux-renesas-soc@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        "David S . Miller" <davem@davemloft.net>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <f456cca3-289c-67dc-f15c-5b475553cdde@cogentembedded.com>
-Content-Language: en-US
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH net] l2tp: fix use-after-free during module unload
+Date: Tue, 30 Aug 2016 16:05:16 +0200
+Message-ID: <f30d3c9f96a7de81af18061ac61a2d24ef179bf8.1472557704.git.sd@queasysnail.net>
+Cc: Sabrina Dubroca <sd@queasysnail.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:47012 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751590AbcH3OSW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 30 Aug 2016 10:18:22 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGVsbG8gU2VyZ2VpLA0KDQpPbiBBdWcgMjksIDIwMTYsIFNlcmdlaSBTaHR5bHlvdiB3cm90ZToN
-Cj4gICAgU0g3NzU3IGlzIG5vdCB0aGUgb25seSBwbGF0Zm9ybSB3aXRoIFRTVSwgdGhlcmUncyBl
-LmcuIFI4QTc3NDAgQVJNDQo+IFNvQyB3aGljaCBvbmx5IGhhcyAxIEdFVEhFUiBjaGFubmVsLi4u
-DQoNCkkgZG9uJ3QgaGF2ZSB0aGUgUjhBNzc0MCBtYW51YWwgKFItTW9iaWxlIEExKSBzbyBJIGNh
-bid0IHNlZS4gQnV0IGV2ZW4gaWYgaXQgZG9lcyBub3QgaGF2ZSB0aGUgUE9TVCByZWdpc3RlcnMs
-IGl0IG1pZ2h0IG5vdCBodXJ0IGFueXRoaW5nLg0KDQpJIGp1c3QgbG9va2VkIGF0IHRoZSBSWi9B
-MSByZWdpc3RlciBzcGFjZSBhbmQgdGhlcmUgc2VlbXMgdG8gYmUgZHVtbXkgcmVnaXN0ZXJzIGlu
-IHRoZSBQT1NUMS00IGFyZWEuIEkgY2FuIHdyaXRlIHRvIHRoZW0gYW5kIHJlYWQgYmFjayB3aGF0
-IEkgd3JvdGUuLi53aGljaCBpcyBhbGwgdGhhdCB0aGUgc2hfZXRoIGRyaXZlciBjYXJlcyBhYm91
-dC4gSSBiZXQgd2hlbiB0aGUgZGVzaWduZXJzIGJyaW5nIGluIHRoZSBFdGhlckMgSVAgYmxvY2ss
-IHRoZSBlbnRpcmUgcmVnaXN0ZXIgYWRkcmVzcyBpcyBhbHdheXMgcG9wdWxhdGVkIHdpdGggYSBz
-aW1wbGUgbGF0Y2ggcmVnaXN0ZXJzLiBBbmQgdGhlbiwgaWYgYSBmZWF0dXJlIGlzIG5vdCBpbmNs
-dWRlZCAobGlrZSByZWxheS9QT1NUKSwgdGhlbiBub3RoaW5nIGlzIGhvb2tlZCB1cCBvbiB0aGUg
-YmFjayBzaWRlIG9mIGl0Lg0KDQpTbywgdGhlICdlYXNpZXN0JyBzb2x1dGlvbiBpcyB0byBqdXN0
-IHB1dCB0aGUgcmVnaXN0ZXJzIGludG8gdGhlIHNoX2V0aF9vZmZzZXRfZmFzdF9yeiBhcnJheSBh
-bmQgbm90IHRyeSB0byBtYWtlIHRoaW5ncyBtb3JlIGNvbXBsaWNhdGVkLg0KCVtUU1VfVEVOXQk9
-IDB4MDA2NCwNCisJW1RTVV9QT1NUMV0JPSAweDAwNzAsDQorCVtUU1VfUE9TVDJdCT0gMHgwMDc0
-LA0KKwlbVFNVX1BPU1QzXQk9IDB4MDA3OCwNCisJW1RTVV9QT1NUNF0JPSAweDAwN2MsDQoNCg0K
-Q2hyaXMNCg0K
+Tunnel deletion is delayed by both a workqueue (l2tp_tunnel_delete -> wq
+ -> l2tp_tunnel_del_work) and RCU (sk_destruct -> RCU ->
+l2tp_tunnel_destruct).
+
+By the time l2tp_tunnel_destruct() runs to destroy the tunnel and finish
+destroying the socket, the private data reserved via the net_generic
+mechanism has already been freed, but l2tp_tunnel_destruct() actually
+uses this data.
+
+Make sure tunnel deletion for the netns has completed before returning
+from l2tp_net_exit() by first flushing the tunnel removal workqueue, and
+then waiting for RCU callbacks to complete.
+
+Fixes: 167eb17e0b17 ("l2tp: create tunnel sockets in the right namespace")
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+---
+ net/l2tp/l2tp_core.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+index 1e40dacaa137..a2ed3bda4ddc 100644
+--- a/net/l2tp/l2tp_core.c
++++ b/net/l2tp/l2tp_core.c
+@@ -1855,6 +1855,9 @@ static __net_exit void l2tp_exit_net(struct net *net)
+ 		(void)l2tp_tunnel_delete(tunnel);
+ 	}
+ 	rcu_read_unlock_bh();
++
++	flush_workqueue(l2tp_wq);
++	rcu_barrier();
+ }
+ 
+ static struct pernet_operations l2tp_net_ops = {
+-- 
+2.9.3
