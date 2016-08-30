@@ -1,36 +1,131 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH] iproute: disallow ip rule del without parameters
-Date: Tue, 30 Aug 2016 13:51:56 +0200
-Message-ID: <20160830115156.GB17087@unicorn.suse.cz>
-References: <20160824204252.2melotzdx6ftzgaq@ppc.Dlink>
- <20160829105325.40230e41@xeon-e3>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH v3 net-next 1/1] net_sched: Introduce skbmod action
+Date: Tue, 30 Aug 2016 07:57:29 -0400
+Message-ID: <68852282-b009-7b5b-6887-1630935b1913@mojatatu.com>
+References: <1472386756-23085-1-git-send-email-jhs@emojatatu.com>
+ <1472400467.14381.252.camel@edumazet-glaptop3.roam.corp.google.com>
+ <b075631d-92cc-d016-3786-aaacb3d5c13a@mojatatu.com>
+ <b117fac2-c73f-2d42-3843-52f9717224d9@mojatatu.com>
+ <1472494817.14381.267.camel@edumazet-glaptop3.roam.corp.google.com>
+ <2a6e36a6-f128-ba9d-4d69-90ff5383fb75@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Andrey Jr. Melnikov" <temnota.am@gmail.com>,
-        Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: multipart/mixed;
+ boundary="------------AC9D4CD643126F3B74CF589E"
+Cc: davem@davemloft.net, netdev@vger.kernel.org, daniel@iogearbox.net,
+        xiyou.wangcong@gmail.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:32834 "EHLO mx2.suse.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1758331AbcH3LwC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 30 Aug 2016 07:52:02 -0400
-Content-Disposition: inline
-In-Reply-To: <20160829105325.40230e41@xeon-e3>
+Received: from mail-it0-f54.google.com ([209.85.214.54]:34038 "EHLO
+        mail-it0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757871AbcH3L5d (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2016 07:57:33 -0400
+Received: by mail-it0-f54.google.com with SMTP id e63so23003618ith.1
+        for <netdev@vger.kernel.org>; Tue, 30 Aug 2016 04:57:33 -0700 (PDT)
+In-Reply-To: <2a6e36a6-f128-ba9d-4d69-90ff5383fb75@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 29, 2016 at 10:53:25AM -0700, Stephen Hemminger wrote:
-> On Wed, 24 Aug 2016 23:43:00 +0300
-> "Andrey Jr. Melnikov" <temnota.am@gmail.com> wrote:
-> 
-> > Disallow run `ip rule del` without any parameter to avoid delete any first
-> > rule from table.
-...
-> Actually ip rule delete without arguments deletes all rules.
-> Which could be a bug or feature depending on the user.
-> I can imagine somebody is doing something like deleting all rules
-> and putting in new ones for PBR.
+This is a multi-part message in MIME format.
+--------------AC9D4CD643126F3B74CF589E
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
 
-We have "ip rule flush" for that, don't we?
+On 16-08-30 07:12 AM, Jamal Hadi Salim wrote:
 
-Michal Kubecek
+>
+> Thanks Eric.
+> This is the approach i thought Cong was going to take but in a way that
+> it applies to all actions.
+> It requires I do this extra allocation per update/create - I am not sure
+> how much of a big deal that is (we take pride in our update rate).
+> Let me work and post something simple that captures these ideas
+> then wait to see what Cong has in mind for the general approach.
+
+As attached here ... compile tested.
+
+cheers,
+jamal
+
+
+--------------AC9D4CD643126F3B74CF589E
+Content-Type: text/plain; charset=UTF-8;
+ name="skbmod-rcu-maybe2"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename="skbmod-rcu-maybe2"
+
+RnJvbSBoZWFkZXIgZmlsZToKLS0tLS0Kc3RydWN0IHRjZl9za2Jtb2RfcGFyYW1zIHsKICAg
+ICAgICB1NjQgICAgIGZsYWdzOyAvKnVwIHRvIDY0IHR5cGVzIG9mIG9wZXJhdGlvbnM7IGV4
+dGVuZCBpZiBuZWVkZWQgKi8KICAgICAgICB1OCAgICAgIGV0aF9kc3RbRVRIX0FMRU5dOwog
+ICAgICAgIHUxNiAgICAgZXRoX3R5cGU7CiAgICAgICAgdTggICAgICBldGhfc3JjW0VUSF9B
+TEVOXTsKfTsKCnN0cnVjdCB0Y2Zfc2tibW9kIHsKICAgICAgICBzdHJ1Y3QgdGNfYWN0aW9u
+ICAgICAgICBjb21tb247CiAgICAgICAgc3RydWN0IHRjZl9za2Jtb2RfcGFyYW1zICAqc2ti
+bW9kX3A7Cn07CiNkZWZpbmUgdG9fc2tibW9kKGEpICgoc3RydWN0IHRjZl9za2Jtb2QgKilh
+KQotLS0tLS0KCiNkZWZpbmUgTUFYX0VESVRfTEVOIEVUSF9ITEVOCnN0YXRpYyBpbnQgdGNm
+X3NrYm1vZF9ydW4oc3RydWN0IHNrX2J1ZmYgKnNrYiwgY29uc3Qgc3RydWN0IHRjX2FjdGlv
+biAqYSwKCQkJICBzdHJ1Y3QgdGNmX3Jlc3VsdCAqcmVzKQp7CglzdHJ1Y3QgdGNmX3NrYm1v
+ZCAqZCA9IHRvX3NrYm1vZChhKTsKCWludCBhY3Rpb24gPSBSRUFEX09OQ0UoZC0+dGNmX2Fj
+dGlvbik7CglzdHJ1Y3QgdGNmX3NrYm1vZF9wYXJhbXMgKnA7Cgl1NjQgZmxhZ3M7CglpbnQg
+ZXJyOwoKCS8qIFhYWDogaWYgeW91IGFyZSBnb2luZyB0byBlZGl0IG1vcmUgZmllbGRzIGJl
+eW9uZCBldGhlcm5ldCBoZWFkZXIKCSAqIChleGFtcGxlIHdoZW4geW91IGFkZCBJUCBoZWFk
+ZXIgcmVwbGFjZW1lbnQgb3IgdmxhbiBzd2FwKQoJICogdGhlbiBNQVhfRURJVF9MRU4gbmVl
+ZHMgdG8gY2hhbmdlIGFwcHJvcHJpYXRlbHkKCSovCgllcnIgPSBza2JfZW5zdXJlX3dyaXRh
+YmxlKHNrYiwgRVRIX0hMRU4pOwoJaWYgKHVubGlrZWx5KGVycikpIC8qIGJlc3QgcG9saWN5
+IGlzIHRvIGRyb3Agb24gdGhlIGZsb29yICovCgkJYWN0aW9uID0gVENfQUNUX1NIT1Q7CgoJ
+dGNmX2xhc3R1c2VfdXBkYXRlKCZkLT50Y2ZfdG0pOwoJYnN0YXRzX2NwdV91cGRhdGUodGhp
+c19jcHVfcHRyKGQtPmNvbW1vbi5jcHVfYnN0YXRzKSwgc2tiKTsKCWlmICh1bmxpa2VseShh
+Y3Rpb24gPT0gVENfQUNUX1NIT1QpKSB7CgkJcXN0YXRzX2Ryb3BfaW5jKHRoaXNfY3B1X3B0
+cihkLT5jb21tb24uY3B1X3FzdGF0cykpOwoJCXJldHVybiBhY3Rpb247Cgl9CgoJcmN1X3Jl
+YWRfbG9jaygpOwoJcCA9IHJjdV9kZXJlZmVyZW5jZShkLT5za2Jtb2RfcCk7CglmbGFncyA9
+IHAtPmZsYWdzOwoJaWYgKGZsYWdzICYgU0tCTU9EX0ZfRE1BQykKCQlldGhlcl9hZGRyX2Nv
+cHkoZXRoX2hkcihza2IpLT5oX2Rlc3QsIHAtPmV0aF9kc3QpOwoJaWYgKGZsYWdzICYgU0tC
+TU9EX0ZfU01BQykKCQlldGhlcl9hZGRyX2NvcHkoZXRoX2hkcihza2IpLT5oX3NvdXJjZSwg
+cC0+ZXRoX3NyYyk7CglpZiAoZmxhZ3MgJiBTS0JNT0RfRl9FVFlQRSkKCQlldGhfaGRyKHNr
+YiktPmhfcHJvdG8gPSBwLT5ldGhfdHlwZTsKCWlmIChmbGFncyAmIFNLQk1PRF9GX1NXQVBN
+QUMpIHsKCQl1OCB0bXBhZGRyW0VUSF9BTEVOXTsKCQkvKlhYWDogSSBhbSBzdXJlIHdlIGNh
+biBjb21lIHVwIHdpdGggc29tZXRoaW5nIG1vcmUgZWZmaWNpZW50ICovCgkJZXRoZXJfYWRk
+cl9jb3B5KHRtcGFkZHIsIGV0aF9oZHIoc2tiKS0+aF9kZXN0KTsKCQlldGhlcl9hZGRyX2Nv
+cHkoZXRoX2hkcihza2IpLT5oX2Rlc3QsIGV0aF9oZHIoc2tiKS0+aF9zb3VyY2UpOwoJCWV0
+aGVyX2FkZHJfY29weShldGhfaGRyKHNrYiktPmhfc291cmNlLCB0bXBhZGRyKTsKCX0KCXJj
+dV9yZWFkX3VubG9jaygpOwoKCXJldHVybiBhY3Rpb247Cn0KCnN0YXRpYyBpbnQgdGNmX3Nr
+Ym1vZF9pbml0KHN0cnVjdCBuZXQgKm5ldCwgc3RydWN0IG5sYXR0ciAqbmxhLAoJCQkgICBz
+dHJ1Y3QgbmxhdHRyICplc3QsIHN0cnVjdCB0Y19hY3Rpb24gKiphLAoJCQkgICBpbnQgb3Zy
+LCBpbnQgYmluZCkKewoJc3RydWN0IHRjX2FjdGlvbl9uZXQgKnRuID0gbmV0X2dlbmVyaWMo
+bmV0LCBza2Jtb2RfbmV0X2lkKTsKCXN0cnVjdCBubGF0dHIgKnRiW1RDQV9TS0JNT0RfTUFY
+ICsgMV07CglzdHJ1Y3QgdGNfc2tibW9kICpwYXJtOwoJc3RydWN0IHRjZl9za2Jtb2QgKmQ7
+CglzdHJ1Y3QgdGNmX3NrYm1vZF9wYXJhbXMgKnAsICpwX29sZDsKCXUzMiBsZmxhZ3MgPSAw
+OwoJdTggKmRhZGRyID0gTlVMTDsKCXU4ICpzYWRkciA9IE5VTEw7Cgl1MTYgZXRoX3R5cGUg
+PSAwOwoJYm9vbCBleGlzdHMgPSBmYWxzZTsKCWludCByZXQgPSAwLCBlcnI7CgoJaWYgKG5s
+YSA9PSBOVUxMKQoJCXJldHVybiAtRUlOVkFMOwoKCWVyciA9IG5sYV9wYXJzZV9uZXN0ZWQo
+dGIsIFRDQV9TS0JNT0RfTUFYLCBubGEsIHNrYm1vZF9wb2xpY3kpOwoJaWYgKGVyciA8IDAp
+CgkJcmV0dXJuIGVycjsKCglpZiAodGJbVENBX1NLQk1PRF9QQVJNU10gPT0gTlVMTCkKCQly
+ZXR1cm4gLUVJTlZBTDsKCglpZiAodGJbVENBX1NLQk1PRF9ETUFDXSkgewoJCWRhZGRyID0g
+bmxhX2RhdGEodGJbVENBX1NLQk1PRF9ETUFDXSk7CgkJbGZsYWdzIHw9IFNLQk1PRF9GX0RN
+QUM7Cgl9CgoJaWYgKHRiW1RDQV9TS0JNT0RfU01BQ10pIHsKCQlzYWRkciA9IG5sYV9kYXRh
+KHRiW1RDQV9TS0JNT0RfU01BQ10pOwoJCWxmbGFncyB8PSBTS0JNT0RfRl9TTUFDOwoJfQoK
+CWlmICh0YltUQ0FfU0tCTU9EX0VUWVBFXSkgewoJCWV0aF90eXBlID0gbmxhX2dldF91MTYo
+dGJbVENBX1NLQk1PRF9FVFlQRV0pOwoJCWxmbGFncyB8PSBTS0JNT0RfRl9FVFlQRTsKCX0K
+CglwYXJtID0gbmxhX2RhdGEodGJbVENBX1NLQk1PRF9QQVJNU10pOwoKCWlmIChwYXJtLT5m
+bGFncyAmIFNLQk1PRF9GX1NXQVBNQUMpCgkJbGZsYWdzID0gU0tCTU9EX0ZfU1dBUE1BQzsK
+CglleGlzdHMgPSB0Y2ZfaGFzaF9jaGVjayh0biwgcGFybS0+aW5kZXgsIGEsIGJpbmQpOwoJ
+aWYgKGV4aXN0cyAmJiBiaW5kKQoJCXJldHVybiAwOwoKCWlmICghbGZsYWdzKSB7CgkJcmV0
+dXJuIC1FSU5WQUw7Cgl9CgoJaWYgKCFleGlzdHMpIHsKCQlyZXQgPSB0Y2ZfaGFzaF9jcmVh
+dGUodG4sIHBhcm0tPmluZGV4LCBlc3QsIGEsCgkJCQkgICAgICAmYWN0X3NrYm1vZF9vcHMs
+IGJpbmQsIGZhbHNlKTsKCQlpZiAocmV0KQoJCQlyZXR1cm4gcmV0OwoKCQlkID0gdG9fc2ti
+bW9kKCphKTsKCQlyZXQgPSBBQ1RfUF9DUkVBVEVEOwoJfSBlbHNlIHsKCQlkID0gdG9fc2ti
+bW9kKCphKTsKCQl0Y2ZfaGFzaF9yZWxlYXNlKCphLCBiaW5kKTsKCQlpZiAoIW92cikKCQkJ
+cmV0dXJuIC1FRVhJU1Q7Cgl9CgoJQVNTRVJUX1JUTkwoKTsKCXAgPSBremFsbG9jKHNpemVv
+ZihzdHJ1Y3QgdGNmX3NrYm1vZF9wYXJhbXMpLCBHRlBfS0VSTkVMKTsKCWlmICh1bmxpa2Vs
+eSAoIXApKSB7CgkJaWYgKG92cikKCQkJdGNmX2hhc2hfcmVsZWFzZSgqYSwgYmluZCk7CgkJ
+cmV0dXJuIC1FTk9NRU07Cgl9CgoJcC0+ZmxhZ3MgPSBsZmxhZ3M7CglkLT50Y2ZfYWN0aW9u
+ID0gcGFybS0+YWN0aW9uOwoKCXBfb2xkID0gcnRubF9kZXJlZmVyZW5jZShkLT5za2Jtb2Rf
+cCk7CgoJaWYgKG92cikKCQlzcGluX2xvY2tfYmgoJmQtPnRjZl9sb2NrKTsKCglpZiAobGZs
+YWdzICYgU0tCTU9EX0ZfRE1BQykKCQlldGhlcl9hZGRyX2NvcHkocC0+ZXRoX2RzdCwgZGFk
+ZHIpOwoJaWYgKGxmbGFncyAmIFNLQk1PRF9GX1NNQUMpCgkJZXRoZXJfYWRkcl9jb3B5KHAt
+PmV0aF9zcmMsIHNhZGRyKTsKCWlmIChsZmxhZ3MgJiBTS0JNT0RfRl9FVFlQRSkKCQlwLT5l
+dGhfdHlwZSA9IGh0b25zKGV0aF90eXBlKTsKCglyY3VfYXNzaWduX3BvaW50ZXIoZC0+c2ti
+bW9kX3AsIHApOwoJaWYgKG92cikgewoJCXNwaW5fdW5sb2NrX2JoKCZkLT50Y2ZfbG9jayk7
+CgkJc3luY2hyb25pemVfcmN1KCk7Cgl9CgoJa2ZyZWUocF9vbGQpOwoKCWlmIChyZXQgPT0g
+QUNUX1BfQ1JFQVRFRCkKCQl0Y2ZfaGFzaF9pbnNlcnQodG4sICphKTsKCXJldHVybiByZXQ7
+Cn0KCg==
+--------------AC9D4CD643126F3B74CF589E--
