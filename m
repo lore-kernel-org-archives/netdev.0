@@ -1,43 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 net-next 1/1] net_sched: Introduce skbmod action
-Date: Tue, 30 Aug 2016 05:44:49 -0700
-Message-ID: <1472561089.14381.296.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1472386756-23085-1-git-send-email-jhs@emojatatu.com>
-         <1472400467.14381.252.camel@edumazet-glaptop3.roam.corp.google.com>
-         <b075631d-92cc-d016-3786-aaacb3d5c13a@mojatatu.com>
-         <b117fac2-c73f-2d42-3843-52f9717224d9@mojatatu.com>
-         <1472494817.14381.267.camel@edumazet-glaptop3.roam.corp.google.com>
-         <2a6e36a6-f128-ba9d-4d69-90ff5383fb75@mojatatu.com>
-         <68852282-b009-7b5b-6887-1630935b1913@mojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, daniel@iogearbox.net,
-        xiyou.wangcong@gmail.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:33186 "EHLO
-        mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757333AbcH3Mow (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2016 08:44:52 -0400
-Received: by mail-pa0-f49.google.com with SMTP id cy9so7467442pac.0
-        for <netdev@vger.kernel.org>; Tue, 30 Aug 2016 05:44:51 -0700 (PDT)
-In-Reply-To: <68852282-b009-7b5b-6887-1630935b1913@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nikolay Aleksandrov via Bridge <bridge@lists.linux-foundation.org>
+Subject: [PATCH net-next 0/2] net: bridge: add per-port unknown
+	multicast flood control
+Date: Tue, 30 Aug 2016 15:08:57 +0200
+Message-ID: <1472562539-23247-1-git-send-email-nikolay@cumulusnetworks.com>
+Reply-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	roopa@cumulusnetworks.com, bridge@lists.linux-foundation.org,
+	davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-08-30 at 07:57 -0400, Jamal Hadi Salim wrote:
->         if (flags & SKBMOD_F_SWAPMAC) {
->                 u8 tmpaddr[ETH_ALEN];
->                 /*XXX: I am sure we can come up with something more efficient */
->                 ether_addr_copy(tmpaddr, eth_hdr(skb)->h_dest);
->                 ether_addr_copy(eth_hdr(skb)->h_dest, eth_hdr(skb)->h_source);
->                 ether_addr_copy(eth_hdr(skb)->h_source, tmpaddr);
->         }
+Hi,
+The first patch prepares the forwarding path by having the exact packet
+type passed down so we can later filter based on it and the per-port
+unknown mcast flood flag introduced in the second patch. It is similar to
+how the per-port unknown unicast flood flag works.
+Nice side-effects of patch 01 are the slight reduction of tests in the
+fast-path and a few minor checkpatch fixes.
 
-While ether_addr_copy() is accepting u8 pointers, data must be aligned to u16 at least.
+Thanks,
+ Nik
 
-(See comments in include/linux/etherdevice.h)
+Nikolay Aleksandrov (2):
+  net: bridge: change unicast boolean to exact pkt_type
+  net: bridge: add per-port multicast flood flag
 
-Some arches/compilers might do things here that would generate a trap
-if tmpaddr is not aligned.
+ include/linux/if_bridge.h    |  3 ++-
+ include/uapi/linux/if_link.h |  1 +
+ net/bridge/br_device.c       |  8 ++++----
+ net/bridge/br_forward.c      |  7 +++++--
+ net/bridge/br_if.c           |  2 +-
+ net/bridge/br_input.c        | 40 +++++++++++++++++++++++++---------------
+ net/bridge/br_netlink.c      | 12 +++++++++---
+ net/bridge/br_private.h      |  7 ++++++-
+ net/bridge/br_sysfs_if.c     |  1 +
+ 9 files changed, 54 insertions(+), 27 deletions(-)
+
+-- 
+2.1.4
