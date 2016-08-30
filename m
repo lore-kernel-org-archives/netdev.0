@@ -1,61 +1,70 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [RFCv2 07/16] bpf: enable non-core use of the verfier
-Date: Tue, 30 Aug 2016 13:48:27 -0700
-Message-ID: <20160830204826.GA71063@ast-mbp.thefacebook.com>
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: [RFCv2 16/16] nfp: bpf: add offload of TC direct action mode
+Date: Tue, 30 Aug 2016 22:50:54 +0200
+Message-ID: <20160830225054.453e207b@laptop>
 References: <1472234775-29453-1-git-send-email-jakub.kicinski@netronome.com>
- <1472234775-29453-8-git-send-email-jakub.kicinski@netronome.com>
- <20160826232904.GA28873@ast-mbp.thefacebook.com>
- <20160827124004.43728202@jkicinski-Precision-T1700>
- <20160827173250.GA38477@ast-mbp>
- <57C4976C.4010501@iogearbox.net>
- <57C49846.1080608@iogearbox.net>
- <20160830124854.76e5a1c3@laptop>
- <57C5D986.2000402@iogearbox.net>
- <20160830222246.29e3f3cc@laptop>
+        <1472234775-29453-17-git-send-email-jakub.kicinski@netronome.com>
+        <57C4A48F.6080403@iogearbox.net>
+        <20160830125252.011f08d3@laptop>
+        <57C5E642.2070600@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jakub Kicinski <jakub.kicinski@netronome.com>,
         netdev@vger.kernel.org, ast@kernel.org,
         dinan.gunawardena@netronome.com, jiri@resnulli.us,
         john.fastabend@gmail.com
-To: Jakub Kicinski <kubakici@wp.pl>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:36543 "EHLO
-        mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751202AbcH3Usb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2016 16:48:31 -0400
-Received: by mail-pa0-f44.google.com with SMTP id fu3so3069705pad.3
-        for <netdev@vger.kernel.org>; Tue, 30 Aug 2016 13:48:30 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160830222246.29e3f3cc@laptop>
+Received: from mx3.wp.pl ([212.77.101.9]:14495 "EHLO mx3.wp.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750846AbcH3Uu7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 30 Aug 2016 16:50:59 -0400
+In-Reply-To: <57C5E642.2070600@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 30, 2016 at 10:22:46PM +0200, Jakub Kicinski wrote:
-> On Tue, 30 Aug 2016 21:07:50 +0200, Daniel Borkmann wrote:
-> > > Having two modes seems more straight forward and I think we would only
-> > > need to pay attention in the LD_IMM64 case, I don't think I've seen
-> > > LLVM generating XORs, it's just the cBPF -> eBPF conversion.  
-> > 
-> > Okay, though, I think that the cBPF to eBPF migration wouldn't even
-> > pass through the bpf_parse() handling, since verifier is not aware on
-> > some of their aspects such as emitting calls directly (w/o *proto) or
-> > arg mappings. Probably make sense to reject these (bpf_prog_was_classic())
-> > if they cannot be handled anyway?
+On Tue, 30 Aug 2016 22:02:10 +0200, Daniel Borkmann wrote:
+> On 08/30/2016 12:52 PM, Jakub Kicinski wrote:
+> > On Mon, 29 Aug 2016 23:09:35 +0200, Daniel Borkmann wrote:  
+>  [...]  
+> >>
+> >> In da mode, RECLASSIFY is not supported, so this one could be scratched.
+> >> For the OK and UNSPEC part, couldn't both be treated the same (as in: OK /
+> >> pass to stack roughly equivalent as in sch_handle_ingress())? Or is the
+> >> issue that you cannot populate skb->tc_index when passing to stack (maybe
+> >> just fine to leave it at 0 for now)?  
+> >
+> > The comment is a bit confus(ed|ing).  The problem is:
+> >
+> > tc filter add <filter1> skip_sw
+> > tc filter add <filter2> skip_hw
+> >
+> > If packet appears in the stack - was it because of OK or UNSPEC (or
+> > RECLASSIFY) in filter1?  Do we need to run filter2 or not?  Passing
+> > tc_index can be implemented the same way I do mark today.  
 > 
-> TBH again I only use cBPF for testing.  It's a convenient way of
-> generating certain instruction sequences.  I can probably just drop
-> it completely but the XOR patch is just 3 lines of code so not a huge
-> cost either...  I'll keep patch 6 in my tree for now.  
+> Okay, I see, thanks for explaining. So, if passing tc_index (or any other
+> meta data) can be implemented the same way as we do with mark already,
+> could we store such verdict, say, in some unused skb->tc_verd bits (the
+> skb->tc_index could be filled by the program already) and pass that up the
+> stack to differentiate between them? There should be no prior user before
+> ingress, so that patch 4 could become something like:
+> 
+>    if (tc_skip_sw(prog->gen_flags)) {
+>       filter_res = tc_map_hw_verd_to_act(skb);
+>    } else if (at_ingress) {
+>       ...
+>    } ...
 
-if xor matching is only need for classic, I would drop that patch
-just to avoid unnecessary state collection. The number of lines
-is not a concern, but extra state for state prunning is.
+This looks promising!
 
-> Alternatively - is there any eBPF assembler out there?  Something
-> converting verifier output back into ELF would be quite cool.
+> And I assume it wouldn't make any sense anyway to have a skip_sw filter
+> being chained /after/ some skip_hw and the like, right?
 
-would certainly be nice. I don't think there is anything standalone.
-btw llvm can be made to work as assembler only, but simple flex/bison
-is probably better.
+Right.  I think it should be enforced by TC core or at least some shared
+code similar to tc_flags_valid() to reject offload attempts of filters
+which are not first in line from the wire.  Right now AFAICT enabling
+transparent offload with ethtool may result in things going down to HW
+completely out of order and user doesn't even have to specify the
+skip_* flags...
