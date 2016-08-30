@@ -1,91 +1,175 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [RFCv2 07/16] bpf: enable non-core use of the verfier
-Date: Tue, 30 Aug 2016 21:07:50 +0200
-Message-ID: <57C5D986.2000402@iogearbox.net>
-References: <1472234775-29453-1-git-send-email-jakub.kicinski@netronome.com>        <1472234775-29453-8-git-send-email-jakub.kicinski@netronome.com>        <20160826232904.GA28873@ast-mbp.thefacebook.com>        <20160827124004.43728202@jkicinski-Precision-T1700>        <20160827173250.GA38477@ast-mbp>        <57C4976C.4010501@iogearbox.net>        <57C49846.1080608@iogearbox.net> <20160830124854.76e5a1c3@laptop>
+From: Stephen Boyd <sboyd@codeaurora.org>
+Subject: Re: [PATCH v3 4/5] net: stmmac: add a glue driver for the Amlogic
+ Meson 8b / GXBB DWMAC
+Date: Tue, 30 Aug 2016 12:19:06 -0700
+Message-ID: <20160830191906.GD12510@codeaurora.org>
+References: <20160820093538.9707-1-martin.blumenstingl@googlemail.com>
+ <20160828161637.9941-1-martin.blumenstingl@googlemail.com>
+ <20160828161637.9941-5-martin.blumenstingl@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>,
-        netdev@vger.kernel.org, ast@kernel.org,
-        dinan.gunawardena@netronome.com, jiri@resnulli.us,
-        john.fastabend@gmail.com
-To: Jakub Kicinski <kubakici@wp.pl>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-amlogic@lists.infradead.org, khilman@baylibre.com,
+        carlo@caione.org, mturquette@baylibre.com, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com, robh+dt@kernel.org, mark.rutland@arm.com,
+        catalin.marinas@arm.com, will.deacon@arm.com,
+        netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, manabian@gmail.com,
+        arnd@arndb.de
+To: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:33136 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750846AbcH3THz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2016 15:07:55 -0400
-In-Reply-To: <20160830124854.76e5a1c3@laptop>
+Received: from smtp.codeaurora.org ([198.145.29.96]:58846 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750846AbcH3TTI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2016 15:19:08 -0400
+Content-Disposition: inline
+In-Reply-To: <20160828161637.9941-5-martin.blumenstingl@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/30/2016 12:48 PM, Jakub Kicinski wrote:
-> On Mon, 29 Aug 2016 22:17:10 +0200, Daniel Borkmann wrote:
->> On 08/29/2016 10:13 PM, Daniel Borkmann wrote:
->>> On 08/27/2016 07:32 PM, Alexei Starovoitov wrote:
->>>> On Sat, Aug 27, 2016 at 12:40:04PM +0100, Jakub Kicinski wrote:
->>>> probably array_of_insn_aux_data[num_insns] should do it.
->>>> Unlike reg_state that is forked on branches, this array
->>>> is only one.
->>>
->>> This would be for struct nfp_insn_meta, right? So, struct
->>> bpf_ext_parser_ops could become:
->>>
->>> static const struct bpf_ext_parser_ops nfp_bpf_pops = {
->>>       .insn_hook = nfp_verify_insn,
->>>       .insn_size = sizeof(struct nfp_insn_meta),
->>> };
->>>
->>> ... where bpf_parse() would prealloc that f.e. in env->insn_meta[].
->
-> Hm.. this is tempting, I will have to store the pointer type in
-> nfp_insn_meta soon, anyway.
->
->> (Well, actually everything can live in env->private_data.)
->
-> We are discussing changing the place verifier keep its pointer type
-> annotation, I don't think we could put that in the private_data.
->
->>> Agree, was also my concern when I read patch 5 and 6. It would
->>> not only be related to types, but also different imm values,
->>> where the memcmp() could fail on. Potentially the latter can be
->>> avoided by only checking types which should be sufficient. Hmm,
->>> maybe only bpf_parse() should go through this stricter mode since
->>> only relevant for drivers (otoh downside would be that bugs
->>> would end up less likely to be found).
->
-> I don't want only checking types because it would defeat my exit code
-> validation :)  I was thinking about doing a lazy evaluation -
-> registering branches to explored_states with UNKNOWN and only upgrading
-> to CONST when someone actually needed the imm value.  I'm not sure the
-> complexity would be justified, though.
->
-> Having two modes seems more straight forward and I think we would only
-> need to pay attention in the LD_IMM64 case, I don't think I've seen
-> LLVM generating XORs, it's just the cBPF -> eBPF conversion.
+On 08/28, Martin Blumenstingl wrote:
+> +static int meson8b_init_clk(struct meson8b_dwmac *dwmac)
+> +{
+> +	struct clk_init_data init;
+> +	int i, ret;
+> +	struct device *dev = &dwmac->pdev->dev;
+> +	char clk_name[32];
+> +	const char *clk_div_parents[1];
+> +	const char *mux_parent_names[MUX_CLK_NUM_PARENTS];
+> +	static struct clk_div_table clk_25m_div_table[] = {
+> +		{ .val = 0, .div = 5 },
+> +		{ .val = 1, .div = 10 },
+> +		{ /* sentinel */ },
+> +	};
+> +
+> +	/* get the mux parents from DT */
+> +	for (i = 0; i < MUX_CLK_NUM_PARENTS; i++) {
+> +		char name[16];
+> +
+> +		snprintf(name, sizeof(name), "clkin%d", i);
+> +		dwmac->m250_mux_parent[i] = devm_clk_get(dev, name);
+> +		if (IS_ERR(dwmac->m250_mux_parent[i])) {
+> +			ret = PTR_ERR(dwmac->m250_mux_parent[i]);
+> +			if (ret != -EPROBE_DEFER)
+> +				dev_err(dev, "Missing clock %s\n", name);
+> +			return ret;
+> +		}
+> +
+> +		mux_parent_names[i] =
+> +			__clk_get_name(dwmac->m250_mux_parent[i]);
+> +	}
+> +
+> +	/* create the m250_mux */
+> +	snprintf(clk_name, sizeof(clk_name), "%s#m250_sel", dev_name(dev));
+> +	init.name = clk_name;
+> +	init.ops = &clk_mux_ops;
+> +	init.flags = CLK_IS_BASIC;
 
-Okay, though, I think that the cBPF to eBPF migration wouldn't even
-pass through the bpf_parse() handling, since verifier is not aware on
-some of their aspects such as emitting calls directly (w/o *proto) or
-arg mappings. Probably make sense to reject these (bpf_prog_was_classic())
-if they cannot be handled anyway?
+Please don't use this flag unless you need it.
 
->>>> I see. Indeed then you'd need the verifier to walk all paths
->>>> to make sure constant return values.
->>>
->>> I think this would still not cover the cases where you'd fetch
->>> a return value/verdict from a map, but this should be ignored/
->>> rejected for now, also since majority of programs are not written
->>> in such a way.
->>>
->>>> If you only need yes/no check then such info can probably be
->>>> collected unconditionally during initial program load.
->>>> Like prog->cb_access flag.
->>>
->>> One other comment wrt the header, when you move these things
->>> there, would be good to prefix with bpf_* so that this doesn't
->>> clash in future with other header files.
->
-> Good point!
+> +	init.parent_names = mux_parent_names;
+> +	init.num_parents = MUX_CLK_NUM_PARENTS;
+> +
+> +	dwmac->m250_mux.reg = dwmac->regs + PRG_ETH0;
+> +	dwmac->m250_mux.shift = PRG_ETH0_CLK_M250_SEL_SHIFT;
+> +	dwmac->m250_mux.mask = PRG_ETH0_CLK_M250_SEL_MASK;
+> +	dwmac->m250_mux.flags = 0;
+> +	dwmac->m250_mux.table = NULL;
+> +	dwmac->m250_mux.hw.init = &init;
+> +
+> +	dwmac->m250_mux_clk = devm_clk_register(dev, &dwmac->m250_mux.hw);
+> +	if (WARN_ON(PTR_ERR_OR_ZERO(dwmac->m250_mux_clk)))
+
+Why not if(WARN_ON(IS_ERR())? The OR_ZERO part seems confusing.
+
+> +		return PTR_ERR(dwmac->m250_mux_clk);
+> +
+> +	/* create the m250_div */
+> +	snprintf(clk_name, sizeof(clk_name), "%s#m250_div", dev_name(dev));
+> +	init.name = devm_kstrdup(dev, clk_name, GFP_KERNEL);
+> +	init.ops = &clk_divider_ops;
+> +	init.flags = CLK_IS_BASIC | CLK_SET_RATE_PARENT;
+> +	clk_div_parents[0] = __clk_get_name(dwmac->m250_mux_clk);
+> +	init.parent_names = clk_div_parents;
+> +	init.num_parents = ARRAY_SIZE(clk_div_parents);
+> +
+> +	dwmac->m250_div.reg = dwmac->regs + PRG_ETH0;
+> +	dwmac->m250_div.shift = PRG_ETH0_CLK_M250_DIV_SHIFT;
+> +	dwmac->m250_div.width = PRG_ETH0_CLK_M250_DIV_WIDTH;
+> +	dwmac->m250_div.hw.init = &init;
+> +	dwmac->m250_div.flags = CLK_DIVIDER_ONE_BASED | CLK_DIVIDER_ALLOW_ZERO;
+> +
+> +	dwmac->m250_div_clk = devm_clk_register(dev, &dwmac->m250_div.hw);
+
+We've been trying to move away from devm_clk_register() to
+devm_clk_hw_register() so that clk providers aren't also clk
+consumers. Obviously in this case this driver is a provider and a
+consumer, so this isn't as important. Kevin did something similar
+in the mmc driver, so I'll reiterate what I said on that patch.
+Perhaps we should make __clk_create_clk() into a real clk
+provider API so that we can use devm_clk_hw_register() here and
+then generate a clk for this device. That would allow us to have
+proper consumer tracking without relying on the clk that is
+returned from clk_register() (the intent is to make that clk
+instance internal to the framework).
+
+> +	if (WARN_ON(PTR_ERR_OR_ZERO(dwmac->m250_div_clk)))
+> +		return PTR_ERR(dwmac->m250_div_clk);
+> +
+> +	/* create the m25_div */
+> +	snprintf(clk_name, sizeof(clk_name), "%s#m25_div", dev_name(dev));
+> +	init.name = devm_kstrdup(dev, clk_name, GFP_KERNEL);
+> +	init.ops = &clk_divider_ops;
+> +	init.flags = CLK_IS_BASIC | CLK_SET_RATE_PARENT;
+> +	clk_div_parents[0] = __clk_get_name(dwmac->m250_div_clk);
+> +	init.parent_names = clk_div_parents;
+> +	init.num_parents = ARRAY_SIZE(clk_div_parents);
+> +
+> +	dwmac->m25_div.reg = dwmac->regs + PRG_ETH0;
+> +	dwmac->m25_div.shift = PRG_ETH0_CLK_M25_DIV_SHIFT;
+> +	dwmac->m25_div.width = PRG_ETH0_CLK_M25_DIV_WIDTH;
+> +	dwmac->m25_div.table = clk_25m_div_table;
+> +	dwmac->m25_div.hw.init = &init;
+> +	dwmac->m25_div.flags = CLK_DIVIDER_ALLOW_ZERO;
+> +
+> +	dwmac->m25_div_clk = devm_clk_register(dev, &dwmac->m25_div.hw);
+> +	if (WARN_ON(PTR_ERR_OR_ZERO(dwmac->m25_div_clk)))
+> +		return PTR_ERR(dwmac->m25_div_clk);
+> +
+> +	return 0;
+
+This could be return WARN_ON(PTR_ERR_OR_ZERO(...))
+
+> +
+> +static int meson8b_dwmac_probe(struct platform_device *pdev)
+> +{
+> +	struct plat_stmmacenet_data *plat_dat;
+> +	struct stmmac_resources stmmac_res;
+> +	struct resource *res;
+> +	struct meson8b_dwmac *dwmac;
+> +	int ret;
+> +
+> +	ret = stmmac_get_platform_resources(pdev, &stmmac_res);
+> +	if (ret)
+> +		return ret;
+> +
+> +	plat_dat = stmmac_probe_config_dt(pdev, &stmmac_res.mac);
+> +	if (IS_ERR(plat_dat))
+> +		return PTR_ERR(plat_dat);
+> +
+> +	dwmac = devm_kzalloc(&pdev->dev, sizeof(*dwmac), GFP_KERNEL);
+> +	if (!dwmac)
+> +		return -ENOMEM;
+> +
+> +	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+> +	if (!res)
+> +		return -ENODEV;
+> +
+
+You can drop the above two lines and just call
+devm_ioremap_resource().
+
+> +	dwmac->regs = devm_ioremap_resource(&pdev->dev, res);
+
+-- 
+Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum,
+a Linux Foundation Collaborative Project
