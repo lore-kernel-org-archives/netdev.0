@@ -1,32 +1,50 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH next] tcp: fastopen: fix rcv_wup initialization for TFO
- server on SYN/data
-Date: Tue, 30 Aug 2016 11:59:48 -0400
-Message-ID: <CADVnQykJvLxLQ+OG_GQh0E-BgGzLBPt4ch4UnpaQpU7cOrUm0w@mail.gmail.com>
-References: <1472572523-10449-1-git-send-email-ncardwell@google.com>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: [RFC v2 00/10] Landlock LSM: Unprivileged sandboxing
+Date: Tue, 30 Aug 2016 09:06:30 -0700
+Message-ID: <CALCETrWw6fTTugSFcBhW=fv09GrSXQ+vZxuG0ewb+cod8nq4MQ@mail.gmail.com>
+References: <1472121165-29071-1-git-send-email-mic@digikod.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-        Neal Cardwell <ncardwell@google.com>,
-        Yuchung Cheng <ycheng@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Soheil Hassas Yeganeh <soheil@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f51.google.com ([209.85.218.51]:35226 "EHLO
-        mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754557AbcH3QAU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2016 12:00:20 -0400
-Received: by mail-oi0-f51.google.com with SMTP id j203so32158956oih.2
-        for <netdev@vger.kernel.org>; Tue, 30 Aug 2016 09:00:20 -0700 (PDT)
-In-Reply-To: <1472572523-10449-1-git-send-email-ncardwell@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Arnd Bergmann <arnd@arndb.de>,
+        Casey Schaufler <casey@schaufler-ca.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Daniel Mack <daniel@zonque.org>,
+        David Drysdale <drysdale@google.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Elena Reshetova <elena.reshetova@intel.com>,
+        James Morris <james.l.morris@oracle.com>,
+        Kees Cook <keescook@chromium.org>,
+        Paul Moore <pmoore@redhat.com>,
+        Sargun Dhillon <sargun@sargun.me>,
+        "Serge E . Hallyn" <serge@hallyn.com>,
+        Will Drewry <wad@chromium.org>,
+        "kernel-hardening@lists.openwall.com"
+        <kernel-hardening@lists.openwall.com>,
+        Linux API <linux-api@vger.kernel.org>,
+        LSM List <linux-security-module@vger.kernel.org>,
+To: =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic@digikod.net>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <1472121165-29071-1-git-send-email-mic@digikod.net>
+Sender: owner-linux-security-module@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sorry, there's a typo in the subject line: that should be "net" rather
-than "next" (I'm proposing "net" since it's a bug fix).
+On Thu, Aug 25, 2016 at 3:32 AM, Micka=C3=ABl Sala=C3=BCn <mic@digikod.net>=
+ wrote:
+> Hi,
+>
+> This series is a proof of concept to fill some missing part of seccomp as=
+ the
+> ability to check syscall argument pointers or creating more dynamic secur=
+ity
+> policies. The goal of this new stackable Linux Security Module (LSM) call=
+ed
+> Landlock is to allow any process, including unprivileged ones, to create
+> powerful security sandboxes comparable to the Seatbelt/XNU Sandbox or the
+> OpenBSD Pledge. This kind of sandbox help to mitigate the security impact=
+ of
+> bugs or unexpected/malicious behaviors in userland applications.
 
-Looks like "git am" strips this mistake, but I'm happy to resubmit if it helps.
-
-thanks,
-neal
+Micka=C3=ABl, will you be at KS and/or LPC?
