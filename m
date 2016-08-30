@@ -1,50 +1,61 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [RFC v2 00/10] Landlock LSM: Unprivileged sandboxing
-Date: Tue, 30 Aug 2016 09:06:30 -0700
-Message-ID: <CALCETrWw6fTTugSFcBhW=fv09GrSXQ+vZxuG0ewb+cod8nq4MQ@mail.gmail.com>
-References: <1472121165-29071-1-git-send-email-mic@digikod.net>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [PATCH v4] brcmfmac: add missing header dependencies
+Date: Tue, 30 Aug 2016 19:08:33 +0300
+Message-ID: <87twe244u6.fsf@kamboji.qca.qualcomm.com>
+References: <1472474375-29910-1-git-send-email-baoyou.xie@linaro.org>
+        <CACna6rytnp7WsrdscwPOTvi=FajAtoF2V2ZKx34RUdjEOiZO1w@mail.gmail.com>
+        <CA+DQWkxpoScXLNhScNpwmLnaMhgVHoGLrH72dAm7OiOX2nW2vA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Arnd Bergmann <arnd@arndb.de>,
-        Casey Schaufler <casey@schaufler-ca.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Daniel Mack <daniel@zonque.org>,
-        David Drysdale <drysdale@google.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Elena Reshetova <elena.reshetova@intel.com>,
-        James Morris <james.l.morris@oracle.com>,
-        Kees Cook <keescook@chromium.org>,
-        Paul Moore <pmoore@redhat.com>,
-        Sargun Dhillon <sargun@sargun.me>,
-        "Serge E . Hallyn" <serge@hallyn.com>,
-        Will Drewry <wad@chromium.org>,
-        "kernel-hardening@lists.openwall.com"
-        <kernel-hardening@lists.openwall.com>,
-        Linux API <linux-api@vger.kernel.org>,
-        LSM List <linux-security-module@vger.kernel.org>,
-To: =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic@digikod.net>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1472121165-29071-1-git-send-email-mic@digikod.net>
-Sender: owner-linux-security-module@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: =?utf-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Arend Van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Franky Lin <franky.lin-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Hante Meuleman <hante.meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        "linux-wireless\@vger.kernel.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "open list\:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
+        <brcm80211-dev-list.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, xie.baoyou-Th6q7B73Y6EnDS1+zs4M5A@public.gmane.org
+To: Baoyou Xie <baoyou.xie-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CA+DQWkxpoScXLNhScNpwmLnaMhgVHoGLrH72dAm7OiOX2nW2vA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+        (Baoyou Xie's message of "Tue, 30 Aug 2016 19:15:35 +0800")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 25, 2016 at 3:32 AM, Micka=C3=ABl Sala=C3=BCn <mic@digikod.net>=
- wrote:
-> Hi,
->
-> This series is a proof of concept to fill some missing part of seccomp as=
- the
-> ability to check syscall argument pointers or creating more dynamic secur=
-ity
-> policies. The goal of this new stackable Linux Security Module (LSM) call=
-ed
-> Landlock is to allow any process, including unprivileged ones, to create
-> powerful security sandboxes comparable to the Seatbelt/XNU Sandbox or the
-> OpenBSD Pledge. This kind of sandbox help to mitigate the security impact=
- of
-> bugs or unexpected/malicious behaviors in userland applications.
+Baoyou Xie <baoyou.xie-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org> writes:
 
-Micka=C3=ABl, will you be at KS and/or LPC?
+> On 29 August 2016 at 23:31, Rafał Miłecki <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>
+>     On 29 August 2016 at 14:39, Baoyou Xie <baoyou.xie-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org> wrote:
+>     > We get 1 warning when build kernel with W=1:
+>     > drivers/net/wireless/broadcom/brcm80211/brcmfmac/tracepoint.c:23:6:
+>     warning: no previous prototype for '__brcmf_err' [-Wmissing-prototypes]
+>
+>     building? I'm not native English, but I think so.
+>    
+>
+>     > In fact, this function is declared in brcmfmac/debug.h, so this patch
+>     > add missing header dependencies.
+>
+>     adds
+>    
+>
+>     > Signed-off-by: Baoyou Xie <baoyou.xie-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+>     > Acked-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+>
+>     Please don't resend patches just to add tags like that. This only
+>     increases a noise and patchwork handles this just fine, see:
+>     https://patchwork.kernel.org/patch/9303285/
+>     https://patchwork.kernel.org/patch/9303285/mbox/
+>
+>
+> Do I need to resend a patch that fixes two typos(build/add)? or you modify them
+> on your way?
+
+I can fix those when I commit the patch.
+
+-- 
+Kalle Valo
