@@ -1,24 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] rxrpc: fix undefined behavior in
- rxrpc_mark_call_released
-Date: Wed, 31 Aug 2016 13:52:36 -0700 (PDT)
-Message-ID: <20160831.135236.388797465315190888.davem@davemloft.net>
-References: <20160831123911.3467676-2-arnd@arndb.de>
-        <20160831123911.3467676-1-arnd@arndb.de>
-        <32608.1472675146@warthog.procyon.org.uk>
+Subject: Re: [PATCH] ipv6: Don't unset flowi6_proto in ipxip6_tnl_xmit()
+Date: Wed, 31 Aug 2016 13:56:03 -0700 (PDT)
+Message-ID: <20160831.135603.430800022553448126.davem@davemloft.net>
+References: <20160826155229.8040-1-elicooper@gmx.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: arnd@arndb.de, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: dhowells@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <32608.1472675146@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, tom@herbertland.com
+To: elicooper@gmx.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48298 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1761072AbcHaU4I (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 16:56:08 -0400
+In-Reply-To: <20160826155229.8040-1-elicooper@gmx.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Howells <dhowells@redhat.com>
-Date: Wed, 31 Aug 2016 21:25:46 +0100
+From: Eli Cooper <elicooper@gmx.com>
+Date: Fri, 26 Aug 2016 23:52:29 +0800
 
-> Is there a 1/2 somewhere?  I don't see it.
+> @@ -1174,6 +1174,7 @@ ip4ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
+>  		encap_limit = t->parms.encap_limit;
+>  
+>  	memcpy(&fl6, &t->fl.u.ip6, sizeof(fl6));
+> +	fl6.flowi6_proto = IPPROTO_IPIP;
 
-It was an NFSv4 patch.
+Let's just simply have t->fl have the proto setup properly, just like
+in GRE.
+
+Assigning it explicitly every packet transmit doesn't make much sense.
