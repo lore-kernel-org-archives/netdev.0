@@ -1,56 +1,36 @@
-From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-Subject: [PATCH] mwifiex: scan: Simplify code
-Date: Wed, 31 Aug 2016 13:50:59 +0200
-Message-ID: <1472644259-15605-1-git-send-email-christophe.jaillet@wanadoo.fr>
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-        Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-To: akarwar@marvell.com, nishants@marvell.com, kvalo@codeaurora.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp07.smtpout.orange.fr ([80.12.242.129]:45302 "EHLO
-        smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933248AbcHaLwV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 07:52:21 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 3/5] rxrpc: fix last_call processing
+Date: Wed, 31 Aug 2016 13:53:09 +0200
+Message-ID: <5882481.rHsi0mzMry@wuerfel>
+References: <20160826152546.604384-4-arnd@arndb.de> <20160826152546.604384-1-arnd@arndb.de> <13158.1472373737@warthog.procyon.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-kernel@vger.kernel.org,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: David Howells <dhowells@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <13158.1472373737@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch:
-   - improves code layout
-   - removes a useless memset(0) for some memory allocated with kzalloc
-   - removes a useless if. We know that 'if (chan_band_tlv)' will succeed
-     because it has been tested a few lines above
+On Sunday, August 28, 2016 9:42:17 AM CEST David Howells wrote:
+> This is fixed by:
+> 
+>         commit 2266ffdef5737fdfa96005204fc5606dbd559956
+>         subject: rxrpc: Fix conn-based retransmit
+> 
+> which is in net-next.
 
-Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
----
- drivers/net/wireless/marvell/mwifiex/scan.c | 12 ++++--------
- 1 file changed, 4 insertions(+), 8 deletions(-)
+I've merged net-next into the last linux-next release now for
+testing (no linux-next this week) and can confirm that your
+fix is correct. However, I got a new (valid) warning after
+your f5c17aaeb2ae ("rxrpc: Calls should only have one terminal
+state"), and another (false-positive) one for another patch
+in net-next.
 
-diff --git a/drivers/net/wireless/marvell/mwifiex/scan.c b/drivers/net/wireless/marvell/mwifiex/scan.c
-index 21ec84794d0c..c29dd958acae 100644
---- a/drivers/net/wireless/marvell/mwifiex/scan.c
-+++ b/drivers/net/wireless/marvell/mwifiex/scan.c
-@@ -2179,18 +2179,14 @@ int mwifiex_ret_802_11_scan(struct mwifiex_private *priv,
- 
- 		if (chan_band_tlv && adapter->nd_info) {
- 			adapter->nd_info->matches[idx] =
--				kzalloc(sizeof(*pmatch) +
--				sizeof(u32), GFP_ATOMIC);
-+				kzalloc(sizeof(*pmatch) + sizeof(u32),
-+					GFP_ATOMIC);
- 
- 			pmatch = adapter->nd_info->matches[idx];
- 
- 			if (pmatch) {
--				memset(pmatch, 0, sizeof(*pmatch));
--				if (chan_band_tlv) {
--					pmatch->n_channels = 1;
--					pmatch->channels[0] =
--						chan_band->chan_number;
--				}
-+				pmatch->n_channels = 1;
-+				pmatch->channels[0] = chan_band->chan_number;
- 			}
- 		}
- 
--- 
-2.7.4
+I'll follow up with the fixes, both of which are rather
+straightforward.
+
+	Arnd
