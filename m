@@ -1,94 +1,74 @@
-From: Jeremy Linton <jeremy.linton@arm.com>
-Subject: Re: [PATCH 2/3 v2] net: smsc911x: request and deassert optional RESET
- GPIO
-Date: Wed, 31 Aug 2016 10:08:48 -0500
-Message-ID: <722bf13c-ebce-2a33-a5b7-c654c515ac3c@arm.com>
-References: <1472043582-7653-1-git-send-email-linus.walleij@linaro.org>
- <1472043582-7653-2-git-send-email-linus.walleij@linaro.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] mwifiex: scan: Simplify code
+Date: Wed, 31 Aug 2016 08:09:10 -0700
+Message-ID: <1472656150.4176.7.camel@perches.com>
+References: <1472644259-15605-1-git-send-email-christophe.jaillet@wanadoo.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Guenter Roeck <linux@roeck-us.net>,
-        Kamlakant Patel <kamlakant.patel@broadcom.com>,
-        Pavel Fedin <p.fedin@samsung.com>
-To: Linus Walleij <linus.walleij@linaro.org>, netdev@vger.kernel.org,
-        "David S . Miller" <davem@davemloft.net>,
-        Steve Glendinning <steve.glendinning@smsc.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:35134 "EHLO foss.arm.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S935178AbcHaPIu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 31 Aug 2016 11:08:50 -0400
-In-Reply-To: <1472043582-7653-2-git-send-email-linus.walleij@linaro.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Christophe JAILLET <christophe.jaillet@wanadoo.fr>,
+        akarwar@marvell.com, nishants@marvell.com, kvalo@codeaurora.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1472644259-15605-1-git-send-email-christophe.jaillet@wanadoo.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Linus,
+On Wed, 2016-08-31 at 13:50 +0200, Christophe JAILLET wrote:
+> This patch:
+>    - improves code layout
+>    - removes a useless memset(0) for some memory allocated with kzalloc
+>    - removes a useless if. We know that 'if (chan_band_tlv)' will succeed
+>      because it has been tested a few lines above
 
-On 08/24/2016 07:59 AM, Linus Walleij wrote:
-> On some systems (such as the Qualcomm APQ8060 Dragonboard) the
-> RESET signal of the SMSC911x is not pulled up by a resistor but
-> connected to a GPIO line, so that the operating system must
-> explicitly deassert RESET before use.
->
-> Support this in the SMSC911x driver so this ethernet connector
-> can be used on such targets.
+True, the code above it is also confusing as it's
 
-Hmm, at least in our hardware case AFAIK (juno/lan9118) the hardware 
-reset line on the lan9118 is active low, but the chip itself is 
-documented as having internal pullups so that it may be left unconnected.
+#ifdef CONFIG_PM
+	if (priv->wdev.wiphy->wowlan_config)
+		nd_config = priv->wdev.wiphy->wowlan_config->nd_config;
+#endif
 
-Which microchip/smsc chip are we talking about? because it seems that 
-you probably want the GPIO pin to be in any state (hi-Z, or just high) 
-besides the one you selected here.
+	if (nd_config) {
+		adapter->nd_info =
+			kzalloc(sizeof(struct cfg80211_wowlan_nd_match) +
+				sizeof(struct cfg80211_wowlan_nd_match *) *
+				scan_rsp->number_of_sets, GFP_ATOMIC);
 
-Beyond that, is it not possible for the firmware to get the reset pin in 
-the correct configuration, so that linux doesn't have to mess with it?
+		if (adapter->nd_info)
+			adapter->nd_info->n_matches = scan_rsp->number_of_sets;
+	}
+where nd_config is a pointer already initialized to NULL
+so the #endif seems misplaced.
 
+> diff --git a/drivers/net/wireless/marvell/mwifiex/scan.c b/drivers/net/wireless/marvell/mwifiex/scan.c
+[]
+> @@ -2179,18 +2179,14 @@ int mwifiex_ret_802_11_scan(struct mwifiex_private *priv,
 
+>  
+>  		if (chan_band_tlv && adapter->nd_info) {
+>  			adapter->nd_info->matches[idx] =
+> -				kzalloc(sizeof(*pmatch) +
+> -				sizeof(u32), GFP_ATOMIC);
+> +				kzalloc(sizeof(*pmatch) + sizeof(u32),
+> +					GFP_ATOMIC);
+>  
+>  			pmatch = adapter->nd_info->matches[idx];
+>  
+>  			if (pmatch) {
+> -				memset(pmatch, 0, sizeof(*pmatch));
+> -				if (chan_band_tlv) {
+> -					pmatch->n_channels = 1;
+> -					pmatch->channels[0] =
+> -						chan_band->chan_number;
+> -				}
+> +				pmatch->n_channels = 1;
+> +				pmatch->channels[0] = chan_band->chan_number;
+>  			}
+>  		}
 
->
-> Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
-> ---
-> ChangeLog v1->v2:
-> - Use devm_gpiod_request_optiona() and request the line with
->   GPIOD_OUT_LOW so it is deasserted immediately if active.
-> ---
->  drivers/net/ethernet/smsc/smsc911x.c | 9 +++++++++
->  1 file changed, 9 insertions(+)
->
-> diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-> index ca3134540d2d..8ab8d4b9614b 100644
-> --- a/drivers/net/ethernet/smsc/smsc911x.c
-> +++ b/drivers/net/ethernet/smsc/smsc911x.c
-> @@ -62,6 +62,7 @@
->  #include <linux/acpi.h>
->  #include <linux/pm_runtime.h>
->  #include <linux/property.h>
-> +#include <linux/gpio/consumer.h>
->
->  #include "smsc911x.h"
->
-> @@ -147,6 +148,9 @@ struct smsc911x_data {
->  	/* regulators */
->  	struct regulator_bulk_data supplies[SMSC911X_NUM_SUPPLIES];
->
-> +	/* Reset GPIO */
-> +	struct gpio_desc *reset_gpiod;
-> +
->  	/* clock */
->  	struct clk *clk;
->  };
-> @@ -438,6 +442,11 @@ static int smsc911x_request_resources(struct platform_device *pdev)
->  		netdev_err(ndev, "couldn't get regulators %d\n",
->  				ret);
->
-> +	/* Request optional RESET GPIO */
-> +	pdata->reset_gpiod = devm_gpiod_get_optional(&pdev->dev,
-> +						     "reset",
-> +						     GPIOD_OUT_LOW);
-> +
->  	/* Request clock */
->  	pdata->clk = clk_get(&pdev->dev, NULL);
->  	if (IS_ERR(pdata->clk))
->
+Maybe it'd be better to move the pmatch declaration to this block
+and alloc to pmatch then assign adapter->nd_info->matches[idx]
+later.
+
+I think the #ifdef CONFIG_PM use in this routine is incomplete.
