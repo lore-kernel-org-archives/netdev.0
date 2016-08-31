@@ -1,63 +1,45 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: [PATCH 1/2] NFSv4.1: work around -Wmaybe-uninitialized warning
-Date: Wed, 31 Aug 2016 14:39:01 +0200
-Message-ID: <20160831123911.3467676-1-arnd@arndb.de>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-        linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-        Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH 2/2] rxrpc: fix undefined behavior in rxrpc_mark_call_released
+Date: Wed, 31 Aug 2016 14:39:02 +0200
+Message-ID: <20160831123911.3467676-2-arnd@arndb.de>
+References: <20160831123911.3467676-1-arnd@arndb.de>
+Cc: netdev@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>,
+        linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+        David Howells <dhowells@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160831123911.3467676-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-A bugfix introduced a harmless gcc warning in nfs4_slot_seqid_in_use:
+gcc -Wmaybe-initialized correctly points out a newly introduced bug
+through which we can end up calling rxrpc_queue_call() for a dead
+connection:
 
-fs/nfs/nfs4session.c:203:54: error: 'cur_seq' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+net/rxrpc/call_object.c: In function 'rxrpc_mark_call_released':
+net/rxrpc/call_object.c:600:5: error: 'sched' may be used uninitialized in this function [-Werror=maybe-uninitialized]
 
-gcc is not smart enough to conclude that the IS_ERR/PTR_ERR pair
-results in a nonzero return value here. Using PTR_ERR_OR_ZERO()
-instead makes this clear to the compiler.
+This sets the 'sched' variable to zero to restore the previous
+behavior.
 
-Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Fixes: e09c978aae5b ("NFSv4.1: Fix Oopsable condition in server callback races")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: f5c17aaeb2ae ("rxrpc: Calls should only have one terminal state")
 ---
- fs/nfs/nfs4session.c | 10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
+ net/rxrpc/call_object.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-The patch that caused this just came in for v4.8-rc5. As the warning
-is now disabled by default and this is harmless, this can probably
-get queued for v4.9 instead.
-
-I mentioned earlier that I got the new warning for net-next, but
-failed to notice that it had come from mainline instead.
-
-diff --git a/fs/nfs/nfs4session.c b/fs/nfs/nfs4session.c
-index b62973045a3e..150c5a1879bf 100644
---- a/fs/nfs/nfs4session.c
-+++ b/fs/nfs/nfs4session.c
-@@ -178,12 +178,14 @@ static int nfs4_slot_get_seqid(struct nfs4_slot_table  *tbl, u32 slotid,
- 	__must_hold(&tbl->slot_tbl_lock)
- {
- 	struct nfs4_slot *slot;
-+	int ret;
- 
- 	slot = nfs4_lookup_slot(tbl, slotid);
--	if (IS_ERR(slot))
--		return PTR_ERR(slot);
--	*seq_nr = slot->seq_nr;
--	return 0;
-+	ret = PTR_ERR_OR_ZERO(slot);
-+	if (!ret)
-+		*seq_nr = slot->seq_nr;
-+
-+	return ret;
- }
- 
- /*
+diff --git a/net/rxrpc/call_object.c b/net/rxrpc/call_object.c
+index 104ee8b1de06..2daec1eaec6f 100644
+--- a/net/rxrpc/call_object.c
++++ b/net/rxrpc/call_object.c
+@@ -595,6 +595,8 @@ static void rxrpc_mark_call_released(struct rxrpc_call *call)
+ 		sched = __rxrpc_abort_call(call, RX_CALL_DEAD, ECONNRESET);
+ 		if (!test_and_set_bit(RXRPC_CALL_EV_RELEASE, &call->events))
+ 			sched = true;
++	} else {
++		sched = 0;
+ 	}
+ 	write_unlock(&call->state_lock);
+ 	if (sched)
 -- 
 2.9.0
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
