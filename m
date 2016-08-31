@@ -1,109 +1,94 @@
-From: Marc Zyngier <marc.zyngier@arm.com>
-Subject: Re: [Patch v3 03/11] irqchip: axi-intc: Add support for parent intc
-Date: Wed, 31 Aug 2016 17:57:21 +0100
-Message-ID: <57C70C71.3060603@arm.com>
-References: <1472661352-11983-1-git-send-email-Zubair.Kakakhel@imgtec.com>
- <1472661352-11983-4-git-send-email-Zubair.Kakakhel@imgtec.com>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [RT PATCH 2/2] net: add a lock around icmp_sk()
+Date: Wed, 31 Aug 2016 13:03:46 -0400
+Message-ID: <20160831130346.7c60c24b@gandalf.local.home>
+References: <20160831160049.14303-1-bigeasy@linutronix.de>
+        <20160831160049.14303-2-bigeasy@linutronix.de>
+        <1472661463.14381.327.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: soren.brinkmann@xilinx.com, linux-kernel@vger.kernel.org,
-        linux-mips@linux-mips.org, michal.simek@xilinx.com,
-        netdev@vger.kernel.org
-To: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>,
-        monstr@monstr.eu, ralf@linux-mips.org, tglx@linutronix.de,
-        jason@lakedaemon.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1472661352-11983-4-git-send-email-Zubair.Kakakhel@imgtec.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
+        linux-rt-users@vger.kernel.org, linux-kernel@vger.kernel.org,
+        tglx@linutronix.de, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-rt-users-owner@vger.kernel.org>
+In-Reply-To: <1472661463.14381.327.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-rt-users-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 31/08/16 17:35, Zubair Lutfullah Kakakhel wrote:
-> The MIPS based xilfpga platform has the following IRQ structure
+On Wed, 31 Aug 2016 09:37:43 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+
+> On Wed, 2016-08-31 at 18:00 +0200, Sebastian Andrzej Siewior wrote:
+> > It looks like the this_cpu_ptr() access in icmp_sk() is protected with
+> > local_bh_disable(). To avoid missing serialization in -RT I am adding
+> > here a local lock. No crash has been observed, this is just precaution.
+> >   
 > 
-> Peripherals --> xilinx_intcontroller -> mips_cpu_int controller
 > 
-> Add support for the driver to chain the irq handler
+> Hmm...
 > 
-> Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
+> > Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+> > ---
+> >  net/ipv4/icmp.c | 8 ++++++++
+> >  1 file changed, 8 insertions(+)
+> > 
+> > diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+> > index c1f1d5030d37..63731fd6af3e 100644
+> > --- a/net/ipv4/icmp.c
+> > +++ b/net/ipv4/icmp.c
+> > @@ -78,6 +78,7 @@
+> >  #include <linux/string.h>
+> >  #include <linux/netfilter_ipv4.h>
+> >  #include <linux/slab.h>
+> > +#include <linux/locallock.h>
+> >  #include <net/snmp.h>
+> >  #include <net/ip.h>
+> >  #include <net/route.h>
+> > @@ -205,6 +206,8 @@ static const struct icmp_control icmp_pointers[NR_ICMP_TYPES+1];
+> >   *
+> >   *	On SMP we have one ICMP socket per-cpu.
+> >   */
+> > +static DEFINE_LOCAL_IRQ_LOCK(icmp_sk_lock);
+> > +
+> >  static struct sock *icmp_sk(struct net *net)
+> >  {
+> >  	return *this_cpu_ptr(net->ipv4.icmp_sk);
+> > @@ -216,12 +219,14 @@ static inline struct sock *icmp_xmit_lock(struct net *net)
+> >  
+> >  	local_bh_disable();
+> >  
+> > +	local_lock(icmp_sk_lock);  
 > 
-> ---
-> V2 -> V3
-> Reused existing parent node instead of finding again.
-> Cleanup up handler based on review
+> Deadlock alert ?
+> Please read the comment few lines after, explaining why we have to use
+> spin_trylock().
+> Or maybe I should double check what is local_lock() in RT
+
+And I don't know exactly what the deadlock scenario of the comment
+below is. Is it racing with a softirq somehow?
+
+Note, in RT softirqs can schedule out, and are preemptable. But I don't
+know enough about this code to know if that is enough to not have a
+deadlock here.
+
+-- Steve
+
+
 > 
-> V1 -> V2
+> >  	sk = icmp_sk(net);
+> >  
+> >  	if (unlikely(!spin_trylock(&sk->sk_lock.slock))) {  
 > 
-> No change
-> ---
->  drivers/irqchip/irq-axi-intc.c | 24 +++++++++++++++++++++++-
->  1 file changed, 23 insertions(+), 1 deletion(-)
+> ...
+> >  		/* This can happen if the output path signals a
+> >  		 * dst_link_failure() for an outgoing ICMP packet.
+> >  		 */  
 > 
-> diff --git a/drivers/irqchip/irq-axi-intc.c b/drivers/irqchip/irq-axi-intc.c
-> index cb69241..30bb084 100644
-> --- a/drivers/irqchip/irq-axi-intc.c
-> +++ b/drivers/irqchip/irq-axi-intc.c
-> @@ -15,6 +15,7 @@
->  #include <linux/of_address.h>
->  #include <linux/io.h>
->  #include <linux/bug.h>
-> +#include <linux/of_irq.h>
->  
->  /* No one else should require these constants, so define them locally here. */
->  #define ISR 0x00			/* Interrupt Status Register */
-> @@ -154,11 +155,23 @@ static const struct irq_domain_ops xintc_irq_domain_ops = {
->  	.map = xintc_map,
->  };
->  
-> +static void xil_intc_irq_handler(struct irq_desc *desc)
-> +{
-> +	u32 pending;
-> +
-> +	do {
-> +		pending = get_irq();
-> +		if (pending == -1U)
-> +			break;
-> +		generic_handle_irq(pending);
-> +	} while (true);
-> +}
-> +
->  static int __init xilinx_intc_of_init(struct device_node *intc,
->  					     struct device_node *parent)
->  {
->  	u32 nr_irq;
-> -	int ret;
-> +	int ret, irq;
->  	struct xintc_irq_chip *irqc;
->  
->  	irqc = kzalloc(sizeof(*irqc), GFP_KERNEL);
-> @@ -211,6 +224,15 @@ static int __init xilinx_intc_of_init(struct device_node *intc,
->  	root_domain = irq_domain_add_linear(intc, nr_irq, &xintc_irq_domain_ops,
->  					    irqc);
->  
-> +	if (parent) {
-> +		irq = irq_of_parse_and_map(intc, 0);
-> +		if (irq)
-> +			irq_set_chained_handler_and_data(irq,
-> +							 xil_intc_irq_handler,
-> +							 root_domain);
-> +
-> +	}
-> +
->  	irq_set_default_host(root_domain);
->  
->  	return 0;
+> 
+> > +		local_unlock(icmp_sk_lock);
+> >  		local_bh_enable();
+> >  		return NULL;  
 > 
 
-This doesn't seem right. You've now overridden the xintc_irqc pointer,
-so I don't know how you can still process interrupts once you've
-discovered a secondary interrupt controller. You've also allocated a
-second root_domain, changed the default domain to point to the secondary
-controller...
-
-Have you tested this code? Or am I missing something obvious?
-
-Thanks,
-
-	M.
--- 
-Jazz is not dead. It just smells funny...
