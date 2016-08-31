@@ -1,59 +1,31 @@
-From: Trond Myklebust <trondmy-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
-Subject: Re: [PATCH 1/2] NFSv4.1: work around -Wmaybe-uninitialized warning
-Date: Wed, 31 Aug 2016 15:02:42 +0000
-Message-ID: <DC57A918-AB14-483B-87EF-A88469193855@primarydata.com>
-References: <20160831123911.3467676-1-arnd@arndb.de>
- <9F99A562-A4F6-457A-A78F-44BAC3B5734F@primarydata.com>
- <5024842.0SZmq2hZxe@wuerfel>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 1/3] net: dsa: add MDB support
+Date: Wed, 31 Aug 2016 17:03:17 +0200
+Message-ID: <20160831150317.GG15078@lunn.ch>
+References: <20160829203246.18811-1-vivien.didelot@savoirfairelinux.com>
+ <20160829203246.18811-2-vivien.didelot@savoirfairelinux.com>
+ <20160831132534.GA15078@lunn.ch>
+ <87vayhvx0m.fsf@ketchup.mtl.sfl>
+ <20160831143315.GD15078@lunn.ch>
+ <871t157zqg.fsf@ketchup.mtl.sfl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: Schumaker Anna <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-        "List Linux Network Devel Mailing" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        List Linux NFS Mailing <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        List Linux Kernel Mailing <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5024842.0SZmq2hZxe@wuerfel>
-Content-Language: en-US
-Content-ID: <44CB5F5F4C784A4E880F8B2AD6A793FA-Hry67jCOGbCcE4WynfumptQqCkab/8FMAL8bYrjMMd8@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <871t157zqg.fsf@ketchup.mtl.sfl>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-DQo+IE9uIEF1ZyAzMSwgMjAxNiwgYXQgMDk6MzcsIEFybmQgQmVyZ21hbm4gPGFybmRAYXJuZGIu
-ZGU+IHdyb3RlOg0KPiANCj4gT24gV2VkbmVzZGF5LCBBdWd1c3QgMzEsIDIwMTYgMToxNzo0OCBQ
-TSBDRVNUIFRyb25kIE15a2xlYnVzdCB3cm90ZToNCj4+IFdoYXQgdmVyc2lvbiBvZiBnY2MgYXJl
-IHlvdSB1c2luZz8gSeKAmW0gdW5hYmxlIHRvIHJlcHJvZHVjZSB3aXRoIGdjYyA2LjEuMS4uDQo+
-IA0KPiBUaGlzIGlzIGFsc28gb24gNi4xLjEgZm9yIEFSTS4gTm90ZSB0aGF0IDZlOGQ2NjZlOTI1
-MyAoIkRpc2FibGUNCj4gIm1heWJlLXVuaW5pdGlhbGl6ZWQiIHdhcm5pbmcgZ2xvYmFsbHkiKSB0
-dXJuZWQgb2ZmIHRob3NlIHdhcm5pbmdzLCBzbw0KPiB1bmxlc3MgeW91IGV4cGxpY2l0bHkgcGFz
-cyAtV21heWJlLXVuaW5pdGlhbGl6ZWQgKGUuZy4gYnkgYnVpbGRpbmcgd2l0aA0KPiAibWFrZSBX
-PTEiKSwgeW91IHdvbid0IGdldCBpdC4NCj4gDQoNCknigJltIG5vdCBnZXR0aW5nIHRoYXQgZXJy
-b3Igb24gZ2NjIDYuMS4xIGZvciB4ODZfNjQgd2l0aCBlaXRoZXIg4oCcbWFrZSBXPTHigJ0gb3Ig
-4oCcbWFrZSBXPTLigJ0uDQrigJxtYWtlIFc9M+KAnSBkb2VzIGdpdmVzIHJpc2UgdG8gb25lIHdh
-cm5pbmcgaW4gbmZzNF9zbG90X2dldF9zZXFpZDoNCg0KL2hvbWUvdHJvbmRteS9kZXZlbC9rZXJu
-ZWwvbGludXgvZnMvbmZzL25mczRzZXNzaW9uLmM6IEluIGZ1bmN0aW9uIOKAmG5mczRfc2xvdF9n
-ZXRfc2VxaWTigJk6DQovaG9tZS90cm9uZG15L2RldmVsL2tlcm5lbC9saW51eC9mcy9uZnMvbmZz
-NHNlc3Npb24uYzoxODQ6MTA6IHdhcm5pbmc6IGNvbnZlcnNpb24gdG8g4oCYaW504oCZIGZyb20g
-4oCYbG9uZyBpbnTigJkgbWF5IGFsdGVyIGl0cyB2YWx1ZSBbLVdjb252ZXJzaW9uXQ0KICAgcmV0
-dXJuIFBUUl9FUlIoc2xvdCk7DQogICAgICAgICAgXn5+fn5+fn5+fn5+fg0KDQood2hpY2ggaXMg
-YW5vdGhlciBmYWxzZSBwb3NpdGl2ZSkgYnV0IHRoYXTigJlzIGFsbC4uLg0KDQo+IFRoZSByZWFz
-b24gSSdtIHN0aWxsIHNlbmRpbmcgdGhlIHBhdGNoZXMgZm9yIHRoaXMgd2FybmluZyBpcyB0aGF0
-DQo+IHdlIGRvIGdldCBhIG51bWJlciBvZiB2YWxpZCBvbmVzICh0aGlzIHdhcyB0aGUgb25seSBm
-YWxzZSBwb3NpdGl2ZQ0KPiBvdXQgb2YgdGhlIHNldmVuIHN1Y2ggd2FybmluZ3Mgc2luY2UgbGFz
-dCB3ZWVrKS4NCg0KVGhlcmUgaXMgYSBaZW4tbGlrZSBxdWFsaXR5IHRvIElTX0VSUigpIHdoZW4g
-aXQgY2FzdHMgYSBjb25zdCBwb2ludGVyIHRvIGFuIHVuc2lnbmVkIGxvbmcsIGJhY2sgdG8gYSBu
-b24tY29uc3QgcG9pbnRlciwgYW5kIHRoZW4gYmFjayB0byBhbiB1bnNpZ25lZCBsb25nIGJlZm9y
-ZSBjb21wYXJpbmcgaXQgdG8gYW5vdGhlciB1bnNpZ25lZCBsb25nIGNhc3QgY29uc3RhbnQgbmVn
-YXRpdmUgaW50ZWdlci4gSG93ZXZlciwgSeKAmW0gbm90IHN1cmUgdGhlIEM5OSBzdGFuZGFyZCB3
-b3VsZCBhZ3JlZSB0aGF0IGEgcG9zaXRpdmUgdGVzdCByZXN1bHQgaW1wbGllcyB3ZSBjYW4gYXNz
-dW1lIHRoYXQgYSBzaW1wbGUgY2FzdCBvZiB0aGUgc2FtZSBwb2ludGVyIHRvIGEgc2lnbmVkIGxv
-bmcgd2lsbCByZXN1bHQgaW4gYSBuZWdhdGl2ZSwgbm9uLXplcm8gdmFsdWVkIGVycm5vLg0KDQpJ
-IHN1c3BlY3QgdGhhdCBpZiB3ZSByZWFsbHkgd2FudCB0byBmaXggdGhlc2UgZmFsc2UgbmVnYXRp
-dmVzLCB3ZSBzaG91bGQgcHJvYmFibHkgYWRkcmVzcyB0aGF0IGlzc3VlLg0KDQpDaGVlcnMNCiAg
-VHJvbmQ=
+> What should we do if the bridge code consider a multicast group as L3?
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Hi Vivien
+
+Just drop the word 'group' from the Documentation. And there appears
+to be one comment in the code which should be changed.
+
+   Andrew
