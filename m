@@ -1,34 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: batch calls to flush_all_backlogs()
-Date: Tue, 30 Aug 2016 22:17:50 -0700 (PDT)
-Message-ID: <20160830.221750.1612733409807577594.davem@davemloft.net>
-References: <1472241039.14381.202.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH net-next v4 0/3] net: mpls: fragmentation and gso fixes
+ for locally originated traffic
+Date: Tue, 30 Aug 2016 22:27:41 -0700 (PDT)
+Message-ID: <20160830.222741.1708672778295152441.davem@davemloft.net>
+References: <1472094645-11452-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pabeni@redhat.com,
-        hannes@stressinduktion.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, buytenh@wantstofly.org,
+        simon.horman@netronome.com, ebiederm@xmission.com,
+        rshearma@brocade.com, tom@herbertland.com, tgraf@suug.ch,
+        olivier.dugeon@orange.com, alexander.duyck@gmail.com,
+        roopa@cumulusnetworks.com
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37824 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:37860 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750708AbcHaFRw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 01:17:52 -0400
-In-Reply-To: <1472241039.14381.202.camel@edumazet-glaptop3.roam.corp.google.com>
+        with ESMTP id S1750708AbcHaF1o (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 01:27:44 -0400
+In-Reply-To: <1472094645-11452-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 26 Aug 2016 12:50:39 -0700
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Wed, 24 Aug 2016 20:10:42 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
+> This series fixes mtu and fragmentation for tunnels using lwtunnel
+> output redirect, and fixes GSO for MPLS for locally originated traffic
+> reported by Lennert Buytenhek.
 > 
-> After commit 145dd5f9c88f ("net: flush the softnet backlog in process
-> context"), we can easily batch calls to flush_all_backlogs() for all
-> devices processed in rollback_registered_many()
+> A follow on series will address fragmentation and GSO for forwarded
+> MPLS traffic. Hardware offload of GSO with MPLS also needs to be
+> addressed.
 > 
-> Tested:
- ...
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Simon: Can you verify this works with OVS for single and multiple
+>        labels?
 
-Applied, thanks.
+Series applied, thanks.
