@@ -1,67 +1,43 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 6/6] net: systemport: constify ethtool_ops structures
-Date: Wed, 31 Aug 2016 10:08:54 -0700
-Message-ID: <6ed26afb-c052-aa00-4ab1-6777d5644809@gmail.com>
-References: <1472628648-3603-1-git-send-email-Julia.Lawall@lip6.fr>
- <1472628648-3603-7-git-send-email-Julia.Lawall@lip6.fr>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [RFC 2/9] ipv6: sr: add code base for control plane support of
+ SR-IPv6
+Date: Wed, 31 Aug 2016 10:10:28 -0700
+Message-ID: <20160831101028.7ea13fb4@xeon-e3>
+References: <1472226767-9904-1-git-send-email-david.lebrun@uclouvain.be>
+        <1472226767-9904-3-git-send-email-david.lebrun@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Julia Lawall <Julia.Lawall@lip6.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1472628648-3603-7-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: David Lebrun <david.lebrun@uclouvain.be>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:33230 "EHLO
+        mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934320AbcHaRKU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 13:10:20 -0400
+Received: by mail-pa0-f49.google.com with SMTP id cy9so20507694pac.0
+        for <netdev@vger.kernel.org>; Wed, 31 Aug 2016 10:10:19 -0700 (PDT)
+In-Reply-To: <1472226767-9904-3-git-send-email-david.lebrun@uclouvain.be>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/31/2016 12:30 AM, Julia Lawall wrote:
-> Check for ethtool_ops structures that are only stored in the ethtool_ops
-> field of a net_device structure or passed as the second argument to
-> netdev_set_default_ethtool_ops.  These contexts are declared const, so
-> ethtool_ops structures that have these properties can be declared as const
-> also.
-> 
-> The semantic patch that makes this change is as follows:
-> (http://coccinelle.lip6.fr/)
-> 
-> // <smpl>
-> @r disable optional_qualifier@
-> identifier i;
-> position p;
-> @@
-> static struct ethtool_ops i@p = { ... };
-> 
-> @ok1@
-> identifier r.i;
-> struct net_device e;
-> position p;
-> @@
-> e.ethtool_ops = &i@p;
-> 
-> @ok2@
-> identifier r.i;
-> expression e;
-> position p;
-> @@
-> netdev_set_default_ethtool_ops(e, &i@p)
-> 
-> @bad@
-> position p != {r.p,ok1.p,ok2.p};
-> identifier r.i;
-> @@
-> i@p
-> 
-> @depends on !bad disable optional_qualifier@
-> identifier r.i;
-> @@
-> static
-> +const
->  struct ethtool_ops i = { ... };
-> // </smpl>
-> 
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+On Fri, 26 Aug 2016 17:52:40 +0200
+David Lebrun <david.lebrun@uclouvain.be> wrote:
 
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
--- 
-Florian
+> +
+> +static inline struct seg6_pernet_data *seg6_pernet(struct net *net)
+> +{
+> +	return net->ipv6.seg6_data;
+> +}
+> +
+> +static inline void seg6_pernet_lock(struct net *net)
+> +{
+> +	spin_lock(&seg6_pernet(net)->lock);
+> +}
+> +
+> +static inline void seg6_pernet_unlock(struct net *net)
+> +{
+> +	spin_unlock(&seg6_pernet(net)->lock);
+> +}
+
+Since these are for control operations why a mutex?
