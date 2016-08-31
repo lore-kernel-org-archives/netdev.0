@@ -1,94 +1,67 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [RT PATCH 2/2] net: add a lock around icmp_sk()
-Date: Wed, 31 Aug 2016 13:03:46 -0400
-Message-ID: <20160831130346.7c60c24b@gandalf.local.home>
-References: <20160831160049.14303-1-bigeasy@linutronix.de>
-        <20160831160049.14303-2-bigeasy@linutronix.de>
-        <1472661463.14381.327.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 3/6] net: bcmgenet: constify ethtool_ops structures
+Date: Wed, 31 Aug 2016 10:08:44 -0700
+Message-ID: <c1bac795-eb18-c508-1ea1-ba199efcdf04@gmail.com>
+References: <1472628648-3603-1-git-send-email-Julia.Lawall@lip6.fr>
+ <1472628648-3603-4-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
-        linux-rt-users@vger.kernel.org, linux-kernel@vger.kernel.org,
-        tglx@linutronix.de, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-rt-users-owner@vger.kernel.org>
-In-Reply-To: <1472661463.14381.327.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-rt-users-owner@vger.kernel.org
+Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Julia Lawall <Julia.Lawall@lip6.fr>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1472628648-3603-4-git-send-email-Julia.Lawall@lip6.fr>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 31 Aug 2016 09:37:43 -0700
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On 08/31/2016 12:30 AM, Julia Lawall wrote:
+> Check for ethtool_ops structures that are only stored in the ethtool_ops
+> field of a net_device structure or passed as the second argument to
+> netdev_set_default_ethtool_ops.  These contexts are declared const, so
+> ethtool_ops structures that have these properties can be declared as const
+> also.
+> 
+> The semantic patch that makes this change is as follows:
+> (http://coccinelle.lip6.fr/)
+> 
+> // <smpl>
+> @r disable optional_qualifier@
+> identifier i;
+> position p;
+> @@
+> static struct ethtool_ops i@p = { ... };
+> 
+> @ok1@
+> identifier r.i;
+> struct net_device e;
+> position p;
+> @@
+> e.ethtool_ops = &i@p;
+> 
+> @ok2@
+> identifier r.i;
+> expression e;
+> position p;
+> @@
+> netdev_set_default_ethtool_ops(e, &i@p)
+> 
+> @bad@
+> position p != {r.p,ok1.p,ok2.p};
+> identifier r.i;
+> @@
+> i@p
+> 
+> @depends on !bad disable optional_qualifier@
+> identifier r.i;
+> @@
+> static
+> +const
+>  struct ethtool_ops i = { ... };
+> // </smpl>
+> 
+> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
-> On Wed, 2016-08-31 at 18:00 +0200, Sebastian Andrzej Siewior wrote:
-> > It looks like the this_cpu_ptr() access in icmp_sk() is protected with
-> > local_bh_disable(). To avoid missing serialization in -RT I am adding
-> > here a local lock. No crash has been observed, this is just precaution.
-> >   
-> 
-> 
-> Hmm...
-> 
-> > Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-> > ---
-> >  net/ipv4/icmp.c | 8 ++++++++
-> >  1 file changed, 8 insertions(+)
-> > 
-> > diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-> > index c1f1d5030d37..63731fd6af3e 100644
-> > --- a/net/ipv4/icmp.c
-> > +++ b/net/ipv4/icmp.c
-> > @@ -78,6 +78,7 @@
-> >  #include <linux/string.h>
-> >  #include <linux/netfilter_ipv4.h>
-> >  #include <linux/slab.h>
-> > +#include <linux/locallock.h>
-> >  #include <net/snmp.h>
-> >  #include <net/ip.h>
-> >  #include <net/route.h>
-> > @@ -205,6 +206,8 @@ static const struct icmp_control icmp_pointers[NR_ICMP_TYPES+1];
-> >   *
-> >   *	On SMP we have one ICMP socket per-cpu.
-> >   */
-> > +static DEFINE_LOCAL_IRQ_LOCK(icmp_sk_lock);
-> > +
-> >  static struct sock *icmp_sk(struct net *net)
-> >  {
-> >  	return *this_cpu_ptr(net->ipv4.icmp_sk);
-> > @@ -216,12 +219,14 @@ static inline struct sock *icmp_xmit_lock(struct net *net)
-> >  
-> >  	local_bh_disable();
-> >  
-> > +	local_lock(icmp_sk_lock);  
-> 
-> Deadlock alert ?
-> Please read the comment few lines after, explaining why we have to use
-> spin_trylock().
-> Or maybe I should double check what is local_lock() in RT
-
-And I don't know exactly what the deadlock scenario of the comment
-below is. Is it racing with a softirq somehow?
-
-Note, in RT softirqs can schedule out, and are preemptable. But I don't
-know enough about this code to know if that is enough to not have a
-deadlock here.
-
--- Steve
-
-
-> 
-> >  	sk = icmp_sk(net);
-> >  
-> >  	if (unlikely(!spin_trylock(&sk->sk_lock.slock))) {  
-> 
-> ...
-> >  		/* This can happen if the output path signals a
-> >  		 * dst_link_failure() for an outgoing ICMP packet.
-> >  		 */  
-> 
-> 
-> > +		local_unlock(icmp_sk_lock);
-> >  		local_bh_enable();
-> >  		return NULL;  
-> 
-
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+-- 
+Florian
