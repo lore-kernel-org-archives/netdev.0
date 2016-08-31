@@ -1,8 +1,7 @@
 From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH v2 net-next 2/6] bpf: introduce BPF_PROG_TYPE_PERF_EVENT program type
-Date: Wed, 31 Aug 2016 14:50:39 -0700
-Message-ID: <1472680243-1326608-3-git-send-email-ast@fb.com>
-References: <1472680243-1326608-1-git-send-email-ast@fb.com>
+Subject: [PATCH v2 net-next 0/6] perf, bpf: add support for bpf in sw/hw perf_events
+Date: Wed, 31 Aug 2016 14:50:37 -0700
+Message-ID: <1472680243-1326608-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Peter Zijlstra <peterz@infradead.org>,
@@ -13,193 +12,57 @@ Cc: Peter Zijlstra <peterz@infradead.org>,
         <linux-kernel@vger.kernel.org>, <kernel-team@fb.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1472680243-1326608-1-git-send-email-ast@fb.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Introduce BPF_PROG_TYPE_PERF_EVENT programs that can be attached to
-HW and SW perf events (PERF_TYPE_HARDWARE and PERF_TYPE_SOFTWARE
-correspondingly in uapi/linux/perf_event.h)
+Hi Peter, Dave,
 
-The program visible context meta structure is
-struct bpf_perf_event_data {
-    struct pt_regs regs;
-     __u64 sample_period;
-};
-which is accessible directly from the program:
-int bpf_prog(struct bpf_perf_event_data *ctx)
-{
-  ... ctx->sample_period ...
-  ... ctx->regs.ip ...
-}
+this patch set is a follow up to the discussion:
+https://lkml.kernel.org/r/20160804142853.GO6862%20()%20twins%20!%20programming%20!%20kicks-ass%20!%20net
+It turned out to be simpler than what we discussed.
 
-The bpf verifier rewrites the accesses into kernel internal
-struct bpf_perf_event_data_kern which allows changing
-struct perf_sample_data without affecting bpf programs.
-New fields can be added to the end of struct bpf_perf_event_data
-in the future.
+Patches 1-3 is bpf-side prep for the main patch 4
+that adds bpf program as an overflow_handler to sw and hw perf_events.
+Peter, please review.
 
-Signed-off-by: Alexei Starovoitov <ast@kernel.org>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
----
- include/linux/perf_event.h          |  5 ++++
- include/uapi/linux/Kbuild           |  1 +
- include/uapi/linux/bpf.h            |  1 +
- include/uapi/linux/bpf_perf_event.h | 18 +++++++++++
- kernel/trace/bpf_trace.c            | 60 +++++++++++++++++++++++++++++++++++++
- 5 files changed, 85 insertions(+)
+Patches 5 and 6 are examples from myself and Brendan.
+
+v1-v2: fixed issues spotted by Peter and Daniel.
+
+Thanks!
+
+Alexei Starovoitov (5):
+  bpf: support 8-byte metafield access
+  bpf: introduce BPF_PROG_TYPE_PERF_EVENT program type
+  bpf: perf_event progs should only use preallocated maps
+  perf, bpf: add perf events core support for BPF_PROG_TYPE_PERF_EVENT
+    programs
+  samples/bpf: add perf_event+bpf example
+
+Brendan Gregg (1):
+  samples/bpf: add sampleip example
+
+ include/linux/bpf.h                 |   4 +
+ include/linux/perf_event.h          |   7 ++
+ include/uapi/linux/Kbuild           |   1 +
+ include/uapi/linux/bpf.h            |   1 +
+ include/uapi/linux/bpf_perf_event.h |  18 +++
+ kernel/bpf/verifier.c               |  31 +++++-
+ kernel/events/core.c                |  85 +++++++++++++-
+ kernel/trace/bpf_trace.c            |  60 ++++++++++
+ samples/bpf/Makefile                |   8 ++
+ samples/bpf/bpf_helpers.h           |   2 +
+ samples/bpf/bpf_load.c              |   7 +-
+ samples/bpf/sampleip_kern.c         |  38 +++++++
+ samples/bpf/sampleip_user.c         | 196 +++++++++++++++++++++++++++++++++
+ samples/bpf/trace_event_kern.c      |  65 +++++++++++
+ samples/bpf/trace_event_user.c      | 213 ++++++++++++++++++++++++++++++++++++
+ 15 files changed, 730 insertions(+), 6 deletions(-)
  create mode 100644 include/uapi/linux/bpf_perf_event.h
+ create mode 100644 samples/bpf/sampleip_kern.c
+ create mode 100644 samples/bpf/sampleip_user.c
+ create mode 100644 samples/bpf/trace_event_kern.c
+ create mode 100644 samples/bpf/trace_event_user.c
 
-diff --git a/include/linux/perf_event.h b/include/linux/perf_event.h
-index 2b6b43cc0dd5..97bfe62f30d7 100644
---- a/include/linux/perf_event.h
-+++ b/include/linux/perf_event.h
-@@ -788,6 +788,11 @@ struct perf_output_handle {
- 	int				page;
- };
- 
-+struct bpf_perf_event_data_kern {
-+	struct pt_regs *regs;
-+	struct perf_sample_data *data;
-+};
-+
- #ifdef CONFIG_CGROUP_PERF
- 
- /*
-diff --git a/include/uapi/linux/Kbuild b/include/uapi/linux/Kbuild
-index 185f8ea2702f..d0352a971ebd 100644
---- a/include/uapi/linux/Kbuild
-+++ b/include/uapi/linux/Kbuild
-@@ -71,6 +71,7 @@ header-y += binfmts.h
- header-y += blkpg.h
- header-y += blktrace_api.h
- header-y += bpf_common.h
-+header-y += bpf_perf_event.h
- header-y += bpf.h
- header-y += bpqether.h
- header-y += bsg.h
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index e4c5a1baa993..f896dfac4ac0 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -95,6 +95,7 @@ enum bpf_prog_type {
- 	BPF_PROG_TYPE_SCHED_ACT,
- 	BPF_PROG_TYPE_TRACEPOINT,
- 	BPF_PROG_TYPE_XDP,
-+	BPF_PROG_TYPE_PERF_EVENT,
- };
- 
- #define BPF_PSEUDO_MAP_FD	1
-diff --git a/include/uapi/linux/bpf_perf_event.h b/include/uapi/linux/bpf_perf_event.h
-new file mode 100644
-index 000000000000..067427259820
---- /dev/null
-+++ b/include/uapi/linux/bpf_perf_event.h
-@@ -0,0 +1,18 @@
-+/* Copyright (c) 2016 Facebook
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ */
-+#ifndef _UAPI__LINUX_BPF_PERF_EVENT_H__
-+#define _UAPI__LINUX_BPF_PERF_EVENT_H__
-+
-+#include <linux/types.h>
-+#include <linux/ptrace.h>
-+
-+struct bpf_perf_event_data {
-+	struct pt_regs regs;
-+	__u64 sample_period;
-+};
-+
-+#endif /* _UAPI__LINUX_BPF_PERF_EVENT_H__ */
-diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
-index ad35213b8405..0ac414abbf68 100644
---- a/kernel/trace/bpf_trace.c
-+++ b/kernel/trace/bpf_trace.c
-@@ -1,4 +1,5 @@
- /* Copyright (c) 2011-2015 PLUMgrid, http://plumgrid.com
-+ * Copyright (c) 2016 Facebook
-  *
-  * This program is free software; you can redistribute it and/or
-  * modify it under the terms of version 2 of the GNU General Public
-@@ -8,6 +9,7 @@
- #include <linux/types.h>
- #include <linux/slab.h>
- #include <linux/bpf.h>
-+#include <linux/bpf_perf_event.h>
- #include <linux/filter.h>
- #include <linux/uaccess.h>
- #include <linux/ctype.h>
-@@ -552,10 +554,68 @@ static struct bpf_prog_type_list tracepoint_tl = {
- 	.type	= BPF_PROG_TYPE_TRACEPOINT,
- };
- 
-+static bool pe_prog_is_valid_access(int off, int size, enum bpf_access_type type,
-+				    enum bpf_reg_type *reg_type)
-+{
-+	if (off < 0 || off >= sizeof(struct bpf_perf_event_data))
-+		return false;
-+	if (type != BPF_READ)
-+		return false;
-+	if (off % size != 0)
-+		return false;
-+	if (off == offsetof(struct bpf_perf_event_data, sample_period)) {
-+		if (size != sizeof(u64))
-+			return false;
-+	} else {
-+		if (size != sizeof(long))
-+			return false;
-+	}
-+	return true;
-+}
-+
-+static u32 pe_prog_convert_ctx_access(enum bpf_access_type type, int dst_reg,
-+				      int src_reg, int ctx_off,
-+				      struct bpf_insn *insn_buf,
-+				      struct bpf_prog *prog)
-+{
-+	struct bpf_insn *insn = insn_buf;
-+
-+	BUILD_BUG_ON(FIELD_SIZEOF(struct perf_sample_data, period) != sizeof(u64));
-+	switch (ctx_off) {
-+	case offsetof(struct bpf_perf_event_data, sample_period):
-+		*insn++ = BPF_LDX_MEM(bytes_to_bpf_size(FIELD_SIZEOF(struct bpf_perf_event_data_kern, data)),
-+				      dst_reg, src_reg,
-+				      offsetof(struct bpf_perf_event_data_kern, data));
-+		*insn++ = BPF_LDX_MEM(BPF_DW, dst_reg, dst_reg,
-+				      offsetof(struct perf_sample_data, period));
-+		break;
-+	default:
-+		*insn++ = BPF_LDX_MEM(bytes_to_bpf_size(FIELD_SIZEOF(struct bpf_perf_event_data_kern, regs)),
-+				      dst_reg, src_reg,
-+				      offsetof(struct bpf_perf_event_data_kern, regs));
-+		*insn++ = BPF_LDX_MEM(bytes_to_bpf_size(sizeof(long)),
-+				      dst_reg, dst_reg, ctx_off);
-+		break;
-+	}
-+	return insn - insn_buf;
-+}
-+
-+static const struct bpf_verifier_ops perf_event_prog_ops = {
-+	.get_func_proto		= tp_prog_func_proto,
-+	.is_valid_access	= pe_prog_is_valid_access,
-+	.convert_ctx_access	= pe_prog_convert_ctx_access,
-+};
-+
-+static struct bpf_prog_type_list perf_event_tl = {
-+	.ops	= &perf_event_prog_ops,
-+	.type	= BPF_PROG_TYPE_PERF_EVENT,
-+};
-+
- static int __init register_kprobe_prog_ops(void)
- {
- 	bpf_register_prog_type(&kprobe_tl);
- 	bpf_register_prog_type(&tracepoint_tl);
-+	bpf_register_prog_type(&perf_event_tl);
- 	return 0;
- }
- late_initcall(register_kprobe_prog_ops);
 -- 
 2.8.0
