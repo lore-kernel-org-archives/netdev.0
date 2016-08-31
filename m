@@ -1,9 +1,9 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 3/6] net: bcmgenet: constify ethtool_ops structures
-Date: Wed, 31 Aug 2016 10:08:44 -0700
-Message-ID: <c1bac795-eb18-c508-1ea1-ba199efcdf04@gmail.com>
+Subject: Re: [PATCH 6/6] net: systemport: constify ethtool_ops structures
+Date: Wed, 31 Aug 2016 10:08:54 -0700
+Message-ID: <6ed26afb-c052-aa00-4ab1-6777d5644809@gmail.com>
 References: <1472628648-3603-1-git-send-email-Julia.Lawall@lip6.fr>
- <1472628648-3603-4-git-send-email-Julia.Lawall@lip6.fr>
+ <1472628648-3603-7-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
@@ -11,7 +11,7 @@ Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
 To: Julia Lawall <Julia.Lawall@lip6.fr>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1472628648-3603-4-git-send-email-Julia.Lawall@lip6.fr>
+In-Reply-To: <1472628648-3603-7-git-send-email-Julia.Lawall@lip6.fr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
