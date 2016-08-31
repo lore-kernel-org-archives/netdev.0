@@ -1,151 +1,54 @@
-From: Jeremy Linton <jeremy.linton@arm.com>
-Subject: Re: [PATCH 3/3 v2] net: smsc911x: add wake-up event interrupt support
-Date: Wed, 31 Aug 2016 10:32:20 -0500
-Message-ID: <e1d1090d-0d4d-2af5-363d-1cf2e5ea82cd@arm.com>
-References: <1472043582-7653-1-git-send-email-linus.walleij@linaro.org>
- <1472043582-7653-3-git-send-email-linus.walleij@linaro.org>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH 0/6] constify ethtool_ops structures
+Date: Wed, 31 Aug 2016 08:39:29 -0700
+Message-ID: <20160831083929.62832cea@xeon-e3>
+References: <1472628648-3603-1-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Guenter Roeck <linux@roeck-us.net>,
-        Kamlakant Patel <kamlakant.patel@broadcom.com>,
-        Pavel Fedin <p.fedin@samsung.com>,
-        Sudeep Holla <sudeep.holla@arm.com>,
-        Tony Lindgren <tony@atomide.com>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Linus Walleij <linus.walleij@linaro.org>, netdev@vger.kernel.org,
-        "David S . Miller" <davem@davemloft.net>,
-        Steve Glendinning <steve.glendinning@smsc.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:35650 "EHLO foss.arm.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933887AbcHaPcW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 31 Aug 2016 11:32:22 -0400
-In-Reply-To: <1472043582-7653-3-git-send-email-linus.walleij@linaro.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
+ kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Julia Lawall <Julia.Lawall@lip6.fr>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1472628648-3603-1-git-send-email-Julia.Lawall@lip6.fr>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Wed, 31 Aug 2016 09:30:42 +0200
+Julia Lawall <Julia.Lawall@lip6.fr> wrote:
 
-On 08/24/2016 07:59 AM, Linus Walleij wrote:
-> The SMSC911x have a line out of the chip called "PME",
-> Power Management Event. When connected to an asynchronous
-> interrupt controller this is able to wake the system up
-> from sleep in response to certain network events.
->
-> This is the first attempt to support this in the Linux
-> driver: the Qualcomm APQ8060 Dragonboard has this line
-> routed to a GPIO line on the primary SoC padring, and as
-> such it can be armed as a wakeup interrupt.
->
-> The patch is inspired by the wakeup code in the RTC
-> subsystem.
->
-> The code looks for an additional interrupt - apart from the
-> ordinary device interrupt - and in case that is present,
-> we register an interrupt handler to respons to this,
-> and flag the device and this interrupt as a wakeup.
-
-
-Having looked at a couple of the supported smsc chips, it seems they can 
-route the wakeup through the chip's interrupt as well. If you add code 
-to support this, it should work on a lot of the smsc911x devices rather 
-than just the dragonboard.
-
-
-Thanks,
-
-
-
-
->
-> Cc: Sudeep Holla <sudeep.holla@arm.com>
-> Cc: Tony Lindgren <tony@atomide.com>
-> Cc: Florian Fainelli <f.fainelli@gmail.com>
-> Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
+> Constify ethtool_ops structures.
+> 
 > ---
-> ChangeLog v1->v2:
-> - Call pm_wakeup_event() in the wakeup IRQ thread to
->   account for the wakeup event.
-> - Drop the enable/disable_irq_wake() calls from suspend/resume:
->   this is handled from the irq core when you call
->   dev_pm_set_wake_irq() as we do.
-> ---
->  drivers/net/ethernet/smsc/smsc911x.c | 42 ++++++++++++++++++++++++++++++++++++
->  1 file changed, 42 insertions(+)
->
-> diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-> index 8ab8d4b9614b..8fffc1dc2bdd 100644
-> --- a/drivers/net/ethernet/smsc/smsc911x.c
-> +++ b/drivers/net/ethernet/smsc/smsc911x.c
-> @@ -63,6 +63,7 @@
->  #include <linux/pm_runtime.h>
->  #include <linux/property.h>
->  #include <linux/gpio/consumer.h>
-> +#include <linux/pm_wakeirq.h>
->
->  #include "smsc911x.h"
->
-> @@ -151,6 +152,9 @@ struct smsc911x_data {
->  	/* Reset GPIO */
->  	struct gpio_desc *reset_gpiod;
->
-> +	/* PME interrupt */
-> +	int pme_irq;
-> +
->  	/* clock */
->  	struct clk *clk;
->  };
-> @@ -1881,6 +1885,19 @@ static irqreturn_t smsc911x_irqhandler(int irq, void *dev_id)
->  	return serviced;
->  }
->
-> +static irqreturn_t smsc911x_pme_irq_thread(int irq, void *dev_id)
-> +{
-> +	struct net_device *dev = dev_id;
-> +	struct smsc911x_data *pdata __maybe_unused = netdev_priv(dev);
-> +
-> +	SMSC_TRACE(pdata, pm, "wakeup event");
-> +	pm_wakeup_event(&dev->dev, 50);
-> +	/* This signal is active for 50 ms, wait for it to deassert */
-> +	usleep_range(50000, 100000);
-> +
-> +	return IRQ_HANDLED;
-> +}
-> +
->  #ifdef CONFIG_NET_POLL_CONTROLLER
->  static void smsc911x_poll_controller(struct net_device *dev)
->  {
-> @@ -2501,6 +2518,31 @@ static int smsc911x_drv_probe(struct platform_device *pdev)
->  		goto out_disable_resources;
->  	}
->
-> +	irq = platform_get_irq(pdev, 1);
-> +	if (irq == -EPROBE_DEFER) {
-> +		retval = -EPROBE_DEFER;
-> +		goto out_disable_resources;
-> +	/* It's perfectly fine to not have a PME IRQ */
-> +	} else if (irq > 0) {
-> +		/*
-> +		 * The Power Management Event (PME) IRQ appears as
-> +		 * a pulse waking up the system from sleep in response to  a
-> +		 * network event.
-> +		 */
-> +		retval = request_threaded_irq(irq, NULL,
-> +					      smsc911x_pme_irq_thread,
-> +					      IRQF_ONESHOT, "smsc911x-pme",
-> +					      dev);
-> +		if (retval) {
-> +			SMSC_WARN(pdata, probe,
-> +			"Unable to claim requested PME irq: %d", irq);
-> +			goto out_disable_resources;
-> +		}
-> +		pdata->pme_irq = irq;
-> +		device_init_wakeup(&pdev->dev, true);
-> +		dev_pm_set_wake_irq(&pdev->dev, irq);
-> +	}
-> +
->  	netif_carrier_off(dev);
->
->  	retval = register_netdev(dev);
->
+> 
+>  drivers/net/ethernet/agere/et131x.c              |    2 +-
+>  drivers/net/ethernet/broadcom/bcmsysport.c       |    2 +-
+>  drivers/net/ethernet/broadcom/genet/bcmgenet.c   |    2 +-
+>  drivers/net/ethernet/hisilicon/hip04_eth.c       |    2 +-
+>  drivers/net/ethernet/hisilicon/hisi_femac.c      |    2 +-
+>  drivers/net/ethernet/hisilicon/hix5hd2_gmac.c    |    2 +-
+>  drivers/net/ethernet/hisilicon/hns/hns_ethtool.c |    2 +-
+>  drivers/net/ethernet/synopsys/dwc_eth_qos.c      |    2 +-
+>  drivers/staging/slicoss/slicoss.c                |    4 ++--
+>  9 files changed, 10 insertions(+), 10 deletions(-)
+> _______________________________________________
+> devel mailing list
+> devel@linuxdriverproject.org
+> http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel
+
+Other drivers with same type of issue
+
+
+drivers/net/ethernet/mediatek/mtk_eth_soc.c:static struct ethtool_ops mtk_ethtool_ops = {
+drivers/net/ethernet/synopsys/dwc_eth_qos.c:static struct ethtool_ops dwceqos_ethtool_ops = {
+drivers/net/ethernet/xilinx/xilinx_axienet_main.c:static struct ethtool_ops axienet_ethtool_ops = {
+drivers/net/usb/r8152.c:static struct ethtool_ops ops = {
+drivers/staging/netlogic/xlr_net.c:static struct ethtool_ops xlr_ethtool_ops = {
