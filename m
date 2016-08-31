@@ -1,56 +1,68 @@
-From: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net] sunrpc: fix UDP memory accounting
-Date: Wed, 31 Aug 2016 13:45:51 +0200
-Message-ID: <1472643951.4775.6.camel@redhat.com>
-References: <32a391a2469b4161dc2375c6b6374b8229b3dd37.1472126188.git.pabeni@redhat.com>
-         <F9224521-4FC7-4647-8BB8-C92A841EE23D@redhat.com>
+From: Mark Einon <mark@einon.net>
+Subject: Re: [PATCH 2/6] net: ethernet: et131x: constify ethtool_ops
+ structures
+Date: Wed, 31 Aug 2016 12:48:39 +0100
+Message-ID: <20160831114839.GA11449@einonmac.psycm.cf.ac.uk>
+References: <1472628648-3603-1-git-send-email-Julia.Lawall@lip6.fr>
+ <1472628648-3603-3-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-        Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-        "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-        Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Jan Stancek <jstancek-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: Benjamin Coddington <bcodding-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <F9224521-4FC7-4647-8BB8-C92A841EE23D-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Julia Lawall <Julia.Lawall@lip6.fr>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1472628648-3603-3-git-send-email-Julia.Lawall@lip6.fr>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-08-30 at 12:28 -0400, Benjamin Coddington wrote:
-> On 25 Aug 2016, at 12:42, Paolo Abeni wrote:
+On Wed, Aug 31, 2016 at 09:30:44AM +0200, Julia Lawall wrote:
+> Check for ethtool_ops structures that are only stored in the ethtool_ops
+> field of a net_device structure or passed as the second argument to
+> netdev_set_default_ethtool_ops.  These contexts are declared const, so
+> ethtool_ops structures that have these properties can be declared as const
+> also.
 > 
-> > The commit f9b2ee714c5c ("SUNRPC: Move UDP receive data path
-> > into a workqueue context"), as a side effect, moved the
-> > skb_free_datagram() call outside the scope of the related socket
-> > lock, but UDP sockets require such lock to be held for proper
-> > memory accounting.
-> > Fix it by replacing skb_free_datagram() with
-> > skb_free_datagram_locked().
-> >
-> > Fixes: f9b2ee714c5c ("SUNRPC: Move UDP receive data path into a 
-> > workqueue context")
-> > Reported-and-tested-by: Jan Stancek <jstancek-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> > Signed-off-by: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> The semantic patch that makes this change is as follows:
+> (http://coccinelle.lip6.fr/)
 > 
-> Thanks for finding this. A similar fix in 2009 for svcsock.c was done by 
-> Eric Dumazet:
-> 9d410c796067 ("net: fix sk_forward_alloc corruption")
+> // <smpl>
+> @r disable optional_qualifier@
+> identifier i;
+> position p;
+> @@
+> static struct ethtool_ops i@p = { ... };
 > 
-> skb_free_datagram_locked() is used for all xprt types in svcsock.c, 
-> should we use
-> it for the xs_local_transport as well in xprtsock.c?
+> @ok1@
+> identifier r.i;
+> struct net_device e;
+> position p;
+> @@
+> e.ethtool_ops = &i@p;
+> 
+> @ok2@
+> identifier r.i;
+> expression e;
+> position p;
+> @@
+> netdev_set_default_ethtool_ops(e, &i@p)
+> 
+> @bad@
+> position p != {r.p,ok1.p,ok2.p};
+> identifier r.i;
+> @@
+> i@p
+> 
+> @depends on !bad disable optional_qualifier@
+> identifier r.i;
+> @@
+> static
+> +const
+>  struct ethtool_ops i = { ... };
+> // </smpl>
+> 
+> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
-AFAICS a similar fix is _not_ needed for xs_local_transport(), since it
-uses AF_LOCAL sockets and such family does not support protocol's memory
-accounting.
+Looks good, thanks.
 
-Paolo
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: Mark Einon <mark.einon@gmail.com>
