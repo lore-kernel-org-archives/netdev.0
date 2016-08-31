@@ -1,59 +1,63 @@
-From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: [PATCH] net: smsc: remove build warning of duplicate definition
-Date: Wed, 31 Aug 2016 22:57:39 +0530
-Message-ID: <1472664459-26169-1-git-send-email-sudipm.mukherjee@gmail.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-To: Nicolas Pitre <nico@fluxnic.net>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@c0d3.blue>
+Subject: Re: [Bridge] [PATCH net-next v2 2/2] net: bridge: add per-port
+ multicast flood flag
+Date: Wed, 31 Aug 2016 19:28:12 +0200
+Message-ID: <20160831172812.GJ4883@otheros>
+References: <1472570588-32503-1-git-send-email-nikolay@cumulusnetworks.com>
+ <1472570588-32503-3-git-send-email-nikolay@cumulusnetworks.com>
+ <20160831013726.GD4883@otheros>
+ <7d1fc865-f092-5d9d-8f4c-f19aeac914c0@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+        bridge@lists.linux-foundation.org, davem@davemloft.net
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.aperture-lab.de ([138.201.29.205]:60411 "EHLO
+        mail.aperture-lab.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935929AbcHaR2U (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 13:28:20 -0400
+Content-Disposition: inline
+In-Reply-To: <7d1fc865-f092-5d9d-8f4c-f19aeac914c0@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The build of m32r was giving warning:
+On Wed, Aug 31, 2016 at 08:02:22AM +0200, Nikolay Aleksandrov wrote:
+> On 31/08/16 03:37, Linus Lüssing wrote:
+> > On Tue, Aug 30, 2016 at 05:23:08PM +0200, Nikolay Aleksandrov via Bridge wrote:
+> >> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+> >> index 1da3221845f1..ed0dd3340084 100644
+> >> --- a/net/bridge/br_if.c
+> >> +++ b/net/bridge/br_if.c
+> >> @@ -362,7 +362,7 @@ static struct net_bridge_port *new_nbp(struct net_bridge *br,
+> >>  	p->path_cost = port_cost(dev);
+> >>  	p->priority = 0x8000 >> BR_PORT_BITS;
+> >>  	p->port_no = index;
+> >> -	p->flags = BR_LEARNING | BR_FLOOD;
+> >> +	p->flags = BR_LEARNING | BR_FLOOD | BR_MCAST_FLOOD;
+> > 
+> > I'm discontent with this new flag becoming the default.
+> > 
+> > Could you elaborate a little more on your use-case, when/why do
+> > you want/need this flag?
+> > 
+> 
+> The use case is the current default behaviour if we don't make this flag on by default
+> then we'll change user-visible default behaviour. Right now we flood unregistered mcast
+> traffic by default (if there's no querier and router port, which continues to function
+> as before). Also we have the port flags equal to BR_AUTO_MASK by default.
 
-In file included from drivers/net/ethernet/smsc/smc91x.c:92:0:
-drivers/net/ethernet/smsc/smc91x.h:448:0: warning: "SMC_inb" redefined
- #define SMC_inb(ioaddr, reg)  ({ BUG(); 0; })
- 
-drivers/net/ethernet/smsc/smc91x.h:106:0:
-	note: this is the location of the previous definition
- #define SMC_inb(a, r)  inb(((u32)a) + (r))
- 
-drivers/net/ethernet/smsc/smc91x.h:449:0: warning: "SMC_outb" redefined
- #define SMC_outb(x, ioaddr, reg) BUG()
- 
-drivers/net/ethernet/smsc/smc91x.h:108:0:
-	note: this is the location of the previous definition
- #define SMC_outb(v, a, r) outb(v, ((u32)a) + (r))
+Ok, you're right, the way you implemented it doesn't
+change the default behaviour (ignoring the BR_AUTO_MASK change you
+removed in v3).
 
-Signed-off-by: Sudip Mukherjee <sudip.mukherjee@codethink.co.uk>
----
+I guess the "similar to the unknown unicast flood flag" confused
+me a little and I was afraid that the "flood if there is no
+listener / MDB entry" behaviour, which was removed some years ago,
+would be reintroduced. (but yeah, looking at the code more
+closely, it doesn't do that)
 
-m32r allmodconfig build of next-20160825 is at:
-https://travis-ci.org/sudipm-mukherjee/parport/jobs/154943795
+Thanks for the clarification!
 
- drivers/net/ethernet/smsc/smc91x.h | 7 +++++++
- 1 file changed, 7 insertions(+)
-
-diff --git a/drivers/net/ethernet/smsc/smc91x.h b/drivers/net/ethernet/smsc/smc91x.h
-index 1a55c79..0b0bb74 100644
---- a/drivers/net/ethernet/smsc/smc91x.h
-+++ b/drivers/net/ethernet/smsc/smc91x.h
-@@ -445,7 +445,14 @@ smc_pxa_dma_insw(void __iomem *ioaddr, struct smc_local *lp, int reg, int dma,
- #endif
- 
- #if ! SMC_CAN_USE_8BIT
-+#ifdef SMC_inb
-+#undef SMC_inb
-+#endif
- #define SMC_inb(ioaddr, reg)		({ BUG(); 0; })
-+
-+#ifdef SMC_outb
-+#undef SMC_outb
-+#endif
- #define SMC_outb(x, ioaddr, reg)	BUG()
- #define SMC_insb(a, r, p, l)		BUG()
- #define SMC_outsb(a, r, p, l)		BUG()
--- 
-1.9.1
+Regards, Linus
