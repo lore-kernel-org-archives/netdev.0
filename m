@@ -1,39 +1,86 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bridge: re-introduce 'fix parsing of MLDv2
-	reports'
-Date: Wed, 31 Aug 2016 09:30:33 -0700 (PDT)
-Message-ID: <20160831.093033.1824547873442883465.davem@davemloft.net>
-References: <00146cf9bbd373722167f61183d5d02a9d6c080e.1472644765.git.dcaratti@redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: cascardo@redhat.com, nikolay@cumulusnetworks.com, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org
-To: dcaratti@redhat.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <00146cf9bbd373722167f61183d5d02a9d6c080e.1472644765.git.dcaratti@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Greg Rose <gvrose8192@gmail.com>
+Subject: [PATCH] net/ethernet: Use ether_addr_copy rather than memcpy
+Date: Wed, 31 Aug 2016 09:32:48 -0700
+Message-ID: <1472661168-22396-1-git-send-email-grose@lightfleet.com>
+Cc: Greg Rose <grose@lightfleet.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:32938 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935817AbcHaQcw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 12:32:52 -0400
+Received: by mail-pf0-f196.google.com with SMTP id i6so2993864pfe.0
+        for <netdev@vger.kernel.org>; Wed, 31 Aug 2016 09:32:52 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Davide Caratti <dcaratti@redhat.com>
-Date: Wed, 31 Aug 2016 14:16:44 +0200
+I'm not sure why this hasn't been done before because it seems obvious,
+so maybe there is some reason that memcpy is used instead of
+ether_addr_copy in this code.  But let's try this anyway.
 
-> commit bc8c20acaea1 ("bridge: multicast: treat igmpv3 report with
-> INCLUDE and no sources as a leave") seems to have accidentally reverted
-> commit 47cc84ce0c2f ("bridge: fix parsing of MLDv2 reports"). This
-> commit brings back a change to br_ip6_multicast_mld2_report() where
-> parsing of MLDv2 reports stops when the first group is successfully
-> added to the MDB cache.
-> 
-> Fixes: bc8c20acaea1 ("bridge: multicast: treat igmpv3 report with INCLUDE and no sources as a leave")
-> Signed-off-by: Davide Caratti <dcaratti@redhat.com>
+Change memcpy to ether_addr_copy.
 
-Applied and queued up for -stable, thanks.
+Signed-off-by: Greg Rose <grose@lightfleet.com>
+---
+ net/ethernet/eth.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
+index 66dff5e..cbcdb97 100644
+--- a/net/ethernet/eth.c
++++ b/net/ethernet/eth.c
+@@ -95,10 +95,10 @@ int eth_header(struct sk_buff *skb, struct net_device *dev,
+ 
+ 	if (!saddr)
+ 		saddr = dev->dev_addr;
+-	memcpy(eth->h_source, saddr, ETH_ALEN);
++	ether_addr_copy(eth->h_source, saddr);
+ 
+ 	if (daddr) {
+-		memcpy(eth->h_dest, daddr, ETH_ALEN);
++		ether_addr_copy(eth->h_dest, daddr);
+ 		return ETH_HLEN;
+ 	}
+ 
+@@ -211,7 +211,7 @@ EXPORT_SYMBOL(eth_type_trans);
+ int eth_header_parse(const struct sk_buff *skb, unsigned char *haddr)
+ {
+ 	const struct ethhdr *eth = eth_hdr(skb);
+-	memcpy(haddr, eth->h_source, ETH_ALEN);
++	ether_addr_copy(haddr, eth->h_source);
+ 	return ETH_ALEN;
+ }
+ EXPORT_SYMBOL(eth_header_parse);
+@@ -236,8 +236,8 @@ int eth_header_cache(const struct neighbour *neigh, struct hh_cache *hh, __be16
+ 		return -1;
+ 
+ 	eth->h_proto = type;
+-	memcpy(eth->h_source, dev->dev_addr, ETH_ALEN);
+-	memcpy(eth->h_dest, neigh->ha, ETH_ALEN);
++	ether_addr_copy(eth->h_source, dev->dev_addr);
++	ether_addr_copy(eth->h_dest, neigh->ha);
+ 	hh->hh_len = ETH_HLEN;
+ 	return 0;
+ }
+@@ -255,8 +255,8 @@ void eth_header_cache_update(struct hh_cache *hh,
+ 			     const struct net_device *dev,
+ 			     const unsigned char *haddr)
+ {
+-	memcpy(((u8 *) hh->hh_data) + HH_DATA_OFF(sizeof(struct ethhdr)),
+-	       haddr, ETH_ALEN);
++	ether_addr_copy(((u8 *)hh->hh_data) +
++			HH_DATA_OFF(sizeof(struct ethhdr)), haddr);
+ }
+ EXPORT_SYMBOL(eth_header_cache_update);
+ 
+@@ -286,7 +286,7 @@ void eth_commit_mac_addr_change(struct net_device *dev, void *p)
+ {
+ 	struct sockaddr *addr = p;
+ 
+-	memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
++	ether_addr_copy(dev->dev_addr, addr->sa_data);
+ }
+ EXPORT_SYMBOL(eth_commit_mac_addr_change);
+ 
+-- 
+1.8.3.1
