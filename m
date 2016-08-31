@@ -1,54 +1,61 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH 0/6] constify ethtool_ops structures
-Date: Wed, 31 Aug 2016 08:39:29 -0700
-Message-ID: <20160831083929.62832cea@xeon-e3>
-References: <1472628648-3603-1-git-send-email-Julia.Lawall@lip6.fr>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next V4 4/4] net/sched: Introduce act_tunnel_key
+Date: Wed, 31 Aug 2016 17:39:33 +0200
+Message-ID: <20160831153933.GD1986@nanopsycho>
+References: <1472647584-6713-1-git-send-email-hadarh@mellanox.com>
+ <1472647584-6713-5-git-send-email-hadarh@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
- kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Julia Lawall <Julia.Lawall@lip6.fr>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1472628648-3603-1-git-send-email-Julia.Lawall@lip6.fr>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Jiri Pirko <jiri@mellanox.com>, Jiri Benc <jbenc@redhat.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Amir Vadai <amirva@mellanox.com>, Amir Vadai <amir@vadai.me>
+To: Hadar Hen Zion <hadarh@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:36200 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934320AbcHaPjh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 11:39:37 -0400
+Received: by mail-wm0-f66.google.com with SMTP id i138so8158661wmf.3
+        for <netdev@vger.kernel.org>; Wed, 31 Aug 2016 08:39:36 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1472647584-6713-5-git-send-email-hadarh@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 31 Aug 2016 09:30:42 +0200
-Julia Lawall <Julia.Lawall@lip6.fr> wrote:
+Wed, Aug 31, 2016 at 02:46:24PM CEST, hadarh@mellanox.com wrote:
+>From: Amir Vadai <amir@vadai.me>
+>
+>This action could be used before redirecting packets to a shared tunnel
+>device, or when redirecting packets arriving from a such a device.
+>
+>The action will release the metadata created by the tunnel device
+>(decap), or set the metadata with the specified values for encap
+>operation.
+>
+>For example, the following flower filter will forward all ICMP packets
+>destined to 11.11.11.2 through the shared vxlan device 'vxlan0'. Before
+>redirecting, a metadata for the vxlan tunnel is created using the
+>tunnel_key action and it's arguments:
+>
+>$ filter add dev net0 protocol ip parent ffff: \
+>    flower \
+>      ip_proto 1 \
+>      dst_ip 11.11.11.2 \
+>    action tunnel_key set \
+>      src_ip 11.11.0.1 \
+>      dst_ip 11.11.0.2 \
+>      id 11 \
+>    action mirred egress redirect dev vxlan0
+>
+>Signed-off-by: Amir Vadai <amir@vadai.me>
+>Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
 
-> Constify ethtool_ops structures.
-> 
-> ---
-> 
->  drivers/net/ethernet/agere/et131x.c              |    2 +-
->  drivers/net/ethernet/broadcom/bcmsysport.c       |    2 +-
->  drivers/net/ethernet/broadcom/genet/bcmgenet.c   |    2 +-
->  drivers/net/ethernet/hisilicon/hip04_eth.c       |    2 +-
->  drivers/net/ethernet/hisilicon/hisi_femac.c      |    2 +-
->  drivers/net/ethernet/hisilicon/hix5hd2_gmac.c    |    2 +-
->  drivers/net/ethernet/hisilicon/hns/hns_ethtool.c |    2 +-
->  drivers/net/ethernet/synopsys/dwc_eth_qos.c      |    2 +-
->  drivers/staging/slicoss/slicoss.c                |    4 ++--
->  9 files changed, 10 insertions(+), 10 deletions(-)
-> _______________________________________________
-> devel mailing list
-> devel@linuxdriverproject.org
-> http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel
 
-Other drivers with same type of issue
-
-
-drivers/net/ethernet/mediatek/mtk_eth_soc.c:static struct ethtool_ops mtk_ethtool_ops = {
-drivers/net/ethernet/synopsys/dwc_eth_qos.c:static struct ethtool_ops dwceqos_ethtool_ops = {
-drivers/net/ethernet/xilinx/xilinx_axienet_main.c:static struct ethtool_ops axienet_ethtool_ops = {
-drivers/net/usb/r8152.c:static struct ethtool_ops ops = {
-drivers/staging/netlogic/xlr_net.c:static struct ethtool_ops xlr_ethtool_ops = {
+Looks fine to me
+Reviewed-by: Jiri Pirko <jiri@mellanox.com>
