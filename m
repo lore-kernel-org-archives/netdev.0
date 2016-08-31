@@ -1,30 +1,70 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 00/12] net: Convert vrf from dst to tx hook
-Date: Wed, 31 Aug 2016 17:14:13 -0600
-Message-ID: <eda9593c-69f8-6d90-05da-1505ba56bc33@cumulusnetworks.com>
-References: <1472578457-26722-1-git-send-email-dsa@cumulusnetworks.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] softirq: let ksoftirqd do its job
+Date: Wed, 31 Aug 2016 16:11:06 -0700
+Message-ID: <1472685066.14381.380.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <4f1c4b38528762619fff1fa963de8971006c1234.1472460085.git.pabeni@redhat.com>
+         <20160831100854.23dad2d8@redhat.com>
+         <1472650472.14381.317.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1472650688.32433.115.camel@redhat.com>
+         <1472652643.14381.320.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20160831164216.2901190c@redhat.com>
+         <1472661956.14381.335.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1472665349.14381.356.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20160831214043.2f44cf08@redhat.com>
+         <1472676150.14381.363.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20160831235116.33b1946b@redhat.com>
+         <1472682450.14381.364.camel@edumazet-glaptop3.roam.corp.google.com>
+         <3567b503-8b3e-5a3f-580a-f99fd28cf77e@hpe.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:33305 "EHLO
-        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753364AbcHaXOR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 19:14:17 -0400
-Received: by mail-pf0-f175.google.com with SMTP id g202so1036195pfb.0
-        for <netdev@vger.kernel.org>; Wed, 31 Aug 2016 16:14:17 -0700 (PDT)
-In-Reply-To: <1472578457-26722-1-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jesper Dangaard Brouer <jbrouer@redhat.com>,
+        Peter Zijlstra <peterz@infradead.org>,
+        David Miller <davem@davemloft.net>,
+        Rik van Riel <riel@redhat.com>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Hannes Frederic Sowa <hannes@redhat.com>,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>, Jonathan Corbet <corbet@lwn.net>
+To: Rick Jones <rick.jones2@hpe.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <3567b503-8b3e-5a3f-580a-f99fd28cf77e@hpe.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 8/30/16 11:34 AM, David Ahern wrote:
-> This series fixes this problem by removing the output dst that points
-> to the VRF and always doing the actual FIB lookup. This allows the real
-> dst to be cached on sockets and used for MSS. Packets are diverted to
-> the VRF device on Tx using an l3mdev hook in the output path similar to
-> to what is done for Rx.
+On Wed, 2016-08-31 at 15:47 -0700, Rick Jones wrote:
+> With regard to drops, are both of you sure you're using the same socket 
+> buffer sizes?
 
-Dave:
+Does it really matter ?
 
-please drop this series. BGP smoke tests triggered a couple of problems I need to resolve.
+I used the standard /proc/sys/net/core/rmem_default, but under flood
+receive queue is almost always full, even if you make it bigger.
+
+By varying its size, you only make batches bigger and number of context
+switches should be lower, if only two threads are competing for the cpu.
+
+Exact 'optimal' size would depend on various factors, depending on
+application and platform constraints.
+
+> 
+> In the meantime, is anything interesting happening with TCP_RR or 
+> TCP_STREAM?
+
+TCP_RR is driven by the network latency, we do not drop packets in the
+socket itself.
+
+TC_STREAM is normally paced by the ability of the receiver to send ACK
+packets. TCP has this auto regulating mode, unless the sender violates
+the RFC(s).
+
+If your question is :
+
+What happens if thousands of threads on the host want the cpu, and
+ksoftirqd gets not enough cycles by virtue of being a normal thread ?
+
+Then, you are back to typical provisioning problems, and normally people
+play with priorities and containers/cgroups, and/or various techniques
+like RPS/RFS
+
+(You can change ksoftirqd priority if you like)
