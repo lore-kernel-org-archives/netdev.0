@@ -1,68 +1,56 @@
-From: Mark Einon <mark@einon.net>
-Subject: Re: [PATCH 2/6] net: ethernet: et131x: constify ethtool_ops
- structures
-Date: Wed, 31 Aug 2016 12:48:39 +0100
-Message-ID: <20160831114839.GA11449@einonmac.psycm.cf.ac.uk>
-References: <1472628648-3603-1-git-send-email-Julia.Lawall@lip6.fr>
- <1472628648-3603-3-git-send-email-Julia.Lawall@lip6.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Julia Lawall <Julia.Lawall@lip6.fr>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1472628648-3603-3-git-send-email-Julia.Lawall@lip6.fr>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Subject: [PATCH] mwifiex: scan: Simplify code
+Date: Wed, 31 Aug 2016 13:50:59 +0200
+Message-ID: <1472644259-15605-1-git-send-email-christophe.jaillet@wanadoo.fr>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+        Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+To: akarwar@marvell.com, nishants@marvell.com, kvalo@codeaurora.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp07.smtpout.orange.fr ([80.12.242.129]:45302 "EHLO
+        smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933248AbcHaLwV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 07:52:21 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 31, 2016 at 09:30:44AM +0200, Julia Lawall wrote:
-> Check for ethtool_ops structures that are only stored in the ethtool_ops
-> field of a net_device structure or passed as the second argument to
-> netdev_set_default_ethtool_ops.  These contexts are declared const, so
-> ethtool_ops structures that have these properties can be declared as const
-> also.
-> 
-> The semantic patch that makes this change is as follows:
-> (http://coccinelle.lip6.fr/)
-> 
-> // <smpl>
-> @r disable optional_qualifier@
-> identifier i;
-> position p;
-> @@
-> static struct ethtool_ops i@p = { ... };
-> 
-> @ok1@
-> identifier r.i;
-> struct net_device e;
-> position p;
-> @@
-> e.ethtool_ops = &i@p;
-> 
-> @ok2@
-> identifier r.i;
-> expression e;
-> position p;
-> @@
-> netdev_set_default_ethtool_ops(e, &i@p)
-> 
-> @bad@
-> position p != {r.p,ok1.p,ok2.p};
-> identifier r.i;
-> @@
-> i@p
-> 
-> @depends on !bad disable optional_qualifier@
-> identifier r.i;
-> @@
-> static
-> +const
->  struct ethtool_ops i = { ... };
-> // </smpl>
-> 
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+This patch:
+   - improves code layout
+   - removes a useless memset(0) for some memory allocated with kzalloc
+   - removes a useless if. We know that 'if (chan_band_tlv)' will succeed
+     because it has been tested a few lines above
 
-Looks good, thanks.
+Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+---
+ drivers/net/wireless/marvell/mwifiex/scan.c | 12 ++++--------
+ 1 file changed, 4 insertions(+), 8 deletions(-)
 
-Acked-by: Mark Einon <mark.einon@gmail.com>
+diff --git a/drivers/net/wireless/marvell/mwifiex/scan.c b/drivers/net/wireless/marvell/mwifiex/scan.c
+index 21ec84794d0c..c29dd958acae 100644
+--- a/drivers/net/wireless/marvell/mwifiex/scan.c
++++ b/drivers/net/wireless/marvell/mwifiex/scan.c
+@@ -2179,18 +2179,14 @@ int mwifiex_ret_802_11_scan(struct mwifiex_private *priv,
+ 
+ 		if (chan_band_tlv && adapter->nd_info) {
+ 			adapter->nd_info->matches[idx] =
+-				kzalloc(sizeof(*pmatch) +
+-				sizeof(u32), GFP_ATOMIC);
++				kzalloc(sizeof(*pmatch) + sizeof(u32),
++					GFP_ATOMIC);
+ 
+ 			pmatch = adapter->nd_info->matches[idx];
+ 
+ 			if (pmatch) {
+-				memset(pmatch, 0, sizeof(*pmatch));
+-				if (chan_band_tlv) {
+-					pmatch->n_channels = 1;
+-					pmatch->channels[0] =
+-						chan_band->chan_number;
+-				}
++				pmatch->n_channels = 1;
++				pmatch->channels[0] = chan_band->chan_number;
+ 			}
+ 		}
+ 
+-- 
+2.7.4
