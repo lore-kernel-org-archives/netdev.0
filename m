@@ -1,7 +1,7 @@
 From: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
-Subject: [Patch v3 10/11] MIPS: xilfpga: Add DT node for AXI emaclite
-Date: Wed, 31 Aug 2016 17:35:51 +0100
-Message-ID: <1472661352-11983-11-git-send-email-Zubair.Kakakhel@imgtec.com>
+Subject: [Patch v3 04/11] MIPS: xilfpga: Use irqchip_init instead of the legacy way
+Date: Wed, 31 Aug 2016 17:35:45 +0100
+Message-ID: <1472661352-11983-5-git-send-email-Zubair.Kakakhel@imgtec.com>
 References: <1472661352-11983-1-git-send-email-Zubair.Kakakhel@imgtec.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,67 +11,49 @@ Cc: <soren.brinkmann@xilinx.com>, <Zubair.Kakakhel@imgtec.com>,
 To: <monstr@monstr.eu>, <ralf@linux-mips.org>, <tglx@linutronix.de>,
         <jason@lakedaemon.net>, <marc.zyngier@arm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailapp01.imgtec.com ([195.59.15.196]:44858 "EHLO
+Received: from mailapp01.imgtec.com ([195.59.15.196]:27167 "EHLO
         mailapp01.imgtec.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965127AbcHaQhH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 12:37:07 -0400
+        with ESMTP id S935849AbcHaQhB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 12:37:01 -0400
 In-Reply-To: <1472661352-11983-1-git-send-email-Zubair.Kakakhel@imgtec.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The xilfpga platform has a Xilinx AXI emaclite block.
-
-Add the DT node to use it.
+This prepares the code use the Xilinx AXI Interrupt Controller
+driver now available in drivers/irqchip/irq-xilinx.c
 
 Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
-
 ---
 V2 -> V3
 No change
 
 V1 -> V2
-
-Removed accidental local-mac-address entry
+No change
 ---
- arch/mips/boot/dts/xilfpga/nexys4ddr.dts | 26 ++++++++++++++++++++++++++
- 1 file changed, 26 insertions(+)
+ arch/mips/xilfpga/intc.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/arch/mips/boot/dts/xilfpga/nexys4ddr.dts b/arch/mips/boot/dts/xilfpga/nexys4ddr.dts
-index 3658e21..1f25d0a 100644
---- a/arch/mips/boot/dts/xilfpga/nexys4ddr.dts
-+++ b/arch/mips/boot/dts/xilfpga/nexys4ddr.dts
-@@ -42,6 +42,32 @@
- 		xlnx,tri-default = <0xffffffff>;
- 	} ;
+diff --git a/arch/mips/xilfpga/intc.c b/arch/mips/xilfpga/intc.c
+index c4d1a71..a127cca 100644
+--- a/arch/mips/xilfpga/intc.c
++++ b/arch/mips/xilfpga/intc.c
+@@ -11,15 +11,12 @@
  
-+	axi_ethernetlite: ethernet@10e00000 {
-+		compatible = "xlnx,xps-ethernetlite-3.00.a";
-+		device_type = "network";
-+		interrupt-parent = <&axi_intc>;
-+		interrupts = <1>;
-+		phy-handle = <&phy0>;
-+		reg = <0x10e00000 0x10000>;
-+		xlnx,duplex = <0x1>;
-+		xlnx,include-global-buffers = <0x1>;
-+		xlnx,include-internal-loopback = <0x0>;
-+		xlnx,include-mdio = <0x1>;
-+		xlnx,instance = "axi_ethernetlite_inst";
-+		xlnx,rx-ping-pong = <0x1>;
-+		xlnx,s-axi-id-width = <0x1>;
-+		xlnx,tx-ping-pong = <0x1>;
-+		xlnx,use-internal = <0x0>;
-+		mdio {
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			phy0: phy@1 {
-+				device_type = "ethernet-phy";
-+				reg = <1>;
-+			};
-+		};
-+	};
-+
- 	axi_uart16550: serial@10400000 {
- 		compatible = "ns16550a";
- 		reg = <0x10400000 0x10000>;
+ #include <linux/of.h>
+ #include <linux/of_irq.h>
++#include <linux/irqchip.h>
+ 
+ #include <asm/irq_cpu.h>
+ 
+-static struct of_device_id of_irq_ids[] __initdata = {
+-	{ .compatible = "mti,cpu-interrupt-controller", .data = mips_cpu_irq_of_init },
+-	{},
+-};
+ 
+ void __init arch_init_irq(void)
+ {
+-	of_irq_init(of_irq_ids);
++	irqchip_init();
+ }
 -- 
 1.9.1
