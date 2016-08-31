@@ -1,48 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/8] rxrpc: Preparation for removal of use of
- skbs from AFS
-Date: Tue, 30 Aug 2016 22:09:16 -0700 (PDT)
-Message-ID: <20160830.220916.828440695872007908.davem@davemloft.net>
-References: <147257169706.6391.3116382288289485794.stgit@warthog.procyon.org.uk>
+Subject: Re: [net-next] ixgbe: Eliminate useless message and improve logic
+Date: Tue, 30 Aug 2016 22:12:49 -0700 (PDT)
+Message-ID: <20160830.221249.1061809744065434481.davem@davemloft.net>
+References: <1472582023-53939-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: dhowells@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <147257169706.6391.3116382288289485794.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: mark.d.rustad@intel.com, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        guru.anbalagane@oracle.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37696 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750708AbcHaFNI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 01:13:08 -0400
+In-Reply-To: <1472582023-53939-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Howells <dhowells@redhat.com>
-Date: Tue, 30 Aug 2016 16:41:37 +0100
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue, 30 Aug 2016 11:33:43 -0700
 
-> Here's a set of patches that prepare the way for the removal of the use of
-> sk_buffs from fs/afs (they'll be entirely retained within net/rxrpc):
+> From: Mark Rustad <mark.d.rustad@intel.com>
 > 
->  (1) Fix a potential NULL-pointer deref in rxrpc_abort_calls().
+> Remove a useless log message and improve the logic for setting
+> a PHY address from the contents of the MNG_IF_SEL register.
 > 
->  (2) Condense all the terminal call state machine states to a single one
->      plus supplementary info.
-> 
->  (3) Add a trace point for rxrpc call usage debugging.
-> 
->  (4) Cleanups and missing headers.
-> 
->  (5) Provide a way for AFS to ask about a call's peer address without
->      having an sk_buff to query.
-> 
->  (6) Use call->peer directly rather than going via call->conn (which might
->      be NULL).
-> 
->  (7) Pass struct socket * to various rxrpc kernel interface functions so
->      they can use that directly rather than getting it from the rxrpc_call
->      struct.
- ...
-> Tagged thusly:
-> 
-> 	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
-> 	rxrpc-rewrite-20160830-1
+> Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+> Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Pulled, thanks David.
+Applied.
