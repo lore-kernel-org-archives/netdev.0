@@ -1,14 +1,14 @@
-From: Julia Lawall <Julia.Lawall-L2FTfq7BK8M@public.gmane.org>
-Subject: [PATCH 4/5] r8152: constify ethtool_ops structures
-Date: Thu,  1 Sep 2016 00:21:22 +0200
-Message-ID: <1472682083-5219-5-git-send-email-Julia.Lawall@lip6.fr>
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: [PATCH 3/5] dwc_eth_qos: constify ethtool_ops structures
+Date: Thu,  1 Sep 2016 00:21:21 +0200
+Message-ID: <1472682083-5219-4-git-send-email-Julia.Lawall@lip6.fr>
 References: <1472682083-5219-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1472682083-5219-1-git-send-email-Julia.Lawall-L2FTfq7BK8M@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Lars Persson <lars.persson@axis.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1472682083-5219-1-git-send-email-Julia.Lawall@lip6.fr>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Check for ethtool_ops structures that are only stored in the ethtool_ops
@@ -55,29 +55,24 @@ static
  struct ethtool_ops i = { ... };
 // </smpl>
 
-Suggested-by: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
+Suggested-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Signed-off-by: Julia Lawall <Julia.Lawall-L2FTfq7BK8M@public.gmane.org>
+Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
 ---
- drivers/net/usb/r8152.c |    2 +-
+ drivers/net/ethernet/synopsys/dwc_eth_qos.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index f41a8ad..f72f807 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -4032,7 +4032,7 @@ static int rtl8152_set_coalesce(struct net_device *netdev,
- 	return ret;
+diff --git a/drivers/net/ethernet/synopsys/dwc_eth_qos.c b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
+index 5a3941b..c25d971 100644
+--- a/drivers/net/ethernet/synopsys/dwc_eth_qos.c
++++ b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
+@@ -2743,7 +2743,7 @@ static void dwceqos_set_msglevel(struct net_device *ndev, u32 msglevel)
+ 	lp->msg_enable = msglevel;
  }
  
--static struct ethtool_ops ops = {
-+static const struct ethtool_ops ops = {
- 	.get_drvinfo = rtl8152_get_drvinfo,
- 	.get_settings = rtl8152_get_settings,
- 	.set_settings = rtl8152_set_settings,
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-static struct ethtool_ops dwceqos_ethtool_ops = {
++static const struct ethtool_ops dwceqos_ethtool_ops = {
+ 	.get_drvinfo    = dwceqos_get_drvinfo,
+ 	.get_link       = ethtool_op_get_link,
+ 	.get_pauseparam = dwceqos_get_pauseparam,
