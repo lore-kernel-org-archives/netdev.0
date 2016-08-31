@@ -1,70 +1,77 @@
-From: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
-Subject: [Patch v3 07/11] MIPS: Xilfpga: Add DT node for AXI I2C
-Date: Wed, 31 Aug 2016 17:35:48 +0100
-Message-ID: <1472661352-11983-8-git-send-email-Zubair.Kakakhel@imgtec.com>
-References: <1472661352-11983-1-git-send-email-Zubair.Kakakhel@imgtec.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RT PATCH 2/2] net: add a lock around icmp_sk()
+Date: Wed, 31 Aug 2016 09:37:43 -0700
+Message-ID: <1472661463.14381.327.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20160831160049.14303-1-bigeasy@linutronix.de>
+         <20160831160049.14303-2-bigeasy@linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <soren.brinkmann@xilinx.com>, <Zubair.Kakakhel@imgtec.com>,
-        <linux-kernel@vger.kernel.org>, <linux-mips@linux-mips.org>,
-        <michal.simek@xilinx.com>, <netdev@vger.kernel.org>
-To: <monstr@monstr.eu>, <ralf@linux-mips.org>, <tglx@linutronix.de>,
-        <jason@lakedaemon.net>, <marc.zyngier@arm.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-rt-users@vger.kernel.org, linux-kernel@vger.kernel.org,
+        tglx@linutronix.de, Steven Rostedt <rostedt@goodmis.org>,
+        netdev@vger.kernel.org
+To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1472661352-11983-1-git-send-email-Zubair.Kakakhel@imgtec.com>
+In-Reply-To: <20160831160049.14303-2-bigeasy@linutronix.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The xilfpga platform has an AXI I2C Bus master with a temperature
-sensor connected to it.
+On Wed, 2016-08-31 at 18:00 +0200, Sebastian Andrzej Siewior wrote:
+> It looks like the this_cpu_ptr() access in icmp_sk() is protected with
+> local_bh_disable(). To avoid missing serialization in -RT I am adding
+> here a local lock. No crash has been observed, this is just precaution.
+> 
 
-Add the device tree node to use them.
 
-Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
+Hmm...
 
----
-V2 -> V3
-No change
+> Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+> ---
+>  net/ipv4/icmp.c | 8 ++++++++
+>  1 file changed, 8 insertions(+)
+> 
+> diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+> index c1f1d5030d37..63731fd6af3e 100644
+> --- a/net/ipv4/icmp.c
+> +++ b/net/ipv4/icmp.c
+> @@ -78,6 +78,7 @@
+>  #include <linux/string.h>
+>  #include <linux/netfilter_ipv4.h>
+>  #include <linux/slab.h>
+> +#include <linux/locallock.h>
+>  #include <net/snmp.h>
+>  #include <net/ip.h>
+>  #include <net/route.h>
+> @@ -205,6 +206,8 @@ static const struct icmp_control icmp_pointers[NR_ICMP_TYPES+1];
+>   *
+>   *	On SMP we have one ICMP socket per-cpu.
+>   */
+> +static DEFINE_LOCAL_IRQ_LOCK(icmp_sk_lock);
+> +
+>  static struct sock *icmp_sk(struct net *net)
+>  {
+>  	return *this_cpu_ptr(net->ipv4.icmp_sk);
+> @@ -216,12 +219,14 @@ static inline struct sock *icmp_xmit_lock(struct net *net)
+>  
+>  	local_bh_disable();
+>  
+> +	local_lock(icmp_sk_lock);
 
-V1 -> V2
+Deadlock alert ?
+Please read the comment few lines after, explaining why we have to use
+spin_trylock().
+Or maybe I should double check what is local_lock() in RT
 
-No change
----
- arch/mips/boot/dts/xilfpga/nexys4ddr.dts | 22 ++++++++++++++++++++++
- 1 file changed, 22 insertions(+)
+>  	sk = icmp_sk(net);
+>  
+>  	if (unlikely(!spin_trylock(&sk->sk_lock.slock))) {
 
-diff --git a/arch/mips/boot/dts/xilfpga/nexys4ddr.dts b/arch/mips/boot/dts/xilfpga/nexys4ddr.dts
-index d285c8d..3658e21 100644
---- a/arch/mips/boot/dts/xilfpga/nexys4ddr.dts
-+++ b/arch/mips/boot/dts/xilfpga/nexys4ddr.dts
-@@ -54,6 +54,28 @@
- 		interrupt-parent = <&axi_intc>;
- 		interrupts = <0>;
- 	};
-+
-+	axi_i2c: i2c@10A00000 {
-+	    compatible = "xlnx,xps-iic-2.00.a";
-+	    interrupt-parent = <&axi_intc>;
-+	    interrupts = <4>;
-+	    reg = < 0x10A00000 0x10000 >;
-+	    clocks = <&ext>;
-+	    xlnx,clk-freq = <0x5f5e100>;
-+	    xlnx,family = "Artix7";
-+	    xlnx,gpo-width = <0x1>;
-+	    xlnx,iic-freq = <0x186a0>;
-+	    xlnx,scl-inertial-delay = <0x0>;
-+	    xlnx,sda-inertial-delay = <0x0>;
-+	    xlnx,ten-bit-adr = <0x0>;
-+	    #address-cells = <1>;
-+	    #size-cells = <0>;
-+
-+	    ad7420@4B {
-+		compatible = "adt7420";
-+		reg = <0x4B>;
-+	    };
-+	} ;
- };
- 
- &ext {
--- 
-1.9.1
+...
+>  		/* This can happen if the output path signals a
+>  		 * dst_link_failure() for an outgoing ICMP packet.
+>  		 */
+
+
+> +		local_unlock(icmp_sk_lock);
+>  		local_bh_enable();
+>  		return NULL;
