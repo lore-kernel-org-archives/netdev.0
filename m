@@ -1,50 +1,29 @@
-From: Gao Feng <fgao@ikuai8.com>
-Subject: Re: [PATCH net] rps: flow_dissector: Fix uninitialized flow_keys used
- in __skb_get_hash possibly
-Date: Wed, 31 Aug 2016 12:16:39 +0800
-Message-ID: <CA+6hz4rzMpNFOtr9m0pox1ejMBF5cQXgb9eGoR8q8sDeLTMvqA@mail.gmail.com>
-References: <1472612179-23601-1-git-send-email-fgao@ikuai8.com> <1472616890.14381.298.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull-request: mac80211 2016-08-30
+Date: Tue, 30 Aug 2016 21:35:23 -0700 (PDT)
+Message-ID: <20160830.213523.229275070090351509.davem@davemloft.net>
+References: <1472537959-8249-1-git-send-email-johannes@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Philp Prindeville <philipp@redfish-solutions.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Alex Duyck <aduyck@mirantis.com>, amir@vadai.me,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        linux-kernel <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbgau1.qq.com ([54.206.16.166]:52695 "EHLO smtpbgau1.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751202AbcHaERI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 31 Aug 2016 00:17:08 -0400
-In-Reply-To: <1472616890.14381.298.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37454 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750914AbcHaEfb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 00:35:31 -0400
+In-Reply-To: <1472537959-8249-1-git-send-email-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 31, 2016 at 12:14 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2016-08-31 at 10:56 +0800, fgao@ikuai8.com wrote:
->> From: Gao Feng <fgao@ikuai8.com>
->>
->> The original codes depend on that the function parameters are evaluated from
->> left to right. But the parameter's evaluation order is not defined in C
->> standard actually.
->>
->> When flow_keys_have_l4(&keys) is invoked before ___skb_get_hash(skb, &keys,
->> hashrnd) with some compilers or environment, the keys passed to
->> flow_keys_have_l4 is not initialized.
->>
->> Signed-off-by: Gao Feng <fgao@ikuai8.com>
->> ---
->
-> Good catch, please add
->
-> Fixes: 6db61d79c1e1 ("flow_dissector: Ignore flow dissector return value from ___skb_get_hash")
-> Acked-by: Eric Dumazet <edumazet@google.com>
->
->
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Tue, 30 Aug 2016 08:19:18 +0200
 
-Add it into the description and resend the patch again?
+> Nothing much, but we have three little fixes, see below. I've included the
+> static inline so that BATMAN_ADV_BATMAN_V can be changed to be allowed w/o
+> cfg80211 sooner, and it's a trivial change.
+> 
+> Let me know if there's any problem.
 
-Best Regards
-Feng
+Pulled, thanks Johannes.
