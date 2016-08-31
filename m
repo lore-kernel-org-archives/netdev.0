@@ -1,102 +1,104 @@
-From: Joe Stringer <joe-LZ6Gd1LRuIk@public.gmane.org>
-Subject: Re: [PATCH net-next v11 5/6] openvswitch: add layer 3
- flow/port support
-Date: Tue, 30 Aug 2016 16:23:40 -0700
-Message-ID: <CAPWQB7Ggvsg3w8=ajjTQ5=UcHa8fCPPnCJ0va6PdXHsBUd8BFA@mail.gmail.com>
-References: <CAOrHB_CUPCfAPKfoco9GghiAZ=QyEqxpd90uo3NvEtG9STXMVA@mail.gmail.com>
- <20160808151716.GA8477@penelope.isobedori.kobe.vergenet.net>
- <CAOrHB_BYtGsWPSs2pxTjPajqFEP=5YySmqjc93NbdtY96-dYfw@mail.gmail.com>
- <20160810102043.GE5451@penelope.isobedori.kobe.vergenet.net>
- <CAPWQB7F4bSMUhzoCJhEk5bP7V_yOTvBQwDmzCXb6Jpa72ov76g@mail.gmail.com>
- <20160822110444.GA29971@penelope.isobedori.kobe.vergenet.net>
- <CAPWQB7EQhbcDEk==AmN58Qxndmd6oHpw8z78kj2Q4M4-mD7+Dw@mail.gmail.com>
- <20160823085144.GA22304@penelope.isobedori.kobe.vergenet.net>
- <20160825100833.GA31926@penelope.isobedori.kobe.vergenet.net>
- <CAPWQB7G8RekHoTMNR5jAJGu7n2i8fNZ1=Fvj4XX_tXVSovpGug@mail.gmail.com>
- <20160826091322.GE22464@penelope.isobedori.kobe.vergenet.net>
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH RFC 2/4] bql: Add tracking of inflight packets
+Date: Tue, 30 Aug 2016 17:00:32 -0700
+Message-ID: <1472601634-531498-3-git-send-email-tom@herbertland.com>
+References: <1472601634-531498-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20160826091322.GE22464-ucRxlxcrRFEsysjaEhV7d2ey4e3TpSOZIxS8c3vjKQDk1uMJSBkQmQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        <rick.jones2@hpe.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:45666 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752233AbcHaABI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2016 20:01:08 -0400
+Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u7UNt3RP014465
+        for <netdev@vger.kernel.org>; Tue, 30 Aug 2016 17:00:44 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0a-00082601.pphosted.com with ESMTP id 255juj0se6-2
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Tue, 30 Aug 2016 17:00:44 -0700
+Received: from facebook.com (2401:db00:21:6030:face:0:92:0)     by
+ mx-out.facebook.com (10.103.99.99) with ESMTP  id
+ f61e4f006f0d11e68b750002c9dfb610-d23f8aa0 for <netdev@vger.kernel.org>;        Tue,
+ 30 Aug 2016 17:00:43 -0700
+In-Reply-To: <1472601634-531498-1-git-send-email-tom@herbertland.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMjYgQXVndXN0IDIwMTYgYXQgMDI6MTMsIFNpbW9uIEhvcm1hbiA8c2ltb24uaG9ybWFuQG5l
-dHJvbm9tZS5jb20+IHdyb3RlOgo+IE9uIFRodSwgQXVnIDI1LCAyMDE2IGF0IDA1OjMzOjU3UE0g
-LTA3MDAsIEpvZSBTdHJpbmdlciB3cm90ZToKPj4gT24gMjUgQXVndXN0IDIwMTYgYXQgMDM6MDgs
-IFNpbW9uIEhvcm1hbiA8c2ltb24uaG9ybWFuQG5ldHJvbm9tZS5jb20+IHdyb3RlOgo+PiA+IFBs
-ZWFzZSBmaW5kIG15IHdvcmtpbmcgcGF0Y2ggYmVsb3cuCj4+ID4KPj4gPiBGcm9tOiBTaW1vbiBI
-b3JtYW4gPGhvcm1zQHZlcmdlLm5ldC5hdT4KPj4gPiBTdWJqZWN0OiBbUEFUQ0hdIHN5c3RlbS10
-cmFmZmljOiBFeGVyY2lzZSBHU08KPj4gPgo+PiA+IEV4ZXJjaXNlIEdTTyBmb3I6IHVuZW5jYXBz
-dWxhdGVkOyBNUExTOyBHUkU7IGFuZCBNUExTIGluIEdSRS4KPj4gPgo+PiA+IFRoZXJlIGlzIHNj
-b3BlIHRvIGV4dGVuZCB0aGlzIHRlc3RpbmcgdG8gb3RoZXIgZW5jYXBzdWxhdGlvbiBmb3JtYXRz
-Cj4+ID4gaWYgZGVzaXJlZC4KPj4gPgo+PiA+IFRoaXMgaXMgbW90aXZhdGVkIGJ5IGEgZGVzaXJl
-IHRvIHRlc3QgR1JFIGFuZCBNUExTIGVuY2Fwc3VsYXRpb24gaW4KPj4gPiB0aGUgY29udGV4dCBv
-ZiBMMy9WUE4gKE1QTFMgb3ZlciBub24tVEVCIEdSRSB3b3JrKS4gVGhhdCBpcyBub3QKPj4gPiB0
-ZXN0ZWQgaGVyZSBidXQgdGVzdHMgZm9yIHRob3NlIGNhc2VzIHdvdWxkIGlkZWFseSBiZSBiYXNl
-ZCBvbiB0aG9zZSBpbgo+PiA+IHRoaXMgcGF0Y2guCj4+ID4KPj4gPiBTaWduZWQtb2ZmLWJ5OiBT
-aW1vbiBIb3JtYW4gPGhvcm1zQHZlcmdlLm5ldC5hdT4KPj4KPj4gSSByZWFsaXNlZCB0aGF0IHRo
-ZXNlIHRlc3RzIGRpc2FibGUgVFNPLCBidXQgdGhleSBkb24ndCBhY3R1YWxseSBjaGVjawo+PiBp
-ZiBHU08gaXMgZW5hYmxlZC4gTWF5YmUgaXQncyBzYWZlIHRvIGFzc3VtZSB0aGlzLCBidXQgaXQn
-cyBtb3JlCj4+IGV4cGxpY2l0IHRvIGFjdHVhbGx5IGxvb2sgZm9yIGl0IGluIHRoZSB0ZXN0cy4K
-Pgo+IEdvb2QgcG9pbnQsIEknbGwgc2VlIGFib3V0IGNoZWNraW5nIHRoYXQuCj4KPj4gV2l0aCBw
-YXJ0aWN1bGFyIHNldHVwcyAoZmVkb3JhMjMgaW4gcGFydGljdWxhciwgYm90aCBrZXJuZWwgYW5k
-Cj4+IHVzZXJzcGFjZSB0ZXN0c3VpdGVzKSBJIHNlZSB0aGlzOgo+Pgo+PiAuL3N5c3RlbS10cmFm
-ZmljLmF0OjM3MTogaXAgbmV0bnMgZXhlYyBhdF9uczAgc2ggPDwgTlNfRVhFQ19IRVJFRE9DCj4+
-IGlwIHJvdXRlIGFkZCAxMC4xLjIuMC8yNCBlbmNhcCBtcGxzIDEwMCB2aWEgaW5ldCAxMC4xLjEu
-MiBkZXYgbnNfZ3JlMAo+PiBOU19FWEVDX0hFUkVET0MKPj4gLS0tIC9kZXYvbnVsbCAyMDE2LTA4
-LTE5IDAxOjI4OjAyLjE1MTAwMDAwMCArMDAwMAo+PiArKysgL2hvbWUvZ2l0bGFiLXJ1bm5lci9i
-dWlsZHMvODNjNDliZmYvMC9yb290L2dpdGxhYi1vdnMvb3ZzL3Rlc3RzL3N5c3RlbS1rbW9kLXRl
-c3RzdWl0ZS5kaXIvYXQtZ3JvdXBzLzEwL3N0ZGVycgo+PiAyMDE2LTA4LTI1IDE3OjE2OjI3LjMy
-NDAwMDAwMCArMDAwMAo+PiBAQCAtMCwwICsxIEBACj4+ICtFcnJvcjogZWl0aGVyICJ0byIgaXMg
-ZHVwbGljYXRlLCBvciAiZW5jYXAiIGlzIGEgZ2FyYmFnZS4KPj4KPj4gSSdtIGd1ZXNzaW5nIHRo
-ZSBpcCB0b29sIGlzIGEgbGl0dGxlIG91dCBvZiBkYXRlLiBXZSBjb3VsZCBkZXRlY3QgYW5kCj4+
-IHNraXAgdGhpcyB3aXRoIHNvbWV0aGluZyBsaWtlOgo+Pgo+PiBBVF9TS0lQX0lGKFtpcCByb3V0
-ZSBoZWxwIDI+JjEgfCBncmVwIGVuY2FwXSkKPj4KPj4gaW4gdGhlIENIRUNLX01QTFMuCj4KPiBU
-aGFua3MsIEknbGwgYWRkIHNvbWV0aGluZyBsaWtlIHRoYXQuCj4KPj4gSG1tLCBJJ20gc3RpbGwg
-c2VlaW5nIHRoZSBiYWQgY291bnRzIG9mIHNlZ21lbnRzIHJldHJhbnNtaXRlZCBldmVuCj4+IHdp
-dGggdGhlIGRpZmYgY2hhbmdlIG9uIGEga2VybmVsIEkgaGF2ZSBidWlsdCBhdCBiZjBmNTAwYmQw
-MTkgKCJNZXJnZQo+PiB0YWcgJ3RyYWNlLXY0LjgtMScgb2YKPj4gZ2l0Oi8vZ2l0Lmtlcm5lbC5v
-cmcvcHViL3NjbS9saW51eC9rZXJuZWwvZ2l0L3Jvc3RlZHQvbGludXgtdHJhY2UiKS4KPj4gSWYg
-aXQncyBwYXNzaW5nIG9uIGxhdGVzdCBuZXQtbmV4dCB0aGVuIG1heWJlIEkganVzdCBuZWVkIHRv
-IHN3YXAgb3V0Cj4+IHRoYXQgYm94J3Mga2VybmVsIGZvciBhIG5ld2VyIGJ1aWxkLiBJJ2xsIHRy
-eSB0aGF0Lgo+Cj4gSXQgaXMgcG9zc2libGUgdGhhdCBpdCBpcyBkZXRlY3RpbmcgYSBidWcuCj4g
-V2hpY2ggdGVzdCBpcyBmYWlsaW5nPwoKRldJVyBJIHRyaWVkIHdpdGggYSBuZXdlciBidWlsZCwg
-Y29tbWl0IDlhMGE1YzRjYjFhZiAoIm5ldDoKc3lzdGVtcG9ydDogRml4IG9yZGVyaW5nIGluIGlu
-dHJsMl8qX21hc2tfY2xlYXIgbWFjcm8iKS4gSSBubyBsb25nZXIKc2VlIHRoZSBpc3N1ZS4KClVu
-Zm9ydHVuYXRlbHkgSSBsb3N0IG15IHRlc3Qgb3V0cHV0LiBJdCB3YXMgb25lIG9mIHRoZXNlIHR3
-bzoKCiAgODogZGF0YXBhdGggLSBwaW5nIG92ZXIgZ3JlIHR1bm5lbCAgICAgICAgICAgICAgICAg
-RkFJTEVECihzeXN0ZW0tdHJhZmZpYy5hdDoyOTQpCiAgOTogZGF0YXBhdGggLSBodHRwIG92ZXIg
-Z3JlIHR1bm5lbCAgICAgICAgICAgICAgICAgRkFJTEVECihzeXN0ZW0tdHJhZmZpYy5hdDozNDgp
-CgpJIGFsc28gcmVhbGlzZWQgdGhhdCBJIGRpZG4ndCBoYXZlIE1QTFMgcm91dGVyIGVuYWJsZWQg
-aW4gbXkga2VybmVsCmNvbmZpZyBzbyB0aGUgTVBMUyB0ZXN0cyB3ZXJlIGdldHRpbmcgc2tpcHBl
-ZC4gSSBlbmFibGVkIE1QTFNfUk9VVElORywKYnV0IG5vdyBJIHNlZSB0aGlzIGZhaWx1cmUgb24g
-dGhlICJodHRwIG92ZXIgbXBscyIgdGVzdHM6CgouL3N5c3RlbS10cmFmZmljLmF0OjExMTogaXAg
-bmV0bnMgZXhlYyBhdF9uczAgc2ggPDwgTlNfRVhFQ19IRVJFRE9DCmlwIHJvdXRlIGFkZCAxMC4x
-LjEuMC8yNCBlbmNhcCBtcGxzIDEwMCB2aWEgaW5ldCAxNzIuMzEuMS4yIGRldiBwMApOU19FWEVD
-X0hFUkVET0MKLS0tIC9kZXYvbnVsbCAyMDE2LTA4LTMwIDE1OjIyOjI4LjgxMzMxNjk0OCAtMDcw
-MAorKysgL2hvbWUvZ2l0bGFiLXJ1bm5lci9idWlsZHMvZjFkNGEyYmUvMC9yb290L2dpdGxhYi1v
-dnMvb3ZzL3Rlc3RzL3N5c3RlbS1rbW9kLXRlc3RzdWl0ZS5kaXIvYXQtZ3JvdXBzLzQvc3RkZXJy
-CjIwMTYtMDgtMzAgMTU6MzM6NDUuMTMzMzA2NTgxIC0wNzAwCkBAIC0wLDAgKzEgQEAKK1JUTkVU
-TElOSyBhbnN3ZXJzOiBPcGVyYXRpb24gbm90IHN1cHBvcnRlZAoKCj4gQXQgdGhpcyBzdGFnZSBJ
-IGhhdmUgbW9zdGx5IGFkZGVkIFRTTy9HU08gdGVzdGluZyB0byBleGlzdGluZyBjaGVja3MuCj4g
-UGVyaGFwcyBpdCB3b3VsZCBiZSBiZXR0ZXIgdG8gYnJlYWsgdGhlbSBvdXQgaW50byBzZXBhcmF0
-ZSBjaGVja3Mgc28KPiBwaW5nL2h0dHAgY2FuIGJlIGJlIGNoZWNrZWQgd2l0aG91dCBjb25zaWRl
-cmluZyBUU08vR1NPIHdoaWNoIG1heSBoYXZlIHNvbWUKPiB2YWx1ZSBpbiBzaXR1YXRpb25zIHdo
-ZXJlIFRTTy9HU08gaXMgYnJva2VuIHdoaWNoIGlzIGFjdHVhbGx5IHdoYXQgSSBhbQo+IGludGVy
-ZXN0ZWQgaW4gdGVzdGluZy4KClNvdW5kcyByZWFzb25hYmxlLgpfX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3
-aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+Add two fields to netdev_queue as head_cnt and tail_cnt. head_cnt is
+incremented for every sent packet in netdev_tx_sent_queue and tail_cnt
+is incremented by the number of packets in netdev_tx_completed_queue.
+So then the number of inflight packets for a queue is simply
+queue->head_cnt - queue->tail_cnt.
+
+Add inflight_pkts to be reported in sys-fs.
+
+Signed-off-by: Tom Herbert <tom@herbertland.com>
+---
+ include/linux/netdevice.h |  4 ++++
+ net/core/net-sysfs.c      | 11 +++++++++++
+ 2 files changed, 15 insertions(+)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index d122be9..487d1df 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -592,6 +592,8 @@ struct netdev_queue {
+ 
+ #ifdef CONFIG_BQL
+ 	struct dql		dql;
++	unsigned int		head_cnt;
++	unsigned int		tail_cnt;
+ #endif
+ } ____cacheline_aligned_in_smp;
+ 
+@@ -2958,6 +2960,7 @@ static inline void netdev_tx_sent_queue(struct netdev_queue *dev_queue,
+ 					unsigned int bytes)
+ {
+ #ifdef CONFIG_BQL
++	dev_queue->head_cnt++;
+ 	dql_queued(&dev_queue->dql, bytes);
+ 
+ 	if (likely(dql_avail(&dev_queue->dql) >= 0))
+@@ -2999,6 +3002,7 @@ static inline void netdev_tx_completed_queue(struct netdev_queue *dev_queue,
+ 	if (unlikely(!bytes))
+ 		return;
+ 
++	dev_queue->tail_cnt += pkts;
+ 	dql_completed(&dev_queue->dql, bytes);
+ 
+ 	/*
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 6e4f347..5a33f6a 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -1147,6 +1147,16 @@ static ssize_t bql_show_inflight(struct netdev_queue *queue,
+ static struct netdev_queue_attribute bql_inflight_attribute =
+ 	__ATTR(inflight, S_IRUGO, bql_show_inflight, NULL);
+ 
++static ssize_t bql_show_inflight_pkts(struct netdev_queue *queue,
++				      struct netdev_queue_attribute *attr,
++				      char *buf)
++{
++	return sprintf(buf, "%u\n", queue->head_cnt - queue->tail_cnt);
++}
++
++static struct netdev_queue_attribute bql_inflight_pkts_attribute =
++	__ATTR(inflight_pkts, S_IRUGO, bql_show_inflight_pkts, NULL);
++
+ #define BQL_ATTR(NAME, FIELD)						\
+ static ssize_t bql_show_ ## NAME(struct netdev_queue *queue,		\
+ 				 struct netdev_queue_attribute *attr,	\
+@@ -1176,6 +1186,7 @@ static struct attribute *dql_attrs[] = {
+ 	&bql_limit_min_attribute.attr,
+ 	&bql_hold_time_attribute.attr,
+ 	&bql_inflight_attribute.attr,
++	&bql_inflight_pkts_attribute.attr,
+ 	NULL
+ };
+ 
+-- 
+2.8.0.rc2
