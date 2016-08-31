@@ -1,43 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] irda: Fix likely typo in output format string
-Date: Wed, 31 Aug 2016 14:52:10 -0700 (PDT)
-Message-ID: <20160831.145210.1717182207800099854.davem@davemloft.net>
-References: <1472267646-810675-1-git-send-email-green@linuxhacker.ru>
-        <20160831.143151.313012072430161185.davem@davemloft.net>
-        <857C547F-D381-44F4-A5E5-C8B390B931F3@linuxhacker.ru>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: [PATCH v2 net-next 1/6] bpf: support 8-byte metafield access
+Date: Wed, 31 Aug 2016 14:50:38 -0700
+Message-ID: <1472680243-1326608-2-git-send-email-ast@fb.com>
+References: <1472680243-1326608-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: samuel@sortiz.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: green@linuxhacker.ru
+Content-Type: text/plain
+Cc: Peter Zijlstra <peterz@infradead.org>,
+        Brendan Gregg <bgregg@netflix.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Arnaldo Carvalho de Melo <acme@infradead.org>,
+        Wang Nan <wangnan0@huawei.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, <kernel-team@fb.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <857C547F-D381-44F4-A5E5-C8B390B931F3@linuxhacker.ru>
+In-Reply-To: <1472680243-1326608-1-git-send-email-ast@fb.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Oleg Drokin <green@linuxhacker.ru>
-Date: Wed, 31 Aug 2016 17:36:44 -0400
+The verifier supported only 4-byte metafields in
+struct __sk_buff and struct xdp_md. The metafields in upcoming
+struct bpf_perf_event are 8-byte to match register width in struct pt_regs.
+Teach verifier to recognize 8-byte metafield access.
+The patch doesn't affect safety of sockets and xdp programs.
+They check for 4-byte only ctx access before these conditions are hit.
 
-> 
-> On Aug 31, 2016, at 5:31 PM, David Miller wrote:
-> 
->> From: Oleg Drokin <green@linuxhacker.ru>
->> Date: Fri, 26 Aug 2016 23:14:06 -0400
->> 
->>> %ul would print an unsigned with a letter l at the end which does
->>> not seem to be desired here, on the other hand the value being printed
->>> is u32 so just drop the l instead of converting to %lu
->>> 
->>> Signed-off-by: Oleg Drokin <green@linuxhacker.ru>
->> 
->> %u is for unsigned values, and these are "s32" thus signed.
-> 
-> Hm, you are right.
-> I could swear I saw them as unsigned when I looked at it.
-> 
-> Anyway can they really be negative? they are seconds and usec,
-> should I change them to u32 too?
+Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ kernel/bpf/verifier.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
 
-If you're interesting in continuing with this, it is your
-area for exploration not our's :-)
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index abb61f3f6900..c1c9e441f0f5 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -2333,7 +2333,8 @@ static int do_check(struct verifier_env *env)
+ 			if (err)
+ 				return err;
+ 
+-			if (BPF_SIZE(insn->code) != BPF_W) {
++			if (BPF_SIZE(insn->code) != BPF_W &&
++			    BPF_SIZE(insn->code) != BPF_DW) {
+ 				insn_idx++;
+ 				continue;
+ 			}
+@@ -2642,9 +2643,11 @@ static int convert_ctx_accesses(struct verifier_env *env)
+ 	for (i = 0; i < insn_cnt; i++, insn++) {
+ 		u32 insn_delta, cnt;
+ 
+-		if (insn->code == (BPF_LDX | BPF_MEM | BPF_W))
++		if (insn->code == (BPF_LDX | BPF_MEM | BPF_W) ||
++		    insn->code == (BPF_LDX | BPF_MEM | BPF_DW))
+ 			type = BPF_READ;
+-		else if (insn->code == (BPF_STX | BPF_MEM | BPF_W))
++		else if (insn->code == (BPF_STX | BPF_MEM | BPF_W) ||
++			 insn->code == (BPF_STX | BPF_MEM | BPF_DW))
+ 			type = BPF_WRITE;
+ 		else
+ 			continue;
+-- 
+2.8.0
