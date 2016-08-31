@@ -1,38 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH, net-next] qede: hide 32-bit compile warning
-Date: Tue, 30 Aug 2016 23:35:45 -0700 (PDT)
-Message-ID: <20160830.233545.1606889063995231548.davem@davemloft.net>
-References: <20160826153808.838861-1-arnd@arndb.de>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch iproute2 v2 2/2] tc: man: Add man entry for the matchall
+ classifier.
+Date: Wed, 31 Aug 2016 09:10:07 +0200
+Message-ID: <20160831071007.GA1807@nanopsycho.orion>
+References: <1472497261-2881-1-git-send-email-jiri@resnulli.us>
+ <1472497261-2881-3-git-send-email-jiri@resnulli.us>
+ <CAKoUArmn3uE1F7P_FDAfC+qQ1+RvzBden-yj8gzfO2ptK7F-6Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Yuval.Mintz@qlogic.com, Ariel.Elior@qlogic.com,
-        everest-linux-l2@qlogic.com, sudarsana.kalluru@qlogic.com,
-        manish.chopra@qlogic.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160826153808.838861-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: yotamg@mellanox.com, nogahf@mellanox.com, idosch@mellanox.com,
+        eladr@mellanox.com, Netdev <netdev@vger.kernel.org>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Or Gerlitz <ogerlitz@mellanox.com>
+To: Rami Rosen <roszenrami@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:34540 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751299AbcHaHKL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 03:10:11 -0400
+Received: by mail-wm0-f66.google.com with SMTP id d196so2096622wmd.1
+        for <netdev@vger.kernel.org>; Wed, 31 Aug 2016 00:10:10 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAKoUArmn3uE1F7P_FDAfC+qQ1+RvzBden-yj8gzfO2ptK7F-6Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Fri, 26 Aug 2016 17:37:53 +0200
+Tue, Aug 30, 2016 at 08:00:12PM CEST, roszenrami@gmail.com wrote:
+>Hi, Jiri,
+>Only now could review this, so here are some slight comments:
+>
+>pacets->Should be packets.
+>
+>
+>> +where the second command attaches a matchall filters on it that mirrors
+>> the
+>> +pacets to device eth2.
+>>
+>
+>engress->Did you mean "egress" ?
+>
+>> +
+>> +To create engress mirroring from port eth1 to port eth2:
+>> +.EX
+>> +
+>>
+>Again, pacets->Should be packets.
 
-> The addition of the per-queue statistics introduced a harmless warning
-> on all 32-bit architectures:
-> 
-> drivers/net/ethernet/qlogic/qede/qede_ethtool.c: In function 'qede_get_ethtool_stats':
-> drivers/net/ethernet/qlogic/qede/qede_ethtool.c:244:31: error: cast from pointer to integer of different size [-Werror=pointer-to-int-cast]
->       buf[cnt++] = QEDE_TQSTATS_DATA(edev,
->                                ^
-> drivers/net/ethernet/qlogic/qede/qede_ethtool.c:244:22: error: cast to pointer from integer of different size [-Werror=int-to-pointer-cast]
->       buf[cnt++] = QEDE_TQSTATS_DATA(edev,
->                       ^
-> This changes the cast to 'void *' to shut up the warning, which
-> avoids the assumptions on the size of the pointer type.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: 68db9ec2df07 ("qede: Add support for per-queue stats.")
+Will fix and send v3
 
-Applied, thanks.
+>
+>
+>> +where the second command attaches a matchall filters on it that mirrors
+>> the
+>> +pacets to device eth2.
+>> +
+>> +
+>>
+>
+>Regards,
+>Rami Rosen
