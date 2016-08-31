@@ -1,151 +1,59 @@
-From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH] [v9] net: emac: emac gigabit ethernet controller driver
-Date: Wed, 31 Aug 2016 10:00:43 -0500
-Message-ID: <20160831150043.GA575@rob-hp-laptop>
-References: <1472161143-26417-1-git-send-email-timur@codeaurora.org>
+From: Trond Myklebust <trondmy-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
+Subject: Re: [PATCH 1/2] NFSv4.1: work around -Wmaybe-uninitialized warning
+Date: Wed, 31 Aug 2016 15:02:42 +0000
+Message-ID: <DC57A918-AB14-483B-87EF-A88469193855@primarydata.com>
+References: <20160831123911.3467676-1-arnd@arndb.de>
+ <9F99A562-A4F6-457A-A78F-44BAC3B5734F@primarydata.com>
+ <5024842.0SZmq2hZxe@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-arm-msm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sdharia-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-        shankerd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, vikrams-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-        cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, gavidov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
-        bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, mlangsdo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-        agross-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        LinoSanfilippo-Mmb7MZpHnFY@public.gmane.org
-To: Timur Tabi <timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1472161143-26417-1-git-send-email-timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+Cc: Schumaker Anna <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+        "List Linux Network Devel Mailing" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        List Linux NFS Mailing <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        List Linux Kernel Mailing <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5024842.0SZmq2hZxe@wuerfel>
+Content-Language: en-US
+Content-ID: <44CB5F5F4C784A4E880F8B2AD6A793FA-Hry67jCOGbCcE4WynfumptQqCkab/8FMAL8bYrjMMd8@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 25, 2016 at 04:39:03PM -0500, Timur Tabi wrote:
-> Add support for the Qualcomm Technologies, Inc. EMAC gigabit Ethernet
-> controller.
-> 
-> This driver supports the following features:
-> 1) Checksum offload.
-> 2) Interrupt coalescing support.
-> 3) SGMII phy.
-> 4) phylib interface for external phy
-> 
-> Based on original work by
-> 	Niranjana Vishwanathapura <nvishwan-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-> 	Gilad Avidov <gavidov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-> 
-> Signed-off-by: Timur Tabi <timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-> ---
-> 
-> v9:
->  - Define a separate DT node for the internal phy
->  - Kconfig option now selects required PHYLIB
->  - Use netdev_alloc_skb_ip_align
->  - Use devm functions for enabling clocks
->  - Remove redundancy from the Makefile
->  - Fix error messages and clean up error paths
->  - Miscellaneous reformatting
-> 
->  .../devicetree/bindings/net/qcom-emac.txt          |  112 ++
->  MAINTAINERS                                        |    6 +
->  drivers/net/ethernet/qualcomm/Kconfig              |   12 +
->  drivers/net/ethernet/qualcomm/Makefile             |    2 +
->  drivers/net/ethernet/qualcomm/emac/Makefile        |    7 +
->  drivers/net/ethernet/qualcomm/emac/emac-mac.c      | 1530 ++++++++++++++++++++
->  drivers/net/ethernet/qualcomm/emac/emac-mac.h      |  248 ++++
->  drivers/net/ethernet/qualcomm/emac/emac-phy.c      |  203 +++
->  drivers/net/ethernet/qualcomm/emac/emac-phy.h      |   33 +
->  drivers/net/ethernet/qualcomm/emac/emac-sgmii.c    |  722 +++++++++
->  drivers/net/ethernet/qualcomm/emac/emac-sgmii.h    |   24 +
->  drivers/net/ethernet/qualcomm/emac/emac.c          |  751 ++++++++++
->  drivers/net/ethernet/qualcomm/emac/emac.h          |  335 +++++
->  13 files changed, 3985 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/qcom-emac.txt
->  create mode 100644 drivers/net/ethernet/qualcomm/emac/Makefile
->  create mode 100644 drivers/net/ethernet/qualcomm/emac/emac-mac.c
->  create mode 100644 drivers/net/ethernet/qualcomm/emac/emac-mac.h
->  create mode 100644 drivers/net/ethernet/qualcomm/emac/emac-phy.c
->  create mode 100644 drivers/net/ethernet/qualcomm/emac/emac-phy.h
->  create mode 100644 drivers/net/ethernet/qualcomm/emac/emac-sgmii.c
->  create mode 100644 drivers/net/ethernet/qualcomm/emac/emac-sgmii.h
->  create mode 100644 drivers/net/ethernet/qualcomm/emac/emac.c
->  create mode 100644 drivers/net/ethernet/qualcomm/emac/emac.h
-> 
-> diff --git a/Documentation/devicetree/bindings/net/qcom-emac.txt b/Documentation/devicetree/bindings/net/qcom-emac.txt
-> new file mode 100644
-> index 0000000..4599c78
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/qcom-emac.txt
-> @@ -0,0 +1,112 @@
-> +Qualcomm Technologies EMAC Gigabit Ethernet Controller
-> +
-> +This network controller consists of two devices: a MAC and an SGMII
-> +internal PHY.  Each device is represented by a device tree node.  A phandle
-> +connects the MAC node to its corresponding internal phy node.  Another
-> +phandle points to the external PHY node.
-> +
-> +Required properties:
-> +
-> +MAC node:
-> +- compatible : Should be "qcom,fsm9900-emac".
-> +- reg : Offset and length of the register regions for the device
-> +- interrupts : Interrupt number used by this controller
-> +- mac-address : The 6-byte MAC address. If present, it is the default
-> +	MAC address.
-> +- internal-phy : phandle to the internal PHY node
-> +- phy-handle : phandle the the external PHY node
-> +
-> +Internal PHY node:
-> +- compatible : Should be "qcom,fsm9900-emac-sgmii" or "qcom,qdf2432-emac-sgmii".
-> +- reg : Offset and length of the register region(s) for the device
-> +- interrupts : Interrupt number used by this controller
-> +
-> +The external phy child node:
-> +- reg : The phy address
-> +
-> +Example:
-> +
-> +FSM9900:
-> +
-> +soc {
-> +	#address-cells = <1>;
-> +	#size-cells = <1>;
-> +
-> +	emac0: ethernet@feb20000 {
-> +		compatible = "qcom,fsm9900-emac";
-> +		reg = <0xfeb20000 0x10000>,
-> +		      <0xfeb36000 0x1000>;
-> +		interrupts = <76>;
-> +
-> +		clocks = <&gcc 0>, <&gcc 1>, <&gcc 3>, <&gcc 4>, <&gcc 5>,
-> +			<&gcc 6>, <&gcc 7>;
-> +		clock-names = "axi_clk", "cfg_ahb_clk", "high_speed_clk",
-> +			"mdio_clk", "tx_clk", "rx_clk", "sys_clk";
-> +
-> +		internal-phy = <&emac_sgmii>;
+DQo+IE9uIEF1ZyAzMSwgMjAxNiwgYXQgMDk6MzcsIEFybmQgQmVyZ21hbm4gPGFybmRAYXJuZGIu
+ZGU+IHdyb3RlOg0KPiANCj4gT24gV2VkbmVzZGF5LCBBdWd1c3QgMzEsIDIwMTYgMToxNzo0OCBQ
+TSBDRVNUIFRyb25kIE15a2xlYnVzdCB3cm90ZToNCj4+IFdoYXQgdmVyc2lvbiBvZiBnY2MgYXJl
+IHlvdSB1c2luZz8gSeKAmW0gdW5hYmxlIHRvIHJlcHJvZHVjZSB3aXRoIGdjYyA2LjEuMS4uDQo+
+IA0KPiBUaGlzIGlzIGFsc28gb24gNi4xLjEgZm9yIEFSTS4gTm90ZSB0aGF0IDZlOGQ2NjZlOTI1
+MyAoIkRpc2FibGUNCj4gIm1heWJlLXVuaW5pdGlhbGl6ZWQiIHdhcm5pbmcgZ2xvYmFsbHkiKSB0
+dXJuZWQgb2ZmIHRob3NlIHdhcm5pbmdzLCBzbw0KPiB1bmxlc3MgeW91IGV4cGxpY2l0bHkgcGFz
+cyAtV21heWJlLXVuaW5pdGlhbGl6ZWQgKGUuZy4gYnkgYnVpbGRpbmcgd2l0aA0KPiAibWFrZSBX
+PTEiKSwgeW91IHdvbid0IGdldCBpdC4NCj4gDQoNCknigJltIG5vdCBnZXR0aW5nIHRoYXQgZXJy
+b3Igb24gZ2NjIDYuMS4xIGZvciB4ODZfNjQgd2l0aCBlaXRoZXIg4oCcbWFrZSBXPTHigJ0gb3Ig
+4oCcbWFrZSBXPTLigJ0uDQrigJxtYWtlIFc9M+KAnSBkb2VzIGdpdmVzIHJpc2UgdG8gb25lIHdh
+cm5pbmcgaW4gbmZzNF9zbG90X2dldF9zZXFpZDoNCg0KL2hvbWUvdHJvbmRteS9kZXZlbC9rZXJu
+ZWwvbGludXgvZnMvbmZzL25mczRzZXNzaW9uLmM6IEluIGZ1bmN0aW9uIOKAmG5mczRfc2xvdF9n
+ZXRfc2VxaWTigJk6DQovaG9tZS90cm9uZG15L2RldmVsL2tlcm5lbC9saW51eC9mcy9uZnMvbmZz
+NHNlc3Npb24uYzoxODQ6MTA6IHdhcm5pbmc6IGNvbnZlcnNpb24gdG8g4oCYaW504oCZIGZyb20g
+4oCYbG9uZyBpbnTigJkgbWF5IGFsdGVyIGl0cyB2YWx1ZSBbLVdjb252ZXJzaW9uXQ0KICAgcmV0
+dXJuIFBUUl9FUlIoc2xvdCk7DQogICAgICAgICAgXn5+fn5+fn5+fn5+fg0KDQood2hpY2ggaXMg
+YW5vdGhlciBmYWxzZSBwb3NpdGl2ZSkgYnV0IHRoYXTigJlzIGFsbC4uLg0KDQo+IFRoZSByZWFz
+b24gSSdtIHN0aWxsIHNlbmRpbmcgdGhlIHBhdGNoZXMgZm9yIHRoaXMgd2FybmluZyBpcyB0aGF0
+DQo+IHdlIGRvIGdldCBhIG51bWJlciBvZiB2YWxpZCBvbmVzICh0aGlzIHdhcyB0aGUgb25seSBm
+YWxzZSBwb3NpdGl2ZQ0KPiBvdXQgb2YgdGhlIHNldmVuIHN1Y2ggd2FybmluZ3Mgc2luY2UgbGFz
+dCB3ZWVrKS4NCg0KVGhlcmUgaXMgYSBaZW4tbGlrZSBxdWFsaXR5IHRvIElTX0VSUigpIHdoZW4g
+aXQgY2FzdHMgYSBjb25zdCBwb2ludGVyIHRvIGFuIHVuc2lnbmVkIGxvbmcsIGJhY2sgdG8gYSBu
+b24tY29uc3QgcG9pbnRlciwgYW5kIHRoZW4gYmFjayB0byBhbiB1bnNpZ25lZCBsb25nIGJlZm9y
+ZSBjb21wYXJpbmcgaXQgdG8gYW5vdGhlciB1bnNpZ25lZCBsb25nIGNhc3QgY29uc3RhbnQgbmVn
+YXRpdmUgaW50ZWdlci4gSG93ZXZlciwgSeKAmW0gbm90IHN1cmUgdGhlIEM5OSBzdGFuZGFyZCB3
+b3VsZCBhZ3JlZSB0aGF0IGEgcG9zaXRpdmUgdGVzdCByZXN1bHQgaW1wbGllcyB3ZSBjYW4gYXNz
+dW1lIHRoYXQgYSBzaW1wbGUgY2FzdCBvZiB0aGUgc2FtZSBwb2ludGVyIHRvIGEgc2lnbmVkIGxv
+bmcgd2lsbCByZXN1bHQgaW4gYSBuZWdhdGl2ZSwgbm9uLXplcm8gdmFsdWVkIGVycm5vLg0KDQpJ
+IHN1c3BlY3QgdGhhdCBpZiB3ZSByZWFsbHkgd2FudCB0byBmaXggdGhlc2UgZmFsc2UgbmVnYXRp
+dmVzLCB3ZSBzaG91bGQgcHJvYmFibHkgYWRkcmVzcyB0aGF0IGlzc3VlLg0KDQpDaGVlcnMNCiAg
+VHJvbmQ=
 
-Can't this use the standard generic phy binding (i.e. 'phys'). It's a 
-bit confusing as there's the ethernet phy binding (phy-handle) and the 
-generic one. 
-
-> +
-> +		phy-handle = <&phy0>;
-
-This is bit redundant as the phy is the child node. I guess if you had 
-multiple devices on the mdio bus you would need it. I'd drop it if you 
-don't envision needing it and the kernel doesn't require it.
-
-> +
-> +		#address-cells = <1>;
-> +		#size-cells = <0>;
-> +		phy0: ethernet-phy@0 {
-
-It's just an example, but don't we require compatible strings for phys 
-now?
-
-> +			reg = <0>;
-> +		};
-> +
 --
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
