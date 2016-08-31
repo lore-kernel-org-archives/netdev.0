@@ -1,113 +1,71 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [RT PATCH 1/2] net: add back the missing serialization in
- ip_send_unicast_reply()
-Date: Wed, 31 Aug 2016 12:15:53 -0400
-Message-ID: <20160831121553.6aea5cda@gandalf.local.home>
-References: <20160831160049.14303-1-bigeasy@linutronix.de>
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: Re: [PATCH net] tg3: Fix for disallow tx coalescing time to be 0
+Date: Wed, 31 Aug 2016 09:19:34 -0700
+Message-ID: <CACKFLinmEkScvrsVX-R5e+8UjNvNzRhbwtH1pCDFZjkhTMxsxA@mail.gmail.com>
+References: <1472567935-13177-1-git-send-email-ivecera@redhat.com>
+ <CACKFLimbY8xyd5LBgyDxV_v_xrwGShy9Vb3m1pO6mboHJsKpFw@mail.gmail.com> <deffba75-d9c0-b7a3-8c27-adcf50e1064c@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: linux-rt-users@vger.kernel.org, linux-kernel@vger.kernel.org,
-        tglx@linutronix.de, netdev@vger.kernel.org
-To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Return-path: <linux-rt-users-owner@vger.kernel.org>
-In-Reply-To: <20160831160049.14303-1-bigeasy@linutronix.de>
-Sender: linux-rt-users-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Netdev <netdev@vger.kernel.org>,
+        Satish Baddipadige <satish.baddipadige@broadcom.com>,
+        Siva Reddy Kallam <siva.kallam@broadcom.com>
+To: Ivan Vecera <ivecera@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f47.google.com ([209.85.218.47]:36178 "EHLO
+        mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1030348AbcHaQTt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 12:19:49 -0400
+Received: by mail-oi0-f47.google.com with SMTP id f189so77533108oig.3
+        for <netdev@vger.kernel.org>; Wed, 31 Aug 2016 09:19:49 -0700 (PDT)
+In-Reply-To: <deffba75-d9c0-b7a3-8c27-adcf50e1064c@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 31 Aug 2016 18:00:48 +0200
-Sebastian Andrzej Siewior <bigeasy@linutronix.de> wrote:
-
-> Some time ago Sami Pietikäinen reported a crash on -RT in
-> ip_send_unicast_reply() which was later fixed by Nicholas Mc Guire
-> (v3.12.8-rt11). Later (v3.18.8) the code was reworked and I dropped the
-> patch. As it turns out it was mistake.
-> I have reports that the same crash is possible with a similar backtrace.
-> It seems that vanilla protects access to this_cpu_ptr() via
-> local_bh_disable(). This does not work on -RT since we can have
-> NET_RX and NET_TX running in parallel on the same CPU.
-> This is brings back the old locks.
-> 
-> |Unable to handle kernel NULL pointer dereference at virtual address 00000010
-> |PC is at __ip_make_skb+0x198/0x3e8
-> |[<c04e39d8>] (__ip_make_skb) from [<c04e3ca8>] (ip_push_pending_frames+0x20/0x40)
-> |[<c04e3ca8>] (ip_push_pending_frames) from [<c04e3ff0>] (ip_send_unicast_reply+0x210/0x22c)
-> |[<c04e3ff0>] (ip_send_unicast_reply) from [<c04fbb54>] (tcp_v4_send_reset+0x190/0x1c0)
-> |[<c04fbb54>] (tcp_v4_send_reset) from [<c04fcc1c>] (tcp_v4_do_rcv+0x22c/0x288)
-> |[<c04fcc1c>] (tcp_v4_do_rcv) from [<c0474364>] (release_sock+0xb4/0x150)
-> |[<c0474364>] (release_sock) from [<c04ed904>] (tcp_close+0x240/0x454)
-> |[<c04ed904>] (tcp_close) from [<c0511408>] (inet_release+0x74/0x7c)
-> |[<c0511408>] (inet_release) from [<c0470728>] (sock_release+0x30/0xb0)
-> |[<c0470728>] (sock_release) from [<c0470abc>] (sock_close+0x1c/0x24)
-> |[<c0470abc>] (sock_close) from [<c0115ec4>] (__fput+0xe8/0x20c)
-> |[<c0115ec4>] (__fput) from [<c0116050>] (____fput+0x18/0x1c)
-> |[<c0116050>] (____fput) from [<c0058138>] (task_work_run+0xa4/0xb8)
-> |[<c0058138>] (task_work_run) from [<c0011478>] (do_work_pending+0xd0/0xe4)
-> |[<c0011478>] (do_work_pending) from [<c000e740>] (work_pending+0xc/0x20)
-> |Code: e3530001 8a000001 e3a00040 ea000011 (e5973010)
-> 
-> Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-> ---
->  net/ipv4/tcp_ipv4.c | 7 +++++++
->  1 file changed, 7 insertions(+)
-> 
-> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-> index ad450509029b..c5521d1f1263 100644
-> --- a/net/ipv4/tcp_ipv4.c
-> +++ b/net/ipv4/tcp_ipv4.c
-> @@ -62,6 +62,7 @@
->  #include <linux/init.h>
->  #include <linux/times.h>
->  #include <linux/slab.h>
-> +#include <linux/locallock.h>
->  
->  #include <net/net_namespace.h>
->  #include <net/icmp.h>
-> @@ -565,6 +566,7 @@ void tcp_v4_send_check(struct sock *sk, struct sk_buff *skb)
->  }
->  EXPORT_SYMBOL(tcp_v4_send_check);
->  
-> +static DEFINE_LOCAL_IRQ_LOCK(tcp_sk_lock);
->  /*
->   *	This routine will send an RST to the other tcp.
->   *
-> @@ -689,10 +691,13 @@ static void tcp_v4_send_reset(const struct sock *sk, struct sk_buff *skb)
->  		     offsetof(struct inet_timewait_sock, tw_bound_dev_if));
->  
->  	arg.tos = ip_hdr(skb)->tos;
-> +
-> +	local_lock(tcp_sk_lock);
-
-Interesting that I noticed in mainline, they have:
-
-	local_bh_disable();
-
-here.
-
-I'm surprised we don't have a local_lock_bh() or something to that
-effect.
-
--- Steve
-
->  	ip_send_unicast_reply(*this_cpu_ptr(net->ipv4.tcp_sk),
->  			      skb, &TCP_SKB_CB(skb)->header.h4.opt,
->  			      ip_hdr(skb)->saddr, ip_hdr(skb)->daddr,
->  			      &arg, arg.iov[0].iov_len);
-> +	local_unlock(tcp_sk_lock);
->  
->  	TCP_INC_STATS_BH(net, TCP_MIB_OUTSEGS);
->  	TCP_INC_STATS_BH(net, TCP_MIB_OUTRSTS);
-> @@ -774,10 +779,12 @@ static void tcp_v4_send_ack(struct net *net,
->  	if (oif)
->  		arg.bound_dev_if = oif;
->  	arg.tos = tos;
-> +	local_lock(tcp_sk_lock);
->  	ip_send_unicast_reply(*this_cpu_ptr(net->ipv4.tcp_sk),
->  			      skb, &TCP_SKB_CB(skb)->header.h4.opt,
->  			      ip_hdr(skb)->saddr, ip_hdr(skb)->daddr,
->  			      &arg, arg.iov[0].iov_len);
-> +	local_unlock(tcp_sk_lock);
->  
->  	TCP_INC_STATS_BH(net, TCP_MIB_OUTSEGS);
->  }
-
+On Wed, Aug 31, 2016 at 2:27 AM, Ivan Vecera <ivecera@redhat.com> wrote:
+> Dne 30.8.2016 v 17:46 Michael Chan napsal(a):
+>>
+>> On Tue, Aug 30, 2016 at 7:38 AM, Ivan Vecera <ivecera@redhat.com> wrote:
+>>>
+>>> The recent commit 087d7a8c disallows to set Rx coalescing time to be 0
+>>> as this stops generating interrupts for the incoming packets. I found
+>>> the zero Tx coalescing time stops generating interrupts similarly for
+>>> outgoing packets and fires Tx watchdog later. To avoid this, don't allow
+>>> to set Tx coalescing time to 0.
+>>>
+>>> Cc: satish.baddipadige@broadcom.com
+>>> Cc: siva.kallam@broadcom.com
+>>> Cc: michael.chan@broadcom.com
+>>> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+>>> ---
+>>>  drivers/net/ethernet/broadcom/tg3.c | 1 +
+>>>  1 file changed, 1 insertion(+)
+>>>
+>>> diff --git a/drivers/net/ethernet/broadcom/tg3.c
+>>> b/drivers/net/ethernet/broadcom/tg3.c
+>>> index 6592612..07e3beb 100644
+>>> --- a/drivers/net/ethernet/broadcom/tg3.c
+>>> +++ b/drivers/net/ethernet/broadcom/tg3.c
+>>> @@ -14012,6 +14012,7 @@ static int tg3_set_coalesce(struct net_device
+>>> *dev, struct ethtool_coalesce *ec)
+>>>         if ((ec->rx_coalesce_usecs > MAX_RXCOL_TICKS) ||
+>>>             (!ec->rx_coalesce_usecs) ||
+>>>             (ec->tx_coalesce_usecs > MAX_TXCOL_TICKS) ||
+>>> +           (!ec->tx_coalesce_usecs) ||
+>>>             (ec->rx_max_coalesced_frames > MAX_RXMAX_FRAMES) ||
+>>>             (ec->tx_max_coalesced_frames > MAX_TXMAX_FRAMES) ||
+>>>             (ec->rx_coalesce_usecs_irq > max_rxcoal_tick_int) ||
+>>
+>>
+>>
+>> As Rick pointed out last time, we can remove this check which follows
+>> the block of code above:
+>>
+>> /* No tx interrupts will be generated if both are zero */
+>> if ((ec->tx_coalesce_usecs == 0) &&
+>>    (ec->tx_max_coalesced_frames == 0))
+>> return -EINVAL;
+>>
+> Michael,
+> should I add the removal of these checks to v2?
+>
+Yes, please remove both the TX and the RX checks.  Thanks.
