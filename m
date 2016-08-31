@@ -1,54 +1,55 @@
-From: Nikolay Aleksandrov via Bridge <bridge@lists.linux-foundation.org>
-Subject: Re: [PATCH net-next v2 2/2] net: bridge: add per-port
- multicast flood flag
-Date: Wed, 31 Aug 2016 08:02:22 +0200
-Message-ID: <7d1fc865-f092-5d9d-8f4c-f19aeac914c0@cumulusnetworks.com>
-References: <1472570588-32503-1-git-send-email-nikolay@cumulusnetworks.com>
-	<1472570588-32503-3-git-send-email-nikolay@cumulusnetworks.com>
-	<20160831013726.GD4883@otheros>
-Reply-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+From: Caesar Wang <wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+Subject: [RESEND PATCH 0/4] Support the rk3399 gmac pd function
+Date: Wed, 31 Aug 2016 14:13:44 +0800
+Message-ID: <1472624028-7082-1-git-send-email-wxt@rock-chips.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	bridge@lists.linux-foundation.org, davem@davemloft.net
-To: =?UTF-8?Q?Linus_L=c3=bcssing?= <linus.luessing@c0d3.blue>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20160831013726.GD4883@otheros>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+ Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>, Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Masahiro Yamada <yamada.masahiro-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>,
+ Xing Zheng <zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>, Brian Norris <briannorris-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+ linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Shunqian Zheng <zhengsq-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
+ Caesar Wang <wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Elaine Zhang <zhangqing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
+ Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+ Frank Wang <frank.wang-TNX95d0MmH7DzftRWevZcw@public.gmane.org>, dbasehore-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org,
+ Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+ linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Jianqun Xu <jay.xu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
+ Douglas Anderson <dianders-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+To: Heiko Stuebner <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
+List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 31/08/16 03:37, Linus Lüssing wrote:
-> On Tue, Aug 30, 2016 at 05:23:08PM +0200, Nikolay Aleksandrov via Bridge wrote:
->> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
->> index 1da3221845f1..ed0dd3340084 100644
->> --- a/net/bridge/br_if.c
->> +++ b/net/bridge/br_if.c
->> @@ -362,7 +362,7 @@ static struct net_bridge_port *new_nbp(struct net_bridge *br,
->>  	p->path_cost = port_cost(dev);
->>  	p->priority = 0x8000 >> BR_PORT_BITS;
->>  	p->port_no = index;
->> -	p->flags = BR_LEARNING | BR_FLOOD;
->> +	p->flags = BR_LEARNING | BR_FLOOD | BR_MCAST_FLOOD;
-> 
-> I'm discontent with this new flag becoming the default.
-> 
-> Could you elaborate a little more on your use-case, when/why do
-> you want/need this flag?
-> 
+This patch add to handle the gmac pd issue, and support
+the rk3399 gmac for devicetree.
 
-The use case is the current default behaviour if we don't make this flag on by default
-then we'll change user-visible default behaviour. Right now we flood unregistered mcast
-traffic by default (if there's no querier and router port, which continues to function
-as before). Also we have the port flags equal to BR_AUTO_MASK by default.
 
-Cheers,
- Nik
+
+Caesar Wang (2):
+  arm64: dts: rockchip: support gmac for rk3399
+  arm64: dts: rockchip: enable the gmac for rk3399 evb board
+
+David Wu (1):
+  net: stmmac: dwmac-rk: add pd_gmac support for rk3399
+
+Roger Chen (1):
+  net: stmmac: dwmac-rk: fixes the gmac resume after PD on/off
+
+ arch/arm64/boot/dts/rockchip/rk3399-evb.dts    | 31 +++++++++
+ arch/arm64/boot/dts/rockchip/rk3399.dtsi       | 90 ++++++++++++++++++++++++++
+ drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c | 28 +++++---
+ 3 files changed, 140 insertions(+), 9 deletions(-)
+
+-- 
+1.9.1
