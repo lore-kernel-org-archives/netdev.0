@@ -1,7 +1,7 @@
 From: Hadar Hen Zion <hadarh@mellanox.com>
-Subject: [PATCH net-next V4 4/4] net/sched: Introduce act_tunnel_key
-Date: Wed, 31 Aug 2016 15:46:24 +0300
-Message-ID: <1472647584-6713-5-git-send-email-hadarh@mellanox.com>
+Subject: [PATCH net-next V4 1/4] net/ip_tunnels: Introduce tunnel_id_to_key32() and key32_to_tunnel_id()
+Date: Wed, 31 Aug 2016 15:46:21 +0300
+Message-ID: <1472647584-6713-2-git-send-email-hadarh@mellanox.com>
 References: <1472647584-6713-1-git-send-email-hadarh@mellanox.com>
 Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
         Jiri Benc <jbenc@redhat.com>,
@@ -15,9 +15,9 @@ Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
         Hadar Hen Zion <hadarh@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:40339 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:40336 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S934141AbcHaMqz (ORCPT
+        with ESMTP id S933442AbcHaMqz (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 08:46:55 -0400
 In-Reply-To: <1472647584-6713-1-git-send-email-hadarh@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -25,513 +25,151 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Amir Vadai <amir@vadai.me>
 
-This action could be used before redirecting packets to a shared tunnel
-device, or when redirecting packets arriving from a such a device.
-
-The action will release the metadata created by the tunnel device
-(decap), or set the metadata with the specified values for encap
-operation.
-
-For example, the following flower filter will forward all ICMP packets
-destined to 11.11.11.2 through the shared vxlan device 'vxlan0'. Before
-redirecting, a metadata for the vxlan tunnel is created using the
-tunnel_key action and it's arguments:
-
-$ filter add dev net0 protocol ip parent ffff: \
-    flower \
-      ip_proto 1 \
-      dst_ip 11.11.11.2 \
-    action tunnel_key set \
-      src_ip 11.11.0.1 \
-      dst_ip 11.11.0.2 \
-      id 11 \
-    action mirred egress redirect dev vxlan0
+Add utility functions to convert a 32 bits key into a 64 bits tunnel and
+vice versa.
+These functions will be used instead of cloning code in GRE and VXLAN,
+and in tc act_iptunnel which will be introduced in a following patch in
+this patchset.
 
 Signed-off-by: Amir Vadai <amir@vadai.me>
 Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+Reviewed-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Acked-by: Jiri Benc <jbenc@redhat.com>
 ---
- include/net/tc_act/tc_tunnel_key.h        |  30 +++
- include/uapi/linux/tc_act/tc_tunnel_key.h |  42 ++++
- net/sched/Kconfig                         |  11 +
- net/sched/Makefile                        |   1 +
- net/sched/act_tunnel_key.c                | 349 ++++++++++++++++++++++++++++++
- 5 files changed, 433 insertions(+)
- create mode 100644 include/net/tc_act/tc_tunnel_key.h
- create mode 100644 include/uapi/linux/tc_act/tc_tunnel_key.h
- create mode 100644 net/sched/act_tunnel_key.c
+ drivers/net/vxlan.c      |  4 ++--
+ include/net/ip_tunnels.h | 19 +++++++++++++++++++
+ include/net/vxlan.h      | 18 ------------------
+ net/ipv4/ip_gre.c        | 23 ++---------------------
+ 4 files changed, 23 insertions(+), 41 deletions(-)
 
-diff --git a/include/net/tc_act/tc_tunnel_key.h b/include/net/tc_act/tc_tunnel_key.h
-new file mode 100644
-index 0000000..8610504
---- /dev/null
-+++ b/include/net/tc_act/tc_tunnel_key.h
-@@ -0,0 +1,30 @@
-+/*
-+ * Copyright (c) 2016, Amir Vadai <amir@vadai.me>
-+ * Copyright (c) 2016, Mellanox Technologies. All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#ifndef __NET_TC_TUNNEL_KEY_H
-+#define __NET_TC_TUNNEL_KEY_H
-+
-+#include <net/act_api.h>
-+
-+struct tcf_tunnel_key_params {
-+	struct rcu_head		rcu;
-+	int			tcft_action;
-+	struct metadata_dst     *tcft_enc_metadata;
-+};
-+
-+struct tcf_tunnel_key {
-+	struct tc_action	      common;
-+	struct tcf_tunnel_key_params *params;
-+};
-+
-+#define to_tunnel_key(a) ((struct tcf_tunnel_key *)a)
-+
-+#endif /* __NET_TC_TUNNEL_KEY_H */
-+
-diff --git a/include/uapi/linux/tc_act/tc_tunnel_key.h b/include/uapi/linux/tc_act/tc_tunnel_key.h
-new file mode 100644
-index 0000000..f9ddf53
---- /dev/null
-+++ b/include/uapi/linux/tc_act/tc_tunnel_key.h
-@@ -0,0 +1,42 @@
-+/*
-+ * Copyright (c) 2016, Amir Vadai <amir@vadai.me>
-+ * Copyright (c) 2016, Mellanox Technologies. All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#ifndef __LINUX_TC_TUNNEL_KEY_H
-+#define __LINUX_TC_TUNNEL_KEY_H
-+
-+#include <linux/pkt_cls.h>
-+
-+#define TCA_ACT_TUNNEL_KEY 17
-+
-+#define TCA_TUNNEL_KEY_ACT_SET	    1
-+#define TCA_TUNNEL_KEY_ACT_RELEASE  2
-+
-+struct tc_tunnel_key {
-+	tc_gen;
-+	int t_action;
-+};
-+
-+enum {
-+	TCA_TUNNEL_KEY_UNSPEC,
-+	TCA_TUNNEL_KEY_TM,
-+	TCA_TUNNEL_KEY_PARMS,
-+	TCA_TUNNEL_KEY_ENC_IPV4_SRC,	/* be32 */
-+	TCA_TUNNEL_KEY_ENC_IPV4_DST,	/* be32 */
-+	TCA_TUNNEL_KEY_ENC_IPV6_SRC,	/* struct in6_addr */
-+	TCA_TUNNEL_KEY_ENC_IPV6_DST,	/* struct in6_addr */
-+	TCA_TUNNEL_KEY_ENC_KEY_ID,	/* be64 */
-+	TCA_TUNNEL_KEY_PAD,
-+	__TCA_TUNNEL_KEY_MAX,
-+};
-+
-+#define TCA_TUNNEL_KEY_MAX (__TCA_TUNNEL_KEY_MAX - 1)
-+
-+#endif
-+
-diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index ccf931b..72e3426 100644
---- a/net/sched/Kconfig
-+++ b/net/sched/Kconfig
-@@ -761,6 +761,17 @@ config NET_ACT_IFE
- 	  To compile this code as a module, choose M here: the
- 	  module will be called act_ife.
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 3f7e0d2..2444daa 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1293,7 +1293,7 @@ static int vxlan_rcv(struct sock *sk, struct sk_buff *skb)
+ 		struct metadata_dst *tun_dst;
  
-+config NET_ACT_TUNNEL_KEY
-+        tristate "IP tunnel metadata manipulation"
-+        depends on NET_CLS_ACT
-+        ---help---
-+	  Say Y here to set/release ip tunnel metadata.
-+
-+	  If unsure, say N.
-+
-+	  To compile this code as a module, choose M here: the
-+	  module will be called act_tunnel_key.
-+
- config NET_IFE_SKBMARK
-         tristate "Support to encoding decoding skb mark on IFE action"
-         depends on NET_ACT_IFE
-diff --git a/net/sched/Makefile b/net/sched/Makefile
-index ae088a5..b9d046b 100644
---- a/net/sched/Makefile
-+++ b/net/sched/Makefile
-@@ -22,6 +22,7 @@ obj-$(CONFIG_NET_ACT_CONNMARK)	+= act_connmark.o
- obj-$(CONFIG_NET_ACT_IFE)	+= act_ife.o
- obj-$(CONFIG_NET_IFE_SKBMARK)	+= act_meta_mark.o
- obj-$(CONFIG_NET_IFE_SKBPRIO)	+= act_meta_skbprio.o
-+obj-$(CONFIG_NET_ACT_TUNNEL_KEY)+= act_tunnel_key.o
- obj-$(CONFIG_NET_SCH_FIFO)	+= sch_fifo.o
- obj-$(CONFIG_NET_SCH_CBQ)	+= sch_cbq.o
- obj-$(CONFIG_NET_SCH_HTB)	+= sch_htb.o
-diff --git a/net/sched/act_tunnel_key.c b/net/sched/act_tunnel_key.c
-new file mode 100644
-index 0000000..62c4202
---- /dev/null
-+++ b/net/sched/act_tunnel_key.c
-@@ -0,0 +1,349 @@
-+/*
-+ * Copyright (c) 2016, Amir Vadai <amir@vadai.me>
-+ * Copyright (c) 2016, Mellanox Technologies. All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/init.h>
-+#include <linux/kernel.h>
-+#include <linux/skbuff.h>
-+#include <linux/rtnetlink.h>
-+#include <net/netlink.h>
-+#include <net/pkt_sched.h>
-+#include <net/dst.h>
-+#include <net/dst_metadata.h>
-+
-+#include <linux/tc_act/tc_tunnel_key.h>
-+#include <net/tc_act/tc_tunnel_key.h>
-+
-+#define TUNNEL_KEY_TAB_MASK     15
-+
-+static int tunnel_key_net_id;
-+static struct tc_action_ops act_tunnel_key_ops;
-+
-+static int tunnel_key_act(struct sk_buff *skb, const struct tc_action *a,
-+			  struct tcf_result *res)
+ 		tun_dst = udp_tun_rx_dst(skb, vxlan_get_sk_family(vs), TUNNEL_KEY,
+-					 vxlan_vni_to_tun_id(vni), sizeof(*md));
++					 key32_to_tunnel_id(vni), sizeof(*md));
+ 
+ 		if (!tun_dst)
+ 			goto drop;
+@@ -1947,7 +1947,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 			goto drop;
+ 		}
+ 		dst_port = info->key.tp_dst ? : vxlan->cfg.dst_port;
+-		vni = vxlan_tun_id_to_vni(info->key.tun_id);
++		vni = tunnel_id_to_key32(info->key.tun_id);
+ 		remote_ip.sa.sa_family = ip_tunnel_info_af(info);
+ 		if (remote_ip.sa.sa_family == AF_INET) {
+ 			remote_ip.sin.sin_addr.s_addr = info->key.u.ipv4.dst;
+diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
+index a5e7035..e598c63 100644
+--- a/include/net/ip_tunnels.h
++++ b/include/net/ip_tunnels.h
+@@ -222,6 +222,25 @@ static inline unsigned short ip_tunnel_info_af(const struct ip_tunnel_info
+ 	return tun_info->mode & IP_TUNNEL_INFO_IPV6 ? AF_INET6 : AF_INET;
+ }
+ 
++static inline __be64 key32_to_tunnel_id(__be32 key)
 +{
-+	struct tcf_tunnel_key *t = to_tunnel_key(a);
-+	struct tcf_tunnel_key_params *params;
-+	int action;
-+
-+	rcu_read_lock();
-+
-+	params = rcu_dereference(t->params);
-+
-+	tcf_lastuse_update(&t->tcf_tm);
-+	bstats_cpu_update(this_cpu_ptr(t->common.cpu_bstats), skb);
-+	action = t->tcf_action;
-+
-+	switch (params->tcft_action) {
-+	case TCA_TUNNEL_KEY_ACT_RELEASE:
-+		skb_dst_drop(skb);
-+		break;
-+	case TCA_TUNNEL_KEY_ACT_SET:
-+		skb_dst_drop(skb);
-+		skb_dst_set(skb, dst_clone(&params->tcft_enc_metadata->dst));
-+		break;
-+	default:
-+		WARN_ONCE(1, "Bad tunnel_key action.\n");
-+		break;
-+	}
-+
-+	rcu_read_unlock();
-+
-+	return action;
++#ifdef __BIG_ENDIAN
++	return (__force __be64)key;
++#else
++	return (__force __be64)((__force u64)key << 32);
++#endif
 +}
 +
-+static const struct nla_policy tunnel_key_policy[TCA_TUNNEL_KEY_MAX + 1] = {
-+	[TCA_TUNNEL_KEY_PARMS]	    = { .len = sizeof(struct tc_tunnel_key) },
-+	[TCA_TUNNEL_KEY_ENC_IPV4_SRC] = { .type = NLA_U32 },
-+	[TCA_TUNNEL_KEY_ENC_IPV4_DST] = { .type = NLA_U32 },
-+	[TCA_TUNNEL_KEY_ENC_IPV6_SRC] = { .len = sizeof(struct in6_addr) },
-+	[TCA_TUNNEL_KEY_ENC_IPV6_DST] = { .len = sizeof(struct in6_addr) },
-+	[TCA_TUNNEL_KEY_ENC_KEY_ID]   = { .type = NLA_U32 },
-+};
-+
-+static int tunnel_key_init(struct net *net, struct nlattr *nla,
-+			   struct nlattr *est, struct tc_action **a,
-+			   int ovr, int bind)
++/* Returns the least-significant 32 bits of a __be64. */
++static inline __be32 tunnel_id_to_key32(__be64 tun_id)
 +{
-+	struct tc_action_net *tn = net_generic(net, tunnel_key_net_id);
-+	struct nlattr *tb[TCA_TUNNEL_KEY_MAX + 1];
-+	struct metadata_dst *metadata = NULL;
-+	struct tc_tunnel_key *parm;
-+	struct tcf_tunnel_key *t;
-+	struct tcf_tunnel_key_params *params_old;
-+	struct tcf_tunnel_key_params *params_new;
-+	__be64 key_id;
-+	bool exists = false;
-+	int ret = 0;
-+	int err;
-+
-+	if (!nla)
-+		return -EINVAL;
-+
-+	err = nla_parse_nested(tb, TCA_TUNNEL_KEY_MAX, nla, tunnel_key_policy);
-+	if (err < 0)
-+		return err;
-+
-+	if (!tb[TCA_TUNNEL_KEY_PARMS])
-+		return -EINVAL;
-+
-+	parm = nla_data(tb[TCA_TUNNEL_KEY_PARMS]);
-+	exists = tcf_hash_check(tn, parm->index, a, bind);
-+	if (exists && bind)
-+		return 0;
-+
-+	switch (parm->t_action) {
-+	case TCA_TUNNEL_KEY_ACT_RELEASE:
-+		break;
-+	case TCA_TUNNEL_KEY_ACT_SET:
-+		if (!tb[TCA_TUNNEL_KEY_ENC_KEY_ID]) {
-+			ret = -EINVAL;
-+			goto err_out;
-+		}
-+
-+		key_id = key32_to_tunnel_id(nla_get_be32(tb[TCA_TUNNEL_KEY_ENC_KEY_ID]));
-+
-+		if (tb[TCA_TUNNEL_KEY_ENC_IPV4_SRC] &&
-+		    tb[TCA_TUNNEL_KEY_ENC_IPV4_DST]) {
-+			__be32 saddr;
-+			__be32 daddr;
-+
-+			saddr = nla_get_in_addr(tb[TCA_TUNNEL_KEY_ENC_IPV4_SRC]);
-+			daddr = nla_get_in_addr(tb[TCA_TUNNEL_KEY_ENC_IPV4_DST]);
-+
-+			metadata = __ip_tun_set_dst(saddr, daddr, 0, 0,
-+						    TUNNEL_KEY, key_id, 0);
-+		} else if (tb[TCA_TUNNEL_KEY_ENC_IPV6_SRC] &&
-+			   tb[TCA_TUNNEL_KEY_ENC_IPV6_DST]) {
-+			struct in6_addr saddr;
-+			struct in6_addr daddr;
-+
-+			saddr = nla_get_in6_addr(tb[TCA_TUNNEL_KEY_ENC_IPV6_SRC]);
-+			daddr = nla_get_in6_addr(tb[TCA_TUNNEL_KEY_ENC_IPV6_DST]);
-+
-+			metadata = __ipv6_tun_set_dst(&saddr, &daddr, 0, 0, 0,
-+						      TUNNEL_KEY, key_id, 0);
-+		}
-+
-+		if (!metadata) {
-+			ret = -EINVAL;
-+			goto err_out;
-+		}
-+
-+		metadata->u.tun_info.mode |= IP_TUNNEL_INFO_TX;
-+		break;
-+	default:
-+		goto err_out;
-+	}
-+
-+	if (!exists) {
-+		ret = tcf_hash_create(tn, parm->index, est, a,
-+				      &act_tunnel_key_ops, bind, true);
-+		if (ret)
-+			return ret;
-+
-+		ret = ACT_P_CREATED;
-+	} else {
-+		tcf_hash_release(*a, bind);
-+		if (!ovr)
-+			return -EEXIST;
-+	}
-+
-+	t = to_tunnel_key(*a);
-+
-+	ASSERT_RTNL();
-+	params_new = kzalloc(sizeof(*params_new),
-+			     GFP_KERNEL);
-+	if (unlikely(!params_new)) {
-+		if (ovr)
-+			tcf_hash_release(*a, bind);
-+		return -ENOMEM;
-+	}
-+
-+	params_old = rtnl_dereference(t->params);
-+
-+	t->tcf_action = parm->action;
-+	params_new->tcft_action = parm->t_action;
-+	params_new->tcft_enc_metadata = metadata;
-+
-+	rcu_assign_pointer(t->params, params_new);
-+
-+	if (params_old)
-+		kfree_rcu(params_old, rcu);
-+
-+	if (ret == ACT_P_CREATED)
-+		tcf_hash_insert(tn, *a);
-+
-+	return ret;
-+
-+err_out:
-+	if (exists)
-+		tcf_hash_release(*a, bind);
-+	return ret;
++#ifdef __BIG_ENDIAN
++	return (__force __be32)tun_id;
++#else
++	return (__force __be32)((__force u64)tun_id >> 32);
++#endif
 +}
 +
-+static void tunnel_key_release(struct tc_action *a, int bind)
-+{
-+	struct tcf_tunnel_key *t = to_tunnel_key(a);
-+	struct tcf_tunnel_key_params *params;
-+
-+	rcu_read_lock();
-+	params = rcu_dereference(t->params);
-+
-+	if (params->tcft_action == TCA_TUNNEL_KEY_ACT_SET)
-+		dst_release(&params->tcft_enc_metadata->dst);
-+
-+	rcu_read_unlock();
-+}
-+
-+static int tunnel_key_dump_addresses(struct sk_buff *skb,
-+				     const struct ip_tunnel_info *info)
-+{
-+	unsigned short family = ip_tunnel_info_af(info);
-+
-+	if (family == AF_INET) {
-+		__be32 saddr = info->key.u.ipv4.src;
-+		__be32 daddr = info->key.u.ipv4.dst;
-+
-+		if (!nla_put_in_addr(skb, TCA_TUNNEL_KEY_ENC_IPV4_SRC, saddr) &&
-+		    !nla_put_in_addr(skb, TCA_TUNNEL_KEY_ENC_IPV4_DST, daddr))
-+			return 0;
-+	}
-+
-+	if (family == AF_INET6) {
-+		const struct in6_addr *saddr6 = &info->key.u.ipv6.src;
-+		const struct in6_addr *daddr6 = &info->key.u.ipv6.dst;
-+
-+		if (!nla_put_in6_addr(skb,
-+				      TCA_TUNNEL_KEY_ENC_IPV6_SRC, saddr6) &&
-+		    !nla_put_in6_addr(skb,
-+				      TCA_TUNNEL_KEY_ENC_IPV6_DST, daddr6))
-+			return 0;
-+	}
-+
-+	return -EINVAL;
-+}
-+
-+static int tunnel_key_dump(struct sk_buff *skb, struct tc_action *a,
-+			   int bind, int ref)
-+{
-+	unsigned char *b = skb_tail_pointer(skb);
-+	struct tcf_tunnel_key *t = to_tunnel_key(a);
-+	struct tcf_tunnel_key_params *params;
-+	struct tc_tunnel_key opt = {
-+		.index    = t->tcf_index,
-+		.refcnt   = t->tcf_refcnt - ref,
-+		.bindcnt  = t->tcf_bindcnt - bind,
-+		.action   = t->tcf_action,
-+	};
-+	struct tcf_t tm;
-+	int ret = -1;
-+
-+	rcu_read_lock();
-+	params = rcu_dereference(t->params);
-+
-+	opt.t_action = params->tcft_action;
-+
-+	if (nla_put(skb, TCA_TUNNEL_KEY_PARMS, sizeof(opt), &opt))
-+		goto nla_put_failure;
-+
-+	if (params->tcft_action == TCA_TUNNEL_KEY_ACT_SET) {
-+		struct ip_tunnel_key *key =
-+			&params->tcft_enc_metadata->u.tun_info.key;
-+		__be32 key_id = tunnel_id_to_key32(key->tun_id);
-+
-+		if (nla_put_be32(skb, TCA_TUNNEL_KEY_ENC_KEY_ID, key_id) ||
-+		    tunnel_key_dump_addresses(skb,
-+					      &params->tcft_enc_metadata->u.tun_info))
-+			goto nla_put_failure;
-+	}
-+
-+	tcf_tm_dump(&tm, &t->tcf_tm);
-+	if (nla_put_64bit(skb, TCA_TUNNEL_KEY_TM, sizeof(tm),
-+			  &tm, TCA_TUNNEL_KEY_PAD))
-+		goto nla_put_failure;
-+
-+	ret = skb->len;
-+	goto out;
-+
-+nla_put_failure:
-+	nlmsg_trim(skb, b);
-+out:
-+	rcu_read_unlock();
-+
-+	return ret;
-+}
-+
-+static int tunnel_key_walker(struct net *net, struct sk_buff *skb,
-+			     struct netlink_callback *cb, int type,
-+			     const struct tc_action_ops *ops)
-+{
-+	struct tc_action_net *tn = net_generic(net, tunnel_key_net_id);
-+
-+	return tcf_generic_walker(tn, skb, cb, type, ops);
-+}
-+
-+static int tunnel_key_search(struct net *net, struct tc_action **a, u32 index)
-+{
-+	struct tc_action_net *tn = net_generic(net, tunnel_key_net_id);
-+
-+	return tcf_hash_search(tn, a, index);
-+}
-+
-+static struct tc_action_ops act_tunnel_key_ops = {
-+	.kind		=	"tunnel_key",
-+	.type		=	TCA_ACT_TUNNEL_KEY,
-+	.owner		=	THIS_MODULE,
-+	.act		=	tunnel_key_act,
-+	.dump		=	tunnel_key_dump,
-+	.init		=	tunnel_key_init,
-+	.cleanup	=	tunnel_key_release,
-+	.walk		=	tunnel_key_walker,
-+	.lookup		=	tunnel_key_search,
-+	.size		=	sizeof(struct tcf_tunnel_key),
-+};
-+
-+static __net_init int tunnel_key_init_net(struct net *net)
-+{
-+	struct tc_action_net *tn = net_generic(net, tunnel_key_net_id);
-+
-+	return tc_action_net_init(tn, &act_tunnel_key_ops, TUNNEL_KEY_TAB_MASK);
-+}
-+
-+static void __net_exit tunnel_key_exit_net(struct net *net)
-+{
-+	struct tc_action_net *tn = net_generic(net, tunnel_key_net_id);
-+
-+	tc_action_net_exit(tn);
-+}
-+
-+static struct pernet_operations tunnel_key_net_ops = {
-+	.init = tunnel_key_init_net,
-+	.exit = tunnel_key_exit_net,
-+	.id   = &tunnel_key_net_id,
-+	.size = sizeof(struct tc_action_net),
-+};
-+
-+static int __init tunnel_key_init_module(void)
-+{
-+	return tcf_register_action(&act_tunnel_key_ops, &tunnel_key_net_ops);
-+}
-+
-+static void __exit tunnel_key_cleanup_module(void)
-+{
-+	tcf_unregister_action(&act_tunnel_key_ops, &tunnel_key_net_ops);
-+}
-+
-+module_init(tunnel_key_init_module);
-+module_exit(tunnel_key_cleanup_module);
-+
-+MODULE_AUTHOR("Amir Vadai <amir@vadai.me>");
-+MODULE_DESCRIPTION("ip tunnel manipulation actions");
-+MODULE_LICENSE("GPL v2");
+ #ifdef CONFIG_INET
+ 
+ int ip_tunnel_init(struct net_device *dev);
+diff --git a/include/net/vxlan.h b/include/net/vxlan.h
+index b96d036..0255613 100644
+--- a/include/net/vxlan.h
++++ b/include/net/vxlan.h
+@@ -350,24 +350,6 @@ static inline __be32 vxlan_vni_field(__be32 vni)
+ #endif
+ }
+ 
+-static inline __be32 vxlan_tun_id_to_vni(__be64 tun_id)
+-{
+-#if defined(__BIG_ENDIAN)
+-	return (__force __be32)tun_id;
+-#else
+-	return (__force __be32)((__force u64)tun_id >> 32);
+-#endif
+-}
+-
+-static inline __be64 vxlan_vni_to_tun_id(__be32 vni)
+-{
+-#if defined(__BIG_ENDIAN)
+-	return (__force __be64)vni;
+-#else
+-	return (__force __be64)((u64)(__force u32)vni << 32);
+-#endif
+-}
+-
+ static inline size_t vxlan_rco_start(__be32 vni_field)
+ {
+ 	return be32_to_cpu(vni_field & VXLAN_RCO_MASK) << VXLAN_RCO_SHIFT;
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 113cc43..576f705 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -246,25 +246,6 @@ static void gre_err(struct sk_buff *skb, u32 info)
+ 	ipgre_err(skb, info, &tpi);
+ }
+ 
+-static __be64 key_to_tunnel_id(__be32 key)
+-{
+-#ifdef __BIG_ENDIAN
+-	return (__force __be64)((__force u32)key);
+-#else
+-	return (__force __be64)((__force u64)key << 32);
+-#endif
+-}
+-
+-/* Returns the least-significant 32 bits of a __be64. */
+-static __be32 tunnel_id_to_key(__be64 x)
+-{
+-#ifdef __BIG_ENDIAN
+-	return (__force __be32)x;
+-#else
+-	return (__force __be32)((__force u64)x >> 32);
+-#endif
+-}
+-
+ static int __ipgre_rcv(struct sk_buff *skb, const struct tnl_ptk_info *tpi,
+ 		       struct ip_tunnel_net *itn, int hdr_len, bool raw_proto)
+ {
+@@ -290,7 +271,7 @@ static int __ipgre_rcv(struct sk_buff *skb, const struct tnl_ptk_info *tpi,
+ 			__be64 tun_id;
+ 
+ 			flags = tpi->flags & (TUNNEL_CSUM | TUNNEL_KEY);
+-			tun_id = key_to_tunnel_id(tpi->key);
++			tun_id = key32_to_tunnel_id(tpi->key);
+ 			tun_dst = ip_tun_rx_dst(skb, flags, tun_id, 0);
+ 			if (!tun_dst)
+ 				return PACKET_REJECT;
+@@ -446,7 +427,7 @@ static void gre_fb_xmit(struct sk_buff *skb, struct net_device *dev,
+ 
+ 	flags = tun_info->key.tun_flags & (TUNNEL_CSUM | TUNNEL_KEY);
+ 	gre_build_header(skb, tunnel_hlen, flags, proto,
+-			 tunnel_id_to_key(tun_info->key.tun_id), 0);
++			 tunnel_id_to_key32(tun_info->key.tun_id), 0);
+ 
+ 	df = key->tun_flags & TUNNEL_DONT_FRAGMENT ?  htons(IP_DF) : 0;
+ 
 -- 
 1.8.3.1
