@@ -1,81 +1,128 @@
-From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH net v1] tipc: fix random link resets while
-	adding a second bearer
-Date: Thu, 1 Sep 2016 16:22:16 +0200
-Message-ID: <1472739736-29391-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+From: Huy Nguyen <huyn@mellanox.com>
+Subject: Re: [PATCH net-next 3/6] net/mlx5: Add DCBX firmware commands support
+Date: Wed, 31 Aug 2016 14:49:44 +0000
+Message-ID: <508E873A-0F08-42C2-B6E9-C513CD1B9258@mellanox.com>
+References: <1472556595-9286-1-git-send-email-saeedm@mellanox.com>
+ <1472556595-9286-4-git-send-email-saeedm@mellanox.com>,<CAD=hENcMF98xDQ-vjg3+txEGsFSzh32ZaPtoU9+gpL6aJMoEag@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net
-To: <davem@davemloft.net>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
-
-In a dual bearer configuration, if the second tipc link becomes
-active while the first link still has pending nametable "bulk"
-updates, it randomly leads to reset of the second link.
-
-When a link is established, the function named_distribute(),
-fills the skb based on node mtu (allows room for TUNNEL_PROTOCOL)
-with NAME_DISTRIBUTOR message for each PUBLICATION.
-However, the function named_distribute() allocates the buffer by
-increasing the node mtu by INT_H_SIZE (to insert NAME_DISTRIBUTOR).
-This consumes the space allocated for TUNNEL_PROTOCOL.
-
-When establishing the second link, the link shall tunnel all the
-messages in the first link queue including the "bulk" update.
-As size of the NAME_DISTRIBUTOR messages while tunnelling, exceeds
-the link mtu the transmission fails (-EMSGSIZE).
-
-Thus, the synch point based on the message count of the tunnel
-packets is never reached leading to link timeout.
-
-In this commit, we adjust the size of name distributor message so that
-they can be tunnelled.
-
-Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
-Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
----
- net/tipc/name_distr.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
-
-diff --git a/net/tipc/name_distr.c b/net/tipc/name_distr.c
-index 6b626a64b517..a04fe9be1c60 100644
---- a/net/tipc/name_distr.c
-+++ b/net/tipc/name_distr.c
-@@ -62,6 +62,8 @@ static void publ_to_item(struct distr_item *i, struct publication *p)
- 
- /**
-  * named_prepare_buf - allocate & initialize a publication message
-+ *
-+ * The buffer returned is of size INT_H_SIZE + payload size
-  */
- static struct sk_buff *named_prepare_buf(struct net *net, u32 type, u32 size,
- 					 u32 dest)
-@@ -141,9 +143,9 @@ static void named_distribute(struct net *net, struct sk_buff_head *list,
- 	struct publication *publ;
- 	struct sk_buff *skb = NULL;
- 	struct distr_item *item = NULL;
--	uint msg_dsz = (tipc_node_get_mtu(net, dnode, 0) / ITEM_SIZE) *
--			ITEM_SIZE;
--	uint msg_rem = msg_dsz;
-+	u32 msg_dsz = ((tipc_node_get_mtu(net, dnode, 0) - INT_H_SIZE) /
-+			ITEM_SIZE) * ITEM_SIZE;
-+	u32 msg_rem = msg_dsz;
- 
- 	list_for_each_entry(publ, pls, local_list) {
- 		/* Prepare next buffer: */
--- 
-2.1.4
+Content-Transfer-Encoding: quoted-printable
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>
+To: zhuyj <zyjzyj2000@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db5eur01on0068.outbound.protection.outlook.com ([104.47.2.68]:42976
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750957AbcIAO1l (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 1 Sep 2016 10:27:41 -0400
+In-Reply-To: <CAD=hENcMF98xDQ-vjg3+txEGsFSzh32ZaPtoU9+gpL6aJMoEag@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-------------------------------------------------------------------------------
+
+> On Aug 31, 2016, at 6:24 AM, zhuyj <zyjzyj2000@gmail.com> wrote:
+>=20
+> +       u32 in[MLX5_ST_SZ_DW(dcbx_param)];
+> +
+> +       memset(in, 0, sizeof(in));
+>=20
+> can we replace the above with "u32 in[MLX5_ST_SZ_DW(dcbx_param)] =3D {0};=
+"?
+>=20
+>=20
+>=20
+>> On Tue, Aug 30, 2016 at 7:29 PM, Saeed Mahameed <saeedm@mellanox.com> wr=
+ote:
+>> From: Huy Nguyen <huyn@mellanox.com>
+>>=20
+>> Add set/query commands for DCBX_PARAM register
+>>=20
+>> Signed-off-by: Huy Nguyen <huyn@mellanox.com>
+>> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+>> ---
+>> drivers/net/ethernet/mellanox/mlx5/core/port.c | 22 ++++++++++++++++++++=
+++
+>> include/linux/mlx5/driver.h                    |  7 +++++++
+>> include/linux/mlx5/port.h                      |  2 ++
+>> 3 files changed, 31 insertions(+)
+>>=20
+>> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/ne=
+t/ethernet/mellanox/mlx5/core/port.c
+>> index 2f75f86..8a66595 100644
+>> --- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
+>> +++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+>> @@ -548,6 +548,28 @@ int mlx5_max_tc(struct mlx5_core_dev *mdev)
+>>        return num_tc - 1;
+>> }
+>>=20
+>> +int mlx5_query_port_dcbx_param(struct mlx5_core_dev *mdev, u32 *out)
+>> +{
+>> +       u32 in[MLX5_ST_SZ_DW(dcbx_param)];
+>> +
+>> +       memset(in, 0, sizeof(in));
+>> +
+>> +       MLX5_SET(dcbx_param, in, port_number, 1);
+>> +
+>> +       return  mlx5_core_access_reg(mdev, in, sizeof(in), out,
+>> +                                   sizeof(in), MLX5_REG_DCBX_PARAM, 0, =
+0);
+>> +}
+>> +
+>> +int mlx5_set_port_dcbx_param(struct mlx5_core_dev *mdev, u32 *in)
+>> +{
+>> +       u32 out[MLX5_ST_SZ_DW(dcbx_param)];
+>> +
+>> +       MLX5_SET(dcbx_param, in, port_number, 1);
+>> +
+>> +       return mlx5_core_access_reg(mdev, in, sizeof(out), out,
+>> +                                   sizeof(out), MLX5_REG_DCBX_PARAM, 0,=
+ 1);
+>> +}
+>> +
+>> int mlx5_set_port_prio_tc(struct mlx5_core_dev *mdev, u8 *prio_tc)
+>> {
+>>        u32 in[MLX5_ST_SZ_DW(qtct_reg)] =3D {0};
+>> diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+>> index 5cb9fa7..b53f19c 100644
+>> --- a/include/linux/mlx5/driver.h
+>> +++ b/include/linux/mlx5/driver.h
+>> @@ -104,6 +104,8 @@ enum {
+>> enum {
+>>        MLX5_REG_QETCR           =3D 0x4005,
+>>        MLX5_REG_QTCT            =3D 0x400a,
+>> +       MLX5_REG_DCBX_PARAM      =3D 0x4020,
+>> +       MLX5_REG_DCBX_APP        =3D 0x4021,
+>>        MLX5_REG_PCAP            =3D 0x5001,
+>>        MLX5_REG_PMTU            =3D 0x5003,
+>>        MLX5_REG_PTYS            =3D 0x5004,
+>> @@ -123,6 +125,11 @@ enum {
+>>        MLX5_REG_MLCR            =3D 0x902b,
+>> };
+>>=20
+>> +enum mlx5_dcbx_oper_mode {
+>> +       MLX5E_DCBX_PARAM_VER_OPER_HOST  =3D 0x0,
+>> +       MLX5E_DCBX_PARAM_VER_OPER_AUTO  =3D 0x3,
+>> +};
+>> +
+>> enum {
+>>        MLX5_ATOMIC_OPS_CMP_SWAP        =3D 1 << 0,
+>>        MLX5_ATOMIC_OPS_FETCH_ADD       =3D 1 << 1,
+>> diff --git a/include/linux/mlx5/port.h b/include/linux/mlx5/port.h
+>> index ddad24d..62e2259 100644
+>> --- a/include/linux/mlx5/port.h
+>> +++ b/include/linux/mlx5/port.h
+>> @@ -159,4 +159,6 @@ void mlx5_query_port_fcs(struct mlx5_core_dev *mdev,=
+ bool *supported,
+>> int mlx5_query_module_eeprom(struct mlx5_core_dev *dev,
+>>                             u16 offset, u16 size, u8 *data);
+>>=20
+>> +int mlx5_query_port_dcbx_param(struct mlx5_core_dev *mdev, u32 *out);
+>> +int mlx5_set_port_dcbx_param(struct mlx5_core_dev *mdev, u32 *in);
+>> #endif /* __MLX5_PORT_H__ */
+>> --
+>> 2.7.4
+Yes I will fix. Thank you.=
