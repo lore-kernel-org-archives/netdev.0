@@ -1,30 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/7] Netfilter fixes for net
-Date: Tue, 30 Aug 2016 22:02:30 -0700 (PDT)
-Message-ID: <20160830.220230.275446025196188113.davem@davemloft.net>
-References: <1472556383-6787-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH net-next 0/8] rxrpc: Preparation for removal of use of
+ skbs from AFS
+Date: Tue, 30 Aug 2016 22:09:16 -0700 (PDT)
+Message-ID: <20160830.220916.828440695872007908.davem@davemloft.net>
+References: <147257169706.6391.3116382288289485794.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37616 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752127AbcHaFCc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 01:02:32 -0400
-In-Reply-To: <1472556383-6787-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: dhowells@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <147257169706.6391.3116382288289485794.stgit@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Tue, 30 Aug 2016 13:26:16 +0200
+From: David Howells <dhowells@redhat.com>
+Date: Tue, 30 Aug 2016 16:41:37 +0100
 
-> The following patchset contains Netfilter fixes for your net tree,
-> they are:
- ...
-> You can pull these changes from:
+> Here's a set of patches that prepare the way for the removal of the use of
+> sk_buffs from fs/afs (they'll be entirely retained within net/rxrpc):
 > 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+>  (1) Fix a potential NULL-pointer deref in rxrpc_abort_calls().
+> 
+>  (2) Condense all the terminal call state machine states to a single one
+>      plus supplementary info.
+> 
+>  (3) Add a trace point for rxrpc call usage debugging.
+> 
+>  (4) Cleanups and missing headers.
+> 
+>  (5) Provide a way for AFS to ask about a call's peer address without
+>      having an sk_buff to query.
+> 
+>  (6) Use call->peer directly rather than going via call->conn (which might
+>      be NULL).
+> 
+>  (7) Pass struct socket * to various rxrpc kernel interface functions so
+>      they can use that directly rather than getting it from the rxrpc_call
+>      struct.
+ ...
+> Tagged thusly:
+> 
+> 	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
+> 	rxrpc-rewrite-20160830-1
 
-Pulled, thanks a lot Pablo.
+Pulled, thanks David.
