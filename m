@@ -1,59 +1,63 @@
-From: Nikolay Aleksandrov via Bridge <bridge@lists.linux-foundation.org>
-Subject: Re: [PATCH net] bridge: re-introduce 'fix parsing of MLDv2
-	reports'
-Date: Wed, 31 Aug 2016 14:24:11 +0200
-Message-ID: <e00ff342-d6ee-1172-7ac2-4d13929531b4@cumulusnetworks.com>
-References: <00146cf9bbd373722167f61183d5d02a9d6c080e.1472644765.git.dcaratti@redhat.com>
-Reply-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: bridge@lists.linux-foundation.org,
-	Thadeu Lima de Souza Cascardo <cascardo@redhat.com>, netdev@vger.kernel.org
-To: Davide Caratti <dcaratti@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <00146cf9bbd373722167f61183d5d02a9d6c080e.1472644765.git.dcaratti@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: [PATCH 1/2] NFSv4.1: work around -Wmaybe-uninitialized warning
+Date: Wed, 31 Aug 2016 14:39:01 +0200
+Message-ID: <20160831123911.3467676-1-arnd@arndb.de>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+        linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+        Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 31/08/16 14:16, Davide Caratti wrote:
-> commit bc8c20acaea1 ("bridge: multicast: treat igmpv3 report with
-> INCLUDE and no sources as a leave") seems to have accidentally reverted
-> commit 47cc84ce0c2f ("bridge: fix parsing of MLDv2 reports"). This
-> commit brings back a change to br_ip6_multicast_mld2_report() where
-> parsing of MLDv2 reports stops when the first group is successfully
-> added to the MDB cache.
-> 
-> Fixes: bc8c20acaea1 ("bridge: multicast: treat igmpv3 report with INCLUDE and no sources as a leave")
-> Signed-off-by: Davide Caratti <dcaratti@redhat.com>
-> ---
->  net/bridge/br_multicast.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-> index a5423a1..c5fea93 100644
-> --- a/net/bridge/br_multicast.c
-> +++ b/net/bridge/br_multicast.c
-> @@ -1138,7 +1138,7 @@ static int br_ip6_multicast_mld2_report(struct net_bridge *br,
->  		} else {
->  			err = br_ip6_multicast_add_group(br, port,
->  							 &grec->grec_mca, vid);
-> -			if (!err)
-> +			if (err)
->  				break;
->  		}
->  	}
-> 
+A bugfix introduced a harmless gcc warning in nfs4_slot_seqid_in_use:
 
-Indeed, good catch.
+fs/nfs/nfs4session.c:203:54: error: 'cur_seq' may be used uninitialized in this function [-Werror=maybe-uninitialized]
 
-Acked-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+gcc is not smart enough to conclude that the IS_ERR/PTR_ERR pair
+results in a nonzero return value here. Using PTR_ERR_OR_ZERO()
+instead makes this clear to the compiler.
+
+Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Fixes: e09c978aae5b ("NFSv4.1: Fix Oopsable condition in server callback races")
+---
+ fs/nfs/nfs4session.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+The patch that caused this just came in for v4.8-rc5. As the warning
+is now disabled by default and this is harmless, this can probably
+get queued for v4.9 instead.
+
+I mentioned earlier that I got the new warning for net-next, but
+failed to notice that it had come from mainline instead.
+
+diff --git a/fs/nfs/nfs4session.c b/fs/nfs/nfs4session.c
+index b62973045a3e..150c5a1879bf 100644
+--- a/fs/nfs/nfs4session.c
++++ b/fs/nfs/nfs4session.c
+@@ -178,12 +178,14 @@ static int nfs4_slot_get_seqid(struct nfs4_slot_table  *tbl, u32 slotid,
+ 	__must_hold(&tbl->slot_tbl_lock)
+ {
+ 	struct nfs4_slot *slot;
++	int ret;
+ 
+ 	slot = nfs4_lookup_slot(tbl, slotid);
+-	if (IS_ERR(slot))
+-		return PTR_ERR(slot);
+-	*seq_nr = slot->seq_nr;
+-	return 0;
++	ret = PTR_ERR_OR_ZERO(slot);
++	if (!ret)
++		*seq_nr = slot->seq_nr;
++
++	return ret;
+ }
+ 
+ /*
+-- 
+2.9.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
