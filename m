@@ -1,35 +1,86 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH 1/2] NFSv4.1: work around -Wmaybe-uninitialized warning
-Date: Wed, 31 Aug 2016 15:37:28 +0200
-Message-ID: <5024842.0SZmq2hZxe@wuerfel>
-References: <20160831123911.3467676-1-arnd@arndb.de> <9F99A562-A4F6-457A-A78F-44BAC3B5734F@primarydata.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 2/3] net: dsa: mv88e6xxx: make switchdev DB ops
+ generic
+Date: Wed, 31 Aug 2016 15:49:43 +0200
+Message-ID: <20160831134943.GB15078@lunn.ch>
+References: <20160829203246.18811-1-vivien.didelot@savoirfairelinux.com>
+ <20160829203246.18811-3-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: Schumaker Anna <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-        List Linux Network Devel Mailing <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        List Linux NFS Mailing <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        List Linux Kernel Mailing <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Trond Myklebust <trondmy-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <9F99A562-A4F6-457A-A78F-44BAC3B5734F-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160829203246.18811-3-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday, August 31, 2016 1:17:48 PM CEST Trond Myklebust wrote:
-> What version of gcc are you using? I’m unable to reproduce with gcc 6.1.1..
+Hi Vivien
 
-This is also on 6.1.1 for ARM. Note that 6e8d666e9253 ("Disable
-"maybe-uninitialized" warning globally") turned off those warnings, so
-unless you explicitly pass -Wmaybe-uninitialized (e.g. by building with
-"make W=1"), you won't get it.
+> -static int _mv88e6xxx_port_fdb_dump_one(struct mv88e6xxx_chip *chip,
+> -					u16 fid, u16 vid, int port,
+> -					struct switchdev_obj_port_fdb *fdb,
+> -					int (*cb)(struct switchdev_obj *obj))
+> +static int mv88e6xxx_port_db_dump_one(struct mv88e6xxx_chip *chip,
+> +				      u16 fid, u16 vid, int port,
+> +				      struct switchdev_obj *obj,
+> +				      int (*cb)(struct switchdev_obj *obj))
+>  {
+>  	struct mv88e6xxx_atu_entry addr = {
+>  		.mac = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
+> @@ -2222,72 +2219,87 @@ static int _mv88e6xxx_port_fdb_dump_one(struct mv88e6xxx_chip *chip,
+>  	do {
+>  		err = _mv88e6xxx_atu_getnext(chip, fid, &addr);
+>  		if (err)
+> -			break;
+> +			return err;
+>  
+>  		if (addr.state == GLOBAL_ATU_DATA_STATE_UNUSED)
+>  			break;
+>  
+> -		if (!addr.trunk && addr.portv_trunkid & BIT(port)) {
+> -			bool is_static = addr.state ==
+> -				(is_multicast_ether_addr(addr.mac) ?
+> -				 GLOBAL_ATU_DATA_STATE_MC_STATIC :
+> -				 GLOBAL_ATU_DATA_STATE_UC_STATIC);
+> +		if (addr.trunk || (addr.portv_trunkid & BIT(port)) == 0)
+> +			continue;
+> +
+> +		if (obj->id == SWITCHDEV_OBJ_ID_PORT_FDB) {
+> +			struct switchdev_obj_port_fdb *fdb;
+>  
+> +			if (!is_unicast_ether_addr(addr.mac))
+> +				continue;
+> +
+> +			fdb = SWITCHDEV_OBJ_PORT_FDB(obj);
+>  			fdb->vid = vid;
+>  			ether_addr_copy(fdb->addr, addr.mac);
+> -			fdb->ndm_state = is_static ? NUD_NOARP : NUD_REACHABLE;
+> -
+> -			err = cb(&fdb->obj);
+> -			if (err)
+> -				break;
+> +			if (addr.state == GLOBAL_ATU_DATA_STATE_UC_STATIC)
+> +				fdb->ndm_state = NUD_NOARP;
+> +			else
+> +				fdb->ndm_state = NUD_REACHABLE;
+>  		}
+> +
+> +		err = cb(obj);
+> +		if (err)
+> +			return err;
+>  	} while (!is_broadcast_ether_addr(addr.mac));
 
-The reason I'm still sending the patches for this warning is that
-we do get a number of valid ones (this was the only false positive
-out of the seven such warnings since last week).
+Humm, maybe i'm reading this patch wrong....
 
-	Arnd
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This function is called mv88e6xxx_port_db_dump_one(). But i don't see
+a way out of the while loop, after dumping one. It seems to dump the
+whole table until it reaches the end marker, which is the MAC
+broadcast address.
+
+Should we rename this function, drop the _one?
+
+       Andrew
