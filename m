@@ -1,114 +1,45 @@
-From: zhuyj <zyjzyj2000@gmail.com>
-Subject: Re: [PATCH net-next 3/6] net/mlx5: Add DCBX firmware commands support
-Date: Wed, 31 Aug 2016 19:24:03 +0800
-Message-ID: <CAD=hENcMF98xDQ-vjg3+txEGsFSzh32ZaPtoU9+gpL6aJMoEag@mail.gmail.com>
-References: <1472556595-9286-1-git-send-email-saeedm@mellanox.com> <1472556595-9286-4-git-send-email-saeedm@mellanox.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH v6 0/8] thunderbolt: Introducing Thunderbolt(TM)
+ networking
+Date: Wed, 31 Aug 2016 13:28:13 +0200
+Message-ID: <20160831112813.GB17607@kroah.com>
+References: <1470054233-4309-1-git-send-email-amir.jer.levy@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>, Huy Nguyen <huyn@mellanox.com>
-To: Saeed Mahameed <saeedm@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:34734 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752245AbcHaLYF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 07:24:05 -0400
-Received: by mail-oi0-f66.google.com with SMTP id t127so4322848oie.1
-        for <netdev@vger.kernel.org>; Wed, 31 Aug 2016 04:24:04 -0700 (PDT)
-In-Reply-To: <1472556595-9286-4-git-send-email-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: andreas.noever@gmail.com, bhelgaas@google.com, corbet@lwn.net,
+        linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org,
+        netdev@vger.kernel.org, linux-doc@vger.kernel.org,
+        thunderbolt-linux@intel.com, mika.westerberg@intel.com,
+        tomas.winkler@intel.com
+To: Amir Levy <amir.jer.levy@intel.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1470054233-4309-1-git-send-email-amir.jer.levy@intel.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-+       u32 in[MLX5_ST_SZ_DW(dcbx_param)];
-+
-+       memset(in, 0, sizeof(in));
+On Mon, Aug 01, 2016 at 03:23:45PM +0300, Amir Levy wrote:
+> This is version 6 of Thunderbolt(TM) driver for non-Apple hardware.
+> 
+> Changes since v5:
+>  - Removed the padding of short packets in receive
+>  - Replaced RW semaphore with mutex
+>  - Cleanup
+> 
+> These patches were pushed to GitHub where they can be reviewed more
+> comfortably with green/red highlighting:
+> 	https://github.com/01org/thunderbolt-software-kernel-tree
+> 
+> Daemon code:
+> 	https://github.com/01org/thunderbolt-software-daemon
+> 
+> For reference, here's a link to version 5:
+> [v5]:	https://lkml.org/lkml/2016/7/28/85
 
-can we replace the above with "u32 in[MLX5_ST_SZ_DW(dcbx_param)] = {0};"?
+Without acks from the thunderbolt maintainer, or any network driver
+developers, I'm not going to take this series.  Please work to get that
+review.
 
+thanks,
 
-
-On Tue, Aug 30, 2016 at 7:29 PM, Saeed Mahameed <saeedm@mellanox.com> wrote:
-> From: Huy Nguyen <huyn@mellanox.com>
->
-> Add set/query commands for DCBX_PARAM register
->
-> Signed-off-by: Huy Nguyen <huyn@mellanox.com>
-> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-> ---
->  drivers/net/ethernet/mellanox/mlx5/core/port.c | 22 ++++++++++++++++++++++
->  include/linux/mlx5/driver.h                    |  7 +++++++
->  include/linux/mlx5/port.h                      |  2 ++
->  3 files changed, 31 insertions(+)
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-> index 2f75f86..8a66595 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-> @@ -548,6 +548,28 @@ int mlx5_max_tc(struct mlx5_core_dev *mdev)
->         return num_tc - 1;
->  }
->
-> +int mlx5_query_port_dcbx_param(struct mlx5_core_dev *mdev, u32 *out)
-> +{
-> +       u32 in[MLX5_ST_SZ_DW(dcbx_param)];
-> +
-> +       memset(in, 0, sizeof(in));
-> +
-> +       MLX5_SET(dcbx_param, in, port_number, 1);
-> +
-> +       return  mlx5_core_access_reg(mdev, in, sizeof(in), out,
-> +                                   sizeof(in), MLX5_REG_DCBX_PARAM, 0, 0);
-> +}
-> +
-> +int mlx5_set_port_dcbx_param(struct mlx5_core_dev *mdev, u32 *in)
-> +{
-> +       u32 out[MLX5_ST_SZ_DW(dcbx_param)];
-> +
-> +       MLX5_SET(dcbx_param, in, port_number, 1);
-> +
-> +       return mlx5_core_access_reg(mdev, in, sizeof(out), out,
-> +                                   sizeof(out), MLX5_REG_DCBX_PARAM, 0, 1);
-> +}
-> +
->  int mlx5_set_port_prio_tc(struct mlx5_core_dev *mdev, u8 *prio_tc)
->  {
->         u32 in[MLX5_ST_SZ_DW(qtct_reg)] = {0};
-> diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-> index 5cb9fa7..b53f19c 100644
-> --- a/include/linux/mlx5/driver.h
-> +++ b/include/linux/mlx5/driver.h
-> @@ -104,6 +104,8 @@ enum {
->  enum {
->         MLX5_REG_QETCR           = 0x4005,
->         MLX5_REG_QTCT            = 0x400a,
-> +       MLX5_REG_DCBX_PARAM      = 0x4020,
-> +       MLX5_REG_DCBX_APP        = 0x4021,
->         MLX5_REG_PCAP            = 0x5001,
->         MLX5_REG_PMTU            = 0x5003,
->         MLX5_REG_PTYS            = 0x5004,
-> @@ -123,6 +125,11 @@ enum {
->         MLX5_REG_MLCR            = 0x902b,
->  };
->
-> +enum mlx5_dcbx_oper_mode {
-> +       MLX5E_DCBX_PARAM_VER_OPER_HOST  = 0x0,
-> +       MLX5E_DCBX_PARAM_VER_OPER_AUTO  = 0x3,
-> +};
-> +
->  enum {
->         MLX5_ATOMIC_OPS_CMP_SWAP        = 1 << 0,
->         MLX5_ATOMIC_OPS_FETCH_ADD       = 1 << 1,
-> diff --git a/include/linux/mlx5/port.h b/include/linux/mlx5/port.h
-> index ddad24d..62e2259 100644
-> --- a/include/linux/mlx5/port.h
-> +++ b/include/linux/mlx5/port.h
-> @@ -159,4 +159,6 @@ void mlx5_query_port_fcs(struct mlx5_core_dev *mdev, bool *supported,
->  int mlx5_query_module_eeprom(struct mlx5_core_dev *dev,
->                              u16 offset, u16 size, u8 *data);
->
-> +int mlx5_query_port_dcbx_param(struct mlx5_core_dev *mdev, u32 *out);
-> +int mlx5_set_port_dcbx_param(struct mlx5_core_dev *mdev, u32 *in);
->  #endif /* __MLX5_PORT_H__ */
-> --
-> 2.7.4
->
+greg k-h
