@@ -1,7 +1,7 @@
 From: Jeremy Linton <jeremy.linton@arm.com>
 Subject: Re: [PATCH 3/3 v2] net: smsc911x: add wake-up event interrupt support
-Date: Wed, 31 Aug 2016 10:27:44 -0500
-Message-ID: <dc552129-8631-e81d-fc3d-20d39ae10f11@arm.com>
+Date: Wed, 31 Aug 2016 10:32:20 -0500
+Message-ID: <e1d1090d-0d4d-2af5-363d-1cf2e5ea82cd@arm.com>
 References: <1472043582-7653-1-git-send-email-linus.walleij@linaro.org>
  <1472043582-7653-3-git-send-email-linus.walleij@linaro.org>
 Mime-Version: 1.0
@@ -17,16 +17,15 @@ To: Linus Walleij <linus.walleij@linaro.org>, netdev@vger.kernel.org,
         "David S . Miller" <davem@davemloft.net>,
         Steve Glendinning <steve.glendinning@smsc.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:35540 "EHLO foss.arm.com"
+Received: from foss.arm.com ([217.140.101.70]:35650 "EHLO foss.arm.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933887AbcHaP1q (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 31 Aug 2016 11:27:46 -0400
+        id S933887AbcHaPcW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 31 Aug 2016 11:32:22 -0400
 In-Reply-To: <1472043582-7653-3-git-send-email-linus.walleij@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Linus,
-
+Hi,
 
 On 08/24/2016 07:59 AM, Linus Walleij wrote:
 > The SMSC911x have a line out of the chip called "PME",
@@ -46,6 +45,19 @@ On 08/24/2016 07:59 AM, Linus Walleij wrote:
 > ordinary device interrupt - and in case that is present,
 > we register an interrupt handler to respons to this,
 > and flag the device and this interrupt as a wakeup.
+
+
+Having looked at a couple of the supported smsc chips, it seems they can 
+route the wakeup through the chip's interrupt as well. If you add code 
+to support this, it should work on a lot of the smsc911x devices rather 
+than just the dragonboard.
+
+
+Thanks,
+
+
+
+
 >
 > Cc: Sudeep Holla <sudeep.holla@arm.com>
 > Cc: Tony Lindgren <tony@atomide.com>
@@ -137,11 +149,3 @@ On 08/24/2016 07:59 AM, Linus Walleij wrote:
 >
 >  	retval = register_netdev(dev);
 >
-
-
-The cleanup code in drv_remove seems to be missing, am I missing something?
-
-Also, do you want the wake-up to be active if the interface is downed?
-
-
-Thanks,
