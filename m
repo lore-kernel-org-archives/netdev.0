@@ -1,63 +1,127 @@
-From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@c0d3.blue>
-Subject: Re: [Bridge] [PATCH net-next v2 2/2] net: bridge: add per-port
- multicast flood flag
-Date: Wed, 31 Aug 2016 19:28:12 +0200
-Message-ID: <20160831172812.GJ4883@otheros>
-References: <1472570588-32503-1-git-send-email-nikolay@cumulusnetworks.com>
- <1472570588-32503-3-git-send-email-nikolay@cumulusnetworks.com>
- <20160831013726.GD4883@otheros>
- <7d1fc865-f092-5d9d-8f4c-f19aeac914c0@cumulusnetworks.com>
+From: Robert Foss <robert.foss@collabora.com>
+Subject: Re: [PATCH v3 0/5] net/usb: asix driver improvements
+Date: Wed, 31 Aug 2016 13:28:34 -0400
+Message-ID: <b1afa44f-7c41-c9bc-bb0f-9ccced25a0ef@collabora.com>
+References: <cover.c702ef6af13be7c1282a2f2d3189281fdc327abe.1472155176.git-series.robert.foss@collabora.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-        bridge@lists.linux-foundation.org, davem@davemloft.net
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.aperture-lab.de ([138.201.29.205]:60411 "EHLO
-        mail.aperture-lab.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935929AbcHaR2U (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 13:28:20 -0400
-Content-Disposition: inline
-In-Reply-To: <7d1fc865-f092-5d9d-8f4c-f19aeac914c0@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: freddy@asix.com.tw, Dean_Jenkins@mentor.com,
+        Mark_Craske@mentor.com, davem@davemloft.net, ivecera@redhat.com,
+        john.stultz@linaro.org, vpalatin@chromium.org,
+        stephen@networkplumber.org, grundler@chromium.org,
+        changchias@gmail.com, allan@asix.com.tw, andrew@lunn.ch,
+        tremyfr@gmail.com, colin.king@canonical.com,
+        linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, vpalatin@google.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.c702ef6af13be7c1282a2f2d3189281fdc327abe.1472155176.git-series.robert.foss@collabora.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 31, 2016 at 08:02:22AM +0200, Nikolay Aleksandrov wrote:
-> On 31/08/16 03:37, Linus Lüssing wrote:
-> > On Tue, Aug 30, 2016 at 05:23:08PM +0200, Nikolay Aleksandrov via Bridge wrote:
-> >> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-> >> index 1da3221845f1..ed0dd3340084 100644
-> >> --- a/net/bridge/br_if.c
-> >> +++ b/net/bridge/br_if.c
-> >> @@ -362,7 +362,7 @@ static struct net_bridge_port *new_nbp(struct net_bridge *br,
-> >>  	p->path_cost = port_cost(dev);
-> >>  	p->priority = 0x8000 >> BR_PORT_BITS;
-> >>  	p->port_no = index;
-> >> -	p->flags = BR_LEARNING | BR_FLOOD;
-> >> +	p->flags = BR_LEARNING | BR_FLOOD | BR_MCAST_FLOOD;
-> > 
-> > I'm discontent with this new flag becoming the default.
-> > 
-> > Could you elaborate a little more on your use-case, when/why do
-> > you want/need this flag?
-> > 
-> 
-> The use case is the current default behaviour if we don't make this flag on by default
-> then we'll change user-visible default behaviour. Right now we flood unregistered mcast
-> traffic by default (if there's no querier and router port, which continues to function
-> as before). Also we have the port flags equal to BR_AUTO_MASK by default.
+Additional testing has been done the hardware that is available to me.
+I'm not seeing any dmesg warnings/errors that are new to this series:
 
-Ok, you're right, the way you implemented it doesn't
-change the default behaviour (ignoring the BR_AUTO_MASK change you
-removed in v3).
+AX88772A
+- Pass network_EthernetStressPlug
+- Pass phy up/down + iperf3 UDP stress
+- Pass network_EthernetStressPlug + iperf3 UDP stress
 
-I guess the "similar to the unknown unicast flood flag" confused
-me a little and I was afraid that the "flood if there is no
-listener / MDB entry" behaviour, which was removed some years ago,
-would be reintroduced. (but yeah, looking at the code more
-closely, it doesn't do that)
+AX88772B
+- Pass network_EthernetStressPlug
+- Pass phy up/down + iperf3 UDP stress
+- Pass network_EthernetStressPlug + iperf3 UDP stress
 
-Thanks for the clarification!
+Cisco AX88772 A(?)
+- Pass network_EthernetStressPlug
+- Pass phy up/down + iperf3 UDP stress
+- Pass network_EthernetStressPlug + iperf3 UDP stress
 
-Regards, Linus
+Cisco AX88772 B(?)
+- Pass network_EthernetStressPlug
+- Pass phy up/down + iperf3 UDP stress
+- Pass network_EthernetStressPlug + iperf3 UDP stress
+
+AX88178
+- Pass network_EthernetStressPlug
+- Pass phy up/down + iperf3 UDP stress
+- Pass network_EthernetStressPlug + iperf3 UDP stress
+
+AX88179
+- Pass network_EthernetStressPlug
+- Pass phy up/down + iperf3 UDP stress?
+-- [ 8794.555902] ax88179_178a 1-1.3:1.0 eth1: kevent 4 may have been
+    dropped
+- Pass network_EthernetStressPlug + iperf3 UDP stresss
+
+
+I also saw some sporadic header checksum errors.
+But those too are seen on upstream/master.
+
+asix_rx_fixup() Bad Header Length 0x98a993c8, offset 4
+
+
+Test details:
+network_EthernetStressPlug:
+     http://memcpy.io/ethernet-device-stress-testing.html
+
+phy up/down:
+     for i in
+         {1..10}
+     do
+         sudo ifdown eth1
+         if sudo ifup eth1; then
+            echo "Command success"
+        else
+            echo "Command failed"
+        fi
+     done
+
+iperf3 UDP:
+     sudo iperf3 -c 192.168.0.28 -u  -b 100M -t 0
+
+
+
+
+
+On 2016-08-29 09:32 AM, robert.foss@collabora.com wrote:
+> From: Robert Foss <robert.foss@collabora.com>
+>
+> This is a resubmission of v3, since the netdev
+> mailinlist was not sent the previous submission.
+>
+> This series improves power management of the asix driver.
+>
+>  - Suspend/resume support is improved to save needed registers.
+>  - Device disconnection is improved.
+>  - Fixes AX88772x resume failures
+>  - Implementes IEEE 802.3 spec section "22.2.4.1.1 Reset" correctly
+>  - Fixes AX_CMD_WRITE_MEDIUM_MODE being set incorrectly
+>
+> Changes since v1:
+> - Added proper metadata tags to series.
+> - Added two more patches to series.
+>
+> Changes since v2:
+> - Added coverletter
+> - Tested patches on AX88772A/AX88772B/AX88178/AX88179 hardware
+>
+> Allan Chou (1):
+>   net: asix: Fix AX88772x resume failures
+>
+> Freddy Xin (1):
+>   net: asix: Add in_pm parameter
+>
+> Grant Grundler (2):
+>   net: asix: see 802.3 spec for phy reset
+>   net: asix: autoneg will set WRITE_MEDIUM reg
+>
+> Vincent Palatin (1):
+>   net: asix: Avoid looping when the device is disconnected
+>
+>  drivers/net/usb/asix.h         |  40 ++-
+>  drivers/net/usb/asix_common.c  | 212 ++++++++++++----
+>  drivers/net/usb/asix_devices.c | 450 +++++++++++++++++++++++++++-------
+>  drivers/net/usb/ax88172a.c     |  29 +-
+>  4 files changed, 575 insertions(+), 156 deletions(-)
+>
