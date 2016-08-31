@@ -1,34 +1,28 @@
 From: Ivan Vecera <ivecera@redhat.com>
 Subject: Re: [PATCH net] tg3: Fix for disallow tx coalescing time to be 0
-Date: Wed, 31 Aug 2016 11:25:56 +0200
-Message-ID: <351cc329-11da-60e2-bc77-c1e90e91eb49@redhat.com>
+Date: Wed, 31 Aug 2016 11:27:02 +0200
+Message-ID: <deffba75-d9c0-b7a3-8c27-adcf50e1064c@redhat.com>
 References: <1472567935-13177-1-git-send-email-ivecera@redhat.com>
- <50f40ed7-cfed-9e17-8236-ee7242bd7ba1@cogentembedded.com>
+ <CACKFLimbY8xyd5LBgyDxV_v_xrwGShy9Vb3m1pO6mboHJsKpFw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: satish.baddipadige@broadcom.com, siva.kallam@broadcom.com,
-        michael.chan@broadcom.com
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        netdev@vger.kernel.org
+Cc: Netdev <netdev@vger.kernel.org>,
+        Satish Baddipadige <satish.baddipadige@broadcom.com>,
+        Siva Reddy Kallam <siva.kallam@broadcom.com>
+To: Michael Chan <michael.chan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50488 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:33830 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933371AbcHaJ0A (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 31 Aug 2016 05:26:00 -0400
-In-Reply-To: <50f40ed7-cfed-9e17-8236-ee7242bd7ba1@cogentembedded.com>
+        id S932912AbcHaJ1F (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 31 Aug 2016 05:27:05 -0400
+In-Reply-To: <CACKFLimbY8xyd5LBgyDxV_v_xrwGShy9Vb3m1pO6mboHJsKpFw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dne 30.8.2016 v 19:52 Sergei Shtylyov napsal(a):
-> Hello.
->
-> On 08/30/2016 05:38 PM, Ivan Vecera wrote:
->
+Dne 30.8.2016 v 17:46 Michael Chan napsal(a):
+> On Tue, Aug 30, 2016 at 7:38 AM, Ivan Vecera <ivecera@redhat.com> wrote:
 >> The recent commit 087d7a8c disallows to set Rx coalescing time to be 0
->
->    You should specify both 12-digit SHA1 and the commit summary enclosed in ("").
->
 >> as this stops generating interrupts for the incoming packets. I found
 >> the zero Tx coalescing time stops generating interrupts similarly for
 >> outgoing packets and fires Tx watchdog later. To avoid this, don't allow
@@ -38,8 +32,33 @@ Dne 30.8.2016 v 19:52 Sergei Shtylyov napsal(a):
 >> Cc: siva.kallam@broadcom.com
 >> Cc: michael.chan@broadcom.com
 >> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
-> [...]
+>> ---
+>>  drivers/net/ethernet/broadcom/tg3.c | 1 +
+>>  1 file changed, 1 insertion(+)
+>>
+>> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+>> index 6592612..07e3beb 100644
+>> --- a/drivers/net/ethernet/broadcom/tg3.c
+>> +++ b/drivers/net/ethernet/broadcom/tg3.c
+>> @@ -14012,6 +14012,7 @@ static int tg3_set_coalesce(struct net_device *dev, struct ethtool_coalesce *ec)
+>>         if ((ec->rx_coalesce_usecs > MAX_RXCOL_TICKS) ||
+>>             (!ec->rx_coalesce_usecs) ||
+>>             (ec->tx_coalesce_usecs > MAX_TXCOL_TICKS) ||
+>> +           (!ec->tx_coalesce_usecs) ||
+>>             (ec->rx_max_coalesced_frames > MAX_RXMAX_FRAMES) ||
+>>             (ec->tx_max_coalesced_frames > MAX_TXMAX_FRAMES) ||
+>>             (ec->rx_coalesce_usecs_irq > max_rxcoal_tick_int) ||
 >
-> MBR, Sergei
 >
-No problem, Sergei, will post v2.
+> As Rick pointed out last time, we can remove this check which follows
+> the block of code above:
+>
+> /* No tx interrupts will be generated if both are zero */
+> if ((ec->tx_coalesce_usecs == 0) &&
+>    (ec->tx_max_coalesced_frames == 0))
+> return -EINVAL;
+>
+Michael,
+should I add the removal of these checks to v2?
+
+Ivan
