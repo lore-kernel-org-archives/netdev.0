@@ -1,39 +1,44 @@
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v2] cfg80211: Remove deprecated
- create_singlethread_workqueue
-Date: Wed, 31 Aug 2016 10:26:02 -0400
-Message-ID: <20160831142602.GO12660@htj.duckdns.org>
-References: <20160830190507.GA11493@Karyakshetra>
+From: Petko Manolov <petkan@mip-labs.com>
+Subject: Re: [PATCH] net: pegasus: Remove deprecated create_singlethread_workqueue
+Date: Wed, 31 Aug 2016 17:27:51 +0300
+Message-ID: <E774CB24-BD0A-41AE-B414-FBC8BFD5447E@mip-labs.com>
+References: <20160830163247.GA25925@Karyakshetra> <20160831142305.GI12660@htj.duckdns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Bhaktipriya Shridhar <bhaktipriya96-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20160830190507.GA11493@Karyakshetra>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Petko Manolov <petkan@nucleusys.com>, linux-usb@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Tejun Heo <tj@kernel.org>,
+        Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160831142305.GI12660@htj.duckdns.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 31, 2016 at 12:35:07AM +0530, Bhaktipriya Shridhar wrote:
-> The workqueue "cfg80211_wq" is involved in cleanup, scan and event related
-> works. It queues multiple work items &rdev->event_work,
-> &rdev->dfs_update_channels_wk,
-> &wiphy_to_rdev(request->wiphy)->scan_done_wk,
-> &wiphy_to_rdev(wiphy)->sched_scan_results_wk, which require strict
-> execution ordering.
-> Hence, an ordered dedicated workqueue has been used.
-> 
-> Since it's a wireless driver, WQ_MEM_RECLAIM has been set to ensure
-> forward progress under memory pressure.
-> 
-> Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+On August 31, 2016 5:23:05 PM GMT+03:00, Tejun Heo <tj@kernel.org> wrote:
+>On Tue, Aug 30, 2016 at 10:02:47PM +0530, Bhaktipriya Shridhar wrote:
+>> The workqueue "pegasus_workqueue" queues a single work item per
+>pegasus
+>> instance and hence it doesn't require execution ordering. Hence,
+>> alloc_workqueue has been used to replace the deprecated
+>> create_singlethread_workqueue instance.
+>> 
+>> The WQ_MEM_RECLAIM flag has been set to ensure forward progress under
+>> memory pressure since it's a network driver.
+>> 
+>> Since there are fixed number of work items, explicit concurrency
+>> limit is unnecessary here.
+>> 
+>> Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
+>
+>Acked-by: Tejun Heo <tj@kernel.org>
+>
+>Thanks.
 
-Acked-by: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 
-Thanks.
+Acked-by: Petko Manolov <petkan@mip-labs.com>
 
--- 
-tejun
+
+cheers,
+Petko
