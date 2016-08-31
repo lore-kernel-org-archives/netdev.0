@@ -1,56 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] softirq: let ksoftirqd do its job
-Date: Wed, 31 Aug 2016 15:27:30 -0700
-Message-ID: <1472682450.14381.364.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <4f1c4b38528762619fff1fa963de8971006c1234.1472460085.git.pabeni@redhat.com>
-         <20160831100854.23dad2d8@redhat.com>
-         <1472650472.14381.317.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1472650688.32433.115.camel@redhat.com>
-         <1472652643.14381.320.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20160831164216.2901190c@redhat.com>
-         <1472661956.14381.335.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1472665349.14381.356.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20160831214043.2f44cf08@redhat.com>
-         <1472676150.14381.363.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20160831235116.33b1946b@redhat.com>
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: [PATCH 0/5] constify ethtool_ops structures
+Date: Thu,  1 Sep 2016 00:21:18 +0200
+Message-ID: <1472682083-5219-1-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Peter Zijlstra <peterz@infradead.org>,
-        David Miller <davem@davemloft.net>,
-        Rik van Riel <riel@redhat.com>,
-        Paolo Abeni <pabeni@redhat.com>,
-        Hannes Frederic Sowa <hannes@redhat.com>,
-        linux-kernel <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>, Jonathan Corbet <corbet@lwn.net>
-To: Jesper Dangaard Brouer <jbrouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:33090 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753993AbcHaW1d (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 18:27:33 -0400
-In-Reply-To: <20160831235116.33b1946b@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
+ kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org,
+ linux-mediatek@lists.infradead.org,
+ =?UTF-8?q?S=C3=B6ren=20Brinkmann?= <soren.brinkmann@xilinx.com>,
+ linux-arm-kernel@lists.infradead.org
+To: linux-usb@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2016-08-31 at 23:51 +0200, Jesper Dangaard Brouer wrote:
+Constify ethtool_ops structures.
 
-> 
-> The result from this run were handling 1,517,248 pps, without any
-> drops, all processes pinned to the same CPU.
-> 
->  $ nstat > /dev/null && sleep 1 && nstat
->  #kernel
->  IpInReceives                    1517225            0.0
->  IpInDelivers                    1517224            0.0
->  UdpInDatagrams                  1517248            0.0
->  IpExtInOctets                   69793408           0.0
->  IpExtInNoECTPkts                1517246            0.0
-> 
-> I'm acking this patch:
-> 
-> Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> 
+---
 
-Thanks a lot for bringing back the issue to me again, and all your
-tests !
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c       |    2 +-
+ drivers/net/ethernet/synopsys/dwc_eth_qos.c       |    2 +-
+ drivers/net/ethernet/xilinx/xilinx_axienet_main.c |    2 +-
+ drivers/net/usb/r8152.c                           |    2 +-
+ drivers/staging/netlogic/xlr_net.c                |    2 +-
+ 5 files changed, 5 insertions(+), 5 deletions(-)
