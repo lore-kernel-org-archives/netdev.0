@@ -1,81 +1,69 @@
-From: Caesar Wang <wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Subject: [RESEND PATCH 1/4] net: stmmac: dwmac-rk: fixes the gmac resume after
- PD on/off
-Date: Wed, 31 Aug 2016 14:13:45 +0800
-Message-ID: <1472624028-7082-2-git-send-email-wxt@rock-chips.com>
+From: Caesar Wang <wxt@rock-chips.com>
+Subject: [RESEND PATCH 2/4] net: stmmac: dwmac-rk: add pd_gmac support for rk3399
+Date: Wed, 31 Aug 2016 14:13:46 +0800
+Message-ID: <1472624028-7082-3-git-send-email-wxt@rock-chips.com>
 References: <1472624028-7082-1-git-send-email-wxt@rock-chips.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Brian Norris <briannorris-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
- Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>, dbasehore-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org,
- Douglas Anderson <dianders-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Roger Chen <roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
- Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>, Caesar Wang <wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-To: Heiko Stuebner <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1472624028-7082-1-git-send-email-wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
-List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-rockchip@lists.infradead.org,
+        Brian Norris <briannorris@chromium.org>,
+        Douglas Anderson <dianders@chromium.org>,
+        dbasehore@chromium.org, David Wu <david.wu@rock-chips.com>,
+        Caesar Wang <wxt@rock-chips.com>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        linux-kernel@vger.kernel.org
+To: Heiko Stuebner <heiko@sntech.de>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33276 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752245AbcHaGO3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 02:14:29 -0400
+In-Reply-To: <1472624028-7082-1-git-send-email-wxt@rock-chips.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Roger Chen <roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+From: David Wu <david.wu@rock-chips.com>
 
-GMAC Power Domain(PD) will be disabled during suspend.
-That will causes GRF registers reset.
-So corresponding GRF registers for GMAC must be setup again.
+Add the gmac power domain support for rk3399, in order to save more
+power consumption.
 
-Signed-off-by: Roger Chen <roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Signed-off-by: Caesar Wang <wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+Signed-off-by: David Wu <david.wu@rock-chips.com>
+Signed-off-by: Caesar Wang <wxt@rock-chips.com>
 ---
 
- drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c | 19 ++++++++++---------
- 1 file changed, 10 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
 
 diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-index 9210591..289e7a6 100644
+index 289e7a6..406573d 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-@@ -629,6 +629,16 @@ static struct rk_priv_data *rk_gmac_setup(struct platform_device *pdev,
- 							"rockchip,grf");
- 	bsp_priv->pdev = pdev;
+@@ -30,6 +30,7 @@
+ #include <linux/delay.h>
+ #include <linux/mfd/syscon.h>
+ #include <linux/regmap.h>
++#include <linux/pm_runtime.h>
  
-+	gmac_clk_init(bsp_priv);
-+
-+	return bsp_priv;
-+}
-+
-+static int rk_gmac_powerup(struct rk_priv_data *bsp_priv)
-+{
-+	int ret;
-+	struct device *dev = &bsp_priv->pdev->dev;
-+
- 	/*rmii or rgmii*/
- 	if (bsp_priv->phy_iface == PHY_INTERFACE_MODE_RGMII) {
- 		dev_info(dev, "init for RGMII\n");
-@@ -641,15 +651,6 @@ static struct rk_priv_data *rk_gmac_setup(struct platform_device *pdev,
- 		dev_err(dev, "NO interface defined!\n");
- 	}
+ #include "stmmac_platform.h"
  
--	gmac_clk_init(bsp_priv);
--
--	return bsp_priv;
--}
--
--static int rk_gmac_powerup(struct rk_priv_data *bsp_priv)
--{
--	int ret;
--
- 	ret = phy_power_on(bsp_priv, true);
+@@ -659,11 +660,19 @@ static int rk_gmac_powerup(struct rk_priv_data *bsp_priv)
  	if (ret)
  		return ret;
+ 
++	pm_runtime_enable(dev);
++	pm_runtime_get_sync(dev);
++
+ 	return 0;
+ }
+ 
+ static void rk_gmac_powerdown(struct rk_priv_data *gmac)
+ {
++	struct device *dev = &gmac->pdev->dev;
++
++	pm_runtime_put_sync(dev);
++	pm_runtime_disable(dev);
++
+ 	phy_power_on(gmac, false);
+ 	gmac_clk_enable(gmac, false);
+ }
 -- 
 1.9.1
