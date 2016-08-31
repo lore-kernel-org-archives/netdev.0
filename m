@@ -1,7 +1,7 @@
 From: Hadar Hen Zion <hadarh@mellanox.com>
-Subject: [PATCH net-next V4 1/4] net/ip_tunnels: Introduce tunnel_id_to_key32() and key32_to_tunnel_id()
-Date: Wed, 31 Aug 2016 15:46:21 +0300
-Message-ID: <1472647584-6713-2-git-send-email-hadarh@mellanox.com>
+Subject: [PATCH net-next V4 3/4] net/sched: cls_flower: Classify packet in ip tunnels
+Date: Wed, 31 Aug 2016 15:46:23 +0300
+Message-ID: <1472647584-6713-4-git-send-email-hadarh@mellanox.com>
 References: <1472647584-6713-1-git-send-email-hadarh@mellanox.com>
 Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
         Jiri Benc <jbenc@redhat.com>,
@@ -15,161 +15,227 @@ Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
         Hadar Hen Zion <hadarh@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:40336 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:40306 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S933442AbcHaMqz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 08:46:55 -0400
+        with ESMTP id S934044AbcHaMqu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 08:46:50 -0400
 In-Reply-To: <1472647584-6713-1-git-send-email-hadarh@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Amir Vadai <amir@vadai.me>
 
-Add utility functions to convert a 32 bits key into a 64 bits tunnel and
-vice versa.
-These functions will be used instead of cloning code in GRE and VXLAN,
-and in tc act_iptunnel which will be introduced in a following patch in
-this patchset.
+Introduce classifying by metadata extracted by the tunnel device.
+Outer header fields - source/dest ip and tunnel id, are extracted from
+the metadata when classifying.
+
+For example, the following will add a filter on the ingress Qdisc of shared
+vxlan device named 'vxlan0'. To forward packets with outer src ip
+11.11.0.2, dst ip 11.11.0.1 and tunnel id 11. The packets will be
+forwarded to tap device 'vnet0' (after metadata is released):
+
+$ filter add dev vxlan0 protocol ip parent ffff: \
+    flower \
+      enc_src_ip 11.11.0.2 \
+      enc_dst_ip 11.11.0.1 \
+      enc_key_id 11 \
+      dst_ip 11.11.11.1 \
+    action tunnel_key release \
+    action mirred egress redirect dev vnet0
+
+The action tunnel_key, will be introduced in the next patch in this
+series.
 
 Signed-off-by: Amir Vadai <amir@vadai.me>
 Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
-Reviewed-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Acked-by: Jiri Benc <jbenc@redhat.com>
 ---
- drivers/net/vxlan.c      |  4 ++--
- include/net/ip_tunnels.h | 19 +++++++++++++++++++
- include/net/vxlan.h      | 18 ------------------
- net/ipv4/ip_gre.c        | 23 ++---------------------
- 4 files changed, 23 insertions(+), 41 deletions(-)
+ include/uapi/linux/pkt_cls.h |  11 +++++
+ net/sched/cls_flower.c       | 101 ++++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 110 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 3f7e0d2..2444daa 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1293,7 +1293,7 @@ static int vxlan_rcv(struct sock *sk, struct sk_buff *skb)
- 		struct metadata_dst *tun_dst;
- 
- 		tun_dst = udp_tun_rx_dst(skb, vxlan_get_sk_family(vs), TUNNEL_KEY,
--					 vxlan_vni_to_tun_id(vni), sizeof(*md));
-+					 key32_to_tunnel_id(vni), sizeof(*md));
- 
- 		if (!tun_dst)
- 			goto drop;
-@@ -1947,7 +1947,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 			goto drop;
- 		}
- 		dst_port = info->key.tp_dst ? : vxlan->cfg.dst_port;
--		vni = vxlan_tun_id_to_vni(info->key.tun_id);
-+		vni = tunnel_id_to_key32(info->key.tun_id);
- 		remote_ip.sa.sa_family = ip_tunnel_info_af(info);
- 		if (remote_ip.sa.sa_family == AF_INET) {
- 			remote_ip.sin.sin_addr.s_addr = info->key.u.ipv4.dst;
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index a5e7035..e598c63 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -222,6 +222,25 @@ static inline unsigned short ip_tunnel_info_af(const struct ip_tunnel_info
- 	return tun_info->mode & IP_TUNNEL_INFO_IPV6 ? AF_INET6 : AF_INET;
- }
- 
-+static inline __be64 key32_to_tunnel_id(__be32 key)
-+{
-+#ifdef __BIG_ENDIAN
-+	return (__force __be64)key;
-+#else
-+	return (__force __be64)((__force u64)key << 32);
-+#endif
-+}
+diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+index 51b5b24..f9c287c 100644
+--- a/include/uapi/linux/pkt_cls.h
++++ b/include/uapi/linux/pkt_cls.h
+@@ -431,6 +431,17 @@ enum {
+ 	TCA_FLOWER_KEY_VLAN_ID,
+ 	TCA_FLOWER_KEY_VLAN_PRIO,
+ 	TCA_FLOWER_KEY_VLAN_ETH_TYPE,
 +
-+/* Returns the least-significant 32 bits of a __be64. */
-+static inline __be32 tunnel_id_to_key32(__be64 tun_id)
-+{
-+#ifdef __BIG_ENDIAN
-+	return (__force __be32)tun_id;
-+#else
-+	return (__force __be32)((__force u64)tun_id >> 32);
-+#endif
-+}
++	TCA_FLOWER_KEY_ENC_KEY_ID,	/* be32 */
++	TCA_FLOWER_KEY_ENC_IPV4_SRC,	/* be32 */
++	TCA_FLOWER_KEY_ENC_IPV4_SRC_MASK,/* be32 */
++	TCA_FLOWER_KEY_ENC_IPV4_DST,	/* be32 */
++	TCA_FLOWER_KEY_ENC_IPV4_DST_MASK,/* be32 */
++	TCA_FLOWER_KEY_ENC_IPV6_SRC,	/* struct in6_addr */
++	TCA_FLOWER_KEY_ENC_IPV6_SRC_MASK,/* struct in6_addr */
++	TCA_FLOWER_KEY_ENC_IPV6_DST,	/* struct in6_addr */
++	TCA_FLOWER_KEY_ENC_IPV6_DST_MASK,/* struct in6_addr */
 +
- #ifdef CONFIG_INET
+ 	__TCA_FLOWER_MAX,
+ };
  
- int ip_tunnel_init(struct net_device *dev);
-diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-index b96d036..0255613 100644
---- a/include/net/vxlan.h
-+++ b/include/net/vxlan.h
-@@ -350,24 +350,6 @@ static inline __be32 vxlan_vni_field(__be32 vni)
+diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
+index cf9ad5b..02b2a5b 100644
+--- a/net/sched/cls_flower.c
++++ b/net/sched/cls_flower.c
+@@ -23,9 +23,13 @@
+ #include <net/ip.h>
+ #include <net/flow_dissector.h>
+ 
++#include <net/dst.h>
++#include <net/dst_metadata.h>
++
+ struct fl_flow_key {
+ 	int	indev_ifindex;
+ 	struct flow_dissector_key_control control;
++	struct flow_dissector_key_control enc_control;
+ 	struct flow_dissector_key_basic basic;
+ 	struct flow_dissector_key_eth_addrs eth;
+ 	struct flow_dissector_key_vlan vlan;
+@@ -35,6 +39,11 @@ struct fl_flow_key {
+ 		struct flow_dissector_key_ipv6_addrs ipv6;
+ 	};
+ 	struct flow_dissector_key_ports tp;
++	struct flow_dissector_key_keyid enc_key_id;
++	union {
++		struct flow_dissector_key_ipv4_addrs enc_ipv4;
++		struct flow_dissector_key_ipv6_addrs enc_ipv6;
++	};
+ } __aligned(BITS_PER_LONG / 8); /* Ensure that we can do comparisons as longs. */
+ 
+ struct fl_flow_mask_range {
+@@ -124,11 +133,31 @@ static int fl_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ 	struct cls_fl_filter *f;
+ 	struct fl_flow_key skb_key;
+ 	struct fl_flow_key skb_mkey;
++	struct ip_tunnel_info *info;
+ 
+ 	if (!atomic_read(&head->ht.nelems))
+ 		return -1;
+ 
+ 	fl_clear_masked_range(&skb_key, &head->mask);
++
++	info = skb_tunnel_info(skb);
++	if (info) {
++		struct ip_tunnel_key *key = &info->key;
++
++		switch (ip_tunnel_info_af(info)) {
++		case AF_INET:
++			skb_key.enc_ipv4.src = key->u.ipv4.src;
++			skb_key.enc_ipv4.dst = key->u.ipv4.dst;
++			break;
++		case AF_INET6:
++			skb_key.enc_ipv6.src = key->u.ipv6.src;
++			skb_key.enc_ipv6.dst = key->u.ipv6.dst;
++			break;
++		}
++
++		skb_key.enc_key_id.keyid = tunnel_id_to_key32(key->tun_id);
++	}
++
+ 	skb_key.indev_ifindex = skb->skb_iif;
+ 	/* skb_flow_dissect() does not set n_proto in case an unknown protocol,
+ 	 * so do it rather here.
+@@ -297,7 +326,15 @@ static const struct nla_policy fl_policy[TCA_FLOWER_MAX + 1] = {
+ 	[TCA_FLOWER_KEY_VLAN_ID]	= { .type = NLA_U16 },
+ 	[TCA_FLOWER_KEY_VLAN_PRIO]	= { .type = NLA_U8 },
+ 	[TCA_FLOWER_KEY_VLAN_ETH_TYPE]	= { .type = NLA_U16 },
+-
++	[TCA_FLOWER_KEY_ENC_KEY_ID]	= { .type = NLA_U32 },
++	[TCA_FLOWER_KEY_ENC_IPV4_SRC]	= { .type = NLA_U32 },
++	[TCA_FLOWER_KEY_ENC_IPV4_SRC_MASK] = { .type = NLA_U32 },
++	[TCA_FLOWER_KEY_ENC_IPV4_DST]	= { .type = NLA_U32 },
++	[TCA_FLOWER_KEY_ENC_IPV4_DST_MASK] = { .type = NLA_U32 },
++	[TCA_FLOWER_KEY_ENC_IPV6_SRC]	= { .len = sizeof(struct in6_addr) },
++	[TCA_FLOWER_KEY_ENC_IPV6_SRC_MASK] = { .len = sizeof(struct in6_addr) },
++	[TCA_FLOWER_KEY_ENC_IPV6_DST]	= { .len = sizeof(struct in6_addr) },
++	[TCA_FLOWER_KEY_ENC_IPV6_DST_MASK] = { .len = sizeof(struct in6_addr) },
+ };
+ 
+ static void fl_set_key_val(struct nlattr **tb,
+@@ -345,7 +382,6 @@ static int fl_set_key(struct net *net, struct nlattr **tb,
+ 		mask->indev_ifindex = 0xffffffff;
+ 	}
  #endif
+-
+ 	fl_set_key_val(tb, key->eth.dst, TCA_FLOWER_KEY_ETH_DST,
+ 		       mask->eth.dst, TCA_FLOWER_KEY_ETH_DST_MASK,
+ 		       sizeof(key->eth.dst));
+@@ -409,6 +445,40 @@ static int fl_set_key(struct net *net, struct nlattr **tb,
+ 			       sizeof(key->tp.dst));
+ 	}
+ 
++	if (tb[TCA_FLOWER_KEY_ENC_IPV4_SRC] ||
++	    tb[TCA_FLOWER_KEY_ENC_IPV4_DST]) {
++		key->enc_control.addr_type = FLOW_DISSECTOR_KEY_IPV4_ADDRS;
++		fl_set_key_val(tb, &key->enc_ipv4.src,
++			       TCA_FLOWER_KEY_ENC_IPV4_SRC,
++			       &mask->enc_ipv4.src,
++			       TCA_FLOWER_KEY_ENC_IPV4_SRC_MASK,
++			       sizeof(key->enc_ipv4.src));
++		fl_set_key_val(tb, &key->enc_ipv4.dst,
++			       TCA_FLOWER_KEY_ENC_IPV4_DST,
++			       &mask->enc_ipv4.dst,
++			       TCA_FLOWER_KEY_ENC_IPV4_DST_MASK,
++			       sizeof(key->enc_ipv4.dst));
++	}
++
++	if (tb[TCA_FLOWER_KEY_ENC_IPV6_SRC] ||
++	    tb[TCA_FLOWER_KEY_ENC_IPV6_DST]) {
++		key->enc_control.addr_type = FLOW_DISSECTOR_KEY_IPV6_ADDRS;
++		fl_set_key_val(tb, &key->enc_ipv6.src,
++			       TCA_FLOWER_KEY_ENC_IPV6_SRC,
++			       &mask->enc_ipv6.src,
++			       TCA_FLOWER_KEY_ENC_IPV6_SRC_MASK,
++			       sizeof(key->enc_ipv6.src));
++		fl_set_key_val(tb, &key->enc_ipv6.dst,
++			       TCA_FLOWER_KEY_ENC_IPV6_DST,
++			       &mask->enc_ipv6.dst,
++			       TCA_FLOWER_KEY_ENC_IPV6_DST_MASK,
++			       sizeof(key->enc_ipv6.dst));
++	}
++
++	fl_set_key_val(tb, &key->enc_key_id.keyid, TCA_FLOWER_KEY_ENC_KEY_ID,
++		       &mask->enc_key_id.keyid, TCA_FLOWER_KEY_ENC_KEY_ID,
++		       sizeof(key->enc_key_id.keyid));
++
+ 	return 0;
  }
  
--static inline __be32 vxlan_tun_id_to_vni(__be64 tun_id)
--{
--#if defined(__BIG_ENDIAN)
--	return (__force __be32)tun_id;
--#else
--	return (__force __be32)((__force u64)tun_id >> 32);
--#endif
--}
--
--static inline __be64 vxlan_vni_to_tun_id(__be32 vni)
--{
--#if defined(__BIG_ENDIAN)
--	return (__force __be64)vni;
--#else
--	return (__force __be64)((u64)(__force u32)vni << 32);
--#endif
--}
--
- static inline size_t vxlan_rco_start(__be32 vni_field)
- {
- 	return be32_to_cpu(vni_field & VXLAN_RCO_MASK) << VXLAN_RCO_SHIFT;
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 113cc43..576f705 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -246,25 +246,6 @@ static void gre_err(struct sk_buff *skb, u32 info)
- 	ipgre_err(skb, info, &tpi);
- }
+@@ -821,6 +891,33 @@ static int fl_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
+ 				  sizeof(key->tp.dst))))
+ 		goto nla_put_failure;
  
--static __be64 key_to_tunnel_id(__be32 key)
--{
--#ifdef __BIG_ENDIAN
--	return (__force __be64)((__force u32)key);
--#else
--	return (__force __be64)((__force u64)key << 32);
--#endif
--}
--
--/* Returns the least-significant 32 bits of a __be64. */
--static __be32 tunnel_id_to_key(__be64 x)
--{
--#ifdef __BIG_ENDIAN
--	return (__force __be32)x;
--#else
--	return (__force __be32)((__force u64)x >> 32);
--#endif
--}
--
- static int __ipgre_rcv(struct sk_buff *skb, const struct tnl_ptk_info *tpi,
- 		       struct ip_tunnel_net *itn, int hdr_len, bool raw_proto)
- {
-@@ -290,7 +271,7 @@ static int __ipgre_rcv(struct sk_buff *skb, const struct tnl_ptk_info *tpi,
- 			__be64 tun_id;
++	if (key->enc_control.addr_type == FLOW_DISSECTOR_KEY_IPV4_ADDRS &&
++	    (fl_dump_key_val(skb, &key->enc_ipv4.src,
++			    TCA_FLOWER_KEY_ENC_IPV4_SRC, &mask->enc_ipv4.src,
++			    TCA_FLOWER_KEY_ENC_IPV4_SRC_MASK,
++			    sizeof(key->enc_ipv4.src)) ||
++	     fl_dump_key_val(skb, &key->enc_ipv4.dst,
++			     TCA_FLOWER_KEY_ENC_IPV4_DST, &mask->enc_ipv4.dst,
++			     TCA_FLOWER_KEY_ENC_IPV4_DST_MASK,
++			     sizeof(key->enc_ipv4.dst))))
++		goto nla_put_failure;
++	else if (key->enc_control.addr_type == FLOW_DISSECTOR_KEY_IPV6_ADDRS &&
++		 (fl_dump_key_val(skb, &key->enc_ipv6.src,
++			    TCA_FLOWER_KEY_ENC_IPV6_SRC, &mask->enc_ipv6.src,
++			    TCA_FLOWER_KEY_ENC_IPV6_SRC_MASK,
++			    sizeof(key->enc_ipv6.src)) ||
++		 fl_dump_key_val(skb, &key->enc_ipv6.dst,
++				 TCA_FLOWER_KEY_ENC_IPV6_DST,
++				 &mask->enc_ipv6.dst,
++				 TCA_FLOWER_KEY_ENC_IPV6_DST_MASK,
++			    sizeof(key->enc_ipv6.dst))))
++		goto nla_put_failure;
++
++	if (fl_dump_key_val(skb, &key->enc_key_id, TCA_FLOWER_KEY_ENC_KEY_ID,
++			    &mask->enc_key_id, TCA_FLOWER_KEY_ENC_KEY_ID,
++			    sizeof(key->enc_key_id)))
++		goto nla_put_failure;
++
+ 	nla_put_u32(skb, TCA_FLOWER_FLAGS, f->flags);
  
- 			flags = tpi->flags & (TUNNEL_CSUM | TUNNEL_KEY);
--			tun_id = key_to_tunnel_id(tpi->key);
-+			tun_id = key32_to_tunnel_id(tpi->key);
- 			tun_dst = ip_tun_rx_dst(skb, flags, tun_id, 0);
- 			if (!tun_dst)
- 				return PACKET_REJECT;
-@@ -446,7 +427,7 @@ static void gre_fb_xmit(struct sk_buff *skb, struct net_device *dev,
- 
- 	flags = tun_info->key.tun_flags & (TUNNEL_CSUM | TUNNEL_KEY);
- 	gre_build_header(skb, tunnel_hlen, flags, proto,
--			 tunnel_id_to_key(tun_info->key.tun_id), 0);
-+			 tunnel_id_to_key32(tun_info->key.tun_id), 0);
- 
- 	df = key->tun_flags & TUNNEL_DONT_FRAGMENT ?  htons(IP_DF) : 0;
- 
+ 	if (tcf_exts_dump(skb, &f->exts))
 -- 
 1.8.3.1
