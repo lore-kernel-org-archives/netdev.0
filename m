@@ -1,31 +1,46 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 1/3] net: dsa: add MDB support
-Date: Wed, 31 Aug 2016 17:03:17 +0200
-Message-ID: <20160831150317.GG15078@lunn.ch>
-References: <20160829203246.18811-1-vivien.didelot@savoirfairelinux.com>
- <20160829203246.18811-2-vivien.didelot@savoirfairelinux.com>
- <20160831132534.GA15078@lunn.ch>
- <87vayhvx0m.fsf@ketchup.mtl.sfl>
- <20160831143315.GD15078@lunn.ch>
- <871t157zqg.fsf@ketchup.mtl.sfl>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next V4 1/4] net/ip_tunnels: Introduce
+ tunnel_id_to_key32() and key32_to_tunnel_id()
+Date: Wed, 31 Aug 2016 17:04:55 +0200
+Message-ID: <20160831150455.GA1986@nanopsycho>
+References: <1472647584-6713-1-git-send-email-hadarh@mellanox.com>
+ <1472647584-6713-2-git-send-email-hadarh@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Jiri Pirko <jiri@mellanox.com>, Jiri Benc <jbenc@redhat.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Amir Vadai <amirva@mellanox.com>, Amir Vadai <amir@vadai.me>
+To: Hadar Hen Zion <hadarh@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:32937 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935612AbcHaPE7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 11:04:59 -0400
+Received: by mail-wm0-f66.google.com with SMTP id w207so3853671wmw.0
+        for <netdev@vger.kernel.org>; Wed, 31 Aug 2016 08:04:58 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <871t157zqg.fsf@ketchup.mtl.sfl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1472647584-6713-2-git-send-email-hadarh@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> What should we do if the bridge code consider a multicast group as L3?
+Wed, Aug 31, 2016 at 02:46:21PM CEST, hadarh@mellanox.com wrote:
+>From: Amir Vadai <amir@vadai.me>
+>
+>Add utility functions to convert a 32 bits key into a 64 bits tunnel and
+>vice versa.
+>These functions will be used instead of cloning code in GRE and VXLAN,
+>and in tc act_iptunnel which will be introduced in a following patch in
+>this patchset.
+>
+>Signed-off-by: Amir Vadai <amir@vadai.me>
+>Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+>Reviewed-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+>Acked-by: Jiri Benc <jbenc@redhat.com>
 
-Hi Vivien
-
-Just drop the word 'group' from the Documentation. And there appears
-to be one comment in the code which should be changed.
-
-   Andrew
+Acked-by: Jiri Pirko <jiri@mellanox.com>
