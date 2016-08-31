@@ -1,98 +1,98 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] softirq: let ksoftirqd do its job
-Date: Wed, 31 Aug 2016 13:42:30 -0700
-Message-ID: <1472676150.14381.363.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <4f1c4b38528762619fff1fa963de8971006c1234.1472460085.git.pabeni@redhat.com>
-         <20160831100854.23dad2d8@redhat.com>
-         <1472650472.14381.317.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1472650688.32433.115.camel@redhat.com>
-         <1472652643.14381.320.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20160831164216.2901190c@redhat.com>
-         <1472661956.14381.335.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1472665349.14381.356.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20160831214043.2f44cf08@redhat.com>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH] [v9] net: emac: emac gigabit ethernet controller driver
+Date: Wed, 31 Aug 2016 15:46:27 -0500
+Message-ID: <CAL_Jsq+BtwBtB7Vd8HB+vhucfUmn_0bxRRXmyO13GoCM82LgFg@mail.gmail.com>
+References: <1472161143-26417-1-git-send-email-timur@codeaurora.org>
+ <20160831150043.GA575@rob-hp-laptop> <57C6F395.1030904@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Peter Zijlstra <peterz@infradead.org>,
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+        linux-arm-msm <linux-arm-msm@vger.kernel.org>,
+        Sagar Dharia <sdharia@codeaurora.org>,
+        Shanker Donthineni <shankerd@codeaurora.org>,
+        Vikram Sethi <vikrams@codeaurora.org>,
+        Christopher Covington <cov@codeaurora.org>,
+        Gilad Avidov <gavidov@codeaurora.org>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Bjorn Andersson <bjorn.andersson@linaro.org>,
+        Mark Langsdorf <mlangsdo@redhat.com>,
+        "jcm@redhat.com" <jcm@redhat.com>,
+        Andy Gross <agross@codeaurora.org>,
         David Miller <davem@davemloft.net>,
-        Rik van Riel <riel@redhat.com>,
-        Paolo Abeni <pabeni@redhat.com>,
-        Hannes Frederic Sowa <hannes@redhat.com>,
-        linux-kernel <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>, Jonathan Corbet <corbet@lwn.net>
-To: Jesper Dangaard Brouer <jbrouer@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160831214043.2f44cf08@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Lino Sanfilippo <LinoSanfilippo@gmx.de>
+To: Timur Tabi <timur@codeaurora.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.136]:35432 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753487AbcHaUqx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 31 Aug 2016 16:46:53 -0400
+In-Reply-To: <57C6F395.1030904@codeaurora.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-08-31 at 21:40 +0200, Jesper Dangaard Brouer wrote:
+On Wed, Aug 31, 2016 at 10:11 AM, Timur Tabi <timur@codeaurora.org> wrote:
+> Rob Herring wrote:
+>
+>>> +               internal-phy = <&emac_sgmii>;
+>>
+>>
+>> Can't this use the standard generic phy binding (i.e. 'phys'). It's a
+>> bit confusing as there's the ethernet phy binding (phy-handle) and the
+>> generic one.
+>
+>
+> It's not a generic phy.  It's a funky "internal phy" that differs among
+> SOCs.  I call it the internal phy, but I could use another name. Internally,
+> some people call it the "sgmii phy", but I don't think that's accurate.
 
-> I can confirm the improvement of approx 900Kpps (no wonder people have
-> been complaining about DoS against UDP/DNS servers).
-> 
-> BUT during my extensive testing, of this patch, I also think that we
-> have not gotten to the bottom of this.  I was expecting to see a higher
-> (collective) PPS number as I add more UDP servers, but I don't.
-> 
-> Running many UDP netperf's with command:
->  super_netperf 4 -H 198.18.50.3 -l 120 -t UDP_STREAM -T 0,0 -- -m 1472 -n -N
+Funky internal PHYs are precisely the types of PHYs this binding is
+for. It is generic in that the type is not defined. It can be USB,
+HDMI, DSI, LVDS, etc.
 
-Are you sure sender can send fast enough ?
+>
+> I can call it "emac-phy", but I don't know if that's any better.
+>
+>>> +               phy-handle = <&phy0>;
+>>
+>>
+>> This is bit redundant as the phy is the child node. I guess if you had
+>> multiple devices on the mdio bus you would need it. I'd drop it if you
+>> don't envision needing it and the kernel doesn't require it.
+>
+>
+> That's what I thought to, but without it, of_phy_find_device() won't work.
+> I need a pointer to the phy node, and I use of_parse_phandle() to get it:
+>
+>         struct device_node *phy_np;
+>
+>         ret = of_mdiobus_register(mii_bus, np);
+>         if (ret) {
+>                 dev_err(&pdev->dev, "could not register mdio bus\n");
+>                 return ret;
+>         }
+>
+>         phy_np = of_parse_phandle(np, "phy-handle", 0);
 
-> 
-> With 'top' I can see ksoftirq are still getting a higher %CPU time:
-> 
->     PID   %CPU     TIME+  COMMAND
->      3   36.5   2:28.98  ksoftirqd/0
->  10724    9.6   0:01.05  netserver
->  10722    9.3   0:01.05  netserver
->  10723    9.3   0:01.05  netserver
->  10725    9.3   0:01.05  netserver
+You can just as easily find the child node called ethernet-phy.
 
-Looks much better on my machine, with "udprcv -n 4" (using 4 threads,
-and 4 sockets using SO_REUSEPORT)
+>         adpt->phydev = of_phy_find_device(phy_np);
+>
+>>> +
+>>> +               #address-cells = <1>;
+>>> +               #size-cells = <0>;
+>>> +               phy0: ethernet-phy@0 {
+>>
+>>
+>> It's just an example, but don't we require compatible strings for phys
+>> now?
+>
+>
+> Nope. I had a compatible property, but it broke of_mdiobus_child_is_phy().
+> I don't want to specify why kind of phy it is.  I want to let phylib figure
+> it out.
 
-10755 root      20   0   34948      4      0 S  79.7  0.0   0:33.66 udprcv                                                                                                                                 
-    3 root      20   0       0      0      0 R  19.9  0.0   0:25.49 ksoftirqd/0                 
+Okay, I'll defer to the mdio folks.
 
-Pressing 'H' in top gives :
-
-    3 root      20   0       0      0      0 R 19.9  0.0   0:47.84 ksoftirqd/0                                                                                                                             
-10756 root      20   0   34948      4      0 R 19.9  0.0   0:30.76 udprcv                                                                                                                                  
-10757 root      20   0   34948      4      0 R 19.9  0.0   0:30.76 udprcv                                                                                                                                  
-10758 root      20   0   34948      4      0 S 19.9  0.0   0:30.76 udprcv                                                                                                                                  
-10759 root      20   0   34948      4      0 S 19.9  0.0   0:30.76 udprcv
-
-
-Patch was on top of commit 071e31e254e0e0c438eecba3dba1d6e2d0da36c2
-                          
-> 
-> 
-> > Since the load runs in well identified threads context, an admin can
-> > more easily tune process scheduling parameters if needed.
-> 
-> With this patch applied, I found that changing the UDP server process,
-> scheduler policy to SCHED_RR or SCHED_FIFO gave me a performance boost
-> from 900Kpps to 1.7Mpps, and not a single UDP packet dropped (even with
-> a single UDP stream, also tested with more)
-> 
-> Command used:
->  sudo chrt --rr -p 20 $(pgrep netserver)
-
-
-Sure, this is what I mentioned in my changelog : Once we properly
-schedule and rely on ksoftirqd, tuning is available.
-
-> 
-> The scheduling picture also change a lot:
-> 
->    PID  %CPU   TIME+   COMMAND
->  10783  24.3  0:21.53  netserver
->  10784  24.3  0:21.53  netserver
->  10785  24.3  0:21.52  netserver
->  10786  24.3  0:21.50  netserver
->      3   2.7  3:12.18  ksoftirqd/0
-> 
->  
+Rob
