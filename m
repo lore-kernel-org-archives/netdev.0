@@ -1,84 +1,66 @@
-From: Caesar Wang <wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Subject: [PATCH v3 3/5] arm64: dts: rockchip: add the gmac power domain on
- rk3399
-Date: Thu,  1 Sep 2016 07:28:50 +0800
-Message-ID: <1472686132-27827-4-git-send-email-wxt@rock-chips.com>
-References: <1472686132-27827-1-git-send-email-wxt@rock-chips.com>
+From: Rick Jones <rick.jones2@hpe.com>
+Subject: Re: [PATCH] softirq: let ksoftirqd do its job
+Date: Wed, 31 Aug 2016 16:29:56 -0700
+Message-ID: <f131776f-7f53-c539-f283-10d6db0b6d57@hpe.com>
+References: <4f1c4b38528762619fff1fa963de8971006c1234.1472460085.git.pabeni@redhat.com>
+ <20160831100854.23dad2d8@redhat.com>
+ <1472650472.14381.317.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1472650688.32433.115.camel@redhat.com>
+ <1472652643.14381.320.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160831164216.2901190c@redhat.com>
+ <1472661956.14381.335.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1472665349.14381.356.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160831214043.2f44cf08@redhat.com>
+ <1472676150.14381.363.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160831235116.33b1946b@redhat.com>
+ <1472682450.14381.364.camel@edumazet-glaptop3.roam.corp.google.com>
+ <3567b503-8b3e-5a3f-580a-f99fd28cf77e@hpe.com>
+ <1472685066.14381.380.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, Huang Tao <huangtao-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
- Brian Norris <briannorris-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, Xing Zheng <zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
- Elaine Zhang <zhangqing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
- Masahiro Yamada <yamada.masahiro-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>,
- Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>, dbasehore-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org,
- Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>, Douglas Anderson <dianders-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
- Roger Chen <roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org>, David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
- Shunqian Zheng <zhengsq-TNX95d0MmH7DzftRWevZcw@public.gmane.org>, Jianqun Xu <jay.xu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
- linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Caesar Wang <wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-To: Heiko Stuebner <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1472686132-27827-1-git-send-email-wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
-List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Jesper Dangaard Brouer <jbrouer@redhat.com>,
+        Peter Zijlstra <peterz@infradead.org>,
+        David Miller <davem@davemloft.net>,
+        Rik van Riel <riel@redhat.com>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Hannes Frederic Sowa <hannes@redhat.com>,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>, Jonathan Corbet <corbet@lwn.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g9t5009.houston.hpe.com ([15.241.48.73]:60394 "EHLO
+        g9t5009.houston.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1761178AbcHaX37 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 19:29:59 -0400
+In-Reply-To: <1472685066.14381.380.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch supports the gmac pd to save power consumption.
-Even though some boards not need Ethernet support, the driver
-core can also take care of powering up the pd before probe.
+On 08/31/2016 04:11 PM, Eric Dumazet wrote:
+> On Wed, 2016-08-31 at 15:47 -0700, Rick Jones wrote:
+>> With regard to drops, are both of you sure you're using the same socket
+>> buffer sizes?
+>
+> Does it really matter ?
 
-Signed-off-by: Roger Chen <roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Signed-off-by: Caesar Wang <wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
----
+At least at points in the past I have seen different drop counts at the 
+SO_RCVBUF based on using (sometimes much) larger sizes.  The hypothesis 
+I was operating under at the time was that this dealt with those 
+situations where the netserver was held-off from running for "a little 
+while" from time to time.  It didn't change things for a sustained 
+overload situation though.
 
-Changes in v3:
-- leave into two patches based on patchv2, and fix nits and commit, as
-  comment on https://patchwork.kernel.org/patch/9306339/
+>> In the meantime, is anything interesting happening with TCP_RR or
+>> TCP_STREAM?
+>
+> TCP_RR is driven by the network latency, we do not drop packets in the
+> socket itself.
 
-Changes in v2:
-- Fixes the order, ss Heiko commnets on
-  https://patchwork.kernel.org/patch/9305991/
+I've been of the opinion it (single stream) is driven by path length. 
+Sometimes by NIC latency.  But then I'm almost always measuring in the 
+LAN rather than across the WAN.
 
- arch/arm64/boot/dts/rockchip/rk3399.dtsi | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+happy benchmarking,
 
-diff --git a/arch/arm64/boot/dts/rockchip/rk3399.dtsi b/arch/arm64/boot/dts/rockchip/rk3399.dtsi
-index 32aebc8..2ab233f 100644
---- a/arch/arm64/boot/dts/rockchip/rk3399.dtsi
-+++ b/arch/arm64/boot/dts/rockchip/rk3399.dtsi
-@@ -611,6 +611,11 @@
- 		status = "disabled";
- 	};
- 
-+	qos_gmac: qos@ffa5c000 {
-+		compatible = "syscon";
-+		reg = <0x0 0xffa5c000 0x0 0x20>;
-+	};
-+
- 	qos_hdcp: qos@ffa90000 {
- 		compatible = "syscon";
- 		reg = <0x0 0xffa90000 0x0 0x20>;
-@@ -739,6 +744,11 @@
- 			};
- 
- 			/* These power domains are grouped by VD_LOGIC */
-+			pd_gmac@RK3399_PD_GMAC {
-+				reg = <RK3399_PD_GMAC>;
-+				clocks = <&cru ACLK_GMAC>;
-+				pm_qos = <&qos_gmac>;
-+			};
- 			pd_vio@RK3399_PD_VIO {
- 				reg = <RK3399_PD_VIO>;
- 				#address-cells = <1>;
--- 
-1.9.1
+rick
