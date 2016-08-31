@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH v2 net-next 1/6] bpf: support 8-byte metafield access
-Date: Wed, 31 Aug 2016 14:50:38 -0700
-Message-ID: <1472680243-1326608-2-git-send-email-ast@fb.com>
+Subject: [PATCH v2 net-next 3/6] bpf: perf_event progs should only use preallocated maps
+Date: Wed, 31 Aug 2016 14:50:40 -0700
+Message-ID: <1472680243-1326608-4-git-send-email-ast@fb.com>
 References: <1472680243-1326608-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,46 +17,62 @@ In-Reply-To: <1472680243-1326608-1-git-send-email-ast@fb.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The verifier supported only 4-byte metafields in
-struct __sk_buff and struct xdp_md. The metafields in upcoming
-struct bpf_perf_event are 8-byte to match register width in struct pt_regs.
-Teach verifier to recognize 8-byte metafield access.
-The patch doesn't affect safety of sockets and xdp programs.
-They check for 4-byte only ctx access before these conditions are hit.
+Make sure that BPF_PROG_TYPE_PERF_EVENT programs only use
+preallocated hash maps, since doing memory allocation
+in overflow_handler can crash depending on where nmi got triggered.
 
 Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- kernel/bpf/verifier.c | 9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
+ kernel/bpf/verifier.c | 22 +++++++++++++++++++++-
+ 1 file changed, 21 insertions(+), 1 deletion(-)
 
 diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index abb61f3f6900..c1c9e441f0f5 100644
+index c1c9e441f0f5..48c2705db22c 100644
 --- a/kernel/bpf/verifier.c
 +++ b/kernel/bpf/verifier.c
-@@ -2333,7 +2333,8 @@ static int do_check(struct verifier_env *env)
- 			if (err)
- 				return err;
+@@ -2511,6 +2511,20 @@ process_bpf_exit:
+ 	return 0;
+ }
  
--			if (BPF_SIZE(insn->code) != BPF_W) {
-+			if (BPF_SIZE(insn->code) != BPF_W &&
-+			    BPF_SIZE(insn->code) != BPF_DW) {
- 				insn_idx++;
- 				continue;
- 			}
-@@ -2642,9 +2643,11 @@ static int convert_ctx_accesses(struct verifier_env *env)
++static int check_map_prog_compatibility(struct bpf_map *map,
++					struct bpf_prog *prog)
++
++{
++	if (prog->type == BPF_PROG_TYPE_PERF_EVENT &&
++	    (map->map_type == BPF_MAP_TYPE_HASH ||
++	     map->map_type == BPF_MAP_TYPE_PERCPU_HASH) &&
++	    (map->map_flags & BPF_F_NO_PREALLOC)) {
++		verbose("perf_event programs can only use preallocated hash map\n");
++		return -EINVAL;
++	}
++	return 0;
++}
++
+ /* look for pseudo eBPF instructions that access map FDs and
+  * replace them with actual map pointers
+  */
+@@ -2518,7 +2532,7 @@ static int replace_map_fd_with_map_ptr(struct verifier_env *env)
+ {
+ 	struct bpf_insn *insn = env->prog->insnsi;
+ 	int insn_cnt = env->prog->len;
+-	int i, j;
++	int i, j, err;
+ 
  	for (i = 0; i < insn_cnt; i++, insn++) {
- 		u32 insn_delta, cnt;
+ 		if (BPF_CLASS(insn->code) == BPF_LDX &&
+@@ -2562,6 +2576,12 @@ static int replace_map_fd_with_map_ptr(struct verifier_env *env)
+ 				return PTR_ERR(map);
+ 			}
  
--		if (insn->code == (BPF_LDX | BPF_MEM | BPF_W))
-+		if (insn->code == (BPF_LDX | BPF_MEM | BPF_W) ||
-+		    insn->code == (BPF_LDX | BPF_MEM | BPF_DW))
- 			type = BPF_READ;
--		else if (insn->code == (BPF_STX | BPF_MEM | BPF_W))
-+		else if (insn->code == (BPF_STX | BPF_MEM | BPF_W) ||
-+			 insn->code == (BPF_STX | BPF_MEM | BPF_DW))
- 			type = BPF_WRITE;
- 		else
- 			continue;
++			err = check_map_prog_compatibility(map, env->prog);
++			if (err) {
++				fdput(f);
++				return err;
++			}
++
+ 			/* store map pointer inside BPF_LD_IMM64 instruction */
+ 			insn[0].imm = (u32) (unsigned long) map;
+ 			insn[1].imm = ((u64) (unsigned long) map) >> 32;
 -- 
 2.8.0
