@@ -1,8 +1,8 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 2/3] net: dsa: mv88e6xxx: make switchdev DB ops generic
-Date: Wed, 31 Aug 2016 10:39:15 -0400
-Message-ID: <87shtlvw8c.fsf@ketchup.mtl.sfl>
-References: <20160829203246.18811-1-vivien.didelot@savoirfairelinux.com> <20160829203246.18811-3-vivien.didelot@savoirfairelinux.com> <20160831134943.GB15078@lunn.ch>
+Subject: Re: [PATCH net-next 3/3] net: dsa: mv88e6xxx: add MDB support
+Date: Wed, 31 Aug 2016 10:46:14 -0400
+Message-ID: <874m618095.fsf@ketchup.mtl.sfl>
+References: <20160829203246.18811-1-vivien.didelot@savoirfairelinux.com> <20160829203246.18811-4-vivien.didelot@savoirfairelinux.com> <20160831135719.GC15078@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -10,14 +10,10 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>
 To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:49644 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934860AbcHaOja (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 10:39:30 -0400
-In-Reply-To: <20160831134943.GB15078@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160831135719.GC15078@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Hi Andrew,
 
@@ -25,79 +21,68 @@ Andrew Lunn <andrew@lunn.ch> writes:
 
 > Hi Vivien
 >
->> -static int _mv88e6xxx_port_fdb_dump_one(struct mv88e6xxx_chip *chip,
->> -					u16 fid, u16 vid, int port,
->> -					struct switchdev_obj_port_fdb *fdb,
->> -					int (*cb)(struct switchdev_obj *obj))
->> +static int mv88e6xxx_port_db_dump_one(struct mv88e6xxx_chip *chip,
->> +				      u16 fid, u16 vid, int port,
->> +				      struct switchdev_obj *obj,
->> +				      int (*cb)(struct switchdev_obj *obj))
->>  {
->>  	struct mv88e6xxx_atu_entry addr = {
->>  		.mac = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
->> @@ -2222,72 +2219,87 @@ static int _mv88e6xxx_port_fdb_dump_one(struct mv88e6xxx_chip *chip,
->>  	do {
->>  		err = _mv88e6xxx_atu_getnext(chip, fid, &addr);
->>  		if (err)
->> -			break;
->> +			return err;
->>  
->>  		if (addr.state == GLOBAL_ATU_DATA_STATE_UNUSED)
->>  			break;
->>  
->> -		if (!addr.trunk && addr.portv_trunkid & BIT(port)) {
->> -			bool is_static = addr.state ==
->> -				(is_multicast_ether_addr(addr.mac) ?
->> -				 GLOBAL_ATU_DATA_STATE_MC_STATIC :
->> -				 GLOBAL_ATU_DATA_STATE_UC_STATIC);
->> +		if (addr.trunk || (addr.portv_trunkid & BIT(port)) == 0)
->> +			continue;
+>> diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+>> index 93abfff..812cb47 100644
+>> --- a/drivers/net/dsa/mv88e6xxx/chip.c
+>> +++ b/drivers/net/dsa/mv88e6xxx/chip.c
+>> @@ -2240,6 +2240,15 @@ static int mv88e6xxx_port_db_dump_one(struct mv88e6xxx_chip *chip,
+>>  				fdb->ndm_state = NUD_NOARP;
+>>  			else
+>>  				fdb->ndm_state = NUD_REACHABLE;
+>> +		} else {
+>
+> Rather than else, i think it would be safer to do
+>
+> 		if (obj->id == SWITCHDEV_OBJ_ID_PORT_MDB) {
+>> +			struct switchdev_obj_port_mdb *mdb;
 >> +
->> +		if (obj->id == SWITCHDEV_OBJ_ID_PORT_FDB) {
->> +			struct switchdev_obj_port_fdb *fdb;
->>  
->> +			if (!is_unicast_ether_addr(addr.mac))
+>> +			if (!is_multicast_ether_addr(addr.mac))
 >> +				continue;
 >> +
->> +			fdb = SWITCHDEV_OBJ_PORT_FDB(obj);
->>  			fdb->vid = vid;
->>  			ether_addr_copy(fdb->addr, addr.mac);
->> -			fdb->ndm_state = is_static ? NUD_NOARP : NUD_REACHABLE;
->> -
->> -			err = cb(&fdb->obj);
->> -			if (err)
->> -				break;
->> +			if (addr.state == GLOBAL_ATU_DATA_STATE_UC_STATIC)
->> +				fdb->ndm_state = NUD_NOARP;
->> +			else
->> +				fdb->ndm_state = NUD_REACHABLE;
+>> +			mdb = SWITCHDEV_OBJ_PORT_MDB(obj);
+>> +			mdb->vid = vid;
+>> +			ether_addr_copy(mdb->addr, addr.mac);
 >>  		}
+>
+> It should not happen, but the day it does, we get very confused...
+
+Do you mean the something like this?
+
+    if (obj->id == SWITCHDEV_OBJ_ID_PORT_FDB) {
+        ...
+    } else if (obj->id == SWITCHDEV_OBJ_ID_PORT_MDB) {
+        ...
+    } else {
+        return -EOPNOTSUPP;
+    }
+
+I'm OK with that if you think it is better.
+
+>> +static int mv88e6xxx_port_mdb_dump(struct dsa_switch *ds, int port,
+>> +				   struct switchdev_obj_port_mdb *mdb,
+>> +				   int (*cb)(struct switchdev_obj *obj))
+>> +{
+>> +	struct mv88e6xxx_chip *chip = ds_to_priv(ds);
+>> +	int err;
 >> +
->> +		err = cb(obj);
->> +		if (err)
->> +			return err;
->>  	} while (!is_broadcast_ether_addr(addr.mac));
+>> +	mutex_lock(&chip->reg_lock);
+>> +	err = mv88e6xxx_port_db_dump(chip, port, &mdb->obj, cb);
+>> +	mutex_unlock(&chip->reg_lock);
+>> +
+>> +	return err;
+>> +}
 >
-> Humm, maybe i'm reading this patch wrong....
->
-> This function is called mv88e6xxx_port_db_dump_one(). But i don't see
-> a way out of the while loop, after dumping one. It seems to dump the
-> whole table until it reaches the end marker, which is the MAC
-> broadcast address.
->
-> Should we rename this function, drop the _one?
+> Isn't this identical to mv88e6xxx_port_fdb_dump()? Maybe we should
+> just have one function, and register it twice?
 
-No. mv88e6xxx_port_db_dump already exists, this is the function called
-mv88e6xxx_port_db_dump_one multiple time. Here, _one refers to an FID
-(forwarding database). 88E6352 have 4096 FIDs.
+No the signatures are differentes. See _fdb vs. _mdb. They are basically
+the same thing (at least, from the switch driver's point of view).
 
-The way to dump a single FID is to run the ATU GetNext operation
-starting with ff:ff:ff:ff:ff:ff, until that same address is reached
-again. This is what mv88e6xxx_port_db_dump_one does.
+We can abstract the FDB (unicast and multicast) related operations
+directly in the DSA layer, but I think it is better to map directly the
+switchdev obj operations for the moment...
 
-mv88e6xxx_port_db_dump first dump the port's assigned FID (i.e. VID 0),
-then iterate on active VLANs to get and dump their FIDs.
+What do you guys think?
 
 Thanks,
 
