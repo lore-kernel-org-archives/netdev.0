@@ -1,148 +1,36 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch iproute2 v3 2/2] tc: man: Add man entry for the matchall classifier.
-Date: Wed, 31 Aug 2016 09:28:27 +0200
-Message-ID: <1472628507-1991-3-git-send-email-jiri@resnulli.us>
-References: <1472628507-1991-1-git-send-email-jiri@resnulli.us>
-Cc: stephen@networkplumber.org, yotamg@mellanox.com,
-        eladr@mellanox.com, idosch@mellanox.com, nogahf@mellanox.com,
-        ogerlitz@mellanox.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33078 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758498AbcHaH2d (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 03:28:33 -0400
-Received: by mail-wm0-f67.google.com with SMTP id w207so2029210wmw.0
-        for <netdev@vger.kernel.org>; Wed, 31 Aug 2016 00:28:32 -0700 (PDT)
-In-Reply-To: <1472628507-1991-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: [PATCH 0/6] constify ethtool_ops structures
+Date: Wed, 31 Aug 2016 09:30:42 +0200
+Message-ID: <1472628648-3603-1-git-send-email-Julia.Lawall@lip6.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+ linux-kernel@vger.kernel.org
+To: devel@driverdev.osuosl.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-From: Yotam Gigi <yotamg@mellanox.com>
+Constify ethtool_ops structures.
 
-In addition to providing information about the mathcall filter and its
-configurations, the man entry contains examples for creating port
-mirorring entries.
-
-Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- man/man8/Makefile      |  2 +-
- man/man8/tc-matchall.8 | 76 ++++++++++++++++++++++++++++++++++++++++++++++++++
- man/man8/tc.8          |  5 ++++
- 3 files changed, 82 insertions(+), 1 deletion(-)
- create mode 100644 man/man8/tc-matchall.8
 
-diff --git a/man/man8/Makefile b/man/man8/Makefile
-index 9badbed..9213769 100644
---- a/man/man8/Makefile
-+++ b/man/man8/Makefile
-@@ -14,7 +14,7 @@ MAN8PAGES = $(TARGETS) ip.8 arpd.8 lnstat.8 routel.8 rtacct.8 rtmon.8 rtpr.8 ss.
- 	tipc.8 tipc-bearer.8 tipc-link.8 tipc-media.8 tipc-nametable.8 \
- 	tipc-node.8 tipc-socket.8 \
- 	tc-basic.8 tc-cgroup.8 tc-flow.8 tc-flower.8 tc-fw.8 tc-route.8 \
--	tc-tcindex.8 tc-u32.8 \
-+	tc-tcindex.8 tc-u32.8 tc-matchall.8 \
- 	tc-connmark.8 tc-csum.8 tc-mirred.8 tc-nat.8 tc-pedit.8 tc-police.8 \
- 	tc-simple.8 tc-skbedit.8 tc-vlan.8 tc-xt.8 \
- 	devlink.8 devlink-dev.8 devlink-monitor.8 devlink-port.8 devlink-sb.8
-diff --git a/man/man8/tc-matchall.8 b/man/man8/tc-matchall.8
-new file mode 100644
-index 0000000..f920922
---- /dev/null
-+++ b/man/man8/tc-matchall.8
-@@ -0,0 +1,76 @@
-+.TH "Match-all classifier in tc" 8 "21 Oct 2015" "iproute2" "Linux"
-+
-+.SH NAME
-+matchall \- traffic control filter that matches every packet
-+.SH SYNOPSIS
-+.in +8
-+.ti -8
-+.BR tc " " filter " ... " matchall " [ "
-+.BR skip_sw " | " skip_hw
-+.R " ] [ "
-+.B action
-+.IR ACTION_SPEC " ] [ "
-+.B classid
-+.IR CLASSID " ]"
-+.SH DESCRIPTION
-+The
-+.B matchall
-+filter allows to classify every packet that flows on the port and run a
-+action on it.
-+.SH OPTIONS
-+.TP
-+.BI action " ACTION_SPEC"
-+Apply an action from the generic actions framework on matching packets.
-+.TP
-+.BI classid " CLASSID"
-+Push matching packets into the class identified by
-+.IR CLASSID .
-+.TP
-+.BI skip_sw
-+Do not process filter by software. If hardware has no offload support for this
-+filter, or TC offload is not enabled for the interface, operation will fail.
-+.TP
-+.BI skip_hw
-+Do not process filter by hardware.
-+.SH EXAMPLES
-+To create ingress mirroring from port eth1 to port eth2:
-+.RS
-+.EX
-+
-+tc qdisc  add dev eth1 handle ffff: ingress
-+tc filter add dev eth1 parent ffff:           \\
-+        matchall skip_sw                      \\
-+        action mirred egress mirror           \\
-+        dev eth2
-+.EE
-+.RE
-+
-+The first command creats an ingress qdisc with handle
-+.BR ffff:
-+on device
-+.BR eth1
-+where the second command attaches a matchall filters on it that mirrors the
-+packets to device eth2.
-+
-+To create egress mirroring from port eth1 to port eth2:
-+.EX
-+
-+tc qdisc add dev eth1 handle 1: root prio
-+tc filter add dev eth1 parent 1:               \\
-+        matchall skip_sw                       \\
-+        action mirred egress mirror            \\
-+        dev eth2
-+.EE
-+.RE
-+
-+The first command creats an egress qdisc with handle
-+.BR 1:
-+that replaces the root qdisc on device
-+.BR eth1
-+where the second command attaches a matchall filters on it that mirrors the
-+packets to device eth2.
-+
-+
-+.EE
-+.SH SEE ALSO
-+.BR tc (8),
-diff --git a/man/man8/tc.8 b/man/man8/tc.8
-index 4e99dca..7ee1c9c 100644
---- a/man/man8/tc.8
-+++ b/man/man8/tc.8
-@@ -187,6 +187,11 @@ u32
- Generic filtering on arbitrary packet data, assisted by syntax to abstract common operations. See
- .BR tc-u32 (8)
- for details.
-+.TP
-+matchall
-+Traffic control filter that matches every packet. See
-+.BR tc-matchall (8)
-+for details.
- 
- .SH CLASSLESS QDISCS
- The classless qdiscs are:
--- 
-2.5.5
+ drivers/net/ethernet/agere/et131x.c              |    2 +-
+ drivers/net/ethernet/broadcom/bcmsysport.c       |    2 +-
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c   |    2 +-
+ drivers/net/ethernet/hisilicon/hip04_eth.c       |    2 +-
+ drivers/net/ethernet/hisilicon/hisi_femac.c      |    2 +-
+ drivers/net/ethernet/hisilicon/hix5hd2_gmac.c    |    2 +-
+ drivers/net/ethernet/hisilicon/hns/hns_ethtool.c |    2 +-
+ drivers/net/ethernet/synopsys/dwc_eth_qos.c      |    2 +-
+ drivers/staging/slicoss/slicoss.c                |    4 ++--
+ 9 files changed, 10 insertions(+), 10 deletions(-)
