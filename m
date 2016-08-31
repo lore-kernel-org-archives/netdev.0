@@ -1,44 +1,35 @@
-From: Petko Manolov <petkan@mip-labs.com>
-Subject: Re: [PATCH] net: pegasus: Remove deprecated create_singlethread_workqueue
-Date: Wed, 31 Aug 2016 17:27:51 +0300
-Message-ID: <E774CB24-BD0A-41AE-B414-FBC8BFD5447E@mip-labs.com>
-References: <20160830163247.GA25925@Karyakshetra> <20160831142305.GI12660@htj.duckdns.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 1/3] net: dsa: add MDB support
+Date: Wed, 31 Aug 2016 16:33:15 +0200
+Message-ID: <20160831143315.GD15078@lunn.ch>
+References: <20160829203246.18811-1-vivien.didelot@savoirfairelinux.com>
+ <20160829203246.18811-2-vivien.didelot@savoirfairelinux.com>
+ <20160831132534.GA15078@lunn.ch>
+ <87vayhvx0m.fsf@ketchup.mtl.sfl>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Petko Manolov <petkan@nucleusys.com>, linux-usb@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Tejun Heo <tj@kernel.org>,
-        Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160831142305.GI12660@htj.duckdns.org>
+Content-Disposition: inline
+In-Reply-To: <87vayhvx0m.fsf@ketchup.mtl.sfl>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On August 31, 2016 5:23:05 PM GMT+03:00, Tejun Heo <tj@kernel.org> wrote:
->On Tue, Aug 30, 2016 at 10:02:47PM +0530, Bhaktipriya Shridhar wrote:
->> The workqueue "pegasus_workqueue" queues a single work item per
->pegasus
->> instance and hence it doesn't require execution ordering. Hence,
->> alloc_workqueue has been used to replace the deprecated
->> create_singlethread_workqueue instance.
->> 
->> The WQ_MEM_RECLAIM flag has been set to ensure forward progress under
->> memory pressure since it's a network driver.
->> 
->> Since there are fixed number of work items, explicit concurrency
->> limit is unnecessary here.
->> 
->> Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
->
->Acked-by: Tejun Heo <tj@kernel.org>
->
->Thanks.
+> > Does the bridge code use multicast group when referring to L2?
+> 
+> The switchdev MDB attribute is very similary to the FDB attribute. It
+> contains the VLAN ID and the Ethernet MAC address of the group.
 
+Hi Vivien
 
-Acked-by: Petko Manolov <petkan@mip-labs.com>
+I'm just trying to avoid the use of 'multicast group' for a L2 entity,
+unless it is already widespread used so in the bridge code. If the
+bridge code does consider L2 a 'multciast group', fine, lets document
+it so. But if the bridge code only uses 'multciast group' to mean L3,
+we should not use it here for L2.
 
-
-cheers,
-Petko
+       Andrew
