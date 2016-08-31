@@ -1,9 +1,10 @@
 From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH v6 0/8] thunderbolt: Introducing Thunderbolt(TM)
+Subject: Re: [PATCH v6 3/8] thunderbolt: Kconfig for Thunderbolt(TM)
  networking
-Date: Wed, 31 Aug 2016 13:28:13 +0200
-Message-ID: <20160831112813.GB17607@kroah.com>
+Date: Wed, 31 Aug 2016 13:29:14 +0200
+Message-ID: <20160831112914.GC17607@kroah.com>
 References: <1470054233-4309-1-git-send-email-amir.jer.levy@intel.com>
+ <1470054233-4309-4-git-send-email-amir.jer.levy@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: andreas.noever@gmail.com, bhelgaas@google.com, corbet@lwn.net,
@@ -14,31 +15,16 @@ Cc: andreas.noever@gmail.com, bhelgaas@google.com, corbet@lwn.net,
 To: Amir Levy <amir.jer.levy@intel.com>
 Return-path: <linux-doc-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1470054233-4309-1-git-send-email-amir.jer.levy@intel.com>
+In-Reply-To: <1470054233-4309-4-git-send-email-amir.jer.levy@intel.com>
 Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 01, 2016 at 03:23:45PM +0300, Amir Levy wrote:
-> This is version 6 of Thunderbolt(TM) driver for non-Apple hardware.
-> 
-> Changes since v5:
->  - Removed the padding of short packets in receive
->  - Replaced RW semaphore with mutex
->  - Cleanup
-> 
-> These patches were pushed to GitHub where they can be reviewed more
-> comfortably with green/red highlighting:
-> 	https://github.com/01org/thunderbolt-software-kernel-tree
-> 
-> Daemon code:
-> 	https://github.com/01org/thunderbolt-software-daemon
-> 
-> For reference, here's a link to version 5:
-> [v5]:	https://lkml.org/lkml/2016/7/28/85
+On Mon, Aug 01, 2016 at 03:23:48PM +0300, Amir Levy wrote:
+> Updating the Kconfig Thunderbolt(TM) description.
 
-Without acks from the thunderbolt maintainer, or any network driver
-developers, I'm not going to take this series.  Please work to get that
-review.
+Why are you inserting a (TM) in here?  Do you see that in any other
+kernel Kconfig file?  Please don't start adding it here, it's not
+needed from what I can tell.
 
 thanks,
 
