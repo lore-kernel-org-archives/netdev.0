@@ -1,88 +1,147 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] [v9] net: emac: emac gigabit ethernet controller driver
-Date: Wed, 31 Aug 2016 17:24:02 +0200
-Message-ID: <20160831152402.GH15078@lunn.ch>
-References: <1472161143-26417-1-git-send-email-timur@codeaurora.org>
- <20160831150043.GA575@rob-hp-laptop>
+From: Jeremy Linton <jeremy.linton@arm.com>
+Subject: Re: [PATCH 3/3 v2] net: smsc911x: add wake-up event interrupt support
+Date: Wed, 31 Aug 2016 10:27:44 -0500
+Message-ID: <dc552129-8631-e81d-fc3d-20d39ae10f11@arm.com>
+References: <1472043582-7653-1-git-send-email-linus.walleij@linaro.org>
+ <1472043582-7653-3-git-send-email-linus.walleij@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Timur Tabi <timur@codeaurora.org>, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-arm-msm@vger.kernel.org,
-        sdharia@codeaurora.org, shankerd@codeaurora.org,
-        vikrams@codeaurora.org, cov@codeaurora.org, gavidov@codeaurora.org,
-        bjorn.andersson@linaro.org, mlangsdo@redhat.com, jcm@redhat.com,
-        agross@codeaurora.org, davem@davemloft.net, f.fainelli@gmail.com,
-        LinoSanfilippo@gmx.de
-To: Rob Herring <robh@kernel.org>
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160831150043.GA575@rob-hp-laptop>
-Sender: linux-arm-msm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Guenter Roeck <linux@roeck-us.net>,
+        Kamlakant Patel <kamlakant.patel@broadcom.com>,
+        Pavel Fedin <p.fedin@samsung.com>,
+        Sudeep Holla <sudeep.holla@arm.com>,
+        Tony Lindgren <tony@atomide.com>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Linus Walleij <linus.walleij@linaro.org>, netdev@vger.kernel.org,
+        "David S . Miller" <davem@davemloft.net>,
+        Steve Glendinning <steve.glendinning@smsc.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from foss.arm.com ([217.140.101.70]:35540 "EHLO foss.arm.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933887AbcHaP1q (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 31 Aug 2016 11:27:46 -0400
+In-Reply-To: <1472043582-7653-3-git-send-email-linus.walleij@linaro.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > +soc {
-> > +	#address-cells = <1>;
-> > +	#size-cells = <1>;
-> > +
-> > +	emac0: ethernet@feb20000 {
-> > +		compatible = "qcom,fsm9900-emac";
-> > +		reg = <0xfeb20000 0x10000>,
-> > +		      <0xfeb36000 0x1000>;
-> > +		interrupts = <76>;
-> > +
-> > +		clocks = <&gcc 0>, <&gcc 1>, <&gcc 3>, <&gcc 4>, <&gcc 5>,
-> > +			<&gcc 6>, <&gcc 7>;
-> > +		clock-names = "axi_clk", "cfg_ahb_clk", "high_speed_clk",
-> > +			"mdio_clk", "tx_clk", "rx_clk", "sys_clk";
-> > +
-> > +		internal-phy = <&emac_sgmii>;
-> 
-> Can't this use the standard generic phy binding (i.e. 'phys'). It's a 
-> bit confusing as there's the ethernet phy binding (phy-handle) and the 
-> generic one. 
+Hi Linus,
 
-Hi Rob
 
-An ethernet PHY is much more complex than a generic PHY. The generic
-phy API basically allows you to turn on/off or power up/down. An
-Ethernet phy you can find out if there is anybody on the other end,
-what speed is being used, set parameters used to negotiate what speed
-to use, turn power saving features on off, find out if the other end
-has power saving features, change the signal delays between the MAC
-and the PHY, configure and handle interrupts when something changes,
-configure WoL, etc.
+On 08/24/2016 07:59 AM, Linus Walleij wrote:
+> The SMSC911x have a line out of the chip called "PME",
+> Power Management Event. When connected to an asynchronous
+> interrupt controller this is able to wake the system up
+> from sleep in response to certain network events.
+>
+> This is the first attempt to support this in the Linux
+> driver: the Qualcomm APQ8060 Dragonboard has this line
+> routed to a GPIO line on the primary SoC padring, and as
+> such it can be armed as a wakeup interrupt.
+>
+> The patch is inspired by the wakeup code in the RTC
+> subsystem.
+>
+> The code looks for an additional interrupt - apart from the
+> ordinary device interrupt - and in case that is present,
+> we register an interrupt handler to respons to this,
+> and flag the device and this interrupt as a wakeup.
+>
+> Cc: Sudeep Holla <sudeep.holla@arm.com>
+> Cc: Tony Lindgren <tony@atomide.com>
+> Cc: Florian Fainelli <f.fainelli@gmail.com>
+> Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
+> ---
+> ChangeLog v1->v2:
+> - Call pm_wakeup_event() in the wakeup IRQ thread to
+>   account for the wakeup event.
+> - Drop the enable/disable_irq_wake() calls from suspend/resume:
+>   this is handled from the irq core when you call
+>   dev_pm_set_wake_irq() as we do.
+> ---
+>  drivers/net/ethernet/smsc/smsc911x.c | 42 ++++++++++++++++++++++++++++++++++++
+>  1 file changed, 42 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+> index 8ab8d4b9614b..8fffc1dc2bdd 100644
+> --- a/drivers/net/ethernet/smsc/smsc911x.c
+> +++ b/drivers/net/ethernet/smsc/smsc911x.c
+> @@ -63,6 +63,7 @@
+>  #include <linux/pm_runtime.h>
+>  #include <linux/property.h>
+>  #include <linux/gpio/consumer.h>
+> +#include <linux/pm_wakeirq.h>
+>
+>  #include "smsc911x.h"
+>
+> @@ -151,6 +152,9 @@ struct smsc911x_data {
+>  	/* Reset GPIO */
+>  	struct gpio_desc *reset_gpiod;
+>
+> +	/* PME interrupt */
+> +	int pme_irq;
+> +
+>  	/* clock */
+>  	struct clk *clk;
+>  };
+> @@ -1881,6 +1885,19 @@ static irqreturn_t smsc911x_irqhandler(int irq, void *dev_id)
+>  	return serviced;
+>  }
+>
+> +static irqreturn_t smsc911x_pme_irq_thread(int irq, void *dev_id)
+> +{
+> +	struct net_device *dev = dev_id;
+> +	struct smsc911x_data *pdata __maybe_unused = netdev_priv(dev);
+> +
+> +	SMSC_TRACE(pdata, pm, "wakeup event");
+> +	pm_wakeup_event(&dev->dev, 50);
+> +	/* This signal is active for 50 ms, wait for it to deassert */
+> +	usleep_range(50000, 100000);
+> +
+> +	return IRQ_HANDLED;
+> +}
+> +
+>  #ifdef CONFIG_NET_POLL_CONTROLLER
+>  static void smsc911x_poll_controller(struct net_device *dev)
+>  {
+> @@ -2501,6 +2518,31 @@ static int smsc911x_drv_probe(struct platform_device *pdev)
+>  		goto out_disable_resources;
+>  	}
+>
+> +	irq = platform_get_irq(pdev, 1);
+> +	if (irq == -EPROBE_DEFER) {
+> +		retval = -EPROBE_DEFER;
+> +		goto out_disable_resources;
+> +	/* It's perfectly fine to not have a PME IRQ */
+> +	} else if (irq > 0) {
+> +		/*
+> +		 * The Power Management Event (PME) IRQ appears as
+> +		 * a pulse waking up the system from sleep in response to  a
+> +		 * network event.
+> +		 */
+> +		retval = request_threaded_irq(irq, NULL,
+> +					      smsc911x_pme_irq_thread,
+> +					      IRQF_ONESHOT, "smsc911x-pme",
+> +					      dev);
+> +		if (retval) {
+> +			SMSC_WARN(pdata, probe,
+> +			"Unable to claim requested PME irq: %d", irq);
+> +			goto out_disable_resources;
+> +		}
+> +		pdata->pme_irq = irq;
+> +		device_init_wakeup(&pdev->dev, true);
+> +		dev_pm_set_wake_irq(&pdev->dev, irq);
+> +	}
+> +
+>  	netif_carrier_off(dev);
+>
+>  	retval = register_netdev(dev);
+>
 
-If generic PHYs would of come first, things might be different, but
-given that Ethernet PHYs are much much older and well entrenched into
-device tree bindings, i don't see them merging.
 
-> > +
-> > +		phy-handle = <&phy0>;
-> 
-> This is bit redundant as the phy is the child node.
+The cleanup code in drv_remove seems to be missing, am I missing something?
 
-The Internal PHY is a child node. However, there is no reason an
-external phy is a child. You sometimes see it connected to another
-devices MDIO bus.
+Also, do you want the wake-up to be active if the interface is downed?
 
-> I guess if you had multiple devices on the mdio bus you would need
-> it.
 
-And this is where people make errors. They hard code in the driver
-that it should use the first phy on the bus. Then some hardware
-engineer comes along and adds a second phy to the bus, and it
-breaks. It is more robust to explicitly indicate which PHY is
-connected to this MAC.
-
-> > +		#address-cells = <1>;
-> > +		#size-cells = <0>;
-> > +		phy0: ethernet-phy@0 {
-> 
-> It's just an example, but don't we require compatible strings for phys 
-> now?
-
-We have never required compatibility strings for Ethernet PHYs. And
-due to the stable binding rules, we now never can. The binding
-documentation says it may contain compatible strings.
-
-	      Andrew
+Thanks,
