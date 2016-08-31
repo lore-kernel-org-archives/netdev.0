@@ -1,9 +1,9 @@
 From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH v6 5/8] thunderbolt: Networking state machine
-Date: Wed, 31 Aug 2016 13:35:23 +0200
-Message-ID: <20160831113523.GF17607@kroah.com>
+Subject: Re: [PATCH v6 7/8] thunderbolt: Networking doc
+Date: Wed, 31 Aug 2016 13:39:46 +0200
+Message-ID: <20160831113946.GG17607@kroah.com>
 References: <1470054233-4309-1-git-send-email-amir.jer.levy@intel.com>
- <1470054233-4309-6-git-send-email-amir.jer.levy@intel.com>
+ <1470054233-4309-8-git-send-email-amir.jer.levy@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: andreas.noever@gmail.com, bhelgaas@google.com, corbet@lwn.net,
@@ -12,27 +12,217 @@ Cc: andreas.noever@gmail.com, bhelgaas@google.com, corbet@lwn.net,
         thunderbolt-linux@intel.com, mika.westerberg@intel.com,
         tomas.winkler@intel.com
 To: Amir Levy <amir.jer.levy@intel.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1470054233-4309-6-git-send-email-amir.jer.levy@intel.com>
-Sender: linux-pci-owner@vger.kernel.org
+In-Reply-To: <1470054233-4309-8-git-send-email-amir.jer.levy@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 01, 2016 at 03:23:50PM +0300, Amir Levy wrote:
-> Negotiation states that a peer goes through in order to establish
-> the communication with the second peer.
+On Mon, Aug 01, 2016 at 03:23:52PM +0300, Amir Levy wrote:
+> Adding Thunderbolt(TM) networking documentation.
+> 
+> Signed-off-by: Amir Levy <amir.jer.levy@intel.com>
+> ---
+>  Documentation/00-INDEX                   |   2 +
+>  Documentation/thunderbolt-networking.txt | 135 +++++++++++++++++++++++++++++++
 
-I can not parse that sentance, what exactly does that mean?
+Documentation/thunderbolt/networking.txt?
 
-> This includes communication with upper layer and additional
-> infrastructure support to communicate with the second peer through ICM.
+>  2 files changed, 137 insertions(+)
+>  create mode 100644 Documentation/thunderbolt-networking.txt
+> 
+> diff --git a/Documentation/00-INDEX b/Documentation/00-INDEX
+> index cb9a6c6..80a6706 100644
+> --- a/Documentation/00-INDEX
+> +++ b/Documentation/00-INDEX
+> @@ -439,6 +439,8 @@ this_cpu_ops.txt
+>  	- List rationale behind and the way to use this_cpu operations.
+>  thermal/
+>  	- directory with information on managing thermal issues (CPU/temp)
+> +thunderbolt-networking.txt
+> +	- Thunderbolt(TM) Networking driver description.
+>  trace/
+>  	- directory with info on tracing technologies within linux
+>  unaligned-memory-access.txt
+> diff --git a/Documentation/thunderbolt-networking.txt b/Documentation/thunderbolt-networking.txt
+> new file mode 100644
+> index 0000000..e112313
+> --- /dev/null
+> +++ b/Documentation/thunderbolt-networking.txt
+> @@ -0,0 +1,135 @@
+> +Intel Thunderbolt(TM) Linux driver
+> +==================================
+> +
+> +Copyright(c) 2013 - 2016 Intel Corporation.
+> +
+> +Contact Information:
+> +Intel Thunderbolt mailing list <thunderbolt-software@lists.01.org>
+> +Edited by Michael Jamet <michael.jamet@intel.com>
+> +
+> +Overview
+> +========
+> +
+> +Thunderbolt(TM) Networking mode is introduced with this driver.
 
-This too is unparsable.  Please explain what this patch does in terms
-that are understandable for someone with at least a passing
-understanding of hardware busses.  As it is, I have no idea what this
-patch does at all, and I should be your target audience for this
-changelog.
+What is "this driver"?
 
-thanks,
+> +This kernel code creates an ethernet device utilized in computer to computer
+> +communication over a Thunderbolt cable.
+
+What kernel code?
+
+> +This driver has been added on the top of the existing thunderbolt driver
+> +for systems with firwmare (FW) based Thunderbolt controllers supporting
+> +Thunderbolt Networking.
+
+How do I know if my hardware supports this or not?
+
+> +
+> +Files
+> +=====
+> +
+> +- icm_nhi.c/h:	These files allow communication with the FW (a.k.a ICM) based controller.
+> +		In addition, they create an interface for netlink communication with
+> +		a user space daemon.
+> +
+> +- net.c/net.h:	These files implement the 'eth' interface for the Thunderbolt(TM)
+> +		networking.
+
+Where are these files?  Not in this documentation directory :(
+
+> +
+> +Interface to user space
+> +=======================
+> +
+> +The interface to the user space module is implemented through a Generic Netlink.
+> +In order to be accessed by the user space module, both kernel and user space
+> +modules have to register with the same GENL_NAME. In our case, this is
+> +simply "thunderbolt".
+> +The registration is done at driver initialization time for all instances of
+> +the Thunderbolt controllers.
+> +The communication is then carried through pre-defined Thunderbolt messages.
+> +Each specific message has a callback function that is called when
+> +the related message is received.
+> +
+> +The messages are defined as follows:
+> +* NHI_CMD_UNSPEC: Not used.
+> +* NHI_CMD_SUBSCRIBE: Subscription request from daemon to driver to open the
+> +  communication channel.
+> +* NHI_CMD_UNSUBSCRIBE: Request from daemon to driver to unsubscribe
+> +  to close communication channel.
+> +* NHI_CMD_QUERY_INFORMATION: Request information from the driver such as
+> +  driver version, FW version offset, number of ports in the controller
+> +  and DMA port.
+> +* NHI_CMD_MSG_TO_ICM: Message from user space module to FW.
+> +* NHI_CMD_MSG_FROM_ICM: Response from FW to user space module.
+> +* NHI_CMD_MAILBOX: Message that uses mailbox mechanism such as FW policy
+> +  changes or disconnect path.
+> +* NHI_CMD_APPROVE_TBT_NETWORKING: Request from user space
+> +  module to FW to establish path.
+> +* NHI_CMD_ICM_IN_SAFE_MODE: Indication that the FW has entered safe mode.
+
+I want an ack from the network maintainers that this is an acceptable
+way to configure a network device, and that you aren't just
+reimplementing something that can already be done with existing tools.
+
+Creating new apis seems really strange to me, you will have to really
+convince me why you are "special" and need one.
+
+
+> +
+> +Communication with ICM (Firmware)
+> +=================================
+> +
+> +The communication with ICM is principally achieved through
+> +a DMA mechanism on Ring 0.
+
+Where is this ring 0?
+
+Why does a user/developer care about it?
+
+> +The driver allocates a shared memory that is physically mapped onto
+> +the DMA physical space at Ring 0.
+
+Again ring 0?
+
+> +
+> +Interrupts
+> +==========
+> +
+> +Thunderbolt relies on MSI-X interrupts.
+> +The MSI-X vector is allocated as follows:
+> +ICM
+> +     - Tx: MSI-X vector index 0
+> +     - Rx: MSI-X vector index 1
+> +
+> +Port 0
+> +     - Tx: MSI-X vector index 2
+> +     - Rx: MSI-X vector index 3
+> +
+> +Port 1
+> +     - Tx: MSI-X vector index 4
+> +     - Rx: MSI-X vector index 5
+> +
+> +ICM interrupts are used for communication with ICM only.
+> +Port 0 and Port 1 interrupts are used for Thunderbolt Networking
+> +communications.
+> +In case MSI-X is not available, the driver requests to enable MSI only.
+
+
+Is this section even really needed?  What can anyone do with it?
+
+> +
+> +Mutexes, semaphores and spinlocks
+> +=================================
+> +
+> +The driver should be able to operate in an environment where hardware
+> +is asynchronously accessed by multiple entities such as netlink,
+> +multiple controllers etc.
+> +
+> +* send_sem: This semaphore enforces unique sender (one sender at a time)
+> +  to avoid wrong impairing with responses. FW may process one message
+> +  at the time.
+> +* d0_exit_send_mutex: This mutex protects D0 exit (D3) situation
+> +  to avoid continuing to send messages to FW.
+> +* d0_exit_mailbox_mutex: This mutex protects D0 exit (D3) situation to
+> +  avoid continuing to send commands to mailbox.
+> +* mailbox_mutex: This mutex enforces unique sender (one sender at a time)
+> +  for the mailbox command.
+> +  A mutex is sufficient since the mailbox mechanism uses a polling mechanism
+> +  to get the command response.
+> +* lock: This spinlock protects from simultaneous changes during
+> +  disable/enable interrupts.
+> +* state_lock: This mutex comes to protect changes during net device state
+> +  changes and net_device operations.
+> +* controllers_list_mutex: This mutex syncs the access to the controllers
+> +  list when there are multiple controllers in the system.
+
+Why aren't these locks documented in the code itself?  Having it out
+here makes no sense as it will get out of date and will never be looked
+at.  Put it in the code please.
+
+
+> +
+> +FW path enablement
+> +==================
+> +
+> +In order to SW to communicate with the FW, the driver needs to send to FW
+> +the PDF driver ready command and receive response from FW.
+
+PDF?  What does that mean?  This is the first time I've seen that term
+in this file.
+
+> +The driver ready command PDF value is 12 and the response is 13.
+
+Ok, so?
+
+> +Once the exchange is completed, the user space module should be able to send
+> +messages through the driver to the FW and FW starts to send notifications
+> +about HW/FW events.
+
+What does userspace have to do with this?  Why do they care?
+
+This documentation is really confusing, and I thought I understood how
+thunderbolt systems worked :(
 
 greg k-h
