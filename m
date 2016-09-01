@@ -1,7 +1,7 @@
 From: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
-Subject: [Patch v4 08/12] MIPS: Xilfpga: Add DT node for AXI I2C
-Date: Thu, 1 Sep 2016 17:51:01 +0100
-Message-ID: <1472748665-47774-9-git-send-email-Zubair.Kakakhel@imgtec.com>
+Subject: [Patch v4 09/12] net: ethernet: xilinx: Generate random mac if none found
+Date: Thu, 1 Sep 2016 17:51:02 +0100
+Message-ID: <1472748665-47774-10-git-send-email-Zubair.Kakakhel@imgtec.com>
 References: <1472748665-47774-1-git-send-email-Zubair.Kakakhel@imgtec.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -23,59 +23,46 @@ List-post: <mailto:linux-mips@linux-mips.org>
 List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
-The xilfpga platform has an AXI I2C Bus master with a temperature
-sensor connected to it.
+At the moment, if the emaclite device doesn't find a mac address
+from any source, it simply uses 0x0 with a warning printed.
 
-Add the device tree node to use them.
+Instead of using a 0x0 mac address, use a randomly generated one.
 
 Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
 
 ---
 V3 -> V4
-changed compatible string from "adt7420" to "adi,adt7420"
+Curly braces after if check for correct styling
 
 V2 -> V3
 No change
 
 V1 -> V2
-
-No change
+New patch
 ---
- arch/mips/boot/dts/xilfpga/nexys4ddr.dts | 22 ++++++++++++++++++++++
- 1 file changed, 22 insertions(+)
+ drivers/net/ethernet/xilinx/xilinx_emaclite.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/arch/mips/boot/dts/xilfpga/nexys4ddr.dts b/arch/mips/boot/dts/xilfpga/nexys4ddr.dts
-index d285c8d..f5ebab8 100644
---- a/arch/mips/boot/dts/xilfpga/nexys4ddr.dts
-+++ b/arch/mips/boot/dts/xilfpga/nexys4ddr.dts
-@@ -54,6 +54,28 @@
- 		interrupt-parent = <&axi_intc>;
- 		interrupts = <0>;
- 	};
-+
-+	axi_i2c: i2c@10A00000 {
-+	    compatible = "xlnx,xps-iic-2.00.a";
-+	    interrupt-parent = <&axi_intc>;
-+	    interrupts = <4>;
-+	    reg = < 0x10A00000 0x10000 >;
-+	    clocks = <&ext>;
-+	    xlnx,clk-freq = <0x5f5e100>;
-+	    xlnx,family = "Artix7";
-+	    xlnx,gpo-width = <0x1>;
-+	    xlnx,iic-freq = <0x186a0>;
-+	    xlnx,scl-inertial-delay = <0x0>;
-+	    xlnx,sda-inertial-delay = <0x0>;
-+	    xlnx,ten-bit-adr = <0x0>;
-+	    #address-cells = <1>;
-+	    #size-cells = <0>;
-+
-+	    ad7420@4B {
-+		compatible = "adi,adt7420";
-+		reg = <0x4B>;
-+	    };
-+	} ;
- };
+diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+index 3cee84a..efc8d2e 100644
+--- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
++++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+@@ -1131,11 +1131,13 @@ static int xemaclite_of_probe(struct platform_device *ofdev)
+ 	lp->rx_ping_pong = get_bool(ofdev, "xlnx,rx-ping-pong");
+ 	mac_address = of_get_mac_address(ofdev->dev.of_node);
  
- &ext {
+-	if (mac_address)
++	if (mac_address) {
+ 		/* Set the MAC address. */
+ 		memcpy(ndev->dev_addr, mac_address, ETH_ALEN);
+-	else
+-		dev_warn(dev, "No MAC address found\n");
++	} else {
++		dev_warn(dev, "No MAC address found. Generating Random one\n");
++		eth_hw_addr_random(ndev);
++	}
+ 
+ 	/* Clear the Tx CSR's in case this is a restart */
+ 	__raw_writel(0, lp->base_addr + XEL_TSR_OFFSET);
 -- 
 1.9.1
