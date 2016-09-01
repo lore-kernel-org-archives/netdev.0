@@ -1,50 +1,42 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH] e1000: add initial XDP support
-Date: Thu, 1 Sep 2016 12:33:13 -0700
-Message-ID: <57C88279.4030701@gmail.com>
-References: <20160827071145.25345.84712.stgit@john-Precision-Tower-5810>
- <b6cfb3c5-9c68-3ea7-48dd-7fbf666db751@mojatatu.com>
- <20160829103047.3968a4d8@redhat.com>
- <61de1b91-30b4-67ba-4192-834fa30757ea@mojatatu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net] i40e: Fix kernel panic on enable/disable LLDP
+Date: Thu, 01 Sep 2016 14:20:45 -0700 (PDT)
+Message-ID: <20160901.142045.1724169627272941166.davem@davemloft.net>
+References: <1472517506-74650-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bblanco@plumgrid.com, davem@davemloft.net,
-        alexei.starovoitov@gmail.com, john.r.fastabend@intel.com,
-        netdev@vger.kernel.org, xiyou.wangcong@gmail.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>
+Cc: david.m.ertman@intel.com, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        guru.anbalagane@oracle.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:36821 "EHLO
-        mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757297AbcIAVTa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 17:19:30 -0400
-Received: by mail-pa0-f43.google.com with SMTP id fu3so25552698pad.3
-        for <netdev@vger.kernel.org>; Thu, 01 Sep 2016 14:19:29 -0700 (PDT)
-In-Reply-To: <61de1b91-30b4-67ba-4192-834fa30757ea@mojatatu.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:39104 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753199AbcIAVUz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 17:20:55 -0400
+In-Reply-To: <1472517506-74650-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[...]
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Mon, 29 Aug 2016 17:38:26 -0700
 
-> I think given how ancient the e1000 is we may see the driver being
-> a contributing overhead. I believe XDP given location will do
-> well - but for this kind of driver my gut feeling is probably not
-> by large margin.
+> From: Dave Ertman <david.m.ertman@intel.com>
 > 
+> If DCB is configured on the link partner switch with an
+> unsupported traffic class configuration (e.g. non-contiguous TCs),
+> the driver is flagging DCB as disabled.  But, for future DCB
+> LLDPDUs, the driver was checking if the interface was DCB capable
+> instead of enabled.  This was causing a kernel panic when LLDP
+> was enabled/disabled on the link partner switch.
+> 
+> This patch corrects the situation by having the LLDP event handler
+> check the correct flag in the pf structure.  It also cleans up the
+> setting and clearing of the enabled flag for other checks.
+> 
+> Signed-off-by: Dave Ertman <david.m.ertman@intel.com>
+> Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Right so just ran the baseline, xdp, tc spread and its all more or
-less in the noise where you drop the packets doesn't matter much. At
-least in my setup where I'm running e1000 in a VM backed by a tap
-device. I don't have a physical e1000 in my system at the moment to
-test.
-
-I still think this code is valuable though because it lets me run
-the same XDP program in a e1000 VM that I'm running on my 10/40Gbps
-NIC. Also it gives me a nice test platform to work on.
-
-I'm going to resubmit the patch with a couple of the fixes pointed out
-by others.
-
-Thanks,
-John
+Applied, thanks Jeff.
