@@ -1,167 +1,162 @@
 From: Jeremy Linton <jeremy.linton@arm.com>
-Subject: [PATCH 3/4] net: smsc911x: Move interrupt handler before open
-Date: Thu,  1 Sep 2016 15:15:08 -0500
-Message-ID: <1472760909-19688-4-git-send-email-jeremy.linton@arm.com>
+Subject: [PATCH 2/4] net: smsc911x: Fix register_netdev, phy startup, driver unload ordering
+Date: Thu,  1 Sep 2016 15:15:07 -0500
+Message-ID: <1472760909-19688-3-git-send-email-jeremy.linton@arm.com>
 References: <1472760909-19688-1-git-send-email-jeremy.linton@arm.com>
 Cc: steve.glendinning@shawell.net, sergei.shtylyov@cogentembedded.com,
         andrew@lunn.ch, will.deacon@arm.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:39380 "EHLO foss.arm.com"
+Received: from foss.arm.com ([217.140.101.70]:39378 "EHLO foss.arm.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934411AbcIAVdx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 1 Sep 2016 17:33:53 -0400
+        id S933991AbcIAVd6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 1 Sep 2016 17:33:58 -0400
 In-Reply-To: <1472760909-19688-1-git-send-email-jeremy.linton@arm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In preparation for the allocating/enabling interrupts
-in the ndo_open routine move the irq handler before it.
+Move phy startup/shutdown into the smsc911x_open/stop routines. This
+allows the module to be unloaded because phy_connect_direct is no longer
+always holding the module use count. This one change also resolves a
+number of other problems.
+
+The link status of a downed interface no longer reflects a stale state.
+Errors caused by the net device being opened before the mdio/phy was
+configured. There is also a potential power savings as the phy's don't
+remain powered when the interface isn't running.
 
 Signed-off-by: Jeremy Linton <jeremy.linton@arm.com>
 ---
- drivers/net/ethernet/smsc/smsc911x.c | 122 +++++++++++++++++------------------
- 1 file changed, 61 insertions(+), 61 deletions(-)
+ drivers/net/ethernet/smsc/smsc911x.c | 48 ++++++++++++++++++------------------
+ 1 file changed, 24 insertions(+), 24 deletions(-)
 
 diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-index 823ad3f..c2e56f0 100644
+index c9b0e05..823ad3f 100644
 --- a/drivers/net/ethernet/smsc/smsc911x.c
 +++ b/drivers/net/ethernet/smsc/smsc911x.c
-@@ -1507,6 +1507,67 @@ static void smsc911x_disable_irq_chip(struct net_device *dev)
- 	smsc911x_reg_write(pdata, INT_STS, 0xFFFFFFFF);
- }
+@@ -1099,15 +1099,8 @@ static int smsc911x_mii_init(struct platform_device *pdev,
+ 		goto err_out_free_bus_2;
+ 	}
  
-+static irqreturn_t smsc911x_irqhandler(int irq, void *dev_id)
-+{
-+	struct net_device *dev = dev_id;
-+	struct smsc911x_data *pdata = netdev_priv(dev);
-+	u32 intsts = smsc911x_reg_read(pdata, INT_STS);
-+	u32 inten = smsc911x_reg_read(pdata, INT_EN);
-+	int serviced = IRQ_NONE;
-+	u32 temp;
-+
-+	if (unlikely(intsts & inten & INT_STS_SW_INT_)) {
-+		temp = smsc911x_reg_read(pdata, INT_EN);
-+		temp &= (~INT_EN_SW_INT_EN_);
-+		smsc911x_reg_write(pdata, INT_EN, temp);
-+		smsc911x_reg_write(pdata, INT_STS, INT_STS_SW_INT_);
-+		pdata->software_irq_signal = 1;
-+		smp_wmb();
-+		serviced = IRQ_HANDLED;
-+	}
-+
-+	if (unlikely(intsts & inten & INT_STS_RXSTOP_INT_)) {
-+		/* Called when there is a multicast update scheduled and
-+		 * it is now safe to complete the update */
-+		SMSC_TRACE(pdata, intr, "RX Stop interrupt");
-+		smsc911x_reg_write(pdata, INT_STS, INT_STS_RXSTOP_INT_);
-+		if (pdata->multicast_update_pending)
-+			smsc911x_rx_multicast_update_workaround(pdata);
-+		serviced = IRQ_HANDLED;
-+	}
-+
-+	if (intsts & inten & INT_STS_TDFA_) {
-+		temp = smsc911x_reg_read(pdata, FIFO_INT);
-+		temp |= FIFO_INT_TX_AVAIL_LEVEL_;
-+		smsc911x_reg_write(pdata, FIFO_INT, temp);
-+		smsc911x_reg_write(pdata, INT_STS, INT_STS_TDFA_);
-+		netif_wake_queue(dev);
-+		serviced = IRQ_HANDLED;
-+	}
-+
-+	if (unlikely(intsts & inten & INT_STS_RXE_)) {
-+		SMSC_TRACE(pdata, intr, "RX Error interrupt");
-+		smsc911x_reg_write(pdata, INT_STS, INT_STS_RXE_);
-+		serviced = IRQ_HANDLED;
-+	}
-+
-+	if (likely(intsts & inten & INT_STS_RSFL_)) {
-+		if (likely(napi_schedule_prep(&pdata->napi))) {
-+			/* Disable Rx interrupts */
-+			temp = smsc911x_reg_read(pdata, INT_EN);
-+			temp &= (~INT_EN_RSFL_EN_);
-+			smsc911x_reg_write(pdata, INT_EN, temp);
-+			/* Schedule a NAPI poll */
-+			__napi_schedule(&pdata->napi);
-+		} else {
-+			SMSC_WARN(pdata, rx_err, "napi_schedule_prep failed");
+-	if (smsc911x_mii_probe(dev) < 0) {
+-		SMSC_WARN(pdata, probe, "Error registering mii bus");
+-		goto err_out_unregister_bus_3;
+-	}
+-
+ 	return 0;
+ 
+-err_out_unregister_bus_3:
+-	mdiobus_unregister(pdata->mii_bus);
+ err_out_free_bus_2:
+ 	mdiobus_free(pdata->mii_bus);
+ err_out_1:
+@@ -1522,18 +1515,20 @@ static int smsc911x_open(struct net_device *dev)
+ 	unsigned int intcfg;
+ 	int retval;
+ 
+-	/* if the phy is not yet registered, retry later*/
++	/* find and start the given phy */
+ 	if (!dev->phydev) {
+-		SMSC_WARN(pdata, hw, "phy_dev is NULL");
+-		retval = -EAGAIN;
+-		goto out;
++		retval = smsc911x_mii_probe(dev);
++		if (retval < 0) {
++			SMSC_WARN(pdata, probe, "Error starting phy");
++			goto out;
 +		}
-+		serviced = IRQ_HANDLED;
+ 	}
+ 
+ 	/* Reset the LAN911x */
+ 	retval = smsc911x_soft_reset(pdata);
+ 	if (retval) {
+ 		SMSC_WARN(pdata, hw, "soft reset failed");
+-		goto out;
++		goto mii_free_out;
+ 	}
+ 
+ 	smsc911x_reg_write(pdata, HW_CFG, 0x00050000);
+@@ -1604,7 +1599,7 @@ static int smsc911x_open(struct net_device *dev)
+ 		netdev_warn(dev, "ISR failed signaling test (IRQ %d)\n",
+ 			    dev->irq);
+ 		retval = -ENODEV;
+-		goto out;
++		goto mii_free_out;
+ 	}
+ 	SMSC_TRACE(pdata, ifup, "IRQ handler passed test using IRQ %d",
+ 		   dev->irq);
+@@ -1650,6 +1645,10 @@ static int smsc911x_open(struct net_device *dev)
+ 
+ 	netif_start_queue(dev);
+ 	return 0;
++
++mii_free_out:
++	phy_disconnect(dev->phydev);
++	dev->phydev = NULL;
+ out:
+ 	return retval;
+ }
+@@ -1674,8 +1673,12 @@ static int smsc911x_stop(struct net_device *dev)
+ 	smsc911x_tx_update_txcounters(dev);
+ 
+ 	/* Bring the PHY down */
+-	if (dev->phydev)
++	if (dev->phydev) {
+ 		phy_stop(dev->phydev);
++		phy_disconnect(dev->phydev);
++		dev->phydev = NULL;
++	}
++	netif_carrier_off(dev);
+ 
+ 	SMSC_TRACE(pdata, ifdown, "Interface stopped");
+ 	return 0;
+@@ -2297,11 +2300,10 @@ static int smsc911x_drv_remove(struct platform_device *pdev)
+ 	pdata = netdev_priv(dev);
+ 	BUG_ON(!pdata);
+ 	BUG_ON(!pdata->ioaddr);
+-	BUG_ON(!dev->phydev);
++	WARN_ON(dev->phydev);
+ 
+ 	SMSC_TRACE(pdata, ifdown, "Stopping driver");
+ 
+-	phy_disconnect(dev->phydev);
+ 	mdiobus_unregister(pdata->mii_bus);
+ 	mdiobus_free(pdata->mii_bus);
+ 
+@@ -2500,6 +2502,12 @@ static int smsc911x_drv_probe(struct platform_device *pdev)
+ 
+ 	netif_carrier_off(dev);
+ 
++	retval = smsc911x_mii_init(pdev, dev);
++	if (retval) {
++		SMSC_WARN(pdata, probe, "Error %i initialising mii", retval);
++		goto out_free_irq;
 +	}
 +
-+	return serviced;
-+}
-+
- static int smsc911x_open(struct net_device *dev)
- {
- 	struct smsc911x_data *pdata = netdev_priv(dev);
-@@ -1820,67 +1881,6 @@ static void smsc911x_set_multicast_list(struct net_device *dev)
- 	spin_unlock_irqrestore(&pdata->mac_lock, flags);
- }
+ 	retval = register_netdev(dev);
+ 	if (retval) {
+ 		SMSC_WARN(pdata, probe, "Error %i registering device", retval);
+@@ -2509,12 +2517,6 @@ static int smsc911x_drv_probe(struct platform_device *pdev)
+ 			   "Network interface: \"%s\"", dev->name);
+ 	}
  
--static irqreturn_t smsc911x_irqhandler(int irq, void *dev_id)
--{
--	struct net_device *dev = dev_id;
--	struct smsc911x_data *pdata = netdev_priv(dev);
--	u32 intsts = smsc911x_reg_read(pdata, INT_STS);
--	u32 inten = smsc911x_reg_read(pdata, INT_EN);
--	int serviced = IRQ_NONE;
--	u32 temp;
--
--	if (unlikely(intsts & inten & INT_STS_SW_INT_)) {
--		temp = smsc911x_reg_read(pdata, INT_EN);
--		temp &= (~INT_EN_SW_INT_EN_);
--		smsc911x_reg_write(pdata, INT_EN, temp);
--		smsc911x_reg_write(pdata, INT_STS, INT_STS_SW_INT_);
--		pdata->software_irq_signal = 1;
--		smp_wmb();
--		serviced = IRQ_HANDLED;
+-	retval = smsc911x_mii_init(pdev, dev);
+-	if (retval) {
+-		SMSC_WARN(pdata, probe, "Error %i initialising mii", retval);
+-		goto out_unregister_netdev_5;
 -	}
 -
--	if (unlikely(intsts & inten & INT_STS_RXSTOP_INT_)) {
--		/* Called when there is a multicast update scheduled and
--		 * it is now safe to complete the update */
--		SMSC_TRACE(pdata, intr, "RX Stop interrupt");
--		smsc911x_reg_write(pdata, INT_STS, INT_STS_RXSTOP_INT_);
--		if (pdata->multicast_update_pending)
--			smsc911x_rx_multicast_update_workaround(pdata);
--		serviced = IRQ_HANDLED;
--	}
--
--	if (intsts & inten & INT_STS_TDFA_) {
--		temp = smsc911x_reg_read(pdata, FIFO_INT);
--		temp |= FIFO_INT_TX_AVAIL_LEVEL_;
--		smsc911x_reg_write(pdata, FIFO_INT, temp);
--		smsc911x_reg_write(pdata, INT_STS, INT_STS_TDFA_);
--		netif_wake_queue(dev);
--		serviced = IRQ_HANDLED;
--	}
--
--	if (unlikely(intsts & inten & INT_STS_RXE_)) {
--		SMSC_TRACE(pdata, intr, "RX Error interrupt");
--		smsc911x_reg_write(pdata, INT_STS, INT_STS_RXE_);
--		serviced = IRQ_HANDLED;
--	}
--
--	if (likely(intsts & inten & INT_STS_RSFL_)) {
--		if (likely(napi_schedule_prep(&pdata->napi))) {
--			/* Disable Rx interrupts */
--			temp = smsc911x_reg_read(pdata, INT_EN);
--			temp &= (~INT_EN_RSFL_EN_);
--			smsc911x_reg_write(pdata, INT_EN, temp);
--			/* Schedule a NAPI poll */
--			__napi_schedule(&pdata->napi);
--		} else {
--			SMSC_WARN(pdata, rx_err, "napi_schedule_prep failed");
--		}
--		serviced = IRQ_HANDLED;
--	}
--
--	return serviced;
--}
--
- #ifdef CONFIG_NET_POLL_CONTROLLER
- static void smsc911x_poll_controller(struct net_device *dev)
- {
+ 	spin_lock_irq(&pdata->mac_lock);
+ 
+ 	/* Check if mac address has been specified when bringing interface up */
+@@ -2550,8 +2552,6 @@ static int smsc911x_drv_probe(struct platform_device *pdev)
+ 
+ 	return 0;
+ 
+-out_unregister_netdev_5:
+-	unregister_netdev(dev);
+ out_free_irq:
+ 	free_irq(dev->irq, dev);
+ out_disable_resources:
 -- 
 2.5.5
