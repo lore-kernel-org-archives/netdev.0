@@ -1,66 +1,83 @@
-From: Rick Jones <rick.jones2@hpe.com>
-Subject: Re: [PATCH] softirq: let ksoftirqd do its job
-Date: Wed, 31 Aug 2016 16:29:56 -0700
-Message-ID: <f131776f-7f53-c539-f283-10d6db0b6d57@hpe.com>
-References: <4f1c4b38528762619fff1fa963de8971006c1234.1472460085.git.pabeni@redhat.com>
- <20160831100854.23dad2d8@redhat.com>
- <1472650472.14381.317.camel@edumazet-glaptop3.roam.corp.google.com>
- <1472650688.32433.115.camel@redhat.com>
- <1472652643.14381.320.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160831164216.2901190c@redhat.com>
- <1472661956.14381.335.camel@edumazet-glaptop3.roam.corp.google.com>
- <1472665349.14381.356.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160831214043.2f44cf08@redhat.com>
- <1472676150.14381.363.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160831235116.33b1946b@redhat.com>
- <1472682450.14381.364.camel@edumazet-glaptop3.roam.corp.google.com>
- <3567b503-8b3e-5a3f-580a-f99fd28cf77e@hpe.com>
- <1472685066.14381.380.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH net-next 0/4] xps_flows: XPS flow steering when there is no socket
+Date: Wed, 31 Aug 2016 17:10:01 -0700
+Message-ID: <1472688605-2613704-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <jbrouer@redhat.com>,
-        Peter Zijlstra <peterz@infradead.org>,
-        David Miller <davem@davemloft.net>,
-        Rik van Riel <riel@redhat.com>,
-        Paolo Abeni <pabeni@redhat.com>,
-        Hannes Frederic Sowa <hannes@redhat.com>,
-        linux-kernel <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>, Jonathan Corbet <corbet@lwn.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>, <rick.jones2@hpe.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g9t5009.houston.hpe.com ([15.241.48.73]:60394 "EHLO
-        g9t5009.houston.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1761178AbcHaX37 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 19:29:59 -0400
-In-Reply-To: <1472685066.14381.380.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:43146 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1753869AbcIAAKR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 20:10:17 -0400
+Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
+        by m0001303.ppops.net (8.16.0.17/8.16.0.17) with SMTP id u8107Eg9023619
+        for <netdev@vger.kernel.org>; Wed, 31 Aug 2016 17:10:16 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by m0001303.ppops.net with ESMTP id 25651ean9q-1
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Wed, 31 Aug 2016 17:10:16 -0700
+Received: from facebook.com (2401:db00:21:6030:face:0:92:0)     by
+ mx-out.facebook.com (10.102.107.99) with ESMTP id
+ 74a669b46fd811e6ad430002c99293a0-f88e7a50 for <netdev@vger.kernel.org>;        Wed,
+ 31 Aug 2016 17:10:14 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/31/2016 04:11 PM, Eric Dumazet wrote:
-> On Wed, 2016-08-31 at 15:47 -0700, Rick Jones wrote:
->> With regard to drops, are both of you sure you're using the same socket
->> buffer sizes?
->
-> Does it really matter ?
+This patch set introduces transmit flow steering for socketless packets.
+The idea is that we record the transmit queues in a flow table that is
+indexed by skbuff hash.  The flow table entries have two values: the
+queue_index and the head cnt of packets from the TX queue. We only allow
+a queue to change for a flow if the tail cnt in the TX queue advances
+beyond the recorded head cnt. That is the condition that should indicate
+that all outstanding packets for the flow have completed transmission so
+the queue can change.
 
-At least at points in the past I have seen different drop counts at the 
-SO_RCVBUF based on using (sometimes much) larger sizes.  The hypothesis 
-I was operating under at the time was that this dealt with those 
-situations where the netserver was held-off from running for "a little 
-while" from time to time.  It didn't change things for a sustained 
-overload situation though.
+Tracking the inflight queue is performed as part of DQL. Two fields are
+added to the dql structure: num_enqueue_ops and num_completed_ops.
+num_enqueue_ops incremented in dql_queued and num_completed_ops is
+incremented in dql_completed by the number of operations completed (an
+new argument to the function).
 
->> In the meantime, is anything interesting happening with TCP_RR or
->> TCP_STREAM?
->
-> TCP_RR is driven by the network latency, we do not drop packets in the
-> socket itself.
+This patch set creates /sys/class/net/eth*/xps_dev_flow_table_cnt
+which number of entries in the XPS flow table.
 
-I've been of the opinion it (single stream) is driven by path length. 
-Sometimes by NIC latency.  But then I'm almost always measuring in the 
-LAN rather than across the WAN.
+Note that the functionality here is technically best effort (for
+instance we don't obtain a lock while processing a flow table entry).
+Under high load it is possible that OOO packets can still be generated
+due to XPS if two threads are hammering on the same flow table entry.
+The assumption of this patches is that OOO packets are not the end of
+the world and these should prevent OOO in most common use cases with
+XPS.
 
-happy benchmarking,
+This is a followup to previous RFC version. Fixes from RFC are:
 
-rick
+  - Move counters to DQL
+  - Fixed typo
+  - Simplified get flow index funtion
+  - Fixed sysfs flow_table_cnt to properly use DEVICE_ATTR_RW
+  - Renamed the mechanism
+
+Tested:
+  Manually forced all packets to go through the xps_flows path.
+  Observed that some flows were deferred to change queues because
+  packets were in flight witht the flow bucket.
+
+Tom Herbert (4):
+  net: Set SW hash in skb_set_hash_from_sk
+  dql: Add counters for number of queuing and completion operations
+  net: Add xps_dev_flow_table_cnt
+  xps_flows: XPS for packets that don't have a socket
+
+ include/linux/dynamic_queue_limits.h |   7 ++-
+ include/linux/netdevice.h            |  26 ++++++++-
+ include/net/sock.h                   |   6 +-
+ lib/dynamic_queue_limits.c           |   3 +-
+ net/Kconfig                          |   6 ++
+ net/core/dev.c                       |  85 ++++++++++++++++++++++++-----
+ net/core/net-sysfs.c                 | 103 +++++++++++++++++++++++++++++++++++
+ 7 files changed, 214 insertions(+), 22 deletions(-)
+
+-- 
+2.8.0.rc2
