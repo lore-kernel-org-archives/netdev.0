@@ -1,54 +1,264 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v2 net-next 2/6] bpf: introduce BPF_PROG_TYPE_PERF_EVENT
- program type
-Date: Thu, 01 Sep 2016 10:33:59 +0200
-Message-ID: <57C7E7F7.5090304@iogearbox.net>
-References: <1472680243-1326608-1-git-send-email-ast@fb.com> <1472680243-1326608-3-git-send-email-ast@fb.com> <20160901074452.GK10153@twins.programming.kicks-ass.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Brendan Gregg <bgregg@netflix.com>,
-        Arnaldo Carvalho de Melo <acme@infradead.org>,
-        Wang Nan <wangnan0@huawei.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel-team@fb.com
-To: Peter Zijlstra <peterz@infradead.org>,
-        Alexei Starovoitov <ast@fb.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160901074452.GK10153@twins.programming.kicks-ass.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net 1/6] mlxsw: spectrum_router: Fix failure caused by double fib removal from HW
+Date: Thu,  1 Sep 2016 10:37:40 +0200
+Message-ID: <1472719065-3247-2-git-send-email-jiri@resnulli.us>
+References: <1472719065-3247-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:33441 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752134AbcIAIhv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 04:37:51 -0400
+Received: by mail-wm0-f68.google.com with SMTP id w207so7295234wmw.0
+        for <netdev@vger.kernel.org>; Thu, 01 Sep 2016 01:37:50 -0700 (PDT)
+In-Reply-To: <1472719065-3247-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/01/2016 09:44 AM, Peter Zijlstra wrote:
-> On Wed, Aug 31, 2016 at 02:50:39PM -0700, Alexei Starovoitov wrote:
->> +static u32 pe_prog_convert_ctx_access(enum bpf_access_type type, int dst_reg,
->> +				      int src_reg, int ctx_off,
->> +				      struct bpf_insn *insn_buf,
->> +				      struct bpf_prog *prog)
->> +{
->> +	struct bpf_insn *insn = insn_buf;
->> +
->> +	BUILD_BUG_ON(FIELD_SIZEOF(struct perf_sample_data, period) != sizeof(u64));
->> +	switch (ctx_off) {
->> +	case offsetof(struct bpf_perf_event_data, sample_period):
->> +		*insn++ = BPF_LDX_MEM(bytes_to_bpf_size(FIELD_SIZEOF(struct bpf_perf_event_data_kern, data)),
->> +				      dst_reg, src_reg,
->> +				      offsetof(struct bpf_perf_event_data_kern, data));
->> +		*insn++ = BPF_LDX_MEM(BPF_DW, dst_reg, dst_reg,
->> +				      offsetof(struct perf_sample_data, period));
->> +		break;
->
-> OK, so that deals with us moving the period field in the structure, and
-> break compile if we'd change its size or remove it outright (highly
-> unlikely). In that latter case we can change this code to simply return
-> a (u64)0 and things would continue to 'work'.
->
-> Did I understand that correctly?
+From: Jiri Pirko <jiri@mellanox.com>
 
-Yes, if a program accesses sample_period member of the struct bpf_perf_event_data
-context, then the verifier rewrites this into above two loads to eventually fetch
-the struct perf_sample_data's period to the given target register. As you said,
-should the period field change size (or get removed), compilation would break
-so this doesn't get unnoticed and the code can be adapted along with it. In the
-(hopefully very unlikely) case the member gets removed, it could be replaced with
-loading 0 (or some other, better workaround to derive it, if possible).
+In mlxsw we squash tables 254 and 255 together into HW. Kernel adds/dels
+/32 ip to/from both 254 and 255. On del path, that causes the same
+prefix being removed twice. Fix this by introducing reference counting
+for private mlxsw fib entries. That required a bit of code reshuffle.
+Also put dev into fib entry key so the same prefix could be represented
+once per every router interface.
+
+Fixes: 61c503f976b5 ("mlxsw: spectrum_router: Implement fib4 add/del switchdev obj ops")
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 126 +++++++++++++++------
+ 1 file changed, 92 insertions(+), 34 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index 917ddd1..ed61814 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -107,6 +107,7 @@ mlxsw_sp_prefix_usage_clear(struct mlxsw_sp_prefix_usage *prefix_usage,
+ }
+ 
+ struct mlxsw_sp_fib_key {
++	struct net_device *dev;
+ 	unsigned char addr[sizeof(struct in6_addr)];
+ 	unsigned char prefix_len;
+ };
+@@ -123,6 +124,7 @@ struct mlxsw_sp_fib_entry {
+ 	struct rhash_head ht_node;
+ 	struct mlxsw_sp_fib_key key;
+ 	enum mlxsw_sp_fib_entry_type type;
++	unsigned int ref_count;
+ 	u8 added:1;
+ 	u16 rif; /* used for action local */
+ 	struct mlxsw_sp_vr *vr;
+@@ -171,13 +173,15 @@ static void mlxsw_sp_fib_entry_remove(struct mlxsw_sp_fib *fib,
+ 
+ static struct mlxsw_sp_fib_entry *
+ mlxsw_sp_fib_entry_create(struct mlxsw_sp_fib *fib, const void *addr,
+-			  size_t addr_len, unsigned char prefix_len)
++			  size_t addr_len, unsigned char prefix_len,
++			  struct net_device *dev)
+ {
+ 	struct mlxsw_sp_fib_entry *fib_entry;
+ 
+ 	fib_entry = kzalloc(sizeof(*fib_entry), GFP_KERNEL);
+ 	if (!fib_entry)
+ 		return NULL;
++	fib_entry->key.dev = dev;
+ 	memcpy(fib_entry->key.addr, addr, addr_len);
+ 	fib_entry->key.prefix_len = prefix_len;
+ 	return fib_entry;
+@@ -190,10 +194,13 @@ static void mlxsw_sp_fib_entry_destroy(struct mlxsw_sp_fib_entry *fib_entry)
+ 
+ static struct mlxsw_sp_fib_entry *
+ mlxsw_sp_fib_entry_lookup(struct mlxsw_sp_fib *fib, const void *addr,
+-			  size_t addr_len, unsigned char prefix_len)
++			  size_t addr_len, unsigned char prefix_len,
++			  struct net_device *dev)
+ {
+-	struct mlxsw_sp_fib_key key = {{ 0 } };
++	struct mlxsw_sp_fib_key key;
+ 
++	memset(&key, 0, sizeof(key));
++	key.dev = dev;
+ 	memcpy(key.addr, addr, addr_len);
+ 	key.prefix_len = prefix_len;
+ 	return rhashtable_lookup_fast(&fib->ht, &key, mlxsw_sp_fib_ht_params);
+@@ -1695,34 +1702,93 @@ mlxsw_sp_router_fib4_entry_fini(struct mlxsw_sp *mlxsw_sp,
+ 	mlxsw_sp_nexthop_group_put(mlxsw_sp, fib_entry);
+ }
+ 
+-static int
+-mlxsw_sp_router_fib4_add_prepare(struct mlxsw_sp_port *mlxsw_sp_port,
+-				 const struct switchdev_obj_ipv4_fib *fib4,
+-				 struct switchdev_trans *trans)
++static struct mlxsw_sp_fib_entry *
++mlxsw_sp_fib_entry_get(struct mlxsw_sp *mlxsw_sp,
++		       const struct switchdev_obj_ipv4_fib *fib4)
+ {
+-	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
+-	struct mlxsw_sp_router_fib4_add_info *info;
+ 	struct mlxsw_sp_fib_entry *fib_entry;
++	struct fib_info *fi = fib4->fi;
+ 	struct mlxsw_sp_vr *vr;
+ 	int err;
+ 
+ 	vr = mlxsw_sp_vr_get(mlxsw_sp, fib4->dst_len, fib4->tb_id,
+ 			     MLXSW_SP_L3_PROTO_IPV4);
+ 	if (IS_ERR(vr))
+-		return PTR_ERR(vr);
++		return ERR_CAST(vr);
+ 
++	fib_entry = mlxsw_sp_fib_entry_lookup(vr->fib, &fib4->dst,
++					      sizeof(fib4->dst),
++					      fib4->dst_len, fi->fib_dev);
++	if (fib_entry) {
++		/* Already exists, just take a reference */
++		fib_entry->ref_count++;
++		return fib_entry;
++	}
+ 	fib_entry = mlxsw_sp_fib_entry_create(vr->fib, &fib4->dst,
+-					      sizeof(fib4->dst), fib4->dst_len);
++					      sizeof(fib4->dst),
++					      fib4->dst_len, fi->fib_dev);
+ 	if (!fib_entry) {
+ 		err = -ENOMEM;
+ 		goto err_fib_entry_create;
+ 	}
+ 	fib_entry->vr = vr;
++	fib_entry->ref_count = 1;
+ 
+ 	err = mlxsw_sp_router_fib4_entry_init(mlxsw_sp, fib4, fib_entry);
+ 	if (err)
+ 		goto err_fib4_entry_init;
+ 
++	return fib_entry;
++
++err_fib4_entry_init:
++	mlxsw_sp_fib_entry_destroy(fib_entry);
++err_fib_entry_create:
++	mlxsw_sp_vr_put(mlxsw_sp, vr);
++
++	return ERR_PTR(err);
++}
++
++static struct mlxsw_sp_fib_entry *
++mlxsw_sp_fib_entry_find(struct mlxsw_sp *mlxsw_sp,
++			const struct switchdev_obj_ipv4_fib *fib4)
++{
++	struct mlxsw_sp_vr *vr;
++
++	vr = mlxsw_sp_vr_find(mlxsw_sp, fib4->tb_id, MLXSW_SP_L3_PROTO_IPV4);
++	if (!vr)
++		return NULL;
++
++	return mlxsw_sp_fib_entry_lookup(vr->fib, &fib4->dst,
++					 sizeof(fib4->dst), fib4->dst_len,
++					 fib4->fi->fib_dev);
++}
++
++void mlxsw_sp_fib_entry_put(struct mlxsw_sp *mlxsw_sp,
++			    struct mlxsw_sp_fib_entry *fib_entry)
++{
++	struct mlxsw_sp_vr *vr = fib_entry->vr;
++
++	if (--fib_entry->ref_count == 0) {
++		mlxsw_sp_router_fib4_entry_fini(mlxsw_sp, fib_entry);
++		mlxsw_sp_fib_entry_destroy(fib_entry);
++	}
++	mlxsw_sp_vr_put(mlxsw_sp, vr);
++}
++
++static int
++mlxsw_sp_router_fib4_add_prepare(struct mlxsw_sp_port *mlxsw_sp_port,
++				 const struct switchdev_obj_ipv4_fib *fib4,
++				 struct switchdev_trans *trans)
++{
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	struct mlxsw_sp_router_fib4_add_info *info;
++	struct mlxsw_sp_fib_entry *fib_entry;
++	int err;
++
++	fib_entry = mlxsw_sp_fib_entry_get(mlxsw_sp, fib4);
++	if (IS_ERR(fib_entry))
++		return PTR_ERR(fib_entry);
++
+ 	info = kmalloc(sizeof(*info), GFP_KERNEL);
+ 	if (!info) {
+ 		err = -ENOMEM;
+@@ -1736,11 +1802,7 @@ mlxsw_sp_router_fib4_add_prepare(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	return 0;
+ 
+ err_alloc_info:
+-	mlxsw_sp_router_fib4_entry_fini(mlxsw_sp, fib_entry);
+-err_fib4_entry_init:
+-	mlxsw_sp_fib_entry_destroy(fib_entry);
+-err_fib_entry_create:
+-	mlxsw_sp_vr_put(mlxsw_sp, vr);
++	mlxsw_sp_fib_entry_put(mlxsw_sp, fib_entry);
+ 	return err;
+ }
+ 
+@@ -1759,11 +1821,14 @@ mlxsw_sp_router_fib4_add_commit(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	fib_entry = info->fib_entry;
+ 	kfree(info);
+ 
++	if (fib_entry->ref_count != 1)
++		return 0;
++
+ 	vr = fib_entry->vr;
+-	err = mlxsw_sp_fib_entry_insert(fib_entry->vr->fib, fib_entry);
++	err = mlxsw_sp_fib_entry_insert(vr->fib, fib_entry);
+ 	if (err)
+ 		goto err_fib_entry_insert;
+-	err = mlxsw_sp_fib_entry_update(mlxsw_sp, fib_entry);
++	err = mlxsw_sp_fib_entry_update(mlxsw_sp_port->mlxsw_sp, fib_entry);
+ 	if (err)
+ 		goto err_fib_entry_add;
+ 	return 0;
+@@ -1771,9 +1836,7 @@ mlxsw_sp_router_fib4_add_commit(struct mlxsw_sp_port *mlxsw_sp_port,
+ err_fib_entry_add:
+ 	mlxsw_sp_fib_entry_remove(vr->fib, fib_entry);
+ err_fib_entry_insert:
+-	mlxsw_sp_router_fib4_entry_fini(mlxsw_sp, fib_entry);
+-	mlxsw_sp_fib_entry_destroy(fib_entry);
+-	mlxsw_sp_vr_put(mlxsw_sp, vr);
++	mlxsw_sp_fib_entry_put(mlxsw_sp, fib_entry);
+ 	return err;
+ }
+ 
+@@ -1793,23 +1856,18 @@ int mlxsw_sp_router_fib4_del(struct mlxsw_sp_port *mlxsw_sp_port,
+ {
+ 	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
+ 	struct mlxsw_sp_fib_entry *fib_entry;
+-	struct mlxsw_sp_vr *vr;
+ 
+-	vr = mlxsw_sp_vr_find(mlxsw_sp, fib4->tb_id, MLXSW_SP_L3_PROTO_IPV4);
+-	if (!vr) {
+-		dev_warn(mlxsw_sp->bus_info->dev, "Failed to find virtual router for FIB4 entry being removed.\n");
+-		return -ENOENT;
+-	}
+-	fib_entry = mlxsw_sp_fib_entry_lookup(vr->fib, &fib4->dst,
+-					      sizeof(fib4->dst), fib4->dst_len);
++	fib_entry = mlxsw_sp_fib_entry_find(mlxsw_sp, fib4);
+ 	if (!fib_entry) {
+ 		dev_warn(mlxsw_sp->bus_info->dev, "Failed to find FIB4 entry being removed.\n");
+ 		return -ENOENT;
+ 	}
+-	mlxsw_sp_fib_entry_del(mlxsw_sp_port->mlxsw_sp, fib_entry);
+-	mlxsw_sp_fib_entry_remove(vr->fib, fib_entry);
+-	mlxsw_sp_router_fib4_entry_fini(mlxsw_sp, fib_entry);
+-	mlxsw_sp_fib_entry_destroy(fib_entry);
+-	mlxsw_sp_vr_put(mlxsw_sp, vr);
++
++	if (fib_entry->ref_count == 1) {
++		mlxsw_sp_fib_entry_del(mlxsw_sp, fib_entry);
++		mlxsw_sp_fib_entry_remove(fib_entry->vr->fib, fib_entry);
++	}
++
++	mlxsw_sp_fib_entry_put(mlxsw_sp, fib_entry);
+ 	return 0;
+ }
+-- 
+2.5.5
