@@ -1,41 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] l2tp: fix use-after-free during module unload
-Date: Thu, 01 Sep 2016 16:34:16 -0700 (PDT)
-Message-ID: <20160901.163416.76744449780953103.davem@davemloft.net>
-References: <f30d3c9f96a7de81af18061ac61a2d24ef179bf8.1472557704.git.sd@queasysnail.net>
+Subject: Re: [PATCH net] net: bridge: don't increment tx_dropped in
+ br_do_proxy_arp
+Date: Thu, 01 Sep 2016 16:35:42 -0700 (PDT)
+Message-ID: <20160901.163542.1374337978886389909.davem@davemloft.net>
+References: <1472571869-3005-1-git-send-email-nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sd@queasysnail.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40660 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752151AbcIAXeR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 19:34:17 -0400
-In-Reply-To: <f30d3c9f96a7de81af18061ac61a2d24ef179bf8.1472557704.git.sd@queasysnail.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, kyeyoonp@codeaurora.org,
+	bridge@lists.linux-foundation.org, roopa@cumulusnetworks.com
+To: nikolay@cumulusnetworks.com
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1472571869-3005-1-git-send-email-nikolay@cumulusnetworks.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Sabrina Dubroca <sd@queasysnail.net>
-Date: Tue, 30 Aug 2016 16:05:16 +0200
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Date: Tue, 30 Aug 2016 17:44:29 +0200
 
-> Tunnel deletion is delayed by both a workqueue (l2tp_tunnel_delete -> wq
->  -> l2tp_tunnel_del_work) and RCU (sk_destruct -> RCU ->
-> l2tp_tunnel_destruct).
+> pskb_may_pull may fail due to various reasons (e.g. alloc failure), but the
+> skb isn't changed/dropped and processing continues so we shouldn't
+> increment tx_dropped.
 > 
-> By the time l2tp_tunnel_destruct() runs to destroy the tunnel and finish
-> destroying the socket, the private data reserved via the net_generic
-> mechanism has already been freed, but l2tp_tunnel_destruct() actually
-> uses this data.
-> 
-> Make sure tunnel deletion for the netns has completed before returning
-> from l2tp_net_exit() by first flushing the tunnel removal workqueue, and
-> then waiting for RCU callbacks to complete.
-> 
-> Fixes: 167eb17e0b17 ("l2tp: create tunnel sockets in the right namespace")
-> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+> CC: Kyeyoon Park <kyeyoonp@codeaurora.org>
+> CC: Roopa Prabhu <roopa@cumulusnetworks.com>
+> CC: Stephen Hemminger <stephen@networkplumber.org>
+> CC: bridge@lists.linux-foundation.org
+> Fixes: 958501163ddd ("bridge: Add support for IEEE 802.11 Proxy ARP")
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-Please resubmit this with Sergei's feedback addressed.
-
-Thanks.
+Applied, thanks.
