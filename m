@@ -1,52 +1,97 @@
-From: Eric Garver <e@erig.me>
-Subject: [PATCH net-next v21 0/4] openvswitch: add 802.1ad support
-Date: Thu,  1 Sep 2016 16:45:23 -0400
-Message-ID: <1472762727-25844-1-git-send-email-e@erig.me>
+From: Johanna Abrahamsson <johanna@mjao.org>
+Subject: [PATCH] net: Reduce size of rps_sock_flow_sysctl
+Date: Thu, 1 Sep 2016 22:37:01 +0200
+Message-ID: <20160901203658.GA4828@fedora-21-dvm>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Thomas F Herbert <thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>,
+        =?iso-8859-1?Q?H=E5kon?= Bugge <haakon.bugge@oracle.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Hans Westgaard Ry <hans.westgaard.ry@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:35874 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754036AbcIAUzN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 16:55:13 -0400
+Received: by mail-wm0-f66.google.com with SMTP id i138so206743wmf.3
+        for <netdev@vger.kernel.org>; Thu, 01 Sep 2016 13:55:12 -0700 (PDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhpcyBzZXJpZXMgYWRkcyA4MDIuMWFkIHN1cHBvcnQgdG8gb3BlbnZzd2l0Y2guIEl0IGlzIGEg
-Y29udGludWF0aW9uIG9mIHRoZQp3b3JrIG9yaWdpbmFsbHkgc3RhcnRlZCBieSBUaG9tYXMgRiBI
-ZXJiZXJ0IC0gaGVuY2UgdGhlIGxhcmdlIHJldiBudW1iZXIuCgpUaGUgZXh0cmEgVkxBTiBpcyBp
-bXBsZW1lbnRlZCBieSB1c2luZyBhbiBhZGRpdGlvbmFsIGxldmVsIG9mIHRoZQpPVlNfS0VZX0FU
-VFJfRU5DQVAgbmV0bGluayBhdHRyaWJ1dGUuCkluIE9WUyBmbG93IHNwZWFrLCB0aGlzIGxvb2tz
-IGxpa2UKCiAgIGV0aF90eXBlKDB4ODhhOCksdmxhbih2aWQ9MTAwKSxlbmNhcChldGhfdHlwZSgw
-eDgxMDApLCB2bGFuKHZpZD0yMDApLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgZW5jYXAoZXRoX3R5cGUoMHgwODAwKSwgLi4uKSkKClRoZSB1c2Vyc3BhY2UgY291bnRl
-cnBhcnQgaGFzIGFsc28gc2VlbiByZWNlbnQgYWN0aXZpdHkgb24gdGhlIG92cy1kZXYgbWFpbGlu
-ZwpsaXN0cy4gVGhlcmUgYXJlIHNvbWUgbmV3IDgwMi4xYWQgT1ZTIHRlc3RzIGJlaW5nIGFkZGVk
-IC0gYWxzbyBvbiB0aGUgb3ZzLWRldgpsaXN0LiBUaGlzIHBhdGNoIHNlcmllcyBoYXMgYmVlbiB0
-ZXN0ZWQgdXNpbmcgdGhlIG1vc3QgcmVjZW50IHZlcnNpb24gb2YKdXNlcnNwYWNlICh2MykgYW5k
-IHRlc3RzICh2MikuCgp2MjEgY2hhbmdlczoKICAtIEZpeCAoYW5kIHNpbXBsaWZ5KSBuZXRsaW5r
-IGF0dHJpYnV0ZSBwYXJzaW5nCiAgLSByZS1hZGQgaGFuZGxpbmcgb2YgdHJ1bmNhdGVkIFZMQU4g
-dGFncwogIC0gZml4IGlmL2Vsc2UgZGFuZ2xpbmcgYXNzaWdubWVudCBpbiB7cHVzaCxwb3B9X3Zs
-YW4oKQogIC0gc2ltcGxpZnkgcGFyc2VfdmxhbigpCgoKRXJpYyBHYXJ2ZXIgKDMpOgogIHZsYW46
-IENoZWNrIGZvciB2bGFuIGV0aGVybmV0IHR5cGVzIGZvciA4MDIxLnEgb3IgODAyLjFhZAogIG9w
-ZW52c3dpdGNoOiA4MDIuMUFEIEZsb3cgaGFuZGxpbmcsIGFjdGlvbnMsIHZsYW4gcGFyc2luZywg
-bmV0bGluawogICAgYXR0cmlidXRlcwogIG9wZW52c3dpdGNoOiByZXBvcnQgZXJyb3Igb24gVkxB
-TiBubGF0dHIgaW4gb3ZzX2tleV9mcm9tX25sYXR0cnMoKQoKVGhvbWFzIEYgSGVyYmVydCAoMSk6
-CiAgb3BlbnZzd2l0Y2g6IDgwMi4xYWQgdWFwaSBjaGFuZ2VzLgoKIGluY2x1ZGUvbGludXgvaWZf
-dmxhbi5oICAgICAgICAgIHwgIDMzICsrKystLQogaW5jbHVkZS91YXBpL2xpbnV4L29wZW52c3dp
-dGNoLmggfCAgMTcgKy0tCiBuZXQvb3BlbnZzd2l0Y2gvYWN0aW9ucy5jICAgICAgICB8ICAxNiAr
-Ky0KIG5ldC9vcGVudnN3aXRjaC9mbG93LmMgICAgICAgICAgIHwgIDY0ICsrKysrKystLS0KIG5l
-dC9vcGVudnN3aXRjaC9mbG93LmggICAgICAgICAgIHwgICA4ICstCiBuZXQvb3BlbnZzd2l0Y2gv
-Zmxvd19uZXRsaW5rLmMgICB8IDI0NCArKysrKysrKysrKysrKysrKysrKysrKysrKystLS0tLS0t
-LS0tLS0KIG5ldC9vcGVudnN3aXRjaC92cG9ydC5jICAgICAgICAgIHwgICA3ICstCiA3IGZpbGVz
-IGNoYW5nZWQsIDI3MSBpbnNlcnRpb25zKCspLCAxMTggZGVsZXRpb25zKC0pCgotLSAKMi41LjUK
-Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWls
-aW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxt
-YW4vbGlzdGluZm8vZGV2Cg==
+Reduce size of rps_sock_flow_sysctl to improve readability.
+
+Signed-off-by: Johanna Abrahamsson <johanna@mjao.org>
+---
+ net/core/sysctl_net_core.c | 44 ++++++++++++++++++++++----------------------
+ 1 file changed, 22 insertions(+), 22 deletions(-)
+
+diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
+index 0df2aa6..d0be2ce 100644
+--- a/net/core/sysctl_net_core.c
++++ b/net/core/sysctl_net_core.c
+@@ -53,29 +53,29 @@ static int rps_sock_flow_sysctl(struct ctl_table *table, int write,
+ 	ret = proc_dointvec(&tmp, write, buffer, lenp, ppos);
+ 
+ 	if (write) {
+-		if (size) {
+-			if (size > 1<<29) {
+-				/* Enforce limit to prevent overflow */
+-				mutex_unlock(&sock_flow_mutex);
+-				return -EINVAL;
++		if (!size)
++			goto exit_unlock;
++		if (size > 1 << 29) {
++			/* Enforce limit to prevent overflow */
++			ret = -EINVAL;
++			goto exit_unlock;
++		}
++
++		size = roundup_pow_of_two(size);
++		if (size != orig_size) {
++			sock_table = vmalloc(RPS_SOCK_FLOW_TABLE_SIZE(size));
++			if (!sock_table) {
++				ret = -ENOMEM;
++				goto exit_unlock;
+ 			}
+-			size = roundup_pow_of_two(size);
+-			if (size != orig_size) {
+-				sock_table =
+-				    vmalloc(RPS_SOCK_FLOW_TABLE_SIZE(size));
+-				if (!sock_table) {
+-					mutex_unlock(&sock_flow_mutex);
+-					return -ENOMEM;
+-				}
+-				rps_cpu_mask = roundup_pow_of_two(nr_cpu_ids) - 1;
+-				sock_table->mask = size - 1;
+-			} else
+-				sock_table = orig_sock_table;
++			rps_cpu_mask = roundup_pow_of_two(nr_cpu_ids) - 1;
++			sock_table->mask = size - 1;
++		} else {
++			sock_table = orig_sock_table;
++		}
+ 
+-			for (i = 0; i < size; i++)
+-				sock_table->ents[i] = RPS_NO_CPU;
+-		} else
+-			sock_table = NULL;
++		for (i = 0; i < size; i++)
++			sock_table->ents[i] = RPS_NO_CPU;
+ 
+ 		if (sock_table != orig_sock_table) {
+ 			rcu_assign_pointer(rps_sock_flow_table, sock_table);
+@@ -89,8 +89,8 @@ static int rps_sock_flow_sysctl(struct ctl_table *table, int write,
+ 		}
+ 	}
+ 
++exit_unlock:
+ 	mutex_unlock(&sock_flow_mutex);
+-
+ 	return ret;
+ }
+ #endif /* CONFIG_RPS */
+-- 
+2.1.4
