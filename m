@@ -1,52 +1,61 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net 5/6] mlxsw: spectrum: Don't take multiple references on a FID
-Date: Thu,  1 Sep 2016 10:37:44 +0200
-Message-ID: <1472719065-3247-6-git-send-email-jiri@resnulli.us>
-References: <1472719065-3247-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33508 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752895AbcIAIh5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 04:37:57 -0400
-Received: by mail-wm0-f65.google.com with SMTP id w207so7295706wmw.0
-        for <netdev@vger.kernel.org>; Thu, 01 Sep 2016 01:37:56 -0700 (PDT)
-In-Reply-To: <1472719065-3247-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: kernel BUG at net/unix/garbage.c:149!"
+Date: Thu, 1 Sep 2016 11:13:00 +0200
+Message-ID: <87640044-f4a6-d919-46b9-01c4f4f11260@stressinduktion.org>
+References: <57BDAE06.1040400@kyup.com>
+ <9dde3145-9128-ffef-1b84-e3bd429dd4e8@stressinduktion.org>
+ <CAOssrKddiaWQX+v7FZTJg9mwyhxHJCDQQMUJVwP17-z1ATrKWA@mail.gmail.com>
+ <CAOssrKedUEAcZThhd2FB9UPzhr+5ErLjB=3+1z1XdnFeP6wvmg@mail.gmail.com>
+ <CAOssrKcfncAYsQWkfLGFgoOxAQJVT2hYVWdBA6Cw7hhO8RJ_wQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Nikolay Borisov <kernel@kyup.com>,
+        "Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>,
+        netdev@vger.kernel.org
+To: Miklos Szeredi <mszeredi@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAOssrKcfncAYsQWkfLGFgoOxAQJVT2hYVWdBA6Cw7hhO8RJ_wQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ido Schimmel <idosch@mellanox.com>
+On 30.08.2016 11:18, Miklos Szeredi wrote:
+> On Tue, Aug 30, 2016 at 12:37 AM, Miklos Szeredi <mszeredi@redhat.com> wrote:
+>> On Sat, Aug 27, 2016 at 11:55 AM, Miklos Szeredi <mszeredi@redhat.com> wrote:
+> 
+>> crash> list -H gc_inflight_list unix_sock.link -s unix_sock.inflight |
+>> grep counter | cut -d= -f2 | awk '{s+=$1} END {print s}'
+>> 130
+>> crash> p unix_tot_inflight
+>> unix_tot_inflight = $2 = 135
+>>
+>> We've lost track of a total of five inflight sockets, so it's not a
+>> one-off thing.  Really weird...  Now off to sleep, maybe I'll dream of
+>> the solution.
+> 
+> Okay, found one bug: gc assumes that in-flight sockets that don't have
+> an external ref can't gain one while unix_gc_lock is held.  That is
+> true because unix_notinflight() will be called before detaching fds,
+> which takes unix_gc_lock.  Only MSG_PEEK was somehow overlooked.  That
+> one also clones the fds, also keeping them in the skb.  But through
+> MSG_PEEK an external reference can definitely be gained without ever
+> touching unix_gc_lock.
+> 
+> Not sure whether the reported bug can be explained by this.  Can you
+> confirm the MSG_PEEK was used in the setup?
+> 
+> Does someone want to write a stress test for SCM_RIGHTS + MSG_PEEK?
+> 
+> Anyway, attaching a fix that works by acquiring unix_gc_lock in case
+> of MSG_PEEK also.  It is trivially correct, but I haven't tested it.
 
-In commit 14d39461b3f4 ("mlxsw: spectrum: Use per-FID struct for the
-VLAN-aware bridge") I added a per-FID struct, which member ports can
-take a reference on upon VLAN membership configuration.
+You can use spin_unlock_wait in unix_gc_barrier to make it a bit more
+lightweight.
 
-However, sometimes only the VLAN flags (e.g. egress untagged) are
-toggled without changing the VLAN membership. In these cases we
-shouldn't take another reference on the FID.
+Anyway, all of the scans on the socket receive queues are actually
+protected by the appropriate locks again, I didn't see a way were we
+could result in such a crash because of concurrent modification of the
+receive queue. Do you have any hints or looked into this more closely?
 
-Fixes: 14d39461b3f4 ("mlxsw: spectrum: Use per-FID struct for the VLAN-aware bridge")
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-index d1b59cd..e0d95c4 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-@@ -460,6 +460,9 @@ static int __mlxsw_sp_port_fid_join(struct mlxsw_sp_port *mlxsw_sp_port,
- {
- 	struct mlxsw_sp_fid *f;
- 
-+	if (test_bit(fid, mlxsw_sp_port->active_vlans))
-+		return 0;
-+
- 	f = mlxsw_sp_fid_find(mlxsw_sp_port->mlxsw_sp, fid);
- 	if (!f) {
- 		f = mlxsw_sp_fid_create(mlxsw_sp_port->mlxsw_sp, fid);
--- 
-2.5.5
+Thanks,
+Hannes
