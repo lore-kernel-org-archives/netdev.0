@@ -1,8 +1,8 @@
 From: <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH net v4 4/9] net: ethernet: mediatek: remove redundant free_irq
- for devm_request_irq allocated irq
-Date: Thu, 1 Sep 2016 10:47:30 +0800
-Message-ID: <1472698055-8821-5-git-send-email-sean.wang@mediatek.com>
+Subject: [PATCH net v4 7/9] net: ethernet: mediatek: fix the missing
+ of_node_put() after node is used done inside mtk_mdio_init
+Date: Thu, 1 Sep 2016 10:47:33 +0800
+Message-ID: <1472698055-8821-8-git-send-email-sean.wang@mediatek.com>
 References: <1472698055-8821-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -26,28 +26,26 @@ List-Id: netdev.vger.kernel.org
 
 From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
 
-these irqs are not used for shared irq and disabled during ethernet stops.
-irq requested by devm_request_irq is safe to be freed automatically on
-driver detach.
+This patch adds the missing of_node_put() after finishing the usage
+of of_get_child_by_name.
 
 Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
 Acked-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 2 --
- 1 file changed, 2 deletions(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 1 +
+ 1 file changed, 1 insertion(+)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index c9e25a7..1ffde91 100644
+index 556951e..409efcf 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -1513,8 +1513,6 @@ static void mtk_uninit(struct net_device *dev)
- 	phy_disconnect(mac->phy_dev);
- 	mtk_mdio_cleanup(eth);
- 	mtk_irq_disable(eth, ~0);
--	free_irq(eth->irq[1], dev);
--	free_irq(eth->irq[2], dev);
- }
+@@ -324,6 +324,7 @@ static int mtk_mdio_init(struct mtk_eth *eth)
+ 	err = of_mdiobus_register(eth->mii_bus, mii_np);
+ 	if (err)
+ 		goto err_free_bus;
++	of_node_put(mii_np);
  
- static int mtk_do_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 	return 0;
+ 
 -- 
 1.9.1
