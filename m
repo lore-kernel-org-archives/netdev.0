@@ -1,31 +1,19 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/5] net/usb: asix driver improvements
-Date: Wed, 31 Aug 2016 21:07:23 -0700 (PDT)
-Message-ID: <20160831.210723.1148092907147926516.davem@davemloft.net>
-References: <cover.c702ef6af13be7c1282a2f2d3189281fdc327abe.1472155176.git-series.robert.foss@collabora.com>
+From: Mrs Julie Leach <info@kundl.at>
+Subject: Greetings
+Date: Thu, 01 Sep 2016 07:26:11 +0200
+Message-ID: <20160901052631.6ADAF1C9771__30186.3516834148$1472708138$gmane$org@smtp2.mynet.at>
+Reply-To: julieleach913@gmail.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: freddy@asix.com.tw, Dean_Jenkins@mentor.com,
-        Mark_Craske@mentor.com, ivecera@redhat.com, john.stultz@linaro.org,
-        vpalatin@chromium.org, stephen@networkplumber.org,
-        grundler@chromium.org, changchias@gmail.com, allan@asix.com.tw,
-        andrew@lunn.ch, tremyfr@gmail.com, colin.king@canonical.com,
-        linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, vpalatin@google.com
-To: robert.foss@collabora.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.c702ef6af13be7c1282a2f2d3189281fdc327abe.1472155176.git-series.robert.foss@collabora.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: Recipients <info@kundl.at>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.mynet.at ([83.218.160.49]:44625 "EHLO smtp2.mynet.at"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750858AbcIAFfV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 1 Sep 2016 01:35:21 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: robert.foss@collabora.com
-Date: Mon, 29 Aug 2016 09:32:14 -0400
-
-> This is a resubmission of v3, since the netdev
-> mailinlist was not sent the previous submission.
-> 
-> This series improves power management of the asix driver.
- ...
-
-Series applied, thanks.
+You are a recipient to Mrs Julie Leach Donation of $3 million USD. Contact (julieleach93@gmail.com) for claims.
