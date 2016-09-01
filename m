@@ -1,47 +1,63 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH] softirq: let ksoftirqd do its job
-Date: Thu, 1 Sep 2016 17:28:02 +0200
-Message-ID: <20160901152802.GV10153@twins.programming.kicks-ass.net>
-References: <1472665349.14381.356.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160831214043.2f44cf08@redhat.com>
- <1472676150.14381.363.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160831235116.33b1946b@redhat.com>
- <20160901130231.58355405@redhat.com>
- <20160901115356.GT10153@twins.programming.kicks-ass.net>
- <20160901142925.63a5031b@redhat.com>
- <20160901143859.730826ed@redhat.com>
- <20160901124839.GU10153@twins.programming.kicks-ass.net>
- <20160901153042.465b864e@redhat.com>
+From: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
+Subject: Re: [Patch v3 08/11] net: ethernet: xilinx: Generate random mac if
+ none found
+Date: Thu, 1 Sep 2016 16:30:28 +0100
+Message-ID: <d7b5d5b9-e87e-73da-6bfe-7516703298c3@imgtec.com>
+References: <1472661352-11983-1-git-send-email-Zubair.Kakakhel@imgtec.com>
+ <1472661352-11983-9-git-send-email-Zubair.Kakakhel@imgtec.com>
+ <3e2dea83-ee59-2980-3a9d-50da04271158@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Rik van Riel <riel@redhat.com>,
-        Paolo Abeni <pabeni@redhat.com>,
-        Hannes Frederic Sowa <hannes@redhat.com>,
-        linux-kernel <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>, Jonathan Corbet <corbet@lwn.net>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:49032 "EHLO
-        merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933149AbcIAP2H (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 11:28:07 -0400
-Content-Disposition: inline
-In-Reply-To: <20160901153042.465b864e@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: <soren.brinkmann@xilinx.com>, <linux-kernel@vger.kernel.org>,
+        <linux-mips@linux-mips.org>, <michal.simek@xilinx.com>,
+        <netdev@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        <monstr@monstr.eu>, <ralf@linux-mips.org>, <tglx@linutronix.de>,
+        <jason@lakedaemon.net>, <marc.zyngier@arm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <3e2dea83-ee59-2980-3a9d-50da04271158@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 01, 2016 at 03:30:42PM +0200, Jesper Dangaard Brouer wrote:
-> Still... enabled!
-> Hmmm.. more idea how to disable this???
 
-I think you ought to be able to assign yourself to the root cgroup,
-something like:
 
-  echo $$ > /cgroup/tasks
+On 09/01/2016 11:52 AM, Sergei Shtylyov wrote:
+> Hello.
+>
+> On 8/31/2016 7:35 PM, Zubair Lutfullah Kakakhel wrote:
+>
+>> At the moment, if the emaclite device doesn't find a mac address
+>> from any source, it simply uses 0x0 with a warning printed.
+>>
+>> Instead of using a 0x0 mac address, use a randomly generated one.
+>>
+>> Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
+> [...]
+>
+>> diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+>> index 3cee84a..22e5a5a 100644
+>> --- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+>> +++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+>> @@ -1134,8 +1134,10 @@ static int xemaclite_of_probe(struct platform_device *ofdev)
+>>      if (mac_address)
+>>          /* Set the MAC address. */
+>>          memcpy(ndev->dev_addr, mac_address, ETH_ALEN);
+>> -    else
+>> -        dev_warn(dev, "No MAC address found\n");
+>> +    else {
+>> +        dev_warn(dev, "No MAC address found. Generating Random one\n");
+>> +        eth_hw_addr_random(ndev);
+>> +    }
+>
+>    All branches of the *if* statement should have {} if at least one has them, see Documentation/CodingStyle, chaoter 3.
 
-or wheverever the cpu-cgroup controller is mounted at.
+Спасибо
 
-But its been a fair while since I touched any of that, its not a CONFIG
-I have enabled much.
+ZubairLK
+
+>
+> [...]
+>
+> MBR, Sergei
+>
