@@ -1,51 +1,29 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v3 5/5] net: asix: autoneg will set WRITE_MEDIUM reg
-Date: Thu, 01 Sep 2016 10:02:30 -0700
-Message-ID: <1472749350.5019.52.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <cover.c702ef6af13be7c1282a2f2d3189281fdc327abe.1472155176.git-series.robert.foss@collabora.com>
-         <9d5c5525f369f1c4098bda989d73886d11036bae.1472155176.git-series.robert.foss@collabora.com>
-         <1472748216.5019.46.camel@edumazet-glaptop3.roam.corp.google.com>
-         <18052c6d-2cb1-0927-7d33-92d4bd397aa4@collabora.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RESEND PATCH v6 0/3] Add Ethernet support on STM32F429
+Date: Thu, 01 Sep 2016 14:03:59 -0700 (PDT)
+Message-ID: <20160901.140359.1250526791144876138.davem@davemloft.net>
+References: <1472487820-5132-1-git-send-email-alexandre.torgue@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org, Dean_Jenkins-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org,
-        Mark_Craske-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, ivecera-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-        john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, vpalatin-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org,
-        stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, grundler-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org,
-        changchias-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
-        tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org,
-        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, vpalatin-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-        Grant Grundler <grundler-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-To: Robert Foss <robert.foss-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <18052c6d-2cb1-0927-7d33-92d4bd397aa4-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, peppe.cavallaro@st.com, robh@kernel.org,
+        manabian@gmail.com
+To: alexandre.torgue@st.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:38752 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756324AbcIAVEB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 17:04:01 -0400
+In-Reply-To: <1472487820-5132-1-git-send-email-alexandre.torgue@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-09-01 at 12:47 -0400, Robert Foss wrote:
+From: Alexandre TORGUE <alexandre.torgue@st.com>
+Date: Mon, 29 Aug 2016 18:23:37 +0200
 
-> I'm not quite sure how the first From line was added, it
-> should not have been.
-> Grant Grundler is most definitely the author.
+> STM32F429 Chip embeds a Synopsys 3.50a MAC IP.
 > 
-> Would you like me to resubmit in v++ and make sure that it has been 
-> corrected?
+> This series enhance current stmmac driver to control it (code already
+> available) and adds basic glue for STM32F429 chip.
 
-This is too late, patches are already merged in David Miller net-next
-tree.
-
-These kinds of errors can not be fixed, we have to be very careful at
-submission/review time.
-
-I guess Grant does not care, but some contributors, especially new ones
-would like to get proper attribution.
-
-Thanks.
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Series applied to net-next, thanks.
