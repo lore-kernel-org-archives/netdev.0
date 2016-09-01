@@ -1,113 +1,55 @@
-From: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
-Subject: [Patch v4 12/12] MIPS: xilfpga: Update defconfig
-Date: Thu, 1 Sep 2016 17:51:05 +0100
-Message-ID: <1472748665-47774-13-git-send-email-Zubair.Kakakhel@imgtec.com>
-References: <1472748665-47774-1-git-send-email-Zubair.Kakakhel@imgtec.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v1] tipc: fix random link resets
+ while adding a second bearer
+Date: Thu, 01 Sep 2016 10:13:28 -0700 (PDT)
+Message-ID: <20160901.101328.782876070935686176.davem@davemloft.net>
+References: <1472739736-29391-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <soren.brinkmann@xilinx.com>, <Zubair.Kakakhel@imgtec.com>,
-        <linux-kernel@vger.kernel.org>, <linux-mips@linux-mips.org>,
-        <michal.simek@xilinx.com>, <netdev@vger.kernel.org>
-To: <monstr@monstr.eu>, <ralf@linux-mips.org>, <tglx@linutronix.de>,
-        <jason@lakedaemon.net>, <marc.zyngier@arm.com>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <1472748665-47774-1-git-send-email-Zubair.Kakakhel@imgtec.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net
+To: parthasarathy.bhuvaragan@ericsson.com
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1472739736-29391-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Update defconfig to enable emaclite, i2c, temp sensor found on the
-xilfpga platform
+From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+Date: Thu, 1 Sep 2016 16:22:16 +0200
 
-Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
+> In a dual bearer configuration, if the second tipc link becomes
+> active while the first link still has pending nametable "bulk"
+> updates, it randomly leads to reset of the second link.
+> 
+> When a link is established, the function named_distribute(),
+> fills the skb based on node mtu (allows room for TUNNEL_PROTOCOL)
+> with NAME_DISTRIBUTOR message for each PUBLICATION.
+> However, the function named_distribute() allocates the buffer by
+> increasing the node mtu by INT_H_SIZE (to insert NAME_DISTRIBUTOR).
+> This consumes the space allocated for TUNNEL_PROTOCOL.
+> 
+> When establishing the second link, the link shall tunnel all the
+> messages in the first link queue including the "bulk" update.
+> As size of the NAME_DISTRIBUTOR messages while tunnelling, exceeds
+> the link mtu the transmission fails (-EMSGSIZE).
+> 
+> Thus, the synch point based on the message count of the tunnel
+> packets is never reached leading to link timeout.
+> 
+> In this commit, we adjust the size of name distributor message so that
+> they can be tunnelled.
+> 
+> Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
+> Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
 
----
-V3 -> V4
-No change
+Applied.
 
-V2 -> V3
-No change
-
-V1 -> V2
-No change
----
- arch/mips/configs/xilfpga_defconfig | 37 ++++++++++++++++++++++++++++++++++++-
- 1 file changed, 36 insertions(+), 1 deletion(-)
-
-diff --git a/arch/mips/configs/xilfpga_defconfig b/arch/mips/configs/xilfpga_defconfig
-index ed1dce3..829c637 100644
---- a/arch/mips/configs/xilfpga_defconfig
-+++ b/arch/mips/configs/xilfpga_defconfig
-@@ -7,6 +7,12 @@ CONFIG_EMBEDDED=y
- CONFIG_SLAB=y
- # CONFIG_BLOCK is not set
- # CONFIG_SUSPEND is not set
-+CONFIG_NET=y
-+CONFIG_PACKET=y
-+CONFIG_UNIX=y
-+CONFIG_INET=y
-+# CONFIG_IPV6 is not set
-+# CONFIG_WIRELESS is not set
- # CONFIG_UEVENT_HELPER is not set
- CONFIG_DEVTMPFS=y
- CONFIG_DEVTMPFS_MOUNT=y
-@@ -14,6 +20,30 @@ CONFIG_DEVTMPFS_MOUNT=y
- # CONFIG_PREVENT_FIRMWARE_BUILD is not set
- # CONFIG_FW_LOADER is not set
- # CONFIG_ALLOW_DEV_COREDUMP is not set
-+CONFIG_NETDEVICES=y
-+# CONFIG_NET_CORE is not set
-+# CONFIG_NET_VENDOR_ARC is not set
-+# CONFIG_NET_CADENCE is not set
-+# CONFIG_NET_VENDOR_BROADCOM is not set
-+# CONFIG_NET_VENDOR_EZCHIP is not set
-+# CONFIG_NET_VENDOR_INTEL is not set
-+# CONFIG_NET_VENDOR_MARVELL is not set
-+# CONFIG_NET_VENDOR_MICREL is not set
-+# CONFIG_NET_VENDOR_NATSEMI is not set
-+# CONFIG_NET_VENDOR_NETRONOME is not set
-+# CONFIG_NET_VENDOR_QUALCOMM is not set
-+# CONFIG_NET_VENDOR_RENESAS is not set
-+# CONFIG_NET_VENDOR_ROCKER is not set
-+# CONFIG_NET_VENDOR_SAMSUNG is not set
-+# CONFIG_NET_VENDOR_SEEQ is not set
-+# CONFIG_NET_VENDOR_SMSC is not set
-+# CONFIG_NET_VENDOR_STMICRO is not set
-+# CONFIG_NET_VENDOR_SYNOPSYS is not set
-+# CONFIG_NET_VENDOR_VIA is not set
-+# CONFIG_NET_VENDOR_WIZNET is not set
-+CONFIG_XILINX_EMACLITE=y
-+CONFIG_SMSC_PHY=y
-+# CONFIG_WLAN is not set
- # CONFIG_INPUT_MOUSEDEV is not set
- # CONFIG_INPUT_KEYBOARD is not set
- # CONFIG_INPUT_MOUSE is not set
-@@ -25,13 +55,18 @@ CONFIG_SERIAL_8250=y
- CONFIG_SERIAL_8250_CONSOLE=y
- CONFIG_SERIAL_OF_PLATFORM=y
- # CONFIG_HW_RANDOM is not set
-+CONFIG_I2C=y
-+CONFIG_I2C_CHARDEV=y
-+# CONFIG_I2C_HELPER_AUTO is not set
-+CONFIG_I2C_XILINX=y
- CONFIG_GPIO_SYSFS=y
- CONFIG_GPIO_XILINX=y
--# CONFIG_HWMON is not set
-+CONFIG_SENSORS_ADT7410=y
- # CONFIG_USB_SUPPORT is not set
- # CONFIG_MIPS_PLATFORM_DEVICES is not set
- # CONFIG_IOMMU_SUPPORT is not set
- # CONFIG_PROC_PAGE_MONITOR is not set
-+CONFIG_TMPFS=y
- # CONFIG_MISC_FILESYSTEMS is not set
- CONFIG_PANIC_ON_OOPS=y
- # CONFIG_SCHED_DEBUG is not set
--- 
-1.9.1
+------------------------------------------------------------------------------
