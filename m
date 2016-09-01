@@ -1,7 +1,7 @@
 From: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
-Subject: [Patch v4 06/12] MIPS: xilfpga: Use Xilinx AXI Interrupt Controller
-Date: Thu, 1 Sep 2016 17:50:59 +0100
-Message-ID: <1472748665-47774-7-git-send-email-Zubair.Kakakhel@imgtec.com>
+Subject: [Patch v4 07/12] MIPS: xilfpga: Update DT node and specify uart irq
+Date: Thu, 1 Sep 2016 17:51:00 +0100
+Message-ID: <1472748665-47774-8-git-send-email-Zubair.Kakakhel@imgtec.com>
 References: <1472748665-47774-1-git-send-email-Zubair.Kakakhel@imgtec.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -23,10 +23,7 @@ List-post: <mailto:linux-mips@linux-mips.org>
 List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
-IRQs from peripherals such as i2c/uart/ethernet come via
-the AXI Interrupt controller.
-
-Select it in Kconfig for xilfpga and add the DT node
+Update the DT node with the UART irq
 
 Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
 
@@ -38,46 +35,25 @@ V2 -> V3
 No change
 
 V1 -> V2
-Renamed select XILINX_INTC to select XILINX_AXI_INTC
----
- arch/mips/Kconfig                        |  1 +
- arch/mips/boot/dts/xilfpga/nexys4ddr.dts | 12 ++++++++++++
- 2 files changed, 13 insertions(+)
 
-diff --git a/arch/mips/Kconfig b/arch/mips/Kconfig
-index 2638856..e8a7786 100644
---- a/arch/mips/Kconfig
-+++ b/arch/mips/Kconfig
-@@ -426,6 +426,7 @@ config MACH_XILFPGA
- 	select SYS_SUPPORTS_ZBOOT_UART16550
- 	select USE_OF
- 	select USE_GENERIC_EARLY_PRINTK_8250
-+	select XILINX_AXI_INTC
- 	help
- 	  This enables support for the IMG University Program MIPSfpga platform.
- 
+No change
+---
+ arch/mips/boot/dts/xilfpga/nexys4ddr.dts | 3 +++
+ 1 file changed, 3 insertions(+)
+
 diff --git a/arch/mips/boot/dts/xilfpga/nexys4ddr.dts b/arch/mips/boot/dts/xilfpga/nexys4ddr.dts
-index 48d2112..8db660b 100644
+index 8db660b..d285c8d 100644
 --- a/arch/mips/boot/dts/xilfpga/nexys4ddr.dts
 +++ b/arch/mips/boot/dts/xilfpga/nexys4ddr.dts
-@@ -17,6 +17,18 @@
- 		compatible = "mti,cpu-interrupt-controller";
- 	};
+@@ -50,6 +50,9 @@
+ 		reg-offset = <0x1000>;
  
-+	axi_intc: interrupt-controller@10200000 {
-+		#interrupt-cells = <1>;
-+		compatible = "xlnx,xps-intc-1.00.a";
-+		interrupt-controller;
-+		reg = <0x10200000 0x10000>;
-+		xlnx,kind-of-intr = <0x0>;
-+		xlnx,num-intr-inputs = <0x6>;
+ 		clocks	= <&ext>;
 +
-+		interrupt-parent = <&cpuintc>;
-+		interrupts = <6>;
-+	};
-+
- 	axi_gpio: gpio@10600000 {
- 		#gpio-cells = <1>;
- 		compatible = "xlnx,xps-gpio-1.00.a";
++		interrupt-parent = <&axi_intc>;
++		interrupts = <0>;
+ 	};
+ };
+ 
 -- 
 1.9.1
