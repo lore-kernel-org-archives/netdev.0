@@ -1,45 +1,47 @@
-From: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
-Subject: Re: [Patch v3 07/11] MIPS: Xilfpga: Add DT node for AXI I2C
-Date: Thu, 1 Sep 2016 16:22:24 +0100
-Message-ID: <6257058c-ae15-ff06-1f01-6e89dc23f2fd@imgtec.com>
-References: <1472661352-11983-1-git-send-email-Zubair.Kakakhel@imgtec.com>
- <1472661352-11983-8-git-send-email-Zubair.Kakakhel@imgtec.com>
- <74279d97-beeb-e754-40ad-3bfc8eeba66d@metafoo.de>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH] softirq: let ksoftirqd do its job
+Date: Thu, 1 Sep 2016 17:28:02 +0200
+Message-ID: <20160901152802.GV10153@twins.programming.kicks-ass.net>
+References: <1472665349.14381.356.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160831214043.2f44cf08@redhat.com>
+ <1472676150.14381.363.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160831235116.33b1946b@redhat.com>
+ <20160901130231.58355405@redhat.com>
+ <20160901115356.GT10153@twins.programming.kicks-ass.net>
+ <20160901142925.63a5031b@redhat.com>
+ <20160901143859.730826ed@redhat.com>
+ <20160901124839.GU10153@twins.programming.kicks-ass.net>
+ <20160901153042.465b864e@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <soren.brinkmann@xilinx.com>, <linux-kernel@vger.kernel.org>,
-        <linux-mips@linux-mips.org>, <michal.simek@xilinx.com>,
-        <netdev@vger.kernel.org>
-To: Lars-Peter Clausen <lars@metafoo.de>, <monstr@monstr.eu>,
-        <ralf@linux-mips.org>, <tglx@linutronix.de>,
-        <jason@lakedaemon.net>, <marc.zyngier@arm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Rik van Riel <riel@redhat.com>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Hannes Frederic Sowa <hannes@redhat.com>,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>, Jonathan Corbet <corbet@lwn.net>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailapp01.imgtec.com ([195.59.15.196]:39936 "EHLO
-        mailapp01.imgtec.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752955AbcIAPWh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 11:22:37 -0400
-In-Reply-To: <74279d97-beeb-e754-40ad-3bfc8eeba66d@metafoo.de>
+Received: from merlin.infradead.org ([205.233.59.134]:49032 "EHLO
+        merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933149AbcIAP2H (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 11:28:07 -0400
+Content-Disposition: inline
+In-Reply-To: <20160901153042.465b864e@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Sep 01, 2016 at 03:30:42PM +0200, Jesper Dangaard Brouer wrote:
+> Still... enabled!
+> Hmmm.. more idea how to disable this???
 
+I think you ought to be able to assign yourself to the root cgroup,
+something like:
 
-On 09/01/2016 11:57 AM, Lars-Peter Clausen wrote:
-> On 08/31/2016 06:35 PM, Zubair Lutfullah Kakakhel wrote:
-> [..]
->> +	    ad7420@4B {
->> +		compatible = "adt7420";
->
-> "adi,adt7420"
+  echo $$ > /cgroup/tasks
 
-danke schoen
+or wheverever the cpu-cgroup controller is mounted at.
 
-:)
-ZubairLK
-
->
->> +		reg = <0x4B>;
->> +	    };
->> +	} ;
->>  };
+But its been a fair while since I touched any of that, its not a CONFIG
+I have enabled much.
