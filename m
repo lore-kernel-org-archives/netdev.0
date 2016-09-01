@@ -1,44 +1,50 @@
-From: Brendan Gregg <brendan.d.gregg@gmail.com>
-Subject: Re: [PATCH v2 net-next 0/6] perf, bpf: add support for bpf in sw/hw perf_events
-Date: Wed, 31 Aug 2016 17:18:35 -0700
-Message-ID: <CAE40pdeaE=NParweu7A-sa_2VM9EDju8KLOt=BWF1POnRw9qtQ@mail.gmail.com>
-References: <1472680243-1326608-1-git-send-email-ast@fb.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 0/4] xps_flows: XPS flow steering when there is
+ no socket
+Date: Wed, 31 Aug 2016 17:37:58 -0700
+Message-ID: <1472690278.14381.393.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1472688605-2613704-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Peter Zijlstra <peterz@infradead.org>,
-        Brendan Gregg <bgregg@netflix.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Arnaldo Carvalho de Melo <acme@infradead.org>,
-        Wang Nan <wangnan0@huawei.com>, netdev@vger.kernel.org,
-        LKML <linux-kernel@vger.kernel.org>, kernel-team@fb.com
-To: Alexei Starovoitov <ast@fb.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, kernel-team@fb.com,
+        rick.jones2@hpe.com
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f66.google.com ([209.85.214.66]:34641 "EHLO
-        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753364AbcIAATH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 20:19:07 -0400
-In-Reply-To: <1472680243-1326608-1-git-send-email-ast@fb.com>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:33244 "EHLO
+        mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753623AbcIAAiA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 20:38:00 -0400
+Received: by mail-pa0-f50.google.com with SMTP id cy9so23584081pac.0
+        for <netdev@vger.kernel.org>; Wed, 31 Aug 2016 17:38:00 -0700 (PDT)
+In-Reply-To: <1472688605-2613704-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 31, 2016 at 2:50 PM, Alexei Starovoitov <ast@fb.com> wrote:
-> Hi Peter, Dave,
->
-> this patch set is a follow up to the discussion:
-> https://lkml.kernel.org/r/20160804142853.GO6862%20()%20twins%20!%20programming%20!%20kicks-ass%20!%20net
-> It turned out to be simpler than what we discussed.
->
-> Patches 1-3 is bpf-side prep for the main patch 4
-> that adds bpf program as an overflow_handler to sw and hw perf_events.
-> Peter, please review.
->
-> Patches 5 and 6 are examples from myself and Brendan.
->
-> v1-v2: fixed issues spotted by Peter and Daniel.
+On Wed, 2016-08-31 at 17:10 -0700, Tom Herbert wrote:
 
-Thanks Alexei!
+> Tested:
+>   Manually forced all packets to go through the xps_flows path.
+>   Observed that some flows were deferred to change queues because
+>   packets were in flight witht the flow bucket.
 
-Tested-by: Brendan Gregg <bgregg@netflix.com>
+I did not realize you were ready to submit this new infra !
 
-Brendan
+Please add performance tests and documentation.
+( Documentation/networking/scaling.txt should be a nice place ) 
+
+Unconnected UDP packets are candidates to this selection,
+even locally generated, while maybe the applications are pinning their
+thread(s) to cpu(s)
+TX completion will then happen on multiple cpus.
+
+Not sure about af_packet and/or pktgen ?
+
+- The new hash table is vmalloc()ed on a single NUMA node. (in
+comparison RFS table (per rx queue) can be properly accessed by a single
+cpu servicing queue interrupts)
+
+- Each packet will likely get an additional cache miss in a DDOS
+forwarding workload.
+
+Thanks.
