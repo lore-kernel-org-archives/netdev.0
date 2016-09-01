@@ -1,78 +1,81 @@
-From: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next V4 4/4] net/sched: Introduce act_tunnel_key
-Date: Thu, 1 Sep 2016 16:46:27 +0300
-Message-ID: <CAJL1qvFm4SH2wg2ASbdqjVE2Ju5V-coCZ0G0Vr75X1=X4AyZgA@mail.gmail.com>
-References: <1472647584-6713-1-git-send-email-hadarh@mellanox.com>
- <1472647584-6713-5-git-send-email-hadarh@mellanox.com> <CANn89i+ZnnJrLeSXadgDxWWT6q1Y+gPVoK8EJ417AzNfFKLQ+A@mail.gmail.com>
- <CAJL1qvE7Tpv0vmg6yRz7+Xh2T3rpqUvHshazK-N_6w2P-iv1hw@mail.gmail.com> <1472735786.5019.26.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH net v1] tipc: fix random link resets while
+	adding a second bearer
+Date: Thu, 1 Sep 2016 16:22:16 +0200
+Message-ID: <1472739736-29391-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <edumazet@google.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@mellanox.com>,
-        Jiri Benc <jbenc@redhat.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Amir Vadai <amirva@mellanox.com>, Amir Vadai <amir@vadai.me>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:35843 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755034AbcIAOAk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 10:00:40 -0400
-Received: by mail-oi0-f68.google.com with SMTP id b22so7889996oii.3
-        for <netdev@vger.kernel.org>; Thu, 01 Sep 2016 07:00:39 -0700 (PDT)
-In-Reply-To: <1472735786.5019.26.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net
+To: <davem@davemloft.net>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 1, 2016 at 4:16 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2016-09-01 at 12:28 +0300, Hadar Hen Zion wrote:
->
->>
->> As you suggested above, I can do it by adding "int action" to struct
->> tcf_tunnel_key_paramse.
->> But, it means that act_tunnel_key would have a different behavior than
->> all the other actions and even though
->> "struct tc_action" has a designated parameters to store this action we
->> won't use it.
->> So it won't be completely clean...
->>
->> Do you think we have a cleaner way to protect it?
->
-> Fact that the act_ modules had a spinlock made them all share the same
-> structure.
->
-> Now we want RCU protection, here is the thing.
->
-> Say you want to access 3 different fields, A, B and C.
->
-> If you put A and B in the rcu protected pointer, but leave C in the
-> 'control part, protected by spinlock'
->
-> Then your fast path wont be able to have a consistent view of 3
-> variables A, B C.
->
-> It might read an old value of A & B, and the recently updated C,
->
-> Or it might read an old C, and the updated values of A & B
+In a dual bearer configuration, if the second tipc link becomes
+active while the first link still has pending nametable "bulk"
+updates, it randomly leads to reset of the second link.
 
-Yes, agree.
+When a link is established, the function named_distribute(),
+fills the skb based on node mtu (allows room for TUNNEL_PROTOCOL)
+with NAME_DISTRIBUTOR message for each PUBLICATION.
+However, the function named_distribute() allocates the buffer by
+increasing the node mtu by INT_H_SIZE (to insert NAME_DISTRIBUTOR).
+This consumes the space allocated for TUNNEL_PROTOCOL.
 
-I'll add 'action' to struct tcf_tunnel_key_params.
+When establishing the second link, the link shall tunnel all the
+messages in the first link queue including the "bulk" update.
+As size of the NAME_DISTRIBUTOR messages while tunnelling, exceeds
+the link mtu the transmission fails (-EMSGSIZE).
 
-Thanks,
-Hadar
+Thus, the synch point based on the message count of the tunnel
+packets is never reached leading to link timeout.
+
+In this commit, we adjust the size of name distributor message so that
+they can be tunnelled.
+
+Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
+Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+---
+ net/tipc/name_distr.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/net/tipc/name_distr.c b/net/tipc/name_distr.c
+index 6b626a64b517..a04fe9be1c60 100644
+--- a/net/tipc/name_distr.c
++++ b/net/tipc/name_distr.c
+@@ -62,6 +62,8 @@ static void publ_to_item(struct distr_item *i, struct publication *p)
+ 
+ /**
+  * named_prepare_buf - allocate & initialize a publication message
++ *
++ * The buffer returned is of size INT_H_SIZE + payload size
+  */
+ static struct sk_buff *named_prepare_buf(struct net *net, u32 type, u32 size,
+ 					 u32 dest)
+@@ -141,9 +143,9 @@ static void named_distribute(struct net *net, struct sk_buff_head *list,
+ 	struct publication *publ;
+ 	struct sk_buff *skb = NULL;
+ 	struct distr_item *item = NULL;
+-	uint msg_dsz = (tipc_node_get_mtu(net, dnode, 0) / ITEM_SIZE) *
+-			ITEM_SIZE;
+-	uint msg_rem = msg_dsz;
++	u32 msg_dsz = ((tipc_node_get_mtu(net, dnode, 0) - INT_H_SIZE) /
++			ITEM_SIZE) * ITEM_SIZE;
++	u32 msg_rem = msg_dsz;
+ 
+ 	list_for_each_entry(publ, pls, local_list) {
+ 		/* Prepare next buffer: */
+-- 
+2.1.4
 
 
->
-> As Cong very kindly pointed to us/me, if we want to be 'clean', we want
-> to make sure we read a consistent 3-tuple.
->
-> I will send updates when I have time to act_mirred.c
->
->
+------------------------------------------------------------------------------
