@@ -1,105 +1,162 @@
-From: <sean.wang@mediatek.com>
-Subject: [PATCH net v4 8/9] net: ethernet: mediatek: use devm_mdiobus_alloc instead of mdiobus_alloc inside mtk_mdio_init
-Date: Thu, 1 Sep 2016 10:47:34 +0800
-Message-ID: <1472698055-8821-9-git-send-email-sean.wang@mediatek.com>
+From: <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH net v4 2/9] net: ethernet: mediatek: fix incorrect return
+ value of devm_clk_get with EPROBE_DEFER
+Date: Thu, 1 Sep 2016 10:47:28 +0800
+Message-ID: <1472698055-8821-3-git-send-email-sean.wang@mediatek.com>
 References: <1472698055-8821-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
-        <linux-mediatek@lists.infradead.org>, <keyhaede@gmail.com>,
-        <objelf@gmail.com>, Sean Wang <sean.wang@mediatek.com>
-To: <john@phrozen.org>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw01.mediatek.com ([210.61.82.183]:60579 "EHLO
-        mailgw01.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1754936AbcIACsY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 22:48:24 -0400
-In-Reply-To: <1472698055-8821-1-git-send-email-sean.wang@mediatek.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ objelf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1472698055-8821-1-git-send-email-sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
+List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Sean Wang <sean.wang@mediatek.com>
+From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
 
-a lot of parts in the driver uses devm_* APIs to gain benefits from the
-device resource management, so devm_mdiobus_alloc is also used instead
-of mdiobus_alloc to have more elegant code flow.
+1) If the return value of devm_clk_get is EPROBE_DEFER, we should
+defer probing the driver. The change is verified and works based
+on 4.8-rc1 staying with the latest clk-next code for MT7623.
+2) Changing with the usage of loops to work out if all clocks
+required are fine
 
-Using common code provided by the devm_* helps to
-1) have simplified the code flow as [1] says
-2) decrease the risk of incorrect error handling by human
-3) only a few drivers used it since it was proposed on linux 3.16,
-so just hope to promote for this.
-
-Ref:
-[1] https://patchwork.ozlabs.org/patch/344093/
-
-Signed-off-by: Sean Wang <sean.wang@mediatek.com>
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 23 ++++++-----------------
- 1 file changed, 6 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 39 ++++++++++++++++-------------
+ drivers/net/ethernet/mediatek/mtk_eth_soc.h | 22 ++++++++++------
+ 2 files changed, 36 insertions(+), 25 deletions(-)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 409efcf..0367f51 100644
+index 7fc2ff0..a5dcf57 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -295,7 +295,7 @@ err_phy:
- static int mtk_mdio_init(struct mtk_eth *eth)
+@@ -50,6 +50,10 @@ static const struct mtk_ethtool_stats {
+ 	MTK_ETHTOOL_STAT(rx_flow_control_packets),
+ };
+ 
++static const char * const mtk_clks_source_name[] = {
++	"ethif", "esw", "gp1", "gp2"
++};
++
+ void mtk_w32(struct mtk_eth *eth, u32 val, unsigned reg)
  {
- 	struct device_node *mii_np;
--	int err;
-+	int ret;
+ 	__raw_writel(val, eth->base + reg);
+@@ -1814,6 +1818,7 @@ static int mtk_probe(struct platform_device *pdev)
+ 	if (!eth)
+ 		return -ENOMEM;
  
- 	mii_np = of_get_child_by_name(eth->dev->of_node, "mdio-bus");
- 	if (!mii_np) {
-@@ -304,13 +304,13 @@ static int mtk_mdio_init(struct mtk_eth *eth)
++	eth->dev = &pdev->dev;
+ 	eth->base = devm_ioremap_resource(&pdev->dev, res);
+ 	if (IS_ERR(eth->base))
+ 		return PTR_ERR(eth->base);
+@@ -1848,21 +1853,21 @@ static int mtk_probe(struct platform_device *pdev)
+ 			return -ENXIO;
+ 		}
  	}
++	for (i = 0; i < ARRAY_SIZE(eth->clks); i++) {
++		eth->clks[i] = devm_clk_get(eth->dev,
++					    mtk_clks_source_name[i]);
++		if (IS_ERR(eth->clks[i])) {
++			if (PTR_ERR(eth->clks[i]) == -EPROBE_DEFER)
++				return -EPROBE_DEFER;
++			return -ENODEV;
++		}
++	}
  
- 	if (!of_device_is_available(mii_np)) {
--		err = 0;
-+		ret = 0;
- 		goto err_put_node;
- 	}
- 
--	eth->mii_bus = mdiobus_alloc();
-+	eth->mii_bus = devm_mdiobus_alloc(eth->dev);
- 	if (!eth->mii_bus) {
--		err = -ENOMEM;
-+		ret = -ENOMEM;
- 		goto err_put_node;
- 	}
- 
-@@ -321,20 +321,11 @@ static int mtk_mdio_init(struct mtk_eth *eth)
- 	eth->mii_bus->parent = eth->dev;
- 
- 	snprintf(eth->mii_bus->id, MII_BUS_ID_SIZE, "%s", mii_np->name);
--	err = of_mdiobus_register(eth->mii_bus, mii_np);
--	if (err)
--		goto err_free_bus;
--	of_node_put(mii_np);
+-	eth->clk_ethif = devm_clk_get(&pdev->dev, "ethif");
+-	eth->clk_esw = devm_clk_get(&pdev->dev, "esw");
+-	eth->clk_gp1 = devm_clk_get(&pdev->dev, "gp1");
+-	eth->clk_gp2 = devm_clk_get(&pdev->dev, "gp2");
+-	if (IS_ERR(eth->clk_esw) || IS_ERR(eth->clk_gp1) ||
+-	    IS_ERR(eth->clk_gp2) || IS_ERR(eth->clk_ethif))
+-		return -ENODEV;
 -
--	return 0;
--
--err_free_bus:
--	mdiobus_free(eth->mii_bus);
-+	ret = of_mdiobus_register(eth->mii_bus, mii_np);
+-	clk_prepare_enable(eth->clk_ethif);
+-	clk_prepare_enable(eth->clk_esw);
+-	clk_prepare_enable(eth->clk_gp1);
+-	clk_prepare_enable(eth->clk_gp2);
++	clk_prepare_enable(eth->clks[MTK_CLK_ETHIF]);
++	clk_prepare_enable(eth->clks[MTK_CLK_ESW]);
++	clk_prepare_enable(eth->clks[MTK_CLK_GP1]);
++	clk_prepare_enable(eth->clks[MTK_CLK_GP2]);
  
- err_put_node:
- 	of_node_put(mii_np);
--	eth->mii_bus = NULL;
--	return err;
-+	return ret;
- }
+-	eth->dev = &pdev->dev;
+ 	eth->msg_enable = netif_msg_init(mtk_msg_level, MTK_DEFAULT_MSG_ENABLE);
+ 	INIT_WORK(&eth->pending_work, mtk_pending_work);
  
- static void mtk_mdio_cleanup(struct mtk_eth *eth)
-@@ -343,8 +334,6 @@ static void mtk_mdio_cleanup(struct mtk_eth *eth)
- 		return;
+@@ -1905,10 +1910,10 @@ static int mtk_remove(struct platform_device *pdev)
+ {
+ 	struct mtk_eth *eth = platform_get_drvdata(pdev);
  
- 	mdiobus_unregister(eth->mii_bus);
--	of_node_put(eth->mii_bus->dev.of_node);
--	mdiobus_free(eth->mii_bus);
- }
+-	clk_disable_unprepare(eth->clk_ethif);
+-	clk_disable_unprepare(eth->clk_esw);
+-	clk_disable_unprepare(eth->clk_gp1);
+-	clk_disable_unprepare(eth->clk_gp2);
++	clk_disable_unprepare(eth->clks[MTK_CLK_ETHIF]);
++	clk_disable_unprepare(eth->clks[MTK_CLK_ESW]);
++	clk_disable_unprepare(eth->clks[MTK_CLK_GP1]);
++	clk_disable_unprepare(eth->clks[MTK_CLK_GP2]);
  
- static inline void mtk_irq_disable(struct mtk_eth *eth, u32 mask)
+ 	netif_napi_del(&eth->tx_napi);
+ 	netif_napi_del(&eth->rx_napi);
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+index f82e3ac..6e1ade7 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+@@ -290,6 +290,17 @@ enum mtk_tx_flags {
+ 	MTK_TX_FLAGS_PAGE0	= 0x02,
+ };
+ 
++/* This enum allows us to identify how the clock is defined on the array of the
++ * clock in the order
++ */
++enum mtk_clks_map {
++	MTK_CLK_ETHIF,
++	MTK_CLK_ESW,
++	MTK_CLK_GP1,
++	MTK_CLK_GP2,
++	MTK_CLK_MAX
++};
++
+ /* struct mtk_tx_buf -	This struct holds the pointers to the memory pointed at
+  *			by the TX descriptor	s
+  * @skb:		The SKB pointer of the packet being sent
+@@ -370,10 +381,7 @@ struct mtk_rx_ring {
+  * @scratch_ring:	Newer SoCs need memory for a second HW managed TX ring
+  * @phy_scratch_ring:	physical address of scratch_ring
+  * @scratch_head:	The scratch memory that scratch_ring points to.
+- * @clk_ethif:		The ethif clock
+- * @clk_esw:		The switch clock
+- * @clk_gp1:		The gmac1 clock
+- * @clk_gp2:		The gmac2 clock
++ * @clks:		clock array for all clocks required
+  * @mii_bus:		If there is a bus we need to create an instance for it
+  * @pending_work:	The workqueue used to reset the dma ring
+  */
+@@ -400,10 +408,8 @@ struct mtk_eth {
+ 	struct mtk_tx_dma		*scratch_ring;
+ 	dma_addr_t			phy_scratch_ring;
+ 	void				*scratch_head;
+-	struct clk			*clk_ethif;
+-	struct clk			*clk_esw;
+-	struct clk			*clk_gp1;
+-	struct clk			*clk_gp2;
++	struct clk			*clks[MTK_CLK_MAX];
++
+ 	struct mii_bus			*mii_bus;
+ 	struct work_struct		pending_work;
+ };
 -- 
 1.9.1
