@@ -1,51 +1,180 @@
-From: David Lebrun <david.lebrun@uclouvain.be>
-Subject: Re: [RFC 4/9] ipv6: sr: add support for SRH encapsulation and injection
- with lwtunnels
-Date: Thu, 1 Sep 2016 15:32:22 +0200
-Message-ID: <57C82DE6.9050508@uclouvain.be>
-References: <1472226767-9904-1-git-send-email-david.lebrun@uclouvain.be> <1472226767-9904-5-git-send-email-david.lebrun@uclouvain.be> <57C44C38.4010203@cumulusnetworks.com>
+From: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
+Subject: Re: [Patch v3 03/11] irqchip: axi-intc: Add support for parent intc
+Date: Thu, 1 Sep 2016 14:52:56 +0100
+Message-ID: <f45ffb5f-fb66-4083-4754-f8e50689216b@imgtec.com>
+References: <1472661352-11983-1-git-send-email-Zubair.Kakakhel@imgtec.com>
+ <1472661352-11983-4-git-send-email-Zubair.Kakakhel@imgtec.com>
+ <57C70C71.3060603@arm.com> <81b5f75c-51b5-0482-50d1-f51c5687edbc@imgtec.com>
+ <57C81BB5.3060807@arm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature";
-        boundary="9slUSN731aSx5c0DhTek2dlU4hQHxDEot"
-Cc: <netdev@vger.kernel.org>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:55008 "EHLO
-        smtp4.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754330AbcIANcN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 09:32:13 -0400
-In-Reply-To: <57C44C38.4010203@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <soren.brinkmann@xilinx.com>, <linux-kernel@vger.kernel.org>,
+        <linux-mips@linux-mips.org>, <michal.simek@xilinx.com>,
+        <netdev@vger.kernel.org>
+To: Marc Zyngier <marc.zyngier@arm.com>, <monstr@monstr.eu>,
+        <ralf@linux-mips.org>, <tglx@linutronix.de>, <jason@lakedaemon.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <57C81BB5.3060807@arm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---9slUSN731aSx5c0DhTek2dlU4hQHxDEot
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: quoted-printable
+Hi,
 
-On 08/29/2016 04:52 PM, Roopa Prabhu wrote:
-> You will need to account for lwtunnel headroom ?
-> https://patchwork.ozlabs.org/patch/662632/
->=20
-> thanks,
-> Roopa
+On 09/01/2016 01:14 PM, Marc Zyngier wrote:
+> On 01/09/16 12:01, Zubair Lutfullah Kakakhel wrote:
+>> Hi,
+>>
+>> Thanks for the review
+>> Comments inline.
+>>
+>> On 08/31/2016 05:57 PM, Marc Zyngier wrote:
+>>> On 31/08/16 17:35, Zubair Lutfullah Kakakhel wrote:
+>>>> The MIPS based xilfpga platform has the following IRQ structure
+>>>>
+>>>> Peripherals --> xilinx_intcontroller -> mips_cpu_int controller
+>>>>
+>>>> Add support for the driver to chain the irq handler
+>>>>
+>>>> Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
+>>>>
+>>>> ---
+>>>> V2 -> V3
+>>>> Reused existing parent node instead of finding again.
+>>>> Cleanup up handler based on review
+>>>>
+>>>> V1 -> V2
+>>>>
+>>>> No change
+>>>> ---
+>>>>  drivers/irqchip/irq-axi-intc.c | 24 +++++++++++++++++++++++-
+>>>>  1 file changed, 23 insertions(+), 1 deletion(-)
+>>>>
+>>>> diff --git a/drivers/irqchip/irq-axi-intc.c b/drivers/irqchip/irq-axi-intc.c
+>>>> index cb69241..30bb084 100644
+>>>> --- a/drivers/irqchip/irq-axi-intc.c
+>>>> +++ b/drivers/irqchip/irq-axi-intc.c
+>>>> @@ -15,6 +15,7 @@
+>>>>  #include <linux/of_address.h>
+>>>>  #include <linux/io.h>
+>>>>  #include <linux/bug.h>
+>>>> +#include <linux/of_irq.h>
+>>>>
+>>>>  /* No one else should require these constants, so define them locally here. */
+>>>>  #define ISR 0x00			/* Interrupt Status Register */
+>>>> @@ -154,11 +155,23 @@ static const struct irq_domain_ops xintc_irq_domain_ops = {
+>>>>  	.map = xintc_map,
+>>>>  };
+>>>>
+>>>> +static void xil_intc_irq_handler(struct irq_desc *desc)
+>>>> +{
+>>>> +	u32 pending;
+>>>> +
+>>>> +	do {
+>>>> +		pending = get_irq();
+>>>> +		if (pending == -1U)
+>>>> +			break;
+>>>> +		generic_handle_irq(pending);
+>>>> +	} while (true);
+>>>> +}
+>>>> +
+>>>>  static int __init xilinx_intc_of_init(struct device_node *intc,
+>>>>  					     struct device_node *parent)
+>>>>  {
+>>>>  	u32 nr_irq;
+>>>> -	int ret;
+>>>> +	int ret, irq;
+>>>>  	struct xintc_irq_chip *irqc;
+>>>>
+>>>>  	irqc = kzalloc(sizeof(*irqc), GFP_KERNEL);
+>>>> @@ -211,6 +224,15 @@ static int __init xilinx_intc_of_init(struct device_node *intc,
+>>>>  	root_domain = irq_domain_add_linear(intc, nr_irq, &xintc_irq_domain_ops,
+>>>>  					    irqc);
+>>>>
+>>>> +	if (parent) {
+>>>> +		irq = irq_of_parse_and_map(intc, 0);
+>>>> +		if (irq)
+>>>> +			irq_set_chained_handler_and_data(irq,
+>>>> +							 xil_intc_irq_handler,
+>>>> +							 root_domain);
+>>>> +
+>>>> +	}
+>>>> +
+>>>>  	irq_set_default_host(root_domain);
+>>>>
+>>>>  	return 0;
+>>>>
+>>>
+>>> This doesn't seem right. You've now overridden the xintc_irqc pointer,
+>>> so I don't know how you can still process interrupts once you've
+>>> discovered a secondary interrupt controller. You've also allocated a
+>>> second root_domain, changed the default domain to point to the secondary
+>>> controller...
+>>>
+>>> Have you tested this code? Or am I missing something obvious?
+>>
+>> Yes it works. I'll try to explain the platform setup a bit.
+>> Perhaps that will make it clear about what I'm trying to do.
+>>
+>> UART IRQ -> AXI INTC -> MIPS internal INTC -> CPU
+>>
+>> MIPS Internal Interrupt controller in drivers/irqchip/irq-mips-cpu.c
+>> uses irq_domain_add_legacy while AXI Intc uses irq_domain_add_linear
+>>
+>> My aim was to set up a chained irq handler with least disturbance.
+>>
+>> Hence the above code.
+>>
+>> Your concerns are valid. The code is working because read/writes rely
+>> on the static xintc_irqc in the file.
+>> And the second root domain is also not breaking the platform because
+>> the irq-mips-cpu.c uses irq_domain_add_legacy and doesn't use
+>> irq_set_default_host.
+>>
+>> # cat /proc/interrupts
+>>             CPU0
+>>    7:      43493      MIPS   7  timer
+>>    8:         83  Xilinx INTC   1-level     eth0
+>>    9:        417  Xilinx INTC   0-level     serial
+>>   10:         15  Xilinx INTC   4-level     10a00000.i2c
+>> ERR:          0
+>> #
+>>
+>> Given the above concerns. How about doing things this way?
+>>
+>> 	if (parent) {
+>> 		irq = irq_of_parse_and_map(intc, 0);
+>> 		if (irq)
+>> 			irq_set_chained_handler_and_data(irq,
+>> 							 xil_intc_irq_handler,
+>> 							 irqc);
+>>
+>> 	} else
+>> 		irq_set_default_host(root_domain);
+>>
+>> default host is only set if no parent exists.
+>> And the irqc pointer is passed as the data.
+>
+> But that still doesn't address the case I had in mind, which is when you
+> have *two* AXI-intc, one cascaded into the other. Is that something that
+> could be built? You should at least make sure that there is a big fat
+> warning if you don't want to support that case, because that will be
+> hell to debug.
 
-Indeed, thanks
+Oo. I didn't think of that one. tbh, I'm not sure if that is currently supported
+because this driver came out of arch/microblaze. And it didn't have any code that
+looked supportive of chained interrupt handling.
 
-David
+'Technically', it should be possible to synthesize two daisy chained axi interrupt
+controllers on an FPGA. But I don't see it being supported before.
 
+A warning would be nice. Any suggestions on the most suitable way?
 
---9slUSN731aSx5c0DhTek2dlU4hQHxDEot
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+Thanks,
+ZubairLK
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iEYEARECAAYFAlfILeYACgkQjbzn67sZ6ANHxwCfdK7c275NV2pN8DdgYduHHVIw
-En0An1ntigh6r4EWWqyK+TwC7nqwIWag
-=sOek
------END PGP SIGNATURE-----
-
---9slUSN731aSx5c0DhTek2dlU4hQHxDEot--
+>
+> Thanks,
+>
+> 	M.
+>
