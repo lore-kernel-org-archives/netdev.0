@@ -1,99 +1,117 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v2 net-next 4/6] perf, bpf: add perf events core support
- for BPF_PROG_TYPE_PERF_EVENT programs
-Date: Thu, 1 Sep 2016 08:53:51 -0700
-Message-ID: <20160901155349.GA88787@ast-mbp.thefacebook.com>
-References: <1472680243-1326608-1-git-send-email-ast@fb.com>
- <1472680243-1326608-5-git-send-email-ast@fb.com>
- <20160901081251.GL10153@twins.programming.kicks-ass.net>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next 4/4] xps_flows: XPS for packets that don't have a socket
+Date: Thu, 1 Sep 2016 08:56:16 -0700
+Message-ID: <CALx6S377fEV8mt1H3QzydicjqA8qBKmGshsZOQ9NFrnw8mYNQw@mail.gmail.com>
+References: <1472688605-2613704-1-git-send-email-tom@herbertland.com>
+ <1472688605-2613704-5-git-send-email-tom@herbertland.com> <CAKgT0UdYQn1GNV5G=rBG4i-fUMyN6GXGzZkPEg6ZPkRxVSKGdw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <ast@fb.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Brendan Gregg <bgregg@netflix.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Arnaldo Carvalho de Melo <acme@infradead.org>,
-        Wang Nan <wangnan0@huawei.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel-team@fb.com
-To: Peter Zijlstra <peterz@infradead.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Netdev <netdev@vger.kernel.org>,
+        Kernel Team <kernel-team@fb.com>,
+        Rick Jones <rick.jones2@hpe.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:36530 "EHLO
-        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753808AbcIAPx5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 11:53:57 -0400
-Content-Disposition: inline
-In-Reply-To: <20160901081251.GL10153@twins.programming.kicks-ass.net>
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:35063 "EHLO
+        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933845AbcIAP4S (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 11:56:18 -0400
+Received: by mail-qk0-f194.google.com with SMTP id o1so6039672qkd.2
+        for <netdev@vger.kernel.org>; Thu, 01 Sep 2016 08:56:17 -0700 (PDT)
+In-Reply-To: <CAKgT0UdYQn1GNV5G=rBG4i-fUMyN6GXGzZkPEg6ZPkRxVSKGdw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 01, 2016 at 10:12:51AM +0200, Peter Zijlstra wrote:
-> On Wed, Aug 31, 2016 at 02:50:41PM -0700, Alexei Starovoitov wrote:
-> > diff --git a/include/linux/perf_event.h b/include/linux/perf_event.h
-> > index 97bfe62f30d7..dcaaaf3ec8e6 100644
-> > --- a/include/linux/perf_event.h
-> > +++ b/include/linux/perf_event.h
-> > @@ -679,6 +679,8 @@ struct perf_event {
-> >  	u64				(*clock)(void);
-> >  	perf_overflow_handler_t		overflow_handler;
-> >  	void				*overflow_handler_context;
-> 
-> > +	perf_overflow_handler_t		orig_overflow_handler;
-> > +	struct bpf_prog			*prog;
-> 
-> Should we put that under CONFIG_BPF_SYSCALL too?
+On Thu, Sep 1, 2016 at 8:36 AM, Alexander Duyck
+<alexander.duyck@gmail.com> wrote:
+> On Wed, Aug 31, 2016 at 5:10 PM, Tom Herbert <tom@herbertland.com> wrote:
+>> xps_flows maintains a per device flow table that is indexed by the
+>> skbuff hash. The table is only consulted when there is no queue saved in
+>> a transmit socket for an skbuff.
+>>
+>> Each entry in the flow table contains a queue index and a queue
+>> pointer. The queue pointer is set when a queue is chosen using a
+>> flow table entry. This pointer is set to the head pointer in the
+>> transmit queue (which is maintained by BQL).
+>>
+>> The new function get_xps_flows_index that looks up flows in the
+>> xps_flows table. The entry returned gives the last queue a matching flow
+>> used. The returned queue is compared against the normal XPS queue. If
+>> they are different, then we only switch if the tail pointer in the TX
+>> queue has advanced past the pointer saved in the entry. In this
+>> way OOO should be avoided when XPS wants to use a different queue.
+>>
+>> Signed-off-by: Tom Herbert <tom@herbertland.com>
+>> ---
+>>  net/Kconfig    |  6 +++++
+>>  net/core/dev.c | 85 +++++++++++++++++++++++++++++++++++++++++++++++-----------
+>>  2 files changed, 76 insertions(+), 15 deletions(-)
+>>
+>
+> So it looks like you didn't address the two issues I called out with
+> this patch last time.  I have called them out again below.
+>
+>> diff --git a/net/core/dev.c b/net/core/dev.c
+>> index 34b5322..fc68d19 100644
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+>
+> <snip>
+>
+>> @@ -3240,26 +3239,82 @@ static inline int get_xps_queue(struct net_device *dev, struct sk_buff *skb)
+>>  #endif
+>>  }
+>>
+>> -static u16 __netdev_pick_tx(struct net_device *dev, struct sk_buff *skb)
+>> +/* Must be called with RCU read_lock */
+>> +static int get_xps_flows_index(struct net_device *dev, struct sk_buff *skb)
+>>  {
+>> -       struct sock *sk = skb->sk;
+>> -       int queue_index = sk_tx_queue_get(sk);
+>> +#ifdef CONFIG_XPS_FLOWS
+>> +       struct xps_dev_flow_table *flow_table;
+>> +       struct xps_dev_flow ent;
+>> +       int queue_index;
+>> +       struct netdev_queue *txq;
+>> +       u32 hash;
+>>
+>> -       if (queue_index < 0 || skb->ooo_okay ||
+>> -           queue_index >= dev->real_num_tx_queues) {
+>> -               int new_index = get_xps_queue(dev, skb);
+>> -               if (new_index < 0)
+>> -                       new_index = skb_tx_hash(dev, skb);
+>> +       flow_table = rcu_dereference(dev->xps_flow_table);
+>> +       if (!flow_table)
+>> +               return -1;
+>>
+>> -               if (queue_index != new_index && sk &&
+>> -                   sk_fullsock(sk) &&
+>> -                   rcu_access_pointer(sk->sk_dst_cache))
+>> -                       sk_tx_queue_set(sk, new_index);
+>> +       queue_index = get_xps_queue(dev, skb);
+>> +       if (queue_index < 0)
+>> +               return -1;
+>
+> I really think what would make more sense here is to just call
+> skb_tx_hash to acquire the queue_index instead of just exiting.  That
+> way we don't have the flows toggling back and forth between XPS and
+> non-XPS cpus.
+>
+__netdev_pick_tx checks the return value to be < 0 and will call
+skb_tx_hash if it is.
 
-sure. will do.
+>> -               queue_index = new_index;
+>> +       hash = skb_get_hash(skb);
+>> +       if (!hash)
+>> +               return -1;
+>
+> So a hash of 0 is perfectly valid.  So this line doesn't make any
+> sense.  You could just drop these two lines and work with the hash you
+> generated.
+>
+A hash of zero indicates an invalid hash. See __flow_hash_from_keys
+for instance.
 
-> > diff --git a/kernel/events/core.c b/kernel/events/core.c
-> > index 3cfabdf7b942..305433ab2447 100644
-> > --- a/kernel/events/core.c
-> > +++ b/kernel/events/core.c
-> 
-> > @@ -7637,11 +7637,75 @@ static void perf_event_free_filter(struct perf_event *event)
-> >  	ftrace_profile_free_filter(event);
-> >  }
-> >  
-> > +static void bpf_overflow_handler(struct perf_event *event,
-> > +				 struct perf_sample_data *data,
-> > +				 struct pt_regs *regs)
-> > +{
-> > +	struct bpf_perf_event_data_kern ctx = {
-> > +		.data = data,
-> > +		.regs = regs,
-> > +	};
-> > +	int ret = 0;
-> > +
-> > +#ifdef CONFIG_BPF_SYSCALL
-> > +	preempt_disable();
-> > +	if (unlikely(__this_cpu_inc_return(bpf_prog_active) != 1))
-> > +		goto out;
-> > +	rcu_read_lock();
-> > +	ret = BPF_PROG_RUN(event->prog, (void *)&ctx);
-> > +	rcu_read_unlock();
-> > + out:
-> 
-> Please, no leading space before labels. Use something like:
-
-good catch.
-sadly checkpatch didn't complain.
- 
-> [diff "default"]
->         xfuncname = "^[[:alpha:]$_].*[^:]$"
-> 
-> In your .gitconfig if you want to keep diff output 'sane'.
-
-interesting trick. don't remember being bitten by it.
-This extra space was a typo.
-
-> > +	__this_cpu_dec(bpf_prog_active);
-> > +	preempt_enable();
-> > +#endif
-> > +	if (!ret)
-> > +		return;
-> > +
-> > +	event->orig_overflow_handler(event, data, regs);
-> > +}
-> 
-> Other than that, ACK.
-
-Thanks!
+> The rest of this looks good.
+>
+> - Alex
