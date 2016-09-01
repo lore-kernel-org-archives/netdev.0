@@ -1,27 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/12] net: Convert vrf from dst to tx hook
-Date: Wed, 31 Aug 2016 20:43:41 -0700 (PDT)
-Message-ID: <20160831.204341.1657911829359266658.davem@davemloft.net>
-References: <1472578457-26722-1-git-send-email-dsa@cumulusnetworks.com>
-        <eda9593c-69f8-6d90-05da-1505ba56bc33@cumulusnetworks.com>
+Subject: Re: [PATCH 1/5] net: mediatek: constify ethtool_ops structures
+Date: Wed, 31 Aug 2016 20:46:11 -0700 (PDT)
+Message-ID: <20160831.204611.1055073690254982380.davem@davemloft.net>
+References: <1472682083-5219-1-git-send-email-Julia.Lawall@lip6.fr>
+        <1472682083-5219-2-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dsa@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52976 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754227AbcIADnx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 23:43:53 -0400
-In-Reply-To: <eda9593c-69f8-6d90-05da-1505ba56bc33@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nbd@openwrt.org, kernel-janitors@vger.kernel.org,
+        blogic@openwrt.org, matthias.bgg@gmail.com, netdev@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org,
+        linux-mediatek@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Julia.Lawall@lip6.fr
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1472682083-5219-2-git-send-email-Julia.Lawall@lip6.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Wed, 31 Aug 2016 17:14:13 -0600
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Date: Thu,  1 Sep 2016 00:21:19 +0200
 
-> please drop this series. BGP smoke tests triggered a couple of
-> problems I need to resolve.
+> Check for ethtool_ops structures that are only stored in the ethtool_ops
+> field of a net_device structure or passed as the second argument to
+> netdev_set_default_ethtool_ops.  These contexts are declared const, so
+> ethtool_ops structures that have these properties can be declared as const
+> also.
+ ...
+> Suggested-by: Stephen Hemminger <stephen@networkplumber.org>
+> 
+> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
-Ok.
+Applied.
