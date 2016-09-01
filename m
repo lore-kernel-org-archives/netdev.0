@@ -1,61 +1,165 @@
-From: Hannes Frederic Sowa <hannes@redhat.com>
-Subject: Re: [PATCH] softirq: let ksoftirqd do its job
-Date: Thu, 1 Sep 2016 14:05:53 +0200
-Message-ID: <251f077b-3d46-415d-c5f3-c3dea73a3c88@redhat.com>
-References: <4f1c4b38528762619fff1fa963de8971006c1234.1472460085.git.pabeni@redhat.com>
- <20160831100854.23dad2d8@redhat.com>
- <1472650472.14381.317.camel@edumazet-glaptop3.roam.corp.google.com>
- <1472650688.32433.115.camel@redhat.com>
- <1472652643.14381.320.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160831164216.2901190c@redhat.com>
- <1472661956.14381.335.camel@edumazet-glaptop3.roam.corp.google.com>
- <1472665349.14381.356.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160831214043.2f44cf08@redhat.com>
- <1472676150.14381.363.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Marc Zyngier <marc.zyngier@arm.com>
+Subject: Re: [Patch v3 03/11] irqchip: axi-intc: Add support for parent intc
+Date: Thu, 1 Sep 2016 13:14:45 +0100
+Message-ID: <57C81BB5.3060807@arm.com>
+References: <1472661352-11983-1-git-send-email-Zubair.Kakakhel@imgtec.com>
+ <1472661352-11983-4-git-send-email-Zubair.Kakakhel@imgtec.com>
+ <57C70C71.3060603@arm.com> <81b5f75c-51b5-0482-50d1-f51c5687edbc@imgtec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Peter Zijlstra <peterz@infradead.org>,
-        David Miller <davem@davemloft.net>,
-        Rik van Riel <riel@redhat.com>,
-        Paolo Abeni <pabeni@redhat.com>,
-        linux-kernel <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>, Jonathan Corbet <corbet@lwn.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        Jesper Dangaard Brouer <jbrouer@redhat.com>
+Cc: soren.brinkmann@xilinx.com, linux-kernel@vger.kernel.org,
+        linux-mips@linux-mips.org, michal.simek@xilinx.com,
+        netdev@vger.kernel.org
+To: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>,
+        monstr@monstr.eu, ralf@linux-mips.org, tglx@linutronix.de,
+        jason@lakedaemon.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1472676150.14381.363.camel@edumazet-glaptop3.roam.corp.google.com>
+In-Reply-To: <81b5f75c-51b5-0482-50d1-f51c5687edbc@imgtec.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 31.08.2016 22:42, Eric Dumazet wrote:
-> On Wed, 2016-08-31 at 21:40 +0200, Jesper Dangaard Brouer wrote:
+On 01/09/16 12:01, Zubair Lutfullah Kakakhel wrote:
+> Hi,
 > 
->> I can confirm the improvement of approx 900Kpps (no wonder people have
->> been complaining about DoS against UDP/DNS servers).
->>
->> BUT during my extensive testing, of this patch, I also think that we
->> have not gotten to the bottom of this.  I was expecting to see a higher
->> (collective) PPS number as I add more UDP servers, but I don't.
->>
->> Running many UDP netperf's with command:
->>  super_netperf 4 -H 198.18.50.3 -l 120 -t UDP_STREAM -T 0,0 -- -m 1472 -n -N
+> Thanks for the review
+> Comments inline.
 > 
-> Are you sure sender can send fast enough ?
-> 
+> On 08/31/2016 05:57 PM, Marc Zyngier wrote:
+>> On 31/08/16 17:35, Zubair Lutfullah Kakakhel wrote:
+>>> The MIPS based xilfpga platform has the following IRQ structure
+>>>
+>>> Peripherals --> xilinx_intcontroller -> mips_cpu_int controller
+>>>
+>>> Add support for the driver to chain the irq handler
+>>>
+>>> Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
+>>>
+>>> ---
+>>> V2 -> V3
+>>> Reused existing parent node instead of finding again.
+>>> Cleanup up handler based on review
+>>>
+>>> V1 -> V2
+>>>
+>>> No change
+>>> ---
+>>>  drivers/irqchip/irq-axi-intc.c | 24 +++++++++++++++++++++++-
+>>>  1 file changed, 23 insertions(+), 1 deletion(-)
+>>>
+>>> diff --git a/drivers/irqchip/irq-axi-intc.c b/drivers/irqchip/irq-axi-intc.c
+>>> index cb69241..30bb084 100644
+>>> --- a/drivers/irqchip/irq-axi-intc.c
+>>> +++ b/drivers/irqchip/irq-axi-intc.c
+>>> @@ -15,6 +15,7 @@
+>>>  #include <linux/of_address.h>
+>>>  #include <linux/io.h>
+>>>  #include <linux/bug.h>
+>>> +#include <linux/of_irq.h>
+>>>
+>>>  /* No one else should require these constants, so define them locally here. */
+>>>  #define ISR 0x00			/* Interrupt Status Register */
+>>> @@ -154,11 +155,23 @@ static const struct irq_domain_ops xintc_irq_domain_ops = {
+>>>  	.map = xintc_map,
+>>>  };
+>>>
+>>> +static void xil_intc_irq_handler(struct irq_desc *desc)
+>>> +{
+>>> +	u32 pending;
+>>> +
+>>> +	do {
+>>> +		pending = get_irq();
+>>> +		if (pending == -1U)
+>>> +			break;
+>>> +		generic_handle_irq(pending);
+>>> +	} while (true);
+>>> +}
+>>> +
+>>>  static int __init xilinx_intc_of_init(struct device_node *intc,
+>>>  					     struct device_node *parent)
+>>>  {
+>>>  	u32 nr_irq;
+>>> -	int ret;
+>>> +	int ret, irq;
+>>>  	struct xintc_irq_chip *irqc;
+>>>
+>>>  	irqc = kzalloc(sizeof(*irqc), GFP_KERNEL);
+>>> @@ -211,6 +224,15 @@ static int __init xilinx_intc_of_init(struct device_node *intc,
+>>>  	root_domain = irq_domain_add_linear(intc, nr_irq, &xintc_irq_domain_ops,
+>>>  					    irqc);
+>>>
+>>> +	if (parent) {
+>>> +		irq = irq_of_parse_and_map(intc, 0);
+>>> +		if (irq)
+>>> +			irq_set_chained_handler_and_data(irq,
+>>> +							 xil_intc_irq_handler,
+>>> +							 root_domain);
+>>> +
+>>> +	}
+>>> +
+>>>  	irq_set_default_host(root_domain);
+>>>
+>>>  	return 0;
+>>>
 >>
->> With 'top' I can see ksoftirq are still getting a higher %CPU time:
+>> This doesn't seem right. You've now overridden the xintc_irqc pointer,
+>> so I don't know how you can still process interrupts once you've
+>> discovered a secondary interrupt controller. You've also allocated a
+>> second root_domain, changed the default domain to point to the secondary
+>> controller...
 >>
->>     PID   %CPU     TIME+  COMMAND
->>      3   36.5   2:28.98  ksoftirqd/0
->>  10724    9.6   0:01.05  netserver
->>  10722    9.3   0:01.05  netserver
->>  10723    9.3   0:01.05  netserver
->>  10725    9.3   0:01.05  netserver
+>> Have you tested this code? Or am I missing something obvious?
 > 
-> Looks much better on my machine, with "udprcv -n 4" (using 4 threads,
-> and 4 sockets using SO_REUSEPORT)
+> Yes it works. I'll try to explain the platform setup a bit.
+> Perhaps that will make it clear about what I'm trying to do.
+> 
+> UART IRQ -> AXI INTC -> MIPS internal INTC -> CPU
+> 
+> MIPS Internal Interrupt controller in drivers/irqchip/irq-mips-cpu.c
+> uses irq_domain_add_legacy while AXI Intc uses irq_domain_add_linear
+> 
+> My aim was to set up a chained irq handler with least disturbance.
+> 
+> Hence the above code.
+> 
+> Your concerns are valid. The code is working because read/writes rely
+> on the static xintc_irqc in the file.
+> And the second root domain is also not breaking the platform because
+> the irq-mips-cpu.c uses irq_domain_add_legacy and doesn't use
+> irq_set_default_host.
+> 
+> # cat /proc/interrupts
+>             CPU0
+>    7:      43493      MIPS   7  timer
+>    8:         83  Xilinx INTC   1-level     eth0
+>    9:        417  Xilinx INTC   0-level     serial
+>   10:         15  Xilinx INTC   4-level     10a00000.i2c
+> ERR:          0
+> #
+> 
+> Given the above concerns. How about doing things this way?
+> 
+> 	if (parent) {
+> 		irq = irq_of_parse_and_map(intc, 0);
+> 		if (irq)
+> 			irq_set_chained_handler_and_data(irq,
+> 							 xil_intc_irq_handler,
+> 							 irqc);
+> 
+> 	} else
+> 		irq_set_default_host(root_domain);
+> 
+> default host is only set if no parent exists.
+> And the irqc pointer is passed as the data.
 
-Would it make sense to include used socket backlog in udp socket lookup
-compute_score calculation? Just want to throw out the idea, I actually
-could imagine to also cause bad side effects.
+But that still doesn't address the case I had in mind, which is when you
+have *two* AXI-intc, one cascaded into the other. Is that something that
+could be built? You should at least make sure that there is a big fat
+warning if you don't want to support that case, because that will be
+hell to debug.
+
+Thanks,
+
+	M.
+-- 
+Jazz is not dead. It just smells funny...
