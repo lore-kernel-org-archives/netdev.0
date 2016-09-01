@@ -1,69 +1,64 @@
-From: Anna Schumaker <Anna.Schumaker@netapp.com>
-Subject: Re: [PATCH] sunrpc: queue work on system_power_efficient_wq
-Date: Thu, 1 Sep 2016 14:46:35 -0400
-Message-ID: <544e309c-9893-a0ed-ab8a-ccbf5d342dc6@Netapp.com>
-References: <1472715026-11397-1-git-send-email-zhang.lyra@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: Reduce size of rps_sock_flow_sysctl
+Date: Thu, 01 Sep 2016 14:13:17 -0700
+Message-ID: <1472764397.5439.1.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20160901203658.GA4828@fedora-21-dvm>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <linux-nfs@vger.kernel.org>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <ke.wang@spreadtrum.com>
-To: Chunyan Zhang <zhang.lyra@gmail.com>,
-        <trond.myklebust@primarydata.com>, <anna.schumaker@netapp.com>,
-        <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1472715026-11397-1-git-send-email-zhang.lyra@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+        =?ISO-8859-1?Q?H=E5kon?= Bugge <haakon.bugge@oracle.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Hans Westgaard Ry <hans.westgaard.ry@oracle.com>,
+        "open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>
+To: Johanna Abrahamsson <johanna@mjao.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:35285 "EHLO
+        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753926AbcIAVNU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 17:13:20 -0400
+Received: by mail-pa0-f66.google.com with SMTP id cf3so4650119pad.2
+        for <netdev@vger.kernel.org>; Thu, 01 Sep 2016 14:13:20 -0700 (PDT)
+In-Reply-To: <20160901203658.GA4828@fedora-21-dvm>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/01/2016 03:30 AM, Chunyan Zhang wrote:
-> From: Ke Wang <ke.wang@spreadtrum.com>
+On Thu, 2016-09-01 at 22:37 +0200, Johanna Abrahamsson wrote:
+> Reduce size of rps_sock_flow_sysctl to improve readability.
 > 
-> sunrpc uses workqueue to clean cache regulary. There is no real dependency
-> of executing work on the cpu which queueing it.
-> 
-> On a idle system, especially for a heterogeneous systems like big.LITTLE,
-> it is observed that the big idle cpu was woke up many times just to service
-> this work, which against the principle of power saving. It would be better
-> if we can schedule it on a cpu which the scheduler believes to be the most
-> appropriate one.
-> 
-> After apply this patch, system_wq will be replaced by
-> system_power_efficient_wq for sunrpc. This functionality is enabled when
-> CONFIG_WQ_POWER_EFFICIENT is selected.
-
-Makes sense to me, but I'm a little surprised that there isn't a "schedule_delayed_power_efficient_work()" function to match how the normal workqueue is used.
-
-Thanks,
-Anna
-
-> 
-> Signed-off-by: Ke Wang <ke.wang@spreadtrum.com>
+> Signed-off-by: Johanna Abrahamsson <johanna@mjao.org>
 > ---
->  net/sunrpc/cache.c | 5 +++--
->  1 file changed, 3 insertions(+), 2 deletions(-)
+>  net/core/sysctl_net_core.c | 44 ++++++++++++++++++++++----------------------
+>  1 file changed, 22 insertions(+), 22 deletions(-)
 > 
-> diff --git a/net/sunrpc/cache.c b/net/sunrpc/cache.c
-> index 4d8e11f..8aabe12 100644
-> --- a/net/sunrpc/cache.c
-> +++ b/net/sunrpc/cache.c
-> @@ -353,7 +353,7 @@ void sunrpc_init_cache_detail(struct cache_detail *cd)
->  	spin_unlock(&cache_list_lock);
+> diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
+> index 0df2aa6..d0be2ce 100644
+> --- a/net/core/sysctl_net_core.c
+> +++ b/net/core/sysctl_net_core.c
+> @@ -53,29 +53,29 @@ static int rps_sock_flow_sysctl(struct ctl_table *table, int write,
+>  	ret = proc_dointvec(&tmp, write, buffer, lenp, ppos);
 >  
->  	/* start the cleaning process */
-> -	schedule_delayed_work(&cache_cleaner, 0);
-> +	queue_delayed_work(system_power_efficient_wq, &cache_cleaner, 0);
->  }
->  EXPORT_SYMBOL_GPL(sunrpc_init_cache_detail);
->  
-> @@ -476,7 +476,8 @@ static void do_cache_clean(struct work_struct *work)
->  		delay = 0;
->  
->  	if (delay)
-> -		schedule_delayed_work(&cache_cleaner, delay);
-> +		queue_delayed_work(system_power_efficient_wq,
-> +				   &cache_cleaner, delay);
->  }
->  
->  
-> 
+>  	if (write) {
+> -		if (size) {
+> -			if (size > 1<<29) {
+> -				/* Enforce limit to prevent overflow */
+> -				mutex_unlock(&sock_flow_mutex);
+> -				return -EINVAL;
+> +		if (!size)
+> +			goto exit_unlock;
+
+Hi Johanna
+
+Unfortunately this would break the following action :
+
+lpaa24:~# cat /proc/sys/net/core/rps_sock_flow_entries 
+65536
+lpaa24:~# echo 0 >/proc/sys/net/core/rps_sock_flow_entries
+lpaa24:~# cat /proc/sys/net/core/rps_sock_flow_entries 
+0
+
+If you resubmit a V2, please include a 'Tested:' section showing how
+you have tested your (first linux ?) patch ;)
+
+Thanks !
