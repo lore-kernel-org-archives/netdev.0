@@ -1,7 +1,7 @@
 From: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
-Subject: [Patch v4 04/12] irqchip: axi-intc: Add support for parent intc
-Date: Thu, 1 Sep 2016 17:50:57 +0100
-Message-ID: <1472748665-47774-5-git-send-email-Zubair.Kakakhel@imgtec.com>
+Subject: [Patch v4 05/12] MIPS: xilfpga: Use irqchip_init instead of the legacy way
+Date: Thu, 1 Sep 2016 17:50:58 +0100
+Message-ID: <1472748665-47774-6-git-send-email-Zubair.Kakakhel@imgtec.com>
 References: <1472748665-47774-1-git-send-email-Zubair.Kakakhel@imgtec.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -23,83 +23,44 @@ List-post: <mailto:linux-mips@linux-mips.org>
 List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
-The MIPS based xilfpga platform has the following IRQ structure
-
-Peripherals --> xilinx_intcontroller -> mips_cpu_int controller
-
-Add support for the driver to chain the irq handler
+This prepares the code use the Xilinx AXI Interrupt Controller
+driver now available in drivers/irqchip/irq-axi-intc.c
 
 Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
-
 ---
 V3 -> V4
-Clean up if/else when a parent is found
-Pass irqchip structure to handler as data
+Corrected commit message. Was irq-xilinx.c. Now irq-axi-intc.c
 
 V2 -> V3
-Reused existing parent node instead of finding again.
-Cleanup up handler based on review
+No change
 
 V1 -> V2
-
 No change
 ---
- drivers/irqchip/irq-axi-intc.c | 25 +++++++++++++++++++++++--
- 1 file changed, 23 insertions(+), 2 deletions(-)
+ arch/mips/xilfpga/intc.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/irqchip/irq-axi-intc.c b/drivers/irqchip/irq-axi-intc.c
-index ac31548..683b1f7 100644
---- a/drivers/irqchip/irq-axi-intc.c
-+++ b/drivers/irqchip/irq-axi-intc.c
-@@ -15,6 +15,7 @@
- #include <linux/of_address.h>
- #include <linux/io.h>
- #include <linux/bug.h>
-+#include <linux/of_irq.h>
+diff --git a/arch/mips/xilfpga/intc.c b/arch/mips/xilfpga/intc.c
+index c4d1a71..a127cca 100644
+--- a/arch/mips/xilfpga/intc.c
++++ b/arch/mips/xilfpga/intc.c
+@@ -11,15 +11,12 @@
  
- /* No one else should require these constants, so define them locally here. */
- #define ISR 0x00			/* Interrupt Status Register */
-@@ -154,11 +155,23 @@ static const struct irq_domain_ops xintc_irq_domain_ops = {
- 	.map = xintc_map,
- };
+ #include <linux/of.h>
+ #include <linux/of_irq.h>
++#include <linux/irqchip.h>
  
-+static void xil_intc_irq_handler(struct irq_desc *desc)
-+{
-+	u32 pending;
-+
-+	do {
-+		pending = xintc_get_irq();
-+		if (pending == -1U)
-+			break;
-+		generic_handle_irq(pending);
-+	} while (true);
-+}
-+
- static int __init xilinx_intc_of_init(struct device_node *intc,
- 					     struct device_node *parent)
+ #include <asm/irq_cpu.h>
+ 
+-static struct of_device_id of_irq_ids[] __initdata = {
+-	{ .compatible = "mti,cpu-interrupt-controller", .data = mips_cpu_irq_of_init },
+-	{},
+-};
+ 
+ void __init arch_init_irq(void)
  {
- 	u32 nr_irq;
--	int ret;
-+	int ret, irq;
- 	struct xintc_irq_chip *irqc;
- 
- 	irqc = kzalloc(sizeof(*irqc), GFP_KERNEL);
-@@ -217,7 +230,15 @@ static int __init xilinx_intc_of_init(struct device_node *intc,
- 	root_domain = irq_domain_add_linear(intc, nr_irq, &xintc_irq_domain_ops,
- 					    irqc);
- 
--	irq_set_default_host(root_domain);
-+	if (parent) {
-+		irq = irq_of_parse_and_map(intc, 0);
-+		if (irq)
-+			irq_set_chained_handler_and_data(irq,
-+							 xil_intc_irq_handler,
-+							 irqc);
-+
-+	} else
-+		irq_set_default_host(root_domain);
- 
- 	return 0;
- 
+-	of_irq_init(of_irq_ids);
++	irqchip_init();
+ }
 -- 
 1.9.1
