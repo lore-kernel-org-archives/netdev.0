@@ -1,68 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next V4 4/4] net/sched: Introduce act_tunnel_key
-Date: Thu, 01 Sep 2016 06:16:26 -0700
-Message-ID: <1472735786.5019.26.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1472647584-6713-1-git-send-email-hadarh@mellanox.com>
-         <1472647584-6713-5-git-send-email-hadarh@mellanox.com>
-         <CANn89i+ZnnJrLeSXadgDxWWT6q1Y+gPVoK8EJ417AzNfFKLQ+A@mail.gmail.com>
-         <CAJL1qvE7Tpv0vmg6yRz7+Xh2T3rpqUvHshazK-N_6w2P-iv1hw@mail.gmail.com>
+From: David Lebrun <david.lebrun@uclouvain.be>
+Subject: Re: [RFC 2/9] ipv6: sr: add code base for control plane support of
+ SR-IPv6
+Date: Thu, 1 Sep 2016 15:21:07 +0200
+Message-ID: <57C82B43.80100@uclouvain.be>
+References: <1472226767-9904-1-git-send-email-david.lebrun@uclouvain.be> <1472226767-9904-3-git-send-email-david.lebrun@uclouvain.be> <57C4554F.9000905@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@mellanox.com>,
-        Jiri Benc <jbenc@redhat.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Amir Vadai <amirva@mellanox.com>, Amir Vadai <amir@vadai.me>
-To: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature";
+        boundary="eb3h632QoQ43b2AQ634sOpQV3UJw0wxXO"
+Cc: <netdev@vger.kernel.org>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:34437 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752127AbcIANQ2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 09:16:28 -0400
-Received: by mail-pf0-f193.google.com with SMTP id g202so4407775pfb.1
-        for <netdev@vger.kernel.org>; Thu, 01 Sep 2016 06:16:28 -0700 (PDT)
-In-Reply-To: <CAJL1qvE7Tpv0vmg6yRz7+Xh2T3rpqUvHshazK-N_6w2P-iv1hw@mail.gmail.com>
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:57456 "EHLO
+        smtp1.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753595AbcIANUe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 09:20:34 -0400
+In-Reply-To: <57C4554F.9000905@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-09-01 at 12:28 +0300, Hadar Hen Zion wrote:
+--eb3h632QoQ43b2AQ634sOpQV3UJw0wxXO
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: quoted-printable
 
-> 
-> As you suggested above, I can do it by adding "int action" to struct
-> tcf_tunnel_key_paramse.
-> But, it means that act_tunnel_key would have a different behavior than
-> all the other actions and even though
-> "struct tc_action" has a designated parameters to store this action we
-> won't use it.
-> So it won't be completely clean...
-> 
-> Do you think we have a cleaner way to protect it?
+On 08/29/2016 05:31 PM, Roopa Prabhu wrote:
+> This looks fine. But, i am just trying to see if this can be rtnetlink.=
 
-Fact that the act_ modules had a spinlock made them all share the same
-structure.
+> Have you considered it already ?.
+> We would like to keep the API consistent or abstracted to accommodate S=
+R-MPLS in the
+> future too. so, any abstraction there will help.
+>=20
+> what is your control-plane software using this ?
+> quagga or any-other routing daemon ?
+>=20
+> Thanks,
+> Roopa
+>=20
 
-Now we want RCU protection, here is the thing.
+rtnetlink is used for the routing part through the lwtunnels. In this
+specific patch, the API is intended to configure namespace-wide
+parameters such as a map of hmackeyid -> hashfn,secret, without
+connection to particular routes. I agree that the tunsrc parameter could
+be provided through rtnetlink, but the hmac data cannot (which by the
+way does not exist for SR-MPLS).
 
-Say you want to access 3 different fields, A, B and C.
+The "control plane software" that currently uses that is simply a
+patched version of iproute2 with SR support (which I will submit when
+this patch series is hopefully merged). (e.g. ip sr set hmac blahblah)
 
-If you put A and B in the rcu protected pointer, but leave C in the
-'control part, protected by spinlock' 
+More advanced control plane softwares are currently under development
+and will be presented in upcoming academic publications.
 
-Then your fast path wont be able to have a consistent view of 3
-variables A, B C.
+David
 
-It might read an old value of A & B, and the recently updated C,
 
-Or it might read an old C, and the updated values of A & B
+--eb3h632QoQ43b2AQ634sOpQV3UJw0wxXO
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-As Cong very kindly pointed to us/me, if we want to be 'clean', we want
-to make sure we read a consistent 3-tuple.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-I will send updates when I have time to act_mirred.c 
+iEYEARECAAYFAlfIK0MACgkQjbzn67sZ6AN+rwCfWPvx+UhqUA/8CrBT1LrOplMg
+I3sAnArrAkkbdUDNIptntxEssLP81H6T
+=aCOt
+-----END PGP SIGNATURE-----
+
+--eb3h632QoQ43b2AQ634sOpQV3UJw0wxXO--
