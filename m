@@ -1,86 +1,78 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH v2 net-next 4/6] perf, bpf: add perf events core support
- for BPF_PROG_TYPE_PERF_EVENT programs
-Date: Thu, 1 Sep 2016 18:37:22 +0200
-Message-ID: <20160901163722.GY10153@twins.programming.kicks-ass.net>
-References: <1472680243-1326608-1-git-send-email-ast@fb.com>
- <1472680243-1326608-5-git-send-email-ast@fb.com>
- <20160901081251.GL10153@twins.programming.kicks-ass.net>
- <20160901155349.GA88787@ast-mbp.thefacebook.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 5/5] net: asix: autoneg will set WRITE_MEDIUM reg
+Date: Thu, 01 Sep 2016 09:43:36 -0700
+Message-ID: <1472748216.5019.46.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <cover.c702ef6af13be7c1282a2f2d3189281fdc327abe.1472155176.git-series.robert.foss@collabora.com>
+         <9d5c5525f369f1c4098bda989d73886d11036bae.1472155176.git-series.robert.foss@collabora.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <ast@fb.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Brendan Gregg <bgregg@netflix.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Arnaldo Carvalho de Melo <acme@infradead.org>,
-        Wang Nan <wangnan0@huawei.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel-team@fb.com
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:52282 "EHLO
-        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752547AbcIAQhb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 12:37:31 -0400
-Content-Disposition: inline
-In-Reply-To: <20160901155349.GA88787@ast-mbp.thefacebook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: freddy@asix.com.tw, Dean_Jenkins@mentor.com,
+        Mark_Craske@mentor.com, davem@davemloft.net, ivecera@redhat.com,
+        john.stultz@linaro.org, vpalatin@chromium.org,
+        stephen@networkplumber.org, grundler@chromium.org,
+        changchias@gmail.com, allan@asix.com.tw, andrew@lunn.ch,
+        tremyfr@gmail.com, colin.king@canonical.com,
+        linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, vpalatin@google.com,
+        Grant Grundler <grundler@google.com>
+To: robert.foss@collabora.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <9d5c5525f369f1c4098bda989d73886d11036bae.1472155176.git-series.robert.foss@collabora.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 01, 2016 at 08:53:51AM -0700, Alexei Starovoitov wrote:
-> On Thu, Sep 01, 2016 at 10:12:51AM +0200, Peter Zijlstra wrote:
-
-> > Please, no leading space before labels. Use something like:
+On Mon, 2016-08-29 at 09:32 -0400, robert.foss@collabora.com wrote:
+> From: Robert Foss <robert.foss@collabora.com>
 > 
-> good catch.
-> sadly checkpatch didn't complain.
-
-Right, a lot of people do it on purpose to avoid diff seeing the label
-as the function for --show-c-function. I just find the style annoying
-and 'fixed' diff.
-
-Now, if the option would've been called --show-function (without the
-explicit reference to C) one could argue that seeing this form is useful
-for .S files but... ;-)
-
-> > [diff "default"]
-> >         xfuncname = "^[[:alpha:]$_].*[^:]$"
-> > 
-> > In your .gitconfig if you want to keep diff output 'sane'.
+> From: Grant Grundler <grundler@chromium.org>
 > 
-> interesting trick. don't remember being bitten by it.
-> This extra space was a typo.
+> The miii_nway_restart() causes a PHY link change activity and
+> ax88772_link_reset will be called. link_reset will set
+> AX_CMD_WRITE_MEDIUM_MODE register correctly.
+> 
+> The asix_write_medium_mode in reset() fills in a default value to the register
+> which may be different from the negotiation result. So do this first.
+> 
+> Ignore the ret value since it's ignored in XXX_link_reset() functions.
+> 
+> Signed-off-by: Grant Grundler <grundler@google.com>
+> Signed-off-by: Robert Foss <robert.foss@collabora.com>
+> Tested-by: Robert Foss <robert.foss@collabora.com>
+> ---
 
-Example below, see the difference in the @@ line. I find the first
-(fixed) to be much more useful.
+This is _really_ confusing Robert.
 
-With:
+Why having two 'From:' clauses ?
 
-diff --git a/kernel/events/core.c b/kernel/events/core.c
-index 8b3ad4e26548..cc2af0188924 100644
---- a/kernel/events/core.c
-+++ b/kernel/events/core.c
-@@ -6238,6 +6238,7 @@ static void perf_pmu_output_stop(struct perf_event *event)
- 			goto restart;
- 		}
- 	}
-+	/* ponies */
- 	rcu_read_unlock();
- }
- 
+Who wrote the patch in the first place ? You or Grant ?
 
 
-Without:
 
-diff --git a/kernel/events/core.c b/kernel/events/core.c
-index 8b3ad4e26548..cc2af0188924 100644
---- a/kernel/events/core.c
-+++ b/kernel/events/core.c
-@@ -6238,6 +6238,7 @@ restart:
- 			goto restart;
- 		}
- 	}
-+	/* ponies */
- 	rcu_read_unlock();
- }
- 
+End result is :
+
+commit 535baf8588d04b177cb33700f81499f2b5203c2d
+Author: Robert Foss <robert.foss@collabora.com>
+Date:   Mon Aug 29 09:32:19 2016 -0400
+
+    net: asix: autoneg will set WRITE_MEDIUM reg
+    
+    From: Grant Grundler <grundler@chromium.org>
+    
+    The miii_nway_restart() causes a PHY link change activity and
+    ax88772_link_reset will be called. link_reset will set
+    AX_CMD_WRITE_MEDIUM_MODE register correctly.
+    
+    The asix_write_medium_mode in reset() fills in a default value to the register
+    which may be different from the negotiation result. So do this first.
+    
+    Ignore the ret value since it's ignored in XXX_link_reset() functions.
+    
+    Signed-off-by: Grant Grundler <grundler@google.com>
+    Signed-off-by: Robert Foss <robert.foss@collabora.com>
+    Tested-by: Robert Foss <robert.foss@collabora.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+
+
+I guess Grant wrote the patch, but attribution is wrong.
