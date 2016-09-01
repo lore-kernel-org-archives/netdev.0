@@ -1,74 +1,50 @@
-From: Jeremy Linton <jeremy.linton@arm.com>
-Subject: Re: [PATCH 1/2] net: smsc911x: Fix register_netdev, phy startup,
- driver unload ordering
-Date: Thu, 1 Sep 2016 13:42:59 -0500
-Message-ID: <a33771de-a591-d65e-90e8-33860100e40a@arm.com>
-References: <1472747141-15886-1-git-send-email-jeremy.linton@arm.com>
- <1472747141-15886-2-git-send-email-jeremy.linton@arm.com>
- <20160901165806.GC10951@lunn.ch>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH] e1000: add initial XDP support
+Date: Thu, 1 Sep 2016 12:33:13 -0700
+Message-ID: <57C88279.4030701@gmail.com>
+References: <20160827071145.25345.84712.stgit@john-Precision-Tower-5810>
+ <b6cfb3c5-9c68-3ea7-48dd-7fbf666db751@mojatatu.com>
+ <20160829103047.3968a4d8@redhat.com>
+ <61de1b91-30b4-67ba-4192-834fa30757ea@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, steve.glendinning@shawell.net,
-        sergei.shtylyov@cogentembedded.com
-To: Andrew Lunn <andrew@lunn.ch>
+Cc: bblanco@plumgrid.com, davem@davemloft.net,
+        alexei.starovoitov@gmail.com, john.r.fastabend@intel.com,
+        netdev@vger.kernel.org, xiyou.wangcong@gmail.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:38634 "EHLO foss.arm.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1757050AbcIAVIw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 1 Sep 2016 17:08:52 -0400
-In-Reply-To: <20160901165806.GC10951@lunn.ch>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:36821 "EHLO
+        mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757297AbcIAVTa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 17:19:30 -0400
+Received: by mail-pa0-f43.google.com with SMTP id fu3so25552698pad.3
+        for <netdev@vger.kernel.org>; Thu, 01 Sep 2016 14:19:29 -0700 (PDT)
+In-Reply-To: <61de1b91-30b4-67ba-4192-834fa30757ea@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/01/2016 11:58 AM, Andrew Lunn wrote:
->> @@ -1520,17 +1513,22 @@ static int smsc911x_open(struct net_device *dev)
->>  	unsigned int timeout;
->>  	unsigned int temp;
->>  	unsigned int intcfg;
->> +	int retval;
->>
->> -	/* if the phy is not yet registered, retry later*/
->> +	/* find and start the given phy */
->>  	if (!dev->phydev) {
->> -		SMSC_WARN(pdata, hw, "phy_dev is NULL");
->> -		return -EAGAIN;
->> +		if (smsc911x_mii_probe(dev) < 0) {
->> +			SMSC_WARN(pdata, probe, "Error starting phy");
->> +			retval = -EAGAIN;
->
-> smsc911x_mii_probe() returns an error code. It is better to use that,
-> than -EAGAIN, which is rather odd to start with.
+[...]
 
-	Thats a good point, I was just maintaining the existing behavior, but 
-its definitely better to just return the actual error.
+> I think given how ancient the e1000 is we may see the driver being
+> a contributing overhead. I believe XDP given location will do
+> well - but for this kind of driver my gut feeling is probably not
+> by large margin.
+> 
 
->
->> +			goto out;
->> +		}
->>  	}
->>
->>  	/* Reset the LAN911x */
->>  	if (smsc911x_soft_reset(pdata)) {
->>  		SMSC_WARN(pdata, hw, "soft reset failed");
->> -		return -EIO;
->> +		retval = -EIO;
->> +		goto mii_free_out;
->
-> smsc911x_soft_reset() also returns an error code you should use.
->
-> This patch also seems to do quite a few different things. Please can
-> you break it up into multiple patches.
-	
+Right so just ran the baseline, xdp, tc spread and its all more or
+less in the noise where you drop the packets doesn't matter much. At
+least in my setup where I'm running e1000 in a VM backed by a tap
+device. I don't have a physical e1000 in my system at the moment to
+test.
 
-	That was the comment from the previous patch, but It confused me 
-because it was only really moving the MDIO startup, the rest was a side 
-effect of that and atomic to it (AKA it wasn't clear how to make it 
-smaller). I read it as Steve misinterpreting the laundry list of fixes 
-as things being individually fixed, rather than one thing fixing a bunch 
-of stuff.
+I still think this code is valuable though because it lets me run
+the same XDP program in a e1000 VM that I'm running on my 10/40Gbps
+NIC. Also it gives me a nice test platform to work on.
 
-This patch does add additional code I overlooked to cleanup the phy if 
-it fails, I guess in theory that portion could be a prereq patch, I will 
-break that portion out. I'm still not sure how to partially move the 
-MDIO startup...
+I'm going to resubmit the patch with a couple of the fixes pointed out
+by others.
+
+Thanks,
+John
