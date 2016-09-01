@@ -1,162 +1,78 @@
-From: Jeremy Linton <jeremy.linton@arm.com>
-Subject: [PATCH 2/4] net: smsc911x: Fix register_netdev, phy startup, driver unload ordering
-Date: Thu,  1 Sep 2016 15:15:07 -0500
-Message-ID: <1472760909-19688-3-git-send-email-jeremy.linton@arm.com>
-References: <1472760909-19688-1-git-send-email-jeremy.linton@arm.com>
-Cc: steve.glendinning@shawell.net, sergei.shtylyov@cogentembedded.com,
-        andrew@lunn.ch, will.deacon@arm.com
-To: netdev@vger.kernel.org
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH] e1000: add initial XDP support
+Date: Thu, 1 Sep 2016 14:35:20 -0700
+Message-ID: <57C89F18.5030807@gmail.com>
+References: <20160827071145.25345.84712.stgit@john-Precision-Tower-5810>
+ <b6cfb3c5-9c68-3ea7-48dd-7fbf666db751@mojatatu.com>
+ <20160829103047.3968a4d8@redhat.com>
+ <61de1b91-30b4-67ba-4192-834fa30757ea@mojatatu.com>
+ <20160829153905.50066865@redhat.com> <20160829175509.7ed19b89@redhat.com>
+ <09886285-aeae-625d-9d0e-bec1c1944efe@mojatatu.com>
+ <20160830153155.702868f5@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: bblanco@plumgrid.com, davem@davemloft.net,
+        alexei.starovoitov@gmail.com, john.r.fastabend@intel.com,
+        netdev@vger.kernel.org, xiyou.wangcong@gmail.com
+To: Jesper Dangaard Brouer <brouer@redhat.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:39378 "EHLO foss.arm.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933991AbcIAVd6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 1 Sep 2016 17:33:58 -0400
-In-Reply-To: <1472760909-19688-1-git-send-email-jeremy.linton@arm.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:35457 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754499AbcIAVfh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 17:35:37 -0400
+Received: by mail-pf0-f196.google.com with SMTP id h186so4863730pfg.2
+        for <netdev@vger.kernel.org>; Thu, 01 Sep 2016 14:35:36 -0700 (PDT)
+In-Reply-To: <20160830153155.702868f5@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move phy startup/shutdown into the smsc911x_open/stop routines. This
-allows the module to be unloaded because phy_connect_direct is no longer
-always holding the module use count. This one change also resolves a
-number of other problems.
+On 16-08-30 06:31 AM, Jesper Dangaard Brouer wrote:
+> On Tue, 30 Aug 2016 08:13:15 -0400 Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> 
+>> On 16-08-29 11:55 AM, Jesper Dangaard Brouer wrote:
+>>> tc filter add dev mlx5p2 parent ffff: prio 4 protocol ip u32 match ip protocol 17 0xff match udp dst 9 0xffff flowid 1:1 action  
+>>
+>> Syntax is a little more convoluted  than that ;->. Try:
+>>
+>> sudo tc filter add dev eth0 parent ffff: prio 4 protocol ip u32 \
+>> match ip protocol 17 0xff \
+>> match ip dport 1900 0xffff \
+>> flowid 1:1 \
+>> action drop
+> 
+> I think I figured out why, match "udp dst" does not work.  It seems to
+> depend on "nexthdr+0" which is an implicit variable, that for unknown
+> reasons are not set in my original rule (above).
+> 
+> Before you suggestion I managed to match the udp port by manually
+> defining the offset, assuming an IP-header is 20 bytes (no-options),
+> like:
+> 
+> tc filter add dev $device parent ffff: prio 4 protocol ip \
+> 	u32 \
+> 	match ip protocol 17 0xff \
+> 	match udp dst $udp_port 0xffff at 21\
+> 	flowid 1:1 \
+> 	action drop
+> 
+> You solution with "ip dport" also works, but man[1] tc-u32(8) also have
+> a warning about "ip dport" size assumptions...
+> 
+> Updated my script to use "u32 match ip port":
+>  https://github.com/netoptimizer/network-testing/commit/6449f6beb4d2
+> 
 
-The link status of a downed interface no longer reflects a stale state.
-Errors caused by the net device being opened before the mdio/phy was
-configured. There is also a potential power savings as the phy's don't
-remain powered when the interface isn't running.
+FWIW the 'udp dst' notation is quit fragile in that it only reads an
+offset into the packet where a udp dst port might be. More robust
+solutions require the use of links.
 
-Signed-off-by: Jeremy Linton <jeremy.linton@arm.com>
----
- drivers/net/ethernet/smsc/smsc911x.c | 48 ++++++++++++++++++------------------
- 1 file changed, 24 insertions(+), 24 deletions(-)
+I have a wrapper tool around the 'link' creation part of u32 that we
+can probably show off at netconf. :)
 
-diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-index c9b0e05..823ad3f 100644
---- a/drivers/net/ethernet/smsc/smsc911x.c
-+++ b/drivers/net/ethernet/smsc/smsc911x.c
-@@ -1099,15 +1099,8 @@ static int smsc911x_mii_init(struct platform_device *pdev,
- 		goto err_out_free_bus_2;
- 	}
- 
--	if (smsc911x_mii_probe(dev) < 0) {
--		SMSC_WARN(pdata, probe, "Error registering mii bus");
--		goto err_out_unregister_bus_3;
--	}
--
- 	return 0;
- 
--err_out_unregister_bus_3:
--	mdiobus_unregister(pdata->mii_bus);
- err_out_free_bus_2:
- 	mdiobus_free(pdata->mii_bus);
- err_out_1:
-@@ -1522,18 +1515,20 @@ static int smsc911x_open(struct net_device *dev)
- 	unsigned int intcfg;
- 	int retval;
- 
--	/* if the phy is not yet registered, retry later*/
-+	/* find and start the given phy */
- 	if (!dev->phydev) {
--		SMSC_WARN(pdata, hw, "phy_dev is NULL");
--		retval = -EAGAIN;
--		goto out;
-+		retval = smsc911x_mii_probe(dev);
-+		if (retval < 0) {
-+			SMSC_WARN(pdata, probe, "Error starting phy");
-+			goto out;
-+		}
- 	}
- 
- 	/* Reset the LAN911x */
- 	retval = smsc911x_soft_reset(pdata);
- 	if (retval) {
- 		SMSC_WARN(pdata, hw, "soft reset failed");
--		goto out;
-+		goto mii_free_out;
- 	}
- 
- 	smsc911x_reg_write(pdata, HW_CFG, 0x00050000);
-@@ -1604,7 +1599,7 @@ static int smsc911x_open(struct net_device *dev)
- 		netdev_warn(dev, "ISR failed signaling test (IRQ %d)\n",
- 			    dev->irq);
- 		retval = -ENODEV;
--		goto out;
-+		goto mii_free_out;
- 	}
- 	SMSC_TRACE(pdata, ifup, "IRQ handler passed test using IRQ %d",
- 		   dev->irq);
-@@ -1650,6 +1645,10 @@ static int smsc911x_open(struct net_device *dev)
- 
- 	netif_start_queue(dev);
- 	return 0;
-+
-+mii_free_out:
-+	phy_disconnect(dev->phydev);
-+	dev->phydev = NULL;
- out:
- 	return retval;
- }
-@@ -1674,8 +1673,12 @@ static int smsc911x_stop(struct net_device *dev)
- 	smsc911x_tx_update_txcounters(dev);
- 
- 	/* Bring the PHY down */
--	if (dev->phydev)
-+	if (dev->phydev) {
- 		phy_stop(dev->phydev);
-+		phy_disconnect(dev->phydev);
-+		dev->phydev = NULL;
-+	}
-+	netif_carrier_off(dev);
- 
- 	SMSC_TRACE(pdata, ifdown, "Interface stopped");
- 	return 0;
-@@ -2297,11 +2300,10 @@ static int smsc911x_drv_remove(struct platform_device *pdev)
- 	pdata = netdev_priv(dev);
- 	BUG_ON(!pdata);
- 	BUG_ON(!pdata->ioaddr);
--	BUG_ON(!dev->phydev);
-+	WARN_ON(dev->phydev);
- 
- 	SMSC_TRACE(pdata, ifdown, "Stopping driver");
- 
--	phy_disconnect(dev->phydev);
- 	mdiobus_unregister(pdata->mii_bus);
- 	mdiobus_free(pdata->mii_bus);
- 
-@@ -2500,6 +2502,12 @@ static int smsc911x_drv_probe(struct platform_device *pdev)
- 
- 	netif_carrier_off(dev);
- 
-+	retval = smsc911x_mii_init(pdev, dev);
-+	if (retval) {
-+		SMSC_WARN(pdata, probe, "Error %i initialising mii", retval);
-+		goto out_free_irq;
-+	}
-+
- 	retval = register_netdev(dev);
- 	if (retval) {
- 		SMSC_WARN(pdata, probe, "Error %i registering device", retval);
-@@ -2509,12 +2517,6 @@ static int smsc911x_drv_probe(struct platform_device *pdev)
- 			   "Network interface: \"%s\"", dev->name);
- 	}
- 
--	retval = smsc911x_mii_init(pdev, dev);
--	if (retval) {
--		SMSC_WARN(pdata, probe, "Error %i initialising mii", retval);
--		goto out_unregister_netdev_5;
--	}
--
- 	spin_lock_irq(&pdata->mac_lock);
- 
- 	/* Check if mac address has been specified when bringing interface up */
-@@ -2550,8 +2552,6 @@ static int smsc911x_drv_probe(struct platform_device *pdev)
- 
- 	return 0;
- 
--out_unregister_netdev_5:
--	unregister_netdev(dev);
- out_free_irq:
- 	free_irq(dev->irq, dev);
- out_disable_resources:
--- 
-2.5.5
+
+>> Note, this will be more cycles than drop all.
+> 
+> Yes, that is the point ;-) XDP also does header parsing...
+> 
