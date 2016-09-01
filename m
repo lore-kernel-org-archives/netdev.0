@@ -1,97 +1,267 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH] [v9] net: emac: emac gigabit ethernet controller driver
-Date: Thu, 1 Sep 2016 17:49:13 -0500
-Message-ID: <CAL_Jsq+75RJOCFUrUV43457kQ4o5oRjRhLLT2yGzTFfYhSESfg@mail.gmail.com>
-References: <1472161143-26417-1-git-send-email-timur@codeaurora.org>
- <20160831150043.GA575@rob-hp-laptop> <57C6F395.1030904@codeaurora.org>
- <CAL_Jsq+BtwBtB7Vd8HB+vhucfUmn_0bxRRXmyO13GoCM82LgFg@mail.gmail.com> <57C74562.3050203@codeaurora.org>
+From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next V5 8/8] liquidio:CN23XX pause frame support
+Date: Thu, 1 Sep 2016 11:16:11 -0700
+Message-ID: <1472753771-21141-9-git-send-email-rvatsavayi@caviumnetworks.com>
+References: <1472753771-21141-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-        linux-arm-msm <linux-arm-msm@vger.kernel.org>,
-        Sagar Dharia <sdharia@codeaurora.org>,
-        Shanker Donthineni <shankerd@codeaurora.org>,
-        Vikram Sethi <vikrams@codeaurora.org>,
-        Christopher Covington <cov@codeaurora.org>,
-        Gilad Avidov <gavidov@codeaurora.org>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Bjorn Andersson <bjorn.andersson@linaro.org>,
-        Mark Langsdorf <mlangsdo@redhat.com>,
-        "jcm@redhat.com" <jcm@redhat.com>,
-        Andy Gross <agross@codeaurora.org>,
-        David Miller <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Lino Sanfilippo <LinoSanfilippo@gmx.de>
-To: Timur Tabi <timur@codeaurora.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+        Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
+        Derek Chickles <derek.chickles@caviumnetworks.com>,
+        Satanand Burla <satananda.burla@caviumnetworks.com>,
+        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
+        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:36890 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752941AbcIAWtj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 1 Sep 2016 18:49:39 -0400
-In-Reply-To: <57C74562.3050203@codeaurora.org>
+Received: from mail-cys01nam02on0044.outbound.protection.outlook.com ([104.47.37.44]:23488
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750698AbcIAWwH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 1 Sep 2016 18:52:07 -0400
+In-Reply-To: <1472753771-21141-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 31, 2016 at 4:00 PM, Timur Tabi <timur@codeaurora.org> wrote:
-> Rob Herring wrote:
->>>
->>> It's not a generic phy.  It's a funky "internal phy" that differs among
->>> >SOCs.  I call it the internal phy, but I could use another name.
->>> > Internally,
->>> >some people call it the "sgmii phy", but I don't think that's accurate.
->
->
->> Funky internal PHYs are precisely the types of PHYs this binding is
->> for. It is generic in that the type is not defined. It can be USB,
->> HDMI, DSI, LVDS, etc.
->
->
-> I don't understand what you're getting at.  There are two IP blocks that
-> have a private interconnect.  One is the MAC, and the other is an internal
-> PHY, but the driver programs them as one device.
->
-> If you want me to make some kind of change, you're going to have to be more
-> specific.
+Adds support for pause frame and priv flag for cn23xx
+device.
 
-The change would simply be use "phys" for the property here and add
-#phy-cells to the phy node. See bindings/phy/phy-binding.txt.
+Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
+Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
+Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
+---
+ drivers/net/ethernet/cavium/liquidio/lio_ethtool.c | 110 +++++++++++++++++++++
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    |  12 ++-
+ .../net/ethernet/cavium/liquidio/octeon_device.h   |  11 ++-
+ 3 files changed, 126 insertions(+), 7 deletions(-)
 
-And just because you just the phy binding, that doesn't mean you have
-to use the generic phy framework in the kernel. I'm not suggesting you
-need to. That could change in time as this becomes more common (i.e.
-with 10G).
-
->>> >That's what I thought to, but without it, of_phy_find_device() won't
->>> > work.
->>> >I need a pointer to the phy node, and I use of_parse_phandle() to get
->>> > it:
->>> >
->>> >         struct device_node *phy_np;
->>> >
->>> >         ret = of_mdiobus_register(mii_bus, np);
->>> >         if (ret) {
->>> >                 dev_err(&pdev->dev, "could not register mdio bus\n");
->>> >                 return ret;
->>> >         }
->>> >
->>> >         phy_np = of_parse_phandle(np, "phy-handle", 0);
->
->
->> You can just as easily find the child node called ethernet-phy.
->
->
-> As Andrew pointed out, using phy-handle allows me to place the phy node
-> anywhere.
-
-But you can't because the binding says (or should say) it is a child node.
-
-> I've already made changes to this design, and every change has raised
-> objections.  I don't see anything wrong with phy-handle.  A lot of drivers
-> use it.
-
-You said it wouldn't work. I'm only pointing out that that is not
-true. As I said to begin with, if everything else is using it, then
-it's fine.
-
-Rob
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
+index fb29a64..f163e0a 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
+@@ -190,6 +190,10 @@ static const char oct_droq_stats_strings[][ETH_GSTRING_LEN] = {
+ 	"buffer_alloc_failure",
+ };
+ 
++/* LiquidIO driver private flags */
++static const char oct_priv_flags_strings[][ETH_GSTRING_LEN] = {
++};
++
+ #define OCTNIC_NCMD_AUTONEG_ON  0x1
+ #define OCTNIC_NCMD_PHY_ON      0x2
+ 
+@@ -658,6 +662,69 @@ lio_get_pauseparam(struct net_device *netdev, struct ethtool_pauseparam *pause)
+ 	pause->rx_pause = oct->rx_pause;
+ }
+ 
++static int
++lio_set_pauseparam(struct net_device *netdev, struct ethtool_pauseparam *pause)
++{
++	/* Notes: Not supporting any auto negotiation in these
++	 * drivers.
++	 */
++	struct lio *lio = GET_LIO(netdev);
++	struct octeon_device *oct = lio->oct_dev;
++	struct octnic_ctrl_pkt nctrl;
++	struct oct_link_info *linfo = &lio->linfo;
++
++	int ret = 0;
++
++	if (oct->chip_id != OCTEON_CN23XX_PF_VID)
++		return -EINVAL;
++
++	if (linfo->link.s.duplex == 0) {
++		/*no flow control for half duplex*/
++		if (pause->rx_pause || pause->tx_pause)
++			return -EINVAL;
++	}
++
++	/*do not support autoneg of link flow control*/
++	if (pause->autoneg == AUTONEG_ENABLE)
++		return -EINVAL;
++
++	memset(&nctrl, 0, sizeof(struct octnic_ctrl_pkt));
++
++	nctrl.ncmd.u64 = 0;
++	nctrl.ncmd.s.cmd = OCTNET_CMD_SET_FLOW_CTL;
++	nctrl.iq_no = lio->linfo.txpciq[0].s.q_no;
++	nctrl.wait_time = 100;
++	nctrl.netpndev = (u64)netdev;
++	nctrl.cb_fn = liquidio_link_ctrl_cmd_completion;
++
++	if (pause->rx_pause) {
++		/*enable rx pause*/
++		nctrl.ncmd.s.param1 = 1;
++	} else {
++		/*disable rx pause*/
++		nctrl.ncmd.s.param1 = 0;
++	}
++
++	if (pause->tx_pause) {
++		/*enable tx pause*/
++		nctrl.ncmd.s.param2 = 1;
++	} else {
++		/*disable tx pause*/
++		nctrl.ncmd.s.param2 = 0;
++	}
++
++	ret = octnet_send_nic_ctrl_pkt(lio->oct_dev, &nctrl);
++	if (ret < 0) {
++		dev_err(&oct->pci_dev->dev, "Failed to set pause parameter\n");
++		return -EINVAL;
++	}
++
++	oct->rx_pause = pause->rx_pause;
++	oct->tx_pause = pause->tx_pause;
++
++	return 0;
++}
++
+ static void
+ lio_get_ethtool_stats(struct net_device *netdev,
+ 		      struct ethtool_stats *stats  __attribute__((unused)),
+@@ -925,6 +992,27 @@ lio_get_ethtool_stats(struct net_device *netdev,
+ 	}
+ }
+ 
++static void lio_get_priv_flags_strings(struct lio *lio, u8 *data)
++{
++	struct octeon_device *oct_dev = lio->oct_dev;
++	int i;
++
++	switch (oct_dev->chip_id) {
++	case OCTEON_CN23XX_PF_VID:
++		for (i = 0; i < ARRAY_SIZE(oct_priv_flags_strings); i++) {
++			sprintf(data, "%s", oct_priv_flags_strings[i]);
++			data += ETH_GSTRING_LEN;
++		}
++		break;
++	case OCTEON_CN68XX:
++	case OCTEON_CN66XX:
++		break;
++	default:
++		netif_info(lio, drv, lio->netdev, "Unknown Chip !!\n");
++		break;
++	}
++}
++
+ static void lio_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
+ {
+ 	struct lio *lio = GET_LIO(netdev);
+@@ -964,12 +1052,31 @@ static void lio_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
+ 		}
+ 		break;
+ 
++	case ETH_SS_PRIV_FLAGS:
++		lio_get_priv_flags_strings(lio, data);
++		break;
+ 	default:
+ 		netif_info(lio, drv, lio->netdev, "Unknown Stringset !!\n");
+ 		break;
+ 	}
+ }
+ 
++static int lio_get_priv_flags_ss_count(struct lio *lio)
++{
++	struct octeon_device *oct_dev = lio->oct_dev;
++
++	switch (oct_dev->chip_id) {
++	case OCTEON_CN23XX_PF_VID:
++		return ARRAY_SIZE(oct_priv_flags_strings);
++	case OCTEON_CN68XX:
++	case OCTEON_CN66XX:
++		return -EOPNOTSUPP;
++	default:
++		netif_info(lio, drv, lio->netdev, "Unknown Chip !!\n");
++		return -EOPNOTSUPP;
++	}
++}
++
+ static int lio_get_sset_count(struct net_device *netdev, int sset)
+ {
+ 	struct lio *lio = GET_LIO(netdev);
+@@ -980,6 +1087,8 @@ static int lio_get_sset_count(struct net_device *netdev, int sset)
+ 		return (ARRAY_SIZE(oct_stats_strings) +
+ 			ARRAY_SIZE(oct_iq_stats_strings) * oct_dev->num_iqs +
+ 			ARRAY_SIZE(oct_droq_stats_strings) * oct_dev->num_oqs);
++	case ETH_SS_PRIV_FLAGS:
++		return lio_get_priv_flags_ss_count(lio);
+ 	default:
+ 		return -EOPNOTSUPP;
+ 	}
+@@ -2096,6 +2205,7 @@ static const struct ethtool_ops lio_ethtool_ops = {
+ 	.get_strings		= lio_get_strings,
+ 	.get_ethtool_stats	= lio_get_ethtool_stats,
+ 	.get_pauseparam		= lio_get_pauseparam,
++	.set_pauseparam		= lio_set_pauseparam,
+ 	.get_regs_len		= lio_get_regs_len,
+ 	.get_regs		= lio_get_regs,
+ 	.get_msglevel		= lio_get_msglevel,
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+index a2460e5..afc6f9d 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+@@ -2184,7 +2184,7 @@ static void if_cfg_callback(struct octeon_device *oct,
+ 	struct liquidio_if_cfg_context *ctx;
+ 
+ 	resp = (struct liquidio_if_cfg_resp *)sc->virtrptr;
+-	ctx  = (struct liquidio_if_cfg_context *)sc->ctxptr;
++	ctx = (struct liquidio_if_cfg_context *)sc->ctxptr;
+ 
+ 	oct = lio_get_device(ctx->octeon_id);
+ 	if (resp->status)
+@@ -3934,7 +3934,10 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
+ 
+ 		/* Register ethtool support */
+ 		liquidio_set_ethtool_ops(netdev);
+-		octeon_dev->priv_flags = 0x0;
++		if (lio->oct_dev->chip_id == OCTEON_CN23XX_PF_VID)
++			octeon_dev->priv_flags = OCT_PRIV_FLAG_DEFAULT;
++		else
++			octeon_dev->priv_flags = 0x0;
+ 
+ 		if (netdev->features & NETIF_F_LRO)
+ 			liquidio_set_feature(netdev, OCTNET_CMD_LRO_ENABLE,
+@@ -4015,8 +4018,7 @@ static int liquidio_init_nic_module(struct octeon_device *oct)
+ 	/* run port_config command for each port */
+ 	oct->ifcount = num_nic_ports;
+ 
+-	memset(oct->props, 0,
+-	       sizeof(struct octdev_props) * num_nic_ports);
++	memset(oct->props, 0, sizeof(struct octdev_props) * num_nic_ports);
+ 
+ 	for (i = 0; i < MAX_OCTEON_LINKS; i++)
+ 		oct->props[i].gmxport = -1;
+@@ -4032,7 +4034,7 @@ static int liquidio_init_nic_module(struct octeon_device *oct)
+ 	/* Initialize interrupt moderation params */
+ 	intrmod_cfg = &((struct octeon_device *)oct)->intrmod;
+ 	intrmod_cfg->rx_enable = 1;
+-	intrmod_cfg->check_intrvl =   LIO_INTRMOD_CHECK_INTERVAL;
++	intrmod_cfg->check_intrvl = LIO_INTRMOD_CHECK_INTERVAL;
+ 	intrmod_cfg->maxpkt_ratethr = LIO_INTRMOD_MAXPKT_RATETHR;
+ 	intrmod_cfg->minpkt_ratethr = LIO_INTRMOD_MINPKT_RATETHR;
+ 	intrmod_cfg->rx_maxcnt_trigger = LIO_INTRMOD_RXMAXCNT_TRIGGER;
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.h b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
+index 6062ff3..da15c2a 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_device.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
+@@ -755,8 +755,15 @@ enum {
+ 	OCT_PRIV_FLAG_TX_BYTES = 0, /* Tx interrupts by pending byte count */
+ };
+ 
+-static inline void lio_set_priv_flag(struct octeon_device *octdev, u32 flag,
+-				     u32 val)
++#define OCT_PRIV_FLAG_DEFAULT 0x0
++
++static inline u32 lio_get_priv_flag(struct octeon_device *octdev, u32 flag)
++{
++	return !!(octdev->priv_flags & (0x1 << flag));
++}
++
++static inline void lio_set_priv_flag(struct octeon_device *octdev,
++				     u32 flag, u32 val)
+ {
+ 	if (val)
+ 		octdev->priv_flags |= (0x1 << flag);
+-- 
+1.8.3.1
