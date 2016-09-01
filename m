@@ -1,28 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sky2: use napi_complete_done
-Date: Thu, 01 Sep 2016 14:10:12 -0700 (PDT)
-Message-ID: <20160901.141012.384977696986388530.davem@davemloft.net>
-References: <20160829101637.4f0663e5@xeon-e3>
+Subject: Re: [PATCH net-next] MAINTAINERS: update to working email address
+Date: Thu, 01 Sep 2016 14:13:25 -0700 (PDT)
+Message-ID: <20160901.141325.1419995738438750180.davem@davemloft.net>
+References: <1472503890-8731-1-git-send-email-andy@greyhouse.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mlindner@marvell.com, netdev@vger.kernel.org
-To: stephen@networkplumber.org
+Cc: netdev@vger.kernel.org
+To: andy@greyhouse.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38848 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:39018 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756039AbcIAVKN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 17:10:13 -0400
-In-Reply-To: <20160829101637.4f0663e5@xeon-e3>
+        with ESMTP id S1754035AbcIAVN0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 17:13:26 -0400
+In-Reply-To: <1472503890-8731-1-git-send-email-andy@greyhouse.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Mon, 29 Aug 2016 10:16:37 -0700
+From: Andy Gospodarek <andy@greyhouse.net>
+Date: Mon, 29 Aug 2016 16:51:30 -0400
 
-> Update the sky2 driver to pass number of packets done to NAPI.
-> The driver was never updated when napi_complete_done was added.
-> 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
 
-Applied, thanks Stephen.
+Applied, thanks Andy.
+
+Generally speaking, it's important to have accurate information in
+MAINTAINERS and it doesn't effect the code so changes like this are
+always appropriate for 'net' and that's where I've applied this.
+
+Thanks again.
