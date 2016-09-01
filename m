@@ -1,44 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] af_unix: split 'u->readlock' into two: 'iolock'
- and 'bindlock'
-Date: Fri, 02 Sep 2016 12:15:34 -0700 (PDT)
-Message-ID: <20160902.121534.1390430589343316053.davem@davemloft.net>
-References: <alpine.LFD.2.20.1609021109340.4072@i7>
-        <CA+55aFyFEhaOaDN9kuphgRV8sDKpV_2xB9X-kpWqMLUtX9JBtQ@mail.gmail.com>
+Subject: Re: [PATCH net v2 1/2] ipv6: add missing netconf notif when 'all'
+ is updated
+Date: Thu, 01 Sep 2016 15:18:40 -0700 (PDT)
+Message-ID: <20160901.151840.1614788793469328588.davem@davemloft.net>
+References: <1472465149-1163-1-git-send-email-nicolas.dichtel@6wind.com>
+        <1472544562-22581-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, rweikusat@mobileactivedefense.com,
-        edumazet@google.com, w@1wt.eu, netdev@vger.kernel.org
-To: torvalds@linux-foundation.org
+Cc: netdev@vger.kernel.org, hideaki.yoshifuji@miraclelinux.com
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55736 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:55714 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755305AbcIBTPg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 15:15:36 -0400
-In-Reply-To: <CA+55aFyFEhaOaDN9kuphgRV8sDKpV_2xB9X-kpWqMLUtX9JBtQ@mail.gmail.com>
+        with ESMTP id S1755240AbcIBTNt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 15:13:49 -0400
+In-Reply-To: <1472544562-22581-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Fri, 2 Sep 2016 11:17:18 -0700
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Tue, 30 Aug 2016 10:09:21 +0200
 
-> Oh, this was missing a
+> The 'default' value was not advertised.
 > 
->   Reported-and-tested-by: CAI Qian <caiqian@redhat.com>
-> 
-> who found the new deadlock.
-> 
-> There's now *another* lockdep deadlock report by him, but that one has
-> nothing to do with networking.
-> 
-> (And neither of these deadlocks will actually deadlock the machine in
-> practice, but you can trigger the lockdep reports with some odd splice
-> patterns and overlayfs use)
+> Fixes: f3a1bfb11ccb ("rtnl/ipv6: use netconf msg to advertise forwarding status")
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-I read over this and can't find any problems.
-
-The main thing I was concerned about was an I/O path that really
-expects the socket's hash not to change for whatever reason, but even
-all of the unix_find_other() calls are done outside of the mutex
-already.
+Applied.
