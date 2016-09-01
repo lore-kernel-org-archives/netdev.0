@@ -1,64 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: Reduce size of rps_sock_flow_sysctl
-Date: Thu, 01 Sep 2016 14:13:17 -0700
-Message-ID: <1472764397.5439.1.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160901203658.GA4828@fedora-21-dvm>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [RFC 2/9] ipv6: sr: add code base for control plane support of
+ SR-IPv6
+Date: Thu, 1 Sep 2016 10:15:02 -0700
+Message-ID: <20160901101502.3ecaf21f@xeon-e3>
+References: <1472226767-9904-1-git-send-email-david.lebrun@uclouvain.be>
+        <1472226767-9904-3-git-send-email-david.lebrun@uclouvain.be>
+        <20160831101028.7ea13fb4@xeon-e3>
+        <57C82C3A.6090409@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        =?ISO-8859-1?Q?H=E5kon?= Bugge <haakon.bugge@oracle.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Hans Westgaard Ry <hans.westgaard.ry@oracle.com>,
-        "open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>
-To: Johanna Abrahamsson <johanna@mjao.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/ZTEnUW/kd2Cp5N3Bj8yhfih"; protocol="application/pgp-signature"
+Cc: <netdev@vger.kernel.org>
+To: David Lebrun <david.lebrun@uclouvain.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:35285 "EHLO
-        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753926AbcIAVNU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 17:13:20 -0400
-Received: by mail-pa0-f66.google.com with SMTP id cf3so4650119pad.2
-        for <netdev@vger.kernel.org>; Thu, 01 Sep 2016 14:13:20 -0700 (PDT)
-In-Reply-To: <20160901203658.GA4828@fedora-21-dvm>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:35105 "EHLO
+        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753617AbcIAVNK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 17:13:10 -0400
+Received: by mail-pf0-f170.google.com with SMTP id x72so35005006pfd.2
+        for <netdev@vger.kernel.org>; Thu, 01 Sep 2016 14:13:09 -0700 (PDT)
+In-Reply-To: <57C82C3A.6090409@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-09-01 at 22:37 +0200, Johanna Abrahamsson wrote:
-> Reduce size of rps_sock_flow_sysctl to improve readability.
-> 
-> Signed-off-by: Johanna Abrahamsson <johanna@mjao.org>
-> ---
->  net/core/sysctl_net_core.c | 44 ++++++++++++++++++++++----------------------
->  1 file changed, 22 insertions(+), 22 deletions(-)
-> 
-> diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
-> index 0df2aa6..d0be2ce 100644
-> --- a/net/core/sysctl_net_core.c
-> +++ b/net/core/sysctl_net_core.c
-> @@ -53,29 +53,29 @@ static int rps_sock_flow_sysctl(struct ctl_table *table, int write,
->  	ret = proc_dointvec(&tmp, write, buffer, lenp, ppos);
->  
->  	if (write) {
-> -		if (size) {
-> -			if (size > 1<<29) {
-> -				/* Enforce limit to prevent overflow */
-> -				mutex_unlock(&sock_flow_mutex);
-> -				return -EINVAL;
-> +		if (!size)
-> +			goto exit_unlock;
+--Sig_/ZTEnUW/kd2Cp5N3Bj8yhfih
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Hi Johanna
+On Thu, 1 Sep 2016 15:25:14 +0200
+David Lebrun <david.lebrun@uclouvain.be> wrote:
 
-Unfortunately this would break the following action :
+> On 08/31/2016 07:10 PM, Stephen Hemminger wrote:
+> > Since these are for control operations why a mutex? =20
+>=20
+> I am not sure to understand the question. The spinlock is used on the
+> RCU write side of the namespace-wide parameters to prevent concurrent
+> writes.
+>=20
+> David
+>=20
 
-lpaa24:~# cat /proc/sys/net/core/rps_sock_flow_entries 
-65536
-lpaa24:~# echo 0 >/proc/sys/net/core/rps_sock_flow_entries
-lpaa24:~# cat /proc/sys/net/core/rps_sock_flow_entries 
-0
+If this lock is only being acquired in user context, then use a mutex
+instead.
 
-If you resubmit a V2, please include a 'Tested:' section showing how
-you have tested your (first linux ?) patch ;)
+--Sig_/ZTEnUW/kd2Cp5N3Bj8yhfih
+Content-Type: application/pgp-signature
+Content-Description: OpenPGP digital signature
 
-Thanks !
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJXyGIWAAoJEICnf2CVzeR+ME0P/RwJoC3J5S5ZVXAF8TUm9RBV
+0CAnG2XZSEyYsHpu+kVWlhJ3CzNVdBXQaLm3pRpaniWsd+pQDXNvyqIk1nmPn5Us
+4ewDBcuCPt06VvbYG6LZA2W4/QDdMVzzNTGO0XJLQFA5Ow0KSTkmS3FFCrCD+KZD
+qDS7rxPn3J8s13j2+aR/Bjf8qlAJBtZSIGVnB5xcQsFH6KBkB43g/R3VE+OtPnW+
+QAtt6a7XCtzM6OUIu+/P2ukAeZqflK1Va0v4eLEEW2UrGVSGJIi/MLjjeb72S8/y
+AySkwQiB8pVqQHF4dlVwCaUq4Op6DgbI+8frxR+DalMaUXQhfDcqqjeHxy8DtJV0
+mYOIaJA5Qh6U9ZcNlNM3I3kpMrV683MKOOTJ176KGBhmb8kadpSQ333t6kTY02+k
+aHyo7Ip7kn6UZdMqIk89Zjj7C58cniE2ukicebDKkcHVrsTQBUqcEGDlqaZeKbTt
+gn+TDpGD+l0xYDopeddG9XypWLmbUa7IfUcf9vzrTZ+mmPN+TwWjQlQAbd7PDw+o
+Ei/a/utbPQqANNdfVeqoONaHs6fWUdSlw5UHabyElK686AqL0ajibsAOfgqg6mhg
+hs2N/n/TZ6OOLOyCwgTM0iYpcjSYXRyv5RIG6JqU7Ytx+B7r/K0iPzTdvcpmnSzo
+Ls0X5M2YvIYs0FVo0ivb
+=lsxn
+-----END PGP SIGNATURE-----
+
+--Sig_/ZTEnUW/kd2Cp5N3Bj8yhfih--
