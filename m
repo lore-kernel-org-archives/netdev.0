@@ -1,78 +1,182 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 2/2] net/smsc911x: Move interrupt allocation to open/stop
-Date: Thu, 1 Sep 2016 21:45:10 +0200
-Message-ID: <20160901194510.GB13292@lunn.ch>
-References: <1472747141-15886-1-git-send-email-jeremy.linton@arm.com>
- <1472747141-15886-3-git-send-email-jeremy.linton@arm.com>
- <20160901170617.GD10951@lunn.ch>
- <8305921f-9b9a-459b-2452-7c4e63057e8f@arm.com>
+Subject: Re: [PATCH 3/4] net: smsc911x: Move interrupt handler before open
+Date: Thu, 1 Sep 2016 22:50:49 +0200
+Message-ID: <20160901205049.GC16864@lunn.ch>
+References: <1472760909-19688-1-git-send-email-jeremy.linton@arm.com>
+ <1472760909-19688-4-git-send-email-jeremy.linton@arm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, steve.glendinning@shawell.net,
-        sergei.shtylyov@cogentembedded.com
+        sergei.shtylyov@cogentembedded.com, will.deacon@arm.com
 To: Jeremy Linton <jeremy.linton@arm.com>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from vps0.lunn.ch ([178.209.37.122]:33299 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754700AbcIAVXu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 1 Sep 2016 17:23:50 -0400
+        id S1754700AbcIAVXx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 1 Sep 2016 17:23:53 -0400
 Content-Disposition: inline
-In-Reply-To: <8305921f-9b9a-459b-2452-7c4e63057e8f@arm.com>
+In-Reply-To: <1472760909-19688-4-git-send-email-jeremy.linton@arm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 01, 2016 at 01:47:44PM -0500, Jeremy Linton wrote:
-> Hi Andrew,
+On Thu, Sep 01, 2016 at 03:15:08PM -0500, Jeremy Linton wrote:
+> In preparation for the allocating/enabling interrupts
+> in the ndo_open routine move the irq handler before it.
 > 
-> 	Thanks for taking a look at this!
+> Signed-off-by: Jeremy Linton <jeremy.linton@arm.com>
+
+It would of been nice if you had emphasised there was not functional
+change...
+
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+
+    Andrew
+
+
+> ---
+>  drivers/net/ethernet/smsc/smsc911x.c | 122 +++++++++++++++++------------------
+>  1 file changed, 61 insertions(+), 61 deletions(-)
 > 
-> On 09/01/2016 12:06 PM, Andrew Lunn wrote:
-> >Hi Jeremy
-> >
-> >Please don't add forward references. Move the function earlier in the
-> >file.
+> diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+> index 823ad3f..c2e56f0 100644
+> --- a/drivers/net/ethernet/smsc/smsc911x.c
+> +++ b/drivers/net/ethernet/smsc/smsc911x.c
+> @@ -1507,6 +1507,67 @@ static void smsc911x_disable_irq_chip(struct net_device *dev)
+>  	smsc911x_reg_write(pdata, INT_STS, 0xFFFFFFFF);
+>  }
+>  
+> +static irqreturn_t smsc911x_irqhandler(int irq, void *dev_id)
+> +{
+> +	struct net_device *dev = dev_id;
+> +	struct smsc911x_data *pdata = netdev_priv(dev);
+> +	u32 intsts = smsc911x_reg_read(pdata, INT_STS);
+> +	u32 inten = smsc911x_reg_read(pdata, INT_EN);
+> +	int serviced = IRQ_NONE;
+> +	u32 temp;
+> +
+> +	if (unlikely(intsts & inten & INT_STS_SW_INT_)) {
+> +		temp = smsc911x_reg_read(pdata, INT_EN);
+> +		temp &= (~INT_EN_SW_INT_EN_);
+> +		smsc911x_reg_write(pdata, INT_EN, temp);
+> +		smsc911x_reg_write(pdata, INT_STS, INT_STS_SW_INT_);
+> +		pdata->software_irq_signal = 1;
+> +		smp_wmb();
+> +		serviced = IRQ_HANDLED;
+> +	}
+> +
+> +	if (unlikely(intsts & inten & INT_STS_RXSTOP_INT_)) {
+> +		/* Called when there is a multicast update scheduled and
+> +		 * it is now safe to complete the update */
+> +		SMSC_TRACE(pdata, intr, "RX Stop interrupt");
+> +		smsc911x_reg_write(pdata, INT_STS, INT_STS_RXSTOP_INT_);
+> +		if (pdata->multicast_update_pending)
+> +			smsc911x_rx_multicast_update_workaround(pdata);
+> +		serviced = IRQ_HANDLED;
+> +	}
+> +
+> +	if (intsts & inten & INT_STS_TDFA_) {
+> +		temp = smsc911x_reg_read(pdata, FIFO_INT);
+> +		temp |= FIFO_INT_TX_AVAIL_LEVEL_;
+> +		smsc911x_reg_write(pdata, FIFO_INT, temp);
+> +		smsc911x_reg_write(pdata, INT_STS, INT_STS_TDFA_);
+> +		netif_wake_queue(dev);
+> +		serviced = IRQ_HANDLED;
+> +	}
+> +
+> +	if (unlikely(intsts & inten & INT_STS_RXE_)) {
+> +		SMSC_TRACE(pdata, intr, "RX Error interrupt");
+> +		smsc911x_reg_write(pdata, INT_STS, INT_STS_RXE_);
+> +		serviced = IRQ_HANDLED;
+> +	}
+> +
+> +	if (likely(intsts & inten & INT_STS_RSFL_)) {
+> +		if (likely(napi_schedule_prep(&pdata->napi))) {
+> +			/* Disable Rx interrupts */
+> +			temp = smsc911x_reg_read(pdata, INT_EN);
+> +			temp &= (~INT_EN_RSFL_EN_);
+> +			smsc911x_reg_write(pdata, INT_EN, temp);
+> +			/* Schedule a NAPI poll */
+> +			__napi_schedule(&pdata->napi);
+> +		} else {
+> +			SMSC_WARN(pdata, rx_err, "napi_schedule_prep failed");
+> +		}
+> +		serviced = IRQ_HANDLED;
+> +	}
+> +
+> +	return serviced;
+> +}
+> +
+>  static int smsc911x_open(struct net_device *dev)
+>  {
+>  	struct smsc911x_data *pdata = netdev_priv(dev);
+> @@ -1820,67 +1881,6 @@ static void smsc911x_set_multicast_list(struct net_device *dev)
+>  	spin_unlock_irqrestore(&pdata->mac_lock, flags);
+>  }
+>  
+> -static irqreturn_t smsc911x_irqhandler(int irq, void *dev_id)
+> -{
+> -	struct net_device *dev = dev_id;
+> -	struct smsc911x_data *pdata = netdev_priv(dev);
+> -	u32 intsts = smsc911x_reg_read(pdata, INT_STS);
+> -	u32 inten = smsc911x_reg_read(pdata, INT_EN);
+> -	int serviced = IRQ_NONE;
+> -	u32 temp;
+> -
+> -	if (unlikely(intsts & inten & INT_STS_SW_INT_)) {
+> -		temp = smsc911x_reg_read(pdata, INT_EN);
+> -		temp &= (~INT_EN_SW_INT_EN_);
+> -		smsc911x_reg_write(pdata, INT_EN, temp);
+> -		smsc911x_reg_write(pdata, INT_STS, INT_STS_SW_INT_);
+> -		pdata->software_irq_signal = 1;
+> -		smp_wmb();
+> -		serviced = IRQ_HANDLED;
+> -	}
+> -
+> -	if (unlikely(intsts & inten & INT_STS_RXSTOP_INT_)) {
+> -		/* Called when there is a multicast update scheduled and
+> -		 * it is now safe to complete the update */
+> -		SMSC_TRACE(pdata, intr, "RX Stop interrupt");
+> -		smsc911x_reg_write(pdata, INT_STS, INT_STS_RXSTOP_INT_);
+> -		if (pdata->multicast_update_pending)
+> -			smsc911x_rx_multicast_update_workaround(pdata);
+> -		serviced = IRQ_HANDLED;
+> -	}
+> -
+> -	if (intsts & inten & INT_STS_TDFA_) {
+> -		temp = smsc911x_reg_read(pdata, FIFO_INT);
+> -		temp |= FIFO_INT_TX_AVAIL_LEVEL_;
+> -		smsc911x_reg_write(pdata, FIFO_INT, temp);
+> -		smsc911x_reg_write(pdata, INT_STS, INT_STS_TDFA_);
+> -		netif_wake_queue(dev);
+> -		serviced = IRQ_HANDLED;
+> -	}
+> -
+> -	if (unlikely(intsts & inten & INT_STS_RXE_)) {
+> -		SMSC_TRACE(pdata, intr, "RX Error interrupt");
+> -		smsc911x_reg_write(pdata, INT_STS, INT_STS_RXE_);
+> -		serviced = IRQ_HANDLED;
+> -	}
+> -
+> -	if (likely(intsts & inten & INT_STS_RSFL_)) {
+> -		if (likely(napi_schedule_prep(&pdata->napi))) {
+> -			/* Disable Rx interrupts */
+> -			temp = smsc911x_reg_read(pdata, INT_EN);
+> -			temp &= (~INT_EN_RSFL_EN_);
+> -			smsc911x_reg_write(pdata, INT_EN, temp);
+> -			/* Schedule a NAPI poll */
+> -			__napi_schedule(&pdata->napi);
+> -		} else {
+> -			SMSC_WARN(pdata, rx_err, "napi_schedule_prep failed");
+> -		}
+> -		serviced = IRQ_HANDLED;
+> -	}
+> -
+> -	return serviced;
+> -}
+> -
+>  #ifdef CONFIG_NET_POLL_CONTROLLER
+>  static void smsc911x_poll_controller(struct net_device *dev)
+>  {
+> -- 
+> 2.5.5
 > 
-> Ok, but I thought it was a fairly large move due to further
-> dependent functions..
-
-There are a few other options, like moving smsc911x_open() rather than
-the interrupt handler.
-
-And i would suggest what ever you do, make it a separate patch. A
-patch which says: No functional changes, just move functions around as
-needed by later patches, is going to be quick and easy to review.
-
-> >>+	netif_carrier_off(dev);
-> >
-> >What has this change got to do with interrupt handling?
-> 
-> 	This is a whoops, it should be in the previous patch..
-
-Or a patch of its own? You also needs to be careful with ordering
-against the phy_connect.
-
-> >>@@ -2479,38 +2491,18 @@ static int smsc911x_drv_probe(struct platform_device *pdev)
-> >> 	if (retval < 0)
-> >> 		goto out_disable_resources;
-> >>
-> >>-	/* configure irq polarity and type before connecting isr */
-> >>-	if (pdata->config.irq_polarity == SMSC911X_IRQ_POLARITY_ACTIVE_HIGH)
-> >>-		intcfg |= INT_CFG_IRQ_POL_;
-> >>-
-> >>-	if (pdata->config.irq_type == SMSC911X_IRQ_TYPE_PUSH_PULL)
-> >>-		intcfg |= INT_CFG_IRQ_TYPE_;
-> >>-
-> >>-	smsc911x_reg_write(pdata, INT_CFG, intcfg);
-> >
-> >
-> >I see these removes, but where are the adds?
-> 
-> 
-> 	The functionality is duplicated in open, when the IRQ handler is tested.
-
-Ah, it is obfusticated by SMC_SET_IRQ_CFG().
-
-If you say it is duplicated, how about a separate patch removing it,
-with a clear pointer to where the duplicate is.
-
-     Andrew
