@@ -1,39 +1,48 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH iproute] iptuntap: show processes using tuntap interface
-Date: Thu, 1 Sep 2016 18:07:33 +0200
-Message-ID: <a0542168-4437-ba01-d7ae-86bd5b0e5af6@stressinduktion.org>
-References: <1472062105-17995-1-git-send-email-hannes@stressinduktion.org>
- <20160901090621.13026e9c@xeon-e3>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [iproute PATCH 0/3] improve MACsec support
+Date: Thu, 1 Sep 2016 09:12:36 -0700
+Message-ID: <20160901091236.69fd83dd@xeon-e3>
+References: <cover.1469520298.git.dcaratti@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: Stephen Hemminger <shemming@brocade.com>,
+        Phil Sutter <phil@nwl.cc>,
+        Sabrina Dubroca <sd@queasysnail.net>, netdev@vger.kernel.org
+To: Davide Caratti <dcaratti@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:41752 "EHLO
-        out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S933890AbcIAQHg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 12:07:36 -0400
-In-Reply-To: <20160901090621.13026e9c@xeon-e3>
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:36163 "EHLO
+        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933169AbcIAQM1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 12:12:27 -0400
+Received: by mail-pf0-f169.google.com with SMTP id h186so32735031pfg.3
+        for <netdev@vger.kernel.org>; Thu, 01 Sep 2016 09:12:26 -0700 (PDT)
+In-Reply-To: <cover.1469520298.git.dcaratti@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01.09.2016 18:06, Stephen Hemminger wrote:
-> On Wed, 24 Aug 2016 20:08:25 +0200
-> Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
-> 
->> Show which processes are using which tun/tap devices, e.g.:
->>
->> $ ip -d tuntap
->> tun0: tun
->> 	Attached to processes: vpnc(9531)
->> vnet0: tap vnet_hdr
->> 	Attached to processes: qemu-system-x86(10442)
->> virbr0-nic: tap UNKNOWN_FLAGS:800
->> 	Attached to processes:
->>
->> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> 
-> Applied, but needed a followon change to fix some style issues.
+On Tue, 26 Jul 2016 11:03:17 +0200
+Davide Caratti <dcaratti@redhat.com> wrote:
 
-Thanks, the clean up looks good!
+> parsing of 'cipher' and 'icvlen' arguments has been improved; while at it,
+> a couple of missing printouts have been added to usage() functions in 
+> "ip addr help" and "ip link help". Finally, some errors in the man pages
+> have been fixed.
+> 
+> Signed-off-by: Davide Caratti <dcaratti@redhat.com>
+> 
+> Davide Caratti (3):
+>   man: macsec: fix macsec related typos
+>   ip {link,address}: add 'macsec' item to TYPE list
+>   macsec: cipher and icvlen can be set separately
+> 
+>  ip/ipaddress.c           |  2 +-
+>  ip/iplink.c              |  2 +-
+>  ip/ipmacsec.c            | 52 ++++++++++++++++--------------------------------
+>  man/man8/ip-address.8.in |  3 ++-
+>  man/man8/ip-link.8.in    | 17 +++++++++++-----
+>  man/man8/ip-macsec.8     | 13 ++++++++----
+>  6 files changed, 42 insertions(+), 47 deletions(-)
+> 
+
+Applied
