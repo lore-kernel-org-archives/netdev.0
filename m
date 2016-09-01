@@ -1,193 +1,73 @@
-From: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next V4 4/4] net/sched: Introduce act_tunnel_key
-Date: Thu, 1 Sep 2016 14:59:28 +0300
-Message-ID: <CAJL1qvG54C5V-GzRqOKVhXjL7d1OUj5GuQvyx2vsKpQDdf_0Xg@mail.gmail.com>
-References: <1472647584-6713-1-git-send-email-hadarh@mellanox.com>
- <1472647584-6713-5-git-send-email-hadarh@mellanox.com> <20160831204456.46210aa2@halley>
+From: Hannes Frederic Sowa <hannes@redhat.com>
+Subject: Re: [PATCH] softirq: let ksoftirqd do its job
+Date: Thu, 1 Sep 2016 14:01:05 +0200
+Message-ID: <dd87ffeb-2cf0-a2be-895b-22837b75fb4c@redhat.com>
+References: <4f1c4b38528762619fff1fa963de8971006c1234.1472460085.git.pabeni@redhat.com>
+ <20160831100854.23dad2d8@redhat.com>
+ <1472650472.14381.317.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1472650688.32433.115.camel@redhat.com>
+ <1472652643.14381.320.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160831164216.2901190c@redhat.com>
+ <1472661956.14381.335.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1472665349.14381.356.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Hadar Hen Zion <hadarh@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@mellanox.com>,
-        Jiri Benc <jbenc@redhat.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Amir Vadai <amirva@mellanox.com>, Amir Vadai <amir@vadai.me>
-To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:34451 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932653AbcIAMAZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 08:00:25 -0400
-Received: by mail-oi0-f66.google.com with SMTP id t127so7610799oie.1
-        for <netdev@vger.kernel.org>; Thu, 01 Sep 2016 04:59:29 -0700 (PDT)
-In-Reply-To: <20160831204456.46210aa2@halley>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Rik van Riel <riel@redhat.com>, Paolo Abeni <pabeni@redhat.com>,
+        Jesper Dangaard Brouer <jbrouer@redhat.com>,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>, Jonathan Corbet <corbet@lwn.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        Peter Zijlstra <peterz@infradead.org>,
+        David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1472665349.14381.356.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 31, 2016 at 8:44 PM, Shmulik Ladkani
-<shmulik.ladkani@gmail.com> wrote:
-> Hi,
->
-> On Wed, 31 Aug 2016 15:46:24 +0300 Hadar Hen Zion <hadarh@mellanox.com> wrote:
->> +static int tunnel_key_init(struct net *net, struct nlattr *nla,
->> +                        struct nlattr *est, struct tc_action **a,
->> +                        int ovr, int bind)
->> +{
->> +     struct tc_action_net *tn = net_generic(net, tunnel_key_net_id);
->> +     struct nlattr *tb[TCA_TUNNEL_KEY_MAX + 1];
->> +     struct metadata_dst *metadata = NULL;
->> +     struct tc_tunnel_key *parm;
->> +     struct tcf_tunnel_key *t;
->> +     struct tcf_tunnel_key_params *params_old;
->> +     struct tcf_tunnel_key_params *params_new;
->> +     __be64 key_id;
->> +     bool exists = false;
->> +     int ret = 0;
->> +     int err;
->> +
->> +     if (!nla)
->> +             return -EINVAL;
->> +
->> +     err = nla_parse_nested(tb, TCA_TUNNEL_KEY_MAX, nla, tunnel_key_policy);
->> +     if (err < 0)
->> +             return err;
->> +
->> +     if (!tb[TCA_TUNNEL_KEY_PARMS])
->> +             return -EINVAL;
->> +
->> +     parm = nla_data(tb[TCA_TUNNEL_KEY_PARMS]);
->> +     exists = tcf_hash_check(tn, parm->index, a, bind);
->> +     if (exists && bind)
->> +             return 0;
->> +
->> +     switch (parm->t_action) {
->> +     case TCA_TUNNEL_KEY_ACT_RELEASE:
->> +             break;
->> +     case TCA_TUNNEL_KEY_ACT_SET:
->> +             if (!tb[TCA_TUNNEL_KEY_ENC_KEY_ID]) {
->> +                     ret = -EINVAL;
->> +                     goto err_out;
->> +             }
->> +
->> +             key_id = key32_to_tunnel_id(nla_get_be32(tb[TCA_TUNNEL_KEY_ENC_KEY_ID]));
->> +
->> +             if (tb[TCA_TUNNEL_KEY_ENC_IPV4_SRC] &&
->> +                 tb[TCA_TUNNEL_KEY_ENC_IPV4_DST]) {
->> +                     __be32 saddr;
->> +                     __be32 daddr;
->> +
->> +                     saddr = nla_get_in_addr(tb[TCA_TUNNEL_KEY_ENC_IPV4_SRC]);
->> +                     daddr = nla_get_in_addr(tb[TCA_TUNNEL_KEY_ENC_IPV4_DST]);
->> +
->> +                     metadata = __ip_tun_set_dst(saddr, daddr, 0, 0,
->> +                                                 TUNNEL_KEY, key_id, 0);
->> +             } else if (tb[TCA_TUNNEL_KEY_ENC_IPV6_SRC] &&
->> +                        tb[TCA_TUNNEL_KEY_ENC_IPV6_DST]) {
->> +                     struct in6_addr saddr;
->> +                     struct in6_addr daddr;
->> +
->> +                     saddr = nla_get_in6_addr(tb[TCA_TUNNEL_KEY_ENC_IPV6_SRC]);
->> +                     daddr = nla_get_in6_addr(tb[TCA_TUNNEL_KEY_ENC_IPV6_DST]);
->> +
->> +                     metadata = __ipv6_tun_set_dst(&saddr, &daddr, 0, 0, 0,
->> +                                                   TUNNEL_KEY, key_id, 0);
->> +             }
->> +
->> +             if (!metadata) {
->> +                     ret = -EINVAL;
->> +                     goto err_out;
->> +             }
->> +
->> +             metadata->u.tun_info.mode |= IP_TUNNEL_INFO_TX;
->> +             break;
->> +     default:
->> +             goto err_out;
->> +     }
->> +
->> +     if (!exists) {
->> +             ret = tcf_hash_create(tn, parm->index, est, a,
->> +                                   &act_tunnel_key_ops, bind, true);
->> +             if (ret)
->> +                     return ret;
->> +
->> +             ret = ACT_P_CREATED;
->> +     } else {
->> +             tcf_hash_release(*a, bind);
->> +             if (!ovr)
->> +                     return -EEXIST;
->> +     }
->> +
->> +     t = to_tunnel_key(*a);
->> +
->> +     ASSERT_RTNL();
->> +     params_new = kzalloc(sizeof(*params_new),
->> +                          GFP_KERNEL);
->
-> nit: Fits oneline. Fix if patch needs other amendments.
+On 31.08.2016 19:42, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> A while back, Paolo and Hannes sent an RFC patch adding threaded-able
+> napi poll loop support : (https://patchwork.ozlabs.org/patch/620657/) 
+> 
+> The problem seems to be that softirqs are very aggressive and are often
+> handled by the current process, even if we are under stress and that
+> ksoftirqd was scheduled, so that innocent threads would have more chance
+> to make progress.
+> 
+> This patch makes sure that if ksoftirq is running, we let it
+> perform the softirq work.
+> 
+> Jonathan Corbet summarized the issue in https://lwn.net/Articles/687617/
+> 
+> Tested:
+> 
+>  - NIC receiving traffic handled by CPU 0
+>  - UDP receiver running on CPU 0, using a single UDP socket.
+>  - Incoming flood of UDP packets targeting the UDP socket.
+> 
+> Before the patch, the UDP receiver could almost never get cpu cycles and
+> could only receive ~2,000 packets per second.
+> 
+> After the patch, cpu cycles are split 50/50 between user application and
+> ksoftirqd/0, and we can effectively read ~900,000 packets per second,
+> a huge improvement in DOS situation. (Note that more packets are now
+> dropped by the NIC itself, since the BH handlers get less cpu cycles to
+> drain RX ring buffer)
+> 
+> Since the load runs in well identified threads context, an admin can
+> more easily tune process scheduling parameters if needed.
+> 
+> Reported-by: Paolo Abeni <pabeni@redhat.com>
+> Reported-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: David Miller <davem@davemloft.net
+> Cc: Jesper Dangaard Brouer <jbrouer@redhat.com>
+> Cc: Peter Zijlstra <peterz@infradead.org>
+> Cc: Rik van Riel <riel@redhat.com>
 
-Sure, will do.
->
->> +     if (unlikely(!params_new)) {
->> +             if (ovr)
->> +                     tcf_hash_release(*a, bind);
->> +             return -ENOMEM;
->
-> Seems we need to call tcf_hash_release regardless 'ovr':
-> In case (!exist), we've created a new hash few lines above.
-> Therefore in failure, don't we need a tcf_hash_release()?
-> Am I missing something?
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-You are right, "if (ovr)" line should be removed.
->
->> +     }
->> +
->> +     params_old = rtnl_dereference(t->params);
->> +
->> +     t->tcf_action = parm->action;
->> +     params_new->tcft_action = parm->t_action;
->> +     params_new->tcft_enc_metadata = metadata;
->> +
->> +     rcu_assign_pointer(t->params, params_new);
->> +
->> +     if (params_old)
->> +             kfree_rcu(params_old, rcu);
->> +
->> +     if (ret == ACT_P_CREATED)
->> +             tcf_hash_insert(tn, *a);
->> +
->> +     return ret;
->> +
->> +err_out:
->> +     if (exists)
->> +             tcf_hash_release(*a, bind);
->> +     return ret;
->> +}
->> +
->> +static void tunnel_key_release(struct tc_action *a, int bind)
->> +{
->> +     struct tcf_tunnel_key *t = to_tunnel_key(a);
->> +     struct tcf_tunnel_key_params *params;
->> +
->> +     rcu_read_lock();
->> +     params = rcu_dereference(t->params);
->> +
->> +     if (params->tcft_action == TCA_TUNNEL_KEY_ACT_SET)
->> +             dst_release(&params->tcft_enc_metadata->dst);
->> +
->> +     rcu_read_unlock();
->
-> Not an RCU expert, maybe I'm off...
-> This alters params in some way (dst_release), so shouldn't it be
-> considered an UPDATE, involving 'params' replacement?
-> Current code declares it as an rcu read section.
->
-dst_release function is using call_rcu to release the dst, so i think
-we are safe here.
-
-
-> Thanks,
-> Shmulik
+Thanks,
+Hannes
