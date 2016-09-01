@@ -1,8 +1,8 @@
 From: <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH net v4 6/9] net: ethernet: mediatek: fix issue of driver
- removal with interface is up
-Date: Thu, 1 Sep 2016 10:47:32 +0800
-Message-ID: <1472698055-8821-7-git-send-email-sean.wang@mediatek.com>
+Subject: [PATCH net v4 5/9] net: ethernet: mediatek: fix logic unbalance
+ between probe and remove
+Date: Thu, 1 Sep 2016 10:47:31 +0800
+Message-ID: <1472698055-8821-6-git-send-email-sean.wang@mediatek.com>
 References: <1472698055-8821-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -26,33 +26,34 @@ List-Id: netdev.vger.kernel.org
 
 From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
 
-mtk_stop() must be called to stop for freeing DMA
-resources acquired and restoring state changed by mtk_open()
-firstly when module removal.
+original mdio_cleanup is not in the symmetric place against where
+mdio_init is, so relocate mdio_cleanup to the right one.
 
 Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+Acked-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index bf5b7e1..556951e 100644
+index 1ffde91..bf5b7e1 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -1906,6 +1906,14 @@ err_free_dev:
- static int mtk_remove(struct platform_device *pdev)
- {
- 	struct mtk_eth *eth = platform_get_drvdata(pdev);
-+	int i;
-+
-+	/* stop all devices to make sure that dma is properly shut down */
-+	for (i = 0; i < MTK_MAC_COUNT; i++) {
-+		if (!eth->netdev[i])
-+			continue;
-+		mtk_stop(eth->netdev[i]);
-+	}
+@@ -1511,7 +1511,6 @@ static void mtk_uninit(struct net_device *dev)
+ 	struct mtk_eth *eth = mac->hw;
  
- 	clk_disable_unprepare(eth->clks[MTK_CLK_ETHIF]);
- 	clk_disable_unprepare(eth->clks[MTK_CLK_ESW]);
+ 	phy_disconnect(mac->phy_dev);
+-	mtk_mdio_cleanup(eth);
+ 	mtk_irq_disable(eth, ~0);
+ }
+ 
+@@ -1916,6 +1915,7 @@ static int mtk_remove(struct platform_device *pdev)
+ 	netif_napi_del(&eth->tx_napi);
+ 	netif_napi_del(&eth->rx_napi);
+ 	mtk_cleanup(eth);
++	mtk_mdio_cleanup(eth);
+ 	platform_set_drvdata(pdev, NULL);
+ 
+ 	return 0;
 -- 
 1.9.1
