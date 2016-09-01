@@ -1,148 +1,60 @@
-From: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
-Subject: Re: [Patch v3 02/11] irqchip: axi-intc: Clean up irqdomain argument
- and read/write
-Date: Thu, 1 Sep 2016 11:41:03 +0100
-Message-ID: <97c89803-915f-5f3b-ceaf-b7697d5f6bca@imgtec.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [Patch v3 08/11] net: ethernet: xilinx: Generate random mac if
+ none found
+Date: Thu, 1 Sep 2016 13:52:37 +0300
+Message-ID: <3e2dea83-ee59-2980-3a9d-50da04271158@cogentembedded.com>
 References: <1472661352-11983-1-git-send-email-Zubair.Kakakhel@imgtec.com>
- <1472661352-11983-3-git-send-email-Zubair.Kakakhel@imgtec.com>
- <57C70B43.6010107@arm.com>
+ <1472661352-11983-9-git-send-email-Zubair.Kakakhel@imgtec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <soren.brinkmann@xilinx.com>, <linux-kernel@vger.kernel.org>,
-        <linux-mips@linux-mips.org>, <michal.simek@xilinx.com>,
-        <netdev@vger.kernel.org>
-To: Marc Zyngier <marc.zyngier@arm.com>, <monstr@monstr.eu>,
-        <ralf@linux-mips.org>, <tglx@linutronix.de>, <jason@lakedaemon.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <57C70B43.6010107@arm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: soren.brinkmann@xilinx.com, linux-kernel@vger.kernel.org,
+        linux-mips@linux-mips.org, michal.simek@xilinx.com,
+        netdev@vger.kernel.org
+To: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>,
+        monstr@monstr.eu, ralf@linux-mips.org, tglx@linutronix.de,
+        jason@lakedaemon.net, marc.zyngier@arm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f54.google.com ([209.85.215.54]:34650 "EHLO
+        mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753187AbcIAKwl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 06:52:41 -0400
+Received: by mail-lf0-f54.google.com with SMTP id p41so38933764lfi.1
+        for <netdev@vger.kernel.org>; Thu, 01 Sep 2016 03:52:40 -0700 (PDT)
+In-Reply-To: <1472661352-11983-9-git-send-email-Zubair.Kakakhel@imgtec.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hello.
 
-Thank you for the reviews.
+On 8/31/2016 7:35 PM, Zubair Lutfullah Kakakhel wrote:
 
-Some comments below
-
-On 08/31/2016 05:52 PM, Marc Zyngier wrote:
-> On 31/08/16 17:35, Zubair Lutfullah Kakakhel wrote:
->> The drivers read/write function handling is a bit quirky.
->> And the irqmask is passed directly to the handler.
->>
->> Add a new irqchip struct to pass to the handler and
->> cleanup read/write handling.
->>
->> Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
->>
->> ---
->> V2 -> V3
->> New patch. Cleans up driver structure
->> ---
-...
->>  static int __init xilinx_intc_of_init(struct device_node *intc,
->>  					     struct device_node *parent)
->>  {
->> -	u32 nr_irq, intr_mask;
->> +	u32 nr_irq;
->>  	int ret;
->> +	struct xintc_irq_chip *irqc;
->> +
->> +	irqc = kzalloc(sizeof(*irqc), GFP_KERNEL);
+> At the moment, if the emaclite device doesn't find a mac address
+> from any source, it simply uses 0x0 with a warning printed.
 >
-> Now that you dynamically allocate things, how are you handling failures?
+> Instead of using a 0x0 mac address, use a randomly generated one.
 >
->> +	if (!irqc)
->> +		return -ENOMEM;
->> +
->> +	xintc_irqc = irqc;
->>
->> -	intc_baseaddr = of_iomap(intc, 0);
->> -	BUG_ON(!intc_baseaddr);
->> +	irqc->base = of_iomap(intc, 0);
->> +	BUG_ON(!irqc->base);
->>
->>  	ret = of_property_read_u32(intc, "xlnx,num-intr-inputs", &nr_irq);
->>  	if (ret < 0) {
->> @@ -150,43 +176,40 @@ static int __init xilinx_intc_of_init(struct device_node *intc,
->>  		return ret;
->
-> All the return paths should now take care of releasing the allocated
-> resources.
->
+> Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
+[...]
 
-Thanks for pointing it out. I'll fix it in the next series.
+> diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+> index 3cee84a..22e5a5a 100644
+> --- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+> +++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+> @@ -1134,8 +1134,10 @@ static int xemaclite_of_probe(struct platform_device *ofdev)
+>  	if (mac_address)
+>  		/* Set the MAC address. */
+>  		memcpy(ndev->dev_addr, mac_address, ETH_ALEN);
+> -	else
+> -		dev_warn(dev, "No MAC address found\n");
+> +	else {
+> +		dev_warn(dev, "No MAC address found. Generating Random one\n");
+> +		eth_hw_addr_random(ndev);
+> +	}
 
->>  	}
->>
->> -	ret = of_property_read_u32(intc, "xlnx,kind-of-intr", &intr_mask);
->> +	ret = of_property_read_u32(intc, "xlnx,kind-of-intr", &irqc->intr_mask);
->>  	if (ret < 0) {
->>  		pr_err("%s: unable to read xlnx,kind-of-intr\n", __func__);
->>  		return ret;
->>  	}
->>
->> -	if (intr_mask >> nr_irq)
->> +	if (irqc->intr_mask >> nr_irq)
->>  		pr_warn("%s: mismatch in kind-of-intr param\n", __func__);
->>
->>  	pr_info("%s: num_irq=%d, edge=0x%x\n",
->> -		intc->full_name, nr_irq, intr_mask);
->> +		intc->full_name, nr_irq, irqc->intr_mask);
->>
->> -	write_fn = intc_write32;
->> -	read_fn = intc_read32;
->> +	irqc->read = intc_read32;
->> +	irqc->write = intc_write32;
->>
->>  	/*
->>  	 * Disable all external interrupts until they are
->>  	 * explicity requested.
->>  	 */
->> -	write_fn(0, intc_baseaddr + IER);
->> +	xintc_write(irqc, IER, 0);
->>
->>  	/* Acknowledge any pending interrupts just in case. */
->> -	write_fn(0xffffffff, intc_baseaddr + IAR);
->> +	xintc_write(irqc, IAR, 0xffffffff);
->>
->>  	/* Turn on the Master Enable. */
->> -	write_fn(MER_HIE | MER_ME, intc_baseaddr + MER);
->> -	if (!(read_fn(intc_baseaddr + MER) & (MER_HIE | MER_ME))) {
->> -		write_fn = intc_write32_be;
->> -		read_fn = intc_read32_be;
->> -		write_fn(MER_HIE | MER_ME, intc_baseaddr + MER);
->> +	xintc_write(irqc, MER, MER_HIE | MER_ME);
->> +	if (!(xintc_read(irqc, MER) & (MER_HIE | MER_ME))) {
->> +		irqc->read = intc_read32_be;
->> +		irqc->write = intc_write32_be;
->> +		xintc_write(irqc, MER, MER_HIE | MER_ME);
->>  	}
->>
->> -	/* Yeah, okay, casting the intr_mask to a void* is butt-ugly, but I'm
->> -	 * lazy and Michal can clean it up to something nicer when he tests
->> -	 * and commits this patch.  ~~gcl */
->>  	root_domain = irq_domain_add_linear(intc, nr_irq, &xintc_irq_domain_ops,
->> -							(void *)intr_mask);
->> +					    irqc);
->>
->>  	irq_set_default_host(root_domain);
->>
->>
->
-> You haven't addressed the comment on get_irq() which could be static (at
-> least from solely looking at this file).
+    All branches of the *if* statement should have {} if at least one has 
+them, see Documentation/CodingStyle, chaoter 3.
 
-Apologies. In a rush to get a series out before heading home, it slipped my mind.
-It is needed as it is used in arch/microblaze/kernel/irq.c
+[...]
 
-But I'll add a patch to rename it correctly. get_irq is far too generic outside arch code.
-
-Thanks,
-ZubairLK
-
->
-> Thanks,
->
-> 	M.
->
+MBR, Sergei
