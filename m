@@ -1,60 +1,46 @@
-From: Heiko =?ISO-8859-1?Q?St=FCbner?= <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>
-Subject: Re: [PATCH v3 4/5] arm64: dts: rockchip: add the gmac needed node for
- rk3399
-Date: Thu, 01 Sep 2016 13:43:42 +0200
-Message-ID: <4350667.JBNzRWMVzQ@diego>
-References: <1472686132-27827-1-git-send-email-wxt@rock-chips.com>
- <1472686132-27827-5-git-send-email-wxt@rock-chips.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH] softirq: let ksoftirqd do its job
+Date: Thu, 1 Sep 2016 13:53:56 +0200
+Message-ID: <20160901115356.GT10153@twins.programming.kicks-ass.net>
+References: <1472650472.14381.317.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1472650688.32433.115.camel@redhat.com>
+ <1472652643.14381.320.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160831164216.2901190c@redhat.com>
+ <1472661956.14381.335.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1472665349.14381.356.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160831214043.2f44cf08@redhat.com>
+ <1472676150.14381.363.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160831235116.33b1946b@redhat.com>
+ <20160901130231.58355405@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, Huang Tao <huangtao-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
- Brian Norris <briannorris-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, Xing Zheng <zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
- Masahiro Yamada <yamada.masahiro-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- dbasehore-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>,
- Douglas Anderson <dianders-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Elaine Zhang <zhangqing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
- Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>,
- Shunqian Zheng <zhengsq-TNX95d0MmH7DzftRWevZcw@public.gmane.org>, Jianqun Xu <jay.xu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
- linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-To: Caesar Wang <wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1472686132-27827-5-git-send-email-wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
-List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Rik van Riel <riel@redhat.com>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Hannes Frederic Sowa <hannes@redhat.com>,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>, Jonathan Corbet <corbet@lwn.net>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bombadil.infradead.org ([198.137.202.9]:41413 "EHLO
+        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754432AbcIALx7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 07:53:59 -0400
+Content-Disposition: inline
+In-Reply-To: <20160901130231.58355405@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Caesar,
-
-Am Donnerstag, 1. September 2016, 07:28:51 schrieb Caesar Wang:
-> The RK3399 GMAC Ethernet Controller provides a complete Ethernet interface
-> from processor to a Reduced Media Independent Interface (RMII) and Reduced
-> Gigabit Media Independent Interface (RGMII) compliant Ethernet PHY.
+On Thu, Sep 01, 2016 at 01:02:31PM +0200, Jesper Dangaard Brouer wrote:
+>    PID  S  %CPU     TIME+  COMMAND
+>      3  R  50.0  29:02.23  ksoftirqd/0
+>  10881  R  10.7   1:01.61  udp_sink
+>  10837  R  10.0   1:05.20  udp_sink
+>  10852  S  10.0   1:01.78  udp_sink
+>  10862  R  10.0   1:05.19  udp_sink
+>  10844  S   9.7   1:01.91  udp_sink
 > 
-> This patch adds the related needed device information.
-> e.g.: interrupts, grf, clocks, pinctrl and so on.
-> 
-> The full details are in [0].
-> 
-> [0]:
-> Documentation/devicetree/bindings/net/rockchip-dwmac.txt
-> 
-> Signed-off-by: Caesar Wang <wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+> This is strange, why is ksoftirqd/0 getting 50% of the CPU time???
 
-the core rk3399 gmac support is still stuck and needs a respin. This patch is 
-part of that other series as well which needs a respin itself.
-
-Maybe you could just fold both series into one so that we don't have to track 
-two.
-
-
-Thanks
-Heiko
+Do you run your udp_sink thingy in a cpu-cgroup?
