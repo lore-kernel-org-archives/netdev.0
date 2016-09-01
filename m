@@ -1,165 +1,59 @@
-From: Marc Zyngier <marc.zyngier@arm.com>
-Subject: Re: [Patch v3 03/11] irqchip: axi-intc: Add support for parent intc
-Date: Thu, 1 Sep 2016 13:14:45 +0100
-Message-ID: <57C81BB5.3060807@arm.com>
-References: <1472661352-11983-1-git-send-email-Zubair.Kakakhel@imgtec.com>
- <1472661352-11983-4-git-send-email-Zubair.Kakakhel@imgtec.com>
- <57C70C71.3060603@arm.com> <81b5f75c-51b5-0482-50d1-f51c5687edbc@imgtec.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH] softirq: let ksoftirqd do its job
+Date: Thu, 1 Sep 2016 14:29:25 +0200
+Message-ID: <20160901142925.63a5031b@redhat.com>
+References: <1472650472.14381.317.camel@edumazet-glaptop3.roam.corp.google.com>
+        <1472650688.32433.115.camel@redhat.com>
+        <1472652643.14381.320.camel@edumazet-glaptop3.roam.corp.google.com>
+        <20160831164216.2901190c@redhat.com>
+        <1472661956.14381.335.camel@edumazet-glaptop3.roam.corp.google.com>
+        <1472665349.14381.356.camel@edumazet-glaptop3.roam.corp.google.com>
+        <20160831214043.2f44cf08@redhat.com>
+        <1472676150.14381.363.camel@edumazet-glaptop3.roam.corp.google.com>
+        <20160831235116.33b1946b@redhat.com>
+        <20160901130231.58355405@redhat.com>
+        <20160901115356.GT10153@twins.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: soren.brinkmann@xilinx.com, linux-kernel@vger.kernel.org,
-        linux-mips@linux-mips.org, michal.simek@xilinx.com,
-        netdev@vger.kernel.org
-To: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>,
-        monstr@monstr.eu, ralf@linux-mips.org, tglx@linutronix.de,
-        jason@lakedaemon.net
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Rik van Riel <riel@redhat.com>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Hannes Frederic Sowa <hannes@redhat.com>,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>,
+        Jonathan Corbet <corbet@lwn.net>, brouer@redhat.com
+To: Peter Zijlstra <peterz@infradead.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <81b5f75c-51b5-0482-50d1-f51c5687edbc@imgtec.com>
+In-Reply-To: <20160901115356.GT10153@twins.programming.kicks-ass.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/09/16 12:01, Zubair Lutfullah Kakakhel wrote:
-> Hi,
-> 
-> Thanks for the review
-> Comments inline.
-> 
-> On 08/31/2016 05:57 PM, Marc Zyngier wrote:
->> On 31/08/16 17:35, Zubair Lutfullah Kakakhel wrote:
->>> The MIPS based xilfpga platform has the following IRQ structure
->>>
->>> Peripherals --> xilinx_intcontroller -> mips_cpu_int controller
->>>
->>> Add support for the driver to chain the irq handler
->>>
->>> Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
->>>
->>> ---
->>> V2 -> V3
->>> Reused existing parent node instead of finding again.
->>> Cleanup up handler based on review
->>>
->>> V1 -> V2
->>>
->>> No change
->>> ---
->>>  drivers/irqchip/irq-axi-intc.c | 24 +++++++++++++++++++++++-
->>>  1 file changed, 23 insertions(+), 1 deletion(-)
->>>
->>> diff --git a/drivers/irqchip/irq-axi-intc.c b/drivers/irqchip/irq-axi-intc.c
->>> index cb69241..30bb084 100644
->>> --- a/drivers/irqchip/irq-axi-intc.c
->>> +++ b/drivers/irqchip/irq-axi-intc.c
->>> @@ -15,6 +15,7 @@
->>>  #include <linux/of_address.h>
->>>  #include <linux/io.h>
->>>  #include <linux/bug.h>
->>> +#include <linux/of_irq.h>
->>>
->>>  /* No one else should require these constants, so define them locally here. */
->>>  #define ISR 0x00			/* Interrupt Status Register */
->>> @@ -154,11 +155,23 @@ static const struct irq_domain_ops xintc_irq_domain_ops = {
->>>  	.map = xintc_map,
->>>  };
->>>
->>> +static void xil_intc_irq_handler(struct irq_desc *desc)
->>> +{
->>> +	u32 pending;
->>> +
->>> +	do {
->>> +		pending = get_irq();
->>> +		if (pending == -1U)
->>> +			break;
->>> +		generic_handle_irq(pending);
->>> +	} while (true);
->>> +}
->>> +
->>>  static int __init xilinx_intc_of_init(struct device_node *intc,
->>>  					     struct device_node *parent)
->>>  {
->>>  	u32 nr_irq;
->>> -	int ret;
->>> +	int ret, irq;
->>>  	struct xintc_irq_chip *irqc;
->>>
->>>  	irqc = kzalloc(sizeof(*irqc), GFP_KERNEL);
->>> @@ -211,6 +224,15 @@ static int __init xilinx_intc_of_init(struct device_node *intc,
->>>  	root_domain = irq_domain_add_linear(intc, nr_irq, &xintc_irq_domain_ops,
->>>  					    irqc);
->>>
->>> +	if (parent) {
->>> +		irq = irq_of_parse_and_map(intc, 0);
->>> +		if (irq)
->>> +			irq_set_chained_handler_and_data(irq,
->>> +							 xil_intc_irq_handler,
->>> +							 root_domain);
->>> +
->>> +	}
->>> +
->>>  	irq_set_default_host(root_domain);
->>>
->>>  	return 0;
->>>
->>
->> This doesn't seem right. You've now overridden the xintc_irqc pointer,
->> so I don't know how you can still process interrupts once you've
->> discovered a secondary interrupt controller. You've also allocated a
->> second root_domain, changed the default domain to point to the secondary
->> controller...
->>
->> Have you tested this code? Or am I missing something obvious?
-> 
-> Yes it works. I'll try to explain the platform setup a bit.
-> Perhaps that will make it clear about what I'm trying to do.
-> 
-> UART IRQ -> AXI INTC -> MIPS internal INTC -> CPU
-> 
-> MIPS Internal Interrupt controller in drivers/irqchip/irq-mips-cpu.c
-> uses irq_domain_add_legacy while AXI Intc uses irq_domain_add_linear
-> 
-> My aim was to set up a chained irq handler with least disturbance.
-> 
-> Hence the above code.
-> 
-> Your concerns are valid. The code is working because read/writes rely
-> on the static xintc_irqc in the file.
-> And the second root domain is also not breaking the platform because
-> the irq-mips-cpu.c uses irq_domain_add_legacy and doesn't use
-> irq_set_default_host.
-> 
-> # cat /proc/interrupts
->             CPU0
->    7:      43493      MIPS   7  timer
->    8:         83  Xilinx INTC   1-level     eth0
->    9:        417  Xilinx INTC   0-level     serial
->   10:         15  Xilinx INTC   4-level     10a00000.i2c
-> ERR:          0
-> #
-> 
-> Given the above concerns. How about doing things this way?
-> 
-> 	if (parent) {
-> 		irq = irq_of_parse_and_map(intc, 0);
-> 		if (irq)
-> 			irq_set_chained_handler_and_data(irq,
-> 							 xil_intc_irq_handler,
-> 							 irqc);
-> 
-> 	} else
-> 		irq_set_default_host(root_domain);
-> 
-> default host is only set if no parent exists.
-> And the irqc pointer is passed as the data.
+On Thu, 1 Sep 2016 13:53:56 +0200
+Peter Zijlstra <peterz@infradead.org> wrote:
 
-But that still doesn't address the case I had in mind, which is when you
-have *two* AXI-intc, one cascaded into the other. Is that something that
-could be built? You should at least make sure that there is a big fat
-warning if you don't want to support that case, because that will be
-hell to debug.
+> On Thu, Sep 01, 2016 at 01:02:31PM +0200, Jesper Dangaard Brouer wrote:
+> >    PID  S  %CPU     TIME+  COMMAND
+> >      3  R  50.0  29:02.23  ksoftirqd/0
+> >  10881  R  10.7   1:01.61  udp_sink
+> >  10837  R  10.0   1:05.20  udp_sink
+> >  10852  S  10.0   1:01.78  udp_sink
+> >  10862  R  10.0   1:05.19  udp_sink
+> >  10844  S   9.7   1:01.91  udp_sink
+> > 
+> > This is strange, why is ksoftirqd/0 getting 50% of the CPU time???  
+> 
+> Do you run your udp_sink thingy in a cpu-cgroup?
 
-Thanks,
+That was also Paolo's feedback (IRC).  I'm not aware of it, but it
+might be some distribution (Fedora 22) default thing.
 
-	M.
+How do I verify/check if I have enabled a cpu-cgroup?
+
 -- 
-Jazz is not dead. It just smells funny...
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
