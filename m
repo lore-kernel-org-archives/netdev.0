@@ -1,59 +1,105 @@
-From: <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH net v4 5/9] net: ethernet: mediatek: fix logic unbalance
- between probe and remove
-Date: Thu, 1 Sep 2016 10:47:31 +0800
-Message-ID: <1472698055-8821-6-git-send-email-sean.wang@mediatek.com>
+From: <sean.wang@mediatek.com>
+Subject: [PATCH net v4 8/9] net: ethernet: mediatek: use devm_mdiobus_alloc instead of mdiobus_alloc inside mtk_mdio_init
+Date: Thu, 1 Sep 2016 10:47:34 +0800
+Message-ID: <1472698055-8821-9-git-send-email-sean.wang@mediatek.com>
 References: <1472698055-8821-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- objelf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1472698055-8821-1-git-send-email-sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
-List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
+        <linux-mediatek@lists.infradead.org>, <keyhaede@gmail.com>,
+        <objelf@gmail.com>, Sean Wang <sean.wang@mediatek.com>
+To: <john@phrozen.org>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailgw01.mediatek.com ([210.61.82.183]:60579 "EHLO
+        mailgw01.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1754936AbcIACsY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2016 22:48:24 -0400
+In-Reply-To: <1472698055-8821-1-git-send-email-sean.wang@mediatek.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+From: Sean Wang <sean.wang@mediatek.com>
 
-original mdio_cleanup is not in the symmetric place against where
-mdio_init is, so relocate mdio_cleanup to the right one.
+a lot of parts in the driver uses devm_* APIs to gain benefits from the
+device resource management, so devm_mdiobus_alloc is also used instead
+of mdiobus_alloc to have more elegant code flow.
 
-Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Acked-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
+Using common code provided by the devm_* helps to
+1) have simplified the code flow as [1] says
+2) decrease the risk of incorrect error handling by human
+3) only a few drivers used it since it was proposed on linux 3.16,
+so just hope to promote for this.
+
+Ref:
+[1] https://patchwork.ozlabs.org/patch/344093/
+
+Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 23 ++++++-----------------
+ 1 file changed, 6 insertions(+), 17 deletions(-)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 1ffde91..bf5b7e1 100644
+index 409efcf..0367f51 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -1511,7 +1511,6 @@ static void mtk_uninit(struct net_device *dev)
- 	struct mtk_eth *eth = mac->hw;
+@@ -295,7 +295,7 @@ err_phy:
+ static int mtk_mdio_init(struct mtk_eth *eth)
+ {
+ 	struct device_node *mii_np;
+-	int err;
++	int ret;
  
- 	phy_disconnect(mac->phy_dev);
--	mtk_mdio_cleanup(eth);
- 	mtk_irq_disable(eth, ~0);
+ 	mii_np = of_get_child_by_name(eth->dev->of_node, "mdio-bus");
+ 	if (!mii_np) {
+@@ -304,13 +304,13 @@ static int mtk_mdio_init(struct mtk_eth *eth)
+ 	}
+ 
+ 	if (!of_device_is_available(mii_np)) {
+-		err = 0;
++		ret = 0;
+ 		goto err_put_node;
+ 	}
+ 
+-	eth->mii_bus = mdiobus_alloc();
++	eth->mii_bus = devm_mdiobus_alloc(eth->dev);
+ 	if (!eth->mii_bus) {
+-		err = -ENOMEM;
++		ret = -ENOMEM;
+ 		goto err_put_node;
+ 	}
+ 
+@@ -321,20 +321,11 @@ static int mtk_mdio_init(struct mtk_eth *eth)
+ 	eth->mii_bus->parent = eth->dev;
+ 
+ 	snprintf(eth->mii_bus->id, MII_BUS_ID_SIZE, "%s", mii_np->name);
+-	err = of_mdiobus_register(eth->mii_bus, mii_np);
+-	if (err)
+-		goto err_free_bus;
+-	of_node_put(mii_np);
+-
+-	return 0;
+-
+-err_free_bus:
+-	mdiobus_free(eth->mii_bus);
++	ret = of_mdiobus_register(eth->mii_bus, mii_np);
+ 
+ err_put_node:
+ 	of_node_put(mii_np);
+-	eth->mii_bus = NULL;
+-	return err;
++	return ret;
  }
  
-@@ -1916,6 +1915,7 @@ static int mtk_remove(struct platform_device *pdev)
- 	netif_napi_del(&eth->tx_napi);
- 	netif_napi_del(&eth->rx_napi);
- 	mtk_cleanup(eth);
-+	mtk_mdio_cleanup(eth);
- 	platform_set_drvdata(pdev, NULL);
+ static void mtk_mdio_cleanup(struct mtk_eth *eth)
+@@ -343,8 +334,6 @@ static void mtk_mdio_cleanup(struct mtk_eth *eth)
+ 		return;
  
- 	return 0;
+ 	mdiobus_unregister(eth->mii_bus);
+-	of_node_put(eth->mii_bus->dev.of_node);
+-	mdiobus_free(eth->mii_bus);
+ }
+ 
+ static inline void mtk_irq_disable(struct mtk_eth *eth, u32 mask)
 -- 
 1.9.1
