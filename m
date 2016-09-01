@@ -1,133 +1,148 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH] softirq: let ksoftirqd do its job
-Date: Thu, 1 Sep 2016 12:38:49 +0200
-Message-ID: <20160901123849.2c9aa5e1@redhat.com>
-References: <4f1c4b38528762619fff1fa963de8971006c1234.1472460085.git.pabeni@redhat.com>
-        <20160831100854.23dad2d8@redhat.com>
-        <1472650472.14381.317.camel@edumazet-glaptop3.roam.corp.google.com>
-        <1472650688.32433.115.camel@redhat.com>
-        <1472652643.14381.320.camel@edumazet-glaptop3.roam.corp.google.com>
-        <20160831164216.2901190c@redhat.com>
-        <1472661956.14381.335.camel@edumazet-glaptop3.roam.corp.google.com>
-        <1472665349.14381.356.camel@edumazet-glaptop3.roam.corp.google.com>
-        <20160831214043.2f44cf08@redhat.com>
-        <1472676150.14381.363.camel@edumazet-glaptop3.roam.corp.google.com>
-        <20160831235116.33b1946b@redhat.com>
-        <1472682450.14381.364.camel@edumazet-glaptop3.roam.corp.google.com>
-        <3567b503-8b3e-5a3f-580a-f99fd28cf77e@hpe.com>
-        <1472685066.14381.380.camel@edumazet-glaptop3.roam.corp.google.com>
-        <f131776f-7f53-c539-f283-10d6db0b6d57@hpe.com>
+From: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
+Subject: Re: [Patch v3 02/11] irqchip: axi-intc: Clean up irqdomain argument
+ and read/write
+Date: Thu, 1 Sep 2016 11:41:03 +0100
+Message-ID: <97c89803-915f-5f3b-ceaf-b7697d5f6bca@imgtec.com>
+References: <1472661352-11983-1-git-send-email-Zubair.Kakakhel@imgtec.com>
+ <1472661352-11983-3-git-send-email-Zubair.Kakakhel@imgtec.com>
+ <57C70B43.6010107@arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, Eric Dumazet <eric.dumazet@gmail.com>,
-        Peter Zijlstra <peterz@infradead.org>,
-        David Miller <davem@davemloft.net>,
-        Rik van Riel <riel@redhat.com>,
-        Paolo Abeni <pabeni@redhat.com>,
-        Hannes Frederic Sowa <hannes@redhat.com>,
-        linux-kernel <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>, Jonathan Corbet <corbet@lwn.net>
-To: Rick Jones <rick.jones2@hpe.com>
+Cc: <soren.brinkmann@xilinx.com>, <linux-kernel@vger.kernel.org>,
+        <linux-mips@linux-mips.org>, <michal.simek@xilinx.com>,
+        <netdev@vger.kernel.org>
+To: Marc Zyngier <marc.zyngier@arm.com>, <monstr@monstr.eu>,
+        <ralf@linux-mips.org>, <tglx@linutronix.de>, <jason@lakedaemon.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <f131776f-7f53-c539-f283-10d6db0b6d57@hpe.com>
+In-Reply-To: <57C70B43.6010107@arm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi,
 
-On Wed, 31 Aug 2016 16:29:56 -0700 Rick Jones <rick.jones2@hpe.com> wrote:
-> On 08/31/2016 04:11 PM, Eric Dumazet wrote:
-> > On Wed, 2016-08-31 at 15:47 -0700, Rick Jones wrote:  
-> >> With regard to drops, are both of you sure you're using the same socket
-> >> buffer sizes?  
-> >
-> > Does it really matter ?  
-> 
-> At least at points in the past I have seen different drop counts at the 
-> SO_RCVBUF based on using (sometimes much) larger sizes.  The hypothesis 
-> I was operating under at the time was that this dealt with those 
-> situations where the netserver was held-off from running for "a little 
-> while" from time to time.  It didn't change things for a sustained 
-> overload situation though.
+Thank you for the reviews.
 
-Yes, Rick, your hypothesis corresponds to my measurements.  The
-userspace program is held-off from running for "a little while" from
-time to time.  I've measured this with perf sched record/latency.  It
-is sort of a natural scheduler characteristic.
- The userspace UDP socket program consume/need more cycles to perform
-its jobs, than kernel softirqd. Thus the UDP-prog use up its sched
-time-slice, and periodically ksoftirq get schedule multiple times,
-because UDP-prog don't have any credits any-longer.
+Some comments below
 
-WARNING: Do not increase socket queue size to pamper over this issue,
-it is the WRONG solution, it will give horrible latency issues.
+On 08/31/2016 05:52 PM, Marc Zyngier wrote:
+> On 31/08/16 17:35, Zubair Lutfullah Kakakhel wrote:
+>> The drivers read/write function handling is a bit quirky.
+>> And the irqmask is passed directly to the handler.
+>>
+>> Add a new irqchip struct to pass to the handler and
+>> cleanup read/write handling.
+>>
+>> Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
+>>
+>> ---
+>> V2 -> V3
+>> New patch. Cleans up driver structure
+>> ---
+...
+>>  static int __init xilinx_intc_of_init(struct device_node *intc,
+>>  					     struct device_node *parent)
+>>  {
+>> -	u32 nr_irq, intr_mask;
+>> +	u32 nr_irq;
+>>  	int ret;
+>> +	struct xintc_irq_chip *irqc;
+>> +
+>> +	irqc = kzalloc(sizeof(*irqc), GFP_KERNEL);
+>
+> Now that you dynamically allocate things, how are you handling failures?
+>
+>> +	if (!irqc)
+>> +		return -ENOMEM;
+>> +
+>> +	xintc_irqc = irqc;
+>>
+>> -	intc_baseaddr = of_iomap(intc, 0);
+>> -	BUG_ON(!intc_baseaddr);
+>> +	irqc->base = of_iomap(intc, 0);
+>> +	BUG_ON(!irqc->base);
+>>
+>>  	ret = of_property_read_u32(intc, "xlnx,num-intr-inputs", &nr_irq);
+>>  	if (ret < 0) {
+>> @@ -150,43 +176,40 @@ static int __init xilinx_intc_of_init(struct device_node *intc,
+>>  		return ret;
+>
+> All the return paths should now take care of releasing the allocated
+> resources.
+>
 
-With above warning, I can tell your, yes you are also right about
-increasing the socket buffer size, can be used to mitigate/hide the
-packet drops.  You can even increase the socket size so much, that the
-drop problem "goes-away".  The queue simply need to be deep enough to
-absorb the worst/maximum time UDP-prog was scheduled out.  The hidden
-effect to make this work (to not contradict queue theory) is that this
-also slows-down/cost-more-cycles for ksoftirqd/NAPI as it cost more to
-enqueue (instead of dropping packets on a full queue).
+Thanks for pointing it out. I'll fix it in the next series.
 
-You can measure the sched "Maximum delay" using:
- sudo perf sched record -C 0 sleep 10
- sudo perf sched latency
+>>  	}
+>>
+>> -	ret = of_property_read_u32(intc, "xlnx,kind-of-intr", &intr_mask);
+>> +	ret = of_property_read_u32(intc, "xlnx,kind-of-intr", &irqc->intr_mask);
+>>  	if (ret < 0) {
+>>  		pr_err("%s: unable to read xlnx,kind-of-intr\n", __func__);
+>>  		return ret;
+>>  	}
+>>
+>> -	if (intr_mask >> nr_irq)
+>> +	if (irqc->intr_mask >> nr_irq)
+>>  		pr_warn("%s: mismatch in kind-of-intr param\n", __func__);
+>>
+>>  	pr_info("%s: num_irq=%d, edge=0x%x\n",
+>> -		intc->full_name, nr_irq, intr_mask);
+>> +		intc->full_name, nr_irq, irqc->intr_mask);
+>>
+>> -	write_fn = intc_write32;
+>> -	read_fn = intc_read32;
+>> +	irqc->read = intc_read32;
+>> +	irqc->write = intc_write32;
+>>
+>>  	/*
+>>  	 * Disable all external interrupts until they are
+>>  	 * explicity requested.
+>>  	 */
+>> -	write_fn(0, intc_baseaddr + IER);
+>> +	xintc_write(irqc, IER, 0);
+>>
+>>  	/* Acknowledge any pending interrupts just in case. */
+>> -	write_fn(0xffffffff, intc_baseaddr + IAR);
+>> +	xintc_write(irqc, IAR, 0xffffffff);
+>>
+>>  	/* Turn on the Master Enable. */
+>> -	write_fn(MER_HIE | MER_ME, intc_baseaddr + MER);
+>> -	if (!(read_fn(intc_baseaddr + MER) & (MER_HIE | MER_ME))) {
+>> -		write_fn = intc_write32_be;
+>> -		read_fn = intc_read32_be;
+>> -		write_fn(MER_HIE | MER_ME, intc_baseaddr + MER);
+>> +	xintc_write(irqc, MER, MER_HIE | MER_ME);
+>> +	if (!(xintc_read(irqc, MER) & (MER_HIE | MER_ME))) {
+>> +		irqc->read = intc_read32_be;
+>> +		irqc->write = intc_write32_be;
+>> +		xintc_write(irqc, MER, MER_HIE | MER_ME);
+>>  	}
+>>
+>> -	/* Yeah, okay, casting the intr_mask to a void* is butt-ugly, but I'm
+>> -	 * lazy and Michal can clean it up to something nicer when he tests
+>> -	 * and commits this patch.  ~~gcl */
+>>  	root_domain = irq_domain_add_linear(intc, nr_irq, &xintc_irq_domain_ops,
+>> -							(void *)intr_mask);
+>> +					    irqc);
+>>
+>>  	irq_set_default_host(root_domain);
+>>
+>>
+>
+> You haven't addressed the comment on get_irq() which could be static (at
+> least from solely looking at this file).
 
-On my setup I measured "Maximum delay" of approx 9 ms.  Given I can
-see an incoming packet rate of 2.4Mpps (880Kpps reach UDP-prog), and
-knowing network stack use skb->truesize (approx 2048 bytes on this
-driver), I can calculate that I need approx 45MBytes buffer
-((2.4*10^6)*(9/1000)*2048 = 44.2Mb)
+Apologies. In a rush to get a series out before heading home, it slipped my mind.
+It is needed as it is used in arch/microblaze/kernel/irq.c
 
-The PPS measurement comes from:
+But I'll add a patch to rename it correctly. get_irq is far too generic outside arch code.
 
- $ nstat > /dev/null && sleep 1 && nstat
- #kernel
- IpInReceives                    2335926            0.0
- IpInDelivers                    2335925            0.0
- UdpInDatagrams                  880086             0.0
- UdpInErrors                     1455850            0.0
- UdpRcvbufErrors                 1455850            0.0
- IpExtInOctets                   107453056          0.0
+Thanks,
+ZubairLK
 
-Changing queue size to 50MBytes :
- sysctl -w net/core/rmem_max=$((50*1024*1024)) ;\
- sysctl -w net.core.rmem_default=$((50*1024*1024))
-
-New result looks "nice", with no drops, and 1.42Mpps delivered to
-UDP-prog, but in reality it is not nice for latency...
-
- $ nstat > /dev/null && sleep 1 && nstat
- #kernel
- IpInReceives                    1425013            0.0
- IpInDelivers                    1425017            0.0
- UdpInDatagrams                  1432139            0.0
- IpExtInOctets                   65539328           0.0
- IpExtInNoECTPkts                1424771            0.0
-
-Tracking of queue size, max, min and average::
-
- while (true); do netstat -uan | grep '0.0.0.0:9'; sleep 0.3; done |
-  awk 'BEGIN {max=0;min=0xffffffff;sum=0;n=0} \
-   {if ($2 > max) max=$2;
-    if ($2 < min) min=$2;
-    n++; sum+=$2;
-    printf "%s Recv-Q: %d max: %d min: %d ave: %.3f\n",$1,$2,max,min,sum/n;}';
- Result:
-  udp Recv-Q: 23624832 max: 47058176 min: 4352 ave: 25092687.698
-
-I see max queue of 47MBytes, and worse an average standing queue of
-25Mbytes, which is really bad for the latency seen by the
-application. And having this much outstanding memory is also bad for
-CPU cache size effects, and stressing the memory allocator.
- I'm actually using this huge queue "misconfig" to stress the page
-allocator and my page_pool implementation into worse case situations ;-)
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+>
+> Thanks,
+>
+> 	M.
+>
