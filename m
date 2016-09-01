@@ -1,68 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Hannes Frederic Sowa <hannes@redhat.com>
 Subject: Re: [PATCH] softirq: let ksoftirqd do its job
-Date: Thu, 01 Sep 2016 06:06:01 -0700
-Message-ID: <1472735161.5019.17.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <4f1c4b38528762619fff1fa963de8971006c1234.1472460085.git.pabeni@redhat.com>
-         <20160831100854.23dad2d8@redhat.com>
-         <1472650472.14381.317.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1472650688.32433.115.camel@redhat.com>
-         <1472652643.14381.320.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20160831164216.2901190c@redhat.com>
-         <1472661956.14381.335.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1472665349.14381.356.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20160831214043.2f44cf08@redhat.com>
-         <1472676150.14381.363.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20160831235116.33b1946b@redhat.com>
-         <1472682450.14381.364.camel@edumazet-glaptop3.roam.corp.google.com>
-         <3567b503-8b3e-5a3f-580a-f99fd28cf77e@hpe.com>
-         <1472685066.14381.380.camel@edumazet-glaptop3.roam.corp.google.com>
-         <f131776f-7f53-c539-f283-10d6db0b6d57@hpe.com>
-         <20160901123849.2c9aa5e1@redhat.com>
+Date: Thu, 1 Sep 2016 15:00:10 +0200
+Message-ID: <89b605ce-5281-ba41-2921-116bb3073098@redhat.com>
+References: <1472650472.14381.317.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1472650688.32433.115.camel@redhat.com>
+ <1472652643.14381.320.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160831164216.2901190c@redhat.com>
+ <1472661956.14381.335.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1472665349.14381.356.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160831214043.2f44cf08@redhat.com>
+ <1472676150.14381.363.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160831235116.33b1946b@redhat.com> <20160901130231.58355405@redhat.com>
+ <20160901115356.GT10153@twins.programming.kicks-ass.net>
+ <20160901142925.63a5031b@redhat.com> <20160901143859.730826ed@redhat.com>
+ <1472734643.5019.9.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Rick Jones <rick.jones2@hpe.com>,
-        Peter Zijlstra <peterz@infradead.org>,
+Cc: Peter Zijlstra <peterz@infradead.org>,
         David Miller <davem@davemloft.net>,
         Rik van Riel <riel@redhat.com>,
         Paolo Abeni <pabeni@redhat.com>,
-        Hannes Frederic Sowa <hannes@redhat.com>,
         linux-kernel <linux-kernel@vger.kernel.org>,
         netdev <netdev@vger.kernel.org>, Jonathan Corbet <corbet@lwn.net>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160901123849.2c9aa5e1@redhat.com>
+In-Reply-To: <1472734643.5019.9.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-09-01 at 12:38 +0200, Jesper Dangaard Brouer wrote:
-
-> I see max queue of 47MBytes, and worse an average standing queue of
-> 25Mbytes, which is really bad for the latency seen by the
-> application. And having this much outstanding memory is also bad for
-> CPU cache size effects, and stressing the memory allocator.
->  I'm actually using this huge queue "misconfig" to stress the page
-> allocator and my page_pool implementation into worse case situations ;-)
+On 01.09.2016 14:57, Eric Dumazet wrote:
+> On Thu, 2016-09-01 at 14:38 +0200, Jesper Dangaard Brouer wrote:
 > 
+>> Correction, on the server-under-test, I'm actually running RHEL7.2
+>>
+>>
+>>> How do I verify/check if I have enabled a cpu-cgroup?
+>>
+>> Hannes says I can look in "/proc/self/cgroup"
+>>
+>>  $ cat /proc/self/cgroup
+>>  7:net_cls:/
+>>  6:blkio:/
+>>  5:devices:/
+>>  4:perf_event:/
+>>  3:cpu,cpuacct:/
+>>  2:cpuset:/
+>>  1:name=systemd:/user.slice/user-1000.slice/session-c1.scope
+>>  
+>> And that "/" indicate I've not enabled cgroups, right?
+>>
+> 
+> In my experience, I found that times displayed by top are often off for
+> softirq processing.
+> 
+> Before applying my patch, top shows very small amount of cpu time for
+> udp_rcv and ksoftirqd/0 , while obviously cpu 0 is completely busy.
+> 
+> Make sure to try latest Linus tree, as I did yesterday, because
+> apparently things are better than a few weeks back.
+> 
+> BTW, even 'perf top' has sometimes problems showing me cycles spent in
+> softirq. I need to make sure the cpu processing NIC interrupts also
+> spend cycles in some user space program to get meaningful results.
 
-Since commit 95766fff6b9a78d11f ("[UDP]: Add memory accounting."),
-it is dangerous to have a big SO_RCVBUF value, since it adds unexpected
-recvmsg() latencies.
+I think that ksoftirqd time is actually accounted to system:
 
-1) User thread locks the socket.
-2) Gets one skb from receive queue
-   3) incoming flood of UDP packets are processed by softirq
-   4) Socket is found 'owned by the user'
-   5) packets are parked into the 'socket backlog' up to the SO_RCVBUF
-limit
-6) User thread release the socket.
-7)  It finds many skbs in the backlog and have to process them _all_ and
-re-inject in socket receive queue.
-8) return to user space.
+excerpt from irqtime_account_process_tick in kernel/sched/cputime.c
 
-
-Time spent in 7) can me in the order of millions of cpu cycles...
-
-At least starting from 5413d1babe8f10d ("net: do not block BH while
-processing socket backlog") we no longer block BH while doing 7) and we
-have cond resched points.
+	if (this_cpu_ksoftirqd() == p) {
+		/*
+		 * ksoftirqd time do not get accounted in cpu_softirq_time.
+		 * So, we have to handle it separately here.
+		 * Also, p->stime needs to be updated for ksoftirqd.
+		 */
+		__account_system_time(p, cputime, scaled, CPUTIME_SOFTIRQ);
+	} else if (user_tick) {
