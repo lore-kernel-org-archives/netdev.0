@@ -1,31 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] rxrpc: Don't expose skbs to in-kernel
- users [ver #2]
-Date: Thu, 01 Sep 2016 16:43:50 -0700 (PDT)
-Message-ID: <20160901.164350.188976129063571139.davem@davemloft.net>
-References: <147258609952.22464.8997026814758565636.stgit@warthog.procyon.org.uk>
-        <147258612700.22464.16394006856318134180.stgit@warthog.procyon.org.uk>
+Subject: Re: [PATCH net-next] rps: flow_dissector: Add the const for the
+ parameter of flow_keys_have_l4
+Date: Thu, 01 Sep 2016 16:51:27 -0700 (PDT)
+Message-ID: <20160901.165127.448396878189749468.davem@davemloft.net>
+References: <1472613382-24322-1-git-send-email-fgao@ikuai8.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: dhowells@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <147258612700.22464.16394006856318134180.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gfree.wind@gmail.com
+To: fgao@ikuai8.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:40926 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751448AbcIAXv3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 19:51:29 -0400
+In-Reply-To: <1472613382-24322-1-git-send-email-fgao@ikuai8.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Howells <dhowells@redhat.com>
-Date: Tue, 30 Aug 2016 20:42:14 +0100
+From: fgao@ikuai8.com
+Date: Wed, 31 Aug 2016 11:16:22 +0800
 
-> Don't expose skbs to in-kernel users, such as the AFS filesystem, but
-> instead provide a notification hook the indicates that a call needs
-> attention and another that indicates that there's a new call to be
-> collected.
- ...
-> Signed-off-by: David Howells <dhowells@redhat.com>
+> From: Gao Feng <fgao@ikuai8.com>
+> 
+> Add the const for the parameter of flow_keys_have_l4 for the readability.
+> 
+> Signed-off-by: Gao Feng <fgao@ikuai8.com>
 
-Ok, I tried this one instead.  If no warnings, I'll push it to net-next.
-
-Thanks.
+Applied.
