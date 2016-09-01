@@ -1,161 +1,74 @@
 From: Jeremy Linton <jeremy.linton@arm.com>
-Subject: [PATCH 4/4] net: smsc911x: Move interrupt allocation to open/stop
-Date: Thu,  1 Sep 2016 15:15:09 -0500
-Message-ID: <1472760909-19688-5-git-send-email-jeremy.linton@arm.com>
+Subject: [PATCH 1/4] net: smsc911x: Remove multiple exit points from smsc911x_open
+Date: Thu,  1 Sep 2016 15:15:06 -0500
+Message-ID: <1472760909-19688-2-git-send-email-jeremy.linton@arm.com>
 References: <1472760909-19688-1-git-send-email-jeremy.linton@arm.com>
 Cc: steve.glendinning@shawell.net, sergei.shtylyov@cogentembedded.com,
         andrew@lunn.ch, will.deacon@arm.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:39366 "EHLO foss.arm.com"
+Received: from foss.arm.com ([217.140.101.70]:39368 "EHLO foss.arm.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934875AbcIAVd4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S934865AbcIAVd4 (ORCPT <rfc822;netdev@vger.kernel.org>);
         Thu, 1 Sep 2016 17:33:56 -0400
 In-Reply-To: <1472760909-19688-1-git-send-email-jeremy.linton@arm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The /proc/irq/xx information is incorrect for smsc911x because
-the request_irq is happening before the register_netdev has the
-proper device name. Moving it to the open also fixes the case
-of when the device is renamed.
+Rework the error handling in smsc911x open in preparation
+for the mdio startup being moved here.
 
-Reported-by: Will Deacon <will.deacon@arm.com>
 Signed-off-by: Jeremy Linton <jeremy.linton@arm.com>
 ---
- drivers/net/ethernet/smsc/smsc911x.c | 47 ++++++++++++++----------------------
- 1 file changed, 18 insertions(+), 29 deletions(-)
+ drivers/net/ethernet/smsc/smsc911x.c | 14 ++++++++++----
+ 1 file changed, 10 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-index c2e56f0..4f8910b 100644
+index ca31345..c9b0e05 100644
 --- a/drivers/net/ethernet/smsc/smsc911x.c
 +++ b/drivers/net/ethernet/smsc/smsc911x.c
-@@ -1575,6 +1575,7 @@ static int smsc911x_open(struct net_device *dev)
+@@ -1520,17 +1520,20 @@ static int smsc911x_open(struct net_device *dev)
+ 	unsigned int timeout;
  	unsigned int temp;
  	unsigned int intcfg;
- 	int retval;
-+	int irq_flags;
++	int retval;
  
- 	/* find and start the given phy */
+ 	/* if the phy is not yet registered, retry later*/
  	if (!dev->phydev) {
-@@ -1645,6 +1646,15 @@ static int smsc911x_open(struct net_device *dev)
- 	pdata->software_irq_signal = 0;
- 	smp_wmb();
+ 		SMSC_WARN(pdata, hw, "phy_dev is NULL");
+-		return -EAGAIN;
++		retval = -EAGAIN;
++		goto out;
+ 	}
  
-+	irq_flags = irq_get_trigger_type(dev->irq);
-+	retval = request_irq(dev->irq, smsc911x_irqhandler,
-+			     irq_flags | IRQF_SHARED, dev->name, dev);
+ 	/* Reset the LAN911x */
+-	if (smsc911x_soft_reset(pdata)) {
++	retval = smsc911x_soft_reset(pdata);
 +	if (retval) {
-+		SMSC_WARN(pdata, probe,
-+			  "Unable to claim requested irq: %d", dev->irq);
-+		goto mii_free_out;
-+	}
-+
- 	temp = smsc911x_reg_read(pdata, INT_EN);
- 	temp |= INT_EN_SW_INT_EN_;
- 	smsc911x_reg_write(pdata, INT_EN, temp);
-@@ -1660,7 +1670,7 @@ static int smsc911x_open(struct net_device *dev)
+ 		SMSC_WARN(pdata, hw, "soft reset failed");
+-		return -EIO;
++		goto out;
+ 	}
+ 
+ 	smsc911x_reg_write(pdata, HW_CFG, 0x00050000);
+@@ -1600,7 +1603,8 @@ static int smsc911x_open(struct net_device *dev)
+ 	if (!pdata->software_irq_signal) {
  		netdev_warn(dev, "ISR failed signaling test (IRQ %d)\n",
  			    dev->irq);
- 		retval = -ENODEV;
--		goto mii_free_out;
-+		goto irq_stop_out;
+-		return -ENODEV;
++		retval = -ENODEV;
++		goto out;
  	}
  	SMSC_TRACE(pdata, ifup, "IRQ handler passed test using IRQ %d",
  		   dev->irq);
-@@ -1707,6 +1717,8 @@ static int smsc911x_open(struct net_device *dev)
+@@ -1646,6 +1650,8 @@ static int smsc911x_open(struct net_device *dev)
+ 
  	netif_start_queue(dev);
  	return 0;
++out:
++	return retval;
+ }
  
-+irq_stop_out:
-+	free_irq(dev->irq, dev);
- mii_free_out:
- 	phy_disconnect(dev->phydev);
- 	dev->phydev = NULL;
-@@ -1733,6 +1745,8 @@ static int smsc911x_stop(struct net_device *dev)
- 	dev->stats.rx_dropped += smsc911x_reg_read(pdata, RX_DROP);
- 	smsc911x_tx_update_txcounters(dev);
- 
-+	free_irq(dev->irq, dev);
-+
- 	/* Bring the PHY down */
- 	if (dev->phydev) {
- 		phy_stop(dev->phydev);
-@@ -2308,7 +2322,6 @@ static int smsc911x_drv_remove(struct platform_device *pdev)
- 	mdiobus_free(pdata->mii_bus);
- 
- 	unregister_netdev(dev);
--	free_irq(dev->irq, dev);
- 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
- 					   "smsc911x-memory");
- 	if (!res)
-@@ -2393,8 +2406,7 @@ static int smsc911x_drv_probe(struct platform_device *pdev)
- 	struct smsc911x_data *pdata;
- 	struct smsc911x_platform_config *config = dev_get_platdata(&pdev->dev);
- 	struct resource *res;
--	unsigned int intcfg = 0;
--	int res_size, irq, irq_flags;
-+	int res_size, irq;
- 	int retval;
- 
- 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-@@ -2433,7 +2445,6 @@ static int smsc911x_drv_probe(struct platform_device *pdev)
- 
- 	pdata = netdev_priv(dev);
- 	dev->irq = irq;
--	irq_flags = irq_get_trigger_type(irq);
- 	pdata->ioaddr = ioremap_nocache(res->start, res_size);
- 
- 	pdata->dev = dev;
-@@ -2480,38 +2491,18 @@ static int smsc911x_drv_probe(struct platform_device *pdev)
- 	if (retval < 0)
- 		goto out_disable_resources;
- 
--	/* configure irq polarity and type before connecting isr */
--	if (pdata->config.irq_polarity == SMSC911X_IRQ_POLARITY_ACTIVE_HIGH)
--		intcfg |= INT_CFG_IRQ_POL_;
--
--	if (pdata->config.irq_type == SMSC911X_IRQ_TYPE_PUSH_PULL)
--		intcfg |= INT_CFG_IRQ_TYPE_;
--
--	smsc911x_reg_write(pdata, INT_CFG, intcfg);
--
--	/* Ensure interrupts are globally disabled before connecting ISR */
--	smsc911x_disable_irq_chip(dev);
--
--	retval = request_irq(dev->irq, smsc911x_irqhandler,
--			     irq_flags | IRQF_SHARED, dev->name, dev);
--	if (retval) {
--		SMSC_WARN(pdata, probe,
--			  "Unable to claim requested irq: %d", dev->irq);
--		goto out_disable_resources;
--	}
--
- 	netif_carrier_off(dev);
- 
- 	retval = smsc911x_mii_init(pdev, dev);
- 	if (retval) {
- 		SMSC_WARN(pdata, probe, "Error %i initialising mii", retval);
--		goto out_free_irq;
-+		goto out_disable_resources;
- 	}
- 
- 	retval = register_netdev(dev);
- 	if (retval) {
- 		SMSC_WARN(pdata, probe, "Error %i registering device", retval);
--		goto out_free_irq;
-+		goto out_disable_resources;
- 	} else {
- 		SMSC_TRACE(pdata, probe,
- 			   "Network interface: \"%s\"", dev->name);
-@@ -2552,8 +2543,6 @@ static int smsc911x_drv_probe(struct platform_device *pdev)
- 
- 	return 0;
- 
--out_free_irq:
--	free_irq(dev->irq, dev);
- out_disable_resources:
- 	pm_runtime_put(&pdev->dev);
- 	pm_runtime_disable(&pdev->dev);
+ /* Entry point for stopping the interface */
 -- 
 2.5.5
