@@ -1,45 +1,37 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] iproute: disallow ip rule del without parameters
-Date: Thu, 1 Sep 2016 09:05:40 -0700
-Message-ID: <20160901090540.707a6c87@xeon-e3>
-References: <20160824204252.2melotzdx6ftzgaq@ppc.Dlink>
-        <20160829105325.40230e41@xeon-e3>
-        <20160830115156.GB17087@unicorn.suse.cz>
+Subject: Re: [PATCH iproute] iptuntap: show processes using tuntap interface
+Date: Thu, 1 Sep 2016 09:06:21 -0700
+Message-ID: <20160901090621.13026e9c@xeon-e3>
+References: <1472062105-17995-1-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Andrey Jr. Melnikov" <temnota.am@gmail.com>,
-        Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
-To: Michal Kubecek <mkubecek@suse.cz>
+Cc: netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:33077 "EHLO
-        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934058AbcIAQFf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 12:05:35 -0400
-Received: by mail-pf0-f175.google.com with SMTP id g202so9615496pfb.0
-        for <netdev@vger.kernel.org>; Thu, 01 Sep 2016 09:05:34 -0700 (PDT)
-In-Reply-To: <20160830115156.GB17087@unicorn.suse.cz>
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:35948 "EHLO
+        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934214AbcIAQGK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 12:06:10 -0400
+Received: by mail-pf0-f174.google.com with SMTP id h186so32684967pfg.3
+        for <netdev@vger.kernel.org>; Thu, 01 Sep 2016 09:06:10 -0700 (PDT)
+In-Reply-To: <1472062105-17995-1-git-send-email-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 30 Aug 2016 13:51:56 +0200
-Michal Kubecek <mkubecek@suse.cz> wrote:
+On Wed, 24 Aug 2016 20:08:25 +0200
+Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
 
-> On Mon, Aug 29, 2016 at 10:53:25AM -0700, Stephen Hemminger wrote:
-> > On Wed, 24 Aug 2016 23:43:00 +0300
-> > "Andrey Jr. Melnikov" <temnota.am@gmail.com> wrote:
-> >   
-> > > Disallow run `ip rule del` without any parameter to avoid delete any first
-> > > rule from table.  
-> ...
-> > Actually ip rule delete without arguments deletes all rules.
-> > Which could be a bug or feature depending on the user.
-> > I can imagine somebody is doing something like deleting all rules
-> > and putting in new ones for PBR.  
+> Show which processes are using which tun/tap devices, e.g.:
 > 
-> We have "ip rule flush" for that, don't we?
+> $ ip -d tuntap
+> tun0: tun
+> 	Attached to processes: vpnc(9531)
+> vnet0: tap vnet_hdr
+> 	Attached to processes: qemu-system-x86(10442)
+> virbr0-nic: tap UNKNOWN_FLAGS:800
+> 	Attached to processes:
 > 
-> Michal Kubecek
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-I went ahead and applied this, seemed better to give error than deleting
-all rules.
+Applied, but needed a followon change to fix some style issues.
