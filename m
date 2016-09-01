@@ -1,40 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: bridge: don't increment tx_dropped in
- br_do_proxy_arp
-Date: Thu, 01 Sep 2016 16:35:42 -0700 (PDT)
-Message-ID: <20160901.163542.1374337978886389909.davem@davemloft.net>
-References: <1472571869-3005-1-git-send-email-nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] rxrpc: Don't expose skbs to in-kernel users
+Date: Thu, 01 Sep 2016 16:38:32 -0700 (PDT)
+Message-ID: <20160901.163832.1923741041602397930.davem@davemloft.net>
+References: <147257235268.6716.12062621584578937716.stgit@warthog.procyon.org.uk>
+        <147257235952.6716.3613899854387213654.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kyeyoonp@codeaurora.org,
-	bridge@lists.linux-foundation.org, roopa@cumulusnetworks.com
-To: nikolay@cumulusnetworks.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1472571869-3005-1-git-send-email-nikolay@cumulusnetworks.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: dhowells@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <147257235952.6716.3613899854387213654.stgit@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Date: Tue, 30 Aug 2016 17:44:29 +0200
+From: David Howells <dhowells@redhat.com>
+Date: Tue, 30 Aug 2016 16:52:39 +0100
 
-> pskb_may_pull may fail due to various reasons (e.g. alloc failure), but the
-> skb isn't changed/dropped and processing continues so we shouldn't
-> increment tx_dropped.
-> 
-> CC: Kyeyoon Park <kyeyoonp@codeaurora.org>
-> CC: Roopa Prabhu <roopa@cumulusnetworks.com>
-> CC: Stephen Hemminger <stephen@networkplumber.org>
-> CC: bridge@lists.linux-foundation.org
-> Fixes: 958501163ddd ("bridge: Add support for IEEE 802.11 Proxy ARP")
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> Don't expose skbs to in-kernel users, such as the AFS filesystem, but
+> instead provide a notification hook the indicates that a call needs
+> attention and another that indicates that there's a new call to be
+> collected.
+ ...
+> Signed-off-by: David Howells <dhowells@redhat.com>
 
-Applied, thanks.
+Applied.
