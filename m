@@ -1,128 +1,37 @@
-From: Huy Nguyen <huyn@mellanox.com>
-Subject: Re: [PATCH net-next 3/6] net/mlx5: Add DCBX firmware commands support
-Date: Wed, 31 Aug 2016 14:49:44 +0000
-Message-ID: <508E873A-0F08-42C2-B6E9-C513CD1B9258@mellanox.com>
-References: <1472556595-9286-1-git-send-email-saeedm@mellanox.com>
- <1472556595-9286-4-git-send-email-saeedm@mellanox.com>,<CAD=hENcMF98xDQ-vjg3+txEGsFSzh32ZaPtoU9+gpL6aJMoEag@mail.gmail.com>
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: Re: [PATCH net v2] tg3: Fix for disallow tx coalescing time to be 0
+Date: Thu, 1 Sep 2016 07:39:47 -0700
+Message-ID: <CACKFLi=cdxQhAjx=yXcKrkguFkooz7G5P-RztYMDpZcSWHiSbw@mail.gmail.com>
+References: <1472722139-22806-1-git-send-email-ivecera@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>
-To: zhuyj <zyjzyj2000@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+        Satish Baddipadige <satish.baddipadige@broadcom.com>,
+        Siva Reddy Kallam <siva.kallam@broadcom.com>
+To: Ivan Vecera <ivecera@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0068.outbound.protection.outlook.com ([104.47.2.68]:42976
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750957AbcIAO1l (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 1 Sep 2016 10:27:41 -0400
-In-Reply-To: <CAD=hENcMF98xDQ-vjg3+txEGsFSzh32ZaPtoU9+gpL6aJMoEag@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-oi0-f44.google.com ([209.85.218.44]:33996 "EHLO
+        mail-oi0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932241AbcIAOjt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 10:39:49 -0400
+Received: by mail-oi0-f44.google.com with SMTP id l203so119075668oib.1
+        for <netdev@vger.kernel.org>; Thu, 01 Sep 2016 07:39:49 -0700 (PDT)
+In-Reply-To: <1472722139-22806-1-git-send-email-ivecera@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Sep 1, 2016 at 2:28 AM, Ivan Vecera <ivecera@redhat.com> wrote:
+> The recent commit 087d7a8c9174 "tg3: Fix for diasllow rx coalescing
+> time to be 0" disallow to set Rx coalescing time to be 0 as this stops
+> generating interrupts for the incoming packets. I found the zero
+> Tx coalescing time stops generating interrupts for outgoing packets
+> as well and fires Tx watchdog later. To avoid this, don't allow to set
+> Tx coalescing time to 0 and also remove subsequent checks that become
+> senseless.
+>
+> Cc: satish.baddipadige@broadcom.com
+> Cc: siva.kallam@broadcom.com
+> Cc: michael.chan@broadcom.com
+> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
 
-
-> On Aug 31, 2016, at 6:24 AM, zhuyj <zyjzyj2000@gmail.com> wrote:
->=20
-> +       u32 in[MLX5_ST_SZ_DW(dcbx_param)];
-> +
-> +       memset(in, 0, sizeof(in));
->=20
-> can we replace the above with "u32 in[MLX5_ST_SZ_DW(dcbx_param)] =3D {0};=
-"?
->=20
->=20
->=20
->> On Tue, Aug 30, 2016 at 7:29 PM, Saeed Mahameed <saeedm@mellanox.com> wr=
-ote:
->> From: Huy Nguyen <huyn@mellanox.com>
->>=20
->> Add set/query commands for DCBX_PARAM register
->>=20
->> Signed-off-by: Huy Nguyen <huyn@mellanox.com>
->> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
->> ---
->> drivers/net/ethernet/mellanox/mlx5/core/port.c | 22 ++++++++++++++++++++=
-++
->> include/linux/mlx5/driver.h                    |  7 +++++++
->> include/linux/mlx5/port.h                      |  2 ++
->> 3 files changed, 31 insertions(+)
->>=20
->> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/ne=
-t/ethernet/mellanox/mlx5/core/port.c
->> index 2f75f86..8a66595 100644
->> --- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
->> +++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
->> @@ -548,6 +548,28 @@ int mlx5_max_tc(struct mlx5_core_dev *mdev)
->>        return num_tc - 1;
->> }
->>=20
->> +int mlx5_query_port_dcbx_param(struct mlx5_core_dev *mdev, u32 *out)
->> +{
->> +       u32 in[MLX5_ST_SZ_DW(dcbx_param)];
->> +
->> +       memset(in, 0, sizeof(in));
->> +
->> +       MLX5_SET(dcbx_param, in, port_number, 1);
->> +
->> +       return  mlx5_core_access_reg(mdev, in, sizeof(in), out,
->> +                                   sizeof(in), MLX5_REG_DCBX_PARAM, 0, =
-0);
->> +}
->> +
->> +int mlx5_set_port_dcbx_param(struct mlx5_core_dev *mdev, u32 *in)
->> +{
->> +       u32 out[MLX5_ST_SZ_DW(dcbx_param)];
->> +
->> +       MLX5_SET(dcbx_param, in, port_number, 1);
->> +
->> +       return mlx5_core_access_reg(mdev, in, sizeof(out), out,
->> +                                   sizeof(out), MLX5_REG_DCBX_PARAM, 0,=
- 1);
->> +}
->> +
->> int mlx5_set_port_prio_tc(struct mlx5_core_dev *mdev, u8 *prio_tc)
->> {
->>        u32 in[MLX5_ST_SZ_DW(qtct_reg)] =3D {0};
->> diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
->> index 5cb9fa7..b53f19c 100644
->> --- a/include/linux/mlx5/driver.h
->> +++ b/include/linux/mlx5/driver.h
->> @@ -104,6 +104,8 @@ enum {
->> enum {
->>        MLX5_REG_QETCR           =3D 0x4005,
->>        MLX5_REG_QTCT            =3D 0x400a,
->> +       MLX5_REG_DCBX_PARAM      =3D 0x4020,
->> +       MLX5_REG_DCBX_APP        =3D 0x4021,
->>        MLX5_REG_PCAP            =3D 0x5001,
->>        MLX5_REG_PMTU            =3D 0x5003,
->>        MLX5_REG_PTYS            =3D 0x5004,
->> @@ -123,6 +125,11 @@ enum {
->>        MLX5_REG_MLCR            =3D 0x902b,
->> };
->>=20
->> +enum mlx5_dcbx_oper_mode {
->> +       MLX5E_DCBX_PARAM_VER_OPER_HOST  =3D 0x0,
->> +       MLX5E_DCBX_PARAM_VER_OPER_AUTO  =3D 0x3,
->> +};
->> +
->> enum {
->>        MLX5_ATOMIC_OPS_CMP_SWAP        =3D 1 << 0,
->>        MLX5_ATOMIC_OPS_FETCH_ADD       =3D 1 << 1,
->> diff --git a/include/linux/mlx5/port.h b/include/linux/mlx5/port.h
->> index ddad24d..62e2259 100644
->> --- a/include/linux/mlx5/port.h
->> +++ b/include/linux/mlx5/port.h
->> @@ -159,4 +159,6 @@ void mlx5_query_port_fcs(struct mlx5_core_dev *mdev,=
- bool *supported,
->> int mlx5_query_module_eeprom(struct mlx5_core_dev *dev,
->>                             u16 offset, u16 size, u8 *data);
->>=20
->> +int mlx5_query_port_dcbx_param(struct mlx5_core_dev *mdev, u32 *out);
->> +int mlx5_set_port_dcbx_param(struct mlx5_core_dev *mdev, u32 *in);
->> #endif /* __MLX5_PORT_H__ */
->> --
->> 2.7.4
-Yes I will fix. Thank you.=
+Acked-by: Michael Chan <michael.chan@broadcom.com>
