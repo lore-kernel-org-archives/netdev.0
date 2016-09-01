@@ -1,8 +1,8 @@
 From: <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH net v4 9/9] net: ethernet: mediatek: fix error handling inside
- mtk_mdio_init
-Date: Thu, 1 Sep 2016 10:47:35 +0800
-Message-ID: <1472698055-8821-10-git-send-email-sean.wang@mediatek.com>
+Subject: [PATCH net v4 6/9] net: ethernet: mediatek: fix issue of driver
+ removal with interface is up
+Date: Thu, 1 Sep 2016 10:47:32 +0800
+Message-ID: <1472698055-8821-7-git-send-email-sean.wang@mediatek.com>
 References: <1472698055-8821-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -26,27 +26,33 @@ List-Id: netdev.vger.kernel.org
 
 From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
 
-Return -ENODEV if the MDIO bus is disabled in the device tree.
+mtk_stop() must be called to stop for freeing DMA
+resources acquired and restoring state changed by mtk_open()
+firstly when module removal.
 
 Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Acked-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
-Reviewed-by: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 0367f51..d919915 100644
+index bf5b7e1..556951e 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -304,7 +304,7 @@ static int mtk_mdio_init(struct mtk_eth *eth)
- 	}
+@@ -1906,6 +1906,14 @@ err_free_dev:
+ static int mtk_remove(struct platform_device *pdev)
+ {
+ 	struct mtk_eth *eth = platform_get_drvdata(pdev);
++	int i;
++
++	/* stop all devices to make sure that dma is properly shut down */
++	for (i = 0; i < MTK_MAC_COUNT; i++) {
++		if (!eth->netdev[i])
++			continue;
++		mtk_stop(eth->netdev[i]);
++	}
  
- 	if (!of_device_is_available(mii_np)) {
--		ret = 0;
-+		ret = -ENODEV;
- 		goto err_put_node;
- 	}
- 
+ 	clk_disable_unprepare(eth->clks[MTK_CLK_ETHIF]);
+ 	clk_disable_unprepare(eth->clks[MTK_CLK_ESW]);
 -- 
 1.9.1
