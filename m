@@ -1,10 +1,8 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH] softirq: let ksoftirqd do its job
-Date: Thu, 01 Sep 2016 05:51:14 -0700
-Message-ID: <1472734274.5019.5.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <4f1c4b38528762619fff1fa963de8971006c1234.1472460085.git.pabeni@redhat.com>
-         <20160831100854.23dad2d8@redhat.com>
-         <1472650472.14381.317.camel@edumazet-glaptop3.roam.corp.google.com>
+Date: Thu, 01 Sep 2016 05:57:23 -0700
+Message-ID: <1472734643.5019.9.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1472650472.14381.317.camel@edumazet-glaptop3.roam.corp.google.com>
          <1472650688.32433.115.camel@redhat.com>
          <1472652643.14381.320.camel@edumazet-glaptop3.roam.corp.google.com>
          <20160831164216.2901190c@redhat.com>
@@ -12,46 +10,55 @@ References: <4f1c4b38528762619fff1fa963de8971006c1234.1472460085.git.pabeni@redh
          <1472665349.14381.356.camel@edumazet-glaptop3.roam.corp.google.com>
          <20160831214043.2f44cf08@redhat.com>
          <1472676150.14381.363.camel@edumazet-glaptop3.roam.corp.google.com>
-         <251f077b-3d46-415d-c5f3-c3dea73a3c88@redhat.com>
+         <20160831235116.33b1946b@redhat.com> <20160901130231.58355405@redhat.com>
+         <20160901115356.GT10153@twins.programming.kicks-ass.net>
+         <20160901142925.63a5031b@redhat.com> <20160901143859.730826ed@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <jbrouer@redhat.com>,
-        Peter Zijlstra <peterz@infradead.org>,
+Cc: Peter Zijlstra <peterz@infradead.org>,
         David Miller <davem@davemloft.net>,
         Rik van Riel <riel@redhat.com>,
         Paolo Abeni <pabeni@redhat.com>,
+        Hannes Frederic Sowa <hannes@redhat.com>,
         linux-kernel <linux-kernel@vger.kernel.org>,
         netdev <netdev@vger.kernel.org>, Jonathan Corbet <corbet@lwn.net>
-To: Hannes Frederic Sowa <hannes@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:35834 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933706AbcIAMvS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 08:51:18 -0400
-In-Reply-To: <251f077b-3d46-415d-c5f3-c3dea73a3c88@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160901143859.730826ed@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-09-01 at 14:05 +0200, Hannes Frederic Sowa wrote:
+On Thu, 2016-09-01 at 14:38 +0200, Jesper Dangaard Brouer wrote:
 
-> Would it make sense to include used socket backlog in udp socket lookup
-> compute_score calculation? Just want to throw out the idea, I actually
-> could imagine to also cause bad side effects.
+> Correction, on the server-under-test, I'm actually running RHEL7.2
+> 
+> 
+> > How do I verify/check if I have enabled a cpu-cgroup?
+> 
+> Hannes says I can look in "/proc/self/cgroup"
+> 
+>  $ cat /proc/self/cgroup
+>  7:net_cls:/
+>  6:blkio:/
+>  5:devices:/
+>  4:perf_event:/
+>  3:cpu,cpuacct:/
+>  2:cpuset:/
+>  1:name=systemd:/user.slice/user-1000.slice/session-c1.scope
+>  
+> And that "/" indicate I've not enabled cgroups, right?
+> 
 
-Hopefully we can get rid of the backlog for UDP, by no longer having to
-lock the socket in RX path, and perform memory charging in a better way.
+In my experience, I found that times displayed by top are often off for
+softirq processing.
 
-The backlog for TCP is problematic for high speed flows, and for UDP it
-is problematic in flood situations as a single recvmsg() might have to
-process thousands of skbs before returning to user space.
+Before applying my patch, top shows very small amount of cpu time for
+udp_rcv and ksoftirqd/0 , while obviously cpu 0 is completely busy.
 
-What you suggest is going to be difficult :
+Make sure to try latest Linus tree, as I did yesterday, because
+apparently things are better than a few weeks back.
 
-1) Packets of a 5-tuple (eg QUIC flow) wont all land to the same silo,
-and will cause reorders or application issues.
-
-2) SO_ATTACH_REUSEPORT_CBPF wont have access to the socket(s) backlog to
-perform the choice.
-
-Thanks.
+BTW, even 'perf top' has sometimes problems showing me cycles spent in
+softirq. I need to make sure the cpu processing NIC interrupts also
+spend cycles in some user space program to get meaningful results.
