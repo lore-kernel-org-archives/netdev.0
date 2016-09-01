@@ -1,118 +1,69 @@
-From: Jeremy Linton <jeremy.linton@arm.com>
-Subject: Re: [PATCH 2/2] net/smsc911x: Move interrupt allocation to open/stop
-Date: Thu, 1 Sep 2016 13:47:44 -0500
-Message-ID: <8305921f-9b9a-459b-2452-7c4e63057e8f@arm.com>
-References: <1472747141-15886-1-git-send-email-jeremy.linton@arm.com>
- <1472747141-15886-3-git-send-email-jeremy.linton@arm.com>
- <20160901170617.GD10951@lunn.ch>
+From: Anna Schumaker <Anna.Schumaker@netapp.com>
+Subject: Re: [PATCH] sunrpc: queue work on system_power_efficient_wq
+Date: Thu, 1 Sep 2016 14:46:35 -0400
+Message-ID: <544e309c-9893-a0ed-ab8a-ccbf5d342dc6@Netapp.com>
+References: <1472715026-11397-1-git-send-email-zhang.lyra@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, steve.glendinning@shawell.net,
-        sergei.shtylyov@cogentembedded.com
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:38856 "EHLO foss.arm.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754505AbcIAVNv (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 1 Sep 2016 17:13:51 -0400
-In-Reply-To: <20160901170617.GD10951@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <linux-nfs@vger.kernel.org>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, <ke.wang@spreadtrum.com>
+To: Chunyan Zhang <zhang.lyra@gmail.com>,
+        <trond.myklebust@primarydata.com>, <anna.schumaker@netapp.com>,
+        <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1472715026-11397-1-git-send-email-zhang.lyra@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
+On 09/01/2016 03:30 AM, Chunyan Zhang wrote:
+> From: Ke Wang <ke.wang@spreadtrum.com>
+> 
+> sunrpc uses workqueue to clean cache regulary. There is no real dependency
+> of executing work on the cpu which queueing it.
+> 
+> On a idle system, especially for a heterogeneous systems like big.LITTLE,
+> it is observed that the big idle cpu was woke up many times just to service
+> this work, which against the principle of power saving. It would be better
+> if we can schedule it on a cpu which the scheduler believes to be the most
+> appropriate one.
+> 
+> After apply this patch, system_wq will be replaced by
+> system_power_efficient_wq for sunrpc. This functionality is enabled when
+> CONFIG_WQ_POWER_EFFICIENT is selected.
 
-	Thanks for taking a look at this!
+Makes sense to me, but I'm a little surprised that there isn't a "schedule_delayed_power_efficient_work()" function to match how the normal workqueue is used.
 
-On 09/01/2016 12:06 PM, Andrew Lunn wrote:
-> Hi Jeremy
->
-> Please don't add forward references. Move the function earlier in the
-> file.
+Thanks,
+Anna
 
-Ok, but I thought it was a fairly large move due to further dependent 
-functions..
-
->
->>  static inline u32 __smsc911x_reg_read(struct smsc911x_data *pdata, u32 reg)
->>  {
->>  	if (pdata->config.flags & SMSC911X_USE_32BIT)
->> @@ -1514,6 +1516,7 @@ static int smsc911x_open(struct net_device *dev)
->>  	unsigned int temp;
->>  	unsigned int intcfg;
->>  	int retval;
->> +	int irq_flags;
->>
->>  	/* find and start the given phy */
->>  	if (!dev->phydev) {
->> @@ -1584,6 +1587,14 @@ static int smsc911x_open(struct net_device *dev)
->>  	pdata->software_irq_signal = 0;
->>  	smp_wmb();
->>
->> +	irq_flags = irq_get_trigger_type(dev->irq);
->> +	if (request_irq(dev->irq, smsc911x_irqhandler,
->> +			irq_flags | IRQF_SHARED, dev->name, dev)) {
->> +		SMSC_WARN(pdata, probe,
->> +			  "Unable to claim requested irq: %d", dev->irq);
->> +		goto mii_free_out;
->> +	}
->> +
->>  	temp = smsc911x_reg_read(pdata, INT_EN);
->>  	temp |= INT_EN_SW_INT_EN_;
->>  	smsc911x_reg_write(pdata, INT_EN, temp);
->> @@ -1599,7 +1610,7 @@ static int smsc911x_open(struct net_device *dev)
->>  		netdev_warn(dev, "ISR failed signaling test (IRQ %d)\n",
->>  			    dev->irq);
->>  		retval = -ENODEV;
->> -		goto mii_free_out;
->> +		goto irq_stop_out;
->>  	}
->>  	SMSC_TRACE(pdata, ifup, "IRQ handler passed test using IRQ %d",
->>  		   dev->irq);
->> @@ -1645,7 +1656,8 @@ static int smsc911x_open(struct net_device *dev)
->>
->>  	netif_start_queue(dev);
->>  	return 0;
->> -
->> +irq_stop_out:
->> +	free_irq(dev->irq, dev);
->>  mii_free_out:
->>  	phy_disconnect(dev->phydev);
->>  	dev->phydev = NULL;
->> @@ -1672,12 +1684,15 @@ static int smsc911x_stop(struct net_device *dev)
->>  	dev->stats.rx_dropped += smsc911x_reg_read(pdata, RX_DROP);
->>  	smsc911x_tx_update_txcounters(dev);
->>
->> +	free_irq(dev->irq, dev);
->> +
->>  	/* Bring the PHY down */
->>  	if (dev->phydev) {
->>  		phy_stop(dev->phydev);
->>  		phy_disconnect(dev->phydev);
->>  		dev->phydev = NULL;
->>  	}
->> +	netif_carrier_off(dev);
->
-> What has this change got to do with interrupt handling?
-
-	This is a whoops, it should be in the previous patch..
-
->
->> @@ -2479,38 +2491,18 @@ static int smsc911x_drv_probe(struct platform_device *pdev)
->>  	if (retval < 0)
->>  		goto out_disable_resources;
->>
->> -	/* configure irq polarity and type before connecting isr */
->> -	if (pdata->config.irq_polarity == SMSC911X_IRQ_POLARITY_ACTIVE_HIGH)
->> -		intcfg |= INT_CFG_IRQ_POL_;
->> -
->> -	if (pdata->config.irq_type == SMSC911X_IRQ_TYPE_PUSH_PULL)
->> -		intcfg |= INT_CFG_IRQ_TYPE_;
->> -
->> -	smsc911x_reg_write(pdata, INT_CFG, intcfg);
->
->
-> I see these removes, but where are the adds?
-
-
-	The functionality is duplicated in open, when the IRQ handler is tested.
+> 
+> Signed-off-by: Ke Wang <ke.wang@spreadtrum.com>
+> ---
+>  net/sunrpc/cache.c | 5 +++--
+>  1 file changed, 3 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/sunrpc/cache.c b/net/sunrpc/cache.c
+> index 4d8e11f..8aabe12 100644
+> --- a/net/sunrpc/cache.c
+> +++ b/net/sunrpc/cache.c
+> @@ -353,7 +353,7 @@ void sunrpc_init_cache_detail(struct cache_detail *cd)
+>  	spin_unlock(&cache_list_lock);
+>  
+>  	/* start the cleaning process */
+> -	schedule_delayed_work(&cache_cleaner, 0);
+> +	queue_delayed_work(system_power_efficient_wq, &cache_cleaner, 0);
+>  }
+>  EXPORT_SYMBOL_GPL(sunrpc_init_cache_detail);
+>  
+> @@ -476,7 +476,8 @@ static void do_cache_clean(struct work_struct *work)
+>  		delay = 0;
+>  
+>  	if (delay)
+> -		schedule_delayed_work(&cache_cleaner, delay);
+> +		queue_delayed_work(system_power_efficient_wq,
+> +				   &cache_cleaner, delay);
+>  }
+>  
+>  
+> 
