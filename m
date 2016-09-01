@@ -1,38 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: pegasus: Remove deprecated
- create_singlethread_workqueue
-Date: Thu, 01 Sep 2016 16:42:40 -0700 (PDT)
-Message-ID: <20160901.164240.287180419520196259.davem@davemloft.net>
-References: <20160830163247.GA25925@Karyakshetra>
+Subject: Re: [PATCH net-next 1/1] rxrpc: Don't expose skbs to in-kernel
+ users [ver #2]
+Date: Thu, 01 Sep 2016 16:43:50 -0700 (PDT)
+Message-ID: <20160901.164350.188976129063571139.davem@davemloft.net>
+References: <147258609952.22464.8997026814758565636.stgit@warthog.procyon.org.uk>
+        <147258612700.22464.16394006856318134180.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: petkan@nucleusys.com, tj@kernel.org, linux-usb@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: bhaktipriya96@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40846 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751252AbcIAXml (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 19:42:41 -0400
-In-Reply-To: <20160830163247.GA25925@Karyakshetra>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: dhowells@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <147258612700.22464.16394006856318134180.stgit@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
-Date: Tue, 30 Aug 2016 22:02:47 +0530
+From: David Howells <dhowells@redhat.com>
+Date: Tue, 30 Aug 2016 20:42:14 +0100
 
-> The workqueue "pegasus_workqueue" queues a single work item per pegasus
-> instance and hence it doesn't require execution ordering. Hence,
-> alloc_workqueue has been used to replace the deprecated
-> create_singlethread_workqueue instance.
-> 
-> The WQ_MEM_RECLAIM flag has been set to ensure forward progress under
-> memory pressure since it's a network driver.
-> 
-> Since there are fixed number of work items, explicit concurrency
-> limit is unnecessary here.
-> 
-> Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
+> Don't expose skbs to in-kernel users, such as the AFS filesystem, but
+> instead provide a notification hook the indicates that a call needs
+> attention and another that indicates that there's a new call to be
+> collected.
+ ...
+> Signed-off-by: David Howells <dhowells@redhat.com>
 
-Applied.
+Ok, I tried this one instead.  If no warnings, I'll push it to net-next.
+
+Thanks.
