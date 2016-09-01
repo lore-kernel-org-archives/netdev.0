@@ -1,79 +1,121 @@
-From: Hannes Frederic Sowa <hannes@redhat.com>
-Subject: Re: [PATCH] softirq: let ksoftirqd do its job
-Date: Thu, 1 Sep 2016 15:00:10 +0200
-Message-ID: <89b605ce-5281-ba41-2921-116bb3073098@redhat.com>
-References: <1472650472.14381.317.camel@edumazet-glaptop3.roam.corp.google.com>
- <1472650688.32433.115.camel@redhat.com>
- <1472652643.14381.320.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160831164216.2901190c@redhat.com>
- <1472661956.14381.335.camel@edumazet-glaptop3.roam.corp.google.com>
- <1472665349.14381.356.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160831214043.2f44cf08@redhat.com>
- <1472676150.14381.363.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160831235116.33b1946b@redhat.com> <20160901130231.58355405@redhat.com>
- <20160901115356.GT10153@twins.programming.kicks-ass.net>
- <20160901142925.63a5031b@redhat.com> <20160901143859.730826ed@redhat.com>
- <1472734643.5019.9.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Lebrun <david.lebrun@uclouvain.be>
+Subject: Re: [RFC 1/9] ipv6: implement dataplane support for rthdr type 4
+ (Segment Routing Header)
+Date: Thu, 1 Sep 2016 15:11:08 +0200
+Message-ID: <57C828EC.60501@uclouvain.be>
+References: <1472226767-9904-1-git-send-email-david.lebrun@uclouvain.be> <1472226767-9904-2-git-send-email-david.lebrun@uclouvain.be> <9a7b8a77-5832-1038-00f8-b24f8e7b8d4c@6wind.com>
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature";
+        boundary="P8rcjIrOGVfot8tI21eeUhG76W8QbMu3F"
+To: <nicolas.dichtel@6wind.com>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:46062 "EHLO
+        smtp2.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752247AbcIANKt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 09:10:49 -0400
+In-Reply-To: <9a7b8a77-5832-1038-00f8-b24f8e7b8d4c@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+--P8rcjIrOGVfot8tI21eeUhG76W8QbMu3F
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Peter Zijlstra <peterz@infradead.org>,
-        David Miller <davem@davemloft.net>,
-        Rik van Riel <riel@redhat.com>,
-        Paolo Abeni <pabeni@redhat.com>,
-        linux-kernel <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>, Jonathan Corbet <corbet@lwn.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1472734643.5019.9.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: quoted-printable
 
-On 01.09.2016 14:57, Eric Dumazet wrote:
-> On Thu, 2016-09-01 at 14:38 +0200, Jesper Dangaard Brouer wrote:
-> 
->> Correction, on the server-under-test, I'm actually running RHEL7.2
->>
->>
->>> How do I verify/check if I have enabled a cpu-cgroup?
->>
->> Hannes says I can look in "/proc/self/cgroup"
->>
->>  $ cat /proc/self/cgroup
->>  7:net_cls:/
->>  6:blkio:/
->>  5:devices:/
->>  4:perf_event:/
->>  3:cpu,cpuacct:/
->>  2:cpuset:/
->>  1:name=systemd:/user.slice/user-1000.slice/session-c1.scope
->>  
->> And that "/" indicate I've not enabled cgroups, right?
->>
-> 
-> In my experience, I found that times displayed by top are often off for
-> softirq processing.
-> 
-> Before applying my patch, top shows very small amount of cpu time for
-> udp_rcv and ksoftirqd/0 , while obviously cpu 0 is completely busy.
-> 
-> Make sure to try latest Linus tree, as I did yesterday, because
-> apparently things are better than a few weeks back.
-> 
-> BTW, even 'perf top' has sometimes problems showing me cycles spent in
-> softirq. I need to make sure the cpu processing NIC interrupts also
-> spend cycles in some user space program to get meaningful results.
+On 08/31/2016 04:51 PM, Nicolas Dichtel wrote:
+> Thanks for proposing this feature. It would be great to have it upstrea=
+m.
+>=20
 
-I think that ksoftirqd time is actually accounted to system:
+Thanks for the feedback :)
 
-excerpt from irqtime_account_process_tick in kernel/sched/cputime.c
+> [snip]
+>> +config IPV6_SEG6
+>> +	bool "IPv6: Segment Routing support"
+>> +	depends on IPV6
+>> +	---help---
+>> +	  Experimental support for IPv6 Segment Routing dataplane as defined=
 
-	if (this_cpu_ksoftirqd() == p) {
-		/*
-		 * ksoftirqd time do not get accounted in cpu_softirq_time.
-		 * So, we have to handle it separately here.
-		 * Also, p->stime needs to be updated for ksoftirqd.
-		 */
-		__account_system_time(p, cputime, scaled, CPUTIME_SOFTIRQ);
-	} else if (user_tick) {
+>> +	  in IETF draft-ietf-6man-segment-routing-header-01. This option
+>> +	  enables the processing of SR-enabled packets allowing the kernel
+>> +	  to act as a segment endpoint (intermediate or egress).
+>> +
+>> +	  If unsure, say N.
+>> +
+> I don't think that the option is needed. At the end, every distribution=
+s will
+> turn it on.
+>=20
+
+Are you sure ? This is a rather specific feature, used in specific
+environments. Not that I would mind removing the option if it makes sense=
+=2E
+
+> [snip]
+>> +#ifdef CONFIG_IPV6_SEG6
+>> +	{
+>> +		.procname	=3D "seg6_enabled",
+>> +		.data		=3D &ipv6_devconf.seg6_enabled,
+>> +		.maxlen		=3D sizeof(int),
+>> +		.mode		=3D 0644,
+>> +		.proc_handler	=3D proc_dointvec,
+>> +	},
+>> +#endif
+> Don't forget to document this option in Documentation/networking/ip-sys=
+ctl.txt.
+> Don't forget to explain how 'all' works ;-)
+> It would be nice to also add it in netconf subsystem (see 'git grep net=
+conf
+> net/ipv6').
+>=20
+
+Right ! I didn't think of that doc file. Noted for netconf.
+
+> [snip]
+>> +#ifdef CONFIG_IPV6_SEG6
+>> +static int ipv6_srh_rcv(struct sk_buff *skb)
+>> +{
+>> +	struct inet6_skb_parm *opt =3D IP6CB(skb);
+>> +	struct in6_addr *addr =3D NULL, *last_addr =3D NULL, *active_addr =3D=
+ NULL;
+>> +	struct ipv6_sr_hdr *hdr;
+>> +	struct net *net =3D dev_net(skb->dev);
+>> +	int cleanup =3D 0;
+>> +	struct inet6_dev *idev;
+>> +	int accept_seg6;
+> nit: better to follow the 'reverse christmas tree' scheme when declarin=
+g variables.
+>=20
+
+Noted
+
+
+>> +
+>> +	ip6_route_input(skb);
+> The destination address has now changed and the packet is routed again.=
+
+> skb->nfct is not updated, it is intentional? I'm asking me if it's conc=
+eptually
+> right.
+>=20
+
+I fail to see any usecase where conntrack would run on SR-enabled
+packets. Things such as NAT would just defeat the purpose.
+
+David
+
+
+--P8rcjIrOGVfot8tI21eeUhG76W8QbMu3F
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iEYEARECAAYFAlfIKOwACgkQjbzn67sZ6ANN8gCfQegX4gbqm3SCvy0wqlv32SwV
+NKAAniE+vbt3RVgzW0ixVT4vcoetgWmF
+=wSf7
+-----END PGP SIGNATURE-----
+
+--P8rcjIrOGVfot8tI21eeUhG76W8QbMu3F--
