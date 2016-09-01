@@ -1,11 +1,11 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [Patch v3 09/11] net: ethernet: xilinx: Enable emaclite for MIPS
-Date: Thu, 1 Sep 2016 13:54:35 +0300
-Message-ID: <52b2d771-7490-efcc-734f-2caaad6c35e4@cogentembedded.com>
+From: Lars-Peter Clausen <lars@metafoo.de>
+Subject: Re: [Patch v3 07/11] MIPS: Xilfpga: Add DT node for AXI I2C
+Date: Thu, 1 Sep 2016 12:57:15 +0200
+Message-ID: <74279d97-beeb-e754-40ad-3bfc8eeba66d@metafoo.de>
 References: <1472661352-11983-1-git-send-email-Zubair.Kakakhel@imgtec.com>
- <1472661352-11983-10-git-send-email-Zubair.Kakakhel@imgtec.com>
+ <1472661352-11983-8-git-send-email-Zubair.Kakakhel@imgtec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
 Cc: soren.brinkmann@xilinx.com, linux-kernel@vger.kernel.org,
         linux-mips@linux-mips.org, michal.simek@xilinx.com,
@@ -13,42 +13,27 @@ Cc: soren.brinkmann@xilinx.com, linux-kernel@vger.kernel.org,
 To: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>,
         monstr@monstr.eu, ralf@linux-mips.org, tglx@linutronix.de,
         jason@lakedaemon.net, marc.zyngier@arm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1472661352-11983-10-git-send-email-Zubair.Kakakhel@imgtec.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <1472661352-11983-8-git-send-email-Zubair.Kakakhel@imgtec.com>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
-On 8/31/2016 7:35 PM, Zubair Lutfullah Kakakhel wrote:
+On 08/31/2016 06:35 PM, Zubair Lutfullah Kakakhel wrote:
+[..]
+> +	    ad7420@4B {
+> +		compatible = "adt7420";
 
-> The MIPS based xilfpga platform uses this driver.
-> Enable it for MIPS
->
-> Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
+"adi,adt7420"
 
-[...]
-
-> diff --git a/drivers/net/ethernet/xilinx/Kconfig b/drivers/net/ethernet/xilinx/Kconfig
-> index 4f5c024..ae5c404 100644
-> --- a/drivers/net/ethernet/xilinx/Kconfig
-> +++ b/drivers/net/ethernet/xilinx/Kconfig
-> @@ -5,7 +5,7 @@
->  config NET_VENDOR_XILINX
->  	bool "Xilinx devices"
->  	default y
-> -	depends on PPC || PPC32 || MICROBLAZE || ARCH_ZYNQ
-> +	depends on PPC || PPC32 || MICROBLAZE || ARCH_ZYNQ || MIPS
->  	---help---
->  	  If you have a network (Ethernet) card belonging to this class, say Y.
->
-> @@ -18,7 +18,7 @@ if NET_VENDOR_XILINX
->
->  config XILINX_EMACLITE
->  	tristate "Xilinx 10/100 Ethernet Lite support"
-> -	depends on (PPC32 || MICROBLAZE || ARCH_ZYNQ)
-> +	depends on (PPC32 || MICROBLAZE || ARCH_ZYNQ || MIPS)
-
-    Parens not needed here, you could remove them while at it.
-
-[...]
-
-MBR, Sergei
+> +		reg = <0x4B>;
+> +	    };
+> +	} ;
+>  };
