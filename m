@@ -1,267 +1,161 @@
-From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next V5 8/8] liquidio:CN23XX pause frame support
-Date: Thu, 1 Sep 2016 11:16:11 -0700
-Message-ID: <1472753771-21141-9-git-send-email-rvatsavayi@caviumnetworks.com>
-References: <1472753771-21141-1-git-send-email-rvatsavayi@caviumnetworks.com>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH] net/mlx4_en: protect ring->xdp_prog with rcu_read_lock
+Date: Fri, 2 Sep 2016 01:59:40 +0300
+Message-ID: <CALzJLG-RPMuiFTku4BVE5MgtAQV6WS0DLhxHymE6ydh9JccdKQ@mail.gmail.com>
+References: <20160826203808.23664-1-bblanco@plumgrid.com> <c03157a0-b7d0-bde7-0fe9-4f3b19a68d08@mellanox.com>
+ <20160829155558.GA13971@gmail.com> <CALx6S34nt0iLEse45y4UrJFbfBFNoZ6oYzu+3Hdq3A=6Rn9hrg@mail.gmail.com>
+ <CALzJLG8WGA5+cbyMd2f8Y2Qpcx=b72r2hSZ7Vn7+N-o3BzBvZw@mail.gmail.com> <20160831015058.GA30198@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
-        Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
-        Derek Chickles <derek.chickles@caviumnetworks.com>,
-        Satanand Burla <satananda.burla@caviumnetworks.com>,
-        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Tom Herbert <tom@herbertland.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Tariq Toukan <ttoukan.linux@gmail.com>,
+        Or Gerlitz <gerlitz.or@gmail.com>
+To: Brenden Blanco <bblanco@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-cys01nam02on0044.outbound.protection.outlook.com ([104.47.37.44]:23488
-        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750698AbcIAWwH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 1 Sep 2016 18:52:07 -0400
-In-Reply-To: <1472753771-21141-1-git-send-email-rvatsavayi@caviumnetworks.com>
+Received: from mail-lf0-f67.google.com ([209.85.215.67]:36693 "EHLO
+        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754320AbcIAXAI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 19:00:08 -0400
+Received: by mail-lf0-f67.google.com with SMTP id k10so332847lfe.3
+        for <netdev@vger.kernel.org>; Thu, 01 Sep 2016 16:00:07 -0700 (PDT)
+In-Reply-To: <20160831015058.GA30198@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds support for pause frame and priv flag for cn23xx
-device.
+On Wed, Aug 31, 2016 at 4:50 AM, Brenden Blanco <bblanco@plumgrid.com> wrote:
+> On Tue, Aug 30, 2016 at 12:35:58PM +0300, Saeed Mahameed wrote:
+>> On Mon, Aug 29, 2016 at 8:46 PM, Tom Herbert <tom@herbertland.com> wrote:
+>> > On Mon, Aug 29, 2016 at 8:55 AM, Brenden Blanco <bblanco@plumgrid.com> wrote:
+>> >> On Mon, Aug 29, 2016 at 05:59:26PM +0300, Tariq Toukan wrote:
+>> >>> Hi Brenden,
+>> >>>
+>> >>> The solution direction should be XDP specific that does not hurt the
+>> >>> regular flow.
+>> >> An rcu_read_lock is _already_ taken for _every_ packet. This is 1/64th of
+>>
+>> In other words "let's add  new small speed bump, we already have
+>> plenty ahead, so why not slow down now anyway".
+>>
+>> Every single new instruction hurts performance, in this case maybe you
+>> are right, maybe we won't feel any performance
+>> impact, but that doesn't mean it is ok to do this.
+> Actually, I will make a stronger assertion. Unless your .config contains
+> CONFIG_PREEMPT=y (not most distros) or something like DEBUG_ATOMIC_SLEEP
+> (to trigger PREEMPT_COUNT), the code in this patch will be a nop.
+> Therefore, adding the protections that you mention below will be
+> _slower_ than the code already proposed.
+>>
+>>
+>> >> that.
+>> >>>
+>> >>> On 26/08/2016 11:38 PM, Brenden Blanco wrote:
+>> >>> >Depending on the preempt mode, the bpf_prog stored in xdp_prog may be
+>> >>> >freed despite the use of call_rcu inside bpf_prog_put. The situation is
+>> >>> >possible when running in PREEMPT_RCU=y mode, for instance, since the rcu
+>> >>> >callback for destroying the bpf prog can run even during the bh handling
+>> >>> >in the mlx4 rx path.
+>> >>> >
+>> >>> >Several options were considered before this patch was settled on:
+>> >>> >
+>> >>> >Add a napi_synchronize loop in mlx4_xdp_set, which would occur after all
+>> >>> >of the rings are updated with the new program.
+>> >>> >This approach has the disadvantage that as the number of rings
+>> >>> >increases, the speed of udpate will slow down significantly due to
+>> >>> >napi_synchronize's msleep(1).
+>> >>> I prefer this option as it doesn't hurt the data path. A delay in a
+>> >>> control command can be tolerated.
+>> >>> >Add a new rcu_head in bpf_prog_aux, to be used by a new bpf_prog_put_bh.
+>> >>> >The action of the bpf_prog_put_bh would be to then call bpf_prog_put
+>> >>> >later. Those drivers that consume a bpf prog in a bh context (like mlx4)
+>> >>> >would then use the bpf_prog_put_bh instead when the ring is up. This has
+>> >>> >the problem of complexity, in maintaining proper refcnts and rcu lists,
+>> >>> >and would likely be harder to review. In addition, this approach to
+>> >>> >freeing must be exclusive with other frees of the bpf prog, for instance
+>> >>> >a _bh prog must not be referenced from a prog array that is consumed by
+>> >>> >a non-_bh prog.
+>> >>> >
+>> >>> >The placement of rcu_read_lock in this patch is functionally the same as
+>> >>> >putting an rcu_read_lock in napi_poll. Actually doing so could be a
+>> >>> >potentially controversial change, but would bring the implementation in
+>> >>> >line with sk_busy_loop (though of course the nature of those two paths
+>> >>> >is substantially different), and would also avoid future copy/paste
+>> >>> >problems with future supporters of XDP. Still, this patch does not take
+>> >>> >that opinionated option.
+>> >>> So you decided to add a lock for all non-XDP flows, which are 99% of
+>> >>> the cases.
+>> >>> We should avoid this.
+>> >> The whole point of rcu_read_lock architecture is to be taken in the fast
+>> >> path. There won't be a performance impact from this patch.
+>> >
+>> > +1, this is nothing at all like a spinlock and really this should be
+>> > just like any other rcu like access.
+>> >
+>> > Brenden, tracking down how the structure is freed needed a few steps,
+>> > please make sure the RCU requirements are well documented. Also, I'm
+>> > still not a fan of using xchg to set the program, seems that a lock
+>> > could be used in that path.
+>> >
+>> > Thanks,
+>> > Tom
+>>
+>> Sorry folks I am with Tariq on this, you can't just add a single
+>> instruction which is only valid/needed for 1% of the use cases
+>> to the driver's general data path, even if it was as cheap as one cpu cycle!
+> How about 0?
+>
+> $ diff mlx4_en.ko.norcu.s mlx4_en.ko.rcu.s | wc -l
+> 0
+>
 
-Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
-Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
-Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
----
- drivers/net/ethernet/cavium/liquidio/lio_ethtool.c | 110 +++++++++++++++++++++
- drivers/net/ethernet/cavium/liquidio/lio_main.c    |  12 ++-
- .../net/ethernet/cavium/liquidio/octeon_device.h   |  11 ++-
- 3 files changed, 126 insertions(+), 7 deletions(-)
+Well, If you put it this way, it seems OK then.
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-index fb29a64..f163e0a 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-@@ -190,6 +190,10 @@ static const char oct_droq_stats_strings[][ETH_GSTRING_LEN] = {
- 	"buffer_alloc_failure",
- };
- 
-+/* LiquidIO driver private flags */
-+static const char oct_priv_flags_strings[][ETH_GSTRING_LEN] = {
-+};
-+
- #define OCTNIC_NCMD_AUTONEG_ON  0x1
- #define OCTNIC_NCMD_PHY_ON      0x2
- 
-@@ -658,6 +662,69 @@ lio_get_pauseparam(struct net_device *netdev, struct ethtool_pauseparam *pause)
- 	pause->rx_pause = oct->rx_pause;
- }
- 
-+static int
-+lio_set_pauseparam(struct net_device *netdev, struct ethtool_pauseparam *pause)
-+{
-+	/* Notes: Not supporting any auto negotiation in these
-+	 * drivers.
-+	 */
-+	struct lio *lio = GET_LIO(netdev);
-+	struct octeon_device *oct = lio->oct_dev;
-+	struct octnic_ctrl_pkt nctrl;
-+	struct oct_link_info *linfo = &lio->linfo;
-+
-+	int ret = 0;
-+
-+	if (oct->chip_id != OCTEON_CN23XX_PF_VID)
-+		return -EINVAL;
-+
-+	if (linfo->link.s.duplex == 0) {
-+		/*no flow control for half duplex*/
-+		if (pause->rx_pause || pause->tx_pause)
-+			return -EINVAL;
-+	}
-+
-+	/*do not support autoneg of link flow control*/
-+	if (pause->autoneg == AUTONEG_ENABLE)
-+		return -EINVAL;
-+
-+	memset(&nctrl, 0, sizeof(struct octnic_ctrl_pkt));
-+
-+	nctrl.ncmd.u64 = 0;
-+	nctrl.ncmd.s.cmd = OCTNET_CMD_SET_FLOW_CTL;
-+	nctrl.iq_no = lio->linfo.txpciq[0].s.q_no;
-+	nctrl.wait_time = 100;
-+	nctrl.netpndev = (u64)netdev;
-+	nctrl.cb_fn = liquidio_link_ctrl_cmd_completion;
-+
-+	if (pause->rx_pause) {
-+		/*enable rx pause*/
-+		nctrl.ncmd.s.param1 = 1;
-+	} else {
-+		/*disable rx pause*/
-+		nctrl.ncmd.s.param1 = 0;
-+	}
-+
-+	if (pause->tx_pause) {
-+		/*enable tx pause*/
-+		nctrl.ncmd.s.param2 = 1;
-+	} else {
-+		/*disable tx pause*/
-+		nctrl.ncmd.s.param2 = 0;
-+	}
-+
-+	ret = octnet_send_nic_ctrl_pkt(lio->oct_dev, &nctrl);
-+	if (ret < 0) {
-+		dev_err(&oct->pci_dev->dev, "Failed to set pause parameter\n");
-+		return -EINVAL;
-+	}
-+
-+	oct->rx_pause = pause->rx_pause;
-+	oct->tx_pause = pause->tx_pause;
-+
-+	return 0;
-+}
-+
- static void
- lio_get_ethtool_stats(struct net_device *netdev,
- 		      struct ethtool_stats *stats  __attribute__((unused)),
-@@ -925,6 +992,27 @@ lio_get_ethtool_stats(struct net_device *netdev,
- 	}
- }
- 
-+static void lio_get_priv_flags_strings(struct lio *lio, u8 *data)
-+{
-+	struct octeon_device *oct_dev = lio->oct_dev;
-+	int i;
-+
-+	switch (oct_dev->chip_id) {
-+	case OCTEON_CN23XX_PF_VID:
-+		for (i = 0; i < ARRAY_SIZE(oct_priv_flags_strings); i++) {
-+			sprintf(data, "%s", oct_priv_flags_strings[i]);
-+			data += ETH_GSTRING_LEN;
-+		}
-+		break;
-+	case OCTEON_CN68XX:
-+	case OCTEON_CN66XX:
-+		break;
-+	default:
-+		netif_info(lio, drv, lio->netdev, "Unknown Chip !!\n");
-+		break;
-+	}
-+}
-+
- static void lio_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
- {
- 	struct lio *lio = GET_LIO(netdev);
-@@ -964,12 +1052,31 @@ static void lio_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
- 		}
- 		break;
- 
-+	case ETH_SS_PRIV_FLAGS:
-+		lio_get_priv_flags_strings(lio, data);
-+		break;
- 	default:
- 		netif_info(lio, drv, lio->netdev, "Unknown Stringset !!\n");
- 		break;
- 	}
- }
- 
-+static int lio_get_priv_flags_ss_count(struct lio *lio)
-+{
-+	struct octeon_device *oct_dev = lio->oct_dev;
-+
-+	switch (oct_dev->chip_id) {
-+	case OCTEON_CN23XX_PF_VID:
-+		return ARRAY_SIZE(oct_priv_flags_strings);
-+	case OCTEON_CN68XX:
-+	case OCTEON_CN66XX:
-+		return -EOPNOTSUPP;
-+	default:
-+		netif_info(lio, drv, lio->netdev, "Unknown Chip !!\n");
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
- static int lio_get_sset_count(struct net_device *netdev, int sset)
- {
- 	struct lio *lio = GET_LIO(netdev);
-@@ -980,6 +1087,8 @@ static int lio_get_sset_count(struct net_device *netdev, int sset)
- 		return (ARRAY_SIZE(oct_stats_strings) +
- 			ARRAY_SIZE(oct_iq_stats_strings) * oct_dev->num_iqs +
- 			ARRAY_SIZE(oct_droq_stats_strings) * oct_dev->num_oqs);
-+	case ETH_SS_PRIV_FLAGS:
-+		return lio_get_priv_flags_ss_count(lio);
- 	default:
- 		return -EOPNOTSUPP;
- 	}
-@@ -2096,6 +2205,7 @@ static const struct ethtool_ops lio_ethtool_ops = {
- 	.get_strings		= lio_get_strings,
- 	.get_ethtool_stats	= lio_get_ethtool_stats,
- 	.get_pauseparam		= lio_get_pauseparam,
-+	.set_pauseparam		= lio_set_pauseparam,
- 	.get_regs_len		= lio_get_regs_len,
- 	.get_regs		= lio_get_regs,
- 	.get_msglevel		= lio_get_msglevel,
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index a2460e5..afc6f9d 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -2184,7 +2184,7 @@ static void if_cfg_callback(struct octeon_device *oct,
- 	struct liquidio_if_cfg_context *ctx;
- 
- 	resp = (struct liquidio_if_cfg_resp *)sc->virtrptr;
--	ctx  = (struct liquidio_if_cfg_context *)sc->ctxptr;
-+	ctx = (struct liquidio_if_cfg_context *)sc->ctxptr;
- 
- 	oct = lio_get_device(ctx->octeon_id);
- 	if (resp->status)
-@@ -3934,7 +3934,10 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
- 
- 		/* Register ethtool support */
- 		liquidio_set_ethtool_ops(netdev);
--		octeon_dev->priv_flags = 0x0;
-+		if (lio->oct_dev->chip_id == OCTEON_CN23XX_PF_VID)
-+			octeon_dev->priv_flags = OCT_PRIV_FLAG_DEFAULT;
-+		else
-+			octeon_dev->priv_flags = 0x0;
- 
- 		if (netdev->features & NETIF_F_LRO)
- 			liquidio_set_feature(netdev, OCTNET_CMD_LRO_ENABLE,
-@@ -4015,8 +4018,7 @@ static int liquidio_init_nic_module(struct octeon_device *oct)
- 	/* run port_config command for each port */
- 	oct->ifcount = num_nic_ports;
- 
--	memset(oct->props, 0,
--	       sizeof(struct octdev_props) * num_nic_ports);
-+	memset(oct->props, 0, sizeof(struct octdev_props) * num_nic_ports);
- 
- 	for (i = 0; i < MAX_OCTEON_LINKS; i++)
- 		oct->props[i].gmxport = -1;
-@@ -4032,7 +4034,7 @@ static int liquidio_init_nic_module(struct octeon_device *oct)
- 	/* Initialize interrupt moderation params */
- 	intrmod_cfg = &((struct octeon_device *)oct)->intrmod;
- 	intrmod_cfg->rx_enable = 1;
--	intrmod_cfg->check_intrvl =   LIO_INTRMOD_CHECK_INTERVAL;
-+	intrmod_cfg->check_intrvl = LIO_INTRMOD_CHECK_INTERVAL;
- 	intrmod_cfg->maxpkt_ratethr = LIO_INTRMOD_MAXPKT_RATETHR;
- 	intrmod_cfg->minpkt_ratethr = LIO_INTRMOD_MINPKT_RATETHR;
- 	intrmod_cfg->rx_maxcnt_trigger = LIO_INTRMOD_RXMAXCNT_TRIGGER;
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.h b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-index 6062ff3..da15c2a 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-@@ -755,8 +755,15 @@ enum {
- 	OCT_PRIV_FLAG_TX_BYTES = 0, /* Tx interrupts by pending byte count */
- };
- 
--static inline void lio_set_priv_flag(struct octeon_device *octdev, u32 flag,
--				     u32 val)
-+#define OCT_PRIV_FLAG_DEFAULT 0x0
-+
-+static inline u32 lio_get_priv_flag(struct octeon_device *octdev, u32 flag)
-+{
-+	return !!(octdev->priv_flags & (0x1 << flag));
-+}
-+
-+static inline void lio_set_priv_flag(struct octeon_device *octdev,
-+				     u32 flag, u32 val)
- {
- 	if (val)
- 		octdev->priv_flags |= (0x1 << flag);
--- 
-1.8.3.1
+Anyway I would add a friendly comment beside the rcu_read_lock that
+"this is needed to protect
+access to ring->xdp_prog".
+
+>>
+>> Let me try to suggest something:
+>> instead of taking the rcu_read_lock for the whole
+>> mlx4_en_process_rx_cq, we can minimize to XDP code path only
+>> by double checking xdp_prog (non-protected check followed by a
+>> protected check inside mlx4 XDP critical path).
+>>
+>> i.e instead of:
+>>
+>> rcu_read_lock();
+>>
+>> xdp_prog = ring->xdp_prog;
+>>
+>> //__Do lots of non-XDP related stuff__
+>>
+>> if (xdp_prog) {
+>>     //Do XDP magic ..
+>> }
+>> //__Do more of non-XDP related stuff__
+>>
+>> rcu_read_unlock();
+>>
+>>
+>> We can minimize it to XDP critical path only:
+>>
+>> //Non protected xdp_prog dereference.
+>> if (xdp_prog) {
+>>      rcu_read_lock();
+>>      //Protected dereference to ring->xdp_prog
+>>      xdp_prog = ring->xdp_prog;
+>>      if(unlikely(!xdp_prg)) goto unlock;
+>
+> The addition of this branch and extra deref is now slowing down the xdp
+> path compared to the current proposal.
+>
+
+Yep, but this is an unlikely condition and the critical code here is
+much smaller and it is more clear that the rcu_read_lock here meant to
+protect the ring->xdp_prog under this small xdp critical section in
+comparison to your patch where it is held across the whole RX
+function.
