@@ -1,63 +1,37 @@
-From: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
-Subject: Re: [Patch v3 08/11] net: ethernet: xilinx: Generate random mac if
- none found
-Date: Thu, 1 Sep 2016 16:30:28 +0100
-Message-ID: <d7b5d5b9-e87e-73da-6bfe-7516703298c3@imgtec.com>
-References: <1472661352-11983-1-git-send-email-Zubair.Kakakhel@imgtec.com>
- <1472661352-11983-9-git-send-email-Zubair.Kakakhel@imgtec.com>
- <3e2dea83-ee59-2980-3a9d-50da04271158@cogentembedded.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 1/2] tipc: introduce bearer add for remoteip
+Date: Thu, 1 Sep 2016 08:35:20 -0700
+Message-ID: <20160901083520.5e1c7300@xeon-e3>
+References: <1472546220-23259-1-git-send-email-richard.alpe@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: <soren.brinkmann@xilinx.com>, <linux-kernel@vger.kernel.org>,
-        <linux-mips@linux-mips.org>, <michal.simek@xilinx.com>,
-        <netdev@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        <monstr@monstr.eu>, <ralf@linux-mips.org>, <tglx@linutronix.de>,
-        <jason@lakedaemon.net>, <marc.zyngier@arm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3e2dea83-ee59-2980-3a9d-50da04271158@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>
+To: Richard Alpe <richard.alpe@ericsson.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:35199 "EHLO
+        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754471AbcIAPfl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 11:35:41 -0400
+Received: by mail-pf0-f170.google.com with SMTP id x72so32497759pfd.2
+        for <netdev@vger.kernel.org>; Thu, 01 Sep 2016 08:35:10 -0700 (PDT)
+In-Reply-To: <1472546220-23259-1-git-send-email-richard.alpe@ericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, 30 Aug 2016 10:36:59 +0200
+Richard Alpe <richard.alpe@ericsson.com> wrote:
 
+> Introduce the ability to add remote IP addresses to an existing UDP
+> bearer. On the kernel side, adding a "remoteip" to an existing bearer
+> puts the bearer in "replicast" mode where TIPC multicast messages are
+> send out to each configured remoteip using unicast. This is required
+> for TIPC UDP bearers to work in environments where IP multicast is
+> disabled.
+> 
+> Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
+> Reviewed-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+> Acked-by: Jon Maloy <jon.maloy@ericsson.com>
+> ---
 
-On 09/01/2016 11:52 AM, Sergei Shtylyov wrote:
-> Hello.
->
-> On 8/31/2016 7:35 PM, Zubair Lutfullah Kakakhel wrote:
->
->> At the moment, if the emaclite device doesn't find a mac address
->> from any source, it simply uses 0x0 with a warning printed.
->>
->> Instead of using a 0x0 mac address, use a randomly generated one.
->>
->> Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
-> [...]
->
->> diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
->> index 3cee84a..22e5a5a 100644
->> --- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
->> +++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
->> @@ -1134,8 +1134,10 @@ static int xemaclite_of_probe(struct platform_device *ofdev)
->>      if (mac_address)
->>          /* Set the MAC address. */
->>          memcpy(ndev->dev_addr, mac_address, ETH_ALEN);
->> -    else
->> -        dev_warn(dev, "No MAC address found\n");
->> +    else {
->> +        dev_warn(dev, "No MAC address found. Generating Random one\n");
->> +        eth_hw_addr_random(ndev);
->> +    }
->
->    All branches of the *if* statement should have {} if at least one has them, see Documentation/CodingStyle, chaoter 3.
-
-Спасибо
-
-ZubairLK
-
->
-> [...]
->
-> MBR, Sergei
->
+Applied to net-next
