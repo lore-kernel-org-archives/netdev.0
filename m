@@ -1,8 +1,8 @@
 From: <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH net v4 1/9] net: ethernet: mediatek: fix fails from TX
- housekeeping due to incorrect port setup
-Date: Thu, 1 Sep 2016 10:47:27 +0800
-Message-ID: <1472698055-8821-2-git-send-email-sean.wang@mediatek.com>
+Subject: [PATCH net v4 3/9] net: ethernet: mediatek: fix API usage with
+ skb_free_frag
+Date: Thu, 1 Sep 2016 10:47:29 +0800
+Message-ID: <1472698055-8821-4-git-send-email-sean.wang@mediatek.com>
 References: <1472698055-8821-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -26,47 +26,26 @@ List-Id: netdev.vger.kernel.org
 
 From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
 
-which net device the SKB is complete for depends on the forward port
-on txd4 on the corresponding TX descriptor, but the information isn't
-set up well in case of  SKB fragments that would lead to watchdog timeout
-from the upper layer, so fix it up.
+use skb_free_frag() instead of legacy put_page()
 
 Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
 Acked-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index f160954..7fc2ff0 100644
+index a5dcf57..c9e25a7 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -588,14 +588,15 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
- 	dma_addr_t mapped_addr;
- 	unsigned int nr_frags;
- 	int i, n_desc = 1;
--	u32 txd4 = 0;
-+	u32 txd4 = 0, fport;
- 
- 	itxd = ring->next_free;
- 	if (itxd == ring->last_free)
- 		return -ENOMEM;
- 
- 	/* set the forward port */
--	txd4 |= (mac->id + 1) << TX_DMA_FPORT_SHIFT;
-+	fport = (mac->id + 1) << TX_DMA_FPORT_SHIFT;
-+	txd4 |= fport;
- 
- 	tx_buf = mtk_desc_to_tx_buf(ring, itxd);
- 	memset(tx_buf, 0, sizeof(*tx_buf));
-@@ -653,7 +654,7 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
- 			WRITE_ONCE(txd->txd3, (TX_DMA_SWC |
- 					       TX_DMA_PLEN0(frag_map_size) |
- 					       last_frag * TX_DMA_LS0));
--			WRITE_ONCE(txd->txd4, 0);
-+			WRITE_ONCE(txd->txd4, fport);
- 
- 			tx_buf->skb = (struct sk_buff *)MTK_DMA_DUMMY_DESC;
- 			tx_buf = mtk_desc_to_tx_buf(ring, txd);
+@@ -870,7 +870,7 @@ static int mtk_poll_rx(struct napi_struct *napi, int budget,
+ 		/* receive data */
+ 		skb = build_skb(data, ring->frag_size);
+ 		if (unlikely(!skb)) {
+-			put_page(virt_to_head_page(new_data));
++			skb_free_frag(new_data);
+ 			netdev->stats.rx_dropped++;
+ 			goto release_desc;
+ 		}
 -- 
 1.9.1
