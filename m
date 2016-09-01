@@ -1,123 +1,62 @@
-From: Hadar Hen Zion <hadarh@mellanox.com>
-Subject: [PATCH iproute2 V2 2/2] tc: m_vlan: Add priority option to push vlan action
-Date: Thu,  1 Sep 2016 09:45:48 +0300
-Message-ID: <1472712348-1415-3-git-send-email-hadarh@mellanox.com>
-References: <1472712348-1415-1-git-send-email-hadarh@mellanox.com>
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Amir Vadai <amirva@mellanox.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Chunyan Zhang <zhang.lyra@gmail.com>
+Subject: [PATCH] sunrpc: queue work on system_power_efficient_wq
+Date: Thu,  1 Sep 2016 15:30:26 +0800
+Message-ID: <1472715026-11397-1-git-send-email-zhang.lyra@gmail.com>
+Cc: linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, zhang.lyra@gmail.com,
+        ke.wang@spreadtrum.com
+To: trond.myklebust@primarydata.com, anna.schumaker@netapp.com,
+        davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:48843 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752371AbcIAGqY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 02:46:24 -0400
-In-Reply-To: <1472712348-1415-1-git-send-email-hadarh@mellanox.com>
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:33460 "EHLO
+        mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751589AbcIAHaf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 03:30:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The current vlan push action supports only vid and protocol options.
-Add priority option.
+From: Ke Wang <ke.wang@spreadtrum.com>
 
-Example script that adds vlan push action with vid and priority:
+sunrpc uses workqueue to clean cache regulary. There is no real dependency
+of executing work on the cpu which queueing it.
 
-tc filter add dev veth0 protocol ip parent ffff: \
-	flower \
-	indev veth0 \
-	action vlan push id 100 priority 5
+On a idle system, especially for a heterogeneous systems like big.LITTLE,
+it is observed that the big idle cpu was woke up many times just to service
+this work, which against the principle of power saving. It would be better
+if we can schedule it on a cpu which the scheduler believes to be the most
+appropriate one.
 
-Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
-Acked-by: Jiri Pirko <jiri@mellanox.com>
+After apply this patch, system_wq will be replaced by
+system_power_efficient_wq for sunrpc. This functionality is enabled when
+CONFIG_WQ_POWER_EFFICIENT is selected.
+
+Signed-off-by: Ke Wang <ke.wang@spreadtrum.com>
 ---
- man/man8/tc-vlan.8 |  5 +++++
- tc/m_vlan.c        | 22 +++++++++++++++++++++-
- 2 files changed, 26 insertions(+), 1 deletion(-)
+ net/sunrpc/cache.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/man/man8/tc-vlan.8 b/man/man8/tc-vlan.8
-index 4bfd72b..4d0c5c8 100644
---- a/man/man8/tc-vlan.8
-+++ b/man/man8/tc-vlan.8
-@@ -12,6 +12,8 @@ vlan - vlan manipulation module
- .IR PUSH " := "
- .BR push " [ " protocol
- .IR VLANPROTO " ]"
-+.BR " [ " priority
-+.IR VLANPRIO " ] "
- .BI id " VLANID"
+diff --git a/net/sunrpc/cache.c b/net/sunrpc/cache.c
+index 4d8e11f..8aabe12 100644
+--- a/net/sunrpc/cache.c
++++ b/net/sunrpc/cache.c
+@@ -353,7 +353,7 @@ void sunrpc_init_cache_detail(struct cache_detail *cd)
+ 	spin_unlock(&cache_list_lock);
  
- .ti -8
-@@ -55,6 +57,9 @@ for hexadecimal interpretation, etc.).
- Choose the VLAN protocol to use. At the time of writing, the kernel accepts only
- .BR 802.1Q " or " 802.1ad .
- .TP
-+.BI priority " VLANPRIO"
-+Choose the VLAN priority to use. Decimal number in range of 0-7.
-+.TP
- .I CONTROL
- How to continue after executing this action.
- .RS
-diff --git a/tc/m_vlan.c b/tc/m_vlan.c
-index ac63d9e..05a63b4 100644
---- a/tc/m_vlan.c
-+++ b/tc/m_vlan.c
-@@ -22,7 +22,7 @@
- static void explain(void)
- {
- 	fprintf(stderr, "Usage: vlan pop\n");
--	fprintf(stderr, "       vlan push [ protocol VLANPROTO ] id VLANID [CONTROL]\n");
-+	fprintf(stderr, "       vlan push [ protocol VLANPROTO ] id VLANID [ priority VLANPRIO ] [CONTROL]\n");
- 	fprintf(stderr, "       VLANPROTO is one of 802.1Q or 802.1AD\n");
- 	fprintf(stderr, "            with default: 802.1Q\n");
- 	fprintf(stderr, "       CONTROL := reclassify | pipe | drop | continue | pass\n");
-@@ -45,6 +45,8 @@ static int parse_vlan(struct action_util *a, int *argc_p, char ***argv_p,
- 	int id_set = 0;
- 	__u16 proto;
- 	int proto_set = 0;
-+	__u8 prio;
-+	int prio_set = 0;
- 	struct tc_vlan parm = { 0 };
+ 	/* start the cleaning process */
+-	schedule_delayed_work(&cache_cleaner, 0);
++	queue_delayed_work(system_power_efficient_wq, &cache_cleaner, 0);
+ }
+ EXPORT_SYMBOL_GPL(sunrpc_init_cache_detail);
  
- 	if (matches(*argv, "vlan") != 0)
-@@ -91,6 +93,17 @@ static int parse_vlan(struct action_util *a, int *argc_p, char ***argv_p,
- 			if (ll_proto_a2n(&proto, *argv))
- 				invarg("protocol is invalid", *argv);
- 			proto_set = 1;
-+		} else if (matches(*argv, "priority") == 0) {
-+			if (action != TCA_VLAN_ACT_PUSH) {
-+				fprintf(stderr, "\"%s\" is only valid for push\n",
-+					*argv);
-+				explain();
-+				return -1;
-+			}
-+			NEXT_ARG();
-+			if (get_u8(&prio, *argv, 0) || (prio & ~0x7))
-+				invarg("prio is invalid", *argv);
-+			prio_set = 1;
- 		} else if (matches(*argv, "help") == 0) {
- 			usage();
- 		} else {
-@@ -138,6 +151,9 @@ static int parse_vlan(struct action_util *a, int *argc_p, char ***argv_p,
+@@ -476,7 +476,8 @@ static void do_cache_clean(struct work_struct *work)
+ 		delay = 0;
  
- 		addattr_l(n, MAX_MSG, TCA_VLAN_PUSH_VLAN_PROTOCOL, &proto, 2);
- 	}
-+	if (prio_set)
-+		addattr8(n, MAX_MSG, TCA_VLAN_PUSH_VLAN_PRIORITY, prio);
-+
- 	tail->rta_len = (char *)NLMSG_TAIL(n) - (char *)tail;
+ 	if (delay)
+-		schedule_delayed_work(&cache_cleaner, delay);
++		queue_delayed_work(system_power_efficient_wq,
++				   &cache_cleaner, delay);
+ }
  
- 	*argc_p = argc;
-@@ -180,6 +196,10 @@ static int print_vlan(struct action_util *au, FILE *f, struct rtattr *arg)
- 				ll_proto_n2a(rta_getattr_u16(tb[TCA_VLAN_PUSH_VLAN_PROTOCOL]),
- 					     b1, sizeof(b1)));
- 		}
-+		if (tb[TCA_VLAN_PUSH_VLAN_PRIORITY]) {
-+			val = rta_getattr_u8(tb[TCA_VLAN_PUSH_VLAN_PRIORITY]);
-+			fprintf(f, " priority %u", val);
-+		}
- 		break;
- 	}
- 	fprintf(f, " %s", action_n2a(parm->action));
+ 
 -- 
-1.8.3.1
+2.7.4
