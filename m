@@ -1,39 +1,30 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: Centralizing support for TCAM?
-Date: Fri, 2 Sep 2016 21:02:03 +0200
-Message-ID: <20160902190203.GS16864@lunn.ch>
-References: <57d4a2db-ca3b-909a-073a-52ecceb428f2@gmail.com>
- <b8323295-e3eb-48ca-7c82-ff40d222a743@gmail.com>
- <57C9C9BE.6040407@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 0/2] net: thunderx: Fixes for TSO offload issues
+Date: Thu, 01 Sep 2016 14:51:17 -0700 (PDT)
+Message-ID: <20160901.145117.1081450613427332165.davem@davemloft.net>
+References: <1472537187-21951-1-git-send-email-sunil.kovvuri@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
-        jiri@mellanox.com, idosh@mellanox.com, john.fastabend@intel.com,
-        ast@kernel.org, davem@davemloft.net, jhs@mojatatu.com,
-        ecree@solarflare.com, vivien.didelot@savoirfairelinux.com
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:34225 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754145AbcIBTCM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 2 Sep 2016 15:02:12 -0400
-Content-Disposition: inline
-In-Reply-To: <57C9C9BE.6040407@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, sgoutham@cavium.com, linux-kernel@vger.kernel.org,
+ linux-arm-kernel@lists.infradead.org
+To: sunil.kovvuri@gmail.com
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1472537187-21951-1-git-send-email-sunil.kovvuri@gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-> I need to get reasonable operations per second on the TCAM tables.
-> Reasonable for me being somewhere in the 50k to 100k add/del/update
-> commands per second. I'm hesitant to create more abstractions then
-> are actually needed.
+From: sunil.kovvuri@gmail.com
+Date: Tue, 30 Aug 2016 11:36:25 +0530
 
-Hi John
+> This patch series fixes couple of issues w.r.t HW TSO offload
 
-That is an interesting requirement. Could you explain why?
-
-The Marvell TCAM is accessed using MDIO. Maybe it can do 50
-add/del/updates per second. For a WiFi access point, or cable modem,
-even 50 per second seems ample, they get set at boot and never
-changed.
-
-	Andrew
+Series applied, thanks.
