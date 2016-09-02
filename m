@@ -1,51 +1,27 @@
-From: Liping Zhang <zlpnobody@gmail.com>
-Subject: Re: [PATCH 1/2 nf] netfilter: seqadj: Fix some possible panics of
- seqadj when mem is exhausted
-Date: Fri, 2 Sep 2016 12:50:48 +0800
-Message-ID: <CAML_gOe+Ao5WEuVbTry_oekwsm2-ooZ074pgfpzxYzNehgLGjQ@mail.gmail.com>
-References: <1472780905-13094-1-git-send-email-fgao@ikuai8.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, Feng Gao <gfree.wind@gmail.com>
-To: fgao@ikuai8.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1472780905-13094-1-git-send-email-fgao@ikuai8.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net-next 0/2] net: some minor optimization for netns id
+Date: Thu,  1 Sep 2016 21:53:43 -0700
+Message-ID: <1472792025-14702-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f65.google.com ([209.85.220.65]:33580 "EHLO
+        mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750823AbcIBEyy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 00:54:54 -0400
+Received: by mail-pa0-f65.google.com with SMTP id vy10so5065199pac.0
+        for <netdev@vger.kernel.org>; Thu, 01 Sep 2016 21:53:55 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Feng,
-2016-09-02 9:48 GMT+08:00  <fgao@ikuai8.com>:
-> From: Gao Feng <fgao@ikuai8.com>
-> @@ -171,6 +176,11 @@ int nf_ct_seq_adjust(struct sk_buff *skb,
->         struct nf_ct_seqadj *this_way, *other_way;
->         int res;
->
-> +       if (unlikely(!seqadj)) {
 
-IPS_SEQ_ADJUST_BIT will be tested before we call nf_ct_seq_adjust(),
-so I think seqadj
-will never be NULL here.
+Cong Wang (2):
+  vxlan: call peernet2id() in fdb notification
+  netns: avoid disabling irq for netns id
 
-> +               WARN_ONCE(1, "Missing nfct_seqadj_ext_add() setup call\n");
-> +               return 0;
-> +       }
-> +
->         this_way  = &seqadj->seq[dir];
->         other_way = &seqadj->seq[!dir];
->
-> @@ -218,8 +228,10 @@ s32 nf_ct_seq_offset(const struct nf_conn *ct,
->         struct nf_conn_seqadj *seqadj = nfct_seqadj(ct);
->         struct nf_ct_seqadj *this_way;
->
-> -       if (!seqadj)
-> +       if (unlikely(!seqadj)) {
-> +               WARN_ONCE(1, "Missing nfct_seqadj_ext_add() setup call\n");
+ drivers/net/vxlan.c      |  2 +-
+ net/core/net_namespace.c | 37 ++++++++++++++++---------------------
+ 2 files changed, 17 insertions(+), 22 deletions(-)
 
-But in nf_ct_seq_offset, seqadj is likely to be NULL, see the function
-call path:
-tcp_packet->tcp_in_window->nf_ct_seq_offset, so WARN_ONCE seems unnecessary.
-
->                 return 0;
-> +       }
+-- 
+2.1.0
