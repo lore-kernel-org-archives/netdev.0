@@ -1,49 +1,43 @@
-From: Heiko =?ISO-8859-1?Q?St=FCbner?= <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>
-Subject: Re: [PATCH v4 4/6] arm64: dts: rockchip: add the gmac power domain on
- rk3399
-Date: Fri, 02 Sep 2016 13:00:16 +0200
-Message-ID: <4770120.mDmM68CBxL@diego>
-References: <1472752204-8924-1-git-send-email-wxt@rock-chips.com>
- <1472752204-8924-5-git-send-email-wxt@rock-chips.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, Huang Tao <huangtao-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
- Brian Norris <briannorris-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, Xing Zheng <zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
- Masahiro Yamada <yamada.masahiro-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- dbasehore-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>,
- Douglas Anderson <dianders-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Elaine Zhang <zhangqing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
- Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>,
- Shunqian Zheng <zhengsq-TNX95d0MmH7DzftRWevZcw@public.gmane.org>, Jianqun Xu <jay.xu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-To: Caesar Wang <wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1472752204-8924-5-git-send-email-wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
-List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Rami Rosen <rami.rosen@intel.com>
+Subject: [PATCH net-next] switchdev: Fix return value of switchdev_port_fdb_dump().
+Date: Fri,  2 Sep 2016 14:11:57 +0300
+Message-ID: <1472814717-11339-1-git-send-email-rami.rosen@intel.com>
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+        eric.dumazet@gmail.com, wkok@cumulusnetworks.com,
+        Rami Rosen <rami.rosen@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:6426 "EHLO mga01.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753963AbcIBLME (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 2 Sep 2016 07:12:04 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am Freitag, 2. September 2016, 01:50:02 schrieb Caesar Wang:
-> This patch supports the gmac pd to save power consumption.
-> Even though some boards not need Ethernet support, the driver
-> core can also take care of powering up the pd before probe.
-> 
-> Signed-off-by: Caesar Wang <wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+This patch fixes the retun value of switchdev_port_fdb_dump() when
+CONFIG_NET_SWITCHDEV is not set. This avoids getting "warning: return makes
+integer from pointer without a cast [-Wint-conversion]" when building
+when CONFIG_NET_SWITCHDEV is not set under several compiler versions.
+This warning is due to commit d297653dd6f07afbe7e6c702a4bcd7615680002e
+("rtnetlink: fdb dump: optimize by saving last interface markers").
 
-applied to my dts64 branch for 4.9 with Doug's Review-tag.
+Signed-off-by: Rami Rosen <rami.rosen@intel.com>
+---
+ include/net/switchdev.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I'd like to also pick up the other two dts patches after Dave is satisfied with 
-the driver-side changes in patches 1-3.
-
-
-Heiko
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index 6279f2f..729fe15 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -344,7 +344,7 @@ static inline int switchdev_port_fdb_dump(struct sk_buff *skb,
+ 					  struct net_device *filter_dev,
+ 					  int *idx)
+ {
+-       return idx;
++       return *idx;
+ }
+ 
+ static inline bool switchdev_port_same_parent_id(struct net_device *a,
+-- 
+2.5.5
