@@ -1,84 +1,46 @@
-From: <sean.wang@mediatek.com>
-Subject: [PATCH net-next v3 2/2] net: ethernet: mediatek: enhance RX path by aggregating more SKBs into NAPI
-Date: Sat, 3 Sep 2016 00:18:45 +0800
-Message-ID: <1472833125-17343-3-git-send-email-sean.wang@mediatek.com>
-References: <1472833125-17343-1-git-send-email-sean.wang@mediatek.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH v3 1/2] wcn36xx: Transition driver to SMD client
+Date: Fri, 02 Sep 2016 19:24:50 +0300
+Message-ID: <87mvjqz2ul.fsf@kamboji.qca.qualcomm.com>
+References: <1472741468-24762-1-git-send-email-bjorn.andersson@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
-        <linux-mediatek@lists.infradead.org>, <keyhaede@gmail.com>,
-        <objelf@gmail.com>, Sean Wang <sean.wang@mediatek.com>
-To: <john@phrozen.org>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw02.mediatek.com ([210.61.82.184]:47928 "EHLO
-        mailgw02.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S932622AbcIBQTE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 12:19:04 -0400
-In-Reply-To: <1472833125-17343-1-git-send-email-sean.wang@mediatek.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eugene Krasnikov <k.eugene.e@gmail.com>,
+        wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-arm-msm@vger.kernel.org
+To: Bjorn Andersson <bjorn.andersson@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1472741468-24762-1-git-send-email-bjorn.andersson@linaro.org>
+        (Bjorn Andersson's message of "Thu, 1 Sep 2016 07:51:07 -0700")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sean Wang <sean.wang@mediatek.com>
+Bjorn Andersson <bjorn.andersson@linaro.org> writes:
 
-The patch adds support for aggregating more SKBs feed into NAPI in
-order to get more benefits from generic receive offload (GRO) by
-peeking at the RX ring status and moving more packets right before
-returning from NAPI RX polling handler if NAPI budgets are still
-available and some packets already present in hardware.
+> The wcn36xx wifi driver follows the life cycle of the WLAN_CTRL SMD
+> channel, as such it should be a SMD client. This patch makes this
+> transition, now that we have the necessary frameworks available.
+>
+> Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
 
-Signed-off-by: Sean Wang <sean.wang@mediatek.com>
----
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
+[...]
 
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 33bb10f..44cab1b 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -960,9 +960,6 @@ release_desc:
- 	wmb();
- 	mtk_w32(eth, ring->calc_idx, MTK_PRX_CRX_IDX0);
- 
--	if (done < budget)
--		mtk_w32(eth, MTK_RX_DONE_INT, MTK_PDMA_INT_STATUS);
--
- 	return done;
- }
- 
-@@ -1081,10 +1078,13 @@ static int mtk_napi_rx(struct napi_struct *napi, int budget)
- 	struct mtk_eth *eth = container_of(napi, struct mtk_eth, rx_napi);
- 	u32 status, mask;
- 	int rx_done = 0;
-+	int remain_budget = budget;
- 
- 	mtk_handle_status_irq(eth);
-+
-+poll_again:
- 	mtk_w32(eth, MTK_RX_DONE_INT, MTK_PDMA_INT_STATUS);
--	rx_done = mtk_poll_rx(napi, budget, eth);
-+	rx_done = mtk_poll_rx(napi, remain_budget, eth);
- 
- 	if (unlikely(netif_msg_intr(eth))) {
- 		status = mtk_r32(eth, MTK_PDMA_INT_STATUS);
-@@ -1093,14 +1093,14 @@ static int mtk_napi_rx(struct napi_struct *napi, int budget)
- 			 "done rx %d, intr 0x%08x/0x%x\n",
- 			 rx_done, status, mask);
- 	}
--
--	if (rx_done == budget)
-+	if (rx_done == remain_budget)
- 		return budget;
- 
- 	status = mtk_r32(eth, MTK_PDMA_INT_STATUS);
--	if (status & MTK_RX_DONE_INT)
--		return budget;
--
-+	if (status & MTK_RX_DONE_INT) {
-+		remain_budget -= rx_done;
-+		goto poll_again;
-+	}
- 	napi_complete(napi);
- 	mtk_irq_enable(eth, MTK_PDMA_INT_MASK, MTK_RX_DONE_INT);
- 
+> --- a/drivers/net/wireless/ath/wcn36xx/Kconfig
+> +++ b/drivers/net/wireless/ath/wcn36xx/Kconfig
+> @@ -1,6 +1,6 @@
+>  config WCN36XX
+>  	tristate "Qualcomm Atheros WCN3660/3680 support"
+> -	depends on MAC80211 && HAS_DMA
+> +	depends on MAC80211 && HAS_DMA && QCOM_SMD
+
+While I had this patch on my pending branch I noticed that I can't
+compile wcn36xx on x86 anymore. This is actually quite inconvenient, for
+example then it's easy to miss mac80211 API changes etc. Is there any
+way we could continue build testing wcn36xx on x86 (or all) platforms?
+
+Also what about older platforms? Earlier I used wcn36xx on my Nexus 4
+with help of backports project. I can't do that anymore, right?
+
 -- 
-1.9.1
+Kalle Valo
