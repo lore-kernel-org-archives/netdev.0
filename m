@@ -1,64 +1,46 @@
-From: Gao Feng <fgao@ikuai8.com>
-Subject: Re: [PATCH v2 1/2 nf] netfilter: seqadj: Fix one possible panic in
- seqadj when mem is exhausted
-Date: Fri, 2 Sep 2016 15:07:13 +0800
-Message-ID: <CA+6hz4qNAu+nbtBgAMHJAxPNvagkQzbNn88M4h6b7pKX3-BfMw@mail.gmail.com>
-References: <1472792932-26187-1-git-send-email-fgao@ikuai8.com> <20160902065914.GC8883@breakpoint.cc>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [RFC Patch net-next 0/6] net_sched: really switch to RCU for tc
+ actions
+Date: Fri, 2 Sep 2016 09:09:42 +0200
+Message-ID: <20160902070942.GB2150@nanopsycho>
+References: <1472795840-31901-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-        Netfilter Developer Mailing List
-        <netfilter-devel@vger.kernel.org>, coreteam@netfilter.org,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20160902065914.GC8883@breakpoint.cc>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:33222 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751124AbcIBHJq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 03:09:46 -0400
+Received: by mail-wm0-f68.google.com with SMTP id w207so1612610wmw.0
+        for <netdev@vger.kernel.org>; Fri, 02 Sep 2016 00:09:45 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1472795840-31901-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
-
-On Fri, Sep 2, 2016 at 2:59 PM, Florian Westphal <fw@strlen.de> wrote:
-> fgao@ikuai8.com <fgao@ikuai8.com> wrote:
->> From: Gao Feng <fgao@ikuai8.com>
->>
->> When memory is exhausted, nfct_seqadj_ext_add may fail to add the seqadj
->> extension. But the function nf_ct_seqadj_init doesn't check if get valid
->> seqadj pointer by the nfct_seqadj, while other functions perform the
->> sanity check.
->>
->> So the system would be panic when nfct_seqadj_ext_add failed.
->>
->> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+Fri, Sep 02, 2016 at 07:57:14AM CEST, xiyou.wangcong@gmail.com wrote:
+>Currently there are only two tc actions lockless:
+>gact and mirred. But they are questionable because
+>we don't have anything to prevent a parallel update
+>on an existing tc action in hash table while reading
+>it on fast path, this could be a problem when a tc
+>action becomes complex.
 >
->> diff --git a/net/netfilter/nf_conntrack_seqadj.c b/net/netfilter/nf_conntrack_seqadj.c
->> index dff0f0c..2c8e201 100644
->> --- a/net/netfilter/nf_conntrack_seqadj.c
->> +++ b/net/netfilter/nf_conntrack_seqadj.c
->> @@ -16,9 +16,14 @@ int nf_ct_seqadj_init(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
->>       if (off == 0)
->>               return 0;
->>
->> +     seqadj = nfct_seqadj(ct);
->> +     if (unlikely(!seqadj)) {
->> +             WARN_ONCE(1, "Missing nfct_seqadj_ext_add() setup call\n");
->> +             return 0;
->> +     }
->> +
+>This patchset introduces a few new tc action API's
+>based on RCU so that the fast path could now really
+>be protected by RCU and we can update existing tc
+>actions safely and race-freely.
 >
-> Not sure this WARN() is really needed, I would remove it (since its most
-> likely only missing due to memory shortage).
+>Obviously this is still _not_ complete yet, I only
+>modified mirred action to show the use case of
+>the new API's, all the rest actions could switch to
+>the new API's too. The new API's are a bit ugly too,
+>any suggestion to improve them is welcome.
 >
-> Other than that, this looks good.
->
-
-I prefer to keep the warning, although it only happens caused by mem
-shortage now.
-But it would give the accurate description, if the nfct_seqadj_ext_add
-was lost when new features were depending on synadj.
+>I tested mirred action with a few test cases, so far
+>so good, at least no obvious bugs. ;)
 
 
-Best Regards
-Feng
-
-
+I wonder, do you happen to have a very tiny narrow screen?
