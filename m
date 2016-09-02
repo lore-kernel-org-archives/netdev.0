@@ -1,54 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] rtnetlink: fdb dump: optimize by saving last
- interface markers
-Date: Thu, 01 Sep 2016 16:56:41 -0700 (PDT)
-Message-ID: <20160901.165641.1996592771782783172.davem@davemloft.net>
-References: <1472619405-50802-1-git-send-email-roopa@cumulusnetworks.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [BUG] af_packet FANOUT and device dismantle
+Date: Thu, 01 Sep 2016 17:04:43 -0700
+Message-ID: <1472774683.5439.8.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: nikolay@cumulusnetworks.com, wkok@cumulusnetworks.com,
-        stephen@networkplumber.org, jhs@mojatatu.com,
-        makita.toshiaki@lab.ntt.co.jp, jiri@resnulli.us,
-        idosch@mellanox.com, netdev@vger.kernel.org, minoura@valinux.co.jp,
-        Dept-GELinuxNICDev@qlogic.com
-To: roopa@cumulusnetworks.com
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40972 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750841AbcIAX4n (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 19:56:43 -0400
-In-Reply-To: <1472619405-50802-1-git-send-email-roopa@cumulusnetworks.com>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:33616 "EHLO
+        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750792AbcIBAEu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 20:04:50 -0400
+Received: by mail-pf0-f170.google.com with SMTP id g202so13113716pfb.0
+        for <netdev@vger.kernel.org>; Thu, 01 Sep 2016 17:04:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Date: Tue, 30 Aug 2016 21:56:45 -0700
+Hi David
 
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
-> 
-> fdb dumps spanning multiple skb's currently restart from the first
-> interface again for every skb. This results in unnecessary
-> iterations on the already visited interfaces and their fdb
-> entries. In large scale setups, we have seen this to slow
-> down fdb dumps considerably. On a system with 30k macs we
-> see fdb dumps spanning across more than 300 skbs.
-> 
-> To fix the problem, this patch replaces the existing single fdb
-> marker with three markers: netdev hash entries, netdevs and fdb
-> index to continue where we left off instead of restarting from the
-> first netdev. This is consistent with link dumps.
-> 
-> In the process of fixing the performance issue, this patch also
-> re-implements fix done by
-> commit 472681d57a5d ("net: ndo_fdb_dump should report -EMSGSIZE to rtnl_fdb_dump")
-> (with an internal fix from Wilson Kok) in the following ways:
-> - change ndo_fdb_dump handlers to return error code instead
-> of the last fdb index
-> - use cb->args strictly for dump frag markers and not error codes.
-> This is consistent with other dump functions.
- ...
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+When you added fanout in commit dc99f600698dcac,
+it seems a device dismantle is not properly handled.
 
-Looks great, applied, thanks!
+packet_notifier() does properly finds all sockets attached to the
+device and we call __unregister_prot_hook()
+
+But the actual dev_remove_pack() is called when the last socket attached
+to the FANOUT group is _closed_ , possibly minutes after the device
+disappeared.
+
+So we trigger the BUG_ON(!list_empty(&dev->ptype_all)); in
+netdev_run_todo(), that came with linux-4.0 in 
+https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=7866a621043fbaca3d7389e9b9f69dd1a2e5a855
+
+Fix would be to call dev_remote_pack() from __fanout_unlink() when
+num_members becomes 0.
+
+Let me know if you agree with this, thanks.
