@@ -1,51 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] bonding: Fix bonding crash
-Date: Fri, 02 Sep 2016 09:37:37 -0700
-Message-ID: <1472834257.5439.42.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1472793514-31850-1-git-send-email-mahesh@bandewar.net>
-         <20160902075241.GA1814@nanopsycho>
-         <1472823200.5439.15.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20160902162513.GA1768@nanopsycho.orion>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Mahesh Bandewar <mahesh@bandewar.net>,
-        Jay Vosburgh <j.vosburgh@gmail.com>,
-        Andy Gospodarek <gospo@cumulusnetworks.com>,
-        Veaceslav Falico <vfalico@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Mahesh Bandewar <maheshb@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        netdev <netdev@vger.kernel.org>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:33516 "EHLO
-        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932624AbcIBQhk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 12:37:40 -0400
-Received: by mail-pf0-f175.google.com with SMTP id g202so20840225pfb.0
-        for <netdev@vger.kernel.org>; Fri, 02 Sep 2016 09:37:40 -0700 (PDT)
-In-Reply-To: <20160902162513.GA1768@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH v3 1/2] wcn36xx: Transition driver to SMD client
+Date: Fri, 2 Sep 2016 09:38:11 -0700
+Message-ID: <C322D204-A6C6-497B-BDA2-1734C775B651@holtmann.org>
+References: <1472741468-24762-1-git-send-email-bjorn.andersson@linaro.org> <87mvjqz2ul.fsf@kamboji.qca.qualcomm.com>
+Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Bjorn Andersson <bjorn.andersson@linaro.org>,
+        Eugene Krasnikov <k.eugene.e@gmail.com>,
+        wcn36xx@lists.infradead.org,
+        linux-wireless <linux-wireless@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        linux-arm-msm@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87mvjqz2ul.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2016-09-02 at 18:25 +0200, Jiri Pirko wrote:
+Hi Kalle,
 
-> Understand the reason. All I say is we tried hard (I surely did) in
-> the past to remove bonding specific quirks and now we are adding one.
-> And the simple reason is that the code is such a mess.
+>> The wcn36xx wifi driver follows the life cycle of the WLAN_CTRL SMD
+>> channel, as such it should be a SMD client. This patch makes this
+>> transition, now that we have the necessary frameworks available.
+>> 
+>> Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
 > 
-> Just use team instead and you'll be fine. You can "google" it :)
+> [...]
+> 
+>> --- a/drivers/net/wireless/ath/wcn36xx/Kconfig
+>> +++ b/drivers/net/wireless/ath/wcn36xx/Kconfig
+>> @@ -1,6 +1,6 @@
+>> config WCN36XX
+>> 	tristate "Qualcomm Atheros WCN3660/3680 support"
+>> -	depends on MAC80211 && HAS_DMA
+>> +	depends on MAC80211 && HAS_DMA && QCOM_SMD
+> 
+> While I had this patch on my pending branch I noticed that I can't
+> compile wcn36xx on x86 anymore. This is actually quite inconvenient, for
+> example then it's easy to miss mac80211 API changes etc. Is there any
+> way we could continue build testing wcn36xx on x86 (or all) platforms?
 
-Sure, please join _our_ team and make all the needed changes in user
-land.
+I would also like that for the btqcomsmd Bluetooth driver. Doing quick build tests on x86 would be great.
 
-The kernel part of it is epsilon compared to all the control part (ie
-talk to the various Google switches.), and monitoring.
+Regards
 
-I am fine to leave the bug in upstream bonding driver, if you really
-want to force people out of bonding land !
-
-Here an automated test simply used macvlan and did not remove the
-macvlan before enslaving the netdev again in a bonding, we already fixed
-the test, because it is faster than deploying new kernels anyway.
+Marcel
