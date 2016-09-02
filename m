@@ -1,51 +1,36 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH] net: Don't delete routes in different VRFs
-Date: Fri, 2 Sep 2016 10:08:43 -0600
-Message-ID: <5d78e432-bd81-ce0b-c311-3170b17868d9@cumulusnetworks.com>
-References: <20160902052607.9303-1-mark.tomlinson@alliedtelesis.co.nz>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: [v2] ath9k: mark ath_fill_led_pin() static
+Date: Fri, 2 Sep 2016 18:09:12 +0200
+Message-ID: <7db487f5a15c4563a92de6da26a633fd@euamsexm01a.eu.qualcomm.com>
+References: <1472473273-2972-1-git-send-email-baoyou.xie@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-To: Mark Tomlinson <mark.tomlinson@alliedtelesis.co.nz>,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:33569 "EHLO
-        mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932338AbcIBQIq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 12:08:46 -0400
-Received: by mail-pa0-f43.google.com with SMTP id cy9so41677264pac.0
-        for <netdev@vger.kernel.org>; Fri, 02 Sep 2016 09:08:46 -0700 (PDT)
-In-Reply-To: <20160902052607.9303-1-mark.tomlinson@alliedtelesis.co.nz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <ath9k-devel@qca.qualcomm.com>, <kvalo@codeaurora.org>,
+        <linux-wireless@vger.kernel.org>, <ath9k-devel@lists.ath9k.org>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <arnd@arndb.de>, <baoyou.xie@linaro.org>, <xie.baoyou@zte.com.cn>
+To: Baoyou Xie <baoyou.xie@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1472473273-2972-1-git-send-email-baoyou.xie@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 9/1/16 11:26 PM, Mark Tomlinson wrote:
-> When deleting an IP address from an interface, there is a clean-up of
-> routes which refer to this local address. However, there was no check to
-> see that the VRF matched. This meant that deletion wasn't confined to
-> the VRF it should have been.
+Baoyou Xie <baoyou.xie@linaro.org> wrote:
+> We get 1 warning about global functions without a declaration
+> in the ath9k gpio driver when building with W=1:
+> drivers/net/wireless/ath/ath9k/gpio.c:25:6: warning: no previous prototype for 'ath_fill_led_pin' [-Wmissing-prototypes]
 > 
-> To solve this, a new field has been added to fib_info to hold a table
-> id. When removing fib entries corresponding to a local ip address, this
-> table id is also used in the comparison.
+> In fact, this function is only used in the file in which it is declared
+> and don't need a declaration, but can be made static.
+> so this patch marks it 'static'.
 > 
-> The table id is populated when the fib_info is created. This was already
-> done in some places, but not in ip_rt_ioctl(). This has now been fixed.
-> 
+> Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
 
-The best fixes tag is:
-Fixes: 021dd3b8a142 ("net: Add routes to the table associated with the device")
+Thanks, 1 patch applied to ath-next branch of ath.git:
 
-> Signed-off-by: Mark Tomlinson <mark.tomlinson@alliedtelesis.co.nz>
-> ---
->  include/net/ip_fib.h     | 3 ++-
->  net/ipv4/fib_frontend.c  | 3 ++-
->  net/ipv4/fib_semantics.c | 8 ++++++--
->  3 files changed, 10 insertions(+), 4 deletions(-)
+c39265f72ae6 ath9k: mark ath_fill_led_pin() static
 
-Acked-by: David Ahern <dsa@cumulusnetworks.com>
-Tested-by: David Ahern <dsa@cumulusnetworks.com>
-
-Mark: send a v2 with the Fixes tag and my acked-by and tested-by.
-
-Thanks for the patch.
+-- 
+Sent by pwcli
+https://patchwork.kernel.org/patch/9303795/
