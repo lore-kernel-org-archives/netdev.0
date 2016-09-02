@@ -1,43 +1,41 @@
-From: Rami Rosen <rami.rosen@intel.com>
-Subject: [PATCH net-next] switchdev: Fix return value of switchdev_port_fdb_dump().
-Date: Fri,  2 Sep 2016 14:11:57 +0300
-Message-ID: <1472814717-11339-1-git-send-email-rami.rosen@intel.com>
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-        eric.dumazet@gmail.com, wkok@cumulusnetworks.com,
-        Rami Rosen <rami.rosen@intel.com>
-To: davem@davemloft.net
+From: Rami Rosen <roszenrami@gmail.com>
+Subject: Re: [PATCH net-next] rtnetlink: fdb dump: optimize by saving last
+ interface markers
+Date: Fri, 2 Sep 2016 14:14:26 +0300
+Message-ID: <CAKoUAr=kOjb4e_JE3-z=C+8uDjpTa8UdPhys15RooSjTSy=giQ@mail.gmail.com>
+References: <1472619405-50802-1-git-send-email-roopa@cumulusnetworks.com> <1472792070.5439.11.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
+        David Miller <davem@davemloft.net>,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        wkok@cumulusnetworks.com,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        makita.toshiaki@lab.ntt.co.jp,
+        =?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+        idosch@mellanox.com, Netdev <netdev@vger.kernel.org>,
+        minoura@valinux.co.jp, Dept-GELinuxNICDev@qlogic.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:6426 "EHLO mga01.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753963AbcIBLME (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 2 Sep 2016 07:12:04 -0400
+Received: from mail-lf0-f42.google.com ([209.85.215.42]:34390 "EHLO
+        mail-lf0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752385AbcIBLO3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 07:14:29 -0400
+Received: by mail-lf0-f42.google.com with SMTP id p41so62641147lfi.1
+        for <netdev@vger.kernel.org>; Fri, 02 Sep 2016 04:14:28 -0700 (PDT)
+In-Reply-To: <1472792070.5439.11.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes the retun value of switchdev_port_fdb_dump() when
-CONFIG_NET_SWITCHDEV is not set. This avoids getting "warning: return makes
-integer from pointer without a cast [-Wint-conversion]" when building
-when CONFIG_NET_SWITCHDEV is not set under several compiler versions.
-This warning is due to commit d297653dd6f07afbe7e6c702a4bcd7615680002e
-("rtnetlink: fdb dump: optimize by saving last interface markers").
+Hi Eric,
 
-Signed-off-by: Rami Rosen <rami.rosen@intel.com>
----
- include/net/switchdev.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Nice catch!
+This warning does not occur under certain gcc versions.
+For example, gcc 4.8.4 (ubuntu 14.04);  it does occur, for example,
+under gcc 5.3.1 for example (Fedora 24).
 
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index 6279f2f..729fe15 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -344,7 +344,7 @@ static inline int switchdev_port_fdb_dump(struct sk_buff *skb,
- 					  struct net_device *filter_dev,
- 					  int *idx)
- {
--       return idx;
-+       return *idx;
- }
- 
- static inline bool switchdev_port_same_parent_id(struct net_device *a,
--- 
-2.5.5
+I just sent a patch to fix this.
+
+Regards,
+Rami Rosen
