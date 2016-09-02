@@ -1,111 +1,118 @@
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Subject: [PATCH net] bonding: Fix bonding crash
-Date: Thu,  1 Sep 2016 22:18:34 -0700
-Message-ID: <1472793514-31850-1-git-send-email-mahesh@bandewar.net>
-Cc: Mahesh Bandewar <maheshb@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        netdev <netdev@vger.kernel.org>
-To: Jay Vosburgh <j.vosburgh@gmail.com>,
-        Andy Gospodarek <gospo@cumulusnetworks.com>,
-        Veaceslav Falico <vfalico@gmail.com>,
-        David Miller <davem@davemloft.net>
+From: Mark Tomlinson <mark.tomlinson@alliedtelesis.co.nz>
+Subject: [PATCH] net: Don't delete routes in different VRFs
+Date: Fri,  2 Sep 2016 17:26:07 +1200
+Message-ID: <20160902052607.9303-1-mark.tomlinson@alliedtelesis.co.nz>
+Cc: Mark Tomlinson <mark.tomlinson@alliedtelesis.co.nz>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:34069 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750754AbcIBFSl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 01:18:41 -0400
-Received: by mail-pf0-f195.google.com with SMTP id g202so5326925pfb.1
-        for <netdev@vger.kernel.org>; Thu, 01 Sep 2016 22:18:41 -0700 (PDT)
+Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:36405 "EHLO
+        gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750998AbcIBF0O (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 01:26:14 -0400
+Received: from mmarshal3.atlnz.lc (mmarshal3.atlnz.lc [10.32.18.43])
+        (using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+        (Client did not present a certificate)
+        by gate2.alliedtelesis.co.nz (Postfix) with ESMTPS id CAB27806B6
+        for <netdev@vger.kernel.org>; Fri,  2 Sep 2016 17:26:10 +1200 (NZST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mahesh Bandewar <maheshb@google.com>
+When deleting an IP address from an interface, there is a clean-up of
+routes which refer to this local address. However, there was no check to
+see that the VRF matched. This meant that deletion wasn't confined to
+the VRF it should have been.
 
-Following few steps will crash kernel -
+To solve this, a new field has been added to fib_info to hold a table
+id. When removing fib entries corresponding to a local ip address, this
+table id is also used in the comparison.
 
-  (a) Create bonding master
-      > modprobe bonding miimon=50
-  (b) Create macvlan bridge on eth2
-      > ip link add link eth2 dev mvl0 address aa:0:0:0:0:01 \
-	   type macvlan
-  (c) Now try adding eth2 into the bond
-      > echo +eth2 > /sys/class/net/bond0/bonding/slaves
-      <crash>
+The table id is populated when the fib_info is created. This was already
+done in some places, but not in ip_rt_ioctl(). This has now been fixed.
 
-Bonding does lots of things before checking if the device enslaved is
-busy or not.
-
-In this case when the notifier call-chain sends notifications, the
-bond_netdev_event() assumes that the rx_handler /rx_handler_data is
-registered while the bond_enslave() hasn't progressed far enough to
-register rx_handler for the new slave.
-
-This patch adds a rx_handler check that can be performed right at the
-beginning of the enslave code to avoid getting into this situation.
-
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+Signed-off-by: Mark Tomlinson <mark.tomlinson@alliedtelesis.co.nz>
 ---
- drivers/net/bonding/bond_main.c |  7 ++++---
- include/linux/netdevice.h       |  1 +
- net/core/dev.c                  | 16 ++++++++++++++++
- 3 files changed, 21 insertions(+), 3 deletions(-)
+ include/net/ip_fib.h     | 3 ++-
+ net/ipv4/fib_frontend.c  | 3 ++-
+ net/ipv4/fib_semantics.c | 8 ++++++--
+ 3 files changed, 10 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 217e8da0628c..9599ed6f1213 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1341,9 +1341,10 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 			    slave_dev->name);
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index 4079fc1..7d4a72e 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -111,6 +111,7 @@ struct fib_info {
+ 	unsigned char		fib_scope;
+ 	unsigned char		fib_type;
+ 	__be32			fib_prefsrc;
++	u32			fib_tb_id;
+ 	u32			fib_priority;
+ 	u32			*fib_metrics;
+ #define fib_mtu fib_metrics[RTAX_MTU-1]
+@@ -319,7 +320,7 @@ void fib_flush_external(struct net *net);
+ /* Exported by fib_semantics.c */
+ int ip_fib_check_default(__be32 gw, struct net_device *dev);
+ int fib_sync_down_dev(struct net_device *dev, unsigned long event, bool force);
+-int fib_sync_down_addr(struct net *net, __be32 local);
++int fib_sync_down_addr(struct net_device *dev, __be32 local);
+ int fib_sync_up(struct net_device *dev, unsigned int nh_flags);
+ 
+ extern u32 fib_multipath_secret __read_mostly;
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index ef2ebeb..1b25daf 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -509,6 +509,7 @@ static int rtentry_to_fib_config(struct net *net, int cmd, struct rtentry *rt,
+ 		if (!dev)
+ 			return -ENODEV;
+ 		cfg->fc_oif = dev->ifindex;
++		cfg->fc_table = l3mdev_fib_table(dev);
+ 		if (colon) {
+ 			struct in_ifaddr *ifa;
+ 			struct in_device *in_dev = __in_dev_get_rtnl(dev);
+@@ -1027,7 +1028,7 @@ no_promotions:
+ 			 * First of all, we scan fib_info list searching
+ 			 * for stray nexthop entries, then ignite fib_flush.
+ 			 */
+-			if (fib_sync_down_addr(dev_net(dev), ifa->ifa_local))
++			if (fib_sync_down_addr(dev, ifa->ifa_local))
+ 				fib_flush(dev_net(dev));
+ 		}
  	}
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 539fa26..e9f5622 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -1057,6 +1057,7 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
+ 	fi->fib_priority = cfg->fc_priority;
+ 	fi->fib_prefsrc = cfg->fc_prefsrc;
+ 	fi->fib_type = cfg->fc_type;
++	fi->fib_tb_id = cfg->fc_table;
  
--	/* already enslaved */
--	if (slave_dev->flags & IFF_SLAVE) {
--		netdev_dbg(bond_dev, "Error: Device was already enslaved\n");
-+	/* already in-use? */
-+	if (netdev_is_rx_handler_busy(slave_dev)) {
-+		netdev_err(bond_dev,
-+			   "Error: Device is in use and cannot be enslaved\n");
- 		return -EBUSY;
- 	}
+ 	fi->fib_nhs = nhs;
+ 	change_nexthops(fi) {
+@@ -1337,18 +1338,21 @@ nla_put_failure:
+  *   referring to it.
+  * - device went down -> we must shutdown all nexthops going via it.
+  */
+-int fib_sync_down_addr(struct net *net, __be32 local)
++int fib_sync_down_addr(struct net_device *dev, __be32 local)
+ {
+ 	int ret = 0;
+ 	unsigned int hash = fib_laddr_hashfn(local);
+ 	struct hlist_head *head = &fib_info_laddrhash[hash];
++	struct net *net = dev_net(dev);
++	int tb_id = l3mdev_fib_table(dev);
+ 	struct fib_info *fi;
  
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index d122be9345c7..99ba59a7b114 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -3266,6 +3266,7 @@ static inline void napi_free_frags(struct napi_struct *napi)
- 	napi->skb = NULL;
- }
+ 	if (!fib_info_laddrhash || local == 0)
+ 		return 0;
  
-+bool netdev_is_rx_handler_busy(struct net_device *dev);
- int netdev_rx_handler_register(struct net_device *dev,
- 			       rx_handler_func_t *rx_handler,
- 			       void *rx_handler_data);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 34b5322bc081..81e6f7298122 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3965,6 +3965,22 @@ sch_handle_ingress(struct sk_buff *skb, struct packet_type **pt_prev, int *ret,
- }
- 
- /**
-+ *	netdev_is_rx_handler_busy - check if receive handler is registered
-+ *	@dev: device to check
-+ *
-+ *	Check if a receive handler is already registered for a given device.
-+ *	Return true if there one.
-+ *
-+ *	The caller must hold the rtnl_mutex.
-+ */
-+bool netdev_is_rx_handler_busy(struct net_device *dev)
-+{
-+	ASSERT_RTNL();
-+	return dev && rtnl_dereference(dev->rx_handler);
-+}
-+EXPORT_SYMBOL_GPL(netdev_is_rx_handler_busy);
-+
-+/**
-  *	netdev_rx_handler_register - register receive handler
-  *	@dev: device to register a handler for
-  *	@rx_handler: receive handler to register
+ 	hlist_for_each_entry(fi, head, fib_lhash) {
+-		if (!net_eq(fi->fib_net, net))
++		if (!net_eq(fi->fib_net, net) ||
++		    fi->fib_tb_id != tb_id)
+ 			continue;
+ 		if (fi->fib_prefsrc == local) {
+ 			fi->fib_flags |= RTNH_F_DEAD;
 -- 
-2.8.0.rc3.226.g39d4020
+2.9.3
