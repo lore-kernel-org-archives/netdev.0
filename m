@@ -1,38 +1,39 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: Re: [PATCH 0/4] SA11x0 Clocks and removal of Neponset SMC91x hack
-Date: Fri, 2 Sep 2016 19:59:40 +0100
-Message-ID: <20160902185940.GG1041@n2100.armlinux.org.uk>
-References: <20160829120531.GG1041@n2100.armlinux.org.uk>
- <E1beLKT-0001U1-HK@rmk-PC.armlinux.org.uk>
- <20160830105117.GM1041@n2100.armlinux.org.uk>
- <20160901.163241.42322670097531471.davem@davemloft.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: Centralizing support for TCAM?
+Date: Fri, 2 Sep 2016 21:02:03 +0200
+Message-ID: <20160902190203.GS16864@lunn.ch>
+References: <57d4a2db-ca3b-909a-073a-52ecceb428f2@gmail.com>
+ <b8323295-e3eb-48ca-7c82-ff40d222a743@gmail.com>
+ <57C9C9BE.6040407@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-        nico@fluxnic.net
-To: David Miller <davem@davemloft.net>
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+        jiri@mellanox.com, idosh@mellanox.com, john.fastabend@intel.com,
+        ast@kernel.org, davem@davemloft.net, jhs@mojatatu.com,
+        ecree@solarflare.com, vivien.didelot@savoirfairelinux.com
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:38927 "EHLO
-        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754453AbcIBTAC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 15:00:02 -0400
+Received: from vps0.lunn.ch ([178.209.37.122]:34225 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754145AbcIBTCM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 2 Sep 2016 15:02:12 -0400
 Content-Disposition: inline
-In-Reply-To: <20160901.163241.42322670097531471.davem@davemloft.net>
+In-Reply-To: <57C9C9BE.6040407@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 01, 2016 at 04:32:41PM -0700, David Miller wrote:
-> From: Russell King - ARM Linux <linux@armlinux.org.uk>
-> Date: Tue, 30 Aug 2016 11:51:17 +0100
-> 
-> > Please ack these changes; due to the dependencies, I wish to merge
-> > them through my tree.  Thanks.
-> 
-> Acked-by: David S. Miller <davem@davemloft.net>
+> I need to get reasonable operations per second on the TCAM tables.
+> Reasonable for me being somewhere in the 50k to 100k add/del/update
+> commands per second. I'm hesitant to create more abstractions then
+> are actually needed.
 
-Many thanks David, I'll add that only to the two SMC91x patches.
+Hi John
 
--- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+That is an interesting requirement. Could you explain why?
+
+The Marvell TCAM is accessed using MDIO. Maybe it can do 50
+add/del/updates per second. For a WiFi access point, or cable modem,
+even 50 per second seems ample, they get set at boot and never
+changed.
+
+	Andrew
