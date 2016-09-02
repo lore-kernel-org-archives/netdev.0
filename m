@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH v3 net-next 5/6] samples/bpf: add perf_event+bpf example
-Date: Thu, 1 Sep 2016 18:37:25 -0700
-Message-ID: <1472780246-323814-6-git-send-email-ast@fb.com>
+Subject: [PATCH v3 net-next 2/6] bpf: introduce BPF_PROG_TYPE_PERF_EVENT program type
+Date: Thu, 1 Sep 2016 18:37:22 -0700
+Message-ID: <1472780246-323814-3-git-send-email-ast@fb.com>
 References: <1472780246-323814-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,430 +12,195 @@ Cc: Peter Zijlstra <peterz@infradead.org>,
         Wang Nan <wangnan0@huawei.com>, <netdev@vger.kernel.org>,
         <linux-kernel@vger.kernel.org>, <kernel-team@fb.com>
 To: "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:56800 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752200AbcIBBh3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2016 21:37:29 -0400
-Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u821ZbIt014864
-        for <netdev@vger.kernel.org>; Thu, 1 Sep 2016 18:37:28 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 256tuqacrk-4
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Thu, 01 Sep 2016 18:37:28 -0700
-Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)     by
- mx-out.facebook.com (10.103.99.99) with ESMTP  id
- ce5541ee70ad11e68a570002c9dfb610-166f5a50 for <netdev@vger.kernel.org>;        Thu,
- 01 Sep 2016 18:37:27 -0700
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1472780246-323814-1-git-send-email-ast@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The bpf program is called 50 times a second and does hashmap[kern&user_stackid]++
-It's primary purpose to check that key bpf helpers like map lookup, update,
-get_stackid, trace_printk and ctx access are all working.
-It checks:
-- PERF_COUNT_HW_CPU_CYCLES on all cpus
-- PERF_COUNT_HW_CPU_CYCLES for current process and inherited perf_events to children
-- PERF_COUNT_SW_CPU_CLOCK on all cpus
-- PERF_COUNT_SW_CPU_CLOCK for current process
+Introduce BPF_PROG_TYPE_PERF_EVENT programs that can be attached to
+HW and SW perf events (PERF_TYPE_HARDWARE and PERF_TYPE_SOFTWARE
+correspondingly in uapi/linux/perf_event.h)
+
+The program visible context meta structure is
+struct bpf_perf_event_data {
+    struct pt_regs regs;
+     __u64 sample_period;
+};
+which is accessible directly from the program:
+int bpf_prog(struct bpf_perf_event_data *ctx)
+{
+  ... ctx->sample_period ...
+  ... ctx->regs.ip ...
+}
+
+The bpf verifier rewrites the accesses into kernel internal
+struct bpf_perf_event_data_kern which allows changing
+struct perf_sample_data without affecting bpf programs.
+New fields can be added to the end of struct bpf_perf_event_data
+in the future.
 
 Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- samples/bpf/Makefile           |   4 +
- samples/bpf/bpf_helpers.h      |   2 +
- samples/bpf/bpf_load.c         |   7 +-
- samples/bpf/trace_event_kern.c |  65 +++++++++++++
- samples/bpf/trace_event_user.c | 213 +++++++++++++++++++++++++++++++++++++++++
- 5 files changed, 290 insertions(+), 1 deletion(-)
- create mode 100644 samples/bpf/trace_event_kern.c
- create mode 100644 samples/bpf/trace_event_user.c
+ include/linux/perf_event.h          |  5 +++
+ include/uapi/linux/Kbuild           |  1 +
+ include/uapi/linux/bpf.h            |  1 +
+ include/uapi/linux/bpf_perf_event.h | 18 +++++++++++
+ kernel/trace/bpf_trace.c            | 61 +++++++++++++++++++++++++++++++++++++
+ 5 files changed, 86 insertions(+)
+ create mode 100644 include/uapi/linux/bpf_perf_event.h
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index db3cb061bfcd..a69cf9045285 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -25,6 +25,7 @@ hostprogs-y += test_cgrp2_array_pin
- hostprogs-y += xdp1
- hostprogs-y += xdp2
- hostprogs-y += test_current_task_under_cgroup
-+hostprogs-y += trace_event
+diff --git a/include/linux/perf_event.h b/include/linux/perf_event.h
+index 2b6b43cc0dd5..97bfe62f30d7 100644
+--- a/include/linux/perf_event.h
++++ b/include/linux/perf_event.h
+@@ -788,6 +788,11 @@ struct perf_output_handle {
+ 	int				page;
+ };
  
- test_verifier-objs := test_verifier.o libbpf.o
- test_maps-objs := test_maps.o libbpf.o
-@@ -52,6 +53,7 @@ xdp1-objs := bpf_load.o libbpf.o xdp1_user.o
- xdp2-objs := bpf_load.o libbpf.o xdp1_user.o
- test_current_task_under_cgroup-objs := bpf_load.o libbpf.o \
- 				       test_current_task_under_cgroup_user.o
-+trace_event-objs := bpf_load.o libbpf.o trace_event_user.o
++struct bpf_perf_event_data_kern {
++	struct pt_regs *regs;
++	struct perf_sample_data *data;
++};
++
+ #ifdef CONFIG_CGROUP_PERF
  
- # Tell kbuild to always build the programs
- always := $(hostprogs-y)
-@@ -79,6 +81,7 @@ always += test_cgrp2_tc_kern.o
- always += xdp1_kern.o
- always += xdp2_kern.o
- always += test_current_task_under_cgroup_kern.o
-+always += trace_event_kern.o
+ /*
+diff --git a/include/uapi/linux/Kbuild b/include/uapi/linux/Kbuild
+index 185f8ea2702f..d0352a971ebd 100644
+--- a/include/uapi/linux/Kbuild
++++ b/include/uapi/linux/Kbuild
+@@ -71,6 +71,7 @@ header-y += binfmts.h
+ header-y += blkpg.h
+ header-y += blktrace_api.h
+ header-y += bpf_common.h
++header-y += bpf_perf_event.h
+ header-y += bpf.h
+ header-y += bpqether.h
+ header-y += bsg.h
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index e4c5a1baa993..f896dfac4ac0 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -95,6 +95,7 @@ enum bpf_prog_type {
+ 	BPF_PROG_TYPE_SCHED_ACT,
+ 	BPF_PROG_TYPE_TRACEPOINT,
+ 	BPF_PROG_TYPE_XDP,
++	BPF_PROG_TYPE_PERF_EVENT,
+ };
  
- HOSTCFLAGS += -I$(objtree)/usr/include
- 
-@@ -103,6 +106,7 @@ HOSTLOADLIBES_test_overhead += -lelf -lrt
- HOSTLOADLIBES_xdp1 += -lelf
- HOSTLOADLIBES_xdp2 += -lelf
- HOSTLOADLIBES_test_current_task_under_cgroup += -lelf
-+HOSTLOADLIBES_trace_event += -lelf
- 
- # Allows pointing LLC/CLANG to a LLVM backend with bpf support, redefine on cmdline:
- #  make samples/bpf/ LLC=~/git/llvm/build/bin/llc CLANG=~/git/llvm/build/bin/clang
-diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
-index bbdf62a1e45e..90f44bd2045e 100644
---- a/samples/bpf/bpf_helpers.h
-+++ b/samples/bpf/bpf_helpers.h
-@@ -55,6 +55,8 @@ static int (*bpf_skb_get_tunnel_opt)(void *ctx, void *md, int size) =
- 	(void *) BPF_FUNC_skb_get_tunnel_opt;
- static int (*bpf_skb_set_tunnel_opt)(void *ctx, void *md, int size) =
- 	(void *) BPF_FUNC_skb_set_tunnel_opt;
-+static unsigned long long (*bpf_get_prandom_u32)(void) =
-+	(void *) BPF_FUNC_get_prandom_u32;
- 
- /* llvm builtin functions that eBPF C program may use to
-  * emit BPF_LD_ABS and BPF_LD_IND instructions
-diff --git a/samples/bpf/bpf_load.c b/samples/bpf/bpf_load.c
-index 0cfda2320320..97913e109b14 100644
---- a/samples/bpf/bpf_load.c
-+++ b/samples/bpf/bpf_load.c
-@@ -51,6 +51,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
- 	bool is_kretprobe = strncmp(event, "kretprobe/", 10) == 0;
- 	bool is_tracepoint = strncmp(event, "tracepoint/", 11) == 0;
- 	bool is_xdp = strncmp(event, "xdp", 3) == 0;
-+	bool is_perf_event = strncmp(event, "perf_event", 10) == 0;
- 	enum bpf_prog_type prog_type;
- 	char buf[256];
- 	int fd, efd, err, id;
-@@ -69,6 +70,8 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
- 		prog_type = BPF_PROG_TYPE_TRACEPOINT;
- 	} else if (is_xdp) {
- 		prog_type = BPF_PROG_TYPE_XDP;
-+	} else if (is_perf_event) {
-+		prog_type = BPF_PROG_TYPE_PERF_EVENT;
- 	} else {
- 		printf("Unknown event '%s'\n", event);
- 		return -1;
-@@ -82,7 +85,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
- 
- 	prog_fd[prog_cnt++] = fd;
- 
--	if (is_xdp)
-+	if (is_xdp || is_perf_event)
- 		return 0;
- 
- 	if (is_socket) {
-@@ -326,6 +329,7 @@ int load_bpf_file(char *path)
- 			    memcmp(shname_prog, "kretprobe/", 10) == 0 ||
- 			    memcmp(shname_prog, "tracepoint/", 11) == 0 ||
- 			    memcmp(shname_prog, "xdp", 3) == 0 ||
-+			    memcmp(shname_prog, "perf_event", 10) == 0 ||
- 			    memcmp(shname_prog, "socket", 6) == 0)
- 				load_and_attach(shname_prog, insns, data_prog->d_size);
- 		}
-@@ -344,6 +348,7 @@ int load_bpf_file(char *path)
- 		    memcmp(shname, "kretprobe/", 10) == 0 ||
- 		    memcmp(shname, "tracepoint/", 11) == 0 ||
- 		    memcmp(shname, "xdp", 3) == 0 ||
-+		    memcmp(shname, "perf_event", 10) == 0 ||
- 		    memcmp(shname, "socket", 6) == 0)
- 			load_and_attach(shname, data->d_buf, data->d_size);
- 	}
-diff --git a/samples/bpf/trace_event_kern.c b/samples/bpf/trace_event_kern.c
+ #define BPF_PSEUDO_MAP_FD	1
+diff --git a/include/uapi/linux/bpf_perf_event.h b/include/uapi/linux/bpf_perf_event.h
 new file mode 100644
-index 000000000000..71a8ed32823e
+index 000000000000..067427259820
 --- /dev/null
-+++ b/samples/bpf/trace_event_kern.c
-@@ -0,0 +1,65 @@
++++ b/include/uapi/linux/bpf_perf_event.h
+@@ -0,0 +1,18 @@
 +/* Copyright (c) 2016 Facebook
 + *
 + * This program is free software; you can redistribute it and/or
 + * modify it under the terms of version 2 of the GNU General Public
 + * License as published by the Free Software Foundation.
 + */
++#ifndef _UAPI__LINUX_BPF_PERF_EVENT_H__
++#define _UAPI__LINUX_BPF_PERF_EVENT_H__
++
++#include <linux/types.h>
 +#include <linux/ptrace.h>
-+#include <linux/version.h>
-+#include <uapi/linux/bpf.h>
-+#include <uapi/linux/bpf_perf_event.h>
-+#include <uapi/linux/perf_event.h>
-+#include "bpf_helpers.h"
 +
-+struct key_t {
-+	char comm[TASK_COMM_LEN];
-+	u32 kernstack;
-+	u32 userstack;
++struct bpf_perf_event_data {
++	struct pt_regs regs;
++	__u64 sample_period;
 +};
 +
-+struct bpf_map_def SEC("maps") counts = {
-+	.type = BPF_MAP_TYPE_HASH,
-+	.key_size = sizeof(struct key_t),
-+	.value_size = sizeof(u64),
-+	.max_entries = 10000,
-+};
-+
-+struct bpf_map_def SEC("maps") stackmap = {
-+	.type = BPF_MAP_TYPE_STACK_TRACE,
-+	.key_size = sizeof(u32),
-+	.value_size = PERF_MAX_STACK_DEPTH * sizeof(u64),
-+	.max_entries = 10000,
-+};
-+
-+#define KERN_STACKID_FLAGS (0 | BPF_F_FAST_STACK_CMP)
-+#define USER_STACKID_FLAGS (0 | BPF_F_FAST_STACK_CMP | BPF_F_USER_STACK)
-+
-+SEC("perf_event")
-+int bpf_prog1(struct bpf_perf_event_data *ctx)
++#endif /* _UAPI__LINUX_BPF_PERF_EVENT_H__ */
+diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
+index ad35213b8405..d3869b03d9fe 100644
+--- a/kernel/trace/bpf_trace.c
++++ b/kernel/trace/bpf_trace.c
+@@ -1,4 +1,5 @@
+ /* Copyright (c) 2011-2015 PLUMgrid, http://plumgrid.com
++ * Copyright (c) 2016 Facebook
+  *
+  * This program is free software; you can redistribute it and/or
+  * modify it under the terms of version 2 of the GNU General Public
+@@ -8,6 +9,7 @@
+ #include <linux/types.h>
+ #include <linux/slab.h>
+ #include <linux/bpf.h>
++#include <linux/bpf_perf_event.h>
+ #include <linux/filter.h>
+ #include <linux/uaccess.h>
+ #include <linux/ctype.h>
+@@ -552,10 +554,69 @@ static struct bpf_prog_type_list tracepoint_tl = {
+ 	.type	= BPF_PROG_TYPE_TRACEPOINT,
+ };
+ 
++static bool pe_prog_is_valid_access(int off, int size, enum bpf_access_type type,
++				    enum bpf_reg_type *reg_type)
 +{
-+	char fmt[] = "CPU-%d period %lld ip %llx";
-+	u32 cpu = bpf_get_smp_processor_id();
-+	struct key_t key;
-+	u64 *val, one = 1;
-+
-+	if (ctx->sample_period < 10000)
-+		/* ignore warmup */
-+		return 0;
-+	bpf_get_current_comm(&key.comm, sizeof(key.comm));
-+	key.kernstack = bpf_get_stackid(ctx, &stackmap, KERN_STACKID_FLAGS);
-+	key.userstack = bpf_get_stackid(ctx, &stackmap, USER_STACKID_FLAGS);
-+	if ((int)key.kernstack < 0 && (int)key.userstack < 0) {
-+		bpf_trace_printk(fmt, sizeof(fmt), cpu, ctx->sample_period,
-+				 ctx->regs.ip);
-+		return 0;
-+	}
-+
-+	val = bpf_map_lookup_elem(&counts, &key);
-+	if (val)
-+		(*val)++;
-+	else
-+		bpf_map_update_elem(&counts, &key, &one, BPF_NOEXIST);
-+	return 0;
-+}
-+
-+char _license[] SEC("license") = "GPL";
-diff --git a/samples/bpf/trace_event_user.c b/samples/bpf/trace_event_user.c
-new file mode 100644
-index 000000000000..9a130d31ecf2
---- /dev/null
-+++ b/samples/bpf/trace_event_user.c
-@@ -0,0 +1,213 @@
-+/* Copyright (c) 2016 Facebook
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ */
-+#include <stdio.h>
-+#include <unistd.h>
-+#include <stdlib.h>
-+#include <stdbool.h>
-+#include <string.h>
-+#include <fcntl.h>
-+#include <poll.h>
-+#include <sys/ioctl.h>
-+#include <linux/perf_event.h>
-+#include <linux/bpf.h>
-+#include <signal.h>
-+#include <assert.h>
-+#include <errno.h>
-+#include <sys/resource.h>
-+#include "libbpf.h"
-+#include "bpf_load.h"
-+
-+#define SAMPLE_FREQ 50
-+
-+static bool sys_read_seen, sys_write_seen;
-+
-+static void print_ksym(__u64 addr)
-+{
-+	struct ksym *sym;
-+
-+	if (!addr)
-+		return;
-+	sym = ksym_search(addr);
-+	printf("%s;", sym->name);
-+	if (!strcmp(sym->name, "sys_read"))
-+		sys_read_seen = true;
-+	else if (!strcmp(sym->name, "sys_write"))
-+		sys_write_seen = true;
-+}
-+
-+static void print_addr(__u64 addr)
-+{
-+	if (!addr)
-+		return;
-+	printf("%llx;", addr);
-+}
-+
-+#define TASK_COMM_LEN 16
-+
-+struct key_t {
-+	char comm[TASK_COMM_LEN];
-+	__u32 kernstack;
-+	__u32 userstack;
-+};
-+
-+static void print_stack(struct key_t *key, __u64 count)
-+{
-+	__u64 ip[PERF_MAX_STACK_DEPTH] = {};
-+	static bool warned;
-+	int i;
-+
-+	printf("%3lld %s;", count, key->comm);
-+	if (bpf_lookup_elem(map_fd[1], &key->kernstack, ip) != 0) {
-+		printf("---;");
++	if (off < 0 || off >= sizeof(struct bpf_perf_event_data))
++		return false;
++	if (type != BPF_READ)
++		return false;
++	if (off % size != 0)
++		return false;
++	if (off == offsetof(struct bpf_perf_event_data, sample_period)) {
++		if (size != sizeof(u64))
++			return false;
 +	} else {
-+		for (i = PERF_MAX_STACK_DEPTH - 1; i >= 0; i--)
-+			print_ksym(ip[i]);
++		if (size != sizeof(long))
++			return false;
 +	}
-+	printf("-;");
-+	if (bpf_lookup_elem(map_fd[1], &key->userstack, ip) != 0) {
-+		printf("---;");
-+	} else {
-+		for (i = PERF_MAX_STACK_DEPTH - 1; i >= 0; i--)
-+			print_addr(ip[i]);
-+	}
-+	printf("\n");
-+
-+	if (key->kernstack == -EEXIST && !warned) {
-+		printf("stackmap collisions seen. Consider increasing size\n");
-+		warned = true;
-+	} else if ((int)key->kernstack < 0 && (int)key->userstack < 0) {
-+		printf("err stackid %d %d\n", key->kernstack, key->userstack);
-+	}
++	return true;
 +}
 +
-+static void int_exit(int sig)
++static u32 pe_prog_convert_ctx_access(enum bpf_access_type type, int dst_reg,
++				      int src_reg, int ctx_off,
++				      struct bpf_insn *insn_buf,
++				      struct bpf_prog *prog)
 +{
-+	kill(0, SIGKILL);
-+	exit(0);
++	struct bpf_insn *insn = insn_buf;
++
++	switch (ctx_off) {
++	case offsetof(struct bpf_perf_event_data, sample_period):
++		BUILD_BUG_ON(FIELD_SIZEOF(struct perf_sample_data, period) != sizeof(u64));
++		*insn++ = BPF_LDX_MEM(bytes_to_bpf_size(FIELD_SIZEOF(struct bpf_perf_event_data_kern, data)),
++				      dst_reg, src_reg,
++				      offsetof(struct bpf_perf_event_data_kern, data));
++		*insn++ = BPF_LDX_MEM(BPF_DW, dst_reg, dst_reg,
++				      offsetof(struct perf_sample_data, period));
++		break;
++	default:
++		*insn++ = BPF_LDX_MEM(bytes_to_bpf_size(FIELD_SIZEOF(struct bpf_perf_event_data_kern, regs)),
++				      dst_reg, src_reg,
++				      offsetof(struct bpf_perf_event_data_kern, regs));
++		*insn++ = BPF_LDX_MEM(bytes_to_bpf_size(sizeof(long)),
++				      dst_reg, dst_reg, ctx_off);
++		break;
++	}
++
++	return insn - insn_buf;
 +}
 +
-+static void print_stacks(void)
-+{
-+	struct key_t key = {}, next_key;
-+	__u64 value;
-+	__u32 stackid = 0, next_id;
-+	int fd = map_fd[0], stack_map = map_fd[1];
++static const struct bpf_verifier_ops perf_event_prog_ops = {
++	.get_func_proto		= tp_prog_func_proto,
++	.is_valid_access	= pe_prog_is_valid_access,
++	.convert_ctx_access	= pe_prog_convert_ctx_access,
++};
 +
-+	sys_read_seen = sys_write_seen = false;
-+	while (bpf_get_next_key(fd, &key, &next_key) == 0) {
-+		bpf_lookup_elem(fd, &next_key, &value);
-+		print_stack(&next_key, value);
-+		bpf_delete_elem(fd, &next_key);
-+		key = next_key;
-+	}
++static struct bpf_prog_type_list perf_event_tl = {
++	.ops	= &perf_event_prog_ops,
++	.type	= BPF_PROG_TYPE_PERF_EVENT,
++};
 +
-+	if (!sys_read_seen || !sys_write_seen) {
-+		printf("BUG kernel stack doesn't contain sys_read() and sys_write()\n");
-+		int_exit(0);
-+	}
-+
-+	/* clear stack map */
-+	while (bpf_get_next_key(stack_map, &stackid, &next_id) == 0) {
-+		bpf_delete_elem(stack_map, &next_id);
-+		stackid = next_id;
-+	}
-+}
-+
-+static void test_perf_event_all_cpu(struct perf_event_attr *attr)
-+{
-+	int nr_cpus = sysconf(_SC_NPROCESSORS_CONF);
-+	int *pmu_fd = malloc(nr_cpus * sizeof(int));
-+	int i;
-+
-+	/* open perf_event on all cpus */
-+	for (i = 0; i < nr_cpus; i++) {
-+		pmu_fd[i] = perf_event_open(attr, -1, i, -1, 0);
-+		if (pmu_fd[i] < 0) {
-+			printf("perf_event_open failed\n");
-+			goto all_cpu_err;
-+		}
-+		assert(ioctl(pmu_fd[i], PERF_EVENT_IOC_SET_BPF, prog_fd[0]) == 0);
-+		assert(ioctl(pmu_fd[i], PERF_EVENT_IOC_ENABLE, 0) == 0);
-+	}
-+	system("dd if=/dev/zero of=/dev/null count=5000k");
-+	print_stacks();
-+all_cpu_err:
-+	for (i--; i >= 0; i--)
-+		close(pmu_fd[i]);
-+	free(pmu_fd);
-+}
-+
-+static void test_perf_event_task(struct perf_event_attr *attr)
-+{
-+	int pmu_fd;
-+
-+	/* open task bound event */
-+	pmu_fd = perf_event_open(attr, 0, -1, -1, 0);
-+	if (pmu_fd < 0) {
-+		printf("perf_event_open failed\n");
-+		return;
-+	}
-+	assert(ioctl(pmu_fd, PERF_EVENT_IOC_SET_BPF, prog_fd[0]) == 0);
-+	assert(ioctl(pmu_fd, PERF_EVENT_IOC_ENABLE, 0) == 0);
-+	system("dd if=/dev/zero of=/dev/null count=5000k");
-+	print_stacks();
-+	close(pmu_fd);
-+}
-+
-+static void test_bpf_perf_event(void)
-+{
-+	struct perf_event_attr attr_type_hw = {
-+		.sample_freq = SAMPLE_FREQ,
-+		.freq = 1,
-+		.type = PERF_TYPE_HARDWARE,
-+		.config = PERF_COUNT_HW_CPU_CYCLES,
-+		.inherit = 1,
-+	};
-+	struct perf_event_attr attr_type_sw = {
-+		.sample_freq = SAMPLE_FREQ,
-+		.freq = 1,
-+		.type = PERF_TYPE_SOFTWARE,
-+		.config = PERF_COUNT_SW_CPU_CLOCK,
-+		.inherit = 1,
-+	};
-+
-+	test_perf_event_all_cpu(&attr_type_hw);
-+	test_perf_event_task(&attr_type_hw);
-+	test_perf_event_all_cpu(&attr_type_sw);
-+	test_perf_event_task(&attr_type_sw);
-+}
-+
-+
-+int main(int argc, char **argv)
-+{
-+	struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
-+	char filename[256];
-+
-+	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
-+	setrlimit(RLIMIT_MEMLOCK, &r);
-+
-+	signal(SIGINT, int_exit);
-+
-+	if (load_kallsyms()) {
-+		printf("failed to process /proc/kallsyms\n");
-+		return 1;
-+	}
-+
-+	if (load_bpf_file(filename)) {
-+		printf("%s", bpf_log_buf);
-+		return 2;
-+	}
-+
-+	if (fork() == 0) {
-+		read_trace_pipe();
-+		return 0;
-+	}
-+	test_bpf_perf_event();
-+
-+	int_exit(0);
-+	return 0;
-+}
+ static int __init register_kprobe_prog_ops(void)
+ {
+ 	bpf_register_prog_type(&kprobe_tl);
+ 	bpf_register_prog_type(&tracepoint_tl);
++	bpf_register_prog_type(&perf_event_tl);
+ 	return 0;
+ }
+ late_initcall(register_kprobe_prog_ops);
 -- 
 2.8.0
