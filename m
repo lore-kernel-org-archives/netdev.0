@@ -1,9 +1,8 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
 Subject: Re: possible circular locking dependency detected
-Date: Fri, 2 Sep 2016 18:52:06 +0100
-Message-ID: <20160902175206.GV2356@ZenIV.linux.org.uk>
-References: <20160901204746.GR2356@ZenIV.linux.org.uk>
- <CA+55aFxzRnLCev6i_ehw9LFf-dw3s0znF+nP_c86i=219OZhfg@mail.gmail.com>
+Date: Fri, 2 Sep 2016 18:53:48 +0100
+Message-ID: <20160902175347.GW2356@ZenIV.linux.org.uk>
+References: <CA+55aFxzRnLCev6i_ehw9LFf-dw3s0znF+nP_c86i=219OZhfg@mail.gmail.com>
  <20160901210142.GS2356@ZenIV.linux.org.uk>
  <CA+55aFzxJM4pbS_jySERnCoOvvPbo+FgM7FZEATLJnCseD0j0g@mail.gmail.com>
  <CA+55aFwntZpaAutp_C=sLBg8ravfYGRoF4TTG1cfE3SjaJEOtw@mail.gmail.com>
@@ -12,42 +11,30 @@ References: <20160901204746.GR2356@ZenIV.linux.org.uk>
  <87d1kme10a.fsf@doppelsaurus.mobileactivedefense.com>
  <20160902170256.GU2356@ZenIV.linux.org.uk>
  <CA+55aFz-TaU=C47Rna4b_pibKPfabXWtt88gaqWkUdcN9ay9nQ@mail.gmail.com>
+ <8737lib3o4.fsf@doppelsaurus.mobileactivedefense.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Rainer Weikusat <rweikusat@cyberadapt.com>,
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
         CAI Qian <caiqian@redhat.com>,
         Miklos Szeredi <miklos@szeredi.hu>,
         Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Rainer Weikusat <rweikusat@mobileactivedefense.com>,
         Eric Sandeen <esandeen@redhat.com>,
         Network Development <netdev@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+To: Rainer Weikusat <rweikusat@cyberadapt.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:59418 "EHLO
+Received: from zeniv.linux.org.uk ([195.92.253.2]:59450 "EHLO
         ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754502AbcIBRwO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 13:52:14 -0400
+        with ESMTP id S1751335AbcIBRxx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 13:53:53 -0400
 Content-Disposition: inline
-In-Reply-To: <CA+55aFz-TaU=C47Rna4b_pibKPfabXWtt88gaqWkUdcN9ay9nQ@mail.gmail.com>
+In-Reply-To: <8737lib3o4.fsf@doppelsaurus.mobileactivedefense.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 02, 2016 at 10:12:08AM -0700, Linus Torvalds wrote:
-> On Fri, Sep 2, 2016 at 10:02 AM, Al Viro <viro@zeniv.linux.org.uk> wrote:
-> >
-> > It's very much _not_ just overlayfs being pathological - that it certainly is,
-> > but the problem is much wider.
-> 
-> Al, can you take a look at my two patches, and see if you agree that
-> they fix it, though?
+On Fri, Sep 02, 2016 at 06:40:59PM +0100, Rainer Weikusat wrote:
 
-AFAICS, they should.  Locking is obviously saner that way and AFAICS the
-rest is absolutely straightforward.
+> The original deadlock occurred because of some code path locking the
+> superblock followed by trying to acquire the af_unix readlock while
 
-Acked-by: Al Viro <viro@zeniv.linux.org.uk>
-
-> Of course, we now have *another* splice deadlock. That pipe inode is
-> nasty, it's very easy to deadlock on it in subtle ways.
-
-I'm still digging through iomap.c, but that's better taken to another branch
-of this thread...
+Not even that - one code path takes ->readlock under pipe lock, while
+another takes pipe lock under sb_start_write...
