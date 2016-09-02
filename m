@@ -1,99 +1,56 @@
-From: Marc Zyngier <marc.zyngier@arm.com>
-Subject: Re: [Patch v4 01/12] microblaze: irqchip: Move intc driver to irqchip
-Date: Fri, 2 Sep 2016 14:31:08 +0100
-Message-ID: <57C97F1C.5000300@arm.com>
-References: <1472748665-47774-1-git-send-email-Zubair.Kakakhel@imgtec.com>
- <1472748665-47774-2-git-send-email-Zubair.Kakakhel@imgtec.com>
- <772f883f-79fe-9197-f27c-3ffe91019aaf@xilinx.com>
- <5d98fd3b-4722-cdd3-4540-c1d1fec1c98c@imgtec.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] bonding: Fix bonding crash
+Date: Fri, 02 Sep 2016 06:33:20 -0700
+Message-ID: <1472823200.5439.15.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1472793514-31850-1-git-send-email-mahesh@bandewar.net>
+         <20160902075241.GA1814@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: soren.brinkmann@xilinx.com, linux-kernel@vger.kernel.org,
-        linux-mips@linux-mips.org, netdev@vger.kernel.org
-To: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>,
-        Michal Simek <michal.simek@xilinx.com>, monstr@monstr.eu,
-        ralf@linux-mips.org, tglx@linutronix.de, jason@lakedaemon.net
+Cc: Mahesh Bandewar <mahesh@bandewar.net>,
+        Jay Vosburgh <j.vosburgh@gmail.com>,
+        Andy Gospodarek <gospo@cumulusnetworks.com>,
+        Veaceslav Falico <vfalico@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Mahesh Bandewar <maheshb@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        netdev <netdev@vger.kernel.org>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:51146 "EHLO foss.arm.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750969AbcIBNbL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 2 Sep 2016 09:31:11 -0400
-In-Reply-To: <5d98fd3b-4722-cdd3-4540-c1d1fec1c98c@imgtec.com>
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:34299 "EHLO
+        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751297AbcIBNdX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 09:33:23 -0400
+Received: by mail-pf0-f178.google.com with SMTP id p64so42629634pfb.1
+        for <netdev@vger.kernel.org>; Fri, 02 Sep 2016 06:33:23 -0700 (PDT)
+In-Reply-To: <20160902075241.GA1814@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/09/16 11:06, Zubair Lutfullah Kakakhel wrote:
-> Hi,
-> 
-> On 09/02/2016 07:25 AM, Michal Simek wrote:
->> On 1.9.2016 18:50, Zubair Lutfullah Kakakhel wrote:
->>> The Xilinx AXI Interrupt Controller IP block is used by the MIPS
->>> based xilfpga platform.
->>>
->>> Move the interrupt controller code out of arch/microblaze so that
->>> it can be used by everyone
->>>
->>> Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
->>>
->>> ---
->>> V3 -> V4
->>> No change
->>>
->>> V2 -> V3
->>> No change here. Cleanup patches follow after this patch.
->>> Its debatable to cleanup before/after move. Decided to place cleanup
->>> after move to put history in new place.
->>>
->>> V1 -> V2
->>>
->>> Renamed irq-xilinx to irq-axi-intc
->>> Renamed CONFIG_XILINX_INTC to CONFIG_XILINX_AXI_INTC
->>
->>
->> I see that this was suggested by Jason Cooper but using axi name here is
->> not correct.
->> There is xps-intc name which is the name used on old OPB hardware
->> designs. It means this driver can be still used only on system which
->> uses it.
-> 
-> Wouldn't axi-intc be more suitable moving forwards?
-> The IP block is now known as axi intc for 5 years as far as I can tell.
-> 
-> Searching "axi intc" online results in the right docs for current and
-> future platforms.
-> 
-> The binding is still xps-intc as that won't change. So older systems
-> should still be able to find their way.
-> 
->> Also there is another copy of this driver in the tree which was using
->> old ppc405 and ppc440 xilinx platforms.
->>
->> arch/powerpc/include/asm/xilinx_intc.h
->> arch/powerpc/sysdev/xilinx_intc.c
->>
->> These should be also removed by moving this driver to generic folder.
-> 
-> I didn't know about that drivers existence.
-> 
-> This patch series already touches microblaze, mips and irqchip.
-> Both microblaze and mips platforms using this driver are little-endian.
-> 
-> Adding a big-endian powerpc driver + platform to the mix is going to complicate
-> the series further and make it super hard to synchronize various subsystems,
-> test stuff, and then move the drivers without breakage.
-> 
-> I'd highly recommend letting this move happen. And then the powerpc driver can
-> transition over time to this driver.
+On Fri, 2016-09-02 at 09:52 +0200, Jiri Pirko wrote:
 
-In my experience, doing something later means not doing it. Since you're
-motivated enough to make this driver common to two architectures, doing
-it for 3 shouldn't be that hard.
+> 
+> No, please, don't make bonding a spacial citizen introducing this.
+> Please handle the issue inside the bonding code, like we do for the rest
+> of master devices (and how it was once done for bonding). Thanks.
 
-This will force you to have separate series, but that's hardly an issue.
+I do not feel this netdev_is_rx_handler_busy() use is special to
+bonding.
 
-Thanks,
+It makes sense to use it early, to avoid complex rollback, once various
+events have been sent all over.
 
-	M.
--- 
-Jazz is not dead. It just smells funny...
+bond_enslave() is 447 lines long already.
+
+You perfectly know how hard it is to 'handle the issue inside the
+bonding code' as you chose to not fix bonding and write team instead.
+
+So Mahesh patch makes perfect sense to me. It exactly fixes a stupid
+bond_enslave() behavior, trying to set rx_handler way too late.
+
+By doing sanity checks before any action, we simply do not have to add
+complex rollback.
+
+Acked-by: Eric Dumazet <edumazet@google.com>
+
+Thanks.
