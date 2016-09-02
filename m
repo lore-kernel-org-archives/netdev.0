@@ -1,61 +1,56 @@
-From: pravin shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
-Subject: Re: [PATCH net-next v21 4/4] openvswitch: report error on
- VLAN nlattr in ovs_key_from_nlattrs()
-Date: Fri, 2 Sep 2016 14:42:41 -0700
-Message-ID: <CAOrHB_BhPvf_rM3YR5mRSCQPhvnosBDoBEyFvags98CHtM9Z+g@mail.gmail.com>
-References: <1472762727-25844-1-git-send-email-e@erig.me>
- <1472762727-25844-5-git-send-email-e@erig.me>
+From: pravin shelar <pshelar@ovn.org>
+Subject: Re: [ovs-dev] [PATCH net-next v21 3/4] openvswitch: 802.1AD Flow
+ handling, actions, vlan parsing, netlink attributes
+Date: Fri, 2 Sep 2016 15:21:34 -0700
+Message-ID: <CAOrHB_B+y5JxVEQkNRMvcHqA3teXUf7FvRgD33FORio3PVojmQ@mail.gmail.com>
+References: <1472762727-25844-1-git-send-email-e@erig.me> <1472762727-25844-4-git-send-email-e@erig.me>
+ <CAOrHB_A6Twwp+S514orUZ5RaKS1hGXgc1uUi7Lj8dxPQrk_sxg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Thomas F Herbert <thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        ovs dev <dev@openvswitch.org>,
+        Thomas F Herbert <thomasfherbert@gmail.com>
 To: Eric Garver <e@erig.me>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1472762727-25844-5-git-send-email-e-jCUjZXiOoP8@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:42263 "EHLO
+        relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751271AbcIBWVj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 18:21:39 -0400
+Received: from mfilter23-d.gandi.net (mfilter23-d.gandi.net [217.70.178.151])
+        by relay4-d.mail.gandi.net (Postfix) with ESMTP id 71DF7172097
+        for <netdev@vger.kernel.org>; Sat,  3 Sep 2016 00:21:37 +0200 (CEST)
+Received: from relay4-d.mail.gandi.net ([IPv6:::ffff:217.70.183.196])
+        by mfilter23-d.gandi.net (mfilter23-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+        with ESMTP id Pf49syWy0tpR for <netdev@vger.kernel.org>;
+        Sat,  3 Sep 2016 00:21:36 +0200 (CEST)
+Received: from mail-it0-f45.google.com (mail-it0-f45.google.com [209.85.214.45])
+        (Authenticated sender: pshelar@ovn.org)
+        by relay4-d.mail.gandi.net (Postfix) with ESMTPSA id DF47D172095
+        for <netdev@vger.kernel.org>; Sat,  3 Sep 2016 00:21:35 +0200 (CEST)
+Received: by mail-it0-f45.google.com with SMTP id e124so13418851ith.0
+        for <netdev@vger.kernel.org>; Fri, 02 Sep 2016 15:21:35 -0700 (PDT)
+In-Reply-To: <CAOrHB_A6Twwp+S514orUZ5RaKS1hGXgc1uUi7Lj8dxPQrk_sxg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVGh1LCBTZXAgMSwgMjAxNiBhdCAxOjQ1IFBNLCBFcmljIEdhcnZlciA8ZUBlcmlnLm1lPiB3
-cm90ZToKPiBXaXRoIDgwMi4xYWQgc3VwcG9ydCB0aGVzZSBhcmUgcGFyc2VkIGFuZCBzZXQgdXBm
-cm9udCBieQo+IHBhcnNlX3ZsYW5fZnJvbV9ubGF0dHJzKCkgYmVmb3JlIG92c19rZXlfZnJvbV9u
-bGF0dHJzKCkgaXMgZXZlciBjYWxsZWQuCj4gQXMgc3VjaCB3ZSBzaG91bGQgbmV2ZXIgc2VlIGEg
-VkxBTiBhdHRyaWJ1dGUgaW4gb3ZzX2tleV9mcm9tX25sYXR0cnMoKS4KPgo+IFNpZ25lZC1vZmYt
-Ynk6IEVyaWMgR2FydmVyIDxlQGVyaWcubWU+Cj4gLS0tCj4gIG5ldC9vcGVudnN3aXRjaC9mbG93
-X25ldGxpbmsuYyB8IDE5ICsrKysrLS0tLS0tLS0tLS0tLS0KPiAgMSBmaWxlIGNoYW5nZWQsIDUg
-aW5zZXJ0aW9ucygrKSwgMTQgZGVsZXRpb25zKC0pCj4KPiBkaWZmIC0tZ2l0IGEvbmV0L29wZW52
-c3dpdGNoL2Zsb3dfbmV0bGluay5jIGIvbmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0bGluay5jCj4g
-aW5kZXggZmJlOWUwZTQ3OTJkLi4wZjM2YWVhZDc0NGIgMTAwNjQ0Cj4gLS0tIGEvbmV0L29wZW52
-c3dpdGNoL2Zsb3dfbmV0bGluay5jCj4gKysrIGIvbmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0bGlu
-ay5jCj4gQEAgLTkyMywyMCArOTIzLDExIEBAIHN0YXRpYyBpbnQgb3ZzX2tleV9mcm9tX25sYXR0
-cnMoc3RydWN0IG5ldCAqbmV0LCBzdHJ1Y3Qgc3dfZmxvd19tYXRjaCAqbWF0Y2gsCj4gICAgICAg
-ICB9Cj4KPiAgICAgICAgIGlmIChhdHRycyAmICgxIDw8IE9WU19LRVlfQVRUUl9WTEFOKSkgewo+
-IC0gICAgICAgICAgICAgICBfX2JlMTYgdGNpOwo+IC0KPiAtICAgICAgICAgICAgICAgdGNpID0g
-bmxhX2dldF9iZTE2KGFbT1ZTX0tFWV9BVFRSX1ZMQU5dKTsKPiAtICAgICAgICAgICAgICAgaWYg
-KCEodGNpICYgaHRvbnMoVkxBTl9UQUdfUFJFU0VOVCkpKSB7Cj4gLSAgICAgICAgICAgICAgICAg
-ICAgICAgaWYgKGlzX21hc2spCj4gLSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBPVlNf
-TkxFUlIobG9nLCAiVkxBTiBUQ0kgbWFzayBkb2VzIG5vdCBoYXZlIGV4YWN0IG1hdGNoIGZvciBW
-TEFOX1RBR19QUkVTRU5UIGJpdC4iKTsKPiAtICAgICAgICAgICAgICAgICAgICAgICBlbHNlCj4g
-LSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBPVlNfTkxFUlIobG9nLCAiVkxBTiBUQ0kg
-ZG9lcyBub3QgaGF2ZSBWTEFOX1RBR19QUkVTRU5UIGJpdCBzZXQuIik7Cj4gLQo+IC0gICAgICAg
-ICAgICAgICAgICAgICAgIHJldHVybiAtRUlOVkFMOwo+IC0gICAgICAgICAgICAgICB9Cj4gLQo+
-IC0gICAgICAgICAgICAgICBTV19GTE9XX0tFWV9QVVQobWF0Y2gsIGV0aC52bGFuLnRjaSwgdGNp
-LCBpc19tYXNrKTsKPiAtICAgICAgICAgICAgICAgYXR0cnMgJj0gfigxIDw8IE9WU19LRVlfQVRU
-Ul9WTEFOKTsKPiArICAgICAgICAgICAgICAgLyogVkxBTiBhdHRyaWJ1dGUgaXMgYWx3YXlzIHBh
-cnNlZCBiZWZvcmUgZ2V0dGluZyBoZXJlIHNpbmNlIGl0IG1heQo+ICsgICAgICAgICAgICAgICAg
-KiBvY2N1ciBtdWx0aXBsZSB0aW1lcy4KPiArICAgICAgICAgICAgICAgICovCj4gKyAgICAgICAg
-ICAgICAgIE9WU19OTEVSUihsb2csICJWTEFOIGF0dHJpYnV0ZSB1bmV4cGVjdGVkLiIpOwo+ICsg
-ICAgICAgICAgICAgICByZXR1cm4gLUVJTlZBTDsKPiAgICAgICAgIH0KPgpJcyB0aGVyZSByZWFz
-b24gZm9yIG5vdCBtZXJnaW5nIHRoaXMgcGF0Y2ggd2l0aCBlYXJsaWVyIHBhdGNoPwpfX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0
-CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3Rp
-bmZvL2Rldgo=
+On Fri, Sep 2, 2016 at 2:42 PM, pravin shelar <pshelar@ovn.org> wrote:
+> On Thu, Sep 1, 2016 at 1:45 PM, Eric Garver <e@erig.me> wrote:
+>> Add support for 802.1ad including the ability to push and pop double
+>> tagged vlans. Add support for 802.1ad to netlink parsing and flow
+>> conversion. Uses double nested encap attributes to represent double
+>> tagged vlan. Inner TPID encoded along with ctci in nested attributes.
+>>
+>> This is based on Thomas F Herbert's original v20 patch. I made some
+>> small clean ups and bug fixes.
+>>
+>> Signed-off-by: Thomas F Herbert <thomasfherbert@gmail.com>
+>> Signed-off-by: Eric Garver <e@erig.me>
+>
+
+checkpatch.pl is also not happy with the patch, It found bunch of issues.
+
+./scripts/checkpatch.pl
+0003-openvswitch-802.1AD-Flow-handling-actions-vlan-parsi.patch
+...
+...
+total: 6 errors, 9 warnings, 1 checks, 460 lines checked
