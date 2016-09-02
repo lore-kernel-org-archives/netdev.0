@@ -1,43 +1,43 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next 2/3] smsc95xx: Add register define
-Date: Fri, 02 Sep 2016 13:40:01 -0700
-Message-ID: <1472848801.22931.7.camel@perches.com>
-References: <9235D6609DB808459E95D78E17F2E43D409100A1@CHN-SV-EXMX02.mchp-main.com>
+From: pravin shelar <pshelar@ovn.org>
+Subject: Re: [ovs-dev] [PATCH net-next v21 1/4] openvswitch: 802.1ad uapi changes.
+Date: Fri, 2 Sep 2016 14:41:48 -0700
+Message-ID: <CAOrHB_AkEDzG1JOgWUU-Be1gokSdRDjKvxST6V4PCRrYPLTBzw@mail.gmail.com>
+References: <1472762727-25844-1-git-send-email-e@erig.me> <1472762727-25844-2-git-send-email-e@erig.me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: steve.glendinning@shawell.net, netdev@vger.kernel.org,
-        UNGLinuxDriver@microchip.com
-To: Woojung.Huh@microchip.com, davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        ovs dev <dev@openvswitch.org>,
+        Thomas F Herbert <thomasfherbert@gmail.com>
+To: Eric Garver <e@erig.me>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0059.hostedemail.com ([216.40.44.59]:51766 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752847AbcIBUkG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 16:40:06 -0400
-In-Reply-To: <9235D6609DB808459E95D78E17F2E43D409100A1@CHN-SV-EXMX02.mchp-main.com>
+Received: from relay5-d.mail.gandi.net ([217.70.183.197]:53319 "EHLO
+        relay5-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753303AbcIBVly (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 17:41:54 -0400
+Received: from mfilter32-d.gandi.net (mfilter32-d.gandi.net [217.70.178.163])
+        by relay5-d.mail.gandi.net (Postfix) with ESMTP id 3382441C074
+        for <netdev@vger.kernel.org>; Fri,  2 Sep 2016 23:41:51 +0200 (CEST)
+Received: from relay5-d.mail.gandi.net ([IPv6:::ffff:217.70.183.197])
+        by mfilter32-d.gandi.net (mfilter32-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+        with ESMTP id VLnKlo1FId31 for <netdev@vger.kernel.org>;
+        Fri,  2 Sep 2016 23:41:49 +0200 (CEST)
+Received: from mail-it0-f53.google.com (mail-it0-f53.google.com [209.85.214.53])
+        (Authenticated sender: pshelar@ovn.org)
+        by relay5-d.mail.gandi.net (Postfix) with ESMTPSA id C096741C08F
+        for <netdev@vger.kernel.org>; Fri,  2 Sep 2016 23:41:49 +0200 (CEST)
+Received: by mail-it0-f53.google.com with SMTP id e124so61038715ith.0
+        for <netdev@vger.kernel.org>; Fri, 02 Sep 2016 14:41:49 -0700 (PDT)
+In-Reply-To: <1472762727-25844-2-git-send-email-e@erig.me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-09-02 at 20:34 +0000, Woojung.Huh@microchip.com wrote:
-> From: Woojung Huh <woojung.huh@microchip.com>
-> 
-> Add STRAP_STATUS defines.
-[]
-> diff --git a/drivers/net/usb/smsc95xx.h b/drivers/net/usb/smsc95xx.h
-[]
-> @@ -144,6 +144,14 @@
->  
->  #define BURST_CAP			(0x38)
->  
-> +#define	STRAP_STATUS			(0x3C)
-> +#define	STRAP_STATUS_PWR_SEL_		(0x00000020)
-> +#define	STRAP_STATUS_AMDIX_EN_		(0x00000010)
-> +#define	STRAP_STATUS_PORT_SWAP_		(0x00000008)
-> +#define	STRAP_STATUS_EEP_SIZE_		(0x00000004)
-> +#define	STRAP_STATUS_RMT_WKP_		(0x00000002)
-> +#define	STRAP_STATUS_EEP_DISABLE_	(0x00000001)
+On Thu, Sep 1, 2016 at 1:45 PM, Eric Garver <e@erig.me> wrote:
+> From: Thomas F Herbert <thomasfherbert@gmail.com>
+>
+> openvswitch: Add support for 8021.AD
+>
+> Change the description of the VLAN tpid field.
+>
+> Signed-off-by: Thomas F Herbert <thomasfherbert@gmail.com>
 
-Using BIT would be more common.
-
-Ending the #defines with an underscore is just odd
-and unappealing.
+Acked-by: Pravin B Shelar <pshelar@ovn.org>
