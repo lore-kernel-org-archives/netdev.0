@@ -1,32 +1,42 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 3/3] net: dsa: mv88e6xxx: make global2 code
- optional
-Date: Fri, 2 Sep 2016 18:11:48 +0200
-Message-ID: <20160902161148.GK16864@lunn.ch>
-References: <20160902120819.10773-1-vivien.didelot@savoirfairelinux.com>
- <20160902120819.10773-4-vivien.didelot@savoirfairelinux.com>
- <20160902145511.GH16864@lunn.ch>
- <87k2eugwcs.fsf@ketchup.mtl.sfl>
+From: <sean.wang@mediatek.com>
+Subject: [PATCH net-next v3 0/2] net: ethernet: mediatek: add enhancements to RX path
+Date: Sat, 3 Sep 2016 00:18:43 +0800
+Message-ID: <1472833125-17343-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <87k2eugwcs.fsf@ketchup.mtl.sfl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
+        <linux-mediatek@lists.infradead.org>, <keyhaede@gmail.com>,
+        <objelf@gmail.com>, Sean Wang <sean.wang@mediatek.com>
+To: <john@phrozen.org>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailgw02.mediatek.com ([210.61.82.184]:51507 "EHLO
+        mailgw02.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S932622AbcIBQSx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 12:18:53 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Vivien
+From: Sean Wang <sean.wang@mediatek.com>
 
-> What do you think?
+Changes since v1:
+- fix message typos and add coverletter
+  
+Changes since v2:
+- split from the previous series for submitting add enhancements as 
+a series targeting 'net-next' and add indents before comments.
 
-I think the probe() needs to fail with a very obvious error message
-saying you need to recompile your kernel with option XYZ enabled in
-order to support this switch, when the optional stuff is not
-optional...
+Changes since v3:
+- merge the patch using PDMA RX path
+- fixed the input of mtk_poll_rx is with the remaining budget
 
-	Andrew
+Sean Wang (2):
+  net: ethernet: mediatek: enhance RX path by reducing the frequency of
+    the memory barrier used
+  net: ethernet: mediatek: enhance RX path by aggregating more SKBs into
+    NAPI
+
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 29 +++++++++++++++--------------
+ 1 file changed, 15 insertions(+), 14 deletions(-)
+
+-- 
+1.9.1
