@@ -1,53 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] bonding: Fix bonding crash
-Date: Fri, 02 Sep 2016 07:45:55 -0700
-Message-ID: <1472827555.5439.22.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1472793514-31850-1-git-send-email-mahesh@bandewar.net>
-         <a045ae10-e002-6658-575b-109e66056d5f@cumulusnetworks.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 3/3] net: dsa: mv88e6xxx: make global2 code
+ optional
+Date: Fri, 2 Sep 2016 16:55:11 +0200
+Message-ID: <20160902145511.GH16864@lunn.ch>
+References: <20160902120819.10773-1-vivien.didelot@savoirfairelinux.com>
+ <20160902120819.10773-4-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Mahesh Bandewar <mahesh@bandewar.net>,
-        Jay Vosburgh <j.vosburgh@gmail.com>,
-        Andy Gospodarek <gospo@cumulusnetworks.com>,
-        Veaceslav Falico <vfalico@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Mahesh Bandewar <maheshb@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        netdev <netdev@vger.kernel.org>
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:33253 "EHLO
-        mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751454AbcIBOp6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 10:45:58 -0400
-Received: by mail-pa0-f44.google.com with SMTP id cy9so41096355pac.0
-        for <netdev@vger.kernel.org>; Fri, 02 Sep 2016 07:45:57 -0700 (PDT)
-In-Reply-To: <a045ae10-e002-6658-575b-109e66056d5f@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160902120819.10773-4-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2016-09-02 at 08:30 -0600, David Ahern wrote:
+On Fri, Sep 02, 2016 at 08:08:19AM -0400, Vivien Didelot wrote:
+> Since not every chip has a Global2 set of registers, make its support
+> optional, in which case the related functions will return -EOPNOTSUPP.
+> 
+> This also allows to reduce the size of the mv88e6xxx driver for devices
+> such as home routers embedding Ethernet chips without Global2 support.
 
-> This check duplicates what netdev_rx_handler_register does. Why not
-> move the call to netdev_rx_handler_register here and then call
-> unregister on failure paths?
+Hi Vivien
 
-As soon as you call netdev_rx_handler_register(), incoming packets will
-hit your driver and we'll likely crash since the enslaving is not done
-yet.
+I've no problems with splitting this out.
 
-Really think about RCU, we do rcu_assign_pointer() because we want all
-prior changes being committed to memory before 'enabling' readers to see
-the updated rcu protected pointer.
+However, making it optional? I don't think that is a good idea.
 
-There are 9 call sites where netdev_rx_handler_register() is used.
+1) If you don't have this, and you should, it looks like the PHYs stop
+working, and since you cannot set the switch MAC address, maybe Pause
+frames are broken.
 
-We can get rid of the extra check in netdev_rx_handler_register() once
-all of them are using netdev_is_rx_handler_busy()
+2) Distros won't build a kernel per target hardware. They probably
+build a kernel per SoC vendor. That means, they will have this
+optional code built all the time. Very few builds will leave it out.
 
-Since this patch takes care of bonding only, we need to keep the
-existing check in netdev_rx_handler_register()
+So the only way i think making this optional, is if it is a kernel
+module, and it gets loaded if needed.
 
-Anyway, we are speaking of control function, an extra check is simply
-safer, like all the ASSERT_RTNL() we do have...
+	Andrew
