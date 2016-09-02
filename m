@@ -1,61 +1,52 @@
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: Re: [PATCH RESEND net-next 13/15] smc: receive data from RMBE
-Date: Fri, 2 Sep 2016 15:05:01 +0200
-Message-ID: <7121effc-5f89-ac22-bbab-a8aedebae9fd@linux.vnet.ibm.com>
-References: <1470737580-43012-14-git-send-email-ubraun@linux.vnet.ibm.com>
- <20160809.143245.2022037008405834176.davem@davemloft.net>
- <653f839a-8098-da62-3437-8b002d929a50@linux.vnet.ibm.com>
- <20160810.104556.1507709019319192063.davem@davemloft.net>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] switchdev: Fix return value of switchdev_port_fdb_dump().
+Date: Fri, 02 Sep 2016 06:11:38 -0700
+Message-ID: <57C97A8A.2090203@cumulusnetworks.com>
+References: <1472814717-11339-1-git-send-email-rami.rosen@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-        schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
-        utz.bacher@de.ibm.com
-To: David Miller <davem@davemloft.net>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        eric.dumazet@gmail.com, wkok@cumulusnetworks.com
+To: Rami Rosen <rami.rosen@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:43321 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752737AbcIBNFO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 09:05:14 -0400
-Received: from pps.filterd (m0098399.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u82D2xQq146752
-        for <netdev@vger.kernel.org>; Fri, 2 Sep 2016 09:05:13 -0400
-Received: from e06smtp10.uk.ibm.com (e06smtp10.uk.ibm.com [195.75.94.106])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 256cqe4ktc-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 02 Sep 2016 09:05:09 -0400
-Received: from localhost
-        by e06smtp10.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-        Fri, 2 Sep 2016 14:05:06 +0100
-In-Reply-To: <20160810.104556.1507709019319192063.davem@davemloft.net>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:36745 "EHLO
+        mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751229AbcIBNLk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 09:11:40 -0400
+Received: by mail-pa0-f42.google.com with SMTP id fu3so32628731pad.3
+        for <netdev@vger.kernel.org>; Fri, 02 Sep 2016 06:11:40 -0700 (PDT)
+In-Reply-To: <1472814717-11339-1-git-send-email-rami.rosen@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave,
+On 9/2/16, 4:11 AM, Rami Rosen wrote:
+> This patch fixes the retun value of switchdev_port_fdb_dump() when
+> CONFIG_NET_SWITCHDEV is not set. This avoids getting "warning: return makes
+> integer from pointer without a cast [-Wint-conversion]" when building
+> when CONFIG_NET_SWITCHDEV is not set under several compiler versions.
+> This warning is due to commit d297653dd6f07afbe7e6c702a4bcd7615680002e
+> ("rtnetlink: fdb dump: optimize by saving last interface markers").
+>
+> Signed-off-by: Rami Rosen <rami.rosen@intel.com>
+> ---
 
-sorry for the late answer; I had to interrupt my SMC-R activities for a 
-while; now I can continue ...
+Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-On 08/10/2016 07:45 PM, David Miller wrote:
-> From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-> Date: Wed, 10 Aug 2016 15:44:00 +0200
+Thanks Rami.
+>  include/net/switchdev.h | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 >
->> But there are still usages (and conn->rx_curs_confirmed is one of
->> them), where I need an 8-byte cursor field to be read and written
->> atomicaly, even though I do not care whether the write operation has
->> been beaten or not. But I do care that reading the cursor does not
->> return a partially updated cursor. Isn't xchg() a possible solution
->> in this case?
->
-> Either the cpu supports 64-bit stores or it does not.
->
-> xchg() and atomicity have absolutely nothing to do with this.
->
-
-Understood, I wrongly used xchg() for atomicity. I now realize that I 
-would need cursor locking for 32-bit architectures - something I would 
-like to defer. Thus I would like to come up with V2 of SMC-R with builds 
-restricted to 64-bit architectures only, and thus no usage of xchg() 
-anymore.
+> diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+> index 6279f2f..729fe15 100644
+> --- a/include/net/switchdev.h
+> +++ b/include/net/switchdev.h
+> @@ -344,7 +344,7 @@ static inline int switchdev_port_fdb_dump(struct sk_buff *skb,
+>  					  struct net_device *filter_dev,
+>  					  int *idx)
+>  {
+> -       return idx;
+> +       return *idx;
+>  }
+>  
+>  static inline bool switchdev_port_same_parent_id(struct net_device *a,
