@@ -1,84 +1,54 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: possible circular locking dependency detected
-Date: Fri, 2 Sep 2016 18:02:56 +0100
-Message-ID: <20160902170256.GU2356@ZenIV.linux.org.uk>
-References: <6f7d587b-3933-7c02-a804-db1732ced1cf@stressinduktion.org>
- <CA+55aFyNJg_brA4rGF0S2ve0V_2vuhZCFKEMFDNhHKEXoVCRGA@mail.gmail.com>
- <20160901204746.GR2356@ZenIV.linux.org.uk>
- <CA+55aFxzRnLCev6i_ehw9LFf-dw3s0znF+nP_c86i=219OZhfg@mail.gmail.com>
- <20160901210142.GS2356@ZenIV.linux.org.uk>
- <CA+55aFzxJM4pbS_jySERnCoOvvPbo+FgM7FZEATLJnCseD0j0g@mail.gmail.com>
- <CA+55aFwntZpaAutp_C=sLBg8ravfYGRoF4TTG1cfE3SjaJEOtw@mail.gmail.com>
- <87lgzae3f7.fsf@doppelsaurus.mobileactivedefense.com>
- <20160902160026.GT2356@ZenIV.linux.org.uk>
- <87d1kme10a.fsf@doppelsaurus.mobileactivedefense.com>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Minimum MTU Mess
+Date: Fri, 2 Sep 2016 13:07:42 -0400
+Message-ID: <20160902170742.GA17677@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-        CAI Qian <caiqian@redhat.com>,
-        Miklos Szeredi <miklos@szeredi.hu>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-        Eric Sandeen <esandeen@redhat.com>,
-        Network Development <netdev@vger.kernel.org>
-To: Rainer Weikusat <rweikusat@cyberadapt.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:58812 "EHLO
-        ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932236AbcIBRDD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 13:03:03 -0400
+Received: from mail-yw0-f176.google.com ([209.85.161.176]:35608 "EHLO
+        mail-yw0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932845AbcIBRII (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 13:08:08 -0400
+Received: by mail-yw0-f176.google.com with SMTP id j12so73556344ywb.2
+        for <netdev@vger.kernel.org>; Fri, 02 Sep 2016 10:07:45 -0700 (PDT)
+Received: from redhat.com (nat-pool-bos-t.redhat.com. [66.187.233.206])
+        by smtp.gmail.com with ESMTPSA id t67sm4401958ywa.33.2016.09.02.10.07.44
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Fri, 02 Sep 2016 10:07:44 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <87d1kme10a.fsf@doppelsaurus.mobileactivedefense.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 02, 2016 at 05:10:13PM +0100, Rainer Weikusat wrote:
+So... I had a bug reported, about a NIC that ceased to work, if it's MTU
+was set to 0, then back to it's original value (1500). This got me
+thinking... What does an MTU of 0 even mean? Why should it be allowed?
 
-> > Bullshit.  kern_path_create() *does* mean the same thing in all cases.
-> > Namely, find the parent, lock it and leave the final name component for
-> > the create-type operation.  It sure as hell is not guaranteed to take
-> > *all* locks that are going to be taken in process of mknod/mkdir/etc.
-> > Never had been.
-> 
-> This isn't about "all locks", it's about the lock in question. No other
-> mknod operation (I'm aware of) calls this with another superblock than
-> the one already acted upon by kern_path_create. This may be wrong (if
-> so, feel free to correct it) but it's not "bullshit" (intentional
-> deception in order to sell something to someone).
-> 
+As it turns out, most (but not all) network drivers have a check in their
+ndo_change_mtu function that returns -EINVAL if new_mtu < $magic_number,
+which is often 68 (per page 25 of RFC 791), but is sometimes 64, or 60, or
+46... Sometimes other manipulations are done. But the short version is
+that it seems there's an almost universal need to check for a minimum MTU.
+There's just some disagreement on what that minimum is.
 
-Never had been promised.  And it's not just this lock - e.g. ->i_rwsem is
-taken on the parent by kern_path_create() and on parent in underlying
-filesystem by ecryptfs ->mknod() (as well as overlayfs one).  bind/bind
-deadlock - one for a path to ecryptfs, another for that on the raw
-filesystem behind it (which can be mounted elsewhere/in another namespace/etc.)
-with those paths ending in the matching directories (the last components may
-be same or different - doesn't matter)
+So, rather than having nearly every ndo_change_mut callback do the exact
+same thing, would it make sense to settle on one minimum MTU value, and
+check that unilaterally (at least for certain netdev types) in
+net/core/dev.c's dev_set_mtu()? Or is intentionally left vague, because
+it's really up to the hardware to care?
 
-A: lock parent in ecryptfs (via kern_path_create())
-B: lock the directory behind it in underlying fs (ditto)
-A: grab ->readlock
-B: block on ->readlock
-A: call ecryptfs_mknod() and block trying to lock the directory held by B
+Alternatively, perhaps each driver should set a netdev->min_mtu value, and
+net/core/dev.c could check against that. Could even have a centralized
+IP_MIN_MTU of 68 that all devices using ether_setup() and/or
+alloc_etherdev() used by default.
 
-Deadlock.  And while we are at it, ecryptfs probably ought to claim transient
-write access for the duration of modifications of the underlying one similar
-to overlayfs.  The point is, it had never been promised that you can stick
-random locks just outside of ->mknod()/->mkdir()/etc.  The same goes for e.g.
-NFS mount of something exported by localhost; knfsd must lock the parent
-directory on server before creating anything in it.  Suppose you have
-/srv/nfs/foo exported and mounted on the same host at /mnt/bar.  bind to
-/mnt/bar/barf/a vs. bind to /srv/nfs/foo/barf/b:
-A: lock /mnt/bar/barf
-B: lock /srv/nfs/foo/barf
-A: grab ->readlock
-B: block on ->readlock
-A: call nfs_mknod(), wait for reply
-knfsd: block trying to lock /srv/nfs/foo/barf
+In any case, the number of "mtu < 68" and "#define FOO_MIN_MTU 68", or
+variations thereof, under drivers/net/ is kind of crazy.
 
-It's very much _not_ just overlayfs being pathological - that it certainly is,
-but the problem is much wider.  You could try to argue that kern_path_create()
-should've known to lock all relevant directories in case of overlayfs and
-ecryptfs, but it has absolutely no chance to do that in case of NFS - the
-protocol doesn't allow "lock this directory, one of my next requests will
-be to create something in it".  Even leases are only for regular files...
+In the interim, I think I'll just do a 3-line patch for this one driver
+that mirrors all the existing drivers to keep it from going splat...
+
+-- 
+Jarod Wilson
+jarod@redhat.com
