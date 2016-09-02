@@ -1,68 +1,52 @@
-From: Gao Feng <fgao@ikuai8.com>
-Subject: Re: [PATCH 1/2 nf] netfilter: seqadj: Fix some possible panics of
- seqadj when mem is exhausted
-Date: Fri, 2 Sep 2016 12:57:33 +0800
-Message-ID: <CA+6hz4pphci3V=pjuQaYx5YLDqMUG=Q7bKy7gtHLTZyyuZ9oPg@mail.gmail.com>
-References: <1472780905-13094-1-git-send-email-fgao@ikuai8.com> <CAML_gOe+Ao5WEuVbTry_oekwsm2-ooZ074pgfpzxYzNehgLGjQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-        Netfilter Developer Mailing List
-        <netfilter-devel@vger.kernel.org>, coreteam@netfilter.org,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Liping Zhang <zlpnobody@gmail.com>
+From: fgao@ikuai8.com
+Subject: [PATCH v2 1/2 nf] netfilter: seqadj: Fix one possible panic in seqadj when mem is exhausted
+Date: Fri,  2 Sep 2016 13:08:52 +0800
+Message-ID: <1472792932-26187-1-git-send-email-fgao@ikuai8.com>
+Cc: gfree.wind@gmail.com, Gao Feng <fgao@ikuai8.com>
+To: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
+        coreteam@netfilter.org, netdev@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <CAML_gOe+Ao5WEuVbTry_oekwsm2-ooZ074pgfpzxYzNehgLGjQ@mail.gmail.com>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Liping,
+From: Gao Feng <fgao@ikuai8.com>
 
-On Fri, Sep 2, 2016 at 12:50 PM, Liping Zhang <zlpnobody@gmail.com> wrote:
-> Hi Feng,
-> 2016-09-02 9:48 GMT+08:00  <fgao@ikuai8.com>:
->> From: Gao Feng <fgao@ikuai8.com>
->> @@ -171,6 +176,11 @@ int nf_ct_seq_adjust(struct sk_buff *skb,
->>         struct nf_ct_seqadj *this_way, *other_way;
->>         int res;
->>
->> +       if (unlikely(!seqadj)) {
->
-> IPS_SEQ_ADJUST_BIT will be tested before we call nf_ct_seq_adjust(),
-> so I think seqadj
-> will never be NULL here.
+When memory is exhausted, nfct_seqadj_ext_add may fail to add the seqadj
+extension. But the function nf_ct_seqadj_init doesn't check if get valid
+seqadj pointer by the nfct_seqadj, while other functions perform the
+sanity check.
 
-Thanks. I didn't check  IPS_SEQ_ADJUST_BIT  flag.
+So the system would be panic when nfct_seqadj_ext_add failed.
 
->
->> +               WARN_ONCE(1, "Missing nfct_seqadj_ext_add() setup call\n");
->> +               return 0;
->> +       }
->> +
->>         this_way  = &seqadj->seq[dir];
->>         other_way = &seqadj->seq[!dir];
->>
->> @@ -218,8 +228,10 @@ s32 nf_ct_seq_offset(const struct nf_conn *ct,
->>         struct nf_conn_seqadj *seqadj = nfct_seqadj(ct);
->>         struct nf_ct_seqadj *this_way;
->>
->> -       if (!seqadj)
->> +       if (unlikely(!seqadj)) {
->> +               WARN_ONCE(1, "Missing nfct_seqadj_ext_add() setup call\n");
->
-> But in nf_ct_seq_offset, seqadj is likely to be NULL, see the function
-> call path:
-> tcp_packet->tcp_in_window->nf_ct_seq_offset, so WARN_ONCE seems unnecessary.
->
->>                 return 0;
->> +       }
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
+---
+ v2: Remove the unnessary seqadj check in nf_ct_seq_adjust
+ v1: Inital patch
 
-Get it. It could be NULL.
+ net/netfilter/nf_conntrack_seqadj.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-Then only nf_ct_seqadj_init is necessary to check seqadj.
-I will update this patch.
-
-Regards
-Feng
+diff --git a/net/netfilter/nf_conntrack_seqadj.c b/net/netfilter/nf_conntrack_seqadj.c
+index dff0f0c..2c8e201 100644
+--- a/net/netfilter/nf_conntrack_seqadj.c
++++ b/net/netfilter/nf_conntrack_seqadj.c
+@@ -16,9 +16,14 @@ int nf_ct_seqadj_init(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
+ 	if (off == 0)
+ 		return 0;
+ 
++	seqadj = nfct_seqadj(ct);
++	if (unlikely(!seqadj)) {
++		WARN_ONCE(1, "Missing nfct_seqadj_ext_add() setup call\n");
++		return 0;
++	}
++
+ 	set_bit(IPS_SEQ_ADJUST_BIT, &ct->status);
+ 
+-	seqadj = nfct_seqadj(ct);
+ 	this_way = &seqadj->seq[dir];
+ 	this_way->offset_before	 = off;
+ 	this_way->offset_after	 = off;
+-- 
+1.9.1
 
 
