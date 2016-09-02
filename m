@@ -1,48 +1,41 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net-next 2/2] netns: avoid disabling irq for netns id
-Date: Fri, 2 Sep 2016 09:39:32 -0700
-Message-ID: <CAM_iQpUSoPHDCG5yehmgKgO99Qr_rtR0gZvEeOr3cO-o_LfuXQ@mail.gmail.com>
-References: <1472792025-14702-1-git-send-email-xiyou.wangcong@gmail.com>
- <1472792025-14702-3-git-send-email-xiyou.wangcong@gmail.com> <7de98923-0cfb-5937-d32b-bdaee7ec10dc@6wind.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net 0/2] vxlan: fix error reporting
+Date: Fri, 2 Sep 2016 18:41:50 +0200
+Message-ID: <20160902184150.03988a34@griffin>
+References: <cover.1472815982.git.jbenc@redhat.com>
+        <20160902090311.14acb0d1@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f67.google.com ([209.85.214.67]:35869 "EHLO
-        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932236AbcIBQjy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 12:39:54 -0400
-Received: by mail-it0-f67.google.com with SMTP id i184so2418150itf.3
-        for <netdev@vger.kernel.org>; Fri, 02 Sep 2016 09:39:53 -0700 (PDT)
-In-Reply-To: <7de98923-0cfb-5937-d32b-bdaee7ec10dc@6wind.com>
+Received: from mx1.redhat.com ([209.132.183.28]:58940 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932236AbcIBQly (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 2 Sep 2016 12:41:54 -0400
+In-Reply-To: <20160902090311.14acb0d1@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 2, 2016 at 1:12 AM, Nicolas Dichtel
-<nicolas.dichtel@6wind.com> wrote:
-> Le 02/09/2016 =C3=A0 06:53, Cong Wang a =C3=A9crit :
->> We never read or change netns id in hardirq context,
->> the only place we read netns id in softirq context
->> is in vxlan_xmit(). So, it should be enough to just
->> disable BH.
->
-> Are you sure? Did you audit all part of the code?
+On Fri, 2 Sep 2016 09:03:11 -0700, Stephen Hemminger wrote:
+> On Fri,  2 Sep 2016 13:37:10 +0200
+> Jiri Benc <jbenc@redhat.com> wrote:
+> 
+> > This patchset improves checking for invalid configuration in VXLAN and fixes
+> > problems with duplicated and inappropriate error messages.
+> > 
+> > Jiri Benc (2):
+> >   vxlan: reject multicast destination without an interface
+> >   vxlan: fix duplicated and wrong error messages
+> > 
+> >  drivers/net/vxlan.c | 38 ++++++++++++--------------------------
+> >  1 file changed, 12 insertions(+), 26 deletions(-)
+> > 
+> 
+> These should also be detected and rejected in iproute2
+> errors in kernel log are user unfriendly api.
 
-I did audit all the callers, and I didn't find any of them in IRQ context.
+I agree and I intend to send a patch once this is accepted.
 
-> peernet2id() is called from netlink core system (do_one_broadcast()). Are=
- you
-> sure that no driver call this function from an hard irq context?
-
-I audit all callers of netlink_broadcast(), and I don't see any of
-them in hardirq context.
-
->
-> I think that NETLINK_LISTEN_ALL_NSID is largely untested, so it will be h=
-ard to
-> detect a bug introduced in this feature.
-
-This patch passed my netns stress tests, I have LOCKDEP enabled,
-and I don't get any warning or crash etc.
+ Jiri
