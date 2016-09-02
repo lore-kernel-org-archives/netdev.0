@@ -1,54 +1,72 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Minimum MTU Mess
-Date: Fri, 2 Sep 2016 13:07:42 -0400
-Message-ID: <20160902170742.GA17677@redhat.com>
+From: =?UTF-8?B?TWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS14KS+4KSwKQ==?=
+        <maheshb@google.com>
+Subject: Re: [PATCH net] bonding: Fix bonding crash
+Date: Fri, 2 Sep 2016 10:08:54 -0700
+Message-ID: <CAF2d9jjEDhAH_649DigLz1-cikD6CmqancuyFL+5HbgJieYDtw@mail.gmail.com>
+References: <1472793514-31850-1-git-send-email-mahesh@bandewar.net>
+ <20160902075241.GA1814@nanopsycho> <1472823200.5439.15.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160902162513.GA1768@nanopsycho.orion> <1472834257.5439.42.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Jiri Pirko <jiri@resnulli.us>,
+        Mahesh Bandewar <mahesh@bandewar.net>,
+        Jay Vosburgh <j.vosburgh@gmail.com>,
+        Andy Gospodarek <gospo@cumulusnetworks.com>,
+        Veaceslav Falico <vfalico@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f176.google.com ([209.85.161.176]:35608 "EHLO
-        mail-yw0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932845AbcIBRII (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 13:08:08 -0400
-Received: by mail-yw0-f176.google.com with SMTP id j12so73556344ywb.2
-        for <netdev@vger.kernel.org>; Fri, 02 Sep 2016 10:07:45 -0700 (PDT)
-Received: from redhat.com (nat-pool-bos-t.redhat.com. [66.187.233.206])
-        by smtp.gmail.com with ESMTPSA id t67sm4401958ywa.33.2016.09.02.10.07.44
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Fri, 02 Sep 2016 10:07:44 -0700 (PDT)
-Content-Disposition: inline
+Received: from mail-yb0-f177.google.com ([209.85.213.177]:33706 "EHLO
+        mail-yb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932659AbcIBRJR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 13:09:17 -0400
+Received: by mail-yb0-f177.google.com with SMTP id d205so19046162ybh.0
+        for <netdev@vger.kernel.org>; Fri, 02 Sep 2016 10:09:16 -0700 (PDT)
+In-Reply-To: <1472834257.5439.42.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-So... I had a bug reported, about a NIC that ceased to work, if it's MTU
-was set to 0, then back to it's original value (1500). This got me
-thinking... What does an MTU of 0 even mean? Why should it be allowed?
+On Fri, Sep 2, 2016 at 9:37 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Fri, 2016-09-02 at 18:25 +0200, Jiri Pirko wrote:
+>
+>> Understand the reason. All I say is we tried hard (I surely did) in
+>> the past to remove bonding specific quirks and now we are adding one.
+>> And the simple reason is that the code is such a mess.
+>>
+I would not qualify this as bonding specific change! The check of you can
+really use the interface is simple enough, and can be used by other virtual
+drivers (e.g. macvlan, ipvlan, vrf etc.). Waiting until
+rx_handler_register() can be
+called in your code and then try to do rollback is bad. Also doing
+register() early
+has it's own consequences. On contrary, I would argue that this is much cleaner.
 
-As it turns out, most (but not all) network drivers have a check in their
-ndo_change_mtu function that returns -EINVAL if new_mtu < $magic_number,
-which is often 68 (per page 25 of RFC 791), but is sometimes 64, or 60, or
-46... Sometimes other manipulations are done. But the short version is
-that it seems there's an almost universal need to check for a minimum MTU.
-There's just some disagreement on what that minimum is.
+Agreed that bonding-driver has become a monster but that doesn't mean we
+should not fix issues. This argument would be valid when we are
+dealing with last
+couple installations / use cases of bonding and everyone else has moved to
+alternatives. Unfortunately we are not there yet :(
 
-So, rather than having nearly every ndo_change_mut callback do the exact
-same thing, would it make sense to settle on one minimum MTU value, and
-check that unilaterally (at least for certain netdev types) in
-net/core/dev.c's dev_set_mtu()? Or is intentionally left vague, because
-it's really up to the hardware to care?
+>> Just use team instead and you'll be fine. You can "google" it :)
+>
+> Sure, please join _our_ team and make all the needed changes in user
+> land.
+>
+:) Cannot put it more eloquently than Eric did but we would (in
+theory) love to move
+to team-driver, but logistics don't support this (yet!).
 
-Alternatively, perhaps each driver should set a netdev->min_mtu value, and
-net/core/dev.c could check against that. Could even have a centralized
-IP_MIN_MTU of 68 that all devices using ether_setup() and/or
-alloc_etherdev() used by default.
-
-In any case, the number of "mtu < 68" and "#define FOO_MIN_MTU 68", or
-variations thereof, under drivers/net/ is kind of crazy.
-
-In the interim, I think I'll just do a 3-line patch for this one driver
-that mirrors all the existing drivers to keep it from going splat...
-
--- 
-Jarod Wilson
-jarod@redhat.com
+> The kernel part of it is epsilon compared to all the control part (ie
+> talk to the various Google switches.), and monitoring.
+>
+> I am fine to leave the bug in upstream bonding driver, if you really
+> want to force people out of bonding land !
+>
+> Here an automated test simply used macvlan and did not remove the
+> macvlan before enslaving the netdev again in a bonding, we already fixed
+> the test, because it is faster than deploying new kernels anyway.
+>
+>
+>
