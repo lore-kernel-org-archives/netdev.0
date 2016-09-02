@@ -1,22 +1,21 @@
-From: Michal Simek <michal.simek@xilinx.com>
-Subject: Re: [Patch v4 01/12] microblaze: irqchip: Move intc driver to irqchip
-Date: Fri, 2 Sep 2016 12:27:54 +0200
-Message-ID: <4931182d-7b30-582f-f291-5be59b6b89e4@xilinx.com>
+From: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
+Subject: Re: [Patch v4 02/12] irqchip: axi-intc: Clean up irqdomain argument
+ and read/write
+Date: Fri, 2 Sep 2016 11:47:19 +0100
+Message-ID: <3e4cf28a-2efd-84ab-9f78-6755dec9fb94@imgtec.com>
 References: <1472748665-47774-1-git-send-email-Zubair.Kakakhel@imgtec.com>
- <1472748665-47774-2-git-send-email-Zubair.Kakakhel@imgtec.com>
- <772f883f-79fe-9197-f27c-3ffe91019aaf@xilinx.com>
- <5d98fd3b-4722-cdd3-4540-c1d1fec1c98c@imgtec.com>
+ <1472748665-47774-3-git-send-email-Zubair.Kakakhel@imgtec.com>
+ <57C86241.8000806@arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: <soren.brinkmann@xilinx.com>, <linux-kernel@vger.kernel.org>,
-        <linux-mips@linux-mips.org>, <netdev@vger.kernel.org>
-To: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>,
-        Michal Simek <michal.simek@xilinx.com>, <monstr@monstr.eu>,
-        <ralf@linux-mips.org>, <tglx@linutronix.de>,
-        <jason@lakedaemon.net>, <marc.zyngier@arm.com>
+        <linux-mips@linux-mips.org>, <michal.simek@xilinx.com>,
+        <netdev@vger.kernel.org>
+To: Marc Zyngier <marc.zyngier@arm.com>, <monstr@monstr.eu>,
+        <ralf@linux-mips.org>, <tglx@linutronix.de>, <jason@lakedaemon.net>
 Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <5d98fd3b-4722-cdd3-4540-c1d1fec1c98c@imgtec.com>
+In-Reply-To: <57C86241.8000806@arm.com>
 Sender: linux-mips-bounce@linux-mips.org
 Errors-to: linux-mips-bounce@linux-mips.org
 List-help: <mailto:ecartis@linux-mips.org?Subject=help>
@@ -28,87 +27,160 @@ List-post: <mailto:linux-mips@linux-mips.org>
 List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
-On 2.9.2016 12:06, Zubair Lutfullah Kakakhel wrote:
-> Hi,
-> 
-> On 09/02/2016 07:25 AM, Michal Simek wrote:
->> On 1.9.2016 18:50, Zubair Lutfullah Kakakhel wrote:
->>> The Xilinx AXI Interrupt Controller IP block is used by the MIPS
->>> based xilfpga platform.
->>>
->>> Move the interrupt controller code out of arch/microblaze so that
->>> it can be used by everyone
->>>
->>> Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
->>>
->>> ---
->>> V3 -> V4
->>> No change
->>>
->>> V2 -> V3
->>> No change here. Cleanup patches follow after this patch.
->>> Its debatable to cleanup before/after move. Decided to place cleanup
->>> after move to put history in new place.
->>>
->>> V1 -> V2
->>>
->>> Renamed irq-xilinx to irq-axi-intc
->>> Renamed CONFIG_XILINX_INTC to CONFIG_XILINX_AXI_INTC
+Hi,
+
+Thanks for the review.
+Comments inline.
+
+On 09/01/2016 06:15 PM, Marc Zyngier wrote:
+> On 01/09/16 17:50, Zubair Lutfullah Kakakhel wrote:
+>> The drivers read/write function handling is a bit quirky.
+>> And the irqmask is passed directly to the handler.
 >>
+>> Add a new irqchip struct to pass to the handler and
+>> cleanup read/write handling.
 >>
->> I see that this was suggested by Jason Cooper but using axi name here is
->> not correct.
->> There is xps-intc name which is the name used on old OPB hardware
->> designs. It means this driver can be still used only on system which
->> uses it.
-> 
-> Wouldn't axi-intc be more suitable moving forwards?
-> The IP block is now known as axi intc for 5 years as far as I can tell.
-> 
-> Searching "axi intc" online results in the right docs for current and
-> future platforms.
-
-yes but we still should support older platform and it is more then this.
-This is soft-IP core and in future when there is new bus then IP will
-just change bus interface, etc.
-
-> 
-> The binding is still xps-intc as that won't change. So older systems
-> should still be able to find their way.
-
-yes that's not a problem. But in general having bus name in name is not
-a good way to go.
-
-> 
->> Also there is another copy of this driver in the tree which was using
->> old ppc405 and ppc440 xilinx platforms.
+>> Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
 >>
->> arch/powerpc/include/asm/xilinx_intc.h
->> arch/powerpc/sysdev/xilinx_intc.c
+>> ---
+>> V3 -> V4
+>> Better error handling for kzalloc
+>> Erroring out if the axi intc is probed twice as that isn't
+>> supported
 >>
->> These should be also removed by moving this driver to generic folder.
-> 
-> I didn't know about that drivers existence.
-> 
-> This patch series already touches microblaze, mips and irqchip.
-> Both microblaze and mips platforms using this driver are little-endian.
 
-MB is big ending too and as you see there is big endian support in the
-driver already.
+...
 
-> 
-> Adding a big-endian powerpc driver + platform to the mix is going to
-> complicate
-> the series further and make it super hard to synchronize various
-> subsystems,
-> test stuff, and then move the drivers without breakage.
-> 
-> I'd highly recommend letting this move happen. And then the powerpc
-> driver can
-> transition over time to this driver.
+>>  static int __init xilinx_intc_of_init(struct device_node *intc,
+>>  					     struct device_node *parent)
+>>  {
+>> -	u32 nr_irq, intr_mask;
+>> +	u32 nr_irq;
+>>  	int ret;
+>> +	struct xintc_irq_chip *irqc;
+>> +
+>> +	irqc = kzalloc(sizeof(*irqc), GFP_KERNEL);
+>> +	if (!irqc)
+>> +		return -ENOMEM;
+>>
+>> -	intc_baseaddr = of_iomap(intc, 0);
+>> -	BUG_ON(!intc_baseaddr);
+>> +	if (xintc_irqc) {
+>> +		pr_err("%s: Multiple instances of axi_intc aren't supported\n");
+>> +		ret = -EINVAL;
+>> +		goto err_alloc;
+>
+> How about testing the variable first and error-ing early, rather than
+> performing the allocation and undoing it later?
+>
 
-I have no problem with this but you should be aware about it.
-PPC will remain to use big endiand PLB bus. It means it is not axi too.
+Sure. Thanks
 
-Thanks,
-Michal
+>> +	} else {
+>> +		xintc_irqc = irqc;
+>> +	}
+>> +
+>> +	irqc->base = of_iomap(intc, 0);
+>> +	BUG_ON(!irqc->base);
+>>
+>>  	ret = of_property_read_u32(intc, "xlnx,num-intr-inputs", &nr_irq);
+>>  	if (ret < 0) {
+>>  		pr_err("%s: unable to read xlnx,num-intr-inputs\n", __func__);
+>> -		return ret;
+>> +		goto err_alloc;
+>>  	}
+>>
+>> -	ret = of_property_read_u32(intc, "xlnx,kind-of-intr", &intr_mask);
+>> +	ret = of_property_read_u32(intc, "xlnx,kind-of-intr", &irqc->intr_mask);
+>>  	if (ret < 0) {
+>>  		pr_err("%s: unable to read xlnx,kind-of-intr\n", __func__);
+>> -		return ret;
+>> +		goto err_alloc;
+>>  	}
+>>
+>> -	if (intr_mask >> nr_irq)
+>> +	if (irqc->intr_mask >> nr_irq)
+>>  		pr_warn("%s: mismatch in kind-of-intr param\n", __func__);
+>>
+>>  	pr_info("%s: num_irq=%d, edge=0x%x\n",
+>> -		intc->full_name, nr_irq, intr_mask);
+>> +		intc->full_name, nr_irq, irqc->intr_mask);
+>>
+>> -	write_fn = intc_write32;
+>> -	read_fn = intc_read32;
+>> +	irqc->read = intc_read32;
+>> +	irqc->write = intc_write32;
+>>
+>>  	/*
+>>  	 * Disable all external interrupts until they are
+>>  	 * explicity requested.
+>>  	 */
+>> -	write_fn(0, intc_baseaddr + IER);
+>> +	xintc_write(irqc, IER, 0);
+>>
+>>  	/* Acknowledge any pending interrupts just in case. */
+>> -	write_fn(0xffffffff, intc_baseaddr + IAR);
+>> +	xintc_write(irqc, IAR, 0xffffffff);
+>>
+>>  	/* Turn on the Master Enable. */
+>> -	write_fn(MER_HIE | MER_ME, intc_baseaddr + MER);
+>> -	if (!(read_fn(intc_baseaddr + MER) & (MER_HIE | MER_ME))) {
+>> -		write_fn = intc_write32_be;
+>> -		read_fn = intc_read32_be;
+>> -		write_fn(MER_HIE | MER_ME, intc_baseaddr + MER);
+>> +	xintc_write(irqc, MER, MER_HIE | MER_ME);
+>> +	if (!(xintc_read(irqc, MER) & (MER_HIE | MER_ME))) {
+>> +		irqc->read = intc_read32_be;
+>> +		irqc->write = intc_write32_be;
+>> +		xintc_write(irqc, MER, MER_HIE | MER_ME);
+>>  	}
+>>
+>> -	/* Yeah, okay, casting the intr_mask to a void* is butt-ugly, but I'm
+>> -	 * lazy and Michal can clean it up to something nicer when he tests
+>> -	 * and commits this patch.  ~~gcl */
+>>  	root_domain = irq_domain_add_linear(intc, nr_irq, &xintc_irq_domain_ops,
+>> -							(void *)intr_mask);
+>> +					    irqc);
+>
+> What if the domain allocation fails? You've now configured the HW for
+> something you can't use. What are the side effects? Hint: handle
+> everything that can fail first, and only then poke the HW.
+>
+
+Thanks for pointing it out. I'll add an error check.
+
+>>
+>>  	irq_set_default_host(root_domain);
+>>
+>>  	return 0;
+>> +
+>> +err_alloc:
+>> +	xintc_irqc = NULL;
+>> +	kfree(irqc);
+>> +	return ret;
+>> +
+>>  }
+>>
+>>  IRQCHIP_DECLARE(xilinx_intc, "xlnx,xps-intc-1.00.a", xilinx_intc_of_init);
+>>
+>
+> Instead of posting 3 versions in 3 days, please take the time to
+> correctly address the comments, and review your own code before
+> re-posting it. Rushing to get it merged for 4.9 is really not the best
+> approach.
+
+Apologies for the spam. Combination of some free time this week + window of opportunity.
+To be fair, AFAIK, this driver has lived in arch/microblaze without receiving a full thorough
+review by any irqchip maintainer.
+
+Hence the various missing bits. e.g. the root_domain error check didn't exist before.
+And I didn't see it.
+
+Regards,
+ZubairLK
+
+>
+> Thanks,
+>
+> 	M.
+>
