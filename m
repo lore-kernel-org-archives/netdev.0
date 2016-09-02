@@ -1,85 +1,114 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCH iproute2 net-next] nstat: add sctp snmp support
-Date: Fri, 2 Sep 2016 12:09:12 +0200
-Message-ID: <20160902100912.GC5252@orbyte.nwl.cc>
-References: <1472800358-31881-1-git-send-email-liuhangbin@gmail.com>
+From: Michal Simek <michal.simek@xilinx.com>
+Subject: Re: [Patch v4 01/12] microblaze: irqchip: Move intc driver to irqchip
+Date: Fri, 2 Sep 2016 12:27:54 +0200
+Message-ID: <4931182d-7b30-582f-f291-5be59b6b89e4@xilinx.com>
+References: <1472748665-47774-1-git-send-email-Zubair.Kakakhel@imgtec.com>
+ <1472748665-47774-2-git-send-email-Zubair.Kakakhel@imgtec.com>
+ <772f883f-79fe-9197-f27c-3ffe91019aaf@xilinx.com>
+ <5d98fd3b-4722-cdd3-4540-c1d1fec1c98c@imgtec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: Hangbin Liu <liuhangbin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:55566 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753202AbcIBKJO (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 2 Sep 2016 06:09:14 -0400
-Content-Disposition: inline
-In-Reply-To: <1472800358-31881-1-git-send-email-liuhangbin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <soren.brinkmann@xilinx.com>, <linux-kernel@vger.kernel.org>,
+        <linux-mips@linux-mips.org>, <netdev@vger.kernel.org>
+To: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>,
+        Michal Simek <michal.simek@xilinx.com>, <monstr@monstr.eu>,
+        <ralf@linux-mips.org>, <tglx@linutronix.de>,
+        <jason@lakedaemon.net>, <marc.zyngier@arm.com>
+Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <5d98fd3b-4722-cdd3-4540-c1d1fec1c98c@imgtec.com>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 02, 2016 at 03:12:38PM +0800, Hangbin Liu wrote:
-> SCTP module was not load by default. But this should be OK since we will not
-> load table if fdopen() failed.
+On 2.9.2016 12:06, Zubair Lutfullah Kakakhel wrote:
+> Hi,
 > 
-> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
-> ---
->  misc/nstat.c | 17 +++++++++++++++++
->  1 file changed, 17 insertions(+)
+> On 09/02/2016 07:25 AM, Michal Simek wrote:
+>> On 1.9.2016 18:50, Zubair Lutfullah Kakakhel wrote:
+>>> The Xilinx AXI Interrupt Controller IP block is used by the MIPS
+>>> based xilfpga platform.
+>>>
+>>> Move the interrupt controller code out of arch/microblaze so that
+>>> it can be used by everyone
+>>>
+>>> Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
+>>>
+>>> ---
+>>> V3 -> V4
+>>> No change
+>>>
+>>> V2 -> V3
+>>> No change here. Cleanup patches follow after this patch.
+>>> Its debatable to cleanup before/after move. Decided to place cleanup
+>>> after move to put history in new place.
+>>>
+>>> V1 -> V2
+>>>
+>>> Renamed irq-xilinx to irq-axi-intc
+>>> Renamed CONFIG_XILINX_INTC to CONFIG_XILINX_AXI_INTC
+>>
+>>
+>> I see that this was suggested by Jason Cooper but using axi name here is
+>> not correct.
+>> There is xps-intc name which is the name used on old OPB hardware
+>> designs. It means this driver can be still used only on system which
+>> uses it.
 > 
-> diff --git a/misc/nstat.c b/misc/nstat.c
-> index 6143719..8035be4 100644
-> --- a/misc/nstat.c
-> +++ b/misc/nstat.c
-> @@ -76,6 +76,11 @@ static int net_snmp6_open(void)
->  	return generic_proc_open("PROC_NET_SNMP6", "net/snmp6");
->  }
->  
-> +static int net_sctp_snmp_open(void)
-> +{
-> +	return generic_proc_open("PROC_NET_SCTP_SNMP", "net/sctp/snmp");
-> +}
-> +
->  struct nstat_ent {
->  	struct nstat_ent *next;
->  	char		 *id;
-> @@ -247,6 +252,16 @@ static void load_ugly_table(FILE *fp)
->  	}
->  }
->  
-> +static void load_sctp_snmp(void)
-> +{
-> +	FILE *fp = fdopen(net_sctp_snmp_open(), "r");
-> +
-> +	if (fp) {
-> +		load_good_table(fp);
-> +		fclose(fp);
-> +	}
-> +}
-> +
->  static void load_snmp(void)
->  {
->  	FILE *fp = fdopen(net_snmp_open(), "r");
-> @@ -450,6 +465,7 @@ static void server_loop(int fd)
->  	load_netstat();
->  	load_snmp6();
->  	load_snmp();
-> +	load_sctp_snmp();
->  
->  	for (;;) {
->  		int status;
-> @@ -706,6 +722,7 @@ int main(int argc, char *argv[])
->  		load_netstat();
->  		load_snmp6();
->  		load_snmp();
-> +		load_sctp_snmp();
->  		if (info_source[0] == 0)
->  			strcpy(info_source, "kernel");
->  	}
+> Wouldn't axi-intc be more suitable moving forwards?
+> The IP block is now known as axi intc for 5 years as far as I can tell.
+> 
+> Searching "axi intc" online results in the right docs for current and
+> future platforms.
 
-Did you forget to add the load call to update_db(), or am I missing
-something?
+yes but we still should support older platform and it is more then this.
+This is soft-IP core and in future when there is new bus then IP will
+just change bus interface, etc.
 
-Apart from that, looks nice and clean.
+> 
+> The binding is still xps-intc as that won't change. So older systems
+> should still be able to find their way.
 
-Cheers, Phil
+yes that's not a problem. But in general having bus name in name is not
+a good way to go.
+
+> 
+>> Also there is another copy of this driver in the tree which was using
+>> old ppc405 and ppc440 xilinx platforms.
+>>
+>> arch/powerpc/include/asm/xilinx_intc.h
+>> arch/powerpc/sysdev/xilinx_intc.c
+>>
+>> These should be also removed by moving this driver to generic folder.
+> 
+> I didn't know about that drivers existence.
+> 
+> This patch series already touches microblaze, mips and irqchip.
+> Both microblaze and mips platforms using this driver are little-endian.
+
+MB is big ending too and as you see there is big endian support in the
+driver already.
+
+> 
+> Adding a big-endian powerpc driver + platform to the mix is going to
+> complicate
+> the series further and make it super hard to synchronize various
+> subsystems,
+> test stuff, and then move the drivers without breakage.
+> 
+> I'd highly recommend letting this move happen. And then the powerpc
+> driver can
+> transition over time to this driver.
+
+I have no problem with this but you should be aware about it.
+PPC will remain to use big endiand PLB bus. It means it is not axi too.
+
+Thanks,
+Michal
