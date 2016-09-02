@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH v3 net-next 6/6] samples/bpf: add sampleip example
-Date: Thu, 1 Sep 2016 18:37:26 -0700
-Message-ID: <1472780246-323814-7-git-send-email-ast@fb.com>
+Subject: [PATCH v3 net-next 4/6] perf, bpf: add perf events core support for BPF_PROG_TYPE_PERF_EVENT programs
+Date: Thu, 1 Sep 2016 18:37:24 -0700
+Message-ID: <1472780246-323814-5-git-send-email-ast@fb.com>
 References: <1472780246-323814-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,301 +17,193 @@ In-Reply-To: <1472780246-323814-1-git-send-email-ast@fb.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Brendan Gregg <bgregg@netflix.com>
+Allow attaching BPF_PROG_TYPE_PERF_EVENT programs to sw and hw perf events
+via overflow_handler mechanism.
+When program is attached the overflow_handlers become stacked.
+The program acts as a filter.
+Returning zero from the program means that the normal perf_event_output handler
+will not be called and sampling event won't be stored in the ring buffer.
 
-sample instruction pointer and frequency count in a BPF map
+The overflow_handler_context==NULL is an additional safety check
+to make sure programs are not attached to hw breakpoints and watchdog
+in case other checks (that prevent that now anyway) get accidentally
+relaxed in the future.
 
-Signed-off-by: Brendan Gregg <bgregg@netflix.com>
+The program refcnt is incremented in case perf_events are inhereted
+when target task is forked.
+Similar to kprobe and tracepoint programs there is no ioctl to
+detach the program or swap already attached program. The user space
+expected to close(perf_event_fd) like it does right now for kprobe+bpf.
+That restriction simplifies the code quite a bit.
+
+The invocation of overflow_handler in __perf_event_overflow() is now
+done via READ_ONCE, since that pointer can be replaced when the program
+is attached while perf_event itself could have been active already.
+There is no need to do similar treatment for event->prog, since it's
+assigned only once before it's accessed.
+
 Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 ---
- samples/bpf/Makefile        |   4 +
- samples/bpf/sampleip_kern.c |  38 +++++++++
- samples/bpf/sampleip_user.c | 196 ++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 238 insertions(+)
- create mode 100644 samples/bpf/sampleip_kern.c
- create mode 100644 samples/bpf/sampleip_user.c
+ include/linux/bpf.h        |  4 +++
+ include/linux/perf_event.h |  4 +++
+ kernel/events/core.c       | 89 +++++++++++++++++++++++++++++++++++++++++++++-
+ 3 files changed, 96 insertions(+), 1 deletion(-)
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index a69cf9045285..12b7304d55dc 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -26,6 +26,7 @@ hostprogs-y += xdp1
- hostprogs-y += xdp2
- hostprogs-y += test_current_task_under_cgroup
- hostprogs-y += trace_event
-+hostprogs-y += sampleip
- 
- test_verifier-objs := test_verifier.o libbpf.o
- test_maps-objs := test_maps.o libbpf.o
-@@ -54,6 +55,7 @@ xdp2-objs := bpf_load.o libbpf.o xdp1_user.o
- test_current_task_under_cgroup-objs := bpf_load.o libbpf.o \
- 				       test_current_task_under_cgroup_user.o
- trace_event-objs := bpf_load.o libbpf.o trace_event_user.o
-+sampleip-objs := bpf_load.o libbpf.o sampleip_user.o
- 
- # Tell kbuild to always build the programs
- always := $(hostprogs-y)
-@@ -82,6 +84,7 @@ always += xdp1_kern.o
- always += xdp2_kern.o
- always += test_current_task_under_cgroup_kern.o
- always += trace_event_kern.o
-+always += sampleip_kern.o
- 
- HOSTCFLAGS += -I$(objtree)/usr/include
- 
-@@ -107,6 +110,7 @@ HOSTLOADLIBES_xdp1 += -lelf
- HOSTLOADLIBES_xdp2 += -lelf
- HOSTLOADLIBES_test_current_task_under_cgroup += -lelf
- HOSTLOADLIBES_trace_event += -lelf
-+HOSTLOADLIBES_sampleip += -lelf
- 
- # Allows pointing LLC/CLANG to a LLVM backend with bpf support, redefine on cmdline:
- #  make samples/bpf/ LLC=~/git/llvm/build/bin/llc CLANG=~/git/llvm/build/bin/clang
-diff --git a/samples/bpf/sampleip_kern.c b/samples/bpf/sampleip_kern.c
-new file mode 100644
-index 000000000000..774a681f374a
---- /dev/null
-+++ b/samples/bpf/sampleip_kern.c
-@@ -0,0 +1,38 @@
-+/* Copyright 2016 Netflix, Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ */
-+#include <linux/version.h>
-+#include <linux/ptrace.h>
-+#include <uapi/linux/bpf.h>
-+#include <uapi/linux/bpf_perf_event.h>
-+#include "bpf_helpers.h"
-+
-+#define MAX_IPS		8192
-+
-+struct bpf_map_def SEC("maps") ip_map = {
-+	.type = BPF_MAP_TYPE_HASH,
-+	.key_size = sizeof(u64),
-+	.value_size = sizeof(u32),
-+	.max_entries = MAX_IPS,
-+};
-+
-+SEC("perf_event")
-+int do_sample(struct bpf_perf_event_data *ctx)
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index 11134238417d..9a904f63f8c1 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -297,6 +297,10 @@ static inline struct bpf_prog *bpf_prog_add(struct bpf_prog *prog, int i)
+ static inline void bpf_prog_put(struct bpf_prog *prog)
+ {
+ }
++static inline struct bpf_prog *bpf_prog_inc(struct bpf_prog *prog)
 +{
-+	u64 ip;
-+	u32 *value, init_val = 1;
-+
-+	ip = ctx->regs.ip;
-+	value = bpf_map_lookup_elem(&ip_map, &ip);
-+	if (value)
-+		*value += 1;
-+	else
-+		/* E2BIG not tested for this example only */
-+		bpf_map_update_elem(&ip_map, &ip, &init_val, BPF_NOEXIST);
-+
-+	return 0;
++	return ERR_PTR(-EOPNOTSUPP);
 +}
-+char _license[] SEC("license") = "GPL";
-diff --git a/samples/bpf/sampleip_user.c b/samples/bpf/sampleip_user.c
-new file mode 100644
-index 000000000000..260a6bdd6413
---- /dev/null
-+++ b/samples/bpf/sampleip_user.c
-@@ -0,0 +1,196 @@
-+/*
-+ * sampleip: sample instruction pointer and frequency count in a BPF map.
-+ *
-+ * Copyright 2016 Netflix, Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ */
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <stdio.h>
-+#include <unistd.h>
-+#include <errno.h>
-+#include <signal.h>
-+#include <string.h>
-+#include <assert.h>
-+#include <linux/perf_event.h>
-+#include <linux/ptrace.h>
-+#include <linux/bpf.h>
-+#include <sys/ioctl.h>
-+#include "libbpf.h"
-+#include "bpf_load.h"
-+
-+#define DEFAULT_FREQ	99
-+#define DEFAULT_SECS	5
-+#define MAX_IPS		8192
-+#define PAGE_OFFSET	0xffff880000000000
-+
-+static int nr_cpus;
-+
-+static void usage(void)
+ #endif /* CONFIG_BPF_SYSCALL */
+ 
+ /* verifier prototypes for helper functions called from eBPF programs */
+diff --git a/include/linux/perf_event.h b/include/linux/perf_event.h
+index 97bfe62f30d7..ccb73a58113d 100644
+--- a/include/linux/perf_event.h
++++ b/include/linux/perf_event.h
+@@ -679,6 +679,10 @@ struct perf_event {
+ 	u64				(*clock)(void);
+ 	perf_overflow_handler_t		overflow_handler;
+ 	void				*overflow_handler_context;
++#ifdef CONFIG_BPF_SYSCALL
++	perf_overflow_handler_t		orig_overflow_handler;
++	struct bpf_prog			*prog;
++#endif
+ 
+ #ifdef CONFIG_EVENT_TRACING
+ 	struct trace_event_call		*tp_event;
+diff --git a/kernel/events/core.c b/kernel/events/core.c
+index 3cfabdf7b942..85bf4c37911f 100644
+--- a/kernel/events/core.c
++++ b/kernel/events/core.c
+@@ -7022,7 +7022,7 @@ static int __perf_event_overflow(struct perf_event *event,
+ 		irq_work_queue(&event->pending);
+ 	}
+ 
+-	event->overflow_handler(event, data, regs);
++	READ_ONCE(event->overflow_handler)(event, data, regs);
+ 
+ 	if (*perf_event_fasync(event) && event->pending_kill) {
+ 		event->pending_wakeup = 1;
+@@ -7637,11 +7637,83 @@ static void perf_event_free_filter(struct perf_event *event)
+ 	ftrace_profile_free_filter(event);
+ }
+ 
++#ifdef CONFIG_BPF_SYSCALL
++static void bpf_overflow_handler(struct perf_event *event,
++				 struct perf_sample_data *data,
++				 struct pt_regs *regs)
 +{
-+	printf("USAGE: sampleip [-F freq] [duration]\n");
-+	printf("       -F freq    # sample frequency (Hertz), default 99\n");
-+	printf("       duration   # sampling duration (seconds), default 5\n");
-+}
-+
-+static int sampling_start(int *pmu_fd, int freq)
-+{
-+	int i;
-+
-+	struct perf_event_attr pe_sample_attr = {
-+		.type = PERF_TYPE_SOFTWARE,
-+		.freq = 1,
-+		.sample_period = freq,
-+		.config = PERF_COUNT_SW_CPU_CLOCK,
-+		.inherit = 1,
++	struct bpf_perf_event_data_kern ctx = {
++		.data = data,
++		.regs = regs,
 +	};
++	int ret = 0;
 +
-+	for (i = 0; i < nr_cpus; i++) {
-+		pmu_fd[i] = perf_event_open(&pe_sample_attr, -1 /* pid */, i,
-+					    -1 /* group_fd */, 0 /* flags */);
-+		if (pmu_fd[i] < 0) {
-+			fprintf(stderr, "ERROR: Initializing perf sampling\n");
-+			return 1;
-+		}
-+		assert(ioctl(pmu_fd[i], PERF_EVENT_IOC_SET_BPF,
-+			     prog_fd[0]) == 0);
-+		assert(ioctl(pmu_fd[i], PERF_EVENT_IOC_ENABLE, 0) == 0);
-+	}
++	preempt_disable();
++	if (unlikely(__this_cpu_inc_return(bpf_prog_active) != 1))
++		goto out;
++	rcu_read_lock();
++	ret = BPF_PROG_RUN(event->prog, (void *)&ctx);
++	rcu_read_unlock();
++out:
++	__this_cpu_dec(bpf_prog_active);
++	preempt_enable();
++	if (!ret)
++		return;
 +
++	event->orig_overflow_handler(event, data, regs);
++}
++
++static int perf_event_set_bpf_handler(struct perf_event *event, u32 prog_fd)
++{
++	struct bpf_prog *prog;
++
++	if (event->overflow_handler_context)
++		/* hw breakpoint or kernel counter */
++		return -EINVAL;
++
++	if (event->prog)
++		return -EEXIST;
++
++	prog = bpf_prog_get_type(prog_fd, BPF_PROG_TYPE_PERF_EVENT);
++	if (IS_ERR(prog))
++		return PTR_ERR(prog);
++
++	event->prog = prog;
++	event->orig_overflow_handler = READ_ONCE(event->overflow_handler);
++	WRITE_ONCE(event->overflow_handler, bpf_overflow_handler);
 +	return 0;
 +}
 +
-+static void sampling_end(int *pmu_fd)
++static void perf_event_free_bpf_handler(struct perf_event *event)
 +{
-+	int i;
++	struct bpf_prog *prog = event->prog;
 +
-+	for (i = 0; i < nr_cpus; i++)
-+		close(pmu_fd[i]);
++	if (!prog)
++		return;
++
++	WRITE_ONCE(event->overflow_handler, event->orig_overflow_handler);
++	event->prog = NULL;
++	bpf_prog_put(prog);
 +}
-+
-+struct ipcount {
-+	__u64 ip;
-+	__u32 count;
-+};
-+
-+/* used for sorting */
-+struct ipcount counts[MAX_IPS];
-+
-+static int count_cmp(const void *p1, const void *p2)
++#else
++static int perf_event_set_bpf_handler(struct perf_event *event, u32 prog_fd)
 +{
-+	return ((struct ipcount *)p1)->count - ((struct ipcount *)p2)->count;
++	return -EOPNOTSUPP;
 +}
-+
-+static void print_ip_map(int fd)
++static void perf_event_free_bpf_handler(struct perf_event *event)
 +{
-+	struct ksym *sym;
-+	__u64 key, next_key;
-+	__u32 value;
-+	int i, max;
++}
++#endif
 +
-+	printf("%-19s %-32s %s\n", "ADDR", "KSYM", "COUNT");
+ static int perf_event_set_bpf_prog(struct perf_event *event, u32 prog_fd)
+ {
+ 	bool is_kprobe, is_tracepoint;
+ 	struct bpf_prog *prog;
+ 
++	if (event->attr.type == PERF_TYPE_HARDWARE ||
++	    event->attr.type == PERF_TYPE_SOFTWARE)
++		return perf_event_set_bpf_handler(event, prog_fd);
 +
-+	/* fetch IPs and counts */
-+	key = 0, i = 0;
-+	while (bpf_get_next_key(fd, &key, &next_key) == 0) {
-+		bpf_lookup_elem(fd, &next_key, &value);
-+		counts[i].ip = next_key;
-+		counts[i++].count = value;
-+		key = next_key;
-+	}
-+	max = i;
+ 	if (event->attr.type != PERF_TYPE_TRACEPOINT)
+ 		return -EINVAL;
+ 
+@@ -7682,6 +7754,8 @@ static void perf_event_free_bpf_prog(struct perf_event *event)
+ {
+ 	struct bpf_prog *prog;
+ 
++	perf_event_free_bpf_handler(event);
 +
-+	/* sort and print */
-+	qsort(counts, max, sizeof(struct ipcount), count_cmp);
-+	for (i = 0; i < max; i++) {
-+		if (counts[i].ip > PAGE_OFFSET) {
-+			sym = ksym_search(counts[i].ip);
-+			printf("0x%-17llx %-32s %u\n", counts[i].ip, sym->name,
-+			       counts[i].count);
-+		} else {
-+			printf("0x%-17llx %-32s %u\n", counts[i].ip, "(user)",
-+			       counts[i].count);
+ 	if (!event->tp_event)
+ 		return;
+ 
+@@ -8998,6 +9072,19 @@ perf_event_alloc(struct perf_event_attr *attr, int cpu,
+ 	if (!overflow_handler && parent_event) {
+ 		overflow_handler = parent_event->overflow_handler;
+ 		context = parent_event->overflow_handler_context;
++#ifdef CONFIG_BPF_SYSCALL
++		if (overflow_handler == bpf_overflow_handler) {
++			struct bpf_prog *prog = bpf_prog_inc(parent_event->prog);
++
++			if (IS_ERR(prog)) {
++				err = PTR_ERR(prog);
++				goto err_ns;
++			}
++			event->prog = prog;
++			event->orig_overflow_handler =
++				parent_event->orig_overflow_handler;
 +		}
-+	}
-+
-+	if (max == MAX_IPS) {
-+		printf("WARNING: IP hash was full (max %d entries); ", max);
-+		printf("may have dropped samples\n");
-+	}
-+}
-+
-+static void int_exit(int sig)
-+{
-+	printf("\n");
-+	print_ip_map(map_fd[0]);
-+	exit(0);
-+}
-+
-+int main(int argc, char **argv)
-+{
-+	char filename[256];
-+	int *pmu_fd, opt, freq = DEFAULT_FREQ, secs = DEFAULT_SECS;
-+
-+	/* process arguments */
-+	while ((opt = getopt(argc, argv, "F:h")) != -1) {
-+		switch (opt) {
-+		case 'F':
-+			freq = atoi(optarg);
-+			break;
-+		case 'h':
-+		default:
-+			usage();
-+			return 0;
-+		}
-+	}
-+	if (argc - optind == 1)
-+		secs = atoi(argv[optind]);
-+	if (freq == 0 || secs == 0) {
-+		usage();
-+		return 1;
-+	}
-+
-+	/* initialize kernel symbol translation */
-+	if (load_kallsyms()) {
-+		fprintf(stderr, "ERROR: loading /proc/kallsyms\n");
-+		return 2;
-+	}
-+
-+	/* create perf FDs for each CPU */
-+	nr_cpus = sysconf(_SC_NPROCESSORS_CONF);
-+	pmu_fd = malloc(nr_cpus * sizeof(int));
-+	if (pmu_fd == NULL) {
-+		fprintf(stderr, "ERROR: malloc of pmu_fd\n");
-+		return 1;
-+	}
-+
-+	/* load BPF program */
-+	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
-+	if (load_bpf_file(filename)) {
-+		fprintf(stderr, "ERROR: loading BPF program (errno %d):\n",
-+			errno);
-+		if (strcmp(bpf_log_buf, "") == 0)
-+			fprintf(stderr, "Try: ulimit -l unlimited\n");
-+		else
-+			fprintf(stderr, "%s", bpf_log_buf);
-+		return 1;
-+	}
-+	signal(SIGINT, int_exit);
-+
-+	/* do sampling */
-+	printf("Sampling at %d Hertz for %d seconds. Ctrl-C also ends.\n",
-+	       freq, secs);
-+	if (sampling_start(pmu_fd, freq) != 0)
-+		return 1;
-+	sleep(secs);
-+	sampling_end(pmu_fd);
-+	free(pmu_fd);
-+
-+	/* output sample counts */
-+	print_ip_map(map_fd[0]);
-+
-+	return 0;
-+}
++#endif
+ 	}
+ 
+ 	if (overflow_handler) {
 -- 
 2.8.0
