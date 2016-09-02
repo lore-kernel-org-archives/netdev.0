@@ -1,41 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next 0/6] perf, bpf: add support for bpf in
- sw/hw perf_events
-Date: Fri, 02 Sep 2016 10:56:11 -0700 (PDT)
-Message-ID: <20160902.105611.321131888699056092.davem@davemloft.net>
-References: <1472780246-323814-1-git-send-email-ast@fb.com>
+Subject: Re: [PATCH RESEND net-next 13/15] smc: receive data from RMBE
+Date: Fri, 02 Sep 2016 10:59:33 -0700 (PDT)
+Message-ID: <20160902.105933.1696366729773029010.davem@davemloft.net>
+References: <653f839a-8098-da62-3437-8b002d929a50@linux.vnet.ibm.com>
+        <20160810.104556.1507709019319192063.davem@davemloft.net>
+        <7121effc-5f89-ac22-bbab-a8aedebae9fd@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peterz@infradead.org, bgregg@netflix.com, daniel@iogearbox.net,
-        acme@infradead.org, wangnan0@huawei.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel-team@fb.com
-To: ast@fb.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1472780246-323814-1-git-send-email-ast@fb.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+        schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+        utz.bacher@de.ibm.com
+To: ubraun@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54678 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751244AbcIBR7e (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 13:59:34 -0400
+In-Reply-To: <7121effc-5f89-ac22-bbab-a8aedebae9fd@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@fb.com>
-Date: Thu, 1 Sep 2016 18:37:20 -0700
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Date: Fri, 2 Sep 2016 15:05:01 +0200
 
-> Hi Peter, Dave,
-> 
-> this patch set is a follow up to the discussion:
-> https://lkml.kernel.org/r/20160804142853.GO6862%20()%20twins%20!%20programming%20!%20kicks-ass%20!%20net
-> It turned out to be simpler than what we discussed.
-> 
-> Patches 1-3 is bpf-side prep for the main patch 4
-> that adds bpf program as an overflow_handler to sw and hw perf_events.
-> 
-> Patches 5 and 6 are examples from myself and Brendan.
-> 
-> Peter,
-> to implement your suggestion to add ifdef CONFIG_BPF_SYSCALL
-> inside struct perf_event, I had to shuffle ifdefs in events/core.c
-> Please double check whether that is what you wanted to see.
-> 
-> v2->v3: fixed few more minor issues
-> v1->v2: fixed issues spotted by Peter and Daniel.
+> Understood, I wrongly used xchg() for atomicity. I now realize that I
+> would need cursor locking for 32-bit architectures - something I would
+> like to defer. Thus I would like to come up with V2 of SMC-R with
+> builds restricted to 64-bit architectures only, and thus no usage of
+> xchg() anymore.
 
-Series applied, thanks.
+Please don't restrict the driver build to 64-bit
