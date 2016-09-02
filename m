@@ -1,49 +1,48 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH v3 1/2] wcn36xx: Transition driver to SMD client
-Date: Fri, 2 Sep 2016 09:38:11 -0700
-Message-ID: <C322D204-A6C6-497B-BDA2-1734C775B651@holtmann.org>
-References: <1472741468-24762-1-git-send-email-bjorn.andersson@linaro.org> <87mvjqz2ul.fsf@kamboji.qca.qualcomm.com>
-Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Bjorn Andersson <bjorn.andersson@linaro.org>,
-        Eugene Krasnikov <k.eugene.e@gmail.com>,
-        wcn36xx@lists.infradead.org,
-        linux-wireless <linux-wireless@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        linux-arm-msm@vger.kernel.org
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87mvjqz2ul.fsf@kamboji.qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net-next 2/2] netns: avoid disabling irq for netns id
+Date: Fri, 2 Sep 2016 09:39:32 -0700
+Message-ID: <CAM_iQpUSoPHDCG5yehmgKgO99Qr_rtR0gZvEeOr3cO-o_LfuXQ@mail.gmail.com>
+References: <1472792025-14702-1-git-send-email-xiyou.wangcong@gmail.com>
+ <1472792025-14702-3-git-send-email-xiyou.wangcong@gmail.com> <7de98923-0cfb-5937-d32b-bdaee7ec10dc@6wind.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f67.google.com ([209.85.214.67]:35869 "EHLO
+        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932236AbcIBQjy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 12:39:54 -0400
+Received: by mail-it0-f67.google.com with SMTP id i184so2418150itf.3
+        for <netdev@vger.kernel.org>; Fri, 02 Sep 2016 09:39:53 -0700 (PDT)
+In-Reply-To: <7de98923-0cfb-5937-d32b-bdaee7ec10dc@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Kalle,
+On Fri, Sep 2, 2016 at 1:12 AM, Nicolas Dichtel
+<nicolas.dichtel@6wind.com> wrote:
+> Le 02/09/2016 =C3=A0 06:53, Cong Wang a =C3=A9crit :
+>> We never read or change netns id in hardirq context,
+>> the only place we read netns id in softirq context
+>> is in vxlan_xmit(). So, it should be enough to just
+>> disable BH.
+>
+> Are you sure? Did you audit all part of the code?
 
->> The wcn36xx wifi driver follows the life cycle of the WLAN_CTRL SMD
->> channel, as such it should be a SMD client. This patch makes this
->> transition, now that we have the necessary frameworks available.
->> 
->> Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
-> 
-> [...]
-> 
->> --- a/drivers/net/wireless/ath/wcn36xx/Kconfig
->> +++ b/drivers/net/wireless/ath/wcn36xx/Kconfig
->> @@ -1,6 +1,6 @@
->> config WCN36XX
->> 	tristate "Qualcomm Atheros WCN3660/3680 support"
->> -	depends on MAC80211 && HAS_DMA
->> +	depends on MAC80211 && HAS_DMA && QCOM_SMD
-> 
-> While I had this patch on my pending branch I noticed that I can't
-> compile wcn36xx on x86 anymore. This is actually quite inconvenient, for
-> example then it's easy to miss mac80211 API changes etc. Is there any
-> way we could continue build testing wcn36xx on x86 (or all) platforms?
+I did audit all the callers, and I didn't find any of them in IRQ context.
 
-I would also like that for the btqcomsmd Bluetooth driver. Doing quick build tests on x86 would be great.
+> peernet2id() is called from netlink core system (do_one_broadcast()). Are=
+ you
+> sure that no driver call this function from an hard irq context?
 
-Regards
+I audit all callers of netlink_broadcast(), and I don't see any of
+them in hardirq context.
 
-Marcel
+>
+> I think that NETLINK_LISTEN_ALL_NSID is largely untested, so it will be h=
+ard to
+> detect a bug introduced in this feature.
+
+This patch passed my netns stress tests, I have LOCKDEP enabled,
+and I don't get any warning or crash etc.
