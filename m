@@ -1,45 +1,58 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 3/3] net: dsa: mv88e6xxx: make global2 code
- optional
-Date: Fri, 2 Sep 2016 16:55:11 +0200
-Message-ID: <20160902145511.GH16864@lunn.ch>
-References: <20160902120819.10773-1-vivien.didelot@savoirfairelinux.com>
- <20160902120819.10773-4-vivien.didelot@savoirfairelinux.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net] bonding: Fix bonding crash
+Date: Fri, 2 Sep 2016 08:57:14 -0600
+Message-ID: <94a399f3-72b1-8895-b54f-c7d03878327e@cumulusnetworks.com>
+References: <1472793514-31850-1-git-send-email-mahesh@bandewar.net>
+ <a045ae10-e002-6658-575b-109e66056d5f@cumulusnetworks.com>
+ <1472827555.5439.22.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160902120819.10773-4-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Mahesh Bandewar <mahesh@bandewar.net>,
+        Jay Vosburgh <j.vosburgh@gmail.com>,
+        Andy Gospodarek <gospo@cumulusnetworks.com>,
+        Veaceslav Falico <vfalico@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Mahesh Bandewar <maheshb@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:35883 "EHLO
+        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751454AbcIBO5R (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 10:57:17 -0400
+Received: by mail-pf0-f170.google.com with SMTP id h186so43122542pfg.3
+        for <netdev@vger.kernel.org>; Fri, 02 Sep 2016 07:57:17 -0700 (PDT)
+In-Reply-To: <1472827555.5439.22.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 02, 2016 at 08:08:19AM -0400, Vivien Didelot wrote:
-> Since not every chip has a Global2 set of registers, make its support
-> optional, in which case the related functions will return -EOPNOTSUPP.
+On 9/2/16 8:45 AM, Eric Dumazet wrote:
+> On Fri, 2016-09-02 at 08:30 -0600, David Ahern wrote:
 > 
-> This also allows to reduce the size of the mv88e6xxx driver for devices
-> such as home routers embedding Ethernet chips without Global2 support.
+>> This check duplicates what netdev_rx_handler_register does. Why not
+>> move the call to netdev_rx_handler_register here and then call
+>> unregister on failure paths?
+> 
+> As soon as you call netdev_rx_handler_register(), incoming packets will
+> hit your driver and we'll likely crash since the enslaving is not done
+> yet.
+> 
+> Really think about RCU, we do rcu_assign_pointer() because we want all
+> prior changes being committed to memory before 'enabling' readers to see
+> the updated rcu protected pointer.
+> 
+> There are 9 call sites where netdev_rx_handler_register() is used.
+> 
+> We can get rid of the extra check in netdev_rx_handler_register() once
+> all of them are using netdev_is_rx_handler_busy()
+> 
+> Since this patch takes care of bonding only, we need to keep the
+> existing check in netdev_rx_handler_register()
+> 
+> Anyway, we are speaking of control function, an extra check is simply
+> safer, like all the ASSERT_RTNL() we do have...
+> 
 
-Hi Vivien
-
-I've no problems with splitting this out.
-
-However, making it optional? I don't think that is a good idea.
-
-1) If you don't have this, and you should, it looks like the PHYs stop
-working, and since you cannot set the switch MAC address, maybe Pause
-frames are broken.
-
-2) Distros won't build a kernel per target hardware. They probably
-build a kernel per SoC vendor. That means, they will have this
-optional code built all the time. Very few builds will leave it out.
-
-So the only way i think making this optional, is if it is a kernel
-module, and it gets loaded if needed.
-
-	Andrew
+I hit this same problem yesterday but with the bridge. I forgot I had a macvlan device on an interface and tried to enslave it to a bridge. It failed with EBUSY without crashing the kernel so it is one example that handles the conflict, and the bridge also calls the register before the enslaving is done.
