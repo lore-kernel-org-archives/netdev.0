@@ -1,41 +1,75 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net 0/2] vxlan: fix error reporting
-Date: Fri, 2 Sep 2016 18:41:50 +0200
-Message-ID: <20160902184150.03988a34@griffin>
-References: <cover.1472815982.git.jbenc@redhat.com>
-        <20160902090311.14acb0d1@xeon-e3>
+From: Bjorn Andersson <bjorn.andersson@linaro.org>
+Subject: Re: [PATCH v3 1/2] wcn36xx: Transition driver to SMD client
+Date: Fri, 2 Sep 2016 09:46:23 -0700
+Message-ID: <20160902164623.GY15161@tuxbot>
+References: <1472741468-24762-1-git-send-email-bjorn.andersson@linaro.org>
+ <87mvjqz2ul.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58940 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932236AbcIBQly (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 2 Sep 2016 12:41:54 -0400
-In-Reply-To: <20160902090311.14acb0d1@xeon-e3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eugene Krasnikov <k.eugene.e@gmail.com>,
+        wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-arm-msm@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <87mvjqz2ul.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2 Sep 2016 09:03:11 -0700, Stephen Hemminger wrote:
-> On Fri,  2 Sep 2016 13:37:10 +0200
-> Jiri Benc <jbenc@redhat.com> wrote:
+On Fri 02 Sep 09:24 PDT 2016, Kalle Valo wrote:
+
+> Bjorn Andersson <bjorn.andersson@linaro.org> writes:
 > 
-> > This patchset improves checking for invalid configuration in VXLAN and fixes
-> > problems with duplicated and inappropriate error messages.
-> > 
-> > Jiri Benc (2):
-> >   vxlan: reject multicast destination without an interface
-> >   vxlan: fix duplicated and wrong error messages
-> > 
-> >  drivers/net/vxlan.c | 38 ++++++++++++--------------------------
-> >  1 file changed, 12 insertions(+), 26 deletions(-)
-> > 
+> > The wcn36xx wifi driver follows the life cycle of the WLAN_CTRL SMD
+> > channel, as such it should be a SMD client. This patch makes this
+> > transition, now that we have the necessary frameworks available.
+> >
+> > Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
 > 
-> These should also be detected and rejected in iproute2
-> errors in kernel log are user unfriendly api.
+> [...]
+> 
+> > --- a/drivers/net/wireless/ath/wcn36xx/Kconfig
+> > +++ b/drivers/net/wireless/ath/wcn36xx/Kconfig
+> > @@ -1,6 +1,6 @@
+> >  config WCN36XX
+> >  	tristate "Qualcomm Atheros WCN3660/3680 support"
+> > -	depends on MAC80211 && HAS_DMA
+> > +	depends on MAC80211 && HAS_DMA && QCOM_SMD
+> 
+> While I had this patch on my pending branch I noticed that I can't
+> compile wcn36xx on x86 anymore. This is actually quite inconvenient, for
+> example then it's easy to miss mac80211 API changes etc. Is there any
+> way we could continue build testing wcn36xx on x86 (or all) platforms?
+> 
 
-I agree and I intend to send a patch once this is accepted.
+Sorry about that, we should at least be able to COMPILE_TEST it in
+non-qcom builds. Thanks for letting me know.
 
- Jiri
+And the driver should also depend on QCOM_WCNSS_CTRL, in the normal
+case.
+
+I'll respin this, unless you prefer an incremental patch for those
+changes(?)
+
+> Also what about older platforms? Earlier I used wcn36xx on my Nexus 4
+> with help of backports project. I can't do that anymore, right?
+> 
+
+This has been tested on 8064, 8974 and 8916. So your Nexus 4 is covered.
+
+Unfortunately I don't have a Nexus 4, but we currently have Nexus 7
+(the 8064 version), Xperia Z, Xperia Z1 and DB410c using this chip and
+all four has been tested with this code.
+
+I've staged the PIL/remoteproc (firmware "loader") driver for v4.9, so
+with this patch the only thing missing to fill in the dts files is one
+clock from the RPM.
+
+
+JFYI, There seems to be some race in the removal path, which I will look
+into. But I would prefer if we could merge this to make the driver
+usable, and more accessible to work on.
+
+Regards,
+Bjorn
