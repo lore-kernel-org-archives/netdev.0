@@ -1,60 +1,61 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net] bonding: Fix bonding crash
-Date: Fri, 2 Sep 2016 18:25:13 +0200
-Message-ID: <20160902162513.GA1768@nanopsycho.orion>
-References: <1472793514-31850-1-git-send-email-mahesh@bandewar.net>
- <20160902075241.GA1814@nanopsycho>
- <1472823200.5439.15.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Rainer Weikusat <rweikusat@cyberadapt.com>
+Subject: Re: possible circular locking dependency detected
+Date: Fri, 2 Sep 2016 17:10:13 +0100
+Message-ID: <87d1kme10a.fsf@doppelsaurus.mobileactivedefense.com>
+References: <871t13o1n1.fsf@doppelsaurus.mobileactivedefense.com>
+        <CA+55aFzbCDwOTbHiawpY2xSaR_EBkTDbYeJV3CH09OLLtPW3nw@mail.gmail.com>
+        <6f7d587b-3933-7c02-a804-db1732ced1cf@stressinduktion.org>
+        <CA+55aFyNJg_brA4rGF0S2ve0V_2vuhZCFKEMFDNhHKEXoVCRGA@mail.gmail.com>
+        <20160901204746.GR2356@ZenIV.linux.org.uk>
+        <CA+55aFxzRnLCev6i_ehw9LFf-dw3s0znF+nP_c86i=219OZhfg@mail.gmail.com>
+        <20160901210142.GS2356@ZenIV.linux.org.uk>
+        <CA+55aFzxJM4pbS_jySERnCoOvvPbo+FgM7FZEATLJnCseD0j0g@mail.gmail.com>
+        <CA+55aFwntZpaAutp_C=sLBg8ravfYGRoF4TTG1cfE3SjaJEOtw@mail.gmail.com>
+        <87lgzae3f7.fsf@doppelsaurus.mobileactivedefense.com>
+        <20160902160026.GT2356@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mahesh Bandewar <mahesh@bandewar.net>,
-        Jay Vosburgh <j.vosburgh@gmail.com>,
-        Andy Gospodarek <gospo@cumulusnetworks.com>,
-        Veaceslav Falico <vfalico@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Mahesh Bandewar <maheshb@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Rainer Weikusat <rweikusat@cyberadapt.com>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        CAI Qian <caiqian@redhat.com>,
+        Miklos Szeredi <miklos@szeredi.hu>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+        Eric Sandeen <esandeen@redhat.com>,
+        Network Development <netdev@vger.kernel.org>
+To: Al Viro <viro@ZenIV.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:38459 "EHLO
-        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932805AbcIBQZS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 12:25:18 -0400
-Received: by mail-wm0-f48.google.com with SMTP id 1so39909388wmz.1
-        for <netdev@vger.kernel.org>; Fri, 02 Sep 2016 09:25:17 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1472823200.5439.15.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-sn1nam02on0055.outbound.protection.outlook.com ([104.47.36.55]:30720
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S932715AbcIBQZL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 2 Sep 2016 12:25:11 -0400
+In-Reply-To: <20160902160026.GT2356@ZenIV.linux.org.uk> (Al Viro's message of
+        "Fri, 2 Sep 2016 17:00:26 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Sep 02, 2016 at 03:33:20PM CEST, eric.dumazet@gmail.com wrote:
->On Fri, 2016-09-02 at 09:52 +0200, Jiri Pirko wrote:
+Al Viro <viro@ZenIV.linux.org.uk> writes:
+> On Fri, Sep 02, 2016 at 04:18:04PM +0100, Rainer Weikusat wrote:
 >
->> 
->> No, please, don't make bonding a spacial citizen introducing this.
->> Please handle the issue inside the bonding code, like we do for the rest
->> of master devices (and how it was once done for bonding). Thanks.
+>> As far as I can tell, this should work as I can't currently imagine
+>> why a fs operation might end up binding a unix socket despite the
+>> idea to make af_unix.c yet more complicated in order to work around
+>> irregular behaviour of (as far as I can tell) a single filesystem
+>> (for which kern_path_create doesn't really mean kern_path_create and
+>> it has to work around that once it gets control) goes against all
+>> instincts I have in this area. If filesystems need to do arbitrary
+>> stuff when __sb_start_write is called for 'their' superblock, they
+>> should be able to do so directly.
 >
->I do not feel this netdev_is_rx_handler_busy() use is special to
->bonding.
->
->It makes sense to use it early, to avoid complex rollback, once various
->events have been sent all over.
->
->bond_enslave() is 447 lines long already.
->
->You perfectly know how hard it is to 'handle the issue inside the
->bonding code' as you chose to not fix bonding and write team instead.
->
->So Mahesh patch makes perfect sense to me. It exactly fixes a stupid
->bond_enslave() behavior, trying to set rx_handler way too late.
->
->By doing sanity checks before any action, we simply do not have to add
->complex rollback.
+> Bullshit.  kern_path_create() *does* mean the same thing in all cases.
+> Namely, find the parent, lock it and leave the final name component for
+> the create-type operation.  It sure as hell is not guaranteed to take
+> *all* locks that are going to be taken in process of mknod/mkdir/etc.
+> Never had been.
 
-Understand the reason. All I say is we tried hard (I surely did) in
-the past to remove bonding specific quirks and now we are adding one.
-And the simple reason is that the code is such a mess.
-
-Just use team instead and you'll be fine. You can "google" it :)
+This isn't about "all locks", it's about the lock in question. No other
+mknod operation (I'm aware of) calls this with another superblock than
+the one already acted upon by kern_path_create. This may be wrong (if
+so, feel free to correct it) but it's not "bullshit" (intentional
+deception in order to sell something to someone).
