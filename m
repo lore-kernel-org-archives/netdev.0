@@ -1,7 +1,7 @@
 From: Pavel Tikhomirov <ptikhomirov@virtuozzo.com>
-Subject: [PATCH 2/6] ip: merge together all save_xxx to save_nlmsg
-Date: Fri,  2 Sep 2016 12:02:22 +0300
-Message-ID: <1472806946-16575-3-git-send-email-ptikhomirov@virtuozzo.com>
+Subject: [PATCH 5/6] ip xfrm state: fixup hard/soft timeouts/limits while save
+Date: Fri,  2 Sep 2016 12:02:25 +0300
+Message-ID: <1472806946-16575-6-git-send-email-ptikhomirov@virtuozzo.com>
 References: <1472806946-16575-1-git-send-email-ptikhomirov@virtuozzo.com>
 Cc: Stephen Hemminger <stephen@networkplumber.org>,
         Konstantin Khorenko <khorenko@virtuozzo.com>,
@@ -9,139 +9,191 @@ Cc: Stephen Hemminger <stephen@networkplumber.org>,
         Pavel Tikhomirov <ptikhomirov@virtuozzo.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:30501 "EHLO relay.sw.ru"
+Received: from mailhub.sw.ru ([195.214.232.25]:47030 "EHLO relay.sw.ru"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752419AbcIBJGG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1752415AbcIBJGG (ORCPT <rfc822;netdev@vger.kernel.org>);
         Fri, 2 Sep 2016 05:06:06 -0400
 In-Reply-To: <1472806946-16575-1-git-send-email-ptikhomirov@virtuozzo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-want to reuse them in xfrm state/policy save
+introduce "fixlimits" option of "ip xfrm state save",
+if have these option we will change the limits saved to
+dump file according to the real passed time/bytes/packets
+since the state add-time.
+
+For instance, we have a process in container which set
+xfrm state 10sec ago with a timeout of 30sec and now we
+do C/R for the whole container. As the process in question
+knows nothing about C/R, after restore it might expect that
+xfrm state dissappears in 30-10=20sec, so we need to set
+timeout to 20. If difference is <=0 set 1 at least to do
+not lose the limit completely.
 
 Signed-off-by: Pavel Tikhomirov <ptikhomirov@virtuozzo.com>
 ---
- ip/ip_common.h |  2 ++
- ip/ipaddress.c | 14 --------------
- ip/iproute.c   | 23 +++++++++++++++--------
- ip/iprule.c    | 16 +---------------
- 4 files changed, 18 insertions(+), 37 deletions(-)
+ ip/xfrm_state.c    | 88 ++++++++++++++++++++++++++++++++++++++++++++++++++++--
+ man/man8/ip-xfrm.8 | 10 ++++++-
+ 2 files changed, 95 insertions(+), 3 deletions(-)
 
-diff --git a/ip/ip_common.h b/ip/ip_common.h
-index 8e7a2c9..69e028d 100644
---- a/ip/ip_common.h
-+++ b/ip/ip_common.h
-@@ -69,6 +69,8 @@ static inline int rtm_get_table(struct rtmsg *r, struct rtattr **tb)
+diff --git a/ip/xfrm_state.c b/ip/xfrm_state.c
+index 56d9f22..6c55b3e 100644
+--- a/ip/xfrm_state.c
++++ b/ip/xfrm_state.c
+@@ -32,6 +32,7 @@
+ #include "xfrm.h"
+ #include "ip_common.h"
+ #include <errno.h>
++#include <time.h>
  
- extern int dump_write_magic(__u32 dump_magic);
- extern int dump_check_magic(__u32 dump_magic);
-+extern int save_nlmsg(const struct sockaddr_nl *who,
-+		struct nlmsghdr *n, void *arg);
+ /* #define NLMSG_DELETEALL_BUF_SIZE (4096-512) */
+ #define NLMSG_DELETEALL_BUF_SIZE 8192
+@@ -66,7 +67,8 @@ static void usage(void)
+ 	fprintf(stderr, "Usage: ip xfrm state { delete | get } ID [ mark MARK [ mask MASK ] ]\n");
+ 	fprintf(stderr, "Usage: ip xfrm state { deleteall | list } [ ID ] [ mode MODE ] [ reqid REQID ]\n");
+ 	fprintf(stderr, "        [ flag FLAG-LIST ]\n");
+-	fprintf(stderr, "Usage: ip xfrm state { save | restore }\n");
++	fprintf(stderr, "Usage: ip xfrm state save [ fixlimits ]\n");
++	fprintf(stderr, "Usage: ip xfrm state restore\n");
+ 	fprintf(stderr, "Usage: ip xfrm state flush [ proto XFRM-PROTO ]\n");
+ 	fprintf(stderr, "Usage: ip xfrm state count\n");
+ 	fprintf(stderr, "ID := [ src ADDR ] [ dst ADDR ] [ proto XFRM-PROTO ] [ spi SPI ]\n");
+@@ -1077,10 +1079,89 @@ static int xfrm_state_keep(const struct sockaddr_nl *who,
  
- extern struct rtnl_handle rth;
+ static __u32 state_dump_magic = 0x71706987;
  
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 995813e..8b2051c 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -1261,20 +1261,6 @@ static int store_nlmsg(const struct sockaddr_nl *who, struct nlmsghdr *n,
- 
- static __u32 ipadd_dump_magic = 0x47361222;
- 
--static int save_nlmsg(const struct sockaddr_nl *who, struct nlmsghdr *n,
--		       void *arg)
--{
--	int ret;
--
--	ret = write(STDOUT_FILENO, n, n->nlmsg_len);
--	if ((ret > 0) && (ret != n->nlmsg_len)) {
--		fprintf(stderr, "Short write while saving nlmsg\n");
--		ret = -EIO;
--	}
--
--	return ret == n->nlmsg_len ? 0 : ret;
--}
--
- static int show_handler(const struct sockaddr_nl *nl,
- 			struct rtnl_ctrl_data *ctrl,
- 			struct nlmsghdr *n, void *arg)
-diff --git a/ip/iproute.c b/ip/iproute.c
-index 3c24250..4f29739 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -1309,10 +1309,23 @@ static int iproute_flush_cache(void)
- 
- static __u32 route_dump_magic = 0x45311224;
- 
-+int save_nlmsg(const struct sockaddr_nl *who, struct nlmsghdr *n,
-+		       void *arg)
++static inline void fixup_lft_limit(__u64 *lft_limit, __u64 lft_cur)
 +{
-+	int ret;
-+
-+	ret = write(STDOUT_FILENO, n, n->nlmsg_len);
-+	if ((ret > 0) && (ret != n->nlmsg_len)) {
-+		fprintf(stderr, "Short write while saving nlmsg\n");
-+		ret = -EIO;
-+	}
-+
-+	return ret == n->nlmsg_len ? 0 : ret;
++	if (lft_cur < *lft_limit)
++		/*
++		 * Limit is not yet hit, decrease it by
++		 * current lifetime
++		 */
++		*lft_limit -= lft_cur;
++	else
++		/*
++		 * Limit is already hit or almost hit, set it
++		 * to 1 to hit it imediately after restore
++		 */
++		*lft_limit = 1;
 +}
 +
- static int save_route(const struct sockaddr_nl *who, struct nlmsghdr *n,
- 		      void *arg)
- {
--	int ret;
- 	int len = n->nlmsg_len;
- 	struct rtmsg *r = NLMSG_DATA(n);
- 	struct rtattr *tb[RTA_MAX+1];
-@@ -1325,13 +1338,7 @@ static int save_route(const struct sockaddr_nl *who, struct nlmsghdr *n,
- 	if (!filter_nlmsg(n, tb, host_len))
- 		return 0;
- 
--	ret = write(STDOUT_FILENO, n, n->nlmsg_len);
--	if ((ret > 0) && (ret != n->nlmsg_len)) {
--		fprintf(stderr, "Short write while saving nlmsg\n");
--		ret = -EIO;
--	}
--
--	return ret == n->nlmsg_len ? 0 : ret;
++static int fixup_lifetime(struct xfrm_lifetime_cur *curlft, struct xfrm_lifetime_cfg *lft)
++{
++	unsigned long now;
++	__u64 time_since_add, time_since_use;
++
++	now = time(NULL);
++	if (now < 0) {
++		fprintf(stderr, "Failed to get current time\n");
++		return -1;
++	}
++	time_since_add = now - curlft->add_time;
++	time_since_use = now - (curlft->use_time ? : curlft->add_time);
++
++	/* Fixup expire timeouts */
++	if (lft->hard_add_expires_seconds)
++		fixup_lft_limit(&lft->hard_add_expires_seconds, time_since_add);
++	if (lft->hard_use_expires_seconds)
++		fixup_lft_limit(&lft->hard_use_expires_seconds, time_since_use);
++	if (lft->soft_add_expires_seconds)
++		fixup_lft_limit(&lft->soft_add_expires_seconds, time_since_add);
++	if (lft->soft_use_expires_seconds)
++		fixup_lft_limit(&lft->soft_use_expires_seconds, time_since_use);
++
++	/* Fixup expire limits */
++	if (lft->hard_byte_limit != XFRM_INF)
++		fixup_lft_limit(&lft->hard_byte_limit, curlft->bytes);
++	if (lft->hard_packet_limit != XFRM_INF)
++		fixup_lft_limit(&lft->hard_packet_limit, curlft->packets);
++	if (lft->soft_byte_limit != XFRM_INF)
++		fixup_lft_limit(&lft->soft_byte_limit, curlft->bytes);
++	if (lft->soft_packet_limit != XFRM_INF)
++		fixup_lft_limit(&lft->soft_packet_limit, curlft->packets);
++
++	return 0;
++}
++
++static int save_state(const struct sockaddr_nl *who, struct nlmsghdr *n,
++		void *arg)
++{
++	struct xfrm_usersa_info *xsinfo;
++	int len = n->nlmsg_len;
++
++	if (n->nlmsg_type != XFRM_MSG_NEWSA) {
++		fprintf(stderr, "BUG: wrong nlmsg_type: %08x\n",
++			n->nlmsg_type);
++		return -1;
++	}
++
++	xsinfo = NLMSG_DATA(n);
++	len -= NLMSG_SPACE(sizeof(*xsinfo));
++
++	if (len < 0) {
++		fprintf(stderr, "BUG: wrong nlmsg len %d\n", len);
++		return -1;
++	}
++
++	if (fixup_lifetime(&xsinfo->curlft, &xsinfo->lft))
++		return -1;
++
 +	return save_nlmsg(who, n, arg);
- }
- 
- int dump_write_magic(__u32 dump_magic)
-diff --git a/ip/iprule.c b/ip/iprule.c
-index 7de5abc..3a92416 100644
---- a/ip/iprule.c
-+++ b/ip/iprule.c
-@@ -211,20 +211,6 @@ int print_rule(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 
- static __u32 rule_dump_magic = 0x71706986;
- 
--static int save_rule(const struct sockaddr_nl *who,
--		     struct nlmsghdr *n, void *arg)
--{
--	int ret;
--
--	ret = write(STDOUT_FILENO, n, n->nlmsg_len);
--	if ((ret > 0) && (ret != n->nlmsg_len)) {
--		fprintf(stderr, "Short write while saving nlmsg\n");
--		ret = -EIO;
--	}
--
--	return ret == n->nlmsg_len ? 0 : ret;
--}
--
- static int iprule_list_or_save(int argc, char **argv, int save)
++}
++
+ static int xfrm_state_list_deleteall_or_save(int argc, char **argv, int deleteall, int save)
  {
- 	rtnl_filter_t filter = print_rule;
-@@ -242,7 +228,7 @@ static int iprule_list_or_save(int argc, char **argv, int save)
- 	if (save) {
- 		if (dump_write_magic(rule_dump_magic))
- 			return -1;
--		filter = save_rule;
-+		filter = save_nlmsg;
- 	}
+ 	char *idp = NULL;
+ 	struct rtnl_handle rth;
++	int fixlimits = 0;
  
- 	if (rtnl_wilddump_request(&rth, af, RTM_GETRULE) < 0) {
+ 	if (argc > 0)
+ 		filter.use = 1;
+@@ -1105,6 +1186,9 @@ static int xfrm_state_list_deleteall_or_save(int argc, char **argv, int deleteal
+ 
+ 			filter.state_flags_mask = XFRM_FILTER_MASK_FULL;
+ 
++		} else if (strcmp(*argv, "fixlimits") == 0) {
++			fixlimits = 1;
++
+ 		} else {
+ 			if (idp)
+ 				invarg("unknown", *argv);
+@@ -1179,7 +1263,7 @@ static int xfrm_state_list_deleteall_or_save(int argc, char **argv, int deleteal
+ 		if (save) {
+ 			if (dump_write_magic(state_dump_magic))
+ 				return -1;
+-			rtnl_filter = save_nlmsg;
++			rtnl_filter = fixlimits ? save_state : save_nlmsg;
+ 		}
+ 
+ 		struct xfrm_address_filter addrfilter = {
+diff --git a/man/man8/ip-xfrm.8 b/man/man8/ip-xfrm.8
+index f5b8290..2fd088d 100644
+--- a/man/man8/ip-xfrm.8
++++ b/man/man8/ip-xfrm.8
+@@ -104,7 +104,7 @@ ip-xfrm \- transform configuration
+ .BR "ip xfrm state count"
+ 
+ .ti -8
+-.BR "ip xfrm state save"
++.BR "ip xfrm state save" " [ " fixlimits " ]"
+ 
+ .ti -8
+ .BR "ip xfrm state restore"
+@@ -550,6 +550,14 @@ encapsulates packets with protocol
+ .RI "using source port " SPORT ", destination port "  DPORT
+ .RI ", and original address " OADDR "."
+ 
++.P
++If the
++.BI fixlimits
++option is set on save, change entry
++.I LIMITs
++saved to dump file according to the real time/bytes/packets passed
++since entry add-time.
++
+ .sp
+ .PP
+ .TS
 -- 
 2.5.5
