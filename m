@@ -1,76 +1,159 @@
-From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: [PATCH iproute2 net-next] nstat: add sctp snmp support
-Date: Fri,  2 Sep 2016 15:12:38 +0800
-Message-ID: <1472800358-31881-1-git-send-email-liuhangbin@gmail.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        Phil Sutter <phil@nwl.cc>, Hangbin Liu <liuhangbin@gmail.com>
-To: netdev@vger.kernel.org
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH net-next v2] gso: Support partial splitting at the
+ frag_list pointer
+Date: Fri, 2 Sep 2016 09:25:33 +0200
+Message-ID: <20160902072533.GG3735@gauss.secunet.com>
+References: <20160831104128.GE3735@gauss.secunet.com>
+ <CAKgT0UcnkRdjo2oeL_G_JAWk9RpFEhpqG-oYZG7Z70Yb_KwbfQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: Netdev <netdev@vger.kernel.org>,
+        Alexander Duyck <alexander.h.duyck@intel.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        "Marcelo Ricardo Leitner" <marcelo.leitner@gmail.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35603 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751302AbcIBHMw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 03:12:52 -0400
-Received: by mail-pf0-f195.google.com with SMTP id h186so5427596pfg.2
-        for <netdev@vger.kernel.org>; Fri, 02 Sep 2016 00:12:52 -0700 (PDT)
+Received: from a.mx.secunet.com ([62.96.220.36]:38858 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751797AbcIBHsE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 2 Sep 2016 03:48:04 -0400
+Content-Disposition: inline
+In-Reply-To: <CAKgT0UcnkRdjo2oeL_G_JAWk9RpFEhpqG-oYZG7Z70Yb_KwbfQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SCTP module was not load by default. But this should be OK since we will not
-load table if fdopen() failed.
+On Wed, Aug 31, 2016 at 10:25:59AM -0700, Alexander Duyck wrote:
+> On Wed, Aug 31, 2016 at 3:41 AM, Steffen Klassert
+> <steffen.klassert@secunet.com> wrote:
+> >
+> > -       /* GSO partial only requires that we trim off any excess that
+> > -        * doesn't fit into an MSS sized block, so take care of that
+> > -        * now.
+> > -        */
+> > -       if (sg && csum && (features & NETIF_F_GSO_PARTIAL)) {
+> > -               partial_segs = len / mss;
+> > -               if (partial_segs > 1)
+> > -                       mss *= partial_segs;
+> > -               else
+> > -                       partial_segs = 0;
+> > +       if (sg && csum) {
+> 
+> Actually you could also put the && (mss != GSO_BY_FRAGS) test up here
+> as well.  The GSO_PARTIAL code doesn't make any sense if we are
+> segmenting by frags.
+> 
 
-Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
----
- misc/nstat.c | 17 +++++++++++++++++
- 1 file changed, 17 insertions(+)
+Ok, we can do that.
 
-diff --git a/misc/nstat.c b/misc/nstat.c
-index 6143719..8035be4 100644
---- a/misc/nstat.c
-+++ b/misc/nstat.c
-@@ -76,6 +76,11 @@ static int net_snmp6_open(void)
- 	return generic_proc_open("PROC_NET_SNMP6", "net/snmp6");
- }
- 
-+static int net_sctp_snmp_open(void)
-+{
-+	return generic_proc_open("PROC_NET_SCTP_SNMP", "net/sctp/snmp");
-+}
-+
- struct nstat_ent {
- 	struct nstat_ent *next;
- 	char		 *id;
-@@ -247,6 +252,16 @@ static void load_ugly_table(FILE *fp)
- 	}
- }
- 
-+static void load_sctp_snmp(void)
-+{
-+	FILE *fp = fdopen(net_sctp_snmp_open(), "r");
-+
-+	if (fp) {
-+		load_good_table(fp);
-+		fclose(fp);
-+	}
-+}
-+
- static void load_snmp(void)
- {
- 	FILE *fp = fdopen(net_snmp_open(), "r");
-@@ -450,6 +465,7 @@ static void server_loop(int fd)
- 	load_netstat();
- 	load_snmp6();
- 	load_snmp();
-+	load_sctp_snmp();
- 
- 	for (;;) {
- 		int status;
-@@ -706,6 +722,7 @@ int main(int argc, char *argv[])
- 		load_netstat();
- 		load_snmp6();
- 		load_snmp();
-+		load_sctp_snmp();
- 		if (info_source[0] == 0)
- 			strcpy(info_source, "kernel");
- 	}
--- 
-2.5.5
+> > +               /* GSO partial only requires that we trim off any excess that
+> > +                * doesn't fit into an MSS sized block, so take care of that
+> > +                * now.
+> > +                */
+> > +               if ((features & NETIF_F_GSO_PARTIAL)) {
+> > +                       partial_segs = len / mss;
+> > +                       if (partial_segs > 1)
+> > +                               mss *= partial_segs;
+> > +                       else
+> > +                               partial_segs = 0;
+> > +               } else if (list_skb && (mss != GSO_BY_FRAGS) &&
+> > +                          net_gso_ok(features, skb_shinfo(head_skb)->gso_type)) {
+> > +                       struct sk_buff *iter;
+> 
+> Actually I think we have the ordering backwards here by a little bit.
+> What we should probably be doing is your test for list_skb and such
+> first and then checking for GSO_PARTIAL.  If I am not mistaken we
+> could end up with a situation where we have buffers with a frag_list
+> that need to be partially segmented. 
+
+Hm, when I look at __skb_gso_segment(), you remove NETIF_F_GSO_PARTIAL
+from features if skb_gso_ok() returns false. So you do GSO partial only
+if this buffer has no fraglist or if NETIF_F_FRAGLIST is set. This
+means that we either don't need or don't want to do the fraglist
+splitting in the GSO partial case.
+
+> Also I think we can merge
+> partial_segs and fraglist_segs into one thing.
+
+Given that my assumption above is true, we could check
+!(features & NETIF_F_GSO_PARTIAL). Then I do my stuff
+if needed and then we do what's needed in both cases.
+> 
+> > +
+> > +                       /* Split the buffer at the frag_list pointer. This is
+> > +                        * based on the assumption that all buffers in the chain
+> > +                        * excluding the last containing the same amount of data.
+> > +                        */
+> > +                       skb_walk_frags(head_skb, iter) {
+> > +                               if (skb_headlen(iter))
+> > +                                       goto normal;
+> > +
+> > +                               len -= iter->len;
+> > +                       }
+> 
+> What you could probably do here is actually have a goto that jumps
+> into the code for NETIF_F_GSO_PARTIAL.  If we do that then these two
+> paths are mostly merged.
+> 
+> > +                       fraglist_segs = len / mss;
+> > +                       if (fraglist_segs > 1)
+> > +                               mss *= fraglist_segs;
+> > +                       else
+> > +                               fraglist_segs = 0;
+> > +               }
+> >         }
+> >
+> > +normal:
+> >         headroom = skb_headroom(head_skb);
+> >         pos = skb_headlen(head_skb);
+> >
+> 
+> So one bit I can think of that might be an issue if we have to do both
+> this and GSO_PARTIAL is that we might end up with a last chunk that
+> has to be segmented twice, once to get rid of frag_list and again to
+> trim the end piece off so that we are are evenly MSS aligned.
+
+As said above, I currently don't think that this can happen.
+
+> 
+> > @@ -3298,6 +3321,19 @@ perform_csum_check:
+> >                 SKB_GSO_CB(segs)->data_offset = skb_headroom(segs) + doffset;
+> >         }
+> >
+> > +       if (fraglist_segs) {
+> > +               struct sk_buff *iter;
+> > +
+> > +               for (iter = segs; iter; iter = iter->next) {
+> > +                       skb_shinfo(iter)->gso_size = skb_shinfo(head_skb)->gso_size;
+> > +
+> > +                       if (iter->next)
+> > +                               skb_shinfo(iter)->gso_segs = fraglist_segs;
+> > +                       else
+> > +                               skb_shinfo(iter)->gso_segs = iter->len / skb_shinfo(head_skb)->gso_size;
+> 
+> It might be faster to just set gso_segs to fraglist_segs in every
+> iteration of the loop, and then outside of the loop you could update
+> the tail skb.  It will save the effort of a test and jump which should
+> be a few cycles per iteration.  Also you will probably need to fixup
+> gso_size for the tail segment.  If the length less than or equal to
+> gso_size then you need to drop gso_size to 0, otherwise you update
+> gso_segs.  Also I am pretty sure you will want to use a DIV_ROUND_UP
+> logic for the segments since you want to reflect the actual packet
+> count.
+> 
+> Also this is still doing the same thing as I do at the end of the loop
+> in the conditional section for partial segs.  What we may want to do
+> is just tweak the bits I have in that block with a check that is
+> something along the lines of:
+>                 /* Update type to add partial and then remove dodgy if set */
+>                 type |= (features & NETIF_F_GSO_PARTIAL) /
+> NETIF_F_GSO_PARTIAL * SKB_GSO_PARTIAL;
+>                 type &= ~SKB_GSO_DODGY;
+> 
+> That bit of code is just a fancy way of setting the SKB_GSO_PARTIAL
+> bit only if the NETIF_F_GSO_PARTIAL feature bit is set.  Since we can
+> avoid conditional jumps that way it usually runs faster since it is
+> just an AND, SHIFT, and OR and I don't have any CPU flags to worry
+> about.  Once you have type recorded you could just set the 4 values I
+> do in your loop and then fixup the last one.
+
+OK, sounds reasonable.
