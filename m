@@ -1,36 +1,32 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: [v2] ath9k: mark ath_fill_led_pin() static
-Date: Fri, 2 Sep 2016 18:09:12 +0200
-Message-ID: <7db487f5a15c4563a92de6da26a633fd@euamsexm01a.eu.qualcomm.com>
-References: <1472473273-2972-1-git-send-email-baoyou.xie@linaro.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 3/3] net: dsa: mv88e6xxx: make global2 code
+ optional
+Date: Fri, 2 Sep 2016 18:11:48 +0200
+Message-ID: <20160902161148.GK16864@lunn.ch>
+References: <20160902120819.10773-1-vivien.didelot@savoirfairelinux.com>
+ <20160902120819.10773-4-vivien.didelot@savoirfairelinux.com>
+ <20160902145511.GH16864@lunn.ch>
+ <87k2eugwcs.fsf@ketchup.mtl.sfl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <ath9k-devel@qca.qualcomm.com>, <kvalo@codeaurora.org>,
-        <linux-wireless@vger.kernel.org>, <ath9k-devel@lists.ath9k.org>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <arnd@arndb.de>, <baoyou.xie@linaro.org>, <xie.baoyou@zte.com.cn>
-To: Baoyou Xie <baoyou.xie@linaro.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1472473273-2972-1-git-send-email-baoyou.xie@linaro.org>
+Content-Disposition: inline
+In-Reply-To: <87k2eugwcs.fsf@ketchup.mtl.sfl>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Baoyou Xie <baoyou.xie@linaro.org> wrote:
-> We get 1 warning about global functions without a declaration
-> in the ath9k gpio driver when building with W=1:
-> drivers/net/wireless/ath/ath9k/gpio.c:25:6: warning: no previous prototype for 'ath_fill_led_pin' [-Wmissing-prototypes]
-> 
-> In fact, this function is only used in the file in which it is declared
-> and don't need a declaration, but can be made static.
-> so this patch marks it 'static'.
-> 
-> Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
+Hi Vivien
 
-Thanks, 1 patch applied to ath-next branch of ath.git:
+> What do you think?
 
-c39265f72ae6 ath9k: mark ath_fill_led_pin() static
+I think the probe() needs to fail with a very obvious error message
+saying you need to recompile your kernel with option XYZ enabled in
+order to support this switch, when the optional stuff is not
+optional...
 
--- 
-Sent by pwcli
-https://patchwork.kernel.org/patch/9303795/
+	Andrew
