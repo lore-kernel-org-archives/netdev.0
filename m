@@ -1,65 +1,53 @@
-From: Brenden Blanco <bblanco@plumgrid.com>
-Subject: Re: [PATCH] net/mlx4_en: protect ring->xdp_prog with rcu_read_lock
-Date: Fri, 2 Sep 2016 10:50:10 -0700
-Message-ID: <20160902175006.GA14176@gmail.com>
-References: <20160826203808.23664-1-bblanco@plumgrid.com>
- <c03157a0-b7d0-bde7-0fe9-4f3b19a68d08@mellanox.com>
- <20160829155558.GA13971@gmail.com>
- <CALx6S34nt0iLEse45y4UrJFbfBFNoZ6oYzu+3Hdq3A=6Rn9hrg@mail.gmail.com>
- <CALzJLG8WGA5+cbyMd2f8Y2Qpcx=b72r2hSZ7Vn7+N-o3BzBvZw@mail.gmail.com>
- <20160831015058.GA30198@gmail.com>
- <CALzJLG-RPMuiFTku4BVE5MgtAQV6WS0DLhxHymE6ydh9JccdKQ@mail.gmail.com>
- <CALx6S37A9QimRinL7YAcoSh8MRn6jpJ7pMZwqGLGiTeaBoBORg@mail.gmail.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: possible circular locking dependency detected
+Date: Fri, 2 Sep 2016 18:52:06 +0100
+Message-ID: <20160902175206.GV2356@ZenIV.linux.org.uk>
+References: <20160901204746.GR2356@ZenIV.linux.org.uk>
+ <CA+55aFxzRnLCev6i_ehw9LFf-dw3s0znF+nP_c86i=219OZhfg@mail.gmail.com>
+ <20160901210142.GS2356@ZenIV.linux.org.uk>
+ <CA+55aFzxJM4pbS_jySERnCoOvvPbo+FgM7FZEATLJnCseD0j0g@mail.gmail.com>
+ <CA+55aFwntZpaAutp_C=sLBg8ravfYGRoF4TTG1cfE3SjaJEOtw@mail.gmail.com>
+ <87lgzae3f7.fsf@doppelsaurus.mobileactivedefense.com>
+ <20160902160026.GT2356@ZenIV.linux.org.uk>
+ <87d1kme10a.fsf@doppelsaurus.mobileactivedefense.com>
+ <20160902170256.GU2356@ZenIV.linux.org.uk>
+ <CA+55aFz-TaU=C47Rna4b_pibKPfabXWtt88gaqWkUdcN9ay9nQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Tariq Toukan <ttoukan.linux@gmail.com>,
-        Or Gerlitz <gerlitz.or@gmail.com>
-To: Tom Herbert <tom@herbertland.com>
+Cc: Rainer Weikusat <rweikusat@cyberadapt.com>,
+        CAI Qian <caiqian@redhat.com>,
+        Miklos Szeredi <miklos@szeredi.hu>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+        Eric Sandeen <esandeen@redhat.com>,
+        Network Development <netdev@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:36232 "EHLO
-        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752509AbcIBRuN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 13:50:13 -0400
-Received: by mail-pf0-f181.google.com with SMTP id h186so44392080pfg.3
-        for <netdev@vger.kernel.org>; Fri, 02 Sep 2016 10:50:13 -0700 (PDT)
+Received: from zeniv.linux.org.uk ([195.92.253.2]:59418 "EHLO
+        ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754502AbcIBRwO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 13:52:14 -0400
 Content-Disposition: inline
-In-Reply-To: <CALx6S37A9QimRinL7YAcoSh8MRn6jpJ7pMZwqGLGiTeaBoBORg@mail.gmail.com>
+In-Reply-To: <CA+55aFz-TaU=C47Rna4b_pibKPfabXWtt88gaqWkUdcN9ay9nQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 01, 2016 at 04:30:28PM -0700, Tom Herbert wrote:
-[...]
-> > Yep, but this is an unlikely condition and the critical code here is
-> > much smaller and it is more clear that the rcu_read_lock here meant to
-> > protect the ring->xdp_prog under this small xdp critical section in
-> > comparison to your patch where it is held across the whole RX
-> > function.
+On Fri, Sep 02, 2016 at 10:12:08AM -0700, Linus Torvalds wrote:
+> On Fri, Sep 2, 2016 at 10:02 AM, Al Viro <viro@zeniv.linux.org.uk> wrote:
+> >
+> > It's very much _not_ just overlayfs being pathological - that it certainly is,
+> > but the problem is much wider.
 > 
-> Note that there is already an rcu_read_lock potentially per packet
-> buried in the function, if the whole function is under rcu_read_lock
-> then that can be removed.
-Yes I was aware of that, I had left it as-is since: 1. it seemed to be
-in an exception path and less performance sensitive to nested calls, and
-2. in case some future developer removed the top-level rcu_read_lock,
-the finer-grained one would have been unprotected if not code reviewed
-carefully.
+> Al, can you take a look at my two patches, and see if you agree that
+> they fix it, though?
 
-I'll instead add a note at the top pointing out the dual need for the
-lock, to address both yours and Saeed's comments.
+AFAICS, they should.  Locking is obviously saner that way and AFAICS the
+rest is absolutely straightforward.
 
-As a side note, when considering the idea of moving the rcu_read_lock to
-a more generic location (napi), I had toyed with the idea of
-benchmarking to see if removing the actually-fast-path use of
-rcu_read_lock in netif_receive_skb_internal could have any performance
-benefit for the universal use case (non-xdp). However, that seems
-completely out of scope at the moment, and only beneficial for
-non-standard (IMO) .configs, besides being much harder to review. It was
-showing up in perf at about 1-2% overhead in preempt=y kernels.
-> 
-> Tom
+Acked-by: Al Viro <viro@zeniv.linux.org.uk>
+
+> Of course, we now have *another* splice deadlock. That pipe inode is
+> nasty, it's very easy to deadlock on it in subtle ways.
+
+I'm still digging through iomap.c, but that's better taken to another branch
+of this thread...
