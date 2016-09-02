@@ -1,73 +1,67 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH] softirq: let ksoftirqd do its job
-Date: Fri, 2 Sep 2016 10:35:34 +0200
-Message-ID: <20160902103534.670b8f6a@redhat.com>
-References: <1472665349.14381.356.camel@edumazet-glaptop3.roam.corp.google.com>
-        <20160831214043.2f44cf08@redhat.com>
-        <1472676150.14381.363.camel@edumazet-glaptop3.roam.corp.google.com>
-        <20160831235116.33b1946b@redhat.com>
-        <20160901130231.58355405@redhat.com>
-        <20160901115356.GT10153@twins.programming.kicks-ass.net>
-        <20160901142925.63a5031b@redhat.com>
-        <20160901143859.730826ed@redhat.com>
-        <20160901124839.GU10153@twins.programming.kicks-ass.net>
-        <20160901153042.465b864e@redhat.com>
-        <20160901152802.GV10153@twins.programming.kicks-ass.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v3 0/5] meson: Meson8b and GXBB DWMAC glue driver
+Date: Fri, 02 Sep 2016 10:50:38 +0200
+Message-ID: <5097106.VWHdyQfjWO@wuerfel>
+References: <CAFBinCCmg-+8mjd0Xc5c7bEWL9_S_4kizs_UMiiW9ATBH_G8iw@mail.gmail.com> <m2poonexpj.fsf@baylibre.com> <20160901.223731.1152520865580611814.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Rik van Riel <riel@redhat.com>,
-        Paolo Abeni <pabeni@redhat.com>,
-        Hannes Frederic Sowa <hannes@redhat.com>,
-        linux-kernel <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>,
-        Jonathan Corbet <corbet@lwn.net>, brouer@redhat.com
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160901152802.GV10153@twins.programming.kicks-ass.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: David Miller <davem@davemloft.net>, khilman@baylibre.com,
+        mark.rutland@arm.com, devicetree@vger.kernel.org,
+        sboyd@codeaurora.org, alexandre.torgue@st.com,
+        martin.blumenstingl@googlemail.com, catalin.marinas@arm.com,
+        mturquette@baylibre.com, will.deacon@arm.com, manabian@gmail.com,
+        robh+dt@kernel.org, peppe.cavallaro@st.com, carlo@caione.org,
+        linux-amlogic@lists.infradead.org, netdev@vger.kernel.org
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([217.72.192.74]:61403 "EHLO
+        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752780AbcIBIv7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 04:51:59 -0400
+In-Reply-To: <20160901.223731.1152520865580611814.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 1 Sep 2016 17:28:02 +0200
-Peter Zijlstra <peterz@infradead.org> wrote:
-
-> On Thu, Sep 01, 2016 at 03:30:42PM +0200, Jesper Dangaard Brouer wrote:
-> > Still... enabled!
-> > Hmmm.. more idea how to disable this???  
+On Thursday, September 1, 2016 10:37:31 PM CEST David Miller wrote:
+> From: Kevin Hilman <khilman@baylibre.com>
+> Date: Thu, 01 Sep 2016 21:23:52 -0700
+> > David Miller <davem@davemloft.net> writes:
+> >> From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+> >> Date: Tue, 30 Aug 2016 20:49:28 +0200
+> >>> On Mon, Aug 29, 2016 at 5:40 AM, David Miller <davem@davemloft.net> wrote:
+> >>>> From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+> >>> I think patches 1, 3 and 4 should go through the net-next tree (as
+> >>> these touch drivers/net/ethernet/stmicro/stmmac/ and the corresponding
+> >>> documentation).
+> >>> Patch 2 should probably go through clk-meson-gxbb / clk-next (just
+> >>> like the other clk changes we had).
+> >>> The last patch (patch 5) should probably go through the ARM SoC tree
+> >>> (just like the other dts changes we had).
+> >>> 
+> >>> @David, Kevin: would this be fine for you?
+> >>
+> >> I would prefer if all of the patches went through one tree, that way
+> >> all the dependencies are satisfied in one place.
+> > 
+> > David, with your ack on the drivers/net changes, I can take them through
+> > my tree for Amlogic SoCs (which then goes via the arm-soc tree.)
 > 
-> I think you ought to be able to assign yourself to the root cgroup,
-> something like:
-> 
->   echo $$ > /cgroup/tasks
-> 
-> or wheverever the cpu-cgroup controller is mounted at.
-> 
-> But its been a fair while since I touched any of that, its not a CONFIG
-> I have enabled much.
+> Acked-by: David S. Miller <davem@davemloft.net>
 
-I could not figure out how to disable autogroups, so I ended up
-compiling the kernel without CONFIG_SCHED_AUTOGROUP.
+Thanks!
 
-  PID   PR   S  %CPU     TIME+ 	COMMAND
-    3   20   R  20.7   0:53.05 	ksoftirqd/0
- 9299   20   R  16.3   0:03.62 	udp_sink
- 9296   20   S  16.0   0:03.59 	udp_sink
- 9297   20   R  16.0   0:03.58 	udp_sink
- 9298   20   R  16.0   0:03.57 	udp_sink
- 9295   20   R  15.3   0:03.43 	udp_sink
+Note that we (in arm-soc) normally put drivers and DT changes into
+separate branches and send a pull request for each branch separately
+(though usually on the same day).
 
-Top new shows the CPU distribution is more correct, thus we can
-concluded the artifact I saw was indeed caused by autogroup.
+We expect there to be no runtime dependency between the DT changes
+and the driver changes other than requiring both to make use of
+the added features.
 
-I can also confirm that my netperf UDP_STREAM tests now work again,
-but I need around 32 parallel netperf to counter the effectiveness of
-the ksoftirqd process.  While I only need 5 udp_sink programs.
+Kevin/Martin: in case this one does have a runtime dependency,
+please we can put both halves into the next/drivers branch in
+the correct order to ensure that they are applied together, and
+describe the dependency in the cover letter for the pull request.
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+	Arnd
