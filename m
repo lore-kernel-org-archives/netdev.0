@@ -1,38 +1,42 @@
-From: Will Deacon <will.deacon@arm.com>
-Subject: Re: [PATCH 4/4] net: smsc911x: Move interrupt allocation to open/stop
-Date: Fri, 2 Sep 2016 17:53:45 +0100
-Message-ID: <20160902165344.GJ3423@arm.com>
-References: <1472760909-19688-1-git-send-email-jeremy.linton@arm.com>
- <1472760909-19688-5-git-send-email-jeremy.linton@arm.com>
+From: <sean.wang@mediatek.com>
+Subject: [PATCH net-next v4 0/2] net: ethernet: mediatek: add enhancements to RX path
+Date: Sat, 3 Sep 2016 00:56:45 +0800
+Message-ID: <1472835407-17828-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, steve.glendinning@shawell.net,
-        sergei.shtylyov@cogentembedded.com, andrew@lunn.ch
-To: Jeremy Linton <jeremy.linton@arm.com>
+Content-Type: text/plain
+Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
+        <linux-mediatek@lists.infradead.org>, <keyhaede@gmail.com>,
+        <objelf@gmail.com>, Sean Wang <sean.wang@mediatek.com>
+To: <john@phrozen.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:56506 "EHLO foss.arm.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932621AbcIBQxm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 2 Sep 2016 12:53:42 -0400
-Content-Disposition: inline
-In-Reply-To: <1472760909-19688-5-git-send-email-jeremy.linton@arm.com>
+Received: from mailgw01.mediatek.com ([210.61.82.183]:5035 "EHLO
+        mailgw01.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S932659AbcIBQ44 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 12:56:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 01, 2016 at 03:15:09PM -0500, Jeremy Linton wrote:
-> The /proc/irq/xx information is incorrect for smsc911x because
-> the request_irq is happening before the register_netdev has the
-> proper device name. Moving it to the open also fixes the case
-> of when the device is renamed.
-> 
-> Reported-by: Will Deacon <will.deacon@arm.com>
-> Signed-off-by: Jeremy Linton <jeremy.linton@arm.com>
-> ---
->  drivers/net/ethernet/smsc/smsc911x.c | 47 ++++++++++++++----------------------
->  1 file changed, 18 insertions(+), 29 deletions(-)
+From: Sean Wang <sean.wang@mediatek.com>
 
-FWIW, this fixes the interface naming under /proc/<irq num>/ethX for me:
+Changes since v1:
+- fix message typos and add coverletter
+  
+Changes since v2:
+- split from the previous series for submitting add enhancements as 
+a series targeting 'net-next' and add indents before comments.
 
-Tested-by: Will Deacon <will.deacon@arm.com>
+Changes since v3:
+- merge the patch using PDMA RX path
+- fixed the input of mtk_poll_rx is with the remaining budget
 
-Will
+Sean Wang (2):
+  net: ethernet: mediatek: enhance RX path by reducing the frequency of
+    the memory barrier used
+  net: ethernet: mediatek: enhance RX path by aggregating more SKBs into
+    NAPI
+
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 29 +++++++++++++++--------------
+ 1 file changed, 15 insertions(+), 14 deletions(-)
+
+-- 
+1.9.1
