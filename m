@@ -1,59 +1,45 @@
-From: Michal Simek <michal.simek@xilinx.com>
-Subject: Re: [Patch v4 01/12] microblaze: irqchip: Move intc driver to irqchip
-Date: Fri, 2 Sep 2016 08:25:16 +0200
-Message-ID: <772f883f-79fe-9197-f27c-3ffe91019aaf@xilinx.com>
-References: <1472748665-47774-1-git-send-email-Zubair.Kakakhel@imgtec.com>
- <1472748665-47774-2-git-send-email-Zubair.Kakakhel@imgtec.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] [v10] net: emac: emac gigabit ethernet controller
+ driver
+Date: Thu, 01 Sep 2016 23:35:53 -0700 (PDT)
+Message-ID: <20160901.233553.598021775110843532.davem@davemloft.net>
+References: <1472685728-29537-1-git-send-email-timur@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <soren.brinkmann@xilinx.com>, <linux-kernel@vger.kernel.org>,
-        <linux-mips@linux-mips.org>, <michal.simek@xilinx.com>,
-        <netdev@vger.kernel.org>
-To: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>,
-        <monstr@monstr.eu>, <ralf@linux-mips.org>, <tglx@linutronix.de>,
-        <jason@lakedaemon.net>, <marc.zyngier@arm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1472748665-47774-2-git-send-email-Zubair.Kakakhel@imgtec.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-arm-msm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sdharia-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+        shankerd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, vikrams-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+        cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, gavidov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+        andrew-g2DYL2Zd6BY@public.gmane.org, bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, mlangsdo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, agross-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        LinoSanfilippo-Mmb7MZpHnFY@public.gmane.org
+To: timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1472685728-29537-1-git-send-email-timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 1.9.2016 18:50, Zubair Lutfullah Kakakhel wrote:
-> The Xilinx AXI Interrupt Controller IP block is used by the MIPS
-> based xilfpga platform.
-> 
-> Move the interrupt controller code out of arch/microblaze so that
-> it can be used by everyone
-> 
-> Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
-> 
-> ---
-> V3 -> V4
-> No change
-> 
-> V2 -> V3
-> No change here. Cleanup patches follow after this patch.
-> Its debatable to cleanup before/after move. Decided to place cleanup
-> after move to put history in new place.
-> 
-> V1 -> V2
-> 
-> Renamed irq-xilinx to irq-axi-intc
-> Renamed CONFIG_XILINX_INTC to CONFIG_XILINX_AXI_INTC
+From: Timur Tabi <timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Date: Wed, 31 Aug 2016 18:22:08 -0500
 
+> Add support for the Qualcomm Technologies, Inc. EMAC gigabit Ethernet
+> controller.
+> 
+> This driver supports the following features:
+> 1) Checksum offload.
+> 2) Interrupt coalescing support.
+> 3) SGMII phy.
+> 4) phylib interface for external phy
+> 
+> Based on original work by
+> 	Niranjana Vishwanathapura <nvishwan-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+> 	Gilad Avidov <gavidov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+> 
+> Signed-off-by: Timur Tabi <timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
 
-I see that this was suggested by Jason Cooper but using axi name here is
-not correct.
-There is xps-intc name which is the name used on old OPB hardware
-designs. It means this driver can be still used only on system which
-uses it.
-Also there is another copy of this driver in the tree which was using
-old ppc405 and ppc440 xilinx platforms.
-
-arch/powerpc/include/asm/xilinx_intc.h
-arch/powerpc/sysdev/xilinx_intc.c
-
-These should be also removed by moving this driver to generic folder.
-
-Thanks,
-Michal
+Applied to net-next, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
