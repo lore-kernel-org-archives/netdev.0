@@ -1,46 +1,60 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH v3 1/2] wcn36xx: Transition driver to SMD client
-Date: Fri, 02 Sep 2016 19:24:50 +0300
-Message-ID: <87mvjqz2ul.fsf@kamboji.qca.qualcomm.com>
-References: <1472741468-24762-1-git-send-email-bjorn.andersson@linaro.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net] bonding: Fix bonding crash
+Date: Fri, 2 Sep 2016 18:25:13 +0200
+Message-ID: <20160902162513.GA1768@nanopsycho.orion>
+References: <1472793514-31850-1-git-send-email-mahesh@bandewar.net>
+ <20160902075241.GA1814@nanopsycho>
+ <1472823200.5439.15.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eugene Krasnikov <k.eugene.e@gmail.com>,
-        wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-arm-msm@vger.kernel.org
-To: Bjorn Andersson <bjorn.andersson@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1472741468-24762-1-git-send-email-bjorn.andersson@linaro.org>
-        (Bjorn Andersson's message of "Thu, 1 Sep 2016 07:51:07 -0700")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Mahesh Bandewar <mahesh@bandewar.net>,
+        Jay Vosburgh <j.vosburgh@gmail.com>,
+        Andy Gospodarek <gospo@cumulusnetworks.com>,
+        Veaceslav Falico <vfalico@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Mahesh Bandewar <maheshb@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:38459 "EHLO
+        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932805AbcIBQZS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 12:25:18 -0400
+Received: by mail-wm0-f48.google.com with SMTP id 1so39909388wmz.1
+        for <netdev@vger.kernel.org>; Fri, 02 Sep 2016 09:25:17 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1472823200.5439.15.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Bjorn Andersson <bjorn.andersson@linaro.org> writes:
-
-> The wcn36xx wifi driver follows the life cycle of the WLAN_CTRL SMD
-> channel, as such it should be a SMD client. This patch makes this
-> transition, now that we have the necessary frameworks available.
+Fri, Sep 02, 2016 at 03:33:20PM CEST, eric.dumazet@gmail.com wrote:
+>On Fri, 2016-09-02 at 09:52 +0200, Jiri Pirko wrote:
 >
-> Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+>> 
+>> No, please, don't make bonding a spacial citizen introducing this.
+>> Please handle the issue inside the bonding code, like we do for the rest
+>> of master devices (and how it was once done for bonding). Thanks.
+>
+>I do not feel this netdev_is_rx_handler_busy() use is special to
+>bonding.
+>
+>It makes sense to use it early, to avoid complex rollback, once various
+>events have been sent all over.
+>
+>bond_enslave() is 447 lines long already.
+>
+>You perfectly know how hard it is to 'handle the issue inside the
+>bonding code' as you chose to not fix bonding and write team instead.
+>
+>So Mahesh patch makes perfect sense to me. It exactly fixes a stupid
+>bond_enslave() behavior, trying to set rx_handler way too late.
+>
+>By doing sanity checks before any action, we simply do not have to add
+>complex rollback.
 
-[...]
+Understand the reason. All I say is we tried hard (I surely did) in
+the past to remove bonding specific quirks and now we are adding one.
+And the simple reason is that the code is such a mess.
 
-> --- a/drivers/net/wireless/ath/wcn36xx/Kconfig
-> +++ b/drivers/net/wireless/ath/wcn36xx/Kconfig
-> @@ -1,6 +1,6 @@
->  config WCN36XX
->  	tristate "Qualcomm Atheros WCN3660/3680 support"
-> -	depends on MAC80211 && HAS_DMA
-> +	depends on MAC80211 && HAS_DMA && QCOM_SMD
-
-While I had this patch on my pending branch I noticed that I can't
-compile wcn36xx on x86 anymore. This is actually quite inconvenient, for
-example then it's easy to miss mac80211 API changes etc. Is there any
-way we could continue build testing wcn36xx on x86 (or all) platforms?
-
-Also what about older platforms? Earlier I used wcn36xx on my Nexus 4
-with help of backports project. I can't do that anymore, right?
-
--- 
-Kalle Valo
+Just use team instead and you'll be fine. You can "google" it :)
