@@ -1,115 +1,194 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net] bonding: Fix bonding crash
-Date: Fri, 2 Sep 2016 09:52:41 +0200
-Message-ID: <20160902075241.GA1814@nanopsycho>
-References: <1472793514-31850-1-git-send-email-mahesh@bandewar.net>
+From: Lars Persson <lars.persson-VrBV9hrLPhE@public.gmane.org>
+Subject: Re: [PATCH V3] dt: net: enhance DWC EQoS binding to support Tegra186
+Date: Fri, 2 Sep 2016 09:56:41 +0200
+Message-ID: <d15011d4-6dba-6e84-a139-6cd1a64ff05b@axis.com>
+References: <20160901190216.5643-1-swarren@wwwdotorg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
-        Andy Gospodarek <gospo@cumulusnetworks.com>,
-        Veaceslav Falico <vfalico@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Mahesh Bandewar <maheshb@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        netdev <netdev@vger.kernel.org>
-To: Mahesh Bandewar <mahesh@bandewar.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35961 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751190AbcIBHwp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 03:52:45 -0400
-Received: by mail-wm0-f67.google.com with SMTP id i138so1738377wmf.3
-        for <netdev@vger.kernel.org>; Fri, 02 Sep 2016 00:52:45 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1472793514-31850-1-git-send-email-mahesh@bandewar.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Stephen Warren <swarren-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
+To: Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>,
+        Lars Persson <larper-VrBV9hrLPhE@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
+Return-path: <linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160901190216.5643-1-swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>
+Sender: linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Fri, Sep 02, 2016 at 07:18:34AM CEST, mahesh@bandewar.net wrote:
->From: Mahesh Bandewar <maheshb@google.com>
->
->Following few steps will crash kernel -
->
->  (a) Create bonding master
->      > modprobe bonding miimon=50
->  (b) Create macvlan bridge on eth2
->      > ip link add link eth2 dev mvl0 address aa:0:0:0:0:01 \
->	   type macvlan
->  (c) Now try adding eth2 into the bond
->      > echo +eth2 > /sys/class/net/bond0/bonding/slaves
->      <crash>
->
->Bonding does lots of things before checking if the device enslaved is
->busy or not.
->
->In this case when the notifier call-chain sends notifications, the
->bond_netdev_event() assumes that the rx_handler /rx_handler_data is
->registered while the bond_enslave() hasn't progressed far enough to
->register rx_handler for the new slave.
->
->This patch adds a rx_handler check that can be performed right at the
->beginning of the enslave code to avoid getting into this situation.
->
->Signed-off-by: Mahesh Bandewar <maheshb@google.com>
->---
-> drivers/net/bonding/bond_main.c |  7 ++++---
-> include/linux/netdevice.h       |  1 +
-> net/core/dev.c                  | 16 ++++++++++++++++
-> 3 files changed, 21 insertions(+), 3 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index 217e8da0628c..9599ed6f1213 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -1341,9 +1341,10 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
-> 			    slave_dev->name);
-> 	}
-> 
->-	/* already enslaved */
->-	if (slave_dev->flags & IFF_SLAVE) {
->-		netdev_dbg(bond_dev, "Error: Device was already enslaved\n");
->+	/* already in-use? */
->+	if (netdev_is_rx_handler_busy(slave_dev)) {
->+		netdev_err(bond_dev,
->+			   "Error: Device is in use and cannot be enslaved\n");
-> 		return -EBUSY;
-> 	}
-> 
->diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->index d122be9345c7..99ba59a7b114 100644
->--- a/include/linux/netdevice.h
->+++ b/include/linux/netdevice.h
->@@ -3266,6 +3266,7 @@ static inline void napi_free_frags(struct napi_struct *napi)
-> 	napi->skb = NULL;
-> }
-> 
->+bool netdev_is_rx_handler_busy(struct net_device *dev);
-> int netdev_rx_handler_register(struct net_device *dev,
-> 			       rx_handler_func_t *rx_handler,
-> 			       void *rx_handler_data);
->diff --git a/net/core/dev.c b/net/core/dev.c
->index 34b5322bc081..81e6f7298122 100644
->--- a/net/core/dev.c
->+++ b/net/core/dev.c
->@@ -3965,6 +3965,22 @@ sch_handle_ingress(struct sk_buff *skb, struct packet_type **pt_prev, int *ret,
-> }
-> 
-> /**
->+ *	netdev_is_rx_handler_busy - check if receive handler is registered
->+ *	@dev: device to check
->+ *
->+ *	Check if a receive handler is already registered for a given device.
->+ *	Return true if there one.
->+ *
->+ *	The caller must hold the rtnl_mutex.
->+ */
->+bool netdev_is_rx_handler_busy(struct net_device *dev)
->+{
->+	ASSERT_RTNL();
->+	return dev && rtnl_dereference(dev->rx_handler);
->+}
->+EXPORT_SYMBOL_GPL(netdev_is_rx_handler_busy);
 
-No, please, don't make bonding a spacial citizen introducing this.
-Please handle the issue inside the bonding code, like we do for the rest
-of master devices (and how it was once done for bonding). Thanks.
+
+On 09/01/2016 09:02 PM, Stephen Warren wrote:
+> From: Stephen Warren <swarren-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
+>
+> The Synopsys DWC EQoS is a configurable IP block which supports multiple
+> options for bus type, clocking and reset structure, and feature list.
+> Extend the DT binding to define a "compatible value" for the configuration
+> contained in NVIDIA's Tegra186 SoC, and define some new properties and
+> list property entries required by that configuration.
+>
+> Signed-off-by: Stephen Warren <swarren-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
+> ---
+> v3:
+> * Document legacy clock-names entries separately, and make it obvious
+>   they're deprecated.
+> * Reword the description of the "rx" clock to better describe the HW.
+> * Add some extra guidance for future extensions of the binding to cover
+>   configurations where additional RX clocks are required.
+> * Explicitly document the list of clocks and resets for every compatible
+>   value; don't miss any out.
+> v2:
+> * Add an explicit compatible value for the Axis SoC's version of the EQOS
+>   IP; this allows the driver to handle any SoC-specific integration quirks
+>   that are required, rather than only knowing about the IP block in
+>   isolation. This is good general DT practice. The existing value is still
+>   documented to support existing DTs.
+> * Reworked the list of clocks the binding requires:
+>   - Combined "tx" and "phy_ref_clk"; for GMII/RGMII configurations, these
+>     are the same thing.
+>   - Added extra description to the "rx" and "tx" clocks, to make it clear
+>     exactly which HW clock they represent.
+>   - Made the new "tx" and "slave_bus" names more prominent than the
+>     original "phy_ref_clk" and "apb_pclk". The new names are more generic
+>     and should work for any enhanced version of the binding (e.g. to
+>     support additional PHY types). New compatible values will hopefully
+>     choose to require the new names.
+> * Added a couple extra clocks to the list that may need to be supported in
+>   future binding revisions.
+> * Fixed a typo; "clocks" -> "resets".
+> ---
+>  .../bindings/net/snps,dwc-qos-ethernet.txt         | 99 +++++++++++++++++++++-
+>  1 file changed, 95 insertions(+), 4 deletions(-)
+>
+> diff --git a/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt b/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt
+> index 51f8d2eba8d8..d93f71ce8346 100644
+> --- a/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt
+> +++ b/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt
+> @@ -1,21 +1,111 @@
+>  * Synopsys DWC Ethernet QoS IP version 4.10 driver (GMAC)
+>
+> +This binding supports the Synopsys Designware Ethernet QoS (Quality Of Service)
+> +IP block. The IP supports multiple options for bus type, clocking and reset
+> +structure, and feature list. Consequently, a number of properties and list
+> +entries in properties are marked as optional, or only required in specific HW
+> +configurations.
+>
+>  Required properties:
+> -- compatible: Should be "snps,dwc-qos-ethernet-4.10"
+> +- compatible: One of:
+> +  - "axis,artpec6-eqos", "snps,dwc-qos-ethernet-4.10"
+> +    Represents the IP core when integrated into the Axis ARTPEC-6 SoC.
+> +  - "nvidia,tegra186-eqos", "snps,dwc-qos-ethernet-4.10"
+> +    Represents the IP core when integrated into the NVIDIA Tegra186 SoC.
+> +  - "snps,dwc-qos-ethernet-4.10"
+> +    This combination is deprecated. It should be treated as equivalent to
+> +    "axis,artpec6-eqos", "snps,dwc-qos-ethernet-4.10". It is supported to be
+> +    compatible with earlier revisions of this binding.
+>  - reg: Address and length of the register set for the device
+> -- clocks: Phandles to the reference clock and the bus clock
+> -- clock-names: Should be "phy_ref_clk" for the reference clock and "apb_pclk"
+> -  for the bus clock.
+> +- clocks: Phandle and clock specifiers for each entry in clock-names, in the
+> +  same order. See ../clock/clock-bindings.txt.
+> +- clock-names: May contain any/all of the following depending on the IP
+> +  configuration, in any order:
+> +  - "tx"
+> +    The EQOS transmit path clock. The HW signal name is clk_tx_i.
+> +    In some configurations (e.g. GMII/RGMII), this clock also drives the PHY TX
+> +    path. In other configurations, other clocks (such as tx_125, rmii) may
+> +    drive the PHY TX path.
+> +  - "rx"
+> +    The EQOS receive path clock. The HW signal name is clk_rx_i.
+> +    In some configurations (e.g. GMII/RGMII), this clock is derived from the
+> +    PHY's RX clock output. In other configurations, other clocks (such as
+> +    rx_125, rmii) may drive the EQOS RX path.
+> +    In cases where the PHY clock is directly fed into the EQOS receive path
+> +    without intervening logic, the DT need not represent this clock, since it
+> +    is assumed to be fully under the control of the PHY device/driver. In
+> +    cases where SoC integration adds additional logic to this path, such as a
+> +    SW-controlled clock gate, this clock should be represented in DT.
+> +  - "slave_bus"
+> +    The CPU/slave-bus (CSR) interface clock. This applies to any bus type;
+> +    APB, AHB, AXI, etc. The HW signal name is hclk_i (AHB) or clk_csr_i (other
+> +    buses).
+> +  - "master_bus"
+> +    The master bus interface clock. Only required in configurations that use a
+> +    separate clock for the master and slave bus interfaces. The HW signal name
+> +    is hclk_i (AHB) or aclk_i (AXI).
+> +  - "ptp_ref"
+> +    The PTP reference clock. The HW signal name is clk_ptp_ref_i.
+> +  - "phy_ref_clk"
+> +    This clock is deprecated and should not be used by new compatible values.
+> +    It is equivalent to "tx".
+> +  - "apb_pclk"
+> +    This clock is deprecated and should not be used by new compatible values.
+> +    It is equivalent to "slave_bus".
+> +
+> +  Note: Support for additional IP configurations may require adding the
+> +  following clocks to this list in the future: clk_rx_125_i, clk_tx_125_i,
+> +  clk_pmarx_0_i, clk_pmarx1_i, clk_rmii_i, clk_revmii_rx_i, clk_revmii_tx_i.
+> +  Configurations exist where multiple similar clocks are used at once, e.g. all
+> +  of clk_rx_125_i, clk_pmarx_0_i, clk_pmarx1_i. For this reason it is best to
+> +  extend the binding with a separate clock-names entry for each of those RX
+> +  clocks, rather than repurposing the existing "rx" clock-names entry as a
+> +  generic/logical clock in a similar fashion to "master_bus" and "slave_bus".
+> +  This will allow easy support for configurations that support multiple PHY
+> +  interfaces using a mux, and hence need to have explicit control over
+> +  specific RX clocks.
+> +
+> +  The following compatible values require the following set of clocks:
+> +  - "nvidia,tegra186-eqos", "snps,dwc-qos-ethernet-4.10":
+> +    - "slave_bus"
+> +    - "master_bus"
+> +    - "rx"
+> +    - "tx"
+> +    - "ptp_ref"
+> +  - "axis,artpec6-eqos", "snps,dwc-qos-ethernet-4.10":
+> +    - "slave_bus"
+> +    - "master_bus"
+> +    - "tx"
+> +    - "ptp_ref"
+> +  - "snps,dwc-qos-ethernet-4.10" (deprecated):
+> +    - "phy_ref_clk"
+> +    - "apb_clk"
+>  - interrupt-parent: Should be the phandle for the interrupt controller
+>    that services interrupts for this device
+>  - interrupts: Should contain the core's combined interrupt signal
+>  - phy-mode: See ethernet.txt file in the same directory
+> +- resets: Phandle and reset specifiers for each entry in reset-names, in the
+> +  same order. See ../reset/reset.txt.
+> +- reset-names: May contain any/all of the following depending on the IP
+> +  configuration, in any order:
+> +  - "eqos". The reset to the entire module. The HW signal name is hreset_n
+> +    (AHB) or aresetn_i (AXI).
+> +
+> +  The following compatible values require the following set of resets:
+> +  (the reset properties may be omitted if empty)
+> +  - "nvidia,tegra186-eqos", "snps,dwc-qos-ethernet-4.10":
+> +    - "eqos".
+> +  - "axis,artpec6-eqos", "snps,dwc-qos-ethernet-4.10":
+> +    - None.
+> +  - "snps,dwc-qos-ethernet-4.10" (deprecated):
+> +    - None.
+>
+>  Optional properties:
+>  - dma-coherent: Present if dma operations are coherent
+>  - mac-address: See ethernet.txt in the same directory
+>  - local-mac-address: See ethernet.txt in the same directory
+> +- phy-reset-gpios: Phandle and specifier for any GPIO used to reset the PHY.
+> +  See ../gpio/gpio.txt.
+>  - snps,en-lpi: If present it enables use of the AXI low-power interface
+>  - snps,write-requests: Number of write requests that the AXI port can issue.
+>    It depends on the SoC configuration.
+> @@ -52,6 +142,7 @@ ethernet2@40010000 {
+>  	reg = <0x40010000 0x4000>;
+>  	phy-handle = <&phy2>;
+>  	phy-mode = "gmii";
+> +	phy-reset-gpios = <&gpioctlr 43 GPIO_ACTIVE_LOW>;
+>
+>  	snps,en-tx-lpi-clockgating;
+>  	snps,en-lpi;
+>
+
+Acked-by: Lars Persson <larper-VrBV9hrLPhE@public.gmane.org>
