@@ -1,48 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] bonding: Fix bonding crash
-Date: Fri, 02 Sep 2016 08:40:15 -0700
-Message-ID: <1472830815.5439.33.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1472793514-31850-1-git-send-email-mahesh@bandewar.net>
-         <a045ae10-e002-6658-575b-109e66056d5f@cumulusnetworks.com>
-         <1472827555.5439.22.camel@edumazet-glaptop3.roam.corp.google.com>
-         <94a399f3-72b1-8895-b54f-c7d03878327e@cumulusnetworks.com>
-         <1472829718.5439.29.camel@edumazet-glaptop3.roam.corp.google.com>
+From: "Valo, Kalle" <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+Subject: Re: [PATCH] ath10k: fix memory leak on caldata on error exit path
+Date: Fri, 2 Sep 2016 15:45:09 +0000
+Message-ID: <87r392z4ox.fsf@kamboji.qca.qualcomm.com>
+References: <1471268785-11576-1-git-send-email-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Mahesh Bandewar <mahesh@bandewar.net>,
-        Jay Vosburgh <j.vosburgh@gmail.com>,
-        Andy Gospodarek <gospo@cumulusnetworks.com>,
-        Veaceslav Falico <vfalico@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Mahesh Bandewar <maheshb@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        netdev <netdev@vger.kernel.org>
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:36073 "EHLO
-        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932282AbcIBPkS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 11:40:18 -0400
-Received: by mail-pf0-f173.google.com with SMTP id h186so43438536pfg.3
-        for <netdev@vger.kernel.org>; Fri, 02 Sep 2016 08:40:17 -0700 (PDT)
-In-Reply-To: <1472829718.5439.29.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "ath10k-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org" <ath10k-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+        "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Colin King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1471268785-11576-1-git-send-email-colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+        (Colin King's message of "Mon, 15 Aug 2016 14:46:25 +0100")
+Content-Language: en-US
+Content-ID: <B6808281641328458EF5B7FC91C3B26E-zC7DfRvBq/JWk0Htik3J/w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2016-09-02 at 08:21 -0700, Eric Dumazet wrote:
+Colin King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> writes:
 
-> Ideally the netdev_rx_handler_register() should be called only when no
-> further errors can be detected in the 'enslaving' process, otherwise
-> some live packets could come and be incorrectly processed/dropped by a
-> not fully initialized driver.
-> 
-> So it is a chicken and egg problem, if you allow
-> netdev_rx_handler_register() to return an error, while it is so easy
-> to early check what could go wrong with it.
+> From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+>
+> caldata is not being free'd on the error exit path, causing
+> a memory leak. kfree it to fix the leak.
+>
+> Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> ---
+>  drivers/net/wireless/ath/ath10k/pci.c | 1 +
+>  1 file changed, 1 insertion(+)
+>
+> diff --git a/drivers/net/wireless/ath/ath10k/pci.c b/drivers/net/wireless=
+/ath/ath10k/pci.c
+> index 9a22c47..886337c 100644
+> --- a/drivers/net/wireless/ath/ath10k/pci.c
+> +++ b/drivers/net/wireless/ath/ath10k/pci.c
+> @@ -2725,6 +2725,7 @@ static int ath10k_pci_hif_fetch_cal_eeprom(struct a=
+th10k *ar, void **data,
+>  	return 0;
+> =20
+>  err_free:
+> +	kfree(caldata);
+>  	kfree(data);
+> =20
+>  	return -EINVAL;
 
-One final point is that this patch is easy to backport to stable
-versions.
+I don't think we should free data at all:
 
-bond_enslave() is a monster, and changing the rollback chain is likely
-to cause backport merge conflicts.
+static int ath10k_download_cal_eeprom(struct ath10k *ar)
+{
+	size_t data_len;
+	void *data =3D NULL;
+	int ret;
+
+	ret =3D ath10k_hif_fetch_cal_eeprom(ar, &data, &data_len);
+
+Instead we should free only caldata, right?
+
+--=20
+Kalle Valo=
