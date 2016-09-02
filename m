@@ -1,84 +1,46 @@
-From: <sean.wang@mediatek.com>
-Subject: [PATCH net-next v4 2/2] net: ethernet: mediatek: enhance RX path by aggregating more SKBs into NAPI
-Date: Sat, 3 Sep 2016 00:56:47 +0800
-Message-ID: <1472835407-17828-3-git-send-email-sean.wang@mediatek.com>
-References: <1472835407-17828-1-git-send-email-sean.wang@mediatek.com>
+From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+Subject: Re: e1000e on Thinkpad x60: gigabit not available due to "SmartSpeed"
+Date: Fri, 2 Sep 2016 12:57:35 -0400
+Message-ID: <20160902165735.GJ14311@csclub.uwaterloo.ca>
+References: <20160901201408.GA5061@amd>
+ <1472767093.3889.4.camel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
-        <linux-mediatek@lists.infradead.org>, <keyhaede@gmail.com>,
-        <objelf@gmail.com>, Sean Wang <sean.wang@mediatek.com>
-To: <john@phrozen.org>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw02.mediatek.com ([210.61.82.184]:37176 "EHLO
-        mailgw02.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S932805AbcIBQ45 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 12:56:57 -0400
-In-Reply-To: <1472835407-17828-1-git-send-email-sean.wang@mediatek.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Pavel Machek <pavel@ucw.cz>,
+        kernel list <linux-kernel@vger.kernel.org>,
+        jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
+        netdev@vger.kernel.org
+To: Greg <gvrose8192@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1472767093.3889.4.camel@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sean Wang <sean.wang@mediatek.com>
+On Thu, Sep 01, 2016 at 02:58:13PM -0700, Greg wrote:
+> On Thu, 2016-09-01 at 22:14 +0200, Pavel Machek wrote:
+> > Hi!
+> > 
+> > I have trouble getting 1000mbit out of my ethernet card.
+> > 
+> > I tried direct connection between two PCs with different cables, and
+> > no luck.
+> > 
+> > Today I tried connection to 1000mbit switch, and no luck, either. (Two
+> > cables, one was cat6, both short).
+> > 
+> > My computer sees 1000mbit being advertised by the other side, but does
+> > not advertise 1000mbit, "Link Speed was downgraded by SmartSpeed".
+> 
+> Check your cables?
+> 
+> https://vmxp.wordpress.com/2015/01/06/1gbe-intel-nic-throttled-to-100mbit-by-smartspeed/
 
-The patch adds support for aggregating more SKBs feed into NAPI in
-order to get more benefits from generic receive offload (GRO) by
-peeking at the RX ring status and moving more packets right before
-returning from NAPI RX polling handler if NAPI budgets are still
-available and some packets already present in hardware.
+Of course if it isn't the cable, then it could even be a broken pin in
+the port.  As far as I can tell, anything that causes one of the 3rd
+or 4th pairs of wires to not work will degrade to 100Mbit on just the
+first 2 pairs of wires and give that message.  Some badly implemented
+switches can also cause it of course.
 
-Signed-off-by: Sean Wang <sean.wang@mediatek.com>
----
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 33bb10f..44cab1b 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -960,9 +960,6 @@ release_desc:
- 	wmb();
- 	mtk_w32(eth, ring->calc_idx, MTK_PRX_CRX_IDX0);
- 
--	if (done < budget)
--		mtk_w32(eth, MTK_RX_DONE_INT, MTK_PDMA_INT_STATUS);
--
- 	return done;
- }
- 
-@@ -1081,10 +1078,13 @@ static int mtk_napi_rx(struct napi_struct *napi, int budget)
- 	struct mtk_eth *eth = container_of(napi, struct mtk_eth, rx_napi);
- 	u32 status, mask;
- 	int rx_done = 0;
-+	int remain_budget = budget;
- 
- 	mtk_handle_status_irq(eth);
-+
-+poll_again:
- 	mtk_w32(eth, MTK_RX_DONE_INT, MTK_PDMA_INT_STATUS);
--	rx_done = mtk_poll_rx(napi, budget, eth);
-+	rx_done = mtk_poll_rx(napi, remain_budget, eth);
- 
- 	if (unlikely(netif_msg_intr(eth))) {
- 		status = mtk_r32(eth, MTK_PDMA_INT_STATUS);
-@@ -1093,14 +1093,14 @@ static int mtk_napi_rx(struct napi_struct *napi, int budget)
- 			 "done rx %d, intr 0x%08x/0x%x\n",
- 			 rx_done, status, mask);
- 	}
--
--	if (rx_done == budget)
-+	if (rx_done == remain_budget)
- 		return budget;
- 
- 	status = mtk_r32(eth, MTK_PDMA_INT_STATUS);
--	if (status & MTK_RX_DONE_INT)
--		return budget;
--
-+	if (status & MTK_RX_DONE_INT) {
-+		remain_budget -= rx_done;
-+		goto poll_again;
-+	}
- 	napi_complete(napi);
- 	mtk_irq_enable(eth, MTK_PDMA_INT_MASK, MTK_RX_DONE_INT);
- 
 -- 
-1.9.1
+Len Sorensen
