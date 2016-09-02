@@ -1,78 +1,74 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH v3 net-next 3/6] bpf: perf_event progs should only use preallocated maps
-Date: Thu, 1 Sep 2016 18:37:23 -0700
-Message-ID: <1472780246-323814-4-git-send-email-ast@fb.com>
-References: <1472780246-323814-1-git-send-email-ast@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Peter Zijlstra <peterz@infradead.org>,
-        Brendan Gregg <bgregg@netflix.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Arnaldo Carvalho de Melo <acme@infradead.org>,
-        Wang Nan <wangnan0@huawei.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <kernel-team@fb.com>
-To: "David S . Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1472780246-323814-1-git-send-email-ast@fb.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: fgao@ikuai8.com
+Subject: [PATCH 1/2 nf] netfilter: seqadj: Fix some possible panics of seqadj when mem is exhausted
+Date: Fri,  2 Sep 2016 09:48:25 +0800
+Message-ID: <1472780905-13094-1-git-send-email-fgao@ikuai8.com>
+Cc: gfree.wind@gmail.com, Gao Feng <fgao@ikuai8.com>
+To: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
+        coreteam@netfilter.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtpbg342.qq.com ([14.17.44.37]:57071 "EHLO smtpbg342.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750742AbcIBBs4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 1 Sep 2016 21:48:56 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Make sure that BPF_PROG_TYPE_PERF_EVENT programs only use
-preallocated hash maps, since doing memory allocation
-in overflow_handler can crash depending on where nmi got triggered.
+From: Gao Feng <fgao@ikuai8.com>
 
-Signed-off-by: Alexei Starovoitov <ast@kernel.org>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+When memory is exhausted, nfct_seqadj_ext_add may fail to add the seqadj
+extension. But these interface functions nf_ct_seqadj_init and
+nf_ct_seq_adjust don't check if they get the valid seqadj pointer by the
+nfct_seqadj, while nf_ct_seqadj_set and nf_ct_seq_offset perform that
+check. So the system would be panic when nfct_seqadj_ext_add failed.
+
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
 ---
- kernel/bpf/verifier.c | 22 +++++++++++++++++++++-
- 1 file changed, 21 insertions(+), 1 deletion(-)
+ net/netfilter/nf_conntrack_seqadj.c | 16 ++++++++++++++--
+ 1 file changed, 14 insertions(+), 2 deletions(-)
 
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index c1c9e441f0f5..48c2705db22c 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -2511,6 +2511,20 @@ static int do_check(struct verifier_env *env)
- 	return 0;
- }
+diff --git a/net/netfilter/nf_conntrack_seqadj.c b/net/netfilter/nf_conntrack_seqadj.c
+index dff0f0c..2a2fd0e 100644
+--- a/net/netfilter/nf_conntrack_seqadj.c
++++ b/net/netfilter/nf_conntrack_seqadj.c
+@@ -16,9 +16,14 @@ int nf_ct_seqadj_init(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
+ 	if (off == 0)
+ 		return 0;
  
-+static int check_map_prog_compatibility(struct bpf_map *map,
-+					struct bpf_prog *prog)
-+
-+{
-+	if (prog->type == BPF_PROG_TYPE_PERF_EVENT &&
-+	    (map->map_type == BPF_MAP_TYPE_HASH ||
-+	     map->map_type == BPF_MAP_TYPE_PERCPU_HASH) &&
-+	    (map->map_flags & BPF_F_NO_PREALLOC)) {
-+		verbose("perf_event programs can only use preallocated hash map\n");
-+		return -EINVAL;
++	seqadj = nfct_seqadj(ct);
++	if (unlikely(!seqadj)) {
++		WARN_ONCE(1, "Missing nfct_seqadj_ext_add() setup call\n");
++		return 0;
 +	}
-+	return 0;
-+}
 +
- /* look for pseudo eBPF instructions that access map FDs and
-  * replace them with actual map pointers
-  */
-@@ -2518,7 +2532,7 @@ static int replace_map_fd_with_map_ptr(struct verifier_env *env)
- {
- 	struct bpf_insn *insn = env->prog->insnsi;
- 	int insn_cnt = env->prog->len;
--	int i, j;
-+	int i, j, err;
+ 	set_bit(IPS_SEQ_ADJUST_BIT, &ct->status);
  
- 	for (i = 0; i < insn_cnt; i++, insn++) {
- 		if (BPF_CLASS(insn->code) == BPF_LDX &&
-@@ -2562,6 +2576,12 @@ static int replace_map_fd_with_map_ptr(struct verifier_env *env)
- 				return PTR_ERR(map);
- 			}
+-	seqadj = nfct_seqadj(ct);
+ 	this_way = &seqadj->seq[dir];
+ 	this_way->offset_before	 = off;
+ 	this_way->offset_after	 = off;
+@@ -171,6 +176,11 @@ int nf_ct_seq_adjust(struct sk_buff *skb,
+ 	struct nf_ct_seqadj *this_way, *other_way;
+ 	int res;
  
-+			err = check_map_prog_compatibility(map, env->prog);
-+			if (err) {
-+				fdput(f);
-+				return err;
-+			}
++	if (unlikely(!seqadj)) {
++		WARN_ONCE(1, "Missing nfct_seqadj_ext_add() setup call\n");
++		return 0;
++	}
 +
- 			/* store map pointer inside BPF_LD_IMM64 instruction */
- 			insn[0].imm = (u32) (unsigned long) map;
- 			insn[1].imm = ((u64) (unsigned long) map) >> 32;
+ 	this_way  = &seqadj->seq[dir];
+ 	other_way = &seqadj->seq[!dir];
+ 
+@@ -218,8 +228,10 @@ s32 nf_ct_seq_offset(const struct nf_conn *ct,
+ 	struct nf_conn_seqadj *seqadj = nfct_seqadj(ct);
+ 	struct nf_ct_seqadj *this_way;
+ 
+-	if (!seqadj)
++	if (unlikely(!seqadj)) {
++		WARN_ONCE(1, "Missing nfct_seqadj_ext_add() setup call\n");
+ 		return 0;
++	}
+ 
+ 	this_way = &seqadj->seq[dir];
+ 	return after(seq, this_way->correction_pos) ?
 -- 
-2.8.0
+1.9.1
