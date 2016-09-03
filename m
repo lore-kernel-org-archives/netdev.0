@@ -1,42 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [BUG] af_packet FANOUT and device dismantle
-Date: Fri, 02 Sep 2016 17:37:30 -0700 (PDT)
-Message-ID: <20160902.173730.771175006796901877.davem@davemloft.net>
-References: <1472774683.5439.8.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59520 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752711AbcICAhb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 20:37:31 -0400
-In-Reply-To: <1472774683.5439.8.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Christophe JAILLET <christophe.jaillet-39ZsbGIQGT5GWvitb5QawA@public.gmane.org>
+Subject: [PATCH] RDS: Simplify code
+Date: Sat,  3 Sep 2016 07:33:29 +0200
+Message-ID: <1472880809-29216-1-git-send-email-christophe.jaillet@wanadoo.fr>
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Christophe JAILLET <christophe.jaillet-39ZsbGIQGT5GWvitb5QawA@public.gmane.org>
+To: santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 01 Sep 2016 17:04:43 -0700
+Calling 'list_splice' followed by 'INIT_LIST_HEAD' is equivalent to
+'list_splice_init'.
 
-> When you added fanout in commit dc99f600698dcac,
-> it seems a device dismantle is not properly handled.
-> 
-> packet_notifier() does properly finds all sockets attached to the
-> device and we call __unregister_prot_hook()
-> 
-> But the actual dev_remove_pack() is called when the last socket attached
-> to the FANOUT group is _closed_ , possibly minutes after the device
-> disappeared.
-> 
-> So we trigger the BUG_ON(!list_empty(&dev->ptype_all)); in
-> netdev_run_todo(), that came with linux-4.0 in 
-> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=7866a621043fbaca3d7389e9b9f69dd1a2e5a855
-> 
-> Fix would be to call dev_remote_pack() from __fanout_unlink() when
-> num_members becomes 0.
-> 
-> Let me know if you agree with this, thanks.
+This has been spotted with the following coccinelle script:
+/////
+@@
+expression y,z;
+@@
 
-I completely agree with your analysis, good catch.
+-   list_splice(y,z);
+-   INIT_LIST_HEAD(y);
++   list_splice_init(y,z);
+
+Signed-off-by: Christophe JAILLET <christophe.jaillet-39ZsbGIQGT5GWvitb5QawA@public.gmane.org>
+---
+ net/rds/loop.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/net/rds/loop.c b/net/rds/loop.c
+index f2bf78de5688..c3e6da4fdf97 100644
+--- a/net/rds/loop.c
++++ b/net/rds/loop.c
+@@ -167,8 +167,7 @@ void rds_loop_exit(void)
+ 
+ 	/* avoid calling conn_destroy with irqs off */
+ 	spin_lock_irq(&loop_conns_lock);
+-	list_splice(&loop_conns, &tmp_list);
+-	INIT_LIST_HEAD(&loop_conns);
++	list_splice_init(&loop_conns, &tmp_list);
+ 	spin_unlock_irq(&loop_conns_lock);
+ 
+ 	list_for_each_entry_safe(lc, _lc, &tmp_list, loop_node) {
+-- 
+2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
