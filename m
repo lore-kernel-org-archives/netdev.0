@@ -1,9 +1,11 @@
 From: Dmitry Vyukov <dvyukov@google.com>
-Subject: 6pack: stack-out-of-bounds in sixpack_receive_buf
-Date: Sat, 3 Sep 2016 15:38:08 +0200
-Message-ID: <CACT4Y+ZXH227Gbwrr+dUN4WSFNsoSECYd-KaZyLJ8F0KCRWRBw@mail.gmail.com>
+Subject: Re: 6pack: stack-out-of-bounds in sixpack_receive_buf
+Date: Sat, 3 Sep 2016 15:38:40 +0200
+Message-ID: <CACT4Y+bhAODvzqOxQps+4y6xSRBXC7pr18wRA+bb26c2XgPFhA@mail.gmail.com>
+References: <CACT4Y+ZXH227Gbwrr+dUN4WSFNsoSECYd-KaZyLJ8F0KCRWRBw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
+Cc: syzkaller <syzkaller@googlegroups.com>
 To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
         Peter Hurley <peter@hurleysoftware.com>,
         Jiri Slaby <jslaby@suse.com>,
@@ -12,6 +14,7 @@ To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
         linux-hams@vger.kernel.org, netdev <netdev@vger.kernel.org>,
         David Miller <davem@davemloft.net>
 Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <CACT4Y+ZXH227Gbwrr+dUN4WSFNsoSECYd-KaZyLJ8F0KCRWRBw@mail.gmail.com>
 Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
