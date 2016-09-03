@@ -1,38 +1,35 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [1/2] mwifiex: fix the length parameter of a memset
-Date: Sat,  3 Sep 2016 10:04:41 +0000 (UTC)
-Message-ID: <20160903100441.E591B6201F@smtp.codeaurora.org>
-References: <1470641928-26616-1-git-send-email-christophe.jaillet@wanadoo.fr>
+Subject: Re: mwifiex: fix missing break on IEEE80211_STYPE_ACTION case
+Date: Sat,  3 Sep 2016 10:08:44 +0000 (UTC)
+Message-ID: <20160903100844.CDF306201B@smtp.codeaurora.org>
+References: <1471349413-21893-1-git-send-email-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: akarwar@marvell.com, nishants@marvell.com,
+Cc: Amitkumar Karwar <akarwar@marvell.com>,
+        Nishant Sarmukadam <nishants@marvell.com>,
         linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-        Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-To: Christophe Jaillet <christophe.jaillet@wanadoo.fr>
+        linux-kernel@vger.kernel.org
+To: Colin Ian King <colin.king@canonical.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1470641928-26616-1-git-send-email-christophe.jaillet@wanadoo.fr>
+In-Reply-To: <1471349413-21893-1-git-send-email-colin.king@canonical.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Christophe Jaillet <christophe.jaillet@wanadoo.fr> wrote:
-> In 'mwifiex_get_ver_ext', we have:
->    struct mwifiex_ver_ext ver_ext;
+Colin Ian King <colin.king@canonical.com> wrote:
+> From: Colin Ian King <colin.king@canonical.com>
 > 
->    memset(&ver_ext, 0, sizeof(struct host_cmd_ds_version_ext));
+> The IEEE80211_STYPE_ACTION case is missing a break in the switch
+> statement, causing it to fall through to the default case that
+> reports a debug message about an unknown frame subtype. Fix this
+> by adding in the missing break statement.
 > 
-> This is likely that memset'ing sizeof(struct mwifiex_ver_ext) was expected.
-> Remove the ambiguity by using the variable name directly instead of its
-> type.
-> 
-> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Thanks, 2 patches applied to wireless-drivers-next.git:
+Thanks, 1 patch applied to wireless-drivers-next.git:
 
-ba852018d493 mwifiex: fix the length parameter of a memset
-6a1622000ac9 mwifiex: simplify length computation for some memset
+d393be3ed0be mwifiex: fix missing break on IEEE80211_STYPE_ACTION case
 
 -- 
 Sent by pwcli
-https://patchwork.kernel.org/patch/9266889/
+https://patchwork.kernel.org/patch/9283755/
