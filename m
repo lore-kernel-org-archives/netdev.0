@@ -1,45 +1,31 @@
 From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: ath9k: bring back direction setting in ath9k_{start_stop}
-Date: Sat, 3 Sep 2016 19:35:29 +0200
-Message-ID: <f70422725ef541e6af08136a61aacba5@euamsexm01a.eu.qualcomm.com>
-References: <20160901174702.8645-1-giedrius.statkevicius@gmail.com>
+Subject: Re: wcn36xx: Implement print_reg indication
+Date: Sat, 3 Sep 2016 19:36:53 +0200
+Message-ID: <a6299e46b3644188a265828b8361e19e@euamsexm01a.eu.qualcomm.com>
+References: <1467308789-23475-1-git-send-email-bjorn.andersson@linaro.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: <kvalo@codeaurora.org>, <ath9k-devel@qca.qualcomm.com>,
-        <linux-wireless@vger.kernel.org>, <ath9k-devel@lists.ath9k.org>,
+Content-Transfer-Encoding: 7bit
+Cc: Eugene Krasnikov <k.eugene.e@gmail.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        <wcn36xx@lists.infradead.org>, <linux-wireless@vger.kernel.org>,
         <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        Miaoqing Pan <miaoqing@codeaurora.org>,
-        <stable@vger.kernel.org>,
-        =?UTF-8?q?Giedrius=20Statkevi=C4=8Dius?=
-        <giedrius.statkevicius@gmail.com>
-To: Giedrius Statkevi?ius <giedrius.statkevicius@gmail.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20160901174702.8645-1-giedrius.statkevicius@gmail.com>
-Sender: stable-owner@vger.kernel.org
+        Nicolas Dechesne <ndec@linaro.org>
+To: Bjorn Andersson <bjorn.andersson@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1467308789-23475-1-git-send-email-bjorn.andersson@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Giedrius Statkevi?ius <giedrius.statkevicius@gmail.com> wrote:
-> A regression was introduced in commit id 79d4db1214a ("ath9k: cleanup
-> led_pin initial") that broken the WLAN status led on my laptop with
-> AR9287 after suspending and resuming.
+Bjorn Andersson <bjorn.andersson@linaro.org> wrote:
+> Some firmware versions sends a "print register indication", handle this
+> by printing out the content.
 > 
-> Steps to reproduce:
-> * Suspend (laptop)
-> * Resume (laptop)
-> * Observe that the WLAN led no longer turns ON/OFF depending on the
->   status and is always red
-> 
-> Even though for my case it only needs to be set to OUT in ath9k_start
-> but for consistency bring back the IN direction setting as well.
-> 
-> Cc: Miaoqing Pan <miaoqing@codeaurora.org>
-> Cc: Kalle Valo <kvalo@qca.qualcomm.com>
-> Cc: <stable@vger.kernel.org>
-> Signed-off-by: Giedrius Statkevičius <giedrius.statkevicius@gmail.com>
+> Cc: Nicolas Dechesne <ndec@linaro.org>
+> Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
 
-I'm planning to queue this to 4.8 if no objections.
+This doesn't apply anymore, please rebase.
 
 -- 
 Sent by pwcli
-https://patchwork.kernel.org/patch/9309829/
+https://patchwork.kernel.org/patch/9208737/
