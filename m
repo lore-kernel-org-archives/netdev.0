@@ -1,43 +1,44 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH][V2] ath10k: fix memory leak on caldata on error exit path
-Date: Sat,  3 Sep 2016 17:38:19 +0100
-Message-ID: <20160903163819.13115-1-colin.king@canonical.com>
+From: Colin King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: [PATCH] rtl8xxxu: fix spelling mistake "firmare" -> "firmware"
+Date: Sat,  3 Sep 2016 17:43:54 +0100
+Message-ID: <20160903164354.13331-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: Kalle Valo <kvalo@qca.qualcomm.com>, ath10k@lists.infradead.org,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jes Sorensen <Jes.Sorensen-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 
-caldata is not being free'd on the error exit path, causing
-a memory leak and data definitely should not be freed. Free
-caldata instead of data.
+Trivial fix to spelling mistakes in dev_dbg message.
 
-Thanks to Kalle Valo for spotting that data should not be
-free'd.
-
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 ---
- drivers/net/wireless/ath/ath10k/pci.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/wireless/ath/ath10k/pci.c b/drivers/net/wireless/ath/ath10k/pci.c
-index 9a22c47..afdf0fa 100644
---- a/drivers/net/wireless/ath/ath10k/pci.c
-+++ b/drivers/net/wireless/ath/ath10k/pci.c
-@@ -2725,7 +2725,7 @@ static int ath10k_pci_hif_fetch_cal_eeprom(struct ath10k *ar, void **data,
- 	return 0;
+diff --git a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c
+index 77048db..9cb1efa 100644
+--- a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c
++++ b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c
+@@ -3947,11 +3947,11 @@ static int rtl8xxxu_init_device(struct ieee80211_hw *hw)
+ 	rtl8xxxu_write16(priv, REG_TRXFF_BNDY + 2, priv->fops->trxff_boundary);
  
- err_free:
--	kfree(data);
-+	kfree(caldata);
+ 	ret = rtl8xxxu_download_firmware(priv);
+-	dev_dbg(dev, "%s: download_fiwmare %i\n", __func__, ret);
++	dev_dbg(dev, "%s: download_firmware %i\n", __func__, ret);
+ 	if (ret)
+ 		goto exit;
+ 	ret = rtl8xxxu_start_firmware(priv);
+-	dev_dbg(dev, "%s: start_fiwmare %i\n", __func__, ret);
++	dev_dbg(dev, "%s: start_firmware %i\n", __func__, ret);
+ 	if (ret)
+ 		goto exit;
  
- 	return -EINVAL;
- }
 -- 
 2.9.3
