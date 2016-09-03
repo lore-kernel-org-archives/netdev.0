@@ -1,36 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V5 0/8] liquidio CN23XX support
-Date: Fri, 02 Sep 2016 17:12:37 -0700 (PDT)
-Message-ID: <20160902.171237.358859803073797674.davem@davemloft.net>
-References: <1472753771-21141-1-git-send-email-rvatsavayi@caviumnetworks.com>
+Subject: Re: [PATCH v3 0/4] net: smsc911x: Move phy and interrupt config
+Date: Fri, 02 Sep 2016 17:28:48 -0700 (PDT)
+Message-ID: <20160902.172848.1669713742736541644.davem@davemloft.net>
+References: <1472760909-19688-1-git-send-email-jeremy.linton@arm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: rvatsavayi@caviumnetworks.com
+Cc: netdev@vger.kernel.org, steve.glendinning@shawell.net,
+        sergei.shtylyov@cogentembedded.com, andrew@lunn.ch,
+        will.deacon@arm.com
+To: jeremy.linton@arm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59336 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:59488 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751691AbcICAMj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 20:12:39 -0400
-In-Reply-To: <1472753771-21141-1-git-send-email-rvatsavayi@caviumnetworks.com>
+        with ESMTP id S1751540AbcICA2y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2016 20:28:54 -0400
+In-Reply-To: <1472760909-19688-1-git-send-email-jeremy.linton@arm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Date: Thu, 1 Sep 2016 11:16:03 -0700
+From: Jeremy Linton <jeremy.linton@arm.com>
+Date: Thu,  1 Sep 2016 15:15:05 -0500
 
-> I am posting the remaining half of patchset after the
-> acceptance of first half. With this patchset I am able
-> to completely submit the code of V3 patchset  which you
-> earlier advised me to split into smaller ones.
+> v2-v3: Move error handing into separate patch, replace a couple cases
+>  of fixed errors with the errors being returned from the failing functions.
+>  Hoist irq handler.
 > 
-> This V5 patch also addresses all the comments from previous
-> submission:
-> 1) Avoid busy loop while reading registers.
-> 2) Other minor comments about debug messages and constants.
+> The smsc911x driver is doing a number of things in its probe routine that
+> should be delayed until the interface is started. Because of this, the module
+> cannot be unloaded, the phy states are incorrect/stale if the interface isn't
+> running, open's unnecessarily fail causing network configuration problems, and
+> the /proc/irq nodes are incorrectly named.
 > 
-> Please apply patches in following order as some of the
-> patches depend on earlier patches.
+> Clean up a number of these problems by moving the mdio and interrupt
+> configuration into the smsc911x_open routine.
 
-Series applied.
+Series applied, thanks.
