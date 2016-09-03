@@ -1,66 +1,44 @@
-From: Eric Garver <e@erig.me>
-Subject: Re: [PATCH net-next v21 4/4] openvswitch: report error on
- VLAN nlattr in ovs_key_from_nlattrs()
-Date: Sat, 3 Sep 2016 11:59:37 -0400
-Message-ID: <20160903155937.GI31705@egarver>
-References: <1472762727-25844-1-git-send-email-e@erig.me>
- <1472762727-25844-5-git-send-email-e@erig.me>
- <CAOrHB_BhPvf_rM3YR5mRSCQPhvnosBDoBEyFvags98CHtM9Z+g@mail.gmail.com>
+From: Giedrius =?utf-8?Q?Statkevi=C4=8Dius?=
+        <giedrius.statkevicius@gmail.com>
+Subject: Re: [PATCH] ath9k: bring back direction setting in ath9k_{start_stop}
+Date: Sat, 3 Sep 2016 19:08:51 +0300
+Message-ID: <20160903160851.GA27396@tyrael>
+References: <20160901174702.8645-1-giedrius.statkevicius@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Thomas F Herbert <thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: pravin shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: ath9k-devel@qca.qualcomm.com, linux-wireless@vger.kernel.org,
+        ath9k-devel@lists.ath9k.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Miaoqing Pan <miaoqing@codeaurora.org>,
+        Kalle Valo <kvalo@qca.qualcomm.com>, stable@vger.kernel.org
+To: kvalo@codeaurora.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CAOrHB_BhPvf_rM3YR5mRSCQPhvnosBDoBEyFvags98CHtM9Z+g-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20160901174702.8645-1-giedrius.statkevicius@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gRnJpLCBTZXAgMDIsIDIwMTYgYXQgMDI6NDI6NDFQTSAtMDcwMCwgcHJhdmluIHNoZWxhciB3
-cm90ZToKPiBPbiBUaHUsIFNlcCAxLCAyMDE2IGF0IDE6NDUgUE0sIEVyaWMgR2FydmVyIDxlQGVy
-aWcubWU+IHdyb3RlOgo+ID4gV2l0aCA4MDIuMWFkIHN1cHBvcnQgdGhlc2UgYXJlIHBhcnNlZCBh
-bmQgc2V0IHVwZnJvbnQgYnkKPiA+IHBhcnNlX3ZsYW5fZnJvbV9ubGF0dHJzKCkgYmVmb3JlIG92
-c19rZXlfZnJvbV9ubGF0dHJzKCkgaXMgZXZlciBjYWxsZWQuCj4gPiBBcyBzdWNoIHdlIHNob3Vs
-ZCBuZXZlciBzZWUgYSBWTEFOIGF0dHJpYnV0ZSBpbiBvdnNfa2V5X2Zyb21fbmxhdHRycygpLgo+
-ID4KPiA+IFNpZ25lZC1vZmYtYnk6IEVyaWMgR2FydmVyIDxlQGVyaWcubWU+Cj4gPiAtLS0KPiA+
-ICBuZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMgfCAxOSArKysrKy0tLS0tLS0tLS0tLS0t
-Cj4gPiAgMSBmaWxlIGNoYW5nZWQsIDUgaW5zZXJ0aW9ucygrKSwgMTQgZGVsZXRpb25zKC0pCj4g
-Pgo+ID4gZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC9mbG93X25ldGxpbmsuYyBiL25ldC9v
-cGVudnN3aXRjaC9mbG93X25ldGxpbmsuYwo+ID4gaW5kZXggZmJlOWUwZTQ3OTJkLi4wZjM2YWVh
-ZDc0NGIgMTAwNjQ0Cj4gPiAtLS0gYS9uZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMKPiA+
-ICsrKyBiL25ldC9vcGVudnN3aXRjaC9mbG93X25ldGxpbmsuYwo+ID4gQEAgLTkyMywyMCArOTIz
-LDExIEBAIHN0YXRpYyBpbnQgb3ZzX2tleV9mcm9tX25sYXR0cnMoc3RydWN0IG5ldCAqbmV0LCBz
-dHJ1Y3Qgc3dfZmxvd19tYXRjaCAqbWF0Y2gsCj4gPiAgICAgICAgIH0KPiA+Cj4gPiAgICAgICAg
-IGlmIChhdHRycyAmICgxIDw8IE9WU19LRVlfQVRUUl9WTEFOKSkgewo+ID4gLSAgICAgICAgICAg
-ICAgIF9fYmUxNiB0Y2k7Cj4gPiAtCj4gPiAtICAgICAgICAgICAgICAgdGNpID0gbmxhX2dldF9i
-ZTE2KGFbT1ZTX0tFWV9BVFRSX1ZMQU5dKTsKPiA+IC0gICAgICAgICAgICAgICBpZiAoISh0Y2kg
-JiBodG9ucyhWTEFOX1RBR19QUkVTRU5UKSkpIHsKPiA+IC0gICAgICAgICAgICAgICAgICAgICAg
-IGlmIChpc19tYXNrKQo+ID4gLSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBPVlNfTkxF
-UlIobG9nLCAiVkxBTiBUQ0kgbWFzayBkb2VzIG5vdCBoYXZlIGV4YWN0IG1hdGNoIGZvciBWTEFO
-X1RBR19QUkVTRU5UIGJpdC4iKTsKPiA+IC0gICAgICAgICAgICAgICAgICAgICAgIGVsc2UKPiA+
-IC0gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgT1ZTX05MRVJSKGxvZywgIlZMQU4gVENJ
-IGRvZXMgbm90IGhhdmUgVkxBTl9UQUdfUFJFU0VOVCBiaXQgc2V0LiIpOwo+ID4gLQo+ID4gLSAg
-ICAgICAgICAgICAgICAgICAgICAgcmV0dXJuIC1FSU5WQUw7Cj4gPiAtICAgICAgICAgICAgICAg
-fQo+ID4gLQo+ID4gLSAgICAgICAgICAgICAgIFNXX0ZMT1dfS0VZX1BVVChtYXRjaCwgZXRoLnZs
-YW4udGNpLCB0Y2ksIGlzX21hc2spOwo+ID4gLSAgICAgICAgICAgICAgIGF0dHJzICY9IH4oMSA8
-PCBPVlNfS0VZX0FUVFJfVkxBTik7Cj4gPiArICAgICAgICAgICAgICAgLyogVkxBTiBhdHRyaWJ1
-dGUgaXMgYWx3YXlzIHBhcnNlZCBiZWZvcmUgZ2V0dGluZyBoZXJlIHNpbmNlIGl0IG1heQo+ID4g
-KyAgICAgICAgICAgICAgICAqIG9jY3VyIG11bHRpcGxlIHRpbWVzLgo+ID4gKyAgICAgICAgICAg
-ICAgICAqLwo+ID4gKyAgICAgICAgICAgICAgIE9WU19OTEVSUihsb2csICJWTEFOIGF0dHJpYnV0
-ZSB1bmV4cGVjdGVkLiIpOwo+ID4gKyAgICAgICAgICAgICAgIHJldHVybiAtRUlOVkFMOwo+ID4g
-ICAgICAgICB9Cj4gPgo+IElzIHRoZXJlIHJlYXNvbiBmb3Igbm90IG1lcmdpbmcgdGhpcyBwYXRj
-aCB3aXRoIGVhcmxpZXIgcGF0Y2g/CgpOb3QgYSBwYXJ0aWN1bGFybHkgZ29vZCBvbmUuIEknbGwg
-bWVyZ2UgaXQgaW50byBwYXRjaCAzLgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDov
-L29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+Some more users complaining about this:
+https://bbs.archlinux.org/viewtopic.php?id=215978
+
+On Thu, Sep 01, 2016 at 08:47:02PM +0300, Giedrius Statkevičius wrote:
+> A regression was introduced in commit id 79d4db1214a ("ath9k: cleanup
+> led_pin initial") that broken the WLAN status led on my laptop with
+> AR9287 after suspending and resuming.
+> 
+> Steps to reproduce:
+> * Suspend (laptop)
+> * Resume (laptop)
+> * Observe that the WLAN led no longer turns ON/OFF depending on the
+>   status and is always red
+> 
+> Even though for my case it only needs to be set to OUT in ath9k_start
+> but for consistency bring back the IN direction setting as well.
+> 
+> Cc: Miaoqing Pan <miaoqing@codeaurora.org>
+> Cc: Kalle Valo <kvalo@qca.qualcomm.com>
+> Cc: <stable@vger.kernel.org>
+> Signed-off-by: Giedrius Statkevičius <giedrius.statkevicius@gmail.com>
+> ---
+[...]
