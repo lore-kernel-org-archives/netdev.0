@@ -1,8 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 8/9] fs/afs/callback: Remove deprecated
+Subject: [PATCH net-next 7/9] fs/afs/rxrpc: Remove deprecated
  create_singlethread_workqueue
-Date: Sun, 04 Sep 2016 22:03:18 +0100
-Message-ID: <147302299888.28597.17890220162942786973.stgit@warthog.procyon.org.uk>
+Date: Sun, 04 Sep 2016 22:03:12 +0100
+Message-ID: <147302299214.28597.17964402805414984241.stgit@warthog.procyon.org.uk>
 References: <147302294435.28597.15007422228950187972.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -17,32 +17,35 @@ List-Id: netdev.vger.kernel.org
 
 From: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
 
-The workqueue "afs_callback_update_worker" queues multiple work items
-viz  &vnode->cb_broken_work, &server->cb_break_work which require strict
-execution ordering. Hence, an ordered dedicated workqueue has been used.
+The workqueue "afs_async_calls" queues work item
+&call->async_work per afs_call. Since there could be multiple calls and since
+these calls can be run concurrently, alloc_workqueue has been used to replace
+the deprecated create_singlethread_workqueue instance.
 
-Since the workqueue is being used on a memory reclaim path, WQ_MEM_RECLAIM
-has been set to ensure forward progress under memory pressure.
+The WQ_MEM_RECLAIM flag has been set to ensure forward progress under
+memory pressure because the workqueue is being used on a memory reclaim
+path.
+
+Since there are fixed number of work items, explicit concurrency
+limit is unnecessary here.
 
 Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- fs/afs/callback.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ fs/afs/rxrpc.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/fs/afs/callback.c b/fs/afs/callback.c
-index 7ef637d7f3a5..1e9d2f84e5b5 100644
---- a/fs/afs/callback.c
-+++ b/fs/afs/callback.c
-@@ -461,8 +461,8 @@ static void afs_callback_updater(struct work_struct *work)
-  */
- int __init afs_callback_update_init(void)
- {
--	afs_callback_update_worker =
--		create_singlethread_workqueue("kafs_callbackd");
-+	afs_callback_update_worker = alloc_ordered_workqueue("kafs_callbackd",
-+							     WQ_MEM_RECLAIM);
- 	return afs_callback_update_worker ? 0 : -ENOMEM;
- }
+diff --git a/fs/afs/rxrpc.c b/fs/afs/rxrpc.c
+index 244896baf241..37608be52abd 100644
+--- a/fs/afs/rxrpc.c
++++ b/fs/afs/rxrpc.c
+@@ -76,7 +76,7 @@ int afs_open_socket(void)
+ 	_enter("");
+ 
+ 	ret = -ENOMEM;
+-	afs_async_calls = create_singlethread_workqueue("kafsd");
++	afs_async_calls = alloc_workqueue("kafsd", WQ_MEM_RECLAIM, 0);
+ 	if (!afs_async_calls)
+ 		goto error_0;
  
