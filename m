@@ -1,7 +1,9 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 0/9] rxrpc: Small fixes
-Date: Sun, 04 Sep 2016 22:02:24 +0100
-Message-ID: <147302294435.28597.15007422228950187972.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 1/9] rxrpc: fix undefined behavior in
+ rxrpc_mark_call_released
+Date: Sun, 04 Sep 2016 22:02:31 +0100
+Message-ID: <147302295141.28597.17761498339552126149.stgit@warthog.procyon.org.uk>
+References: <147302294435.28597.15007422228950187972.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,56 +11,40 @@ Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
         linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <147302294435.28597.15007422228950187972.stgit@warthog.procyon.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Arnd Bergmann <arnd@arndb.de>
 
-Here's a set of small fix patches:
+gcc -Wmaybe-initialized correctly points out a newly introduced bug
+through which we can end up calling rxrpc_queue_call() for a dead
+connection:
 
- (1) Fix some uninitialised variables.
+net/rxrpc/call_object.c: In function 'rxrpc_mark_call_released':
+net/rxrpc/call_object.c:600:5: error: 'sched' may be used uninitialized in this function [-Werror=maybe-uninitialized]
 
- (2) Set the client call state before making it live by attaching it to the
-     conn struct.
+This sets the 'sched' variable to zero to restore the previous
+behavior.
 
- (3) Randomise the epoch and starting client conn ID values, and don't
-     change the epoch when the client conn ID rolls round.
-
- (4) Replace deprecated create_singlethread_workqueue() calls.
-
-The patches can be found here also (non-terminally on the branch):
-
-	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-rewrite
-
-Tagged thusly:
-
-	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
-	rxrpc-rewrite-20160904-1
-
-David
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: f5c17aaeb2ae ("rxrpc: Calls should only have one terminal state")
+Signed-off-by: David Howells <dhowells@redhat.com>
 ---
-Arnd Bergmann (1):
-      rxrpc: fix undefined behavior in rxrpc_mark_call_released
 
-Bhaktipriya Shridhar (4):
-      fs/afs/vlocation: Remove deprecated create_singlethread_workqueue
-      fs/afs/rxrpc: Remove deprecated create_singlethread_workqueue
-      fs/afs/callback: Remove deprecated create_singlethread_workqueue
-      fs/afs/flock: Remove deprecated create_singlethread_workqueue
+ net/rxrpc/call_object.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-David Howells (4):
-      rxrpc: Fix uninitialised variable warning
-      rxrpc: The client call state must be changed before attachment to conn
-      rxrpc: Randomise epoch and starting client conn ID values
-      rxrpc: Don't change the epoch
-
-
- fs/afs/callback.c       |    4 ++--
- fs/afs/flock.c          |    4 ++--
- fs/afs/rxrpc.c          |    2 +-
- fs/afs/vlocation.c      |    4 ++--
- include/rxrpc/packet.h  |    1 +
- net/rxrpc/af_rxrpc.c    |    9 ++++++++-
- net/rxrpc/call_event.c  |    5 ++---
- net/rxrpc/call_object.c |    4 +---
- net/rxrpc/conn_client.c |   36 ++++++++++++------------------------
- 9 files changed, 31 insertions(+), 38 deletions(-)
+diff --git a/net/rxrpc/call_object.c b/net/rxrpc/call_object.c
+index 516d8ea82f02..57e00fc9cff2 100644
+--- a/net/rxrpc/call_object.c
++++ b/net/rxrpc/call_object.c
+@@ -586,7 +586,7 @@ static void rxrpc_dead_call_expired(unsigned long _call)
+  */
+ static void rxrpc_mark_call_released(struct rxrpc_call *call)
+ {
+-	bool sched;
++	bool sched = false;
+ 
+ 	rxrpc_see_call(call);
+ 	write_lock(&call->state_lock);
