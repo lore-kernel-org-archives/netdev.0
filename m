@@ -1,33 +1,31 @@
 From: Julian Calaby <julian.calaby@gmail.com>
-Subject: Re: [PATCH] rtl8xxxu: fix spelling mistake "firmare" -> "firmware"
-Date: Sun, 4 Sep 2016 13:09:47 +1000
-Message-ID: <CAGRGNgXgzGye=jYzKUJyKS7Y0gzRsAVPSgu1=JUEU1had=0fqg@mail.gmail.com>
-References: <20160903164354.13331-1-colin.king@canonical.com>
+Subject: Re: [PATCH] ath10k: Spelling and miscellaneous neatening
+Date: Sun, 4 Sep 2016 13:16:00 +1000
+Message-ID: <CAGRGNgXWM8PiqBb5Tk=RQyqbs099J+mLK34Nq15mYrEgBq6FLg@mail.gmail.com>
+References: <95a6b65277914d88178ed2b15e182455067cca60.1472490319.git.joe@perches.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Jes Sorensen <Jes.Sorensen@redhat.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
+Cc: Kalle Valo <kvalo@qca.qualcomm.com>, ath10k@lists.infradead.org,
         linux-wireless <linux-wireless@vger.kernel.org>,
         netdev <netdev@vger.kernel.org>,
         "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Colin King <colin.king@canonical.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f44.google.com ([209.85.214.44]:37556 "EHLO
-        mail-it0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750832AbcIDDKO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 3 Sep 2016 23:10:14 -0400
-In-Reply-To: <20160903164354.13331-1-colin.king@canonical.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <95a6b65277914d88178ed2b15e182455067cca60.1472490319.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Hi All,
 
-On Sun, Sep 4, 2016 at 2:43 AM, Colin King <colin.king@canonical.com> wrote:
-> From: Colin Ian King <colin.king@canonical.com>
+On Tue, Aug 30, 2016 at 3:05 AM, Joe Perches <joe@perches.com> wrote:
+> Correct some trivial comment typos.
+> Remove unnecessary parentheses in a long line.
+> Convert a return; before the end of a void function definition to just ;
 >
-> Trivial fix to spelling mistakes in dev_dbg message.
->
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> Signed-off-by: Joe Perches <joe@perches.com>
+
+This all looks correct to me. I wish you'd put the code changes in a
+separate patch, however it's all noted in the commit log, so...
 
 Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
 
