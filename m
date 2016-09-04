@@ -1,34 +1,41 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 4/4] net: smsc911x: Move interrupt allocation to open/stop
-Date: Sun, 4 Sep 2016 04:45:46 +0200
-Message-ID: <20160904024546.GA8197@lunn.ch>
-References: <1472760909-19688-1-git-send-email-jeremy.linton@arm.com>
- <1472760909-19688-5-git-send-email-jeremy.linton@arm.com>
- <2317c7ce-9d44-7f89-9006-ed05041a9e87@cogentembedded.com>
- <b8978be5-fd24-6aad-8503-3868337a9934@cogentembedded.com>
+From: Julian Calaby <julian.calaby@gmail.com>
+Subject: Re: [PATCH 2/2] mwifiex: simplify length computation for some memset
+Date: Sun, 4 Sep 2016 13:24:47 +1000
+Message-ID: <CAGRGNgUP5VmTLzQfT99BqmRO9eKW9Du5e3O7DpdX-rByFSEmEA@mail.gmail.com>
+References: <1470641940-26681-1-git-send-email-christophe.jaillet@wanadoo.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeremy Linton <jeremy.linton@arm.com>, netdev@vger.kernel.org,
-        steve.glendinning@shawell.net, will.deacon@arm.com
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Amitkumar Karwar <akarwar@marvell.com>,
+        Nishant Sarmukadam <nishants@marvell.com>,
+        linux-wireless <linux-wireless@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        kernel-janitors <kernel-janitors@vger.kernel.org>
+To: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:34684 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753100AbcIDDYG (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 3 Sep 2016 23:24:06 -0400
-Content-Disposition: inline
-In-Reply-To: <b8978be5-fd24-6aad-8503-3868337a9934@cogentembedded.com>
+Received: from mail-it0-f49.google.com ([209.85.214.49]:35169 "EHLO
+        mail-it0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751524AbcIDDZJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 3 Sep 2016 23:25:09 -0400
+In-Reply-To: <1470641940-26681-1-git-send-email-christophe.jaillet@wanadoo.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> >   Hmm, I didn't see where this code got moved to...
-> 
->    Ah, it's the duplicated code... you should've either explicitly
-> stated that in the change log or done this in a separate patch, I
-> think.
+Hi All,
 
-Hi Sergei
+On Mon, Aug 8, 2016 at 5:39 PM, Christophe JAILLET
+<christophe.jaillet@wanadoo.fr> wrote:
+> This patch should be a no-op. It just simplifies code by using the name of
+> a variable instead of its type when calling 'sizeof'.
+>
+> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
 
-Maybe you should read the comments I made :-)
+Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
 
-      Andrew
+Thanks,
+
+-- 
+Julian Calaby
+
+Email: julian.calaby@gmail.com
+Profile: http://www.google.com/profiles/julian.calaby/
