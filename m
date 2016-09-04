@@ -1,50 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] af_unix: split 'u->readlock' into two: 'iolock'
- and 'bindlock'
-Date: Sun, 04 Sep 2016 13:29:47 -0700 (PDT)
-Message-ID: <20160904.132947.150095861735514200.davem@davemloft.net>
-References: <alpine.LFD.2.20.1609021109340.4072@i7>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH net-next 0/9] rxrpc: Small fixes
+Date: Sun, 04 Sep 2016 22:02:24 +0100
+Message-ID: <147302294435.28597.15007422228950187972.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, rweikusat@mobileactivedefense.com,
-        edumazet@google.com, w@1wt.eu, netdev@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38788 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753966AbcIDUhX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 4 Sep 2016 16:37:23 -0400
-In-Reply-To: <alpine.LFD.2.20.1609021109340.4072@i7>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Fri, 2 Sep 2016 11:13:09 -0700 (PDT)
 
-> 
-> From: Linus Torvalds <torvalds@linux-foundation.org>
-> Date: Thu, 1 Sep 2016 14:43:53 -0700
-> Subject: [PATCH 2/2] af_unix: split 'u->readlock' into two: 'iolock' and 'bindlock'
-> 
-> Right now we use the 'readlock' both for protecting some of the af_unix
-> IO path and for making the bind be single-threaded.
-> 
-> The two are independent, but using the same lock makes for a nasty
-> deadlock due to ordering with regards to filesystem locking.  The bind
-> locking would want to nest outside the VSF pathname locking, but the IO
-> locking wants to nest inside some of those same locks.
-> 
-> We tried to fix this earlier with commit c845acb324aa ("af_unix: Fix
-> splice-bind deadlock") which moved the readlock inside the vfs locks,
-> but that caused problems with overlayfs that will then call back into
-> filesystem routines that take the lock in the wrong order anyway.
-> 
-> Splitting the locks means that we can go back to having the bind lock be
-> the outermost lock, and we don't have any deadlocks with lock ordering.
-> 
-> Acked-by: Rainer Weikusat <rweikusat@cyberadapt.com>
-> Acked-by: Al Viro <viro@zeniv.linux.org.uk>
-> Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+Here's a set of small fix patches:
 
-Applied.
+ (1) Fix some uninitialised variables.
+
+ (2) Set the client call state before making it live by attaching it to the
+     conn struct.
+
+ (3) Randomise the epoch and starting client conn ID values, and don't
+     change the epoch when the client conn ID rolls round.
+
+ (4) Replace deprecated create_singlethread_workqueue() calls.
+
+The patches can be found here also (non-terminally on the branch):
+
+	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-rewrite
+
+Tagged thusly:
+
+	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
+	rxrpc-rewrite-20160904-1
+
+David
+---
+Arnd Bergmann (1):
+      rxrpc: fix undefined behavior in rxrpc_mark_call_released
+
+Bhaktipriya Shridhar (4):
+      fs/afs/vlocation: Remove deprecated create_singlethread_workqueue
+      fs/afs/rxrpc: Remove deprecated create_singlethread_workqueue
+      fs/afs/callback: Remove deprecated create_singlethread_workqueue
+      fs/afs/flock: Remove deprecated create_singlethread_workqueue
+
+David Howells (4):
+      rxrpc: Fix uninitialised variable warning
+      rxrpc: The client call state must be changed before attachment to conn
+      rxrpc: Randomise epoch and starting client conn ID values
+      rxrpc: Don't change the epoch
+
+
+ fs/afs/callback.c       |    4 ++--
+ fs/afs/flock.c          |    4 ++--
+ fs/afs/rxrpc.c          |    2 +-
+ fs/afs/vlocation.c      |    4 ++--
+ include/rxrpc/packet.h  |    1 +
+ net/rxrpc/af_rxrpc.c    |    9 ++++++++-
+ net/rxrpc/call_event.c  |    5 ++---
+ net/rxrpc/call_object.c |    4 +---
+ net/rxrpc/conn_client.c |   36 ++++++++++++------------------------
+ 9 files changed, 31 insertions(+), 38 deletions(-)
