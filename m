@@ -1,60 +1,104 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: [PATCH net-next V5 4/4] net/sched: Introduce act_tunnel_key
-Date: Sun, 4 Sep 2016 14:21:05 +0300
-Message-ID: <20160904142105.5cedc050@pixies>
-References: <1472986555-14949-1-git-send-email-hadarh@mellanox.com>
-        <1472986555-14949-5-git-send-email-hadarh@mellanox.com>
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [PATCH] RDS: Simplify code
+Date: Sun, 4 Sep 2016 15:20:49 +0300
+Message-ID: <20160904122049.GQ21847@leon.nu>
+References: <1472880809-29216-1-git-send-email-christophe.jaillet@wanadoo.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Jiri Pirko <jiri@mellanox.com>, Jiri Benc <jbenc@redhat.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Amir Vadai <amirva@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>, Amir Vadai <amir@vadai.me>
-To: Hadar Hen Zion <hadarh@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:35030 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752758AbcIDLVD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 4 Sep 2016 07:21:03 -0400
-Received: by mail-wm0-f65.google.com with SMTP id c133so9123441wmd.2
-        for <netdev@vger.kernel.org>; Sun, 04 Sep 2016 04:21:02 -0700 (PDT)
-In-Reply-To: <1472986555-14949-5-git-send-email-hadarh@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="psiTe9LjpVyD9953"
+Cc: santosh.shilimkar@oracle.com, davem@davemloft.net,
+        linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1472880809-29216-1-git-send-email-christophe.jaillet@wanadoo.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun,  4 Sep 2016 13:55:55 +0300, hadarh@mellanox.com wrote:
-> From: Amir Vadai <amir@vadai.me>
-> 
-> This action could be used before redirecting packets to a shared tunnel
-> device, or when redirecting packets arriving from a such a device.
-> 
-> The action will release the metadata created by the tunnel device
-> (decap), or set the metadata with the specified values for encap
-> operation.
-> 
-> For example, the following flower filter will forward all ICMP packets
-> destined to 11.11.11.2 through the shared vxlan device 'vxlan0'. Before
-> redirecting, a metadata for the vxlan tunnel is created using the
-> tunnel_key action and it's arguments:
-> 
-> $ filter add dev net0 protocol ip parent ffff: \
->     flower \
->       ip_proto 1 \
->       dst_ip 11.11.11.2 \
->     action tunnel_key set \
->       src_ip 11.11.0.1 \
->       dst_ip 11.11.0.2 \
->       id 11 \
->     action mirred egress redirect dev vxlan0
-> 
-> Signed-off-by: Amir Vadai <amir@vadai.me>
-> Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
 
-Reviewed-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+--psiTe9LjpVyD9953
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Thanks!
+On Sat, Sep 03, 2016 at 07:33:29AM +0200, Christophe JAILLET wrote:
+> Calling 'list_splice' followed by 'INIT_LIST_HEAD' is equivalent to
+> 'list_splice_init'.
+
+It is not 100% accurate
+
+list_splice(y, z)
+INIT_LIST_HEAD(y)
+
+==>
+
+if (!list_empty(y))
+     __list_splice(y, z, z>next);
+INIT_LIST_HEAD(y)
+
+and not
+
+if (!list_empty(y)) {
+     __list_splice(y, z, z>next);
+     INIT_LIST_HEAD(y)
+}
+
+as list_splice_init will do.
+
+
+>
+> This has been spotted with the following coccinelle script:
+> /////
+> @@
+> expression y,z;
+> @@
+>
+> -   list_splice(y,z);
+> -   INIT_LIST_HEAD(y);
+> +   list_splice_init(y,z);
+>
+> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+> ---
+>  net/rds/loop.c | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+>
+> diff --git a/net/rds/loop.c b/net/rds/loop.c
+> index f2bf78de5688..c3e6da4fdf97 100644
+> --- a/net/rds/loop.c
+> +++ b/net/rds/loop.c
+> @@ -167,8 +167,7 @@ void rds_loop_exit(void)
+>
+>  	/* avoid calling conn_destroy with irqs off */
+>  	spin_lock_irq(&loop_conns_lock);
+> -	list_splice(&loop_conns, &tmp_list);
+> -	INIT_LIST_HEAD(&loop_conns);
+> +	list_splice_init(&loop_conns, &tmp_list);
+>  	spin_unlock_irq(&loop_conns_lock);
+>
+>  	list_for_each_entry_safe(lc, _lc, &tmp_list, loop_node) {
+> --
+> 2.7.4
+>
+
+--psiTe9LjpVyD9953
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJXzBGhAAoJEORje4g2clinrBcP/0pGSB+6M+EEupGEnHjxbeYW
+ygKiZBvFo6EH609fNsYdHUNlgueLN6m548guP7uZmbpiwzye/NNWZBZmtrrI5FI+
+H4qdJ/c/y0UI8VyNwUFYXYdGrxvBkH8gvFgLxnsTuRXh/5E5c5wEzfURne4YTtqO
+rM5BBd4MnhNcJFXnt0PwXHoDP9w4+V1xGMy3P95UDef74aCOjkbGScmzKrx7g3BP
+WZhV4fGMrvB9p5t1jmduE3quyAcv8FUm9ieVL4u7n/OwIIbftPFYgyDQ9MUA7izc
+pMX+MvuZZxetdhKnqZxTb4OvB2nDK8gHgwBDyF2p5kUW5GGVwDezgbjCJZjsAxzz
+bnQ/HVDehfYGCdYSp/t+xTRuAXx73phHaJvbANkSSiCl5B2UIeptkCs9mt96Rbc2
+7/adcYVyE2XGlkDcFVAvfHDrX4V5TIR9FOxpsMYJPR9HIyYcMQrQdodyxhDNE+/c
+6W8SFdTv657V/aBw0ldESmn/l9FHSrnKuN6NB//1wwW8RclaWP4LNTSknEjEYHvL
+61pW9JhN0XtWV92INHvs3VIap6ZwcMnv9+juhJVSz403f0hv6FhmiGYMAvR5dmpi
+zNOyWlV3PZ72OHZR5fq9OpjDf3LCtX8Aw4kFwkYC05aMoi5j7NQHlWlmxFJyQ0HP
+Qw7EeA9sayw+22izXlWT
+=XtxE
+-----END PGP SIGNATURE-----
+
+--psiTe9LjpVyD9953--
