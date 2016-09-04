@@ -1,7 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 2/9] rxrpc: Fix uninitialised variable warning
-Date: Sun, 04 Sep 2016 22:02:38 +0100
-Message-ID: <147302295815.28597.5580374607342956253.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 9/9] fs/afs/flock: Remove deprecated
+ create_singlethread_workqueue
+Date: Sun, 04 Sep 2016 22:03:25 +0100
+Message-ID: <147302300563.28597.8226500849686976128.stgit@warthog.procyon.org.uk>
 References: <147302294435.28597.15007422228950187972.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,41 +15,39 @@ In-Reply-To: <147302294435.28597.15007422228950187972.stgit@warthog.procyon.org.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix the following uninitialised variable warning:
+From: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
 
-../net/rxrpc/call_event.c: In function 'rxrpc_process_call':
-../net/rxrpc/call_event.c:879:58: warning: 'error' may be used uninitialized in this function [-Wmaybe-uninitialized]
-    _debug("post net error %d", error);
-                                                          ^
+The workqueue "afs_lock_manager" queues work item &vnode->lock_work,
+per vnode. Since there can be multiple vnodes and since their work items
+can be executed concurrently, alloc_workqueue has been used to replace
+the deprecated create_singlethread_workqueue instance.
 
+The WQ_MEM_RECLAIM flag has been set to ensure forward progress under
+memory pressure because the workqueue is being used on a memory reclaim
+path.
+
+Since there are fixed number of work items, explicit concurrency
+limit is unnecessary here.
+
+Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/call_event.c |    5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ fs/afs/flock.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/rxrpc/call_event.c b/net/rxrpc/call_event.c
-index de72de662044..4754c7fb6242 100644
---- a/net/rxrpc/call_event.c
-+++ b/net/rxrpc/call_event.c
-@@ -868,7 +868,6 @@ skip_msg_init:
- 	/* deal with events of a final nature */
- 	if (test_bit(RXRPC_CALL_EV_RCVD_ERROR, &call->events)) {
- 		enum rxrpc_skb_mark mark;
--		int error;
- 
- 		clear_bit(RXRPC_CALL_EV_CONN_ABORT, &call->events);
- 		clear_bit(RXRPC_CALL_EV_REJECT_BUSY, &call->events);
-@@ -876,10 +875,10 @@ skip_msg_init:
- 
- 		if (call->completion == RXRPC_CALL_NETWORK_ERROR) {
- 			mark = RXRPC_SKB_MARK_NET_ERROR;
--			_debug("post net error %d", error);
-+			_debug("post net error %d", call->error);
- 		} else {
- 			mark = RXRPC_SKB_MARK_LOCAL_ERROR;
--			_debug("post net local error %d", error);
-+			_debug("post net local error %d", call->error);
+diff --git a/fs/afs/flock.c b/fs/afs/flock.c
+index d91a9c9cfbd0..3191dff2c156 100644
+--- a/fs/afs/flock.c
++++ b/fs/afs/flock.c
+@@ -36,8 +36,8 @@ static int afs_init_lock_manager(void)
+ 	if (!afs_lock_manager) {
+ 		mutex_lock(&afs_lock_manager_mutex);
+ 		if (!afs_lock_manager) {
+-			afs_lock_manager =
+-				create_singlethread_workqueue("kafs_lockd");
++			afs_lock_manager = alloc_workqueue("kafs_lockd",
++							   WQ_MEM_RECLAIM, 0);
+ 			if (!afs_lock_manager)
+ 				ret = -ENOMEM;
  		}
- 
- 		if (rxrpc_post_message(call, mark, call->error, true) < 0)
