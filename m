@@ -1,104 +1,149 @@
-From: Leon Romanovsky <leon@kernel.org>
-Subject: Re: [PATCH] RDS: Simplify code
-Date: Sun, 4 Sep 2016 15:20:49 +0300
-Message-ID: <20160904122049.GQ21847@leon.nu>
-References: <1472880809-29216-1-git-send-email-christophe.jaillet@wanadoo.fr>
+From: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next V5 2/4] net/dst: Utility functions to build
+ dst_metadata without supplying an skb
+Date: Sun, 4 Sep 2016 15:27:29 +0300
+Message-ID: <CAJL1qvEYyXJcUNgQNfKtk7c7FH5G5YSk0kTxnk4hVUs0CHU9=w@mail.gmail.com>
+References: <1472986555-14949-1-git-send-email-hadarh@mellanox.com>
+ <1472986555-14949-3-git-send-email-hadarh@mellanox.com> <116097f9-b3b7-5489-355b-c8a906fa1958@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="psiTe9LjpVyD9953"
-Cc: santosh.shilimkar@oracle.com, davem@davemloft.net,
-        linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1472880809-29216-1-git-send-email-christophe.jaillet@wanadoo.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Hadar Hen Zion <hadarh@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@mellanox.com>,
+        Jiri Benc <jbenc@redhat.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Amir Vadai <amirva@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>, Amir Vadai <amir@vadai.me>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:35778 "EHLO
+        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750729AbcIDM1a (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 4 Sep 2016 08:27:30 -0400
+Received: by mail-oi0-f68.google.com with SMTP id 2so8021230oif.2
+        for <netdev@vger.kernel.org>; Sun, 04 Sep 2016 05:27:30 -0700 (PDT)
+In-Reply-To: <116097f9-b3b7-5489-355b-c8a906fa1958@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Sun, Sep 4, 2016 at 2:14 PM, Sergei Shtylyov
+<sergei.shtylyov@cogentembedded.com> wrote:
+> Hello.
+>
+>
+> On 9/4/2016 1:55 PM, Hadar Hen Zion wrote:
+>
+>> From: Amir Vadai <amir@vadai.me>
+>>
+>> Extract __ip_tun_set_dst() and __ipv6_tun_set_dst() out of
+>> ip_tun_rx_dst() and ipv6_tun_rx_dst(), to be used without supplying an
+>> skb.
+>>
+>> Signed-off-by: Amir Vadai <amir@vadai.me>
+>> Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+>> Acked-by: Jiri Pirko <jiri@mellanox.com>
+>> Reviewed-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+>> ---
+>>  include/net/dst_metadata.h | 45
+>> ++++++++++++++++++++++++++++++++-------------
+>>  1 file changed, 32 insertions(+), 13 deletions(-)
+>>
+>> diff --git a/include/net/dst_metadata.h b/include/net/dst_metadata.h
+>> index 5db9f59..49e8847 100644
+>> --- a/include/net/dst_metadata.h
+>> +++ b/include/net/dst_metadata.h
+>> @@ -112,12 +112,10 @@ static inline struct ip_tunnel_info
+>> *skb_tunnel_info_unclone(struct sk_buff *skb
+>>         return &dst->u.tun_info;
+>>  }
+>>
+>> -static inline struct metadata_dst *ip_tun_rx_dst(struct sk_buff *skb,
+>> -                                                __be16 flags,
+>> -                                                __be64 tunnel_id,
+>> -                                                int md_size)
+>> +static inline struct metadata_dst *
+>> +__ip_tun_set_dst(__be32 saddr, __be32 daddr, __u8 tos, __u8 ttl,
+>> +                __be16 flags, __be64 tunnel_id, int md_size)
+>
+>
+>    The continuation lines should start under the 1st '__be32' on the broken
+> up line. See how it was before your patch.
 
---psiTe9LjpVyD9953
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Sat, Sep 03, 2016 at 07:33:29AM +0200, Christophe JAILLET wrote:
-> Calling 'list_splice' followed by 'INIT_LIST_HEAD' is equivalent to
-> 'list_splice_init'.
-
-It is not 100% accurate
-
-list_splice(y, z)
-INIT_LIST_HEAD(y)
-
-==>
-
-if (!list_empty(y))
-     __list_splice(y, z, z>next);
-INIT_LIST_HEAD(y)
-
-and not
-
-if (!list_empty(y)) {
-     __list_splice(y, z, z>next);
-     INIT_LIST_HEAD(y)
-}
-
-as list_splice_init will do.
-
+ack
 
 >
-> This has been spotted with the following coccinelle script:
-> /////
-> @@
-> expression y,z;
-> @@
+>>  {
+>> -       const struct iphdr *iph = ip_hdr(skb);
+>>         struct metadata_dst *tun_dst;
+>>
+>>         tun_dst = tun_rx_dst(md_size);
+>> @@ -125,17 +123,27 @@ static inline struct metadata_dst
+>> *ip_tun_rx_dst(struct sk_buff *skb,
 >
-> -   list_splice(y,z);
-> -   INIT_LIST_HEAD(y);
-> +   list_splice_init(y,z);
+> [...]
+>>
+>> -static inline struct metadata_dst *ipv6_tun_rx_dst(struct sk_buff *skb,
+>> +static inline struct metadata_dst *ip_tun_rx_dst(struct sk_buff *skb,
+>>                                                  __be16 flags,
+>>                                                  __be64 tunnel_id,
+>>                                                  int md_size)
+>>  {
+>> -       const struct ipv6hdr *ip6h = ipv6_hdr(skb);
+>> +       const struct iphdr *iph = ip_hdr(skb);
+>> +
+>> +       return __ip_tun_set_dst(iph->saddr, iph->daddr, iph->tos,
+>> iph->ttl,
+>> +                               flags, tunnel_id, md_size);
+>> +}
+>> +
+>> +static inline struct metadata_dst *
+>> +__ipv6_tun_set_dst(const struct in6_addr *saddr, const struct in6_addr
+>> *daddr,
+>> +                  __u8 tos, __u8 ttl, __be32 label, __be16 flags,
+>> +                  __be64 tunnel_id, int md_size)
 >
-> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-> ---
->  net/rds/loop.c | 3 +--
->  1 file changed, 1 insertion(+), 2 deletions(-)
 >
-> diff --git a/net/rds/loop.c b/net/rds/loop.c
-> index f2bf78de5688..c3e6da4fdf97 100644
-> --- a/net/rds/loop.c
-> +++ b/net/rds/loop.c
-> @@ -167,8 +167,7 @@ void rds_loop_exit(void)
->
->  	/* avoid calling conn_destroy with irqs off */
->  	spin_lock_irq(&loop_conns_lock);
-> -	list_splice(&loop_conns, &tmp_list);
-> -	INIT_LIST_HEAD(&loop_conns);
-> +	list_splice_init(&loop_conns, &tmp_list);
->  	spin_unlock_irq(&loop_conns_lock);
->
->  	list_for_each_entry_safe(lc, _lc, &tmp_list, loop_node) {
-> --
-> 2.7.4
->
+>    The continuation lines should start under the 1st *const* on the broken
+> up line.
 
---psiTe9LjpVyD9953
-Content-Type: application/pgp-signature; name="signature.asc"
+ack
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+>
+>> +{
+>>         struct metadata_dst *tun_dst;
+>>         struct ip_tunnel_info *info;
+>>
+>> @@ -150,14 +158,25 @@ static inline struct metadata_dst
+>> *ipv6_tun_rx_dst(struct sk_buff *skb,
+>
+> [...]
+>>
+>> +static inline struct metadata_dst *
+>> +ipv6_tun_rx_dst(struct sk_buff *skb, __be16 flags, __be64 tunnel_id,
+>> +               int md_size)
+>> +{
+>> +       const struct ipv6hdr *ip6h = ipv6_hdr(skb);
+>> +
+>> +       return __ipv6_tun_set_dst(&ip6h->saddr, &ip6h->daddr,
+>> +                               ipv6_get_dsfield(ip6h), ip6h->hop_limit,
+>> +                               ip6_flowlabel(ip6h), flags, tunnel_id,
+>> +                               md_size);
+>
+>
+>    The continuation lines should start exactly under the 1st & on the broken
+> up line.
+>    That's DaveM's preference, I don't remember if checkpatch.pl reports that
+> for the networking code...
 
-iQIcBAEBAgAGBQJXzBGhAAoJEORje4g2clinrBcP/0pGSB+6M+EEupGEnHjxbeYW
-ygKiZBvFo6EH609fNsYdHUNlgueLN6m548guP7uZmbpiwzye/NNWZBZmtrrI5FI+
-H4qdJ/c/y0UI8VyNwUFYXYdGrxvBkH8gvFgLxnsTuRXh/5E5c5wEzfURne4YTtqO
-rM5BBd4MnhNcJFXnt0PwXHoDP9w4+V1xGMy3P95UDef74aCOjkbGScmzKrx7g3BP
-WZhV4fGMrvB9p5t1jmduE3quyAcv8FUm9ieVL4u7n/OwIIbftPFYgyDQ9MUA7izc
-pMX+MvuZZxetdhKnqZxTb4OvB2nDK8gHgwBDyF2p5kUW5GGVwDezgbjCJZjsAxzz
-bnQ/HVDehfYGCdYSp/t+xTRuAXx73phHaJvbANkSSiCl5B2UIeptkCs9mt96Rbc2
-7/adcYVyE2XGlkDcFVAvfHDrX4V5TIR9FOxpsMYJPR9HIyYcMQrQdodyxhDNE+/c
-6W8SFdTv657V/aBw0ldESmn/l9FHSrnKuN6NB//1wwW8RclaWP4LNTSknEjEYHvL
-61pW9JhN0XtWV92INHvs3VIap6ZwcMnv9+juhJVSz403f0hv6FhmiGYMAvR5dmpi
-zNOyWlV3PZ72OHZR5fq9OpjDf3LCtX8Aw4kFwkYC05aMoi5j7NQHlWlmxFJyQ0HP
-Qw7EeA9sayw+22izXlWT
-=XtxE
------END PGP SIGNATURE-----
+checkpatch doesn't report :(
+I'll fix it to the next version.
 
---psiTe9LjpVyD9953--
+>
+> [...]
+>
+> MBR, Sergei
+>
