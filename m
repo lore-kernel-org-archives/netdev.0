@@ -1,62 +1,61 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 3/9] rxrpc: The client call state must be changed
- before attachment to conn
-Date: Sun, 04 Sep 2016 22:02:44 +0100
-Message-ID: <147302296490.28597.9688307516968449225.stgit@warthog.procyon.org.uk>
-References: <147302294435.28597.15007422228950187972.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 3/3] rxrpc Move enum rxrpc_command to sendmsg.c
+Date: Sun, 04 Sep 2016 22:04:34 +0100
+Message-ID: <147302307395.28850.17458230830763106900.stgit@warthog.procyon.org.uk>
+References: <147302305256.28850.16735273264737276926.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
         linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36034 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754577AbcIDVEV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 4 Sep 2016 17:04:21 -0400
-In-Reply-To: <147302294435.28597.15007422228950187972.stgit@warthog.procyon.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <147302305256.28850.16735273264737276926.stgit@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We must set the client call state to RXRPC_CALL_CLIENT_SEND_REQUEST before
-attaching the call to the connection struct, not after, as it's liable to
-receive errors and conn aborts as soon as the assignment is made - and
-these will cause its state to be changed outside of the initiating thread's
-control.
+Move enum rxrpc_command to sendmsg.c as it's now only used in that file.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/call_object.c |    2 --
- net/rxrpc/conn_client.c |    4 ++++
- 2 files changed, 4 insertions(+), 2 deletions(-)
+ net/rxrpc/ar-internal.h |    7 -------
+ net/rxrpc/sendmsg.c     |    7 +++++++
+ 2 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/net/rxrpc/call_object.c b/net/rxrpc/call_object.c
-index 57e00fc9cff2..65691742199b 100644
---- a/net/rxrpc/call_object.c
-+++ b/net/rxrpc/call_object.c
-@@ -197,8 +197,6 @@ static int rxrpc_begin_client_call(struct rxrpc_call *call,
- 	if (ret < 0)
- 		return ret;
+diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
+index 464dfda2a995..bb342f5fe7e4 100644
+--- a/net/rxrpc/ar-internal.h
++++ b/net/rxrpc/ar-internal.h
+@@ -131,13 +131,6 @@ struct rxrpc_skb_priv {
  
--	call->state = RXRPC_CALL_CLIENT_SEND_REQUEST;
+ #define rxrpc_skb(__skb) ((struct rxrpc_skb_priv *) &(__skb)->cb)
+ 
+-enum rxrpc_command {
+-	RXRPC_CMD_SEND_DATA,		/* send data message */
+-	RXRPC_CMD_SEND_ABORT,		/* request abort generation */
+-	RXRPC_CMD_ACCEPT,		/* [server] accept incoming call */
+-	RXRPC_CMD_REJECT_BUSY,		/* [server] reject a call as busy */
+-};
 -
- 	spin_lock(&call->conn->params.peer->lock);
- 	hlist_add_head(&call->error_link, &call->conn->params.peer->error_targets);
- 	spin_unlock(&call->conn->params.peer->lock);
-diff --git a/net/rxrpc/conn_client.c b/net/rxrpc/conn_client.c
-index 4b213bc0f554..e19804dd6c8d 100644
---- a/net/rxrpc/conn_client.c
-+++ b/net/rxrpc/conn_client.c
-@@ -537,6 +537,10 @@ static void rxrpc_activate_one_channel(struct rxrpc_connection *conn,
- 					     struct rxrpc_call, chan_wait_link);
- 	u32 call_id = chan->call_counter + 1;
+ /*
+  * RxRPC security module interface
+  */
+diff --git a/net/rxrpc/sendmsg.c b/net/rxrpc/sendmsg.c
+index 17a9ebbc2346..7376794a0308 100644
+--- a/net/rxrpc/sendmsg.c
++++ b/net/rxrpc/sendmsg.c
+@@ -20,6 +20,13 @@
+ #include <net/af_rxrpc.h>
+ #include "ar-internal.h"
  
-+	write_lock_bh(&call->state_lock);
-+	call->state = RXRPC_CALL_CLIENT_SEND_REQUEST;
-+	write_unlock_bh(&call->state_lock);
++enum rxrpc_command {
++	RXRPC_CMD_SEND_DATA,		/* send data message */
++	RXRPC_CMD_SEND_ABORT,		/* request abort generation */
++	RXRPC_CMD_ACCEPT,		/* [server] accept incoming call */
++	RXRPC_CMD_REJECT_BUSY,		/* [server] reject a call as busy */
++};
 +
- 	rxrpc_see_call(call);
- 	list_del_init(&call->chan_wait_link);
- 	conn->active_chans |= 1 << channel;
+ /*
+  * wait for space to appear in the transmit/ACK window
+  * - caller holds the socket locked
