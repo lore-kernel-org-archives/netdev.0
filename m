@@ -1,13 +1,14 @@
 From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-Subject: [PATCH v4 3/5] stmmac: introduce get_stmmac_bsp_priv() helper
-Date: Sun,  4 Sep 2016 20:23:18 +0200
-Message-ID: <20160904182320.671-4-martin.blumenstingl@googlemail.com>
+Subject: [PATCH v4 2/5] clk: gxbb: expose MPLL2 clock for use by DT
+Date: Sun,  4 Sep 2016 20:23:17 +0200
+Message-ID: <20160904182320.671-3-martin.blumenstingl@googlemail.com>
 References: <20160828161637.9941-1-martin.blumenstingl@googlemail.com>
  <20160904182320.671-1-martin.blumenstingl@googlemail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: mark.rutland@arm.com, devicetree@vger.kernel.org, arnd@arndb.de,
+ Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
  catalin.marinas@arm.com, manabian@gmail.com, will.deacon@arm.com,
  davem@davemloft.net, robh+dt@kernel.org, netdev@vger.kernel.org,
  sboyd@codeaurora.org, linux-arm-kernel@lists.infradead.org
@@ -26,34 +27,39 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-From: Joachim Eastwood <manabian@gmail.com>
+This exposes the MPLL2 clock as this is one of the input clocks of the
+ethernet controller's internal mux.
 
-Create a helper to retrive dwmac private data from a dev
-pointer. This is useful in PM callbacks and driver remove.
-
-Signed-off-by: Joachim Eastwood <manabian@gmail.com>
-Tested-by: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-Acked-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h | 8 ++++++++
- 1 file changed, 8 insertions(+)
+ drivers/clk/meson/gxbb.h              | 2 +-
+ include/dt-bindings/clock/gxbb-clkc.h | 1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
-index ffeb8d9..64e147f 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
-@@ -30,4 +30,12 @@ int stmmac_get_platform_resources(struct platform_device *pdev,
- int stmmac_pltfr_remove(struct platform_device *pdev);
- extern const struct dev_pm_ops stmmac_pltfr_pm_ops;
- 
-+static inline void *get_stmmac_bsp_priv(struct device *dev)
-+{
-+	struct net_device *ndev = dev_get_drvdata(dev);
-+	struct stmmac_priv *priv = netdev_priv(ndev);
-+
-+	return priv->plat->bsp_priv;
-+}
-+
- #endif /* __STMMAC_PLATFORM_H__ */
+diff --git a/drivers/clk/meson/gxbb.h b/drivers/clk/meson/gxbb.h
+index 217df51..3606e875 100644
+--- a/drivers/clk/meson/gxbb.h
++++ b/drivers/clk/meson/gxbb.h
+@@ -183,7 +183,7 @@
+ /* CLKID_CLK81 */
+ #define CLKID_MPLL0		  13
+ #define CLKID_MPLL1		  14
+-#define CLKID_MPLL2		  15
++/* CLKID_MPLL2 */
+ #define CLKID_DDR		  16
+ #define CLKID_DOS		  17
+ #define CLKID_ISA		  18
+diff --git a/include/dt-bindings/clock/gxbb-clkc.h b/include/dt-bindings/clock/gxbb-clkc.h
+index 7d41864..244ea6e 100644
+--- a/include/dt-bindings/clock/gxbb-clkc.h
++++ b/include/dt-bindings/clock/gxbb-clkc.h
+@@ -8,6 +8,7 @@
+ #define CLKID_CPUCLK		1
+ #define CLKID_FCLK_DIV2		4
+ #define CLKID_CLK81		12
++#define CLKID_MPLL2		15
+ #define CLKID_ETH		36
+ #define CLKID_SD_EMMC_A		94
+ #define CLKID_SD_EMMC_B		95
 -- 
 2.9.3
