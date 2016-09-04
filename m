@@ -1,29 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch v5 0/2] net: ethernet: xilinx: mac addr and mips
-Date: Sun, 04 Sep 2016 11:45:18 -0700 (PDT)
-Message-ID: <20160904.114518.1390837075013938788.davem@davemloft.net>
-References: <1472816366-1018-1-git-send-email-Zubair.Kakakhel@imgtec.com>
+Subject: Re: [PATCH net-next] cxgb4: Add support for ndo_get_vf_config
+Date: Sun, 04 Sep 2016 11:46:20 -0700 (PDT)
+Message-ID: <20160904.114620.1885409381455953066.davem@davemloft.net>
+References: <1472823833-6256-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: michal.simek@xilinx.com, soren.brinkmann@xilinx.com,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Zubair.Kakakhel@imgtec.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1472816366-1018-1-git-send-email-Zubair.Kakakhel@imgtec.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nirranjan@chelsio.com
+To: hariprasad@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37312 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754143AbcIDSqV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 4 Sep 2016 14:46:21 -0400
+In-Reply-To: <1472823833-6256-1-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
-Date: Fri, 2 Sep 2016 12:39:24 +0100
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Fri,  2 Sep 2016 19:13:53 +0530
 
-> A couple of simple patches to generate the random mac address
-> if none is found. And enabling the driver for mips.
+> Adds support for ndo_get_vf_config, also fill the default mac address
+> that will be provided to the VF by firmware, in case user doesn't
+> provide one. So user can get the default MAC address address also
+> through ndo_get_vf_config.
 > 
-> Based on v4.8-rc4.
-> 
-> These were part of a larger series but that series is growing
-> wildly. Splitting and submitting the net subsystem patches separately.
-> Hence the v5.
+> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 
-This doesn't apply cleanly to any of my trees.
+Applied.
