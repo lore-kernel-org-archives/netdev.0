@@ -1,53 +1,49 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 9/9] fs/afs/flock: Remove deprecated
- create_singlethread_workqueue
-Date: Sun, 04 Sep 2016 22:03:25 +0100
-Message-ID: <147302300563.28597.8226500849686976128.stgit@warthog.procyon.org.uk>
-References: <147302294435.28597.15007422228950187972.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 0/3] rxrpc: Split output code from sendmsg code
+Date: Sun, 04 Sep 2016 22:04:12 +0100
+Message-ID: <147302305256.28850.16735273264737276926.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
         linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <147302294435.28597.15007422228950187972.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:43800 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754212AbcIDVEV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 4 Sep 2016 17:04:21 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
 
-The workqueue "afs_lock_manager" queues work item &vnode->lock_work,
-per vnode. Since there can be multiple vnodes and since their work items
-can be executed concurrently, alloc_workqueue has been used to replace
-the deprecated create_singlethread_workqueue instance.
+Here's a set of small patches that split the packet transmission code from
+the sendmsg code and simply rearrange the new file to make it more
+logically laid out ready for being rewritten.  An enum is also moved out of
+the header file to there as it's only used there.  This needs to be applied
+on top of the just-posted fixes patch set.
 
-The WQ_MEM_RECLAIM flag has been set to ensure forward progress under
-memory pressure because the workqueue is being used on a memory reclaim
-path.
+The patches can be found here also (non-terminally on the branch):
 
-Since there are fixed number of work items, explicit concurrency
-limit is unnecessary here.
+	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-rewrite
 
-Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
-Signed-off-by: David Howells <dhowells@redhat.com>
+Tagged thusly:
+
+	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
+	rxrpc-rewrite-20160904-2
+
+David
 ---
+David Howells (3):
+      rxrpc: Split sendmsg from packet transmission code
+      rxrpc: Rearrange net/rxrpc/sendmsg.c
+      rxrpc Move enum rxrpc_command to sendmsg.c
 
- fs/afs/flock.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/fs/afs/flock.c b/fs/afs/flock.c
-index d91a9c9cfbd0..3191dff2c156 100644
---- a/fs/afs/flock.c
-+++ b/fs/afs/flock.c
-@@ -36,8 +36,8 @@ static int afs_init_lock_manager(void)
- 	if (!afs_lock_manager) {
- 		mutex_lock(&afs_lock_manager_mutex);
- 		if (!afs_lock_manager) {
--			afs_lock_manager =
--				create_singlethread_workqueue("kafs_lockd");
-+			afs_lock_manager = alloc_workqueue("kafs_lockd",
-+							   WQ_MEM_RECLAIM, 0);
- 			if (!afs_lock_manager)
- 				ret = -ENOMEM;
- 		}
+ net/rxrpc/Makefile      |    1 
+ net/rxrpc/ar-internal.h |   16 -
+ net/rxrpc/misc.c        |    5 
+ net/rxrpc/output.c      |  630 ----------------------------------------------
+ net/rxrpc/sendmsg.c     |  648 +++++++++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 660 insertions(+), 640 deletions(-)
+ create mode 100644 net/rxrpc/sendmsg.c
