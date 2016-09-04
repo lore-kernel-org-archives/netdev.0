@@ -1,43 +1,48 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH] vxlan: Update tx_errors statistics if vxlan_build_skb
- return err.
-Date: Sun, 4 Sep 2016 16:12:33 +0200
-Message-ID: <20160904161233.063d0009@griffin>
-References: <1472986371-75583-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Subject: Re: [PATCH] RDS: Simplify code
+Date: Sun, 4 Sep 2016 17:57:20 +0200
+Message-ID: <befa1a39-cfc5-721f-e39a-369436237b1c@wanadoo.fr>
+References: <1472880809-29216-1-git-send-email-christophe.jaillet@wanadoo.fr>
+ <20160904122049.GQ21847@leon.nu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: santosh.shilimkar@oracle.com, davem@davemloft.net,
+        linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Leon Romanovsky <leon@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1472986371-75583-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+In-Reply-To: <20160904122049.GQ21847@leon.nu>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun,  4 Sep 2016 18:52:51 +0800, Haishuang Yan wrote:
-> If vxlan_build_skb return err < 0, tx_errors should be also increased.
-> 
-> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-> ---
->  drivers/net/vxlan.c | 1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index f605a36..2c72dcd 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -2103,6 +2103,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
->  				      vni, md, flags, udp_sum);
->  		if (err < 0) {
->  			dst_release(ndst);
-> +			dev->stats.tx_errors++;
->  			return;
->  		}
->  		udp_tunnel6_xmit_skb(ndst, sk, skb, dev,
+Le 04/09/2016 à 14:20, Leon Romanovsky a écrit :
+> On Sat, Sep 03, 2016 at 07:33:29AM +0200, Christophe JAILLET wrote:
+>> Calling 'list_splice' followed by 'INIT_LIST_HEAD' is equivalent to
+>> 'list_splice_init'.
+> It is not 100% accurate
+>
+> list_splice(y, z)
+> INIT_LIST_HEAD(y)
+>
+> ==>
+>
+> if (!list_empty(y))
+>       __list_splice(y, z, z>next);
+> INIT_LIST_HEAD(y)
+>
+> and not
+>
+> if (!list_empty(y)) {
+>       __list_splice(y, z, z>next);
+>       INIT_LIST_HEAD(y)
+> }
+>
+> as list_splice_init will do.
+>
+You are right but if you dig further you will see that calling 
+INIT_LIST_HEAD on an empty list is a no-op (AFAIK).
+And if this list was not already correctly initialized, then you would 
+have some other troubles.
 
-Acked-by: Jiri Benc <jbenc@redhat.com>
-
-The error path in vxlan_xmit_one deserves complete rework, though.
-
- Jiri
+CJ
