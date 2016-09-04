@@ -1,7 +1,9 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 0/3] rxrpc: Split output code from sendmsg code
-Date: Sun, 04 Sep 2016 22:04:12 +0100
-Message-ID: <147302305256.28850.16735273264737276926.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 3/9] rxrpc: The client call state must be changed
+ before attachment to conn
+Date: Sun, 04 Sep 2016 22:02:44 +0100
+Message-ID: <147302296490.28597.9688307516968449225.stgit@warthog.procyon.org.uk>
+References: <147302294435.28597.15007422228950187972.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,41 +11,52 @@ Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
         linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43800 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:36034 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754212AbcIDVEV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1754577AbcIDVEV (ORCPT <rfc822;netdev@vger.kernel.org>);
         Sun, 4 Sep 2016 17:04:21 -0400
+In-Reply-To: <147302294435.28597.15007422228950187972.stgit@warthog.procyon.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+We must set the client call state to RXRPC_CALL_CLIENT_SEND_REQUEST before
+attaching the call to the connection struct, not after, as it's liable to
+receive errors and conn aborts as soon as the assignment is made - and
+these will cause its state to be changed outside of the initiating thread's
+control.
 
-Here's a set of small patches that split the packet transmission code from
-the sendmsg code and simply rearrange the new file to make it more
-logically laid out ready for being rewritten.  An enum is also moved out of
-the header file to there as it's only used there.  This needs to be applied
-on top of the just-posted fixes patch set.
-
-The patches can be found here also (non-terminally on the branch):
-
-	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-rewrite
-
-Tagged thusly:
-
-	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
-	rxrpc-rewrite-20160904-2
-
-David
+Signed-off-by: David Howells <dhowells@redhat.com>
 ---
-David Howells (3):
-      rxrpc: Split sendmsg from packet transmission code
-      rxrpc: Rearrange net/rxrpc/sendmsg.c
-      rxrpc Move enum rxrpc_command to sendmsg.c
 
+ net/rxrpc/call_object.c |    2 --
+ net/rxrpc/conn_client.c |    4 ++++
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
- net/rxrpc/Makefile      |    1 
- net/rxrpc/ar-internal.h |   16 -
- net/rxrpc/misc.c        |    5 
- net/rxrpc/output.c      |  630 ----------------------------------------------
- net/rxrpc/sendmsg.c     |  648 +++++++++++++++++++++++++++++++++++++++++++++++
- 5 files changed, 660 insertions(+), 640 deletions(-)
- create mode 100644 net/rxrpc/sendmsg.c
+diff --git a/net/rxrpc/call_object.c b/net/rxrpc/call_object.c
+index 57e00fc9cff2..65691742199b 100644
+--- a/net/rxrpc/call_object.c
++++ b/net/rxrpc/call_object.c
+@@ -197,8 +197,6 @@ static int rxrpc_begin_client_call(struct rxrpc_call *call,
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	call->state = RXRPC_CALL_CLIENT_SEND_REQUEST;
+-
+ 	spin_lock(&call->conn->params.peer->lock);
+ 	hlist_add_head(&call->error_link, &call->conn->params.peer->error_targets);
+ 	spin_unlock(&call->conn->params.peer->lock);
+diff --git a/net/rxrpc/conn_client.c b/net/rxrpc/conn_client.c
+index 4b213bc0f554..e19804dd6c8d 100644
+--- a/net/rxrpc/conn_client.c
++++ b/net/rxrpc/conn_client.c
+@@ -537,6 +537,10 @@ static void rxrpc_activate_one_channel(struct rxrpc_connection *conn,
+ 					     struct rxrpc_call, chan_wait_link);
+ 	u32 call_id = chan->call_counter + 1;
+ 
++	write_lock_bh(&call->state_lock);
++	call->state = RXRPC_CALL_CLIENT_SEND_REQUEST;
++	write_unlock_bh(&call->state_lock);
++
+ 	rxrpc_see_call(call);
+ 	list_del_init(&call->chan_wait_link);
+ 	conn->active_chans |= 1 << channel;
