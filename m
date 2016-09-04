@@ -1,7 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 5/9] rxrpc: Don't change the epoch
-Date: Sun, 04 Sep 2016 22:02:58 +0100
-Message-ID: <147302297842.28597.2212377699024442307.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 8/9] fs/afs/callback: Remove deprecated
+ create_singlethread_workqueue
+Date: Sun, 04 Sep 2016 22:03:18 +0100
+Message-ID: <147302299888.28597.17890220162942786973.stgit@warthog.procyon.org.uk>
 References: <147302294435.28597.15007422228950187972.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,72 +15,34 @@ In-Reply-To: <147302294435.28597.15007422228950187972.stgit@warthog.procyon.org.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It seems the local epoch should only be changed on boot, so remove the code
-that changes it for client connections.
+From: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
 
+The workqueue "afs_callback_update_worker" queues multiple work items
+viz  &vnode->cb_broken_work, &server->cb_break_work which require strict
+execution ordering. Hence, an ordered dedicated workqueue has been used.
+
+Since the workqueue is being used on a memory reclaim path, WQ_MEM_RECLAIM
+has been set to ensure forward progress under memory pressure.
+
+Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/conn_client.c |   32 ++++++++------------------------
- 1 file changed, 8 insertions(+), 24 deletions(-)
+ fs/afs/callback.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/rxrpc/conn_client.c b/net/rxrpc/conn_client.c
-index e19804dd6c8d..82de1aeaef21 100644
---- a/net/rxrpc/conn_client.c
-+++ b/net/rxrpc/conn_client.c
-@@ -108,12 +108,12 @@ static DECLARE_DELAYED_WORK(rxrpc_client_conn_reap,
- /*
-  * Get a connection ID and epoch for a client connection from the global pool.
-  * The connection struct pointer is then recorded in the idr radix tree.  The
-- * epoch is changed if this wraps.
-+ * epoch doesn't change until the client is rebooted (or, at least, unless the
-+ * module is unloaded).
+diff --git a/fs/afs/callback.c b/fs/afs/callback.c
+index 7ef637d7f3a5..1e9d2f84e5b5 100644
+--- a/fs/afs/callback.c
++++ b/fs/afs/callback.c
+@@ -461,8 +461,8 @@ static void afs_callback_updater(struct work_struct *work)
   */
- static int rxrpc_get_client_connection_id(struct rxrpc_connection *conn,
- 					  gfp_t gfp)
+ int __init afs_callback_update_init(void)
  {
--	u32 epoch;
- 	int id;
+-	afs_callback_update_worker =
+-		create_singlethread_workqueue("kafs_callbackd");
++	afs_callback_update_worker = alloc_ordered_workqueue("kafs_callbackd",
++							     WQ_MEM_RECLAIM);
+ 	return afs_callback_update_worker ? 0 : -ENOMEM;
+ }
  
- 	_enter("");
-@@ -121,34 +121,18 @@ static int rxrpc_get_client_connection_id(struct rxrpc_connection *conn,
- 	idr_preload(gfp);
- 	spin_lock(&rxrpc_conn_id_lock);
- 
--	epoch = rxrpc_epoch;
--
--	/* We could use idr_alloc_cyclic() here, but we really need to know
--	 * when the thing wraps so that we can advance the epoch.
--	 */
--	if (rxrpc_client_conn_ids.cur == 0)
--		rxrpc_client_conn_ids.cur = 1;
--	id = idr_alloc(&rxrpc_client_conn_ids, conn,
--		       rxrpc_client_conn_ids.cur, 0x40000000, GFP_NOWAIT);
--	if (id < 0) {
--		if (id != -ENOSPC)
--			goto error;
--		id = idr_alloc(&rxrpc_client_conn_ids, conn,
--			       1, 0x40000000, GFP_NOWAIT);
--		if (id < 0)
--			goto error;
--		epoch++;
--		rxrpc_epoch = epoch;
--	}
--	rxrpc_client_conn_ids.cur = id + 1;
-+	id = idr_alloc_cyclic(&rxrpc_client_conn_ids, conn,
-+			      1, 0x40000000, GFP_NOWAIT);
-+	if (id < 0)
-+		goto error;
- 
- 	spin_unlock(&rxrpc_conn_id_lock);
- 	idr_preload_end();
- 
--	conn->proto.epoch = epoch;
-+	conn->proto.epoch = rxrpc_epoch;
- 	conn->proto.cid = id << RXRPC_CIDSHIFT;
- 	set_bit(RXRPC_CONN_HAS_IDR, &conn->flags);
--	_leave(" [CID %x:%x]", epoch, conn->proto.cid);
-+	_leave(" [CID %x]", conn->proto.cid);
- 	return 0;
- 
- error:
