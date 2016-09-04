@@ -1,113 +1,122 @@
-From: Thomas Zeitlhofer <thomas.zeitlhofer+lkml@ze-it.at>
-Subject: [PATCH] vti: use right inner_mode for inbound inter address family
- policy checks
-Date: Sun, 4 Sep 2016 12:57:13 +0200
-Message-ID: <20160904105713.3mqgszgqi7waxk5l@toau>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next V5 2/4] net/dst: Utility functions to build
+ dst_metadata without supplying an skb
+Date: Sun, 4 Sep 2016 14:14:27 +0300
+Message-ID: <116097f9-b3b7-5489-355b-c8a906fa1958@cogentembedded.com>
+References: <1472986555-14949-1-git-send-email-hadarh@mellanox.com>
+ <1472986555-14949-3-git-send-email-hadarh@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
+        Jiri Benc <jbenc@redhat.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Amir Vadai <amirva@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>, Amir Vadai <amir@vadai.me>
+To: Hadar Hen Zion <hadarh@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vie01a-qmta-pe01-2.mx.upcmail.net ([62.179.121.179]:49911 "EHLO
-        vie01a-qmta-pe01-2.mx.upcmail.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752758AbcIDLNH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 4 Sep 2016 07:13:07 -0400
-Received: from [172.31.218.36] (helo=vie01a-dmta-pe02-3.mx.upcmail.net)
-        by vie01a-pqmta-pe01.mx.upcmail.net with esmtp (Exim 4.87)
-        (envelope-from <thomas.zeitlhofer+lkml@ze-it.at>)
-        id 1bgV72-0007TX-Ic
-        for netdev@vger.kernel.org; Sun, 04 Sep 2016 12:57:20 +0200
-Received: from [172.31.216.44] (helo=vie01a-pemc-psmtp-pe02)
-        by vie01a-dmta-pe02.mx.upcmail.net with esmtp (Exim 4.87)
-        (envelope-from <thomas.zeitlhofer+lkml@ze-it.at>)
-        id 1bgV6z-0008HI-N5
-        for netdev@vger.kernel.org; Sun, 04 Sep 2016 12:57:17 +0200
-Content-Disposition: inline
+Received: from mail-lf0-f47.google.com ([209.85.215.47]:33760 "EHLO
+        mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753865AbcIDLOc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 4 Sep 2016 07:14:32 -0400
+Received: by mail-lf0-f47.google.com with SMTP id h127so6848781lfh.0
+        for <netdev@vger.kernel.org>; Sun, 04 Sep 2016 04:14:31 -0700 (PDT)
+In-Reply-To: <1472986555-14949-3-git-send-email-hadarh@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In case of inter address family tunneling (IPv6 over vti4 or IPv4 over
-vti6), the inbound policy checks in vti_rcv_cb and vti6_rcv_cb are using
-the wrong address family. As a result, all inbound inter address family
-traffic is dropped.
+Hello.
 
-Use the xfrm_ip2inner_mode helper (as done in xfrm_prepare_input and
-xfrm_input) to select the inner_mode that contains the right address family
-for the inbound policy checks.
+On 9/4/2016 1:55 PM, Hadar Hen Zion wrote:
 
-Signed-off-by: Thomas Zeitlhofer <thomas.zeitlhofer+lkml@ze-it.at>
----
+> From: Amir Vadai <amir@vadai.me>
+>
+> Extract __ip_tun_set_dst() and __ipv6_tun_set_dst() out of
+> ip_tun_rx_dst() and ipv6_tun_rx_dst(), to be used without supplying an
+> skb.
+>
+> Signed-off-by: Amir Vadai <amir@vadai.me>
+> Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+> Acked-by: Jiri Pirko <jiri@mellanox.com>
+> Reviewed-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+> ---
+>  include/net/dst_metadata.h | 45 ++++++++++++++++++++++++++++++++-------------
+>  1 file changed, 32 insertions(+), 13 deletions(-)
+>
+> diff --git a/include/net/dst_metadata.h b/include/net/dst_metadata.h
+> index 5db9f59..49e8847 100644
+> --- a/include/net/dst_metadata.h
+> +++ b/include/net/dst_metadata.h
+> @@ -112,12 +112,10 @@ static inline struct ip_tunnel_info *skb_tunnel_info_unclone(struct sk_buff *skb
+>  	return &dst->u.tun_info;
+>  }
+>
+> -static inline struct metadata_dst *ip_tun_rx_dst(struct sk_buff *skb,
+> -						 __be16 flags,
+> -						 __be64 tunnel_id,
+> -						 int md_size)
+> +static inline struct metadata_dst *
+> +__ip_tun_set_dst(__be32 saddr, __be32 daddr, __u8 tos, __u8 ttl,
+> +		 __be16 flags, __be64 tunnel_id, int md_size)
 
-Notes:
-    The patch was developed by looking at the code, but without knowledge of
-    the XFRM code in the kernel. It has been successfully tested, but it is
-    more a guess that might be helpful for the maintainers to find a proper
-    solution.
+    The continuation lines should start under the 1st '__be32' on the broken 
+up line. See how it was before your patch.
 
- net/ipv4/ip_vti.c  | 12 +++++++++++-
- net/ipv6/ip6_vti.c | 12 +++++++++++-
- 2 files changed, 22 insertions(+), 2 deletions(-)
+>  {
+> -	const struct iphdr *iph = ip_hdr(skb);
+>  	struct metadata_dst *tun_dst;
+>
+>  	tun_dst = tun_rx_dst(md_size);
+> @@ -125,17 +123,27 @@ static inline struct metadata_dst *ip_tun_rx_dst(struct sk_buff *skb,
+[...]
+> -static inline struct metadata_dst *ipv6_tun_rx_dst(struct sk_buff *skb,
+> +static inline struct metadata_dst *ip_tun_rx_dst(struct sk_buff *skb,
+>  						 __be16 flags,
+>  						 __be64 tunnel_id,
+>  						 int md_size)
+>  {
+> -	const struct ipv6hdr *ip6h = ipv6_hdr(skb);
+> +	const struct iphdr *iph = ip_hdr(skb);
+> +
+> +	return __ip_tun_set_dst(iph->saddr, iph->daddr, iph->tos, iph->ttl,
+> +				flags, tunnel_id, md_size);
+> +}
+> +
+> +static inline struct metadata_dst *
+> +__ipv6_tun_set_dst(const struct in6_addr *saddr, const struct in6_addr *daddr,
+> +		   __u8 tos, __u8 ttl, __be32 label, __be16 flags,
+> +		   __be64 tunnel_id, int md_size)
 
-diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
-index a917903..44d5449 100644
---- a/net/ipv4/ip_vti.c
-+++ b/net/ipv4/ip_vti.c
-@@ -88,6 +88,7 @@ static int vti_rcv_cb(struct sk_buff *skb, int err)
- 	struct net_device *dev;
- 	struct pcpu_sw_netstats *tstats;
- 	struct xfrm_state *x;
-+	struct xfrm_mode *inner_mode;
- 	struct ip_tunnel *tunnel = XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip4;
- 	u32 orig_mark = skb->mark;
- 	int ret;
-@@ -105,7 +106,16 @@ static int vti_rcv_cb(struct sk_buff *skb, int err)
- 	}
- 
- 	x = xfrm_input_state(skb);
--	family = x->inner_mode->afinfo->family;
-+
-+	inner_mode = x->inner_mode;
-+
-+	if (x->sel.family == AF_UNSPEC) {
-+		inner_mode = xfrm_ip2inner_mode(x, XFRM_MODE_SKB_CB(skb)->protocol);
-+		if (inner_mode == NULL)
-+			return -EPERM;
-+	}
-+
-+	family = inner_mode->afinfo->family;
- 
- 	skb->mark = be32_to_cpu(tunnel->parms.i_key);
- 	ret = xfrm_policy_check(NULL, XFRM_POLICY_IN, skb, family);
-diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
-index d90a11f..3149757 100644
---- a/net/ipv6/ip6_vti.c
-+++ b/net/ipv6/ip6_vti.c
-@@ -340,6 +340,7 @@ static int vti6_rcv_cb(struct sk_buff *skb, int err)
- 	struct net_device *dev;
- 	struct pcpu_sw_netstats *tstats;
- 	struct xfrm_state *x;
-+	struct xfrm_mode *inner_mode;
- 	struct ip6_tnl *t = XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip6;
- 	u32 orig_mark = skb->mark;
- 	int ret;
-@@ -357,7 +358,16 @@ static int vti6_rcv_cb(struct sk_buff *skb, int err)
- 	}
- 
- 	x = xfrm_input_state(skb);
--	family = x->inner_mode->afinfo->family;
-+
-+	inner_mode = x->inner_mode;
-+
-+	if (x->sel.family == AF_UNSPEC) {
-+		inner_mode = xfrm_ip2inner_mode(x, XFRM_MODE_SKB_CB(skb)->protocol);
-+		if (inner_mode == NULL)
-+			return -EPERM;
-+	}
-+
-+	family = inner_mode->afinfo->family;
- 
- 	skb->mark = be32_to_cpu(t->parms.i_key);
- 	ret = xfrm_policy_check(NULL, XFRM_POLICY_IN, skb, family);
--- 
-2.1.4
+    The continuation lines should start under the 1st *const* on the broken up 
+line.
+
+> +{
+>  	struct metadata_dst *tun_dst;
+>  	struct ip_tunnel_info *info;
+>
+> @@ -150,14 +158,25 @@ static inline struct metadata_dst *ipv6_tun_rx_dst(struct sk_buff *skb,
+[...]
+> +static inline struct metadata_dst *
+> +ipv6_tun_rx_dst(struct sk_buff *skb, __be16 flags, __be64 tunnel_id,
+> +		int md_size)
+> +{
+> +	const struct ipv6hdr *ip6h = ipv6_hdr(skb);
+> +
+> +	return __ipv6_tun_set_dst(&ip6h->saddr, &ip6h->daddr,
+> +				ipv6_get_dsfield(ip6h), ip6h->hop_limit,
+> +				ip6_flowlabel(ip6h), flags, tunnel_id,
+> +				md_size);
+
+    The continuation lines should start exactly under the 1st & on the broken 
+up line.
+    That's DaveM's preference, I don't remember if checkpatch.pl reports that 
+for the networking code...
+
+[...]
+
+MBR, Sergei
