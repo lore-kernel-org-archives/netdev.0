@@ -1,41 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] qed: Remove OOM messages
-Date: Sun, 04 Sep 2016 13:28:54 -0700 (PDT)
-Message-ID: <20160904.132854.1438256363591084718.davem@davemloft.net>
-References: <1472838261.6758.74.camel@perches.com>
-        <6d6f56d8324237957b19f069357e2aa9e4bcd959.1472836194.git.joe@perches.com>
+Subject: Re: [PATCH 1/2] Revert "af_unix: Fix splice-bind deadlock"
+Date: Sun, 04 Sep 2016 13:29:40 -0700 (PDT)
+Message-ID: <20160904.132940.872673973522105066.davem@davemloft.net>
+References: <alpine.LFD.2.20.1609021106060.4039@i7>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Yuval.Mintz@qlogic.com, Ariel.Elior@qlogic.com,
-        everest-linux-l2@qlogic.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <6d6f56d8324237957b19f069357e2aa9e4bcd959.1472836194.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: hannes@stressinduktion.org, rweikusat@mobileactivedefense.com,
+        edumazet@google.com, w@1wt.eu, netdev@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:38690 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754067AbcIDUbC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 4 Sep 2016 16:31:02 -0400
+In-Reply-To: <alpine.LFD.2.20.1609021106060.4039@i7>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Fri,  2 Sep 2016 10:48:47 -0700
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Fri, 2 Sep 2016 11:09:23 -0700 (PDT)
 
-> These messages are unnecessary as OOM allocation failures already do
-> a dump_stack() giving more or less the same information.
 > 
-> $ size drivers/net/ethernet/qlogic/qed/built-in.o* (defconfig x86-64)
->    text	   data	    bss	    dec	    hex	filename
->  126849	  27968	  32800	 187617	  2dce1	drivers/net/ethernet/qlogic/qed/built-in.o.new
->  131506	  27968	  32800	 192274	  2ef12	drivers/net/ethernet/qlogic/qed/built-in.o.old
+> From: Linus Torvalds <torvalds@linux-foundation.org>
+> Date: Thu, 1 Sep 2016 14:56:49 -0700
+> Subject: [PATCH 1/2] Revert "af_unix: Fix splice-bind deadlock"
 > 
-> Miscellanea:
+> This reverts commit c845acb324aa85a39650a14e7696982ceea75dc1.
 > 
-> o Change allocs to the generally preferred forms where possible.
+> It turns out that it just replaces one deadlock with another one: we can
+> still get the wrong lock ordering with the readlock due to overlayfs
+> calling back into the filesystem layer and still taking the vfs locks
+> after the readlock.
 > 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> The proper solution ends up being to just split the readlock into two
+> pieces: the bind lock (taken *outside* the vfs locks) and the IO lock
+> (taken *inside* the filesystem locks).  The two locks are independent
+> anyway.
+> 
+> Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
 
-Joe can you respin this against net-next?
-
-It applies against 'net' but this isn't really a critical bug fix and
-it'll also create conflicts against net-next.
-
-Thanks.
+Applied.
