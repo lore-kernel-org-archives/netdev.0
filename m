@@ -1,53 +1,49 @@
-From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: [PATCH v2] net: smsc: remove build warning of duplicate definition
-Date: Sun,  4 Sep 2016 23:02:21 +0530
-Message-ID: <1473010341-10359-1-git-send-email-sudipm.mukherjee@gmail.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-To: Nicolas Pitre <nico@fluxnic.net>,
+From: "Rosen, Rami" <rami.rosen@intel.com>
+Subject: RE: [PATCH net-next V5 4/4] net/sched: Introduce act_tunnel_key
+Date: Sun, 4 Sep 2016 18:19:24 +0000
+Message-ID: <9B0331B6EBBD0E4684FBFAEDA55776F92CE10540@HASMSX110.ger.corp.intel.com>
+References: <1472986555-14949-1-git-send-email-hadarh@mellanox.com>
+ <1472986555-14949-5-git-send-email-hadarh@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Jiri Pirko <jiri@mellanox.com>, Jiri Benc <jbenc@redhat.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Amir Vadai <amirva@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>, Amir Vadai <amir@vadai.me>
+To: Hadar Hen Zion <hadarh@mellanox.com>,
         "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([192.55.52.115]:36339 "EHLO mga14.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753581AbcIDST2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 4 Sep 2016 14:19:28 -0400
+In-Reply-To: <1472986555-14949-5-git-send-email-hadarh@mellanox.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The build of m32r was giving warning:
+Hi, Hadar,
 
-In file included from drivers/net/ethernet/smsc/smc91x.c:92:0:
-drivers/net/ethernet/smsc/smc91x.h:448:0: warning: "SMC_inb" redefined
- #define SMC_inb(ioaddr, reg)  ({ BUG(); 0; })
- 
-drivers/net/ethernet/smsc/smc91x.h:106:0:
-	note: this is the location of the previous definition
- #define SMC_inb(a, r)  inb(((u32)a) + (r))
- 
-drivers/net/ethernet/smsc/smc91x.h:449:0: warning: "SMC_outb" redefined
- #define SMC_outb(x, ioaddr, reg) BUG()
- 
-drivers/net/ethernet/smsc/smc91x.h:108:0:
-	note: this is the location of the previous definition
- #define SMC_outb(v, a, r) outb(v, ((u32)a) + (r))
+>For example, the following flower filter will forward all ICMP packets destined to 11.11.11.2 >through the shared vxlan device 'vxlan0'. Before redirecting, a metadata for the vxlan tunnel >is created using the tunnel_key action and it's arguments:
 
-Signed-off-by: Sudip Mukherjee <sudip.mukherjee@codethink.co.uk>
----
+Shouldn't it be "tc filter add dev ..."?
 
-v2: +#ifdef of v1 is removed.
+>$ filter add dev net0 protocol ip parent ffff: \
+>    flower \
+>      ip_proto 1 \
+>      dst_ip 11.11.11.2 \
+>    action tunnel_key set \
+>      src_ip 11.11.0.1 \
+>      dst_ip 11.11.0.2 \
+>      id 11 \
+>    action mirred egress redirect dev vxlan0
 
- drivers/net/ethernet/smsc/smc91x.h | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/ethernet/smsc/smc91x.h b/drivers/net/ethernet/smsc/smc91x.h
-index 1a55c79..06d7dca 100644
---- a/drivers/net/ethernet/smsc/smc91x.h
-+++ b/drivers/net/ethernet/smsc/smc91x.h
-@@ -445,7 +445,9 @@ smc_pxa_dma_insw(void __iomem *ioaddr, struct smc_local *lp, int reg, int dma,
- #endif
- 
- #if ! SMC_CAN_USE_8BIT
-+#undef SMC_inb
- #define SMC_inb(ioaddr, reg)		({ BUG(); 0; })
-+#undef SMC_outb
- #define SMC_outb(x, ioaddr, reg)	BUG()
- #define SMC_insb(a, r, p, l)		BUG()
- #define SMC_outsb(a, r, p, l)		BUG()
--- 
-1.9.1
+Regards,
+Rami Rosen
+Intel Corporation
