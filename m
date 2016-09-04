@@ -1,33 +1,40 @@
-From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Subject: [PATCH] vxlan: Update tx_errors statistics if vxlan_build_skb return err.
-Date: Sun,  4 Sep 2016 18:52:51 +0800
-Message-ID: <1472986371-75583-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-Cc: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Jiri Benc <jbenc@redhat.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next v21 3/4] openvswitch: 802.1AD Flow
+ handling, actions, vlan parsing, netlink attributes
+Date: Sun, 4 Sep 2016 13:05:46 +0200
+Message-ID: <20160904130546.571fe654@griffin>
+References: <1472762727-25844-1-git-send-email-e@erig.me>
+ <1472762727-25844-4-git-send-email-e@erig.me>
+ <CAOrHB_A6Twwp+S514orUZ5RaKS1hGXgc1uUi7Lj8dxPQrk_sxg@mail.gmail.com>
+ <20160903173012.GJ31705@egarver>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Thomas F Herbert <thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Eric Garver <e@erig.me>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20160903173012.GJ31705@egarver>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-If vxlan_build_skb return err < 0, tx_errors should be also increased.
-
-Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
----
- drivers/net/vxlan.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index f605a36..2c72dcd 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -2103,6 +2103,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 				      vni, md, flags, udp_sum);
- 		if (err < 0) {
- 			dst_release(ndst);
-+			dev->stats.tx_errors++;
- 			return;
- 		}
- 		udp_tunnel6_xmit_skb(ndst, sk, skb, dev,
--- 
-1.8.3.1
+T24gU2F0LCAzIFNlcCAyMDE2IDEzOjMwOjEyIC0wNDAwLCBFcmljIEdhcnZlciB3cm90ZToKPiBX
+b3VsZCBhIEJVR19PTighKGVuY2FwICYmIGluX2VuY2FwKSkgYmUgYmV0dGVyPwoKUGxlYXNlIGRv
+bid0IGNyYXNoIHRoZSBrZXJuZWwgZm9yIHNvbWV0aGluZyB0aGF0IGNvdWxkIHZlcnkgd2VsbApj
+b250aW51ZSB3aXRob3V0IHByb2JsZW1zLiBVc2UgV0FSTl9PTiBhdCBtb3N0LgoKQW5kIGlmIHlv
+dSBnbyB0aGF0IHdheSwgV0FSTl9PTl9PTkNFIG9yIHJhdGUgbGltaXRpbmcgc2VlbXMgdG8gYmUg
+ZXZlbgptb3JlIGFwcHJvcHJpYXRlLCBiZWNhdXNlIGlmIHRoaXMgdHJpZ2dlcnMsIGl0J3MgcXVp
+dGUgcG9zc2libGUgaXQgd2lsbAp0cmlnZ2VyIHJlcGVhdGVkbHkgYW5kIHRoZSByZXN1bHRpbmcg
+bG9nIGZsb29kIHdvdWxkIHByYWN0aWNhbGx5IG1ha2UKdGhlIG1hY2hpbmUgdXNlbGVzcyBhbnl3
+YXkuCgpUaGFua3MsCgogSmlyaQpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29w
+ZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
