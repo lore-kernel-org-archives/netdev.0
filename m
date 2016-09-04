@@ -1,7 +1,8 @@
 From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-Subject: [PATCH v4 2/5] clk: gxbb: expose MPLL2 clock for use by DT
-Date: Sun,  4 Sep 2016 20:23:17 +0200
-Message-ID: <20160904182320.671-3-martin.blumenstingl@googlemail.com>
+Subject: [PATCH v4 1/5] net: dt-bindings: Document the new Meson8b and GXBB
+ DWMAC bindings
+Date: Sun,  4 Sep 2016 20:23:16 +0200
+Message-ID: <20160904182320.671-2-martin.blumenstingl@googlemail.com>
 References: <20160828161637.9941-1-martin.blumenstingl@googlemail.com>
  <20160904182320.671-1-martin.blumenstingl@googlemail.com>
 Mime-Version: 1.0
@@ -27,39 +28,81 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-This exposes the MPLL2 clock as this is one of the input clocks of the
-ethernet controller's internal mux.
+This patch adds the documentation for the DWMAC ethernet controller
+found in Amlogic Meson 8b (S805) and GXBB (S905) SoCs.
+The main difference between the Meson6 glue is that different registers
+(with different layout) are used.
 
 Signed-off-by: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+Acked-by: Rob Herring <robh@kernel.org>
+Acked-by: David S. Miller <davem@davemloft.net>
 ---
- drivers/clk/meson/gxbb.h              | 2 +-
- include/dt-bindings/clock/gxbb-clkc.h | 1 +
- 2 files changed, 2 insertions(+), 1 deletion(-)
+ .../devicetree/bindings/net/meson-dwmac.txt        | 45 ++++++++++++++++++----
+ 1 file changed, 37 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/clk/meson/gxbb.h b/drivers/clk/meson/gxbb.h
-index 217df51..3606e875 100644
---- a/drivers/clk/meson/gxbb.h
-+++ b/drivers/clk/meson/gxbb.h
-@@ -183,7 +183,7 @@
- /* CLKID_CLK81 */
- #define CLKID_MPLL0		  13
- #define CLKID_MPLL1		  14
--#define CLKID_MPLL2		  15
-+/* CLKID_MPLL2 */
- #define CLKID_DDR		  16
- #define CLKID_DOS		  17
- #define CLKID_ISA		  18
-diff --git a/include/dt-bindings/clock/gxbb-clkc.h b/include/dt-bindings/clock/gxbb-clkc.h
-index 7d41864..244ea6e 100644
---- a/include/dt-bindings/clock/gxbb-clkc.h
-+++ b/include/dt-bindings/clock/gxbb-clkc.h
-@@ -8,6 +8,7 @@
- #define CLKID_CPUCLK		1
- #define CLKID_FCLK_DIV2		4
- #define CLKID_CLK81		12
-+#define CLKID_MPLL2		15
- #define CLKID_ETH		36
- #define CLKID_SD_EMMC_A		94
- #define CLKID_SD_EMMC_B		95
+diff --git a/Documentation/devicetree/bindings/net/meson-dwmac.txt b/Documentation/devicetree/bindings/net/meson-dwmac.txt
+index ec633d7..89e62dd 100644
+--- a/Documentation/devicetree/bindings/net/meson-dwmac.txt
++++ b/Documentation/devicetree/bindings/net/meson-dwmac.txt
+@@ -1,18 +1,32 @@
+ * Amlogic Meson DWMAC Ethernet controller
+ 
+ The device inherits all the properties of the dwmac/stmmac devices
+-described in the file net/stmmac.txt with the following changes.
++described in the file stmmac.txt in the current directory with the
++following changes.
+ 
+-Required properties:
++Required properties on all platforms:
+ 
+-- compatible: should be "amlogic,meson6-dwmac" along with "snps,dwmac"
+-	      and any applicable more detailed version number
+-	      described in net/stmmac.txt
++- compatible:	Depending on the platform this should be one of:
++			- "amlogic,meson6-dwmac"
++			- "amlogic,meson8b-dwmac"
++			- "amlogic,meson-gxbb-dwmac"
++		Additionally "snps,dwmac" and any applicable more
++		detailed version number described in net/stmmac.txt
++		should be used.
+ 
+-- reg: should contain a register range for the dwmac controller and
+-       another one for the Amlogic specific configuration
++- reg:	The first register range should be the one of the DWMAC
++	controller. The second range is is for the Amlogic specific
++	configuration (for example the PRG_ETHERNET register range
++	on Meson8b and newer)
+ 
+-Example:
++Required properties on Meson8b and newer:
++- clock-names:	Should contain the following:
++		- "stmmaceth" - see stmmac.txt
++		- "clkin0" - first parent clock of the internal mux
++		- "clkin1" - second parent clock of the internal mux
++
++
++Example for Meson6:
+ 
+ 	ethmac: ethernet@c9410000 {
+ 		compatible = "amlogic,meson6-dwmac", "snps,dwmac";
+@@ -23,3 +37,18 @@ Example:
+ 		clocks = <&clk81>;
+ 		clock-names = "stmmaceth";
+ 	}
++
++Example for GXBB:
++	ethmac: ethernet@c9410000 {
++		compatible = "amlogic,meson-gxbb-dwmac", "snps,dwmac";
++		reg = <0x0 0xc9410000 0x0 0x10000>,
++			<0x0 0xc8834540 0x0 0x8>;
++		interrupts = <0 8 1>;
++		interrupt-names = "macirq";
++		clocks = <&clkc CLKID_ETH>,
++				<&clkc CLKID_FCLK_DIV2>,
++				<&clkc CLKID_MPLL2>;
++		clock-names = "stmmaceth", "clkin0", "clkin1";
++		phy-mode = "rgmii";
++		status = "disabled";
++	};
 -- 
 2.9.3
