@@ -1,51 +1,54 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH v3 nf] netfilter: seqadj: Fix one possible panic in
- seqadj when mem is exhausted
-Date: Mon, 5 Sep 2016 20:36:01 +0200
-Message-ID: <20160905183601.GA4845@salvia>
-References: <1472903510-16652-1-git-send-email-fgao@ikuai8.com>
+From: Daniel Mack <daniel@zonque.org>
+Subject: Re: [PATCH v3 3/6] bpf: add BPF_PROG_ATTACH and BPF_PROG_DETACH
+ commands
+Date: Mon, 5 Sep 2016 20:43:05 +0200
+Message-ID: <450b6b76-f83b-82d4-7a02-8cc8156236ba@zonque.org>
+References: <1472241532-11682-1-git-send-email-daniel@zonque.org>
+ <1472241532-11682-4-git-send-email-daniel@zonque.org>
+ <57C4BE77.8070309@iogearbox.net>
+ <9894ace9-06f7-4c41-e8fe-6047adad740e@zonque.org>
+ <57CD798D.4040604@iogearbox.net>
+ <7f69d0ee-df6e-0d30-7198-16a978e53068@zonque.org>
+ <57CDA6C7.5060501@iogearbox.net> <57CDBA3E.10703@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, fw@strlen.de,
-        coreteam@netfilter.org, netdev@vger.kernel.org,
-        gfree.wind@gmail.com
-To: fgao@ikuai8.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1472903510-16652-1-git-send-email-fgao@ikuai8.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, kafai@fb.com, fw@strlen.de,
+        pablo@netfilter.org, harald@redhat.com, netdev@vger.kernel.org,
+        sargun@sargun.me
+To: Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>, htejun@fb.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from svenfoo.org ([82.94.215.22]:59696 "EHLO mail.zonque.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933773AbcIESnJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 5 Sep 2016 14:43:09 -0400
+In-Reply-To: <57CDBA3E.10703@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Sep 03, 2016 at 07:51:50PM +0800, fgao@ikuai8.com wrote:
-> From: Gao Feng <fgao@ikuai8.com>
-> 
-> When memory is exhausted, nfct_seqadj_ext_add may fail to add the seqadj
-> extension. But the function nf_ct_seqadj_init doesn't check if get valid
-> seqadj pointer by the nfct_seqadj, while other functions perform the
-> sanity check.
-> 
-> So the system would be panic when nfct_seqadj_ext_add failed.
-> 
-> Signed-off-by: Gao Feng <fgao@ikuai8.com>
-> ---
->  v3: Remove the warning log when seqadj is null;
->  v2: Remove the unnessary seqadj check in nf_ct_seq_adjust
->  v1: Initial patch
-> 
->  net/netfilter/nf_conntrack_seqadj.c | 5 ++++-
->  1 file changed, 4 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/netfilter/nf_conntrack_seqadj.c b/net/netfilter/nf_conntrack_seqadj.c
-> index dff0f0c..7f8d814 100644
-> --- a/net/netfilter/nf_conntrack_seqadj.c
-> +++ b/net/netfilter/nf_conntrack_seqadj.c
-> @@ -16,9 +16,12 @@ int nf_ct_seqadj_init(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
->  	if (off == 0)
->  		return 0;
->  
-> +	seqadj = nfct_seqadj(ct);
-> +	if (unlikely(!seqadj))
-> +		return 0;
+On 09/05/2016 08:32 PM, Alexei Starovoitov wrote:
+> On 9/5/16 10:09 AM, Daniel Borkmann wrote:
+>> On 09/05/2016 04:09 PM, Daniel Mack wrote:
 
-I think we should handle this from init_conntrack() by simply dropping
-the packet as we do under similar circunstances (too stress to deal).
+>>> I really don't think it's worth sparing 8 bytes here and then do the
+>>> binary compat dance after flags are added, for no real gain.
+>>
+>> Sure, but there's not much of a dance needed, see for example how map_flags
+>> were added some time ago. So, iff there's really no foreseeable use-case in
+>> sight and since we have this flexibility in place already, then I don't
+>> quite
+>> follow why it's needed, if there's zero pain to add it later on. I would
+>> understand it of course, if it cannot be handled later on anymore.
+> 
+> I agree with Daniel B. Since flags are completely unused right now,
+> there is no plan to use it for anything in the coming months and
+> even worse they make annoying hole in the struct, let's not
+> add them. We can safely do that later. CHECK_ATTR() allows us to
+> do it easily. It's not like syscall where flags are must have,
+> since we cannot add it later. Here it's done trivially.
+
+Okay then. If you both agree, I won't interfere :)
+
+
+Daniel
