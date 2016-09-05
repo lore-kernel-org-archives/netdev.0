@@ -1,126 +1,238 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: linux-next: manual merge of the char-misc tree with the net-next
- tree
-Date: Mon, 5 Sep 2016 13:33:53 +0200
-Message-ID: <20160905113353.GB27586@kroah.com>
-References: <20160905165650.180e6c89@canb.auug.org.au>
+From: Tomer Tayar <Tomer.Tayar@qlogic.com>
+Subject: [PATCH net-next 1/3] qed: Add infrastructure for debug data collection
+Date: Mon, 5 Sep 2016 14:35:10 +0300
+Message-ID: <1473075312-19075-2-git-send-email-Tomer.Tayar@qlogic.com>
+References: <1473075312-19075-1-git-send-email-Tomer.Tayar@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd@arndb.de>, David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Stephen Hemminger <sthemmin@microsoft.com>,
-        Vitaly Kuznetsov <vkuznets@redhat.com>,
-        "K. Y. Srinivasan" <kys@microsoft.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160905165650.180e6c89@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <Yuval.Mintz@qlogic.com>, Tomer Tayar <Tomer.Tayar@qlogic.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:47291 "EHLO
+        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S932162AbcIELgY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Sep 2016 07:36:24 -0400
+In-Reply-To: <1473075312-19075-1-git-send-email-Tomer.Tayar@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 05, 2016 at 04:56:50PM +1000, Stephen Rothwell wrote:
-> Hi all,
-> 
-> Today's linux-next merge of the char-misc tree got a conflict in:
-> 
->   include/linux/hyperv.h
-> 
-> between commit:
-> 
->   30d1de08c87d ("hv_netvsc: make inline functions static")
-> 
-> from the net-next tree and commit:
-> 
->   bb08d431a914 ("Drivers: hv: ring_buffer: count on wrap around mappings in get_next_pkt_raw()")
-> 
-> from the char-misc tree.
-> 
-> I fixed it up (the former moved the code modified by the latter, so the
-> below patch applies to the new location of the code) and can carry the
-> fix as necessary. This is now fixed as far as linux-next is concerned,
-> but any non trivial conflicts should be mentioned to your upstream
-> maintainer when your tree is submitted for merging.  You may also want
-> to consider cooperating with the maintainer of the conflicting tree to
-> minimise any particularly complex conflicts.
-> 
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Mon, 5 Sep 2016 16:53:06 +1000
-> Subject: [PATCH] Drivers: hv: ring_buffer: merge fix up for "hv_netvsc: make
->  inline functions static"
-> 
-> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
-> ---
->  drivers/net/hyperv/netvsc.c | 32 +++++++++++---------------------
->  1 file changed, 11 insertions(+), 21 deletions(-)
-> 
-> diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-> index 2a9ccc4d9e3c..026df6556068 100644
-> --- a/drivers/net/hyperv/netvsc.c
-> +++ b/drivers/net/hyperv/netvsc.c
-> @@ -42,31 +42,23 @@ static struct vmpacket_descriptor *
->  get_next_pkt_raw(struct vmbus_channel *channel)
->  {
->  	struct hv_ring_buffer_info *ring_info = &channel->inbound;
-> -	u32 read_loc = ring_info->priv_read_index;
-> +	u32 priv_read_loc = ring_info->priv_read_index;
->  	void *ring_buffer = hv_get_ring_buffer(ring_info);
-> -	struct vmpacket_descriptor *cur_desc;
-> -	u32 packetlen;
->  	u32 dsize = ring_info->ring_datasize;
-> -	u32 delta = read_loc - ring_info->ring_buffer->read_index;
-> +	/*
-> +	 * delta is the difference between what is available to read and
-> +	 * what was already consumed in place. We commit read index after
-> +	 * the whole batch is processed.
-> +	 */
-> +	u32 delta = priv_read_loc >= ring_info->ring_buffer->read_index ?
-> +		priv_read_loc - ring_info->ring_buffer->read_index :
-> +		(dsize - ring_info->ring_buffer->read_index) + priv_read_loc;
->  	u32 bytes_avail_toread = (hv_get_bytes_to_read(ring_info) - delta);
->  
->  	if (bytes_avail_toread < sizeof(struct vmpacket_descriptor))
->  		return NULL;
->  
-> -	if ((read_loc + sizeof(*cur_desc)) > dsize)
-> -		return NULL;
-> -
-> -	cur_desc = ring_buffer + read_loc;
-> -	packetlen = cur_desc->len8 << 3;
-> -
-> -	/*
-> -	 * If the packet under consideration is wrapping around,
-> -	 * return failure.
-> -	 */
-> -	if ((read_loc + packetlen + VMBUS_PKT_TRAILER) > (dsize - 1))
-> -		return NULL;
-> -
-> -	return cur_desc;
-> +	return ring_buffer + priv_read_loc;
->  }
->  
->  /*
-> @@ -78,16 +70,14 @@ static void put_pkt_raw(struct vmbus_channel *channel,
->  			struct vmpacket_descriptor *desc)
->  {
->  	struct hv_ring_buffer_info *ring_info = &channel->inbound;
-> -	u32 read_loc = ring_info->priv_read_index;
->  	u32 packetlen = desc->len8 << 3;
->  	u32 dsize = ring_info->ring_datasize;
->  
-> -	BUG_ON((read_loc + packetlen + VMBUS_PKT_TRAILER) > dsize);
-> -
->  	/*
->  	 * Include the packet trailer.
->  	 */
->  	ring_info->priv_read_index += packetlen + VMBUS_PKT_TRAILER;
-> +	ring_info->priv_read_index %= dsize;
->  }
->  
->  /*
+Adds support for several infrastructure operations that are done as part of
+debug data collection.
 
-Ugh, messy.  Thanks for this.
+Signed-off-by: Tomer Tayar <Tomer.Tayar@qlogic.com>
+Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+---
+ drivers/net/ethernet/qlogic/qed/qed_hsi.h      |  3 +
+ drivers/net/ethernet/qlogic/qed/qed_mcp.c      | 76 ++++++++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_mcp.h      | 46 ++++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_reg_addr.h |  6 ++
+ 4 files changed, 131 insertions(+)
 
-KY, how did this happen?
-
-greg k-h
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_hsi.h b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
+index df94a8b7..3a4cb4a 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_hsi.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
+@@ -7640,6 +7640,7 @@ struct public_drv_mb {
+ #define DRV_MSG_CODE_CFG_VF_MSIX		0xc0010000
+ #define DRV_MSG_CODE_MCP_RESET			0x00090000
+ #define DRV_MSG_CODE_SET_VERSION		0x000f0000
++#define DRV_MSG_CODE_MCP_HALT                   0x00100000
+ 
+ #define DRV_MSG_CODE_GET_STATS                  0x00130000
+ #define DRV_MSG_CODE_STATS_TYPE_LAN             1
+@@ -7647,6 +7648,8 @@ struct public_drv_mb {
+ #define DRV_MSG_CODE_STATS_TYPE_ISCSI           3
+ #define DRV_MSG_CODE_STATS_TYPE_RDMA            4
+ 
++#define DRV_MSG_CODE_MASK_PARITIES              0x001a0000
++
+ #define DRV_MSG_CODE_BIST_TEST			0x001e0000
+ #define DRV_MSG_CODE_SET_LED_MODE		0x00200000
+ 
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.c b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
+index 4c21266..ea673e5 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_mcp.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
+@@ -390,6 +390,34 @@ int qed_mcp_cmd(struct qed_hwfn *p_hwfn,
+ 	return 0;
+ }
+ 
++int qed_mcp_nvm_rd_cmd(struct qed_hwfn *p_hwfn,
++		       struct qed_ptt *p_ptt,
++		       u32 cmd,
++		       u32 param,
++		       u32 *o_mcp_resp,
++		       u32 *o_mcp_param, u32 *o_txn_size, u32 *o_buf)
++{
++	struct qed_mcp_mb_params mb_params;
++	union drv_union_data union_data;
++	int rc;
++
++	memset(&mb_params, 0, sizeof(mb_params));
++	mb_params.cmd = cmd;
++	mb_params.param = param;
++	mb_params.p_data_dst = &union_data;
++	rc = qed_mcp_cmd_and_union(p_hwfn, p_ptt, &mb_params);
++	if (rc)
++		return rc;
++
++	*o_mcp_resp = mb_params.mcp_resp;
++	*o_mcp_param = mb_params.mcp_param;
++
++	*o_txn_size = *o_mcp_param;
++	memcpy(o_buf, &union_data.raw_data, *o_txn_size);
++
++	return 0;
++}
++
+ int qed_mcp_load_req(struct qed_hwfn *p_hwfn,
+ 		     struct qed_ptt *p_ptt, u32 *p_load_code)
+ {
+@@ -1169,6 +1197,33 @@ qed_mcp_send_drv_version(struct qed_hwfn *p_hwfn,
+ 	return rc;
+ }
+ 
++int qed_mcp_halt(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
++{
++	u32 resp = 0, param = 0;
++	int rc;
++
++	rc = qed_mcp_cmd(p_hwfn, p_ptt, DRV_MSG_CODE_MCP_HALT, 0, &resp,
++			 &param);
++	if (rc)
++		DP_ERR(p_hwfn, "MCP response failure, aborting\n");
++
++	return rc;
++}
++
++int qed_mcp_resume(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
++{
++	u32 value, cpu_mode;
++
++	qed_wr(p_hwfn, p_ptt, MCP_REG_CPU_STATE, 0xffffffff);
++
++	value = qed_rd(p_hwfn, p_ptt, MCP_REG_CPU_MODE);
++	value &= ~MCP_REG_CPU_MODE_SOFT_HALT;
++	qed_wr(p_hwfn, p_ptt, MCP_REG_CPU_MODE, value);
++	cpu_mode = qed_rd(p_hwfn, p_ptt, MCP_REG_CPU_MODE);
++
++	return (cpu_mode & MCP_REG_CPU_MODE_SOFT_HALT) ? -EAGAIN : 0;
++}
++
+ int qed_mcp_set_led(struct qed_hwfn *p_hwfn,
+ 		    struct qed_ptt *p_ptt, enum qed_led_mode mode)
+ {
+@@ -1196,6 +1251,27 @@ int qed_mcp_set_led(struct qed_hwfn *p_hwfn,
+ 	return rc;
+ }
+ 
++int qed_mcp_mask_parities(struct qed_hwfn *p_hwfn,
++			  struct qed_ptt *p_ptt, u32 mask_parities)
++{
++	u32 resp = 0, param = 0;
++	int rc;
++
++	rc = qed_mcp_cmd(p_hwfn, p_ptt, DRV_MSG_CODE_MASK_PARITIES,
++			 mask_parities, &resp, &param);
++
++	if (rc) {
++		DP_ERR(p_hwfn,
++		       "MCP response failure for mask parities, aborting\n");
++	} else if (resp != FW_MSG_CODE_OK) {
++		DP_ERR(p_hwfn,
++		       "MCP did not acknowledge mask parity request. Old MFW?\n");
++		rc = -EINVAL;
++	}
++
++	return rc;
++}
++
+ int qed_mcp_bist_register_test(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
+ {
+ 	u32 drv_mb_param = 0, rsp, param;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.h b/drivers/net/ethernet/qlogic/qed/qed_mcp.h
+index c6372fa..dff520e 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_mcp.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.h
+@@ -468,6 +468,29 @@ int qed_mcp_reset(struct qed_hwfn *p_hwfn,
+ 		  struct qed_ptt *p_ptt);
+ 
+ /**
++ * @brief - Sends an NVM read command request to the MFW to get
++ *        a buffer.
++ *
++ * @param p_hwfn
++ * @param p_ptt
++ * @param cmd - Command: DRV_MSG_CODE_NVM_GET_FILE_DATA or
++ *            DRV_MSG_CODE_NVM_READ_NVRAM commands
++ * @param param - [0:23] - Offset [24:31] - Size
++ * @param o_mcp_resp - MCP response
++ * @param o_mcp_param - MCP response param
++ * @param o_txn_size -  Buffer size output
++ * @param o_buf - Pointer to the buffer returned by the MFW.
++ *
++ * @param return 0 upon success.
++ */
++int qed_mcp_nvm_rd_cmd(struct qed_hwfn *p_hwfn,
++		       struct qed_ptt *p_ptt,
++		       u32 cmd,
++		       u32 param,
++		       u32 *o_mcp_resp,
++		       u32 *o_mcp_param, u32 *o_txn_size, u32 *o_buf);
++
++/**
+  * @brief indicates whether the MFW objects [under mcp_info] are accessible
+  *
+  * @param p_hwfn
+@@ -489,6 +512,26 @@ bool qed_mcp_is_init(struct qed_hwfn *p_hwfn);
+ int qed_mcp_config_vf_msix(struct qed_hwfn *p_hwfn,
+ 			   struct qed_ptt *p_ptt, u8 vf_id, u8 num);
+ 
++/**
++ * @brief - Halt the MCP.
++ *
++ * @param p_hwfn
++ * @param p_ptt
++ *
++ * @param return 0 upon success.
++ */
++int qed_mcp_halt(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt);
++
++/**
++ * @brief - Wake up the MCP.
++ *
++ * @param p_hwfn
++ * @param p_ptt
++ *
++ * @param return 0 upon success.
++ */
++int qed_mcp_resume(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt);
++
+ int qed_configure_pf_min_bandwidth(struct qed_dev *cdev, u8 min_bw);
+ int qed_configure_pf_max_bandwidth(struct qed_dev *cdev, u8 max_bw);
+ int __qed_configure_pf_max_bandwidth(struct qed_hwfn *p_hwfn,
+@@ -500,4 +543,7 @@ int __qed_configure_pf_min_bandwidth(struct qed_hwfn *p_hwfn,
+ 				     struct qed_mcp_link_state *p_link,
+ 				     u8 min_bw);
+ 
++int qed_mcp_mask_parities(struct qed_hwfn *p_hwfn,
++			  struct qed_ptt *p_ptt, u32 mask_parities);
++
+ #endif
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h b/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
+index 2ddc420..d590ca6 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
+@@ -551,4 +551,10 @@
+ 
+ #define QM_REG_WFQPFWEIGHT	0x2f4e80UL
+ #define QM_REG_WFQVPWEIGHT	0x2fa000UL
++
++#define MCP_REG_CPU_MODE \
++	0xe05000UL
++#define MCP_REG_CPU_MODE_SOFT_HALT \
++		(0x1 << 10)
++
+ #endif
+-- 
+1.8.3.1
