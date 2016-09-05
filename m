@@ -1,30 +1,68 @@
-From: Pavel Andrianov <andrianov@ispras.ru>
-Subject: A potential bug in drivers/net/ethernet/synopsys/dwc_eth_qos.ko
-Date: Mon, 5 Sep 2016 11:26:46 +0300
-Message-ID: <1403c768-7ed1-dc5c-38ae-ac91f876a175@ispras.ru>
+From: Wei Yongjun <weiyongjun1@huawei.com>
+Subject: [PATCH] ipv6: addrconf: fix dev refcont leak when DAD failed
+Date: Mon, 5 Sep 2016 16:06:31 +0800
+Message-ID: <1473062791-21118-1-git-send-email-weiyongjun1@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Vaishali Thakkar <vaishali.thakkar@oracle.com>,
-        ldv-project@linuxtesting.org
-To: Lars Persson <lars.persson@axis.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: Wei Yongjun <weiyongjun1@huawei.com>, <netdev@vger.kernel.org>,
+        <stable@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        "Patrick McHardy" <kaber@trash.net>,
+        Ding Tianhong <dingtianhong@huawei.com>
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi!
+In general, when DAD detected IPv6 duplicate address, ifp->state
+will be set to INET6_IFADDR_STATE_ERRDAD and DAD is stopped by a
+delayed work, the call tree should be like this:
 
-There is a potential bug in 
-drivers/net/ethernet/synopsys/dwc_eth_qos.ko. In dwceqos_probe there is 
-a registration of net device (line 2879). After that initialization of 
-common resources is continued (lines 2918, 2924, 2941), but at the 
-moment handlers from net device may be already executed.
+ndisc_recv_ns
+  -> addrconf_dad_failure        <- missing ifp put
+     -> addrconf_mod_dad_work
+       -> schedule addrconf_dad_work()
+         -> addrconf_dad_stop()  <- missing ifp hold before call it
 
-Should the registration of net device be at the end of dwceqos_probe?
+addrconf_dad_failure() called with ifp refcont holding but not put.
+addrconf_dad_work() call addrconf_dad_stop() without extra holding
+refcount. This will not cause any issue normally.
 
+But the race between addrconf_dad_failure() and addrconf_dad_work()
+may cause ifp refcount leak and netdevice can not be unregister,
+dmesg show the following messages:
+
+IPv6: eth0: IPv6 duplicate address fe80::XX:XXXX:XXXX:XX detected!
+...
+unregister_netdevice: waiting for eth0 to become free. Usage count = 1
+
+Cc: stable@vger.kernel.org
+Fixes: c15b1ccadb32 ("ipv6: move DAD and addrconf_verify processing
+to workqueue")
+Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index bdf368e..2f1f5d4 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1948,6 +1948,7 @@ errdad:
+ 	spin_unlock_bh(&ifp->lock);
+ 
+ 	addrconf_mod_dad_work(ifp, 0);
++	in6_ifa_put(ifp);
+ }
+ 
+ /* Join to solicited addr multicast group.
+@@ -3857,6 +3858,7 @@ static void addrconf_dad_work(struct work_struct *w)
+ 		addrconf_dad_begin(ifp);
+ 		goto out;
+ 	} else if (action == DAD_ABORT) {
++		in6_ifa_hold(ifp);
+ 		addrconf_dad_stop(ifp, 1);
+ 		if (disable_ipv6)
+ 			addrconf_ifdown(idev->dev, 0);
 -- 
-Pavel Andrianov
-Linux Verification Center, ISPRAS
-web: http://linuxtesting.org
-e-mail: andrianov@ispras.ru
+2.7.0
