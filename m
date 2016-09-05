@@ -1,37 +1,33 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCH iproute2 0/2] vxlan: add configuration check
-Date: Mon, 5 Sep 2016 12:30:02 +0200
-Message-ID: <20160905103002.GE29816@orbyte.nwl.cc>
-References: <cover.1473067954.git.jbenc@redhat.com>
+From: Gerard Garcia <ggarcia@abra.uab.cat>
+Subject: Re: [PATCH v5] virtio-vsock: Add timer to handle OOM situations
+Date: Mon, 5 Sep 2016 12:30:29 +0200
+Message-ID: <f7998fa5-e0ed-d8f7-0443-a1e0f9058ad1@deic.uab.cat>
+References: <20160812140208.16772-1-ggarcia@deic.uab.cat>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: Jiri Benc <jbenc@redhat.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: stefanha@redhat.com, mst@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:36228 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932444AbcIEKaF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 5 Sep 2016 06:30:05 -0400
-Content-Disposition: inline
-In-Reply-To: <cover.1473067954.git.jbenc@redhat.com>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:35695 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932444AbcIEKac (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Sep 2016 06:30:32 -0400
+Received: by mail-wm0-f66.google.com with SMTP id a6so1348918wmc.2
+        for <netdev@vger.kernel.org>; Mon, 05 Sep 2016 03:30:31 -0700 (PDT)
+In-Reply-To: <20160812140208.16772-1-ggarcia@deic.uab.cat>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 05, 2016 at 11:35:26AM +0200, Jiri Benc wrote:
-> Mirror the vxlan configuration check recently added to the kernel.
-> 
-> While at this, I also converted open coded IPv6 address comparisons to the
-> standard macros.
-> 
-> Jiri Benc (2):
->   tunnels: use macros for IPv6 address comparison
->   vxlan: group address requires net device
-> 
->  ip/ip6tunnel.c     |  8 ++++----
->  ip/iplink_geneve.c |  6 +++---
->  ip/iplink_vxlan.c  | 19 ++++++++++++-------
->  3 files changed, 19 insertions(+), 14 deletions(-)
+On 08/12/2016 04:02 PM, ggarcia@deic.uab.cat wrote:
+> From: Gerard Garcia <ggarcia@deic.uab.cat>
+>
+> Set up a rx timer to avoid packets being discarded when there is no
+> available memory in the host.
+>
+> Signed-off-by: Gerard Garcia <ggarcia@deic.uab.cat>
+> Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
+>
 
-Series:
-Acked-by: Phil Sutter <phil@nwl.cc>
+Seems that this patch and [PATCH v3] virtio-vsock: Fix unbound rx buffer 
+weren't applied, is there something missing that needs to be fixed?
