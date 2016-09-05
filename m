@@ -1,306 +1,243 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 12/29] netfilter: nf_tables: add number generator expression
-Date: Mon,  5 Sep 2016 12:58:27 +0200
-Message-ID: <1473073124-5015-13-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 11/29] netfilter: nf_tables: add quota expression
+Date: Mon,  5 Sep 2016 12:58:26 +0200
+Message-ID: <1473073124-5015-12-git-send-email-pablo@netfilter.org>
 References: <1473073124-5015-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:35204 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:35196 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933502AbcIEK7F (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S933499AbcIEK7F (ORCPT <rfc822;netdev@vger.kernel.org>);
         Mon, 5 Sep 2016 06:59:05 -0400
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 6EE052EFECF
-        for <netdev@vger.kernel.org>; Mon,  5 Sep 2016 12:59:03 +0200 (CEST)
+        by mail.us.es (Postfix) with ESMTP id C81612EFED3
+        for <netdev@vger.kernel.org>; Mon,  5 Sep 2016 12:59:02 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 5FAC81150AE
-        for <netdev@vger.kernel.org>; Mon,  5 Sep 2016 12:59:03 +0200 (CEST)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 8DB651150C6
+        for <netdev@vger.kernel.org>; Mon,  5 Sep 2016 12:59:02 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id D96441150B3
-        for <netdev@vger.kernel.org>; Mon,  5 Sep 2016 12:59:00 +0200 (CEST)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id F1A4A114D73
+        for <netdev@vger.kernel.org>; Mon,  5 Sep 2016 12:58:59 +0200 (CEST)
 In-Reply-To: <1473073124-5015-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Laura Garcia Liebana <nevola@gmail.com>
+This patch adds the quota expression. This new stateful expression
+integrate easily into the dynset expression to build 'hashquota' flow
+tables.
 
-This patch adds the numgen expression that allows us to generated
-incremental and random numbers, this generator is bound to a upper limit
-that is specified by userspace.
+Arguably, we could use instead "counter bytes > 1000" instead, but this
+approach has several problems:
 
-This expression is useful to distribute packets in a round-robin fashion
-as well as randomly.
+1) We only support for one single stateful expression in dynamic set
+   definitions, and the expression above is a composite of two
+   expressions: get counter + comparison.
 
-Signed-off-by: Laura Garcia Liebana <nevola@gmail.com>
+2) We would need to restore the packed counter representation (that we
+   used to have) based on seqlock to synchronize this, since per-cpu is
+   not suitable for this.
+
+So instead of bloating the counter expression back with the seqlock
+representation and extending the existing set infrastructure to make it
+more complex for the composite described above, let's follow the more
+simple approach of adding a quota expression that we can plug into our
+existing infrastructure.
+
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/uapi/linux/netfilter/nf_tables.h |  24 ++++
- net/netfilter/Kconfig                    |   6 +
+ include/uapi/linux/netfilter/nf_tables.h |  19 +++++
+ net/netfilter/Kconfig                    |   6 ++
  net/netfilter/Makefile                   |   1 +
- net/netfilter/nft_numgen.c               | 192 +++++++++++++++++++++++++++++++
- 4 files changed, 223 insertions(+)
- create mode 100644 net/netfilter/nft_numgen.c
+ net/netfilter/nft_quota.c                | 121 +++++++++++++++++++++++++++++++
+ 4 files changed, 147 insertions(+)
+ create mode 100644 net/netfilter/nft_quota.c
 
 diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
-index 784fbf1..8c9d6ff 100644
+index 6ce0a6d..784fbf1 100644
 --- a/include/uapi/linux/netfilter/nf_tables.h
 +++ b/include/uapi/linux/netfilter/nf_tables.h
-@@ -1121,4 +1121,28 @@ enum nft_trace_types {
- 	__NFT_TRACETYPE_MAX
- };
- #define NFT_TRACETYPE_MAX (__NFT_TRACETYPE_MAX - 1)
+@@ -900,6 +900,25 @@ enum nft_queue_attributes {
+ #define NFT_QUEUE_FLAG_CPU_FANOUT	0x02 /* use current CPU (no hashing) */
+ #define NFT_QUEUE_FLAG_MASK		0x03
+ 
++enum nft_quota_flags {
++	NFT_QUOTA_F_INV		= (1 << 0),
++};
 +
 +/**
-+ * enum nft_ng_attributes - nf_tables number generator expression netlink attributes
++ * enum nft_quota_attributes - nf_tables quota expression netlink attributes
 + *
-+ * @NFTA_NG_DREG: destination register (NLA_U32)
-+ * @NFTA_NG_UNTIL: source value to increment the counter until reset (NLA_U32)
-+ * @NFTA_NG_TYPE: operation type (NLA_U32)
++ * @NFTA_QUOTA_BYTES: quota in bytes (NLA_U16)
++ * @NFTA_QUOTA_FLAGS: flags (NLA_U32)
 + */
-+enum nft_ng_attributes {
-+	NFTA_NG_UNSPEC,
-+	NFTA_NG_DREG,
-+	NFTA_NG_UNTIL,
-+	NFTA_NG_TYPE,
-+	__NFTA_NG_MAX
++enum nft_quota_attributes {
++	NFTA_QUOTA_UNSPEC,
++	NFTA_QUOTA_BYTES,
++	NFTA_QUOTA_FLAGS,
++	NFTA_QUOTA_PAD,
++	__NFTA_QUOTA_MAX
 +};
-+#define NFTA_NG_MAX	(__NFTA_NG_MAX - 1)
++#define NFTA_QUOTA_MAX		(__NFTA_QUOTA_MAX - 1)
 +
-+enum nft_ng_types {
-+	NFT_NG_INCREMENTAL,
-+	NFT_NG_RANDOM,
-+	__NFT_NG_MAX
-+};
-+#define NFT_NG_MAX	(__NFT_NG_MAX - 1)
-+
- #endif /* _LINUX_NF_TABLES_H */
+ /**
+  * enum nft_reject_types - nf_tables reject expression reject types
+  *
 diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index 29a8078..e8d56d9 100644
+index 9cfaa00..29a8078 100644
 --- a/net/netfilter/Kconfig
 +++ b/net/netfilter/Kconfig
-@@ -474,6 +474,12 @@ config NFT_META
- 	  This option adds the "meta" expression that you can use to match and
- 	  to set packet metainformation such as the packet mark.
+@@ -542,6 +542,12 @@ config NFT_QUEUE
+ 	  This is required if you intend to use the userspace queueing
+ 	  infrastructure (also known as NFQUEUE) from nftables.
  
-+config NFT_NUMGEN
-+	tristate "Netfilter nf_tables number generator module"
++config NFT_QUOTA
++	tristate "Netfilter nf_tables quota module"
 +	help
-+	  This option adds the number generator expression used to perform
-+	  incremental counting and random numbers bound to a upper limit.
++	  This option adds the "quota" expression that you can use to match
++	  enforce bytes quotas.
 +
- config NFT_CT
- 	depends on NF_CONNTRACK
- 	tristate "Netfilter nf_tables conntrack module"
+ config NFT_REJECT
+ 	default m if NETFILTER_ADVANCED=n
+ 	tristate "Netfilter nf_tables reject support"
 diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-index 0fc42df..0c858110 100644
+index 1106ccd..0fc42df 100644
 --- a/net/netfilter/Makefile
 +++ b/net/netfilter/Makefile
-@@ -80,6 +80,7 @@ obj-$(CONFIG_NF_TABLES_NETDEV)	+= nf_tables_netdev.o
- obj-$(CONFIG_NFT_COMPAT)	+= nft_compat.o
- obj-$(CONFIG_NFT_EXTHDR)	+= nft_exthdr.o
- obj-$(CONFIG_NFT_META)		+= nft_meta.o
-+obj-$(CONFIG_NFT_NUMGEN)	+= nft_numgen.o
- obj-$(CONFIG_NFT_CT)		+= nft_ct.o
+@@ -84,6 +84,7 @@ obj-$(CONFIG_NFT_CT)		+= nft_ct.o
  obj-$(CONFIG_NFT_LIMIT)		+= nft_limit.o
  obj-$(CONFIG_NFT_NAT)		+= nft_nat.o
-diff --git a/net/netfilter/nft_numgen.c b/net/netfilter/nft_numgen.c
+ obj-$(CONFIG_NFT_QUEUE)		+= nft_queue.o
++obj-$(CONFIG_NFT_QUOTA)		+= nft_quota.o
+ obj-$(CONFIG_NFT_REJECT) 	+= nft_reject.o
+ obj-$(CONFIG_NFT_REJECT_INET)	+= nft_reject_inet.o
+ obj-$(CONFIG_NFT_SET_RBTREE)	+= nft_set_rbtree.o
+diff --git a/net/netfilter/nft_quota.c b/net/netfilter/nft_quota.c
 new file mode 100644
-index 0000000..176e26d
+index 0000000..6eafbf9
 --- /dev/null
-+++ b/net/netfilter/nft_numgen.c
-@@ -0,0 +1,192 @@
++++ b/net/netfilter/nft_quota.c
+@@ -0,0 +1,121 @@
 +/*
-+ * Copyright (c) 2016 Laura Garcia <nevola@gmail.com>
++ * Copyright (c) 2016 Pablo Neira Ayuso <pablo@netfilter.org>
 + *
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the GNU General Public License version 2 as
 + * published by the Free Software Foundation.
-+ *
 + */
 +
 +#include <linux/kernel.h>
 +#include <linux/init.h>
 +#include <linux/module.h>
++#include <linux/atomic.h>
 +#include <linux/netlink.h>
 +#include <linux/netfilter.h>
 +#include <linux/netfilter/nf_tables.h>
-+#include <linux/static_key.h>
 +#include <net/netfilter/nf_tables.h>
-+#include <net/netfilter/nf_tables_core.h>
 +
-+static DEFINE_PER_CPU(struct rnd_state, nft_numgen_prandom_state);
-+
-+struct nft_ng_inc {
-+	enum nft_registers      dreg:8;
-+	u32			until;
-+	atomic_t		counter;
++struct nft_quota {
++	u64		quota;
++	bool		invert;
++	atomic64_t	remain;
 +};
 +
-+static void nft_ng_inc_eval(const struct nft_expr *expr,
-+			    struct nft_regs *regs,
-+			    const struct nft_pktinfo *pkt)
++static inline long nft_quota(struct nft_quota *priv,
++			     const struct nft_pktinfo *pkt)
 +{
-+	struct nft_ng_inc *priv = nft_expr_priv(expr);
-+	u32 nval, oval;
-+
-+	do {
-+		oval = atomic_read(&priv->counter);
-+		nval = (oval + 1 < priv->until) ? oval + 1 : 0;
-+	} while (atomic_cmpxchg(&priv->counter, oval, nval) != oval);
-+
-+	memcpy(&regs->data[priv->dreg], &priv->counter, sizeof(u32));
++	return atomic64_sub_return(pkt->skb->len, &priv->remain);
 +}
 +
-+static const struct nla_policy nft_ng_policy[NFTA_NG_MAX + 1] = {
-+	[NFTA_NG_DREG]		= { .type = NLA_U32 },
-+	[NFTA_NG_UNTIL]		= { .type = NLA_U32 },
-+	[NFTA_NG_TYPE]		= { .type = NLA_U32 },
++static void nft_quota_eval(const struct nft_expr *expr,
++			   struct nft_regs *regs,
++			   const struct nft_pktinfo *pkt)
++{
++	struct nft_quota *priv = nft_expr_priv(expr);
++
++	if (nft_quota(priv, pkt) < 0 && !priv->invert)
++		regs->verdict.code = NFT_BREAK;
++}
++
++static const struct nla_policy nft_quota_policy[NFTA_QUOTA_MAX + 1] = {
++	[NFTA_QUOTA_BYTES]	= { .type = NLA_U64 },
++	[NFTA_QUOTA_FLAGS]	= { .type = NLA_U32 },
 +};
 +
-+static int nft_ng_inc_init(const struct nft_ctx *ctx,
-+			   const struct nft_expr *expr,
-+			   const struct nlattr * const tb[])
++static int nft_quota_init(const struct nft_ctx *ctx,
++			  const struct nft_expr *expr,
++			  const struct nlattr * const tb[])
 +{
-+	struct nft_ng_inc *priv = nft_expr_priv(expr);
++	struct nft_quota *priv = nft_expr_priv(expr);
++	u32 flags = 0;
++	u64 quota;
 +
-+	priv->until = ntohl(nla_get_be32(tb[NFTA_NG_UNTIL]));
-+	if (priv->until == 0)
-+		return -ERANGE;
++	if (!tb[NFTA_QUOTA_BYTES])
++		return -EINVAL;
 +
-+	priv->dreg = nft_parse_register(tb[NFTA_NG_DREG]);
-+	atomic_set(&priv->counter, 0);
++	quota = be64_to_cpu(nla_get_be64(tb[NFTA_QUOTA_BYTES]));
++	if (quota > S64_MAX)
++		return -EOVERFLOW;
 +
-+	return nft_validate_register_store(ctx, priv->dreg, NULL,
-+					   NFT_DATA_VALUE, sizeof(u32));
++	if (tb[NFTA_QUOTA_FLAGS]) {
++		flags = ntohl(nla_get_be32(tb[NFTA_QUOTA_FLAGS]));
++		if (flags & ~NFT_QUOTA_F_INV)
++			return -EINVAL;
++	}
++
++	priv->quota = quota;
++	priv->invert = (flags & NFT_QUOTA_F_INV) ? true : false;
++	atomic64_set(&priv->remain, quota);
++
++	return 0;
 +}
 +
-+static int nft_ng_dump(struct sk_buff *skb, enum nft_registers dreg,
-+		       u32 until, enum nft_ng_types type)
++static int nft_quota_dump(struct sk_buff *skb, const struct nft_expr *expr)
 +{
-+	if (nft_dump_register(skb, NFTA_NG_DREG, dreg))
-+		goto nla_put_failure;
-+	if (nft_dump_register(skb, NFTA_NG_UNTIL, until))
-+		goto nla_put_failure;
-+	if (nft_dump_register(skb, NFTA_NG_TYPE, type))
-+		goto nla_put_failure;
++	const struct nft_quota *priv = nft_expr_priv(expr);
++	u32 flags = priv->invert ? NFT_QUOTA_F_INV : 0;
 +
++	if (nla_put_be64(skb, NFTA_QUOTA_BYTES, cpu_to_be64(priv->quota),
++			 NFTA_QUOTA_PAD) ||
++	    nla_put_be32(skb, NFTA_QUOTA_FLAGS, htonl(flags)))
++		goto nla_put_failure;
 +	return 0;
 +
 +nla_put_failure:
 +	return -1;
 +}
 +
-+static int nft_ng_inc_dump(struct sk_buff *skb, const struct nft_expr *expr)
-+{
-+	const struct nft_ng_inc *priv = nft_expr_priv(expr);
-+
-+	return nft_ng_dump(skb, priv->dreg, priv->until, NFT_NG_INCREMENTAL);
-+}
-+
-+struct nft_ng_random {
-+	enum nft_registers      dreg:8;
-+	u32			until;
++static struct nft_expr_type nft_quota_type;
++static const struct nft_expr_ops nft_quota_ops = {
++	.type		= &nft_quota_type,
++	.size		= NFT_EXPR_SIZE(sizeof(struct nft_quota)),
++	.eval		= nft_quota_eval,
++	.init		= nft_quota_init,
++	.dump		= nft_quota_dump,
 +};
 +
-+static void nft_ng_random_eval(const struct nft_expr *expr,
-+			       struct nft_regs *regs,
-+			       const struct nft_pktinfo *pkt)
-+{
-+	struct nft_ng_random *priv = nft_expr_priv(expr);
-+	struct rnd_state *state = this_cpu_ptr(&nft_numgen_prandom_state);
-+
-+	regs->data[priv->dreg] = reciprocal_scale(prandom_u32_state(state),
-+						  priv->until);
-+}
-+
-+static int nft_ng_random_init(const struct nft_ctx *ctx,
-+			      const struct nft_expr *expr,
-+			      const struct nlattr * const tb[])
-+{
-+	struct nft_ng_random *priv = nft_expr_priv(expr);
-+
-+	priv->until = ntohl(nla_get_be32(tb[NFTA_NG_UNTIL]));
-+	if (priv->until == 0)
-+		return -ERANGE;
-+
-+	prandom_init_once(&nft_numgen_prandom_state);
-+
-+	priv->dreg = nft_parse_register(tb[NFTA_NG_DREG]);
-+
-+	return nft_validate_register_store(ctx, priv->dreg, NULL,
-+					   NFT_DATA_VALUE, sizeof(u32));
-+}
-+
-+static int nft_ng_random_dump(struct sk_buff *skb, const struct nft_expr *expr)
-+{
-+	const struct nft_ng_random *priv = nft_expr_priv(expr);
-+
-+	return nft_ng_dump(skb, priv->dreg, priv->until, NFT_NG_RANDOM);
-+}
-+
-+static struct nft_expr_type nft_ng_type;
-+static const struct nft_expr_ops nft_ng_inc_ops = {
-+	.type		= &nft_ng_type,
-+	.size		= NFT_EXPR_SIZE(sizeof(struct nft_ng_inc)),
-+	.eval		= nft_ng_inc_eval,
-+	.init		= nft_ng_inc_init,
-+	.dump		= nft_ng_inc_dump,
-+};
-+
-+static const struct nft_expr_ops nft_ng_random_ops = {
-+	.type		= &nft_ng_type,
-+	.size		= NFT_EXPR_SIZE(sizeof(struct nft_ng_random)),
-+	.eval		= nft_ng_random_eval,
-+	.init		= nft_ng_random_init,
-+	.dump		= nft_ng_random_dump,
-+};
-+
-+static const struct nft_expr_ops *
-+nft_ng_select_ops(const struct nft_ctx *ctx, const struct nlattr * const tb[])
-+{
-+	u32 type;
-+
-+	if (!tb[NFTA_NG_DREG]	||
-+	    !tb[NFTA_NG_UNTIL]	||
-+	    !tb[NFTA_NG_TYPE])
-+		return ERR_PTR(-EINVAL);
-+
-+	type = ntohl(nla_get_be32(tb[NFTA_NG_TYPE]));
-+
-+	switch (type) {
-+	case NFT_NG_INCREMENTAL:
-+		return &nft_ng_inc_ops;
-+	case NFT_NG_RANDOM:
-+		return &nft_ng_random_ops;
-+	}
-+
-+	return ERR_PTR(-EINVAL);
-+}
-+
-+static struct nft_expr_type nft_ng_type __read_mostly = {
-+	.name		= "numgen",
-+	.select_ops	= &nft_ng_select_ops,
-+	.policy		= nft_ng_policy,
-+	.maxattr	= NFTA_NG_MAX,
++static struct nft_expr_type nft_quota_type __read_mostly = {
++	.name		= "quota",
++	.ops		= &nft_quota_ops,
++	.policy		= nft_quota_policy,
++	.maxattr	= NFTA_QUOTA_MAX,
++	.flags		= NFT_EXPR_STATEFUL,
 +	.owner		= THIS_MODULE,
 +};
 +
-+static int __init nft_ng_module_init(void)
++static int __init nft_quota_module_init(void)
 +{
-+	return nft_register_expr(&nft_ng_type);
++        return nft_register_expr(&nft_quota_type);
 +}
 +
-+static void __exit nft_ng_module_exit(void)
++static void __exit nft_quota_module_exit(void)
 +{
-+	nft_unregister_expr(&nft_ng_type);
++        nft_unregister_expr(&nft_quota_type);
 +}
 +
-+module_init(nft_ng_module_init);
-+module_exit(nft_ng_module_exit);
++module_init(nft_quota_module_init);
++module_exit(nft_quota_module_exit);
 +
 +MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Laura Garcia <nevola@gmail.com>");
-+MODULE_ALIAS_NFT_EXPR("numgen");
++MODULE_AUTHOR("Pablo Neira Ayuso <pablo@netfilter.org>");
++MODULE_ALIAS_NFT_EXPR("quota");
 -- 
 2.1.4
