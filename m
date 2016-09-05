@@ -1,67 +1,85 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [PATCH net-next 4/9] rxrpc: Randomise epoch and starting client conn ID values
-Date: Mon, 05 Sep 2016 17:24:23 +0100
-Message-ID: <3378.1473092663@warthog.procyon.org.uk>
-References: <063D6719AE5E284EB5DD2968C1650D6DB00F48DE@AcuExch.aculab.com> <147302294435.28597.15007422228950187972.stgit@warthog.procyon.org.uk> <147302297165.28597.8317497494192917329.stgit@warthog.procyon.org.uk>
+From: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
+Subject: Re: 6pack: stack-out-of-bounds in sixpack_receive_buf
+Date: Mon, 5 Sep 2016 17:37:38 +0100
+Message-ID: <20160905173738.0f698343@lxorguk.ukuu.org.uk>
+References: <CACT4Y+ZXH227Gbwrr+dUN4WSFNsoSECYd-KaZyLJ8F0KCRWRBw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: dhowells@redhat.com,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-afs@lists.infradead.org" <linux-afs@lists.infradead.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>,
-        Jeffrey Altman <jaltman@auristor.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59568 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932312AbcIEQY0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 5 Sep 2016 12:24:26 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB00F48DE@AcuExch.aculab.com>
-Content-ID: <3377.1473092663.1@warthog.procyon.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Peter Hurley <peter@hurleysoftware.com>,
+        Jiri Slaby <jslaby@suse.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Andreas Koensgen <ajk@comnets.uni-bremen.de>,
+        linux-hams@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <CACT4Y+ZXH227Gbwrr+dUN4WSFNsoSECYd-KaZyLJ8F0KCRWRBw@mail.gmail.com>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-[cc'ing Jeff Altman for comment]
+On Sat, 3 Sep 2016 15:38:08 +0200
+Dmitry Vyukov <dvyukov@google.com> wrote:
 
-David Laight <David.Laight@ACULAB.COM> wrote:
-
-> > Create a random epoch value rather than a time-based one on startup and set
-> > the top bit to indicate that this is the case.
+> Hello,
 > 
-> Why set the top bit?
-> There is nothing to stop the time (in seconds) from having the top bit set.
-> Nothing else can care - otherwise this wouldn't work.
-
-This is what I'm told I should do by purveyors of other RxRPC solutions.
-
-> > Also create a random starting client connection ID value.  This will be
-> > incremented from here as new client connections are created.
+> While running syzkaller fuzzer I've got the following report:
 > 
-> I'm guessing this is to make duplicates less likely after a restart?
+> BUG: KASAN: stack-out-of-bounds in sixpack_receive_buf+0xf8a/0x1450 at
+> addr ffff880037fbf850
+> Read of size 1 by task syz-executor/6759
+> page:ffffea0000dfefc0 count:0 mapcount:0 mapping:          (null) index:0x0
+> flags: 0x1fffc0000000000()
+> page dumped because: kasan: bad access detected
+> CPU: 3 PID: 6759 Comm: syz-executor Not tainted 4.8.0-rc3-next-20160825+ #8
+> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+>  ffffffff886b6fe0 ffff880037fbf520 ffffffff82db38d9 ffffffff37fbf5b0
+>  fffffbfff10d6dfc ffff880037fbf5b0 ffff880037fbf850 ffff880037fbf850
+>  ffff880037d3f180 dffffc0000000000 ffff880037fbf5a0 ffffffff8180a383
+> Call Trace:
+>  [<ffffffff8180a3ee>] __asan_report_load1_noabort+0x3e/0x40
+> mm/kasan/report.c:319
+>  [<     inline     >] sixpack_decode drivers/net/hamradio/6pack.c:1001
+>  [<ffffffff8425f96a>] sixpack_receive_buf+0xf8a/0x1450
+> drivers/net/hamradio/6pack.c:462
+>  [<ffffffff8323b368>] tty_ldisc_receive_buf+0x168/0x1b0
+> drivers/tty/tty_buffer.c:433
+>  [<ffffffff832616de>] paste_selection+0x27e/0x3e0 drivers/tty/vt/selection.c:363
+>  [<ffffffff8327f286>] tioclinux+0x126/0x410 drivers/tty/vt/vt.c:2683
+>  [<ffffffff8325c1ef>] vt_ioctl+0x13ef/0x2910 drivers/tty/vt/vt_ioctl.c:365
+>  [<ffffffff832245cd>] tty_ioctl+0x69d/0x21e0 drivers/tty/tty_io.c:2983
+>  [<     inline     >] vfs_ioctl fs/ioctl.c:43
+>  [<ffffffff818a1dfc>] do_vfs_ioctl+0x18c/0x1080 fs/ioctl.c:675
+>  [<     inline     >] SYSC_ioctl fs/ioctl.c:690
+>  [<ffffffff818a2d7f>] SyS_ioctl+0x8f/0xc0 fs/ioctl.c:681
+>  [<ffffffff86e10700>] entry_SYSCALL_64_fastpath+0x23/0xc1
+> Memory state around the buggy address:
+>  ffff880037fbf700: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+>  ffff880037fbf780: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+> >ffff880037fbf800: 00 00 00 00 00 00 00 00 00 00 f3 f3 f3 f3 00 00  
+>                                                  ^
+>  ffff880037fbf880: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+>  ffff880037fbf900: 00 00 00 00 f1 f1 f1 f1 00 f4 f4 f4 f2 f2 f2 f2
+> ==================================================================
+> 
+> 
+> It is then followed by similar reports that access subsequent stack bytes.
+> Unfortunately I can't reproduce it (though, I got 6 similar crashes in
+> different runs). Looking at code, the following looks suspicious -- we
+> limit copy by 512 bytes, but use the original count which can be
+> larger than 512:
+> 
+> static void sixpack_receive_buf(struct tty_struct *tty,
+>     const unsigned char *cp, char *fp, int count)
+> {
+>     unsigned char buf[512];
+>     ....
+>     memcpy(buf, cp, count < sizeof(buf) ? count : sizeof(buf));
+>     ....
+>     sixpack_decode(sp, buf, count1);
+> 
 
-Again, it's been suggested that I do this, but I would guess so.
+Your suspicion is correct.
 
-> You may want to worry about duplicate allocations (after 2^32 connects).
-
-It's actually a quarter of that, but connection != call, so a connection may
-be used for up to ~16 billion RPC operations before it *has* to be flushed.
-
-> There are id allocation algorithms that guarantee not to generate duplicates
-> and not to reuse values quickly while still being fixed cost.
-> Look at the code NetBSD uses to allocate process ids for an example.
-
-I'm using idr_alloc_cyclic()[*] with a fixed size "window" on the active conn
-ID values.  Client connections with IDs outside of that window are discarded
-as soon as possible to keep the memory consumption of the tree down (and to
-force security renegotiation occasionally).  However, given that there are a
-billion IDs to cycle through, it will take quite a while for reuse to become
-an issue.
-
-I like the idea of incrementing the epoch every time we cycle through the ID
-space, but I'm told that a change in the epoch value is an indication that the
-client rebooted - with what consequences I cannot say.
-
-[*] which is what Linux uses to allocate process IDs.
-
-David
+Alan
