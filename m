@@ -1,47 +1,58 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net] bnxt_en: Fix TX push operation on ARM64.
-Date: Mon,  5 Sep 2016 01:57:35 -0400
-Message-ID: <1473055055-28605-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next V5 4/4] net/sched: Introduce act_tunnel_key
+Date: Mon, 5 Sep 2016 09:45:34 +0300
+Message-ID: <CAJL1qvHyGiPOiRceD2N+SgTih0Bggr-_1_1OtzCFHW8Yu1FR0A@mail.gmail.com>
+References: <1472986555-14949-1-git-send-email-hadarh@mellanox.com>
+ <1472986555-14949-5-git-send-email-hadarh@mellanox.com> <9B0331B6EBBD0E4684FBFAEDA55776F92CE10540@HASMSX110.ger.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Hadar Hen Zion <hadarh@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Jiri Pirko <jiri@mellanox.com>, Jiri Benc <jbenc@redhat.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Amir Vadai <amirva@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>, Amir Vadai <amir@vadai.me>
+To: "Rosen, Rami" <rami.rosen@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:34455 "EHLO
-        mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752861AbcIEF5m (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Sep 2016 01:57:42 -0400
-Received: by mail-pa0-f54.google.com with SMTP id to9so20440562pac.1
-        for <netdev@vger.kernel.org>; Sun, 04 Sep 2016 22:57:42 -0700 (PDT)
+Received: from mail-oi0-f65.google.com ([209.85.218.65]:33341 "EHLO
+        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754010AbcIEGpg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Sep 2016 02:45:36 -0400
+Received: by mail-oi0-f65.google.com with SMTP id w78so3846492oie.0
+        for <netdev@vger.kernel.org>; Sun, 04 Sep 2016 23:45:35 -0700 (PDT)
+In-Reply-To: <9B0331B6EBBD0E4684FBFAEDA55776F92CE10540@HASMSX110.ger.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is a code path where we are calling __iowrite64_copy() on
-an address that is not 64-bit aligned.  This causes an exception on
-some architectures such as arm64.  Fix that code path by using
-__iowrite32_copy().
+On Sun, Sep 4, 2016 at 9:19 PM, Rosen, Rami <rami.rosen@intel.com> wrote:
+> Hi, Hadar,
+>
+>>For example, the following flower filter will forward all ICMP packets destined to 11.11.11.2 >through the shared vxlan device 'vxlan0'. Before redirecting, a metadata for the vxlan tunnel >is created using the tunnel_key action and it's arguments:
+>
+> Shouldn't it be "tc filter add dev ..."?
 
-Reported-by: JD Zheng <jiandong.zheng@broadcom.com>
-Signed-off-by: Michael Chan <michael.chan@broadcom.com>
----
+yes, I'll fix it to next version.
 
-Please consider this for stable as well.  Thanks.
+Thanks,
+Hadar
 
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 2cf7910..228c964 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -353,8 +353,8 @@ static netdev_tx_t bnxt_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		push_len = (length + sizeof(*tx_push) + 7) / 8;
- 		if (push_len > 16) {
- 			__iowrite64_copy(txr->tx_doorbell, tx_push_buf, 16);
--			__iowrite64_copy(txr->tx_doorbell + 4, tx_push_buf + 1,
--					 push_len - 16);
-+			__iowrite32_copy(txr->tx_doorbell + 4, tx_push_buf + 1,
-+					 (push_len - 16) << 1);
- 		} else {
- 			__iowrite64_copy(txr->tx_doorbell, tx_push_buf,
- 					 push_len);
--- 
-1.8.3.1
+>
+>>$ filter add dev net0 protocol ip parent ffff: \
+>>    flower \
+>>      ip_proto 1 \
+>>      dst_ip 11.11.11.2 \
+>>    action tunnel_key set \
+>>      src_ip 11.11.0.1 \
+>>      dst_ip 11.11.0.2 \
+>>      id 11 \
+>>    action mirred egress redirect dev vxlan0
+>
+> Regards,
+> Rami Rosen
+> Intel Corporation
+>
