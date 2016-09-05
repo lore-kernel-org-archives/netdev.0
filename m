@@ -1,44 +1,79 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] rxrpc: initialize sched to false to ensure it is not a garbage value
-Date: Mon,  5 Sep 2016 18:00:02 +0100
-Message-ID: <20160905170002.18792-1-colin.king@canonical.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v3 3/6] bpf: add BPF_PROG_ATTACH and BPF_PROG_DETACH commands
+Date: Mon, 05 Sep 2016 19:09:27 +0200
+Message-ID: <57CDA6C7.5060501@iogearbox.net>
+References: <1472241532-11682-1-git-send-email-daniel@zonque.org> <1472241532-11682-4-git-send-email-daniel@zonque.org> <57C4BE77.8070309@iogearbox.net> <9894ace9-06f7-4c41-e8fe-6047adad740e@zonque.org> <57CD798D.4040604@iogearbox.net> <7f69d0ee-df6e-0d30-7198-16a978e53068@zonque.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: "David S . Miller" <davem@davemloft.net>,
-        David Howells <dhowells@redhat.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, kafai@fb.com, fw@strlen.de,
+        pablo@netfilter.org, harald@redhat.com, netdev@vger.kernel.org,
+        sargun@sargun.me
+To: Daniel Mack <daniel@zonque.org>, htejun@fb.com, ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:36058 "EHLO
-        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965514AbcIERB3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Sep 2016 13:01:29 -0400
+Received: from www62.your-server.de ([213.133.104.62]:49691 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934868AbcIERJk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Sep 2016 13:09:40 -0400
+In-Reply-To: <7f69d0ee-df6e-0d30-7198-16a978e53068@zonque.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+On 09/05/2016 04:09 PM, Daniel Mack wrote:
+> On 09/05/2016 03:56 PM, Daniel Borkmann wrote:
+>> On 09/05/2016 02:54 PM, Daniel Mack wrote:
+>>> On 08/30/2016 01:00 AM, Daniel Borkmann wrote:
+>>>> On 08/26/2016 09:58 PM, Daniel Mack wrote:
+>>>
+>>>>>     enum bpf_map_type {
+>>>>> @@ -147,6 +149,13 @@ union bpf_attr {
+>>>>>     		__aligned_u64	pathname;
+>>>>>     		__u32		bpf_fd;
+>>>>>     	};
+>>>>> +
+>>>>> +	struct { /* anonymous struct used by BPF_PROG_ATTACH/DETACH commands */
+>>>>> +		__u32		target_fd;	/* container object to attach to */
+>>>>> +		__u32		attach_bpf_fd;	/* eBPF program to attach */
+>>>>> +		__u32		attach_type;	/* BPF_ATTACH_TYPE_* */
+>>>>> +		__u64		attach_flags;
+>>>>
+>>>> Could we just do ...
+>>>>
+>>>> __u32 dst_fd;
+>>>> __u32 src_fd;
+>>>> __u32 attach_type;
+>>>>
+>>>> ... and leave flags out, since unused anyway? Also see below.
+>>>
+>>> I'd really like to keep the flags, even if they're unused right now.
+>>> This only adds 8 bytes during the syscall operation, so it doesn't harm.
+>>> However, we cannot change the userspace API after the fact, and who
+>>> knows what this (rather generic) interface will be used for later on.
+>>
+>> With the below suggestion added, then flags doesn't need to be
+>> added currently as it can be done safely at a later point in time
+>> with respecting old binaries. See also the syscall handling code
+>> in kernel/bpf/syscall.c +825 and the CHECK_ATTR() macro. The
+>> underlying idea of this was taken from perf_event_open() syscall
+>> back then, see [1] for a summary.
+>>
+>>     [1] https://lkml.org/lkml/2014/8/26/116
+>
+> Yes, I know that's possible, and I like the idea, but I don't think any
+> new interface should come without flags really, as flags are something
+> that will most certainly be needed at some point anyway. I didn't have
+> them in my first shot, but Alexei pointed out that they should be added,
+> and I agree.
+>
+> Also, this optimization wouldn't make the transported struct payload any
+> smaller anyway, because the member of that union used by BPF_PROG_LOAD
+> is still by far the biggest.
+>
+> I really don't think it's worth sparing 8 bytes here and then do the
+> binary compat dance after flags are added, for no real gain.
 
-sched will be uninitialized (and contain a garbage value) in the case
-where call->state >= RXRPC_CALL_DEAD;  fix this by initializing sched
-to false to avoid an inadvertent call to rxrpc_queue_call.
-
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- net/rxrpc/call_object.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/rxrpc/call_object.c b/net/rxrpc/call_object.c
-index 516d8ea..57e00fc 100644
---- a/net/rxrpc/call_object.c
-+++ b/net/rxrpc/call_object.c
-@@ -586,7 +586,7 @@ static void rxrpc_dead_call_expired(unsigned long _call)
-  */
- static void rxrpc_mark_call_released(struct rxrpc_call *call)
- {
--	bool sched;
-+	bool sched = false;
- 
- 	rxrpc_see_call(call);
- 	write_lock(&call->state_lock);
--- 
-2.9.3
+Sure, but there's not much of a dance needed, see for example how map_flags
+were added some time ago. So, iff there's really no foreseeable use-case in
+sight and since we have this flexibility in place already, then I don't quite
+follow why it's needed, if there's zero pain to add it later on. I would
+understand it of course, if it cannot be handled later on anymore.
