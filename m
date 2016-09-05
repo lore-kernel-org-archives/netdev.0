@@ -1,238 +1,98 @@
 From: Tomer Tayar <Tomer.Tayar@qlogic.com>
-Subject: [PATCH net-next 1/3] qed: Add infrastructure for debug data collection
-Date: Mon, 5 Sep 2016 14:35:10 +0300
-Message-ID: <1473075312-19075-2-git-send-email-Tomer.Tayar@qlogic.com>
+Subject: [PATCH net-next 3/3] qed*: Add support for the ethtool get_regs operation
+Date: Mon, 5 Sep 2016 14:35:12 +0300
+Message-ID: <1473075312-19075-4-git-send-email-Tomer.Tayar@qlogic.com>
 References: <1473075312-19075-1-git-send-email-Tomer.Tayar@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <Yuval.Mintz@qlogic.com>, Tomer Tayar <Tomer.Tayar@qlogic.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:47291 "EHLO
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:47297 "EHLO
         mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S932162AbcIELgY (ORCPT
+        by vger.kernel.org with ESMTP id S932274AbcIELgY (ORCPT
         <rfc822;netdev@vger.kernel.org>); Mon, 5 Sep 2016 07:36:24 -0400
 In-Reply-To: <1473075312-19075-1-git-send-email-Tomer.Tayar@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds support for several infrastructure operations that are done as part of
-debug data collection.
-
 Signed-off-by: Tomer Tayar <Tomer.Tayar@qlogic.com>
 Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_hsi.h      |  3 +
- drivers/net/ethernet/qlogic/qed/qed_mcp.c      | 76 ++++++++++++++++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_mcp.h      | 46 ++++++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_reg_addr.h |  6 ++
- 4 files changed, 131 insertions(+)
+ drivers/net/ethernet/qlogic/qed/qed_main.c      |  2 ++
+ drivers/net/ethernet/qlogic/qede/qede_ethtool.c | 24 ++++++++++++++++++++++++
+ include/linux/qed/qed_if.h                      |  4 ++++
+ 3 files changed, 30 insertions(+)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_hsi.h b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-index df94a8b7..3a4cb4a 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-@@ -7640,6 +7640,7 @@ struct public_drv_mb {
- #define DRV_MSG_CODE_CFG_VF_MSIX		0xc0010000
- #define DRV_MSG_CODE_MCP_RESET			0x00090000
- #define DRV_MSG_CODE_SET_VERSION		0x000f0000
-+#define DRV_MSG_CODE_MCP_HALT                   0x00100000
- 
- #define DRV_MSG_CODE_GET_STATS                  0x00130000
- #define DRV_MSG_CODE_STATS_TYPE_LAN             1
-@@ -7647,6 +7648,8 @@ struct public_drv_mb {
- #define DRV_MSG_CODE_STATS_TYPE_ISCSI           3
- #define DRV_MSG_CODE_STATS_TYPE_RDMA            4
- 
-+#define DRV_MSG_CODE_MASK_PARITIES              0x001a0000
-+
- #define DRV_MSG_CODE_BIST_TEST			0x001e0000
- #define DRV_MSG_CODE_SET_LED_MODE		0x00200000
- 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.c b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-index 4c21266..ea673e5 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-@@ -390,6 +390,34 @@ int qed_mcp_cmd(struct qed_hwfn *p_hwfn,
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
+index 78cbf99..1716979 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_main.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
+@@ -1421,6 +1421,8 @@ const struct qed_common_ops qed_common_ops_pass = {
+ 	.get_link = &qed_get_current_link,
+ 	.drain = &qed_drain,
+ 	.update_msglvl = &qed_init_dp,
++	.dbg_all_data = &qed_dbg_all_data,
++	.dbg_all_data_size = &qed_dbg_all_data_size,
+ 	.chain_alloc = &qed_chain_alloc,
+ 	.chain_free = &qed_chain_free,
+ 	.get_coalesce = &qed_get_coalesce,
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
+index 6e17ee1..eba0128 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
+@@ -689,6 +689,28 @@ static int qede_set_pauseparam(struct net_device *dev,
  	return 0;
  }
  
-+int qed_mcp_nvm_rd_cmd(struct qed_hwfn *p_hwfn,
-+		       struct qed_ptt *p_ptt,
-+		       u32 cmd,
-+		       u32 param,
-+		       u32 *o_mcp_resp,
-+		       u32 *o_mcp_param, u32 *o_txn_size, u32 *o_buf)
++static void qede_get_regs(struct net_device *ndev,
++			  struct ethtool_regs *regs, void *buffer)
 +{
-+	struct qed_mcp_mb_params mb_params;
-+	union drv_union_data union_data;
-+	int rc;
++	struct qede_dev *edev = netdev_priv(ndev);
 +
-+	memset(&mb_params, 0, sizeof(mb_params));
-+	mb_params.cmd = cmd;
-+	mb_params.param = param;
-+	mb_params.p_data_dst = &union_data;
-+	rc = qed_mcp_cmd_and_union(p_hwfn, p_ptt, &mb_params);
-+	if (rc)
-+		return rc;
++	regs->version = 0;
++	memset(buffer, 0, regs->len);
 +
-+	*o_mcp_resp = mb_params.mcp_resp;
-+	*o_mcp_param = mb_params.mcp_param;
-+
-+	*o_txn_size = *o_mcp_param;
-+	memcpy(o_buf, &union_data.raw_data, *o_txn_size);
-+
-+	return 0;
++	if (edev->ops && edev->ops->common)
++		edev->ops->common->dbg_all_data(edev->cdev, buffer);
 +}
 +
- int qed_mcp_load_req(struct qed_hwfn *p_hwfn,
- 		     struct qed_ptt *p_ptt, u32 *p_load_code)
++static int qede_get_regs_len(struct net_device *ndev)
++{
++	struct qede_dev *edev = netdev_priv(ndev);
++
++	if (edev->ops && edev->ops->common)
++		return edev->ops->common->dbg_all_data_size(edev->cdev);
++	else
++		return -EINVAL;
++}
++
+ static void qede_update_mtu(struct qede_dev *edev, union qede_reload_args *args)
  {
-@@ -1169,6 +1197,33 @@ qed_mcp_send_drv_version(struct qed_hwfn *p_hwfn,
- 	return rc;
- }
+ 	edev->ndev->mtu = args->mtu;
+@@ -1340,6 +1362,8 @@ static const struct ethtool_ops qede_ethtool_ops = {
+ 	.get_link_ksettings = qede_get_link_ksettings,
+ 	.set_link_ksettings = qede_set_link_ksettings,
+ 	.get_drvinfo = qede_get_drvinfo,
++	.get_regs_len = qede_get_regs_len,
++	.get_regs = qede_get_regs,
+ 	.get_msglevel = qede_get_msglevel,
+ 	.set_msglevel = qede_set_msglevel,
+ 	.nway_reset = qede_nway_reset,
+diff --git a/include/linux/qed/qed_if.h b/include/linux/qed/qed_if.h
+index 864265f..5a39a2c 100644
+--- a/include/linux/qed/qed_if.h
++++ b/include/linux/qed/qed_if.h
+@@ -449,6 +449,10 @@ struct qed_common_ops {
+ 	void		(*simd_handler_clean)(struct qed_dev *cdev,
+ 					      int index);
  
-+int qed_mcp_halt(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
-+{
-+	u32 resp = 0, param = 0;
-+	int rc;
++	int (*dbg_all_data) (struct qed_dev *cdev, void *buffer);
 +
-+	rc = qed_mcp_cmd(p_hwfn, p_ptt, DRV_MSG_CODE_MCP_HALT, 0, &resp,
-+			 &param);
-+	if (rc)
-+		DP_ERR(p_hwfn, "MCP response failure, aborting\n");
++	int (*dbg_all_data_size) (struct qed_dev *cdev);
 +
-+	return rc;
-+}
-+
-+int qed_mcp_resume(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
-+{
-+	u32 value, cpu_mode;
-+
-+	qed_wr(p_hwfn, p_ptt, MCP_REG_CPU_STATE, 0xffffffff);
-+
-+	value = qed_rd(p_hwfn, p_ptt, MCP_REG_CPU_MODE);
-+	value &= ~MCP_REG_CPU_MODE_SOFT_HALT;
-+	qed_wr(p_hwfn, p_ptt, MCP_REG_CPU_MODE, value);
-+	cpu_mode = qed_rd(p_hwfn, p_ptt, MCP_REG_CPU_MODE);
-+
-+	return (cpu_mode & MCP_REG_CPU_MODE_SOFT_HALT) ? -EAGAIN : 0;
-+}
-+
- int qed_mcp_set_led(struct qed_hwfn *p_hwfn,
- 		    struct qed_ptt *p_ptt, enum qed_led_mode mode)
- {
-@@ -1196,6 +1251,27 @@ int qed_mcp_set_led(struct qed_hwfn *p_hwfn,
- 	return rc;
- }
- 
-+int qed_mcp_mask_parities(struct qed_hwfn *p_hwfn,
-+			  struct qed_ptt *p_ptt, u32 mask_parities)
-+{
-+	u32 resp = 0, param = 0;
-+	int rc;
-+
-+	rc = qed_mcp_cmd(p_hwfn, p_ptt, DRV_MSG_CODE_MASK_PARITIES,
-+			 mask_parities, &resp, &param);
-+
-+	if (rc) {
-+		DP_ERR(p_hwfn,
-+		       "MCP response failure for mask parities, aborting\n");
-+	} else if (resp != FW_MSG_CODE_OK) {
-+		DP_ERR(p_hwfn,
-+		       "MCP did not acknowledge mask parity request. Old MFW?\n");
-+		rc = -EINVAL;
-+	}
-+
-+	return rc;
-+}
-+
- int qed_mcp_bist_register_test(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
- {
- 	u32 drv_mb_param = 0, rsp, param;
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.h b/drivers/net/ethernet/qlogic/qed/qed_mcp.h
-index c6372fa..dff520e 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_mcp.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.h
-@@ -468,6 +468,29 @@ int qed_mcp_reset(struct qed_hwfn *p_hwfn,
- 		  struct qed_ptt *p_ptt);
- 
  /**
-+ * @brief - Sends an NVM read command request to the MFW to get
-+ *        a buffer.
-+ *
-+ * @param p_hwfn
-+ * @param p_ptt
-+ * @param cmd - Command: DRV_MSG_CODE_NVM_GET_FILE_DATA or
-+ *            DRV_MSG_CODE_NVM_READ_NVRAM commands
-+ * @param param - [0:23] - Offset [24:31] - Size
-+ * @param o_mcp_resp - MCP response
-+ * @param o_mcp_param - MCP response param
-+ * @param o_txn_size -  Buffer size output
-+ * @param o_buf - Pointer to the buffer returned by the MFW.
-+ *
-+ * @param return 0 upon success.
-+ */
-+int qed_mcp_nvm_rd_cmd(struct qed_hwfn *p_hwfn,
-+		       struct qed_ptt *p_ptt,
-+		       u32 cmd,
-+		       u32 param,
-+		       u32 *o_mcp_resp,
-+		       u32 *o_mcp_param, u32 *o_txn_size, u32 *o_buf);
-+
-+/**
-  * @brief indicates whether the MFW objects [under mcp_info] are accessible
+  * @brief can_link_change - can the instance change the link or not
   *
-  * @param p_hwfn
-@@ -489,6 +512,26 @@ bool qed_mcp_is_init(struct qed_hwfn *p_hwfn);
- int qed_mcp_config_vf_msix(struct qed_hwfn *p_hwfn,
- 			   struct qed_ptt *p_ptt, u8 vf_id, u8 num);
- 
-+/**
-+ * @brief - Halt the MCP.
-+ *
-+ * @param p_hwfn
-+ * @param p_ptt
-+ *
-+ * @param return 0 upon success.
-+ */
-+int qed_mcp_halt(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt);
-+
-+/**
-+ * @brief - Wake up the MCP.
-+ *
-+ * @param p_hwfn
-+ * @param p_ptt
-+ *
-+ * @param return 0 upon success.
-+ */
-+int qed_mcp_resume(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt);
-+
- int qed_configure_pf_min_bandwidth(struct qed_dev *cdev, u8 min_bw);
- int qed_configure_pf_max_bandwidth(struct qed_dev *cdev, u8 max_bw);
- int __qed_configure_pf_max_bandwidth(struct qed_hwfn *p_hwfn,
-@@ -500,4 +543,7 @@ int __qed_configure_pf_min_bandwidth(struct qed_hwfn *p_hwfn,
- 				     struct qed_mcp_link_state *p_link,
- 				     u8 min_bw);
- 
-+int qed_mcp_mask_parities(struct qed_hwfn *p_hwfn,
-+			  struct qed_ptt *p_ptt, u32 mask_parities);
-+
- #endif
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h b/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
-index 2ddc420..d590ca6 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
-@@ -551,4 +551,10 @@
- 
- #define QM_REG_WFQPFWEIGHT	0x2f4e80UL
- #define QM_REG_WFQVPWEIGHT	0x2fa000UL
-+
-+#define MCP_REG_CPU_MODE \
-+	0xe05000UL
-+#define MCP_REG_CPU_MODE_SOFT_HALT \
-+		(0x1 << 10)
-+
- #endif
 -- 
 1.8.3.1
