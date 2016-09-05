@@ -1,78 +1,126 @@
-From: "weiyongjun (A)" <weiyongjun1@huawei.com>
-Subject: Re: [PATCH] ipv6: addrconf: fix dev refcont leak when DAD failed
-Date: Mon, 5 Sep 2016 11:05:34 +0000
-Message-ID: <6AADFAC011213A4C87B956458587ADB46B4BBF@SZXEMI508-MBX.china.huawei.com>
-References: <1473062791-21118-1-git-send-email-weiyongjun1@huawei.com>
- <6cf03c21-6853-99da-21e0-64b029a9e24f@stressinduktion.org>
+From: Greg KH <greg@kroah.com>
+Subject: Re: linux-next: manual merge of the char-misc tree with the net-next
+ tree
+Date: Mon, 5 Sep 2016 13:33:53 +0200
+Message-ID: <20160905113353.GB27586@kroah.com>
+References: <20160905165650.180e6c89@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "stable@vger.kernel.org" <stable@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        "Patrick McHardy" <kaber@trash.net>,
-        Dingtianhong <dingtianhong@huawei.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <6cf03c21-6853-99da-21e0-64b029a9e24f@stressinduktion.org>
-Content-Language: zh-CN
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnd Bergmann <arnd@arndb.de>, David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Stephen Hemminger <sthemmin@microsoft.com>,
+        Vitaly Kuznetsov <vkuznets@redhat.com>,
+        "K. Y. Srinivasan" <kys@microsoft.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160905165650.180e6c89@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gMDUuMDkuMjAxNiAxMDowNiwgV2VpIFlvbmdqdW4gd3JvdGU6DQo+PiBJbiBnZW5lcmFsLCB3
-aGVuIERBRCBkZXRlY3RlZCBJUHY2IGR1cGxpY2F0ZSBhZGRyZXNzLCBpZnAtPnN0YXRlIHdpbGwg
-DQo+PiBiZSBzZXQgdG8gSU5FVDZfSUZBRERSX1NUQVRFX0VSUkRBRCBhbmQgREFEIGlzIHN0b3Bw
-ZWQgYnkgYSBkZWxheWVkIA0KPj4gd29yaywgdGhlIGNhbGwgdHJlZSBzaG91bGQgYmUgbGlrZSB0
-aGlzOg0KPj4gDQo+PiBuZGlzY19yZWN2X25zDQo+PiAgIC0+IGFkZHJjb25mX2RhZF9mYWlsdXJl
-ICAgICAgICA8LSBtaXNzaW5nIGlmcCBwdXQNCj4+ICAgICAgLT4gYWRkcmNvbmZfbW9kX2RhZF93
-b3JrDQo+PiAgICAgICAgLT4gc2NoZWR1bGUgYWRkcmNvbmZfZGFkX3dvcmsoKQ0KPj4gICAgICAg
-ICAgLT4gYWRkcmNvbmZfZGFkX3N0b3AoKSAgPC0gbWlzc2luZyBpZnAgaG9sZCBiZWZvcmUgY2Fs
-bCBpdA0KPj4gDQo+PiBhZGRyY29uZl9kYWRfZmFpbHVyZSgpIGNhbGxlZCB3aXRoIGlmcCByZWZj
-b250IGhvbGRpbmcgYnV0IG5vdCBwdXQuDQo+PiBhZGRyY29uZl9kYWRfd29yaygpIGNhbGwgYWRk
-cmNvbmZfZGFkX3N0b3AoKSB3aXRob3V0IGV4dHJhIGhvbGRpbmcgDQo+PiByZWZjb3VudC4gVGhp
-cyB3aWxsIG5vdCBjYXVzZSBhbnkgaXNzdWUgbm9ybWFsbHkuDQo+PiANCj4+IEJ1dCB0aGUgcmFj
-ZSBiZXR3ZWVuIGFkZHJjb25mX2RhZF9mYWlsdXJlKCkgYW5kIGFkZHJjb25mX2RhZF93b3JrKCkg
-DQo+PiBtYXkgY2F1c2UgaWZwIHJlZmNvdW50IGxlYWsgYW5kIG5ldGRldmljZSBjYW4gbm90IGJl
-IHVucmVnaXN0ZXIsIGRtZXNnIA0KPj4gc2hvdyB0aGUgZm9sbG93aW5nIG1lc3NhZ2VzOg0KPj4g
-DQo+PiBJUHY2OiBldGgwOiBJUHY2IGR1cGxpY2F0ZSBhZGRyZXNzIGZlODA6OlhYOlhYWFg6WFhY
-WDpYWCBkZXRlY3RlZCENCj4+IC4uLg0KPj4gdW5yZWdpc3Rlcl9uZXRkZXZpY2U6IHdhaXRpbmcg
-Zm9yIGV0aDAgdG8gYmVjb21lIGZyZWUuIFVzYWdlIGNvdW50ID0gMQ0KPj4gDQo+PiBDYzogc3Rh
-YmxlQHZnZXIua2VybmVsLm9yZw0KPj4gRml4ZXM6IGMxNWIxY2NhZGIzMiAoImlwdjY6IG1vdmUg
-REFEIGFuZCBhZGRyY29uZl92ZXJpZnkgcHJvY2Vzc2luZyB0byANCj4+IHdvcmtxdWV1ZSIpDQo+
-PiBTaWduZWQtb2ZmLWJ5OiBXZWkgWW9uZ2p1biA8d2VpeW9uZ2p1bjFAaHVhd2VpLmNvbT4NCj4+
-IA0KPj4gZGlmZiAtLWdpdCBhL25ldC9pcHY2L2FkZHJjb25mLmMgYi9uZXQvaXB2Ni9hZGRyY29u
-Zi5jIGluZGV4IA0KPj4gYmRmMzY4ZS4uMmYxZjVkNCAxMDA2NDQNCj4+IC0tLSBhL25ldC9pcHY2
-L2FkZHJjb25mLmMNCj4+ICsrKyBiL25ldC9pcHY2L2FkZHJjb25mLmMNCj4+IEBAIC0xOTQ4LDYg
-KzE5NDgsNyBAQCBlcnJkYWQ6DQo+PiAgCXNwaW5fdW5sb2NrX2JoKCZpZnAtPmxvY2spOw0KPj4g
-IA0KPj4gIAlhZGRyY29uZl9tb2RfZGFkX3dvcmsoaWZwLCAwKTsNCj4+ICsJaW42X2lmYV9wdXQo
-aWZwKTsNCj4+ICB9DQoNCj5UaGlzIGluNl9pZmFfcHV0IG1ha2VzIHNlbnNlLg0KDQo+PiAgDQo+
-PiAgLyogSm9pbiB0byBzb2xpY2l0ZWQgYWRkciBtdWx0aWNhc3QgZ3JvdXAuDQo+PiBAQCAtMzg1
-Nyw2ICszODU4LDcgQEAgc3RhdGljIHZvaWQgYWRkcmNvbmZfZGFkX3dvcmsoc3RydWN0IHdvcmtf
-c3RydWN0ICp3KQ0KPj4gIAkJYWRkcmNvbmZfZGFkX2JlZ2luKGlmcCk7DQo+PiAgCQlnb3RvIG91
-dDsNCj4+ICAJfSBlbHNlIGlmIChhY3Rpb24gPT0gREFEX0FCT1JUKSB7DQo+PiArCQlpbjZfaWZh
-X2hvbGQoaWZwKTsNCj4+ICAJCWFkZHJjb25mX2RhZF9zdG9wKGlmcCwgMSk7DQo+PiAgCQlpZiAo
-ZGlzYWJsZV9pcHY2KQ0KPj4gIAkJCWFkZHJjb25mX2lmZG93bihpZGV2LT5kZXYsIDApOw0KPj4g
-DQoNCj5CdXQgd2h5IHlvdSBhZGQgYSBpbjZfaWZhX2hvbGQgaGVyZSBpc24ndCBjbGVhciB0byBt
-ZS4gQ291bGQgeW91IGV4cGxhaW4gd2h5IHRoaXMgaXMNCj5uZWNlc3Nhcnk/IEkgZG9uJ3Qgc2Vl
-IGFueSBhc3luYyBzdHVmZiBiZWluZyBkb25lIGluIGFkZHJjb25mX2RhZF9zdG9wLCB0aHVzIHRo
-ZQ0KPnJlZmVyZW5jZSB3ZSBhbHJlYWR5IGhhdmUgc2hvdWxkIGJlIHN1ZmZpY2llbnQgZm9yIHRo
-ZSBsaWZldGltZSBvZiBhZGRyY29uZl9kYWRfc3RvcC4NCg0KSSB0aGluayBpdCB0aGF0IGxpbmsg
-bG9jYWwgaXMgYWRkZWQgd2l0aCBmbGFnIElGQV9GX1BFUk1BTkVOVCwgd2hpY2ggd2UgcmVhbCBu
-ZWVkDQppdCBpcyB0byByZW1vdmUgaW42X2lmYV9wdXQoKSBpbiBhZGRyY29uZl9kYWRfc3RvcC4N
-Cg0Kc3RhdGljIHZvaWQgYWRkcmNvbmZfZGFkX3N0b3AoLi4uKQ0Kew0KCWlmIChpZnAtPmZsYWdz
-JklGQV9GX1BFUk1BTkVOVCkgew0KCQkuLi4NCgkJaW42X2lmYV9wdXQoaWZwKTsgICA8PT0gcmVt
-b3ZlIHRoaXMgbGluZSBzaW5jZSBjYWxsZXIgaG9sZCByZWZjb3VudA0KCX0gZWxzZSBpZiAoaWZw
-LT5mbGFncyZJRkFfRl9URU1QT1JBUlkpIHsNCgkJLi4uDQoJCWlwdjZfZGVsX2FkZHIoaWZwKTsN
-Cgl9IGVsc2Ugew0KCQlpcHY2X2RlbF9hZGRyKGlmcCk7DQoJfQ0KfQ0KDQpJZiBzbywgdGhlIGFk
-ZHJjb25mX2RhZF9iZWdpbigpIGFsc28gbmVlZCB0byBmaXggYmVjYXVzZSBpZiBob2xkIGEgcmVm
-IGJlZm9yZQ0KYWRkcmNvbmZfZGFkX3N0b3AoKToNCg0Kc3RhdGljIHZvaWQgYWRkcmNvbmZfZGFk
-X2JlZ2luKHN0cnVjdCBpbmV0Nl9pZmFkZHIgKmlmcCkNCnsNCiAuLi4NCiAgCWluNl9pZmFfaG9s
-ZChpZnApOyAgPC0tIHJlbW92ZSB0aGlzIGxpbmUgDQoJYWRkcmNvbmZfZGFkX3N0b3AoaWZwLCAw
-KTsNCiAuLi4NCn0NCg0KQWxzbyBpbmV0Nl9hZGRyX2RlbCB3aGljaCBjYWxsZWQgaXB2Nl9kZWxf
-YWRkciB3aXRoIHJlZmNvdW50IGhvbGQ6DQppbmV0Nl9hZGRyX2RlbCguLi4pDQp7DQogIC4uLg0K
-ICBsaXN0X2Zvcl9lYWNoX2VudHJ5KC4uLikgew0KICAgIC4uLg0KICAgIGluNl9pZmFfaG9sZChp
-ZnApOyAgIDwtLSByZW1vdmUgdGhpcyBsaW5lDQoJLi4uDQoJaXB2Nl9kZWxfYWRkcihpZnApOw0K
-CS4uLg0KICB9DQogIC4uLg0KfQ0KDQpSZWdhcmRzLA0KWW9uZ2p1biBXZWkNCg==
+On Mon, Sep 05, 2016 at 04:56:50PM +1000, Stephen Rothwell wrote:
+> Hi all,
+> 
+> Today's linux-next merge of the char-misc tree got a conflict in:
+> 
+>   include/linux/hyperv.h
+> 
+> between commit:
+> 
+>   30d1de08c87d ("hv_netvsc: make inline functions static")
+> 
+> from the net-next tree and commit:
+> 
+>   bb08d431a914 ("Drivers: hv: ring_buffer: count on wrap around mappings in get_next_pkt_raw()")
+> 
+> from the char-misc tree.
+> 
+> I fixed it up (the former moved the code modified by the latter, so the
+> below patch applies to the new location of the code) and can carry the
+> fix as necessary. This is now fixed as far as linux-next is concerned,
+> but any non trivial conflicts should be mentioned to your upstream
+> maintainer when your tree is submitted for merging.  You may also want
+> to consider cooperating with the maintainer of the conflicting tree to
+> minimise any particularly complex conflicts.
+> 
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Mon, 5 Sep 2016 16:53:06 +1000
+> Subject: [PATCH] Drivers: hv: ring_buffer: merge fix up for "hv_netvsc: make
+>  inline functions static"
+> 
+> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+> ---
+>  drivers/net/hyperv/netvsc.c | 32 +++++++++++---------------------
+>  1 file changed, 11 insertions(+), 21 deletions(-)
+> 
+> diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+> index 2a9ccc4d9e3c..026df6556068 100644
+> --- a/drivers/net/hyperv/netvsc.c
+> +++ b/drivers/net/hyperv/netvsc.c
+> @@ -42,31 +42,23 @@ static struct vmpacket_descriptor *
+>  get_next_pkt_raw(struct vmbus_channel *channel)
+>  {
+>  	struct hv_ring_buffer_info *ring_info = &channel->inbound;
+> -	u32 read_loc = ring_info->priv_read_index;
+> +	u32 priv_read_loc = ring_info->priv_read_index;
+>  	void *ring_buffer = hv_get_ring_buffer(ring_info);
+> -	struct vmpacket_descriptor *cur_desc;
+> -	u32 packetlen;
+>  	u32 dsize = ring_info->ring_datasize;
+> -	u32 delta = read_loc - ring_info->ring_buffer->read_index;
+> +	/*
+> +	 * delta is the difference between what is available to read and
+> +	 * what was already consumed in place. We commit read index after
+> +	 * the whole batch is processed.
+> +	 */
+> +	u32 delta = priv_read_loc >= ring_info->ring_buffer->read_index ?
+> +		priv_read_loc - ring_info->ring_buffer->read_index :
+> +		(dsize - ring_info->ring_buffer->read_index) + priv_read_loc;
+>  	u32 bytes_avail_toread = (hv_get_bytes_to_read(ring_info) - delta);
+>  
+>  	if (bytes_avail_toread < sizeof(struct vmpacket_descriptor))
+>  		return NULL;
+>  
+> -	if ((read_loc + sizeof(*cur_desc)) > dsize)
+> -		return NULL;
+> -
+> -	cur_desc = ring_buffer + read_loc;
+> -	packetlen = cur_desc->len8 << 3;
+> -
+> -	/*
+> -	 * If the packet under consideration is wrapping around,
+> -	 * return failure.
+> -	 */
+> -	if ((read_loc + packetlen + VMBUS_PKT_TRAILER) > (dsize - 1))
+> -		return NULL;
+> -
+> -	return cur_desc;
+> +	return ring_buffer + priv_read_loc;
+>  }
+>  
+>  /*
+> @@ -78,16 +70,14 @@ static void put_pkt_raw(struct vmbus_channel *channel,
+>  			struct vmpacket_descriptor *desc)
+>  {
+>  	struct hv_ring_buffer_info *ring_info = &channel->inbound;
+> -	u32 read_loc = ring_info->priv_read_index;
+>  	u32 packetlen = desc->len8 << 3;
+>  	u32 dsize = ring_info->ring_datasize;
+>  
+> -	BUG_ON((read_loc + packetlen + VMBUS_PKT_TRAILER) > dsize);
+> -
+>  	/*
+>  	 * Include the packet trailer.
+>  	 */
+>  	ring_info->priv_read_index += packetlen + VMBUS_PKT_TRAILER;
+> +	ring_info->priv_read_index %= dsize;
+>  }
+>  
+>  /*
+
+Ugh, messy.  Thanks for this.
+
+KY, how did this happen?
+
+greg k-h
