@@ -1,47 +1,49 @@
 From: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
-Subject: Re: [Patch v5 0/2] net: ethernet: xilinx: mac addr and mips
-Date: Mon, 5 Sep 2016 13:06:50 +0100
-Message-ID: <16430098-df1e-6f69-dcc0-f96ce74d890e@imgtec.com>
-References: <1472816366-1018-1-git-send-email-Zubair.Kakakhel@imgtec.com>
- <20160904.114518.1390837075013938788.davem@davemloft.net>
+Subject: [Patch v6] net: ethernet: xilinx: Enable emaclite for MIPS
+Date: Mon, 5 Sep 2016 13:07:54 +0100
+Message-ID: <1473077274-63160-1-git-send-email-Zubair.Kakakhel@imgtec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <michal.simek@xilinx.com>, <soren.brinkmann@xilinx.com>,
-        <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailapp01.imgtec.com ([195.59.15.196]:15788 "EHLO
-        mailapp01.imgtec.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755859AbcIEMHD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Sep 2016 08:07:03 -0400
-In-Reply-To: <20160904.114518.1390837075013938788.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <michal.simek@xilinx.com>, <linux-kernel@vger.kernel.org>,
+        <netdev@vger.kernel.org>, <Zubair.Kakakhel@imgtec.com>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+The MIPS based xilfpga platform uses this driver.
+Enable it for MIPS
 
+Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
 
-On 09/04/2016 07:45 PM, David Miller wrote:
-> From: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
-> Date: Fri, 2 Sep 2016 12:39:24 +0100
->
->> A couple of simple patches to generate the random mac address
->> if none is found. And enabling the driver for mips.
->>
->> Based on v4.8-rc4.
->>
->> These were part of a larger series but that series is growing
->> wildly. Splitting and submitting the net subsystem patches separately.
->> Hence the v5.
->
-> This doesn't apply cleanly to any of my trees.
->
+---
+V1 -> V6 are from a series that has gotten too big.
+So I have split this patch and am sending it separately.
+---
+ drivers/net/ethernet/xilinx/Kconfig | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-:)
-
-Looks like there is an identical patch by someone else already in net-next.
-
-https://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/drivers/net/ethernet/xilinx/xilinx_emaclite.c?id=5575cf133cf7f564da991595c6bc9344afa7d89a
-
-Regards,
-ZubairLK
+diff --git a/drivers/net/ethernet/xilinx/Kconfig b/drivers/net/ethernet/xilinx/Kconfig
+index 4f5c024..6d68c8a 100644
+--- a/drivers/net/ethernet/xilinx/Kconfig
++++ b/drivers/net/ethernet/xilinx/Kconfig
+@@ -5,7 +5,7 @@
+ config NET_VENDOR_XILINX
+ 	bool "Xilinx devices"
+ 	default y
+-	depends on PPC || PPC32 || MICROBLAZE || ARCH_ZYNQ
++	depends on PPC || PPC32 || MICROBLAZE || ARCH_ZYNQ || MIPS
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y.
+ 
+@@ -18,7 +18,7 @@ if NET_VENDOR_XILINX
+ 
+ config XILINX_EMACLITE
+ 	tristate "Xilinx 10/100 Ethernet Lite support"
+-	depends on (PPC32 || MICROBLAZE || ARCH_ZYNQ)
++	depends on PPC32 || MICROBLAZE || ARCH_ZYNQ || MIPS
+ 	select PHYLIB
+ 	---help---
+ 	  This driver supports the 10/100 Ethernet Lite from Xilinx.
+-- 
+1.9.1
