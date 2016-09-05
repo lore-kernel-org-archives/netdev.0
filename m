@@ -1,82 +1,35 @@
-From: fgao@ikuai8.com
-Subject: [PATCH 2/2 nf] netfilter: seqadj: Fix the wrong ack adjust for the RST packet without ack
-Date: Mon,  5 Sep 2016 23:02:05 +0800
-Message-ID: <1473087725-22089-1-git-send-email-fgao@ikuai8.com>
-Cc: gfree.wind@gmail.com, Gao Feng <fgao@ikuai8.com>
-To: pablo@netfilter.org, netfilter-devel@vger.kernel.org, fw@strlen.de,
-        coreteam@netfilter.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbg321.qq.com ([14.17.32.30]:48477 "EHLO smtpbg321.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932605AbcIEPDD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 5 Sep 2016 11:03:03 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 4/9] rxrpc: Randomise epoch and starting client
+ conn ID values
+Date: Mon, 5 Sep 2016 15:01:40 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB00F48DE@AcuExch.aculab.com>
+References: <147302294435.28597.15007422228950187972.stgit@warthog.procyon.org.uk>
+ <147302297165.28597.8317497494192917329.stgit@warthog.procyon.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-afs@lists.infradead.org" <linux-afs@lists.infradead.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: 'David Howells' <dhowells@redhat.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <147302297165.28597.8317497494192917329.stgit@warthog.procyon.org.uk>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Gao Feng <fgao@ikuai8.com>
-
-It is valid that the TCP RST packet which does not set ack flag, and bytes
-of ack number are zero. For these RST packets, seqadj could not adjust the
-ack number.
-
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
----
- net/netfilter/nf_conntrack_seqadj.c | 34 +++++++++++++++++++---------------
- 1 file changed, 19 insertions(+), 15 deletions(-)
-
-diff --git a/net/netfilter/nf_conntrack_seqadj.c b/net/netfilter/nf_conntrack_seqadj.c
-index 7f8d814..65bb4a6 100644
---- a/net/netfilter/nf_conntrack_seqadj.c
-+++ b/net/netfilter/nf_conntrack_seqadj.c
-@@ -182,30 +182,34 @@ int nf_ct_seq_adjust(struct sk_buff *skb,
- 
- 	tcph = (void *)skb->data + protoff;
- 	spin_lock_bh(&ct->lock);
-+
- 	if (after(ntohl(tcph->seq), this_way->correction_pos))
- 		seqoff = this_way->offset_after;
- 	else
- 		seqoff = this_way->offset_before;
- 
--	if (after(ntohl(tcph->ack_seq) - other_way->offset_before,
--		  other_way->correction_pos))
--		ackoff = other_way->offset_after;
--	else
--		ackoff = other_way->offset_before;
--
- 	newseq = htonl(ntohl(tcph->seq) + seqoff);
--	newack = htonl(ntohl(tcph->ack_seq) - ackoff);
--
- 	inet_proto_csum_replace4(&tcph->check, skb, tcph->seq, newseq, false);
--	inet_proto_csum_replace4(&tcph->check, skb, tcph->ack_seq, newack,
--				 false);
--
--	pr_debug("Adjusting sequence number from %u->%u, ack from %u->%u\n",
--		 ntohl(tcph->seq), ntohl(newseq), ntohl(tcph->ack_seq),
--		 ntohl(newack));
- 
-+	pr_debug("Adjusting sequence number from %u->%u\n",
-+		 ntohl(tcph->seq), ntohl(newseq));
- 	tcph->seq = newseq;
--	tcph->ack_seq = newack;
-+
-+	if (likely(tcph->ack)) {
-+		if (after(ntohl(tcph->ack_seq) - other_way->offset_before,
-+			  other_way->correction_pos))
-+			ackoff = other_way->offset_after;
-+		else
-+			ackoff = other_way->offset_before;
-+
-+		newack = htonl(ntohl(tcph->ack_seq) - ackoff);
-+		inet_proto_csum_replace4(&tcph->check, skb, tcph->ack_seq,
-+					 newack, false);
-+
-+		pr_debug("Adjusting ack number from %u->%u\n",
-+			 ntohl(tcph->ack_seq), ntohl(newack));
-+		tcph->ack_seq = newack;
-+	}
- 
- 	res = nf_ct_sack_adjust(skb, protoff, tcph, ct, ctinfo);
- 	spin_unlock_bh(&ct->lock);
--- 
-1.9.1
+RnJvbTogRGF2aWQgSG93ZWxscw0KPiBTZW50OiAwNCBTZXB0ZW1iZXIgMjAxNiAyMjowMw0KPiBD
+cmVhdGUgYSByYW5kb20gZXBvY2ggdmFsdWUgcmF0aGVyIHRoYW4gYSB0aW1lLWJhc2VkIG9uZSBv
+biBzdGFydHVwIGFuZCBzZXQNCj4gdGhlIHRvcCBiaXQgdG8gaW5kaWNhdGUgdGhhdCB0aGlzIGlz
+IHRoZSBjYXNlLg0KDQpXaHkgc2V0IHRoZSB0b3AgYml0Pw0KVGhlcmUgaXMgbm90aGluZyB0byBz
+dG9wIHRoZSB0aW1lIChpbiBzZWNvbmRzKSBmcm9tIGhhdmluZyB0aGUgdG9wIGJpdCBzZXQuDQpO
+b3RoaW5nIGVsc2UgY2FuIGNhcmUgLSBvdGhlcndpc2UgdGhpcyB3b3VsZG4ndCB3b3JrLg0KDQo+
+IEFsc28gY3JlYXRlIGEgcmFuZG9tIHN0YXJ0aW5nIGNsaWVudCBjb25uZWN0aW9uIElEIHZhbHVl
+LiAgVGhpcyB3aWxsIGJlDQo+IGluY3JlbWVudGVkIGZyb20gaGVyZSBhcyBuZXcgY2xpZW50IGNv
+bm5lY3Rpb25zIGFyZSBjcmVhdGVkLg0KDQpJJ20gZ3Vlc3NpbmcgdGhpcyBpcyB0byBtYWtlIGR1
+cGxpY2F0ZXMgbGVzcyBsaWtlbHkgYWZ0ZXIgYSByZXN0YXJ0Pw0KWW91IG1heSB3YW50IHRvIHdv
+cnJ5IGFib3V0IGR1cGxpY2F0ZSBhbGxvY2F0aW9ucyAoYWZ0ZXIgMl4zMiBjb25uZWN0cykuDQpU
+aGVyZSBhcmUgaWQgYWxsb2NhdGlvbiBhbGdvcml0aG1zIHRoYXQgZ3VhcmFudGVlIG5vdCB0byBn
+ZW5lcmF0ZSBkdXBsaWNhdGVzDQphbmQgbm90IHRvIHJldXNlIHZhbHVlcyBxdWlja2x5IHdoaWxl
+IHN0aWxsIGJlaW5nIGZpeGVkIGNvc3QuDQpMb29rIGF0IHRoZSBjb2RlIE5ldEJTRCB1c2VzIHRv
+IGFsbG9jYXRlIHByb2Nlc3MgaWRzIGZvciBhbiBleGFtcGxlLg0KDQoJRGF2aWQNCg0K
