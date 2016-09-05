@@ -1,107 +1,67 @@
-From: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: RE: [PATCH for-next 0/2] {IB,net}/hns: Add support of ACPI to the
- Hisilicon RoCE Driver
-Date: Mon, 5 Sep 2016 12:53:07 +0000
-Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F91A6F9F0D@lhreml503-mbx>
-References: <1471985090-202472-1-git-send-email-salil.mehta@huawei.com>
- <20160824.215341.1803699371957253329.davem@davemloft.net>
- <d71edae9-805a-2000-9afa-7e8002bc498a@redhat.com>
+From: Daniel Mack <daniel@zonque.org>
+Subject: Re: [PATCH v3 3/6] bpf: add BPF_PROG_ATTACH and BPF_PROG_DETACH
+ commands
+Date: Mon, 5 Sep 2016 14:54:00 +0200
+Message-ID: <9894ace9-06f7-4c41-e8fe-6047adad740e@zonque.org>
+References: <1472241532-11682-1-git-send-email-daniel@zonque.org>
+ <1472241532-11682-4-git-send-email-daniel@zonque.org>
+ <57C4BE77.8070309@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Huwei (Xavier)" <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-        oulijun <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-        "Zhuangyuzeng (Yisen)" <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-        "mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linuxarm <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <d71edae9-805a-2000-9afa-7e8002bc498a-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, kafai@fb.com, fw@strlen.de,
+        pablo@netfilter.org, harald@redhat.com, netdev@vger.kernel.org,
+        sargun@sargun.me
+To: Daniel Borkmann <daniel@iogearbox.net>, htejun@fb.com, ast@fb.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from svenfoo.org ([82.94.215.22]:56653 "EHLO mail.zonque.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932119AbcIEMzM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 5 Sep 2016 08:55:12 -0400
+In-Reply-To: <57C4BE77.8070309@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Doug Ledford [mailto:dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org]
-> Sent: Thursday, August 25, 2016 12:57 PM
-> To: David Miller; Salil Mehta
-> Cc: Huwei (Xavier); oulijun; Zhuangyuzeng (Yisen);
-> mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org; linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org;
-> netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Linuxarm
-> Subject: Re: [PATCH for-next 0/2] {IB,net}/hns: Add support of ACPI to
-> the Hisilicon RoCE Driver
+On 08/30/2016 01:00 AM, Daniel Borkmann wrote:
+> On 08/26/2016 09:58 PM, Daniel Mack wrote:
+
+>>   enum bpf_map_type {
+>> @@ -147,6 +149,13 @@ union bpf_attr {
+>>   		__aligned_u64	pathname;
+>>   		__u32		bpf_fd;
+>>   	};
+>> +
+>> +	struct { /* anonymous struct used by BPF_PROG_ATTACH/DETACH commands */
+>> +		__u32		target_fd;	/* container object to attach to */
+>> +		__u32		attach_bpf_fd;	/* eBPF program to attach */
+>> +		__u32		attach_type;	/* BPF_ATTACH_TYPE_* */
+>> +		__u64		attach_flags;
 > 
-> On 8/25/2016 12:53 AM, David Miller wrote:
-> > From: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-> > Date: Wed, 24 Aug 2016 04:44:48 +0800
-> >
-> >> This patch is meant to add support of ACPI to the Hisilicon RoCE
-> driver.
-> >> Following changes have been made in the driver(s):
-> >>
-> >> Patch 1/2: HNS Ethernet Driver: changes to support ACPI have been
-> done in
-> >>    the RoCE reset function part of the HNS ethernet driver. Earlier
-> it only
-> >>    supported DT/syscon.
-> >>
-> >> Patch 2/2. HNS RoCE driver: changes done in RoCE driver are meant to
-> detect
-> >>    the type and then either use DT specific or ACPI spcific
-> functions. Where
-> >>    ever possible, this patch tries to make use of "Unified Device
-> Property
-> >>    Interface" APIs to support both DT and ACPI through single
-> interface.
-> >>
-> >> NOTE 1: ACPI changes done in both of the drivers depend upon the
-> ACPI Table
-> >>      (DSDT and IORT tables) changes part of UEFI/BIOS. These changes
-> are NOT
-> >>      part of this patch-set.
-> >> NOTE 2: Reset function in Patch 1/2 depends upon the reset function
-> added in
-> >>      ACPI tables(basically DSDT table) part of the UEFI/BIOS. Again,
-> this
-> >>      change is NOT reflected in this patch-set.
-> >
-> > I can't apply this series to my tree because the hns infiniband
-> driver
-> > doesn't exist in it.
-> >
+> Could we just do ...
 > 
-> No.  This probably needs to go through my tree.  Although with all of
-> the requirements, I'm a bit concerned about those being present
-> elsewhere.
+> __u32 dst_fd;
+> __u32 src_fd;
+> __u32 attach_type;
 > 
-Hi David,
-There is a patch in net-next for HNS Ethernet driver which has been accepted.
-"b3dc935 net: hns: remove redundant dev_err call in hns_dsaf_get_cfg()"
+> ... and leave flags out, since unused anyway? Also see below.
 
-This patch is creating conflict with Doug Ledford's hns-roce branch. Internally,
-We have decided to let all the HNS patches pass through the hns-roce for 4.9
-Merge window to facilitate non-conflict merge of pending RoCE driver by Doug Ledford.
+I'd really like to keep the flags, even if they're unused right now.
+This only adds 8 bytes during the syscall operation, so it doesn't harm.
+However, we cannot change the userspace API after the fact, and who
+knows what this (rather generic) interface will be used for later on.
 
-Though, we are trying to take a grip of the process for this merge window but
-Somehow this one bypassed the internal process. This will create problems for
-Hns-roce during merge later this window. Can I request you to drop this patch
-For now. We shall re-submit this patch later when things have been settled at
-the RoCE/RDMA end or would come again to you through hns-roce branch.
+> #define BPF_PROG_ATTACH_LAST_FIELD attach_type
+> #define BPF_PROG_DETACH_LAST_FIELD BPF_PROG_ATTACH_LAST_FIELD
 
-Please let me know if this is possible this time. Thanks in anticipation!
+...
 
-Best regards
-Salil
+> 
+> Correct way would be to:
+> 
+> 	if (CHECK_ATTR(BPF_PROG_ATTACH))
+> 		return -EINVAL;
 
-> --
-> Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
->     GPG Key ID: 0E572FDD
+Will add - thanks!
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+Daniel
