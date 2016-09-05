@@ -1,115 +1,236 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 01/29] netfilter: conntrack: Only need first 4 bytes to get l4proto ports
-Date: Mon,  5 Sep 2016 12:58:16 +0200
-Message-ID: <1473073124-5015-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 18/29] rhashtable: add rhashtable_lookup_get_insert_key()
+Date: Mon,  5 Sep 2016 12:58:33 +0200
+Message-ID: <1473073124-5015-19-git-send-email-pablo@netfilter.org>
 References: <1473073124-5015-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:35092 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:35246 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932217AbcIEK65 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 5 Sep 2016 06:58:57 -0400
+        id S933461AbcIEK7N (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 5 Sep 2016 06:59:13 -0400
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id A0A5E2EFEC6
-        for <netdev@vger.kernel.org>; Mon,  5 Sep 2016 12:58:55 +0200 (CEST)
+        by mail.us.es (Postfix) with ESMTP id 640E12EFEB3
+        for <netdev@vger.kernel.org>; Mon,  5 Sep 2016 12:59:12 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 913FA1150B2
-        for <netdev@vger.kernel.org>; Mon,  5 Sep 2016 12:58:55 +0200 (CEST)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 542541153E4
+        for <netdev@vger.kernel.org>; Mon,  5 Sep 2016 12:59:12 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id B08D61150C5
-        for <netdev@vger.kernel.org>; Mon,  5 Sep 2016 12:58:51 +0200 (CEST)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id D496D1150C9
+        for <netdev@vger.kernel.org>; Mon,  5 Sep 2016 12:59:08 +0200 (CEST)
 In-Reply-To: <1473073124-5015-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <fgao@ikuai8.com>
+This patch modifies __rhashtable_insert_fast() so it returns the
+existing object that clashes with the one that you want to insert.
+In case the object is successfully inserted, NULL is returned.
+Otherwise, you get an error via ERR_PTR().
 
-We only need first 4 bytes instead of 8 bytes to get the ports of
-tcp/udp/dccp/sctp/udplite in their pkt_to_tuple function.
+This patch adapts the existing callers of __rhashtable_insert_fast()
+so they handle this new logic, and it adds a new
+rhashtable_lookup_get_insert_key() interface to fetch this existing
+object.
 
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
+nf_tables needs this change to improve handling of EEXIST cases via
+honoring the NLM_F_EXCL flag and by checking if the data part of the
+mapping matches what we have.
+
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Thomas Graf <tgraf@suug.ch>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
- net/netfilter/nf_conntrack_proto_dccp.c    | 3 ++-
- net/netfilter/nf_conntrack_proto_sctp.c    | 4 ++--
- net/netfilter/nf_conntrack_proto_tcp.c     | 4 ++--
- net/netfilter/nf_conntrack_proto_udp.c     | 4 ++--
- net/netfilter/nf_conntrack_proto_udplite.c | 3 ++-
- 5 files changed, 10 insertions(+), 8 deletions(-)
+ include/linux/rhashtable.h | 70 +++++++++++++++++++++++++++++++++++++---------
+ lib/rhashtable.c           | 10 +++++--
+ 2 files changed, 64 insertions(+), 16 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_proto_dccp.c b/net/netfilter/nf_conntrack_proto_dccp.c
-index 399a38f..a45bee5 100644
---- a/net/netfilter/nf_conntrack_proto_dccp.c
-+++ b/net/netfilter/nf_conntrack_proto_dccp.c
-@@ -402,7 +402,8 @@ static bool dccp_pkt_to_tuple(const struct sk_buff *skb, unsigned int dataoff,
+diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
+index 3eef080..26b7a05 100644
+--- a/include/linux/rhashtable.h
++++ b/include/linux/rhashtable.h
+@@ -343,7 +343,8 @@ int rhashtable_init(struct rhashtable *ht,
+ struct bucket_table *rhashtable_insert_slow(struct rhashtable *ht,
+ 					    const void *key,
+ 					    struct rhash_head *obj,
+-					    struct bucket_table *old_tbl);
++					    struct bucket_table *old_tbl,
++					    void **data);
+ int rhashtable_insert_rehash(struct rhashtable *ht, struct bucket_table *tbl);
+ 
+ int rhashtable_walk_init(struct rhashtable *ht, struct rhashtable_iter *iter,
+@@ -563,8 +564,11 @@ restart:
+ 	return NULL;
+ }
+ 
+-/* Internal function, please use rhashtable_insert_fast() instead */
+-static inline int __rhashtable_insert_fast(
++/* Internal function, please use rhashtable_insert_fast() instead. This
++ * function returns the existing element already in hashes in there is a clash,
++ * otherwise it returns an error via ERR_PTR().
++ */
++static inline void *__rhashtable_insert_fast(
+ 	struct rhashtable *ht, const void *key, struct rhash_head *obj,
+ 	const struct rhashtable_params params)
  {
- 	struct dccp_hdr _hdr, *dh;
+@@ -577,6 +581,7 @@ static inline int __rhashtable_insert_fast(
+ 	spinlock_t *lock;
+ 	unsigned int elasticity;
+ 	unsigned int hash;
++	void *data = NULL;
+ 	int err;
  
--	dh = skb_header_pointer(skb, dataoff, sizeof(_hdr), &_hdr);
-+	/* Actually only need first 4 bytes to get ports. */
-+	dh = skb_header_pointer(skb, dataoff, 4, &_hdr);
- 	if (dh == NULL)
- 		return false;
+ restart:
+@@ -601,11 +606,14 @@ restart:
  
-diff --git a/net/netfilter/nf_conntrack_proto_sctp.c b/net/netfilter/nf_conntrack_proto_sctp.c
-index 1d7ab96..e769f05 100644
---- a/net/netfilter/nf_conntrack_proto_sctp.c
-+++ b/net/netfilter/nf_conntrack_proto_sctp.c
-@@ -161,8 +161,8 @@ static bool sctp_pkt_to_tuple(const struct sk_buff *skb, unsigned int dataoff,
- 	const struct sctphdr *hp;
- 	struct sctphdr _hdr;
+ 	new_tbl = rht_dereference_rcu(tbl->future_tbl, ht);
+ 	if (unlikely(new_tbl)) {
+-		tbl = rhashtable_insert_slow(ht, key, obj, new_tbl);
++		tbl = rhashtable_insert_slow(ht, key, obj, new_tbl, &data);
+ 		if (!IS_ERR_OR_NULL(tbl))
+ 			goto slow_path;
  
--	/* Actually only need first 8 bytes. */
--	hp = skb_header_pointer(skb, dataoff, 8, &_hdr);
-+	/* Actually only need first 4 bytes to get ports. */
-+	hp = skb_header_pointer(skb, dataoff, 4, &_hdr);
- 	if (hp == NULL)
- 		return false;
+ 		err = PTR_ERR(tbl);
++		if (err == -EEXIST)
++			err = 0;
++
+ 		goto out;
+ 	}
  
-diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
-index 70c8381..4abe9e1 100644
---- a/net/netfilter/nf_conntrack_proto_tcp.c
-+++ b/net/netfilter/nf_conntrack_proto_tcp.c
-@@ -282,8 +282,8 @@ static bool tcp_pkt_to_tuple(const struct sk_buff *skb, unsigned int dataoff,
- 	const struct tcphdr *hp;
- 	struct tcphdr _hdr;
+@@ -619,25 +627,25 @@ slow_path:
+ 		err = rhashtable_insert_rehash(ht, tbl);
+ 		rcu_read_unlock();
+ 		if (err)
+-			return err;
++			return ERR_PTR(err);
  
--	/* Actually only need first 8 bytes. */
--	hp = skb_header_pointer(skb, dataoff, 8, &_hdr);
-+	/* Actually only need first 4 bytes to get ports. */
-+	hp = skb_header_pointer(skb, dataoff, 4, &_hdr);
- 	if (hp == NULL)
- 		return false;
+ 		goto restart;
+ 	}
  
-diff --git a/net/netfilter/nf_conntrack_proto_udp.c b/net/netfilter/nf_conntrack_proto_udp.c
-index 4fd0405..8a057e1 100644
---- a/net/netfilter/nf_conntrack_proto_udp.c
-+++ b/net/netfilter/nf_conntrack_proto_udp.c
-@@ -44,8 +44,8 @@ static bool udp_pkt_to_tuple(const struct sk_buff *skb,
- 	const struct udphdr *hp;
- 	struct udphdr _hdr;
+-	err = -EEXIST;
++	err = 0;
+ 	elasticity = ht->elasticity;
+ 	rht_for_each(head, tbl, hash) {
+ 		if (key &&
+ 		    unlikely(!(params.obj_cmpfn ?
+ 			       params.obj_cmpfn(&arg, rht_obj(ht, head)) :
+-			       rhashtable_compare(&arg, rht_obj(ht, head)))))
++			       rhashtable_compare(&arg, rht_obj(ht, head))))) {
++			data = rht_obj(ht, head);
+ 			goto out;
++		}
+ 		if (!--elasticity)
+ 			goto slow_path;
+ 	}
  
--	/* Actually only need first 8 bytes. */
--	hp = skb_header_pointer(skb, dataoff, sizeof(_hdr), &_hdr);
-+	/* Actually only need first 4 bytes to get ports. */
-+	hp = skb_header_pointer(skb, dataoff, 4, &_hdr);
- 	if (hp == NULL)
- 		return false;
+-	err = 0;
+-
+ 	head = rht_dereference_bucket(tbl->buckets[hash], tbl, hash);
  
-diff --git a/net/netfilter/nf_conntrack_proto_udplite.c b/net/netfilter/nf_conntrack_proto_udplite.c
-index 9d692f5..029206e 100644
---- a/net/netfilter/nf_conntrack_proto_udplite.c
-+++ b/net/netfilter/nf_conntrack_proto_udplite.c
-@@ -54,7 +54,8 @@ static bool udplite_pkt_to_tuple(const struct sk_buff *skb,
- 	const struct udphdr *hp;
- 	struct udphdr _hdr;
+ 	RCU_INIT_POINTER(obj->next, head);
+@@ -652,7 +660,7 @@ out:
+ 	spin_unlock_bh(lock);
+ 	rcu_read_unlock();
  
--	hp = skb_header_pointer(skb, dataoff, sizeof(_hdr), &_hdr);
-+	/* Actually only need first 4 bytes to get ports. */
-+	hp = skb_header_pointer(skb, dataoff, 4, &_hdr);
- 	if (hp == NULL)
- 		return false;
+-	return err;
++	return err ? ERR_PTR(err) : data;
+ }
  
+ /**
+@@ -675,7 +683,13 @@ static inline int rhashtable_insert_fast(
+ 	struct rhashtable *ht, struct rhash_head *obj,
+ 	const struct rhashtable_params params)
+ {
+-	return __rhashtable_insert_fast(ht, NULL, obj, params);
++	void *ret;
++
++	ret = __rhashtable_insert_fast(ht, NULL, obj, params);
++	if (IS_ERR(ret))
++		return PTR_ERR(ret);
++
++	return ret == NULL ? 0 : -EEXIST;
+ }
+ 
+ /**
+@@ -704,11 +718,15 @@ static inline int rhashtable_lookup_insert_fast(
+ 	const struct rhashtable_params params)
+ {
+ 	const char *key = rht_obj(ht, obj);
++	void *ret;
+ 
+ 	BUG_ON(ht->p.obj_hashfn);
+ 
+-	return __rhashtable_insert_fast(ht, key + ht->p.key_offset, obj,
+-					params);
++	ret = __rhashtable_insert_fast(ht, key + ht->p.key_offset, obj, params);
++	if (IS_ERR(ret))
++		return PTR_ERR(ret);
++
++	return ret == NULL ? 0 : -EEXIST;
+ }
+ 
+ /**
+@@ -737,6 +755,32 @@ static inline int rhashtable_lookup_insert_key(
+ 	struct rhashtable *ht, const void *key, struct rhash_head *obj,
+ 	const struct rhashtable_params params)
+ {
++	void *ret;
++
++	BUG_ON(!ht->p.obj_hashfn || !key);
++
++	ret = __rhashtable_insert_fast(ht, key, obj, params);
++	if (IS_ERR(ret))
++		return PTR_ERR(ret);
++
++	return ret == NULL ? 0 : -EEXIST;
++}
++
++/**
++ * rhashtable_lookup_get_insert_key - lookup and insert object into hash table
++ * @ht:		hash table
++ * @obj:	pointer to hash head inside object
++ * @params:	hash table parameters
++ * @data:	pointer to element data already in hashes
++ *
++ * Just like rhashtable_lookup_insert_key(), but this function returns the
++ * object if it exists, NULL if it does not and the insertion was successful,
++ * and an ERR_PTR otherwise.
++ */
++static inline void *rhashtable_lookup_get_insert_key(
++	struct rhashtable *ht, const void *key, struct rhash_head *obj,
++	const struct rhashtable_params params)
++{
+ 	BUG_ON(!ht->p.obj_hashfn || !key);
+ 
+ 	return __rhashtable_insert_fast(ht, key, obj, params);
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index 5d845ff..7a940d9 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -438,7 +438,8 @@ EXPORT_SYMBOL_GPL(rhashtable_insert_rehash);
+ struct bucket_table *rhashtable_insert_slow(struct rhashtable *ht,
+ 					    const void *key,
+ 					    struct rhash_head *obj,
+-					    struct bucket_table *tbl)
++					    struct bucket_table *tbl,
++					    void **data)
+ {
+ 	struct rhash_head *head;
+ 	unsigned int hash;
+@@ -449,8 +450,11 @@ struct bucket_table *rhashtable_insert_slow(struct rhashtable *ht,
+ 	spin_lock_nested(rht_bucket_lock(tbl, hash), SINGLE_DEPTH_NESTING);
+ 
+ 	err = -EEXIST;
+-	if (key && rhashtable_lookup_fast(ht, key, ht->p))
+-		goto exit;
++	if (key) {
++		*data = rhashtable_lookup_fast(ht, key, ht->p);
++		if (*data)
++			goto exit;
++	}
+ 
+ 	err = -E2BIG;
+ 	if (unlikely(rht_grow_above_max(ht, tbl)))
 -- 
 2.1.4
