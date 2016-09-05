@@ -1,68 +1,64 @@
-From: Wei Yongjun <weiyongjun1@huawei.com>
-Subject: [PATCH] ipv6: addrconf: fix dev refcont leak when DAD failed
-Date: Mon, 5 Sep 2016 16:06:31 +0800
-Message-ID: <1473062791-21118-1-git-send-email-weiyongjun1@huawei.com>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH v3 4/5] net: stmmac: add a glue driver for the Amlogic Meson 8b / GXBB DWMAC
+Date: Mon, 05 Sep 2016 11:27:28 +0200
+Message-ID: <8189845.3pyN0uTLGL@wuerfel>
+References: <20160820093538.9707-1-martin.blumenstingl@googlemail.com> <20160830191906.GD12510@codeaurora.org> <CAFBinCCVUhUVyceGc2capcCPOK8MTsn+RcC9gnrtMVvZUENXtQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Wei Yongjun <weiyongjun1@huawei.com>, <netdev@vger.kernel.org>,
-        <stable@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        "Patrick McHardy" <kaber@trash.net>,
-        Ding Tianhong <dingtianhong@huawei.com>
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
+        Stephen Boyd <sboyd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
+        alexandre.torgue-qxv4g6HH51o@public.gmane.org, manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org,
+        mturquette-rdvid1DuHRBWk0Htik3J/w@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+        peppe.cavallaro-qxv4g6HH51o@public.gmane.org, carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org,
+        linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAFBinCCVUhUVyceGc2capcCPOK8MTsn+RcC9gnrtMVvZUENXtQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-In general, when DAD detected IPv6 duplicate address, ifp->state
-will be set to INET6_IFADDR_STATE_ERRDAD and DAD is stopped by a
-delayed work, the call tree should be like this:
+On Sunday, September 4, 2016 8:20:15 PM CEST Martin Blumenstingl wrote:
+> 
+> >> +     dwmac->m25_div_clk = devm_clk_register(dev, &dwmac->m25_div.hw);
+> >> +     if (WARN_ON(PTR_ERR_OR_ZERO(dwmac->m25_div_clk)))
+> >> +             return PTR_ERR(dwmac->m25_div_clk);
+> >> +
+> >> +     return 0;
+> >
+> > This could be return WARN_ON(PTR_ERR_OR_ZERO(...))
+> This would work as well but I prefer the way it is right now (as one
+> could easily extend the code without having to touch any existing code
+> apart from the last return).
+> However, as it's always the case with personal preference: if
+> coding-style requires me to change it then I'll do so, just let me
+> know.
+> 
+> I have addressed all other issues you found (thanks for that!) in v4
+> (which I am about to send in the next few minutes).
 
-ndisc_recv_ns
-  -> addrconf_dad_failure        <- missing ifp put
-     -> addrconf_mod_dad_work
-       -> schedule addrconf_dad_work()
-         -> addrconf_dad_stop()  <- missing ifp hold before call it
 
-addrconf_dad_failure() called with ifp refcont holding but not put.
-addrconf_dad_work() call addrconf_dad_stop() without extra holding
-refcount. This will not cause any issue normally.
+Both of these are fairly unusual. The most common way to write it is
 
-But the race between addrconf_dad_failure() and addrconf_dad_work()
-may cause ifp refcount leak and netdevice can not be unregister,
-dmesg show the following messages:
+	if (WARN_ON(IS_ERR(dwmac->m25_div_clk)))
+		return PTR_ERR(dwmac->m25_div_clk);
+   return 0;
 
-IPv6: eth0: IPv6 duplicate address fe80::XX:XXXX:XXXX:XX detected!
-...
-unregister_netdevice: waiting for eth0 to become free. Usage count = 1
+However, I now tend to prefer
 
-Cc: stable@vger.kernel.org
-Fixes: c15b1ccadb32 ("ipv6: move DAD and addrconf_verify processing
-to workqueue")
-Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+	ret = PTR_ERR_OR_ZERO(dwmac->m25_div_clk);
+	WARN_ON(ret);
+	return ret;
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index bdf368e..2f1f5d4 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1948,6 +1948,7 @@ errdad:
- 	spin_unlock_bh(&ifp->lock);
- 
- 	addrconf_mod_dad_work(ifp, 0);
-+	in6_ifa_put(ifp);
- }
- 
- /* Join to solicited addr multicast group.
-@@ -3857,6 +3858,7 @@ static void addrconf_dad_work(struct work_struct *w)
- 		addrconf_dad_begin(ifp);
- 		goto out;
- 	} else if (action == DAD_ABORT) {
-+		in6_ifa_hold(ifp);
- 		addrconf_dad_stop(ifp, 1);
- 		if (disable_ipv6)
- 			addrconf_ifdown(idev->dev, 0);
--- 
-2.7.0
+which is less likely to cause false-positive warnings when building
+with -Wmaybe-uninitialized than any of the other ones.
+
+Please don't use PTR_ERR_OR_ZERO() as a condition, that is what
+IS_ERR() is meant for.
+
+	Arnd
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
