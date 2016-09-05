@@ -1,186 +1,249 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 19/29] netfilter: nf_tables: honor NLM_F_EXCL flag in set element insertion
-Date: Mon,  5 Sep 2016 12:58:34 +0200
-Message-ID: <1473073124-5015-20-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 16/29] netfilter: nf_tables: introduce nft_chain_parse_hook()
+Date: Mon,  5 Sep 2016 12:58:31 +0200
+Message-ID: <1473073124-5015-17-git-send-email-pablo@netfilter.org>
 References: <1473073124-5015-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:35196 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:35198 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933542AbcIEK7N (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 5 Sep 2016 06:59:13 -0400
+        id S933531AbcIEK7K (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 5 Sep 2016 06:59:10 -0400
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 9049D2EFECE
-        for <netdev@vger.kernel.org>; Mon,  5 Sep 2016 12:59:12 +0200 (CEST)
+        by mail.us.es (Postfix) with ESMTP id 7408A2EFEC8
+        for <netdev@vger.kernel.org>; Mon,  5 Sep 2016 12:59:09 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 805C5114D69
-        for <netdev@vger.kernel.org>; Mon,  5 Sep 2016 12:59:12 +0200 (CEST)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 5906A1153FD
+        for <netdev@vger.kernel.org>; Mon,  5 Sep 2016 12:59:09 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 31F53115400
-        for <netdev@vger.kernel.org>; Mon,  5 Sep 2016 12:59:10 +0200 (CEST)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 001C3114D6C
+        for <netdev@vger.kernel.org>; Mon,  5 Sep 2016 12:59:06 +0200 (CEST)
 In-Reply-To: <1473073124-5015-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the NLM_F_EXCL flag is set, then new elements that clash with an
-existing one return EEXIST. In case you try to add an element whose
-data area differs from what we have, then this returns EBUSY. If no
-flag is specified at all, then this returns success to userspace.
-
-This patch also update the set insert operation so we can fetch the
-existing element that clashes with the one you want to add, we need
-this to make sure the element data doesn't differ.
+Introduce a new function to wrap the code that parses the chain hook
+configuration so we can reuse this code to validate chain updates.
 
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_tables.h |  3 ++-
- net/netfilter/nf_tables_api.c     | 20 +++++++++++++++-----
- net/netfilter/nft_set_hash.c      | 17 +++++++++++++----
- net/netfilter/nft_set_rbtree.c    | 12 ++++++++----
- 4 files changed, 38 insertions(+), 14 deletions(-)
+ net/netfilter/nf_tables_api.c | 152 +++++++++++++++++++++++++-----------------
+ 1 file changed, 89 insertions(+), 63 deletions(-)
 
-diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
-index f2f1339..8972468 100644
---- a/include/net/netfilter/nf_tables.h
-+++ b/include/net/netfilter/nf_tables.h
-@@ -251,7 +251,8 @@ struct nft_set_ops {
- 
- 	int				(*insert)(const struct net *net,
- 						  const struct nft_set *set,
--						  const struct nft_set_elem *elem);
-+						  const struct nft_set_elem *elem,
-+						  struct nft_set_ext **ext);
- 	void				(*activate)(const struct net *net,
- 						    const struct nft_set *set,
- 						    const struct nft_set_elem *elem);
 diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index 221d27f..bd9715e 100644
+index 7e1c876..463fcad 100644
 --- a/net/netfilter/nf_tables_api.c
 +++ b/net/netfilter/nf_tables_api.c
-@@ -3483,12 +3483,12 @@ static int nft_setelem_parse_flags(const struct nft_set *set,
- }
- 
- static int nft_add_set_elem(struct nft_ctx *ctx, struct nft_set *set,
--			    const struct nlattr *attr)
-+			    const struct nlattr *attr, u32 nlmsg_flags)
- {
- 	struct nlattr *nla[NFTA_SET_ELEM_MAX + 1];
- 	struct nft_data_desc d1, d2;
- 	struct nft_set_ext_tmpl tmpl;
--	struct nft_set_ext *ext;
-+	struct nft_set_ext *ext, *ext2;
- 	struct nft_set_elem elem;
- 	struct nft_set_binding *binding;
- 	struct nft_userdata *udata;
-@@ -3615,9 +3615,19 @@ static int nft_add_set_elem(struct nft_ctx *ctx, struct nft_set *set,
- 		goto err4;
- 
- 	ext->genmask = nft_genmask_cur(ctx->net) | NFT_SET_ELEM_BUSY_MASK;
--	err = set->ops->insert(ctx->net, set, &elem);
--	if (err < 0)
-+	err = set->ops->insert(ctx->net, set, &elem, &ext2);
-+	if (err) {
-+		if (err == -EEXIST) {
-+			if (nft_set_ext_exists(ext, NFT_SET_EXT_DATA) &&
-+			    nft_set_ext_exists(ext2, NFT_SET_EXT_DATA) &&
-+			    memcmp(nft_set_ext_data(ext),
-+				   nft_set_ext_data(ext2), set->dlen) != 0)
-+				err = -EBUSY;
-+			else if (!(nlmsg_flags & NLM_F_EXCL))
-+				err = 0;
-+		}
- 		goto err5;
-+	}
- 
- 	nft_trans_elem(trans) = elem;
- 	list_add_tail(&trans->list, &ctx->net->nft.commit_list);
-@@ -3673,7 +3683,7 @@ static int nf_tables_newsetelem(struct net *net, struct sock *nlsk,
- 		    !atomic_add_unless(&set->nelems, 1, set->size + set->ndeact))
- 			return -ENFILE;
- 
--		err = nft_add_set_elem(&ctx, set, attr);
-+		err = nft_add_set_elem(&ctx, set, attr, nlh->nlmsg_flags);
- 		if (err < 0) {
- 			atomic_dec(&set->nelems);
- 			break;
-diff --git a/net/netfilter/nft_set_hash.c b/net/netfilter/nft_set_hash.c
-index 564fa79..3794cb2 100644
---- a/net/netfilter/nft_set_hash.c
-+++ b/net/netfilter/nft_set_hash.c
-@@ -126,7 +126,8 @@ err1:
- }
- 
- static int nft_hash_insert(const struct net *net, const struct nft_set *set,
--			   const struct nft_set_elem *elem)
-+			   const struct nft_set_elem *elem,
-+			   struct nft_set_ext **ext)
- {
- 	struct nft_hash *priv = nft_set_priv(set);
- 	struct nft_hash_elem *he = elem->priv;
-@@ -135,9 +136,17 @@ static int nft_hash_insert(const struct net *net, const struct nft_set *set,
- 		.set	 = set,
- 		.key	 = elem->key.val.data,
- 	};
--
--	return rhashtable_lookup_insert_key(&priv->ht, &arg, &he->node,
--					    nft_hash_params);
-+	struct nft_hash_elem *prev;
-+
-+	prev = rhashtable_lookup_get_insert_key(&priv->ht, &arg, &he->node,
-+					       nft_hash_params);
-+	if (IS_ERR(prev))
-+		return PTR_ERR(prev);
-+	if (prev) {
-+		*ext = &prev->ext;
-+		return -EEXIST;
-+	}
-+	return 0;
- }
- 
- static void nft_hash_activate(const struct net *net, const struct nft_set *set,
-diff --git a/net/netfilter/nft_set_rbtree.c b/net/netfilter/nft_set_rbtree.c
-index 6473936..038682d 100644
---- a/net/netfilter/nft_set_rbtree.c
-+++ b/net/netfilter/nft_set_rbtree.c
-@@ -94,7 +94,8 @@ out:
- }
- 
- static int __nft_rbtree_insert(const struct net *net, const struct nft_set *set,
--			       struct nft_rbtree_elem *new)
-+			       struct nft_rbtree_elem *new,
-+			       struct nft_set_ext **ext)
- {
- 	struct nft_rbtree *priv = nft_set_priv(set);
- 	u8 genmask = nft_genmask_next(net);
-@@ -122,8 +123,10 @@ static int __nft_rbtree_insert(const struct net *net, const struct nft_set *set,
- 				else if (!nft_rbtree_interval_end(rbe) &&
- 					 nft_rbtree_interval_end(new))
- 					p = &parent->rb_right;
--				else
-+				else {
-+					*ext = &rbe->ext;
- 					return -EEXIST;
-+				}
- 			}
- 		}
+@@ -1196,6 +1196,83 @@ static void nf_tables_chain_destroy(struct nft_chain *chain)
  	}
-@@ -133,13 +136,14 @@ static int __nft_rbtree_insert(const struct net *net, const struct nft_set *set,
  }
  
- static int nft_rbtree_insert(const struct net *net, const struct nft_set *set,
--			     const struct nft_set_elem *elem)
-+			     const struct nft_set_elem *elem,
-+			     struct nft_set_ext **ext)
- {
- 	struct nft_rbtree_elem *rbe = elem->priv;
- 	int err;
++struct nft_chain_hook {
++	u32				num;
++	u32				priority;
++	const struct nf_chain_type	*type;
++	struct net_device		*dev;
++};
++
++static int nft_chain_parse_hook(struct net *net,
++				const struct nlattr * const nla[],
++				struct nft_af_info *afi,
++				struct nft_chain_hook *hook, bool create)
++{
++	struct nlattr *ha[NFTA_HOOK_MAX + 1];
++	const struct nf_chain_type *type;
++	struct net_device *dev;
++	int err;
++
++	err = nla_parse_nested(ha, NFTA_HOOK_MAX, nla[NFTA_CHAIN_HOOK],
++			       nft_hook_policy);
++	if (err < 0)
++		return err;
++
++	if (ha[NFTA_HOOK_HOOKNUM] == NULL ||
++	    ha[NFTA_HOOK_PRIORITY] == NULL)
++		return -EINVAL;
++
++	hook->num = ntohl(nla_get_be32(ha[NFTA_HOOK_HOOKNUM]));
++	if (hook->num >= afi->nhooks)
++		return -EINVAL;
++
++	hook->priority = ntohl(nla_get_be32(ha[NFTA_HOOK_PRIORITY]));
++
++	type = chain_type[afi->family][NFT_CHAIN_T_DEFAULT];
++	if (nla[NFTA_CHAIN_TYPE]) {
++		type = nf_tables_chain_type_lookup(afi, nla[NFTA_CHAIN_TYPE],
++						   create);
++		if (IS_ERR(type))
++			return PTR_ERR(type);
++	}
++	if (!(type->hook_mask & (1 << hook->num)))
++		return -EOPNOTSUPP;
++	if (!try_module_get(type->owner))
++		return -ENOENT;
++
++	hook->type = type;
++
++	hook->dev = NULL;
++	if (afi->flags & NFT_AF_NEEDS_DEV) {
++		char ifname[IFNAMSIZ];
++
++		if (!ha[NFTA_HOOK_DEV]) {
++			module_put(type->owner);
++			return -EOPNOTSUPP;
++		}
++
++		nla_strlcpy(ifname, ha[NFTA_HOOK_DEV], IFNAMSIZ);
++		dev = dev_get_by_name(net, ifname);
++		if (!dev) {
++			module_put(type->owner);
++			return -ENOENT;
++		}
++		hook->dev = dev;
++	} else if (ha[NFTA_HOOK_DEV]) {
++		module_put(type->owner);
++		return -EOPNOTSUPP;
++	}
++
++	return 0;
++}
++
++static void nft_chain_release_hook(struct nft_chain_hook *hook)
++{
++	module_put(hook->type->owner);
++	if (hook->dev != NULL)
++		dev_put(hook->dev);
++}
++
+ static int nf_tables_newchain(struct net *net, struct sock *nlsk,
+ 			      struct sk_buff *skb, const struct nlmsghdr *nlh,
+ 			      const struct nlattr * const nla[])
+@@ -1206,10 +1283,8 @@ static int nf_tables_newchain(struct net *net, struct sock *nlsk,
+ 	struct nft_table *table;
+ 	struct nft_chain *chain;
+ 	struct nft_base_chain *basechain = NULL;
+-	struct nlattr *ha[NFTA_HOOK_MAX + 1];
+ 	u8 genmask = nft_genmask_next(net);
+ 	int family = nfmsg->nfgen_family;
+-	struct net_device *dev = NULL;
+ 	u8 policy = NF_ACCEPT;
+ 	u64 handle = 0;
+ 	unsigned int i;
+@@ -1320,102 +1395,53 @@ static int nf_tables_newchain(struct net *net, struct sock *nlsk,
+ 		return -EOVERFLOW;
  
- 	spin_lock_bh(&nft_rbtree_lock);
--	err = __nft_rbtree_insert(net, set, rbe);
-+	err = __nft_rbtree_insert(net, set, rbe, ext);
- 	spin_unlock_bh(&nft_rbtree_lock);
+ 	if (nla[NFTA_CHAIN_HOOK]) {
+-		const struct nf_chain_type *type;
++		struct nft_chain_hook hook;
+ 		struct nf_hook_ops *ops;
+ 		nf_hookfn *hookfn;
+-		u32 hooknum, priority;
+-
+-		type = chain_type[family][NFT_CHAIN_T_DEFAULT];
+-		if (nla[NFTA_CHAIN_TYPE]) {
+-			type = nf_tables_chain_type_lookup(afi,
+-							   nla[NFTA_CHAIN_TYPE],
+-							   create);
+-			if (IS_ERR(type))
+-				return PTR_ERR(type);
+-		}
  
- 	return err;
+-		err = nla_parse_nested(ha, NFTA_HOOK_MAX, nla[NFTA_CHAIN_HOOK],
+-				       nft_hook_policy);
++		err = nft_chain_parse_hook(net, nla, afi, &hook, create);
+ 		if (err < 0)
+ 			return err;
+-		if (ha[NFTA_HOOK_HOOKNUM] == NULL ||
+-		    ha[NFTA_HOOK_PRIORITY] == NULL)
+-			return -EINVAL;
+-
+-		hooknum = ntohl(nla_get_be32(ha[NFTA_HOOK_HOOKNUM]));
+-		if (hooknum >= afi->nhooks)
+-			return -EINVAL;
+-		priority = ntohl(nla_get_be32(ha[NFTA_HOOK_PRIORITY]));
+-
+-		if (!(type->hook_mask & (1 << hooknum)))
+-			return -EOPNOTSUPP;
+-		if (!try_module_get(type->owner))
+-			return -ENOENT;
+-		hookfn = type->hooks[hooknum];
+-
+-		if (afi->flags & NFT_AF_NEEDS_DEV) {
+-			char ifname[IFNAMSIZ];
+-
+-			if (!ha[NFTA_HOOK_DEV]) {
+-				module_put(type->owner);
+-				return -EOPNOTSUPP;
+-			}
+-
+-			nla_strlcpy(ifname, ha[NFTA_HOOK_DEV], IFNAMSIZ);
+-			dev = dev_get_by_name(net, ifname);
+-			if (!dev) {
+-				module_put(type->owner);
+-				return -ENOENT;
+-			}
+-		} else if (ha[NFTA_HOOK_DEV]) {
+-			module_put(type->owner);
+-			return -EOPNOTSUPP;
+-		}
+ 
+ 		basechain = kzalloc(sizeof(*basechain), GFP_KERNEL);
+ 		if (basechain == NULL) {
+-			module_put(type->owner);
+-			if (dev != NULL)
+-				dev_put(dev);
++			nft_chain_release_hook(&hook);
+ 			return -ENOMEM;
+ 		}
+ 
+-		if (dev != NULL)
+-			strncpy(basechain->dev_name, dev->name, IFNAMSIZ);
++		if (hook.dev != NULL)
++			strncpy(basechain->dev_name, hook.dev->name, IFNAMSIZ);
+ 
+ 		if (nla[NFTA_CHAIN_COUNTERS]) {
+ 			stats = nft_stats_alloc(nla[NFTA_CHAIN_COUNTERS]);
+ 			if (IS_ERR(stats)) {
+-				module_put(type->owner);
++				nft_chain_release_hook(&hook);
+ 				kfree(basechain);
+-				if (dev != NULL)
+-					dev_put(dev);
+ 				return PTR_ERR(stats);
+ 			}
+ 			basechain->stats = stats;
+ 		} else {
+ 			stats = netdev_alloc_pcpu_stats(struct nft_stats);
+ 			if (stats == NULL) {
+-				module_put(type->owner);
++				nft_chain_release_hook(&hook);
+ 				kfree(basechain);
+-				if (dev != NULL)
+-					dev_put(dev);
+ 				return -ENOMEM;
+ 			}
+ 			rcu_assign_pointer(basechain->stats, stats);
+ 		}
+ 
+-		basechain->type = type;
++		hookfn = hook.type->hooks[hook.num];
++		basechain->type = hook.type;
+ 		chain = &basechain->chain;
+ 
+ 		for (i = 0; i < afi->nops; i++) {
+ 			ops = &basechain->ops[i];
+ 			ops->pf		= family;
+-			ops->hooknum	= hooknum;
+-			ops->priority	= priority;
++			ops->hooknum	= hook.num;
++			ops->priority	= hook.priority;
+ 			ops->priv	= chain;
+ 			ops->hook	= afi->hooks[ops->hooknum];
+-			ops->dev	= dev;
++			ops->dev	= hook.dev;
+ 			if (hookfn)
+ 				ops->hook = hookfn;
+ 			if (afi->hook_ops_init)
 -- 
 2.1.4
