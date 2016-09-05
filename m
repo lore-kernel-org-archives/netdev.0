@@ -1,58 +1,50 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 03/29] netfilter: nf_dup4: remove redundant checksum recalculation
-Date: Mon,  5 Sep 2016 12:58:18 +0200
-Message-ID: <1473073124-5015-4-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 02/29] netfilter: physdev: add missed blank
+Date: Mon,  5 Sep 2016 12:58:17 +0200
+Message-ID: <1473073124-5015-3-git-send-email-pablo@netfilter.org>
 References: <1473073124-5015-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:35070 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932226AbcIEK64 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 5 Sep 2016 06:58:56 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id B64092EFEA7
+        for <netdev@vger.kernel.org>; Mon,  5 Sep 2016 12:58:54 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id A61A81150D9
+        for <netdev@vger.kernel.org>; Mon,  5 Sep 2016 12:58:54 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 9D15F114D6B
+        for <netdev@vger.kernel.org>; Mon,  5 Sep 2016 12:58:52 +0200 (CEST)
 In-Reply-To: <1473073124-5015-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Liping Zhang <liping.zhang@spreadtrum.com>
+From: Hangbin Liu <liuhangbin@gmail.com>
 
-IP header checksum will be recalculated at ip_local_out, so
-there's no need to calculated it here, remove it. Also update
-code comments to illustrate it, and delete the misleading
-comments about checksum recalculation.
-
-Signed-off-by: Liping Zhang <liping.zhang@spreadtrum.com>
+Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/ipv4/netfilter/nf_dup_ipv4.c | 10 ++++------
- 1 file changed, 4 insertions(+), 6 deletions(-)
+ net/netfilter/xt_physdev.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/netfilter/nf_dup_ipv4.c b/net/ipv4/netfilter/nf_dup_ipv4.c
-index ceb1873..cf986e1 100644
---- a/net/ipv4/netfilter/nf_dup_ipv4.c
-+++ b/net/ipv4/netfilter/nf_dup_ipv4.c
-@@ -74,21 +74,19 @@ void nf_dup_ipv4(struct net *net, struct sk_buff *skb, unsigned int hooknum,
- 	nf_conntrack_get(skb->nfct);
- #endif
- 	/*
--	 * If we are in PREROUTING/INPUT, the checksum must be recalculated
--	 * since the length could have changed as a result of defragmentation.
--	 *
--	 * We also decrease the TTL to mitigate potential loops between two
--	 * hosts.
-+	 * If we are in PREROUTING/INPUT, decrease the TTL to mitigate potential
-+	 * loops between two hosts.
- 	 *
- 	 * Set %IP_DF so that the original source is notified of a potentially
- 	 * decreased MTU on the clone route. IPv6 does this too.
-+	 *
-+	 * IP header checksum will be recalculated at ip_local_out.
- 	 */
- 	iph = ip_hdr(skb);
- 	iph->frag_off |= htons(IP_DF);
- 	if (hooknum == NF_INET_PRE_ROUTING ||
- 	    hooknum == NF_INET_LOCAL_IN)
- 		--iph->ttl;
--	ip_send_check(iph);
- 
- 	if (nf_dup_ipv4_route(net, skb, gw, oif)) {
- 		__this_cpu_write(nf_skb_duplicated, true);
+diff --git a/net/netfilter/xt_physdev.c b/net/netfilter/xt_physdev.c
+index e5f1898..bb33598 100644
+--- a/net/netfilter/xt_physdev.c
++++ b/net/netfilter/xt_physdev.c
+@@ -107,8 +107,8 @@ static int physdev_mt_check(const struct xt_mtchk_param *par)
+ 	     info->invert & XT_PHYSDEV_OP_BRIDGED) &&
+ 	    par->hook_mask & ((1 << NF_INET_LOCAL_OUT) |
+ 	    (1 << NF_INET_FORWARD) | (1 << NF_INET_POST_ROUTING))) {
+-		pr_info("using --physdev-out and --physdev-is-out are only"
+-			"supported in the FORWARD and POSTROUTING chains with"
++		pr_info("using --physdev-out and --physdev-is-out are only "
++			"supported in the FORWARD and POSTROUTING chains with "
+ 			"bridged traffic.\n");
+ 		if (par->hook_mask & (1 << NF_INET_LOCAL_OUT))
+ 			return -EINVAL;
 -- 
 2.1.4
-
