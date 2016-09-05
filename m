@@ -1,38 +1,49 @@
-From: Lars Persson <lars.persson@axis.com>
-Subject: Re: A potential bug in drivers/net/ethernet/synopsys/dwc_eth_qos.ko
-Date: Mon, 5 Sep 2016 13:45:28 +0200
-Message-ID: <e72ce0af-c35d-bbf9-e30f-f40f3b9053f0@axis.com>
-References: <1403c768-7ed1-dc5c-38ae-ac91f876a175@ispras.ru>
+From: Tomer Tayar <Tomer.Tayar@qlogic.com>
+Subject: [PATCH net-next 0/3] qed*: Debug data collection
+Date: Mon, 5 Sep 2016 14:35:09 +0300
+Message-ID: <1473075312-19075-1-git-send-email-Tomer.Tayar@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        Vaishali Thakkar <vaishali.thakkar@oracle.com>,
-        <ldv-project@linuxtesting.org>
-To: Pavel Andrianov <andrianov@ispras.ru>,
-        Lars Persson <larper@axis.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1403c768-7ed1-dc5c-38ae-ac91f876a175@ispras.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <Yuval.Mintz@qlogic.com>, Tomer Tayar <Tomer.Tayar@qlogic.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:47627 "EHLO
+        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1754737AbcIELup (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Sep 2016 07:50:45 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Pavel,
+This patch series adds the support of debug data collection in the qed driver,
+and the means to extract it in the qede driver via the get_regs operation.
 
-Thanks for the notification. I agree that we should register the device 
-after all initialization has completed. A patch will be sent shortly.
+Hi Dave,
 
-BR,
-  Lars
+Please consider applying this to 'net-next'.
 
+Thanks,
+Tomer
 
-On 09/05/2016 10:26 AM, Pavel Andrianov wrote:
-> Hi!
->
-> There is a potential bug in
-> drivers/net/ethernet/synopsys/dwc_eth_qos.ko. In dwceqos_probe there is
-> a registration of net device (line 2879). After that initialization of
-> common resources is continued (lines 2918, 2924, 2941), but at the
-> moment handlers from net device may be already executed.
->
-> Should the registration of net device be at the end of dwceqos_probe?
->
+Tomer Tayar (3):
+  qed: Add infrastructure for debug data collection
+  qed: Add support for debug data collection
+  qed*: Add support for the ethtool get_regs operation
+
+ drivers/net/ethernet/qlogic/qed/Makefile        |    2 +-
+ drivers/net/ethernet/qlogic/qed/qed.h           |   20 +
+ drivers/net/ethernet/qlogic/qed/qed_debug.c     | 6898 +++++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_debug.h     |   54 +
+ drivers/net/ethernet/qlogic/qed/qed_hsi.h       | 1059 +++-
+ drivers/net/ethernet/qlogic/qed/qed_main.c      |    6 +
+ drivers/net/ethernet/qlogic/qed/qed_mcp.c       |   76 +
+ drivers/net/ethernet/qlogic/qed/qed_mcp.h       |   46 +
+ drivers/net/ethernet/qlogic/qed/qed_reg_addr.h  |  900 +++
+ drivers/net/ethernet/qlogic/qede/qede_ethtool.c |   24 +
+ include/linux/qed/common_hsi.h                  |    3 +
+ include/linux/qed/qed_if.h                      |    4 +
+ 12 files changed, 9080 insertions(+), 12 deletions(-)
+ create mode 100644 drivers/net/ethernet/qlogic/qed/qed_debug.c
+ create mode 100644 drivers/net/ethernet/qlogic/qed/qed_debug.h
+
+-- 
+1.8.3.1
