@@ -1,64 +1,67 @@
-From: Daniel Mack <daniel@zonque.org>
-Subject: Re: [PATCH v3 3/6] bpf: add BPF_PROG_ATTACH and BPF_PROG_DETACH
- commands
-Date: Mon, 5 Sep 2016 17:40:09 +0200
-Message-ID: <4c7dbf97-4241-0ea2-518c-7e26faa0b059@zonque.org>
-References: <1472241532-11682-1-git-send-email-daniel@zonque.org>
- <1472241532-11682-4-git-send-email-daniel@zonque.org>
- <20160827000819.GB29480@ast-mbp.thefacebook.com>
- <4799c1ce-4cb6-0148-26ce-8b6a8ac2a0eb@zonque.org>
- <063D6719AE5E284EB5DD2968C1650D6DB00F4930@AcuExch.aculab.com>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [PATCH net-next 4/9] rxrpc: Randomise epoch and starting client conn ID values
+Date: Mon, 05 Sep 2016 17:24:23 +0100
+Message-ID: <3378.1473092663@warthog.procyon.org.uk>
+References: <063D6719AE5E284EB5DD2968C1650D6DB00F48DE@AcuExch.aculab.com> <147302294435.28597.15007422228950187972.stgit@warthog.procyon.org.uk> <147302297165.28597.8317497494192917329.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: "htejun@fb.com" <htejun@fb.com>,
-        "daniel@iogearbox.net" <daniel@iogearbox.net>,
-        "ast@fb.com" <ast@fb.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "kafai@fb.com" <kafai@fb.com>, "fw@strlen.de" <fw@strlen.de>,
-        "pablo@netfilter.org" <pablo@netfilter.org>,
-        "harald@redhat.com" <harald@redhat.com>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: dhowells@redhat.com,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "sargun@sargun.me" <sargun@sargun.me>
+        "linux-afs@lists.infradead.org" <linux-afs@lists.infradead.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 To: David Laight <David.Laight@ACULAB.COM>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>
+        Jeffrey Altman <jaltman@auristor.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:58104 "EHLO mail.zonque.de"
+Received: from mx1.redhat.com ([209.132.183.28]:59568 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932557AbcIEPkN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 5 Sep 2016 11:40:13 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB00F4930@AcuExch.aculab.com>
+        id S932312AbcIEQY0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 5 Sep 2016 12:24:26 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB00F48DE@AcuExch.aculab.com>
+Content-ID: <3377.1473092663.1@warthog.procyon.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/05/2016 05:30 PM, David Laight wrote:
-> From: Daniel Mack
->>>> +
->>>> +	struct { /* anonymous struct used by BPF_PROG_ATTACH/DETACH commands */
->>>> +		__u32		target_fd;	/* container object to attach to */
->>>> +		__u32		attach_bpf_fd;	/* eBPF program to attach */
->>>> +		__u32		attach_type;	/* BPF_ATTACH_TYPE_* */
->>>> +		__u64		attach_flags;
->>>> +	};
->>>
->>> there is a 4 byte hole in this struct. Can we pack it differently?
->>
->> Okay - I swapped "type" and "flags" to repair this.
+[cc'ing Jeff Altman for comment]
+
+David Laight <David.Laight@ACULAB.COM> wrote:
+
+> > Create a random epoch value rather than a time-based one on startup and set
+> > the top bit to indicate that this is the case.
 > 
-> That just moves the pad to the end of the structure.
-> Still likely to cause a problem for 32bit apps on a 64bit kernel.
+> Why set the top bit?
+> There is nothing to stop the time (in seconds) from having the top bit set.
+> Nothing else can care - otherwise this wouldn't work.
 
-What kind of problem do you have in mind? Again, this is embedded in a
-union of much bigger total size, and the API is not used in any kind of
-hot-path.
+This is what I'm told I should do by purveyors of other RxRPC solutions.
 
-> If you can't think of any flags, why 64 of them?
+> > Also create a random starting client connection ID value.  This will be
+> > incremented from here as new client connections are created.
+> 
+> I'm guessing this is to make duplicates less likely after a restart?
 
-I can't think of them right now, but this is about defining an API that
-can be used in other context as well. Also, it doesn't matter at all,
-they don't harm. IMO, it's just better to have them right away than to
-do a binary compat dance once someone needs them.
+Again, it's been suggested that I do this, but I would guess so.
 
+> You may want to worry about duplicate allocations (after 2^32 connects).
 
-Thanks,
-Daniel
+It's actually a quarter of that, but connection != call, so a connection may
+be used for up to ~16 billion RPC operations before it *has* to be flushed.
+
+> There are id allocation algorithms that guarantee not to generate duplicates
+> and not to reuse values quickly while still being fixed cost.
+> Look at the code NetBSD uses to allocate process ids for an example.
+
+I'm using idr_alloc_cyclic()[*] with a fixed size "window" on the active conn
+ID values.  Client connections with IDs outside of that window are discarded
+as soon as possible to keep the memory consumption of the tree down (and to
+force security renegotiation occasionally).  However, given that there are a
+billion IDs to cycle through, it will take quite a while for reuse to become
+an issue.
+
+I like the idea of incrementing the epoch every time we cycle through the ID
+space, but I'm told that a change in the epoch value is an indication that the
+client rebooted - with what consequences I cannot say.
+
+[*] which is what Linux uses to allocate process IDs.
+
+David
