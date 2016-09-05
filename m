@@ -1,8 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v7 1/3] netdevice: Add offload statistics ndo
-Date: Mon,  5 Sep 2016 19:18:55 +0200
-Message-ID: <1473095937-27100-2-git-send-email-jiri@resnulli.us>
-References: <1473095937-27100-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v7 0/3] return offloaded stats as default and expose original sw stats
+Date: Mon,  5 Sep 2016 19:18:54 +0200
+Message-ID: <1473095937-27100-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, nogahf@mellanox.com, idosch@mellanox.com,
         eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
         roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
@@ -12,59 +11,109 @@ Cc: davem@davemloft.net, nogahf@mellanox.com, idosch@mellanox.com,
         f.fainelli@gmail.com, dsa@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35577 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933773AbcIERTC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Sep 2016 13:19:02 -0400
-Received: by mail-wm0-f67.google.com with SMTP id a6so3138071wmc.2
-        for <netdev@vger.kernel.org>; Mon, 05 Sep 2016 10:19:01 -0700 (PDT)
-In-Reply-To: <1473095937-27100-1-git-send-email-jiri@resnulli.us>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:35555 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932823AbcIERTB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Sep 2016 13:19:01 -0400
+Received: by mail-wm0-f68.google.com with SMTP id a6so3137903wmc.2
+        for <netdev@vger.kernel.org>; Mon, 05 Sep 2016 10:19:00 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nogah Frankel <nogahf@mellanox.com>
+From: Jiri Pirko <jiri@mellanox.com>
 
-Add a new ndo to return statistics for offloaded operation.
-Since there can be many different offloaded operation with many
-stats types, the ndo gets an attribute id by which it knows which
-stats are wanted. The ndo also gets a void pointer to be cast according
-to the attribute id.
+The problem we try to handle is about offloaded forwarded packets
+which are not seen by kernel. Let me try to draw it:
 
-Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+    port1                       port2 (HW stats are counted here)
+      \                          /
+       \                        /
+        \                      /
+         --(A)---- ASIC --(B)--
+                    |
+                   (C)
+                    |
+                   CPU (SW stats are counted here)
+
+
+Now we have couple of flows for TX and RX (direction does not matter here):
+
+1) port1->A->ASIC->C->CPU
+
+   For this flow, HW and SW stats are equal.
+
+2) port1->A->ASIC->C->CPU->C->ASIC->B->port2
+
+   For this flow, HW and SW stats are equal.
+
+3) port1->A->ASIC->B->port2
+
+   For this flow, SW stats are 0.
+
+The purpose of this patchset is to provide facility for user to
+find out the difference between flows 1+2 and 3. In other words, user
+will be able to see the statistics for the slow-path (through kernel).
+
+Also note that HW stats are what someone calls "accumulated" stats.
+Every packet counted by SW is also counted by HW. Not the other way around.
+
+As a default the accumulated stats (HW) will be exposed to user
+so the userspace apps can react properly.
+
+This patchset add the SW stats (flows 1+2) under offload related stats, so
+in the future we can expose other offload related stat in a similar way.
+
 ---
- include/linux/netdevice.h | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+v6->v7:
+- patch 1/3:
+ - ndo interface changed to get the wanted stats type as an input.
+ - change commit message.
+- patch 2/3:
+ - create a nesting for offloaded stat and put SW stats under it.
+ - change the ndo call to indicate which offload stats we wants.
+ - change commit message.
+- patch 3/3:
+ - change ndo implementation to match the changes in the previous patches.
+ - change commit message.
+v5->v6:
+- patch 2/4 was dropped as requested by Roopa
+- patch 1/3:
+ - comment changed to indicate that default stats are combined stats
+ - commit massage changed
+- patch 2/3: (previously 3/4)
+ - SW stats return nothing if there is no SW stats ndo
+v4->v5:
+- updated cover letter
+- patch3/4:
+  - using memcpy directly to copy stats as requested by DaveM
+v3->v4:
+- patch1/4:
+  - fixed "return ()" pointed out by EricD
+- patch2/4:
+  - fixed if_nlmsg_size as pointed out by EricD
+v2->v3:
+- patch1/4:
+  - added dev_have_sw_stats helper
+- patch2/4:
+  - avoided memcpy as requested by DaveM
+- patch3/4:
+  - use new dev_have_sw_stats helper
+v1->v2:
+- patch3/4:
+  - fixed NULL initialization
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 67bb978..2d2c09b 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -924,6 +924,14 @@ struct netdev_xdp {
-  *	3. Update dev->stats asynchronously and atomically, and define
-  *	   neither operation.
-  *
-+ * bool (*ndo_has_offload_stats)(int attr_id)
-+ *	Return true if this device supports offload stats of this attr_id.
-+ *
-+ * int (*ndo_get_offload_stats)(int attr_id, const struct net_device *dev,
-+ *	void *attr_data)
-+ *	Get statistics for offload operations by attr_id. Write it into the
-+ *	attr_data pointer.
-+ *
-  * int (*ndo_vlan_rx_add_vid)(struct net_device *dev, __be16 proto, u16 vid);
-  *	If device supports VLAN filtering this function is called when a
-  *	VLAN id is registered.
-@@ -1155,6 +1163,10 @@ struct net_device_ops {
- 
- 	struct rtnl_link_stats64* (*ndo_get_stats64)(struct net_device *dev,
- 						     struct rtnl_link_stats64 *storage);
-+	bool			(*ndo_has_offload_stats)(int attr_id);
-+	int			(*ndo_get_offload_stats)(int attr_id,
-+							 const struct net_device *dev,
-+							 void *attr_data);
- 	struct net_device_stats* (*ndo_get_stats)(struct net_device *dev);
- 
- 	int			(*ndo_vlan_rx_add_vid)(struct net_device *dev,
+Nogah Frankel (3):
+  netdevice: Add offload statistics ndo
+  net: core: Add offload stats to if_stats_msg
+  mlxsw: spectrum: Implement offload stats ndo and expose HW stats by
+    default
+
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 129 +++++++++++++++++++++++--
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h |   5 +
+ include/linux/netdevice.h                      |  12 +++
+ include/uapi/linux/if_link.h                   |  10 ++
+ net/core/rtnetlink.c                           |  88 ++++++++++++++++-
+ 5 files changed, 233 insertions(+), 11 deletions(-)
+
 -- 
 2.5.5
