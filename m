@@ -1,44 +1,102 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 02/29] netfilter: physdev: add missed blank
-Date: Mon, 05 Sep 2016 10:43:17 -0700
-Message-ID: <1473097397.1992.3.camel@perches.com>
-References: <1473073124-5015-1-git-send-email-pablo@netfilter.org>
-         <1473073124-5015-3-git-send-email-pablo@netfilter.org>
+From: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
+Subject: Re: 6pack: stack-out-of-bounds in sixpack_receive_buf
+Date: Mon, 5 Sep 2016 18:49:53 +0100
+Message-ID: <20160905184953.00bb448a@lxorguk.ukuu.org.uk>
+References: <CACT4Y+ZXH227Gbwrr+dUN4WSFNsoSECYd-KaZyLJ8F0KCRWRBw@mail.gmail.com>
+        <CACT4Y+bhAODvzqOxQps+4y6xSRBXC7pr18wRA+bb26c2XgPFhA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-        netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0024.hostedemail.com ([216.40.44.24]:39796 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S933832AbcIERnU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Sep 2016 13:43:20 -0400
-In-Reply-To: <1473073124-5015-3-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Peter Hurley <peter@hurleysoftware.com>,
+        Jiri Slaby <jslaby@suse.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Andreas Koensgen <ajk@comnets.uni-bremen.de>,
+        linux-hams@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACT4Y+bhAODvzqOxQps+4y6xSRBXC7pr18wRA+bb26c2XgPFhA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2016-09-05 at 12:58 +0200, Pablo Neira Ayuso wrote:
-[]
-> diff --git a/net/netfilter/xt_physdev.c b/net/netfilter/xt_physdev.c
-[]
-> @@ -107,8 +107,8 @@ static int physdev_mt_check(const struct xt_mtchk_param *par)
->  	     info->invert & XT_PHYSDEV_OP_BRIDGED) &&
->  	    par->hook_mask & ((1 << NF_INET_LOCAL_OUT) |
->  	    (1 << NF_INET_FORWARD) | (1 << NF_INET_POST_ROUTING))) {
-> -		pr_info("using --physdev-out and --physdev-is-out are only"
-> -			"supported in the FORWARD and POSTROUTING chains with"
-> +		pr_info("using --physdev-out and --physdev-is-out are only "
-> +			"supported in the FORWARD and POSTROUTING chains with "
->  			"bridged traffic.\n");
->  		if (par->hook_mask & (1 << NF_INET_LOCAL_OUT))
->  			return -EINVAL;
+> different runs). Looking at code, the following looks suspicious -- we
+> limit copy by 512 bytes, but use the original count which can be
+> larger than 512:
+> 
+> static void sixpack_receive_buf(struct tty_struct *tty,
+>     const unsigned char *cp, char *fp, int count)
+> {
+>     unsigned char buf[512];
+>     ....
+>     memcpy(buf, cp, count < sizeof(buf) ? count : sizeof(buf));
+>     ....
+>     sixpack_decode(sp, buf, count1);
+> 
+> 
+> On commit 0f98f121e1670eaa2a2fbb675e07d6ba7f0e146f of linux-next.
 
-Perhaps it would be reasonable at some point to coalesce
-all the string fragments.
+With the sane tty locking we now have I believe the following is safe as
+we consume the bytes and move them into the decoded buffer before
+returning.
 
-Maybe using this could help:
-
-$ git ls-files -- "net/netfilter/*.[ch]" | \
-  xargs ./scripts/checkpatch.pl  -f --types=split_string --fix-inplace
+diff --git a/drivers/net/hamradio/6pack.c b/drivers/net/hamradio/6pack.c
+index 5a1e985..470b3dc 100644
+--- a/drivers/net/hamradio/6pack.c
++++ b/drivers/net/hamradio/6pack.c
+@@ -127,7 +127,7 @@ struct sixpack {
+ 
+ #define AX25_6PACK_HEADER_LEN 0
+ 
+-static void sixpack_decode(struct sixpack *, unsigned char[], int);
++static void sixpack_decode(struct sixpack *, const unsigned char[], int);
+ static int encode_sixpack(unsigned char *, unsigned char *, int, unsigned char);
+ 
+ /*
+@@ -428,7 +428,7 @@ out:
+ 
+ /*
+  * Handle the 'receiver data ready' interrupt.
+- * This function is called by the 'tty_io' module in the kernel when
++ * This function is called by the tty module in the kernel when
+  * a block of 6pack data has been received, which can now be decapsulated
+  * and sent on to some IP layer for further processing.
+  */
+@@ -436,7 +436,6 @@ static void sixpack_receive_buf(struct tty_struct *tty,
+ 	const unsigned char *cp, char *fp, int count)
+ {
+ 	struct sixpack *sp;
+-	unsigned char buf[512];
+ 	int count1;
+ 
+ 	if (!count)
+@@ -446,10 +445,7 @@ static void sixpack_receive_buf(struct tty_struct *tty,
+ 	if (!sp)
+ 		return;
+ 
+-	memcpy(buf, cp, count < sizeof(buf) ? count : sizeof(buf));
+-
+ 	/* Read the characters out of the buffer */
+-
+ 	count1 = count;
+ 	while (count) {
+ 		count--;
+@@ -459,7 +455,7 @@ static void sixpack_receive_buf(struct tty_struct *tty,
+ 			continue;
+ 		}
+ 	}
+-	sixpack_decode(sp, buf, count1);
++	sixpack_decode(sp, cp, count1);
+ 
+ 	sp_put(sp);
+ 	tty_unthrottle(tty);
+@@ -992,7 +988,7 @@ static void decode_std_command(struct sixpack *sp, unsigned char cmd)
+ /* decode a 6pack packet */
+ 
+ static void
+-sixpack_decode(struct sixpack *sp, unsigned char *pre_rbuff, int count)
++sixpack_decode(struct sixpack *sp, const unsigned char *pre_rbuff, int count)
+ {
+ 	unsigned char inbyte;
+ 	int count1;
