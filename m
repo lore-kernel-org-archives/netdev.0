@@ -1,202 +1,70 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v7 2/3] net: core: Add offload stats to if_stats_msg
-Date: Mon,  5 Sep 2016 19:18:56 +0200
-Message-ID: <1473095937-27100-3-git-send-email-jiri@resnulli.us>
-References: <1473095937-27100-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, nogahf@mellanox.com, idosch@mellanox.com,
-        eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
-        roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-        linville@tuxdriver.com, tgraf@suug.ch, gospo@cumulusnetworks.com,
-        sfeldma@gmail.com, sd@queasysnail.net, eranbe@mellanox.com,
-        ast@plumgrid.com, edumazet@google.com, hannes@stressinduktion.org,
-        f.fainelli@gmail.com, dsa@cumulusnetworks.com
-To: netdev@vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v3 3/6] bpf: add BPF_PROG_ATTACH and BPF_PROG_DETACH
+ commands
+Date: Mon, 05 Sep 2016 10:29:57 -0700
+Message-ID: <1473096597.1992.2.camel@perches.com>
+References: <1472241532-11682-1-git-send-email-daniel@zonque.org>
+         <1472241532-11682-4-git-send-email-daniel@zonque.org>
+         <20160827000819.GB29480@ast-mbp.thefacebook.com>
+         <4799c1ce-4cb6-0148-26ce-8b6a8ac2a0eb@zonque.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: htejun@fb.com, daniel@iogearbox.net, ast@fb.com,
+        davem@davemloft.net, kafai@fb.com, fw@strlen.de,
+        pablo@netfilter.org, harald@redhat.com, netdev@vger.kernel.org,
+        sargun@sargun.me
+To: Daniel Mack <daniel@zonque.org>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:32797 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935887AbcIERTE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Sep 2016 13:19:04 -0400
-Received: by mail-wm0-f67.google.com with SMTP id w207so14374302wmw.0
-        for <netdev@vger.kernel.org>; Mon, 05 Sep 2016 10:19:03 -0700 (PDT)
-In-Reply-To: <1473095937-27100-1-git-send-email-jiri@resnulli.us>
+Received: from smtprelay0204.hostedemail.com ([216.40.44.204]:49765 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S936118AbcIERaE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Sep 2016 13:30:04 -0400
+In-Reply-To: <4799c1ce-4cb6-0148-26ce-8b6a8ac2a0eb@zonque.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nogah Frankel <nogahf@mellanox.com>
+On Mon, 2016-09-05 at 14:56 +0200, Daniel Mack wrote:
+> On 08/27/2016 02:08 AM, Alexei Starovoitov wrote:
+[]
+> > +	switch (attr->attach_type) {
+> > +	case BPF_ATTACH_TYPE_CGROUP_INET_INGRESS:
+> > +	case BPF_ATTACH_TYPE_CGROUP_INET_EGRESS: {
+> > +		struct cgroup *cgrp;
+> > +
+> > +		prog = bpf_prog_get_type(attr->attach_bpf_fd,
+> > +					 BPF_PROG_TYPE_CGROUP_SOCKET_FILTER);
+> > +		if (IS_ERR(prog))
+> > +			return PTR_ERR(prog);
+> > +
+> > +		cgrp = cgroup_get_from_fd(attr->target_fd);
+> > +		if (IS_ERR(cgrp)) {
+> > +			bpf_prog_put(prog);
+> > +			return PTR_ERR(cgrp);
+> > +		}
+> > +
+> > +		cgroup_bpf_update(cgrp, prog, attr->attach_type);
+> > +		cgroup_put(cgrp);
+> > +
+> > +		break;
+> > +	}
+> this } formatting style is confusing. The above } looks
+> like it matches 'switch () {'.
+> May be move 'struct cgroup *cgrp' to the top to avoid that?
 
-Add a nested attribute of offload stats to if_stats_msg
-named IFLA_STATS_LINK_OFFLOAD_XSTATS.
-Under it, add SW stats, meaning stats only per packets that went via
-slowpath to the cpu, named IFLA_OFFLOAD_XSTATS_CPU_HIT.
+This style of case statements that declare local variables
+with an open brace after the case statement
 
-Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- include/uapi/linux/if_link.h | 10 +++++
- net/core/rtnetlink.c         | 88 ++++++++++++++++++++++++++++++++++++++++++--
- 2 files changed, 94 insertions(+), 4 deletions(-)
+	switch (bar) {
+	[cases...]
+	case foo: {
+		local declarations;
 
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 9bf3aec..4aaa2a1 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -826,6 +826,7 @@ enum {
- 	IFLA_STATS_LINK_64,
- 	IFLA_STATS_LINK_XSTATS,
- 	IFLA_STATS_LINK_XSTATS_SLAVE,
-+	IFLA_STATS_LINK_OFFLOAD_XSTATS,
- 	__IFLA_STATS_MAX,
- };
- 
-@@ -845,6 +846,15 @@ enum {
- };
- #define LINK_XSTATS_TYPE_MAX (__LINK_XSTATS_TYPE_MAX - 1)
- 
-+/* These are stats embedded into IFLA_STATS_LINK_OFFLOAD_XSTATS */
-+enum {
-+	IFLA_OFFLOAD_XSTATS_UNSPEC,
-+	IFLA_OFFLOAD_XSTATS_CPU_HIT, /* struct rtnl_link_stats64 */
-+	__IFLA_OFFLOAD_XSTATS_MAX
-+};
-+#define IFLA_OFFLOAD_XSTATS_MAX (__IFLA_OFFLOAD_XSTATS_MAX - 1)
-+#define IFLA_OFFLOAD_XSTATS_FIRST (IFLA_OFFLOAD_XSTATS_UNSPEC + 1)
-+
- /* XDP section */
- 
- enum {
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 1dfca1c..95eb131 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -3577,6 +3577,74 @@ static bool stats_attr_valid(unsigned int mask, int attrid, int idxattr)
- 	       (!idxattr || idxattr == attrid);
- }
- 
-+static int rtnl_get_offload_stats_attr_size(int attr_id)
-+{
-+	switch (attr_id) {
-+	case IFLA_OFFLOAD_XSTATS_CPU_HIT:
-+		return sizeof(struct rtnl_link_stats64);
-+	}
-+
-+	return 0;
-+}
-+
-+static int rtnl_get_offload_stats(struct sk_buff *skb, struct net_device *dev)
-+{
-+	struct nlattr *attr;
-+	int attr_id, size;
-+	void *attr_data;
-+	int err;
-+
-+	if (!(dev->netdev_ops && dev->netdev_ops->ndo_has_offload_stats &&
-+	      dev->netdev_ops->ndo_get_offload_stats))
-+		return 0;
-+
-+	for (attr_id = IFLA_OFFLOAD_XSTATS_FIRST;
-+	     attr_id <= IFLA_OFFLOAD_XSTATS_MAX; attr_id++) {
-+		size = rtnl_get_offload_stats_attr_size(attr_id);
-+		if (!size)
-+			continue;
-+
-+		if (!dev->netdev_ops->ndo_has_offload_stats(attr_id))
-+			continue;
-+
-+		attr = nla_reserve_64bit(skb, attr_id, size,
-+					 IFLA_OFFLOAD_XSTATS_UNSPEC);
-+		if (!attr)
-+			return -EMSGSIZE;
-+
-+		attr_data = nla_data(attr);
-+		memset(attr_data, 0, size);
-+		err = dev->netdev_ops->ndo_get_offload_stats(attr_id, dev,
-+							     attr_data);
-+		if (err)
-+			return err;
-+	}
-+
-+	return 0;
-+}
-+
-+static int rtnl_get_offload_stats_size(const struct net_device *dev)
-+{
-+	int size = 0;
-+	int attr_id;
-+
-+	if (!(dev->netdev_ops && dev->netdev_ops->ndo_has_offload_stats &&
-+	      dev->netdev_ops->ndo_get_offload_stats))
-+		return nla_total_size(0);
-+
-+	for (attr_id = IFLA_OFFLOAD_XSTATS_FIRST;
-+	     attr_id <= IFLA_OFFLOAD_XSTATS_MAX; attr_id++) {
-+		if (!dev->netdev_ops->ndo_has_offload_stats(attr_id))
-+			continue;
-+
-+		size += rtnl_get_offload_stats_attr_size(attr_id);
-+	}
-+
-+	size += nla_total_size(0);
-+
-+	return size;
-+}
-+
- static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
- 			       int type, u32 pid, u32 seq, u32 change,
- 			       unsigned int flags, unsigned int filter_mask,
-@@ -3586,6 +3654,7 @@ static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
- 	struct nlmsghdr *nlh;
- 	struct nlattr *attr;
- 	int s_prividx = *prividx;
-+	int err;
- 
- 	ASSERT_RTNL();
- 
-@@ -3614,8 +3683,6 @@ static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
- 		const struct rtnl_link_ops *ops = dev->rtnl_link_ops;
- 
- 		if (ops && ops->fill_linkxstats) {
--			int err;
--
- 			*idxattr = IFLA_STATS_LINK_XSTATS;
- 			attr = nla_nest_start(skb,
- 					      IFLA_STATS_LINK_XSTATS);
-@@ -3639,8 +3706,6 @@ static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
- 		if (master)
- 			ops = master->rtnl_link_ops;
- 		if (ops && ops->fill_linkxstats) {
--			int err;
--
- 			*idxattr = IFLA_STATS_LINK_XSTATS_SLAVE;
- 			attr = nla_nest_start(skb,
- 					      IFLA_STATS_LINK_XSTATS_SLAVE);
-@@ -3655,6 +3720,18 @@ static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
- 		}
- 	}
- 
-+	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_OFFLOAD_XSTATS,
-+			     *idxattr)) {
-+		attr = nla_nest_start(skb, IFLA_STATS_LINK_OFFLOAD_XSTATS);
-+		if (!attr)
-+			goto nla_put_failure;
-+
-+		err = rtnl_get_offload_stats(skb, dev);
-+		nla_nest_end(skb, attr);
-+		if (err)
-+			goto nla_put_failure;
-+	}
-+
- 	nlmsg_end(skb, nlh);
- 
- 	return 0;
-@@ -3712,6 +3789,9 @@ static size_t if_nlmsg_stats_size(const struct net_device *dev,
- 		}
- 	}
- 
-+	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_OFFLOAD_XSTATS, 0))
-+		size += rtnl_get_offload_stats_size(dev);
-+
- 	return size;
- }
- 
--- 
-2.5.5
+		code...
+	}
+	[cases...]
+	}
+
+is used quite frequently in the kernel.
+I think it's fine as is.
