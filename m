@@ -1,49 +1,82 @@
-From: Tomer Tayar <Tomer.Tayar@qlogic.com>
-Subject: [PATCH net-next 0/3] qed*: Debug data collection
-Date: Mon, 5 Sep 2016 14:35:09 +0300
-Message-ID: <1473075312-19075-1-git-send-email-Tomer.Tayar@qlogic.com>
+From: "weiyongjun (A)" <weiyongjun1@huawei.com>
+Subject: =?utf-8?B?562U5aSNOiBbUEFUQ0hdIGlwdjY6IGFkZHJjb25mOiBmaXggZGV2IHJlZmNv?=
+ =?utf-8?Q?nt_leak_when_DAD_failed?=
+Date: Mon, 5 Sep 2016 11:54:42 +0000
+Message-ID: <6AADFAC011213A4C87B956458587ADB46B4BE2@SZXEMI508-MBX.china.huawei.com>
+References: <1473062791-21118-1-git-send-email-weiyongjun1@huawei.com>
+ <6cf03c21-6853-99da-21e0-64b029a9e24f@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <Yuval.Mintz@qlogic.com>, Tomer Tayar <Tomer.Tayar@qlogic.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "stable@vger.kernel.org" <stable@vger.kernel.org>
+To: "weiyongjun (A)" <weiyongjun1@huawei.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        "Alexey Kuznetsov" <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        "Hideaki YOSHIFUJI" <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Dingtianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:47627 "EHLO
-        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1754737AbcIELup (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Sep 2016 07:50:45 -0400
+Received: from szxga02-in.huawei.com ([119.145.14.65]:4778 "EHLO
+        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755379AbcIELzW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Sep 2016 07:55:22 -0400
+Content-Language: zh-CN
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series adds the support of debug data collection in the qed driver,
-and the means to extract it in the qede driver via the get_regs operation.
-
-Hi Dave,
-
-Please consider applying this to 'net-next'.
-
-Thanks,
-Tomer
-
-Tomer Tayar (3):
-  qed: Add infrastructure for debug data collection
-  qed: Add support for debug data collection
-  qed*: Add support for the ethtool get_regs operation
-
- drivers/net/ethernet/qlogic/qed/Makefile        |    2 +-
- drivers/net/ethernet/qlogic/qed/qed.h           |   20 +
- drivers/net/ethernet/qlogic/qed/qed_debug.c     | 6898 +++++++++++++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_debug.h     |   54 +
- drivers/net/ethernet/qlogic/qed/qed_hsi.h       | 1059 +++-
- drivers/net/ethernet/qlogic/qed/qed_main.c      |    6 +
- drivers/net/ethernet/qlogic/qed/qed_mcp.c       |   76 +
- drivers/net/ethernet/qlogic/qed/qed_mcp.h       |   46 +
- drivers/net/ethernet/qlogic/qed/qed_reg_addr.h  |  900 +++
- drivers/net/ethernet/qlogic/qede/qede_ethtool.c |   24 +
- include/linux/qed/common_hsi.h                  |    3 +
- include/linux/qed/qed_if.h                      |    4 +
- 12 files changed, 9080 insertions(+), 12 deletions(-)
- create mode 100644 drivers/net/ethernet/qlogic/qed/qed_debug.c
- create mode 100644 drivers/net/ethernet/qlogic/qed/qed_debug.h
-
--- 
-1.8.3.1
+T24gMDUuMDkuMjAxNiAxMDowNiwgV2VpIFlvbmdqdW4gd3JvdGU6DQo+Pj4gSW4gZ2VuZXJhbCwg
+d2hlbiBEQUQgZGV0ZWN0ZWQgSVB2NiBkdXBsaWNhdGUgYWRkcmVzcywgaWZwLT5zdGF0ZSB3aWxs
+IA0KPj4+IGJlIHNldCB0byBJTkVUNl9JRkFERFJfU1RBVEVfRVJSREFEIGFuZCBEQUQgaXMgc3Rv
+cHBlZCBieSBhIGRlbGF5ZWQgDQo+Pj4gd29yaywgdGhlIGNhbGwgdHJlZSBzaG91bGQgYmUgbGlr
+ZSB0aGlzOg0KPj4+IA0KPj4+IG5kaXNjX3JlY3ZfbnMNCj4+PiAgIC0+IGFkZHJjb25mX2RhZF9m
+YWlsdXJlICAgICAgICA8LSBtaXNzaW5nIGlmcCBwdXQNCj4+PiAgICAgIC0+IGFkZHJjb25mX21v
+ZF9kYWRfd29yaw0KPj4+ICAgICAgICAtPiBzY2hlZHVsZSBhZGRyY29uZl9kYWRfd29yaygpDQo+
+Pj4gICAgICAgICAgLT4gYWRkcmNvbmZfZGFkX3N0b3AoKSAgPC0gbWlzc2luZyBpZnAgaG9sZCBi
+ZWZvcmUgY2FsbCBpdA0KPj4+IA0KPj4+IGFkZHJjb25mX2RhZF9mYWlsdXJlKCkgY2FsbGVkIHdp
+dGggaWZwIHJlZmNvbnQgaG9sZGluZyBidXQgbm90IHB1dC4NCj4+PiBhZGRyY29uZl9kYWRfd29y
+aygpIGNhbGwgYWRkcmNvbmZfZGFkX3N0b3AoKSB3aXRob3V0IGV4dHJhIGhvbGRpbmcgDQo+Pj4g
+cmVmY291bnQuIFRoaXMgd2lsbCBub3QgY2F1c2UgYW55IGlzc3VlIG5vcm1hbGx5Lg0KPj4+IA0K
+Pj4+IEJ1dCB0aGUgcmFjZSBiZXR3ZWVuIGFkZHJjb25mX2RhZF9mYWlsdXJlKCkgYW5kIGFkZHJj
+b25mX2RhZF93b3JrKCkgDQo+Pj4gbWF5IGNhdXNlIGlmcCByZWZjb3VudCBsZWFrIGFuZCBuZXRk
+ZXZpY2UgY2FuIG5vdCBiZSB1bnJlZ2lzdGVyLCANCj4+PiBkbWVzZyBzaG93IHRoZSBmb2xsb3dp
+bmcgbWVzc2FnZXM6DQo+Pj4gDQo+Pj4gSVB2NjogZXRoMDogSVB2NiBkdXBsaWNhdGUgYWRkcmVz
+cyBmZTgwOjpYWDpYWFhYOlhYWFg6WFggZGV0ZWN0ZWQhDQo+Pj4gLi4uDQo+Pj4gdW5yZWdpc3Rl
+cl9uZXRkZXZpY2U6IHdhaXRpbmcgZm9yIGV0aDAgdG8gYmVjb21lIGZyZWUuIFVzYWdlIGNvdW50
+ID0gDQo+Pj4gMQ0KPj4+IA0KPj4+IENjOiBzdGFibGVAdmdlci5rZXJuZWwub3JnDQo+Pj4gRml4
+ZXM6IGMxNWIxY2NhZGIzMiAoImlwdjY6IG1vdmUgREFEIGFuZCBhZGRyY29uZl92ZXJpZnkgcHJv
+Y2Vzc2luZyANCj4+PiB0bw0KPj4+IHdvcmtxdWV1ZSIpDQo+Pj4gU2lnbmVkLW9mZi1ieTogV2Vp
+IFlvbmdqdW4gPHdlaXlvbmdqdW4xQGh1YXdlaS5jb20+DQo+Pj4gDQo+Pj4gZGlmZiAtLWdpdCBh
+L25ldC9pcHY2L2FkZHJjb25mLmMgYi9uZXQvaXB2Ni9hZGRyY29uZi5jIGluZGV4DQo+Pj4gYmRm
+MzY4ZS4uMmYxZjVkNCAxMDA2NDQNCj4+PiAtLS0gYS9uZXQvaXB2Ni9hZGRyY29uZi5jDQo+Pj4g
+KysrIGIvbmV0L2lwdjYvYWRkcmNvbmYuYw0KPj4+IEBAIC0xOTQ4LDYgKzE5NDgsNyBAQCBlcnJk
+YWQ6DQo+Pj4gIAlzcGluX3VubG9ja19iaCgmaWZwLT5sb2NrKTsNCj4+PiAgDQo+Pj4gIAlhZGRy
+Y29uZl9tb2RfZGFkX3dvcmsoaWZwLCAwKTsNCj4+PiArCWluNl9pZmFfcHV0KGlmcCk7DQo+Pj4g
+IH0NCg0KPj5UaGlzIGluNl9pZmFfcHV0IG1ha2VzIHNlbnNlLg0KDQo+Pj4gIA0KPj4+ICAvKiBK
+b2luIHRvIHNvbGljaXRlZCBhZGRyIG11bHRpY2FzdCBncm91cC4NCj4+PiBAQCAtMzg1Nyw2ICsz
+ODU4LDcgQEAgc3RhdGljIHZvaWQgYWRkcmNvbmZfZGFkX3dvcmsoc3RydWN0IHdvcmtfc3RydWN0
+ICp3KQ0KPj4+ICAJCWFkZHJjb25mX2RhZF9iZWdpbihpZnApOw0KPj4+ICAJCWdvdG8gb3V0Ow0K
+Pj4+ICAJfSBlbHNlIGlmIChhY3Rpb24gPT0gREFEX0FCT1JUKSB7DQo+Pj4gKwkJaW42X2lmYV9o
+b2xkKGlmcCk7DQo+Pj4gIAkJYWRkcmNvbmZfZGFkX3N0b3AoaWZwLCAxKTsNCj4+PiAgCQlpZiAo
+ZGlzYWJsZV9pcHY2KQ0KPj4+ICAJCQlhZGRyY29uZl9pZmRvd24oaWRldi0+ZGV2LCAwKTsNCj4+
+PiANCg0KPj5CdXQgd2h5IHlvdSBhZGQgYSBpbjZfaWZhX2hvbGQgaGVyZSBpc24ndCBjbGVhciB0
+byBtZS4gQ291bGQgeW91IA0KPj5leHBsYWluIHdoeSB0aGlzIGlzIG5lY2Vzc2FyeT8gSSBkb24n
+dCBzZWUgYW55IGFzeW5jIHN0dWZmIGJlaW5nIGRvbmUgDQo+PmluIGFkZHJjb25mX2RhZF9zdG9w
+LCB0aHVzIHRoZSByZWZlcmVuY2Ugd2UgYWxyZWFkeSBoYXZlIHNob3VsZCBiZSBzdWZmaWNpZW50
+IGZvciB0aGUgbGlmZXRpbWUgb2YgYWRkcmNvbmZfZGFkX3N0b3AuDQoNCj4gSSB0aGluayBpdCB0
+aGF0IGxpbmsgbG9jYWwgaXMgYWRkZWQgd2l0aCBmbGFnIElGQV9GX1BFUk1BTkVOVCwgd2hpY2gg
+d2UgcmVhbCBuZWVkIGl0IGlzIHRvIHJlbW92ZSBpbjZfaWZhX3B1dCgpIGluIGFkZHJjb25mX2Rh
+ZF9zdG9wLg0KDQo+IHN0YXRpYyB2b2lkIGFkZHJjb25mX2RhZF9zdG9wKC4uLikNCj4gew0KPglp
+ZiAoaWZwLT5mbGFncyZJRkFfRl9QRVJNQU5FTlQpIHsNCj4JCS4uLg0KPgkJaW42X2lmYV9wdXQo
+aWZwKTsgICA8PT0gcmVtb3ZlIHRoaXMgbGluZSBzaW5jZSBjYWxsZXIgaG9sZCByZWZjb3VudA0K
+Pgl9IGVsc2UgaWYgKGlmcC0+ZmxhZ3MmSUZBX0ZfVEVNUE9SQVJZKSB7DQo+CQkuLi4NCj4JCWlw
+djZfZGVsX2FkZHIoaWZwKTsNCj4JfSBlbHNlIHsNCj4JCWlwdjZfZGVsX2FkZHIoaWZwKTsNCj4J
+fQ0KPn0NCg0KSSBzZWUgdGhlIGNvbW1lbnQgb2YgaXB2Nl9kZWxfYWRkcjoNCg0KLyogVGhpcyBm
+dW5jdGlvbiB3YW50cyB0byBnZXQgcmVmZXJlbmNlZCBpZnAgYW5kIHJlbGVhc2VzIGl0IGJlZm9y
+ZSByZXR1cm4gKi8NCnN0YXRpYyB2b2lkIGlwdjZfZGVsX2FkZHIoc3RydWN0IGluZXQ2X2lmYWRk
+ciAqaWZwKQ0Kew0KICAgLi4uDQp9DQoNCkJvdGggaW42X2lmYV9wdXQoKSBhbmQgaXB2Nl9kZWxf
+YWRkcigpIG5lZWQgYSByZWZjb3VudCBob2xkaW5nLCBzbyB3ZSBzaG91bGQNCnVzZSBhIGV4dHJh
+IGluNl9pZmFfaG9sZCgpIGNhbGwgYmVmb3JlIGNhbGwgYWRkcmNvbmZfZGFkX3N0b3AoKSBhcyB0
+aGUgb3JpZ2luIHBhdGNoLg0KDQpSZWdhcmRzLA0KV2VpIFlvbmdqdW4NCg0K
