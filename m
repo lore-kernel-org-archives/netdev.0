@@ -1,83 +1,78 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 06/29] netfilter: nf_tables: rename set implementations
-Date: Mon,  5 Sep 2016 12:58:21 +0200
-Message-ID: <1473073124-5015-7-git-send-email-pablo@netfilter.org>
-References: <1473073124-5015-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:35094 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932756AbcIEK67 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 5 Sep 2016 06:58:59 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id DAC9F2EFEBB
-        for <netdev@vger.kernel.org>; Mon,  5 Sep 2016 12:58:57 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id CC0E71150C9
-        for <netdev@vger.kernel.org>; Mon,  5 Sep 2016 12:58:57 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id B5003114D68
-        for <netdev@vger.kernel.org>; Mon,  5 Sep 2016 12:58:55 +0200 (CEST)
-In-Reply-To: <1473073124-5015-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "weiyongjun (A)" <weiyongjun1@huawei.com>
+Subject: Re: [PATCH] ipv6: addrconf: fix dev refcont leak when DAD failed
+Date: Mon, 5 Sep 2016 11:05:34 +0000
+Message-ID: <6AADFAC011213A4C87B956458587ADB46B4BBF@SZXEMI508-MBX.china.huawei.com>
+References: <1473062791-21118-1-git-send-email-weiyongjun1@huawei.com>
+ <6cf03c21-6853-99da-21e0-64b029a9e24f@stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "stable@vger.kernel.org" <stable@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        "Patrick McHardy" <kaber@trash.net>,
+        Dingtianhong <dingtianhong@huawei.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <6cf03c21-6853-99da-21e0-64b029a9e24f@stressinduktion.org>
+Content-Language: zh-CN
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Use nft_set_* prefix for backend set implementations, thus we can use
-nft_hash for the new hash expression.
-
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/Kconfig                            | 4 ++--
- net/netfilter/Makefile                           | 4 ++--
- net/netfilter/{nft_hash.c => nft_set_hash.c}     | 0
- net/netfilter/{nft_rbtree.c => nft_set_rbtree.c} | 0
- 4 files changed, 4 insertions(+), 4 deletions(-)
- rename net/netfilter/{nft_hash.c => nft_set_hash.c} (100%)
- rename net/netfilter/{nft_rbtree.c => nft_set_rbtree.c} (100%)
-
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index 9266cee..e5740e1 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -481,13 +481,13 @@ config NFT_CT
- 	  This option adds the "meta" expression that you can use to match
- 	  connection tracking information such as the flow state.
- 
--config NFT_RBTREE
-+config NFT_SET_RBTREE
- 	tristate "Netfilter nf_tables rbtree set module"
- 	help
- 	  This option adds the "rbtree" set type (Red Black tree) that is used
- 	  to build interval-based sets.
- 
--config NFT_HASH
-+config NFT_SET_HASH
- 	tristate "Netfilter nf_tables hash set module"
- 	help
- 	  This option adds the "hash" set type that is used to build one-way
-diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-index 6913454..101fb85 100644
---- a/net/netfilter/Makefile
-+++ b/net/netfilter/Makefile
-@@ -86,8 +86,8 @@ obj-$(CONFIG_NFT_NAT)		+= nft_nat.o
- obj-$(CONFIG_NFT_QUEUE)		+= nft_queue.o
- obj-$(CONFIG_NFT_REJECT) 	+= nft_reject.o
- obj-$(CONFIG_NFT_REJECT_INET)	+= nft_reject_inet.o
--obj-$(CONFIG_NFT_RBTREE)	+= nft_rbtree.o
--obj-$(CONFIG_NFT_HASH)		+= nft_hash.o
-+obj-$(CONFIG_NFT_SET_RBTREE)	+= nft_set_rbtree.o
-+obj-$(CONFIG_NFT_SET_HASH)	+= nft_set_hash.o
- obj-$(CONFIG_NFT_COUNTER)	+= nft_counter.o
- obj-$(CONFIG_NFT_LOG)		+= nft_log.o
- obj-$(CONFIG_NFT_MASQ)		+= nft_masq.o
-diff --git a/net/netfilter/nft_hash.c b/net/netfilter/nft_set_hash.c
-similarity index 100%
-rename from net/netfilter/nft_hash.c
-rename to net/netfilter/nft_set_hash.c
-diff --git a/net/netfilter/nft_rbtree.c b/net/netfilter/nft_set_rbtree.c
-similarity index 100%
-rename from net/netfilter/nft_rbtree.c
-rename to net/netfilter/nft_set_rbtree.c
--- 
-2.1.4
+T24gMDUuMDkuMjAxNiAxMDowNiwgV2VpIFlvbmdqdW4gd3JvdGU6DQo+PiBJbiBnZW5lcmFsLCB3
+aGVuIERBRCBkZXRlY3RlZCBJUHY2IGR1cGxpY2F0ZSBhZGRyZXNzLCBpZnAtPnN0YXRlIHdpbGwg
+DQo+PiBiZSBzZXQgdG8gSU5FVDZfSUZBRERSX1NUQVRFX0VSUkRBRCBhbmQgREFEIGlzIHN0b3Bw
+ZWQgYnkgYSBkZWxheWVkIA0KPj4gd29yaywgdGhlIGNhbGwgdHJlZSBzaG91bGQgYmUgbGlrZSB0
+aGlzOg0KPj4gDQo+PiBuZGlzY19yZWN2X25zDQo+PiAgIC0+IGFkZHJjb25mX2RhZF9mYWlsdXJl
+ICAgICAgICA8LSBtaXNzaW5nIGlmcCBwdXQNCj4+ICAgICAgLT4gYWRkcmNvbmZfbW9kX2RhZF93
+b3JrDQo+PiAgICAgICAgLT4gc2NoZWR1bGUgYWRkcmNvbmZfZGFkX3dvcmsoKQ0KPj4gICAgICAg
+ICAgLT4gYWRkcmNvbmZfZGFkX3N0b3AoKSAgPC0gbWlzc2luZyBpZnAgaG9sZCBiZWZvcmUgY2Fs
+bCBpdA0KPj4gDQo+PiBhZGRyY29uZl9kYWRfZmFpbHVyZSgpIGNhbGxlZCB3aXRoIGlmcCByZWZj
+b250IGhvbGRpbmcgYnV0IG5vdCBwdXQuDQo+PiBhZGRyY29uZl9kYWRfd29yaygpIGNhbGwgYWRk
+cmNvbmZfZGFkX3N0b3AoKSB3aXRob3V0IGV4dHJhIGhvbGRpbmcgDQo+PiByZWZjb3VudC4gVGhp
+cyB3aWxsIG5vdCBjYXVzZSBhbnkgaXNzdWUgbm9ybWFsbHkuDQo+PiANCj4+IEJ1dCB0aGUgcmFj
+ZSBiZXR3ZWVuIGFkZHJjb25mX2RhZF9mYWlsdXJlKCkgYW5kIGFkZHJjb25mX2RhZF93b3JrKCkg
+DQo+PiBtYXkgY2F1c2UgaWZwIHJlZmNvdW50IGxlYWsgYW5kIG5ldGRldmljZSBjYW4gbm90IGJl
+IHVucmVnaXN0ZXIsIGRtZXNnIA0KPj4gc2hvdyB0aGUgZm9sbG93aW5nIG1lc3NhZ2VzOg0KPj4g
+DQo+PiBJUHY2OiBldGgwOiBJUHY2IGR1cGxpY2F0ZSBhZGRyZXNzIGZlODA6OlhYOlhYWFg6WFhY
+WDpYWCBkZXRlY3RlZCENCj4+IC4uLg0KPj4gdW5yZWdpc3Rlcl9uZXRkZXZpY2U6IHdhaXRpbmcg
+Zm9yIGV0aDAgdG8gYmVjb21lIGZyZWUuIFVzYWdlIGNvdW50ID0gMQ0KPj4gDQo+PiBDYzogc3Rh
+YmxlQHZnZXIua2VybmVsLm9yZw0KPj4gRml4ZXM6IGMxNWIxY2NhZGIzMiAoImlwdjY6IG1vdmUg
+REFEIGFuZCBhZGRyY29uZl92ZXJpZnkgcHJvY2Vzc2luZyB0byANCj4+IHdvcmtxdWV1ZSIpDQo+
+PiBTaWduZWQtb2ZmLWJ5OiBXZWkgWW9uZ2p1biA8d2VpeW9uZ2p1bjFAaHVhd2VpLmNvbT4NCj4+
+IA0KPj4gZGlmZiAtLWdpdCBhL25ldC9pcHY2L2FkZHJjb25mLmMgYi9uZXQvaXB2Ni9hZGRyY29u
+Zi5jIGluZGV4IA0KPj4gYmRmMzY4ZS4uMmYxZjVkNCAxMDA2NDQNCj4+IC0tLSBhL25ldC9pcHY2
+L2FkZHJjb25mLmMNCj4+ICsrKyBiL25ldC9pcHY2L2FkZHJjb25mLmMNCj4+IEBAIC0xOTQ4LDYg
+KzE5NDgsNyBAQCBlcnJkYWQ6DQo+PiAgCXNwaW5fdW5sb2NrX2JoKCZpZnAtPmxvY2spOw0KPj4g
+IA0KPj4gIAlhZGRyY29uZl9tb2RfZGFkX3dvcmsoaWZwLCAwKTsNCj4+ICsJaW42X2lmYV9wdXQo
+aWZwKTsNCj4+ICB9DQoNCj5UaGlzIGluNl9pZmFfcHV0IG1ha2VzIHNlbnNlLg0KDQo+PiAgDQo+
+PiAgLyogSm9pbiB0byBzb2xpY2l0ZWQgYWRkciBtdWx0aWNhc3QgZ3JvdXAuDQo+PiBAQCAtMzg1
+Nyw2ICszODU4LDcgQEAgc3RhdGljIHZvaWQgYWRkcmNvbmZfZGFkX3dvcmsoc3RydWN0IHdvcmtf
+c3RydWN0ICp3KQ0KPj4gIAkJYWRkcmNvbmZfZGFkX2JlZ2luKGlmcCk7DQo+PiAgCQlnb3RvIG91
+dDsNCj4+ICAJfSBlbHNlIGlmIChhY3Rpb24gPT0gREFEX0FCT1JUKSB7DQo+PiArCQlpbjZfaWZh
+X2hvbGQoaWZwKTsNCj4+ICAJCWFkZHJjb25mX2RhZF9zdG9wKGlmcCwgMSk7DQo+PiAgCQlpZiAo
+ZGlzYWJsZV9pcHY2KQ0KPj4gIAkJCWFkZHJjb25mX2lmZG93bihpZGV2LT5kZXYsIDApOw0KPj4g
+DQoNCj5CdXQgd2h5IHlvdSBhZGQgYSBpbjZfaWZhX2hvbGQgaGVyZSBpc24ndCBjbGVhciB0byBt
+ZS4gQ291bGQgeW91IGV4cGxhaW4gd2h5IHRoaXMgaXMNCj5uZWNlc3Nhcnk/IEkgZG9uJ3Qgc2Vl
+IGFueSBhc3luYyBzdHVmZiBiZWluZyBkb25lIGluIGFkZHJjb25mX2RhZF9zdG9wLCB0aHVzIHRo
+ZQ0KPnJlZmVyZW5jZSB3ZSBhbHJlYWR5IGhhdmUgc2hvdWxkIGJlIHN1ZmZpY2llbnQgZm9yIHRo
+ZSBsaWZldGltZSBvZiBhZGRyY29uZl9kYWRfc3RvcC4NCg0KSSB0aGluayBpdCB0aGF0IGxpbmsg
+bG9jYWwgaXMgYWRkZWQgd2l0aCBmbGFnIElGQV9GX1BFUk1BTkVOVCwgd2hpY2ggd2UgcmVhbCBu
+ZWVkDQppdCBpcyB0byByZW1vdmUgaW42X2lmYV9wdXQoKSBpbiBhZGRyY29uZl9kYWRfc3RvcC4N
+Cg0Kc3RhdGljIHZvaWQgYWRkcmNvbmZfZGFkX3N0b3AoLi4uKQ0Kew0KCWlmIChpZnAtPmZsYWdz
+JklGQV9GX1BFUk1BTkVOVCkgew0KCQkuLi4NCgkJaW42X2lmYV9wdXQoaWZwKTsgICA8PT0gcmVt
+b3ZlIHRoaXMgbGluZSBzaW5jZSBjYWxsZXIgaG9sZCByZWZjb3VudA0KCX0gZWxzZSBpZiAoaWZw
+LT5mbGFncyZJRkFfRl9URU1QT1JBUlkpIHsNCgkJLi4uDQoJCWlwdjZfZGVsX2FkZHIoaWZwKTsN
+Cgl9IGVsc2Ugew0KCQlpcHY2X2RlbF9hZGRyKGlmcCk7DQoJfQ0KfQ0KDQpJZiBzbywgdGhlIGFk
+ZHJjb25mX2RhZF9iZWdpbigpIGFsc28gbmVlZCB0byBmaXggYmVjYXVzZSBpZiBob2xkIGEgcmVm
+IGJlZm9yZQ0KYWRkcmNvbmZfZGFkX3N0b3AoKToNCg0Kc3RhdGljIHZvaWQgYWRkcmNvbmZfZGFk
+X2JlZ2luKHN0cnVjdCBpbmV0Nl9pZmFkZHIgKmlmcCkNCnsNCiAuLi4NCiAgCWluNl9pZmFfaG9s
+ZChpZnApOyAgPC0tIHJlbW92ZSB0aGlzIGxpbmUgDQoJYWRkcmNvbmZfZGFkX3N0b3AoaWZwLCAw
+KTsNCiAuLi4NCn0NCg0KQWxzbyBpbmV0Nl9hZGRyX2RlbCB3aGljaCBjYWxsZWQgaXB2Nl9kZWxf
+YWRkciB3aXRoIHJlZmNvdW50IGhvbGQ6DQppbmV0Nl9hZGRyX2RlbCguLi4pDQp7DQogIC4uLg0K
+ICBsaXN0X2Zvcl9lYWNoX2VudHJ5KC4uLikgew0KICAgIC4uLg0KICAgIGluNl9pZmFfaG9sZChp
+ZnApOyAgIDwtLSByZW1vdmUgdGhpcyBsaW5lDQoJLi4uDQoJaXB2Nl9kZWxfYWRkcihpZnApOw0K
+CS4uLg0KICB9DQogIC4uLg0KfQ0KDQpSZWdhcmRzLA0KWW9uZ2p1biBXZWkNCg==
