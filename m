@@ -1,74 +1,82 @@
-From: Daniel Mack <daniel@zonque.org>
-Subject: Re: [PATCH v3 2/6] cgroup: add support for eBPF programs
-Date: Mon, 5 Sep 2016 16:49:26 +0200
-Message-ID: <c38e0552-f406-1d00-d5f0-1cdca7082d15@zonque.org>
-References: <1472241532-11682-1-git-send-email-daniel@zonque.org>
- <1472241532-11682-3-git-send-email-daniel@zonque.org>
- <20160829230359.GB25396@ircssh.c.rugged-nimbus-611.internal>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: htejun@fb.com, daniel@iogearbox.net, ast@fb.com,
-        davem@davemloft.net, kafai@fb.com, fw@strlen.de,
-        pablo@netfilter.org, harald@redhat.com, netdev@vger.kernel.org
-To: Sargun Dhillon <sargun@sargun.me>
+From: fgao@ikuai8.com
+Subject: [PATCH 2/2 nf] netfilter: seqadj: Fix the wrong ack adjust for the RST packet without ack
+Date: Mon,  5 Sep 2016 23:02:05 +0800
+Message-ID: <1473087725-22089-1-git-send-email-fgao@ikuai8.com>
+Cc: gfree.wind@gmail.com, Gao Feng <fgao@ikuai8.com>
+To: pablo@netfilter.org, netfilter-devel@vger.kernel.org, fw@strlen.de,
+        coreteam@netfilter.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:57831 "EHLO mail.zonque.de"
+Received: from smtpbg321.qq.com ([14.17.32.30]:48477 "EHLO smtpbg321.qq.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755239AbcIEOta (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 5 Sep 2016 10:49:30 -0400
-In-Reply-To: <20160829230359.GB25396@ircssh.c.rugged-nimbus-611.internal>
+        id S932605AbcIEPDD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 5 Sep 2016 11:03:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Gao Feng <fgao@ikuai8.com>
 
-On 08/30/2016 01:04 AM, Sargun Dhillon wrote:
-> On Fri, Aug 26, 2016 at 09:58:48PM +0200, Daniel Mack wrote:
->> This patch adds two sets of eBPF program pointers to struct cgroup.
->> One for such that are directly pinned to a cgroup, and one for such
->> that are effective for it.
->>
->> To illustrate the logic behind that, assume the following example
->> cgroup hierarchy.
->>
->>   A - B - C
->>         \ D - E
->>
->> If only B has a program attached, it will be effective for B, C, D
->> and E. If D then attaches a program itself, that will be effective for
->> both D and E, and the program in B will only affect B and C. Only one
->> program of a given type is effective for a cgroup.
->>
-> How does this work when running and orchestrator within an orchestrator? The 
-> Docker in Docker / Mesos in Mesos use case, where the top level orchestrator is 
-> observing the traffic, and there is an orchestrator within that also need to run 
-> it.
-> 
-> In this case, I'd like to run E's filter, then if it returns 0, D's, and B's, 
-> and so on.
+It is valid that the TCP RST packet which does not set ack flag, and bytes
+of ack number are zero. For these RST packets, seqadj could not adjust the
+ack number.
 
-Running multiple programs was an idea I had in one of my earlier drafts,
-but after some discussion, I refrained from it again because potentially
-walking the cgroup hierarchy on every packet is just too expensive.
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
+---
+ net/netfilter/nf_conntrack_seqadj.c | 34 +++++++++++++++++++---------------
+ 1 file changed, 19 insertions(+), 15 deletions(-)
 
-> Is it possible to allow this, either by flattening out the
-> datastructure (copy a ref to the bpf programs to C and E) or
-> something similar?
-
-That would mean we carry a list of eBPF program pointers of dynamic
-size. IOW, the deeper inside the cgroup hierarchy, the bigger the list,
-so it can store a reference to all programs of all of its ancestor.
-
-While I think that would be possible, even at some later point, I'd
-really like to avoid it for the sake of simplicity.
-
-Is there any reason why this can't be done in userspace? Compile a
-program X for A, and overload it with Y, with Y doing the same than X
-but add some extra checks? Note that all users of the bpf(2) syscall API
-will need CAP_NET_ADMIN anyway, so there is no delegation to
-unprivileged sub-orchestators or anything alike really.
-
-
-Thanks,
-Daniel
+diff --git a/net/netfilter/nf_conntrack_seqadj.c b/net/netfilter/nf_conntrack_seqadj.c
+index 7f8d814..65bb4a6 100644
+--- a/net/netfilter/nf_conntrack_seqadj.c
++++ b/net/netfilter/nf_conntrack_seqadj.c
+@@ -182,30 +182,34 @@ int nf_ct_seq_adjust(struct sk_buff *skb,
+ 
+ 	tcph = (void *)skb->data + protoff;
+ 	spin_lock_bh(&ct->lock);
++
+ 	if (after(ntohl(tcph->seq), this_way->correction_pos))
+ 		seqoff = this_way->offset_after;
+ 	else
+ 		seqoff = this_way->offset_before;
+ 
+-	if (after(ntohl(tcph->ack_seq) - other_way->offset_before,
+-		  other_way->correction_pos))
+-		ackoff = other_way->offset_after;
+-	else
+-		ackoff = other_way->offset_before;
+-
+ 	newseq = htonl(ntohl(tcph->seq) + seqoff);
+-	newack = htonl(ntohl(tcph->ack_seq) - ackoff);
+-
+ 	inet_proto_csum_replace4(&tcph->check, skb, tcph->seq, newseq, false);
+-	inet_proto_csum_replace4(&tcph->check, skb, tcph->ack_seq, newack,
+-				 false);
+-
+-	pr_debug("Adjusting sequence number from %u->%u, ack from %u->%u\n",
+-		 ntohl(tcph->seq), ntohl(newseq), ntohl(tcph->ack_seq),
+-		 ntohl(newack));
+ 
++	pr_debug("Adjusting sequence number from %u->%u\n",
++		 ntohl(tcph->seq), ntohl(newseq));
+ 	tcph->seq = newseq;
+-	tcph->ack_seq = newack;
++
++	if (likely(tcph->ack)) {
++		if (after(ntohl(tcph->ack_seq) - other_way->offset_before,
++			  other_way->correction_pos))
++			ackoff = other_way->offset_after;
++		else
++			ackoff = other_way->offset_before;
++
++		newack = htonl(ntohl(tcph->ack_seq) - ackoff);
++		inet_proto_csum_replace4(&tcph->check, skb, tcph->ack_seq,
++					 newack, false);
++
++		pr_debug("Adjusting ack number from %u->%u\n",
++			 ntohl(tcph->ack_seq), ntohl(newack));
++		tcph->ack_seq = newack;
++	}
+ 
+ 	res = nf_ct_sack_adjust(skb, protoff, tcph, ct, ctinfo);
+ 	spin_unlock_bh(&ct->lock);
+-- 
+1.9.1
