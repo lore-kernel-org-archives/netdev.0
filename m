@@ -1,124 +1,69 @@
-From: Salil Mehta <salil.mehta@huawei.com>
-Subject: RE: [PATCH -next v2] net: hns: fix return value check in
- hns_dsaf_get_cfg()
-Date: Mon, 5 Sep 2016 14:20:33 +0000
-Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F91A6FA0CA@lhreml503-mbx>
-References: <1467644458-10131-1-git-send-email-weiyj_lk@163.com>
- <1467705412-30194-1-git-send-email-weiyj_lk@163.com>
+From: Daniel Mack <daniel@zonque.org>
+Subject: Re: [PATCH v3 5/6] net: core: run cgroup eBPF egress programs
+Date: Mon, 5 Sep 2016 16:22:39 +0200
+Message-ID: <634bb3e7-ea27-bf4d-5597-0cb9d4379466@zonque.org>
+References: <1472241532-11682-1-git-send-email-daniel@zonque.org>
+ <1472241532-11682-6-git-send-email-daniel@zonque.org>
+ <57C4B12B.2070302@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "weiyj_lk@163.com" <weiyj_lk@163.com>,
-        "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
-        "Yankejian (Hackim Yim)" <yankejian@huawei.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, kafai@fb.com, fw@strlen.de,
+        pablo@netfilter.org, harald@redhat.com, netdev@vger.kernel.org,
+        sargun@sargun.me
+To: Daniel Borkmann <daniel@iogearbox.net>, htejun@fb.com, ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lhrrgout.huawei.com ([194.213.3.17]:3370 "EHLO
-        lhrrgout.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934322AbcIEOVA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Sep 2016 10:21:00 -0400
-In-Reply-To: <1467705412-30194-1-git-send-email-weiyj_lk@163.com>
-Content-Language: en-US
+Received: from svenfoo.org ([82.94.215.22]:57631 "EHLO mail.zonque.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932266AbcIEOWm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 5 Sep 2016 10:22:42 -0400
+In-Reply-To: <57C4B12B.2070302@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
-This patch will conflict with Doug Ledford's hns-roce's HNS driver.
-This might lead to problems later during this merge window of 4.9.
+On 08/30/2016 12:03 AM, Daniel Borkmann wrote:
+> On 08/26/2016 09:58 PM, Daniel Mack wrote:
 
-Therefore, Please re-submit it later. The patch files it has are
-Directly conflicting with RoCE patches:
+>> diff --git a/net/core/dev.c b/net/core/dev.c
+>> index a75df86..17484e6 100644
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+>> @@ -141,6 +141,7 @@
+>>   #include <linux/netfilter_ingress.h>
+>>   #include <linux/sctp.h>
+>>   #include <linux/crash_dump.h>
+>> +#include <linux/bpf-cgroup.h>
+>>
+>>   #include "net-sysfs.h"
+>>
+>> @@ -3329,6 +3330,11 @@ static int __dev_queue_xmit(struct sk_buff *skb, void *accel_priv)
+>>   	if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_SCHED_TSTAMP))
+>>   		__skb_tstamp_tx(skb, NULL, skb->sk, SCM_TSTAMP_SCHED);
+>>
+>> +	rc = cgroup_bpf_run_filter(skb->sk, skb,
+>> +				   BPF_ATTACH_TYPE_CGROUP_INET_EGRESS);
+>> +	if (rc)
+>> +		return rc;
+> 
+> This would leak the whole skb by the way.
 
-[PATCH for-next 1/2] net: hns: Add support of ACPI to HNS driver RoCE Reset function 
-drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.h
-drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
+Ah, right.
 
-we are in process of streamlining the internal process for the better
-synchronization between HNS and RoCE/RDMA teams and would maintain
-internal repo for such conflicting patches and which can be
-git-pulled by David Miller and Doug Ledford.
+> Apart from that, could this be modeled w/o affecting the forwarding path (at some
+> local output point where we know to have a valid socket)? Then you could also drop
+> the !sk and sk->sk_family tests, and we wouldn't need to replicate parts of what
+> clsact is doing as well. Hmm, maybe access to src/dst mac could be handled to be
+> just zeroes since not available at that point?
 
-Best regards
-Salil
-> -----Original Message-----
-> From: weiyj_lk@163.com [mailto:weiyj_lk@163.com]
-> Sent: Tuesday, July 05, 2016 8:57 AM
-> To: Zhuangyuzeng (Yisen); Salil Mehta; Yankejian (Hackim Yim)
-> Cc: Wei Yongjun; netdev@vger.kernel.org
-> Subject: [PATCH -next v2] net: hns: fix return value check in
-> hns_dsaf_get_cfg()
-> 
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> 
-> In case of error, function devm_ioremap_resource() returns ERR_PTR()
-> and never returns NULL. The NULL test in the return value check should
-> be replaced with IS_ERR().
-> 
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> ---
->  drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 16 ++++++++------
-> --
->  1 file changed, 8 insertions(+), 8 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-> b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-> index 86ce28a..2ef4277 100644
-> --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-> +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-> @@ -114,9 +114,9 @@ int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
-> 
->  			dsaf_dev->sc_base = devm_ioremap_resource(&pdev->dev,
->  								  res);
-> -			if (!dsaf_dev->sc_base) {
-> +			if (IS_ERR(dsaf_dev->sc_base)) {
->  				dev_err(dsaf_dev->dev, "subctrl can not
-> map!\n");
-> -				return -ENOMEM;
-> +				return PTR_ERR(dsaf_dev->sc_base);
->  			}
-> 
->  			res = platform_get_resource(pdev, IORESOURCE_MEM,
-> @@ -128,9 +128,9 @@ int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
-> 
->  			dsaf_dev->sds_base = devm_ioremap_resource(&pdev-
-> >dev,
->  								   res);
-> -			if (!dsaf_dev->sds_base) {
-> +			if (IS_ERR(dsaf_dev->sds_base)) {
->  				dev_err(dsaf_dev->dev, "serdes-ctrl can not
-> map!\n");
-> -				return -ENOMEM;
-> +				return PTR_ERR(dsaf_dev->sds_base);
->  			}
->  		} else {
->  			dsaf_dev->sub_ctrl = syscon;
-> @@ -146,9 +146,9 @@ int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
->  		}
->  	}
->  	dsaf_dev->ppe_base = devm_ioremap_resource(&pdev->dev, res);
-> -	if (!dsaf_dev->ppe_base) {
-> +	if (IS_ERR(dsaf_dev->ppe_base)) {
->  		dev_err(dsaf_dev->dev, "ppe-base resource can not map!\n");
-> -		return -ENOMEM;
-> +		return PTR_ERR(dsaf_dev->ppe_base);
->  	}
->  	dsaf_dev->ppe_paddr = res->start;
-> 
-> @@ -165,9 +165,9 @@ int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
->  			}
->  		}
->  		dsaf_dev->io_base = devm_ioremap_resource(&pdev->dev, res);
-> -		if (!dsaf_dev->io_base) {
-> +		if (IS_ERR(dsaf_dev->io_base)) {
->  			dev_err(dsaf_dev->dev, "dsaf-base resource can not
-> map!\n");
-> -			return -ENOMEM;
-> +			return PTR_ERR(dsaf_dev->io_base);
->  		}
->  	}
-> 
+Hmm, I wonder where this hook could be put instead then. When placed in
+ip_output() and ip6_output(), the mac headers cannot be pushed before
+running the program, resulting in bogus skb data from the eBPF program.
+
+Also, if I read the code correctly, ip[6]_output is not called for
+multicast packets.
+
+Any other ideas?
+
+
+Thanks,
+Daniel
