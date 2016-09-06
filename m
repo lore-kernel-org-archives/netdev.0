@@ -1,40 +1,35 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH v4 net-next 1/1] net_sched: Introduce skbmod action
-Date: Tue, 6 Sep 2016 09:54:28 -0400
-Message-ID: <c25b04dc-cdf7-a13b-3275-a48866aa6806@mojatatu.com>
-References: <1473169060-29651-1-git-send-email-jhs@emojatatu.com>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [PATCH 249/249] net:ethernet:intel:igb_main.c: Add Throttling
+ disable option in order to decrease latency usually required by RT
+ applications.
+Date: Tue, 6 Sep 2016 10:00:39 -0400
+Message-ID: <20160906100039.67095d91@gandalf.local.home>
+References: <20abe8058531466d8d60835ce88b6489@Hummer.waves.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
-        xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
-        alexei.starovoitov@gmail.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yb0-f169.google.com ([209.85.213.169]:34381 "EHLO
-        mail-yb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933689AbcIFNya (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 09:54:30 -0400
-Received: by mail-yb0-f169.google.com with SMTP id x93so81310454ybh.1
-        for <netdev@vger.kernel.org>; Tue, 06 Sep 2016 06:54:30 -0700 (PDT)
-In-Reply-To: <1473169060-29651-1-git-send-email-jhs@emojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+        "jesse.brandeburg@intel.com" <jesse.brandeburg@intel.com>,
+        "shannon.nelson@intel.com" <shannon.nelson@intel.com>,
+        "carolyn.wyborny@intel.com" <carolyn.wyborny@intel.com>,
+        "donald.c.skidmore@intel.com" <donald.c.skidmore@intel.com>,
+        "matthew.vick@intel.com" <matthew.vick@intel.com>,
+        "john.ronciak@intel.com" <john.ronciak@intel.com>,
+        "mitch.a.williams@intel.com" <mitch.a.williams@intel.com>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Amir Yihie <amiry@waves.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20abe8058531466d8d60835ce88b6489@Hummer.waves.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16-09-06 09:37 AM, Jamal Hadi Salim wrote:
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
->
-> This action is intended to be an upgrade from a usability perspective
-> from pedit (as well as operational debugability).
-> Compare this:
->
+On Tue, 6 Sep 2016 13:17:04 +0000
+Amir Yihie <amiry@waves.com> wrote:
 
-Dave,
-I will have to send some new version of this action - so please
-dont apply.
-As it stands right now, the per-cpu stats dont work; so code uses
-global stats (which works).
-Hoping to get some clarity from other people then some more testing.
+> 
 
-cheers,
-jamal
+I guess there's not much to do here?
+
+-- Steve
