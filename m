@@ -1,40 +1,102 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/3] net: dsa: mv88e6xxx: isolate Global2
- support
-Date: Tue, 06 Sep 2016 12:58:28 -0700 (PDT)
-Message-ID: <20160906.125828.797045076262810512.davem@davemloft.net>
-References: <20160902184534.28594-1-vivien.didelot@savoirfairelinux.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: XPS configuration question (on tg3)
+Date: Tue, 6 Sep 2016 13:21:11 -0700
+Message-ID: <CAKgT0Ud3bRbi0muyB-0nRTS-NbimrgxzhG0cop1bs6MhrV2V-A@mail.gmail.com>
+References: <5b9c6d9d-6905-e3ee-515f-cc68c63078f7@ziu.info>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160902184534.28594-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Michal Soltys <soltys@ziu.info>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yb0-f175.google.com ([209.85.213.175]:33257 "EHLO
+        mail-yb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755803AbcIFUVl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 16:21:41 -0400
+Received: by mail-yb0-f175.google.com with SMTP id d205so76728538ybh.0
+        for <netdev@vger.kernel.org>; Tue, 06 Sep 2016 13:21:12 -0700 (PDT)
+In-Reply-To: <5b9c6d9d-6905-e3ee-515f-cc68c63078f7@ziu.info>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Fri,  2 Sep 2016 14:45:31 -0400
+On Tue, Sep 6, 2016 at 11:46 AM, Michal Soltys <soltys@ziu.info> wrote:
+> Hi,
+>
+> I've been testing different configurations and I didn't manage to get XPS=
+ to "behave" correctly - so I'm probably misunderstanding or forgetting som=
+ething. The nic in question (under tg3 driver - BCM5720 and BCM5719 models)=
+ was configured to 3 tx and 4 rx queues. 3 irqs were shared (tx and rx), 1 =
+was unused (this got me scratching my head a bit) and the remaining one was=
+ for the last rx (though due to another bug recently fixed the 4th rx queue=
+ was inconfigurable on receive side). The names were: eth1b-0, eth1b-txrx-1=
+, eth1b-txrx-2, eth1b-txrx-3, eth1b-rx-4.
+>
+> The XPS was configured as:
+>
+> echo f >/sys/class/net/eth1b/queues/tx-0/xps_cpus
+> echo f0 >/sys/class/net/eth1b/queues/tx-1/xps_cpus
+> echo ff00 >/sys/class/net/eth1b/queues/tx-2/xps_cpus
+>
+> So as far as I understand - cpus 0-3 should be allowed to use tx-0 queue =
+only, 4-7 tx-1 and 8-15 tx-2.
+>
+> Just in case rx side could get in the way as far as flows go, relevant ir=
+qs were pinned to specific cpus - txrx-1 to 2, txrx-2 to 4, txrx-3 to 10 - =
+falling into groups defined by the above masks.
+>
+> I tested both with mx and multiq scheduler, essentially either this:
+>
+> qdisc mq 2: root
+> qdisc pfifo_fast 0: parent 2:1 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1=
+ 1 1 1
+> qdisc pfifo_fast 0: parent 2:2 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1=
+ 1 1 1
+> qdisc pfifo_fast 0: parent 2:3 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1=
+ 1 1 1
+>
+> or this (for the record, skbaction queue_mapping was behaving correctly w=
+ith the one below):
+>
+> qdisc multiq 3: root refcnt 6 bands 3/5
+> qdisc pfifo_fast 31: parent 3:1 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 =
+1 1 1 1
+> qdisc pfifo_fast 32: parent 3:2 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 =
+1 1 1 1
+> qdisc pfifo_fast 33: parent 3:3 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 =
+1 1 1 1
+>
+> Now, do I understand correctly, that under the above setup - commands suc=
+h as
+>
+> taskset 400 nc -p $prt host_ip 12345 </dev/zero
+> or
+> yancat -i /dev/zero -o t:host_ip:12345 -u 10 -U 10
+>
+> ITOW - pinning simple nc command on cpu #10 (or using a tool that support=
+s affinity by itself) and sending data to some other host on the net - shou=
+ld *always* use tx-2 queue ?
+> I also tested variation such as: taskset 400 nc -l -p host_ip 12345 </dev=
+/zero (just in case taskset was "too late" with the affinity).
+>
+> In my case, what queue it used was basically random (on top of that it so=
+metimes changed the used queue mid-transfer) what could be easily confirmed=
+ through both /proc/interrupts and tc -s qdisc show. And I'm a bit at loss =
+now, as I though xps configuration should be absolute.
+>
+> Well, I'd be greatful for some pointers / hints.
 
-> Registers of Marvell chips are organized in internal SMI devices.
-> 
-> One of them at address 0x1C is called Global2. It provides an extended
-> set of registers, used for interrupt control, EEPROM access, indirect
-> PHY access (to bypass the PHY Polling Unit) and cross-chip setup.
-> 
-> Most chips have it, but some others don't (older ones such as 6060).
-> 
-> Now that its related code is isolated in mv88e6xxx_g2_* functions, move
-> it to its own global2.c file, making most of its setup code static.
-> 
-> Then make its compilation optional, which allows to reduce the size of
-> the mv88e6xxx driver for devices such as home routers embedding Ethernet
-> chips without Global2 support.
-> 
-> It is present on most recent chips, thus enable its support by default.
-> 
-> Changes in v2: fail probe if GLOBAL2 is required but not enabled.
+So it sounds like you have everything configured correctly.  The one
+question I would have is if we are certain the CPU pinning is working
+for the application.  You might try using something like perf to
+verify what is running on CPU 10, and what is running on the CPUs that
+the queues are associated with.
 
-Series applied, thanks.
+Also after you have configured things you may want to double check and
+verify the xps_cpus value is still set.  I know under some
+circumstances the value can be reset by a device driver if the number
+of queues changes, or if the interface toggles between being
+administratively up/down.
+
+Thanks.
+
+- Alex
