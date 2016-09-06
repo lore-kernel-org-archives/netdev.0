@@ -1,44 +1,134 @@
 From: Baoyou Xie <baoyou.xie@linaro.org>
-Subject: [PATCH] vmxnet3: mark vmxnet3_rq_destroy_all_rxdataring() static
-Date: Tue,  6 Sep 2016 16:11:59 +0800
-Message-ID: <1473149519-25993-1-git-send-email-baoyou.xie@linaro.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        arnd@arndb.de, baoyou.xie@linaro.org, xie.baoyou@zte.com.cn
-To: skhare@vmware.com, pv-drivers@vmware.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:35471 "EHLO
-        mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932810AbcIFIMQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 04:12:16 -0400
-Received: by mail-pa0-f42.google.com with SMTP id b2so84350pat.2
-        for <netdev@vger.kernel.org>; Tue, 06 Sep 2016 01:12:15 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: [PATCH] lan78xx: mark symbols static where possible
+Date: Tue,  6 Sep 2016 16:19:02 +0800
+Message-ID: <1473149942-26130-1-git-send-email-baoyou.xie@linaro.org>
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+        linux-kernel@vger.kernel.org, arnd@arndb.de, baoyou.xie@linaro.org,
+        xie.baoyou@zte.com.cn
+To: woojung.huh@microchip.com, UNGLinuxDriver@microchip.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We get 1 warning when building kernel with W=1:
-drivers/net/vmxnet3/vmxnet3_drv.c:1643:1: warning: no previous prototype for 'vmxnet3_rq_destroy_all_rxdataring' [-Wmissing-prototypes]
+We get a few warnings when building kernel with W=1:
+drivers/net/usb/lan78xx.c:1182:6: warning: no previous prototype for 'lan78xx_defer_kevent' [-Wmissing-prototypes]
+drivers/net/usb/lan78xx.c:1409:5: warning: no previous prototype for 'lan78xx_nway_reset' [-Wmissing-prototypes]
+drivers/net/usb/lan78xx.c:2000:5: warning: no previous prototype for 'lan78xx_set_mac_addr' [-Wmissing-prototypes]
+....
 
-In fact, this function is only used in the file in which it is
+In fact, these functions are only used in the file in which they are
 declared and don't need a declaration, but can be made static.
-so this patch marks this function with 'static'.
+so this patch marks these functions with 'static'.
 
 Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
 ---
- drivers/net/vmxnet3/vmxnet3_drv.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/usb/lan78xx.c | 24 +++++++++++++-----------
+ 1 file changed, 13 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index c68fe49..fc68dd4 100644
---- a/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -1639,7 +1639,7 @@ static void vmxnet3_rq_destroy(struct vmxnet3_rx_queue *rq,
+diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
+index 6a9d474..8c467a5 100644
+--- a/drivers/net/usb/lan78xx.c
++++ b/drivers/net/usb/lan78xx.c
+@@ -1179,7 +1179,7 @@ static int lan78xx_link_reset(struct lan78xx_net *dev)
+  * NOTE:  annoying asymmetry:  if it's active, schedule_work() fails,
+  * but tasklet_schedule() doesn't.	hope the failure is rare.
+  */
+-void lan78xx_defer_kevent(struct lan78xx_net *dev, int work)
++static void lan78xx_defer_kevent(struct lan78xx_net *dev, int work)
+ {
+ 	set_bit(work, &dev->flags);
+ 	if (!schedule_delayed_work(&dev->wq, 0))
+@@ -1406,7 +1406,7 @@ static u32 lan78xx_get_link(struct net_device *net)
+ 	return net->phydev->link;
+ }
+ 
+-int lan78xx_nway_reset(struct net_device *net)
++static int lan78xx_nway_reset(struct net_device *net)
+ {
+ 	return phy_start_aneg(net->phydev);
+ }
+@@ -1997,7 +1997,7 @@ static int lan78xx_change_mtu(struct net_device *netdev, int new_mtu)
+ 	return 0;
+ }
+ 
+-int lan78xx_set_mac_addr(struct net_device *netdev, void *p)
++static int lan78xx_set_mac_addr(struct net_device *netdev, void *p)
+ {
+ 	struct lan78xx_net *dev = netdev_priv(netdev);
+ 	struct sockaddr *addr = p;
+@@ -2371,7 +2371,7 @@ static void lan78xx_terminate_urbs(struct lan78xx_net *dev)
+ 	remove_wait_queue(&unlink_wakeup, &wait);
+ }
+ 
+-int lan78xx_stop(struct net_device *net)
++static int lan78xx_stop(struct net_device *net)
+ {
+ 	struct lan78xx_net		*dev = netdev_priv(net);
+ 
+@@ -2533,7 +2533,8 @@ static void lan78xx_queue_skb(struct sk_buff_head *list,
+ 	entry->state = state;
+ }
+ 
+-netdev_tx_t lan78xx_start_xmit(struct sk_buff *skb, struct net_device *net)
++static netdev_tx_t
++lan78xx_start_xmit(struct sk_buff *skb, struct net_device *net)
+ {
+ 	struct lan78xx_net *dev = netdev_priv(net);
+ 	struct sk_buff *skb2 = NULL;
+@@ -2562,7 +2563,8 @@ netdev_tx_t lan78xx_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	return NETDEV_TX_OK;
+ }
+ 
+-int lan78xx_get_endpoints(struct lan78xx_net *dev, struct usb_interface *intf)
++static int
++lan78xx_get_endpoints(struct lan78xx_net *dev, struct usb_interface *intf)
+ {
+ 	int tmp;
+ 	struct usb_host_interface *alt = NULL;
+@@ -2700,7 +2702,7 @@ static void lan78xx_rx_csum_offload(struct lan78xx_net *dev,
  	}
  }
  
--void
-+static void
- vmxnet3_rq_destroy_all_rxdataring(struct vmxnet3_adapter *adapter)
+-void lan78xx_skb_return(struct lan78xx_net *dev, struct sk_buff *skb)
++static void lan78xx_skb_return(struct lan78xx_net *dev, struct sk_buff *skb)
  {
- 	int i;
+ 	int		status;
+ 
+@@ -3285,7 +3287,7 @@ static void lan78xx_disconnect(struct usb_interface *intf)
+ 	usb_put_dev(udev);
+ }
+ 
+-void lan78xx_tx_timeout(struct net_device *net)
++static void lan78xx_tx_timeout(struct net_device *net)
+ {
+ 	struct lan78xx_net *dev = netdev_priv(net);
+ 
+@@ -3605,7 +3607,7 @@ static int lan78xx_set_suspend(struct lan78xx_net *dev, u32 wol)
+ 	return 0;
+ }
+ 
+-int lan78xx_suspend(struct usb_interface *intf, pm_message_t message)
++static int lan78xx_suspend(struct usb_interface *intf, pm_message_t message)
+ {
+ 	struct lan78xx_net *dev = usb_get_intfdata(intf);
+ 	struct lan78xx_priv *pdata = (struct lan78xx_priv *)(dev->data[0]);
+@@ -3701,7 +3703,7 @@ out:
+ 	return ret;
+ }
+ 
+-int lan78xx_resume(struct usb_interface *intf)
++static int lan78xx_resume(struct usb_interface *intf)
+ {
+ 	struct lan78xx_net *dev = usb_get_intfdata(intf);
+ 	struct sk_buff *skb;
+@@ -3768,7 +3770,7 @@ int lan78xx_resume(struct usb_interface *intf)
+ 	return 0;
+ }
+ 
+-int lan78xx_reset_resume(struct usb_interface *intf)
++static int lan78xx_reset_resume(struct usb_interface *intf)
+ {
+ 	struct lan78xx_net *dev = usb_get_intfdata(intf);
+ 
 -- 
 2.7.4
