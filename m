@@ -1,102 +1,60 @@
-From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-Subject: [PATCH v5 1/6] net: dt-bindings: Document the new Meson8b and GXBB DWMAC bindings
-Date: Tue,  6 Sep 2016 23:38:43 +0200
-Message-ID: <20160906213848.17785-2-martin.blumenstingl@googlemail.com>
-References: <20160904182320.671-1-martin.blumenstingl@googlemail.com>
- <20160906213848.17785-1-martin.blumenstingl@googlemail.com>
-Cc: robh+dt@kernel.org, mark.rutland@arm.com, catalin.marinas@arm.com,
-        will.deacon@arm.com, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        sboyd@codeaurora.org, manabian@gmail.com, arnd@arndb.de,
-        davem@davemloft.net, b.galvani@gmail.com,
-        Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-To: linux-amlogic@lists.infradead.org, khilman@baylibre.com,
-        carlo@caione.org, mturquette@baylibre.com, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33976 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754429AbcIFVjo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 17:39:44 -0400
-In-Reply-To: <20160906213848.17785-1-martin.blumenstingl@googlemail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Robert Foss <robert.foss@collabora.com>
+Subject: Re: [PATCH v3 5/5] net: asix: autoneg will set WRITE_MEDIUM reg
+Date: Tue, 6 Sep 2016 17:48:12 -0400
+Message-ID: <fd5a0166-6b90-3992-448f-2c5f990b572c@collabora.com>
+References: <cover.c702ef6af13be7c1282a2f2d3189281fdc327abe.1472155176.git-series.robert.foss@collabora.com>
+ <9d5c5525f369f1c4098bda989d73886d11036bae.1472155176.git-series.robert.foss@collabora.com>
+ <1472748216.5019.46.camel@edumazet-glaptop3.roam.corp.google.com>
+ <18052c6d-2cb1-0927-7d33-92d4bd397aa4@collabora.com>
+ <1472749350.5019.52.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CANEJEGtE7R_FhGJfw8hayuiQi1Wbo2cYFN9MbcYzm6+Whs=2Qw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Freddy Xin <freddy@asix.com.tw>, Dean_Jenkins@mentor.com,
+        Mark_Craske@mentor.com, David Miller <davem@davemloft.net>,
+        ivecera@redhat.com, john.stultz@linaro.org,
+        Vincent Palatin <vpalatin@chromium.org>,
+        stephen@networkplumber.org, Grant Grundler <grundler@chromium.org>,
+        Chia-Sheng Chang <changchias@gmail.com>,
+        Allan Chou <allan@asix.com.tw>, andrew@lunn.ch,
+        tremyfr@gmail.com, colin.king@canonical.com,
+        "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Vincent Palatin <vpalatin@google.com>
+To: Grant Grundler <grundler@google.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CANEJEGtE7R_FhGJfw8hayuiQi1Wbo2cYFN9MbcYzm6+Whs=2Qw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds the documentation for the DWMAC ethernet controller
-found in Amlogic Meson 8b (S805) and GXBB (S905) SoCs.
-The main difference between the Meson6 glue is that different registers
-(with different layout) are used.
 
-Signed-off-by: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-Acked-by: Rob Herring <robh@kernel.org>
-Acked-by: David S. Miller <davem@davemloft.net>
----
- .../devicetree/bindings/net/meson-dwmac.txt        | 45 ++++++++++++++++++----
- 1 file changed, 37 insertions(+), 8 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/meson-dwmac.txt b/Documentation/devicetree/bindings/net/meson-dwmac.txt
-index ec633d7..89e62dd 100644
---- a/Documentation/devicetree/bindings/net/meson-dwmac.txt
-+++ b/Documentation/devicetree/bindings/net/meson-dwmac.txt
-@@ -1,18 +1,32 @@
- * Amlogic Meson DWMAC Ethernet controller
- 
- The device inherits all the properties of the dwmac/stmmac devices
--described in the file net/stmmac.txt with the following changes.
-+described in the file stmmac.txt in the current directory with the
-+following changes.
- 
--Required properties:
-+Required properties on all platforms:
- 
--- compatible: should be "amlogic,meson6-dwmac" along with "snps,dwmac"
--	      and any applicable more detailed version number
--	      described in net/stmmac.txt
-+- compatible:	Depending on the platform this should be one of:
-+			- "amlogic,meson6-dwmac"
-+			- "amlogic,meson8b-dwmac"
-+			- "amlogic,meson-gxbb-dwmac"
-+		Additionally "snps,dwmac" and any applicable more
-+		detailed version number described in net/stmmac.txt
-+		should be used.
- 
--- reg: should contain a register range for the dwmac controller and
--       another one for the Amlogic specific configuration
-+- reg:	The first register range should be the one of the DWMAC
-+	controller. The second range is is for the Amlogic specific
-+	configuration (for example the PRG_ETHERNET register range
-+	on Meson8b and newer)
- 
--Example:
-+Required properties on Meson8b and newer:
-+- clock-names:	Should contain the following:
-+		- "stmmaceth" - see stmmac.txt
-+		- "clkin0" - first parent clock of the internal mux
-+		- "clkin1" - second parent clock of the internal mux
-+
-+
-+Example for Meson6:
- 
- 	ethmac: ethernet@c9410000 {
- 		compatible = "amlogic,meson6-dwmac", "snps,dwmac";
-@@ -23,3 +37,18 @@ Example:
- 		clocks = <&clk81>;
- 		clock-names = "stmmaceth";
- 	}
-+
-+Example for GXBB:
-+	ethmac: ethernet@c9410000 {
-+		compatible = "amlogic,meson-gxbb-dwmac", "snps,dwmac";
-+		reg = <0x0 0xc9410000 0x0 0x10000>,
-+			<0x0 0xc8834540 0x0 0x8>;
-+		interrupts = <0 8 1>;
-+		interrupt-names = "macirq";
-+		clocks = <&clkc CLKID_ETH>,
-+				<&clkc CLKID_FCLK_DIV2>,
-+				<&clkc CLKID_MPLL2>;
-+		clock-names = "stmmaceth", "clkin0", "clkin1";
-+		phy-mode = "rgmii";
-+		status = "disabled";
-+	};
--- 
-2.9.3
+On 2016-09-06 12:41 PM, Grant Grundler wrote:
+> On Thu, Sep 1, 2016 at 10:02 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> On Thu, 2016-09-01 at 12:47 -0400, Robert Foss wrote:
+>>
+>>> I'm not quite sure how the first From line was added, it
+>>> should not have been.
+>>> Grant Grundler is most definitely the author.
+>>>
+>>> Would you like me to resubmit in v++ and make sure that it has been
+>>> corrected?
+>>
+>> This is too late, patches are already merged in David Miller net-next
+>> tree.
+>>
+>> These kinds of errors can not be fixed, we have to be very careful at
+>> submission/review time.
+>>
+>> I guess Grant does not care, but some contributors, especially new ones
+>> would like to get proper attribution.
+>
+> I do not mind. Robert will get email about bugs instead of me. :D
+
+Thanks Grant, sorry about the mixup!
+
+
+Rob.
