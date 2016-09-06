@@ -1,155 +1,70 @@
-From: "Kaur, Jasminder" <jasminder.kaur@hpe.com>
-Subject: [PATCH] bonding: Prevent deletion of a bond, or the last slave from a bond, with active usage.
-Date: Tue,  6 Sep 2016 15:04:30 +0530
-Message-ID: <1473154470-15087-1-git-send-email-jasminder.kaur@hpe.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v4 4/5] net: stmmac: add a glue driver for the Amlogic Meson 8b / GXBB DWMAC
+Date: Tue, 06 Sep 2016 11:37:58 +0200
+Message-ID: <16206001.1636ZmhtjK@wuerfel>
+References: <201609050953.67GKeUAU%fengguang.wu@intel.com> <14789887.lyko4Om94p@wuerfel> <CAFBinCAC3c=o1=8DGfiPhw6w6V42jvYLUfHXHpHLe03pw8P=LQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        vasundhara.gurunath@hpe.com, paulose.kuriakose.arackal@hpe.com,
-        "Kaur, Jasminder" <jasminder.kaur@hpe.com>
-To: j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: kbuild test robot <lkp@intel.com>, kbuild-all@01.org,
+        linux-amlogic@lists.infradead.org, khilman@baylibre.com,
+        carlo@caione.org, mturquette@baylibre.com, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com, robh+dt@kernel.org, mark.rutland@arm.com,
+        catalin.marinas@arm.com, will.deacon@arm.com,
+        netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, sboyd@codeaurora.org,
+        manabian@gmail.com, davem@davemloft.net
+To: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.126.187]:59894 "EHLO
+        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933143AbcIFJjE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 05:39:04 -0400
+In-Reply-To: <CAFBinCAC3c=o1=8DGfiPhw6w6V42jvYLUfHXHpHLe03pw8P=LQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Kaur, Jasminder" <jasminder.kaur@hpe.com>
+On Monday, September 5, 2016 9:07:03 PM CEST Martin Blumenstingl wrote:
+> On Mon, Sep 5, 2016 at 12:53 PM, Arnd Bergmann <arnd@arndb.de> wrote:
+> > On Monday, September 5, 2016 9:37:29 AM CEST kbuild test robot wrote:
+> >> All error/warnings (new ones prefixed by >>):
+> >>
+> >> >> drivers/net/ethernet/stmicro/stmmac/dwmac-meson8b.c:63:18: error: field 'm250_mux' has incomplete type
+> >>      struct clk_mux  m250_mux;
+> >>                      ^
+> >> >> drivers/net/ethernet/stmicro/stmmac/dwmac-meson8b.c:67:21: error: field 'm250_div' has incomplete type
+> >>      struct clk_divider m250_div;
+> >>                         ^
+> >>
+> >
+> > I think this needs a compile-time dependency on COMMON_CLK
+> indeed, since we are also a clock provider we have to depend on
+> CONFIG_COMMON_CLK.
+> 
+> That brings up a question though:
+> so far the new driver uses the same Kconfig symbol as the "old" driver
+> (CONFIG_DWMAC_MESON).
+> The "old" driver does not need CONFIG_COMMON_CLK while the new one does.
+> I see a few options here:
+> 1. simply adding the dependency (as most configurations will have
+> CONFIG_COMMON_CLK enabled anyways)
 
-If a bond is in use such as with IP address configured, removing it
-can result in application disruptions. If bond is used for cluster
-communication or network file system interfaces, removing it can cause
-system down time.
+I think that's fine. At least on both ARM multiplatform and ARM64 it is
+always defined by definition, and when build testing, it should be possible
+to enable it on other architectures as well.
 
-An additional write option “?-” is added to sysfs bond interfaces as
-below, in order to prevent accidental deletions while bond is in use.
-In the absence of any usage, the below option proceeds with bond deletion.
-“ echo "?-bondX" > /sys/class/net/bonding_masters “ .
-If usage is detected such as an IP address configured, deletion is
-prevented with appropriate message logged to syslog.
+> 2. add some depends on COMMON_CLK || MACH_MESON6 || MACH_MESON8 foo
 
-In the absence of any usage, the below option proceeds with deletion of
-slaves from a bond.
-“ echo "?-enoX" > /sys/class/net/bondX/bonding/slaves “ .
-If usage is detected such as an IP address configured on bond, deletion
-is prevented if the last slave is being removed from bond.
-An appropriate message is logged to syslog.
+That doesn't work unless you also put the calls into the clk interface
+inside of ugly #ifdef
 
-Signed-off-by: Jasminder Kaur <jasminder.kaur@hpe.com>
----
- drivers/net/bonding/bond_options.c | 24 ++++++++++++++++++++++--
- drivers/net/bonding/bond_sysfs.c   | 35 +++++++++++++++++++++++++++++++++--
- 2 files changed, 55 insertions(+), 4 deletions(-)
+> 3. use a new Kconfig symbol for new new driver (CONFIG_DWMAC_MESON8B?)
 
-diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index 577e57c..e7640ea 100644
---- a/drivers/net/bonding/bond_options.c
-+++ b/drivers/net/bonding/bond_options.c
-@@ -1335,9 +1335,15 @@ static int bond_option_slaves_set(struct bonding *bond,
- 	struct net_device *dev;
- 	char *ifname;
- 	int ret;
-+	struct in_device *in_dev;
- 
- 	sscanf(newval->string, "%16s", command); /* IFNAMSIZ*/
--	ifname = command + 1;
-+
-+	if ((command[0] == '?') && (command[1] == '-'))
-+		ifname = command + 2;
-+	else
-+		ifname = command + 1;
-+
- 	if ((strlen(command) <= 1) ||
- 	    !dev_valid_name(ifname))
- 		goto err_no_cmd;
-@@ -1356,6 +1362,20 @@ static int bond_option_slaves_set(struct bonding *bond,
- 		ret = bond_enslave(bond->dev, dev);
- 		break;
- 
-+	case '?':
-+		if (command[1] == '-') {
-+			in_dev = __in_dev_get_rtnl(bond->dev);
-+			if ((bond->slave_cnt == 1) &&
-+			    ((in_dev->ifa_list) != NULL)) {
-+				netdev_info(bond->dev, "attempt to remove last slave %s from bond.\n",
-+					    dev->name);
-+				ret = -EBUSY;
-+				break;
-+			}
-+		} else {
-+			goto err_no_cmd;
-+		}
-+
- 	case '-':
- 		netdev_info(bond->dev, "Removing slave %s\n", dev->name);
- 		ret = bond_release(bond->dev, dev);
-@@ -1369,7 +1389,7 @@ out:
- 	return ret;
- 
- err_no_cmd:
--	netdev_err(bond->dev, "no command found in slaves file - use +ifname or -ifname\n");
-+	netdev_err(bond->dev, "no command found in slaves file - use +ifname or -ifname or ?-ifname\n");
- 	ret = -EPERM;
- 	goto out;
- }
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index e23c3ed..7c2ef64 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -102,7 +102,12 @@ static ssize_t bonding_store_bonds(struct class *cls,
- 	int rv, res = count;
- 
- 	sscanf(buffer, "%16s", command); /* IFNAMSIZ*/
--	ifname = command + 1;
-+
-+	if ((command[0] == '?') && (command[1] == '-'))
-+		ifname = command + 2;
-+	else
-+		ifname = command + 1;
-+
- 	if ((strlen(command) <= 1) ||
- 	    !dev_valid_name(ifname))
- 		goto err_no_cmd;
-@@ -130,6 +135,32 @@ static ssize_t bonding_store_bonds(struct class *cls,
- 			res = -ENODEV;
- 		}
- 		rtnl_unlock();
-+	} else if ((command[0] == '?') && (command[1] == '-')) {
-+		struct net_device *bond_dev;
-+
-+		rtnl_lock();
-+		bond_dev = bond_get_by_name(bn, ifname);
-+
-+		if (bond_dev) {
-+			struct in_device *in_dev;
-+			struct bonding *bond = netdev_priv(bond_dev);
-+
-+			in_dev = __in_dev_get_rtnl(bond_dev);
-+
-+			if (((in_dev->ifa_list) != NULL) &&
-+			    (bond->slave_cnt > 0)) {
-+				pr_err("%s is in use. Unconfigure IP %pI4 before deletion.\n",
-+				       ifname, &in_dev->ifa_list->ifa_local);
-+				rtnl_unlock();
-+				return -EBUSY;
-+			}
-+			pr_info("%s is being deleted...\n", ifname);
-+			unregister_netdevice(bond_dev);
-+		} else {
-+			pr_err("unable to delete non-existent %s\n", ifname);
-+			res = -ENODEV;
-+		}
-+		rtnl_unlock();
- 	} else
- 		goto err_no_cmd;
- 
-@@ -139,7 +170,7 @@ static ssize_t bonding_store_bonds(struct class *cls,
- 	return res;
- 
- err_no_cmd:
--	pr_err("no command found in bonding_masters - use +ifname or -ifname\n");
-+	pr_err("no command found in bonding_masters - use +ifname or -ifname or ?-ifname\n");
- 	return -EPERM;
- }
- 
--- 
-1.8.3.1
+That would be ok as well, probably not necessary.
+
+> And finally regarding your other mail: I have already changed
+> WARN_ON(PTR_ERR_OR_ZERO(...)) to WARN_ON(IS_ERR(...)) in v4
+
+Ok, thanks.
+
+	Arnd
