@@ -1,55 +1,49 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [RFC PATCH v2 0/6] Reduce cache miss for snmp_fold_field
-Date: Tue, 6 Sep 2016 09:44:13 -0300
-Message-ID: <20160906124413.GC27658@localhost.localdomain>
-References: <1473129009-20478-1-git-send-email-hejianet@gmail.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next V5 4/4] net/sched: Introduce act_tunnel_key
+Date: Tue, 6 Sep 2016 08:44:55 -0400
+Message-ID: <6b4fc960-ee0a-c85a-13eb-fe33c36bef4a@mojatatu.com>
+References: <1472986555-14949-1-git-send-email-hadarh@mellanox.com>
+ <1472986555-14949-5-git-send-email-hadarh@mellanox.com>
+ <b6d6b736-bc45-3216-6109-0b67a54fb704@mojatatu.com>
+ <CAJL1qvEP7NOMr1xGr1LkUDi9K96P+ZzU2m5D1q=uZMC-AyrKSw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        linux-kernel@vger.kernel.org, davem@davemloft.net,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>
-To: Jia He <hejianet@gmail.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Hadar Hen Zion <hadarh@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@mellanox.com>,
+        Jiri Benc <jbenc@redhat.com>,
+        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Amir Vadai <amirva@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>, Amir Vadai <amir@vadai.me>
+To: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47198 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933782AbcIFMo2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 6 Sep 2016 08:44:28 -0400
-Content-Disposition: inline
-In-Reply-To: <1473129009-20478-1-git-send-email-hejianet@gmail.com>
+Received: from mail-oi0-f66.google.com ([209.85.218.66]:33852 "EHLO
+        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932286AbcIFMpQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 08:45:16 -0400
+Received: by mail-oi0-f66.google.com with SMTP id v82so7498735oie.1
+        for <netdev@vger.kernel.org>; Tue, 06 Sep 2016 05:45:16 -0700 (PDT)
+In-Reply-To: <CAJL1qvEP7NOMr1xGr1LkUDi9K96P+ZzU2m5D1q=uZMC-AyrKSw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 06, 2016 at 10:30:03AM +0800, Jia He wrote:
-...
-> v2:
-> - 1/6 fix bug in udplite statistics. 
-> - 1/6 snmp_seq_show is split into 2 parts
-> 
-> Jia He (6):
->   proc: Reduce cache miss in {snmp,netstat}_seq_show
->   proc: Reduce cache miss in snmp6_seq_show
->   proc: Reduce cache miss in sctp_snmp_seq_show
->   proc: Reduce cache miss in xfrm_statistics_seq_show
->   ipv6: Remove useless parameter in __snmp6_fill_statsdev
->   net: Suppress the "Comparison to NULL could be written" warning
+On 16-09-06 07:03 AM, Hadar Hen Zion wrote:
+> On Tue, Sep 6, 2016 at 1:49 PM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
 
-Hi Jia,
+>> Please verify by running a test and send a packet or two
+>> and verify that stats are incremented (I know it may sound silly to
+>> ask but it is important).
+>
+> Already tested that tc filter stats are working and incremented as expected :-)
 
-Did you try to come up with a generic interface for this, like
-snmp_fold_fields64() (note the fieldS) or snmp_fold_field64_batch() ?
+I did see issue with per-cpu counters when i updated to rcu.
+But the test was on a VM. So i changed skbmod to use global stats.
+Maybe the kernel i was testing had issues.
+Eric may have some insights.
 
-Sounds like we have the same code in several places and seems they all
-operate very similarly. They have a percpu table, an identified max, a
-destination buffer.. 
-
-If this is possible, this would reduce the possibility of hiccups in a
-particular code.
-
-  Marcelo
+cheers,
+jamal
