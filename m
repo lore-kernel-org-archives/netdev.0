@@ -1,67 +1,69 @@
-From: Brandon Cazander <brandon.cazander@multapplied.net>
-Subject: Re: PROBLEM: TPROXY and DNAT broken (bisected to 079096f103fa)
-Date: Tue, 6 Sep 2016 16:41:16 +0000
-Message-ID: <BL2PR07MB23065A58E771485F53D553E99EF90@BL2PR07MB2306.namprd07.prod.outlook.com>
-References: <BL2PR07MB2306908C76E928619A24B52E9E0F0@BL2PR07MB2306.namprd07.prod.outlook.com>
- <20160729132154.GB13634@breakpoint.cc>
- <BL2PR07MB2306B2B920C441DF5406B1439E050@BL2PR07MB2306.namprd07.prod.outlook.com>
- <20160802221121.GB31209@breakpoint.cc>
- <BL2PR07MB23061A24DD64E80532DBD9799E060@BL2PR07MB2306.namprd07.prod.outlook.com>
- <BL2PR07MB2306C9A7EB393F441D56E7D69E1E0@BL2PR07MB2306.namprd07.prod.outlook.com>,<20160812190319.GB25519@breakpoint.cc>,<BL2PR07MB23066ABAF5223701D17CFFF29E120@BL2PR07MB2306.namprd07.prod.outlook.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v3 5/6] net: core: run cgroup eBPF egress programs
+Date: Tue, 06 Sep 2016 19:14:31 +0200
+Message-ID: <57CEF977.5030003@iogearbox.net>
+References: <1472241532-11682-1-git-send-email-daniel@zonque.org> <1472241532-11682-6-git-send-email-daniel@zonque.org> <57C4B12B.2070302@iogearbox.net> <634bb3e7-ea27-bf4d-5597-0cb9d4379466@zonque.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: quoted-printable
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        Florian Westphal <fw@strlen.de>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, kafai@fb.com, fw@strlen.de,
+        pablo@netfilter.org, harald@redhat.com, netdev@vger.kernel.org,
+        sargun@sargun.me
+To: Daniel Mack <daniel@zonque.org>, htejun@fb.com, ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-dm3nam03on0077.outbound.protection.outlook.com ([104.47.41.77]:6135
-        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S932845AbcIFQ4K (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 6 Sep 2016 12:56:10 -0400
-In-Reply-To: <BL2PR07MB23066ABAF5223701D17CFFF29E120@BL2PR07MB2306.namprd07.prod.outlook.com>
-Content-Language: en-US
+Received: from www62.your-server.de ([213.133.104.62]:32820 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S936286AbcIFROu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 13:14:50 -0400
+In-Reply-To: <634bb3e7-ea27-bf4d-5597-0cb9d4379466@zonque.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sorry to resurrect this so much later=97I just got back from holidays and t=
-his was still on my desk.
+On 09/05/2016 04:22 PM, Daniel Mack wrote:
+> On 08/30/2016 12:03 AM, Daniel Borkmann wrote:
+>> On 08/26/2016 09:58 PM, Daniel Mack wrote:
+>
+>>> diff --git a/net/core/dev.c b/net/core/dev.c
+>>> index a75df86..17484e6 100644
+>>> --- a/net/core/dev.c
+>>> +++ b/net/core/dev.c
+>>> @@ -141,6 +141,7 @@
+>>>    #include <linux/netfilter_ingress.h>
+>>>    #include <linux/sctp.h>
+>>>    #include <linux/crash_dump.h>
+>>> +#include <linux/bpf-cgroup.h>
+>>>
+>>>    #include "net-sysfs.h"
+>>>
+>>> @@ -3329,6 +3330,11 @@ static int __dev_queue_xmit(struct sk_buff *skb, void *accel_priv)
+>>>    	if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_SCHED_TSTAMP))
+>>>    		__skb_tstamp_tx(skb, NULL, skb->sk, SCM_TSTAMP_SCHED);
+>>>
+>>> +	rc = cgroup_bpf_run_filter(skb->sk, skb,
+>>> +				   BPF_ATTACH_TYPE_CGROUP_INET_EGRESS);
+>>> +	if (rc)
+>>> +		return rc;
+>>
+>> This would leak the whole skb by the way.
+>
+> Ah, right.
+>
+>> Apart from that, could this be modeled w/o affecting the forwarding path (at some
+>> local output point where we know to have a valid socket)? Then you could also drop
+>> the !sk and sk->sk_family tests, and we wouldn't need to replicate parts of what
+>> clsact is doing as well. Hmm, maybe access to src/dst mac could be handled to be
+>> just zeroes since not available at that point?
+>
+> Hmm, I wonder where this hook could be put instead then. When placed in
+> ip_output() and ip6_output(), the mac headers cannot be pushed before
+> running the program, resulting in bogus skb data from the eBPF program.
 
-Will anyone have another chance to look at this? It appears that the DIVERT=
- rule is not working in our case, and I wonder if it is possible to fix the=
- TPROXY target as well as the socket target fix that Florian provided.
-
-It appears as though nobody else has encountered this regression, so I can =
-appreciate that it comes up pretty low on the priority list. If it is not r=
-ealistic that this will be looked at further, then we will have to look at =
-replacing TPROXY.
-
-Thanks for your time.
-
-
-From: Brandon Cazander
-Sent: Monday, August 15, 2016 9:28 AM
-To: Florian Westphal
-Cc: netdev@vger.kernel.org; Eric Dumazet
-Subject: Re: PROBLEM: TPROXY and DNAT broken (bisected to 079096f103fa)
-=A0  =20
-I can recreate the issue with these rules:
-
-ip rule add fwmark 1 lookup 100
-ip route add local 0.0.0.0/0 dev lo table 100
-iptables -t mangle -A PREROUTING -p tcp -m tcp --dport 8080 -j TPROXY --on-=
-port 9876 --on-ip 0.0.0.0 --tproxy-mark 0x1/0x1
-iptables -t nat -A PREROUTING -d 192.168.7.20/32 -i eth0 -j DNAT --to-desti=
-nation 192.168.8.1
-
-If I add in the DIVERT chain it works:
-
-iptables -t mangle -N DIVERT
-iptables -t mangle -A PREROUTING -p tcp -m socket -j DIVERT
-iptables -t mangle -A DIVERT -j MARK --set-mark 1
-iptables -t mangle -A DIVERT -j ACCEPT
-iptables -t mangle -A PREROUTING -p tcp -m tcp --dport 8080 -j TPROXY --on-=
-port 9876 --on-ip 0.0.0.0 --tproxy-mark 0x1/0x1
-
-But that's still a regression in my opinion.    =
+But as it stands right now, RX will only see a subset of packets in sk_filter()
+layer (depending on where it's called in the proto handler implementation,
+so might not even include all control messages, for example) as opposed to
+the TX hook going that far even 'seeing' everything incl. forwarded packets
+in the sense that we know a priori that these kind of skbs going through the
+cgroup_bpf_run_filter() handler when the hook is enabled will just skip this
+hook eventually anyway. What about letting such progs see /only/ local skbs
+for RX and TX, with skb->data from L3 onwards (iirc, that would be similar
+to what current sk_filter() programs see)?
