@@ -1,38 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 net-next 1/1] net_sched: Introduce skbmod action
-Date: Tue, 06 Sep 2016 16:35:10 -0700 (PDT)
-Message-ID: <20160906.163510.534668495978970928.davem@davemloft.net>
-References: <1473169060-29651-1-git-send-email-jhs@emojatatu.com>
-        <c25b04dc-cdf7-a13b-3275-a48866aa6806@mojatatu.com>
+Subject: Re: [PATCH net-next] sfc: check MTU against minimum threshold
+Date: Tue, 06 Sep 2016 16:54:32 -0700 (PDT)
+Message-ID: <20160906.165432.1557595359939703450.davem@davemloft.net>
+References: <20160902170742.GA17677@redhat.com>
+        <09fc2c3f-744b-41e5-5801-96fa80cd6ad5@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
-        xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
-        alexei.starovoitov@gmail.com
-To: jhs@mojatatu.com
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
+        jarod@redhat.com
+To: bkenward@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56648 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:56896 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933190AbcIFXfO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 19:35:14 -0400
-In-Reply-To: <c25b04dc-cdf7-a13b-3275-a48866aa6806@mojatatu.com>
+        with ESMTP id S1754944AbcIFXyd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 19:54:33 -0400
+In-Reply-To: <09fc2c3f-744b-41e5-5801-96fa80cd6ad5@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Date: Tue, 6 Sep 2016 09:54:28 -0400
+From: Bert Kenward <bkenward@solarflare.com>
+Date: Tue, 6 Sep 2016 17:50:00 +0100
 
-> On 16-09-06 09:37 AM, Jamal Hadi Salim wrote:
->> From: Jamal Hadi Salim <jhs@mojatatu.com>
->>
->> This action is intended to be an upgrade from a usability perspective
->> from pedit (as well as operational debugability).
->> Compare this:
->>
-> 
-> Dave,
-> I will have to send some new version of this action - so please
-> dont apply.
+> Reported-by: Ma Yuying <yuma@redhat.com>
+> Suggested-by: Jarod Wilson <jarod@redhat.com>
+> Signed-off-by: Bert Kenward <bkenward@solarflare.com>
 
-Ok.
+Applied.
