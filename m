@@ -1,47 +1,78 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH] bonding: Prevent deletion of a bond, or the last slave
- from a bond, with active usage.
-Date: Tue, 6 Sep 2016 16:59:16 +0200
-Message-ID: <20160906145916.GI1692@nanopsycho>
-References: <1473154470-15087-1-git-send-email-jasminder.kaur@hpe.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [patch net-next v7 0/3] return offloaded stats as default and
+ expose original sw stats
+Date: Tue, 06 Sep 2016 07:59:19 -0700
+Message-ID: <57CED9C7.3030803@cumulusnetworks.com>
+References: <1473095937-27100-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        vasundhara.gurunath@hpe.com, paulose.kuriakose.arackal@hpe.com
-To: "Kaur, Jasminder" <jasminder.kaur@hpe.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1473154470-15087-1-git-send-email-jasminder.kaur@hpe.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nogahf@mellanox.com,
+        idosch@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
+        ogerlitz@mellanox.com, nikolay@cumulusnetworks.com,
+        linville@tuxdriver.com, tgraf@suug.ch, gospo@cumulusnetworks.com,
+        sfeldma@gmail.com, sd@queasysnail.net, eranbe@mellanox.com,
+        ast@plumgrid.com, edumazet@google.com, hannes@stressinduktion.org,
+        f.fainelli@gmail.com, dsa@cumulusnetworks.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:34834 "EHLO
+        mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935363AbcIFO7V (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 10:59:21 -0400
+Received: by mail-pa0-f43.google.com with SMTP id b2so3157382pat.2
+        for <netdev@vger.kernel.org>; Tue, 06 Sep 2016 07:59:21 -0700 (PDT)
+In-Reply-To: <1473095937-27100-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Tue, Sep 06, 2016 at 11:34:30AM CEST, jasminder.kaur@hpe.com wrote:
->From: "Kaur, Jasminder" <jasminder.kaur@hpe.com>
+On 9/5/16, 10:18 AM, Jiri Pirko wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
 >
->If a bond is in use such as with IP address configured, removing it
->can result in application disruptions. If bond is used for cluster
->communication or network file system interfaces, removing it can cause
->system down time.
+> The problem we try to handle is about offloaded forwarded packets
+> which are not seen by kernel. Let me try to draw it:
 >
->An additional write option “?-” is added to sysfs bond interfaces as
->below, in order to prevent accidental deletions while bond is in use.
->In the absence of any usage, the below option proceeds with bond deletion.
->“ echo "?-bondX" > /sys/class/net/bonding_masters “ .
->If usage is detected such as an IP address configured, deletion is
->prevented with appropriate message logged to syslog.
+>     port1                       port2 (HW stats are counted here)
+>       \                          /
+>        \                        /
+>         \                      /
+>          --(A)---- ASIC --(B)--
+>                     |
+>                    (C)
+>                     |
+>                    CPU (SW stats are counted here)
 >
->In the absence of any usage, the below option proceeds with deletion of
->slaves from a bond.
->“ echo "?-enoX" > /sys/class/net/bondX/bonding/slaves “ .
->If usage is detected such as an IP address configured on bond, deletion
->is prevented if the last slave is being removed from bond.
->An appropriate message is logged to syslog.
+>
+> Now we have couple of flows for TX and RX (direction does not matter here):
+>
+> 1) port1->A->ASIC->C->CPU
+>
+>    For this flow, HW and SW stats are equal.
+>
+> 2) port1->A->ASIC->C->CPU->C->ASIC->B->port2
+>
+>    For this flow, HW and SW stats are equal.
+>
+> 3) port1->A->ASIC->B->port2
+>
+>    For this flow, SW stats are 0.
+>
+> The purpose of this patchset is to provide facility for user to
+> find out the difference between flows 1+2 and 3. In other words, user
+> will be able to see the statistics for the slow-path (through kernel).
+>
+> Also note that HW stats are what someone calls "accumulated" stats.
+> Every packet counted by SW is also counted by HW. Not the other way around.
+>
+> As a default the accumulated stats (HW) will be exposed to user
+> so the userspace apps can react properly.
+>
+> This patchset add the SW stats (flows 1+2) under offload related stats, so
+> in the future we can expose other offload related stat in a similar way.
+>
+> ---
+>
+Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+few questions on the two ndo's on specific patches, but, the user api LGTM.
 
-NACK
-
-sysfs bonding iface should die in peace, don't poke in it.
-
-Either fix you application or fix you configuration flow. Don't do this
-in kernel.
+thanks jiri and nogah.
