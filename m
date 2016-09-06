@@ -1,55 +1,102 @@
-From: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Subject: [PATCH v5 3/6] stmmac: introduce get_stmmac_bsp_priv() helper
-Date: Tue,  6 Sep 2016 23:38:45 +0200
-Message-ID: <20160906213848.17785-4-martin.blumenstingl@googlemail.com>
+From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+Subject: [PATCH v5 1/6] net: dt-bindings: Document the new Meson8b and GXBB DWMAC bindings
+Date: Tue,  6 Sep 2016 23:38:43 +0200
+Message-ID: <20160906213848.17785-2-martin.blumenstingl@googlemail.com>
 References: <20160904182320.671-1-martin.blumenstingl@googlemail.com>
  <20160906213848.17785-1-martin.blumenstingl@googlemail.com>
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
-        will.deacon-5wv7dgnIgG8@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        sboyd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org,
-        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, b.galvani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org,
-        carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org, mturquette-rdvid1DuHRBWk0Htik3J/w@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
-        alexandre.torgue-qxv4g6HH51o@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160906213848.17785-1-martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: robh+dt@kernel.org, mark.rutland@arm.com, catalin.marinas@arm.com,
+        will.deacon@arm.com, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        sboyd@codeaurora.org, manabian@gmail.com, arnd@arndb.de,
+        davem@davemloft.net, b.galvani@gmail.com,
+        Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+To: linux-amlogic@lists.infradead.org, khilman@baylibre.com,
+        carlo@caione.org, mturquette@baylibre.com, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:33976 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754429AbcIFVjo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 17:39:44 -0400
+In-Reply-To: <20160906213848.17785-1-martin.blumenstingl@googlemail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joachim Eastwood <manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+This patch adds the documentation for the DWMAC ethernet controller
+found in Amlogic Meson 8b (S805) and GXBB (S905) SoCs.
+The main difference between the Meson6 glue is that different registers
+(with different layout) are used.
 
-Create a helper to retrieve dwmac private data from a dev
-pointer. This is useful in PM callbacks and driver remove.
-
-Signed-off-by: Joachim Eastwood <manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Tested-by: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Acked-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Signed-off-by: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+Acked-by: Rob Herring <robh@kernel.org>
+Acked-by: David S. Miller <davem@davemloft.net>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h | 8 ++++++++
- 1 file changed, 8 insertions(+)
+ .../devicetree/bindings/net/meson-dwmac.txt        | 45 ++++++++++++++++++----
+ 1 file changed, 37 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
-index ffeb8d9..64e147f 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
-@@ -30,4 +30,12 @@ int stmmac_get_platform_resources(struct platform_device *pdev,
- int stmmac_pltfr_remove(struct platform_device *pdev);
- extern const struct dev_pm_ops stmmac_pltfr_pm_ops;
+diff --git a/Documentation/devicetree/bindings/net/meson-dwmac.txt b/Documentation/devicetree/bindings/net/meson-dwmac.txt
+index ec633d7..89e62dd 100644
+--- a/Documentation/devicetree/bindings/net/meson-dwmac.txt
++++ b/Documentation/devicetree/bindings/net/meson-dwmac.txt
+@@ -1,18 +1,32 @@
+ * Amlogic Meson DWMAC Ethernet controller
  
-+static inline void *get_stmmac_bsp_priv(struct device *dev)
-+{
-+	struct net_device *ndev = dev_get_drvdata(dev);
-+	struct stmmac_priv *priv = netdev_priv(ndev);
+ The device inherits all the properties of the dwmac/stmmac devices
+-described in the file net/stmmac.txt with the following changes.
++described in the file stmmac.txt in the current directory with the
++following changes.
+ 
+-Required properties:
++Required properties on all platforms:
+ 
+-- compatible: should be "amlogic,meson6-dwmac" along with "snps,dwmac"
+-	      and any applicable more detailed version number
+-	      described in net/stmmac.txt
++- compatible:	Depending on the platform this should be one of:
++			- "amlogic,meson6-dwmac"
++			- "amlogic,meson8b-dwmac"
++			- "amlogic,meson-gxbb-dwmac"
++		Additionally "snps,dwmac" and any applicable more
++		detailed version number described in net/stmmac.txt
++		should be used.
+ 
+-- reg: should contain a register range for the dwmac controller and
+-       another one for the Amlogic specific configuration
++- reg:	The first register range should be the one of the DWMAC
++	controller. The second range is is for the Amlogic specific
++	configuration (for example the PRG_ETHERNET register range
++	on Meson8b and newer)
+ 
+-Example:
++Required properties on Meson8b and newer:
++- clock-names:	Should contain the following:
++		- "stmmaceth" - see stmmac.txt
++		- "clkin0" - first parent clock of the internal mux
++		- "clkin1" - second parent clock of the internal mux
 +
-+	return priv->plat->bsp_priv;
-+}
 +
- #endif /* __STMMAC_PLATFORM_H__ */
++Example for Meson6:
+ 
+ 	ethmac: ethernet@c9410000 {
+ 		compatible = "amlogic,meson6-dwmac", "snps,dwmac";
+@@ -23,3 +37,18 @@ Example:
+ 		clocks = <&clk81>;
+ 		clock-names = "stmmaceth";
+ 	}
++
++Example for GXBB:
++	ethmac: ethernet@c9410000 {
++		compatible = "amlogic,meson-gxbb-dwmac", "snps,dwmac";
++		reg = <0x0 0xc9410000 0x0 0x10000>,
++			<0x0 0xc8834540 0x0 0x8>;
++		interrupts = <0 8 1>;
++		interrupt-names = "macirq";
++		clocks = <&clkc CLKID_ETH>,
++				<&clkc CLKID_FCLK_DIV2>,
++				<&clkc CLKID_MPLL2>;
++		clock-names = "stmmaceth", "clkin0", "clkin1";
++		phy-mode = "rgmii";
++		status = "disabled";
++	};
 -- 
 2.9.3
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
