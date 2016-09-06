@@ -1,7 +1,8 @@
 From: Jia He <hejianet@gmail.com>
-Subject: [RFC PATCH v2 0/6] Reduce cache miss for snmp_fold_field
-Date: Tue,  6 Sep 2016 10:30:03 +0800
-Message-ID: <1473129009-20478-1-git-send-email-hejianet@gmail.com>
+Subject: [RFC PATCH v2 1/6] proc: Reduce cache miss in {snmp,netstat}_seq_show
+Date: Tue,  6 Sep 2016 10:30:04 +0800
+Message-ID: <1473129009-20478-2-git-send-email-hejianet@gmail.com>
+References: <1473129009-20478-1-git-send-email-hejianet@gmail.com>
 Cc: linux-sctp@vger.kernel.org, linux-kernel@vger.kernel.org,
         davem@davemloft.net, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
         James Morris <jmorris@namei.org>,
@@ -13,113 +14,214 @@ Cc: linux-sctp@vger.kernel.org, linux-kernel@vger.kernel.org,
         Herbert Xu <herbert@gondor.apana.org.au>,
         Jia He <hejianet@gmail.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f67.google.com ([209.85.214.67]:32848 "EHLO
-        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752345AbcIFCaV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Sep 2016 22:30:21 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1473129009-20478-1-git-send-email-hejianet@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In a PowerPc server with large cpu number(160), besides commit
-a3a773726c9f ("net: Optimize snmp stat aggregation by walking all
-the percpu data at once"), I watched several other snmp_fold_field
-callsites which will cause high cache miss rate.
+This patch exchanges the two loop for collecting the percpu statistics
+data. This can aggregate the data by going through all the items of each
+cpu sequentially. Then snmp_seq_show is split into 2 parts to avoid build
+warning "the frame size" larger than 1024.
 
-My simple test case, which read from the procfs items endlessly:
-/***********************************************************/
-#include <stdlib.h>
-#include <stdio.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#define LINELEN  2560
-int main(int argc, char **argv)
-{
-        int i;
-        int fd = -1 ;
-        int rdsize = 0;
-        char buf[LINELEN+1];
+Signed-off-by: Jia He <hejianet@gmail.com>
+---
+ net/ipv4/proc.c | 112 ++++++++++++++++++++++++++++++++++++++++----------------
+ 1 file changed, 81 insertions(+), 31 deletions(-)
 
-        buf[LINELEN] = 0;
-        memset(buf,0,LINELEN);
-
-        if(1 >= argc) {
-                printf("file name empty\n");
-                return -1;
-        }
-
-        fd = open(argv[1], O_RDWR, 0644);
-        if(0 > fd){
-                printf("open error\n");
-                return -2;
-        }
-
-        for(i=0;i<0xffffffff;i++) {
-                while(0 < (rdsize = read(fd,buf,LINELEN))){
-                        //nothing here
-                }
-
-                lseek(fd, 0, SEEK_SET);
-        }
-
-        close(fd);
-        return 0;
-}
-/**********************************************************/
-
-compile and run:
-gcc test.c -o test
-
-perf stat -d -e cache-misses ./test /proc/net/snmp
-perf stat -d -e cache-misses ./test /proc/net/snmp6
-perf stat -d -e cache-misses ./test /proc/net/netstat
-perf stat -d -e cache-misses ./test /proc/net/sctp/snmp
-perf stat -d -e cache-misses ./test /proc/net/xfrm_stat
-
-before the patch set:
-====================
- Performance counter stats for 'system wide':
-
-         355911097      cache-misses                                                 [40.08%]
-        2356829300      L1-dcache-loads                                              [60.04%]
-         355642645      L1-dcache-load-misses     #   15.09% of all L1-dcache hits   [60.02%]
-         346544541      LLC-loads                                                    [59.97%]
-            389763      LLC-load-misses           #    0.11% of all LL-cache hits    [40.02%]
-
-       6.245162638 seconds time elapsed
-
-After the patch set:
-===================
- Performance counter stats for 'system wide':
-
-         194992476      cache-misses                                                 [40.03%]
-        6718051877      L1-dcache-loads                                              [60.07%]
-         194871921      L1-dcache-load-misses     #    2.90% of all L1-dcache hits   [60.11%]
-         187632232      LLC-loads                                                    [60.04%]
-            464466      LLC-load-misses           #    0.25% of all LL-cache hits    [39.89%]
-
-       6.868422769 seconds time elapsed
-The cache-miss rate can be reduced from 15% to 2.9%
-
-v2:
-- 1/6 fix bug in udplite statistics. 
-- 1/6 snmp_seq_show is split into 2 parts
-
-Jia He (6):
-  proc: Reduce cache miss in {snmp,netstat}_seq_show
-  proc: Reduce cache miss in snmp6_seq_show
-  proc: Reduce cache miss in sctp_snmp_seq_show
-  proc: Reduce cache miss in xfrm_statistics_seq_show
-  ipv6: Remove useless parameter in __snmp6_fill_statsdev
-  net: Suppress the "Comparison to NULL could be written" warning
-
- net/ipv4/proc.c      | 144 ++++++++++++++++++++++++++++++++++-----------------
- net/ipv6/addrconf.c  |  12 ++---
- net/ipv6/proc.c      |  47 +++++++++++++----
- net/sctp/proc.c      |  15 ++++--
- net/xfrm/xfrm_proc.c |  15 ++++--
- 5 files changed, 162 insertions(+), 71 deletions(-)
-
+diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
+index 9f665b6..f413fdc 100644
+--- a/net/ipv4/proc.c
++++ b/net/ipv4/proc.c
+@@ -46,6 +46,9 @@
+ #include <net/sock.h>
+ #include <net/raw.h>
+ 
++#define MAX(a, b) ((u32)(a) >= (u32)(b) ? (a) : (b))
++#define TCPUDP_MIB_MAX MAX(UDP_MIB_MAX, TCP_MIB_MAX)
++
+ /*
+  *	Report socket allocation statistics [mea@utu.fi]
+  */
+@@ -378,13 +381,15 @@ static void icmp_put(struct seq_file *seq)
+ /*
+  *	Called from the PROCfs module. This outputs /proc/net/snmp.
+  */
+-static int snmp_seq_show(struct seq_file *seq, void *v)
++static int snmp_seq_show_ipstats(struct seq_file *seq, void *v)
+ {
+-	int i;
++	int i, c;
++	u64 buff64[IPSTATS_MIB_MAX];
+ 	struct net *net = seq->private;
+ 
+-	seq_puts(seq, "Ip: Forwarding DefaultTTL");
++	memset(buff64, 0, IPSTATS_MIB_MAX * sizeof(u64));
+ 
++	seq_puts(seq, "Ip: Forwarding DefaultTTL");
+ 	for (i = 0; snmp4_ipstats_list[i].name != NULL; i++)
+ 		seq_printf(seq, " %s", snmp4_ipstats_list[i].name);
+ 
+@@ -393,57 +398,92 @@ static int snmp_seq_show(struct seq_file *seq, void *v)
+ 		   net->ipv4.sysctl_ip_default_ttl);
+ 
+ 	BUILD_BUG_ON(offsetof(struct ipstats_mib, mibs) != 0);
++
++	for_each_possible_cpu(c) {
++		for (i = 0; snmp4_ipstats_list[i].name != NULL; i++)
++			buff64[i] += snmp_get_cpu_field64(
++					net->mib.ip_statistics,
++					c, snmp4_ipstats_list[i].entry,
++					offsetof(struct ipstats_mib, syncp));
++	}
+ 	for (i = 0; snmp4_ipstats_list[i].name != NULL; i++)
+-		seq_printf(seq, " %llu",
+-			   snmp_fold_field64(net->mib.ip_statistics,
+-					     snmp4_ipstats_list[i].entry,
+-					     offsetof(struct ipstats_mib, syncp)));
++		seq_printf(seq, " %llu", buff64[i]);
+ 
+-	icmp_put(seq);	/* RFC 2011 compatibility */
+-	icmpmsg_put(seq);
++	return 0;
++}
++
++static int snmp_seq_show_tcp_udp(struct seq_file *seq, void *v)
++{
++	int i, c;
++	unsigned long buff[TCPUDP_MIB_MAX];
++	struct net *net = seq->private;
++
++	memset(buff, 0, TCPUDP_MIB_MAX * sizeof(unsigned long));
+ 
+ 	seq_puts(seq, "\nTcp:");
+ 	for (i = 0; snmp4_tcp_list[i].name != NULL; i++)
+ 		seq_printf(seq, " %s", snmp4_tcp_list[i].name);
+ 
+ 	seq_puts(seq, "\nTcp:");
++	for_each_possible_cpu(c) {
++		for (i = 0; snmp4_tcp_list[i].name != NULL; i++)
++			buff[i] += snmp_get_cpu_field(net->mib.tcp_statistics,
++						c, snmp4_tcp_list[i].entry);
++	}
++
+ 	for (i = 0; snmp4_tcp_list[i].name != NULL; i++) {
+ 		/* MaxConn field is signed, RFC 2012 */
+ 		if (snmp4_tcp_list[i].entry == TCP_MIB_MAXCONN)
+-			seq_printf(seq, " %ld",
+-				   snmp_fold_field(net->mib.tcp_statistics,
+-						   snmp4_tcp_list[i].entry));
++			seq_printf(seq, " %ld", buff[i]);
+ 		else
+-			seq_printf(seq, " %lu",
+-				   snmp_fold_field(net->mib.tcp_statistics,
+-						   snmp4_tcp_list[i].entry));
++			seq_printf(seq, " %lu", buff[i]);
+ 	}
+ 
++	memset(buff, 0, TCPUDP_MIB_MAX * sizeof(unsigned long));
++
++	for_each_possible_cpu(c) {
++		for (i = 0; snmp4_udp_list[i].name != NULL; i++)
++			buff[i] += snmp_get_cpu_field(net->mib.udp_statistics,
++						c, snmp4_udp_list[i].entry);
++	}
+ 	seq_puts(seq, "\nUdp:");
+ 	for (i = 0; snmp4_udp_list[i].name != NULL; i++)
+ 		seq_printf(seq, " %s", snmp4_udp_list[i].name);
+-
+ 	seq_puts(seq, "\nUdp:");
+ 	for (i = 0; snmp4_udp_list[i].name != NULL; i++)
+-		seq_printf(seq, " %lu",
+-			   snmp_fold_field(net->mib.udp_statistics,
+-					   snmp4_udp_list[i].entry));
++		seq_printf(seq, " %lu", buff[i]);
++
++	memset(buff, 0, TCPUDP_MIB_MAX * sizeof(unsigned long));
+ 
+ 	/* the UDP and UDP-Lite MIBs are the same */
+ 	seq_puts(seq, "\nUdpLite:");
++	for_each_possible_cpu(c) {
++		for (i = 0; snmp4_udp_list[i].name != NULL; i++)
++			buff[i] += snmp_get_cpu_field(net->mib.udplite_statistics,
++						c, snmp4_udp_list[i].entry);
++	}
+ 	for (i = 0; snmp4_udp_list[i].name != NULL; i++)
+ 		seq_printf(seq, " %s", snmp4_udp_list[i].name);
+-
+ 	seq_puts(seq, "\nUdpLite:");
+ 	for (i = 0; snmp4_udp_list[i].name != NULL; i++)
+-		seq_printf(seq, " %lu",
+-			   snmp_fold_field(net->mib.udplite_statistics,
+-					   snmp4_udp_list[i].entry));
++		seq_printf(seq, " %lu", buff[i]);
+ 
+ 	seq_putc(seq, '\n');
+ 	return 0;
+ }
+ 
++static int snmp_seq_show(struct seq_file *seq, void *v)
++{
++	snmp_seq_show_ipstats(seq, v);
++
++	icmp_put(seq);	/* RFC 2011 compatibility */
++	icmpmsg_put(seq);
++
++	snmp_seq_show_tcp_udp(seq, v);
++
++	return 0;
++}
++
+ static int snmp_seq_open(struct inode *inode, struct file *file)
+ {
+ 	return single_open_net(inode, file, snmp_seq_show);
+@@ -464,29 +504,39 @@ static const struct file_operations snmp_seq_fops = {
+  */
+ static int netstat_seq_show(struct seq_file *seq, void *v)
+ {
+-	int i;
++	int i, c;
++	unsigned long buff[LINUX_MIB_MAX];
++	u64 buff64[IPSTATS_MIB_MAX];
+ 	struct net *net = seq->private;
+ 
++	memset(buff, 0, sizeof(unsigned long) * LINUX_MIB_MAX);
++	memset(buff64, 0, sizeof(u64) * IPSTATS_MIB_MAX);
++
+ 	seq_puts(seq, "TcpExt:");
+ 	for (i = 0; snmp4_net_list[i].name != NULL; i++)
+ 		seq_printf(seq, " %s", snmp4_net_list[i].name);
+ 
+ 	seq_puts(seq, "\nTcpExt:");
++	for_each_possible_cpu(c)
++		for (i = 0; snmp4_net_list[i].name != NULL; i++)
++			buff[i] += snmp_get_cpu_field(net->mib.net_statistics,
++						c, snmp4_net_list[i].entry);
+ 	for (i = 0; snmp4_net_list[i].name != NULL; i++)
+-		seq_printf(seq, " %lu",
+-			   snmp_fold_field(net->mib.net_statistics,
+-					   snmp4_net_list[i].entry));
++		seq_printf(seq, " %lu", buff[i]);
+ 
+ 	seq_puts(seq, "\nIpExt:");
+ 	for (i = 0; snmp4_ipextstats_list[i].name != NULL; i++)
+ 		seq_printf(seq, " %s", snmp4_ipextstats_list[i].name);
+ 
+ 	seq_puts(seq, "\nIpExt:");
++	for_each_possible_cpu(c)
++		for (i = 0; snmp4_ipextstats_list[i].name != NULL; i++)
++			buff64[i] += snmp_get_cpu_field64(
++					net->mib.ip_statistics,
++					c, snmp4_ipextstats_list[i].entry,
++					offsetof(struct ipstats_mib, syncp));
+ 	for (i = 0; snmp4_ipextstats_list[i].name != NULL; i++)
+-		seq_printf(seq, " %llu",
+-			   snmp_fold_field64(net->mib.ip_statistics,
+-					     snmp4_ipextstats_list[i].entry,
+-					     offsetof(struct ipstats_mib, syncp)));
++		seq_printf(seq, " %llu", buff64[i]);
+ 
+ 	seq_putc(seq, '\n');
+ 	return 0;
 -- 
 1.8.3.1
