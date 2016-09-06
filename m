@@ -1,73 +1,66 @@
-From: "santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org" <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] RDS: Simplify code
-Date: Mon, 5 Sep 2016 17:22:06 -0700
-Message-ID: <26832741-da10-7581-11d2-d88e6df43c4e@oracle.com>
-References: <1472880809-29216-1-git-send-email-christophe.jaillet@wanadoo.fr>
- <20160904122049.GQ21847@leon.nu>
- <befa1a39-cfc5-721f-e39a-369436237b1c@wanadoo.fr>
- <20160904182354.GR21847@leon.nu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Christophe JAILLET <christophe.jaillet-39ZsbGIQGT5GWvitb5QawA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160904182354.GR21847-2ukJVAZIZ/Y@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: fgao@ikuai8.com
+Subject: [PATCH v4 nf] netfilter: seqadj: Drop the packet directly when fail to add seqadj extension to avoid dereference NULL pointer later
+Date: Tue,  6 Sep 2016 09:57:23 +0800
+Message-ID: <1473127043-20078-1-git-send-email-fgao@ikuai8.com>
+Cc: gfree.wind@gmail.com, Gao Feng <fgao@ikuai8.com>
+To: pablo@netfilter.org, netfilter-devel@vger.kernel.org, fw@strlen.de,
+        coreteam@netfilter.org, netdev@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 9/4/16 11:23 AM, Leon Romanovsky wrote:
-> On Sun, Sep 04, 2016 at 05:57:20PM +0200, Christophe JAILLET wrote:
->> Le 04/09/2016 à 14:20, Leon Romanovsky a écrit :
->>> On Sat, Sep 03, 2016 at 07:33:29AM +0200, Christophe JAILLET wrote:
->>>> Calling 'list_splice' followed by 'INIT_LIST_HEAD' is equivalent to
->>>> 'list_splice_init'.
->>> It is not 100% accurate
->>>
->>> list_splice(y, z)
->>> INIT_LIST_HEAD(y)
->>>
->>> ==>
->>>
->>> if (!list_empty(y))
->>>      __list_splice(y, z, z>next);
->>> INIT_LIST_HEAD(y)
->>>
->>> and not
->>>
->>> if (!list_empty(y)) {
->>>      __list_splice(y, z, z>next);
->>>      INIT_LIST_HEAD(y)
->>> }
->>>
->>> as list_splice_init will do.
->>>
->> You are right but if you dig further you will see that calling
->> INIT_LIST_HEAD on an empty list is a no-op (AFAIK).
->> And if this list was not already correctly initialized, then you would have
->> some other troubles.
->
-> Thank you for the suggestion,
-> It looks like the code after that can be skipped in case of loop_conns
-> list is empty, the tmp_list will be empty too.
->
-> 174         list_for_each_entry_safe(lc, _lc, &tmp_list, loop_node) {
-> 175                 WARN_ON(lc->conn->c_passive);
-> 176                 rds_conn_destroy(lc->conn);
-> 177         }
->
+From: Gao Feng <fgao@ikuai8.com>
 
-Thanks for trying. As already pointed, your change doesn't simplify
-much rather change the behavior. The loop cursor already takes care
-of list empty case. I don't see any reason to change that code.
+When memory is exhausted, nfct_seqadj_ext_add may fail to add the seqadj
+extension. But the function nf_ct_seqadj_init doesn't check if get valid
+seqadj pointer by the nfct_seqadj.
 
-Regards,
-Santosh
+Now drop the packet directly when fail to add seqadj extension to avoid
+dereference NULL pointer in nf_ct_seqadj_init.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
+---
+ v4: Drop the packet directly when fail to add seqadj extension;
+ v3: Remove the warning log when seqadj is null;
+ v2: Remove the unnessary seqadj check in nf_ct_seq_adjust
+ v1: Initial patch
+
+ net/netfilter/nf_conntrack_core.c | 6 +++++-
+ net/netfilter/nf_nat_core.c       | 3 ++-
+ 2 files changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index dd2c43a..dfa76ce 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -1036,7 +1036,11 @@ init_conntrack(struct net *net, struct nf_conn *tmpl,
+ 		return (struct nf_conntrack_tuple_hash *)ct;
+ 
+ 	if (tmpl && nfct_synproxy(tmpl)) {
+-		nfct_seqadj_ext_add(ct);
++		if (!nfct_seqadj_ext_add(ct)) {
++			nf_conntrack_free(ct);
++			pr_debug("Can't add seqadj extension\n");
++			return NULL;
++		}
+ 		nfct_synproxy_ext_add(ct);
+ 	}
+ 
+diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
+index de31818..b82282a 100644
+--- a/net/netfilter/nf_nat_core.c
++++ b/net/netfilter/nf_nat_core.c
+@@ -441,7 +441,8 @@ nf_nat_setup_info(struct nf_conn *ct,
+ 			ct->status |= IPS_DST_NAT;
+ 
+ 		if (nfct_help(ct))
+-			nfct_seqadj_ext_add(ct);
++			if (!nfct_seqadj_ext_add(ct))
++				return NF_DROP;
+ 	}
+ 
+ 	if (maniptype == NF_NAT_MANIP_SRC) {
+-- 
+1.9.1
+
+
