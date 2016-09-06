@@ -1,393 +1,98 @@
-From: Kefeng Wang <wangkefeng.wang@huawei.com>
-Subject: [PATCH] net: hns: declare function as static
-Date: Tue, 6 Sep 2016 19:53:11 +0800
-Message-ID: <1473162791-43858-1-git-send-email-wangkefeng.wang@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-kernel@vger.kernel.org>,
-        Kefeng Wang <wangkefeng.wang@huawei.com>,
-        Yisen Zhuang <yisen.zhuang@huawei.com>,
-        Kejian Yan <yankejian@huawei.com>
-To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next RFC 0/2] fib4 offload: notifier to let hw to be aware of all prefixes
+Date: Tue,  6 Sep 2016 14:01:38 +0200
+Message-ID: <1473163300-2045-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
+        roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+        linville@tuxdriver.com, tgraf@suug.ch, gospo@cumulusnetworks.com,
+        sfeldma@gmail.com, ast@plumgrid.com, edumazet@google.com,
+        hannes@stressinduktion.org, f.fainelli@gmail.com,
+        dsa@cumulusnetworks.com, jhs@mojatatu.com,
+        vivien.didelot@savoirfairelinux.com, john.fastabend@intel.com,
+        andrew@lunn.ch, ivecera@redhat.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:34825 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754722AbcIFMBq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 08:01:46 -0400
+Received: by mail-wm0-f65.google.com with SMTP id a6so6889748wmc.2
+        for <netdev@vger.kernel.org>; Tue, 06 Sep 2016 05:01:45 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Declare function as static to kill warning about missing-prototypes.
+From: Jiri Pirko <jiri@mellanox.com>
 
-Cc: Yisen Zhuang <yisen.zhuang@huawei.com>
-Cc: Kejian Yan <yankejian@huawei.com>
-Signed-off-by: Kefeng Wang <wangkefeng.wang@huawei.com>
----
+This is RFC, unfinished. I came across some issues in the process so I would
+like to share those and restart the fib offload discussion in order to make it
+really usable.
 
-The warning is shown when make with W=1.
+So the goal of this patchset is to allow driver to propagate all prefixes
+configured in kernel down HW. This is necessary for routing to work
+as expected. If we don't do that HW might forward prefixes known to kernel
+incorrectly. Take an example when default route is set in switch HW and there
+is an IP address set on a management (non-switch) port.
 
- drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c  | 22 +++++++++++-----------
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c |  2 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  |  4 ++--
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c |  4 ++--
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c |  2 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c  |  6 +++---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c  |  4 ++--
- .../net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c    |  2 +-
- drivers/net/ethernet/hisilicon/hns/hns_enet.c      |  8 ++++----
- drivers/net/ethernet/hisilicon/hns/hns_ethtool.c   | 16 ++++++++--------
- 10 files changed, 35 insertions(+), 35 deletions(-)
+Currently, only fibs related to the switch port netdev are offloaded using
+switchdev ops. This model is not extendable so the first patch introduces
+a replacement: notifier to propagate fib additions and removals to whoever
+interested. The second patch makes mlxsw to adopt this new way, registering
+one notifier block for each mlxsw (asic) instance.
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-index e28d960..cb47c23 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-@@ -73,7 +73,7 @@ static struct ring_pair_cb *hns_ae_get_ring_pair(struct hnae_queue *q)
- 	return container_of(q, struct ring_pair_cb, q);
- }
- 
--struct hnae_handle *hns_ae_get_handle(struct hnae_ae_dev *dev,
-+static struct hnae_handle *hns_ae_get_handle(struct hnae_ae_dev *dev,
- 				      u32 port_id)
- {
- 	int vfnum_per_port;
-@@ -271,7 +271,7 @@ static int hns_ae_start(struct hnae_handle *handle)
- 	return 0;
- }
- 
--void hns_ae_stop(struct hnae_handle *handle)
-+static void hns_ae_stop(struct hnae_handle *handle)
- {
- 	struct hns_mac_cb *mac_cb = hns_get_mac_cb(handle);
- 
-@@ -299,7 +299,7 @@ static void hns_ae_reset(struct hnae_handle *handle)
- 	}
- }
- 
--void hns_ae_toggle_ring_irq(struct hnae_ring *ring, u32 mask)
-+static void hns_ae_toggle_ring_irq(struct hnae_ring *ring, u32 mask)
- {
- 	u32 flag;
- 
-@@ -487,7 +487,7 @@ static void hns_ae_get_coalesce_range(struct hnae_handle *handle,
- 	*rx_usecs_high  = HNS_RCB_MAX_COALESCED_USECS;
- }
- 
--void hns_ae_update_stats(struct hnae_handle *handle,
-+static void hns_ae_update_stats(struct hnae_handle *handle,
- 			 struct net_device_stats *net_stats)
- {
- 	int port;
-@@ -570,7 +570,7 @@ void hns_ae_update_stats(struct hnae_handle *handle,
- 	net_stats->multicast = mac_cb->hw_stats.rx_mc_pkts;
- }
- 
--void hns_ae_get_stats(struct hnae_handle *handle, u64 *data)
-+static void hns_ae_get_stats(struct hnae_handle *handle, u64 *data)
- {
- 	int idx;
- 	struct hns_mac_cb *mac_cb;
-@@ -602,7 +602,7 @@ void hns_ae_get_stats(struct hnae_handle *handle, u64 *data)
- 		hns_dsaf_get_stats(vf_cb->dsaf_dev, p, vf_cb->port_index);
- }
- 
--void hns_ae_get_strings(struct hnae_handle *handle,
-+static void hns_ae_get_strings(struct hnae_handle *handle,
- 			u32 stringset, u8 *data)
- {
- 	int port;
-@@ -635,7 +635,7 @@ void hns_ae_get_strings(struct hnae_handle *handle,
- 		hns_dsaf_get_strings(stringset, p, port, dsaf_dev);
- }
- 
--int hns_ae_get_sset_count(struct hnae_handle *handle, int stringset)
-+static int hns_ae_get_sset_count(struct hnae_handle *handle, int stringset)
- {
- 	u32 sset_count = 0;
- 	struct hns_mac_cb *mac_cb;
-@@ -684,7 +684,7 @@ static int hns_ae_config_loopback(struct hnae_handle *handle,
- 	return ret;
- }
- 
--void hns_ae_update_led_status(struct hnae_handle *handle)
-+static void hns_ae_update_led_status(struct hnae_handle *handle)
- {
- 	struct hns_mac_cb *mac_cb;
- 
-@@ -695,7 +695,7 @@ void hns_ae_update_led_status(struct hnae_handle *handle)
- 	hns_set_led_opt(mac_cb);
- }
- 
--int hns_ae_cpld_set_led_id(struct hnae_handle *handle,
-+static int hns_ae_cpld_set_led_id(struct hnae_handle *handle,
- 			   enum hnae_led_state status)
- {
- 	struct hns_mac_cb *mac_cb;
-@@ -707,7 +707,7 @@ int hns_ae_cpld_set_led_id(struct hnae_handle *handle,
- 	return hns_cpld_led_set_id(mac_cb, status);
- }
- 
--void hns_ae_get_regs(struct hnae_handle *handle, void *data)
-+static void hns_ae_get_regs(struct hnae_handle *handle, void *data)
- {
- 	u32 *p = data;
- 	int i;
-@@ -732,7 +732,7 @@ void hns_ae_get_regs(struct hnae_handle *handle, void *data)
- 		hns_dsaf_get_regs(vf_cb->dsaf_dev, vf_cb->port_index, p);
- }
- 
--int hns_ae_get_regs_len(struct hnae_handle *handle)
-+static int hns_ae_get_regs_len(struct hnae_handle *handle)
- {
- 	u32 total_num;
- 	struct hnae_vf_cb *vf_cb = hns_ae_get_vf_cb(handle);
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
-index 1e1eb92..f0c63c8 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
-@@ -327,7 +327,7 @@ static void hns_gmac_init(void *mac_drv)
- 		hns_gmac_set_uc_match(mac_drv, 0);
- }
- 
--void hns_gmac_update_stats(void *mac_drv)
-+static void hns_gmac_update_stats(void *mac_drv)
- {
- 	struct mac_hw_stats *hw_stats = NULL;
- 	struct mac_driver *drv = (struct mac_driver *)mac_drv;
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-index 5c8afe1..0d9f261 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-@@ -898,7 +898,7 @@ static int hns_mac_get_mode(phy_interface_t phy_if)
- 	}
- }
- 
--u8 __iomem *hns_mac_get_vaddr(struct dsaf_device *dsaf_dev,
-+static u8 __iomem *hns_mac_get_vaddr(struct dsaf_device *dsaf_dev,
- 			      struct hns_mac_cb *mac_cb, u32 mac_mode_idx)
- {
- 	u8 __iomem *base = dsaf_dev->io_base;
-@@ -917,7 +917,7 @@ u8 __iomem *hns_mac_get_vaddr(struct dsaf_device *dsaf_dev,
-  * @mac_cb: mac control block
-  * return 0 - success , negative --fail
-  */
--int hns_mac_get_cfg(struct dsaf_device *dsaf_dev, struct hns_mac_cb *mac_cb)
-+static int hns_mac_get_cfg(struct dsaf_device *dsaf_dev, struct hns_mac_cb *mac_cb)
- {
- 	int ret;
- 	u32 mac_mode_idx;
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-index afb5daa..0f4ad08 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-@@ -41,7 +41,7 @@ static const struct acpi_device_id hns_dsaf_acpi_match[] = {
- };
- MODULE_DEVICE_TABLE(acpi, hns_dsaf_acpi_match);
- 
--int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
-+static int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
- {
- 	int ret, i;
- 	u32 desc_num;
-@@ -2092,7 +2092,7 @@ static void hns_dsaf_pfc_unit_cnt(struct dsaf_device *dsaf_dev, int  mac_id,
-  * @dsaf_id: dsa fabric id
-  * @xge_ge_work_mode
-  */
--void hns_dsaf_port_work_rate_cfg(struct dsaf_device *dsaf_dev, int mac_id,
-+static void hns_dsaf_port_work_rate_cfg(struct dsaf_device *dsaf_dev, int mac_id,
- 				 enum dsaf_port_rate_mode rate_mode)
- {
- 	u32 port_work_mode;
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-index 611b67b..8ebe463 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-@@ -417,7 +417,7 @@ static phy_interface_t hns_mac_get_phy_if_acpi(struct hns_mac_cb *mac_cb)
- 	return phy_if;
- }
- 
--int hns_mac_get_sfp_prsnt(struct hns_mac_cb *mac_cb, int *sfp_prsnt)
-+static int hns_mac_get_sfp_prsnt(struct hns_mac_cb *mac_cb, int *sfp_prsnt)
- {
- 	if (!mac_cb->cpld_ctrl)
- 		return -ENODEV;
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-index 6ea8722..238c992 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-@@ -73,7 +73,7 @@ hns_ppe_common_get_ioaddr(struct ppe_common_cb *ppe_common)
-  * comm_index: common index
-  * retuen 0 - success , negative --fail
-  */
--int hns_ppe_common_get_cfg(struct dsaf_device *dsaf_dev, int comm_index)
-+static int hns_ppe_common_get_cfg(struct dsaf_device *dsaf_dev, int comm_index)
- {
- 	struct ppe_common_cb *ppe_common;
- 	int ppe_num;
-@@ -104,7 +104,7 @@ int hns_ppe_common_get_cfg(struct dsaf_device *dsaf_dev, int comm_index)
- 	return 0;
- }
- 
--void hns_ppe_common_free_cfg(struct dsaf_device *dsaf_dev, u32 comm_index)
-+static void hns_ppe_common_free_cfg(struct dsaf_device *dsaf_dev, u32 comm_index)
- {
- 	dsaf_dev->ppe_common[comm_index] = NULL;
- }
-@@ -337,7 +337,7 @@ static void hns_ppe_uninit_hw(struct hns_ppe_cb *ppe_cb)
- 	}
- }
- 
--void hns_ppe_uninit_ex(struct ppe_common_cb *ppe_common)
-+static void hns_ppe_uninit_ex(struct ppe_common_cb *ppe_common)
- {
- 	u32 i;
- 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-index ef11077..ded4506 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-@@ -612,7 +612,7 @@ void hns_rcb_get_queue_mode(enum dsaf_mode dsaf_mode, u16 *max_vfn,
- 	}
- }
- 
--int hns_rcb_get_ring_num(struct dsaf_device *dsaf_dev)
-+static int hns_rcb_get_ring_num(struct dsaf_device *dsaf_dev)
- {
- 	switch (dsaf_dev->dsaf_mode) {
- 	case DSAF_MODE_ENABLE_FIX:
-@@ -648,7 +648,7 @@ int hns_rcb_get_ring_num(struct dsaf_device *dsaf_dev)
- 	}
- }
- 
--void __iomem *hns_rcb_common_get_vaddr(struct rcb_common_cb *rcb_common)
-+static void __iomem *hns_rcb_common_get_vaddr(struct rcb_common_cb *rcb_common)
- {
- 	struct dsaf_device *dsaf_dev = rcb_common->dsaf_dev;
- 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c
-index 8f4f0e8..3198890 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c
-@@ -306,7 +306,7 @@ static void hns_xgmac_config_max_frame_length(void *mac_drv, u16 newval)
- 	dsaf_write_dev(drv, XGMAC_MAC_MAX_PKT_SIZE_REG, newval);
- }
- 
--void hns_xgmac_update_stats(void *mac_drv)
-+static void hns_xgmac_update_stats(void *mac_drv)
- {
- 	struct mac_driver *drv = (struct mac_driver *)mac_drv;
- 	struct mac_hw_stats *hw_stats = &drv->mac_cb->hw_stats;
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-index d7e1f8c..1b51191 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-@@ -1085,7 +1085,7 @@ static int hns_nic_net_set_mac_address(struct net_device *ndev, void *p)
- 	return 0;
- }
- 
--void hns_nic_update_stats(struct net_device *netdev)
-+static void hns_nic_update_stats(struct net_device *netdev)
- {
- 	struct hns_nic_priv *priv = netdev_priv(netdev);
- 	struct hnae_handle *h = priv->ae_handle;
-@@ -1486,7 +1486,7 @@ static netdev_features_t hns_nic_fix_features(
-  *
-  * return void
-  */
--void hns_set_multicast_list(struct net_device *ndev)
-+static void hns_set_multicast_list(struct net_device *ndev)
- {
- 	struct hns_nic_priv *priv = netdev_priv(ndev);
- 	struct hnae_handle *h = priv->ae_handle;
-@@ -1504,7 +1504,7 @@ void hns_set_multicast_list(struct net_device *ndev)
- 	}
- }
- 
--void hns_nic_set_rx_mode(struct net_device *ndev)
-+static void hns_nic_set_rx_mode(struct net_device *ndev)
- {
- 	struct hns_nic_priv *priv = netdev_priv(ndev);
- 	struct hnae_handle *h = priv->ae_handle;
-@@ -1519,7 +1519,7 @@ void hns_nic_set_rx_mode(struct net_device *ndev)
- 	hns_set_multicast_list(ndev);
- }
- 
--struct rtnl_link_stats64 *hns_nic_get_stats64(struct net_device *ndev,
-+static struct rtnl_link_stats64 *hns_nic_get_stats64(struct net_device *ndev,
- 					      struct rtnl_link_stats64 *stats)
- {
- 	int idx = 0;
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-index ab33487..206f830 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-@@ -666,7 +666,7 @@ static void hns_nic_get_drvinfo(struct net_device *net_dev,
-  * @dev: net device
-  * @param: ethtool parameter
-  */
--void hns_get_ringparam(struct net_device *net_dev,
-+static void hns_get_ringparam(struct net_device *net_dev,
- 		       struct ethtool_ringparam *param)
- {
- 	struct hns_nic_priv *priv = netdev_priv(net_dev);
-@@ -815,7 +815,7 @@ static int hns_set_coalesce(struct net_device *net_dev,
-  * @dev: net device
-  * @ch: channel info.
-  */
--void hns_get_channels(struct net_device *net_dev, struct ethtool_channels *ch)
-+static void hns_get_channels(struct net_device *net_dev, struct ethtool_channels *ch)
- {
- 	struct hns_nic_priv *priv = netdev_priv(net_dev);
- 
-@@ -832,7 +832,7 @@ void hns_get_channels(struct net_device *net_dev, struct ethtool_channels *ch)
-  * @stats: statistics info.
-  * @data: statistics data.
-  */
--void hns_get_ethtool_stats(struct net_device *netdev,
-+static void hns_get_ethtool_stats(struct net_device *netdev,
- 			   struct ethtool_stats *stats, u64 *data)
- {
- 	u64 *p = data;
-@@ -890,7 +890,7 @@ void hns_get_ethtool_stats(struct net_device *netdev,
-  * @stats: string set ID.
-  * @data: objects data.
-  */
--void hns_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
-+static void hns_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
- {
- 	struct hns_nic_priv *priv = netdev_priv(netdev);
- 	struct hnae_handle *h = priv->ae_handle;
-@@ -980,7 +980,7 @@ void hns_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
-  *
-  * Return string set count.
-  */
--int hns_get_sset_count(struct net_device *netdev, int stringset)
-+static int hns_get_sset_count(struct net_device *netdev, int stringset)
- {
- 	struct hns_nic_priv *priv = netdev_priv(netdev);
- 	struct hnae_handle *h = priv->ae_handle;
-@@ -1012,7 +1012,7 @@ int hns_get_sset_count(struct net_device *netdev, int stringset)
-  *
-  * Return 0 on success, negative on failure.
-  */
--int hns_phy_led_set(struct net_device *netdev, int value)
-+static int hns_phy_led_set(struct net_device *netdev, int value)
- {
- 	int retval;
- 	struct hns_nic_priv *priv = netdev_priv(netdev);
-@@ -1035,7 +1035,7 @@ int hns_phy_led_set(struct net_device *netdev, int value)
-  *
-  * Return 0 on success, negative on failure.
-  */
--int hns_set_phys_id(struct net_device *netdev, enum ethtool_phys_id_state state)
-+static int hns_set_phys_id(struct net_device *netdev, enum ethtool_phys_id_state state)
- {
- 	struct hns_nic_priv *priv = netdev_priv(netdev);
- 	struct hnae_handle *h = priv->ae_handle;
-@@ -1109,7 +1109,7 @@ int hns_set_phys_id(struct net_device *netdev, enum ethtool_phys_id_state state)
-  * @cmd: ethtool cmd
-  * @date: register data
-  */
--void hns_get_regs(struct net_device *net_dev, struct ethtool_regs *cmd,
-+static void hns_get_regs(struct net_device *net_dev, struct ethtool_regs *cmd,
- 		  void *data)
- {
- 	struct hns_nic_priv *priv = netdev_priv(net_dev);
+Using switchdev ops, "abort" is called by switchdev core whenever there is
+an error during fib add offload. This leads to removal of all offloaded fibs on
+system by fib_trie code.
+
+Now the new notifier assumes the driver takes care of the abort action.
+Here's why:
+1) The fact that one HW cannot offload fib does not mean that the others can't
+   do it. So let only one entity to abort and leave the rest to work happily.
+2) The driver knows what to in order to properly abort. For example, currently
+   abort is broken for mlxsw as for Spectrum there is a need to set 0.0.0.0/0
+   trap in RALUE register.
+
+Issues:
+1) RTNH_F_OFFLOAD is originally set in switchdev core. There the assumption is
+   that only one offload device exists. But for fib notifier, we assume
+   multiple offload devices. When should the offload flag be set and by who?
+   I think that it would make sense to have a per-fib reference counter
+   for this:
+   0 means RTNH_F_OFFLOAD is not set, no device offloads this entry
+   n means RTNH_F_OFFLOAD is set and the fib entry is offloaded by n devices
+
+2) Unabort? Would be nice. Currently when add_failure->abort happens,
+   user's only option is to reboot the machine. I would like to make this
+   nicer for the fib notifier implementation. Perhaps to provide some button in
+   devlink which would tell driver to try to offload entries again? Not sure.
+
+3) Policies. Not directly connected to this patchset but this issues
+   we have been discussing couple of times and I still believe that
+   the current state is not good.
+   Software-only forwarding now happens in case of abort and makes the ASIC
+   ports to act like dummy separate NICs. In case of Spectrum, the bandwidth
+   of CPU port is something around 4Gbit. For 32x100Gbit ports this is
+   simply not possible to handle. In case of abort, the system is broken
+   as it really could not forward packets at a speed not even close
+   to the expected.
+   Here the policies come to the picture, allowing the user to set the
+   system to behave according his expectations. For example rather
+   fail to add the route than to abort to software forward.
+   This policy could be per-ASIC, configurable by devlink.
+
+Thoughts please?
+
+Jiri Pirko (2):
+  fib: introduce fib notification infrastructure
+  mlxsw: spectrum_router: Use FIB notifications instead of switchdev
+    calls
+
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |   8 +-
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 257 ++++++++++-----------
+ .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   |   9 -
+ include/net/ip_fib.h                               |  19 ++
+ net/ipv4/fib_trie.c                                |  43 ++++
+ 5 files changed, 181 insertions(+), 155 deletions(-)
+
 -- 
-1.7.12.4
+2.5.5
