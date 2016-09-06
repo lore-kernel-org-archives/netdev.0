@@ -1,45 +1,45 @@
-From: Javier Martinez Canillas <javier@osg.samsung.com>
-Subject: Re: mwifiex: propagate error if IRQ request fails in
- mwifiex_sdio_of()
-Date: Tue, 6 Sep 2016 14:12:33 +0200
-Message-ID: <66735eb5-c831-8e06-337b-80ccfc392061@osg.samsung.com>
-References: <20160903103520.8C69C6201B@smtp.codeaurora.org>
+From: Eric Garver <e@erig.me>
+Subject: Re: [ovs-dev] [PATCH net-next v21 3/4] openvswitch: 802.1AD Flow
+ handling, actions, vlan parsing, netlink attributes
+Date: Tue, 6 Sep 2016 08:34:28 -0400
+Message-ID: <20160906123428.GL31705@egarver>
+References: <1472762727-25844-1-git-send-email-e@erig.me>
+ <1472762727-25844-4-git-send-email-e@erig.me>
+ <CAOrHB_A6Twwp+S514orUZ5RaKS1hGXgc1uUi7Lj8dxPQrk_sxg@mail.gmail.com>
+ <20160903173012.GJ31705@egarver>
+ <20160904130546.571fe654@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-        Amitkumar Karwar <akarwar@marvell.com>, netdev@vger.kernel.org,
-        linux-wireless@vger.kernel.org,
-        Nishant Sarmukadam <nishants@marvell.com>,
-        Arend van Spriel <arend.vanspriel@broadcom.com>
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160903103520.8C69C6201B@smtp.codeaurora.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: pravin shelar <pshelar@ovn.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        ovs dev <dev@openvswitch.org>,
+        Thomas F Herbert <thomasfherbert@gmail.com>
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:45870 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754196AbcIFMeh (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 6 Sep 2016 08:34:37 -0400
+Content-Disposition: inline
+In-Reply-To: <20160904130546.571fe654@griffin>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Kalle,
-
-On 09/03/2016 12:35 PM, Kalle Valo wrote:
-> Javier Martinez Canillas <javier@osg.samsung.com> wrote:
->> If request_irq() fails in mwifiex_sdio_probe_of(), only an error message
->> is printed but the actual error is not propagated to the caller function.
->>
->> Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
+On Sun, Sep 04, 2016 at 01:05:46PM +0200, Jiri Benc wrote:
+> On Sat, 3 Sep 2016 13:30:12 -0400, Eric Garver wrote:
+> > Would a BUG_ON(!(encap && in_encap)) be better?
 > 
-> What's the conclusion with this patch? Should I drop it or take it?
+> Please don't crash the kernel for something that could very well
+> continue without problems. Use WARN_ON at most.
+
+Thanks Jiri. WARN_ON_ONCE() is more appropriate for what I was looking
+for.
+
+> And if you go that way, WARN_ON_ONCE or rate limiting seems to be even
+> more appropriate, because if this triggers, it's quite possible it will
+> trigger repeatedly and the resulting log flood would practically make
+> the machine useless anyway.
 > 
-> (The discussion is available from the patchwork link in the signature.)
+> Thanks,
 > 
-
-My understanding is that Arend agrees with the patch and that the question
-raised was caused by looking at an older kernel version. IOW, the patch is
-OK and should be picked.
-
-I'm adding Arend to cc, so can comment in case I misunderstood him though.
-
-Best regards,
--- 
-Javier Martinez Canillas
-Open Source Group
-Samsung Research America
+>  Jiri
