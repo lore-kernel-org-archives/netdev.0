@@ -1,55 +1,49 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] rxrpc: remove duplicate 'error' variable
-Date: Tue,  6 Sep 2016 15:25:29 +0200
-Message-ID: <20160906132614.2117695-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-        David Howells <dhowells@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: Centralizing support for TCAM?
+Date: Tue, 6 Sep 2016 15:31:05 +0200
+Message-ID: <20160906133105.GD2719@lunn.ch>
+References: <57d4a2db-ca3b-909a-073a-52ecceb428f2@gmail.com>
+ <b8323295-e3eb-48ca-7c82-ff40d222a743@gmail.com>
+ <57C9C9BE.6040407@gmail.com>
+ <20160903070950.GA1749@nanopsycho.orion>
+ <20160906034450.GA34929@ast-mbp.thefacebook.com>
+ <4e871929-b8fb-b1c9-6909-218460e21e76@mojatatu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Jiri Pirko <jiri@resnulli.us>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        netdev@vger.kernel.org, jiri@mellanox.com, idosh@mellanox.com,
+        john.fastabend@intel.com, ast@kernel.org, davem@davemloft.net,
+        ecree@solarflare.com, vivien.didelot@savoirfairelinux.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:36279 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932893AbcIFNbP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 6 Sep 2016 09:31:15 -0400
+Content-Disposition: inline
+In-Reply-To: <4e871929-b8fb-b1c9-6909-218460e21e76@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The rxrpc_process_call function has debug code to print a failure code,
-but instead of printing the code from the rxrpc_call structure, it
-prints an uninitialized variable:
+> >Since this thread about tcam... my 0.02 here is it's pretty bad in
+> >the nic(host) due to power consumption and in the tor it's only good as
+> >a part of algorithmic lpm solutions. There it won't be even seen as tcam.
+> >Instead the fancy algorithms will use exact match + tcam + aux data to pack
+> >as many routes into such 'algorithmic lpm' as possible, so I cannot see
+> >what tcam as actual tcam can be good for.
+> >
+> 
+> Agreed on tcams.
 
-net/rxrpc/call_event.c: In function 'rxrpc_process_call':
-net/rxrpc/call_event.c:879:58: error: 'error' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+So if i'm reading this right, you are talking about big switches, top
+of racks, etc. And you don't see much use for the TCAM.
 
-This removes the extraneous variable and prints the correct
-code instead.
+Florian and I are interested in the other end of the scale. Little
+5-10 port switches in SoHo, STB, WiFi Access points etc. At the
+moment, firewalling in such devices is done by the CPU. If we can
+offload some of the firewall rules to the TCAM, we would be happy.
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: f5c17aaeb2ae ("rxrpc: Calls should only have one terminal state")
----
- net/rxrpc/call_event.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
-
-diff --git a/net/rxrpc/call_event.c b/net/rxrpc/call_event.c
-index de72de662044..4754c7fb6242 100644
---- a/net/rxrpc/call_event.c
-+++ b/net/rxrpc/call_event.c
-@@ -868,7 +868,6 @@ skip_msg_init:
- 	/* deal with events of a final nature */
- 	if (test_bit(RXRPC_CALL_EV_RCVD_ERROR, &call->events)) {
- 		enum rxrpc_skb_mark mark;
--		int error;
- 
- 		clear_bit(RXRPC_CALL_EV_CONN_ABORT, &call->events);
- 		clear_bit(RXRPC_CALL_EV_REJECT_BUSY, &call->events);
-@@ -876,10 +875,10 @@ skip_msg_init:
- 
- 		if (call->completion == RXRPC_CALL_NETWORK_ERROR) {
- 			mark = RXRPC_SKB_MARK_NET_ERROR;
--			_debug("post net error %d", error);
-+			_debug("post net error %d", call->error);
- 		} else {
- 			mark = RXRPC_SKB_MARK_LOCAL_ERROR;
--			_debug("post net local error %d", error);
-+			_debug("post net local error %d", call->error);
- 		}
- 
- 		if (rxrpc_post_message(call, mark, call->error, true) < 0)
--- 
-2.9.0
+	Andrew
