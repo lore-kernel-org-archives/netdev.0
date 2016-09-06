@@ -1,7 +1,7 @@
 From: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
-Subject: [v11, 6/8] MAINTAINERS: add entry for Freescale SoC drivers
-Date: Tue, 6 Sep 2016 16:28:21 +0800
-Message-ID: <1473150503-9550-7-git-send-email-yangbo.lu@nxp.com>
+Subject: [v11, 8/8] mmc: sdhci-of-esdhc: fix host version for T4240-R1.0-R2.0
+Date: Tue, 6 Sep 2016 16:28:23 +0800
+Message-ID: <1473150503-9550-9-git-send-email-yangbo.lu@nxp.com>
 References: <1473150503-9550-1-git-send-email-yangbo.lu@nxp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -33,51 +33,119 @@ Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.o
 Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Add maintainer entry for Freescale SoC drivers including
-the QE library and the GUTS driver now. Also add maintainer
-for QE library.
+The eSDHC of T4240-R1.0-R2.0 has incorrect vender version and spec version.
+Acturally the right version numbers should be VVN=0x13 and SVN = 0x1.
+This patch adds the GUTS driver support for eSDHC driver to match SoC.
+And fix host version to avoid that incorrect version numbers break down
+the ADMA data transfer.
 
 Signed-off-by: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+Acked-by: Ulf Hansson <ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
 Acked-by: Scott Wood <oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>
-Acked-by: Qiang Zhao <qiang.zhao-3arQi8VN3Tc@public.gmane.org>
 ---
-Changes for v8:
-	- Added this patch
-Changes for v9:
-	- Added linux-arm mail list
-	- Removed GUTS driver entry
-Changes for v10:
-	- Changed 'DRIVER' to 'DRIVERS'
-	- Added 'Acked-by' of Scott and Qiang
-Changes for v11:
+Changes for v2:
+	- Got SVR through iomap instead of dts
+Changes for v3:
+	- Managed GUTS through syscon instead of iomap in eSDHC driver
+Changes for v4:
+	- Got SVR by GUTS driver instead of SYSCON
+Changes for v5:
+	- Changed to get SVR through API fsl_guts_get_svr()
+	- Combined patch 4, patch 5 and patch 6 into one
+Changes for v6:
+	- Added 'Acked-by: Ulf Hansson'
+Changes for v7:
 	- None
+Changes for v8:
+	- Added 'Acked-by: Scott Wood'
+Changes for v9:
+	- None
+Changes for v10:
+	- None
+Changes for v11:
+	- Changed to use soc_device_match
 ---
- MAINTAINERS | 11 ++++++++++-
- 1 file changed, 10 insertions(+), 1 deletion(-)
+ drivers/mmc/host/Kconfig          |  1 +
+ drivers/mmc/host/sdhci-of-esdhc.c | 20 ++++++++++++++++++++
+ 2 files changed, 21 insertions(+)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 71aa5da..3954c0c 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -4969,9 +4969,18 @@ F:	drivers/net/ethernet/freescale/fec_ptp.c
- F:	drivers/net/ethernet/freescale/fec.h
- F:	Documentation/devicetree/bindings/net/fsl-fec.txt
+diff --git a/drivers/mmc/host/Kconfig b/drivers/mmc/host/Kconfig
+index 5274f50..a1135a9 100644
+--- a/drivers/mmc/host/Kconfig
++++ b/drivers/mmc/host/Kconfig
+@@ -144,6 +144,7 @@ config MMC_SDHCI_OF_ESDHC
+ 	depends on MMC_SDHCI_PLTFM
+ 	depends on PPC || ARCH_MXC || ARCH_LAYERSCAPE
+ 	select MMC_SDHCI_IO_ACCESSORS
++	select FSL_GUTS
+ 	help
+ 	  This selects the Freescale eSDHC controller support.
  
-+FREESCALE SOC DRIVERS
-+M:	Scott Wood <oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>
-+L:	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-+L:	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-+S:	Maintained
-+F:	drivers/soc/fsl/
-+F:	include/linux/fsl/
+diff --git a/drivers/mmc/host/sdhci-of-esdhc.c b/drivers/mmc/host/sdhci-of-esdhc.c
+index fb71c86..0a31aa5 100644
+--- a/drivers/mmc/host/sdhci-of-esdhc.c
++++ b/drivers/mmc/host/sdhci-of-esdhc.c
+@@ -18,6 +18,7 @@
+ #include <linux/of.h>
+ #include <linux/delay.h>
+ #include <linux/module.h>
++#include <linux/sys_soc.h>
+ #include <linux/mmc/host.h>
+ #include "sdhci-pltfm.h"
+ #include "sdhci-esdhc.h"
+@@ -28,6 +29,7 @@
+ struct sdhci_esdhc {
+ 	u8 vendor_ver;
+ 	u8 spec_ver;
++	bool quirk_incorrect_hostver;
+ };
+ 
+ /**
+@@ -73,6 +75,8 @@ static u32 esdhc_readl_fixup(struct sdhci_host *host,
+ static u16 esdhc_readw_fixup(struct sdhci_host *host,
+ 				     int spec_reg, u32 value)
+ {
++	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
++	struct sdhci_esdhc *esdhc = sdhci_pltfm_priv(pltfm_host);
+ 	u16 ret;
+ 	int shift = (spec_reg & 0x2) * 8;
+ 
+@@ -80,6 +84,12 @@ static u16 esdhc_readw_fixup(struct sdhci_host *host,
+ 		ret = value & 0xffff;
+ 	else
+ 		ret = (value >> shift) & 0xffff;
++	/* Workaround for T4240-R1.0-R2.0 eSDHC which has incorrect
++	 * vendor version and spec version information.
++	 */
++	if ((spec_reg == SDHCI_HOST_VERSION) &&
++	    (esdhc->quirk_incorrect_hostver))
++		ret = (VENDOR_V_23 << SDHCI_VENDOR_VER_SHIFT) | SDHCI_SPEC_200;
+ 	return ret;
+ }
+ 
+@@ -558,6 +568,12 @@ static const struct sdhci_pltfm_data sdhci_esdhc_le_pdata = {
+ 	.ops = &sdhci_esdhc_le_ops,
+ };
+ 
++static struct soc_device_attribute soc_incorrect_hostver[] = {
++	{ .soc_id = "*name:T4240*", .revision = "1.0", },
++	{ .soc_id = "*name:T4240*", .revision = "2.0", },
++	{ },
++};
 +
- FREESCALE QUICC ENGINE LIBRARY
-+M:	Qiang Zhao <qiang.zhao-3arQi8VN3Tc@public.gmane.org>
- L:	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
--S:	Orphan
-+S:	Maintained
- F:	drivers/soc/fsl/qe/
- F:	include/soc/fsl/*qe*.h
- F:	include/soc/fsl/*ucc*.h
+ static void esdhc_init(struct platform_device *pdev, struct sdhci_host *host)
+ {
+ 	struct sdhci_pltfm_host *pltfm_host;
+@@ -571,6 +587,10 @@ static void esdhc_init(struct platform_device *pdev, struct sdhci_host *host)
+ 	esdhc->vendor_ver = (host_ver & SDHCI_VENDOR_VER_MASK) >>
+ 			     SDHCI_VENDOR_VER_SHIFT;
+ 	esdhc->spec_ver = host_ver & SDHCI_SPEC_VER_MASK;
++	if (soc_device_match(soc_incorrect_hostver))
++		esdhc->quirk_incorrect_hostver = true;
++	else
++		esdhc->quirk_incorrect_hostver = false;
+ }
+ 
+ static int sdhci_esdhc_probe(struct platform_device *pdev)
 -- 
 2.1.0.27.g96db324
