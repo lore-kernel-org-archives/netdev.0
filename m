@@ -1,119 +1,267 @@
-From: Bjorn Andersson <bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH v4 4/4] wcn36xx: Implement print_reg indication
-Date: Tue,  6 Sep 2016 15:18:32 -0700
-Message-ID: <1473200312-22438-4-git-send-email-bjorn.andersson@linaro.org>
+From: Bjorn Andersson <bjorn.andersson@linaro.org>
+Subject: [PATCH v4 3/4] wcn36xx: Implement firmware assisted scan
+Date: Tue,  6 Sep 2016 15:18:31 -0700
+Message-ID: <1473200312-22438-3-git-send-email-bjorn.andersson@linaro.org>
 References: <1473200312-22438-1-git-send-email-bjorn.andersson@linaro.org>
-Cc: wcn36xx-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-arm-msm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andy Gross <andy.gross-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-        Nicolas Dechesne <ndec-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-To: Eugene Krasnikov <k.eugene.e-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1473200312-22438-1-git-send-email-bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-arm-msm@vger.kernel.org, Andy Gross <andy.gross@linaro.org>
+To: Eugene Krasnikov <k.eugene.e@gmail.com>,
+        Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1473200312-22438-1-git-send-email-bjorn.andersson@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Some firmware versions sends a "print register indication", handle this
-by printing out the content.
+Using the software based channel scan mechanism from mac80211 keeps us
+offline for 10-15 second, we should instead issue a start_scan/end_scan
+on each channel reducing this time.
 
-Cc: Nicolas Dechesne <ndec-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Signed-off-by: Bjorn Andersson <bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
 ---
 
 Changes since v3:
-- Rebased separate patch onto this series
+- None
+Changes since v2:
+- Match prototype change of ieee80211_scan_completed()
 
- drivers/net/wireless/ath/wcn36xx/hal.h | 16 ++++++++++++++++
- drivers/net/wireless/ath/wcn36xx/smd.c | 30 ++++++++++++++++++++++++++++++
- 2 files changed, 46 insertions(+)
+ drivers/net/wireless/ath/wcn36xx/main.c    | 64 +++++++++++++++++++++++++-----
+ drivers/net/wireless/ath/wcn36xx/smd.c     |  8 ++--
+ drivers/net/wireless/ath/wcn36xx/smd.h     |  4 +-
+ drivers/net/wireless/ath/wcn36xx/txrx.c    | 19 ++++++---
+ drivers/net/wireless/ath/wcn36xx/wcn36xx.h |  9 +++++
+ 5 files changed, 81 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/wireless/ath/wcn36xx/hal.h b/drivers/net/wireless/ath/wcn36xx/hal.h
-index 4f87ef1e1eb8..b765c647319d 100644
---- a/drivers/net/wireless/ath/wcn36xx/hal.h
-+++ b/drivers/net/wireless/ath/wcn36xx/hal.h
-@@ -350,6 +350,8 @@ enum wcn36xx_hal_host_msg_type {
- 
- 	WCN36XX_HAL_AVOID_FREQ_RANGE_IND = 233,
- 
-+	WCN36XX_HAL_PRINT_REG_INFO_IND = 259,
-+
- 	WCN36XX_HAL_MSG_MAX = WCN36XX_HAL_MSG_TYPE_MAX_ENUM_SIZE
- };
- 
-@@ -4703,4 +4705,18 @@ struct stats_class_b_ind {
- 	u32 rx_time_total;
- };
- 
-+/* WCN36XX_HAL_PRINT_REG_INFO_IND */
-+struct wcn36xx_hal_print_reg_info_ind {
-+	struct wcn36xx_hal_msg_header header;
-+
-+	u32 count;
-+	u32 scenario;
-+	u32 reason;
-+
-+	struct {
-+		u32 addr;
-+		u32 value;
-+	} regs[];
-+} __packed;
-+
- #endif /* _HAL_H_ */
-diff --git a/drivers/net/wireless/ath/wcn36xx/smd.c b/drivers/net/wireless/ath/wcn36xx/smd.c
-index be5e5ea1e5c3..1c2966f7db7a 100644
---- a/drivers/net/wireless/ath/wcn36xx/smd.c
-+++ b/drivers/net/wireless/ath/wcn36xx/smd.c
-@@ -2109,6 +2109,30 @@ static int wcn36xx_smd_delete_sta_context_ind(struct wcn36xx *wcn,
- 	return -ENOENT;
+diff --git a/drivers/net/wireless/ath/wcn36xx/main.c b/drivers/net/wireless/ath/wcn36xx/main.c
+index 3c2522b07c90..96a9584edcbb 100644
+--- a/drivers/net/wireless/ath/wcn36xx/main.c
++++ b/drivers/net/wireless/ath/wcn36xx/main.c
+@@ -568,23 +568,59 @@ out:
+ 	return ret;
  }
  
-+static int wcn36xx_smd_print_reg_info_ind(struct wcn36xx *wcn,
-+					  void *buf,
-+					  size_t len)
-+{
-+	struct wcn36xx_hal_print_reg_info_ind *rsp = buf;
+-static void wcn36xx_sw_scan_start(struct ieee80211_hw *hw,
+-				  struct ieee80211_vif *vif,
+-				  const u8 *mac_addr)
++static void wcn36xx_hw_scan_worker(struct work_struct *work)
+ {
+-	struct wcn36xx *wcn = hw->priv;
++	struct wcn36xx *wcn = container_of(work, struct wcn36xx, scan_work);
++	struct cfg80211_scan_request *req = wcn->scan_req;
++	u8 channels[WCN36XX_HAL_PNO_MAX_NETW_CHANNELS_EX];
++	struct cfg80211_scan_info scan_info = {};
 +	int i;
 +
-+	if (len < sizeof(*rsp)) {
-+		wcn36xx_warn("Corrupted print reg info indication\n");
-+		return -EIO;
-+	}
++	wcn36xx_dbg(WCN36XX_DBG_MAC, "mac80211 scan %d channels worker\n", req->n_channels);
 +
-+	wcn36xx_dbg(WCN36XX_DBG_HAL,
-+		    "reginfo indication, scenario: 0x%x reason: 0x%x\n",
-+		    rsp->scenario, rsp->reason);
++	for (i = 0; i < req->n_channels; i++)
++		channels[i] = req->channels[i]->hw_value;
 +
-+	for (i = 0; i < rsp->count; i++) {
-+		wcn36xx_dbg(WCN36XX_DBG_HAL, "\t0x%x: 0x%x\n",
-+			    rsp->regs[i].addr, rsp->regs[i].value);
++	wcn36xx_smd_update_scan_params(wcn, channels, req->n_channels);
+ 
+ 	wcn36xx_smd_init_scan(wcn, HAL_SYS_MODE_SCAN);
+-	wcn36xx_smd_start_scan(wcn);
++	for (i = 0; i < req->n_channels; i++) {
++		wcn->scan_freq = req->channels[i]->center_freq;
++		wcn->scan_band = req->channels[i]->band;
++
++		wcn36xx_smd_start_scan(wcn, req->channels[i]->hw_value);
++		msleep(30);
++		wcn36xx_smd_end_scan(wcn, req->channels[i]->hw_value);
++
++		wcn->scan_freq = 0;
 +	}
++	wcn36xx_smd_finish_scan(wcn, HAL_SYS_MODE_SCAN);
++
++	scan_info.aborted = false;
++	ieee80211_scan_completed(wcn->hw, &scan_info);
++
++	mutex_lock(&wcn->scan_lock);
++	wcn->scan_req = NULL;
++	mutex_unlock(&wcn->scan_lock);
+ }
+ 
+-static void wcn36xx_sw_scan_complete(struct ieee80211_hw *hw,
+-				     struct ieee80211_vif *vif)
++static int wcn36xx_hw_scan(struct ieee80211_hw *hw,
++			   struct ieee80211_vif *vif,
++			   struct ieee80211_scan_request *hw_req)
+ {
+ 	struct wcn36xx *wcn = hw->priv;
+ 
+-	wcn36xx_smd_end_scan(wcn);
+-	wcn36xx_smd_finish_scan(wcn, HAL_SYS_MODE_SCAN);
++	mutex_lock(&wcn->scan_lock);
++	if (wcn->scan_req) {
++		mutex_unlock(&wcn->scan_lock);
++		return -EBUSY;
++	}
++	wcn->scan_req = &hw_req->req;
++	mutex_unlock(&wcn->scan_lock);
++
++	schedule_work(&wcn->scan_work);
 +
 +	return 0;
-+}
+ }
+ 
+ static void wcn36xx_update_allowed_rates(struct ieee80211_sta *sta,
+@@ -997,8 +1033,7 @@ static const struct ieee80211_ops wcn36xx_ops = {
+ 	.configure_filter       = wcn36xx_configure_filter,
+ 	.tx			= wcn36xx_tx,
+ 	.set_key		= wcn36xx_set_key,
+-	.sw_scan_start		= wcn36xx_sw_scan_start,
+-	.sw_scan_complete	= wcn36xx_sw_scan_complete,
++	.hw_scan		= wcn36xx_hw_scan,
+ 	.bss_info_changed	= wcn36xx_bss_info_changed,
+ 	.set_rts_threshold	= wcn36xx_set_rts_threshold,
+ 	.sta_add		= wcn36xx_sta_add,
+@@ -1023,6 +1058,7 @@ static int wcn36xx_init_ieee80211(struct wcn36xx *wcn)
+ 	ieee80211_hw_set(wcn->hw, SUPPORTS_PS);
+ 	ieee80211_hw_set(wcn->hw, SIGNAL_DBM);
+ 	ieee80211_hw_set(wcn->hw, HAS_RATE_CONTROL);
++	ieee80211_hw_set(wcn->hw, SINGLE_SCAN_ON_ALL_BANDS);
+ 
+ 	wcn->hw->wiphy->interface_modes = BIT(NL80211_IFTYPE_STATION) |
+ 		BIT(NL80211_IFTYPE_AP) |
+@@ -1032,6 +1068,9 @@ static int wcn36xx_init_ieee80211(struct wcn36xx *wcn)
+ 	wcn->hw->wiphy->bands[NL80211_BAND_2GHZ] = &wcn_band_2ghz;
+ 	wcn->hw->wiphy->bands[NL80211_BAND_5GHZ] = &wcn_band_5ghz;
+ 
++	wcn->hw->wiphy->max_scan_ssids = WCN36XX_MAX_SCAN_SSIDS;
++	wcn->hw->wiphy->max_scan_ie_len = WCN36XX_MAX_SCAN_IE_LEN;
 +
- int wcn36xx_smd_update_cfg(struct wcn36xx *wcn, u32 cfg_id, u32 value)
+ 	wcn->hw->wiphy->cipher_suites = cipher_suites;
+ 	wcn->hw->wiphy->n_cipher_suites = ARRAY_SIZE(cipher_suites);
+ 
+@@ -1152,6 +1191,9 @@ static int wcn36xx_probe(struct platform_device *pdev)
+ 	wcn->hw = hw;
+ 	wcn->dev = &pdev->dev;
+ 	mutex_init(&wcn->hal_mutex);
++	mutex_init(&wcn->scan_lock);
++
++	INIT_WORK(&wcn->scan_work, wcn36xx_hw_scan_worker);
+ 
+ 	wcn->smd_channel = qcom_wcnss_open_channel(wcnss, "WLAN_CTRL", wcn36xx_smd_rsp_process);
+ 	if (IS_ERR(wcn->smd_channel)) {
+diff --git a/drivers/net/wireless/ath/wcn36xx/smd.c b/drivers/net/wireless/ath/wcn36xx/smd.c
+index af0260add841..be5e5ea1e5c3 100644
+--- a/drivers/net/wireless/ath/wcn36xx/smd.c
++++ b/drivers/net/wireless/ath/wcn36xx/smd.c
+@@ -522,7 +522,7 @@ out:
+ 	return ret;
+ }
+ 
+-int wcn36xx_smd_start_scan(struct wcn36xx *wcn)
++int wcn36xx_smd_start_scan(struct wcn36xx *wcn, u8 scan_channel)
  {
- 	struct wcn36xx_hal_update_cfg_req_msg msg_body, *body;
-@@ -2237,6 +2261,7 @@ int wcn36xx_smd_rsp_process(struct qcom_smd_channel *channel,
- 	case WCN36XX_HAL_OTA_TX_COMPL_IND:
- 	case WCN36XX_HAL_MISSED_BEACON_IND:
- 	case WCN36XX_HAL_DELETE_STA_CONTEXT_IND:
-+	case WCN36XX_HAL_PRINT_REG_INFO_IND:
- 		msg_ind = kmalloc(sizeof(*msg_ind) + len, GFP_ATOMIC);
- 		if (!msg_ind) {
- 			wcn36xx_err("Run out of memory while handling SMD_EVENT (%d)\n",
-@@ -2296,6 +2321,11 @@ static void wcn36xx_ind_smd_work(struct work_struct *work)
- 						   hal_ind_msg->msg,
- 						   hal_ind_msg->msg_len);
- 		break;
-+	case WCN36XX_HAL_PRINT_REG_INFO_IND:
-+		wcn36xx_smd_print_reg_info_ind(wcn,
-+					       hal_ind_msg->msg,
-+					       hal_ind_msg->msg_len);
-+		break;
- 	default:
- 		wcn36xx_err("SMD_EVENT (%d) not supported\n",
- 			      msg_header->msg_type);
+ 	struct wcn36xx_hal_start_scan_req_msg msg_body;
+ 	int ret = 0;
+@@ -530,7 +530,7 @@ int wcn36xx_smd_start_scan(struct wcn36xx *wcn)
+ 	mutex_lock(&wcn->hal_mutex);
+ 	INIT_HAL_MSG(msg_body, WCN36XX_HAL_START_SCAN_REQ);
+ 
+-	msg_body.scan_channel = WCN36XX_HW_CHANNEL(wcn);
++	msg_body.scan_channel = scan_channel;
+ 
+ 	PREPARE_HAL_BUF(wcn->hal_buf, msg_body);
+ 
+@@ -552,7 +552,7 @@ out:
+ 	return ret;
+ }
+ 
+-int wcn36xx_smd_end_scan(struct wcn36xx *wcn)
++int wcn36xx_smd_end_scan(struct wcn36xx *wcn, u8 scan_channel)
+ {
+ 	struct wcn36xx_hal_end_scan_req_msg msg_body;
+ 	int ret = 0;
+@@ -560,7 +560,7 @@ int wcn36xx_smd_end_scan(struct wcn36xx *wcn)
+ 	mutex_lock(&wcn->hal_mutex);
+ 	INIT_HAL_MSG(msg_body, WCN36XX_HAL_END_SCAN_REQ);
+ 
+-	msg_body.scan_channel = WCN36XX_HW_CHANNEL(wcn);
++	msg_body.scan_channel = scan_channel;
+ 
+ 	PREPARE_HAL_BUF(wcn->hal_buf, msg_body);
+ 
+diff --git a/drivers/net/wireless/ath/wcn36xx/smd.h b/drivers/net/wireless/ath/wcn36xx/smd.h
+index 40d829563c2b..8892ccd67b14 100644
+--- a/drivers/net/wireless/ath/wcn36xx/smd.h
++++ b/drivers/net/wireless/ath/wcn36xx/smd.h
+@@ -60,8 +60,8 @@ int wcn36xx_smd_load_nv(struct wcn36xx *wcn);
+ int wcn36xx_smd_start(struct wcn36xx *wcn);
+ int wcn36xx_smd_stop(struct wcn36xx *wcn);
+ int wcn36xx_smd_init_scan(struct wcn36xx *wcn, enum wcn36xx_hal_sys_mode mode);
+-int wcn36xx_smd_start_scan(struct wcn36xx *wcn);
+-int wcn36xx_smd_end_scan(struct wcn36xx *wcn);
++int wcn36xx_smd_start_scan(struct wcn36xx *wcn, u8 scan_channel);
++int wcn36xx_smd_end_scan(struct wcn36xx *wcn, u8 scan_channel);
+ int wcn36xx_smd_finish_scan(struct wcn36xx *wcn,
+ 			    enum wcn36xx_hal_sys_mode mode);
+ int wcn36xx_smd_update_scan_params(struct wcn36xx *wcn, u8 *channels, size_t channel_count);
+diff --git a/drivers/net/wireless/ath/wcn36xx/txrx.c b/drivers/net/wireless/ath/wcn36xx/txrx.c
+index 1f34c2e912d7..8c387a0a3c09 100644
+--- a/drivers/net/wireless/ath/wcn36xx/txrx.c
++++ b/drivers/net/wireless/ath/wcn36xx/txrx.c
+@@ -45,9 +45,20 @@ int wcn36xx_rx_skb(struct wcn36xx *wcn, struct sk_buff *skb)
+ 	skb_put(skb, bd->pdu.mpdu_header_off + bd->pdu.mpdu_len);
+ 	skb_pull(skb, bd->pdu.mpdu_header_off);
+ 
++	hdr = (struct ieee80211_hdr *) skb->data;
++	fc = __le16_to_cpu(hdr->frame_control);
++	sn = IEEE80211_SEQ_TO_SN(__le16_to_cpu(hdr->seq_ctrl));
++
++	/* When scanning associate beacons to this */
++	if (ieee80211_is_beacon(hdr->frame_control) && wcn->scan_freq) {
++		status.freq = wcn->scan_freq;
++		status.band = wcn->scan_band;
++	} else {
++		status.freq = WCN36XX_CENTER_FREQ(wcn);
++		status.band = WCN36XX_BAND(wcn);
++	}
++
+ 	status.mactime = 10;
+-	status.freq = WCN36XX_CENTER_FREQ(wcn);
+-	status.band = WCN36XX_BAND(wcn);
+ 	status.signal = -get_rssi0(bd);
+ 	status.antenna = 1;
+ 	status.rate_idx = 1;
+@@ -61,10 +72,6 @@ int wcn36xx_rx_skb(struct wcn36xx *wcn, struct sk_buff *skb)
+ 
+ 	memcpy(IEEE80211_SKB_RXCB(skb), &status, sizeof(status));
+ 
+-	hdr = (struct ieee80211_hdr *) skb->data;
+-	fc = __le16_to_cpu(hdr->frame_control);
+-	sn = IEEE80211_SEQ_TO_SN(__le16_to_cpu(hdr->seq_ctrl));
+-
+ 	if (ieee80211_is_beacon(hdr->frame_control)) {
+ 		wcn36xx_dbg(WCN36XX_DBG_BEACON, "beacon skb %p len %d fc %04x sn %d\n",
+ 			    skb, skb->len, fc, sn);
+diff --git a/drivers/net/wireless/ath/wcn36xx/wcn36xx.h b/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
+index 68cc06cf9bc0..35a6590c3ee5 100644
+--- a/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
++++ b/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
+@@ -35,6 +35,9 @@
+ /* How many frames until we start a-mpdu TX session */
+ #define WCN36XX_AMPDU_START_THRESH	20
+ 
++#define WCN36XX_MAX_SCAN_SSIDS		9
++#define WCN36XX_MAX_SCAN_IE_LEN		500
++
+ extern unsigned int wcn36xx_dbg_mask;
+ 
+ enum wcn36xx_debug_mask {
+@@ -212,6 +215,12 @@ struct wcn36xx {
+ 	spinlock_t		hal_ind_lock;
+ 	struct list_head	hal_ind_queue;
+ 
++	struct work_struct	scan_work;
++	struct cfg80211_scan_request *scan_req;
++	int			scan_freq;
++	int			scan_band;
++	struct mutex		scan_lock;
++
+ 	/* DXE channels */
+ 	struct wcn36xx_dxe_ch	dxe_tx_l_ch;	/* TX low */
+ 	struct wcn36xx_dxe_ch	dxe_tx_h_ch;	/* TX high */
 -- 
 2.5.0
