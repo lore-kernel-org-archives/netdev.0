@@ -1,35 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: ipv6: release dst in ping_v6_sendmsg
-Date: Tue, 06 Sep 2016 12:56:05 -0700 (PDT)
-Message-ID: <20160906.125605.2276804616901457581.davem@davemloft.net>
-References: <20160902183950.p3iv25jnuwmq74sg@codemonkey.org.uk>
+Subject: Re: [PATCH net-next v2 0/3] net: dsa: mv88e6xxx: isolate Global2
+ support
+Date: Tue, 06 Sep 2016 12:58:28 -0700 (PDT)
+Message-ID: <20160906.125828.797045076262810512.davem@davemloft.net>
+References: <20160902184534.28594-1-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kafai@fb.com
-To: davej@codemonkey.org.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52874 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932133AbcIFT4G (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 15:56:06 -0400
-In-Reply-To: <20160902183950.p3iv25jnuwmq74sg@codemonkey.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
+To: vivien.didelot@savoirfairelinux.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160902184534.28594-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Dave Jones <davej@codemonkey.org.uk>
-Date: Fri, 2 Sep 2016 14:39:50 -0400
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Fri,  2 Sep 2016 14:45:31 -0400
 
-> Neither the failure or success paths of ping_v6_sendmsg release
-> the dst it acquires.  This leads to a flood of warnings from
-> "net/core/dst.c:288 dst_release" on older kernels that
-> don't have 8bf4ada2e21378816b28205427ee6b0e1ca4c5f1 backported.
+> Registers of Marvell chips are organized in internal SMI devices.
 > 
-> That patch optimistically hoped this had been fixed post 3.10, but
-> it seems at least one case wasn't, where I've seen this triggered
-> a lot from machines doing unprivileged icmp sockets.
+> One of them at address 0x1C is called Global2. It provides an extended
+> set of registers, used for interrupt control, EEPROM access, indirect
+> PHY access (to bypass the PHY Polling Unit) and cross-chip setup.
 > 
-> Cc: Martin Lau <kafai@fb.com>
-> Signed-off-by: Dave Jones <davej@codemonkey.org.uk>
+> Most chips have it, but some others don't (older ones such as 6060).
+> 
+> Now that its related code is isolated in mv88e6xxx_g2_* functions, move
+> it to its own global2.c file, making most of its setup code static.
+> 
+> Then make its compilation optional, which allows to reduce the size of
+> the mv88e6xxx driver for devices such as home routers embedding Ethernet
+> chips without Global2 support.
+> 
+> It is present on most recent chips, thus enable its support by default.
+> 
+> Changes in v2: fail probe if GLOBAL2 is required but not enabled.
 
-Applied and queued up for -stable, thanks Dave.
+Series applied, thanks.
