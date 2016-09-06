@@ -1,7 +1,7 @@
 From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-Subject: [PATCH v5 5/6] ARM64: dts: meson-gxbb: use the new GXBB DWMAC glue driver
-Date: Tue,  6 Sep 2016 23:38:47 +0200
-Message-ID: <20160906213848.17785-6-martin.blumenstingl@googlemail.com>
+Subject: [PATCH v5 6/6] net: stmmac: update the module description of the dwmac-meson driver
+Date: Tue,  6 Sep 2016 23:38:48 +0200
+Message-ID: <20160906213848.17785-7-martin.blumenstingl@googlemail.com>
 References: <20160904182320.671-1-martin.blumenstingl@googlemail.com>
  <20160906213848.17785-1-martin.blumenstingl@googlemail.com>
 Cc: robh+dt@kernel.org, mark.rutland@arm.com, catalin.marinas@arm.com,
@@ -14,52 +14,39 @@ To: linux-amlogic@lists.infradead.org, khilman@baylibre.com,
         carlo@caione.org, mturquette@baylibre.com, peppe.cavallaro@st.com,
         alexandre.torgue@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33459 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754980AbcIFVjo (ORCPT
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35575 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755005AbcIFVjo (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 17:39:44 -0400
 In-Reply-To: <20160906213848.17785-1-martin.blumenstingl@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Amlogic reference driver uses the "mc_val" devicetree property to
-configure the PRG_ETHERNET_ADDR0 register. Unfortunately it uses magic
-values for this configuration.
-According to the datasheet the PRG_ETHERNET_ADDR0 register is at address
-0xc8834108. However, the reference driver uses 0xc8834540 instead.
-According to my tests, the value from the reference driver is correct.
-
-No changes are required to the board dts files because the only
-required configuration option is the phy-mode, which had to be
-configured correctly before as well.
+The dwmac-meson glue driver supports Meson6 and Meson8 SoCs. Newer SoCs
+are supported by the dwmac-meson8b driver.
 
 Signed-off-by: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
 ---
- arch/arm64/boot/dts/amlogic/meson-gxbb.dtsi | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/dwmac-meson.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/arch/arm64/boot/dts/amlogic/meson-gxbb.dtsi b/arch/arm64/boot/dts/amlogic/meson-gxbb.dtsi
-index 2b47415..2e8a3d9 100644
---- a/arch/arm64/boot/dts/amlogic/meson-gxbb.dtsi
-+++ b/arch/arm64/boot/dts/amlogic/meson-gxbb.dtsi
-@@ -497,13 +497,15 @@
- 		};
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-meson.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-meson.c
+index c1bac19..309d995 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-meson.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-meson.c
+@@ -1,5 +1,5 @@
+ /*
+- * Amlogic Meson DWMAC glue layer
++ * Amlogic Meson6 and Meson8 DWMAC glue layer
+  *
+  * Copyright (C) 2014 Beniamino Galvani <b.galvani@gmail.com>
+  *
+@@ -96,5 +96,5 @@ static struct platform_driver meson6_dwmac_driver = {
+ module_platform_driver(meson6_dwmac_driver);
  
- 		ethmac: ethernet@c9410000 {
--			compatible = "amlogic,meson6-dwmac", "snps,dwmac";
-+			compatible = "amlogic,meson-gxbb-dwmac", "snps,dwmac";
- 			reg = <0x0 0xc9410000 0x0 0x10000
- 			       0x0 0xc8834540 0x0 0x4>;
- 			interrupts = <0 8 1>;
- 			interrupt-names = "macirq";
--			clocks = <&clkc CLKID_ETH>;
--			clock-names = "stmmaceth";
-+			clocks = <&clkc CLKID_ETH>,
-+				 <&clkc CLKID_FCLK_DIV2>,
-+				 <&clkc CLKID_MPLL2>;
-+			clock-names = "stmmaceth", "clkin0", "clkin1";
- 			phy-mode = "rgmii";
- 			status = "disabled";
- 		};
+ MODULE_AUTHOR("Beniamino Galvani <b.galvani@gmail.com>");
+-MODULE_DESCRIPTION("Amlogic Meson DWMAC glue layer");
++MODULE_DESCRIPTION("Amlogic Meson6 and Meson8 DWMAC glue layer");
+ MODULE_LICENSE("GPL v2");
 -- 
 2.9.3
