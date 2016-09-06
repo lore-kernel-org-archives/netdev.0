@@ -1,54 +1,67 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next RFC 1/2] fib: introduce fib notification
- infrastructure
-Date: Tue, 6 Sep 2016 16:44:08 +0200
-Message-ID: <20160906144408.GH1692@nanopsycho>
-References: <1473163300-2045-1-git-send-email-jiri@resnulli.us>
- <1473163300-2045-2-git-send-email-jiri@resnulli.us>
- <6a4d9ba6-7113-b487-eb52-ca1f703d13f6@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
-        eladr@mellanox.com, yotamg@mellanox.com, nogahf@mellanox.com,
-        ogerlitz@mellanox.com, roopa@cumulusnetworks.com,
-        nikolay@cumulusnetworks.com, linville@tuxdriver.com, tgraf@suug.ch,
-        gospo@cumulusnetworks.com, sfeldma@gmail.com, ast@plumgrid.com,
-        edumazet@google.com, hannes@stressinduktion.org,
-        f.fainelli@gmail.com, jhs@mojatatu.com,
-        vivien.didelot@savoirfairelinux.com, john.fastabend@intel.com,
-        andrew@lunn.ch, ivecera@redhat.com
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f52.google.com ([74.125.82.52]:37644 "EHLO
-        mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932279AbcIFOoT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 10:44:19 -0400
-Received: by mail-wm0-f52.google.com with SMTP id w12so96570400wmf.0
-        for <netdev@vger.kernel.org>; Tue, 06 Sep 2016 07:44:19 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <6a4d9ba6-7113-b487-eb52-ca1f703d13f6@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: fgao@ikuai8.com
+Subject: [PATCH v5 nf] netfilter: seqadj: Drop the packet directly when fail to add seqadj extension to avoid dereference NULL pointer later
+Date: Tue,  6 Sep 2016 22:43:55 +0800
+Message-ID: <1473173035-2175-1-git-send-email-fgao@ikuai8.com>
+Cc: gfree.wind@gmail.com, Gao Feng <fgao@ikuai8.com>
+To: pablo@netfilter.org, netfilter-devel@vger.kernel.org, fw@strlen.de,
+        coreteam@netfilter.org, netdev@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Sep 06, 2016 at 04:32:12PM CEST, dsa@cumulusnetworks.com wrote:
->On 9/6/16 6:01 AM, Jiri Pirko wrote:
->> From: Jiri Pirko <jiri@mellanox.com>
->> 
->> This allows to pass information about added/deleted fib entries to
->> whoever is interested. This is done in a very similar way as devinet
->> notifies address additions/removals.
->> 
->> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->> ---
->>  include/net/ip_fib.h | 19 +++++++++++++++++++
->>  net/ipv4/fib_trie.c  | 43 +++++++++++++++++++++++++++++++++++++++++++
->>  2 files changed, 62 insertions(+)
->> 
->
->The notifier infrastructure should be generalized for use with IPv4 and IPv6. While the data will be family based, the infra can be generic.
->
+From: Gao Feng <fgao@ikuai8.com>
 
-Yeah, that I thought about as well. Thing is, ipv6 notifier has to be
-atomic. That is the reason we have:
-inetaddr_chain and register_inetaddr_notifier (blocking notifier)
-inet6addr_chain and register_inet6addr_notifier (atomic notifier)
+When memory is exhausted, nfct_seqadj_ext_add may fail to add the seqadj
+extension. But the function nf_ct_seqadj_init doesn't check if get valid
+seqadj pointer by the nfct_seqadj.
+
+Now drop the packet directly when fail to add seqadj extension to avoid
+dereference NULL pointer in nf_ct_seqadj_init.
+
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
+---
+ v5: Return NF_ACCEPT instead of NF_DROP when nfct_seqadj_ext_add failed in nf_nat_setup_info
+ v4: Drop the packet directly when fail to add seqadj extension;
+ v3: Remove the warning log when seqadj is null;
+ v2: Remove the unnessary seqadj check in nf_ct_seq_adjust
+ v1: Initial patch
+
+ net/netfilter/nf_conntrack_core.c | 6 +++++-
+ net/netfilter/nf_nat_core.c       | 3 ++-
+ 2 files changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index dd2c43a..dfa76ce 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -1036,7 +1036,11 @@ init_conntrack(struct net *net, struct nf_conn *tmpl,
+ 		return (struct nf_conntrack_tuple_hash *)ct;
+ 
+ 	if (tmpl && nfct_synproxy(tmpl)) {
+-		nfct_seqadj_ext_add(ct);
++		if (!nfct_seqadj_ext_add(ct)) {
++			nf_conntrack_free(ct);
++			pr_debug("Can't add seqadj extension\n");
++			return NULL;
++		}
+ 		nfct_synproxy_ext_add(ct);
+ 	}
+ 
+diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
+index de31818..f8b916a 100644
+--- a/net/netfilter/nf_nat_core.c
++++ b/net/netfilter/nf_nat_core.c
+@@ -441,7 +441,8 @@ nf_nat_setup_info(struct nf_conn *ct,
+ 			ct->status |= IPS_DST_NAT;
+ 
+ 		if (nfct_help(ct))
+-			nfct_seqadj_ext_add(ct);
++			if (!nfct_seqadj_ext_add(ct))
++				return NF_ACCEPT;
+ 	}
+ 
+ 	if (maniptype == NF_NAT_MANIP_SRC) {
+-- 
+1.9.1
+
+
