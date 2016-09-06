@@ -1,61 +1,68 @@
-From: Grant Grundler <grundler-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v3 5/5] net: asix: autoneg will set WRITE_MEDIUM reg
-Date: Tue, 6 Sep 2016 09:41:53 -0700
-Message-ID: <CANEJEGtE7R_FhGJfw8hayuiQi1Wbo2cYFN9MbcYzm6+Whs=2Qw@mail.gmail.com>
-References: <cover.c702ef6af13be7c1282a2f2d3189281fdc327abe.1472155176.git-series.robert.foss@collabora.com>
- <9d5c5525f369f1c4098bda989d73886d11036bae.1472155176.git-series.robert.foss@collabora.com>
- <1472748216.5019.46.camel@edumazet-glaptop3.roam.corp.google.com>
- <18052c6d-2cb1-0927-7d33-92d4bd397aa4@collabora.com> <1472749350.5019.52.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Bert Kenward <bkenward@solarflare.com>
+Subject: [PATCH net-next] sfc: check MTU against minimum threshold
+Date: Tue, 6 Sep 2016 17:50:00 +0100
+Message-ID: <09fc2c3f-744b-41e5-5801-96fa80cd6ad5@solarflare.com>
+References: <20160902170742.GA17677@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Robert Foss <robert.foss-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>,
-        Freddy Xin <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>, Dean_Jenkins-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org,
-        Mark_Craske-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        ivecera-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
-        Vincent Palatin <vpalatin-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-        stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, Grant Grundler <grundler-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-        Chia-Sheng Chang <changchias-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Allan Chou <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>, andrew-g2DYL2Zd6BY@public.gmane.org,
-        tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org,
-        "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Vincent Palatin <vpalatin-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1472749350.5019.52.camel-XN9IlZ5yJG9HTL0Zs8A6p+yfmBU6pStAUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
+        Jarod Wilson <jarod@redhat.com>
+To: Dave Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:47940 "EHLO
+        nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S933172AbcIFQuS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 12:50:18 -0400
+In-Reply-To: <20160902170742.GA17677@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 1, 2016 at 10:02 AM, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> On Thu, 2016-09-01 at 12:47 -0400, Robert Foss wrote:
->
->> I'm not quite sure how the first From line was added, it
->> should not have been.
->> Grant Grundler is most definitely the author.
->>
->> Would you like me to resubmit in v++ and make sure that it has been
->> corrected?
->
-> This is too late, patches are already merged in David Miller net-next
-> tree.
->
-> These kinds of errors can not be fixed, we have to be very careful at
-> submission/review time.
->
-> I guess Grant does not care, but some contributors, especially new ones
-> would like to get proper attribution.
+Reported-by: Ma Yuying <yuma@redhat.com>
+Suggested-by: Jarod Wilson <jarod@redhat.com>
+Signed-off-by: Bert Kenward <bkenward@solarflare.com>
+---
+ drivers/net/ethernet/sfc/efx.c        | 12 +++++++++++-
+ drivers/net/ethernet/sfc/net_driver.h |  3 +++
+ 2 files changed, 14 insertions(+), 1 deletion(-)
 
-I do not mind. Robert will get email about bugs instead of me. :D
-
-cheers,
-grant
-
->
-> Thanks.
->
->
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index f3826ae..3cf3557 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -2263,8 +2263,18 @@ static int efx_change_mtu(struct net_device *net_dev, int new_mtu)
+ 	rc = efx_check_disabled(efx);
+ 	if (rc)
+ 		return rc;
+-	if (new_mtu > EFX_MAX_MTU)
++	if (new_mtu > EFX_MAX_MTU) {
++		netif_err(efx, drv, efx->net_dev,
++			  "Requested MTU of %d too big (max: %d)\n",
++			  new_mtu, EFX_MAX_MTU);
+ 		return -EINVAL;
++	}
++	if (new_mtu < EFX_MIN_MTU) {
++		netif_err(efx, drv, efx->net_dev,
++			  "Requested MTU of %d too small (min: %d)\n",
++			  new_mtu, EFX_MIN_MTU);
++		return -EINVAL;
++	}
+ 
+ 	netif_dbg(efx, drv, efx->net_dev, "changing MTU to %d\n", new_mtu);
+ 
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index 0a2504b..99d8c82 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -76,6 +76,9 @@
+ /* Maximum possible MTU the driver supports */
+ #define EFX_MAX_MTU (9 * 1024)
+ 
++/* Minimum MTU, from RFC791 (IP) */
++#define EFX_MIN_MTU 68
++
+ /* Size of an RX scatter buffer.  Small enough to pack 2 into a 4K page,
+  * and should be a multiple of the cache line size.
+  */
+-- 
+2.7.4
