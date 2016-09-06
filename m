@@ -1,86 +1,122 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v7 1/3] netdevice: Add offload statistics ndo
-Date: Tue, 6 Sep 2016 17:46:19 +0200
-Message-ID: <20160906154619.GB1972@nanopsycho>
-References: <1473095937-27100-1-git-send-email-jiri@resnulli.us>
- <1473095937-27100-2-git-send-email-jiri@resnulli.us>
- <57CEDBE9.1090501@cumulusnetworks.com>
+From: Bjorn Helgaas <helgaas@kernel.org>
+Subject: Re: [RFC PATCH kernel] PCI: Enable access to custom VPD for Chelsio
+ devices (cxgb3)
+Date: Tue, 6 Sep 2016 10:48:04 -0500
+Message-ID: <20160906154804.GC1214@localhost>
+References: <307b33c6-786e-f910-c456-fda94e8fdb98@suse.de>
+ <1470909809-11007-1-git-send-email-aik@ozlabs.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, nogahf@mellanox.com,
-        idosch@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
-        ogerlitz@mellanox.com, nikolay@cumulusnetworks.com,
-        linville@tuxdriver.com, tgraf@suug.ch, gospo@cumulusnetworks.com,
-        sfeldma@gmail.com, sd@queasysnail.net, eranbe@mellanox.com,
-        ast@plumgrid.com, edumazet@google.com, hannes@stressinduktion.org,
-        f.fainelli@gmail.com, dsa@cumulusnetworks.com
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:36193 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754927AbcIFPqY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 11:46:24 -0400
-Received: by mail-wm0-f67.google.com with SMTP id l65so11393238wmf.3
-        for <netdev@vger.kernel.org>; Tue, 06 Sep 2016 08:46:23 -0700 (PDT)
+Cc: netdev@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>,
+        Santosh Raspatur <santosh@chelsio.com>,
+        Alex Williamson <alex.williamson@redhat.com>,
+        Paul Mackerras <paulus@samba.org>,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        Hannes Reinecke <hare@suse.de>, linux-kernel@vger.kernel.org,
+        linux-pci@vger.kernel.org
+To: Alexey Kardashevskiy <aik@ozlabs.ru>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <57CEDBE9.1090501@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1470909809-11007-1-git-send-email-aik@ozlabs.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Sep 06, 2016 at 05:08:25PM CEST, roopa@cumulusnetworks.com wrote:
->On 9/5/16, 10:18 AM, Jiri Pirko wrote:
->> From: Nogah Frankel <nogahf@mellanox.com>
->>
->> Add a new ndo to return statistics for offloaded operation.
->> Since there can be many different offloaded operation with many
->> stats types, the ndo gets an attribute id by which it knows which
->> stats are wanted. The ndo also gets a void pointer to be cast according
->> to the attribute id.
->>
->> Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
->> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->> ---
->>  include/linux/netdevice.h | 12 ++++++++++++
->>  1 file changed, 12 insertions(+)
->>
->> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->> index 67bb978..2d2c09b 100644
->> --- a/include/linux/netdevice.h
->> +++ b/include/linux/netdevice.h
->> @@ -924,6 +924,14 @@ struct netdev_xdp {
->>   *	3. Update dev->stats asynchronously and atomically, and define
->>   *	   neither operation.
->>   *
->> + * bool (*ndo_has_offload_stats)(int attr_id)
->> + *	Return true if this device supports offload stats of this attr_id.
->> + *
->> + * int (*ndo_get_offload_stats)(int attr_id, const struct net_device *dev,
->> + *	void *attr_data)
->> + *	Get statistics for offload operations by attr_id. Write it into the
->> + *	attr_data pointer.
->> + *
->
->this could have been a single ndo_get_offload_stats like the others.
->and possibly new ndo_get_offload_stats_size.
+Hi Alexey,
 
-Size is determined by the attribute.
+On Thu, Aug 11, 2016 at 08:03:29PM +1000, Alexey Kardashevskiy wrote:
+> There is at least one Chelsio 10Gb card which uses VPD area to store
+> some custom blocks (example below). However pci_vpd_size() returns
+> the length of the first block only assuming that there can be only
+> one VPD "End Tag" and VFIO blocks access beyond that offset
+> (since 4e1a63555) which leads to the situation when the guest "cxgb3"
+> driver fails to probe the device. The host system does not have this
+> problem as the drives accesses the config space directly without
+> pci_read_vpd()/...
+> 
+> This adds a quirk to override the VPD size to a bigger value.
+> 
+> This is the controller:
+> Ethernet controller [0200]: Chelsio Communications Inc T310 10GbE Single Port Adapter [1425:0030]
+> 
+> This is its VPD:
+> #0000 Large item 42 bytes; name 0x2 Identifier String
+> 	b'10 Gigabit Ethernet-SR PCI Express Adapter'
+> #002d Large item 74 bytes; name 0x10
+> 	#00 [EC] len=7: b'D76809 '
+> 	#0a [FN] len=7: b'46K7897'
+> 	#14 [PN] len=7: b'46K7897'
+> 	#1e [MN] len=4: b'1037'
+> 	#25 [FC] len=4: b'5769'
+> 	#2c [SN] len=12: b'YL102035603V'
+> 	#3b [NA] len=12: b'00145E992ED1'
+> #007a Small item 1 bytes; name 0xf End Tag
+> ---
+> #0c00 Large item 16 bytes; name 0x2 Identifier String
+> 	b'S310E-SR-X      '
+> #0c13 Large item 234 bytes; name 0x10
+> 	#00 [PN] len=16: b'TBD             '
+> 	#13 [EC] len=16: b'110107730D2     '
+> 	#26 [SN] len=16: b'97YL102035603V  '
+> 	#39 [NA] len=12: b'00145E992ED1'
+> 	#48 [V0] len=6: b'175000'
+> 	#51 [V1] len=6: b'266666'
+> 	#5a [V2] len=6: b'266666'
+> 	#63 [V3] len=6: b'2000  '
+> 	#6c [V4] len=2: b'1 '
+> 	#71 [V5] len=6: b'c2    '
+> 	#7a [V6] len=6: b'0     '
+> 	#83 [V7] len=2: b'1 '
+> 	#88 [V8] len=2: b'0 '
+> 	#8d [V9] len=2: b'0 '
+> 	#92 [VA] len=2: b'0 '
+> 	#97 [RV] len=80: b's\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'...
+> #0d00 Large item 252 bytes; name 0x11
+> 	#00 [VC] len=16: b'122310_1222 dp  '
+> 	#13 [VD] len=16: b'610-0001-00 H1\x00\x00'
+> 	#26 [VE] len=16: b'122310_1353 fp  '
+> 	#39 [VF] len=16: b'610-0001-00 H1\x00\x00'
+> 	#4c [RW] len=173: b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'...
+> #0dff Small item 0 bytes; name 0xf End Tag
+> 
+> Signed-off-by: Alexey Kardashevskiy <aik@ozlabs.ru>
+> ---
+>  drivers/pci/quirks.c | 12 ++++++++++++
+>  1 file changed, 12 insertions(+)
+> 
+> diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+> index ee72ebe1..94d3fb5 100644
+> --- a/drivers/pci/quirks.c
+> +++ b/drivers/pci/quirks.c
+> @@ -3241,6 +3241,18 @@ DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_CACTUS_RIDGE_4C
+>  DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_PORT_RIDGE,
+>  			quirk_thunderbolt_hotplug_msi);
+>  
+> +static void quirk_chelsio_extend_vpd(struct pci_dev *dev)
+> +{
+> +	if (!dev->vpd || !dev->vpd->ops || !dev->vpd->ops->set_size)
+> +		return;
+> +
+> +	dev->vpd->ops->set_size(dev, max_t(unsigned int, dev->vpd->len, 0xe00));
+> +}
+> +
+> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO,
+> +			PCI_ANY_ID,
+> +			quirk_chelsio_extend_vpd);
 
+Do you really want this for *all* Chelsio devices?  If you only need
+it for certain devices, the quirk could probably go in the driver.
 
->Ideally the driver could do the nest.
->But, this can be changed if needed in the future.
->
->>   * int (*ndo_vlan_rx_add_vid)(struct net_device *dev, __be16 proto, u16 vid);
->>   *	If device supports VLAN filtering this function is called when a
->>   *	VLAN id is registered.
->> @@ -1155,6 +1163,10 @@ struct net_device_ops {
->>  
->>  	struct rtnl_link_stats64* (*ndo_get_stats64)(struct net_device *dev,
->>  						     struct rtnl_link_stats64 *storage);
->> +	bool			(*ndo_has_offload_stats)(int attr_id);
->> +	int			(*ndo_get_offload_stats)(int attr_id,
->> +							 const struct net_device *dev,
->> +							 void *attr_data);
->>  	struct net_device_stats* (*ndo_get_stats)(struct net_device *dev);
->>  
->>  	int			(*ndo_vlan_rx_add_vid)(struct net_device *dev,
->
+Can you use pci_set_vpd_size() instead?  There's already a use of that
+in cxgb4.
+
+> +
+>  #ifdef CONFIG_ACPI
+>  /*
+>   * Apple: Shutdown Cactus Ridge Thunderbolt controller.
+> -- 
+> 2.5.0.rc3
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-pci" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
