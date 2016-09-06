@@ -1,41 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: Don't delete routes in different VRFs
-Date: Tue, 06 Sep 2016 13:56:41 -0700 (PDT)
-Message-ID: <20160906.135641.2126464263336660217.davem@davemloft.net>
-References: <20160902052607.9303-1-mark.tomlinson@alliedtelesis.co.nz>
-        <20160904222020.11604-1-mark.tomlinson@alliedtelesis.co.nz>
+Subject: Re: [PATCH] tcp: cwnd does not increase in TCP YeAH
+Date: Tue, 06 Sep 2016 13:58:46 -0700 (PDT)
+Message-ID: <20160906.135846.2108420188600081714.davem@davemloft.net>
+References: <c5290080-8b14-e711-a972-3d2c49d0bdd1@anchorfree.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dsa@cumulusnetworks.com
-To: mark.tomlinson@alliedtelesis.co.nz
+Cc: netdev@vger.kernel.org, nanditad@google.com, edumazet@google.com,
+        ncardwell@google.com, ycheng@google.com
+To: agermanov@anchorfree.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:53944 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:53988 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935265AbcIFU5I (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 16:57:08 -0400
-In-Reply-To: <20160904222020.11604-1-mark.tomlinson@alliedtelesis.co.nz>
+        with ESMTP id S935484AbcIFU6s (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 16:58:48 -0400
+In-Reply-To: <c5290080-8b14-e711-a972-3d2c49d0bdd1@anchorfree.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Tomlinson <mark.tomlinson@alliedtelesis.co.nz>
-Date: Mon,  5 Sep 2016 10:20:20 +1200
+From: Artem Germanov <agermanov@anchorfree.com>
+Date: Sun, 4 Sep 2016 21:03:27 -0700
 
-> When deleting an IP address from an interface, there is a clean-up of
-> routes which refer to this local address. However, there was no check to
-> see that the VRF matched. This meant that deletion wasn't confined to
-> the VRF it should have been.
+> Commit 76174004a0f19785a328f40388e87e982bbf69b9
+> (tcp: do not slow start when cwnd equals ssthresh )
+> introduced regression in TCP YeAH. Using 100ms delay 1% loss virtual
+> ethernet link kernel 4.2 shows bandwidth ~500KB/s for single TCP
+> connection and kernel 4.3 and above (including 4.8-rc4) shows
+> bandwidth ~100KB/s.
+>  That is caused by stalled cwnd when cwnd equals ssthresh. This patch
+>  fixes it by proper increasing cwnd in this case.
 > 
-> To solve this, a new field has been added to fib_info to hold a table
-> id. When removing fib entries corresponding to a local ip address, this
-> table id is also used in the comparison.
-> 
-> The table id is populated when the fib_info is created. This was already
-> done in some places, but not in ip_rt_ioctl(). This has now been fixed.
-> 
-> Fixes: 021dd3b8a142 ("net: Add routes to the table associated with the device")
-> Acked-by: David Ahern <dsa@cumulusnetworks.com>
-> Tested-by: David Ahern <dsa@cumulusnetworks.com>
-> Signed-off-by: Mark Tomlinson <mark.tomlinson@alliedtelesis.co.nz>
+> Signed-off-by: Artem Germanov <agermanov@anchorfree.com>
 
-Applied and queued up for -stable, thanks.
+This patch won't apply properly.
+
+First, it isn't rooted properly.
+
+Second, all the TAB characters have been mangled into spaces.
+
+Please fix these problems, send a test patch to yourself, and only
+resubmit this patch when you can successfully apply that test patch.
+
+Thank you.
