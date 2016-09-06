@@ -1,43 +1,59 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [RFC Patch net-next 1/6] net_sched: use RCU for action hash table
-Date: Tue, 6 Sep 2016 15:37:49 -0700
-Message-ID: <CAM_iQpVbrjYA8bzNKZ56xNA-2U64nxE_ifDrfzXbgskFM1sA4A@mail.gmail.com>
-References: <1472795840-31901-1-git-send-email-xiyou.wangcong@gmail.com>
- <1472795840-31901-2-git-send-email-xiyou.wangcong@gmail.com> <1e33ca48-5c03-232b-9700-56a0510700b8@mojatatu.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: PROBLEM: TPROXY and DNAT broken (bisected to 079096f103fa)
+Date: Wed, 7 Sep 2016 00:57:07 +0200
+Message-ID: <20160906225707.GD20188@breakpoint.cc>
+References: <BL2PR07MB2306908C76E928619A24B52E9E0F0@BL2PR07MB2306.namprd07.prod.outlook.com>
+ <20160729132154.GB13634@breakpoint.cc>
+ <BL2PR07MB2306B2B920C441DF5406B1439E050@BL2PR07MB2306.namprd07.prod.outlook.com>
+ <20160802221121.GB31209@breakpoint.cc>
+ <BL2PR07MB23061A24DD64E80532DBD9799E060@BL2PR07MB2306.namprd07.prod.outlook.com>
+ <BL2PR07MB2306C9A7EB393F441D56E7D69E1E0@BL2PR07MB2306.namprd07.prod.outlook.com>
+ <20160812190319.GB25519@breakpoint.cc>
+ <BL2PR07MB23066ABAF5223701D17CFFF29E120@BL2PR07MB2306.namprd07.prod.outlook.com>
+ <BL2PR07MB23065A58E771485F53D553E99EF90@BL2PR07MB2306.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Florian Westphal <fw@strlen.de>,
+        netfilter-devel@vger.kernel.org
+To: Brandon Cazander <brandon.cazander@multapplied.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:33053 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933672AbcIFWiK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 18:38:10 -0400
-Received: by mail-oi0-f68.google.com with SMTP id w78so11834018oie.0
-        for <netdev@vger.kernel.org>; Tue, 06 Sep 2016 15:38:10 -0700 (PDT)
-In-Reply-To: <1e33ca48-5c03-232b-9700-56a0510700b8@mojatatu.com>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:36204 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S932753AbcIFW5L (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 18:57:11 -0400
+Content-Disposition: inline
+In-Reply-To: <BL2PR07MB23065A58E771485F53D553E99EF90@BL2PR07MB2306.namprd07.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 6, 2016 at 5:47 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> On 16-09-02 01:57 AM, Cong Wang wrote:
->>
->> We already free tc actions in a RCU callback, so here
->> we just need to convert the hash table operations to
->> RCU API's.
->>
->> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
->> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
->
->
-> This one stands on its own merit, no?
+Brandon Cazander <brandon.cazander@multapplied.net> wrote:
 
-Yes, I think so. I think it is fine to carry it in this patchset too.
+[ cc netfilter-devel ]
 
+> Sorry to resurrect this so much later—I just got back from holidays and this was still on my desk.
+> 
+> Will anyone have another chance to look at this? It appears that the DIVERT rule is not working in our case, and I wonder if it is possible to fix the TPROXY target as well as the socket target fix that Florian provided.
 
-> So:
-> Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
->
->
+Are there reproducer instructions available for this?
 
-Thanks.
+I don't see how TPROXY can be 'fixed' because when skb (tcp syn) is in
+mangle PREROUTING nat transformation(s) have not been set up (yet).
+
+So ip header addresses are all we have.
+
+Only the ack (that finishes 3whs) or retransmitted syns will
+have the post-nat address info available.
+
+Ack should work fine with (changed) -m socket since the
+socket should already be in the main ehash table.
+
+Syn should also work just fine because Erics changes
+should not affect initial listener lookup done by TPROXY.
+
+> It appears as though nobody else has encountered this regression, so I can appreciate that it comes up pretty low on the priority list. If it is not realistic that this will be looked at further, then we will have to look at replacing TPROXY.
+
+If you already need NAT anyway you can also use -j REDIRECT (or exclude
+tproxied packets from nat).
