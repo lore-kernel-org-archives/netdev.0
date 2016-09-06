@@ -1,78 +1,185 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [patch net-next v7 1/3] netdevice: Add offload statistics ndo
-Date: Tue, 06 Sep 2016 08:08:25 -0700
-Message-ID: <57CEDBE9.1090501@cumulusnetworks.com>
-References: <1473095937-27100-1-git-send-email-jiri@resnulli.us> <1473095937-27100-2-git-send-email-jiri@resnulli.us>
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: [PATCH] bonding: Prevent deletion of a bond, or the last slave from a bond, with active usage.
+Date: Tue, 06 Sep 2016 08:08:59 -0700
+Message-ID: <4691.1473174539@famine>
+References: <1473154470-15087-1-git-send-email-jasminder.kaur@hpe.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, nogahf@mellanox.com,
-        idosch@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
-        ogerlitz@mellanox.com, nikolay@cumulusnetworks.com,
-        linville@tuxdriver.com, tgraf@suug.ch, gospo@cumulusnetworks.com,
-        sfeldma@gmail.com, sd@queasysnail.net, eranbe@mellanox.com,
-        ast@plumgrid.com, edumazet@google.com, hannes@stressinduktion.org,
-        f.fainelli@gmail.com, dsa@cumulusnetworks.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: vfalico@gmail.com, gospo@cumulusnetworks.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        vasundhara.gurunath@hpe.com, paulose.kuriakose.arackal@hpe.com
+To: "Kaur\, Jasminder" <jasminder.kaur@hpe.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:35260 "EHLO
-        mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754779AbcIFPI1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 11:08:27 -0400
-Received: by mail-pa0-f49.google.com with SMTP id b2so3228744pat.2
-        for <netdev@vger.kernel.org>; Tue, 06 Sep 2016 08:08:26 -0700 (PDT)
-In-Reply-To: <1473095937-27100-2-git-send-email-jiri@resnulli.us>
+Received: from youngberry.canonical.com ([91.189.89.112]:48405 "EHLO
+        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933550AbcIFPJF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 11:09:05 -0400
+In-reply-to: <1473154470-15087-1-git-send-email-jasminder.kaur@hpe.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/5/16, 10:18 AM, Jiri Pirko wrote:
-> From: Nogah Frankel <nogahf@mellanox.com>
->
-> Add a new ndo to return statistics for offloaded operation.
-> Since there can be many different offloaded operation with many
-> stats types, the ndo gets an attribute id by which it knows which
-> stats are wanted. The ndo also gets a void pointer to be cast according
-> to the attribute id.
->
-> Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> ---
->  include/linux/netdevice.h | 12 ++++++++++++
->  1 file changed, 12 insertions(+)
->
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 67bb978..2d2c09b 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -924,6 +924,14 @@ struct netdev_xdp {
->   *	3. Update dev->stats asynchronously and atomically, and define
->   *	   neither operation.
->   *
-> + * bool (*ndo_has_offload_stats)(int attr_id)
-> + *	Return true if this device supports offload stats of this attr_id.
-> + *
-> + * int (*ndo_get_offload_stats)(int attr_id, const struct net_device *dev,
-> + *	void *attr_data)
-> + *	Get statistics for offload operations by attr_id. Write it into the
-> + *	attr_data pointer.
-> + *
+Kaur, Jasminder <jasminder.kaur@hpe.com> wrote:
 
-this could have been a single ndo_get_offload_stats like the others.
-and possibly new ndo_get_offload_stats_size.
-Ideally the driver could do the nest.
-But, this can be changed if needed in the future.
+>From: "Kaur, Jasminder" <jasminder.kaur@hpe.com>
+>
+>If a bond is in use such as with IP address configured, removing it
+>can result in application disruptions. If bond is used for cluster
+>communication or network file system interfaces, removing it can cause
+>system down time.
+>
+>An additional write option “?-” is added to sysfs bond interfaces as
+>below, in order to prevent accidental deletions while bond is in use.
+>In the absence of any usage, the below option proceeds with bond deletion.
+>“ echo "?-bondX" > /sys/class/net/bonding_masters “ .
+>If usage is detected such as an IP address configured, deletion is
+>prevented with appropriate message logged to syslog.
 
->   * int (*ndo_vlan_rx_add_vid)(struct net_device *dev, __be16 proto, u16 vid);
->   *	If device supports VLAN filtering this function is called when a
->   *	VLAN id is registered.
-> @@ -1155,6 +1163,10 @@ struct net_device_ops {
->  
->  	struct rtnl_link_stats64* (*ndo_get_stats64)(struct net_device *dev,
->  						     struct rtnl_link_stats64 *storage);
-> +	bool			(*ndo_has_offload_stats)(int attr_id);
-> +	int			(*ndo_get_offload_stats)(int attr_id,
-> +							 const struct net_device *dev,
-> +							 void *attr_data);
->  	struct net_device_stats* (*ndo_get_stats)(struct net_device *dev);
->  
->  	int			(*ndo_vlan_rx_add_vid)(struct net_device *dev,
+	The issue of interfaces being arbitrarily changed or deleted is
+not specific to bonding, and could affect any networking device
+(physical or virtual).  Thus, if a facility such as this is to be
+provided, it should be generic, not specific to bonding.
+
+	Separately, I'm not sure I see the value of such an option.
+Other than administrator error, I'm not sure when bonds (or other
+interfaces) would be randomly deleted.  Are you seeing that happening?
+
+	Also, this patch does not prevent other errors or malicious
+change, e.g., "ip link set bondX down" or "ip addr del 1.2.3.4/24" would
+still cause the service disruption you're trying to avoid.
+
+	And, lastly, what Jiri said: use netlink for new bonding
+functionality, not sysfs.
+
+	-J
+
+>In the absence of any usage, the below option proceeds with deletion of
+>slaves from a bond.
+>“ echo "?-enoX" > /sys/class/net/bondX/bonding/slaves “ .
+>If usage is detected such as an IP address configured on bond, deletion
+>is prevented if the last slave is being removed from bond.
+>An appropriate message is logged to syslog.
+>
+>Signed-off-by: Jasminder Kaur <jasminder.kaur@hpe.com>
+>---
+> drivers/net/bonding/bond_options.c | 24 ++++++++++++++++++++++--
+> drivers/net/bonding/bond_sysfs.c   | 35 +++++++++++++++++++++++++++++++++--
+> 2 files changed, 55 insertions(+), 4 deletions(-)
+>
+>diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+>index 577e57c..e7640ea 100644
+>--- a/drivers/net/bonding/bond_options.c
+>+++ b/drivers/net/bonding/bond_options.c
+>@@ -1335,9 +1335,15 @@ static int bond_option_slaves_set(struct bonding *bond,
+> 	struct net_device *dev;
+> 	char *ifname;
+> 	int ret;
+>+	struct in_device *in_dev;
+> 
+> 	sscanf(newval->string, "%16s", command); /* IFNAMSIZ*/
+>-	ifname = command + 1;
+>+
+>+	if ((command[0] == '?') && (command[1] == '-'))
+>+		ifname = command + 2;
+>+	else
+>+		ifname = command + 1;
+>+
+> 	if ((strlen(command) <= 1) ||
+> 	    !dev_valid_name(ifname))
+> 		goto err_no_cmd;
+>@@ -1356,6 +1362,20 @@ static int bond_option_slaves_set(struct bonding *bond,
+> 		ret = bond_enslave(bond->dev, dev);
+> 		break;
+> 
+>+	case '?':
+>+		if (command[1] == '-') {
+>+			in_dev = __in_dev_get_rtnl(bond->dev);
+>+			if ((bond->slave_cnt == 1) &&
+>+			    ((in_dev->ifa_list) != NULL)) {
+>+				netdev_info(bond->dev, "attempt to remove last slave %s from bond.\n",
+>+					    dev->name);
+>+				ret = -EBUSY;
+>+				break;
+>+			}
+>+		} else {
+>+			goto err_no_cmd;
+>+		}
+>+
+> 	case '-':
+> 		netdev_info(bond->dev, "Removing slave %s\n", dev->name);
+> 		ret = bond_release(bond->dev, dev);
+>@@ -1369,7 +1389,7 @@ out:
+> 	return ret;
+> 
+> err_no_cmd:
+>-	netdev_err(bond->dev, "no command found in slaves file - use +ifname or -ifname\n");
+>+	netdev_err(bond->dev, "no command found in slaves file - use +ifname or -ifname or ?-ifname\n");
+> 	ret = -EPERM;
+> 	goto out;
+> }
+>diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+>index e23c3ed..7c2ef64 100644
+>--- a/drivers/net/bonding/bond_sysfs.c
+>+++ b/drivers/net/bonding/bond_sysfs.c
+>@@ -102,7 +102,12 @@ static ssize_t bonding_store_bonds(struct class *cls,
+> 	int rv, res = count;
+> 
+> 	sscanf(buffer, "%16s", command); /* IFNAMSIZ*/
+>-	ifname = command + 1;
+>+
+>+	if ((command[0] == '?') && (command[1] == '-'))
+>+		ifname = command + 2;
+>+	else
+>+		ifname = command + 1;
+>+
+> 	if ((strlen(command) <= 1) ||
+> 	    !dev_valid_name(ifname))
+> 		goto err_no_cmd;
+>@@ -130,6 +135,32 @@ static ssize_t bonding_store_bonds(struct class *cls,
+> 			res = -ENODEV;
+> 		}
+> 		rtnl_unlock();
+>+	} else if ((command[0] == '?') && (command[1] == '-')) {
+>+		struct net_device *bond_dev;
+>+
+>+		rtnl_lock();
+>+		bond_dev = bond_get_by_name(bn, ifname);
+>+
+>+		if (bond_dev) {
+>+			struct in_device *in_dev;
+>+			struct bonding *bond = netdev_priv(bond_dev);
+>+
+>+			in_dev = __in_dev_get_rtnl(bond_dev);
+>+
+>+			if (((in_dev->ifa_list) != NULL) &&
+>+			    (bond->slave_cnt > 0)) {
+>+				pr_err("%s is in use. Unconfigure IP %pI4 before deletion.\n",
+>+				       ifname, &in_dev->ifa_list->ifa_local);
+>+				rtnl_unlock();
+>+				return -EBUSY;
+>+			}
+>+			pr_info("%s is being deleted...\n", ifname);
+>+			unregister_netdevice(bond_dev);
+>+		} else {
+>+			pr_err("unable to delete non-existent %s\n", ifname);
+>+			res = -ENODEV;
+>+		}
+>+		rtnl_unlock();
+> 	} else
+> 		goto err_no_cmd;
+> 
+>@@ -139,7 +170,7 @@ static ssize_t bonding_store_bonds(struct class *cls,
+> 	return res;
+> 
+> err_no_cmd:
+>-	pr_err("no command found in bonding_masters - use +ifname or -ifname\n");
+>+	pr_err("no command found in bonding_masters - use +ifname or -ifname or ?-ifname\n");
+> 	return -EPERM;
+> }
+> 
+>-- 
+>1.8.3.1
+>
+
+---
+	-Jay Vosburgh, jay.vosburgh@canonical.com
