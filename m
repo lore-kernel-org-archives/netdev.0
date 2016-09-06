@@ -1,71 +1,99 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 0/6] Mellanox 100G mlx5 DCBX CEE and firmware support
-Date: Tue,  6 Sep 2016 19:04:06 +0300
-Message-ID: <1473177852-10711-1-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 4/6] net/mlx5: Add DCBX firmware commands support
+Date: Tue,  6 Sep 2016 19:04:10 +0300
+Message-ID: <1473177852-10711-5-git-send-email-saeedm@mellanox.com>
+References: <1473177852-10711-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Huy Nguyen <huyn@mellanox.com>,
         Or Gerlitz <ogerlitz@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:51588 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:51628 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S932874AbcIFQE3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 12:04:29 -0400
+        with ESMTP id S934779AbcIFQEn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 12:04:43 -0400
+In-Reply-To: <1473177852-10711-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Huy Nguyen <huyn@mellanox.com>
 
-This series from Huy provides mlx5 DCBX updates to support DCBX CEE
-API and DCBX firmware/host modes support.
+Add set/query commands for DCBX_PARAM register
 
-1st patch ensures the dcbnl_rtnl_ops is published only when the qos capability bits is on.
+Signed-off-by: Huy Nguyen <huyn@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/port.c | 20 ++++++++++++++++++++
+ include/linux/mlx5/driver.h                    |  7 +++++++
+ include/linux/mlx5/port.h                      |  2 ++
+ 3 files changed, 29 insertions(+)
 
-2nd patch adds the support for CEE interfaces into mlx5 dcbnl_rtnl_ops.
-
-3rd patch refactors ETS query to read ETS configuration directly from firmware rather 
-than having a software shadow to it. The existing IEEE interfaces stays the same.
-
-4th patch adds the support for MLX5_REG_DCBX_PARAM and MLX5_REG_DCBX_APP firmware
-commands to manipulate mlx5 DCBX mode.
-
-5th patch adds the driver support for the new DCBX firmware.
-This ensures the backward compatibility versus the old and new firmware.
-With the new DCBX firmware, qos settings can be controlled by either firmware
-or software depending on the DCBX mode.
-
-6th patch adds support for module events log.
-
-Changes since V1:
-1. Add qos capability check
-2. In port module events eqe structure, change rsvd_n to reserved_at_n to be consistent with mlx5_ifc.h
-3. Improve commit messages
-4. Drop DCBX private flags patch
-5. Add patch to check for qos capability bit check before exposing dcb interfaces
-6. Replace memset with static array initialization
-
-Thanks,
-Saeed.
-
-Huy Nguyen (6):
-  net/mlx5e: Add qos capability check
-  net/mlx5e: Support DCBX CEE API
-  net/mlx5e: Read ETS settings directly from firmware
-  net/mlx5: Add DCBX firmware commands support
-  net/mlx5e: ConnectX-4 firmware support for DCBX
-  net/mlx5: Add handling for port module event
-
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |  36 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c | 483 ++++++++++++++++++++-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  27 +-
- drivers/net/ethernet/mellanox/mlx5/core/eq.c       |  12 +
- .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |   1 +
- drivers/net/ethernet/mellanox/mlx5/core/port.c     | 148 +++++++
- include/linux/mlx5/device.h                        |  11 +
- include/linux/mlx5/driver.h                        |   7 +
- include/linux/mlx5/mlx5_ifc.h                      |   3 +-
- include/linux/mlx5/port.h                          |   6 +
- 10 files changed, 698 insertions(+), 36 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+index 2f75f86..8d409b2 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+@@ -548,6 +548,26 @@ int mlx5_max_tc(struct mlx5_core_dev *mdev)
+ 	return num_tc - 1;
+ }
+ 
++int mlx5_query_port_dcbx_param(struct mlx5_core_dev *mdev, u32 *out)
++{
++	u32 in[MLX5_ST_SZ_DW(dcbx_param)] = {0};
++
++	MLX5_SET(dcbx_param, in, port_number, 1);
++
++	return  mlx5_core_access_reg(mdev, in, sizeof(in), out,
++				    sizeof(in), MLX5_REG_DCBX_PARAM, 0, 0);
++}
++
++int mlx5_set_port_dcbx_param(struct mlx5_core_dev *mdev, u32 *in)
++{
++	u32 out[MLX5_ST_SZ_DW(dcbx_param)];
++
++	MLX5_SET(dcbx_param, in, port_number, 1);
++
++	return mlx5_core_access_reg(mdev, in, sizeof(out), out,
++				    sizeof(out), MLX5_REG_DCBX_PARAM, 0, 1);
++}
++
+ int mlx5_set_port_prio_tc(struct mlx5_core_dev *mdev, u8 *prio_tc)
+ {
+ 	u32 in[MLX5_ST_SZ_DW(qtct_reg)] = {0};
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index 5cb9fa7..b53f19c 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -104,6 +104,8 @@ enum {
+ enum {
+ 	MLX5_REG_QETCR		 = 0x4005,
+ 	MLX5_REG_QTCT		 = 0x400a,
++	MLX5_REG_DCBX_PARAM      = 0x4020,
++	MLX5_REG_DCBX_APP        = 0x4021,
+ 	MLX5_REG_PCAP		 = 0x5001,
+ 	MLX5_REG_PMTU		 = 0x5003,
+ 	MLX5_REG_PTYS		 = 0x5004,
+@@ -123,6 +125,11 @@ enum {
+ 	MLX5_REG_MLCR		 = 0x902b,
+ };
+ 
++enum mlx5_dcbx_oper_mode {
++	MLX5E_DCBX_PARAM_VER_OPER_HOST  = 0x0,
++	MLX5E_DCBX_PARAM_VER_OPER_AUTO  = 0x3,
++};
++
+ enum {
+ 	MLX5_ATOMIC_OPS_CMP_SWAP	= 1 << 0,
+ 	MLX5_ATOMIC_OPS_FETCH_ADD	= 1 << 1,
+diff --git a/include/linux/mlx5/port.h b/include/linux/mlx5/port.h
+index ddad24d..62e2259 100644
+--- a/include/linux/mlx5/port.h
++++ b/include/linux/mlx5/port.h
+@@ -159,4 +159,6 @@ void mlx5_query_port_fcs(struct mlx5_core_dev *mdev, bool *supported,
+ int mlx5_query_module_eeprom(struct mlx5_core_dev *dev,
+ 			     u16 offset, u16 size, u8 *data);
+ 
++int mlx5_query_port_dcbx_param(struct mlx5_core_dev *mdev, u32 *out);
++int mlx5_set_port_dcbx_param(struct mlx5_core_dev *mdev, u32 *in);
+ #endif /* __MLX5_PORT_H__ */
 -- 
 2.7.4
