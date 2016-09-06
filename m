@@ -1,7 +1,7 @@
 From: Daniel Mack <daniel@zonque.org>
-Subject: [PATCH v4 5/6] net: core: run cgroup eBPF egress programs
-Date: Tue,  6 Sep 2016 15:46:07 +0200
-Message-ID: <1473169568-30525-6-git-send-email-daniel@zonque.org>
+Subject: [PATCH v4 4/6] net: filter: run cgroup eBPF ingress programs
+Date: Tue,  6 Sep 2016 15:46:06 +0200
+Message-ID: <1473169568-30525-5-git-send-email-daniel@zonque.org>
 References: <1473169568-30525-1-git-send-email-daniel@zonque.org>
 Cc: davem@davemloft.net, kafai@fb.com, fw@strlen.de,
         pablo@netfilter.org, harald@redhat.com, netdev@vger.kernel.org,
@@ -9,16 +9,16 @@ Cc: davem@davemloft.net, kafai@fb.com, fw@strlen.de,
         Daniel Mack <daniel@zonque.org>
 To: htejun@fb.com, daniel@iogearbox.net, ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:38350 "EHLO mail.zonque.de"
+Received: from svenfoo.org ([82.94.215.22]:38336 "EHLO mail.zonque.de"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756160AbcIFNqV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 6 Sep 2016 09:46:21 -0400
+        id S1756157AbcIFNqT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 6 Sep 2016 09:46:19 -0400
 In-Reply-To: <1473169568-30525-1-git-send-email-daniel@zonque.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 If the cgroup associated with the receiving socket has an eBPF
-programs installed, run them from __dev_queue_xmit().
+programs installed, run them from sk_filter_trim_cap().
 
 eBPF programs used in this context are expected to either return 1 to
 let the packet pass, or != 1 to drop them. The programs have access to
@@ -30,41 +30,23 @@ the feature is unused.
 
 Signed-off-by: Daniel Mack <daniel@zonque.org>
 ---
- net/core/dev.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+ net/core/filter.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 34b5322..eb2bd20 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -141,6 +141,7 @@
- #include <linux/netfilter_ingress.h>
- #include <linux/sctp.h>
- #include <linux/crash_dump.h>
-+#include <linux/bpf-cgroup.h>
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 176b6f2..3662c1a 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -78,6 +78,10 @@ int sk_filter_trim_cap(struct sock *sk, struct sk_buff *skb, unsigned int cap)
+ 	if (skb_pfmemalloc(skb) && !sock_flag(sk, SOCK_MEMALLOC))
+ 		return -ENOMEM;
  
- #include "net-sysfs.h"
- 
-@@ -3329,6 +3330,10 @@ static int __dev_queue_xmit(struct sk_buff *skb, void *accel_priv)
- 	if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_SCHED_TSTAMP))
- 		__skb_tstamp_tx(skb, NULL, skb->sk, SCM_TSTAMP_SCHED);
- 
-+	rc = cgroup_bpf_run_filter(skb->sk, skb, BPF_CGROUP_INET_EGRESS);
-+	if (rc)
-+		goto free_skb_list;
++	err = cgroup_bpf_run_filter(sk, skb, BPF_CGROUP_INET_INGRESS);
++	if (err)
++		return err;
 +
- 	/* Disable soft irqs for various locks below. Also
- 	 * stops preemption for RCU.
- 	 */
-@@ -3414,8 +3419,8 @@ recursion_alert:
- 
- 	rc = -ENETDOWN;
- 	rcu_read_unlock_bh();
--
- 	atomic_long_inc(&dev->tx_dropped);
-+free_skb_list:
- 	kfree_skb_list(skb);
- 	return rc;
- out:
+ 	err = security_sock_rcv_skb(sk, skb);
+ 	if (err)
+ 		return err;
 -- 
 2.5.5
