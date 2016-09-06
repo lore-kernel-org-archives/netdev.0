@@ -1,7 +1,7 @@
 From: Masahiro Yamada <yamada.masahiro@socionext.com>
-Subject: [PATCH 3/3] ath10k: do not check if reset is NULL
-Date: Tue,  6 Sep 2016 21:39:58 +0900
-Message-ID: <1473165598-28683-4-git-send-email-yamada.masahiro@socionext.com>
+Subject: [PATCH 1/3] ath10k: use devm_clk_get() instead of clk_get()
+Date: Tue,  6 Sep 2016 21:39:56 +0900
+Message-ID: <1473165598-28683-2-git-send-email-yamada.masahiro@socionext.com>
 References: <1473165598-28683-1-git-send-email-yamada.masahiro@socionext.com>
 Cc: Johannes Berg <johannes@sipsolutions.net>,
         "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
@@ -14,73 +14,84 @@ In-Reply-To: <1473165598-28683-1-git-send-email-yamada.masahiro@socionext.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Since reset_control_get() never returns NULL, we can use IS_ERR()
-instead of IS_ERR_OR_NULL().  The return statements can be simpler
-as well.
+Use the managed variant of clk_get() to simplify the failure path
+and the .remove callback.
 
 Signed-off-by: Masahiro Yamada <yamada.masahiro@socionext.com>
 ---
 
- drivers/net/wireless/ath/ath10k/ahb.c | 25 ++++++++++---------------
- 1 file changed, 10 insertions(+), 15 deletions(-)
+ drivers/net/wireless/ath/ath10k/ahb.c | 34 ++++++----------------------------
+ 1 file changed, 6 insertions(+), 28 deletions(-)
 
 diff --git a/drivers/net/wireless/ath/ath10k/ahb.c b/drivers/net/wireless/ath/ath10k/ahb.c
-index 6b355ee..b29dc4d 100644
+index acec16b..8a55c0c 100644
 --- a/drivers/net/wireless/ath/ath10k/ahb.c
 +++ b/drivers/net/wireless/ath/ath10k/ahb.c
-@@ -195,43 +195,38 @@ static int ath10k_ahb_rst_ctrl_init(struct ath10k *ar)
+@@ -91,59 +91,37 @@ static int ath10k_ahb_clock_init(struct ath10k *ar)
+ {
+ 	struct ath10k_ahb *ar_ahb = ath10k_ahb_priv(ar);
+ 	struct device *dev;
+-	int ret;
+ 
  	dev = &ar_ahb->pdev->dev;
  
- 	ar_ahb->core_cold_rst = devm_reset_control_get(dev, "wifi_core_cold");
--	if (IS_ERR_OR_NULL(ar_ahb->core_cold_rst)) {
-+	if (IS_ERR(ar_ahb->core_cold_rst)) {
- 		ath10k_err(ar, "failed to get core cold rst ctrl: %ld\n",
- 			   PTR_ERR(ar_ahb->core_cold_rst));
--		return ar_ahb->core_cold_rst ?
--			PTR_ERR(ar_ahb->core_cold_rst) : -ENODEV;
-+		return PTR_ERR(ar_ahb->core_cold_rst);
+-	ar_ahb->cmd_clk = clk_get(dev, "wifi_wcss_cmd");
++	ar_ahb->cmd_clk = devm_clk_get(dev, "wifi_wcss_cmd");
+ 	if (IS_ERR_OR_NULL(ar_ahb->cmd_clk)) {
+ 		ath10k_err(ar, "failed to get cmd clk: %ld\n",
+ 			   PTR_ERR(ar_ahb->cmd_clk));
+-		ret = ar_ahb->cmd_clk ? PTR_ERR(ar_ahb->cmd_clk) : -ENODEV;
+-		goto out;
++		return ar_ahb->cmd_clk ? PTR_ERR(ar_ahb->cmd_clk) : -ENODEV;
  	}
  
- 	ar_ahb->radio_cold_rst = devm_reset_control_get(dev, "wifi_radio_cold");
--	if (IS_ERR_OR_NULL(ar_ahb->radio_cold_rst)) {
-+	if (IS_ERR(ar_ahb->radio_cold_rst)) {
- 		ath10k_err(ar, "failed to get radio cold rst ctrl: %ld\n",
- 			   PTR_ERR(ar_ahb->radio_cold_rst));
--		return ar_ahb->radio_cold_rst ?
--			PTR_ERR(ar_ahb->radio_cold_rst) : -ENODEV;
-+		return PTR_ERR(ar_ahb->radio_cold_rst);
+-	ar_ahb->ref_clk = clk_get(dev, "wifi_wcss_ref");
++	ar_ahb->ref_clk = devm_clk_get(dev, "wifi_wcss_ref");
+ 	if (IS_ERR_OR_NULL(ar_ahb->ref_clk)) {
+ 		ath10k_err(ar, "failed to get ref clk: %ld\n",
+ 			   PTR_ERR(ar_ahb->ref_clk));
+-		ret = ar_ahb->ref_clk ? PTR_ERR(ar_ahb->ref_clk) : -ENODEV;
+-		goto err_cmd_clk_put;
++		return ar_ahb->ref_clk ? PTR_ERR(ar_ahb->ref_clk) : -ENODEV;
  	}
  
- 	ar_ahb->radio_warm_rst = devm_reset_control_get(dev, "wifi_radio_warm");
--	if (IS_ERR_OR_NULL(ar_ahb->radio_warm_rst)) {
-+	if (IS_ERR(ar_ahb->radio_warm_rst)) {
- 		ath10k_err(ar, "failed to get radio warm rst ctrl: %ld\n",
- 			   PTR_ERR(ar_ahb->radio_warm_rst));
--		return ar_ahb->radio_warm_rst ?
--			PTR_ERR(ar_ahb->radio_warm_rst) : -ENODEV;
-+		return PTR_ERR(ar_ahb->radio_warm_rst);
- 	}
- 
- 	ar_ahb->radio_srif_rst = devm_reset_control_get(dev, "wifi_radio_srif");
--	if (IS_ERR_OR_NULL(ar_ahb->radio_srif_rst)) {
-+	if (IS_ERR(ar_ahb->radio_srif_rst)) {
- 		ath10k_err(ar, "failed to get radio srif rst ctrl: %ld\n",
- 			   PTR_ERR(ar_ahb->radio_srif_rst));
--		return ar_ahb->radio_srif_rst ?
--			PTR_ERR(ar_ahb->radio_srif_rst) : -ENODEV;
-+		return PTR_ERR(ar_ahb->radio_srif_rst);
- 	}
- 
- 	ar_ahb->cpu_init_rst = devm_reset_control_get(dev, "wifi_cpu_init");
--	if (IS_ERR_OR_NULL(ar_ahb->cpu_init_rst)) {
-+	if (IS_ERR(ar_ahb->cpu_init_rst)) {
- 		ath10k_err(ar, "failed to get cpu init rst ctrl: %ld\n",
- 			   PTR_ERR(ar_ahb->cpu_init_rst));
--		return ar_ahb->cpu_init_rst ?
--			PTR_ERR(ar_ahb->cpu_init_rst) : -ENODEV;
-+		return PTR_ERR(ar_ahb->cpu_init_rst);
+-	ar_ahb->rtc_clk = clk_get(dev, "wifi_wcss_rtc");
++	ar_ahb->rtc_clk = devm_clk_get(dev, "wifi_wcss_rtc");
+ 	if (IS_ERR_OR_NULL(ar_ahb->rtc_clk)) {
+ 		ath10k_err(ar, "failed to get rtc clk: %ld\n",
+ 			   PTR_ERR(ar_ahb->rtc_clk));
+-		ret = ar_ahb->rtc_clk ? PTR_ERR(ar_ahb->rtc_clk) : -ENODEV;
+-		goto err_ref_clk_put;
++		return ar_ahb->rtc_clk ? PTR_ERR(ar_ahb->rtc_clk) : -ENODEV;
  	}
  
  	return 0;
+-
+-err_ref_clk_put:
+-	clk_put(ar_ahb->ref_clk);
+-
+-err_cmd_clk_put:
+-	clk_put(ar_ahb->cmd_clk);
+-
+-out:
+-	return ret;
+ }
+ 
+ static void ath10k_ahb_clock_deinit(struct ath10k *ar)
+ {
+ 	struct ath10k_ahb *ar_ahb = ath10k_ahb_priv(ar);
+ 
+-	if (!IS_ERR_OR_NULL(ar_ahb->cmd_clk))
+-		clk_put(ar_ahb->cmd_clk);
+-
+-	if (!IS_ERR_OR_NULL(ar_ahb->ref_clk))
+-		clk_put(ar_ahb->ref_clk);
+-
+-	if (!IS_ERR_OR_NULL(ar_ahb->rtc_clk))
+-		clk_put(ar_ahb->rtc_clk);
+-
+ 	ar_ahb->cmd_clk = NULL;
+ 	ar_ahb->ref_clk = NULL;
+ 	ar_ahb->rtc_clk = NULL;
 -- 
 1.9.1
