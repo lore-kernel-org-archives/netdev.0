@@ -1,63 +1,37 @@
-From: Dave Jones <davej@codemonkey.org.uk>
-Subject: Re: ipv6: release dst in ping_v6_sendmsg
-Date: Tue, 6 Sep 2016 14:50:09 -0400
-Message-ID: <20160906185009.6cpnwrytcsogz6r5@codemonkey.org.uk>
-References: <20160902183950.p3iv25jnuwmq74sg@codemonkey.org.uk>
- <20160906173621.GA33747@kafai-mba.local>
- <1473184363.10725.17.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] ptp: ixp46x: remove NO_IRQ handling
+Date: Tue, 06 Sep 2016 21:18:50 +0200
+Message-ID: <37073907.KMu7rEfE59@wuerfel>
+References: <20160906142849.3297250-1-arnd@arndb.de> <20160906163910.GC7012@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Martin KaFai Lau <kafai@fb.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from arcturus.aphlor.org ([188.246.204.175]:43836 "EHLO
-        arcturus.aphlor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756679AbcIFSuP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 14:50:15 -0400
-Content-Disposition: inline
-In-Reply-To: <1473184363.10725.17.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Kefeng Wang <wangkefeng.wang@huawei.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160906163910.GC7012@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 06, 2016 at 10:52:43AM -0700, Eric Dumazet wrote:
- 
- > > > @@ -126,8 +126,10 @@ static int ping_v6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
- > > >  	rt = (struct rt6_info *) dst;
- > > >
- > > >  	np = inet6_sk(sk);
- > > > -	if (!np)
- > > > -		return -EBADF;
- > > > +	if (!np) {
- > > > +		err = -EBADF;
- > > > +		goto dst_err_out;
- > > > +	}
- > > >
- > > >  	if (!fl6.flowi6_oif && ipv6_addr_is_multicast(&fl6.daddr))
- > > >  		fl6.flowi6_oif = np->mcast_oif;
- > > > @@ -163,6 +165,9 @@ static int ping_v6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
- > > >  	}
- > > >  	release_sock(sk);
- > > >
- > > > +dst_err_out:
- > > > +	dst_release(dst);
- > > > +
- > > >  	if (err)
- > > >  		return err;
- > > >
- > > 
- > > Acked-by: Martin KaFai Lau <kafai@fb.com>
- > 
- > This really does not make sense to me.
- > 
- > If np was NULL, we should have a crash before.
+On Tuesday, September 6, 2016 6:39:10 PM CEST Richard Cochran wrote:
+> On Tue, Sep 06, 2016 at 04:28:30PM +0200, Arnd Bergmann wrote:
+> > gpio_to_irq does not return NO_IRQ but instead returns a negative
+> > error code on failure. Returning NO_IRQ from the function has no
+> > negative effects as we only compare the result to the expected
+> > interrupt number, but it's better to return a proper failure
+> > code for consistency, and we should remove NO_IRQ from the kernel
+> > entirely.
+> > 
+> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> 
+> Acked-by: Richard Cochran <richardcochran@gmail.com>
 
-In the case where I was seeing the traces, we were taking the 'success'
-path through the function, so sk was non-null.
+Thanks!
 
- > So we should remove this test, since it is absolutely useless.
+I just realized that the randconfig builder had not picked up this
+one and there was a typo. I'll send a replacement patch with your
+Ack added in.
 
-Looking closer, it seems the assignment of np is duplicated also,
-so that can also go.   This is orthogonal to the dst leak though.
-I'll submit a follow-up cleaning that up.
-
-	Dave
+	Arnd
