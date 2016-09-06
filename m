@@ -1,195 +1,99 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: linux-next: manual merge of the char-misc tree with the net-next
- tree
-Date: Tue, 6 Sep 2016 10:28:05 +0000
-Message-ID: <DM2PR0301MB078354E908258795044BFCFEA0F90@DM2PR0301MB0783.namprd03.prod.outlook.com>
-References: <20160905165650.180e6c89@canb.auug.org.au>
- <20160905113353.GB27586@kroah.com>
- <DM2PR0301MB07835EA7440B54BE9B27A516A0F90@DM2PR0301MB0783.namprd03.prod.outlook.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next V5 4/4] net/sched: Introduce act_tunnel_key
+Date: Tue, 6 Sep 2016 06:49:46 -0400
+Message-ID: <b6d6b736-bc45-3216-6109-0b67a54fb704@mojatatu.com>
+References: <1472986555-14949-1-git-send-email-hadarh@mellanox.com>
+ <1472986555-14949-5-git-send-email-hadarh@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: Arnd Bergmann <arnd@arndb.de>, David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>,
-        "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Stephen Hemminger <sthemmin@microsoft.com>,
-        Vitaly Kuznetsov <vkuznets@redhat.com>
-To: Greg KH <greg@kroah.com>, Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <DM2PR0301MB07835EA7440B54BE9B27A516A0F90@DM2PR0301MB0783.namprd03.prod.outlook.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
+        Jiri Benc <jbenc@redhat.com>,
+        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Amir Vadai <amirva@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>, Amir Vadai <amir@vadai.me>
+To: Hadar Hen Zion <hadarh@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:33081 "EHLO
+        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932648AbcIFKty (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 06:49:54 -0400
+Received: by mail-oi0-f67.google.com with SMTP id w78so8098471oie.0
+        for <netdev@vger.kernel.org>; Tue, 06 Sep 2016 03:49:54 -0700 (PDT)
+In-Reply-To: <1472986555-14949-5-git-send-email-hadarh@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On 16-09-04 06:55 AM, Hadar Hen Zion wrote:
+> From: Amir Vadai <amir@vadai.me>
+>
+> This action could be used before redirecting packets to a shared tunnel
+> device, or when redirecting packets arriving from a such a device.
+>
+> The action will release the metadata created by the tunnel device
+> (decap), or set the metadata with the specified values for encap
+> operation.
+>
+> For example, the following flower filter will forward all ICMP packets
+> destined to 11.11.11.2 through the shared vxlan device 'vxlan0'. Before
+> redirecting, a metadata for the vxlan tunnel is created using the
+> tunnel_key action and it's arguments:
+>
+> $ filter add dev net0 protocol ip parent ffff: \
+>     flower \
+>       ip_proto 1 \
+>       dst_ip 11.11.11.2 \
+>     action tunnel_key set \
+>       src_ip 11.11.0.1 \
+>       dst_ip 11.11.0.2 \
+>       id 11 \
+>     action mirred egress redirect dev vxlan0
+>
 
 
+Syntax error above. Regardless:
+Please verify by running a test and send a packet or two
+and verify that stats are incremented (I know it may sound silly to
+ask but it is important).
 
-> -----Original Message-----
-> From: KY Srinivasan
-> Sent: Tuesday, September 6, 2016 11:06 AM
-> To: 'Greg KH' <greg@kroah.com>; Stephen Rothwell <sfr@canb.auug.org.au>
-> Cc: Arnd Bergmann <arnd@arndb.de>; David Miller <davem@davemloft.net>;
-> Networking <netdev@vger.kernel.org>; linux-next@vger.kernel.org; linux-
-> kernel@vger.kernel.org; Stephen Hemminger <sthemmin@microsoft.com>;
-> Vitaly Kuznetsov <vkuznets@redhat.com>
-> Subject: RE: linux-next: manual merge of the char-misc tree with the net-=
-next
-> tree
->=20
->=20
->=20
-> > -----Original Message-----
-> > From: Greg KH [mailto:greg@kroah.com]
-> > Sent: Monday, September 5, 2016 5:04 PM
-> > To: Stephen Rothwell <sfr@canb.auug.org.au>
-> > Cc: Arnd Bergmann <arnd@arndb.de>; David Miller
-> <davem@davemloft.net>;
-> > Networking <netdev@vger.kernel.org>; linux-next@vger.kernel.org; linux-
-> > kernel@vger.kernel.org; Stephen Hemminger <sthemmin@microsoft.com>;
-> > Vitaly Kuznetsov <vkuznets@redhat.com>; KY Srinivasan
-> <kys@microsoft.com>
-> > Subject: Re: linux-next: manual merge of the char-misc tree with the ne=
-t-next
-> > tree
-> >
-> > On Mon, Sep 05, 2016 at 04:56:50PM +1000, Stephen Rothwell wrote:
-> > > Hi all,
-> > >
-> > > Today's linux-next merge of the char-misc tree got a conflict in:
-> > >
-> > >   include/linux/hyperv.h
-> > >
-> > > between commit:
-> > >
-> > >   30d1de08c87d ("hv_netvsc: make inline functions static")
-> > >
-> > > from the net-next tree and commit:
-> > >
-> > >   bb08d431a914 ("Drivers: hv: ring_buffer: count on wrap around mappi=
-ngs
-> in
-> > get_next_pkt_raw()")
-> > >
-> > > from the char-misc tree.
-> > >
-> > > I fixed it up (the former moved the code modified by the latter, so t=
-he
-> > > below patch applies to the new location of the code) and can carry th=
-e
-> > > fix as necessary. This is now fixed as far as linux-next is concerned=
-,
-> > > but any non trivial conflicts should be mentioned to your upstream
-> > > maintainer when your tree is submitted for merging.  You may also wan=
-t
-> > > to consider cooperating with the maintainer of the conflicting tree t=
-o
-> > > minimise any particularly complex conflicts.
-> > >
-> > > From: Stephen Rothwell <sfr@canb.auug.org.au>
-> > > Date: Mon, 5 Sep 2016 16:53:06 +1000
-> > > Subject: [PATCH] Drivers: hv: ring_buffer: merge fix up for "hv_netvs=
-c:
-> make
-> > >  inline functions static"
-> > >
-> > > Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
-> > > ---
-> > >  drivers/net/hyperv/netvsc.c | 32 +++++++++++---------------------
-> > >  1 file changed, 11 insertions(+), 21 deletions(-)
-> > >
-> > > diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.=
-c
-> > > index 2a9ccc4d9e3c..026df6556068 100644
-> > > --- a/drivers/net/hyperv/netvsc.c
-> > > +++ b/drivers/net/hyperv/netvsc.c
-> > > @@ -42,31 +42,23 @@ static struct vmpacket_descriptor *
-> > >  get_next_pkt_raw(struct vmbus_channel *channel)
-> > >  {
-> > >  	struct hv_ring_buffer_info *ring_info =3D &channel->inbound;
-> > > -	u32 read_loc =3D ring_info->priv_read_index;
-> > > +	u32 priv_read_loc =3D ring_info->priv_read_index;
-> > >  	void *ring_buffer =3D hv_get_ring_buffer(ring_info);
-> > > -	struct vmpacket_descriptor *cur_desc;
-> > > -	u32 packetlen;
-> > >  	u32 dsize =3D ring_info->ring_datasize;
-> > > -	u32 delta =3D read_loc - ring_info->ring_buffer->read_index;
-> > > +	/*
-> > > +	 * delta is the difference between what is available to read and
-> > > +	 * what was already consumed in place. We commit read index after
-> > > +	 * the whole batch is processed.
-> > > +	 */
-> > > +	u32 delta =3D priv_read_loc >=3D ring_info->ring_buffer->read_index=
- ?
-> > > +		priv_read_loc - ring_info->ring_buffer->read_index :
-> > > +		(dsize - ring_info->ring_buffer->read_index) + priv_read_loc;
-> > >  	u32 bytes_avail_toread =3D (hv_get_bytes_to_read(ring_info) - delta=
-);
-> > >
-> > >  	if (bytes_avail_toread < sizeof(struct vmpacket_descriptor))
-> > >  		return NULL;
-> > >
-> > > -	if ((read_loc + sizeof(*cur_desc)) > dsize)
-> > > -		return NULL;
-> > > -
-> > > -	cur_desc =3D ring_buffer + read_loc;
-> > > -	packetlen =3D cur_desc->len8 << 3;
-> > > -
-> > > -	/*
-> > > -	 * If the packet under consideration is wrapping around,
-> > > -	 * return failure.
-> > > -	 */
-> > > -	if ((read_loc + packetlen + VMBUS_PKT_TRAILER) > (dsize - 1))
-> > > -		return NULL;
-> > > -
-> > > -	return cur_desc;
-> > > +	return ring_buffer + priv_read_loc;
-> > >  }
-> > >
-> > >  /*
-> > > @@ -78,16 +70,14 @@ static void put_pkt_raw(struct vmbus_channel
-> > *channel,
-> > >  			struct vmpacket_descriptor *desc)
-> > >  {
-> > >  	struct hv_ring_buffer_info *ring_info =3D &channel->inbound;
-> > > -	u32 read_loc =3D ring_info->priv_read_index;
-> > >  	u32 packetlen =3D desc->len8 << 3;
-> > >  	u32 dsize =3D ring_info->ring_datasize;
-> > >
-> > > -	BUG_ON((read_loc + packetlen + VMBUS_PKT_TRAILER) > dsize);
-> > > -
-> > >  	/*
-> > >  	 * Include the packet trailer.
-> > >  	 */
-> > >  	ring_info->priv_read_index +=3D packetlen + VMBUS_PKT_TRAILER;
-> > > +	ring_info->priv_read_index %=3D dsize;
-> > >  }
-> > >
-> > >  /*
-> >
-> > Ugh, messy.  Thanks for this.
-> >
-> > KY, how did this happen?
-> Thanks Stephen. Greg, sorry about this. We should have split Vitaly's pat=
-ch to
-> avoid this inter-tree issue. Vitaly and I will work to fix this.
-
-Stephen,
-
-I am sending Greg a patch to revert commit bb08d431a914. This should addres=
-s the
-merge problem you ran into. Once net-next tree synchs up with the char-misc=
- tree,
-we will submit a patch to net-next to make the necessary adjustments.
-
-Regards,
-
-K. Y
+> +static int tunnel_key_act(struct sk_buff *skb, const struct tc_action *a,
+> +			  struct tcf_result *res)
+> +{
+> +	struct tcf_tunnel_key *t = to_tunnel_key(a);
+> +	struct tcf_tunnel_key_params *params;
+> +	int action;
+> +
+> +	rcu_read_lock();
+> +
+> +	params = rcu_dereference(t->params);
+> +
+> +	tcf_lastuse_update(&t->tcf_tm);
+> +	bstats_cpu_update(this_cpu_ptr(t->common.cpu_bstats), skb);
+> +	action = params->action;
+> +
+> +	switch (params->tcft_action) {
+> +	case TCA_TUNNEL_KEY_ACT_RELEASE:
+> +		skb_dst_drop(skb);
+> +		break;
+> +	case TCA_TUNNEL_KEY_ACT_SET:
+> +		skb_dst_drop(skb);
+> +		skb_dst_set(skb, dst_clone(&params->tcft_enc_metadata->dst));
+> +		break;
+> +	default:
+> +		WARN_ONCE(1, "Bad tunnel_key action.\n");
+> +		break;
 
 
->=20
-> Regards,
->=20
-> K. Y
->=20
-> >
-> > greg k-h
+slow path (_init()) is already checking for a bad tcft_act so it seems
+unnecessary to have the default.
+If you have to keep default would be useful to print the value as well.
+
+Other than that looks good.
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+
+cheers,
+jamal
