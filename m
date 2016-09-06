@@ -1,69 +1,89 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v3 5/6] net: core: run cgroup eBPF egress programs
-Date: Tue, 06 Sep 2016 19:14:31 +0200
-Message-ID: <57CEF977.5030003@iogearbox.net>
-References: <1472241532-11682-1-git-send-email-daniel@zonque.org> <1472241532-11682-6-git-send-email-daniel@zonque.org> <57C4B12B.2070302@iogearbox.net> <634bb3e7-ea27-bf4d-5597-0cb9d4379466@zonque.org>
+From: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Subject: Re: [PATCH v4 2/6] cgroup: add support for eBPF programs
+Date: Tue, 06 Sep 2016 19:18:00 +0200
+Message-ID: <57CEFA48.6010101@iogearbox.net>
+References: <1473169568-30525-1-git-send-email-daniel@zonque.org> <1473169568-30525-3-git-send-email-daniel@zonque.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, kafai@fb.com, fw@strlen.de,
-        pablo@netfilter.org, harald@redhat.com, netdev@vger.kernel.org,
-        sargun@sargun.me
-To: Daniel Mack <daniel@zonque.org>, htejun@fb.com, ast@fb.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:32820 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936286AbcIFROu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 13:14:50 -0400
-In-Reply-To: <634bb3e7-ea27-bf4d-5597-0cb9d4379466@zonque.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, kafai-b10kYP2dOMg@public.gmane.org, fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org,
+        pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, harald-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>, htejun-b10kYP2dOMg@public.gmane.org, ast-b10kYP2dOMg@public.gmane.org
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1473169568-30525-3-git-send-email-daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 09/05/2016 04:22 PM, Daniel Mack wrote:
-> On 08/30/2016 12:03 AM, Daniel Borkmann wrote:
->> On 08/26/2016 09:58 PM, Daniel Mack wrote:
+On 09/06/2016 03:46 PM, Daniel Mack wrote:
+> This patch adds two sets of eBPF program pointers to struct cgroup.
+> One for such that are directly pinned to a cgroup, and one for such
+> that are effective for it.
 >
->>> diff --git a/net/core/dev.c b/net/core/dev.c
->>> index a75df86..17484e6 100644
->>> --- a/net/core/dev.c
->>> +++ b/net/core/dev.c
->>> @@ -141,6 +141,7 @@
->>>    #include <linux/netfilter_ingress.h>
->>>    #include <linux/sctp.h>
->>>    #include <linux/crash_dump.h>
->>> +#include <linux/bpf-cgroup.h>
->>>
->>>    #include "net-sysfs.h"
->>>
->>> @@ -3329,6 +3330,11 @@ static int __dev_queue_xmit(struct sk_buff *skb, void *accel_priv)
->>>    	if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_SCHED_TSTAMP))
->>>    		__skb_tstamp_tx(skb, NULL, skb->sk, SCM_TSTAMP_SCHED);
->>>
->>> +	rc = cgroup_bpf_run_filter(skb->sk, skb,
->>> +				   BPF_ATTACH_TYPE_CGROUP_INET_EGRESS);
->>> +	if (rc)
->>> +		return rc;
->>
->> This would leak the whole skb by the way.
+> To illustrate the logic behind that, assume the following example
+> cgroup hierarchy.
 >
-> Ah, right.
+>    A - B - C
+>          \ D - E
 >
->> Apart from that, could this be modeled w/o affecting the forwarding path (at some
->> local output point where we know to have a valid socket)? Then you could also drop
->> the !sk and sk->sk_family tests, and we wouldn't need to replicate parts of what
->> clsact is doing as well. Hmm, maybe access to src/dst mac could be handled to be
->> just zeroes since not available at that point?
+> If only B has a program attached, it will be effective for B, C, D
+> and E. If D then attaches a program itself, that will be effective for
+> both D and E, and the program in B will only affect B and C. Only one
+> program of a given type is effective for a cgroup.
 >
-> Hmm, I wonder where this hook could be put instead then. When placed in
-> ip_output() and ip6_output(), the mac headers cannot be pushed before
-> running the program, resulting in bogus skb data from the eBPF program.
+> Attaching and detaching programs will be done through the bpf(2)
+> syscall. For now, ingress and egress inet socket filtering are the
+> only supported use-cases.
+>
+> Signed-off-by: Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>
+[...]
+> +/**
+> + * __cgroup_bpf_run_filter() - Run a program for packet filtering
+> + * @sk: The socken sending or receiving traffic
+> + * @skb: The skb that is being sent or received
+> + * @type: The type of program to be exectuted
+> + *
+> + * If no socket is passed, or the socket is not of type INET or INET6,
+> + * this function does nothing and returns 0.
+> + *
+> + * The program type passed in via @type must be suitable for network
+> + * filtering. No further check is performed to assert that.
+> + *
+> + * This function will return %-EPERM if any if an attached program was found
+> + * and if it returned != 1 during execution. In all other cases, 0 is returned.
+> + */
+> +int __cgroup_bpf_run_filter(struct sock *sk,
+> +			    struct sk_buff *skb,
+> +			    enum bpf_attach_type type)
+> +{
+> +	struct bpf_prog *prog;
+> +	struct cgroup *cgrp;
+> +	int ret = 0;
+> +
+> +	if (!sk)
+> +		return 0;
 
-But as it stands right now, RX will only see a subset of packets in sk_filter()
-layer (depending on where it's called in the proto handler implementation,
-so might not even include all control messages, for example) as opposed to
-the TX hook going that far even 'seeing' everything incl. forwarded packets
-in the sense that we know a priori that these kind of skbs going through the
-cgroup_bpf_run_filter() handler when the hook is enabled will just skip this
-hook eventually anyway. What about letting such progs see /only/ local skbs
-for RX and TX, with skb->data from L3 onwards (iirc, that would be similar
-to what current sk_filter() programs see)?
+Doesn't this also need to check || !sk_fullsock(sk)?
+
+> +
+> +	if (sk->sk_family != AF_INET &&
+> +	    sk->sk_family != AF_INET6)
+> +		return 0;
+> +
+> +	cgrp = sock_cgroup_ptr(&sk->sk_cgrp_data);
+> +
+> +	rcu_read_lock();
+> +
+> +	prog = rcu_dereference(cgrp->bpf.effective[type]);
+> +	if (prog) {
+> +		unsigned int offset = skb->data - skb_mac_header(skb);
+> +
+> +		__skb_push(skb, offset);
+> +		ret = bpf_prog_run_clear_cb(prog, skb) == 1 ? 0 : -EPERM;
+> +		__skb_pull(skb, offset);
+> +	}
+> +
+> +	rcu_read_unlock();
+> +
+> +	return ret;
+> +}
