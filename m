@@ -1,52 +1,45 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH v3 net-next 1/1] net_sched: Introduce skbmod action
-Date: Tue, 6 Sep 2016 08:08:17 -0400
-Message-ID: <a90c3d11-e1e9-3f58-5400-8b910d707351@mojatatu.com>
-References: <1472386756-23085-1-git-send-email-jhs@emojatatu.com>
- <1472400467.14381.252.camel@edumazet-glaptop3.roam.corp.google.com>
- <b075631d-92cc-d016-3786-aaacb3d5c13a@mojatatu.com>
- <b117fac2-c73f-2d42-3843-52f9717224d9@mojatatu.com>
- <1472494817.14381.267.camel@edumazet-glaptop3.roam.corp.google.com>
- <2a6e36a6-f128-ba9d-4d69-90ff5383fb75@mojatatu.com>
- <68852282-b009-7b5b-6887-1630935b1913@mojatatu.com>
- <1472561089.14381.296.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Javier Martinez Canillas <javier@osg.samsung.com>
+Subject: Re: mwifiex: propagate error if IRQ request fails in
+ mwifiex_sdio_of()
+Date: Tue, 6 Sep 2016 14:12:33 +0200
+Message-ID: <66735eb5-c831-8e06-337b-80ccfc392061@osg.samsung.com>
+References: <20160903103520.8C69C6201B@smtp.codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, daniel@iogearbox.net,
-        xiyou.wangcong@gmail.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yb0-f178.google.com ([209.85.213.178]:35659 "EHLO
-        mail-yb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932327AbcIFMIT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 08:08:19 -0400
-Received: by mail-yb0-f178.google.com with SMTP id g5so13867062yba.2
-        for <netdev@vger.kernel.org>; Tue, 06 Sep 2016 05:08:19 -0700 (PDT)
-In-Reply-To: <1472561089.14381.296.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org,
+        Amitkumar Karwar <akarwar@marvell.com>, netdev@vger.kernel.org,
+        linux-wireless@vger.kernel.org,
+        Nishant Sarmukadam <nishants@marvell.com>,
+        Arend van Spriel <arend.vanspriel@broadcom.com>
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160903103520.8C69C6201B@smtp.codeaurora.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-ng
-On 16-08-30 08:44 AM, Eric Dumazet wrote:
-> On Tue, 2016-08-30 at 07:57 -0400, Jamal Hadi Salim wrote:
->>         if (flags & SKBMOD_F_SWAPMAC) {
->>                 u8 tmpaddr[ETH_ALEN];
->>                 /*XXX: I am sure we can come up with something more efficient */
->>                 ether_addr_copy(tmpaddr, eth_hdr(skb)->h_dest);
->>                 ether_addr_copy(eth_hdr(skb)->h_dest, eth_hdr(skb)->h_source);
->>                 ether_addr_copy(eth_hdr(skb)->h_source, tmpaddr);
->>         }
->
-> While ether_addr_copy() is accepting u8 pointers, data must be aligned to u16 at least.
->
-> (See comments in include/linux/etherdevice.h)
->
-> Some arches/compilers might do things here that would generate a trap
-> if tmpaddr is not aligned.
->
+Hello Kalle,
 
-Hrm. How do you suggest dealing with this?
+On 09/03/2016 12:35 PM, Kalle Valo wrote:
+> Javier Martinez Canillas <javier@osg.samsung.com> wrote:
+>> If request_irq() fails in mwifiex_sdio_probe_of(), only an error message
+>> is printed but the actual error is not propagated to the caller function.
+>>
+>> Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
+> 
+> What's the conclusion with this patch? Should I drop it or take it?
+> 
+> (The discussion is available from the patchwork link in the signature.)
+> 
 
-cheers,
-jamal
+My understanding is that Arend agrees with the patch and that the question
+raised was caused by looking at an older kernel version. IOW, the patch is
+OK and should be picked.
+
+I'm adding Arend to cc, so can comment in case I misunderstood him though.
+
+Best regards,
+-- 
+Javier Martinez Canillas
+Open Source Group
+Samsung Research America
