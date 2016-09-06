@@ -1,29 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Minimum MTU Mess
-Date: Tue, 06 Sep 2016 16:55:29 -0700 (PDT)
-Message-ID: <20160906.165529.496766310703537877.davem@davemloft.net>
-References: <20160902170742.GA17677@redhat.com>
+Subject: Re: [PATCH v2] ptp: ixp46x: remove NO_IRQ handling
+Date: Tue, 06 Sep 2016 16:57:28 -0700 (PDT)
+Message-ID: <20160906.165728.124928924200975859.davem@davemloft.net>
+References: <20160906192053.1061021-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jarod@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56914 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755032AbcIFXza (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 19:55:30 -0400
-In-Reply-To: <20160902170742.GA17677@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: richardcochran@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160906192053.1061021-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jarod Wilson <jarod@redhat.com>
-Date: Fri, 2 Sep 2016 13:07:42 -0400
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Tue,  6 Sep 2016 21:20:36 +0200
 
-> In any case, the number of "mtu < 68" and "#define FOO_MIN_MTU 68", or
-> variations thereof, under drivers/net/ is kind of crazy.
+> gpio_to_irq does not return NO_IRQ but instead returns a negative
+> error code on failure. Returning NO_IRQ from the function has no
+> negative effects as we only compare the result to the expected
+> interrupt number, but it's better to return a proper failure
+> code for consistency, and we should remove NO_IRQ from the kernel
+> entirely.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Acked-by: Richard Cochran <richardcochran@gmail.com>
 
-Agreed, we can have a default and let the different cases provide
-overrides.
-
-Mostly what to do here is a function of the hardware though.
+Applied to net-next, thanks.
