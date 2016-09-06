@@ -1,136 +1,153 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: Centralizing support for TCAM?
-Date: Mon, 5 Sep 2016 20:44:52 -0700
-Message-ID: <20160906034450.GA34929@ast-mbp.thefacebook.com>
-References: <57d4a2db-ca3b-909a-073a-52ecceb428f2@gmail.com>
- <b8323295-e3eb-48ca-7c82-ff40d222a743@gmail.com>
- <57C9C9BE.6040407@gmail.com>
- <20160903070950.GA1749@nanopsycho.orion>
+From: KY Srinivasan <kys@microsoft.com>
+Subject: RE: linux-next: manual merge of the char-misc tree with the net-next
+ tree
+Date: Tue, 6 Sep 2016 05:36:10 +0000
+Message-ID: <DM2PR0301MB07835EA7440B54BE9B27A516A0F90@DM2PR0301MB0783.namprd03.prod.outlook.com>
+References: <20160905165650.180e6c89@canb.auug.org.au>
+ <20160905113353.GB27586@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Fastabend <john.fastabend@gmail.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        netdev@vger.kernel.org, jiri@mellanox.com, idosh@mellanox.com,
-        john.fastabend@intel.com, ast@kernel.org, davem@davemloft.net,
-        jhs@mojatatu.com, ecree@solarflare.com, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:32903 "EHLO
-        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932352AbcIFDo7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Sep 2016 23:44:59 -0400
-Received: by mail-pf0-f180.google.com with SMTP id g202so46591689pfb.0
-        for <netdev@vger.kernel.org>; Mon, 05 Sep 2016 20:44:58 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160903070950.GA1749@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: Arnd Bergmann <arnd@arndb.de>, David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>,
+        "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Stephen Hemminger <sthemmin@microsoft.com>,
+        Vitaly Kuznetsov <vkuznets@redhat.com>
+To: Greg KH <greg@kroah.com>, Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160905113353.GB27586@kroah.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Sep 03, 2016 at 09:09:50AM +0200, Jiri Pirko wrote:
-> Fri, Sep 02, 2016 at 08:49:34PM CEST, john.fastabend@gmail.com wrote:
-> >On 16-09-02 10:18 AM, Florian Fainelli wrote:
-> >> Hi all,
-> >> 
-> >
-> >Hi Florian,
-> >
-> >> (apologies for the long CC list and the fact that I can't type correctly
-> >> email addresses)
-> >> 
-> >
-> >My favorite topic ;)
-> >
-> >> While working on adding support for the Broadcom Ethernet switches
-> >> Compact Field Processor (which is essentially a TCAM,
-> >> action/policer/rate meter RAMs, 256 entries), I started working with the
-> >> ethtool::rxnfc API which is actually kind of nice in that it fits nicely
-> >> with my use simple case of being able to insert rules at a given or
-> >> driver selected location and has a pretty good flow representation for
-> >> common things you may match: TCP/UDP v4/v6 (not so much for non-IP, or
-> >> L2 stuff though you can use the extension flow representation). It lacks
-> >> support for more complex actions other than redirect to a particular
-> >> port/queue.
-> >
-> >When I was doing this for one of the products I work on I decided that
-> >extending ethtool was likely not a good approach and building a netlink
-> >interface would be a better choice. My reasons were mainly extending
-> >ethtool is a bit painful to keep structure compatibility across versions
-> >and I also had use cases that wanted to get notifications both made
-> >easier when using netlink. However my netlink port+extensions were not
-> >accepted and were called a "kernel bypass" and the general opinion was
-> >that it was not going to be accepted upstream. Hence the 'tc' effort.
-> 
-> Ethtool should die peacefully. Don't poke in it in the process...
-> 
-> 
-> >
-> >> 
-> >> Now ethtool::rxnfc is one possible user, but tc and netfiler also are,
-> >> more powerful and extensible, but since this is a resource constrained
-> >> piece of hardware, and it would suck for people to have to implement
-> >> these 3 APIs if we could come up with a central one that satisfies the
-> >> superset offered by tc + netfilter. We can surely imagine an use case we
-> >
-> >My opinion is that tc and netfilter are sufficiently different that
-> >building a common layer is challenging and is actually more complex vs
-> >just implementing two interfaces. Always happy to review code though.
-> 
-> In february, Pablo did some work on finding the common intermediate
-> layer for classifier-action subsystem. It was rejected with the argument
-> of unnecessary overhead. Makes sense to me. After that, you introduced
-> u32 tc offload. Since that, couple more tc classifiers and actions were
-> offloaded.
-> 
-> I believe that for Florian's usecase, TC is a great fit. You can just use
-> cls_flower with couple of actions.
-> 
-> My colleagues are working hard on enabling cls_flower offload. You can
-> easily benefit that. In mlxsw we also plan to use that for our TCAM ACLs
-> offloading.
-> 
-> 
-> >
-> >There is also an already established packet flow through tc, netfilter,
-> >fdb, l3 in linux that folks want to maintain. At the moment I just don't
-> >see the need for a common layer IMO.
-> >
-> >Also adding another layer of abstraction so we end up doing multiple
-> >translations into and out of these layers adds overhead. Eventually
-> >I need to get reasonable operations per second on the TCAM tables.
-> >Reasonable for me being somewhere in the 50k to 100k add/del/update
-> >commands per second. I'm hesitant to create more abstractions then
-> >are actually needed.
-> >
-> >> centralize the whole matching + action into a Domain Specific Language
-> >> that we compiled into eBPF and then translate into whatever the HW
-> >> understands, although that raises the question of where do we put the
-> >> translation tool in user space or kernel space.
-> >
-> >The eBPF to HW translation I started to look at but gave up. The issue
-> >was the program space of eBPF is much larger than any traditional
-> >parser, table hardware implementation can support so most programs get
-> >rejected (obvious observation right?). I'm more inclined to build
-> >hardware that can support eBPF vs restricting eBPF to fit into a
-> >parser/table model.
-> 
-> +1
-> I have been thinging a lot about this and I believe that parsing bpf
-> program in drivers into some pre-defined tables is quite complex. I
-> think that bpf is just very unsuitable to offload, if you don't have a
-> hw which could directly interpret it.
-> I know that Alexei disagrees :)
 
-lol :)
-compiling bpf into fixed pipeline asic is definitely not easy.
-The problem with adding new cls classifieris and actions to match
-what configurable hw does isn't pretty either. The fixed pipeline
-isn't interesting beyond l2/l3 and flow-based hw features are mostly
-useless in the tor. I'm not against adding new classifiers, since it's
-better than sdk, but we won't be using such tc features either.
-Since this thread about tcam... my 0.02 here is it's pretty bad in
-the nic(host) due to power consumption and in the tor it's only good as
-a part of algorithmic lpm solutions. There it won't be even seen as tcam.
-Instead the fancy algorithms will use exact match + tcam + aux data to pack
-as many routes into such 'algorithmic lpm' as possible, so I cannot see
-what tcam as actual tcam can be good for.
+
+> -----Original Message-----
+> From: Greg KH [mailto:greg@kroah.com]
+> Sent: Monday, September 5, 2016 5:04 PM
+> To: Stephen Rothwell <sfr@canb.auug.org.au>
+> Cc: Arnd Bergmann <arnd@arndb.de>; David Miller <davem@davemloft.net>;
+> Networking <netdev@vger.kernel.org>; linux-next@vger.kernel.org; linux-
+> kernel@vger.kernel.org; Stephen Hemminger <sthemmin@microsoft.com>;
+> Vitaly Kuznetsov <vkuznets@redhat.com>; KY Srinivasan <kys@microsoft.com>
+> Subject: Re: linux-next: manual merge of the char-misc tree with the net-=
+next
+> tree
+>=20
+> On Mon, Sep 05, 2016 at 04:56:50PM +1000, Stephen Rothwell wrote:
+> > Hi all,
+> >
+> > Today's linux-next merge of the char-misc tree got a conflict in:
+> >
+> >   include/linux/hyperv.h
+> >
+> > between commit:
+> >
+> >   30d1de08c87d ("hv_netvsc: make inline functions static")
+> >
+> > from the net-next tree and commit:
+> >
+> >   bb08d431a914 ("Drivers: hv: ring_buffer: count on wrap around mapping=
+s in
+> get_next_pkt_raw()")
+> >
+> > from the char-misc tree.
+> >
+> > I fixed it up (the former moved the code modified by the latter, so the
+> > below patch applies to the new location of the code) and can carry the
+> > fix as necessary. This is now fixed as far as linux-next is concerned,
+> > but any non trivial conflicts should be mentioned to your upstream
+> > maintainer when your tree is submitted for merging.  You may also want
+> > to consider cooperating with the maintainer of the conflicting tree to
+> > minimise any particularly complex conflicts.
+> >
+> > From: Stephen Rothwell <sfr@canb.auug.org.au>
+> > Date: Mon, 5 Sep 2016 16:53:06 +1000
+> > Subject: [PATCH] Drivers: hv: ring_buffer: merge fix up for "hv_netvsc:=
+ make
+> >  inline functions static"
+> >
+> > Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+> > ---
+> >  drivers/net/hyperv/netvsc.c | 32 +++++++++++---------------------
+> >  1 file changed, 11 insertions(+), 21 deletions(-)
+> >
+> > diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+> > index 2a9ccc4d9e3c..026df6556068 100644
+> > --- a/drivers/net/hyperv/netvsc.c
+> > +++ b/drivers/net/hyperv/netvsc.c
+> > @@ -42,31 +42,23 @@ static struct vmpacket_descriptor *
+> >  get_next_pkt_raw(struct vmbus_channel *channel)
+> >  {
+> >  	struct hv_ring_buffer_info *ring_info =3D &channel->inbound;
+> > -	u32 read_loc =3D ring_info->priv_read_index;
+> > +	u32 priv_read_loc =3D ring_info->priv_read_index;
+> >  	void *ring_buffer =3D hv_get_ring_buffer(ring_info);
+> > -	struct vmpacket_descriptor *cur_desc;
+> > -	u32 packetlen;
+> >  	u32 dsize =3D ring_info->ring_datasize;
+> > -	u32 delta =3D read_loc - ring_info->ring_buffer->read_index;
+> > +	/*
+> > +	 * delta is the difference between what is available to read and
+> > +	 * what was already consumed in place. We commit read index after
+> > +	 * the whole batch is processed.
+> > +	 */
+> > +	u32 delta =3D priv_read_loc >=3D ring_info->ring_buffer->read_index ?
+> > +		priv_read_loc - ring_info->ring_buffer->read_index :
+> > +		(dsize - ring_info->ring_buffer->read_index) + priv_read_loc;
+> >  	u32 bytes_avail_toread =3D (hv_get_bytes_to_read(ring_info) - delta);
+> >
+> >  	if (bytes_avail_toread < sizeof(struct vmpacket_descriptor))
+> >  		return NULL;
+> >
+> > -	if ((read_loc + sizeof(*cur_desc)) > dsize)
+> > -		return NULL;
+> > -
+> > -	cur_desc =3D ring_buffer + read_loc;
+> > -	packetlen =3D cur_desc->len8 << 3;
+> > -
+> > -	/*
+> > -	 * If the packet under consideration is wrapping around,
+> > -	 * return failure.
+> > -	 */
+> > -	if ((read_loc + packetlen + VMBUS_PKT_TRAILER) > (dsize - 1))
+> > -		return NULL;
+> > -
+> > -	return cur_desc;
+> > +	return ring_buffer + priv_read_loc;
+> >  }
+> >
+> >  /*
+> > @@ -78,16 +70,14 @@ static void put_pkt_raw(struct vmbus_channel
+> *channel,
+> >  			struct vmpacket_descriptor *desc)
+> >  {
+> >  	struct hv_ring_buffer_info *ring_info =3D &channel->inbound;
+> > -	u32 read_loc =3D ring_info->priv_read_index;
+> >  	u32 packetlen =3D desc->len8 << 3;
+> >  	u32 dsize =3D ring_info->ring_datasize;
+> >
+> > -	BUG_ON((read_loc + packetlen + VMBUS_PKT_TRAILER) > dsize);
+> > -
+> >  	/*
+> >  	 * Include the packet trailer.
+> >  	 */
+> >  	ring_info->priv_read_index +=3D packetlen + VMBUS_PKT_TRAILER;
+> > +	ring_info->priv_read_index %=3D dsize;
+> >  }
+> >
+> >  /*
+>=20
+> Ugh, messy.  Thanks for this.
+>=20
+> KY, how did this happen?
+Thanks Stephen. Greg, sorry about this. We should have split Vitaly's patch=
+ to avoid this inter-tree issue. Vitaly and I will work to fix this.
+
+Regards,
+
+K. Y=20
+
+>=20
+> greg k-h
