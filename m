@@ -1,68 +1,67 @@
-From: Bert Kenward <bkenward@solarflare.com>
-Subject: [PATCH net-next] sfc: check MTU against minimum threshold
-Date: Tue, 6 Sep 2016 17:50:00 +0100
-Message-ID: <09fc2c3f-744b-41e5-5801-96fa80cd6ad5@solarflare.com>
-References: <20160902170742.GA17677@redhat.com>
+From: Brandon Cazander <brandon.cazander@multapplied.net>
+Subject: Re: PROBLEM: TPROXY and DNAT broken (bisected to 079096f103fa)
+Date: Tue, 6 Sep 2016 16:41:16 +0000
+Message-ID: <BL2PR07MB23065A58E771485F53D553E99EF90@BL2PR07MB2306.namprd07.prod.outlook.com>
+References: <BL2PR07MB2306908C76E928619A24B52E9E0F0@BL2PR07MB2306.namprd07.prod.outlook.com>
+ <20160729132154.GB13634@breakpoint.cc>
+ <BL2PR07MB2306B2B920C441DF5406B1439E050@BL2PR07MB2306.namprd07.prod.outlook.com>
+ <20160802221121.GB31209@breakpoint.cc>
+ <BL2PR07MB23061A24DD64E80532DBD9799E060@BL2PR07MB2306.namprd07.prod.outlook.com>
+ <BL2PR07MB2306C9A7EB393F441D56E7D69E1E0@BL2PR07MB2306.namprd07.prod.outlook.com>,<20160812190319.GB25519@breakpoint.cc>,<BL2PR07MB23066ABAF5223701D17CFFF29E120@BL2PR07MB2306.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
-        Jarod Wilson <jarod@redhat.com>
-To: Dave Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: quoted-printable
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Florian Westphal <fw@strlen.de>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:47940 "EHLO
-        nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S933172AbcIFQuS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 12:50:18 -0400
-In-Reply-To: <20160902170742.GA17677@redhat.com>
+Received: from mail-dm3nam03on0077.outbound.protection.outlook.com ([104.47.41.77]:6135
+        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S932845AbcIFQ4K (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 6 Sep 2016 12:56:10 -0400
+In-Reply-To: <BL2PR07MB23066ABAF5223701D17CFFF29E120@BL2PR07MB2306.namprd07.prod.outlook.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Reported-by: Ma Yuying <yuma@redhat.com>
-Suggested-by: Jarod Wilson <jarod@redhat.com>
-Signed-off-by: Bert Kenward <bkenward@solarflare.com>
----
- drivers/net/ethernet/sfc/efx.c        | 12 +++++++++++-
- drivers/net/ethernet/sfc/net_driver.h |  3 +++
- 2 files changed, 14 insertions(+), 1 deletion(-)
+Sorry to resurrect this so much later=97I just got back from holidays and t=
+his was still on my desk.
 
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index f3826ae..3cf3557 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -2263,8 +2263,18 @@ static int efx_change_mtu(struct net_device *net_dev, int new_mtu)
- 	rc = efx_check_disabled(efx);
- 	if (rc)
- 		return rc;
--	if (new_mtu > EFX_MAX_MTU)
-+	if (new_mtu > EFX_MAX_MTU) {
-+		netif_err(efx, drv, efx->net_dev,
-+			  "Requested MTU of %d too big (max: %d)\n",
-+			  new_mtu, EFX_MAX_MTU);
- 		return -EINVAL;
-+	}
-+	if (new_mtu < EFX_MIN_MTU) {
-+		netif_err(efx, drv, efx->net_dev,
-+			  "Requested MTU of %d too small (min: %d)\n",
-+			  new_mtu, EFX_MIN_MTU);
-+		return -EINVAL;
-+	}
- 
- 	netif_dbg(efx, drv, efx->net_dev, "changing MTU to %d\n", new_mtu);
- 
-diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index 0a2504b..99d8c82 100644
---- a/drivers/net/ethernet/sfc/net_driver.h
-+++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -76,6 +76,9 @@
- /* Maximum possible MTU the driver supports */
- #define EFX_MAX_MTU (9 * 1024)
- 
-+/* Minimum MTU, from RFC791 (IP) */
-+#define EFX_MIN_MTU 68
-+
- /* Size of an RX scatter buffer.  Small enough to pack 2 into a 4K page,
-  * and should be a multiple of the cache line size.
-  */
--- 
-2.7.4
+Will anyone have another chance to look at this? It appears that the DIVERT=
+ rule is not working in our case, and I wonder if it is possible to fix the=
+ TPROXY target as well as the socket target fix that Florian provided.
+
+It appears as though nobody else has encountered this regression, so I can =
+appreciate that it comes up pretty low on the priority list. If it is not r=
+ealistic that this will be looked at further, then we will have to look at =
+replacing TPROXY.
+
+Thanks for your time.
+
+
+From: Brandon Cazander
+Sent: Monday, August 15, 2016 9:28 AM
+To: Florian Westphal
+Cc: netdev@vger.kernel.org; Eric Dumazet
+Subject: Re: PROBLEM: TPROXY and DNAT broken (bisected to 079096f103fa)
+=A0  =20
+I can recreate the issue with these rules:
+
+ip rule add fwmark 1 lookup 100
+ip route add local 0.0.0.0/0 dev lo table 100
+iptables -t mangle -A PREROUTING -p tcp -m tcp --dport 8080 -j TPROXY --on-=
+port 9876 --on-ip 0.0.0.0 --tproxy-mark 0x1/0x1
+iptables -t nat -A PREROUTING -d 192.168.7.20/32 -i eth0 -j DNAT --to-desti=
+nation 192.168.8.1
+
+If I add in the DIVERT chain it works:
+
+iptables -t mangle -N DIVERT
+iptables -t mangle -A PREROUTING -p tcp -m socket -j DIVERT
+iptables -t mangle -A DIVERT -j MARK --set-mark 1
+iptables -t mangle -A DIVERT -j ACCEPT
+iptables -t mangle -A PREROUTING -p tcp -m tcp --dport 8080 -j TPROXY --on-=
+port 9876 --on-ip 0.0.0.0 --tproxy-mark 0x1/0x1
+
+But that's still a regression in my opinion.    =
