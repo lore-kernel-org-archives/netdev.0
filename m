@@ -1,113 +1,107 @@
-From: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next V5 4/4] net/sched: Introduce act_tunnel_key
-Date: Tue, 6 Sep 2016 14:03:13 +0300
-Message-ID: <CAJL1qvEP7NOMr1xGr1LkUDi9K96P+ZzU2m5D1q=uZMC-AyrKSw@mail.gmail.com>
-References: <1472986555-14949-1-git-send-email-hadarh@mellanox.com>
- <1472986555-14949-5-git-send-email-hadarh@mellanox.com> <b6d6b736-bc45-3216-6109-0b67a54fb704@mojatatu.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH] vti: use right inner_mode for inbound inter address
+ family policy checks
+Date: Tue, 6 Sep 2016 13:15:23 +0200
+Message-ID: <20160906111522.GG31137@gauss.secunet.com>
+References: <20160904105713.3mqgszgqi7waxk5l@toau>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Hadar Hen Zion <hadarh@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@mellanox.com>,
-        Jiri Benc <jbenc@redhat.com>,
-        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Amir Vadai <amirva@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>, Amir Vadai <amir@vadai.me>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Thomas Zeitlhofer <thomas.zeitlhofer+lkml@ze-it.at>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:36162 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932400AbcIFLDV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 07:03:21 -0400
-Received: by mail-oi0-f66.google.com with SMTP id u131so4768811oif.3
-        for <netdev@vger.kernel.org>; Tue, 06 Sep 2016 04:03:14 -0700 (PDT)
-In-Reply-To: <b6d6b736-bc45-3216-6109-0b67a54fb704@mojatatu.com>
+Received: from a.mx.secunet.com ([62.96.220.36]:58757 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933713AbcIFLP2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 6 Sep 2016 07:15:28 -0400
+Content-Disposition: inline
+In-Reply-To: <20160904105713.3mqgszgqi7waxk5l@toau>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 6, 2016 at 1:49 PM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> On 16-09-04 06:55 AM, Hadar Hen Zion wrote:
->>
->> From: Amir Vadai <amir@vadai.me>
->>
->> This action could be used before redirecting packets to a shared tunnel
->> device, or when redirecting packets arriving from a such a device.
->>
->> The action will release the metadata created by the tunnel device
->> (decap), or set the metadata with the specified values for encap
->> operation.
->>
->> For example, the following flower filter will forward all ICMP packets
->> destined to 11.11.11.2 through the shared vxlan device 'vxlan0'. Before
->> redirecting, a metadata for the vxlan tunnel is created using the
->> tunnel_key action and it's arguments:
->>
->> $ filter add dev net0 protocol ip parent ffff: \
->>     flower \
->>       ip_proto 1 \
->>       dst_ip 11.11.11.2 \
->>     action tunnel_key set \
->>       src_ip 11.11.0.1 \
->>       dst_ip 11.11.0.2 \
->>       id 11 \
->>     action mirred egress redirect dev vxlan0
->>
->
->
-> Syntax error above. Regardless:
+On Sun, Sep 04, 2016 at 12:57:13PM +0200, Thomas Zeitlhofer wrote:
+> In case of inter address family tunneling (IPv6 over vti4 or IPv4 over
+> vti6), the inbound policy checks in vti_rcv_cb and vti6_rcv_cb are using
+> the wrong address family. As a result, all inbound inter address family
+> traffic is dropped.
+> 
+> Use the xfrm_ip2inner_mode helper (as done in xfrm_prepare_input and
+> xfrm_input) to select the inner_mode that contains the right address family
+> for the inbound policy checks.
+> 
+> Signed-off-by: Thomas Zeitlhofer <thomas.zeitlhofer+lkml@ze-it.at>
+> ---
+> 
+> Notes:
+>     The patch was developed by looking at the code, but without knowledge of
+>     the XFRM code in the kernel. It has been successfully tested, but it is
+>     more a guess that might be helpful for the maintainers to find a proper
+>     solution.
+> 
+>  net/ipv4/ip_vti.c  | 12 +++++++++++-
+>  net/ipv6/ip6_vti.c | 12 +++++++++++-
+>  2 files changed, 22 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
+> index a917903..44d5449 100644
+> --- a/net/ipv4/ip_vti.c
+> +++ b/net/ipv4/ip_vti.c
+> @@ -88,6 +88,7 @@ static int vti_rcv_cb(struct sk_buff *skb, int err)
+>  	struct net_device *dev;
+>  	struct pcpu_sw_netstats *tstats;
+>  	struct xfrm_state *x;
+> +	struct xfrm_mode *inner_mode;
+>  	struct ip_tunnel *tunnel = XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip4;
+>  	u32 orig_mark = skb->mark;
+>  	int ret;
+> @@ -105,7 +106,16 @@ static int vti_rcv_cb(struct sk_buff *skb, int err)
+>  	}
+>  
+>  	x = xfrm_input_state(skb);
+> -	family = x->inner_mode->afinfo->family;
+> +
+> +	inner_mode = x->inner_mode;
+> +
+> +	if (x->sel.family == AF_UNSPEC) {
+> +		inner_mode = xfrm_ip2inner_mode(x, XFRM_MODE_SKB_CB(skb)->protocol);
+> +		if (inner_mode == NULL)
+> +			return -EPERM;
 
-ack, will be fixed.
+You better return -EINVAL instead of -EPERM here.
+Also you should bump the LINUX_MIB_XFRMINSTATEMODEERROR
+counter as we do in xfrm_input.
 
-> Please verify by running a test and send a packet or two
-> and verify that stats are incremented (I know it may sound silly to
-> ask but it is important).
+> +	}
+> +
+> +	family = inner_mode->afinfo->family;
+>  
+>  	skb->mark = be32_to_cpu(tunnel->parms.i_key);
+>  	ret = xfrm_policy_check(NULL, XFRM_POLICY_IN, skb, family);
+> diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
+> index d90a11f..3149757 100644
+> --- a/net/ipv6/ip6_vti.c
+> +++ b/net/ipv6/ip6_vti.c
+> @@ -340,6 +340,7 @@ static int vti6_rcv_cb(struct sk_buff *skb, int err)
+>  	struct net_device *dev;
+>  	struct pcpu_sw_netstats *tstats;
+>  	struct xfrm_state *x;
+> +	struct xfrm_mode *inner_mode;
+>  	struct ip6_tnl *t = XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip6;
+>  	u32 orig_mark = skb->mark;
+>  	int ret;
+> @@ -357,7 +358,16 @@ static int vti6_rcv_cb(struct sk_buff *skb, int err)
+>  	}
+>  
+>  	x = xfrm_input_state(skb);
+> -	family = x->inner_mode->afinfo->family;
+> +
+> +	inner_mode = x->inner_mode;
+> +
+> +	if (x->sel.family == AF_UNSPEC) {
+> +		inner_mode = xfrm_ip2inner_mode(x, XFRM_MODE_SKB_CB(skb)->protocol);
+> +		if (inner_mode == NULL)
+> +			return -EPERM;
 
-Already tested that tc filter stats are working and incremented as expected :-)
-.
->
->
->> +static int tunnel_key_act(struct sk_buff *skb, const struct tc_action *a,
->> +                         struct tcf_result *res)
->> +{
->> +       struct tcf_tunnel_key *t = to_tunnel_key(a);
->> +       struct tcf_tunnel_key_params *params;
->> +       int action;
->> +
->> +       rcu_read_lock();
->> +
->> +       params = rcu_dereference(t->params);
->> +
->> +       tcf_lastuse_update(&t->tcf_tm);
->> +       bstats_cpu_update(this_cpu_ptr(t->common.cpu_bstats), skb);
->> +       action = params->action;
->> +
->> +       switch (params->tcft_action) {
->> +       case TCA_TUNNEL_KEY_ACT_RELEASE:
->> +               skb_dst_drop(skb);
->> +               break;
->> +       case TCA_TUNNEL_KEY_ACT_SET:
->> +               skb_dst_drop(skb);
->> +               skb_dst_set(skb,
->> dst_clone(&params->tcft_enc_metadata->dst));
->> +               break;
->> +       default:
->> +               WARN_ONCE(1, "Bad tunnel_key action.\n");
->> +               break;
->
->
->
-> slow path (_init()) is already checking for a bad tcft_act so it seems
-> unnecessary to have the default.
-> If you have to keep default would be useful to print the value as well.
+Same here.
 
-ack.
-
->
-> Other than that looks good.
-> Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
->
-> cheers,
-> jamal
+Other that that it looks ok to me.
