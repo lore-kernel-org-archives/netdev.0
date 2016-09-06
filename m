@@ -1,44 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] net: macb: initialize checksum when using checksum
- offloading
-Date: Tue, 06 Sep 2016 13:43:59 -0700 (PDT)
-Message-ID: <20160906.134359.334009778514208272.davem@davemloft.net>
-References: <1472479045-8814-2-git-send-email-helmut.buchsbaum@gmail.com>
-        <1473005387-24917-1-git-send-email-helmut.buchsbaum@gmail.com>
+Subject: Re: [PATCH v2] net: smsc: remove build warning of duplicate
+ definition
+Date: Tue, 06 Sep 2016 13:44:42 -0700 (PDT)
+Message-ID: <20160906.134442.1557713234808594719.davem@davemloft.net>
+References: <1473010341-10359-1-git-send-email-sudipm.mukherjee@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.ferre@atmel.com, tom@herbertland.com,
-        michal.simek@xilinx.com, netdev@vger.kernel.org,
-        cyrille.pitchen@atmel.com
-To: helmut.buchsbaum@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:53718 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934248AbcIFUoB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 16:44:01 -0400
-In-Reply-To: <1473005387-24917-1-git-send-email-helmut.buchsbaum@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nico@fluxnic.net, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: sudipm.mukherjee@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1473010341-10359-1-git-send-email-sudipm.mukherjee@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
-Date: Sun,  4 Sep 2016 18:09:47 +0200
+From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Date: Sun,  4 Sep 2016 23:02:21 +0530
 
-> I'm still struggling to get this fix right..
+> The build of m32r was giving warning:
 > 
-> Changes since v2:
->  - do not blindly modify SKB contents according to Dave's legitimate
->    objection
+> In file included from drivers/net/ethernet/smsc/smc91x.c:92:0:
+> drivers/net/ethernet/smsc/smc91x.h:448:0: warning: "SMC_inb" redefined
+>  #define SMC_inb(ioaddr, reg)  ({ BUG(); 0; })
+>  
+> drivers/net/ethernet/smsc/smc91x.h:106:0:
+> 	note: this is the location of the previous definition
+>  #define SMC_inb(a, r)  inb(((u32)a) + (r))
+>  
+> drivers/net/ethernet/smsc/smc91x.h:449:0: warning: "SMC_outb" redefined
+>  #define SMC_outb(x, ioaddr, reg) BUG()
+>  
+> drivers/net/ethernet/smsc/smc91x.h:108:0:
+> 	note: this is the location of the previous definition
+>  #define SMC_outb(v, a, r) outb(v, ((u32)a) + (r))
 > 
-> Changes since v1:
->  - dropped disabling HW checksum offload for Zynq
->  - initialize checksum similar to net/ethernet/freescale/fec_main.c
-> 
-> -- >8 --
-> MACB/GEM needs the checksum field initialized to 0 to get correct
-> results on transmit in all cases, e.g. on Zynq, UDP packets with
-> payload <= 2 otherwise contain a wrong checksums.
-> 
-> Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
+> Signed-off-by: Sudip Mukherjee <sudip.mukherjee@codethink.co.uk>
 
 Applied.
