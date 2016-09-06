@@ -1,43 +1,48 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [PATCH] rxrpc: remove duplicate 'error' variable
-Date: Tue, 06 Sep 2016 14:34:02 +0100
-Message-ID: <32472.1473168842@warthog.procyon.org.uk>
-References: <20160906132614.2117695-1-arnd@arndb.de>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: Centralizing support for TCAM?
+Date: Tue, 6 Sep 2016 09:36:57 -0400
+Message-ID: <62b53e5d-a862-a5a2-88d4-9d10577e4274@mojatatu.com>
+References: <57d4a2db-ca3b-909a-073a-52ecceb428f2@gmail.com>
+ <b8323295-e3eb-48ca-7c82-ff40d222a743@gmail.com> <57C9C9BE.6040407@gmail.com>
+ <20160903070950.GA1749@nanopsycho.orion>
+ <20160906034450.GA34929@ast-mbp.thefacebook.com>
+ <4e871929-b8fb-b1c9-6909-218460e21e76@mojatatu.com>
+ <20160906133105.GD2719@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: dhowells@redhat.com, "David S. Miller" <davem@davemloft.net>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Jiri Pirko <jiri@resnulli.us>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        netdev@vger.kernel.org, jiri@mellanox.com, idosh@mellanox.com,
+        john.fastabend@intel.com, ast@kernel.org, davem@davemloft.net,
+        ecree@solarflare.com, vivien.didelot@savoirfairelinux.com
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49348 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932893AbcIFNeE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 6 Sep 2016 09:34:04 -0400
-In-Reply-To: <20160906132614.2117695-1-arnd@arndb.de>
-Content-ID: <32471.1473168842.1@warthog.procyon.org.uk>
+Received: from mail-oi0-f48.google.com ([209.85.218.48]:33280 "EHLO
+        mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751258AbcIFNg7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 09:36:59 -0400
+Received: by mail-oi0-f48.google.com with SMTP id y2so71682792oie.0
+        for <netdev@vger.kernel.org>; Tue, 06 Sep 2016 06:36:58 -0700 (PDT)
+In-Reply-To: <20160906133105.GD2719@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Arnd Bergmann <arnd@arndb.de> wrote:
+On 16-09-06 09:31 AM, Andrew Lunn wrote:
 
-> The rxrpc_process_call function has debug code to print a failure code,
-> but instead of printing the code from the rxrpc_call structure, it
-> prints an uninitialized variable:
-> 
-> net/rxrpc/call_event.c: In function 'rxrpc_process_call':
-> net/rxrpc/call_event.c:879:58: error: 'error' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> 
-> This removes the extraneous variable and prints the correct
-> code instead.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: f5c17aaeb2ae ("rxrpc: Calls should only have one terminal state")
+> So if i'm reading this right, you are talking about big switches, top
+> of racks, etc. And you don't see much use for the TCAM.
+>
+> Florian and I are interested in the other end of the scale. Little
+> 5-10 port switches in SoHo, STB, WiFi Access points etc. At the
+> moment, firewalling in such devices is done by the CPU. If we can
+> offload some of the firewall rules to the TCAM, we would be happy.
+>
 
-I've already posted a fix and it's waiting on DaveM.
+As with all discussions on netdev, that was a distraction;->
+Use tc as mentioned by Jiri. Please please no ethtool.
 
-https://patchwork.ozlabs.org/patch/665550/
-
-http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/commit/?h=rxrpc-rewrite&id=00b5407e427ac2588a2496b92035a94602b3cd1b
-
-David
+cheers,
+jamal
