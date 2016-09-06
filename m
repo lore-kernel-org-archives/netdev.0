@@ -1,45 +1,30 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH, net-next] perf, bpf: fix conditional call to
- bpf_overflow_handler
-Date: Tue, 6 Sep 2016 08:33:50 -0700
-Message-ID: <20160906153349.GA38225@ast-mbp.thefacebook.com>
-References: <20160906131033.1784262-1-arnd@arndb.de>
+From: Steve Glendinning <steve@shawell.net>
+Subject: Re: [PATCH net-next 1/3] smsc95xx: Add maintainer
+Date: Tue, 6 Sep 2016 16:44:02 +0100
+Message-ID: <CAKh2mn5bazCKkNeF671LG5D6U4gMhBPYB+0ArfZvbrCJ6DLdug@mail.gmail.com>
+References: <9235D6609DB808459E95D78E17F2E43D4091009A@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Alexei Starovoitov <ast@kernel.org>,
-        Peter Zijlstra <peterz@infradead.org>,
-        Ingo Molnar <mingo@redhat.com>,
-        Arnaldo Carvalho de Melo <acme@kernel.org>,
-        Alexander Shishkin <alexander.shishkin@linux.intel.com>,
-        Alexei Starovoitov <ast@fb.com>, linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160906131033.1784262-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Woojung.Huh@microchip.com
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f52.google.com ([209.85.218.52]:35869 "EHLO
+        mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754927AbcIFPoE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 11:44:04 -0400
+Received: by mail-oi0-f52.google.com with SMTP id w78so106385888oie.3
+        for <netdev@vger.kernel.org>; Tue, 06 Sep 2016 08:44:03 -0700 (PDT)
+In-Reply-To: <9235D6609DB808459E95D78E17F2E43D4091009A@CHN-SV-EXMX02.mchp-main.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 06, 2016 at 03:10:22PM +0200, Arnd Bergmann wrote:
-> The newly added bpf_overflow_handler function is only built of both
-> CONFIG_EVENT_TRACING and CONFIG_BPF_SYSCALL are enabled, but the caller
-> only checks the latter:
-> 
-> kernel/events/core.c: In function 'perf_event_alloc':
-> kernel/events/core.c:9106:27: error: 'bpf_overflow_handler' undeclared (first use in this function)
-> 
-> This changes the caller so we also skip this call if CONFIG_EVENT_TRACING
-> is disabled entirely.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: aa6a5f3cb2b2 ("perf, bpf: add perf events core support for BPF_PROG_TYPE_PERF_EVENT programs")
+On 2 September 2016 at 21:34,  <Woojung.Huh@microchip.com> wrote:
+> From: Woojung Huh <woojung.huh@microchip.com>
+>
+> Add Microchip Linux Driver Support as maintainer
+> because this driver is maintaining by Microchip.
+>
+> Signed-off-by: Woojung Huh <Woojung.huh@gmail.com>
 > ---
->  kernel/events/core.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> I'm not entirely sure if this is the correct solution, please check before applying
 
-Acked-by: Alexei Starovoitov <ast@kernel.org>
-
-Thanks for the fix. Just saw build bot complaining last night and
-by the morning your fix is already here. Thanks!
+Acked-by: Steve Glendinning <steve.glendinning@shawell.net>
