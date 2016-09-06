@@ -1,52 +1,40 @@
-From: Daniel Mack <daniel@zonque.org>
-Subject: [PATCH v4 4/6] net: filter: run cgroup eBPF ingress programs
-Date: Tue,  6 Sep 2016 15:46:06 +0200
-Message-ID: <1473169568-30525-5-git-send-email-daniel@zonque.org>
-References: <1473169568-30525-1-git-send-email-daniel@zonque.org>
-Cc: davem@davemloft.net, kafai@fb.com, fw@strlen.de,
-        pablo@netfilter.org, harald@redhat.com, netdev@vger.kernel.org,
-        sargun@sargun.me, cgroups@vger.kernel.org,
-        Daniel Mack <daniel@zonque.org>
-To: htejun@fb.com, daniel@iogearbox.net, ast@fb.com
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH v4 net-next 1/1] net_sched: Introduce skbmod action
+Date: Tue, 6 Sep 2016 09:54:28 -0400
+Message-ID: <c25b04dc-cdf7-a13b-3275-a48866aa6806@mojatatu.com>
+References: <1473169060-29651-1-git-send-email-jhs@emojatatu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
+        xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
+        alexei.starovoitov@gmail.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:38336 "EHLO mail.zonque.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756157AbcIFNqT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 6 Sep 2016 09:46:19 -0400
-In-Reply-To: <1473169568-30525-1-git-send-email-daniel@zonque.org>
+Received: from mail-yb0-f169.google.com ([209.85.213.169]:34381 "EHLO
+        mail-yb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933689AbcIFNya (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 09:54:30 -0400
+Received: by mail-yb0-f169.google.com with SMTP id x93so81310454ybh.1
+        for <netdev@vger.kernel.org>; Tue, 06 Sep 2016 06:54:30 -0700 (PDT)
+In-Reply-To: <1473169060-29651-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the cgroup associated with the receiving socket has an eBPF
-programs installed, run them from sk_filter_trim_cap().
+On 16-09-06 09:37 AM, Jamal Hadi Salim wrote:
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
+>
+> This action is intended to be an upgrade from a usability perspective
+> from pedit (as well as operational debugability).
+> Compare this:
+>
 
-eBPF programs used in this context are expected to either return 1 to
-let the packet pass, or != 1 to drop them. The programs have access to
-the full skb, including the MAC headers.
+Dave,
+I will have to send some new version of this action - so please
+dont apply.
+As it stands right now, the per-cpu stats dont work; so code uses
+global stats (which works).
+Hoping to get some clarity from other people then some more testing.
 
-Note that cgroup_bpf_run_filter() is stubbed out as static inline nop
-for !CONFIG_CGROUP_BPF, and is otherwise guarded by a static key if
-the feature is unused.
-
-Signed-off-by: Daniel Mack <daniel@zonque.org>
----
- net/core/filter.c | 4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 176b6f2..3662c1a 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -78,6 +78,10 @@ int sk_filter_trim_cap(struct sock *sk, struct sk_buff *skb, unsigned int cap)
- 	if (skb_pfmemalloc(skb) && !sock_flag(sk, SOCK_MEMALLOC))
- 		return -ENOMEM;
- 
-+	err = cgroup_bpf_run_filter(sk, skb, BPF_CGROUP_INET_INGRESS);
-+	if (err)
-+		return err;
-+
- 	err = security_sock_rcv_skb(sk, skb);
- 	if (err)
- 		return err;
--- 
-2.5.5
+cheers,
+jamal
