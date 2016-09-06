@@ -1,54 +1,48 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [RFC Patch net-next 2/6] net_sched: introduce tcf_hash_replace()
-Date: Tue, 6 Sep 2016 08:52:24 -0400
-Message-ID: <9b288d0c-507f-d487-aa76-0778fd442f35@mojatatu.com>
-References: <1472795840-31901-1-git-send-email-xiyou.wangcong@gmail.com>
- <1472795840-31901-3-git-send-email-xiyou.wangcong@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:33342 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933133AbcIFMw0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 08:52:26 -0400
-Received: by mail-oi0-f66.google.com with SMTP id w78so8742695oie.0
-        for <netdev@vger.kernel.org>; Tue, 06 Sep 2016 05:52:25 -0700 (PDT)
-In-Reply-To: <1472795840-31901-3-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH, net-next] perf, bpf: fix conditional call to bpf_overflow_handler
+Date: Tue,  6 Sep 2016 15:10:22 +0200
+Message-ID: <20160906131033.1784262-1-arnd@arndb.de>
+Cc: Alexei Starovoitov <ast@kernel.org>, Arnd Bergmann <arnd@arndb.de>,
+        Peter Zijlstra <peterz@infradead.org>,
+        Ingo Molnar <mingo@redhat.com>,
+        Arnaldo Carvalho de Melo <acme@kernel.org>,
+        Alexander Shishkin <alexander.shishkin@linux.intel.com>,
+        Alexei Starovoitov <ast@fb.com>, linux-kernel@vger.kernel.org
+To: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16-09-02 01:57 AM, Cong Wang wrote:
+The newly added bpf_overflow_handler function is only built of both
+CONFIG_EVENT_TRACING and CONFIG_BPF_SYSCALL are enabled, but the caller
+only checks the latter:
 
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> ---
->  include/net/act_api.h |  2 ++
->  net/sched/act_api.c   | 20 ++++++++++++++++++++
->  2 files changed, 22 insertions(+)
->
-> diff --git a/include/net/act_api.h b/include/net/act_api.h
-> index 82f3c91..a374bab 100644
-> --- a/include/net/act_api.h
+kernel/events/core.c: In function 'perf_event_alloc':
+kernel/events/core.c:9106:27: error: 'bpf_overflow_handler' undeclared (first use in this function)
 
->
-> +void tcf_hash_replace(struct tc_action_net *tn, struct tc_action **old,
-> +		      struct tc_action *new, int bind)
-> +{
-> +	struct tcf_hashinfo *hinfo = tn->hinfo;
-> +	unsigned int h = tcf_hash(new->tcfa_index, hinfo->hmask);
-> +
+This changes the caller so we also skip this call if CONFIG_EVENT_TRACING
+is disabled entirely.
 
-WWhy do you need to recreate the index?
-Old index was fine since this is just a replacement..
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: aa6a5f3cb2b2 ("perf, bpf: add perf events core support for BPF_PROG_TYPE_PERF_EVENT programs")
+---
+ kernel/events/core.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-The rest of the patches seem fine - will let Eric comment on the
-mirred.
+I'm not entirely sure if this is the correct solution, please check before applying
 
-Note: I am going to still push forward with skbmod action and I think
-so should the new tunnel action code i.e we make them independent.
-I'd like to switch to this when we think it is stable.
-
-cheers,
-jamal
+diff --git a/kernel/events/core.c b/kernel/events/core.c
+index 73d0c6ddfd5b..d3f6374326d8 100644
+--- a/kernel/events/core.c
++++ b/kernel/events/core.c
+@@ -9110,7 +9110,7 @@ perf_event_alloc(struct perf_event_attr *attr, int cpu,
+ 	if (!overflow_handler && parent_event) {
+ 		overflow_handler = parent_event->overflow_handler;
+ 		context = parent_event->overflow_handler_context;
+-#ifdef CONFIG_BPF_SYSCALL
++#if defined(CONFIG_BPF_SYSCALL) && defined(CONFIG_EVENT_TRACING)
+ 		if (overflow_handler == bpf_overflow_handler) {
+ 			struct bpf_prog *prog = bpf_prog_inc(parent_event->prog);
+ 
+-- 
+2.9.0
