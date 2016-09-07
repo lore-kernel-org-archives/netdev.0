@@ -1,164 +1,55 @@
-From: "Y.B. Lu" <yangbo.lu@nxp.com>
-Subject: RE: [v11, 7/8] base: soc: introduce soc_device_match() interface
-Date: Wed, 7 Sep 2016 04:10:32 +0000
-Message-ID: <HE1PR04MB088939A28A68035F3393A441F8F80@HE1PR04MB0889.eurprd04.prod.outlook.com>
-References: <1473150503-9550-1-git-send-email-yangbo.lu@nxp.com>
- <1473150503-9550-8-git-send-email-yangbo.lu@nxp.com>
- <CAPDyKFrvg3Qr5m3xXvywsCoVvaiF7ggHAj0Aw=WCOXg65Pt0PQ@mail.gmail.com>
- <6515108.aCEls7dUuW@wuerfel>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: linux-mmc <linux-mmc@vger.kernel.org>,
-        Scott Wood <oss@buserror.net>,
-        "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        linux-clk <linux-clk@vger.kernel.org>,
-        "linux-i2c@vger.kernel.org" <linux-i2c@vger.kernel.org>,
-        "iommu@lists.linux-foundation.org" <iommu@lists.linux-foundation.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Rob Herring <robh+dt@kernel.org>,
-        Russell King <linux@arm.linux.org.uk>,
-        Jochen Friedrich <jochen@scram.de>,
-        Joerg Roedel <joro@8bytes.org>,
-        Claudiu Manoil <claudiu.manoil@free
-To: Arnd Bergmann <arnd@arndb.de>, Ulf Hansson <ulf.hansson@linaro.org>
-Return-path: <linux-mmc-owner@vger.kernel.org>
-In-Reply-To: <6515108.aCEls7dUuW@wuerfel>
-Content-Language: en-US
-Sender: linux-mmc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrei Vagin <avagin@openvz.org>
+Subject: [PATCH net-next v2] netlink: don't forget to release a rhashtable_iter structure
+Date: Tue,  6 Sep 2016 21:31:17 -0700
+Message-ID: <1473222677-24761-1-git-send-email-avagin@openvz.org>
+References: <20160906.174137.1869816645707925029.davem@davemloft.net>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Andrei Vagin <avagin@openvz.org>,
+        Herbert Xu <herbert@gondor.apana.org.au>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f67.google.com ([209.85.215.67]:36673 "EHLO
+        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751125AbcIGEbX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 00:31:23 -0400
+Received: by mail-lf0-f67.google.com with SMTP id j41so160665lfi.3
+        for <netdev@vger.kernel.org>; Tue, 06 Sep 2016 21:31:22 -0700 (PDT)
+In-Reply-To: <20160906.174137.1869816645707925029.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Anrd and Uffe,
+This bug was detected by kmemleak:
+unreferenced object 0xffff8804269cc3c0 (size 64):
+  comm "criu", pid 1042, jiffies 4294907360 (age 13.713s)
+  hex dump (first 32 bytes):
+    a0 32 cc 2c 04 88 ff ff 00 00 00 00 00 00 00 00  .2.,............
+    00 01 00 00 00 00 ad de 00 02 00 00 00 00 ad de  ................
+  backtrace:
+    [<ffffffff8184dffa>] kmemleak_alloc+0x4a/0xa0
+    [<ffffffff8124720f>] kmem_cache_alloc_trace+0x10f/0x280
+    [<ffffffffa02864cc>] __netlink_diag_dump+0x26c/0x290 [netlink_diag]
 
-Thank you for your comment.
-Please see my comment inline.
+v2: don't remove a reference on a rhashtable_iter structure to
+    release it from netlink_diag_dump_done
 
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+Fixes: ad202074320c ("netlink: Use rhashtable walk interface in diag dump")
+Signed-off-by: Andrei Vagin <avagin@openvz.org>
+---
+ net/netlink/diag.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-
-Best regards,
-Yangbo Lu
-
-> -----Original Message-----
-> From: Arnd Bergmann [mailto:arnd@arndb.de]
-> Sent: Tuesday, September 06, 2016 8:46 PM
-> To: Ulf Hansson
-> Cc: Y.B. Lu; linux-mmc; Scott Wood; linuxppc-dev@lists.ozlabs.org;
-> devicetree@vger.kernel.org; linux-arm-kernel@lists.infradead.org; linux-
-> kernel@vger.kernel.org; linux-clk; linux-i2c@vger.kernel.org;
-> iommu@lists.linux-foundation.org; netdev@vger.kernel.org; Mark Rutland;
-> Rob Herring; Russell King; Jochen Friedrich; Joerg Roedel; Claudiu Manoil=
-;
-> Bhupesh Sharma; Qiang Zhao; Kumar Gala; Santosh Shilimkar; Leo Li; X.B.
-> Xie
-> Subject: Re: [v11, 7/8] base: soc: introduce soc_device_match() interface
->=20
-> On Tuesday, September 6, 2016 1:44:23 PM CEST Ulf Hansson wrote:
-> > On 6 September 2016 at 10:28, Yangbo Lu <yangbo.lu@nxp.com> wrote:
-> > > We keep running into cases where device drivers want to know the
-> > > exact version of the a SoC they are currently running on. In the
-> > > past, this has usually been done through a vendor specific API that
-> > > can be called by a driver, or by directly accessing some kind of
-> > > version register that is not part of the device itself but that
-> > > belongs to a global register area of the chip.
->=20
-> Please add "From: Arnd Bergmann <arnd@arndb.de>" as the first line, to
-> preserve authorship. If you use "git send-email" or "git format-patch",
-> that should happen automatically if the author field is set right (if not=
-,
-> use 'git commit --amend --author=3D"Arnd Bergmann <arnd@arndb.de>"'
-> to fix it).
->=20
-
-[Lu Yangbo-B47093] Oh, I'm sorry for my careless. Will correct it in next v=
-ersion.
-
-> > > +
-> > > +/*
-> > > + * soc_device_match - identify the SoC in the machine
-> > > + * @matches: zero-terminated array of possible matches
-> >
-> > Perhaps also express the constraint on the matching entries. As you
-> > need at least one of the ->machine(), ->family(), ->revision() or
-> > ->soc_id() callbacks implemented, right!?
->=20
-> They are not callbacks, just strings. Having an empty entry indicates the
-> end of the array, and this is not called.
->=20
-> > > + *
-> > > + * returns the first matching entry of the argument array, or NULL
-> > > + * if none of them match.
-> > > + *
-> > > + * This function is meant as a helper in place of of_match_node()
-> > > + * in cases where either no device tree is available or the
-> > > + information
-> > > + * in a device node is insufficient to identify a particular
-> > > + variant
-> > > + * by its compatible strings or other properties. For new devices,
-> > > + * the DT binding should always provide unique compatible strings
-> > > + * that allow the use of of_match_node() instead.
-> > > + *
-> > > + * The calling function can use the .data entry of the
-> > > + * soc_device_attribute to pass a structure or function pointer for
-> > > + * each entry.
-> >
-> > I don't get the use case behind this, could you elaborate?
-> >
-> > Perhaps we should postpone adding the .data entry until we actually
-> > see a need for it?
->=20
-> I think the interface is rather useless without a way to figure out which
-> entry you got. Almost all users of of_match_node() actually use the
-> returned ->data field, and I expect this to be the same here.
->=20
-> > > + */
-> > > +const struct soc_device_attribute *soc_device_match(
-> > > +       const struct soc_device_attribute *matches) {
-> > > +       struct device *dev;
-> > > +       int ret;
-> > > +
-> > > +       for (ret =3D 0; ret =3D=3D 0; matches++) {
-> >
-> > This loop looks a bit weird and unsafe.
->=20
-> Ah, and I thought I was being clever ;-)
->=20
-> > 1) Perhaps using a while loop makes this more readable?
-> > 2) As this is an exported API, I guess validation of the ->matches
-> > pointer needs to be done before accessing it.
->=20
-> Sounds fine.
-
-[Lu Yangbo-B47093] Ok, Will change this according to Uffe.=20
-And actually there is issue with this for() when I verified it again this m=
-orning.
-We will get matches++ rather than matches which is correct finally :)
-
->=20
-> > > +               if (!(matches->machine || matches->family ||
-> > > +                     matches->revision || matches->soc_id))
-> > > +                       return NULL;
-> > > +               dev =3D NULL;
-> >
-> > There's no need to use a struct device just to assign it to NULL.
-> > Instead just provide the function below with NULL.
-> >
-> > > +               ret =3D bus_for_each_dev(&soc_bus_type, dev, (void
-> *)matches,
-> > > +                                      soc_device_match_one);
->=20
->=20
-> I don't remember what led to this, I think you are right, we should just
-> pass NULL as most other callers.
-
-[Lu Yangbo-B47093] Will correct it. Thanks. :)
-
->=20
-> Thanks for the review.
->=20
-> 	ARnd
-
+diff --git a/net/netlink/diag.c b/net/netlink/diag.c
+index 3e3e253..b2f0e98 100644
+--- a/net/netlink/diag.c
++++ b/net/netlink/diag.c
+@@ -127,7 +127,6 @@ stop:
+ 		goto done;
+ 
+ 	rhashtable_walk_exit(hti);
+-	cb->args[2] = 0;
+ 	num++;
+ 
+ mc_list:
+-- 
+2.5.5
