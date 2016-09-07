@@ -1,94 +1,40 @@
-From: Linus Walleij <linus.walleij@linaro.org>
-Subject: [PATCH 2/2 v3] net: smsc911x: request and deassert optional RESET GPIO
-Date: Wed,  7 Sep 2016 15:53:42 +0200
-Message-ID: <1473256422-14012-1-git-send-email-linus.walleij@linaro.org>
-Cc: Guenter Roeck <linux@roeck-us.net>,
-        Jeremy Linton <jeremy.linton@arm.com>,
-        Kamlakant Patel <kamlakant.patel@broadcom.com>,
-        Pavel Fedin <p.fedin@samsung.com>,
-        Linus Walleij <linus.walleij@linaro.org>
-To: netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
-        Steve Glendinning <steve.glendinning@shawell.net>
+From: Hangbin Liu <haliu@redhat.com>
+Subject: Re: [PATCH iproute2] ip link: fix up bond/bridge slave id
+Date: Wed, 7 Sep 2016 21:57:08 +0800
+Message-ID: <20160907135708.GB2861@leo.usersys.redhat.com>
+References: <1473147861-30544-1-git-send-email-liuhangbin@gmail.com>
+ <7515B4FB-81C4-4B70-8DCF-AD2D88097C8C@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Hangbin Liu <liuhangbin@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Phil Sutter <phil@nwl.cc>, Jiri Pirko <jiri@resnulli.us>
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f53.google.com ([209.85.215.53]:36645 "EHLO
-        mail-lf0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753899AbcIGNxt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 09:53:49 -0400
-Received: by mail-lf0-f53.google.com with SMTP id g62so11400056lfe.3
-        for <netdev@vger.kernel.org>; Wed, 07 Sep 2016 06:53:48 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:40994 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752699AbcIGN5O (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Sep 2016 09:57:14 -0400
+Content-Disposition: inline
+In-Reply-To: <7515B4FB-81C4-4B70-8DCF-AD2D88097C8C@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On some systems (such as the Qualcomm APQ8060 Dragonboard) the
-RESET signal of the SMSC911x is not pulled up by a resistor (or
-the internal pull-up that will pull it up if the pin is not
-even connected) but instead connected to a GPIO line, so that
-the operating system must explicitly deassert RESET before use.
+On Tue, Sep 06, 2016 at 11:31:24AM +0300, Nikolay Aleksandrov wrote:
+> NAK, this will actually force the iplink slave logic to always lookup the linkutil symbol. Please check iplink.c and how slave linkutil structs are found.
+> The first part of the “bridge/bond_slave” is extracted from the requested type (e.g. bond_slave -> bond) and is
+> looked up with the slave flag set to true, in case that fails the symbol (%s_slave_link_util) is looked up and added to the
+> linkutil list for later use, but in this case we can end up with linkutil list head pointing to itself (the same slave link util added twice if f.e. we have
+> more than 1 slave of that type) and since it doesn’t match - we’ll loop forever.
+> 
+> Just try adding 2 or more bond slaves with this patch and then do:
+> ip -d link show
+> 
 
-Support this in the SMSC911x driver so this ethernet connector
-can be used on such targets.
+Ohh, my bad. Thanks for the detailed explanation. I will go through the code
+and check it again.
 
-Notice that we request the line to go logical low (deassert)
-whilst the line on the actual component is active low. This
-is managed in the respective hardware description when
-specifying the GPIO line with e.g. device tree or ACPI. With
-device tree it looks like this in one case:
-
-  reset-gpios = <&tlmm 30 GPIO_ACTIVE_LOW>;
-
-Which means that logically requesting the RESET line to be
-deasserted will result in the line being driven high, taking
-the device out of reset.
-
-Cc: Jeremy Linton <jeremy.linton@arm.com>
-Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
----
-ChangeLog v2->v3:
-- Specify in the commit message that the component has an internal
-  pull-up that will act if the RESET line is not connected.
-- Specify in the commit message that the hardware description
-  such as device tree or ACPI is responsible of flagging the line
-  as active low.
-ChangeLog v1->v2:
-- Use devm_gpiod_request_optiona() and request the line with
-  GPIOD_OUT_LOW so it is deasserted immediately if active.
----
- drivers/net/ethernet/smsc/smsc911x.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
-
-diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-index ca3134540d2d..8ab8d4b9614b 100644
---- a/drivers/net/ethernet/smsc/smsc911x.c
-+++ b/drivers/net/ethernet/smsc/smsc911x.c
-@@ -62,6 +62,7 @@
- #include <linux/acpi.h>
- #include <linux/pm_runtime.h>
- #include <linux/property.h>
-+#include <linux/gpio/consumer.h>
- 
- #include "smsc911x.h"
- 
-@@ -147,6 +148,9 @@ struct smsc911x_data {
- 	/* regulators */
- 	struct regulator_bulk_data supplies[SMSC911X_NUM_SUPPLIES];
- 
-+	/* Reset GPIO */
-+	struct gpio_desc *reset_gpiod;
-+
- 	/* clock */
- 	struct clk *clk;
- };
-@@ -438,6 +442,11 @@ static int smsc911x_request_resources(struct platform_device *pdev)
- 		netdev_err(ndev, "couldn't get regulators %d\n",
- 				ret);
- 
-+	/* Request optional RESET GPIO */
-+	pdata->reset_gpiod = devm_gpiod_get_optional(&pdev->dev,
-+						     "reset",
-+						     GPIOD_OUT_LOW);
-+
- 	/* Request clock */
- 	pdata->clk = clk_get(&pdev->dev, NULL);
- 	if (IS_ERR(pdata->clk))
--- 
-2.7.4
+Thanks
+Hangbin
