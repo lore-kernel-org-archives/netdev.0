@@ -1,8 +1,8 @@
 From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH net 1/2] ipv4: fix value of ->nlmsg_flags reported in
+Subject: [PATCH net 2/2] ipv6: report NLM_F_CREATE and NLM_F_EXCL flags in
  RTM_NEWROUTE events
-Date: Wed, 7 Sep 2016 17:20:46 +0200
-Message-ID: <20160907152046.wxzy3ivsi7n4y52b@alphalink.fr>
+Date: Wed, 7 Sep 2016 17:21:40 +0200
+Message-ID: <20160907152140.2hmms6rva6vw6dxz@alphalink.fr>
 References: <20160907151850.g3mzjrkhtqddqzwg@alphalink.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -12,109 +12,78 @@ Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
         Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:39790 "EHLO
+Received: from zimbra.alphalink.fr ([217.15.80.77]:39921 "EHLO
         zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756868AbcIGPUx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 11:20:53 -0400
+        with ESMTP id S938482AbcIGPVo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 11:21:44 -0400
 Content-Disposition: inline
 In-Reply-To: <20160907151850.g3mzjrkhtqddqzwg@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-fib_table_insert() inconsistently fills the nlmsg_flags field in its
-notification messages.
+Since commit 37a1d3611c12 ("ipv6: include NLM_F_REPLACE in route
+replace notifications"), RTM_NEWROUTE notifications have their
+NLM_F_REPLACE flag set if the new route replaced a preexisting one.
+However, other flags aren't set.
 
-Since commit b8f558313506 ("[RTNETLINK]: Fix sending netlink message
-when replace route."), the netlink message has its nlmsg_flags set to
-NLM_F_REPLACE if the route replaced a preexisting one.
+This patch reports the missing NLM_F_CREATE and NLM_F_EXCL flag bits.
 
-Then commit a2bb6d7d6f42 ("ipv4: include NLM_F_APPEND flag in append
-route notifications") started setting nlmsg_flags to NLM_F_APPEND if
-the route matched a preexisting one but was appended.
-
-In other cases (exclusive creation or prepend), nlmsg_flags is 0.
-
-This patch sets ->nlmsg_flags in all situations, preserving the
-semantic of the NLM_F_* bits:
-
-  * NLM_F_CREATE: a new fib entry has been created for this route.
-  * NLM_F_EXCL: no other fib entry existed for this route.
-  * NLM_F_REPLACE: this route has overwritten a preexisting fib entry.
-  * NLM_F_APPEND: the new fib entry was added after other entries for
-    the same route.
+NLM_F_APPEND is not reported, because in ipv6 a NLM_F_CREATE request
+is interpreted as an append request (contrary to ipv4, "prepend" is not
+supported, so if NLM_F_EXCL is not set then NLM_F_APPEND is implicit).
 
 As a result, the possible flag combination can now be reported
 (iproute2's terminology into parentheses):
 
   * NLM_F_CREATE | NLM_F_EXCL: route didn't exist, exclusive creation
     ("add").
-  * NLM_F_CREATE | NLM_F_APPEND: route did already exist, new route
-    added after preexisting ones ("append").
-  * NLM_F_CREATE: route did already exist, new route added before
-    preexisting ones ("prepend").
+  * NLM_F_CREATE: route did already exist, new route added after
+    preexisting ones ("append").
   * NLM_F_REPLACE: route did already exist, new route replaced the
     first preexisting one ("change").
 
 Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
 ---
- net/ipv4/fib_trie.c | 10 +++++++---
- 1 file changed, 7 insertions(+), 3 deletions(-)
+ net/ipv6/ip6_fib.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index e2ffc2a..241f27b 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -1081,7 +1081,7 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
- 	struct trie *t = (struct trie *)tb->tb_data;
- 	struct fib_alias *fa, *new_fa;
- 	struct key_vector *l, *tp;
--	unsigned int nlflags = 0;
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index 771be1f..ef54852 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -743,6 +743,7 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
+ 		   (info->nlh->nlmsg_flags & NLM_F_CREATE));
+ 	int found = 0;
+ 	bool rt_can_ecmp = rt6_qualify_for_ecmp(rt);
 +	u16 nlflags = NLM_F_EXCL;
- 	struct fib_info *fi;
- 	u8 plen = cfg->fc_dst_len;
- 	u8 slen = KEYLENGTH - plen;
-@@ -1126,6 +1126,8 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
- 		if (cfg->fc_nlflags & NLM_F_EXCL)
- 			goto out;
+ 	int err;
  
-+		nlflags &= ~NLM_F_EXCL;
+ 	ins = &fn->leaf;
+@@ -759,6 +760,8 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
+ 			if (info->nlh &&
+ 			    (info->nlh->nlmsg_flags & NLM_F_EXCL))
+ 				return -EEXIST;
 +
- 		/* We have 2 goals:
- 		 * 1. Find exact match for type, scope, fib_info to avoid
- 		 * duplicate routes
-@@ -1151,6 +1153,7 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
- 			struct fib_info *fi_drop;
- 			u8 state;
++			nlflags &= ~NLM_F_EXCL;
+ 			if (replace) {
+ 				if (rt_can_ecmp == rt6_qualify_for_ecmp(iter)) {
+ 					found++;
+@@ -856,6 +859,7 @@ next_iter:
+ 			pr_warn("NLM_F_CREATE should be set when creating new route\n");
  
-+			nlflags |= NLM_F_REPLACE;
- 			fa = fa_first;
- 			if (fa_match) {
- 				if (fa == fa_match)
-@@ -1191,7 +1194,7 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
- 			if (state & FA_S_ACCESSED)
- 				rt_cache_flush(cfg->fc_nlinfo.nl_net);
- 			rtmsg_fib(RTM_NEWROUTE, htonl(key), new_fa, plen,
--				tb->tb_id, &cfg->fc_nlinfo, NLM_F_REPLACE);
-+				tb->tb_id, &cfg->fc_nlinfo, nlflags);
+ add:
++		nlflags |= NLM_F_CREATE;
+ 		err = fib6_commit_metrics(&rt->dst, mxc);
+ 		if (err)
+ 			return err;
+@@ -864,7 +868,7 @@ add:
+ 		*ins = rt;
+ 		rt->rt6i_node = fn;
+ 		atomic_inc(&rt->rt6i_ref);
+-		inet6_rt_notify(RTM_NEWROUTE, rt, info, 0);
++		inet6_rt_notify(RTM_NEWROUTE, rt, info, nlflags);
+ 		info->nl_net->ipv6.rt6_stats->fib_rt_entries++;
  
- 			goto succeeded;
- 		}
-@@ -1203,7 +1206,7 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
- 			goto out;
- 
- 		if (cfg->fc_nlflags & NLM_F_APPEND)
--			nlflags = NLM_F_APPEND;
-+			nlflags |= NLM_F_APPEND;
- 		else
- 			fa = fa_first;
- 	}
-@@ -1211,6 +1214,7 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
- 	if (!(cfg->fc_nlflags & NLM_F_CREATE))
- 		goto out;
- 
-+	nlflags |= NLM_F_CREATE;
- 	err = -ENOBUFS;
- 	new_fa = kmem_cache_alloc(fn_alias_kmem, GFP_KERNEL);
- 	if (!new_fa)
+ 		if (!(fn->fn_flags & RTN_RTINFO)) {
 -- 
 2.9.3
