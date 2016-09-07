@@ -1,159 +1,37 @@
-From: Jesper Dangaard Brouer via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: [PATCH RFC 03/11] net/mlx5e: Implement RX mapped
- page cache for page recycle
-Date: Wed, 7 Sep 2016 20:45:01 +0200
-Message-ID: <20160907204501.08cc4ede@redhat.com>
-References: <1473252152-11379-1-git-send-email-saeedm@mellanox.com>
-	<1473252152-11379-4-git-send-email-saeedm@mellanox.com>
-Reply-To: Jesper Dangaard Brouer <brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
-	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>
-To: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <1473252152-11379-4-git-send-email-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net 0/3] nfp: fixes and trivial cleanup
+Date: Wed,  7 Sep 2016 19:45:34 +0100
+Message-ID: <1473273937-9230-1-git-send-email-jakub.kicinski@netronome.com>
+Cc: Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:35561 "EHLO
+        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751810AbcIGSqU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 14:46:20 -0400
+Received: by mail-wm0-f51.google.com with SMTP id i204so101039531wma.0
+        for <netdev@vger.kernel.org>; Wed, 07 Sep 2016 11:46:19 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi!
 
-On Wed,  7 Sep 2016 15:42:24 +0300 Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org> wrote:
+First patch drops unnecessary version.h includes.  Second one
+drops support for pre-release versions of FW ABI.  Removing
+FW ABI 0.0 from supported set is particularly good since 0
+could just be uninitialized memory.  Last but not least I drop
+unnecessary padding of frames on RX which makes us count bytes
+incorrectly for the VF2VF traffic.
 
-> From: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-> 
-> Instead of reallocating and mapping pages for RX data-path,
-> recycle already used pages in a per ring cache.
-> 
-> We ran pktgen single-stream benchmarks, with iptables-raw-drop:
-> 
-> Single stride, 64 bytes:
-> * 4,739,057 - baseline
-> * 4,749,550 - order0 no cache
-> * 4,786,899 - order0 with cache
-> 1% gain
-> 
-> Larger packets, no page cross, 1024 bytes:
-> * 3,982,361 - baseline
-> * 3,845,682 - order0 no cache
-> * 4,127,852 - order0 with cache
-> 3.7% gain
-> 
-> Larger packets, every 3rd packet crosses a page, 1500 bytes:
-> * 3,731,189 - baseline
-> * 3,579,414 - order0 no cache
-> * 3,931,708 - order0 with cache
-> 5.4% gain
-> 
-> Signed-off-by: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-> Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-> ---
->  drivers/net/ethernet/mellanox/mlx5/core/en.h       | 16 ++++++
->  drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 15 ++++++
->  drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    | 57 ++++++++++++++++++++--
->  drivers/net/ethernet/mellanox/mlx5/core/en_stats.h | 16 ++++++
->  4 files changed, 99 insertions(+), 5 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-> index 075cdfc..afbdf70 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-> @@ -287,6 +287,18 @@ struct mlx5e_rx_am { /* Adaptive Moderation */
->  	u8					tired;
->  };
->  
-> +/* a single cache unit is capable to serve one napi call (for non-striding rq)
-> + * or a MPWQE (for striding rq).
-> + */
-> +#define MLX5E_CACHE_UNIT	(MLX5_MPWRQ_PAGES_PER_WQE > NAPI_POLL_WEIGHT ? \
-> +				 MLX5_MPWRQ_PAGES_PER_WQE : NAPI_POLL_WEIGHT)
-> +#define MLX5E_CACHE_SIZE	(2 * roundup_pow_of_two(MLX5E_CACHE_UNIT))
-> +struct mlx5e_page_cache {
-> +	u32 head;
-> +	u32 tail;
-> +	struct mlx5e_dma_info page_cache[MLX5E_CACHE_SIZE];
-> +};
-> +
-[...]
->  
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-> index c1cb510..8e02af3 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-> @@ -305,11 +305,55 @@ static inline void mlx5e_post_umr_wqe(struct mlx5e_rq *rq, u16 ix)
->  	mlx5e_tx_notify_hw(sq, &wqe->ctrl, 0);
->  }
->  
-> +static inline bool mlx5e_rx_cache_put(struct mlx5e_rq *rq,
-> +				      struct mlx5e_dma_info *dma_info)
-> +{
-> +	struct mlx5e_page_cache *cache = &rq->page_cache;
-> +	u32 tail_next = (cache->tail + 1) & (MLX5E_CACHE_SIZE - 1);
-> +
-> +	if (tail_next == cache->head) {
-> +		rq->stats.cache_full++;
-> +		return false;
-> +	}
-> +
-> +	cache->page_cache[cache->tail] = *dma_info;
-> +	cache->tail = tail_next;
-> +	return true;
-> +}
-> +
-> +static inline bool mlx5e_rx_cache_get(struct mlx5e_rq *rq,
-> +				      struct mlx5e_dma_info *dma_info)
-> +{
-> +	struct mlx5e_page_cache *cache = &rq->page_cache;
-> +
-> +	if (unlikely(cache->head == cache->tail)) {
-> +		rq->stats.cache_empty++;
-> +		return false;
-> +	}
-> +
-> +	if (page_ref_count(cache->page_cache[cache->head].page) != 1) {
-> +		rq->stats.cache_busy++;
-> +		return false;
-> +	}
+Jakub Kicinski (3):
+  nfp: remove linux/version.h includes
+  nfp: drop support for old firmware ABIs
+  nfp: don't pad frames on receive
 
-Hmmm... doesn't this cause "blocking" of the page_cache recycle
-facility until the page at the head of the queue gets (page) refcnt
-decremented?  Real use-case could fairly easily block/cause this... 
-
-> +
-> +	*dma_info = cache->page_cache[cache->head];
-> +	cache->head = (cache->head + 1) & (MLX5E_CACHE_SIZE - 1);
-> +	rq->stats.cache_reuse++;
-> +
-> +	dma_sync_single_for_device(rq->pdev, dma_info->addr, PAGE_SIZE,
-> +				   DMA_FROM_DEVICE);
-> +	return true;
-> +}
-> +
->  static inline int mlx5e_page_alloc_mapped(struct mlx5e_rq *rq,
->  					  struct mlx5e_dma_info *dma_info)
->  {
-> -	struct page *page = dev_alloc_page();
-> +	struct page *page;
-> +
-> +	if (mlx5e_rx_cache_get(rq, dma_info))
-> +		return 0;
->  
-> +	page = dev_alloc_page();
->  	if (unlikely(!page))
->  		return -ENOMEM;
+ drivers/net/ethernet/netronome/nfp/nfp_net_common.c  | 5 -----
+ drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c | 1 -
+ drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c  | 7 ++-----
+ 3 files changed, 2 insertions(+), 11 deletions(-)
 
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+1.9.1
