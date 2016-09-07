@@ -1,72 +1,125 @@
-From: Jesper Dangaard Brouer via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: [PATCH RFC 11/11] net/mlx5e: XDP TX xmit more
-Date: Wed, 7 Sep 2016 20:22:34 +0200
-Message-ID: <20160907202234.55e18ef3@redhat.com>
-References: <1473252152-11379-1-git-send-email-saeedm@mellanox.com>
-	<1473252152-11379-12-git-send-email-saeedm@mellanox.com>
-	<1473259302.10725.31.camel@edumazet-glaptop3.roam.corp.google.com>
-	<CALzJLG8G1SvmHKLm2Oqn3v8FUAOjScS+=tsbOaixkPUY4JFDPQ@mail.gmail.com>
-	<1473262379.10725.42.camel@edumazet-glaptop3.roam.corp.google.com>
-	<CALzJLG9iVpS2qH5Ryc_DtEjrQMhcKD+qrLrGn=vet=_9N8eXPw@mail.gmail.com>
-Reply-To: Jesper Dangaard Brouer <brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+From: thomas.zeitlhofer+lkml@ze-it.at
+Subject: [PATCH v2] vti: use right inner_mode for inbound inter address
+ family policy checks
+Date: Wed, 7 Sep 2016 20:40:38 +0200
+Message-ID: <20160907184038.2neg44xtvlunlrmu@toau>
+References: <20160904105713.3mqgszgqi7waxk5l@toau>
+ <20160906111522.GG31137@gauss.secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
-	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>
-To: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <CALzJLG9iVpS2qH5Ryc_DtEjrQMhcKD+qrLrGn=vet=_9N8eXPw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vie01a-dmta-pe01-2.mx.upcmail.net ([62.179.121.155]:43171 "EHLO
+        vie01a-dmta-pe01-2.mx.upcmail.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751810AbcIGSkw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 14:40:52 -0400
+Received: from [172.31.216.44] (helo=vie01a-pemc-psmtp-pe02)
+        by vie01a-dmta-pe01.mx.upcmail.net with esmtp (Exim 4.87)
+        (envelope-from <thomas.zeitlhofer+lkml@ze-it.at>)
+        id 1bhhmD-0005LL-4Z
+        for netdev@vger.kernel.org; Wed, 07 Sep 2016 20:40:49 +0200
+Content-Disposition: inline
+In-Reply-To: <20160906111522.GG31137@gauss.secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+In case of inter address family tunneling (IPv6 over vti4 or IPv4 over
+vti6), the inbound policy checks in vti_rcv_cb() and vti6_rcv_cb() are
+using the wrong address family. As a result, all inbound inter address
+family traffic is dropped.
 
-On Wed, 7 Sep 2016 19:57:19 +0300 Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org> wrote:
-> On Wed, Sep 7, 2016 at 6:32 PM, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> > On Wed, 2016-09-07 at 18:08 +0300, Saeed Mahameed wrote:  
-> >> On Wed, Sep 7, 2016 at 5:41 PM, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:  
-> >> > On Wed, 2016-09-07 at 15:42 +0300, Saeed Mahameed wrote:  
-[...]
-> >
-> > Only if a qdisc is present and pressure is high enough.
-> >
-> > But in a forwarding setup, we likely receive at a lower rate than the
-> > NIC can transmit.
+Use the xfrm_ip2inner_mode() helper, as done in xfrm_input() (i.e., also
+increment LINUX_MIB_XFRMINSTATEMODEERROR in case of error), to select the
+inner_mode that contains the right address family for the inbound policy
+checks.
 
-Yes, I can confirm this happens in my experiments.
+Signed-off-by: Thomas Zeitlhofer <thomas.zeitlhofer+lkml@ze-it.at>
+---
 
-> >  
-> 
-> Jesper has a similar Idea to make the qdisc think it is under
-> pressure, when the device TX ring is idle most of the time, i think
-> his idea can come in handy here. I am not fully involved in the
-> details, maybe he can elaborate more.
-> 
-> But if it works, it will be transparent to napi, and xmit more will
-> happen by design.
+Notes:
+    v2: implement review comments from Steffen (thanks for the reply):
+    
+    	- return -EINVAL in case of error
+    
+    	- increment LINUX_MIB_XFRMINSTATEMODEERROR in case of error
+    
+    	  Just to point that out, in case there are arguments against it:
+    	  this is done in the namespace of skb->dev and not in the
+    	  t(unnel)?->net namespace.
+    
+    	and update the commit message accordingly.
 
-Yes. I have some ideas around getting more bulking going from the qdisc
-layer, by having the drivers provide some feedback to the qdisc layer
-indicating xmit_more should be possible.  This will be a topic at the
-Network Performance Workshop[1] at NetDev 1.2, I have will hopefully
-challenge people to come up with a good solution ;-)
+ net/ipv4/ip_vti.c  | 15 ++++++++++++++-
+ net/ipv6/ip6_vti.c | 15 ++++++++++++++-
+ 2 files changed, 28 insertions(+), 2 deletions(-)
 
+diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
+index a917903..c9957ed 100644
+--- a/net/ipv4/ip_vti.c
++++ b/net/ipv4/ip_vti.c
+@@ -88,6 +88,7 @@ static int vti_rcv_cb(struct sk_buff *skb, int err)
+ 	struct net_device *dev;
+ 	struct pcpu_sw_netstats *tstats;
+ 	struct xfrm_state *x;
++	struct xfrm_mode *inner_mode;
+ 	struct ip_tunnel *tunnel = XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip4;
+ 	u32 orig_mark = skb->mark;
+ 	int ret;
+@@ -105,7 +106,19 @@ static int vti_rcv_cb(struct sk_buff *skb, int err)
+ 	}
+ 
+ 	x = xfrm_input_state(skb);
+-	family = x->inner_mode->afinfo->family;
++
++	inner_mode = x->inner_mode;
++
++	if (x->sel.family == AF_UNSPEC) {
++		inner_mode = xfrm_ip2inner_mode(x, XFRM_MODE_SKB_CB(skb)->protocol);
++		if (inner_mode == NULL) {
++			XFRM_INC_STATS(dev_net(skb->dev),
++				       LINUX_MIB_XFRMINSTATEMODEERROR);
++			return -EINVAL;
++		}
++	}
++
++	family = inner_mode->afinfo->family;
+ 
+ 	skb->mark = be32_to_cpu(tunnel->parms.i_key);
+ 	ret = xfrm_policy_check(NULL, XFRM_POLICY_IN, skb, family);
+diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
+index d90a11f..52a2f73 100644
+--- a/net/ipv6/ip6_vti.c
++++ b/net/ipv6/ip6_vti.c
+@@ -340,6 +340,7 @@ static int vti6_rcv_cb(struct sk_buff *skb, int err)
+ 	struct net_device *dev;
+ 	struct pcpu_sw_netstats *tstats;
+ 	struct xfrm_state *x;
++	struct xfrm_mode *inner_mode;
+ 	struct ip6_tnl *t = XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip6;
+ 	u32 orig_mark = skb->mark;
+ 	int ret;
+@@ -357,7 +358,19 @@ static int vti6_rcv_cb(struct sk_buff *skb, int err)
+ 	}
+ 
+ 	x = xfrm_input_state(skb);
+-	family = x->inner_mode->afinfo->family;
++
++	inner_mode = x->inner_mode;
++
++	if (x->sel.family == AF_UNSPEC) {
++		inner_mode = xfrm_ip2inner_mode(x, XFRM_MODE_SKB_CB(skb)->protocol);
++		if (inner_mode == NULL) {
++			XFRM_INC_STATS(dev_net(skb->dev),
++				       LINUX_MIB_XFRMINSTATEMODEERROR);
++			return -EINVAL;
++		}
++	}
++
++	family = inner_mode->afinfo->family;
+ 
+ 	skb->mark = be32_to_cpu(t->parms.i_key);
+ 	ret = xfrm_policy_check(NULL, XFRM_POLICY_IN, skb, family);
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
-
-[1] http://netdevconf.org/1.2/session.html?jesper-performance-workshop
+2.1.4
