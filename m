@@ -1,47 +1,102 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next V6 4/4] net/sched: Introduce act_tunnel_key
-Date: Wed, 07 Sep 2016 10:00:22 -0700
-Message-ID: <1473267622.10725.47.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1473235686-18975-1-git-send-email-hadarh@mellanox.com>
-         <1473235686-18975-5-git-send-email-hadarh@mellanox.com>
-         <1473257660.10725.25.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAM_iQpUDqM4s4+VYpyPXhrFE4vTuEQorj2_nJrtM75y548hDHA@mail.gmail.com>
+From: Saeed Mahameed via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: [PATCH RFC 08/11] net/mlx5e: XDP fast RX drop bpf
+	programs support
+Date: Wed, 7 Sep 2016 20:07:01 +0300
+Message-ID: <CALzJLG9bu3-=Ybq+Lk1fvAe5AohVHAaPpa9RQqd1QVe-7XPyhw@mail.gmail.com>
+References: <1473252152-11379-1-git-send-email-saeedm@mellanox.com>
+	<1473252152-11379-9-git-send-email-saeedm@mellanox.com>
+	<CAJ3xEMhh=fu+mrCGAjv1PDdGn9GPLJv9MssMzwzvppoqZUY01A@mail.gmail.com>
+	<CALzJLG8_F28kQOPqTTLJRMsf9BOQvm3K2hAraCzabnXV4yKUgg@mail.gmail.com>
+	<CALx6S35b_MZXiGR-b1SB+VNifPHDfQNDZdz-6vk0t3bKNwen+w@mail.gmail.com>
+Reply-To: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Hadar Hen Zion <hadarh@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@mellanox.com>, Jiri Benc <jbenc@redhat.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Amir Vadai <amirva@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>, Amir Vadai <amir@vadai.me>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f67.google.com ([209.85.220.67]:34554 "EHLO
-        mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751147AbcIGRAY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 13:00:24 -0400
-Received: by mail-pa0-f67.google.com with SMTP id gi6so1154799pac.1
-        for <netdev@vger.kernel.org>; Wed, 07 Sep 2016 10:00:24 -0700 (PDT)
-In-Reply-To: <CAM_iQpUDqM4s4+VYpyPXhrFE4vTuEQorj2_nJrtM75y548hDHA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, Rana Shahout <ranas-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <CALx6S35b_MZXiGR-b1SB+VNifPHDfQNDZdz-6vk0t3bKNwen+w-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2016-09-07 at 09:27 -0700, Cong Wang wrote:
+On Wed, Sep 7, 2016 at 7:54 PM, Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org> wrote:
+> On Wed, Sep 7, 2016 at 7:48 AM, Saeed Mahameed
+> <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org> wrote:
+>> On Wed, Sep 7, 2016 at 4:32 PM, Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>>> On Wed, Sep 7, 2016 at 3:42 PM, Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org> wrote:
+>>>
+>>>> Packet rate performance testing was done with pktgen 64B packets and on
+>>>> TX side and, TC drop action on RX side compared to XDP fast drop.
+>>>>
+>>>> CPU: Intel(R) Xeon(R) CPU E5-2680 v3 @ 2.50GHz
+>>>>
+>>>> Comparison is done between:
+>>>>         1. Baseline, Before this patch with TC drop action
+>>>>         2. This patch with TC drop action
+>>>>         3. This patch with XDP RX fast drop
+>>>>
+>>>> Streams    Baseline(TC drop)    TC drop    XDP fast Drop
+>>>> --------------------------------------------------------------
+>>>> 1           5.51Mpps            5.14Mpps     13.5Mpps
+>>>> 2           11.5Mpps            10.0Mpps     25.1Mpps
+>>>> 4           16.3Mpps            17.2Mpps     35.4Mpps
+>>>> 8           29.6Mpps            28.2Mpps     45.8Mpps*
+>>>> 16          34.0Mpps            30.1Mpps     45.8Mpps*
+>>>
+>>> Rana, Guys, congrat!!
+>>>
+>>> When you say X streams, does each stream mapped by RSS to different RX ring?
+>>> or we're on the same RX ring for all rows of the above table?
+>>
+>> Yes, I will make this more clear in the actual submission,
+>> Here we are talking about different RSS core rings.
+>>
+>>>
+>>> In the CX3 work, we had X sender "streams" that all mapped to the same RX ring,
+>>> I don't think we went beyond one RX ring.
+>>
+>> Here we did, the first row is what you are describing the other rows
+>> are the same test
+>> with increasing the number of the RSS receiving cores, The xmit side is sending
+>> as many streams as possible to be as much uniformly spread as possible
+>> across the
+>> different RSS cores on the receiver.
+>>
+> Hi Saeed,
+>
+> Please report CPU utilization also. The expectation is that
+> performance should scale linearly with increasing number of CPUs (i.e.
+> pps/CPU_utilization should be constant).
+>
 
-> Fix checkpatch.pl (or whatever tool you prefer).
+Hi Tom
 
-I do not use checkpatch.pl.
+That was my expectation too.
 
-But I know for sure David cares about this ordering.
+We didn't do the full analysis yet, It could be that RSS was not
+spreading the workload on all the cores evenly.
+Those numbers are from my humble machine with a quick and dirty
+testing, the idea of this submission
+is to let the folks look at the code while we continue testing and
+analyzing those patches.
 
-https://lkml.org/lkml/2016/4/24/91
+Anyway we will share more accurate results when we have them, with CPU
+utilization statistics as well.
 
-https://patchwork.ozlabs.org/patch/629958/
+Thanks,
+Saeed.
 
-
-So feel free to fix checkpatch.pl 
+> Tom
+>
