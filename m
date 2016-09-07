@@ -1,75 +1,88 @@
-From: Saeed Mahameed via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: [PATCH RFC 11/11] net/mlx5e: XDP TX xmit more
-Date: Wed, 7 Sep 2016 23:09:53 +0300
-Message-ID: <CALzJLG_RCk0VtxffAgt-U1jHpWEvvtKz5Y9AeqVaL7YJy9ULzw@mail.gmail.com>
-References: <1473252152-11379-1-git-send-email-saeedm@mellanox.com>
-	<1473252152-11379-12-git-send-email-saeedm@mellanox.com>
-	<1473259302.10725.31.camel@edumazet-glaptop3.roam.corp.google.com>
-	<CALzJLG8G1SvmHKLm2Oqn3v8FUAOjScS+=tsbOaixkPUY4JFDPQ@mail.gmail.com>
-	<1473262379.10725.42.camel@edumazet-glaptop3.roam.corp.google.com>
-	<CALzJLG9iVpS2qH5Ryc_DtEjrQMhcKD+qrLrGn=vet=_9N8eXPw@mail.gmail.com>
-	<1473272346.10725.73.camel@edumazet-glaptop3.roam.corp.google.com>
-Reply-To: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next V2 0/6] Mellanox 100G mlx5 DCBX CEE and firmware support
+Date: Wed, 7 Sep 2016 23:16:13 +0300
+Message-ID: <CALzJLG89HjLC9hOR3g2g-SLYyV1K=wM=rHcwv7C=dex1VCOUFQ@mail.gmail.com>
+References: <1473177852-10711-1-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
-	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <1473272346.10725.73.camel-XN9IlZ5yJG9HTL0Zs8A6p+yfmBU6pStAUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Huy Nguyen <huyn@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>
+To: Saeed Mahameed <saeedm@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f53.google.com ([209.85.215.53]:34060 "EHLO
+        mail-lf0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750877AbcIGUQg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 16:16:36 -0400
+Received: by mail-lf0-f53.google.com with SMTP id u14so6626596lfd.1
+        for <netdev@vger.kernel.org>; Wed, 07 Sep 2016 13:16:35 -0700 (PDT)
+In-Reply-To: <1473177852-10711-1-git-send-email-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 7, 2016 at 9:19 PM, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> On Wed, 2016-09-07 at 19:57 +0300, Saeed Mahameed wrote:
->
->> Jesper has a similar Idea to make the qdisc think it is under
->> pressure, when the device
->> TX ring is idle most of the time, i think his idea can come in handy here.
->> I am not fully involved in the details, maybe he can elaborate more.
->>
->> But if it works, it will be transparent to napi, and xmit more will
->> happen by design.
->
-> I do not think qdisc is relevant here.
->
-> Right now, skb->xmit_more is set only by qdisc layer (and pktgen tool),
-> because only this layer can know if more packets are to come.
->
->
-> What I am saying is that regardless of skb->xmit_more being set or not,
-> (for example if no qdisc is even used)
-> a NAPI driver can arm a bit asking the doorbell being sent at the end of
-> NAPI.
->
-> I am not saying this must be done, only that the idea could be extended
-> to non XDP world, if we care enough.
+On Tue, Sep 6, 2016 at 7:04 PM, Saeed Mahameed <saeedm@mellanox.com> wrote:
+> Hi Dave,
 >
 
-Yes, and i am just trying to suggest Ideas that do not require
-communication between RX (NAPI) and TX.
+Hi Dave, Sorry to bother, but i would like to drop this series for now
+Huy is working to define and come up with a better mechanism to
+enable/disable the new DCBX hybrid mode he is adding.
 
-The problem here is the synchronization (TX doorbell from RX) which is
-not as simple as atomic operation for some drivers.
-
-How about RX bulking ? it also can help here, since for the forwarding
-case, the forwarding path will be able to
-process bulk of RX SKBs and can bulk xmit the portion of SKBs that
-will be forwarded.
-
-As Jesper suggested, Let's talk in Netdev1.2 at jesper's session. ( if
-you are joining of course).
-
-Thanks
+Thanks for understanding,
 Saeed.
+
+> This series from Huy provides mlx5 DCBX updates to support DCBX CEE
+> API and DCBX firmware/host modes support.
+>
+> 1st patch ensures the dcbnl_rtnl_ops is published only when the qos capability bits is on.
+>
+> 2nd patch adds the support for CEE interfaces into mlx5 dcbnl_rtnl_ops.
+>
+> 3rd patch refactors ETS query to read ETS configuration directly from firmware rather
+> than having a software shadow to it. The existing IEEE interfaces stays the same.
+>
+> 4th patch adds the support for MLX5_REG_DCBX_PARAM and MLX5_REG_DCBX_APP firmware
+> commands to manipulate mlx5 DCBX mode.
+>
+> 5th patch adds the driver support for the new DCBX firmware.
+> This ensures the backward compatibility versus the old and new firmware.
+> With the new DCBX firmware, qos settings can be controlled by either firmware
+> or software depending on the DCBX mode.
+>
+> 6th patch adds support for module events log.
+>
+> Changes since V1:
+> 1. Add qos capability check
+> 2. In port module events eqe structure, change rsvd_n to reserved_at_n to be consistent with mlx5_ifc.h
+> 3. Improve commit messages
+> 4. Drop DCBX private flags patch
+> 5. Add patch to check for qos capability bit check before exposing dcb interfaces
+> 6. Replace memset with static array initialization
+>
+> Thanks,
+> Saeed.
+>
+> Huy Nguyen (6):
+>   net/mlx5e: Add qos capability check
+>   net/mlx5e: Support DCBX CEE API
+>   net/mlx5e: Read ETS settings directly from firmware
+>   net/mlx5: Add DCBX firmware commands support
+>   net/mlx5e: ConnectX-4 firmware support for DCBX
+>   net/mlx5: Add handling for port module event
+>
+>  drivers/net/ethernet/mellanox/mlx5/core/en.h       |  36 +-
+>  drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c | 483 ++++++++++++++++++++-
+>  drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  27 +-
+>  drivers/net/ethernet/mellanox/mlx5/core/eq.c       |  12 +
+>  .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |   1 +
+>  drivers/net/ethernet/mellanox/mlx5/core/port.c     | 148 +++++++
+>  include/linux/mlx5/device.h                        |  11 +
+>  include/linux/mlx5/driver.h                        |   7 +
+>  include/linux/mlx5/mlx5_ifc.h                      |   3 +-
+>  include/linux/mlx5/port.h                          |   6 +
+>  10 files changed, 698 insertions(+), 36 deletions(-)
+>
+> --
+> 2.7.4
+>
