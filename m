@@ -1,89 +1,73 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH net 2/2] ipv6: report NLM_F_CREATE and NLM_F_EXCL flags in
- RTM_NEWROUTE events
-Date: Wed, 7 Sep 2016 17:21:40 +0200
-Message-ID: <20160907152140.2hmms6rva6vw6dxz@alphalink.fr>
-References: <20160907151850.g3mzjrkhtqddqzwg@alphalink.fr>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH net-next 0/8] rxrpc: Overhaul call refcounting
+Date: Wed, 07 Sep 2016 16:22:26 +0100
+Message-ID: <147326174610.26593.17043098689515647894.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
-        Milan Kocian <milon@wq.cz>,
-        Michal =?utf-8?Q?Kube=C4=8Dek?= <mkubecek@suse.cz>,
-        Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:39921 "EHLO
-        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S938482AbcIGPVo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 11:21:44 -0400
-Content-Disposition: inline
-In-Reply-To: <20160907151850.g3mzjrkhtqddqzwg@alphalink.fr>
+Received: from mx1.redhat.com ([209.132.183.28]:59390 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1757248AbcIGPW2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Sep 2016 11:22:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since commit 37a1d3611c12 ("ipv6: include NLM_F_REPLACE in route
-replace notifications"), RTM_NEWROUTE notifications have their
-NLM_F_REPLACE flag set if the new route replaced a preexisting one.
-However, other flags aren't set.
 
-This patch reports the missing NLM_F_CREATE and NLM_F_EXCL flag bits.
+Here's a set of mostly small patches leading up to one big one.
 
-NLM_F_APPEND is not reported, because in ipv6 a NLM_F_CREATE request
-is interpreted as an append request (contrary to ipv4, "prepend" is not
-supported, so if NLM_F_EXCL is not set then NLM_F_APPEND is implicit).
+The big patch at the end of the series overhauls how rxrpc_call refcounting
+is handled, making it more sane so that calls bound to user IDs are _only_
+released from socket operations or kernel API functions.  Further, the
+patch stops calls from holding refs on their parent socket - which can
+prevent the socket from being cleaned up.
 
-As a result, the possible flag combination can now be reported
-(iproute2's terminology into parentheses):
+The second largest patch improves the call tracking tracepoint by providing
+extra information about the situation in which gets and puts occur.  This
+allows distinctions to be drawn between refs held by the socket user ID
+tree, refs held by the work queue (to be implemented by a future patch) and
+other refs.
 
-  * NLM_F_CREATE | NLM_F_EXCL: route didn't exist, exclusive creation
-    ("add").
-  * NLM_F_CREATE: route did already exist, new route added after
-    preexisting ones ("append").
-  * NLM_F_REPLACE: route did already exist, new route replaced the
-    first preexisting one ("change").
+The other patches include a couple of cleanups and some simple alterations
+to avoid NULL pointer dereferences in the big patch.
 
-Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+The patches can be found here also (non-terminally on the branch):
+
+	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-rewrite
+
+Tagged thusly:
+
+	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
+	rxrpc-rewrite-20160907-1
+
+David
 ---
- net/ipv6/ip6_fib.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+David Howells (8):
+      rxrpc: Whitespace cleanup
+      rxrpc: Delete unused rxrpc_kernel_free_skb()
+      rxrpc: Improve the call tracking tracepoint
+      rxrpc: Use call->peer rather than call->conn->params.peer
+      rxrpc: Cache the security index in the rxrpc_call struct
+      rxrpc: Pass the connection pointer to rxrpc_post_packet_to_call()
+      rxrpc: Use rxrpc_is_service_call() rather than rxrpc_conn_is_service()
+      rxrpc: Calls shouldn't hold socket refs
 
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 771be1f..ef54852 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -743,6 +743,7 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
- 		   (info->nlh->nlmsg_flags & NLM_F_CREATE));
- 	int found = 0;
- 	bool rt_can_ecmp = rt6_qualify_for_ecmp(rt);
-+	u16 nlflags = NLM_F_EXCL;
- 	int err;
- 
- 	ins = &fn->leaf;
-@@ -759,6 +760,8 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
- 			if (info->nlh &&
- 			    (info->nlh->nlmsg_flags & NLM_F_EXCL))
- 				return -EEXIST;
-+
-+			nlflags &= ~NLM_F_EXCL;
- 			if (replace) {
- 				if (rt_can_ecmp == rt6_qualify_for_ecmp(iter)) {
- 					found++;
-@@ -856,6 +859,7 @@ next_iter:
- 			pr_warn("NLM_F_CREATE should be set when creating new route\n");
- 
- add:
-+		nlflags |= NLM_F_CREATE;
- 		err = fib6_commit_metrics(&rt->dst, mxc);
- 		if (err)
- 			return err;
-@@ -864,7 +868,7 @@ add:
- 		*ins = rt;
- 		rt->rt6i_node = fn;
- 		atomic_inc(&rt->rt6i_ref);
--		inet6_rt_notify(RTM_NEWROUTE, rt, info, 0);
-+		inet6_rt_notify(RTM_NEWROUTE, rt, info, nlflags);
- 		info->nl_net->ipv6.rt6_stats->fib_rt_entries++;
- 
- 		if (!(fn->fn_flags & RTN_RTINFO)) {
--- 
-2.9.3
+
+ include/trace/events/rxrpc.h |   11 --
+ net/rxrpc/af_rxrpc.c         |    6 -
+ net/rxrpc/ar-internal.h      |   41 ++++--
+ net/rxrpc/call_accept.c      |   63 +++-------
+ net/rxrpc/call_event.c       |   74 +++++------
+ net/rxrpc/call_object.c      |  277 +++++++++++++++++++-----------------------
+ net/rxrpc/conn_client.c      |    3 
+ net/rxrpc/input.c            |   39 +++---
+ net/rxrpc/output.c           |  145 ++++++++++++++++++++++
+ net/rxrpc/proc.c             |    4 -
+ net/rxrpc/recvmsg.c          |   47 ++-----
+ net/rxrpc/sendmsg.c          |    6 -
+ net/rxrpc/skbuff.c           |   16 --
+ net/rxrpc/sysctl.c           |    8 -
+ 14 files changed, 393 insertions(+), 347 deletions(-)
