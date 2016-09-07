@@ -1,483 +1,108 @@
-From: Jesper Dangaard Brouer via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: [PATCH RFC 04/11] net/mlx5e: Build RX SKB on
-	demand
-Date: Wed, 7 Sep 2016 21:32:43 +0200
-Message-ID: <20160907213243.773e5cde@redhat.com>
-References: <1473252152-11379-1-git-send-email-saeedm@mellanox.com>
-	<1473252152-11379-5-git-send-email-saeedm@mellanox.com>
-Reply-To: Jesper Dangaard Brouer <brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: Minimum MTU Mess
+Date: Wed, 7 Sep 2016 15:53:56 -0400
+Message-ID: <20160907195356.GX33916@redhat.com>
+References: <20160902170742.GA17677@redhat.com>
+ <20160906.165529.496766310703537877.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
-	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, linux-mm <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>
-To: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <1473252152-11379-5-git-send-email-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f182.google.com ([209.85.161.182]:32873 "EHLO
+        mail-yw0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753998AbcIGTyI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 15:54:08 -0400
+Received: by mail-yw0-f182.google.com with SMTP id l8so15787772ywb.0
+        for <netdev@vger.kernel.org>; Wed, 07 Sep 2016 12:53:59 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20160906.165529.496766310703537877.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-On Wed,  7 Sep 2016 15:42:25 +0300 Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org> wrote:
-
-> For non-striding RQ configuration before this patch we had a ring
-> with pre-allocated SKBs and mapped the SKB->data buffers for
-> device.
+On Tue, Sep 06, 2016 at 04:55:29PM -0700, David Miller wrote:
+> From: Jarod Wilson <jarod@redhat.com>
+> Date: Fri, 2 Sep 2016 13:07:42 -0400
 > 
-> For robustness and better RX data buffers management, we allocate a
-> page per packet and build_skb around it.
+> > In any case, the number of "mtu < 68" and "#define FOO_MIN_MTU 68", or
+> > variations thereof, under drivers/net/ is kind of crazy.
 > 
-> This patch (which is a prerequisite for XDP) will actually reduce
-> performance for normal stack usage, because we are now hitting a bottleneck
-> in the page allocator. A later patch of page reuse mechanism will be
-> needed to restore or even improve performance in comparison to the old
-> RX scheme.
+> Agreed, we can have a default and let the different cases provide
+> overrides.
+> 
+> Mostly what to do here is a function of the hardware though.
 
-Yes, it is true that there is a performance reduction (for normal
-stack, not XDP) caused by hitting a bottleneck in the page allocator.
+So I've been tinkering with this some, and it looks like having both
+centralized min and max checking could be useful here. I'm hacking away at
+drivers now, but the basis of all this would potentially look about like
+the patch below, and each device would have to set dev->m{in,ax}_mtu one
+way or another. Drivers using alloc_etherdev and/or ether_setup would get
+the "default" values, and then they can be overridden. Probably need
+something to make sure dev->max_mtu isn't set to 0 though...
 
-I actually have a PoC implementation of my page_pool, that show we
-regain the performance and then some.  Based on an earlier version of
-this patch, where I hook it into the mlx5 driver (50Gbit/s version).
+Possibly on the right track here, or might there be a better way to
+approach this?
 
-
-You desc might be a bit outdated, as this patch and the patch before
-does contain you own driver local page-cache recycle facility.  And you
-also show that you regain quite a lot of the lost performance.
-
-You driver local page_cache does have its limitations (see comments on
-other patch), as it depend on timely refcnt decrease, by the users of
-the page.  If they hold onto pages (like TCP) then your page-cache will
-not be efficient.
-
+diff --git a/include/uapi/linux/if_ether.h b/include/uapi/linux/if_ether.h
+index 117d02e..864d6f2 100644
+--- a/include/uapi/linux/if_ether.h
++++ b/include/uapi/linux/if_ether.h
+@@ -35,6 +35,8 @@
+ #define ETH_FRAME_LEN	1514		/* Max. octets in frame sans FCS */
+ #define ETH_FCS_LEN	4		/* Octets in the FCS		 */
  
-> Packet rate performance testing was done with pktgen 64B packets on
-> xmit side and TC drop action on RX side.
-
-I assume this is TC _ingress_ dropping, like [1]
-
-[1] https://github.com/netoptimizer/network-testing/blob/master/bin/tc_ingress_drop.sh
-
-> CPU: Intel(R) Xeon(R) CPU E5-2680 v3 @ 2.50GHz
-> 
-> Comparison is done between:
->  1.Baseline, before 'net/mlx5e: Build RX SKB on demand'
->  2.Build SKB with RX page cache (This patch)
-> 
-> Streams    Baseline    Build SKB+page-cache    Improvement
-> -----------------------------------------------------------
-> 1          4.33Mpps      5.51Mpps                27%
-> 2          7.35Mpps      11.5Mpps                52%
-> 4          14.0Mpps      16.3Mpps                16%
-> 8          22.2Mpps      29.6Mpps                20%
-> 16         24.8Mpps      34.0Mpps                17%
-
-The improvements gained from using your page-cache is impressively high.
-
-Thanks for working on this,
- --Jesper
++#define ETH_MIN_MTU	68		/* Min IPv4 MTU per RFC791	*/
++
+ /*
+  *	These are the defined Ethernet Protocol ID's.
+  */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index dd6ce59..d20fd5d 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6466,9 +6466,17 @@ int dev_set_mtu(struct net_device *dev, int new_mtu)
+ 	if (new_mtu == dev->mtu)
+ 		return 0;
  
-> Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-> ---
->  drivers/net/ethernet/mellanox/mlx5/core/en.h      |  10 +-
->  drivers/net/ethernet/mellanox/mlx5/core/en_main.c |  31 +++-
->  drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   | 215 +++++++++++-----------
->  3 files changed, 133 insertions(+), 123 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-> index afbdf70..a346112 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-> @@ -65,6 +65,8 @@
->  #define MLX5E_PARAMS_DEFAULT_LOG_RQ_SIZE_MPW            0x3
->  #define MLX5E_PARAMS_MAXIMUM_LOG_RQ_SIZE_MPW            0x6
->  
-> +#define MLX5_RX_HEADROOM NET_SKB_PAD
-> +
->  #define MLX5_MPWRQ_LOG_STRIDE_SIZE		6  /* >= 6, HW restriction */
->  #define MLX5_MPWRQ_LOG_STRIDE_SIZE_CQE_COMPRESS	8  /* >= 6, HW restriction */
->  #define MLX5_MPWRQ_LOG_WQE_SZ			18
-> @@ -302,10 +304,14 @@ struct mlx5e_page_cache {
->  struct mlx5e_rq {
->  	/* data path */
->  	struct mlx5_wq_ll      wq;
-> -	u32                    wqe_sz;
-> -	struct sk_buff       **skb;
-> +
-> +	struct mlx5e_dma_info *dma_info;
->  	struct mlx5e_mpw_info *wqe_info;
->  	void                  *mtt_no_align;
-> +	struct {
-> +		u8             page_order;
-> +		u32            wqe_sz;    /* wqe data buffer size */
-> +	} buff;
->  	__be32                 mkey_be;
->  
->  	struct device         *pdev;
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-> index c84702c..c9f1dea 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-> @@ -411,6 +411,8 @@ static int mlx5e_create_rq(struct mlx5e_channel *c,
->  	void *rqc = param->rqc;
->  	void *rqc_wq = MLX5_ADDR_OF(rqc, rqc, wq);
->  	u32 byte_count;
-> +	u32 frag_sz;
-> +	int npages;
->  	int wq_sz;
->  	int err;
->  	int i;
-> @@ -445,29 +447,40 @@ static int mlx5e_create_rq(struct mlx5e_channel *c,
->  
->  		rq->mpwqe_stride_sz = BIT(priv->params.mpwqe_log_stride_sz);
->  		rq->mpwqe_num_strides = BIT(priv->params.mpwqe_log_num_strides);
-> -		rq->wqe_sz = rq->mpwqe_stride_sz * rq->mpwqe_num_strides;
-> -		byte_count = rq->wqe_sz;
-> +
-> +		rq->buff.wqe_sz = rq->mpwqe_stride_sz * rq->mpwqe_num_strides;
-> +		byte_count = rq->buff.wqe_sz;
->  		rq->mkey_be = cpu_to_be32(c->priv->umr_mkey.key);
->  		err = mlx5e_rq_alloc_mpwqe_info(rq, c);
->  		if (err)
->  			goto err_rq_wq_destroy;
->  		break;
->  	default: /* MLX5_WQ_TYPE_LINKED_LIST */
-> -		rq->skb = kzalloc_node(wq_sz * sizeof(*rq->skb), GFP_KERNEL,
-> -				       cpu_to_node(c->cpu));
-> -		if (!rq->skb) {
-> +		rq->dma_info = kzalloc_node(wq_sz * sizeof(*rq->dma_info), GFP_KERNEL,
-> +					    cpu_to_node(c->cpu));
-> +		if (!rq->dma_info) {
->  			err = -ENOMEM;
->  			goto err_rq_wq_destroy;
->  		}
-> +
->  		rq->handle_rx_cqe = mlx5e_handle_rx_cqe;
->  		rq->alloc_wqe = mlx5e_alloc_rx_wqe;
->  		rq->dealloc_wqe = mlx5e_dealloc_rx_wqe;
->  
-> -		rq->wqe_sz = (priv->params.lro_en) ?
-> +		rq->buff.wqe_sz = (priv->params.lro_en) ?
->  				priv->params.lro_wqe_sz :
->  				MLX5E_SW2HW_MTU(priv->netdev->mtu);
-> -		rq->wqe_sz = SKB_DATA_ALIGN(rq->wqe_sz);
-> -		byte_count = rq->wqe_sz;
-> +		byte_count = rq->buff.wqe_sz;
-> +
-> +		/* calc the required page order */
-> +		frag_sz = MLX5_RX_HEADROOM +
-> +			  byte_count /* packet data */ +
-> +			  SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
-> +		frag_sz = SKB_DATA_ALIGN(frag_sz);
-> +
-> +		npages = DIV_ROUND_UP(frag_sz, PAGE_SIZE);
-> +		rq->buff.page_order = order_base_2(npages);
-> +
->  		byte_count |= MLX5_HW_START_PADDING;
->  		rq->mkey_be = c->mkey_be;
->  	}
-> @@ -502,7 +515,7 @@ static void mlx5e_destroy_rq(struct mlx5e_rq *rq)
->  		mlx5e_rq_free_mpwqe_info(rq);
->  		break;
->  	default: /* MLX5_WQ_TYPE_LINKED_LIST */
-> -		kfree(rq->skb);
-> +		kfree(rq->dma_info);
->  	}
->  
->  	for (i = rq->page_cache.head; i != rq->page_cache.tail;
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-> index 8e02af3..2f5bc6f 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-> @@ -179,50 +179,99 @@ unlock:
->  	mutex_unlock(&priv->state_lock);
->  }
->  
-> -int mlx5e_alloc_rx_wqe(struct mlx5e_rq *rq, struct mlx5e_rx_wqe *wqe, u16 ix)
-> +#define RQ_PAGE_SIZE(rq) ((1 << rq->buff.page_order) << PAGE_SHIFT)
-> +
-> +static inline bool mlx5e_rx_cache_put(struct mlx5e_rq *rq,
-> +				      struct mlx5e_dma_info *dma_info)
->  {
-> -	struct sk_buff *skb;
-> -	dma_addr_t dma_addr;
-> +	struct mlx5e_page_cache *cache = &rq->page_cache;
-> +	u32 tail_next = (cache->tail + 1) & (MLX5E_CACHE_SIZE - 1);
->  
-> -	skb = napi_alloc_skb(rq->cq.napi, rq->wqe_sz);
-> -	if (unlikely(!skb))
-> -		return -ENOMEM;
-> +	if (tail_next == cache->head) {
-> +		rq->stats.cache_full++;
-> +		return false;
-> +	}
-> +
-> +	cache->page_cache[cache->tail] = *dma_info;
-> +	cache->tail = tail_next;
-> +	return true;
-> +}
-> +
-> +static inline bool mlx5e_rx_cache_get(struct mlx5e_rq *rq,
-> +				      struct mlx5e_dma_info *dma_info)
-> +{
-> +	struct mlx5e_page_cache *cache = &rq->page_cache;
-> +
-> +	if (unlikely(cache->head == cache->tail)) {
-> +		rq->stats.cache_empty++;
-> +		return false;
-> +	}
-> +
-> +	if (page_ref_count(cache->page_cache[cache->head].page) != 1) {
-> +		rq->stats.cache_busy++;
-> +		return false;
-> +	}
-> +
-> +	*dma_info = cache->page_cache[cache->head];
-> +	cache->head = (cache->head + 1) & (MLX5E_CACHE_SIZE - 1);
-> +	rq->stats.cache_reuse++;
-> +
-> +	dma_sync_single_for_device(rq->pdev, dma_info->addr,
-> +				   RQ_PAGE_SIZE(rq),
-> +				   DMA_FROM_DEVICE);
-> +	return true;
-> +}
->  
-> -	dma_addr = dma_map_single(rq->pdev,
-> -				  /* hw start padding */
-> -				  skb->data,
-> -				  /* hw end padding */
-> -				  rq->wqe_sz,
-> -				  DMA_FROM_DEVICE);
-> +static inline int mlx5e_page_alloc_mapped(struct mlx5e_rq *rq,
-> +					  struct mlx5e_dma_info *dma_info)
-> +{
-> +	struct page *page;
->  
-> -	if (unlikely(dma_mapping_error(rq->pdev, dma_addr)))
-> -		goto err_free_skb;
-> +	if (mlx5e_rx_cache_get(rq, dma_info))
-> +		return 0;
->  
-> -	*((dma_addr_t *)skb->cb) = dma_addr;
-> -	wqe->data.addr = cpu_to_be64(dma_addr);
-> +	page = dev_alloc_pages(rq->buff.page_order);
-> +	if (unlikely(!page))
-> +		return -ENOMEM;
->  
-> -	rq->skb[ix] = skb;
-> +	dma_info->page = page;
-> +	dma_info->addr = dma_map_page(rq->pdev, page, 0,
-> +				      RQ_PAGE_SIZE(rq), DMA_FROM_DEVICE);
-> +	if (unlikely(dma_mapping_error(rq->pdev, dma_info->addr))) {
-> +		put_page(page);
-> +		return -ENOMEM;
-> +	}
->  
->  	return 0;
-> +}
->  
-> -err_free_skb:
-> -	dev_kfree_skb(skb);
-> +void mlx5e_page_release(struct mlx5e_rq *rq, struct mlx5e_dma_info *dma_info,
-> +			bool recycle)
-> +{
-> +	if (likely(recycle) && mlx5e_rx_cache_put(rq, dma_info))
-> +		return;
-> +
-> +	dma_unmap_page(rq->pdev, dma_info->addr, RQ_PAGE_SIZE(rq),
-> +		       DMA_FROM_DEVICE);
-> +	put_page(dma_info->page);
-> +}
-> +
-> +int mlx5e_alloc_rx_wqe(struct mlx5e_rq *rq, struct mlx5e_rx_wqe *wqe, u16 ix)
-> +{
-> +	struct mlx5e_dma_info *di = &rq->dma_info[ix];
->  
-> -	return -ENOMEM;
-> +	if (unlikely(mlx5e_page_alloc_mapped(rq, di)))
-> +		return -ENOMEM;
-> +
-> +	wqe->data.addr = cpu_to_be64(di->addr + MLX5_RX_HEADROOM);
-> +	return 0;
->  }
->  
->  void mlx5e_dealloc_rx_wqe(struct mlx5e_rq *rq, u16 ix)
->  {
-> -	struct sk_buff *skb = rq->skb[ix];
-> +	struct mlx5e_dma_info *di = &rq->dma_info[ix];
->  
-> -	if (skb) {
-> -		rq->skb[ix] = NULL;
-> -		dma_unmap_single(rq->pdev,
-> -				 *((dma_addr_t *)skb->cb),
-> -				 rq->wqe_sz,
-> -				 DMA_FROM_DEVICE);
-> -		dev_kfree_skb(skb);
-> -	}
-> +	mlx5e_page_release(rq, di, true);
->  }
->  
->  static inline int mlx5e_mpwqe_strides_per_page(struct mlx5e_rq *rq)
-> @@ -305,79 +354,6 @@ static inline void mlx5e_post_umr_wqe(struct mlx5e_rq *rq, u16 ix)
->  	mlx5e_tx_notify_hw(sq, &wqe->ctrl, 0);
->  }
->  
-> -static inline bool mlx5e_rx_cache_put(struct mlx5e_rq *rq,
-> -				      struct mlx5e_dma_info *dma_info)
-> -{
-> -	struct mlx5e_page_cache *cache = &rq->page_cache;
-> -	u32 tail_next = (cache->tail + 1) & (MLX5E_CACHE_SIZE - 1);
-> -
-> -	if (tail_next == cache->head) {
-> -		rq->stats.cache_full++;
-> -		return false;
-> -	}
-> -
-> -	cache->page_cache[cache->tail] = *dma_info;
-> -	cache->tail = tail_next;
-> -	return true;
-> -}
-> -
-> -static inline bool mlx5e_rx_cache_get(struct mlx5e_rq *rq,
-> -				      struct mlx5e_dma_info *dma_info)
-> -{
-> -	struct mlx5e_page_cache *cache = &rq->page_cache;
-> -
-> -	if (unlikely(cache->head == cache->tail)) {
-> -		rq->stats.cache_empty++;
-> -		return false;
-> -	}
-> -
-> -	if (page_ref_count(cache->page_cache[cache->head].page) != 1) {
-> -		rq->stats.cache_busy++;
-> -		return false;
-> -	}
-> -
-> -	*dma_info = cache->page_cache[cache->head];
-> -	cache->head = (cache->head + 1) & (MLX5E_CACHE_SIZE - 1);
-> -	rq->stats.cache_reuse++;
-> -
-> -	dma_sync_single_for_device(rq->pdev, dma_info->addr, PAGE_SIZE,
-> -				   DMA_FROM_DEVICE);
-> -	return true;
-> -}
-> -
-> -static inline int mlx5e_page_alloc_mapped(struct mlx5e_rq *rq,
-> -					  struct mlx5e_dma_info *dma_info)
-> -{
-> -	struct page *page;
-> -
-> -	if (mlx5e_rx_cache_get(rq, dma_info))
-> -		return 0;
-> -
-> -	page = dev_alloc_page();
-> -	if (unlikely(!page))
-> -		return -ENOMEM;
-> -
-> -	dma_info->page = page;
-> -	dma_info->addr = dma_map_page(rq->pdev, page, 0, PAGE_SIZE,
-> -				      DMA_FROM_DEVICE);
-> -	if (unlikely(dma_mapping_error(rq->pdev, dma_info->addr))) {
-> -		put_page(page);
-> -		return -ENOMEM;
-> -	}
-> -
-> -	return 0;
-> -}
-> -
-> -void mlx5e_page_release(struct mlx5e_rq *rq, struct mlx5e_dma_info *dma_info,
-> -			bool recycle)
-> -{
-> -	if (likely(recycle) && mlx5e_rx_cache_put(rq, dma_info))
-> -		return;
-> -
-> -	dma_unmap_page(rq->pdev, dma_info->addr, PAGE_SIZE, DMA_FROM_DEVICE);
-> -	put_page(dma_info->page);
-> -}
-> -
->  static int mlx5e_alloc_rx_umr_mpwqe(struct mlx5e_rq *rq,
->  				    struct mlx5e_rx_wqe *wqe,
->  				    u16 ix)
-> @@ -448,7 +424,7 @@ void mlx5e_post_rx_mpwqe(struct mlx5e_rq *rq)
->  	mlx5_wq_ll_update_db_record(wq);
->  }
->  
-> -int mlx5e_alloc_rx_mpwqe(struct mlx5e_rq *rq, struct mlx5e_rx_wqe *wqe,	u16 ix)
-> +int mlx5e_alloc_rx_mpwqe(struct mlx5e_rq *rq, struct mlx5e_rx_wqe *wqe, u16 ix)
->  {
->  	int err;
->  
-> @@ -650,31 +626,46 @@ static inline void mlx5e_complete_rx_cqe(struct mlx5e_rq *rq,
->  
->  void mlx5e_handle_rx_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
->  {
-> +	struct mlx5e_dma_info *di;
->  	struct mlx5e_rx_wqe *wqe;
-> -	struct sk_buff *skb;
->  	__be16 wqe_counter_be;
-> +	struct sk_buff *skb;
->  	u16 wqe_counter;
->  	u32 cqe_bcnt;
-> +	void *va;
->  
->  	wqe_counter_be = cqe->wqe_counter;
->  	wqe_counter    = be16_to_cpu(wqe_counter_be);
->  	wqe            = mlx5_wq_ll_get_wqe(&rq->wq, wqe_counter);
-> -	skb            = rq->skb[wqe_counter];
-> -	prefetch(skb->data);
-> -	rq->skb[wqe_counter] = NULL;
-> +	di             = &rq->dma_info[wqe_counter];
-> +	va             = page_address(di->page);
->  
-> -	dma_unmap_single(rq->pdev,
-> -			 *((dma_addr_t *)skb->cb),
-> -			 rq->wqe_sz,
-> -			 DMA_FROM_DEVICE);
-> +	dma_sync_single_range_for_cpu(rq->pdev,
-> +				      di->addr,
-> +				      MLX5_RX_HEADROOM,
-> +				      rq->buff.wqe_sz,
-> +				      DMA_FROM_DEVICE);
-> +	prefetch(va + MLX5_RX_HEADROOM);
->  
->  	if (unlikely((cqe->op_own >> 4) != MLX5_CQE_RESP_SEND)) {
->  		rq->stats.wqe_err++;
-> -		dev_kfree_skb(skb);
-> +		mlx5e_page_release(rq, di, true);
->  		goto wq_ll_pop;
->  	}
->  
-> +	skb = build_skb(va, RQ_PAGE_SIZE(rq));
-> +	if (unlikely(!skb)) {
-> +		rq->stats.buff_alloc_err++;
-> +		mlx5e_page_release(rq, di, true);
-> +		goto wq_ll_pop;
-> +	}
-> +
-> +	/* queue up for recycling ..*/
-> +	page_ref_inc(di->page);
-> +	mlx5e_page_release(rq, di, true);
-> +
->  	cqe_bcnt = be32_to_cpu(cqe->byte_cnt);
-> +	skb_reserve(skb, MLX5_RX_HEADROOM);
->  	skb_put(skb, cqe_bcnt);
->  
->  	mlx5e_complete_rx_cqe(rq, cqe, cqe_bcnt, skb);
-
-
+-	/*	MTU must be positive.	 */
+-	if (new_mtu < 0)
++	if (new_mtu < dev->min_mtu) {
++		netdev_err(dev, "Invalid MTU %d requested, hw min %d\n",
++			   new_mtu, dev->min_mtu);
+ 		return -EINVAL;
++	}
++
++	if (new_mtu > dev->max_mtu) {
++		netdev_err(dev, "Invalid MTU %d requested, hw max %d\n",
++			   new_mtu, dev->min_mtu);
++		return -EINVAL;
++	}
+ 
+ 	if (!netif_device_present(dev))
+ 		return -ENODEV;
+diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
+index 66dff5e..2be0203 100644
+--- a/net/ethernet/eth.c
++++ b/net/ethernet/eth.c
+@@ -322,8 +322,6 @@ EXPORT_SYMBOL(eth_mac_addr);
+  */
+ int eth_change_mtu(struct net_device *dev, int new_mtu)
+ {
+-	if (new_mtu < 68 || new_mtu > ETH_DATA_LEN)
+-		return -EINVAL;
+ 	dev->mtu = new_mtu;
+ 	return 0;
+ }
+@@ -357,6 +355,8 @@ void ether_setup(struct net_device *dev)
+ 	dev->type		= ARPHRD_ETHER;
+ 	dev->hard_header_len 	= ETH_HLEN;
+ 	dev->mtu		= ETH_DATA_LEN;
++	dev->min_mtu		= ETH_MIN_MTU;
++	dev->max_mtu		= ETH_DATA_LEN;
+ 	dev->addr_len		= ETH_ALEN;
+ 	dev->tx_queue_len	= 1000;	/* Ethernet wants good queues */
+ 	dev->flags		= IFF_BROADCAST|IFF_MULTICAST;
 
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+Jarod Wilson
+jarod@redhat.com
