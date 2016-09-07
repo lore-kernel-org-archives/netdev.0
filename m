@@ -1,52 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] tcp: fastopen: avoid negative sk_forward_alloc
-Date: Wed, 07 Sep 2016 08:34:11 -0700
-Message-ID: <1473262451.10725.43.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH net-next 0/2] rxrpc: Local abort tracepoint
+Date: Wed, 07 Sep 2016 16:39:42 +0100
+Message-ID: <147326277574.9308.4656891674085539944.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Josh Hunt <johunt@akamai.com>,
-        Jerry Chu <hkchu@google.com>,
-        Yuchung Cheng <ycheng@google.com>,
-        Neal Cardwell <ncardwell@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:36066 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753974AbcIGPeM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 11:34:12 -0400
-Received: by mail-pf0-f196.google.com with SMTP id x24so1108264pfa.3
-        for <netdev@vger.kernel.org>; Wed, 07 Sep 2016 08:34:12 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
 
-When DATA and/or FIN are carried in a SYN/ACK message or SYN message,
-we append an skb in socket receive queue, but we forget to call
-sk_forced_mem_schedule().
+Here are two patches.  They need to be applied on top of the just-posted
+call refcount overhaul patch:
 
-Effect is that the socket has a negative sk->sk_forward_alloc as long as
-the message is not read by the application.
+ (1) Fix the return value of some call completion helpers.
 
-Josh Hunt fixed a similar issue in commit d22e15371811 ("tcp: fix tcp
-fin memory accounting")
- 
-Fixes: 168a8f58059a ("tcp: TCP Fast Open Server - main code path")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+ (2) Add a tracepoint that allows local aborts to be debugged.
+
+The patches can be found here also:
+
+	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-rewrite
+
+Tagged thusly:
+
+	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
+	rxrpc-rewrite-20160904-2
+
+David
 ---
- net/ipv4/tcp_fastopen.c |    1 +
- 1 file changed, 1 insertion(+)
+David Howells (2):
+      rxrpc: Fix returns of call completion helpers
+      rxrpc: Add tracepoint for working out where aborts happen
 
-diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
-index 62a5751d4fe1..4e777a3243f9 100644
---- a/net/ipv4/tcp_fastopen.c
-+++ b/net/ipv4/tcp_fastopen.c
-@@ -150,6 +150,7 @@ void tcp_fastopen_add_skb(struct sock *sk, struct sk_buff *skb)
- 	tp->segs_in = 0;
- 	tcp_segs_in(tp, skb);
- 	__skb_pull(skb, tcp_hdrlen(skb));
-+	sk_forced_mem_schedule(sk, skb->truesize);
- 	skb_set_owner_r(skb, sk);
- 
- 	TCP_SKB_CB(skb)->seq++;
+
+ fs/afs/rxrpc.c               |   17 ++++---
+ include/net/af_rxrpc.h       |    3 +
+ include/trace/events/rxrpc.h |   29 +++++++++++
+ net/rxrpc/ar-internal.h      |   27 +++++++----
+ net/rxrpc/call_event.c       |    7 ++-
+ net/rxrpc/call_object.c      |    2 -
+ net/rxrpc/conn_event.c       |    6 ++
+ net/rxrpc/input.c            |    7 ++-
+ net/rxrpc/insecure.c         |   19 ++++---
+ net/rxrpc/rxkad.c            |  108 +++++++++++++++++++-----------------------
+ net/rxrpc/sendmsg.c          |   18 ++++---
+ 11 files changed, 140 insertions(+), 103 deletions(-)
