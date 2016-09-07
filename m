@@ -1,44 +1,35 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 1/2 v3] net: smsc911x: augment device tree bindings
-Date: Wed, 07 Sep 2016 16:31:06 +0200
-Message-ID: <5562302.TqOSBHraW1@wuerfel>
-References: <1473256411-13965-1-git-send-email-linus.walleij@linaro.org>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] net: diag: make udp_diag_destroy work for mapped
+ addresses.
+Date: Wed, 7 Sep 2016 08:32:45 -0600
+Message-ID: <d28639fd-2ab2-02f9-7a42-e483a919d22f@cumulusnetworks.com>
+References: <1473223115-144755-1-git-send-email-lorenzo@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
-        Steve Glendinning <steve.glendinning@shawell.net>,
-        Guenter Roeck <linux@roeck-us.net>,
-        Jeremy Linton <jeremy.linton@arm.com>,
-        Kamlakant Patel <kamlakant.patel@broadcom.com>,
-        Pavel Fedin <p.fedin@samsung.com>, devicetree@vger.kernel.org
-To: Linus Walleij <linus.walleij@linaro.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: ek@google.com, eric.dumazet@gmail.com, davem@davemloft.net
+To: Lorenzo Colitti <lorenzo@google.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.13]:64841 "EHLO
-        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757197AbcIGObf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 10:31:35 -0400
-In-Reply-To: <1473256411-13965-1-git-send-email-linus.walleij@linaro.org>
+Received: from mail-it0-f45.google.com ([209.85.214.45]:35412 "EHLO
+        mail-it0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757198AbcIGOcr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 10:32:47 -0400
+Received: by mail-it0-f45.google.com with SMTP id e124so199970821ith.0
+        for <netdev@vger.kernel.org>; Wed, 07 Sep 2016 07:32:47 -0700 (PDT)
+In-Reply-To: <1473223115-144755-1-git-send-email-lorenzo@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday, September 7, 2016 3:53:31 PM CEST Linus Walleij wrote:
-> This adds device tree bindings for:
+On 9/6/16 10:38 PM, Lorenzo Colitti wrote:
+> udp_diag_destroy does look up the IPv4 UDP hashtable for mapped
+> addresses, but it gets the IPv4 address to look up from the
+> beginning of the IPv6 address instead of the end.
 > 
-> - An optional GPIO line for releasing the RESET signal to the
->   SMSC911x devices
-> 
-> - An optional PME (power management event) interrupt line that
->   can be utilized to wake up the system on network activity.
->   This signal exist on all the SMSC911x devices, it is just not
->   very often routed.
-> 
-> Both these lines are routed to the SoC on the Qualcomm APQ8060
-> Dragonboard and thus needs to be bound in the device tree.
-> 
-> Cc: devicetree@vger.kernel.org
-> Cc: Jeremy Linton <jeremy.linton@arm.com>
-> Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
-> 
+> Tested: https://android-review.googlesource.com/269874
+> Fixes: 5d77dca82839 ("net: diag: support SOCK_DESTROY for UDP sockets")
+> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+> ---
+>  net/ipv4/udp_diag.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
 
-Acked-by: Arnd Bergmann <arnd@arndb.de>
+Acked-by: David Ahern <dsa@cumulusnetworks.com>
