@@ -1,65 +1,69 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH RFC 11/11] net/mlx5e: XDP TX xmit more
-Date: Wed, 7 Sep 2016 06:44:18 -0700
-Message-ID: <57D019B2.7070007@gmail.com>
-References: <1473252152-11379-1-git-send-email-saeedm@mellanox.com>
- <1473252152-11379-12-git-send-email-saeedm@mellanox.com>
+From: Hangbin Liu <haliu@redhat.com>
+Subject: Re: [PATCH iproute2] ip route: check ftell, fseek return value
+Date: Wed, 7 Sep 2016 21:50:40 +0800
+Message-ID: <20160907135040.GA2861@leo.usersys.redhat.com>
+References: <1473143990-9291-1-git-send-email-liuhangbin@gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB00F5252@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Tariq Toukan <tariqt@mellanox.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Martin KaFai Lau <kafai@fb.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: Saeed Mahameed <saeedm@mellanox.com>,
-        iovisor-dev <iovisor-dev@lists.iovisor.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "'Hangbin Liu'" <liuhangbin@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Phil Sutter <phil@nwl.cc>,
+        Stephen Hemminger <stephen@networkplumber.org>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:35571 "EHLO
-        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752277AbcIGNog (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 09:44:36 -0400
-Received: by mail-pf0-f171.google.com with SMTP id w87so6938582pfk.2
-        for <netdev@vger.kernel.org>; Wed, 07 Sep 2016 06:44:35 -0700 (PDT)
-In-Reply-To: <1473252152-11379-12-git-send-email-saeedm@mellanox.com>
+Received: from mx1.redhat.com ([209.132.183.28]:45356 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751499AbcIGNuq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Sep 2016 09:50:46 -0400
+Content-Disposition: inline
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB00F5252@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-09-07 05:42 AM, Saeed Mahameed wrote:
-> Previously we rang XDP SQ doorbell on every forwarded XDP packet.
+On Tue, Sep 06, 2016 at 11:18:00AM +0000, David Laight wrote:
+> From: Hangbin Liu
+> > Sent: 06 September 2016 07:40
+> > ftell() may return -1 in error case, which is not handled and therefore pass a
+> > negative offset to fseek(). The return code of fseek() is also not checked.
+> > 
+> > Reported-by: Phil Sutter <phil@nwl.cc>
+> > Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+> > ---
+> >  ip/iproute.c | 11 +++++++++--
+> >  1 file changed, 9 insertions(+), 2 deletions(-)
+> > 
+> > diff --git a/ip/iproute.c b/ip/iproute.c
+> > index 3da23af..ba877dc 100644
+> > --- a/ip/iproute.c
+> > +++ b/ip/iproute.c
+> > @@ -1859,7 +1859,11 @@ static int iproute_restore(void)
+> >  	if (route_dump_check_magic())
+> >  		exit(-1);
+> > 
+> > -	pos = ftell(stdin);
+> > +	if ((pos = ftell(stdin)) == -1) {
 > 
-> Here we introduce a xmit more like mechanism that will queue up more
-> than one packet into SQ (up to RX napi budget) w/o notifying the hardware.
+> Don't put assignments in conditionals.
 > 
-> Once RX napi budget is consumed and we exit napi RX loop, we will
-> flush (doorbell) all XDP looped packets in case there are such.
+> > +		perror("Failed to restore: ftell");
+> > +		exit(errno);
 > 
-> XDP forward packet rate:
-> 
-> Comparing XDP with and w/o xmit more (bulk transmit):
-> 
-> Streams     XDP TX       XDP TX (xmit more)
-> ---------------------------------------------------
-> 1           4.90Mpps      7.50Mpps
-> 2           9.50Mpps      14.8Mpps
-> 4           16.5Mpps      25.1Mpps
-> 8           21.5Mpps      27.5Mpps*
-> 16          24.1Mpps      27.5Mpps*
-> 
+> errno is not a valid argument to exit().
 
-Hi Saeed,
+Hi David,
 
-How many cores are you using with these numbers? Just a single
-core? Or are streams being RSS'd across cores somehow.
+Thanks for the advice. I will send PATCHv2 to fix them.
 
-> *It seems we hit a wall of 27.5Mpps, for 8 and 16 streams,
-> we will be working on the analysis and will publish the conclusions
-> later.
 > 
+> ...
+> 
+> Actually WTF is this code trying to do.
+> stdin is vere likely to be a pipe, so expecting to seek on it
+> seems very likely to fail.
 
-Thanks,
-John
+I will fix the return code handle issue first and try investigate the pipe
+issue later.
+
+Regards
+Hangbin
