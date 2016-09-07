@@ -1,54 +1,64 @@
-From: Kefeng Wang <wangkefeng.wang@huawei.com>
-Subject: Re: [PATCH] net: hns: declare function as static
-Date: Wed, 7 Sep 2016 09:47:39 +0800
-Message-ID: <ad38db1d-7aae-6ade-8341-03b5e0262dab@huawei.com>
-References: <1473162791-43858-1-git-send-email-wangkefeng.wang@huawei.com>
- <20160906.162056.2216637267409495822.davem@davemloft.net>
+From: <Ronnie.Kunin@microchip.com>
+Subject: RE: [PATCH 0/2] lan78xx: Remove trailing underscores from macros
+Date: Wed, 7 Sep 2016 02:00:07 +0000
+Message-ID: <CB1A8EE47AAD7B4897132E685E5108C551F87491@CHN-SV-EXMX02.mchp-main.com>
+References: <cover.1473202982.git.joe@perches.com>
+         <9235D6609DB808459E95D78E17F2E43D40910FF9@CHN-SV-EXMX02.mchp-main.com>,<1473211122.29864.1.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <yisen.zhuang@huawei.com>, <yankejian@huawei.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160906.162056.2216637267409495822.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <f.fainelli@gmail.com>, <UNGLinuxDriver@microchip.com>,
+        <linux-kernel@vger.kernel.org>
+To: <joe@perches.com>, <Woojung.Huh@microchip.com>,
+        <netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtpout.microchip.com ([198.175.253.82]:33285 "EHLO
+        email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1755437AbcIGCAK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 22:00:10 -0400
+In-Reply-To: <1473211122.29864.1.camel@perches.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Microchip's internal convention is for register (offset) definitions to be capitalized (i.e.: MY_REGISTER). Our convention for bits (position) definitions within a register is to carry as a prefix the name of the register and suffix it with the bit name and adding a trailing underscore (i.e. MY_REGISTER_MY_BIT_). The trailing underscore is what easily lets us distinguish a bit from a register definition when reading code. We have been using this convention for many years and has worked very well for us across all projects (by now hundreds).
 
-
-On 2016/9/7 7:20, David Miller wrote:
-> From: Kefeng Wang <wangkefeng.wang@huawei.com>
-> Date: Tue, 6 Sep 2016 19:53:11 +0800
-> 
->> Declare function as static to kill warning about missing-prototypes.
->>
->> Cc: Yisen Zhuang <yisen.zhuang@huawei.com>
->> Cc: Kejian Yan <yankejian@huawei.com>
->> Signed-off-by: Kefeng Wang <wangkefeng.wang@huawei.com>
->  ...
->> @@ -73,7 +73,7 @@ static struct ring_pair_cb *hns_ae_get_ring_pair(struct hnae_queue *q)
->>  	return container_of(q, struct ring_pair_cb, q);
->>  }
->>  
->> -struct hnae_handle *hns_ae_get_handle(struct hnae_ae_dev *dev,
->> +static struct hnae_handle *hns_ae_get_handle(struct hnae_ae_dev *dev,
->>  				      u32 port_id)
-> 
-> You have to adjust the indentation of the arguments on the following lines
-> if you change where the openning parenthesis is.  They must start exactly
-> at the column folling that openning parenthesis.
-
-Hi David,
-
-Talked with Yisen, please ignore it for now, will resend it after some hns/roce functional changes.
+>Is there anything other than a one-time cost
+>to apply these?  Is the same code used for
+>other platforms?
+Yes, a single header file with the definition of registers and bits is shared (either as a standalone file or with its contents pasted into a native environment "carrier" header file) across all drivers (and other non driver software projects as well) for the same device. So a change like this indeed has a high cost for Microchip and we'd rather not do this unless it is an absolutely mandated requirement. 
 
 Thanks,
-Kefeng
+Ronnie
+________________________________________
+From: Joe Perches [joe@perches.com]
+Sent: Tuesday, September 06, 2016 9:18 PM
+To: Woojung Huh - C21699; netdev@vger.kernel.org; linux-usb@vger.kernel.org
+Cc: f.fainelli@gmail.com; UNGLinuxDriver; linux-kernel@vger.kernel.org
+Subject: Re: [PATCH 0/2] lan78xx: Remove trailing underscores from macros
 
+On Tue, 2016-09-06 at 23:19 +0000, Woojung.Huh@microchip.com wrote:
+> > Joe Perches (2):
+> >   lan78xx: Remove locally defined trailing underscores from defines and uses
+> >   microchipphy.h and uses: Remove trailing underscores from defines and
+> > uses
+> >
+> >  drivers/net/phy/microchip.c  |    4 +-
+> >  drivers/net/usb/lan78xx.c    |  368 +++++++--------
+> >  drivers/net/usb/lan78xx.h    | 1068 +++++++++++++++++++++-----------------
+> > ----
+> >  include/linux/microchipphy.h |   72 +--
+> >  4 files changed, 756 insertions(+), 756 deletions(-)
+>
+>
+> Because there is no specific rule how to name defines, I'm not sure it is worth to change 1000+ lines.
+> It may be better to set guideline for new submissions.
+>
+> Welcome any comments.
 
+Generally, more conforming to norms is better.
+These FOO_ uses are non-conforming.
 
-> 
-> 
-> .
-> 
+Is there anything other than a one-time cost
+to apply these?  Is the same code used for
+other platforms?
