@@ -1,30 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] ptp: ixp46x: remove NO_IRQ handling
-Date: Tue, 06 Sep 2016 16:57:28 -0700 (PDT)
-Message-ID: <20160906.165728.124928924200975859.davem@davemloft.net>
-References: <20160906192053.1061021-1-arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: richardcochran@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160906192053.1061021-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Subject: [PATCH net-next] net: xfrm: Change u32 sysctl entries to use proc_douintvec
+Date: Tue,  6 Sep 2016 18:09:31 -0600
+Message-ID: <1473206971-20131-1-git-send-email-subashab@codeaurora.org>
+Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+To: netdev@vger.kernel.org, davem@davemloft.net,
+        steffen.klassert@secunet.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:38208 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933652AbcIGAKY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2016 20:10:24 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Tue,  6 Sep 2016 21:20:36 +0200
+proc_dointvec limits the values to INT_MAX in u32 sysctl entries.
+proc_douintvec allows to write upto UINT_MAX.
 
-> gpio_to_irq does not return NO_IRQ but instead returns a negative
-> error code on failure. Returning NO_IRQ from the function has no
-> negative effects as we only compare the result to the expected
-> interrupt number, but it's better to return a proper failure
-> code for consistency, and we should remove NO_IRQ from the kernel
-> entirely.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Acked-by: Richard Cochran <richardcochran@gmail.com>
+Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+---
+ net/xfrm/xfrm_sysctl.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Applied to net-next, thanks.
+diff --git a/net/xfrm/xfrm_sysctl.c b/net/xfrm/xfrm_sysctl.c
+index 05a6e3d..35a7e79 100644
+--- a/net/xfrm/xfrm_sysctl.c
++++ b/net/xfrm/xfrm_sysctl.c
+@@ -17,13 +17,13 @@ static struct ctl_table xfrm_table[] = {
+ 		.procname	= "xfrm_aevent_etime",
+ 		.maxlen		= sizeof(u32),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec
++		.proc_handler	= proc_douintvec
+ 	},
+ 	{
+ 		.procname	= "xfrm_aevent_rseqth",
+ 		.maxlen		= sizeof(u32),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec
++		.proc_handler	= proc_douintvec
+ 	},
+ 	{
+ 		.procname	= "xfrm_larval_drop",
+-- 
+1.9.1
