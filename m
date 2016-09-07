@@ -1,48 +1,68 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: ath9k: bring back direction setting in
-	ath9k_{start_stop}
-Date: Wed, 7 Sep 2016 15:23:06 +0200
-Message-ID: <a331907578a94d2c8adc0de4362039e4@euamsexm01a.eu.qualcomm.com>
-References: <20160901174702.8645-1-giedrius.statkevicius@gmail.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH RFC 08/11] net/mlx5e: XDP fast RX drop bpf programs support
+Date: Wed, 7 Sep 2016 16:32:52 +0300
+Message-ID: <CAJ3xEMhh=fu+mrCGAjv1PDdGn9GPLJv9MssMzwzvppoqZUY01A@mail.gmail.com>
+References: <1473252152-11379-1-git-send-email-saeedm@mellanox.com> <1473252152-11379-9-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Miaoqing Pan <miaoqing@codeaurora.org>, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, ath9k-devel@qca.qualcomm.com,
-	stable@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ath9k-devel@lists.ath9k.org, =?UTF-8?q?Giedrius=20Statkevi=C4=8Dius?=
-	<giedrius.statkevicius@gmail.com>, kvalo@codeaurora.org
-To: Giedrius Statkevi?ius <giedrius.statkevicius@gmail.com>
-Return-path: <ath9k-devel-bounces@lists.ath9k.org>
-In-Reply-To: <20160901174702.8645-1-giedrius.statkevicius@gmail.com>
-List-Unsubscribe: <https://lists.ath9k.org/mailman/listinfo/ath9k-devel>,
-	<mailto:ath9k-devel-request@lists.ath9k.org?subject=unsubscribe>
-List-Archive: <http://lists.ath9k.org/pipermail/ath9k-devel>
-List-Post: <mailto:ath9k-devel@lists.ath9k.org>
-List-Help: <mailto:ath9k-devel-request@lists.ath9k.org?subject=help>
-List-Subscribe: <https://lists.ath9k.org/mailman/listinfo/ath9k-devel>,
-	<mailto:ath9k-devel-request@lists.ath9k.org?subject=subscribe>
-Sender: ath9k-devel-bounces@lists.ath9k.org
-Errors-To: ath9k-devel-bounces@lists.ath9k.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: iovisor-dev <iovisor-dev@lists.iovisor.org>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Martin KaFai Lau <kafai@fb.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Saeed Mahameed <saeedm@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Rana Shahout <ranas@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f49.google.com ([209.85.218.49]:34475 "EHLO
+        mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753974AbcIGNcy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 09:32:54 -0400
+Received: by mail-oi0-f49.google.com with SMTP id m11so25551472oif.1
+        for <netdev@vger.kernel.org>; Wed, 07 Sep 2016 06:32:53 -0700 (PDT)
+In-Reply-To: <1473252152-11379-9-git-send-email-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-R2llZHJpdXMgU3RhdGtldmk/aXVzIDxnaWVkcml1cy5zdGF0a2V2aWNpdXNAZ21haWwuY29tPiB3
-cm90ZToKPiBBIHJlZ3Jlc3Npb24gd2FzIGludHJvZHVjZWQgaW4gY29tbWl0IGlkIDc5ZDRkYjEy
-MTRhICgiYXRoOWs6IGNsZWFudXAKPiBsZWRfcGluIGluaXRpYWwiKSB0aGF0IGJyb2tlbiB0aGUg
-V0xBTiBzdGF0dXMgbGVkIG9uIG15IGxhcHRvcCB3aXRoCj4gQVI5Mjg3IGFmdGVyIHN1c3BlbmRp
-bmcgYW5kIHJlc3VtaW5nLgo+IAo+IFN0ZXBzIHRvIHJlcHJvZHVjZToKPiAqIFN1c3BlbmQgKGxh
-cHRvcCkKPiAqIFJlc3VtZSAobGFwdG9wKQo+ICogT2JzZXJ2ZSB0aGF0IHRoZSBXTEFOIGxlZCBu
-byBsb25nZXIgdHVybnMgT04vT0ZGIGRlcGVuZGluZyBvbiB0aGUKPiAgIHN0YXR1cyBhbmQgaXMg
-YWx3YXlzIHJlZAo+IAo+IEV2ZW4gdGhvdWdoIGZvciBteSBjYXNlIGl0IG9ubHkgbmVlZHMgdG8g
-YmUgc2V0IHRvIE9VVCBpbiBhdGg5a19zdGFydAo+IGJ1dCBmb3IgY29uc2lzdGVuY3kgYnJpbmcg
-YmFjayB0aGUgSU4gZGlyZWN0aW9uIHNldHRpbmcgYXMgd2VsbC4KPiAKPiBDYzogTWlhb3Fpbmcg
-UGFuIDxtaWFvcWluZ0Bjb2RlYXVyb3JhLm9yZz4KPiBDYzogS2FsbGUgVmFsbyA8a3ZhbG9AcWNh
-LnF1YWxjb21tLmNvbT4KPiBDYzogPHN0YWJsZUB2Z2VyLmtlcm5lbC5vcmc+Cj4gU2lnbmVkLW9m
-Zi1ieTogR2llZHJpdXMgU3RhdGtldmnEjWl1cyA8Z2llZHJpdXMuc3RhdGtldmljaXVzQGdtYWls
-LmNvbT4KClRoYW5rcywgMSBwYXRjaCBhcHBsaWVkIHRvIGF0aC1jdXJyZW50IGJyYW5jaCBvZiBh
-dGguZ2l0OgoKZTM0ZjJmZjQwZTAzIGF0aDlrOiBicmluZyBiYWNrIGRpcmVjdGlvbiBzZXR0aW5n
-IGluIGF0aDlrX3tzdGFydF9zdG9wfQoKLS0gClNlbnQgYnkgcHdjbGkKaHR0cHM6Ly9wYXRjaHdv
-cmsua2VybmVsLm9yZy9wYXRjaC85MzA5ODI5LwoKX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX18KYXRoOWstZGV2ZWwgbWFpbGluZyBsaXN0CmF0aDlrLWRldmVs
-QGxpc3RzLmF0aDlrLm9yZwpodHRwczovL2xpc3RzLmF0aDlrLm9yZy9tYWlsbWFuL2xpc3RpbmZv
-L2F0aDlrLWRldmVsCg==
+On Wed, Sep 7, 2016 at 3:42 PM, Saeed Mahameed <saeedm@mellanox.com> wrote:
+
+> Packet rate performance testing was done with pktgen 64B packets and on
+> TX side and, TC drop action on RX side compared to XDP fast drop.
+>
+> CPU: Intel(R) Xeon(R) CPU E5-2680 v3 @ 2.50GHz
+>
+> Comparison is done between:
+>         1. Baseline, Before this patch with TC drop action
+>         2. This patch with TC drop action
+>         3. This patch with XDP RX fast drop
+>
+> Streams    Baseline(TC drop)    TC drop    XDP fast Drop
+> --------------------------------------------------------------
+> 1           5.51Mpps            5.14Mpps     13.5Mpps
+> 2           11.5Mpps            10.0Mpps     25.1Mpps
+> 4           16.3Mpps            17.2Mpps     35.4Mpps
+> 8           29.6Mpps            28.2Mpps     45.8Mpps*
+> 16          34.0Mpps            30.1Mpps     45.8Mpps*
+
+Rana, Guys, congrat!!
+
+When you say X streams, does each stream mapped by RSS to different RX ring?
+or we're on the same RX ring for all rows of the above table?
+
+In the CX3 work, we had X sender "streams" that all mapped to the same RX ring,
+I don't think we went beyond one RX ring.
+
+Here, I guess you want to 1st get an initial max for N pktgen TX
+threads all sending
+the same stream so you land on single RX ring, and then move to M * N pktgen TX
+threads to max that further.
+
+I don't see how the current Linux stack would be able to happily drive 34M PPS
+(== allocate SKB, etc, you know...) on a single CPU, Jesper?
+
+Or.
