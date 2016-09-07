@@ -1,7 +1,7 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 1/8] rxrpc: Whitespace cleanup
-Date: Wed, 07 Sep 2016 16:22:33 +0100
-Message-ID: <147326175337.26593.7103675691671617188.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 2/8] rxrpc: Delete unused rxrpc_kernel_free_skb()
+Date: Wed, 07 Sep 2016 16:22:40 +0100
+Message-ID: <147326176035.26593.15800039580252567510.stgit@warthog.procyon.org.uk>
 References: <147326174610.26593.17043098689515647894.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,37 +9,44 @@ Content-Transfer-Encoding: 7bit
 Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
         linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:48148 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1757248AbcIGPWm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Sep 2016 11:22:42 -0400
 In-Reply-To: <147326174610.26593.17043098689515647894.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Remove some whitespace.
+Delete rxrpc_kernel_free_skb() as it's unused.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/ar-internal.h |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ net/rxrpc/skbuff.c |   13 -------------
+ 1 file changed, 13 deletions(-)
 
-diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index bb342f5fe7e4..ad702f9f8d1f 100644
---- a/net/rxrpc/ar-internal.h
-+++ b/net/rxrpc/ar-internal.h
-@@ -720,7 +720,6 @@ static inline void rxrpc_put_connection(struct rxrpc_connection *conn)
- 	}
+diff --git a/net/rxrpc/skbuff.c b/net/rxrpc/skbuff.c
+index 9752f8b1fdd0..a546a2ba6341 100644
+--- a/net/rxrpc/skbuff.c
++++ b/net/rxrpc/skbuff.c
+@@ -148,19 +148,6 @@ void rxrpc_packet_destructor(struct sk_buff *skb)
+ 	_leave("");
  }
  
+-/**
+- * rxrpc_kernel_free_skb - Free an RxRPC socket buffer
+- * @skb: The socket buffer to be freed
+- *
+- * Let RxRPC free its own socket buffer, permitting it to maintain debug
+- * accounting.
+- */
+-void rxrpc_kernel_free_skb(struct sk_buff *skb)
+-{
+-	rxrpc_free_skb(skb);
+-}
+-EXPORT_SYMBOL(rxrpc_kernel_free_skb);
 -
- static inline bool rxrpc_queue_conn(struct rxrpc_connection *conn)
- {
- 	if (!rxrpc_get_connection_maybe(conn))
-@@ -879,7 +878,7 @@ int __init rxrpc_init_security(void);
- void rxrpc_exit_security(void);
- int rxrpc_init_client_conn_security(struct rxrpc_connection *);
- int rxrpc_init_server_conn_security(struct rxrpc_connection *);
-- 
-+
  /*
-  * sendmsg.c
+  * Note the existence of a new-to-us socket buffer (allocated or dequeued).
   */
