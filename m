@@ -1,65 +1,47 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH RFC 04/11] net/mlx5e: Build RX SKB on demand
-Date: Wed, 7 Sep 2016 10:34:51 -0700
-Message-ID: <20160907173449.GB64688@ast-mbp.thefacebook.com>
-References: <1473252152-11379-1-git-send-email-saeedm@mellanox.com>
- <1473252152-11379-5-git-send-email-saeedm@mellanox.com>
+From: Artem Germanov <agermanov@anchorfree.com>
+Subject: [PATCH v2] tcp: cwnd does not increase in TCP YeAH
+Date: Wed, 7 Sep 2016 10:49:36 -0700
+Message-ID: <b4685d52-7fa0-5fac-b361-a20b610674d7@anchorfree.com>
+References: <c5290080-8b14-e711-a972-3d2c49d0bdd1@anchorfree.com>
+ <20160906.135846.2108420188600081714.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: iovisor-dev <iovisor-dev@lists.iovisor.org>,
-        netdev@vger.kernel.org, Tariq Toukan <tariqt@mellanox.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Martin KaFai Lau <kafai@fb.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: Saeed Mahameed <saeedm@mellanox.com>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+        <nanditad@google.com>, <edumazet@google.com>,
+        <ncardwell@google.com>, <ycheng@google.com>,
+        "Dmitry Adamushko" <d.adamushko@anchorfree.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:34652 "EHLO
-        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753019AbcIGRe4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 13:34:56 -0400
-Received: by mail-pf0-f170.google.com with SMTP id p64so8778866pfb.1
-        for <netdev@vger.kernel.org>; Wed, 07 Sep 2016 10:34:55 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1473252152-11379-5-git-send-email-saeedm@mellanox.com>
+Received: from afmail2.anchorfree.com ([74.115.4.40]:57474 "EHLO
+        afmail2.anchorfree.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752301AbcIGRrP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 13:47:15 -0400
+In-Reply-To: <20160906.135846.2108420188600081714.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 07, 2016 at 03:42:25PM +0300, Saeed Mahameed wrote:
-> For non-striding RQ configuration before this patch we had a ring
-> with pre-allocated SKBs and mapped the SKB->data buffers for
-> device.
-> 
-> For robustness and better RX data buffers management, we allocate a
-> page per packet and build_skb around it.
-> 
-> This patch (which is a prerequisite for XDP) will actually reduce
-> performance for normal stack usage, because we are now hitting a bottleneck
-> in the page allocator. A later patch of page reuse mechanism will be
-> needed to restore or even improve performance in comparison to the old
-> RX scheme.
-> 
-> Packet rate performance testing was done with pktgen 64B packets on xmit
-> side and TC drop action on RX side.
-> 
-> CPU: Intel(R) Xeon(R) CPU E5-2680 v3 @ 2.50GHz
-> 
-> Comparison is done between:
->  1.Baseline, before 'net/mlx5e: Build RX SKB on demand'
->  2.Build SKB with RX page cache (This patch)
-> 
-> Streams    Baseline    Build SKB+page-cache    Improvement
-> -----------------------------------------------------------
-> 1          4.33Mpps      5.51Mpps                27%
-> 2          7.35Mpps      11.5Mpps                52%
-> 4          14.0Mpps      16.3Mpps                16%
-> 8          22.2Mpps      29.6Mpps                20%
-> 16         24.8Mpps      34.0Mpps                17%
+Commit 76174004a0f19785a328f40388e87e982bbf69b9
+(tcp: do not slow start when cwnd equals ssthresh )
+introduced regression in TCP YeAH. Using 100ms delay 1% loss virtual 
+ethernet link kernel 4.2 shows bandwidth ~500KB/s for single TCP 
+connection and kernel 4.3 and above (including 4.8-rc4) shows bandwidth 
+~100KB/s.
+   That is caused by stalled cwnd when cwnd equals ssthresh. This patch 
+fixes it by proper increasing cwnd in this case.
 
-Impressive gains for build_skb. I think it should help ip forwarding too
-and likely tcp_rr. tcp_stream shouldn't see any difference.
-If you can benchmark that along with pktgen+tc_drop it would
-help to better understand the impact of the changes.
+Signed-off-by: Artem Germanov <agermanov@anchorfree.com>
+Acked-by: Dmitry Adamushko <d.adamushko@anchorfree.com>
+---
+diff --git a/net/ipv4/tcp_yeah.c b/net/ipv4/tcp_yeah.c
+index 028eb04..9c5fc97 100644
+--- a/net/ipv4/tcp_yeah.c
++++ b/net/ipv4/tcp_yeah.c
+@@ -76,7 +76,7 @@ static void tcp_yeah_cong_avoid(struct sock *sk, u32 ack, u32 acked)
+ 	if (!tcp_is_cwnd_limited(sk))
+ 		return;
+ 
+-	if (tp->snd_cwnd <= tp->snd_ssthresh)
++	if (tcp_in_slow_start(tp))
+ 		tcp_slow_start(tp, acked);
+ 
+ 	else if (!yeah->doing_reno_now) {
