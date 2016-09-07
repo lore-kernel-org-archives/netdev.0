@@ -1,67 +1,63 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net 1/3] nfp: remove linux/version.h includes
-Date: Wed,  7 Sep 2016 19:45:35 +0100
-Message-ID: <1473273937-9230-2-git-send-email-jakub.kicinski@netronome.com>
-References: <1473273937-9230-1-git-send-email-jakub.kicinski@netronome.com>
-Cc: Jakub Kicinski <jakub.kicinski@netronome.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:35569 "EHLO
-        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756224AbcIGSqU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 14:46:20 -0400
-Received: by mail-wm0-f47.google.com with SMTP id i204so101040243wma.0
-        for <netdev@vger.kernel.org>; Wed, 07 Sep 2016 11:46:20 -0700 (PDT)
-In-Reply-To: <1473273937-9230-1-git-send-email-jakub.kicinski@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Chris Brandt <chris.brandt@renesas.com>
+Subject: [PATCH v2] net: ethernet: renesas: sh_eth: add POST registers for rz
+Date: Wed,  7 Sep 2016 14:57:09 -0400
+Message-ID: <20160907185709.24150-1-chris.brandt@renesas.com>
+Cc: Simon Horman <horms+renesas@verge.net.au>,
+        Geert Uytterhoeven <geert+renesas@glider.be>,
+        Daniel Palmer <daniel@0x0f.com>, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org,
+        Chris Brandt <chris.brandt@renesas.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Remove unnecessary version.h includes.
+Due to a mistake in the hardware manual, the FWSLC and POST1-4 registers
+were not documented and left out of the driver for RZ/A making the CAM
+feature non-operational.
+Additionally, when the offset values for POST1-4 are left blank, the driver
+attempts to set them using an offset of 0xFFFF which can cause a memory
+corruption or panic.
 
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-Reviewed-by: Simon Horman <simon.horman@netronome.com>
-Reviewed-by: Dinan Gunawardena <dinan.gunawardena@netronome.com>
+This patch fixes the panic and properly enables CAM.
+
+Reported-by: Daniel Palmer <daniel@0x0f.com>
+Signed-off-by: Chris Brandt <chris.brandt@renesas.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net_common.c  | 1 -
- drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c | 1 -
- drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c  | 1 -
- 3 files changed, 3 deletions(-)
+v2:
+* POST registers really do exist, so just add them
+---
+ drivers/net/ethernet/renesas/sh_eth.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index 88678c172b19..e4fe0f080f34 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -41,7 +41,6 @@
-  *          Chris Telfer <chris.telfer@netronome.com>
-  */
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index 1f8240a..440ae27 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -201,9 +201,14 @@ static const u16 sh_eth_offset_fast_rz[SH_ETH_MAX_REGISTER_OFFSET] = {
  
--#include <linux/version.h>
- #include <linux/module.h>
- #include <linux/kernel.h>
- #include <linux/init.h>
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-index 7d7933d00b8f..4c9897220969 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-@@ -40,7 +40,6 @@
-  *          Brad Petrus <brad.petrus@netronome.com>
-  */
+ 	[ARSTR]		= 0x0000,
+ 	[TSU_CTRST]	= 0x0004,
++	[TSU_FWSLC]	= 0x0038,
+ 	[TSU_VTAG0]	= 0x0058,
+ 	[TSU_ADSBSY]	= 0x0060,
+ 	[TSU_TEN]	= 0x0064,
++	[TSU_POST1]	= 0x0070,
++	[TSU_POST2]	= 0x0074,
++	[TSU_POST3]	= 0x0078,
++	[TSU_POST4]	= 0x007c,
+ 	[TSU_ADRH0]	= 0x0100,
  
--#include <linux/version.h>
- #include <linux/kernel.h>
- #include <linux/netdevice.h>
- #include <linux/etherdevice.h>
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c b/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c
-index 37abef016a0a..6f22b0e12ac7 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c
-@@ -38,7 +38,6 @@
-  *         Rolf Neugebauer <rolf.neugebauer@netronome.com>
-  */
+ 	[TXNLCR0]	= 0x0080,
+@@ -2781,6 +2786,8 @@ static void sh_eth_tsu_init(struct sh_eth_private *mdp)
+ {
+ 	if (sh_eth_is_rz_fast_ether(mdp)) {
+ 		sh_eth_tsu_write(mdp, 0, TSU_TEN); /* Disable all CAM entry */
++		sh_eth_tsu_write(mdp, TSU_FWSLC_POSTENU | TSU_FWSLC_POSTENL,
++				 TSU_FWSLC);	/* Enable POST registers */
+ 		return;
+ 	}
  
--#include <linux/version.h>
- #include <linux/module.h>
- #include <linux/kernel.h>
- #include <linux/init.h>
 -- 
-1.9.1
+2.9.2
