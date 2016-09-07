@@ -1,66 +1,117 @@
 From: Eric Garver <e@erig.me>
-Subject: [PATCH net-next v22 0/3] openvswitch: add 802.1ad support
-Date: Wed,  7 Sep 2016 12:56:56 -0400
-Message-ID: <1473267419-6825-1-git-send-email-e@erig.me>
+Subject: [PATCH net-next v22 2/3] vlan: Check for vlan ethernet types for 8021.q or 802.1ad
+Date: Wed,  7 Sep 2016 12:56:58 -0400
+Message-ID: <1473267419-6825-3-git-send-email-e@erig.me>
+References: <1473267419-6825-1-git-send-email-e@erig.me>
 Cc: dev@openvswitch.org, Thomas F Herbert <thomasfherbert@gmail.com>,
         Xiao Liang <shaw.leon@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57910 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:45548 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1757444AbcIGQ5B (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Sep 2016 12:57:01 -0400
+        id S933159AbcIGQ5C (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Sep 2016 12:57:02 -0400
+In-Reply-To: <1473267419-6825-1-git-send-email-e@erig.me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series adds 802.1ad support to openvswitch. It is a continuation of the
-work originally started by Thomas F Herbert - hence the large rev number.
+This is to simplify using double tagged vlans. This function allows all
+valid vlan ethertypes to be checked in a single function call.
+Also replace some instances that check for both ETH_P_8021Q and
+ETH_P_8021AD.
 
-The extra VLAN is implemented by using an additional level of the
-OVS_KEY_ATTR_ENCAP netlink attribute.
-In OVS flow speak, this looks like
+Patch based on one originally by Thomas F Herbert.
 
-   eth_type(0x88a8),vlan(vid=100),encap(eth_type(0x8100), vlan(vid=200),
-                                        encap(eth_type(0x0800), ...))
+Signed-off-by: Thomas F Herbert <thomasfherbert@gmail.com>
+Signed-off-by: Eric Garver <e@erig.me>
+---
+ include/linux/if_vlan.h | 33 +++++++++++++++++++++++----------
+ 1 file changed, 23 insertions(+), 10 deletions(-)
 
-The userspace counterpart has also seen recent activity on the ovs-dev mailing
-lists. There are some new 802.1ad OVS tests being added - also on the ovs-dev
-list. This patch series has been tested using the most recent version of
-userspace (v3) and tests (v2).
-
-v22 changes:
-  - merge patch 4 into patch 3
-  - fix checkpatch.pl errors
-    - Still some 80 char warnings for long string literals
-  - refresh pointer after pskb_may_pull()
-  - refactor vlan nlattr parsing to remove some double checks
-  - introduce ovs_nla_put_vlan()
-  - move triple VLAN check to after ethertype serialization
-  - WARN_ON_ONCE() on triple VLAN and unexpected encap values
-
-v21 changes:
-  - Fix (and simplify) netlink attribute parsing
-  - re-add handling of truncated VLAN tags
-  - fix if/else dangling assignment in {push,pop}_vlan()
-  - simplify parse_vlan()
-
-
-Eric Garver (2):
-  vlan: Check for vlan ethernet types for 8021.q or 802.1ad
-  openvswitch: 802.1AD Flow handling, actions, vlan parsing, netlink
-    attributes
-
-Thomas F Herbert (1):
-  openvswitch: 802.1ad uapi changes.
-
- include/linux/if_vlan.h          |  33 +++--
- include/uapi/linux/openvswitch.h |  17 ++-
- net/openvswitch/actions.c        |  16 +-
- net/openvswitch/flow.c           |  65 +++++---
- net/openvswitch/flow.h           |   8 +-
- net/openvswitch/flow_netlink.c   | 310 ++++++++++++++++++++++++++-------------
- net/openvswitch/vport.c          |   7 +-
- 7 files changed, 314 insertions(+), 142 deletions(-)
-
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index 49d4aef1f789..3319d97d789d 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -272,6 +272,23 @@ static inline int vlan_get_encap_level(struct net_device *dev)
+ }
+ #endif
+ 
++/**
++ * eth_type_vlan - check for valid vlan ether type.
++ * @ethertype: ether type to check
++ *
++ * Returns true if the ether type is a vlan ether type.
++ */
++static inline bool eth_type_vlan(__be16 ethertype)
++{
++	switch (ethertype) {
++	case htons(ETH_P_8021Q):
++	case htons(ETH_P_8021AD):
++		return true;
++	default:
++		return false;
++	}
++}
++
+ static inline bool vlan_hw_offload_capable(netdev_features_t features,
+ 					   __be16 proto)
+ {
+@@ -425,8 +442,7 @@ static inline int __vlan_get_tag(const struct sk_buff *skb, u16 *vlan_tci)
+ {
+ 	struct vlan_ethhdr *veth = (struct vlan_ethhdr *)skb->data;
+ 
+-	if (veth->h_vlan_proto != htons(ETH_P_8021Q) &&
+-	    veth->h_vlan_proto != htons(ETH_P_8021AD))
++	if (!eth_type_vlan(veth->h_vlan_proto))
+ 		return -EINVAL;
+ 
+ 	*vlan_tci = ntohs(veth->h_vlan_TCI);
+@@ -488,7 +504,7 @@ static inline __be16 __vlan_get_protocol(struct sk_buff *skb, __be16 type,
+ 	 * present at mac_len - VLAN_HLEN (if mac_len > 0), or at
+ 	 * ETH_HLEN otherwise
+ 	 */
+-	if (type == htons(ETH_P_8021Q) || type == htons(ETH_P_8021AD)) {
++	if (eth_type_vlan(type)) {
+ 		if (vlan_depth) {
+ 			if (WARN_ON(vlan_depth < VLAN_HLEN))
+ 				return 0;
+@@ -506,8 +522,7 @@ static inline __be16 __vlan_get_protocol(struct sk_buff *skb, __be16 type,
+ 			vh = (struct vlan_hdr *)(skb->data + vlan_depth);
+ 			type = vh->h_vlan_encapsulated_proto;
+ 			vlan_depth += VLAN_HLEN;
+-		} while (type == htons(ETH_P_8021Q) ||
+-			 type == htons(ETH_P_8021AD));
++		} while (eth_type_vlan(type));
+ 	}
+ 
+ 	if (depth)
+@@ -572,8 +587,7 @@ static inline void vlan_set_encap_proto(struct sk_buff *skb,
+ static inline bool skb_vlan_tagged(const struct sk_buff *skb)
+ {
+ 	if (!skb_vlan_tag_present(skb) &&
+-	    likely(skb->protocol != htons(ETH_P_8021Q) &&
+-		   skb->protocol != htons(ETH_P_8021AD)))
++	    likely(!eth_type_vlan(skb->protocol)))
+ 		return false;
+ 
+ 	return true;
+@@ -593,15 +607,14 @@ static inline bool skb_vlan_tagged_multi(const struct sk_buff *skb)
+ 	if (!skb_vlan_tag_present(skb)) {
+ 		struct vlan_ethhdr *veh;
+ 
+-		if (likely(protocol != htons(ETH_P_8021Q) &&
+-			   protocol != htons(ETH_P_8021AD)))
++		if (likely(!eth_type_vlan(protocol)))
+ 			return false;
+ 
+ 		veh = (struct vlan_ethhdr *)skb->data;
+ 		protocol = veh->h_vlan_encapsulated_proto;
+ 	}
+ 
+-	if (protocol != htons(ETH_P_8021Q) && protocol != htons(ETH_P_8021AD))
++	if (!eth_type_vlan(protocol))
+ 		return false;
+ 
+ 	return true;
 -- 
 2.5.5
