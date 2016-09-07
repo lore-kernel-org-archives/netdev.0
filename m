@@ -1,72 +1,61 @@
-From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
-Subject: Re: [Intel-wired-lan] [PATCH 249/249]
- net:ethernet:intel:igb_main.c: Add Throttling disable option in order to
- decrease latency usually required by RT applications.
-Date: Wed, 7 Sep 2016 14:49:39 +0000
-Message-ID: <1473259777.31962.401.camel@intel.com>
-References: <20abe8058531466d8d60835ce88b6489@Hummer.waves.com>
-         <48faffefd02040f7a2af65691454ad3c@Hummer.waves.com>
+From: Saeed Mahameed via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: [PATCH RFC 11/11] net/mlx5e: XDP TX xmit more
+Date: Wed, 7 Sep 2016 18:08:04 +0300
+Message-ID: <CALzJLG8G1SvmHKLm2Oqn3v8FUAOjScS+=tsbOaixkPUY4JFDPQ@mail.gmail.com>
+References: <1473252152-11379-1-git-send-email-saeedm@mellanox.com>
+	<1473252152-11379-12-git-send-email-saeedm@mellanox.com>
+	<1473259302.10725.31.camel@edumazet-glaptop3.roam.corp.google.com>
+Reply-To: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "shannon.nelson@intel.com" <shannon.nelson@intel.com>,
-        "rostedt@goodmis.org" <rostedt@goodmis.org>,
-        "matthew.vick@intel.com" <matthew.vick@intel.com>,
-        "john.ronciak@intel.com" <john.ronciak@intel.com>
-To: "amiry@waves.com" <amiry@waves.com>,
-        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <48faffefd02040f7a2af65691454ad3c@Hummer.waves.com>
-Content-Language: en-US
-Content-ID: <68EF72E517AAF74197B03C8748B8CE3C@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <1473259302.10725.31.camel-XN9IlZ5yJG9HTL0Zs8A6p+yfmBU6pStAUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-T24gVHVlLCAyMDE2LTA5LTA2IGF0IDE0OjQ2ICswMDAwLCBBbWlyIFlpaGllIHdyb3RlOg0KPiBG
-cm9tIGU0MzNmNWJlZGQ0OWE2NWI3MzM3ZDAyNWYzZjIwNGYwZjIxYWQ1ZTUgTW9uIFNlcCAxNyAw
-MDowMDowMA0KPiAyMDAxDQo+IEZyb206IGFtaXJ5IDxhbWlyeUB3YXZlcy5jb20+DQo+IERhdGU6
-IFR1ZSwgNiBTZXAgMjAxNiAxNDo1ODozOCArMDMwMA0KPiBTdWJqZWN0OiBbUEFUQ0ggMjQ5LzI0
-OV0gbmV0OmV0aGVybmV0OmludGVsOmlnYl9tYWluLmM6IEFkZA0KPiBUaHJvdHRsaW5nIGRpc2Fi
-bGUNCj4gwqBvcHRpb24gaW4gb3JkZXIgdG8gZGVjcmVhc2UgbGF0ZW5jeSB1c3VhbGx5IHJlcXVp
-cmVkIGJ5IFJUDQo+IGFwcGxpY2F0aW9ucy4NCj4gDQo+IEFkZCBhbiBvcHRpb24gdG8gRGlzYWJs
-ZSBUaHJvdHRsaW5nIGFsZ29yaXRobSAsIHdoaWNoIHdpbGwgcmVzdWx0DQo+IHdpdGggbWluaW11
-bSBsYXRlbmN5IG9uIHJlY2VpdmVkIGZyYW1lcyAuDQo+IG1haW5seSB0YXJnZXRzIGZvciBSVCBh
-cHBsaWNhdGlvbiB0aGF0IGxvb2sgZm9yIGxvdyBsYXJjZW55IGFuZCBsZXNzDQo+IGNhcmVzIGFi
-b3V0IHRocm91Z2hwdXQgLg0KPiBIb3cgdG8gdXNlIDoNCj4gT24gaW5zbW9kICwgYWRkIHBhcmFt
-ZXRlciA6IEludGVycnVwdFRocm90dGxlUmF0ZT0wDQo+IA0KPiBUaGlzIHBhdGNoIGlzIGN1cnJl
-bnRseSBhZ2FpbnN0IGEgbGludXggNC4xLjI3LXJ0MzEga2VybmVsLg0KPiANCj4gU2lnbmVkLW9m
-Zi1ieTogQW1pciBZaWhpZSA8YW1pcnlAd2F2ZXMuY29tPg0KPiAtLS0NCj4gwqBkcml2ZXJzL25l
-dC9ldGhlcm5ldC9pbnRlbC9pZ2IvaWdiX21haW4uYyB8IDExICsrKysrKysrKysrDQo+IMKgMSBm
-aWxlIGNoYW5nZWQsIDExIGluc2VydGlvbnMoKykNCj4gDQo+IGRpZmYgLS1naXQgYS9kcml2ZXJz
-L25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvaWdiX21haW4uYw0KPiBiL2RyaXZlcnMvbmV0L2V0aGVy
-bmV0L2ludGVsL2lnYi9pZ2JfbWFpbi5jDQo+IGluZGV4IDdkZmJjZGUuLjk0ODA4NTAgMTAwNjQ0
-DQo+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9pZ2JfbWFpbi5jDQo+ICsr
-KyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9pZ2JfbWFpbi5jDQo+IEBAIC0yNTEs
-NiArMjUxLDE0IEBAIHN0YXRpYyBpbnQgZGVidWcgPSAtMTsNCj4gwqBtb2R1bGVfcGFyYW0oZGVi
-dWcsIGludCwgMCk7DQo+IMKgTU9EVUxFX1BBUk1fREVTQyhkZWJ1ZywgIkRlYnVnIGxldmVsICgw
-PW5vbmUsLi4uLDE2PWFsbCkiKTsNCj4gwqANCj4gKy8qIEludGVycnVwdCBUaHJvdHRsZSBSYXRl
-IChpbnRlcnJ1cHRzL3NlYykNCj4gKyAqDQo+ICsgKiBWYWxpZCBSYW5nZTogMD1vZmYsIDM9ZHlu
-YW1pYyBjb25zZXJ2YXRpdmUNCj4gKyAqLw0KPiArc3RhdGljIGludCBJbnRlcnJ1cHRUaHJvdHRs
-ZVJhdGUgPSAzOw0KPiArbW9kdWxlX3BhcmFtKEludGVycnVwdFRocm90dGxlUmF0ZSwgaW50LCAw
-KTsNCj4gK01PRFVMRV9QQVJNX0RFU0MoSW50ZXJydXB0VGhyb3R0bGVSYXRlLCAiSW50ZXJydXB0
-VGhyb3R0bGVSYXRlDQo+ICgwPW9mZiwgMz1keW5hbWljIGNvbnNlcnZhdGl2ZSkiKTsNCj4gKw0K
-DQpUaGlzIGlzIGNyZWF0aW5nIHJlZHVuZGFudCBmdW5jdGlvbmFsaXR5LiDCoFRoZSBzYW1lIGNh
-biBiZSBkb25lIHZpYSB0aGUNCmV0aHRvb2wgY29tbWFuZCAiZXRodG9vbCAtQyA8aWZhY2U+IHJ4
-LXVzZWNzIDAiLiDCoElzIHRoZXJlIHNvbWUgcmVhc29uDQp3aHkgeW91IGNvdWxkbid0IHVzZSBl
-dGh0b29sPw0KDQo+IMKgc3RydWN0IGlnYl9yZWdfaW5mbyB7DQo+IMKgwqDCoMKgwqDCoMKgwqB1
-MzIgb2ZzOw0KPiDCoMKgwqDCoMKgwqDCoMKgY2hhciAqbmFtZTsNCj4gQEAgLTI5NjYsNiArMjk3
-NCw5IEBAIHN0YXRpYyBpbnQgaWdiX3N3X2luaXQoc3RydWN0IGlnYl9hZGFwdGVyDQo+ICphZGFw
-dGVyKQ0KPiDCoMKgwqDCoMKgwqDCoMKgYWRhcHRlci0+cnhfaXRyX3NldHRpbmcgPSBJR0JfREVG
-QVVMVF9JVFI7DQo+IMKgwqDCoMKgwqDCoMKgwqBhZGFwdGVyLT50eF9pdHJfc2V0dGluZyA9IElH
-Ql9ERUZBVUxUX0lUUjsNCj4gwqANCj4gK8KgwqDCoMKgwqDCoMKgaWYgKEludGVycnVwdFRocm90
-dGxlUmF0ZSA9PSAwKQ0KPiArwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgYWRhcHRlci0+
-cnhfaXRyX3NldHRpbmcgPSBJbnRlcnJ1cHRUaHJvdHRsZVJhdGU7DQo+ICsNCj4gwqDCoMKgwqDC
-oMKgwqDCoC8qIHNldCBkZWZhdWx0IHdvcmsgbGltaXRzICovDQo+IMKgwqDCoMKgwqDCoMKgwqBh
-ZGFwdGVyLT50eF93b3JrX2xpbWl0ID0gSUdCX0RFRkFVTFRfVFhfV09SSzsNCg0KSWYgeW91IGFy
-ZSBnb2luZyB0byB1c2UgSW50ZXJydXB0VGhyb3R0bGVSYXRlIHlvdSBtaWdodCBhcyB3ZWxsIHVz
-ZSBpdA0KZnVsbHkgaW5zdGVhZCBvZiBtYWtpbmcgaXQgYSBib29sZWFuIHZhbHVlIHdpdGggMCBo
-YXZpbmcgb25lIG1lYW5pbmcNCmFuZCB0aGUgZGVmYXVsdCBvZiAzIGJlaW5nIGFub3RoZXIuDQoN
-ClRoYW5rcy4NCg0KLSBBbGV4
+On Wed, Sep 7, 2016 at 5:41 PM, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> On Wed, 2016-09-07 at 15:42 +0300, Saeed Mahameed wrote:
+>> Previously we rang XDP SQ doorbell on every forwarded XDP packet.
+>>
+>> Here we introduce a xmit more like mechanism that will queue up more
+>> than one packet into SQ (up to RX napi budget) w/o notifying the hardware.
+>>
+>> Once RX napi budget is consumed and we exit napi RX loop, we will
+>> flush (doorbell) all XDP looped packets in case there are such.
+>
+> Why is this idea depends on XDP ?
+>
+> It looks like we could apply it to any driver having one IRQ servicing
+> one RX and one TX, without XDP being involved.
+>
+
+Yes but it is more complicated than XDP case, where the RX ring posts
+the TX descriptors and once done
+the RX ring hits the doorbell once for all the TX descriptors it
+posted, and it is the only possible place to hit a doorbell
+for XDP TX ring.
+
+For regular TX and RX ring sharing the same IRQ, there is no such
+simple connection between them, and hitting a doorbell
+from RX ring napi would race with xmit ndo function of the TX ring.
+
+How do you synchronize in such case ?
+isn't the existing xmit more mechanism sufficient enough ? maybe we
+can have a fence from napi RX function
+that will hold the xmit queue until done and then flush the TX queue
+with the setting the right xmit more flags, without the need
+of explicitly intervening with TX flow (hitting the doorbell).
