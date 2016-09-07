@@ -1,117 +1,67 @@
 From: Eric Garver <e@erig.me>
-Subject: [PATCH net-next v22 2/3] vlan: Check for vlan ethernet types for 8021.q or 802.1ad
-Date: Wed,  7 Sep 2016 12:56:58 -0400
-Message-ID: <1473267419-6825-3-git-send-email-e@erig.me>
+Subject: [PATCH net-next v22 1/3] openvswitch: 802.1ad uapi
+	changes.
+Date: Wed,  7 Sep 2016 12:56:57 -0400
+Message-ID: <1473267419-6825-2-git-send-email-e@erig.me>
 References: <1473267419-6825-1-git-send-email-e@erig.me>
-Cc: dev@openvswitch.org, Thomas F Herbert <thomasfherbert@gmail.com>,
-        Xiao Liang <shaw.leon@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45548 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933159AbcIGQ5C (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Sep 2016 12:57:02 -0400
-In-Reply-To: <1473267419-6825-1-git-send-email-e@erig.me>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Thomas F Herbert <thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1473267419-6825-1-git-send-email-e-jCUjZXiOoP8@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-This is to simplify using double tagged vlans. This function allows all
-valid vlan ethertypes to be checked in a single function call.
-Also replace some instances that check for both ETH_P_8021Q and
-ETH_P_8021AD.
-
-Patch based on one originally by Thomas F Herbert.
-
-Signed-off-by: Thomas F Herbert <thomasfherbert@gmail.com>
-Signed-off-by: Eric Garver <e@erig.me>
----
- include/linux/if_vlan.h | 33 +++++++++++++++++++++++----------
- 1 file changed, 23 insertions(+), 10 deletions(-)
-
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index 49d4aef1f789..3319d97d789d 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -272,6 +272,23 @@ static inline int vlan_get_encap_level(struct net_device *dev)
- }
- #endif
- 
-+/**
-+ * eth_type_vlan - check for valid vlan ether type.
-+ * @ethertype: ether type to check
-+ *
-+ * Returns true if the ether type is a vlan ether type.
-+ */
-+static inline bool eth_type_vlan(__be16 ethertype)
-+{
-+	switch (ethertype) {
-+	case htons(ETH_P_8021Q):
-+	case htons(ETH_P_8021AD):
-+		return true;
-+	default:
-+		return false;
-+	}
-+}
-+
- static inline bool vlan_hw_offload_capable(netdev_features_t features,
- 					   __be16 proto)
- {
-@@ -425,8 +442,7 @@ static inline int __vlan_get_tag(const struct sk_buff *skb, u16 *vlan_tci)
- {
- 	struct vlan_ethhdr *veth = (struct vlan_ethhdr *)skb->data;
- 
--	if (veth->h_vlan_proto != htons(ETH_P_8021Q) &&
--	    veth->h_vlan_proto != htons(ETH_P_8021AD))
-+	if (!eth_type_vlan(veth->h_vlan_proto))
- 		return -EINVAL;
- 
- 	*vlan_tci = ntohs(veth->h_vlan_TCI);
-@@ -488,7 +504,7 @@ static inline __be16 __vlan_get_protocol(struct sk_buff *skb, __be16 type,
- 	 * present at mac_len - VLAN_HLEN (if mac_len > 0), or at
- 	 * ETH_HLEN otherwise
- 	 */
--	if (type == htons(ETH_P_8021Q) || type == htons(ETH_P_8021AD)) {
-+	if (eth_type_vlan(type)) {
- 		if (vlan_depth) {
- 			if (WARN_ON(vlan_depth < VLAN_HLEN))
- 				return 0;
-@@ -506,8 +522,7 @@ static inline __be16 __vlan_get_protocol(struct sk_buff *skb, __be16 type,
- 			vh = (struct vlan_hdr *)(skb->data + vlan_depth);
- 			type = vh->h_vlan_encapsulated_proto;
- 			vlan_depth += VLAN_HLEN;
--		} while (type == htons(ETH_P_8021Q) ||
--			 type == htons(ETH_P_8021AD));
-+		} while (eth_type_vlan(type));
- 	}
- 
- 	if (depth)
-@@ -572,8 +587,7 @@ static inline void vlan_set_encap_proto(struct sk_buff *skb,
- static inline bool skb_vlan_tagged(const struct sk_buff *skb)
- {
- 	if (!skb_vlan_tag_present(skb) &&
--	    likely(skb->protocol != htons(ETH_P_8021Q) &&
--		   skb->protocol != htons(ETH_P_8021AD)))
-+	    likely(!eth_type_vlan(skb->protocol)))
- 		return false;
- 
- 	return true;
-@@ -593,15 +607,14 @@ static inline bool skb_vlan_tagged_multi(const struct sk_buff *skb)
- 	if (!skb_vlan_tag_present(skb)) {
- 		struct vlan_ethhdr *veh;
- 
--		if (likely(protocol != htons(ETH_P_8021Q) &&
--			   protocol != htons(ETH_P_8021AD)))
-+		if (likely(!eth_type_vlan(protocol)))
- 			return false;
- 
- 		veh = (struct vlan_ethhdr *)skb->data;
- 		protocol = veh->h_vlan_encapsulated_proto;
- 	}
- 
--	if (protocol != htons(ETH_P_8021Q) && protocol != htons(ETH_P_8021AD))
-+	if (!eth_type_vlan(protocol))
- 		return false;
- 
- 	return true;
--- 
-2.5.5
+RnJvbTogVGhvbWFzIEYgSGVyYmVydCA8dGhvbWFzZmhlcmJlcnRAZ21haWwuY29tPgoKb3BlbnZz
+d2l0Y2g6IEFkZCBzdXBwb3J0IGZvciA4MDIxLkFECgpDaGFuZ2UgdGhlIGRlc2NyaXB0aW9uIG9m
+IHRoZSBWTEFOIHRwaWQgZmllbGQuCgpTaWduZWQtb2ZmLWJ5OiBUaG9tYXMgRiBIZXJiZXJ0IDx0
+aG9tYXNmaGVyYmVydEBnbWFpbC5jb20+Ci0tLQogaW5jbHVkZS91YXBpL2xpbnV4L29wZW52c3dp
+dGNoLmggfCAxNyArKysrKysrKystLS0tLS0tLQogMSBmaWxlIGNoYW5nZWQsIDkgaW5zZXJ0aW9u
+cygrKSwgOCBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9pbmNsdWRlL3VhcGkvbGludXgvb3Bl
+bnZzd2l0Y2guaCBiL2luY2x1ZGUvdWFwaS9saW51eC9vcGVudnN3aXRjaC5oCmluZGV4IDU0YzNi
+NGY0YWNlYi4uNTllZDM5OTJjNzYwIDEwMDY0NAotLS0gYS9pbmNsdWRlL3VhcGkvbGludXgvb3Bl
+bnZzd2l0Y2guaAorKysgYi9pbmNsdWRlL3VhcGkvbGludXgvb3BlbnZzd2l0Y2guaApAQCAtNjA1
+LDEzICs2MDUsMTMgQEAgc3RydWN0IG92c19hY3Rpb25fcHVzaF9tcGxzIHsKICAqIEB2bGFuX3Rj
+aTogVGFnIGNvbnRyb2wgaWRlbnRpZmllciAoVENJKSB0byBwdXNoLiAgVGhlIENGSSBiaXQgbXVz
+dCBiZSBzZXQKICAqIChidXQgaXQgd2lsbCBub3QgYmUgc2V0IGluIHRoZSA4MDIuMVEgaGVhZGVy
+IHRoYXQgaXMgcHVzaGVkKS4KICAqCi0gKiBUaGUgQHZsYW5fdHBpZCB2YWx1ZSBpcyB0eXBpY2Fs
+bHkgJUVUSF9QXzgwMjFRLiAgVGhlIG9ubHkgYWNjZXB0YWJsZSBUUElECi0gKiB2YWx1ZXMgYXJl
+IHRob3NlIHRoYXQgdGhlIGtlcm5lbCBtb2R1bGUgYWxzbyBwYXJzZXMgYXMgODAyLjFRIGhlYWRl
+cnMsIHRvCi0gKiBwcmV2ZW50ICVPVlNfQUNUSU9OX0FUVFJfUFVTSF9WTEFOIGZvbGxvd2VkIGJ5
+ICVPVlNfQUNUSU9OX0FUVFJfUE9QX1ZMQU4KLSAqIGZyb20gaGF2aW5nIHN1cnByaXNpbmcgcmVz
+dWx0cy4KKyAqIFRoZSBAdmxhbl90cGlkIHZhbHVlIGlzIHR5cGljYWxseSAlRVRIX1BfODAyMVEg
+b3IgJUVUSF9QXzgwMjFBRC4KKyAqIFRoZSBvbmx5IGFjY2VwdGFibGUgVFBJRCB2YWx1ZXMgYXJl
+IHRob3NlIHRoYXQgdGhlIGtlcm5lbCBtb2R1bGUgYWxzbyBwYXJzZXMKKyAqIGFzIDgwMi4xUSBv
+ciA4MDIuMUFEIGhlYWRlcnMsIHRvIHByZXZlbnQgJU9WU19BQ1RJT05fQVRUUl9QVVNIX1ZMQU4g
+Zm9sbG93ZWQKKyAqIGJ5ICVPVlNfQUNUSU9OX0FUVFJfUE9QX1ZMQU4gZnJvbSBoYXZpbmcgc3Vy
+cHJpc2luZyByZXN1bHRzLgogICovCiBzdHJ1Y3Qgb3ZzX2FjdGlvbl9wdXNoX3ZsYW4gewotCV9f
+YmUxNiB2bGFuX3RwaWQ7CS8qIDgwMi4xUSBUUElELiAqLworCV9fYmUxNiB2bGFuX3RwaWQ7CS8q
+IDgwMi4xUSBvciA4MDIuMWFkIFRQSUQuICovCiAJX19iZTE2IHZsYW5fdGNpOwkvKiA4MDIuMVEg
+VENJIChWTEFOIElEIGFuZCBwcmlvcml0eSkuICovCiB9OwogCkBAIC03MjEsOSArNzIxLDEwIEBA
+IGVudW0gb3ZzX25hdF9hdHRyIHsKICAqIGlzIGNvcGllZCBmcm9tIHRoZSB2YWx1ZSB0byB0aGUg
+cGFja2V0IGhlYWRlciBmaWVsZCwgcmVzdCBvZiB0aGUgYml0cyBhcmUKICAqIGxlZnQgdW5jaGFu
+Z2VkLiAgVGhlIG5vbi1tYXNrZWQgdmFsdWUgYml0cyBtdXN0IGJlIHBhc3NlZCBpbiBhcyB6ZXJv
+ZXMuCiAgKiBNYXNraW5nIGlzIG5vdCBzdXBwb3J0ZWQgZm9yIHRoZSAlT1ZTX0tFWV9BVFRSX1RV
+Tk5FTCBhdHRyaWJ1dGUuCi0gKiBAT1ZTX0FDVElPTl9BVFRSX1BVU0hfVkxBTjogUHVzaCBhIG5l
+dyBvdXRlcm1vc3QgODAyLjFRIGhlYWRlciBvbnRvIHRoZQotICogcGFja2V0LgotICogQE9WU19B
+Q1RJT05fQVRUUl9QT1BfVkxBTjogUG9wIHRoZSBvdXRlcm1vc3QgODAyLjFRIGhlYWRlciBvZmYg
+dGhlIHBhY2tldC4KKyAqIEBPVlNfQUNUSU9OX0FUVFJfUFVTSF9WTEFOOiBQdXNoIGEgbmV3IG91
+dGVybW9zdCA4MDIuMVEgb3IgODAyLjFhZCBoZWFkZXIKKyAqIG9udG8gdGhlIHBhY2tldC4KKyAq
+IEBPVlNfQUNUSU9OX0FUVFJfUE9QX1ZMQU46IFBvcCB0aGUgb3V0ZXJtb3N0IDgwMi4xUSBvciA4
+MDIuMWFkIGhlYWRlcgorICogZnJvbSB0aGUgcGFja2V0LgogICogQE9WU19BQ1RJT05fQVRUUl9T
+QU1QTEU6IFByb2JhYmlsaXRpY2FsbHkgZXhlY3V0ZXMgYWN0aW9ucywgYXMgc3BlY2lmaWVkIGlu
+CiAgKiB0aGUgbmVzdGVkICVPVlNfU0FNUExFX0FUVFJfKiBhdHRyaWJ1dGVzLgogICogQE9WU19B
+Q1RJT05fQVRUUl9QVVNIX01QTFM6IFB1c2ggYSBuZXcgTVBMUyBsYWJlbCBzdGFjayBlbnRyeSBv
+bnRvIHRoZQotLSAKMi41LjUKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3Bl
+bnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
