@@ -1,53 +1,69 @@
-From: Andrei Vagin <avagin@virtuozzo.com>
-Subject: Re: [PATCH net-next] netlink: don't forget to release a
- rhashtable_iter structure
-Date: Tue, 6 Sep 2016 21:28:11 -0700
-Message-ID: <20160907042810.GA15590@outlook.office365.com>
-References: <1473186219-13061-1-git-send-email-avagin@openvz.org>
- <20160906.174137.1869816645707925029.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next V6 4/4] net/sched: Introduce act_tunnel_key
+Date: Wed, 07 Sep 2016 07:14:20 -0700
+Message-ID: <1473257660.10725.25.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1473235686-18975-1-git-send-email-hadarh@mellanox.com>
+         <1473235686-18975-5-git-send-email-hadarh@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="koi8-r"
-Cc: <avagin@openvz.org>, <netdev@vger.kernel.org>,
-        <herbert@gondor.apana.org.au>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Jiri Pirko <jiri@mellanox.com>, Jiri Benc <jbenc@redhat.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Amir Vadai <amirva@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>, Amir Vadai <amir@vadai.me>
+To: Hadar Hen Zion <hadarh@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0098.outbound.protection.outlook.com ([104.47.2.98]:48320
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753899AbcIGOCE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Sep 2016 10:02:04 -0400
-Content-Disposition: inline
-In-Reply-To: <20160906.174137.1869816645707925029.davem@davemloft.net>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:33555 "EHLO
+        mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750842AbcIGOOZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 10:14:25 -0400
+Received: by mail-pa0-f41.google.com with SMTP id cm16so6860159pac.0
+        for <netdev@vger.kernel.org>; Wed, 07 Sep 2016 07:14:25 -0700 (PDT)
+In-Reply-To: <1473235686-18975-5-git-send-email-hadarh@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 06, 2016 at 05:41:37PM -0700, David Miller wrote:
-> From: Andrei Vagin <avagin@openvz.org>
-> Date: Tue,  6 Sep 2016 11:23:39 -0700
+On Wed, 2016-09-07 at 11:08 +0300, Hadar Hen Zion wrote:
+> From: Amir Vadai <amir@vadai.me>
 > 
-> > This bug was detected by kmemleak:
-> > unreferenced object 0xffff8804269cc3c0 (size 64):
-> >   comm "criu", pid 1042, jiffies 4294907360 (age 13.713s)
-> >   hex dump (first 32 bytes):
-> >     a0 32 cc 2c 04 88 ff ff 00 00 00 00 00 00 00 00  .2.,............
-> >     00 01 00 00 00 00 ad de 00 02 00 00 00 00 ad de  ................
-> >   backtrace:
-> >     [<ffffffff8184dffa>] kmemleak_alloc+0x4a/0xa0
-> >     [<ffffffff8124720f>] kmem_cache_alloc_trace+0x10f/0x280
-> >     [<ffffffffa02864cc>] __netlink_diag_dump+0x26c/0x290 [netlink_diag]
-> > 
-> > Cc: Herbert Xu <herbert@gondor.apana.org.au>
-> > Fixes: ad202074320c ("netlink: Use rhashtable walk interface in diag dump")
-> > Signed-off-by: Andrei Vagin <avagin@openvz.org>
-> 
-> Hmmm, why isn't this handled by netlink_diag_dump_done()?
-> 
-> It seems like the intent is to have the hashtable iter be cached
-> across multiple __netlink_diag_dump() calls within a single
-> netlink_diag_dump invocation.
 
-I read the code again and I think you are right. I didn't get the
-idea at the first time.
 
-Thanks,
-Andrei
+> +static int tunnel_key_init(struct net *net, struct nlattr *nla,
+> +			   struct nlattr *est, struct tc_action **a,
+> +			   int ovr, int bind)
+> +{
+> +	struct tc_action_net *tn = net_generic(net, tunnel_key_net_id);
+> +	struct nlattr *tb[TCA_TUNNEL_KEY_MAX + 1];
+> +	struct metadata_dst *metadata = NULL;
+> +	struct tc_tunnel_key *parm;
+> +	struct tcf_tunnel_key *t;
+> +	struct tcf_tunnel_key_params *params_old;
+> +	struct tcf_tunnel_key_params *params_new;
+> +	__be64 key_id;
+> +	bool exists = false;
+> +	int ret = 0;
+> +	int err;
+
+We try for new code to avoid reverse Christmas tree ;)
+
+->
+
++       struct tc_action_net *tn = net_generic(net, tunnel_key_net_id);
++       struct nlattr *tb[TCA_TUNNEL_KEY_MAX + 1];
++       struct tcf_tunnel_key_params *params_old;
++       struct tcf_tunnel_key_params *params_new;
++       struct metadata_dst *metadata = NULL;
++       struct tc_tunnel_key *parm;
++       struct tcf_tunnel_key *t;
++       bool exists = false;
++       __be64 key_id;
++       int ret = 0;
++       int err;
+
+
+Other than this, code looks fine to me, thanks.
