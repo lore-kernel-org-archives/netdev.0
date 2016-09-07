@@ -1,125 +1,159 @@
-From: thomas.zeitlhofer+lkml@ze-it.at
-Subject: [PATCH v2] vti: use right inner_mode for inbound inter address
- family policy checks
-Date: Wed, 7 Sep 2016 20:40:38 +0200
-Message-ID: <20160907184038.2neg44xtvlunlrmu@toau>
-References: <20160904105713.3mqgszgqi7waxk5l@toau>
- <20160906111522.GG31137@gauss.secunet.com>
+From: Jesper Dangaard Brouer via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: [PATCH RFC 03/11] net/mlx5e: Implement RX mapped
+ page cache for page recycle
+Date: Wed, 7 Sep 2016 20:45:01 +0200
+Message-ID: <20160907204501.08cc4ede@redhat.com>
+References: <1473252152-11379-1-git-send-email-saeedm@mellanox.com>
+	<1473252152-11379-4-git-send-email-saeedm@mellanox.com>
+Reply-To: Jesper Dangaard Brouer <brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vie01a-dmta-pe01-2.mx.upcmail.net ([62.179.121.155]:43171 "EHLO
-        vie01a-dmta-pe01-2.mx.upcmail.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751810AbcIGSkw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 14:40:52 -0400
-Received: from [172.31.216.44] (helo=vie01a-pemc-psmtp-pe02)
-        by vie01a-dmta-pe01.mx.upcmail.net with esmtp (Exim 4.87)
-        (envelope-from <thomas.zeitlhofer+lkml@ze-it.at>)
-        id 1bhhmD-0005LL-4Z
-        for netdev@vger.kernel.org; Wed, 07 Sep 2016 20:40:49 +0200
-Content-Disposition: inline
-In-Reply-To: <20160906111522.GG31137@gauss.secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>
+To: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <1473252152-11379-4-git-send-email-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-In case of inter address family tunneling (IPv6 over vti4 or IPv4 over
-vti6), the inbound policy checks in vti_rcv_cb() and vti6_rcv_cb() are
-using the wrong address family. As a result, all inbound inter address
-family traffic is dropped.
 
-Use the xfrm_ip2inner_mode() helper, as done in xfrm_input() (i.e., also
-increment LINUX_MIB_XFRMINSTATEMODEERROR in case of error), to select the
-inner_mode that contains the right address family for the inbound policy
-checks.
+On Wed,  7 Sep 2016 15:42:24 +0300 Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org> wrote:
 
-Signed-off-by: Thomas Zeitlhofer <thomas.zeitlhofer+lkml@ze-it.at>
----
+> From: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> 
+> Instead of reallocating and mapping pages for RX data-path,
+> recycle already used pages in a per ring cache.
+> 
+> We ran pktgen single-stream benchmarks, with iptables-raw-drop:
+> 
+> Single stride, 64 bytes:
+> * 4,739,057 - baseline
+> * 4,749,550 - order0 no cache
+> * 4,786,899 - order0 with cache
+> 1% gain
+> 
+> Larger packets, no page cross, 1024 bytes:
+> * 3,982,361 - baseline
+> * 3,845,682 - order0 no cache
+> * 4,127,852 - order0 with cache
+> 3.7% gain
+> 
+> Larger packets, every 3rd packet crosses a page, 1500 bytes:
+> * 3,731,189 - baseline
+> * 3,579,414 - order0 no cache
+> * 3,931,708 - order0 with cache
+> 5.4% gain
+> 
+> Signed-off-by: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> ---
+>  drivers/net/ethernet/mellanox/mlx5/core/en.h       | 16 ++++++
+>  drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 15 ++++++
+>  drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    | 57 ++++++++++++++++++++--
+>  drivers/net/ethernet/mellanox/mlx5/core/en_stats.h | 16 ++++++
+>  4 files changed, 99 insertions(+), 5 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+> index 075cdfc..afbdf70 100644
+> --- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
+> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+> @@ -287,6 +287,18 @@ struct mlx5e_rx_am { /* Adaptive Moderation */
+>  	u8					tired;
+>  };
+>  
+> +/* a single cache unit is capable to serve one napi call (for non-striding rq)
+> + * or a MPWQE (for striding rq).
+> + */
+> +#define MLX5E_CACHE_UNIT	(MLX5_MPWRQ_PAGES_PER_WQE > NAPI_POLL_WEIGHT ? \
+> +				 MLX5_MPWRQ_PAGES_PER_WQE : NAPI_POLL_WEIGHT)
+> +#define MLX5E_CACHE_SIZE	(2 * roundup_pow_of_two(MLX5E_CACHE_UNIT))
+> +struct mlx5e_page_cache {
+> +	u32 head;
+> +	u32 tail;
+> +	struct mlx5e_dma_info page_cache[MLX5E_CACHE_SIZE];
+> +};
+> +
+[...]
+>  
+> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+> index c1cb510..8e02af3 100644
+> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+> @@ -305,11 +305,55 @@ static inline void mlx5e_post_umr_wqe(struct mlx5e_rq *rq, u16 ix)
+>  	mlx5e_tx_notify_hw(sq, &wqe->ctrl, 0);
+>  }
+>  
+> +static inline bool mlx5e_rx_cache_put(struct mlx5e_rq *rq,
+> +				      struct mlx5e_dma_info *dma_info)
+> +{
+> +	struct mlx5e_page_cache *cache = &rq->page_cache;
+> +	u32 tail_next = (cache->tail + 1) & (MLX5E_CACHE_SIZE - 1);
+> +
+> +	if (tail_next == cache->head) {
+> +		rq->stats.cache_full++;
+> +		return false;
+> +	}
+> +
+> +	cache->page_cache[cache->tail] = *dma_info;
+> +	cache->tail = tail_next;
+> +	return true;
+> +}
+> +
+> +static inline bool mlx5e_rx_cache_get(struct mlx5e_rq *rq,
+> +				      struct mlx5e_dma_info *dma_info)
+> +{
+> +	struct mlx5e_page_cache *cache = &rq->page_cache;
+> +
+> +	if (unlikely(cache->head == cache->tail)) {
+> +		rq->stats.cache_empty++;
+> +		return false;
+> +	}
+> +
+> +	if (page_ref_count(cache->page_cache[cache->head].page) != 1) {
+> +		rq->stats.cache_busy++;
+> +		return false;
+> +	}
 
-Notes:
-    v2: implement review comments from Steffen (thanks for the reply):
-    
-    	- return -EINVAL in case of error
-    
-    	- increment LINUX_MIB_XFRMINSTATEMODEERROR in case of error
-    
-    	  Just to point that out, in case there are arguments against it:
-    	  this is done in the namespace of skb->dev and not in the
-    	  t(unnel)?->net namespace.
-    
-    	and update the commit message accordingly.
+Hmmm... doesn't this cause "blocking" of the page_cache recycle
+facility until the page at the head of the queue gets (page) refcnt
+decremented?  Real use-case could fairly easily block/cause this... 
 
- net/ipv4/ip_vti.c  | 15 ++++++++++++++-
- net/ipv6/ip6_vti.c | 15 ++++++++++++++-
- 2 files changed, 28 insertions(+), 2 deletions(-)
+> +
+> +	*dma_info = cache->page_cache[cache->head];
+> +	cache->head = (cache->head + 1) & (MLX5E_CACHE_SIZE - 1);
+> +	rq->stats.cache_reuse++;
+> +
+> +	dma_sync_single_for_device(rq->pdev, dma_info->addr, PAGE_SIZE,
+> +				   DMA_FROM_DEVICE);
+> +	return true;
+> +}
+> +
+>  static inline int mlx5e_page_alloc_mapped(struct mlx5e_rq *rq,
+>  					  struct mlx5e_dma_info *dma_info)
+>  {
+> -	struct page *page = dev_alloc_page();
+> +	struct page *page;
+> +
+> +	if (mlx5e_rx_cache_get(rq, dma_info))
+> +		return 0;
+>  
+> +	page = dev_alloc_page();
+>  	if (unlikely(!page))
+>  		return -ENOMEM;
 
-diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
-index a917903..c9957ed 100644
---- a/net/ipv4/ip_vti.c
-+++ b/net/ipv4/ip_vti.c
-@@ -88,6 +88,7 @@ static int vti_rcv_cb(struct sk_buff *skb, int err)
- 	struct net_device *dev;
- 	struct pcpu_sw_netstats *tstats;
- 	struct xfrm_state *x;
-+	struct xfrm_mode *inner_mode;
- 	struct ip_tunnel *tunnel = XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip4;
- 	u32 orig_mark = skb->mark;
- 	int ret;
-@@ -105,7 +106,19 @@ static int vti_rcv_cb(struct sk_buff *skb, int err)
- 	}
- 
- 	x = xfrm_input_state(skb);
--	family = x->inner_mode->afinfo->family;
-+
-+	inner_mode = x->inner_mode;
-+
-+	if (x->sel.family == AF_UNSPEC) {
-+		inner_mode = xfrm_ip2inner_mode(x, XFRM_MODE_SKB_CB(skb)->protocol);
-+		if (inner_mode == NULL) {
-+			XFRM_INC_STATS(dev_net(skb->dev),
-+				       LINUX_MIB_XFRMINSTATEMODEERROR);
-+			return -EINVAL;
-+		}
-+	}
-+
-+	family = inner_mode->afinfo->family;
- 
- 	skb->mark = be32_to_cpu(tunnel->parms.i_key);
- 	ret = xfrm_policy_check(NULL, XFRM_POLICY_IN, skb, family);
-diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
-index d90a11f..52a2f73 100644
---- a/net/ipv6/ip6_vti.c
-+++ b/net/ipv6/ip6_vti.c
-@@ -340,6 +340,7 @@ static int vti6_rcv_cb(struct sk_buff *skb, int err)
- 	struct net_device *dev;
- 	struct pcpu_sw_netstats *tstats;
- 	struct xfrm_state *x;
-+	struct xfrm_mode *inner_mode;
- 	struct ip6_tnl *t = XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip6;
- 	u32 orig_mark = skb->mark;
- 	int ret;
-@@ -357,7 +358,19 @@ static int vti6_rcv_cb(struct sk_buff *skb, int err)
- 	}
- 
- 	x = xfrm_input_state(skb);
--	family = x->inner_mode->afinfo->family;
-+
-+	inner_mode = x->inner_mode;
-+
-+	if (x->sel.family == AF_UNSPEC) {
-+		inner_mode = xfrm_ip2inner_mode(x, XFRM_MODE_SKB_CB(skb)->protocol);
-+		if (inner_mode == NULL) {
-+			XFRM_INC_STATS(dev_net(skb->dev),
-+				       LINUX_MIB_XFRMINSTATEMODEERROR);
-+			return -EINVAL;
-+		}
-+	}
-+
-+	family = inner_mode->afinfo->family;
- 
- 	skb->mark = be32_to_cpu(t->parms.i_key);
- 	ret = xfrm_policy_check(NULL, XFRM_POLICY_IN, skb, family);
 -- 
-2.1.4
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
