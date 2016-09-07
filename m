@@ -1,657 +1,393 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 2/2] rxrpc: Add tracepoint for working out where
- aborts happen
-Date: Wed, 07 Sep 2016 16:40:09 +0100
-Message-ID: <147326280149.9308.5228512306863985275.stgit@warthog.procyon.org.uk>
-References: <147326277574.9308.4656891674085539944.stgit@warthog.procyon.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
-        linux-kernel@vger.kernel.org
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: [PATCH net-next v3] net: inet: diag: expose the socket mark to privileged processes.
+Date: Thu,  8 Sep 2016 00:42:25 +0900
+Message-ID: <1473262945-144932-1-git-send-email-lorenzo@google.com>
+Cc: eric.dumazet@gmail.com, dsa@cumulusnetworks.com,
+        davem@davemloft.net, ek@google.com,
+        Lorenzo Colitti <lorenzo@google.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <147326277574.9308.4656891674085539944.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:34824 "EHLO
+        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751147AbcIGPmy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 11:42:54 -0400
+Received: by mail-pf0-f180.google.com with SMTP id w87so7852099pfk.2
+        for <netdev@vger.kernel.org>; Wed, 07 Sep 2016 08:42:35 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add a tracepoint for working out where local aborts happen.  Each
-tracepoint call is labelled with a 3-letter code so that they can be
-distinguished - and the DATA sequence number is added too where available.
+This adds the capability for a process that has CAP_NET_ADMIN on
+a socket to see the socket mark in socket dumps.
 
-rxrpc_kernel_abort_call() also takes a 3-letter code so that AFS can
-indicate the circumstances when it aborts a call.
+Commit a52e95abf772 ("net: diag: allow socket bytecode filters to
+match socket marks") recently gave privileged processes the
+ability to filter socket dumps based on mark. This patch is
+complementary: it ensures that the mark is also passed to
+userspace in the socket's netlink attributes.  It is useful for
+tools like ss which display information about sockets.
 
-Signed-off-by: David Howells <dhowells@redhat.com>
+Tested: https://android-review.googlesource.com/270210
+Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
 ---
+ include/linux/inet_diag.h      |  4 ++--
+ include/uapi/linux/inet_diag.h |  1 +
+ net/ipv4/inet_diag.c           | 49 ++++++++++++++++++++++++++++--------------
+ net/ipv4/udp_diag.c            | 10 +++++----
+ net/sctp/sctp_diag.c           | 20 +++++++++++------
+ 5 files changed, 56 insertions(+), 28 deletions(-)
 
- fs/afs/rxrpc.c               |   17 ++++---
- include/net/af_rxrpc.h       |    3 +
- include/trace/events/rxrpc.h |   29 +++++++++++
- net/rxrpc/ar-internal.h      |   14 ++++-
- net/rxrpc/call_event.c       |    7 ++-
- net/rxrpc/call_object.c      |    2 -
- net/rxrpc/conn_event.c       |    6 ++
- net/rxrpc/input.c            |    7 ++-
- net/rxrpc/insecure.c         |   19 ++++---
- net/rxrpc/rxkad.c            |  108 +++++++++++++++++++-----------------------
- net/rxrpc/sendmsg.c          |   18 ++++---
- 11 files changed, 132 insertions(+), 98 deletions(-)
-
-diff --git a/fs/afs/rxrpc.c b/fs/afs/rxrpc.c
-index 37608be52abd..53750dece80e 100644
---- a/fs/afs/rxrpc.c
-+++ b/fs/afs/rxrpc.c
-@@ -377,7 +377,7 @@ int afs_make_call(struct in_addr *addr, struct afs_call *call, gfp_t gfp,
- 	return wait_mode->wait(call);
+diff --git a/include/linux/inet_diag.h b/include/linux/inet_diag.h
+index feb04ea..65da430 100644
+--- a/include/linux/inet_diag.h
++++ b/include/linux/inet_diag.h
+@@ -37,7 +37,7 @@ int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
+ 		      struct sk_buff *skb, const struct inet_diag_req_v2 *req,
+ 		      struct user_namespace *user_ns,
+ 		      u32 pid, u32 seq, u16 nlmsg_flags,
+-		      const struct nlmsghdr *unlh);
++		      const struct nlmsghdr *unlh, bool net_admin);
+ void inet_diag_dump_icsk(struct inet_hashinfo *h, struct sk_buff *skb,
+ 			 struct netlink_callback *cb,
+ 			 const struct inet_diag_req_v2 *r,
+@@ -56,7 +56,7 @@ void inet_diag_msg_common_fill(struct inet_diag_msg *r, struct sock *sk);
  
- error_do_abort:
--	rxrpc_kernel_abort_call(afs_socket, rxcall, RX_USER_ABORT);
-+	rxrpc_kernel_abort_call(afs_socket, rxcall, RX_USER_ABORT, -ret, "KSD");
- error_kill_call:
- 	afs_end_call(call);
- 	_leave(" = %d", ret);
-@@ -425,12 +425,12 @@ static void afs_deliver_to_call(struct afs_call *call)
- 		case -ENOTCONN:
- 			abort_code = RX_CALL_DEAD;
- 			rxrpc_kernel_abort_call(afs_socket, call->rxcall,
--						abort_code);
-+						abort_code, -ret, "KNC");
- 			goto do_abort;
- 		case -ENOTSUPP:
- 			abort_code = RX_INVALID_OPERATION;
- 			rxrpc_kernel_abort_call(afs_socket, call->rxcall,
--						abort_code);
-+						abort_code, -ret, "KIV");
- 			goto do_abort;
- 		case -ENODATA:
- 		case -EBADMSG:
-@@ -440,7 +440,7 @@ static void afs_deliver_to_call(struct afs_call *call)
- 			if (call->state != AFS_CALL_AWAIT_REPLY)
- 				abort_code = RXGEN_SS_UNMARSHAL;
- 			rxrpc_kernel_abort_call(afs_socket, call->rxcall,
--						abort_code);
-+						abort_code, EBADMSG, "KUM");
- 			goto do_abort;
- 		}
- 	}
-@@ -463,6 +463,7 @@ do_abort:
-  */
- static int afs_wait_for_call_to_complete(struct afs_call *call)
+ int inet_diag_msg_attrs_fill(struct sock *sk, struct sk_buff *skb,
+ 			     struct inet_diag_msg *r, int ext,
+-			     struct user_namespace *user_ns);
++			     struct user_namespace *user_ns, bool net_admin);
+ 
+ extern int  inet_diag_register(const struct inet_diag_handler *handler);
+ extern void inet_diag_unregister(const struct inet_diag_handler *handler);
+diff --git a/include/uapi/linux/inet_diag.h b/include/uapi/linux/inet_diag.h
+index 5581206..b5c366f 100644
+--- a/include/uapi/linux/inet_diag.h
++++ b/include/uapi/linux/inet_diag.h
+@@ -123,6 +123,7 @@ enum {
+ 	INET_DIAG_LOCALS,
+ 	INET_DIAG_PEERS,
+ 	INET_DIAG_PAD,
++	INET_DIAG_MARK,
+ 	__INET_DIAG_MAX,
+ };
+ 
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index abfbe49..e4d16fc 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -99,6 +99,7 @@ static size_t inet_sk_attr_size(void)
+ 		+ nla_total_size(1) /* INET_DIAG_SHUTDOWN */
+ 		+ nla_total_size(1) /* INET_DIAG_TOS */
+ 		+ nla_total_size(1) /* INET_DIAG_TCLASS */
++		+ nla_total_size(4) /* INET_DIAG_MARK */
+ 		+ nla_total_size(sizeof(struct inet_diag_meminfo))
+ 		+ nla_total_size(sizeof(struct inet_diag_msg))
+ 		+ nla_total_size(SK_MEMINFO_VARS * sizeof(u32))
+@@ -109,7 +110,8 @@ static size_t inet_sk_attr_size(void)
+ 
+ int inet_diag_msg_attrs_fill(struct sock *sk, struct sk_buff *skb,
+ 			     struct inet_diag_msg *r, int ext,
+-			     struct user_namespace *user_ns)
++			     struct user_namespace *user_ns,
++			     bool net_admin)
  {
-+	const char *abort_why;
- 	int ret;
+ 	const struct inet_sock *inet = inet_sk(sk);
  
- 	DECLARE_WAITQUEUE(myself, current);
-@@ -481,9 +482,11 @@ static int afs_wait_for_call_to_complete(struct afs_call *call)
- 			continue;
- 		}
- 
-+		abort_why = "KWC";
- 		ret = call->error;
- 		if (call->state == AFS_CALL_COMPLETE)
- 			break;
-+		abort_why = "KWI";
- 		ret = -EINTR;
- 		if (signal_pending(current))
- 			break;
-@@ -497,7 +500,7 @@ static int afs_wait_for_call_to_complete(struct afs_call *call)
- 	if (call->state < AFS_CALL_COMPLETE) {
- 		_debug("call incomplete");
- 		rxrpc_kernel_abort_call(afs_socket, call->rxcall,
--					RX_CALL_DEAD);
-+					RX_CALL_DEAD, -ret, abort_why);
+@@ -136,6 +138,9 @@ int inet_diag_msg_attrs_fill(struct sock *sk, struct sk_buff *skb,
  	}
+ #endif
  
- 	_debug("call complete");
-@@ -695,7 +698,7 @@ void afs_send_empty_reply(struct afs_call *call)
- 	case -ENOMEM:
- 		_debug("oom");
- 		rxrpc_kernel_abort_call(afs_socket, call->rxcall,
--					RX_USER_ABORT);
-+					RX_USER_ABORT, ENOMEM, "KOO");
- 	default:
- 		afs_end_call(call);
- 		_leave(" [error]");
-@@ -734,7 +737,7 @@ void afs_send_simple_reply(struct afs_call *call, const void *buf, size_t len)
- 	if (n == -ENOMEM) {
- 		_debug("oom");
- 		rxrpc_kernel_abort_call(afs_socket, call->rxcall,
--					RX_USER_ABORT);
-+					RX_USER_ABORT, ENOMEM, "KOO");
- 	}
- 	afs_end_call(call);
- 	_leave(" [error]");
-diff --git a/include/net/af_rxrpc.h b/include/net/af_rxrpc.h
-index b4b6a3664dda..08ed8729126c 100644
---- a/include/net/af_rxrpc.h
-+++ b/include/net/af_rxrpc.h
-@@ -35,7 +35,8 @@ int rxrpc_kernel_send_data(struct socket *, struct rxrpc_call *,
- 			   struct msghdr *, size_t);
- int rxrpc_kernel_recv_data(struct socket *, struct rxrpc_call *,
- 			   void *, size_t, size_t *, bool, u32 *);
--void rxrpc_kernel_abort_call(struct socket *, struct rxrpc_call *, u32);
-+void rxrpc_kernel_abort_call(struct socket *, struct rxrpc_call *,
-+			     u32, int, const char *);
- void rxrpc_kernel_end_call(struct socket *, struct rxrpc_call *);
- struct rxrpc_call *rxrpc_kernel_accept_call(struct socket *, unsigned long,
- 					    rxrpc_notify_rx_t);
-diff --git a/include/trace/events/rxrpc.h b/include/trace/events/rxrpc.h
-index 30164896f1f6..85ee035774ae 100644
---- a/include/trace/events/rxrpc.h
-+++ b/include/trace/events/rxrpc.h
-@@ -84,6 +84,35 @@ TRACE_EVENT(rxrpc_skb,
- 		      __entry->where)
- 	    );
++	if (net_admin && nla_put_u32(skb, INET_DIAG_MARK, sk->sk_mark))
++		goto errout;
++
+ 	r->idiag_uid = from_kuid_munged(user_ns, sock_i_uid(sk));
+ 	r->idiag_inode = sock_i_ino(sk);
  
-+TRACE_EVENT(rxrpc_abort,
-+	    TP_PROTO(const char *why, u32 cid, u32 call_id, rxrpc_seq_t seq,
-+		     int abort_code, int error),
-+
-+	    TP_ARGS(why, cid, call_id, seq, abort_code, error),
-+
-+	    TP_STRUCT__entry(
-+		    __array(char,			why, 4		)
-+		    __field(u32,			cid		)
-+		    __field(u32,			call_id		)
-+		    __field(rxrpc_seq_t,		seq		)
-+		    __field(int,			abort_code	)
-+		    __field(int,			error		)
-+			     ),
-+
-+	    TP_fast_assign(
-+		    memcpy(__entry->why, why, 4);
-+		    __entry->cid = cid;
-+		    __entry->call_id = call_id;
-+		    __entry->abort_code = abort_code;
-+		    __entry->error = error;
-+		    __entry->seq = seq;
-+			   ),
-+
-+	    TP_printk("%08x:%08x s=%u a=%d e=%d %s",
-+		      __entry->cid, __entry->call_id, __entry->seq,
-+		      __entry->abort_code, __entry->error, __entry->why)
-+	    );
-+
- #endif /* _TRACE_RXRPC_H */
- 
- /* This part must be outside protection */
-diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index 0353399792b6..dbfb9ed17483 100644
---- a/net/rxrpc/ar-internal.h
-+++ b/net/rxrpc/ar-internal.h
-@@ -155,7 +155,8 @@ struct rxrpc_security {
- 			     void *);
- 
- 	/* verify the security on a received packet */
--	int (*verify_packet)(struct rxrpc_call *, struct sk_buff *, u32 *);
-+	int (*verify_packet)(struct rxrpc_call *, struct sk_buff *,
-+			     rxrpc_seq_t, u16);
- 
- 	/* issue a challenge */
- 	int (*issue_challenge)(struct rxrpc_connection *);
-@@ -637,9 +638,12 @@ static inline bool rxrpc_call_completed(struct rxrpc_call *call)
- /*
-  * Record that a call is locally aborted.
-  */
--static inline bool __rxrpc_abort_call(struct rxrpc_call *call,
-+static inline bool __rxrpc_abort_call(const char *why, struct rxrpc_call *call,
-+				      rxrpc_seq_t seq,
- 				      u32 abort_code, int error)
+@@ -149,7 +154,8 @@ int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
+ 		      struct sk_buff *skb, const struct inet_diag_req_v2 *req,
+ 		      struct user_namespace *user_ns,
+ 		      u32 portid, u32 seq, u16 nlmsg_flags,
+-		      const struct nlmsghdr *unlh)
++		      const struct nlmsghdr *unlh,
++		      bool net_admin)
  {
-+	trace_rxrpc_abort(why, call->cid, call->call_id, seq,
-+			  abort_code, error);
- 	if (__rxrpc_set_call_completion(call,
- 					RXRPC_CALL_LOCALLY_ABORTED,
- 					abort_code, error)) {
-@@ -649,13 +653,13 @@ static inline bool __rxrpc_abort_call(struct rxrpc_call *call,
- 	return false;
+ 	const struct tcp_congestion_ops *ca_ops;
+ 	const struct inet_diag_handler *handler;
+@@ -175,7 +181,7 @@ int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
+ 	r->idiag_timer = 0;
+ 	r->idiag_retrans = 0;
+ 
+-	if (inet_diag_msg_attrs_fill(sk, skb, r, ext, user_ns))
++	if (inet_diag_msg_attrs_fill(sk, skb, r, ext, user_ns, net_admin))
+ 		goto errout;
+ 
+ 	if (ext & (1 << (INET_DIAG_MEMINFO - 1))) {
+@@ -274,10 +280,11 @@ static int inet_csk_diag_fill(struct sock *sk,
+ 			      const struct inet_diag_req_v2 *req,
+ 			      struct user_namespace *user_ns,
+ 			      u32 portid, u32 seq, u16 nlmsg_flags,
+-			      const struct nlmsghdr *unlh)
++			      const struct nlmsghdr *unlh,
++			      bool net_admin)
+ {
+-	return inet_sk_diag_fill(sk, inet_csk(sk), skb, req,
+-				 user_ns, portid, seq, nlmsg_flags, unlh);
++	return inet_sk_diag_fill(sk, inet_csk(sk), skb, req, user_ns,
++				 portid, seq, nlmsg_flags, unlh, net_admin);
  }
  
--static inline bool rxrpc_abort_call(struct rxrpc_call *call,
--				    u32 abort_code, int error)
-+static inline bool rxrpc_abort_call(const char *why, struct rxrpc_call *call,
-+				    rxrpc_seq_t seq, u32 abort_code, int error)
+ static int inet_twsk_diag_fill(struct sock *sk,
+@@ -319,8 +326,9 @@ static int inet_twsk_diag_fill(struct sock *sk,
+ 
+ static int inet_req_diag_fill(struct sock *sk, struct sk_buff *skb,
+ 			      u32 portid, u32 seq, u16 nlmsg_flags,
+-			      const struct nlmsghdr *unlh)
++			      const struct nlmsghdr *unlh, bool net_admin)
  {
- 	bool ret;
++	struct request_sock *reqsk = inet_reqsk(sk);
+ 	struct inet_diag_msg *r;
+ 	struct nlmsghdr *nlh;
+ 	long tmo;
+@@ -334,7 +342,7 @@ static int inet_req_diag_fill(struct sock *sk, struct sk_buff *skb,
+ 	inet_diag_msg_common_fill(r, sk);
+ 	r->idiag_state = TCP_SYN_RECV;
+ 	r->idiag_timer = 1;
+-	r->idiag_retrans = inet_reqsk(sk)->num_retrans;
++	r->idiag_retrans = reqsk->num_retrans;
  
- 	write_lock_bh(&call->state_lock);
--	ret = __rxrpc_abort_call(call, abort_code, error);
-+	ret = __rxrpc_abort_call(why, call, seq, abort_code, error);
- 	write_unlock_bh(&call->state_lock);
- 	return ret;
- }
-diff --git a/net/rxrpc/call_event.c b/net/rxrpc/call_event.c
-index 8365d3366114..af88ad7d2cf9 100644
---- a/net/rxrpc/call_event.c
-+++ b/net/rxrpc/call_event.c
-@@ -598,7 +598,8 @@ process_further:
+ 	BUILD_BUG_ON(offsetof(struct inet_request_sock, ir_cookie) !=
+ 		     offsetof(struct sock, sk_cookie));
+@@ -346,6 +354,10 @@ static int inet_req_diag_fill(struct sock *sk, struct sk_buff *skb,
+ 	r->idiag_uid	= 0;
+ 	r->idiag_inode	= 0;
  
- 		/* secured packets must be verified and possibly decrypted */
- 		if (call->conn->security->verify_packet(call, skb,
--							_abort_code) < 0)
-+							sp->hdr.seq,
-+							sp->hdr.cksum) < 0)
- 			goto protocol_error;
- 
- 		rxrpc_insert_oos_packet(call, skb);
-@@ -982,7 +983,7 @@ skip_msg_init:
- 	}
- 
- 	if (test_bit(RXRPC_CALL_EV_LIFE_TIMER, &call->events)) {
--		rxrpc_abort_call(call, RX_CALL_TIMEOUT, ETIME);
-+		rxrpc_abort_call("EXP", call, 0, RX_CALL_TIMEOUT, ETIME);
- 
- 		_debug("post timeout");
- 		if (rxrpc_post_message(call, RXRPC_SKB_MARK_LOCAL_ERROR,
-@@ -1005,7 +1006,7 @@ skip_msg_init:
- 		case -EKEYEXPIRED:
- 		case -EKEYREJECTED:
- 		case -EPROTO:
--			rxrpc_abort_call(call, abort_code, -ret);
-+			rxrpc_abort_call("PRO", call, 0, abort_code, -ret);
- 			goto kill_ACKs;
- 		}
- 	}
-diff --git a/net/rxrpc/call_object.c b/net/rxrpc/call_object.c
-index be5733d55794..9efd9b0b0bdf 100644
---- a/net/rxrpc/call_object.c
-+++ b/net/rxrpc/call_object.c
-@@ -563,7 +563,7 @@ void rxrpc_release_call(struct rxrpc_sock *rx, struct rxrpc_call *call)
- 
- 		if (call->state < RXRPC_CALL_COMPLETE) {
- 			_debug("+++ ABORTING STATE %d +++\n", call->state);
--			__rxrpc_abort_call(call, RX_CALL_DEAD, ECONNRESET);
-+			__rxrpc_abort_call("SKT", call, 0, RX_CALL_DEAD, ECONNRESET);
- 			clear_bit(RXRPC_CALL_EV_ACK_FINAL, &call->events);
- 			rxrpc_send_call_packet(call, RXRPC_PACKET_TYPE_ABORT);
- 		}
-diff --git a/net/rxrpc/conn_event.c b/net/rxrpc/conn_event.c
-index 9db90f4f768d..8c7938ba6a84 100644
---- a/net/rxrpc/conn_event.c
-+++ b/net/rxrpc/conn_event.c
-@@ -158,6 +158,11 @@ static void rxrpc_abort_calls(struct rxrpc_connection *conn,
- 			lockdep_is_held(&conn->channel_lock));
- 		if (call) {
- 			rxrpc_see_call(call);
-+			if (compl == RXRPC_CALL_LOCALLY_ABORTED)
-+				trace_rxrpc_abort("CON", call->cid,
-+						  call->call_id, 0,
-+						  abort_code, error);
++	if (net_admin && nla_put_u32(skb, INET_DIAG_MARK,
++				     inet_rsk(reqsk)->ir_mark))
++		return -EMSGSIZE;
 +
- 			write_lock_bh(&call->state_lock);
- 			if (rxrpc_set_call_completion(call, compl, abort_code,
- 						      error)) {
-@@ -167,6 +172,7 @@ static void rxrpc_abort_calls(struct rxrpc_connection *conn,
- 			write_unlock_bh(&call->state_lock);
- 			if (queue)
- 				rxrpc_queue_call(call);
-+
- 		}
- 	}
- 
-diff --git a/net/rxrpc/input.c b/net/rxrpc/input.c
-index 79f3f585cdc3..8e624109750a 100644
---- a/net/rxrpc/input.c
-+++ b/net/rxrpc/input.c
-@@ -429,7 +429,7 @@ protocol_error:
- 	_debug("protocol error");
- 	write_lock_bh(&call->state_lock);
- protocol_error_locked:
--	if (__rxrpc_abort_call(call, RX_PROTOCOL_ERROR, EPROTO))
-+	if (__rxrpc_abort_call("FPR", call, 0, RX_PROTOCOL_ERROR, EPROTO))
- 		rxrpc_queue_call(call);
- free_packet_unlock:
- 	write_unlock_bh(&call->state_lock);
-@@ -495,9 +495,10 @@ static void rxrpc_process_jumbo_packet(struct rxrpc_call *call,
- protocol_error:
- 	_debug("protocol error");
- 	rxrpc_free_skb(part);
--	rxrpc_free_skb(jumbo);
--	if (rxrpc_abort_call(call, RX_PROTOCOL_ERROR, EPROTO))
-+	if (rxrpc_abort_call("PJP", call, sp->hdr.seq,
-+			     RX_PROTOCOL_ERROR, EPROTO))
- 		rxrpc_queue_call(call);
-+	rxrpc_free_skb(jumbo);
- 	_leave("");
- }
- 
-diff --git a/net/rxrpc/insecure.c b/net/rxrpc/insecure.c
-index c21ad213b337..a4aba0246731 100644
---- a/net/rxrpc/insecure.c
-+++ b/net/rxrpc/insecure.c
-@@ -23,31 +23,32 @@ static int none_prime_packet_security(struct rxrpc_connection *conn)
- }
- 
- static int none_secure_packet(struct rxrpc_call *call,
--			       struct sk_buff *skb,
--			       size_t data_size,
--			       void *sechdr)
-+			      struct sk_buff *skb,
-+			      size_t data_size,
-+			      void *sechdr)
- {
+ 	nlmsg_end(skb, nlh);
  	return 0;
  }
- 
- static int none_verify_packet(struct rxrpc_call *call,
--			       struct sk_buff *skb,
--			       u32 *_abort_code)
-+			      struct sk_buff *skb,
-+			      rxrpc_seq_t seq,
-+			      u16 expected_cksum)
+@@ -354,7 +366,7 @@ static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
+ 			const struct inet_diag_req_v2 *r,
+ 			struct user_namespace *user_ns,
+ 			u32 portid, u32 seq, u16 nlmsg_flags,
+-			const struct nlmsghdr *unlh)
++			const struct nlmsghdr *unlh, bool net_admin)
  {
- 	return 0;
+ 	if (sk->sk_state == TCP_TIME_WAIT)
+ 		return inet_twsk_diag_fill(sk, skb, portid, seq,
+@@ -362,10 +374,10 @@ static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
+ 
+ 	if (sk->sk_state == TCP_NEW_SYN_RECV)
+ 		return inet_req_diag_fill(sk, skb, portid, seq,
+-					  nlmsg_flags, unlh);
++					  nlmsg_flags, unlh, net_admin);
+ 
+ 	return inet_csk_diag_fill(sk, skb, r, user_ns, portid, seq,
+-				  nlmsg_flags, unlh);
++				  nlmsg_flags, unlh, net_admin);
  }
  
- static int none_respond_to_challenge(struct rxrpc_connection *conn,
--				      struct sk_buff *skb,
--				      u32 *_abort_code)
-+				     struct sk_buff *skb,
-+				     u32 *_abort_code)
+ struct sock *inet_diag_find_one_icsk(struct net *net,
+@@ -435,7 +447,8 @@ int inet_diag_dump_one_icsk(struct inet_hashinfo *hashinfo,
+ 	err = sk_diag_fill(sk, rep, req,
+ 			   sk_user_ns(NETLINK_CB(in_skb).sk),
+ 			   NETLINK_CB(in_skb).portid,
+-			   nlh->nlmsg_seq, 0, nlh);
++			   nlh->nlmsg_seq, 0, nlh,
++			   netlink_net_capable(in_skb, CAP_NET_ADMIN));
+ 	if (err < 0) {
+ 		WARN_ON(err == -EMSGSIZE);
+ 		nlmsg_free(rep);
+@@ -796,7 +809,8 @@ static int inet_csk_diag_dump(struct sock *sk,
+ 			      struct sk_buff *skb,
+ 			      struct netlink_callback *cb,
+ 			      const struct inet_diag_req_v2 *r,
+-			      const struct nlattr *bc)
++			      const struct nlattr *bc,
++			      bool net_admin)
  {
- 	*_abort_code = RX_PROTOCOL_ERROR;
- 	return -EPROTO;
- }
- 
- static int none_verify_response(struct rxrpc_connection *conn,
--				 struct sk_buff *skb,
--				 u32 *_abort_code)
-+				struct sk_buff *skb,
-+				u32 *_abort_code)
- {
- 	*_abort_code = RX_PROTOCOL_ERROR;
- 	return -EPROTO;
-diff --git a/net/rxrpc/rxkad.c b/net/rxrpc/rxkad.c
-index 89f475febfd7..3777432df10b 100644
---- a/net/rxrpc/rxkad.c
-+++ b/net/rxrpc/rxkad.c
-@@ -316,12 +316,10 @@ static int rxkad_secure_packet(struct rxrpc_call *call,
- /*
-  * decrypt partial encryption on a packet (level 1 security)
-  */
--static int rxkad_verify_packet_auth(const struct rxrpc_call *call,
--				    struct sk_buff *skb,
--				    u32 *_abort_code)
-+static int rxkad_verify_packet_1(struct rxrpc_call *call, struct sk_buff *skb,
-+				 rxrpc_seq_t seq)
- {
- 	struct rxkad_level1_hdr sechdr;
--	struct rxrpc_skb_priv *sp;
- 	SKCIPHER_REQUEST_ON_STACK(req, call->conn->cipher);
- 	struct rxrpc_crypt iv;
- 	struct scatterlist sg[16];
-@@ -332,7 +330,10 @@ static int rxkad_verify_packet_auth(const struct rxrpc_call *call,
- 
- 	_enter("");
- 
--	sp = rxrpc_skb(skb);
-+	if (skb->len < 8) {
-+		rxrpc_abort_call("V1H", call, seq, RXKADSEALEDINCON, EPROTO);
-+		goto protocol_error;
-+	}
- 
- 	/* we want to decrypt the skbuff in-place */
- 	nsg = skb_cow_data(skb, 0, &trailer);
-@@ -351,9 +352,11 @@ static int rxkad_verify_packet_auth(const struct rxrpc_call *call,
- 	crypto_skcipher_decrypt(req);
- 	skcipher_request_zero(req);
- 
--	/* remove the decrypted packet length */
--	if (skb_copy_bits(skb, 0, &sechdr, sizeof(sechdr)) < 0)
--		goto datalen_error;
-+	/* Extract the decrypted packet length */
-+	if (skb_copy_bits(skb, 0, &sechdr, sizeof(sechdr)) < 0) {
-+		rxrpc_abort_call("XV1", call, seq, RXKADDATALEN, EPROTO);
-+		goto protocol_error;
-+	}
- 	if (!skb_pull(skb, sizeof(sechdr)))
- 		BUG();
- 
-@@ -361,24 +364,24 @@ static int rxkad_verify_packet_auth(const struct rxrpc_call *call,
- 	data_size = buf & 0xffff;
- 
- 	check = buf >> 16;
--	check ^= sp->hdr.seq ^ sp->hdr.callNumber;
-+	check ^= seq ^ call->call_id;
- 	check &= 0xffff;
- 	if (check != 0) {
--		*_abort_code = RXKADSEALEDINCON;
-+		rxrpc_abort_call("V1C", call, seq, RXKADSEALEDINCON, EPROTO);
- 		goto protocol_error;
- 	}
- 
- 	/* shorten the packet to remove the padding */
--	if (data_size > skb->len)
--		goto datalen_error;
--	else if (data_size < skb->len)
-+	if (data_size > skb->len) {
-+		rxrpc_abort_call("V1L", call, seq, RXKADDATALEN, EPROTO);
-+		goto protocol_error;
-+	}
-+	if (data_size < skb->len)
- 		skb->len = data_size;
- 
- 	_leave(" = 0 [dlen=%x]", data_size);
- 	return 0;
- 
--datalen_error:
--	*_abort_code = RXKADDATALEN;
- protocol_error:
- 	_leave(" = -EPROTO");
- 	return -EPROTO;
-@@ -391,13 +394,11 @@ nomem:
- /*
-  * wholly decrypt a packet (level 2 security)
-  */
--static int rxkad_verify_packet_encrypt(const struct rxrpc_call *call,
--				       struct sk_buff *skb,
--				       u32 *_abort_code)
-+static int rxkad_verify_packet_2(struct rxrpc_call *call, struct sk_buff *skb,
-+				 rxrpc_seq_t seq)
- {
- 	const struct rxrpc_key_token *token;
- 	struct rxkad_level2_hdr sechdr;
--	struct rxrpc_skb_priv *sp;
- 	SKCIPHER_REQUEST_ON_STACK(req, call->conn->cipher);
- 	struct rxrpc_crypt iv;
- 	struct scatterlist _sg[4], *sg;
-@@ -408,7 +409,10 @@ static int rxkad_verify_packet_encrypt(const struct rxrpc_call *call,
- 
- 	_enter(",{%d}", skb->len);
- 
--	sp = rxrpc_skb(skb);
-+	if (skb->len < 8) {
-+		rxrpc_abort_call("V2H", call, seq, RXKADSEALEDINCON, EPROTO);
-+		goto protocol_error;
-+	}
- 
- 	/* we want to decrypt the skbuff in-place */
- 	nsg = skb_cow_data(skb, 0, &trailer);
-@@ -437,9 +441,11 @@ static int rxkad_verify_packet_encrypt(const struct rxrpc_call *call,
- 	if (sg != _sg)
- 		kfree(sg);
- 
--	/* remove the decrypted packet length */
--	if (skb_copy_bits(skb, 0, &sechdr, sizeof(sechdr)) < 0)
--		goto datalen_error;
-+	/* Extract the decrypted packet length */
-+	if (skb_copy_bits(skb, 0, &sechdr, sizeof(sechdr)) < 0) {
-+		rxrpc_abort_call("XV2", call, seq, RXKADDATALEN, EPROTO);
-+		goto protocol_error;
-+	}
- 	if (!skb_pull(skb, sizeof(sechdr)))
- 		BUG();
- 
-@@ -447,24 +453,23 @@ static int rxkad_verify_packet_encrypt(const struct rxrpc_call *call,
- 	data_size = buf & 0xffff;
- 
- 	check = buf >> 16;
--	check ^= sp->hdr.seq ^ sp->hdr.callNumber;
-+	check ^= seq ^ call->call_id;
- 	check &= 0xffff;
- 	if (check != 0) {
--		*_abort_code = RXKADSEALEDINCON;
-+		rxrpc_abort_call("V2C", call, seq, RXKADSEALEDINCON, EPROTO);
- 		goto protocol_error;
- 	}
- 
--	/* shorten the packet to remove the padding */
--	if (data_size > skb->len)
--		goto datalen_error;
--	else if (data_size < skb->len)
-+	if (data_size > skb->len) {
-+		rxrpc_abort_call("V2L", call, seq, RXKADDATALEN, EPROTO);
-+		goto protocol_error;
-+	}
-+	if (data_size < skb->len)
- 		skb->len = data_size;
- 
- 	_leave(" = 0 [dlen=%x]", data_size);
- 	return 0;
- 
--datalen_error:
--	*_abort_code = RXKADDATALEN;
- protocol_error:
- 	_leave(" = -EPROTO");
- 	return -EPROTO;
-@@ -475,40 +480,30 @@ nomem:
- }
- 
- /*
-- * verify the security on a received packet
-+ * Verify the security on a received packet or subpacket (if part of a
-+ * jumbo packet).
-  */
--static int rxkad_verify_packet(struct rxrpc_call *call,
--			       struct sk_buff *skb,
--			       u32 *_abort_code)
-+static int rxkad_verify_packet(struct rxrpc_call *call, struct sk_buff *skb,
-+			       rxrpc_seq_t seq, u16 expected_cksum)
- {
- 	SKCIPHER_REQUEST_ON_STACK(req, call->conn->cipher);
--	struct rxrpc_skb_priv *sp;
- 	struct rxrpc_crypt iv;
- 	struct scatterlist sg;
- 	u16 cksum;
- 	u32 x, y;
--	int ret;
--
--	sp = rxrpc_skb(skb);
- 
- 	_enter("{%d{%x}},{#%u}",
--	       call->debug_id, key_serial(call->conn->params.key), sp->hdr.seq);
-+	       call->debug_id, key_serial(call->conn->params.key), seq);
- 
- 	if (!call->conn->cipher)
+ 	if (!inet_diag_bc_sk(bc, sk))
  		return 0;
- 
--	if (sp->hdr.securityIndex != RXRPC_SECURITY_RXKAD) {
--		*_abort_code = RXKADINCONSISTENCY;
--		_leave(" = -EPROTO [not rxkad]");
--		return -EPROTO;
--	}
--
- 	/* continue encrypting from where we left off */
- 	memcpy(&iv, call->conn->csum_iv.x, sizeof(iv));
- 
- 	/* validate the security checksum */
- 	x = (call->cid & RXRPC_CHANNELMASK) << (32 - RXRPC_CIDSHIFT);
--	x |= sp->hdr.seq & 0x3fffffff;
-+	x |= seq & 0x3fffffff;
- 	call->crypto_buf[0] = htonl(call->call_id);
- 	call->crypto_buf[1] = htonl(x);
- 
-@@ -524,29 +519,22 @@ static int rxkad_verify_packet(struct rxrpc_call *call,
- 	if (cksum == 0)
- 		cksum = 1; /* zero checksums are not permitted */
- 
--	if (sp->hdr.cksum != cksum) {
--		*_abort_code = RXKADSEALEDINCON;
-+	if (cksum != expected_cksum) {
-+		rxrpc_abort_call("VCK", call, seq, RXKADSEALEDINCON, EPROTO);
- 		_leave(" = -EPROTO [csum failed]");
- 		return -EPROTO;
- 	}
- 
- 	switch (call->conn->params.security_level) {
- 	case RXRPC_SECURITY_PLAIN:
--		ret = 0;
--		break;
-+		return 0;
- 	case RXRPC_SECURITY_AUTH:
--		ret = rxkad_verify_packet_auth(call, skb, _abort_code);
--		break;
-+		return rxkad_verify_packet_1(call, skb, seq);
- 	case RXRPC_SECURITY_ENCRYPT:
--		ret = rxkad_verify_packet_encrypt(call, skb, _abort_code);
--		break;
-+		return rxkad_verify_packet_2(call, skb, seq);
- 	default:
--		ret = -ENOANO;
--		break;
-+		return -ENOANO;
- 	}
--
--	_leave(" = %d", ret);
--	return ret;
+@@ -804,7 +818,8 @@ static int inet_csk_diag_dump(struct sock *sk,
+ 	return inet_csk_diag_fill(sk, skb, r,
+ 				  sk_user_ns(NETLINK_CB(cb->skb).sk),
+ 				  NETLINK_CB(cb->skb).portid,
+-				  cb->nlh->nlmsg_seq, NLM_F_MULTI, cb->nlh);
++				  cb->nlh->nlmsg_seq, NLM_F_MULTI, cb->nlh,
++				  net_admin);
  }
  
- /*
-diff --git a/net/rxrpc/sendmsg.c b/net/rxrpc/sendmsg.c
-index 2439aff131c7..9a4af992fcdf 100644
---- a/net/rxrpc/sendmsg.c
-+++ b/net/rxrpc/sendmsg.c
-@@ -454,14 +454,15 @@ static int rxrpc_sendmsg_cmsg(struct msghdr *msg,
- /*
-  * abort a call, sending an ABORT packet to the peer
-  */
--static void rxrpc_send_abort(struct rxrpc_call *call, u32 abort_code)
-+static void rxrpc_send_abort(struct rxrpc_call *call, const char *why,
-+			     u32 abort_code, int error)
+ static void twsk_build_assert(void)
+@@ -840,6 +855,7 @@ void inet_diag_dump_icsk(struct inet_hashinfo *hashinfo, struct sk_buff *skb,
+ 	struct net *net = sock_net(skb->sk);
+ 	int i, num, s_i, s_num;
+ 	u32 idiag_states = r->idiag_states;
++	bool net_admin = netlink_net_capable(cb->skb, CAP_NET_ADMIN);
+ 
+ 	if (idiag_states & TCPF_SYN_RECV)
+ 		idiag_states |= TCPF_NEW_SYN_RECV;
+@@ -880,7 +896,8 @@ void inet_diag_dump_icsk(struct inet_hashinfo *hashinfo, struct sk_buff *skb,
+ 				    cb->args[3] > 0)
+ 					goto next_listen;
+ 
+-				if (inet_csk_diag_dump(sk, skb, cb, r, bc) < 0) {
++				if (inet_csk_diag_dump(sk, skb, cb, r,
++						       bc, net_admin) < 0) {
+ 					spin_unlock_bh(&ilb->lock);
+ 					goto done;
+ 				}
+@@ -948,7 +965,7 @@ skip_listen_ht:
+ 					   sk_user_ns(NETLINK_CB(cb->skb).sk),
+ 					   NETLINK_CB(cb->skb).portid,
+ 					   cb->nlh->nlmsg_seq, NLM_F_MULTI,
+-					   cb->nlh);
++					   cb->nlh, net_admin);
+ 			if (res < 0) {
+ 				spin_unlock_bh(lock);
+ 				goto done;
+diff --git a/net/ipv4/udp_diag.c b/net/ipv4/udp_diag.c
+index 58b79c0..9a89c10 100644
+--- a/net/ipv4/udp_diag.c
++++ b/net/ipv4/udp_diag.c
+@@ -20,7 +20,7 @@
+ static int sk_diag_dump(struct sock *sk, struct sk_buff *skb,
+ 			struct netlink_callback *cb,
+ 			const struct inet_diag_req_v2 *req,
+-			struct nlattr *bc)
++			struct nlattr *bc, bool net_admin)
  {
- 	if (call->state >= RXRPC_CALL_COMPLETE)
- 		return;
+ 	if (!inet_diag_bc_sk(bc, sk))
+ 		return 0;
+@@ -28,7 +28,7 @@ static int sk_diag_dump(struct sock *sk, struct sk_buff *skb,
+ 	return inet_sk_diag_fill(sk, NULL, skb, req,
+ 			sk_user_ns(NETLINK_CB(cb->skb).sk),
+ 			NETLINK_CB(cb->skb).portid,
+-			cb->nlh->nlmsg_seq, NLM_F_MULTI, cb->nlh);
++			cb->nlh->nlmsg_seq, NLM_F_MULTI, cb->nlh, net_admin);
+ }
  
- 	write_lock_bh(&call->state_lock);
- 
--	if (__rxrpc_abort_call(call, abort_code, ECONNABORTED)) {
-+	if (__rxrpc_abort_call(why, call, 0, abort_code, error)) {
- 		del_timer_sync(&call->resend_timer);
- 		del_timer_sync(&call->ack_timer);
- 		clear_bit(RXRPC_CALL_EV_RESEND_TIMER, &call->events);
-@@ -556,7 +557,7 @@ int rxrpc_do_sendmsg(struct rxrpc_sock *rx, struct msghdr *msg, size_t len)
- 		/* it's too late for this call */
- 		ret = -ESHUTDOWN;
- 	} else if (cmd == RXRPC_CMD_SEND_ABORT) {
--		rxrpc_send_abort(call, abort_code);
-+		rxrpc_send_abort(call, "CMD", abort_code, ECONNABORTED);
- 		ret = 0;
- 	} else if (cmd != RXRPC_CMD_SEND_DATA) {
- 		ret = -EINVAL;
-@@ -626,20 +627,19 @@ EXPORT_SYMBOL(rxrpc_kernel_send_data);
-  * @sock: The socket the call is on
-  * @call: The call to be aborted
-  * @abort_code: The abort code to stick into the ABORT packet
-+ * @error: Local error value
-+ * @why: 3-char string indicating why.
-  *
-  * Allow a kernel service to abort a call, if it's still in an abortable state.
-  */
- void rxrpc_kernel_abort_call(struct socket *sock, struct rxrpc_call *call,
--			     u32 abort_code)
-+			     u32 abort_code, int error, const char *why)
+ static int udp_dump_one(struct udp_table *tbl, struct sk_buff *in_skb,
+@@ -76,7 +76,8 @@ static int udp_dump_one(struct udp_table *tbl, struct sk_buff *in_skb,
+ 	err = inet_sk_diag_fill(sk, NULL, rep, req,
+ 			   sk_user_ns(NETLINK_CB(in_skb).sk),
+ 			   NETLINK_CB(in_skb).portid,
+-			   nlh->nlmsg_seq, 0, nlh);
++			   nlh->nlmsg_seq, 0, nlh,
++			   netlink_net_capable(in_skb, CAP_NET_ADMIN));
+ 	if (err < 0) {
+ 		WARN_ON(err == -EMSGSIZE);
+ 		kfree_skb(rep);
+@@ -97,6 +98,7 @@ static void udp_dump(struct udp_table *table, struct sk_buff *skb,
+ 		     struct netlink_callback *cb,
+ 		     const struct inet_diag_req_v2 *r, struct nlattr *bc)
  {
--	_enter("{%d},%d", call->debug_id, abort_code);
-+	_enter("{%d},%d,%d,%s", call->debug_id, abort_code, error, why);
++	bool net_admin = netlink_net_capable(cb->skb, CAP_NET_ADMIN);
+ 	struct net *net = sock_net(skb->sk);
+ 	int num, s_num, slot, s_slot;
  
- 	lock_sock(sock->sk);
+@@ -132,7 +134,7 @@ static void udp_dump(struct udp_table *table, struct sk_buff *skb,
+ 			    r->id.idiag_dport)
+ 				goto next;
  
--	_debug("CALL %d USR %lx ST %d on CONN %p",
--	       call->debug_id, call->user_call_ID, call->state, call->conn);
--
--	rxrpc_send_abort(call, abort_code);
-+	rxrpc_send_abort(call, why, abort_code, error);
+-			if (sk_diag_dump(sk, skb, cb, r, bc) < 0) {
++			if (sk_diag_dump(sk, skb, cb, r, bc, net_admin) < 0) {
+ 				spin_unlock_bh(&hslot->lock);
+ 				goto done;
+ 			}
+diff --git a/net/sctp/sctp_diag.c b/net/sctp/sctp_diag.c
+index f3508aa..807158e3 100644
+--- a/net/sctp/sctp_diag.c
++++ b/net/sctp/sctp_diag.c
+@@ -106,7 +106,8 @@ static int inet_sctp_diag_fill(struct sock *sk, struct sctp_association *asoc,
+ 			       const struct inet_diag_req_v2 *req,
+ 			       struct user_namespace *user_ns,
+ 			       int portid, u32 seq, u16 nlmsg_flags,
+-			       const struct nlmsghdr *unlh)
++			       const struct nlmsghdr *unlh,
++			       bool net_admin)
+ {
+ 	struct sctp_endpoint *ep = sctp_sk(sk)->ep;
+ 	struct list_head *addr_list;
+@@ -133,7 +134,7 @@ static int inet_sctp_diag_fill(struct sock *sk, struct sctp_association *asoc,
+ 		r->idiag_retrans = 0;
+ 	}
  
- 	release_sock(sock->sk);
- 	_leave("");
+-	if (inet_diag_msg_attrs_fill(sk, skb, r, ext, user_ns))
++	if (inet_diag_msg_attrs_fill(sk, skb, r, ext, user_ns, net_admin))
+ 		goto errout;
+ 
+ 	if (ext & (1 << (INET_DIAG_SKMEMINFO - 1))) {
+@@ -203,6 +204,7 @@ struct sctp_comm_param {
+ 	struct netlink_callback *cb;
+ 	const struct inet_diag_req_v2 *r;
+ 	const struct nlmsghdr *nlh;
++	bool net_admin;
+ };
+ 
+ static size_t inet_assoc_attr_size(struct sctp_association *asoc)
+@@ -219,6 +221,7 @@ static size_t inet_assoc_attr_size(struct sctp_association *asoc)
+ 		+ nla_total_size(1) /* INET_DIAG_SHUTDOWN */
+ 		+ nla_total_size(1) /* INET_DIAG_TOS */
+ 		+ nla_total_size(1) /* INET_DIAG_TCLASS */
++		+ nla_total_size(4) /* INET_DIAG_MARK */
+ 		+ nla_total_size(addrlen * asoc->peer.transport_count)
+ 		+ nla_total_size(addrlen * addrcnt)
+ 		+ nla_total_size(sizeof(struct inet_diag_meminfo))
+@@ -256,7 +259,8 @@ static int sctp_tsp_dump_one(struct sctp_transport *tsp, void *p)
+ 	err = inet_sctp_diag_fill(sk, assoc, rep, req,
+ 				  sk_user_ns(NETLINK_CB(in_skb).sk),
+ 				  NETLINK_CB(in_skb).portid,
+-				  nlh->nlmsg_seq, 0, nlh);
++				  nlh->nlmsg_seq, 0, nlh,
++				  commp->net_admin);
+ 	release_sock(sk);
+ 	if (err < 0) {
+ 		WARN_ON(err == -EMSGSIZE);
+@@ -310,7 +314,8 @@ static int sctp_tsp_dump(struct sctp_transport *tsp, void *p)
+ 					sk_user_ns(NETLINK_CB(cb->skb).sk),
+ 					NETLINK_CB(cb->skb).portid,
+ 					cb->nlh->nlmsg_seq,
+-					NLM_F_MULTI, cb->nlh) < 0) {
++					NLM_F_MULTI, cb->nlh,
++					commp->net_admin) < 0) {
+ 			cb->args[3] = 1;
+ 			err = 2;
+ 			goto release;
+@@ -320,7 +325,8 @@ static int sctp_tsp_dump(struct sctp_transport *tsp, void *p)
+ 		if (inet_sctp_diag_fill(sk, assoc, skb, r,
+ 					sk_user_ns(NETLINK_CB(cb->skb).sk),
+ 					NETLINK_CB(cb->skb).portid,
+-					cb->nlh->nlmsg_seq, 0, cb->nlh) < 0) {
++					cb->nlh->nlmsg_seq, 0, cb->nlh,
++					commp->net_admin) < 0) {
+ 			err = 2;
+ 			goto release;
+ 		}
+@@ -375,7 +381,7 @@ static int sctp_ep_dump(struct sctp_endpoint *ep, void *p)
+ 				sk_user_ns(NETLINK_CB(cb->skb).sk),
+ 				NETLINK_CB(cb->skb).portid,
+ 				cb->nlh->nlmsg_seq, NLM_F_MULTI,
+-				cb->nlh) < 0) {
++				cb->nlh, commp->net_admin) < 0) {
+ 		err = 2;
+ 		goto out;
+ 	}
+@@ -412,6 +418,7 @@ static int sctp_diag_dump_one(struct sk_buff *in_skb,
+ 		.skb = in_skb,
+ 		.r = req,
+ 		.nlh = nlh,
++		.net_admin = netlink_net_capable(in_skb, CAP_NET_ADMIN),
+ 	};
+ 
+ 	if (req->sdiag_family == AF_INET) {
+@@ -447,6 +454,7 @@ static void sctp_diag_dump(struct sk_buff *skb, struct netlink_callback *cb,
+ 		.skb = skb,
+ 		.cb = cb,
+ 		.r = r,
++		.net_admin = netlink_net_capable(cb->skb, CAP_NET_ADMIN),
+ 	};
+ 
+ 	/* eps hashtable dumps
+-- 
+2.8.0.rc3.226.g39d4020
