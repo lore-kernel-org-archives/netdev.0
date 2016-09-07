@@ -1,49 +1,76 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next V2 0/6] Mellanox 100G mlx5 DCBX CEE and firmware support
-Date: Wed, 7 Sep 2016 23:51:56 +0300
-Message-ID: <CAJ3xEMiYBv3Z4DaeOnWYJH-3D_bXDUFh_xwOeoTWOxe7MqtZcQ@mail.gmail.com>
-References: <1473177852-10711-1-git-send-email-saeedm@mellanox.com>
- <CALzJLG89HjLC9hOR3g2g-SLYyV1K=wM=rHcwv7C=dex1VCOUFQ@mail.gmail.com> <20160907.132703.969714617324713560.davem@davemloft.net>
+From: Or Gerlitz via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: [PATCH RFC 08/11] net/mlx5e: XDP fast RX drop bpf
+	programs support
+Date: Wed, 7 Sep 2016 23:55:42 +0300
+Message-ID: <CAJ3xEMgsGHqQ7x8wky6Sfs34Ry67PnZEhYmnK=g8XnnXbgWagg@mail.gmail.com>
+References: <1473252152-11379-1-git-send-email-saeedm@mellanox.com>
+	<1473252152-11379-9-git-send-email-saeedm@mellanox.com>
+Reply-To: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Huy Nguyen <huyn@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:34489 "EHLO
-        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750772AbcIGUv6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 16:51:58 -0400
-Received: by mail-oi0-f67.google.com with SMTP id x125so614826oia.1
-        for <netdev@vger.kernel.org>; Wed, 07 Sep 2016 13:51:57 -0700 (PDT)
-In-Reply-To: <20160907.132703.969714617324713560.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>, Rana Shahout <ranas-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <1473252152-11379-9-git-send-email-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 7, 2016 at 11:27 PM, David Miller <davem@davemloft.net> wrote:
-> From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-> Date: Wed, 7 Sep 2016 23:16:13 +0300
+On Wed, Sep 7, 2016 at 3:42 PM, Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org> wrote:
+> From: Rana Shahout <ranas-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 >
->> Hi Dave, Sorry to bother, but i would like to drop this series for now
->> Huy is working to define and come up with a better mechanism to
->> enable/disable the new DCBX hybrid mode he is adding.
+> Add support for the BPF_PROG_TYPE_PHYS_DEV hook in mlx5e driver.
 >
-> I can't "just drop" any change that's in my tree already.
+> When XDP is on we make sure to change channels RQs type to
+> MLX5_WQ_TYPE_LINKED_LIST rather than "striding RQ" type to
+> ensure "page per packet".
+>
+> On XDP set, we fail if HW LRO is set and request from user to turn it
+> off.  Since on ConnectX4-LX HW LRO is always on by default, this will be
+> annoying, but we prefer not to enforce LRO off from XDP set function.
+>
+> Full channels reset (close/open) is required only when setting XDP
+> on/off.
+>
+> When XDP set is called just to exchange programs, we will update
+> each RQ xdp program on the fly and for synchronization with current
+> data path RX activity of that RQ, we temporally disable that RQ and
+> ensure RX path is not running, quickly update and re-enable that RQ,
+> for that we do:
+>         - rq.state = disabled
+>         - napi_synnchronize
+>         - xchg(rq->xdp_prg)
+>         - rq.state = enabled
+>         - napi_schedule // Just in case we've missed an IRQ
+>
+> Packet rate performance testing was done with pktgen 64B packets and on
+> TX side and, TC drop action on RX side compared to XDP fast drop.
+>
+> CPU: Intel(R) Xeon(R) CPU E5-2680 v3 @ 2.50GHz
+>
+> Comparison is done between:
+>         1. Baseline, Before this patch with TC drop action
+>         2. This patch with TC drop action
+>         3. This patch with XDP RX fast drop
+>
+> Streams    Baseline(TC drop)    TC drop    XDP fast Drop
+> --------------------------------------------------------------
+> 1           5.51Mpps            5.14Mpps     13.5Mpps
 
-Dave, I don't see it @ your kernel.org clone but it's not in
-patchworks either, so I guess you picked that into your other clone.
-If indeed you took it (and I guess this is the case), please note that
-was done in spite of a pending reviewer comment
-(by me) on the actual necessity of patch #3. If its not possible to
-revert them on the non kernel.org clone before you push it to
-kernel.org, I guess we need to send you a revert
-
-[1] http://marc.info/?l=linux-netdev&m=147317917622462&w=2
-
-> It is part of the permanent GIT record as I never rebase my trees for
-> any reason whatsoever.
-
-> So the best you can do is send me a revert patch.
+This (13.5 M PPS) is less than 50% of the result we presented @ the
+XDP summit which was obtained by Rana. Please see if/how much does
+this grows if you use more sender threads, but all of them to xmit the
+same stream/flows, so we're on one ring. That (XDP with single RX ring
+getting packets from N remote TX rings) would be your canonical
+base-line for any further numbers.
