@@ -1,40 +1,53 @@
-From: Hangbin Liu <haliu@redhat.com>
-Subject: Re: [PATCH iproute2] ip link: fix up bond/bridge slave id
-Date: Wed, 7 Sep 2016 21:57:08 +0800
-Message-ID: <20160907135708.GB2861@leo.usersys.redhat.com>
-References: <1473147861-30544-1-git-send-email-liuhangbin@gmail.com>
- <7515B4FB-81C4-4B70-8DCF-AD2D88097C8C@cumulusnetworks.com>
+From: Andrei Vagin <avagin@virtuozzo.com>
+Subject: Re: [PATCH net-next] netlink: don't forget to release a
+ rhashtable_iter structure
+Date: Tue, 6 Sep 2016 21:28:11 -0700
+Message-ID: <20160907042810.GA15590@outlook.office365.com>
+References: <1473186219-13061-1-git-send-email-avagin@openvz.org>
+ <20160906.174137.1869816645707925029.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Hangbin Liu <liuhangbin@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Phil Sutter <phil@nwl.cc>, Jiri Pirko <jiri@resnulli.us>
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Content-Type: text/plain; charset="koi8-r"
+Cc: <avagin@openvz.org>, <netdev@vger.kernel.org>,
+        <herbert@gondor.apana.org.au>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40994 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752699AbcIGN5O (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Sep 2016 09:57:14 -0400
+Received: from mail-db5eur01on0098.outbound.protection.outlook.com ([104.47.2.98]:48320
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753899AbcIGOCE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Sep 2016 10:02:04 -0400
 Content-Disposition: inline
-In-Reply-To: <7515B4FB-81C4-4B70-8DCF-AD2D88097C8C@cumulusnetworks.com>
+In-Reply-To: <20160906.174137.1869816645707925029.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 06, 2016 at 11:31:24AM +0300, Nikolay Aleksandrov wrote:
-> NAK, this will actually force the iplink slave logic to always lookup the linkutil symbol. Please check iplink.c and how slave linkutil structs are found.
-> The first part of the “bridge/bond_slave” is extracted from the requested type (e.g. bond_slave -> bond) and is
-> looked up with the slave flag set to true, in case that fails the symbol (%s_slave_link_util) is looked up and added to the
-> linkutil list for later use, but in this case we can end up with linkutil list head pointing to itself (the same slave link util added twice if f.e. we have
-> more than 1 slave of that type) and since it doesn’t match - we’ll loop forever.
+On Tue, Sep 06, 2016 at 05:41:37PM -0700, David Miller wrote:
+> From: Andrei Vagin <avagin@openvz.org>
+> Date: Tue,  6 Sep 2016 11:23:39 -0700
 > 
-> Just try adding 2 or more bond slaves with this patch and then do:
-> ip -d link show
+> > This bug was detected by kmemleak:
+> > unreferenced object 0xffff8804269cc3c0 (size 64):
+> >   comm "criu", pid 1042, jiffies 4294907360 (age 13.713s)
+> >   hex dump (first 32 bytes):
+> >     a0 32 cc 2c 04 88 ff ff 00 00 00 00 00 00 00 00  .2.,............
+> >     00 01 00 00 00 00 ad de 00 02 00 00 00 00 ad de  ................
+> >   backtrace:
+> >     [<ffffffff8184dffa>] kmemleak_alloc+0x4a/0xa0
+> >     [<ffffffff8124720f>] kmem_cache_alloc_trace+0x10f/0x280
+> >     [<ffffffffa02864cc>] __netlink_diag_dump+0x26c/0x290 [netlink_diag]
+> > 
+> > Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> > Fixes: ad202074320c ("netlink: Use rhashtable walk interface in diag dump")
+> > Signed-off-by: Andrei Vagin <avagin@openvz.org>
 > 
+> Hmmm, why isn't this handled by netlink_diag_dump_done()?
+> 
+> It seems like the intent is to have the hashtable iter be cached
+> across multiple __netlink_diag_dump() calls within a single
+> netlink_diag_dump invocation.
 
-Ohh, my bad. Thanks for the detailed explanation. I will go through the code
-and check it again.
+I read the code again and I think you are right. I didn't get the
+idea at the first time.
 
-Thanks
-Hangbin
+Thanks,
+Andrei
