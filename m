@@ -1,34 +1,99 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: diag: make udp_diag_destroy work for
- mapped addresses.
-Date: Wed, 07 Sep 2016 06:35:46 -0700
-Message-ID: <1473255346.10725.23.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1473223115-144755-1-git-send-email-lorenzo@google.com>
+From: Tomer Tayar <Tomer.Tayar@qlogic.com>
+Subject: [PATCH v2 net-next 2/2] qed*: Add support for the ethtool get_regs operation
+Date: Wed, 7 Sep 2016 16:36:25 +0300
+Message-ID: <1473255385-1702-3-git-send-email-Tomer.Tayar@qlogic.com>
+References: <1473255385-1702-1-git-send-email-Tomer.Tayar@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ek@google.com, davem@davemloft.net,
-        dsa@cumulusnetworks.com
-To: Lorenzo Colitti <lorenzo@google.com>
+Content-Type: text/plain
+Cc: <yuval.mintz@qlogic.com>, Tomer Tayar <Tomer.Tayar@qlogic.com>,
+        Yuval Mintz <Yuval.Mintz@qlogic.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:35906 "EHLO
-        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756903AbcIGNgY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 09:36:24 -0400
-Received: by mail-pf0-f171.google.com with SMTP id 128so6831703pfb.3
-        for <netdev@vger.kernel.org>; Wed, 07 Sep 2016 06:35:48 -0700 (PDT)
-In-Reply-To: <1473223115-144755-1-git-send-email-lorenzo@google.com>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:39168 "EHLO
+        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1757168AbcIGNgt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 09:36:49 -0400
+In-Reply-To: <1473255385-1702-1-git-send-email-Tomer.Tayar@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-09-07 at 13:38 +0900, Lorenzo Colitti wrote:
-> udp_diag_destroy does look up the IPv4 UDP hashtable for mapped
-> addresses, but it gets the IPv4 address to look up from the
-> beginning of the IPv6 address instead of the end.
-> 
-> Tested: https://android-review.googlesource.com/269874
-> Fixes: 5d77dca82839 ("net: diag: support SOCK_DESTROY for UDP sockets")
-> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
-> ---
+Signed-off-by: Tomer Tayar <Tomer.Tayar@qlogic.com>
+Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+---
+ drivers/net/ethernet/qlogic/qed/qed_main.c      |  2 ++
+ drivers/net/ethernet/qlogic/qede/qede_ethtool.c | 24 ++++++++++++++++++++++++
+ include/linux/qed/qed_if.h                      |  4 ++++
+ 3 files changed, 30 insertions(+)
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
+index 250efd1..b730a63 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_main.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
+@@ -1398,6 +1398,8 @@ const struct qed_common_ops qed_common_ops_pass = {
+ 	.get_link = &qed_get_current_link,
+ 	.drain = &qed_drain,
+ 	.update_msglvl = &qed_init_dp,
++	.dbg_all_data = &qed_dbg_all_data,
++	.dbg_all_data_size = &qed_dbg_all_data_size,
+ 	.chain_alloc = &qed_chain_alloc,
+ 	.chain_free = &qed_chain_free,
+ 	.get_coalesce = &qed_get_coalesce,
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
+index 14d5328..25a9b29 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
+@@ -695,6 +695,28 @@ static int qede_set_pauseparam(struct net_device *dev,
+ 	return 0;
+ }
+ 
++static void qede_get_regs(struct net_device *ndev,
++			  struct ethtool_regs *regs, void *buffer)
++{
++	struct qede_dev *edev = netdev_priv(ndev);
++
++	regs->version = 0;
++	memset(buffer, 0, regs->len);
++
++	if (edev->ops && edev->ops->common)
++		edev->ops->common->dbg_all_data(edev->cdev, buffer);
++}
++
++static int qede_get_regs_len(struct net_device *ndev)
++{
++	struct qede_dev *edev = netdev_priv(ndev);
++
++	if (edev->ops && edev->ops->common)
++		return edev->ops->common->dbg_all_data_size(edev->cdev);
++	else
++		return -EINVAL;
++}
++
+ static void qede_update_mtu(struct qede_dev *edev, union qede_reload_args *args)
+ {
+ 	edev->ndev->mtu = args->mtu;
+@@ -1395,6 +1417,8 @@ static const struct ethtool_ops qede_ethtool_ops = {
+ 	.get_link_ksettings = qede_get_link_ksettings,
+ 	.set_link_ksettings = qede_set_link_ksettings,
+ 	.get_drvinfo = qede_get_drvinfo,
++	.get_regs_len = qede_get_regs_len,
++	.get_regs = qede_get_regs,
+ 	.get_msglevel = qede_get_msglevel,
+ 	.set_msglevel = qede_set_msglevel,
+ 	.nway_reset = qede_nway_reset,
+diff --git a/include/linux/qed/qed_if.h b/include/linux/qed/qed_if.h
+index d8dc5c2..e4546ab 100644
+--- a/include/linux/qed/qed_if.h
++++ b/include/linux/qed/qed_if.h
+@@ -455,6 +455,10 @@ struct qed_common_ops {
+ 	void		(*simd_handler_clean)(struct qed_dev *cdev,
+ 					      int index);
+ 
++	int (*dbg_all_data) (struct qed_dev *cdev, void *buffer);
++
++	int (*dbg_all_data_size) (struct qed_dev *cdev);
++
+ /**
+  * @brief can_link_change - can the instance change the link or not
+  *
+-- 
+1.8.3.1
