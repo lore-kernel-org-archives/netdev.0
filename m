@@ -1,45 +1,45 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH v4 2/4] wcn36xx: Transition driver to SMD client
-Date: Wed, 07 Sep 2016 14:35:17 +0300
-Message-ID: <87zinkvt6y.fsf@kamboji.qca.qualcomm.com>
-References: <1473200312-22438-1-git-send-email-bjorn.andersson@linaro.org>
-        <1473200312-22438-2-git-send-email-bjorn.andersson@linaro.org>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [PATCH] qed: add missing header dependencies
+Date: Wed, 7 Sep 2016 11:37:07 +0000
+Message-ID: <DM5PR11MB1723D8845DD64E2634DBC41D97F80@DM5PR11MB1723.namprd11.prod.outlook.com>
+References: <1473246420-1035-1-git-send-email-baoyou.xie@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eugene Krasnikov <k.eugene.e@gmail.com>,
-        wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-arm-msm@vger.kernel.org, Andy Gross <andy.gross@linaro.org>
-To: Bjorn Andersson <bjorn.andersson@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1473200312-22438-2-git-send-email-bjorn.andersson@linaro.org>
-        (Bjorn Andersson's message of "Tue, 6 Sep 2016 15:18:30 -0700")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev <netdev@vger.kernel.org>,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        "arnd@arndb.de" <arnd@arndb.de>,
+        "xie.baoyou@zte.com.cn" <xie.baoyou@zte.com.cn>,
+        Ariel Elior <Ariel.Elior@qlogic.com>
+To: Baoyou Xie <baoyou.xie@linaro.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2nam02on0137.outbound.protection.outlook.com ([104.47.38.137]:49341
+        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750954AbcIGLhJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Sep 2016 07:37:09 -0400
+In-Reply-To: <1473246420-1035-1-git-send-email-baoyou.xie@linaro.org>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Bjorn Andersson <bjorn.andersson@linaro.org> writes:
+> We get 4 warnings when building kernel with W=3D1:
+> drivers/net/ethernet/qlogic/qed/qed_selftest.c:6:5: warning: no previous
+> prototype for 'qed_selftest_memory' [-Wmissing-prototypes]
+> drivers/net/ethernet/qlogic/qed/qed_selftest.c:19:5: warning: no previous
+> prototype for 'qed_selftest_interrupt' [-Wmissing-prototypes]
+> drivers/net/ethernet/qlogic/qed/qed_selftest.c:32:5: warning: no previous
+> prototype for 'qed_selftest_register' [-Wmissing-prototypes]
+> drivers/net/ethernet/qlogic/qed/qed_selftest.c:55:5: warning: no previous
+> prototype for 'qed_selftest_clock' [-Wmissing-prototypes]
+>=20
+> In fact, these functions are declared in qed_selftest.h, so this patch ad=
+d missing
+> header dependencies.
+>=20
+> Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
 
-> The wcn36xx wifi driver follows the life cycle of the WLAN_CTRL SMD
-> channel, as such it should be a SMD client. This patch makes this
-> transition, now that we have the necessary frameworks available.
->
-> Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
-> ---
->
-> Changes since v3:
-> - Made msg_header const in wcn36xx_smd_rsp_process()
->
-> Changes since v2:
-> - Correct the call to the new ieee80211_scan_completed()
->
->  drivers/net/wireless/ath/wcn36xx/dxe.c     | 16 +++---
->  drivers/net/wireless/ath/wcn36xx/main.c    | 79 ++++++++++++++++++++----------
->  drivers/net/wireless/ath/wcn36xx/smd.c     | 31 +++++-------
->  drivers/net/wireless/ath/wcn36xx/smd.h     |  5 ++
->  drivers/net/wireless/ath/wcn36xx/wcn36xx.h | 21 +++-----
->  5 files changed, 86 insertions(+), 66 deletions(-)
-
-So I don't actually need to enable COMPILE_TEST anymore? Nice, thanks.
-
--- 
-Kalle Valo
+While I obviously have no strong objection for including qed_selftest.h
+from qed_selftest.c, I'm not sure I understand which C standard dictates
+this requirement.
+Why should a function definition [not call] be preceded by a prototype?
