@@ -1,51 +1,34 @@
-From: Tomer Tayar <Tomer.Tayar@qlogic.com>
-Subject: [PATCH v2 net-next 0/2] qed*: Debug data collection
-Date: Wed, 7 Sep 2016 16:36:23 +0300
-Message-ID: <1473255385-1702-1-git-send-email-Tomer.Tayar@qlogic.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: diag: make udp_diag_destroy work for
+ mapped addresses.
+Date: Wed, 07 Sep 2016 06:35:46 -0700
+Message-ID: <1473255346.10725.23.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1473223115-144755-1-git-send-email-lorenzo@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <yuval.mintz@qlogic.com>, Tomer Tayar <Tomer.Tayar@qlogic.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ek@google.com, davem@davemloft.net,
+        dsa@cumulusnetworks.com
+To: Lorenzo Colitti <lorenzo@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:39159 "EHLO
-        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1756803AbcIGNgc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 09:36:32 -0400
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:35906 "EHLO
+        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756903AbcIGNgY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 09:36:24 -0400
+Received: by mail-pf0-f171.google.com with SMTP id 128so6831703pfb.3
+        for <netdev@vger.kernel.org>; Wed, 07 Sep 2016 06:35:48 -0700 (PDT)
+In-Reply-To: <1473223115-144755-1-git-send-email-lorenzo@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series adds the support of debug data collection in the qed driver,
-and the means to extract it in the qede driver via the get_regs operation.
+On Wed, 2016-09-07 at 13:38 +0900, Lorenzo Colitti wrote:
+> udp_diag_destroy does look up the IPv4 UDP hashtable for mapped
+> addresses, but it gets the IPv4 address to look up from the
+> beginning of the IPv6 address instead of the end.
+> 
+> Tested: https://android-review.googlesource.com/269874
+> Fixes: 5d77dca82839 ("net: diag: support SOCK_DESTROY for UDP sockets")
+> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+> ---
 
-Hi Dave,
-
-Please consider applying this to 'net-next'.
-
-Thanks,
-Tomer
-
-Changes from V1:
-- Respin of the series after rebasing next-next.
-- Remove the first patch as it seems that its V1 version was already applied
-  (commit '4102426f9b7b3627c8c23a54d70363e81c93f9b7').
-
-Tomer Tayar (2):
-  qed: Add support for debug data collection
-  qed*: Add support for the ethtool get_regs operation
-
- drivers/net/ethernet/qlogic/qed/Makefile        |    2 +-
- drivers/net/ethernet/qlogic/qed/qed.h           |   20 +
- drivers/net/ethernet/qlogic/qed/qed_debug.c     | 6898 +++++++++++++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_debug.h     |   54 +
- drivers/net/ethernet/qlogic/qed/qed_hsi.h       | 1056 +++-
- drivers/net/ethernet/qlogic/qed/qed_main.c      |    6 +
- drivers/net/ethernet/qlogic/qed/qed_reg_addr.h  |  894 +++
- drivers/net/ethernet/qlogic/qede/qede_ethtool.c |   24 +
- include/linux/qed/common_hsi.h                  |    3 +
- include/linux/qed/qed_if.h                      |    4 +
- 10 files changed, 8949 insertions(+), 12 deletions(-)
- create mode 100644 drivers/net/ethernet/qlogic/qed/qed_debug.c
- create mode 100644 drivers/net/ethernet/qlogic/qed/qed_debug.h
-
--- 
-1.8.3.1
+Acked-by: Eric Dumazet <edumazet@google.com>
