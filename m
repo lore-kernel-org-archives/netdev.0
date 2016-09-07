@@ -1,15 +1,15 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 5/5] net/mlx5e: Fix parsing of vlan packets when updating lro header
-Date: Wed,  7 Sep 2016 19:08:01 +0300
-Message-ID: <1473264481-20392-6-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net 4/5] net/mlx5e: Fix global PFC counters replication
+Date: Wed,  7 Sep 2016 19:08:00 +0300
+Message-ID: <1473264481-20392-5-git-send-email-saeedm@mellanox.com>
 References: <1473264481-20392-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Gal Pressman <galp@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:58435 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:58432 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1753899AbcIGQIg (ORCPT
+        with ESMTP id S1752299AbcIGQIg (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 12:08:36 -0400
 In-Reply-To: <1473264481-20392-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -17,63 +17,32 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Gal Pressman <galp@mellanox.com>
 
-Currently vlan tagged packets were not parsed correctly
-and assumed to be regular IPv4/IPv6 packets.
-We should check for 802.1Q/802.1ad tags and update the lro header
-accordingly.
-This fixes the use case where LRO is on and rxvlan is off
-(vlan stripping is off).
+Currently when reading global PFC statistics we left the counter
+iterator out of the equation and we ended up reading the same counter
+over and over again.
 
-Fixes: e586b3b0baee ('net/mlx5: Ethernet Datapath files')
+Instead of reading the counter at index 0 on every iteration we now read
+the counter at index (i).
+
+Fixes: e989d5a532ce ('net/mlx5e: Expose flow control counters to ethtool')
 Signed-off-by: Gal Pressman <galp@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c | 22 +++++++++++++++-------
- 1 file changed, 15 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index b6f8ebb..e7c969d 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -637,24 +637,32 @@ bool mlx5e_post_rx_wqes(struct mlx5e_rq *rq)
- static void mlx5e_lro_update_hdr(struct sk_buff *skb, struct mlx5_cqe64 *cqe,
- 				 u32 cqe_bcnt)
- {
--	struct ethhdr	*eth	= (struct ethhdr *)(skb->data);
--	struct iphdr	*ipv4	= (struct iphdr *)(skb->data + ETH_HLEN);
--	struct ipv6hdr	*ipv6	= (struct ipv6hdr *)(skb->data + ETH_HLEN);
-+	struct ethhdr	*eth = (struct ethhdr *)(skb->data);
-+	struct iphdr	*ipv4;
-+	struct ipv6hdr	*ipv6;
- 	struct tcphdr	*tcp;
-+	int network_depth = 0;
-+	__be16 proto;
-+	u16 tot_len;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index 98e1a4a..7a346bb 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -331,7 +331,7 @@ static void mlx5e_get_ethtool_stats(struct net_device *dev,
+ 	if (mlx5e_query_global_pause_combined(priv)) {
+ 		for (i = 0; i < NUM_PPORT_PER_PRIO_PFC_COUNTERS; i++) {
+ 			data[idx++] = MLX5E_READ_CTR64_BE(&priv->stats.pport.per_prio_counters[0],
+-							  pport_per_prio_pfc_stats_desc, 0);
++							  pport_per_prio_pfc_stats_desc, i);
+ 		}
+ 	}
  
- 	u8 l4_hdr_type = get_cqe_l4_hdr_type(cqe);
- 	int tcp_ack = ((CQE_L4_HDR_TYPE_TCP_ACK_NO_DATA  == l4_hdr_type) ||
- 		       (CQE_L4_HDR_TYPE_TCP_ACK_AND_DATA == l4_hdr_type));
- 
--	u16 tot_len = cqe_bcnt - ETH_HLEN;
-+	skb->mac_len = ETH_HLEN;
-+	proto = __vlan_get_protocol(skb, eth->h_proto, &network_depth);
- 
--	if (eth->h_proto == htons(ETH_P_IP)) {
--		tcp = (struct tcphdr *)(skb->data + ETH_HLEN +
-+	ipv4 = (struct iphdr *)(skb->data + network_depth);
-+	ipv6 = (struct ipv6hdr *)(skb->data + network_depth);
-+	tot_len = cqe_bcnt - network_depth;
-+
-+	if (proto == htons(ETH_P_IP)) {
-+		tcp = (struct tcphdr *)(skb->data + network_depth +
- 					sizeof(struct iphdr));
- 		ipv6 = NULL;
- 		skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
- 	} else {
--		tcp = (struct tcphdr *)(skb->data + ETH_HLEN +
-+		tcp = (struct tcphdr *)(skb->data + network_depth +
- 					sizeof(struct ipv6hdr));
- 		ipv4 = NULL;
- 		skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
 -- 
 2.7.4
