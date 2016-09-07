@@ -1,42 +1,54 @@
-From: Andy Gross <andy.gross@linaro.org>
-Subject: Re: [PATCH v4 1/4] soc: qcom: wcnss_ctrl: Stub wcnss_ctrl API
-Date: Tue, 6 Sep 2016 20:39:58 -0500
-Message-ID: <20160907013958.GA6975@hector.attlocal.net>
-References: <1473200312-22438-1-git-send-email-bjorn.andersson@linaro.org>
+From: Kefeng Wang <wangkefeng.wang@huawei.com>
+Subject: Re: [PATCH] net: hns: declare function as static
+Date: Wed, 7 Sep 2016 09:47:39 +0800
+Message-ID: <ad38db1d-7aae-6ade-8341-03b5e0262dab@huawei.com>
+References: <1473162791-43858-1-git-send-email-wangkefeng.wang@huawei.com>
+ <20160906.162056.2216637267409495822.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eugene Krasnikov <k.eugene.e@gmail.com>,
-        Kalle Valo <kvalo@codeaurora.org>, wcn36xx@lists.infradead.org,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-arm-msm@vger.kernel.org,
-        Marcel Holtmann <marcel@holtmann.org>
-To: Bjorn Andersson <bjorn.andersson@linaro.org>
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1473200312-22438-1-git-send-email-bjorn.andersson@linaro.org>
-Sender: linux-arm-msm-owner@vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <yisen.zhuang@huawei.com>, <yankejian@huawei.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160906.162056.2216637267409495822.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 06, 2016 at 03:18:29PM -0700, Bjorn Andersson wrote:
-> Stub the wcnss_ctrl API to allow compile testing wcnss function drivers.
-> 
-> Cc: Marcel Holtmann <marcel@holtmann.org>
-> Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
-> ---
-> 
-> There are no other pending changes colliding with this, so if Andy is okay with
-> this it could be merged through Kalle's tree - together with the other patches.
-> 
-> Marcel, with this applied we can drop the depends on QCOM_SMD from the
-> btqcomsmd driver as well.
-> 
-> Changes since v3:
-> - Added this patch to allow compile testing without SMD support after patch 2
-> 
->  include/linux/soc/qcom/wcnss_ctrl.h | 13 +++++++++++++
->  1 file changed, 13 insertions(+)
-> 
 
-This is fine.
 
-Acked-by: Andy Gross <andy.gross@linaro.org>
+On 2016/9/7 7:20, David Miller wrote:
+> From: Kefeng Wang <wangkefeng.wang@huawei.com>
+> Date: Tue, 6 Sep 2016 19:53:11 +0800
+> 
+>> Declare function as static to kill warning about missing-prototypes.
+>>
+>> Cc: Yisen Zhuang <yisen.zhuang@huawei.com>
+>> Cc: Kejian Yan <yankejian@huawei.com>
+>> Signed-off-by: Kefeng Wang <wangkefeng.wang@huawei.com>
+>  ...
+>> @@ -73,7 +73,7 @@ static struct ring_pair_cb *hns_ae_get_ring_pair(struct hnae_queue *q)
+>>  	return container_of(q, struct ring_pair_cb, q);
+>>  }
+>>  
+>> -struct hnae_handle *hns_ae_get_handle(struct hnae_ae_dev *dev,
+>> +static struct hnae_handle *hns_ae_get_handle(struct hnae_ae_dev *dev,
+>>  				      u32 port_id)
+> 
+> You have to adjust the indentation of the arguments on the following lines
+> if you change where the openning parenthesis is.  They must start exactly
+> at the column folling that openning parenthesis.
+
+Hi David,
+
+Talked with Yisen, please ignore it for now, will resend it after some hns/roce functional changes.
+
+Thanks,
+Kefeng
+
+
+
+> 
+> 
+> .
+> 
