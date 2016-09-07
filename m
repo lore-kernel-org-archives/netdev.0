@@ -1,81 +1,120 @@
-From: Saeed Mahameed via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: [PATCH RFC 08/11] net/mlx5e: XDP fast RX drop bpf
-	programs support
-Date: Wed, 7 Sep 2016 17:48:14 +0300
-Message-ID: <CALzJLG8_F28kQOPqTTLJRMsf9BOQvm3K2hAraCzabnXV4yKUgg@mail.gmail.com>
-References: <1473252152-11379-1-git-send-email-saeedm@mellanox.com>
-	<1473252152-11379-9-git-send-email-saeedm@mellanox.com>
-	<CAJ3xEMhh=fu+mrCGAjv1PDdGn9GPLJv9MssMzwzvppoqZUY01A@mail.gmail.com>
-Reply-To: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH 12/15] net: sched: lockless support for
+ netif_schedule
+Date: Wed, 7 Sep 2016 07:50:53 -0700
+Message-ID: <57D0294D.50005@gmail.com>
+References: <20160823202135.14368.62466.stgit@john-Precision-Tower-5810>
+ <20160823202746.14368.6466.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
-	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
-	Rana Shahout <ranas-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <CAJ3xEMhh=fu+mrCGAjv1PDdGn9GPLJv9MssMzwzvppoqZUY01A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com, jhs@mojatatu.com, davem@davemloft.net,
+        brouer@redhat.com, xiyou.wangcong@gmail.com,
+        alexei.starovoitov@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:36627 "EHLO
+        mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757366AbcIGOvI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 10:51:08 -0400
+Received: by mail-pa0-f68.google.com with SMTP id ez1so1013207pab.3
+        for <netdev@vger.kernel.org>; Wed, 07 Sep 2016 07:51:08 -0700 (PDT)
+In-Reply-To: <20160823202746.14368.6466.stgit@john-Precision-Tower-5810>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 7, 2016 at 4:32 PM, Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> On Wed, Sep 7, 2016 at 3:42 PM, Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org> wrote:
->
->> Packet rate performance testing was done with pktgen 64B packets and on
->> TX side and, TC drop action on RX side compared to XDP fast drop.
->>
->> CPU: Intel(R) Xeon(R) CPU E5-2680 v3 @ 2.50GHz
->>
->> Comparison is done between:
->>         1. Baseline, Before this patch with TC drop action
->>         2. This patch with TC drop action
->>         3. This patch with XDP RX fast drop
->>
->> Streams    Baseline(TC drop)    TC drop    XDP fast Drop
->> --------------------------------------------------------------
->> 1           5.51Mpps            5.14Mpps     13.5Mpps
->> 2           11.5Mpps            10.0Mpps     25.1Mpps
->> 4           16.3Mpps            17.2Mpps     35.4Mpps
->> 8           29.6Mpps            28.2Mpps     45.8Mpps*
->> 16          34.0Mpps            30.1Mpps     45.8Mpps*
->
-> Rana, Guys, congrat!!
->
-> When you say X streams, does each stream mapped by RSS to different RX ring?
-> or we're on the same RX ring for all rows of the above table?
+On 16-08-23 01:27 PM, John Fastabend wrote:
+> netif_schedule uses a bit QDISC_STATE_SCHED to tell the qdisc layer
+> if a run of the qdisc has been scheduler. This is important when
+> tearing down qdisc instances. We can not rcu_free an instance for
+> example if its possible that we might have outstanding references to
+> it.
+> 
+> Perhaps more importantly in the per cpu lockless case we need to
+> schedule a run of the qdisc on all qdiscs that are enqueu'ing packets
+> and hitting the gso_skb requeue logic or else the skb may get stuck
+> on the gso_skb queue without anything to finish the xmit.
+> 
+> This patch uses a reference counter instead of a bit to account for
+> the multiple CPUs.
+> 
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
+>  include/net/sch_generic.h |    1 +
+>  net/core/dev.c            |   32 +++++++++++++++++++++++---------
+>  net/sched/sch_api.c       |    5 +++++
+>  net/sched/sch_generic.c   |   15 ++++++++++++++-
+>  4 files changed, 43 insertions(+), 10 deletions(-)
+> 
+> diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+> index 12df73d..cf4b3ea 100644
+> --- a/include/net/sch_generic.h
+> +++ b/include/net/sch_generic.h
+> @@ -93,6 +93,7 @@ struct Qdisc {
+>  	seqcount_t		running;
+>  	struct gnet_stats_queue	qstats;
+>  	unsigned long		state;
+> +	unsigned long __percpu	*cpu_state;
+>  	struct Qdisc            *next_sched;
+>  	struct sk_buff		*skb_bad_txq;
+>  	struct rcu_head		rcu_head;
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index a0effa6..f638571 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -2272,8 +2272,14 @@ static void __netif_reschedule(struct Qdisc *q)
+>  
+>  void __netif_schedule(struct Qdisc *q)
+>  {
+> -	if (!test_and_set_bit(__QDISC_STATE_SCHED, &q->state))
+> +	if (q->flags & TCQ_F_NOLOCK) {
+> +		unsigned long *s = this_cpu_ptr(q->cpu_state);
+> +
+> +		if (!test_and_set_bit(__QDISC_STATE_SCHED, s))
+> +			__netif_reschedule(q);
+> +	} else if (!test_and_set_bit(__QDISC_STATE_SCHED, &q->state)) {
+>  		__netif_reschedule(q);
+> +	}
+>  }
+>  EXPORT_SYMBOL(__netif_schedule);
 
-Yes, I will make this more clear in the actual submission,
-Here we are talking about different RSS core rings.
 
->
-> In the CX3 work, we had X sender "streams" that all mapped to the same RX ring,
-> I don't think we went beyond one RX ring.
+I've had this lingering issue with this patchset that I think I've
+pinned down. The issue manifests itself as a hang every once and awhile
+when adding a new qdisc where the qdisc add code is stuck waiting for
+the QDISC_STATE_SCHED bit to be zeroed.
 
-Here we did, the first row is what you are describing the other rows
-are the same test
-with increasing the number of the RSS receiving cores, The xmit side is sending
-as many streams as possible to be as much uniformly spread as possible
-across the
-different RSS cores on the receiver.
+The base issue is __netif_schedule gets called from other contexts
+other than the enqueue()/dequeue() paths. In the dequeue() path if a
+packet can not be pushed at the driver with this series it will park
+the skb on one of the gso or bad pkt per cpu slots and signal
+__netif_schedule to retry. This works because the skb is on the per
+cpu slot of the running cpu and the __netif_schedule is signaled on
+the running cpu so everything aligns.
 
->
-> Here, I guess you want to 1st get an initial max for N pktgen TX
-> threads all sending
-> the same stream so you land on single RX ring, and then move to M * N pktgen TX
-> threads to max that further.
->
-> I don't see how the current Linux stack would be able to happily drive 34M PPS
-> (== allocate SKB, etc, you know...) on a single CPU, Jesper?
->
-> Or.
+However if the txq is frozen_or_stopped by the driver the dequeue
+path in the qdisc layer just aborts and waits for the driver to signal
+it to wake up via a netif_schedule call. But there is no guarantee that
+the driver submitted netif_schedule call is going to come back on the
+"right" per cpu.  Nor does the soft_irq structure have any way to signal
+an interrupt on a specific cpu. So if the driver signals a soft_irq on
+some other core than we happily process it but there is nothing to kick
+the qdisc stack to dequeue packets on other cores.
+
+TXQs tend to get frozen or stopped (netif_xmit_frozen_or_stopped) via
+BQL or if you have flow control on which is how I got this to hang more
+reliably.
+
+I'm looking at coming up with some sort of fix now but not entirely
+sure the best mechanism at the moment. One possibility is to not backoff
+from the qdisc layer in the case of frozen_or_stopped queues and
+believe that the txq really shouldn't be frozen_or_stopped for very
+long. Another is to signal a soft_irq on any cpu core with packets which
+we can "learn" via per cpu qlen values.
+
+Any other ideas would be welcome. Just thought I would point out why
+this series was taking so long to get a v2 out. Also behind on reviewing
+other patches....
+
+Thanks,
+John
