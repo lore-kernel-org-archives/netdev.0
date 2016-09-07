@@ -1,32 +1,61 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: [PATCH net-next] net: inet: diag: expose the socket mark to
- privileged processes.
-Date: Thu, 8 Sep 2016 00:47:07 +0900
-Message-ID: <CAKD1Yr3maNjdxzD4KqvqYjR2MMXFUdB41kt0Y6bs_9kV+vFt5w@mail.gmail.com>
-References: <1473240756-101966-1-git-send-email-lorenzo@google.com> <201609071915.KyheN4G0%fengguang.wu@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Erik Kline <ek@google.com>, Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        David Ahern <dsa@cumulusnetworks.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net 3/5] net/mlx5e: Prevent casting overflow
+Date: Wed,  7 Sep 2016 19:07:59 +0300
+Message-ID: <1473264481-20392-4-git-send-email-saeedm@mellanox.com>
+References: <1473264481-20392-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Gal Pressman <galp@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f41.google.com ([209.85.214.41]:38423 "EHLO
-        mail-it0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756407AbcIGPr3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 11:47:29 -0400
-Received: by mail-it0-f41.google.com with SMTP id c198so29221802ith.1
-        for <netdev@vger.kernel.org>; Wed, 07 Sep 2016 08:47:29 -0700 (PDT)
-In-Reply-To: <201609071915.KyheN4G0%fengguang.wu@intel.com>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:58431 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1752752AbcIGQIg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 12:08:36 -0400
+In-Reply-To: <1473264481-20392-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 7, 2016 at 8:20 PM, kbuild test robot <lkp@intel.com> wrote:
-> [auto build test ERROR on net-next/master]
->
->    net/sctp/sctp_diag.c: In function 'inet_sctp_diag_fill':
-> >> net/sctp/sctp_diag.c:136:6: error: too few arguments to function 'inet_diag_msg_attrs_fill'
->      if (inet_diag_msg_attrs_fill(sk, skb, r, ext, user_ns))
->          ^~~~~~~~~~~~~~~~~~~~~~~~
+From: Gal Pressman <galp@mellanox.com>
 
-Fixed in v3, and unit tests updated with basic SCTP tests as well.
+On 64 bits architectures unsigned long is longer than u32,
+casting to unsigned long will result in overflow.
+We need to first allocate an unsigned long variable, then assign the
+wanted value.
+
+Fixes: 665bc53969d7 ('net/mlx5e: Use new ethtool get/set link ksettings API')
+Signed-off-by: Gal Pressman <galp@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index d0cf8fa..98e1a4a 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -659,9 +659,10 @@ out:
+ static void ptys2ethtool_supported_link(unsigned long *supported_modes,
+ 					u32 eth_proto_cap)
+ {
++	unsigned long proto_cap = eth_proto_cap;
+ 	int proto;
+ 
+-	for_each_set_bit(proto, (unsigned long *)&eth_proto_cap, MLX5E_LINK_MODES_NUMBER)
++	for_each_set_bit(proto, &proto_cap, MLX5E_LINK_MODES_NUMBER)
+ 		bitmap_or(supported_modes, supported_modes,
+ 			  ptys2ethtool_table[proto].supported,
+ 			  __ETHTOOL_LINK_MODE_MASK_NBITS);
+@@ -670,9 +671,10 @@ static void ptys2ethtool_supported_link(unsigned long *supported_modes,
+ static void ptys2ethtool_adver_link(unsigned long *advertising_modes,
+ 				    u32 eth_proto_cap)
+ {
++	unsigned long proto_cap = eth_proto_cap;
+ 	int proto;
+ 
+-	for_each_set_bit(proto, (unsigned long *)&eth_proto_cap, MLX5E_LINK_MODES_NUMBER)
++	for_each_set_bit(proto, &proto_cap, MLX5E_LINK_MODES_NUMBER)
+ 		bitmap_or(advertising_modes, advertising_modes,
+ 			  ptys2ethtool_table[proto].advertised,
+ 			  __ETHTOOL_LINK_MODE_MASK_NBITS);
+-- 
+2.7.4
