@@ -1,52 +1,51 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 2/5] net/mlx5e: Move an_disable_cap bit to a new position
-Date: Wed,  7 Sep 2016 19:07:58 +0300
-Message-ID: <1473264481-20392-3-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net 1/5] net/mlx5e: Fix xmit_more counter race issue
+Date: Wed,  7 Sep 2016 19:07:57 +0300
+Message-ID: <1473264481-20392-2-git-send-email-saeedm@mellanox.com>
 References: <1473264481-20392-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Bodong Wang <bodong@mellanox.com>,
+Cc: netdev@vger.kernel.org, Tariq Toukan <tariqt@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:58425 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:58424 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751237AbcIGQIg (ORCPT
+        with ESMTP id S1752418AbcIGQIg (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 12:08:36 -0400
 In-Reply-To: <1473264481-20392-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bodong Wang <bodong@mellanox.com>
+From: Tariq Toukan <tariqt@mellanox.com>
 
-Previous an_disable_cap position bit31 is deprecated to be use in driver
-with newer firmware.  New firmware will advertise the same capability
-in bit29.
+Update the xmit_more counter before notifying the HW,
+to prevent a possible use-after-free of the skb.
 
-Old capability didn't allow setting more than one protocol for a
-specific speed when autoneg is off, while newer firmware will allow
-this and it is indicated in the new capability location.
-
-Signed-off-by: Bodong Wang <bodong@mellanox.com>
+Fixes: c8cf78fe100b ("net/mlx5e: Add ethtool counter for TX xmit_more")
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- include/linux/mlx5/mlx5_ifc.h | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index 21bc455..d1f9a58 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -6710,9 +6710,10 @@ struct mlx5_ifc_pude_reg_bits {
- };
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+index 988eca9..eb0e725 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+@@ -356,6 +356,7 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 		sq->stats.stopped++;
+ 	}
  
- struct mlx5_ifc_ptys_reg_bits {
--	u8         an_disable_cap[0x1];
-+	u8         reserved_at_0[0x1];
- 	u8         an_disable_admin[0x1];
--	u8         reserved_at_2[0x6];
-+	u8         an_disable_cap[0x1];
-+	u8         reserved_at_3[0x5];
- 	u8         local_port[0x8];
- 	u8         reserved_at_10[0xd];
- 	u8         proto_mask[0x3];
++	sq->stats.xmit_more += skb->xmit_more;
+ 	if (!skb->xmit_more || netif_xmit_stopped(sq->txq)) {
+ 		int bf_sz = 0;
+ 
+@@ -375,7 +376,6 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 
+ 	sq->stats.packets++;
+ 	sq->stats.bytes += num_bytes;
+-	sq->stats.xmit_more += skb->xmit_more;
+ 	return NETDEV_TX_OK;
+ 
+ dma_unmap_wqe_err:
 -- 
 2.7.4
