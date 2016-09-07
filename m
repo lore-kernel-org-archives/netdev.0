@@ -1,161 +1,115 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 1/3] r8152: check hw version first
-Date: Wed, 7 Sep 2016 16:12:20 +0800
-Message-ID: <1394712342-15778-216-Taiwan-albertk@realtek.com>
-References: <1394712342-15778-215-Taiwan-albertk@realtek.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH v5 nf] netfilter: seqadj: Drop the packet directly when
+ fail to add seqadj extension to avoid dereference NULL pointer later
+Date: Wed, 7 Sep 2016 11:18:59 +0200
+Message-ID: <20160907091859.GA10315@salvia>
+References: <1473173035-2175-1-git-send-email-fgao@ikuai8.com>
+ <20160906145117.GB20188@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-        <linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-215-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: fgao@ikuai8.com, netfilter-devel@vger.kernel.org,
+        coreteam@netfilter.org, netdev@vger.kernel.org,
+        gfree.wind@gmail.com
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:59682 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1757189AbcIGJTL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Sep 2016 05:19:11 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id E922D2273CE
+        for <netdev@vger.kernel.org>; Wed,  7 Sep 2016 11:19:08 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id D49CF1150D1
+        for <netdev@vger.kernel.org>; Wed,  7 Sep 2016 11:19:08 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id E626B114D63
+        for <netdev@vger.kernel.org>; Wed,  7 Sep 2016 11:19:04 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <20160906145117.GB20188@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Check hw version first in probe(). Do nothing if the driver doesn't
-support the chips.
+On Tue, Sep 06, 2016 at 04:51:17PM +0200, Florian Westphal wrote:
+> fgao@ikuai8.com <fgao@ikuai8.com> wrote:
+> > From: Gao Feng <fgao@ikuai8.com>
+> > 
+> > When memory is exhausted, nfct_seqadj_ext_add may fail to add the seqadj
+> > extension. But the function nf_ct_seqadj_init doesn't check if get valid
+> > seqadj pointer by the nfct_seqadj.
+> > 
+> > Now drop the packet directly when fail to add seqadj extension to avoid
+> > dereference NULL pointer in nf_ct_seqadj_init.
+> > 
+> > Signed-off-by: Gao Feng <fgao@ikuai8.com>
+> > ---
+> >  v5: Return NF_ACCEPT instead of NF_DROP when nfct_seqadj_ext_add failed in nf_nat_setup_info
+> >  v4: Drop the packet directly when fail to add seqadj extension;
+> >  v3: Remove the warning log when seqadj is null;
+> >  v2: Remove the unnessary seqadj check in nf_ct_seq_adjust
+> >  v1: Initial patch
+> > 
+> >  net/netfilter/nf_conntrack_core.c | 6 +++++-
+> >  net/netfilter/nf_nat_core.c       | 3 ++-
+> >  2 files changed, 7 insertions(+), 2 deletions(-)
+> > 
+> > diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+> > index dd2c43a..dfa76ce 100644
+> > --- a/net/netfilter/nf_conntrack_core.c
+> > +++ b/net/netfilter/nf_conntrack_core.c
+> > @@ -1036,7 +1036,11 @@ init_conntrack(struct net *net, struct nf_conn *tmpl,
+> >  		return (struct nf_conntrack_tuple_hash *)ct;
+> >  
+> >  	if (tmpl && nfct_synproxy(tmpl)) {
+> > -		nfct_seqadj_ext_add(ct);
+> > +		if (!nfct_seqadj_ext_add(ct)) {
+> > +			nf_conntrack_free(ct);
+> > +			pr_debug("Can't add seqadj extension\n");
+> > +			return NULL;
+> > +		}
+> 
+> if (!nfct_add_synrpxy(ct, tmpl)) {
+> 	nf_conntrack_free(ct);
+> 	return NULL;
+> }
+> 
+> static bool nf_ct_add_synproxy(struct nf_conn *ct, const struct nf_conn *tmpl)
+> {
+> 	if (tmpl && nfct_synproxy(tmpl)) {
+> 		if (!nfct_seqadj_ext_add(ct))
+> 			return false;
+> 
+> 		if (!nfct_synproxy_ext_add(ct))
+> 			return false;
+> 	}
+> 
+> 	return true;
+> }
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 102 ++++++++++++++++++++++++++++++------------------
- 1 file changed, 63 insertions(+), 39 deletions(-)
+I like this helper idea, please send a v6 using this using what
+Florian is proposing.
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 9338f58..8468704 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -4142,44 +4142,6 @@ static const struct net_device_ops rtl8152_netdev_ops = {
- 	.ndo_features_check	= rtl8152_features_check,
- };
- 
--static void r8152b_get_version(struct r8152 *tp)
--{
--	u32	ocp_data;
--	u16	version;
--
--	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_TCR1);
--	version = (u16)(ocp_data & VERSION_MASK);
--
--	switch (version) {
--	case 0x4c00:
--		tp->version = RTL_VER_01;
--		break;
--	case 0x4c10:
--		tp->version = RTL_VER_02;
--		break;
--	case 0x5c00:
--		tp->version = RTL_VER_03;
--		tp->mii.supports_gmii = 1;
--		break;
--	case 0x5c10:
--		tp->version = RTL_VER_04;
--		tp->mii.supports_gmii = 1;
--		break;
--	case 0x5c20:
--		tp->version = RTL_VER_05;
--		tp->mii.supports_gmii = 1;
--		break;
--	case 0x5c30:
--		tp->version = RTL_VER_06;
--		tp->mii.supports_gmii = 1;
--		break;
--	default:
--		netif_info(tp, probe, tp->netdev,
--			   "Unknown version 0x%04x\n", version);
--		break;
--	}
--}
--
- static void rtl8152_unload(struct r8152 *tp)
- {
- 	if (test_bit(RTL8152_UNPLUG, &tp->flags))
-@@ -4244,14 +4206,66 @@ static int rtl_ops_init(struct r8152 *tp)
- 	return ret;
- }
- 
-+static u8 rtl_get_version(struct usb_interface *intf)
-+{
-+	struct usb_device *udev = interface_to_usbdev(intf);
-+	u32 ocp_data = 0;
-+	__le32 *tmp;
-+	u8 version;
-+	int ret;
-+
-+	tmp = kmalloc(sizeof(*tmp), GFP_KERNEL);
-+	if (!tmp)
-+		return 0;
-+
-+	ret = usb_control_msg(udev, usb_rcvctrlpipe(udev, 0),
-+			      RTL8152_REQ_GET_REGS, RTL8152_REQT_READ,
-+			      PLA_TCR0, MCU_TYPE_PLA, tmp, sizeof(*tmp), 500);
-+	if (ret > 0)
-+		ocp_data = (__le32_to_cpu(*tmp) >> 16) & VERSION_MASK;
-+
-+	kfree(tmp);
-+
-+	switch (ocp_data) {
-+	case 0x4c00:
-+		version = RTL_VER_01;
-+		break;
-+	case 0x4c10:
-+		version = RTL_VER_02;
-+		break;
-+	case 0x5c00:
-+		version = RTL_VER_03;
-+		break;
-+	case 0x5c10:
-+		version = RTL_VER_04;
-+		break;
-+	case 0x5c20:
-+		version = RTL_VER_05;
-+		break;
-+	case 0x5c30:
-+		version = RTL_VER_06;
-+		break;
-+	default:
-+		version = RTL_VER_UNKNOWN;
-+		dev_info(&intf->dev, "Unknown version 0x%04x\n", ocp_data);
-+		break;
-+	}
-+
-+	return version;
-+}
-+
- static int rtl8152_probe(struct usb_interface *intf,
- 			 const struct usb_device_id *id)
- {
- 	struct usb_device *udev = interface_to_usbdev(intf);
-+	u8 version = rtl_get_version(intf);
- 	struct r8152 *tp;
- 	struct net_device *netdev;
- 	int ret;
- 
-+	if (version == RTL_VER_UNKNOWN)
-+		return -ENODEV;
-+
- 	if (udev->actconfig->desc.bConfigurationValue != 1) {
- 		usb_driver_set_configuration(udev, 1);
- 		return -ENODEV;
-@@ -4271,8 +4285,18 @@ static int rtl8152_probe(struct usb_interface *intf,
- 	tp->udev = udev;
- 	tp->netdev = netdev;
- 	tp->intf = intf;
-+	tp->version = version;
-+
-+	switch (version) {
-+	case RTL_VER_01:
-+	case RTL_VER_02:
-+		tp->mii.supports_gmii = 0;
-+		break;
-+	default:
-+		tp->mii.supports_gmii = 1;
-+		break;
-+	}
- 
--	r8152b_get_version(tp);
- 	ret = rtl_ops_init(tp);
- 	if (ret)
- 		goto out;
--- 
-2.7.4
+> > diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
+> > index de31818..f8b916a 100644
+> > --- a/net/netfilter/nf_nat_core.c
+> > +++ b/net/netfilter/nf_nat_core.c
+> > @@ -441,7 +441,8 @@ nf_nat_setup_info(struct nf_conn *ct,
+> >  			ct->status |= IPS_DST_NAT;
+> >  
+> >  		if (nfct_help(ct))
+> > -			nfct_seqadj_ext_add(ct);
+> > +			if (!nfct_seqadj_ext_add(ct))
+> > +				return NF_ACCEPT;
+> >  	}
+> 
+> Hmm, why accept?
+> 
+> We are asked to add extension to rewrite sequence numbers, but
+> we cannot.  How can the connection work if we cannot munge/track
+> seqno rewrites?
+
+Actually we could just NF_DROP, but if we add support for ctnetlink to
+inject entries with sequence adjustment with no NAT. I think we need
+this to get synproxy working with conntrackd state synchronization.
+
+Thanks!
