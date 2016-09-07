@@ -1,82 +1,72 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next V2 6/6] net/mlx5: Add handling for port module event
-Date: Wed, 7 Sep 2016 17:50:36 +0300
-Message-ID: <CALzJLG9J2h2UCL-Zbq3W7jBnNmG8RkC_U4R-=JTvOkKk3RwqmA@mail.gmail.com>
-References: <1473177852-10711-1-git-send-email-saeedm@mellanox.com>
- <1473177852-10711-7-git-send-email-saeedm@mellanox.com> <1473178510.8300.10.camel@perches.com>
+From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
+Subject: Re: [Intel-wired-lan] [PATCH 249/249]
+ net:ethernet:intel:igb_main.c: Add Throttling disable option in order to
+ decrease latency usually required by RT applications.
+Date: Wed, 7 Sep 2016 14:49:39 +0000
+Message-ID: <1473259777.31962.401.camel@intel.com>
+References: <20abe8058531466d8d60835ce88b6489@Hummer.waves.com>
+         <48faffefd02040f7a2af65691454ad3c@Hummer.waves.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Huy Nguyen <huyn@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f67.google.com ([209.85.215.67]:34011 "EHLO
-        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757090AbcIGOu6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 10:50:58 -0400
-Received: by mail-lf0-f67.google.com with SMTP id 29so958570lfv.1
-        for <netdev@vger.kernel.org>; Wed, 07 Sep 2016 07:50:58 -0700 (PDT)
-In-Reply-To: <1473178510.8300.10.camel@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "shannon.nelson@intel.com" <shannon.nelson@intel.com>,
+        "rostedt@goodmis.org" <rostedt@goodmis.org>,
+        "matthew.vick@intel.com" <matthew.vick@intel.com>,
+        "john.ronciak@intel.com" <john.ronciak@intel.com>
+To: "amiry@waves.com" <amiry@waves.com>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <48faffefd02040f7a2af65691454ad3c@Hummer.waves.com>
+Content-Language: en-US
+Content-ID: <68EF72E517AAF74197B03C8748B8CE3C@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 6, 2016 at 7:15 PM, Joe Perches <joe@perches.com> wrote:
-> On Tue, 2016-09-06 at 19:04 +0300, Saeed Mahameed wrote:
->> From: Huy Nguyen <huyn@mellanox.com>
->
-> []
->
->> +void mlx5_port_module_event(struct mlx5_core_dev *dev, struct mlx5_eqe *eqe)
->> +{
->> > +   struct mlx5_eqe_port_module *module_event_eqe;
->> > +   u8 module_status;
->> > +   u8 module_num;
->> > +   u8 error_type;
->> +
->> > +   module_event_eqe = &eqe->data.port_module;
->> > +   module_num = module_event_eqe->module;
->> > +   module_status = module_event_eqe->module_status &
->> > +                   PORT_MODULE_EVENT_MODULE_STATUS_MASK;
->> > +   error_type = module_event_eqe->error_type &
->> > +                PORT_MODULE_EVENT_ERROR_TYPE_MASK;
->> +
->> > +   switch (module_status) {
->> > +   case MLX5_MODULE_STATUS_PLUGGED:
->> +             mlx5_core_info(dev, "Module %u, status: plugged", module_num);
->
->
-> Missing format '\n' line terminations
-
-Right, will fix this.
-
-Thanks
-
->
->> +             break;
->> +
->> > +   case MLX5_MODULE_STATUS_UNPLUGGED:
->> > +           mlx5_core_info(dev, "Module %u, status: unplugged", module_num);
->> > +           break;
->> +
->> > +   case MLX5_MODULE_STATUS_ERROR:
->> > +           mlx5_core_info(dev, "Module %u, status: error, %s", module_num,
->> > +                          mlx5_port_event_error_type_to_string(error_type));
->> > +           break;
->> +
->> > +   default:
->> > +           mlx5_core_info(dev, "Module %u, unknown module status %x",
->> > +                          module_num, module_status);
->> +     }
->
-> Should any of these be ratelimited?
->
-
-Huy is checking with the HW/FW guys.  they shouldn't flood the driver
-by design, but to be
-in the safe side, we will double check.
-
-Thanks,
-Saeed.
+T24gVHVlLCAyMDE2LTA5LTA2IGF0IDE0OjQ2ICswMDAwLCBBbWlyIFlpaGllIHdyb3RlOg0KPiBG
+cm9tIGU0MzNmNWJlZGQ0OWE2NWI3MzM3ZDAyNWYzZjIwNGYwZjIxYWQ1ZTUgTW9uIFNlcCAxNyAw
+MDowMDowMA0KPiAyMDAxDQo+IEZyb206IGFtaXJ5IDxhbWlyeUB3YXZlcy5jb20+DQo+IERhdGU6
+IFR1ZSwgNiBTZXAgMjAxNiAxNDo1ODozOCArMDMwMA0KPiBTdWJqZWN0OiBbUEFUQ0ggMjQ5LzI0
+OV0gbmV0OmV0aGVybmV0OmludGVsOmlnYl9tYWluLmM6IEFkZA0KPiBUaHJvdHRsaW5nIGRpc2Fi
+bGUNCj4gwqBvcHRpb24gaW4gb3JkZXIgdG8gZGVjcmVhc2UgbGF0ZW5jeSB1c3VhbGx5IHJlcXVp
+cmVkIGJ5IFJUDQo+IGFwcGxpY2F0aW9ucy4NCj4gDQo+IEFkZCBhbiBvcHRpb24gdG8gRGlzYWJs
+ZSBUaHJvdHRsaW5nIGFsZ29yaXRobSAsIHdoaWNoIHdpbGwgcmVzdWx0DQo+IHdpdGggbWluaW11
+bSBsYXRlbmN5IG9uIHJlY2VpdmVkIGZyYW1lcyAuDQo+IG1haW5seSB0YXJnZXRzIGZvciBSVCBh
+cHBsaWNhdGlvbiB0aGF0IGxvb2sgZm9yIGxvdyBsYXJjZW55IGFuZCBsZXNzDQo+IGNhcmVzIGFi
+b3V0IHRocm91Z2hwdXQgLg0KPiBIb3cgdG8gdXNlIDoNCj4gT24gaW5zbW9kICwgYWRkIHBhcmFt
+ZXRlciA6IEludGVycnVwdFRocm90dGxlUmF0ZT0wDQo+IA0KPiBUaGlzIHBhdGNoIGlzIGN1cnJl
+bnRseSBhZ2FpbnN0IGEgbGludXggNC4xLjI3LXJ0MzEga2VybmVsLg0KPiANCj4gU2lnbmVkLW9m
+Zi1ieTogQW1pciBZaWhpZSA8YW1pcnlAd2F2ZXMuY29tPg0KPiAtLS0NCj4gwqBkcml2ZXJzL25l
+dC9ldGhlcm5ldC9pbnRlbC9pZ2IvaWdiX21haW4uYyB8IDExICsrKysrKysrKysrDQo+IMKgMSBm
+aWxlIGNoYW5nZWQsIDExIGluc2VydGlvbnMoKykNCj4gDQo+IGRpZmYgLS1naXQgYS9kcml2ZXJz
+L25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvaWdiX21haW4uYw0KPiBiL2RyaXZlcnMvbmV0L2V0aGVy
+bmV0L2ludGVsL2lnYi9pZ2JfbWFpbi5jDQo+IGluZGV4IDdkZmJjZGUuLjk0ODA4NTAgMTAwNjQ0
+DQo+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9pZ2JfbWFpbi5jDQo+ICsr
+KyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9pZ2JfbWFpbi5jDQo+IEBAIC0yNTEs
+NiArMjUxLDE0IEBAIHN0YXRpYyBpbnQgZGVidWcgPSAtMTsNCj4gwqBtb2R1bGVfcGFyYW0oZGVi
+dWcsIGludCwgMCk7DQo+IMKgTU9EVUxFX1BBUk1fREVTQyhkZWJ1ZywgIkRlYnVnIGxldmVsICgw
+PW5vbmUsLi4uLDE2PWFsbCkiKTsNCj4gwqANCj4gKy8qIEludGVycnVwdCBUaHJvdHRsZSBSYXRl
+IChpbnRlcnJ1cHRzL3NlYykNCj4gKyAqDQo+ICsgKiBWYWxpZCBSYW5nZTogMD1vZmYsIDM9ZHlu
+YW1pYyBjb25zZXJ2YXRpdmUNCj4gKyAqLw0KPiArc3RhdGljIGludCBJbnRlcnJ1cHRUaHJvdHRs
+ZVJhdGUgPSAzOw0KPiArbW9kdWxlX3BhcmFtKEludGVycnVwdFRocm90dGxlUmF0ZSwgaW50LCAw
+KTsNCj4gK01PRFVMRV9QQVJNX0RFU0MoSW50ZXJydXB0VGhyb3R0bGVSYXRlLCAiSW50ZXJydXB0
+VGhyb3R0bGVSYXRlDQo+ICgwPW9mZiwgMz1keW5hbWljIGNvbnNlcnZhdGl2ZSkiKTsNCj4gKw0K
+DQpUaGlzIGlzIGNyZWF0aW5nIHJlZHVuZGFudCBmdW5jdGlvbmFsaXR5LiDCoFRoZSBzYW1lIGNh
+biBiZSBkb25lIHZpYSB0aGUNCmV0aHRvb2wgY29tbWFuZCAiZXRodG9vbCAtQyA8aWZhY2U+IHJ4
+LXVzZWNzIDAiLiDCoElzIHRoZXJlIHNvbWUgcmVhc29uDQp3aHkgeW91IGNvdWxkbid0IHVzZSBl
+dGh0b29sPw0KDQo+IMKgc3RydWN0IGlnYl9yZWdfaW5mbyB7DQo+IMKgwqDCoMKgwqDCoMKgwqB1
+MzIgb2ZzOw0KPiDCoMKgwqDCoMKgwqDCoMKgY2hhciAqbmFtZTsNCj4gQEAgLTI5NjYsNiArMjk3
+NCw5IEBAIHN0YXRpYyBpbnQgaWdiX3N3X2luaXQoc3RydWN0IGlnYl9hZGFwdGVyDQo+ICphZGFw
+dGVyKQ0KPiDCoMKgwqDCoMKgwqDCoMKgYWRhcHRlci0+cnhfaXRyX3NldHRpbmcgPSBJR0JfREVG
+QVVMVF9JVFI7DQo+IMKgwqDCoMKgwqDCoMKgwqBhZGFwdGVyLT50eF9pdHJfc2V0dGluZyA9IElH
+Ql9ERUZBVUxUX0lUUjsNCj4gwqANCj4gK8KgwqDCoMKgwqDCoMKgaWYgKEludGVycnVwdFRocm90
+dGxlUmF0ZSA9PSAwKQ0KPiArwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgYWRhcHRlci0+
+cnhfaXRyX3NldHRpbmcgPSBJbnRlcnJ1cHRUaHJvdHRsZVJhdGU7DQo+ICsNCj4gwqDCoMKgwqDC
+oMKgwqDCoC8qIHNldCBkZWZhdWx0IHdvcmsgbGltaXRzICovDQo+IMKgwqDCoMKgwqDCoMKgwqBh
+ZGFwdGVyLT50eF93b3JrX2xpbWl0ID0gSUdCX0RFRkFVTFRfVFhfV09SSzsNCg0KSWYgeW91IGFy
+ZSBnb2luZyB0byB1c2UgSW50ZXJydXB0VGhyb3R0bGVSYXRlIHlvdSBtaWdodCBhcyB3ZWxsIHVz
+ZSBpdA0KZnVsbHkgaW5zdGVhZCBvZiBtYWtpbmcgaXQgYSBib29sZWFuIHZhbHVlIHdpdGggMCBo
+YXZpbmcgb25lIG1lYW5pbmcNCmFuZCB0aGUgZGVmYXVsdCBvZiAzIGJlaW5nIGFub3RoZXIuDQoN
+ClRoYW5rcy4NCg0KLSBBbGV4
