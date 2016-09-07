@@ -1,59 +1,75 @@
-From: Josh Hunt <johunt@akamai.com>
-Subject: Re: [PATCH net] tcp: fastopen: avoid negative sk_forward_alloc
-Date: Wed, 7 Sep 2016 14:48:06 -0500
-Message-ID: <57D06EF6.7090507@akamai.com>
-References: <1473262451.10725.43.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Saeed Mahameed via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: [PATCH RFC 11/11] net/mlx5e: XDP TX xmit more
+Date: Wed, 7 Sep 2016 23:09:53 +0300
+Message-ID: <CALzJLG_RCk0VtxffAgt-U1jHpWEvvtKz5Y9AeqVaL7YJy9ULzw@mail.gmail.com>
+References: <1473252152-11379-1-git-send-email-saeedm@mellanox.com>
+	<1473252152-11379-12-git-send-email-saeedm@mellanox.com>
+	<1473259302.10725.31.camel@edumazet-glaptop3.roam.corp.google.com>
+	<CALzJLG8G1SvmHKLm2Oqn3v8FUAOjScS+=tsbOaixkPUY4JFDPQ@mail.gmail.com>
+	<1473262379.10725.42.camel@edumazet-glaptop3.roam.corp.google.com>
+	<CALzJLG9iVpS2qH5Ryc_DtEjrQMhcKD+qrLrGn=vet=_9N8eXPw@mail.gmail.com>
+	<1473272346.10725.73.camel@edumazet-glaptop3.roam.corp.google.com>
+Reply-To: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Jerry Chu <hkchu@google.com>,
-        Yuchung Cheng <ycheng@google.com>,
-        Neal Cardwell <ncardwell@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay07.akamai.com ([23.79.238.175]:42830 "EHLO
-        prod-mail-xrelay07.akamai.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1755461AbcIGTzC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 15:55:02 -0400
-In-Reply-To: <1473262451.10725.43.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <1473272346.10725.73.camel-XN9IlZ5yJG9HTL0Zs8A6p+yfmBU6pStAUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 09/07/2016 10:34 AM, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
+On Wed, Sep 7, 2016 at 9:19 PM, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> On Wed, 2016-09-07 at 19:57 +0300, Saeed Mahameed wrote:
 >
-> When DATA and/or FIN are carried in a SYN/ACK message or SYN message,
-> we append an skb in socket receive queue, but we forget to call
-> sk_forced_mem_schedule().
+>> Jesper has a similar Idea to make the qdisc think it is under
+>> pressure, when the device
+>> TX ring is idle most of the time, i think his idea can come in handy here.
+>> I am not fully involved in the details, maybe he can elaborate more.
+>>
+>> But if it works, it will be transparent to napi, and xmit more will
+>> happen by design.
 >
-> Effect is that the socket has a negative sk->sk_forward_alloc as long as
-> the message is not read by the application.
+> I do not think qdisc is relevant here.
 >
-> Josh Hunt fixed a similar issue in commit d22e15371811 ("tcp: fix tcp
-> fin memory accounting")
+> Right now, skb->xmit_more is set only by qdisc layer (and pktgen tool),
+> because only this layer can know if more packets are to come.
 >
-> Fixes: 168a8f58059a ("tcp: TCP Fast Open Server - main code path")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
->   net/ipv4/tcp_fastopen.c |    1 +
->   1 file changed, 1 insertion(+)
 >
-> diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
-> index 62a5751d4fe1..4e777a3243f9 100644
-> --- a/net/ipv4/tcp_fastopen.c
-> +++ b/net/ipv4/tcp_fastopen.c
-> @@ -150,6 +150,7 @@ void tcp_fastopen_add_skb(struct sock *sk, struct sk_buff *skb)
->   	tp->segs_in = 0;
->   	tcp_segs_in(tp, skb);
->   	__skb_pull(skb, tcp_hdrlen(skb));
-> +	sk_forced_mem_schedule(sk, skb->truesize);
->   	skb_set_owner_r(skb, sk);
+> What I am saying is that regardless of skb->xmit_more being set or not,
+> (for example if no qdisc is even used)
+> a NAPI driver can arm a bit asking the doorbell being sent at the end of
+> NAPI.
 >
->   	TCP_SKB_CB(skb)->seq++;
->
+> I am not saying this must be done, only that the idea could be extended
+> to non XDP world, if we care enough.
 >
 
-The change makes sense to me. Thanks Eric!
+Yes, and i am just trying to suggest Ideas that do not require
+communication between RX (NAPI) and TX.
 
-Reviewed-by: Josh Hunt <johunt@akamai.com>
+The problem here is the synchronization (TX doorbell from RX) which is
+not as simple as atomic operation for some drivers.
+
+How about RX bulking ? it also can help here, since for the forwarding
+case, the forwarding path will be able to
+process bulk of RX SKBs and can bulk xmit the portion of SKBs that
+will be forwarded.
+
+As Jesper suggested, Let's talk in Netdev1.2 at jesper's session. ( if
+you are joining of course).
+
+Thanks
+Saeed.
