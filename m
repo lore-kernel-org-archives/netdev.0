@@ -1,57 +1,90 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH net-next 0/3] r8152: configuration setting
-Date: Wed, 07 Sep 2016 15:51:09 +0200
-Message-ID: <87h99rizsi.fsf@miraculix.mork.no>
-References: <1394712342-15778-215-Taiwan-albertk@realtek.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: <netdev@vger.kernel.org>, <nic_swsd@realtek.com>,
-        <linux-kernel@vger.kernel.org>, <linux-usb@vger.kernel.org>,
-        Oliver Neukum <oliver@neukum.org>
-To: Hayes Wang <hayeswang@realtek.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-215-Taiwan-albertk@realtek.com> (Hayes Wang's
-        message of "Wed, 7 Sep 2016 16:12:19 +0800")
-Sender: linux-kernel-owner@vger.kernel.org
+From: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: [PATCH 1/2 v3] net: smsc911x: augment device tree bindings
+Date: Wed,  7 Sep 2016 15:53:31 +0200
+Message-ID: <1473256411-13965-1-git-send-email-linus.walleij@linaro.org>
+Cc: Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>,
+        Jeremy Linton <jeremy.linton-5wv7dgnIgG8@public.gmane.org>,
+        Kamlakant Patel <kamlakant.patel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Pavel Fedin <p.fedin-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
+        Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Steve Glendinning <steve.glendinning-nksJyM/082jR7s880joybQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-[ CCing Oliver, who AFAIK still is the cdc_ether maintainer and should
-  have the final word on this ]
+This adds device tree bindings for:
 
-Hayes Wang <hayeswang@realtek.com> writes:
+- An optional GPIO line for releasing the RESET signal to the
+  SMSC911x devices
 
-> Some people prefer to use ECM mode rather than vendor mode. Therefore, I =
-add
-> CONFIG_RTL8152_CONFIG_VALUE in Kconfig. Then, the users could choose the =
-USB
-> configuration value which they want. The default is to support vendor mode
-> only.
->
-> Hayes Wang (3):
->   r8152: check hw version first
->   r8152: support ECM mode
->   r8152: add CONFIG_RTL8152_CONFIG_VALUE
->
->  drivers/net/usb/Kconfig |  13 ++
->  drivers/net/usb/r8152.c | 383 +++++++++++++++++++++++++++++++++++++++++-=
-------
->  2 files changed, 345 insertions(+), 51 deletions(-)
+- An optional PME (power management event) interrupt line that
+  can be utilized to wake up the system on network activity.
+  This signal exist on all the SMSC911x devices, it is just not
+  very often routed.
 
+Both these lines are routed to the SoC on the Qualcomm APQ8060
+Dragonboard and thus needs to be bound in the device tree.
 
-So this adds a lot of code to work around the issues you introduced by
-unnecessarily blacklisting the CDC ECM configuration earlier, and still
-makes the r8152 driver handle the device even in ECM mode.
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Jeremy Linton <jeremy.linton-5wv7dgnIgG8@public.gmane.org>
+Signed-off-by: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+---
+ChangeLog v2->v3:
+- Augment interrupt specificiers to be more to the point and less
+  technical as suggested by Arnd.
+ChangeLog v1->v2:
+- Document for "interrupts", skip mentioning "interrupts-extended"
+  as both are always supported.
+---
+ Documentation/devicetree/bindings/net/smsc911x.txt | 15 +++++++++++----
+ 1 file changed, 11 insertions(+), 4 deletions(-)
 
-Sorry, but this is a total mess.
+diff --git a/Documentation/devicetree/bindings/net/smsc911x.txt b/Documentation/devicetree/bindings/net/smsc911x.txt
+index 3fed3c124411..16c3a9501f5d 100644
+--- a/Documentation/devicetree/bindings/net/smsc911x.txt
++++ b/Documentation/devicetree/bindings/net/smsc911x.txt
+@@ -3,9 +3,11 @@
+ Required properties:
+ - compatible : Should be "smsc,lan<model>", "smsc,lan9115"
+ - reg : Address and length of the io space for SMSC LAN
+-- interrupts : Should contain SMSC LAN interrupt line
+-- interrupt-parent : Should be the phandle for the interrupt controller
+-  that services interrupts for this device
++- interrupts : one or two interrupt specifiers
++  - The first interrupt is the SMSC LAN interrupt line
++  - The second interrupt (if present) is the PME (power
++    management event) interrupt that is able to wake up the host
++     system with a 50ms pulse on network activity
+ - phy-mode : See ethernet.txt file in the same directory
+ 
+ Optional properties:
+@@ -21,6 +23,10 @@ Optional properties:
+   external PHY
+ - smsc,save-mac-address : Indicates that mac address needs to be saved
+   before resetting the controller
++- reset-gpios : a GPIO line connected to the RESET (active low) signal
++  of the device. On many systems this is wired high so the device goes
++  out of reset at power-on, but if it is under program control, this
++  optional GPIO can wake up in response to it.
+ 
+ Examples:
+ 
+@@ -29,7 +35,8 @@ lan9220@f4000000 {
+ 	reg = <0xf4000000 0x2000000>;
+ 	phy-mode = "mii";
+ 	interrupt-parent = <&gpio1>;
+-	interrupts = <31>;
++	interrupts = <31>, <32>;
++	reset-gpios = <&gpio1 30 GPIO_ACTIVE_LOW>;
+ 	reg-io-width = <4>;
+ 	smsc,irq-push-pull;
+ };
+-- 
+2.7.4
 
-Just remove the completely unnecessary blacklist, and let the cdc_ether
-driver handle the device if the user selects the ECM configuration.
-That't how the USB system works.  There is no need for any code in r8152
-to do that.
-
-Ref https://lkml.org/lkml/2014/1/3/57
-
-
-
-Bj=C3=B8rn
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
