@@ -1,36 +1,45 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next] rtnetlink: remove unused ifla_stats_policy
-Date: Wed, 7 Sep 2016 13:57:36 -0700
-Message-ID: <20160907135736.7a986302@xeon-e3>
+From: Daniel Walker <danielwa@cisco.com>
+Subject: Re: ptp
+Date: Wed, 7 Sep 2016 13:55:19 -0700
+Message-ID: <85389e04-76ad-9a19-2a33-d49a9bdd8452@cisco.com>
+References: <d1b2b740-8cc6-bf4a-722b-7b323fb0c7c0@cisco.com>
+ <20160907204818.GA7470@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "xe-kernel@external.cisco.com" <xe-kernel@external.cisco.com>,
+        Shabeena Shabeena -X "(sshabeen" - ARICENT TECHNOLOGIES
+         MAURIITIUS LIMITED at "Cisco)" <sshabeen@cisco.com>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:34376 "EHLO
-        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750878AbcIGU51 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 16:57:27 -0400
-Received: by mail-pf0-f180.google.com with SMTP id p64so10221942pfb.1
-        for <netdev@vger.kernel.org>; Wed, 07 Sep 2016 13:57:27 -0700 (PDT)
+Received: from rcdn-iport-5.cisco.com ([173.37.86.76]:57345 "EHLO
+        rcdn-iport-5.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750772AbcIGVEq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 17:04:46 -0400
+In-Reply-To: <20160907204818.GA7470@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This structure is defined but never used. Flagged with W=1
+On 09/07/2016 01:48 PM, Richard Cochran wrote:
+> On Wed, Sep 07, 2016 at 01:40:59PM -0700, Daniel Walker wrote:
+>> There is a test (below) , which prevents negative nanosecond updates. The
+>> code below would force a negative update to always return more than
+>> NSEC_PER_SEC. It should be using abs() instead which would return the value
+>> desired.
+> No.  This:
+>
+> 	/*
+> 	 * The value of a timeval is the sum of its fields, but the
+> 	 * field tv_usec must always be non-negative.
+> 	 */
+>
+> HTH,
+> Richard
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
---- a/net/core/rtnetlink.c	2016-09-07 13:55:17.030107744 -0700
-+++ b/net/core/rtnetlink.c	2016-09-07 13:55:45.190236855 -0700
-@@ -3669,10 +3669,6 @@ nla_put_failure:
- 	return -EMSGSIZE;
- }
- 
--static const struct nla_policy ifla_stats_policy[IFLA_STATS_MAX + 1] = {
--	[IFLA_STATS_LINK_64]	= { .len = sizeof(struct rtnl_link_stats64) },
--};
--
- static size_t if_nlmsg_stats_size(const struct net_device *dev,
- 				  u32 filter_mask)
- {
+So the code only allows second granularity negative updates, or the 
+seconds component is the only part which needs to actually be negative ?
+
+
+Daniel
