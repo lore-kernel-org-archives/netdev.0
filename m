@@ -1,45 +1,47 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: [PATCH net-next] net: diag: make udp_diag_destroy work for mapped addresses.
-Date: Wed,  7 Sep 2016 13:38:35 +0900
-Message-ID: <1473223115-144755-1-git-send-email-lorenzo@google.com>
-Cc: ek@google.com, eric.dumazet@gmail.com, davem@davemloft.net,
-        dsa@cumulusnetworks.com, Lorenzo Colitti <lorenzo@google.com>
-To: netdev@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net-next v2] netlink: don't forget to release a
+ rhashtable_iter structure
+Date: Wed, 7 Sep 2016 12:55:14 +0800
+Message-ID: <20160907045514.GA14391@gondor.apana.org.au>
+References: <20160906.174137.1869816645707925029.davem@davemloft.net>
+ <1473222677-24761-1-git-send-email-avagin@openvz.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Andrei Vagin <avagin@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:34952 "EHLO
-        mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751147AbcIGEis (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 00:38:48 -0400
-Received: by mail-pa0-f54.google.com with SMTP id b2so2080967pat.2
-        for <netdev@vger.kernel.org>; Tue, 06 Sep 2016 21:38:47 -0700 (PDT)
+Received: from helcar.hengli.com.au ([209.40.204.226]:54912 "EHLO
+        helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750798AbcIGEzm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 00:55:42 -0400
+Content-Disposition: inline
+In-Reply-To: <1473222677-24761-1-git-send-email-avagin@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-udp_diag_destroy does look up the IPv4 UDP hashtable for mapped
-addresses, but it gets the IPv4 address to look up from the
-beginning of the IPv6 address instead of the end.
+On Tue, Sep 06, 2016 at 09:31:17PM -0700, Andrei Vagin wrote:
+> This bug was detected by kmemleak:
+> unreferenced object 0xffff8804269cc3c0 (size 64):
+>   comm "criu", pid 1042, jiffies 4294907360 (age 13.713s)
+>   hex dump (first 32 bytes):
+>     a0 32 cc 2c 04 88 ff ff 00 00 00 00 00 00 00 00  .2.,............
+>     00 01 00 00 00 00 ad de 00 02 00 00 00 00 ad de  ................
+>   backtrace:
+>     [<ffffffff8184dffa>] kmemleak_alloc+0x4a/0xa0
+>     [<ffffffff8124720f>] kmem_cache_alloc_trace+0x10f/0x280
+>     [<ffffffffa02864cc>] __netlink_diag_dump+0x26c/0x290 [netlink_diag]
+> 
+> v2: don't remove a reference on a rhashtable_iter structure to
+>     release it from netlink_diag_dump_done
+> 
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> Fixes: ad202074320c ("netlink: Use rhashtable walk interface in diag dump")
+> Signed-off-by: Andrei Vagin <avagin@openvz.org>
 
-Tested: https://android-review.googlesource.com/269874
-Fixes: 5d77dca82839 ("net: diag: support SOCK_DESTROY for UDP sockets")
-Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
----
- net/ipv4/udp_diag.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-diff --git a/net/ipv4/udp_diag.c b/net/ipv4/udp_diag.c
-index 8a9f6e5..58b79c0 100644
---- a/net/ipv4/udp_diag.c
-+++ b/net/ipv4/udp_diag.c
-@@ -186,8 +186,8 @@ static int __udp_diag_destroy(struct sk_buff *in_skb,
- 		if (ipv6_addr_v4mapped((struct in6_addr *)req->id.idiag_dst) &&
- 		    ipv6_addr_v4mapped((struct in6_addr *)req->id.idiag_src))
- 			sk = __udp4_lib_lookup(net,
--					req->id.idiag_dst[0], req->id.idiag_dport,
--					req->id.idiag_src[0], req->id.idiag_sport,
-+					req->id.idiag_dst[3], req->id.idiag_dport,
-+					req->id.idiag_src[3], req->id.idiag_sport,
- 					req->id.idiag_if, tbl, NULL);
- 
- 		else
+Thanks for catching this!
 -- 
-2.8.0.rc3.226.g39d4020
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
