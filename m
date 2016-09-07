@@ -1,69 +1,65 @@
-From: Alexei Starovoitov via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: [PATCH RFC 01/11] net/mlx5e: Single flow order-0
- pages for Striding RQ
-Date: Wed, 7 Sep 2016 10:31:33 -0700
-Message-ID: <20160907173131.GA64688@ast-mbp.thefacebook.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH RFC 04/11] net/mlx5e: Build RX SKB on demand
+Date: Wed, 7 Sep 2016 10:34:51 -0700
+Message-ID: <20160907173449.GB64688@ast-mbp.thefacebook.com>
 References: <1473252152-11379-1-git-send-email-saeedm@mellanox.com>
-	<1473252152-11379-2-git-send-email-saeedm@mellanox.com>
-Reply-To: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+ <1473252152-11379-5-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
-	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>
-To: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: iovisor-dev <iovisor-dev@lists.iovisor.org>,
+        netdev@vger.kernel.org, Tariq Toukan <tariqt@mellanox.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Martin KaFai Lau <kafai@fb.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Saeed Mahameed <saeedm@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:34652 "EHLO
+        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753019AbcIGRe4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 13:34:56 -0400
+Received: by mail-pf0-f170.google.com with SMTP id p64so8778866pfb.1
+        for <netdev@vger.kernel.org>; Wed, 07 Sep 2016 10:34:55 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1473252152-11379-2-git-send-email-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1473252152-11379-5-git-send-email-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 07, 2016 at 03:42:22PM +0300, Saeed Mahameed wrote:
-> From: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+On Wed, Sep 07, 2016 at 03:42:25PM +0300, Saeed Mahameed wrote:
+> For non-striding RQ configuration before this patch we had a ring
+> with pre-allocated SKBs and mapped the SKB->data buffers for
+> device.
 > 
-> To improve the memory consumption scheme, we omit the flow that
-> demands and splits high-order pages in Striding RQ, and stay
-> with a single Striding RQ flow that uses order-0 pages.
+> For robustness and better RX data buffers management, we allocate a
+> page per packet and build_skb around it.
 > 
-> Moving to fragmented memory allows the use of larger MPWQEs,
-> which reduces the number of UMR posts and filler CQEs.
+> This patch (which is a prerequisite for XDP) will actually reduce
+> performance for normal stack usage, because we are now hitting a bottleneck
+> in the page allocator. A later patch of page reuse mechanism will be
+> needed to restore or even improve performance in comparison to the old
+> RX scheme.
 > 
-> Moving to a single flow allows several optimizations that improve
-> performance, especially in production servers where we would
-> anyway fallback to order-0 allocations:
-> - inline functions that were called via function pointers.
-> - improve the UMR post process.
+> Packet rate performance testing was done with pktgen 64B packets on xmit
+> side and TC drop action on RX side.
 > 
-> This patch alone is expected to give a slight performance reduction.
-> However, the new memory scheme gives the possibility to use a page-cache
-> of a fair size, that doesn't inflate the memory footprint, which will
-> dramatically fix the reduction and even give a huge gain.
+> CPU: Intel(R) Xeon(R) CPU E5-2680 v3 @ 2.50GHz
 > 
-> We ran pktgen single-stream benchmarks, with iptables-raw-drop:
+> Comparison is done between:
+>  1.Baseline, before 'net/mlx5e: Build RX SKB on demand'
+>  2.Build SKB with RX page cache (This patch)
 > 
-> Single stride, 64 bytes:
-> * 4,739,057 - baseline
-> * 4,749,550 - this patch
-> no reduction
-> 
-> Larger packets, no page cross, 1024 bytes:
-> * 3,982,361 - baseline
-> * 3,845,682 - this patch
-> 3.5% reduction
-> 
-> Larger packets, every 3rd packet crosses a page, 1500 bytes:
-> * 3,731,189 - baseline
-> * 3,579,414 - this patch
-> 4% reduction
+> Streams    Baseline    Build SKB+page-cache    Improvement
+> -----------------------------------------------------------
+> 1          4.33Mpps      5.51Mpps                27%
+> 2          7.35Mpps      11.5Mpps                52%
+> 4          14.0Mpps      16.3Mpps                16%
+> 8          22.2Mpps      29.6Mpps                20%
+> 16         24.8Mpps      34.0Mpps                17%
 
-imo it's not a realistic use case, but would be good to mention that
-patch 3 brings performance back for this use case anyway.
+Impressive gains for build_skb. I think it should help ip forwarding too
+and likely tcp_rr. tcp_stream shouldn't see any difference.
+If you can benchmark that along with pktgen+tc_drop it would
+help to better understand the impact of the changes.
