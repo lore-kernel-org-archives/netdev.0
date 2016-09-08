@@ -1,40 +1,79 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCH net] sctp: hold the transport before using it in sctp_hash_cmp
-Date: Thu, 8 Sep 2016 21:17:26 +0800
-Message-ID: <CADvbK_f8EUUCQcF67jer7fgH=7dS=hm7dpbyckxmv0UWiPZgAQ@mail.gmail.com>
-References: <f71c2e03ae6e9b956f41c73fff5a282c86d79daf.1473328144.git.lucien.xin@gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6DB00F7710@AcuExch.aculab.com>
+From: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next V6 4/4] net/sched: Introduce act_tunnel_key
+Date: Thu, 8 Sep 2016 16:18:49 +0300
+Message-ID: <CAJL1qvE8ij_63efQA-jdH_nfR1zWwYGVromGf72HW1MJYBmt4Q@mail.gmail.com>
+References: <1473235686-18975-1-git-send-email-hadarh@mellanox.com>
+ <1473235686-18975-5-git-send-email-hadarh@mellanox.com> <CAM_iQpUrLg=i7Zug5h2OxpKoBqO5OWYmBCaMm=wYAYC3XZ-4uQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: network dev <netdev@vger.kernel.org>,
-        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        "daniel@iogearbox.net" <daniel@iogearbox.net>
-To: David Laight <David.Laight@aculab.com>
+Cc: Hadar Hen Zion <hadarh@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Jiri Pirko <jiri@mellanox.com>, Jiri Benc <jbenc@redhat.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Amir Vadai <amirva@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>, Amir Vadai <amir@vadai.me>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:34732 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933951AbcIHNR2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 09:17:28 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB00F7710@AcuExch.aculab.com>
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:34766 "EHLO
+        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S941037AbcIHNSu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 09:18:50 -0400
+Received: by mail-oi0-f68.google.com with SMTP id x125so2550298oia.1
+        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 06:18:50 -0700 (PDT)
+In-Reply-To: <CAM_iQpUrLg=i7Zug5h2OxpKoBqO5OWYmBCaMm=wYAYC3XZ-4uQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> Now sctp uses the transport without holding it in sctp_hash_cmp,
->> it can cause a use-after-free panic. As after it get transport from
->> hashtable, another CPU may free it, then the members it accesses
->> may be unavailable memory.
+On Wed, Sep 7, 2016 at 7:27 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> On Wed, Sep 7, 2016 at 1:08 AM, Hadar Hen Zion <hadarh@mellanox.com> wrote:
+>> +struct tcf_tunnel_key_params {
+>> +       struct rcu_head         rcu;
+>> +       int                     tcft_action;
+>> +       int                     action;
+>> +       struct metadata_dst     *tcft_enc_metadata;
+>> +};
+>> +
+>> +struct tcf_tunnel_key {
+>> +       struct tc_action              common;
+>> +       struct tcf_tunnel_key_params __rcu *params;
+>> +};
+>> +
+> ...
 >
-> How old is this bug?
-I think since:
-$ git describe 33c1529
-v4.4-rc7-1158-g33c1529
-
-> Is it in any release kernels?
+> This is unnecessary if we make the tc action API aware of RCU.
 >
-yes
+>> +
+>> +static void tunnel_key_release(struct tc_action *a, int bind)
+>> +{
+>> +       struct tcf_tunnel_key *t = to_tunnel_key(a);
+>> +       struct tcf_tunnel_key_params *params;
+>> +
+>> +       rcu_read_lock();
+>> +       params = rcu_dereference(t->params);
+>> +
+>> +       if (params->tcft_action == TCA_TUNNEL_KEY_ACT_SET)
+>> +               dst_release(&params->tcft_enc_metadata->dst);
+>> +
+>> +       rcu_read_unlock();
+>> +
+>
+> So you allocate memory for t->params in ->init() but not
+> release it here?
 
-it was found in s390x, we could not reproduce it in x86_64 by now.
-Maybe it needs low configuration cpu to reproduce.
+Right, I'll fix it in the next version.
+
+>
+> Also, ->cleanup() should be called with RTNL, no need to
+> take read lock here.
+
+RTNL lock isn't taken when cleanup is called.
+
+>
+> BTW, again you do NOT need to make it RCU, the whole
+> tc action API should be, as my patchset does, I will take care
+> of this as a part of my patchset. Eric is wasting your time on
+> this, with no benefits, the code will be replaced soon.
