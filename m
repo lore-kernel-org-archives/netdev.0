@@ -1,53 +1,81 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH] ATM-ENI: Use kmalloc_array() in eni_start()
-Date: Thu, 8 Sep 2016 14:40:06 +0200
-Message-ID: <d8468294-dff0-f34c-bf16-bb04435d465c@users.sourceforge.net>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [PATCH bug-fix] iproute: fix documentation for ip rule scan order
+Date: Thu, 8 Sep 2016 14:43:17 +0200
+Message-ID: <20160908124317.GK5252@orbyte.nwl.cc>
+References: <CAN04xNR8SH4D57mfY0nVDSNWvZfaaOLci2yB0-8nKg=Hv9SEbw@mail.gmail.com>
+ <20160901090454.657f0b73@xeon-e3>
+ <20160908095955.GA10034@unicorn.suse.cz>
+ <20160908103303.GG5252@orbyte.nwl.cc>
+ <20160908114808.GB10034@unicorn.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org,
-        Julia Lawall <julia.lawall@lip6.fr>,
-        Paolo Bonzini <pbonzini@redhat.com>
-To: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-        Chas Williams <3chas3@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        Iskren Chernev <iskren@imo.im>, netdev@vger.kernel.org
+To: Michal Kubecek <mkubecek@suse.cz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbyte.nwl.cc ([151.80.46.58]:55177 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933153AbcIHMnU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Sep 2016 08:43:20 -0400
+Content-Disposition: inline
+In-Reply-To: <20160908114808.GB10034@unicorn.suse.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Thu, 8 Sep 2016 14:20:17 +0200
+On Thu, Sep 08, 2016 at 01:48:08PM +0200, Michal Kubecek wrote:
+> On Thu, Sep 08, 2016 at 12:33:03PM +0200, Phil Sutter wrote:
+> > On Thu, Sep 08, 2016 at 11:59:55AM +0200, Michal Kubecek wrote:
+> > > 
+> > > I'm sorry I didn't notice before but this just reverts the change done
+> > > by commit 49572501664d ("iproute2: clarification of various man8 pages").
+> > > IMHO the problem is that both versions are equally confusing as the word
+> > > "priority" can be understood in two different senses.
+> > > 
+> > > How about more explicit formulation, e.g.
+> > > 
+> > >   ... in order of decreasing logical priority (i.e. increasing numeric
+> > >   values).
+> > > 
+> > > Would that be better?
+> > 
+> > Looks like the real issue is missing definition of priority. What about
+> > this:
+> > 
+> > diff --git a/man/man8/ip-rule.8 b/man/man8/ip-rule.8
+> > index 3508d8090fd2c..13fe9f7f892ee 100644
+> > --- a/man/man8/ip-rule.8
+> > +++ b/man/man8/ip-rule.8
+> > @@ -93,7 +93,7 @@ Each policy routing rule consists of a
+> >  .B selector
+> >  and an
+> >  .B action predicate.
+> > -The RPDB is scanned in order of increasing priority. The selector
+> > +The RPDB is scanned in order of decreasing priority. The selector
+> >  of each rule is applied to {source address, destination address, incoming
+> >  interface, tos, fwmark} and, if the selector matches the packet,
+> >  the action is performed. The action predicate may return with success.
+> > @@ -221,8 +221,10 @@ value to match.
+> >  
+> >  .TP
+> >  .BI priority " PREFERENCE"
+> > -the priority of this rule. Each rule should have an explicitly
+> > -set
+> > +the priority of this rule.
+> > +.I PREFERENCE
+> > +is an unsigned integer value, higher number means lower priority.  Each rule
+> > +should have an explicitly set
+> >  .I unique
+> >  priority value.
+> >  The options preference and order are synonyms with priority.
+> 
+> Formally, this would be certainly sufficient. But for clarity (and
+> inattentive readers), I would still prefer to be more explicit in the
+> first hunk, e.g.
+> 
+>   ... in order of decreasing priority (increasing PREFERENCE values).
 
-* A multiplication for the size determination of a memory allocation
-  indicated that an array data structure should be processed.
-  Thus use the corresponding function "kmalloc_array".
+I'm fine with that, though fear mentioning PREFERENCE here might confuse
+readers. I'd go with "i.e. increasing numeric values" instead. But after
+all this is quite a discussion for such a tiny bit of documentation. :)
 
-  This issue was detected by using the Coccinelle software.
-
-* Replace the specification of a data structure by a pointer dereference
-  to make the corresponding size determination a bit safer according to
-  the Linux coding style convention.
-
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- drivers/atm/eni.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/atm/eni.c b/drivers/atm/eni.c
-index 6339efd..f2aaf9e 100644
---- a/drivers/atm/eni.c
-+++ b/drivers/atm/eni.c
-@@ -1845,8 +1845,9 @@ static int eni_start(struct atm_dev *dev)
- 	/* initialize memory management */
- 	buffer_mem = eni_dev->mem - (buf - eni_dev->ram);
- 	eni_dev->free_list_size = buffer_mem/MID_MIN_BUF_SIZE/2;
--	eni_dev->free_list = kmalloc(
--	    sizeof(struct eni_free)*(eni_dev->free_list_size+1),GFP_KERNEL);
-+	eni_dev->free_list = kmalloc_array(eni_dev->free_list_size + 1,
-+					   sizeof(*eni_dev->free_list),
-+					   GFP_KERNEL);
- 	if (!eni_dev->free_list) {
- 		printk(KERN_ERR DEV_LABEL "(itf %d): couldn't get free page\n",
- 		    dev->number);
--- 
-2.10.0
+Cheers, Phil
