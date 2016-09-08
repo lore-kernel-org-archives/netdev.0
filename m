@@ -1,51 +1,55 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next V2 0/6] Mellanox 100G mlx5 DCBX CEE and firmware support
-Date: Thu, 8 Sep 2016 09:52:12 +0300
-Message-ID: <CAJ3xEMi09R69jN+15CWHW-s03wqaB-vsS6uB6cOb98a=PoYvBg@mail.gmail.com>
-References: <CALzJLG89HjLC9hOR3g2g-SLYyV1K=wM=rHcwv7C=dex1VCOUFQ@mail.gmail.com>
- <20160907.132703.969714617324713560.davem@davemloft.net> <CAJ3xEMiYBv3Z4DaeOnWYJH-3D_bXDUFh_xwOeoTWOxe7MqtZcQ@mail.gmail.com>
- <20160907.153656.8091260922290635.davem@davemloft.net>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH 14/17] xfrm: policy: don't acquire policy lock in xfrm_spd_getinfo
+Date: Thu, 8 Sep 2016 07:54:49 +0200
+Message-ID: <1473314092-11319-15-git-send-email-steffen.klassert@secunet.com>
+References: <1473314092-11319-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Huy Nguyen <huyn@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>
+Content-Type: text/plain
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f53.google.com ([209.85.218.53]:36650 "EHLO
-        mail-oi0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756849AbcIHGwN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 02:52:13 -0400
-Received: by mail-oi0-f53.google.com with SMTP id x125so3480387oia.3
-        for <netdev@vger.kernel.org>; Wed, 07 Sep 2016 23:52:13 -0700 (PDT)
-In-Reply-To: <20160907.153656.8091260922290635.davem@davemloft.net>
+Received: from a.mx.secunet.com ([62.96.220.36]:36359 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753935AbcIHGv0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Sep 2016 02:51:26 -0400
+In-Reply-To: <1473314092-11319-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 8, 2016 at 1:36 AM, David Miller <davem@davemloft.net> wrote:
-> From: Or Gerlitz <gerlitz.or@gmail.com>
-> Date: Wed, 7 Sep 2016 23:51:56 +0300
->
->> On Wed, Sep 7, 2016 at 11:27 PM, David Miller <davem@davemloft.net> wrote:
->>> From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
->>> Date: Wed, 7 Sep 2016 23:16:13 +0300
->>>
->>>> Hi Dave, Sorry to bother, but i would like to drop this series for now
->>>> Huy is working to define and come up with a better mechanism to
->>>> enable/disable the new DCBX hybrid mode he is adding.
->>>
->>> I can't "just drop" any change that's in my tree already.
->>
->> Dave, I don't see it @ your kernel.org clone but it's not in
->> patchworks either, so I guess you picked that into your other clone.
->
-> Aha, I marked it "changes requested" in patchwork and did not apply it.
-> My bad.
+From: Florian Westphal <fw@strlen.de>
 
-Don't worry, happens...
+It doesn't seem that important.
 
-Thank you
+We now get inconsistent view of the counters, but those are stale anyway
+right after we drop the lock.
 
-Or.
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/xfrm/xfrm_policy.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 3d27b9a..35b85a9 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -560,7 +560,6 @@ static inline int xfrm_byidx_should_resize(struct net *net, int total)
+ 
+ void xfrm_spd_getinfo(struct net *net, struct xfrmk_spdinfo *si)
+ {
+-	read_lock_bh(&net->xfrm.xfrm_policy_lock);
+ 	si->incnt = net->xfrm.policy_count[XFRM_POLICY_IN];
+ 	si->outcnt = net->xfrm.policy_count[XFRM_POLICY_OUT];
+ 	si->fwdcnt = net->xfrm.policy_count[XFRM_POLICY_FWD];
+@@ -569,7 +568,6 @@ void xfrm_spd_getinfo(struct net *net, struct xfrmk_spdinfo *si)
+ 	si->fwdscnt = net->xfrm.policy_count[XFRM_POLICY_FWD+XFRM_POLICY_MAX];
+ 	si->spdhcnt = net->xfrm.policy_idx_hmask;
+ 	si->spdhmcnt = xfrm_policy_hashmax;
+-	read_unlock_bh(&net->xfrm.xfrm_policy_lock);
+ }
+ EXPORT_SYMBOL(xfrm_spd_getinfo);
+ 
+-- 
+1.9.1
