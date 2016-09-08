@@ -1,118 +1,107 @@
-From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Subject: [PATCH v2 net-next 2/2] net: phy: Add MAC-IF driver for Microsemi PHYs.
-Date: Thu, 8 Sep 2016 14:47:22 +0530
-Message-ID: <1473326242-4198-3-git-send-email-Raju.Lakkaraju@microsemi.com>
-References: <20160824125934.GC13406@lunn.ch>
- <1473326242-4198-1-git-send-email-Raju.Lakkaraju@microsemi.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH RFC 08/11] net/mlx5e: XDP fast RX drop bpf programs support
+Date: Thu, 8 Sep 2016 12:31:47 +0300
+Message-ID: <CAJ3xEMiDBZ2-FdE7wniW0Y_S6k8NKfKEdy3w+1vs83oPuMAG5Q@mail.gmail.com>
+References: <1473252152-11379-1-git-send-email-saeedm@mellanox.com>
+ <1473252152-11379-9-git-send-email-saeedm@mellanox.com> <CAJ3xEMgsGHqQ7x8wky6Sfs34Ry67PnZEhYmnK=g8XnnXbgWagg@mail.gmail.com>
+ <20160908093833.58101878@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <f.fainelli@gmail.com>, <Allan.Nielsen@microsemi.com>,
-        <andrew@lunn.ch>, Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+        iovisor-dev <iovisor-dev@lists.iovisor.org>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Martin KaFai Lau <kafai@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Rana Shahout <ranas@mellanox.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0089.outbound.protection.outlook.com ([104.47.32.89]:24288
-        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S938787AbcIHJR5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Sep 2016 05:17:57 -0400
-In-Reply-To: <1473326242-4198-1-git-send-email-Raju.Lakkaraju@microsemi.com>
+Received: from mail-oi0-f54.google.com ([209.85.218.54]:34412 "EHLO
+        mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757997AbcIHJbt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 05:31:49 -0400
+Received: by mail-oi0-f54.google.com with SMTP id m11so62858986oif.1
+        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 02:31:48 -0700 (PDT)
+In-Reply-To: <20160908093833.58101878@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+On Thu, Sep 8, 2016 at 10:38 AM, Jesper Dangaard Brouer
+<brouer@redhat.com> wrote:
+> On Wed, 7 Sep 2016 23:55:42 +0300
+> Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>
+>> On Wed, Sep 7, 2016 at 3:42 PM, Saeed Mahameed <saeedm@mellanox.com> wrote:
+>> > From: Rana Shahout <ranas@mellanox.com>
+>> >
+>> > Add support for the BPF_PROG_TYPE_PHYS_DEV hook in mlx5e driver.
+>> >
+>> > When XDP is on we make sure to change channels RQs type to
+>> > MLX5_WQ_TYPE_LINKED_LIST rather than "striding RQ" type to
+>> > ensure "page per packet".
+>> >
+>> > On XDP set, we fail if HW LRO is set and request from user to turn it
+>> > off.  Since on ConnectX4-LX HW LRO is always on by default, this will be
+>> > annoying, but we prefer not to enforce LRO off from XDP set function.
+>> >
+>> > Full channels reset (close/open) is required only when setting XDP
+>> > on/off.
+>> >
+>> > When XDP set is called just to exchange programs, we will update
+>> > each RQ xdp program on the fly and for synchronization with current
+>> > data path RX activity of that RQ, we temporally disable that RQ and
+>> > ensure RX path is not running, quickly update and re-enable that RQ,
+>> > for that we do:
+>> >         - rq.state = disabled
+>> >         - napi_synnchronize
+>> >         - xchg(rq->xdp_prg)
+>> >         - rq.state = enabled
+>> >         - napi_schedule // Just in case we've missed an IRQ
+>> >
+>> > Packet rate performance testing was done with pktgen 64B packets and on
+>> > TX side and, TC drop action on RX side compared to XDP fast drop.
+>> >
+>> > CPU: Intel(R) Xeon(R) CPU E5-2680 v3 @ 2.50GHz
+>> >
+>> > Comparison is done between:
+>> >         1. Baseline, Before this patch with TC drop action
+>> >         2. This patch with TC drop action
+>> >         3. This patch with XDP RX fast drop
+>> >
+>> > Streams    Baseline(TC drop)    TC drop    XDP fast Drop
+>> > --------------------------------------------------------------
+>> > 1           5.51Mpps            5.14Mpps     13.5Mpps
+>>
+>> This (13.5 M PPS) is less than 50% of the result we presented @ the
+>> XDP summit which was obtained by Rana. Please see if/how much does
+>> this grows if you use more sender threads, but all of them to xmit the
+>> same stream/flows, so we're on one ring. That (XDP with single RX ring
+>> getting packets from N remote TX rings) would be your canonical
+>> base-line for any further numbers.
+>
+> Well, my experiments with this hardware (mlx5/CX4 at 50Gbit/s) show
+> that you should be able to reach 23Mpps on a single CPU.  This is
+> a XDP-drop-simulation with order-0 pages being recycled through my
+> page_pool code, plus avoiding the cache-misses (notice you are using a
+> CPU E5-2680 with DDIO, thus you should only see a L3 cache miss).
 
-Used Device Tree to configure the MAC Interface as per review comments and
-re-sending code for review
+so this takes up from 13M to 23M, good.
 
-Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
----
- drivers/net/phy/mscc.c | 60 ++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 60 insertions(+)
+Could you explain why the move from order-3 to order-0 is hurting the
+performance so much (drop from 32M to 23M), any way we can overcome that?
 
-diff --git a/drivers/net/phy/mscc.c b/drivers/net/phy/mscc.c
-index f0a0e8d..dfbf4f3 100644
---- a/drivers/net/phy/mscc.c
-+++ b/drivers/net/phy/mscc.c
-@@ -24,6 +24,16 @@ enum rgmii_rx_clock_delay {
- 	RGMII_RX_CLK_DELAY_3_4_NS = 7
- };
- 
-+/* Microsemi VSC85xx PHY registers */
-+/* IEEE 802. Std Registers */
-+#define MSCC_PHY_EXT_PHY_CNTL_1           23
-+#define MAC_IF_SELECTION_MASK             0x1800
-+#define MAC_IF_SELECTION_GMII             0
-+#define MAC_IF_SELECTION_RMII             1
-+#define MAC_IF_SELECTION_RGMII            2
-+#define MAC_IF_SELECTION_POS              11
-+#define FAR_END_LOOPBACK_MODE_MASK        0x0008
-+
- #define MII_VSC85XX_INT_MASK		  25
- #define MII_VSC85XX_INT_MASK_MASK	  0xa000
- #define MII_VSC85XX_INT_STATUS		  26
-@@ -59,6 +69,52 @@ static int vsc85xx_phy_page_set(struct phy_device *phydev, u8 page)
- 	return rc;
- }
- 
-+static int vsc85xx_soft_reset(struct phy_device *phydev)
-+{
-+	int rc;
-+	u16 reg_val;
-+
-+	reg_val = phy_read(phydev, MII_BMCR);
-+	reg_val |= BMCR_RESET;
-+	rc = phy_write(phydev, MII_BMCR, reg_val);
-+
-+	return rc;
-+}
-+
-+static int vsc85xx_mac_if_set(struct phy_device *phydev,
-+			      phy_interface_t   interface)
-+{
-+	int rc;
-+	u16 reg_val;
-+
-+	mutex_lock(&phydev->lock);
-+	reg_val = phy_read(phydev, MSCC_PHY_EXT_PHY_CNTL_1);
-+	reg_val &= ~(MAC_IF_SELECTION_MASK);
-+	switch (interface) {
-+	case PHY_INTERFACE_MODE_RGMII:
-+		reg_val |= (MAC_IF_SELECTION_RGMII << MAC_IF_SELECTION_POS);
-+		break;
-+	case PHY_INTERFACE_MODE_RMII:
-+		reg_val |= (MAC_IF_SELECTION_RMII << MAC_IF_SELECTION_POS);
-+		break;
-+	case PHY_INTERFACE_MODE_MII:
-+	case PHY_INTERFACE_MODE_GMII:
-+	default:
-+		reg_val |= (MAC_IF_SELECTION_GMII << MAC_IF_SELECTION_POS);
-+		break;
-+	}
-+	rc = phy_write(phydev, MSCC_PHY_EXT_PHY_CNTL_1, reg_val);
-+	if (rc != 0)
-+		goto out_unlock;
-+
-+	rc = vsc85xx_soft_reset(phydev);
-+
-+out_unlock:
-+	mutex_unlock(&phydev->lock);
-+
-+	return rc;
-+}
-+
- static int vsc85xx_edge_rate_cntl_set(struct phy_device *phydev,
- 				      u8     edge_rate)
- {
-@@ -153,6 +209,10 @@ static int vsc85xx_config_init(struct phy_device *phydev)
- 	if (rc)
- 		return rc;
- 
-+	rc = vsc85xx_mac_if_set(phydev, phydev->interface);
-+	if (rc)
-+		return rc;
-+
- 	rc = genphy_config_init(phydev);
- 
- 	return rc;
--- 
-2.7.4
+> The 23Mpps number looks like some HW limitation, as the increase was
+
+not HW, I think. As I said, Rana got 32M with striding RQ when she was
+using order-3
+(or did we use order-5?)
+
+> is not proportional to page-allocator overhead I removed (and CPU freq
+> starts to decrease).  I also did scaling tests to more CPUs, which
+> showed it scaled up to 40Mpps (you reported 45M).  And at the Phy RX
+> level I see 60Mpps (50G max is 74Mpps).
