@@ -1,99 +1,99 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH net-next v3] gso: Support partial splitting at the
- frag_list pointer
-Date: Thu, 8 Sep 2016 13:27:09 +0200
-Message-ID: <20160908112708.GS31137@gauss.secunet.com>
-References: <20160905104738.GD31137@gauss.secunet.com>
- <CAKgT0UftBBfe08rcHr_Z95TtDLkBq4zz_0xchn5GMpkwKs1P=Q@mail.gmail.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: pull-request: wireless-drivers 2016-09-08
+Date: Thu, 08 Sep 2016 14:31:56 +0300
+Message-ID: <8737latyoj.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Netdev <netdev@vger.kernel.org>,
-        Alexander Duyck <alexander.h.duyck@intel.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        "Marcelo Ricardo Leitner" <marcelo.leitner@gmail.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:43383 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1759428AbcIHL1N (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Sep 2016 07:27:13 -0400
-Content-Disposition: inline
-In-Reply-To: <CAKgT0UftBBfe08rcHr_Z95TtDLkBq4zz_0xchn5GMpkwKs1P=Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 05, 2016 at 10:30:44AM -0700, Alexander Duyck wrote:
-> On Mon, Sep 5, 2016 at 3:47 AM, Steffen Klassert
-> <steffen.klassert@secunet.com> wrote:
-> > Since commit 8a29111c7 ("net: gro: allow to build full sized skb")
-> > gro may build buffers with a frag_list. This can hurt forwarding
-> > because most NICs can't offload such packets, they need to be
-> > segmented in software. This patch splits buffers with a frag_list
-> > at the frag_list pointer into buffers that can be TSO offloaded.
-> >
-> > Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-> > ---
-> >
-> > Changes since v1:
-> >
-> > - Use the assumption that all buffers in the chain excluding the last
-> >   containing the same amount of data.
-> >
-> > - Simplify some checks against gso partial.
-> >
-> > - Fix the generation of IP IDs.
-> >
-> > Changes since v2:
-> >
-> > - Merge common code of gso partial and frag_list pointer splitting.
-> >
-> >  net/core/skbuff.c      | 50 +++++++++++++++++++++++++++++++++++++++-----------
-> >  net/ipv4/af_inet.c     | 14 ++++++++++----
-> >  net/ipv4/gre_offload.c |  6 ++++--
-> >  net/ipv4/tcp_offload.c | 13 +++++++------
-> >  net/ipv4/udp_offload.c |  6 ++++--
-> >  net/ipv6/ip6_offload.c |  5 ++++-
-> >  6 files changed, 68 insertions(+), 26 deletions(-)
-> >
-> > diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> > index 3864b4b6..f754d47 100644
-> > --- a/net/core/skbuff.c
-> > +++ b/net/core/skbuff.c
-> > @@ -3078,11 +3078,30 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
-> >         sg = !!(features & NETIF_F_SG);
-> >         csum = !!can_checksum_protocol(features, proto);
-> >
-> > -       /* GSO partial only requires that we trim off any excess that
-> > -        * doesn't fit into an MSS sized block, so take care of that
-> > -        * now.
-> > -        */
-> > -       if (sg && csum && (features & NETIF_F_GSO_PARTIAL)) {
-> > +       if (sg && csum && (mss != GSO_BY_FRAGS))  {
-> > +               if (!(features & NETIF_F_GSO_PARTIAL)) {
-> > +                       if (list_skb &&
-> > +                           net_gso_ok(features, skb_shinfo(head_skb)->gso_type)) {
-> 
-> The testing logic here is a bit off.
+Hi Dave,
 
-Yes, apparently :-/
+few important, but as can be seen from the diffstat, really small fixes
+for 4.8. Please let me know if you have any problems.
 
-> 
-> You need to prevent us from doing the partial_segs bit below if
-> NETIF_F_GSO_PARTIAL is not set and if your list_skb or net_gso_ok
-> tests fail.  Since as you pointed out we shouldn't ever be trying to
-> perform GSO_PARTIAL on a frame that has a frag_list, what you might do
-> is something like:
->     if (!list_skb || !net_gso_ok(...))
->         goto normal;
-> 
-> That way we don't setup partial_segs unless we are actually using it.
+Kalle
 
-Will do that.
+The following changes since commit bb87f02b7e4ccdb614a83cbf840524de81e9b321:
 
-> > +
-> > +               if (tail->len < gso_size)
-> 
-> You might swap this around and just setup gso_segs on > gso_size,
-> either that or this needs to be "<=" instead of just "<";
+  Merge ath-current from ath.git (2016-08-29 21:39:04 +0300)
 
-Ok, I'll use "<=".
+are available in the git repository at:
+
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.git tags/wireless-drivers-for-davem-2016-09-08
+
+for you to fetch changes up to a0714125d11bcf21599b08b25fdaf384c0db6712:
+
+  Merge ath-current from ath.git (2016-09-07 20:16:37 +0300)
+
+----------------------------------------------------------------
+
+wireless-drivers fixes for 4.8
+
+iwlwifi
+
+* fix P2P dump trigger
+* prevent a potential null dereference in iwlmvm
+* prevent an uninitialized value from being returned in iwlmvm
+* advertise support for channel width change in AP mode
+
+ath10k
+
+* fix racy rx status retrieval from htt context
+* QCA9887 support is not experimental anymore, remove the warning message
+
+ath9k
+
+* fix regression with led GPIOs
+* fix AR5416 GPIO access warning
+
+brcmfmac
+
+* avoid potential stack overflow in brcmf_cfg80211_start_ap()
+
+----------------------------------------------------------------
+Arend Van Spriel (1):
+      brcmfmac: avoid potential stack overflow in brcmf_cfg80211_start_ap()
+
+Ashok Raj Nagarajan (1):
+      ath10k: fix get rx_status from htt context
+
+Emmanuel Grumbach (2):
+      iwlwifi: mvm: consider P2p device type for firmware dump triggers
+      iwlwifi: mvm: don't use ret when not initialised
+
+Giedrius Statkevičius (1):
+      ath9k: bring back direction setting in ath9k_{start_stop}
+
+Kalle Valo (2):
+      Merge tag 'iwlwifi-for-kalle-2016-08-29' of git://git.kernel.org/.../iwlwifi/iwlwifi-fixes
+      Merge ath-current from ath.git
+
+Miaoqing Pan (1):
+      ath9k: fix AR5416 access GPIO warning
+
+Mohammed Shafi Shajakhan (1):
+      ath10k: Remove driver log suggesting QCA9887 support is experimental
+
+Peer, Ilan (1):
+      iwlwifi: mvm: Advertise support for AP channel width change
+
+Sharon Dvir (1):
+      iwlwifi: mvm: check if vif is NULL before using it
+
+ drivers/net/wireless/ath/ath10k/htt_rx.c           |   10 +++++-----
+ drivers/net/wireless/ath/ath10k/pci.c              |    1 -
+ drivers/net/wireless/ath/ath9k/hw.c                |    4 ++--
+ drivers/net/wireless/ath/ath9k/main.c              |    9 +++++++--
+ .../broadcom/brcm80211/brcmfmac/cfg80211.c         |    2 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/fw-dbg.c    |    3 ++-
+ drivers/net/wireless/intel/iwlwifi/mvm/fw-dbg.h    |    3 ++-
+ drivers/net/wireless/intel/iwlwifi/mvm/mac80211.c  |    1 +
+ drivers/net/wireless/intel/iwlwifi/mvm/mvm.h       |    2 ++
+ 9 files changed, 22 insertions(+), 13 deletions(-)
