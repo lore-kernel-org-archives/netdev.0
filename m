@@ -1,93 +1,52 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH net-next] ipv4: accept u8 in IP_TOS ancillary data
-Date: Thu, 8 Sep 2016 11:15:19 +0200
-Message-ID: <20160908111519.62af94bf@redhat.com>
-References: <1473310376.15733.26.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Subject: Re: [PATCH 0/4] net: phy: Register header file for Microsemi PHYs.
+Date: Thu, 8 Sep 2016 14:31:28 +0530
+Message-ID: <20160908090126.GA4134@microsemi.com>
+References: <646450A91FAED74E85C6E9C4D6E936A14533665A@avsrvexchmbx1.microsemi.net>
+ <b0fe05bc-d6c4-0692-44ba-69ff8db3026a@gmail.com>
+ <20160826102219.GA22159@microsemi.com>
+ <20160826134028.GE25046@lunn.ch>
+Reply-To: <Raju.Lakkaraju@microsemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Francesco Fusco <fusco@ntop.org>,
-        Maciej =?UTF-8?B?xbtlbmN6eWtvd3NraQ==?= <maze@google.com>,
-        brouer@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Allan Nielsen <Allan.Nielsen@microsemi.com>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60068 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933325AbcIHJPZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Sep 2016 05:15:25 -0400
-In-Reply-To: <1473310376.15733.26.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-bn3nam01on0049.outbound.protection.outlook.com ([104.47.33.49]:19280
+        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S932411AbcIHJR0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Sep 2016 05:17:26 -0400
+Content-Disposition: inline
+In-Reply-To: <20160826134028.GE25046@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 07 Sep 2016 21:52:56 -0700
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+Hi Andrew,
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> In commit f02db315b8d8 ("ipv4: IP_TOS and IP_TTL can be specified as
-> ancillary data") Francesco added IP_TOS values specified as integer.
-> 
-> However, kernel sends to userspace (at recvmsg() time) an IP_TOS value
-> in a single byte, when IP_RECVTOS is set on the socket.
-> 
-> It can be very useful to reflect all ancillary options as given by the
-> kernel in a subsequent sendmsg(), instead of aborting the sendmsg() with
-> EINVAL after Francesco patch.
-> 
-> So this patch extends IP_TOS ancillary to accept an u8, so that an UDP
-> server can simply reuse same ancillary block without having to mangle
-> it.
-> 
-> Jesper can then augment
-> https://github.com/netoptimizer/network-testing/blob/master/src/udp_example02.c
-> to add TOS reflection ;)
+Thank you for review the code and given valuable comments.
+Other driver is not yet complete.
 
-This is actually your old program ;-)
-Do I need to change anything, as I'm just bouncing the packet back with sendmsg() ?
+I accepted your review comment. I will keep all Register defined MACRO's in 
+mscc.c file.
 
-
-> Fixes: f02db315b8d8 ("ipv4: IP_TOS and IP_TTL can be specified as ancillary data")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Francesco Fusco <ffusco@redhat.com> 
-> Cc: Jesper Dangaard Brouer <brouer@redhat.com>
-
-Looks like a good fix,
-
-Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
-
-> ---
->  net/ipv4/ip_sockglue.c |    7 +++++--
->  1 file changed, 5 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-> index 71a52f4d4cffba2db9353f43dc817689bf4fab10..af4919792b6a812041dcb18ff30aa8b27482c7a2 100644
-> --- a/net/ipv4/ip_sockglue.c
-> +++ b/net/ipv4/ip_sockglue.c
-> @@ -284,9 +284,12 @@ int ip_cmsg_send(struct sock *sk, struct msghdr *msg, struct ipcm_cookie *ipc,
->  			ipc->ttl = val;
->  			break;
->  		case IP_TOS:
-> -			if (cmsg->cmsg_len != CMSG_LEN(sizeof(int)))
-> +			if (cmsg->cmsg_len == CMSG_LEN(sizeof(int)))
-> +				val = *(int *)CMSG_DATA(cmsg);
-> +			else if (cmsg->cmsg_len == CMSG_LEN(sizeof(u8)))
-> +				val = *(u8 *)CMSG_DATA(cmsg);
-> +			else
->  				return -EINVAL;
-> -			val = *(int *)CMSG_DATA(cmsg);
->  			if (val < 0 || val > 255)
->  				return -EINVAL;
->  			ipc->tos = val;
+Thanks,
+Raju.
+On Fri, Aug 26, 2016 at 03:40:28PM +0200, Andrew Lunn wrote:
+> EXTERNAL EMAIL
 > 
 > 
-
-
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+> > I would like to share these register definitions share between
+> > Microsemi multiple drivers.
+> 
+> Hi Raju
+> 
+> Please post a patch which does this, i.e. modifies multiple drivers to
+> share the header file.
+> 
+> However, just be aware, if it turns out these multiple drivers are
+> very similar, we might actually ask you to merge them into one driver.
+> 
+>      Andrew
