@@ -1,56 +1,48 @@
 From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net 8/9] net/mlx4_core: Fix to clean devlink resources
-Date: Thu,  8 Sep 2016 11:52:00 +0300
-Message-ID: <1473324721-5206-9-git-send-email-tariqt@mellanox.com>
+Subject: [PATCH net 4/9] net/mlx4_en: Fix the return value of mlx4_en_dcbnl_set_state()
+Date: Thu,  8 Sep 2016 11:51:56 +0300
+Message-ID: <1473324721-5206-5-git-send-email-tariqt@mellanox.com>
 References: <1473324721-5206-1-git-send-email-tariqt@mellanox.com>
 Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
         Kamal Heib <kamalh@mellanox.com>,
         Tariq Toukan <tariqt@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:55666 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:55648 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S938470AbcIHIxK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 04:53:10 -0400
+        with ESMTP id S938644AbcIHIxO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 04:53:14 -0400
 In-Reply-To: <1473324721-5206-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Kamal Heib <kamalh@mellanox.com>
 
-This patch cleans devlink resources by calling devlink_port_unregister()
-to avoid the following issues:
+mlx4_en_dcbnl_set_state() returns u8, the return value from
+mlx4_en_setup_tc() could be negative in case of failure, so fix that.
 
-- Kernel panic when triggering reset flow.
-- Memory leak due to unfreed resources in mlx4_init_port_info().
-
-Fixes: 09d4d087cd48 ("mlx4: Implement devlink interface")
+Fixes: af7d51852631 ("net/mlx4_en: Add DCB PFC support through CEE netlink commands")
 Signed-off-by: Kamal Heib <kamalh@mellanox.com>
 Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/main.c | 3 +++
- 1 file changed, 3 insertions(+)
+ drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index 75dd2e3d3059..7183ac4135d2 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -2970,6 +2970,7 @@ static int mlx4_init_port_info(struct mlx4_dev *dev, int port)
- 		mlx4_err(dev, "Failed to create mtu file for port %d\n", port);
- 		device_remove_file(&info->dev->persist->pdev->dev,
- 				   &info->port_attr);
-+		devlink_port_unregister(&info->devlink_port);
- 		info->port = -1;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c b/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
+index 97081e5bafd1..316a70714434 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
+@@ -239,7 +239,10 @@ static u8 mlx4_en_dcbnl_set_state(struct net_device *dev, u8 state)
+ 		priv->flags &= ~MLX4_EN_FLAG_DCB_ENABLED;
  	}
  
-@@ -2984,6 +2985,8 @@ static void mlx4_cleanup_port_info(struct mlx4_port_info *info)
- 	device_remove_file(&info->dev->persist->pdev->dev, &info->port_attr);
- 	device_remove_file(&info->dev->persist->pdev->dev,
- 			   &info->port_mtu_attr);
-+	devlink_port_unregister(&info->devlink_port);
+-	return mlx4_en_setup_tc(dev, num_tcs);
++	if (mlx4_en_setup_tc(dev, num_tcs))
++		return 1;
 +
- #ifdef CONFIG_RFS_ACCEL
- 	free_irq_cpu_rmap(info->rmap);
- 	info->rmap = NULL;
++	return 0;
+ }
+ 
+ /* On success returns a non-zero 802.1p user priority bitmap
 -- 
 1.8.3.1
