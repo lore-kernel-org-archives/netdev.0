@@ -1,30 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V6 0/4] net/sched: ip tunnel metadata
- set/release/classify by using TC
-Date: Wed, 07 Sep 2016 17:32:46 -0700 (PDT)
-Message-ID: <20160907.173246.209901227236135350.davem@davemloft.net>
-References: <1473235686-18975-1-git-send-email-hadarh@mellanox.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next 0/3] r8152: configuration setting
+Date: Wed, 07 Sep 2016 17:37:46 -0700 (PDT)
+Message-ID: <20160907.173746.787161029125318872.davem@davemloft.net>
+References: <1394712342-15778-215-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@mellanox.com, jbenc@redhat.com,
-        jhs@mojatatu.com, shmulik.ladkani@gmail.com, tom@herbertland.com,
-        edumazet@google.com, xiyou.wangcong@gmail.com, amirva@mellanox.com,
-        ogerlitz@mellanox.com
-To: hadarh@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50442 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751302AbcIHAcs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 20:32:48 -0400
-In-Reply-To: <1473235686-18975-1-git-send-email-hadarh@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1394712342-15778-215-Taiwan-albertk-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Hadar Hen Zion <hadarh@mellanox.com>
-Date: Wed,  7 Sep 2016 11:08:02 +0300
+From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Date: Wed, 7 Sep 2016 16:12:19 +0800
 
-> This patchset introduces ip tunnel manipulation support using the TC subsystem.
+> Some people prefer to use ECM mode rather than vendor mode. Therefore, I add
+> CONFIG_RTL8152_CONFIG_VALUE in Kconfig. Then, the users could choose the USB
+> configuration value which they want. The default is to support vendor mode
+> only.
 
-Please address the feedback given by Eric Dumazet for patch #4,
-thank you.
+By forcing a certain mode via a Kconfig value, you are basically making it
+impossible for distributions to do something reasonable here.
+
+This needs to be somehow a runtime thing, and I'm pretty sure we've
+had many other situations of USB devices which want to be run by
+different "personality" drivers in the past.
+
+Perhaps we can do something generically for USB devices for this kind
+of situation and make r8152 use it.
+
+Thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
