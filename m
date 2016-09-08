@@ -1,118 +1,130 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next] net: bridge: add helper to call /sbin/bridge-stp
-Date: Thu,  8 Sep 2016 12:50:43 -0400
-Message-ID: <20160908165043.31042-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net 1/1] net sched actions: fix GETing actions
+Date: Thu, 8 Sep 2016 10:12:20 -0700
+Message-ID: <CAM_iQpUrbikYYfttzEn8AihpSmXtwrdnV-949BzVH_0DdwW37g@mail.gmail.com>
+References: <1473336754-24930-1-git-send-email-jhs@emojatatu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f65.google.com ([209.85.218.65]:34039 "EHLO
+        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965152AbcIHRMm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 13:12:42 -0400
+Received: by mail-oi0-f65.google.com with SMTP id x125so3167069oia.1
+        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 10:12:41 -0700 (PDT)
+In-Reply-To: <1473336754-24930-1-git-send-email-jhs@emojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If /sbin/bridge-stp is available on the system, bridge tries to execute
-it instead of the kernel implementation when starting/stopping STP.
+On Thu, Sep 8, 2016 at 5:12 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
+>
+> Example of what broke:
+> ...add a gact action to drop
+> sudo $TC actions add action drop index 10
+> ...now retrieve it, looks good
+> sudo $TC actions get action gact index 10
+> ...retrieve it again and find it is gone!
+> sudo $TC actions get action gact index 10
 
-If anything goes wrong with /sbin/bridge-stp, bridge silently falls back
-to kernel STP, making hard to debug userspace STP.
+This changelog sucks, it only tells the phenomenon of the bug,
+never explains what causes the bug, which is crucial for review.
 
-This patch adds a br_stp_call_user helper to start/stop userspace STP
-and debug errors from the program: abnormal exit status is stored in the
-lower byte and normal exit status is stored in higher byte.
+>
+> Fixes: f07fed82ad79 ("net_sched: remove the leftover cleanup_a())
+>
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+> ---
+>  net/sched/act_api.c | 20 +++++++++++++++++---
+>  1 file changed, 17 insertions(+), 3 deletions(-)
+>
+> diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+> index d09d068..d4b4704 100644
+> --- a/net/sched/act_api.c
+> +++ b/net/sched/act_api.c
+> @@ -612,6 +612,8 @@ int tcf_action_init(struct net *net, struct nlattr *nla,
+>                         goto err;
+>                 }
+>                 act->order = i;
+> +               if (ovr)
+> +                       act->tcfa_refcnt+=1;
 
-Below is a simple example on a kernel with dynamic debug enabled:
+This looks like not relevant to commit f07fed82ad79 at all?
 
-    # ln -s /bin/false /sbin/bridge-stp
-    # brctl stp br0 on
-    br0: failed to start userspace STP (256)
-    # dmesg
-    br0: /sbin/bridge-stp exited with code 1
-    br0: failed to start userspace STP (256)
-    br0: using kernel STP
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- net/bridge/br_stp_if.c | 43 +++++++++++++++++++++++++++++++------------
- 1 file changed, 31 insertions(+), 12 deletions(-)
+>                 list_add_tail(&act->list, actions);
+>         }
+>         return 0;
+> @@ -856,6 +858,15 @@ tcf_del_notify(struct net *net, struct nlmsghdr *n, struct list_head *actions,
+>         return ret;
+>  }
+>
+> +static void cleanup_a(struct list_head *actions)
+> +{
+> +       struct tc_action *a, *tmp;
+> +
+> +       list_for_each_entry_safe(a, tmp, actions, list) {
+> +               list_del(&a->list);
+> +       }
 
-diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
-index 341caa0..d8ad73b 100644
---- a/net/bridge/br_stp_if.c
-+++ b/net/bridge/br_stp_if.c
-@@ -134,17 +134,36 @@ void br_stp_disable_port(struct net_bridge_port *p)
- 		br_become_root_bridge(br);
- }
- 
-+static int br_stp_call_user(struct net_bridge *br, char *arg)
-+{
-+	char *argv[] = { BR_STP_PROG, br->dev->name, arg, NULL };
-+	char *envp[] = { NULL };
-+	int rc;
-+
-+	/* call userspace STP and report program errors */
-+	rc = call_usermodehelper(BR_STP_PROG, argv, envp, UMH_WAIT_PROC);
-+	if (rc > 0) {
-+		if (rc & 0xff)
-+			br_debug(br, BR_STP_PROG " received signal %d\n",
-+				 rc & 0x7f);
-+		else
-+			br_debug(br, BR_STP_PROG " exited with code %d\n",
-+				 (rc >> 8) & 0xff);
-+	}
-+
-+	return rc;
-+}
-+
- static void br_stp_start(struct net_bridge *br)
- {
--	int r;
--	char *argv[] = { BR_STP_PROG, br->dev->name, "start", NULL };
--	char *envp[] = { NULL };
- 	struct net_bridge_port *p;
-+	int err = -ENOENT;
- 
- 	if (net_eq(dev_net(br->dev), &init_net))
--		r = call_usermodehelper(BR_STP_PROG, argv, envp, UMH_WAIT_PROC);
--	else
--		r = -ENOENT;
-+		err = br_stp_call_user(br, "start");
-+
-+	if (err && err != -ENOENT)
-+		br_err(br, "failed to start userspace STP (%d)\n", err);
- 
- 	spin_lock_bh(&br->lock);
- 
-@@ -153,9 +172,10 @@ static void br_stp_start(struct net_bridge *br)
- 	else if (br->bridge_forward_delay > BR_MAX_FORWARD_DELAY)
- 		__br_set_forward_delay(br, BR_MAX_FORWARD_DELAY);
- 
--	if (r == 0) {
-+	if (!err) {
- 		br->stp_enabled = BR_USER_STP;
- 		br_debug(br, "userspace STP started\n");
-+
- 		/* Stop hello and hold timers */
- 		del_timer(&br->hello_timer);
- 		list_for_each_entry(p, &br->port_list, list)
-@@ -173,14 +193,13 @@ static void br_stp_start(struct net_bridge *br)
- 
- static void br_stp_stop(struct net_bridge *br)
- {
--	int r;
--	char *argv[] = { BR_STP_PROG, br->dev->name, "stop", NULL };
--	char *envp[] = { NULL };
- 	struct net_bridge_port *p;
-+	int err;
- 
- 	if (br->stp_enabled == BR_USER_STP) {
--		r = call_usermodehelper(BR_STP_PROG, argv, envp, UMH_WAIT_PROC);
--		br_info(br, "userspace STP stopped, return code %d\n", r);
-+		err = br_stp_call_user(br, "stop");
-+		if (err)
-+			br_err(br, "failed to stop userspace STP (%d)\n", err);
- 
- 		/* To start timers on any ports left in blocking */
- 		mod_timer(&br->hello_timer, jiffies + br->hello_time);
--- 
-2.9.3
+After my patches, all the action lists are now temporary,
+you didn't explain why we should remove an action from
+a temporary list, they should just come and go, since
+we call ist_add() every time.
+
+Did see any list corruption or kernel crash (your changelog
+didn't say so)?
+
+
+> +}
+> +
+>  static int
+>  tca_action_gd(struct net *net, struct nlattr *nla, struct nlmsghdr *n,
+>               u32 portid, int event)
+> @@ -883,6 +894,7 @@ tca_action_gd(struct net *net, struct nlattr *nla, struct nlmsghdr *n,
+>                         goto err;
+>                 }
+>                 act->order = i;
+> +               act->tcfa_refcnt+=1;
+
+
+Maybe we only need to fixup the refcnt without touching list,
+from my quick observation to your bug report (again, you didn't explain).
+
+
+>                 list_add_tail(&act->list, &actions);
+>         }
+>
+> @@ -892,10 +904,12 @@ tca_action_gd(struct net *net, struct nlattr *nla, struct nlmsghdr *n,
+>                 ret = tcf_del_notify(net, n, &actions, portid);
+>                 if (ret)
+>                         goto err;
+> +               cleanup_a(&actions);
+>                 return ret;
+>         }
+>  err:
+>         tcf_action_destroy(&actions, 0);
+> +       cleanup_a(&actions);
+>         return ret;
+>  }
+>
+> @@ -931,10 +945,10 @@ tcf_action_add(struct net *net, struct nlattr *nla, struct nlmsghdr *n,
+>         LIST_HEAD(actions);
+>
+>         ret = tcf_action_init(net, nla, NULL, NULL, ovr, 0, &actions);
+> -       if (ret)
+> -               return ret;
+>
+> -       return tcf_add_notify(net, n, &actions, portid);
+> +       ret = tcf_add_notify(net, n, &actions, portid);
+> +       cleanup_a(&actions);
+> +       return ret;
+>  }
+>
+>  static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n)
+> --
+> 1.9.1
+>
