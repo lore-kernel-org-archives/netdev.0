@@ -1,68 +1,53 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [RFC] bridge: MAC learning uevents
-Date: Thu, 8 Sep 2016 14:16:26 -0700
-Message-ID: <20160908141626.0ae9025a@xeon-e3>
-References: <7824e091-6b1a-bf39-0f78-1c9084d59972@herrendoerfer.name>
-        <20160908083920.0d421951@xeon-e3>
-        <F1E0DECE-4C8F-487A-B1CD-B3ADFD8DC1B1@herrendoerfer.name>
-        <9f5db5b9-37dc-91c0-70e2-38644cc5bdb7@gmail.com>
+From: Michal Soltys <soltys@ziu.info>
+Subject: Re: vlan aware bridge doesn't propagate mac changes to vlans on top
+ of it
+Date: Thu, 8 Sep 2016 23:16:34 +0200
+Message-ID: <e243444f-f048-116c-8fea-dbb509951b8a@ziu.info>
+References: <d8cc158b-8b3b-17eb-91cc-7a46d7fc011e@ziu.info>
+ <1fb1ce35-60e8-481c-9533-afe2e585f6ca@lab.ntt.co.jp>
+ <af2e0cf8-c580-83b5-3b7d-3a23a1cba06a@ziu.info>
+ <871326a1-4d31-8327-8120-f2188ecf2d34@lab.ntt.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: "D. Herrendoerfer" <d.herrendoerfer@herrendoerfer.name>,
-        netdev@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+        Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:35399 "EHLO
-        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932460AbcIHVQQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 17:16:16 -0400
-Received: by mail-pf0-f180.google.com with SMTP id w87so21849265pfk.2
-        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 14:16:16 -0700 (PDT)
-In-Reply-To: <9f5db5b9-37dc-91c0-70e2-38644cc5bdb7@gmail.com>
+Received: from drutsystem.com ([84.10.39.251]:42107 "EHLO drutsystem.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932460AbcIHVQk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Sep 2016 17:16:40 -0400
+In-Reply-To: <871326a1-4d31-8327-8120-f2188ecf2d34@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 8 Sep 2016 11:30:08 -0700
-Florian Fainelli <f.fainelli@gmail.com> wrote:
-
-> On 09/08/2016 10:19 AM, D. Herrendoerfer wrote:
-> > 
-> > On 08 Sep 2016, at 17:39, Stephen Hemminger <stephen@networkplumber.org> wrote:
-> >   
-> >> On Thu, 8 Sep 2016 15:06:16 +0200
-> >> "D. Herrendoerfer" <d.herrendoerfer@herrendoerfer.name> wrote:
-> >>  
-> >>> Hello,
-> >>>
-> >>> I'd like to start a discussion if it makes sense to add an optional feature
-> >>>
-> >>> to the bridge MAC address learning code to generate kernel uevents for  
-> > 
-> > [SNIP]
-> >   
-> >>>
-> >>> I'm porting my patch (for 3.10.0) to head, and will make it available, I 
-> >>> just want some
-> >>>
-> >>> valuable feedback as early as possible.
-> >>>
-> >>>
-> >>> Thanks, D.Herrendoerfer  
-> >>
-> >> This should be possible by listening for netlink events.
-> >> No need for udev interaction.  
-> > 
-> > No, there are none, not for changes to the bridge forwarding table, also this would 
-> > require a tool to continuously listen for changes.  
+On 2016-09-08 04:03, Toshiaki Makita wrote:
+> On 2016/09/08 3:22, Michal Soltys wrote:
+> ...
+>> 4.7.2
+>> git describe on that commit suggests it's been available since 4.6.x
+>> 
+>> What I did in details:
+>> 
+>> ip li add name port1b type veth peer name port1e
+>> ip li add br0 type bridge
+>> ip li set dev br0 type bridge vlan_default_pvid 0
+>> ip li set dev br0 type bridge vlan_filtering 1
+>> bridge vlan add dev br0 vid 10 self
+>> bridge vlan add dev br0 vid 250 untagged pvid self
+>> ip li add link br0 name vlan10 type vlan id 10
+>> ip li set port1b master br0
+>> 
+>> At this point br0.vlan10 had outdated mac after br0 took port1b's one as
+>> its own.
 > 
-> Wat do you expect uevent to solve here that netlink + a monitoring
-> program can't?
+> If the mac address of lower device is changed while vlan device is down,
+> the address will be synchronized when vlan device becomes up.
+> Please try "ip li set vlan10 up".
 > 
-> There is quite a bit of code in net/bridge/br_fdb.c just to deal with
-> notifying learned/added MAC addresses, is not that where you should
-> start adding what you are after (if that is not supported as of latest
-> mainline)?
 
-just like neighbor table modifications, it should be possible to listen for
-events with netlink. Doing it through uevent is the wrong model.
+Gah, yea upping interface updates it correctly. Originally I found this
+issue on older kernel, so I quickly verified the behaviour on the
+current one - but didn't do ip up.
+
+Sorry for the noise.
