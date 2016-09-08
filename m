@@ -1,44 +1,38 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] net: x25: remove null checks on arrays calling_ae and called_ae
-Date: Thu,  8 Sep 2016 08:42:06 +0100
-Message-ID: <20160908074206.13662-1-colin.king@canonical.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [RFC PATCH 1/2] macb: Add 1588 support in Cadence GEM.
+Date: Thu, 8 Sep 2016 09:44:44 +0200
+Message-ID: <20160908074444.GA3341@netboy>
+References: <1472820817-21874-1-git-send-email-andrei.pistirica@microchip.com>
+ <20160906154809.GA7012@localhost.localdomain>
+ <CAFcVECJxJgJUeO4=yudwTj5NkxDob5tCZaom9YTqWWmtt7ajFw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: Andrew Hendry <andrew.hendry@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        linux-x25@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrei Pistirica <andrei.pistirica@microchip.com>,
+        netdev@vger.kernel.org,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>, davem@davemloft.net,
+        Nicolas Ferre <nicolas.ferre@atmel.com>,
+        Harini Katakam <harini.katakam@xilinx.com>,
+        Punnaiah Choudary Kalluri <punnaia@xilinx.com>,
+        "michals@xilinx.com" <michals@xilinx.com>,
+        Anirudha Sarangi <anirudh@xilinx.com>,
+        Boris Brezillon <boris.brezillon@free-electrons.com>,
+        alexandre.belloni@free-electrons.com, tbultel@pixelsurmer.com
+To: Harini Katakam <harinikatakamlinux@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAFcVECJxJgJUeO4=yudwTj5NkxDob5tCZaom9YTqWWmtt7ajFw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+On Thu, Sep 08, 2016 at 10:22:43AM +0530, Harini Katakam wrote:
+> I cant be sure of the version of Cadence GEM used in SAMA5D2
+> but these registers (sub ns increments alteast) only exist in
+> the IP version used in Zynq Ultrascale+ MPSoC.
 
-dtefacs.calling_ae and called_ae are both 20 element __u8 arrays and
-cannot be null and hence are redundant checks. Remove these.
+Then you need to find a way to make sure the driver only binds to the
+correct silicon.
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- net/x25/af_x25.c | 4 ----
- 1 file changed, 4 deletions(-)
-
-diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
-index a750f33..f83b74d 100644
---- a/net/x25/af_x25.c
-+++ b/net/x25/af_x25.c
-@@ -1500,12 +1500,8 @@ out_fac_release:
- 			goto out_dtefac_release;
- 		if (dtefacs.calling_len > X25_MAX_AE_LEN)
- 			goto out_dtefac_release;
--		if (dtefacs.calling_ae == NULL)
--			goto out_dtefac_release;
- 		if (dtefacs.called_len > X25_MAX_AE_LEN)
- 			goto out_dtefac_release;
--		if (dtefacs.called_ae == NULL)
--			goto out_dtefac_release;
- 		x25->dte_facilities = dtefacs;
- 		rc = 0;
- out_dtefac_release:
--- 
-2.9.3
+Thanks,
+Richard
