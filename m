@@ -1,166 +1,141 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net 5/6] sctp: make sctp_outq_flush/tail/uncork return void
-Date: Thu,  8 Sep 2016 17:44:05 +0800
-Message-ID: <308696adce0a531f00edf4be1fd3aff65234b008.1473327845.git.lucien.xin@gmail.com>
+Subject: [PATCH net 6/6] sctp: not return ENOMEM err back in sctp_packet_transmit
+Date: Thu,  8 Sep 2016 17:44:42 +0800
+Message-ID: <043339a98393a5b320e63dc59cf4a5182f5f19cc.1473327882.git.lucien.xin@gmail.com>
 References: <cover.1473326067.git.lucien.xin@gmail.com>
 Cc: davem@davemloft.net,
         Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
         Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:36456 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754808AbcIHJoJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 05:44:09 -0400
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:33664 "EHLO
+        mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758766AbcIHJos (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 05:44:48 -0400
 In-Reply-To: <cover.1473326067.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sctp_outq_flush return value is meaningless now, this patch is
-to make sctp_outq_flush return void, as well as sctp_outq_fail
-and sctp_outq_uncork.
+As David and Marcelo's suggestion, ENOMEM err shouldn't return back to
+user in transmit path. Instead, sctp's retransmit would take care of
+the chunks that fail to send because of ENOMEM.
+
+This patch is only to do some release job when alloc_skb fails, not to
+return ENOMEM back any more.
+
+Besides, it also cleans up sctp_packet_transmit's err path, and fixes
+some issues in err path:
+
+ - It didn't free the head skb in nomem: path.
+ - No need to check nskb in no_route: path.
+ - It should goto err: path if alloc_skb fails for head.
+ - Not all the NOMEMs should free nskb.
 
 Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- include/net/sctp/structs.h |  4 ++--
- net/sctp/outqueue.c        | 19 +++++++------------
- net/sctp/sm_sideeffect.c   |  9 ++++-----
- 3 files changed, 13 insertions(+), 19 deletions(-)
+ net/sctp/output.c | 47 ++++++++++++++++++++++-------------------------
+ 1 file changed, 22 insertions(+), 25 deletions(-)
 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index f61fb7c..8693dc4 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -1077,7 +1077,7 @@ struct sctp_outq {
- void sctp_outq_init(struct sctp_association *, struct sctp_outq *);
- void sctp_outq_teardown(struct sctp_outq *);
- void sctp_outq_free(struct sctp_outq*);
--int sctp_outq_tail(struct sctp_outq *, struct sctp_chunk *chunk, gfp_t);
-+void sctp_outq_tail(struct sctp_outq *, struct sctp_chunk *chunk, gfp_t);
- int sctp_outq_sack(struct sctp_outq *, struct sctp_chunk *);
- int sctp_outq_is_empty(const struct sctp_outq *);
- void sctp_outq_restart(struct sctp_outq *);
-@@ -1085,7 +1085,7 @@ void sctp_outq_restart(struct sctp_outq *);
- void sctp_retransmit(struct sctp_outq *, struct sctp_transport *,
- 		     sctp_retransmit_reason_t);
- void sctp_retransmit_mark(struct sctp_outq *, struct sctp_transport *, __u8);
--int sctp_outq_uncork(struct sctp_outq *, gfp_t gfp);
-+void sctp_outq_uncork(struct sctp_outq *, gfp_t gfp);
- void sctp_prsctp_prune(struct sctp_association *asoc,
- 		       struct sctp_sndrcvinfo *sinfo, int msg_len);
- /* Uncork and flush an outqueue.  */
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index 0c6210d..f02495e 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -68,7 +68,7 @@ static void sctp_mark_missing(struct sctp_outq *q,
- 
- static void sctp_generate_fwdtsn(struct sctp_outq *q, __u32 sack_ctsn);
- 
--static int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout, gfp_t gfp);
-+static void sctp_outq_flush(struct sctp_outq *q, int rtx_timeout, gfp_t gfp);
- 
- /* Add data to the front of the queue. */
- static inline void sctp_outq_head_data(struct sctp_outq *q,
-@@ -285,10 +285,9 @@ void sctp_outq_free(struct sctp_outq *q)
- }
- 
- /* Put a new chunk in an sctp_outq.  */
--int sctp_outq_tail(struct sctp_outq *q, struct sctp_chunk *chunk, gfp_t gfp)
-+void sctp_outq_tail(struct sctp_outq *q, struct sctp_chunk *chunk, gfp_t gfp)
- {
- 	struct net *net = sock_net(q->asoc->base.sk);
--	int error = 0;
- 
- 	pr_debug("%s: outq:%p, chunk:%p[%s]\n", __func__, q, chunk,
- 		 chunk && chunk->chunk_hdr ?
-@@ -319,9 +318,7 @@ int sctp_outq_tail(struct sctp_outq *q, struct sctp_chunk *chunk, gfp_t gfp)
+diff --git a/net/sctp/output.c b/net/sctp/output.c
+index 1934933..8f490ff 100644
+--- a/net/sctp/output.c
++++ b/net/sctp/output.c
+@@ -442,14 +442,14 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
+ 			 * time. Application may notice this error.
+ 			 */
+ 			pr_err_once("Trying to GSO but underlying device doesn't support it.");
+-			goto nomem;
++			goto err;
+ 		}
+ 	} else {
+ 		pkt_size = packet->size;
  	}
- 
- 	if (!q->cork)
--		error = sctp_outq_flush(q, 0, gfp);
--
--	return error;
-+		sctp_outq_flush(q, 0, gfp);
- }
- 
- /* Insert a chunk into the sorted list based on the TSNs.  The retransmit list
-@@ -749,12 +746,12 @@ redo:
- }
- 
- /* Cork the outqueue so queued chunks are really queued. */
--int sctp_outq_uncork(struct sctp_outq *q, gfp_t gfp)
-+void sctp_outq_uncork(struct sctp_outq *q, gfp_t gfp)
- {
- 	if (q->cork)
- 		q->cork = 0;
- 
--	return sctp_outq_flush(q, 0, gfp);
-+	sctp_outq_flush(q, 0, gfp);
- }
- 
- 
-@@ -767,7 +764,7 @@ int sctp_outq_uncork(struct sctp_outq *q, gfp_t gfp)
-  * locking concerns must be made.  Today we use the sock lock to protect
-  * this function.
-  */
--static int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout, gfp_t gfp)
-+static void sctp_outq_flush(struct sctp_outq *q, int rtx_timeout, gfp_t gfp)
- {
- 	struct sctp_packet *packet;
- 	struct sctp_packet singleton;
-@@ -892,7 +889,7 @@ static int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout, gfp_t gfp)
- 			error = sctp_packet_transmit(&singleton, gfp);
- 			if (error < 0) {
- 				asoc->base.sk->sk_err = -error;
--				return 0;
-+				return;
- 			}
- 			break;
- 
-@@ -1176,8 +1173,6 @@ sctp_flush_out:
- 		/* Clear the burst limited state, if any */
- 		sctp_transport_burst_reset(t);
+ 	head = alloc_skb(pkt_size + MAX_HEADER, gfp);
+ 	if (!head)
+-		goto nomem;
++		goto err;
+ 	if (gso) {
+ 		NAPI_GRO_CB(head)->last = head;
+ 		skb_shinfo(head)->gso_type = sk->sk_gso_type;
+@@ -470,8 +470,12 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
+ 		}
  	}
+ 	dst = dst_clone(tp->dst);
+-	if (!dst)
+-		goto no_route;
++	if (!dst) {
++		if (asoc)
++			IP_INC_STATS(sock_net(asoc->base.sk),
++				     IPSTATS_MIB_OUTNOROUTES);
++		goto nodst;
++	}
+ 	skb_dst_set(head, dst);
+ 
+ 	/* Build the SCTP header.  */
+@@ -622,8 +626,10 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
+ 		if (!gso)
+ 			break;
+ 
+-		if (skb_gro_receive(&head, nskb))
++		if (skb_gro_receive(&head, nskb)) {
++			kfree_skb(nskb);
+ 			goto nomem;
++		}
+ 		nskb = NULL;
+ 		if (WARN_ON_ONCE(skb_shinfo(head)->gso_segs >=
+ 				 sk->sk_gso_max_segs))
+@@ -717,18 +723,13 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
+ 	}
+ 	head->ignore_df = packet->ipfragok;
+ 	tp->af_specific->sctp_xmit(head, tp);
++	goto out;
+ 
+-out:
+-	sctp_packet_reset(packet);
+-	return err;
+-no_route:
+-	kfree_skb(head);
+-	if (nskb != head)
+-		kfree_skb(nskb);
 -
--	return 0;
- }
+-	if (asoc)
+-		IP_INC_STATS(sock_net(asoc->base.sk), IPSTATS_MIB_OUTNOROUTES);
++nomem:
++	if (packet->auth && list_empty(&packet->auth->list))
++		sctp_chunk_free(packet->auth);
  
- /* Update unack_data based on the incoming SACK chunk */
-diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-index cf6e4f0..c345bf1 100644
---- a/net/sctp/sm_sideeffect.c
-+++ b/net/sctp/sm_sideeffect.c
-@@ -1421,8 +1421,7 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
- 				local_cork = 1;
- 			}
- 			/* Send a chunk to our peer.  */
--			error = sctp_outq_tail(&asoc->outqueue, cmd->obj.chunk,
--					       gfp);
-+			sctp_outq_tail(&asoc->outqueue, cmd->obj.chunk, gfp);
- 			break;
- 
- 		case SCTP_CMD_SEND_PKT:
-@@ -1676,7 +1675,7 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
- 		case SCTP_CMD_FORCE_PRIM_RETRAN:
- 			t = asoc->peer.retran_path;
- 			asoc->peer.retran_path = asoc->peer.primary_path;
--			error = sctp_outq_uncork(&asoc->outqueue, gfp);
-+			sctp_outq_uncork(&asoc->outqueue, gfp);
- 			local_cork = 0;
- 			asoc->peer.retran_path = t;
- 			break;
-@@ -1733,9 +1732,9 @@ out:
++nodst:
+ 	/* FIXME: Returning the 'err' will effect all the associations
+ 	 * associated with a socket, although only one of the paths of the
+ 	 * association is unreachable.
+@@ -737,22 +738,18 @@ no_route:
+ 	 * required.
  	 */
- 	if (asoc && SCTP_EVENT_T_CHUNK == event_type && chunk) {
- 		if (chunk->end_of_packet || chunk->singleton)
--			error = sctp_outq_uncork(&asoc->outqueue, gfp);
-+			sctp_outq_uncork(&asoc->outqueue, gfp);
- 	} else if (local_cork)
--		error = sctp_outq_uncork(&asoc->outqueue, gfp);
-+		sctp_outq_uncork(&asoc->outqueue, gfp);
+ 	 /* err = -EHOSTUNREACH; */
+-err:
+-	/* Control chunks are unreliable so just drop them.  DATA chunks
+-	 * will get resent or dropped later.
+-	 */
++	kfree_skb(head);
  
- 	if (sp->data_ready_signalled)
- 		sp->data_ready_signalled = 0;
++err:
+ 	list_for_each_entry_safe(chunk, tmp, &packet->chunk_list, list) {
+ 		list_del_init(&chunk->list);
+ 		if (!sctp_chunk_is_data(chunk))
+ 			sctp_chunk_free(chunk);
+ 	}
+-	goto out;
+-nomem:
+-	if (packet->auth && list_empty(&packet->auth->list))
+-		sctp_chunk_free(packet->auth);
+-	err = -ENOMEM;
+-	goto err;
++
++out:
++	sctp_packet_reset(packet);
++	return err;
+ }
+ 
+ /********************************************************************
 -- 
 2.1.0
