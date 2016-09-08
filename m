@@ -1,13 +1,15 @@
-From: Or Gerlitz via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+From: Jesper Dangaard Brouer via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
 Subject: Re: [PATCH RFC 08/11] net/mlx5e: XDP fast RX drop bpf
  programs support
-Date: Thu, 8 Sep 2016 10:10:28 +0300
-Message-ID: <CAJ3xEMgfFAA71UUsCvh=ZfnCBGegq_o6qT+RWw_WE55=LqQK4g@mail.gmail.com>
+Date: Thu, 8 Sep 2016 09:19:27 +0200
+Message-ID: <20160908091927.021dea5a@redhat.com>
 References: <1473252152-11379-1-git-send-email-saeedm@mellanox.com>
 	<1473252152-11379-9-git-send-email-saeedm@mellanox.com>
-	<CAJ3xEMgsGHqQ7x8wky6Sfs34Ry67PnZEhYmnK=g8XnnXbgWagg@mail.gmail.com>
-	<CALzJLG9C0PgJWFi9hc7LrhZJejOHmWOjn0Lu-jiPekoyTGq1Ng@mail.gmail.com>
-Reply-To: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+	<CAJ3xEMhh=fu+mrCGAjv1PDdGn9GPLJv9MssMzwzvppoqZUY01A@mail.gmail.com>
+	<CALzJLG8_F28kQOPqTTLJRMsf9BOQvm3K2hAraCzabnXV4yKUgg@mail.gmail.com>
+	<CALx6S35b_MZXiGR-b1SB+VNifPHDfQNDZdz-6vk0t3bKNwen+w@mail.gmail.com>
+	<CALzJLG9bu3-=Ybq+Lk1fvAe5AohVHAaPpa9RQqd1QVe-7XPyhw@mail.gmail.com>
+Reply-To: Jesper Dangaard Brouer <brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -16,10 +18,10 @@ Cc: Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
 	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
 	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
 	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Rana Shahout <ranas-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+	Rana Shahout <ranas-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 To: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
 Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <CALzJLG9C0PgJWFi9hc7LrhZJejOHmWOjn0Lu-jiPekoyTGq1Ng-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+In-Reply-To: <CALzJLG9bu3-=Ybq+Lk1fvAe5AohVHAaPpa9RQqd1QVe-7XPyhw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
 List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
 	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
@@ -31,87 +33,81 @@ Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
 Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 8, 2016 at 12:53 AM, Saeed Mahameed
-<saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org> wrote:
-> On Wed, Sep 7, 2016 at 11:55 PM, Or Gerlitz via iovisor-dev
-> <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org> wrote:
->> On Wed, Sep 7, 2016 at 3:42 PM, Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org> wrote:
->>> From: Rana Shahout <ranas-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
->>>
->>> Add support for the BPF_PROG_TYPE_PHYS_DEV hook in mlx5e driver.
->>>
->>> When XDP is on we make sure to change channels RQs type to
->>> MLX5_WQ_TYPE_LINKED_LIST rather than "striding RQ" type to
->>> ensure "page per packet".
->>>
->>> On XDP set, we fail if HW LRO is set and request from user to turn it
->>> off.  Since on ConnectX4-LX HW LRO is always on by default, this will be
->>> annoying, but we prefer not to enforce LRO off from XDP set function.
->>>
->>> Full channels reset (close/open) is required only when setting XDP
->>> on/off.
->>>
->>> When XDP set is called just to exchange programs, we will update
->>> each RQ xdp program on the fly and for synchronization with current
->>> data path RX activity of that RQ, we temporally disable that RQ and
->>> ensure RX path is not running, quickly update and re-enable that RQ,
->>> for that we do:
->>>         - rq.state = disabled
->>>         - napi_synnchronize
->>>         - xchg(rq->xdp_prg)
->>>         - rq.state = enabled
->>>         - napi_schedule // Just in case we've missed an IRQ
->>>
->>> Packet rate performance testing was done with pktgen 64B packets and on
->>> TX side and, TC drop action on RX side compared to XDP fast drop.
->>>
->>> CPU: Intel(R) Xeon(R) CPU E5-2680 v3 @ 2.50GHz
->>>
->>> Comparison is done between:
->>>         1. Baseline, Before this patch with TC drop action
->>>         2. This patch with TC drop action
->>>         3. This patch with XDP RX fast drop
->>>
->>> Streams    Baseline(TC drop)    TC drop    XDP fast Drop
->>> --------------------------------------------------------------
->>> 1           5.51Mpps            5.14Mpps     13.5Mpps
->>
->> This (13.5 M PPS) is less than 50% of the result we presented @ the
->> XDP summit which was obtained by Rana. Please see if/how much does
->> this grows if you use more sender threads, but all of them to xmit the
->> same stream/flows, so we're on one ring. That (XDP with single RX ring
->> getting packets from N remote TX rings) would be your canonical
->> base-line for any further numbers.
->>
->
-> I used N TX senders sending 48Mpps to a single RX core.
-> The single RX core could handle only 13.5Mpps.
->
-> The implementation here is different from the one we presented at the
-> summit, before, it was with striding RQ, now it is regular linked list
-> RQ, (Striding RQ ring can handle 32K 64B packets and regular RQ rings
-> handles only 1K)
+On Wed, 7 Sep 2016 20:07:01 +0300
+Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org> wrote:
 
-> In striding RQ we register only 16 HW descriptors for every 32K
-> packets. I.e for
-> every 32K packets we access the HW only 16 times.  on the other hand,
-> regular RQ will access the HW (register descriptors) once per packet,
-> i.e we write to HW 1K time for 1K packets. i think this explains the
-> difference.
+> On Wed, Sep 7, 2016 at 7:54 PM, Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org> wrote:
+> > On Wed, Sep 7, 2016 at 7:48 AM, Saeed Mahameed
+> > <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org> wrote:  
+> >> On Wed, Sep 7, 2016 at 4:32 PM, Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:  
+> >>> On Wed, Sep 7, 2016 at 3:42 PM, Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org> wrote:
+> >>>  
+> >>>> Packet rate performance testing was done with pktgen 64B packets and on
+> >>>> TX side and, TC drop action on RX side compared to XDP fast drop.
+> >>>>
+> >>>> CPU: Intel(R) Xeon(R) CPU E5-2680 v3 @ 2.50GHz
+> >>>>
+> >>>> Comparison is done between:
+> >>>>         1. Baseline, Before this patch with TC drop action
+> >>>>         2. This patch with TC drop action
+> >>>>         3. This patch with XDP RX fast drop
+> >>>>
+> >>>> Streams    Baseline(TC drop)    TC drop    XDP fast Drop
+> >>>> --------------------------------------------------------------
+> >>>> 1           5.51Mpps            5.14Mpps     13.5Mpps
+> >>>> 2           11.5Mpps            10.0Mpps     25.1Mpps
+> >>>> 4           16.3Mpps            17.2Mpps     35.4Mpps
+> >>>> 8           29.6Mpps            28.2Mpps     45.8Mpps*
+> >>>> 16          34.0Mpps            30.1Mpps     45.8Mpps*  
+> >>>
+> >>> Rana, Guys, congrat!!
+> >>>
+> >>> When you say X streams, does each stream mapped by RSS to different RX ring?
+> >>> or we're on the same RX ring for all rows of the above table?  
+> >>
+> >> Yes, I will make this more clear in the actual submission,
+> >> Here we are talking about different RSS core rings.
+> >>  
+> >>>
+> >>> In the CX3 work, we had X sender "streams" that all mapped to the same RX ring,
+> >>> I don't think we went beyond one RX ring.  
+> >>
+> >> Here we did, the first row is what you are describing the other rows
+> >> are the same test
+> >> with increasing the number of the RSS receiving cores, The xmit side is sending
+> >> as many streams as possible to be as much uniformly spread as possible
+> >> across the
+> >> different RSS cores on the receiver.
+> >>  
+> > Hi Saeed,
+> >
+> > Please report CPU utilization also. The expectation is that
+> > performance should scale linearly with increasing number of CPUs (i.e.
+> > pps/CPU_utilization should be constant).
+> >  
+> 
+> That was my expectation too.
 
-> the catch here is that we can't use striding RQ for XDP, bummer!
+Be careful with such expectations at these extreme speeds, because we
+are starting to hit PCI-express limitations and CPU cache-coherency
+limitations (if any atomic/RMW operations still exists per packet).
 
-yep, sounds like a bum bum bum (we went from >30M PPS to 13.5M PPS).
+Consider that in the small packet size 64 bytes case, the drivers PCI bandwidth
+need/overhead is actually quite large, as every descriptor also 64
+bytes transferred.
 
-We used striding RQ for XDP with the prev impl. and I don't see a real
-deep reason not to do so also when striding RQ doesn't use compound
-pages any more.  I guess there are more details I need to catch up with
-here, but the bottom result is not good and we need to re-think.
+ 
+> Anyway we will share more accurate results when we have them, with CPU
+> utilization statistics as well.
 
-> As i said, we will have the full and final performance results on V1.
-> This is just a RFC with barely quick and dirty testing
+It is interesting to monitor the CPU utilization, because (if C-states
+are enabled) you will likely see the CPU freq be reduced or even enter
+CPU idle states, in-case your software (XDP) gets faster than the HW
+(PCI or NIC).  I've seen that happen with mlx4/CX3-pro.
 
-Yep, understood. But in parallel, you need to reconsider how to get along
-without that bumming down of numbers.
-
-Or.
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
