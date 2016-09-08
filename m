@@ -1,42 +1,165 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH net-next] net: xfrm: Change u32 sysctl entries to use
- proc_douintvec
-Date: Thu, 8 Sep 2016 07:51:17 +0200
-Message-ID: <20160908055117.GM31137@gauss.secunet.com>
-References: <1473206971-20131-1-git-send-email-subashab@codeaurora.org>
- <20160907.172518.871134561524524971.davem@davemloft.net>
+Subject: [PATCH 02/17] xfrm: state: use hlist_for_each_entry_rcu helper
+Date: Thu, 8 Sep 2016 07:54:37 +0200
+Message-ID: <1473314092-11319-3-git-send-email-steffen.klassert@secunet.com>
+References: <1473314092-11319-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <subashab@codeaurora.org>, <netdev@vger.kernel.org>
+Content-Type: text/plain
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:36358 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:36356 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756378AbcIHGv0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1756239AbcIHGv0 (ORCPT <rfc822;netdev@vger.kernel.org>);
         Thu, 8 Sep 2016 02:51:26 -0400
-Content-Disposition: inline
-In-Reply-To: <20160907.172518.871134561524524971.davem@davemloft.net>
+In-Reply-To: <1473314092-11319-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 07, 2016 at 05:25:18PM -0700, David Miller wrote:
-> From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-> Date: Tue,  6 Sep 2016 18:09:31 -0600
-> 
-> > proc_dointvec limits the values to INT_MAX in u32 sysctl entries.
-> > proc_douintvec allows to write upto UINT_MAX.
-> > 
-> > Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-> 
-> I am assuming Steffen will pick this up.
+From: Florian Westphal <fw@strlen.de>
 
-proc_douintvec is not in the ipsec-next tree. The ipsec-next
-tree is currently based on net-next from Aug 9. The patch
-that introduces proc_douintvec came in on Aug 25.
+This is required once we allow lockless access of bydst/bysrc hash tables.
 
-I can take it after the pull request for ipsec-next, that
-I plan to do today. Alternatively, you can take it directly
-into net-next. It does not interfere anything that I
-have in ipsec-next. In case you want to take it directly:
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/xfrm/xfrm_state.c | 38 +++++++++++++++++++-------------------
+ 1 file changed, 19 insertions(+), 19 deletions(-)
 
-Acked-by: Steffen Klassert <steffen.klassert@secunet.com>
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index 9895a8c..904ab4d 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -76,18 +76,18 @@ static void xfrm_hash_transfer(struct hlist_head *list,
+ 		h = __xfrm_dst_hash(&x->id.daddr, &x->props.saddr,
+ 				    x->props.reqid, x->props.family,
+ 				    nhashmask);
+-		hlist_add_head(&x->bydst, ndsttable+h);
++		hlist_add_head_rcu(&x->bydst, ndsttable + h);
+ 
+ 		h = __xfrm_src_hash(&x->id.daddr, &x->props.saddr,
+ 				    x->props.family,
+ 				    nhashmask);
+-		hlist_add_head(&x->bysrc, nsrctable+h);
++		hlist_add_head_rcu(&x->bysrc, nsrctable + h);
+ 
+ 		if (x->id.spi) {
+ 			h = __xfrm_spi_hash(&x->id.daddr, x->id.spi,
+ 					    x->id.proto, x->props.family,
+ 					    nhashmask);
+-			hlist_add_head(&x->byspi, nspitable+h);
++			hlist_add_head_rcu(&x->byspi, nspitable + h);
+ 		}
+ 	}
+ }
+@@ -520,10 +520,10 @@ int __xfrm_state_delete(struct xfrm_state *x)
+ 		x->km.state = XFRM_STATE_DEAD;
+ 		spin_lock(&net->xfrm.xfrm_state_lock);
+ 		list_del(&x->km.all);
+-		hlist_del(&x->bydst);
+-		hlist_del(&x->bysrc);
++		hlist_del_rcu(&x->bydst);
++		hlist_del_rcu(&x->bysrc);
+ 		if (x->id.spi)
+-			hlist_del(&x->byspi);
++			hlist_del_rcu(&x->byspi);
+ 		net->xfrm.state_num--;
+ 		spin_unlock(&net->xfrm.xfrm_state_lock);
+ 
+@@ -659,7 +659,7 @@ static struct xfrm_state *__xfrm_state_lookup(struct net *net, u32 mark,
+ 	unsigned int h = xfrm_spi_hash(net, daddr, spi, proto, family);
+ 	struct xfrm_state *x;
+ 
+-	hlist_for_each_entry(x, net->xfrm.state_byspi+h, byspi) {
++	hlist_for_each_entry_rcu(x, net->xfrm.state_byspi + h, byspi) {
+ 		if (x->props.family != family ||
+ 		    x->id.spi       != spi ||
+ 		    x->id.proto     != proto ||
+@@ -683,7 +683,7 @@ static struct xfrm_state *__xfrm_state_lookup_byaddr(struct net *net, u32 mark,
+ 	unsigned int h = xfrm_src_hash(net, daddr, saddr, family);
+ 	struct xfrm_state *x;
+ 
+-	hlist_for_each_entry(x, net->xfrm.state_bysrc+h, bysrc) {
++	hlist_for_each_entry_rcu(x, net->xfrm.state_bysrc + h, bysrc) {
+ 		if (x->props.family != family ||
+ 		    x->id.proto     != proto ||
+ 		    !xfrm_addr_equal(&x->id.daddr, daddr, family) ||
+@@ -781,7 +781,7 @@ xfrm_state_find(const xfrm_address_t *daddr, const xfrm_address_t *saddr,
+ 
+ 	spin_lock_bh(&net->xfrm.xfrm_state_lock);
+ 	h = xfrm_dst_hash(net, daddr, saddr, tmpl->reqid, encap_family);
+-	hlist_for_each_entry(x, net->xfrm.state_bydst+h, bydst) {
++	hlist_for_each_entry_rcu(x, net->xfrm.state_bydst + h, bydst) {
+ 		if (x->props.family == encap_family &&
+ 		    x->props.reqid == tmpl->reqid &&
+ 		    (mark & x->mark.m) == x->mark.v &&
+@@ -797,7 +797,7 @@ xfrm_state_find(const xfrm_address_t *daddr, const xfrm_address_t *saddr,
+ 		goto found;
+ 
+ 	h_wildcard = xfrm_dst_hash(net, daddr, &saddr_wildcard, tmpl->reqid, encap_family);
+-	hlist_for_each_entry(x, net->xfrm.state_bydst+h_wildcard, bydst) {
++	hlist_for_each_entry_rcu(x, net->xfrm.state_bydst + h_wildcard, bydst) {
+ 		if (x->props.family == encap_family &&
+ 		    x->props.reqid == tmpl->reqid &&
+ 		    (mark & x->mark.m) == x->mark.v &&
+@@ -852,12 +852,12 @@ found:
+ 		if (km_query(x, tmpl, pol) == 0) {
+ 			x->km.state = XFRM_STATE_ACQ;
+ 			list_add(&x->km.all, &net->xfrm.state_all);
+-			hlist_add_head(&x->bydst, net->xfrm.state_bydst+h);
++			hlist_add_head_rcu(&x->bydst, net->xfrm.state_bydst + h);
+ 			h = xfrm_src_hash(net, daddr, saddr, encap_family);
+-			hlist_add_head(&x->bysrc, net->xfrm.state_bysrc+h);
++			hlist_add_head_rcu(&x->bysrc, net->xfrm.state_bysrc + h);
+ 			if (x->id.spi) {
+ 				h = xfrm_spi_hash(net, &x->id.daddr, x->id.spi, x->id.proto, encap_family);
+-				hlist_add_head(&x->byspi, net->xfrm.state_byspi+h);
++				hlist_add_head_rcu(&x->byspi, net->xfrm.state_byspi + h);
+ 			}
+ 			x->lft.hard_add_expires_seconds = net->xfrm.sysctl_acq_expires;
+ 			tasklet_hrtimer_start(&x->mtimer, ktime_set(net->xfrm.sysctl_acq_expires, 0), HRTIMER_MODE_REL);
+@@ -945,16 +945,16 @@ static void __xfrm_state_insert(struct xfrm_state *x)
+ 
+ 	h = xfrm_dst_hash(net, &x->id.daddr, &x->props.saddr,
+ 			  x->props.reqid, x->props.family);
+-	hlist_add_head(&x->bydst, net->xfrm.state_bydst+h);
++	hlist_add_head_rcu(&x->bydst, net->xfrm.state_bydst + h);
+ 
+ 	h = xfrm_src_hash(net, &x->id.daddr, &x->props.saddr, x->props.family);
+-	hlist_add_head(&x->bysrc, net->xfrm.state_bysrc+h);
++	hlist_add_head_rcu(&x->bysrc, net->xfrm.state_bysrc + h);
+ 
+ 	if (x->id.spi) {
+ 		h = xfrm_spi_hash(net, &x->id.daddr, x->id.spi, x->id.proto,
+ 				  x->props.family);
+ 
+-		hlist_add_head(&x->byspi, net->xfrm.state_byspi+h);
++		hlist_add_head_rcu(&x->byspi, net->xfrm.state_byspi + h);
+ 	}
+ 
+ 	tasklet_hrtimer_start(&x->mtimer, ktime_set(1, 0), HRTIMER_MODE_REL);
+@@ -1063,9 +1063,9 @@ static struct xfrm_state *__find_acq_core(struct net *net,
+ 		xfrm_state_hold(x);
+ 		tasklet_hrtimer_start(&x->mtimer, ktime_set(net->xfrm.sysctl_acq_expires, 0), HRTIMER_MODE_REL);
+ 		list_add(&x->km.all, &net->xfrm.state_all);
+-		hlist_add_head(&x->bydst, net->xfrm.state_bydst+h);
++		hlist_add_head_rcu(&x->bydst, net->xfrm.state_bydst + h);
+ 		h = xfrm_src_hash(net, daddr, saddr, family);
+-		hlist_add_head(&x->bysrc, net->xfrm.state_bysrc+h);
++		hlist_add_head_rcu(&x->bysrc, net->xfrm.state_bysrc + h);
+ 
+ 		net->xfrm.state_num++;
+ 
+@@ -1581,7 +1581,7 @@ int xfrm_alloc_spi(struct xfrm_state *x, u32 low, u32 high)
+ 	if (x->id.spi) {
+ 		spin_lock_bh(&net->xfrm.xfrm_state_lock);
+ 		h = xfrm_spi_hash(net, &x->id.daddr, x->id.spi, x->id.proto, x->props.family);
+-		hlist_add_head(&x->byspi, net->xfrm.state_byspi+h);
++		hlist_add_head_rcu(&x->byspi, net->xfrm.state_byspi + h);
+ 		spin_unlock_bh(&net->xfrm.xfrm_state_lock);
+ 
+ 		err = 0;
+-- 
+1.9.1
