@@ -1,10 +1,10 @@
 From: pravin shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
-Subject: Re: [PATCH net-next v22 1/3] openvswitch: 802.1ad uapi
-	changes.
-Date: Wed, 7 Sep 2016 18:20:05 -0700
-Message-ID: <CAOrHB_DWzYNH3P0ECdR8juAr0LELF2sabm0Da0oi6CLagrjFJg@mail.gmail.com>
+Subject: Re: [PATCH net-next v22 2/3] vlan: Check for vlan
+ ethernet types for 8021.q or 802.1ad
+Date: Wed, 7 Sep 2016 18:20:12 -0700
+Message-ID: <CAOrHB_AJ_VZLMCdh_DOppR-iyFRzVivowtnEtAf8fR1kH08+6Q@mail.gmail.com>
 References: <1473267419-6825-1-git-send-email-e@erig.me>
- <1473267419-6825-2-git-send-email-e@erig.me>
+ <1473267419-6825-3-git-send-email-e@erig.me>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: base64
@@ -13,7 +13,7 @@ Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
  Thomas F Herbert <thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 To: Eric Garver <e@erig.me>
 Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1473267419-6825-2-git-send-email-e-jCUjZXiOoP8@public.gmane.org>
+In-Reply-To: <1473267419-6825-3-git-send-email-e-jCUjZXiOoP8@public.gmane.org>
 List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
  <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://openvswitch.org/pipermail/dev>
@@ -26,10 +26,13 @@ Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
 T24gV2VkLCBTZXAgNywgMjAxNiBhdCA5OjU2IEFNLCBFcmljIEdhcnZlciA8ZUBlcmlnLm1lPiB3
-cm90ZToKPiBGcm9tOiBUaG9tYXMgRiBIZXJiZXJ0IDx0aG9tYXNmaGVyYmVydEBnbWFpbC5jb20+
-Cj4KPiBvcGVudnN3aXRjaDogQWRkIHN1cHBvcnQgZm9yIDgwMjEuQUQKPgo+IENoYW5nZSB0aGUg
-ZGVzY3JpcHRpb24gb2YgdGhlIFZMQU4gdHBpZCBmaWVsZC4KPgo+IFNpZ25lZC1vZmYtYnk6IFRo
-b21hcyBGIEhlcmJlcnQgPHRob21hc2ZoZXJiZXJ0QGdtYWlsLmNvbT4KCkFja2VkLWJ5OiBQcmF2
-aW4gQiBTaGVsYXIgPHBzaGVsYXJAb3ZuLm9yZz4KX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3Jn
-Cmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+cm90ZToKPiBUaGlzIGlzIHRvIHNpbXBsaWZ5IHVzaW5nIGRvdWJsZSB0YWdnZWQgdmxhbnMuIFRo
+aXMgZnVuY3Rpb24gYWxsb3dzIGFsbAo+IHZhbGlkIHZsYW4gZXRoZXJ0eXBlcyB0byBiZSBjaGVj
+a2VkIGluIGEgc2luZ2xlIGZ1bmN0aW9uIGNhbGwuCj4gQWxzbyByZXBsYWNlIHNvbWUgaW5zdGFu
+Y2VzIHRoYXQgY2hlY2sgZm9yIGJvdGggRVRIX1BfODAyMVEgYW5kCj4gRVRIX1BfODAyMUFELgo+
+Cj4gUGF0Y2ggYmFzZWQgb24gb25lIG9yaWdpbmFsbHkgYnkgVGhvbWFzIEYgSGVyYmVydC4KPgo+
+IFNpZ25lZC1vZmYtYnk6IFRob21hcyBGIEhlcmJlcnQgPHRob21hc2ZoZXJiZXJ0QGdtYWlsLmNv
+bT4KPiBTaWduZWQtb2ZmLWJ5OiBFcmljIEdhcnZlciA8ZUBlcmlnLm1lPgoKQWNrZWQtYnk6IFBy
+YXZpbiBCIFNoZWxhciA8cHNoZWxhckBvdm4ub3JnPgpfX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5v
+cmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
