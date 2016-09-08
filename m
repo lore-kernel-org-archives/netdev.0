@@ -1,69 +1,51 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] sctp: identify chunks that need to be fragmented at IP level
-Date: Thu,  8 Sep 2016 17:54:11 +0800
-Message-ID: <d3a35eae75b431862cf96b55dd3a3614a11df8a3.1473328451.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Subject: Re: [PATCH 3/4] net: phy: Add read driver for Microsemi PHYs.
+Date: Thu, 8 Sep 2016 15:12:12 +0530
+Message-ID: <20160908094211.GA4281@microsemi.com>
+References: <646450A91FAED74E85C6E9C4D6E936A1453366A5@avsrvexchmbx1.microsemi.net>
+ <20160824131347.GE13406@lunn.ch>
+Reply-To: <Raju.Lakkaraju@microsemi.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+        Allan Nielsen <Allan.Nielsen@microsemi.com>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33687 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758634AbcIHJyP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 05:54:15 -0400
+Received: from mail-cys01nam02on0059.outbound.protection.outlook.com ([104.47.37.59]:58528
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1758153AbcIHJ6F (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Sep 2016 05:58:05 -0400
+Content-Disposition: inline
+In-Reply-To: <20160824131347.GE13406@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Hi Andrew,
 
-Previously, without GSO, it was easy to identify it: if the chunk didn't
-fit and there was no data chunk in the packet yet, we could fragment at
-IP level. So if there was an auth chunk and we were bundling a big data
-chunk, it would fragment regardless of the size of the auth chunk. This
-also works for the context of PMTU reductions.
+Thank you for review the code and valuable comments.
 
-But with GSO, we cannot distinguish such PMTU events anymore, as the
-packet is allowed to exceed PMTU.
+On Wed, Aug 24, 2016 at 03:13:47PM +0200, Andrew Lunn wrote:
+> EXTERNAL EMAIL
+> 
+> 
+> On Wed, Aug 24, 2016 at 12:27:07PM +0000, Raju Lakkaraju wrote:
+> > From: Nagaraju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+> >
+> > PHY Read support will be added for VSC 85xx Microsemi PHYs.
+> 
+> Why do i need this, when we have SIOCGMIIREG?
+> 
+Microsemi PHY have different pages i.e. Std IEEE, Extended, Extended_2, Extended_3 and
+GPIO pages.
+When I want to use SIOCGMIIREG, I can read Std IEEE only with SIOCGMIIREG and not other 
+pages.
+phy_read_reg function is debug function where I can read entair PHY registers.
+In this function, I set the page number and register address then read register value
+as atomic operation.
 
-So we need another check: to ensure that the chunk that we are adding,
-actually fits the current PMTU. If it doesn't, trigger a flush and let
-it be fragmented at IP level in the next round.
+Do you have any suggestions to implement this function in different ways?
 
-Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
----
- net/sctp/output.c | 13 ++++++++++++-
- 1 file changed, 12 insertions(+), 1 deletion(-)
-
-diff --git a/net/sctp/output.c b/net/sctp/output.c
-index 1f1682b..31b7bc3 100644
---- a/net/sctp/output.c
-+++ b/net/sctp/output.c
-@@ -878,7 +878,7 @@ static sctp_xmit_t sctp_packet_will_fit(struct sctp_packet *packet,
- 					struct sctp_chunk *chunk,
- 					u16 chunk_len)
- {
--	size_t psize, pmtu;
-+	size_t psize, pmtu, maxsize;
- 	sctp_xmit_t retval = SCTP_XMIT_OK;
- 
- 	psize = packet->size;
-@@ -906,6 +906,17 @@ static sctp_xmit_t sctp_packet_will_fit(struct sctp_packet *packet,
- 			goto out;
- 		}
- 
-+		/* Similarly, if this chunk was built before a PMTU
-+		 * reduction, we have to fragment it at IP level now. So
-+		 * if the packet already contains something, we need to
-+		 * flush.
-+		 */
-+		maxsize = pmtu - packet->overhead;
-+		if (packet->auth)
-+			maxsize -= WORD_ROUND(packet->auth->skb->len);
-+		if (chunk_len > maxsize)
-+			retval = SCTP_XMIT_PMTU_FULL;
-+
- 		/* It is also okay to fragment if the chunk we are
- 		 * adding is a control chunk, but only if current packet
- 		 * is not a GSO one otherwise it causes fragmentation of
--- 
-2.1.0
+Thanks,
+Raju.
