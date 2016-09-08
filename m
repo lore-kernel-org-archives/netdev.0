@@ -1,42 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] net_sched: act_mirred: full rcu conversion
-Date: Thu, 08 Sep 2016 08:51:40 -0700
-Message-ID: <1473349900.15733.59.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1472795840-31901-1-git-send-email-xiyou.wangcong@gmail.com>
-         <1472795840-31901-6-git-send-email-xiyou.wangcong@gmail.com>
-         <1473173528.10725.14.camel@edumazet-glaptop3.roam.corp.google.com>
-         <57D0FF87.604@gmail.com>
-         <1473341283.15733.33.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1473348943.15733.57.camel@edumazet-glaptop3.roam.corp.google.com>
-         <57D1881B.6090009@gmail.com>
+From: Amitkumar Karwar <akarwar@marvell.com>
+Subject: RE: mwifiex: propagate error if IRQ request fails in
+ mwifiex_sdio_of()
+Date: Thu, 8 Sep 2016 15:55:34 +0000
+Message-ID: <0f15fe320fa34ae287f8a6b91ec78a34@SC-EXCH04.marvell.com>
+References: <20160903103520.8C69C6201B@smtp.codeaurora.org>
+ <66735eb5-c831-8e06-337b-80ccfc392061@osg.samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
-        jhs@mojatatu.com, Hadar Hen Zion <hadarh@mellanox.com>,
-        Amir Vadai <amirva@mellanox.com>
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:33228 "EHLO
-        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751252AbcIHPvm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 11:51:42 -0400
-Received: by mail-pf0-f178.google.com with SMTP id g202so19498324pfb.0
-        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 08:51:41 -0700 (PDT)
-In-Reply-To: <57D1881B.6090009@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+        "Nishant Sarmukadam" <nishants@marvell.com>,
+        Arend van Spriel <arend.vanspriel@broadcom.com>
+To: Javier Martinez Canillas <javier@osg.samsung.com>,
+        Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <66735eb5-c831-8e06-337b-80ccfc392061@osg.samsung.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-09-08 at 08:47 -0700, John Fastabend wrote:
-
-> Works for me. FWIW I find this plenty straightforward and don't really
-> see the need to make the hash table itself rcu friendly.
-> 
-> Acked-by: John Fastabend <john.r.fastabend@intel.com>
-> 
-
-Yes, it seems this hash table is used in control path, with RTNL held
-anyway.
-
-Thanks for reviewing John.
+SGkgSmF2aWVyLA0KDQo+IEZyb206IEphdmllciBNYXJ0aW5leiBDYW5pbGxhcyBbbWFpbHRvOmph
+dmllckBvc2cuc2Ftc3VuZy5jb21dDQo+IFNlbnQ6IFR1ZXNkYXksIFNlcHRlbWJlciAwNiwgMjAx
+NiA1OjQzIFBNDQo+IFRvOiBLYWxsZSBWYWxvDQo+IENjOiBsaW51eC1rZXJuZWxAdmdlci5rZXJu
+ZWwub3JnOyBBbWl0a3VtYXIgS2Fyd2FyOw0KPiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51
+eC13aXJlbGVzc0B2Z2VyLmtlcm5lbC5vcmc7IE5pc2hhbnQNCj4gU2FybXVrYWRhbTsgQXJlbmQg
+dmFuIFNwcmllbA0KPiBTdWJqZWN0OiBSZTogbXdpZmlleDogcHJvcGFnYXRlIGVycm9yIGlmIElS
+USByZXF1ZXN0IGZhaWxzIGluDQo+IG13aWZpZXhfc2Rpb19vZigpDQo+IA0KPiBIZWxsbyBLYWxs
+ZSwNCj4gDQo+IE9uIDA5LzAzLzIwMTYgMTI6MzUgUE0sIEthbGxlIFZhbG8gd3JvdGU6DQo+ID4g
+SmF2aWVyIE1hcnRpbmV6IENhbmlsbGFzIDxqYXZpZXJAb3NnLnNhbXN1bmcuY29tPiB3cm90ZToN
+Cj4gPj4gSWYgcmVxdWVzdF9pcnEoKSBmYWlscyBpbiBtd2lmaWV4X3NkaW9fcHJvYmVfb2YoKSwg
+b25seSBhbiBlcnJvcg0KPiA+PiBtZXNzYWdlIGlzIHByaW50ZWQgYnV0IHRoZSBhY3R1YWwgZXJy
+b3IgaXMgbm90IHByb3BhZ2F0ZWQgdG8gdGhlDQo+IGNhbGxlciBmdW5jdGlvbi4NCj4gPj4NCj4g
+Pj4gU2lnbmVkLW9mZi1ieTogSmF2aWVyIE1hcnRpbmV6IENhbmlsbGFzIDxqYXZpZXJAb3NnLnNh
+bXN1bmcuY29tPg0KPiA+DQo+ID4gV2hhdCdzIHRoZSBjb25jbHVzaW9uIHdpdGggdGhpcyBwYXRj
+aD8gU2hvdWxkIEkgZHJvcCBpdCBvciB0YWtlIGl0Pw0KPiA+DQo+ID4gKFRoZSBkaXNjdXNzaW9u
+IGlzIGF2YWlsYWJsZSBmcm9tIHRoZSBwYXRjaHdvcmsgbGluayBpbiB0aGUNCj4gPiBzaWduYXR1
+cmUuKQ0KPiA+DQo+IA0KPiBNeSB1bmRlcnN0YW5kaW5nIGlzIHRoYXQgQXJlbmQgYWdyZWVzIHdp
+dGggdGhlIHBhdGNoIGFuZCB0aGF0IHRoZQ0KPiBxdWVzdGlvbiByYWlzZWQgd2FzIGNhdXNlZCBi
+eSBsb29raW5nIGF0IGFuIG9sZGVyIGtlcm5lbCB2ZXJzaW9uLiBJT1csDQo+IHRoZSBwYXRjaCBp
+cyBPSyBhbmQgc2hvdWxkIGJlIHBpY2tlZC4NCj4gDQo+IEknbSBhZGRpbmcgQXJlbmQgdG8gY2Ms
+IHNvIGNhbiBjb21tZW50IGluIGNhc2UgSSBtaXN1bmRlcnN0b29kIGhpbQ0KPiB0aG91Z2guDQo+
+IA0KDQpUaGlzIGVycm9yIGRvZXNuJ3QgYWZmZWN0IGFjdHVhbCB3aWZpIGZ1bmN0aW9uYWxpdHku
+IE9ubHkgdGhpbmcgaXMgd2FrZXVwIG9uIGludGVycnVwdCB3aGVuIHN5c3RlbSBpcyBpbiBzdXNw
+ZW5kZWQgc3RhdGUgd29uJ3Qgd29yay4NCkkgdGhpbmssIHdlIGNhbiBtYWtlIGJlbG93IGNoYW5n
+ZS4gDQoNCi0tLS0tLS0tLS0tLS0tLS0tLQ0KQEAgLTEyMiw5ICsxMjIsMTEgQEAgc3RhdGljIGlu
+dCBtd2lmaWV4X3NkaW9fcHJvYmVfb2Yoc3RydWN0IGRldmljZSAqZGV2LCBzdHJ1Y3Qgc2Rpb19t
+bWNfY2FyZCAqY2FyZCkNCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgSVJRRl9UUklHR0VSX0xPVywNCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgIndpZmlfd2FrZSIsIGNmZyk7DQogICAgICAgICAgIGlmIChyZXQpIHsN
+Ci0gICAgICAgICAgICAgICAgICAgIGRldl9lcnIoZGV2LA0KKyAgICAgICAgICAgICAgICAgICAg
+ZGV2X2RiZyhkZXYsDQogICAgICAgICAgICAgICAgICAgICAgICAgICAgICJGYWlsZWQgdG8gcmVx
+dWVzdCBpcnFfd2lmaSAlZCAoJWQpXG4iLA0KICAgICAgICAgICAgICAgICAgICAgICAgICAgICBj
+ZmctPmlycV93aWZpLCByZXQpOw0KKyAgICAgICAgICAgICAgICAgICAgY2FyZC0+cGx0X3dha2Vf
+Y2ZnID0gTlVMTDsNCisgICAgICAgICAgICAgICAgICAgIHJldHVybiAwOw0KICAgICAgICAgICAg
+IH0NCiAgICAgICAgICAgICAgICBkaXNhYmxlX2lycShjZmctPmlycV93aWZpKTsNCiAgICAgICAg
+ICAgIH0NCi0tLS0tLS0tLS0tLS0tLS0tDQoNClJlZ2FyZHMsDQpBbWl0a3VtYXINCg==
