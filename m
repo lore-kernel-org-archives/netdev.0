@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 17/17] xfrm: state: remove per-netns gc task
-Date: Thu, 8 Sep 2016 07:54:52 +0200
-Message-ID: <1473314092-11319-18-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 07/17] xfrm: state: don't use lock anymore unless acquire operation is needed
+Date: Thu, 8 Sep 2016 07:54:42 +0200
+Message-ID: <1473314092-11319-8-git-send-email-steffen.klassert@secunet.com>
 References: <1473314092-11319-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,9 +10,9 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
         <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:36342 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:36344 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752900AbcIHGvY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1752199AbcIHGvY (ORCPT <rfc822;netdev@vger.kernel.org>);
         Thu, 8 Sep 2016 02:51:24 -0400
 In-Reply-To: <1473314092-11319-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
@@ -20,105 +20,70 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Florian Westphal <fw@strlen.de>
 
-After commit 5b8ef3415a21f173
-("xfrm: Remove ancient sleeping when the SA is in acquire state")
-gc does not need any per-netns data anymore.
-
-As far as gc is concerned all state structs are the same, so we
-can use a global work struct for it.
+push the lock down, after earlier patches we can rely on rcu to
+make sure state struct won't go away.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- include/net/netns/xfrm.h |  2 --
- net/xfrm/xfrm_state.c    | 18 +++++++++---------
- 2 files changed, 9 insertions(+), 11 deletions(-)
+ include/net/netns/xfrm.h | 6 +++---
+ net/xfrm/xfrm_state.c    | 6 ++++--
+ 2 files changed, 7 insertions(+), 5 deletions(-)
 
 diff --git a/include/net/netns/xfrm.h b/include/net/netns/xfrm.h
-index 177ed44..27bb963 100644
+index 24cd394..1ab51d1 100644
 --- a/include/net/netns/xfrm.h
 +++ b/include/net/netns/xfrm.h
-@@ -44,8 +44,6 @@ struct netns_xfrm {
+@@ -38,9 +38,9 @@ struct netns_xfrm {
+ 	 * mode. Also, it can be used by ah/esp icmp error handler to find
+ 	 * offending SA.
+ 	 */
+-	struct hlist_head	*state_bydst;
+-	struct hlist_head	*state_bysrc;
+-	struct hlist_head	*state_byspi;
++	struct hlist_head	__rcu *state_bydst;
++	struct hlist_head	__rcu *state_bysrc;
++	struct hlist_head	__rcu *state_byspi;
  	unsigned int		state_hmask;
  	unsigned int		state_num;
  	struct work_struct	state_hash_work;
--	struct hlist_head	state_gc_list;
--	struct work_struct	state_gc_work;
- 
- 	struct list_head	policy_all;
- 	struct hlist_head	*policy_byidx;
 diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 1a15b65..ba8bf51 100644
+index 53e7867..1a15b65 100644
 --- a/net/xfrm/xfrm_state.c
 +++ b/net/xfrm/xfrm_state.c
-@@ -31,6 +31,8 @@
- #define xfrm_state_deref_prot(table, net) \
- 	rcu_dereference_protected((table), lockdep_is_held(&(net)->xfrm.xfrm_state_lock))
+@@ -799,7 +799,7 @@ xfrm_state_find(const xfrm_address_t *daddr, const xfrm_address_t *saddr,
  
-+static void xfrm_state_gc_task(struct work_struct *work);
-+
- /* Each xfrm_state may be linked to two tables:
+ 	sequence = read_seqcount_begin(&xfrm_state_hash_generation);
  
-    1. Hash table by (spi,daddr,ah/esp) to find SA by SPI. (input,ctl)
-@@ -41,6 +43,9 @@
- static unsigned int xfrm_state_hashmax __read_mostly = 1 * 1024 * 1024;
- static __read_mostly seqcount_t xfrm_state_hash_generation = SEQCNT_ZERO(xfrm_state_hash_generation);
+-	spin_lock_bh(&net->xfrm.xfrm_state_lock);
++	rcu_read_lock();
+ 	h = xfrm_dst_hash(net, daddr, saddr, tmpl->reqid, encap_family);
+ 	hlist_for_each_entry_rcu(x, net->xfrm.state_bydst + h, bydst) {
+ 		if (x->props.family == encap_family &&
+@@ -870,6 +870,7 @@ found:
+ 		}
  
-+static DECLARE_WORK(xfrm_state_gc_work, xfrm_state_gc_task);
-+static HLIST_HEAD(xfrm_state_gc_list);
-+
- static inline bool xfrm_state_hold_rcu(struct xfrm_state __rcu *x)
- {
- 	return atomic_inc_not_zero(&x->refcnt);
-@@ -368,13 +373,12 @@ static void xfrm_state_gc_destroy(struct xfrm_state *x)
- 
- static void xfrm_state_gc_task(struct work_struct *work)
- {
--	struct net *net = container_of(work, struct net, xfrm.state_gc_work);
- 	struct xfrm_state *x;
- 	struct hlist_node *tmp;
- 	struct hlist_head gc_list;
- 
- 	spin_lock_bh(&xfrm_state_gc_lock);
--	hlist_move_list(&net->xfrm.state_gc_list, &gc_list);
-+	hlist_move_list(&xfrm_state_gc_list, &gc_list);
- 	spin_unlock_bh(&xfrm_state_gc_lock);
- 
- 	synchronize_rcu();
-@@ -515,14 +519,12 @@ EXPORT_SYMBOL(xfrm_state_alloc);
- 
- void __xfrm_state_destroy(struct xfrm_state *x)
- {
--	struct net *net = xs_net(x);
--
- 	WARN_ON(x->km.state != XFRM_STATE_DEAD);
- 
- 	spin_lock_bh(&xfrm_state_gc_lock);
--	hlist_add_head(&x->gclist, &net->xfrm.state_gc_list);
-+	hlist_add_head(&x->gclist, &xfrm_state_gc_list);
- 	spin_unlock_bh(&xfrm_state_gc_lock);
--	schedule_work(&net->xfrm.state_gc_work);
-+	schedule_work(&xfrm_state_gc_work);
- }
- EXPORT_SYMBOL(__xfrm_state_destroy);
- 
-@@ -2134,8 +2136,6 @@ int __net_init xfrm_state_init(struct net *net)
- 
- 	net->xfrm.state_num = 0;
- 	INIT_WORK(&net->xfrm.state_hash_work, xfrm_hash_resize);
--	INIT_HLIST_HEAD(&net->xfrm.state_gc_list);
--	INIT_WORK(&net->xfrm.state_gc_work, xfrm_state_gc_task);
- 	spin_lock_init(&net->xfrm.xfrm_state_lock);
- 	return 0;
- 
-@@ -2153,7 +2153,7 @@ void xfrm_state_fini(struct net *net)
- 
- 	flush_work(&net->xfrm.state_hash_work);
- 	xfrm_state_flush(net, IPSEC_PROTO_ANY, false);
--	flush_work(&net->xfrm.state_gc_work);
-+	flush_work(&xfrm_state_gc_work);
- 
- 	WARN_ON(!list_empty(&net->xfrm.state_all));
+ 		if (km_query(x, tmpl, pol) == 0) {
++			spin_lock_bh(&net->xfrm.xfrm_state_lock);
+ 			x->km.state = XFRM_STATE_ACQ;
+ 			list_add(&x->km.all, &net->xfrm.state_all);
+ 			hlist_add_head_rcu(&x->bydst, net->xfrm.state_bydst + h);
+@@ -883,6 +884,7 @@ found:
+ 			tasklet_hrtimer_start(&x->mtimer, ktime_set(net->xfrm.sysctl_acq_expires, 0), HRTIMER_MODE_REL);
+ 			net->xfrm.state_num++;
+ 			xfrm_hash_grow_check(net, x->bydst.next != NULL);
++			spin_unlock_bh(&net->xfrm.xfrm_state_lock);
+ 		} else {
+ 			x->km.state = XFRM_STATE_DEAD;
+ 			to_put = x;
+@@ -899,7 +901,7 @@ out:
+ 	} else {
+ 		*err = acquire_in_progress ? -EAGAIN : error;
+ 	}
+-	spin_unlock_bh(&net->xfrm.xfrm_state_lock);
++	rcu_read_unlock();
+ 	if (to_put)
+ 		xfrm_state_put(to_put);
  
 -- 
 1.9.1
