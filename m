@@ -1,146 +1,268 @@
 From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net 7/9] net/mlx4_core: Fix deadlock when switching between polling and event fw commands
-Date: Thu,  8 Sep 2016 11:51:59 +0300
-Message-ID: <1473324721-5206-8-git-send-email-tariqt@mellanox.com>
+Subject: [PATCH net 5/9] net/mlx4_en: Fixes for DCBX
+Date: Thu,  8 Sep 2016 11:51:57 +0300
+Message-ID: <1473324721-5206-6-git-send-email-tariqt@mellanox.com>
 References: <1473324721-5206-1-git-send-email-tariqt@mellanox.com>
 Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Jack Morgenstein <jackm@dev.mellanox.co.il>,
-        Matan Barak <matanb@mellanox.com>,
         Tariq Toukan <tariqt@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:55662 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:55658 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S938429AbcIHIxJ (ORCPT
+        with ESMTP id S937716AbcIHIxJ (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 04:53:09 -0400
 In-Reply-To: <1473324721-5206-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jack Morgenstein <jackm@dev.mellanox.co.il>
+This patch adds a capability check before enabling DCBX.
+In addition, it re-organizes the relevant data structures,
+and fixes a typo in a define.
 
-When switching from polling-based fw commands to event-based fw
-commands, there is a race condition which could cause a fw command
-in another task to hang: that task will keep waiting for the polling
-sempahore, but may never be able to acquire it. This is due to
-mlx4_cmd_use_events, which "down"s the sempahore back to 0.
-
-During driver initialization, this is not a problem, since no other
-tasks which invoke FW commands are active.
-
-However, there is a problem if the driver switches to polling mode
-and then back to event mode during normal operation.
-
-The "test_interrupts" feature does exactly that.
-Running "ethtool -t <eth device> offline" causes the PF driver to
-temporarily switch to polling mode, and then back to event mode.
-(Note that for VF drivers, such switching is not performed).
-
-Fix this by adding a read-write semaphore for protection when
-switching between modes.
-
-Fixes: 225c7b1feef1 ("IB/mlx4: Add a driver Mellanox ConnectX InfiniBand adapters")
-Signed-off-by: Matan Barak <matanb@mellanox.com>
-Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Fixes: af7d51852631 ("net/mlx4_en: Add DCB PFC support through CEE netlink commands")
 Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/cmd.c  | 23 +++++++++++++++++------
- drivers/net/ethernet/mellanox/mlx4/mlx4.h |  2 ++
- 2 files changed, 19 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c | 31 +++++++++++++-------------
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 21 +++++++----------
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   | 15 +++----------
+ drivers/net/ethernet/mellanox/mlx4/port.c      |  4 ++--
+ 4 files changed, 28 insertions(+), 43 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index f04a423ff79d..a58d96cf1ed1 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -785,17 +785,23 @@ int __mlx4_cmd(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
- 		return mlx4_cmd_reset_flow(dev, op, op_modifier, -EIO);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c b/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
+index 316a70714434..b04760a5034b 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
+@@ -94,7 +94,7 @@ static u8 mlx4_en_dcbnl_getcap(struct net_device *dev, int capid, u8 *cap)
+ 		*cap = true;
+ 		break;
+ 	case DCB_CAP_ATTR_DCBX:
+-		*cap = priv->cee_params.dcbx_cap;
++		*cap = priv->dcbx_cap;
+ 		break;
+ 	case DCB_CAP_ATTR_PFC_TCS:
+ 		*cap = 1 <<  mlx4_max_tc(priv->mdev->dev);
+@@ -111,14 +111,14 @@ static u8 mlx4_en_dcbnl_getpfcstate(struct net_device *netdev)
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(netdev);
  
- 	if (!mlx4_is_mfunc(dev) || (native && mlx4_is_master(dev))) {
-+		int ret;
-+
- 		if (dev->persist->state & MLX4_DEVICE_STATE_INTERNAL_ERROR)
- 			return mlx4_internal_err_ret_value(dev, op,
- 							  op_modifier);
-+		down_read(&mlx4_priv(dev)->cmd.switch_sem);
- 		if (mlx4_priv(dev)->cmd.use_events)
--			return mlx4_cmd_wait(dev, in_param, out_param,
--					     out_is_imm, in_modifier,
--					     op_modifier, op, timeout);
-+			ret = mlx4_cmd_wait(dev, in_param, out_param,
-+					    out_is_imm, in_modifier,
-+					    op_modifier, op, timeout);
- 		else
--			return mlx4_cmd_poll(dev, in_param, out_param,
--					     out_is_imm, in_modifier,
--					     op_modifier, op, timeout);
-+			ret = mlx4_cmd_poll(dev, in_param, out_param,
-+					    out_is_imm, in_modifier,
-+					    op_modifier, op, timeout);
-+
-+		up_read(&mlx4_priv(dev)->cmd.switch_sem);
-+		return ret;
+-	return priv->cee_params.dcb_cfg.pfc_state;
++	return priv->cee_config.pfc_state;
+ }
+ 
+ static void mlx4_en_dcbnl_setpfcstate(struct net_device *netdev, u8 state)
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(netdev);
+ 
+-	priv->cee_params.dcb_cfg.pfc_state = state;
++	priv->cee_config.pfc_state = state;
+ }
+ 
+ static void mlx4_en_dcbnl_get_pfc_cfg(struct net_device *netdev, int priority,
+@@ -126,7 +126,7 @@ static void mlx4_en_dcbnl_get_pfc_cfg(struct net_device *netdev, int priority,
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(netdev);
+ 
+-	*setting = priv->cee_params.dcb_cfg.tc_config[priority].dcb_pfc;
++	*setting = priv->cee_config.dcb_pfc[priority];
+ }
+ 
+ static void mlx4_en_dcbnl_set_pfc_cfg(struct net_device *netdev, int priority,
+@@ -134,8 +134,8 @@ static void mlx4_en_dcbnl_set_pfc_cfg(struct net_device *netdev, int priority,
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(netdev);
+ 
+-	priv->cee_params.dcb_cfg.tc_config[priority].dcb_pfc = setting;
+-	priv->cee_params.dcb_cfg.pfc_state = true;
++	priv->cee_config.dcb_pfc[priority] = setting;
++	priv->cee_config.pfc_state = true;
+ }
+ 
+ static int mlx4_en_dcbnl_getnumtcs(struct net_device *netdev, int tcid, u8 *num)
+@@ -157,12 +157,11 @@ static u8 mlx4_en_dcbnl_set_all(struct net_device *netdev)
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(netdev);
+ 	struct mlx4_en_dev *mdev = priv->mdev;
+-	struct mlx4_en_cee_config *dcb_cfg = &priv->cee_params.dcb_cfg;
+ 
+-	if (!(priv->cee_params.dcbx_cap & DCB_CAP_DCBX_VER_CEE))
++	if (!(priv->dcbx_cap & DCB_CAP_DCBX_VER_CEE))
+ 		return 1;
+ 
+-	if (dcb_cfg->pfc_state) {
++	if (priv->cee_config.pfc_state) {
+ 		int tc;
+ 
+ 		priv->prof->rx_pause = 0;
+@@ -170,7 +169,7 @@ static u8 mlx4_en_dcbnl_set_all(struct net_device *netdev)
+ 		for (tc = 0; tc < CEE_DCBX_MAX_PRIO; tc++) {
+ 			u8 tc_mask = 1 << tc;
+ 
+-			switch (dcb_cfg->tc_config[tc].dcb_pfc) {
++			switch (priv->cee_config.dcb_pfc[tc]) {
+ 			case pfc_disabled:
+ 				priv->prof->tx_ppp &= ~tc_mask;
+ 				priv->prof->rx_ppp &= ~tc_mask;
+@@ -226,7 +225,7 @@ static u8 mlx4_en_dcbnl_set_state(struct net_device *dev, u8 state)
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	int num_tcs = 0;
+ 
+-	if (!(priv->cee_params.dcbx_cap & DCB_CAP_DCBX_VER_CEE))
++	if (!(priv->dcbx_cap & DCB_CAP_DCBX_VER_CEE))
+ 		return 1;
+ 
+ 	if (!!(state) == !!(priv->flags & MLX4_EN_FLAG_DCB_ENABLED))
+@@ -256,7 +255,7 @@ static int mlx4_en_dcbnl_getapp(struct net_device *netdev, u8 idtype, u16 id)
+ 				.selector = idtype,
+ 				.protocol = id,
+ 			     };
+-	if (!(priv->cee_params.dcbx_cap & DCB_CAP_DCBX_VER_CEE))
++	if (!(priv->dcbx_cap & DCB_CAP_DCBX_VER_CEE))
+ 		return 0;
+ 
+ 	return dcb_getapp(netdev, &app);
+@@ -268,7 +267,7 @@ static int mlx4_en_dcbnl_setapp(struct net_device *netdev, u8 idtype,
+ 	struct mlx4_en_priv *priv = netdev_priv(netdev);
+ 	struct dcb_app app;
+ 
+-	if (!(priv->cee_params.dcbx_cap & DCB_CAP_DCBX_VER_CEE))
++	if (!(priv->dcbx_cap & DCB_CAP_DCBX_VER_CEE))
+ 		return -EINVAL;
+ 
+ 	memset(&app, 0, sizeof(struct dcb_app));
+@@ -437,7 +436,7 @@ static u8 mlx4_en_dcbnl_getdcbx(struct net_device *dev)
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 
+-	return priv->cee_params.dcbx_cap;
++	return priv->dcbx_cap;
+ }
+ 
+ static u8 mlx4_en_dcbnl_setdcbx(struct net_device *dev, u8 mode)
+@@ -446,7 +445,7 @@ static u8 mlx4_en_dcbnl_setdcbx(struct net_device *dev, u8 mode)
+ 	struct ieee_ets ets = {0};
+ 	struct ieee_pfc pfc = {0};
+ 
+-	if (mode == priv->cee_params.dcbx_cap)
++	if (mode == priv->dcbx_cap)
+ 		return 0;
+ 
+ 	if ((mode & DCB_CAP_DCBX_LLD_MANAGED) ||
+@@ -455,7 +454,7 @@ static u8 mlx4_en_dcbnl_setdcbx(struct net_device *dev, u8 mode)
+ 	    !(mode & DCB_CAP_DCBX_HOST))
+ 		goto err;
+ 
+-	priv->cee_params.dcbx_cap = mode;
++	priv->dcbx_cap = mode;
+ 
+ 	ets.ets_cap = IEEE_8021QAZ_MAX_TCS;
+ 	pfc.pfc_cap = IEEE_8021QAZ_MAX_TCS;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 4198e9bf89d0..fedb829276f4 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -71,10 +71,11 @@ int mlx4_en_setup_tc(struct net_device *dev, u8 up)
+ #ifdef CONFIG_MLX4_EN_DCB
+ 	if (!mlx4_is_slave(priv->mdev->dev)) {
+ 		if (up) {
+-			priv->flags |= MLX4_EN_FLAG_DCB_ENABLED;
++			if (priv->dcbx_cap)
++				priv->flags |= MLX4_EN_FLAG_DCB_ENABLED;
+ 		} else {
+ 			priv->flags &= ~MLX4_EN_FLAG_DCB_ENABLED;
+-			priv->cee_params.dcb_cfg.pfc_state = false;
++			priv->cee_config.pfc_state = false;
+ 		}
  	}
- 	return mlx4_slave_cmd(dev, in_param, out_param, out_is_imm,
- 			      in_modifier, op_modifier, op, timeout);
-@@ -2454,6 +2460,7 @@ int mlx4_cmd_init(struct mlx4_dev *dev)
- 	int flags = 0;
- 
- 	if (!priv->cmd.initialized) {
-+		init_rwsem(&priv->cmd.switch_sem);
- 		mutex_init(&priv->cmd.slave_cmd_mutex);
- 		sema_init(&priv->cmd.poll_sem, 1);
- 		priv->cmd.use_events = 0;
-@@ -2583,6 +2590,7 @@ int mlx4_cmd_use_events(struct mlx4_dev *dev)
- 	if (!priv->cmd.context)
- 		return -ENOMEM;
- 
-+	down_write(&priv->cmd.switch_sem);
- 	for (i = 0; i < priv->cmd.max_cmds; ++i) {
- 		priv->cmd.context[i].token = i;
- 		priv->cmd.context[i].next  = i + 1;
-@@ -2606,6 +2614,7 @@ int mlx4_cmd_use_events(struct mlx4_dev *dev)
- 
- 	down(&priv->cmd.poll_sem);
- 	priv->cmd.use_events = 1;
-+	up_write(&priv->cmd.switch_sem);
- 
- 	return err;
- }
-@@ -2618,6 +2627,7 @@ void mlx4_cmd_use_polling(struct mlx4_dev *dev)
- 	struct mlx4_priv *priv = mlx4_priv(dev);
+ #endif /* CONFIG_MLX4_EN_DCB */
+@@ -3048,9 +3049,6 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 	struct mlx4_en_priv *priv;
  	int i;
+ 	int err;
+-#ifdef CONFIG_MLX4_EN_DCB
+-	struct tc_configuration *tc;
+-#endif
  
-+	down_write(&priv->cmd.switch_sem);
- 	priv->cmd.use_events = 0;
+ 	dev = alloc_etherdev_mqs(sizeof(struct mlx4_en_priv),
+ 				 MAX_TX_RINGS, MAX_RX_RINGS);
+@@ -3117,16 +3115,13 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 	priv->msg_enable = MLX4_EN_MSG_LEVEL;
+ #ifdef CONFIG_MLX4_EN_DCB
+ 	if (!mlx4_is_slave(priv->mdev->dev)) {
+-		priv->cee_params.dcbx_cap = DCB_CAP_DCBX_VER_CEE |
+-					    DCB_CAP_DCBX_HOST |
+-					    DCB_CAP_DCBX_VER_IEEE;
++		priv->dcbx_cap = DCB_CAP_DCBX_VER_CEE | DCB_CAP_DCBX_HOST |
++			DCB_CAP_DCBX_VER_IEEE;
+ 		priv->flags |= MLX4_EN_DCB_ENABLED;
+-		priv->cee_params.dcb_cfg.pfc_state = false;
++		priv->cee_config.pfc_state = false;
  
- 	for (i = 0; i < priv->cmd.max_cmds; ++i)
-@@ -2626,6 +2636,7 @@ void mlx4_cmd_use_polling(struct mlx4_dev *dev)
- 	kfree(priv->cmd.context);
+-		for (i = 0; i < MLX4_EN_NUM_UP; i++) {
+-			tc = &priv->cee_params.dcb_cfg.tc_config[i];
+-			tc->dcb_pfc = pfc_disabled;
+-		}
++		for (i = 0; i < MLX4_EN_NUM_UP; i++)
++			priv->cee_config.dcb_pfc[i] = pfc_disabled;
  
- 	up(&priv->cmd.poll_sem);
-+	up_write(&priv->cmd.switch_sem);
+ 		if (mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_ETS_CFG) {
+ 			dev->dcbnl_ops = &mlx4_en_dcbnl_ops;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index 2c2913dcae98..9099dbd04951 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -482,20 +482,10 @@ enum dcb_pfc_type {
+ 	pfc_enabled_rx
+ };
+ 
+-struct tc_configuration {
+-	enum dcb_pfc_type  dcb_pfc;
+-};
+-
+ struct mlx4_en_cee_config {
+ 	bool	pfc_state;
+-	struct	tc_configuration tc_config[MLX4_EN_NUM_UP];
++	enum	dcb_pfc_type dcb_pfc[MLX4_EN_NUM_UP];
+ };
+-
+-struct mlx4_en_cee_params {
+-	u8 dcbx_cap;
+-	struct mlx4_en_cee_config dcb_cfg;
+-};
+-
+ #endif
+ 
+ struct ethtool_flow_id {
+@@ -624,7 +614,8 @@ struct mlx4_en_priv {
+ 	struct ieee_ets ets;
+ 	u16 maxrate[IEEE_8021QAZ_MAX_TCS];
+ 	enum dcbnl_cndd_states cndd_state[IEEE_8021QAZ_MAX_TCS];
+-	struct mlx4_en_cee_params cee_params;
++	struct mlx4_en_cee_config cee_config;
++	u8 dcbx_cap;
+ #endif
+ #ifdef CONFIG_RFS_ACCEL
+ 	spinlock_t filters_lock;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
+index 3d2095e5c61c..c5b2064297a1 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/port.c
++++ b/drivers/net/ethernet/mellanox/mlx4/port.c
+@@ -52,7 +52,7 @@
+ 
+ #define MLX4_FLAG_V_IGNORE_FCS_MASK		0x2
+ #define MLX4_IGNORE_FCS_MASK			0x1
+-#define MLNX4_TX_MAX_NUMBER			8
++#define MLX4_TC_MAX_NUMBER			8
+ 
+ void mlx4_init_mac_table(struct mlx4_dev *dev, struct mlx4_mac_table *table)
+ {
+@@ -2022,7 +2022,7 @@ int mlx4_max_tc(struct mlx4_dev *dev)
+ 	u8 num_tc = dev->caps.max_tc_eth;
+ 
+ 	if (!num_tc)
+-		num_tc = MLNX4_TX_MAX_NUMBER;
++		num_tc = MLX4_TC_MAX_NUMBER;
+ 
+ 	return num_tc;
  }
- 
- struct mlx4_cmd_mailbox *mlx4_alloc_cmd_mailbox(struct mlx4_dev *dev)
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index c9d7fc5159f2..c128ba3ef014 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -46,6 +46,7 @@
- #include <linux/interrupt.h>
- #include <linux/spinlock.h>
- #include <net/devlink.h>
-+#include <linux/rwsem.h>
- 
- #include <linux/mlx4/device.h>
- #include <linux/mlx4/driver.h>
-@@ -627,6 +628,7 @@ struct mlx4_cmd {
- 	struct mutex		slave_cmd_mutex;
- 	struct semaphore	poll_sem;
- 	struct semaphore	event_sem;
-+	struct rw_semaphore	switch_sem;
- 	int			max_cmds;
- 	spinlock_t		context_lock;
- 	int			free_head;
 -- 
 1.8.3.1
