@@ -1,60 +1,37 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: RE: [PATCH net-next 0/3] r8152: configuration setting
-Date: Thu, 8 Sep 2016 13:02:01 +0000
-Message-ID: <0835B3720019904CB8F7AA43166CEEB201026170@RTITMBSV03.realtek.com.tw>
+From: Oliver Neukum <oneukum@suse.com>
+Subject: Re: [PATCH net-next 0/3] r8152: configuration setting
+Date: Thu, 08 Sep 2016 15:08:12 +0200
+Message-ID: <1473340092.32073.4.camel@suse.com>
 References: <1394712342-15778-215-Taiwan-albertk@realtek.com>
-        <87h99rizsi.fsf@miraculix.mork.no>
-        <0835B3720019904CB8F7AA43166CEEB2010259B5@RTITMBSV03.realtek.com.tw>
- <87vay6hlmc.fsf@miraculix.mork.no>
+         <87h99rizsi.fsf@miraculix.mork.no>
+         <0835B3720019904CB8F7AA43166CEEB2010259B5@RTITMBSV03.realtek.com.tw>
+         <87vay6hlmc.fsf@miraculix.mork.no>
+         <0835B3720019904CB8F7AA43166CEEB201026170@RTITMBSV03.realtek.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        nic_swsd <nic_swsd@realtek.com>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: bjorn@mork.no, nic_swsd <nic_swsd@realtek.com>,
         "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
         "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-        Oliver Neukum <oliver@neukum.org>
-To: =?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Hayes Wang <hayeswang@realtek.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87vay6hlmc.fsf@miraculix.mork.no>
-Content-Language: zh-TW
+In-Reply-To: <0835B3720019904CB8F7AA43166CEEB201026170@RTITMBSV03.realtek.com.tw>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-QmrDuHJuIE1vcmsgW21haWx0bzpiam9ybkBtb3JrLm5vXQ0KPiBTZW50OiBUaHVyc2RheSwgU2Vw
-dGVtYmVyIDA4LCAyMDE2IDM6NTUgUE0NClsuLi5dDQo+IFllcywgSSBzZWUgdGhhdC4gIEJ1dCBp
-cyB0aGF0IHN0cmljdGx5IG5lY2Vzc2FyeT8gQ291bGRuJ3QgeW91IGp1c3Qgc2F5Og0KPiAiQ0RD
-IEVDTSBpcyBzdXBwb3J0ZWQgYnkgY2RjX2V0aGVyIGFuZCB0aGVyZWZvcmUgbGltaXRlZCB0byB0
-aGUgZmVhdHVyZXMNCj4gaW1wbGVtZW50ZWQgYnkgY2RjX2V0aGVyLiAgSWYgeW91IHdhbnQgZmVh
-dHVyZSBYLCB0aGVuIHBsZWFzZSB1c2Ugb3VyDQo+IHZlbmRvciBzcGVjaWZpYyBtb2RlIHdpdGgg
-dGhlIHI4MTUyIGRyaXZlcj8iDQoNCk15IGN1c3RvbXMgaGF2ZSBhIGNhc2UgdGhhdCB0aGV5IG11
-c3QgZm9yY2UgdGhlIHNwZWVkIHRvIDEwME0NCmZvciBzb21lIHJlYXNvbnMuIEkgYWxzbyB3aXNo
-IHRvIGltcGxlbWVudCB0aGUgZHJpdmVyIGFzIHNpbXBsZQ0KYXMgcG9zc2libGUsIGJ1dCBJIGRv
-bid0IHRoaW5rIEkgY291bGQgZGV0ZXJtaW5lIHRoaXMuIEkgYWNjZXB0DQp5b3UgcmVqZWN0IG15
-IHBhdGNoZXMuIEhvd2V2ZXIsIEkgY291bGRuJ3QgZGVueSB0aGUgcmVxdWVzdHMNCmZyb20gdGhl
-IGJvc3Mgb3IgY3VzdG9tcyB3aXRob3V0IGRvaW5nIGFueXRoaW5nLiBJIG11c3QgcHJvdmUNCnRo
-ZSB3YXkgaXMgdW5hY2NlcHRhYmxlLg0KDQpbLi4uXQ0KPiBFYWNoIFVTQiBjb25maWd1YXRpb24g
-Y29tZXMgd2l0aCBhIHNldCBvZiBkZXNjcmlwdG9ycyBpZGVudGlmeWluZyB0aGUNCj4gZnVuY3Rp
-b25zLCBhbmQgVVNCIGludGVyZmFjZSBkcml2ZXJzIGF0dGFjaCB0byB0aGUgZnVuY3Rpb25zIHRo
-ZXkNCj4gc3VwcG9ydC4gIFRoZSB1c2VyIGNhbiBkeW5hbWljYWxseSBzd2l0Y2ggdGhlIGRldmlj
-ZSBmcm9tIGUuZy4gY2ZnICMxIHRvDQo+IGNmZyAjMyBieSB3cml0aW5nICIzIiB0byAvc3lzL2J1
-cy91c2IvZGV2aWNlcy88cG9ydD4vYkNvbmZpZ3VyYXRpb25WYWx1ZQ0KPiBUaGlzIHdpbGwgY2F1
-c2UgdGhlIEVDTSBhbmQgQUNNIFVTQiBpbnRlcmZhY2VzIHRvIGRpc2FwcGVhciwgYW5kIHRoZQ0K
-PiBhc3NvY2lhdGVkIGNsYXNzIGRyaXZlcnMgd2lsbCB1bmJpbmQsIGFuZCBuZXcgdmVuZG9yIHNw
-ZWNpZmljIFVTQg0KPiBpbnRlcmZhY2VzIGFwcGVhciBpbnN0ZWFkLCBjYXVzaW5nIGEgbWF0Y2hp
-bmcgdmVuZG9yIHNwZWNpZmljIGRyaXZlciB0bw0KPiBsb2FkIGFuZCBiaW5kLg0KPiANCj4gTmF0
-dXJhbGx5LCBlbmQgdXNlcnMgd2lsbCBub3Qgc3dpdGNoIGNvbmZpZ3VyYXRpb25zIGFsbCB0aGUg
-dGltZS4gIFRoZXkNCj4gd2lsbCBzZWxlY3QgdGhlIGNvbmZpZ3VyYXRpb24gcHJvdmlkaW5nIHRo
-ZSBzZXQgb2YgZnVuY3Rpb25zIHRoZXkgd2FudC4NCj4gSWYgdGhpcyBpcyBkaWZmZXJlbnQgZnJv
-bSB0aGUgZGVmYXVsdCBjb25maWd1cmF0aW9uICBzZWxlY3RlZCBieSB0aGUNCj4gTGludXggVVNC
-IGNvcmUsIHRoZW4gdGhhdCdzIGEgc2ltcGxlIHVkZXYgcnVsZSB0byB1cGRhdGUgdGhlDQo+IGJD
-b25maWd1cmF0aW9uVmFsdWUgc3lzZnMgYXR0cmlidXRlIG9uIGRldmljZSBkaXNjZW92ZXJ5Lg0K
-DQpJIHRlc3RlZCBhYm92ZSBtZXRob2QgYmVmb3JlLiBBbmQgSSBmb3VuZCB0aGF0IHRoZSBjZGNf
-ZXRoZXINCndhcyBsb2FkZWQgYmVmb3JlIHN3aXRjaGluZyB0aGUgY29uZmlndXJhdGlvbi4gVGhl
-IGJlaGF2aW9yDQpvZiBsb2FkaW5nIG9uZSBkcml2ZXIgYW5kIGNoYW5naW5nIHRvIGFub3RoZXIg
-ZHJpdmVyIGhhcw0Kb3Bwb3J0dW5pdHkgdG8gbGV0IG91ciBzb21lIHByZXZpb3VzIGNoaXBzIGJl
-Y29tZSBhYm5vcm1hbC4NClRvIHN3aXRjaCBjb25maWd1cmF0aW9uIGlzIGZpbmUuIEhvd2V2ZXIs
-IGl0IG1heSBoYXZlIHByb2JsZW0NCnRvIHN3aXRjaCBkcml2ZXIuIFRoYXQgaXMgd2h5IHRoZSBj
-dXJyZW50IGtlcm5lbCBvbmx5IHN1cHBvcnRzDQp2ZW5kb3IgbW9kZS4gSWYgdGhlIG1ldGhvZCB3
-b3JrcyBmaW5lLCBJIGhhdmUgbm8gdHJvdWJsZSBub3cuDQoNCkJlc3QgUmVnYXJkcywNCkhheWVz
-DQoNCg==
+On Thu, 2016-09-08 at 13:02 +0000, Hayes Wang wrote:
+> I tested above method before. And I found that the cdc_ether 
+> was loaded before switching the configuration. The behavior 
+> of loading one driver and changing to another driver has 
+> opportunity to let our some previous chips become abnormal. 
+> To switch configuration is fine. However, it may have problem 
+> to switch driver. That is why the current kernel only supports 
+> vendor mode. If the method works fine, I have no trouble now.
+
+We may talk about creating extensions to cdc-ether, if they
+are needed for the phy. What is unacceptable is to override
+the configuration mechanism in the kernel.
+
+	Regards
+		Oliver
