@@ -1,71 +1,60 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v2] qed: mark symbols static where possible
-Date: Thu, 08 Sep 2016 15:00:22 +0200
-Message-ID: <2655062.3nWxjufk2r@wuerfel>
-References: <1473323117-8772-1-git-send-email-baoyou.xie@linaro.org> <DM5PR11MB172334FF9A978C71E05A0B4197FB0@DM5PR11MB1723.namprd11.prod.outlook.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: RE: [PATCH net-next 0/3] r8152: configuration setting
+Date: Thu, 8 Sep 2016 13:02:01 +0000
+Message-ID: <0835B3720019904CB8F7AA43166CEEB201026170@RTITMBSV03.realtek.com.tw>
+References: <1394712342-15778-215-Taiwan-albertk@realtek.com>
+        <87h99rizsi.fsf@miraculix.mork.no>
+        <0835B3720019904CB8F7AA43166CEEB2010259B5@RTITMBSV03.realtek.com.tw>
+ <87vay6hlmc.fsf@miraculix.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Baoyou Xie <baoyou.xie@linaro.org>,
-        David Miller <davem@davemloft.net>,
-        Dept-Eng Everest Linux L2 <Dept-EngEverestLinuxL2@qlogic.com>,
-        netdev <netdev@vger.kernel.org>,
-        linux-kernel <linux-kernel@vger.kernel.org>,
-        "xie.baoyou@zte.com.cn" <xie.baoyou@zte.com.cn>,
-        Ariel Elior <Ariel.Elior@qlogic.com>
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        nic_swsd <nic_swsd@realtek.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+        Oliver Neukum <oliver@neukum.org>
+To: =?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <DM5PR11MB172334FF9A978C71E05A0B4197FB0@DM5PR11MB1723.namprd11.prod.outlook.com>
+In-Reply-To: <87vay6hlmc.fsf@miraculix.mork.no>
+Content-Language: zh-TW
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday, September 8, 2016 12:37:13 PM CEST Yuval Mintz wrote:
-> > 1. qed_get_vport_stats() is in use in net-next by qed_main.c starting 
-> > with
-> > 6c75424612a7 ("qed: Add support for NCSI statistics."), so we 
-> > shouldn't make it static.
-> 
-> Besides, it still doesn't apply to net-next
-> [as net-next has function declaration as a single liner].
-
-Baoyou, I recommended earlier that you start the work on a mainline
-kernel, but in particular for fast-moving subsystems it is better
-to use linux-next as the base.
-
-This means rebasing your patches every day before sending out stuff,
-which is some extra work, but you have a much better chance of the
-patches actually applying to the respective subsystem maintainer trees.
-
-It also helps to see if a particular file you are changing was
-modified in linux-next. The  trick I use for that is
-
-$ git log --oneline --no-merges torvalds/master..next/master drivers/net/ethernet/qlogic/qed | head
-e0971c832af4 qed*: Add support for the ethtool get_regs operation
-c965db444629 qed: Add support for debug data collection
-72e8d5fdf58b qed: add missing header dependencies
-4102426f9b7b qed: Add infrastructure for debug data collection
-2591c280c375 qed: Remove OOM messages
-561ed23331df qed: fix kzalloc-simple.cocci warnings
-c5e801dac4da qed: Clear dcbx memory buffers before the usage.
-5ec5dfa4d294 qed: Set selection-field while configuring the app entry in ieee mode.
-5fe118c9fd6b qed*: Disallow dcbx configuration for VF interfaces.
-b0bccb69eba3 qed: Change locking scheme for VF channel
-
-followed by looking at who merged the top commit
-
-$ git log --ancestry-path --oneline --merges e0971c832af4..next/master | tail
-7a700727059a Merge remote-tracking branch 'mtd/master'
-d7445193092f Merge remote-tracking branch 'rdma/for-next'
-9ecd4508b2e9 Merge remote-tracking branch 'mac80211-next/master'
-b74f90413edd Merge remote-tracking branch 'bluetooth/master'
-dc9e43436ac5 Merge remote-tracking branch 'wireless-drivers-next/master'
-ae8d88338957 Merge remote-tracking branch 'ipvs-next/master'
-1e786a88da29 Merge remote-tracking branch 'netfilter-next/master'
-3a883dcccac5 Merge remote-tracking branch 'ipsec-next/master'
-bef876902277 Merge remote-tracking branch 'net-next/master'
-e6f3f120827c Merge branch 'qed-debug-data-collection'
-
-which tells you that it came from a branch called qed-debug-data-collection
-into net-next and from there into linux-next.
-
-	Arnd
+QmrDuHJuIE1vcmsgW21haWx0bzpiam9ybkBtb3JrLm5vXQ0KPiBTZW50OiBUaHVyc2RheSwgU2Vw
+dGVtYmVyIDA4LCAyMDE2IDM6NTUgUE0NClsuLi5dDQo+IFllcywgSSBzZWUgdGhhdC4gIEJ1dCBp
+cyB0aGF0IHN0cmljdGx5IG5lY2Vzc2FyeT8gQ291bGRuJ3QgeW91IGp1c3Qgc2F5Og0KPiAiQ0RD
+IEVDTSBpcyBzdXBwb3J0ZWQgYnkgY2RjX2V0aGVyIGFuZCB0aGVyZWZvcmUgbGltaXRlZCB0byB0
+aGUgZmVhdHVyZXMNCj4gaW1wbGVtZW50ZWQgYnkgY2RjX2V0aGVyLiAgSWYgeW91IHdhbnQgZmVh
+dHVyZSBYLCB0aGVuIHBsZWFzZSB1c2Ugb3VyDQo+IHZlbmRvciBzcGVjaWZpYyBtb2RlIHdpdGgg
+dGhlIHI4MTUyIGRyaXZlcj8iDQoNCk15IGN1c3RvbXMgaGF2ZSBhIGNhc2UgdGhhdCB0aGV5IG11
+c3QgZm9yY2UgdGhlIHNwZWVkIHRvIDEwME0NCmZvciBzb21lIHJlYXNvbnMuIEkgYWxzbyB3aXNo
+IHRvIGltcGxlbWVudCB0aGUgZHJpdmVyIGFzIHNpbXBsZQ0KYXMgcG9zc2libGUsIGJ1dCBJIGRv
+bid0IHRoaW5rIEkgY291bGQgZGV0ZXJtaW5lIHRoaXMuIEkgYWNjZXB0DQp5b3UgcmVqZWN0IG15
+IHBhdGNoZXMuIEhvd2V2ZXIsIEkgY291bGRuJ3QgZGVueSB0aGUgcmVxdWVzdHMNCmZyb20gdGhl
+IGJvc3Mgb3IgY3VzdG9tcyB3aXRob3V0IGRvaW5nIGFueXRoaW5nLiBJIG11c3QgcHJvdmUNCnRo
+ZSB3YXkgaXMgdW5hY2NlcHRhYmxlLg0KDQpbLi4uXQ0KPiBFYWNoIFVTQiBjb25maWd1YXRpb24g
+Y29tZXMgd2l0aCBhIHNldCBvZiBkZXNjcmlwdG9ycyBpZGVudGlmeWluZyB0aGUNCj4gZnVuY3Rp
+b25zLCBhbmQgVVNCIGludGVyZmFjZSBkcml2ZXJzIGF0dGFjaCB0byB0aGUgZnVuY3Rpb25zIHRo
+ZXkNCj4gc3VwcG9ydC4gIFRoZSB1c2VyIGNhbiBkeW5hbWljYWxseSBzd2l0Y2ggdGhlIGRldmlj
+ZSBmcm9tIGUuZy4gY2ZnICMxIHRvDQo+IGNmZyAjMyBieSB3cml0aW5nICIzIiB0byAvc3lzL2J1
+cy91c2IvZGV2aWNlcy88cG9ydD4vYkNvbmZpZ3VyYXRpb25WYWx1ZQ0KPiBUaGlzIHdpbGwgY2F1
+c2UgdGhlIEVDTSBhbmQgQUNNIFVTQiBpbnRlcmZhY2VzIHRvIGRpc2FwcGVhciwgYW5kIHRoZQ0K
+PiBhc3NvY2lhdGVkIGNsYXNzIGRyaXZlcnMgd2lsbCB1bmJpbmQsIGFuZCBuZXcgdmVuZG9yIHNw
+ZWNpZmljIFVTQg0KPiBpbnRlcmZhY2VzIGFwcGVhciBpbnN0ZWFkLCBjYXVzaW5nIGEgbWF0Y2hp
+bmcgdmVuZG9yIHNwZWNpZmljIGRyaXZlciB0bw0KPiBsb2FkIGFuZCBiaW5kLg0KPiANCj4gTmF0
+dXJhbGx5LCBlbmQgdXNlcnMgd2lsbCBub3Qgc3dpdGNoIGNvbmZpZ3VyYXRpb25zIGFsbCB0aGUg
+dGltZS4gIFRoZXkNCj4gd2lsbCBzZWxlY3QgdGhlIGNvbmZpZ3VyYXRpb24gcHJvdmlkaW5nIHRo
+ZSBzZXQgb2YgZnVuY3Rpb25zIHRoZXkgd2FudC4NCj4gSWYgdGhpcyBpcyBkaWZmZXJlbnQgZnJv
+bSB0aGUgZGVmYXVsdCBjb25maWd1cmF0aW9uICBzZWxlY3RlZCBieSB0aGUNCj4gTGludXggVVNC
+IGNvcmUsIHRoZW4gdGhhdCdzIGEgc2ltcGxlIHVkZXYgcnVsZSB0byB1cGRhdGUgdGhlDQo+IGJD
+b25maWd1cmF0aW9uVmFsdWUgc3lzZnMgYXR0cmlidXRlIG9uIGRldmljZSBkaXNjZW92ZXJ5Lg0K
+DQpJIHRlc3RlZCBhYm92ZSBtZXRob2QgYmVmb3JlLiBBbmQgSSBmb3VuZCB0aGF0IHRoZSBjZGNf
+ZXRoZXINCndhcyBsb2FkZWQgYmVmb3JlIHN3aXRjaGluZyB0aGUgY29uZmlndXJhdGlvbi4gVGhl
+IGJlaGF2aW9yDQpvZiBsb2FkaW5nIG9uZSBkcml2ZXIgYW5kIGNoYW5naW5nIHRvIGFub3RoZXIg
+ZHJpdmVyIGhhcw0Kb3Bwb3J0dW5pdHkgdG8gbGV0IG91ciBzb21lIHByZXZpb3VzIGNoaXBzIGJl
+Y29tZSBhYm5vcm1hbC4NClRvIHN3aXRjaCBjb25maWd1cmF0aW9uIGlzIGZpbmUuIEhvd2V2ZXIs
+IGl0IG1heSBoYXZlIHByb2JsZW0NCnRvIHN3aXRjaCBkcml2ZXIuIFRoYXQgaXMgd2h5IHRoZSBj
+dXJyZW50IGtlcm5lbCBvbmx5IHN1cHBvcnRzDQp2ZW5kb3IgbW9kZS4gSWYgdGhlIG1ldGhvZCB3
+b3JrcyBmaW5lLCBJIGhhdmUgbm8gdHJvdWJsZSBub3cuDQoNCkJlc3QgUmVnYXJkcywNCkhheWVz
+DQoNCg==
