@@ -1,106 +1,70 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 net-next 1/2] net: phy: Add Edge-rate driver for
- Microsemi PHYs.
-Date: Thu, 8 Sep 2016 15:14:15 +0200
-Message-ID: <20160908131415.GG26445@lunn.ch>
-References: <20160824125934.GC13406@lunn.ch>
- <1473326242-4198-1-git-send-email-Raju.Lakkaraju@microsemi.com>
- <1473326242-4198-2-git-send-email-Raju.Lakkaraju@microsemi.com>
+From: "D. Herrendoerfer" <d.herrendoerfer@herrendoerfer.name>
+Subject: [RFC] bridge: MAC learning uevents
+Date: Thu, 8 Sep 2016 15:06:16 +0200
+Message-ID: <7824e091-6b1a-bf39-0f78-1c9084d59972@herrendoerfer.name>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
-        Allan.Nielsen@microsemi.com
-To: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:38832 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932307AbcIHNOR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Sep 2016 09:14:17 -0400
-Content-Disposition: inline
-In-Reply-To: <1473326242-4198-2-git-send-email-Raju.Lakkaraju@microsemi.com>
+Received: from dd20738.kasserver.com ([85.13.140.210]:55404 "EHLO
+        dd20738.kasserver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933159AbcIHNPz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 09:15:55 -0400
+Received: from dyn-9-152-214-81.boeblingen.de.ibm.com (p4FE0F498.dip0.t-ipconnect.de [79.224.244.152])
+        by dd20738.kasserver.com (Postfix) with ESMTPSA id AA38681BA8
+        for <netdev@vger.kernel.org>; Thu,  8 Sep 2016 15:06:17 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 08, 2016 at 02:47:21PM +0530, Raju Lakkaraju wrote:
-> From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-> 
-> Used Device Tree to configure the Edge-rate as per review comments and
-> re-sending code for review
-> 
-> Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-> ---
->  drivers/net/phy/mscc.c | 76 ++++++++++++++++++++++++++++++++++++++++++++++++++
+Hello,
 
-Hi Raju
+I'd like to start a discussion if it makes sense to add an optional feature
 
-You need to also document the new property in the device tree binding
-documentation.
+to the bridge MAC address learning code to generate kernel uevents for
 
-> +static int vsc85xx_edge_rate_cntl_set(struct phy_device *phydev,
-> +				      u8     edge_rate)
+every learned (added) and removed MAC address.
 
-No spaces place.
+The (my) rationale behind this is, that I work with multiport SRIOV and 
+MRIOV
 
-> +#ifdef CONFIG_OF_MDIO
-> +static int vsc8531_of_init(struct phy_device *phydev)
-> +{
-> +	int rc;
-> +	struct vsc8531_private *vsc8531 = phydev->priv;
-> +	struct device *dev = &phydev->mdio.dev;
-> +	struct device_node *of_node = dev->of_node;
-> +
-> +	if (!of_node)
-> +		return -ENODEV;
-> +
-> +	rc = of_property_read_u8(of_node, "vsc8531,edge-rate",
-> +				 &vsc8531->edge_rate);
+network cards that cannot put each and every virtual port into promiscuous
 
-Until you have written the Documentation, it is hard for me to tell,
-but device tree bindings should use real units, like seconds, Ohms,
-Farads, etc. Is the edge rate in nS? Or is it some magic value which
-just gets written into the register?
+mode, but they have the capability to register a large number of MAC 
+addresses
 
-> +
-> +	return rc;
-> +}
-> +#else
-> +static int vsc8531_of_init(struct phy_device *phydev)
-> +{
-> +	return 0;
-> +}
-> +#endif /* CONFIG_OF_MDIO */
-> +
->  static int vsc85xx_config_init(struct phy_device *phydev)
->  {
->  	int rc;
-> +	struct vsc8531_private *vsc8531;
-> +
-> +	if (!phydev->priv) {
+to each interface.
 
-How can this happen?
+These systems are host to a large number of kvm guests, that require 
+network access.
 
-> +		vsc8531 = devm_kzalloc(&phydev->mdio.dev, sizeof(*vsc8531),
-> +				       GFP_KERNEL);
-> +		if (!vsc8531)
-> +			return -ENOMEM;
-> +
-> +		phydev->priv = vsc8531;
-> +		rc = vsc8531_of_init(phydev);
-> +		if (rc)
-> +			return rc;
-> +	} else {
-> +		vsc8531 = (struct vsc8531_private *)phydev->priv;
-> +	}
->  
->  	rc = vsc85xx_default_config(phydev);
->  	if (rc)
->  		return rc;
-> +
-> +	rc = vsc85xx_edge_rate_cntl_set(phydev, vsc8531->edge_rate);
+To get around the problem I added two uevents to linuxbridge that would 
+announce every
 
-If there is no vsc8531,edge-rate property in device tree, is the phy
-going to work O.K, if you configure it for 0nS edges? Or should there
-be some default value assigned?
+learned address to udev, and udev would register or remove  the MAC 
+address to the
 
-Thanks
-	Andrew
+uplink device of the bridge.
+
+The script may also add the required addresses for multicast and IPv6 if 
+required.
+
+The need for promiscuous mode on the card was gone. All I needed to do 
+was to attach
+
+the guests through a linuxbridge instead of directly to the card.
+
+
+I may be missing something here - I'm pretty sure there I am, but is 
+there any conceptual
+
+reason why this should not be done this way ?
+
+
+I'm porting my patch (for 3.10.0) to head, and will make it available, I 
+just want some
+
+valuable feedback as early as possible.
+
+
+Thanks, D.Herrendoerfer
