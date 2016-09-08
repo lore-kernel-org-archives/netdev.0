@@ -1,165 +1,51 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 02/17] xfrm: state: use hlist_for_each_entry_rcu helper
-Date: Thu, 8 Sep 2016 07:54:37 +0200
-Message-ID: <1473314092-11319-3-git-send-email-steffen.klassert@secunet.com>
-References: <1473314092-11319-1-git-send-email-steffen.klassert@secunet.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH net-next V2 0/6] Mellanox 100G mlx5 DCBX CEE and firmware support
+Date: Thu, 8 Sep 2016 09:52:12 +0300
+Message-ID: <CAJ3xEMi09R69jN+15CWHW-s03wqaB-vsS6uB6cOb98a=PoYvBg@mail.gmail.com>
+References: <CALzJLG89HjLC9hOR3g2g-SLYyV1K=wM=rHcwv7C=dex1VCOUFQ@mail.gmail.com>
+ <20160907.132703.969714617324713560.davem@davemloft.net> <CAJ3xEMiYBv3Z4DaeOnWYJH-3D_bXDUFh_xwOeoTWOxe7MqtZcQ@mail.gmail.com>
+ <20160907.153656.8091260922290635.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Huy Nguyen <huyn@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:36356 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756239AbcIHGv0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Sep 2016 02:51:26 -0400
-In-Reply-To: <1473314092-11319-1-git-send-email-steffen.klassert@secunet.com>
+Received: from mail-oi0-f53.google.com ([209.85.218.53]:36650 "EHLO
+        mail-oi0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756849AbcIHGwN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 02:52:13 -0400
+Received: by mail-oi0-f53.google.com with SMTP id x125so3480387oia.3
+        for <netdev@vger.kernel.org>; Wed, 07 Sep 2016 23:52:13 -0700 (PDT)
+In-Reply-To: <20160907.153656.8091260922290635.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+On Thu, Sep 8, 2016 at 1:36 AM, David Miller <davem@davemloft.net> wrote:
+> From: Or Gerlitz <gerlitz.or@gmail.com>
+> Date: Wed, 7 Sep 2016 23:51:56 +0300
+>
+>> On Wed, Sep 7, 2016 at 11:27 PM, David Miller <davem@davemloft.net> wrote:
+>>> From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+>>> Date: Wed, 7 Sep 2016 23:16:13 +0300
+>>>
+>>>> Hi Dave, Sorry to bother, but i would like to drop this series for now
+>>>> Huy is working to define and come up with a better mechanism to
+>>>> enable/disable the new DCBX hybrid mode he is adding.
+>>>
+>>> I can't "just drop" any change that's in my tree already.
+>>
+>> Dave, I don't see it @ your kernel.org clone but it's not in
+>> patchworks either, so I guess you picked that into your other clone.
+>
+> Aha, I marked it "changes requested" in patchwork and did not apply it.
+> My bad.
 
-This is required once we allow lockless access of bydst/bysrc hash tables.
+Don't worry, happens...
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/xfrm/xfrm_state.c | 38 +++++++++++++++++++-------------------
- 1 file changed, 19 insertions(+), 19 deletions(-)
+Thank you
 
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 9895a8c..904ab4d 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -76,18 +76,18 @@ static void xfrm_hash_transfer(struct hlist_head *list,
- 		h = __xfrm_dst_hash(&x->id.daddr, &x->props.saddr,
- 				    x->props.reqid, x->props.family,
- 				    nhashmask);
--		hlist_add_head(&x->bydst, ndsttable+h);
-+		hlist_add_head_rcu(&x->bydst, ndsttable + h);
- 
- 		h = __xfrm_src_hash(&x->id.daddr, &x->props.saddr,
- 				    x->props.family,
- 				    nhashmask);
--		hlist_add_head(&x->bysrc, nsrctable+h);
-+		hlist_add_head_rcu(&x->bysrc, nsrctable + h);
- 
- 		if (x->id.spi) {
- 			h = __xfrm_spi_hash(&x->id.daddr, x->id.spi,
- 					    x->id.proto, x->props.family,
- 					    nhashmask);
--			hlist_add_head(&x->byspi, nspitable+h);
-+			hlist_add_head_rcu(&x->byspi, nspitable + h);
- 		}
- 	}
- }
-@@ -520,10 +520,10 @@ int __xfrm_state_delete(struct xfrm_state *x)
- 		x->km.state = XFRM_STATE_DEAD;
- 		spin_lock(&net->xfrm.xfrm_state_lock);
- 		list_del(&x->km.all);
--		hlist_del(&x->bydst);
--		hlist_del(&x->bysrc);
-+		hlist_del_rcu(&x->bydst);
-+		hlist_del_rcu(&x->bysrc);
- 		if (x->id.spi)
--			hlist_del(&x->byspi);
-+			hlist_del_rcu(&x->byspi);
- 		net->xfrm.state_num--;
- 		spin_unlock(&net->xfrm.xfrm_state_lock);
- 
-@@ -659,7 +659,7 @@ static struct xfrm_state *__xfrm_state_lookup(struct net *net, u32 mark,
- 	unsigned int h = xfrm_spi_hash(net, daddr, spi, proto, family);
- 	struct xfrm_state *x;
- 
--	hlist_for_each_entry(x, net->xfrm.state_byspi+h, byspi) {
-+	hlist_for_each_entry_rcu(x, net->xfrm.state_byspi + h, byspi) {
- 		if (x->props.family != family ||
- 		    x->id.spi       != spi ||
- 		    x->id.proto     != proto ||
-@@ -683,7 +683,7 @@ static struct xfrm_state *__xfrm_state_lookup_byaddr(struct net *net, u32 mark,
- 	unsigned int h = xfrm_src_hash(net, daddr, saddr, family);
- 	struct xfrm_state *x;
- 
--	hlist_for_each_entry(x, net->xfrm.state_bysrc+h, bysrc) {
-+	hlist_for_each_entry_rcu(x, net->xfrm.state_bysrc + h, bysrc) {
- 		if (x->props.family != family ||
- 		    x->id.proto     != proto ||
- 		    !xfrm_addr_equal(&x->id.daddr, daddr, family) ||
-@@ -781,7 +781,7 @@ xfrm_state_find(const xfrm_address_t *daddr, const xfrm_address_t *saddr,
- 
- 	spin_lock_bh(&net->xfrm.xfrm_state_lock);
- 	h = xfrm_dst_hash(net, daddr, saddr, tmpl->reqid, encap_family);
--	hlist_for_each_entry(x, net->xfrm.state_bydst+h, bydst) {
-+	hlist_for_each_entry_rcu(x, net->xfrm.state_bydst + h, bydst) {
- 		if (x->props.family == encap_family &&
- 		    x->props.reqid == tmpl->reqid &&
- 		    (mark & x->mark.m) == x->mark.v &&
-@@ -797,7 +797,7 @@ xfrm_state_find(const xfrm_address_t *daddr, const xfrm_address_t *saddr,
- 		goto found;
- 
- 	h_wildcard = xfrm_dst_hash(net, daddr, &saddr_wildcard, tmpl->reqid, encap_family);
--	hlist_for_each_entry(x, net->xfrm.state_bydst+h_wildcard, bydst) {
-+	hlist_for_each_entry_rcu(x, net->xfrm.state_bydst + h_wildcard, bydst) {
- 		if (x->props.family == encap_family &&
- 		    x->props.reqid == tmpl->reqid &&
- 		    (mark & x->mark.m) == x->mark.v &&
-@@ -852,12 +852,12 @@ found:
- 		if (km_query(x, tmpl, pol) == 0) {
- 			x->km.state = XFRM_STATE_ACQ;
- 			list_add(&x->km.all, &net->xfrm.state_all);
--			hlist_add_head(&x->bydst, net->xfrm.state_bydst+h);
-+			hlist_add_head_rcu(&x->bydst, net->xfrm.state_bydst + h);
- 			h = xfrm_src_hash(net, daddr, saddr, encap_family);
--			hlist_add_head(&x->bysrc, net->xfrm.state_bysrc+h);
-+			hlist_add_head_rcu(&x->bysrc, net->xfrm.state_bysrc + h);
- 			if (x->id.spi) {
- 				h = xfrm_spi_hash(net, &x->id.daddr, x->id.spi, x->id.proto, encap_family);
--				hlist_add_head(&x->byspi, net->xfrm.state_byspi+h);
-+				hlist_add_head_rcu(&x->byspi, net->xfrm.state_byspi + h);
- 			}
- 			x->lft.hard_add_expires_seconds = net->xfrm.sysctl_acq_expires;
- 			tasklet_hrtimer_start(&x->mtimer, ktime_set(net->xfrm.sysctl_acq_expires, 0), HRTIMER_MODE_REL);
-@@ -945,16 +945,16 @@ static void __xfrm_state_insert(struct xfrm_state *x)
- 
- 	h = xfrm_dst_hash(net, &x->id.daddr, &x->props.saddr,
- 			  x->props.reqid, x->props.family);
--	hlist_add_head(&x->bydst, net->xfrm.state_bydst+h);
-+	hlist_add_head_rcu(&x->bydst, net->xfrm.state_bydst + h);
- 
- 	h = xfrm_src_hash(net, &x->id.daddr, &x->props.saddr, x->props.family);
--	hlist_add_head(&x->bysrc, net->xfrm.state_bysrc+h);
-+	hlist_add_head_rcu(&x->bysrc, net->xfrm.state_bysrc + h);
- 
- 	if (x->id.spi) {
- 		h = xfrm_spi_hash(net, &x->id.daddr, x->id.spi, x->id.proto,
- 				  x->props.family);
- 
--		hlist_add_head(&x->byspi, net->xfrm.state_byspi+h);
-+		hlist_add_head_rcu(&x->byspi, net->xfrm.state_byspi + h);
- 	}
- 
- 	tasklet_hrtimer_start(&x->mtimer, ktime_set(1, 0), HRTIMER_MODE_REL);
-@@ -1063,9 +1063,9 @@ static struct xfrm_state *__find_acq_core(struct net *net,
- 		xfrm_state_hold(x);
- 		tasklet_hrtimer_start(&x->mtimer, ktime_set(net->xfrm.sysctl_acq_expires, 0), HRTIMER_MODE_REL);
- 		list_add(&x->km.all, &net->xfrm.state_all);
--		hlist_add_head(&x->bydst, net->xfrm.state_bydst+h);
-+		hlist_add_head_rcu(&x->bydst, net->xfrm.state_bydst + h);
- 		h = xfrm_src_hash(net, daddr, saddr, family);
--		hlist_add_head(&x->bysrc, net->xfrm.state_bysrc+h);
-+		hlist_add_head_rcu(&x->bysrc, net->xfrm.state_bysrc + h);
- 
- 		net->xfrm.state_num++;
- 
-@@ -1581,7 +1581,7 @@ int xfrm_alloc_spi(struct xfrm_state *x, u32 low, u32 high)
- 	if (x->id.spi) {
- 		spin_lock_bh(&net->xfrm.xfrm_state_lock);
- 		h = xfrm_spi_hash(net, &x->id.daddr, x->id.spi, x->id.proto, x->props.family);
--		hlist_add_head(&x->byspi, net->xfrm.state_byspi+h);
-+		hlist_add_head_rcu(&x->byspi, net->xfrm.state_byspi + h);
- 		spin_unlock_bh(&net->xfrm.xfrm_state_lock);
- 
- 		err = 0;
--- 
-1.9.1
+Or.
