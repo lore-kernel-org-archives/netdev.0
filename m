@@ -1,52 +1,136 @@
-From: Chris Brandt <Chris.Brandt@renesas.com>
-Subject: RE: [PATCH] net: ethernet: renesas: sh_eth: do not access POST
- registers if not exist
-Date: Thu, 8 Sep 2016 14:27:31 +0000
-Message-ID: <SG2PR06MB116564DD88FD22D59E7174008AFB0@SG2PR06MB1165.apcprd06.prod.outlook.com>
-References: <20160826200107.20681-1-chris.brandt@renesas.com>
- <87690577-4526-ce66-6ce3-68ac8b20e737@cogentembedded.com>
- <SG2PR06MB11653F9E20F38972CA11EF328AE10@SG2PR06MB1165.apcprd06.prod.outlook.com>
- <f456cca3-289c-67dc-f15c-5b475553cdde@cogentembedded.com>
- <SG2PR06MB1165DAEF1E16FFA7E2DC49308AE00@SG2PR06MB1165.apcprd06.prod.outlook.com>
- <CAMuHMdXhSUbP+81K_1vRxvkqecQM2Pn0z5dPOmBQAfqBykdxGg@mail.gmail.com>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Subject: Re: [4.4-RT PATCH RFC/RFT] drivers: net: cpsw: mark rx/tx irq as
+ IRQF_NO_THREAD
+Date: Thu, 8 Sep 2016 16:28:14 +0200
+Message-ID: <20160908142813.tma7j6p44e3z3nqc@linutronix.de>
+References: <20160811161540.9613-1-grygorii.strashko@ti.com>
+ <20160812083206.t7lvxpo44marwpf5@linutronix.de>
+ <a5d1bd8f-4219-4890-9e1e-d4bc4181eb57@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Simon Horman <horms+renesas@verge.net.au>,
-        Geert Uytterhoeven <geert+renesas@glider.be>,
-        Daniel Palmer <daniel@0x0f.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-renesas-soc@vger.kernel.org"
-        <linux-renesas-soc@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdXhSUbP+81K_1vRxvkqecQM2Pn0z5dPOmBQAfqBykdxGg@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: Steven Rostedt <rostedt@goodmis.org>, linux-omap@vger.kernel.org,
+        Alison Chaiken <alison@peloton-tech.com>,
+        linux-rt-users@vger.kernel.org, netdev@vger.kernel.org
+To: Grygorii Strashko <grygorii.strashko@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Galois.linutronix.de ([146.0.238.70]:44607 "EHLO
+        Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758508AbcIHO2V (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 10:28:21 -0400
+Content-Disposition: inline
+In-Reply-To: <a5d1bd8f-4219-4890-9e1e-d4bc4181eb57@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-QXMgYSBmb2xsb3cgdXAgb24gdGhpcyB0aHJlYWQ6DQoNCg0KT24gOC8zMC8yMDE2LCBHZWVydCBV
-eXR0ZXJob2V2ZW4gd3JvdGU6DQo+ID4gSSBqdXN0IGxvb2tlZCBhdCB0aGUgUlovQTEgcmVnaXN0
-ZXIgc3BhY2UgYW5kIHRoZXJlIHNlZW1zIHRvIGJlIGR1bW15DQo+ID4gcmVnaXN0ZXJzIGluIHRo
-ZSBQT1NUMS00IGFyZWEuIEkgY2FuIHdyaXRlIHRvIHRoZW0gYW5kIHJlYWQgYmFjayB3aGF0IEkN
-Cj4gPiB3cm90ZS4uLndoaWNoIGlzIGFsbCB0aGF0IHRoZSBzaF9ldGggZHJpdmVyIGNhcmVzIGFi
-b3V0LiBJIGJldCB3aGVuIHRoZQ0KPiA+IGRlc2lnbmVycyBicmluZyBpbiB0aGUgRXRoZXJDIElQ
-IGJsb2NrLCB0aGUgZW50aXJlIHJlZ2lzdGVyIGFkZHJlc3MgaXMNCj4gPiBhbHdheXMgcG9wdWxh
-dGVkIHdpdGggYSBzaW1wbGUgbGF0Y2ggcmVnaXN0ZXJzLiBBbmQgdGhlbiwgaWYgYSBmZWF0dXJl
-IGlzDQo+ID4gbm90IGluY2x1ZGVkIChsaWtlIHJlbGF5L1BPU1QpLCB0aGVuIG5vdGhpbmcgaXMg
-aG9va2VkIHVwIG9uIHRoZSBiYWNrIHNpZGUNCj4gPiBvZiBpdC4NCj4gDQo+IFdoYXQgYSB3YXN0
-ZSBvZiB0cmFuc2lzdG9ycy4uLg0KPiBUaGVyZSBhcmUgcGxlbnR5IG9mIGhpZGRlbiByZWdpc3Rl
-cnMgaW4gbWFueSBJUCBibG9ja3MuDQoNCldlbGwgR2VlcnQsIHR1cm5zIG91dCB0aG9zZSB0cmFu
-c2lzdG9ycyB3ZXJlbid0IHdhc3RlZC4gVGhleSBhcmUgdGhlcmUuLi5hbmQgaW4gZmFjdCBhcmUg
-bmVlZCB0byBhY3R1YWxseSBtYWtlIHRoZSBzeXN0ZW0gd29yayBjb3JyZWN0bHkuDQoNCkFmdGVy
-IHNvbWUgaW52ZXN0aWdhdGlvbiwgbG9va3MgbGlrZSB3aGVuIHNvbWVvbmUgd2FzIGN1dHRpbmcg
-b3V0IHVuLW5lZWRlZCBwYWdlcyB0byBtYWtlIHRoZSBSWi9BMSBoYXJkd2FyZSBtYW51YWwgdGhl
-eSBtaXN1bmRlcnN0b29kIHdoYXQgdGhvc2UgcmVnaXN0ZXJzIHdlcmUgZm9yLg0KDQpJbiByZWFs
-aXR5LCB0aGV5IGp1c3QgbmVlZGVkIHRvIGNvcHkgdGhlIHBhZ2VzIGZyb20gdGhlIFNINzczNCBI
-YXJkd2FyZSBtYW51YWwgZm9yIHRoZSBQT1NUMS00LiBBbHNvLCBpZiB5b3UgcmVhZCBhYm91dCB0
-aGUgVFNVIGNsb3NlbHkgeW91J2xsIHNlZSB0aGF0IHlvdSBhbHNvIG5lZWQgcmVnaXN0ZXIgRldT
-TEMgdG8gYWN0dWFsbHkgZW5hYmxlIHRoZSBQT1NUMS00IHJlZ2lzdGVycyAobW9yZSBvciBsZXNz
-KS4NCg0KDQpJJ3ZlIGFscmVhZHkgc3VibWl0dGVkIGEgdjIgcGF0Y2ggd2hpY2ggc2hvdWxkIGJl
-IHByZXR0eSBzdHJhaWdodCBmb3J3YXJkIG5vdy4NCg0KDQpDaHJpcw0KDQo=
+On 2016-08-12 18:58:21 [+0300], Grygorii Strashko wrote:
+> Hi Sebastian,
+Hi Grygorii,
+
+> Thankds for comment. You're right:
+> irq_thread()->irq_forced_thread_fn()->local_bh_enable()
+> 
+> but wouldn't here two wake_up_process() calls any way,
+> plus preempt_check_resched_rt() in napi_schedule().
+
+Usually you prefer BH handling in the IRQ-thread because it runs at
+higher priority and is not interrupted by a SCHED_OTHER process. And you
+can assign it a higher priority if it should be preferred over an other
+interrupt. However, if the processing of the interrupt is taking too
+much time (like that ping flood, a lot of network traffic) then we push
+it to the softirq thread. If you do this now unconditionally in the
+SCHED_OTHER softirq thread then you take away all the `good' things we
+had (like processing important packets at higher priority as long as
+nobody floods us). Plus you share this thread with everything else that
+runs in there.
+
+> >> And, as result, get benefits from the following improvements (tested
+> >> on am57xx-evm):
+> >>
+> >> 1) "[ 78.348599] NOHZ: local_softirq_pending 80" message will not be
+> >>    seen any more. Now these warnings can be seen once iperf is started.
+> >>    # iperf -c $IPERFHOST -w 128K  -d -t 60
+> > 
+> > Do you also see "sched: RT throttling activated"? Because I don't see
+> > otherwise why this should pop up.
+> 
+> I've reverted my patch an did requested experiments (some additional info below).
+> 
+> I do not see "sched: RT throttling activated" :(
+
+That is okay. However if aim for throughput you might want to switch
+away from NO_HZ (and deactivate the software watchdog wich runs at
+prio 99 if enabled).
+
+> root@am57xx-evm:~# ./net_perf.sh & cyclictest -m -Sp98 -q  -D4m
+> [1] 1301
+> # /dev/cpu_dma_latency set to 0us
+> Linux am57xx-evm 4.4.16-rt23-00321-ga195e6a-dirty #92 SMP PREEMPT RT Fri Aug 12 14:03:59 EEST 2016 armv7l GNU/Linux
+> 
+…
+> [1]+  Done                    ./net_perf.sh
+
+I can't parse this. But that local_softirq_pending() warning might
+contribute to lower numbers.
+
+> =============================================== before, no net load:
+> cyclictest -m -Sp98 -q  -D4m -i250 -d0
+> # /dev/cpu_dma_latency set to 0us
+> T: 0 ( 1288) P:98 I:250 C: 960000 Min:      8 Act:    9 Avg:    8 Max:      33
+> T: 1 ( 1289) P:98 I:250 C: 959929 Min:      7 Act:   11 Avg:    9 Max:      26
+
+> =============================================== after, no net load:
+> cyclictest -m -Sp98 -q  -D4m -i250 -d0
+> T: 0 ( 1301) P:98 I:250 C: 960000 Min:      7 Act:    9 Avg:    8 Max:      22
+> T: 1 ( 1302) P:98 I:250 C: 959914 Min:      7 Act:   11 Avg:    8 Max:      28
+
+I think those two should be equal more or less since the change should
+have no impact on "no net load" or do I miss something?
+
+> =============================================== before, with net load:
+> cyclictest -m -Sp98 -q -D4m -i250 -d0
+> T: 0 ( 1400) P:98 I:250 C: 960000 Min:      8 Act:   25 Avg:   18 Max:      83
+> T: 1 ( 1401) P:98 I:250 C: 959801 Min:      7 Act:   27 Avg:   17 Max:      48
+> 
+> 
+> =============================================== after, with net load:
+> cyclictest -m -Sp98 -q  -D4m -i250 -d0
+> T: 0 ( 1358) P:98 I:250 C: 960000 Min:      8 Act:   11 Avg:   14 Max:      42
+> T: 1 ( 1359) P:98 I:250 C: 959743 Min:      7 Act:   18 Avg:   15 Max:      36
+
+So the max value dropped by ~50% with your patch. Interesting. What I
+remember from testing is that once you had, say, one hour of hackbench
+running then after that, the extra network traffic didn't contribute
+much (if at all) to the max value.
+That said it is hard to believe that one extra context switch
+contributes about 40us to the max value on CPU0.
+
+> > What happens if s/__raise_softirq_irqoff_ksoft/__raise_softirq_irqoff/
+> > in net/core/dev.c and chrt the priority of you network interrupt
+> > handlers to SCHED_OTHER priority?
+> 
+> ===== without this patch + __raise_softirq_irqoff + netIRQs->SCHED_OTHER
+> 
+> with net load:
+> cyclictest -m -Sp98 -q -D4m -i250 -d0
+> T: 0 ( 1325) P:98 I:1000 C: 240000 Min:      8 Act:   22 Avg:   17 Max:      51
+> T: 1 ( 1326) P:98 I:1500 C: 159981 Min:      8 Act:   15 Avg:   15 Max:      39
+> 
+> cyclictest -m -Sp98 -q  -D4m -i250 -d0
+> T: 0 ( 1307) P:98 I:250 C: 960000 Min:      7 Act:   13 Avg:   16 Max:      50
+> T: 1 ( 1308) P:98 I:250 C: 959819 Min:      8 Act:   12 Avg:   14 Max:      37
+> 
+> and net parformance is better:
+> root@am57xx-evm:~# ps -A | grep 4848
+>    82 ?        00:00:00 irq/354-4848400
+>    83 ?        00:00:00 irq/355-4848400
+> root@am57xx-evm:~# chrt -o -p 0 82
+> root@am57xx-evm:~# chrt -o -p 0 83
+> ./net_perf.sh & cyclictest -m -Sp98 -q  -D4m -i250 -d0
+> [1] 1298
+> # /dev/cpu_dma_latency set to 0us
+> Linux am57xx-evm 4.4.16-rt23-00321-ga195e6a-dirty #95 SMP PREEMPT RT Fri Aug 12 16:20:42 EEST 2016 armv7l GNU/Linux
+
+So that looks nice, doesn't it?
+
+Sebastian
