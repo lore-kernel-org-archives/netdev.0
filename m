@@ -1,108 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] tcp: use an RB tree for ooo receive queue
-Date: Thu, 08 Sep 2016 06:38:21 -0700
-Message-ID: <1473341901.15733.41.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1473284968.15733.8.camel@edumazet-glaptop3.roam.corp.google.com>
-         <alpine.DEB.2.10.1609081236470.18111@whp-28.cs.helsinki.fi>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 3/4] net: phy: Add read driver for Microsemi PHYs.
+Date: Thu, 8 Sep 2016 15:40:26 +0200
+Message-ID: <20160908134026.GI26445@lunn.ch>
+References: <646450A91FAED74E85C6E9C4D6E936A1453366A5@avsrvexchmbx1.microsemi.net>
+ <20160824131347.GE13406@lunn.ch>
+ <20160908094211.GA4281@microsemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Yaogong Wang <wygivan@google.com>,
-        Yuchung Cheng <ycheng@google.com>,
-        Neal Cardwell <ncardwell@google.com>
-To: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+        Allan Nielsen <Allan.Nielsen@microsemi.com>
+To: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:35216 "EHLO
-        mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757667AbcIHNiY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 09:38:24 -0400
-Received: by mail-pa0-f48.google.com with SMTP id b2so17604308pat.2
-        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 06:38:23 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.10.1609081236470.18111@whp-28.cs.helsinki.fi>
+Received: from vps0.lunn.ch ([178.209.37.122]:38886 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1757562AbcIHNk2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Sep 2016 09:40:28 -0400
+Content-Disposition: inline
+In-Reply-To: <20160908094211.GA4281@microsemi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-09-08 at 14:02 +0300, Ilpo Järvinen wrote:
-> On Wed, 7 Sep 2016, Eric Dumazet wrote:
+> Microsemi PHY have different pages i.e. Std IEEE, Extended,
+> Extended_2, Extended_3 and GPIO pages.
 
-> While testing, was there any check done for the data that was delivered
-> in order to ensure that no corruption occured (either by you or Yaogong)? 
-> ...This kind of changes have some potential to cause some corruption to
-> the stream content and it would be nice to be sure there wasn't any
-> accidents.
+Yes, nothing special there. Marvell does the same, and probably
+others.
 
-Sure, we did tests on real GFE, serving real data to users.
+> When I want to use SIOCGMIIREG, I can read Std IEEE only with
+> SIOCGMIIREG and not other pages.
 
-My ssh/scp sessions did not catch any error, even with up to 10% packet
-losses.
+So this is purely for your own debug. So you can hack in anything you
+want. Just don't submit it for mainline.
 
-> >  	}
-> >  
-> > -	seq = TCP_SKB_CB(skb)->seq;
-> > -	end_seq = TCP_SKB_CB(skb)->end_seq;
-> 
-> I hate to nitpick but moving these variables earlier and the 
-> TCP_SKB_CB(skb)->seq/end_seq simplifications seem unrelated and
-> could be done in another patch?
+Or you can do it properly. Take a look at the sources for
+mii-tool. Figure out a way to do it cleanly which will work for all
+phys which support multiple pages. Then submit patches which does this
+for both your own PHY and one other manufacture. I can help with
+Marvell PHYS, if that is what you want.
 
-You are right.
+What will never get accepted is something which is not generic. What
+you submit must work for multiple vendors, and you need to submit it
+all, from the userspace/kernel space API all the way down to the PHY,
+and ideally patches to mii-tool as well.
 
-I could split this patch in 3 parts if David requests it.
-
-1) One patch adding skb_rbtree_purge(struct rb_root *root) helper
-2) One patch doing this seq/end_seq cleanup.
-3) RB patch
-
-
-> > -
-> > -	for (;;) {
-> > -		struct sk_buff *next = NULL;
-> >  
-> > -		if (!skb_queue_is_last(&tp->out_of_order_queue, skb))
-> > -			next = skb_queue_next(&tp->out_of_order_queue, skb);
-> > -		skb = next;
-> > +	for (head = skb;;) {
-> > +		skb = tcp_skb_next(skb, NULL);
-> >  
-> > -		/* Segment is terminated when we see gap or when
-> > -		 * we are at the end of all the queue. */
-> > +		/* Range is terminated when we see a gap or when
-> > +		 * we are at the queue end.
-> > +		 */
-> >  		if (!skb ||
-> >  		    after(TCP_SKB_CB(skb)->seq, end) ||
-> >  		    before(TCP_SKB_CB(skb)->end_seq, start)) {
-> > -			tcp_collapse(sk, &tp->out_of_order_queue,
-> > +			tcp_collapse(sk, NULL, &tp->out_of_order_queue,
-> >  				     head, skb, start, end);
-> > -			head = skb;
-> > -			if (!skb)
-> > -				break;
-> > -			/* Start new segment */
-> > +			goto new_range;
-> > +		}
-> > +
-> > +		if (unlikely(before(TCP_SKB_CB(skb)->seq, start)))
-> >  			start = TCP_SKB_CB(skb)->seq;
-> > +		if (after(TCP_SKB_CB(skb)->end_seq, end))
-> >  			end = TCP_SKB_CB(skb)->end_seq;
-> > -		} else {
-> > -			if (before(TCP_SKB_CB(skb)->seq, start))
-> > -				start = TCP_SKB_CB(skb)->seq;
-> > -			if (after(TCP_SKB_CB(skb)->end_seq, end))
-> > -				end = TCP_SKB_CB(skb)->end_seq;
-> > -		}
-> >  	}
-> >  }
-> 
-> I tried long to think if I could propose alternative layout which would 
-> make this function to exit from the end but couldn't come up anything 
-> sensible. As is, it's always exiting within that top if block which is
-> somewhat unintuitive :-).
-> 
-> Acked-By: Ilpo Järvinen <ilpo.jarvinen@helsinki>
-> 
-
-Thanks for the review !
+    Andrew
