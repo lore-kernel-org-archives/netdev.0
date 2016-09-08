@@ -1,63 +1,108 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] ipv4: accept u8 in IP_TOS ancillary data
-Date: Thu, 08 Sep 2016 06:31:14 -0700
-Message-ID: <1473341474.15733.36.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1473310376.15733.26.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20160908111519.62af94bf@redhat.com>
+Subject: Re: [PATCH net-next] tcp: use an RB tree for ooo receive queue
+Date: Thu, 08 Sep 2016 06:38:21 -0700
+Message-ID: <1473341901.15733.41.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1473284968.15733.8.camel@edumazet-glaptop3.roam.corp.google.com>
+         <alpine.DEB.2.10.1609081236470.18111@whp-28.cs.helsinki.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Transfer-Encoding: 8bit
 Cc: David Miller <davem@davemloft.net>,
         netdev <netdev@vger.kernel.org>,
-        Francesco Fusco <fusco@ntop.org>,
-        Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+        Yaogong Wang <wygivan@google.com>,
+        Yuchung Cheng <ycheng@google.com>,
+        Neal Cardwell <ncardwell@google.com>
+To: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:32994 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751944AbcIHNbQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 09:31:16 -0400
-Received: by mail-pf0-f193.google.com with SMTP id 128so2537047pfb.0
-        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 06:31:16 -0700 (PDT)
-In-Reply-To: <20160908111519.62af94bf@redhat.com>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:35216 "EHLO
+        mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757667AbcIHNiY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 09:38:24 -0400
+Received: by mail-pa0-f48.google.com with SMTP id b2so17604308pat.2
+        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 06:38:23 -0700 (PDT)
+In-Reply-To: <alpine.DEB.2.10.1609081236470.18111@whp-28.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-09-08 at 11:15 +0200, Jesper Dangaard Brouer wrote:
-> On Wed, 07 Sep 2016 21:52:56 -0700
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Thu, 2016-09-08 at 14:02 +0300, Ilpo Järvinen wrote:
+> On Wed, 7 Sep 2016, Eric Dumazet wrote:
+
+> While testing, was there any check done for the data that was delivered
+> in order to ensure that no corruption occured (either by you or Yaogong)? 
+> ...This kind of changes have some potential to cause some corruption to
+> the stream content and it would be nice to be sure there wasn't any
+> accidents.
+
+Sure, we did tests on real GFE, serving real data to users.
+
+My ssh/scp sessions did not catch any error, even with up to 10% packet
+losses.
+
+> >  	}
+> >  
+> > -	seq = TCP_SKB_CB(skb)->seq;
+> > -	end_seq = TCP_SKB_CB(skb)->end_seq;
 > 
-> > From: Eric Dumazet <edumazet@google.com>
-> > 
-> > In commit f02db315b8d8 ("ipv4: IP_TOS and IP_TTL can be specified as
-> > ancillary data") Francesco added IP_TOS values specified as integer.
-> > 
-> > However, kernel sends to userspace (at recvmsg() time) an IP_TOS value
-> > in a single byte, when IP_RECVTOS is set on the socket.
-> > 
-> > It can be very useful to reflect all ancillary options as given by the
-> > kernel in a subsequent sendmsg(), instead of aborting the sendmsg() with
-> > EINVAL after Francesco patch.
-> > 
-> > So this patch extends IP_TOS ancillary to accept an u8, so that an UDP
-> > server can simply reuse same ancillary block without having to mangle
-> > it.
-> > 
-> > Jesper can then augment
-> > https://github.com/netoptimizer/network-testing/blob/master/src/udp_example02.c
-> > to add TOS reflection ;)
+> I hate to nitpick but moving these variables earlier and the 
+> TCP_SKB_CB(skb)->seq/end_seq simplifications seem unrelated and
+> could be done in another patch?
+
+You are right.
+
+I could split this patch in 3 parts if David requests it.
+
+1) One patch adding skb_rbtree_purge(struct rb_root *root) helper
+2) One patch doing this seq/end_seq cleanup.
+3) RB patch
+
+
+> > -
+> > -	for (;;) {
+> > -		struct sk_buff *next = NULL;
+> >  
+> > -		if (!skb_queue_is_last(&tp->out_of_order_queue, skb))
+> > -			next = skb_queue_next(&tp->out_of_order_queue, skb);
+> > -		skb = next;
+> > +	for (head = skb;;) {
+> > +		skb = tcp_skb_next(skb, NULL);
+> >  
+> > -		/* Segment is terminated when we see gap or when
+> > -		 * we are at the end of all the queue. */
+> > +		/* Range is terminated when we see a gap or when
+> > +		 * we are at the queue end.
+> > +		 */
+> >  		if (!skb ||
+> >  		    after(TCP_SKB_CB(skb)->seq, end) ||
+> >  		    before(TCP_SKB_CB(skb)->end_seq, start)) {
+> > -			tcp_collapse(sk, &tp->out_of_order_queue,
+> > +			tcp_collapse(sk, NULL, &tp->out_of_order_queue,
+> >  				     head, skb, start, end);
+> > -			head = skb;
+> > -			if (!skb)
+> > -				break;
+> > -			/* Start new segment */
+> > +			goto new_range;
+> > +		}
+> > +
+> > +		if (unlikely(before(TCP_SKB_CB(skb)->seq, start)))
+> >  			start = TCP_SKB_CB(skb)->seq;
+> > +		if (after(TCP_SKB_CB(skb)->end_seq, end))
+> >  			end = TCP_SKB_CB(skb)->end_seq;
+> > -		} else {
+> > -			if (before(TCP_SKB_CB(skb)->seq, start))
+> > -				start = TCP_SKB_CB(skb)->seq;
+> > -			if (after(TCP_SKB_CB(skb)->end_seq, end))
+> > -				end = TCP_SKB_CB(skb)->end_seq;
+> > -		}
+> >  	}
+> >  }
 > 
-> This is actually your old program ;-)
-> Do I need to change anything, as I'm just bouncing the packet back with sendmsg() ?
+> I tried long to think if I could propose alternative layout which would 
+> make this function to exit from the end but couldn't come up anything 
+> sensible. As is, it's always exiting within that top if block which is
+> somewhat unintuitive :-).
+> 
+> Acked-By: Ilpo Järvinen <ilpo.jarvinen@helsinki>
+> 
 
-I guess you want to add an option and if this option is requested by the
-user, add :
-
-	setsockopt(fd, SOL_IP, IP_PKTINFO, &on, sizeof(on));
-+	if (tos_reflect)
-+		setsockopt(fd, SOL_IP, IP_RECVTOS, &on, sizeof(on));
-
-before the loop doing the recvmsg()/sendmsg() calls.
-
-Thanks !
- 
+Thanks for the review !
