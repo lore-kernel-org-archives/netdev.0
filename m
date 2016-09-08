@@ -1,149 +1,123 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [4.4-RT PATCH RFC/RFT] drivers: net: cpsw: mark rx/tx irq as
- IRQF_NO_THREAD
-Date: Thu, 8 Sep 2016 19:24:07 +0300
-Message-ID: <4f134c90-9230-711e-6993-df84e5facd3b@ti.com>
-References: <20160811161540.9613-1-grygorii.strashko@ti.com>
- <20160812083206.t7lvxpo44marwpf5@linutronix.de>
- <a5d1bd8f-4219-4890-9e1e-d4bc4181eb57@ti.com>
- <20160908142813.tma7j6p44e3z3nqc@linutronix.de>
+From: Tom Herbert via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: [PATCH RFC 11/11] net/mlx5e: XDP TX xmit more
+Date: Thu, 8 Sep 2016 09:26:03 -0700
+Message-ID: <CALx6S35B4gp80AWPBvUv2hEGAMc8Hs2ErjAPOB8SU=SgYoUp=Q@mail.gmail.com>
+References: <1473252152-11379-1-git-send-email-saeedm@mellanox.com>
+	<1473252152-11379-12-git-send-email-saeedm@mellanox.com>
+	<1473259302.10725.31.camel@edumazet-glaptop3.roam.corp.google.com>
+	<CALzJLG8G1SvmHKLm2Oqn3v8FUAOjScS+=tsbOaixkPUY4JFDPQ@mail.gmail.com>
+	<1473262379.10725.42.camel@edumazet-glaptop3.roam.corp.google.com>
+	<CALzJLG9iVpS2qH5Ryc_DtEjrQMhcKD+qrLrGn=vet=_9N8eXPw@mail.gmail.com>
+	<20160907202234.55e18ef3@redhat.com> <57D0D3EA.1090004@gmail.com>
+	<CALx6S34vqa+13c_4m0CKqL_6U+37DQ15T=WRAdUZNL3iYo1J0g@mail.gmail.com>
+	<20160908071119.776cce56@redhat.com>
+Reply-To: Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: Steven Rostedt <rostedt@goodmis.org>, <linux-omap@vger.kernel.org>,
-        Alison Chaiken <alison@peloton-tech.com>,
-        <linux-rt-users@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:52069 "EHLO comal.ext.ti.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752826AbcIHQYZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Sep 2016 12:24:25 -0400
-In-Reply-To: <20160908142813.tma7j6p44e3z3nqc@linutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+To: Jesper Dangaard Brouer <brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <20160908071119.776cce56-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 09/08/2016 05:28 PM, Sebastian Andrzej Siewior wrote:
-> On 2016-08-12 18:58:21 [+0300], Grygorii Strashko wrote:
->> Hi Sebastian,
-> Hi Grygorii,
-> 
->> Thankds for comment. You're right:
->> irq_thread()->irq_forced_thread_fn()->local_bh_enable()
->>
->> but wouldn't here two wake_up_process() calls any way,
->> plus preempt_check_resched_rt() in napi_schedule().
-> 
-> Usually you prefer BH handling in the IRQ-thread because it runs at
-> higher priority and is not interrupted by a SCHED_OTHER process. And you
-> can assign it a higher priority if it should be preferred over an other
-> interrupt. However, if the processing of the interrupt is taking too
-> much time (like that ping flood, a lot of network traffic) then we push
-> it to the softirq thread. If you do this now unconditionally in the
-> SCHED_OTHER softirq thread then you take away all the `good' things we
-> had (like processing important packets at higher priority as long as
-> nobody floods us). Plus you share this thread with everything else that
-> runs in there.
+On Wed, Sep 7, 2016 at 10:11 PM, Jesper Dangaard Brouer
+<brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+>
+> On Wed, 7 Sep 2016 20:21:24 -0700 Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org> wrote:
+>
+>> On Wed, Sep 7, 2016 at 7:58 PM, John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>> > On 16-09-07 11:22 AM, Jesper Dangaard Brouer wrote:
+>> >>
+>> >> On Wed, 7 Sep 2016 19:57:19 +0300 Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org> wrote:
+>> >>> On Wed, Sep 7, 2016 at 6:32 PM, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>> >>>> On Wed, 2016-09-07 at 18:08 +0300, Saeed Mahameed wrote:
+>> >>>>> On Wed, Sep 7, 2016 at 5:41 PM, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>> >>>>>> On Wed, 2016-09-07 at 15:42 +0300, Saeed Mahameed wrote:
+>> >> [...]
+>> >>>>
+>> >>>> Only if a qdisc is present and pressure is high enough.
+>> >>>>
+>> >>>> But in a forwarding setup, we likely receive at a lower rate than the
+>> >>>> NIC can transmit.
+>> >>
+>> >> Yes, I can confirm this happens in my experiments.
+>> >>
+>> >>>>
+>> >>>
+>> >>> Jesper has a similar Idea to make the qdisc think it is under
+>> >>> pressure, when the device TX ring is idle most of the time, i think
+>> >>> his idea can come in handy here. I am not fully involved in the
+>> >>> details, maybe he can elaborate more.
+>> >>>
+>> >>> But if it works, it will be transparent to napi, and xmit more will
+>> >>> happen by design.
+>> >>
+>> >> Yes. I have some ideas around getting more bulking going from the qdisc
+>> >> layer, by having the drivers provide some feedback to the qdisc layer
+>> >> indicating xmit_more should be possible.  This will be a topic at the
+>> >> Network Performance Workshop[1] at NetDev 1.2, I have will hopefully
+>> >> challenge people to come up with a good solution ;-)
+>> >>
+>> >
+>> > One thing I've noticed but haven't yet actually analyzed much is if
+>> > I shrink the nic descriptor ring size to only be slightly larger than
+>> > the qdisc layer bulking size I get more bulking and better perf numbers.
+>> > At least on microbenchmarks. The reason being the nic pushes back more
+>> > on the qdisc. So maybe a case for making the ring size in the NIC some
+>> > factor of the expected number of queues feeding the descriptor ring.
+>> >
+>
+> I've also played with shrink the NIC descriptor ring size, it works,
+> but it is an ugly hack to get NIC pushes backs, and I foresee it will
+> hurt normal use-cases. (There are other reasons for shrinking the ring
+> size like cache usage, but that is unrelated to this).
+>
+>
+>> BQL is not helping with that?
+>
+> Exactly. But the BQL _byte_ limit is not what is needed, what we need
+> to know is the _packets_ currently "in-flight".  Which Tom already have
+> a patch for :-)  Once we have that the algorithm is simple.
+>
+> Qdisc dequeue look at BQL pkts-in-flight, if driver have "enough"
+> packets in-flight, the qdisc start it's bulk dequeue building phase,
+> before calling the driver. The allowed max qdisc bulk size should
+> likely be related to pkts-in-flight.
+>
+Sorry, I'm still missing it. The point of BQL is that we minimize the
+amount of data (and hence number of packets) that needs to be queued
+in the device in order to prevent the link from going idle while there
+are outstanding packets to be sent. The algorithm is based on counting
+bytes not packets because bytes are roughly an equal cost unit of
+work. So if we've queued 100K of bytes on the queue we know how long
+that takes around 80 usecs @10G, but if we count packets then we
+really don't know much about that. 100 packets enqueued could
+represent 6400 bytes or 6400K worth of data so time to transmit is
+anywhere from 5usecs to 5msecs....
 
-That's i understand, but effect from this patch on network throughput
-is pretty amazing :)
+Shouldn't qdisc bulk size be based on the BQL limit? What is the
+simple algorithm to apply to in-flight packets?
 
-> 
->>>> And, as result, get benefits from the following improvements (tested
->>>> on am57xx-evm):
->>>>
->>>> 1) "[ 78.348599] NOHZ: local_softirq_pending 80" message will not be
->>>>    seen any more. Now these warnings can be seen once iperf is started.
->>>>    # iperf -c $IPERFHOST -w 128K  -d -t 60
->>>
->>> Do you also see "sched: RT throttling activated"? Because I don't see
->>> otherwise why this should pop up.
->>
->> I've reverted my patch an did requested experiments (some additional info below).
->>
->> I do not see "sched: RT throttling activated" :(
-> 
-> That is okay. However if aim for throughput you might want to switch
-> away from NO_HZ (and deactivate the software watchdog wich runs at
-> prio 99 if enabled).
-> 
->> root@am57xx-evm:~# ./net_perf.sh & cyclictest -m -Sp98 -q  -D4m
->> [1] 1301
->> # /dev/cpu_dma_latency set to 0us
->> Linux am57xx-evm 4.4.16-rt23-00321-ga195e6a-dirty #92 SMP PREEMPT RT Fri Aug 12 14:03:59 EEST 2016 armv7l GNU/Linux
->>
-> …
->> [1]+  Done                    ./net_perf.sh
-> 
-> I can't parse this. But that local_softirq_pending() warning might
-> contribute to lower numbers.
-> 
->> =============================================== before, no net load:
->> cyclictest -m -Sp98 -q  -D4m -i250 -d0
->> # /dev/cpu_dma_latency set to 0us
->> T: 0 ( 1288) P:98 I:250 C: 960000 Min:      8 Act:    9 Avg:    8 Max:      33
->> T: 1 ( 1289) P:98 I:250 C: 959929 Min:      7 Act:   11 Avg:    9 Max:      26
-> 
->> =============================================== after, no net load:
->> cyclictest -m -Sp98 -q  -D4m -i250 -d0
->> T: 0 ( 1301) P:98 I:250 C: 960000 Min:      7 Act:    9 Avg:    8 Max:      22
->> T: 1 ( 1302) P:98 I:250 C: 959914 Min:      7 Act:   11 Avg:    8 Max:      28
-> 
-> I think those two should be equal more or less since the change should
-> have no impact on "no net load" or do I miss something?
+Tom
 
-Correct I see no differences in this case, as per above.
-
-> 
->> =============================================== before, with net load:
->> cyclictest -m -Sp98 -q -D4m -i250 -d0
->> T: 0 ( 1400) P:98 I:250 C: 960000 Min:      8 Act:   25 Avg:   18 Max:      83
->> T: 1 ( 1401) P:98 I:250 C: 959801 Min:      7 Act:   27 Avg:   17 Max:      48
->>
->>
->> =============================================== after, with net load:
->> cyclictest -m -Sp98 -q  -D4m -i250 -d0
->> T: 0 ( 1358) P:98 I:250 C: 960000 Min:      8 Act:   11 Avg:   14 Max:      42
->> T: 1 ( 1359) P:98 I:250 C: 959743 Min:      7 Act:   18 Avg:   15 Max:      36
-> 
-> So the max value dropped by ~50% with your patch. Interesting. What I
-> remember from testing is that once you had, say, one hour of hackbench
-> running then after that, the extra network traffic didn't contribute
-> much (if at all) to the max value.
-> That said it is hard to believe that one extra context switch
-> contributes about 40us to the max value on CPU0.
-
-Yup. but short time testing provides very stable results.
-This patch is going to be tested more intensively shortly.
-
-> 
->>> What happens if s/__raise_softirq_irqoff_ksoft/__raise_softirq_irqoff/
->>> in net/core/dev.c and chrt the priority of you network interrupt
->>> handlers to SCHED_OTHER priority?
->>
->> ===== without this patch + __raise_softirq_irqoff + netIRQs->SCHED_OTHER
->>
->> with net load:
->> cyclictest -m -Sp98 -q -D4m -i250 -d0
->> T: 0 ( 1325) P:98 I:1000 C: 240000 Min:      8 Act:   22 Avg:   17 Max:      51
->> T: 1 ( 1326) P:98 I:1500 C: 159981 Min:      8 Act:   15 Avg:   15 Max:      39
->>
->> cyclictest -m -Sp98 -q  -D4m -i250 -d0
->> T: 0 ( 1307) P:98 I:250 C: 960000 Min:      7 Act:   13 Avg:   16 Max:      50
->> T: 1 ( 1308) P:98 I:250 C: 959819 Min:      8 Act:   12 Avg:   14 Max:      37
->>
-
-> 
-> So that looks nice, doesn't it?
-
-Yah, This improvement, in general. 
-But the fact that so significant net performance drop observed out of the box 
-(without any tunning) and on idle system - triggers a lot of questions ;(
-
-I'm worry if observed original behavior can depend on usage NAPI polling  for both RX/TX 
-in CPSW driver. CPSW request two IRQs RX and TX and both handler just do napi_schedule()[NET_RX].
-
-
--- 
-regards,
--grygorii
+> --
+> Best regards,
+>   Jesper Dangaard Brouer
+>   MSc.CS, Principal Kernel Engineer at Red Hat
+>   Author of http://www.iptv-analyzer.org
+>   LinkedIn: http://www.linkedin.com/in/brouer
