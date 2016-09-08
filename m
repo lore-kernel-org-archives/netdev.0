@@ -1,7 +1,8 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: pull request (net-next): ipsec-next 2016-09-08
-Date: Thu, 8 Sep 2016 07:54:35 +0200
-Message-ID: <1473314092-11319-1-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 06/17] xfrm: state: use rcu_deref and assign_pointer helpers
+Date: Thu, 8 Sep 2016 07:54:41 +0200
+Message-ID: <1473314092-11319-7-git-send-email-steffen.klassert@secunet.com>
+References: <1473314092-11319-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Herbert Xu <herbert@gondor.apana.org.au>,
@@ -9,70 +10,65 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
         <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:36341 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:36345 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752925AbcIHGvY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1752897AbcIHGvY (ORCPT <rfc822;netdev@vger.kernel.org>);
         Thu, 8 Sep 2016 02:51:24 -0400
+In-Reply-To: <1473314092-11319-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-1) Constify the xfrm_replay structures. From Julia Lawall
+From: Florian Westphal <fw@strlen.de>
 
-2) Protect xfrm state hash tables with rcu, lookups
-   can be done now without acquiring xfrm_state_lock.
-   From Florian Westphal.
+Before xfrm_state_find() can use rcu_read_lock instead of xfrm_state_lock
+we need to switch users of the hash table to assign/obtain the pointers
+with the appropriate rcu helpers.
 
-3) Protect xfrm policy hash tables with rcu, lookups
-   can be done now without acquiring xfrm_policy_lock.
-   From Florian Westphal.
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/xfrm/xfrm_state.c | 18 ++++++++++--------
+ 1 file changed, 10 insertions(+), 8 deletions(-)
 
-4) We don't need to have a garbage collector list per
-   namespace anymore, so use a global one instead.
-   From Florian Westphal.
-
-Please pull or let me know if there are problems.
-
-Thanks!
-
-The following changes since commit 0184165b2f42c4b032da9dd11546bfbaeb5afd4e:
-
-  ravb: add sleep PM suspend/resume support (2016-08-09 16:16:08 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec-next.git master
-
-for you to fetch changes up to 35db57bbc4b7ab810bba6e6d6954a0faf5a842cf:
-
-  xfrm: state: remove per-netns gc task (2016-08-24 13:16:06 +0200)
-
-----------------------------------------------------------------
-Florian Westphal (15):
-      xfrm: state: use hlist_for_each_entry_rcu helper
-      xfrm: state: use atomic_inc_not_zero to increment refcount
-      xfrm: state: delay freeing until rcu grace period has elapsed
-      xfrm: state: add sequence count to detect hash resizes
-      xfrm: state: use rcu_deref and assign_pointer helpers
-      xfrm: state: don't use lock anymore unless acquire operation is needed
-      xfrm: policy: use rcu versions for iteration and list add/del
-      xfrm: policy: prepare policy_bydst hash for rcu lookups
-      xfrm: policy: add sequence count to sync with hash resize
-      xfrm: policy: use atomic_inc_not_zero in rcu section
-      xfrm: policy: make xfrm_policy_lookup_bytype lockless
-      xfrm: policy: only use rcu in xfrm_sk_policy_lookup
-      xfrm: policy: don't acquire policy lock in xfrm_spd_getinfo
-      xfrm: policy: convert policy_lock to spinlock
-      xfrm: state: remove per-netns gc task
-
-Julia Lawall (1):
-      xfrm: constify xfrm_replay structures
-
-Steffen Klassert (1):
-      xfrm: Fix xfrm_policy_lock imbalance
-
- include/net/netns/xfrm.h |  12 ++--
- include/net/xfrm.h       |   2 +-
- net/xfrm/xfrm_policy.c   | 145 ++++++++++++++++++++++++++++-------------------
- net/xfrm/xfrm_replay.c   |   6 +-
- net/xfrm/xfrm_state.c    | 121 +++++++++++++++++++++++++--------------
- 5 files changed, 173 insertions(+), 113 deletions(-)
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index ac4037c..53e7867 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -28,6 +28,9 @@
+ 
+ #include "xfrm_hash.h"
+ 
++#define xfrm_state_deref_prot(table, net) \
++	rcu_dereference_protected((table), lockdep_is_held(&(net)->xfrm.xfrm_state_lock))
++
+ /* Each xfrm_state may be linked to two tables:
+ 
+    1. Hash table by (spi,daddr,ah/esp) to find SA by SPI. (input,ctl)
+@@ -131,18 +134,17 @@ static void xfrm_hash_resize(struct work_struct *work)
+ 	write_seqcount_begin(&xfrm_state_hash_generation);
+ 
+ 	nhashmask = (nsize / sizeof(struct hlist_head)) - 1U;
++	odst = xfrm_state_deref_prot(net->xfrm.state_bydst, net);
+ 	for (i = net->xfrm.state_hmask; i >= 0; i--)
+-		xfrm_hash_transfer(net->xfrm.state_bydst+i, ndst, nsrc, nspi,
+-				   nhashmask);
++		xfrm_hash_transfer(odst + i, ndst, nsrc, nspi, nhashmask);
+ 
+-	odst = net->xfrm.state_bydst;
+-	osrc = net->xfrm.state_bysrc;
+-	ospi = net->xfrm.state_byspi;
++	osrc = xfrm_state_deref_prot(net->xfrm.state_bysrc, net);
++	ospi = xfrm_state_deref_prot(net->xfrm.state_byspi, net);
+ 	ohashmask = net->xfrm.state_hmask;
+ 
+-	net->xfrm.state_bydst = ndst;
+-	net->xfrm.state_bysrc = nsrc;
+-	net->xfrm.state_byspi = nspi;
++	rcu_assign_pointer(net->xfrm.state_bydst, ndst);
++	rcu_assign_pointer(net->xfrm.state_bysrc, nsrc);
++	rcu_assign_pointer(net->xfrm.state_byspi, nspi);
+ 	net->xfrm.state_hmask = nhashmask;
+ 
+ 	write_seqcount_end(&xfrm_state_hash_generation);
+-- 
+1.9.1
