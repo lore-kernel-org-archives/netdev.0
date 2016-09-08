@@ -1,59 +1,92 @@
-From: Amitkumar Karwar <akarwar@marvell.com>
-Subject: RE: mwifiex: propagate error if IRQ request fails in
+From: Javier Martinez Canillas <javier@osg.samsung.com>
+Subject: Re: mwifiex: propagate error if IRQ request fails in
  mwifiex_sdio_of()
-Date: Thu, 8 Sep 2016 15:55:34 +0000
-Message-ID: <0f15fe320fa34ae287f8a6b91ec78a34@SC-EXCH04.marvell.com>
+Date: Thu, 8 Sep 2016 11:57:43 -0400
+Message-ID: <c7e8b951-97dd-d2a5-4740-b6895d577f91@osg.samsung.com>
 References: <20160903103520.8C69C6201B@smtp.codeaurora.org>
  <66735eb5-c831-8e06-337b-80ccfc392061@osg.samsung.com>
+ <0f15fe320fa34ae287f8a6b91ec78a34@SC-EXCH04.marvell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
 Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
         "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "Nishant Sarmukadam" <nishants@marvell.com>,
+        Nishant Sarmukadam <nishants@marvell.com>,
         Arend van Spriel <arend.vanspriel@broadcom.com>
-To: Javier Martinez Canillas <javier@osg.samsung.com>,
+To: Amitkumar Karwar <akarwar@marvell.com>,
         Kalle Valo <kvalo@codeaurora.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <66735eb5-c831-8e06-337b-80ccfc392061@osg.samsung.com>
-Content-Language: en-US
+In-Reply-To: <0f15fe320fa34ae287f8a6b91ec78a34@SC-EXCH04.marvell.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-SGkgSmF2aWVyLA0KDQo+IEZyb206IEphdmllciBNYXJ0aW5leiBDYW5pbGxhcyBbbWFpbHRvOmph
-dmllckBvc2cuc2Ftc3VuZy5jb21dDQo+IFNlbnQ6IFR1ZXNkYXksIFNlcHRlbWJlciAwNiwgMjAx
-NiA1OjQzIFBNDQo+IFRvOiBLYWxsZSBWYWxvDQo+IENjOiBsaW51eC1rZXJuZWxAdmdlci5rZXJu
-ZWwub3JnOyBBbWl0a3VtYXIgS2Fyd2FyOw0KPiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51
-eC13aXJlbGVzc0B2Z2VyLmtlcm5lbC5vcmc7IE5pc2hhbnQNCj4gU2FybXVrYWRhbTsgQXJlbmQg
-dmFuIFNwcmllbA0KPiBTdWJqZWN0OiBSZTogbXdpZmlleDogcHJvcGFnYXRlIGVycm9yIGlmIElS
-USByZXF1ZXN0IGZhaWxzIGluDQo+IG13aWZpZXhfc2Rpb19vZigpDQo+IA0KPiBIZWxsbyBLYWxs
-ZSwNCj4gDQo+IE9uIDA5LzAzLzIwMTYgMTI6MzUgUE0sIEthbGxlIFZhbG8gd3JvdGU6DQo+ID4g
-SmF2aWVyIE1hcnRpbmV6IENhbmlsbGFzIDxqYXZpZXJAb3NnLnNhbXN1bmcuY29tPiB3cm90ZToN
-Cj4gPj4gSWYgcmVxdWVzdF9pcnEoKSBmYWlscyBpbiBtd2lmaWV4X3NkaW9fcHJvYmVfb2YoKSwg
-b25seSBhbiBlcnJvcg0KPiA+PiBtZXNzYWdlIGlzIHByaW50ZWQgYnV0IHRoZSBhY3R1YWwgZXJy
-b3IgaXMgbm90IHByb3BhZ2F0ZWQgdG8gdGhlDQo+IGNhbGxlciBmdW5jdGlvbi4NCj4gPj4NCj4g
-Pj4gU2lnbmVkLW9mZi1ieTogSmF2aWVyIE1hcnRpbmV6IENhbmlsbGFzIDxqYXZpZXJAb3NnLnNh
-bXN1bmcuY29tPg0KPiA+DQo+ID4gV2hhdCdzIHRoZSBjb25jbHVzaW9uIHdpdGggdGhpcyBwYXRj
-aD8gU2hvdWxkIEkgZHJvcCBpdCBvciB0YWtlIGl0Pw0KPiA+DQo+ID4gKFRoZSBkaXNjdXNzaW9u
-IGlzIGF2YWlsYWJsZSBmcm9tIHRoZSBwYXRjaHdvcmsgbGluayBpbiB0aGUNCj4gPiBzaWduYXR1
-cmUuKQ0KPiA+DQo+IA0KPiBNeSB1bmRlcnN0YW5kaW5nIGlzIHRoYXQgQXJlbmQgYWdyZWVzIHdp
-dGggdGhlIHBhdGNoIGFuZCB0aGF0IHRoZQ0KPiBxdWVzdGlvbiByYWlzZWQgd2FzIGNhdXNlZCBi
-eSBsb29raW5nIGF0IGFuIG9sZGVyIGtlcm5lbCB2ZXJzaW9uLiBJT1csDQo+IHRoZSBwYXRjaCBp
-cyBPSyBhbmQgc2hvdWxkIGJlIHBpY2tlZC4NCj4gDQo+IEknbSBhZGRpbmcgQXJlbmQgdG8gY2Ms
-IHNvIGNhbiBjb21tZW50IGluIGNhc2UgSSBtaXN1bmRlcnN0b29kIGhpbQ0KPiB0aG91Z2guDQo+
-IA0KDQpUaGlzIGVycm9yIGRvZXNuJ3QgYWZmZWN0IGFjdHVhbCB3aWZpIGZ1bmN0aW9uYWxpdHku
-IE9ubHkgdGhpbmcgaXMgd2FrZXVwIG9uIGludGVycnVwdCB3aGVuIHN5c3RlbSBpcyBpbiBzdXNw
-ZW5kZWQgc3RhdGUgd29uJ3Qgd29yay4NCkkgdGhpbmssIHdlIGNhbiBtYWtlIGJlbG93IGNoYW5n
-ZS4gDQoNCi0tLS0tLS0tLS0tLS0tLS0tLQ0KQEAgLTEyMiw5ICsxMjIsMTEgQEAgc3RhdGljIGlu
-dCBtd2lmaWV4X3NkaW9fcHJvYmVfb2Yoc3RydWN0IGRldmljZSAqZGV2LCBzdHJ1Y3Qgc2Rpb19t
-bWNfY2FyZCAqY2FyZCkNCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgSVJRRl9UUklHR0VSX0xPVywNCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgIndpZmlfd2FrZSIsIGNmZyk7DQogICAgICAgICAgIGlmIChyZXQpIHsN
-Ci0gICAgICAgICAgICAgICAgICAgIGRldl9lcnIoZGV2LA0KKyAgICAgICAgICAgICAgICAgICAg
-ZGV2X2RiZyhkZXYsDQogICAgICAgICAgICAgICAgICAgICAgICAgICAgICJGYWlsZWQgdG8gcmVx
-dWVzdCBpcnFfd2lmaSAlZCAoJWQpXG4iLA0KICAgICAgICAgICAgICAgICAgICAgICAgICAgICBj
-ZmctPmlycV93aWZpLCByZXQpOw0KKyAgICAgICAgICAgICAgICAgICAgY2FyZC0+cGx0X3dha2Vf
-Y2ZnID0gTlVMTDsNCisgICAgICAgICAgICAgICAgICAgIHJldHVybiAwOw0KICAgICAgICAgICAg
-IH0NCiAgICAgICAgICAgICAgICBkaXNhYmxlX2lycShjZmctPmlycV93aWZpKTsNCiAgICAgICAg
-ICAgIH0NCi0tLS0tLS0tLS0tLS0tLS0tDQoNClJlZ2FyZHMsDQpBbWl0a3VtYXINCg==
+Hello Amitkumar,
+
+On 09/08/2016 11:55 AM, Amitkumar Karwar wrote:
+> Hi Javier,
+> 
+>> From: Javier Martinez Canillas [mailto:javier@osg.samsung.com]
+>> Sent: Tuesday, September 06, 2016 5:43 PM
+>> To: Kalle Valo
+>> Cc: linux-kernel@vger.kernel.org; Amitkumar Karwar;
+>> netdev@vger.kernel.org; linux-wireless@vger.kernel.org; Nishant
+>> Sarmukadam; Arend van Spriel
+>> Subject: Re: mwifiex: propagate error if IRQ request fails in
+>> mwifiex_sdio_of()
+>>
+>> Hello Kalle,
+>>
+>> On 09/03/2016 12:35 PM, Kalle Valo wrote:
+>>> Javier Martinez Canillas <javier@osg.samsung.com> wrote:
+>>>> If request_irq() fails in mwifiex_sdio_probe_of(), only an error
+>>>> message is printed but the actual error is not propagated to the
+>> caller function.
+>>>>
+>>>> Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
+>>>
+>>> What's the conclusion with this patch? Should I drop it or take it?
+>>>
+>>> (The discussion is available from the patchwork link in the
+>>> signature.)
+>>>
+>>
+>> My understanding is that Arend agrees with the patch and that the
+>> question raised was caused by looking at an older kernel version. IOW,
+>> the patch is OK and should be picked.
+>>
+>> I'm adding Arend to cc, so can comment in case I misunderstood him
+>> though.
+>>
+> 
+> This error doesn't affect actual wifi functionality. Only thing is wakeup on interrupt when system is in suspended state won't work.
+> I think, we can make below change. 
+> 
+> ------------------
+> @@ -122,9 +122,11 @@ static int mwifiex_sdio_probe_of(struct device *dev, struct sdio_mmc_card *card)
+>                                                IRQF_TRIGGER_LOW,
+>                                                "wifi_wake", cfg);
+>            if (ret) {
+> -                    dev_err(dev,
+> +                    dev_dbg(dev,
+>                              "Failed to request irq_wifi %d (%d)\n",
+>                              cfg->irq_wifi, ret);
+> +                    card->plt_wake_cfg = NULL;
+> +                    return 0;
+>              }
+
+I'm OK with that change. Feel free too add my Reviewed-by if you post it.
+
+>                 disable_irq(cfg->irq_wifi);
+>             }
+> -----------------
+> 
+> Regards,
+> Amitkumar
+> 
+
+Best regards,
+-- 
+Javier Martinez Canillas
+Open Source Group
+Samsung Research America
