@@ -1,109 +1,86 @@
-From: Jojy Varghese <jojy.varghese@gmail.com>
-Subject: Re: [PATCH] net_namespace: fixed net_device reference leak
-Date: Thu, 8 Sep 2016 12:08:29 -0700
-Message-ID: <CAJD3hpUSqSxtgJMK__V-j8VKRwf-ftZFHw0J38VTxP9tDDZyhA@mail.gmail.com>
-References: <CAJD3hpUgNJPOqGmAp7tEaY2+EnOasG=W6VLOMbEhDRgr8M5v8A@mail.gmail.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net 1/6] sctp: remove the unnecessary state check in
+ sctp_outq_tail
+Date: Thu, 8 Sep 2016 15:23:19 -0400
+Message-ID: <20160908192319.GD16608@hmsreliant.think-freely.org>
+References: <cover.1473326067.git.lucien.xin@gmail.com>
+ <1718155e984f63995d1be9b053c58aa1a645718e.1473326067.git.lucien.xin@gmail.com>
+ <20160908142701.GC16608@hmsreliant.think-freely.org>
+ <CADvbK_dxTYrPPFJT5UPZErZLbW9y9oRm+VWbQXxhruwV6UgOZA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        davem <davem@davemloft.net>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:35642 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S937116AbcIHTIb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 15:08:31 -0400
-Received: by mail-wm0-f66.google.com with SMTP id a6so9198571wmc.2
-        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 12:08:31 -0700 (PDT)
-In-Reply-To: <CAJD3hpUgNJPOqGmAp7tEaY2+EnOasG=W6VLOMbEhDRgr8M5v8A@mail.gmail.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:57209 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S938685AbcIHTXd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 15:23:33 -0400
+Content-Disposition: inline
+In-Reply-To: <CADvbK_dxTYrPPFJT5UPZErZLbW9y9oRm+VWbQXxhruwV6UgOZA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(Updating the patch for the case when a non-loopback dev could be unregiste=
-red)
+On Fri, Sep 09, 2016 at 01:34:05AM +0800, Xin Long wrote:
+> >> Data Chunks are only sent by sctp_primitive_SEND, in which sctp checks
+> >> the asoc's state through statetable before calling sctp_outq_tail. So
+> >> there's no need to do it again in sctp_outq_tail.
+> >>
+> >> This patch is to remove it from sctp_outq_tail.
+> >>
+> >> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> > This doesn't seem safe to me.  The send operation is handled in side effect
+> > processing off a queue that might have operations queued ahead of it, which
+> > affect the associations state.  I think you need to keep this check in place
+> >
+> But not really for Data Chunk.
+> 
+> There are 3 places calling sctp_outq_tail.
+> 1. in sctp_assoc_rwnd_increase():
+>    it's for sending sack chunk, so this patch is safe for here
+> 2. sctp_cmd_interpreter(), SCTP_CMD_REPLY:
+>    still not Data Chunk, so safe.
+> 3.SCTP_CMD_SEND_MSG: ->  sctp_cmd_send_msg()
+>    it's for Data Chunk, but it's only called by sctp_sf_do_prm_send().
+> 
+Its not enough to just look at the paths where outq_tail is called, because
+the outq_tail function is checking a state variable that can update
+asynchronously in the side effect processing queue.  Look at any one of the
+timer functions.  Those all fire asynchronous to the outq list, but they all
+enqueue to the side effect list.  Its entirely possible that the state can be
+ESTABLISHED in the primitive send path, but before you enqueue the SEND
+sideffect, a timer will pop and enqueue a NEW_STATE side effect.  The end result
+is you need to check the state again.
 
-Currently during namespace cleanup, if =E2=80=98dst=E2=80=99 subsystem is h=
-olding
-a reference to the interface in the namespace, it does not get released.
-Current code first does a =E2=80=99dev_hold=E2=80=99 on the same device fol=
-lowed by a
-=E2=80=98dev_put=E2=80=99 on the same device resulting in a no-op.
+Neil
 
-This change fixes this leak by assigning the initial namespace=E2=80=99s lo=
-opback
-device to the =E2=80=98dst=E2=80=99 before releasing the reference to the n=
-etwork
-device being released.
-
-Additional reference: https://github.com/docker/docker/issues/5618
-
-Signed-off-by: Jojy G Varghese <jojy.varghese@gmail.com>
----
- net/core/dst.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
-
-diff --git a/net/core/dst.c b/net/core/dst.c
-index a1656e3..7e45593 100644
---- a/net/core/dst.c
-+++ b/net/core/dst.c
-@@ -433,7 +433,11 @@ static void dst_ifdown(struct dst_entry *dst,
-struct net_device *dev,
-                dst->input =3D dst_discard;
-                dst->output =3D dst_discard_out;
-        } else {
--               dst->dev =3D dev_net(dst->dev)->loopback_dev;
-+               if (dst->dev =3D=3D dev_net(dst->dev)->loopback_dev)
-+                       dst->dev =3D init_net.loopback_dev;
-+               else
-+                       dst->dev =3D dev_net(dst->dev)->loopback_dev;
-+
-                dev_hold(dst->dev);
-                dev_put(dev);
-        }
---
-1.8.3.1
-
-On Wed, Sep 7, 2016 at 6:55 PM, Jojy Varghese <jojy.varghese@gmail.com> wro=
-te:
-> During namespace cleanup, if =E2=80=98dst=E2=80=99 subsystem is holding
-> a reference to the loopback interface in the namespace, it does not get
-> released. This is because in the case where the net_device held by 'dst'
-> is same as the namespace's loopback net_device, current code first
-> does a =E2=80=99dev_hold=E2=80=99 on the same device followed by a =E2=80=
-=98dev_put=E2=80=99 on the
-> same device resulting in a no-op.
->
-> This change fixes this leak by assigning the initial namespace=E2=80=99s =
-loopback
-> device to the =E2=80=98dst=E2=80=99=E2=80=99 before releasing the referen=
-ce to the network device
-> being unregistered.
->
-> Additional reference: https://github.com/docker/docker/issues/5618
->
-> Signed-off-by: Jojy G Varghese <jojy.varghese@gmail.com>
-> ---
->  net/core/dst.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/net/core/dst.c b/net/core/dst.c
-> index a1656e3..a18e8ea 100644
-> --- a/net/core/dst.c
-> +++ b/net/core/dst.c
-> @@ -433,7 +433,7 @@ static void dst_ifdown(struct dst_entry *dst,
-> struct net_device *dev,
->                 dst->input =3D dst_discard;
->                 dst->output =3D dst_discard_out;
->         } else {
-> -               dst->dev =3D dev_net(dst->dev)->loopback_dev;
-> +               dst->dev =3D init_net.loopback_dev;
->                 dev_hold(dst->dev);
->                 dev_put(dev);
->         }
+> #define TYPE_SCTP_PRIMITIVE_SEND  { \
+> ...
+> /* SCTP_STATE_COOKIE_WAIT */ \
+> TYPE_SCTP_FUNC(sctp_sf_do_prm_send), \
+> /* SCTP_STATE_COOKIE_ECHOED */ \
+> TYPE_SCTP_FUNC(sctp_sf_do_prm_send), \
+> /* SCTP_STATE_ESTABLISHED */ \
+> TYPE_SCTP_FUNC(sctp_sf_do_prm_send), \
+> /* SCTP_STATE_SHUTDOWN_PENDING */ \
+> 
+> 
+> in sctp_sf_do_prm_send():
+>    sctp_add_cmd_sf(commands, SCTP_CMD_SEND_MSG, SCTP_DATAMSG(msg));
+>    return SCTP_DISPOSITION_CONSUME;
+> 
+> This function is called by PRIMITIVE_SEND, and every time after
+> calling sctp_do_sm(), there must be no operations inside.
+> so it's impossible that other operations queued ahead of it.
+> 
+> I'm not sure if I miss some special case, pls correct me if I'm wrong.
+> 
+> Thanks.
 > --
-> 1.8.3.1
-
-
-
---=20
-Jojy G Varghese
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
