@@ -1,137 +1,99 @@
-From: Lars Persson <lars.persson@axis.com>
-Subject: [PATCH net] dwc_eth_qos: do not register semi-initialized device
-Date: Thu,  8 Sep 2016 13:24:21 +0200
-Message-ID: <1473333861-1319-1-git-send-email-larper@axis.com>
-Cc: linux-kernel@vger.kernel.org, andrianov@ispras.ru,
-        Lars Persson <larper@axis.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH net-next v3] gso: Support partial splitting at the
+ frag_list pointer
+Date: Thu, 8 Sep 2016 13:27:09 +0200
+Message-ID: <20160908112708.GS31137@gauss.secunet.com>
+References: <20160905104738.GD31137@gauss.secunet.com>
+ <CAKgT0UftBBfe08rcHr_Z95TtDLkBq4zz_0xchn5GMpkwKs1P=Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: Netdev <netdev@vger.kernel.org>,
+        Alexander Duyck <alexander.h.duyck@intel.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        "Marcelo Ricardo Leitner" <marcelo.leitner@gmail.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([62.96.220.36]:43383 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1759428AbcIHL1N (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Sep 2016 07:27:13 -0400
+Content-Disposition: inline
+In-Reply-To: <CAKgT0UftBBfe08rcHr_Z95TtDLkBq4zz_0xchn5GMpkwKs1P=Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We move register_netdev() to the end of dwceqos_probe() to close any
-races where the netdev callbacks are called before the initialization
-has finished.
+On Mon, Sep 05, 2016 at 10:30:44AM -0700, Alexander Duyck wrote:
+> On Mon, Sep 5, 2016 at 3:47 AM, Steffen Klassert
+> <steffen.klassert@secunet.com> wrote:
+> > Since commit 8a29111c7 ("net: gro: allow to build full sized skb")
+> > gro may build buffers with a frag_list. This can hurt forwarding
+> > because most NICs can't offload such packets, they need to be
+> > segmented in software. This patch splits buffers with a frag_list
+> > at the frag_list pointer into buffers that can be TSO offloaded.
+> >
+> > Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> > ---
+> >
+> > Changes since v1:
+> >
+> > - Use the assumption that all buffers in the chain excluding the last
+> >   containing the same amount of data.
+> >
+> > - Simplify some checks against gso partial.
+> >
+> > - Fix the generation of IP IDs.
+> >
+> > Changes since v2:
+> >
+> > - Merge common code of gso partial and frag_list pointer splitting.
+> >
+> >  net/core/skbuff.c      | 50 +++++++++++++++++++++++++++++++++++++++-----------
+> >  net/ipv4/af_inet.c     | 14 ++++++++++----
+> >  net/ipv4/gre_offload.c |  6 ++++--
+> >  net/ipv4/tcp_offload.c | 13 +++++++------
+> >  net/ipv4/udp_offload.c |  6 ++++--
+> >  net/ipv6/ip6_offload.c |  5 ++++-
+> >  6 files changed, 68 insertions(+), 26 deletions(-)
+> >
+> > diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> > index 3864b4b6..f754d47 100644
+> > --- a/net/core/skbuff.c
+> > +++ b/net/core/skbuff.c
+> > @@ -3078,11 +3078,30 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
+> >         sg = !!(features & NETIF_F_SG);
+> >         csum = !!can_checksum_protocol(features, proto);
+> >
+> > -       /* GSO partial only requires that we trim off any excess that
+> > -        * doesn't fit into an MSS sized block, so take care of that
+> > -        * now.
+> > -        */
+> > -       if (sg && csum && (features & NETIF_F_GSO_PARTIAL)) {
+> > +       if (sg && csum && (mss != GSO_BY_FRAGS))  {
+> > +               if (!(features & NETIF_F_GSO_PARTIAL)) {
+> > +                       if (list_skb &&
+> > +                           net_gso_ok(features, skb_shinfo(head_skb)->gso_type)) {
+> 
+> The testing logic here is a bit off.
 
-Reported-by: Pavel Andrianov <andrianov@ispras.ru>
-Signed-off-by: Lars Persson <larper@axis.com>
----
- drivers/net/ethernet/synopsys/dwc_eth_qos.c | 38 ++++++++++++++---------------
- 1 file changed, 18 insertions(+), 20 deletions(-)
+Yes, apparently :-/
 
-diff --git a/drivers/net/ethernet/synopsys/dwc_eth_qos.c b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
-index 5a3941b..4490eba 100644
---- a/drivers/net/ethernet/synopsys/dwc_eth_qos.c
-+++ b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
-@@ -1246,7 +1246,7 @@ static int dwceqos_mii_init(struct net_local *lp)
- 	lp->mii_bus->read  = &dwceqos_mdio_read;
- 	lp->mii_bus->write = &dwceqos_mdio_write;
- 	lp->mii_bus->priv = lp;
--	lp->mii_bus->parent = &lp->ndev->dev;
-+	lp->mii_bus->parent = &lp->pdev->dev;
- 
- 	of_address_to_resource(lp->pdev->dev.of_node, 0, &res);
- 	snprintf(lp->mii_bus->id, MII_BUS_ID_SIZE, "%.8llx",
-@@ -2853,25 +2853,17 @@ static int dwceqos_probe(struct platform_device *pdev)
- 
- 	ndev->features = ndev->hw_features;
- 
--	netif_napi_add(ndev, &lp->napi, dwceqos_rx_poll, NAPI_POLL_WEIGHT);
--
--	ret = register_netdev(ndev);
--	if (ret) {
--		dev_err(&pdev->dev, "Cannot register net device, aborting.\n");
--		goto err_out_clk_dis_aper;
--	}
--
- 	lp->phy_ref_clk = devm_clk_get(&pdev->dev, "phy_ref_clk");
- 	if (IS_ERR(lp->phy_ref_clk)) {
- 		dev_err(&pdev->dev, "phy_ref_clk clock not found.\n");
- 		ret = PTR_ERR(lp->phy_ref_clk);
--		goto err_out_unregister_netdev;
-+		goto err_out_clk_dis_aper;
- 	}
- 
- 	ret = clk_prepare_enable(lp->phy_ref_clk);
- 	if (ret) {
- 		dev_err(&pdev->dev, "Unable to enable device clock.\n");
--		goto err_out_unregister_netdev;
-+		goto err_out_clk_dis_aper;
- 	}
- 
- 	lp->phy_node = of_parse_phandle(lp->pdev->dev.of_node,
-@@ -2880,7 +2872,7 @@ static int dwceqos_probe(struct platform_device *pdev)
- 		ret = of_phy_register_fixed_link(lp->pdev->dev.of_node);
- 		if (ret < 0) {
- 			dev_err(&pdev->dev, "invalid fixed-link");
--			goto err_out_unregister_clk_notifier;
-+			goto err_out_clk_dis_phy;
- 		}
- 
- 		lp->phy_node = of_node_get(lp->pdev->dev.of_node);
-@@ -2889,7 +2881,7 @@ static int dwceqos_probe(struct platform_device *pdev)
- 	ret = of_get_phy_mode(lp->pdev->dev.of_node);
- 	if (ret < 0) {
- 		dev_err(&lp->pdev->dev, "error in getting phy i/f\n");
--		goto err_out_unregister_clk_notifier;
-+		goto err_out_clk_dis_phy;
- 	}
- 
- 	lp->phy_interface = ret;
-@@ -2897,14 +2889,14 @@ static int dwceqos_probe(struct platform_device *pdev)
- 	ret = dwceqos_mii_init(lp);
- 	if (ret) {
- 		dev_err(&lp->pdev->dev, "error in dwceqos_mii_init\n");
--		goto err_out_unregister_clk_notifier;
-+		goto err_out_clk_dis_phy;
- 	}
- 
- 	ret = dwceqos_mii_probe(ndev);
- 	if (ret != 0) {
- 		netdev_err(ndev, "mii_probe fail.\n");
- 		ret = -ENXIO;
--		goto err_out_unregister_clk_notifier;
-+		goto err_out_clk_dis_phy;
- 	}
- 
- 	dwceqos_set_umac_addr(lp, lp->ndev->dev_addr, 0);
-@@ -2922,7 +2914,7 @@ static int dwceqos_probe(struct platform_device *pdev)
- 	if (ret) {
- 		dev_err(&lp->pdev->dev, "Unable to retrieve DT, error %d\n",
- 			ret);
--		goto err_out_unregister_clk_notifier;
-+		goto err_out_clk_dis_phy;
- 	}
- 	dev_info(&lp->pdev->dev, "pdev->id %d, baseaddr 0x%08lx, irq %d\n",
- 		 pdev->id, ndev->base_addr, ndev->irq);
-@@ -2932,18 +2924,24 @@ static int dwceqos_probe(struct platform_device *pdev)
- 	if (ret) {
- 		dev_err(&lp->pdev->dev, "Unable to request IRQ %d, error %d\n",
- 			ndev->irq, ret);
--		goto err_out_unregister_clk_notifier;
-+		goto err_out_clk_dis_phy;
- 	}
- 
- 	if (netif_msg_probe(lp))
- 		netdev_dbg(ndev, "net_local@%p\n", lp);
- 
-+	netif_napi_add(ndev, &lp->napi, dwceqos_rx_poll, NAPI_POLL_WEIGHT);
-+
-+	ret = register_netdev(ndev);
-+	if (ret) {
-+		dev_err(&pdev->dev, "Cannot register net device, aborting.\n");
-+			goto err_out_clk_dis_phy;
-+	}
-+
- 	return 0;
- 
--err_out_unregister_clk_notifier:
-+err_out_clk_dis_phy:
- 	clk_disable_unprepare(lp->phy_ref_clk);
--err_out_unregister_netdev:
--	unregister_netdev(ndev);
- err_out_clk_dis_aper:
- 	clk_disable_unprepare(lp->apb_pclk);
- err_out_free_netdev:
--- 
-2.1.4
+> 
+> You need to prevent us from doing the partial_segs bit below if
+> NETIF_F_GSO_PARTIAL is not set and if your list_skb or net_gso_ok
+> tests fail.  Since as you pointed out we shouldn't ever be trying to
+> perform GSO_PARTIAL on a frame that has a frag_list, what you might do
+> is something like:
+>     if (!list_skb || !net_gso_ok(...))
+>         goto normal;
+> 
+> That way we don't setup partial_segs unless we are actually using it.
+
+Will do that.
+
+> > +
+> > +               if (tail->len < gso_size)
+> 
+> You might swap this around and just setup gso_segs on > gso_size,
+> either that or this needs to be "<=" instead of just "<";
+
+Ok, I'll use "<=".
