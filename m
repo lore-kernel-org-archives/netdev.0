@@ -1,75 +1,100 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH bug-fix] iproute: fix documentation for ip rule scan order
-Date: Thu, 8 Sep 2016 13:48:08 +0200
-Message-ID: <20160908114808.GB10034@unicorn.suse.cz>
-References: <CAN04xNR8SH4D57mfY0nVDSNWvZfaaOLci2yB0-8nKg=Hv9SEbw@mail.gmail.com>
- <20160901090454.657f0b73@xeon-e3>
- <20160908095955.GA10034@unicorn.suse.cz>
- <20160908103303.GG5252@orbyte.nwl.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Phil Sutter <phil@nwl.cc>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Iskren Chernev <iskren@imo.im>, netdev@vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [PATCH net 1/1] net sched actions: fix GETing actions
+Date: Thu,  8 Sep 2016 08:12:34 -0400
+Message-ID: <1473336754-24930-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:47929 "EHLO mx2.suse.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752904AbcIHLsL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Sep 2016 07:48:11 -0400
-Content-Disposition: inline
-In-Reply-To: <20160908103303.GG5252@orbyte.nwl.cc>
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:34903 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752115AbcIHMMq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 08:12:46 -0400
+Received: by mail-qt0-f193.google.com with SMTP id 38so1637058qte.2
+        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 05:12:45 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 08, 2016 at 12:33:03PM +0200, Phil Sutter wrote:
-> On Thu, Sep 08, 2016 at 11:59:55AM +0200, Michal Kubecek wrote:
-> > 
-> > I'm sorry I didn't notice before but this just reverts the change done
-> > by commit 49572501664d ("iproute2: clarification of various man8 pages").
-> > IMHO the problem is that both versions are equally confusing as the word
-> > "priority" can be understood in two different senses.
-> > 
-> > How about more explicit formulation, e.g.
-> > 
-> >   ... in order of decreasing logical priority (i.e. increasing numeric
-> >   values).
-> > 
-> > Would that be better?
-> 
-> Looks like the real issue is missing definition of priority. What about
-> this:
-> 
-> diff --git a/man/man8/ip-rule.8 b/man/man8/ip-rule.8
-> index 3508d8090fd2c..13fe9f7f892ee 100644
-> --- a/man/man8/ip-rule.8
-> +++ b/man/man8/ip-rule.8
-> @@ -93,7 +93,7 @@ Each policy routing rule consists of a
->  .B selector
->  and an
->  .B action predicate.
-> -The RPDB is scanned in order of increasing priority. The selector
-> +The RPDB is scanned in order of decreasing priority. The selector
->  of each rule is applied to {source address, destination address, incoming
->  interface, tos, fwmark} and, if the selector matches the packet,
->  the action is performed. The action predicate may return with success.
-> @@ -221,8 +221,10 @@ value to match.
->  
->  .TP
->  .BI priority " PREFERENCE"
-> -the priority of this rule. Each rule should have an explicitly
-> -set
-> +the priority of this rule.
-> +.I PREFERENCE
-> +is an unsigned integer value, higher number means lower priority.  Each rule
-> +should have an explicitly set
->  .I unique
->  priority value.
->  The options preference and order are synonyms with priority.
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Formally, this would be certainly sufficient. But for clarity (and
-inattentive readers), I would still prefer to be more explicit in the
-first hunk, e.g.
+Example of what broke:
+...add a gact action to drop
+sudo $TC actions add action drop index 10
+...now retrieve it, looks good
+sudo $TC actions get action gact index 10
+...retrieve it again and find it is gone!
+sudo $TC actions get action gact index 10
 
-  ... in order of decreasing priority (increasing PREFERENCE values).
+Fixes: f07fed82ad79 ("net_sched: remove the leftover cleanup_a())
 
-Michal Kubecek
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+---
+ net/sched/act_api.c | 20 +++++++++++++++++---
+ 1 file changed, 17 insertions(+), 3 deletions(-)
+
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index d09d068..d4b4704 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -612,6 +612,8 @@ int tcf_action_init(struct net *net, struct nlattr *nla,
+ 			goto err;
+ 		}
+ 		act->order = i;
++		if (ovr)
++			act->tcfa_refcnt+=1;
+ 		list_add_tail(&act->list, actions);
+ 	}
+ 	return 0;
+@@ -856,6 +858,15 @@ tcf_del_notify(struct net *net, struct nlmsghdr *n, struct list_head *actions,
+ 	return ret;
+ }
+ 
++static void cleanup_a(struct list_head *actions)
++{
++	struct tc_action *a, *tmp;
++
++	list_for_each_entry_safe(a, tmp, actions, list) {
++		list_del(&a->list);
++	}
++}
++
+ static int
+ tca_action_gd(struct net *net, struct nlattr *nla, struct nlmsghdr *n,
+ 	      u32 portid, int event)
+@@ -883,6 +894,7 @@ tca_action_gd(struct net *net, struct nlattr *nla, struct nlmsghdr *n,
+ 			goto err;
+ 		}
+ 		act->order = i;
++		act->tcfa_refcnt+=1;
+ 		list_add_tail(&act->list, &actions);
+ 	}
+ 
+@@ -892,10 +904,12 @@ tca_action_gd(struct net *net, struct nlattr *nla, struct nlmsghdr *n,
+ 		ret = tcf_del_notify(net, n, &actions, portid);
+ 		if (ret)
+ 			goto err;
++		cleanup_a(&actions);
+ 		return ret;
+ 	}
+ err:
+ 	tcf_action_destroy(&actions, 0);
++	cleanup_a(&actions);
+ 	return ret;
+ }
+ 
+@@ -931,10 +945,10 @@ tcf_action_add(struct net *net, struct nlattr *nla, struct nlmsghdr *n,
+ 	LIST_HEAD(actions);
+ 
+ 	ret = tcf_action_init(net, nla, NULL, NULL, ovr, 0, &actions);
+-	if (ret)
+-		return ret;
+ 
+-	return tcf_add_notify(net, n, &actions, portid);
++	ret = tcf_add_notify(net, n, &actions, portid);
++	cleanup_a(&actions);
++	return ret;
+ }
+ 
+ static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n)
+-- 
+1.9.1
