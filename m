@@ -1,64 +1,72 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] via-velocity: remove null pointer check on array tdinfo->skb_dma
-Date: Thu,  8 Sep 2016 10:04:24 +0100
-Message-ID: <20160908090424.16545-1-colin.king@canonical.com>
+From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Subject: Re: [PATCH 1/4] net: phy: Add Edge-rate driver for Microsemi PHYs.
+Date: Thu, 8 Sep 2016 14:36:57 +0530
+Message-ID: <20160908090655.GB4134@microsemi.com>
+References: <646450A91FAED74E85C6E9C4D6E936A145336681@avsrvexchmbx1.microsemi.net>
+ <20160824125934.GC13406@lunn.ch>
+Reply-To: <Raju.Lakkaraju@microsemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+        Allan Nielsen <Allan.Nielsen@microsemi.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn3nam01on0041.outbound.protection.outlook.com ([104.47.33.41]:31804
+        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752532AbcIHJHX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Sep 2016 05:07:23 -0400
+Content-Disposition: inline
+In-Reply-To: <20160824125934.GC13406@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+Hi Andrew,
 
-tdinfo->skb_dma is a 7 element array of dma_addr_t hence cannot be
-null, so the pull pointer check on tdinfo->skb_dma  is redundant.
-Remove it.
+Thank you for review the code and valuable comments.
+I accepted your review comments.
+I too use the Device Tree for Edge-rate and MAC interface 
+configuration.
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/ethernet/via/via-velocity.c | 21 +++++++++------------
- 1 file changed, 9 insertions(+), 12 deletions(-)
+Thanks,
+Raju.
 
-diff --git a/drivers/net/ethernet/via/via-velocity.c b/drivers/net/ethernet/via/via-velocity.c
-index f38696c..b1167a9 100644
---- a/drivers/net/ethernet/via/via-velocity.c
-+++ b/drivers/net/ethernet/via/via-velocity.c
-@@ -1724,24 +1724,21 @@ static void velocity_free_tx_buf(struct velocity_info *vptr,
- 		struct velocity_td_info *tdinfo, struct tx_desc *td)
- {
- 	struct sk_buff *skb = tdinfo->skb;
-+	int i;
- 
- 	/*
- 	 *	Don't unmap the pre-allocated tx_bufs
- 	 */
--	if (tdinfo->skb_dma) {
--		int i;
-+	for (i = 0; i < tdinfo->nskb_dma; i++) {
-+		size_t pktlen = max_t(size_t, skb->len, ETH_ZLEN);
- 
--		for (i = 0; i < tdinfo->nskb_dma; i++) {
--			size_t pktlen = max_t(size_t, skb->len, ETH_ZLEN);
-+		/* For scatter-gather */
-+		if (skb_shinfo(skb)->nr_frags > 0)
-+			pktlen = max_t(size_t, pktlen,
-+				       td->td_buf[i].size & ~TD_QUEUE);
- 
--			/* For scatter-gather */
--			if (skb_shinfo(skb)->nr_frags > 0)
--				pktlen = max_t(size_t, pktlen,
--						td->td_buf[i].size & ~TD_QUEUE);
--
--			dma_unmap_single(vptr->dev, tdinfo->skb_dma[i],
--					le16_to_cpu(pktlen), DMA_TO_DEVICE);
--		}
-+		dma_unmap_single(vptr->dev, tdinfo->skb_dma[i],
-+				 le16_to_cpu(pktlen), DMA_TO_DEVICE);
- 	}
- 	dev_kfree_skb_irq(skb);
- 	tdinfo->skb = NULL;
--- 
-2.9.3
+On Wed, Aug 24, 2016 at 02:59:34PM +0200, Andrew Lunn wrote:
+> EXTERNAL EMAIL
+> 
+> 
+> On Wed, Aug 24, 2016 at 12:20:03PM +0000, Raju Lakkaraju wrote:
+> > From: Nagaraju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+> >
+> > Edge rate control support will be added for VSC 85xx Microsemi PHYs.
+> 
+> > diff --git a/include/linux/phy.h b/include/linux/phy.h
+> > index 2d24b28..8ec4c09 100644
+> > --- a/include/linux/phy.h
+> > +++ b/include/linux/phy.h
+> > @@ -586,6 +586,8 @@ struct phy_driver {
+> >         void (*get_strings)(struct phy_device *dev, u8 *data);
+> >         void (*get_stats)(struct phy_device *dev,
+> >                           struct ethtool_stats *stats, u64 *data);
+> > +       int (*phy_features_set)(struct phy_device *dev);
+> > +       int (*phy_features_get)(struct phy_device *dev);
+> >  };
+> 
+> Now we need the missing cover note what should be in 0/4.  What is the
+> big picture? How are these two functions supposed to be used? Is there
+> going to be a user space API via netlink? Should the MAC driver
+> somehow call these functions? Are you going to extend the phylib with
+> code to call these?
+> 
+> Those are all general questions for these two functions.
+> 
+> Now specifically for edge control, why did you decide not to use
+> device tree? Both the micrel and renesas phy driver uses device tree
+> for skew control. You need to explain why you need to do something
+> different to other drivers.
+> 
+>           Thanks
+>                 Andrew
+> 
+> 
