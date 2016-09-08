@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 05/17] xfrm: state: add sequence count to detect hash resizes
-Date: Thu, 8 Sep 2016 07:54:40 +0200
-Message-ID: <1473314092-11319-6-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 10/17] xfrm: policy: add sequence count to sync with hash resize
+Date: Thu, 8 Sep 2016 07:54:45 +0200
+Message-ID: <1473314092-11319-11-git-send-email-steffen.klassert@secunet.com>
 References: <1473314092-11319-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,85 +10,101 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
         <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:36361 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:36355 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752897AbcIHGv1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Sep 2016 02:51:27 -0400
+        id S1754912AbcIHGv0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Sep 2016 02:51:26 -0400
 In-Reply-To: <1473314092-11319-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Florian Westphal <fw@strlen.de>
 
-Once xfrm_state_find is lockless we have to cope with a concurrent
-resize opertion.
+Once xfrm_policy_lookup_bytype doesn't grab xfrm_policy_lock anymore its
+possible for a hash resize to occur in parallel.
 
-We use a sequence counter to block in case a resize is in progress
-and to detect if we might have missed a state that got moved to
-a new hash table.
+Use sequence counter to block lookup in case a resize is in
+progress and to also re-lookup in case hash table was altered
+in the mean time (might cause use to not find the best-match).
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/xfrm/xfrm_state.c | 15 +++++++++++++++
- 1 file changed, 15 insertions(+)
+ net/xfrm/xfrm_policy.c | 21 +++++++++++++++++++--
+ 1 file changed, 19 insertions(+), 2 deletions(-)
 
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 8e37387..ac4037c 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -36,6 +36,7 @@
-  */
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 4a8d90a..576d903 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -49,6 +49,7 @@ static struct xfrm_policy_afinfo __rcu *xfrm_policy_afinfo[NPROTO]
+ 						__read_mostly;
  
- static unsigned int xfrm_state_hashmax __read_mostly = 1 * 1024 * 1024;
-+static __read_mostly seqcount_t xfrm_state_hash_generation = SEQCNT_ZERO(xfrm_state_hash_generation);
+ static struct kmem_cache *xfrm_dst_cache __read_mostly;
++static __read_mostly seqcount_t xfrm_policy_hash_generation;
  
- static inline bool xfrm_state_hold_rcu(struct xfrm_state __rcu *x)
- {
-@@ -127,6 +128,7 @@ static void xfrm_hash_resize(struct work_struct *work)
+ static void xfrm_init_pmtu(struct dst_entry *dst);
+ static int stale_bundle(struct dst_entry *dst);
+@@ -479,6 +480,10 @@ static void xfrm_bydst_resize(struct net *net, int dir)
+ 		return;
+ 
+ 	write_lock_bh(&net->xfrm.xfrm_policy_lock);
++	write_seqcount_begin(&xfrm_policy_hash_generation);
++
++	odst = rcu_dereference_protected(net->xfrm.policy_bydst[dir].table,
++				lockdep_is_held(&net->xfrm.xfrm_policy_lock));
+ 
+ 	odst = rcu_dereference_protected(net->xfrm.policy_bydst[dir].table,
+ 				lockdep_is_held(&net->xfrm.xfrm_policy_lock));
+@@ -489,6 +494,7 @@ static void xfrm_bydst_resize(struct net *net, int dir)
+ 	rcu_assign_pointer(net->xfrm.policy_bydst[dir].table, ndst);
+ 	net->xfrm.policy_bydst[dir].hmask = nhashmask;
+ 
++	write_seqcount_end(&xfrm_policy_hash_generation);
+ 	write_unlock_bh(&net->xfrm.xfrm_policy_lock);
+ 
+ 	synchronize_rcu();
+@@ -1104,7 +1110,8 @@ static struct xfrm_policy *xfrm_policy_lookup_bytype(struct net *net, u8 type,
+ 	struct xfrm_policy *pol, *ret;
+ 	const xfrm_address_t *daddr, *saddr;
+ 	struct hlist_head *chain;
+-	u32 priority = ~0U;
++	unsigned int sequence;
++	u32 priority;
+ 
+ 	daddr = xfrm_flowi_daddr(fl, family);
+ 	saddr = xfrm_flowi_saddr(fl, family);
+@@ -1112,7 +1119,13 @@ static struct xfrm_policy *xfrm_policy_lookup_bytype(struct net *net, u8 type,
+ 		return NULL;
+ 
+ 	read_lock_bh(&net->xfrm.xfrm_policy_lock);
+-	chain = policy_hash_direct(net, daddr, saddr, family, dir);
++ retry:
++	do {
++		sequence = read_seqcount_begin(&xfrm_policy_hash_generation);
++		chain = policy_hash_direct(net, daddr, saddr, family, dir);
++	} while (read_seqcount_retry(&xfrm_policy_hash_generation, sequence));
++
++	priority = ~0U;
+ 	ret = NULL;
+ 	hlist_for_each_entry_rcu(pol, chain, bydst) {
+ 		err = xfrm_policy_match(pol, fl, type, family, dir);
+@@ -1148,6 +1161,9 @@ static struct xfrm_policy *xfrm_policy_lookup_bytype(struct net *net, u8 type,
+ 		}
  	}
  
- 	spin_lock_bh(&net->xfrm.xfrm_state_lock);
-+	write_seqcount_begin(&xfrm_state_hash_generation);
- 
- 	nhashmask = (nsize / sizeof(struct hlist_head)) - 1U;
- 	for (i = net->xfrm.state_hmask; i >= 0; i--)
-@@ -143,6 +145,7 @@ static void xfrm_hash_resize(struct work_struct *work)
- 	net->xfrm.state_byspi = nspi;
- 	net->xfrm.state_hmask = nhashmask;
- 
-+	write_seqcount_end(&xfrm_state_hash_generation);
- 	spin_unlock_bh(&net->xfrm.xfrm_state_lock);
- 
- 	osize = (ohashmask + 1) * sizeof(struct hlist_head);
-@@ -787,10 +790,13 @@ xfrm_state_find(const xfrm_address_t *daddr, const xfrm_address_t *saddr,
- 	struct xfrm_state *best = NULL;
- 	u32 mark = pol->mark.v & pol->mark.m;
- 	unsigned short encap_family = tmpl->encap_family;
-+	unsigned int sequence;
- 	struct km_event c;
- 
- 	to_put = NULL;
- 
-+	sequence = read_seqcount_begin(&xfrm_state_hash_generation);
++	if (read_seqcount_retry(&xfrm_policy_hash_generation, sequence))
++		goto retry;
 +
- 	spin_lock_bh(&net->xfrm.xfrm_state_lock);
- 	h = xfrm_dst_hash(net, daddr, saddr, tmpl->reqid, encap_family);
- 	hlist_for_each_entry_rcu(x, net->xfrm.state_bydst + h, bydst) {
-@@ -894,6 +900,15 @@ out:
- 	spin_unlock_bh(&net->xfrm.xfrm_state_lock);
- 	if (to_put)
- 		xfrm_state_put(to_put);
-+
-+	if (read_seqcount_retry(&xfrm_state_hash_generation, sequence)) {
-+		*err = -EAGAIN;
-+		if (x) {
-+			xfrm_state_put(x);
-+			x = NULL;
-+		}
-+	}
-+
- 	return x;
+ 	xfrm_pol_hold(ret);
+ fail:
+ 	read_unlock_bh(&net->xfrm.xfrm_policy_lock);
+@@ -3090,6 +3106,7 @@ static struct pernet_operations __net_initdata xfrm_net_ops = {
+ void __init xfrm_init(void)
+ {
+ 	register_pernet_subsys(&xfrm_net_ops);
++	seqcount_init(&xfrm_policy_hash_generation);
+ 	xfrm_input_init();
  }
  
 -- 
