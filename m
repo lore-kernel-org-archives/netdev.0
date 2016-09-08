@@ -1,49 +1,109 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [RFC PATCH 1/2] macb: Add 1588 support in Cadence GEM.
-Date: Thu, 8 Sep 2016 21:06:25 +0200
-Message-ID: <20160908190624.GA5237@netboy>
-References: <1472820817-21874-1-git-send-email-andrei.pistirica@microchip.com>
- <20160906154809.GA7012@localhost.localdomain>
- <CAFcVECJxJgJUeO4=yudwTj5NkxDob5tCZaom9YTqWWmtt7ajFw@mail.gmail.com>
+From: Jojy Varghese <jojy.varghese@gmail.com>
+Subject: Re: [PATCH] net_namespace: fixed net_device reference leak
+Date: Thu, 8 Sep 2016 12:08:29 -0700
+Message-ID: <CAJD3hpUSqSxtgJMK__V-j8VKRwf-ftZFHw0J38VTxP9tDDZyhA@mail.gmail.com>
+References: <CAJD3hpUgNJPOqGmAp7tEaY2+EnOasG=W6VLOMbEhDRgr8M5v8A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrei Pistirica <andrei.pistirica@microchip.com>,
-        netdev@vger.kernel.org,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>, davem@davemloft.net,
-        Nicolas Ferre <nicolas.ferre@atmel.com>,
-        Harini Katakam <harini.katakam@xilinx.com>,
-        Punnaiah Choudary Kalluri <punnaia@xilinx.com>,
-        "michals@xilinx.com" <michals@xilinx.com>,
-        Anirudha Sarangi <anirudh@xilinx.com>,
-        Boris Brezillon <boris.brezillon@free-electrons.com>,
-        alexandre.belloni@free-electrons.com, tbultel@pixelsurmer.com
-To: Harini Katakam <harinikatakamlinux@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAFcVECJxJgJUeO4=yudwTj5NkxDob5tCZaom9YTqWWmtt7ajFw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:35642 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S937116AbcIHTIb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 15:08:31 -0400
+Received: by mail-wm0-f66.google.com with SMTP id a6so9198571wmc.2
+        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 12:08:31 -0700 (PDT)
+In-Reply-To: <CAJD3hpUgNJPOqGmAp7tEaY2+EnOasG=W6VLOMbEhDRgr8M5v8A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 08, 2016 at 10:22:43AM +0530, Harini Katakam wrote:
-> >> +     /* get GEM internal time */
-> >> +     sech = gem_readl(bp, TSH);
-> >> +     secl = gem_readl(bp, TSL);
-> >
-> > Does reading TSH latch the time?  The TRM is silent about that, and
-> > most other designs latch on reading the LSB.
-> 
-> No, it does not latch the time.
-> When doing a read + adjust + write, this will
-> mean there's room for some error.
+(Updating the patch for the case when a non-loopback dev could be unregiste=
+red)
 
-It also means that you will have to handle when the TSL value
-overflows into TSH.  That means reading TSH twice, once before and
-once after reading TSL and retrying if needed.
+Currently during namespace cleanup, if =E2=80=98dst=E2=80=99 subsystem is h=
+olding
+a reference to the interface in the namespace, it does not get released.
+Current code first does a =E2=80=99dev_hold=E2=80=99 on the same device fol=
+lowed by a
+=E2=80=98dev_put=E2=80=99 on the same device resulting in a no-op.
 
-The code as written above will produce apparent jumps backwards in
-time, whenever the overflow occurs between the two read operations.
+This change fixes this leak by assigning the initial namespace=E2=80=99s lo=
+opback
+device to the =E2=80=98dst=E2=80=99 before releasing the reference to the n=
+etwork
+device being released.
 
-Thanks,
-Richard
+Additional reference: https://github.com/docker/docker/issues/5618
+
+Signed-off-by: Jojy G Varghese <jojy.varghese@gmail.com>
+---
+ net/core/dst.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/net/core/dst.c b/net/core/dst.c
+index a1656e3..7e45593 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -433,7 +433,11 @@ static void dst_ifdown(struct dst_entry *dst,
+struct net_device *dev,
+                dst->input =3D dst_discard;
+                dst->output =3D dst_discard_out;
+        } else {
+-               dst->dev =3D dev_net(dst->dev)->loopback_dev;
++               if (dst->dev =3D=3D dev_net(dst->dev)->loopback_dev)
++                       dst->dev =3D init_net.loopback_dev;
++               else
++                       dst->dev =3D dev_net(dst->dev)->loopback_dev;
++
+                dev_hold(dst->dev);
+                dev_put(dev);
+        }
+--
+1.8.3.1
+
+On Wed, Sep 7, 2016 at 6:55 PM, Jojy Varghese <jojy.varghese@gmail.com> wro=
+te:
+> During namespace cleanup, if =E2=80=98dst=E2=80=99 subsystem is holding
+> a reference to the loopback interface in the namespace, it does not get
+> released. This is because in the case where the net_device held by 'dst'
+> is same as the namespace's loopback net_device, current code first
+> does a =E2=80=99dev_hold=E2=80=99 on the same device followed by a =E2=80=
+=98dev_put=E2=80=99 on the
+> same device resulting in a no-op.
+>
+> This change fixes this leak by assigning the initial namespace=E2=80=99s =
+loopback
+> device to the =E2=80=98dst=E2=80=99=E2=80=99 before releasing the referen=
+ce to the network device
+> being unregistered.
+>
+> Additional reference: https://github.com/docker/docker/issues/5618
+>
+> Signed-off-by: Jojy G Varghese <jojy.varghese@gmail.com>
+> ---
+>  net/core/dst.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/net/core/dst.c b/net/core/dst.c
+> index a1656e3..a18e8ea 100644
+> --- a/net/core/dst.c
+> +++ b/net/core/dst.c
+> @@ -433,7 +433,7 @@ static void dst_ifdown(struct dst_entry *dst,
+> struct net_device *dev,
+>                 dst->input =3D dst_discard;
+>                 dst->output =3D dst_discard_out;
+>         } else {
+> -               dst->dev =3D dev_net(dst->dev)->loopback_dev;
+> +               dst->dev =3D init_net.loopback_dev;
+>                 dev_hold(dst->dev);
+>                 dev_put(dev);
+>         }
+> --
+> 1.8.3.1
+
+
+
+--=20
+Jojy G Varghese
