@@ -1,39 +1,32 @@
-From: Baoyou Xie <baoyou.xie@linaro.org>
-Subject: [PATCH] qede: mark qede_set_features() static
-Date: Thu,  8 Sep 2016 16:43:23 +0800
-Message-ID: <1473324203-9065-1-git-send-email-baoyou.xie@linaro.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        arnd@arndb.de, baoyou.xie@linaro.org, xie.baoyou@zte.com.cn
-To: Yuval.Mintz@qlogic.com, Ariel.Elior@qlogic.com,
-        everest-linux-l2@qlogic.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Roman Savchenko <gmstima@gmail.com>
+Subject: AF_PACKET can't be received on local machine
+Date: Thu, 8 Sep 2016 11:50:16 +0300
+Message-ID: <CAGpdKUKwheqFRxFxy32ukzupwZyOHY4i5oZ++xSoATfF=o23Sg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ua0-f172.google.com ([209.85.217.172]:35679 "EHLO
+        mail-ua0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932881AbcIHIuS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 04:50:18 -0400
+Received: by mail-ua0-f172.google.com with SMTP id 95so10445927uaz.2
+        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 01:50:18 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We get 1 warning when building kernel with W=1:
-drivers/net/ethernet/qlogic/qede/qede_main.c:2113:5: warning: no previous prototype for 'qede_set_features' [-Wmissing-prototypes]
+Dear all,
 
-In fact, this function is only used in the file in which it is
-declared and don't need a declaration, but can be made static.
-so this patch marks this function with 'static'.
+I created UDP packet with AF_PACKET and SOCK_RAW. It was successfully
+received on another physical machine, but I have problem to receive it
+localy. I searched a bit and found that other people have such problem
+too:
 
-Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
----
- drivers/net/ethernet/qlogic/qede/qede_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+stackoverflow.com/questions/12103541/cant-send-raw-packets-to-local-mac-with-pf-packet
+http://stackoverflow.com/questions/33484762/packet-sockets-not-receiving-data-for-custom-protocol-id
+http://stackoverflow.com/questions/23288188/cannot-receive-raw-ethernet-frame-packets-i-just-sent
 
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index e4bd02e..4d2ce65 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_main.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -2110,7 +2110,7 @@ static void qede_vlan_mark_nonconfigured(struct qede_dev *edev)
- 	edev->accept_any_vlan = false;
- }
- 
--int qede_set_features(struct net_device *dev, netdev_features_t features)
-+static int qede_set_features(struct net_device *dev, netdev_features_t features)
- {
- 	struct qede_dev *edev = netdev_priv(dev);
- 	netdev_features_t changes = features ^ dev->features;
--- 
-2.7.4
+So my question is it allowed? How can it be done?
+
+Many thanks,
+R. Savchenko.
