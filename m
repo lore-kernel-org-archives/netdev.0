@@ -1,105 +1,87 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 net-next 2/2] net: phy: Add MAC-IF driver for
- Microsemi PHYs.
-Date: Thu, 8 Sep 2016 15:27:27 +0200
-Message-ID: <20160908132727.GH26445@lunn.ch>
-References: <20160824125934.GC13406@lunn.ch>
- <1473326242-4198-1-git-send-email-Raju.Lakkaraju@microsemi.com>
- <1473326242-4198-3-git-send-email-Raju.Lakkaraju@microsemi.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC Patch net-next 5/6] net_sched: use rcu in fast path
+Date: Thu, 08 Sep 2016 06:28:03 -0700
+Message-ID: <1473341283.15733.33.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1472795840-31901-1-git-send-email-xiyou.wangcong@gmail.com>
+         <1472795840-31901-6-git-send-email-xiyou.wangcong@gmail.com>
+         <1473173528.10725.14.camel@edumazet-glaptop3.roam.corp.google.com>
+         <57D0FF87.604@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
-        Allan.Nielsen@microsemi.com
-To: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
+        jhs@mojatatu.com
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:38866 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933159AbcIHN13 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Sep 2016 09:27:29 -0400
-Content-Disposition: inline
-In-Reply-To: <1473326242-4198-3-git-send-email-Raju.Lakkaraju@microsemi.com>
+Received: from mail-pa0-f65.google.com ([209.85.220.65]:34592 "EHLO
+        mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752803AbcIHN2H (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 09:28:07 -0400
+Received: by mail-pa0-f65.google.com with SMTP id gi6so2422208pac.1
+        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 06:28:07 -0700 (PDT)
+In-Reply-To: <57D0FF87.604@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 08, 2016 at 02:47:22PM +0530, Raju Lakkaraju wrote:
-> From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+On Wed, 2016-09-07 at 23:04 -0700, John Fastabend wrote:
+
+> So the actual issue as I see it is with the late binding actions the
+> ones created with the ill documented 'tc action' syntax.
 > 
-> Used Device Tree to configure the MAC Interface as per review comments and
-> re-sending code for review
+> If you add a rule here and then bind it to a filter (stealing Jamals
+> example),
+> 
+>   tc actions add action skbedit mark 10 index 1
+>   tc filter add dev $DEV parent ffff: protocol ip prio 1 u32\
+>              match ip dst 17.0.0.1/32 flowid 1:10 action skbedit index 1
+> 
+> then you can modify this action later with the following
+> 
+>   tc actions replace action ....
+> 
+> So for an action such as act_mirred we may end up running with a
+> partially updated state from this,
+> 
+> 	tcf_mirred_init(...)
+> 	[...]
+> 
+> 		m->tcf_action = parm->action;
+> 	        m->tcfm_eaction = parm->eaction;
+> 	
+> 		[...]
+> 	
+> 
+> and then in the execution of the action,
+> 
+> 
+> 	tcf_mirred(...)
+> 		[...]
+> 	        retval = READ_ONCE(m->tcf_action);
+> 		[...]
+>                 if (m->tcfm_eaction != TCA_EGRESS_MIRROR)
+> 		[...]
+> 
+> 
+> So its at least possible I think these could be interleaved on multiple
+> cpus.
 
-I don't see anything about device tree in this patch...
+Sure, this was very clear when I wrote this code. Otherwise I would have
+used an intermediate object and one rcu_dereference() instead of the
+READ_ONCE().
+
 
 > 
-> Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-> ---
->  drivers/net/phy/mscc.c | 60 ++++++++++++++++++++++++++++++++++++++++++++++++++
->  1 file changed, 60 insertions(+)
+> Notice that some of the actions are fine though and don't have this
+> issue act_bpf for example is fine.
 > 
-> diff --git a/drivers/net/phy/mscc.c b/drivers/net/phy/mscc.c
-> index f0a0e8d..dfbf4f3 100644
-> --- a/drivers/net/phy/mscc.c
-> +++ b/drivers/net/phy/mscc.c
-> @@ -24,6 +24,16 @@ enum rgmii_rx_clock_delay {
->  	RGMII_RX_CLK_DELAY_3_4_NS = 7
->  };
->  
-> +/* Microsemi VSC85xx PHY registers */
-> +/* IEEE 802. Std Registers */
-> +#define MSCC_PHY_EXT_PHY_CNTL_1           23
-> +#define MAC_IF_SELECTION_MASK             0x1800
-> +#define MAC_IF_SELECTION_GMII             0
-> +#define MAC_IF_SELECTION_RMII             1
-> +#define MAC_IF_SELECTION_RGMII            2
-> +#define MAC_IF_SELECTION_POS              11
-> +#define FAR_END_LOOPBACK_MODE_MASK        0x0008
-> +
->  #define MII_VSC85XX_INT_MASK		  25
->  #define MII_VSC85XX_INT_MASK_MASK	  0xa000
->  #define MII_VSC85XX_INT_STATUS		  26
-> @@ -59,6 +69,52 @@ static int vsc85xx_phy_page_set(struct phy_device *phydev, u8 page)
->  	return rc;
->  }
->  
-> +static int vsc85xx_soft_reset(struct phy_device *phydev)
-> +{
-> +	int rc;
-> +	u16 reg_val;
-> +
-> +	reg_val = phy_read(phydev, MII_BMCR);
-> +	reg_val |= BMCR_RESET;
-> +	rc = phy_write(phydev, MII_BMCR, reg_val);
-> +
-> +	return rc;
-> +}
+> I think we can either fix it in the hash table create part of the
+> list as this series does or just let each action handle it on its own.
 
-Do you need to wait for the reset to complete?
+If we want a fix for stable kernels we want a tc_mirred fix on its own,
+and I was planning to do so.
 
-Does it make sense to call genphy_soft_reset() which will poll the phy
-waiting for the BMCR_RESET bit to clear?
+Given that a "tc qdisc replace ..." drops all packets sitting in the old
+qdisc, I never thought someone would actually depend on atomically
+switching tc_mirred parameters. I for sure did not care.
 
-> +
-> +static int vsc85xx_mac_if_set(struct phy_device *phydev,
-> +			      phy_interface_t   interface)
-> +{
-> +	int rc;
-> +	u16 reg_val;
-> +
-> +	mutex_lock(&phydev->lock);
-> +	reg_val = phy_read(phydev, MSCC_PHY_EXT_PHY_CNTL_1);
-> +	reg_val &= ~(MAC_IF_SELECTION_MASK);
-> +	switch (interface) {
-> +	case PHY_INTERFACE_MODE_RGMII:
-> +		reg_val |= (MAC_IF_SELECTION_RGMII << MAC_IF_SELECTION_POS);
-> +		break;
-> +	case PHY_INTERFACE_MODE_RMII:
-> +		reg_val |= (MAC_IF_SELECTION_RMII << MAC_IF_SELECTION_POS);
-> +		break;
-> +	case PHY_INTERFACE_MODE_MII:
-> +	case PHY_INTERFACE_MODE_GMII:
-> +	default:
-
-So somebody asks you to configure the phy as PHY_INTERFACE_MODE_NA or
-PHY_INTERFACE_MODE_TBI, you are going to use GMII. Maybe returning
--EINVAL would be better?
-
-	Andrew
+Thanks.
