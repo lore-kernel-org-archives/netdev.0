@@ -1,56 +1,47 @@
-From: Jojy Varghese <jojy.varghese@gmail.com>
-Subject: [PATCH] net_namespace: fixed net_device reference leak
-Date: Wed, 7 Sep 2016 18:55:52 -0700
-Message-ID: <CAJD3hpUgNJPOqGmAp7tEaY2+EnOasG=W6VLOMbEhDRgr8M5v8A@mail.gmail.com>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: vlan aware bridge doesn't propagate mac changes to vlans on top
+ of it
+Date: Thu, 8 Sep 2016 11:03:24 +0900
+Message-ID: <871326a1-4d31-8327-8120-f2188ecf2d34@lab.ntt.co.jp>
+References: <d8cc158b-8b3b-17eb-91cc-7a46d7fc011e@ziu.info>
+ <1fb1ce35-60e8-481c-9533-afe2e585f6ca@lab.ntt.co.jp>
+ <af2e0cf8-c580-83b5-3b7d-3a23a1cba06a@ziu.info>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: Michal Soltys <soltys@ziu.info>,
+        Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:34708 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751726AbcIHBzz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 21:55:55 -0400
-Received: by mail-wm0-f66.google.com with SMTP id w12so5630423wmf.1
-        for <netdev@vger.kernel.org>; Wed, 07 Sep 2016 18:55:54 -0700 (PDT)
+Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:39883 "EHLO
+        tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751081AbcIHCDy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 22:03:54 -0400
+In-Reply-To: <af2e0cf8-c580-83b5-3b7d-3a23a1cba06a@ziu.info>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-During namespace cleanup, if =E2=80=98dst=E2=80=99 subsystem is holding
-a reference to the loopback interface in the namespace, it does not get
-released. This is because in the case where the net_device held by 'dst'
-is same as the namespace's loopback net_device, current code first
-does a =E2=80=99dev_hold=E2=80=99 on the same device followed by a =E2=80=
-=98dev_put=E2=80=99 on the
-same device resulting in a no-op.
+On 2016/09/08 3:22, Michal Soltys wrote:
+...
+> 4.7.2
+> git describe on that commit suggests it's been available since 4.6.x
+> 
+> What I did in details:
+> 
+> ip li add name port1b type veth peer name port1e
+> ip li add br0 type bridge
+> ip li set dev br0 type bridge vlan_default_pvid 0
+> ip li set dev br0 type bridge vlan_filtering 1
+> bridge vlan add dev br0 vid 10 self
+> bridge vlan add dev br0 vid 250 untagged pvid self
+> ip li add link br0 name vlan10 type vlan id 10
+> ip li set port1b master br0
+> 
+> At this point br0.vlan10 had outdated mac after br0 took port1b's one as
+> its own.
 
-This change fixes this leak by assigning the initial namespace=E2=80=99s lo=
-opback
-device to the =E2=80=98dst=E2=80=99=E2=80=99 before releasing the reference=
- to the network device
-being unregistered.
+If the mac address of lower device is changed while vlan device is down,
+the address will be synchronized when vlan device becomes up.
+Please try "ip li set vlan10 up".
 
-Additional reference: https://github.com/docker/docker/issues/5618
-
-Signed-off-by: Jojy G Varghese <jojy.varghese@gmail.com>
----
- net/core/dst.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/core/dst.c b/net/core/dst.c
-index a1656e3..a18e8ea 100644
---- a/net/core/dst.c
-+++ b/net/core/dst.c
-@@ -433,7 +433,7 @@ static void dst_ifdown(struct dst_entry *dst,
-struct net_device *dev,
-                dst->input =3D dst_discard;
-                dst->output =3D dst_discard_out;
-        } else {
--               dst->dev =3D dev_net(dst->dev)->loopback_dev;
-+               dst->dev =3D init_net.loopback_dev;
-                dev_hold(dst->dev);
-                dev_put(dev);
-        }
---=20
-1.8.3.1
+-- 
+Toshiaki Makita
