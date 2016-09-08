@@ -1,9 +1,9 @@
 From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Subject: Re: [PATCH 1/4] net: phy: Add Edge-rate driver for Microsemi PHYs.
-Date: Thu, 8 Sep 2016 14:36:57 +0530
-Message-ID: <20160908090655.GB4134@microsemi.com>
-References: <646450A91FAED74E85C6E9C4D6E936A145336681@avsrvexchmbx1.microsemi.net>
- <20160824125934.GC13406@lunn.ch>
+Subject: Re: [PATCH 2/4] net: phy: Add MAC-IF driver for Microsemi PHYs.
+Date: Thu, 8 Sep 2016 14:39:13 +0530
+Message-ID: <20160908090913.GC4134@microsemi.com>
+References: <646450A91FAED74E85C6E9C4D6E936A145336694@avsrvexchmbx1.microsemi.net>
+ <20160824130644.GD13406@lunn.ch>
 Reply-To: <Raju.Lakkaraju@microsemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -12,13 +12,13 @@ Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
         Allan Nielsen <Allan.Nielsen@microsemi.com>
 To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0041.outbound.protection.outlook.com ([104.47.33.41]:31804
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+Received: from mail-sn1nam01on0086.outbound.protection.outlook.com ([104.47.32.86]:23360
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752532AbcIHJHX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Sep 2016 05:07:23 -0400
+        id S1752230AbcIHJJk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Sep 2016 05:09:40 -0400
 Content-Disposition: inline
-In-Reply-To: <20160824125934.GC13406@lunn.ch>
+In-Reply-To: <20160824130644.GD13406@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -26,47 +26,54 @@ Hi Andrew,
 
 Thank you for review the code and valuable comments.
 I accepted your review comments.
-I too use the Device Tree for Edge-rate and MAC interface 
-configuration.
+I will re-send the code.
 
 Thanks,
 Raju.
 
-On Wed, Aug 24, 2016 at 02:59:34PM +0200, Andrew Lunn wrote:
+On Wed, Aug 24, 2016 at 03:06:44PM +0200, Andrew Lunn wrote:
 > EXTERNAL EMAIL
 > 
 > 
-> On Wed, Aug 24, 2016 at 12:20:03PM +0000, Raju Lakkaraju wrote:
-> > From: Nagaraju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-> >
-> > Edge rate control support will be added for VSC 85xx Microsemi PHYs.
+> > +static int vsc85xx_mac_if_set(struct phy_device *phydev,
+> > +                             phy_interface_t   *interface)
+> > +{
+> > +       int rc;
+> > +       u16 reg_val;
+> > +
+> > +       mutex_lock(&phydev->lock);
+> > +       reg_val = phy_read(phydev, MSCC_PHY_EXT_PHY_CNTL_1);
+> > +       switch (*interface) {
+> > +       case PHY_INTERFACE_MODE_RGMII:
+> > +               reg_val &= ~(MAC_IF_SELECTION_MASK);
+> > +               reg_val |= (MAC_IF_SELECTION_RGMII << MAC_IF_SELECTION_POS);
+> > +               break;
+> > +       case PHY_INTERFACE_MODE_RMII:
+> > +               reg_val &= ~(MAC_IF_SELECTION_MASK);
+> > +               reg_val |= (MAC_IF_SELECTION_RMII << MAC_IF_SELECTION_POS);
+> > +               break;
+> > +       case PHY_INTERFACE_MODE_MII:
+> > +       case PHY_INTERFACE_MODE_GMII:
+> > +       default:
+> > +               reg_val &= ~(MAC_IF_SELECTION_MASK);
+> > +               reg_val |= (MAC_IF_SELECTION_GMII << MAC_IF_SELECTION_POS);
+> > +               break;
+> > +       }
+> > +       rc = phy_write(phydev, MSCC_PHY_EXT_PHY_CNTL_1, reg_val);
+> > +       if (rc != 0)
+> > +               goto out_unlock;
+> > +
+> > +       rc = vsc85xx_soft_reset(phydev);
+> > +
+> > +out_unlock:
+> > +       mutex_unlock(&phydev->lock);
+> > +
+> > +       return rc;
+> > +}
 > 
-> > diff --git a/include/linux/phy.h b/include/linux/phy.h
-> > index 2d24b28..8ec4c09 100644
-> > --- a/include/linux/phy.h
-> > +++ b/include/linux/phy.h
-> > @@ -586,6 +586,8 @@ struct phy_driver {
-> >         void (*get_strings)(struct phy_device *dev, u8 *data);
-> >         void (*get_stats)(struct phy_device *dev,
-> >                           struct ethtool_stats *stats, u64 *data);
-> > +       int (*phy_features_set)(struct phy_device *dev);
-> > +       int (*phy_features_get)(struct phy_device *dev);
-> >  };
+> Again, you need to justify why you are doing something completely
+> different to all other phy drivers. You cannot you do what
+> m88e1121_config_aneg(), mv88e111_config_init(), dp83867_config_init()
+> does?
 > 
-> Now we need the missing cover note what should be in 0/4.  What is the
-> big picture? How are these two functions supposed to be used? Is there
-> going to be a user space API via netlink? Should the MAC driver
-> somehow call these functions? Are you going to extend the phylib with
-> code to call these?
-> 
-> Those are all general questions for these two functions.
-> 
-> Now specifically for edge control, why did you decide not to use
-> device tree? Both the micrel and renesas phy driver uses device tree
-> for skew control. You need to explain why you need to do something
-> different to other drivers.
-> 
->           Thanks
->                 Andrew
-> 
-> 
+>         Andrew
