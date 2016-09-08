@@ -1,161 +1,298 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net-next v4] gso: Support partial splitting at the
- frag_list pointer
-Date: Thu, 8 Sep 2016 08:37:47 -0700
-Message-ID: <CAKgT0UdieQO3KM1ZdcyczsO7+uNe-fDg9=jkDg-25nuQyiG56A@mail.gmail.com>
-References: <20160908113307.GT31137@gauss.secunet.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-        Alexander Duyck <alexander.h.duyck@intel.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f67.google.com ([209.85.214.67]:36000 "EHLO
-        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753261AbcIHPht (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 11:37:49 -0400
-Received: by mail-it0-f67.google.com with SMTP id i184so4888174itf.3
-        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 08:37:48 -0700 (PDT)
-In-Reply-To: <20160908113307.GT31137@gauss.secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alban Crequy <alban.crequy@gmail.com>
+Subject: [PATCH] [RFC] proc connector: add namespace events
+Date: Thu,  8 Sep 2016 11:38:06 -0400
+Message-ID: <1473349086-31260-1-git-send-email-alban@kinvolk.io>
+Cc: Evgeniy Polyakov <zbr@ioremap.net>, Tejun Heo <tj@kernel.org>,
+        Aditya Kali <adityakali@google.com>,
+        Serge Hallyn <serge.hallyn@canonical.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Iago Lopez Galeiras <iago@kinvolk.io>
+To: Alban Crequy <alban@kinvolk.io>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 8, 2016 at 4:33 AM, Steffen Klassert
-<steffen.klassert@secunet.com> wrote:
-> Since commit 8a29111c7 ("net: gro: allow to build full sized skb")
-> gro may build buffers with a frag_list. This can hurt forwarding
-> because most NICs can't offload such packets, they need to be
-> segmented in software. This patch splits buffers with a frag_list
-> at the frag_list pointer into buffers that can be TSO offloaded.
->
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-> ---
->
-> Changes since v1:
->
-> - Use the assumption that all buffers in the chain excluding the last
->   containing the same amount of data.
->
-> - Simplify some checks against gso partial.
->
-> - Fix the generation of IP IDs.
->
-> Changes since v2:
->
-> - Merge common code of gso partial and frag_list pointer splitting.
->
-> Changes since v3:
->
-> - Fix the checks for doing frag_list pointer splitting.
->
->  net/core/skbuff.c      | 51 +++++++++++++++++++++++++++++++++++++++-----------
->  net/ipv4/af_inet.c     | 14 ++++++++++----
->  net/ipv4/gre_offload.c |  6 ++++--
->  net/ipv4/tcp_offload.c | 13 +++++++------
->  net/ipv4/udp_offload.c |  6 ++++--
->  net/ipv6/ip6_offload.c |  5 ++++-
->  6 files changed, 69 insertions(+), 26 deletions(-)
->
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 3864b4b6..996e8a6 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -3078,11 +3078,31 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
->         sg = !!(features & NETIF_F_SG);
->         csum = !!can_checksum_protocol(features, proto);
->
-> -       /* GSO partial only requires that we trim off any excess that
-> -        * doesn't fit into an MSS sized block, so take care of that
-> -        * now.
-> -        */
-> -       if (sg && csum && (features & NETIF_F_GSO_PARTIAL)) {
-> +       if (sg && csum && (mss != GSO_BY_FRAGS))  {
-> +               if (!(features & NETIF_F_GSO_PARTIAL)) {
-> +                       struct sk_buff *iter;
-> +
-> +                       if (!list_skb ||
-> +                           !net_gso_ok(features, skb_shinfo(head_skb)->gso_type))
-> +                               goto normal;
-> +
-> +                       /* Split the buffer at the frag_list pointer.
-> +                        * This is based on the assumption that all
-> +                        * buffers in the chain excluding the last
-> +                        * containing the same amount of data.
-> +                        */
-> +                       skb_walk_frags(head_skb, iter) {
-> +                               if (skb_headlen(iter))
-> +                                       goto normal;
-> +
-> +                               len -= iter->len;
-> +                       }
-> +               }
-> +
-> +               /* GSO partial only requires that we trim off any excess that
-> +                * doesn't fit into an MSS sized block, so take care of that
-> +                * now.
-> +                */
->                 partial_segs = len / mss;
->                 if (partial_segs > 1)
->                         mss *= partial_segs;
-> @@ -3090,6 +3110,7 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
->                         partial_segs = 0;
->         }
->
-> +normal:
->         headroom = skb_headroom(head_skb);
->         pos = skb_headlen(head_skb);
->
-> @@ -3281,21 +3302,29 @@ perform_csum_check:
->          */
->         segs->prev = tail;
->
-> -       /* Update GSO info on first skb in partial sequence. */
->         if (partial_segs) {
-> +               struct sk_buff *iter;
->                 int type = skb_shinfo(head_skb)->gso_type;
-> +               unsigned short gso_size = skb_shinfo(head_skb)->gso_size;
->
->                 /* Update type to add partial and then remove dodgy if set */
-> -               type |= SKB_GSO_PARTIAL;
-> +               type |= (features & NETIF_F_GSO_PARTIAL) / NETIF_F_GSO_PARTIAL * SKB_GSO_PARTIAL;
->                 type &= ~SKB_GSO_DODGY;
->
->                 /* Update GSO info and prepare to start updating headers on
->                  * our way back down the stack of protocols.
->                  */
-> -               skb_shinfo(segs)->gso_size = skb_shinfo(head_skb)->gso_size;
-> -               skb_shinfo(segs)->gso_segs = partial_segs;
-> -               skb_shinfo(segs)->gso_type = type;
-> -               SKB_GSO_CB(segs)->data_offset = skb_headroom(segs) + doffset;
-> +               for (iter = segs; iter; iter = iter->next) {
-> +                       skb_shinfo(iter)->gso_size = gso_size;
-> +                       skb_shinfo(iter)->gso_segs = partial_segs;
-> +                       skb_shinfo(iter)->gso_type = type;
-> +                       SKB_GSO_CB(iter)->data_offset = skb_headroom(iter) + doffset;
-> +               }
-> +
-> +               if (tail->len <= gso_size)
-> +                         skb_shinfo(tail)->gso_size = 0;
-> +               else
-> +                       skb_shinfo(tail)->gso_segs = DIV_ROUND_UP(tail->len, gso_size);
+From: Alban Crequy <alban@kinvolk.io>
 
-A few minor things.
+The act of a process creating or joining a namespace via clone(),
+unshare() or setns() is a useful signal for monitoring applications.
 
-First you somehow got a couple spaces in the line before gso_size.
-That is why the two lines above don't line up.
+I am working on a monitoring application that keeps track of all the
+containers and all processes inside each container. The current way of
+doing it is by polling regularly in /proc for the list of processes and
+in /proc/*/ns/* to know which namespaces they belong to. This is
+inefficient on systems with a large number of containers and a large
+number of processes.
 
-Second it occurred to me that we could have a situation where tail is
-equal to segs in the case of GSO_PARTIAL with an MSS aligned frame.
-To avoid doing duplicate division we might want to make the else an
-"else if (tail != segs)"
+Instead, I would inspect /proc only one time and get the updates with
+the proc connector. Unfortunately, the proc connector gives me the list
+of processes but does not notify me when a process changes namespaces.
+So I would still need to inspect /proc/*/ns/*.
 
-Finally I think the value for the division should be tail->len -
-doffset, not tail->len as we shouldn't include the header data in the
-size as it might cause us to report more packets then we actually
-generate.
+This patch add namespace events for processes. It generates a namespace
+event each time a process changes namespace via clone(), unshare() or
+setns().
 
-I think that should cover all of it.  Sorry for the thrash.
+For example, the following command:
+| # unshare -n -f ls -l /proc/self/ns/net
+| lrwxrwxrwx 1 root root 0 Sep  6 05:35 /proc/self/ns/net -> 'net:[4026532142]'
 
-- Alex
+causes the proc connector to generate the following events:
+| fork: ppid=696 pid=858
+| exec: pid=858
+| ns: pid=858 type=net reason=set old_inum=4026531957 inum=4026532142
+| fork: ppid=858 pid=859
+| exec: pid=859
+| exit: pid=859
+| exit: pid=858
+
+Note: this patch is just a RFC, we are exploring other ways to achieve
+      the same feature.
+
+The current implementation has the following limitations:
+
+- Ideally, I want to know whether the event is cause by clone(),
+  unshare() or setns(). At the moment, the reason field only
+  distinguishes between clone() and non-clone.
+
+- The event for pid namespaces is generated when pid_ns_for_children
+  changes. I think that's ok, and it just needs to be documented for
+  userspace in the same way it is already documented in
+  pid_namespaces(7). Userspace really needs to know whether the event is
+  caused by clone() or non-clone to interpret the event correctly.
+
+- Events for userns are not implemented yet. I skipped it for now
+  because user namespaces are not managed with nsproxy as other namespaces.
+
+- The mnt namespace struct is more private than other so the code is a
+  bit different for this. I don't know if there is a better way to do
+  this.
+
+- Userspace needs a way to know whether namespace events are implemented
+  in the proc connector. If not implemented, userspaces needs to
+  fallback to polling changes in /proc/*/ns/*. I am not sure whether to
+  add a Netlink message to query the kernel if the feature is implemented
+  or otherwise.
+
+- There is no granularity when subscribing for proc connector events. I
+  figured it might not be a problem since namespace events are more rare
+  than other fork/exec events. It will probably not flood existing users
+  of the proc connector.
+
+Signed-off-by: Alban Crequy <alban@kinvolk.io>
+---
+ drivers/connector/cn_proc.c  | 28 +++++++++++++++++
+ include/linux/cn_proc.h      |  4 +++
+ include/uapi/linux/cn_proc.h | 16 +++++++++-
+ kernel/nsproxy.c             | 71 ++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 118 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/connector/cn_proc.c b/drivers/connector/cn_proc.c
+index a782ce8..69e6815 100644
+--- a/drivers/connector/cn_proc.c
++++ b/drivers/connector/cn_proc.c
+@@ -246,6 +246,34 @@ void proc_comm_connector(struct task_struct *task)
+ 	send_msg(msg);
+ }
+ 
++void proc_ns_connector(struct task_struct *task, int type, int reason, u64 old_inum, u64 inum)
++{
++	struct cn_msg *msg;
++	struct proc_event *ev;
++	__u8 buffer[CN_PROC_MSG_SIZE] __aligned(8);
++
++	if (atomic_read(&proc_event_num_listeners) < 1)
++		return;
++
++	msg = buffer_to_cn_msg(buffer);
++	ev = (struct proc_event *)msg->data;
++	memset(&ev->event_data, 0, sizeof(ev->event_data));
++	ev->timestamp_ns = ktime_get_ns();
++	ev->what = PROC_EVENT_NM;
++	ev->event_data.nm.process_pid  = task->pid;
++	ev->event_data.nm.process_tgid = task->tgid;
++	ev->event_data.nm.type = type;
++	ev->event_data.nm.reason = reason;
++	ev->event_data.nm.old_inum = old_inum;
++	ev->event_data.nm.inum = inum;
++
++	memcpy(&msg->id, &cn_proc_event_id, sizeof(msg->id));
++	msg->ack = 0; /* not used */
++	msg->len = sizeof(*ev);
++	msg->flags = 0; /* not used */
++	send_msg(msg);
++}
++
+ void proc_coredump_connector(struct task_struct *task)
+ {
+ 	struct cn_msg *msg;
+diff --git a/include/linux/cn_proc.h b/include/linux/cn_proc.h
+index 1d5b02a..2e6915e 100644
+--- a/include/linux/cn_proc.h
++++ b/include/linux/cn_proc.h
+@@ -26,6 +26,7 @@ void proc_id_connector(struct task_struct *task, int which_id);
+ void proc_sid_connector(struct task_struct *task);
+ void proc_ptrace_connector(struct task_struct *task, int which_id);
+ void proc_comm_connector(struct task_struct *task);
++void proc_ns_connector(struct task_struct *task, int type, int change, u64 old_inum, u64 inum);
+ void proc_coredump_connector(struct task_struct *task);
+ void proc_exit_connector(struct task_struct *task);
+ #else
+@@ -45,6 +46,9 @@ static inline void proc_sid_connector(struct task_struct *task)
+ static inline void proc_comm_connector(struct task_struct *task)
+ {}
+ 
++static inline void proc_ns_connector(struct task_struct *task, int type, int change, u64 old_inum, u64 inum)
++{}
++
+ static inline void proc_ptrace_connector(struct task_struct *task,
+ 					 int ptrace_id)
+ {}
+diff --git a/include/uapi/linux/cn_proc.h b/include/uapi/linux/cn_proc.h
+index f6c2710..95607304 100644
+--- a/include/uapi/linux/cn_proc.h
++++ b/include/uapi/linux/cn_proc.h
+@@ -55,7 +55,8 @@ struct proc_event {
+ 		PROC_EVENT_SID  = 0x00000080,
+ 		PROC_EVENT_PTRACE = 0x00000100,
+ 		PROC_EVENT_COMM = 0x00000200,
+-		/* "next" should be 0x00000400 */
++		PROC_EVENT_NM   = 0x00000400,
++		/* "next" should be 0x00000800 */
+ 		/* "last" is the last process event: exit,
+ 		 * while "next to last" is coredumping event */
+ 		PROC_EVENT_COREDUMP = 0x40000000,
+@@ -112,6 +113,19 @@ struct proc_event {
+ 			char           comm[16];
+ 		} comm;
+ 
++		struct nm_proc_event {
++			__kernel_pid_t process_pid;
++			__kernel_pid_t process_tgid;
++			__u32 type;   /* CLONE_NEWNS, CLONE_NEWPID, ... */
++			enum reason {
++				PROC_NM_REASON_CLONE = 0x00000001,
++				PROC_NM_REASON_SET   = 0x00000002, /* setns or unshare */
++				PROC_NM_REASON_LAST  = 0x80000000,
++			} reason;
++			__u64 old_inum;
++			__u64 inum;
++		} nm;
++
+ 		struct coredump_proc_event {
+ 			__kernel_pid_t process_pid;
+ 			__kernel_pid_t process_tgid;
+diff --git a/kernel/nsproxy.c b/kernel/nsproxy.c
+index 782102e..34306f7 100644
+--- a/kernel/nsproxy.c
++++ b/kernel/nsproxy.c
+@@ -26,6 +26,7 @@
+ #include <linux/file.h>
+ #include <linux/syscalls.h>
+ #include <linux/cgroup.h>
++#include <linux/cn_proc.h>
+ 
+ static struct kmem_cache *nsproxy_cachep;
+ 
+@@ -139,6 +140,8 @@ int copy_namespaces(unsigned long flags, struct task_struct *tsk)
+ 	struct nsproxy *old_ns = tsk->nsproxy;
+ 	struct user_namespace *user_ns = task_cred_xxx(tsk, user_ns);
+ 	struct nsproxy *new_ns;
++	struct ns_common *mntns;
++	u64 old_mntns_inum = 0;
+ 
+ 	if (likely(!(flags & (CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC |
+ 			      CLONE_NEWPID | CLONE_NEWNET |
+@@ -165,7 +168,41 @@ int copy_namespaces(unsigned long flags, struct task_struct *tsk)
+ 	if (IS_ERR(new_ns))
+ 		return  PTR_ERR(new_ns);
+ 
++	mntns = mntns_operations.get(tsk);
++	if (mntns) {
++		old_mntns_inum = mntns->inum;
++		mntns_operations.put(mntns);
++	}
++
+ 	tsk->nsproxy = new_ns;
++
++	if (old_ns && new_ns) {
++		struct ns_common *mntns;
++		u64 new_mntns_inum = 0;
++		mntns = mntns_operations.get(tsk);
++		if (mntns) {
++			new_mntns_inum = mntns->inum;
++			mntns_operations.put(mntns);
++		}
++		if (old_ns->mnt_ns != new_ns->mnt_ns)
++			proc_ns_connector(tsk, CLONE_NEWNS, PROC_NM_REASON_CLONE, old_mntns_inum, new_mntns_inum);
++
++		if (old_ns->uts_ns != new_ns->uts_ns)
++			proc_ns_connector(tsk, CLONE_NEWUTS, PROC_NM_REASON_CLONE, old_ns->uts_ns->ns.inum, new_ns->uts_ns->ns.inum);
++
++		if (old_ns->ipc_ns != new_ns->ipc_ns)
++			proc_ns_connector(tsk, CLONE_NEWIPC, PROC_NM_REASON_CLONE, old_ns->ipc_ns->ns.inum, new_ns->ipc_ns->ns.inum);
++
++		if (old_ns->net_ns != new_ns->net_ns)
++			proc_ns_connector(tsk, CLONE_NEWNET, PROC_NM_REASON_CLONE, old_ns->net_ns->ns.inum, new_ns->net_ns->ns.inum);
++
++		if (old_ns->cgroup_ns != new_ns->cgroup_ns)
++			proc_ns_connector(tsk, CLONE_NEWCGROUP, PROC_NM_REASON_CLONE, old_ns->cgroup_ns->ns.inum, new_ns->cgroup_ns->ns.inum);
++
++		if (old_ns->pid_ns_for_children != new_ns->pid_ns_for_children)
++			proc_ns_connector(tsk, CLONE_NEWPID, PROC_NM_REASON_CLONE, old_ns->pid_ns_for_children->ns.inum, new_ns->pid_ns_for_children->ns.inum);
++	}
++
+ 	return 0;
+ }
+ 
+@@ -216,14 +253,48 @@ out:
+ void switch_task_namespaces(struct task_struct *p, struct nsproxy *new)
+ {
+ 	struct nsproxy *ns;
++	struct ns_common *mntns;
++	u64 old_mntns_inum = 0;
+ 
+ 	might_sleep();
+ 
++	mntns = mntns_operations.get(p);
++	if (mntns) {
++		old_mntns_inum = mntns->inum;
++		mntns_operations.put(mntns);
++	}
++
+ 	task_lock(p);
+ 	ns = p->nsproxy;
+ 	p->nsproxy = new;
+ 	task_unlock(p);
+ 
++	if (ns && new) {
++		u64 new_mntns_inum = 0;
++		mntns = mntns_operations.get(p);
++		if (mntns) {
++			new_mntns_inum = mntns->inum;
++			mntns_operations.put(mntns);
++		}
++		if (ns->mnt_ns != new->mnt_ns)
++			proc_ns_connector(p, CLONE_NEWNS, PROC_NM_REASON_SET, old_mntns_inum, new_mntns_inum);
++
++		if (ns->uts_ns != new->uts_ns)
++			proc_ns_connector(p, CLONE_NEWUTS, PROC_NM_REASON_SET, ns->uts_ns->ns.inum, new->uts_ns->ns.inum);
++
++		if (ns->ipc_ns != new->ipc_ns)
++			proc_ns_connector(p, CLONE_NEWIPC, PROC_NM_REASON_SET, ns->ipc_ns->ns.inum, new->ipc_ns->ns.inum);
++
++		if (ns->net_ns != new->net_ns)
++			proc_ns_connector(p, CLONE_NEWNET, PROC_NM_REASON_SET, ns->net_ns->ns.inum, new->net_ns->ns.inum);
++
++		if (ns->cgroup_ns != new->cgroup_ns)
++			proc_ns_connector(p, CLONE_NEWCGROUP, PROC_NM_REASON_SET, ns->cgroup_ns->ns.inum, new->cgroup_ns->ns.inum);
++
++		if (ns->pid_ns_for_children != new->pid_ns_for_children)
++			proc_ns_connector(p, CLONE_NEWPID, PROC_NM_REASON_SET, ns->pid_ns_for_children->ns.inum, new->pid_ns_for_children->ns.inum);
++	}
++
+ 	if (ns && atomic_dec_and_test(&ns->count))
+ 		free_nsproxy(ns);
+ }
+-- 
+2.7.4
