@@ -1,100 +1,53 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net] sctp: hold the transport before using it in
- sctp_hash_cmp
-Date: Thu, 8 Sep 2016 15:27:51 -0400
-Message-ID: <20160908192751.GE16608@hmsreliant.think-freely.org>
-References: <f71c2e03ae6e9b956f41c73fff5a282c86d79daf.1473328144.git.lucien.xin@gmail.com>
+From: Lance Richardson <lrichard@redhat.com>
+Subject: Re: [PATCH] net_namespace: fixed net_device reference leak
+Date: Thu, 8 Sep 2016 15:32:45 -0400 (EDT)
+Message-ID: <401753600.83187028.1473363165519.JavaMail.zimbra@redhat.com>
+References: <CAJD3hpUgNJPOqGmAp7tEaY2+EnOasG=W6VLOMbEhDRgr8M5v8A@mail.gmail.com> <CAJD3hpUSqSxtgJMK__V-j8VKRwf-ftZFHw0J38VTxP9tDDZyhA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        davem@davemloft.net,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
-To: Xin Long <lucien.xin@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Jojy Varghese <jojy.varghese@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:57303 "EHLO
-        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932165AbcIHT2E (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 15:28:04 -0400
-Content-Disposition: inline
-In-Reply-To: <f71c2e03ae6e9b956f41c73fff5a282c86d79daf.1473328144.git.lucien.xin@gmail.com>
+Received: from mx3-phx2.redhat.com ([209.132.183.24]:38208 "EHLO
+        mx3-phx2.redhat.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S941343AbcIHTcs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 15:32:48 -0400
+In-Reply-To: <CAJD3hpUSqSxtgJMK__V-j8VKRwf-ftZFHw0J38VTxP9tDDZyhA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 08, 2016 at 05:49:04PM +0800, Xin Long wrote:
-> Now sctp uses the transport without holding it in sctp_hash_cmp,
-> it can cause a use-after-free panic. As after it get transport from
-> hashtable, another CPU may free it, then the members it accesses
-> may be unavailable memory.
+> From: "Jojy Varghese" <jojy.varghese@gmail.com>
+> To: netdev@vger.kernel.org
+> Cc: davem@davemloft.net
+> Sent: Thursday, September 8, 2016 3:08:29 PM
+> Subject: Re: [PATCH] net_namespace: fixed net_device reference leak
 > 
-> This patch is to use sctp_transport_hold, in which it checks the
-> refcnt first, holds it if it's not 0.
+> (Updating the patch for the case when a non-loopback dev could be
+> unregistered)
 > 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> Currently during namespace cleanup, if ‘dst’ subsystem is holding
+> a reference to the interface in the namespace, it does not get released.
+> Current code first does a ’dev_hold’ on the same device followed by a
+> ‘dev_put’ on the same device resulting in a no-op.
+> 
+> This change fixes this leak by assigning the initial namespace’s loopback
+> device to the ‘dst’ before releasing the reference to the network
+> device being released.
+> 
+> Additional reference: https://github.com/docker/docker/issues/5618
+> 
+> Signed-off-by: Jojy G Varghese <jojy.varghese@gmail.com>
 > ---
->  net/sctp/input.c | 27 +++++++++++++++++----------
->  1 file changed, 17 insertions(+), 10 deletions(-)
-> 
-> diff --git a/net/sctp/input.c b/net/sctp/input.c
-> index 69444d3..1555fb8 100644
-> --- a/net/sctp/input.c
-> +++ b/net/sctp/input.c
-> @@ -796,27 +796,34 @@ struct sctp_hash_cmp_arg {
->  static inline int sctp_hash_cmp(struct rhashtable_compare_arg *arg,
->  				const void *ptr)
->  {
-> +	struct sctp_transport *t = (struct sctp_transport *)ptr;
->  	const struct sctp_hash_cmp_arg *x = arg->key;
-> -	const struct sctp_transport *t = ptr;
-> -	struct sctp_association *asoc = t->asoc;
-> -	const struct net *net = x->net;
-> +	struct sctp_association *asoc;
-> +	int err = 1;
->  
->  	if (!sctp_cmp_addr_exact(&t->ipaddr, x->paddr))
-> -		return 1;
-> -	if (!net_eq(sock_net(asoc->base.sk), net))
-> -		return 1;
-> +		return err;
-> +	if (!sctp_transport_hold(t))
-> +		return err;
-> +
-> +	asoc = t->asoc;
-> +	if (!net_eq(sock_net(asoc->base.sk), x->net))
-> +		goto out;
->  	if (x->ep) {
->  		if (x->ep != asoc->ep)
-> -			return 1;
-> +			goto out;
->  	} else {
->  		if (x->laddr->v4.sin_port != htons(asoc->base.bind_addr.port))
-> -			return 1;
-> +			goto out;
->  		if (!sctp_bind_addr_match(&asoc->base.bind_addr,
->  					  x->laddr, sctp_sk(asoc->base.sk)))
-> -			return 1;
-> +			goto out;
->  	}
->  
-> -	return 0;
-> +	err = 0;
-> +out:
-> +	sctp_transport_put(t);
-> +	return err;
->  }
->  
->  static inline u32 sctp_hash_obj(const void *data, u32 len, u32 seed)
-> -- 
-> 2.1.0
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-What path does this occur in?  __sctp_lookup_association takes a hold on the
-asoc, and that function is protected by the rcu_read_lock, so I'm not sure how
-you get into a situation in which the asoc can be deleted while the lookup is
-occuring.
 
-Neil
+If the dst wasn't being cleaned up in the namespace that's being deleted,
+it is unlikely it will be cleaned up after moving it to the init namespace.
+
+I think it would be better to figure out why this dst is being leaked
+in the first place, otherwise this is probably still a memory leak.
+
+Is this easily reproducible with current net or net-next kernels?
+
+Regards,
+
+    Lance
