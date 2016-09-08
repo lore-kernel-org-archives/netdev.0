@@ -1,69 +1,42 @@
-From: Jojy Varghese <jojy.varghese@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH] net_namespace: fixed net_device reference leak
-Date: Thu, 8 Sep 2016 16:33:38 -0700
-Message-ID: <CAJD3hpUDTZiJQ4YMiCizcYBKw=GD6jZoww3GxYjmajSdn6CE=g@mail.gmail.com>
+Date: Thu, 08 Sep 2016 16:37:41 -0700
+Message-ID: <1473377861.18970.20.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <CAJD3hpUgNJPOqGmAp7tEaY2+EnOasG=W6VLOMbEhDRgr8M5v8A@mail.gmail.com>
- <CAJD3hpUSqSxtgJMK__V-j8VKRwf-ftZFHw0J38VTxP9tDDZyhA@mail.gmail.com>
- <1473368413.18970.10.camel@edumazet-glaptop3.roam.corp.google.com>
- <1473368750.18970.11.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAJD3hpWs7ur8qc+E3yq_oJWs7NdbJEmRrxKFesYbap9ihSzUiw@mail.gmail.com>
- <1473373012.18970.13.camel@edumazet-glaptop3.roam.corp.google.com> <CAJD3hpUMdSt6UXEFjU9OnU4K7qiET50xo8AQ194+4vpX2CfOUA@mail.gmail.com>
+         <CAJD3hpUSqSxtgJMK__V-j8VKRwf-ftZFHw0J38VTxP9tDDZyhA@mail.gmail.com>
+         <1473368413.18970.10.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1473368750.18970.11.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAJD3hpWs7ur8qc+E3yq_oJWs7NdbJEmRrxKFesYbap9ihSzUiw@mail.gmail.com>
+         <1473373012.18970.13.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAJD3hpUMdSt6UXEFjU9OnU4K7qiET50xo8AQ194+4vpX2CfOUA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Jojy Varghese <jojy.varghese@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:35563 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752396AbcIHXdk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 19:33:40 -0400
-Received: by mail-wm0-f65.google.com with SMTP id a6so339341wmc.2
-        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 16:33:39 -0700 (PDT)
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:33647 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755063AbcIHXhn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 19:37:43 -0400
+Received: by mail-pf0-f196.google.com with SMTP id 128so3108790pfb.0
+        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 16:37:43 -0700 (PDT)
 In-Reply-To: <CAJD3hpUMdSt6UXEFjU9OnU4K7qiET50xo8AQ194+4vpX2CfOUA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sorry last patch was just the delta over my original patch. Here is
-the complete patch:
-
----
- net/core/dst.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/net/core/dst.c b/net/core/dst.c
-index a1656e3..f63027e 100644
---- a/net/core/dst.c
-+++ b/net/core/dst.c
-@@ -433,8 +433,11 @@ static void dst_ifdown(struct dst_entry *dst,
-struct net_device *dev,
-                dst->input = dst_discard;
-                dst->output = dst_discard_out;
-        } else {
--               dst->dev = dev_net(dst->dev)->loopback_dev;
--               dev_hold(dst->dev);
-+               if (dst->dev != dev_net(dst->dev)->loopback_dev) {
-+                       dst->dev = dev_net(dst->dev)->loopback_dev;
-+                       dev_hold(dst->dev);
-+               }
-+
-                dev_put(dev);
-        }
- }
---
-1.8.3.1
-
-On Thu, Sep 8, 2016 at 4:16 PM, Jojy Varghese <jojy.varghese@gmail.com> wrote:
+On Thu, 2016-09-08 at 16:16 -0700, Jojy Varghese wrote:
 > The dst's do disappear but the net device does not. A better solution
 > is to only hold reference to dst's net device ONLY if it is not a
 > loopback device. In the case of the loopback device, we want to do
 > only a "put" on it and skip the "hold".
->
+> 
 > Updating the patch below:
->
+> 
 > ---
 >  net/core/dst.c | 7 +++----
 >  1 file changed, 3 insertions(+), 4 deletions(-)
->
+> 
 > diff --git a/net/core/dst.c b/net/core/dst.c
 > index 7e45593..f63027e 100644
 > --- a/net/core/dst.c
@@ -74,48 +47,27 @@ On Thu, Sep 8, 2016 at 4:16 PM, Jojy Varghese <jojy.varghese@gmail.com> wrote:
 >                 dst->output = dst_discard_out;
 >         } else {
 > -               if (dst->dev == dev_net(dst->dev)->loopback_dev)
+
+On which tree are you working exactly ?
+Current code is not looking like that.
+
 > -                       dst->dev = init_net.loopback_dev;
 > -               else
 > +               if (dst->dev != dev_net(dst->dev)->loopback_dev) {
 >                         dst->dev = dev_net(dst->dev)->loopback_dev;
 > +                       dev_hold(dst->dev);
 > +               }
->
+> 
 > -               dev_hold(dst->dev);
 >                 dev_put(dev);
 >         }
 >  }
-> --
-> 1.8.3.1
->
->
->
-> On Thu, Sep 8, 2016 at 3:16 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> On Thu, 2016-09-08 at 15:12 -0700, Jojy Varghese wrote:
->>> Hi Eric/Lance
->>>
->>>  Thanks for taking time to look at the patch. The problem in dst.c's
->>> "dst_ifdown" is that it will never do an actual "dev_put" on the
->>> loopback net device. This results in the loopback net device to be
->>> alive even when the dst goes away.
->>
->> Sure, but the dst themselves should disappear, and thus release their
->> dst->dev reference.
->>
->> Something is missing.
->>
->> loopback device is only used when we remove one device from the system,
->> but namespace (and loopback device) is still around.
->>
->>
->>
->
->
->
-> --
-> Jojy G Varghese
 
 
+I appreciate your desperate efforts, but I am telling you the bug is
+elsewhere.
 
--- 
-Jojy G Varghese
+Do you have a reproducer of the bug, on latest David Miller tree
+( https://git.kernel.org/cgit/linux/kernel/git/davem/net.git )
+
+Thanks.
