@@ -1,85 +1,40 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH net-next 0/3] r8152: configuration setting
-Date: Thu, 08 Sep 2016 15:16:09 +0200
-Message-ID: <8737lah6qu.fsf@miraculix.mork.no>
-References: <1394712342-15778-215-Taiwan-albertk@realtek.com>
-        <87h99rizsi.fsf@miraculix.mork.no>
-        <0835B3720019904CB8F7AA43166CEEB2010259B5@RTITMBSV03.realtek.com.tw>
-        <87vay6hlmc.fsf@miraculix.mork.no>
-        <0835B3720019904CB8F7AA43166CEEB201026170@RTITMBSV03.realtek.com.tw>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCH net] sctp: hold the transport before using it in sctp_hash_cmp
+Date: Thu, 8 Sep 2016 21:17:26 +0800
+Message-ID: <CADvbK_f8EUUCQcF67jer7fgH=7dS=hm7dpbyckxmv0UWiPZgAQ@mail.gmail.com>
+References: <f71c2e03ae6e9b956f41c73fff5a282c86d79daf.1473328144.git.lucien.xin@gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB00F7710@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-        nic_swsd <nic_swsd@realtek.com>,
-        "linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-usb\@vger.kernel.org" <linux-usb@vger.kernel.org>,
-        Oliver Neukum <oliver@neukum.org>
-To: Hayes Wang <hayeswang@realtek.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <0835B3720019904CB8F7AA43166CEEB201026170@RTITMBSV03.realtek.com.tw>
-        (Hayes Wang's message of "Thu, 8 Sep 2016 13:02:01 +0000")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: network dev <netdev@vger.kernel.org>,
+        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        "daniel@iogearbox.net" <daniel@iogearbox.net>
+To: David Laight <David.Laight@aculab.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:34732 "EHLO
+        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933951AbcIHNR2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 09:17:28 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB00F7710@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hayes Wang <hayeswang@realtek.com> writes:
-
-> Bj=C3=B8rn Mork [mailto:bjorn@mork.no]
->> Sent: Thursday, September 08, 2016 3:55 PM
-> [...]
->> Yes, I see that.  But is that strictly necessary? Couldn't you just say:
->> "CDC ECM is supported by cdc_ether and therefore limited to the features
->> implemented by cdc_ether.  If you want feature X, then please use our
->> vendor specific mode with the r8152 driver?"
+>> Now sctp uses the transport without holding it in sctp_hash_cmp,
+>> it can cause a use-after-free panic. As after it get transport from
+>> hashtable, another CPU may free it, then the members it accesses
+>> may be unavailable memory.
 >
-> My customs have a case that they must force the speed to 100M
-> for some reasons. I also wish to implement the driver as simple
-> as possible, but I don't think I could determine this. I accept
-> you reject my patches. However, I couldn't deny the requests
-> from the boss or customs without doing anything. I must prove
-> the way is unacceptable.
+> How old is this bug?
+I think since:
+$ git describe 33c1529
+v4.4-rc7-1158-g33c1529
 
-That's an odd combination of requirements, but I know how customers can
-be :)
-
-Just to make it clear:  I provide comments, but I am in no position to
-reject any of your patches.  Or have any wish to do so.  You maintain
-r8152.  Oliver maintains cdc_ether.  I am confident that whatever you
-two decide is going to be fine.
-
-> [...]
->> Each USB configuation comes with a set of descriptors identifying the
->> functions, and USB interface drivers attach to the functions they
->> support.  The user can dynamically switch the device from e.g. cfg #1 to
->> cfg #3 by writing "3" to /sys/bus/usb/devices/<port>/bConfigurationValue
->> This will cause the ECM and ACM USB interfaces to disappear, and the
->> associated class drivers will unbind, and new vendor specific USB
->> interfaces appear instead, causing a matching vendor specific driver to
->> load and bind.
->>=20
->> Naturally, end users will not switch configurations all the time.  They
->> will select the configuration providing the set of functions they want.
->> If this is different from the default configuration  selected by the
->> Linux USB core, then that's a simple udev rule to update the
->> bConfigurationValue sysfs attribute on device disceovery.
+> Is it in any release kernels?
 >
-> I tested above method before. And I found that the cdc_ether
-> was loaded before switching the configuration. The behavior
-> of loading one driver and changing to another driver has
-> opportunity to let our some previous chips become abnormal.
-> To switch configuration is fine. However, it may have problem
-> to switch driver. That is why the current kernel only supports
-> vendor mode. If the method works fine, I have no trouble now.
+yes
 
-Yes, many firmwares/devices are not prepared to do "late" config
-switching and can end up in a strange limbo if they are initialized
-before switching. An udev rule should still run early enough to prevent
-this problem I believe.
-
-But if that doesn't work, then I agree that a blacklist makes more
-sense. Just make it runtime configurable so that distros can do
-something sane with it.
-
-
-
-Bj=C3=B8rn
+it was found in s390x, we could not reproduce it in x86_64 by now.
+Maybe it needs low configuration cpu to reproduce.
