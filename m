@@ -1,210 +1,78 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v8 2/3] net: core: Add offload stats to if_stats_msg
-Date: Thu,  8 Sep 2016 08:19:52 +0200
-Message-ID: <1473315593-2078-3-git-send-email-jiri@resnulli.us>
-References: <1473315593-2078-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, nogahf@mellanox.com, idosch@mellanox.com,
-        eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
-        roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-        linville@tuxdriver.com, tgraf@suug.ch, gospo@cumulusnetworks.com,
-        sfeldma@gmail.com, sd@queasysnail.net, eranbe@mellanox.com,
-        ast@plumgrid.com, edumazet@google.com, hannes@stressinduktion.org,
-        f.fainelli@gmail.com, dsa@cumulusnetworks.com
-To: netdev@vger.kernel.org
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: pull request (net-next): ipsec-next 2016-09-08
+Date: Thu, 8 Sep 2016 07:54:35 +0200
+Message-ID: <1473314092-11319-1-git-send-email-steffen.klassert@secunet.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:35418 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757110AbcIHGie (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 02:38:34 -0400
-Received: by mail-wm0-f68.google.com with SMTP id a6so6299439wmc.2
-        for <netdev@vger.kernel.org>; Wed, 07 Sep 2016 23:38:34 -0700 (PDT)
-In-Reply-To: <1473315593-2078-1-git-send-email-jiri@resnulli.us>
+Received: from a.mx.secunet.com ([62.96.220.36]:36341 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752925AbcIHGvY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Sep 2016 02:51:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nogah Frankel <nogahf@mellanox.com>
+1) Constify the xfrm_replay structures. From Julia Lawall
 
-Add a nested attribute of offload stats to if_stats_msg
-named IFLA_STATS_LINK_OFFLOAD_XSTATS.
-Under it, add SW stats, meaning stats only per packets that went via
-slowpath to the cpu, named IFLA_OFFLOAD_XSTATS_CPU_HIT.
+2) Protect xfrm state hash tables with rcu, lookups
+   can be done now without acquiring xfrm_state_lock.
+   From Florian Westphal.
 
-Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- include/uapi/linux/if_link.h |  9 ++++
- net/core/rtnetlink.c         | 97 ++++++++++++++++++++++++++++++++++++++++++--
- 2 files changed, 102 insertions(+), 4 deletions(-)
+3) Protect xfrm policy hash tables with rcu, lookups
+   can be done now without acquiring xfrm_policy_lock.
+   From Florian Westphal.
 
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 9bf3aec..2351776 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -826,6 +826,7 @@ enum {
- 	IFLA_STATS_LINK_64,
- 	IFLA_STATS_LINK_XSTATS,
- 	IFLA_STATS_LINK_XSTATS_SLAVE,
-+	IFLA_STATS_LINK_OFFLOAD_XSTATS,
- 	__IFLA_STATS_MAX,
- };
- 
-@@ -845,6 +846,14 @@ enum {
- };
- #define LINK_XSTATS_TYPE_MAX (__LINK_XSTATS_TYPE_MAX - 1)
- 
-+/* These are stats embedded into IFLA_STATS_LINK_OFFLOAD_XSTATS */
-+enum {
-+	IFLA_OFFLOAD_XSTATS_UNSPEC,
-+	IFLA_OFFLOAD_XSTATS_CPU_HIT, /* struct rtnl_link_stats64 */
-+	__IFLA_OFFLOAD_XSTATS_MAX
-+};
-+#define IFLA_OFFLOAD_XSTATS_MAX (__IFLA_OFFLOAD_XSTATS_MAX - 1)
-+
- /* XDP section */
- 
- enum {
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 1dfca1c..fe3c1ba 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -3577,6 +3577,79 @@ static bool stats_attr_valid(unsigned int mask, int attrid, int idxattr)
- 	       (!idxattr || idxattr == attrid);
- }
- 
-+#define IFLA_OFFLOAD_XSTATS_FIRST (IFLA_OFFLOAD_XSTATS_UNSPEC + 1)
-+static int rtnl_get_offload_stats_attr_size(int attr_id)
-+{
-+	switch (attr_id) {
-+	case IFLA_OFFLOAD_XSTATS_CPU_HIT:
-+		return sizeof(struct rtnl_link_stats64);
-+	}
-+
-+	return 0;
-+}
-+
-+static int rtnl_get_offload_stats(struct sk_buff *skb, struct net_device *dev)
-+{
-+	struct nlattr *attr = NULL;
-+	int attr_id, size;
-+	void *attr_data;
-+	int err;
-+
-+	if (!(dev->netdev_ops && dev->netdev_ops->ndo_has_offload_stats &&
-+	      dev->netdev_ops->ndo_get_offload_stats))
-+		return -ENODATA;
-+
-+	for (attr_id = IFLA_OFFLOAD_XSTATS_FIRST;
-+	     attr_id <= IFLA_OFFLOAD_XSTATS_MAX; attr_id++) {
-+		size = rtnl_get_offload_stats_attr_size(attr_id);
-+		if (!size)
-+			continue;
-+
-+		if (!dev->netdev_ops->ndo_has_offload_stats(attr_id))
-+			continue;
-+
-+		attr = nla_reserve_64bit(skb, attr_id, size,
-+					 IFLA_OFFLOAD_XSTATS_UNSPEC);
-+		if (!attr)
-+			return -EMSGSIZE;
-+
-+		attr_data = nla_data(attr);
-+		memset(attr_data, 0, size);
-+		err = dev->netdev_ops->ndo_get_offload_stats(attr_id, dev,
-+							     attr_data);
-+		if (err)
-+			return err;
-+	}
-+
-+	if (!attr)
-+		return -ENODATA;
-+	return 0;
-+}
-+
-+static int rtnl_get_offload_stats_size(const struct net_device *dev)
-+{
-+	int nla_size = 0;
-+	int attr_id;
-+	int size;
-+
-+	if (!(dev->netdev_ops && dev->netdev_ops->ndo_has_offload_stats &&
-+	      dev->netdev_ops->ndo_get_offload_stats))
-+		return 0;
-+
-+	for (attr_id = IFLA_OFFLOAD_XSTATS_FIRST;
-+	     attr_id <= IFLA_OFFLOAD_XSTATS_MAX; attr_id++) {
-+		if (!dev->netdev_ops->ndo_has_offload_stats(attr_id))
-+			continue;
-+		size = rtnl_get_offload_stats_attr_size(attr_id);
-+		nla_size += nla_total_size_64bit(size);
-+	}
-+
-+	if (nla_size != 0)
-+		nla_size += nla_total_size(0);
-+
-+	return nla_size;
-+}
-+
- static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
- 			       int type, u32 pid, u32 seq, u32 change,
- 			       unsigned int flags, unsigned int filter_mask,
-@@ -3586,6 +3659,7 @@ static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
- 	struct nlmsghdr *nlh;
- 	struct nlattr *attr;
- 	int s_prividx = *prividx;
-+	int err;
- 
- 	ASSERT_RTNL();
- 
-@@ -3614,8 +3688,6 @@ static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
- 		const struct rtnl_link_ops *ops = dev->rtnl_link_ops;
- 
- 		if (ops && ops->fill_linkxstats) {
--			int err;
--
- 			*idxattr = IFLA_STATS_LINK_XSTATS;
- 			attr = nla_nest_start(skb,
- 					      IFLA_STATS_LINK_XSTATS);
-@@ -3639,8 +3711,6 @@ static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
- 		if (master)
- 			ops = master->rtnl_link_ops;
- 		if (ops && ops->fill_linkxstats) {
--			int err;
--
- 			*idxattr = IFLA_STATS_LINK_XSTATS_SLAVE;
- 			attr = nla_nest_start(skb,
- 					      IFLA_STATS_LINK_XSTATS_SLAVE);
-@@ -3655,6 +3725,22 @@ static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
- 		}
- 	}
- 
-+	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_OFFLOAD_XSTATS,
-+			     *idxattr)) {
-+		attr = nla_nest_start(skb, IFLA_STATS_LINK_OFFLOAD_XSTATS);
-+		if (!attr)
-+			goto nla_put_failure;
-+
-+		err = rtnl_get_offload_stats(skb, dev);
-+		if (err == -ENODATA)
-+			nla_nest_cancel(skb, attr);
-+		else
-+			nla_nest_end(skb, attr);
-+
-+		if ((err) && (err != -ENODATA))
-+			goto nla_put_failure;
-+	}
-+
- 	nlmsg_end(skb, nlh);
- 
- 	return 0;
-@@ -3712,6 +3798,9 @@ static size_t if_nlmsg_stats_size(const struct net_device *dev,
- 		}
- 	}
- 
-+	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_OFFLOAD_XSTATS, 0))
-+		size += rtnl_get_offload_stats_size(dev);
-+
- 	return size;
- }
- 
--- 
-2.5.5
+4) We don't need to have a garbage collector list per
+   namespace anymore, so use a global one instead.
+   From Florian Westphal.
+
+Please pull or let me know if there are problems.
+
+Thanks!
+
+The following changes since commit 0184165b2f42c4b032da9dd11546bfbaeb5afd4e:
+
+  ravb: add sleep PM suspend/resume support (2016-08-09 16:16:08 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec-next.git master
+
+for you to fetch changes up to 35db57bbc4b7ab810bba6e6d6954a0faf5a842cf:
+
+  xfrm: state: remove per-netns gc task (2016-08-24 13:16:06 +0200)
+
+----------------------------------------------------------------
+Florian Westphal (15):
+      xfrm: state: use hlist_for_each_entry_rcu helper
+      xfrm: state: use atomic_inc_not_zero to increment refcount
+      xfrm: state: delay freeing until rcu grace period has elapsed
+      xfrm: state: add sequence count to detect hash resizes
+      xfrm: state: use rcu_deref and assign_pointer helpers
+      xfrm: state: don't use lock anymore unless acquire operation is needed
+      xfrm: policy: use rcu versions for iteration and list add/del
+      xfrm: policy: prepare policy_bydst hash for rcu lookups
+      xfrm: policy: add sequence count to sync with hash resize
+      xfrm: policy: use atomic_inc_not_zero in rcu section
+      xfrm: policy: make xfrm_policy_lookup_bytype lockless
+      xfrm: policy: only use rcu in xfrm_sk_policy_lookup
+      xfrm: policy: don't acquire policy lock in xfrm_spd_getinfo
+      xfrm: policy: convert policy_lock to spinlock
+      xfrm: state: remove per-netns gc task
+
+Julia Lawall (1):
+      xfrm: constify xfrm_replay structures
+
+Steffen Klassert (1):
+      xfrm: Fix xfrm_policy_lock imbalance
+
+ include/net/netns/xfrm.h |  12 ++--
+ include/net/xfrm.h       |   2 +-
+ net/xfrm/xfrm_policy.c   | 145 ++++++++++++++++++++++++++++-------------------
+ net/xfrm/xfrm_replay.c   |   6 +-
+ net/xfrm/xfrm_state.c    | 121 +++++++++++++++++++++++++--------------
+ 5 files changed, 173 insertions(+), 113 deletions(-)
