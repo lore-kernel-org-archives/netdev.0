@@ -1,40 +1,42 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net_namespace: fixed net_device reference leak
-Date: Thu, 08 Sep 2016 15:16:52 -0700
-Message-ID: <1473373012.18970.13.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAJD3hpUgNJPOqGmAp7tEaY2+EnOasG=W6VLOMbEhDRgr8M5v8A@mail.gmail.com>
-         <CAJD3hpUSqSxtgJMK__V-j8VKRwf-ftZFHw0J38VTxP9tDDZyhA@mail.gmail.com>
-         <1473368413.18970.10.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1473368750.18970.11.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAJD3hpWs7ur8qc+E3yq_oJWs7NdbJEmRrxKFesYbap9ihSzUiw@mail.gmail.com>
+Subject: [PATCH net-next] ip_tunnel: do not clear l4 hashes
+Date: Thu, 08 Sep 2016 15:40:48 -0700
+Message-ID: <1473374448.18970.17.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Jojy Varghese <jojy.varghese@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:36478 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751581AbcIHWQz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 18:16:55 -0400
-Received: by mail-pf0-f194.google.com with SMTP id x24so3021999pfa.3
-        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 15:16:55 -0700 (PDT)
-In-Reply-To: <CAJD3hpWs7ur8qc+E3yq_oJWs7NdbJEmRrxKFesYbap9ihSzUiw@mail.gmail.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33378 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751143AbcIHWkv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 18:40:51 -0400
+Received: by mail-pf0-f193.google.com with SMTP id 128so3056285pfb.0
+        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 15:40:51 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-09-08 at 15:12 -0700, Jojy Varghese wrote:
-> Hi Eric/Lance
-> 
->  Thanks for taking time to look at the patch. The problem in dst.c's
-> "dst_ifdown" is that it will never do an actual "dev_put" on the
-> loopback net device. This results in the loopback net device to be
-> alive even when the dst goes away.
+From: Eric Dumazet <edumazet@google.com>
 
-Sure, but the dst themselves should disappear, and thus release their
-dst->dev reference.
+If skb has a valid l4 hash, there is no point clearing hash and force
+a further flow dissection when a tunnel encapsulation is added.
 
-Something is missing.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/ip_tunnel_core.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-loopback device is only used when we remove one device from the system,
-but namespace (and loopback device) is still around.
+diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
+index 0f227db0e9ac..777bc1883870 100644
+--- a/net/ipv4/ip_tunnel_core.c
++++ b/net/ipv4/ip_tunnel_core.c
+@@ -69,7 +69,7 @@ void iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
+ 
+ 	skb_scrub_packet(skb, xnet);
+ 
+-	skb_clear_hash(skb);
++	skb_clear_hash_if_not_l4(skb);
+ 	skb_dst_set(skb, &rt->dst);
+ 	memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
+ 
