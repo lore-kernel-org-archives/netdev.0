@@ -1,32 +1,30 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net-next] tcp: use an RB tree for ooo receive queue
-Date: Thu, 8 Sep 2016 16:31:22 +0200
-Message-ID: <24063985-7837-ca69-6da0-6522dd1e9dbb@6wind.com>
-References: <1473284968.15733.8.camel@edumazet-glaptop3.roam.corp.google.com>
- <alpine.DEB.2.10.1609081236470.18111@whp-28.cs.helsinki.fi>
-Reply-To: nicolas.dichtel@6wind.com
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [RFC] bridge: MAC learning uevents
+Date: Thu, 08 Sep 2016 08:15:25 -0700
+Message-ID: <87d1ketoc2.fsf@tassilo.jf.intel.com>
+References: <7824e091-6b1a-bf39-0f78-1c9084d59972@herrendoerfer.name>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: 8bit
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Yaogong Wang <wygivan@google.com>,
-        Yuchung Cheng <ycheng@google.com>,
-        Neal Cardwell <ncardwell@google.com>
-To: =?UTF-8?Q?Ilpo_J=c3=a4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-        Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org
+To: "D. Herrendoerfer" <d.herrendoerfer@herrendoerfer.name>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:37532 "EHLO
-        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S941564AbcIHOb0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 10:31:26 -0400
-Received: by mail-wm0-f50.google.com with SMTP id w12so92918595wmf.0
-        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 07:31:25 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.10.1609081236470.18111@whp-28.cs.helsinki.fi>
+Received: from mga01.intel.com ([192.55.52.88]:4265 "EHLO mga01.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S965283AbcIHPP2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Sep 2016 11:15:28 -0400
+In-Reply-To: <7824e091-6b1a-bf39-0f78-1c9084d59972@herrendoerfer.name>
+        (D. Herrendoerfer's message of "Thu, 8 Sep 2016 15:06:16 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 08/09/2016 à 13:02, Ilpo Järvinen a écrit :
-[snip]
-> Acked-By: Ilpo Järvinen <ilpo.jarvinen@helsinki>
-Also nitpicking: the end of the email address is missing ;-)
+"D. Herrendoerfer" <d.herrendoerfer@herrendoerfer.name> writes:
+>
+> I may be missing something here - I'm pretty sure there I am, but is
+> there any conceptual
+>
+> reason why this should not be done this way ?
+
+What happens if someone floods the network with random mac addresses?
+Sounds like an easy way to do a DoS attack against your host?
+
+-Andi
