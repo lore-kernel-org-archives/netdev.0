@@ -1,87 +1,51 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH net-next 0/3] r8152: configuration setting
-Date: Thu, 08 Sep 2016 09:54:51 +0200
-Message-ID: <87vay6hlmc.fsf@miraculix.mork.no>
-References: <1394712342-15778-215-Taiwan-albertk@realtek.com>
-        <87h99rizsi.fsf@miraculix.mork.no>
-        <0835B3720019904CB8F7AA43166CEEB2010259B5@RTITMBSV03.realtek.com.tw>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH, net-next] perf, bpf: fix conditional call to bpf_overflow_handler
+Date: Thu, 08 Sep 2016 10:03:57 +0200
+Message-ID: <57D11B6D.7080205@iogearbox.net>
+References: <20160906131033.1784262-1-arnd@arndb.de> <20160906153349.GA38225@ast-mbp.thefacebook.com> <20160908063052.GA24253@gmail.com> <20160908065650.GW10138@twins.programming.kicks-ass.net> <20160908070113.GA3003@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-        nic_swsd <nic_swsd@realtek.com>,
-        "linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-usb\@vger.kernel.org" <linux-usb@vger.kernel.org>,
-        Oliver Neukum <oliver@neukum.org>
-To: Hayes Wang <hayeswang@realtek.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:60236 "EHLO canardo.mork.no"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752942AbcIHHzS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Sep 2016 03:55:18 -0400
-In-Reply-To: <0835B3720019904CB8F7AA43166CEEB2010259B5@RTITMBSV03.realtek.com.tw>
-        (Hayes Wang's message of "Thu, 8 Sep 2016 02:44:21 +0000")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+        Alexei Starovoitov <ast@kernel.org>,
+        Ingo Molnar <mingo@redhat.com>,
+        Arnaldo Carvalho de Melo <acme@kernel.org>,
+        Alexander Shishkin <alexander.shishkin@linux.intel.com>,
+        Alexei Starovoitov <ast@fb.com>, linux-kernel@vger.kernel.org
+To: Ingo Molnar <mingo@kernel.org>,
+        Peter Zijlstra <peterz@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160908070113.GA3003@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hayes Wang <hayeswang@realtek.com> writes:
-
-> Bj=C3=B8rn Mork [mailto:bjorn@mork.no]
->> Sent: Wednesday, September 07, 2016 9:51 PM
-> [...]
->> So this adds a lot of code to work around the issues you introduced by
->> unnecessarily blacklisting the CDC ECM configuration earlier, and still
->> makes the r8152 driver handle the device even in ECM mode.
+On 09/08/2016 09:01 AM, Ingo Molnar wrote:
+> * Peter Zijlstra <peterz@infradead.org> wrote:
+>> On Thu, Sep 08, 2016 at 08:30:52AM +0200, Ingo Molnar wrote:
+>>>> Thanks for the fix. Just saw build bot complaining last night and
+>>>> by the morning your fix is already here. Thanks!
+>>>
+>>> Guys, this is the first time I saw this patch (and presumably there's some other
+>>> patch as well?) - could you please submit it properly for review and get an
+>>> Acked-by from one of the perf maintainers before appying it?
+>>
+>> I was involved with the original patch and Ack'ed it.
 >
-> I suggest to use vendor mode only, but some people ask me to
-> submit such patches. If these patches are rejected, I have
-> enough reasons to tell them it is unacceptable rather than
-> I don't do it.
+> Neither the Ack nor the Cc:s were preserved in the net-next commit:
 >
->> Just remove the completely unnecessary blacklist, and let the cdc_ether
->> driver handle the device if the user selects the ECM configuration.
->> That't how the USB system works.  There is no need for any code in r8152
->> to do that.
+>    aa6a5f3cb2b2 ("perf, bpf: add perf events core support for BPF_PROG_TYPE_PERF_EVENT programs")
+
+Afaik patchwork doesn't pick up Acks when they are against the
+cover letter of a series. For the series that includes mentioned
+commit, Peter's Ack is here:
+
+     4df20483ab28 ("Merge branch 'bpf-perf-hw-sw-events'")
+
+>> Ack on this one as well.
 >
-> The pure cdc_ether driver couldn't change the speed of the
-> ethernet, because it doesn't know how to access the PHY of
-> the device. Therefore, I add relative code in r8152 driver.
-
-Yes, I see that.  But is that strictly necessary? Couldn't you just say:
-"CDC ECM is supported by cdc_ether and therefore limited to the features
-implemented by cdc_ether.  If you want feature X, then please use our
-vendor specific mode with the r8152 driver?"
-
-As for the dynamic switching of multi-configuration USB devices:  This
-is not special for your device.  It is very common for e.g. LTE modems
-to provide 2 or more configurations, allowing the user to select between
-for example
-
- 1: ECM class + ACM class functions
- 2: MBIM class function
- 3: vendor specific functions
-
-Each USB configuation comes with a set of descriptors identifying the
-functions, and USB interface drivers attach to the functions they
-support.  The user can dynamically switch the device from e.g. cfg #1 to
-cfg #3 by writing "3" to /sys/bus/usb/devices/<port>/bConfigurationValue
-This will cause the ECM and ACM USB interfaces to disappear, and the
-associated class drivers will unbind, and new vendor specific USB
-interfaces appear instead, causing a matching vendor specific driver to
-load and bind.
-
-Naturally, end users will not switch configurations all the time.  They
-will select the configuration providing the set of functions they want.
-If this is different from the default configuration  selected by the
-Linux USB core, then that's a simple udev rule to update the
-bConfigurationValue sysfs attribute on device disceovery.
-
-This is how the USB core works by *default*, as long as you do not
-deliberately break it by blacklisting any functions or forcing a
-specific configuration.
-
-You are overdesigning to solve a non-existing problem.
-
-
-
-Bj=C3=B8rn
+> Great, thanks!
+>
+> 	Ingo
+>
