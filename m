@@ -1,141 +1,80 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net 6/6] sctp: not return ENOMEM err back in sctp_packet_transmit
-Date: Thu,  8 Sep 2016 17:44:42 +0800
-Message-ID: <043339a98393a5b320e63dc59cf4a5182f5f19cc.1473327882.git.lucien.xin@gmail.com>
-References: <cover.1473326067.git.lucien.xin@gmail.com>
+Subject: [PATCH net] sctp: hold the transport before using it in sctp_hash_cmp
+Date: Thu,  8 Sep 2016 17:49:04 +0800
+Message-ID: <f71c2e03ae6e9b956f41c73fff5a282c86d79daf.1473328144.git.lucien.xin@gmail.com>
 Cc: davem@davemloft.net,
         Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
         Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:33664 "EHLO
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:35571 "EHLO
         mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758766AbcIHJos (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 05:44:48 -0400
-In-Reply-To: <cover.1473326067.git.lucien.xin@gmail.com>
+        with ESMTP id S965728AbcIHJtI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 05:49:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As David and Marcelo's suggestion, ENOMEM err shouldn't return back to
-user in transmit path. Instead, sctp's retransmit would take care of
-the chunks that fail to send because of ENOMEM.
+Now sctp uses the transport without holding it in sctp_hash_cmp,
+it can cause a use-after-free panic. As after it get transport from
+hashtable, another CPU may free it, then the members it accesses
+may be unavailable memory.
 
-This patch is only to do some release job when alloc_skb fails, not to
-return ENOMEM back any more.
-
-Besides, it also cleans up sctp_packet_transmit's err path, and fixes
-some issues in err path:
-
- - It didn't free the head skb in nomem: path.
- - No need to check nskb in no_route: path.
- - It should goto err: path if alloc_skb fails for head.
- - Not all the NOMEMs should free nskb.
+This patch is to use sctp_transport_hold, in which it checks the
+refcnt first, holds it if it's not 0.
 
 Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- net/sctp/output.c | 47 ++++++++++++++++++++++-------------------------
- 1 file changed, 22 insertions(+), 25 deletions(-)
+ net/sctp/input.c | 27 +++++++++++++++++----------
+ 1 file changed, 17 insertions(+), 10 deletions(-)
 
-diff --git a/net/sctp/output.c b/net/sctp/output.c
-index 1934933..8f490ff 100644
---- a/net/sctp/output.c
-+++ b/net/sctp/output.c
-@@ -442,14 +442,14 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
- 			 * time. Application may notice this error.
- 			 */
- 			pr_err_once("Trying to GSO but underlying device doesn't support it.");
--			goto nomem;
-+			goto err;
- 		}
- 	} else {
- 		pkt_size = packet->size;
- 	}
- 	head = alloc_skb(pkt_size + MAX_HEADER, gfp);
- 	if (!head)
--		goto nomem;
-+		goto err;
- 	if (gso) {
- 		NAPI_GRO_CB(head)->last = head;
- 		skb_shinfo(head)->gso_type = sk->sk_gso_type;
-@@ -470,8 +470,12 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
- 		}
- 	}
- 	dst = dst_clone(tp->dst);
--	if (!dst)
--		goto no_route;
-+	if (!dst) {
-+		if (asoc)
-+			IP_INC_STATS(sock_net(asoc->base.sk),
-+				     IPSTATS_MIB_OUTNOROUTES);
-+		goto nodst;
-+	}
- 	skb_dst_set(head, dst);
+diff --git a/net/sctp/input.c b/net/sctp/input.c
+index 69444d3..1555fb8 100644
+--- a/net/sctp/input.c
++++ b/net/sctp/input.c
+@@ -796,27 +796,34 @@ struct sctp_hash_cmp_arg {
+ static inline int sctp_hash_cmp(struct rhashtable_compare_arg *arg,
+ 				const void *ptr)
+ {
++	struct sctp_transport *t = (struct sctp_transport *)ptr;
+ 	const struct sctp_hash_cmp_arg *x = arg->key;
+-	const struct sctp_transport *t = ptr;
+-	struct sctp_association *asoc = t->asoc;
+-	const struct net *net = x->net;
++	struct sctp_association *asoc;
++	int err = 1;
  
- 	/* Build the SCTP header.  */
-@@ -622,8 +626,10 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
- 		if (!gso)
- 			break;
- 
--		if (skb_gro_receive(&head, nskb))
-+		if (skb_gro_receive(&head, nskb)) {
-+			kfree_skb(nskb);
- 			goto nomem;
-+		}
- 		nskb = NULL;
- 		if (WARN_ON_ONCE(skb_shinfo(head)->gso_segs >=
- 				 sk->sk_gso_max_segs))
-@@ -717,18 +723,13 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
- 	}
- 	head->ignore_df = packet->ipfragok;
- 	tp->af_specific->sctp_xmit(head, tp);
-+	goto out;
- 
--out:
--	sctp_packet_reset(packet);
--	return err;
--no_route:
--	kfree_skb(head);
--	if (nskb != head)
--		kfree_skb(nskb);
--
--	if (asoc)
--		IP_INC_STATS(sock_net(asoc->base.sk), IPSTATS_MIB_OUTNOROUTES);
-+nomem:
-+	if (packet->auth && list_empty(&packet->auth->list))
-+		sctp_chunk_free(packet->auth);
- 
-+nodst:
- 	/* FIXME: Returning the 'err' will effect all the associations
- 	 * associated with a socket, although only one of the paths of the
- 	 * association is unreachable.
-@@ -737,22 +738,18 @@ no_route:
- 	 * required.
- 	 */
- 	 /* err = -EHOSTUNREACH; */
--err:
--	/* Control chunks are unreliable so just drop them.  DATA chunks
--	 * will get resent or dropped later.
--	 */
-+	kfree_skb(head);
- 
-+err:
- 	list_for_each_entry_safe(chunk, tmp, &packet->chunk_list, list) {
- 		list_del_init(&chunk->list);
- 		if (!sctp_chunk_is_data(chunk))
- 			sctp_chunk_free(chunk);
- 	}
--	goto out;
--nomem:
--	if (packet->auth && list_empty(&packet->auth->list))
--		sctp_chunk_free(packet->auth);
--	err = -ENOMEM;
--	goto err;
+ 	if (!sctp_cmp_addr_exact(&t->ipaddr, x->paddr))
+-		return 1;
+-	if (!net_eq(sock_net(asoc->base.sk), net))
+-		return 1;
++		return err;
++	if (!sctp_transport_hold(t))
++		return err;
 +
++	asoc = t->asoc;
++	if (!net_eq(sock_net(asoc->base.sk), x->net))
++		goto out;
+ 	if (x->ep) {
+ 		if (x->ep != asoc->ep)
+-			return 1;
++			goto out;
+ 	} else {
+ 		if (x->laddr->v4.sin_port != htons(asoc->base.bind_addr.port))
+-			return 1;
++			goto out;
+ 		if (!sctp_bind_addr_match(&asoc->base.bind_addr,
+ 					  x->laddr, sctp_sk(asoc->base.sk)))
+-			return 1;
++			goto out;
+ 	}
+ 
+-	return 0;
++	err = 0;
 +out:
-+	sctp_packet_reset(packet);
++	sctp_transport_put(t);
 +	return err;
  }
  
- /********************************************************************
+ static inline u32 sctp_hash_obj(const void *data, u32 len, u32 seed)
 -- 
 2.1.0
