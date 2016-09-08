@@ -1,31 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net_namespace: fixed net_device reference leak
-Date: Thu, 08 Sep 2016 14:05:50 -0700
-Message-ID: <1473368750.18970.11.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAJD3hpUgNJPOqGmAp7tEaY2+EnOasG=W6VLOMbEhDRgr8M5v8A@mail.gmail.com>
-         <CAJD3hpUSqSxtgJMK__V-j8VKRwf-ftZFHw0J38VTxP9tDDZyhA@mail.gmail.com>
-         <1473368413.18970.10.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [RFC] bridge: MAC learning uevents
+Date: Thu, 8 Sep 2016 14:16:26 -0700
+Message-ID: <20160908141626.0ae9025a@xeon-e3>
+References: <7824e091-6b1a-bf39-0f78-1c9084d59972@herrendoerfer.name>
+        <20160908083920.0d421951@xeon-e3>
+        <F1E0DECE-4C8F-487A-B1CD-B3ADFD8DC1B1@herrendoerfer.name>
+        <9f5db5b9-37dc-91c0-70e2-38644cc5bdb7@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Jojy Varghese <jojy.varghese@gmail.com>
+Cc: "D. Herrendoerfer" <d.herrendoerfer@herrendoerfer.name>,
+        netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:34559 "EHLO
-        mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752396AbcIHVFw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 17:05:52 -0400
-Received: by mail-pa0-f65.google.com with SMTP id gi6so2842467pac.1
-        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 14:05:52 -0700 (PDT)
-In-Reply-To: <1473368413.18970.10.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:35399 "EHLO
+        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932460AbcIHVQQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 17:16:16 -0400
+Received: by mail-pf0-f180.google.com with SMTP id w87so21849265pfk.2
+        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 14:16:16 -0700 (PDT)
+In-Reply-To: <9f5db5b9-37dc-91c0-70e2-38644cc5bdb7@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-09-08 at 14:00 -0700, Eric Dumazet wrote:
+On Thu, 8 Sep 2016 11:30:08 -0700
+Florian Fainelli <f.fainelli@gmail.com> wrote:
 
-> Latest real fix was :
-> https://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=751eb6b6042a596b0080967c1a529a9fe98dac1d
+> On 09/08/2016 10:19 AM, D. Herrendoerfer wrote:
+> > 
+> > On 08 Sep 2016, at 17:39, Stephen Hemminger <stephen@networkplumber.org> wrote:
+> >   
+> >> On Thu, 8 Sep 2016 15:06:16 +0200
+> >> "D. Herrendoerfer" <d.herrendoerfer@herrendoerfer.name> wrote:
+> >>  
+> >>> Hello,
+> >>>
+> >>> I'd like to start a discussion if it makes sense to add an optional feature
+> >>>
+> >>> to the bridge MAC address learning code to generate kernel uevents for  
+> > 
+> > [SNIP]
+> >   
+> >>>
+> >>> I'm porting my patch (for 3.10.0) to head, and will make it available, I 
+> >>> just want some
+> >>>
+> >>> valuable feedback as early as possible.
+> >>>
+> >>>
+> >>> Thanks, D.Herrendoerfer  
+> >>
+> >> This should be possible by listening for netlink events.
+> >> No need for udev interaction.  
+> > 
+> > No, there are none, not for changes to the bridge forwarding table, also this would 
+> > require a tool to continuously listen for changes.  
+> 
+> Wat do you expect uevent to solve here that netlink + a monitoring
+> program can't?
+> 
+> There is quite a bit of code in net/bridge/br_fdb.c just to deal with
+> notifying learned/added MAC addresses, is not that where you should
+> start adding what you are after (if that is not supported as of latest
+> mainline)?
 
-Another interesting fix is 
-
-https://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=a5d0dc810abf3d6b241777467ee1d6efb02575fc
+just like neighbor table modifications, it should be possible to listen for
+events with netlink. Doing it through uevent is the wrong model.
