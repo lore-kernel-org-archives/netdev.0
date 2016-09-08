@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 12/17] xfrm: policy: make xfrm_policy_lookup_bytype lockless
-Date: Thu, 8 Sep 2016 07:54:47 +0200
-Message-ID: <1473314092-11319-13-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 08/17] xfrm: policy: use rcu versions for iteration and list add/del
+Date: Thu, 8 Sep 2016 07:54:43 +0200
+Message-ID: <1473314092-11319-9-git-send-email-steffen.klassert@secunet.com>
 References: <1473314092-11319-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,9 +10,9 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
         <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:36357 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:36354 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752965AbcIHGv0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1755362AbcIHGv0 (ORCPT <rfc822;netdev@vger.kernel.org>);
         Thu, 8 Sep 2016 02:51:26 -0400
 In-Reply-To: <1473314092-11319-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
@@ -20,49 +20,63 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Florian Westphal <fw@strlen.de>
 
-side effect: no longer disables BH (should be fine).
+This is required once we allow lockless readers.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- include/net/netns/xfrm.h | 2 +-
- net/xfrm/xfrm_policy.c   | 4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
+ net/xfrm/xfrm_policy.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/include/net/netns/xfrm.h b/include/net/netns/xfrm.h
-index 1ab51d1..3ab828a 100644
---- a/include/net/netns/xfrm.h
-+++ b/include/net/netns/xfrm.h
-@@ -11,7 +11,7 @@
- struct ctl_table_header;
- 
- struct xfrm_policy_hash {
--	struct hlist_head	*table;
-+	struct hlist_head	__rcu *table;
- 	unsigned int		hmask;
- 	u8			dbits4;
- 	u8			sbits4;
 diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 09f2e2b..9302647 100644
+index b5e665b..93b8ff7 100644
 --- a/net/xfrm/xfrm_policy.c
 +++ b/net/xfrm/xfrm_policy.c
-@@ -1123,7 +1123,7 @@ static struct xfrm_policy *xfrm_policy_lookup_bytype(struct net *net, u8 type,
- 	if (unlikely(!daddr || !saddr))
- 		return NULL;
+@@ -426,14 +426,14 @@ redo:
+ 		h = __addr_hash(&pol->selector.daddr, &pol->selector.saddr,
+ 				pol->family, nhashmask, dbits, sbits);
+ 		if (!entry0) {
+-			hlist_del(&pol->bydst);
+-			hlist_add_head(&pol->bydst, ndsttable+h);
++			hlist_del_rcu(&pol->bydst);
++			hlist_add_head_rcu(&pol->bydst, ndsttable + h);
+ 			h0 = h;
+ 		} else {
+ 			if (h != h0)
+ 				continue;
+-			hlist_del(&pol->bydst);
+-			hlist_add_behind(&pol->bydst, entry0);
++			hlist_del_rcu(&pol->bydst);
++			hlist_add_behind_rcu(&pol->bydst, entry0);
+ 		}
+ 		entry0 = &pol->bydst;
+ 	}
+@@ -1106,7 +1106,7 @@ static struct xfrm_policy *xfrm_policy_lookup_bytype(struct net *net, u8 type,
+ 	read_lock_bh(&net->xfrm.xfrm_policy_lock);
+ 	chain = policy_hash_direct(net, daddr, saddr, family, dir);
+ 	ret = NULL;
+-	hlist_for_each_entry(pol, chain, bydst) {
++	hlist_for_each_entry_rcu(pol, chain, bydst) {
+ 		err = xfrm_policy_match(pol, fl, type, family, dir);
+ 		if (err) {
+ 			if (err == -ESRCH)
+@@ -1122,7 +1122,7 @@ static struct xfrm_policy *xfrm_policy_lookup_bytype(struct net *net, u8 type,
+ 		}
+ 	}
+ 	chain = &net->xfrm.policy_inexact[dir];
+-	hlist_for_each_entry(pol, chain, bydst) {
++	hlist_for_each_entry_rcu(pol, chain, bydst) {
+ 		if ((pol->priority >= priority) && ret)
+ 			break;
  
--	read_lock_bh(&net->xfrm.xfrm_policy_lock);
-+	rcu_read_lock();
-  retry:
- 	do {
- 		sequence = read_seqcount_begin(&xfrm_policy_hash_generation);
-@@ -1172,7 +1172,7 @@ static struct xfrm_policy *xfrm_policy_lookup_bytype(struct net *net, u8 type,
- 	if (ret && !xfrm_pol_hold_rcu(ret))
- 		goto retry;
- fail:
--	read_unlock_bh(&net->xfrm.xfrm_policy_lock);
-+	rcu_read_unlock();
+@@ -1271,7 +1271,7 @@ static struct xfrm_policy *__xfrm_policy_unlink(struct xfrm_policy *pol,
  
- 	return ret;
- }
+ 	/* Socket policies are not hashed. */
+ 	if (!hlist_unhashed(&pol->bydst)) {
+-		hlist_del(&pol->bydst);
++		hlist_del_rcu(&pol->bydst);
+ 		hlist_del(&pol->byidx);
+ 	}
+ 
 -- 
 1.9.1
