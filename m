@@ -1,87 +1,63 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC Patch net-next 5/6] net_sched: use rcu in fast path
-Date: Thu, 08 Sep 2016 06:28:03 -0700
-Message-ID: <1473341283.15733.33.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1472795840-31901-1-git-send-email-xiyou.wangcong@gmail.com>
-         <1472795840-31901-6-git-send-email-xiyou.wangcong@gmail.com>
-         <1473173528.10725.14.camel@edumazet-glaptop3.roam.corp.google.com>
-         <57D0FF87.604@gmail.com>
+Subject: Re: [PATCH net-next] ipv4: accept u8 in IP_TOS ancillary data
+Date: Thu, 08 Sep 2016 06:31:14 -0700
+Message-ID: <1473341474.15733.36.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1473310376.15733.26.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20160908111519.62af94bf@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
-        jhs@mojatatu.com
-To: John Fastabend <john.fastabend@gmail.com>
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Francesco Fusco <fusco@ntop.org>,
+        Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:34592 "EHLO
-        mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752803AbcIHN2H (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 09:28:07 -0400
-Received: by mail-pa0-f65.google.com with SMTP id gi6so2422208pac.1
-        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 06:28:07 -0700 (PDT)
-In-Reply-To: <57D0FF87.604@gmail.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:32994 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751944AbcIHNbQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 09:31:16 -0400
+Received: by mail-pf0-f193.google.com with SMTP id 128so2537047pfb.0
+        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 06:31:16 -0700 (PDT)
+In-Reply-To: <20160908111519.62af94bf@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-09-07 at 23:04 -0700, John Fastabend wrote:
+On Thu, 2016-09-08 at 11:15 +0200, Jesper Dangaard Brouer wrote:
+> On Wed, 07 Sep 2016 21:52:56 -0700
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> 
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > In commit f02db315b8d8 ("ipv4: IP_TOS and IP_TTL can be specified as
+> > ancillary data") Francesco added IP_TOS values specified as integer.
+> > 
+> > However, kernel sends to userspace (at recvmsg() time) an IP_TOS value
+> > in a single byte, when IP_RECVTOS is set on the socket.
+> > 
+> > It can be very useful to reflect all ancillary options as given by the
+> > kernel in a subsequent sendmsg(), instead of aborting the sendmsg() with
+> > EINVAL after Francesco patch.
+> > 
+> > So this patch extends IP_TOS ancillary to accept an u8, so that an UDP
+> > server can simply reuse same ancillary block without having to mangle
+> > it.
+> > 
+> > Jesper can then augment
+> > https://github.com/netoptimizer/network-testing/blob/master/src/udp_example02.c
+> > to add TOS reflection ;)
+> 
+> This is actually your old program ;-)
+> Do I need to change anything, as I'm just bouncing the packet back with sendmsg() ?
 
-> So the actual issue as I see it is with the late binding actions the
-> ones created with the ill documented 'tc action' syntax.
-> 
-> If you add a rule here and then bind it to a filter (stealing Jamals
-> example),
-> 
->   tc actions add action skbedit mark 10 index 1
->   tc filter add dev $DEV parent ffff: protocol ip prio 1 u32\
->              match ip dst 17.0.0.1/32 flowid 1:10 action skbedit index 1
-> 
-> then you can modify this action later with the following
-> 
->   tc actions replace action ....
-> 
-> So for an action such as act_mirred we may end up running with a
-> partially updated state from this,
-> 
-> 	tcf_mirred_init(...)
-> 	[...]
-> 
-> 		m->tcf_action = parm->action;
-> 	        m->tcfm_eaction = parm->eaction;
-> 	
-> 		[...]
-> 	
-> 
-> and then in the execution of the action,
-> 
-> 
-> 	tcf_mirred(...)
-> 		[...]
-> 	        retval = READ_ONCE(m->tcf_action);
-> 		[...]
->                 if (m->tcfm_eaction != TCA_EGRESS_MIRROR)
-> 		[...]
-> 
-> 
-> So its at least possible I think these could be interleaved on multiple
-> cpus.
+I guess you want to add an option and if this option is requested by the
+user, add :
 
-Sure, this was very clear when I wrote this code. Otherwise I would have
-used an intermediate object and one rcu_dereference() instead of the
-READ_ONCE().
+	setsockopt(fd, SOL_IP, IP_PKTINFO, &on, sizeof(on));
++	if (tos_reflect)
++		setsockopt(fd, SOL_IP, IP_RECVTOS, &on, sizeof(on));
 
+before the loop doing the recvmsg()/sendmsg() calls.
 
-> 
-> Notice that some of the actions are fine though and don't have this
-> issue act_bpf for example is fine.
-> 
-> I think we can either fix it in the hash table create part of the
-> list as this series does or just let each action handle it on its own.
-
-If we want a fix for stable kernels we want a tc_mirred fix on its own,
-and I was planning to do so.
-
-Given that a "tc qdisc replace ..." drops all packets sitting in the old
-qdisc, I never thought someone would actually depend on atomically
-switching tc_mirred parameters. I for sure did not care.
-
-Thanks.
+Thanks !
+ 
