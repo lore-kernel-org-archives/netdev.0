@@ -1,123 +1,35 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v8 0/3] return offloaded stats as default and expose original sw stats
-Date: Thu,  8 Sep 2016 08:19:50 +0200
-Message-ID: <1473315593-2078-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, nogahf@mellanox.com, idosch@mellanox.com,
-        eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
-        roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-        linville@tuxdriver.com, tgraf@suug.ch, gospo@cumulusnetworks.com,
-        sfeldma@gmail.com, sd@queasysnail.net, eranbe@mellanox.com,
-        ast@plumgrid.com, edumazet@google.com, hannes@stressinduktion.org,
-        f.fainelli@gmail.com, dsa@cumulusnetworks.com
-To: netdev@vger.kernel.org
+From: Ido Schimmel <idosch@idosch.org>
+Subject: Re: [patch net 1/2] mlxsw: spectrum_router: Fix error path in
+ mlxsw_sp_router_init
+Date: Thu, 8 Sep 2016 09:38:16 +0300
+Message-ID: <20160908063816.GA7364@splinter>
+References: <1473315362-1984-1-git-send-email-jiri@resnulli.us>
+ <1473315362-1984-2-git-send-email-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
+        eladr@mellanox.com, yotamg@mellanox.com, nogahf@mellanox.com,
+        ogerlitz@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34110 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752965AbcIHGh3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 02:37:29 -0400
-Received: by mail-wm0-f68.google.com with SMTP id w12so6304562wmf.1
-        for <netdev@vger.kernel.org>; Wed, 07 Sep 2016 23:37:29 -0700 (PDT)
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:60958 "EHLO
+        out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752676AbcIHGiU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 02:38:20 -0400
+Content-Disposition: inline
+In-Reply-To: <1473315362-1984-2-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+On Thu, Sep 08, 2016 at 08:16:01AM +0200, Jiri Pirko wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
+> 
+> When neigh_init fails, we have to do proper cleanup including
+> router_fini call.
+> 
+> Fixes: 6cf3c971dc84cb ("mlxsw: spectrum_router: Add private neigh table")
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 
-The problem we try to handle is about offloaded forwarded packets
-which are not seen by kernel. Let me try to draw it:
+Acked-by: Ido Schimmel <idosch@mellanox.com>
 
-    port1                       port2 (HW stats are counted here)
-      \                          /
-       \                        /
-        \                      /
-         --(A)---- ASIC --(B)--
-                    |
-                   (C)
-                    |
-                   CPU (SW stats are counted here)
-
-
-Now we have couple of flows for TX and RX (direction does not matter here):
-
-1) port1->A->ASIC->C->CPU
-
-   For this flow, HW and SW stats are equal.
-
-2) port1->A->ASIC->C->CPU->C->ASIC->B->port2
-
-   For this flow, HW and SW stats are equal.
-
-3) port1->A->ASIC->B->port2
-
-   For this flow, SW stats are 0.
-
-The purpose of this patchset is to provide facility for user to
-find out the difference between flows 1+2 and 3. In other words, user
-will be able to see the statistics for the slow-path (through kernel).
-
-Also note that HW stats are what someone calls "accumulated" stats.
-Every packet counted by SW is also counted by HW. Not the other way around.
-
-As a default the accumulated stats (HW) will be exposed to user
-so the userspace apps can react properly.
-
-This patchset add the SW stats (flows 1+2) under offload related stats, so
-in the future we can expose other offload related stat in a similar way.
-
----
-v7->v8:
-- patch 2/3
- - move helping const from uapi to rtnetlink
- - cancel driver xstat nesting if it is empty
-v6->v7:
-- patch 1/3:
- - ndo interface changed to get the wanted stats type as an input.
- - change commit message.
-- patch 2/3:
- - create a nesting for offloaded stat and put SW stats under it.
- - change the ndo call to indicate which offload stats we wants.
- - change commit message.
-- patch 3/3:
- - change ndo implementation to match the changes in the previous patches.
- - change commit message.
-v5->v6:
-- patch 2/4 was dropped as requested by Roopa
-- patch 1/3:
- - comment changed to indicate that default stats are combined stats
- - commit massage changed
-- patch 2/3: (previously 3/4)
- - SW stats return nothing if there is no SW stats ndo
-v4->v5:
-- updated cover letter
-- patch3/4:
-  - using memcpy directly to copy stats as requested by DaveM
-v3->v4:
-- patch1/4:
-  - fixed "return ()" pointed out by EricD
-- patch2/4:
-  - fixed if_nlmsg_size as pointed out by EricD
-v2->v3:
-- patch1/4:
-  - added dev_have_sw_stats helper
-- patch2/4:
-  - avoided memcpy as requested by DaveM
-- patch3/4:
-  - use new dev_have_sw_stats helper
-v1->v2:
-- patch3/4:
-  - fixed NULL initialization
-
-Nogah Frankel (3):
-  netdevice: Add offload statistics ndo
-  net: core: Add offload stats to if_stats_msg
-  mlxsw: spectrum: Implement offload stats ndo and expose HW stats by
-    default
-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 129 +++++++++++++++++++++++--
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h |   5 +
- include/linux/netdevice.h                      |  12 +++
- include/uapi/linux/if_link.h                   |   9 ++
- net/core/rtnetlink.c                           |  97 ++++++++++++++++++-
- 5 files changed, 241 insertions(+), 11 deletions(-)
-
--- 
-2.5.5
+Thanks
