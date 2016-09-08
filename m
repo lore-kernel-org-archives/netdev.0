@@ -1,56 +1,42 @@
-From: Jojy Varghese <jojy.varghese@gmail.com>
-Subject: Re: [PATCH] net_namespace: fixed net_device reference leak
-Date: Thu, 8 Sep 2016 16:16:04 -0700
-Message-ID: <CAJD3hpUMdSt6UXEFjU9OnU4K7qiET50xo8AQ194+4vpX2CfOUA@mail.gmail.com>
-References: <CAJD3hpUgNJPOqGmAp7tEaY2+EnOasG=W6VLOMbEhDRgr8M5v8A@mail.gmail.com>
- <CAJD3hpUSqSxtgJMK__V-j8VKRwf-ftZFHw0J38VTxP9tDDZyhA@mail.gmail.com>
- <1473368413.18970.10.camel@edumazet-glaptop3.roam.corp.google.com>
- <1473368750.18970.11.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAJD3hpWs7ur8qc+E3yq_oJWs7NdbJEmRrxKFesYbap9ihSzUiw@mail.gmail.com> <1473373012.18970.13.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 0/5] Mellanox 100G mlx5 fixes 2016-09-07
+Date: Thu, 08 Sep 2016 16:16:20 -0700 (PDT)
+Message-ID: <20160908.161620.794421565220428890.davem@davemloft.net>
+References: <1473264481-20392-1-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: saeedm@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:35987 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752708AbcIHXQG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 19:16:06 -0400
-Received: by mail-wm0-f65.google.com with SMTP id l65so295736wmf.3
-        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 16:16:05 -0700 (PDT)
-In-Reply-To: <1473373012.18970.13.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:41988 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753204AbcIHXQV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 19:16:21 -0400
+In-Reply-To: <1473264481-20392-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The dst's do disappear but the net device does not. A better solution
-is to only hold reference to dst's net device ONLY if it is not a
-loopback device. In the case of the loopback device, we want to do
-only a "put" on it and skip the "hold".
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Wed,  7 Sep 2016 19:07:56 +0300
 
-Updating the patch below:
+> The following series contains bug fixes for the mlx5e driver.
+> 
+> from Gal,
+> 	- Static code checker cleanup (casting overflow)
+> 	- Fix global PFC counter statistics reading
+> 	- Fix HW LRO when vlan stripping is off
+> 
+> From Bodong,
+> 	- Deprecate old autoneg capability bit and use new one.
+> 
+> From Tariq,
+> 	- Fix xmit more counter race condition
 
----
- net/core/dst.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+Series applied, thanks.
 
-diff --git a/net/core/dst.c b/net/core/dst.c
-index 7e45593..f63027e 100644
---- a/net/core/dst.c
-+++ b/net/core/dst.c
-@@ -433,12 +433,11 @@ static void dst_ifdown(struct dst_entry *dst,
-struct net_device *dev,
-                dst->input = dst_discard;
-                dst->output = dst_discard_out;
-        } else {
--               if (dst->dev == dev_net(dst->dev)->loopback_dev)
--                       dst->dev = init_net.loopback_dev;
--               else
-+               if (dst->dev != dev_net(dst->dev)->loopback_dev) {
-                        dst->dev = dev_net(dst->dev)->loopback_dev;
-+                       dev_hold(dst->dev);
-+               }
 
--               dev_hold(dst->dev);
-                dev_put(dev);
-        }
- }
+> For -stable:
+> ('net/mlx5e: Fix parsing of vlan packets when updating lro header')
+
+Queued up.
