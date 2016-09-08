@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v8 1/3] netdevice: Add offload statistics ndo
-Date: Thu,  8 Sep 2016 08:19:51 +0200
-Message-ID: <1473315593-2078-2-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v8 3/3] mlxsw: spectrum: Implement offload stats ndo and expose HW stats by default
+Date: Thu,  8 Sep 2016 08:19:53 +0200
+Message-ID: <1473315593-2078-4-git-send-email-jiri@resnulli.us>
 References: <1473315593-2078-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, nogahf@mellanox.com, idosch@mellanox.com,
         eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
@@ -12,59 +12,249 @@ Cc: davem@davemloft.net, nogahf@mellanox.com, idosch@mellanox.com,
         f.fainelli@gmail.com, dsa@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:32857 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756354AbcIHGe1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 02:34:27 -0400
-Received: by mail-wm0-f66.google.com with SMTP id b187so2277771wme.0
-        for <netdev@vger.kernel.org>; Wed, 07 Sep 2016 23:34:26 -0700 (PDT)
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34825 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751427AbcIHGhS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 02:37:18 -0400
+Received: by mail-wm0-f67.google.com with SMTP id a6so6294721wmc.2
+        for <netdev@vger.kernel.org>; Wed, 07 Sep 2016 23:37:18 -0700 (PDT)
 In-Reply-To: <1473315593-2078-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Nogah Frankel <nogahf@mellanox.com>
 
-Add a new ndo to return statistics for offloaded operation.
-Since there can be many different offloaded operation with many
-stats types, the ndo gets an attribute id by which it knows which
-stats are wanted. The ndo also gets a void pointer to be cast according
-to the attribute id.
+Change the default statistics ndo to return HW statistics
+(like the one returned by ethtool_ops).
+The HW stats are collected to a cache by delayed work every 1 sec.
+Implement the offload stat ndo.
+Add a function to get SW statistics, to be called from this function.
 
 Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/linux/netdevice.h | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 129 +++++++++++++++++++++++--
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h |   5 +
+ 2 files changed, 127 insertions(+), 7 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 67bb978..2d2c09b 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -924,6 +924,14 @@ struct netdev_xdp {
-  *	3. Update dev->stats asynchronously and atomically, and define
-  *	   neither operation.
-  *
-+ * bool (*ndo_has_offload_stats)(int attr_id)
-+ *	Return true if this device supports offload stats of this attr_id.
-+ *
-+ * int (*ndo_get_offload_stats)(int attr_id, const struct net_device *dev,
-+ *	void *attr_data)
-+ *	Get statistics for offload operations by attr_id. Write it into the
-+ *	attr_data pointer.
-+ *
-  * int (*ndo_vlan_rx_add_vid)(struct net_device *dev, __be16 proto, u16 vid);
-  *	If device supports VLAN filtering this function is called when a
-  *	VLAN id is registered.
-@@ -1155,6 +1163,10 @@ struct net_device_ops {
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 6c6b726..2a7f93f 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -818,9 +818,9 @@ err_span_port_mtu_update:
+ 	return err;
+ }
  
- 	struct rtnl_link_stats64* (*ndo_get_stats64)(struct net_device *dev,
- 						     struct rtnl_link_stats64 *storage);
-+	bool			(*ndo_has_offload_stats)(int attr_id);
-+	int			(*ndo_get_offload_stats)(int attr_id,
-+							 const struct net_device *dev,
-+							 void *attr_data);
- 	struct net_device_stats* (*ndo_get_stats)(struct net_device *dev);
+-static struct rtnl_link_stats64 *
+-mlxsw_sp_port_get_stats64(struct net_device *dev,
+-			  struct rtnl_link_stats64 *stats)
++int
++mlxsw_sp_port_get_sw_stats64(const struct net_device *dev,
++			     struct rtnl_link_stats64 *stats)
+ {
+ 	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
+ 	struct mlxsw_sp_port_pcpu_stats *p;
+@@ -847,6 +847,107 @@ mlxsw_sp_port_get_stats64(struct net_device *dev,
+ 		tx_dropped	+= p->tx_dropped;
+ 	}
+ 	stats->tx_dropped	= tx_dropped;
++	return 0;
++}
++
++bool mlxsw_sp_port_has_offload_stats(int attr_id)
++{
++	switch (attr_id) {
++	case IFLA_OFFLOAD_XSTATS_CPU_HIT:
++		return true;
++	}
++
++	return false;
++}
++
++int mlxsw_sp_port_get_offload_stats(int attr_id, const struct net_device *dev,
++				    void *sp)
++{
++	switch (attr_id) {
++	case IFLA_OFFLOAD_XSTATS_CPU_HIT:
++		return mlxsw_sp_port_get_sw_stats64(dev, sp);
++	}
++
++	return -EINVAL;
++}
++
++static int mlxsw_sp_port_get_stats_raw(struct net_device *dev, int grp,
++				       int prio, char *ppcnt_pl)
++{
++	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++
++	mlxsw_reg_ppcnt_pack(ppcnt_pl, mlxsw_sp_port->local_port, grp, prio);
++	return mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(ppcnt), ppcnt_pl);
++}
++
++static int mlxsw_sp_port_get_hw_stats(struct net_device *dev,
++				      struct rtnl_link_stats64 *stats)
++{
++	char ppcnt_pl[MLXSW_REG_PPCNT_LEN];
++	int err;
++
++	err = mlxsw_sp_port_get_stats_raw(dev, MLXSW_REG_PPCNT_IEEE_8023_CNT,
++					  0, ppcnt_pl);
++	if (err)
++		goto out;
++
++	stats->tx_packets =
++		mlxsw_reg_ppcnt_a_frames_transmitted_ok_get(ppcnt_pl);
++	stats->rx_packets =
++		mlxsw_reg_ppcnt_a_frames_received_ok_get(ppcnt_pl);
++	stats->tx_bytes =
++		mlxsw_reg_ppcnt_a_octets_transmitted_ok_get(ppcnt_pl);
++	stats->rx_bytes =
++		mlxsw_reg_ppcnt_a_octets_received_ok_get(ppcnt_pl);
++	stats->multicast =
++		mlxsw_reg_ppcnt_a_multicast_frames_received_ok_get(ppcnt_pl);
++
++	stats->rx_crc_errors =
++		mlxsw_reg_ppcnt_a_frame_check_sequence_errors_get(ppcnt_pl);
++	stats->rx_frame_errors =
++		mlxsw_reg_ppcnt_a_alignment_errors_get(ppcnt_pl);
++
++	stats->rx_length_errors = (
++		mlxsw_reg_ppcnt_a_in_range_length_errors_get(ppcnt_pl) +
++		mlxsw_reg_ppcnt_a_out_of_range_length_field_get(ppcnt_pl) +
++		mlxsw_reg_ppcnt_a_frame_too_long_errors_get(ppcnt_pl));
++
++	stats->rx_errors = (stats->rx_crc_errors +
++		stats->rx_frame_errors + stats->rx_length_errors);
++
++out:
++	return err;
++}
++
++static void update_stats_cache(struct work_struct *work)
++{
++	struct mlxsw_sp_port *mlxsw_sp_port =
++		container_of(work, struct mlxsw_sp_port,
++			     hw_stats.update_dw.work);
++
++	if (!netif_carrier_ok(mlxsw_sp_port->dev))
++		goto out;
++
++	mlxsw_sp_port_get_hw_stats(mlxsw_sp_port->dev,
++				   mlxsw_sp_port->hw_stats.cache);
++
++out:
++	mlxsw_core_schedule_dw(&mlxsw_sp_port->hw_stats.update_dw,
++			       MLXSW_HW_STATS_UPDATE_TIME);
++}
++
++/* Return the stats from a cache that is updated periodically,
++ * as this function might get called in an atomic context.
++ */
++static struct rtnl_link_stats64 *
++mlxsw_sp_port_get_stats64(struct net_device *dev,
++			  struct rtnl_link_stats64 *stats)
++{
++	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
++
++	memcpy(stats, mlxsw_sp_port->hw_stats.cache, sizeof(*stats));
++
+ 	return stats;
+ }
  
- 	int			(*ndo_vlan_rx_add_vid)(struct net_device *dev,
+@@ -1208,6 +1309,8 @@ static const struct net_device_ops mlxsw_sp_port_netdev_ops = {
+ 	.ndo_set_mac_address	= mlxsw_sp_port_set_mac_address,
+ 	.ndo_change_mtu		= mlxsw_sp_port_change_mtu,
+ 	.ndo_get_stats64	= mlxsw_sp_port_get_stats64,
++	.ndo_has_offload_stats	= mlxsw_sp_port_has_offload_stats,
++	.ndo_get_offload_stats	= mlxsw_sp_port_get_offload_stats,
+ 	.ndo_vlan_rx_add_vid	= mlxsw_sp_port_add_vid,
+ 	.ndo_vlan_rx_kill_vid	= mlxsw_sp_port_kill_vid,
+ 	.ndo_neigh_construct	= mlxsw_sp_router_neigh_construct,
+@@ -1546,8 +1649,6 @@ static void __mlxsw_sp_port_get_stats(struct net_device *dev,
+ 				      enum mlxsw_reg_ppcnt_grp grp, int prio,
+ 				      u64 *data, int data_index)
+ {
+-	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
+-	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
+ 	struct mlxsw_sp_port_hw_stats *hw_stats;
+ 	char ppcnt_pl[MLXSW_REG_PPCNT_LEN];
+ 	int i, len;
+@@ -1556,8 +1657,7 @@ static void __mlxsw_sp_port_get_stats(struct net_device *dev,
+ 	err = mlxsw_sp_get_hw_stats_by_group(&hw_stats, &len, grp);
+ 	if (err)
+ 		return;
+-	mlxsw_reg_ppcnt_pack(ppcnt_pl, mlxsw_sp_port->local_port, grp, prio);
+-	err = mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(ppcnt), ppcnt_pl);
++	mlxsw_sp_port_get_stats_raw(dev, grp, prio, ppcnt_pl);
+ 	for (i = 0; i < len; i++)
+ 		data[data_index + i] = !err ? hw_stats[i].getter(ppcnt_pl) : 0;
+ }
+@@ -2102,6 +2202,16 @@ static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port,
+ 		goto err_alloc_stats;
+ 	}
+ 
++	mlxsw_sp_port->hw_stats.cache =
++		kzalloc(sizeof(*mlxsw_sp_port->hw_stats.cache), GFP_KERNEL);
++
++	if (!mlxsw_sp_port->hw_stats.cache) {
++		err = -ENOMEM;
++		goto err_alloc_hw_stats;
++	}
++	INIT_DELAYED_WORK(&mlxsw_sp_port->hw_stats.update_dw,
++			  &update_stats_cache);
++
+ 	dev->netdev_ops = &mlxsw_sp_port_netdev_ops;
+ 	dev->ethtool_ops = &mlxsw_sp_port_ethtool_ops;
+ 
+@@ -2202,6 +2312,7 @@ static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port,
+ 		goto err_core_port_init;
+ 	}
+ 
++	mlxsw_core_schedule_dw(&mlxsw_sp_port->hw_stats.update_dw, 0);
+ 	return 0;
+ 
+ err_core_port_init:
+@@ -2222,6 +2333,8 @@ err_port_speed_by_width_set:
+ err_port_swid_set:
+ err_port_system_port_mapping_set:
+ err_dev_addr_init:
++	kfree(mlxsw_sp_port->hw_stats.cache);
++err_alloc_hw_stats:
+ 	free_percpu(mlxsw_sp_port->pcpu_stats);
+ err_alloc_stats:
+ 	kfree(mlxsw_sp_port->untagged_vlans);
+@@ -2238,6 +2351,7 @@ static void mlxsw_sp_port_remove(struct mlxsw_sp *mlxsw_sp, u8 local_port)
+ 
+ 	if (!mlxsw_sp_port)
+ 		return;
++	cancel_delayed_work_sync(&mlxsw_sp_port->hw_stats.update_dw);
+ 	mlxsw_core_port_fini(&mlxsw_sp_port->core_port);
+ 	unregister_netdev(mlxsw_sp_port->dev); /* This calls ndo_stop */
+ 	mlxsw_sp->ports[local_port] = NULL;
+@@ -2247,6 +2361,7 @@ static void mlxsw_sp_port_remove(struct mlxsw_sp *mlxsw_sp, u8 local_port)
+ 	mlxsw_sp_port_swid_set(mlxsw_sp_port, MLXSW_PORT_SWID_DISABLED_PORT);
+ 	mlxsw_sp_port_module_unmap(mlxsw_sp, mlxsw_sp_port->local_port);
+ 	free_percpu(mlxsw_sp_port->pcpu_stats);
++	kfree(mlxsw_sp_port->hw_stats.cache);
+ 	kfree(mlxsw_sp_port->untagged_vlans);
+ 	kfree(mlxsw_sp_port->active_vlans);
+ 	WARN_ON_ONCE(!list_empty(&mlxsw_sp_port->vports_list));
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index 01537d3..69aefb1 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -360,6 +360,11 @@ struct mlxsw_sp_port {
+ 	struct list_head vports_list;
+ 	/* TC handles */
+ 	struct list_head mall_tc_list;
++	struct {
++		#define MLXSW_HW_STATS_UPDATE_TIME HZ
++		struct rtnl_link_stats64 *cache;
++		struct delayed_work update_dw;
++	} hw_stats;
+ };
+ 
+ struct mlxsw_sp_port *mlxsw_sp_port_lower_dev_hold(struct net_device *dev);
 -- 
 2.5.5
