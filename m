@@ -1,99 +1,57 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net 3/6] sctp: free msg->chunks when sctp_primitive_SEND return err
-Date: Thu,  8 Sep 2016 17:31:47 +0800
-Message-ID: <57412abf5d2b0526c28a2ff6a872d63335a45d61.1473326067.git.lucien.xin@gmail.com>
-References: <cover.1473326067.git.lucien.xin@gmail.com>
- <1718155e984f63995d1be9b053c58aa1a645718e.1473326067.git.lucien.xin@gmail.com>
- <ad1ec83498ce1305938a36c634fd470b37dc274d.1473326067.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Subject: [PATCH v2 net-next 0/2] net: phy: Add Edge-rate, MAC-IF driver for Microsemi PHYs
+Date: Thu, 8 Sep 2016 14:47:20 +0530
+Message-ID: <1473326242-4198-1-git-send-email-Raju.Lakkaraju@microsemi.com>
+References: <20160824125934.GC13406@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <f.fainelli@gmail.com>, <Allan.Nielsen@microsemi.com>,
+        <andrew@lunn.ch>, Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:34466 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758673AbcIHJcJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 05:32:09 -0400
-In-Reply-To: <ad1ec83498ce1305938a36c634fd470b37dc274d.1473326067.git.lucien.xin@gmail.com>
-In-Reply-To: <cover.1473326067.git.lucien.xin@gmail.com>
-References: <cover.1473326067.git.lucien.xin@gmail.com>
+Received: from mail-sn1nam01on0067.outbound.protection.outlook.com ([104.47.32.67]:54736
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751979AbcIHJcc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Sep 2016 05:32:32 -0400
+In-Reply-To: <20160824125934.GC13406@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Last patch "sctp: do not return the transmit err back to sctp_sendmsg"
-made sctp_primitive_SEND return err only when asoc state is unavailable.
-In this case, chunks are not enqueued, they have no chance to be freed if
-we don't take care of them later.
+Patch 1/2:
 
-This Patch is actually to revert commit 1cd4d5c4326a ("sctp: remove the
-unused sctp_datamsg_free()") and commit 8b570dc9f7b6 ("sctp: only drop the
-reference on the datamsg after sending a msg"), to use sctp_datamsg_free to
-free the chunks of current msg.
+This is Edge rate control feature.
+As system and networking speeds increase, a signal's output transition,
+also know as the edge rate or slew rate (V/ns), takes on greater importance
+because high-speed signals come with a price. That price is an assortment of
+interference problems like ringing on the line, signal overshoot and
+undershoot, extended signal settling times, crosstalk noise, transmission line
+reflections, false signal detection by the receiving device and electromagnetic
+interference (EMI) -- all of which can negate the potential gains designers are
+seeking when they try to increase system speeds through the use of higher
+performance logic devices. The fact is, faster signaling edge rates can cause
+a higher level of electrical noise or other type of interference that can
+actually lead to slower line speeds and lower maximum system frequencies.
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- include/net/sctp/structs.h |  1 +
- net/sctp/chunk.c           | 13 +++++++++++++
- net/sctp/socket.c          |  6 ++++--
- 3 files changed, 18 insertions(+), 2 deletions(-)
+Microsemi PHY have the provision to configure the edge rate. Edge-rate function
+program the right value based on Device Tree configuration.
 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index ce93c4b..f61fb7c 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -537,6 +537,7 @@ struct sctp_datamsg {
- struct sctp_datamsg *sctp_datamsg_from_user(struct sctp_association *,
- 					    struct sctp_sndrcvinfo *,
- 					    struct iov_iter *);
-+void sctp_datamsg_free(struct sctp_datamsg *);
- void sctp_datamsg_put(struct sctp_datamsg *);
- void sctp_chunk_fail(struct sctp_chunk *, int error);
- int sctp_chunk_abandoned(struct sctp_chunk *);
-diff --git a/net/sctp/chunk.c b/net/sctp/chunk.c
-index a55e547..af9cc80 100644
---- a/net/sctp/chunk.c
-+++ b/net/sctp/chunk.c
-@@ -70,6 +70,19 @@ static struct sctp_datamsg *sctp_datamsg_new(gfp_t gfp)
- 	return msg;
- }
- 
-+void sctp_datamsg_free(struct sctp_datamsg *msg)
-+{
-+	struct sctp_chunk *chunk;
-+
-+	/* This doesn't have to be a _safe vairant because
-+	 * sctp_chunk_free() only drops the refs.
-+	 */
-+	list_for_each_entry(chunk, &msg->chunks, frag_list)
-+		sctp_chunk_free(chunk);
-+
-+	sctp_datamsg_put(msg);
-+}
-+
- /* Final destructruction of datamsg memory. */
- static void sctp_datamsg_destroy(struct sctp_datamsg *msg)
- {
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 9fc417a..9d8e2be 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -1970,13 +1970,15 @@ static int sctp_sendmsg(struct sock *sk, struct msghdr *msg, size_t msg_len)
- 	 * breaks.
- 	 */
- 	err = sctp_primitive_SEND(net, asoc, datamsg);
--	sctp_datamsg_put(datamsg);
- 	/* Did the lower layer accept the chunk? */
--	if (err)
-+	if (err) {
-+		sctp_datamsg_free(datamsg);
- 		goto out_free;
-+	}
- 
- 	pr_debug("%s: we sent primitively\n", __func__);
- 
-+	sctp_datamsg_put(datamsg);
- 	err = msg_len;
- 
- 	if (unlikely(wait_connect)) {
+Tested on Beaglebone Black with VSC 8531 PHY.
+
+Patch 2/2:
+
+This is MAC interface feature.
+Microsemi PHY can support RGMII, RMII or GMII/MII interface between MAC and PHY.
+MAC-IF function program the right value based on Device tree configuration.
+
+Tested on Beaglebone Black with VSC 8531 PHY.
+
+Raju Lakkaraju (2):
+  net: phy: Add Edge-rate driver for Microsemi PHYs.
+  net: phy: Add MAC-IF driver for Microsemi PHYs.
+
+ drivers/net/phy/mscc.c | 136 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 136 insertions(+)
+
 -- 
-2.1.0
+2.7.4
