@@ -1,47 +1,65 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 3/4] net: phy: Add read driver for Microsemi PHYs.
-Date: Thu, 8 Sep 2016 15:40:26 +0200
-Message-ID: <20160908134026.GI26445@lunn.ch>
-References: <646450A91FAED74E85C6E9C4D6E936A1453366A5@avsrvexchmbx1.microsemi.net>
- <20160824131347.GE13406@lunn.ch>
- <20160908094211.GA4281@microsemi.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH] ATM-ForeRunnerHE: Use kmalloc_array() in he_init_group()
+Date: Thu, 8 Sep 2016 15:50:05 +0200
+Message-ID: <edd03d91-0aff-73ed-cb04-c5851ac90dca@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-        Allan Nielsen <Allan.Nielsen@microsemi.com>
-To: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:38886 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1757562AbcIHNk2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Sep 2016 09:40:28 -0400
-Content-Disposition: inline
-In-Reply-To: <20160908094211.GA4281@microsemi.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org,
+        Julia Lawall <julia.lawall@lip6.fr>,
+        Paolo Bonzini <pbonzini@redhat.com>
+To: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+        Chas Williams <3chas3@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Microsemi PHY have different pages i.e. Std IEEE, Extended,
-> Extended_2, Extended_3 and GPIO pages.
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Thu, 8 Sep 2016 15:43:37 +0200
 
-Yes, nothing special there. Marvell does the same, and probably
-others.
+* Multiplications for the size determination of memory allocations
+  indicated that array data structures should be processed.
+  Thus use the corresponding function "kmalloc_array".
 
-> When I want to use SIOCGMIIREG, I can read Std IEEE only with
-> SIOCGMIIREG and not other pages.
+  This issue was detected by using the Coccinelle software.
 
-So this is purely for your own debug. So you can hack in anything you
-want. Just don't submit it for mainline.
+* Replace the specification of data types by pointer dereferences
+  to make the corresponding size determination a bit safer according to
+  the Linux coding style convention.
 
-Or you can do it properly. Take a look at the sources for
-mii-tool. Figure out a way to do it cleanly which will work for all
-phys which support multiple pages. Then submit patches which does this
-for both your own PHY and one other manufacture. I can help with
-Marvell PHYS, if that is what you want.
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+---
+ drivers/atm/he.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-What will never get accepted is something which is not generic. What
-you submit must work for multiple vendors, and you need to submit it
-all, from the userspace/kernel space API all the way down to the PHY,
-and ideally patches to mii-tool as well.
-
-    Andrew
+diff --git a/drivers/atm/he.c b/drivers/atm/he.c
+index 0f5cb37..31b513a 100644
+--- a/drivers/atm/he.c
++++ b/drivers/atm/he.c
+@@ -779,8 +779,9 @@ static int he_init_group(struct he_dev *he_dev, int group)
+ 		  G0_RBPS_BS + (group * 32));
+ 
+ 	/* bitmap table */
+-	he_dev->rbpl_table = kmalloc(BITS_TO_LONGS(RBPL_TABLE_SIZE)
+-				     * sizeof(unsigned long), GFP_KERNEL);
++	he_dev->rbpl_table = kmalloc_array(BITS_TO_LONGS(RBPL_TABLE_SIZE),
++					   sizeof(*he_dev->rbpl_table),
++					   GFP_KERNEL);
+ 	if (!he_dev->rbpl_table) {
+ 		hprintk("unable to allocate rbpl bitmap table\n");
+ 		return -ENOMEM;
+@@ -788,8 +789,9 @@ static int he_init_group(struct he_dev *he_dev, int group)
+ 	bitmap_zero(he_dev->rbpl_table, RBPL_TABLE_SIZE);
+ 
+ 	/* rbpl_virt 64-bit pointers */
+-	he_dev->rbpl_virt = kmalloc(RBPL_TABLE_SIZE
+-				    * sizeof(struct he_buff *), GFP_KERNEL);
++	he_dev->rbpl_virt = kmalloc_array(RBPL_TABLE_SIZE,
++					  sizeof(*he_dev->rbpl_virt),
++					  GFP_KERNEL);
+ 	if (!he_dev->rbpl_virt) {
+ 		hprintk("unable to allocate rbpl virt table\n");
+ 		goto out_free_rbpl_table;
+-- 
+2.10.0
