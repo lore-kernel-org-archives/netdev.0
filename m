@@ -1,98 +1,54 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCH bug-fix] iproute: fix documentation for ip rule scan order
-Date: Thu, 8 Sep 2016 12:33:03 +0200
-Message-ID: <20160908103303.GG5252@orbyte.nwl.cc>
-References: <CAN04xNR8SH4D57mfY0nVDSNWvZfaaOLci2yB0-8nKg=Hv9SEbw@mail.gmail.com>
- <20160901090454.657f0b73@xeon-e3>
- <20160908095955.GA10034@unicorn.suse.cz>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH v3 net-next 1/1] net_sched: Introduce skbmod action
+Date: Thu, 8 Sep 2016 06:38:38 -0400
+Message-ID: <6a0f8bfd-97d2-1e08-7ad7-b5791cb4312c@mojatatu.com>
+References: <1472386756-23085-1-git-send-email-jhs@emojatatu.com>
+ <1472400467.14381.252.camel@edumazet-glaptop3.roam.corp.google.com>
+ <b075631d-92cc-d016-3786-aaacb3d5c13a@mojatatu.com>
+ <b117fac2-c73f-2d42-3843-52f9717224d9@mojatatu.com>
+ <1472494817.14381.267.camel@edumazet-glaptop3.roam.corp.google.com>
+ <2a6e36a6-f128-ba9d-4d69-90ff5383fb75@mojatatu.com>
+ <68852282-b009-7b5b-6887-1630935b1913@mojatatu.com>
+ <1472561089.14381.296.camel@edumazet-glaptop3.roam.corp.google.com>
+ <a90c3d11-e1e9-3f58-5400-8b910d707351@mojatatu.com>
+ <1473171919.10725.3.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        Iskren Chernev <iskren@imo.im>, netdev@vger.kernel.org
-To: Michal Kubecek <mkubecek@suse.cz>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, daniel@iogearbox.net,
+        xiyou.wangcong@gmail.com,
+        John Fastabend <john.r.fastabend@intel.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:59546 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S938941AbcIHKdH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Sep 2016 06:33:07 -0400
-Content-Disposition: inline
-In-Reply-To: <20160908095955.GA10034@unicorn.suse.cz>
+Received: from mail-it0-f46.google.com ([209.85.214.46]:37181 "EHLO
+        mail-it0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S966224AbcIHKiq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 06:38:46 -0400
+Received: by mail-it0-f46.google.com with SMTP id e124so71709038ith.0
+        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 03:38:46 -0700 (PDT)
+In-Reply-To: <1473171919.10725.3.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 16-09-06 10:25 AM, Eric Dumazet wrote:
 
-On Thu, Sep 08, 2016 at 11:59:55AM +0200, Michal Kubecek wrote:
-> On Thu, Sep 01, 2016 at 09:04:54AM -0700, Stephen Hemminger wrote:
-> > On Tue, 30 Aug 2016 17:32:52 -0700
-> > Iskren Chernev <iskren@imo.im> wrote:
-> > 
-> > > From 416f45b62f33017d19a9b14e7b0179807c993cbe Mon Sep 17 00:00:00 2001
-> > > From: Iskren Chernev <iskren@imo.im>
-> > > Date: Tue, 30 Aug 2016 17:08:54 -0700
-> > > Subject: [PATCH bug-fix] iproute: fix documentation for ip rule scan order
-> > > 
-> > > ---
-> > >  man/man8/ip-rule.8 | 2 +-
-> > >  1 file changed, 1 insertion(+), 1 deletion(-)
-> > > 
-> > > diff --git a/man/man8/ip-rule.8 b/man/man8/ip-rule.8
-> > > index 1774ae3..3508d80 100644
-> > > --- a/man/man8/ip-rule.8
-> > > +++ b/man/man8/ip-rule.8
-> > > @@ -93,7 +93,7 @@ Each policy routing rule consists of a
-> > >  .B selector
-> > >  and an
-> > >  .B action predicate.
-> > > -The RPDB is scanned in order of decreasing priority. The selector
-> > > +The RPDB is scanned in order of increasing priority. The selector
-> > >  of each rule is applied to {source address, destination address,
-> > > incoming
-> > >  interface, tos, fwmark} and, if the selector matches the packet,
-> > >  the action is performed. The action predicate may return with success.
-> > > --
-> > > 2.4.5
-> > 
-> > Applied
-> 
-> I'm sorry I didn't notice before but this just reverts the change done
-> by commit 49572501664d ("iproute2: clarification of various man8 pages").
-> IMHO the problem is that both versions are equally confusing as the word
-> "priority" can be understood in two different senses.
-> 
-> How about more explicit formulation, e.g.
-> 
->   ... in order of decreasing logical priority (i.e. increasing numeric
->   values).
-> 
-> Would that be better?
+>
+> Just use u16 in the array ?
+>
+> u16 tmpaddr[ETH_ALEN / 2]; /* ether_addr_copy() requirement */
+>
+> ether_addr_copy((u8 *)tmpaddr, eth_hdr(skb)->h_dest);
+> ...
+>
 
-Looks like the real issue is missing definition of priority. What about
-this:
+Ok - thanks Eric. BTW:
+Nobody has answered my other question:
+I can get stats to increment with:
+bstats_update(&d->tcf_bstats, skb);
+but not:
+bstats_cpu_update(this_cpu_ptr(d->common.cpu_bstats), skb);
 
-diff --git a/man/man8/ip-rule.8 b/man/man8/ip-rule.8
-index 3508d8090fd2c..13fe9f7f892ee 100644
---- a/man/man8/ip-rule.8
-+++ b/man/man8/ip-rule.8
-@@ -93,7 +93,7 @@ Each policy routing rule consists of a
- .B selector
- and an
- .B action predicate.
--The RPDB is scanned in order of increasing priority. The selector
-+The RPDB is scanned in order of decreasing priority. The selector
- of each rule is applied to {source address, destination address, incoming
- interface, tos, fwmark} and, if the selector matches the packet,
- the action is performed. The action predicate may return with success.
-@@ -221,8 +221,10 @@ value to match.
- 
- .TP
- .BI priority " PREFERENCE"
--the priority of this rule. Each rule should have an explicitly
--set
-+the priority of this rule.
-+.I PREFERENCE
-+is an unsigned integer value, higher number means lower priority.  Each rule
-+should have an explicitly set
- .I unique
- priority value.
- The options preference and order are synonyms with priority.
+Note, test is on a VM.
+
+cheers,
+jamal
