@@ -1,41 +1,53 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCH v2] qed: mark symbols static where possible
-Date: Thu, 8 Sep 2016 12:37:13 +0000
-Message-ID: <DM5PR11MB172334FF9A978C71E05A0B4197FB0@DM5PR11MB1723.namprd11.prod.outlook.com>
-References: <1473323117-8772-1-git-send-email-baoyou.xie@linaro.org>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH] ATM-ENI: Use kmalloc_array() in eni_start()
+Date: Thu, 8 Sep 2016 14:40:06 +0200
+Message-ID: <d8468294-dff0-f34c-bf16-bb04435d465c@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: Dept-Eng Everest Linux L2 <Dept-EngEverestLinuxL2@qlogic.com>,
-        netdev <netdev@vger.kernel.org>,
-        linux-kernel <linux-kernel@vger.kernel.org>,
-        "arnd@arndb.de" <arnd@arndb.de>,
-        "xie.baoyou@zte.com.cn" <xie.baoyou@zte.com.cn>,
-        Ariel Elior <Ariel.Elior@qlogic.com>
-To: Baoyou Xie <baoyou.xie@linaro.org>,
-        David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org,
+        Julia Lawall <julia.lawall@lip6.fr>,
+        Paolo Bonzini <pbonzini@redhat.com>
+To: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+        Chas Williams <3chas3@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1473323117-8772-1-git-send-email-baoyou.xie@linaro.org>
-Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> ....
->=20
-> In fact, these functions are only used in the file in which they are
-> declared and don't need a declaration, but can be made static.
-> so this patch marks these functions with 'static'.
-...
-> -void qed_get_vport_stats(struct qed_dev *cdev,
-> -			 struct qed_eth_stats *stats)
-> +static void qed_get_vport_stats(struct qed_dev *cdev,
->+				struct qed_eth_stats *stats)
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Thu, 8 Sep 2016 14:20:17 +0200
 
-Looks like you've missed my comment from v1 -
-> 1. qed_get_vport_stats() is in use in net-next by qed_main.c starting=20
-> with
-> 6c75424612a7 ("qed: Add support for NCSI statistics."), so we=20
-> shouldn't make it static.
+* A multiplication for the size determination of a memory allocation
+  indicated that an array data structure should be processed.
+  Thus use the corresponding function "kmalloc_array".
 
-Besides, it still doesn't apply to net-next
-[as net-next has function declaration as a single liner].
+  This issue was detected by using the Coccinelle software.
+
+* Replace the specification of a data structure by a pointer dereference
+  to make the corresponding size determination a bit safer according to
+  the Linux coding style convention.
+
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+---
+ drivers/atm/eni.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/atm/eni.c b/drivers/atm/eni.c
+index 6339efd..f2aaf9e 100644
+--- a/drivers/atm/eni.c
++++ b/drivers/atm/eni.c
+@@ -1845,8 +1845,9 @@ static int eni_start(struct atm_dev *dev)
+ 	/* initialize memory management */
+ 	buffer_mem = eni_dev->mem - (buf - eni_dev->ram);
+ 	eni_dev->free_list_size = buffer_mem/MID_MIN_BUF_SIZE/2;
+-	eni_dev->free_list = kmalloc(
+-	    sizeof(struct eni_free)*(eni_dev->free_list_size+1),GFP_KERNEL);
++	eni_dev->free_list = kmalloc_array(eni_dev->free_list_size + 1,
++					   sizeof(*eni_dev->free_list),
++					   GFP_KERNEL);
+ 	if (!eni_dev->free_list) {
+ 		printk(KERN_ERR DEV_LABEL "(itf %d): couldn't get free page\n",
+ 		    dev->number);
+-- 
+2.10.0
