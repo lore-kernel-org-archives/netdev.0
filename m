@@ -1,64 +1,147 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 net-next 1/1] net_sched: Introduce skbmod action
-Date: Thu, 08 Sep 2016 09:11:17 -0700
-Message-ID: <1473351077.15733.63.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1472386756-23085-1-git-send-email-jhs@emojatatu.com>
-         <1472400467.14381.252.camel@edumazet-glaptop3.roam.corp.google.com>
-         <b075631d-92cc-d016-3786-aaacb3d5c13a@mojatatu.com>
-         <b117fac2-c73f-2d42-3843-52f9717224d9@mojatatu.com>
-         <1472494817.14381.267.camel@edumazet-glaptop3.roam.corp.google.com>
-         <2a6e36a6-f128-ba9d-4d69-90ff5383fb75@mojatatu.com>
-         <68852282-b009-7b5b-6887-1630935b1913@mojatatu.com>
-         <1472561089.14381.296.camel@edumazet-glaptop3.roam.corp.google.com>
-         <a90c3d11-e1e9-3f58-5400-8b910d707351@mojatatu.com>
-         <1473171919.10725.3.camel@edumazet-glaptop3.roam.corp.google.com>
-         <6a0f8bfd-97d2-1e08-7ad7-b5791cb4312c@mojatatu.com>
-         <1473350573.15733.61.camel@edumazet-glaptop3.roam.corp.google.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net-next V7 4/4] net/sched: Introduce act_tunnel_key
+Date: Thu, 8 Sep 2016 09:15:35 -0700
+Message-ID: <57D18EA7.7000709@gmail.com>
+References: <1473341028-29368-1-git-send-email-hadarh@mellanox.com>
+ <1473341028-29368-5-git-send-email-hadarh@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, daniel@iogearbox.net,
-        xiyou.wangcong@gmail.com,
-        John Fastabend <john.r.fastabend@intel.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
+        Jiri Benc <jbenc@redhat.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Amir Vadai <amirva@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>, Amir Vadai <amir@vadai.me>
+To: Hadar Hen Zion <hadarh@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:34213 "EHLO
-        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932650AbcIHQLU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 12:11:20 -0400
-Received: by mail-pf0-f176.google.com with SMTP id p64so19675860pfb.1
-        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 09:11:19 -0700 (PDT)
-In-Reply-To: <1473350573.15733.61.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:36453 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757680AbcIHQP4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 12:15:56 -0400
+Received: by mail-pf0-f195.google.com with SMTP id x24so2692133pfa.3
+        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 09:15:55 -0700 (PDT)
+In-Reply-To: <1473341028-29368-5-git-send-email-hadarh@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-09-08 at 09:02 -0700, Eric Dumazet wrote:
-> On Thu, 2016-09-08 at 06:38 -0400, Jamal Hadi Salim wrote:
-> > On 16-09-06 10:25 AM, Eric Dumazet wrote:
-> > 
-> > >
-> > > Just use u16 in the array ?
-> > >
-> > > u16 tmpaddr[ETH_ALEN / 2]; /* ether_addr_copy() requirement */
-> > >
-> > > ether_addr_copy((u8 *)tmpaddr, eth_hdr(skb)->h_dest);
-> > > ...
-> > >
-> > 
-> > Ok - thanks Eric. BTW:
-> > Nobody has answered my other question:
-> > I can get stats to increment with:
-> > bstats_update(&d->tcf_bstats, skb);
-> > but not:
-> > bstats_cpu_update(this_cpu_ptr(d->common.cpu_bstats), skb);
+On 16-09-08 06:23 AM, Hadar Hen Zion wrote:
+> From: Amir Vadai <amir@vadai.me>
 > 
-> This simply works for me.
+> This action could be used before redirecting packets to a shared tunnel
+> device, or when redirecting packets arriving from a such a device.
 > 
-> But maybe you read the stats at the wrong place ?
+> The action will release the metadata created by the tunnel device
+> (decap), or set the metadata with the specified values for encap
+> operation.
 > 
-> Pleas give us more details, thanks !
+> For example, the following flower filter will forward all ICMP packets
+> destined to 11.11.11.2 through the shared vxlan device 'vxlan0'. Before
+> redirecting, a metadata for the vxlan tunnel is created using the
+> tunnel_key action and it's arguments:
+> 
+> $ tc filter add dev net0 protocol ip parent ffff: \
+>     flower \
+>       ip_proto 1 \
+>       dst_ip 11.11.11.2 \
+>     action tunnel_key set \
+>       src_ip 11.11.0.1 \
+>       dst_ip 11.11.0.2 \
+>       id 11 \
+>     action mirred egress redirect dev vxlan0
+> 
+> Signed-off-by: Amir Vadai <amir@vadai.me>
+> Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+> Reviewed-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+> Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+> ---
 
-And double check the tcf_hash_create() call :
+[...]
 
-Last parameter is a boolean, and you must set it to true if you want per
-cpu stats !
+> +static void tunnel_key_release(struct tc_action *a, int bind)
+> +{
+> +	struct tcf_tunnel_key *t = to_tunnel_key(a);
+> +	struct tcf_tunnel_key_params *params;
+> +
+> +	rcu_read_lock();
+> +	params = rcu_dereference(t->params);
+> +
+> +	if (params->tcft_action == TCA_TUNNEL_KEY_ACT_SET)
+> +		dst_release(&params->tcft_enc_metadata->dst);
+> +
+> +	kfree_rcu(params, rcu);
+> +
+> +	rcu_read_unlock();
+> +}
+> +
+
+Same comment as Eric, you better own the action or else this could
+race.
+
+> +
+> +static int tunnel_key_dump(struct sk_buff *skb, struct tc_action *a,
+> +			   int bind, int ref)
+> +{
+> +	unsigned char *b = skb_tail_pointer(skb);
+> +	struct tcf_tunnel_key *t = to_tunnel_key(a);
+> +	struct tcf_tunnel_key_params *params;
+> +	struct tc_tunnel_key opt = {
+> +		.index    = t->tcf_index,
+> +		.refcnt   = t->tcf_refcnt - ref,
+> +		.bindcnt  = t->tcf_bindcnt - bind,
+> +	};
+> +	struct tcf_t tm;
+> +	int ret = -1;
+> +
+> +	rcu_read_lock();
+> +	params = rcu_dereference(t->params);
+
+This should be rtnl_derefence(t->params) and drop the read_lock/unlock
+pair. This is always called with RTNL lock unless you have a path I'm
+not seeing.
+
+
+> +
+> +	opt.t_action = params->tcft_action;
+> +	opt.action = params->action;
+> +
+> +	if (nla_put(skb, TCA_TUNNEL_KEY_PARMS, sizeof(opt), &opt))
+> +		goto nla_put_failure;
+> +
+> +	if (params->tcft_action == TCA_TUNNEL_KEY_ACT_SET) {
+> +		struct ip_tunnel_key *key =
+> +			&params->tcft_enc_metadata->u.tun_info.key;
+> +		__be32 key_id = tunnel_id_to_key32(key->tun_id);
+> +
+> +		if (nla_put_be32(skb, TCA_TUNNEL_KEY_ENC_KEY_ID, key_id) ||
+> +		    tunnel_key_dump_addresses(skb,
+> +					      &params->tcft_enc_metadata->u.tun_info))
+> +			goto nla_put_failure;
+> +	}
+> +
+> +	tcf_tm_dump(&tm, &t->tcf_tm);
+> +	if (nla_put_64bit(skb, TCA_TUNNEL_KEY_TM, sizeof(tm),
+> +			  &tm, TCA_TUNNEL_KEY_PAD))
+> +		goto nla_put_failure;
+> +
+> +	ret = skb->len;
+> +	goto out;
+> +
+> +nla_put_failure:
+> +	nlmsg_trim(skb, b);
+> +out:
+> +	rcu_read_unlock();
+> +
+> +	return ret;
+> +}
+> +
+
+I don't really care if you roll the above two rcu cleanups on top of
+the patch as a follow up or roll a v8. But I think we should get the
+annotation right here so its clear later.
+
+.John
