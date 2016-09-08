@@ -1,56 +1,71 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 net-next 0/2] net: phy: Add Edge-rate, MAC-IF driver
- for Microsemi PHYs
-Date: Thu, 8 Sep 2016 14:59:58 +0200
-Message-ID: <20160908125958.GF26445@lunn.ch>
-References: <20160824125934.GC13406@lunn.ch>
- <1473326242-4198-1-git-send-email-Raju.Lakkaraju@microsemi.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v2] qed: mark symbols static where possible
+Date: Thu, 08 Sep 2016 15:00:22 +0200
+Message-ID: <2655062.3nWxjufk2r@wuerfel>
+References: <1473323117-8772-1-git-send-email-baoyou.xie@linaro.org> <DM5PR11MB172334FF9A978C71E05A0B4197FB0@DM5PR11MB1723.namprd11.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
-        Allan.Nielsen@microsemi.com
-To: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:38812 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934510AbcIHNAA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Sep 2016 09:00:00 -0400
-Content-Disposition: inline
-In-Reply-To: <1473326242-4198-1-git-send-email-Raju.Lakkaraju@microsemi.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Baoyou Xie <baoyou.xie@linaro.org>,
+        David Miller <davem@davemloft.net>,
+        Dept-Eng Everest Linux L2 <Dept-EngEverestLinuxL2@qlogic.com>,
+        netdev <netdev@vger.kernel.org>,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        "xie.baoyou@zte.com.cn" <xie.baoyou@zte.com.cn>,
+        Ariel Elior <Ariel.Elior@qlogic.com>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <DM5PR11MB172334FF9A978C71E05A0B4197FB0@DM5PR11MB1723.namprd11.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 08, 2016 at 02:47:20PM +0530, Raju Lakkaraju wrote:
-> Patch 1/2:
+On Thursday, September 8, 2016 12:37:13 PM CEST Yuval Mintz wrote:
+> > 1. qed_get_vport_stats() is in use in net-next by qed_main.c starting 
+> > with
+> > 6c75424612a7 ("qed: Add support for NCSI statistics."), so we 
+> > shouldn't make it static.
 > 
-> This is Edge rate control feature.
-> As system and networking speeds increase, a signal's output transition,
-> also know as the edge rate or slew rate (V/ns), takes on greater importance
-> because high-speed signals come with a price. That price is an assortment of
-> interference problems like ringing on the line, signal overshoot and
-> undershoot, extended signal settling times, crosstalk noise, transmission line
-> reflections, false signal detection by the receiving device and electromagnetic
-> interference (EMI) -- all of which can negate the potential gains designers are
-> seeking when they try to increase system speeds through the use of higher
-> performance logic devices. The fact is, faster signaling edge rates can cause
-> a higher level of electrical noise or other type of interference that can
-> actually lead to slower line speeds and lower maximum system frequencies.
-> 
-> Microsemi PHY have the provision to configure the edge rate. Edge-rate function
-> program the right value based on Device Tree configuration.
-> 
-> Tested on Beaglebone Black with VSC 8531 PHY.
-> 
-> Patch 2/2:
-> 
-> This is MAC interface feature.
-> Microsemi PHY can support RGMII, RMII or GMII/MII interface between MAC and PHY.
-> MAC-IF function program the right value based on Device tree configuration.
+> Besides, it still doesn't apply to net-next
+> [as net-next has function declaration as a single liner].
 
-Hi Raju
+Baoyou, I recommended earlier that you start the work on a mainline
+kernel, but in particular for fast-moving subsystems it is better
+to use linux-next as the base.
 
-In future, please start a new thread for a new version of the
-patchset.
+This means rebasing your patches every day before sending out stuff,
+which is some extra work, but you have a much better chance of the
+patches actually applying to the respective subsystem maintainer trees.
 
-	Thanks
-		Andrew
+It also helps to see if a particular file you are changing was
+modified in linux-next. The  trick I use for that is
+
+$ git log --oneline --no-merges torvalds/master..next/master drivers/net/ethernet/qlogic/qed | head
+e0971c832af4 qed*: Add support for the ethtool get_regs operation
+c965db444629 qed: Add support for debug data collection
+72e8d5fdf58b qed: add missing header dependencies
+4102426f9b7b qed: Add infrastructure for debug data collection
+2591c280c375 qed: Remove OOM messages
+561ed23331df qed: fix kzalloc-simple.cocci warnings
+c5e801dac4da qed: Clear dcbx memory buffers before the usage.
+5ec5dfa4d294 qed: Set selection-field while configuring the app entry in ieee mode.
+5fe118c9fd6b qed*: Disallow dcbx configuration for VF interfaces.
+b0bccb69eba3 qed: Change locking scheme for VF channel
+
+followed by looking at who merged the top commit
+
+$ git log --ancestry-path --oneline --merges e0971c832af4..next/master | tail
+7a700727059a Merge remote-tracking branch 'mtd/master'
+d7445193092f Merge remote-tracking branch 'rdma/for-next'
+9ecd4508b2e9 Merge remote-tracking branch 'mac80211-next/master'
+b74f90413edd Merge remote-tracking branch 'bluetooth/master'
+dc9e43436ac5 Merge remote-tracking branch 'wireless-drivers-next/master'
+ae8d88338957 Merge remote-tracking branch 'ipvs-next/master'
+1e786a88da29 Merge remote-tracking branch 'netfilter-next/master'
+3a883dcccac5 Merge remote-tracking branch 'ipsec-next/master'
+bef876902277 Merge remote-tracking branch 'net-next/master'
+e6f3f120827c Merge branch 'qed-debug-data-collection'
+
+which tells you that it came from a branch called qed-debug-data-collection
+into net-next and from there into linux-next.
+
+	Arnd
