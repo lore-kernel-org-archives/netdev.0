@@ -1,90 +1,36 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 03/17] xfrm: state: use atomic_inc_not_zero to increment refcount
-Date: Thu, 8 Sep 2016 07:54:38 +0200
-Message-ID: <1473314092-11319-4-git-send-email-steffen.klassert@secunet.com>
-References: <1473314092-11319-1-git-send-email-steffen.klassert@secunet.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH, net-next] perf, bpf: fix conditional call to
+ bpf_overflow_handler
+Date: Thu, 8 Sep 2016 08:56:50 +0200
+Message-ID: <20160908065650.GW10138@twins.programming.kicks-ass.net>
+References: <20160906131033.1784262-1-arnd@arndb.de>
+ <20160906153349.GA38225@ast-mbp.thefacebook.com>
+ <20160908063052.GA24253@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:36343 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752257AbcIHGvY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Sep 2016 02:51:24 -0400
-In-Reply-To: <1473314092-11319-1-git-send-email-steffen.klassert@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+        Alexei Starovoitov <ast@kernel.org>,
+        Ingo Molnar <mingo@redhat.com>,
+        Arnaldo Carvalho de Melo <acme@kernel.org>,
+        Alexander Shishkin <alexander.shishkin@linux.intel.com>,
+        Alexei Starovoitov <ast@fb.com>, linux-kernel@vger.kernel.org
+To: Ingo Molnar <mingo@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160908063052.GA24253@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
+On Thu, Sep 08, 2016 at 08:30:52AM +0200, Ingo Molnar wrote:
+> > Thanks for the fix. Just saw build bot complaining last night and
+> > by the morning your fix is already here. Thanks!
+> 
+> Guys, this is the first time I saw this patch (and presumably there's some other 
+> patch as well?) - could you please submit it properly for review and get an 
+> Acked-by from one of the perf maintainers before appying it?
 
-Once xfrm_state_lookup_byaddr no longer acquires the state lock another
-cpu might be freeing the state entry at the same time.
+I was involved with the original patch and Ack'ed it.
 
-To detect this we use atomic_inc_not_zero, we then signal -EAGAIN to
-caller in case our result was stale.
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/xfrm/xfrm_state.c | 21 ++++++++++++++++-----
- 1 file changed, 16 insertions(+), 5 deletions(-)
-
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 904ab4d..84c1db6 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -37,6 +37,11 @@
- 
- static unsigned int xfrm_state_hashmax __read_mostly = 1 * 1024 * 1024;
- 
-+static inline bool xfrm_state_hold_rcu(struct xfrm_state __rcu *x)
-+{
-+	return atomic_inc_not_zero(&x->refcnt);
-+}
-+
- static inline unsigned int xfrm_dst_hash(struct net *net,
- 					 const xfrm_address_t *daddr,
- 					 const xfrm_address_t *saddr,
-@@ -668,7 +673,8 @@ static struct xfrm_state *__xfrm_state_lookup(struct net *net, u32 mark,
- 
- 		if ((mark & x->mark.m) != x->mark.v)
- 			continue;
--		xfrm_state_hold(x);
-+		if (!xfrm_state_hold_rcu(x))
-+			continue;
- 		return x;
- 	}
- 
-@@ -692,7 +698,8 @@ static struct xfrm_state *__xfrm_state_lookup_byaddr(struct net *net, u32 mark,
- 
- 		if ((mark & x->mark.m) != x->mark.v)
- 			continue;
--		xfrm_state_hold(x);
-+		if (!xfrm_state_hold_rcu(x))
-+			continue;
- 		return x;
- 	}
- 
-@@ -871,10 +878,14 @@ found:
- 		}
- 	}
- out:
--	if (x)
--		xfrm_state_hold(x);
--	else
-+	if (x) {
-+		if (!xfrm_state_hold_rcu(x)) {
-+			*err = -EAGAIN;
-+			x = NULL;
-+		}
-+	} else {
- 		*err = acquire_in_progress ? -EAGAIN : error;
-+	}
- 	spin_unlock_bh(&net->xfrm.xfrm_state_lock);
- 	if (to_put)
- 		xfrm_state_put(to_put);
--- 
-1.9.1
+Ack on this one as well.
