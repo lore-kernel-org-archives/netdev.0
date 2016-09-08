@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 06/17] xfrm: state: use rcu_deref and assign_pointer helpers
-Date: Thu, 8 Sep 2016 07:54:41 +0200
-Message-ID: <1473314092-11319-7-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 05/17] xfrm: state: add sequence count to detect hash resizes
+Date: Thu, 8 Sep 2016 07:54:40 +0200
+Message-ID: <1473314092-11319-6-git-send-email-steffen.klassert@secunet.com>
 References: <1473314092-11319-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,65 +10,86 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
         <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:36345 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:36361 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752897AbcIHGvY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Sep 2016 02:51:24 -0400
+        id S1752897AbcIHGv1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Sep 2016 02:51:27 -0400
 In-Reply-To: <1473314092-11319-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Florian Westphal <fw@strlen.de>
 
-Before xfrm_state_find() can use rcu_read_lock instead of xfrm_state_lock
-we need to switch users of the hash table to assign/obtain the pointers
-with the appropriate rcu helpers.
+Once xfrm_state_find is lockless we have to cope with a concurrent
+resize opertion.
+
+We use a sequence counter to block in case a resize is in progress
+and to detect if we might have missed a state that got moved to
+a new hash table.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/xfrm/xfrm_state.c | 18 ++++++++++--------
- 1 file changed, 10 insertions(+), 8 deletions(-)
+ net/xfrm/xfrm_state.c | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
 
 diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index ac4037c..53e7867 100644
+index 8e37387..ac4037c 100644
 --- a/net/xfrm/xfrm_state.c
 +++ b/net/xfrm/xfrm_state.c
-@@ -28,6 +28,9 @@
+@@ -36,6 +36,7 @@
+  */
  
- #include "xfrm_hash.h"
+ static unsigned int xfrm_state_hashmax __read_mostly = 1 * 1024 * 1024;
++static __read_mostly seqcount_t xfrm_state_hash_generation = SEQCNT_ZERO(xfrm_state_hash_generation);
  
-+#define xfrm_state_deref_prot(table, net) \
-+	rcu_dereference_protected((table), lockdep_is_held(&(net)->xfrm.xfrm_state_lock))
-+
- /* Each xfrm_state may be linked to two tables:
+ static inline bool xfrm_state_hold_rcu(struct xfrm_state __rcu *x)
+ {
+@@ -127,6 +128,7 @@ static void xfrm_hash_resize(struct work_struct *work)
+ 	}
  
-    1. Hash table by (spi,daddr,ah/esp) to find SA by SPI. (input,ctl)
-@@ -131,18 +134,17 @@ static void xfrm_hash_resize(struct work_struct *work)
- 	write_seqcount_begin(&xfrm_state_hash_generation);
+ 	spin_lock_bh(&net->xfrm.xfrm_state_lock);
++	write_seqcount_begin(&xfrm_state_hash_generation);
  
  	nhashmask = (nsize / sizeof(struct hlist_head)) - 1U;
-+	odst = xfrm_state_deref_prot(net->xfrm.state_bydst, net);
  	for (i = net->xfrm.state_hmask; i >= 0; i--)
--		xfrm_hash_transfer(net->xfrm.state_bydst+i, ndst, nsrc, nspi,
--				   nhashmask);
-+		xfrm_hash_transfer(odst + i, ndst, nsrc, nspi, nhashmask);
- 
--	odst = net->xfrm.state_bydst;
--	osrc = net->xfrm.state_bysrc;
--	ospi = net->xfrm.state_byspi;
-+	osrc = xfrm_state_deref_prot(net->xfrm.state_bysrc, net);
-+	ospi = xfrm_state_deref_prot(net->xfrm.state_byspi, net);
- 	ohashmask = net->xfrm.state_hmask;
- 
--	net->xfrm.state_bydst = ndst;
--	net->xfrm.state_bysrc = nsrc;
--	net->xfrm.state_byspi = nspi;
-+	rcu_assign_pointer(net->xfrm.state_bydst, ndst);
-+	rcu_assign_pointer(net->xfrm.state_bysrc, nsrc);
-+	rcu_assign_pointer(net->xfrm.state_byspi, nspi);
+@@ -143,6 +145,7 @@ static void xfrm_hash_resize(struct work_struct *work)
+ 	net->xfrm.state_byspi = nspi;
  	net->xfrm.state_hmask = nhashmask;
  
- 	write_seqcount_end(&xfrm_state_hash_generation);
++	write_seqcount_end(&xfrm_state_hash_generation);
+ 	spin_unlock_bh(&net->xfrm.xfrm_state_lock);
+ 
+ 	osize = (ohashmask + 1) * sizeof(struct hlist_head);
+@@ -787,10 +790,13 @@ xfrm_state_find(const xfrm_address_t *daddr, const xfrm_address_t *saddr,
+ 	struct xfrm_state *best = NULL;
+ 	u32 mark = pol->mark.v & pol->mark.m;
+ 	unsigned short encap_family = tmpl->encap_family;
++	unsigned int sequence;
+ 	struct km_event c;
+ 
+ 	to_put = NULL;
+ 
++	sequence = read_seqcount_begin(&xfrm_state_hash_generation);
++
+ 	spin_lock_bh(&net->xfrm.xfrm_state_lock);
+ 	h = xfrm_dst_hash(net, daddr, saddr, tmpl->reqid, encap_family);
+ 	hlist_for_each_entry_rcu(x, net->xfrm.state_bydst + h, bydst) {
+@@ -894,6 +900,15 @@ out:
+ 	spin_unlock_bh(&net->xfrm.xfrm_state_lock);
+ 	if (to_put)
+ 		xfrm_state_put(to_put);
++
++	if (read_seqcount_retry(&xfrm_state_hash_generation, sequence)) {
++		*err = -EAGAIN;
++		if (x) {
++			xfrm_state_put(x);
++			x = NULL;
++		}
++	}
++
+ 	return x;
+ }
+ 
 -- 
 1.9.1
