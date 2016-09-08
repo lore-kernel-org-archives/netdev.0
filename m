@@ -1,53 +1,50 @@
-From: Michal Soltys <soltys@ziu.info>
-Subject: Re: vlan aware bridge doesn't propagate mac changes to vlans on top
- of it
-Date: Thu, 8 Sep 2016 23:16:34 +0200
-Message-ID: <e243444f-f048-116c-8fea-dbb509951b8a@ziu.info>
-References: <d8cc158b-8b3b-17eb-91cc-7a46d7fc011e@ziu.info>
- <1fb1ce35-60e8-481c-9533-afe2e585f6ca@lab.ntt.co.jp>
- <af2e0cf8-c580-83b5-3b7d-3a23a1cba06a@ziu.info>
- <871326a1-4d31-8327-8120-f2188ecf2d34@lab.ntt.co.jp>
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: Re: [PATCH] drivers: net: phy: mdio-xgene: Add hardware dependency
+Date: Thu, 8 Sep 2016 14:30:02 -0700
+Message-ID: <CAKh23FkE4gFf4v-72BO_dpaGhTHShYBzZkRyz6EwSBYhDB31tw@mail.gmail.com>
+References: <20160908162515.1a69cf67@endymion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-        Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>
+To: Jean Delvare <jdelvare@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from drutsystem.com ([84.10.39.251]:42107 "EHLO drutsystem.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932460AbcIHVQk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Sep 2016 17:16:40 -0400
-In-Reply-To: <871326a1-4d31-8327-8120-f2188ecf2d34@lab.ntt.co.jp>
+Received: from mail-ua0-f181.google.com ([209.85.217.181]:35439 "EHLO
+        mail-ua0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751792AbcIHVaE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 17:30:04 -0400
+Received: by mail-ua0-f181.google.com with SMTP id 95so28033738uaz.2
+        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 14:30:03 -0700 (PDT)
+In-Reply-To: <20160908162515.1a69cf67@endymion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2016-09-08 04:03, Toshiaki Makita wrote:
-> On 2016/09/08 3:22, Michal Soltys wrote:
-> ...
->> 4.7.2
->> git describe on that commit suggests it's been available since 4.6.x
->> 
->> What I did in details:
->> 
->> ip li add name port1b type veth peer name port1e
->> ip li add br0 type bridge
->> ip li set dev br0 type bridge vlan_default_pvid 0
->> ip li set dev br0 type bridge vlan_filtering 1
->> bridge vlan add dev br0 vid 10 self
->> bridge vlan add dev br0 vid 250 untagged pvid self
->> ip li add link br0 name vlan10 type vlan id 10
->> ip li set port1b master br0
->> 
->> At this point br0.vlan10 had outdated mac after br0 took port1b's one as
->> its own.
-> 
-> If the mac address of lower device is changed while vlan device is down,
-> the address will be synchronized when vlan device becomes up.
-> Please try "ip li set vlan10 up".
-> 
+On Thu, Sep 8, 2016 at 7:25 AM, Jean Delvare <jdelvare@suse.de> wrote:
+> The mdio-xgene driver is only useful on X-Gene SoC.
+>
+> Signed-off-by: Jean Delvare <jdelvare@suse.de>
+> Cc: Iyappan Subramanian <isubramanian@apm.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> ---
+>  drivers/net/phy/Kconfig |    1 +
+>  1 file changed, 1 insertion(+)
+>
+> --- linux-4.8-rc5.orig/drivers/net/phy/Kconfig  2016-09-04 23:31:46.000000000 +0200
+> +++ linux-4.8-rc5/drivers/net/phy/Kconfig       2016-09-08 15:05:08.815824055 +0200
+> @@ -303,6 +303,7 @@ config MDIO_HISI_FEMAC
+>
+>  config MDIO_XGENE
+>         tristate "APM X-Gene SoC MDIO bus controller"
+> +       depends on ARCH_XGENE || COMPILE_TEST
+>         help
+>           This module provides a driver for the MDIO busses found in the
+>           APM X-Gene SoC's.
+>
 
-Gah, yea upping interface updates it correctly. Originally I found this
-issue on older kernel, so I quickly verified the behaviour on the
-current one - but didn't do ip up.
+Thanks.
 
-Sorry for the noise.
+Acked-by:  Iyappan Subramanian <isubramanian@apm.com>
+
+> --
+> Jean Delvare
+> SUSE L3 Support
