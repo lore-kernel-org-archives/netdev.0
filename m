@@ -1,43 +1,50 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 1/2 v3] net: smsc911x: augment device tree bindings
-Date: Wed, 07 Sep 2016 21:06:09 -0700 (PDT)
-Message-ID: <20160907.210609.2211064731014564027.davem@davemloft.net>
-References: <1473256411-13965-1-git-send-email-linus.walleij@linaro.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2 v3] net: smsc911x: request and deassert optional
+ RESET GPIO
+Date: Wed, 07 Sep 2016 21:06:17 -0700 (PDT)
+Message-ID: <20160907.210617.685340162025675932.davem@davemloft.net>
+References: <1473256422-14012-1-git-send-email-linus.walleij@linaro.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, steve.glendinning-nksJyM/082jR7s880joybQ@public.gmane.org,
-        linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org, jeremy.linton-5wv7dgnIgG8@public.gmane.org,
-        kamlakant.patel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, p.fedin-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1473256411-13965-1-git-send-email-linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, steve.glendinning@shawell.net,
+        linux@roeck-us.net, jeremy.linton@arm.com,
+        kamlakant.patel@broadcom.com, p.fedin@samsung.com
+To: linus.walleij@linaro.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:53002 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751332AbcIHEGS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 00:06:18 -0400
+In-Reply-To: <1473256422-14012-1-git-send-email-linus.walleij@linaro.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Date: Wed,  7 Sep 2016 15:53:31 +0200
+From: Linus Walleij <linus.walleij@linaro.org>
+Date: Wed,  7 Sep 2016 15:53:42 +0200
 
-> This adds device tree bindings for:
+> On some systems (such as the Qualcomm APQ8060 Dragonboard) the
+> RESET signal of the SMSC911x is not pulled up by a resistor (or
+> the internal pull-up that will pull it up if the pin is not
+> even connected) but instead connected to a GPIO line, so that
+> the operating system must explicitly deassert RESET before use.
 > 
-> - An optional GPIO line for releasing the RESET signal to the
->   SMSC911x devices
+> Support this in the SMSC911x driver so this ethernet connector
+> can be used on such targets.
 > 
-> - An optional PME (power management event) interrupt line that
->   can be utilized to wake up the system on network activity.
->   This signal exist on all the SMSC911x devices, it is just not
->   very often routed.
+> Notice that we request the line to go logical low (deassert)
+> whilst the line on the actual component is active low. This
+> is managed in the respective hardware description when
+> specifying the GPIO line with e.g. device tree or ACPI. With
+> device tree it looks like this in one case:
 > 
-> Both these lines are routed to the SoC on the Qualcomm APQ8060
-> Dragonboard and thus needs to be bound in the device tree.
+>   reset-gpios = <&tlmm 30 GPIO_ACTIVE_LOW>;
 > 
-> Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Cc: Jeremy Linton <jeremy.linton-5wv7dgnIgG8@public.gmane.org>
-> Signed-off-by: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+> Which means that logically requesting the RESET line to be
+> deasserted will result in the line being driven high, taking
+> the device out of reset.
+> 
+> Cc: Jeremy Linton <jeremy.linton@arm.com>
+> Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
 
 Applied.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
