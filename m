@@ -1,47 +1,57 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: vlan aware bridge doesn't propagate mac changes to vlans on top
- of it
-Date: Thu, 8 Sep 2016 11:03:24 +0900
-Message-ID: <871326a1-4d31-8327-8120-f2188ecf2d34@lab.ntt.co.jp>
-References: <d8cc158b-8b3b-17eb-91cc-7a46d7fc011e@ziu.info>
- <1fb1ce35-60e8-481c-9533-afe2e585f6ca@lab.ntt.co.jp>
- <af2e0cf8-c580-83b5-3b7d-3a23a1cba06a@ziu.info>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Michal Soltys <soltys@ziu.info>,
-        Linux Netdev List <netdev@vger.kernel.org>
+From: Hangbin Liu <liuhangbin@gmail.com>
+Subject: [PATCHv2 iproute2] ip route: check ftell, fseek return value
+Date: Thu,  8 Sep 2016 10:26:57 +0800
+Message-ID: <1473301617-9123-1-git-send-email-liuhangbin@gmail.com>
+Cc: David Laight <David.Laight@ACULAB.COM>, Phil Sutter <phil@nwl.cc>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Hangbin Liu <liuhangbin@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:39883 "EHLO
-        tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751081AbcIHCDy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 22:03:54 -0400
-In-Reply-To: <af2e0cf8-c580-83b5-3b7d-3a23a1cba06a@ziu.info>
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:35532 "EHLO
+        mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751529AbcIHC1T (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2016 22:27:19 -0400
+Received: by mail-pa0-f67.google.com with SMTP id pp5so1698960pac.2
+        for <netdev@vger.kernel.org>; Wed, 07 Sep 2016 19:27:19 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2016/09/08 3:22, Michal Soltys wrote:
-...
-> 4.7.2
-> git describe on that commit suggests it's been available since 4.6.x
-> 
-> What I did in details:
-> 
-> ip li add name port1b type veth peer name port1e
-> ip li add br0 type bridge
-> ip li set dev br0 type bridge vlan_default_pvid 0
-> ip li set dev br0 type bridge vlan_filtering 1
-> bridge vlan add dev br0 vid 10 self
-> bridge vlan add dev br0 vid 250 untagged pvid self
-> ip li add link br0 name vlan10 type vlan id 10
-> ip li set port1b master br0
-> 
-> At this point br0.vlan10 had outdated mac after br0 took port1b's one as
-> its own.
+ftell() may return -1 in error case, which is not handled and therefore pass a
+negative offset to fseek(). The return code of fseek() is also not checked.
 
-If the mac address of lower device is changed while vlan device is down,
-the address will be synchronized when vlan device becomes up.
-Please try "ip li set vlan10 up".
+Reported-by: Phil Sutter <phil@nwl.cc>
+Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+---
+ ip/iproute.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
 
+diff --git a/ip/iproute.c b/ip/iproute.c
+index 3da23af..c06a474 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -1860,6 +1860,11 @@ static int iproute_restore(void)
+ 		exit(-1);
+ 
+ 	pos = ftell(stdin);
++	if (pos == -1) {
++		perror("Failed to restore: ftell");
++		exit(-1);
++	}
++
+ 	for (prio = 0; prio < 3; prio++) {
+ 		int err;
+ 
+@@ -1867,7 +1872,10 @@ static int iproute_restore(void)
+ 		if (err)
+ 			exit(err);
+ 
+-		fseek(stdin, pos, SEEK_SET);
++		if (fseek(stdin, pos, SEEK_SET) == -1) {
++			perror("Failed to restore: fseek");
++			exit(-1);
++		}
+ 	}
+ 
+ 	exit(0);
 -- 
-Toshiaki Makita
+2.5.5
