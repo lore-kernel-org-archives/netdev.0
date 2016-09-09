@@ -1,7 +1,7 @@
 From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: [PATCH 9/9] selftests: Update vDSO Makefile to work under selftests
-Date: Fri,  9 Sep 2016 16:22:50 -0600
-Message-ID: <2034b315d4f40df479ba7ada1580a22fd91a75b4.1473458697.git.shuahkh@osg.samsung.com>
+Subject: [PATCH 5/9] selftests: Update prctl Makefile to work under selftests
+Date: Fri,  9 Sep 2016 16:22:46 -0600
+Message-ID: <77650824f1e884b0999dc3ed258cdfaae159aa6b.1473458697.git.shuahkh@osg.samsung.com>
 References: <cover.1473458697.git.shuahkh@osg.samsung.com>
 Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-doc@vger.kernel.org,
         linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
@@ -14,52 +14,41 @@ References: <cover.1473458697.git.shuahkh@osg.samsung.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Update vDSO Makefile to work under selftests. vDSO will not be run as part
-of selftests suite and will not included in install targets. They can be
-built separately for now.
+Update prctl Makefile to work under selftests. prctl will not be run as
+part of selftests suite and will not included in install targets. They
+can be built separately for now.
 
 Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
 ---
- tools/testing/selftests/vDSO/Makefile | 29 ++++++++++++++++-------------
- 1 file changed, 16 insertions(+), 13 deletions(-)
+ tools/testing/selftests/prctl/Makefile | 19 ++++++++++++-------
+ 1 file changed, 12 insertions(+), 7 deletions(-)
 
-diff --git a/tools/testing/selftests/vDSO/Makefile b/tools/testing/selftests/vDSO/Makefile
-index b12e987..706b68b 100644
---- a/tools/testing/selftests/vDSO/Makefile
-+++ b/tools/testing/selftests/vDSO/Makefile
-@@ -1,17 +1,20 @@
+diff --git a/tools/testing/selftests/prctl/Makefile b/tools/testing/selftests/prctl/Makefile
+index 44de308..35aa1c8 100644
+--- a/tools/testing/selftests/prctl/Makefile
++++ b/tools/testing/selftests/prctl/Makefile
+@@ -1,10 +1,15 @@
  ifndef CROSS_COMPILE
--# vdso_test won't build for glibc < 2.16, so disable it
--# hostprogs-y := vdso_test
--hostprogs-$(CONFIG_X86) := vdso_standalone_test_x86
--vdso_standalone_test_x86-objs := vdso_standalone_test_x86.o parse_vdso.o
--vdso_test-objs := parse_vdso.o vdso_test.o
--
+-# List of programs to build
+-hostprogs-$(CONFIG_X86) := disable-tsc-ctxt-sw-stress-test disable-tsc-on-off-stress-test disable-tsc-test
 -# Tell kbuild to always build the programs
 -always := $(hostprogs-y)
--
--HOSTCFLAGS := -I$(objtree)/usr/include -std=gnu99
--HOSTCFLAGS_vdso_standalone_test_x86.o := -fno-asynchronous-unwind-tables -fno-stack-protector
--HOSTLOADLIBES_vdso_standalone_test_x86 := -nostdlib
-+CFLAGS := -std=gnu99
-+CFLAGS_vdso_standalone_test_x86 := -nostdlib -fno-asynchronous-unwind-tables -fno-stack-protector
- ifeq ($(CONFIG_X86_32),y)
--HOSTLOADLIBES_vdso_standalone_test_x86 += -lgcc_s
-+LDLIBS += -lgcc_s
- endif
-+
-+TEST_PROGS := vdso_test vdso_standalone_test_x86
-+
++uname_M := $(shell uname -m 2>/dev/null || echo not)
++ARCH ?= $(shell echo $(uname_M) | sed -e s/i.86/x86/ -e s/x86_64/x86/)
+ 
+-HOSTCFLAGS_disable-tsc-ctxt-sw-stress-test.o += -I$(objtree)/usr/include
+-HOSTCFLAGS_disable-tsc-on-off-stress-test.o += -I$(objtree)/usr/include
+-HOSTCFLAGS_disable-tsc-test.o += -I$(objtree)/usr/include
++ifeq ($(ARCH),x86)
++TEST_PROGS := disable-tsc-ctxt-sw-stress-test disable-tsc-on-off-stress-test \
++		disable-tsc-test
 +all: $(TEST_PROGS)
-+vdso_test: parse_vdso.c vdso_test.c
-+vdso_standalone_test_x86: vdso_standalone_test_x86.c parse_vdso.c
-+	$(CC) $(CFLAGS) $(CFLAGS_vdso_standalone_test_x86) \
-+		vdso_standalone_test_x86.c parse_vdso.c \
-+		-o vdso_standalone_test_x86
 +
 +include ../lib.mk
++
 +clean:
 +	rm -fr $(TEST_PROGS)
++endif
  endif
 -- 
 2.7.4
