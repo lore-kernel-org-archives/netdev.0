@@ -1,59 +1,68 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH v3 net-next 1/1] net_sched: Introduce skbmod action
-Date: Fri, 9 Sep 2016 08:33:24 -0400
-Message-ID: <ef571294-9f4f-d07b-1a25-1cb8c7872a39@mojatatu.com>
-References: <1472386756-23085-1-git-send-email-jhs@emojatatu.com>
- <1472400467.14381.252.camel@edumazet-glaptop3.roam.corp.google.com>
- <b075631d-92cc-d016-3786-aaacb3d5c13a@mojatatu.com>
- <b117fac2-c73f-2d42-3843-52f9717224d9@mojatatu.com>
- <1472494817.14381.267.camel@edumazet-glaptop3.roam.corp.google.com>
- <2a6e36a6-f128-ba9d-4d69-90ff5383fb75@mojatatu.com>
- <68852282-b009-7b5b-6887-1630935b1913@mojatatu.com>
- <1472561089.14381.296.camel@edumazet-glaptop3.roam.corp.google.com>
- <a90c3d11-e1e9-3f58-5400-8b910d707351@mojatatu.com>
- <1473171919.10725.3.camel@edumazet-glaptop3.roam.corp.google.com>
- <6a0f8bfd-97d2-1e08-7ad7-b5791cb4312c@mojatatu.com>
- <1473350573.15733.61.camel@edumazet-glaptop3.roam.corp.google.com>
- <1473351077.15733.63.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, daniel@iogearbox.net,
-        xiyou.wangcong@gmail.com,
-        John Fastabend <john.r.fastabend@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Javier Martinez Canillas <javier@osg.samsung.com>
+Subject: [PATCH 0/8] net: use IS_ENABLED() instead of checking for built-in or module
+Date: Fri,  9 Sep 2016 08:43:12 -0400
+Message-ID: <1473425000-9782-1-git-send-email-javier@osg.samsung.com>
+Cc: Javier Martinez Canillas <javier@osg.samsung.com>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        James Chapman <jchapman@katalix.com>,
+        Alexander Duyck <aduyck@mirantis.com>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        Florian Westphal <fw@strlen.de>,
+        Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        stephen hemminger <stephen@networkplumber.org>,
+        Tom Herbert <tom@herbertland.com>, linux-sctp@vger.kernel.org,
+        Antonio Quartulli <a@unstable.cc>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        Eric Dumazet <edumazet
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:33544 "EHLO
-        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752567AbcIIMd0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 08:33:26 -0400
-Received: by mail-oi0-f67.google.com with SMTP id y2so5735131oie.0
-        for <netdev@vger.kernel.org>; Fri, 09 Sep 2016 05:33:26 -0700 (PDT)
-In-Reply-To: <1473351077.15733.63.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from ec2-52-27-115-49.us-west-2.compute.amazonaws.com ([52.27.115.49]:52521
+        "EHLO s-opensource.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752567AbcIIMny (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 08:43:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-09-08 12:11 PM, Eric Dumazet wrote:
-> On Thu, 2016-09-08 at 09:02 -0700, Eric Dumazet wrote:
->> On Thu, 2016-09-08 at 06:38 -0400, Jamal Hadi Salim wrote:
->>> On 16-09-06 10:25 AM, Eric Dumazet wrote:
+Hello David,
 
->> This simply works for me.
->>
->> But maybe you read the stats at the wrong place ?
->>
->> Pleas give us more details, thanks !
->
-> And double check the tcf_hash_create() call :
->
-> Last parameter is a boolean, and you must set it to true if you want per
-> cpu stats !
->
+This trivial series replace the open coding to check for a Kconfig symbol
+being built-in or module, with IS_ENABLED() macro that does exactly that.
 
-Dammit, yes that was it;-> Sigh. I shouldve caught it earlier.
-Thanks! Now i feel more peaceful submitting the patch.
+Using the macro makes the code more readable by helping abstract away some
+of the Kconfig built-in and module enable details.
 
-cheers,
-jamal
+Best regards,
+Javier
 
->
+
+Javier Martinez Canillas (8):
+  appletalk: use IS_ENABLED() instead of checking for built-in or module
+  lec: use IS_ENABLED() instead of checking for built-in or module
+  net: use IS_ENABLED() instead of checking for built-in or module
+  ipv4: use IS_ENABLED() instead of checking for built-in or module
+  l2tp: use IS_ENABLED() instead of checking for built-in or module
+  net: sched: use IS_ENABLED() instead of checking for built-in or
+    module
+  sctp: use IS_ENABLED() instead of checking for built-in or module
+  xfrm: use IS_ENABLED() instead of checking for built-in or module
+
+ net/appletalk/ddp.c  |  2 +-
+ net/atm/lec.c        | 12 ++++++------
+ net/core/dev.c       |  3 +--
+ net/ipv4/ip_output.c |  2 +-
+ net/l2tp/l2tp_core.h |  2 +-
+ net/l2tp/l2tp_eth.c  |  4 ++--
+ net/l2tp/l2tp_ppp.c  |  4 ++--
+ net/sched/cls_flow.c |  6 +++---
+ net/sctp/auth.c      |  2 +-
+ net/xfrm/xfrm_algo.c |  2 +-
+ 10 files changed, 19 insertions(+), 20 deletions(-)
+
+-- 
+2.7.4
