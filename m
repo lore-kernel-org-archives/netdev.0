@@ -1,47 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv4: accept u8 in IP_TOS ancillary data
-Date: Thu, 08 Sep 2016 17:46:27 -0700 (PDT)
-Message-ID: <20160908.174627.1650810290451032959.davem@davemloft.net>
-References: <1473310376.15733.26.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH net-next v3] net: inet: diag: expose the socket mark to
+ privileged processes.
+Date: Fri, 9 Sep 2016 09:48:27 +0900
+Message-ID: <CAKD1Yr3p+ZcVbawRW98LCVEW763UYCj4tfHYxadk+dSuxfEy1A@mail.gmail.com>
+References: <1473262945-144932-1-git-send-email-lorenzo@google.com> <20160908.161348.297729487225819070.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, brouer@redhat.com, ffusco@redhat.com,
-        maze@google.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Erik Kline <ek@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43220 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751027AbcIIAq2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 20:46:28 -0400
-In-Reply-To: <1473310376.15733.26.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-oi0-f47.google.com ([209.85.218.47]:36099 "EHLO
+        mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750974AbcIIAss (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 20:48:48 -0400
+Received: by mail-oi0-f47.google.com with SMTP id x125so49632377oia.3
+        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 17:48:48 -0700 (PDT)
+In-Reply-To: <20160908.161348.297729487225819070.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 07 Sep 2016 21:52:56 -0700
+On Fri, Sep 9, 2016 at 8:13 AM, David Miller <davem@davemloft.net> wrote:
+>> This adds the capability for a process that has CAP_NET_ADMIN on
+>> a socket to see the socket mark in socket dumps.
+>
+> Applied, but the argument list of inet_sk_diag_fill is starting to get out
+> of control.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> In commit f02db315b8d8 ("ipv4: IP_TOS and IP_TTL can be specified as
-> ancillary data") Francesco added IP_TOS values specified as integer.
-> 
-> However, kernel sends to userspace (at recvmsg() time) an IP_TOS value
-> in a single byte, when IP_RECVTOS is set on the socket.
-> 
-> It can be very useful to reflect all ancillary options as given by the
-> kernel in a subsequent sendmsg(), instead of aborting the sendmsg() with
-> EINVAL after Francesco patch.
-> 
-> So this patch extends IP_TOS ancillary to accept an u8, so that an UDP
-> server can simply reuse same ancillary block without having to mangle
-> it.
-> 
-> Jesper can then augment
-> https://github.com/netoptimizer/network-testing/blob/master/src/udp_example02.c
-> to add TOS reflection ;)
-> 
-> Fixes: f02db315b8d8 ("ipv4: IP_TOS and IP_TTL can be specified as ancillary data")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+I think a lot of the parameters it takes are just a couple of pointer
+lookups away from in_skb. I assumed it did not take in_skb directly
+for performance reasons: this way the calling functions can calculate
+many of these arguments just once per dump instead of once per socket.
+But thinking about it some more the cost of those pointer lookups is
+negligible compared to the cost of iterating over the hashtables,
+marshalling the attributes, etc.
 
-Applied, thanks Eric.
+I'll see if I can send something out to pass in in_skb instead.
