@@ -1,44 +1,77 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net] net_sched: act_mirred: full rcu conversion
-Date: Thu, 8 Sep 2016 22:59:29 -0700
-Message-ID: <CAM_iQpUxLYG-8kc+frLZ5QD85m22gPQGJGqnKpLXjG-Qa2Goow@mail.gmail.com>
-References: <1472795840-31901-1-git-send-email-xiyou.wangcong@gmail.com>
- <1472795840-31901-6-git-send-email-xiyou.wangcong@gmail.com>
- <1473173528.10725.14.camel@edumazet-glaptop3.roam.corp.google.com>
- <57D0FF87.604@gmail.com> <1473341283.15733.33.camel@edumazet-glaptop3.roam.corp.google.com>
- <1473348943.15733.57.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpUxLDa1yQMDvCH760xGOsDMYz9wvHro64VYamnhXE=+yA@mail.gmail.com> <20160909054810.GA66323@ast-mbp.thefacebook.com>
+From: Alexei Starovoitov via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: README: [PATCH RFC 11/11] net/mlx5e: XDP TX xmit
+	more
+Date: Thu, 8 Sep 2016 23:30:50 -0700
+Message-ID: <20160909063048.GA67375@ast-mbp.thefacebook.com>
+References: <1473252152-11379-1-git-send-email-saeedm@mellanox.com>
+	<1473252152-11379-12-git-send-email-saeedm@mellanox.com>
+	<20160908101147.1b351432@redhat.com>
+	<20160909032202.GA62966@ast-mbp.thefacebook.com>
+	<20160909073652.351d76d7@redhat.com>
+Reply-To: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>,
-        Amir Vadai <amirva@mellanox.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f46.google.com ([209.85.218.46]:35008 "EHLO
-        mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750831AbcIIF7u (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 01:59:50 -0400
-Received: by mail-oi0-f46.google.com with SMTP id s131so115294611oie.2
-        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 22:59:50 -0700 (PDT)
-In-Reply-To: <20160909054810.GA66323@ast-mbp.thefacebook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
+	iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jesper Dangaard Brouer <brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20160909073652.351d76d7-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 8, 2016 at 10:48 PM, Alexei Starovoitov
-<alexei.starovoitov@gmail.com> wrote:
->
-> imo the deliberate small race in Eric's initial lock removal in mirred
-> was a good design choice. I think he did this patch only to
-> silence the complains with the code instead of arguing with words.
-> imo the initial code is good as-is. This patch is also a nice improvement,
-> but certainly not mandatory. 'face palm' is unnecessary.
+On Fri, Sep 09, 2016 at 07:36:52AM +0200, Jesper Dangaard Brouer wrote:
+> > >  Lets do bundling/bulking from the start!  
+> > 
+> > mlx4 already does bulking and this proposed mlx5 set of patches
+> > does bulking as well.
+> > See nothing wrong about it. RX side processes the packets and
+> > when it's done it tells TX to xmit whatever it collected.
+> 
+> This is doing "hidden" bulking and not really taking advantage of using
+> the icache more effeciently.  
+> 
+> Let me explain the problem I see, little more clear then, so you
+> hopefully see where I'm going.
+> 
+> Imagine you have packets intermixed towards the stack and XDP_TX. 
+> Every time you call the stack code, then you flush your icache.  When
+> returning to the driver code, you will have to reload all the icache
+> associated with the XDP_TX, this is a costly operation.
 
-LOL, to summarize your words:
+correct. And why is that a problem?
+As we discussed numerous times before XDP is deliberately not trying
+to work with 10% of the traffic. If most of the traffic is going into
+the stack there is no reason to use XDP. We have tc and netfilter
+to deal with it. The cases where most of the traffic needs
+skb should not use XDP. If we try to add such uses cases to XDP we
+will only hurt XDP performance, increase complexity and gain nothing back.
 
-1) not changing the current code is good
-2) changing the current code is good too
+Let's say a user wants to send 50% into the stack->tcp->socket->user and
+another 50% via XDP_TX. The performance is going to be dominated by the stack.
+So everything that XDP does to receive and/or transmit is irrelevant.
+If we try to optimize XDP for that, we gain nothing in performance.
+The user could have used netfilter just as well in such scenario.
+The performance would have been the same.
+
+XDP only makes sense when it's servicing most of the traffic,
+like L4 load balancer, ILA router or DoS prevention use cases.
+Sorry for the broken record. XDP is not a solution for every
+networking use case. It only makes sense for packet in and out.
+When packet goes to the host it has to go through skb and
+optimizing that path is a task that is orthogonal to the XDP patches.
+
+To make further progress in this discussion can we talk about
+the use case you have in mind instead? Then solution will
+be much clear, I hope.
