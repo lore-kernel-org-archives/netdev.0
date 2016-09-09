@@ -1,29 +1,38 @@
 From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: Re: [iproute PATCH] macsec: fix input range of 'icvlen' parameter
-Date: Fri, 9 Sep 2016 17:53:52 +0200
-Message-ID: <20160909155352.GA16002@bistromath.localdomain>
-References: <b1f730436465e511edb56e4486299e4f3835599b.1473428548.git.dcaratti@redhat.com>
+Subject: Re: [PATCH net-next] macsec: set network devtype
+Date: Fri, 9 Sep 2016 17:54:36 +0200
+Message-ID: <20160909155436.GB16002@bistromath.localdomain>
+References: <20160907140732.396bc2cf@xeon-e3>
+ <20160908.172407.273322865763730537.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, Phil Sutter <phil@nwl.cc>,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: Davide Caratti <dcaratti@redhat.com>
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45592 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:53446 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753240AbcIIPx4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 9 Sep 2016 11:53:56 -0400
+        id S1750760AbcIIPyj (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 9 Sep 2016 11:54:39 -0400
 Content-Disposition: inline
-In-Reply-To: <b1f730436465e511edb56e4486299e4f3835599b.1473428548.git.dcaratti@redhat.com>
+In-Reply-To: <20160908.172407.273322865763730537.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2016-09-09, 16:02:22 +0200, Davide Caratti wrote:
-> the maximum possible ICV length in a MACsec frame is 16 octects, not 32:
-> fix get_icvlen() accordingly, so that a proper error message is displayed
-> in case input 'icvlen' is greater than 16.
+2016-09-08, 17:24:07 -0700, David Miller wrote:
+> From: Stephen Hemminger <stephen@networkplumber.org>
+> Date: Wed, 7 Sep 2016 14:07:32 -0700
 > 
-> Signed-off-by: Davide Caratti <dcaratti@redhat.com>
+> > The netdevice type structure for macsec was being defined but never used.
+> > To set the network device type the macro SET_NETDEV_DEVTYPE must be called.
+> > Compile tested only, I don't use macsec.
+> > 
+> > Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> 
+> Sabrina, please review.
+> 
+> Thanks.
+
+Sorry for the delay. LGTM:
 
 Acked-by: Sabrina Dubroca <sd@queasysnail.net>
 
