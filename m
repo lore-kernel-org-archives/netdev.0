@@ -1,38 +1,65 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: mwifiex: scan: Simplify code
-Date: Fri,  9 Sep 2016 09:21:45 +0000 (UTC)
-Message-ID: <20160909092145.2A21861EAC@smtp.codeaurora.org>
-References: <1472644259-15605-1-git-send-email-christophe.jaillet@wanadoo.fr>
+From: Baoquan He <bhe@redhat.com>
+Subject: Re: [PATCH] bnx2: Reset device during driver initialization
+Date: Fri, 9 Sep 2016 17:28:30 +0800
+Message-ID: <20160909092830.GH11356@x1.redhat.com>
+References: <1473408667-7107-1-git-send-email-bhe@redhat.com>
+ <20160909082225.GE11356@x1.redhat.com>
+ <20160909084106.GY1437@8bytes.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: akarwar@marvell.com, nishants@marvell.com,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-        Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-To: Christophe Jaillet <christophe.jaillet@wanadoo.fr>
+Content-Type: text/plain; charset=us-ascii
+Cc: sony.chacko@qlogic.com, Dept-HSGLinuxNICDev@qlogic.com,
+        linux-kernel@vger.kernel.org, kexec@lists.infradead.org,
+        netdev@vger.kernel.org, dyoung@redhat.com
+To: Joerg Roedel <joro@8bytes.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:55815 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750892AbcIIJVp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 05:21:45 -0400
-In-Reply-To: <1472644259-15605-1-git-send-email-christophe.jaillet@wanadoo.fr>
+Received: from mx1.redhat.com ([209.132.183.28]:36268 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750892AbcIIJ2g (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 9 Sep 2016 05:28:36 -0400
+Content-Disposition: inline
+In-Reply-To: <20160909084106.GY1437@8bytes.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Christophe Jaillet <christophe.jaillet@wanadoo.fr> wrote:
-> This patch:
->    - improves code layout
->    - removes a useless memset(0) for some memory allocated with kzalloc
->    - removes a useless if. We know that 'if (chan_band_tlv)' will succeed
->      because it has been tested a few lines above
+Hi Joerg,
+
+On 09/09/16 at 10:41am, Joerg Roedel wrote:
 > 
-> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+> Hi Baoquan,
+> 
+> On Fri, Sep 09, 2016 at 04:22:25PM +0800, Baoquan He wrote:
+> > Recently I tried to fix the kdump failure in amd iommu system again, and
+> > now the latest code works, IO_PAGE_FAULT can't be seen any more. But on
+> > several amd iommu system with bnx2 NIC, always IO_PAGE_FAULT will be
+> > printed out. After investegating I found out bnx2 driver doesn't reset
+> > hardware/reg like other pci device, it does the reset job in bnx2_open
+> > which is the net device up stage. So with this patch the IO_PAGE_FAULT
+> > is away too on the system with bnx2 NIC. I will 
+> > 
+> > However when I got a intel system with vt-d and bnx2 NIC, kdump works
+> > well, and no any error message can be seen. From code it clearly shows
+> > the domain assignment is done in __intel_map_single, at this time bnx2
+> > driver hasn't reset device, the on-flight DMA should still exist. Do you
+> > have any idea on this? Or I missed anything? I also deferred the
+> > set_dte_entry calling to __map_single calling, the principal should be
+> > similar.
+> 
+> Did you make sure that all unity-mappings are in place in the newly
+> assigned domain for the bnx2 device before domains are switched?
 
-Thanks, 1 patch applied to wireless-drivers-next.git:
+What I am doing is that in iommu driver init stage anything will keep
+going forware as it does in normal kernel except for set_dte_entry
+calling. If in kdump kernel and in iommu init stage, just return
+directly at the beginning of set_dte_entry.
 
-b71165761694 mwifiex: scan: Simplify code
+For identity mapping, the pass through handling will do everything but
+return from the beginning of set_dte_entry too. Since it need install
+pte_root into dev table entry too though its pte_root is NULL. The unity
+mapping range only does iova reservation. It doesn't do dev table entry
+handling before device driver init.
 
--- 
-Sent by pwcli
-https://patchwork.kernel.org/patch/9307009/
+So unity mappings should be OK.
+
+Thanks a lot!
+
+Baoquan
