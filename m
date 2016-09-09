@@ -1,38 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] tcp: cwnd does not increase in TCP YeAH
-Date: Thu, 08 Sep 2016 17:16:42 -0700 (PDT)
-Message-ID: <20160908.171642.656826696713730257.davem@davemloft.net>
-References: <c5290080-8b14-e711-a972-3d2c49d0bdd1@anchorfree.com>
-        <20160906.135846.2108420188600081714.davem@davemloft.net>
-        <b4685d52-7fa0-5fac-b361-a20b610674d7@anchorfree.com>
+Subject: Re: [PATCH v2] vti: use right inner_mode for inbound inter address
+ family policy checks
+Date: Thu, 08 Sep 2016 17:17:57 -0700 (PDT)
+Message-ID: <20160908.171757.1653874905057849577.davem@davemloft.net>
+References: <20160904105713.3mqgszgqi7waxk5l@toau>
+        <20160906111522.GG31137@gauss.secunet.com>
+        <20160907184038.2neg44xtvlunlrmu@toau>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nanditad@google.com, edumazet@google.com,
-        ncardwell@google.com, ycheng@google.com, d.adamushko@anchorfree.com
-To: agermanov@anchorfree.com
+Cc: steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
+        netdev@vger.kernel.org
+To: thomas.zeitlhofer+lkml@ze-it.at
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42790 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:42820 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750750AbcIIAQo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 20:16:44 -0400
-In-Reply-To: <b4685d52-7fa0-5fac-b361-a20b610674d7@anchorfree.com>
+        with ESMTP id S1751463AbcIIAR6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 20:17:58 -0400
+In-Reply-To: <20160907184038.2neg44xtvlunlrmu@toau>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Artem Germanov <agermanov@anchorfree.com>
-Date: Wed, 7 Sep 2016 10:49:36 -0700
+From: thomas.zeitlhofer+lkml@ze-it.at
+Date: Wed, 7 Sep 2016 20:40:38 +0200
 
-> Commit 76174004a0f19785a328f40388e87e982bbf69b9
-> (tcp: do not slow start when cwnd equals ssthresh )
-> introduced regression in TCP YeAH. Using 100ms delay 1% loss virtual 
-> ethernet link kernel 4.2 shows bandwidth ~500KB/s for single TCP 
-> connection and kernel 4.3 and above (including 4.8-rc4) shows bandwidth 
-> ~100KB/s.
->    That is caused by stalled cwnd when cwnd equals ssthresh. This patch 
-> fixes it by proper increasing cwnd in this case.
+> In case of inter address family tunneling (IPv6 over vti4 or IPv4 over
+> vti6), the inbound policy checks in vti_rcv_cb() and vti6_rcv_cb() are
+> using the wrong address family. As a result, all inbound inter address
+> family traffic is dropped.
 > 
-> Signed-off-by: Artem Germanov <agermanov@anchorfree.com>
-> Acked-by: Dmitry Adamushko <d.adamushko@anchorfree.com>
+> Use the xfrm_ip2inner_mode() helper, as done in xfrm_input() (i.e., also
+> increment LINUX_MIB_XFRMINSTATEMODEERROR in case of error), to select the
+> inner_mode that contains the right address family for the inbound policy
+> checks.
+> 
+> Signed-off-by: Thomas Zeitlhofer <thomas.zeitlhofer+lkml@ze-it.at>
 
-Applied and queued up for -stable, thanks.
+Steffen please review this new version of the patch.
+
+Thanks.
