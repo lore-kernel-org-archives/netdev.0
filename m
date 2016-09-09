@@ -1,58 +1,148 @@
 From: Mahesh Bandewar <mahesh@bandewar.net>
-Subject: [PATCH next 0/3] ipvlan introduce l3s mode
-Date: Fri,  9 Sep 2016 14:53:17 -0700
-Message-ID: <1473457997-18199-1-git-send-email-mahesh@bandewar.net>
+Subject: [PATCH next 2/3] net: Add _nf_(un)register_hooks symbols
+Date: Fri,  9 Sep 2016 14:53:27 -0700
+Message-ID: <1473458007-18500-1-git-send-email-mahesh@bandewar.net>
 Cc: Eric Dumazet <edumazet@google.com>,
         David Miller <davem@davemloft.net>,
         Mahesh Bandewar <maheshb@google.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:36433 "EHLO
-        mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754205AbcIIVxY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 17:53:24 -0400
-Received: by mail-pa0-f65.google.com with SMTP id ez1so4328619pab.3
-        for <netdev@vger.kernel.org>; Fri, 09 Sep 2016 14:53:23 -0700 (PDT)
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:34710 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754666AbcIIVxb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 17:53:31 -0400
+Received: by mail-pf0-f195.google.com with SMTP id g202so4531428pfb.1
+        for <netdev@vger.kernel.org>; Fri, 09 Sep 2016 14:53:30 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mahesh Bandewar <maheshb@google.com>
 
-Same old problem with new appraoch especially from suggestions from
-earlier patch-series.
+Add _nf_register_hooks() and _nf_unregister_hooks() calls which allow
+caller to hold RTNL mutex.
 
-First thing is that this is introduced as a new mode rather than
-modifying the old (L3) mode. So the behavior of the existing modes is
-preserved as it is and the new L3s mode obeys iptables so that intended
-conn-tracking can work. 
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+---
+ include/linux/netfilter.h |  2 ++
+ net/netfilter/core.c      | 51 ++++++++++++++++++++++++++++++++++++++++++-----
+ 2 files changed, 48 insertions(+), 5 deletions(-)
 
-To do this, the code uses newly added l3mdev_rcv() handler and an
-Iptables hook. l3mdev_rcv() to perform an inbound route lookup with the
-correct (IPvlan slave) interface and then IPtable-hook at LOCAL_INPUT
-to change the input device from master to the slave to complete the
-formality.
-
-Supporting stack changes are trivial changes to export symbol to get
-IPv4 equivalent code exported for IPv6 and to allow netfilter hook
-registration code to allow caller to hold RTNL. Please look into
-individual patches for details.
-
-Mahesh Bandewar (3):
-  ipv6: Export p6_route_input_lookup symbol
-  net: Add _nf_(un)register_hooks symbols
-  ipvlan: Introduce l3s mode
-
- Documentation/networking/ipvlan.txt |  7 ++-
- drivers/net/Kconfig                 |  1 +
- drivers/net/ipvlan/ipvlan.h         |  7 +++
- drivers/net/ipvlan/ipvlan_core.c    | 94 +++++++++++++++++++++++++++++++++++++
- drivers/net/ipvlan/ipvlan_main.c    | 60 ++++++++++++++++++++---
- include/linux/netfilter.h           |  2 +
- include/net/ip6_route.h             |  3 ++
- include/uapi/linux/if_link.h        |  1 +
- net/ipv6/route.c                    |  7 +--
- net/netfilter/core.c                | 51 ++++++++++++++++++--
- 10 files changed, 217 insertions(+), 16 deletions(-)
-
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index 9230f9aee896..e82b76781bf6 100644
+--- a/include/linux/netfilter.h
++++ b/include/linux/netfilter.h
+@@ -133,6 +133,8 @@ int nf_register_hook(struct nf_hook_ops *reg);
+ void nf_unregister_hook(struct nf_hook_ops *reg);
+ int nf_register_hooks(struct nf_hook_ops *reg, unsigned int n);
+ void nf_unregister_hooks(struct nf_hook_ops *reg, unsigned int n);
++int _nf_register_hooks(struct nf_hook_ops *reg, unsigned int n);
++void _nf_unregister_hooks(struct nf_hook_ops *reg, unsigned int n);
+ 
+ /* Functions to register get/setsockopt ranges (non-inclusive).  You
+    need to check permissions yourself! */
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index f39276d1c2d7..2c5327e43a88 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -188,19 +188,17 @@ EXPORT_SYMBOL(nf_unregister_net_hooks);
+ 
+ static LIST_HEAD(nf_hook_list);
+ 
+-int nf_register_hook(struct nf_hook_ops *reg)
++static int _nf_register_hook(struct nf_hook_ops *reg)
+ {
+ 	struct net *net, *last;
+ 	int ret;
+ 
+-	rtnl_lock();
+ 	for_each_net(net) {
+ 		ret = nf_register_net_hook(net, reg);
+ 		if (ret && ret != -ENOENT)
+ 			goto rollback;
+ 	}
+ 	list_add_tail(&reg->list, &nf_hook_list);
+-	rtnl_unlock();
+ 
+ 	return 0;
+ rollback:
+@@ -210,19 +208,34 @@ rollback:
+ 			break;
+ 		nf_unregister_net_hook(net, reg);
+ 	}
++	return ret;
++}
++
++int nf_register_hook(struct nf_hook_ops *reg)
++{
++	int ret;
++
++	rtnl_lock();
++	ret = _nf_register_hook(reg);
+ 	rtnl_unlock();
++
+ 	return ret;
+ }
+ EXPORT_SYMBOL(nf_register_hook);
+ 
+-void nf_unregister_hook(struct nf_hook_ops *reg)
++static void _nf_unregister_hook(struct nf_hook_ops *reg)
+ {
+ 	struct net *net;
+ 
+-	rtnl_lock();
+ 	list_del(&reg->list);
+ 	for_each_net(net)
+ 		nf_unregister_net_hook(net, reg);
++}
++
++void nf_unregister_hook(struct nf_hook_ops *reg)
++{
++	rtnl_lock();
++	_nf_unregister_hook(reg);
+ 	rtnl_unlock();
+ }
+ EXPORT_SYMBOL(nf_unregister_hook);
+@@ -246,6 +259,26 @@ err:
+ }
+ EXPORT_SYMBOL(nf_register_hooks);
+ 
++/* Caller MUST take rtnl_lock() */
++int _nf_register_hooks(struct nf_hook_ops *reg, unsigned int n)
++{
++	unsigned int i;
++	int err = 0;
++
++	for (i = 0; i < n; i++) {
++		err = _nf_register_hook(&reg[i]);
++		if (err)
++			goto err;
++	}
++	return err;
++
++err:
++	if (i > 0)
++		_nf_unregister_hooks(reg, i);
++	return err;
++}
++EXPORT_SYMBOL(_nf_register_hooks);
++
+ void nf_unregister_hooks(struct nf_hook_ops *reg, unsigned int n)
+ {
+ 	while (n-- > 0)
+@@ -253,6 +286,14 @@ void nf_unregister_hooks(struct nf_hook_ops *reg, unsigned int n)
+ }
+ EXPORT_SYMBOL(nf_unregister_hooks);
+ 
++/* Caller MUST take rtnl_lock */
++void _nf_unregister_hooks(struct nf_hook_ops *reg, unsigned int n)
++{
++	while (n-- > 0)
++		_nf_unregister_hook(&reg[n]);
++}
++EXPORT_SYMBOL(_nf_unregister_hooks);
++
+ unsigned int nf_iterate(struct list_head *head,
+ 			struct sk_buff *skb,
+ 			struct nf_hook_state *state,
 -- 
 2.8.0.rc3.226.g39d4020
