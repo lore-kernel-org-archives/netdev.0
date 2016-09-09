@@ -1,64 +1,83 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next] net: bridge: add helper to call /sbin/bridge-stp
-Date: Fri, 09 Sep 2016 09:09:32 -0400
-Message-ID: <87lgz143ub.fsf@ketchup.mtl.sfl>
-References: <20160908165043.31042-1-vivien.didelot@savoirfairelinux.com> <20160908175857.35565496@xeon-e3>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v2 net-next 1/2] net: phy: Add Edge-rate driver for
+ Microsemi PHYs.
+Date: Fri, 9 Sep 2016 15:18:32 +0200
+Message-ID: <20160909131832.GB30871@lunn.ch>
+References: <20160824125934.GC13406@lunn.ch>
+ <1473326242-4198-1-git-send-email-Raju.Lakkaraju@microsemi.com>
+ <1473326242-4198-2-git-send-email-Raju.Lakkaraju@microsemi.com>
+ <20160908131415.GG26445@lunn.ch>
+ <20160909054009.GA26767@microsemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160908175857.35565496@xeon-e3>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
+        Allan.Nielsen@microsemi.com, robh+dt@kernel.org
+To: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:40009 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751332AbcIINSg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 9 Sep 2016 09:18:36 -0400
+Content-Disposition: inline
+In-Reply-To: <20160909054009.GA26767@microsemi.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Stephen,
+> > > +static int vsc85xx_edge_rate_cntl_set(struct phy_device *phydev,
+> > > +                                   u8     edge_rate)
+> > 
+> > No spaces place.
+> > 
+> I ran the checkpatch. I did not find any error. I created another workspace and
+> applied the same patch. It shows the correct alignement. I have used tabs (8 space width).
+> then some spaces to align braces.
 
-Stephen Hemminger <stephen@networkplumber.org> writes:
+Sorry, i worded that poorly. I was meaning between the u8 and edge. A
+single space is enough.
 
-> On Thu,  8 Sep 2016 12:50:43 -0400
-> Vivien Didelot <vivien.didelot@savoirfairelinux.com> wrote:
->
->> If /sbin/bridge-stp is available on the system, bridge tries to execute
->> it instead of the kernel implementation when starting/stopping STP.
->> 
->> If anything goes wrong with /sbin/bridge-stp, bridge silently falls back
->> to kernel STP, making hard to debug userspace STP.
->> 
->> This patch adds a br_stp_call_user helper to start/stop userspace STP
->> and debug errors from the program: abnormal exit status is stored in the
->> lower byte and normal exit status is stored in higher byte.
->> 
->> Below is a simple example on a kernel with dynamic debug enabled:
->> 
->>     # ln -s /bin/false /sbin/bridge-stp
->>     # brctl stp br0 on
->>     br0: failed to start userspace STP (256)
->>     # dmesg
->>     br0: /sbin/bridge-stp exited with code 1
->>     br0: failed to start userspace STP (256)
->>     br0: using kernel STP
->> 
->> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
->
-> I understand that debugging STP is hard. But this solution looks like it
-> would break existing userspace because you changed an API.
+> > > +#ifdef CONFIG_OF_MDIO
+> > > +static int vsc8531_of_init(struct phy_device *phydev)
+> > > +{
+> > > +     int rc;
+> > > +     struct vsc8531_private *vsc8531 = phydev->priv;
+> > > +     struct device *dev = &phydev->mdio.dev;
+> > > +     struct device_node *of_node = dev->of_node;
+> > > +
+> > > +     if (!of_node)
+> > > +             return -ENODEV;
+> > > +
+> > > +     rc = of_property_read_u8(of_node, "vsc8531,edge-rate",
+> > > +                              &vsc8531->edge_rate);
+> > 
+> > Until you have written the Documentation, it is hard for me to tell,
+> > but device tree bindings should use real units, like seconds, Ohms,
+> > Farads, etc. Is the edge rate in nS? Or is it some magic value which
+> > just gets written into the register?
+> > 
+> 
+> This is some magic value which just gets written into the register.
 
-My commit message might not be clear enough, sorry about that.
+Magic values are generally not accepted in device tree bindings. Both
+Micrel and Renesas define their clock skew in ps, for example. Since
+this is rise time, it should also be possible to define it in a unit
+of time.
 
-This patch does not bring any functional changes.
+> > >  static int vsc85xx_config_init(struct phy_device *phydev)
+> > >  {
+> > >       int rc;
+> > > +     struct vsc8531_private *vsc8531;
+> > > +
+> > > +     if (!phydev->priv) {
+> > 
+> > How can this happen?
+> > 
+> 
+> VSC 8531 driver don't have any private structure assigned initially.
+> Allways priv points to NULL. 
 
-It factorizes the two calls to call_usermodehelper in a br_stp_call_user
-function, which prints debug messages for userspace errors if the
-program gets killed (e.g. ABRT) or exited with non-zero status.
+So if it cannot happen, don't check for it.
 
-br_err is used if userspace STP start/stop fails, which gives direct
-diagnostic to the user.
+Also, by convention, you allocate memory in the .probe() function of a
+driver. Please do it there.
 
-I can provide more example scenarios if you wish to.
-
-Thanks,
-
-        Vivien
+	Andrew
