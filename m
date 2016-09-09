@@ -1,30 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/3] nfp: fixes and trivial cleanup
-Date: Thu, 08 Sep 2016 17:18:57 -0700 (PDT)
-Message-ID: <20160908.171857.762759573997622959.davem@davemloft.net>
-References: <1473273937-9230-1-git-send-email-jakub.kicinski@netronome.com>
+Subject: Re: [PATCH net-next] rtnetlink: remove unused ifla_stats_policy
+Date: Thu, 08 Sep 2016 17:23:19 -0700 (PDT)
+Message-ID: <20160908.172319.506563196312084552.davem@davemloft.net>
+References: <20160907135736.7a986302@xeon-e3>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jakub.kicinski@netronome.com
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42888 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:42916 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750760AbcIIAS6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 20:18:58 -0400
-In-Reply-To: <1473273937-9230-1-git-send-email-jakub.kicinski@netronome.com>
+        with ESMTP id S1750760AbcIIAXU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 20:23:20 -0400
+In-Reply-To: <20160907135736.7a986302@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Date: Wed,  7 Sep 2016 19:45:34 +0100
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Wed, 7 Sep 2016 13:57:36 -0700
 
-> First patch drops unnecessary version.h includes.  Second one
-> drops support for pre-release versions of FW ABI.  Removing
-> FW ABI 0.0 from supported set is particularly good since 0
-> could just be uninitialized memory.  Last but not least I drop
-> unnecessary padding of frames on RX which makes us count bytes
-> incorrectly for the VF2VF traffic.
+> This structure is defined but never used. Flagged with W=1
+> 
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Series applied, thanks.
+This comes from commit 10c9ead9f3c6bb24bddc9a96681f7d58e6623966
+("rtnetlink: add new RTM_GETSTATS message to dump link stats")
+
+Roopa, did you intentionally put this here unreferenced for the
+purposes or documentation or something like that?
