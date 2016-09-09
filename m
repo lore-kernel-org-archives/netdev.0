@@ -1,83 +1,56 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 net-next 1/2] net: phy: Add Edge-rate driver for
- Microsemi PHYs.
-Date: Fri, 9 Sep 2016 15:18:32 +0200
-Message-ID: <20160909131832.GB30871@lunn.ch>
-References: <20160824125934.GC13406@lunn.ch>
- <1473326242-4198-1-git-send-email-Raju.Lakkaraju@microsemi.com>
- <1473326242-4198-2-git-send-email-Raju.Lakkaraju@microsemi.com>
- <20160908131415.GG26445@lunn.ch>
- <20160909054009.GA26767@microsemi.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next V7 4/4] net/sched: Introduce act_tunnel_key
+Date: Fri, 09 Sep 2016 06:19:09 -0700
+Message-ID: <1473427149.18970.55.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1473341028-29368-1-git-send-email-hadarh@mellanox.com>
+         <1473341028-29368-5-git-send-email-hadarh@mellanox.com>
+         <57D18EA7.7000709@gmail.com>
+         <CAM_iQpVQX6qHrS7-5D0URvsXhgJgU5Ln7+e+=XOuiKGmM6nu3A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
-        Allan.Nielsen@microsemi.com, robh+dt@kernel.org
-To: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.fastabend@gmail.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Jiri Pirko <jiri@mellanox.com>, Jiri Benc <jbenc@redhat.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Amir Vadai <amirva@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>, Amir Vadai <amir@vadai.me>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:40009 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751332AbcIINSg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 9 Sep 2016 09:18:36 -0400
-Content-Disposition: inline
-In-Reply-To: <20160909054009.GA26767@microsemi.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34694 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751219AbcIINTM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 09:19:12 -0400
+Received: by mail-pf0-f194.google.com with SMTP id g202so4044428pfb.1
+        for <netdev@vger.kernel.org>; Fri, 09 Sep 2016 06:19:11 -0700 (PDT)
+In-Reply-To: <CAM_iQpVQX6qHrS7-5D0URvsXhgJgU5Ln7+e+=XOuiKGmM6nu3A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > > +static int vsc85xx_edge_rate_cntl_set(struct phy_device *phydev,
-> > > +                                   u8     edge_rate)
-> > 
-> > No spaces place.
-> > 
-> I ran the checkpatch. I did not find any error. I created another workspace and
-> applied the same patch. It shows the correct alignement. I have used tabs (8 space width).
-> then some spaces to align braces.
-
-Sorry, i worded that poorly. I was meaning between the u8 and edge. A
-single space is enough.
-
-> > > +#ifdef CONFIG_OF_MDIO
-> > > +static int vsc8531_of_init(struct phy_device *phydev)
-> > > +{
-> > > +     int rc;
-> > > +     struct vsc8531_private *vsc8531 = phydev->priv;
-> > > +     struct device *dev = &phydev->mdio.dev;
-> > > +     struct device_node *of_node = dev->of_node;
-> > > +
-> > > +     if (!of_node)
-> > > +             return -ENODEV;
-> > > +
-> > > +     rc = of_property_read_u8(of_node, "vsc8531,edge-rate",
-> > > +                              &vsc8531->edge_rate);
-> > 
-> > Until you have written the Documentation, it is hard for me to tell,
-> > but device tree bindings should use real units, like seconds, Ohms,
-> > Farads, etc. Is the edge rate in nS? Or is it some magic value which
-> > just gets written into the register?
-> > 
+On Thu, 2016-09-08 at 22:30 -0700, Cong Wang wrote:
+> On Thu, Sep 8, 2016 at 9:15 AM, John Fastabend <john.fastabend@gmail.com> wrote:
+> >
+> > This should be rtnl_derefence(t->params) and drop the read_lock/unlock
+> > pair. This is always called with RTNL lock unless you have a path I'm
+> > not seeing.
 > 
-> This is some magic value which just gets written into the register.
-
-Magic values are generally not accepted in device tree bindings. Both
-Micrel and Renesas define their clock skew in ps, for example. Since
-this is rise time, it should also be possible to define it in a unit
-of time.
-
-> > >  static int vsc85xx_config_init(struct phy_device *phydev)
-> > >  {
-> > >       int rc;
-> > > +     struct vsc8531_private *vsc8531;
-> > > +
-> > > +     if (!phydev->priv) {
-> > 
-> > How can this happen?
-> > 
+> You missed the previous discussion on V6, John.
 > 
-> VSC 8531 driver don't have any private structure assigned initially.
-> Allways priv points to NULL. 
+> BTW, you really should follow the whole discussion instead of
+> jumping in the middle, like what you did for my patchset.
+> I understand you are eager to comment, but please don't waste
+> others' time in this way.... Please.
 
-So if it cannot happen, don't check for it.
+But John is right, and he definitely is welcome to give his feedback
+even at V13 if he wants to.
 
-Also, by convention, you allocate memory in the .probe() function of a
-driver. Please do it there.
+tunnel_key_dump() is called with RTNL being held.
 
-	Andrew
+Take a deep breath, vacations, and come back when you are relaxed.
+
+Thanks.
