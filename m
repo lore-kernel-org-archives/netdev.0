@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 10/11] net/mlx5e: Restore vlan filter after seamless reset
-Date: Fri,  9 Sep 2016 17:35:26 +0300
-Message-ID: <1473431727-20150-11-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 01/11] net/mlx5: Skip waiting for vf pages in internal error
+Date: Fri,  9 Sep 2016 17:35:17 +0300
+Message-ID: <1473431727-20150-2-git-send-email-saeedm@mellanox.com>
 References: <1473431727-20150-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Tariq Toukan <tariqt@mellanox.com>,
         Moahamd Haj Yahia <mohamad@mellanox.com>,
@@ -9,9 +9,9 @@ Cc: netdev@vger.kernel.org, Tariq Toukan <tariqt@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:35515 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:35485 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752814AbcIIOhA (ORCPT
+        with ESMTP id S1752797AbcIIOhA (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 10:37:00 -0400
 In-Reply-To: <1473431727-20150-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,88 +19,57 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Mohamad Haj Yahia <mohamad@mellanox.com>
 
-When detaching the mlx5e interface clear all the vlans rules from the
-vlan flow table.
-When attaching it back restore all the active vlans rules to the HW.
+In case of device in internal error state there is no need to wait for
+vf pages since they will be reclaimed manually later in the unload flow.
 
 Signed-off-by: Mohamad Haj Yahia <mohamad@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_fs.c | 38 +++++++++++++++++++++----
- 1 file changed, 32 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c b/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
-index 1587a9f..36fbc6b 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
-@@ -294,6 +294,36 @@ int mlx5e_vlan_rx_kill_vid(struct net_device *dev, __always_unused __be16 proto,
- 	return 0;
- }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
+index 673a7c9..d458515 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
+@@ -326,6 +326,7 @@ static int reclaim_pages_cmd(struct mlx5_core_dev *dev,
+ {
+ 	struct fw_page *fwp;
+ 	struct rb_node *p;
++	u32 func_id;
+ 	u32 npages;
+ 	u32 i = 0;
  
-+static void mlx5e_add_vlan_rules(struct mlx5e_priv *priv)
-+{
-+	int i;
+@@ -334,12 +335,16 @@ static int reclaim_pages_cmd(struct mlx5_core_dev *dev,
+ 
+ 	/* No hard feelings, we want our pages back! */
+ 	npages = MLX5_GET(manage_pages_in, in, input_num_entries);
++	func_id = MLX5_GET(manage_pages_in, in, function_id);
+ 
+ 	p = rb_first(&dev->priv.page_root);
+ 	while (p && i < npages) {
+ 		fwp = rb_entry(p, struct fw_page, rb_node);
+-		MLX5_SET64(manage_pages_out, out, pas[i], fwp->addr);
+ 		p = rb_next(p);
++		if (fwp->func_id != func_id)
++			continue;
 +
-+	mlx5e_add_vlan_rule(priv, MLX5E_VLAN_RULE_TYPE_UNTAGGED, 0);
-+
-+	for_each_set_bit(i, priv->fs.vlan.active_vlans, VLAN_N_VID) {
-+		mlx5e_add_vlan_rule(priv, MLX5E_VLAN_RULE_TYPE_MATCH_VID, i);
++		MLX5_SET64(manage_pages_out, out, pas[i], fwp->addr);
+ 		i++;
+ 	}
+ 
+@@ -540,6 +545,12 @@ int mlx5_wait_for_vf_pages(struct mlx5_core_dev *dev)
+ 	unsigned long end = jiffies + msecs_to_jiffies(MAX_RECLAIM_VFS_PAGES_TIME_MSECS);
+ 	int prev_vfs_pages = dev->priv.vfs_pages;
+ 
++	/* In case of internal error we will free the pages manually later */
++	if (dev->state == MLX5_DEVICE_STATE_INTERNAL_ERROR) {
++		mlx5_core_warn(dev, "Skipping wait for vf pages stage");
++		return 0;
 +	}
 +
-+	if (priv->fs.vlan.filter_disabled &&
-+	    !(priv->netdev->flags & IFF_PROMISC))
-+		mlx5e_add_vlan_rule(priv, MLX5E_VLAN_RULE_TYPE_ANY_VID, 0);
-+}
-+
-+static void mlx5e_del_vlan_rules(struct mlx5e_priv *priv)
-+{
-+	int i;
-+
-+	mlx5e_del_vlan_rule(priv, MLX5E_VLAN_RULE_TYPE_UNTAGGED, 0);
-+
-+	for_each_set_bit(i, priv->fs.vlan.active_vlans, VLAN_N_VID) {
-+		mlx5e_del_vlan_rule(priv, MLX5E_VLAN_RULE_TYPE_MATCH_VID, i);
-+	}
-+
-+	if (priv->fs.vlan.filter_disabled &&
-+	    !(priv->netdev->flags & IFF_PROMISC))
-+		mlx5e_del_vlan_rule(priv, MLX5E_VLAN_RULE_TYPE_ANY_VID, 0);
-+}
-+
- #define mlx5e_for_each_hash_node(hn, tmp, hash, i) \
- 	for (i = 0; i < MLX5E_L2_ADDR_HASH_SIZE; i++) \
- 		hlist_for_each_entry_safe(hn, tmp, &hash[i], hlist)
-@@ -1024,14 +1054,10 @@ static int mlx5e_create_vlan_table(struct mlx5e_priv *priv)
- 	if (err)
- 		goto err_free_g;
- 
--	err = mlx5e_add_vlan_rule(priv, MLX5E_VLAN_RULE_TYPE_UNTAGGED, 0);
--	if (err)
--		goto err_destroy_vlan_flow_groups;
-+	mlx5e_add_vlan_rules(priv);
- 
- 	return 0;
- 
--err_destroy_vlan_flow_groups:
--	mlx5e_destroy_groups(ft);
- err_free_g:
- 	kfree(ft->g);
- err_destroy_vlan_table:
-@@ -1043,6 +1069,7 @@ err_destroy_vlan_table:
- 
- static void mlx5e_destroy_vlan_table(struct mlx5e_priv *priv)
- {
-+	mlx5e_del_vlan_rules(priv);
- 	mlx5e_destroy_flow_table(&priv->fs.vlan.ft);
- }
- 
-@@ -1100,7 +1127,6 @@ err_destroy_arfs_tables:
- 
- void mlx5e_destroy_flow_steering(struct mlx5e_priv *priv)
- {
--	mlx5e_del_vlan_rule(priv, MLX5E_VLAN_RULE_TYPE_UNTAGGED, 0);
- 	mlx5e_destroy_vlan_table(priv);
- 	mlx5e_destroy_l2_table(priv);
- 	mlx5e_destroy_ttc_table(priv);
+ 	mlx5_core_dbg(dev, "Waiting for %d pages from %s\n", prev_vfs_pages,
+ 		      dev->priv.name);
+ 	while (dev->priv.vfs_pages) {
 -- 
 2.7.4
