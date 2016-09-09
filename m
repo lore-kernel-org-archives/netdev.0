@@ -1,68 +1,89 @@
 From: Javier Martinez Canillas <javier@osg.samsung.com>
-Subject: [PATCH 0/8] net: use IS_ENABLED() instead of checking for built-in or module
-Date: Fri,  9 Sep 2016 08:43:12 -0400
-Message-ID: <1473425000-9782-1-git-send-email-javier@osg.samsung.com>
+Subject: [PATCH 2/8] lec: use IS_ENABLED() instead of checking for built-in or module
+Date: Fri,  9 Sep 2016 08:43:14 -0400
+Message-ID: <1473425000-9782-3-git-send-email-javier@osg.samsung.com>
+References: <1473425000-9782-1-git-send-email-javier@osg.samsung.com>
 Cc: Javier Martinez Canillas <javier@osg.samsung.com>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-        James Chapman <jchapman@katalix.com>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        Vlad Yasevich <vyasevich@gmail.com>,
+        Felipe Balbi <felipe.balbi@linux.intel.com>,
+        netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
         Florian Westphal <fw@strlen.de>,
-        Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        stephen hemminger <stephen@networkplumber.org>,
-        Tom Herbert <tom@herbertland.com>, linux-sctp@vger.kernel.org,
         Antonio Quartulli <a@unstable.cc>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        Mugunthan V N <mugunthanvnm@ti.com>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        Eric Dumazet <edumazet
+        Mugunthan V N <mugunthanvnm@ti.com>
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ec2-52-27-115-49.us-west-2.compute.amazonaws.com ([52.27.115.49]:52521
-        "EHLO s-opensource.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752567AbcIIMny (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 08:43:54 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1473425000-9782-1-git-send-email-javier@osg.samsung.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello David,
-
-This trivial series replace the open coding to check for a Kconfig symbol
-being built-in or module, with IS_ENABLED() macro that does exactly that.
+The IS_ENABLED() macro checks if a Kconfig symbol has been enabled either
+built-in or as a module, use that macro instead of open coding the same.
 
 Using the macro makes the code more readable by helping abstract away some
 of the Kconfig built-in and module enable details.
 
-Best regards,
-Javier
+Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
+---
 
+ net/atm/lec.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-Javier Martinez Canillas (8):
-  appletalk: use IS_ENABLED() instead of checking for built-in or module
-  lec: use IS_ENABLED() instead of checking for built-in or module
-  net: use IS_ENABLED() instead of checking for built-in or module
-  ipv4: use IS_ENABLED() instead of checking for built-in or module
-  l2tp: use IS_ENABLED() instead of checking for built-in or module
-  net: sched: use IS_ENABLED() instead of checking for built-in or
-    module
-  sctp: use IS_ENABLED() instead of checking for built-in or module
-  xfrm: use IS_ENABLED() instead of checking for built-in or module
-
- net/appletalk/ddp.c  |  2 +-
- net/atm/lec.c        | 12 ++++++------
- net/core/dev.c       |  3 +--
- net/ipv4/ip_output.c |  2 +-
- net/l2tp/l2tp_core.h |  2 +-
- net/l2tp/l2tp_eth.c  |  4 ++--
- net/l2tp/l2tp_ppp.c  |  4 ++--
- net/sched/cls_flow.c |  6 +++---
- net/sctp/auth.c      |  2 +-
- net/xfrm/xfrm_algo.c |  2 +-
- 10 files changed, 19 insertions(+), 20 deletions(-)
-
+diff --git a/net/atm/lec.c b/net/atm/lec.c
+index e574a7e9db6f..5d2693826afb 100644
+--- a/net/atm/lec.c
++++ b/net/atm/lec.c
+@@ -31,7 +31,7 @@
+ #include <linux/atmlec.h>
+ 
+ /* Proxy LEC knows about bridging */
+-#if defined(CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE)
++#if IS_ENABLED(CONFIG_BRIDGE)
+ #include "../bridge/br_private.h"
+ 
+ static unsigned char bridge_ula_lec[] = { 0x01, 0x80, 0xc2, 0x00, 0x00 };
+@@ -121,7 +121,7 @@ static unsigned char bus_mac[ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+ /* Device structures */
+ static struct net_device *dev_lec[MAX_LEC_ITF];
+ 
+-#if defined(CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE)
++#if IS_ENABLED(CONFIG_BRIDGE)
+ static void lec_handle_bridge(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	char *buff;
+@@ -155,7 +155,7 @@ static void lec_handle_bridge(struct sk_buff *skb, struct net_device *dev)
+ 		sk->sk_data_ready(sk);
+ 	}
+ }
+-#endif /* defined(CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE) */
++#endif /* IS_ENABLED(CONFIG_BRIDGE) */
+ 
+ /*
+  * Open/initialize the netdevice. This is called (in the current kernel)
+@@ -222,7 +222,7 @@ static netdev_tx_t lec_start_xmit(struct sk_buff *skb,
+ 	pr_debug("skbuff head:%lx data:%lx tail:%lx end:%lx\n",
+ 		 (long)skb->head, (long)skb->data, (long)skb_tail_pointer(skb),
+ 		 (long)skb_end_pointer(skb));
+-#if defined(CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE)
++#if IS_ENABLED(CONFIG_BRIDGE)
+ 	if (memcmp(skb->data, bridge_ula_lec, sizeof(bridge_ula_lec)) == 0)
+ 		lec_handle_bridge(skb, dev);
+ #endif
+@@ -426,7 +426,7 @@ static int lec_atm_send(struct atm_vcc *vcc, struct sk_buff *skb)
+ 		    (unsigned short)(0xffff & mesg->content.normal.flag);
+ 		break;
+ 	case l_should_bridge:
+-#if defined(CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE)
++#if IS_ENABLED(CONFIG_BRIDGE)
+ 	{
+ 		pr_debug("%s: bridge zeppelin asks about %pM\n",
+ 			 dev->name, mesg->content.proxy.mac_addr);
+@@ -452,7 +452,7 @@ static int lec_atm_send(struct atm_vcc *vcc, struct sk_buff *skb)
+ 			sk->sk_data_ready(sk);
+ 		}
+ 	}
+-#endif /* defined(CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE) */
++#endif /* IS_ENABLED(CONFIG_BRIDGE) */
+ 		break;
+ 	default:
+ 		pr_info("%s: Unknown message type %d\n", dev->name, mesg->type);
 -- 
 2.7.4
