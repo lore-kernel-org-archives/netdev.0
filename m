@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 09/11] net/mlx5e: Implement mlx5e interface attach/detach callbacks
-Date: Fri,  9 Sep 2016 17:35:25 +0300
-Message-ID: <1473431727-20150-10-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 04/11] net/mlx5: Split the load/unload flow into hardware and software flows
+Date: Fri,  9 Sep 2016 17:35:20 +0300
+Message-ID: <1473431727-20150-5-git-send-email-saeedm@mellanox.com>
 References: <1473431727-20150-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Tariq Toukan <tariqt@mellanox.com>,
         Moahamd Haj Yahia <mohamad@mellanox.com>,
@@ -9,9 +9,9 @@ Cc: netdev@vger.kernel.org, Tariq Toukan <tariqt@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:35499 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:35500 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752826AbcIIOhA (ORCPT
+        with ESMTP id S1752822AbcIIOhA (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 10:37:00 -0400
 In-Reply-To: <1473431727-20150-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,395 +19,369 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Mohamad Haj Yahia <mohamad@mellanox.com>
 
-Needed to support seamless and lightweight PCI/Internal error recovery.
-Implement the attach/detach interface callbacks.
-In attach callback we only allocate HW resources.
-In detach callback we only deallocate HW resources.
-All SW/kernel objects initialzing/destroying is kept in add/remove
-callbacks.
+Gather all software context creating/destroying in one function and call
+it once in the first load and in the last unload.
+load/unload functions will now receive indication if we need to
+create/destroy the software contexts.
+In internal/pci error do the unload/load flows without releasing the
+software objects.
+In this way we perserve the sw core state and it help us restoring old
+driver state after PCI error/shutdown.
 
 Signed-off-by: Mohamad Haj Yahia <mohamad@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h      |   7 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 200 ++++++++++++++++------
- drivers/net/ethernet/mellanox/mlx5/core/en_rep.c  |  39 ++++-
- 3 files changed, 183 insertions(+), 63 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/main.c | 171 ++++++++++++++++---------
+ 1 file changed, 107 insertions(+), 64 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 9699560..a9358cf 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -844,9 +844,12 @@ void mlx5e_cleanup_nic_tx(struct mlx5e_priv *priv);
- int mlx5e_close(struct net_device *netdev);
- int mlx5e_open(struct net_device *netdev);
- void mlx5e_update_stats_work(struct work_struct *work);
--void *mlx5e_create_netdev(struct mlx5_core_dev *mdev,
--			  const struct mlx5e_profile *profile, void *ppriv);
-+struct net_device *mlx5e_create_netdev(struct mlx5_core_dev *mdev,
-+				       const struct mlx5e_profile *profile,
-+				       void *ppriv);
- void mlx5e_destroy_netdev(struct mlx5_core_dev *mdev, struct mlx5e_priv *priv);
-+int mlx5e_attach_netdev(struct mlx5_core_dev *mdev, struct net_device *netdev);
-+void mlx5e_detach_netdev(struct mlx5_core_dev *mdev, struct net_device *netdev);
- struct rtnl_link_stats64 *
- mlx5e_get_stats(struct net_device *dev, struct rtnl_link_stats64 *stats);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index 108d8f2..966647f 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -1093,8 +1093,76 @@ static void mlx5_pci_close(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
+ 	debugfs_remove(priv->dbg_root);
+ }
  
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 03586ee..af4c61e 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -1883,6 +1883,9 @@ int mlx5e_close(struct net_device *netdev)
- 	struct mlx5e_priv *priv = netdev_priv(netdev);
- 	int err;
- 
-+	if (!netif_device_present(netdev))
-+		return -ENODEV;
-+
- 	mutex_lock(&priv->state_lock);
- 	err = mlx5e_close_locked(netdev);
- 	mutex_unlock(&priv->state_lock);
-@@ -3401,13 +3404,13 @@ static const struct mlx5e_profile mlx5e_nic_profile = {
- 	.max_tc		   = MLX5E_MAX_NUM_TC,
- };
- 
--void *mlx5e_create_netdev(struct mlx5_core_dev *mdev,
--			  const struct mlx5e_profile *profile, void *ppriv)
-+struct net_device *mlx5e_create_netdev(struct mlx5_core_dev *mdev,
-+				       const struct mlx5e_profile *profile,
-+				       void *ppriv)
- {
-+	int nch = profile->max_nch(mdev);
- 	struct net_device *netdev;
- 	struct mlx5e_priv *priv;
--	int nch = profile->max_nch(mdev);
--	int err;
- 
- 	netdev = alloc_etherdev_mqs(sizeof(struct mlx5e_priv),
- 				    nch * profile->max_tc,
-@@ -3425,12 +3428,31 @@ void *mlx5e_create_netdev(struct mlx5_core_dev *mdev,
- 
- 	priv->wq = create_singlethread_workqueue("mlx5e");
- 	if (!priv->wq)
--		goto err_free_netdev;
-+		goto err_cleanup_nic;
-+
-+	return netdev;
-+
-+err_cleanup_nic:
-+	profile->cleanup(priv);
-+	free_netdev(netdev);
-+
-+	return NULL;
-+}
-+
-+int mlx5e_attach_netdev(struct mlx5_core_dev *mdev, struct net_device *netdev)
+-#define MLX5_IB_MOD "mlx5_ib"
+-static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
++static int mlx5_init_once(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
 +{
-+	const struct mlx5e_profile *profile;
-+	struct mlx5e_priv *priv;
++	struct pci_dev *pdev = dev->pdev;
 +	int err;
 +
-+	priv = netdev_priv(netdev);
-+	profile = priv->profile;
-+	clear_bit(MLX5E_STATE_DESTROYING, &priv->state);
- 
- 	err = mlx5e_create_umr_mkey(priv);
- 	if (err) {
- 		mlx5_core_err(mdev, "create umr mkey failed, %d\n", err);
--		goto err_destroy_wq;
++	err = mlx5_query_hca_caps(dev);
++	if (err) {
++		dev_err(&pdev->dev, "query hca failed\n");
 +		goto out;
- 	}
- 
- 	err = profile->init_tx(priv);
-@@ -3453,20 +3475,16 @@ void *mlx5e_create_netdev(struct mlx5_core_dev *mdev,
- 
- 	mlx5e_set_dev_port_mtu(netdev);
- 
--	err = register_netdev(netdev);
--	if (err) {
--		mlx5_core_err(mdev, "register_netdev failed, %d\n", err);
--		goto err_dealloc_q_counters;
--	}
--
- 	if (profile->enable)
- 		profile->enable(priv);
- 
--	return priv;
-+	rtnl_lock();
-+	if (netif_running(netdev))
-+		mlx5e_open(netdev);
-+	netif_device_attach(netdev);
-+	rtnl_unlock();
- 
--err_dealloc_q_counters:
--	mlx5e_destroy_q_counter(priv);
--	profile->cleanup_rx(priv);
++	}
++
++	err = mlx5_query_board_id(dev);
++	if (err) {
++		dev_err(&pdev->dev, "query board id failed\n");
++		goto out;
++	}
++
++	err = mlx5_eq_init(dev);
++	if (err) {
++		dev_err(&pdev->dev, "failed to initialize eq\n");
++		goto out;
++	}
++
++	MLX5_INIT_DOORBELL_LOCK(&priv->cq_uar_lock);
++
++	err = mlx5_init_cq_table(dev);
++	if (err) {
++		dev_err(&pdev->dev, "failed to initialize cq table\n");
++		goto err_eq_cleanup;
++	}
++
++	mlx5_init_qp_table(dev);
++
++	mlx5_init_srq_table(dev);
++
++	mlx5_init_mkey_table(dev);
++
++	err = mlx5_init_rl_table(dev);
++	if (err) {
++		dev_err(&pdev->dev, "Failed to init rate limiting\n");
++		goto err_tables_cleanup;
++	}
++
 +	return 0;
- 
- err_close_drop_rq:
- 	mlx5e_close_drop_rq(priv);
-@@ -3477,13 +3495,8 @@ err_cleanup_tx:
- err_destroy_umr_mkey:
- 	mlx5_core_destroy_mkey(mdev, &priv->umr_mkey);
- 
--err_destroy_wq:
--	destroy_workqueue(priv->wq);
--
--err_free_netdev:
--	free_netdev(netdev);
--
--	return NULL;
++
++err_tables_cleanup:
++	mlx5_cleanup_mkey_table(dev);
++	mlx5_cleanup_srq_table(dev);
++	mlx5_cleanup_qp_table(dev);
++	mlx5_cleanup_cq_table(dev);
++
++err_eq_cleanup:
++	mlx5_eq_cleanup(dev);
++
 +out:
 +	return err;
- }
- 
- static void mlx5e_register_vport_rep(struct mlx5_core_dev *mdev)
-@@ -3509,16 +3522,80 @@ static void mlx5e_register_vport_rep(struct mlx5_core_dev *mdev)
- 	}
- }
- 
-+void mlx5e_detach_netdev(struct mlx5_core_dev *mdev, struct net_device *netdev)
-+{
-+	struct mlx5e_priv *priv = netdev_priv(netdev);
-+	const struct mlx5e_profile *profile = priv->profile;
-+
-+	set_bit(MLX5E_STATE_DESTROYING, &priv->state);
-+	if (profile->disable)
-+		profile->disable(priv);
-+
-+	flush_workqueue(priv->wq);
-+
-+	rtnl_lock();
-+	if (netif_running(netdev))
-+		mlx5e_close(netdev);
-+	netif_device_detach(netdev);
-+	rtnl_unlock();
-+
-+	mlx5e_destroy_q_counter(priv);
-+	profile->cleanup_rx(priv);
-+	mlx5e_close_drop_rq(priv);
-+	profile->cleanup_tx(priv);
-+	mlx5_core_destroy_mkey(priv->mdev, &priv->umr_mkey);
-+	cancel_delayed_work_sync(&priv->update_stats_work);
 +}
 +
-+/* mlx5e_attach and mlx5e_detach scope should be only creating/destroying
-+ * hardware contexts and to connect it to the current netdev.
-+ */
-+static int mlx5e_attach(struct mlx5_core_dev *mdev, void *vpriv)
++static void mlx5_cleanup_once(struct mlx5_core_dev *dev)
 +{
-+	struct mlx5e_priv *priv = vpriv;
-+	struct net_device *netdev = priv->netdev;
-+	int err;
-+
-+	if (netif_device_present(netdev))
-+		return 0;
-+
-+	err = mlx5e_create_mdev_resources(mdev);
-+	if (err)
-+		return err;
-+
-+	err = mlx5e_attach_netdev(mdev, netdev);
-+	if (err) {
-+		mlx5e_destroy_mdev_resources(mdev);
-+		return err;
-+	}
-+
-+	return 0;
++	mlx5_cleanup_rl_table(dev);
++	mlx5_cleanup_mkey_table(dev);
++	mlx5_cleanup_srq_table(dev);
++	mlx5_cleanup_qp_table(dev);
++	mlx5_cleanup_cq_table(dev);
++	mlx5_eq_cleanup(dev);
 +}
 +
-+static void mlx5e_detach(struct mlx5_core_dev *mdev, void *vpriv)
-+{
-+	struct mlx5e_priv *priv = vpriv;
-+	struct net_device *netdev = priv->netdev;
-+
-+	if (!netif_device_present(netdev))
-+		return;
-+
-+	mlx5e_detach_netdev(mdev, netdev);
-+	mlx5e_destroy_mdev_resources(mdev);
-+}
-+
- static void *mlx5e_add(struct mlx5_core_dev *mdev)
++static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv,
++			 bool boot)
  {
- 	struct mlx5_eswitch *esw = mdev->priv.eswitch;
-+	int total_vfs = MLX5_TOTAL_VPORTS(mdev);
- 	void *ppriv = NULL;
--	void *ret;
--
--	if (mlx5e_check_required_hca_cap(mdev))
--		return NULL;
-+	void *priv;
-+	int vport;
-+	int err;
-+	struct net_device *netdev;
- 
--	if (mlx5e_create_mdev_resources(mdev))
-+	err = mlx5e_check_required_hca_cap(mdev);
-+	if (err)
- 		return NULL;
- 
- 	mlx5e_register_vport_rep(mdev);
-@@ -3526,12 +3603,39 @@ static void *mlx5e_add(struct mlx5_core_dev *mdev)
- 	if (MLX5_CAP_GEN(mdev, vport_group_manager))
- 		ppriv = &esw->offloads.vport_reps[0];
- 
--	ret = mlx5e_create_netdev(mdev, &mlx5e_nic_profile, ppriv);
--	if (!ret) {
--		mlx5e_destroy_mdev_resources(mdev);
--		return NULL;
-+	netdev = mlx5e_create_netdev(mdev, &mlx5e_nic_profile, ppriv);
-+	if (!netdev) {
-+		mlx5_core_err(mdev, "mlx5e_create_netdev failed\n");
-+		goto err_unregister_reps;
-+	}
-+
-+	priv = netdev_priv(netdev);
-+
-+	err = mlx5e_attach(mdev, priv);
-+	if (err) {
-+		mlx5_core_err(mdev, "mlx5e_attach failed, %d\n", err);
-+		goto err_destroy_netdev;
-+	}
-+
-+	err = register_netdev(netdev);
-+	if (err) {
-+		mlx5_core_err(mdev, "register_netdev failed, %d\n", err);
-+		goto err_detach;
+ 	struct pci_dev *pdev = dev->pdev;
+ 	int err;
+@@ -1127,12 +1195,10 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
+ 		goto out_err;
  	}
--	return ret;
-+
-+	return priv;
-+
-+err_detach:
-+	mlx5e_detach(mdev, priv);
-+
-+err_destroy_netdev:
-+	mlx5e_destroy_netdev(mdev, priv);
-+
-+err_unregister_reps:
-+	for (vport = 1; vport < total_vfs; vport++)
-+		mlx5_eswitch_unregister_vport_rep(esw, vport);
-+
-+	return NULL;
- }
  
- void mlx5e_destroy_netdev(struct mlx5_core_dev *mdev, struct mlx5e_priv *priv)
-@@ -3539,30 +3643,11 @@ void mlx5e_destroy_netdev(struct mlx5_core_dev *mdev, struct mlx5e_priv *priv)
- 	const struct mlx5e_profile *profile = priv->profile;
- 	struct net_device *netdev = priv->netdev;
- 
--	set_bit(MLX5E_STATE_DESTROYING, &priv->state);
--	if (profile->disable)
--		profile->disable(priv);
+-	mlx5_pagealloc_init(dev);
 -
--	flush_workqueue(priv->wq);
--	if (test_bit(MLX5_INTERFACE_STATE_SHUTDOWN, &mdev->intf_state)) {
--		netif_device_detach(netdev);
--		mlx5e_close(netdev);
--	} else {
--		unregister_netdev(netdev);
+ 	err = mlx5_core_enable_hca(dev, 0);
+ 	if (err) {
+ 		dev_err(&pdev->dev, "enable hca failed\n");
+-		goto err_pagealloc_cleanup;
++		goto err_cmd_cleanup;
+ 	}
+ 
+ 	err = mlx5_core_set_issi(dev);
+@@ -1185,34 +1251,21 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
+ 
+ 	mlx5_start_health_poll(dev);
+ 
+-	err = mlx5_query_hca_caps(dev);
+-	if (err) {
+-		dev_err(&pdev->dev, "query hca failed\n");
+-		goto err_stop_poll;
 -	}
 -
--	mlx5e_destroy_q_counter(priv);
--	profile->cleanup_rx(priv);
--	mlx5e_close_drop_rq(priv);
--	profile->cleanup_tx(priv);
--	mlx5_core_destroy_mkey(priv->mdev, &priv->umr_mkey);
--	cancel_delayed_work_sync(&priv->update_stats_work);
-+	unregister_netdev(netdev);
- 	destroy_workqueue(priv->wq);
- 	if (profile->cleanup)
- 		profile->cleanup(priv);
+-	err = mlx5_query_board_id(dev);
+-	if (err) {
+-		dev_err(&pdev->dev, "query board id failed\n");
++	if (boot && mlx5_init_once(dev, priv)) {
++		dev_err(&pdev->dev, "sw objs init failed\n");
+ 		goto err_stop_poll;
+ 	}
+ 
+ 	err = mlx5_enable_msix(dev);
+ 	if (err) {
+ 		dev_err(&pdev->dev, "enable msix failed\n");
+-		goto err_stop_poll;
+-	}
 -
--	if (!test_bit(MLX5_INTERFACE_STATE_SHUTDOWN, &mdev->intf_state))
--		free_netdev(netdev);
-+	free_netdev(netdev);
- }
+-	err = mlx5_eq_init(dev);
+-	if (err) {
+-		dev_err(&pdev->dev, "failed to initialize eq\n");
+-		goto disable_msix;
++		goto err_cleanup_once;
+ 	}
  
- static void mlx5e_remove(struct mlx5_core_dev *mdev, void *vpriv)
-@@ -3572,12 +3657,11 @@ static void mlx5e_remove(struct mlx5_core_dev *mdev, void *vpriv)
- 	struct mlx5e_priv *priv = vpriv;
- 	int vport;
+ 	err = mlx5_alloc_uuars(dev, &priv->uuari);
+ 	if (err) {
+ 		dev_err(&pdev->dev, "Failed allocating uar, aborting\n");
+-		goto err_eq_cleanup;
++		goto err_disable_msix;
+ 	}
  
--	mlx5e_destroy_netdev(mdev, priv);
+ 	err = mlx5_start_eqs(dev);
+@@ -1228,15 +1281,10 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
+ 	}
+ 
+ 	err = mlx5_irq_set_affinity_hints(dev);
+-	if (err)
++	if (err) {
+ 		dev_err(&pdev->dev, "Failed to alloc affinity hint cpumask\n");
 -
- 	for (vport = 1; vport < total_vfs; vport++)
- 		mlx5_eswitch_unregister_vport_rep(esw, vport);
+-	MLX5_INIT_DOORBELL_LOCK(&priv->cq_uar_lock);
+-
+-	mlx5_init_cq_table(dev);
+-	mlx5_init_qp_table(dev);
+-	mlx5_init_srq_table(dev);
+-	mlx5_init_mkey_table(dev);
++		goto err_affinity_hints;
++	}
  
--	mlx5e_destroy_mdev_resources(mdev);
-+	mlx5e_detach(mdev, vpriv);
-+	mlx5e_destroy_netdev(mdev, priv);
- }
+ 	err = mlx5_init_fs(dev);
+ 	if (err) {
+@@ -1244,12 +1292,6 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
+ 		goto err_fs;
+ 	}
  
- static void *mlx5e_get_netdev(void *vpriv)
-@@ -3590,6 +3674,8 @@ static void *mlx5e_get_netdev(void *vpriv)
- static struct mlx5_interface mlx5e_interface = {
- 	.add       = mlx5e_add,
- 	.remove    = mlx5e_remove,
-+	.attach    = mlx5e_attach,
-+	.detach    = mlx5e_detach,
- 	.event     = mlx5e_async_event,
- 	.protocol  = MLX5_INTERFACE_PROTOCOL_ETH,
- 	.get_dev   = mlx5e_get_netdev,
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-index 29db473..3c97da1 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-@@ -413,19 +413,50 @@ static struct mlx5e_profile mlx5e_rep_profile = {
- int mlx5e_vport_rep_load(struct mlx5_eswitch *esw,
- 			 struct mlx5_eswitch_rep *rep)
- {
--	rep->priv_data = mlx5e_create_netdev(esw->dev, &mlx5e_rep_profile, rep);
--	if (!rep->priv_data) {
--		mlx5_core_warn(esw->dev, "Failed to create representor for vport %d\n",
--			       rep->vport);
-+	struct net_device *netdev;
-+	int err;
+-	err = mlx5_init_rl_table(dev);
+-	if (err) {
+-		dev_err(&pdev->dev, "Failed to init rate limiting\n");
+-		goto err_rl;
+-	}
+-
+ #ifdef CONFIG_MLX5_CORE_EN
+ 	err = mlx5_eswitch_init(dev);
+ 	if (err) {
+@@ -1281,22 +1323,19 @@ out:
+ 
+ 	return 0;
+ 
+-err_sriov:
++err_reg_dev:
+ 	mlx5_sriov_cleanup(dev);
+ 
++err_sriov:
+ #ifdef CONFIG_MLX5_CORE_EN
+ 	mlx5_eswitch_cleanup(dev->priv.eswitch);
+ #endif
+-err_reg_dev:
+-	mlx5_cleanup_rl_table(dev);
+-err_rl:
+ 	mlx5_cleanup_fs(dev);
 +
-+	netdev = mlx5e_create_netdev(esw->dev, &mlx5e_rep_profile, rep);
-+	if (!netdev) {
-+		pr_warn("Failed to create representor netdev for vport %d\n",
-+			rep->vport);
- 		return -EINVAL;
+ err_fs:
+-	mlx5_cleanup_mkey_table(dev);
+-	mlx5_cleanup_srq_table(dev);
+-	mlx5_cleanup_qp_table(dev);
+-	mlx5_cleanup_cq_table(dev);
+ 	mlx5_irq_clear_affinity_hints(dev);
++
++err_affinity_hints:
+ 	free_comp_eqs(dev);
+ 
+ err_stop_eqs:
+@@ -1305,12 +1344,13 @@ err_stop_eqs:
+ err_free_uar:
+ 	mlx5_free_uuars(dev, &priv->uuari);
+ 
+-err_eq_cleanup:
+-	mlx5_eq_cleanup(dev);
+-
+-disable_msix:
++err_disable_msix:
+ 	mlx5_disable_msix(dev);
+ 
++err_cleanup_once:
++	if (boot)
++		mlx5_cleanup_once(dev);
++
+ err_stop_poll:
+ 	mlx5_stop_health_poll(dev);
+ 	if (mlx5_cmd_teardown_hca(dev)) {
+@@ -1327,8 +1367,7 @@ reclaim_boot_pages:
+ err_disable_hca:
+ 	mlx5_core_disable_hca(dev, 0);
+ 
+-err_pagealloc_cleanup:
+-	mlx5_pagealloc_cleanup(dev);
++err_cmd_cleanup:
+ 	mlx5_cmd_cleanup(dev);
+ 
+ out_err:
+@@ -1338,7 +1377,8 @@ out_err:
+ 	return err;
+ }
+ 
+-static int mlx5_unload_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
++static int mlx5_unload_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv,
++			   bool cleanup)
+ {
+ 	int err = 0;
+ 
+@@ -1346,6 +1386,8 @@ static int mlx5_unload_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
+ 	if (test_bit(MLX5_INTERFACE_STATE_DOWN, &dev->intf_state)) {
+ 		dev_warn(&dev->pdev->dev, "%s: interface is down, NOP\n",
+ 			 __func__);
++		if (cleanup)
++			mlx5_cleanup_once(dev);
+ 		goto out;
+ 	}
+ 
+@@ -1356,18 +1398,14 @@ static int mlx5_unload_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
+ #ifdef CONFIG_MLX5_CORE_EN
+ 	mlx5_eswitch_cleanup(dev->priv.eswitch);
+ #endif
+-	mlx5_cleanup_rl_table(dev);
+ 	mlx5_cleanup_fs(dev);
+-	mlx5_cleanup_mkey_table(dev);
+-	mlx5_cleanup_srq_table(dev);
+-	mlx5_cleanup_qp_table(dev);
+-	mlx5_cleanup_cq_table(dev);
+ 	mlx5_irq_clear_affinity_hints(dev);
+ 	free_comp_eqs(dev);
+ 	mlx5_stop_eqs(dev);
+ 	mlx5_free_uuars(dev, &priv->uuari);
+-	mlx5_eq_cleanup(dev);
+ 	mlx5_disable_msix(dev);
++	if (cleanup)
++		mlx5_cleanup_once(dev);
+ 	mlx5_stop_health_poll(dev);
+ 	err = mlx5_cmd_teardown_hca(dev);
+ 	if (err) {
+@@ -1377,7 +1415,6 @@ static int mlx5_unload_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
+ 	mlx5_pagealloc_stop(dev);
+ 	mlx5_reclaim_startup_pages(dev);
+ 	mlx5_core_disable_hca(dev, 0);
+-	mlx5_pagealloc_cleanup(dev);
+ 	mlx5_cmd_cleanup(dev);
+ 
+ out:
+@@ -1416,6 +1453,7 @@ static const struct devlink_ops mlx5_devlink_ops = {
+ #endif
+ };
+ 
++#define MLX5_IB_MOD "mlx5_ib"
+ static int init_one(struct pci_dev *pdev,
+ 		    const struct pci_device_id *id)
+ {
+@@ -1462,11 +1500,14 @@ static int init_one(struct pci_dev *pdev,
+ 		goto close_pci;
+ 	}
+ 
+-	err = mlx5_load_one(dev, priv);
++	mlx5_pagealloc_init(dev);
++
++	err = mlx5_load_one(dev, priv, true);
+ 	if (err) {
+ 		dev_err(&pdev->dev, "mlx5_load_one failed with error code %d\n", err);
+ 		goto clean_health;
  	}
 +
-+	rep->priv_data = netdev_priv(netdev);
-+
-+	err = mlx5e_attach_netdev(esw->dev, netdev);
-+	if (err) {
-+		pr_warn("Failed to attach representor netdev for vport %d\n",
-+			rep->vport);
-+		goto err_destroy_netdev;
-+	}
-+
-+	err = register_netdev(netdev);
-+	if (err) {
-+		pr_warn("Failed to register representor netdev for vport %d\n",
-+			rep->vport);
-+		goto err_detach_netdev;
-+	}
-+
+ 	err = request_module_nowait(MLX5_IB_MOD);
+ 	if (err)
+ 		pr_info("failed request module on %s\n", MLX5_IB_MOD);
+@@ -1478,8 +1519,9 @@ static int init_one(struct pci_dev *pdev,
  	return 0;
-+
-+err_detach_netdev:
-+	mlx5e_detach_netdev(esw->dev, netdev);
-+
-+err_destroy_netdev:
-+	mlx5e_destroy_netdev(esw->dev, rep->priv_data);
-+
-+	return err;
-+
+ 
+ clean_load:
+-	mlx5_unload_one(dev, priv);
++	mlx5_unload_one(dev, priv, true);
+ clean_health:
++	mlx5_pagealloc_cleanup(dev);
+ 	mlx5_health_cleanup(dev);
+ close_pci:
+ 	mlx5_pci_close(dev, priv);
+@@ -1499,12 +1541,13 @@ static void remove_one(struct pci_dev *pdev)
+ 	devlink_unregister(devlink);
+ 	mlx5_unregister_device(dev);
+ 
+-	if (mlx5_unload_one(dev, priv)) {
++	if (mlx5_unload_one(dev, priv, true)) {
+ 		dev_err(&dev->pdev->dev, "mlx5_unload_one failed\n");
+ 		mlx5_health_cleanup(dev);
+ 		return;
+ 	}
+ 
++	mlx5_pagealloc_cleanup(dev);
+ 	mlx5_health_cleanup(dev);
+ 	mlx5_pci_close(dev, priv);
+ 	pci_set_drvdata(pdev, NULL);
+@@ -1519,7 +1562,7 @@ static pci_ers_result_t mlx5_pci_err_detected(struct pci_dev *pdev,
+ 
+ 	dev_info(&pdev->dev, "%s was called\n", __func__);
+ 	mlx5_enter_error_state(dev);
+-	mlx5_unload_one(dev, priv);
++	mlx5_unload_one(dev, priv, false);
+ 	pci_save_state(pdev);
+ 	mlx5_pci_disable_device(dev);
+ 	return state == pci_channel_io_perm_failure ?
+@@ -1591,7 +1634,7 @@ static void mlx5_pci_resume(struct pci_dev *pdev)
+ 
+ 	dev_info(&pdev->dev, "%s was called\n", __func__);
+ 
+-	err = mlx5_load_one(dev, priv);
++	err = mlx5_load_one(dev, priv, false);
+ 	if (err)
+ 		dev_err(&pdev->dev, "%s: mlx5_load_one failed with error code: %d\n"
+ 			, __func__, err);
+@@ -1613,7 +1656,7 @@ static void shutdown(struct pci_dev *pdev)
+ 	dev_info(&pdev->dev, "Shutdown was called\n");
+ 	/* Notify mlx5 clients that the kernel is being shut down */
+ 	set_bit(MLX5_INTERFACE_STATE_SHUTDOWN, &dev->intf_state);
+-	mlx5_unload_one(dev, priv);
++	mlx5_unload_one(dev, priv, false);
+ 	mlx5_pci_disable_device(dev);
  }
  
- void mlx5e_vport_rep_unload(struct mlx5_eswitch *esw,
- 			    struct mlx5_eswitch_rep *rep)
- {
- 	struct mlx5e_priv *priv = rep->priv_data;
-+	struct net_device *netdev = priv->netdev;
- 
-+	mlx5e_detach_netdev(esw->dev, netdev);
- 	mlx5e_destroy_netdev(esw->dev, priv);
- }
 -- 
 2.7.4
