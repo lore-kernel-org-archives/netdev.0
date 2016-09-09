@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 03/11] net/mlx5: Introduce attach/detach to interface API
-Date: Fri,  9 Sep 2016 17:35:19 +0300
-Message-ID: <1473431727-20150-4-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 06/11] net/mlx5: Implement eswitch attach/detach flows
+Date: Fri,  9 Sep 2016 17:35:22 +0300
+Message-ID: <1473431727-20150-7-git-send-email-saeedm@mellanox.com>
 References: <1473431727-20150-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Tariq Toukan <tariqt@mellanox.com>,
         Moahamd Haj Yahia <mohamad@mellanox.com>,
@@ -9,272 +9,94 @@ Cc: netdev@vger.kernel.org, Tariq Toukan <tariqt@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:35476 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:35501 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751981AbcIIOg7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 10:36:59 -0400
+        with ESMTP id S1752820AbcIIOhA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 10:37:00 -0400
 In-Reply-To: <1473431727-20150-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mohamad Haj Yahia <mohamad@mellanox.com>
 
-Add attach/detach callbacks to interface API.
-This is crucial for implementing seamless reset flow which releases the
-hardware and it's resources upon detach while keeping software
-structures and state (e.g netdev) then reset and reallocate the hardware
-needed resources upon attach.
+Needed for lightweight and modular internal/pci error handling.
+Implement eswitch attach function which allocates/starts hw related
+resources.
+Implement eswitch detach function which releases/stops hw related
+resources.
+Init/cleanup function only handle eswitch software context allocation
+and destruction.
 
 Signed-off-by: Mohamad Haj Yahia <mohamad@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/main.c | 149 +++++++++++++++++++++----
- include/linux/mlx5/driver.h                    |   2 +
- 2 files changed, 131 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c | 24 ++++++++++++++++++++---
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h |  2 ++
+ 2 files changed, 23 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index baba53f..108d8f2 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -81,6 +81,7 @@ struct mlx5_device_context {
- 	struct list_head	list;
- 	struct mlx5_interface  *intf;
- 	void		       *context;
-+	unsigned long		state;
- };
- 
- enum {
-@@ -778,6 +779,11 @@ static int mlx5_core_set_issi(struct mlx5_core_dev *dev)
- 	return -ENOTSUPP;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+index 1014305..24058894 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+@@ -1559,6 +1559,25 @@ void mlx5_eswitch_disable_sriov(struct mlx5_eswitch *esw)
+ 	esw_enable_vport(esw, 0, UC_ADDR_CHANGE);
  }
  
-+enum {
-+	MLX5_INTERFACE_ADDED,
-+	MLX5_INTERFACE_ATTACHED,
-+};
++void mlx5_eswitch_attach(struct mlx5_eswitch *esw)
++{
++	if (!esw || !MLX5_CAP_GEN(esw->dev, vport_group_manager) ||
++	    MLX5_CAP_GEN(esw->dev, port_type) != MLX5_CAP_PORT_TYPE_ETH)
++		return;
 +
- static void mlx5_add_device(struct mlx5_interface *intf, struct mlx5_priv *priv)
++	esw_enable_vport(esw, 0, UC_ADDR_CHANGE);
++	/* VF Vports will be enabled when SRIOV is enabled */
++}
++
++void mlx5_eswitch_detach(struct mlx5_eswitch *esw)
++{
++	if (!esw || !MLX5_CAP_GEN(esw->dev, vport_group_manager) ||
++	    MLX5_CAP_GEN(esw->dev, port_type) != MLX5_CAP_PORT_TYPE_ETH)
++		return;
++
++	esw_disable_vport(esw, 0);
++}
++
+ int mlx5_eswitch_init(struct mlx5_core_dev *dev)
  {
- 	struct mlx5_device_context *dev_ctx;
-@@ -786,12 +792,15 @@ static void mlx5_add_device(struct mlx5_interface *intf, struct mlx5_priv *priv)
- 	if (!mlx5_lag_intf_add(intf, priv))
+ 	int l2_table_size = 1 << MLX5_CAP_GEN(dev, log_max_l2_table);
+@@ -1635,9 +1654,8 @@ int mlx5_eswitch_init(struct mlx5_core_dev *dev)
+ 	esw->enabled_vports = 0;
+ 	esw->mode = SRIOV_NONE;
+ 
++	mlx5_eswitch_attach(esw);
+ 	dev->priv.eswitch = esw;
+-	esw_enable_vport(esw, 0, UC_ADDR_CHANGE);
+-	/* VF Vports will be enabled when SRIOV is enabled */
+ 	return 0;
+ abort:
+ 	if (esw->work_queue)
+@@ -1656,8 +1674,8 @@ void mlx5_eswitch_cleanup(struct mlx5_eswitch *esw)
  		return;
  
--	dev_ctx = kmalloc(sizeof(*dev_ctx), GFP_KERNEL);
-+	dev_ctx = kzalloc(sizeof(*dev_ctx), GFP_KERNEL);
- 	if (!dev_ctx)
- 		return;
+ 	esw_info(esw->dev, "cleanup\n");
+-	esw_disable_vport(esw, 0);
  
--	dev_ctx->intf    = intf;
-+	dev_ctx->intf = intf;
- 	dev_ctx->context = intf->add(dev);
-+	set_bit(MLX5_INTERFACE_ADDED, &dev_ctx->state);
-+	if (intf->attach)
-+		set_bit(MLX5_INTERFACE_ATTACHED, &dev_ctx->state);
- 
- 	if (dev_ctx->context) {
- 		spin_lock_irq(&priv->ctx_lock);
-@@ -802,21 +811,114 @@ static void mlx5_add_device(struct mlx5_interface *intf, struct mlx5_priv *priv)
- 	}
- }
- 
-+static struct mlx5_device_context *mlx5_get_device(struct mlx5_interface *intf,
-+						   struct mlx5_priv *priv)
-+{
-+	struct mlx5_device_context *dev_ctx;
-+
-+	list_for_each_entry(dev_ctx, &priv->ctx_list, list)
-+		if (dev_ctx->intf == intf)
-+			return dev_ctx;
-+	return NULL;
-+}
-+
- static void mlx5_remove_device(struct mlx5_interface *intf, struct mlx5_priv *priv)
- {
- 	struct mlx5_device_context *dev_ctx;
- 	struct mlx5_core_dev *dev = container_of(priv, struct mlx5_core_dev, priv);
- 
--	list_for_each_entry(dev_ctx, &priv->ctx_list, list)
--		if (dev_ctx->intf == intf) {
--			spin_lock_irq(&priv->ctx_lock);
--			list_del(&dev_ctx->list);
--			spin_unlock_irq(&priv->ctx_lock);
-+	dev_ctx = mlx5_get_device(intf, priv);
-+	if (!dev_ctx)
-+		return;
-+
-+	spin_lock_irq(&priv->ctx_lock);
-+	list_del(&dev_ctx->list);
-+	spin_unlock_irq(&priv->ctx_lock);
-+
-+	if (test_bit(MLX5_INTERFACE_ADDED, &dev_ctx->state))
-+		intf->remove(dev, dev_ctx->context);
- 
--			intf->remove(dev, dev_ctx->context);
--			kfree(dev_ctx);
-+	kfree(dev_ctx);
-+}
-+
-+static void mlx5_attach_interface(struct mlx5_interface *intf, struct mlx5_priv *priv)
-+{
-+	struct mlx5_device_context *dev_ctx;
-+	struct mlx5_core_dev *dev = container_of(priv, struct mlx5_core_dev, priv);
-+
-+	dev_ctx = mlx5_get_device(intf, priv);
-+	if (!dev_ctx)
-+		return;
-+
-+	if (intf->attach) {
-+		if (test_bit(MLX5_INTERFACE_ATTACHED, &dev_ctx->state))
- 			return;
--		}
-+		intf->attach(dev, dev_ctx->context);
-+		set_bit(MLX5_INTERFACE_ATTACHED, &dev_ctx->state);
-+	} else {
-+		if (test_bit(MLX5_INTERFACE_ADDED, &dev_ctx->state))
-+			return;
-+		dev_ctx->context = intf->add(dev);
-+		set_bit(MLX5_INTERFACE_ADDED, &dev_ctx->state);
-+	}
-+}
-+
-+static void mlx5_attach_device(struct mlx5_core_dev *dev)
-+{
-+	struct mlx5_priv *priv = &dev->priv;
-+	struct mlx5_interface *intf;
-+
-+	mutex_lock(&mlx5_intf_mutex);
-+	list_for_each_entry(intf, &intf_list, list)
-+		mlx5_attach_interface(intf, priv);
-+	mutex_unlock(&mlx5_intf_mutex);
-+}
-+
-+static void mlx5_detach_interface(struct mlx5_interface *intf, struct mlx5_priv *priv)
-+{
-+	struct mlx5_device_context *dev_ctx;
-+	struct mlx5_core_dev *dev = container_of(priv, struct mlx5_core_dev, priv);
-+
-+	dev_ctx = mlx5_get_device(intf, priv);
-+	if (!dev_ctx)
-+		return;
-+
-+	if (intf->detach) {
-+		if (!test_bit(MLX5_INTERFACE_ATTACHED, &dev_ctx->state))
-+			return;
-+		intf->detach(dev, dev_ctx->context);
-+		clear_bit(MLX5_INTERFACE_ATTACHED, &dev_ctx->state);
-+	} else {
-+		if (!test_bit(MLX5_INTERFACE_ADDED, &dev_ctx->state))
-+			return;
-+		intf->remove(dev, dev_ctx->context);
-+		clear_bit(MLX5_INTERFACE_ADDED, &dev_ctx->state);
-+	}
-+}
-+
-+static void mlx5_detach_device(struct mlx5_core_dev *dev)
-+{
-+	struct mlx5_priv *priv = &dev->priv;
-+	struct mlx5_interface *intf;
-+
-+	mutex_lock(&mlx5_intf_mutex);
-+	list_for_each_entry(intf, &intf_list, list)
-+		mlx5_detach_interface(intf, priv);
-+	mutex_unlock(&mlx5_intf_mutex);
-+}
-+
-+static bool mlx5_device_registered(struct mlx5_core_dev *dev)
-+{
-+	struct mlx5_priv *priv;
-+	bool found = false;
-+
-+	mutex_lock(&mlx5_intf_mutex);
-+	list_for_each_entry(priv, &mlx5_dev_list, dev_list)
-+		if (priv == &dev->priv)
-+			found = true;
-+	mutex_unlock(&mlx5_intf_mutex);
-+
-+	return found;
- }
- 
- static int mlx5_register_device(struct mlx5_core_dev *dev)
-@@ -1162,16 +1264,16 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
- 		goto err_sriov;
- 	}
- 
--	err = mlx5_register_device(dev);
--	if (err) {
--		dev_err(&pdev->dev, "mlx5_register_device failed %d\n", err);
--		goto err_reg_dev;
-+	if (mlx5_device_registered(dev)) {
-+		mlx5_attach_device(dev);
-+	} else {
-+		err = mlx5_register_device(dev);
-+		if (err) {
-+			dev_err(&pdev->dev, "mlx5_register_device failed %d\n", err);
-+			goto err_reg_dev;
-+		}
- 	}
- 
--	err = request_module_nowait(MLX5_IB_MOD);
--	if (err)
--		pr_info("failed request module on %s\n", MLX5_IB_MOD);
--
- 	clear_bit(MLX5_INTERFACE_STATE_DOWN, &dev->intf_state);
- 	set_bit(MLX5_INTERFACE_STATE_UP, &dev->intf_state);
- out:
-@@ -1247,12 +1349,13 @@ static int mlx5_unload_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
- 		goto out;
- 	}
- 
-+	if (mlx5_device_registered(dev))
-+		mlx5_detach_device(dev);
-+
- 	mlx5_sriov_cleanup(dev);
--	mlx5_unregister_device(dev);
- #ifdef CONFIG_MLX5_CORE_EN
- 	mlx5_eswitch_cleanup(dev->priv.eswitch);
- #endif
--
- 	mlx5_cleanup_rl_table(dev);
- 	mlx5_cleanup_fs(dev);
- 	mlx5_cleanup_mkey_table(dev);
-@@ -1364,6 +1467,9 @@ static int init_one(struct pci_dev *pdev,
- 		dev_err(&pdev->dev, "mlx5_load_one failed with error code %d\n", err);
- 		goto clean_health;
- 	}
-+	err = request_module_nowait(MLX5_IB_MOD);
-+	if (err)
-+		pr_info("failed request module on %s\n", MLX5_IB_MOD);
- 
- 	err = devlink_register(devlink, &pdev->dev);
- 	if (err)
-@@ -1391,11 +1497,14 @@ static void remove_one(struct pci_dev *pdev)
- 	struct mlx5_priv *priv = &dev->priv;
- 
- 	devlink_unregister(devlink);
-+	mlx5_unregister_device(dev);
-+
- 	if (mlx5_unload_one(dev, priv)) {
- 		dev_err(&dev->pdev->dev, "mlx5_unload_one failed\n");
- 		mlx5_health_cleanup(dev);
- 		return;
- 	}
-+
- 	mlx5_health_cleanup(dev);
- 	mlx5_pci_close(dev, priv);
- 	pci_set_drvdata(pdev, NULL);
-diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index 0d7aedf..85c4786 100644
---- a/include/linux/mlx5/driver.h
-+++ b/include/linux/mlx5/driver.h
-@@ -930,6 +930,8 @@ enum {
- struct mlx5_interface {
- 	void *			(*add)(struct mlx5_core_dev *dev);
- 	void			(*remove)(struct mlx5_core_dev *dev, void *context);
-+	int			(*attach)(struct mlx5_core_dev *dev, void *context);
-+	void			(*detach)(struct mlx5_core_dev *dev, void *context);
- 	void			(*event)(struct mlx5_core_dev *dev, void *context,
- 					 enum mlx5_dev_event event, unsigned long param);
- 	void *                  (*get_dev)(void *context);
++	mlx5_eswitch_detach(esw);
+ 	esw->dev->priv.eswitch = NULL;
+ 	destroy_workqueue(esw->work_queue);
+ 	kfree(esw->l2_table.bitmap);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+index a961409..48c273d 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+@@ -204,6 +204,8 @@ struct mlx5_eswitch {
+ /* E-Switch API */
+ int mlx5_eswitch_init(struct mlx5_core_dev *dev);
+ void mlx5_eswitch_cleanup(struct mlx5_eswitch *esw);
++void mlx5_eswitch_attach(struct mlx5_eswitch *esw);
++void mlx5_eswitch_detach(struct mlx5_eswitch *esw);
+ void mlx5_eswitch_vport_event(struct mlx5_eswitch *esw, struct mlx5_eqe *eqe);
+ int mlx5_eswitch_enable_sriov(struct mlx5_eswitch *esw, int nvfs, int mode);
+ void mlx5_eswitch_disable_sriov(struct mlx5_eswitch *esw);
 -- 
 2.7.4
