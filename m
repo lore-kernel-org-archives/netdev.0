@@ -1,55 +1,67 @@
-From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next 0/5] liquidio CN23XX VF support
-Date: Fri, 9 Sep 2016 13:08:22 -0700
-Message-ID: <1473451707-26397-1-git-send-email-rvatsavayi@caviumnetworks.com>
+From: Thadeu Lima de Souza Cascardo <cascardo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH 1/2] openvswitch: fix flow stats accounting when
+	node 0 is not possible
+Date: Fri,  9 Sep 2016 17:41:44 -0300
+Message-ID: <1473453705-18804-1-git-send-email-cascardo@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
-        Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-cys01nam02on0051.outbound.protection.outlook.com ([104.47.37.51]:13584
-        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751989AbcIIUYW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 9 Sep 2016 16:24:22 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+ Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Dave,
-
-Following is the initial patch series for adding support of
-VF functionality on CN23XX devices. Please apply patches in
-the following order as some of the patches depend on earlier
-patches.
-
-Raghu Vatsavayi (5):
-  liquidio CN23XX: VF config support
-  liquidio CN23XX: sriov enable
-  liquidio CN23XX: Mailbox support
-  liquidio CN23XX: mailbox interrupt processing
-  liquidio CN23XX: VF related operations
-
- drivers/net/ethernet/cavium/liquidio/Makefile      |   1 +
- .../ethernet/cavium/liquidio/cn23xx_pf_device.c    | 700 +++++++++++++++------
- .../ethernet/cavium/liquidio/cn23xx_pf_device.h    |   3 +
- .../net/ethernet/cavium/liquidio/cn66xx_device.c   |  13 +-
- .../net/ethernet/cavium/liquidio/cn68xx_device.c   |  13 +-
- drivers/net/ethernet/cavium/liquidio/lio_core.c    |  32 +
- drivers/net/ethernet/cavium/liquidio/lio_main.c    | 366 +++++++++--
- .../net/ethernet/cavium/liquidio/liquidio_common.h |  11 +-
- .../net/ethernet/cavium/liquidio/octeon_config.h   |   8 +
- .../net/ethernet/cavium/liquidio/octeon_console.c  |  16 +-
- .../net/ethernet/cavium/liquidio/octeon_device.c   |  11 +-
- .../net/ethernet/cavium/liquidio/octeon_device.h   |  32 +-
- drivers/net/ethernet/cavium/liquidio/octeon_droq.c |  28 +-
- .../net/ethernet/cavium/liquidio/octeon_mailbox.c  | 322 ++++++++++
- .../net/ethernet/cavium/liquidio/octeon_mailbox.h  | 116 ++++
- drivers/net/ethernet/cavium/liquidio/octeon_main.h |  12 +-
- .../net/ethernet/cavium/liquidio/request_manager.c |   9 +-
- 17 files changed, 1409 insertions(+), 284 deletions(-)
- create mode 100644 drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c
- create mode 100644 drivers/net/ethernet/cavium/liquidio/octeon_mailbox.h
-
--- 
-1.8.3.1
+T24gYSBzeXN0ZW0gd2l0aCBvbmx5IG5vZGUgMSBhcyBwb3NzaWJsZSwgYWxsIHN0YXRpc3RpY3Mg
+aXMgZ29pbmcgdG8gYmUKYWNjb3VudGVkIG9uIG5vZGUgMCBhcyBpdCB3aWxsIGhhdmUgYSBzaW5n
+bGUgd3JpdGVyLgoKSG93ZXZlciwgd2hlbiBnZXR0aW5nIGFuZCBjbGVhcmluZyB0aGUgc3RhdGlz
+dGljcywgbm9kZSAwIGlzIG5vdCBnb2luZwp0byBiZSBjb25zaWRlcmVkLCBhcyBpdCdzIG5vdCBh
+IHBvc3NpYmxlIG5vZGUuCgpUZXN0ZWQgdGhhdCBzdGF0aXN0aWNzIGFyZSBub3QgemVybyBvbiBh
+IHN5c3RlbSB3aXRoIG9ubHkgbm9kZSAxCnBvc3NpYmxlLiBBbHNvIGNvbXBpbGUtdGVzdGVkIHdp
+dGggQ09ORklHX05VTUEgb2ZmLgoKU2lnbmVkLW9mZi1ieTogVGhhZGV1IExpbWEgZGUgU291emEg
+Q2FzY2FyZG8gPGNhc2NhcmRvQHJlZGhhdC5jb20+Ci0tLQoKSSBhbSBwcm92aWRpbmcgdGhpcyBp
+bnRlcm1lZGlhdGUgcGF0Y2gsIHRoYXQgd2lsbCBiZSB0aHJvd24gb3V0IGJ5IHRoZSBuZXh0IG9u
+ZSwKaW4gY2FzZSB0aGVyZSBpcyBhbnkgbmVlZCB0byBiYWNrcG9ydCB0aGlzIGZpeC4KCi0tLQog
+bmV0L29wZW52c3dpdGNoL2Zsb3cuYyAgICAgICB8IDYgKysrKy0tCiBuZXQvb3BlbnZzd2l0Y2gv
+Zmxvd190YWJsZS5jIHwgNSArKystLQogMiBmaWxlcyBjaGFuZ2VkLCA3IGluc2VydGlvbnMoKyks
+IDQgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvbmV0L29wZW52c3dpdGNoL2Zsb3cuYyBiL25l
+dC9vcGVudnN3aXRjaC9mbG93LmMKaW5kZXggMGVhMTI4ZS4uMzYwOWYzNyAxMDA2NDQKLS0tIGEv
+bmV0L29wZW52c3dpdGNoL2Zsb3cuYworKysgYi9uZXQvb3BlbnZzd2l0Y2gvZmxvdy5jCkBAIC0x
+NDIsNyArMTQyLDggQEAgdm9pZCBvdnNfZmxvd19zdGF0c19nZXQoY29uc3Qgc3RydWN0IHN3X2Zs
+b3cgKmZsb3csCiAJKnRjcF9mbGFncyA9IDA7CiAJbWVtc2V0KG92c19zdGF0cywgMCwgc2l6ZW9m
+KCpvdnNfc3RhdHMpKTsKIAotCWZvcl9lYWNoX25vZGUobm9kZSkgeworCS8qIFdlIG9wZW4gY29k
+ZSB0aGlzIHRvIG1ha2Ugc3VyZSBub2RlIDAgaXMgYWx3YXlzIGNvbnNpZGVyZWQgKi8KKwlmb3Ig
+KG5vZGUgPSAwOyBub2RlIDwgTUFYX05VTU5PREVTOyBub2RlID0gbmV4dF9ub2RlKG5vZGUsIG5v
+ZGVfcG9zc2libGVfbWFwKSkgewogCQlzdHJ1Y3QgZmxvd19zdGF0cyAqc3RhdHMgPSByY3VfZGVy
+ZWZlcmVuY2Vfb3ZzbChmbG93LT5zdGF0c1tub2RlXSk7CiAKIAkJaWYgKHN0YXRzKSB7CkBAIC0x
+NjUsNyArMTY2LDggQEAgdm9pZCBvdnNfZmxvd19zdGF0c19jbGVhcihzdHJ1Y3Qgc3dfZmxvdyAq
+ZmxvdykKIHsKIAlpbnQgbm9kZTsKIAotCWZvcl9lYWNoX25vZGUobm9kZSkgeworCS8qIFdlIG9w
+ZW4gY29kZSB0aGlzIHRvIG1ha2Ugc3VyZSBub2RlIDAgaXMgYWx3YXlzIGNvbnNpZGVyZWQgKi8K
+Kwlmb3IgKG5vZGUgPSAwOyBub2RlIDwgTUFYX05VTU5PREVTOyBub2RlID0gbmV4dF9ub2RlKG5v
+ZGUsIG5vZGVfcG9zc2libGVfbWFwKSkgewogCQlzdHJ1Y3QgZmxvd19zdGF0cyAqc3RhdHMgPSBv
+dnNsX2RlcmVmZXJlbmNlKGZsb3ctPnN0YXRzW25vZGVdKTsKIAogCQlpZiAoc3RhdHMpIHsKZGlm
+ZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC9mbG93X3RhYmxlLmMgYi9uZXQvb3BlbnZzd2l0Y2gv
+Zmxvd190YWJsZS5jCmluZGV4IGQwNzNmZmYuLjk1N2EzYzMgMTAwNjQ0Ci0tLSBhL25ldC9vcGVu
+dnN3aXRjaC9mbG93X3RhYmxlLmMKKysrIGIvbmV0L29wZW52c3dpdGNoL2Zsb3dfdGFibGUuYwpA
+QCAtMTQ4LDggKzE0OCw5IEBAIHN0YXRpYyB2b2lkIGZsb3dfZnJlZShzdHJ1Y3Qgc3dfZmxvdyAq
+ZmxvdykKIAkJa2ZyZWUoZmxvdy0+aWQudW5tYXNrZWRfa2V5KTsKIAlpZiAoZmxvdy0+c2ZfYWN0
+cykKIAkJb3ZzX25sYV9mcmVlX2Zsb3dfYWN0aW9ucygoc3RydWN0IHN3X2Zsb3dfYWN0aW9ucyBf
+X2ZvcmNlICopZmxvdy0+c2ZfYWN0cyk7Ci0JZm9yX2VhY2hfbm9kZShub2RlKQotCQlpZiAoZmxv
+dy0+c3RhdHNbbm9kZV0pCisJLyogV2Ugb3BlbiBjb2RlIHRoaXMgdG8gbWFrZSBzdXJlIG5vZGUg
+MCBpcyBhbHdheXMgY29uc2lkZXJlZCAqLworCWZvciAobm9kZSA9IDA7IG5vZGUgPCBNQVhfTlVN
+Tk9ERVM7IG5vZGUgPSBuZXh0X25vZGUobm9kZSwgbm9kZV9wb3NzaWJsZV9tYXApKQorCQlpZiAo
+bm9kZSAhPSAwICYmIGZsb3ctPnN0YXRzW25vZGVdKQogCQkJa21lbV9jYWNoZV9mcmVlKGZsb3df
+c3RhdHNfY2FjaGUsCiAJCQkJCShzdHJ1Y3QgZmxvd19zdGF0cyBfX2ZvcmNlICopZmxvdy0+c3Rh
+dHNbbm9kZV0pOwogCWttZW1fY2FjaGVfZnJlZShmbG93X2NhY2hlLCBmbG93KTsKLS0gCjIuNy40
+CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFp
+bGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWls
+bWFuL2xpc3RpbmZvL2Rldgo=
