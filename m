@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 04/11] net/mlx5: Split the load/unload flow into hardware and software flows
-Date: Fri,  9 Sep 2016 17:35:20 +0300
-Message-ID: <1473431727-20150-5-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 08/11] net/mlx5: Implement vports admin state backup/restore
+Date: Fri,  9 Sep 2016 17:35:24 +0300
+Message-ID: <1473431727-20150-9-git-send-email-saeedm@mellanox.com>
 References: <1473431727-20150-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Tariq Toukan <tariqt@mellanox.com>,
         Moahamd Haj Yahia <mohamad@mellanox.com>,
@@ -9,9 +9,9 @@ Cc: netdev@vger.kernel.org, Tariq Toukan <tariqt@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:35500 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:35516 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752822AbcIIOhA (ORCPT
+        with ESMTP id S1752850AbcIIOhA (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 10:37:00 -0400
 In-Reply-To: <1473431727-20150-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,369 +19,510 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Mohamad Haj Yahia <mohamad@mellanox.com>
 
-Gather all software context creating/destroying in one function and call
-it once in the first load and in the last unload.
-load/unload functions will now receive indication if we need to
-create/destroy the software contexts.
-In internal/pci error do the unload/load flows without releasing the
-software objects.
-In this way we perserve the sw core state and it help us restoring old
-driver state after PCI error/shutdown.
+Save the user configuration in the vport sturct.
+Restore saved old configuration upon vport enable.
 
 Signed-off-by: Mohamad Haj Yahia <mohamad@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/main.c | 171 ++++++++++++++++---------
- 1 file changed, 107 insertions(+), 64 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c | 249 ++++++++++------------
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h |  16 +-
+ 2 files changed, 124 insertions(+), 141 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index 108d8f2..966647f 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -1093,8 +1093,76 @@ static void mlx5_pci_close(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
- 	debugfs_remove(priv->dbg_root);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+index 015f1bfe..654b76f 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+@@ -116,57 +116,6 @@ static int arm_vport_context_events_cmd(struct mlx5_core_dev *dev, u16 vport,
  }
  
--#define MLX5_IB_MOD "mlx5_ib"
--static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
-+static int mlx5_init_once(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
-+{
-+	struct pci_dev *pdev = dev->pdev;
-+	int err;
-+
-+	err = mlx5_query_hca_caps(dev);
-+	if (err) {
-+		dev_err(&pdev->dev, "query hca failed\n");
-+		goto out;
-+	}
-+
-+	err = mlx5_query_board_id(dev);
-+	if (err) {
-+		dev_err(&pdev->dev, "query board id failed\n");
-+		goto out;
-+	}
-+
-+	err = mlx5_eq_init(dev);
-+	if (err) {
-+		dev_err(&pdev->dev, "failed to initialize eq\n");
-+		goto out;
-+	}
-+
-+	MLX5_INIT_DOORBELL_LOCK(&priv->cq_uar_lock);
-+
-+	err = mlx5_init_cq_table(dev);
-+	if (err) {
-+		dev_err(&pdev->dev, "failed to initialize cq table\n");
-+		goto err_eq_cleanup;
-+	}
-+
-+	mlx5_init_qp_table(dev);
-+
-+	mlx5_init_srq_table(dev);
-+
-+	mlx5_init_mkey_table(dev);
-+
-+	err = mlx5_init_rl_table(dev);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to init rate limiting\n");
-+		goto err_tables_cleanup;
-+	}
-+
-+	return 0;
-+
-+err_tables_cleanup:
-+	mlx5_cleanup_mkey_table(dev);
-+	mlx5_cleanup_srq_table(dev);
-+	mlx5_cleanup_qp_table(dev);
-+	mlx5_cleanup_cq_table(dev);
-+
-+err_eq_cleanup:
-+	mlx5_eq_cleanup(dev);
-+
-+out:
-+	return err;
-+}
-+
-+static void mlx5_cleanup_once(struct mlx5_core_dev *dev)
-+{
-+	mlx5_cleanup_rl_table(dev);
-+	mlx5_cleanup_mkey_table(dev);
-+	mlx5_cleanup_srq_table(dev);
-+	mlx5_cleanup_qp_table(dev);
-+	mlx5_cleanup_cq_table(dev);
-+	mlx5_eq_cleanup(dev);
-+}
-+
-+static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv,
-+			 bool boot)
- {
- 	struct pci_dev *pdev = dev->pdev;
- 	int err;
-@@ -1127,12 +1195,10 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
- 		goto out_err;
- 	}
- 
--	mlx5_pagealloc_init(dev);
+ /* E-Switch vport context HW commands */
+-static int query_esw_vport_context_cmd(struct mlx5_core_dev *mdev, u32 vport,
+-				       u32 *out, int outlen)
+-{
+-	u32 in[MLX5_ST_SZ_DW(query_esw_vport_context_in)] = {0};
 -
- 	err = mlx5_core_enable_hca(dev, 0);
- 	if (err) {
- 		dev_err(&pdev->dev, "enable hca failed\n");
--		goto err_pagealloc_cleanup;
-+		goto err_cmd_cleanup;
- 	}
- 
- 	err = mlx5_core_set_issi(dev);
-@@ -1185,34 +1251,21 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
- 
- 	mlx5_start_health_poll(dev);
- 
--	err = mlx5_query_hca_caps(dev);
--	if (err) {
--		dev_err(&pdev->dev, "query hca failed\n");
--		goto err_stop_poll;
--	}
+-	MLX5_SET(query_nic_vport_context_in, in, opcode,
+-		 MLX5_CMD_OP_QUERY_ESW_VPORT_CONTEXT);
+-	MLX5_SET(query_esw_vport_context_in, in, vport_number, vport);
+-	if (vport)
+-		MLX5_SET(query_esw_vport_context_in, in, other_vport, 1);
+-	return mlx5_cmd_exec(mdev, in, sizeof(in), out, outlen);
+-}
 -
--	err = mlx5_query_board_id(dev);
--	if (err) {
--		dev_err(&pdev->dev, "query board id failed\n");
-+	if (boot && mlx5_init_once(dev, priv)) {
-+		dev_err(&pdev->dev, "sw objs init failed\n");
- 		goto err_stop_poll;
- 	}
- 
- 	err = mlx5_enable_msix(dev);
- 	if (err) {
- 		dev_err(&pdev->dev, "enable msix failed\n");
--		goto err_stop_poll;
--	}
+-static int query_esw_vport_cvlan(struct mlx5_core_dev *dev, u32 vport,
+-				 u16 *vlan, u8 *qos)
+-{
+-	u32 out[MLX5_ST_SZ_DW(query_esw_vport_context_out)] = {0};
+-	int err;
+-	bool cvlan_strip;
+-	bool cvlan_insert;
 -
--	err = mlx5_eq_init(dev);
--	if (err) {
--		dev_err(&pdev->dev, "failed to initialize eq\n");
--		goto disable_msix;
-+		goto err_cleanup_once;
- 	}
- 
- 	err = mlx5_alloc_uuars(dev, &priv->uuari);
- 	if (err) {
- 		dev_err(&pdev->dev, "Failed allocating uar, aborting\n");
--		goto err_eq_cleanup;
-+		goto err_disable_msix;
- 	}
- 
- 	err = mlx5_start_eqs(dev);
-@@ -1228,15 +1281,10 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
- 	}
- 
- 	err = mlx5_irq_set_affinity_hints(dev);
+-	*vlan = 0;
+-	*qos = 0;
+-
+-	if (!MLX5_CAP_ESW(dev, vport_cvlan_strip) ||
+-	    !MLX5_CAP_ESW(dev, vport_cvlan_insert_if_not_exist))
+-		return -ENOTSUPP;
+-
+-	err = query_esw_vport_context_cmd(dev, vport, out, sizeof(out));
 -	if (err)
-+	if (err) {
- 		dev_err(&pdev->dev, "Failed to alloc affinity hint cpumask\n");
+-		goto out;
 -
--	MLX5_INIT_DOORBELL_LOCK(&priv->cq_uar_lock);
+-	cvlan_strip = MLX5_GET(query_esw_vport_context_out, out,
+-			       esw_vport_context.vport_cvlan_strip);
 -
--	mlx5_init_cq_table(dev);
--	mlx5_init_qp_table(dev);
--	mlx5_init_srq_table(dev);
--	mlx5_init_mkey_table(dev);
-+		goto err_affinity_hints;
-+	}
- 
- 	err = mlx5_init_fs(dev);
- 	if (err) {
-@@ -1244,12 +1292,6 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
- 		goto err_fs;
- 	}
- 
--	err = mlx5_init_rl_table(dev);
--	if (err) {
--		dev_err(&pdev->dev, "Failed to init rate limiting\n");
--		goto err_rl;
+-	cvlan_insert = MLX5_GET(query_esw_vport_context_out, out,
+-				esw_vport_context.vport_cvlan_insert);
+-
+-	if (cvlan_strip || cvlan_insert) {
+-		*vlan = MLX5_GET(query_esw_vport_context_out, out,
+-				 esw_vport_context.cvlan_id);
+-		*qos = MLX5_GET(query_esw_vport_context_out, out,
+-				esw_vport_context.cvlan_pcp);
 -	}
 -
- #ifdef CONFIG_MLX5_CORE_EN
- 	err = mlx5_eswitch_init(dev);
- 	if (err) {
-@@ -1281,22 +1323,19 @@ out:
- 
- 	return 0;
- 
--err_sriov:
-+err_reg_dev:
- 	mlx5_sriov_cleanup(dev);
- 
-+err_sriov:
- #ifdef CONFIG_MLX5_CORE_EN
- 	mlx5_eswitch_cleanup(dev->priv.eswitch);
- #endif
--err_reg_dev:
--	mlx5_cleanup_rl_table(dev);
--err_rl:
- 	mlx5_cleanup_fs(dev);
-+
- err_fs:
--	mlx5_cleanup_mkey_table(dev);
--	mlx5_cleanup_srq_table(dev);
--	mlx5_cleanup_qp_table(dev);
--	mlx5_cleanup_cq_table(dev);
- 	mlx5_irq_clear_affinity_hints(dev);
-+
-+err_affinity_hints:
- 	free_comp_eqs(dev);
- 
- err_stop_eqs:
-@@ -1305,12 +1344,13 @@ err_stop_eqs:
- err_free_uar:
- 	mlx5_free_uuars(dev, &priv->uuari);
- 
--err_eq_cleanup:
--	mlx5_eq_cleanup(dev);
+-	esw_debug(dev, "Query Vport[%d] cvlan: VLAN %d qos=%d\n",
+-		  vport, *vlan, *qos);
+-out:
+-	return err;
+-}
 -
--disable_msix:
-+err_disable_msix:
- 	mlx5_disable_msix(dev);
- 
-+err_cleanup_once:
-+	if (boot)
-+		mlx5_cleanup_once(dev);
-+
- err_stop_poll:
- 	mlx5_stop_health_poll(dev);
- 	if (mlx5_cmd_teardown_hca(dev)) {
-@@ -1327,8 +1367,7 @@ reclaim_boot_pages:
- err_disable_hca:
- 	mlx5_core_disable_hca(dev, 0);
- 
--err_pagealloc_cleanup:
--	mlx5_pagealloc_cleanup(dev);
-+err_cmd_cleanup:
- 	mlx5_cmd_cleanup(dev);
- 
- out_err:
-@@ -1338,7 +1377,8 @@ out_err:
- 	return err;
- }
- 
--static int mlx5_unload_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
-+static int mlx5_unload_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv,
-+			   bool cleanup)
+ static int modify_esw_vport_context_cmd(struct mlx5_core_dev *dev, u16 vport,
+ 					void *in, int inlen)
  {
- 	int err = 0;
+@@ -921,7 +870,7 @@ static void esw_update_vport_rx_mode(struct mlx5_eswitch *esw, u32 vport_num)
+ 	esw_debug(esw->dev, "vport[%d] context update rx mode promisc_all=%d, all_multi=%d\n",
+ 		  vport_num, promisc_all, promisc_mc);
  
-@@ -1346,6 +1386,8 @@ static int mlx5_unload_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
- 	if (test_bit(MLX5_INTERFACE_STATE_DOWN, &dev->intf_state)) {
- 		dev_warn(&dev->pdev->dev, "%s: interface is down, NOP\n",
- 			 __func__);
-+		if (cleanup)
-+			mlx5_cleanup_once(dev);
+-	if (!vport->trusted || !vport->enabled) {
++	if (!vport->info.trusted || !vport->enabled) {
+ 		promisc_uc = 0;
+ 		promisc_mc = 0;
+ 		promisc_all = 0;
+@@ -1257,30 +1206,20 @@ static int esw_vport_ingress_config(struct mlx5_eswitch *esw,
+ 				    struct mlx5_vport *vport)
+ {
+ 	struct mlx5_flow_spec *spec;
+-	u8 smac[ETH_ALEN];
+ 	int err = 0;
+ 	u8 *smac_v;
+ 
+-	if (vport->spoofchk) {
+-		err = mlx5_query_nic_vport_mac_address(esw->dev, vport->vport, smac);
+-		if (err) {
+-			esw_warn(esw->dev,
+-				 "vport[%d] configure ingress rules failed, query smac failed, err(%d)\n",
+-				 vport->vport, err);
+-			return err;
+-		}
++	if (vport->info.spoofchk && !is_valid_ether_addr(vport->info.mac)) {
++		mlx5_core_warn(esw->dev,
++			       "vport[%d] configure ingress rules failed, illegal mac with spoofchk\n",
++			       vport->vport);
++		return -EPERM;
+ 
+-		if (!is_valid_ether_addr(smac)) {
+-			mlx5_core_warn(esw->dev,
+-				       "vport[%d] configure ingress rules failed, illegal mac with spoofchk\n",
+-				       vport->vport);
+-			return -EPERM;
+-		}
+ 	}
+ 
+ 	esw_vport_cleanup_ingress_rules(esw, vport);
+ 
+-	if (!vport->vlan && !vport->qos && !vport->spoofchk) {
++	if (!vport->info.vlan && !vport->info.qos && !vport->info.spoofchk) {
+ 		esw_vport_disable_ingress_acl(esw, vport);
+ 		return 0;
+ 	}
+@@ -1289,7 +1228,7 @@ static int esw_vport_ingress_config(struct mlx5_eswitch *esw,
+ 
+ 	esw_debug(esw->dev,
+ 		  "vport[%d] configure ingress rules, vlan(%d) qos(%d)\n",
+-		  vport->vport, vport->vlan, vport->qos);
++		  vport->vport, vport->info.vlan, vport->info.qos);
+ 
+ 	spec = mlx5_vzalloc(sizeof(*spec));
+ 	if (!spec) {
+@@ -1299,16 +1238,16 @@ static int esw_vport_ingress_config(struct mlx5_eswitch *esw,
  		goto out;
  	}
  
-@@ -1356,18 +1398,14 @@ static int mlx5_unload_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
- #ifdef CONFIG_MLX5_CORE_EN
- 	mlx5_eswitch_cleanup(dev->priv.eswitch);
- #endif
--	mlx5_cleanup_rl_table(dev);
- 	mlx5_cleanup_fs(dev);
--	mlx5_cleanup_mkey_table(dev);
--	mlx5_cleanup_srq_table(dev);
--	mlx5_cleanup_qp_table(dev);
--	mlx5_cleanup_cq_table(dev);
- 	mlx5_irq_clear_affinity_hints(dev);
- 	free_comp_eqs(dev);
- 	mlx5_stop_eqs(dev);
- 	mlx5_free_uuars(dev, &priv->uuari);
--	mlx5_eq_cleanup(dev);
- 	mlx5_disable_msix(dev);
-+	if (cleanup)
-+		mlx5_cleanup_once(dev);
- 	mlx5_stop_health_poll(dev);
- 	err = mlx5_cmd_teardown_hca(dev);
- 	if (err) {
-@@ -1377,7 +1415,6 @@ static int mlx5_unload_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
- 	mlx5_pagealloc_stop(dev);
- 	mlx5_reclaim_startup_pages(dev);
- 	mlx5_core_disable_hca(dev, 0);
--	mlx5_pagealloc_cleanup(dev);
- 	mlx5_cmd_cleanup(dev);
+-	if (vport->vlan || vport->qos)
++	if (vport->info.vlan || vport->info.qos)
+ 		MLX5_SET_TO_ONES(fte_match_param, spec->match_criteria, outer_headers.vlan_tag);
  
- out:
-@@ -1416,6 +1453,7 @@ static const struct devlink_ops mlx5_devlink_ops = {
- #endif
- };
- 
-+#define MLX5_IB_MOD "mlx5_ib"
- static int init_one(struct pci_dev *pdev,
- 		    const struct pci_device_id *id)
- {
-@@ -1462,11 +1500,14 @@ static int init_one(struct pci_dev *pdev,
- 		goto close_pci;
+-	if (vport->spoofchk) {
++	if (vport->info.spoofchk) {
+ 		MLX5_SET_TO_ONES(fte_match_param, spec->match_criteria, outer_headers.smac_47_16);
+ 		MLX5_SET_TO_ONES(fte_match_param, spec->match_criteria, outer_headers.smac_15_0);
+ 		smac_v = MLX5_ADDR_OF(fte_match_param,
+ 				      spec->match_value,
+ 				      outer_headers.smac_47_16);
+-		ether_addr_copy(smac_v, smac);
++		ether_addr_copy(smac_v, vport->info.mac);
  	}
  
--	err = mlx5_load_one(dev, priv);
-+	mlx5_pagealloc_init(dev);
-+
-+	err = mlx5_load_one(dev, priv, true);
- 	if (err) {
- 		dev_err(&pdev->dev, "mlx5_load_one failed with error code %d\n", err);
- 		goto clean_health;
+ 	spec->match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
+@@ -1354,7 +1293,7 @@ static int esw_vport_egress_config(struct mlx5_eswitch *esw,
+ 
+ 	esw_vport_cleanup_egress_rules(esw, vport);
+ 
+-	if (!vport->vlan && !vport->qos) {
++	if (!vport->info.vlan && !vport->info.qos) {
+ 		esw_vport_disable_egress_acl(esw, vport);
+ 		return 0;
  	}
-+
- 	err = request_module_nowait(MLX5_IB_MOD);
- 	if (err)
- 		pr_info("failed request module on %s\n", MLX5_IB_MOD);
-@@ -1478,8 +1519,9 @@ static int init_one(struct pci_dev *pdev,
- 	return 0;
+@@ -1363,7 +1302,7 @@ static int esw_vport_egress_config(struct mlx5_eswitch *esw,
  
- clean_load:
--	mlx5_unload_one(dev, priv);
-+	mlx5_unload_one(dev, priv, true);
- clean_health:
-+	mlx5_pagealloc_cleanup(dev);
- 	mlx5_health_cleanup(dev);
- close_pci:
- 	mlx5_pci_close(dev, priv);
-@@ -1499,12 +1541,13 @@ static void remove_one(struct pci_dev *pdev)
- 	devlink_unregister(devlink);
- 	mlx5_unregister_device(dev);
+ 	esw_debug(esw->dev,
+ 		  "vport[%d] configure egress rules, vlan(%d) qos(%d)\n",
+-		  vport->vport, vport->vlan, vport->qos);
++		  vport->vport, vport->info.vlan, vport->info.qos);
  
--	if (mlx5_unload_one(dev, priv)) {
-+	if (mlx5_unload_one(dev, priv, true)) {
- 		dev_err(&dev->pdev->dev, "mlx5_unload_one failed\n");
- 		mlx5_health_cleanup(dev);
- 		return;
- 	}
+ 	spec = mlx5_vzalloc(sizeof(*spec));
+ 	if (!spec) {
+@@ -1377,7 +1316,7 @@ static int esw_vport_egress_config(struct mlx5_eswitch *esw,
+ 	MLX5_SET_TO_ONES(fte_match_param, spec->match_criteria, outer_headers.vlan_tag);
+ 	MLX5_SET_TO_ONES(fte_match_param, spec->match_value, outer_headers.vlan_tag);
+ 	MLX5_SET_TO_ONES(fte_match_param, spec->match_criteria, outer_headers.first_vid);
+-	MLX5_SET(fte_match_param, spec->match_value, outer_headers.first_vid, vport->vlan);
++	MLX5_SET(fte_match_param, spec->match_value, outer_headers.first_vid, vport->info.vlan);
  
-+	mlx5_pagealloc_cleanup(dev);
- 	mlx5_health_cleanup(dev);
- 	mlx5_pci_close(dev, priv);
- 	pci_set_drvdata(pdev, NULL);
-@@ -1519,7 +1562,7 @@ static pci_ers_result_t mlx5_pci_err_detected(struct pci_dev *pdev,
- 
- 	dev_info(&pdev->dev, "%s was called\n", __func__);
- 	mlx5_enter_error_state(dev);
--	mlx5_unload_one(dev, priv);
-+	mlx5_unload_one(dev, priv, false);
- 	pci_save_state(pdev);
- 	mlx5_pci_disable_device(dev);
- 	return state == pci_channel_io_perm_failure ?
-@@ -1591,7 +1634,7 @@ static void mlx5_pci_resume(struct pci_dev *pdev)
- 
- 	dev_info(&pdev->dev, "%s was called\n", __func__);
- 
--	err = mlx5_load_one(dev, priv);
-+	err = mlx5_load_one(dev, priv, false);
- 	if (err)
- 		dev_err(&pdev->dev, "%s: mlx5_load_one failed with error code: %d\n"
- 			, __func__, err);
-@@ -1613,7 +1656,7 @@ static void shutdown(struct pci_dev *pdev)
- 	dev_info(&pdev->dev, "Shutdown was called\n");
- 	/* Notify mlx5 clients that the kernel is being shut down */
- 	set_bit(MLX5_INTERFACE_STATE_SHUTDOWN, &dev->intf_state);
--	mlx5_unload_one(dev, priv);
-+	mlx5_unload_one(dev, priv, false);
- 	mlx5_pci_disable_device(dev);
+ 	spec->match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
+ 	vport->egress.allowed_vlan =
+@@ -1411,6 +1350,41 @@ out:
+ 	return err;
  }
  
++static void node_guid_gen_from_mac(u64 *node_guid, u8 mac[ETH_ALEN])
++{
++	((u8 *)node_guid)[7] = mac[0];
++	((u8 *)node_guid)[6] = mac[1];
++	((u8 *)node_guid)[5] = mac[2];
++	((u8 *)node_guid)[4] = 0xff;
++	((u8 *)node_guid)[3] = 0xfe;
++	((u8 *)node_guid)[2] = mac[3];
++	((u8 *)node_guid)[1] = mac[4];
++	((u8 *)node_guid)[0] = mac[5];
++}
++
++static void esw_apply_vport_conf(struct mlx5_eswitch *esw,
++				 struct mlx5_vport *vport)
++{
++	int vport_num = vport->vport;
++
++	if (!vport_num)
++		return;
++
++	mlx5_modify_vport_admin_state(esw->dev,
++				      MLX5_QUERY_VPORT_STATE_IN_OP_MOD_ESW_VPORT,
++				      vport_num,
++				      vport->info.link_state);
++	mlx5_modify_nic_vport_mac_address(esw->dev, vport_num, vport->info.mac);
++	mlx5_modify_nic_vport_node_guid(esw->dev, vport_num, vport->info.node_guid);
++	modify_esw_vport_cvlan(esw->dev, vport_num, vport->info.vlan, vport->info.qos,
++			       (vport->info.vlan || vport->info.qos));
++
++	/* Only legacy mode needs ACLs */
++	if (esw->mode == SRIOV_LEGACY) {
++		esw_vport_ingress_config(esw, vport);
++		esw_vport_egress_config(esw, vport);
++	}
++}
+ static void esw_enable_vport(struct mlx5_eswitch *esw, int vport_num,
+ 			     int enable_events)
+ {
+@@ -1421,23 +1395,17 @@ static void esw_enable_vport(struct mlx5_eswitch *esw, int vport_num,
+ 
+ 	esw_debug(esw->dev, "Enabling VPORT(%d)\n", vport_num);
+ 
+-	/* Only VFs need ACLs for VST and spoofchk filtering */
+-	if (vport_num && esw->mode == SRIOV_LEGACY) {
+-		esw_vport_ingress_config(esw, vport);
+-		esw_vport_egress_config(esw, vport);
+-	}
+-
+-	mlx5_modify_vport_admin_state(esw->dev,
+-				      MLX5_QUERY_VPORT_STATE_IN_OP_MOD_ESW_VPORT,
+-				      vport_num,
+-				      MLX5_ESW_VPORT_ADMIN_STATE_AUTO);
++	/* Restore old vport configuration */
++	esw_apply_vport_conf(esw, vport);
+ 
+ 	/* Sync with current vport context */
+ 	vport->enabled_events = enable_events;
+ 	vport->enabled = true;
+ 
+ 	/* only PF is trusted by default */
+-	vport->trusted = (vport_num) ? false : true;
++	if (!vport_num)
++		vport->info.trusted = true;
++
+ 	esw_vport_change_handle_locked(vport);
+ 
+ 	esw->enabled_vports++;
+@@ -1457,11 +1425,6 @@ static void esw_disable_vport(struct mlx5_eswitch *esw, int vport_num)
+ 	vport->enabled = false;
+ 
+ 	synchronize_irq(mlx5_get_msix_vec(esw->dev, MLX5_EQ_VEC_ASYNC));
+-
+-	mlx5_modify_vport_admin_state(esw->dev,
+-				      MLX5_QUERY_VPORT_STATE_IN_OP_MOD_ESW_VPORT,
+-				      vport_num,
+-				      MLX5_ESW_VPORT_ADMIN_STATE_DOWN);
+ 	/* Wait for current already scheduled events to complete */
+ 	flush_workqueue(esw->work_queue);
+ 	/* Disable events from this vport */
+@@ -1473,7 +1436,12 @@ static void esw_disable_vport(struct mlx5_eswitch *esw, int vport_num)
+ 	 */
+ 	esw_vport_change_handle_locked(vport);
+ 	vport->enabled_events = 0;
++
+ 	if (vport_num && esw->mode == SRIOV_LEGACY) {
++		mlx5_modify_vport_admin_state(esw->dev,
++					      MLX5_QUERY_VPORT_STATE_IN_OP_MOD_ESW_VPORT,
++					      vport_num,
++					      MLX5_ESW_VPORT_ADMIN_STATE_DOWN);
+ 		esw_vport_disable_egress_acl(esw, vport);
+ 		esw_vport_disable_ingress_acl(esw, vport);
+ 	}
+@@ -1645,6 +1613,7 @@ int mlx5_eswitch_init(struct mlx5_core_dev *dev)
+ 		struct mlx5_vport *vport = &esw->vports[vport_num];
+ 
+ 		vport->vport = vport_num;
++		vport->info.link_state = MLX5_ESW_VPORT_ADMIN_STATE_AUTO;
+ 		vport->dev = dev;
+ 		INIT_WORK(&vport->vport_change_handler,
+ 			  esw_vport_change_handler);
+@@ -1705,18 +1674,6 @@ void mlx5_eswitch_vport_event(struct mlx5_eswitch *esw, struct mlx5_eqe *eqe)
+ 	(esw && MLX5_CAP_GEN(esw->dev, vport_group_manager) && mlx5_core_is_pf(esw->dev))
+ #define LEGAL_VPORT(esw, vport) (vport >= 0 && vport < esw->total_vports)
+ 
+-static void node_guid_gen_from_mac(u64 *node_guid, u8 mac[ETH_ALEN])
+-{
+-	((u8 *)node_guid)[7] = mac[0];
+-	((u8 *)node_guid)[6] = mac[1];
+-	((u8 *)node_guid)[5] = mac[2];
+-	((u8 *)node_guid)[4] = 0xff;
+-	((u8 *)node_guid)[3] = 0xfe;
+-	((u8 *)node_guid)[2] = mac[3];
+-	((u8 *)node_guid)[1] = mac[4];
+-	((u8 *)node_guid)[0] = mac[5];
+-}
+-
+ int mlx5_eswitch_set_vport_mac(struct mlx5_eswitch *esw,
+ 			       int vport, u8 mac[ETH_ALEN])
+ {
+@@ -1729,13 +1686,15 @@ int mlx5_eswitch_set_vport_mac(struct mlx5_eswitch *esw,
+ 	if (!LEGAL_VPORT(esw, vport))
+ 		return -EINVAL;
+ 
++	mutex_lock(&esw->state_lock);
+ 	evport = &esw->vports[vport];
+ 
+-	if (evport->spoofchk && !is_valid_ether_addr(mac)) {
++	if (evport->info.spoofchk && !is_valid_ether_addr(mac)) {
+ 		mlx5_core_warn(esw->dev,
+ 			       "MAC invalidation is not allowed when spoofchk is on, vport(%d)\n",
+ 			       vport);
+-		return -EPERM;
++		err = -EPERM;
++		goto unlock;
+ 	}
+ 
+ 	err = mlx5_modify_nic_vport_mac_address(esw->dev, vport, mac);
+@@ -1743,7 +1702,7 @@ int mlx5_eswitch_set_vport_mac(struct mlx5_eswitch *esw,
+ 		mlx5_core_warn(esw->dev,
+ 			       "Failed to mlx5_modify_nic_vport_mac vport(%d) err=(%d)\n",
+ 			       vport, err);
+-		return err;
++		goto unlock;
+ 	}
+ 
+ 	node_guid_gen_from_mac(&node_guid, mac);
+@@ -1753,9 +1712,12 @@ int mlx5_eswitch_set_vport_mac(struct mlx5_eswitch *esw,
+ 			       "Failed to set vport %d node guid, err = %d. RDMA_CM will not function properly for this VF.\n",
+ 			       vport, err);
+ 
+-	mutex_lock(&esw->state_lock);
++	ether_addr_copy(evport->info.mac, mac);
++	evport->info.node_guid = node_guid;
+ 	if (evport->enabled && esw->mode == SRIOV_LEGACY)
+ 		err = esw_vport_ingress_config(esw, evport);
++
++unlock:
+ 	mutex_unlock(&esw->state_lock);
+ 	return err;
+ }
+@@ -1763,22 +1725,38 @@ int mlx5_eswitch_set_vport_mac(struct mlx5_eswitch *esw,
+ int mlx5_eswitch_set_vport_state(struct mlx5_eswitch *esw,
+ 				 int vport, int link_state)
+ {
++	struct mlx5_vport *evport;
++	int err = 0;
++
+ 	if (!ESW_ALLOWED(esw))
+ 		return -EPERM;
+ 	if (!LEGAL_VPORT(esw, vport))
+ 		return -EINVAL;
+ 
+-	return mlx5_modify_vport_admin_state(esw->dev,
+-					     MLX5_QUERY_VPORT_STATE_IN_OP_MOD_ESW_VPORT,
+-					     vport, link_state);
++	mutex_lock(&esw->state_lock);
++	evport = &esw->vports[vport];
++
++	err = mlx5_modify_vport_admin_state(esw->dev,
++					    MLX5_QUERY_VPORT_STATE_IN_OP_MOD_ESW_VPORT,
++					    vport, link_state);
++	if (err) {
++		mlx5_core_warn(esw->dev,
++			       "Failed to set vport %d link state, err = %d",
++			       vport, err);
++		goto unlock;
++	}
++
++	evport->info.link_state = link_state;
++
++unlock:
++	mutex_unlock(&esw->state_lock);
++	return 0;
+ }
+ 
+ int mlx5_eswitch_get_vport_config(struct mlx5_eswitch *esw,
+ 				  int vport, struct ifla_vf_info *ivi)
+ {
+ 	struct mlx5_vport *evport;
+-	u16 vlan;
+-	u8 qos;
+ 
+ 	if (!ESW_ALLOWED(esw))
+ 		return -EPERM;
+@@ -1790,14 +1768,14 @@ int mlx5_eswitch_get_vport_config(struct mlx5_eswitch *esw,
+ 	memset(ivi, 0, sizeof(*ivi));
+ 	ivi->vf = vport - 1;
+ 
+-	mlx5_query_nic_vport_mac_address(esw->dev, vport, ivi->mac);
+-	ivi->linkstate = mlx5_query_vport_admin_state(esw->dev,
+-						      MLX5_QUERY_VPORT_STATE_IN_OP_MOD_ESW_VPORT,
+-						      vport);
+-	query_esw_vport_cvlan(esw->dev, vport, &vlan, &qos);
+-	ivi->vlan = vlan;
+-	ivi->qos = qos;
+-	ivi->spoofchk = evport->spoofchk;
++	mutex_lock(&esw->state_lock);
++	ether_addr_copy(ivi->mac, evport->info.mac);
++	ivi->linkstate = evport->info.link_state;
++	ivi->vlan = evport->info.vlan;
++	ivi->qos = evport->info.qos;
++	ivi->spoofchk = evport->info.spoofchk;
++	ivi->trusted = evport->info.trusted;
++	mutex_unlock(&esw->state_lock);
+ 
+ 	return 0;
+ }
+@@ -1817,23 +1795,23 @@ int mlx5_eswitch_set_vport_vlan(struct mlx5_eswitch *esw,
+ 	if (vlan || qos)
+ 		set = 1;
+ 
++	mutex_lock(&esw->state_lock);
+ 	evport = &esw->vports[vport];
+ 
+ 	err = modify_esw_vport_cvlan(esw->dev, vport, vlan, qos, set);
+ 	if (err)
+-		return err;
++		goto unlock;
+ 
+-	mutex_lock(&esw->state_lock);
+-	evport->vlan = vlan;
+-	evport->qos = qos;
++	evport->info.vlan = vlan;
++	evport->info.qos = qos;
+ 	if (evport->enabled && esw->mode == SRIOV_LEGACY) {
+ 		err = esw_vport_ingress_config(esw, evport);
+ 		if (err)
+-			goto out;
++			goto unlock;
+ 		err = esw_vport_egress_config(esw, evport);
+ 	}
+ 
+-out:
++unlock:
+ 	mutex_unlock(&esw->state_lock);
+ 	return err;
+ }
+@@ -1850,16 +1828,14 @@ int mlx5_eswitch_set_vport_spoofchk(struct mlx5_eswitch *esw,
+ 	if (!LEGAL_VPORT(esw, vport))
+ 		return -EINVAL;
+ 
+-	evport = &esw->vports[vport];
+-
+ 	mutex_lock(&esw->state_lock);
+-	pschk = evport->spoofchk;
+-	evport->spoofchk = spoofchk;
+-	if (evport->enabled && esw->mode == SRIOV_LEGACY) {
++	evport = &esw->vports[vport];
++	pschk = evport->info.spoofchk;
++	evport->info.spoofchk = spoofchk;
++	if (evport->enabled && esw->mode == SRIOV_LEGACY)
+ 		err = esw_vport_ingress_config(esw, evport);
+-		if (err)
+-			evport->spoofchk = pschk;
+-	}
++	if (err)
++		evport->info.spoofchk = pschk;
+ 	mutex_unlock(&esw->state_lock);
+ 
+ 	return err;
+@@ -1875,10 +1851,9 @@ int mlx5_eswitch_set_vport_trust(struct mlx5_eswitch *esw,
+ 	if (!LEGAL_VPORT(esw, vport))
+ 		return -EINVAL;
+ 
+-	evport = &esw->vports[vport];
+-
+ 	mutex_lock(&esw->state_lock);
+-	evport->trusted = setting;
++	evport = &esw->vports[vport];
++	evport->info.trusted = setting;
+ 	if (evport->enabled)
+ 		esw_vport_change_handle_locked(evport);
+ 	mutex_unlock(&esw->state_lock);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+index 48c273d..6855783 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+@@ -109,6 +109,16 @@ struct vport_egress {
+ 	struct mlx5_flow_rule  *drop_rule;
+ };
+ 
++struct mlx5_vport_info {
++	u8                      mac[ETH_ALEN];
++	u16                     vlan;
++	u8                      qos;
++	u64                     node_guid;
++	int                     link_state;
++	bool                    spoofchk;
++	bool                    trusted;
++};
++
+ struct mlx5_vport {
+ 	struct mlx5_core_dev    *dev;
+ 	int                     vport;
+@@ -121,10 +131,8 @@ struct mlx5_vport {
+ 	struct vport_ingress    ingress;
+ 	struct vport_egress     egress;
+ 
+-	u16                     vlan;
+-	u8                      qos;
+-	bool                    spoofchk;
+-	bool                    trusted;
++	struct mlx5_vport_info  info;
++
+ 	bool                    enabled;
+ 	u16                     enabled_events;
+ };
 -- 
 2.7.4
