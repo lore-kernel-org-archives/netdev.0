@@ -1,7 +1,7 @@
 From: Jia He <hejianet@gmail.com>
-Subject: [RFC PATCH v3 4/7] proc: Reduce cache miss in sctp_snmp_seq_show
-Date: Fri,  9 Sep 2016 14:33:59 +0800
-Message-ID: <1473402842-1987-5-git-send-email-hejianet@gmail.com>
+Subject: [RFC PATCH v3 6/7] ipv6: Remove useless parameter in __snmp6_fill_statsdev
+Date: Fri,  9 Sep 2016 14:34:01 +0800
+Message-ID: <1473402842-1987-7-git-send-email-hejianet@gmail.com>
 References: <1473402842-1987-1-git-send-email-hejianet@gmail.com>
 Cc: linux-sctp@vger.kernel.org, linux-kernel@vger.kernel.org,
         davem@davemloft.net, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
@@ -19,35 +19,49 @@ In-Reply-To: <1473402842-1987-1-git-send-email-hejianet@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is to use the generic interface snmp_get_cpu_field{,64}_batch to
-aggregate the data by going through all the items of each cpu sequentially.
+The parameter items(always ICMP6_MIB_MAX) is useless for __snmp6_fill_statsdev.
 
 Signed-off-by: Jia He <hejianet@gmail.com>
 ---
- net/sctp/proc.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+ net/ipv6/addrconf.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/net/sctp/proc.c b/net/sctp/proc.c
-index ef8ba77..0487c01 100644
---- a/net/sctp/proc.c
-+++ b/net/sctp/proc.c
-@@ -75,11 +75,15 @@ static int sctp_snmp_seq_show(struct seq_file *seq, void *v)
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index f418d2e..e170554 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -4952,18 +4952,18 @@ static inline size_t inet6_if_nlmsg_size(void)
+ }
+ 
+ static inline void __snmp6_fill_statsdev(u64 *stats, atomic_long_t *mib,
+-				      int items, int bytes)
++					int bytes)
  {
- 	struct net *net = seq->private;
  	int i;
-+	unsigned long buff[SCTP_MIB_MAX];
+-	int pad = bytes - sizeof(u64) * items;
++	int pad = bytes - sizeof(u64) * ICMP6_MIB_MAX;
+ 	BUG_ON(pad < 0);
  
-+	memset(buff, 0, sizeof(unsigned long) * SCTP_MIB_MAX);
-+
-+	snmp_get_cpu_field_batch(buff, sctp_snmp_list,
-+				 net->sctp.sctp_statistics);
- 	for (i = 0; sctp_snmp_list[i].name != NULL; i++)
- 		seq_printf(seq, "%-32s\t%ld\n", sctp_snmp_list[i].name,
--			   snmp_fold_field(net->sctp.sctp_statistics,
--				      sctp_snmp_list[i].entry));
-+						buff[i]);
+ 	/* Use put_unaligned() because stats may not be aligned for u64. */
+-	put_unaligned(items, &stats[0]);
+-	for (i = 1; i < items; i++)
++	put_unaligned(ICMP6_MIB_MAX, &stats[0]);
++	for (i = 1; i < ICMP6_MIB_MAX; i++)
+ 		put_unaligned(atomic_long_read(&mib[i]), &stats[i]);
  
- 	return 0;
+-	memset(&stats[items], 0, pad);
++	memset(&stats[ICMP6_MIB_MAX], 0, pad);
+ }
+ 
+ static inline void __snmp6_fill_stats64(u64 *stats, void __percpu *mib,
+@@ -4996,7 +4996,7 @@ static void snmp6_fill_stats(u64 *stats, struct inet6_dev *idev, int attrtype,
+ 				     offsetof(struct ipstats_mib, syncp));
+ 		break;
+ 	case IFLA_INET6_ICMP6STATS:
+-		__snmp6_fill_statsdev(stats, idev->stats.icmpv6dev->mibs, ICMP6_MIB_MAX, bytes);
++		__snmp6_fill_statsdev(stats, idev->stats.icmpv6dev->mibs, bytes);
+ 		break;
+ 	}
  }
 -- 
 1.8.3.1
