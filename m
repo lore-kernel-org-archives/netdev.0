@@ -1,34 +1,110 @@
 From: Christophe Leroy <christophe.leroy@c-s.fr>
-Subject: [PATCH v2 0/3] Optimisation of fs_enet ethernet driver
-Date: Fri,  9 Sep 2016 14:26:18 +0200 (CEST)
-Message-ID: <cover.1473422536.git.christophe.leroy@c-s.fr>
+Subject: [PATCH v2 2/3] net: fs_enet: don't unmap DMA when packet len is below
+ copybreak
+Date: Fri,  9 Sep 2016 14:26:23 +0200 (CEST)
+Message-ID: <2d086551100dc2b6e33066bafffc2754144de450.1473422536.git.christophe.leroy@c-s.fr>
+References: <cover.1473422536.git.christophe.leroy@c-s.fr>
 Cc: linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
         netdev@vger.kernel.org
 To: Pantelis Antoniou <pantelis.antoniou@gmail.com>,
         Vitaly Bordug <vbordug@ru.mvista.com>, davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1473422536.git.christophe.leroy@c-s.fr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This set optimises the freescale fs_enet ethernet driver:
-1/ Merge of RX and TX NAPI functions in order to limit the amount of
-interrupts
-2/ Do not unmap DMA when packets len is below copybreak, otherwise there
-is no benefit in copying the skb instead of allocating a new one
-3/ Make copybreak value configurable as the optimised value is not the
-same on all targets
+When the length of the packet is below the defined copybreak limit,
+the received packet is copied into a newly allocated skb in order
+to reuse the skb. This is only interesting if it allow us to avoid
+a new DMA mapping. We shall therefore not DMA unmap and remap the
+skb->data. Instead, we invalidate the cache
+with dma_sync_single_for_cpu() once the received data has been
+copied into the new skb.
 
-Christophe Leroy (3):
-  net: fs_enet: merge NAPI RX and NAPI TX
-  net: fs_enet: don't unmap DMA when packet len is below copybreak
-  net: fs_enet: make rx_copybreak value configurable
+The following measures have been obtained on a mpc885 running at 132Mhz.
+Measurement is done using the timebase with packets sent to the target
+with 'ping -s 1' (packet len is 60):
+* Without this patch: 182 TB ticks
+* With this patch: 143 TB ticks
 
- .../net/ethernet/freescale/fs_enet/fs_enet-main.c  | 344 +++++++++++----------
- drivers/net/ethernet/freescale/fs_enet/fs_enet.h   |  16 +-
- drivers/net/ethernet/freescale/fs_enet/mac-fcc.c   |  57 +---
- drivers/net/ethernet/freescale/fs_enet/mac-fec.c   |  57 +---
- drivers/net/ethernet/freescale/fs_enet/mac-scc.c   |  57 +---
- 5 files changed, 220 insertions(+), 311 deletions(-)
+As a comparison, if we set the copybreak limit to 0, then we get
+148 TB ticks. It means that without this patch, duration is even
+worse when copying received data to a new skb instead of
+allocating a new skb for next packet to be received
 
+Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
+---
+ .../net/ethernet/freescale/fs_enet/fs_enet-main.c  | 36 ++++++++++++----------
+ 1 file changed, 20 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
+index 37574a9..f2a60cd 100644
+--- a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
++++ b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
+@@ -226,21 +226,10 @@ static int fs_enet_napi(struct napi_struct *napi, int budget)
+ 			if (sc & BD_ENET_RX_OV)
+ 				fep->stats.rx_crc_errors++;
+ 
+-			skb = fep->rx_skbuff[curidx];
+-
+-			dma_unmap_single(fep->dev, CBDR_BUFADDR(bdp),
+-				L1_CACHE_ALIGN(PKT_MAXBUF_SIZE),
+-				DMA_FROM_DEVICE);
+-
+-			skbn = skb;
+-
++			skbn = fep->rx_skbuff[curidx];
+ 		} else {
+ 			skb = fep->rx_skbuff[curidx];
+ 
+-			dma_unmap_single(fep->dev, CBDR_BUFADDR(bdp),
+-				L1_CACHE_ALIGN(PKT_MAXBUF_SIZE),
+-				DMA_FROM_DEVICE);
+-
+ 			/*
+ 			 * Process the incoming frame.
+ 			 */
+@@ -256,12 +245,30 @@ static int fs_enet_napi(struct napi_struct *napi, int budget)
+ 					skb_copy_from_linear_data(skb,
+ 						      skbn->data, pkt_len);
+ 					swap(skb, skbn);
++					dma_sync_single_for_cpu(fep->dev,
++						CBDR_BUFADDR(bdp),
++						L1_CACHE_ALIGN(pkt_len),
++						DMA_FROM_DEVICE);
+ 				}
+ 			} else {
+ 				skbn = netdev_alloc_skb(dev, ENET_RX_FRSIZE);
+ 
+-				if (skbn)
++				if (skbn) {
++					dma_addr_t dma;
++
+ 					skb_align(skbn, ENET_RX_ALIGN);
++
++					dma_unmap_single(fep->dev,
++						CBDR_BUFADDR(bdp),
++						L1_CACHE_ALIGN(PKT_MAXBUF_SIZE),
++						DMA_FROM_DEVICE);
++
++					dma = dma_map_single(fep->dev,
++						skbn->data,
++						L1_CACHE_ALIGN(PKT_MAXBUF_SIZE),
++						DMA_FROM_DEVICE);
++					CBDW_BUFADDR(bdp, dma);
++				}
+ 			}
+ 
+ 			if (skbn != NULL) {
+@@ -276,9 +283,6 @@ static int fs_enet_napi(struct napi_struct *napi, int budget)
+ 		}
+ 
+ 		fep->rx_skbuff[curidx] = skbn;
+-		CBDW_BUFADDR(bdp, dma_map_single(fep->dev, skbn->data,
+-			     L1_CACHE_ALIGN(PKT_MAXBUF_SIZE),
+-			     DMA_FROM_DEVICE));
+ 		CBDW_DATLEN(bdp, 0);
+ 		CBDW_SC(bdp, (sc & ~BD_ENET_RX_STATS) | BD_ENET_RX_EMPTY);
+ 
 -- 
 2.1.0
