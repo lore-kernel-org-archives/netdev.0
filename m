@@ -1,30 +1,36 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH] xfrm: fix header file comment reference to struct
- xfrm_replay_state_esn
-Date: Fri, 9 Sep 2016 10:23:16 +0200
-Message-ID: <20160909082316.GY31137@gauss.secunet.com>
-References: <1473357356-31064-1-git-send-email-rgb@tricolour.ca>
- <20160908184223.GU8132@eclipse.tricolour.ca>
+Subject: Re: [PATCH] xfrm_user: propagate sec ctx allocation errors
+Date: Fri, 9 Sep 2016 10:34:56 +0200
+Message-ID: <20160909083456.GZ31137@gauss.secunet.com>
+References: <1473350997-32733-1-git-send-email-minipli@googlemail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <paul@nohats.ca>
-To: Richard Guy Briggs <rgb@tricolour.ca>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        <netdev@vger.kernel.org>, Thomas Graf <tgraf@suug.ch>
+To: Mathias Krause <minipli@googlemail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([62.96.220.36]:59992 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752957AbcIIIfC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 9 Sep 2016 04:35:02 -0400
 Content-Disposition: inline
-In-Reply-To: <20160908184223.GU8132@eclipse.tricolour.ca>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1473350997-32733-1-git-send-email-minipli@googlemail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 08, 2016 at 02:42:23PM -0400, Richard Guy Briggs wrote:
-> On 16/09/08, Richard Guy Briggs wrote:
-> > Reported-by: Paul Wouters <paul@nohats.com>
+On Thu, Sep 08, 2016 at 06:09:57PM +0200, Mathias Krause wrote:
+> When we fail to attach the security context in xfrm_state_construct()
+> we'll return 0 as error value which, in turn, will wrongly claim success
+> to userland when, in fact, we won't be adding / updating the XFRM state.
 > 
-> Oops, this above should read "nohats.ca".
-
-I've fixed this up.
-
+> This is a regression introduced by commit fd21150a0fe1 ("[XFRM] netlink:
+> Inline attach_encap_tmpl(), attach_sec_ctx(), and attach_one_addr()").
 > 
-> > Signed-off-by: Richard Guy Briggs <rgb@tricolour.ca>
+> Fix it by propagating the error returned by security_xfrm_state_alloc()
+> in this case.
+> 
+> Fixes: fd21150a0fe1 ("[XFRM] netlink: Inline attach_encap_tmpl()...")
+> Signed-off-by: Mathias Krause <minipli@googlemail.com>
 
-Applied to ipsec-next, thanks Richard!
+Applied to the ipsec tree, thanks Mathias!
