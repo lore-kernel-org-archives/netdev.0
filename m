@@ -1,7 +1,8 @@
 From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v3 0/9] net-next: ethernet: add sun8i-emac driver
-Date: Fri,  9 Sep 2016 14:45:08 +0200
-Message-ID: <1473425117-18645-1-git-send-email-clabbe.montjoie@gmail.com>
+Subject: [PATCH v3 3/9] ARM: sun8i: dt: Add DT bindings documentation for Allwinner sun8i-emac
+Date: Fri,  9 Sep 2016 14:45:11 +0200
+Message-ID: <1473425117-18645-4-git-send-email-clabbe.montjoie@gmail.com>
+References: <1473425117-18645-1-git-send-email-clabbe.montjoie@gmail.com>
 Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
         linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
         Corentin Labbe <clabbe.montjoie@gmail.com>
@@ -9,84 +10,88 @@ To: robh+dt@kernel.org, mark.rutland@arm.com,
         maxime.ripard@free-electrons.com, wens@csie.org,
         linux@armlinux.org.uk, davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1473425117-18645-1-git-send-email-clabbe.montjoie@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello
+This patch adds documentation for Device-Tree bindings for the
+Allwinner sun8i-emac driver.
 
-This patch series add the driver for sun8i-emac which handle the Ethernet MAC
-present on Allwinner H3/A83T/A64 SoCs.
-
-It supports 10/100/1000 Mbit/s speed with half/full duplex.
-It can use an internal PHY (MII 10/100) or an external PHY
-via RGMII/RMII.
-
-This patch series enable the driver only for the H3 SoC since A83T and A64
-doesn't have the necessary clocks present in mainline.
-
-This patch series enable the driver only for OrangePiPC and OrangePIOne boards
-since other board with H3 use external PHY which need optional regulators
-that will be supported later.
-
-The driver have been tested on the following boards:
-- H3 Orange PI PC, Orange PI Plus, BananaPI-M2+
-- A64 Pine64
-- A83T BananaPI-M3
-
-I would like to thanks Chen-Yu Tsai for his help on developing this driver.
-
-Regards
-
-Changes since v2
-- Added patch to support Orange PI One
-- Added a patch to enable SUN8I_EMAC in sunxi_defconfig
-- Added a patch to enable pm_runtime
-- The Emac clock is now used standard syscon/regmap
-- Added netdev_sent_queue/netdev_completed_queue
-- Added lots of documentation on working (locks, memory barrier, etc...)
-- Cleaned DT bindings documentation
-- Added ethernet0 aliases as suggested by Hans de Goede
-- Change prefix of all DEFINE to EMAC_
-- The driver is now endian safe
-- Reworked the internal PHY mechanism
-- Removed dma_set_mask_and_coherent(32) since it is the default for of_platform_driver
-
-Changes since v1
-- Implement NAPI
-- Sorted and reworded all define
-- Reworked ethtools stats strings
-- Removed all unneeded __packked and __aligned
-- Added tuning of RX/TX ring size via ethtool
-- Corrected use of sk/skb naming
-- Added some wmb when needed
-- Moved irq claim/free to emac_open/close
-- Lots of code refactoring
-
-Corentin Labbe (8):
-  ethernet: sun8i-emac: add pm_runtime support
-  ethernet: add sun8i-emac driver
-  MAINTAINERS: Add myself as maintainer of sun8i-emac
-  ARM: sun8i: dt: Add DT bindings documentation for Allwinner sun8i-emac
-  ARM: dts: sun8i-h3: Add dt node for the syscon control module
-  ARM: dts: sun8i-h3: add sun8i-emac ethernet driver
-  ARM: dts: sun8i: Enable sun8i-emac on the Orange PI PC
-  ARM: sunxi: Enable sun8i-emac driver on sunxi_defconfig
-
-Hans de Goede (1):
-  ARM: dts: sun8i: Enable sun8i-emac on the Orange PI One
-
- .../bindings/net/allwinner,sun8i-emac.txt          |   64 +
- MAINTAINERS                                        |    6 +
- arch/arm/boot/dts/sun8i-h3-orangepi-one.dts        |   10 +
- arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts         |   10 +
- arch/arm/boot/dts/sun8i-h3.dtsi                    |   24 +
- arch/arm/configs/sunxi_defconfig                   |    1 +
- drivers/net/ethernet/allwinner/Kconfig             |   13 +
- drivers/net/ethernet/allwinner/Makefile            |    1 +
- drivers/net/ethernet/allwinner/sun8i-emac.c        | 2313 ++++++++++++++++++++
- 9 files changed, 2442 insertions(+)
+Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+---
+ .../bindings/net/allwinner,sun8i-emac.txt          | 64 ++++++++++++++++++++++
+ 1 file changed, 64 insertions(+)
  create mode 100644 Documentation/devicetree/bindings/net/allwinner,sun8i-emac.txt
- create mode 100644 drivers/net/ethernet/allwinner/sun8i-emac.c
 
+diff --git a/Documentation/devicetree/bindings/net/allwinner,sun8i-emac.txt b/Documentation/devicetree/bindings/net/allwinner,sun8i-emac.txt
+new file mode 100644
+index 0000000..4968ee3
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/allwinner,sun8i-emac.txt
+@@ -0,0 +1,64 @@
++* Allwinner sun8i EMAC ethernet controller
++
++Required properties:
++- compatible: should be one of the following string:
++		"allwinner,sun8i-a83t-emac"
++		"allwinner,sun8i-h3-emac"
++		"allwinner,sun50i-a64-emac"
++- reg: address and length of the register for the device.
++- reg-names: should be "emac"
++- syscon: A phandle to the syscon of the SoC
++- interrupts: interrupt for the device
++- clocks: A phandle to the reference clock for this device
++- clock-names: should be "ahb"
++- resets: A phandle to the reset control for this device
++- reset-names: should be "ahb"
++- phy-mode: See ethernet.txt
++- phy or phy-handle: See ethernet.txt
++- #address-cells: shall be 1
++- #size-cells: shall be 0
++
++"allwinner,sun8i-h3-emac" also requires:
++- clocks: an extra phandle to the reference clock for the EPHY
++- clock-names: an extra "ephy" entry matching the clocks property
++- resets: an extra phandle to the reset control for the EPHY
++- resets-names: an extra "ephy" entry matching the resets property
++
++See ethernet.txt in the same directory for generic bindings for ethernet
++controllers.
++
++The device node referenced by "phy" or "phy-handle" should be a child node
++of this node. See phy.txt for the generic PHY bindings.
++
++Optional properties:
++- allwinner,tx-delay: TX clock delay chain value. Range value is 0-0x07. Default is 0)
++- allwinner,rx-delay: RX clock delay chain value. Range value is 0-0x1F. Default is 0)
++
++The TX/RX clock delay chain settings are board specific.
++
++Optional properties for "allwinner,sun8i-h3-emac":
++- allwinner,leds-active-low: EPHY LEDs are active low
++
++Example:
++
++emac: ethernet@01c0b000 {
++	compatible = "allwinner,sun8i-h3-emac";
++	syscon = <&syscon>;
++	reg = <0x01c0b000 0x104>;
++	reg-names = "emac";
++	interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
++	resets = <&ccu RST_BUS_EMAC>, <<&ccu RST_BUS_EPHY>;
++	reset-names = "ahb", "ephy";
++	clocks = <&ccu CLK_BUS_EMAC>, <&ccu CLK_BUS_EPHY>;
++	clock-names = "ahb", "ephy";
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	phy = <&phy1>;
++	phy-mode = "mii";
++	allwinner,leds-active-low;
++
++	phy1: ethernet-phy@1 {
++		reg = <1>;
++	};
++};
 -- 
 2.7.3
