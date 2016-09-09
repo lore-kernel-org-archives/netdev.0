@@ -1,148 +1,69 @@
 From: Mahesh Bandewar <mahesh@bandewar.net>
-Subject: [PATCH next 2/3] net: Add _nf_(un)register_hooks symbols
-Date: Fri,  9 Sep 2016 14:53:27 -0700
-Message-ID: <1473458007-18500-1-git-send-email-mahesh@bandewar.net>
+Subject: [PATCH next 1/3] ipv6: Export p6_route_input_lookup symbol
+Date: Fri,  9 Sep 2016 14:53:23 -0700
+Message-ID: <1473458003-18431-1-git-send-email-mahesh@bandewar.net>
 Cc: Eric Dumazet <edumazet@google.com>,
         David Miller <davem@davemloft.net>,
         Mahesh Bandewar <maheshb@google.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:34710 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754666AbcIIVxb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 17:53:31 -0400
-Received: by mail-pf0-f195.google.com with SMTP id g202so4531428pfb.1
-        for <netdev@vger.kernel.org>; Fri, 09 Sep 2016 14:53:30 -0700 (PDT)
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:33628 "EHLO
+        mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754205AbcIIVx1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 17:53:27 -0400
+Received: by mail-pa0-f68.google.com with SMTP id h5so4351231pao.0
+        for <netdev@vger.kernel.org>; Fri, 09 Sep 2016 14:53:27 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mahesh Bandewar <maheshb@google.com>
 
-Add _nf_register_hooks() and _nf_unregister_hooks() calls which allow
-caller to hold RTNL mutex.
+Make ip6_route_input_lookup available outside of ipv6 the module
+similar to ip_route_input_noref in the IPv4 world.
 
 Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 ---
- include/linux/netfilter.h |  2 ++
- net/netfilter/core.c      | 51 ++++++++++++++++++++++++++++++++++++++++++-----
- 2 files changed, 48 insertions(+), 5 deletions(-)
+ include/net/ip6_route.h | 3 +++
+ net/ipv6/route.c        | 7 ++++---
+ 2 files changed, 7 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
-index 9230f9aee896..e82b76781bf6 100644
---- a/include/linux/netfilter.h
-+++ b/include/linux/netfilter.h
-@@ -133,6 +133,8 @@ int nf_register_hook(struct nf_hook_ops *reg);
- void nf_unregister_hook(struct nf_hook_ops *reg);
- int nf_register_hooks(struct nf_hook_ops *reg, unsigned int n);
- void nf_unregister_hooks(struct nf_hook_ops *reg, unsigned int n);
-+int _nf_register_hooks(struct nf_hook_ops *reg, unsigned int n);
-+void _nf_unregister_hooks(struct nf_hook_ops *reg, unsigned int n);
+diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+index d97305d0e71f..e0cd318d5103 100644
+--- a/include/net/ip6_route.h
++++ b/include/net/ip6_route.h
+@@ -64,6 +64,9 @@ static inline bool rt6_need_strict(const struct in6_addr *daddr)
+ }
  
- /* Functions to register get/setsockopt ranges (non-inclusive).  You
-    need to check permissions yourself! */
-diff --git a/net/netfilter/core.c b/net/netfilter/core.c
-index f39276d1c2d7..2c5327e43a88 100644
---- a/net/netfilter/core.c
-+++ b/net/netfilter/core.c
-@@ -188,19 +188,17 @@ EXPORT_SYMBOL(nf_unregister_net_hooks);
+ void ip6_route_input(struct sk_buff *skb);
++struct dst_entry *ip6_route_input_lookup(struct net *net,
++					 struct net_device *dev,
++					 struct flowi6 *fl6, int flags);
  
- static LIST_HEAD(nf_hook_list);
+ struct dst_entry *ip6_route_output_flags(struct net *net, const struct sock *sk,
+ 					 struct flowi6 *fl6, int flags);
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 09d43ff11a8d..9563eedd4f97 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1147,15 +1147,16 @@ static struct rt6_info *ip6_pol_route_input(struct net *net, struct fib6_table *
+ 	return ip6_pol_route(net, table, fl6->flowi6_iif, fl6, flags);
+ }
  
--int nf_register_hook(struct nf_hook_ops *reg)
-+static int _nf_register_hook(struct nf_hook_ops *reg)
+-static struct dst_entry *ip6_route_input_lookup(struct net *net,
+-						struct net_device *dev,
+-						struct flowi6 *fl6, int flags)
++struct dst_entry *ip6_route_input_lookup(struct net *net,
++					 struct net_device *dev,
++					 struct flowi6 *fl6, int flags)
  {
- 	struct net *net, *last;
- 	int ret;
+ 	if (rt6_need_strict(&fl6->daddr) && dev->type != ARPHRD_PIMREG)
+ 		flags |= RT6_LOOKUP_F_IFACE;
  
--	rtnl_lock();
- 	for_each_net(net) {
- 		ret = nf_register_net_hook(net, reg);
- 		if (ret && ret != -ENOENT)
- 			goto rollback;
- 	}
- 	list_add_tail(&reg->list, &nf_hook_list);
--	rtnl_unlock();
- 
- 	return 0;
- rollback:
-@@ -210,19 +208,34 @@ rollback:
- 			break;
- 		nf_unregister_net_hook(net, reg);
- 	}
-+	return ret;
-+}
-+
-+int nf_register_hook(struct nf_hook_ops *reg)
-+{
-+	int ret;
-+
-+	rtnl_lock();
-+	ret = _nf_register_hook(reg);
- 	rtnl_unlock();
-+
- 	return ret;
+ 	return fib6_rule_lookup(net, fl6, flags, ip6_pol_route_input);
  }
- EXPORT_SYMBOL(nf_register_hook);
++EXPORT_SYMBOL_GPL(ip6_route_input_lookup);
  
--void nf_unregister_hook(struct nf_hook_ops *reg)
-+static void _nf_unregister_hook(struct nf_hook_ops *reg)
+ void ip6_route_input(struct sk_buff *skb)
  {
- 	struct net *net;
- 
--	rtnl_lock();
- 	list_del(&reg->list);
- 	for_each_net(net)
- 		nf_unregister_net_hook(net, reg);
-+}
-+
-+void nf_unregister_hook(struct nf_hook_ops *reg)
-+{
-+	rtnl_lock();
-+	_nf_unregister_hook(reg);
- 	rtnl_unlock();
- }
- EXPORT_SYMBOL(nf_unregister_hook);
-@@ -246,6 +259,26 @@ err:
- }
- EXPORT_SYMBOL(nf_register_hooks);
- 
-+/* Caller MUST take rtnl_lock() */
-+int _nf_register_hooks(struct nf_hook_ops *reg, unsigned int n)
-+{
-+	unsigned int i;
-+	int err = 0;
-+
-+	for (i = 0; i < n; i++) {
-+		err = _nf_register_hook(&reg[i]);
-+		if (err)
-+			goto err;
-+	}
-+	return err;
-+
-+err:
-+	if (i > 0)
-+		_nf_unregister_hooks(reg, i);
-+	return err;
-+}
-+EXPORT_SYMBOL(_nf_register_hooks);
-+
- void nf_unregister_hooks(struct nf_hook_ops *reg, unsigned int n)
- {
- 	while (n-- > 0)
-@@ -253,6 +286,14 @@ void nf_unregister_hooks(struct nf_hook_ops *reg, unsigned int n)
- }
- EXPORT_SYMBOL(nf_unregister_hooks);
- 
-+/* Caller MUST take rtnl_lock */
-+void _nf_unregister_hooks(struct nf_hook_ops *reg, unsigned int n)
-+{
-+	while (n-- > 0)
-+		_nf_unregister_hook(&reg[n]);
-+}
-+EXPORT_SYMBOL(_nf_unregister_hooks);
-+
- unsigned int nf_iterate(struct list_head *head,
- 			struct sk_buff *skb,
- 			struct nf_hook_state *state,
 -- 
 2.8.0.rc3.226.g39d4020
