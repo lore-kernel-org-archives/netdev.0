@@ -1,31 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] rtnetlink: remove unused ifla_stats_policy
-Date: Thu, 08 Sep 2016 17:23:19 -0700 (PDT)
-Message-ID: <20160908.172319.506563196312084552.davem@davemloft.net>
-References: <20160907135736.7a986302@xeon-e3>
+Subject: Re: [PATCH net-next] macsec: set network devtype
+Date: Thu, 08 Sep 2016 17:24:07 -0700 (PDT)
+Message-ID: <20160908.172407.273322865763730537.davem@davemloft.net>
+References: <20160907140732.396bc2cf@xeon-e3>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com
+Cc: sd@queasysnail.net, netdev@vger.kernel.org
 To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42916 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:42930 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750760AbcIIAXU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 20:23:20 -0400
-In-Reply-To: <20160907135736.7a986302@xeon-e3>
+        with ESMTP id S1750750AbcIIAYI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 20:24:08 -0400
+In-Reply-To: <20160907140732.396bc2cf@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Wed, 7 Sep 2016 13:57:36 -0700
+Date: Wed, 7 Sep 2016 14:07:32 -0700
 
-> This structure is defined but never used. Flagged with W=1
+> The netdevice type structure for macsec was being defined but never used.
+> To set the network device type the macro SET_NETDEV_DEVTYPE must be called.
+> Compile tested only, I don't use macsec.
 > 
 > Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-This comes from commit 10c9ead9f3c6bb24bddc9a96681f7d58e6623966
-("rtnetlink: add new RTM_GETSTATS message to dump link stats")
+Sabrina, please review.
 
-Roopa, did you intentionally put this here unreferenced for the
-purposes or documentation or something like that?
+Thanks.
