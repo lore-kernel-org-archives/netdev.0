@@ -1,68 +1,73 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: [RFC net-next] net: diag: Make inet_diag bytecode match consistent with ip rules
-Date: Fri,  9 Sep 2016 16:53:08 +0900
-Message-ID: <1473407588-135334-1-git-send-email-lorenzo@google.com>
-Cc: eric.dumazet@gmail.com, davem@davemloft.net, ek@google.com,
-        Lorenzo Colitti <lorenzo@google.com>
+From: Baoquan He <bhe@redhat.com>
+Subject: [PATCH] bnx2: Reset device during driver initialization
+Date: Fri,  9 Sep 2016 16:11:07 +0800
+Message-ID: <1473408667-7107-1-git-send-email-bhe@redhat.com>
+Cc: sony.chacko@qlogic.com, Dept-HSGLinuxNICDev@qlogic.com,
+        linux-kernel@vger.kernel.org, kexec@lists.infradead.org,
+        Baoquan He <bhe@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:35192 "EHLO
-        mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752436AbcIIHxS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 03:53:18 -0400
-Received: by mail-pa0-f43.google.com with SMTP id b2so25993494pat.2
-        for <netdev@vger.kernel.org>; Fri, 09 Sep 2016 00:53:17 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:44150 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751981AbcIIILO (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 9 Sep 2016 04:11:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The recently-added socket mark matching in inet_diag_bc_run is
-inconsistent with the fwmark matching in fib_rule_match:
+When system enters into kdump kernel because of kernel panic, it won't
+shutdown devices. On-flight DMA will continue transferring data until
+device driver initializes. All devices are supposed to reset during
+driver initialization. And this property is used to fix the kdump
+failure in system with intel iommu. Other systems with hardware iommu
+should be similar. Please check commit 091d42e ("iommu/vt-d: Copy
+translation tables from old kernel") and those commits around it.
 
-inet_diag_bc_run:
-	if ((entry->mark & cond->mask) != cond->mark)
-		yes = 0;
+But bnx2 driver doesn't reset device during driver initialization. The
+device resetting is deferred to net device up stage. This will cause
+hardware iommu handling failure on bnx2 device. And its resetting relies
+on firmware. So in this patch move the firmware requesting code to earlier
+bnx2_init_one(), then next call bnx2_reset_chip to reset device.
 
-fib_rule_match:
-	if ((rule->mark ^ fl->flowi_mark) & rule->mark_mask)
-		goto out;
-
-The two behave differently if the filter mark has bits set that
-are not also set in the filter mask. For example, given a filter
-of 0x1111/0x1101, and a socket mark of 0x1111, inet_diag_bc_run
-will not match the socket, but fib_rule_match will.
-
-This behaviour is not incorrect, and in fact it is consistent
-with the mark iptables module, which does:
-
-mark_mt:
-	return ((skb->mark & info->mask) == info->mark) ^ info->invert;
-
-In both cases the expressive power of the filter is the same.
-Userspace would probably be well advised to specify a filter of
-0x1101/0x1101, which will behave the same in both implementations.
-However, of the two, the behaviour of fib_rule_match seems more
-intuitive, and as mark matching in inet bytecode filters was only
-recently added, it seems safe to change.
-
-Fixes: a52e95abf772 ("net: diag: allow socket bytecode filters to match socket marks")
-Tested: https://android-review.googlesource.com/271795
-Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+Signed-off-by: Baoquan He <bhe@redhat.com>
 ---
- net/ipv4/inet_diag.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/broadcom/bnx2.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
 
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index e4d16fc..1683bf5 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -598,7 +598,7 @@ static int inet_diag_bc_run(const struct nlattr *_bc,
- 			struct inet_diag_markcond *cond;
+diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
+index 8fc3f3c..d68a487 100644
+--- a/drivers/net/ethernet/broadcom/bnx2.c
++++ b/drivers/net/ethernet/broadcom/bnx2.c
+@@ -6356,10 +6356,6 @@ bnx2_open(struct net_device *dev)
+ 	struct bnx2 *bp = netdev_priv(dev);
+ 	int rc;
  
- 			cond = (struct inet_diag_markcond *)(op + 1);
--			if ((entry->mark & cond->mask) != cond->mark)
-+			if ((entry->mark ^ cond->mark) & cond->mask)
- 				yes = 0;
- 			break;
- 		}
+-	rc = bnx2_request_firmware(bp);
+-	if (rc < 0)
+-		goto out;
+-
+ 	netif_carrier_off(dev);
+ 
+ 	bnx2_disable_int(bp);
+@@ -8575,6 +8571,12 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	pci_set_drvdata(pdev, dev);
+ 
++	rc = bnx2_request_firmware(bp);
++	if (rc < 0)
++		goto error;
++
++
++	bnx2_reset_chip(bp, BNX2_DRV_MSG_CODE_RESET);
+ 	memcpy(dev->dev_addr, bp->mac_addr, ETH_ALEN);
+ 
+ 	dev->hw_features = NETIF_F_IP_CSUM | NETIF_F_SG |
+@@ -8607,6 +8609,7 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	return 0;
+ 
+ error:
++	bnx2_release_firmware(bp);
+ 	pci_iounmap(pdev, bp->regview);
+ 	pci_release_regions(pdev);
+ 	pci_disable_device(pdev);
 -- 
-2.8.0.rc3.226.g39d4020
+2.5.5
