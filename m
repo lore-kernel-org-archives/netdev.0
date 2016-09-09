@@ -1,52 +1,37 @@
 From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v3 2/9] MAINTAINERS: Add myself as maintainer of sun8i-emac
-Date: Fri,  9 Sep 2016 14:45:10 +0200
-Message-ID: <1473425117-18645-3-git-send-email-clabbe.montjoie@gmail.com>
+Subject: [PATCH v3 8/9] ARM: sunxi: Enable sun8i-emac driver on sunxi_defconfig
+Date: Fri,  9 Sep 2016 14:45:16 +0200
+Message-ID: <1473425117-18645-9-git-send-email-clabbe.montjoie@gmail.com>
 References: <1473425117-18645-1-git-send-email-clabbe.montjoie@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Corentin Labbe <clabbe.montjoie@gmail.com>,
- linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
- devicetree@vger.kernel.org
-To: robh+dt@kernel.org, mark.rutland@arm.com, maxime.ripard@free-electrons.com,
- wens@csie.org, linux@armlinux.org.uk, davem@davemloft.net
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+        Corentin Labbe <clabbe.montjoie@gmail.com>
+To: robh+dt@kernel.org, mark.rutland@arm.com,
+        maxime.ripard@free-electrons.com, wens@csie.org,
+        linux@armlinux.org.uk, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1473425117-18645-1-git-send-email-clabbe.montjoie@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch add myself as maintainer of the sun8i-emac driver.
+Enable the sun8i-emac driver in the sunxi default configuration
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
 ---
- MAINTAINERS | 6 ++++++
- 1 file changed, 6 insertions(+)
+ arch/arm/configs/sunxi_defconfig | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 6781a3f..43f5be3 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -582,6 +582,12 @@ S:	Maintained
- F:	Documentation/i2c/busses/i2c-ali1563
- F:	drivers/i2c/busses/i2c-ali1563.c
- 
-+ALLWINNER SUN8I-EMAC ETHERNET DRIVER
-+M:	Corentin Labbe <clabbe.montjoie@gmail.com>
-+L:	netdev@vger.kernel.org
-+S:	Maintained
-+F:	drivers/net/ethernet/allwinner/sun8i-emac.c
-+
- ALLWINNER SECURITY SYSTEM
- M:	Corentin Labbe <clabbe.montjoie@gmail.com>
- L:	linux-crypto@vger.kernel.org
+diff --git a/arch/arm/configs/sunxi_defconfig b/arch/arm/configs/sunxi_defconfig
+index 714da33..153707a 100644
+--- a/arch/arm/configs/sunxi_defconfig
++++ b/arch/arm/configs/sunxi_defconfig
+@@ -40,6 +40,7 @@ CONFIG_ATA=y
+ CONFIG_AHCI_SUNXI=y
+ CONFIG_NETDEVICES=y
+ CONFIG_SUN4I_EMAC=y
++CONFIG_SUN8I_EMAC=y
+ # CONFIG_NET_VENDOR_ARC is not set
+ # CONFIG_NET_CADENCE is not set
+ # CONFIG_NET_VENDOR_BROADCOM is not set
 -- 
 2.7.3
