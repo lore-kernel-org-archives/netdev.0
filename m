@@ -1,57 +1,54 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: [1/2] carl9170: Fix wrong completion usage
-Date: Fri, 9 Sep 2016 14:16:17 +0200
-Message-ID: <a4ae46314f69459ba45600306e933108@euamsexm01a.eu.qualcomm.com>
-References: <1471525926-20384-2-git-send-email-wagi@monom.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] net_sched: act_mirred: full rcu conversion
+Date: Fri, 09 Sep 2016 05:23:44 -0700
+Message-ID: <1473423824.18970.45.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1472795840-31901-1-git-send-email-xiyou.wangcong@gmail.com>
+         <1472795840-31901-6-git-send-email-xiyou.wangcong@gmail.com>
+         <1473173528.10725.14.camel@edumazet-glaptop3.roam.corp.google.com>
+         <57D0FF87.604@gmail.com>
+         <1473341283.15733.33.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1473348943.15733.57.camel@edumazet-glaptop3.roam.corp.google.com>
+         <57D1881B.6090009@gmail.com>
+         <1473349900.15733.59.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAM_iQpV+ybrM_ebgwX5ZohmKvWZo-8znXkgJv1LhDAC9=3u9Xw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Kalle Valo <kvalo@codeaurora.org>,
-        Christian Lamparter <chunkeey@googlemail.com>,
-        "Luis R . Rodriguez" <mcgrof@kernel.org>,
-        <ath10k@lists.infradead.org>, <linux-wireless@vger.kernel.org>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        Daniel Wagner <daniel.wagner@bmw-carit.de>
-To: Daniel Wagner <wagi@monom.org>
+Cc: John Fastabend <john.fastabend@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        Amir Vadai <amirva@mellanox.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine02.qualcomm.com ([199.106.114.251]:45843 "EHLO
-        wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750980AbcIIMQ0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 08:16:26 -0400
-In-Reply-To: <1471525926-20384-2-git-send-email-wagi@monom.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:36677 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751441AbcIIMXr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 08:23:47 -0400
+Received: by mail-pf0-f194.google.com with SMTP id x24so3970392pfa.3
+        for <netdev@vger.kernel.org>; Fri, 09 Sep 2016 05:23:47 -0700 (PDT)
+In-Reply-To: <CAM_iQpV+ybrM_ebgwX5ZohmKvWZo-8znXkgJv1LhDAC9=3u9Xw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Daniel Wagner <wagi@monom.org> wrote:
-> From: Daniel Wagner <daniel.wagner@bmw-carit.de>
+On Thu, 2016-09-08 at 22:26 -0700, Cong Wang wrote:
+> On Thu, Sep 8, 2016 at 8:51 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > On Thu, 2016-09-08 at 08:47 -0700, John Fastabend wrote:
+> >
+> >> Works for me. FWIW I find this plenty straightforward and don't really
+> >> see the need to make the hash table itself rcu friendly.
+> >>
+> >> Acked-by: John Fastabend <john.r.fastabend@intel.com>
+> >>
+> >
+> > Yes, it seems this hash table is used in control path, with RTNL held
+> > anyway.
 > 
-> carl9170_usb_stop() is used from several places to flush and cleanup any
-> pending work. The normal pattern is to send a request and wait for the
-> irq handler to call complete(). The completion is not reinitialized
-> during normal operation and as the old comment indicates it is important
-> to keep calls to wait_for_completion_timeout() and complete() balanced.
-> 
-> Calling complete_all() brings this equilibirum out of balance and needs
-> to be fixed by a reinit_completion(). But that opens a small race
-> window. It is possible that the sequence of complete_all(),
-> reinit_completion() is faster than the wait_for_completion_timeout() can
-> do its work. The wake up is not lost but the done counter test is after
-> reinit_completion() has been executed. The only reason we don't see
-> carl9170_exec_cmd() hang forever is we use the timeout version of
-> wait_for_copletion().
-> 
-> Let's fix this by reinitializing the completion (that is just setting
-> done counter to 0) just before we send out an request. Now,
-> carl9170_usb_stop() can be sure a complete() call is enough to make
-> progess since there is only one waiter at max. This is a common pattern
-> also seen in various drivers which use completion.
-> 
-> Signed-off-by: Daniel Wagner <daniel.wagner@bmw-carit.de>
+> Seriously? You never read hashtable in fast path?? I think you need
+> to wake up.
 
-Thanks, 1 patch applied to ath-next branch of ath.git:
+I seriously consider to ignore your mails.
 
-78a9e170388b carl9170: Fix wrong completion usage
-
--- 
-Sent by pwcli
-https://patchwork.kernel.org/patch/9287819/
+Since you write patches with no changelog, expecting us to read your
+mind, you definitely don't need us.
