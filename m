@@ -1,46 +1,79 @@
-From: =?UTF-8?B?TWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS14KS+4KSwKQ==?=
-        <maheshb@google.com>
-Subject: Re: [PATCH next 3/3] ipvlan: Introduce l3s mode
-Date: Fri, 9 Sep 2016 15:46:22 -0700
-Message-ID: <CAF2d9jj35YjaAJ4ziUSBFdgakhMY3o8M=VHU4bOfzWA=e0k_0Q@mail.gmail.com>
-References: <1473458010-18571-1-git-send-email-mahesh@bandewar.net> <ddb5c5e8-6656-754a-8178-09096a2d333e@cumulusnetworks.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH RFC 0/6] net: ILA resolver and generic resolver backend
+Date: Fri, 9 Sep 2016 16:19:51 -0700
+Message-ID: <1473463197-3076903-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Mahesh Bandewar <mahesh@bandewar.net>,
-        netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>, <tgraf@suug.ch>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f174.google.com ([209.85.161.174]:33307 "EHLO
-        mail-yw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751120AbcIIWqs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 18:46:48 -0400
-Received: by mail-yw0-f174.google.com with SMTP id l8so55766052ywb.0
-        for <netdev@vger.kernel.org>; Fri, 09 Sep 2016 15:46:47 -0700 (PDT)
-In-Reply-To: <ddb5c5e8-6656-754a-8178-09096a2d333e@cumulusnetworks.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:38531 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1754700AbcIIXUO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 19:20:14 -0400
+Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
+        by mx0b-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u89NGvoY025444
+        for <netdev@vger.kernel.org>; Fri, 9 Sep 2016 16:20:13 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0b-00082601.pphosted.com with ESMTP id 25c60k855j-1
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Fri, 09 Sep 2016 16:20:13 -0700
+Received: from facebook.com (2401:db00:21:6030:face:0:92:0)     by
+ mx-out.facebook.com (10.212.232.63) with ESMTP id
+ f4ac3d3476e311e69c900002c992ebde-e26f9a50 for <netdev@vger.kernel.org>;        Fri,
+ 09 Sep 2016 16:20:11 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 9, 2016 at 3:26 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
-> On 9/9/16 3:53 PM, Mahesh Bandewar wrote:
->> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
->> index 0c5415b05ea9..95edd1737ab5 100644
->> --- a/drivers/net/Kconfig
->> +++ b/drivers/net/Kconfig
->> @@ -149,6 +149,7 @@ config IPVLAN
->>      tristate "IP-VLAN support"
->>      depends on INET
->>      depends on IPV6
->> +    select NET_L3_MASTER_DEV
->
-> depends on instead of select?
+This patch sets implements an ILA host side resolver. This uses LWT to
+implement the hook to a userspace resolver and tracks pending unresolved
+address using the backend net resolver.
 
-The kbuild/kconfig-language.txt suggests that for "depends on" the
-option _must_ be selected otherwise menuconfig wont even present the
-dependent option while select positively sets the option.
+This patch set contains:
 
-INET and IPv6 are well understood and almost all configs select that.
-L3_MASTER is very new and not well understood so chances of someone
-_not_ putting them (IPvlan and L3_MASTER) in same context are very
-high.
+- An new library function to allocate an array of spinlocks for use
+  with locking hash buckets.
+- Make hash function in rhashtable directly callable.
+- A generic resolver backend infrastructure. This primary does two
+  things: track unsesolved addresses and implement a timeout for
+  resolution not happening. These mechanisms provides rate limiting
+  control over resolution requests (for instance in ILA it use used
+  to rate limit requests to userspace to resolve addresses).
+- The ILA resolver. This is implements to path from the kernel ILA
+  implementation to a userspace daemon that an identifier address
+  needs to be resolved.
+
+Tom Herbert (6):
+  spinlock: Add library function to allocate spinlock buckets array
+  rhashtable: Call library function alloc_bucket_locks
+  ila: Call library function alloc_bucket_locks
+  rhashtable: abstract out function to get hash
+  net: Generic resolver backend
+  ila: Resolver mechanism
+
+ include/linux/rhashtable.h     |  28 +++--
+ include/linux/spinlock.h       |   6 +
+ include/net/resolver.h         |  58 +++++++++
+ include/uapi/linux/lwtunnel.h  |   1 +
+ include/uapi/linux/rtnetlink.h |   5 +
+ lib/Makefile                   |   2 +-
+ lib/bucket_locks.c             |  63 ++++++++++
+ lib/rhashtable.c               |  46 +------
+ net/Kconfig                    |   4 +
+ net/core/Makefile              |   1 +
+ net/core/resolver.c            | 267 +++++++++++++++++++++++++++++++++++++++++
+ net/ipv6/Kconfig               |   1 +
+ net/ipv6/ila/Makefile          |   2 +-
+ net/ipv6/ila/ila.h             |  16 +++
+ net/ipv6/ila/ila_common.c      |   7 ++
+ net/ipv6/ila/ila_lwt.c         |   9 ++
+ net/ipv6/ila/ila_resolver.c    | 192 +++++++++++++++++++++++++++++
+ net/ipv6/ila/ila_xlat.c        |  51 ++------
+ 18 files changed, 666 insertions(+), 93 deletions(-)
+ create mode 100644 include/net/resolver.h
+ create mode 100644 lib/bucket_locks.c
+ create mode 100644 net/core/resolver.c
+ create mode 100644 net/ipv6/ila/ila_resolver.c
+
+-- 
+2.8.0.rc2
