@@ -1,18 +1,12 @@
 From: Javier Martinez Canillas <javier@osg.samsung.com>
-Subject: [PATCH 3/8] net: use IS_ENABLED() instead of checking for built-in or module
-Date: Fri,  9 Sep 2016 08:43:15 -0400
-Message-ID: <1473425000-9782-4-git-send-email-javier@osg.samsung.com>
+Subject: [PATCH 1/8] appletalk: use IS_ENABLED() instead of checking for built-in or module
+Date: Fri,  9 Sep 2016 08:43:13 -0400
+Message-ID: <1473425000-9782-2-git-send-email-javier@osg.samsung.com>
 References: <1473425000-9782-1-git-send-email-javier@osg.samsung.com>
 Cc: Javier Martinez Canillas <javier@osg.samsung.com>,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Jarod Wilson <jarod@redhat.com>,
-        Paolo Abeni <pabeni@redhat.com>, netdev@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Eric Dumazet <edumazet@google.com>
+        netdev@vger.kernel.org,
+        Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+        "David S. Miller" <davem@davemloft.net>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1473425000-9782-1-git-send-email-javier@osg.samsung.com>
@@ -28,22 +22,21 @@ of the Kconfig built-in and module enable details.
 Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
 ---
 
- net/core/dev.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ net/appletalk/ddp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index c7d7db49826d..9e76d4df6ca0 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3904,8 +3904,7 @@ static __latent_entropy void net_tx_action(struct softirq_action *h)
- 	}
+diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
+index f066781be3c8..10d2bdce686e 100644
+--- a/net/appletalk/ddp.c
++++ b/net/appletalk/ddp.c
+@@ -1278,7 +1278,7 @@ out:
+ 	return err;
  }
  
--#if (defined(CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE)) && \
--    (defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE))
-+#if IS_ENABLED(CONFIG_BRIDGE) && IS_ENABLED(CONFIG_ATM_LANE)
- /* This hook is defined here for ATM LANE */
- int (*br_fdb_test_addr_hook)(struct net_device *dev,
- 			     unsigned char *addr) __read_mostly;
+-#if defined(CONFIG_IPDDP) || defined(CONFIG_IPDDP_MODULE)
++#if IS_ENABLED(CONFIG_IPDDP)
+ static __inline__ int is_ip_over_ddp(struct sk_buff *skb)
+ {
+ 	return skb->data[12] == 22;
 -- 
 2.7.4
