@@ -1,40 +1,65 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: Re: [PATCH net-next] macsec: set network devtype
-Date: Fri, 9 Sep 2016 17:54:36 +0200
-Message-ID: <20160909155436.GB16002@bistromath.localdomain>
-References: <20160907140732.396bc2cf@xeon-e3>
- <20160908.172407.273322865763730537.davem@davemloft.net>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCH net 1/6] sctp: remove the unnecessary state check in sctp_outq_tail
+Date: Sat, 10 Sep 2016 00:03:53 +0800
+Message-ID: <CADvbK_f-09NvfeCbeaZZF8+LuMASTYnrh+02RvTz5UR-huiR3g@mail.gmail.com>
+References: <cover.1473326067.git.lucien.xin@gmail.com> <1718155e984f63995d1be9b053c58aa1a645718e.1473326067.git.lucien.xin@gmail.com>
+ <20160908142701.GC16608@hmsreliant.think-freely.org> <CADvbK_dxTYrPPFJT5UPZErZLbW9y9oRm+VWbQXxhruwV6UgOZA@mail.gmail.com>
+ <20160908192319.GD16608@hmsreliant.think-freely.org> <CADvbK_ddvZ4855B1PPLYVY2JV1okKzYXCpv-quNMBXp0Qb5Otw@mail.gmail.com>
+ <20160909142841.GB15908@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        davem <davem@davemloft.net>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53446 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750760AbcIIPyj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 9 Sep 2016 11:54:39 -0400
-Content-Disposition: inline
-In-Reply-To: <20160908.172407.273322865763730537.davem@davemloft.net>
+Received: from mail-qk0-f179.google.com ([209.85.220.179]:34042 "EHLO
+        mail-qk0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752148AbcIIQDz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 12:03:55 -0400
+In-Reply-To: <20160909142841.GB15908@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2016-09-08, 17:24:07 -0700, David Miller wrote:
-> From: Stephen Hemminger <stephen@networkplumber.org>
-> Date: Wed, 7 Sep 2016 14:07:32 -0700
-> 
-> > The netdevice type structure for macsec was being defined but never used.
-> > To set the network device type the macro SET_NETDEV_DEVTYPE must be called.
-> > Compile tested only, I don't use macsec.
-> > 
-> > Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-> 
-> Sabrina, please review.
-> 
-> Thanks.
+> I don't know, I still don't feel safe about it.  I agree the socket lock keeps
+> the state from changing during a single transmission, which makes the use case
+> you are focused on correct.
+ok, :-)
 
-Sorry for the delay. LGTM:
+>
+> That said, have you considered the retransmit case?  That is to say, if you
+> queue and flush the outq, and some packets fail delivery, and in the time
+> between the intial send and the expiration of the RTX timer (during which the
+> socket lock will have been released), an event may occur which changes the
+> transport state, which will then be ignored with your patch.
+Sorry, I'm not sure if I got it.
 
-Acked-by: Sabrina Dubroca <sd@queasysnail.net>
+You mean "during which changes q->asoc->state", right ?
 
--- 
-Sabrina
+This patch removes the check of q->asoc->state in sctp_outq_tail().
+
+sctp_outq_tail() is called for data only in:
+sctp_primitive_SEND -> sctp_do_sm -> sctp_cmd_send_msg ->
+sctp_cmd_interpreter -> sctp_cmd_send_msg() -> sctp_outq_tail()
+
+before calling sctp_primitive_SEND, hold sock lock first.
+then sctp_primitive_SEND choose FUNC according:
+
+#define TYPE_SCTP_PRIMITIVE_SEND  {
+....
+
+if asoc->state is unavailable, FUNC can't be sctp_cmd_send_msg,
+but sctp_sf_error_closed/sctp_sf_error_shutdown,  sctp_outq_tail
+can't be called, either.
+I mean sctp_primitive_SEND do the same check for asoc->state
+already actually.
+
+so the code in sctp_outq_tail is redundant actually.
+
+
+
+
+>
+> Neil
+>
