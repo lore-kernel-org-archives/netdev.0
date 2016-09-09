@@ -1,60 +1,58 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PULL] virtio: fixes for 4.8
-Date: Sat, 10 Sep 2016 00:48:55 +0300
-Message-ID: <20160910004855-mutt-send-email-mst@kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, arnd@arndb.de, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, luto@kernel.org,
-	baoyou.xie@linaro.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Mahesh Bandewar <mahesh@bandewar.net>
+Subject: [PATCH next 0/3] ipvlan introduce l3s mode
+Date: Fri,  9 Sep 2016 14:53:17 -0700
+Message-ID: <1473457997-18199-1-git-send-email-mahesh@bandewar.net>
+Cc: Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>,
+        Mahesh Bandewar <maheshb@google.com>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f65.google.com ([209.85.220.65]:36433 "EHLO
+        mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754205AbcIIVxY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 17:53:24 -0400
+Received: by mail-pa0-f65.google.com with SMTP id ez1so4328619pab.3
+        for <netdev@vger.kernel.org>; Fri, 09 Sep 2016 14:53:23 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The following changes since commit 3eab887a55424fc2c27553b7bfe32330df83f7b8:
+From: Mahesh Bandewar <maheshb@google.com>
 
-  Linux 4.8-rc4 (2016-08-28 15:04:33 -0700)
+Same old problem with new appraoch especially from suggestions from
+earlier patch-series.
 
-are available in the git repository at:
+First thing is that this is introduced as a new mode rather than
+modifying the old (L3) mode. So the behavior of the existing modes is
+preserved as it is and the new L3s mode obeys iptables so that intended
+conn-tracking can work. 
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
+To do this, the code uses newly added l3mdev_rcv() handler and an
+Iptables hook. l3mdev_rcv() to perform an inbound route lookup with the
+correct (IPvlan slave) interface and then IPtable-hook at LOCAL_INPUT
+to change the input device from master to the slave to complete the
+formality.
 
-for you to fetch changes up to 5e59d9a1aed26abcc79abe78af5cfd34e53cbe7f:
+Supporting stack changes are trivial changes to export symbol to get
+IPv4 equivalent code exported for IPv6 and to allow netfilter hook
+registration code to allow caller to hold RTNL. Please look into
+individual patches for details.
 
-  virtio_console: Stop doing DMA on the stack (2016-09-09 21:12:45 +0300)
+Mahesh Bandewar (3):
+  ipv6: Export p6_route_input_lookup symbol
+  net: Add _nf_(un)register_hooks symbols
+  ipvlan: Introduce l3s mode
 
-----------------------------------------------------------------
-virtio: fixes for 4.8
+ Documentation/networking/ipvlan.txt |  7 ++-
+ drivers/net/Kconfig                 |  1 +
+ drivers/net/ipvlan/ipvlan.h         |  7 +++
+ drivers/net/ipvlan/ipvlan_core.c    | 94 +++++++++++++++++++++++++++++++++++++
+ drivers/net/ipvlan/ipvlan_main.c    | 60 ++++++++++++++++++++---
+ include/linux/netfilter.h           |  2 +
+ include/net/ip6_route.h             |  3 ++
+ include/uapi/linux/if_link.h        |  1 +
+ net/ipv6/route.c                    |  7 +--
+ net/netfilter/core.c                | 51 ++++++++++++++++++--
+ 10 files changed, 217 insertions(+), 16 deletions(-)
 
-This includes a couple of bugfixs for virtio.
-
-The virtio console patch is actually also
-in x86/tip targeting 4.9 because it helps vmap
-stacks, but it also fixes IOMMU_PLATFORM which
-was added in 4.8, and it seems important not to
-ship that in a broken configuration.
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-
-----------------------------------------------------------------
-Andy Lutomirski (1):
-      virtio_console: Stop doing DMA on the stack
-
-Baoyou Xie (1):
-      virtio: mark vring_dma_dev() static
-
- drivers/char/virtio_console.c | 23 +++++++++++++++--------
- drivers/virtio/virtio_ring.c  |  2 +-
- 2 files changed, 16 insertions(+), 9 deletions(-)
+-- 
+2.8.0.rc3.226.g39d4020
