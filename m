@@ -1,69 +1,62 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net-next V7 4/4] net/sched: Introduce act_tunnel_key
-Date: Fri, 9 Sep 2016 08:42:17 -0700
-Message-ID: <57D2D859.5000005@gmail.com>
-References: <1473341028-29368-1-git-send-email-hadarh@mellanox.com>
- <1473341028-29368-5-git-send-email-hadarh@mellanox.com>
- <57D18EA7.7000709@gmail.com>
- <CAM_iQpVQX6qHrS7-5D0URvsXhgJgU5Ln7+e+=XOuiKGmM6nu3A@mail.gmail.com>
- <1473427149.18970.55.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH net] net_sched: act_mirred: full rcu conversion
+Date: Fri, 9 Sep 2016 08:52:49 -0700
+Message-ID: <57D2DAD1.5000306@gmail.com>
+References: <1472795840-31901-1-git-send-email-xiyou.wangcong@gmail.com>
+ <1472795840-31901-6-git-send-email-xiyou.wangcong@gmail.com>
+ <1473173528.10725.14.camel@edumazet-glaptop3.roam.corp.google.com>
+ <57D0FF87.604@gmail.com>
+ <1473341283.15733.33.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1473348943.15733.57.camel@edumazet-glaptop3.roam.corp.google.com>
+ <57D1881B.6090009@gmail.com>
+ <1473349900.15733.59.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpV+ybrM_ebgwX5ZohmKvWZo-8znXkgJv1LhDAC9=3u9Xw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Hadar Hen Zion <hadarh@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
+Cc: David Miller <davem@davemloft.net>,
         Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@mellanox.com>, Jiri Benc <jbenc@redhat.com>,
         Jamal Hadi Salim <jhs@mojatatu.com>,
-        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Amir Vadai <amirva@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>, Amir Vadai <amir@vadai.me>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        Amir Vadai <amirva@mellanox.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35159 "EHLO
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33804 "EHLO
         mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751014AbcIIPmg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 11:42:36 -0400
-Received: by mail-pf0-f195.google.com with SMTP id n24so4180981pfb.2
-        for <netdev@vger.kernel.org>; Fri, 09 Sep 2016 08:42:35 -0700 (PDT)
-In-Reply-To: <1473427149.18970.55.camel@edumazet-glaptop3.roam.corp.google.com>
+        with ESMTP id S1750760AbcIIPxB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 11:53:01 -0400
+Received: by mail-pf0-f195.google.com with SMTP id g202so4203475pfb.1
+        for <netdev@vger.kernel.org>; Fri, 09 Sep 2016 08:53:01 -0700 (PDT)
+In-Reply-To: <CAM_iQpV+ybrM_ebgwX5ZohmKvWZo-8znXkgJv1LhDAC9=3u9Xw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-09-09 06:19 AM, Eric Dumazet wrote:
-> On Thu, 2016-09-08 at 22:30 -0700, Cong Wang wrote:
->> On Thu, Sep 8, 2016 at 9:15 AM, John Fastabend <john.fastabend@gmail.com> wrote:
+On 16-09-08 10:26 PM, Cong Wang wrote:
+> On Thu, Sep 8, 2016 at 8:51 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> On Thu, 2016-09-08 at 08:47 -0700, John Fastabend wrote:
+>>
+>>> Works for me. FWIW I find this plenty straightforward and don't really
+>>> see the need to make the hash table itself rcu friendly.
 >>>
->>> This should be rtnl_derefence(t->params) and drop the read_lock/unlock
->>> pair. This is always called with RTNL lock unless you have a path I'm
->>> not seeing.
+>>> Acked-by: John Fastabend <john.r.fastabend@intel.com>
+>>>
 >>
->> You missed the previous discussion on V6, John.
->>
->> BTW, you really should follow the whole discussion instead of
->> jumping in the middle, like what you did for my patchset.
->> I understand you are eager to comment, but please don't waste
->> others' time in this way.... Please.
+>> Yes, it seems this hash table is used in control path, with RTNL held
+>> anyway.
 > 
-> But John is right, and he definitely is welcome to give his feedback
-> even at V13 if he wants to.
-> 
-> tunnel_key_dump() is called with RTNL being held.
-> 
-> Take a deep breath, vacations, and come back when you are relaxed.
-> 
-> Thanks.
-> 
+> Seriously? You never read hashtable in fast path?? I think you need
+> to wake up.
 > 
 
-Also v6 discussion was around cleanup() call back I see nothing about
-the dump() callbacks. And if there was it wasn't fixed so it should
-be resolved.
+But the actions use refcnt'ing and should never be decremented to zero
+as long as they can still be referenced by an active filter. If each
+action handles its parameters like mirred/gact then I don't see why its
+necessary.
 
-Anyways Dave/Hadar feel free to submit a follow up patch or v8 it
-doesn't much matter to me as noted in the original post.
+I believe though that the refcnt needs to be fixed a bit though most
+likely by making it atomic. I original assumed it was protected by
+RTNL lock but because its getting decremented from rcu callback this is
+not true.
 
 .John
