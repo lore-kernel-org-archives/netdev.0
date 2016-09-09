@@ -1,162 +1,44 @@
-From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Subject: Re: [PATCH v2 net-next 1/2] net: phy: Add Edge-rate driver for
- Microsemi PHYs.
-Date: Fri, 9 Sep 2016 11:10:12 +0530
-Message-ID: <20160909054009.GA26767@microsemi.com>
-References: <20160824125934.GC13406@lunn.ch>
- <1473326242-4198-1-git-send-email-Raju.Lakkaraju@microsemi.com>
- <1473326242-4198-2-git-send-email-Raju.Lakkaraju@microsemi.com>
- <20160908131415.GG26445@lunn.ch>
-Reply-To: <Raju.Lakkaraju@microsemi.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] net_sched: act_mirred: full rcu conversion
+Date: Thu, 8 Sep 2016 22:59:29 -0700
+Message-ID: <CAM_iQpUxLYG-8kc+frLZ5QD85m22gPQGJGqnKpLXjG-Qa2Goow@mail.gmail.com>
+References: <1472795840-31901-1-git-send-email-xiyou.wangcong@gmail.com>
+ <1472795840-31901-6-git-send-email-xiyou.wangcong@gmail.com>
+ <1473173528.10725.14.camel@edumazet-glaptop3.roam.corp.google.com>
+ <57D0FF87.604@gmail.com> <1473341283.15733.33.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1473348943.15733.57.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpUxLDa1yQMDvCH760xGOsDMYz9wvHro64VYamnhXE=+yA@mail.gmail.com> <20160909054810.GA66323@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <f.fainelli@gmail.com>,
-        <Allan.Nielsen@microsemi.com>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        Amir Vadai <amirva@mellanox.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0075.outbound.protection.outlook.com ([104.47.33.75]:64029
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750949AbcIIFzl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 9 Sep 2016 01:55:41 -0400
-Content-Disposition: inline
-In-Reply-To: <20160908131415.GG26445@lunn.ch>
+Received: from mail-oi0-f46.google.com ([209.85.218.46]:35008 "EHLO
+        mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750831AbcIIF7u (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 01:59:50 -0400
+Received: by mail-oi0-f46.google.com with SMTP id s131so115294611oie.2
+        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 22:59:50 -0700 (PDT)
+In-Reply-To: <20160909054810.GA66323@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+On Thu, Sep 8, 2016 at 10:48 PM, Alexei Starovoitov
+<alexei.starovoitov@gmail.com> wrote:
+>
+> imo the deliberate small race in Eric's initial lock removal in mirred
+> was a good design choice. I think he did this patch only to
+> silence the complains with the code instead of arguing with words.
+> imo the initial code is good as-is. This patch is also a nice improvement,
+> but certainly not mandatory. 'face palm' is unnecessary.
 
-Thank you for review the code and valuable comments.
+LOL, to summarize your words:
 
-On Thu, Sep 08, 2016 at 03:14:15PM +0200, Andrew Lunn wrote:
-> EXTERNAL EMAIL
-> 
-> 
-> On Thu, Sep 08, 2016 at 02:47:21PM +0530, Raju Lakkaraju wrote:
-> > From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-> >
-> > Used Device Tree to configure the Edge-rate as per review comments and
-> > re-sending code for review
-> >
-> > Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-> > ---
-> >  drivers/net/phy/mscc.c | 76 ++++++++++++++++++++++++++++++++++++++++++++++++++
-> 
-> Hi Raju
-> 
-> You need to also document the new property in the device tree binding
-> documentation.
-> 
-Sure. I will do.
-I created device tree binding header file. i will submit in different patch.
-
-> > +static int vsc85xx_edge_rate_cntl_set(struct phy_device *phydev,
-> > +                                   u8     edge_rate)
-> 
-> No spaces place.
-> 
-I ran the checkpatch. I did not find any error. I created another workspace and
-applied the same patch. It shows the correct alignement. I have used tabs (8 space width).
-then some spaces to align braces.
-
-> > +#ifdef CONFIG_OF_MDIO
-> > +static int vsc8531_of_init(struct phy_device *phydev)
-> > +{
-> > +     int rc;
-> > +     struct vsc8531_private *vsc8531 = phydev->priv;
-> > +     struct device *dev = &phydev->mdio.dev;
-> > +     struct device_node *of_node = dev->of_node;
-> > +
-> > +     if (!of_node)
-> > +             return -ENODEV;
-> > +
-> > +     rc = of_property_read_u8(of_node, "vsc8531,edge-rate",
-> > +                              &vsc8531->edge_rate);
-> 
-> Until you have written the Documentation, it is hard for me to tell,
-> but device tree bindings should use real units, like seconds, Ohms,
-> Farads, etc. Is the edge rate in nS? Or is it some magic value which
-> just gets written into the register?
-> 
-
-This is some magic value which just gets written into the register.
-
-In device tree file, defined in davinci_mdio structure:
-
-        vsc8531_0: ethernet-phy@0 {
-                compatible = "ethernet-phy-id0007.0570";
-                reg = <0>;
-                vsc8531,edge-rate = /bits/ 8 <MSCC_EDGE_RATE_CNTL_FASTEST>;
-        };
-
-In device tree binding header file, MACRO has defined as
-i.e. include/dt-bindings/net/mscc-vsc8531.h
-
-/* MAC interface Edge rate control pad */
-#define MSCC_EDGE_RATE_CNTL_SLOWEST      0x0
-#define MSCC_EDGE_RATE_CNTL_PLUS_1       0x1
-#define MSCC_EDGE_RATE_CNTL_PLUS_2       0x2
-#define MSCC_EDGE_RATE_CNTL_PLUS_3       0x3
-#define MSCC_EDGE_RATE_CNTL_PLUS_4       0x4
-#define MSCC_EDGE_RATE_CNTL_PLUS_5       0x5
-#define MSCC_EDGE_RATE_CNTL_PLUS_6       0x6
-#define MSCC_EDGE_RATE_CNTL_FASTEST      0x7
-
-> > +
-> > +     return rc;
-> > +}
-> > +#else
-> > +static int vsc8531_of_init(struct phy_device *phydev)
-> > +{
-> > +     return 0;
-> > +}
-> > +#endif /* CONFIG_OF_MDIO */
-> > +
-> >  static int vsc85xx_config_init(struct phy_device *phydev)
-> >  {
-> >       int rc;
-> > +     struct vsc8531_private *vsc8531;
-> > +
-> > +     if (!phydev->priv) {
-> 
-> How can this happen?
-> 
-
-VSC 8531 driver don't have any private structure assigned initially.
-Allways priv points to NULL. 
-Allocate vsc8531 private structure and initialize by calling vsc8531_of_init( )
-function.
-
-> > +             vsc8531 = devm_kzalloc(&phydev->mdio.dev, sizeof(*vsc8531),
-> > +                                    GFP_KERNEL);
-> > +             if (!vsc8531)
-> > +                     return -ENOMEM;
-> > +
-> > +             phydev->priv = vsc8531;
-> > +             rc = vsc8531_of_init(phydev);
-> > +             if (rc)
-> > +                     return rc;
-> > +     } else {
-> > +             vsc8531 = (struct vsc8531_private *)phydev->priv;
-> > +     }
-> >
-> >       rc = vsc85xx_default_config(phydev);
-> >       if (rc)
-> >               return rc;
-> > +
-> > +     rc = vsc85xx_edge_rate_cntl_set(phydev, vsc8531->edge_rate);
-> 
-> If there is no vsc8531,edge-rate property in device tree, is the phy
-> going to work O.K, if you configure it for 0nS edges? Or should there
-> be some default value assigned?
-> 
-Yes. Default values configured as Fast Edge rate control (i.e.0b111).
-Edge rate control has defined 3 bits (Bit 7:5) in register.
-Hardware default value is 3 (i.e. 0b111)
-
-
-> Thanks
->         Andrew
-
-Thanks
-Raju.
+1) not changing the current code is good
+2) changing the current code is good too
