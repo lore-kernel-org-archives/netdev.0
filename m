@@ -1,55 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bpf: fix range propagation on direct packet
- access
-Date: Thu, 08 Sep 2016 17:29:02 -0700 (PDT)
-Message-ID: <20160908.172902.269216777256016170.davem@davemloft.net>
-References: <114cf30cb121f3b246d5e1dd436208b6dd675e32.1473288722.git.daniel@iogearbox.net>
+From: Jojy Varghese <jojy.varghese@gmail.com>
+Subject: Re: [PATCH] net_namespace: fixed net_device reference leak
+Date: Thu, 8 Sep 2016 17:35:08 -0700
+Message-ID: <CAJD3hpVDo+WVVM0cvcD2z8LzXrsyBPvPC1E72ETN_yG2rNaeLw@mail.gmail.com>
+References: <1473373012.18970.13.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAJD3hpUMdSt6UXEFjU9OnU4K7qiET50xo8AQ194+4vpX2CfOUA@mail.gmail.com>
+ <CAJD3hpUDTZiJQ4YMiCizcYBKw=GD6jZoww3GxYjmajSdn6CE=g@mail.gmail.com> <20160908.170443.533565891486140434.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, tgraf@suug.ch, netdev@vger.kernel.org
-To: daniel@iogearbox.net
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43004 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750760AbcIIA3D (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 20:29:03 -0400
-In-Reply-To: <114cf30cb121f3b246d5e1dd436208b6dd675e32.1473288722.git.daniel@iogearbox.net>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34917 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750760AbcIIAfK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2016 20:35:10 -0400
+Received: by mail-wm0-f67.google.com with SMTP id a6so466107wmc.2
+        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 17:35:10 -0700 (PDT)
+In-Reply-To: <20160908.170443.533565891486140434.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Thu,  8 Sep 2016 01:03:42 +0200
+Thanks for the feedback guys. I appreciate it.
 
-> LLVM can generate code that tests for direct packet access via
-> skb->data/data_end in a way that currently gets rejected by the
-> verifier, example:
- ...
-> The reason why this gets rejected despite a proper test is that we
-> currently call find_good_pkt_pointers() only in case where we detect
-> tests like rX > pkt_end, where rX is of type pkt(id=Y,off=Z,r=0) and
-> derived, for example, from a register of type pkt(id=Y,off=0,r=0)
-> pointing to skb->data. find_good_pkt_pointers() then fills the range
-> in the current branch to pkt(id=Y,off=0,r=Z) on success.
-> 
-> For above case, we need to extend that to recognize pkt_end >= rX
-> pattern and mark the other branch that is taken on success with the
-> appropriate pkt(id=Y,off=0,r=Z) type via find_good_pkt_pointers().
-> Since eBPF operates on BPF_JGT (>) and BPF_JGE (>=), these are the
-> only two practical options to test for from what LLVM could have
-> generated, since there's no such thing as BPF_JLT (<) or BPF_JLE (<=)
-> that we would need to take into account as well.
-> 
-> After the fix:
- ...
-> Verifier test cases are also added in this work, one that demonstrates
-> the mentioned example here and one that tries a bad packet access for
-> the current/fall-through branch (the one with types pkt(id=X,off=Y,r=0),
-> pkt(id=X,off=0,r=0)), then a case with good and bad accesses, and two
-> with both test variants (>, >=).
-> 
-> Fixes: 969bf05eb3ce ("bpf: direct packet access")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
+I am working with 4.4.3 kernel.  I will try to reproduce the issue
+with the kernel tree at
+https://git.kernel.org/cgit/linux/kernel/git/davem/net.git.
 
-Applied to net-next, thanks.
+In the meantime, the only data I have now is :
+-  "dst-ifdown"  does not look correct since it will never release
+reference to loopback device.
+-  One way to fix might be to assign the 'dst''s net device to the
+init net device. I thought adding reference to init net device's
+loopback might be safe.
+
+Any suggestion on debugging further is much appreciated.
+
+-Jojy
+
+
+On Thu, Sep 8, 2016 at 5:04 PM, David Miller <davem@davemloft.net> wrote:
+> From: Jojy Varghese <jojy.varghese@gmail.com>
+> Date: Thu, 8 Sep 2016 16:33:38 -0700
+>
+>> Sorry last patch was just the delta over my original patch. Here is
+>> the complete patch:
+>
+> It looks like you are grasping at straws.
+>
+> Please slow down and take the time to debug this properly.
+>
+> All of the mechanisms exist to make these references go away
+> properly, but you are seeing a leak for some reason.
+>
+> Therefore, please work with Eric to discover where the real bug is
+> instead of posting knee-jerk reaction patches every 15 minutes.
+>
+> Thank you.
+
+
+
+-- 
+Jojy G Varghese
