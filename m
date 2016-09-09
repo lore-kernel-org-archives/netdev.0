@@ -1,44 +1,42 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net] net_sched: act_mirred: full rcu conversion
-Date: Thu, 8 Sep 2016 22:26:45 -0700
-Message-ID: <CAM_iQpV+ybrM_ebgwX5ZohmKvWZo-8znXkgJv1LhDAC9=3u9Xw@mail.gmail.com>
-References: <1472795840-31901-1-git-send-email-xiyou.wangcong@gmail.com>
- <1472795840-31901-6-git-send-email-xiyou.wangcong@gmail.com>
- <1473173528.10725.14.camel@edumazet-glaptop3.roam.corp.google.com>
- <57D0FF87.604@gmail.com> <1473341283.15733.33.camel@edumazet-glaptop3.roam.corp.google.com>
- <1473348943.15733.57.camel@edumazet-glaptop3.roam.corp.google.com>
- <57D1881B.6090009@gmail.com> <1473349900.15733.59.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH net-next V7 4/4] net/sched: Introduce act_tunnel_key
+Date: Thu, 8 Sep 2016 22:30:40 -0700
+Message-ID: <CAM_iQpVQX6qHrS7-5D0URvsXhgJgU5Ln7+e+=XOuiKGmM6nu3A@mail.gmail.com>
+References: <1473341028-29368-1-git-send-email-hadarh@mellanox.com>
+ <1473341028-29368-5-git-send-email-hadarh@mellanox.com> <57D18EA7.7000709@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: John Fastabend <john.fastabend@gmail.com>,
-        David Miller <davem@davemloft.net>,
+Cc: Hadar Hen Zion <hadarh@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
         Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Jiri Pirko <jiri@mellanox.com>, Jiri Benc <jbenc@redhat.com>,
         Jamal Hadi Salim <jhs@mojatatu.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>,
-        Amir Vadai <amirva@mellanox.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Amir Vadai <amirva@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>, Amir Vadai <amir@vadai.me>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:35421 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750714AbcIIF1H (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 01:27:07 -0400
-Received: by mail-oi0-f68.google.com with SMTP id 2so8199236oif.2
-        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 22:27:06 -0700 (PDT)
-In-Reply-To: <1473349900.15733.59.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:36166 "EHLO
+        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751146AbcIIFbB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 01:31:01 -0400
+Received: by mail-oi0-f67.google.com with SMTP id s71so5249780oih.3
+        for <netdev@vger.kernel.org>; Thu, 08 Sep 2016 22:31:01 -0700 (PDT)
+In-Reply-To: <57D18EA7.7000709@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 8, 2016 at 8:51 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2016-09-08 at 08:47 -0700, John Fastabend wrote:
+On Thu, Sep 8, 2016 at 9:15 AM, John Fastabend <john.fastabend@gmail.com> wrote:
 >
->> Works for me. FWIW I find this plenty straightforward and don't really
->> see the need to make the hash table itself rcu friendly.
->>
->> Acked-by: John Fastabend <john.r.fastabend@intel.com>
->>
->
-> Yes, it seems this hash table is used in control path, with RTNL held
-> anyway.
+> This should be rtnl_derefence(t->params) and drop the read_lock/unlock
+> pair. This is always called with RTNL lock unless you have a path I'm
+> not seeing.
 
-Seriously? You never read hashtable in fast path?? I think you need
-to wake up.
+You missed the previous discussion on V6, John.
+
+BTW, you really should follow the whole discussion instead of
+jumping in the middle, like what you did for my patchset.
+I understand you are eager to comment, but please don't waste
+others' time in this way.... Please.
