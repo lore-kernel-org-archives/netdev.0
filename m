@@ -1,95 +1,54 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH v2 1/2] e1000: add initial XDP support
-Date: Fri, 9 Sep 2016 16:33:10 -0700
-Message-ID: <57D346B6.3000204@gmail.com>
+Subject: Re: [net-next PATCH v2 2/2] e1000: bundle xdp xmit routines
+Date: Fri, 9 Sep 2016 16:37:06 -0700
+Message-ID: <57D347A2.4060909@gmail.com>
 References: <20160909212915.4001.25504.stgit@john-Precision-Tower-5810>
- <1473458654.18970.69.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160909212938.4001.40540.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: bblanco@plumgrid.com, alexei.starovoitov@gmail.com,
-        jeffrey.t.kirsher@intel.com, brouer@redhat.com,
-        davem@davemloft.net, xiyou.wangcong@gmail.com,
-        intel-wired-lan@lists.osuosl.org, u9012063@gmail.com,
-        netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: xiyou.wangcong@gmail.com, intel-wired-lan@lists.osuosl.org,
+        u9012063@gmail.com, netdev@vger.kernel.org
+To: bblanco@plumgrid.com, alexei.starovoitov@gmail.com,
+        jeffrey.t.kirsher@intel.com, brouer@redhat.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:34683 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754700AbcIIXd0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 19:33:26 -0400
-Received: by mail-pf0-f193.google.com with SMTP id g202so4620483pfb.1
-        for <netdev@vger.kernel.org>; Fri, 09 Sep 2016 16:33:25 -0700 (PDT)
-In-Reply-To: <1473458654.18970.69.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:33859 "EHLO
+        mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750833AbcIIXhU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 19:37:20 -0400
+Received: by mail-pa0-f44.google.com with SMTP id to9so32625082pac.1
+        for <netdev@vger.kernel.org>; Fri, 09 Sep 2016 16:37:20 -0700 (PDT)
+In-Reply-To: <20160909212938.4001.40540.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-09-09 03:04 PM, Eric Dumazet wrote:
-> On Fri, 2016-09-09 at 14:29 -0700, John Fastabend wrote:
->> From: Alexei Starovoitov <ast@fb.com>
->>
+On 16-09-09 02:29 PM, John Fastabend wrote:
+> e1000 supports a single TX queue so it is being shared with the stack
+> when XDP runs XDP_TX action. This requires taking the xmit lock to
+> ensure we don't corrupt the tx ring. To avoid taking and dropping the
+> lock per packet this patch adds a bundling implementation to submit
+> a bundle of packets to the xmit routine.
 > 
+> I tested this patch running e1000 in a VM using KVM over a tap
+> device using pktgen to generate traffic along with 'ping -f -l 100'.
 > 
-> So it looks like e1000_xmit_raw_frame() can return early,
-> say if there is no available descriptor.
-> 
->> +static void e1000_xmit_raw_frame(struct e1000_rx_buffer *rx_buffer_info,
->> +				 unsigned int len,
->> +				 struct net_device *netdev,
->> +				 struct e1000_adapter *adapter)
->> +{
->> +	struct netdev_queue *txq = netdev_get_tx_queue(netdev, 0);
->> +	struct e1000_hw *hw = &adapter->hw;
->> +	struct e1000_tx_ring *tx_ring;
->> +
->> +	if (len > E1000_MAX_DATA_PER_TXD)
->> +		return;
->> +
->> +	/* e1000 only support a single txq at the moment so the queue is being
->> +	 * shared with stack. To support this requires locking to ensure the
->> +	 * stack and XDP are not running at the same time. Devices with
->> +	 * multiple queues should allocate a separate queue space.
->> +	 */
->> +	HARD_TX_LOCK(netdev, txq, smp_processor_id());
->> +
->> +	tx_ring = adapter->tx_ring;
->> +
->> +	if (E1000_DESC_UNUSED(tx_ring) < 2) {
->> +		HARD_TX_UNLOCK(netdev, txq);
->> +		return;
->> +	}
->> +
->> +	e1000_tx_map_rxpage(tx_ring, rx_buffer_info, len);
->> +	e1000_tx_queue(adapter, tx_ring, 0/*tx_flags*/, 1);
->> +
->> +	writel(tx_ring->next_to_use, hw->hw_addr + tx_ring->tdt);
->> +	mmiowb();
->> +
->> +	HARD_TX_UNLOCK(netdev, txq);
->> +}
->> +
->>  #define NUM_REGS 38 /* 1 based count */
->>  static void e1000_regdump(struct e1000_adapter *adapter)
->>  {
->> @@ -4142,6 +4247,19 @@ static struct sk_buff *e1000_alloc_rx_skb(struct e1000_adapter *adapter,
->>  	return skb;
->>  }
->> +			act = e1000_call_bpf(prog, page_address(p), length);
->> +			switch (act) {
->> +			case XDP_PASS:
->> +				break;
->> +			case XDP_TX:
->> +				dma_sync_single_for_device(&pdev->dev,
->> +							   dma,
->> +							   length,
->> +							   DMA_TO_DEVICE);
->> +				e1000_xmit_raw_frame(buffer_info, length,
->> +						     netdev, adapter);
->> +				buffer_info->rxbuf.page = NULL;
-> 
-> 
-> So I am trying to understand how pages are not leaked ?
-> 
-> 
+> Suggested-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
 
-Pages are being leaked thanks! v3 coming soon.
+This patch is a bit bogus in a few spots as well...
+
+
+> -
+> -	if (E1000_DESC_UNUSED(tx_ring) < 2) {
+> -		HARD_TX_UNLOCK(netdev, txq);
+> -		return;
+> +	for (; i < E1000_XDP_XMIT_BUNDLE_MAX && buffer_info[i].buffer; i++) {
+> +		e1000_xmit_raw_frame(buffer_info[i].buffer,
+> +				     buffer_info[i].length,
+> +				     adapter, tx_ring);
+> +		buffer_info[i].buffer->rxbuf.page = NULL;
+> +		buffer_info[i].buffer = NULL;
+> +		buffer_info[i].length = 0;
+> +		i++;
+              ^^^^^^^^
