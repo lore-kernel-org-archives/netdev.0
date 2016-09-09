@@ -1,58 +1,227 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2] net: ethernet: renesas: sh_eth: add POST registers for
- rz
-Date: Fri, 9 Sep 2016 20:49:23 +0300
-Message-ID: <26fc49c2-fe99-2c30-93aa-01284377ae07@cogentembedded.com>
-References: <20160907185709.24150-1-chris.brandt@renesas.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Simon Horman <horms+renesas@verge.net.au>,
-        Geert Uytterhoeven <geert+renesas@glider.be>,
-        Daniel Palmer <daniel@0x0f.com>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org
-To: Chris Brandt <chris.brandt@renesas.com>,
+From: sthemmin@exchange.microsoft.com
+Subject: [PATCH net-next] Revert "hv_netvsc: make inline functions static"
+Date: Fri,  9 Sep 2016 12:45:24 -0700
+Message-ID: <1473450324-25918-1-git-send-email-sthemmin@exchange.microsoft.com>
+Reply-To: sthemmin@microsoft.com
+Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
+To: "K. Y. Srinivasan" <kys@microsoft.com>,
         David Miller <davem@davemloft.net>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <20160907185709.24150-1-chris.brandt@renesas.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from p3plsmtps2ded04.prod.phx3.secureserver.net ([208.109.80.198]:55718
+        "EHLO p3plsmtps2ded04.prod.phx3.secureserver.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752015AbcIIRzq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 9 Sep 2016 13:55:46 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/07/2016 09:57 PM, Chris Brandt wrote:
+From: Stephen Hemminger <sthemmin@microsoft.com>
 
-> Due to a mistake in the hardware manual, the FWSLC and POST1-4 registers
-> were not documented and left out of the driver for RZ/A making the CAM
-> feature non-operational.
-> Additionally, when the offset values for POST1-4 are left blank, the driver
-> attempts to set them using an offset of 0xFFFF which can cause a memory
-> corruption or panic.
->
-> This patch fixes the panic and properly enables CAM.
->
-> Reported-by: Daniel Palmer <daniel@0x0f.com>
-> Signed-off-by: Chris Brandt <chris.brandt@renesas.com>
-> ---
-> v2:
-> * POST registers really do exist, so just add them
-> ---
->  drivers/net/ethernet/renesas/sh_eth.c | 7 +++++++
->  1 file changed, 7 insertions(+)
->
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-> index 1f8240a..440ae27 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.c
-> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-[...]
-> @@ -2781,6 +2786,8 @@ static void sh_eth_tsu_init(struct sh_eth_private *mdp)
->  {
->  	if (sh_eth_is_rz_fast_ether(mdp)) {
->  		sh_eth_tsu_write(mdp, 0, TSU_TEN); /* Disable all CAM entry */
-> +		sh_eth_tsu_write(mdp, TSU_FWSLC_POSTENU | TSU_FWSLC_POSTENL,
-> +				 TSU_FWSLC);	/* Enable POST registers */
->  		return;
->  	}
+These functions are used by other code misc-next tree.
 
-    Wait, don't you also need to write 0s to the POST registers like done at 
-the end of this function?
+This reverts commit 30d1de08c87ddde6f73936c3350e7e153988fe02.
 
-MBR, Sergei
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c | 85 +--------------------------------------------
+ include/linux/hyperv.h      | 84 ++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 85 insertions(+), 84 deletions(-)
+
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 2a9ccc4..ff05b9b 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -34,89 +34,6 @@
+ #include "hyperv_net.h"
+ 
+ /*
+- * An API to support in-place processing of incoming VMBUS packets.
+- */
+-#define VMBUS_PKT_TRAILER	8
+-
+-static struct vmpacket_descriptor *
+-get_next_pkt_raw(struct vmbus_channel *channel)
+-{
+-	struct hv_ring_buffer_info *ring_info = &channel->inbound;
+-	u32 read_loc = ring_info->priv_read_index;
+-	void *ring_buffer = hv_get_ring_buffer(ring_info);
+-	struct vmpacket_descriptor *cur_desc;
+-	u32 packetlen;
+-	u32 dsize = ring_info->ring_datasize;
+-	u32 delta = read_loc - ring_info->ring_buffer->read_index;
+-	u32 bytes_avail_toread = (hv_get_bytes_to_read(ring_info) - delta);
+-
+-	if (bytes_avail_toread < sizeof(struct vmpacket_descriptor))
+-		return NULL;
+-
+-	if ((read_loc + sizeof(*cur_desc)) > dsize)
+-		return NULL;
+-
+-	cur_desc = ring_buffer + read_loc;
+-	packetlen = cur_desc->len8 << 3;
+-
+-	/*
+-	 * If the packet under consideration is wrapping around,
+-	 * return failure.
+-	 */
+-	if ((read_loc + packetlen + VMBUS_PKT_TRAILER) > (dsize - 1))
+-		return NULL;
+-
+-	return cur_desc;
+-}
+-
+-/*
+- * A helper function to step through packets "in-place"
+- * This API is to be called after each successful call
+- * get_next_pkt_raw().
+- */
+-static void put_pkt_raw(struct vmbus_channel *channel,
+-			struct vmpacket_descriptor *desc)
+-{
+-	struct hv_ring_buffer_info *ring_info = &channel->inbound;
+-	u32 read_loc = ring_info->priv_read_index;
+-	u32 packetlen = desc->len8 << 3;
+-	u32 dsize = ring_info->ring_datasize;
+-
+-	BUG_ON((read_loc + packetlen + VMBUS_PKT_TRAILER) > dsize);
+-
+-	/*
+-	 * Include the packet trailer.
+-	 */
+-	ring_info->priv_read_index += packetlen + VMBUS_PKT_TRAILER;
+-}
+-
+-/*
+- * This call commits the read index and potentially signals the host.
+- * Here is the pattern for using the "in-place" consumption APIs:
+- *
+- * while (get_next_pkt_raw() {
+- *	process the packet "in-place";
+- *	put_pkt_raw();
+- * }
+- * if (packets processed in place)
+- *	commit_rd_index();
+- */
+-static void commit_rd_index(struct vmbus_channel *channel)
+-{
+-	struct hv_ring_buffer_info *ring_info = &channel->inbound;
+-	/*
+-	 * Make sure all reads are done before we update the read index since
+-	 * the writer may start writing to the read area once the read index
+-	 * is updated.
+-	 */
+-	virt_rmb();
+-	ring_info->ring_buffer->read_index = ring_info->priv_read_index;
+-
+-	if (hv_need_to_signal_on_read(ring_info))
+-		vmbus_set_event(channel);
+-}
+-
+-/*
+  * Switch the data path from the synthetic interface to the VF
+  * interface.
+  */
+@@ -840,7 +757,7 @@ static u32 netvsc_copy_to_send_buf(struct netvsc_device *net_device,
+ 	return msg_size;
+ }
+ 
+-static int netvsc_send_pkt(
++static inline int netvsc_send_pkt(
+ 	struct hv_device *device,
+ 	struct hv_netvsc_packet *packet,
+ 	struct netvsc_device *net_device,
+diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
+index b01c8c3..5df444b 100644
+--- a/include/linux/hyperv.h
++++ b/include/linux/hyperv.h
+@@ -1429,4 +1429,88 @@ static inline  bool hv_need_to_signal_on_read(struct hv_ring_buffer_info *rbi)
+ 	return false;
+ }
+ 
++/*
++ * An API to support in-place processing of incoming VMBUS packets.
++ */
++#define VMBUS_PKT_TRAILER	8
++
++static inline struct vmpacket_descriptor *
++get_next_pkt_raw(struct vmbus_channel *channel)
++{
++	struct hv_ring_buffer_info *ring_info = &channel->inbound;
++	u32 read_loc = ring_info->priv_read_index;
++	void *ring_buffer = hv_get_ring_buffer(ring_info);
++	struct vmpacket_descriptor *cur_desc;
++	u32 packetlen;
++	u32 dsize = ring_info->ring_datasize;
++	u32 delta = read_loc - ring_info->ring_buffer->read_index;
++	u32 bytes_avail_toread = (hv_get_bytes_to_read(ring_info) - delta);
++
++	if (bytes_avail_toread < sizeof(struct vmpacket_descriptor))
++		return NULL;
++
++	if ((read_loc + sizeof(*cur_desc)) > dsize)
++		return NULL;
++
++	cur_desc = ring_buffer + read_loc;
++	packetlen = cur_desc->len8 << 3;
++
++	/*
++	 * If the packet under consideration is wrapping around,
++	 * return failure.
++	 */
++	if ((read_loc + packetlen + VMBUS_PKT_TRAILER) > (dsize - 1))
++		return NULL;
++
++	return cur_desc;
++}
++
++/*
++ * A helper function to step through packets "in-place"
++ * This API is to be called after each successful call
++ * get_next_pkt_raw().
++ */
++static inline void put_pkt_raw(struct vmbus_channel *channel,
++				struct vmpacket_descriptor *desc)
++{
++	struct hv_ring_buffer_info *ring_info = &channel->inbound;
++	u32 read_loc = ring_info->priv_read_index;
++	u32 packetlen = desc->len8 << 3;
++	u32 dsize = ring_info->ring_datasize;
++
++	if ((read_loc + packetlen + VMBUS_PKT_TRAILER) > dsize)
++		BUG();
++	/*
++	 * Include the packet trailer.
++	 */
++	ring_info->priv_read_index += packetlen + VMBUS_PKT_TRAILER;
++}
++
++/*
++ * This call commits the read index and potentially signals the host.
++ * Here is the pattern for using the "in-place" consumption APIs:
++ *
++ * while (get_next_pkt_raw() {
++ *	process the packet "in-place";
++ *	put_pkt_raw();
++ * }
++ * if (packets processed in place)
++ *	commit_rd_index();
++ */
++static inline void commit_rd_index(struct vmbus_channel *channel)
++{
++	struct hv_ring_buffer_info *ring_info = &channel->inbound;
++	/*
++	 * Make sure all reads are done before we update the read index since
++	 * the writer may start writing to the read area once the read index
++	 * is updated.
++	 */
++	virt_rmb();
++	ring_info->ring_buffer->read_index = ring_info->priv_read_index;
++
++	if (hv_need_to_signal_on_read(ring_info))
++		vmbus_set_event(channel);
++}
++
++
+ #endif /* _HYPERV_H */
+-- 
+2.9.3
