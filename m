@@ -1,67 +1,124 @@
-From: Jia He <hejianet@gmail.com>
-Subject: [RFC PATCH v3 6/7] ipv6: Remove useless parameter in __snmp6_fill_statsdev
-Date: Fri,  9 Sep 2016 14:34:01 +0800
-Message-ID: <1473402842-1987-7-git-send-email-hejianet@gmail.com>
-References: <1473402842-1987-1-git-send-email-hejianet@gmail.com>
-Cc: linux-sctp@vger.kernel.org, linux-kernel@vger.kernel.org,
-        davem@davemloft.net, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        marcelo.leitner@gmail.com, Jia He <hejianet@gmail.com>
-To: netdev@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH] bonding: Prevent deletion of a bond, or the last slave
+ from a bond, with active usage.
+Date: Fri, 9 Sep 2016 08:38:02 +0200
+Message-ID: <20160909063801.GA1856@nanopsycho.orion>
+References: <1473154470-15087-1-git-send-email-jasminder.kaur@hpe.com>
+ <4691.1473174539@famine>
+ <AT5PR84MB01151743CF3182FAFC91D7F98AFB0@AT5PR84MB0115.NAMPRD84.PROD.OUTLOOK.COM>
+ <20160908151705.GD1842@nanopsycho.orion>
+ <AT5PR84MB011502FB43B95AF91ADF6F0E8AFB0@AT5PR84MB0115.NAMPRD84.PROD.OUTLOOK.COM>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Jay Vosburgh <jay.vosburgh@canonical.com>,
+        "vfalico@gmail.com" <vfalico@gmail.com>,
+        "gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "Gurunath, Vasundhara (STSD)" <vasundhara.gurunath@hpe.com>,
+        "Arackal, Paulose Kuriakose (STSD)"
+        <paulose.kuriakose.arackal@hpe.com>
+To: "Kaur, Jasminder (STSD)" <jasminder.kaur@hpe.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1473402842-1987-1-git-send-email-hejianet@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <AT5PR84MB011502FB43B95AF91ADF6F0E8AFB0@AT5PR84MB0115.NAMPRD84.PROD.OUTLOOK.COM>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The parameter items(always ICMP6_MIB_MAX) is useless for __snmp6_fill_statsdev.
+Thu, Sep 08, 2016 at 06:32:02PM CEST, jasminder.kaur@hpe.com wrote:
+>>                The issue of interfaces being arbitrarily changed or deleted is not specific to bonding, and could affect any networking device (physical or virtual).  Thus, if a facility such as this is to be provided, it should be generic, not specific to bonding.
+>
+>>
+>
+>>
+>
+>>
+>
+>>                Separately, I'm not sure I see the value of such an option.
+>
+>>
+>
+>>Other than administrator error, I'm not sure when bonds (or other
+>
+>>
+>
+>>interfaces) would be randomly deleted.  Are you seeing that happening?
+>
+>>
+>
+>>
+>
+>>
+>
+>>                Also, this patch does not prevent other errors or malicious change, e.g., "ip link set bondX down" or "ip addr del 1.2.3.4/24" would still cause the service disruption you're trying to avoid.
+>
+>>
+>
+>>
+>
+>>
+>
+>>                And, lastly, what Jiri said: use netlink for new bonding functionality, not sysfs.
+>
+>>
+>
+>
+>
+>Re-sending my response as per Jiri's input to avoid top-posting.. Hope this is fine.
+>
+>
+>
+>Hi Jay,  Hi Jiri,
+>
+>
+>
+>Thank you for your inputs.
+>
+>
+>
+>Some of the requests we got for such preventive checks are from Admins working on large scale up systems with multiple NICs, FlexNICs and IP addresses.
+>
+>§  One use case for these checks is to give an alert, in case of any accidental removals owing to operator errors on large configurations.
+>
+>§  Another use case is during online maintenance activities such as dynamic patching or a driver load/unload operation.  Admin's would
+>
+>shut down applications and delete affected interfaces  before unload of a driver. They would prefer to get an alert during delete operation
+>
+>in case some usages linger around.
 
-Signed-off-by: Jia He <hejianet@gmail.com>
----
- net/ipv6/addrconf.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index f418d2e..e170554 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4952,18 +4952,18 @@ static inline size_t inet6_if_nlmsg_size(void)
- }
- 
- static inline void __snmp6_fill_statsdev(u64 *stats, atomic_long_t *mib,
--				      int items, int bytes)
-+					int bytes)
- {
- 	int i;
--	int pad = bytes - sizeof(u64) * items;
-+	int pad = bytes - sizeof(u64) * ICMP6_MIB_MAX;
- 	BUG_ON(pad < 0);
- 
- 	/* Use put_unaligned() because stats may not be aligned for u64. */
--	put_unaligned(items, &stats[0]);
--	for (i = 1; i < items; i++)
-+	put_unaligned(ICMP6_MIB_MAX, &stats[0]);
-+	for (i = 1; i < ICMP6_MIB_MAX; i++)
- 		put_unaligned(atomic_long_read(&mib[i]), &stats[i]);
- 
--	memset(&stats[items], 0, pad);
-+	memset(&stats[ICMP6_MIB_MAX], 0, pad);
- }
- 
- static inline void __snmp6_fill_stats64(u64 *stats, void __percpu *mib,
-@@ -4996,7 +4996,7 @@ static void snmp6_fill_stats(u64 *stats, struct inet6_dev *idev, int attrtype,
- 				     offsetof(struct ipstats_mib, syncp));
- 		break;
- 	case IFLA_INET6_ICMP6STATS:
--		__snmp6_fill_statsdev(stats, idev->stats.icmpv6dev->mibs, ICMP6_MIB_MAX, bytes);
-+		__snmp6_fill_statsdev(stats, idev->stats.icmpv6dev->mibs, bytes);
- 		break;
- 	}
- }
--- 
-1.8.3.1
+If admin is stupid and shoots himself in a foot, it's his problem.
+Kernel's work is not to babysit him.
+
+Stop wasting the time.
+
+
+>
+>Such alerts are more useful in Cluster configurations, Network Attached Storage( NAS) configurations, VM configurations with Guests, etc.
+>
+>
+>
+>So these were mainly the situations that prompted us to add such checks in delete paths.
+>
+>True these checks are not comprehensive for all use cases, we would like to extend this if it can cover more scenarios.
+>
+>
+>
+>sysfs based use cases were the ones we noticed for bond/slave configurations. Do you suggest other CLI's such as  “ip link” is more commonly used ?
+>
+>Possibly if these checks are rearranged a bit in code, multiple such CLI interfaces can be covered ? Please let us know.
+>
+>
+>
+>Thanks & Regards,
+>
+>Jasminder
+>
+>
+>
+>
+>
+>
+>
+>
