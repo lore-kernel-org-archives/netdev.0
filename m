@@ -1,93 +1,59 @@
-From: Christophe Leroy <christophe.leroy@c-s.fr>
-Subject: [PATCH v2 3/3] net: fs_enet: make rx_copybreak value configurable
-Date: Fri,  9 Sep 2016 14:26:25 +0200 (CEST)
-Message-ID: <26d42fa7ad67a8d9779440779a429db3b078b392.1473422536.git.christophe.leroy@c-s.fr>
-References: <cover.1473422536.git.christophe.leroy@c-s.fr>
-Cc: linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-        netdev@vger.kernel.org
-To: Pantelis Antoniou <pantelis.antoniou@gmail.com>,
-        Vitaly Bordug <vbordug@ru.mvista.com>, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1473422536.git.christophe.leroy@c-s.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH v3 net-next 1/1] net_sched: Introduce skbmod action
+Date: Fri, 9 Sep 2016 08:33:24 -0400
+Message-ID: <ef571294-9f4f-d07b-1a25-1cb8c7872a39@mojatatu.com>
+References: <1472386756-23085-1-git-send-email-jhs@emojatatu.com>
+ <1472400467.14381.252.camel@edumazet-glaptop3.roam.corp.google.com>
+ <b075631d-92cc-d016-3786-aaacb3d5c13a@mojatatu.com>
+ <b117fac2-c73f-2d42-3843-52f9717224d9@mojatatu.com>
+ <1472494817.14381.267.camel@edumazet-glaptop3.roam.corp.google.com>
+ <2a6e36a6-f128-ba9d-4d69-90ff5383fb75@mojatatu.com>
+ <68852282-b009-7b5b-6887-1630935b1913@mojatatu.com>
+ <1472561089.14381.296.camel@edumazet-glaptop3.roam.corp.google.com>
+ <a90c3d11-e1e9-3f58-5400-8b910d707351@mojatatu.com>
+ <1473171919.10725.3.camel@edumazet-glaptop3.roam.corp.google.com>
+ <6a0f8bfd-97d2-1e08-7ad7-b5791cb4312c@mojatatu.com>
+ <1473350573.15733.61.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1473351077.15733.63.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, daniel@iogearbox.net,
+        xiyou.wangcong@gmail.com,
+        John Fastabend <john.r.fastabend@intel.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:33544 "EHLO
+        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752567AbcIIMd0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 08:33:26 -0400
+Received: by mail-oi0-f67.google.com with SMTP id y2so5735131oie.0
+        for <netdev@vger.kernel.org>; Fri, 09 Sep 2016 05:33:26 -0700 (PDT)
+In-Reply-To: <1473351077.15733.63.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Measurement shows that on a MPC8xx running at 132MHz, the optimal
-limit is 112:
-* 114 bytes packets are processed in 147 TB ticks with higher copybreak
-* 114 bytes packets are processed in 148 TB ticks with lower copybreak
-* 128 bytes packets are processed in 154 TB ticks with higher copybreak
-* 128 bytes packets are processed in 148 TB ticks with lower copybreak
-* 238 bytes packets are processed in 172 TB ticks with higher copybreak
-* 238 bytes packets are processed in 148 TB ticks with lower copybreak
+On 16-09-08 12:11 PM, Eric Dumazet wrote:
+> On Thu, 2016-09-08 at 09:02 -0700, Eric Dumazet wrote:
+>> On Thu, 2016-09-08 at 06:38 -0400, Jamal Hadi Salim wrote:
+>>> On 16-09-06 10:25 AM, Eric Dumazet wrote:
 
-However it might be different on other processors
-and/or frequencies. So it is useful to make it configurable.
+>> This simply works for me.
+>>
+>> But maybe you read the stats at the wrong place ?
+>>
+>> Pleas give us more details, thanks !
+>
+> And double check the tcf_hash_create() call :
+>
+> Last parameter is a boolean, and you must set it to true if you want per
+> cpu stats !
+>
 
-Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
----
-v2: ethtool parameter instead of module parameter
+Dammit, yes that was it;-> Sigh. I shouldve caught it earlier.
+Thanks! Now i feel more peaceful submitting the patch.
 
- .../net/ethernet/freescale/fs_enet/fs_enet-main.c  | 40 ++++++++++++++++++++++
- 1 file changed, 40 insertions(+)
+cheers,
+jamal
 
-diff --git a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-index f2a60cd..dc120c1 100644
---- a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-+++ b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-@@ -830,6 +830,44 @@ static void fs_set_msglevel(struct net_device *dev, u32 value)
- 	fep->msg_enable = value;
- }
- 
-+static int fs_get_tunable(struct net_device *dev,
-+			  const struct ethtool_tunable *tuna, void *data)
-+{
-+	struct fs_enet_private *fep = netdev_priv(dev);
-+	struct fs_platform_info *fpi = fep->fpi;
-+	int ret = 0;
-+
-+	switch (tuna->id) {
-+	case ETHTOOL_RX_COPYBREAK:
-+		*(u32 *)data = fpi->rx_copybreak;
-+		break;
-+	default:
-+		ret = -EINVAL;
-+		break;
-+	}
-+
-+	return ret;
-+}
-+
-+static int fs_set_tunable(struct net_device *dev,
-+			  const struct ethtool_tunable *tuna, const void *data)
-+{
-+	struct fs_enet_private *fep = netdev_priv(dev);
-+	struct fs_platform_info *fpi = fep->fpi;
-+	int ret = 0;
-+
-+	switch (tuna->id) {
-+	case ETHTOOL_RX_COPYBREAK:
-+		fpi->rx_copybreak = *(u32 *)data;
-+		break;
-+	default:
-+		ret = -EINVAL;
-+		break;
-+	}
-+
-+	return ret;
-+}
-+
- static const struct ethtool_ops fs_ethtool_ops = {
- 	.get_drvinfo = fs_get_drvinfo,
- 	.get_regs_len = fs_get_regs_len,
-@@ -841,6 +879,8 @@ static const struct ethtool_ops fs_ethtool_ops = {
- 	.get_ts_info = ethtool_op_get_ts_info,
- 	.get_link_ksettings = phy_ethtool_get_link_ksettings,
- 	.set_link_ksettings = phy_ethtool_set_link_ksettings,
-+	.get_tunable = fs_get_tunable,
-+	.set_tunable = fs_set_tunable,
- };
- 
- static int fs_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
--- 
-2.1.0
+>
