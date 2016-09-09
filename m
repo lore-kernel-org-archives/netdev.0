@@ -1,241 +1,60 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH v2 2/2] e1000: bundle xdp xmit routines
-Date: Fri, 09 Sep 2016 14:29:38 -0700
-Message-ID: <20160909212938.4001.40540.stgit@john-Precision-Tower-5810>
-References: <20160909212915.4001.25504.stgit@john-Precision-Tower-5810>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PULL] virtio: fixes for 4.8
+Date: Sat, 10 Sep 2016 00:48:55 +0300
+Message-ID: <20160910004855-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, intel-wired-lan@lists.osuosl.org,
-        u9012063@gmail.com, netdev@vger.kernel.org
-To: bblanco@plumgrid.com, john.fastabend@gmail.com,
-        alexei.starovoitov@gmail.com, jeffrey.t.kirsher@intel.com,
-        brouer@redhat.com, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:34622 "EHLO
-        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754432AbcIIV3z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 17:29:55 -0400
-Received: by mail-pa0-f66.google.com with SMTP id gi6so4324106pac.1
-        for <netdev@vger.kernel.org>; Fri, 09 Sep 2016 14:29:55 -0700 (PDT)
-In-Reply-To: <20160909212915.4001.25504.stgit@john-Precision-Tower-5810>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kvm@vger.kernel.org, arnd@arndb.de, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, luto@kernel.org,
+	baoyou.xie@linaro.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-e1000 supports a single TX queue so it is being shared with the stack
-when XDP runs XDP_TX action. This requires taking the xmit lock to
-ensure we don't corrupt the tx ring. To avoid taking and dropping the
-lock per packet this patch adds a bundling implementation to submit
-a bundle of packets to the xmit routine.
+The following changes since commit 3eab887a55424fc2c27553b7bfe32330df83f7b8:
 
-I tested this patch running e1000 in a VM using KVM over a tap
-device using pktgen to generate traffic along with 'ping -f -l 100'.
+  Linux 4.8-rc4 (2016-08-28 15:04:33 -0700)
 
-Suggested-by: Jesper Dangaard Brouer <brouer@redhat.com>
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
- drivers/net/ethernet/intel/e1000/e1000.h      |   10 +++
- drivers/net/ethernet/intel/e1000/e1000_main.c |   81 +++++++++++++++++++------
- 2 files changed, 71 insertions(+), 20 deletions(-)
+are available in the git repository at:
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000.h b/drivers/net/ethernet/intel/e1000/e1000.h
-index 5cf8a0a..877b377 100644
---- a/drivers/net/ethernet/intel/e1000/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000/e1000.h
-@@ -133,6 +133,8 @@ struct e1000_adapter;
- #define E1000_TX_QUEUE_WAKE	16
- /* How many Rx Buffers do we bundle into one write to the hardware ? */
- #define E1000_RX_BUFFER_WRITE	16 /* Must be power of 2 */
-+/* How many XDP XMIT buffers to bundle into one xmit transaction */
-+#define E1000_XDP_XMIT_BUNDLE_MAX E1000_RX_BUFFER_WRITE
- 
- #define AUTO_ALL_MODES		0
- #define E1000_EEPROM_82544_APM	0x0004
-@@ -168,6 +170,11 @@ struct e1000_rx_buffer {
- 	dma_addr_t dma;
- };
- 
-+struct e1000_rx_buffer_bundle {
-+	struct e1000_rx_buffer *buffer;
-+	u32 length;
-+};
-+
- struct e1000_tx_ring {
- 	/* pointer to the descriptor ring memory */
- 	void *desc;
-@@ -206,6 +213,9 @@ struct e1000_rx_ring {
- 	struct e1000_rx_buffer *buffer_info;
- 	struct sk_buff *rx_skb_top;
- 
-+	/* array of XDP buffer information structs */
-+	struct e1000_rx_buffer_bundle *xdp_buffer;
-+
- 	/* cpu for rx queue */
- 	int cpu;
- 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index 91d5c87..b985271 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -1738,10 +1738,18 @@ static int e1000_setup_rx_resources(struct e1000_adapter *adapter,
- 	struct pci_dev *pdev = adapter->pdev;
- 	int size, desc_len;
- 
-+	size = sizeof(struct e1000_rx_buffer_bundle) *
-+			E1000_XDP_XMIT_BUNDLE_MAX;
-+	rxdr->xdp_buffer = vzalloc(size);
-+	if (!rxdr->xdp_buffer)
-+		return -ENOMEM;
-+
- 	size = sizeof(struct e1000_rx_buffer) * rxdr->count;
- 	rxdr->buffer_info = vzalloc(size);
--	if (!rxdr->buffer_info)
-+	if (!rxdr->buffer_info) {
-+		vfree(rxdr->xdp_buffer);
- 		return -ENOMEM;
-+	}
- 
- 	desc_len = sizeof(struct e1000_rx_desc);
- 
-@@ -1754,6 +1762,7 @@ static int e1000_setup_rx_resources(struct e1000_adapter *adapter,
- 					GFP_KERNEL);
- 	if (!rxdr->desc) {
- setup_rx_desc_die:
-+		vfree(rxdr->xdp_buffer);
- 		vfree(rxdr->buffer_info);
- 		return -ENOMEM;
- 	}
-@@ -2087,6 +2096,9 @@ static void e1000_free_rx_resources(struct e1000_adapter *adapter,
- 
- 	e1000_clean_rx_ring(adapter, rx_ring);
- 
-+	vfree(rx_ring->xdp_buffer);
-+	rx_ring->xdp_buffer = NULL;
-+
- 	vfree(rx_ring->buffer_info);
- 	rx_ring->buffer_info = NULL;
- 
-@@ -3369,33 +3381,52 @@ static void e1000_tx_map_rxpage(struct e1000_tx_ring *tx_ring,
- }
- 
- static void e1000_xmit_raw_frame(struct e1000_rx_buffer *rx_buffer_info,
--				 unsigned int len,
--				 struct net_device *netdev,
--				 struct e1000_adapter *adapter)
-+				 __u32 len,
-+				 struct e1000_adapter *adapter,
-+				 struct e1000_tx_ring *tx_ring)
- {
--	struct netdev_queue *txq = netdev_get_tx_queue(netdev, 0);
--	struct e1000_hw *hw = &adapter->hw;
--	struct e1000_tx_ring *tx_ring;
--
- 	if (len > E1000_MAX_DATA_PER_TXD)
- 		return;
- 
-+	if (E1000_DESC_UNUSED(tx_ring) < 2)
-+		return;
-+
-+	e1000_tx_map_rxpage(tx_ring, rx_buffer_info, len);
-+	e1000_tx_queue(adapter, tx_ring, 0/*tx_flags*/, 1);
-+}
-+
-+static void e1000_xdp_xmit_bundle(struct e1000_rx_buffer_bundle *buffer_info,
-+				  struct net_device *netdev,
-+				  struct e1000_adapter *adapter)
-+{
-+	struct netdev_queue *txq = netdev_get_tx_queue(netdev, 0);
-+	struct e1000_tx_ring *tx_ring = adapter->tx_ring;
-+	struct e1000_hw *hw = &adapter->hw;
-+	int i = 0;
-+
- 	/* e1000 only support a single txq at the moment so the queue is being
- 	 * shared with stack. To support this requires locking to ensure the
- 	 * stack and XDP are not running at the same time. Devices with
- 	 * multiple queues should allocate a separate queue space.
-+	 *
-+	 * To amortize the locking cost e1000 bundles the xmits and sends as
-+	 * many as possible until either running out of descriptors or failing.
- 	 */
- 	HARD_TX_LOCK(netdev, txq, smp_processor_id());
- 
--	tx_ring = adapter->tx_ring;
--
--	if (E1000_DESC_UNUSED(tx_ring) < 2) {
--		HARD_TX_UNLOCK(netdev, txq);
--		return;
-+	for (; i < E1000_XDP_XMIT_BUNDLE_MAX && buffer_info[i].buffer; i++) {
-+		e1000_xmit_raw_frame(buffer_info[i].buffer,
-+				     buffer_info[i].length,
-+				     adapter, tx_ring);
-+		buffer_info[i].buffer->rxbuf.page = NULL;
-+		buffer_info[i].buffer = NULL;
-+		buffer_info[i].length = 0;
-+		i++;
- 	}
- 
--	e1000_tx_map_rxpage(tx_ring, rx_buffer_info, len);
--	e1000_tx_queue(adapter, tx_ring, 0/*tx_flags*/, 1);
-+	/* kick hardware to send bundle and return control back to the stack */
-+	writel(tx_ring->next_to_use, hw->hw_addr + tx_ring->tdt);
-+	mmiowb();
- 
- 	writel(tx_ring->next_to_use, hw->hw_addr + tx_ring->tdt);
- 	mmiowb();
-@@ -4281,9 +4312,10 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_adapter *adapter,
- 	struct bpf_prog *prog;
- 	u32 length;
- 	unsigned int i;
--	int cleaned_count = 0;
-+	int cleaned_count = 0, xdp_xmit = 0;
- 	bool cleaned = false;
- 	unsigned int total_rx_bytes = 0, total_rx_packets = 0;
-+	struct e1000_rx_buffer_bundle *xdp_bundle = rx_ring->xdp_buffer;
- 
- 	rcu_read_lock(); /* rcu lock needed here to protect xdp programs */
- 	prog = READ_ONCE(adapter->prog);
-@@ -4338,13 +4370,13 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_adapter *adapter,
- 			case XDP_PASS:
- 				break;
- 			case XDP_TX:
-+				xdp_bundle[xdp_xmit].buffer = buffer_info;
-+				xdp_bundle[xdp_xmit].length = length;
- 				dma_sync_single_for_device(&pdev->dev,
- 							   dma,
- 							   length,
- 							   DMA_TO_DEVICE);
--				e1000_xmit_raw_frame(buffer_info, length,
--						     netdev, adapter);
--				buffer_info->rxbuf.page = NULL;
-+				xdp_xmit++;
- 			case XDP_DROP:
- 			default:
- 				/* re-use mapped page. keep buffer_info->dma
-@@ -4486,8 +4518,14 @@ next_desc:
- 
- 		/* return some buffers to hardware, one at a time is too slow */
- 		if (unlikely(cleaned_count >= E1000_RX_BUFFER_WRITE)) {
-+			if (xdp_xmit)
-+				e1000_xdp_xmit_bundle(xdp_bundle,
-+						      netdev,
-+						      adapter);
-+
- 			adapter->alloc_rx_buf(adapter, rx_ring, cleaned_count);
- 			cleaned_count = 0;
-+			xdp_xmit = 0;
- 		}
- 
- 		/* use prefetched values */
-@@ -4498,8 +4536,11 @@ next_desc:
- 	rx_ring->next_to_clean = i;
- 
- 	cleaned_count = E1000_DESC_UNUSED(rx_ring);
--	if (cleaned_count)
-+	if (cleaned_count) {
-+		if (xdp_xmit)
-+			e1000_xdp_xmit_bundle(xdp_bundle, netdev, adapter);
- 		adapter->alloc_rx_buf(adapter, rx_ring, cleaned_count);
-+	}
- 
- 	adapter->total_rx_packets += total_rx_packets;
- 	adapter->total_rx_bytes += total_rx_bytes;
+  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
+
+for you to fetch changes up to 5e59d9a1aed26abcc79abe78af5cfd34e53cbe7f:
+
+  virtio_console: Stop doing DMA on the stack (2016-09-09 21:12:45 +0300)
+
+----------------------------------------------------------------
+virtio: fixes for 4.8
+
+This includes a couple of bugfixs for virtio.
+
+The virtio console patch is actually also
+in x86/tip targeting 4.9 because it helps vmap
+stacks, but it also fixes IOMMU_PLATFORM which
+was added in 4.8, and it seems important not to
+ship that in a broken configuration.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+
+----------------------------------------------------------------
+Andy Lutomirski (1):
+      virtio_console: Stop doing DMA on the stack
+
+Baoyou Xie (1):
+      virtio: mark vring_dma_dev() static
+
+ drivers/char/virtio_console.c | 23 +++++++++++++++--------
+ drivers/virtio/virtio_ring.c  |  2 +-
+ 2 files changed, 16 insertions(+), 9 deletions(-)
