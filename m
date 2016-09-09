@@ -1,28 +1,38 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [iproute PATCH] macsec: fix input range of 'icvlen' parameter
-Date: Fri, 9 Sep 2016 16:15:44 +0200
-Message-ID: <20160909141544.GQ5252@orbyte.nwl.cc>
-References: <b1f730436465e511edb56e4486299e4f3835599b.1473428548.git.dcaratti@redhat.com>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [PATCH v3 1/9] ethernet: add sun8i-emac driver
+Date: Fri, 9 Sep 2016 16:15:27 +0200
+Message-ID: <20160909141527.GE30871@lunn.ch>
+References: <1473425117-18645-1-git-send-email-clabbe.montjoie@gmail.com>
+ <1473425117-18645-2-git-send-email-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Sabrina Dubroca <sd@queasysnail.net>,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: Davide Caratti <dcaratti@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:35013 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750992AbcIIOPq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 9 Sep 2016 10:15:46 -0400
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
+        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <b1f730436465e511edb56e4486299e4f3835599b.1473428548.git.dcaratti@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1473425117-18645-2-git-send-email-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 09, 2016 at 04:02:22PM +0200, Davide Caratti wrote:
-> the maximum possible ICV length in a MACsec frame is 16 octects, not 32:
-> fix get_icvlen() accordingly, so that a proper error message is displayed
-> in case input 'icvlen' is greater than 16.
-> 
-> Signed-off-by: Davide Caratti <dcaratti@redhat.com>
+Hi Corentin
 
-Acked-by: Phil Sutter <phil@nwl.cc>
+> +static int sun8i_emac_mdio_register(struct net_device *ndev)
+> +{
+> +	struct sun8i_emac_priv *priv = netdev_priv(ndev);
+> +	struct mii_bus *bus;
+> +	int ret;
+> +
+> +	bus = mdiobus_alloc();
+
+You can use devm_mdiobus_alloc() which will simplify your error
+handling and unregister code.
+
+	 Andrew
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
