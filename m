@@ -1,67 +1,247 @@
-From: Thadeu Lima de Souza Cascardo <cascardo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH 1/2] openvswitch: fix flow stats accounting when
-	node 0 is not possible
-Date: Fri,  9 Sep 2016 17:41:44 -0300
-Message-ID: <1473453705-18804-1-git-send-email-cascardo@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
- Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
+Subject: [PATCH 2/2] openvswitch: use percpu flow stats
+Date: Fri,  9 Sep 2016 17:41:45 -0300
+Message-ID: <1473453705-18804-2-git-send-email-cascardo@redhat.com>
+References: <1473453705-18804-1-git-send-email-cascardo@redhat.com>
+Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>
+To: dev@openvswitch.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:42792 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754588AbcIIUmI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 9 Sep 2016 16:42:08 -0400
+In-Reply-To: <1473453705-18804-1-git-send-email-cascardo@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gYSBzeXN0ZW0gd2l0aCBvbmx5IG5vZGUgMSBhcyBwb3NzaWJsZSwgYWxsIHN0YXRpc3RpY3Mg
-aXMgZ29pbmcgdG8gYmUKYWNjb3VudGVkIG9uIG5vZGUgMCBhcyBpdCB3aWxsIGhhdmUgYSBzaW5n
-bGUgd3JpdGVyLgoKSG93ZXZlciwgd2hlbiBnZXR0aW5nIGFuZCBjbGVhcmluZyB0aGUgc3RhdGlz
-dGljcywgbm9kZSAwIGlzIG5vdCBnb2luZwp0byBiZSBjb25zaWRlcmVkLCBhcyBpdCdzIG5vdCBh
-IHBvc3NpYmxlIG5vZGUuCgpUZXN0ZWQgdGhhdCBzdGF0aXN0aWNzIGFyZSBub3QgemVybyBvbiBh
-IHN5c3RlbSB3aXRoIG9ubHkgbm9kZSAxCnBvc3NpYmxlLiBBbHNvIGNvbXBpbGUtdGVzdGVkIHdp
-dGggQ09ORklHX05VTUEgb2ZmLgoKU2lnbmVkLW9mZi1ieTogVGhhZGV1IExpbWEgZGUgU291emEg
-Q2FzY2FyZG8gPGNhc2NhcmRvQHJlZGhhdC5jb20+Ci0tLQoKSSBhbSBwcm92aWRpbmcgdGhpcyBp
-bnRlcm1lZGlhdGUgcGF0Y2gsIHRoYXQgd2lsbCBiZSB0aHJvd24gb3V0IGJ5IHRoZSBuZXh0IG9u
-ZSwKaW4gY2FzZSB0aGVyZSBpcyBhbnkgbmVlZCB0byBiYWNrcG9ydCB0aGlzIGZpeC4KCi0tLQog
-bmV0L29wZW52c3dpdGNoL2Zsb3cuYyAgICAgICB8IDYgKysrKy0tCiBuZXQvb3BlbnZzd2l0Y2gv
-Zmxvd190YWJsZS5jIHwgNSArKystLQogMiBmaWxlcyBjaGFuZ2VkLCA3IGluc2VydGlvbnMoKyks
-IDQgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvbmV0L29wZW52c3dpdGNoL2Zsb3cuYyBiL25l
-dC9vcGVudnN3aXRjaC9mbG93LmMKaW5kZXggMGVhMTI4ZS4uMzYwOWYzNyAxMDA2NDQKLS0tIGEv
-bmV0L29wZW52c3dpdGNoL2Zsb3cuYworKysgYi9uZXQvb3BlbnZzd2l0Y2gvZmxvdy5jCkBAIC0x
-NDIsNyArMTQyLDggQEAgdm9pZCBvdnNfZmxvd19zdGF0c19nZXQoY29uc3Qgc3RydWN0IHN3X2Zs
-b3cgKmZsb3csCiAJKnRjcF9mbGFncyA9IDA7CiAJbWVtc2V0KG92c19zdGF0cywgMCwgc2l6ZW9m
-KCpvdnNfc3RhdHMpKTsKIAotCWZvcl9lYWNoX25vZGUobm9kZSkgeworCS8qIFdlIG9wZW4gY29k
-ZSB0aGlzIHRvIG1ha2Ugc3VyZSBub2RlIDAgaXMgYWx3YXlzIGNvbnNpZGVyZWQgKi8KKwlmb3Ig
-KG5vZGUgPSAwOyBub2RlIDwgTUFYX05VTU5PREVTOyBub2RlID0gbmV4dF9ub2RlKG5vZGUsIG5v
-ZGVfcG9zc2libGVfbWFwKSkgewogCQlzdHJ1Y3QgZmxvd19zdGF0cyAqc3RhdHMgPSByY3VfZGVy
-ZWZlcmVuY2Vfb3ZzbChmbG93LT5zdGF0c1tub2RlXSk7CiAKIAkJaWYgKHN0YXRzKSB7CkBAIC0x
-NjUsNyArMTY2LDggQEAgdm9pZCBvdnNfZmxvd19zdGF0c19jbGVhcihzdHJ1Y3Qgc3dfZmxvdyAq
-ZmxvdykKIHsKIAlpbnQgbm9kZTsKIAotCWZvcl9lYWNoX25vZGUobm9kZSkgeworCS8qIFdlIG9w
-ZW4gY29kZSB0aGlzIHRvIG1ha2Ugc3VyZSBub2RlIDAgaXMgYWx3YXlzIGNvbnNpZGVyZWQgKi8K
-Kwlmb3IgKG5vZGUgPSAwOyBub2RlIDwgTUFYX05VTU5PREVTOyBub2RlID0gbmV4dF9ub2RlKG5v
-ZGUsIG5vZGVfcG9zc2libGVfbWFwKSkgewogCQlzdHJ1Y3QgZmxvd19zdGF0cyAqc3RhdHMgPSBv
-dnNsX2RlcmVmZXJlbmNlKGZsb3ctPnN0YXRzW25vZGVdKTsKIAogCQlpZiAoc3RhdHMpIHsKZGlm
-ZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC9mbG93X3RhYmxlLmMgYi9uZXQvb3BlbnZzd2l0Y2gv
-Zmxvd190YWJsZS5jCmluZGV4IGQwNzNmZmYuLjk1N2EzYzMgMTAwNjQ0Ci0tLSBhL25ldC9vcGVu
-dnN3aXRjaC9mbG93X3RhYmxlLmMKKysrIGIvbmV0L29wZW52c3dpdGNoL2Zsb3dfdGFibGUuYwpA
-QCAtMTQ4LDggKzE0OCw5IEBAIHN0YXRpYyB2b2lkIGZsb3dfZnJlZShzdHJ1Y3Qgc3dfZmxvdyAq
-ZmxvdykKIAkJa2ZyZWUoZmxvdy0+aWQudW5tYXNrZWRfa2V5KTsKIAlpZiAoZmxvdy0+c2ZfYWN0
-cykKIAkJb3ZzX25sYV9mcmVlX2Zsb3dfYWN0aW9ucygoc3RydWN0IHN3X2Zsb3dfYWN0aW9ucyBf
-X2ZvcmNlICopZmxvdy0+c2ZfYWN0cyk7Ci0JZm9yX2VhY2hfbm9kZShub2RlKQotCQlpZiAoZmxv
-dy0+c3RhdHNbbm9kZV0pCisJLyogV2Ugb3BlbiBjb2RlIHRoaXMgdG8gbWFrZSBzdXJlIG5vZGUg
-MCBpcyBhbHdheXMgY29uc2lkZXJlZCAqLworCWZvciAobm9kZSA9IDA7IG5vZGUgPCBNQVhfTlVN
-Tk9ERVM7IG5vZGUgPSBuZXh0X25vZGUobm9kZSwgbm9kZV9wb3NzaWJsZV9tYXApKQorCQlpZiAo
-bm9kZSAhPSAwICYmIGZsb3ctPnN0YXRzW25vZGVdKQogCQkJa21lbV9jYWNoZV9mcmVlKGZsb3df
-c3RhdHNfY2FjaGUsCiAJCQkJCShzdHJ1Y3QgZmxvd19zdGF0cyBfX2ZvcmNlICopZmxvdy0+c3Rh
-dHNbbm9kZV0pOwogCWttZW1fY2FjaGVfZnJlZShmbG93X2NhY2hlLCBmbG93KTsKLS0gCjIuNy40
-CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFp
-bGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWls
-bWFuL2xpc3RpbmZvL2Rldgo=
+Instead of using flow stats per NUMA node, use it per CPU. When using
+megaflows, the stats lock can be a bottleneck in scalability.
+
+On a E5-2690 12-core system, usual throughput went from ~4Mpps to
+~15Mpps when forwarding between two 40GbE ports with a single flow
+configured on the datapath.
+
+This has been tested on a system with possible CPUs 0-7,16-23. After
+module removal, there were no corruption on the slab cache.
+
+Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
+---
+ net/openvswitch/flow.c       | 43 +++++++++++++++++++++++--------------------
+ net/openvswitch/flow.h       |  4 ++--
+ net/openvswitch/flow_table.c | 23 ++++++++++++-----------
+ 3 files changed, 37 insertions(+), 33 deletions(-)
+
+diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+index 3609f37..2970a9f 100644
+--- a/net/openvswitch/flow.c
++++ b/net/openvswitch/flow.c
+@@ -29,6 +29,7 @@
+ #include <linux/module.h>
+ #include <linux/in.h>
+ #include <linux/rcupdate.h>
++#include <linux/cpumask.h>
+ #include <linux/if_arp.h>
+ #include <linux/ip.h>
+ #include <linux/ipv6.h>
+@@ -72,32 +73,33 @@ void ovs_flow_stats_update(struct sw_flow *flow, __be16 tcp_flags,
+ {
+ 	struct flow_stats *stats;
+ 	int node = numa_node_id();
++	int cpu = get_cpu();
+ 	int len = skb->len + (skb_vlan_tag_present(skb) ? VLAN_HLEN : 0);
+ 
+-	stats = rcu_dereference(flow->stats[node]);
++	stats = rcu_dereference(flow->stats[cpu]);
+ 
+-	/* Check if already have node-specific stats. */
++	/* Check if already have CPU-specific stats. */
+ 	if (likely(stats)) {
+ 		spin_lock(&stats->lock);
+ 		/* Mark if we write on the pre-allocated stats. */
+-		if (node == 0 && unlikely(flow->stats_last_writer != node))
+-			flow->stats_last_writer = node;
++		if (cpu == 0 && unlikely(flow->stats_last_writer != cpu))
++			flow->stats_last_writer = cpu;
+ 	} else {
+ 		stats = rcu_dereference(flow->stats[0]); /* Pre-allocated. */
+ 		spin_lock(&stats->lock);
+ 
+-		/* If the current NUMA-node is the only writer on the
++		/* If the current CPU is the only writer on the
+ 		 * pre-allocated stats keep using them.
+ 		 */
+-		if (unlikely(flow->stats_last_writer != node)) {
++		if (unlikely(flow->stats_last_writer != cpu)) {
+ 			/* A previous locker may have already allocated the
+-			 * stats, so we need to check again.  If node-specific
++			 * stats, so we need to check again.  If CPU-specific
+ 			 * stats were already allocated, we update the pre-
+ 			 * allocated stats as we have already locked them.
+ 			 */
+-			if (likely(flow->stats_last_writer != NUMA_NO_NODE)
+-			    && likely(!rcu_access_pointer(flow->stats[node]))) {
+-				/* Try to allocate node-specific stats. */
++			if (likely(flow->stats_last_writer != -1) &&
++			    likely(!rcu_access_pointer(flow->stats[cpu]))) {
++				/* Try to allocate CPU-specific stats. */
+ 				struct flow_stats *new_stats;
+ 
+ 				new_stats =
+@@ -114,12 +116,12 @@ void ovs_flow_stats_update(struct sw_flow *flow, __be16 tcp_flags,
+ 					new_stats->tcp_flags = tcp_flags;
+ 					spin_lock_init(&new_stats->lock);
+ 
+-					rcu_assign_pointer(flow->stats[node],
++					rcu_assign_pointer(flow->stats[cpu],
+ 							   new_stats);
+ 					goto unlock;
+ 				}
+ 			}
+-			flow->stats_last_writer = node;
++			flow->stats_last_writer = cpu;
+ 		}
+ 	}
+ 
+@@ -129,6 +131,7 @@ void ovs_flow_stats_update(struct sw_flow *flow, __be16 tcp_flags,
+ 	stats->tcp_flags |= tcp_flags;
+ unlock:
+ 	spin_unlock(&stats->lock);
++	put_cpu();
+ }
+ 
+ /* Must be called with rcu_read_lock or ovs_mutex. */
+@@ -136,15 +139,15 @@ void ovs_flow_stats_get(const struct sw_flow *flow,
+ 			struct ovs_flow_stats *ovs_stats,
+ 			unsigned long *used, __be16 *tcp_flags)
+ {
+-	int node;
++	int cpu;
+ 
+ 	*used = 0;
+ 	*tcp_flags = 0;
+ 	memset(ovs_stats, 0, sizeof(*ovs_stats));
+ 
+-	/* We open code this to make sure node 0 is always considered */
+-	for (node = 0; node < MAX_NUMNODES; node = next_node(node, node_possible_map)) {
+-		struct flow_stats *stats = rcu_dereference_ovsl(flow->stats[node]);
++	/* We open code this to make sure cpu 0 is always considered */
++	for (cpu = 0; cpu < nr_cpu_ids; cpu = cpumask_next(cpu, cpu_possible_mask)) {
++		struct flow_stats *stats = rcu_dereference_ovsl(flow->stats[cpu]);
+ 
+ 		if (stats) {
+ 			/* Local CPU may write on non-local stats, so we must
+@@ -164,11 +167,11 @@ void ovs_flow_stats_get(const struct sw_flow *flow,
+ /* Called with ovs_mutex. */
+ void ovs_flow_stats_clear(struct sw_flow *flow)
+ {
+-	int node;
++	int cpu;
+ 
+-	/* We open code this to make sure node 0 is always considered */
+-	for (node = 0; node < MAX_NUMNODES; node = next_node(node, node_possible_map)) {
+-		struct flow_stats *stats = ovsl_dereference(flow->stats[node]);
++	/* We open code this to make sure cpu 0 is always considered */
++	for (cpu = 0; cpu < nr_cpu_ids; cpu = cpumask_next(cpu, cpu_possible_mask)) {
++		struct flow_stats *stats = ovsl_dereference(flow->stats[cpu]);
+ 
+ 		if (stats) {
+ 			spin_lock_bh(&stats->lock);
+diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
+index 03378e7..7725ffc 100644
+--- a/net/openvswitch/flow.h
++++ b/net/openvswitch/flow.h
+@@ -172,14 +172,14 @@ struct sw_flow {
+ 		struct hlist_node node[2];
+ 		u32 hash;
+ 	} flow_table, ufid_table;
+-	int stats_last_writer;		/* NUMA-node id of the last writer on
++	int stats_last_writer;		/* CPU id of the last writer on
+ 					 * 'stats[0]'.
+ 					 */
+ 	struct sw_flow_key key;
+ 	struct sw_flow_id id;
+ 	struct sw_flow_mask *mask;
+ 	struct sw_flow_actions __rcu *sf_acts;
+-	struct flow_stats __rcu *stats[]; /* One for each NUMA node.  First one
++	struct flow_stats __rcu *stats[]; /* One for each CPU.  First one
+ 					   * is allocated at flow creation time,
+ 					   * the rest are allocated on demand
+ 					   * while holding the 'stats[0].lock'.
+diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_table.c
+index 957a3c3..60e5ae0 100644
+--- a/net/openvswitch/flow_table.c
++++ b/net/openvswitch/flow_table.c
+@@ -32,6 +32,7 @@
+ #include <linux/module.h>
+ #include <linux/in.h>
+ #include <linux/rcupdate.h>
++#include <linux/cpumask.h>
+ #include <linux/if_arp.h>
+ #include <linux/ip.h>
+ #include <linux/ipv6.h>
+@@ -79,7 +80,7 @@ struct sw_flow *ovs_flow_alloc(void)
+ {
+ 	struct sw_flow *flow;
+ 	struct flow_stats *stats;
+-	int node;
++	int cpu;
+ 
+ 	flow = kmem_cache_alloc(flow_cache, GFP_KERNEL);
+ 	if (!flow)
+@@ -89,7 +90,7 @@ struct sw_flow *ovs_flow_alloc(void)
+ 	flow->mask = NULL;
+ 	flow->id.unmasked_key = NULL;
+ 	flow->id.ufid_len = 0;
+-	flow->stats_last_writer = NUMA_NO_NODE;
++	flow->stats_last_writer = -1;
+ 
+ 	/* Initialize the default stat node. */
+ 	stats = kmem_cache_alloc_node(flow_stats_cache,
+@@ -102,9 +103,9 @@ struct sw_flow *ovs_flow_alloc(void)
+ 
+ 	RCU_INIT_POINTER(flow->stats[0], stats);
+ 
+-	for_each_node(node)
+-		if (node != 0)
+-			RCU_INIT_POINTER(flow->stats[node], NULL);
++	for_each_possible_cpu(cpu)
++		if (cpu != 0)
++			RCU_INIT_POINTER(flow->stats[cpu], NULL);
+ 
+ 	return flow;
+ err:
+@@ -142,17 +143,17 @@ static struct flex_array *alloc_buckets(unsigned int n_buckets)
+ 
+ static void flow_free(struct sw_flow *flow)
+ {
+-	int node;
++	int cpu;
+ 
+ 	if (ovs_identifier_is_key(&flow->id))
+ 		kfree(flow->id.unmasked_key);
+ 	if (flow->sf_acts)
+ 		ovs_nla_free_flow_actions((struct sw_flow_actions __force *)flow->sf_acts);
+-	/* We open code this to make sure node 0 is always considered */
+-	for (node = 0; node < MAX_NUMNODES; node = next_node(node, node_possible_map))
+-		if (node != 0 && flow->stats[node])
++	/* We open code this to make sure cpu 0 is always considered */
++	for (cpu = 0; cpu < nr_cpu_ids; cpu = cpumask_next(cpu, cpu_possible_mask))
++		if (flow->stats[cpu])
+ 			kmem_cache_free(flow_stats_cache,
+-					(struct flow_stats __force *)flow->stats[node]);
++					(struct flow_stats __force *)flow->stats[cpu]);
+ 	kmem_cache_free(flow_cache, flow);
+ }
+ 
+@@ -757,7 +758,7 @@ int ovs_flow_init(void)
+ 	BUILD_BUG_ON(sizeof(struct sw_flow_key) % sizeof(long));
+ 
+ 	flow_cache = kmem_cache_create("sw_flow", sizeof(struct sw_flow)
+-				       + (nr_node_ids
++				       + (nr_cpu_ids
+ 					  * sizeof(struct flow_stats *)),
+ 				       0, 0, NULL);
+ 	if (flow_cache == NULL)
+-- 
+2.7.4
