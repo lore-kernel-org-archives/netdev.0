@@ -1,101 +1,180 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [net-next PATCH v2 2/2] e1000: bundle xdp xmit routines
-Date: Fri, 9 Sep 2016 18:40:35 -0700
-Message-ID: <20160910014032.GA83023@ast-mbp.thefacebook.com>
-References: <20160909212915.4001.25504.stgit@john-Precision-Tower-5810>
- <20160909212938.4001.40540.stgit@john-Precision-Tower-5810>
- <CALx6S35VCq9yPjcuhtx6jEJ78-WugkQZ6GSsqkcTr0Fa7edkVg@mail.gmail.com>
- <57D34D67.40804@gmail.com>
- <CALx6S36dH87e6TPxEBGsy0F-vD0fZzKyP8tbuuaAfLNSF1DGpw@mail.gmail.com>
- <57D35E08.8010204@gmail.com>
- <CALx6S36SM-wq6Fj8XK7GfMta1dVGr3RZ5uAgGdnxm7kgpVNFbw@mail.gmail.com>
+From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Subject: Re: [PATCH] softirq: fix tasklet_kill() and its users
+Date: Fri, 9 Sep 2016 18:41:24 -0700
+Message-ID: <3a14419b-4814-0e20-9af5-ce7d454867d8@oracle.com>
+References: <1472089950-2724-1-git-send-email-ssantosh@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Fastabend <john.fastabend@gmail.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: qat-linux@intel.com, linux-crypto@vger.kernel.org,
+        netdev@vger.kernel.org,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Tadeusz Struk <tadeusz.struk@intel.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
         "David S. Miller" <davem@davemloft.net>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        William Tu <u9012063@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:35792 "EHLO
-        mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751014AbcIJBkk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 21:40:40 -0400
-Received: by mail-pa0-f54.google.com with SMTP id b2so33384466pat.2
-        for <netdev@vger.kernel.org>; Fri, 09 Sep 2016 18:40:40 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CALx6S36SM-wq6Fj8XK7GfMta1dVGr3RZ5uAgGdnxm7kgpVNFbw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        Paul Bolle <pebolle@tiscali.nl>,
+        Giovanni Cabiddu <giovanni.cabiddu@intel.com>,
+        Salvatore Benedetto <salvatore.benedetto@intel.com>,
+        Karsten Keil <isdn@linux-pingi.de>,
+        "Peter Zijlstra (Intel)" <peterz@infradead.org>
+To: Santosh Shilimkar <ssantosh@kernel.org>,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <1472089950-2724-1-git-send-email-ssantosh@kernel.org>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 09, 2016 at 06:19:56PM -0700, Tom Herbert wrote:
-> On Fri, Sep 9, 2016 at 6:12 PM, John Fastabend <john.fastabend@gmail.com> wrote:
-> > On 16-09-09 06:04 PM, Tom Herbert wrote:
-> >> On Fri, Sep 9, 2016 at 5:01 PM, John Fastabend <john.fastabend@gmail.com> wrote:
-> >>> On 16-09-09 04:44 PM, Tom Herbert wrote:
-> >>>> On Fri, Sep 9, 2016 at 2:29 PM, John Fastabend <john.fastabend@gmail.com> wrote:
-> >>>>> e1000 supports a single TX queue so it is being shared with the stack
-> >>>>> when XDP runs XDP_TX action. This requires taking the xmit lock to
-> >>>>> ensure we don't corrupt the tx ring. To avoid taking and dropping the
-> >>>>> lock per packet this patch adds a bundling implementation to submit
-> >>>>> a bundle of packets to the xmit routine.
-> >>>>>
-> >>>>> I tested this patch running e1000 in a VM using KVM over a tap
-> >>>>> device using pktgen to generate traffic along with 'ping -f -l 100'.
-> >>>>>
-> >>>> Hi John,
-> >>>>
-> >>>> How does this interact with BQL on e1000?
-> >>>>
-> >>>> Tom
-> >>>>
-> >>>
-> >>> Let me check if I have the API correct. When we enqueue a packet to
-> >>> be sent we must issue a netdev_sent_queue() call and then on actual
-> >>> transmission issue a netdev_completed_queue().
-> >>>
-> >>> The patch attached here missed a few things though.
-> >>>
-> >>> But it looks like I just need to call netdev_sent_queue() from the
-> >>> e1000_xmit_raw_frame() routine and then let the tx completion logic
-> >>> kick in which will call netdev_completed_queue() correctly.
-> >>>
-> >>> I'll need to add a check for the queue state as well. So if I do these
-> >>> three things,
-> >>>
-> >>>         check __QUEUE_STATE_XOFF before sending
-> >>>         netdev_sent_queue() -> on XDP_TX
-> >>>         netdev_completed_queue()
-> >>>
-> >>> It should work agree? Now should we do this even when XDP owns the
-> >>> queue? Or is this purely an issue with sharing the queue between
-> >>> XDP and stack.
-> >>>
-> >> But what is the action for XDP_TX if the queue is stopped? There is no
-> >> qdisc to back pressure in the XDP path. Would we just start dropping
-> >> packets then?
-> >
-> > Yep that is what the patch does if there is any sort of error packets
-> > get dropped on the floor. I don't think there is anything else that
-> > can be done.
-> >
-> That probably means that the stack will always win out under load.
-> Trying to used the same queue where half of the packets are well
-> managed by a qdisc and half aren't is going to leave someone unhappy.
-> Maybe in the this case where we have to share the qdisc we can
-> allocate the skb on on returning XDP_TX and send through the normal
-> qdisc for the device.
+Ping !!
 
-I wouldn't go to such extremes for e1k.
-The only reason to have xdp in e1k is to use it for testing
-of xdp programs. Nothing else. e1k is, best case, 1Gbps adapter.
-Existing stack with skb is perfectly fine as it is.
-No need to do recycling, batching or any other complex things.
-xdp for e1k cannot be used as an example for other drivers either,
-since there is only one tx ring and any high performance adapter
-has more which makes the driver support quite different.
+On 8/24/2016 6:52 PM, Santosh Shilimkar wrote:
+> Semantically the expectation from the tasklet init/kill API
+> should be as below.
+>
+> tasklet_init() == Init and Enable scheduling
+> tasklet_kill() == Disable scheduling and Destroy
+>
+> tasklet_init() API exibit above behavior but not the
+> tasklet_kill(). The tasklet handler can still get scheduled
+> and run even after the tasklet_kill().
+>
+> There are 2, 3 places where drivers are working around
+> this issue by calling tasklet_disable() which will add an
+> usecount and there by avoiding the handlers being called.
+>
+> tasklet_enable/tasklet_disable is a pair API and expected
+> to be used together. Usage of tasklet_disable() *just* to
+> workround tasklet scheduling after kill is probably not the
+> correct and inteded use of the API as done the API.
+> We also happen to see similar issue where in shutdown path
+> the tasklet_handler was getting called even after the
+> tasklet_kill().
+>
+> We fix this be making sure tasklet_kill() does right
+> thing and there by ensuring tasklet handler won't run after
+> tasklet_kil() with very simple change. Patch fixes the tasklet
+> code and also few drivers workarounds.
+>
+> Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+> Cc: Andrew Morton <akpm@linux-foundation.org>
+> Cc: Thomas Gleixner <tglx@linutronix.de>
+> Cc: Tadeusz Struk <tadeusz.struk@intel.com>
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Paul Bolle <pebolle@tiscali.nl>
+> Cc: Giovanni Cabiddu <giovanni.cabiddu@intel.com>
+> Cc: Salvatore Benedetto <salvatore.benedetto@intel.com>
+> Cc: Karsten Keil <isdn@linux-pingi.de>
+> Cc: "Peter Zijlstra (Intel)" <peterz@infradead.org>
+>
+> Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
+> ---
+> Removed RFC tag from last post and dropped atmel serial
+> driver which seems to have been fixed in 4.8
+>
+> https://lkml.org/lkml/2016/8/7/7
+>
+>  drivers/crypto/qat/qat_common/adf_isr.c    | 1 -
+>  drivers/crypto/qat/qat_common/adf_sriov.c  | 1 -
+>  drivers/crypto/qat/qat_common/adf_vf_isr.c | 2 --
+>  drivers/isdn/gigaset/interface.c           | 1 -
+>  kernel/softirq.c                           | 7 ++++---
+>  5 files changed, 4 insertions(+), 8 deletions(-)
+>
+> diff --git a/drivers/crypto/qat/qat_common/adf_isr.c b/drivers/crypto/qat/qat_common/adf_isr.c
+> index 06d4901..fd5e900 100644
+> --- a/drivers/crypto/qat/qat_common/adf_isr.c
+> +++ b/drivers/crypto/qat/qat_common/adf_isr.c
+> @@ -296,7 +296,6 @@ static void adf_cleanup_bh(struct adf_accel_dev *accel_dev)
+>  	int i;
+>
+>  	for (i = 0; i < hw_data->num_banks; i++) {
+> -		tasklet_disable(&priv_data->banks[i].resp_handler);
+>  		tasklet_kill(&priv_data->banks[i].resp_handler);
+>  	}
+>  }
+> diff --git a/drivers/crypto/qat/qat_common/adf_sriov.c b/drivers/crypto/qat/qat_common/adf_sriov.c
+> index 9320ae1..bc7c2fa 100644
+> --- a/drivers/crypto/qat/qat_common/adf_sriov.c
+> +++ b/drivers/crypto/qat/qat_common/adf_sriov.c
+> @@ -204,7 +204,6 @@ void adf_disable_sriov(struct adf_accel_dev *accel_dev)
+>  	}
+>
+>  	for (i = 0, vf = accel_dev->pf.vf_info; i < totalvfs; i++, vf++) {
+> -		tasklet_disable(&vf->vf2pf_bh_tasklet);
+>  		tasklet_kill(&vf->vf2pf_bh_tasklet);
+>  		mutex_destroy(&vf->pf2vf_lock);
+>  	}
+> diff --git a/drivers/crypto/qat/qat_common/adf_vf_isr.c b/drivers/crypto/qat/qat_common/adf_vf_isr.c
+> index bf99e11..6e38bff 100644
+> --- a/drivers/crypto/qat/qat_common/adf_vf_isr.c
+> +++ b/drivers/crypto/qat/qat_common/adf_vf_isr.c
+> @@ -191,7 +191,6 @@ static int adf_setup_pf2vf_bh(struct adf_accel_dev *accel_dev)
+>
+>  static void adf_cleanup_pf2vf_bh(struct adf_accel_dev *accel_dev)
+>  {
+> -	tasklet_disable(&accel_dev->vf.pf2vf_bh_tasklet);
+>  	tasklet_kill(&accel_dev->vf.pf2vf_bh_tasklet);
+>  	mutex_destroy(&accel_dev->vf.vf2pf_lock);
+>  }
+> @@ -268,7 +267,6 @@ static void adf_cleanup_bh(struct adf_accel_dev *accel_dev)
+>  {
+>  	struct adf_etr_data *priv_data = accel_dev->transport;
+>
+> -	tasklet_disable(&priv_data->banks[0].resp_handler);
+>  	tasklet_kill(&priv_data->banks[0].resp_handler);
+>  }
+>
+> diff --git a/drivers/isdn/gigaset/interface.c b/drivers/isdn/gigaset/interface.c
+> index 600c79b..2ce63b6 100644
+> --- a/drivers/isdn/gigaset/interface.c
+> +++ b/drivers/isdn/gigaset/interface.c
+> @@ -524,7 +524,6 @@ void gigaset_if_free(struct cardstate *cs)
+>  	if (!drv->have_tty)
+>  		return;
+>
+> -	tasklet_disable(&cs->if_wake_tasklet);
+>  	tasklet_kill(&cs->if_wake_tasklet);
+>  	cs->tty_dev = NULL;
+>  	tty_unregister_device(drv->tty, cs->minor_index);
+> diff --git a/kernel/softirq.c b/kernel/softirq.c
+> index 17caf4b..21397eb 100644
+> --- a/kernel/softirq.c
+> +++ b/kernel/softirq.c
+> @@ -498,7 +498,7 @@ static void tasklet_action(struct softirq_action *a)
+>  		list = list->next;
+>
+>  		if (tasklet_trylock(t)) {
+> -			if (!atomic_read(&t->count)) {
+> +			if (atomic_read(&t->count) == 1) {
+>  				if (!test_and_clear_bit(TASKLET_STATE_SCHED,
+>  							&t->state))
+>  					BUG();
+> @@ -534,7 +534,7 @@ static void tasklet_hi_action(struct softirq_action *a)
+>  		list = list->next;
+>
+>  		if (tasklet_trylock(t)) {
+> -			if (!atomic_read(&t->count)) {
+> +			if (atomic_read(&t->count) == 1) {
+>  				if (!test_and_clear_bit(TASKLET_STATE_SCHED,
+>  							&t->state))
+>  					BUG();
+> @@ -559,7 +559,7 @@ void tasklet_init(struct tasklet_struct *t,
+>  {
+>  	t->next = NULL;
+>  	t->state = 0;
+> -	atomic_set(&t->count, 0);
+> +	atomic_set(&t->count, 1);
+>  	t->func = func;
+>  	t->data = data;
+>  }
+> @@ -576,6 +576,7 @@ void tasklet_kill(struct tasklet_struct *t)
+>  		} while (test_bit(TASKLET_STATE_SCHED, &t->state));
+>  	}
+>  	tasklet_unlock_wait(t);
+> +	atomic_dec(&t->count);
+>  	clear_bit(TASKLET_STATE_SCHED, &t->state);
+>  }
+>  EXPORT_SYMBOL(tasklet_kill);
+>
