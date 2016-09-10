@@ -1,30 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] qede: mark qede_set_features() static
-Date: Fri, 09 Sep 2016 18:16:57 -0700 (PDT)
-Message-ID: <20160909.181657.1693562341995049282.davem@davemloft.net>
-References: <1473324203-9065-1-git-send-email-baoyou.xie@linaro.org>
+Subject: Re: [PATCH] via-velocity: remove null pointer check on array
+ tdinfo->skb_dma
+Date: Fri, 09 Sep 2016 18:17:49 -0700 (PDT)
+Message-ID: <20160909.181749.1305604778627776550.davem@davemloft.net>
+References: <20160908090424.16545-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Yuval.Mintz@qlogic.com, Ariel.Elior@qlogic.com,
-        everest-linux-l2@qlogic.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, arnd@arndb.de, xie.baoyou@zte.com.cn
-To: baoyou.xie@linaro.org
+Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1473324203-9065-1-git-send-email-baoyou.xie@linaro.org>
+In-Reply-To: <20160908090424.16545-1-colin.king@canonical.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Baoyou Xie <baoyou.xie@linaro.org>
-Date: Thu,  8 Sep 2016 16:43:23 +0800
+From: Colin King <colin.king@canonical.com>
+Date: Thu,  8 Sep 2016 10:04:24 +0100
 
-> We get 1 warning when building kernel with W=1:
-> drivers/net/ethernet/qlogic/qede/qede_main.c:2113:5: warning: no previous prototype for 'qede_set_features' [-Wmissing-prototypes]
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> In fact, this function is only used in the file in which it is
-> declared and don't need a declaration, but can be made static.
-> so this patch marks this function with 'static'.
+> tdinfo->skb_dma is a 7 element array of dma_addr_t hence cannot be
+> null, so the pull pointer check on tdinfo->skb_dma  is redundant.
+> Remove it.
 > 
-> Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Applied.
+Applied, thanks Colin.
