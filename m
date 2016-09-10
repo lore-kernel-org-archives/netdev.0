@@ -1,142 +1,110 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 04/11] net: vrf: Flip IPv4 output path from FIB lookup hook to out hook
-Date: Sat, 10 Sep 2016 12:09:55 -0700
-Message-ID: <1473534602-23602-5-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 03/11] net: l3mdev: Allow the l3mdev to be a loopback
+Date: Sat, 10 Sep 2016 12:09:54 -0700
+Message-ID: <1473534602-23602-4-git-send-email-dsa@cumulusnetworks.com>
 References: <1473534602-23602-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: shm@cumulusnetworks.com, David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:34105 "EHLO
-        mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753229AbcIJTL3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 10 Sep 2016 15:11:29 -0400
-Received: by mail-pa0-f42.google.com with SMTP id to9so38543782pac.1
-        for <netdev@vger.kernel.org>; Sat, 10 Sep 2016 12:11:29 -0700 (PDT)
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:33763 "EHLO
+        mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751219AbcIJTL2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 10 Sep 2016 15:11:28 -0400
+Received: by mail-pa0-f46.google.com with SMTP id cm16so38640583pac.0
+        for <netdev@vger.kernel.org>; Sat, 10 Sep 2016 12:11:28 -0700 (PDT)
 In-Reply-To: <1473534602-23602-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Flip the IPv4 output path to use the l3mdev tx out hook. The VRF dst
-is not returned on the first FIB lookup. Instead, the dst on the
-skb is switched at the beginning of the IPv4 output processing to
-send the packet to the VRF driver on xmit.
+Allow an L3 master device to act as the loopback for that L3 domain.
+For IPv4 the device can also have the address 127.0.0.1.
 
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- drivers/net/vrf.c | 64 ++++++++++++++++++++++++++++++++++++++++++++++++++++++-
- net/ipv4/route.c  |  4 ----
- 2 files changed, 63 insertions(+), 5 deletions(-)
+ include/net/l3mdev.h |  6 +++---
+ net/ipv4/route.c     |  8 ++++++--
+ net/ipv6/route.c     | 12 ++++++++++--
+ 3 files changed, 19 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
-index 1ce7420322ee..08540b96ec18 100644
---- a/drivers/net/vrf.c
-+++ b/drivers/net/vrf.c
-@@ -227,6 +227,20 @@ static netdev_tx_t vrf_process_v6_outbound(struct sk_buff *skb,
- }
- #endif
- 
-+/* based on ip_local_out; can't use it b/c the dst is switched pointing to us */
-+static int vrf_ip_local_out(struct net *net, struct sock *sk,
-+			    struct sk_buff *skb)
-+{
-+	int err;
-+
-+	err = nf_hook(NFPROTO_IPV4, NF_INET_LOCAL_OUT, net, sk,
-+		      skb, NULL, skb_dst(skb)->dev, dst_output);
-+	if (likely(err == 1))
-+		err = dst_output(net, sk, skb);
-+
-+	return err;
-+}
-+
- static netdev_tx_t vrf_process_v4_outbound(struct sk_buff *skb,
- 					   struct net_device *vrf_dev)
- {
-@@ -292,7 +306,7 @@ static netdev_tx_t vrf_process_v4_outbound(struct sk_buff *skb,
- 					       RT_SCOPE_LINK);
- 	}
- 
--	ret = ip_local_out(dev_net(skb_dst(skb)->dev), skb->sk, skb);
-+	ret = vrf_ip_local_out(dev_net(skb_dst(skb)->dev), skb->sk, skb);
- 	if (unlikely(net_xmit_eval(ret)))
- 		vrf_dev->stats.tx_errors++;
- 	else
-@@ -531,6 +545,53 @@ static int vrf_output(struct net *net, struct sock *sk, struct sk_buff *skb)
- 			    !(IPCB(skb)->flags & IPSKB_REROUTED));
+diff --git a/include/net/l3mdev.h b/include/net/l3mdev.h
+index 53d5274920e3..3ee110518584 100644
+--- a/include/net/l3mdev.h
++++ b/include/net/l3mdev.h
+@@ -90,7 +90,7 @@ static inline int l3mdev_master_ifindex_by_index(struct net *net, int ifindex)
  }
  
-+/* set dst on skb to send packet to us via dev_xmit path. Allows
-+ * packet to go through device based features such as qdisc, netfilter
-+ * hooks and packet sockets with skb->dev set to vrf device.
-+ */
-+static struct sk_buff *vrf_ip_out(struct net_device *vrf_dev,
-+				  struct sock *sk,
-+				  struct sk_buff *skb)
-+{
-+	struct net_vrf *vrf = netdev_priv(vrf_dev);
-+	struct dst_entry *dst = NULL;
-+	struct rtable *rth;
-+
-+	rcu_read_lock();
-+
-+	rth = rcu_dereference(vrf->rth);
-+	if (likely(rth)) {
-+		dst = &rth->dst;
-+		dst_hold(dst);
-+	}
-+
-+	rcu_read_unlock();
-+
-+	if (unlikely(!dst)) {
-+		vrf_tx_error(vrf_dev, skb);
-+		return NULL;
-+	}
-+
-+	skb_dst_drop(skb);
-+	skb_dst_set(skb, dst);
-+
-+	return skb;
-+}
-+
-+/* called with rcu lock held */
-+static struct sk_buff *vrf_l3_out(struct net_device *vrf_dev,
-+				  struct sock *sk,
-+				  struct sk_buff *skb,
-+				  u16 proto)
-+{
-+	switch (proto) {
-+	case AF_INET:
-+		return vrf_ip_out(vrf_dev, sk, skb);
-+	}
-+
-+	return skb;
-+}
-+
- /* holding rtnl */
- static void vrf_rtable_release(struct net_device *dev, struct net_vrf *vrf)
+ static inline
+-const struct net_device *l3mdev_master_dev_rcu(const struct net_device *_dev)
++struct net_device *l3mdev_master_dev_rcu(const struct net_device *_dev)
  {
-@@ -1067,6 +1128,7 @@ static const struct l3mdev_ops vrf_l3mdev_ops = {
- 	.l3mdev_get_rtable	= vrf_get_rtable,
- 	.l3mdev_get_saddr	= vrf_get_saddr,
- 	.l3mdev_l3_rcv		= vrf_l3_rcv,
-+	.l3mdev_l3_out		= vrf_l3_out,
- #if IS_ENABLED(CONFIG_IPV6)
- 	.l3mdev_get_rt6_dst	= vrf_get_rt6_dst,
- 	.l3mdev_get_saddr6	= vrf_get_saddr6,
+ 	/* netdev_master_upper_dev_get_rcu calls
+ 	 * list_first_or_null_rcu to walk the upper dev list.
+@@ -99,7 +99,7 @@ const struct net_device *l3mdev_master_dev_rcu(const struct net_device *_dev)
+ 	 * typecast to remove the const
+ 	 */
+ 	struct net_device *dev = (struct net_device *)_dev;
+-	const struct net_device *master;
++	struct net_device *master;
+ 
+ 	if (!dev)
+ 		return NULL;
+@@ -254,7 +254,7 @@ static inline int l3mdev_master_ifindex_by_index(struct net *net, int ifindex)
+ }
+ 
+ static inline
+-const struct net_device *l3mdev_master_dev_rcu(const struct net_device *dev)
++struct net_device *l3mdev_master_dev_rcu(const struct net_device *dev)
+ {
+ 	return NULL;
+ }
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index f49b2c534e92..ad83f85fb240 100644
+index 3e992783c1d0..f49b2c534e92 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
-@@ -2246,10 +2246,6 @@ struct rtable *__ip_route_output_key_hash(struct net *net, struct flowi4 *fl4,
- 				fl4->saddr = inet_select_addr(dev_out, 0,
- 							      RT_SCOPE_HOST);
- 		}
--
--		rth = l3mdev_get_rtable(dev_out, fl4);
--		if (rth)
--			goto out;
- 	}
+@@ -2018,7 +2018,9 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
+ 		return ERR_PTR(-EINVAL);
  
- 	if (!fl4->daddr) {
+ 	if (likely(!IN_DEV_ROUTE_LOCALNET(in_dev)))
+-		if (ipv4_is_loopback(fl4->saddr) && !(dev_out->flags & IFF_LOOPBACK))
++		if (ipv4_is_loopback(fl4->saddr) &&
++		    !(dev_out->flags & IFF_LOOPBACK) &&
++		    !netif_is_l3_master(dev_out))
+ 			return ERR_PTR(-EINVAL);
+ 
+ 	if (ipv4_is_lbcast(fl4->daddr))
+@@ -2302,7 +2304,9 @@ struct rtable *__ip_route_output_key_hash(struct net *net, struct flowi4 *fl4,
+ 			else
+ 				fl4->saddr = fl4->daddr;
+ 		}
+-		dev_out = net->loopback_dev;
++
++		/* L3 master device is the loopback for that domain */
++		dev_out = l3mdev_master_dev_rcu(dev_out) ? : net->loopback_dev;
+ 		fl4->flowi4_oif = dev_out->ifindex;
+ 		flags |= RTCF_LOCAL;
+ 		goto make_route;
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 09d43ff11a8d..2c681113c055 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2558,8 +2558,16 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
+ {
+ 	u32 tb_id;
+ 	struct net *net = dev_net(idev->dev);
+-	struct rt6_info *rt = ip6_dst_alloc(net, net->loopback_dev,
+-					    DST_NOCOUNT);
++	struct net_device *dev = net->loopback_dev;
++	struct rt6_info *rt;
++
++	/* use L3 Master device as loopback for host routes if device
++	 * is enslaved and address is not link local or multicast
++	 */
++	if (!rt6_need_strict(addr))
++		dev = l3mdev_master_dev_rcu(idev->dev) ? : dev;
++
++	rt = ip6_dst_alloc(net, dev, DST_NOCOUNT);
+ 	if (!rt)
+ 		return ERR_PTR(-ENOMEM);
+ 
 -- 
 2.1.4
