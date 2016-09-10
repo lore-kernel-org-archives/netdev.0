@@ -1,28 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] dwc_eth_qos: do not register semi-initialized
- device
-Date: Fri, 09 Sep 2016 19:20:38 -0700 (PDT)
-Message-ID: <20160909.192038.1381124057816689516.davem@davemloft.net>
-References: <1473333861-1319-1-git-send-email-larper@axis.com>
+Subject: Re: pull-request: wireless-drivers 2016-09-08
+Date: Fri, 09 Sep 2016 19:21:38 -0700 (PDT)
+Message-ID: <20160909.192138.1994746601121604291.davem@davemloft.net>
+References: <8737latyoj.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        andrianov@ispras.ru, larper@axis.com
-To: lars.persson@axis.com
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: kvalo@codeaurora.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1473333861-1319-1-git-send-email-larper@axis.com>
+In-Reply-To: <8737latyoj.fsf@kamboji.qca.qualcomm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Lars Persson <lars.persson@axis.com>
-Date: Thu,  8 Sep 2016 13:24:21 +0200
+From: Kalle Valo <kvalo@codeaurora.org>
+Date: Thu, 08 Sep 2016 14:31:56 +0300
 
-> We move register_netdev() to the end of dwceqos_probe() to close any
-> races where the netdev callbacks are called before the initialization
-> has finished.
+> The following changes since commit bb87f02b7e4ccdb614a83cbf840524de81e9b321:
 > 
-> Reported-by: Pavel Andrianov <andrianov@ispras.ru>
-> Signed-off-by: Lars Persson <larper@axis.com>
+>   Merge ath-current from ath.git (2016-08-29 21:39:04 +0300)
+> 
+> are available in the git repository at:
+> 
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.git tags/wireless-drivers-for-davem-2016-09-08
 
-Applied.
+Pulled, thanks Kalle.
