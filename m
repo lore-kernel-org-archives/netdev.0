@@ -1,53 +1,51 @@
-From: Andreas Noever <andreas.noever@gmail.com>
-Subject: Re: [PATCH v6 1/8] thunderbolt: Macro rename
-Date: Sun, 11 Sep 2016 01:20:44 +0200
-Message-ID: <CAMxnaaW0vBFeUcLg6oC=FuRx3sqStQ4pht2HUzyHqDMtf8oR2g@mail.gmail.com>
-References: <1470054233-4309-1-git-send-email-amir.jer.levy@intel.com> <1470054233-4309-2-git-send-email-amir.jer.levy@intel.com>
+From: Quentin Barnes <qbarnes@gmail.com>
+Subject: Re: iptables, conntrack, and the raw table vs. L3DSR
+Date: Sat, 10 Sep 2016 18:49:05 -0500
+Message-ID: <CAKjHkpCJr4_mmZqdjSvcTp+mq2cV3WUvsA==Boc8dK+JXrL69A@mail.gmail.com>
+References: <20160827215538.GA36125@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Greg KH <gregkh@linuxfoundation.org>,
-        Bjorn Helgaas <bhelgaas@google.com>, corbet@lwn.net,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-        netdev@vger.kernel.org, linux-doc@vger.kernel.org,
-        thunderbolt-linux <thunderbolt-linux@intel.com>,
-        "Westerberg, Mika" <mika.westerberg@intel.com>,
-        "Winkler, Tomas" <tomas.winkler@intel.com>
-To: Amir Levy <amir.jer.levy@intel.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1470054233-4309-2-git-send-email-amir.jer.levy@intel.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f47.google.com ([209.85.215.47]:34186 "EHLO
+        mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752258AbcIJXtI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 10 Sep 2016 19:49:08 -0400
+Received: by mail-lf0-f47.google.com with SMTP id u14so66346908lfd.1
+        for <netdev@vger.kernel.org>; Sat, 10 Sep 2016 16:49:08 -0700 (PDT)
+In-Reply-To: <20160827215538.GA36125@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 1, 2016 at 2:23 PM, Amir Levy <amir.jer.levy@intel.com> wrote:
-> This first patch updates the registers file to
-> reflect that it isn't only for Cactus Ridge.
-> No functional change intended.
+Being unsuccessful at getting help so far, can anyone think of who or
+where else I could ask for help on this issue?
+
+On Sat, Aug 27, 2016 at 4:55 PM, Quentin Barnes <qbarnes@gmail.com> wrote:
+> Several years ago, I wrote an iptables module that rewrites packets'
+> destination addresses based on the value in the DSCP field to
+> implement Layer 3 Direct Server Return (L3DSR).  The main code of
+> the iptables target module you can find here:
+> https://github.com/yahoo/l3dsr/blob/master/linux/kmod-xt/xt_DADDR.c
 >
-> Signed-off-by: Amir Levy <amir.jer.levy@intel.com>
-> ---
->  drivers/thunderbolt/nhi_regs.h | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
+> The iptable-daddr module has been in production since I wrote it
+> with some limitations.  One of those limitations is it doesn't
+> work well with conntrack modules.  I believe that's from the daddr
+> rewriting confuses conntrack since changing a packet's daddr changes
+> its 4-tuple not allowing conntrack to track a connection.
 >
-> diff --git a/drivers/thunderbolt/nhi_regs.h b/drivers/thunderbolt/nhi_regs.h
-> index 86b996c..75cf069 100644
-> --- a/drivers/thunderbolt/nhi_regs.h
-> +++ b/drivers/thunderbolt/nhi_regs.h
-> @@ -1,11 +1,11 @@
->  /*
-> - * Thunderbolt Cactus Ridge driver - NHI registers
-> + * Thunderbolt driver - NHI registers
->   *
->   * Copyright (c) 2014 Andreas Noever <andreas.noever@gmail.com>
->   */
+> Someone recently suggested I change the module from the "mangle"
+> table to "raw", so it can be put in the prerouting chain ahead of
+> conntrack.  That would let conntrack see the packet after its daddr
+> update.  This approach seems to work fine in a test case letting
+> L3DSR and conntrack apparently work in concert, but has me concerned
+> that there might be unforeseen negative side-effects from using the
+> raw table for doing mangling work.
 >
-> -#ifndef DSL3510_REGS_H_
-> -#define DSL3510_REGS_H_
-> +#ifndef NHI_REGS_H_
-> +#define NHI_REGS_H_
+> Can anyone think of any issues with having a mangle target module be
+> invoked from the raw table?
 >
->  #include <linux/types.h>
+> Or as an alternative if necessary, is there a possible/rational way
+> to leave the module in the mangle table and then inform conntrack
+> about the packet's daddr alteration?
 >
-> --
-> 2.7.4
-Signed-off-by: Andreas Noever <andreas.noever@gmail.com>
+> Quentin
