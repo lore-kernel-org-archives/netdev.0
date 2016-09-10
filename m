@@ -1,8 +1,7 @@
 From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 3/5] ATM-nicstar: Improve another size determination in
- ns_init_card()
-Date: Sat, 10 Sep 2016 09:19:33 +0200
-Message-ID: <c8533128-fbcf-f7fe-9354-1949b47cca32@users.sourceforge.net>
+Subject: [PATCH 4/5] ATM-nicstar: Refactor a kmalloc() call in ns_init_card()
+Date: Sat, 10 Sep 2016 09:20:30 +0200
+Message-ID: <99cb1cdf-f2ab-f703-d214-cc0cc26c2668@users.sourceforge.net>
 References: <fe480e1f-285a-bb98-3550-b4fa354f8174@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -19,30 +18,35 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Sat, 10 Sep 2016 08:30:09 +0200
+Date: Sat, 10 Sep 2016 08:48:17 +0200
 
-Replace the specification of a data structure by a reference for a field
-in a local variable as the parameter for the operator "sizeof" to make
-the corresponding size determination a bit safer according to
-the Linux coding style convention.
+* The script "checkpatch.pl" can point out that assignments should usually
+  not be performed within condition checks.
+  Thus move an assignment for a local variable to a separate statement
+  in this function.
+
+* Replace the specification of a data structure by a pointer dereference
+  as the parameter for the operator "sizeof" to make the corresponding size
+  determination a bit safer according to the Linux coding style convention.
 
 Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- drivers/atm/nicstar.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/atm/nicstar.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/atm/nicstar.c b/drivers/atm/nicstar.c
-index 96062e1..ef977bf 100644
+index ef977bf..04f5781 100644
 --- a/drivers/atm/nicstar.c
 +++ b/drivers/atm/nicstar.c
-@@ -611,7 +611,7 @@ static int ns_init_card(int i, struct pci_dev *pcidev)
- 	for (j = 0; j < card->rct_size; j++)
- 		ns_write_sram(card, j * 4, u32d, 4);
+@@ -370,7 +370,8 @@ static int ns_init_card(int i, struct pci_dev *pcidev)
+ 		return error;
+         }
  
--	memset(card->vcmap, 0, NS_MAX_RCTSIZE * sizeof(vc_map));
-+	memset(card->vcmap, 0, sizeof(card->vcmap));
- 
- 	for (j = 0; j < NS_FRSCD_NUM; j++)
- 		card->scd2vc[j] = NULL;
+-	if ((card = kmalloc(sizeof(ns_dev), GFP_KERNEL)) == NULL) {
++	card = kmalloc(sizeof(*card), GFP_KERNEL);
++	if (!card) {
+ 		printk
+ 		    ("nicstar%d: can't allocate memory for device structure.\n",
+ 		     i);
 -- 
 2.10.0
