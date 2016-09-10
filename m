@@ -1,7 +1,7 @@
 From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 1/4] ATM-ZeitNet: Use kmalloc_array() in start_tx()
-Date: Sat, 10 Sep 2016 11:00:09 +0200
-Message-ID: <4c3bc3b9-3bca-6a79-8093-1ee8d0c3ec8b@users.sourceforge.net>
+Subject: [PATCH 2/4] ATM-ZeitNet: Improve a size determination in zatm_open()
+Date: Sat, 10 Sep 2016 11:01:25 +0200
+Message-ID: <31713ca7-078f-92fe-0595-60c6904004c5@users.sourceforge.net>
 References: <0b5381e1-d725-0706-1cc0-188df6c201f2@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -12,44 +12,36 @@ Cc: LKML <linux-kernel@vger.kernel.org>,
         Paolo Bonzini <pbonzini@redhat.com>
 To: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
         Chas Williams <3chas3@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
 In-Reply-To: <0b5381e1-d725-0706-1cc0-188df6c201f2@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Sat, 10 Sep 2016 09:55:53 +0200
+Date: Sat, 10 Sep 2016 10:07:38 +0200
 
-* A multiplication for the size determination of a memory allocation
-  indicated that an array data structure should be processed.
-  Thus use the corresponding function "kmalloc_array".
-
-  This issue was detected by using the Coccinelle software.
-
-* Replace the specification of a data type by a pointer dereference
-  to make the corresponding size determination a bit safer according to
-  the Linux coding style convention.
+Replace the specification of a data structure by a pointer dereference
+as the parameter for the operator "sizeof" to make the corresponding size
+determination a bit safer according to the Linux coding style convention.
 
 Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- drivers/atm/zatm.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ drivers/atm/zatm.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/atm/zatm.c b/drivers/atm/zatm.c
-index cecfb94..d378ff2 100644
+index d378ff2..218c6af 100644
 --- a/drivers/atm/zatm.c
 +++ b/drivers/atm/zatm.c
-@@ -998,8 +998,9 @@ static int start_tx(struct atm_dev *dev)
- 
- 	DPRINTK("start_tx\n");
- 	zatm_dev = ZATM_DEV(dev);
--	zatm_dev->tx_map = kmalloc(sizeof(struct atm_vcc *)*
--	    zatm_dev->chans,GFP_KERNEL);
-+	zatm_dev->tx_map = kmalloc_array(zatm_dev->chans,
-+					 sizeof(*zatm_dev->tx_map),
-+					 GFP_KERNEL);
- 	if (!zatm_dev->tx_map) return -ENOMEM;
- 	zatm_dev->tx_bw = ATM_OC3_PCR;
- 	zatm_dev->free_shapers = (1 << NR_SHAPERS)-1;
+@@ -1399,7 +1399,7 @@ static int zatm_open(struct atm_vcc *vcc)
+ 	DPRINTK(DEV_LABEL "(itf %d): open %d.%d\n",vcc->dev->number,vcc->vpi,
+ 	    vcc->vci);
+ 	if (!test_bit(ATM_VF_PARTIAL,&vcc->flags)) {
+-		zatm_vcc = kmalloc(sizeof(struct zatm_vcc),GFP_KERNEL);
++		zatm_vcc = kmalloc(sizeof(*zatm_vcc), GFP_KERNEL);
+ 		if (!zatm_vcc) {
+ 			clear_bit(ATM_VF_ADDR,&vcc->flags);
+ 			return -ENOMEM;
 -- 
 2.10.0
+
