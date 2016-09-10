@@ -1,38 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ATM-ForeRunnerHE: Use kmalloc_array() in
- he_init_group()
-Date: Fri, 09 Sep 2016 19:27:50 -0700 (PDT)
-Message-ID: <20160909.192750.65059727736015475.davem@davemloft.net>
-References: <edd03d91-0aff-73ed-cb04-c5851ac90dca@users.sourceforge.net>
+Subject: Re: [PATCH] drivers: net: phy: mdio-xgene: Add hardware dependency
+Date: Fri, 09 Sep 2016 19:30:13 -0700 (PDT)
+Message-ID: <20160909.193013.2075023105385360607.davem@davemloft.net>
+References: <20160908162515.1a69cf67@endymion>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-        3chas3@gmail.com, linux-kernel@vger.kernel.org,
-        kernel-janitors@vger.kernel.org, julia.lawall@lip6.fr,
-        pbonzini@redhat.com
-To: elfring@users.sourceforge.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <edd03d91-0aff-73ed-cb04-c5851ac90dca@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, isubramanian@apm.com
+To: jdelvare@suse.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:35772 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752586AbcIJCaO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 22:30:14 -0400
+In-Reply-To: <20160908162515.1a69cf67@endymion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Date: Thu, 8 Sep 2016 15:50:05 +0200
+From: Jean Delvare <jdelvare@suse.de>
+Date: Thu, 8 Sep 2016 16:25:15 +0200
 
-> From: Markus Elfring <elfring@users.sourceforge.net>
-> Date: Thu, 8 Sep 2016 15:43:37 +0200
+> The mdio-xgene driver is only useful on X-Gene SoC.
 > 
-> * Multiplications for the size determination of memory allocations
->   indicated that array data structures should be processed.
->   Thus use the corresponding function "kmalloc_array".
-> 
->   This issue was detected by using the Coccinelle software.
-> 
-> * Replace the specification of data types by pointer dereferences
->   to make the corresponding size determination a bit safer according to
->   the Linux coding style convention.
-> 
-> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+> Signed-off-by: Jean Delvare <jdelvare@suse.de>
 
 Applied.
