@@ -1,7 +1,8 @@
 From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 4/5] ATM-nicstar: Refactor a kmalloc() call in ns_init_card()
-Date: Sat, 10 Sep 2016 09:20:30 +0200
-Message-ID: <99cb1cdf-f2ab-f703-d214-cc0cc26c2668@users.sourceforge.net>
+Subject: [PATCH 5/5] ATM-nicstar: Refactor a dev_alloc_skb() call in
+ dequeue_rx()
+Date: Sat, 10 Sep 2016 09:21:29 +0200
+Message-ID: <b6465bc0-f0ff-b3b6-8872-79b84f7300f8@users.sourceforge.net>
 References: <fe480e1f-285a-bb98-3550-b4fa354f8174@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -18,16 +19,12 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Sat, 10 Sep 2016 08:48:17 +0200
+Date: Sat, 10 Sep 2016 08:56:03 +0200
 
-* The script "checkpatch.pl" can point out that assignments should usually
-  not be performed within condition checks.
-  Thus move an assignment for a local variable to a separate statement
-  in this function.
-
-* Replace the specification of a data structure by a pointer dereference
-  as the parameter for the operator "sizeof" to make the corresponding size
-  determination a bit safer according to the Linux coding style convention.
+The script "checkpatch.pl" can point out that assignments should usually
+not be performed within condition checks.
+Thus move an assignment for a local variable to a separate statement
+in this function.
 
 Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
@@ -35,18 +32,18 @@ Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/atm/nicstar.c b/drivers/atm/nicstar.c
-index ef977bf..04f5781 100644
+index 04f5781..c7296b5 100644
 --- a/drivers/atm/nicstar.c
 +++ b/drivers/atm/nicstar.c
-@@ -370,7 +370,8 @@ static int ns_init_card(int i, struct pci_dev *pcidev)
- 		return error;
-         }
+@@ -2023,7 +2023,8 @@ static void dequeue_rx(ns_dev * card, ns_rsqe * rsqe)
  
--	if ((card = kmalloc(sizeof(ns_dev), GFP_KERNEL)) == NULL) {
-+	card = kmalloc(sizeof(*card), GFP_KERNEL);
-+	if (!card) {
- 		printk
- 		    ("nicstar%d: can't allocate memory for device structure.\n",
- 		     i);
+ 		cell = skb->data;
+ 		for (i = ns_rsqe_cellcount(rsqe); i; i--) {
+-			if ((sb = dev_alloc_skb(NS_SMSKBSIZE)) == NULL) {
++			sb = dev_alloc_skb(NS_SMSKBSIZE);
++			if (!sb) {
+ 				printk
+ 				    ("nicstar%d: Can't allocate buffers for aal0.\n",
+ 				     card->index);
 -- 
 2.10.0
