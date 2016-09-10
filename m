@@ -1,32 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] net: phy: Fixed checkpatch errors for
- Microsemi PHYs.
-Date: Fri, 09 Sep 2016 18:16:24 -0700 (PDT)
-Message-ID: <20160909.181624.961228757204360230.davem@davemloft.net>
-References: <20160816194803.GA3751@lunn.ch>
-        <1473323971-4041-1-git-send-email-Raju.Lakkaraju@microsemi.com>
+Subject: Re: [PATCH] qede: mark qede_set_features() static
+Date: Fri, 09 Sep 2016 18:16:57 -0700 (PDT)
+Message-ID: <20160909.181657.1693562341995049282.davem@davemloft.net>
+References: <1473324203-9065-1-git-send-email-baoyou.xie@linaro.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
-        Allan.Nielsen@microsemi.com, andrew@lunn.ch
-To: Raju.Lakkaraju@microsemi.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34718 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751014AbcIJBQZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 21:16:25 -0400
-In-Reply-To: <1473323971-4041-1-git-send-email-Raju.Lakkaraju@microsemi.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Yuval.Mintz@qlogic.com, Ariel.Elior@qlogic.com,
+        everest-linux-l2@qlogic.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, arnd@arndb.de, xie.baoyou@zte.com.cn
+To: baoyou.xie@linaro.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1473324203-9065-1-git-send-email-baoyou.xie@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Date: Thu, 8 Sep 2016 14:09:31 +0530
+From: Baoyou Xie <baoyou.xie@linaro.org>
+Date: Thu,  8 Sep 2016 16:43:23 +0800
 
-> From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+> We get 1 warning when building kernel with W=1:
+> drivers/net/ethernet/qlogic/qede/qede_main.c:2113:5: warning: no previous prototype for 'qede_set_features' [-Wmissing-prototypes]
 > 
-> The existing VSC85xx PHY driver did not follow the coding style and caused "checkpatch" to complain. This commit fixes this.
+> In fact, this function is only used in the file in which it is
+> declared and don't need a declaration, but can be made static.
+> so this patch marks this function with 'static'.
 > 
-> Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+> Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
 
 Applied.
