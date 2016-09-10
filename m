@@ -1,258 +1,123 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [net-next PATCH v2 2/2] e1000: bundle xdp xmit routines
-Date: Sat, 10 Sep 2016 08:36:43 -0700
-Message-ID: <CALx6S34+Mgb173vReYt=yPOztcFhVU9rRZyodVc56toXP1OiHQ@mail.gmail.com>
-References: <20160909212915.4001.25504.stgit@john-Precision-Tower-5810> <20160909212938.4001.40540.stgit@john-Precision-Tower-5810>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH] net_namespace: fixed net_device reference leak
+Date: Sat, 10 Sep 2016 10:12:45 -0600
+Message-ID: <6f78dadc-9fdc-7f37-7a2a-037b778c4366@cumulusnetworks.com>
+References: <1473373012.18970.13.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAJD3hpUMdSt6UXEFjU9OnU4K7qiET50xo8AQ194+4vpX2CfOUA@mail.gmail.com>
+ <CAJD3hpUDTZiJQ4YMiCizcYBKw=GD6jZoww3GxYjmajSdn6CE=g@mail.gmail.com>
+ <20160908.170443.533565891486140434.davem@davemloft.net>
+ <CAJD3hpVDo+WVVM0cvcD2z8LzXrsyBPvPC1E72ETN_yG2rNaeLw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Brenden Blanco <bblanco@plumgrid.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        William Tu <u9012063@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: multipart/mixed;
+ boundary="------------15380C235CBA31142FB5459E"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Jojy Varghese <jojy.varghese@gmail.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f193.google.com ([209.85.220.193]:36485 "EHLO
-        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754249AbcIJPgo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 10 Sep 2016 11:36:44 -0400
-Received: by mail-qk0-f193.google.com with SMTP id z143so311402qka.3
-        for <netdev@vger.kernel.org>; Sat, 10 Sep 2016 08:36:44 -0700 (PDT)
-In-Reply-To: <20160909212938.4001.40540.stgit@john-Precision-Tower-5810>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:32951 "EHLO
+        mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754821AbcIJQMx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 10 Sep 2016 12:12:53 -0400
+Received: by mail-pa0-f43.google.com with SMTP id cm16so37921767pac.0
+        for <netdev@vger.kernel.org>; Sat, 10 Sep 2016 09:12:53 -0700 (PDT)
+In-Reply-To: <CAJD3hpVDo+WVVM0cvcD2z8LzXrsyBPvPC1E72ETN_yG2rNaeLw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 9, 2016 at 2:29 PM, John Fastabend <john.fastabend@gmail.com> wrote:
-> e1000 supports a single TX queue so it is being shared with the stack
-> when XDP runs XDP_TX action. This requires taking the xmit lock to
-> ensure we don't corrupt the tx ring. To avoid taking and dropping the
-> lock per packet this patch adds a bundling implementation to submit
-> a bundle of packets to the xmit routine.
->
-> I tested this patch running e1000 in a VM using KVM over a tap
-> device using pktgen to generate traffic along with 'ping -f -l 100'.
->
-> Suggested-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> ---
->  drivers/net/ethernet/intel/e1000/e1000.h      |   10 +++
->  drivers/net/ethernet/intel/e1000/e1000_main.c |   81 +++++++++++++++++++------
->  2 files changed, 71 insertions(+), 20 deletions(-)
->
-> diff --git a/drivers/net/ethernet/intel/e1000/e1000.h b/drivers/net/ethernet/intel/e1000/e1000.h
-> index 5cf8a0a..877b377 100644
-> --- a/drivers/net/ethernet/intel/e1000/e1000.h
-> +++ b/drivers/net/ethernet/intel/e1000/e1000.h
-> @@ -133,6 +133,8 @@ struct e1000_adapter;
->  #define E1000_TX_QUEUE_WAKE    16
->  /* How many Rx Buffers do we bundle into one write to the hardware ? */
->  #define E1000_RX_BUFFER_WRITE  16 /* Must be power of 2 */
-> +/* How many XDP XMIT buffers to bundle into one xmit transaction */
-> +#define E1000_XDP_XMIT_BUNDLE_MAX E1000_RX_BUFFER_WRITE
->
->  #define AUTO_ALL_MODES         0
->  #define E1000_EEPROM_82544_APM 0x0004
-> @@ -168,6 +170,11 @@ struct e1000_rx_buffer {
->         dma_addr_t dma;
->  };
->
-> +struct e1000_rx_buffer_bundle {
-> +       struct e1000_rx_buffer *buffer;
-> +       u32 length;
-> +};
-> +
->  struct e1000_tx_ring {
->         /* pointer to the descriptor ring memory */
->         void *desc;
-> @@ -206,6 +213,9 @@ struct e1000_rx_ring {
->         struct e1000_rx_buffer *buffer_info;
->         struct sk_buff *rx_skb_top;
->
-> +       /* array of XDP buffer information structs */
-> +       struct e1000_rx_buffer_bundle *xdp_buffer;
-> +
->         /* cpu for rx queue */
->         int cpu;
->
-> diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-> index 91d5c87..b985271 100644
-> --- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-> +++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-> @@ -1738,10 +1738,18 @@ static int e1000_setup_rx_resources(struct e1000_adapter *adapter,
->         struct pci_dev *pdev = adapter->pdev;
->         int size, desc_len;
->
-> +       size = sizeof(struct e1000_rx_buffer_bundle) *
-> +                       E1000_XDP_XMIT_BUNDLE_MAX;
-> +       rxdr->xdp_buffer = vzalloc(size);
-> +       if (!rxdr->xdp_buffer)
-> +               return -ENOMEM;
-> +
->         size = sizeof(struct e1000_rx_buffer) * rxdr->count;
->         rxdr->buffer_info = vzalloc(size);
-> -       if (!rxdr->buffer_info)
-> +       if (!rxdr->buffer_info) {
-> +               vfree(rxdr->xdp_buffer);
+This is a multi-part message in MIME format.
+--------------15380C235CBA31142FB5459E
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
 
-This could be deferred until an XDP program is added.
+On 9/8/16 6:35 PM, Jojy Varghese wrote:
+> Thanks for the feedback guys. I appreciate it.
+> 
+> I am working with 4.4.3 kernel.  I will try to reproduce the issue
+> with the kernel tree at
+> https://git.kernel.org/cgit/linux/kernel/git/davem/net.git.
+> 
+> In the meantime, the only data I have now is :
+> -  "dst-ifdown"  does not look correct since it will never release
+> reference to loopback device.
+> -  One way to fix might be to assign the 'dst''s net device to the
+> init net device. I thought adding reference to init net device's
+> loopback might be safe.
+> 
+> Any suggestion on debugging further is much appreciated.
+> 
 
->                 return -ENOMEM;
-> +       }
->
->         desc_len = sizeof(struct e1000_rx_desc);
->
-> @@ -1754,6 +1762,7 @@ static int e1000_setup_rx_resources(struct e1000_adapter *adapter,
->                                         GFP_KERNEL);
->         if (!rxdr->desc) {
->  setup_rx_desc_die:
-> +               vfree(rxdr->xdp_buffer);
->                 vfree(rxdr->buffer_info);
->                 return -ENOMEM;
->         }
-> @@ -2087,6 +2096,9 @@ static void e1000_free_rx_resources(struct e1000_adapter *adapter,
->
->         e1000_clean_rx_ring(adapter, rx_ring);
->
-> +       vfree(rx_ring->xdp_buffer);
-> +       rx_ring->xdp_buffer = NULL;
-> +
->         vfree(rx_ring->buffer_info);
->         rx_ring->buffer_info = NULL;
->
-> @@ -3369,33 +3381,52 @@ static void e1000_tx_map_rxpage(struct e1000_tx_ring *tx_ring,
->  }
->
->  static void e1000_xmit_raw_frame(struct e1000_rx_buffer *rx_buffer_info,
-> -                                unsigned int len,
-> -                                struct net_device *netdev,
-> -                                struct e1000_adapter *adapter)
-> +                                __u32 len,
-> +                                struct e1000_adapter *adapter,
-> +                                struct e1000_tx_ring *tx_ring)
->  {
-> -       struct netdev_queue *txq = netdev_get_tx_queue(netdev, 0);
-> -       struct e1000_hw *hw = &adapter->hw;
-> -       struct e1000_tx_ring *tx_ring;
-> -
->         if (len > E1000_MAX_DATA_PER_TXD)
->                 return;
->
-> +       if (E1000_DESC_UNUSED(tx_ring) < 2)
-> +               return;
-> +
-> +       e1000_tx_map_rxpage(tx_ring, rx_buffer_info, len);
-> +       e1000_tx_queue(adapter, tx_ring, 0/*tx_flags*/, 1);
-> +}
-> +
-> +static void e1000_xdp_xmit_bundle(struct e1000_rx_buffer_bundle *buffer_info,
-> +                                 struct net_device *netdev,
-> +                                 struct e1000_adapter *adapter)
-> +{
-> +       struct netdev_queue *txq = netdev_get_tx_queue(netdev, 0);
-> +       struct e1000_tx_ring *tx_ring = adapter->tx_ring;
-> +       struct e1000_hw *hw = &adapter->hw;
-> +       int i = 0;
-> +
->         /* e1000 only support a single txq at the moment so the queue is being
->          * shared with stack. To support this requires locking to ensure the
->          * stack and XDP are not running at the same time. Devices with
->          * multiple queues should allocate a separate queue space.
-> +        *
-> +        * To amortize the locking cost e1000 bundles the xmits and sends as
-> +        * many as possible until either running out of descriptors or failing.
+Last 2 times I chased down netdev refcnts I used the attach patch. It adds tracepoints to dev_hold and dev_put.
 
-Up to E1000_XDP_XMIT_BUNDLE_MAX  at least...
+perf record -e net:dev_hold,net:dev_put -a -g -- <run your test>
 
->          */
->         HARD_TX_LOCK(netdev, txq, smp_processor_id());
->
-> -       tx_ring = adapter->tx_ring;
-> -
-> -       if (E1000_DESC_UNUSED(tx_ring) < 2) {
-> -               HARD_TX_UNLOCK(netdev, txq);
-> -               return;
-> +       for (; i < E1000_XDP_XMIT_BUNDLE_MAX && buffer_info[i].buffer; i++) {
-> +               e1000_xmit_raw_frame(buffer_info[i].buffer,
-> +                                    buffer_info[i].length,
-> +                                    adapter, tx_ring);
-> +               buffer_info[i].buffer->rxbuf.page = NULL;
-> +               buffer_info[i].buffer = NULL;
-> +               buffer_info[i].length = 0;
-> +               i++;
->         }
->
-> -       e1000_tx_map_rxpage(tx_ring, rx_buffer_info, len);
-> -       e1000_tx_queue(adapter, tx_ring, 0/*tx_flags*/, 1);
-> +       /* kick hardware to send bundle and return control back to the stack */
-> +       writel(tx_ring->next_to_use, hw->hw_addr + tx_ring->tdt);
-> +       mmiowb();
->
->         writel(tx_ring->next_to_use, hw->hw_addr + tx_ring->tdt);
->         mmiowb();
-> @@ -4281,9 +4312,10 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_adapter *adapter,
->         struct bpf_prog *prog;
->         u32 length;
->         unsigned int i;
-> -       int cleaned_count = 0;
-> +       int cleaned_count = 0, xdp_xmit = 0;
->         bool cleaned = false;
->         unsigned int total_rx_bytes = 0, total_rx_packets = 0;
-> +       struct e1000_rx_buffer_bundle *xdp_bundle = rx_ring->xdp_buffer;
->
->         rcu_read_lock(); /* rcu lock needed here to protect xdp programs */
->         prog = READ_ONCE(adapter->prog);
-> @@ -4338,13 +4370,13 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_adapter *adapter,
->                         case XDP_PASS:
->                                 break;
->                         case XDP_TX:
-> +                               xdp_bundle[xdp_xmit].buffer = buffer_info;
-> +                               xdp_bundle[xdp_xmit].length = length;
->                                 dma_sync_single_for_device(&pdev->dev,
->                                                            dma,
->                                                            length,
->                                                            DMA_TO_DEVICE);
-> -                               e1000_xmit_raw_frame(buffer_info, length,
-> -                                                    netdev, adapter);
-> -                               buffer_info->rxbuf.page = NULL;
-> +                               xdp_xmit++;
->                         case XDP_DROP:
->                         default:
->                                 /* re-use mapped page. keep buffer_info->dma
-> @@ -4486,8 +4518,14 @@ next_desc:
->
->                 /* return some buffers to hardware, one at a time is too slow */
->                 if (unlikely(cleaned_count >= E1000_RX_BUFFER_WRITE)) {
-> +                       if (xdp_xmit)
-> +                               e1000_xdp_xmit_bundle(xdp_bundle,
-> +                                                     netdev,
-> +                                                     adapter);
-> +
->                         adapter->alloc_rx_buf(adapter, rx_ring, cleaned_count);
->                         cleaned_count = 0;
-> +                       xdp_xmit = 0;
->                 }
->
->                 /* use prefetched values */
-> @@ -4498,8 +4536,11 @@ next_desc:
->         rx_ring->next_to_clean = i;
->
->         cleaned_count = E1000_DESC_UNUSED(rx_ring);
-> -       if (cleaned_count)
-> +       if (cleaned_count) {
-> +               if (xdp_xmit)
-> +                       e1000_xdp_xmit_bundle(xdp_bundle, netdev, adapter);
->                 adapter->alloc_rx_buf(adapter, rx_ring, cleaned_count);
-> +       }
+You probably will need to increase memory for perf buffers (e.g., -m 8192).
 
-Looks good for XDP path. Is this something we can abstract out into a
-library for use by other drivers?
+It will dump a lot of data but you will find the missing put; you just have to be patient wading through the data and matching up hold and put references. python/perl script with perf script can make that easier.
+
+---
+
+Have you looked at whether there are open sockets? e.g., perhaps a dst reference is cached on a socket
 
 
->
->         adapter->total_rx_packets += total_rx_packets;
->         adapter->total_rx_bytes += total_rx_bytes;
->
+--------------15380C235CBA31142FB5459E
+Content-Type: text/plain; charset=UTF-8; x-mac-type="0"; x-mac-creator="0";
+ name="0001-Add-tracepoints-to-dev_hold-and-dev_put.patch"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename="0001-Add-tracepoints-to-dev_hold-and-dev_put.patch"
+
+RnJvbSAwNjhiMWI4MzYyZWM1ZmQxYjlkZmZkYmQ2ZTg0NDc0YWRhMmViODI5IE1vbiBTZXAg
+MTcgMDA6MDA6MDAgMjAwMQpGcm9tOiBEYXZpZCBBaGVybiA8ZHNhQGN1bXVsdXNuZXR3b3Jr
+cy5jb20+CkRhdGU6IFRodSwgMTEgRmViIDIwMTYgMDI6NDA6MTIgLTA4MDAKU3ViamVjdDog
+W1BBVENIXSBBZGQgdHJhY2Vwb2ludHMgdG8gZGV2X2hvbGQgYW5kIGRldl9wdXQKClNpZ25l
+ZC1vZmYtYnk6IERhdmlkIEFoZXJuIDxkc2FAY3VtdWx1c25ldHdvcmtzLmNvbT4KLS0tCiBp
+bmNsdWRlL2xpbnV4L25ldGRldmljZS5oICB8ICA2ICsrKysrKwogaW5jbHVkZS90cmFjZS9l
+dmVudHMvbmV0LmggfCAzOCArKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysr
+KwogbmV0L2NvcmUvZGV2LmMgICAgICAgICAgICAgfCAyMSArKysrKysrKysrKysrKysrKysr
+KysKIDMgZmlsZXMgY2hhbmdlZCwgNjUgaW5zZXJ0aW9ucygrKQoKZGlmZiAtLWdpdCBhL2lu
+Y2x1ZGUvbGludXgvbmV0ZGV2aWNlLmggYi9pbmNsdWRlL2xpbnV4L25ldGRldmljZS5oCmlu
+ZGV4IDIxOWY1M2MzMGNiMy4uN2VmNmZjNjcyZGZiIDEwMDY0NAotLS0gYS9pbmNsdWRlL2xp
+bnV4L25ldGRldmljZS5oCisrKyBiL2luY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmgKQEAgLTMx
+OTMsNiArMzE5Myw3IEBAIGV4dGVybiBpbnQJCW5ldGRldl9idWRnZXQ7CiAvKiBDYWxsZWQg
+YnkgcnRuZXRsaW5rLmM6cnRubF91bmxvY2soKSAqLwogdm9pZCBuZXRkZXZfcnVuX3RvZG8o
+dm9pZCk7CiAKKyNpZiAwCiAvKioKICAqCWRldl9wdXQgLSByZWxlYXNlIHJlZmVyZW5jZSB0
+byBkZXZpY2UKICAqCUBkZXY6IG5ldHdvcmsgZGV2aWNlCkBAIC0zMjE0LDYgKzMyMTUsMTEg
+QEAgc3RhdGljIGlubGluZSB2b2lkIGRldl9ob2xkKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYp
+CiB7CiAJdGhpc19jcHVfaW5jKCpkZXYtPnBjcHVfcmVmY250KTsKIH0KKyNlbHNlCit2b2lk
+IGRldl9wdXQoc3RydWN0IG5ldF9kZXZpY2UgKmRldik7Cit2b2lkIGRldl9ob2xkKHN0cnVj
+dCBuZXRfZGV2aWNlICpkZXYpOworCisjZW5kaWYKIAogLyogQ2FycmllciBsb3NzIGRldGVj
+dGlvbiwgZGlhbCBvbiBkZW1hbmQuIFRoZSBmdW5jdGlvbnMgbmV0aWZfY2Fycmllcl9vbgog
+ICogYW5kIF9vZmYgbWF5IGJlIGNhbGxlZCBmcm9tIElSUSBjb250ZXh0LCBidXQgaXQgaXMg
+Y2FsbGVyCmRpZmYgLS1naXQgYS9pbmNsdWRlL3RyYWNlL2V2ZW50cy9uZXQuaCBiL2luY2x1
+ZGUvdHJhY2UvZXZlbnRzL25ldC5oCmluZGV4IDQ5Y2M3YzNkZTI1Mi4uOWVkNzNkZmU5ZDA5
+IDEwMDY0NAotLS0gYS9pbmNsdWRlL3RyYWNlL2V2ZW50cy9uZXQuaAorKysgYi9pbmNsdWRl
+L3RyYWNlL2V2ZW50cy9uZXQuaApAQCAtMjM2LDYgKzIzNiw0NCBAQCBERUZJTkVfRVZFTlQo
+bmV0X2Rldl9yeF92ZXJib3NlX3RlbXBsYXRlLCBuZXRpZl9yeF9uaV9lbnRyeSwKIAlUUF9B
+UkdTKHNrYikKICk7CiAKK1RSQUNFX0VWRU5UKGRldl9wdXQsCisKKwlUUF9QUk9UTyhzdHJ1
+Y3QgbmV0X2RldmljZSAqZGV2KSwKKworCVRQX0FSR1MoZGV2KSwKKworCVRQX1NUUlVDVF9f
+ZW50cnkoCisJCV9fc3RyaW5nKAluYW1lLAkJZGV2LT5uYW1lCSkKKwkJX19maWVsZCgJaW50
+LAkJcmVmY250ICkKKwkpLAorCisJVFBfZmFzdF9hc3NpZ24oCisJCV9fYXNzaWduX3N0cihu
+YW1lLCBkZXYtPm5hbWUpOworCQlfX2VudHJ5LT5yZWZjbnQgPSBuZXRkZXZfcmVmY250X3Jl
+YWQoZGV2KTsKKwkpLAorCisJVFBfcHJpbnRrKCJkZXY9JXMgcmVmY250ICVkIiwgX19nZXRf
+c3RyKG5hbWUpLCBfX2VudHJ5LT5yZWZjbnQpCispOworCitUUkFDRV9FVkVOVChkZXZfaG9s
+ZCwKKworCVRQX1BST1RPKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpLAorCisJVFBfQVJHUyhk
+ZXYpLAorCisJVFBfU1RSVUNUX19lbnRyeSgKKwkJX19zdHJpbmcoCW5hbWUsCQlkZXYtPm5h
+bWUJKQorCQlfX2ZpZWxkKAlpbnQsCQlyZWZjbnQgKQorCSksCisKKwlUUF9mYXN0X2Fzc2ln
+bigKKwkJX19hc3NpZ25fc3RyKG5hbWUsIGRldi0+bmFtZSk7CisJCV9fZW50cnktPnJlZmNu
+dCA9IG5ldGRldl9yZWZjbnRfcmVhZChkZXYpOworCSksCisKKwlUUF9wcmludGsoImRldj0l
+cyByZWZjbnQgJWQiLCBfX2dldF9zdHIobmFtZSksIF9fZW50cnktPnJlZmNudCkKKyk7CisK
+ICNlbmRpZiAvKiBfVFJBQ0VfTkVUX0ggKi8KIAogLyogVGhpcyBwYXJ0IG11c3QgYmUgb3V0
+c2lkZSBwcm90ZWN0aW9uICovCmRpZmYgLS1naXQgYS9uZXQvY29yZS9kZXYuYyBiL25ldC9j
+b3JlL2Rldi5jCmluZGV4IGYxMjg0ODM1YjhjOS4uOTlhYzA2N2FmZDE4IDEwMDY0NAotLS0g
+YS9uZXQvY29yZS9kZXYuYworKysgYi9uZXQvY29yZS9kZXYuYwpAQCAtODExNywzICs4MTE3
+LDI0IEBAIHN0YXRpYyBpbnQgX19pbml0IG5ldF9kZXZfaW5pdCh2b2lkKQogfQogCiBzdWJz
+eXNfaW5pdGNhbGwobmV0X2Rldl9pbml0KTsKKworCit2b2lkIGRldl9wdXQoc3RydWN0IG5l
+dF9kZXZpY2UgKmRldikKK3sKKwl0aGlzX2NwdV9kZWMoKmRldi0+cGNwdV9yZWZjbnQpOwor
+CXRyYWNlX2Rldl9wdXQoZGV2KTsKK30KK0VYUE9SVF9TWU1CT0woZGV2X3B1dCk7CisKKy8q
+KgorICogICAgICBkZXZfaG9sZCAtIGdldCByZWZlcmVuY2UgdG8gZGV2aWNlCisgKiAgICAg
+IEBkZXY6IG5ldHdvcmsgZGV2aWNlCisgKgorICogSG9sZCByZWZlcmVuY2UgdG8gZGV2aWNl
+IHRvIGtlZXAgaXQgZnJvbSBiZWluZyBmcmVlZC4KKyAqLwordm9pZCBkZXZfaG9sZChzdHJ1
+Y3QgbmV0X2RldmljZSAqZGV2KQoreworCXRoaXNfY3B1X2luYygqZGV2LT5wY3B1X3JlZmNu
+dCk7CisJdHJhY2VfZGV2X2hvbGQoZGV2KTsKK30KK0VYUE9SVF9TWU1CT0woZGV2X2hvbGQp
+OwotLSAKMi4xLjQKCg==
+--------------15380C235CBA31142FB5459E--
