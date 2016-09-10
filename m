@@ -1,23 +1,23 @@
 From: kbuild test robot <lkp@intel.com>
-Subject: Re: [PATCH 6/9] selftests: move ptp tests from Documentation/ptp
-Date: Sat, 10 Sep 2016 08:07:42 +0800
-Message-ID: <201609100807.avibjUKD%fengguang.wu@intel.com>
-References: <e8d704cf29a56df553d20abb214ca9a24aab0610.1473458697.git.shuahkh@osg.samsung.com>
+Subject: Re: [PATCH 8/9] selftests: move vDSO tests from Documentation/vDSO
+Date: Sat, 10 Sep 2016 08:46:57 +0800
+Message-ID: <201609100804.czZZPJN0%fengguang.wu@intel.com>
+References: <8e5cfb6176b42af125c947ed77071d97aa2bd17f.1473458697.git.shuahkh@osg.samsung.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="J/dobhs11T7y2rNN"
+Content-Type: multipart/mixed; boundary="uAKRQypu60I7Lcqm"
 Cc: kbuild-all@01.org, corbet@lwn.net, richardcochran@gmail.com,
         Shuah Khan <shuahkh@osg.samsung.com>,
         linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
         netdev@vger.kernel.org, linux-kselftest@vger.kernel.org
 To: Shuah Khan <shuahkh@osg.samsung.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-doc-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <e8d704cf29a56df553d20abb214ca9a24aab0610.1473458697.git.shuahkh@osg.samsung.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <8e5cfb6176b42af125c947ed77071d97aa2bd17f.1473458697.git.shuahkh@osg.samsung.com>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---J/dobhs11T7y2rNN
+--uAKRQypu60I7Lcqm
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
@@ -38,12 +38,22 @@ reproduce:
 
 All errors (new ones prefixed by >>):
 
->> scripts/Makefile.build:44: Documentation/ptp/Makefile: No such file or directory
->> make[3]: *** No rule to make target 'Documentation/ptp/Makefile'.
-   make[3]: Failed to remake makefile 'Documentation/ptp/Makefile'.
+>> scripts/Makefile.build:44: Documentation/vDSO/Makefile: No such file or directory
+>> make[3]: *** No rule to make target 'Documentation/vDSO/Makefile'.
+   make[3]: Failed to remake makefile 'Documentation/vDSO/Makefile'.
 
 vim +44 scripts/Makefile.build
 
+f77bf0142 Sam Ravnborg     2007-10-15  28  ldflags-y  :=
+d72e5edbf Sam Ravnborg     2007-05-28  29  
+720097d89 Sam Ravnborg     2009-04-19  30  subdir-asflags-y :=
+720097d89 Sam Ravnborg     2009-04-19  31  subdir-ccflags-y :=
+720097d89 Sam Ravnborg     2009-04-19  32  
+3156fd052 Robert P. J. Day 2008-02-18  33  # Read auto.conf if it exists, otherwise ignore
+c955ccafc Roman Zippel     2006-06-08  34  -include include/config/auto.conf
+^1da177e4 Linus Torvalds   2005-04-16  35  
+20a468b51 Sam Ravnborg     2006-01-22  36  include scripts/Kbuild.include
+20a468b51 Sam Ravnborg     2006-01-22  37  
 3156fd052 Robert P. J. Day 2008-02-18  38  # For backward compatibility check that these variables do not change
 0c53c8e6e Sam Ravnborg     2007-10-14  39  save-cflags := $(CFLAGS)
 0c53c8e6e Sam Ravnborg     2007-10-14  40  
@@ -54,6 +64,11 @@ db8c1a7b2 Sam Ravnborg     2005-07-27  42  kbuild-dir := $(if $(filter /%,$(src)
 ^1da177e4 Linus Torvalds   2005-04-16  45  
 0c53c8e6e Sam Ravnborg     2007-10-14  46  # If the save-* variables changed error out
 0c53c8e6e Sam Ravnborg     2007-10-14  47  ifeq ($(KBUILD_NOPEDANTIC),)
+0c53c8e6e Sam Ravnborg     2007-10-14  48          ifneq ("$(save-cflags)","$(CFLAGS)")
+49c57d254 Arnaud Lacombe   2011-08-15  49                  $(error CFLAGS was changed in "$(kbuild-file)". Fix it to use ccflags-y)
+0c53c8e6e Sam Ravnborg     2007-10-14  50          endif
+0c53c8e6e Sam Ravnborg     2007-10-14  51  endif
+4a5838ad9 Borislav Petkov  2011-03-01  52  
 
 :::::: The code at line 44 was first introduced by commit
 :::::: 0c53c8e6eb456cde30f2305421c605713856abc8 kbuild: check for wrong use of CFLAGS
@@ -65,12 +80,12 @@ db8c1a7b2 Sam Ravnborg     2005-07-27  42  kbuild-dir := $(if $(filter /%,$(src)
 0-DAY kernel test infrastructure                Open Source Technology Center
 https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
 
---J/dobhs11T7y2rNN
+--uAKRQypu60I7Lcqm
 Content-Type: application/octet-stream
 Content-Disposition: attachment; filename=".config.gz"
 Content-Transfer-Encoding: base64
 
-H4sICNJM01cAAy5jb25maWcAjDxbc9s2s+/9FZz2PLQzp7nYjj93zvgBAkEJFUEyBCjJfuEo
+H4sICJBP01cAAy5jb25maWcAjDxbc9s2s+/9FZz2PLQzp7nYjj93zvgBAkEJFUEyBCjJfuEo
 MpNoakv+dGmTf392AUq8LZR2JlMLu7jufbHgLz/9ErDjYfuyPKxXy+fn78GXalPtlofqKfi8
 fq7+LwjTIElNIEJp3gByvN4cv71dX9/dBjdv7t68+323+hBMq92meg74dvN5/eUIvdfbzU+/
 ADZPk0iOy9ubkTTBeh9stodgXx1+qtsXd7fl9dX999bv5odMtMkLbmSalKHgaSjyBpgWJitM
@@ -189,4 +204,4 @@ Tj4fQUQuJakg57s0zUIjU49ZZXDS7nP0BoEvO0c0XOS2e0lHLOcLSfkmoDE3b+Ig7ajXQmKX
 u0QLbkzCYj8Y6ln6rvRBFT0H9nxEYOEU64dgEKm8YVHIWxaWVlQltiYulwYu2UvLNnd0lp1B
 LbwOOZ6RfReC/8wG4HnIWQAA
 
---J/dobhs11T7y2rNN--
+--uAKRQypu60I7Lcqm--
