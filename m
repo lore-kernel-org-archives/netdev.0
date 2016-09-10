@@ -1,29 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: wireless-drivers 2016-09-08
-Date: Fri, 09 Sep 2016 19:21:38 -0700 (PDT)
-Message-ID: <20160909.192138.1994746601121604291.davem@davemloft.net>
-References: <8737latyoj.fsf@kamboji.qca.qualcomm.com>
+Subject: Re: [PATCH net-next 0/7] rxrpc: Rewrite data and ack handling
+Date: Fri, 09 Sep 2016 19:25:19 -0700 (PDT)
+Message-ID: <20160909.192519.837318854325070157.davem@davemloft.net>
+References: <147333500815.5646.1897433750795776938.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
         linux-kernel@vger.kernel.org
-To: kvalo@codeaurora.org
+To: dhowells@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <8737latyoj.fsf@kamboji.qca.qualcomm.com>
+In-Reply-To: <147333500815.5646.1897433750795776938.stgit@warthog.procyon.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Kalle Valo <kvalo@codeaurora.org>
-Date: Thu, 08 Sep 2016 14:31:56 +0300
+From: David Howells <dhowells@redhat.com>
+Date: Thu, 08 Sep 2016 12:43:28 +0100
 
-> The following changes since commit bb87f02b7e4ccdb614a83cbf840524de81e9b321:
+> This patch set constitutes the main portion of the AF_RXRPC rewrite.  It
+> consists of five fix/helper patches:
+ ...
+> And then there are two patches that form the main part:
+ ...
+> With this, the majority of the AF_RXRPC rewrite is complete.
+ ...
+> Tagged thusly:
 > 
->   Merge ath-current from ath.git (2016-08-29 21:39:04 +0300)
-> 
-> are available in the git repository at:
-> 
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.git tags/wireless-drivers-for-davem-2016-09-08
+> 	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
+> 	rxrpc-rewrite-20160908
 
-Pulled, thanks Kalle.
+Pulled, however I personally would have tried to split patch #7 up a bit, it
+was really huge and hard to audit/review in any meaningful way.
