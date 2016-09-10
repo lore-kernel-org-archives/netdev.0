@@ -1,110 +1,120 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 03/11] net: l3mdev: Allow the l3mdev to be a loopback
-Date: Sat, 10 Sep 2016 12:09:54 -0700
-Message-ID: <1473534602-23602-4-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 10/11] net: l3mdev: remove get_rtable method
+Date: Sat, 10 Sep 2016 12:10:01 -0700
+Message-ID: <1473534602-23602-11-git-send-email-dsa@cumulusnetworks.com>
 References: <1473534602-23602-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: shm@cumulusnetworks.com, David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:33763 "EHLO
-        mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751219AbcIJTL2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 10 Sep 2016 15:11:28 -0400
-Received: by mail-pa0-f46.google.com with SMTP id cm16so38640583pac.0
-        for <netdev@vger.kernel.org>; Sat, 10 Sep 2016 12:11:28 -0700 (PDT)
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:34723 "EHLO
+        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753877AbcIJTLe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 10 Sep 2016 15:11:34 -0400
+Received: by mail-pf0-f174.google.com with SMTP id p64so39774868pfb.1
+        for <netdev@vger.kernel.org>; Sat, 10 Sep 2016 12:11:34 -0700 (PDT)
 In-Reply-To: <1473534602-23602-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow an L3 master device to act as the loopback for that L3 domain.
-For IPv4 the device can also have the address 127.0.0.1.
+No longer used
 
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- include/net/l3mdev.h |  6 +++---
- net/ipv4/route.c     |  8 ++++++--
- net/ipv6/route.c     | 12 ++++++++++--
- 3 files changed, 19 insertions(+), 7 deletions(-)
+ drivers/net/vrf.c    | 21 ---------------------
+ include/net/l3mdev.h | 21 ---------------------
+ 2 files changed, 42 deletions(-)
 
+diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
+index 3a34f547c578..ccce59fbb2b3 100644
+--- a/drivers/net/vrf.c
++++ b/drivers/net/vrf.c
+@@ -843,26 +843,6 @@ static u32 vrf_fib_table(const struct net_device *dev)
+ 	return vrf->tb_id;
+ }
+ 
+-static struct rtable *vrf_get_rtable(const struct net_device *dev,
+-				     const struct flowi4 *fl4)
+-{
+-	struct rtable *rth = NULL;
+-
+-	if (!(fl4->flowi4_flags & FLOWI_FLAG_L3MDEV_SRC)) {
+-		struct net_vrf *vrf = netdev_priv(dev);
+-
+-		rcu_read_lock();
+-
+-		rth = rcu_dereference(vrf->rth);
+-		if (likely(rth))
+-			dst_hold(&rth->dst);
+-
+-		rcu_read_unlock();
+-	}
+-
+-	return rth;
+-}
+-
+ static int vrf_rcv_finish(struct net *net, struct sock *sk, struct sk_buff *skb)
+ {
+ 	return 0;
+@@ -1088,7 +1068,6 @@ static struct dst_entry *vrf_link_scope_lookup(const struct net_device *dev,
+ 
+ static const struct l3mdev_ops vrf_l3mdev_ops = {
+ 	.l3mdev_fib_table	= vrf_fib_table,
+-	.l3mdev_get_rtable	= vrf_get_rtable,
+ 	.l3mdev_l3_rcv		= vrf_l3_rcv,
+ 	.l3mdev_l3_out		= vrf_l3_out,
+ #if IS_ENABLED(CONFIG_IPV6)
 diff --git a/include/net/l3mdev.h b/include/net/l3mdev.h
-index 53d5274920e3..3ee110518584 100644
+index a586035c97cb..3832099289c5 100644
 --- a/include/net/l3mdev.h
 +++ b/include/net/l3mdev.h
-@@ -90,7 +90,7 @@ static inline int l3mdev_master_ifindex_by_index(struct net *net, int ifindex)
+@@ -23,8 +23,6 @@
+  *
+  * @l3mdev_l3_out:    Hook in L3 output path
+  *
+- * @l3mdev_get_rtable: Get cached IPv4 rtable (dst_entry) for device
+- *
+  * @l3mdev_link_scope_lookup: IPv6 lookup for linklocal and mcast destinations
+  */
+ 
+@@ -36,10 +34,6 @@ struct l3mdev_ops {
+ 					  struct sock *sk, struct sk_buff *skb,
+ 					  u16 proto);
+ 
+-	/* IPv4 ops */
+-	struct rtable *	(*l3mdev_get_rtable)(const struct net_device *dev,
+-					     const struct flowi4 *fl4);
+-
+ 	/* IPv6 ops */
+ 	struct dst_entry * (*l3mdev_link_scope_lookup)(const struct net_device *dev,
+ 						 struct flowi6 *fl6);
+@@ -120,15 +114,6 @@ static inline u32 l3mdev_fib_table(const struct net_device *dev)
+ 	return tb_id;
  }
  
- static inline
--const struct net_device *l3mdev_master_dev_rcu(const struct net_device *_dev)
-+struct net_device *l3mdev_master_dev_rcu(const struct net_device *_dev)
+-static inline struct rtable *l3mdev_get_rtable(const struct net_device *dev,
+-					       const struct flowi4 *fl4)
+-{
+-	if (netif_is_l3_master(dev) && dev->l3mdev_ops->l3mdev_get_rtable)
+-		return dev->l3mdev_ops->l3mdev_get_rtable(dev, fl4);
+-
+-	return NULL;
+-}
+-
+ static inline bool netif_index_is_l3_master(struct net *net, int ifindex)
  {
- 	/* netdev_master_upper_dev_get_rcu calls
- 	 * list_first_or_null_rcu to walk the upper dev list.
-@@ -99,7 +99,7 @@ const struct net_device *l3mdev_master_dev_rcu(const struct net_device *_dev)
- 	 * typecast to remove the const
- 	 */
- 	struct net_device *dev = (struct net_device *)_dev;
--	const struct net_device *master;
-+	struct net_device *master;
- 
- 	if (!dev)
- 		return NULL;
-@@ -254,7 +254,7 @@ static inline int l3mdev_master_ifindex_by_index(struct net *net, int ifindex)
+ 	struct net_device *dev;
+@@ -241,12 +226,6 @@ static inline u32 l3mdev_fib_table_by_index(struct net *net, int ifindex)
+ 	return 0;
  }
  
- static inline
--const struct net_device *l3mdev_master_dev_rcu(const struct net_device *dev)
-+struct net_device *l3mdev_master_dev_rcu(const struct net_device *dev)
+-static inline struct rtable *l3mdev_get_rtable(const struct net_device *dev,
+-					       const struct flowi4 *fl4)
+-{
+-	return NULL;
+-}
+-
+ static inline bool netif_index_is_l3_master(struct net *net, int ifindex)
  {
- 	return NULL;
- }
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 3e992783c1d0..f49b2c534e92 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2018,7 +2018,9 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
- 		return ERR_PTR(-EINVAL);
- 
- 	if (likely(!IN_DEV_ROUTE_LOCALNET(in_dev)))
--		if (ipv4_is_loopback(fl4->saddr) && !(dev_out->flags & IFF_LOOPBACK))
-+		if (ipv4_is_loopback(fl4->saddr) &&
-+		    !(dev_out->flags & IFF_LOOPBACK) &&
-+		    !netif_is_l3_master(dev_out))
- 			return ERR_PTR(-EINVAL);
- 
- 	if (ipv4_is_lbcast(fl4->daddr))
-@@ -2302,7 +2304,9 @@ struct rtable *__ip_route_output_key_hash(struct net *net, struct flowi4 *fl4,
- 			else
- 				fl4->saddr = fl4->daddr;
- 		}
--		dev_out = net->loopback_dev;
-+
-+		/* L3 master device is the loopback for that domain */
-+		dev_out = l3mdev_master_dev_rcu(dev_out) ? : net->loopback_dev;
- 		fl4->flowi4_oif = dev_out->ifindex;
- 		flags |= RTCF_LOCAL;
- 		goto make_route;
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 09d43ff11a8d..2c681113c055 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -2558,8 +2558,16 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
- {
- 	u32 tb_id;
- 	struct net *net = dev_net(idev->dev);
--	struct rt6_info *rt = ip6_dst_alloc(net, net->loopback_dev,
--					    DST_NOCOUNT);
-+	struct net_device *dev = net->loopback_dev;
-+	struct rt6_info *rt;
-+
-+	/* use L3 Master device as loopback for host routes if device
-+	 * is enslaved and address is not link local or multicast
-+	 */
-+	if (!rt6_need_strict(addr))
-+		dev = l3mdev_master_dev_rcu(idev->dev) ? : dev;
-+
-+	rt = ip6_dst_alloc(net, dev, DST_NOCOUNT);
- 	if (!rt)
- 		return ERR_PTR(-ENOMEM);
- 
+ 	return false;
 -- 
 2.1.4
