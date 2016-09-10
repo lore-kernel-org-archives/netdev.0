@@ -1,29 +1,97 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] via-velocity: remove null pointer check on array
- tdinfo->skb_dma
-Date: Fri, 09 Sep 2016 18:17:49 -0700 (PDT)
-Message-ID: <20160909.181749.1305604778627776550.davem@davemloft.net>
-References: <20160908090424.16545-1-colin.king@canonical.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [net-next PATCH v2 2/2] e1000: bundle xdp xmit routines
+Date: Fri, 9 Sep 2016 18:19:56 -0700
+Message-ID: <CALx6S36SM-wq6Fj8XK7GfMta1dVGr3RZ5uAgGdnxm7kgpVNFbw@mail.gmail.com>
+References: <20160909212915.4001.25504.stgit@john-Precision-Tower-5810>
+ <20160909212938.4001.40540.stgit@john-Precision-Tower-5810>
+ <CALx6S35VCq9yPjcuhtx6jEJ78-WugkQZ6GSsqkcTr0Fa7edkVg@mail.gmail.com>
+ <57D34D67.40804@gmail.com> <CALx6S36dH87e6TPxEBGsy0F-vD0fZzKyP8tbuuaAfLNSF1DGpw@mail.gmail.com>
+ <57D35E08.8010204@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160908090424.16545-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Brenden Blanco <bblanco@plumgrid.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+        William Tu <u9012063@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f178.google.com ([209.85.220.178]:32819 "EHLO
+        mail-qk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751014AbcIJBT5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2016 21:19:57 -0400
+Received: by mail-qk0-f178.google.com with SMTP id w204so95762596qka.0
+        for <netdev@vger.kernel.org>; Fri, 09 Sep 2016 18:19:57 -0700 (PDT)
+In-Reply-To: <57D35E08.8010204@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin King <colin.king@canonical.com>
-Date: Thu,  8 Sep 2016 10:04:24 +0100
+On Fri, Sep 9, 2016 at 6:12 PM, John Fastabend <john.fastabend@gmail.com> wrote:
+> On 16-09-09 06:04 PM, Tom Herbert wrote:
+>> On Fri, Sep 9, 2016 at 5:01 PM, John Fastabend <john.fastabend@gmail.com> wrote:
+>>> On 16-09-09 04:44 PM, Tom Herbert wrote:
+>>>> On Fri, Sep 9, 2016 at 2:29 PM, John Fastabend <john.fastabend@gmail.com> wrote:
+>>>>> e1000 supports a single TX queue so it is being shared with the stack
+>>>>> when XDP runs XDP_TX action. This requires taking the xmit lock to
+>>>>> ensure we don't corrupt the tx ring. To avoid taking and dropping the
+>>>>> lock per packet this patch adds a bundling implementation to submit
+>>>>> a bundle of packets to the xmit routine.
+>>>>>
+>>>>> I tested this patch running e1000 in a VM using KVM over a tap
+>>>>> device using pktgen to generate traffic along with 'ping -f -l 100'.
+>>>>>
+>>>> Hi John,
+>>>>
+>>>> How does this interact with BQL on e1000?
+>>>>
+>>>> Tom
+>>>>
+>>>
+>>> Let me check if I have the API correct. When we enqueue a packet to
+>>> be sent we must issue a netdev_sent_queue() call and then on actual
+>>> transmission issue a netdev_completed_queue().
+>>>
+>>> The patch attached here missed a few things though.
+>>>
+>>> But it looks like I just need to call netdev_sent_queue() from the
+>>> e1000_xmit_raw_frame() routine and then let the tx completion logic
+>>> kick in which will call netdev_completed_queue() correctly.
+>>>
+>>> I'll need to add a check for the queue state as well. So if I do these
+>>> three things,
+>>>
+>>>         check __QUEUE_STATE_XOFF before sending
+>>>         netdev_sent_queue() -> on XDP_TX
+>>>         netdev_completed_queue()
+>>>
+>>> It should work agree? Now should we do this even when XDP owns the
+>>> queue? Or is this purely an issue with sharing the queue between
+>>> XDP and stack.
+>>>
+>> But what is the action for XDP_TX if the queue is stopped? There is no
+>> qdisc to back pressure in the XDP path. Would we just start dropping
+>> packets then?
+>
+> Yep that is what the patch does if there is any sort of error packets
+> get dropped on the floor. I don't think there is anything else that
+> can be done.
+>
+That probably means that the stack will always win out under load.
+Trying to used the same queue where half of the packets are well
+managed by a qdisc and half aren't is going to leave someone unhappy.
+Maybe in the this case where we have to share the qdisc we can
+allocate the skb on on returning XDP_TX and send through the normal
+qdisc for the device.
 
-> From: Colin Ian King <colin.king@canonical.com>
-> 
-> tdinfo->skb_dma is a 7 element array of dma_addr_t hence cannot be
-> null, so the pull pointer check on tdinfo->skb_dma  is redundant.
-> Remove it.
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Tom
 
-Applied, thanks Colin.
+>>
+>> Tom
+>>
+>>> .John
+>>>
+>
