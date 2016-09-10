@@ -1,23 +1,23 @@
 From: kbuild test robot <lkp@intel.com>
-Subject: Re: [PATCH 4/9] selftests: move prctl tests from Documentation/prctl
-Date: Sat, 10 Sep 2016 08:05:31 +0800
-Message-ID: <201609100802.kxbA9oWs%fengguang.wu@intel.com>
-References: <06789bf107540c8ca15af60efb97b0f57ccca22d.1473458697.git.shuahkh@osg.samsung.com>
+Subject: Re: [PATCH 6/9] selftests: move ptp tests from Documentation/ptp
+Date: Sat, 10 Sep 2016 08:07:42 +0800
+Message-ID: <201609100807.avibjUKD%fengguang.wu@intel.com>
+References: <e8d704cf29a56df553d20abb214ca9a24aab0610.1473458697.git.shuahkh@osg.samsung.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="liOOAslEiF7prFVr"
+Content-Type: multipart/mixed; boundary="J/dobhs11T7y2rNN"
 Cc: kbuild-all@01.org, corbet@lwn.net, richardcochran@gmail.com,
         Shuah Khan <shuahkh@osg.samsung.com>,
         linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
         netdev@vger.kernel.org, linux-kselftest@vger.kernel.org
 To: Shuah Khan <shuahkh@osg.samsung.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <06789bf107540c8ca15af60efb97b0f57ccca22d.1473458697.git.shuahkh@osg.samsung.com>
-Sender: linux-doc-owner@vger.kernel.org
+In-Reply-To: <e8d704cf29a56df553d20abb214ca9a24aab0610.1473458697.git.shuahkh@osg.samsung.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---liOOAslEiF7prFVr
+--J/dobhs11T7y2rNN
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
@@ -38,9 +38,9 @@ reproduce:
 
 All errors (new ones prefixed by >>):
 
->> scripts/Makefile.build:44: Documentation/prctl/Makefile: No such file or directory
-   make[3]: *** No rule to make target 'Documentation/prctl/Makefile'.
-   make[3]: Failed to remake makefile 'Documentation/prctl/Makefile'.
+>> scripts/Makefile.build:44: Documentation/ptp/Makefile: No such file or directory
+>> make[3]: *** No rule to make target 'Documentation/ptp/Makefile'.
+   make[3]: Failed to remake makefile 'Documentation/ptp/Makefile'.
 
 vim +44 scripts/Makefile.build
 
@@ -65,12 +65,12 @@ db8c1a7b2 Sam Ravnborg     2005-07-27  42  kbuild-dir := $(if $(filter /%,$(src)
 0-DAY kernel test infrastructure                Open Source Technology Center
 https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
 
---liOOAslEiF7prFVr
+--J/dobhs11T7y2rNN
 Content-Type: application/octet-stream
 Content-Disposition: attachment; filename=".config.gz"
 Content-Transfer-Encoding: base64
 
-H4sICPtM01cAAy5jb25maWcAjDxbc9s2s+/9FZz2PLQzp7nYjj93zvgBAkEJFUEyBCjJfuEo
+H4sICNJM01cAAy5jb25maWcAjDxbc9s2s+/9FZz2PLQzp7nYjj93zvgBAkEJFUEyBCjJfuEo
 MpNoakv+dGmTf392AUq8LZR2JlMLu7jufbHgLz/9ErDjYfuyPKxXy+fn78GXalPtlofqKfi8
 fq7+LwjTIElNIEJp3gByvN4cv71dX9/dBjdv7t68+323+hBMq92meg74dvN5/eUIvdfbzU+/
 ADZPk0iOy9ubkTTBeh9stodgXx1+qtsXd7fl9dX999bv5odMtMkLbmSalKHgaSjyBpgWJitM
@@ -189,4 +189,4 @@ Tj4fQUQuJakg57s0zUIjU49ZZXDS7nP0BoEvO0c0XOS2e0lHLOcLSfkmoDE3b+Ig7ajXQmKX
 u0QLbkzCYj8Y6ln6rvRBFT0H9nxEYOEU64dgEKm8YVHIWxaWVlQltiYulwYu2UvLNnd0lp1B
 LbwOOZ6RfReC/8wG4HnIWQAA
 
---liOOAslEiF7prFVr--
+--J/dobhs11T7y2rNN--
