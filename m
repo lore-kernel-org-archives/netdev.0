@@ -1,11 +1,11 @@
 From: Andreas Noever <andreas.noever@gmail.com>
-Subject: Re: [PATCH v6 0/8] thunderbolt: Introducing Thunderbolt(TM) networking
-Date: Sun, 11 Sep 2016 01:19:01 +0200
-Message-ID: <CAMxnaaUato=3mkS0mfKegW-C0y-+_+OZi1NZAJmc4Dv4dDui6A@mail.gmail.com>
-References: <1470054233-4309-1-git-send-email-amir.jer.levy@intel.com> <20160831112813.GB17607@kroah.com>
+Subject: Re: [PATCH v6 1/8] thunderbolt: Macro rename
+Date: Sun, 11 Sep 2016 01:20:44 +0200
+Message-ID: <CAMxnaaW0vBFeUcLg6oC=FuRx3sqStQ4pht2HUzyHqDMtf8oR2g@mail.gmail.com>
+References: <1470054233-4309-1-git-send-email-amir.jer.levy@intel.com> <1470054233-4309-2-git-send-email-amir.jer.levy@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Amir Levy <amir.jer.levy@intel.com>,
+Cc: Greg KH <gregkh@linuxfoundation.org>,
         Bjorn Helgaas <bhelgaas@google.com>, corbet@lwn.net,
         "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
         "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
@@ -13,42 +13,41 @@ Cc: Amir Levy <amir.jer.levy@intel.com>,
         thunderbolt-linux <thunderbolt-linux@intel.com>,
         "Westerberg, Mika" <mika.westerberg@intel.com>,
         "Winkler, Tomas" <tomas.winkler@intel.com>
-To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160831112813.GB17607@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
+To: Amir Levy <amir.jer.levy@intel.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1470054233-4309-2-git-send-email-amir.jer.levy@intel.com>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 31, 2016 at 1:28 PM, Greg KH <gregkh@linuxfoundation.org> wrote:
-> On Mon, Aug 01, 2016 at 03:23:45PM +0300, Amir Levy wrote:
->> This is version 6 of Thunderbolt(TM) driver for non-Apple hardware.
->>
->> Changes since v5:
->>  - Removed the padding of short packets in receive
->>  - Replaced RW semaphore with mutex
->>  - Cleanup
->>
->> These patches were pushed to GitHub where they can be reviewed more
->> comfortably with green/red highlighting:
->>       https://github.com/01org/thunderbolt-software-kernel-tree
->>
->> Daemon code:
->>       https://github.com/01org/thunderbolt-software-daemon
->>
->> For reference, here's a link to version 5:
->> [v5]: https://lkml.org/lkml/2016/7/28/85
+On Mon, Aug 1, 2016 at 2:23 PM, Amir Levy <amir.jer.levy@intel.com> wrote:
+> This first patch updates the registers file to
+> reflect that it isn't only for Cactus Ridge.
+> No functional change intended.
 >
-> Without acks from the thunderbolt maintainer, or any network driver
-> developers, I'm not going to take this series.  Please work to get that
-> review.
-
-Sorry for the late response. I was away for the last two weeks and
-will be away again for the next week.
-
-This driver is independent from mine. It uses an interface provided by
-the firmware which is not present on Apple hardware and with which I
-am not familiar (also it does networking, not pci with which I am also
-not familiar). So I cannot comment on the driver itself. I don't mind
-a second driver, if that is what you are asking.
-
-Andreas
+> Signed-off-by: Amir Levy <amir.jer.levy@intel.com>
+> ---
+>  drivers/thunderbolt/nhi_regs.h | 6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
+>
+> diff --git a/drivers/thunderbolt/nhi_regs.h b/drivers/thunderbolt/nhi_regs.h
+> index 86b996c..75cf069 100644
+> --- a/drivers/thunderbolt/nhi_regs.h
+> +++ b/drivers/thunderbolt/nhi_regs.h
+> @@ -1,11 +1,11 @@
+>  /*
+> - * Thunderbolt Cactus Ridge driver - NHI registers
+> + * Thunderbolt driver - NHI registers
+>   *
+>   * Copyright (c) 2014 Andreas Noever <andreas.noever@gmail.com>
+>   */
+>
+> -#ifndef DSL3510_REGS_H_
+> -#define DSL3510_REGS_H_
+> +#ifndef NHI_REGS_H_
+> +#define NHI_REGS_H_
+>
+>  #include <linux/types.h>
+>
+> --
+> 2.7.4
+Signed-off-by: Andreas Noever <andreas.noever@gmail.com>
