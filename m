@@ -1,59 +1,150 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 08/26] iwlegacy: constify local structures
-Date: Sun, 11 Sep 2016 15:05:50 +0200
-Message-ID: <1473599168-30561-9-git-send-email-Julia.Lawall@lip6.fr>
-References: <1473599168-30561-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: joe@perches.com, kernel-janitors@vger.kernel.org,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Stanislaw Gruszka <sgruszka@redhat.com>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH 1/2] net: ethernet: apm: xgene: use phydev from struct net_device
+Date: Sun, 11 Sep 2016 17:54:03 +0200
+Message-ID: <1473609244-4365-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: isubramanian@apm.com, kchudgar@apm.com, davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1473599168-30561-1-git-send-email-Julia.Lawall@lip6.fr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-For structure types defined in the same file or local header files, find
-top-level static structure declarations that have the following
-properties:
-1. Never reassigned.
-2. Address never taken
-3. Not passed to a top-level macro call
-4. No pointer or array-typed field passed to a function or stored in a
-variable.
-Declare structures having all of these properties as const.
+The private structure contain a pointer to phydev, but the structure
+net_device already contain such pointer. So we can remove the pointer
+phy_dev in the private structure, and update the driver to use the
+one contained in struct net_device.
 
-Done using Coccinelle.
-Based on a suggestion by Joe Perches <joe@perches.com>.
-
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
-
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
-The semantic patch seems too long for a commit log, but is in the cover
-letter.
+ .../net/ethernet/apm/xgene/xgene_enet_ethtool.c    |    4 +-
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.c     |   24 ++++++++++----------
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c   |    8 +++---
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.h   |    1 -
+ 4 files changed, 18 insertions(+), 19 deletions(-)
 
- drivers/net/wireless/intel/iwlegacy/3945.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/wireless/intel/iwlegacy/3945.c b/drivers/net/wireless/intel/iwlegacy/3945.c
-index 209dc99..4db327a 100644
---- a/drivers/net/wireless/intel/iwlegacy/3945.c
-+++ b/drivers/net/wireless/intel/iwlegacy/3945.c
-@@ -2671,7 +2671,7 @@ const struct il_ops il3945_ops = {
- 	.send_led_cmd = il3945_send_led_cmd,
- };
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c b/drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c
+index 22a7b26..e1f44ae 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c
+@@ -57,7 +57,7 @@ static void xgene_get_drvinfo(struct net_device *ndev,
+ static int xgene_get_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
+ {
+ 	struct xgene_enet_pdata *pdata = netdev_priv(ndev);
+-	struct phy_device *phydev = pdata->phy_dev;
++	struct phy_device *phydev = ndev->phydev;
  
--static struct il_cfg il3945_bg_cfg = {
-+static const struct il_cfg il3945_bg_cfg = {
- 	.name = "3945BG",
- 	.fw_name_pre = IL3945_FW_PRE,
- 	.ucode_api_max = IL3945_UCODE_API_MAX,
-@@ -2700,7 +2700,7 @@ static struct il_cfg il3945_bg_cfg = {
- 	},
- };
+ 	if (pdata->phy_mode == PHY_INTERFACE_MODE_RGMII) {
+ 		if (phydev == NULL)
+@@ -96,7 +96,7 @@ static int xgene_get_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
+ static int xgene_set_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
+ {
+ 	struct xgene_enet_pdata *pdata = netdev_priv(ndev);
+-	struct phy_device *phydev = pdata->phy_dev;
++	struct phy_device *phydev = ndev->phydev;
  
--static struct il_cfg il3945_abg_cfg = {
-+static const struct il_cfg il3945_abg_cfg = {
- 	.name = "3945ABG",
- 	.fw_name_pre = IL3945_FW_PRE,
- 	.ucode_api_max = IL3945_UCODE_API_MAX,
+ 	if (pdata->phy_mode == PHY_INTERFACE_MODE_RGMII) {
+ 		if (!phydev)
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+index da413c8..c481f10 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+@@ -713,7 +713,7 @@ static void xgene_enet_adjust_link(struct net_device *ndev)
+ {
+ 	struct xgene_enet_pdata *pdata = netdev_priv(ndev);
+ 	const struct xgene_mac_ops *mac_ops = pdata->mac_ops;
+-	struct phy_device *phydev = pdata->phy_dev;
++	struct phy_device *phydev = ndev->phydev;
+ 
+ 	if (phydev->link) {
+ 		if (pdata->phy_speed != phydev->speed) {
+@@ -773,15 +773,13 @@ int xgene_enet_phy_connect(struct net_device *ndev)
+ 			netdev_err(ndev, "Could not connect to PHY\n");
+ 			return -ENODEV;
+ 		}
+-
+-		pdata->phy_dev = phy_dev;
+ 	} else {
+ #ifdef CONFIG_ACPI
+ 		struct acpi_device *adev = acpi_phy_find_device(dev);
+ 		if (adev)
+-			pdata->phy_dev =  adev->driver_data;
+-
+-		phy_dev = pdata->phy_dev;
++			phy_dev = adev->driver_data;
++		else
++			phy_dev = NULL;
+ 
+ 		if (!phy_dev ||
+ 		    phy_connect_direct(ndev, phy_dev, &xgene_enet_adjust_link,
+@@ -849,8 +847,6 @@ static int xgene_mdiobus_register(struct xgene_enet_pdata *pdata,
+ 	if (!phy)
+ 		return -EIO;
+ 
+-	pdata->phy_dev = phy;
+-
+ 	return ret;
+ }
+ 
+@@ -890,14 +886,18 @@ int xgene_enet_mdio_config(struct xgene_enet_pdata *pdata)
+ 
+ void xgene_enet_phy_disconnect(struct xgene_enet_pdata *pdata)
+ {
+-	if (pdata->phy_dev)
+-		phy_disconnect(pdata->phy_dev);
++	struct net_device *ndev = pdata->ndev;
++
++	if (ndev->phydev)
++		phy_disconnect(ndev->phydev);
+ }
+ 
+ void xgene_enet_mdio_remove(struct xgene_enet_pdata *pdata)
+ {
+-	if (pdata->phy_dev)
+-		phy_disconnect(pdata->phy_dev);
++	struct net_device *ndev = pdata->ndev;
++
++	if (ndev->phydev)
++		phy_disconnect(ndev->phydev);
+ 
+ 	mdiobus_unregister(pdata->mdio_bus);
+ 	mdiobus_free(pdata->mdio_bus);
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+index b8b9495..522ba92 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+@@ -748,8 +748,8 @@ static int xgene_enet_open(struct net_device *ndev)
+ 	if (ret)
+ 		return ret;
+ 
+-	if (pdata->phy_dev) {
+-		phy_start(pdata->phy_dev);
++	if (ndev->phydev) {
++		phy_start(ndev->phydev);
+ 	} else {
+ 		schedule_delayed_work(&pdata->link_work, PHY_POLL_LINK_OFF);
+ 		netif_carrier_off(ndev);
+@@ -772,8 +772,8 @@ static int xgene_enet_close(struct net_device *ndev)
+ 	mac_ops->tx_disable(pdata);
+ 	mac_ops->rx_disable(pdata);
+ 
+-	if (pdata->phy_dev)
+-		phy_stop(pdata->phy_dev);
++	if (ndev->phydev)
++		phy_stop(ndev->phydev);
+ 	else
+ 		cancel_delayed_work_sync(&pdata->link_work);
+ 
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
+index b339fc1..7735371 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
+@@ -174,7 +174,6 @@ struct xgene_cle_ops {
+ struct xgene_enet_pdata {
+ 	struct net_device *ndev;
+ 	struct mii_bus *mdio_bus;
+-	struct phy_device *phy_dev;
+ 	int phy_speed;
+ 	struct clk *clk;
+ 	struct platform_device *pdev;
+-- 
+1.7.4.4
