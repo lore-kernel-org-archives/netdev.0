@@ -1,86 +1,69 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net V2 4/4] net/mlx4_en: Fix panic on xmit while port is down
-Date: Sun, 11 Sep 2016 10:56:20 +0300
-Message-ID: <1473580580-2323-5-git-send-email-tariqt@mellanox.com>
-References: <1473580580-2323-1-git-send-email-tariqt@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Moshe Shemesh <moshe@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [PATCH net-next 2/5] liquidio CN23XX: sriov enable
+Date: Sun, 11 Sep 2016 12:53:33 +0000
+Message-ID: <DM5PR11MB1723FF049A66E652649DB67197FC0@DM5PR11MB1723.namprd11.prod.outlook.com>
+References: <1473451707-26397-1-git-send-email-rvatsavayi@caviumnetworks.com>
+ <1473451707-26397-3-git-send-email-rvatsavayi@caviumnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev <netdev@vger.kernel.org>,
+        Derek Chickles <derek.chickles@caviumnetworks.com>,
+        Satanand Burla <satananda.burla@caviumnetworks.com>,
+        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
+        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
+To: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:41829 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1754617AbcIKH5D (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 11 Sep 2016 03:57:03 -0400
-In-Reply-To: <1473580580-2323-1-git-send-email-tariqt@mellanox.com>
+Received: from mail-cys01nam02on0118.outbound.protection.outlook.com ([104.47.37.118]:59363
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1755569AbcIKMxg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 11 Sep 2016 08:53:36 -0400
+In-Reply-To: <1473451707-26397-3-git-send-email-rvatsavayi@caviumnetworks.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Moshe Shemesh <moshe@mellanox.com>
+> -	dev_dbg(&oct->pci_dev->dev, "%s[%llx] : 0x%llx\n",
+> -		"CN23XX_WIN_WR_MASK_REG",
+....
+> +	pr_devel("%s[%llx] : 0x%llx\n",
+> +		 "CN23XX_WIN_WR_MASK_REG",
+It looks like at least half of this patch [and I think it's also true for o=
+ther
+patches in this series] merely change debug prints.
+Why not extract all of those to a single patch?
 
-When port is down, tx drop counter update is not needed.
-Updating the counter in this case can cause a kernel
-panic as when the port is down, ring can be NULL.
+> +static unsigned int num_vfs[2] =3D { 0, 0 }; module_param_array(num_vfs,
+> +uint, NULL, 0444); MODULE_PARM_DESC(num_vfs, "two comma-separated
+> +unsigned integers that specify number of VFs for PF0 (left of the
+> +comma) and PF1 (right of the comma); for 23xx only");
 
-Fixes: 63a664b7e92b ("net/mlx4_en: fix tx_dropped bug")
-Signed-off-by: Moshe Shemesh <moshe@mellanox.com>
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_tx.c | 12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
+I believe we're way past the days where it's acceptable to enable IOV
+Via module parameters; you have sysfs to dynamically enable VFs.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index 9df87ca0515a..e2509bba3e7c 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -818,7 +818,7 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 	real_size = get_real_size(skb, shinfo, dev, &lso_header_size,
- 				  &inline_ok, &fragptr);
- 	if (unlikely(!real_size))
--		goto tx_drop;
-+		goto tx_drop_count;
- 
- 	/* Align descriptor to TXBB size */
- 	desc_size = ALIGN(real_size, TXBB_SIZE);
-@@ -826,7 +826,7 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (unlikely(nr_txbb > MAX_DESC_TXBBS)) {
- 		if (netif_msg_tx_err(priv))
- 			en_warn(priv, "Oversized header or SG list\n");
--		goto tx_drop;
-+		goto tx_drop_count;
- 	}
- 
- 	bf_ok = ring->bf_enabled;
-@@ -1071,9 +1071,10 @@ tx_drop_unmap:
- 			       PCI_DMA_TODEVICE);
- 	}
- 
-+tx_drop_count:
-+	ring->tx_dropped++;
- tx_drop:
- 	dev_kfree_skb_any(skb);
--	ring->tx_dropped++;
- 	return NETDEV_TX_OK;
- }
- 
-@@ -1106,7 +1107,7 @@ netdev_tx_t mlx4_en_xmit_frame(struct mlx4_en_rx_alloc *frame,
- 		goto tx_drop;
- 
- 	if (mlx4_en_is_tx_ring_full(ring))
--		goto tx_drop;
-+		goto tx_drop_count;
- 
- 	/* fetch ring->cons far ahead before needing it to avoid stall */
- 	ring_cons = READ_ONCE(ring->cons);
-@@ -1176,7 +1177,8 @@ netdev_tx_t mlx4_en_xmit_frame(struct mlx4_en_rx_alloc *frame,
- 
- 	return NETDEV_TX_OK;
- 
--tx_drop:
-+tx_drop_count:
- 	ring->tx_dropped++;
-+tx_drop:
- 	return NETDEV_TX_BUSY;
- }
--- 
-1.8.3.1
+BTW, I glanced at pci-iov-howto.txt and noticed it still lists having a
+module-parameter as control node for activating this feature;
+But I believe it's been years since this has been considered a valid
+Method for new drivers [I recall this was forbidden when we've added
+bnx2x IOV support, and that was more than 3.5 years ago].
+Perhaps it would be better to rephrase it so it would be obvious this
+is a legacy sort of configuration [and not merely 'less preferable']?
+
+> +static unsigned int num_queues_per_pf[2] =3D { 0, 0 };
+> +module_param_array(num_queues_per_pf, uint, NULL, 0444);
+> +MODULE_PARM_DESC(num_queues_per_pf, "two comma-separated unsigned
+> +integers that specify number of queues per PF0 (left of the comma) and
+> +PF1 (right of the comma); for 23xx only");
+> +
+> +static unsigned int num_queues_per_vf[2] =3D { 0, 0 };
+> +module_param_array(num_queues_per_vf, uint, NULL, 0444);
+> +MODULE_PARM_DESC(num_queues_per_vf, "two comma-separated unsigned
+> +integers that specify number of queues per VFs for PF0 (left of the
+> +comma) and PF1 (right of the comma); for 23xx only");
+
+I don't believe this is a suitable solution as this is a generic problem -
+how to split resources between PFs and their various VFs.
+I don't believe there's good infrastructure for it today, though.
+[Besides, you're introducing new module parameters...]
