@@ -1,140 +1,49 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH 2/2] net: ethernet: apm: xgene: use new api ethtool_{get|set}_link_ksettings
-Date: Sun, 11 Sep 2016 17:54:04 +0200
-Message-ID: <1473609244-4365-2-git-send-email-tremyfr@gmail.com>
-References: <1473609244-4365-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: isubramanian@apm.com, kchudgar@apm.com, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1473609244-4365-1-git-send-email-tremyfr@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net 1/1] net sched actions: fix GETing actions
+Date: Sun, 11 Sep 2016 12:30:00 -0400
+Message-ID: <0b66983d-c316-9084-0f2c-6993cbf1f56d@mojatatu.com>
+References: <1473336754-24930-1-git-send-email-jhs@emojatatu.com>
+ <CAM_iQpUrbikYYfttzEn8AihpSmXtwrdnV-949BzVH_0DdwW37g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f51.google.com ([209.85.218.51]:35486 "EHLO
+        mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751044AbcIKQaD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 11 Sep 2016 12:30:03 -0400
+Received: by mail-oi0-f51.google.com with SMTP id d191so42462391oih.2
+        for <netdev@vger.kernel.org>; Sun, 11 Sep 2016 09:30:02 -0700 (PDT)
+In-Reply-To: <CAM_iQpUrbikYYfttzEn8AihpSmXtwrdnV-949BzVH_0DdwW37g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+On 16-09-08 01:12 PM, Cong Wang wrote:
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- .../net/ethernet/apm/xgene/xgene_enet_ethtool.c    |   61 ++++++++++++--------
- 1 files changed, 37 insertions(+), 24 deletions(-)
+>> +}
+>> +
+>>  static int
+>>  tca_action_gd(struct net *net, struct nlattr *nla, struct nlmsghdr *n,
+>>               u32 portid, int event)
+>> @@ -883,6 +894,7 @@ tca_action_gd(struct net *net, struct nlattr *nla, struct nlmsghdr *n,
+>>                         goto err;
+>>                 }
+>>                 act->order = i;
+>> +               act->tcfa_refcnt+=1;
+>
+>
+> Maybe we only need to fixup the refcnt without touching list,
+> from my quick observation to your bug report (again, you didn't explain).
+>
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c b/drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c
-index e1f44ae..d372d42 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c
-@@ -54,46 +54,59 @@ static void xgene_get_drvinfo(struct net_device *ndev,
- 	sprintf(info->bus_info, "%s", pdev->name);
- }
- 
--static int xgene_get_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
-+static int xgene_get_link_ksettings(struct net_device *ndev,
-+				    struct ethtool_link_ksettings *cmd)
- {
- 	struct xgene_enet_pdata *pdata = netdev_priv(ndev);
- 	struct phy_device *phydev = ndev->phydev;
-+	u32 supported;
- 
- 	if (pdata->phy_mode == PHY_INTERFACE_MODE_RGMII) {
- 		if (phydev == NULL)
- 			return -ENODEV;
- 
--		return phy_ethtool_gset(phydev, cmd);
-+		return phy_ethtool_ksettings_get(phydev, cmd);
- 	} else if (pdata->phy_mode == PHY_INTERFACE_MODE_SGMII) {
- 		if (pdata->mdio_driver) {
- 			if (!phydev)
- 				return -ENODEV;
- 
--			return phy_ethtool_gset(phydev, cmd);
-+			return phy_ethtool_ksettings_get(phydev, cmd);
- 		}
- 
--		cmd->supported = SUPPORTED_1000baseT_Full | SUPPORTED_Autoneg |
--				 SUPPORTED_MII;
--		cmd->advertising = cmd->supported;
--		ethtool_cmd_speed_set(cmd, SPEED_1000);
--		cmd->duplex = DUPLEX_FULL;
--		cmd->port = PORT_MII;
--		cmd->transceiver = XCVR_INTERNAL;
--		cmd->autoneg = AUTONEG_ENABLE;
-+		supported = SUPPORTED_1000baseT_Full | SUPPORTED_Autoneg |
-+			SUPPORTED_MII;
-+		ethtool_convert_legacy_u32_to_link_mode(
-+			cmd->link_modes.supported,
-+			supported);
-+		ethtool_convert_legacy_u32_to_link_mode(
-+			cmd->link_modes.advertising,
-+			supported);
-+
-+		cmd->base.speed = SPEED_1000;
-+		cmd->base.duplex = DUPLEX_FULL;
-+		cmd->base.port = PORT_MII;
-+		cmd->base.autoneg = AUTONEG_ENABLE;
- 	} else {
--		cmd->supported = SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE;
--		cmd->advertising = cmd->supported;
--		ethtool_cmd_speed_set(cmd, SPEED_10000);
--		cmd->duplex = DUPLEX_FULL;
--		cmd->port = PORT_FIBRE;
--		cmd->transceiver = XCVR_INTERNAL;
--		cmd->autoneg = AUTONEG_DISABLE;
-+		supported = SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE;
-+		ethtool_convert_legacy_u32_to_link_mode(
-+			cmd->link_modes.supported,
-+			supported);
-+		ethtool_convert_legacy_u32_to_link_mode(
-+			cmd->link_modes.advertising,
-+			supported);
-+
-+		cmd->base.speed = SPEED_10000;
-+		cmd->base.duplex = DUPLEX_FULL;
-+		cmd->base.port = PORT_FIBRE;
-+		cmd->base.autoneg = AUTONEG_DISABLE;
- 	}
- 
- 	return 0;
- }
- 
--static int xgene_set_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
-+static int xgene_set_link_ksettings(struct net_device *ndev,
-+				    const struct ethtool_link_ksettings *cmd)
- {
- 	struct xgene_enet_pdata *pdata = netdev_priv(ndev);
- 	struct phy_device *phydev = ndev->phydev;
-@@ -102,7 +115,7 @@ static int xgene_set_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
- 		if (!phydev)
- 			return -ENODEV;
- 
--		return phy_ethtool_sset(phydev, cmd);
-+		return phy_ethtool_ksettings_set(phydev, cmd);
- 	}
- 
- 	if (pdata->phy_mode == PHY_INTERFACE_MODE_SGMII) {
-@@ -110,7 +123,7 @@ static int xgene_set_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
- 			if (!phydev)
- 				return -ENODEV;
- 
--			return phy_ethtool_sset(phydev, cmd);
-+			return phy_ethtool_ksettings_set(phydev, cmd);
- 		}
- 	}
- 
-@@ -152,12 +165,12 @@ static void xgene_get_ethtool_stats(struct net_device *ndev,
- 
- static const struct ethtool_ops xgene_ethtool_ops = {
- 	.get_drvinfo = xgene_get_drvinfo,
--	.get_settings = xgene_get_settings,
--	.set_settings = xgene_set_settings,
- 	.get_link = ethtool_op_get_link,
- 	.get_strings = xgene_get_strings,
- 	.get_sset_count = xgene_get_sset_count,
--	.get_ethtool_stats = xgene_get_ethtool_stats
-+	.get_ethtool_stats = xgene_get_ethtool_stats,
-+	.get_link_ksettings = xgene_get_link_ksettings,
-+	.set_link_ksettings = xgene_set_link_ksettings,
- };
- 
- void xgene_enet_set_ethtool_ops(struct net_device *ndev)
--- 
-1.7.4.4
+Yes, you are correct. clearing the list is unnecessary since it is
+temporary. When i get the chance i will fix it up, test and resubmit.
+
+What do you want the commit message to say? It shows an example because
+the functionality broke.
+
+cheers,
+jamal
