@@ -1,12 +1,13 @@
 From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 07/26] net/mlx4_core: constify local structures
-Date: Sun, 11 Sep 2016 15:05:49 +0200
-Message-ID: <1473599168-30561-8-git-send-email-Julia.Lawall@lip6.fr>
+Subject: [PATCH 08/26] iwlegacy: constify local structures
+Date: Sun, 11 Sep 2016 15:05:50 +0200
+Message-ID: <1473599168-30561-9-git-send-email-Julia.Lawall@lip6.fr>
 References: <1473599168-30561-1-git-send-email-Julia.Lawall@lip6.fr>
 Cc: joe@perches.com, kernel-janitors@vger.kernel.org,
-        netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
-To: Yishai Hadas <yishaih@mellanox.com>
+To: Stanislaw Gruszka <sgruszka@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1473599168-30561-1-git-send-email-Julia.Lawall@lip6.fr>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -31,28 +32,28 @@ Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 The semantic patch seems too long for a commit log, but is in the cover
 letter.
 
- drivers/net/ethernet/mellanox/mlx4/main.c |    4 ++--
+ drivers/net/wireless/intel/iwlegacy/3945.c |    4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index 75dd2e3..9a3c359 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -120,7 +120,7 @@ static char mlx4_version[] =
- 	DRV_NAME ": Mellanox ConnectX core driver v"
- 	DRV_VERSION " (" DRV_RELDATE ")\n";
- 
--static struct mlx4_profile default_profile = {
-+static const struct mlx4_profile default_profile = {
- 	.num_qp		= 1 << 18,
- 	.num_srq	= 1 << 16,
- 	.rdmarc_per_qp	= 1 << 4,
-@@ -130,7 +130,7 @@ static struct mlx4_profile default_profile = {
- 	.num_mtt	= 1 << 20, /* It is really num mtt segements */
+diff --git a/drivers/net/wireless/intel/iwlegacy/3945.c b/drivers/net/wireless/intel/iwlegacy/3945.c
+index 209dc99..4db327a 100644
+--- a/drivers/net/wireless/intel/iwlegacy/3945.c
++++ b/drivers/net/wireless/intel/iwlegacy/3945.c
+@@ -2671,7 +2671,7 @@ const struct il_ops il3945_ops = {
+ 	.send_led_cmd = il3945_send_led_cmd,
  };
  
--static struct mlx4_profile low_mem_profile = {
-+static const struct mlx4_profile low_mem_profile = {
- 	.num_qp		= 1 << 17,
- 	.num_srq	= 1 << 6,
- 	.rdmarc_per_qp	= 1 << 4,
+-static struct il_cfg il3945_bg_cfg = {
++static const struct il_cfg il3945_bg_cfg = {
+ 	.name = "3945BG",
+ 	.fw_name_pre = IL3945_FW_PRE,
+ 	.ucode_api_max = IL3945_UCODE_API_MAX,
+@@ -2700,7 +2700,7 @@ static struct il_cfg il3945_bg_cfg = {
+ 	},
+ };
+ 
+-static struct il_cfg il3945_abg_cfg = {
++static const struct il_cfg il3945_abg_cfg = {
+ 	.name = "3945ABG",
+ 	.fw_name_pre = IL3945_FW_PRE,
+ 	.ucode_api_max = IL3945_UCODE_API_MAX,
