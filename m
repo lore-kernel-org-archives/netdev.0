@@ -1,43 +1,31 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 23/26] sh_eth: constify local structures
-Date: Sun, 11 Sep 2016 21:14:13 +0300
-Message-ID: <cb443416-4fb9-5593-2529-66211299c9a8@cogentembedded.com>
-References: <1473599168-30561-1-git-send-email-Julia.Lawall@lip6.fr>
- <1473599168-30561-24-git-send-email-Julia.Lawall@lip6.fr>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net 1/1] net sched actions: fix GETing actions
+Date: Sun, 11 Sep 2016 11:56:29 -0700
+Message-ID: <CAM_iQpX7hejYp3zR7AdS5CvvCvXbYreBrbX3SeAy+s0=0kHMzg@mail.gmail.com>
+References: <1473336754-24930-1-git-send-email-jhs@emojatatu.com>
+ <CAM_iQpUrbikYYfttzEn8AihpSmXtwrdnV-949BzVH_0DdwW37g@mail.gmail.com> <0b66983d-c316-9084-0f2c-6993cbf1f56d@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, kernel-janitors@vger.kernel.org,
-        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Julia Lawall <Julia.Lawall@lip6.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1473599168-30561-24-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:34520 "EHLO
+        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756268AbcIKS4v (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 11 Sep 2016 14:56:51 -0400
+Received: by mail-oi0-f67.google.com with SMTP id o32so1892045oik.1
+        for <netdev@vger.kernel.org>; Sun, 11 Sep 2016 11:56:51 -0700 (PDT)
+In-Reply-To: <0b66983d-c316-9084-0f2c-6993cbf1f56d@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/11/2016 04:06 PM, Julia Lawall wrote:
-> For structure types defined in the same file or local header files, find
-> top-level static structure declarations that have the following
-> properties:
-> 1. Never reassigned.
-
-   Really?
-
-> 2. Address never taken
-
-   Really?
-
-> 3. Not passed to a top-level macro call
-> 4. No pointer or array-typed field passed to a function or stored in a
-> variable.
-> Declare structures having all of these properties as const.
+On Sun, Sep 11, 2016 at 9:30 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
 >
-> Done using Coccinelle.
-> Based on a suggestion by Joe Perches <joe@perches.com>.
->
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+> What do you want the commit message to say? It shows an example because
+> the functionality broke.
 
-    NAK, see sh_eth_set_default_cpu_data().
+I expect it to explain why we need to increase that refcnt for GET
+and how we missed it. Also need to find a right commit to blame. ;)
 
-MBR, Sergei
+Thanks.
