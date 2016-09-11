@@ -1,47 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 00/11] net: Convert vrf to tx hook
-Date: Sat, 10 Sep 2016 23:13:17 -0700 (PDT)
-Message-ID: <20160910.231317.431318504608631938.davem@davemloft.net>
-References: <1473534602-23602-1-git-send-email-dsa@cumulusnetworks.com>
+From: Tariq Toukan <ttoukan.linux@gmail.com>
+Subject: Re: [PATCH net 6/9] net/mlx4_core: Use RCU to perform radix tree
+ lookup for SRQ
+Date: Sun, 11 Sep 2016 10:27:29 +0300
+Message-ID: <e0a39044-0a5e-ea0e-55c6-adc153907faf@gmail.com>
+References: <1473324721-5206-1-git-send-email-tariqt@mellanox.com>
+ <1473324721-5206-7-git-send-email-tariqt@mellanox.com>
+ <20160908.133625.34803140270615515.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shm@cumulusnetworks.com
-To: dsa@cumulusnetworks.com
+Cc: netdev@vger.kernel.org, eranbe@mellanox.com, leonro@mellanox.com
+To: David Miller <davem@davemloft.net>, tariqt@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52430 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751568AbcIKGNY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 11 Sep 2016 02:13:24 -0400
-In-Reply-To: <1473534602-23602-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:32946 "EHLO
+        mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751623AbcIKH1h (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 11 Sep 2016 03:27:37 -0400
+Received: by mail-wm0-f49.google.com with SMTP id b187so1239516wme.0
+        for <netdev@vger.kernel.org>; Sun, 11 Sep 2016 00:27:37 -0700 (PDT)
+In-Reply-To: <20160908.133625.34803140270615515.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Sat, 10 Sep 2016 12:09:51 -0700
+Hi Dave,
 
-> The motivation for this series is that ICMP Unreachable - Fragmentation
-> Needed packets are not handled properly for VRFs. Specifically, the
-> FIB lookup in __ip_rt_update_pmtu fails so no nexthop exception is
-> created with the reduced MTU. As a result connections stall if packets
-> larger than the smallest MTU in the path are generated.
-> 
-> While investigating that problem I also noticed that the MSS for all
-> connections in a VRF is based on the VRF device's MTU and not the
-> route the packets ultimately go through. VRF currently uses a dst
-> to direct packets to the device. The first FIB lookup returns this dst
-> and then the lookup in the VRF driver gets the actual output route. A
-> side effect of this design is that the VRF dst is cached on sockets
-> and then used for calculations like the MSS.
-> 
-> This series fixes this problem by removing the hook in the FIB lookups
-> that returns the dst pointing to the VRF device to the VRF and always
-> doing the actual FIB lookup. This allows the real dst to be used
-> throughout the stack (for example the MSS). Packets are diverted to
-> the VRF device on Tx using an l3mdev hook in the output path similar to
-> to what is done for Rx. The end result is a simpler implementation for
-> VRF with fewer intrusions into the network stack and symmetrical packet
-> handling for Rx and Tx paths.
- ...
-
-Series applied, thanks David.
+On 08/09/2016 11:36 PM, David Miller wrote:
+> From: Tariq Toukan <tariqt@mellanox.com>
+> Date: Thu,  8 Sep 2016 11:51:58 +0300
+>
+>> From: Leon Romanovsky <leonro@mellanox.com>
+>>
+>> Radix tree lookup can be performed without locking.
+>>
+>> Fixes: 225c7b1feef1 ("IB/mlx4: Add a driver Mellanox ConnectX InfiniBand adapters")
+>> Suggested-by: Sagi Grimberg <sagi@grimberg.me>
+>> Signed-off-by: Leon Romanovsky <leonro@mellanox.com>
+>> Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+> Unless this fixes a bug, it isn't appropriate for 'net'.
+I see, I will exclude these patches and re-submit the others.
+>
+> If it does fix a bug, you have to explain what that bug is and
+> how this fixes it.
+Thanks,
+Tariq
