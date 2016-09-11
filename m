@@ -1,11 +1,11 @@
 From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 05/26] ARCNET: constify local structures
-Date: Sun, 11 Sep 2016 15:05:47 +0200
-Message-ID: <1473599168-30561-6-git-send-email-Julia.Lawall@lip6.fr>
+Subject: [PATCH 25/26] pch_gbe: constify local structures
+Date: Sun, 11 Sep 2016 15:06:07 +0200
+Message-ID: <1473599168-30561-26-git-send-email-Julia.Lawall@lip6.fr>
 References: <1473599168-30561-1-git-send-email-Julia.Lawall@lip6.fr>
 Cc: joe@perches.com, kernel-janitors@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Michael Grzeschik <m.grzeschik@pengutronix.de>
+        linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1473599168-30561-1-git-send-email-Julia.Lawall@lip6.fr>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -30,55 +30,19 @@ Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 The semantic patch seems too long for a commit log, but is in the cover
 letter.
 
- drivers/net/arcnet/com20020-pci.c |   10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/arcnet/com20020-pci.c b/drivers/net/arcnet/com20020-pci.c
-index 239de38..32b8406 100644
---- a/drivers/net/arcnet/com20020-pci.c
-+++ b/drivers/net/arcnet/com20020-pci.c
-@@ -264,7 +264,7 @@ static void com20020pci_remove(struct pci_dev *pdev)
- 	}
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+index 3cd87a4..6f33258 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+@@ -2729,7 +2729,7 @@ static int pch_gbe_minnow_platform_init(struct pci_dev *pdev)
+ 	return ret;
  }
  
--static struct com20020_pci_card_info card_info_10mbit = {
-+static const struct com20020_pci_card_info card_info_10mbit = {
- 	.name = "ARC-PCI",
- 	.devcount = 1,
- 	.chan_map_tbl = {
-@@ -277,7 +277,7 @@ static struct com20020_pci_card_info card_info_10mbit = {
- 	.flags = ARC_CAN_10MBIT,
- };
- 
--static struct com20020_pci_card_info card_info_5mbit = {
-+static const struct com20020_pci_card_info card_info_5mbit = {
- 	.name = "ARC-PCI",
- 	.devcount = 1,
- 	.chan_map_tbl = {
-@@ -290,7 +290,7 @@ static struct com20020_pci_card_info card_info_5mbit = {
- 	.flags = ARC_IS_5MBIT,
- };
- 
--static struct com20020_pci_card_info card_info_sohard = {
-+static const struct com20020_pci_card_info card_info_sohard = {
- 	.name = "PLX-PCI",
- 	.devcount = 1,
- 	/* SOHARD needs PCI base addr 4 */
-@@ -304,7 +304,7 @@ static struct com20020_pci_card_info card_info_sohard = {
- 	.flags = ARC_CAN_10MBIT,
- };
- 
--static struct com20020_pci_card_info card_info_eae_arc1 = {
-+static const struct com20020_pci_card_info card_info_eae_arc1 = {
- 	.name = "EAE PLX-PCI ARC1",
- 	.devcount = 1,
- 	.chan_map_tbl = {
-@@ -329,7 +329,7 @@ static struct com20020_pci_card_info card_info_eae_arc1 = {
- 	.flags = ARC_CAN_10MBIT,
- };
- 
--static struct com20020_pci_card_info card_info_eae_ma1 = {
-+static const struct com20020_pci_card_info card_info_eae_ma1 = {
- 	.name = "EAE PLX-PCI MA1",
- 	.devcount = 2,
- 	.chan_map_tbl = {
+-static struct pch_gbe_privdata pch_gbe_minnow_privdata = {
++static const struct pch_gbe_privdata pch_gbe_minnow_privdata = {
+ 	.phy_tx_clk_delay = true,
+ 	.phy_disable_hibernate = true,
+ 	.platform_init = pch_gbe_minnow_platform_init,
