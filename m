@@ -1,33 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/3] Optimisation of fs_enet ethernet driver
-Date: Sat, 10 Sep 2016 21:17:28 -0700 (PDT)
-Message-ID: <20160910.211728.222777942734908576.davem@davemloft.net>
-References: <cover.1473422536.git.christophe.leroy@c-s.fr>
+Subject: Re: [PATCH 0/8] net: use IS_ENABLED() instead of checking for
+ built-in or module
+Date: Sat, 10 Sep 2016 21:19:28 -0700 (PDT)
+Message-ID: <20160910.211928.1782362547702903708.davem@davemloft.net>
+References: <1473425000-9782-1-git-send-email-javier@osg.samsung.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pantelis.antoniou@gmail.com, vbordug@ru.mvista.com,
-        linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-        netdev@vger.kernel.org
-To: christophe.leroy@c-s.fr
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51258 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750934AbcIKER3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 11 Sep 2016 00:17:29 -0400
-In-Reply-To: <cover.1473422536.git.christophe.leroy@c-s.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+        nikolay@cumulusnetworks.com, jchapman@katalix.com,
+        aduyck@mirantis.com, vyasevich@gmail.com, fw@strlen.de,
+        acme@ghostprotocols.net, yoshfuji@linux-ipv6.org,
+        daniel@iogearbox.net, stephen@networkplumber.org,
+        tom@herbertland.com, linux-sctp@vger.kernel.org, a@unstable.cc,
+        jhs@mojatatu.com, herbert@gondor.apana.org.au, mugunthanvnm@ti.com,
+        steffen.klassert@secunet.com, edumazet@google.com,
+        felipe.balbi@linux.intel.com, netdev@vger.kernel.org,
+        jiri@mellanox.com, nhorman@tuxdriver.com, jarod@redhat.com,
+        kaber@trash.net, pabeni@redhat.com, jmorris@namei.org
+To: javier@osg.samsung.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1473425000-9782-1-git-send-email-javier@osg.samsung.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Christophe Leroy <christophe.leroy@c-s.fr>
-Date: Fri,  9 Sep 2016 14:26:18 +0200 (CEST)
+From: Javier Martinez Canillas <javier@osg.samsung.com>
+Date: Fri,  9 Sep 2016 08:43:12 -0400
 
-> This set optimises the freescale fs_enet ethernet driver:
-> 1/ Merge of RX and TX NAPI functions in order to limit the amount of
-> interrupts
-> 2/ Do not unmap DMA when packets len is below copybreak, otherwise there
-> is no benefit in copying the skb instead of allocating a new one
-> 3/ Make copybreak value configurable as the optimised value is not the
-> same on all targets
+> This trivial series replace the open coding to check for a Kconfig symbol
+> being built-in or module, with IS_ENABLED() macro that does exactly that.
+> 
+> Using the macro makes the code more readable by helping abstract away some
+> of the Kconfig built-in and module enable details.
 
 Series applied, thanks.
