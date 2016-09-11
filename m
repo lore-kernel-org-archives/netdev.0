@@ -1,34 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: ethernet: renesas: sh_eth: add POST registers
- for rz
-Date: Sat, 10 Sep 2016 21:12:05 -0700 (PDT)
-Message-ID: <20160910.211205.2263493847383395899.davem@davemloft.net>
-References: <20160907185709.24150-1-chris.brandt@renesas.com>
+Subject: Re: [PATCH net-next] Revert "hv_netvsc: make inline functions
+ static"
+Date: Sat, 10 Sep 2016 21:23:14 -0700 (PDT)
+Message-ID: <20160910.212314.1230001135969536194.davem@davemloft.net>
+References: <1473450324-25918-1-git-send-email-sthemmin@exchange.microsoft.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com, horms+renesas@verge.net.au,
-        geert+renesas@glider.be, daniel@0x0f.com, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org
-To: chris.brandt@renesas.com
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <20160907185709.24150-1-chris.brandt@renesas.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: kys@microsoft.com, netdev@vger.kernel.org
+To: sthemmin@microsoft.com, sthemmin@exchange.microsoft.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:51364 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751128AbcIKEXP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 11 Sep 2016 00:23:15 -0400
+In-Reply-To: <1473450324-25918-1-git-send-email-sthemmin@exchange.microsoft.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Chris Brandt <chris.brandt@renesas.com>
-Date: Wed,  7 Sep 2016 14:57:09 -0400
+From: sthemmin@exchange.microsoft.com
+Date: Fri,  9 Sep 2016 12:45:24 -0700
 
-> Due to a mistake in the hardware manual, the FWSLC and POST1-4 registers
-> were not documented and left out of the driver for RZ/A making the CAM
-> feature non-operational.
-> Additionally, when the offset values for POST1-4 are left blank, the driver
-> attempts to set them using an offset of 0xFFFF which can cause a memory
-> corruption or panic.
+> From: Stephen Hemminger <sthemmin@microsoft.com>
 > 
-> This patch fixes the panic and properly enables CAM.
+> These functions are used by other code misc-next tree.
 > 
-> Reported-by: Daniel Palmer <daniel@0x0f.com>
-> Signed-off-by: Chris Brandt <chris.brandt@renesas.com>
+> This reverts commit 30d1de08c87ddde6f73936c3350e7e153988fe02.
+> 
+> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 
-Applied, thanks.
+Applied.
