@@ -1,7 +1,7 @@
-From: Jarkko Sakkinen <jarkko.sakkinen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 Subject: Re: [PATCH 00/26] constify local structures
-Date: Sun, 11 Sep 2016 20:21:05 +0300
-Message-ID: <20160911172105.GB5493@intel.com>
+Date: Sun, 11 Sep 2016 10:56:16 -0700
+Message-ID: <1473616576.19464.10.camel@perches.com>
 References: <1473599168-30561-1-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -17,11 +17,9 @@ Cc: alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org, Mustafa Ismail <mustafa.
 	Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
 	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Chien Tin Tung <chien.tin.tung-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
 	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-spi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-renesas-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org
-To: Julia Lawall <Julia.Lawall-L2FTfq7BK8M@public.gmane.org>
+	linux-spi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Julia Lawall <Julia.Lawall-L2FTfq7BK8M@public.gmane.org>, linux-renesas-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <tpmdd-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Content-Disposition: inline
 In-Reply-To: <1473599168-30561-1-git-send-email-Julia.Lawall-L2FTfq7BK8M@public.gmane.org>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tpmdd-devel>,
 	<mailto:tpmdd-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
@@ -33,172 +31,57 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tpmdd-devel>,
 Errors-To: tpmdd-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Sep 11, 2016 at 03:05:42PM +0200, Julia Lawall wrote:
+On Sun, 2016-09-11 at 15:05 +0200, Julia Lawall wrote:
 > Constify local structures.
-> 
-> The semantic patch that makes this change is as follows:
-> (http://coccinelle.lip6.fr/)
 
-Just my two cents but:
+Thanks Julia.
 
-1. You *can* use a static analysis too to find bugs or other issues.
-2. However, you should manually do the commits and proper commit
-   messages to subsystems based on your findings. And I generally think
-   that if one contributes code one should also at least smoke test changes
-   somehow.
+A few suggestions & questions:
 
-I don't know if I'm alone with my opinion. I just think that one should
-also do the analysis part and not blindly create and submit patches.
+Perhaps the script should go into scripts/coccinelle/
+so that future cases could be caught by the robot
+and commit message referenced by the patch instances.
 
-Anyway, I'll apply the TPM change at some point. As I said they were
-for better. Thanks.
+Can you please compile the files modified using the
+appropriate defconfig/allyesconfig and show the
+movement from data to const by using
+	$ size <object>.new/old
+and include that in the changelogs (maybe next time)?
 
-/Jarkko
+Is it possible for a rule to trace the instances where
+an address of a struct or struct member is taken by
+locally defined and declared function call where the
+callee does not modify any dereferenced object?
 
-> // <smpl>
-> // The first rule ignores some cases that posed problems
-> @r disable optional_qualifier@
-> identifier s != {peri_clk_data,threshold_attr,tracer_flags,tracer};
-> identifier i != {s5k5baf_cis_rect,smtcfb_fix};
-> position p;
-> @@
-> static struct s i@p = { ... };
-> 
-> @lstruct@
-> identifier r.s;
-> @@
-> struct s { ... };
-> 
-> @used depends on lstruct@
-> identifier r.i;
-> @@
-> i
-> 
-> @bad1@
-> expression e;
-> identifier r.i;
-> assignment operator a;
-> @@
->  (<+...i...+>) a e
-> 
-> @bad2@
-> identifier r.i;
-> @@
->  &(<+...i...+>)
-> 
-> @bad3@
-> identifier r.i;
-> declarer d;
-> @@
->  d(...,<+...i...+>,...);
-> 
-> @bad4@
-> identifier r.i;
-> type T;
-> T[] e;
-> identifier f;
-> position p;
-> @@
-> 
-> f@p(...,
-> (
->   (<+...i...+>)
-> &
->   e
-> )
-> ,...)
-> 
-> @bad4a@
-> identifier r.i;
-> type T;
-> T *e;
-> identifier f;
-> position p;
-> @@
-> 
-> f@p(...,
-> (
->   (<+...i...+>)
-> &
->   e
-> )
-> ,...)
-> 
-> @ok5@
-> expression *e;
-> identifier r.i;
-> position p;
-> @@
-> e =@p i
-> 
-> @bad5@
-> expression *e;
-> identifier r.i;
-> position p != ok5.p;
-> @@
-> e =@p (<+...i...+>)
-> 
-> @rr depends on used && !bad1 && !bad2 && !bad3 && !bad4 && !bad4a && !bad5@
-> identifier s,r.i;
-> position r.p;
-> @@
-> 
-> static
-> +const
->  struct s i@p = { ... };
-> 
-> @depends on used && !bad1 && !bad2 && !bad3 && !bad4 && !bad4a && !bad5
->  disable optional_qualifier@
-> identifier rr.s,r.i;
-> @@
-> 
-> static
-> +const
->  struct s i;
-> // </smpl>
-> 
-> ---
-> 
->  drivers/acpi/acpi_apd.c                              |    8 +++---
->  drivers/char/tpm/tpm-interface.c                     |   10 ++++----
->  drivers/char/tpm/tpm-sysfs.c                         |    2 -
->  drivers/cpufreq/intel_pstate.c                       |    8 +++---
->  drivers/infiniband/hw/i40iw/i40iw_uk.c               |    6 ++---
->  drivers/media/i2c/tvp514x.c                          |    2 -
->  drivers/media/pci/ddbridge/ddbridge-core.c           |   18 +++++++--------
->  drivers/media/pci/ngene/ngene-cards.c                |   14 ++++++------
->  drivers/media/pci/smipcie/smipcie-main.c             |    8 +++---
->  drivers/misc/sgi-xp/xpc_uv.c                         |    2 -
->  drivers/net/arcnet/com20020-pci.c                    |   10 ++++----
->  drivers/net/can/c_can/c_can_pci.c                    |    4 +--
->  drivers/net/can/sja1000/plx_pci.c                    |   20 ++++++++---------
->  drivers/net/ethernet/mellanox/mlx4/main.c            |    4 +--
->  drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c |    2 -
->  drivers/net/ethernet/renesas/sh_eth.c                |   14 ++++++------
->  drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c     |    2 -
->  drivers/net/wireless/ath/dfs_pattern_detector.c      |    2 -
->  drivers/net/wireless/intel/iwlegacy/3945.c           |    4 +--
->  drivers/net/wireless/realtek/rtlwifi/rtl8188ee/sw.c  |    2 -
->  drivers/net/wireless/realtek/rtlwifi/rtl8192ce/sw.c  |    2 -
->  drivers/net/wireless/realtek/rtlwifi/rtl8192de/sw.c  |    2 -
->  drivers/net/wireless/realtek/rtlwifi/rtl8192ee/sw.c  |    2 -
->  drivers/net/wireless/realtek/rtlwifi/rtl8192se/sw.c  |    2 -
->  drivers/net/wireless/realtek/rtlwifi/rtl8723ae/sw.c  |    2 -
->  drivers/net/wireless/realtek/rtlwifi/rtl8723be/sw.c  |    2 -
->  drivers/net/wireless/realtek/rtlwifi/rtl8821ae/sw.c  |    2 -
->  drivers/platform/chrome/chromeos_laptop.c            |   22 +++++++++----------
->  drivers/platform/x86/intel_scu_ipc.c                 |    6 ++---
->  drivers/platform/x86/intel_telemetry_debugfs.c       |    2 -
->  drivers/scsi/esas2r/esas2r_flash.c                   |    2 -
->  drivers/scsi/hptiop.c                                |    6 ++---
->  drivers/spi/spi-dw-pci.c                             |    4 +--
->  drivers/staging/rtl8192e/rtl8192e/rtl_core.c         |    2 -
->  drivers/usb/misc/ezusb.c                             |    2 -
->  drivers/video/fbdev/matrox/matroxfb_g450.c           |    2 -
->  lib/crc64_ecma.c                                     |    2 -
->  sound/pci/ctxfi/ctatc.c                              |    2 -
->  sound/pci/hda/patch_ca0132.c                         |   10 ++++----
->  sound/pci/riptide/riptide.c                          |    2 -
->  40 files changed, 110 insertions(+), 110 deletions(-)
+ie:
+
+struct foo {
+	int bar;
+	char *baz;
+};
+
+struct foo qux[] = {
+	{ 1, "description 1" },
+	{ 2, "dewcription 2" },
+	[ n, "etc" ]...,
+};
+
+void message(struct foo *msg)
+{
+	printk("%d %s\n", msg->bar, msg->baz);
+}
+
+where some code uses
+
+	message(qux[index]);
+
+So could a coccinelle script change:
+
+struct foo qux[] = { to const struct foo quz[] = {
+
+and
+
+void message(struct foo *msg) to void message(const struct foo *msg)
+
 
 ------------------------------------------------------------------------------
