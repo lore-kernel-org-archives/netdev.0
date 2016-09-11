@@ -1,29 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/11] Mellanox 100G mlx5 seamless error
- recovery
-Date: Sat, 10 Sep 2016 21:22:05 -0700 (PDT)
-Message-ID: <20160910.212205.1006456607621985222.davem@davemloft.net>
-References: <1473431727-20150-1-git-send-email-saeedm@mellanox.com>
+Subject: Re: [PATCH v2] net: ethernet: renesas: sh_eth: add POST registers
+ for rz
+Date: Sat, 10 Sep 2016 21:12:05 -0700 (PDT)
+Message-ID: <20160910.211205.2263493847383395899.davem@davemloft.net>
+References: <20160907185709.24150-1-chris.brandt@renesas.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tariqt@mellanox.com, mohamad@mellanox.com,
-        ogerlitz@mellanox.com
-To: saeedm@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51330 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751044AbcIKEWG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 11 Sep 2016 00:22:06 -0400
-In-Reply-To: <1473431727-20150-1-git-send-email-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sergei.shtylyov@cogentembedded.com, horms+renesas@verge.net.au,
+        geert+renesas@glider.be, daniel@0x0f.com, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org
+To: chris.brandt@renesas.com
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <20160907185709.24150-1-chris.brandt@renesas.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Saeed Mahameed <saeedm@mellanox.com>
-Date: Fri,  9 Sep 2016 17:35:16 +0300
+From: Chris Brandt <chris.brandt@renesas.com>
+Date: Wed,  7 Sep 2016 14:57:09 -0400
 
-> This series from Mohamad improves the driver load/unload flows
-> to seamlessly handle pci errors and device internal errors recovery
-> reset flows.
+> Due to a mistake in the hardware manual, the FWSLC and POST1-4 registers
+> were not documented and left out of the driver for RZ/A making the CAM
+> feature non-operational.
+> Additionally, when the offset values for POST1-4 are left blank, the driver
+> attempts to set them using an offset of 0xFFFF which can cause a memory
+> corruption or panic.
+> 
+> This patch fixes the panic and properly enables CAM.
+> 
+> Reported-by: Daniel Palmer <daniel@0x0f.com>
+> Signed-off-by: Chris Brandt <chris.brandt@renesas.com>
 
-Series applied, thanks.
+Applied, thanks.
