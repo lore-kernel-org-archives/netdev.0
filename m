@@ -1,69 +1,117 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [PATCH 25/26] pch_gbe: constify local structures
-Date: Mon, 12 Sep 2016 14:25:04 +0200 (CEST)
-Message-ID: <alpine.DEB.2.10.1609121423120.3049@hadrien>
-References: <1473599168-30561-1-git-send-email-Julia.Lawall@lip6.fr> <1473599168-30561-26-git-send-email-Julia.Lawall@lip6.fr>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 2/3] net-next: dsa: add Qualcomm tag RX/TX handler
+Date: Mon, 12 Sep 2016 14:26:58 +0200
+Message-ID: <20160912122658.GA17533@lunn.ch>
+References: <1473669337-21221-1-git-send-email-john@phrozen.org>
+ <1473669337-21221-3-git-send-email-john@phrozen.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, joe@perches.com,
-        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Julia Lawall <Julia.Lawall@lip6.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1473599168-30561-26-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        qsdk-review@qca.qualcomm.com
+To: John Crispin <john@phrozen.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:41490 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1758208AbcILM1E (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 12 Sep 2016 08:27:04 -0400
+Content-Disposition: inline
+In-Reply-To: <1473669337-21221-3-git-send-email-john@phrozen.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi John
 
+> +
+> +static inline int reg_to_port(int reg)
+> +{
+> +	if (reg < 5)
+> +		return reg + 1;
+> +
+> +	return -1;
+> +}
+> +
+> +static inline int port_to_reg(int port)
+> +{
+> +	if (port >= 1 && port <= 6)
+> +		return port - 1;
+> +
+> +	return -1;
+> +}
 
-On Sun, 11 Sep 2016, Julia Lawall wrote:
+No need for inline, leave the compiler to decide.
 
-> For structure types defined in the same file or local header files, find
-> top-level static structure declarations that have the following
-> properties:
-> 1. Never reassigned.
-> 2. Address never taken
-> 3. Not passed to a top-level macro call
-> 4. No pointer or array-typed field passed to a function or stored in a
-> variable.
-> Declare structures having all of these properties as const.
+> +
+> +static struct sk_buff *qca_tag_xmit(struct sk_buff *skb, struct net_device *dev)
+> +{
+> +	struct dsa_slave_priv *p = netdev_priv(dev);
+> +	u16 *phdr, hdr;
+> +
+> +	dev->stats.tx_packets++;
+> +	dev->stats.tx_bytes += skb->len;
+> +
+> +	if (skb_cow_head(skb, 0) < 0)
+> +		goto out_free;
+> +
+> +	skb_push(skb, QCA_HDR_LEN);
+> +
+> +	memmove(skb->data, skb->data + QCA_HDR_LEN, 2 * ETH_ALEN);
+> +	phdr = (u16 *)(skb->data + 2 * ETH_ALEN);
+> +
+> +	/* Set the version field, and set destination port information */
+> +	hdr = QCA_HDR_VERSION << QCA_HDR_XMIT_VERSION_S |
+> +		QCA_HDR_XMIT_FROM_CPU |
+> +		1 << reg_to_port(p->port);
+> +
+> +	*phdr = htons(hdr);
+> +
+> +	//skb->dev = p->parent->dst->master_netdev;
+> +	//dev_queue_xmit(skb);
 
-Actually, this patch should be dropped.  Coccinelle did not recognize
-kernel_ulong_t as a type, so it interpreted
+No commented out code please.
 
-(kernel_ulong_t)&pch_gbe_minnow_privdata
+> +
+> +	return skb;
+> +
+> +out_free:
+> +	kfree_skb(skb);
+> +	return NULL;
+> +}
+> +
+> +static int qca_tag_rcv(struct sk_buff *skb, struct net_device *dev,
+> +		       struct packet_type *pt, struct net_device *orig_dev)
+> +{
+> +	struct dsa_switch_tree *dst = dev->dsa_ptr;
+> +	struct dsa_switch *ds;
+> +	u8 ver;
+> +	int port, phy;
+> +	__be16 *phdr, hdr;
+> +
+> +	if (unlikely(!dst))
+> +		goto out_drop;
+> +
+> +	skb = skb_unshare(skb, GFP_ATOMIC);
+> +	if (!skb)
+> +		goto out;
+> +
+> +	if (unlikely(!pskb_may_pull(skb, QCA_HDR_LEN)))
+> +		goto out_drop;
+> +
+> +	/* Ethernet is added by the switch between src addr and Ethertype
 
-as a bit and operation.
+'Ethernet' seems to be the wrong word here.
 
-julia
+> +
+> +	/* Get source port information */
+> +	port = (hdr & QCA_HDR_RECV_SOURCE_PORT_MASK);
+> +	phy = port_to_reg(port);
+> +	if (unlikely(phy < 0) || !ds->ports[phy].netdev)
+> +		goto out_drop;
 
-> Done using Coccinelle.
-> Based on a suggestion by Joe Perches <joe@perches.com>.
->
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
->
-> ---
-> The semantic patch seems too long for a commit log, but is in the cover
-> letter.
->
->  drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-> index 3cd87a4..6f33258 100644
-> --- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-> +++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-> @@ -2729,7 +2729,7 @@ static int pch_gbe_minnow_platform_init(struct pci_dev *pdev)
->  	return ret;
->  }
->
-> -static struct pch_gbe_privdata pch_gbe_minnow_privdata = {
-> +static const struct pch_gbe_privdata pch_gbe_minnow_privdata = {
->  	.phy_tx_clk_delay = true,
->  	.phy_disable_hibernate = true,
->  	.platform_init = pch_gbe_minnow_platform_init,
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe kernel-janitors" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+Could you use a different variable name than phy. phy has a well known
+meaning, and this usage is not it.
+
+Otherwise, this looks good.
+
+	   Andrew
