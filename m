@@ -1,48 +1,42 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net-next] net/sched: act_tunnel_key: Remove rcu_read_lock
- protection
-Date: Mon, 12 Sep 2016 07:09:20 -0700
-Message-ID: <57D6B710.1080001@gmail.com>
-References: <1473682762-8150-1-git-send-email-hadarh@mellanox.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH 03/15] ethernet: amd: use IS_ENABLED() instead of checking
+ for built-in or module
+Date: Mon, 12 Sep 2016 16:11:02 +0200
+Message-ID: <CAMuHMdWgH+F1CjhtAgkeMt_mG6RJW8kEEbPdBoopBD+y70-1uA@mail.gmail.com>
+References: <1473689026-6983-1-git-send-email-javier@osg.samsung.com> <1473689026-6983-4-git-send-email-javier@osg.samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
-        Jiri Benc <jbenc@redhat.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Amir Vadai <amirva@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>
-To: Hadar Hen Zion <hadarh@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:36642 "EHLO
-        mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933195AbcILOJj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 10:09:39 -0400
-Received: by mail-pa0-f65.google.com with SMTP id p2so1616241pap.3
-        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 07:09:38 -0700 (PDT)
-In-Reply-To: <1473682762-8150-1-git-send-email-hadarh@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Westphal <fw@strlen.de>,
+        Antonio Quartulli <a@unstable.cc>,
+        Mugunthan V N <mugunthanvnm@ti.com>
+To: Javier Martinez Canillas <javier@osg.samsung.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1473689026-6983-4-git-send-email-javier@osg.samsung.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16-09-12 05:19 AM, Hadar Hen Zion wrote:
-> Remove rcu_read_lock protection from tunnel_key_dump and use
-> rtnl_dereference, dump operation is protected by  rtnl lock.
-> 
-> Also, remove rcu_read_lock from tunnel_key_release and use
-> rcu_dereference_protected.
-> 
-> Both operations are running exclusively and a writer couldn't modify
-> t->params while those functions are executed.
-> 
-> Fixes: 54d94fd89d90 ('net/sched: Introduce act_tunnel_key')
-> Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
-> ---
+On Mon, Sep 12, 2016 at 4:03 PM, Javier Martinez Canillas
+<javier@osg.samsung.com> wrote:
+> The IS_ENABLED() macro checks if a Kconfig symbol has been enabled either
+> built-in or as a module, use that macro instead of open coding the same.
+>
+> Using the macro makes the code more readable by helping abstract away some
+> of the Kconfig built-in and module enable details.
+>
+> Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
 
-Thanks for cleaning this up.
+Reviewed-by: Geert Uytterhoeven <geert@linux-m68k.org>
 
-Acked-by: John Fastabend <john.r.fastabend@intel.com>
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
