@@ -1,69 +1,88 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net-next 2/2] errqueue: include linux/time.h
-Date: Mon, 12 Sep 2016 16:09:28 -0400
-Message-ID: <CAF=yD-+NT59kDn2pZks5skA2pJDakd3RGvtQZMW+87yFyY6hXg@mail.gmail.com>
-References: <1473699930-58865-3-git-send-email-willemdebruijn.kernel@gmail.com>
- <201609130354.EJQifqeg%fengguang.wu@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: kbuild-all@01.org, Network Development <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        LKML <linux-kernel@vger.kernel.org>,
-        John Stultz <john.stultz@linaro.org>,
-        Brooks Moses <bmoses@google.com>,
-        Willem de Bruijn <willemb@google.com>
-To: kbuild test robot <lkp@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201609130354.EJQifqeg%fengguang.wu@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jarod Wilson <jarod@redhat.com>
+Subject: [PATCH net-next 1/2] net: centralize net_device min/max MTU checking
+Date: Mon, 12 Sep 2016 16:11:05 -0400
+Message-ID: <20160912201106.47837-2-jarod@redhat.com>
+References: <20160912201106.47837-1-jarod@redhat.com>
+Cc: Jarod Wilson <jarod@redhat.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35354 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752008AbcILUMX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 12 Sep 2016 16:12:23 -0400
+In-Reply-To: <20160912201106.47837-1-jarod@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 12, 2016 at 3:26 PM, kbuild test robot <lkp@intel.com> wrote:
-> Hi Willem,
->
-> [auto build test ERROR on net-next/master]
->
-> url:    https://github.com/0day-ci/linux/commits/Willem-de-Bruijn/uapi-include-time-h-from-errqueue-h/20160913-020431
-> config: i386-defconfig (attached as .config)
-> compiler: gcc-6 (Debian 6.1.1-9) 6.1.1 20160705
-> reproduce:
->         # save the attached .config to linux build tree
->         make ARCH=i386
->
-> All errors (new ones prefixed by >>):
+While looking into an MTU issue with sfc, I started noticing that almost
+every NIC driver with an ndo_change_mtu function implemented almost
+exactly the same range checks, and in many cases, that was the only
+practical thing their ndo_change_mtu function was doing. Quite a few
+drivers have either 68, 64, 60 or 46 as their minimum MTU value checked,
+and then various sizes from 1500 to 65535 for their maximum MTU value. We
+can remove a whole lot of redundant code here if we simple store min_mtu
+and max_mtu in net_device, and check against those in net/core/dev.c's
+dev_set_mtu().
 
-This error report shows that breakage can occur with applications that
-include linux/errqueue.h before the libc time headers.
+In theory, there should be zero functional change with this patch, it just
+puts the infrastructure in place. Subsequent patches will attempt to start
+using said infrastructure, with theoretically zero change in
+functionality.
 
-The libc-compat definitions in this patch set only fix compilation
-when uapi headers are included after the userspace headers.
+CC: "David S. Miller" <davem@davemloft.net>
+CC: netdev@vger.kernel.org
+Signed-off-by: Jarod Wilson <jarod@redhat.com>
+---
+ include/linux/netdevice.h |  4 ++++
+ net/core/dev.c            | 12 ++++++++++--
+ 2 files changed, 14 insertions(+), 2 deletions(-)
 
-These errors indeed go away when errqueue.h is included after the
-userspace time includes, as in the diff below.
-
-For the inverse, the libc headers need additional #if __UAPI_DEF_FOO
-changes, as described in include/uapli/linux/libc-compat.h. Those
-changes are a noop without kernel definitions, so arguably that libc
-patch should be merged before this kernel patch.
-
-I will remove this patch set from the patchwork queue for now.
-
-diff --git a/Documentation/networking/timestamping/txtimestamp.c
-b/Documentation/networking/timestamping/txtimestamp.c
-index 5df0704..f073801 100644
---- a/Documentation/networking/timestamping/txtimestamp.c
-+++ b/Documentation/networking/timestamping/txtimestamp.c
-@@ -37,7 +37,6 @@
- #include <error.h>
- #include <errno.h>
- #include <inttypes.h>
--#include <linux/errqueue.h>
- #include <linux/if_ether.h>
- #include <linux/net_tstamp.h>
- #include <netdb.h>
-@@ -59,6 +58,7 @@
- #include <sys/time.h>
- #include <sys/types.h>
- #include <time.h>
-+#include <linux/errqueue.h>
- #include <unistd.h>
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 67bb978..e466949 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1490,6 +1490,8 @@ enum netdev_priv_flags {
+  *	@if_port:	Selectable AUI, TP, ...
+  *	@dma:		DMA channel
+  *	@mtu:		Interface MTU value
++ *	@min_mtu:	Interface Minimum MTU value
++ *	@max_mtu:	Interface Maximum MTU value
+  *	@type:		Interface hardware type
+  *	@hard_header_len: Maximum hardware header length.
+  *
+@@ -1710,6 +1712,8 @@ struct net_device {
+ 	unsigned char		dma;
+ 
+ 	unsigned int		mtu;
++	unsigned int		min_mtu;
++	unsigned int		max_mtu;
+ 	unsigned short		type;
+ 	unsigned short		hard_header_len;
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 34b5322..9785588 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6473,9 +6473,17 @@ int dev_set_mtu(struct net_device *dev, int new_mtu)
+ 	if (new_mtu == dev->mtu)
+ 		return 0;
+ 
+-	/*	MTU must be positive.	 */
+-	if (new_mtu < 0)
++	if (new_mtu < dev->min_mtu) {
++		net_err_ratelimited("%s: Invalid MTU %d requested, hw min %d\n",
++				    dev->name, new_mtu, dev->min_mtu);
+ 		return -EINVAL;
++	}
++
++	if (dev->max_mtu > 0 && new_mtu > dev->max_mtu) {
++		net_err_ratelimited("%s: Invalid MTU %d requested, hw max %d\n",
++				    dev->name, new_mtu, dev->min_mtu);
++		return -EINVAL;
++	}
+ 
+ 	if (!netif_device_present(dev))
+ 		return -ENODEV;
+-- 
+2.10.0
