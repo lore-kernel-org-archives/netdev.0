@@ -1,46 +1,46 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH] test_bpf: fix the dummy skb after dissector changes
-Date: Mon, 12 Sep 2016 13:04:57 +0100
-Message-ID: <1473681897-32260-1-git-send-email-jakub.kicinski@netronome.com>
-Cc: <netdev@vger.kernel.org>, Hadar Hen Zion <hadarh@mellanox.com>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
-To: Alexei Starovoitov <ast@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:34966 "EHLO
-        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754615AbcILMIl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 08:08:41 -0400
-Received: by mail-wm0-f48.google.com with SMTP id a6so50317084wmc.0
-        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 05:08:40 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] net: r6040: add in missing white space in error message text
+Date: Mon, 12 Sep 2016 13:08:57 +0100
+Message-ID: <20160912120857.31600-1-colin.king@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit d5709f7ab776 ("flow_dissector: For stripped vlan, get vlan
-info from skb->vlan_tci") made flow dissector look at vlan_proto
-when vlan is present.  Since test_bpf sets skb->vlan_tci to ~0
-(including VLAN_TAG_PRESENT) we have to populate skb->vlan_proto.
+From: Colin Ian King <colin.king@canonical.com>
 
-Fixes false negative on test #24:
-test_bpf: #24 LD_PAYLOAD_OFF jited:0 175 ret 0 != 42 FAIL (1 times)
+A couple of dev_err messages span two lines and the literal
+string is missing a white space between words. Add the white
+space.
 
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-Reviewed-by: Dinan Gunawardena <dinan.gunawardena@netronome.com>
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
 ---
- lib/test_bpf.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/rdc/r6040.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/lib/test_bpf.c b/lib/test_bpf.c
-index 93f45011a59d..94346b4d8984 100644
---- a/lib/test_bpf.c
-+++ b/lib/test_bpf.c
-@@ -5485,6 +5485,7 @@ static struct sk_buff *populate_skb(char *buf, int size)
- 	skb->hash = SKB_HASH;
- 	skb->queue_mapping = SKB_QUEUE_MAP;
- 	skb->vlan_tci = SKB_VLAN_TCI;
-+	skb->vlan_proto = htons(ETH_P_IP);
- 	skb->dev = &dev;
- 	skb->dev->ifindex = SKB_DEV_IFINDEX;
- 	skb->dev->type = SKB_DEV_TYPE;
+diff --git a/drivers/net/ethernet/rdc/r6040.c b/drivers/net/ethernet/rdc/r6040.c
+index cb29ee2..5dc655b 100644
+--- a/drivers/net/ethernet/rdc/r6040.c
++++ b/drivers/net/ethernet/rdc/r6040.c
+@@ -1062,13 +1062,13 @@ static int r6040_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	/* this should always be supported */
+ 	err = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
+ 	if (err) {
+-		dev_err(&pdev->dev, "32-bit PCI DMA addresses"
++		dev_err(&pdev->dev, "32-bit PCI DMA addresses "
+ 				"not supported by the card\n");
+ 		goto err_out_disable_dev;
+ 	}
+ 	err = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(32));
+ 	if (err) {
+-		dev_err(&pdev->dev, "32-bit PCI DMA addresses"
++		dev_err(&pdev->dev, "32-bit PCI DMA addresses "
+ 				"not supported by the card\n");
+ 		goto err_out_disable_dev;
+ 	}
 -- 
-1.9.1
+2.9.3
