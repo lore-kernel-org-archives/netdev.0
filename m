@@ -1,51 +1,70 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [RFC V3 PATCH 00/26] Kernel NET policy
-Date: Mon, 12 Sep 2016 10:21:59 -0700
-Message-ID: <CAM_iQpV7TU8S-bJBy53WUP8KcRx0bP92bVUzAvtJnEQq7NcY=g@mail.gmail.com>
-References: <1473692159-4017-1-git-send-email-kan.liang@intel.com> <20160912153821.GA11685@breakpoint.cc>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: icmpv6: issue with routing table entries from link local
+ addresses
+Date: Mon, 12 Sep 2016 19:26:23 +0200
+Message-ID: <b6804e09-403f-64ff-257b-6c5fda7f8047@stressinduktion.org>
+References: <20160912142732.GI26782@targo.k4n.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Liang, Kan" <kan.liang@intel.com>,
-        David Miller <davem@davemloft.net>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Ingo Molnar <mingo@redhat.com>,
-        Peter Zijlstra <peterz@infradead.org>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Kees Cook <keescook@chromium.org>,
-        Al Viro <viro@zeniv.linux.org.uk>,
-        Cyrill Gorcunov <gorcunov@openvz.org>,
-        John Stultz <john.stultz@linaro.org>,
-        Alexander Duyck <aduyck@mirantis.com>, ben@decadent.org.uk,
-        David Decotigny <decot@googlers.com>,
-        Alexander Duyck <alexander.
-To: Florian Westphal <fw@strlen.de>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+To: =?UTF-8?Q?Andreas_H=c3=bcbner?= <andreas@k4n.de>,
+        netdev@vger.kernel.org, "d. caratti" <davide.caratti@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f175.google.com ([209.85.161.175]:34656 "EHLO
-        mail-yw0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755089AbcILRWW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 13:22:22 -0400
-In-Reply-To: <20160912153821.GA11685@breakpoint.cc>
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:44505 "EHLO
+        out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1756731AbcILR0h (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 13:26:37 -0400
+In-Reply-To: <20160912142732.GI26782@targo.k4n.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 12, 2016 at 8:38 AM, Florian Westphal <fw@strlen.de> wrote:
-> kan.liang@intel.com <kan.liang@intel.com> wrote:
->> From: Kan Liang <kan.liang@intel.com>
->>
->> It is a big challenge to get good network performance. First, the network
->> performance is not good with default system settings. Second, it is too
->
-> [..]
->
-> I ask to be dropped from CC list of further submissions of this series,
-> I've said all I have say about this ('do it in userspace') and
-> its very unlikely I will change my opinion.
+Hello,
 
-+1
-Same for me.
+On 12.09.2016 16:27, Andreas Hübner wrote:
+> Hi,
+> 
+> I'm currently debugging a potential issue with the icmpv6 stack and
+> hopefully this is the correct place to ask. (Was actually looking for a
+> more specific list, but didn't find anything. Please point me to a more
+> apropriate list if this is out of place here.)
+> 
+> I have the following setup:
+>   - 2 directly connected hosts (A+B), both have only link local addresses
+>     configured (interface on both hosts is eth0)
+>   - host B is also connected to another host C (via interface eth1)
+>   - main routing table (relevant part) on host B looks like this:
+> 
+>       fe80::/64 dev eth1  proto kernel  metric 256
+>       fe80::/64 dev eth0  proto kernel  metric 256
+> 
+>   - host A is trying to ICMPv6 ping the link local address of host B
+> 
+> The issue I currently have is, that the echo reply that host B should
+> generate is never sent back to host A. If I change the order of the
+> routing table entries on host B, everything works fine.
+> (host A is connected on eth0)
+> 
+> I'm wondering, if this is how it is supposed to work. Do we need to do a
+> routing table lookup when generating an ICMPv6 echo reply for link local
+> addresses?  (From my understanding, this is not done in the neighbour
+> discovery stack, so why here?)
+
+For global addresses this is necessary as asymetric routing could be
+involved and we don't want to treat ping echos in any way special.
+
+> Actually, I'm convinced I must be doing something wrong here. The setup
+> for the issue is quite trivial, someone would have tripped over it
+> already. The only condition is that one host has multiple interfaces
+> with ipv6 enabled.
+> 
+> Any help in shedding some light onto this issue would be appreciated.
+
+This shouldn't be the case. We certainly carry over the ifindex of the
+received packet into the routing lookup of the outgoing packet, thus the
+appropriate rule, with outgoing ifindex should be selected.
+
+I also couldn't reproduce your problem here with my system. Can you
+verify with tcpdump that the packet is leaving on another interface?
+
+Thanks,
+Hannes
