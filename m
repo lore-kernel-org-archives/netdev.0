@@ -1,107 +1,204 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [net-next PATCH v2 2/2] e1000: bundle xdp xmit routines
-Date: Sun, 11 Sep 2016 21:12:41 -0700
-Message-ID: <20160912041239.GA8529@ast-mbp.thefacebook.com>
-References: <CALx6S35VCq9yPjcuhtx6jEJ78-WugkQZ6GSsqkcTr0Fa7edkVg@mail.gmail.com>
- <57D34D67.40804@gmail.com>
- <CALx6S36dH87e6TPxEBGsy0F-vD0fZzKyP8tbuuaAfLNSF1DGpw@mail.gmail.com>
- <57D35E08.8010204@gmail.com>
- <CALx6S36SM-wq6Fj8XK7GfMta1dVGr3RZ5uAgGdnxm7kgpVNFbw@mail.gmail.com>
- <20160910014032.GA83023@ast-mbp.thefacebook.com>
- <CALx6S36Xo4ZJJg5k2RT9rcT_1_zKRG1n_EOruU=JqvXBnq=E3w@mail.gmail.com>
- <57D37D79.1050806@gmail.com>
- <CALx6S373K92E5uabb8MtyHpDvkpWUQmZRmoRF7pFnZ3wBW68Cw@mail.gmail.com>
- <57D61DD0.40504@gmail.com>
+From: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH v4 00/16] Add Paravirtual RDMA Driver
+Date: Sun, 11 Sep 2016 21:49:10 -0700
+Message-ID: <1473655766-31628-1-git-send-email-aditr@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tom Herbert <tom@herbertland.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        William Tu <u9012063@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:36653 "EHLO
-        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751506AbcILEM4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 00:12:56 -0400
-Received: by mail-pf0-f173.google.com with SMTP id 128so48095029pfb.3
-        for <netdev@vger.kernel.org>; Sun, 11 Sep 2016 21:12:55 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <57D61DD0.40504@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <jhansen-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
+        <asarwade-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>, <georgezhang-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
+        <bryantan-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+To: <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <pv-drivers-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Sep 11, 2016 at 08:15:28PM -0700, John Fastabend wrote:
-> >>>>>>>>
-> >>>>>>> But what is the action for XDP_TX if the queue is stopped? There is no
-> >>>>>>> qdisc to back pressure in the XDP path. Would we just start dropping
-> >>>>>>> packets then?
-> >>>>>>
-> >>>>>> Yep that is what the patch does if there is any sort of error packets
-> >>>>>> get dropped on the floor. I don't think there is anything else that
-> >>>>>> can be done.
-> >>>>>>
-> >>>>> That probably means that the stack will always win out under load.
-> >>>>> Trying to used the same queue where half of the packets are well
-> >>>>> managed by a qdisc and half aren't is going to leave someone unhappy.
-> >>>>> Maybe in the this case where we have to share the qdisc we can
-> >>>>> allocate the skb on on returning XDP_TX and send through the normal
-> >>>>> qdisc for the device.
-> >>>>
-> >>>> I wouldn't go to such extremes for e1k.
-> >>>> The only reason to have xdp in e1k is to use it for testing
-> >>>> of xdp programs. Nothing else. e1k is, best case, 1Gbps adapter.
-> >>>
-> >>> I imagine someone may want this for the non-forwarding use cases like
-> >>> early drop for DOS mitigation. Regardless of the use case, I don't
-> >>> think we can break the fundamental assumptions made for qdiscs or the
-> >>> rest of the transmit path. If XDP must transmit on a queue shared with
-> >>> the stack we need to abide by the stack's rules for transmitting on
-> >>> the queue-- which would mean alloc skbuff and go through qdisc (which
-> >>
-> >> If we require XDP_TX to go up to qdisc layer its best not to implement
-> >> it at all and just handle it in normal ingress path. That said I think
-> >> users have to expect that XDP will interfere with qdisc schemes. Even
-> >> with its own tx queue its going to interfere at the hardware level with
-> >> bandwidth as the hardware round robins through the queues or uses
-> >> whatever hardware strategy it is configured to use. Additionally it
-> >> will bypass things like BQL, etc.
-> >>
-> > Right, but not all use cases involve XDP_TX (like DOS mitigation as I
-> > pointed out). Since you've already done 95% of the work, can you take
-> > a look at creating the skbuff and injecting into the stack for XDP_TX
-> > so we can evaluate the performance and impact of that :-)
-> > 
-> > With separate TX queues it's explicit which queues are managed by the
-> > stack. This is no different than what kernel bypass gives use, we are
-> > relying on HW to do something reasonable in scheduling MQ.
-> > 
-> 
-> How about instead of dropping packets on xdp errors we make the
-> behavior to send the packet to the stack by default. Then the stack can
-> decide what to do with it. This is easier from the drivers perspective
-> and avoids creating a qdisc inject path for XDP. We could set the mark
-> field if the stack wants to handle XDP exceptions somehow differently.
-> 
-> If we really want XDP to have an inject path I think we should add
-> another action XDP_QDISC_INJECT. And add some way for XDP to run
-> programs on exceptions. Perhaps via an exception map.
+Hi Doug, others,
 
-Nack for any new features just for e1k.
-I don't like where this discussion is going.
-I've been hacking xdp support for e1k only to be able to debug
-xdp programs in kvm instead of messing with physical hosts where
-every bpf program mistake kills ssh connection.
-Please stop this overdesign. I'd rather not have xdp for e1k
-instead of going into this crazy new action codes and random
-punt to stack. If there is a conflict between stack and xdp, just
-drop the packet. e1k is _not_ an example for any other drivers.
-When high performance NIC will have such tx ring sharing issues
-only then we'd need to come with a solution. Currently that's not
-the case, so there is no need to come up with anything but
-the simplest approach.
+This patch series adds a driver for a paravirtual RDMA device. The device
+is developed for VMware's Virtual Machines and allows existing RDMA
+applications to continue to use existing Verbs API when deployed in VMs on
+ESXi. We recently did a presentation in the OFA Workshop [1] regarding this
+device.
+
+Description and RDMA Support
+============================
+The virtual device is exposed as a dual function PCIe device. One part is
+a virtual network device (VMXNet3) which provides networking properties
+like MAC, IP addresses to the RDMA part of the device. The networking
+properties are used to register GIDs required by RDMA applications to
+communicate.
+
+These patches add support and the all required infrastructure for letting
+applications use such a device. We support the mandatory Verbs API as well
+as the base memory management extensions (Local Inv, Send with Inv and Fast
+Register Work Requests). We currently support both Reliable Connected and
+Unreliable Datagram QPs but do not support Shared Receive Queues (SRQs).
+Also, we support the following types of Work Requests:
+ o Send/Receive (with or without Immediate Data)
+ o RDMA Write (with or without Immediate Data)
+ o RDMA Read
+ o Local Invalidate
+ o Send with Invalidate
+ o Fast Register Work Requests
+
+This version only adds support for version 1 of RoCE. We will add RoCEv2
+support in a future patch. We do support registration of both MAC-based and
+IP-based GIDs. I have also created a git tree for our user-level driver [2].
+
+Testing
+=======
+We have tested this internally for various types of Guest OS - Red Hat,
+Centos, Ubuntu 12.04/14.04/16.04, Oracle Enterprise Linux, SLES 12
+using backported versions of this driver. The tests included several runs
+of the performance tests (included with OFED), Intel MPI PingPong benchmark
+on OpenMPI, krping for FRWRs. Mellanox has been kind enough to test the
+backported version of the driver internally on their hardware using a
+VMware provided ESX build. I have also applied and tested this with Doug's
+k.o/for-4.9 branch (commit 64278fe). Note, that this patch series should be
+applied all together. I split out the commits so that it may be easier to
+review.
+
+PVRDMA Resources
+================
+[1] OFA Workshop Presentation - https://goo.gl/pHOXJ8
+[2] Libpvrdma User-level library - 
+http://git.openfabrics.org/?p=~aditr/libpvrdma.git;a=summary
+---
+Changes v3->v4:
+ - Rebased on for-4.9 branch - commit 64278fe89b729
+   ("Merge branch 'hns-roce' into k.o/for-4.9")
+ - PATCH [01/16]
+     - New in v4 - Moved vmxnet3 id to pci_ids.h
+ - PATCH [02,03/16]
+     - pvrdma_sge was moved into pvrdma_uapi.h
+ - PATCH [04/16]
+     - Removed explicit enum values.
+ - PATCH [05/16]
+     - Renamed priviledged -> privileged.
+     - Added error numbers for command errors.
+     - Removed unnecessary goto in modify_device.
+     - Moved pd allocation to after command execution.
+     - Removed an incorrect atomic_dec.
+ - PATCH [06/16]
+     - Renamed priviledged -> privileged.
+     - Renamed pvrdma_flush_cqe to _pvrdma_flush_cqe since we hold a lock
+     to call it.
+     - Added wrapper functions for writing to UARs for CQ/QP.
+     - The conversion functions are updated as func_name(dst, src) format.
+     - Renamed max_gs to max_sg.
+     - Added work struct for net device events.
+ - PATCH [07/16]
+     - Updated conversion functions to func_name(dst, src) format.
+     - Removed unneeded local variables.
+ - PATCH [08/16]
+     - Removed the min check and added a BUILD_BUG_ON check for size.
+ - PATCH [09/16]
+     - Added a pvrdma_destroy_cq in the error path.
+     - Renamed pvrdma_flush_cqe to _pvrdma_flush_cqe since we need a lock to
+     be held while calling this.
+     - Updated to use wrapper for UAR write for CQ.
+     - Ensure that poll_cq does not return error values.
+ - PATCH [10/16]
+     - Removed an unnecessary comment.
+ - PATCH [11/16]
+     - Changed access flag check for DMA MR to using bit operation.
+     - Removed some local variables.
+ - PATCH [12/16]
+     - Removed an unnecessary switch case.
+     - Unified the returns in pvrdma_create_qp to use one exit point.
+     - Renamed pvrdma_flush_cqe to _pvrdma_flush_cqe since we need a lock to
+     be held when calling this.
+     - Updated to use wrapper for UAR write for QP.
+     - Updated conversion function to func_name(dst, src) format.
+     - Renamed max_gs to max_sg.
+     - Renamed cap variable to req_cap in pvrdma_set_sq/rq_size.
+     - Changed dev_warn to dev_warn_ratelimited in pvrdma_post_send/recv.
+     - Added nesting locking for flushing CQs when destroying/resetting a QP.
+     - Added missing ret value.
+ - PATCH [13/16]
+     - Fixed some checkpatch warnings.
+     - Added support for new get_dev_fw_str API.
+     - Added event workqueue for netdevice events.
+     - Restructured the pvrdma_pci_remove function a little bit.
+ - PATCH [14/16]
+     - Enforced dependency on VMXNet3 module.
+
+Changes v2->v3:
+ - I reordered the patches so that the definitions of enums, structures is
+ before their use (suggested by Yuval Shaia) so its easier to review.
+ - Removed an unneccesary bool in pvrdma_cmd_post (suggested by Yuval Shaia).
+ - Made the use of comma at end of enums consistent across files (suggested
+ by Leon Romanovsky).
+
+Changes v1->v2:
+ - Patch [07/15] - Addressed Yuval Shaia's comments and 32-bit build errors.
+
+---
+Adit Ranadive (16):
+  vmxnet3: Move PCI Id to pci_ids.h
+  IB/pvrdma: Add user-level shared functions
+  IB/pvrdma: Add virtual device RDMA structures
+  IB/pvrdma: Add the paravirtual RDMA device specification
+  IB/pvrdma: Add functions for Verbs support
+  IB/pvrdma: Add paravirtual rdma device
+  IB/pvrdma: Add helper functions
+  IB/pvrdma: Add device command support
+  IB/pvrdma: Add support for Completion Queues
+  IB/pvrdma: Add UAR support
+  IB/pvrdma: Add support for memory regions
+  IB/pvrdma: Add Queue Pair support
+  IB/pvrdma: Add the main driver module for PVRDMA
+  IB/pvrdma: Add Kconfig and Makefile
+  IB: Add PVRDMA driver
+  MAINTAINERS: Update for PVRDMA driver
+
+ MAINTAINERS                                    |    7 +
+ drivers/infiniband/Kconfig                     |    1 +
+ drivers/infiniband/hw/Makefile                 |    1 +
+ drivers/infiniband/hw/pvrdma/Kconfig           |    7 +
+ drivers/infiniband/hw/pvrdma/Makefile          |    3 +
+ drivers/infiniband/hw/pvrdma/pvrdma.h          |  473 +++++++++
+ drivers/infiniband/hw/pvrdma/pvrdma_cmd.c      |  108 +++
+ drivers/infiniband/hw/pvrdma/pvrdma_cq.c       |  428 +++++++++
+ drivers/infiniband/hw/pvrdma/pvrdma_defs.h     |  302 ++++++
+ drivers/infiniband/hw/pvrdma/pvrdma_dev_api.h  |  342 +++++++
+ drivers/infiniband/hw/pvrdma/pvrdma_doorbell.c |  127 +++
+ drivers/infiniband/hw/pvrdma/pvrdma_ib_verbs.h |  444 +++++++++
+ drivers/infiniband/hw/pvrdma/pvrdma_main.c     | 1222 ++++++++++++++++++++++++
+ drivers/infiniband/hw/pvrdma/pvrdma_misc.c     |  303 ++++++
+ drivers/infiniband/hw/pvrdma/pvrdma_mr.c       |  332 +++++++
+ drivers/infiniband/hw/pvrdma/pvrdma_qp.c       |  980 +++++++++++++++++++
+ drivers/infiniband/hw/pvrdma/pvrdma_uapi.h     |  255 +++++
+ drivers/infiniband/hw/pvrdma/pvrdma_user.h     |   99 ++
+ drivers/infiniband/hw/pvrdma/pvrdma_verbs.c    |  611 ++++++++++++
+ drivers/infiniband/hw/pvrdma/pvrdma_verbs.h    |  108 +++
+ drivers/net/vmxnet3/vmxnet3_int.h              |    3 +-
+ include/linux/pci_ids.h                        |    1 +
+ 22 files changed, 6155 insertions(+), 2 deletions(-)
+ create mode 100644 drivers/infiniband/hw/pvrdma/Kconfig
+ create mode 100644 drivers/infiniband/hw/pvrdma/Makefile
+ create mode 100644 drivers/infiniband/hw/pvrdma/pvrdma.h
+ create mode 100644 drivers/infiniband/hw/pvrdma/pvrdma_cmd.c
+ create mode 100644 drivers/infiniband/hw/pvrdma/pvrdma_cq.c
+ create mode 100644 drivers/infiniband/hw/pvrdma/pvrdma_defs.h
+ create mode 100644 drivers/infiniband/hw/pvrdma/pvrdma_dev_api.h
+ create mode 100644 drivers/infiniband/hw/pvrdma/pvrdma_doorbell.c
+ create mode 100644 drivers/infiniband/hw/pvrdma/pvrdma_ib_verbs.h
+ create mode 100644 drivers/infiniband/hw/pvrdma/pvrdma_main.c
+ create mode 100644 drivers/infiniband/hw/pvrdma/pvrdma_misc.c
+ create mode 100644 drivers/infiniband/hw/pvrdma/pvrdma_mr.c
+ create mode 100644 drivers/infiniband/hw/pvrdma/pvrdma_qp.c
+ create mode 100644 drivers/infiniband/hw/pvrdma/pvrdma_uapi.h
+ create mode 100644 drivers/infiniband/hw/pvrdma/pvrdma_user.h
+ create mode 100644 drivers/infiniband/hw/pvrdma/pvrdma_verbs.c
+ create mode 100644 drivers/infiniband/hw/pvrdma/pvrdma_verbs.h
+
+-- 
+2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
