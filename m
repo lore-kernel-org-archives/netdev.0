@@ -1,94 +1,123 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH RFC] e1000: Send XDP_TX packets using dev_queue_xmit
-Date: Mon, 12 Sep 2016 09:36:45 -0700
-Message-ID: <1473698205.18970.78.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1473697270-3906793-1-git-send-email-tom@herbertland.com>
+From: Alexandre Torgue <alexandre.torgue@st.com>
+Subject: Re: stmmac/RTL8211F/Meson GXBB: TX throughput problems
+Date: Mon, 12 Sep 2016 18:37:49 +0200
+Message-ID: <ff6f3501-fbd5-3e79-dcc1-549406a5144b@st.com>
+References: <CAFBinCALSL_-izJ2tEsAjevAw90kGNTrQ3na3D1YV8f1dS1=Xg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        john.fastabend@gmail.com, kernel-team@fb.com
-To: Tom Herbert <tom@herbertland.com>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Johnson Leung <r58129@freescale.com>
+To: Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
+        <netdev@vger.kernel.org>, <linux-amlogic@lists.infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33104 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751882AbcILQgs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 12:36:48 -0400
-Received: by mail-pf0-f195.google.com with SMTP id 128so8323122pfb.0
-        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 09:36:47 -0700 (PDT)
-In-Reply-To: <1473697270-3906793-1-git-send-email-tom@herbertland.com>
+Received: from mx07-00178001.pphosted.com ([62.209.51.94]:4842 "EHLO
+        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750940AbcILQiV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 12:38:21 -0400
+In-Reply-To: <CAFBinCALSL_-izJ2tEsAjevAw90kGNTrQ3na3D1YV8f1dS1=Xg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-09-12 at 09:21 -0700, Tom Herbert wrote:
-> In order to use XDP with non multi-queue drivers (such as e1000) we need
-> a method to handle XDP_TX return code from xdp program. Since there is
-> only one queue the XDP transmit path needs to share that queue with the
-> normal stack path, and in order to do that we can't break the existing
-> stack's mechanisms of locking, qdiscs, and BQL for the queue.
-> 
-> This patch allocates an skbuff when XDP_TX is returned from the XDP
-> program and call dev_queue_xmit to transmit the skbuff.
-> 
-> Note that this is expected to be a performance hit (which needs to be
-> quantified) relative to a MQ XDP implementation where we can reserve
-> queues to be used by XDP. The first intent of these patches is
-> correctness. This should not affect performance in the XDP_DROP path.
-> 
-> This patch needs to be applied after "e1000: add initial XDP support".
-> 
-> Tested: I've only built this, need to see if I can find some e1000
-> machines. John, if you could try this that would be much appreciated.
-> 
-> Signed-off-by: Tom Herbert <tom@herbertland.com>
-> ---
->  drivers/net/ethernet/intel/e1000/e1000_main.c | 29 ++++++++++++++++++++-------
->  1 file changed, 22 insertions(+), 7 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-> index 91d5c87..f457ea8 100644
-> --- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-> +++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-> @@ -4338,13 +4338,28 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_adapter *adapter,
->  			case XDP_PASS:
->  				break;
->  			case XDP_TX:
-> -				dma_sync_single_for_device(&pdev->dev,
-> -							   dma,
-> -							   length,
-> -							   DMA_TO_DEVICE);
-> -				e1000_xmit_raw_frame(buffer_info, length,
-> -						     netdev, adapter);
-> -				buffer_info->rxbuf.page = NULL;
-> +				/* There is only one transmit queue so we need
-> +				 * to inject the packet at the qdisc layer
-> +				 * to maintain sanity in the stack. We allocate
-> +				 * an skbuff, set up frags with the page, and
-> +				 * then do dev_queue_xmit.
-> +				 */
-> +				skb = alloc_skb(0, GFP_ATOMIC);
-> +				if (skb) {
-> +					dma_unmap_page(&pdev->dev,
-> +						       buffer_info->dma,
-> +						       adapter->rx_buffer_len,
-> +						       DMA_FROM_DEVICE);
-> +					skb->dev = netdev;
-> +					skb_fill_page_desc(skb, 0,
-> +						buffer_info->rxbuf.page,
-> +						0, length);
-> +					dev_queue_xmit(skb);
-> +					goto next_desc;
-> +				}
-> +				/* Fallthrough, if we are unable to handle
-> +				 * XDP_TX then we need to drop.
-> +				 */
->  			case XDP_DROP:
->  			default:
->  				/* re-use mapped page. keep buffer_info->dma
+Hi Martin,
 
-If the intent is correctness, then you'll need to populate skb->len and
-skb->data_len.
 
-Also many drivers assume some headers are in skb->head.
+On 09/11/2016 10:39 PM, Martin Blumenstingl wrote:
+> Hello,
+>
+> I have a device with a Meson GXBB SoC with an stmmac IP block.
 
-e1000 seems to assume skb_headlen() can not be 0
+Which Synopsys IP version do you use ?
+
+> Gbit ethernet on my device is provided by a Realtek RTL8211F RGMII PHY.
+> Similar issues were reported in #linux-amlogic by a user with an
+> Odroid C2 board (= similar hardware).
+>
+> The symptoms are:
+> Receiving data is plenty fast (I can max out my internet connection
+> easily, and with iperf3 I get ~900Mbit/s).
+> Transmitting data from the device is unfortunately very slow, traffic
+> sometimes even stalls completely.
+>
+> I have attached the iperf results and the output of
+> /sys/kernel/debug/stmmaceth/eth0/descriptors_status.
+> Below you can find the ifconfig, netstat and stmmac dma_cap info
+> (*after* I ran all tests).
+>
+> The "involved parties" are:
+> - Meson GXBB specific network configuration registers (I have have
+> double-checked them with the reference drivers: everything seems fine
+> here)
+> - stmmac: it seems that nobody else has reported these kind of issues
+> so far, however I'd still like to hear where I should enable some
+> debugging bits to rule out any stmmac bug
+
+On my side, I just tested on the same "kind" of system:
+-SYNOPSYS GMAC 3.7
+-RTL8211EG as PHY
+
+With I perf, I reach:
+	-RX: 932 Mbps
+	-TX: 820Mbps
+
+Can you check ethtool -S eth0 (most precisely "MMC"counter and errors) ?
+Which kernel version do you use ?
+
+Regards
+
+Alex
+
+
+
+
+> - RTL8211F PHY driver: unfortunately there are no public datasheets
+> available so this is hard to debug. but I'm guessing that TX delay
+> could cause similar issues, so this may be the cause as well.
+>
+>
+> Thanks for any input in advance!
+> Regards,
+> Martin
+>
+>
+> [root@alarm ~]# ifconfig eth0
+> eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+>         inet 192.168.1.235  netmask 255.255.255.0  broadcast 192.168.1.255
+>         ether e2:aa:53:fc:f5:c5  txqueuelen 1000  (Ethernet)
+>         RX packets 1967602  bytes 2968750265 (2.7 GiB)
+>         RX errors 0  dropped 0  overruns 0  frame 0
+>         TX packets 101875  bytes 8548285 (8.1 MiB)
+>         TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+>         device interrupt 18
+>
+> [root@alarm ~]# netstat -i
+> Kernel Interface table
+> Iface      MTU    RX-OK RX-ERR RX-DRP RX-OVR    TX-OK TX-ERR TX-DRP TX-OVR Flg
+> eth0      1500  1967801      0      0 0        101934      0      0      0 BMRU
+>
+> [root@alarm ~]# cat /sys/kernel/debug/stmmaceth/eth0/dma_cap
+> ==============================
+>         DMA HW features
+> ==============================
+>         10/100 Mbps Y
+>         1000 Mbps Y
+>         Half duple Y
+>         Hash Filter: Y
+>         Multiple MAC address registers: Y
+>         PCS (TBI/SGMII/RTBI PHY interfatces): N
+>         SMA (MDIO) Interface: Y
+>         PMT Remote wake up: Y
+>         PMT Magic Frame: Y
+>         RMON module: Y
+>         IEEE 1588-2002 Time Stamp: N
+>         IEEE 1588-2008 Advanced Time Stamp:N
+>         802.3az - Energy-Efficient Ethernet (EEE) Y
+>         AV features: N
+>         Checksum Offload in TX: Y
+>         IP Checksum Offload (type1) in RX: N
+>         IP Checksum Offload (type2) in RX: Y
+>         RXFIFO > 2048bytes: Y
+>         Number of Additional RX channel: 0
+>         Number of Additional TX channel: 0
+>         Enhanced descriptors: N
+>
