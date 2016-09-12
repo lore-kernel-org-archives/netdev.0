@@ -1,110 +1,126 @@
-From: Jesper Dangaard Brouer via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: README: [PATCH RFC 11/11] net/mlx5e: XDP TX xmit
-	more
-Date: Mon, 12 Sep 2016 10:56:55 +0200
-Message-ID: <20160912105655.0cb5607e@redhat.com>
-References: <1473252152-11379-1-git-send-email-saeedm@mellanox.com>
-	<1473252152-11379-12-git-send-email-saeedm@mellanox.com>
-	<20160908101147.1b351432@redhat.com>
-	<20160909032202.GA62966@ast-mbp.thefacebook.com>
-	<20160909073652.351d76d7@redhat.com>
-	<20160909063048.GA67375@ast-mbp.thefacebook.com>
-Reply-To: Jesper Dangaard Brouer <brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next 2/7] cxgb4: add common api support for
+ configuring filters
+Date: Mon, 12 Sep 2016 10:57:16 +0200
+Message-ID: <20160912085716.GG2021@nanopsycho>
+References: <cover.1473667613.git.rahul.lakkireddy@chelsio.com>
+ <05ef6c530086d3df5b8f4128141e3c12d3812105.1473667613.git.rahul.lakkireddy@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
-	iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
-	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-To: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <20160909063048.GA67375-+o4/htvd0TDFYCXBM6kdu7fOX0fSgVTm@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        hariprasad@chelsio.com, leedom@chelsio.com, nirranjan@chelsio.com,
+        indranil@chelsio.com
+To: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:34220 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756792AbcILI5b (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 04:57:31 -0400
+Received: by mail-wm0-f65.google.com with SMTP id g141so1583848wmd.1
+        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 01:57:19 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <05ef6c530086d3df5b8f4128141e3c12d3812105.1473667613.git.rahul.lakkireddy@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 8 Sep 2016 23:30:50 -0700
-Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-
-> On Fri, Sep 09, 2016 at 07:36:52AM +0200, Jesper Dangaard Brouer wrote:
-> > > >  Lets do bundling/bulking from the start!    
-> > > 
-> > > mlx4 already does bulking and this proposed mlx5 set of patches
-> > > does bulking as well.
-> > > See nothing wrong about it. RX side processes the packets and
-> > > when it's done it tells TX to xmit whatever it collected.  
-> > 
-> > This is doing "hidden" bulking and not really taking advantage of using
-> > the icache more effeciently.  
-> > 
-> > Let me explain the problem I see, little more clear then, so you
-> > hopefully see where I'm going.
-> > 
-> > Imagine you have packets intermixed towards the stack and XDP_TX. 
-> > Every time you call the stack code, then you flush your icache.  When
-> > returning to the driver code, you will have to reload all the icache
-> > associated with the XDP_TX, this is a costly operation.  
+Mon, Sep 12, 2016 at 10:12:35AM CEST, rahul.lakkireddy@chelsio.com wrote:
+>Enable filters for non-offload configuration and add common api support
+>for setting and deleting filters in LE-TCAM region of the hardware.
+>
+>IPv4 filters occupy one slot.  IPv6 filters occupy 4 slots and must
+>be on a 4-slot boundary.  IPv4 filters can not occupy a slot belonging
+>to IPv6 and the vice-versa is also true.
+>
+>Filters are set and deleted asynchronously.  Use completion to wait
+>for reply from firmware in order to allow for synchronization if needed.
+>
+>Signed-off-by: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
+>Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+>---
+> drivers/net/ethernet/chelsio/cxgb4/cxgb4.h        |   3 +
+> drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c | 424 +++++++++++++++++++++-
+> drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.h |   1 +
+> drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c   |  33 +-
+> drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h    |  23 +-
+> 5 files changed, 453 insertions(+), 31 deletions(-)
+>
+>diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+>index 053976f..fbd593a 100644
+>--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+>+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+>@@ -1055,7 +1055,10 @@ struct filter_entry {
 > 
-> correct. And why is that a problem?
+> 	u32 pending:1;          /* filter action is pending firmware reply */
+> 	u32 smtidx:8;           /* Source MAC Table index for smac */
+>+	struct filter_ctx *ctx; /* Caller's completion hook */
+> 	struct l2t_entry *l2t;  /* Layer Two Table entry for dmac */
+>+	struct net_device *dev; /* Associated net device */
+>+	u32 tid;                /* This will store the actual tid */
+> 
+> 	/* The filter itself.  Most of this is a straight copy of information
+> 	 * provided by the extended ioctl().  Some fields are translated to
+>diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
+>index 2e86902..490bd94 100644
+>--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
+>+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
+>@@ -33,10 +33,138 @@
+>  */
+> 
+> #include "cxgb4.h"
+>+#include "t4_regs.h"
+> #include "l2t.h"
+> #include "t4fw_api.h"
+> #include "cxgb4_filter.h"
+> 
+>+/* Validate filter spec against configuration done on the card.
+>+ */
+>+static int validate_filter(struct net_device *dev,
+>+			   struct ch_filter_specification *fs)
+>+{
+>+	struct adapter *adapter = netdev2adap(dev);
+>+	u32 fconf, iconf;
+>+
+>+	/* Check for unconfigured fields being used. */
+>+	fconf = adapter->params.tp.vlan_pri_map;
+>+	iconf = adapter->params.tp.ingress_config;
+>+
+>+	#define S(_field) \
+>+		(fs->val._field || fs->mask._field)
+>+	#define U(_mask, _field) \
+>+		(!(fconf & (_mask)) && S(_field))
 
-It is good that you can see and acknowledge the I-cache problem.
 
-XDP is all about performance.  What I hear is, that you are arguing
-against a model that will yield better performance, that does not make
-sense to me.  Let me explain this again, in another way.
-
-This is a mental model switch.  Stop seeing the lowest driver RX as
-something that works on a per packet basis.  Maybe is it is easier to
-understand if we instead see this as vector processing?  This is about
-having a vector of packets, where we apply some action/operation.
-
-This is about using the CPU more efficiently, getting it to do more
-instructions per cycle (directly measurable with perf, while I-cache
-is not directly measurable).
+Wow, this is really odd. Please replace these mysterious "S" and "U"
+with some properly named static helper function.
 
 
-Lets assume everything fits into the I-cache (XDP+driver code). The
-CPU-frontend still have to decode the instructions from the I-cache
-into micro-ops.  The next level of optimizations is to reuse the
-decoded I-cache by running it on all elements in the packet-vector.
-
-The Intel "64 and IA-32 Architectures Optimization Reference Manual"
-(section 3.4.2.6 "Optimization for Decoded ICache"[1][2]), states make
-sure each hot code block is less than about 500 instructions.  Thus,
-the different "stages" working on the packet-vector, need to be rather
-small and compact.
-
-[1] http://www.intel.com/content/www/us/en/architecture-and-technology/64-ia-32-architectures-optimization-manual.html
-[2] http://www.intel.com/content/dam/www/public/us/en/documents/manuals/64-ia-32-architectures-optimization-manual.pdf
-
-
-
-Notice: The same mental model switch applies to delivery packets to
-the regular netstack.  I've brought this up before[3].  Instead of
-flushing the drivers I-cache for every packet, by calling the stack,
-let instead bundle up N-packets in the driver before calling the
-stack.  I showed 10% speedup by a naive implementation of this
-approach.  Edward Cree also showed[4] a 10% performance boost, and
-went further into the stack, showing a 25% increase.
-
-A goal is also, to make optimizing netstack code-size independent of
-the driver code-size, by separating the netstacks I-cache usage from
-the drivers.
-
-[3] http://lists.openwall.net/netdev/2016/01/15/51
-[4] http://lists.openwall.net/netdev/2016/04/19/89
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+>+
+>+	if (U(FCOE_F, fcoe) || U(PORT_F, iport) || U(TOS_F, tos) ||
+>+	    U(ETHERTYPE_F, ethtype) || U(MACMATCH_F, macidx) ||
+>+	    U(MPSHITTYPE_F, matchtype) || U(FRAGMENTATION_F, frag) ||
+>+	    U(PROTOCOL_F, proto) ||
+>+	    U(VNIC_ID_F, pfvf_vld) ||
+>+	    U(VNIC_ID_F, ovlan_vld) ||
+>+	    U(VLAN_F, ivlan_vld))
+>+		return -EOPNOTSUPP;
+>+
+>+	/* T4 inconveniently uses the same FT_VNIC_ID_W bits for both the Outer
+>+	 * VLAN Tag and PF/VF/VFvld fields based on VNIC_F being set
+>+	 * in TP_INGRESS_CONFIG.  Hense the somewhat crazy checks
+>+	 * below.  Additionally, since the T4 firmware interface also
+>+	 * carries that overlap, we need to translate any PF/VF
+>+	 * specification into that internal format below.
+>+	 */
+>+	if (S(pfvf_vld) && S(ovlan_vld))
+>+		return -EOPNOTSUPP;
+>+	if ((S(pfvf_vld) && !(iconf & VNIC_F)) ||
+>+	    (S(ovlan_vld) && (iconf & VNIC_F)))
+>+		return -EOPNOTSUPP;
+>+	if (fs->val.pf > 0x7 || fs->val.vf > 0x7f)
+>+		return -ERANGE;
+>+	fs->mask.pf &= 0x7;
+>+	fs->mask.vf &= 0x7f;
+>+
+>+	#undef S
+>+	#undef U
+>+
