@@ -1,59 +1,58 @@
-From: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
-Subject: Re: [PATCH -next] net: macb: fix missing unlock on error in
- macb_start_xmit()
-Date: Mon, 12 Sep 2016 19:40:27 +0200
-Message-ID: <1119c72d-2731-4bb4-bc52-316a5611c48b@gmail.com>
-References: <1473506277-31304-1-git-send-email-weiyj.lk@gmail.com>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [PATCH v4 02/16] IB/pvrdma: Add user-level shared functions
+Date: Mon, 12 Sep 2016 11:49:34 -0600
+Message-ID: <20160912174934.GE5843@obsidianresearch.com>
+References: <1473655766-31628-1-git-send-email-aditr@vmware.com>
+ <1473655766-31628-3-git-send-email-aditr@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Wei Yongjun <weiyj.lk@gmail.com>,
-        Nicolas Ferre <nicolas.ferre@atmel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: dledford@redhat.com, linux-rdma@vger.kernel.org,
+        pv-drivers@vmware.com, netdev@vger.kernel.org,
+        linux-pci@vger.kernel.org, jhansen@vmware.com, asarwade@vmware.com,
+        georgezhang@vmware.com, bryantan@vmware.com
+To: Adit Ranadive <aditr@vmware.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34028 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755691AbcILRkg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 13:40:36 -0400
-Received: by mail-wm0-f67.google.com with SMTP id g141so3659059wmd.1
-        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 10:40:36 -0700 (PDT)
-In-Reply-To: <1473506277-31304-1-git-send-email-weiyj.lk@gmail.com>
+Received: from quartz.orcorp.ca ([184.70.90.242]:38989 "EHLO quartz.orcorp.ca"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755570AbcILRth (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 12 Sep 2016 13:49:37 -0400
+Content-Disposition: inline
+In-Reply-To: <1473655766-31628-3-git-send-email-aditr@vmware.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/10/2016 01:17 PM, Wei Yongjun wrote:
-> From: Wei Yongjun <weiyongjun1@huawei.com>
->
-> Fix missing unlock before return from function macb_start_xmit()
-> in the error handling case.
->
-> Fixes: 007e4ba3ee13 ("net: macb: initialize checksum when using
-> checksum offloading")
-> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
-> ---
->  drivers/net/ethernet/cadence/macb.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-> index 0294b6a..63144bb 100644
-> --- a/drivers/net/ethernet/cadence/macb.c
-> +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -1398,7 +1398,7 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
->
->  	if (macb_clear_csum(skb)) {
->  		dev_kfree_skb_any(skb);
-> -		return NETDEV_TX_OK;
-> +		goto unlock;
->  	}
->
->  	/* Map socket buffer for DMA transfer */
->
-You are definitely right. Sorry I missed that obvious point and for 
-causing any inconveniences.
+On Sun, Sep 11, 2016 at 09:49:12PM -0700, Adit Ranadive wrote:
+> We share some common structures with the user-level driver. This patch
+> adds those structures and shared functions to traverse the QP/CQ rings.
 
-BTW, I see there are obviously quite a few users of MACB 
-implementations. I'm just curious if anybody else ever encountered the 
-checksum problem or if this a matter of Zynq implementation only.
+>  create mode 100644 drivers/infiniband/hw/pvrdma/pvrdma_uapi.h
+>  create mode 100644 drivers/infiniband/hw/pvrdma/pvrdma_user.h
 
-Regards,
-Helmut
+The files that are intended to be shared with userspace must be under
+include/uapi/, please coordinate with Leon on the path.
+
+Same for all the new drivers.
+
+> +static inline __s32 pvrdma_idx(atomic_t *var, __u32 max_elems)
+> +{
+> +	const unsigned int idx = atomic_read(var);
+
+Eh? Does this even compile in userspace?
+
+If this is not a userspace header then why does it use __u32 and
+related ??
+
+> +#define PVRDMA_UVERBS_ABI_VERSION	3
+> +#define PVRDMA_BOARD_ID			1
+> +#define PVRDMA_REV_ID			1
+> +
+> +struct pvrdma_alloc_ucontext_resp {
+> +	u32 qp_tab_size;
+> +	u32 reserved;
+> +};
+
+This certainly looks like a userspace header, shouldn't it use __u32?
+
+NAK
+
+Jason
