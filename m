@@ -1,112 +1,99 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net 3/6] sctp: free msg->chunks when sctp_primitive_SEND
- return err
-Date: Mon, 12 Sep 2016 16:41:42 -0300
-Message-ID: <20160912194142.GD17689@localhost.localdomain>
-References: <cover.1473326067.git.lucien.xin@gmail.com>
- <57412abf5d2b0526c28a2ff6a872d63335a45d61.1473326067.git.lucien.xin@gmail.com>
+From: pravin shelar <pshelar@ovn.org>
+Subject: Re: [ovs-dev] [PATCH 2/2] openvswitch: use percpu flow stats
+Date: Mon, 12 Sep 2016 12:42:02 -0700
+Message-ID: <CAOrHB_Cg_ekDr9GSRH4EkmtxyCNc1qx9wbknz4uJ+d-ae0LyMA@mail.gmail.com>
+References: <1473453705-18804-1-git-send-email-cascardo@redhat.com> <1473453705-18804-2-git-send-email-cascardo@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        davem@davemloft.net, Vlad Yasevich <vyasevich@gmail.com>,
-        daniel@iogearbox.net
-To: Xin Long <lucien.xin@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: ovs dev <dev@openvswitch.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52508 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754618AbcILTlp (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 12 Sep 2016 15:41:45 -0400
-Content-Disposition: inline
-In-Reply-To: <57412abf5d2b0526c28a2ff6a872d63335a45d61.1473326067.git.lucien.xin@gmail.com>
+Received: from relay3-d.mail.gandi.net ([217.70.183.195]:55502 "EHLO
+        relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754618AbcILTmH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 15:42:07 -0400
+Received: from mfilter30-d.gandi.net (mfilter30-d.gandi.net [217.70.178.161])
+        by relay3-d.mail.gandi.net (Postfix) with ESMTP id BF9D9A80C8
+        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 21:42:05 +0200 (CEST)
+Received: from relay3-d.mail.gandi.net ([IPv6:::ffff:217.70.183.195])
+        by mfilter30-d.gandi.net (mfilter30-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+        with ESMTP id R6hi2wpQ8Unl for <netdev@vger.kernel.org>;
+        Mon, 12 Sep 2016 21:42:04 +0200 (CEST)
+Received: from mail-it0-f44.google.com (mail-it0-f44.google.com [209.85.214.44])
+        (Authenticated sender: pshelar@ovn.org)
+        by relay3-d.mail.gandi.net (Postfix) with ESMTPSA id 3E633A80D1
+        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 21:42:04 +0200 (CEST)
+Received: by mail-it0-f44.google.com with SMTP id n143so21508680ita.1
+        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 12:42:04 -0700 (PDT)
+In-Reply-To: <1473453705-18804-2-git-send-email-cascardo@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 08, 2016 at 05:31:47PM +0800, Xin Long wrote:
-> Last patch "sctp: do not return the transmit err back to sctp_sendmsg"
-> made sctp_primitive_SEND return err only when asoc state is unavailable.
-> In this case, chunks are not enqueued, they have no chance to be freed if
-> we don't take care of them later.
-> 
-> This Patch is actually to revert commit 1cd4d5c4326a ("sctp: remove the
-> unused sctp_datamsg_free()") and commit 8b570dc9f7b6 ("sctp: only drop the
-> reference on the datamsg after sending a msg"), to use sctp_datamsg_free to
-> free the chunks of current msg.
-> 
-
-Considering the subsequent patches in this series are improving error
-return and the first is a cleanup/optimization, Xin, this patch and the
-previous one both deserve a Fixes tag too, for 8b570dc9f7b6. Thanks
-
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+On Fri, Sep 9, 2016 at 1:41 PM, Thadeu Lima de Souza Cascardo
+<cascardo@redhat.com> wrote:
+> Instead of using flow stats per NUMA node, use it per CPU. When using
+> megaflows, the stats lock can be a bottleneck in scalability.
+>
+> On a E5-2690 12-core system, usual throughput went from ~4Mpps to
+> ~15Mpps when forwarding between two 40GbE ports with a single flow
+> configured on the datapath.
+>
+> This has been tested on a system with possible CPUs 0-7,16-23. After
+> module removal, there were no corruption on the slab cache.
+>
+> Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
 > ---
->  include/net/sctp/structs.h |  1 +
->  net/sctp/chunk.c           | 13 +++++++++++++
->  net/sctp/socket.c          |  6 ++++--
->  3 files changed, 18 insertions(+), 2 deletions(-)
-> 
-> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-> index ce93c4b..f61fb7c 100644
-> --- a/include/net/sctp/structs.h
-> +++ b/include/net/sctp/structs.h
-> @@ -537,6 +537,7 @@ struct sctp_datamsg {
->  struct sctp_datamsg *sctp_datamsg_from_user(struct sctp_association *,
->  					    struct sctp_sndrcvinfo *,
->  					    struct iov_iter *);
-> +void sctp_datamsg_free(struct sctp_datamsg *);
->  void sctp_datamsg_put(struct sctp_datamsg *);
->  void sctp_chunk_fail(struct sctp_chunk *, int error);
->  int sctp_chunk_abandoned(struct sctp_chunk *);
-> diff --git a/net/sctp/chunk.c b/net/sctp/chunk.c
-> index a55e547..af9cc80 100644
-> --- a/net/sctp/chunk.c
-> +++ b/net/sctp/chunk.c
-> @@ -70,6 +70,19 @@ static struct sctp_datamsg *sctp_datamsg_new(gfp_t gfp)
->  	return msg;
->  }
->  
-> +void sctp_datamsg_free(struct sctp_datamsg *msg)
-> +{
-> +	struct sctp_chunk *chunk;
-> +
-> +	/* This doesn't have to be a _safe vairant because
-> +	 * sctp_chunk_free() only drops the refs.
-> +	 */
-> +	list_for_each_entry(chunk, &msg->chunks, frag_list)
-> +		sctp_chunk_free(chunk);
-> +
-> +	sctp_datamsg_put(msg);
-> +}
-> +
->  /* Final destructruction of datamsg memory. */
->  static void sctp_datamsg_destroy(struct sctp_datamsg *msg)
+>  net/openvswitch/flow.c       | 43 +++++++++++++++++++++++--------------------
+>  net/openvswitch/flow.h       |  4 ++--
+>  net/openvswitch/flow_table.c | 23 ++++++++++++-----------
+>  3 files changed, 37 insertions(+), 33 deletions(-)
+>
+> diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+> index 3609f37..2970a9f 100644
+> --- a/net/openvswitch/flow.c
+> +++ b/net/openvswitch/flow.c
+> @@ -29,6 +29,7 @@
+>  #include <linux/module.h>
+>  #include <linux/in.h>
+>  #include <linux/rcupdate.h>
+> +#include <linux/cpumask.h>
+>  #include <linux/if_arp.h>
+>  #include <linux/ip.h>
+>  #include <linux/ipv6.h>
+> @@ -72,32 +73,33 @@ void ovs_flow_stats_update(struct sw_flow *flow, __be16 tcp_flags,
 >  {
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index 9fc417a..9d8e2be 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -1970,13 +1970,15 @@ static int sctp_sendmsg(struct sock *sk, struct msghdr *msg, size_t msg_len)
->  	 * breaks.
->  	 */
->  	err = sctp_primitive_SEND(net, asoc, datamsg);
-> -	sctp_datamsg_put(datamsg);
->  	/* Did the lower layer accept the chunk? */
-> -	if (err)
-> +	if (err) {
-> +		sctp_datamsg_free(datamsg);
->  		goto out_free;
-> +	}
->  
->  	pr_debug("%s: we sent primitively\n", __func__);
->  
-> +	sctp_datamsg_put(datamsg);
->  	err = msg_len;
->  
->  	if (unlikely(wait_connect)) {
-> -- 
-> 2.1.0
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+>         struct flow_stats *stats;
+>         int node = numa_node_id();
+> +       int cpu = get_cpu();
+>         int len = skb->len + (skb_vlan_tag_present(skb) ? VLAN_HLEN : 0);
+>
+This function is always called from BH context. So calling
+smp_processor_id() for cpu id is fine. There is no need to handle
+pre-emption here.
+
+> -       stats = rcu_dereference(flow->stats[node]);
+> +       stats = rcu_dereference(flow->stats[cpu]);
+>
+...
+> diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_table.c
+> index 957a3c3..60e5ae0 100644
+> --- a/net/openvswitch/flow_table.c
+> +++ b/net/openvswitch/flow_table.c
+...
+
+> @@ -102,9 +103,9 @@ struct sw_flow *ovs_flow_alloc(void)
+>
+>         RCU_INIT_POINTER(flow->stats[0], stats);
+>
+> -       for_each_node(node)
+> -               if (node != 0)
+> -                       RCU_INIT_POINTER(flow->stats[node], NULL);
+> +       for_each_possible_cpu(cpu)
+> +               if (cpu != 0)
+> +                       RCU_INIT_POINTER(flow->stats[cpu], NULL);
+>
+I think at this point we should just use GFP_ZERO flag for allocating
+struct flow.
