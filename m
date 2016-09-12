@@ -1,12 +1,12 @@
 From: Javier Martinez Canillas <javier@osg.samsung.com>
-Subject: [PATCH 15/15] iwlegacy: use IS_ENABLED() instead of checking for built-in or module
-Date: Mon, 12 Sep 2016 10:03:46 -0400
-Message-ID: <1473689026-6983-16-git-send-email-javier@osg.samsung.com>
+Subject: [PATCH 11/15] sfc: use IS_ENABLED() instead of checking for built-in or module
+Date: Mon, 12 Sep 2016 10:03:42 -0400
+Message-ID: <1473689026-6983-12-git-send-email-javier@osg.samsung.com>
 References: <1473689026-6983-1-git-send-email-javier@osg.samsung.com>
 Cc: Javier Martinez Canillas <javier@osg.samsung.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Stanislaw Gruszka <sgruszka@redhat.com>
+        netdev@vger.kernel.org, Edward Cree <ecree@solarflare.com>,
+        Bert Kenward <bkenward@solarflare.com>,
+        Solarflare linux maintainers <linux-net-drivers@solarflare.com>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1473689026-6983-1-git-send-email-javier@osg.samsung.com>
@@ -20,33 +20,32 @@ Using the macro makes the code more readable by helping abstract away some
 of the Kconfig built-in and module enable details.
 
 Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
-
 ---
 
- drivers/net/wireless/intel/iwlegacy/common.h | 4 ++--
+ drivers/net/ethernet/sfc/falcon_boards.c | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/wireless/intel/iwlegacy/common.h b/drivers/net/wireless/intel/iwlegacy/common.h
-index 726ede391cb9..3bba521d2cd9 100644
---- a/drivers/net/wireless/intel/iwlegacy/common.h
-+++ b/drivers/net/wireless/intel/iwlegacy/common.h
-@@ -1320,7 +1320,7 @@ struct il_priv {
- 	u64 timestamp;
+diff --git a/drivers/net/ethernet/sfc/falcon_boards.c b/drivers/net/ethernet/sfc/falcon_boards.c
+index 1736f4b806af..f6883b2b5da3 100644
+--- a/drivers/net/ethernet/sfc/falcon_boards.c
++++ b/drivers/net/ethernet/sfc/falcon_boards.c
+@@ -64,7 +64,7 @@
+ #define LM87_ALARM_TEMP_INT		0x10
+ #define LM87_ALARM_TEMP_EXT1		0x20
  
- 	union {
--#if defined(CONFIG_IWL3945) || defined(CONFIG_IWL3945_MODULE)
-+#if IS_ENABLED(CONFIG_IWL3945)
- 		struct {
- 			void *shared_virt;
- 			dma_addr_t shared_phys;
-@@ -1351,7 +1351,7 @@ struct il_priv {
+-#if defined(CONFIG_SENSORS_LM87) || defined(CONFIG_SENSORS_LM87_MODULE)
++#if IS_ENABLED(CONFIG_SENSORS_LM87)
  
- 		} _3945;
- #endif
--#if defined(CONFIG_IWL4965) || defined(CONFIG_IWL4965_MODULE)
-+#if IS_ENABLED(CONFIG_IWL4965)
- 		struct {
- 			struct il_rx_phy_res last_phy_res;
- 			bool last_phy_res_valid;
+ static int efx_poke_lm87(struct i2c_client *client, const u8 *reg_values)
+ {
+@@ -455,7 +455,7 @@ static int sfe4001_init(struct efx_nic *efx)
+ 	struct falcon_board *board = falcon_board(efx);
+ 	int rc;
+ 
+-#if defined(CONFIG_SENSORS_LM90) || defined(CONFIG_SENSORS_LM90_MODULE)
++#if IS_ENABLED(CONFIG_SENSORS_LM90)
+ 	board->hwmon_client =
+ 		i2c_new_device(&board->i2c_adap, &sfe4001_hwmon_info);
+ #else
 -- 
 2.7.4
