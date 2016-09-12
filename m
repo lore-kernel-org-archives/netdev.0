@@ -1,7 +1,7 @@
 From: Ram Amrani <Ram.Amrani@qlogic.com>
-Subject: [RFC 08/11] Add support for data path
-Date: Mon, 12 Sep 2016 19:07:42 +0300
-Message-ID: <1473696465-27986-9-git-send-email-Ram.Amrani@qlogic.com>
+Subject: [RFC 11/11] Add events support and register IB device
+Date: Mon, 12 Sep 2016 19:07:45 +0300
+Message-ID: <1473696465-27986-12-git-send-email-Ram.Amrani@qlogic.com>
 References: <1473696465-27986-1-git-send-email-Ram.Amrani@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,1744 +11,268 @@ Cc: <Yuval.Mintz@qlogic.com>, <Ariel.Elior@qlogic.com>,
         Ram Amrani <Ram.Amrani@qlogic.com>
 To: <dledford@redhat.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:41329 "EHLO
-        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751981AbcILQIi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 12:08:38 -0400
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:42034 "EHLO
+        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752243AbcILQIw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 12:08:52 -0400
 In-Reply-To: <1473696465-27986-1-git-send-email-Ram.Amrani@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Implement fastpath verbs like ib_send_post, ib_post_recv and ib_poll_cq.
+Add error handling support.
+Register ib device with ib stack.
 
 Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
 Signed-off-by: Ram Amrani <Ram.Amrani@qlogic.com>
 ---
- drivers/infiniband/hw/qedr/main.c          |    9 +-
- drivers/infiniband/hw/qedr/qedr.h          |   19 +
- drivers/infiniband/hw/qedr/qedr_hsi_rdma.h |  562 +++++++++++++++
- drivers/infiniband/hw/qedr/verbs.c         | 1062 ++++++++++++++++++++++++++++
- drivers/infiniband/hw/qedr/verbs.h         |    5 +
- 5 files changed, 1656 insertions(+), 1 deletion(-)
+ drivers/infiniband/hw/qedr/main.c  | 107 ++++++++++++++++++++++++++++++++++++-
+ drivers/infiniband/hw/qedr/verbs.c |  37 +++++++++++++
+ drivers/infiniband/hw/qedr/verbs.h |   9 ++++
+ include/linux/qed/common_hsi.h     |   1 +
+ 4 files changed, 152 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/infiniband/hw/qedr/main.c b/drivers/infiniband/hw/qedr/main.c
-index 3d4feb7..42206ed 100644
+index fb0b76c..242f31d 100644
 --- a/drivers/infiniband/hw/qedr/main.c
 +++ b/drivers/infiniband/hw/qedr/main.c
-@@ -108,7 +108,10 @@ static int qedr_register_device(struct qedr_dev *dev)
- 				     QEDR_UVERBS(QUERY_QP) |
- 				     QEDR_UVERBS(DESTROY_QP) |
- 				     QEDR_UVERBS(REG_MR) |
--				     QEDR_UVERBS(DEREG_MR);
-+				     QEDR_UVERBS(DEREG_MR) |
-+				     QEDR_UVERBS(POLL_CQ) |
-+				     QEDR_UVERBS(POST_SEND) |
-+				     QEDR_UVERBS(POST_RECV);
+@@ -86,10 +86,25 @@ static void qedr_get_dev_fw_str(struct ib_device *ibdev, char *str,
+ 		 (fw_ver >> 8) & 0xFF, fw_ver & 0xFF);
+ }
  
- 	dev->ibdev.phys_port_cnt = 1;
- 	dev->ibdev.num_comp_vectors = dev->num_cnq;
-@@ -149,6 +152,10 @@ static int qedr_register_device(struct qedr_dev *dev)
- 	dev->ibdev.alloc_mr = qedr_alloc_mr;
- 	dev->ibdev.map_mr_sg = qedr_map_mr_sg;
++static struct net_device *qedr_get_netdev(struct ib_device *dev, u8 port_num)
++{
++	struct qedr_dev *qdev;
++
++	qdev = get_qedr_dev(dev);
++	dev_hold(qdev->ndev);
++
++	/* The HW vendor's device driver must guarantee
++	 * that this function returns NULL before the net device reaches
++	 * NETDEV_UNREGISTER_FINAL state.
++	 */
++	return qdev->ndev;
++}
++
+ static int qedr_register_device(struct qedr_dev *dev)
+ {
+ 	strlcpy(dev->ibdev.name, "qedr%d", IB_DEVICE_NAME_MAX);
  
-+	dev->ibdev.poll_cq = qedr_poll_cq;
-+	dev->ibdev.post_send = qedr_post_send;
-+	dev->ibdev.post_recv = qedr_post_recv;
++	dev->ibdev.node_guid = dev->attr.node_guid;
+ 	memcpy(dev->ibdev.node_desc, QEDR_NODE_DESC, sizeof(QEDR_NODE_DESC));
+ 	dev->ibdev.owner = THIS_MODULE;
+ 	dev->ibdev.uverbs_abi_ver = QEDR_ABI_VERSION;
+@@ -156,11 +171,15 @@ static int qedr_register_device(struct qedr_dev *dev)
+ 	dev->ibdev.post_send = qedr_post_send;
+ 	dev->ibdev.post_recv = qedr_post_recv;
+ 
++	dev->ibdev.process_mad = qedr_process_mad;
++	dev->ibdev.get_port_immutable = qedr_port_immutable;
++	dev->ibdev.get_netdev = qedr_get_netdev;
 +
  	dev->ibdev.dma_device = &dev->pdev->dev;
  	dev->ibdev.get_link_layer = qedr_link_layer;
  	dev->ibdev.get_dev_fw_str = qedr_get_dev_fw_str;
-diff --git a/drivers/infiniband/hw/qedr/qedr.h b/drivers/infiniband/hw/qedr/qedr.h
-index 3cd4e52..bc218d2 100644
---- a/drivers/infiniband/hw/qedr/qedr.h
-+++ b/drivers/infiniband/hw/qedr/qedr.h
-@@ -409,6 +409,25 @@ struct qedr_mr {
- 	u32 npages;
- };
  
-+#define SET_FIELD2(value, name, flag) ((value) |= ((flag) << (name ## _SHIFT)))
-+
-+#define QEDR_RESP_IMM	(RDMA_CQE_RESPONDER_IMM_FLG_MASK << \
-+			 RDMA_CQE_RESPONDER_IMM_FLG_SHIFT)
-+#define QEDR_RESP_RDMA	(RDMA_CQE_RESPONDER_RDMA_FLG_MASK << \
-+			 RDMA_CQE_RESPONDER_RDMA_FLG_SHIFT)
-+#define QEDR_RESP_RDMA_IMM (QEDR_RESP_IMM | QEDR_RESP_RDMA)
-+
-+static inline void qedr_inc_sw_cons(struct qedr_qp_hwq_info *info)
+-	return 0;
++	return ib_register_device(&dev->ibdev, NULL);
+ }
+ 
+ /* This function allocates fast-path status block memory */
+@@ -548,6 +567,86 @@ static int qedr_set_device_attr(struct qedr_dev *dev)
+ 	return 0;
+ }
+ 
++void qedr_affiliated_event(void *context, u8 e_code, void *fw_handle)
 +{
-+	info->cons = (info->cons + 1) % info->max_wr;
-+	info->wqe_cons++;
++#define EVENT_TYPE_NOT_DEFINED	0
++#define EVENT_TYPE_CQ		1
++#define EVENT_TYPE_QP		2
++	struct qedr_dev *dev = (struct qedr_dev *)context;
++	union event_ring_data *data = fw_handle;
++	u64 roce_handle64 = ((u64)data->roce_handle.hi << 32) +
++			    data->roce_handle.lo;
++	u8 event_type = EVENT_TYPE_NOT_DEFINED;
++	struct ib_event event;
++	struct ib_cq *ibcq;
++	struct ib_qp *ibqp;
++	struct qedr_cq *cq;
++	struct qedr_qp *qp;
++
++	switch (e_code) {
++	case ROCE_ASYNC_EVENT_CQ_OVERFLOW_ERR:
++		event.event = IB_EVENT_CQ_ERR;
++		event_type = EVENT_TYPE_CQ;
++		break;
++	case ROCE_ASYNC_EVENT_SQ_DRAINED:
++		event.event = IB_EVENT_SQ_DRAINED;
++		event_type = EVENT_TYPE_QP;
++		break;
++	case ROCE_ASYNC_EVENT_QP_CATASTROPHIC_ERR:
++		event.event = IB_EVENT_QP_FATAL;
++		event_type = EVENT_TYPE_QP;
++		break;
++	case ROCE_ASYNC_EVENT_LOCAL_INVALID_REQUEST_ERR:
++		event.event = IB_EVENT_QP_REQ_ERR;
++		event_type = EVENT_TYPE_QP;
++		break;
++	case ROCE_ASYNC_EVENT_LOCAL_ACCESS_ERR:
++		event.event = IB_EVENT_QP_ACCESS_ERR;
++		event_type = EVENT_TYPE_QP;
++		break;
++	default:
++		DP_ERR(dev, "unsupported event %d on handle=%llx\n", e_code,
++		       roce_handle64);
++	}
++
++	switch (event_type) {
++	case EVENT_TYPE_CQ:
++		cq = (struct qedr_cq *)(uintptr_t)roce_handle64;
++		if (cq) {
++			ibcq = &cq->ibcq;
++			if (ibcq->event_handler) {
++				event.device = ibcq->device;
++				event.element.cq = ibcq;
++				ibcq->event_handler(&event, ibcq->cq_context);
++			}
++		} else {
++			WARN(1,
++			     "Error: CQ event with NULL pointer ibcq. Handle=%llx\n",
++			     roce_handle64);
++		}
++		DP_ERR(dev, "CQ event %d on hanlde %p\n", e_code, cq);
++		break;
++	case EVENT_TYPE_QP:
++		qp = (struct qedr_qp *)(uintptr_t)roce_handle64;
++		if (qp) {
++			ibqp = &qp->ibqp;
++			if (ibqp->event_handler) {
++				event.device = ibqp->device;
++				event.element.qp = ibqp;
++				ibqp->event_handler(&event, ibqp->qp_context);
++			}
++		} else {
++			WARN(1,
++			     "Error: QP event with NULL pointer ibqp. Handle=%llx\n",
++			     roce_handle64);
++		}
++		DP_ERR(dev, "QP event %d on hanlde %p\n", e_code, qp);
++		break;
++	default:
++		break;
++	}
 +}
 +
-+static inline void qedr_inc_sw_prod(struct qedr_qp_hwq_info *info)
-+{
-+	info->prod = (info->prod + 1) % info->max_wr;
-+}
-+
- static inline int qedr_get_dmac(struct qedr_dev *dev,
- 				struct ib_ah_attr *ah_attr, u8 *mac_addr)
+ static int qedr_init_hw(struct qedr_dev *dev)
  {
-diff --git a/drivers/infiniband/hw/qedr/qedr_hsi_rdma.h b/drivers/infiniband/hw/qedr/qedr_hsi_rdma.h
-index 4770559..5c98d20 100644
---- a/drivers/infiniband/hw/qedr/qedr_hsi_rdma.h
-+++ b/drivers/infiniband/hw/qedr/qedr_hsi_rdma.h
-@@ -150,6 +150,12 @@ struct rdma_rq_sge {
- 	struct regpair addr;
- 	__le32 length;
- 	__le32 flags;
-+#define RDMA_RQ_SGE_L_KEY_MASK      0x3FFFFFF
-+#define RDMA_RQ_SGE_L_KEY_SHIFT     0
-+#define RDMA_RQ_SGE_NUM_SGES_MASK   0x7
-+#define RDMA_RQ_SGE_NUM_SGES_SHIFT  26
-+#define RDMA_RQ_SGE_RESERVED0_MASK  0x7
-+#define RDMA_RQ_SGE_RESERVED0_SHIFT 29
- };
+ 	struct qed_rdma_add_user_out_params out_params;
+@@ -576,6 +675,7 @@ static int qedr_init_hw(struct qedr_dev *dev)
+ 		cur_pbl->pbl_ptr = (u64)p_phys_table;
+ 	}
  
- struct rdma_srq_sge {
-@@ -183,4 +189,560 @@ struct rdma_pwm_val32_data {
- 	__le32 value;
- };
++	events.affiliated_event = qedr_affiliated_event;
+ 	events.context = dev;
  
-+/* DIF Block size options */
-+enum rdma_dif_block_size {
-+	RDMA_DIF_BLOCK_512 = 0,
-+	RDMA_DIF_BLOCK_4096 = 1,
-+	MAX_RDMA_DIF_BLOCK_SIZE
-+};
-+
-+/* DIF CRC initial value */
-+enum rdma_dif_crc_seed {
-+	RDMA_DIF_CRC_SEED_0000 = 0,
-+	RDMA_DIF_CRC_SEED_FFFF = 1,
-+	MAX_RDMA_DIF_CRC_SEED
-+};
-+
-+/* RDMA DIF Error Result Structure */
-+struct rdma_dif_error_result {
-+	__le32 error_intervals;
-+	__le32 dif_error_1st_interval;
-+	u8 flags;
-+#define RDMA_DIF_ERROR_RESULT_DIF_ERROR_TYPE_CRC_MASK      0x1
-+#define RDMA_DIF_ERROR_RESULT_DIF_ERROR_TYPE_CRC_SHIFT     0
-+#define RDMA_DIF_ERROR_RESULT_DIF_ERROR_TYPE_APP_TAG_MASK  0x1
-+#define RDMA_DIF_ERROR_RESULT_DIF_ERROR_TYPE_APP_TAG_SHIFT 1
-+#define RDMA_DIF_ERROR_RESULT_DIF_ERROR_TYPE_REF_TAG_MASK  0x1
-+#define RDMA_DIF_ERROR_RESULT_DIF_ERROR_TYPE_REF_TAG_SHIFT 2
-+#define RDMA_DIF_ERROR_RESULT_RESERVED0_MASK               0xF
-+#define RDMA_DIF_ERROR_RESULT_RESERVED0_SHIFT              3
-+#define RDMA_DIF_ERROR_RESULT_TOGGLE_BIT_MASK              0x1
-+#define RDMA_DIF_ERROR_RESULT_TOGGLE_BIT_SHIFT             7
-+	u8 reserved1[55];
-+};
-+
-+/* DIF IO direction */
-+enum rdma_dif_io_direction_flg {
-+	RDMA_DIF_DIR_RX = 0,
-+	RDMA_DIF_DIR_TX = 1,
-+	MAX_RDMA_DIF_IO_DIRECTION_FLG
-+};
-+
-+/* RDMA DIF Runt Result Structure */
-+struct rdma_dif_runt_result {
-+	__le16 guard_tag;
-+	__le16 reserved[3];
-+};
-+
-+/* Memory window type enumeration */
-+enum rdma_mw_type {
-+	RDMA_MW_TYPE_1,
-+	RDMA_MW_TYPE_2A,
-+	MAX_RDMA_MW_TYPE
-+};
-+
-+struct rdma_sq_atomic_wqe {
-+	__le32 reserved1;
-+	__le32 length;
-+	__le32 xrc_srq;
-+	u8 req_type;
-+	u8 flags;
-+#define RDMA_SQ_ATOMIC_WQE_COMP_FLG_MASK         0x1
-+#define RDMA_SQ_ATOMIC_WQE_COMP_FLG_SHIFT        0
-+#define RDMA_SQ_ATOMIC_WQE_RD_FENCE_FLG_MASK     0x1
-+#define RDMA_SQ_ATOMIC_WQE_RD_FENCE_FLG_SHIFT    1
-+#define RDMA_SQ_ATOMIC_WQE_INV_FENCE_FLG_MASK    0x1
-+#define RDMA_SQ_ATOMIC_WQE_INV_FENCE_FLG_SHIFT   2
-+#define RDMA_SQ_ATOMIC_WQE_SE_FLG_MASK           0x1
-+#define RDMA_SQ_ATOMIC_WQE_SE_FLG_SHIFT          3
-+#define RDMA_SQ_ATOMIC_WQE_INLINE_FLG_MASK       0x1
-+#define RDMA_SQ_ATOMIC_WQE_INLINE_FLG_SHIFT      4
-+#define RDMA_SQ_ATOMIC_WQE_DIF_ON_HOST_FLG_MASK  0x1
-+#define RDMA_SQ_ATOMIC_WQE_DIF_ON_HOST_FLG_SHIFT 5
-+#define RDMA_SQ_ATOMIC_WQE_RESERVED0_MASK        0x3
-+#define RDMA_SQ_ATOMIC_WQE_RESERVED0_SHIFT       6
-+	u8 wqe_size;
-+	u8 prev_wqe_size;
-+	struct regpair remote_va;
-+	__le32 r_key;
-+	__le32 reserved2;
-+	struct regpair cmp_data;
-+	struct regpair swap_data;
-+};
-+
-+/* First element (16 bytes) of atomic wqe */
-+struct rdma_sq_atomic_wqe_1st {
-+	__le32 reserved1;
-+	__le32 length;
-+	__le32 xrc_srq;
-+	u8 req_type;
-+	u8 flags;
-+#define RDMA_SQ_ATOMIC_WQE_1ST_COMP_FLG_MASK       0x1
-+#define RDMA_SQ_ATOMIC_WQE_1ST_COMP_FLG_SHIFT      0
-+#define RDMA_SQ_ATOMIC_WQE_1ST_RD_FENCE_FLG_MASK   0x1
-+#define RDMA_SQ_ATOMIC_WQE_1ST_RD_FENCE_FLG_SHIFT  1
-+#define RDMA_SQ_ATOMIC_WQE_1ST_INV_FENCE_FLG_MASK  0x1
-+#define RDMA_SQ_ATOMIC_WQE_1ST_INV_FENCE_FLG_SHIFT 2
-+#define RDMA_SQ_ATOMIC_WQE_1ST_SE_FLG_MASK         0x1
-+#define RDMA_SQ_ATOMIC_WQE_1ST_SE_FLG_SHIFT        3
-+#define RDMA_SQ_ATOMIC_WQE_1ST_INLINE_FLG_MASK     0x1
-+#define RDMA_SQ_ATOMIC_WQE_1ST_INLINE_FLG_SHIFT    4
-+#define RDMA_SQ_ATOMIC_WQE_1ST_RESERVED0_MASK      0x7
-+#define RDMA_SQ_ATOMIC_WQE_1ST_RESERVED0_SHIFT     5
-+	u8 wqe_size;
-+	u8 prev_wqe_size;
-+};
-+
-+/* Second element (16 bytes) of atomic wqe */
-+struct rdma_sq_atomic_wqe_2nd {
-+	struct regpair remote_va;
-+	__le32 r_key;
-+	__le32 reserved2;
-+};
-+
-+/* Third element (16 bytes) of atomic wqe */
-+struct rdma_sq_atomic_wqe_3rd {
-+	struct regpair cmp_data;
-+	struct regpair swap_data;
-+};
-+
-+struct rdma_sq_bind_wqe {
-+	struct regpair addr;
-+	__le32 l_key;
-+	u8 req_type;
-+	u8 flags;
-+#define RDMA_SQ_BIND_WQE_COMP_FLG_MASK       0x1
-+#define RDMA_SQ_BIND_WQE_COMP_FLG_SHIFT      0
-+#define RDMA_SQ_BIND_WQE_RD_FENCE_FLG_MASK   0x1
-+#define RDMA_SQ_BIND_WQE_RD_FENCE_FLG_SHIFT  1
-+#define RDMA_SQ_BIND_WQE_INV_FENCE_FLG_MASK  0x1
-+#define RDMA_SQ_BIND_WQE_INV_FENCE_FLG_SHIFT 2
-+#define RDMA_SQ_BIND_WQE_SE_FLG_MASK         0x1
-+#define RDMA_SQ_BIND_WQE_SE_FLG_SHIFT        3
-+#define RDMA_SQ_BIND_WQE_INLINE_FLG_MASK     0x1
-+#define RDMA_SQ_BIND_WQE_INLINE_FLG_SHIFT    4
-+#define RDMA_SQ_BIND_WQE_RESERVED0_MASK      0x7
-+#define RDMA_SQ_BIND_WQE_RESERVED0_SHIFT     5
-+	u8 wqe_size;
-+	u8 prev_wqe_size;
-+	u8 bind_ctrl;
-+#define RDMA_SQ_BIND_WQE_ZERO_BASED_MASK     0x1
-+#define RDMA_SQ_BIND_WQE_ZERO_BASED_SHIFT    0
-+#define RDMA_SQ_BIND_WQE_MW_TYPE_MASK        0x1
-+#define RDMA_SQ_BIND_WQE_MW_TYPE_SHIFT       1
-+#define RDMA_SQ_BIND_WQE_RESERVED1_MASK      0x3F
-+#define RDMA_SQ_BIND_WQE_RESERVED1_SHIFT     2
-+	u8 access_ctrl;
-+#define RDMA_SQ_BIND_WQE_REMOTE_READ_MASK    0x1
-+#define RDMA_SQ_BIND_WQE_REMOTE_READ_SHIFT   0
-+#define RDMA_SQ_BIND_WQE_REMOTE_WRITE_MASK   0x1
-+#define RDMA_SQ_BIND_WQE_REMOTE_WRITE_SHIFT  1
-+#define RDMA_SQ_BIND_WQE_ENABLE_ATOMIC_MASK  0x1
-+#define RDMA_SQ_BIND_WQE_ENABLE_ATOMIC_SHIFT 2
-+#define RDMA_SQ_BIND_WQE_LOCAL_READ_MASK     0x1
-+#define RDMA_SQ_BIND_WQE_LOCAL_READ_SHIFT    3
-+#define RDMA_SQ_BIND_WQE_LOCAL_WRITE_MASK    0x1
-+#define RDMA_SQ_BIND_WQE_LOCAL_WRITE_SHIFT   4
-+#define RDMA_SQ_BIND_WQE_RESERVED2_MASK      0x7
-+#define RDMA_SQ_BIND_WQE_RESERVED2_SHIFT     5
-+	u8 reserved3;
-+	u8 length_hi;
-+	__le32 length_lo;
-+	__le32 parent_l_key;
-+	__le32 reserved4;
-+};
-+
-+/* First element (16 bytes) of bind wqe */
-+struct rdma_sq_bind_wqe_1st {
-+	struct regpair addr;
-+	__le32 l_key;
-+	u8 req_type;
-+	u8 flags;
-+#define RDMA_SQ_BIND_WQE_1ST_COMP_FLG_MASK       0x1
-+#define RDMA_SQ_BIND_WQE_1ST_COMP_FLG_SHIFT      0
-+#define RDMA_SQ_BIND_WQE_1ST_RD_FENCE_FLG_MASK   0x1
-+#define RDMA_SQ_BIND_WQE_1ST_RD_FENCE_FLG_SHIFT  1
-+#define RDMA_SQ_BIND_WQE_1ST_INV_FENCE_FLG_MASK  0x1
-+#define RDMA_SQ_BIND_WQE_1ST_INV_FENCE_FLG_SHIFT 2
-+#define RDMA_SQ_BIND_WQE_1ST_SE_FLG_MASK         0x1
-+#define RDMA_SQ_BIND_WQE_1ST_SE_FLG_SHIFT        3
-+#define RDMA_SQ_BIND_WQE_1ST_INLINE_FLG_MASK     0x1
-+#define RDMA_SQ_BIND_WQE_1ST_INLINE_FLG_SHIFT    4
-+#define RDMA_SQ_BIND_WQE_1ST_RESERVED0_MASK      0x7
-+#define RDMA_SQ_BIND_WQE_1ST_RESERVED0_SHIFT     5
-+	u8 wqe_size;
-+	u8 prev_wqe_size;
-+};
-+
-+/* Second element (16 bytes) of bind wqe */
-+struct rdma_sq_bind_wqe_2nd {
-+	u8 bind_ctrl;
-+#define RDMA_SQ_BIND_WQE_2ND_ZERO_BASED_MASK     0x1
-+#define RDMA_SQ_BIND_WQE_2ND_ZERO_BASED_SHIFT    0
-+#define RDMA_SQ_BIND_WQE_2ND_MW_TYPE_MASK        0x1
-+#define RDMA_SQ_BIND_WQE_2ND_MW_TYPE_SHIFT       1
-+#define RDMA_SQ_BIND_WQE_2ND_RESERVED1_MASK      0x3F
-+#define RDMA_SQ_BIND_WQE_2ND_RESERVED1_SHIFT     2
-+	u8 access_ctrl;
-+#define RDMA_SQ_BIND_WQE_2ND_REMOTE_READ_MASK    0x1
-+#define RDMA_SQ_BIND_WQE_2ND_REMOTE_READ_SHIFT   0
-+#define RDMA_SQ_BIND_WQE_2ND_REMOTE_WRITE_MASK   0x1
-+#define RDMA_SQ_BIND_WQE_2ND_REMOTE_WRITE_SHIFT  1
-+#define RDMA_SQ_BIND_WQE_2ND_ENABLE_ATOMIC_MASK  0x1
-+#define RDMA_SQ_BIND_WQE_2ND_ENABLE_ATOMIC_SHIFT 2
-+#define RDMA_SQ_BIND_WQE_2ND_LOCAL_READ_MASK     0x1
-+#define RDMA_SQ_BIND_WQE_2ND_LOCAL_READ_SHIFT    3
-+#define RDMA_SQ_BIND_WQE_2ND_LOCAL_WRITE_MASK    0x1
-+#define RDMA_SQ_BIND_WQE_2ND_LOCAL_WRITE_SHIFT   4
-+#define RDMA_SQ_BIND_WQE_2ND_RESERVED2_MASK      0x7
-+#define RDMA_SQ_BIND_WQE_2ND_RESERVED2_SHIFT     5
-+	u8 reserved3;
-+	u8 length_hi;
-+	__le32 length_lo;
-+	__le32 parent_l_key;
-+	__le32 reserved4;
-+};
-+
-+/* Structure with only the SQ WQE common
-+ * fields. Size is of one SQ element (16B)
-+ */
-+struct rdma_sq_common_wqe {
-+	__le32 reserved1[3];
-+	u8 req_type;
-+	u8 flags;
-+#define RDMA_SQ_COMMON_WQE_COMP_FLG_MASK       0x1
-+#define RDMA_SQ_COMMON_WQE_COMP_FLG_SHIFT      0
-+#define RDMA_SQ_COMMON_WQE_RD_FENCE_FLG_MASK   0x1
-+#define RDMA_SQ_COMMON_WQE_RD_FENCE_FLG_SHIFT  1
-+#define RDMA_SQ_COMMON_WQE_INV_FENCE_FLG_MASK  0x1
-+#define RDMA_SQ_COMMON_WQE_INV_FENCE_FLG_SHIFT 2
-+#define RDMA_SQ_COMMON_WQE_SE_FLG_MASK         0x1
-+#define RDMA_SQ_COMMON_WQE_SE_FLG_SHIFT        3
-+#define RDMA_SQ_COMMON_WQE_INLINE_FLG_MASK     0x1
-+#define RDMA_SQ_COMMON_WQE_INLINE_FLG_SHIFT    4
-+#define RDMA_SQ_COMMON_WQE_RESERVED0_MASK      0x7
-+#define RDMA_SQ_COMMON_WQE_RESERVED0_SHIFT     5
-+	u8 wqe_size;
-+	u8 prev_wqe_size;
-+};
-+
-+struct rdma_sq_fmr_wqe {
-+	struct regpair addr;
-+	__le32 l_key;
-+	u8 req_type;
-+	u8 flags;
-+#define RDMA_SQ_FMR_WQE_COMP_FLG_MASK                0x1
-+#define RDMA_SQ_FMR_WQE_COMP_FLG_SHIFT               0
-+#define RDMA_SQ_FMR_WQE_RD_FENCE_FLG_MASK            0x1
-+#define RDMA_SQ_FMR_WQE_RD_FENCE_FLG_SHIFT           1
-+#define RDMA_SQ_FMR_WQE_INV_FENCE_FLG_MASK           0x1
-+#define RDMA_SQ_FMR_WQE_INV_FENCE_FLG_SHIFT          2
-+#define RDMA_SQ_FMR_WQE_SE_FLG_MASK                  0x1
-+#define RDMA_SQ_FMR_WQE_SE_FLG_SHIFT                 3
-+#define RDMA_SQ_FMR_WQE_INLINE_FLG_MASK              0x1
-+#define RDMA_SQ_FMR_WQE_INLINE_FLG_SHIFT             4
-+#define RDMA_SQ_FMR_WQE_DIF_ON_HOST_FLG_MASK         0x1
-+#define RDMA_SQ_FMR_WQE_DIF_ON_HOST_FLG_SHIFT        5
-+#define RDMA_SQ_FMR_WQE_RESERVED0_MASK               0x3
-+#define RDMA_SQ_FMR_WQE_RESERVED0_SHIFT              6
-+	u8 wqe_size;
-+	u8 prev_wqe_size;
-+	u8 fmr_ctrl;
-+#define RDMA_SQ_FMR_WQE_PAGE_SIZE_LOG_MASK           0x1F
-+#define RDMA_SQ_FMR_WQE_PAGE_SIZE_LOG_SHIFT          0
-+#define RDMA_SQ_FMR_WQE_ZERO_BASED_MASK              0x1
-+#define RDMA_SQ_FMR_WQE_ZERO_BASED_SHIFT             5
-+#define RDMA_SQ_FMR_WQE_BIND_EN_MASK                 0x1
-+#define RDMA_SQ_FMR_WQE_BIND_EN_SHIFT                6
-+#define RDMA_SQ_FMR_WQE_RESERVED1_MASK               0x1
-+#define RDMA_SQ_FMR_WQE_RESERVED1_SHIFT              7
-+	u8 access_ctrl;
-+#define RDMA_SQ_FMR_WQE_REMOTE_READ_MASK             0x1
-+#define RDMA_SQ_FMR_WQE_REMOTE_READ_SHIFT            0
-+#define RDMA_SQ_FMR_WQE_REMOTE_WRITE_MASK            0x1
-+#define RDMA_SQ_FMR_WQE_REMOTE_WRITE_SHIFT           1
-+#define RDMA_SQ_FMR_WQE_ENABLE_ATOMIC_MASK           0x1
-+#define RDMA_SQ_FMR_WQE_ENABLE_ATOMIC_SHIFT          2
-+#define RDMA_SQ_FMR_WQE_LOCAL_READ_MASK              0x1
-+#define RDMA_SQ_FMR_WQE_LOCAL_READ_SHIFT             3
-+#define RDMA_SQ_FMR_WQE_LOCAL_WRITE_MASK             0x1
-+#define RDMA_SQ_FMR_WQE_LOCAL_WRITE_SHIFT            4
-+#define RDMA_SQ_FMR_WQE_RESERVED2_MASK               0x7
-+#define RDMA_SQ_FMR_WQE_RESERVED2_SHIFT              5
-+	u8 reserved3;
-+	u8 length_hi;
-+	__le32 length_lo;
-+	struct regpair pbl_addr;
-+	__le32 dif_base_ref_tag;
-+	__le16 dif_app_tag;
-+	__le16 dif_app_tag_mask;
-+	__le16 dif_runt_crc_value;
-+	__le16 dif_flags;
-+#define RDMA_SQ_FMR_WQE_DIF_IO_DIRECTION_FLG_MASK    0x1
-+#define RDMA_SQ_FMR_WQE_DIF_IO_DIRECTION_FLG_SHIFT   0
-+#define RDMA_SQ_FMR_WQE_DIF_BLOCK_SIZE_MASK          0x1
-+#define RDMA_SQ_FMR_WQE_DIF_BLOCK_SIZE_SHIFT         1
-+#define RDMA_SQ_FMR_WQE_DIF_RUNT_VALID_FLG_MASK      0x1
-+#define RDMA_SQ_FMR_WQE_DIF_RUNT_VALID_FLG_SHIFT     2
-+#define RDMA_SQ_FMR_WQE_DIF_VALIDATE_CRC_GUARD_MASK  0x1
-+#define RDMA_SQ_FMR_WQE_DIF_VALIDATE_CRC_GUARD_SHIFT 3
-+#define RDMA_SQ_FMR_WQE_DIF_VALIDATE_REF_TAG_MASK    0x1
-+#define RDMA_SQ_FMR_WQE_DIF_VALIDATE_REF_TAG_SHIFT   4
-+#define RDMA_SQ_FMR_WQE_DIF_VALIDATE_APP_TAG_MASK    0x1
-+#define RDMA_SQ_FMR_WQE_DIF_VALIDATE_APP_TAG_SHIFT   5
-+#define RDMA_SQ_FMR_WQE_DIF_CRC_SEED_MASK            0x1
-+#define RDMA_SQ_FMR_WQE_DIF_CRC_SEED_SHIFT           6
-+#define RDMA_SQ_FMR_WQE_RESERVED4_MASK               0x1FF
-+#define RDMA_SQ_FMR_WQE_RESERVED4_SHIFT              7
-+	__le32 Reserved5;
-+};
-+
-+/* First element (16 bytes) of fmr wqe */
-+struct rdma_sq_fmr_wqe_1st {
-+	struct regpair addr;
-+	__le32 l_key;
-+	u8 req_type;
-+	u8 flags;
-+#define RDMA_SQ_FMR_WQE_1ST_COMP_FLG_MASK         0x1
-+#define RDMA_SQ_FMR_WQE_1ST_COMP_FLG_SHIFT        0
-+#define RDMA_SQ_FMR_WQE_1ST_RD_FENCE_FLG_MASK     0x1
-+#define RDMA_SQ_FMR_WQE_1ST_RD_FENCE_FLG_SHIFT    1
-+#define RDMA_SQ_FMR_WQE_1ST_INV_FENCE_FLG_MASK    0x1
-+#define RDMA_SQ_FMR_WQE_1ST_INV_FENCE_FLG_SHIFT   2
-+#define RDMA_SQ_FMR_WQE_1ST_SE_FLG_MASK           0x1
-+#define RDMA_SQ_FMR_WQE_1ST_SE_FLG_SHIFT          3
-+#define RDMA_SQ_FMR_WQE_1ST_INLINE_FLG_MASK       0x1
-+#define RDMA_SQ_FMR_WQE_1ST_INLINE_FLG_SHIFT      4
-+#define RDMA_SQ_FMR_WQE_1ST_DIF_ON_HOST_FLG_MASK  0x1
-+#define RDMA_SQ_FMR_WQE_1ST_DIF_ON_HOST_FLG_SHIFT 5
-+#define RDMA_SQ_FMR_WQE_1ST_RESERVED0_MASK        0x3
-+#define RDMA_SQ_FMR_WQE_1ST_RESERVED0_SHIFT       6
-+	u8 wqe_size;
-+	u8 prev_wqe_size;
-+};
-+
-+/* Second element (16 bytes) of fmr wqe */
-+struct rdma_sq_fmr_wqe_2nd {
-+	u8 fmr_ctrl;
-+#define RDMA_SQ_FMR_WQE_2ND_PAGE_SIZE_LOG_MASK  0x1F
-+#define RDMA_SQ_FMR_WQE_2ND_PAGE_SIZE_LOG_SHIFT 0
-+#define RDMA_SQ_FMR_WQE_2ND_ZERO_BASED_MASK     0x1
-+#define RDMA_SQ_FMR_WQE_2ND_ZERO_BASED_SHIFT    5
-+#define RDMA_SQ_FMR_WQE_2ND_BIND_EN_MASK        0x1
-+#define RDMA_SQ_FMR_WQE_2ND_BIND_EN_SHIFT       6
-+#define RDMA_SQ_FMR_WQE_2ND_RESERVED1_MASK      0x1
-+#define RDMA_SQ_FMR_WQE_2ND_RESERVED1_SHIFT     7
-+	u8 access_ctrl;
-+#define RDMA_SQ_FMR_WQE_2ND_REMOTE_READ_MASK    0x1
-+#define RDMA_SQ_FMR_WQE_2ND_REMOTE_READ_SHIFT   0
-+#define RDMA_SQ_FMR_WQE_2ND_REMOTE_WRITE_MASK   0x1
-+#define RDMA_SQ_FMR_WQE_2ND_REMOTE_WRITE_SHIFT  1
-+#define RDMA_SQ_FMR_WQE_2ND_ENABLE_ATOMIC_MASK  0x1
-+#define RDMA_SQ_FMR_WQE_2ND_ENABLE_ATOMIC_SHIFT 2
-+#define RDMA_SQ_FMR_WQE_2ND_LOCAL_READ_MASK     0x1
-+#define RDMA_SQ_FMR_WQE_2ND_LOCAL_READ_SHIFT    3
-+#define RDMA_SQ_FMR_WQE_2ND_LOCAL_WRITE_MASK    0x1
-+#define RDMA_SQ_FMR_WQE_2ND_LOCAL_WRITE_SHIFT   4
-+#define RDMA_SQ_FMR_WQE_2ND_RESERVED2_MASK      0x7
-+#define RDMA_SQ_FMR_WQE_2ND_RESERVED2_SHIFT     5
-+	u8 reserved3;
-+	u8 length_hi;
-+	__le32 length_lo;
-+	struct regpair pbl_addr;
-+};
-+
-+/* Third element (16 bytes) of fmr wqe */
-+struct rdma_sq_fmr_wqe_3rd {
-+	__le32 dif_base_ref_tag;
-+	__le16 dif_app_tag;
-+	__le16 dif_app_tag_mask;
-+	__le16 dif_runt_crc_value;
-+	__le16 dif_flags;
-+#define RDMA_SQ_FMR_WQE_3RD_DIF_IO_DIRECTION_FLG_MASK    0x1
-+#define RDMA_SQ_FMR_WQE_3RD_DIF_IO_DIRECTION_FLG_SHIFT   0
-+#define RDMA_SQ_FMR_WQE_3RD_DIF_BLOCK_SIZE_MASK          0x1
-+#define RDMA_SQ_FMR_WQE_3RD_DIF_BLOCK_SIZE_SHIFT         1
-+#define RDMA_SQ_FMR_WQE_3RD_DIF_RUNT_VALID_FLG_MASK      0x1
-+#define RDMA_SQ_FMR_WQE_3RD_DIF_RUNT_VALID_FLG_SHIFT     2
-+#define RDMA_SQ_FMR_WQE_3RD_DIF_VALIDATE_CRC_GUARD_MASK  0x1
-+#define RDMA_SQ_FMR_WQE_3RD_DIF_VALIDATE_CRC_GUARD_SHIFT 3
-+#define RDMA_SQ_FMR_WQE_3RD_DIF_VALIDATE_REF_TAG_MASK    0x1
-+#define RDMA_SQ_FMR_WQE_3RD_DIF_VALIDATE_REF_TAG_SHIFT   4
-+#define RDMA_SQ_FMR_WQE_3RD_DIF_VALIDATE_APP_TAG_MASK    0x1
-+#define RDMA_SQ_FMR_WQE_3RD_DIF_VALIDATE_APP_TAG_SHIFT   5
-+#define RDMA_SQ_FMR_WQE_3RD_DIF_CRC_SEED_MASK            0x1
-+#define RDMA_SQ_FMR_WQE_3RD_DIF_CRC_SEED_SHIFT           6
-+#define RDMA_SQ_FMR_WQE_3RD_RESERVED4_MASK               0x1FF
-+#define RDMA_SQ_FMR_WQE_3RD_RESERVED4_SHIFT              7
-+	__le32 Reserved5;
-+};
-+
-+struct rdma_sq_local_inv_wqe {
-+	struct regpair reserved;
-+	__le32 inv_l_key;
-+	u8 req_type;
-+	u8 flags;
-+#define RDMA_SQ_LOCAL_INV_WQE_COMP_FLG_MASK         0x1
-+#define RDMA_SQ_LOCAL_INV_WQE_COMP_FLG_SHIFT        0
-+#define RDMA_SQ_LOCAL_INV_WQE_RD_FENCE_FLG_MASK     0x1
-+#define RDMA_SQ_LOCAL_INV_WQE_RD_FENCE_FLG_SHIFT    1
-+#define RDMA_SQ_LOCAL_INV_WQE_INV_FENCE_FLG_MASK    0x1
-+#define RDMA_SQ_LOCAL_INV_WQE_INV_FENCE_FLG_SHIFT   2
-+#define RDMA_SQ_LOCAL_INV_WQE_SE_FLG_MASK           0x1
-+#define RDMA_SQ_LOCAL_INV_WQE_SE_FLG_SHIFT          3
-+#define RDMA_SQ_LOCAL_INV_WQE_INLINE_FLG_MASK       0x1
-+#define RDMA_SQ_LOCAL_INV_WQE_INLINE_FLG_SHIFT      4
-+#define RDMA_SQ_LOCAL_INV_WQE_DIF_ON_HOST_FLG_MASK  0x1
-+#define RDMA_SQ_LOCAL_INV_WQE_DIF_ON_HOST_FLG_SHIFT 5
-+#define RDMA_SQ_LOCAL_INV_WQE_RESERVED0_MASK        0x3
-+#define RDMA_SQ_LOCAL_INV_WQE_RESERVED0_SHIFT       6
-+	u8 wqe_size;
-+	u8 prev_wqe_size;
-+};
-+
-+struct rdma_sq_rdma_wqe {
-+	__le32 imm_data;
-+	__le32 length;
-+	__le32 xrc_srq;
-+	u8 req_type;
-+	u8 flags;
-+#define RDMA_SQ_RDMA_WQE_COMP_FLG_MASK                  0x1
-+#define RDMA_SQ_RDMA_WQE_COMP_FLG_SHIFT                 0
-+#define RDMA_SQ_RDMA_WQE_RD_FENCE_FLG_MASK              0x1
-+#define RDMA_SQ_RDMA_WQE_RD_FENCE_FLG_SHIFT             1
-+#define RDMA_SQ_RDMA_WQE_INV_FENCE_FLG_MASK             0x1
-+#define RDMA_SQ_RDMA_WQE_INV_FENCE_FLG_SHIFT            2
-+#define RDMA_SQ_RDMA_WQE_SE_FLG_MASK                    0x1
-+#define RDMA_SQ_RDMA_WQE_SE_FLG_SHIFT                   3
-+#define RDMA_SQ_RDMA_WQE_INLINE_FLG_MASK                0x1
-+#define RDMA_SQ_RDMA_WQE_INLINE_FLG_SHIFT               4
-+#define RDMA_SQ_RDMA_WQE_DIF_ON_HOST_FLG_MASK           0x1
-+#define RDMA_SQ_RDMA_WQE_DIF_ON_HOST_FLG_SHIFT          5
-+#define RDMA_SQ_RDMA_WQE_RESERVED0_MASK                 0x3
-+#define RDMA_SQ_RDMA_WQE_RESERVED0_SHIFT                6
-+	u8 wqe_size;
-+	u8 prev_wqe_size;
-+	struct regpair remote_va;
-+	__le32 r_key;
-+	u8 dif_flags;
-+#define RDMA_SQ_RDMA_WQE_DIF_BLOCK_SIZE_MASK            0x1
-+#define RDMA_SQ_RDMA_WQE_DIF_BLOCK_SIZE_SHIFT           0
-+#define RDMA_SQ_RDMA_WQE_DIF_FIRST_RDMA_IN_IO_FLG_MASK  0x1
-+#define RDMA_SQ_RDMA_WQE_DIF_FIRST_RDMA_IN_IO_FLG_SHIFT 1
-+#define RDMA_SQ_RDMA_WQE_DIF_LAST_RDMA_IN_IO_FLG_MASK   0x1
-+#define RDMA_SQ_RDMA_WQE_DIF_LAST_RDMA_IN_IO_FLG_SHIFT  2
-+#define RDMA_SQ_RDMA_WQE_RESERVED1_MASK                 0x1F
-+#define RDMA_SQ_RDMA_WQE_RESERVED1_SHIFT                3
-+	u8 reserved2[3];
-+};
-+
-+/* First element (16 bytes) of rdma wqe */
-+struct rdma_sq_rdma_wqe_1st {
-+	__le32 imm_data;
-+	__le32 length;
-+	__le32 xrc_srq;
-+	u8 req_type;
-+	u8 flags;
-+#define RDMA_SQ_RDMA_WQE_1ST_COMP_FLG_MASK         0x1
-+#define RDMA_SQ_RDMA_WQE_1ST_COMP_FLG_SHIFT        0
-+#define RDMA_SQ_RDMA_WQE_1ST_RD_FENCE_FLG_MASK     0x1
-+#define RDMA_SQ_RDMA_WQE_1ST_RD_FENCE_FLG_SHIFT    1
-+#define RDMA_SQ_RDMA_WQE_1ST_INV_FENCE_FLG_MASK    0x1
-+#define RDMA_SQ_RDMA_WQE_1ST_INV_FENCE_FLG_SHIFT   2
-+#define RDMA_SQ_RDMA_WQE_1ST_SE_FLG_MASK           0x1
-+#define RDMA_SQ_RDMA_WQE_1ST_SE_FLG_SHIFT          3
-+#define RDMA_SQ_RDMA_WQE_1ST_INLINE_FLG_MASK       0x1
-+#define RDMA_SQ_RDMA_WQE_1ST_INLINE_FLG_SHIFT      4
-+#define RDMA_SQ_RDMA_WQE_1ST_DIF_ON_HOST_FLG_MASK  0x1
-+#define RDMA_SQ_RDMA_WQE_1ST_DIF_ON_HOST_FLG_SHIFT 5
-+#define RDMA_SQ_RDMA_WQE_1ST_RESERVED0_MASK        0x3
-+#define RDMA_SQ_RDMA_WQE_1ST_RESERVED0_SHIFT       6
-+	u8 wqe_size;
-+	u8 prev_wqe_size;
-+};
-+
-+/* Second element (16 bytes) of rdma wqe */
-+struct rdma_sq_rdma_wqe_2nd {
-+	struct regpair remote_va;
-+	__le32 r_key;
-+	u8 dif_flags;
-+#define RDMA_SQ_RDMA_WQE_2ND_DIF_BLOCK_SIZE_MASK         0x1
-+#define RDMA_SQ_RDMA_WQE_2ND_DIF_BLOCK_SIZE_SHIFT        0
-+#define RDMA_SQ_RDMA_WQE_2ND_DIF_FIRST_SEGMENT_FLG_MASK  0x1
-+#define RDMA_SQ_RDMA_WQE_2ND_DIF_FIRST_SEGMENT_FLG_SHIFT 1
-+#define RDMA_SQ_RDMA_WQE_2ND_DIF_LAST_SEGMENT_FLG_MASK   0x1
-+#define RDMA_SQ_RDMA_WQE_2ND_DIF_LAST_SEGMENT_FLG_SHIFT  2
-+#define RDMA_SQ_RDMA_WQE_2ND_RESERVED1_MASK              0x1F
-+#define RDMA_SQ_RDMA_WQE_2ND_RESERVED1_SHIFT             3
-+	u8 reserved2[3];
-+};
-+
-+/* SQ WQE req type enumeration */
-+enum rdma_sq_req_type {
-+	RDMA_SQ_REQ_TYPE_SEND,
-+	RDMA_SQ_REQ_TYPE_SEND_WITH_IMM,
-+	RDMA_SQ_REQ_TYPE_SEND_WITH_INVALIDATE,
-+	RDMA_SQ_REQ_TYPE_RDMA_WR,
-+	RDMA_SQ_REQ_TYPE_RDMA_WR_WITH_IMM,
-+	RDMA_SQ_REQ_TYPE_RDMA_RD,
-+	RDMA_SQ_REQ_TYPE_ATOMIC_CMP_AND_SWAP,
-+	RDMA_SQ_REQ_TYPE_ATOMIC_ADD,
-+	RDMA_SQ_REQ_TYPE_LOCAL_INVALIDATE,
-+	RDMA_SQ_REQ_TYPE_FAST_MR,
-+	RDMA_SQ_REQ_TYPE_BIND,
-+	RDMA_SQ_REQ_TYPE_INVALID,
-+	MAX_RDMA_SQ_REQ_TYPE
-+};
-+
-+struct rdma_sq_send_wqe {
-+	__le32 inv_key_or_imm_data;
-+	__le32 length;
-+	__le32 xrc_srq;
-+	u8 req_type;
-+	u8 flags;
-+#define RDMA_SQ_SEND_WQE_COMP_FLG_MASK         0x1
-+#define RDMA_SQ_SEND_WQE_COMP_FLG_SHIFT        0
-+#define RDMA_SQ_SEND_WQE_RD_FENCE_FLG_MASK     0x1
-+#define RDMA_SQ_SEND_WQE_RD_FENCE_FLG_SHIFT    1
-+#define RDMA_SQ_SEND_WQE_INV_FENCE_FLG_MASK    0x1
-+#define RDMA_SQ_SEND_WQE_INV_FENCE_FLG_SHIFT   2
-+#define RDMA_SQ_SEND_WQE_SE_FLG_MASK           0x1
-+#define RDMA_SQ_SEND_WQE_SE_FLG_SHIFT          3
-+#define RDMA_SQ_SEND_WQE_INLINE_FLG_MASK       0x1
-+#define RDMA_SQ_SEND_WQE_INLINE_FLG_SHIFT      4
-+#define RDMA_SQ_SEND_WQE_DIF_ON_HOST_FLG_MASK  0x1
-+#define RDMA_SQ_SEND_WQE_DIF_ON_HOST_FLG_SHIFT 5
-+#define RDMA_SQ_SEND_WQE_RESERVED0_MASK        0x3
-+#define RDMA_SQ_SEND_WQE_RESERVED0_SHIFT       6
-+	u8 wqe_size;
-+	u8 prev_wqe_size;
-+	__le32 reserved1[4];
-+};
-+
-+struct rdma_sq_send_wqe_1st {
-+	__le32 inv_key_or_imm_data;
-+	__le32 length;
-+	__le32 xrc_srq;
-+	u8 req_type;
-+	u8 flags;
-+#define RDMA_SQ_SEND_WQE_1ST_COMP_FLG_MASK       0x1
-+#define RDMA_SQ_SEND_WQE_1ST_COMP_FLG_SHIFT      0
-+#define RDMA_SQ_SEND_WQE_1ST_RD_FENCE_FLG_MASK   0x1
-+#define RDMA_SQ_SEND_WQE_1ST_RD_FENCE_FLG_SHIFT  1
-+#define RDMA_SQ_SEND_WQE_1ST_INV_FENCE_FLG_MASK  0x1
-+#define RDMA_SQ_SEND_WQE_1ST_INV_FENCE_FLG_SHIFT 2
-+#define RDMA_SQ_SEND_WQE_1ST_SE_FLG_MASK         0x1
-+#define RDMA_SQ_SEND_WQE_1ST_SE_FLG_SHIFT        3
-+#define RDMA_SQ_SEND_WQE_1ST_INLINE_FLG_MASK     0x1
-+#define RDMA_SQ_SEND_WQE_1ST_INLINE_FLG_SHIFT    4
-+#define RDMA_SQ_SEND_WQE_1ST_RESERVED0_MASK      0x7
-+#define RDMA_SQ_SEND_WQE_1ST_RESERVED0_SHIFT     5
-+	u8 wqe_size;
-+	u8 prev_wqe_size;
-+};
-+
-+struct rdma_sq_send_wqe_2st {
-+	__le32 reserved1[4];
-+};
-+
- #endif /* __QED_HSI_RDMA__ */
+ 	in_params->events = &events;
+@@ -675,7 +775,7 @@ static struct qedr_dev *qedr_add(struct qed_dev *cdev, struct pci_dev *pdev,
+ 
+ 	for (i = 0; i < ARRAY_SIZE(qedr_attributes); i++)
+ 		if (device_create_file(&dev->ibdev.dev, qedr_attributes[i]))
+-			goto reg_err;
++			goto sysfs_err;
+ 
+ 	spin_lock(&qedr_devlist_lock);
+ 	list_add_tail_rcu(&dev->entry, &qedr_dev_list);
+@@ -684,6 +784,8 @@ static struct qedr_dev *qedr_add(struct qed_dev *cdev, struct pci_dev *pdev,
+ 	DP_VERBOSE(dev, QEDR_MSG_INIT, "qedr driver loaded successfully\n");
+ 	return dev;
+ 
++sysfs_err:
++	ib_unregister_device(&dev->ibdev);
+ reg_err:
+ 	qedr_sync_free_irqs(dev);
+ irq_err:
+@@ -703,6 +805,7 @@ static void qedr_remove(struct qedr_dev *dev)
+ 	 * of the registered clients.
+ 	 */
+ 	qedr_remove_sysfiles(dev);
++	ib_unregister_device(&dev->ibdev);
+ 
+ 	spin_lock(&qedr_devlist_lock);
+ 	list_del_rcu(&dev->entry);
 diff --git a/drivers/infiniband/hw/qedr/verbs.c b/drivers/infiniband/hw/qedr/verbs.c
-index 3d6045c..979555e 100644
+index 9381bc6..6055e27 100644
 --- a/drivers/infiniband/hw/qedr/verbs.c
 +++ b/drivers/infiniband/hw/qedr/verbs.c
-@@ -2439,3 +2439,1065 @@ err1:
- 	kfree(mr);
- 	return ERR_PTR(rc);
+@@ -3523,3 +3523,40 @@ int qedr_poll_cq(struct ib_cq *ibcq, int num_entries, struct ib_wc *wc)
+ 	spin_unlock_irqrestore(&cq->cq_lock, flags);
+ 	return done;
  }
 +
-+static inline int qedr_wq_is_full(struct qedr_qp_hwq_info *wq)
++int qedr_process_mad(struct ib_device *ibdev, int process_mad_flags,
++		     u8 port_num,
++		     const struct ib_wc *in_wc,
++		     const struct ib_grh *in_grh,
++		     const struct ib_mad_hdr *mad_hdr,
++		     size_t in_mad_size, struct ib_mad_hdr *out_mad,
++		     size_t *out_mad_size, u16 *out_mad_pkey_index)
 +{
-+	return (((wq->prod + 1) % wq->max_wr) == wq->cons);
++	struct qedr_dev *dev = get_qedr_dev(ibdev);
++
++	DP_VERBOSE(dev, QEDR_MSG_GSI,
++		   "QEDR_PROCESS_MAD in_mad %x %x %x %x %x %x %x %x\n",
++		   mad_hdr->attr_id, mad_hdr->base_version, mad_hdr->attr_mod,
++		   mad_hdr->class_specific, mad_hdr->class_version,
++		   mad_hdr->method, mad_hdr->mgmt_class, mad_hdr->status);
++	return IB_MAD_RESULT_SUCCESS;
 +}
 +
-+static int sge_data_len(struct ib_sge *sg_list, int num_sge)
++int qedr_port_immutable(struct ib_device *ibdev, u8 port_num,
++			struct ib_port_immutable *immutable)
 +{
-+	int i, len = 0;
++	struct ib_port_attr attr;
++	int err;
 +
-+	for (i = 0; i < num_sge; i++)
-+		len += sg_list[i].length;
++	err = qedr_query_port(ibdev, port_num, &attr);
++	if (err)
++		return err;
 +
-+	return len;
-+}
-+
-+static void swap_wqe_data64(u64 *p)
-+{
-+	int i;
-+
-+	for (i = 0; i < QEDR_SQE_ELEMENT_SIZE / sizeof(u64); i++, p++)
-+		*p = cpu_to_be64(cpu_to_le64(*p));
-+}
-+
-+static u32 qedr_prepare_sq_inline_data(struct qedr_dev *dev,
-+				       struct qedr_qp *qp, u8 *wqe_size,
-+				       struct ib_send_wr *wr,
-+				       struct ib_send_wr **bad_wr, u8 *bits,
-+				       u8 bit)
-+{
-+	u32 data_size = sge_data_len(wr->sg_list, wr->num_sge);
-+	char *seg_prt, *wqe;
-+	int i, seg_siz;
-+
-+	if (data_size > ROCE_REQ_MAX_INLINE_DATA_SIZE) {
-+		DP_ERR(dev, "Too much inline data in WR: %d\n", data_size);
-+		*bad_wr = wr;
-+		return 0;
-+	}
-+
-+	if (!data_size)
-+		return data_size;
-+
-+	*bits |= bit;
-+
-+	seg_prt = NULL;
-+	wqe = NULL;
-+	seg_siz = 0;
-+
-+	/* Copy data inline */
-+	for (i = 0; i < wr->num_sge; i++) {
-+		u32 len = wr->sg_list[i].length;
-+		void *src = (void *)(uintptr_t)wr->sg_list[i].addr;
-+
-+		while (len > 0) {
-+			u32 cur;
-+
-+			/* New segment required */
-+			if (!seg_siz) {
-+				wqe = (char *)qed_chain_produce(&qp->sq.pbl);
-+				seg_prt = wqe;
-+				seg_siz = sizeof(struct rdma_sq_common_wqe);
-+				(*wqe_size)++;
-+			}
-+
-+			/* Calculate currently allowed length */
-+			cur = min_t(u32, len, seg_siz);
-+			memcpy(seg_prt, src, cur);
-+
-+			/* Update segment variables */
-+			seg_prt += cur;
-+			seg_siz -= cur;
-+
-+			/* Update sge variables */
-+			src += cur;
-+			len -= cur;
-+
-+			/* Wwap fully-completed segments */
-+			if (!seg_siz)
-+				swap_wqe_data64((u64 *)wqe);
-+		}
-+	}
-+
-+	/* swap last not completed segment */
-+	if (seg_siz)
-+		swap_wqe_data64((u64 *)wqe);
-+
-+	return data_size;
-+}
-+
-+#define RQ_SGE_SET(sge, vaddr, vlength, vflags)			\
-+	do {							\
-+		DMA_REGPAIR_LE(sge->addr, vaddr);		\
-+		(sge)->length = cpu_to_le32(vlength);		\
-+		(sge)->flags = cpu_to_le32(vflags);		\
-+	} while (0)
-+
-+#define SRQ_HDR_SET(hdr, vwr_id, num_sge)			\
-+	do {							\
-+		DMA_REGPAIR_LE(hdr->wr_id, vwr_id);		\
-+		(hdr)->num_sges = num_sge;			\
-+	} while (0)
-+
-+#define SRQ_SGE_SET(sge, vaddr, vlength, vlkey)			\
-+	do {							\
-+		DMA_REGPAIR_LE(sge->addr, vaddr);		\
-+		(sge)->length = cpu_to_le32(vlength);		\
-+		(sge)->l_key = cpu_to_le32(vlkey);		\
-+	} while (0)
-+
-+static u32 qedr_prepare_sq_sges(struct qedr_qp *qp, u8 *wqe_size,
-+				struct ib_send_wr *wr)
-+{
-+	u32 data_size = 0;
-+	int i;
-+
-+	for (i = 0; i < wr->num_sge; i++) {
-+		struct rdma_sq_sge *sge = qed_chain_produce(&qp->sq.pbl);
-+
-+		DMA_REGPAIR_LE(sge->addr, wr->sg_list[i].addr);
-+		sge->l_key = cpu_to_le32(wr->sg_list[i].lkey);
-+		sge->length = cpu_to_le32(wr->sg_list[i].length);
-+		data_size += wr->sg_list[i].length;
-+	}
-+
-+	if (wqe_size)
-+		*wqe_size += wr->num_sge;
-+
-+	return data_size;
-+}
-+
-+static u32 qedr_prepare_sq_rdma_data(struct qedr_dev *dev,
-+				     struct qedr_qp *qp,
-+				     struct rdma_sq_rdma_wqe_1st *rwqe,
-+				     struct rdma_sq_rdma_wqe_2nd *rwqe2,
-+				     struct ib_send_wr *wr,
-+				     struct ib_send_wr **bad_wr)
-+{
-+	rwqe2->r_key = cpu_to_le32(rdma_wr(wr)->rkey);
-+	DMA_REGPAIR_LE(rwqe2->remote_va, rdma_wr(wr)->remote_addr);
-+
-+	if (wr->send_flags & IB_SEND_INLINE) {
-+		u8 flags = 0;
-+
-+		SET_FIELD2(flags, RDMA_SQ_RDMA_WQE_1ST_INLINE_FLG, 1);
-+		return qedr_prepare_sq_inline_data(dev, qp, &rwqe->wqe_size, wr,
-+						   bad_wr, &rwqe->flags, flags);
-+	}
-+
-+	return qedr_prepare_sq_sges(qp, &rwqe->wqe_size, wr);
-+}
-+
-+static u32 qedr_prepare_sq_send_data(struct qedr_dev *dev,
-+				     struct qedr_qp *qp,
-+				     struct rdma_sq_send_wqe_1st *swqe,
-+				     struct rdma_sq_send_wqe_2st *swqe2,
-+				     struct ib_send_wr *wr,
-+				     struct ib_send_wr **bad_wr)
-+{
-+	memset(swqe2, 0, sizeof(*swqe2));
-+	if (wr->send_flags & IB_SEND_INLINE) {
-+		u8 flags = 0;
-+
-+		SET_FIELD2(flags, RDMA_SQ_SEND_WQE_INLINE_FLG, 1);
-+		return qedr_prepare_sq_inline_data(dev, qp, &swqe->wqe_size, wr,
-+						   bad_wr, &swqe->flags, flags);
-+	}
-+
-+	return qedr_prepare_sq_sges(qp, &swqe->wqe_size, wr);
-+}
-+
-+static int qedr_prepare_reg(struct qedr_qp *qp,
-+			    struct rdma_sq_fmr_wqe_1st *fwqe1,
-+			    struct ib_reg_wr *wr)
-+{
-+	struct qedr_mr *mr = get_qedr_mr(wr->mr);
-+	struct qedr_pbl *pbl_table = mr->info.pbl_table;
-+	struct rdma_sq_fmr_wqe_2nd *fwqe2;
-+	int num_pbes, total_num_pbes = 0;
-+	struct qedr_dev *dev = qp->dev;
-+	struct regpair *pbe;
-+	int i;
-+
-+	fwqe2 = (struct rdma_sq_fmr_wqe_2nd *)qed_chain_produce(&qp->sq.pbl);
-+	fwqe1->addr.hi = upper_32_bits(mr->ibmr.iova);
-+	fwqe1->addr.lo = lower_32_bits(mr->ibmr.iova);
-+	fwqe1->l_key = wr->key;
-+
-+	SET_FIELD2(fwqe2->access_ctrl, RDMA_SQ_FMR_WQE_2ND_REMOTE_READ,
-+		   !!(wr->access & IB_ACCESS_REMOTE_READ));
-+	SET_FIELD2(fwqe2->access_ctrl, RDMA_SQ_FMR_WQE_2ND_REMOTE_WRITE,
-+		   !!(wr->access & IB_ACCESS_REMOTE_WRITE));
-+	SET_FIELD2(fwqe2->access_ctrl, RDMA_SQ_FMR_WQE_2ND_ENABLE_ATOMIC,
-+		   !!(wr->access & IB_ACCESS_REMOTE_ATOMIC));
-+	SET_FIELD2(fwqe2->access_ctrl, RDMA_SQ_FMR_WQE_2ND_LOCAL_READ, 1);
-+	SET_FIELD2(fwqe2->access_ctrl, RDMA_SQ_FMR_WQE_2ND_LOCAL_WRITE,
-+		   !!(wr->access & IB_ACCESS_LOCAL_WRITE));
-+	fwqe2->fmr_ctrl = 0;
-+
-+	SET_FIELD2(fwqe2->fmr_ctrl, RDMA_SQ_FMR_WQE_2ND_PAGE_SIZE_LOG,
-+		   ilog2(mr->ibmr.page_size) - 12);
-+
-+	fwqe2->length_hi = 0;
-+	fwqe2->length_lo = mr->ibmr.length;
-+	fwqe2->pbl_addr.hi = upper_32_bits(pbl_table->pa);
-+	fwqe2->pbl_addr.lo = lower_32_bits(pbl_table->pa);
-+	DP_VERBOSE(dev, QEDR_MSG_MR,
-+		   "Prepare fmr...rkey=%x addr=%x:%x length = %x pbl_addr %x:%x\n",
-+		   wr->key, fwqe1->addr.hi, fwqe1->addr.lo,
-+		   fwqe2->length_lo, fwqe2->pbl_addr.hi, fwqe2->pbl_addr.lo);
-+
-+	pbe = (struct regpair *)pbl_table->va;
-+	num_pbes = 0;
-+
-+	for (i = 0; i < mr->npages &&
-+	     (total_num_pbes != mr->info.pbl_info.num_pbes); i++) {
-+		u64 buf_addr = mr->pages[i];
-+
-+		pbe->lo = cpu_to_le32((u32)buf_addr);
-+		pbe->hi = cpu_to_le32((u32)upper_32_bits(buf_addr));
-+
-+		num_pbes += 1;
-+		pbe++;
-+		total_num_pbes++;
-+
-+		/* If the given pbl is full storing the pbes,
-+		 * move to next pbl.
-+		 */
-+		if (num_pbes == (mr->info.pbl_info.pbl_size / sizeof(u64))) {
-+			pbl_table++;
-+			pbe = (struct regpair *)pbl_table->va;
-+			num_pbes = 0;
-+		}
-+	}
-+
-+	qp->wqe_wr_id[qp->sq.prod].mr = mr;
++	immutable->pkey_tbl_len = attr.pkey_tbl_len;
++	immutable->gid_tbl_len = attr.gid_tbl_len;
++	immutable->core_cap_flags = RDMA_CORE_PORT_IBA_ROCE |
++				    RDMA_CORE_PORT_IBA_ROCE_UDP_ENCAP;
++	immutable->max_mad_size = IB_MGMT_MAD_SIZE;
 +
 +	return 0;
 +}
-+
-+enum ib_wc_opcode qedr_ib_to_wc_opcode(enum ib_wr_opcode opcode)
-+{
-+	switch (opcode) {
-+	case IB_WR_RDMA_WRITE:
-+	case IB_WR_RDMA_WRITE_WITH_IMM:
-+		return IB_WC_RDMA_WRITE;
-+	case IB_WR_SEND_WITH_IMM:
-+	case IB_WR_SEND:
-+	case IB_WR_SEND_WITH_INV:
-+		return IB_WC_SEND;
-+	case IB_WR_RDMA_READ:
-+		return IB_WC_RDMA_READ;
-+	case IB_WR_ATOMIC_CMP_AND_SWP:
-+		return IB_WC_COMP_SWAP;
-+	case IB_WR_ATOMIC_FETCH_AND_ADD:
-+		return IB_WC_FETCH_ADD;
-+	case IB_WR_REG_MR:
-+		return IB_WC_REG_MR;
-+	case IB_WR_LOCAL_INV:
-+		return IB_WC_LOCAL_INV;
-+	default:
-+		return IB_WC_SEND;
-+	}
-+}
-+
-+inline bool qedr_can_post_send(struct qedr_qp *qp, struct ib_send_wr *wr)
-+{
-+	int wq_is_full, err_wr, pbl_is_full;
-+	struct qedr_dev *dev = qp->dev;
-+
-+	/* prevent SQ overflow and/or processing of a bad WR */
-+	err_wr = wr->num_sge > qp->sq.max_sges;
-+	wq_is_full = qedr_wq_is_full(&qp->sq);
-+	pbl_is_full = qed_chain_get_elem_left_u32(&qp->sq.pbl) <
-+		      QEDR_MAX_SQE_ELEMENTS_PER_SQE;
-+	if (wq_is_full || err_wr || pbl_is_full) {
-+		if (wq_is_full && !(qp->err_bitmap & QEDR_QP_ERR_SQ_FULL)) {
-+			DP_ERR(dev,
-+			       "error: WQ is full. Post send on QP %p failed (this error appears only once)\n",
-+			       qp);
-+			qp->err_bitmap |= QEDR_QP_ERR_SQ_FULL;
-+		}
-+
-+		if (err_wr && !(qp->err_bitmap & QEDR_QP_ERR_BAD_SR)) {
-+			DP_ERR(dev,
-+			       "error: WR is bad. Post send on QP %p failed (this error appears only once)\n",
-+			       qp);
-+			qp->err_bitmap |= QEDR_QP_ERR_BAD_SR;
-+		}
-+
-+		if (pbl_is_full &&
-+		    !(qp->err_bitmap & QEDR_QP_ERR_SQ_PBL_FULL)) {
-+			DP_ERR(dev,
-+			       "error: WQ PBL is full. Post send on QP %p failed (this error appears only once)\n",
-+			       qp);
-+			qp->err_bitmap |= QEDR_QP_ERR_SQ_PBL_FULL;
-+		}
-+		return false;
-+	}
-+	return true;
-+}
-+
-+int __qedr_post_send(struct ib_qp *ibqp, struct ib_send_wr *wr,
-+		     struct ib_send_wr **bad_wr)
-+{
-+	struct qedr_dev *dev = get_qedr_dev(ibqp->device);
-+	struct qedr_qp *qp = get_qedr_qp(ibqp);
-+	struct rdma_sq_atomic_wqe_1st *awqe1;
-+	struct rdma_sq_atomic_wqe_2nd *awqe2;
-+	struct rdma_sq_atomic_wqe_3rd *awqe3;
-+	struct rdma_sq_send_wqe_2st *swqe2;
-+	struct rdma_sq_local_inv_wqe *iwqe;
-+	struct rdma_sq_rdma_wqe_2nd *rwqe2;
-+	struct rdma_sq_send_wqe_1st *swqe;
-+	struct rdma_sq_rdma_wqe_1st *rwqe;
-+	struct rdma_sq_fmr_wqe_1st *fwqe1;
-+	struct rdma_sq_common_wqe *wqe;
-+	u32 length;
-+	int rc = 0;
-+	bool comp;
-+
-+	if (!qedr_can_post_send(qp, wr)) {
-+		*bad_wr = wr;
-+		return -ENOMEM;
-+	}
-+
-+	wqe = qed_chain_produce(&qp->sq.pbl);
-+	qp->wqe_wr_id[qp->sq.prod].signaled =
-+		!!(wr->send_flags & IB_SEND_SIGNALED) || qp->signaled;
-+
-+	wqe->flags = 0;
-+	SET_FIELD2(wqe->flags, RDMA_SQ_SEND_WQE_SE_FLG,
-+		   !!(wr->send_flags & IB_SEND_SOLICITED));
-+	comp = (!!(wr->send_flags & IB_SEND_SIGNALED)) || qp->signaled;
-+	SET_FIELD2(wqe->flags, RDMA_SQ_SEND_WQE_COMP_FLG, comp);
-+	SET_FIELD2(wqe->flags, RDMA_SQ_SEND_WQE_RD_FENCE_FLG,
-+		   !!(wr->send_flags & IB_SEND_FENCE));
-+	wqe->prev_wqe_size = qp->prev_wqe_size;
-+
-+	qp->wqe_wr_id[qp->sq.prod].opcode = qedr_ib_to_wc_opcode(wr->opcode);
-+
-+	switch (wr->opcode) {
-+	case IB_WR_SEND_WITH_IMM:
-+		wqe->req_type = RDMA_SQ_REQ_TYPE_SEND_WITH_IMM;
-+		swqe = (struct rdma_sq_send_wqe_1st *)wqe;
-+		swqe->wqe_size = 2;
-+		swqe2 = qed_chain_produce(&qp->sq.pbl);
-+
-+		swqe->inv_key_or_imm_data = cpu_to_le32(wr->ex.imm_data);
-+		length = qedr_prepare_sq_send_data(dev, qp, swqe, swqe2,
-+						   wr, bad_wr);
-+		swqe->length = cpu_to_le32(length);
-+		qp->wqe_wr_id[qp->sq.prod].wqe_size = swqe->wqe_size;
-+		qp->prev_wqe_size = swqe->wqe_size;
-+		qp->wqe_wr_id[qp->sq.prod].bytes_len = swqe->length;
-+		break;
-+	case IB_WR_SEND:
-+		wqe->req_type = RDMA_SQ_REQ_TYPE_SEND;
-+		swqe = (struct rdma_sq_send_wqe_1st *)wqe;
-+
-+		swqe->wqe_size = 2;
-+		swqe2 = qed_chain_produce(&qp->sq.pbl);
-+		length = qedr_prepare_sq_send_data(dev, qp, swqe, swqe2,
-+						   wr, bad_wr);
-+		swqe->length = cpu_to_le32(length);
-+		qp->wqe_wr_id[qp->sq.prod].wqe_size = swqe->wqe_size;
-+		qp->prev_wqe_size = swqe->wqe_size;
-+		qp->wqe_wr_id[qp->sq.prod].bytes_len = swqe->length;
-+		break;
-+	case IB_WR_SEND_WITH_INV:
-+		wqe->req_type = RDMA_SQ_REQ_TYPE_SEND_WITH_INVALIDATE;
-+		swqe = (struct rdma_sq_send_wqe_1st *)wqe;
-+		swqe2 = qed_chain_produce(&qp->sq.pbl);
-+		swqe->wqe_size = 2;
-+		swqe->inv_key_or_imm_data = cpu_to_le32(wr->ex.invalidate_rkey);
-+		length = qedr_prepare_sq_send_data(dev, qp, swqe, swqe2,
-+						   wr, bad_wr);
-+		swqe->length = cpu_to_le32(length);
-+		qp->wqe_wr_id[qp->sq.prod].wqe_size = swqe->wqe_size;
-+		qp->prev_wqe_size = swqe->wqe_size;
-+		qp->wqe_wr_id[qp->sq.prod].bytes_len = swqe->length;
-+		break;
-+
-+	case IB_WR_RDMA_WRITE_WITH_IMM:
-+		wqe->req_type = RDMA_SQ_REQ_TYPE_RDMA_WR_WITH_IMM;
-+		rwqe = (struct rdma_sq_rdma_wqe_1st *)wqe;
-+
-+		rwqe->wqe_size = 2;
-+		rwqe->imm_data = htonl(cpu_to_le32(wr->ex.imm_data));
-+		rwqe2 = qed_chain_produce(&qp->sq.pbl);
-+		length = qedr_prepare_sq_rdma_data(dev, qp, rwqe, rwqe2,
-+						   wr, bad_wr);
-+		rwqe->length = cpu_to_le32(length);
-+		qp->wqe_wr_id[qp->sq.prod].wqe_size = rwqe->wqe_size;
-+		qp->prev_wqe_size = rwqe->wqe_size;
-+		qp->wqe_wr_id[qp->sq.prod].bytes_len = rwqe->length;
-+		break;
-+	case IB_WR_RDMA_WRITE:
-+		wqe->req_type = RDMA_SQ_REQ_TYPE_RDMA_WR;
-+		rwqe = (struct rdma_sq_rdma_wqe_1st *)wqe;
-+
-+		rwqe->wqe_size = 2;
-+		rwqe2 = qed_chain_produce(&qp->sq.pbl);
-+		length = qedr_prepare_sq_rdma_data(dev, qp, rwqe, rwqe2,
-+						   wr, bad_wr);
-+		rwqe->length = cpu_to_le32(length);
-+		qp->wqe_wr_id[qp->sq.prod].wqe_size = rwqe->wqe_size;
-+		qp->prev_wqe_size = rwqe->wqe_size;
-+		qp->wqe_wr_id[qp->sq.prod].bytes_len = rwqe->length;
-+		break;
-+	case IB_WR_RDMA_READ_WITH_INV:
-+		DP_ERR(dev,
-+		       "RDMA READ WITH INVALIDATE not supported\n");
-+		*bad_wr = wr;
-+		rc = -EINVAL;
-+		break;
-+
-+	case IB_WR_RDMA_READ:
-+		wqe->req_type = RDMA_SQ_REQ_TYPE_RDMA_RD;
-+		rwqe = (struct rdma_sq_rdma_wqe_1st *)wqe;
-+
-+		rwqe->wqe_size = 2;
-+		rwqe2 = qed_chain_produce(&qp->sq.pbl);
-+		length = qedr_prepare_sq_rdma_data(dev, qp, rwqe, rwqe2,
-+						   wr, bad_wr);
-+		rwqe->length = cpu_to_le32(length);
-+		qp->wqe_wr_id[qp->sq.prod].wqe_size = rwqe->wqe_size;
-+		qp->prev_wqe_size = rwqe->wqe_size;
-+		qp->wqe_wr_id[qp->sq.prod].bytes_len = rwqe->length;
-+		break;
-+
-+	case IB_WR_ATOMIC_CMP_AND_SWP:
-+	case IB_WR_ATOMIC_FETCH_AND_ADD:
-+		awqe1 = (struct rdma_sq_atomic_wqe_1st *)wqe;
-+		awqe1->wqe_size = 4;
-+
-+		awqe2 = qed_chain_produce(&qp->sq.pbl);
-+		DMA_REGPAIR_LE(awqe2->remote_va, atomic_wr(wr)->remote_addr);
-+		awqe2->r_key = cpu_to_le32(atomic_wr(wr)->rkey);
-+
-+		awqe3 = qed_chain_produce(&qp->sq.pbl);
-+
-+		if (wr->opcode == IB_WR_ATOMIC_FETCH_AND_ADD) {
-+			wqe->req_type = RDMA_SQ_REQ_TYPE_ATOMIC_ADD;
-+			DMA_REGPAIR_LE(awqe3->swap_data,
-+				       atomic_wr(wr)->compare_add);
-+		} else {
-+			wqe->req_type = RDMA_SQ_REQ_TYPE_ATOMIC_CMP_AND_SWAP;
-+			DMA_REGPAIR_LE(awqe3->swap_data,
-+				       atomic_wr(wr)->swap);
-+			DMA_REGPAIR_LE(awqe3->cmp_data,
-+				       atomic_wr(wr)->compare_add);
-+		}
-+
-+		qedr_prepare_sq_sges(qp, NULL, wr);
-+
-+		qp->wqe_wr_id[qp->sq.prod].wqe_size = awqe1->wqe_size;
-+		qp->prev_wqe_size = awqe1->wqe_size;
-+		break;
-+
-+	case IB_WR_LOCAL_INV:
-+		iwqe = (struct rdma_sq_local_inv_wqe *)wqe;
-+		iwqe->wqe_size = 1;
-+
-+		iwqe->req_type = RDMA_SQ_REQ_TYPE_LOCAL_INVALIDATE;
-+		iwqe->inv_l_key = wr->ex.invalidate_rkey;
-+		qp->wqe_wr_id[qp->sq.prod].wqe_size = iwqe->wqe_size;
-+		qp->prev_wqe_size = iwqe->wqe_size;
-+		break;
-+	case IB_WR_REG_MR:
-+		DP_VERBOSE(dev, QEDR_MSG_CQ, "REG_MR\n");
-+		wqe->req_type = RDMA_SQ_REQ_TYPE_FAST_MR;
-+		fwqe1 = (struct rdma_sq_fmr_wqe_1st *)wqe;
-+		fwqe1->wqe_size = 2;
-+
-+		rc = qedr_prepare_reg(qp, fwqe1, reg_wr(wr));
-+		if (rc) {
-+			DP_ERR(dev, "IB_REG_MR failed rc=%d\n", rc);
-+			*bad_wr = wr;
-+			break;
-+		}
-+
-+		qp->wqe_wr_id[qp->sq.prod].wqe_size = fwqe1->wqe_size;
-+		qp->prev_wqe_size = fwqe1->wqe_size;
-+		break;
-+	default:
-+		DP_ERR(dev, "invalid opcode 0x%x!\n", wr->opcode);
-+		rc = -EINVAL;
-+		*bad_wr = wr;
-+		break;
-+	}
-+
-+	if (*bad_wr) {
-+		u16 value;
-+
-+		/* Restore prod to its position before
-+		 * this WR was processed
-+		 */
-+		value = le16_to_cpu(qp->sq.db_data.data.value);
-+		qed_chain_set_prod(&qp->sq.pbl, value, wqe);
-+
-+		/* Restore prev_wqe_size */
-+		qp->prev_wqe_size = wqe->prev_wqe_size;
-+		rc = -EINVAL;
-+		DP_ERR(dev, "POST SEND FAILED\n");
-+	}
-+
-+	return rc;
-+}
-+
-+int qedr_post_send(struct ib_qp *ibqp, struct ib_send_wr *wr,
-+		   struct ib_send_wr **bad_wr)
-+{
-+	struct qedr_dev *dev = get_qedr_dev(ibqp->device);
-+	struct qedr_qp *qp = get_qedr_qp(ibqp);
-+	unsigned long flags;
-+	int rc = 0;
-+
-+	*bad_wr = NULL;
-+
-+	spin_lock_irqsave(&qp->q_lock, flags);
-+
-+	if ((qp->state == QED_ROCE_QP_STATE_RESET) ||
-+	    (qp->state == QED_ROCE_QP_STATE_ERR)) {
-+		spin_unlock_irqrestore(&qp->q_lock, flags);
-+		*bad_wr = wr;
-+		DP_VERBOSE(dev, QEDR_MSG_CQ,
-+			   "QP in wrong state! QP icid=0x%x state %d\n",
-+			   qp->icid, qp->state);
-+		return -EINVAL;
-+	}
-+
-+	if (!wr) {
-+		DP_ERR(dev, "Got an empty post send.\n");
-+		return -EINVAL;
-+	}
-+
-+	while (wr) {
-+		rc = __qedr_post_send(ibqp, wr, bad_wr);
-+		if (rc)
-+			break;
-+
-+		qp->wqe_wr_id[qp->sq.prod].wr_id = wr->wr_id;
-+
-+		qedr_inc_sw_prod(&qp->sq);
-+
-+		qp->sq.db_data.data.value++;
-+
-+		wr = wr->next;
-+	}
-+
-+	/* Trigger doorbell
-+	 * If there was a failure in the first WR then it will be triggered in
-+	 * vane. However this is not harmful (as long as the producer value is
-+	 * unchanged). For performance reasons we avoid checking for this
-+	 * redundant doorbell.
-+	 */
-+	wmb();
-+	writel(qp->sq.db_data.raw, qp->sq.db);
-+
-+	/* Make sure write sticks */
-+	mmiowb();
-+
-+	spin_unlock_irqrestore(&qp->q_lock, flags);
-+
-+	return rc;
-+}
-+
-+int qedr_post_recv(struct ib_qp *ibqp, struct ib_recv_wr *wr,
-+		   struct ib_recv_wr **bad_wr)
-+{
-+	struct qedr_qp *qp = get_qedr_qp(ibqp);
-+	struct qedr_dev *dev = qp->dev;
-+	unsigned long flags;
-+	int status = 0;
-+
-+	spin_lock_irqsave(&qp->q_lock, flags);
-+
-+	if ((qp->state == QED_ROCE_QP_STATE_RESET) ||
-+	    (qp->state == QED_ROCE_QP_STATE_ERR)) {
-+		spin_unlock_irqrestore(&qp->q_lock, flags);
-+		*bad_wr = wr;
-+		return -EINVAL;
-+	}
-+
-+	while (wr) {
-+		int i;
-+
-+		if (qed_chain_get_elem_left_u32(&qp->rq.pbl) <
-+		    QEDR_MAX_RQE_ELEMENTS_PER_RQE ||
-+		    wr->num_sge > qp->rq.max_sges) {
-+			DP_ERR(dev, "Can't post WR  (%d < %d) || (%d > %d)\n",
-+			       qed_chain_get_elem_left_u32(&qp->rq.pbl),
-+			       QEDR_MAX_RQE_ELEMENTS_PER_RQE, wr->num_sge,
-+			       qp->rq.max_sges);
-+			status = -ENOMEM;
-+			*bad_wr = wr;
-+			break;
-+		}
-+		for (i = 0; i < wr->num_sge; i++) {
-+			u32 flags = 0;
-+			struct rdma_rq_sge *rqe =
-+			    qed_chain_produce(&qp->rq.pbl);
-+
-+			/* First one must include the number
-+			 * of SGE in the list
-+			 */
-+			if (!i)
-+				SET_FIELD(flags, RDMA_RQ_SGE_NUM_SGES,
-+					  wr->num_sge);
-+
-+			SET_FIELD(flags, RDMA_RQ_SGE_L_KEY,
-+				  wr->sg_list[i].lkey);
-+
-+			RQ_SGE_SET(rqe, wr->sg_list[i].addr,
-+				   wr->sg_list[i].length, flags);
-+		}
-+
-+		/* Special case of no sges. FW requires between 1-4 sges...
-+		 * in this case we need to post 1 sge with length zero. this is
-+		 * because rdma write with immediate consumes an RQ.
-+		 */
-+		if (!wr->num_sge) {
-+			u32 flags = 0;
-+			struct rdma_rq_sge *rqe =
-+			    qed_chain_produce(&qp->rq.pbl);
-+
-+			/* First one must include the number
-+			 * of SGE in the list
-+			 */
-+			SET_FIELD(flags, RDMA_RQ_SGE_L_KEY, 0);
-+			SET_FIELD(flags, RDMA_RQ_SGE_NUM_SGES, 1);
-+
-+			RQ_SGE_SET(rqe, 0, 0, flags);
-+			i = 1;
-+		}
-+
-+		qp->rqe_wr_id[qp->rq.prod].wr_id = wr->wr_id;
-+		qp->rqe_wr_id[qp->rq.prod].wqe_size = i;
-+
-+		qedr_inc_sw_prod(&qp->rq);
-+
-+		/* Flush all the writes before signalling doorbell */
-+		wmb();
-+
-+		qp->rq.db_data.data.value++;
-+
-+		writel(qp->rq.db_data.raw, qp->rq.db);
-+
-+		/* Make sure write sticks */
-+		mmiowb();
-+
-+		wr = wr->next;
-+	}
-+
-+	spin_unlock_irqrestore(&qp->q_lock, flags);
-+
-+	return status;
-+}
-+
-+static int is_valid_cqe(struct qedr_cq *cq, union rdma_cqe *cqe)
-+{
-+	struct rdma_cqe_requester *resp_cqe = &cqe->req;
-+
-+	return (resp_cqe->flags & RDMA_CQE_REQUESTER_TOGGLE_BIT_MASK) ==
-+		cq->pbl_toggle;
-+}
-+
-+static struct qedr_qp *cqe_get_qp(union rdma_cqe *cqe)
-+{
-+	struct rdma_cqe_requester *resp_cqe = &cqe->req;
-+	struct qedr_qp *qp;
-+
-+	qp = (struct qedr_qp *)(uintptr_t)HILO_GEN(resp_cqe->qp_handle.hi,
-+						   resp_cqe->qp_handle.lo,
-+						   u64);
-+	return qp;
-+}
-+
-+static enum rdma_cqe_type cqe_get_type(union rdma_cqe *cqe)
-+{
-+	struct rdma_cqe_requester *resp_cqe = &cqe->req;
-+
-+	return GET_FIELD(resp_cqe->flags, RDMA_CQE_REQUESTER_TYPE);
-+}
-+
-+/* Return latest CQE (needs processing) */
-+static union rdma_cqe *get_cqe(struct qedr_cq *cq)
-+{
-+	return cq->latest_cqe;
-+}
-+
-+/* In fmr we need to increase the number of fmr completed counter for the fmr
-+ * algorithm determining whether we can free a pbl or not.
-+ * we need to perform this whether the work request was signaled or not. for
-+ * this purpose we call this function from the condition that checks if a wr
-+ * should be skipped, to make sure we don't miss it ( possibly this fmr
-+ * operation was not signalted)
-+ */
-+static inline void qedr_chk_if_fmr(struct qedr_qp *qp)
-+{
-+	if (qp->wqe_wr_id[qp->sq.cons].opcode == IB_WC_REG_MR)
-+		qp->wqe_wr_id[qp->sq.cons].mr->info.completed++;
-+}
-+
-+static int process_req(struct qedr_dev *dev, struct qedr_qp *qp,
-+		       struct qedr_cq *cq, int num_entries,
-+		       struct ib_wc *wc, u16 hw_cons, enum ib_wc_status status,
-+		       int force)
-+{
-+	u16 cnt = 0;
-+
-+	while (num_entries && qp->sq.wqe_cons != hw_cons) {
-+		if (!qp->wqe_wr_id[qp->sq.cons].signaled && !force) {
-+			qedr_chk_if_fmr(qp);
-+			/* skip WC */
-+			goto next_cqe;
-+		}
-+
-+		/* fill WC */
-+		wc->status = status;
-+		wc->wc_flags = 0;
-+		wc->src_qp = qp->id;
-+		wc->qp = &qp->ibqp;
-+
-+		wc->wr_id = qp->wqe_wr_id[qp->sq.cons].wr_id;
-+		wc->opcode = qp->wqe_wr_id[qp->sq.cons].opcode;
-+
-+		switch (wc->opcode) {
-+		case IB_WC_RDMA_WRITE:
-+			wc->byte_len = qp->wqe_wr_id[qp->sq.cons].bytes_len;
-+			break;
-+		case IB_WC_COMP_SWAP:
-+		case IB_WC_FETCH_ADD:
-+			wc->byte_len = 8;
-+			break;
-+		case IB_WC_REG_MR:
-+			qp->wqe_wr_id[qp->sq.cons].mr->info.completed++;
-+			break;
-+		default:
-+			break;
-+		}
-+
-+		num_entries--;
-+		wc++;
-+		cnt++;
-+next_cqe:
-+		while (qp->wqe_wr_id[qp->sq.cons].wqe_size--)
-+			qed_chain_consume(&qp->sq.pbl);
-+		qedr_inc_sw_cons(&qp->sq);
-+	}
-+
-+	return cnt;
-+}
-+
-+static int qedr_poll_cq_req(struct qedr_dev *dev,
-+			    struct qedr_qp *qp, struct qedr_cq *cq,
-+			    int num_entries, struct ib_wc *wc,
-+			    struct rdma_cqe_requester *req)
-+{
-+	int cnt = 0;
-+
-+	switch (req->status) {
-+	case RDMA_CQE_REQ_STS_OK:
-+		cnt = process_req(dev, qp, cq, num_entries, wc, req->sq_cons,
-+				  IB_WC_SUCCESS, 0);
-+		break;
-+	case RDMA_CQE_REQ_STS_WORK_REQUEST_FLUSHED_ERR:
-+		DP_ERR(dev,
-+		       "Error: POLL CQ with RDMA_CQE_REQ_STS_WORK_REQUEST_FLUSHED_ERR. CQ icid=0x%x, QP icid=0x%x\n",
-+		       cq->icid, qp->icid);
-+		cnt = process_req(dev, qp, cq, num_entries, wc, req->sq_cons,
-+				  IB_WC_WR_FLUSH_ERR, 0);
-+		break;
-+	default:
-+		/* process all WQE before the cosumer */
-+		qp->state = QED_ROCE_QP_STATE_ERR;
-+		cnt = process_req(dev, qp, cq, num_entries, wc,
-+				  req->sq_cons - 1, IB_WC_SUCCESS, 0);
-+		wc += cnt;
-+		/* if we have extra WC fill it with actual error info */
-+		if (cnt < num_entries) {
-+			enum ib_wc_status wc_status;
-+
-+			switch (req->status) {
-+			case RDMA_CQE_REQ_STS_BAD_RESPONSE_ERR:
-+				DP_ERR(dev,
-+				       "Error: POLL CQ with RDMA_CQE_REQ_STS_BAD_RESPONSE_ERR. CQ icid=0x%x, QP icid=0x%x\n",
-+				       cq->icid, qp->icid);
-+				wc_status = IB_WC_BAD_RESP_ERR;
-+				break;
-+			case RDMA_CQE_REQ_STS_LOCAL_LENGTH_ERR:
-+				DP_ERR(dev,
-+				       "Error: POLL CQ with RDMA_CQE_REQ_STS_LOCAL_LENGTH_ERR. CQ icid=0x%x, QP icid=0x%x\n",
-+				       cq->icid, qp->icid);
-+				wc_status = IB_WC_LOC_LEN_ERR;
-+				break;
-+			case RDMA_CQE_REQ_STS_LOCAL_QP_OPERATION_ERR:
-+				DP_ERR(dev,
-+				       "Error: POLL CQ with RDMA_CQE_REQ_STS_LOCAL_QP_OPERATION_ERR. CQ icid=0x%x, QP icid=0x%x\n",
-+				       cq->icid, qp->icid);
-+				wc_status = IB_WC_LOC_QP_OP_ERR;
-+				break;
-+			case RDMA_CQE_REQ_STS_LOCAL_PROTECTION_ERR:
-+				DP_ERR(dev,
-+				       "Error: POLL CQ with RDMA_CQE_REQ_STS_LOCAL_PROTECTION_ERR. CQ icid=0x%x, QP icid=0x%x\n",
-+				       cq->icid, qp->icid);
-+				wc_status = IB_WC_LOC_PROT_ERR;
-+				break;
-+			case RDMA_CQE_REQ_STS_MEMORY_MGT_OPERATION_ERR:
-+				DP_ERR(dev,
-+				       "Error: POLL CQ with RDMA_CQE_REQ_STS_MEMORY_MGT_OPERATION_ERR. CQ icid=0x%x, QP icid=0x%x\n",
-+				       cq->icid, qp->icid);
-+				wc_status = IB_WC_MW_BIND_ERR;
-+				break;
-+			case RDMA_CQE_REQ_STS_REMOTE_INVALID_REQUEST_ERR:
-+				DP_ERR(dev,
-+				       "Error: POLL CQ with RDMA_CQE_REQ_STS_REMOTE_INVALID_REQUEST_ERR. CQ icid=0x%x, QP icid=0x%x\n",
-+				       cq->icid, qp->icid);
-+				wc_status = IB_WC_REM_INV_REQ_ERR;
-+				break;
-+			case RDMA_CQE_REQ_STS_REMOTE_ACCESS_ERR:
-+				DP_ERR(dev,
-+				       "Error: POLL CQ with RDMA_CQE_REQ_STS_REMOTE_ACCESS_ERR. CQ icid=0x%x, QP icid=0x%x\n",
-+				       cq->icid, qp->icid);
-+				wc_status = IB_WC_REM_ACCESS_ERR;
-+				break;
-+			case RDMA_CQE_REQ_STS_REMOTE_OPERATION_ERR:
-+				DP_ERR(dev,
-+				       "Error: POLL CQ with RDMA_CQE_REQ_STS_REMOTE_OPERATION_ERR. CQ icid=0x%x, QP icid=0x%x\n",
-+				       cq->icid, qp->icid);
-+				wc_status = IB_WC_REM_OP_ERR;
-+				break;
-+			case RDMA_CQE_REQ_STS_RNR_NAK_RETRY_CNT_ERR:
-+				DP_ERR(dev,
-+				       "Error: POLL CQ with RDMA_CQE_REQ_STS_RNR_NAK_RETRY_CNT_ERR. CQ icid=0x%x, QP icid=0x%x\n",
-+				       cq->icid, qp->icid);
-+				wc_status = IB_WC_RNR_RETRY_EXC_ERR;
-+				break;
-+			case RDMA_CQE_REQ_STS_TRANSPORT_RETRY_CNT_ERR:
-+				DP_ERR(dev,
-+				       "Error: POLL CQ with ROCE_CQE_REQ_STS_TRANSPORT_RETRY_CNT_ERR. CQ icid=0x%x, QP icid=0x%x\n",
-+				       cq->icid, qp->icid);
-+				wc_status = IB_WC_RETRY_EXC_ERR;
-+				break;
-+			default:
-+				DP_ERR(dev,
-+				       "Error: POLL CQ with IB_WC_GENERAL_ERR. CQ icid=0x%x, QP icid=0x%x\n",
-+				       cq->icid, qp->icid);
-+				wc_status = IB_WC_GENERAL_ERR;
-+			}
-+			cnt += process_req(dev, qp, cq, 1, wc, req->sq_cons,
-+					   wc_status, 1);
-+		}
-+	}
-+
-+	return cnt;
-+}
-+
-+static void __process_resp_one(struct qedr_dev *dev, struct qedr_qp *qp,
-+			       struct qedr_cq *cq, struct ib_wc *wc,
-+			       struct rdma_cqe_responder *resp, u64 wr_id)
-+{
-+	enum ib_wc_status wc_status = IB_WC_SUCCESS;
-+	u8 flags;
-+
-+	wc->opcode = IB_WC_RECV;
-+	wc->wc_flags = 0;
-+
-+	switch (resp->status) {
-+	case RDMA_CQE_RESP_STS_LOCAL_ACCESS_ERR:
-+		wc_status = IB_WC_LOC_ACCESS_ERR;
-+		break;
-+	case RDMA_CQE_RESP_STS_LOCAL_LENGTH_ERR:
-+		wc_status = IB_WC_LOC_LEN_ERR;
-+		break;
-+	case RDMA_CQE_RESP_STS_LOCAL_QP_OPERATION_ERR:
-+		wc_status = IB_WC_LOC_QP_OP_ERR;
-+		break;
-+	case RDMA_CQE_RESP_STS_LOCAL_PROTECTION_ERR:
-+		wc_status = IB_WC_LOC_PROT_ERR;
-+		break;
-+	case RDMA_CQE_RESP_STS_MEMORY_MGT_OPERATION_ERR:
-+		wc_status = IB_WC_MW_BIND_ERR;
-+		break;
-+	case RDMA_CQE_RESP_STS_REMOTE_INVALID_REQUEST_ERR:
-+		wc_status = IB_WC_REM_INV_RD_REQ_ERR;
-+		break;
-+	case RDMA_CQE_RESP_STS_OK:
-+		wc_status = IB_WC_SUCCESS;
-+		wc->byte_len = le32_to_cpu(resp->length);
-+
-+		flags = resp->flags & QEDR_RESP_RDMA_IMM;
-+
-+		switch (flags) {
-+		case QEDR_RESP_RDMA_IMM:
-+			/* update opcode */
-+			wc->opcode = IB_WC_RECV_RDMA_WITH_IMM;
-+			/* fall to set imm data */
-+		case QEDR_RESP_IMM:
-+			wc->ex.imm_data =
-+			    le32_to_cpu(resp->imm_data_or_inv_r_Key);
-+			wc->wc_flags |= IB_WC_WITH_IMM;
-+			break;
-+		case QEDR_RESP_RDMA:
-+			DP_ERR(dev, "Invalid flags detected\n");
-+			break;
-+		default:
-+			DP_ERR(dev, "Invalid opcode\n");
-+		}
-+
-+		break;
-+	default:
-+		wc->status = IB_WC_GENERAL_ERR;
-+		DP_ERR(dev, "Invalid CQE status detected\n");
-+	}
-+
-+	/* fill WC */
-+	wc->status = wc_status;
-+	wc->src_qp = qp->id;
-+	wc->qp = &qp->ibqp;
-+	wc->wr_id = wr_id;
-+}
-+
-+static int process_resp_one(struct qedr_dev *dev, struct qedr_qp *qp,
-+			    struct qedr_cq *cq, struct ib_wc *wc,
-+			    struct rdma_cqe_responder *resp)
-+{
-+	u64 wr_id = qp->rqe_wr_id[qp->rq.cons].wr_id;
-+
-+	__process_resp_one(dev, qp, cq, wc, resp, wr_id);
-+
-+	while (qp->rqe_wr_id[qp->rq.cons].wqe_size--)
-+		qed_chain_consume(&qp->rq.pbl);
-+	qedr_inc_sw_cons(&qp->rq);
-+
-+	return 1;
-+}
-+
-+static int process_resp_flush(struct qedr_qp *qp, struct qedr_cq *cq,
-+			      int num_entries, struct ib_wc *wc, u16 hw_cons)
-+{
-+	u16 cnt = 0;
-+
-+	while (num_entries && qp->rq.wqe_cons != hw_cons) {
-+		/* fill WC */
-+		wc->status = IB_WC_WR_FLUSH_ERR;
-+		wc->wc_flags = 0;
-+		wc->src_qp = qp->id;
-+		wc->byte_len = 0;
-+		wc->wr_id = qp->rqe_wr_id[qp->rq.cons].wr_id;
-+		wc->qp = &qp->ibqp;
-+		num_entries--;
-+		wc++;
-+		cnt++;
-+		while (qp->rqe_wr_id[qp->rq.cons].wqe_size--)
-+			qed_chain_consume(&qp->rq.pbl);
-+		qedr_inc_sw_cons(&qp->rq);
-+	}
-+
-+	return cnt;
-+}
-+
-+static void try_consume_resp_cqe(struct qedr_cq *cq, struct qedr_qp *qp,
-+				 struct rdma_cqe_responder *resp, int *update)
-+{
-+	if (le16_to_cpu(resp->rq_cons) == qp->rq.wqe_cons) {
-+		consume_cqe(cq);
-+		*update |= 1;
-+	}
-+}
-+
-+static int qedr_poll_cq_resp(struct qedr_dev *dev, struct qedr_qp *qp,
-+			     struct qedr_cq *cq, int num_entries,
-+			     struct ib_wc *wc, struct rdma_cqe_responder *resp,
-+			     int *update)
-+{
-+	int cnt;
-+
-+	if (resp->status == RDMA_CQE_RESP_STS_WORK_REQUEST_FLUSHED_ERR) {
-+		cnt = process_resp_flush(qp, cq, num_entries, wc,
-+					 resp->rq_cons);
-+		try_consume_resp_cqe(cq, qp, resp, update);
-+	} else {
-+		cnt = process_resp_one(dev, qp, cq, wc, resp);
-+		consume_cqe(cq);
-+		*update |= 1;
-+	}
-+
-+	return cnt;
-+}
-+
-+static void try_consume_req_cqe(struct qedr_cq *cq, struct qedr_qp *qp,
-+				struct rdma_cqe_requester *req, int *update)
-+{
-+	if (le16_to_cpu(req->sq_cons) == qp->sq.wqe_cons) {
-+		consume_cqe(cq);
-+		*update |= 1;
-+	}
-+}
-+
-+int qedr_poll_cq(struct ib_cq *ibcq, int num_entries, struct ib_wc *wc)
-+{
-+	struct qedr_dev *dev = get_qedr_dev(ibcq->device);
-+	struct qedr_cq *cq = get_qedr_cq(ibcq);
-+	union rdma_cqe *cqe = cq->latest_cqe;
-+	u32 old_cons, new_cons;
-+	unsigned long flags;
-+	int update = 0;
-+	int done = 0;
-+
-+	spin_lock_irqsave(&cq->cq_lock, flags);
-+	old_cons = qed_chain_get_cons_idx_u32(&cq->pbl);
-+	while (num_entries && is_valid_cqe(cq, cqe)) {
-+		struct qedr_qp *qp;
-+		int cnt = 0;
-+
-+		/* prevent speculative reads of any field of CQE */
-+		rmb();
-+
-+		qp = cqe_get_qp(cqe);
-+		if (!qp) {
-+			WARN(1, "Error: CQE QP pointer is NULL. CQE=%p\n", cqe);
-+			break;
-+		}
-+
-+		wc->qp = &qp->ibqp;
-+
-+		switch (cqe_get_type(cqe)) {
-+		case RDMA_CQE_TYPE_REQUESTER:
-+			cnt = qedr_poll_cq_req(dev, qp, cq, num_entries, wc,
-+					       &cqe->req);
-+			try_consume_req_cqe(cq, qp, &cqe->req, &update);
-+			break;
-+		case RDMA_CQE_TYPE_RESPONDER_RQ:
-+			cnt = qedr_poll_cq_resp(dev, qp, cq, num_entries, wc,
-+						&cqe->resp, &update);
-+			break;
-+		case RDMA_CQE_TYPE_INVALID:
-+		default:
-+			DP_ERR(dev, "Error: invalid CQE type = %d\n",
-+			       cqe_get_type(cqe));
-+		}
-+		num_entries -= cnt;
-+		wc += cnt;
-+		done += cnt;
-+
-+		cqe = get_cqe(cq);
-+	}
-+	new_cons = qed_chain_get_cons_idx_u32(&cq->pbl);
-+
-+	cq->cq_cons += new_cons - old_cons;
-+
-+	if (update)
-+		/* doorbell notifies abount latest VALID entry,
-+		 * but chain already point to the next INVALID one
-+		 */
-+		doorbell_cq(cq, cq->cq_cons - 1, cq->arm_flags);
-+
-+	spin_unlock_irqrestore(&cq->cq_lock, flags);
-+	return done;
-+}
 diff --git a/drivers/infiniband/hw/qedr/verbs.h b/drivers/infiniband/hw/qedr/verbs.h
-index e7cb3fd..9eb2722b 100644
+index 9eb2722b..da4535e 100644
 --- a/drivers/infiniband/hw/qedr/verbs.h
 +++ b/drivers/infiniband/hw/qedr/verbs.h
-@@ -58,4 +58,9 @@ int qedr_map_mr_sg(struct ib_mr *ibmr, struct scatterlist *sg,
- 
- struct ib_mr *qedr_alloc_mr(struct ib_pd *pd, enum ib_mr_type mr_type,
- 			    u32 max_num_sg);
-+int qedr_poll_cq(struct ib_cq *, int num_entries, struct ib_wc *wc);
-+int qedr_post_send(struct ib_qp *, struct ib_send_wr *,
-+		   struct ib_send_wr **bad_wr);
-+int qedr_post_recv(struct ib_qp *, struct ib_recv_wr *,
-+		   struct ib_recv_wr **bad_wr);
+@@ -63,4 +63,13 @@ int qedr_post_send(struct ib_qp *, struct ib_send_wr *,
+ 		   struct ib_send_wr **bad_wr);
+ int qedr_post_recv(struct ib_qp *, struct ib_recv_wr *,
+ 		   struct ib_recv_wr **bad_wr);
++int qedr_process_mad(struct ib_device *ibdev, int process_mad_flags,
++		     u8 port_num, const struct ib_wc *in_wc,
++		     const struct ib_grh *in_grh,
++		     const struct ib_mad_hdr *in_mad,
++		     size_t in_mad_size, struct ib_mad_hdr *out_mad,
++		     size_t *out_mad_size, u16 *out_mad_pkey_index);
++
++int qedr_port_immutable(struct ib_device *ibdev, u8 port_num,
++			struct ib_port_immutable *immutable);
  #endif
+diff --git a/include/linux/qed/common_hsi.h b/include/linux/qed/common_hsi.h
+index 70b30e4..83ce645 100644
+--- a/include/linux/qed/common_hsi.h
++++ b/include/linux/qed/common_hsi.h
+@@ -671,6 +671,7 @@ union event_ring_data {
+ 	struct iscsi_eqe_data iscsi_info;
+ 	struct malicious_vf_eqe_data malicious_vf;
+ 	struct initial_cleanup_eqe_data vf_init_cleanup;
++	struct regpair roce_handle;
+ };
+ 
+ /* Event Ring Entry */
 -- 
 1.8.3.1
