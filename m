@@ -1,42 +1,46 @@
-From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-Subject: Re: stmmac/RTL8211F/Meson GXBB: TX throughput problems
-Date: Mon, 12 Sep 2016 23:29:29 +0200
-Message-ID: <CAFBinCAHng9JVDeK8SKE0XP79e8pKfHqoq1+0uajPZ_0+k29UA@mail.gmail.com>
-References: <CAFBinCALSL_-izJ2tEsAjevAw90kGNTrQ3na3D1YV8f1dS1=Xg@mail.gmail.com>
- <216F2694-1C1D-44DA-AC15-57ED15C24BBE@bluematt.me>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, linux-amlogic@lists.infradead.org,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>
-To: Matt Corallo <linux@bluematt.me>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next 2/2] bpf: use skb_at_tc_ingress helper in tcf_bpf
+Date: Mon, 12 Sep 2016 23:38:43 +0200
+Message-ID: <c2f57d785c3586eca68b3bb29e2bff4ac4189238.1473715365.git.daniel@iogearbox.net>
+References: <cover.1473715365.git.daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f52.google.com ([74.125.82.52]:37135 "EHLO
-        mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751260AbcILV3v (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 17:29:51 -0400
-Received: by mail-wm0-f52.google.com with SMTP id c131so80084363wmh.0
-        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 14:29:51 -0700 (PDT)
-In-Reply-To: <216F2694-1C1D-44DA-AC15-57ED15C24BBE@bluematt.me>
+Received: from www62.your-server.de ([213.133.104.62]:42376 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751567AbcILVjA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 17:39:00 -0400
+In-Reply-To: <cover.1473715365.git.daniel@iogearbox.net>
+In-Reply-To: <cover.1473715365.git.daniel@iogearbox.net>
+References: <cover.1473715365.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Matt,
+We have a small skb_at_tc_ingress() helper for testing for ingress, so
+make use of it. cls_bpf already uses it and so should act_bpf.
 
-On Sun, Sep 11, 2016 at 10:57 PM, Matt Corallo <linux@bluematt.me> wrote:
-> The general advice is to force it into 100M mode then it seems to work fi=
-ne.
-> There is some issue with the driver seemingly not fully supporting 1G (at
-> least on Odroid C2) which needs to be worked out.
-thanks for the hint - by "forcing 100M mode" you mean "ethtool =E2=80=93s e=
-th0
-speed 100 duplex full"?
-Do you know more about this issue (or do you just know the
-workaround)? It'd be interesting to know which "driver" does not
-support Gbit speeds (as there are three drivers involved: realtek PHY
-driver, stmmac and Meson stmmac glue driver
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+---
+ net/sched/act_bpf.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-
-Regards,
-Martin
+diff --git a/net/sched/act_bpf.c b/net/sched/act_bpf.c
+index 78400de..1d39600 100644
+--- a/net/sched/act_bpf.c
++++ b/net/sched/act_bpf.c
+@@ -39,10 +39,10 @@ static struct tc_action_ops act_bpf_ops;
+ static int tcf_bpf(struct sk_buff *skb, const struct tc_action *act,
+ 		   struct tcf_result *res)
+ {
++	bool at_ingress = skb_at_tc_ingress(skb);
+ 	struct tcf_bpf *prog = to_bpf(act);
+ 	struct bpf_prog *filter;
+ 	int action, filter_res;
+-	bool at_ingress = G_TC_AT(skb->tc_verd) & AT_INGRESS;
+ 
+ 	tcf_lastuse_update(&prog->tcf_tm);
+ 	bstats_cpu_update(this_cpu_ptr(prog->common.cpu_bstats), skb);
+-- 
+1.9.3
