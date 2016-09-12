@@ -1,127 +1,211 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [RFC 00/11] QLogic RDMA Driver (qedr) RFC
-Date: Tue, 13 Sep 2016 09:05:45 +0300
-Message-ID: <20160913060545.GN8812@leon.nu>
+From: Mark Bloch <markb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: Re: [RFC 03/11] Add support for RoCE HW init
+Date: Mon, 12 Sep 2016 21:57:38 +0300
+Message-ID: <e5d0951a-0247-4516-1b63-aebf9933fdaa@mellanox.com>
 References: <1473696465-27986-1-git-send-email-Ram.Amrani@qlogic.com>
- <20160912163928.GK8812@leon.nu>
- <CAG53R5UqF21z34jB2HJCTXU8w3Kbj_Jon=wBAoO5tYSqbD1f6g@mail.gmail.com>
- <CY4PR11MB17202A542AC07CBA4A65E93697FF0@CY4PR11MB1720.namprd11.prod.outlook.com>
+ <1473696465-27986-4-git-send-email-Ram.Amrani@qlogic.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="7VkxxUl3xUvPtoxk"
-Cc: Parav Pandit <pandit.parav-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Ram Amrani <Ram.Amrani-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Ariel Elior <Ariel.Elior-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        Michal Kalderon <Michal.Kalderon-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        Rajesh Borundia <rajesh.borundia-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Yuval Mintz <Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>, <Ariel.Elior-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+        <Michal.Kalderon-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>, <rajesh.borundia-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+        <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Ram Amrani <Ram.Amrani-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>, <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CY4PR11MB17202A542AC07CBA4A65E93697FF0-JNf6+SjKdlG0ooKL/ADlEpPPoyLQLiKMvxpqHgZTriW3zl9H0oFU5g@public.gmane.org>
+In-Reply-To: <1473696465-27986-4-git-send-email-Ram.Amrani-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
---7VkxxUl3xUvPtoxk
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
 
-On Mon, Sep 12, 2016 at 05:39:35PM +0000, Yuval Mintz wrote:
-> >>>=C2=A0 include/linux/qed/common_hsi.h=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 |=C2=A0=C2=
-=A0=C2=A0 1 +
-> >>>=C2=A0 include/linux/qed/qed_if.h=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
-=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0 |=C2=A0=C2=A0=C2=A0 9 +-
-> >>>=C2=A0 include/linux/qed/qed_ll2_if.h=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 |=C2=A0 140=
- +
-> >>>=C2=A0 include/linux/qed/qed_roce_if.h=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
-=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 |=C2=A0 604 ++=
-++
-> >>>=C2=A0 include/linux/qed/qede_roce.h=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 |=C2=
-=A0=C2=A0 88 +
-> >>=C2=A0> include/linux/qed/rdma_common.h=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
-=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 |=C2=A0=C2=A0=
-=C2=A0 1 +
-> >>
-> >> Something not directly related to your patches, but they brought my
-> >> attention to the fact that all these new (and old) rdma<->net devices
-> >> are polluting include/linux
-> >>
-> > ocrdma driver includes be_roce.h located in net/ethernet/emulex/benet
-> > location instead of include/linux/.
-> > This file helps to bind rdma to net device or underlying hw device.
->
-> > May be similar change can be done for rest of the drivers for
-> > rdma<-->net devices?
->
-> By adding explicit inclusion paths in the Makefile, a la
-> ccflags-y :=3D -Idrivers/net/ethernet/emulex/benet   ?
->
-> While this might work, I personally dislike it as I find it
-> counter-intuitive when going over the code -
-> I don't expect driver to locally modify the inclusion path.
-> Besides, we're going to [eventually] a whole suite of drivers based
-> on the qed module, some of which would reside under drivers/scsi;
-> Not sure it's best to have 3 or 4 different drivers privately include the
-> same directory under a different subsystem.
+On 12/09/2016 19:07, Ram Amrani wrote:
+> Allocate and setup RoCE resources, interrupts and completion queues.
+> Adds device attributes.
+> 
+> Signed-off-by: Rajesh Borundia <rajesh.borundia-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Ram Amrani <Ram.Amrani-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>
+> ---
+>  drivers/infiniband/hw/qedr/main.c              | 408 +++++++++++-
+>  drivers/infiniband/hw/qedr/qedr.h              | 118 ++++
+>  drivers/infiniband/hw/qedr/qedr_hsi.h          |  56 ++
+>  drivers/infiniband/hw/qedr/qedr_hsi_rdma.h     |  96 +++
+>  drivers/net/ethernet/qlogic/qed/Makefile       |   1 +
+>  drivers/net/ethernet/qlogic/qed/qed.h          |  26 +-
+>  drivers/net/ethernet/qlogic/qed/qed_cxt.c      |   6 +
+>  drivers/net/ethernet/qlogic/qed/qed_cxt.h      |   6 +
+>  drivers/net/ethernet/qlogic/qed/qed_dev.c      | 155 +++++
+>  drivers/net/ethernet/qlogic/qed/qed_main.c     |  44 +-
+>  drivers/net/ethernet/qlogic/qed/qed_reg_addr.h |   7 +
+>  drivers/net/ethernet/qlogic/qed/qed_roce.c     | 887 +++++++++++++++++++++++++
+>  drivers/net/ethernet/qlogic/qed/qed_roce.h     | 117 ++++
+>  drivers/net/ethernet/qlogic/qed/qed_sp.h       |   1 +
+>  drivers/net/ethernet/qlogic/qed/qed_spq.c      |   8 +
+>  drivers/net/ethernet/qlogic/qede/qede_roce.c   |   2 +-
+>  include/linux/qed/qed_if.h                     |   5 +-
+>  include/linux/qed/qed_roce_if.h                | 345 ++++++++++
+>  18 files changed, 2281 insertions(+), 7 deletions(-)
+>  create mode 100644 drivers/infiniband/hw/qedr/qedr_hsi.h
+>  create mode 100644 drivers/infiniband/hw/qedr/qedr_hsi_rdma.h
+>  create mode 100644 drivers/net/ethernet/qlogic/qed/qed_roce.c
+>  create mode 100644 drivers/net/ethernet/qlogic/qed/qed_roce.h
+>  create mode 100644 include/linux/qed/qed_roce_if.h
+> 
+> diff --git a/drivers/infiniband/hw/qedr/main.c b/drivers/infiniband/hw/qedr/main.c
+> index 3fe58a3..0b5274a 100644
+> --- a/drivers/infiniband/hw/qedr/main.c
+> +++ b/drivers/infiniband/hw/qedr/main.c
+> @@ -36,6 +36,8 @@
+>  #include <linux/iommu.h>
+>  #include <net/addrconf.h>
+>  #include <linux/qed/qede_roce.h>
+> +#include <linux/qed/qed_chain.h>
+> +#include <linux/qed/qed_if.h>
+>  #include "qedr.h"
+>  
+>  MODULE_DESCRIPTION("QLogic 40G/100G ROCE Driver");
+> @@ -80,6 +82,139 @@ static int qedr_register_device(struct qedr_dev *dev)
+>  	return 0;
+>  }
+>  
+> +/* This function allocates fast-path status block memory */
+> +static int qedr_alloc_mem_sb(struct qedr_dev *dev,
+> +			     struct qed_sb_info *sb_info, u16 sb_id)
+> +{
+> +	struct status_block *sb_virt;
+> +	dma_addr_t sb_phys;
+> +	int rc;
+> +
+> +	sb_virt = dma_alloc_coherent(&dev->pdev->dev,
+> +				     sizeof(*sb_virt), &sb_phys, GFP_KERNEL);
+> +	if (!sb_virt) {
+> +		pr_err("Status block allocation failed\n");
+> +		return -ENOMEM;
+> +	}
+> +
+> +	rc = dev->ops->common->sb_init(dev->cdev, sb_info,
+> +				       sb_virt, sb_phys, sb_id,
+> +				       QED_SB_TYPE_CNQ);
+> +	if (rc) {
+> +		pr_err("Status block initialization failed\n");
+> +		dma_free_coherent(&dev->pdev->dev, sizeof(*sb_virt),
+> +				  sb_virt, sb_phys);
+> +		return rc;
+> +	}
+> +
+> +	return 0;
+> +}
+> +
+> +static void qedr_free_mem_sb(struct qedr_dev *dev,
+> +			     struct qed_sb_info *sb_info, int sb_id)
+> +{
+> +	if (sb_info->sb_virt) {
+> +		dev->ops->common->sb_release(dev->cdev, sb_info, sb_id);
+> +		dma_free_coherent(&dev->pdev->dev, sizeof(*sb_info->sb_virt),
+> +				  (void *)sb_info->sb_virt, sb_info->sb_phys);
+> +	}
+> +}
+> +
+> +static void qedr_free_resources(struct qedr_dev *dev)
+> +{
+> +	int i;
+> +
+> +	for (i = 0; i < dev->num_cnq; i++) {
+> +		qedr_free_mem_sb(dev, &dev->sb_array[i], dev->sb_start + i);
+> +		dev->ops->common->chain_free(dev->cdev, &dev->cnq_array[i].pbl);
+> +	}
+> +
+> +	kfree(dev->cnq_array);
+> +	kfree(dev->sb_array);
+> +	kfree(dev->sgid_tbl);
+> +}
+> +
+> +static int qedr_alloc_resources(struct qedr_dev *dev)
+> +{
+> +	struct qedr_cnq *cnq;
+> +	__le16 *cons_pi;
+> +	u16 n_entries;
+> +	int i, rc;
+> +
+> +	dev->sgid_tbl = kzalloc(sizeof(union ib_gid) *
+> +				QEDR_MAX_SGID, GFP_KERNEL);
+> +	if (!dev->sgid_tbl)
+> +		return -ENOMEM;
+> +
+> +	spin_lock_init(&dev->sgid_lock);
+> +
+> +	/* Allocate Status blocks for CNQ */
+> +	dev->sb_array = kcalloc(dev->num_cnq, sizeof(*dev->sb_array),
+> +				GFP_KERNEL);
+> +	if (!dev->sb_array) {
+> +		rc = -ENOMEM;
+> +		goto err1;
+> +	}
+> +
+> +	dev->cnq_array = kcalloc(dev->num_cnq,
+> +				 sizeof(*dev->cnq_array), GFP_KERNEL);
+> +	if (!dev->cnq_array) {
+> +		rc = -ENOMEM;
+> +		goto err2;
+> +	}
+> +
+> +	dev->sb_start = dev->ops->rdma_get_start_sb(dev->cdev);
+> +
+> +	/* Allocate CNQ PBLs */
+> +	n_entries = min_t(u32, QED_RDMA_MAX_CNQ_SIZE, QEDR_ROCE_MAX_CNQ_SIZE);
+> +	for (i = 0; i < dev->num_cnq; i++) {
+> +		cnq = &dev->cnq_array[i];
+> +
+> +		rc = qedr_alloc_mem_sb(dev, &dev->sb_array[i],
+> +				       dev->sb_start + i);
+> +		if (rc)
+> +			goto err3;
+> +
+> +		rc = dev->ops->common->chain_alloc(dev->cdev,
+> +						   QED_CHAIN_USE_TO_CONSUME,
+> +						   QED_CHAIN_MODE_PBL,
+> +						   QED_CHAIN_CNT_TYPE_U16,
+> +						   n_entries,
+> +						   sizeof(struct regpair *),
+> +						   &cnq->pbl);
+> +		if (rc)
+> +			goto err4;
+> +
+> +		cnq->dev = dev;
+> +		cnq->sb = &dev->sb_array[i];
+> +		cons_pi = dev->sb_array[i].sb_virt->pi_array;
+> +		cnq->hw_cons_ptr = &cons_pi[QED_ROCE_PROTOCOL_INDEX];
+> +		cnq->index = i;
+> +		sprintf(cnq->name, "qedr%d@pci:%s",
+> +			i, pci_name(dev->pdev));
+> +
+> +		DP_VERBOSE(dev, QEDR_MSG_INIT, "cnq[%d].cons=%d\n",
+> +			   i, qed_chain_get_cons_idx(&cnq->pbl));
+> +	}
+> +
+> +	return 0;
+> +err4:
+> +	qedr_free_mem_sb(dev, &dev->sb_array[i], dev->sb_start + i);
+> +	for (--i; i >= 0; i--) {
+> +		dev->ops->common->chain_free(dev->cdev, &dev->cnq_array[i].pbl);
+> +		qedr_free_mem_sb(dev, &dev->sb_array[i], dev->sb_start + i);
+> +	}
+> +err3:
+> +	for (--i; i >= 0; i--)
+> +		qedr_free_mem_sb(dev, &dev->sb_array[i], dev->sb_start + i);
+> +	kfree(dev->cnq_array);
+This doesn't seem right, going from err4 to err3 i = 0, the for loop in err3
+won't do anything.
 
-I agree with you that orcdma's way can be valuable for small drivers.
+> +err2:
+> +	kfree(dev->sb_array);
+> +err1:
+> +	kfree(dev->sgid_tbl);
+> +	return rc;
+> +}
+> +
 
-Orcmda has small shared headers set and doesn't need to change them rapidly
-to support different devices.
-
-I thought to place them in similar directory to include/soc/* and remove
-=66rom include/linux/. We have include/rdma/ and it looks like a good
-candidate.
-
->
-> >> Filtered output:
-> >> =E2=9E=9C=C2=A0 linux-rdma git:(topic/fixes-for-4.8-2) ls -dl include/=
-linux/*/
-> >> drwxrwxr-x=C2=A0 2 leonro leonro=C2=A0 4096 Aug 30 16:27 include/linux=
-/hsi/
-> >> drwxrwxr-x=C2=A0 2 leonro leonro=C2=A0 4096 Sep 12 19:08 include/linux=
-/mlx4/
-> >> drwxrwxr-x=C2=A0 2 leonro leonro=C2=A0 4096 Sep=C2=A0 7 15:31 include/=
-linux/mlx5/
-> >> drwxrwxr-x=C2=A0 2 leonro leonro=C2=A0 4096 Sep=C2=A0 8 17:46 include/=
-linux/qed/
-> >>
-> >> Is this the right place for them?
-> >
-> > Thanks
->
-
---7VkxxUl3xUvPtoxk
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJX15c5AAoJEORje4g2clinSJkP/2F67ghkBA2xeXOLuMoBb3Nc
-ue+MAHB8ACDfcIUhpJUkZFU0jqMUi3j0Yc0itux7mGnwEIlkBc6dTWMKQG6l3zcF
-bonsUv4B0m6U8//92R/1hkIBhiXGmwkO22tzWz469rodIrvM5I14btumHpvKrpcj
-DUk/WrTh37j+SNvViZ/xjlJUJN6H7t38Wp+arDCay8VBmElvRYejQEsSdhn9SeEi
-tay7USTmljdh6lCUJugM7usRIcxXjGXcIxu/JZoU5BmBMJvleIVK09TkyppY7HHD
-bRizp0OztjSBwW7gKRwfYZeqloo2/RvhIk+FKS9L9bqHMnqKHsQ9i9CnPbgMd9Lh
-i03fSn4wPt24NBY8cyqumfTJyKCn47KKkAXCzVzRJFbAifEnNZpQik4fl+axZPuv
-0m5avLLVdXyC+QI3KESuongZVbVHYQ9GFPHqkV76BW9Jg14V2DCkNv6tQmCdiC8X
-WQwRAbcJZWDHtBsuiww5oHidSGn+pYyhpD+FTBvEkdI0tlmay+RM68jsfdgb4alN
-ixMMGUoYOE8/BqaKyITRJDcMDCKfU0tXkg6WfHmHfpnVHjjm08JcHx6tAclDNBnB
-Xliwl+qg6hzpypUP9EweWz4U7RTWpE+AYa1la+wqTiyNRuDckMdl+Bzs8AEIncW9
-Ap49lZ2YRAM9bb2cnWrw
-=ASWE
------END PGP SIGNATURE-----
-
---7VkxxUl3xUvPtoxk--
+Mark
 --
 To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
