@@ -1,7 +1,7 @@
 From: kan.liang@intel.com
-Subject: [RFC V3 PATCH 01/26] net: introduce NET policy
-Date: Mon, 12 Sep 2016 07:55:34 -0700
-Message-ID: <1473692159-4017-2-git-send-email-kan.liang@intel.com>
+Subject: [RFC V3 PATCH 03/26] net/netpolicy: get device queue irq information
+Date: Mon, 12 Sep 2016 07:55:36 -0700
+Message-ID: <1473692159-4017-4-git-send-email-kan.liang@intel.com>
 References: <1473692159-4017-1-git-send-email-kan.liang@intel.com>
 Cc: jeffrey.t.kirsher@intel.com, mingo@redhat.com,
         peterz@infradead.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
@@ -24,218 +24,85 @@ List-Id: netdev.vger.kernel.org
 
 From: Kan Liang <kan.liang@intel.com>
 
-This patch introduce NET policy subsystem. If proc is supported in the
-system, it creates netpolicy node in proc system.
+Net policy needs to know device information. Currently, it's enough to
+only get irq information of rx and tx queues.
+
+This patch introduces ndo ops to do so, not ethtool ops.
+Because there are already several ways to get irq information in
+userspace. It's not necessory to extend the ethtool.
 
 Signed-off-by: Kan Liang <kan.liang@intel.com>
 ---
- include/linux/netdevice.h   |   7 +++
- include/net/net_namespace.h |   3 ++
- net/Kconfig                 |   7 +++
- net/core/Makefile           |   1 +
- net/core/netpolicy.c        | 128 ++++++++++++++++++++++++++++++++++++++++++++
- 5 files changed, 146 insertions(+)
- create mode 100644 net/core/netpolicy.c
+ include/linux/netdevice.h |  5 +++++
+ include/linux/netpolicy.h |  7 +++++++
+ net/core/netpolicy.c      | 14 ++++++++++++++
+ 3 files changed, 26 insertions(+)
 
 diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 67bb978..435573c 100644
+index 876293d..e1b5685 100644
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
-@@ -1618,6 +1618,8 @@ enum netdev_priv_flags {
-  *			switch driver and used to set the phys state of the
-  *			switch port.
+@@ -1125,6 +1125,9 @@ struct netdev_xdp {
+  * int(*ndo_netpolicy_init)(struct net_device *dev,
+  *			    struct netpolicy_info *info);
+  *	This function is used to init and get supported policy.
++ * int (*ndo_get_irq_info)(struct net_device *dev,
++ *			   struct netpolicy_dev_info *info);
++ *	This function is used to get irq information of rx and tx queues
   *
-+ *	@proc_dev:	device node in proc to configure device net policy
-+ *
-  *	FIXME: cleanup struct net_device such that network protocol info
-  *	moves out.
   */
-@@ -1885,6 +1887,11 @@ struct net_device {
- 	struct lock_class_key	*qdisc_tx_busylock;
- 	struct lock_class_key	*qdisc_running_key;
- 	bool			proto_down;
-+#ifdef CONFIG_NETPOLICY
-+#ifdef CONFIG_PROC_FS
-+	struct proc_dir_entry	*proc_dev;
-+#endif /* CONFIG_PROC_FS */
-+#endif /* CONFIG_NETPOLICY */
- };
- #define to_net_dev(d) container_of(d, struct net_device, dev)
- 
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index 0933c74..571f005 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -142,6 +142,9 @@ struct net {
- #endif
- 	struct sock		*diag_nlsk;
- 	atomic_t		fnhe_genid;
-+#ifdef CONFIG_NETPOLICY
-+	struct proc_dir_entry	*proc_netpolicy;
-+#endif /* CONFIG_NETPOLICY */
+ struct net_device_ops {
+@@ -1314,6 +1317,8 @@ struct net_device_ops {
+ #ifdef CONFIG_NETPOLICY
+ 	int			(*ndo_netpolicy_init)(struct net_device *dev,
+ 						      struct netpolicy_info *info);
++	int			(*ndo_get_irq_info)(struct net_device *dev,
++						    struct netpolicy_dev_info *info);
+ #endif /* CONFIG_NETPOLICY */
  };
  
- #include <linux/seq_file_net.h>
-diff --git a/net/Kconfig b/net/Kconfig
-index 7b6cd34..b2b0354 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -205,6 +205,13 @@ source "net/bridge/netfilter/Kconfig"
+diff --git a/include/linux/netpolicy.h b/include/linux/netpolicy.h
+index ca1f131..fc87d9b 100644
+--- a/include/linux/netpolicy.h
++++ b/include/linux/netpolicy.h
+@@ -23,6 +23,13 @@ enum netpolicy_name {
  
- endif
+ extern const char *policy_name[];
  
-+config NETPOLICY
-+	depends on NET
-+	bool "Net policy support"
-+	default n
-+	---help---
-+	Net policy support
++struct netpolicy_dev_info {
++	u32	rx_num;
++	u32	tx_num;
++	u32	*rx_irq;
++	u32	*tx_irq;
++};
 +
- source "net/dccp/Kconfig"
- source "net/sctp/Kconfig"
- source "net/rds/Kconfig"
-diff --git a/net/core/Makefile b/net/core/Makefile
-index d6508c2..0be7092 100644
---- a/net/core/Makefile
-+++ b/net/core/Makefile
-@@ -27,3 +27,4 @@ obj-$(CONFIG_LWTUNNEL) += lwtunnel.o
- obj-$(CONFIG_DST_CACHE) += dst_cache.o
- obj-$(CONFIG_HWBM) += hwbm.o
- obj-$(CONFIG_NET_DEVLINK) += devlink.o
-+obj-$(CONFIG_NETPOLICY) += netpolicy.o
+ struct netpolicy_info {
+ 	enum netpolicy_name	cur_policy;
+ 	unsigned long avail_policy[BITS_TO_LONGS(NET_POLICY_MAX)];
 diff --git a/net/core/netpolicy.c b/net/core/netpolicy.c
-new file mode 100644
-index 0000000..faabfe7
---- /dev/null
+index c1c0dc0..882f0de 100644
+--- a/net/core/netpolicy.c
 +++ b/net/core/netpolicy.c
-@@ -0,0 +1,128 @@
-+/*
-+ * netpolicy.c: Net policy support
-+ * Copyright (c) 2016, Intel Corporation.
-+ * Author: Kan Liang (kan.liang@intel.com)
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * NET policy intends to simplify the network configuration and get a good
-+ * network performance according to the hints(policy) which is applied by user.
-+ *
-+ * Motivation
-+ * 	- The network performance is not good with default system settings.
-+ *	- It is too difficult to do automatic tuning for all possible
-+ *	  workloads, since workloads have different requirements. Some
-+ *	  workloads may want high throughput. Some may need low latency.
-+ *	- There are lots of manual configurations. Fine grained configuration
-+ *	  is too difficult for users.
-+ * 	So, it is a big challenge to get good network performance.
-+ *
-+ */
-+#include <linux/module.h>
-+#include <linux/kernel.h>
-+#include <linux/errno.h>
-+#include <linux/init.h>
-+#include <linux/seq_file.h>
-+#include <linux/proc_fs.h>
-+#include <linux/uaccess.h>
-+#include <linux/netdevice.h>
-+#include <net/net_namespace.h>
-+
-+#ifdef CONFIG_PROC_FS
-+
-+static int net_policy_proc_show(struct seq_file *m, void *v)
+@@ -36,6 +36,20 @@
+ #include <net/net_namespace.h>
+ #include <net/rtnetlink.h>
+ 
++static int netpolicy_get_dev_info(struct net_device *dev,
++				  struct netpolicy_dev_info *d_info)
 +{
-+	struct net_device *dev = (struct net_device *)m->private;
-+
-+	seq_printf(m, "%s doesn't support net policy manager\n", dev->name);
-+
-+	return 0;
++	if (!dev->netdev_ops->ndo_get_irq_info)
++		return -ENOTSUPP;
++	return dev->netdev_ops->ndo_get_irq_info(dev, d_info);
 +}
 +
-+static int net_policy_proc_open(struct inode *inode, struct file *file)
++static void netpolicy_free_dev_info(struct netpolicy_dev_info *d_info)
 +{
-+	return single_open(file, net_policy_proc_show, PDE_DATA(inode));
++	kfree(d_info->rx_irq);
++	kfree(d_info->tx_irq);
 +}
 +
-+static const struct file_operations proc_net_policy_operations = {
-+	.open		= net_policy_proc_open,
-+	.read		= seq_read,
-+	.llseek		= seq_lseek,
-+	.release	= seq_release,
-+	.owner		= THIS_MODULE,
-+};
-+
-+static int netpolicy_proc_dev_init(struct net *net, struct net_device *dev)
-+{
-+	dev->proc_dev = proc_net_mkdir(net, dev->name, net->proc_netpolicy);
-+	if (!dev->proc_dev)
-+		return -ENOMEM;
-+
-+	if (!proc_create_data("policy", S_IWUSR | S_IRUGO,
-+			      dev->proc_dev, &proc_net_policy_operations,
-+			      (void *)dev)) {
-+		remove_proc_subtree(dev->name, net->proc_netpolicy);
-+		return -ENOMEM;
-+	}
-+	return 0;
-+}
-+
-+static int __net_init netpolicy_net_init(struct net *net)
-+{
-+	struct net_device *dev, *aux;
-+
-+	net->proc_netpolicy = proc_net_mkdir(net, "netpolicy",
-+					     net->proc_net);
-+	if (!net->proc_netpolicy)
-+		return -ENOMEM;
-+
-+	for_each_netdev_safe(net, dev, aux) {
-+		netpolicy_proc_dev_init(net, dev);
-+	}
-+
-+	return 0;
-+}
-+
-+#else /* CONFIG_PROC_FS */
-+
-+static int __net_init netpolicy_net_init(struct net *net)
-+{
-+	return 0;
-+}
-+#endif /* CONFIG_PROC_FS */
-+
-+static void __net_exit netpolicy_net_exit(struct net *net)
-+{
-+#ifdef CONFIG_PROC_FS
-+	remove_proc_subtree("netpolicy", net->proc_net);
-+#endif /* CONFIG_PROC_FS */
-+}
-+
-+static struct pernet_operations netpolicy_net_ops = {
-+	.init = netpolicy_net_init,
-+	.exit = netpolicy_net_exit,
-+};
-+
-+static int __init netpolicy_init(void)
-+{
-+	int ret;
-+
-+	ret = register_pernet_subsys(&netpolicy_net_ops);
-+
-+	return ret;
-+}
-+
-+static void __exit netpolicy_exit(void)
-+{
-+	unregister_pernet_subsys(&netpolicy_net_ops);
-+}
-+
-+subsys_initcall(netpolicy_init);
-+module_exit(netpolicy_exit);
+ const char *policy_name[NET_POLICY_MAX] = {
+ 	"NONE"
+ };
 -- 
 2.5.5
