@@ -1,7 +1,7 @@
 From: kan.liang@intel.com
-Subject: [RFC V3 PATCH 24/26] net/netpolicy: optimize for queue pair
-Date: Mon, 12 Sep 2016 07:55:57 -0700
-Message-ID: <1473692159-4017-25-git-send-email-kan.liang@intel.com>
+Subject: [RFC V3 PATCH 05/26] net/netpolicy: create CPU and queue mapping
+Date: Mon, 12 Sep 2016 07:55:38 -0700
+Message-ID: <1473692159-4017-6-git-send-email-kan.liang@intel.com>
 References: <1473692159-4017-1-git-send-email-kan.liang@intel.com>
 Cc: jeffrey.t.kirsher@intel.com, mingo@redhat.com,
         peterz@infradead.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
@@ -17,52 +17,147 @@ Cc: jeffrey.t.kirsher@intel.com, mingo@redhat.com,
         Kan Liang <kan.liang@intel.com>
 To: davem@davemloft.net, linux-kernel@vger.kernel.org,
         netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:37125 "EHLO mga04.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1759457AbcILO4v (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 12 Sep 2016 10:56:51 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1473692159-4017-1-git-send-email-kan.liang@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Kan Liang <kan.liang@intel.com>
 
-Some drivers like i40e driver does not support separate Tx and Rx queues
-as channels. Using Rx queue to stand for the channels, if queue_pair is
-set by driver.
+Current implementation forces CPU and queue 1:1 mapping. This patch
+introduces the function netpolicy_update_sys_map to create this mapping.
+The result is stored in netpolicy_sys_info.
+
+If the CPU count and queue count are different, the remaining
+CPUs/queues are not used for now.
+
+CPU hotplug, device hotplug or ethtool may change the CPU count or
+queue count. For these cases, this function can also be called to
+reconstruct the mapping. These cases will be handled later in this
+series.
 
 Signed-off-by: Kan Liang <kan.liang@intel.com>
 ---
- include/linux/netpolicy.h | 1 +
- net/core/netpolicy.c      | 3 +++
- 2 files changed, 4 insertions(+)
+ include/linux/netpolicy.h | 18 ++++++++++++
+ net/core/netpolicy.c      | 74 +++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 92 insertions(+)
 
 diff --git a/include/linux/netpolicy.h b/include/linux/netpolicy.h
-index 88f4f60..9b03b4d 100644
+index fc87d9b..a946b75c 100644
 --- a/include/linux/netpolicy.h
 +++ b/include/linux/netpolicy.h
-@@ -83,6 +83,7 @@ struct netpolicy_info {
+@@ -30,9 +30,27 @@ struct netpolicy_dev_info {
+ 	u32	*tx_irq;
+ };
+ 
++struct netpolicy_sys_map {
++	u32	cpu;
++	u32	queue;
++	u32	irq;
++};
++
++struct netpolicy_sys_info {
++	/*
++	 * Record the cpu and queue 1:1 mapping
++	 */
++	u32				avail_rx_num;
++	struct netpolicy_sys_map	*rx;
++	u32				avail_tx_num;
++	struct netpolicy_sys_map	*tx;
++};
++
+ struct netpolicy_info {
+ 	enum netpolicy_name	cur_policy;
  	unsigned long avail_policy[BITS_TO_LONGS(NET_POLICY_MAX)];
- 	bool irq_affinity;
- 	bool has_mix_policy;
-+	bool queue_pair;
- 	/* cpu and queue mapping information */
- 	struct netpolicy_sys_info	sys_info;
- 	/* List of policy objects 0 rx 1 tx */
++	/* cpu and queue mapping information */
++	struct netpolicy_sys_info	sys_info;
+ };
+ 
+ #endif /*__LINUX_NETPOLICY_H*/
 diff --git a/net/core/netpolicy.c b/net/core/netpolicy.c
-index 2f55a14..84503a4 100644
+index 31c41ca..0972341 100644
 --- a/net/core/netpolicy.c
 +++ b/net/core/netpolicy.c
-@@ -538,6 +538,9 @@ int netpolicy_pick_queue(struct netpolicy_instance *instance, bool is_rx)
- 	if (!policy_validate(instance))
- 		return -EINVAL;
+@@ -55,6 +55,80 @@ static u32 netpolicy_get_cpu_information(void)
+ 	return num_online_cpus();
+ }
  
-+	if (dev->netpolicy->queue_pair)
-+		is_rx = true;
++static void netpolicy_free_sys_map(struct net_device *dev)
++{
++	struct netpolicy_sys_info *s_info = &dev->netpolicy->sys_info;
 +
- 	/* fast path */
- 	rcu_read_lock();
- 	version = rcu_dereference(dev->netpolicy->sys_info.version)->major;
++	kfree(s_info->rx);
++	s_info->rx = NULL;
++	s_info->avail_rx_num = 0;
++	kfree(s_info->tx);
++	s_info->tx = NULL;
++	s_info->avail_tx_num = 0;
++}
++
++static int netpolicy_update_sys_map(struct net_device *dev,
++				    struct netpolicy_dev_info *d_info,
++				    u32 cpu)
++{
++	struct netpolicy_sys_info *s_info = &dev->netpolicy->sys_info;
++	u32 num, i, online_cpu;
++	cpumask_var_t cpumask;
++
++	if (!alloc_cpumask_var(&cpumask, GFP_ATOMIC))
++		return -ENOMEM;
++
++	/* update rx cpu map */
++	if (cpu > d_info->rx_num)
++		num = d_info->rx_num;
++	else
++		num = cpu;
++
++	s_info->avail_rx_num = num;
++	s_info->rx = kcalloc(num, sizeof(*s_info->rx), GFP_ATOMIC);
++	if (!s_info->rx)
++		goto err;
++	cpumask_copy(cpumask, cpu_online_mask);
++
++	i = 0;
++	for_each_cpu(online_cpu, cpumask) {
++		if (i == num)
++			break;
++		s_info->rx[i].cpu = online_cpu;
++		s_info->rx[i].queue = i;
++		s_info->rx[i].irq = d_info->rx_irq[i];
++		i++;
++	}
++
++	/* update tx cpu map */
++	if (cpu >= d_info->tx_num)
++		num = d_info->tx_num;
++	else
++		num = cpu;
++
++	s_info->avail_tx_num = num;
++	s_info->tx = kcalloc(num, sizeof(*s_info->tx), GFP_ATOMIC);
++	if (!s_info->tx)
++		goto err;
++
++	i = 0;
++	for_each_cpu(online_cpu, cpumask) {
++		if (i == num)
++			break;
++		s_info->tx[i].cpu = online_cpu;
++		s_info->tx[i].queue = i;
++		s_info->tx[i].irq = d_info->tx_irq[i];
++		i++;
++	}
++
++	free_cpumask_var(cpumask);
++	return 0;
++err:
++	netpolicy_free_sys_map(dev);
++	free_cpumask_var(cpumask);
++	return -ENOMEM;
++}
++
+ const char *policy_name[NET_POLICY_MAX] = {
+ 	"NONE"
+ };
 -- 
 2.5.5
