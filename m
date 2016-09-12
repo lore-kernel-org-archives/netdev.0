@@ -1,36 +1,42 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH v2] cfg80211: Remove deprecated
- create_singlethread_workqueue
-Date: Mon, 12 Sep 2016 11:21:40 +0200
-Message-ID: <1473672100.4201.15.camel@sipsolutions.net>
-References: <20160830190507.GA11493@Karyakshetra>
-         (sfid-20160830_210511_814586_97B3779A)
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] atm: iphase: fix newline escape and minor tweak to source formatting
+Date: Mon, 12 Sep 2016 10:29:30 +0100
+Message-ID: <20160912092930.20683-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Tejun Heo <tj@kernel.org>, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org
+To: Chas Williams <3chas3@gmail.com>,
+        linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160830190507.GA11493@Karyakshetra> (sfid-20160830_210511_814586_97B3779A)
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2016-08-31 at 00:35 +0530, Bhaktipriya Shridhar wrote:
-> The workqueue "cfg80211_wq" is involved in cleanup, scan and event
-> related
-> works. It queues multiple work items &rdev->event_work,
-> &rdev->dfs_update_channels_wk,
-> &wiphy_to_rdev(request->wiphy)->scan_done_wk,
-> &wiphy_to_rdev(wiphy)->sched_scan_results_wk, which require strict
-> execution ordering.
-> Hence, an ordered dedicated workqueue has been used.
-> 
-> Since it's a wireless driver, WQ_MEM_RECLAIM has been set to ensure
-> forward progress under memory pressure.
-> 
+From: Colin Ian King <colin.king@canonical.com>
 
-Applied, thanks.
+The newline escape is incorrect and needs fixing. Also adjust source
+formatting / indentation and remove trailing white space.
 
-johannes
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/atm/iphase.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/atm/iphase.c b/drivers/atm/iphase.c
+index 9d8807e..256b191 100644
+--- a/drivers/atm/iphase.c
++++ b/drivers/atm/iphase.c
+@@ -1885,9 +1885,8 @@ static int open_tx(struct atm_vcc *vcc)
+                 if ((ret = ia_cbr_setup (iadev, vcc)) < 0) {     
+                     return ret;
+                 }
+-       } 
+-	else  
+-           printk("iadev:  Non UBR, ABR and CBR traffic not supportedn"); 
++	} else
++		printk("iadev:  Non UBR, ABR and CBR traffic not supported\n");
+         
+         iadev->testTable[vcc->vci]->vc_status |= VC_ACTIVE;
+ 	IF_EVENT(printk("ia open_tx returning \n");)  
+-- 
+2.9.3
