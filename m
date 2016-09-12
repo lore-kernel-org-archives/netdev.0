@@ -1,220 +1,481 @@
-From: Maxime Ripard <maxime.ripard@free-electrons.com>
-Subject: Re: [RFC PATCH 9/9] ethernet: sun8i-emac: add pm_runtime support
-Date: Mon, 12 Sep 2016 22:44:51 +0200
-Message-ID: <20160912204451.GO9449@lukather>
-References: <1473425117-18645-1-git-send-email-clabbe.montjoie@gmail.com>
- <1473425117-18645-10-git-send-email-clabbe.montjoie@gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="vDEbda84Uy/oId5W"
-Cc: robh+dt@kernel.org, mark.rutland@arm.com, wens@csie.org,
-        linux@armlinux.org.uk, davem@davemloft.net, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: Corentin Labbe <clabbe.montjoie@gmail.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [PATCH v4 net-next 1/1] net_sched: Introduce skbmod action
+Date: Mon, 12 Sep 2016 16:46:46 -0400
+Message-ID: <1473713206-2450-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
+        daniel@iogearbox.net, eric.dumazet@gmail.com,
+        john.r.fastabend@intel.com, Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from down.free-electrons.com ([37.187.137.238]:45140 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752736AbcILUoy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 16:44:54 -0400
-Content-Disposition: inline
-In-Reply-To: <1473425117-18645-10-git-send-email-clabbe.montjoie@gmail.com>
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:35637 "EHLO
+        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753318AbcILUq7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 16:46:59 -0400
+Received: by mail-oi0-f68.google.com with SMTP id 2so24124983oif.2
+        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 13:46:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
---vDEbda84Uy/oId5W
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+This action is intended to be an upgrade from a usability perspective
+from pedit (as well as operational debugability).
+Compare this:
 
-Hi,
+sudo tc filter add dev $ETH parent 1: protocol ip prio 10 \
+u32 match ip protocol 1 0xff flowid 1:2 \
+action pedit munge offset -14 u8 set 0x02 \
+munge offset -13 u8 set 0x15 \
+munge offset -12 u8 set 0x15 \
+munge offset -11 u8 set 0x15 \
+munge offset -10 u16 set 0x1515 \
+pipe
 
-On Fri, Sep 09, 2016 at 02:45:17PM +0200, Corentin Labbe wrote:
-> This patch add pm_runtime support to sun8i-emac.
-> For the moment, only basic support is added, (the device is marked as
-> used when net/open)
->=20
-> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
-> ---
->  drivers/net/ethernet/allwinner/sun8i-emac.c | 62 +++++++++++++++++++++++=
-+++++-
->  1 file changed, 60 insertions(+), 2 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/allwinner/sun8i-emac.c b/drivers/net/et=
-hernet/allwinner/sun8i-emac.c
-> index 1c4bc80..cce886e 100644
-> --- a/drivers/net/ethernet/allwinner/sun8i-emac.c
-> +++ b/drivers/net/ethernet/allwinner/sun8i-emac.c
-> @@ -9,7 +9,6 @@
->   * - MAC filtering
->   * - Jumbo frame
->   * - features rx-all (NETIF_F_RXALL_BIT)
-> - * - PM runtime
->   */
->  #include <linux/bitops.h>
->  #include <linux/clk.h>
-> @@ -27,6 +26,7 @@
->  #include <linux/pinctrl/consumer.h>
->  #include <linux/pinctrl/pinctrl.h>
->  #include <linux/platform_device.h>
-> +#include <linux/pm_runtime.h>
->  #include <linux/reset.h>
->  #include <linux/scatterlist.h>
->  #include <linux/skbuff.h>
-> @@ -1301,11 +1301,18 @@ static int sun8i_emac_open(struct net_device *nde=
-v)
->  	int err;
->  	u32 v;
-> =20
-> +	err =3D pm_runtime_get_sync(priv->dev);
-> +	if (err) {
-> +		pm_runtime_put_noidle(priv->dev);
-> +		dev_err(priv->dev, "pm_runtime error: %d\n", err);
-> +		return err;
-> +	}
-> +
->  	err =3D request_irq(priv->irq, sun8i_emac_dma_interrupt, 0,
->  			  dev_name(priv->dev), ndev);
->  	if (err) {
->  		dev_err(priv->dev, "Cannot request IRQ: %d\n", err);
-> -		return err;
-> +		goto err_runtime;
->  	}
-> =20
->  	/* Set interface mode (and configure internal PHY on H3) */
-> @@ -1395,6 +1402,8 @@ err_syscon:
->  	sun8i_emac_unset_syscon(ndev);
->  err_irq:
->  	free_irq(priv->irq, ndev);
-> +err_runtime:
-> +	pm_runtime_put(priv->dev);
->  	return err;
->  }
-> =20
-> @@ -1483,6 +1492,8 @@ static int sun8i_emac_stop(struct net_device *ndev)
->  	dma_free_coherent(priv->dev, priv->nbdesc_tx * sizeof(struct dma_desc),
->  			  priv->dd_tx, priv->dd_tx_phy);
-> =20
-> +	pm_runtime_put(priv->dev);
-> +
->  	return 0;
->  }
-> =20
-> @@ -2210,6 +2221,8 @@ static int sun8i_emac_probe(struct platform_device =
-*pdev)
->  		goto probe_err;
->  	}
-> =20
-> +	pm_runtime_enable(priv->dev);
-> +
->  	return 0;
-> =20
->  probe_err:
-> @@ -2221,6 +2234,8 @@ static int sun8i_emac_remove(struct platform_device=
- *pdev)
->  {
->  	struct net_device *ndev =3D platform_get_drvdata(pdev);
-> =20
-> +	pm_runtime_disable(&pdev->dev);
-> +
->  	unregister_netdev(ndev);
->  	platform_set_drvdata(pdev, NULL);
->  	free_netdev(ndev);
-> @@ -2228,6 +2243,47 @@ static int sun8i_emac_remove(struct platform_devic=
-e *pdev)
->  	return 0;
->  }
-> =20
-> +static int __maybe_unused sun8i_emac_suspend(struct platform_device *pde=
-v, pm_message_t state)
-> +{
-> +	struct net_device *ndev =3D platform_get_drvdata(pdev);
-> +	struct sun8i_emac_priv *priv =3D netdev_priv(ndev);
-> +
-> +	napi_disable(&priv->napi);
-> +
-> +	if (netif_running(ndev))
-> +		netif_device_detach(ndev);
-> +
-> +	sun8i_emac_stop_tx(ndev);
-> +	sun8i_emac_stop_rx(ndev);
-> +
-> +	sun8i_emac_rx_clean(ndev);
-> +	sun8i_emac_tx_clean(ndev);
-> +
-> +	phy_stop(ndev->phydev);
-> +
-> +	return 0;
-> +}
-> +
-> +static int __maybe_unused sun8i_emac_resume(struct platform_device *pdev)
-> +{
-> +	struct net_device *ndev =3D platform_get_drvdata(pdev);
-> +	struct sun8i_emac_priv *priv =3D netdev_priv(ndev);
-> +
-> +	phy_start(ndev->phydev);
-> +
-> +	sun8i_emac_start_tx(ndev);
-> +	sun8i_emac_start_rx(ndev);
-> +
-> +	if (netif_running(ndev))
-> +		netif_device_attach(ndev);
-> +
-> +	netif_start_queue(ndev);
-> +
-> +	napi_enable(&priv->napi);
-> +
-> +	return 0;
-> +}
+To: 
 
-The main idea behind the runtime PM hooks is that they bring the
-device to a working state and shuts it down when it's not needed
-anymore.
+sudo tc filter add dev $ETH parent 1: protocol ip prio 10 \
+u32 match ip protocol 1 0xff flowid 1:2 \
+action skbmod dmac 02:15:15:15:15:15
 
-However, they shouldn't be called when the device is still in used, so
-all the mangling with NAPI, the phy and so on is irrelevant here, but
-the clocks, resets, for example, are.
+Also try to do a MAC address swap with pedit or worse
+try to debug a policy with destination mac, source mac and
+etherype. Then make few rules out of those and you'll get my point.
 
->  static const struct of_device_id sun8i_emac_of_match_table[] =3D {
->  	{ .compatible =3D "allwinner,sun8i-a83t-emac",
->  	  .data =3D &emac_variant_a83t },
-> @@ -2246,6 +2302,8 @@ static struct platform_driver sun8i_emac_driver =3D=
- {
->  		.name           =3D "sun8i-emac",
->  		.of_match_table	=3D sun8i_emac_of_match_table,
->  	},
-> +	.suspend	=3D sun8i_emac_suspend,
-> +	.resume		=3D sun8i_emac_resume,
+In the future common use cases on pedit can be migrated to this action
+(as an example different fields in ip v4/6, transports like tcp/udp/sctp
+etc). For this first cut, this allows modifying basic ethernet header.
 
-These are not the runtime PM hooks. How did you test that?
+The most important ethernet use case at the moment is when redirecting or
+mirroring packets to a remote machine. The dst mac address needs a re-write
+so that it doesn't get dropped or confuse an interconnecting (learning) switch
+or dropped by a target machine (which looks at the dst mac). And at times
+when flipping back the packet a swap of the MAC addresses is needed.
 
-Maxime
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+---
+ include/net/tc_act/tc_skbmod.h        |  30 ++++
+ include/uapi/linux/tc_act/tc_skbmod.h |  39 +++++
+ net/sched/Kconfig                     |  11 ++
+ net/sched/Makefile                    |   1 +
+ net/sched/act_skbmod.c                | 293 ++++++++++++++++++++++++++++++++++
+ 5 files changed, 374 insertions(+)
+ create mode 100644 include/net/tc_act/tc_skbmod.h
+ create mode 100644 include/uapi/linux/tc_act/tc_skbmod.h
+ create mode 100644 net/sched/act_skbmod.c
 
---=20
-Maxime Ripard, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
-
---vDEbda84Uy/oId5W
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJX1xPDAAoJEBx+YmzsjxAgBxMP/0OHclENQ0ToA2ihIE2wFDbe
-sphvSfQZF/+57gEaiY61WAt6uoOOpNHnN5jF1EVJXzzu3kiD5cX/QjvMAVz4kM+j
-gqJFediAcfzaIgWvtkj5/xS4zBlToR8eHWy18SkCe5C2EkuBlD/TkjyFCd4KfWMD
-B2LgWYpkVRGJ/APCrIxNYRWrJf8VEcLmnKJ1wrqHRW4aaSwUng7gPdwRySSK+dvZ
-SZ7JesisypxoX2Nf1Ju476CpX2bvdEhDuKziaKheV3LjZMfpWiVNK6CY6FA62BWI
-w4lN5UsYS1hDDcFFkXmA6s5mXF4b2C0PoYN+KNso+Lsmy/EA961fKKy5AOQZCUnn
-A7OCPMZ4oABbY13XI4qtsFm+XM771MyBQuF6QUvIKZ1kbem3qjgB3ZZYjU1DgqZW
-XGtJS9Xh5VgaEk5ZC6+/SM9j62g1E86IapOSMLZXD1ojC/Gxgeha9jj+3k6R5lOv
-IM/mkAgpLIMiYV7uWs06XXqfcCPPAmlTm7/3BRt3IikJfy4TSCVrxPudmzOQaZGF
-i9Ul3FVt+oi06aCWZINslLJptT33SllIjgmQ0iEcgwRikg1Fth7PHaKZAG0s3dOO
-22XtPbzUxirxIht5qqTZxdaDyThHHRMQRBDL9Hnhzxh3mNisQ3yU2sDryi+JOJpL
-0uyX+ilDfCLrrSRg2TLd
-=iK1/
------END PGP SIGNATURE-----
-
---vDEbda84Uy/oId5W--
+diff --git a/include/net/tc_act/tc_skbmod.h b/include/net/tc_act/tc_skbmod.h
+new file mode 100644
+index 0000000..644a211
+--- /dev/null
++++ b/include/net/tc_act/tc_skbmod.h
+@@ -0,0 +1,30 @@
++/*
++ * Copyright (c) 2016, Jamal Hadi Salim
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++*/
++
++#ifndef __NET_TC_SKBMOD_H
++#define __NET_TC_SKBMOD_H
++
++#include <net/act_api.h>
++#include <linux/tc_act/tc_skbmod.h>
++
++struct tcf_skbmod_params {
++	struct rcu_head	rcu;
++	u64	flags; /*up to 64 types of operations; extend if needed */
++	u8	eth_dst[ETH_ALEN];
++	u16	eth_type;
++	u8	eth_src[ETH_ALEN];
++};
++
++struct tcf_skbmod {
++	struct tc_action	common;
++	struct tcf_skbmod_params __rcu *skbmod_p;
++};
++#define to_skbmod(a) ((struct tcf_skbmod *)a)
++
++#endif /* __NET_TC_SKBMOD_H */
+diff --git a/include/uapi/linux/tc_act/tc_skbmod.h b/include/uapi/linux/tc_act/tc_skbmod.h
+new file mode 100644
+index 0000000..10fc07d
+--- /dev/null
++++ b/include/uapi/linux/tc_act/tc_skbmod.h
+@@ -0,0 +1,39 @@
++/*
++ * Copyright (c) 2016, Jamal Hadi Salim
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++*/
++
++#ifndef __LINUX_TC_SKBMOD_H
++#define __LINUX_TC_SKBMOD_H
++
++#include <linux/pkt_cls.h>
++
++#define TCA_ACT_SKBMOD 15
++
++#define SKBMOD_F_DMAC	0x1
++#define SKBMOD_F_SMAC	0x2
++#define SKBMOD_F_ETYPE	0x4
++#define SKBMOD_F_SWAPMAC 0x8
++
++struct tc_skbmod {
++	tc_gen;
++	__u64 flags;
++};
++
++enum {
++	TCA_SKBMOD_UNSPEC,
++	TCA_SKBMOD_TM,
++	TCA_SKBMOD_PARMS,
++	TCA_SKBMOD_DMAC,
++	TCA_SKBMOD_SMAC,
++	TCA_SKBMOD_ETYPE,
++	TCA_SKBMOD_PAD,
++	__TCA_SKBMOD_MAX
++};
++#define TCA_SKBMOD_MAX (__TCA_SKBMOD_MAX - 1)
++
++#endif
+diff --git a/net/sched/Kconfig b/net/sched/Kconfig
+index 72e3426..7795d5a 100644
+--- a/net/sched/Kconfig
++++ b/net/sched/Kconfig
+@@ -749,6 +749,17 @@ config NET_ACT_CONNMARK
+ 	  To compile this code as a module, choose M here: the
+ 	  module will be called act_connmark.
+ 
++config NET_ACT_SKBMOD
++        tristate "skb data modification action"
++        depends on NET_CLS_ACT
++        ---help---
++         Say Y here to allow modification of skb data
++
++         If unsure, say N.
++
++         To compile this code as a module, choose M here: the
++         module will be called act_skbmod.
++
+ config NET_ACT_IFE
+         tristate "Inter-FE action based on IETF ForCES InterFE LFB"
+         depends on NET_CLS_ACT
+diff --git a/net/sched/Makefile b/net/sched/Makefile
+index b9d046b..148ae0d 100644
+--- a/net/sched/Makefile
++++ b/net/sched/Makefile
+@@ -19,6 +19,7 @@ obj-$(CONFIG_NET_ACT_CSUM)	+= act_csum.o
+ obj-$(CONFIG_NET_ACT_VLAN)	+= act_vlan.o
+ obj-$(CONFIG_NET_ACT_BPF)	+= act_bpf.o
+ obj-$(CONFIG_NET_ACT_CONNMARK)	+= act_connmark.o
++obj-$(CONFIG_NET_ACT_SKBMOD)	+= act_skbmod.o
+ obj-$(CONFIG_NET_ACT_IFE)	+= act_ife.o
+ obj-$(CONFIG_NET_IFE_SKBMARK)	+= act_meta_mark.o
+ obj-$(CONFIG_NET_IFE_SKBPRIO)	+= act_meta_skbprio.o
+diff --git a/net/sched/act_skbmod.c b/net/sched/act_skbmod.c
+new file mode 100644
+index 0000000..40a2dfd
+--- /dev/null
++++ b/net/sched/act_skbmod.c
+@@ -0,0 +1,293 @@
++/*
++ * net/sched/act_skbmod.c  skb data modifier
++ *
++ * Copyright (c) 2016 Jamal Hadi Salim <jhs@mojatatu.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++*/
++
++#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/kernel.h>
++#include <linux/skbuff.h>
++#include <linux/rtnetlink.h>
++#include <net/netlink.h>
++#include <net/pkt_sched.h>
++
++#include <linux/tc_act/tc_skbmod.h>
++#include <net/tc_act/tc_skbmod.h>
++
++#define SKBMOD_TAB_MASK     15
++
++static int skbmod_net_id;
++static struct tc_action_ops act_skbmod_ops;
++
++#define MAX_EDIT_LEN ETH_HLEN
++static int tcf_skbmod_run(struct sk_buff *skb, const struct tc_action *a,
++			  struct tcf_result *res)
++{
++	struct tcf_skbmod *d = to_skbmod(a);
++	int action;
++	struct tcf_skbmod_params *p;
++	u64 flags;
++	int err;
++
++	tcf_lastuse_update(&d->tcf_tm);
++	bstats_cpu_update(this_cpu_ptr(d->common.cpu_bstats), skb);
++
++	/* XXX: if you are going to edit more fields beyond ethernet header
++	 * (example when you add IP header replacement or vlan swap)
++	 * then MAX_EDIT_LEN needs to change appropriately
++	*/
++	err = skb_ensure_writable(skb, ETH_HLEN);
++	if (unlikely(err)) /* best policy is to drop on the floor */
++		action = TC_ACT_SHOT;
++
++	rcu_read_lock();
++	action = READ_ONCE(d->tcf_action);
++	if (unlikely(action == TC_ACT_SHOT)) {
++		qstats_overlimit_inc(this_cpu_ptr(d->common.cpu_qstats));
++		rcu_read_unlock();
++		return action;
++	}
++
++	p = rcu_dereference(d->skbmod_p);
++	flags = p->flags;
++	if (flags & SKBMOD_F_DMAC)
++		ether_addr_copy(eth_hdr(skb)->h_dest, p->eth_dst);
++	if (flags & SKBMOD_F_SMAC)
++		ether_addr_copy(eth_hdr(skb)->h_source, p->eth_src);
++	if (flags & SKBMOD_F_ETYPE)
++		eth_hdr(skb)->h_proto = p->eth_type;
++	rcu_read_unlock();
++
++	if (flags & SKBMOD_F_SWAPMAC) {
++		u16 tmpaddr[ETH_ALEN / 2]; /* ether_addr_copy() requirement */
++		/*XXX: I am sure we can come up with more efficient swapping*/
++		ether_addr_copy((u8 *)tmpaddr, eth_hdr(skb)->h_dest);
++		ether_addr_copy(eth_hdr(skb)->h_dest, eth_hdr(skb)->h_source);
++		ether_addr_copy(eth_hdr(skb)->h_source, (u8 *)tmpaddr);
++	}
++
++	return action;
++}
++
++static const struct nla_policy skbmod_policy[TCA_SKBMOD_MAX + 1] = {
++	[TCA_SKBMOD_PARMS]		= { .len = sizeof(struct tc_skbmod) },
++	[TCA_SKBMOD_DMAC]		= { .len = ETH_ALEN },
++	[TCA_SKBMOD_SMAC]		= { .len = ETH_ALEN },
++	[TCA_SKBMOD_ETYPE]		= { .type = NLA_U16 },
++};
++
++static int tcf_skbmod_init(struct net *net, struct nlattr *nla,
++			   struct nlattr *est, struct tc_action **a,
++			   int ovr, int bind)
++{
++	struct tc_action_net *tn = net_generic(net, skbmod_net_id);
++	struct nlattr *tb[TCA_SKBMOD_MAX + 1];
++	struct tcf_skbmod_params *p, *p_old;
++	struct tc_skbmod *parm;
++	struct tcf_skbmod *d;
++	bool exists = false;
++	u8 *daddr = NULL;
++	u8 *saddr = NULL;
++	u16 eth_type = 0;
++	u32 lflags = 0;
++	int ret = 0, err;
++
++	if (!nla)
++		return -EINVAL;
++
++	err = nla_parse_nested(tb, TCA_SKBMOD_MAX, nla, skbmod_policy);
++	if (err < 0)
++		return err;
++
++	if (!tb[TCA_SKBMOD_PARMS])
++		return -EINVAL;
++
++	if (tb[TCA_SKBMOD_DMAC]) {
++		daddr = nla_data(tb[TCA_SKBMOD_DMAC]);
++		lflags |= SKBMOD_F_DMAC;
++	}
++
++	if (tb[TCA_SKBMOD_SMAC]) {
++		saddr = nla_data(tb[TCA_SKBMOD_SMAC]);
++		lflags |= SKBMOD_F_SMAC;
++	}
++
++	if (tb[TCA_SKBMOD_ETYPE]) {
++		eth_type = nla_get_u16(tb[TCA_SKBMOD_ETYPE]);
++		lflags |= SKBMOD_F_ETYPE;
++	}
++
++	parm = nla_data(tb[TCA_SKBMOD_PARMS]);
++	if (parm->flags & SKBMOD_F_SWAPMAC)
++		lflags = SKBMOD_F_SWAPMAC;
++
++	exists = tcf_hash_check(tn, parm->index, a, bind);
++	if (exists && bind)
++		return 0;
++
++	if (!lflags)
++		return -EINVAL;
++
++	if (!exists) {
++		ret = tcf_hash_create(tn, parm->index, est, a,
++				      &act_skbmod_ops, bind, true);
++		if (ret)
++			return ret;
++
++		ret = ACT_P_CREATED;
++	} else {
++		tcf_hash_release(*a, bind);
++		if (!ovr)
++			return -EEXIST;
++	}
++
++	d = to_skbmod(*a);
++
++	ASSERT_RTNL();
++	p = kzalloc(sizeof(struct tcf_skbmod_params), GFP_KERNEL);
++	if (unlikely(!p)) {
++		if (ovr)
++			tcf_hash_release(*a, bind);
++		return -ENOMEM;
++	}
++
++	p->flags = lflags;
++	d->tcf_action = parm->action;
++
++	p_old = rtnl_dereference(d->skbmod_p);
++
++	if (ovr)
++		spin_lock_bh(&d->tcf_lock);
++
++	if (lflags & SKBMOD_F_DMAC)
++		ether_addr_copy(p->eth_dst, daddr);
++	if (lflags & SKBMOD_F_SMAC)
++		ether_addr_copy(p->eth_src, saddr);
++	if (lflags & SKBMOD_F_ETYPE)
++		p->eth_type = htons(eth_type);
++
++	rcu_assign_pointer(d->skbmod_p, p);
++	if (ovr)
++		spin_unlock_bh(&d->tcf_lock);
++
++	if (p_old)
++		kfree_rcu(p_old, rcu);
++
++	if (ret == ACT_P_CREATED)
++		tcf_hash_insert(tn, *a);
++	return ret;
++}
++
++static int tcf_skbmod_dump(struct sk_buff *skb, struct tc_action *a,
++			   int bind, int ref)
++{
++	struct tcf_skbmod *d = to_skbmod(a);
++	unsigned char *b = skb_tail_pointer(skb);
++	struct tcf_skbmod_params  *p = rtnl_dereference(d->skbmod_p);
++	struct tc_skbmod opt = {
++		.index   = d->tcf_index,
++		.refcnt  = d->tcf_refcnt - ref,
++		.bindcnt = d->tcf_bindcnt - bind,
++		.action  = d->tcf_action,
++	};
++	struct tcf_t t;
++
++	rcu_read_lock();
++
++	opt.flags  = p->flags;
++	if (nla_put(skb, TCA_SKBMOD_PARMS, sizeof(opt), &opt))
++		goto nla_put_failure;
++	if ((p->flags & SKBMOD_F_DMAC) &&
++	    nla_put(skb, TCA_SKBMOD_DMAC, ETH_ALEN, p->eth_dst))
++		goto nla_put_failure;
++	if ((p->flags & SKBMOD_F_SMAC) &&
++	    nla_put(skb, TCA_SKBMOD_SMAC, ETH_ALEN, p->eth_src))
++		goto nla_put_failure;
++	if ((p->flags & SKBMOD_F_ETYPE) &&
++	    nla_put_u16(skb, TCA_SKBMOD_ETYPE, ntohs(p->eth_type)))
++		goto nla_put_failure;
++
++	tcf_tm_dump(&t, &d->tcf_tm);
++	if (nla_put_64bit(skb, TCA_SKBMOD_TM, sizeof(t), &t, TCA_SKBMOD_PAD))
++		goto nla_put_failure;
++
++	rcu_read_unlock();
++
++	return skb->len;
++nla_put_failure:
++	rcu_read_unlock();
++	nlmsg_trim(skb, b);
++	return -1;
++}
++
++static int tcf_skbmod_walker(struct net *net, struct sk_buff *skb,
++			     struct netlink_callback *cb, int type,
++			     const struct tc_action_ops *ops)
++{
++	struct tc_action_net *tn = net_generic(net, skbmod_net_id);
++
++	return tcf_generic_walker(tn, skb, cb, type, ops);
++}
++
++static int tcf_skbmod_search(struct net *net, struct tc_action **a, u32 index)
++{
++	struct tc_action_net *tn = net_generic(net, skbmod_net_id);
++
++	return tcf_hash_search(tn, a, index);
++}
++
++static struct tc_action_ops act_skbmod_ops = {
++	.kind		=	"skbmod",
++	.type		=	TCA_ACT_SKBMOD,
++	.owner		=	THIS_MODULE,
++	.act		=	tcf_skbmod_run,
++	.dump		=	tcf_skbmod_dump,
++	.init		=	tcf_skbmod_init,
++	.walk		=	tcf_skbmod_walker,
++	.lookup		=	tcf_skbmod_search,
++	.size		=	sizeof(struct tcf_skbmod),
++};
++
++static __net_init int skbmod_init_net(struct net *net)
++{
++	struct tc_action_net *tn = net_generic(net, skbmod_net_id);
++
++	return tc_action_net_init(tn, &act_skbmod_ops, SKBMOD_TAB_MASK);
++}
++
++static void __net_exit skbmod_exit_net(struct net *net)
++{
++	struct tc_action_net *tn = net_generic(net, skbmod_net_id);
++
++	tc_action_net_exit(tn);
++}
++
++static struct pernet_operations skbmod_net_ops = {
++	.init = skbmod_init_net,
++	.exit = skbmod_exit_net,
++	.id   = &skbmod_net_id,
++	.size = sizeof(struct tc_action_net),
++};
++
++MODULE_AUTHOR("Jamal Hadi Salim, <jhs@mojatatu.com>");
++MODULE_DESCRIPTION("SKB data mod-ing");
++MODULE_LICENSE("GPL");
++
++static int __init skbmod_init_module(void)
++{
++	return tcf_register_action(&act_skbmod_ops, &skbmod_net_ops);
++}
++
++static void __exit skbmod_cleanup_module(void)
++{
++	tcf_unregister_action(&act_skbmod_ops, &skbmod_net_ops);
++}
++
++module_init(skbmod_init_module);
++module_exit(skbmod_cleanup_module);
+-- 
+1.9.1
