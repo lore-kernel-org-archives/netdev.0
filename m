@@ -1,94 +1,39 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-        <u.kleine-koenig@pengutronix.de>
-Subject: About enet_out clk on i.MX28, i.MX6 and i.MX7
-Date: Mon, 12 Sep 2016 17:36:07 +0200
-Message-ID: <20160912153607.qqkosq4uu2rl76eg@pengutronix.de>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [RFC V3 PATCH 00/26] Kernel NET policy
+Date: Mon, 12 Sep 2016 17:38:21 +0200
+Message-ID: <20160912153821.GA11685@breakpoint.cc>
+References: <1473692159-4017-1-git-send-email-kan.liang@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: Lothar =?iso-8859-1?Q?Wa=DFmann?= <LW@KARO-electronics.de>,
-        Lauri Hintsala <lauri.hintsala@bluegiga.com>,
-        Shawn Guo <shawnguo@kernel.org>,
-        Fabio Estevam <fabio.estevam@nxp.com>, kernel@pengutronix.de
-To: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:40129 "EHLO
-        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S934162AbcILPgM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 11:36:12 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
+        mingo@redhat.com, peterz@infradead.org, kuznet@ms2.inr.ac.ru,
+        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+        akpm@linux-foundation.org, keescook@chromium.org,
+        viro@zeniv.linux.org.uk, gorcunov@openvz.org,
+        john.stultz@linaro.org, aduyck@mirantis.com, ben@decadent.org.uk,
+        decot@googlers.com, fw@strlen.de, alexander.duyck@gmail.com,
+        daniel@iogearbox.net, tom@herbertland.com, rdunlap@infradead.org,
+        xiyou.wangcong@gmail.com, hannes@stressinduktion.org,
+        stephen@networkplumber.org, alexei.starovoitov@gmail.com,
+        jesse.brandeburg@intel.com, andi@firstfloor.org
+To: kan.liang@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1473692159-4017-1-git-send-email-kan.liang@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+kan.liang@intel.com <kan.liang@intel.com> wrote:
+> From: Kan Liang <kan.liang@intel.com>
+> 
+> It is a big challenge to get good network performance. First, the network
+> performance is not good with default system settings. Second, it is too
 
-to operate the MDIO bus a clk is required. On some i.MX SoCs it can be
-configured if that clk is provided by the CPU or not (i.e. something
-else provides it).
+[..]
 
-The devicetree abstraction for that is (e.g. on i.MX28):
+I ask to be dropped from CC list of further submissions of this series,
+I've said all I have say about this ('do it in userspace') and
+its very unlikely I will change my opinion.
 
-	mac0: ethernet@800f0000 {
-		compatible = "fsl,imx28-fec";
-		...
-		clocks = <&clks 57>, <&clks 57>, <&clks 64>;
-		clock-names = "ipg", "ahb", "enet_out";
-		...
-	};
-
-and the driver does:
-
-	/* enet_out is optional, depends on board */
-	fep->clk_enet_out = devm_clk_get(&pdev->dev, "enet_out");
-	if (IS_ERR(fep->clk_enet_out))
-		fep->clk_enet_out = NULL;
-
-. IMHO this is clumsy and wrong. See for example
-arch/arm/boot/dts/imx28-m28evk.dts which has:
-
-	ethernet@800f0000 {
-		...
-		clocks = <&clks 57>, <&clks 57>;
-		clock-names = "ipg", "ahb";
-	}
-
-to get rid of this entry. Moreover enet_out isn't a clock for the fec
-instance but for the mdio bus, so the better binding would be:
-
-	mac0: ethernet@800f0000 {
-		compatible = "fsl,imx28-fec";
-
-		clocks = <&clks 57>, <&clks 57>;
-		clock-names = "ipg", "ahb";
-
-		mdio {
-			clocks = <&clks 64>;
-			...
-		};
-	};
-
-This better matches reality and is easier to overwrite per board without
-repeating stuff from imx28.dtsi as it is now.
-
-What do you think? Compatibility isn't a big concern, the fec driver
-could just keep handling "enet_out" as is and learn about the optional
-mdio/clocks.
-This would handle old dtbs just fine.
-
-Slightly related: Some machines (bluegiga,apx4devkit, karo,tx28) still
-enable enet_out clk in arch/arm/mach-mxs/mach-mxs.c. I think this can be
-dropped, right? (Unless recent kernels should still handle dtbs that
-don't have enet_out in the fec node. That affects dtbs built between
-
-	v3.6-rc1~144^2~7^2~11 = 3143bbb42b3d ("ARM: mxs: convert apx4devkit board to device tree")
-and
-
-	v3.10-rc1~63^2~10^2~20 = f231a9fe7f80 ("ARM: dts: mxs: add enet_out clock to devicetree")
-.)
-
-Best regards
-Uwe
-
--- 
-Pengutronix e.K.                           | Uwe Kleine-König            |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Thanks.
