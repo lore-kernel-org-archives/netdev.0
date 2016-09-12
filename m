@@ -1,107 +1,77 @@
-From: Marcelo <marcelo.leitner@gmail.com>
-Subject: Re: [RFC PATCH v3 3/7] proc: Reduce cache miss in snmp6_seq_show
-Date: Mon, 12 Sep 2016 16:05:02 -0300
-Message-ID: <20160912190502.GC17689@localhost.localdomain>
-References: <1473402842-1987-1-git-send-email-hejianet@gmail.com>
- <1473402842-1987-4-git-send-email-hejianet@gmail.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: icmpv6: issue with routing table entries from link local
+ addresses
+Date: Mon, 12 Sep 2016 13:17:24 -0600
+Message-ID: <bf36b487-1cdf-ede9-1ed8-cca17c7f5fc6@cumulusnetworks.com>
+References: <20160912142732.GI26782@targo.k4n.de>
+ <b6804e09-403f-64ff-257b-6c5fda7f8047@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        linux-kernel@vger.kernel.org, davem@davemloft.net,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>
-To: Jia He <hejianet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1473402842-1987-4-git-send-email-hejianet@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        =?UTF-8?Q?Andreas_H=c3=bcbner?= <andreas@k4n.de>,
+        netdev@vger.kernel.org, "d. caratti" <davide.caratti@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:34782 "EHLO
+        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755094AbcILTR1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 15:17:27 -0400
+Received: by mail-pf0-f169.google.com with SMTP id p64so55363174pfb.1
+        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 12:17:27 -0700 (PDT)
+In-Reply-To: <b6804e09-403f-64ff-257b-6c5fda7f8047@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 09, 2016 at 02:33:58PM +0800, Jia He wrote:
-> This is to use the generic interface snmp_get_cpu_field{,64}_batch to 
-> aggregate the data by going through all the items of each cpu sequentially.
+On 9/12/16 11:26 AM, Hannes Frederic Sowa wrote:
+> Hello,
 > 
-> Signed-off-by: Jia He <hejianet@gmail.com>
-> ---
->  net/ipv6/proc.c | 32 +++++++++++++++++++++++---------
->  1 file changed, 23 insertions(+), 9 deletions(-)
+> On 12.09.2016 16:27, Andreas Hübner wrote:
+>> Hi,
+>>
+>> I'm currently debugging a potential issue with the icmpv6 stack and
+>> hopefully this is the correct place to ask. (Was actually looking for a
+>> more specific list, but didn't find anything. Please point me to a more
+>> apropriate list if this is out of place here.)
+>>
+>> I have the following setup:
+>>   - 2 directly connected hosts (A+B), both have only link local addresses
+>>     configured (interface on both hosts is eth0)
+>>   - host B is also connected to another host C (via interface eth1)
+>>   - main routing table (relevant part) on host B looks like this:
+>>
+>>       fe80::/64 dev eth1  proto kernel  metric 256
+>>       fe80::/64 dev eth0  proto kernel  metric 256
+>>
+>>   - host A is trying to ICMPv6 ping the link local address of host B
+>>
+>> The issue I currently have is, that the echo reply that host B should
+>> generate is never sent back to host A. If I change the order of the
+>> routing table entries on host B, everything works fine.
+>> (host A is connected on eth0)
+>>
+>> I'm wondering, if this is how it is supposed to work. Do we need to do a
+>> routing table lookup when generating an ICMPv6 echo reply for link local
+>> addresses?  (From my understanding, this is not done in the neighbour
+>> discovery stack, so why here?)
 > 
-> diff --git a/net/ipv6/proc.c b/net/ipv6/proc.c
-> index 679253d0..50ba2c3 100644
-> --- a/net/ipv6/proc.c
-> +++ b/net/ipv6/proc.c
-> @@ -30,6 +30,11 @@
->  #include <net/transp_v6.h>
->  #include <net/ipv6.h>
->  
-> +#define MAX4(a, b, c, d) \
-> +	max_t(u32, max_t(u32, a, b), max_t(u32, c, d))
-> +#define SNMP_MIB_MAX MAX4(UDP_MIB_MAX, TCP_MIB_MAX, \
-> +			IPSTATS_MIB_MAX, ICMP_MIB_MAX)
-> +
->  static int sockstat6_seq_show(struct seq_file *seq, void *v)
->  {
->  	struct net *net = seq->private;
-> @@ -192,13 +197,19 @@ static void snmp6_seq_show_item(struct seq_file *seq, void __percpu *pcpumib,
->  				const struct snmp_mib *itemlist)
->  {
->  	int i;
-> -	unsigned long val;
-> -
-> -	for (i = 0; itemlist[i].name; i++) {
-> -		val = pcpumib ?
-> -			snmp_fold_field(pcpumib, itemlist[i].entry) :
-> -			atomic_long_read(smib + itemlist[i].entry);
-> -		seq_printf(seq, "%-32s\t%lu\n", itemlist[i].name, val);
-> +	unsigned long buff[SNMP_MIB_MAX];
-> +
-> +	memset(buff, 0, sizeof(unsigned long) * SNMP_MIB_MAX);
-
-This memset() could be moved...
-
-> +
-> +	if (pcpumib) {
-
-... here, so it's not executed if it hits the else block.
-
-> +		snmp_get_cpu_field_batch(buff, itemlist, pcpumib);
-> +		for (i = 0; itemlist[i].name; i++)
-> +			seq_printf(seq, "%-32s\t%lu\n",
-> +				   itemlist[i].name, buff[i]);
-> +	} else {
-> +		for (i = 0; itemlist[i].name; i++)
-> +			seq_printf(seq, "%-32s\t%lu\n", itemlist[i].name,
-> +				   atomic_long_read(smib + itemlist[i].entry));
->  	}
->  }
->  
-> @@ -206,10 +217,13 @@ static void snmp6_seq_show_item64(struct seq_file *seq, void __percpu *mib,
->  				  const struct snmp_mib *itemlist, size_t syncpoff)
->  {
->  	int i;
-> +	u64 buff64[SNMP_MIB_MAX];
-> +
-> +	memset(buff64, 0, sizeof(unsigned long) * SNMP_MIB_MAX);
->  
-> +	snmp_get_cpu_field64_batch(buff64, itemlist, mib, syncpoff);
->  	for (i = 0; itemlist[i].name; i++)
-> -		seq_printf(seq, "%-32s\t%llu\n", itemlist[i].name,
-> -			   snmp_fold_field64(mib, itemlist[i].entry, syncpoff));
-> +		seq_printf(seq, "%-32s\t%llu\n", itemlist[i].name, buff64[i]);
->  }
->  
->  static int snmp6_seq_show(struct seq_file *seq, void *v)
-> -- 
-> 1.8.3.1
+> For global addresses this is necessary as asymetric routing could be
+> involved and we don't want to treat ping echos in any way special.
 > 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> Actually, I'm convinced I must be doing something wrong here. The setup
+>> for the issue is quite trivial, someone would have tripped over it
+>> already. The only condition is that one host has multiple interfaces
+>> with ipv6 enabled.
+>>
+>> Any help in shedding some light onto this issue would be appreciated.
 > 
+> This shouldn't be the case. We certainly carry over the ifindex of the
+> received packet into the routing lookup of the outgoing packet, thus the
+> appropriate rule, with outgoing ifindex should be selected.
+> 
+> I also couldn't reproduce your problem here with my system. Can you
+> verify with tcpdump that the packet is leaving on another interface?
+
+v4.4 and on there are fib6 tracepoints that show the lookup result. May provide some insights.
+
+perf record -a -e fib6:* 
+perf script
