@@ -1,91 +1,91 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH v3 2/3] e1000: add initial XDP support
-Date: Mon, 12 Sep 2016 15:46:39 -0700
-Message-ID: <1473720399.18970.91.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160912220312.5610.77528.stgit@john-Precision-Tower-5810>
-         <20160912221351.5610.29043.stgit@john-Precision-Tower-5810>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 3/3] net-next: dsa: add new driver for qca8xxx family
+Date: Tue, 13 Sep 2016 00:52:14 +0200
+Message-ID: <20160912225214.GA3585@lunn.ch>
+References: <1473669337-21221-1-git-send-email-john@phrozen.org>
+ <1473669337-21221-4-git-send-email-john@phrozen.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: bblanco@plumgrid.com, alexei.starovoitov@gmail.com,
-        jeffrey.t.kirsher@intel.com, brouer@redhat.com,
-        davem@davemloft.net, xiyou.wangcong@gmail.com,
-        intel-wired-lan@lists.osuosl.org, u9012063@gmail.com,
-        netdev@vger.kernel.org
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:36482 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751673AbcILWqm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 18:46:42 -0400
-Received: by mail-pf0-f193.google.com with SMTP id x24so8669604pfa.3
-        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 15:46:42 -0700 (PDT)
-In-Reply-To: <20160912221351.5610.29043.stgit@john-Precision-Tower-5810>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        qsdk-review@qca.qualcomm.com
+To: John Crispin <john@phrozen.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1473669337-21221-4-git-send-email-john@phrozen.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2016-09-12 at 15:13 -0700, John Fastabend wrote:
-> From: Alexei Starovoitov <ast@fb.com>
+Hi John
 
-> +static void e1000_xmit_raw_frame(struct e1000_rx_buffer *rx_buffer_info,
-> +				 u32 len,
-> +				 struct net_device *netdev,
-> +				 struct e1000_adapter *adapter)
+> +#include <linux/module.h>
+> +#include <linux/phy.h>
+> +#include <linux/netdevice.h>
+> +#include <net/dsa.h>
+> +#include <net/switchdev.h>
+> +#include <linux/phy.h>
+
+One linux/phy.h is enough.
+
+> +	/* Setup connection between CPU ports & PHYs */
+> +	for (i = 0; i < DSA_MAX_PORTS; i++) {
+> +		/* CPU port gets connected to all PHYs in the switch */
+> +		if (dsa_is_cpu_port(ds, i)) {
+> +			qca8k_rmw(priv, QCA8K_PORT_LOOKUP_CTRL(priv->cpu_port),
+> +				  QCA8K_PORT_LOOKUP_MEMBER,
+> +				  ds->enabled_port_mask << 1);
+> +		}
+> +
+> +		/* Invividual PHYs gets connected to CPU port only */
+> +		if (ds->enabled_port_mask & BIT(i)) {
+> +			int port = qca8k_phy_to_port(i);
+> +			int shift = 16 * (port % 2);
+> +
+
+snip
+
+> +static void
+> +qca8k_get_ethtool_stats(struct dsa_switch *ds, int phy,
+> +			uint64_t *data)
 > +{
-> +	struct netdev_queue *txq = netdev_get_tx_queue(netdev, 0);
-> +	struct e1000_hw *hw = &adapter->hw;
-> +	struct e1000_tx_ring *tx_ring;
+> +	struct qca8k_priv *priv = qca8k_to_priv(ds);
+> +	const struct qca8k_mib_desc *mib;
+> +	u32 reg, i, port;
+> +	u64 hi;
 > +
-> +	if (len > E1000_MAX_DATA_PER_TXD)
-> +		return;
+> +	port = qca8k_phy_to_port(phy);
+
+snip
+
+> +static inline int qca8k_phy_to_port(int phy)
+> +{
+> +	if (phy < 5)
+> +		return phy + 1;
 > +
-> +	/* e1000 only support a single txq at the moment so the queue is being
-> +	 * shared with stack. To support this requires locking to ensure the
-> +	 * stack and XDP are not running at the same time. Devices with
-> +	 * multiple queues should allocate a separate queue space.
-> +	 */
-> +	HARD_TX_LOCK(netdev, txq, smp_processor_id());
-> +
-> +	tx_ring = adapter->tx_ring;
-> +
-> +	if (E1000_DESC_UNUSED(tx_ring) < 2) {
-> +		HARD_TX_UNLOCK(netdev, txq);
-> +		return;
-> +	}
-> +
-> +	if (netif_xmit_frozen_or_stopped(txq))
-> +		return;
-> +
-> +	e1000_tx_map_rxpage(tx_ring, rx_buffer_info, len);
-> +	netdev_sent_queue(netdev, len);
-> +	e1000_tx_queue(adapter, tx_ring, 0/*tx_flags*/, 1);
-> +
-> +	writel(tx_ring->next_to_use, hw->hw_addr + tx_ring->tdt);
-> +	mmiowb();
-> +
-> +	HARD_TX_UNLOCK(netdev, txq);
+> +	return -1;
 > +}
 
+What keep throwing me while reading this code is the use of PHY/phy.
 
-e1000_tx_map() is full of workarounds.
+What is meant by a phy in this driver?
 
-Have a look at last_tx_tso for example.
+DSA is all about switches. Switches are a switch fabric and a number
+of ports. The ports contain Ethernet MACs, and optionally contain
+embedded PHYs. If there are not embedded PHYs, there are often
+external PHYs, and sometimes we just have MACs connected back to back.
 
-               /* Workaround for Controller erratum --
-                 * descriptor for non-tso packet in a linear SKB that follows a
-                 * tso gets written back prematurely before the data is fully
-                 * DMA'd to the controller
-                 */
-                if (!skb->data_len && tx_ring->last_tx_tso &&
-                    !skb_is_gso(skb)) {
-                        tx_ring->last_tx_tso = false;
-                        size -= 4;
-                }
+Generally, DSA drivers don't need to do much with the MAC. Maybe set
+the speed and duplex, and maybe signal delays. They also don't need to
+do much with the PHY, phylib and a phy driver does all the work. DSA
+is all about the switch fabric.
 
-Look, this XDP_TX thing is hard to properly implement and test on
-various NIC revisions.
+Yet i see phy scattered in a few places in this driver, and it seems
+like they have nothing to do with the PHY.
 
-Without proper queue management, high prio packets in qdisc wont be sent
-if NIC is under RX -> XDP_TX flood.
+Please can you change the terminology here? It might help if you can
+remove qca8k_phy_to_port(). Why do you need to add 1? Could this be
+eliminated via a better choice of reg in the device tree?
 
-Sounds a horrible feature to me.
+Thanks
+	Andrew	   
