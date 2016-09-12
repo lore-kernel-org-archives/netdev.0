@@ -1,423 +1,178 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Sun, 11 Sep 2016 20:08:25 -0700 (PDT)
-Message-ID: <20160911.200825.1735122029283603358.davem@davemloft.net>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH v2 2/2] e1000: bundle xdp xmit routines
+Date: Sun, 11 Sep 2016 20:15:28 -0700
+Message-ID: <57D61DD0.40504@gmail.com>
+References: <20160909212915.4001.25504.stgit@john-Precision-Tower-5810>
+ <20160909212938.4001.40540.stgit@john-Precision-Tower-5810>
+ <CALx6S35VCq9yPjcuhtx6jEJ78-WugkQZ6GSsqkcTr0Fa7edkVg@mail.gmail.com>
+ <57D34D67.40804@gmail.com>
+ <CALx6S36dH87e6TPxEBGsy0F-vD0fZzKyP8tbuuaAfLNSF1DGpw@mail.gmail.com>
+ <57D35E08.8010204@gmail.com>
+ <CALx6S36SM-wq6Fj8XK7GfMta1dVGr3RZ5uAgGdnxm7kgpVNFbw@mail.gmail.com>
+ <20160910014032.GA83023@ast-mbp.thefacebook.com>
+ <CALx6S36Xo4ZJJg5k2RT9rcT_1_zKRG1n_EOruU=JqvXBnq=E3w@mail.gmail.com>
+ <57D37D79.1050806@gmail.com>
+ <CALx6S373K92E5uabb8MtyHpDvkpWUQmZRmoRF7pFnZ3wBW68Cw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: 8BIT
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+        William Tu <u9012063@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37226 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756235AbcILDI0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 11 Sep 2016 23:08:26 -0400
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:35613 "EHLO
+        mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755530AbcILDPq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 11 Sep 2016 23:15:46 -0400
+Received: by mail-pa0-f47.google.com with SMTP id b2so46422878pat.2
+        for <netdev@vger.kernel.org>; Sun, 11 Sep 2016 20:15:45 -0700 (PDT)
+In-Reply-To: <CALx6S373K92E5uabb8MtyHpDvkpWUQmZRmoRF7pFnZ3wBW68Cw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-Mostly small sets of driver fixes scattered all over the place.
-
-1) Mediatek driver fixes from Sean Wang.  Forward port not written
-   correctly during TX map, missed handling of EPROBE_DEFER, and
-   mistaken use of put_page() instead of skb_free_frag().
-
-2) Fix socket double-free in KCM code, from WANG Cong.
-
-3) QED driver fixes from Sudarsana Reddy Kalluru, including a fix
-   for using the dcbx buffers before initializing them.
-
-4) Mellanox Switch driver fixes from Jiri Pirko, including a fix for
-   double fib removals and an error handling fix in
-   mlxsw_sp_module_init().
-
-5) Fix kernel panic when enabling LLDP in i40e driver, from Dave
-   Ertman.
-
-6) Fix padding of TSO packets in thunderx driver, from Sunil Goutham.
-
-7) TCP's rcv_wup not initialized properly when using fastopen, from
-   Neal Cardwell.
-
-8) Don't use uninitialized flow keys in flow dissector, from Gao
-   Feng.
-
-9) Use after free in l2tp module unload, from Sabrina Dubroca.
-
-10) Fix interrupt registry ordering issues in smsc911x driver, from
-    Jeremy Linton.
-
-11) Fix crashes in bonding having to do with enslaving and rx_handler,
-    from Mahesh Bandewar.
-
-12) AF_UNIX deadlock fixes from Linus.
-
-13) In mlx5 driver, don't read skb->xmit_mode after it might have been
-    freed from the TX reclaim path.  From Tariq Toukan.
-
-14) Fix a bug from 2015 in TCP Yeah where the congestion window does
-    not increase, from Artem Germanov.
-
-15) Don't pad frames on receive in NFP driver, from Jakub Kicinski.
-
-16) Fix chunk fragmenting in SCTP wrt. GSO, from Marcelo Ricardo
-    Leitner.
-
-17) Fix deletion of VRF routes, from Mark Tomlinson.
-
-18) Fix device refcount leak when DAD fails in ipv6, from Wei Yongjun.
-
-Please pull, thanks a lot!
-
-The following changes since commit e4e98c460ad38c78498622a164fd5ef09a2dc9cb:
-
-  Merge tag 'hwmon-for-linus-v4.8-rc5' of git://git.kernel.org/pub/scm/linux/kernel/git/groeck/linux-staging (2016-08-29 19:12:35 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net 
-
-for you to fetch changes up to 373df3131aa83bd3e0ea7cd15be92d942d75fc72:
-
-  Merge branch 'mlx4-fixes' (2016-09-11 19:40:26 -0700)
-
-----------------------------------------------------------------
-Alexey Kodanev (1):
-      net/xfrm_input: fix possible NULL deref of tunnel.ip6->parms.i_key
-
-Andy Gospodarek (1):
-      MAINTAINERS: update to working email address
-
-Arend Van Spriel (1):
-      brcmfmac: avoid potential stack overflow in brcmf_cfg80211_start_ap()
-
-Arik Nemtsov (1):
-      mac80211: TDLS: don't require beaconing for AP BW
-
-Artem Germanov (1):
-      tcp: cwnd does not increase in TCP YeAH
-
-Ashok Raj Nagarajan (1):
-      ath10k: fix get rx_status from htt context
-
-Bodong Wang (1):
-      net/mlx5e: Move an_disable_cap bit to a new position
-
-Cathy Luo (1):
-      mwifiex: fix large amsdu packets causing firmware hang
-
-Chris Brandt (1):
-      net: ethernet: renesas: sh_eth: add POST registers for rz
-
-Dave Ertman (1):
-      i40e: Fix kernel panic on enable/disable LLDP
-
-Dave Jones (1):
-      ipv6: release dst in ping_v6_sendmsg
-
-David Ahern (1):
-      xfrm: Only add l3mdev oif to dst lookups
-
-David S. Miller (15):
-      Merge tag 'mac80211-for-davem-2016-08-30' of git://git.kernel.org/.../jberg/mac80211
-      Merge git://git.kernel.org/.../pablo/nf
-      Merge branch 'mediatek-fixes'
-      Merge branch 'qed-fixes'
-      Merge branch 'mlxsw-fixes'
-      Merge tag 'wireless-drivers-for-davem-2016-08-29' of git://git.kernel.org/.../kvalo/wireless-drivers
-      Merge branch 'thunderx-fixes'
-      Merge branch 'smsc911x-fixes'
-      Merge branch 'vxlan-fixes'
-      Merge branch 'master' of git://git.kernel.org/.../klassert/ipsec
-      Merge branch 'mlx5-fixes'
-      Merge branch 'nfp-fixes'
-      Merge branch 'mlxsw-fixes'
-      Merge tag 'wireless-drivers-for-davem-2016-09-08' of git://git.kernel.org/.../kvalo/wireless-drivers
-      Merge branch 'mlx4-fixes'
-
-Davide Caratti (1):
-      bridge: re-introduce 'fix parsing of MLDv2 reports'
-
-Eli Cooper (1):
-      ipv6: Don't unset flowi6_proto in ipxip6_tnl_xmit()
-
-Emmanuel Grumbach (2):
-      iwlwifi: mvm: consider P2p device type for firmware dump triggers
-      iwlwifi: mvm: don't use ret when not initialised
-
-Eric Dumazet (1):
-      tcp: fastopen: avoid negative sk_forward_alloc
-
-Felix Fietkau (2):
-      ath9k: fix client mode beacon configuration
-      ath9k: fix using sta->drv_priv before initializing it
-
-Florian Fainelli (1):
-      MAINTAINERS: Update CPMAC email address
-
-Gal Pressman (3):
-      net/mlx5e: Prevent casting overflow
-      net/mlx5e: Fix global PFC counters replication
-      net/mlx5e: Fix parsing of vlan packets when updating lro header
-
-Gao Feng (1):
-      rps: flow_dissector: Fix uninitialized flow_keys used in __skb_get_hash possibly
-
-Giedrius Statkevièius (1):
-      ath9k: bring back direction setting in ath9k_{start_stop}
-
-Guilherme G. Piccoli (1):
-      bnx2x: don't reset chip on cleanup if PCI function is offline
-
-Helmut Buchsbaum (1):
-      net: macb: initialize checksum when using checksum offloading
-
-Ido Schimmel (3):
-      mlxsw: spectrum: Don't take multiple references on a FID
-      mlxsw: spectrum: Use existing flood setup when adding VLANs
-      mlxsw: spectrum: Set port type before setting its address
-
-Ivan Vecera (1):
-      tg3: Fix for disallow tx coalescing time to be 0
-
-Jakub Kicinski (3):
-      nfp: remove linux/version.h includes
-      nfp: drop support for old firmware ABIs
-      nfp: don't pad frames on receive
-
-Jean Delvare (1):
-      drivers: net: phy: mdio-xgene: Add hardware dependency
-
-Jeremy Linton (4):
-      net: smsc911x: Remove multiple exit points from smsc911x_open
-      net: smsc911x: Fix register_netdev, phy startup, driver unload ordering
-      net: smsc911x: Move interrupt handler before open
-      net: smsc911x: Move interrupt allocation to open/stop
-
-Jiri Benc (2):
-      vxlan: reject multicast destination without an interface
-      vxlan: fix duplicated and wrong error messages
-
-Jiri Pirko (5):
-      mlxsw: spectrum_router: Fix failure caused by double fib removal from HW
-      mlxsw: spectrum_router: Fix fib entry update path
-      mlxsw: spectrum: Fix error path in mlxsw_sp_module_init
-      mlxsw: spectrum_router: Fix netevent notifier registration
-      mlxsw: spectrum_router: Fix error path in mlxsw_sp_router_init
-
-Johannes Berg (1):
-      Revert "wext: Fix 32 bit iwpriv compatibility issue with 64 bit Kernel"
-
-Kalle Valo (3):
-      Merge ath-current from ath.git
-      Merge tag 'iwlwifi-for-kalle-2016-08-29' of git://git.kernel.org/.../iwlwifi/iwlwifi-fixes
-      Merge ath-current from ath.git
-
-Kamal Heib (2):
-      net/mlx4_en: Fix the return value of mlx4_en_dcbnl_set_all()
-      net/mlx4_en: Fix the return value of mlx4_en_dcbnl_set_state()
-
-Lars Persson (1):
-      dwc_eth_qos: do not register semi-initialized device
-
-Linus Lüssing (1):
-      cfg80211: Add stub for cfg80211_get_station()
-
-Linus Torvalds (2):
-      Revert "af_unix: Fix splice-bind deadlock"
-      af_unix: split 'u->readlock' into two: 'iolock' and 'bindlock'
-
-Liping Zhang (6):
-      netfilter: nft_reject: restrict to INPUT/FORWARD/OUTPUT
-      netfilter: nfnetlink: use list_for_each_entry_safe to delete all objects
-      netfilter: cttimeout: put back l4proto when replacing timeout policy
-      netfilter: cttimeout: unlink timeout objs in the unconfirmed ct lists
-      netfilter: nft_meta: improve the validity check of pkttype set expr
-      netfilter: nf_tables_netdev: remove redundant ip_hdr assignment
-
-Mahesh Bandewar (1):
-      bonding: Fix bonding crash
-
-Marcelo Ricardo Leitner (1):
-      sctp: identify chunks that need to be fragmented at IP level
-
-Mark Tomlinson (1):
-      net: Don't delete routes in different VRFs
-
-Miaoqing Pan (1):
-      ath9k: fix AR5416 access GPIO warning
-
-Michael Chan (1):
-      bnxt_en: Fix TX push operation on ARM64.
-
-Mohammed Shafi Shajakhan (1):
-      ath10k: Remove driver log suggesting QCA9887 support is experimental
-
-Moshe Shemesh (1):
-      net/mlx4_en: Fix panic on xmit while port is down
-
-Neal Cardwell (1):
-      tcp: fastopen: fix rcv_wup initialization for TFO server on SYN/data
-
-Nicolas Dichtel (2):
-      ipv6: add missing netconf notif when 'all' is updated
-      netconf: add a notif when settings are created
-
-Nikolay Aleksandrov (1):
-      net: bridge: don't increment tx_dropped in br_do_proxy_arp
-
-Parthasarathy Bhuvaragan (1):
-      tipc: fix random link resets while adding a second bearer
-
-Peer, Ilan (1):
-      iwlwifi: mvm: Advertise support for AP channel width change
-
-Sabrina Dubroca (2):
-      netfilter: ebtables: put module reference when an incorrect extension is found
-      l2tp: fix use-after-free during module unload
-
-Sean Wang (9):
-      net: ethernet: mediatek: fix fails from TX housekeeping due to incorrect port setup
-      net: ethernet: mediatek: fix incorrect return value of devm_clk_get with EPROBE_DEFER
-      net: ethernet: mediatek: fix API usage with skb_free_frag
-      net: ethernet: mediatek: remove redundant free_irq for devm_request_irq allocated irq
-      net: ethernet: mediatek: fix logic unbalance between probe and remove
-      net: ethernet: mediatek: fix issue of driver removal with interface is up
-      net: ethernet: mediatek: fix the missing of_node_put() after node is used done inside mtk_mdio_init
-      net: ethernet: mediatek: use devm_mdiobus_alloc instead of mdiobus_alloc inside mtk_mdio_init
-      net: ethernet: mediatek: fix error handling inside mtk_mdio_init
-
-Sharon Dvir (1):
-      iwlwifi: mvm: check if vif is NULL before using it
-
-Sudarsana Reddy Kalluru (3):
-      qed*: Disallow dcbx configuration for VF interfaces.
-      qed: Set selection-field while configuring the app entry in ieee mode.
-      qed: Clear dcbx memory buffers before the usage.
-
-Sudip Mukherjee (1):
-      net: smsc: remove build warning of duplicate definition
-
-Sunil Goutham (2):
-      net: thunderx: Fix for HW issue while padding TSO packet
-      net: thunderx: Fix for issues with multiple CQEs posted for a TSO packet
-
-Tariq Toukan (2):
-      net/mlx5e: Fix xmit_more counter race issue
-      net/mlx4_en: Fixes for DCBX
-
-Tobias Brunner (1):
-      xfrm: Ignore socket policies when rebuilding hash tables
-
-Vegard Nossum (3):
-      xfrm: fix crash in XFRM_MSG_GETSA netlink handler
-      xfrm: get rid of incorrect WARN
-      xfrm: get rid of another incorrect WARN
-
-WANG Cong (1):
-      kcm: fix a socket double free
-
-Wei Yongjun (1):
-      ipv6: addrconf: fix dev refcont leak when DAD failed
-
-Wu Fengguang (1):
-      qed: fix kzalloc-simple.cocci warnings
-
-mhiramat@kernel.org (2):
-      brcmfmac: Check rtnl_lock is locked when removing interface
-      brcmfmac: Change vif_event_lock to spinlock
-
- MAINTAINERS                                                 |   4 +-
- drivers/net/bonding/bond_main.c                             |   7 ++-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c            |  19 ++++--
- drivers/net/ethernet/broadcom/bnxt/bnxt.c                   |   4 +-
- drivers/net/ethernet/broadcom/tg3.c                         |  11 +---
- drivers/net/ethernet/cadence/macb.c                         |  23 ++++++++
- drivers/net/ethernet/cavium/thunder/nic.h                   |   1 +
- drivers/net/ethernet/cavium/thunder/nic_main.c              |  11 +++-
- drivers/net/ethernet/cavium/thunder/nicvf_main.c            |  20 +++++--
- drivers/net/ethernet/cavium/thunder/nicvf_queues.c          |  64 +++++++++++++++++---
- drivers/net/ethernet/intel/i40e/i40e_main.c                 |  15 +++--
- drivers/net/ethernet/mediatek/mtk_eth_soc.c                 |  82 +++++++++++++-------------
- drivers/net/ethernet/mediatek/mtk_eth_soc.h                 |  22 ++++---
- drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c              |  57 +++++++++---------
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c              |  21 +++----
- drivers/net/ethernet/mellanox/mlx4/en_tx.c                  |  12 ++--
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h                |  15 +----
- drivers/net/ethernet/mellanox/mlx4/port.c                   |   4 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c        |   8 ++-
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c             |  22 ++++---
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c             |   2 +-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c              |  28 ++++++---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h              |   2 +
- drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c       | 160 +++++++++++++++++++++++++++++++------------------
- drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c    |  28 ++++-----
- drivers/net/ethernet/netronome/nfp/nfp_net_common.c         |   5 --
- drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c        |   1 -
- drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c         |   7 +--
- drivers/net/ethernet/qlogic/qed/qed_dcbx.c                  |  20 ++++++-
- drivers/net/ethernet/qlogic/qede/qede_main.c                |   3 +-
- drivers/net/ethernet/renesas/sh_eth.c                       |   7 +++
- drivers/net/ethernet/smsc/smc91x.h                          |   2 +
- drivers/net/ethernet/smsc/smsc911x.c                        | 213 ++++++++++++++++++++++++++++++++----------------------------------
- drivers/net/ethernet/synopsys/dwc_eth_qos.c                 |  38 ++++++------
- drivers/net/phy/Kconfig                                     |   1 +
- drivers/net/vxlan.c                                         |  38 ++++--------
- drivers/net/wireless/ath/ath10k/htt_rx.c                    |  10 ++--
- drivers/net/wireless/ath/ath10k/pci.c                       |   1 -
- drivers/net/wireless/ath/ath9k/hw.c                         |   4 +-
- drivers/net/wireless/ath/ath9k/main.c                       |  18 ++++--
- drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c |  28 ++++-----
- drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.h |   2 +-
- drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c     |   2 +-
- drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c      |   8 ++-
- drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.h      |   2 +-
- drivers/net/wireless/intel/iwlwifi/mvm/fw-dbg.c             |   3 +-
- drivers/net/wireless/intel/iwlwifi/mvm/fw-dbg.h             |   3 +-
- drivers/net/wireless/intel/iwlwifi/mvm/mac80211.c           |   1 +
- drivers/net/wireless/intel/iwlwifi/mvm/mvm.h                |   2 +
- drivers/net/wireless/marvell/mwifiex/11n_aggr.c             |   3 +-
- include/linux/mlx5/mlx5_ifc.h                               |   5 +-
- include/linux/netdevice.h                                   |   1 +
- include/net/af_unix.h                                       |   2 +-
- include/net/cfg80211.h                                      |   9 +++
- include/net/ip_fib.h                                        |   3 +-
- include/net/netfilter/nft_meta.h                            |   4 ++
- include/net/netfilter/nft_reject.h                          |   4 ++
- net/bridge/br_input.c                                       |   7 +--
- net/bridge/br_multicast.c                                   |   2 +-
- net/bridge/netfilter/ebtables.c                             |   2 +
- net/bridge/netfilter/nft_meta_bridge.c                      |   1 +
- net/core/dev.c                                              |  16 +++++
- net/core/flow_dissector.c                                   |   6 +-
- net/ipv4/devinet.c                                          |  11 ++--
- net/ipv4/fib_frontend.c                                     |   3 +-
- net/ipv4/fib_semantics.c                                    |   8 ++-
- net/ipv4/netfilter/nft_reject_ipv4.c                        |   1 +
- net/ipv4/tcp_fastopen.c                                     |   2 +
- net/ipv4/tcp_yeah.c                                         |   2 +-
- net/ipv4/xfrm4_policy.c                                     |   2 +-
- net/ipv6/addrconf.c                                         |  18 +++++-
- net/ipv6/ip6_tunnel.c                                       |   2 +
- net/ipv6/netfilter/nft_reject_ipv6.c                        |   1 +
- net/ipv6/ping.c                                             |   9 ++-
- net/ipv6/xfrm6_input.c                                      |   1 +
- net/ipv6/xfrm6_policy.c                                     |   2 +-
- net/kcm/kcmsock.c                                           |   3 +-
- net/l2tp/l2tp_core.c                                        |   3 +
- net/mac80211/tdls.c                                         |   7 ++-
- net/netfilter/nf_tables_netdev.c                            |   1 -
- net/netfilter/nfnetlink_acct.c                              |   6 +-
- net/netfilter/nfnetlink_cttimeout.c                         |  49 ++++++++-------
- net/netfilter/nft_meta.c                                    |  17 ++++--
- net/netfilter/nft_reject.c                                  |  16 +++++
- net/netfilter/nft_reject_inet.c                             |   7 ++-
- net/sctp/output.c                                           |  13 +++-
- net/tipc/name_distr.c                                       |   8 ++-
- net/unix/af_unix.c                                          | 111 +++++++++++++++-------------------
- net/wireless/wext-core.c                                    |  25 +-------
- net/xfrm/xfrm_input.c                                       |  14 ++---
- net/xfrm/xfrm_policy.c                                      |   4 ++
- net/xfrm/xfrm_user.c                                        |  13 ++--
- 92 files changed, 875 insertions(+), 610 deletions(-)
+On 16-09-09 09:13 PM, Tom Herbert wrote:
+> On Fri, Sep 9, 2016 at 8:26 PM, John Fastabend <john.fastabend@gmail.com> wrote:
+>> On 16-09-09 08:12 PM, Tom Herbert wrote:
+>>> On Fri, Sep 9, 2016 at 6:40 PM, Alexei Starovoitov
+>>> <alexei.starovoitov@gmail.com> wrote:
+>>>> On Fri, Sep 09, 2016 at 06:19:56PM -0700, Tom Herbert wrote:
+>>>>> On Fri, Sep 9, 2016 at 6:12 PM, John Fastabend <john.fastabend@gmail.com> wrote:
+>>>>>> On 16-09-09 06:04 PM, Tom Herbert wrote:
+>>>>>>> On Fri, Sep 9, 2016 at 5:01 PM, John Fastabend <john.fastabend@gmail.com> wrote:
+>>>>>>>> On 16-09-09 04:44 PM, Tom Herbert wrote:
+>>>>>>>>> On Fri, Sep 9, 2016 at 2:29 PM, John Fastabend <john.fastabend@gmail.com> wrote:
+>>>>>>>>>> e1000 supports a single TX queue so it is being shared with the stack
+>>>>>>>>>> when XDP runs XDP_TX action. This requires taking the xmit lock to
+>>>>>>>>>> ensure we don't corrupt the tx ring. To avoid taking and dropping the
+>>>>>>>>>> lock per packet this patch adds a bundling implementation to submit
+>>>>>>>>>> a bundle of packets to the xmit routine.
+>>>>>>>>>>
+>>>>>>>>>> I tested this patch running e1000 in a VM using KVM over a tap
+>>>>>>>>>> device using pktgen to generate traffic along with 'ping -f -l 100'.
+>>>>>>>>>>
+>>>>>>>>> Hi John,
+>>>>>>>>>
+>>>>>>>>> How does this interact with BQL on e1000?
+>>>>>>>>>
+>>>>>>>>> Tom
+>>>>>>>>>
+>>>>>>>>
+>>>>>>>> Let me check if I have the API correct. When we enqueue a packet to
+>>>>>>>> be sent we must issue a netdev_sent_queue() call and then on actual
+>>>>>>>> transmission issue a netdev_completed_queue().
+>>>>>>>>
+>>>>>>>> The patch attached here missed a few things though.
+>>>>>>>>
+>>>>>>>> But it looks like I just need to call netdev_sent_queue() from the
+>>>>>>>> e1000_xmit_raw_frame() routine and then let the tx completion logic
+>>>>>>>> kick in which will call netdev_completed_queue() correctly.
+>>>>>>>>
+>>>>>>>> I'll need to add a check for the queue state as well. So if I do these
+>>>>>>>> three things,
+>>>>>>>>
+>>>>>>>>         check __QUEUE_STATE_XOFF before sending
+>>>>>>>>         netdev_sent_queue() -> on XDP_TX
+>>>>>>>>         netdev_completed_queue()
+>>>>>>>>
+>>>>>>>> It should work agree? Now should we do this even when XDP owns the
+>>>>>>>> queue? Or is this purely an issue with sharing the queue between
+>>>>>>>> XDP and stack.
+>>>>>>>>
+>>>>>>> But what is the action for XDP_TX if the queue is stopped? There is no
+>>>>>>> qdisc to back pressure in the XDP path. Would we just start dropping
+>>>>>>> packets then?
+>>>>>>
+>>>>>> Yep that is what the patch does if there is any sort of error packets
+>>>>>> get dropped on the floor. I don't think there is anything else that
+>>>>>> can be done.
+>>>>>>
+>>>>> That probably means that the stack will always win out under load.
+>>>>> Trying to used the same queue where half of the packets are well
+>>>>> managed by a qdisc and half aren't is going to leave someone unhappy.
+>>>>> Maybe in the this case where we have to share the qdisc we can
+>>>>> allocate the skb on on returning XDP_TX and send through the normal
+>>>>> qdisc for the device.
+>>>>
+>>>> I wouldn't go to such extremes for e1k.
+>>>> The only reason to have xdp in e1k is to use it for testing
+>>>> of xdp programs. Nothing else. e1k is, best case, 1Gbps adapter.
+>>>
+>>> I imagine someone may want this for the non-forwarding use cases like
+>>> early drop for DOS mitigation. Regardless of the use case, I don't
+>>> think we can break the fundamental assumptions made for qdiscs or the
+>>> rest of the transmit path. If XDP must transmit on a queue shared with
+>>> the stack we need to abide by the stack's rules for transmitting on
+>>> the queue-- which would mean alloc skbuff and go through qdisc (which
+>>
+>> If we require XDP_TX to go up to qdisc layer its best not to implement
+>> it at all and just handle it in normal ingress path. That said I think
+>> users have to expect that XDP will interfere with qdisc schemes. Even
+>> with its own tx queue its going to interfere at the hardware level with
+>> bandwidth as the hardware round robins through the queues or uses
+>> whatever hardware strategy it is configured to use. Additionally it
+>> will bypass things like BQL, etc.
+>>
+> Right, but not all use cases involve XDP_TX (like DOS mitigation as I
+> pointed out). Since you've already done 95% of the work, can you take
+> a look at creating the skbuff and injecting into the stack for XDP_TX
+> so we can evaluate the performance and impact of that :-)
+> 
+> With separate TX queues it's explicit which queues are managed by the
+> stack. This is no different than what kernel bypass gives use, we are
+> relying on HW to do something reasonable in scheduling MQ.
+> 
+
+How about instead of dropping packets on xdp errors we make the
+behavior to send the packet to the stack by default. Then the stack can
+decide what to do with it. This is easier from the drivers perspective
+and avoids creating a qdisc inject path for XDP. We could set the mark
+field if the stack wants to handle XDP exceptions somehow differently.
+
+If we really want XDP to have an inject path I think we should add
+another action XDP_QDISC_INJECT. And add some way for XDP to run
+programs on exceptions. Perhaps via an exception map.
+
+In this flow when an exception occurs in some path the exception map
+is consulted and the exception handler is run. I think its better to
+be very explicit when falling back to the stack vs doing it
+transparently.
+
+Notice even in the dedicated queue case errors may occur when
+descriptors are exhausted and other transient errors occur.
+
+>>> really shouldn't be difficult to implement). Emulating various
+>>> functions of the stack in the XDP TX path, like this patch seems to be
+>>> doing for XMIT_MORE, potentially gets us into a wack-a-mole situation
+>>> trying to keep things coherent.
+>>
+>> I think bundling tx xmits is fair game as an internal optimization and
+>> doesn't need to be exposed at the XDP layer. Drivers already do this
+>> type of optimizations for allocating buffers. It likely doesn't matter
+>> much at the e1k level but doing a tail update on every pkt with the
+>> 40gbps drivers likely will be noticeable is my gut feeling.
+>>
+> How is this different than what XMIT_MORE gives us?
+> 
+
+Its not really. Except there is no call signaling. The code path just
+bundles up as many packets as it can and throws them onto the xmit
+routine.
+
+> Tom
+> 
+>>
+>>>
+>>>> Existing stack with skb is perfectly fine as it is.
+>>>> No need to do recycling, batching or any other complex things.
+>>>> xdp for e1k cannot be used as an example for other drivers either,
+>>>> since there is only one tx ring and any high performance adapter
+>>>> has more which makes the driver support quite different.
+>>>>
+>>
