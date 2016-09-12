@@ -1,49 +1,143 @@
-From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH iproute2 net-next v1 1/7] tipc: remove dead code
-Date: Mon, 12 Sep 2016 17:17:15 +0200
-Message-ID: <1473693441-14254-2-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
-References: <1473693441-14254-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+From: Greg <gvrose8192@gmail.com>
+Subject: Re: [PATCH RFC 1/6] spinlock: Add library function to allocate
+ spinlock buckets array
+Date: Mon, 12 Sep 2016 08:17:46 -0700
+Message-ID: <1473693466.4320.1.camel@gmail.com>
+References: <1473463197-3076903-1-git-send-email-tom@herbertland.com>
+         <1473463197-3076903-2-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <tipc-discussion@lists.sourceforge.net>, <jon.maloy@ericsson.com>,
-        <maloy@donjonn.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, kernel-team@fb.com,
+        tgraf@suug.ch
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg22.ericsson.net ([193.180.251.58]:61441 "EHLO
-        sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932883AbcILPRh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 11:17:37 -0400
-In-Reply-To: <1473693441-14254-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:35497 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756086AbcILPRs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 11:17:48 -0400
+Received: by mail-pf0-f194.google.com with SMTP id i75so3309143pfa.2
+        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 08:17:48 -0700 (PDT)
+In-Reply-To: <1473463197-3076903-2-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-remove dead code and a newline.
+On Fri, 2016-09-09 at 16:19 -0700, Tom Herbert wrote:
+> Add two new library functions alloc_bucket_spinlocks and
+> free_bucket_spinlocks. These are use to allocate and free an array
+> of spinlocks that are useful as locks for hash buckets. The interface
+> specifies the maximum number of spinlocks in the array as well
+> as a CPU multiplier to derive the number of spinlocks to allocate.
+> The number to allocated is rounded up to a power of two to make
+> the array amenable to hash lookup.
+> 
+> Signed-off-by: Tom Herbert <tom@herbertland.com>
 
-Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
----
- tipc/link.c | 3 ---
- 1 file changed, 3 deletions(-)
+I like this idea!!
 
-diff --git a/tipc/link.c b/tipc/link.c
-index 061b1c534389..8bdc98224d39 100644
---- a/tipc/link.c
-+++ b/tipc/link.c
-@@ -90,7 +90,6 @@ static int link_get_cb(const struct nlmsghdr *nlh, void *data)
- 	return MNL_CB_OK;
- }
- 
--
- static int cmd_link_get_prop(struct nlmsghdr *nlh, const struct cmd *cmd,
- 			     struct cmdl *cmdl, void *data)
- {
-@@ -475,8 +474,6 @@ static int cmd_link_set_prop(struct nlmsghdr *nlh, const struct cmd *cmd,
- 	mnl_attr_nest_end(nlh, attrs);
- 
- 	return msg_doit(nlh, link_get_cb, &prop);
--
--	return 0;
- }
- 
- static int cmd_link_set(struct nlmsghdr *nlh, const struct cmd *cmd,
--- 
-2.1.4
+Reviewed by Greg Rose <grose@lightfleet.com>
+
+> ---
+>  include/linux/spinlock.h |  6 +++++
+>  lib/Makefile             |  2 +-
+>  lib/bucket_locks.c       | 63 ++++++++++++++++++++++++++++++++++++++++++++++++
+>  3 files changed, 70 insertions(+), 1 deletion(-)
+>  create mode 100644 lib/bucket_locks.c
+> 
+> diff --git a/include/linux/spinlock.h b/include/linux/spinlock.h
+> index 47dd0ce..4ebdfbf 100644
+> --- a/include/linux/spinlock.h
+> +++ b/include/linux/spinlock.h
+> @@ -416,4 +416,10 @@ extern int _atomic_dec_and_lock(atomic_t *atomic, spinlock_t *lock);
+>  #define atomic_dec_and_lock(atomic, lock) \
+>  		__cond_lock(lock, _atomic_dec_and_lock(atomic, lock))
+>  
+> +int alloc_bucket_spinlocks(spinlock_t **locks, unsigned int *lock_mask,
+> +			   unsigned int max_size, unsigned int cpu_mult,
+> +			   gfp_t gfp);
+> +
+> +void free_bucket_spinlocks(spinlock_t *locks);
+> +
+>  #endif /* __LINUX_SPINLOCK_H */
+> diff --git a/lib/Makefile b/lib/Makefile
+> index cfa68eb..a1dedf1 100644
+> --- a/lib/Makefile
+> +++ b/lib/Makefile
+> @@ -37,7 +37,7 @@ obj-y += bcd.o div64.o sort.o parser.o halfmd4.o debug_locks.o random32.o \
+>  	 gcd.o lcm.o list_sort.o uuid.o flex_array.o iov_iter.o clz_ctz.o \
+>  	 bsearch.o find_bit.o llist.o memweight.o kfifo.o \
+>  	 percpu-refcount.o percpu_ida.o rhashtable.o reciprocal_div.o \
+> -	 once.o
+> +	 once.o bucket_locks.o
+>  obj-y += string_helpers.o
+>  obj-$(CONFIG_TEST_STRING_HELPERS) += test-string_helpers.o
+>  obj-y += hexdump.o
+> diff --git a/lib/bucket_locks.c b/lib/bucket_locks.c
+> new file mode 100644
+> index 0000000..bb9bf11
+> --- /dev/null
+> +++ b/lib/bucket_locks.c
+> @@ -0,0 +1,63 @@
+> +#include <linux/kernel.h>
+> +#include <linux/slab.h>
+> +#include <linux/vmalloc.h>
+> +#include <linux/mm.h>
+> +#include <linux/export.h>
+> +
+> +/* Allocate an array of spinlocks to be accessed by a hash. Two arguments
+> + * indicate the number of elements to allocate in the array. max_size
+> + * gives the maximum number of elements to allocate. cpu_mult gives
+> + * the number of locks per CPU to allocate. The size is rounded up
+> + * to a power of 2 to be suitable as a hash table.
+> + */
+> +int alloc_bucket_spinlocks(spinlock_t **locks, unsigned int *locks_mask,
+> +			   unsigned int max_size, unsigned int cpu_mult,
+> +			   gfp_t gfp)
+> +{
+> +	unsigned int i, size;
+> +#if defined(CONFIG_PROVE_LOCKING)
+> +	unsigned int nr_pcpus = 2;
+> +#else
+> +	unsigned int nr_pcpus = num_possible_cpus();
+> +#endif
+> +	spinlock_t *tlocks = NULL;
+> +
+> +	if (cpu_mult) {
+> +		nr_pcpus = min_t(unsigned int, nr_pcpus, 64UL);
+> +		size = min_t(unsigned int, nr_pcpus * cpu_mult, max_size);
+> +	} else {
+> +		size = max_size;
+> +	}
+> +	size = roundup_pow_of_two(size);
+> +
+> +	if (!size)
+> +		return -EINVAL;
+> +
+> +	if (sizeof(spinlock_t) != 0) {
+> +#ifdef CONFIG_NUMA
+> +		if (size * sizeof(spinlock_t) > PAGE_SIZE &&
+> +		    gfp == GFP_KERNEL)
+> +			tlocks = vmalloc(size * sizeof(spinlock_t));
+> +#endif
+> +		if (gfp != GFP_KERNEL)
+> +			gfp |= __GFP_NOWARN | __GFP_NORETRY;
+> +
+> +		if (!tlocks)
+> +			tlocks = kmalloc_array(size, sizeof(spinlock_t), gfp);
+> +		if (!tlocks)
+> +			return -ENOMEM;
+> +		for (i = 0; i < size; i++)
+> +			spin_lock_init(&tlocks[i]);
+> +	}
+> +	*locks = tlocks;
+> +	*locks_mask = size - 1;
+> +
+> +	return 0;
+> +}
+> +EXPORT_SYMBOL(alloc_bucket_spinlocks);
+> +
+> +void free_bucket_spinlocks(spinlock_t *locks)
+> +{
+> +	kvfree(locks);
+> +}
+> +EXPORT_SYMBOL(free_bucket_spinlocks);
