@@ -1,66 +1,90 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net 1/6] sctp: remove the unnecessary state check in
- sctp_outq_tail
-Date: Mon, 12 Sep 2016 16:48:38 -0300
-Message-ID: <20160912194838.GE17689@localhost.localdomain>
-References: <cover.1473326067.git.lucien.xin@gmail.com>
- <1718155e984f63995d1be9b053c58aa1a645718e.1473326067.git.lucien.xin@gmail.com>
- <20160908142701.GC16608@hmsreliant.think-freely.org>
- <CADvbK_dxTYrPPFJT5UPZErZLbW9y9oRm+VWbQXxhruwV6UgOZA@mail.gmail.com>
- <20160908192319.GD16608@hmsreliant.think-freely.org>
- <CADvbK_ddvZ4855B1PPLYVY2JV1okKzYXCpv-quNMBXp0Qb5Otw@mail.gmail.com>
- <20160909142841.GB15908@hmsreliant.think-freely.org>
- <CADvbK_f-09NvfeCbeaZZF8+LuMASTYnrh+02RvTz5UR-huiR3g@mail.gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: README: [PATCH RFC 11/11] net/mlx5e: XDP TX xmit more
+Date: Mon, 12 Sep 2016 12:56:28 -0700
+Message-ID: <20160912195626.GA18146@ast-mbp.thefacebook.com>
+References: <1473252152-11379-1-git-send-email-saeedm@mellanox.com>
+ <1473252152-11379-12-git-send-email-saeedm@mellanox.com>
+ <20160908101147.1b351432@redhat.com>
+ <20160909032202.GA62966@ast-mbp.thefacebook.com>
+ <20160909073652.351d76d7@redhat.com>
+ <20160909063048.GA67375@ast-mbp.thefacebook.com>
+ <20160912133025.5b35c25b@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-        network dev <netdev@vger.kernel.org>,
-        linux-sctp@vger.kernel.org, davem <davem@davemloft.net>,
-        Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
-To: Xin Long <lucien.xin@gmail.com>
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+        iovisor-dev <iovisor-dev@lists.iovisor.org>,
+        netdev@vger.kernel.org, Tariq Toukan <tariqt@mellanox.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Martin KaFai Lau <kafai@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51826 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751400AbcILTsm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 12 Sep 2016 15:48:42 -0400
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:35541 "EHLO
+        mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750998AbcILT4e (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 15:56:34 -0400
+Received: by mail-pa0-f48.google.com with SMTP id b2so53828357pat.2
+        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 12:56:33 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <CADvbK_f-09NvfeCbeaZZF8+LuMASTYnrh+02RvTz5UR-huiR3g@mail.gmail.com>
+In-Reply-To: <20160912133025.5b35c25b@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Sep 10, 2016 at 12:03:53AM +0800, Xin Long wrote:
-> > That said, have you considered the retransmit case?  That is to say, if you
-> > queue and flush the outq, and some packets fail delivery, and in the time
-> > between the intial send and the expiration of the RTX timer (during which the
-> > socket lock will have been released), an event may occur which changes the
-> > transport state, which will then be ignored with your patch.
-> Sorry, I'm not sure if I got it.
+On Mon, Sep 12, 2016 at 01:30:25PM +0200, Jesper Dangaard Brouer wrote:
+> On Thu, 8 Sep 2016 23:30:50 -0700
+> Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
 > 
-> You mean "during which changes q->asoc->state", right ?
+> > On Fri, Sep 09, 2016 at 07:36:52AM +0200, Jesper Dangaard Brouer wrote:
+> [...]
+> > > Imagine you have packets intermixed towards the stack and XDP_TX. 
+> > > Every time you call the stack code, then you flush your icache.  When
+> > > returning to the driver code, you will have to reload all the icache
+> > > associated with the XDP_TX, this is a costly operation.  
+> > 
+> [...]
+> > To make further progress in this discussion can we talk about
+> > the use case you have in mind instead? Then solution will
+> > be much clear, I hope.
 > 
-> This patch removes the check of q->asoc->state in sctp_outq_tail().
+> The DDoS use-case _is_ affected by this "hidden" bulking design.
 > 
-> sctp_outq_tail() is called for data only in:
-> sctp_primitive_SEND -> sctp_do_sm -> sctp_cmd_send_msg ->
-> sctp_cmd_interpreter -> sctp_cmd_send_msg() -> sctp_outq_tail()
-> 
-> before calling sctp_primitive_SEND, hold sock lock first.
-> then sctp_primitive_SEND choose FUNC according:
-> 
-> #define TYPE_SCTP_PRIMITIVE_SEND  {
-> ....
-> 
-> if asoc->state is unavailable, FUNC can't be sctp_cmd_send_msg,
-> but sctp_sf_error_closed/sctp_sf_error_shutdown,  sctp_outq_tail
-> can't be called, either.
-> I mean sctp_primitive_SEND do the same check for asoc->state
-> already actually.
-> 
-> so the code in sctp_outq_tail is redundant actually.
+> Lets say, I want to implement a DDoS facility. Instead of just
+> dropping the malicious packets, I want to see the bad packets.  I
+> implement this by rewriting the destination-MAC to be my monitor
+> machine and then XDP_TX the packet.
 
-I also don't see an issue with this patch, btw.
+not following the use case. you want to implement a DDoS generator?
+Or just forward all bad packets from affected host to another host
+in the same rack? so two servers will be spammed with traffic and
+even more load on the tor? I really don't see how this is useful
+for anything but stress testing.
 
-Xin, you may want to add more/such details to the changelog, specially
-about the timer versus primitive handling.
+> In the DDoS use-case, you have loaded your XDP/eBPF program, and 100%
+> of the traffic is delivered to the stack. (See note 1)
 
-  Marcelo
+hmm. DoS prevention use case is when 99% of the traffic is dropped.
+
+> Once the DDoS attack starts, then the traffic pattern changes, and XDP
+> should (hopefully only) catch the malicious traffic (monitor machine can
+> help diagnose false positive).  Now, due to interleaving the DDoS
+> traffic with the clean traffic, then efficiency of XDP_TX is reduced due to
+> more icache misses...
+> 
+> 
+> 
+> Note(1): Notice I have already demonstrated that loading a XDP/eBPF
+> program with 100% delivery to the stack, actually slows down the
+> normal stack.  This is due to hitting a bottleneck in the page
+> allocator.  I'm working removing that bottleneck with page_pool, and
+> that solution is orthogonal to this problem.
+
+sure. no one arguing against improving page allocator.
+
+>  It is actually an excellent argument, for why you would want to run a
+> DDoS XDP filter only on a restricted number of RX queues.
+
+no. it's the opposite. If the host is under DoS there is no way
+the host can tell in advance which rx queue will be seeing bad packets.
