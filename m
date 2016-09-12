@@ -1,64 +1,44 @@
-From: Andreas =?iso-8859-1?Q?H=FCbner?= <andreas@k4n.de>
-Subject: icmpv6: issue with routing table entries from link local addresses
-Date: Mon, 12 Sep 2016 16:27:32 +0200
-Message-ID: <20160912142732.GI26782@targo.k4n.de>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH] net: VRF: Pass original iif to ip_route_input()
+Date: Mon, 12 Sep 2016 08:48:09 -0600
+Message-ID: <17a91dbc-e2d6-bb04-7f56-c95962748100@cumulusnetworks.com>
+References: <20160912014553.20927-1-mark.tomlinson@alliedtelesis.co.nz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+To: Mark Tomlinson <mark.tomlinson@alliedtelesis.co.nz>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from targo.k4n.de ([213.133.103.195]:38413 "EHLO targo.k4n.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1758925AbcILOhj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 12 Sep 2016 10:37:39 -0400
-Received: from localhost (localhost [127.0.0.1])
-        by targo.k4n.de (Postfix) with ESMTP id D2F28480D4D
-        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 16:27:41 +0200 (CEST)
-Received: from targo.k4n.de ([127.0.0.1])
-        by localhost (targo.k4n.de [127.0.0.1]) (amavisd-new, port 10024)
-        with ESMTP id aGZPTlMopBgO for <netdev@vger.kernel.org>;
-        Mon, 12 Sep 2016 16:27:39 +0200 (CEST)
-Received: from targo.k4n.de (targo.k4n.de [213.133.103.195])
-        by targo.k4n.de (Postfix) with ESMTPSA id C0C03480D38
-        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 16:27:39 +0200 (CEST)
-Content-Disposition: inline
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:33368 "EHLO
+        mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756086AbcILOsM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 10:48:12 -0400
+Received: by mail-pa0-f46.google.com with SMTP id cm16so51571238pac.0
+        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 07:48:12 -0700 (PDT)
+In-Reply-To: <20160912014553.20927-1-mark.tomlinson@alliedtelesis.co.nz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 9/11/16 7:45 PM, Mark Tomlinson wrote:
+> The function ip_rcv_finish() calls l3mdev_ip_rcv(). On any VRF except
+> the global VRF, this replaces skb->dev with the VRF master interface.
+> When calling ip_route_input_noref() from here, the checks for forwarding
+> look at this master device instead of the initial ingress interface.
+> This will allow packets to be routed which normally would be dropped.
+> For example, an interface that is not assigned an IP address should
+> drop packets, but because the checking is against the master device, the
+> packet will be forwarded.
+> 
+> The fix here is to still call l3mdev_ip_rcv(), but remember the initial
+> net_device. This is passed to the other functions within ip_rcv_finish,
+> so they still see the original interface.
+> 
+> Please note that while this patch fixes my issue, I am not entirely sure
+> why the skb->dev is changed to the master device, so I am not sure this
+> is the right fix.
 
-I'm currently debugging a potential issue with the icmpv6 stack and
-hopefully this is the correct place to ask. (Was actually looking for a
-more specific list, but didn't find anything. Please point me to a more
-apropriate list if this is out of place here.)
+It is done for socket lookups. VRF can handle global sockets with connected sockets bound to the VRF domain (VRF device index) or sockets bound to the VRF device which requires inet_iif / skb_iif to be the VRF device.
 
-I have the following setup:
-  - 2 directly connected hosts (A+B), both have only link local addresses
-    configured (interface on both hosts is eth0)
-  - host B is also connected to another host C (via interface eth1)
-  - main routing table (relevant part) on host B looks like this:
+With the changes to l3mdev to look at enslaved devices as well as master devices this change might be fine, but need to confirm.
 
-      fe80::/64 dev eth1  proto kernel  metric 256
-      fe80::/64 dev eth0  proto kernel  metric 256
-
-  - host A is trying to ICMPv6 ping the link local address of host B
-
-The issue I currently have is, that the echo reply that host B should
-generate is never sent back to host A. If I change the order of the
-routing table entries on host B, everything works fine.
-(host A is connected on eth0)
-
-I'm wondering, if this is how it is supposed to work. Do we need to do a
-routing table lookup when generating an ICMPv6 echo reply for link local
-addresses?  (From my understanding, this is not done in the neighbour
-discovery stack, so why here?)
-
-Actually, I'm convinced I must be doing something wrong here. The setup
-for the issue is quite trivial, someone would have tripped over it
-already. The only condition is that one host has multiple interfaces
-with ipv6 enabled.
-
-Any help in shedding some light onto this issue would be appreciated.
-
-
-Thanks,
-Andreas
+Please cc me on VRF related patches or questions. I only scan netdev as time allows.
