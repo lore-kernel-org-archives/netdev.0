@@ -1,90 +1,48 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [PATCH v2 net 1/1] net sched actions: fix GETing actions
-Date: Mon, 12 Sep 2016 06:21:32 -0400
-Message-ID: <1473675692-8490-1-git-send-email-jhs@emojatatu.com>
-Cc: xiyou.wangcong@gmail.com, netdev@vger.kernel.org,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: davem@davemloft.net
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: Re: [PATCH net 0/2] ip: fix creation flags reported in RTM_NEWROUTE
+ events
+Date: Mon, 12 Sep 2016 12:29:58 +0200
+Message-ID: <20160912102958.hlosuqknqkuyps4w@alphalink.fr>
+References: <20160907151850.g3mzjrkhtqddqzwg@alphalink.fr>
+ <20160909.165126.2106988715172525727.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com, milon@wq.cz,
+        mkubecek@suse.cz, nicolas.dichtel@6wind.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:34754 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754298AbcILKVp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 06:21:45 -0400
-Received: by mail-oi0-f68.google.com with SMTP id c129so2313002oih.1
-        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 03:21:45 -0700 (PDT)
+Received: from zimbra.alphalink.fr ([217.15.80.77]:50810 "EHLO
+        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757224AbcILKaG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 06:30:06 -0400
+Content-Disposition: inline
+In-Reply-To: <20160909.165126.2106988715172525727.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-
-With the batch changes that translated transient actions into
-a temporary list we lost in the translation the fact that
-tcf_action_destroy() will eventually delete the action from
-the permanent location if the refcount is zero.
-
-Example of what broke:
-...add a gact action to drop
-sudo $TC actions add action drop index 10
-...now retrieve it, looks good
-sudo $TC actions get action gact index 10
-...retrieve it again and find it is gone!
-sudo $TC actions get action gact index 10
-
-Fixes:
-22dc13c837c3 ("net_sched: convert tcf_exts from list to pointer array"),
-824a7e8863b3 ("net_sched: remove an unnecessary list_del()")
-f07fed82ad79 ("net_sched: remove the leftover cleanup_a()")
-
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
----
- net/sched/act_api.c | 19 +++++++++++++++++++
- 1 file changed, 19 insertions(+)
-
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index d09d068..63b8167 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -592,6 +592,16 @@ err_out:
- 	return ERR_PTR(err);
- }
- 
-+static void cleanup_a(struct list_head *actions, int ovr)
-+{
-+	struct tc_action *a, *tmp;
-+
-+	list_for_each_entry_safe(a, tmp, actions, list) {
-+		if (ovr)
-+			a->tcfa_refcnt-=1;
-+	}
-+}
-+
- int tcf_action_init(struct net *net, struct nlattr *nla,
- 				  struct nlattr *est, char *name, int ovr,
- 				  int bind, struct list_head *actions)
-@@ -612,8 +622,15 @@ int tcf_action_init(struct net *net, struct nlattr *nla,
- 			goto err;
- 		}
- 		act->order = i;
-+		if (ovr)
-+			act->tcfa_refcnt+=1;
- 		list_add_tail(&act->list, actions);
- 	}
-+
-+	/* Remove the temp refcnt which was necessary to protect against
-+	 * destroying an existing action which was being replaced
-+	 */
-+	cleanup_a(actions, ovr);
- 	return 0;
- 
- err:
-@@ -883,6 +900,8 @@ tca_action_gd(struct net *net, struct nlattr *nla, struct nlmsghdr *n,
- 			goto err;
- 		}
- 		act->order = i;
-+		if (event == RTM_GETACTION)
-+			act->tcfa_refcnt+=1;
- 		list_add_tail(&act->list, &actions);
- 	}
- 
--- 
-1.9.1
+On Fri, Sep 09, 2016 at 04:51:26PM -0700, David Miller wrote:
+> From: Guillaume Nault <g.nault@alphalink.fr>
+> Date: Wed, 7 Sep 2016 17:18:50 +0200
+> 
+> > Netlink messages sent to user-space upon RTM_NEWROUTE events have their
+> > nlmsg_flags field inconsistently set. While the NLM_F_REPLACE and
+> > NLM_F_APPEND bits are correctly handled, NLM_F_CREATE and NLM_F_EXCL
+> > are always 0.
+> > 
+> > This series sets the NLM_F_CREATE and NLM_F_EXCL bits when applicable,
+> > for IPv4 and IPv6.
+> > 
+> > Since IPv6 ignores the NLM_F_APPEND flags in requests, this flag isn't
+> > reported in RTM_NEWROUTE IPv6 events. This keeps IPv6 internal
+> > consistency (same flag semantic for user requests and kernel events) at
+> > the cost of bringing different flag interpretation for IPv4 and IPv6.
+> 
+> I'm applying this series to net-next so that it has time to cook and
+> expose anything in userland that might break due to these changes.
+> 
+> I briefly considered applying this to net but I think that is
+> premature at least for the time being.
+> 
+Makes sense, and this could be considered a feature enhancement after
+all.
+Thanks David.
