@@ -1,7 +1,7 @@
 From: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH v4 08/16] IB/pvrdma: Add device command support
-Date: Sun, 11 Sep 2016 21:49:18 -0700
-Message-ID: <1473655766-31628-9-git-send-email-aditr@vmware.com>
+Subject: [PATCH v4 14/16] IB/pvrdma: Add Kconfig and Makefile
+Date: Sun, 11 Sep 2016 21:49:24 -0700
+Message-ID: <1473655766-31628-15-git-send-email-aditr@vmware.com>
 References: <1473655766-31628-1-git-send-email-aditr@vmware.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,10 +16,8 @@ In-Reply-To: <1473655766-31628-1-git-send-email-aditr-pghWNbHTmq7QT0dZR+AlfA@pub
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch enables posting Verb requests and receiving responses to/from
-the backend PVRDMA emulation layer.
+This patch adds a Kconfig and Makefile for the PVRDMA driver.
 
-Reviewed-by: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 Reviewed-by: Jorgen Hansen <jhansen-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
 Reviewed-by: George Zhang <georgezhang-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
 Reviewed-by: Aditya Sarwade <asarwade-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
@@ -27,131 +25,36 @@ Reviewed-by: Bryan Tan <bryantan-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
 ---
 Changes v3->v4:
- - Removed the min check and added a BUILD_BUG_ON check for size.
-
-Changes v2->v3:
- - Converted pvrdma_cmd_recv to inline.
- - Added a min check in the memcpy to cmd_slot.
- - Removed the boolean from pvrdma_cmd_post.
+ - Enforced dependency on VMXNet3
 ---
- drivers/infiniband/hw/pvrdma/pvrdma_cmd.c | 108 ++++++++++++++++++++++++++++++
- 1 file changed, 108 insertions(+)
- create mode 100644 drivers/infiniband/hw/pvrdma/pvrdma_cmd.c
+ drivers/infiniband/hw/pvrdma/Kconfig  | 7 +++++++
+ drivers/infiniband/hw/pvrdma/Makefile | 3 +++
+ 2 files changed, 10 insertions(+)
+ create mode 100644 drivers/infiniband/hw/pvrdma/Kconfig
+ create mode 100644 drivers/infiniband/hw/pvrdma/Makefile
 
-diff --git a/drivers/infiniband/hw/pvrdma/pvrdma_cmd.c b/drivers/infiniband/hw/pvrdma/pvrdma_cmd.c
+diff --git a/drivers/infiniband/hw/pvrdma/Kconfig b/drivers/infiniband/hw/pvrdma/Kconfig
 new file mode 100644
-index 0000000..827e3ff
+index 0000000..b345679
 --- /dev/null
-+++ b/drivers/infiniband/hw/pvrdma/pvrdma_cmd.c
-@@ -0,0 +1,108 @@
-+/*
-+ * Copyright (c) 2012-2016 VMware, Inc.  All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of EITHER the GNU General Public License
-+ * version 2 as published by the Free Software Foundation or the BSD
-+ * 2-Clause License. This program is distributed in the hope that it
-+ * will be useful, but WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED
-+ * WARRANTY OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
-+ * See the GNU General Public License version 2 for more details at
-+ * http://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program available in the file COPYING in the main
-+ * directory of this source tree.
-+ *
-+ * The BSD 2-Clause License
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-+ * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
-+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
-+ * OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
++++ b/drivers/infiniband/hw/pvrdma/Kconfig
+@@ -0,0 +1,7 @@
++config INFINIBAND_PVRDMA
++	tristate "VMware Paravirtualized RDMA Driver"
++	depends on NETDEVICES && ETHERNET && PCI && INET && VMXNET3
++	---help---
++	  This driver provides low-level support for VMware Paravirtual
++	  RDMA adapter. It interacts with the VMXNet3 driver to provide
++	  Ethernet capabilities.
+diff --git a/drivers/infiniband/hw/pvrdma/Makefile b/drivers/infiniband/hw/pvrdma/Makefile
+new file mode 100644
+index 0000000..e6f078b
+--- /dev/null
++++ b/drivers/infiniband/hw/pvrdma/Makefile
+@@ -0,0 +1,3 @@
++obj-$(CONFIG_INFINIBAND_PVRDMA) += pvrdma.o
 +
-+#include <linux/list.h>
-+
-+#include "pvrdma.h"
-+
-+#define PVRDMA_CMD_TIMEOUT	10000 /* ms */
-+
-+static inline int pvrdma_cmd_recv(struct pvrdma_dev *dev,
-+				  union pvrdma_cmd_resp *resp)
-+{
-+	dev_dbg(&dev->pdev->dev, "receive response from device\n");
-+
-+	spin_lock(&dev->cmd_lock);
-+	memcpy(resp, dev->resp_slot, sizeof(*resp));
-+	spin_unlock(&dev->cmd_lock);
-+
-+	return 0;
-+}
-+
-+int
-+pvrdma_cmd_post(struct pvrdma_dev *dev, union pvrdma_cmd_req *req,
-+		union pvrdma_cmd_resp *resp)
-+{
-+	int err;
-+
-+	dev_dbg(&dev->pdev->dev, "post request to device\n");
-+
-+	/* Serializiation */
-+	down(&dev->cmd_sema);
-+
-+	BUILD_BUG_ON(sizeof(union pvrdma_cmd_req) !=
-+		     sizeof(struct pvrdma_cmd_modify_qp));
-+
-+	spin_lock(&dev->cmd_lock);
-+	memcpy(dev->cmd_slot, req, sizeof(*req));
-+	spin_unlock(&dev->cmd_lock);
-+
-+	init_completion(&dev->cmd_done);
-+	pvrdma_write_reg(dev, PVRDMA_REG_REQUEST, 0);
-+
-+	/* Make sure the request is written before reading status. */
-+	mb();
-+	err = pvrdma_read_reg(dev, PVRDMA_REG_ERR);
-+	if (err == 0) {
-+		if (resp != NULL) {
-+			err = wait_for_completion_interruptible_timeout(
-+				&dev->cmd_done,
-+				msecs_to_jiffies(PVRDMA_CMD_TIMEOUT));
-+			if (err == 0 || err == -ERESTARTSYS) {
-+				dev_err(&dev->pdev->dev,
-+					"completion timeout or interrupted\n");
-+				err = -ETIMEDOUT;
-+			} else {
-+				err = pvrdma_cmd_recv(dev, resp);
-+			}
-+		}
-+	} else {
-+		dev_warn(&dev->pdev->dev, "failed to write request %d\n", err);
-+	}
-+
-+	up(&dev->cmd_sema);
-+
-+	return err;
-+}
++pvrdma-y := pvrdma_cmd.o pvrdma_cq.o pvrdma_doorbell.o pvrdma_main.o pvrdma_misc.o pvrdma_mr.o pvrdma_qp.o pvrdma_verbs.o
 -- 
 2.7.4
 
