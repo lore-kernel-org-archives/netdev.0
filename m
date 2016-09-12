@@ -1,9 +1,10 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 6/7] cxgb4: add support for deleting u32 filters
-Date: Mon, 12 Sep 2016 10:47:11 +0200
-Message-ID: <20160912084711.GE2021@nanopsycho>
+Subject: Re: [PATCH net-next 7/7] cxgb4: add support for drop and redirect
+ actions
+Date: Mon, 12 Sep 2016 10:52:53 +0200
+Message-ID: <20160912085253.GF2021@nanopsycho>
 References: <cover.1473667613.git.rahul.lakkireddy@chelsio.com>
- <01b1dd8d57eb3ebb2e8a5f338a956f300de5f841.1473667613.git.rahul.lakkireddy@chelsio.com>
+ <13800cc26e45257999003861820b0bc65ab7a8d1.1473667613.git.rahul.lakkireddy@chelsio.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, davem@davemloft.net,
@@ -11,187 +12,137 @@ Cc: netdev@vger.kernel.org, davem@davemloft.net,
         indranil@chelsio.com
 To: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:36235 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751579AbcILIrP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 04:47:15 -0400
-Received: by mail-wm0-f66.google.com with SMTP id z194so209182wmd.3
-        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 01:47:14 -0700 (PDT)
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33630 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751579AbcILIw5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 04:52:57 -0400
+Received: by mail-wm0-f67.google.com with SMTP id b187so12575526wme.0
+        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 01:52:56 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <01b1dd8d57eb3ebb2e8a5f338a956f300de5f841.1473667613.git.rahul.lakkireddy@chelsio.com>
+In-Reply-To: <13800cc26e45257999003861820b0bc65ab7a8d1.1473667613.git.rahul.lakkireddy@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Sep 12, 2016 at 10:12:39AM CEST, rahul.lakkireddy@chelsio.com wrote:
->Add support for deleting an offloaded u32 filter from hardware.  If a
->link is deleted, then all corresponding filters associated with the link
->are also deleted.  Also enable hardware tc offload as a supported
->feature.
+Mon, Sep 12, 2016 at 10:12:40AM CEST, rahul.lakkireddy@chelsio.com wrote:
+>Add support for dropping matched packets in hardware.  Also add support
+>for re-directing matched packets to a specified port in hardware.
 >
 >Signed-off-by: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 >Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
-
-I don't understand why add and delete are 2 separate patches. I believe
-it should go in one.
-
-
-
 >---
-> drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c   |  5 +-
-> drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c | 92 +++++++++++++++++++++++
-> drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.h |  2 +
-> 3 files changed, 98 insertions(+), 1 deletion(-)
+> drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c | 63 +++++++++++++++++++++++
+> 1 file changed, 63 insertions(+)
 >
->diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
->index 28396f5..087066a 100644
->--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
->+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
->@@ -3047,6 +3047,8 @@ int cxgb_setup_tc(struct net_device *dev, u32 handle, __be16 proto,
-> 		case TC_CLSU32_NEW_KNODE:
-> 		case TC_CLSU32_REPLACE_KNODE:
-> 			return cxgb4_config_knode(dev, proto, tc->cls_u32);
->+		case TC_CLSU32_DELETE_KNODE:
->+			return cxgb4_delete_knode(dev, proto, tc->cls_u32);
-> 		default:
-> 			return -EOPNOTSUPP;
-> 		}
->@@ -5155,7 +5157,8 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
-> 		netdev->hw_features = NETIF_F_SG | TSO_FLAGS |
-> 			NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
-> 			NETIF_F_RXCSUM | NETIF_F_RXHASH |
->-			NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX;
->+			NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX |
->+			NETIF_F_HW_TC;
-> 		if (highdma)
-> 			netdev->hw_features |= NETIF_F_HIGHDMA;
-> 		netdev->features |= netdev->hw_features;
 >diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c
->index 62c1695..31847e3 100644
+>index 31847e3..584ccb3 100644
 >--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c
 >+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c
->@@ -279,6 +279,98 @@ out:
-> 	return ret;
+>@@ -32,6 +32,9 @@
+>  * SOFTWARE.
+>  */
+> 
+>+#include <net/tc_act/tc_gact.h>
+>+#include <net/tc_act/tc_mirred.h>
+>+
+> #include "cxgb4.h"
+> #include "cxgb4_tc_u32_parse.h"
+> #include "cxgb4_tc_u32.h"
+>@@ -83,6 +86,59 @@ static int fill_match_fields(struct adapter *adap,
+> 	return 0;
 > }
 > 
->+int cxgb4_delete_knode(struct net_device *dev, __be16 protocol,
->+		       struct tc_cls_u32_offload *cls)
+>+/* Fill ch_filter_specification with parsed action. */
+>+static int fill_action_fields(struct adapter *adap,
+>+			      struct ch_filter_specification *fs,
+>+			      struct tc_cls_u32_offload *cls)
 >+{
->+	struct adapter *adapter = netdev2adap(dev);
->+	struct cxgb4_tc_u32_table *t;
->+	struct cxgb4_link *link = NULL;
->+	struct filter_ctx ctx;
->+	u32 handle, uhtid;
->+	unsigned int filter_id;
->+	unsigned int max_tids;
->+	unsigned int i, j;
->+	int ret;
+>+	const struct tc_action *a;
+>+	struct tcf_exts *exts;
+>+	LIST_HEAD(actions);
+>+	unsigned int num_actions = 0;
+>+	bool found = false;
 >+
->+	if (!can_tc_u32_offload(dev))
->+		return -EOPNOTSUPP;
->+
->+	/* Fetch the location to delete the filter. */
->+	filter_id = (cls->knode.handle & 0xFFFFF);
-
-Again with the (). Looks like you have it all over the place.
-
-
->+
->+	if (filter_id > adapter->tids.nftids) {
->+		dev_err(adapter->pdev_dev,
->+			"Location %d out of range for deletion. Max: %d\n",
->+			filter_id, adapter->tids.nftids);
->+		return -ERANGE;
->+	}
->+
->+	t = adapter->tc_u32;
->+	handle = cls->knode.handle;
->+	uhtid = TC_U32_USERHTID(cls->knode.handle);
->+
->+	/* Ensure that uhtid is either root u32 (i.e. 0x800)
->+	 * or a a valid linked bucket.
->+	 */
->+	if (uhtid != 0x800 && uhtid >= t->size)
+>+	exts = cls->knode.exts;
+>+	if (tc_no_actions(exts))
 >+		return -EINVAL;
 >+
->+	/* Delete the specified filter */
->+	if (uhtid != 0x800) {
->+		link = &t->table[uhtid - 1];
->+		if (!link->link_handle)
+>+	tcf_exts_to_list(exts, &actions);
+>+	list_for_each_entry(a, &actions, list) {
+>+		/* Don't allow more than one action per rule. */
+>+		if (num_actions)
 >+			return -EINVAL;
+
+
+Looking at this, unrelated to this patch, we really need some advanced
+reporting to user about what went wrong. Otherwise he's playing a
+guessing game.
+
+
+
 >+
->+		if (!test_bit(filter_id, link->tid_map))
->+			return -EINVAL;
+>+		/* Drop in hardware. */
+>+		if (is_tcf_gact_shot(a)) {
+>+			fs->action = FILTER_DROP;
+>+			found = true;
+>+		}
+>+
+>+		/* Re-direct to specified port in hardware. */
+>+		if (is_tcf_mirred_redirect(a)) {
+
+		else if ?
+
+>+			struct net_device *n_dev;
+>+			unsigned int i, index;
+>+
+>+			index = tcf_mirred_ifindex(a);
+>+			for_each_port(adap, i) {
+>+				n_dev = adap->port[i];
+>+				if (index == n_dev->ifindex) {
+>+					fs->action = FILTER_SWITCH;
+>+					fs->eport = i;
+>+					break;
+>+				}
+>+			}
+>+			found = true;
+>+		}
+
+You need to report an error in case you don't support the action. 
+
+
+
+
+>+
+>+		num_actions++;
 >+	}
 >+
->+	init_completion(&ctx.completion);
+>+	if (!found)
+>+		return -EINVAL;
+
+Oh, I guess this is to fail on unsupported action. Odd. Rather just
+return directly the list_for_each_entry loop
+
+
 >+
->+	ret = cxgb4_del_filter(dev, filter_id, &ctx);
+>+	return 0;
+>+}
+>+
+> int cxgb4_config_knode(struct net_device *dev, __be16 protocol,
+> 		       struct tc_cls_u32_offload *cls)
+> {
+>@@ -236,6 +292,13 @@ int cxgb4_config_knode(struct net_device *dev, __be16 protocol,
+> 	if (ret)
+> 		goto out;
+> 
+>+	/* Fill ch_filter_specification action fields to be shipped to
+>+	 * hardware.
+>+	 */
+>+	ret = fill_action_fields(adapter, &fs, cls);
 >+	if (ret)
 >+		goto out;
 >+
->+	/* Wait for reply */
->+	ret = wait_for_completion_timeout(&ctx.completion, 10 * HZ);
->+	if (!ret)
->+		return -ETIMEDOUT;
-
-
-Hmm, I think it would be nicer to have the completion dance wrapped
-inside cxgb4_del_filter and have __cxgb4_del_filter for case you don't
-need it.
-
-
->+
->+	ret = ctx.result;
->+	if (!ret && link)
->+		clear_bit(filter_id, link->tid_map);
->+
->+	/* If a link is being deleted, then delete all filters
->+	 * associated with the link.
->+	 */
->+	max_tids = adapter->tids.nftids;
->+	for (i = 0; i < t->size; i++) {
->+		link = &t->table[i];
->+
->+		if (link->link_handle == handle) {
->+			for (j = 0; j < max_tids; j++) {
->+				if (!test_bit(j, link->tid_map))
->+					continue;
->+
->+				ret = cxgb4_del_filter(dev, j, NULL);
->+				if (ret)
->+					goto out;
->+
->+				clear_bit(j, link->tid_map);
->+			}
->+
->+			/* Clear the link state */
->+			link->match_field = NULL;
->+			link->link_handle = 0;
->+			memset(&link->fs, 0, sizeof(link->fs));
->+			break;
->+		}
->+	}
->+
->+out:
->+	return ret;
->+}
->+
-> void cxgb4_cleanup_tc_u32(struct adapter *adap)
-> {
-> 	struct cxgb4_tc_u32_table *t;
->diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.h
->index 46575843..6bdc885 100644
->--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.h
->+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.h
->@@ -48,6 +48,8 @@ static inline bool can_tc_u32_offload(struct net_device *dev)
-> 
-> int cxgb4_config_knode(struct net_device *dev, __be16 protocol,
-> 		       struct tc_cls_u32_offload *cls);
->+int cxgb4_delete_knode(struct net_device *dev, __be16 protocol,
->+		       struct tc_cls_u32_offload *cls);
-> 
-> void cxgb4_cleanup_tc_u32(struct adapter *adapter);
-> struct cxgb4_tc_u32_table *cxgb4_init_tc_u32(struct adapter *adap,
+> 	/* The filter spec has been completely built from the info
+> 	 * provided from u32.  We now set some default fields in the
+> 	 * spec for sanity.
 >-- 
 >2.5.3
 >
