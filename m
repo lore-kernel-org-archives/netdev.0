@@ -1,72 +1,51 @@
-From: Bjorn Helgaas <helgaas-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v4 01/16] vmxnet3: Move PCI Id to pci_ids.h
-Date: Mon, 12 Sep 2016 12:21:26 -0500
-Message-ID: <20160912172126.GA23532@localhost>
-References: <1473655766-31628-1-git-send-email-aditr@vmware.com>
- <1473655766-31628-2-git-send-email-aditr@vmware.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [RFC V3 PATCH 00/26] Kernel NET policy
+Date: Mon, 12 Sep 2016 10:21:59 -0700
+Message-ID: <CAM_iQpV7TU8S-bJBy53WUP8KcRx0bP92bVUzAvtJnEQq7NcY=g@mail.gmail.com>
+References: <1473692159-4017-1-git-send-email-kan.liang@intel.com> <20160912153821.GA11685@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        pv-drivers-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jhansen-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org, asarwade-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org,
-        georgezhang-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org, bryantan-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org
-To: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1473655766-31628-2-git-send-email-aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "Liang, Kan" <kan.liang@intel.com>,
+        David Miller <davem@davemloft.net>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Ingo Molnar <mingo@redhat.com>,
+        Peter Zijlstra <peterz@infradead.org>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Kees Cook <keescook@chromium.org>,
+        Al Viro <viro@zeniv.linux.org.uk>,
+        Cyrill Gorcunov <gorcunov@openvz.org>,
+        John Stultz <john.stultz@linaro.org>,
+        Alexander Duyck <aduyck@mirantis.com>, ben@decadent.org.uk,
+        David Decotigny <decot@googlers.com>,
+        Alexander Duyck <alexander.
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f175.google.com ([209.85.161.175]:34656 "EHLO
+        mail-yw0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755089AbcILRWW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 13:22:22 -0400
+In-Reply-To: <20160912153821.GA11685@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Sep 11, 2016 at 09:49:11PM -0700, Adit Ranadive wrote:
-> The VMXNet3 PCI Id will be shared with our paravirtual RDMA driver.
-> Moved it to the shared location in pci_ids.h.
-> 
-> Suggested-by: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-> Signed-off-by: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+On Mon, Sep 12, 2016 at 8:38 AM, Florian Westphal <fw@strlen.de> wrote:
+> kan.liang@intel.com <kan.liang@intel.com> wrote:
+>> From: Kan Liang <kan.liang@intel.com>
+>>
+>> It is a big challenge to get good network performance. First, the network
+>> performance is not good with default system settings. Second, it is too
+>
+> [..]
+>
+> I ask to be dropped from CC list of further submissions of this series,
+> I've said all I have say about this ('do it in userspace') and
+> its very unlikely I will change my opinion.
 
-Acked-by: Bjorn Helgaas <bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-
-> ---
-> ---
->  drivers/net/vmxnet3/vmxnet3_int.h | 3 +--
->  include/linux/pci_ids.h           | 1 +
->  2 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
-> index 74fc030..2bd6bf8 100644
-> --- a/drivers/net/vmxnet3/vmxnet3_int.h
-> +++ b/drivers/net/vmxnet3/vmxnet3_int.h
-> @@ -119,9 +119,8 @@ enum {
->  };
->  
->  /*
-> - * PCI vendor and device IDs.
-> + * Maximum devices supported.
->   */
-> -#define PCI_DEVICE_ID_VMWARE_VMXNET3    0x07B0
->  #define MAX_ETHERNET_CARDS		10
->  #define MAX_PCI_PASSTHRU_DEVICE		6
->  
-> diff --git a/include/linux/pci_ids.h b/include/linux/pci_ids.h
-> index c58752f..98bb455 100644
-> --- a/include/linux/pci_ids.h
-> +++ b/include/linux/pci_ids.h
-> @@ -2251,6 +2251,7 @@
->  #define PCI_DEVICE_ID_RASTEL_2PORT	0x2000
->  
->  #define PCI_VENDOR_ID_VMWARE		0x15ad
-> +#define PCI_DEVICE_ID_VMWARE_VMXNET3	0x07b0
->  
->  #define PCI_VENDOR_ID_ZOLTRIX		0x15b0
->  #define PCI_DEVICE_ID_ZOLTRIX_2BD0	0x2bd0
-> -- 
-> 2.7.4
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-pci" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
++1
+Same for me.
