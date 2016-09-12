@@ -1,20 +1,15 @@
 From: Javier Martinez Canillas <javier@osg.samsung.com>
-Subject: [PATCH 13/15] stmmac: use IS_ENABLED() instead of checking for built-in or module
-Date: Mon, 12 Sep 2016 10:03:44 -0400
-Message-ID: <1473689026-6983-14-git-send-email-javier@osg.samsung.com>
+Subject: [PATCH 14/15] hamradio: use IS_ENABLED() instead of checking for built-in or module
+Date: Mon, 12 Sep 2016 10:03:45 -0400
+Message-ID: <1473689026-6983-15-git-send-email-javier@osg.samsung.com>
 References: <1473689026-6983-1-git-send-email-javier@osg.samsung.com>
 Cc: Javier Martinez Canillas <javier@osg.samsung.com>,
-        netdev@vger.kernel.org, Alexandre Torgue <alexandre.torgue@st.com>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>
+        netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ec2-52-27-115-49.us-west-2.compute.amazonaws.com ([52.27.115.49]:59866
-        "EHLO s-opensource.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933330AbcILOFF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 10:05:05 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1473689026-6983-1-git-send-email-javier@osg.samsung.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 The IS_ENABLED() macro checks if a Kconfig symbol has been enabled either
 built-in or as a module, use that macro instead of open coding the same.
@@ -25,21 +20,21 @@ of the Kconfig built-in and module enable details.
 Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
 ---
 
- drivers/net/ethernet/stmicro/stmmac/common.h | 2 +-
+ drivers/net/hamradio/bpqether.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index 2533b91f1421..d3292c4a6eda 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -30,7 +30,7 @@
- #include <linux/stmmac.h>
- #include <linux/phy.h>
- #include <linux/module.h>
--#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
-+#if IS_ENABLED(CONFIG_VLAN_8021Q)
- #define STMMAC_VLAN_TAG_USED
- #include <linux/if_vlan.h>
+diff --git a/drivers/net/hamradio/bpqether.c b/drivers/net/hamradio/bpqether.c
+index d95a50ae996d..622ab3ab9e93 100644
+--- a/drivers/net/hamradio/bpqether.c
++++ b/drivers/net/hamradio/bpqether.c
+@@ -484,7 +484,7 @@ static void bpq_setup(struct net_device *dev)
+ 	dev->flags      = 0;
+ 	dev->features	= NETIF_F_LLTX;	/* Allow recursion */
+ 
+-#if defined(CONFIG_AX25) || defined(CONFIG_AX25_MODULE)
++#if IS_ENABLED(CONFIG_AX25)
+ 	dev->header_ops      = &ax25_header_ops;
  #endif
+ 
 -- 
 2.7.4
