@@ -1,55 +1,61 @@
 From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH iproute2 net-next v1 4/7] tipc: add link monitor summary
-Date: Mon, 12 Sep 2016 17:17:18 +0200
-Message-ID: <1473693441-14254-5-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH iproute2 net-next v1 3/7] tipc: add link
+	monitor get threshold
+Date: Mon, 12 Sep 2016 17:17:17 +0200
+Message-ID: <1473693441-14254-4-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 References: <1473693441-14254-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <tipc-discussion@lists.sourceforge.net>, <jon.maloy@ericsson.com>,
-        <maloy@donjonn.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: jon.maloy@ericsson.com, tipc-discussion@lists.sourceforge.net
 To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sesbmg23.ericsson.net ([193.180.251.37]:60468 "EHLO
-        sesbmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933180AbcILPRi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 11:17:38 -0400
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
 In-Reply-To: <1473693441-14254-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-The monitor summary command prints the basic attributes
-specific to the local node.
+The command prints the monitor activation threshold.
 A sample usage is shown below:
-$ tipc link monitor summary
-bearer eth:data0
-    table_generation 15
-    cluster_size 8
-    algorithm overlapping-ring
+$ tipc link monitor get threshold
+32
 
-bearer eth:data1
-    table_generation 15
-    cluster_size 8
-    algorithm overlapping-ring
+$ tipc link monitor get -h
+Usage: tipc monitor get PPROPERTY
 
-$ tipc link monitor summary -h
-Usage: tipc monitor summary
+PROPERTIES
+ threshold      - Get monitor activation threshold
 
 Acked-by: Jon Maloy <jon.maloy@ericsson.com>
 Tested-by: Jon Maloy <jon.maloy@ericsson.com>
 Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
 ---
- tipc/link.c | 47 ++++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 46 insertions(+), 1 deletion(-)
+ tipc/link.c | 56 +++++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 55 insertions(+), 1 deletion(-)
 
 diff --git a/tipc/link.c b/tipc/link.c
-index 3f0c32106772..df93409f2173 100644
+index 3469cd302469..3f0c32106772 100644
 --- a/tipc/link.c
 +++ b/tipc/link.c
-@@ -515,6 +515,49 @@ static int cmd_link_mon_set_prop(struct nlmsghdr *nlh, const struct cmd *cmd,
- 	return msg_doit(nlh, NULL, NULL);
+@@ -534,12 +534,65 @@ static int cmd_link_mon_set(struct nlmsghdr *nlh, const struct cmd *cmd,
+ 	return run_cmd(nlh, cmd, cmds, cmdl, NULL);
  }
  
-+static int link_mon_summary_cb(const struct nlmsghdr *nlh, void *data)
++static void cmd_link_mon_get_help(struct cmdl *cmdl)
++{
++	fprintf(stderr, "Usage: %s monitor get PPROPERTY \n\n"
++		"PROPERTIES\n"
++		" threshold 	- Get monitor activation threshold\n",
++		cmdl->argv[0]);
++}
++
++static int link_mon_get_cb(const struct nlmsghdr *nlh, void *data)
 +{
 +	struct genlmsghdr *genl = mnl_nlmsg_get_payload(nlh);
 +	struct nlattr *info[TIPC_NLA_MAX + 1] = {};
@@ -60,58 +66,60 @@ index 3f0c32106772..df93409f2173 100644
 +		return MNL_CB_ERROR;
 +
 +	mnl_attr_parse_nested(info[TIPC_NLA_MON], parse_attrs, attrs);
++	if (!attrs[TIPC_NLA_MON_ACTIVATION_THRESHOLD])
++		return MNL_CB_ERROR;
 +
-+	printf("\nbearer %s\n",
-+		mnl_attr_get_str(attrs[TIPC_NLA_MON_BEARER_NAME]));
-+
-+	printf("    table_generation %u\n",
-+	       mnl_attr_get_u32(attrs[TIPC_NLA_MON_LISTGEN]));
-+	printf("    cluster_size %u\n",
-+		mnl_attr_get_u32(attrs[TIPC_NLA_MON_PEERCNT]));
-+	printf("    algorithm %s\n",
-+		attrs[TIPC_NLA_MON_ACTIVE] ? "overlapping-ring" : "full-mesh");
++	printf("%u\n",
++	       mnl_attr_get_u32(attrs[TIPC_NLA_MON_ACTIVATION_THRESHOLD]));
 +
 +	return MNL_CB_OK;
 +}
 +
-+static int cmd_link_mon_summary(struct nlmsghdr *nlh, const struct cmd *cmd,
-+				struct cmdl *cmdl, void *data)
++static int cmd_link_mon_get_prop(struct nlmsghdr *nlh, const struct cmd *cmd,
++				 struct cmdl *cmdl, void *data)
 +{
 +	char buf[MNL_SOCKET_BUFFER_SIZE];
-+
-+	if (help_flag) {
-+		fprintf(stderr,	"Usage: %s monitor summary\n", cmdl->argv[0]);
-+		return -EINVAL;
-+	}
 +
 +	if (!(nlh = msg_init(buf, TIPC_NL_MON_GET))) {
 +		fprintf(stderr, "error, message initialisation failed\n");
 +		return -1;
 +	}
 +
-+	return msg_dumpit(nlh, link_mon_summary_cb, NULL);
++	return msg_doit(nlh,	link_mon_get_cb,	NULL);
 +}
 +
- static void cmd_link_mon_set_help(struct cmdl *cmdl)
++static int cmd_link_mon_get(struct nlmsghdr *nlh, const struct cmd *cmd,
++			    struct cmdl *cmdl, void *data)
++{
++	const struct cmd cmds[] = {
++		{ "threshold",	cmd_link_mon_get_prop,	NULL},
++		{ NULL }
++	};
++
++	return run_cmd(nlh, cmd, cmds, cmdl, NULL);
++}
++
+ static void cmd_link_mon_help(struct cmdl *cmdl)
  {
- 	fprintf(stderr, "Usage: %s monitor set PPROPERTY\n\n"
-@@ -592,7 +635,8 @@ static void cmd_link_mon_help(struct cmdl *cmdl)
+ 	fprintf(stderr,
  		"Usage: %s montior COMMAND [ARGS] ...\n\n"
  		"COMMANDS\n"
- 		" set			- Set monitor properties\n"
--		" get			- Get monitor properties\n",
-+		" get			- Get monitor properties\n"
-+		" summary		- Show local node monitor summary\n",
+-		" set                  - Set monitor properties\n",
++		" set			- Set monitor properties\n"
++		" get			- Get monitor properties\n",
  		cmdl->argv[0]);
  }
  
-@@ -602,6 +646,7 @@ static int cmd_link_mon(struct nlmsghdr *nlh, const struct cmd *cmd, struct cmdl
+@@ -548,6 +601,7 @@ static int cmd_link_mon(struct nlmsghdr *nlh, const struct cmd *cmd, struct cmdl
+ {
  	const struct cmd cmds[] = {
  		{ "set",	cmd_link_mon_set,	cmd_link_mon_set_help },
- 		{ "get",	cmd_link_mon_get,	cmd_link_mon_get_help },
-+		{ "summary",	cmd_link_mon_summary,	NULL },
++		{ "get",	cmd_link_mon_get,	cmd_link_mon_get_help },
  		{ NULL }
  	};
  
 -- 
 2.1.4
+
+
+------------------------------------------------------------------------------
