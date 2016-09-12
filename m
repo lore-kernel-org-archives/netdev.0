@@ -1,58 +1,48 @@
-From: Alexandre Torgue <alexandre.torgue@st.com>
-Subject: Re: [PATCH 13/15] stmmac: use IS_ENABLED() instead of checking for
- built-in or module
-Date: Mon, 12 Sep 2016 18:47:40 +0200
-Message-ID: <747e1ae3-80cf-dfa7-613a-c3f8821ad2af@st.com>
-References: <1473689026-6983-1-git-send-email-javier@osg.samsung.com>
- <1473689026-6983-14-git-send-email-javier@osg.samsung.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [RFC V3 PATCH 03/26] net/netpolicy: get device queue irq
+ information
+Date: Mon, 12 Sep 2016 19:48:46 +0300
+Message-ID: <665fd0a7-fe83-742a-28fd-d597b28505b5@cogentembedded.com>
+References: <1473692159-4017-1-git-send-email-kan.liang@intel.com>
+ <1473692159-4017-4-git-send-email-kan.liang@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: Javier Martinez Canillas <javier@osg.samsung.com>,
-        <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:51951 "EHLO
-        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751672AbcILQrr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 12:47:47 -0400
-In-Reply-To: <1473689026-6983-14-git-send-email-javier@osg.samsung.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jeffrey.t.kirsher@intel.com, mingo@redhat.com,
+        peterz@infradead.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+        yoshfuji@linux-ipv6.org, kaber@trash.net,
+        akpm@linux-foundation.org, keescook@chromium.org,
+        viro@zeniv.linux.org.uk, gorcunov@openvz.org,
+        john.stultz@linaro.org, aduyck@mirantis.com, ben@decadent.org.uk,
+        decot@googlers.com, fw@strlen.de, alexander.duyck@gmail.com,
+        daniel@iogearbox.net, tom@herbertland.com, rdunlap@infradead.org,
+        xiyou.wangcong@gmail.com, hannes@stressinduktion.org,
+        stephen@networkplumber.org, alexei.starovoitov@gmail.com,
+        jesse.brandeburg@intel.com, andi@firstfloor.org
+To: kan.liang@intel.com, davem@davemloft.net,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1473692159-4017-4-git-send-email-kan.liang@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Javier,
+Hello.
 
-On 09/12/2016 04:03 PM, Javier Martinez Canillas wrote:
-> The IS_ENABLED() macro checks if a Kconfig symbol has been enabled either
-> built-in or as a module, use that macro instead of open coding the same.
->
-> Using the macro makes the code more readable by helping abstract away some
-> of the Kconfig built-in and module enable details.
->
-> Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
-> ---
->
->  drivers/net/ethernet/stmicro/stmmac/common.h | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-> index 2533b91f1421..d3292c4a6eda 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/common.h
-> +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-> @@ -30,7 +30,7 @@
->  #include <linux/stmmac.h>
->  #include <linux/phy.h>
->  #include <linux/module.h>
-> -#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
-> +#if IS_ENABLED(CONFIG_VLAN_8021Q)
->  #define STMMAC_VLAN_TAG_USED
->  #include <linux/if_vlan.h>
->  #endif
->
+On 09/12/2016 05:55 PM, kan.liang@intel.com wrote:
 
-Reviewed-by: Alexandre TORGUE <alexandre.torgue@st.com>
+> From: Kan Liang <kan.liang@intel.com>
+>
+> Net policy needs to know device information. Currently, it's enough to
+> only get irq information of rx and tx queues.
+>
+> This patch introduces ndo ops to do so, not ethtool ops.
+> Because there are already several ways to get irq information in
+> userspace. It's not necessory to extend the ethtool.
 
-Thanks,
+    Necessary.
 
-Alex
+> Signed-off-by: Kan Liang <kan.liang@intel.com>
+
+[...]
+
+MBR, Sergei
