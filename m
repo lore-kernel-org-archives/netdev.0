@@ -1,129 +1,146 @@
 From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net-next 1/5] net/mlx4_en: Add branch prediction hints in RX data-path
-Date: Mon, 12 Sep 2016 16:20:12 +0300
-Message-ID: <1473686416-11779-2-git-send-email-tariqt@mellanox.com>
+Subject: [PATCH net-next 4/5] net/mlx4_core: Fix deadlock when switching between polling and event fw commands
+Date: Mon, 12 Sep 2016 16:20:15 +0300
+Message-ID: <1473686416-11779-5-git-send-email-tariqt@mellanox.com>
 References: <1473686416-11779-1-git-send-email-tariqt@mellanox.com>
 Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+        Jack Morgenstein <jackm@dev.mellanox.co.il>,
+        Matan Barak <matanb@mellanox.com>,
         Tariq Toukan <tariqt@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:53451 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:53498 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1758756AbcILNUp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 09:20:45 -0400
+        with ESMTP id S932639AbcILNVF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 09:21:05 -0400
 In-Reply-To: <1473686416-11779-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add likely/unlikely hints to improve branch predictions
-in the RX data-path.
+From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
+When switching from polling-based fw commands to event-based fw
+commands, there is a race condition which could cause a fw command
+in another task to hang: that task will keep waiting for the polling
+sempahore, but may never be able to acquire it. This is due to
+mlx4_cmd_use_events, which "down"s the sempahore back to 0.
+
+During driver initialization, this is not a problem, since no other
+tasks which invoke FW commands are active.
+
+However, there is a problem if the driver switches to polling mode
+and then back to event mode during normal operation.
+
+The "test_interrupts" feature does exactly that.
+Running "ethtool -t <eth device> offline" causes the PF driver to
+temporarily switch to polling mode, and then back to event mode.
+(Note that for VF drivers, such switching is not performed).
+
+Fix this by adding a read-write semaphore for protection when
+switching between modes.
+
+Fixes: 225c7b1feef1 ("IB/mlx4: Add a driver Mellanox ConnectX InfiniBand adapters")
+Signed-off-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
 Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_rx.c | 26 ++++++++++++++------------
- 1 file changed, 14 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/cmd.c  | 23 +++++++++++++++++------
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h |  2 ++
+ 2 files changed, 19 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 6758292311f4..bb7ccb109aa4 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -72,7 +72,7 @@ static int mlx4_alloc_pages(struct mlx4_en_priv *priv,
+diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+index f04a423ff79d..a58d96cf1ed1 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+@@ -785,17 +785,23 @@ int __mlx4_cmd(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
+ 		return mlx4_cmd_reset_flow(dev, op, op_modifier, -EIO);
+ 
+ 	if (!mlx4_is_mfunc(dev) || (native && mlx4_is_master(dev))) {
++		int ret;
++
+ 		if (dev->persist->state & MLX4_DEVICE_STATE_INTERNAL_ERROR)
+ 			return mlx4_internal_err_ret_value(dev, op,
+ 							  op_modifier);
++		down_read(&mlx4_priv(dev)->cmd.switch_sem);
+ 		if (mlx4_priv(dev)->cmd.use_events)
+-			return mlx4_cmd_wait(dev, in_param, out_param,
+-					     out_is_imm, in_modifier,
+-					     op_modifier, op, timeout);
++			ret = mlx4_cmd_wait(dev, in_param, out_param,
++					    out_is_imm, in_modifier,
++					    op_modifier, op, timeout);
+ 		else
+-			return mlx4_cmd_poll(dev, in_param, out_param,
+-					     out_is_imm, in_modifier,
+-					     op_modifier, op, timeout);
++			ret = mlx4_cmd_poll(dev, in_param, out_param,
++					    out_is_imm, in_modifier,
++					    op_modifier, op, timeout);
++
++		up_read(&mlx4_priv(dev)->cmd.switch_sem);
++		return ret;
  	}
- 	dma = dma_map_page(priv->ddev, page, 0, PAGE_SIZE << order,
- 			   frag_info->dma_dir);
--	if (dma_mapping_error(priv->ddev, dma)) {
-+	if (unlikely(dma_mapping_error(priv->ddev, dma))) {
- 		put_page(page);
+ 	return mlx4_slave_cmd(dev, in_param, out_param, out_is_imm,
+ 			      in_modifier, op_modifier, op, timeout);
+@@ -2454,6 +2460,7 @@ int mlx4_cmd_init(struct mlx4_dev *dev)
+ 	int flags = 0;
+ 
+ 	if (!priv->cmd.initialized) {
++		init_rwsem(&priv->cmd.switch_sem);
+ 		mutex_init(&priv->cmd.slave_cmd_mutex);
+ 		sema_init(&priv->cmd.poll_sem, 1);
+ 		priv->cmd.use_events = 0;
+@@ -2583,6 +2590,7 @@ int mlx4_cmd_use_events(struct mlx4_dev *dev)
+ 	if (!priv->cmd.context)
  		return -ENOMEM;
- 	}
-@@ -108,7 +108,8 @@ static int mlx4_en_alloc_frags(struct mlx4_en_priv *priv,
- 		    ring_alloc[i].page_size)
- 			continue;
  
--		if (mlx4_alloc_pages(priv, &page_alloc[i], frag_info, gfp))
-+		if (unlikely(mlx4_alloc_pages(priv, &page_alloc[i],
-+					      frag_info, gfp)))
- 			goto out;
- 	}
++	down_write(&priv->cmd.switch_sem);
+ 	for (i = 0; i < priv->cmd.max_cmds; ++i) {
+ 		priv->cmd.context[i].token = i;
+ 		priv->cmd.context[i].next  = i + 1;
+@@ -2606,6 +2614,7 @@ int mlx4_cmd_use_events(struct mlx4_dev *dev)
  
-@@ -585,7 +586,7 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
- 		frag_info = &priv->frag_info[nr];
- 		if (length <= frag_info->frag_prefix_size)
- 			break;
--		if (!frags[nr].page)
-+		if (unlikely(!frags[nr].page))
- 			goto fail;
+ 	down(&priv->cmd.poll_sem);
+ 	priv->cmd.use_events = 1;
++	up_write(&priv->cmd.switch_sem);
  
- 		dma = be64_to_cpu(rx_desc->data[nr].addr);
-@@ -625,7 +626,7 @@ static struct sk_buff *mlx4_en_rx_skb(struct mlx4_en_priv *priv,
- 	dma_addr_t dma;
+ 	return err;
+ }
+@@ -2618,6 +2627,7 @@ void mlx4_cmd_use_polling(struct mlx4_dev *dev)
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 	int i;
  
- 	skb = netdev_alloc_skb(priv->dev, SMALL_PACKET_SIZE + NET_IP_ALIGN);
--	if (!skb) {
-+	if (unlikely(!skb)) {
- 		en_dbg(RX_ERR, priv, "Failed allocating skb\n");
- 		return NULL;
- 	}
-@@ -736,7 +737,8 @@ static int get_fixed_ipv6_csum(__wsum hw_checksum, struct sk_buff *skb,
- {
- 	__wsum csum_pseudo_hdr = 0;
++	down_write(&priv->cmd.switch_sem);
+ 	priv->cmd.use_events = 0;
  
--	if (ipv6h->nexthdr == IPPROTO_FRAGMENT || ipv6h->nexthdr == IPPROTO_HOPOPTS)
-+	if (unlikely(ipv6h->nexthdr == IPPROTO_FRAGMENT ||
-+		     ipv6h->nexthdr == IPPROTO_HOPOPTS))
- 		return -1;
- 	hw_checksum = csum_add(hw_checksum, (__force __wsum)htons(ipv6h->nexthdr));
+ 	for (i = 0; i < priv->cmd.max_cmds; ++i)
+@@ -2626,6 +2636,7 @@ void mlx4_cmd_use_polling(struct mlx4_dev *dev)
+ 	kfree(priv->cmd.context);
  
-@@ -769,7 +771,7 @@ static int check_csum(struct mlx4_cqe *cqe, struct sk_buff *skb, void *va,
- 		get_fixed_ipv4_csum(hw_checksum, skb, hdr);
- #if IS_ENABLED(CONFIG_IPV6)
- 	else if (cqe->status & cpu_to_be16(MLX4_CQE_STATUS_IPV6))
--		if (get_fixed_ipv6_csum(hw_checksum, skb, hdr))
-+		if (unlikely(get_fixed_ipv6_csum(hw_checksum, skb, hdr)))
- 			return -1;
- #endif
- 	return 0;
-@@ -796,10 +798,10 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 	u64 timestamp;
- 	bool l2_tunnel;
+ 	up(&priv->cmd.poll_sem);
++	up_write(&priv->cmd.switch_sem);
+ }
  
--	if (!priv->port_up)
-+	if (unlikely(!priv->port_up))
- 		return 0;
+ struct mlx4_cmd_mailbox *mlx4_alloc_cmd_mailbox(struct mlx4_dev *dev)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+index c9d7fc5159f2..c128ba3ef014 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+@@ -46,6 +46,7 @@
+ #include <linux/interrupt.h>
+ #include <linux/spinlock.h>
+ #include <net/devlink.h>
++#include <linux/rwsem.h>
  
--	if (budget <= 0)
-+	if (unlikely(budget <= 0))
- 		return polled;
- 
- 	/* Protect accesses to: ring->xdp_prog, priv->mac_hash list */
-@@ -902,16 +904,16 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 			case XDP_PASS:
- 				break;
- 			case XDP_TX:
--				if (!mlx4_en_xmit_frame(frags, dev,
-+				if (likely(!mlx4_en_xmit_frame(frags, dev,
- 							length, tx_index,
--							&doorbell_pending))
-+							&doorbell_pending)))
- 					goto consumed;
- 				break;
- 			default:
- 				bpf_warn_invalid_xdp_action(act);
- 			case XDP_ABORTED:
- 			case XDP_DROP:
--				if (mlx4_en_rx_recycle(ring, frags))
-+				if (likely(mlx4_en_rx_recycle(ring, frags)))
- 					goto consumed;
- 				goto next;
- 			}
-@@ -1015,7 +1017,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 
- 		/* GRO not possible, complete processing here */
- 		skb = mlx4_en_rx_skb(priv, rx_desc, frags, length);
--		if (!skb) {
-+		if (unlikely(!skb)) {
- 			ring->dropped++;
- 			goto next;
- 		}
+ #include <linux/mlx4/device.h>
+ #include <linux/mlx4/driver.h>
+@@ -627,6 +628,7 @@ struct mlx4_cmd {
+ 	struct mutex		slave_cmd_mutex;
+ 	struct semaphore	poll_sem;
+ 	struct semaphore	event_sem;
++	struct rw_semaphore	switch_sem;
+ 	int			max_cmds;
+ 	spinlock_t		context_lock;
+ 	int			free_head;
 -- 
 1.8.3.1
