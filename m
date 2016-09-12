@@ -1,97 +1,138 @@
-From: kan.liang@intel.com
-Subject: [RFC V3 PATCH 14/26] net/netpolicy: handle channel changes
-Date: Mon, 12 Sep 2016 07:55:47 -0700
-Message-ID: <1473692159-4017-15-git-send-email-kan.liang@intel.com>
-References: <1473692159-4017-1-git-send-email-kan.liang@intel.com>
-Cc: jeffrey.t.kirsher@intel.com, mingo@redhat.com,
-        peterz@infradead.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        yoshfuji@linux-ipv6.org, kaber@trash.net,
-        akpm@linux-foundation.org, keescook@chromium.org,
-        viro@zeniv.linux.org.uk, gorcunov@openvz.org,
-        john.stultz@linaro.org, aduyck@mirantis.com, ben@decadent.org.uk,
-        decot@googlers.com, fw@strlen.de, alexander.duyck@gmail.com,
-        daniel@iogearbox.net, tom@herbertland.com, rdunlap@infradead.org,
-        xiyou.wangcong@gmail.com, hannes@stressinduktion.org,
-        stephen@networkplumber.org, alexei.starovoitov@gmail.com,
-        jesse.brandeburg@intel.com, andi@firstfloor.org,
-        Kan Liang <kan.liang@intel.com>
-To: davem@davemloft.net, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
+From: LABBE Corentin <clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH v3 3/9] ARM: sun8i: dt: Add DT bindings documentation for
+ Allwinner sun8i-emac
+Date: Mon, 12 Sep 2016 17:01:25 +0200
+Message-ID: <20160912150125.GA15570@Red>
+References: <1473425117-18645-1-git-send-email-clabbe.montjoie@gmail.com>
+ <1473425117-18645-4-git-send-email-clabbe.montjoie@gmail.com>
+ <20160909140413.GD30871@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: robh+dt@kernel.org, mark.rutland@arm.com,
+        maxime.ripard@free-electrons.com, wens@csie.org,
+        linux@armlinux.org.uk, davem@davemloft.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        devicetree@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:7470 "EHLO mga04.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1759590AbcILO4p (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 12 Sep 2016 10:56:45 -0400
-In-Reply-To: <1473692159-4017-1-git-send-email-kan.liang@intel.com>
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:37958 "EHLO
+        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1759590AbcILPBb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 11:01:31 -0400
+Content-Disposition: inline
+In-Reply-To: <20160909140413.GD30871@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kan Liang <kan.liang@intel.com>
+On Fri, Sep 09, 2016 at 04:04:13PM +0200, Andrew Lunn wrote:
+> > +The device node referenced by "phy" or "phy-handle" should be a child node
+> > +of this node. See phy.txt for the generic PHY bindings.
+> 
+> I've not looked at the code yet, but is this really true? Generally
+> there is not this limitation. You can point to any Ethernet phy
+> anyway, so long as it is on am MDIO bus.
+> 
+> > +
+> > +Optional properties:
+> > +- allwinner,tx-delay: TX clock delay chain value. Range value is 0-0x07. Default is 0)
+> > +- allwinner,rx-delay: RX clock delay chain value. Range value is 0-0x1F. Default is 0)
+> > +
+> > +The TX/RX clock delay chain settings are board specific.
+> > +
+> > +Optional properties for "allwinner,sun8i-h3-emac":
+> > +- allwinner,leds-active-low: EPHY LEDs are active low
+> > +
+> > +Example:
+> > +
+> > +emac: ethernet@01c0b000 {
+> > +	compatible = "allwinner,sun8i-h3-emac";
+> > +	syscon = <&syscon>;
+> > +	reg = <0x01c0b000 0x104>;
+> > +	reg-names = "emac";
+> > +	interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
+> > +	resets = <&ccu RST_BUS_EMAC>, <<&ccu RST_BUS_EPHY>;
+> > +	reset-names = "ahb", "ephy";
+> > +	clocks = <&ccu CLK_BUS_EMAC>, <&ccu CLK_BUS_EPHY>;
+> > +	clock-names = "ahb", "ephy";
+> > +	#address-cells = <1>;
+> > +	#size-cells = <0>;
+> > +
+> > +	phy = <&phy1>;
+> 
+> ethernet.txt say:
+> 
+> - phy: the same as "phy-handle" property, not recommended for new bindings.
+> 
+> This is a new binding, please don't support it.
+> 
+> > +	phy-mode = "mii";
+> > +	allwinner,leds-active-low;
+> > +
+> > +	phy1: ethernet-phy@1 {
+> > +		reg = <1>;
+> > +	};
+> 
+> It is normal to place these phy nodes inside an container node called
+> mdio.
+> 
 
-User can uses ethtool to set the channel number. This patch handles the
-channel changes by rebuilding the object list.
+Hello
 
-Signed-off-by: Kan Liang <kan.liang@intel.com>
----
- include/linux/netpolicy.h | 8 ++++++++
- net/core/ethtool.c        | 8 +++++++-
- net/core/netpolicy.c      | 1 +
- 3 files changed, 16 insertions(+), 1 deletion(-)
+Since the MDIO bus is a part of the sun8i-emac, does I really need to create such a mdio node ?
+All example I found are mdio bus with separate driver. (others driver have the phy directly in [eg]mac node.
 
-diff --git a/include/linux/netpolicy.h b/include/linux/netpolicy.h
-index f60331d..d6ba9f6 100644
---- a/include/linux/netpolicy.h
-+++ b/include/linux/netpolicy.h
-@@ -80,4 +80,12 @@ struct netpolicy_info {
- 	struct list_head	obj_list[NETPOLICY_RXTX][NET_POLICY_MAX];
+Anyway I try the following patch to solve your comments, but it breaks the PHY finding(Could not attach to PHY).
+
+Regards
+
+-->8--
+--- a/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts
++++ b/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts
+@@ -166,14 +166,18 @@
+        status = "okay";
  };
  
-+#ifdef CONFIG_NETPOLICY
-+extern void update_netpolicy_sys_map(void);
-+#else
-+static inline void update_netpolicy_sys_map(void)
-+{
-+}
-+#endif
++&mdio {
++       reg = <1>;
++       phy1: ethernet-phy@1 {
++               reg = <1>;
++       };
++};
 +
- #endif /*__LINUX_NETPOLICY_H*/
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 9774898..e1f8bd0 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -1703,6 +1703,7 @@ static noinline_for_stack int ethtool_set_channels(struct net_device *dev,
- {
- 	struct ethtool_channels channels, max;
- 	u32 max_rx_in_use = 0;
-+	int ret;
+ &emac {
+-       phy = <&phy1>;
++       phy-handle = <&phy1>;
+        phy-mode = "mii";
+        allwinner,leds-active-low;
+        status = "okay";
+-       phy1: ethernet-phy@1 {
+-               reg = <1>;
+-       };
+ };/arch/arm/boot/dts/sun8i-h3.dtsi
++++ b/arch/arm/boot/dts/sun8i-h3.dtsi
+@@ -474,6 +474,11 @@
+                        #address-cells = <1>;
+                        #size-cells = <0>;
+                        status = "disabled";
++
++                       mdio: mdio@0 {
++                               #address-cells = <1>;
++                               #size-cells = <0>;
++                       };
+                };
  
- 	if (!dev->ethtool_ops->set_channels || !dev->ethtool_ops->get_channels)
- 		return -EOPNOTSUPP;
-@@ -1726,7 +1727,12 @@ static noinline_for_stack int ethtool_set_channels(struct net_device *dev,
- 	    (channels.combined_count + channels.rx_count) <= max_rx_in_use)
- 	    return -EINVAL;
+                crypto: crypto@1c15000 {
+--- a/drivers/net/ethernet/allwinner/sun8i-emac.c
++++ b/drivers/net/ethernet/allwinner/sun8i-emac.c
+@@ -2122,7 +2122,7 @@ static int sun8i_emac_probe(struct platform_device *pdev)
+                return -EINVAL;
+        }
  
--	return dev->ethtool_ops->set_channels(dev, &channels);
-+	ret = dev->ethtool_ops->set_channels(dev, &channels);
-+#ifdef CONFIG_NETPOLICY
-+	if (!ret)
-+		update_netpolicy_sys_map();
-+#endif
-+	return ret;
- }
+-       priv->phy_node = of_parse_phandle(node, "phy", 0);
++       priv->phy_node = of_parse_phandle(node, "phy-handle", 0);
+        if (!priv->phy_node) {
+                netdev_err(ndev, "No associated PHY\n");
+                return -ENODEV;
+
  
- static int ethtool_get_pauseparam(struct net_device *dev, void __user *useraddr)
-diff --git a/net/core/netpolicy.c b/net/core/netpolicy.c
-index 3bf0a44..a739ac7 100644
---- a/net/core/netpolicy.c
-+++ b/net/core/netpolicy.c
-@@ -893,6 +893,7 @@ unlock:
- 		}
- 	}
- }
-+EXPORT_SYMBOL(update_netpolicy_sys_map);
- 
- static int netpolicy_cpu_callback(struct notifier_block *nfb,
- 				  unsigned long action, void *hcpu)
--- 
-2.5.5
+ &crypto {
