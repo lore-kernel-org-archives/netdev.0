@@ -1,7 +1,7 @@
 From: kan.liang@intel.com
-Subject: [RFC V3 PATCH 09/26] net/netpolicy: set NET policy by policy name
-Date: Mon, 12 Sep 2016 07:55:42 -0700
-Message-ID: <1473692159-4017-10-git-send-email-kan.liang@intel.com>
+Subject: [RFC V3 PATCH 04/26] net/netpolicy: get CPU information
+Date: Mon, 12 Sep 2016 07:55:37 -0700
+Message-ID: <1473692159-4017-5-git-send-email-kan.liang@intel.com>
 References: <1473692159-4017-1-git-send-email-kan.liang@intel.com>
 Cc: jeffrey.t.kirsher@intel.com, mingo@redhat.com,
         peterz@infradead.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
@@ -24,191 +24,29 @@ List-Id: netdev.vger.kernel.org
 
 From: Kan Liang <kan.liang@intel.com>
 
-User can write policy name to /proc/net/netpolicy/$DEV/policy to enable
-net policy for specific device.
-
-When the policy is enabled, the subsystem automatically disables IRQ
-balance and set IRQ affinity. The object list is also generated
-accordingly.
-
-It is device driver's responsibility to set driver specific
-configuration for the given policy.
-
-np_lock will be used to protect the state.
+Net policy also needs to know CPU information. Currently, online
+CPU count is enough.
 
 Signed-off-by: Kan Liang <kan.liang@intel.com>
 ---
- include/linux/netdevice.h |  5 +++
- include/linux/netpolicy.h |  1 +
- net/core/netpolicy.c      | 95 +++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 101 insertions(+)
+ net/core/netpolicy.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 8fcea13..3bfa5df 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1128,6 +1128,9 @@ struct netdev_xdp {
-  * int (*ndo_get_irq_info)(struct net_device *dev,
-  *			   struct netpolicy_dev_info *info);
-  *	This function is used to get irq information of rx and tx queues
-+ * int (*ndo_set_net_policy)(struct net_device *dev,
-+ *			     enum netpolicy_name name);
-+ *	This function is used to set per device net policy by name
-  *
-  */
- struct net_device_ops {
-@@ -1319,6 +1322,8 @@ struct net_device_ops {
- 						      struct netpolicy_info *info);
- 	int			(*ndo_get_irq_info)(struct net_device *dev,
- 						    struct netpolicy_dev_info *info);
-+	int			(*ndo_set_net_policy)(struct net_device *dev,
-+						      enum netpolicy_name name);
- #endif /* CONFIG_NETPOLICY */
- };
- 
-diff --git a/include/linux/netpolicy.h b/include/linux/netpolicy.h
-index 1c89dda..8596b6a 100644
---- a/include/linux/netpolicy.h
-+++ b/include/linux/netpolicy.h
-@@ -27,6 +27,7 @@ enum netpolicy_traffic {
- 	NETPOLICY_RXTX,
- };
- 
-+#define POLICY_NAME_LEN_MAX	64
- extern const char *policy_name[];
- 
- struct netpolicy_dev_info {
 diff --git a/net/core/netpolicy.c b/net/core/netpolicy.c
-index b330cf3..511d1c6 100644
+index 882f0de..31c41ca 100644
 --- a/net/core/netpolicy.c
 +++ b/net/core/netpolicy.c
-@@ -37,6 +37,7 @@
- #include <net/net_namespace.h>
- #include <net/rtnetlink.h>
- #include <linux/sort.h>
-+#include <linux/ctype.h>
- 
- static int netpolicy_get_dev_info(struct net_device *dev,
- 				  struct netpolicy_dev_info *d_info)
-@@ -434,6 +435,69 @@ err:
- 	return ret;
+@@ -50,6 +50,11 @@ static void netpolicy_free_dev_info(struct netpolicy_dev_info *d_info)
+ 	kfree(d_info->tx_irq);
  }
  
-+static int net_policy_set_by_name(char *name, struct net_device *dev)
++static u32 netpolicy_get_cpu_information(void)
 +{
-+	int i, ret;
-+
-+	spin_lock(&dev->np_lock);
-+	ret = 0;
-+
-+	if (!dev->netpolicy ||
-+	    !dev->netdev_ops->ndo_set_net_policy) {
-+		ret = -ENOTSUPP;
-+		goto unlock;
-+	}
-+
-+	for (i = 0; i < NET_POLICY_MAX; i++) {
-+		if (!strncmp(name, policy_name[i], strlen(policy_name[i])))
-+		break;
-+	}
-+
-+	if (!test_bit(i, dev->netpolicy->avail_policy)) {
-+		ret = -ENOTSUPP;
-+		goto unlock;
-+	}
-+
-+	if (i == dev->netpolicy->cur_policy)
-+		goto unlock;
-+
-+	/* If there is no policy applied yet, need to do enable first . */
-+	if (dev->netpolicy->cur_policy == NET_POLICY_NONE) {
-+		ret = netpolicy_enable(dev);
-+		if (ret)
-+			goto unlock;
-+	}
-+
-+	netpolicy_free_obj_list(dev);
-+
-+	/* Generate object list according to policy name */
-+	ret = netpolicy_gen_obj_list(dev, i);
-+	if (ret)
-+		goto err;
-+
-+	/* set policy */
-+	ret = dev->netdev_ops->ndo_set_net_policy(dev, i);
-+	if (ret)
-+		goto err;
-+
-+	/* If removing policy, need to do disable. */
-+	if (i == NET_POLICY_NONE)
-+		netpolicy_disable(dev);
-+
-+	dev->netpolicy->cur_policy = i;
-+
-+	spin_unlock(&dev->np_lock);
-+	return 0;
-+
-+err:
-+	netpolicy_free_obj_list(dev);
-+	if (dev->netpolicy->cur_policy == NET_POLICY_NONE)
-+		netpolicy_disable(dev);
-+unlock:
-+	spin_unlock(&dev->np_lock);
-+	return ret;
++	return num_online_cpus();
 +}
 +
- #ifdef CONFIG_PROC_FS
- 
- static int net_policy_proc_show(struct seq_file *m, void *v)
-@@ -463,11 +527,40 @@ static int net_policy_proc_open(struct inode *inode, struct file *file)
- 	return single_open(file, net_policy_proc_show, PDE_DATA(inode));
- }
- 
-+static ssize_t net_policy_proc_write(struct file *file, const char __user *buf,
-+				     size_t count, loff_t *pos)
-+{
-+	struct seq_file *m = file->private_data;
-+	struct net_device *dev = (struct net_device *)m->private;
-+	char name[POLICY_NAME_LEN_MAX];
-+	int i, ret;
-+
-+	if (!dev->netpolicy)
-+		return -ENOTSUPP;
-+
-+	if (count > POLICY_NAME_LEN_MAX)
-+		return -EINVAL;
-+
-+	if (copy_from_user(name, buf, count))
-+		return -EINVAL;
-+
-+	for (i = 0; i < count - 1; i++)
-+		name[i] = toupper(name[i]);
-+	name[POLICY_NAME_LEN_MAX - 1] = 0;
-+
-+	ret = net_policy_set_by_name(name, dev);
-+	if (ret)
-+		return ret;
-+
-+	return count;
-+}
-+
- static const struct file_operations proc_net_policy_operations = {
- 	.open		= net_policy_proc_open,
- 	.read		= seq_read,
- 	.llseek		= seq_lseek,
- 	.release	= seq_release,
-+	.write		= net_policy_proc_write,
- 	.owner		= THIS_MODULE,
+ const char *policy_name[NET_POLICY_MAX] = {
+ 	"NONE"
  };
- 
-@@ -531,6 +624,8 @@ void uninit_netpolicy(struct net_device *dev)
- {
- 	spin_lock(&dev->np_lock);
- 	if (dev->netpolicy) {
-+		if (dev->netpolicy->cur_policy > NET_POLICY_NONE)
-+			netpolicy_disable(dev);
- 		kfree(dev->netpolicy);
- 		dev->netpolicy = NULL;
- 	}
 -- 
 2.5.5
