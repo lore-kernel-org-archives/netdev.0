@@ -1,58 +1,94 @@
-From: Greg <gvrose8192@gmail.com>
-Subject: Re: [PATCH 08/15] ixgbe: use IS_ENABLED() instead of checking for
- built-in or module
-Date: Mon, 12 Sep 2016 08:36:03 -0700
-Message-ID: <1473694563.4320.4.camel@gmail.com>
-References: <1473689026-6983-1-git-send-email-javier@osg.samsung.com>
-         <1473689026-6983-9-git-send-email-javier@osg.samsung.com>
+From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+        <u.kleine-koenig@pengutronix.de>
+Subject: About enet_out clk on i.MX28, i.MX6 and i.MX7
+Date: Mon, 12 Sep 2016 17:36:07 +0200
+Message-ID: <20160912153607.qqkosq4uu2rl76eg@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        intel-wired-lan@lists.osuosl.org,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Javier Martinez Canillas <javier@osg.samsung.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1473689026-6983-9-git-send-email-javier@osg.samsung.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: Lothar =?iso-8859-1?Q?Wa=DFmann?= <LW@KARO-electronics.de>,
+        Lauri Hintsala <lauri.hintsala@bluegiga.com>,
+        Shawn Guo <shawnguo@kernel.org>,
+        Fabio Estevam <fabio.estevam@nxp.com>, kernel@pengutronix.de
+To: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:40129 "EHLO
+        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S934162AbcILPgM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 11:36:12 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-09-12 at 10:03 -0400, Javier Martinez Canillas wrote:
-> The IS_ENABLED() macro checks if a Kconfig symbol has been enabled either
-> built-in or as a module, use that macro instead of open coding the same.
-> 
-> Using the macro makes the code more readable by helping abstract away some
-> of the Kconfig built-in and module enable details.
-> 
-> Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
-> ---
-> 
->  drivers/net/ethernet/intel/ixgbe/ixgbe.h | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-> index 33c025055011..b06e32d0d22a 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-> @@ -45,10 +45,10 @@
->  #include "ixgbe_type.h"
->  #include "ixgbe_common.h"
->  #include "ixgbe_dcb.h"
-> -#if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
-> +#if IS_ENABLED(CONFIG_FCOE)
+Hello,
 
-I was wondering what happens if CONFIG_FCOE_MODULE is defined but not
-CONFIG_FCOE but then couldn't even find CONFIG_FCOE_MODULE in any
-Kconfigs anywhere in the current tree.
+to operate the MDIO bus a clk is required. On some i.MX SoCs it can be
+configured if that clk is provided by the CPU or not (i.e. something
+else provides it).
 
-Looks good to me.
+The devicetree abstraction for that is (e.g. on i.MX28):
 
-      * Reviewed-by: Greg Rose <grose@lightfleet.com>
+	mac0: ethernet@800f0000 {
+		compatible = "fsl,imx28-fec";
+		...
+		clocks = <&clks 57>, <&clks 57>, <&clks 64>;
+		clock-names = "ipg", "ahb", "enet_out";
+		...
+	};
 
->  #define IXGBE_FCOE
->  #include "ixgbe_fcoe.h"
-> -#endif /* CONFIG_FCOE or CONFIG_FCOE_MODULE */
-> +#endif /* IS_ENABLED(CONFIG_FCOE) */
->  #ifdef CONFIG_IXGBE_DCA
->  #include <linux/dca.h>
->  #endif
+and the driver does:
+
+	/* enet_out is optional, depends on board */
+	fep->clk_enet_out = devm_clk_get(&pdev->dev, "enet_out");
+	if (IS_ERR(fep->clk_enet_out))
+		fep->clk_enet_out = NULL;
+
+. IMHO this is clumsy and wrong. See for example
+arch/arm/boot/dts/imx28-m28evk.dts which has:
+
+	ethernet@800f0000 {
+		...
+		clocks = <&clks 57>, <&clks 57>;
+		clock-names = "ipg", "ahb";
+	}
+
+to get rid of this entry. Moreover enet_out isn't a clock for the fec
+instance but for the mdio bus, so the better binding would be:
+
+	mac0: ethernet@800f0000 {
+		compatible = "fsl,imx28-fec";
+
+		clocks = <&clks 57>, <&clks 57>;
+		clock-names = "ipg", "ahb";
+
+		mdio {
+			clocks = <&clks 64>;
+			...
+		};
+	};
+
+This better matches reality and is easier to overwrite per board without
+repeating stuff from imx28.dtsi as it is now.
+
+What do you think? Compatibility isn't a big concern, the fec driver
+could just keep handling "enet_out" as is and learn about the optional
+mdio/clocks.
+This would handle old dtbs just fine.
+
+Slightly related: Some machines (bluegiga,apx4devkit, karo,tx28) still
+enable enet_out clk in arch/arm/mach-mxs/mach-mxs.c. I think this can be
+dropped, right? (Unless recent kernels should still handle dtbs that
+don't have enet_out in the fec node. That affects dtbs built between
+
+	v3.6-rc1~144^2~7^2~11 = 3143bbb42b3d ("ARM: mxs: convert apx4devkit board to device tree")
+and
+
+	v3.10-rc1~63^2~10^2~20 = f231a9fe7f80 ("ARM: dts: mxs: add enet_out clock to devicetree")
+.)
+
+Best regards
+Uwe
+
+-- 
+Pengutronix e.K.                           | Uwe Kleine-König            |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
