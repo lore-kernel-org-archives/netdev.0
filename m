@@ -1,7 +1,7 @@
 From: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH v4 14/16] IB/pvrdma: Add Kconfig and Makefile
-Date: Sun, 11 Sep 2016 21:49:24 -0700
-Message-ID: <1473655766-31628-15-git-send-email-aditr@vmware.com>
+Subject: [PATCH v4 10/16] IB/pvrdma: Add UAR support
+Date: Sun, 11 Sep 2016 21:49:20 -0700
+Message-ID: <1473655766-31628-11-git-send-email-aditr@vmware.com>
 References: <1473655766-31628-1-git-send-email-aditr@vmware.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,8 +16,11 @@ In-Reply-To: <1473655766-31628-1-git-send-email-aditr-pghWNbHTmq7QT0dZR+AlfA@pub
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds a Kconfig and Makefile for the PVRDMA driver.
+This patch adds the UAR support for the paravirtual RDMA device. The UAR
+pages are MMIO pages from the virtual PCI space. We define offsets within
+this page to provide the fast data-path operations.
 
+Reviewed-by: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 Reviewed-by: Jorgen Hansen <jhansen-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
 Reviewed-by: George Zhang <georgezhang-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
 Reviewed-by: Aditya Sarwade <asarwade-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
@@ -25,36 +28,149 @@ Reviewed-by: Bryan Tan <bryantan-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
 ---
 Changes v3->v4:
- - Enforced dependency on VMXNet3
----
- drivers/infiniband/hw/pvrdma/Kconfig  | 7 +++++++
- drivers/infiniband/hw/pvrdma/Makefile | 3 +++
- 2 files changed, 10 insertions(+)
- create mode 100644 drivers/infiniband/hw/pvrdma/Kconfig
- create mode 100644 drivers/infiniband/hw/pvrdma/Makefile
+ - Removed an unnecessary comment.
 
-diff --git a/drivers/infiniband/hw/pvrdma/Kconfig b/drivers/infiniband/hw/pvrdma/Kconfig
+Changes v2->v3:
+ - Used is_power_of_2 function.
+ - Simplify pvrdma_uar_alloc function.
+---
+ drivers/infiniband/hw/pvrdma/pvrdma_doorbell.c | 127 +++++++++++++++++++++++++
+ 1 file changed, 127 insertions(+)
+ create mode 100644 drivers/infiniband/hw/pvrdma/pvrdma_doorbell.c
+
+diff --git a/drivers/infiniband/hw/pvrdma/pvrdma_doorbell.c b/drivers/infiniband/hw/pvrdma/pvrdma_doorbell.c
 new file mode 100644
-index 0000000..b345679
+index 0000000..bf51357
 --- /dev/null
-+++ b/drivers/infiniband/hw/pvrdma/Kconfig
-@@ -0,0 +1,7 @@
-+config INFINIBAND_PVRDMA
-+	tristate "VMware Paravirtualized RDMA Driver"
-+	depends on NETDEVICES && ETHERNET && PCI && INET && VMXNET3
-+	---help---
-+	  This driver provides low-level support for VMware Paravirtual
-+	  RDMA adapter. It interacts with the VMXNet3 driver to provide
-+	  Ethernet capabilities.
-diff --git a/drivers/infiniband/hw/pvrdma/Makefile b/drivers/infiniband/hw/pvrdma/Makefile
-new file mode 100644
-index 0000000..e6f078b
---- /dev/null
-+++ b/drivers/infiniband/hw/pvrdma/Makefile
-@@ -0,0 +1,3 @@
-+obj-$(CONFIG_INFINIBAND_PVRDMA) += pvrdma.o
++++ b/drivers/infiniband/hw/pvrdma/pvrdma_doorbell.c
+@@ -0,0 +1,127 @@
++/*
++ * Copyright (c) 2012-2016 VMware, Inc.  All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of EITHER the GNU General Public License
++ * version 2 as published by the Free Software Foundation or the BSD
++ * 2-Clause License. This program is distributed in the hope that it
++ * will be useful, but WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED
++ * WARRANTY OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
++ * See the GNU General Public License version 2 for more details at
++ * http://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program available in the file COPYING in the main
++ * directory of this source tree.
++ *
++ * The BSD 2-Clause License
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
++ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
++ * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
++ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
++ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
++ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
++ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
++ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
++ * OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
 +
-+pvrdma-y := pvrdma_cmd.o pvrdma_cq.o pvrdma_doorbell.o pvrdma_main.o pvrdma_misc.o pvrdma_mr.o pvrdma_qp.o pvrdma_verbs.o
++#include <linux/bitmap.h>
++#include <linux/errno.h>
++#include <linux/slab.h>
++
++#include "pvrdma.h"
++
++int pvrdma_uar_table_init(struct pvrdma_dev *dev)
++{
++	u32 num = dev->dsr->caps.max_uar;
++	u32 mask = num - 1;
++	struct pvrdma_id_table *tbl = &dev->uar_table.tbl;
++
++	if (!is_power_of_2(num))
++		return -EINVAL;
++
++	tbl->last = 0;
++	tbl->top = 0;
++	tbl->max = num;
++	tbl->mask = mask;
++	spin_lock_init(&tbl->lock);
++	tbl->table = kcalloc(BITS_TO_LONGS(num), sizeof(long), GFP_KERNEL);
++	if (!tbl->table)
++		return -ENOMEM;
++
++	/* 0th UAR is taken by the device. */
++	set_bit(0, tbl->table);
++
++	return 0;
++}
++
++void pvrdma_uar_table_cleanup(struct pvrdma_dev *dev)
++{
++	struct pvrdma_id_table *tbl = &dev->uar_table.tbl;
++
++	kfree(tbl->table);
++}
++
++int pvrdma_uar_alloc(struct pvrdma_dev *dev, struct pvrdma_uar_map *uar)
++{
++	struct pvrdma_id_table *tbl;
++	unsigned long flags;
++	u32 obj;
++
++	tbl = &dev->uar_table.tbl;
++
++	spin_lock_irqsave(&tbl->lock, flags);
++	obj = find_next_zero_bit(tbl->table, tbl->max, tbl->last);
++	if (obj >= tbl->max) {
++		tbl->top = (tbl->top + tbl->max) & tbl->mask;
++		obj = find_first_zero_bit(tbl->table, tbl->max);
++	}
++
++	if (obj >= tbl->max) {
++		spin_unlock_irqrestore(&tbl->lock, flags);
++		return -ENOMEM;
++	}
++
++	set_bit(obj, tbl->table);
++	obj |= tbl->top;
++
++	spin_unlock_irqrestore(&tbl->lock, flags);
++
++	uar->index = obj;
++	uar->pfn = (pci_resource_start(dev->pdev, PVRDMA_PCI_RESOURCE_UAR) >>
++		    PAGE_SHIFT) + uar->index;
++
++	return 0;
++}
++
++void pvrdma_uar_free(struct pvrdma_dev *dev, struct pvrdma_uar_map *uar)
++{
++	struct pvrdma_id_table *tbl = &dev->uar_table.tbl;
++	unsigned long flags;
++	u32 obj;
++
++	obj = uar->index & (tbl->max - 1);
++	spin_lock_irqsave(&tbl->lock, flags);
++	clear_bit(obj, tbl->table);
++	tbl->last = min(tbl->last, obj);
++	tbl->top = (tbl->top + tbl->max) & tbl->mask;
++	spin_unlock_irqrestore(&tbl->lock, flags);
++}
 -- 
 2.7.4
 
