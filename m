@@ -1,33 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: dsa: bcm_sf2: Get VLAN_PORT_MASK from
- b53_device
-Date: Sun, 11 Sep 2016 19:37:22 -0700 (PDT)
-Message-ID: <20160911.193722.2123183155908368397.davem@davemloft.net>
-References: <1473536343-13427-1-git-send-email-f.fainelli@gmail.com>
+Subject: Re: [PATCH net V2 0/4] mlx4 fixes
+Date: Sun, 11 Sep 2016 19:40:44 -0700 (PDT)
+Message-ID: <20160911.194044.1720049805040859116.davem@davemloft.net>
+References: <1473580580-2323-1-git-send-email-tariqt@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vivien.didelot@savoirfairelinux.com,
-        andrew@lunn.ch
-To: f.fainelli@gmail.com
+Cc: netdev@vger.kernel.org, eranbe@mellanox.com
+To: tariqt@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36950 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:36982 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756515AbcILCh2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 11 Sep 2016 22:37:28 -0400
-In-Reply-To: <1473536343-13427-1-git-send-email-f.fainelli@gmail.com>
+        with ESMTP id S1756546AbcILCkq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 11 Sep 2016 22:40:46 -0400
+In-Reply-To: <1473580580-2323-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Sat, 10 Sep 2016 12:39:03 -0700
+From: Tariq Toukan <tariqt@mellanox.com>
+Date: Sun, 11 Sep 2016 10:56:16 +0300
 
-> While migrating the bcm_sf2 driver to use b53_common, we left a small
-> piece untouched where we kept our local copy of the per-port
-> port_vlan_ctl bitmask value. This value is now maintained by b53_device
-> so we need to use it instead of our local (and now stale) copy of it.
+> This patchset contains several bug fixes from the team to the
+> mlx4 Eth driver.
 > 
-> Fixes: f458995b9ad8 ("net: dsa: bcm_sf2: Utilize core B53 driver when possible")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> Series generated against net commit:
+> c2f57fb97da5 "drivers: net: phy: mdio-xgene: Add hardware dependency"
+ ...
+> v2:
+> * excluded some cleanup patches.
 
-Applied.
+Series applied, thanks.
