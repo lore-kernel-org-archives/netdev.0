@@ -1,8 +1,8 @@
 From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH iproute2 net-next v1 7/7] tipc: update man
-	page for link monitor
-Date: Mon, 12 Sep 2016 17:17:21 +0200
-Message-ID: <1473693441-14254-8-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH iproute2 net-next v1 5/7] tipc: refractor
+	bearer to facilitate link monitor
+Date: Mon, 12 Sep 2016 17:17:19 +0200
+Message-ID: <1473693441-14254-6-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 References: <1473693441-14254-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,135 +21,244 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Add description for the new link monitor commands.
+In this commit, we:
+1. Export print_bearer_media()
+2. Move the bearer name handling from nl_add_bearer_name() into
+   a new function cmd_get_unique_bearer_name().
+
+These exported functions will be used by link monitor used in
+subsequent commits.
 
 Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
 ---
- man/man8/tipc-link.8 | 104 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 104 insertions(+)
+ tipc/bearer.c | 75 +++++++++++++++++++++++++++++++++++------------------------
+ tipc/bearer.h |  4 ++++
+ 2 files changed, 48 insertions(+), 31 deletions(-)
 
-diff --git a/man/man8/tipc-link.8 b/man/man8/tipc-link.8
-index 2ee03a0bd96e..fee283e5cfff 100644
---- a/man/man8/tipc-link.8
-+++ b/man/man8/tipc-link.8
-@@ -39,6 +39,29 @@ tipc-link \- show links or modify link properties
- .B tipc link list
- .br
+diff --git a/tipc/bearer.c b/tipc/bearer.c
+index 8729dad4a060..810344f672af 100644
+--- a/tipc/bearer.c
++++ b/tipc/bearer.c
+@@ -45,7 +45,7 @@ static void _print_bearer_opts(void)
+ 		" window                - Bearer link window\n");
+ }
  
-+.ti -8
-+.B tipc link monitor set
-+.RB "{ " "threshold" " } "
-+
-+.ti -8
-+.B tipc link monitor get
-+.RB "{ " "threshold" " } "
-+
-+.ti -8
-+.B tipc link monitor summary
-+.br
-+
-+.ti -8
-+.B tipc link monitor list
-+.br
-+.RB "[ " "media " " { " eth " | " ib " } " device
-+.IR "DEVICE" " ]"
-+.RB "|"
-+.br
-+.RB "[ " "media udp name"
-+.IR NAME " ]"
-+.br
-+
- .SH OPTIONS
- Options (flags) that can be passed anywhere in the command chain.
- .TP
-@@ -204,6 +227,87 @@ The link window controls how many unacknowledged messages a link endpoint can
- have in its transmit queue before TIPC's congestion control mechanism is
- activated.
+-static void _print_bearer_media(void)
++void print_bearer_media(void)
+ {
+ 	fprintf(stderr,
+ 		"\nMEDIA\n"
+@@ -192,14 +192,28 @@ static int nl_add_udp_enable_opts(struct nlmsghdr *nlh, struct opt *opts,
+ }
  
-+.SS Monitor properties
+ static int nl_add_bearer_name(struct nlmsghdr *nlh, const struct cmd *cmd,
+-			   struct cmdl *cmdl, struct opt *opts,
+-			   struct tipc_sup_media sup_media[])
++			      struct cmdl *cmdl, struct opt *opts,
++			      const struct tipc_sup_media *sup_media)
++{
++	char bname[TIPC_MAX_BEARER_NAME];
++	int err;
 +
-+.TP
-+.B threshold
-+.br
-+The threshold specifies the cluster size exceeding which the link monitoring
-+algorithm will switch from "full-mesh" to "overlapping-ring".
-+If set of 0 the overlapping-ring monitoring is always on and if set to a
-+value larger than anticipated cluster size the overlapping-ring is disabled.
-+The default value is 32.
++	if ((err = cmd_get_unique_bearer_name(cmd, cmdl, opts, bname, sup_media)))
++		return err;
 +
-+.SS Monitor information
++	mnl_attr_put_strz(nlh, TIPC_NLA_BEARER_NAME, bname);
++	return 0;
++}
 +
-+.TP
-+.B table_generation
-+.br
-+Represents the event count in a node's local monitoring list. It steps every
-+time something changes in the local monitor list, including changes in the
-+local domain.
++int cmd_get_unique_bearer_name(const struct cmd *cmd, struct cmdl *cmdl,
++			       struct opt *opts, char *bname,
++			       const struct tipc_sup_media *sup_media)
+ {
+-	char id[TIPC_MAX_BEARER_NAME];
+ 	char *media;
+ 	char *identifier;
+ 	struct opt *opt;
+-	struct tipc_sup_media *entry;
++	const struct tipc_sup_media *entry;
 +
-+.TP
-+.B cluster_size
-+.br
-+Represents the current count of cluster members.
-+
-+.TP
-+.B algorithm
-+.br
-+The current supervision algorithm used for neighbour monitoring for the bearer.
-+Possible values are full-mesh or overlapping-ring.
-+
-+.TP
-+.B status
-+.br
-+The node status derived by the local node.
-+Possible status are up or down.
-+
-+.TP
-+.B monitored
-+.br
-+Represent the type of monitoring chosen by the local node.
-+Possible values are direct or indirect.
-+
-+.TP
-+.B generation
-+.br
-+Represents the domain generation which is the event count in a node's local
-+domain. Every time something changes (peer add/remove/up/down) the domain
-+generation is stepped and a new version of node record is sent to inform
-+the neighbors about this change. The domain generation helps the receiver
-+of a domain record to know if it should ignore or process the record.
-+
-+.TP
-+.B applied_node_status
-+.br
-+The node status reported by the peer node for the succeeding peers in
-+the node list. The Node list is a circular list of ascending addresses
-+starting with the local node.
-+Possible status are: U or D. The status U implies up and D down.
-+
-+.TP
-+.B [non_applied_node:status]
-+.br
-+Represents the nodes and their status as reported by the peer node.
-+These nodes were not applied to the monitoring list for this peer node.
-+They are usually transient and occur during the cluster startup phase
-+or network reconfiguration.
-+Possible status are: U or D. The status U implies up and D down.
-+
-+.SH EXAMPLES
-+.PP
-+tipc link monitor list
-+.RS 4
-+Shows the link monitoring information for cluster members on device data0.
-+.RE
-+.PP
-+tipc link monitor summary
-+.RS 4
-+The monitor summary command prints the basic attributes.
-+.RE
-+
- .SH EXIT STATUS
- Exit status is 0 if command was successful or a positive integer upon failure.
  
+ 	if (!(opt = get_opt(opts, "media"))) {
+ 		if (help_flag)
+@@ -219,13 +233,12 @@ static int nl_add_bearer_name(struct nlmsghdr *nlh, const struct cmd *cmd,
+ 				(entry->help)(cmdl, media);
+ 			else
+ 				fprintf(stderr, "error, missing bearer %s\n",
+-						entry->identifier);
++					entry->identifier);
+ 			return -EINVAL;
+ 		}
+ 
+ 		identifier = opt->val;
+-		snprintf(id, sizeof(id), "%s:%s", media, identifier);
+-		mnl_attr_put_strz(nlh, TIPC_NLA_BEARER_NAME, id);
++		snprintf(bname, TIPC_MAX_BEARER_NAME, "%s:%s", media, identifier);
+ 
+ 		return 0;
+ 	}
+@@ -270,13 +283,13 @@ static int udp_bearer_add(struct nlmsghdr *nlh, struct opt *opts,
+ 
+ 		if ((err = getaddrinfo(ip, remport, &hints, &addr))) {
+ 			fprintf(stderr, "UDP address error: %s\n",
+-					gai_strerror(err));
++				gai_strerror(err));
+ 			freeaddrinfo(addr);
+ 			return err;
+ 		}
+ 
+ 		mnl_attr_put(nlh, TIPC_NLA_UDP_REMOTE, addr->ai_addrlen,
+-				addr->ai_addr);
++			     addr->ai_addr);
+ 		freeaddrinfo(addr);
+ 	} else {
+ 		fprintf(stderr, "error, missing remoteip\n");
+@@ -302,7 +315,7 @@ static int cmd_bearer_add_media(struct nlmsghdr *nlh, const struct cmd *cmd,
+ 		{ "media",		OPT_KEYVAL,	NULL },
+ 		{ NULL }
+ 	};
+-	struct tipc_sup_media sup_media[] = {
++	const struct tipc_sup_media sup_media[] = {
+ 		{ "udp",	"name",		cmd_bearer_add_udp_help},
+ 		{ NULL, },
+ 	};
+@@ -366,7 +379,7 @@ static void cmd_bearer_enable_help(struct cmdl *cmdl)
+ 		" domain DOMAIN         - Discovery domain\n"
+ 		" priority PRIORITY     - Bearer priority\n",
+ 		cmdl->argv[0]);
+-	_print_bearer_media();
++	print_bearer_media();
+ }
+ 
+ static int cmd_bearer_enable(struct nlmsghdr *nlh, const struct cmd *cmd,
+@@ -389,9 +402,9 @@ static int cmd_bearer_enable(struct nlmsghdr *nlh, const struct cmd *cmd,
+ 		{ NULL }
+ 	};
+ 	struct tipc_sup_media sup_media[] = {
+-		{ "udp",	"name",		cmd_bearer_enable_udp_help},
+-		{ "eth",	"device",	cmd_bearer_enable_l2_help },
+-		{ "ib",		"device",	cmd_bearer_enable_l2_help },
++		{ "udp",        "name",         cmd_bearer_enable_udp_help},
++		{ "eth",        "device",       cmd_bearer_enable_l2_help },
++		{ "ib",         "device",       cmd_bearer_enable_l2_help },
+ 		{ NULL, },
+ 	};
+ 
+@@ -449,7 +462,7 @@ static void cmd_bearer_disable_help(struct cmdl *cmdl)
+ {
+ 	fprintf(stderr, "Usage: %s bearer disable media MEDIA ARGS...\n",
+ 		cmdl->argv[0]);
+-	_print_bearer_media();
++	print_bearer_media();
+ }
+ 
+ static int cmd_bearer_disable(struct nlmsghdr *nlh, const struct cmd *cmd,
+@@ -465,9 +478,9 @@ static int cmd_bearer_disable(struct nlmsghdr *nlh, const struct cmd *cmd,
+ 		{ NULL }
+ 	};
+ 	struct tipc_sup_media sup_media[] = {
+-		{ "udp",	"name",		cmd_bearer_disable_udp_help},
+-		{ "eth",	"device",	cmd_bearer_disable_l2_help },
+-		{ "ib",		"device",	cmd_bearer_disable_l2_help },
++		{ "udp",        "name",         cmd_bearer_disable_udp_help},
++		{ "eth",        "device",       cmd_bearer_disable_l2_help },
++		{ "ib",         "device",       cmd_bearer_disable_l2_help },
+ 		{ NULL, },
+ 	};
+ 
+@@ -497,7 +510,7 @@ static void cmd_bearer_set_help(struct cmdl *cmdl)
+ 	fprintf(stderr, "Usage: %s bearer set OPTION media MEDIA ARGS...\n",
+ 		cmdl->argv[0]);
+ 	_print_bearer_opts();
+-	_print_bearer_media();
++	print_bearer_media();
+ }
+ 
+ static void cmd_bearer_set_udp_help(struct cmdl *cmdl, char *media)
+@@ -516,7 +529,7 @@ static void cmd_bearer_set_l2_help(struct cmdl *cmdl, char *media)
+ }
+ 
+ static int cmd_bearer_set_prop(struct nlmsghdr *nlh, const struct cmd *cmd,
+-			 struct cmdl *cmdl, void *data)
++			       struct cmdl *cmdl, void *data)
+ {
+ 	int err;
+ 	int val;
+@@ -531,9 +544,9 @@ static int cmd_bearer_set_prop(struct nlmsghdr *nlh, const struct cmd *cmd,
+ 		{ NULL }
+ 	};
+ 	struct tipc_sup_media sup_media[] = {
+-		{ "udp",	"name",		cmd_bearer_set_udp_help},
+-		{ "eth",	"device",	cmd_bearer_set_l2_help },
+-		{ "ib",		"device",	cmd_bearer_set_l2_help },
++		{ "udp",        "name",         cmd_bearer_set_udp_help},
++		{ "eth",        "device",       cmd_bearer_set_l2_help },
++		{ "ib",         "device",       cmd_bearer_set_l2_help },
+ 		{ NULL, },
+ 	};
+ 
+@@ -592,7 +605,7 @@ static void cmd_bearer_get_help(struct cmdl *cmdl)
+ 	fprintf(stderr, "Usage: %s bearer get [OPTION] media MEDIA ARGS...\n",
+ 		cmdl->argv[0]);
+ 	_print_bearer_opts();
+-	_print_bearer_media();
++	print_bearer_media();
+ }
+ 
+ static void cmd_bearer_get_udp_help(struct cmdl *cmdl, char *media)
+@@ -639,7 +652,7 @@ static int bearer_dump_udp_cb(const struct nlmsghdr *nlh, void *data)
+ 		struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *) addr;
+ 
+ 		if (!inet_ntop(AF_INET6, &ipv6->sin6_addr, straddr,
+-					sizeof(straddr))) {
++			       sizeof(straddr))) {
+ 			fprintf(stderr, "error, parsing IPv6 addr\n");
+ 			return MNL_CB_ERROR;
+ 		}
+@@ -705,7 +718,7 @@ static int bearer_get_udp_cb(const struct nlmsghdr *nlh, void *data)
+ 		switch (cb_data->prop) {
+ 		case UDP_PROP_IP:
+ 			if (!inet_ntop(AF_INET6, &ipv6->sin6_addr, straddr,
+-						sizeof(straddr))) {
++				       sizeof(straddr))) {
+ 				fprintf(stderr, "error, parsing IPv6 addr\n");
+ 				return MNL_CB_ERROR;
+ 			}
+@@ -769,7 +782,7 @@ static int cmd_bearer_get_media(struct nlmsghdr *nlh, const struct cmd *cmd,
+ 		{ NULL }
+ 	};
+ 	struct tipc_sup_media sup_media[] = {
+-		{ "udp",	"name",		cmd_bearer_get_udp_help},
++		{ "udp",        "name",         cmd_bearer_get_udp_help},
+ 		{ NULL, },
+ 	};
+ 
+@@ -844,9 +857,9 @@ static int cmd_bearer_get_prop(struct nlmsghdr *nlh, const struct cmd *cmd,
+ 		{ NULL }
+ 	};
+ 	struct tipc_sup_media sup_media[] = {
+-		{ "udp",	"name",		cmd_bearer_get_udp_help},
+-		{ "eth",	"device",	cmd_bearer_get_l2_help },
+-		{ "ib",		"device",	cmd_bearer_get_l2_help },
++		{ "udp",        "name",         cmd_bearer_get_udp_help},
++		{ "eth",        "device",       cmd_bearer_get_l2_help },
++		{ "ib",         "device",       cmd_bearer_get_l2_help },
+ 		{ NULL, },
+ 	};
+ 
+diff --git a/tipc/bearer.h b/tipc/bearer.h
+index 9459d65ebb5f..c0d099630b27 100644
+--- a/tipc/bearer.h
++++ b/tipc/bearer.h
+@@ -19,4 +19,8 @@ extern int help_flag;
+ int cmd_bearer(struct nlmsghdr *nlh, const struct cmd *cmd, struct cmdl *cmdl, void *data);
+ void cmd_bearer_help(struct cmdl *cmdl);
+ 
++void print_bearer_media(void);
++int cmd_get_unique_bearer_name(const struct cmd *cmd, struct cmdl *cmdl,
++			       struct opt *opts, char *bname,
++			       const struct tipc_sup_media *sup_media);
+ #endif
 -- 
 2.1.4
 
