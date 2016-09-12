@@ -1,123 +1,75 @@
-From: Alexandre Torgue <alexandre.torgue@st.com>
-Subject: Re: stmmac/RTL8211F/Meson GXBB: TX throughput problems
-Date: Mon, 12 Sep 2016 18:37:49 +0200
-Message-ID: <ff6f3501-fbd5-3e79-dcc1-549406a5144b@st.com>
-References: <CAFBinCALSL_-izJ2tEsAjevAw90kGNTrQ3na3D1YV8f1dS1=Xg@mail.gmail.com>
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [RFC 00/11] QLogic RDMA Driver (qedr) RFC
+Date: Mon, 12 Sep 2016 19:39:28 +0300
+Message-ID: <20160912163928.GK8812@leon.nu>
+References: <1473696465-27986-1-git-send-email-Ram.Amrani@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Johnson Leung <r58129@freescale.com>
-To: Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
-        <netdev@vger.kernel.org>, <linux-amlogic@lists.infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00178001.pphosted.com ([62.209.51.94]:4842 "EHLO
-        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750940AbcILQiV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 12:38:21 -0400
-In-Reply-To: <CAFBinCALSL_-izJ2tEsAjevAw90kGNTrQ3na3D1YV8f1dS1=Xg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Hi Martin,
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="IJAclU0AInkryoed"
+Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org,
+        Ariel.Elior-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, Michal.Kalderon-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org,
+        rajesh.borundia-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ram Amrani <Ram.Amrani-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1473696465-27986-1-git-send-email-Ram.Amrani-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
-On 09/11/2016 10:39 PM, Martin Blumenstingl wrote:
-> Hello,
->
-> I have a device with a Meson GXBB SoC with an stmmac IP block.
+--IJAclU0AInkryoed
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Which Synopsys IP version do you use ?
+On Mon, Sep 12, 2016 at 07:07:34PM +0300, Ram Amrani wrote:
 
-> Gbit ethernet on my device is provided by a Realtek RTL8211F RGMII PHY.
-> Similar issues were reported in #linux-amlogic by a user with an
-> Odroid C2 board (= similar hardware).
->
-> The symptoms are:
-> Receiving data is plenty fast (I can max out my internet connection
-> easily, and with iperf3 I get ~900Mbit/s).
-> Transmitting data from the device is unfortunately very slow, traffic
-> sometimes even stalls completely.
->
-> I have attached the iperf results and the output of
-> /sys/kernel/debug/stmmaceth/eth0/descriptors_status.
-> Below you can find the ifconfig, netstat and stmmac dma_cap info
-> (*after* I ran all tests).
->
-> The "involved parties" are:
-> - Meson GXBB specific network configuration registers (I have have
-> double-checked them with the reference drivers: everything seems fine
-> here)
-> - stmmac: it seems that nobody else has reported these kind of issues
-> so far, however I'd still like to hear where I should enable some
-> debugging bits to rule out any stmmac bug
+>  include/linux/qed/common_hsi.h                 |    1 +
+>  include/linux/qed/qed_if.h                     |    9 +-
+>  include/linux/qed/qed_ll2_if.h                 |  140 +
+>  include/linux/qed/qed_roce_if.h                |  604 ++++
+>  include/linux/qed/qede_roce.h                  |   88 +
+>  include/linux/qed/rdma_common.h                |    1 +
 
-On my side, I just tested on the same "kind" of system:
--SYNOPSYS GMAC 3.7
--RTL8211EG as PHY
+Something not directly related to your patches, but they brought my
+attention to the fact that all these new (and old) rdma<->net devices
+are polluting include/linux
 
-With I perf, I reach:
-	-RX: 932 Mbps
-	-TX: 820Mbps
+Filtered output:
+=E2=9E=9C  linux-rdma git:(topic/fixes-for-4.8-2) ls -dl include/linux/*/
+drwxrwxr-x  2 leonro leonro  4096 Aug 30 16:27 include/linux/hsi/
+drwxrwxr-x  2 leonro leonro  4096 Sep 12 19:08 include/linux/mlx4/
+drwxrwxr-x  2 leonro leonro  4096 Sep  7 15:31 include/linux/mlx5/
+drwxrwxr-x  2 leonro leonro  4096 Sep  8 17:46 include/linux/qed/
 
-Can you check ethtool -S eth0 (most precisely "MMC"counter and errors) ?
-Which kernel version do you use ?
+Is this the right place for them?
 
-Regards
+Thanks
 
-Alex
+--IJAclU0AInkryoed
+Content-Type: application/pgp-signature; name="signature.asc"
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
+iQIcBAEBAgAGBQJX1tpAAAoJEORje4g2clinlqoP/2bZIzFHQx+ajhuGFIC0lPoJ
+B75PlrRmbFS4T2D4rCIlPhcrIlW48WMy3Up0Rr0pbw6sAkv3DImODMF+wnIz3PPU
+4H1rP112Yi4AIzNGM3yMEa91nXhJeJmVCgiGm4MmPVPGkc1Im5rfq2fhsDXIFfof
+Gqt4/o3zFwJUVf8cQjdezJaEr91/DkW5H+rP3epQ1Svu+ajK4c5e5ZM1aBEDXLpq
+5vXHDXRZ4O53dyQdxruVDUAQuMiZY3VUi3/4lxTEs4NDxvbb12xaF12q6/YIaI1V
+dRg7fd9tpdeZS67r8kdznTfwjQS/jf2iRcwCCNHlpE+TI2wvunP498q6hkTdN4HA
+pQ2JLQ7zfR8qg/CCvyDTprXy8kLjS51YiNH+PGlUmoibBCssg8szuCo+Hxs2FNx6
+RYmykq/yeBT2o7CgYNJAl4sGmflVTSMbf47VEJYncAmY1t1EuhyVjhV9wAspzoA8
+KK7NZsW/q5C6kXW0aQuHdsy06QJvYpfRFkwMYWh5aUQuoDzKxDz1VL7HO+62Zsmx
+T0m6sGljqJPUfYffshtCBWN4cl36qcCMn2nspmCcS1HYrnUHNXPgiNbzXvA1GGMz
+LdOxAAHg9nBvqOID5yRail67Qa+X4xZFh57vAY1YpYWkHzTtziNWkhjZaH26MEl4
+S5p2c+z3GnT+my7nhWqV
+=2uc3
+-----END PGP SIGNATURE-----
 
-
-> - RTL8211F PHY driver: unfortunately there are no public datasheets
-> available so this is hard to debug. but I'm guessing that TX delay
-> could cause similar issues, so this may be the cause as well.
->
->
-> Thanks for any input in advance!
-> Regards,
-> Martin
->
->
-> [root@alarm ~]# ifconfig eth0
-> eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
->         inet 192.168.1.235  netmask 255.255.255.0  broadcast 192.168.1.255
->         ether e2:aa:53:fc:f5:c5  txqueuelen 1000  (Ethernet)
->         RX packets 1967602  bytes 2968750265 (2.7 GiB)
->         RX errors 0  dropped 0  overruns 0  frame 0
->         TX packets 101875  bytes 8548285 (8.1 MiB)
->         TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
->         device interrupt 18
->
-> [root@alarm ~]# netstat -i
-> Kernel Interface table
-> Iface      MTU    RX-OK RX-ERR RX-DRP RX-OVR    TX-OK TX-ERR TX-DRP TX-OVR Flg
-> eth0      1500  1967801      0      0 0        101934      0      0      0 BMRU
->
-> [root@alarm ~]# cat /sys/kernel/debug/stmmaceth/eth0/dma_cap
-> ==============================
->         DMA HW features
-> ==============================
->         10/100 Mbps Y
->         1000 Mbps Y
->         Half duple Y
->         Hash Filter: Y
->         Multiple MAC address registers: Y
->         PCS (TBI/SGMII/RTBI PHY interfatces): N
->         SMA (MDIO) Interface: Y
->         PMT Remote wake up: Y
->         PMT Magic Frame: Y
->         RMON module: Y
->         IEEE 1588-2002 Time Stamp: N
->         IEEE 1588-2008 Advanced Time Stamp:N
->         802.3az - Energy-Efficient Ethernet (EEE) Y
->         AV features: N
->         Checksum Offload in TX: Y
->         IP Checksum Offload (type1) in RX: N
->         IP Checksum Offload (type2) in RX: Y
->         RXFIFO > 2048bytes: Y
->         Number of Additional RX channel: 0
->         Number of Additional TX channel: 0
->         Enhanced descriptors: N
->
+--IJAclU0AInkryoed--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
