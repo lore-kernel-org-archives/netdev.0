@@ -1,104 +1,78 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [net-next PATCH v3 2/3] e1000: add initial XDP support
-Date: Mon, 12 Sep 2016 16:07:47 -0700
-Message-ID: <20160912230745.GA24171@ast-mbp.thefacebook.com>
-References: <20160912220312.5610.77528.stgit@john-Precision-Tower-5810>
- <20160912221351.5610.29043.stgit@john-Precision-Tower-5810>
- <1473720399.18970.91.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v4 net-next 1/1] net_sched: Introduce skbmod action
+Date: Mon, 12 Sep 2016 16:10:37 -0700
+Message-ID: <1473721837.18970.95.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1473713206-2450-1-git-send-email-jhs@emojatatu.com>
+         <1473717691.18970.82.camel@edumazet-glaptop3.roam.corp.google.com>
+         <77bca669-9113-3977-ad3c-478091422ff8@mojatatu.com>
+         <1473719192.18970.84.camel@edumazet-glaptop3.roam.corp.google.com>
+         <3a1da0eb-b253-ef9c-8679-0290e670238c@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Fastabend <john.fastabend@gmail.com>, bblanco@plumgrid.com,
-        jeffrey.t.kirsher@intel.com, brouer@redhat.com,
-        davem@davemloft.net, xiyou.wangcong@gmail.com,
-        intel-wired-lan@lists.osuosl.org, u9012063@gmail.com,
-        netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        xiyou.wangcong@gmail.com, daniel@iogearbox.net,
+        john.r.fastabend@intel.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33411 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752439AbcILXHw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 19:07:52 -0400
-Received: by mail-pf0-f195.google.com with SMTP id 128so8696114pfb.0
-        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 16:07:52 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1473720399.18970.91.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:34769 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751490AbcILXKj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 19:10:39 -0400
+Received: by mail-pf0-f193.google.com with SMTP id g202so8711545pfb.1
+        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 16:10:39 -0700 (PDT)
+In-Reply-To: <3a1da0eb-b253-ef9c-8679-0290e670238c@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 12, 2016 at 03:46:39PM -0700, Eric Dumazet wrote:
-> On Mon, 2016-09-12 at 15:13 -0700, John Fastabend wrote:
-> > From: Alexei Starovoitov <ast@fb.com>
+On Mon, 2016-09-12 at 19:02 -0400, Jamal Hadi Salim wrote:
+> On 16-09-12 06:26 PM, Eric Dumazet wrote:
+> > On Mon, 2016-09-12 at 18:14 -0400, Jamal Hadi Salim wrote:
+> >
+> >> I noticed some very weird issues when I took that out.
+> >> Running sufficiently large amount of traffic (ping -f is sufficient)
+> >> I saw that when i did a dump it took anywhere between 6-15 seconds.
+> >> With the read_lock in place response was immediate.
+> >> I can go back and run things to verify - but it was very odd.
+> >
+> > This was on uni processor ?
+> >
 > 
-> > +static void e1000_xmit_raw_frame(struct e1000_rx_buffer *rx_buffer_info,
-> > +				 u32 len,
-> > +				 struct net_device *netdev,
-> > +				 struct e1000_adapter *adapter)
-> > +{
-> > +	struct netdev_queue *txq = netdev_get_tx_queue(netdev, 0);
-> > +	struct e1000_hw *hw = &adapter->hw;
-> > +	struct e1000_tx_ring *tx_ring;
-> > +
-> > +	if (len > E1000_MAX_DATA_PER_TXD)
-> > +		return;
-> > +
-> > +	/* e1000 only support a single txq at the moment so the queue is being
-> > +	 * shared with stack. To support this requires locking to ensure the
-> > +	 * stack and XDP are not running at the same time. Devices with
-> > +	 * multiple queues should allocate a separate queue space.
-> > +	 */
-> > +	HARD_TX_LOCK(netdev, txq, smp_processor_id());
-> > +
-> > +	tx_ring = adapter->tx_ring;
-> > +
-> > +	if (E1000_DESC_UNUSED(tx_ring) < 2) {
-> > +		HARD_TX_UNLOCK(netdev, txq);
-> > +		return;
-> > +	}
-> > +
-> > +	if (netif_xmit_frozen_or_stopped(txq))
-> > +		return;
-> > +
-> > +	e1000_tx_map_rxpage(tx_ring, rx_buffer_info, len);
-> > +	netdev_sent_queue(netdev, len);
-> > +	e1000_tx_queue(adapter, tx_ring, 0/*tx_flags*/, 1);
-> > +
-> > +	writel(tx_ring->next_to_use, hw->hw_addr + tx_ring->tdt);
-> > +	mmiowb();
-> > +
-> > +	HARD_TX_UNLOCK(netdev, txq);
-> > +}
+> It was a VM.
 > 
+> > Looks like typical starvation caused by aggressive softirq.
+> >
 > 
-> e1000_tx_map() is full of workarounds.
+> Well, then it is strange that in one case a tc dump of the rule
+> was immediate and in the other case it was consistent for 5-15
+> seconds.
 > 
-> Have a look at last_tx_tso for example.
-> 
->                /* Workaround for Controller erratum --
->                  * descriptor for non-tso packet in a linear SKB that follows a
->                  * tso gets written back prematurely before the data is fully
->                  * DMA'd to the controller
->                  */
->                 if (!skb->data_len && tx_ring->last_tx_tso &&
->                     !skb_is_gso(skb)) {
->                         tx_ring->last_tx_tso = false;
->                         size -= 4;
->                 }
-> 
-> Look, this XDP_TX thing is hard to properly implement and test on
-> various NIC revisions.
 
-my reading of these e1k workarounds are for old versions of the nic that
-don't even exist anymore. I believe none of them apply to qemu e1k.
+This needs investigation ;)
 
-> Without proper queue management, high prio packets in qdisc wont be sent
-> if NIC is under RX -> XDP_TX flood.
+One possible loop under high stress would be possible in
+__gnet_stats_copy_basic(), since we might restart the loop if we are
+really really unlucky, but this would have nothing with your patches.
 
-yep. there are various ways to shoot yourself in the foot with xdp.
-The simplest program that drops all the packets will make the box unpingable.
 
-> Sounds a horrible feature to me.
 
-yep. not pretty by any means.
-This whole thing is only to test xdp programs under qemu which
-realistically emulates only e1k.
-I simply don't see any other options to test xdp under kvm.
+diff --git a/net/core/gen_stats.c b/net/core/gen_stats.c
+index 508e051304fb62627e61b5065b2325edd1b84f2e..dc9dd8ae7d5405f76c775278dac7689655b21041 100644
+--- a/net/core/gen_stats.c
++++ b/net/core/gen_stats.c
+@@ -142,10 +142,14 @@ __gnet_stats_copy_basic(const seqcount_t *running,
+ 		return;
+ 	}
+ 	do {
+-		if (running)
++		if (running) {
++			local_bh_disable();
+ 			seq = read_seqcount_begin(running);
++		}
+ 		bstats->bytes = b->bytes;
+ 		bstats->packets = b->packets;
++		if (running)
++			local_bh_enable();
+ 	} while (running && read_seqcount_retry(running, seq));
+ }
+ EXPORT_SYMBOL(__gnet_stats_copy_basic);
