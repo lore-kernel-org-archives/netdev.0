@@ -1,65 +1,59 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: Re: [RFC 00/11] QLogic RDMA Driver (qedr) RFC
-Date: Mon, 12 Sep 2016 17:39:35 +0000
-Message-ID: <CY4PR11MB17202A542AC07CBA4A65E93697FF0@CY4PR11MB1720.namprd11.prod.outlook.com>
-References: <1473696465-27986-1-git-send-email-Ram.Amrani@qlogic.com>
- <20160912163928.GK8812@leon.nu>,<CAG53R5UqF21z34jB2HJCTXU8w3Kbj_Jon=wBAoO5tYSqbD1f6g@mail.gmail.com>
+From: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
+Subject: Re: [PATCH -next] net: macb: fix missing unlock on error in
+ macb_start_xmit()
+Date: Mon, 12 Sep 2016 19:40:27 +0200
+Message-ID: <1119c72d-2731-4bb4-bc52-316a5611c48b@gmail.com>
+References: <1473506277-31304-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Ram Amrani <Ram.Amrani@qlogic.com>,
-        Doug Ledford <dledford@redhat.com>,
-        David Miller <davem@davemloft.net>,
-        Ariel Elior <Ariel.Elior@qlogic.com>,
-        Michal Kalderon <Michal.Kalderon@qlogic.com>,
-        Rajesh Borundia <rajesh.borundia@qlogic.com>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>
-To: Parav Pandit <pandit.parav@gmail.com>,
-        Leon Romanovsky <leon@kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Wei Yongjun <weiyj.lk@gmail.com>,
+        Nicolas Ferre <nicolas.ferre@atmel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-cys01nam02on0098.outbound.protection.outlook.com ([104.47.37.98]:35920
-        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1757283AbcILRji (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 12 Sep 2016 13:39:38 -0400
-In-Reply-To: <CAG53R5UqF21z34jB2HJCTXU8w3Kbj_Jon=wBAoO5tYSqbD1f6g@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34028 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755691AbcILRkg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 13:40:36 -0400
+Received: by mail-wm0-f67.google.com with SMTP id g141so3659059wmd.1
+        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 10:40:36 -0700 (PDT)
+In-Reply-To: <1473506277-31304-1-git-send-email-weiyj.lk@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pj4+wqAgaW5jbHVkZS9saW51eC9xZWQvY29tbW9uX2hzaS5owqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqAgfMKgwqDCoCAxICsNCj4+PsKgIGluY2x1ZGUvbGludXgvcWVkL3FlZF9pZi5o
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCB8wqDCoMKgIDkgKy0NCj4+
-PsKgIGluY2x1ZGUvbGludXgvcWVkL3FlZF9sbDJfaWYuaMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgIHzCoCAxNDAgKw0KPj4+wqAgaW5jbHVkZS9saW51eC9xZWQvcWVkX3JvY2VfaWYu
-aMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCB8wqAgNjA0ICsrKysNCj4+PsKgIGluY2x1
-ZGUvbGludXgvcWVkL3FlZGVfcm9jZS5owqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oCB8wqDCoCA4OCArDQo+PsKgPiBpbmNsdWRlL2xpbnV4L3FlZC9yZG1hX2NvbW1vbi5owqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIHzCoMKgwqAgMSArDQo+Pg0KPj4gU29tZXRoaW5nIG5v
-dCBkaXJlY3RseSByZWxhdGVkIHRvIHlvdXIgcGF0Y2hlcywgYnV0IHRoZXkgYnJvdWdodCBteQ0K
-Pj4gYXR0ZW50aW9uIHRvIHRoZSBmYWN0IHRoYXQgYWxsIHRoZXNlIG5ldyAoYW5kIG9sZCkgcmRt
-YTwtPm5ldCBkZXZpY2VzDQo+PiBhcmUgcG9sbHV0aW5nIGluY2x1ZGUvbGludXgNCj4+DQo+IG9j
-cmRtYSBkcml2ZXIgaW5jbHVkZXMgYmVfcm9jZS5oIGxvY2F0ZWQgaW4gbmV0L2V0aGVybmV0L2Vt
-dWxleC9iZW5ldA0KPiBsb2NhdGlvbiBpbnN0ZWFkIG9mIGluY2x1ZGUvbGludXgvLg0KPiBUaGlz
-IGZpbGUgaGVscHMgdG8gYmluZCByZG1hIHRvIG5ldCBkZXZpY2Ugb3IgdW5kZXJseWluZyBodyBk
-ZXZpY2UuDQoNCj4gTWF5IGJlIHNpbWlsYXIgY2hhbmdlIGNhbiBiZSBkb25lIGZvciByZXN0IG9m
-IHRoZSBkcml2ZXJzIGZvcg0KPiByZG1hPC0tPm5ldCBkZXZpY2VzPw0KDQpCeSBhZGRpbmcgZXhw
-bGljaXQgaW5jbHVzaW9uIHBhdGhzIGluIHRoZSBNYWtlZmlsZSwgYSBsYQ0KY2NmbGFncy15IDo9
-IC1JZHJpdmVycy9uZXQvZXRoZXJuZXQvZW11bGV4L2JlbmV0ICAgPw0KDQpXaGlsZSB0aGlzIG1p
-Z2h0IHdvcmssIEkgcGVyc29uYWxseSBkaXNsaWtlIGl0IGFzIEkgZmluZCBpdA0KY291bnRlci1p
-bnR1aXRpdmUgd2hlbiBnb2luZyBvdmVyIHRoZSBjb2RlIC0NCkkgZG9uJ3QgZXhwZWN0IGRyaXZl
-ciB0byBsb2NhbGx5IG1vZGlmeSB0aGUgaW5jbHVzaW9uIHBhdGguDQpCZXNpZGVzLCB3ZSdyZSBn
-b2luZyB0byBbZXZlbnR1YWxseV0gYSB3aG9sZSBzdWl0ZSBvZiBkcml2ZXJzIGJhc2VkDQpvbiB0
-aGUgcWVkIG1vZHVsZSwgc29tZSBvZiB3aGljaCB3b3VsZCByZXNpZGUgdW5kZXIgZHJpdmVycy9z
-Y3NpOw0KTm90IHN1cmUgaXQncyBiZXN0IHRvIGhhdmUgMyBvciA0IGRpZmZlcmVudCBkcml2ZXJz
-IHByaXZhdGVseSBpbmNsdWRlIHRoZQ0Kc2FtZSBkaXJlY3RvcnkgdW5kZXIgYSBkaWZmZXJlbnQg
-c3Vic3lzdGVtLg0KDQo+PiBGaWx0ZXJlZCBvdXRwdXQ6DQo+PiDinpzCoCBsaW51eC1yZG1hIGdp
-dDoodG9waWMvZml4ZXMtZm9yLTQuOC0yKSBscyAtZGwgaW5jbHVkZS9saW51eC8qLw0KPj4gZHJ3
-eHJ3eHIteMKgIDIgbGVvbnJvIGxlb25yb8KgIDQwOTYgQXVnIDMwIDE2OjI3IGluY2x1ZGUvbGlu
-dXgvaHNpLw0KPj4gZHJ3eHJ3eHIteMKgIDIgbGVvbnJvIGxlb25yb8KgIDQwOTYgU2VwIDEyIDE5
-OjA4IGluY2x1ZGUvbGludXgvbWx4NC8NCj4+IGRyd3hyd3hyLXjCoCAyIGxlb25ybyBsZW9ucm/C
-oCA0MDk2IFNlcMKgIDcgMTU6MzEgaW5jbHVkZS9saW51eC9tbHg1Lw0KPj4gZHJ3eHJ3eHIteMKg
-IDIgbGVvbnJvIGxlb25yb8KgIDQwOTYgU2VwwqAgOCAxNzo0NiBpbmNsdWRlL2xpbnV4L3FlZC8N
-Cj4+DQo+PiBJcyB0aGlzIHRoZSByaWdodCBwbGFjZSBmb3IgdGhlbT8NCj4NCj4gVGhhbmtzDQog
-ICAgIA==
+On 09/10/2016 01:17 PM, Wei Yongjun wrote:
+> From: Wei Yongjun <weiyongjun1@huawei.com>
+>
+> Fix missing unlock before return from function macb_start_xmit()
+> in the error handling case.
+>
+> Fixes: 007e4ba3ee13 ("net: macb: initialize checksum when using
+> checksum offloading")
+> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+> ---
+>  drivers/net/ethernet/cadence/macb.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+> index 0294b6a..63144bb 100644
+> --- a/drivers/net/ethernet/cadence/macb.c
+> +++ b/drivers/net/ethernet/cadence/macb.c
+> @@ -1398,7 +1398,7 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>
+>  	if (macb_clear_csum(skb)) {
+>  		dev_kfree_skb_any(skb);
+> -		return NETDEV_TX_OK;
+> +		goto unlock;
+>  	}
+>
+>  	/* Map socket buffer for DMA transfer */
+>
+You are definitely right. Sorry I missed that obvious point and for 
+causing any inconveniences.
+
+BTW, I see there are obviously quite a few users of MACB 
+implementations. I'm just curious if anybody else ever encountered the 
+checksum problem or if this a matter of Zynq implementation only.
+
+Regards,
+Helmut
