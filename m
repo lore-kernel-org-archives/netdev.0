@@ -1,146 +1,85 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net-next 4/5] net/mlx4_core: Fix deadlock when switching between polling and event fw commands
-Date: Mon, 12 Sep 2016 16:20:15 +0300
-Message-ID: <1473686416-11779-5-git-send-email-tariqt@mellanox.com>
-References: <1473686416-11779-1-git-send-email-tariqt@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Jack Morgenstein <jackm@dev.mellanox.co.il>,
-        Matan Barak <matanb@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:53498 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S932639AbcILNVF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 09:21:05 -0400
-In-Reply-To: <1473686416-11779-1-git-send-email-tariqt@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julia Lawall <julia.lawall@lip6.fr>
+Subject: Re: [PATCH 00/26] constify local structures
+Date: Mon, 12 Sep 2016 15:23:56 +0200 (CEST)
+Message-ID: <alpine.DEB.2.10.1609121523330.29099@hadrien>
+References: <1473599168-30561-1-git-send-email-Julia.Lawall@lip6.fr>
+ <20160911172105.GB5493@intel.com>
+ <alpine.DEB.2.10.1609121051050.3049@hadrien> <20160912131625.GD957@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: alsa-devel@alsa-project.org, Mustafa Ismail <mustafa.ismail@intel.com>,
+ Tatyana Nikolova <tatyana.e.nikolova@intel.com>,
+ kernel-janitors@vger.kernel.org, linux-fbdev@vger.kernel.org,
+ platform-driver-x86@vger.kernel.org, devel@driverdev.osuosl.org,
+ linux-scsi@vger.kernel.org, linux-rdma@vger.kernel.org,
+ Jason Gunthorpe <jgunthorpe@obsidianresearch.com>, linux-acpi@vger.kernel.org,
+ tpmdd-devel@lists.sourceforge.net, linux-media@vger.kernel.org,
+ linux-pm@vger.kernel.org, linux-can@vger.kernel.org,
+ Shiraz Saleem <shiraz.saleem@intel.com>,
+ Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, netdev@vger.kernel.org,
+ Chien Tin Tung <chien.tin.tung@intel.com>, linux-wireless@vger.kernel.org,
+ linux-kernel@vger.kernel.org, linux-spi@vger.kernel.org,
+ linux-renesas-soc@vger.kernel.org, linux-usb@vger.kernel.org, joe@perches.com
+To: Jarkko Sakkinen <jarkko.sakkinen@linux.intel.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20160912131625.GD957@intel.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
-When switching from polling-based fw commands to event-based fw
-commands, there is a race condition which could cause a fw command
-in another task to hang: that task will keep waiting for the polling
-sempahore, but may never be able to acquire it. This is due to
-mlx4_cmd_use_events, which "down"s the sempahore back to 0.
 
-During driver initialization, this is not a problem, since no other
-tasks which invoke FW commands are active.
+On Mon, 12 Sep 2016, Jarkko Sakkinen wrote:
 
-However, there is a problem if the driver switches to polling mode
-and then back to event mode during normal operation.
+> On Mon, Sep 12, 2016 at 10:54:07AM +0200, Julia Lawall wrote:
+> >
+> >
+> > On Sun, 11 Sep 2016, Jarkko Sakkinen wrote:
+> >
+> > > On Sun, Sep 11, 2016 at 03:05:42PM +0200, Julia Lawall wrote:
+> > > > Constify local structures.
+> > > >
+> > > > The semantic patch that makes this change is as follows:
+> > > > (http://coccinelle.lip6.fr/)
+> > >
+> > > Just my two cents but:
+> > >
+> > > 1. You *can* use a static analysis too to find bugs or other issues.
+> > > 2. However, you should manually do the commits and proper commit
+> > >    messages to subsystems based on your findings. And I generally think
+> > >    that if one contributes code one should also at least smoke test changes
+> > >    somehow.
+> > >
+> > > I don't know if I'm alone with my opinion. I just think that one should
+> > > also do the analysis part and not blindly create and submit patches.
+> >
+> > All of the patches are compile tested.  And the individual patches are
+>
+> Compile-testing is not testing. If you are not able to test a commit,
+> you should explain why.
+>
+> > submitted to the relevant maintainers.  The individual commit messages
+> > give a more detailed explanation of the strategy used to decide that the
+> > structure was constifiable.  It seemed redundant to put that in the cover
+> > letter, which will not be committed anyway.
+>
+> I don't mean to be harsh but I do not care about your thought process
+> *that much* when I review a commit (sometimes it might make sense to
+> explain that but it depends on the context).
+>
+> I mostly only care why a particular change makes sense for this
+> particular subsystem. The report given by a static analysis tool can
+> be a starting point for making a commit but it's not sufficient.
+> Based on the report you should look subsystems as individuals.
 
-The "test_interrupts" feature does exactly that.
-Running "ethtool -t <eth device> offline" causes the PF driver to
-temporarily switch to polling mode, and then back to event mode.
-(Note that for VF drivers, such switching is not performed).
+OK, thanks for the feedback.
 
-Fix this by adding a read-write semaphore for protection when
-switching between modes.
-
-Fixes: 225c7b1feef1 ("IB/mlx4: Add a driver Mellanox ConnectX InfiniBand adapters")
-Signed-off-by: Matan Barak <matanb@mellanox.com>
-Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/cmd.c  | 23 +++++++++++++++++------
- drivers/net/ethernet/mellanox/mlx4/mlx4.h |  2 ++
- 2 files changed, 19 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index f04a423ff79d..a58d96cf1ed1 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -785,17 +785,23 @@ int __mlx4_cmd(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
- 		return mlx4_cmd_reset_flow(dev, op, op_modifier, -EIO);
- 
- 	if (!mlx4_is_mfunc(dev) || (native && mlx4_is_master(dev))) {
-+		int ret;
-+
- 		if (dev->persist->state & MLX4_DEVICE_STATE_INTERNAL_ERROR)
- 			return mlx4_internal_err_ret_value(dev, op,
- 							  op_modifier);
-+		down_read(&mlx4_priv(dev)->cmd.switch_sem);
- 		if (mlx4_priv(dev)->cmd.use_events)
--			return mlx4_cmd_wait(dev, in_param, out_param,
--					     out_is_imm, in_modifier,
--					     op_modifier, op, timeout);
-+			ret = mlx4_cmd_wait(dev, in_param, out_param,
-+					    out_is_imm, in_modifier,
-+					    op_modifier, op, timeout);
- 		else
--			return mlx4_cmd_poll(dev, in_param, out_param,
--					     out_is_imm, in_modifier,
--					     op_modifier, op, timeout);
-+			ret = mlx4_cmd_poll(dev, in_param, out_param,
-+					    out_is_imm, in_modifier,
-+					    op_modifier, op, timeout);
-+
-+		up_read(&mlx4_priv(dev)->cmd.switch_sem);
-+		return ret;
- 	}
- 	return mlx4_slave_cmd(dev, in_param, out_param, out_is_imm,
- 			      in_modifier, op_modifier, op, timeout);
-@@ -2454,6 +2460,7 @@ int mlx4_cmd_init(struct mlx4_dev *dev)
- 	int flags = 0;
- 
- 	if (!priv->cmd.initialized) {
-+		init_rwsem(&priv->cmd.switch_sem);
- 		mutex_init(&priv->cmd.slave_cmd_mutex);
- 		sema_init(&priv->cmd.poll_sem, 1);
- 		priv->cmd.use_events = 0;
-@@ -2583,6 +2590,7 @@ int mlx4_cmd_use_events(struct mlx4_dev *dev)
- 	if (!priv->cmd.context)
- 		return -ENOMEM;
- 
-+	down_write(&priv->cmd.switch_sem);
- 	for (i = 0; i < priv->cmd.max_cmds; ++i) {
- 		priv->cmd.context[i].token = i;
- 		priv->cmd.context[i].next  = i + 1;
-@@ -2606,6 +2614,7 @@ int mlx4_cmd_use_events(struct mlx4_dev *dev)
- 
- 	down(&priv->cmd.poll_sem);
- 	priv->cmd.use_events = 1;
-+	up_write(&priv->cmd.switch_sem);
- 
- 	return err;
- }
-@@ -2618,6 +2627,7 @@ void mlx4_cmd_use_polling(struct mlx4_dev *dev)
- 	struct mlx4_priv *priv = mlx4_priv(dev);
- 	int i;
- 
-+	down_write(&priv->cmd.switch_sem);
- 	priv->cmd.use_events = 0;
- 
- 	for (i = 0; i < priv->cmd.max_cmds; ++i)
-@@ -2626,6 +2636,7 @@ void mlx4_cmd_use_polling(struct mlx4_dev *dev)
- 	kfree(priv->cmd.context);
- 
- 	up(&priv->cmd.poll_sem);
-+	up_write(&priv->cmd.switch_sem);
- }
- 
- struct mlx4_cmd_mailbox *mlx4_alloc_cmd_mailbox(struct mlx4_dev *dev)
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index c9d7fc5159f2..c128ba3ef014 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -46,6 +46,7 @@
- #include <linux/interrupt.h>
- #include <linux/spinlock.h>
- #include <net/devlink.h>
-+#include <linux/rwsem.h>
- 
- #include <linux/mlx4/device.h>
- #include <linux/mlx4/driver.h>
-@@ -627,6 +628,7 @@ struct mlx4_cmd {
- 	struct mutex		slave_cmd_mutex;
- 	struct semaphore	poll_sem;
- 	struct semaphore	event_sem;
-+	struct rw_semaphore	switch_sem;
- 	int			max_cmds;
- 	spinlock_t		context_lock;
- 	int			free_head;
--- 
-1.8.3.1
+julia
