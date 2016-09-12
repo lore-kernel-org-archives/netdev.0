@@ -1,14 +1,10 @@
 From: Javier Martinez Canillas <javier@osg.samsung.com>
-Subject: [PATCH 03/15] ethernet: amd: use IS_ENABLED() instead of checking for built-in or module
-Date: Mon, 12 Sep 2016 10:03:34 -0400
-Message-ID: <1473689026-6983-4-git-send-email-javier@osg.samsung.com>
+Subject: [PATCH 05/15] sundance: use IS_ENABLED() instead of checking for built-in or module
+Date: Mon, 12 Sep 2016 10:03:36 -0400
+Message-ID: <1473689026-6983-6-git-send-email-javier@osg.samsung.com>
 References: <1473689026-6983-1-git-send-email-javier@osg.samsung.com>
 Cc: Javier Martinez Canillas <javier@osg.samsung.com>,
-        netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Florian Westphal <fw@strlen.de>,
-        Antonio Quartulli <a@unstable.cc>,
-        Geert Uytterhoeven <geert@linux-m68k.org>,
-        Mugunthan V N <mugunthanvnm@ti.com>
+        Denis Kirjanov <kda@linux-powerpc.org>, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1473689026-6983-1-git-send-email-javier@osg.samsung.com>
@@ -24,52 +20,21 @@ of the Kconfig built-in and module enable details.
 Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
 ---
 
- drivers/net/ethernet/amd/7990.c     | 6 +++---
- drivers/net/ethernet/amd/amd8111e.c | 2 +-
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/dlink/sundance.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/amd/7990.c b/drivers/net/ethernet/amd/7990.c
-index dcf2a1f3643d..dc57f2759f44 100644
---- a/drivers/net/ethernet/amd/7990.c
-+++ b/drivers/net/ethernet/amd/7990.c
-@@ -45,14 +45,14 @@
- #define WRITERDP(lp, x)	out_be16(lp->base + LANCE_RDP, (x))
- #define READRDP(lp)	in_be16(lp->base + LANCE_RDP)
+diff --git a/drivers/net/ethernet/dlink/sundance.c b/drivers/net/ethernet/dlink/sundance.c
+index 58c6338a839e..79d80090eac8 100644
+--- a/drivers/net/ethernet/dlink/sundance.c
++++ b/drivers/net/ethernet/dlink/sundance.c
+@@ -867,7 +867,7 @@ static int netdev_open(struct net_device *dev)
  
--#if defined(CONFIG_HPLANCE) || defined(CONFIG_HPLANCE_MODULE)
-+#if IS_ENABLED(CONFIG_HPLANCE)
- #include "hplance.h"
- 
- #undef WRITERAP
- #undef WRITERDP
- #undef READRDP
- 
--#if defined(CONFIG_MVME147_NET) || defined(CONFIG_MVME147_NET_MODULE)
-+#if IS_ENABLED(CONFIG_MVME147_NET)
- 
- /* Lossage Factor Nine, Mr Sulu. */
- #define WRITERAP(lp, x)	(lp->writerap(lp, x))
-@@ -86,7 +86,7 @@ static inline __u16 READRDP(struct lance_private *lp)
- }
- 
- #endif
--#endif /* CONFIG_HPLANCE || CONFIG_HPLANCE_MODULE */
-+#endif /* IS_ENABLED(CONFIG_HPLANCE) */
- 
- /* debugging output macros, various flavours */
- /* #define TEST_HITS */
-diff --git a/drivers/net/ethernet/amd/amd8111e.c b/drivers/net/ethernet/amd/amd8111e.c
-index 94960055fa1f..f92cc97151ec 100644
---- a/drivers/net/ethernet/amd/amd8111e.c
-+++ b/drivers/net/ethernet/amd/amd8111e.c
-@@ -89,7 +89,7 @@ Revision History:
- #include <asm/byteorder.h>
- #include <asm/uaccess.h>
- 
+ 	/* Initialize other registers. */
+ 	__set_mac_addr(dev);
 -#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
 +#if IS_ENABLED(CONFIG_VLAN_8021Q)
- #define AMD8111E_VLAN_TAG_USED 1
+ 	iowrite16(dev->mtu + 18, ioaddr + MaxFrameSize);
  #else
- #define AMD8111E_VLAN_TAG_USED 0
+ 	iowrite16(dev->mtu + 14, ioaddr + MaxFrameSize);
 -- 
 2.7.4
