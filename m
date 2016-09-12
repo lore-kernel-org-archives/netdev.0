@@ -1,77 +1,39 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: icmpv6: issue with routing table entries from link local
- addresses
-Date: Mon, 12 Sep 2016 13:17:24 -0600
-Message-ID: <bf36b487-1cdf-ede9-1ed8-cca17c7f5fc6@cumulusnetworks.com>
-References: <20160912142732.GI26782@targo.k4n.de>
- <b6804e09-403f-64ff-257b-6c5fda7f8047@stressinduktion.org>
+From: Yuval Mintz <Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [RFC 02/11] Add RoCE driver framework
+Date: Mon, 12 Sep 2016 19:17:35 +0000
+Message-ID: <CY4PR11MB1720F9B74BBF82D0779FAC8F97FF0@CY4PR11MB1720.namprd11.prod.outlook.com>
+References: <1473696465-27986-1-git-send-email-Ram.Amrani@qlogic.com>
+ <1473696465-27986-3-git-send-email-Ram.Amrani@qlogic.com>,<516b98c7-477a-4890-0d92-529dc32f2c4e@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        =?UTF-8?Q?Andreas_H=c3=bcbner?= <andreas@k4n.de>,
-        netdev@vger.kernel.org, "d. caratti" <davide.caratti@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:34782 "EHLO
-        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755094AbcILTR1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 15:17:27 -0400
-Received: by mail-pf0-f169.google.com with SMTP id p64so55363174pfb.1
-        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 12:17:27 -0700 (PDT)
-In-Reply-To: <b6804e09-403f-64ff-257b-6c5fda7f8047@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Ariel Elior <Ariel.Elior-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+        Michal Kalderon <Michal.Kalderon-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+        Rajesh Borundia <rajesh.borundia-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Mark Bloch <markb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Ram Amrani <Ram.Amrani-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+        "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <516b98c7-477a-4890-0d92-529dc32f2c4e-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 9/12/16 11:26 AM, Hannes Frederic Sowa wrote:
-> Hello,
-> 
-> On 12.09.2016 16:27, Andreas Hübner wrote:
->> Hi,
->>
->> I'm currently debugging a potential issue with the icmpv6 stack and
->> hopefully this is the correct place to ask. (Was actually looking for a
->> more specific list, but didn't find anything. Please point me to a more
->> apropriate list if this is out of place here.)
->>
->> I have the following setup:
->>   - 2 directly connected hosts (A+B), both have only link local addresses
->>     configured (interface on both hosts is eth0)
->>   - host B is also connected to another host C (via interface eth1)
->>   - main routing table (relevant part) on host B looks like this:
->>
->>       fe80::/64 dev eth1  proto kernel  metric 256
->>       fe80::/64 dev eth0  proto kernel  metric 256
->>
->>   - host A is trying to ICMPv6 ping the link local address of host B
->>
->> The issue I currently have is, that the echo reply that host B should
->> generate is never sent back to host A. If I change the order of the
->> routing table entries on host B, everything works fine.
->> (host A is connected on eth0)
->>
->> I'm wondering, if this is how it is supposed to work. Do we need to do a
->> routing table lookup when generating an ICMPv6 echo reply for link local
->> addresses?  (From my understanding, this is not done in the neighbour
->> discovery stack, so why here?)
-> 
-> For global addresses this is necessary as asymetric routing could be
-> involved and we don't want to treat ping echos in any way special.
-> 
->> Actually, I'm convinced I must be doing something wrong here. The setup
->> for the issue is quite trivial, someone would have tripped over it
->> already. The only condition is that one host has multiple interfaces
->> with ipv6 enabled.
->>
->> Any help in shedding some light onto this issue would be appreciated.
-> 
-> This shouldn't be the case. We certainly carry over the ifindex of the
-> received packet into the routing lookup of the outgoing packet, thus the
-> appropriate rule, with outgoing ifindex should be selected.
-> 
-> I also couldn't reproduce your problem here with my system. Can you
-> verify with tcpdump that the packet is leaving on another interface?
+>> +uint debug;
+>> +module_param(debug, uint, 0);
+>> +MODULE_PARM_DESC(debug, "Default debug msglevel");
 
-v4.4 and on there are fib6 tracepoints that show the lookup result. May provide some insights.
+>Why are you adding this as a module parameter?=20
 
-perf record -a -e fib6:* 
-perf script
+I believe this is mostly to follow same line as qede which also defines
+'debug' module parameter for allowing easy user control of debug
+prints [& specifically for probe prints, which can't be controlled
+otherwise].
+     =
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
