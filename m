@@ -1,90 +1,104 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [PATCH v3 net 1/1] net sched actions: fix GETing actions
-Date: Mon, 12 Sep 2016 19:07:38 -0400
-Message-ID: <1473721658-6034-1-git-send-email-jhs@emojatatu.com>
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: davem@davemloft.net
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [net-next PATCH v3 2/3] e1000: add initial XDP support
+Date: Mon, 12 Sep 2016 16:07:47 -0700
+Message-ID: <20160912230745.GA24171@ast-mbp.thefacebook.com>
+References: <20160912220312.5610.77528.stgit@john-Precision-Tower-5810>
+ <20160912221351.5610.29043.stgit@john-Precision-Tower-5810>
+ <1473720399.18970.91.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: John Fastabend <john.fastabend@gmail.com>, bblanco@plumgrid.com,
+        jeffrey.t.kirsher@intel.com, brouer@redhat.com,
+        davem@davemloft.net, xiyou.wangcong@gmail.com,
+        intel-wired-lan@lists.osuosl.org, u9012063@gmail.com,
+        netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:33071 "EHLO
-        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751317AbcILXHr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 19:07:47 -0400
-Received: by mail-oi0-f67.google.com with SMTP id y2so20437915oie.0
-        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 16:07:47 -0700 (PDT)
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33411 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752439AbcILXHw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 19:07:52 -0400
+Received: by mail-pf0-f195.google.com with SMTP id 128so8696114pfb.0
+        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 16:07:52 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1473720399.18970.91.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
+On Mon, Sep 12, 2016 at 03:46:39PM -0700, Eric Dumazet wrote:
+> On Mon, 2016-09-12 at 15:13 -0700, John Fastabend wrote:
+> > From: Alexei Starovoitov <ast@fb.com>
+> 
+> > +static void e1000_xmit_raw_frame(struct e1000_rx_buffer *rx_buffer_info,
+> > +				 u32 len,
+> > +				 struct net_device *netdev,
+> > +				 struct e1000_adapter *adapter)
+> > +{
+> > +	struct netdev_queue *txq = netdev_get_tx_queue(netdev, 0);
+> > +	struct e1000_hw *hw = &adapter->hw;
+> > +	struct e1000_tx_ring *tx_ring;
+> > +
+> > +	if (len > E1000_MAX_DATA_PER_TXD)
+> > +		return;
+> > +
+> > +	/* e1000 only support a single txq at the moment so the queue is being
+> > +	 * shared with stack. To support this requires locking to ensure the
+> > +	 * stack and XDP are not running at the same time. Devices with
+> > +	 * multiple queues should allocate a separate queue space.
+> > +	 */
+> > +	HARD_TX_LOCK(netdev, txq, smp_processor_id());
+> > +
+> > +	tx_ring = adapter->tx_ring;
+> > +
+> > +	if (E1000_DESC_UNUSED(tx_ring) < 2) {
+> > +		HARD_TX_UNLOCK(netdev, txq);
+> > +		return;
+> > +	}
+> > +
+> > +	if (netif_xmit_frozen_or_stopped(txq))
+> > +		return;
+> > +
+> > +	e1000_tx_map_rxpage(tx_ring, rx_buffer_info, len);
+> > +	netdev_sent_queue(netdev, len);
+> > +	e1000_tx_queue(adapter, tx_ring, 0/*tx_flags*/, 1);
+> > +
+> > +	writel(tx_ring->next_to_use, hw->hw_addr + tx_ring->tdt);
+> > +	mmiowb();
+> > +
+> > +	HARD_TX_UNLOCK(netdev, txq);
+> > +}
+> 
+> 
+> e1000_tx_map() is full of workarounds.
+> 
+> Have a look at last_tx_tso for example.
+> 
+>                /* Workaround for Controller erratum --
+>                  * descriptor for non-tso packet in a linear SKB that follows a
+>                  * tso gets written back prematurely before the data is fully
+>                  * DMA'd to the controller
+>                  */
+>                 if (!skb->data_len && tx_ring->last_tx_tso &&
+>                     !skb_is_gso(skb)) {
+>                         tx_ring->last_tx_tso = false;
+>                         size -= 4;
+>                 }
+> 
+> Look, this XDP_TX thing is hard to properly implement and test on
+> various NIC revisions.
 
-With the batch changes that translated transient actions into
-a temporary list lost in the translation was the fact that
-tcf_action_destroy() will eventually delete the action from
-the permanent location if the refcount is zero.
+my reading of these e1k workarounds are for old versions of the nic that
+don't even exist anymore. I believe none of them apply to qemu e1k.
 
-Example of what broke:
-...add a gact action to drop
-sudo $TC actions add action drop index 10
-...now retrieve it, looks good
-sudo $TC actions get action gact index 10
-...retrieve it again and find it is gone!
-sudo $TC actions get action gact index 10
+> Without proper queue management, high prio packets in qdisc wont be sent
+> if NIC is under RX -> XDP_TX flood.
 
-Fixes:
-commit 22dc13c837c3 ("net_sched: convert tcf_exts from list to pointer array"),
-commit 824a7e8863b3 ("net_sched: remove an unnecessary list_del()")
-commit f07fed82ad79 ("net_sched: remove the leftover cleanup_a()")
+yep. there are various ways to shoot yourself in the foot with xdp.
+The simplest program that drops all the packets will make the box unpingable.
 
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
----
- net/sched/act_api.c | 19 +++++++++++++++++++
- 1 file changed, 19 insertions(+)
+> Sounds a horrible feature to me.
 
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index d09d068..50720b1 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -592,6 +592,16 @@ err_out:
- 	return ERR_PTR(err);
- }
- 
-+static void cleanup_a(struct list_head *actions, int ovr)
-+{
-+	struct tc_action *a;
-+
-+	list_for_each_entry(a, actions, list) {
-+		if (ovr)
-+			a->tcfa_refcnt -= 1;
-+	}
-+}
-+
- int tcf_action_init(struct net *net, struct nlattr *nla,
- 				  struct nlattr *est, char *name, int ovr,
- 				  int bind, struct list_head *actions)
-@@ -612,8 +622,15 @@ int tcf_action_init(struct net *net, struct nlattr *nla,
- 			goto err;
- 		}
- 		act->order = i;
-+		if (ovr)
-+			act->tcfa_refcnt += 1;
- 		list_add_tail(&act->list, actions);
- 	}
-+
-+	/* Remove the temp refcnt which was necessary to protect against
-+	 * destroying an existing action which was being replaced
-+	 */
-+	cleanup_a(actions, ovr);
- 	return 0;
- 
- err:
-@@ -883,6 +900,8 @@ tca_action_gd(struct net *net, struct nlattr *nla, struct nlmsghdr *n,
- 			goto err;
- 		}
- 		act->order = i;
-+		if (event == RTM_GETACTION)
-+			act->tcfa_refcnt += 1;
- 		list_add_tail(&act->list, &actions);
- 	}
- 
--- 
-1.9.1
+yep. not pretty by any means.
+This whole thing is only to test xdp programs under qemu which
+realistically emulates only e1k.
+I simply don't see any other options to test xdp under kvm.
