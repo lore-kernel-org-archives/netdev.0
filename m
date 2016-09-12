@@ -1,150 +1,131 @@
-From: John Crispin <john@phrozen.org>
-Subject: [PATCH] net: dsa: add FIB support
-Date: Mon, 12 Sep 2016 12:13:53 +0200
-Message-ID: <1473675233-36952-1-git-send-email-john@phrozen.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        John Crispin <john@phrozen.org>
-To: "David S. Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Jesper Dangaard Brouer via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: README: [PATCH RFC 11/11] net/mlx5e: XDP TX xmit
+ more
+Date: Mon, 12 Sep 2016 12:15:30 +0200
+Message-ID: <20160912121530.4b4f0ad7@redhat.com>
+References: <1473252152-11379-1-git-send-email-saeedm@mellanox.com>
+	<1473252152-11379-12-git-send-email-saeedm@mellanox.com>
+	<20160908101147.1b351432@redhat.com>
+	<20160909032202.GA62966@ast-mbp.thefacebook.com>
+	<CALzJLG_r0pDJgxqqak5=NatT8tF7UP2NkGS1wjeWcS5C=Zvv2A@mail.gmail.com>
+Reply-To: Jesper Dangaard Brouer <brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
+	iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <CALzJLG_r0pDJgxqqak5=NatT8tF7UP2NkGS1wjeWcS5C=Zvv2A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Add SWITCHDEV_OBJ_ID_IPV4_FIB support to the DSA layer.
+On Fri, 9 Sep 2016 18:03:09 +0300
+Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org> wrote:
 
-Signed-off-by: John Crispin <john@phrozen.org>
----
- Documentation/networking/dsa/dsa.txt |   18 +++++++++++++++
- include/net/dsa.h                    |   13 +++++++++++
- net/dsa/slave.c                      |   41 ++++++++++++++++++++++++++++++++++
- 3 files changed, 72 insertions(+)
+> On Fri, Sep 9, 2016 at 6:22 AM, Alexei Starovoitov via iovisor-dev
+> <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org> wrote:
+> > On Thu, Sep 08, 2016 at 10:11:47AM +0200, Jesper Dangaard Brouer wrote:  
+> >>
+> >> I'm sorry but I have a problem with this patch!  
+> >> Looking at this patch, I want to bring up a fundamental architectural
+> >> concern with the development direction of XDP transmit.
+> >>
+> >>
+> >> What you are trying to implement, with delaying the doorbell, is
+> >> basically TX bulking for TX_XDP.
+> >>
+> >>  Why not implement a TX bulking interface directly instead?!?
+> >>
+> >> Yes, the tailptr/doorbell is the most costly operation, but why not
+> >> also take advantage of the benefits of bulking for other parts of the
+> >> code? (benefit is smaller, by every cycles counts in this area)
+> >>
+> >> This hole XDP exercise is about avoiding having a transaction cost per
+> >> packet, that reads "bulking" or "bundling" of packets, where possible.
+> >>
+> >>  Lets do bundling/bulking from the start!  
+> 
+> Jesper, what we did here is also bulking, instead of bulking in a
+> temporary list in the driver we list the packets in the HW and once
+> done we transmit all at once via the xdp_doorbell indication.
+> 
+> I agree with you that we can take advantage and improve the icache by
+> bulking first in software and then queue all at once in the hw then
+> ring one doorbell.
+> 
+> but I also agree with Alexei that this will introduce an extra
+> pointer/list handling in the driver and we need to do the comparison
+> between both approaches before we decide which is better.
 
-diff --git a/Documentation/networking/dsa/dsa.txt b/Documentation/networking/dsa/dsa.txt
-index 6d6c07c..6cd5831 100644
---- a/Documentation/networking/dsa/dsa.txt
-+++ b/Documentation/networking/dsa/dsa.txt
-@@ -607,6 +607,24 @@ of DSA, would be the its port-based VLAN, used by the associated bridge device.
-   function that the driver has to call for each MAC address known to be behind
-   the given port. A switchdev object is used to carry the VID and MDB info.
- 
-+Route offloading
-+----------------
-+
-+- ipv4_fib_prepare: routing layer function invoked to prepare the installation
-+  of an ipv4 route into the switches routing database. If the operation is not
-+  supported this function should return -EOPNOTSUPP. No hardware setup must be
-+  done in this function. See ipv4_fib_add for this and details.
-+
-+- ipv4_fib_add: routing layer function invoked when a new ipv4 route should be
-+  installed into the routing database of the switch, it should be programmed
-+  with the route for the specified VLAN ID of the device that the route applies
-+  to.
-+
-+- ipv4_fib_del: routing layer function invoked when an ipv4 route should be
-+  removed from the routing database, the switch hardware should be programmed
-+  to delete the specified MAC address of the nexthop from the specified VLAN ID
-+  if it was mapped into the forwarding database.
-+
- TODO
- ====
- 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 7556646..7fdd63e 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -237,6 +237,7 @@ struct switchdev_obj;
- struct switchdev_obj_port_fdb;
- struct switchdev_obj_port_mdb;
- struct switchdev_obj_port_vlan;
-+struct switchdev_obj_ipv4_fib;
- 
- struct dsa_switch_ops {
- 	struct list_head	list;
-@@ -386,6 +387,18 @@ struct dsa_switch_ops {
- 	int	(*port_mdb_dump)(struct dsa_switch *ds, int port,
- 				 struct switchdev_obj_port_mdb *mdb,
- 				 int (*cb)(struct switchdev_obj *obj));
-+
-+	/*
-+	 * IPV4 routing
-+	 */
-+	int	(*ipv4_fib_prepare)(struct dsa_switch *ds, int port,
-+				    const struct switchdev_obj_ipv4_fib *fib4,
-+				    struct switchdev_trans *trans);
-+	int	(*ipv4_fib_add)(struct dsa_switch *ds, int port,
-+				const struct switchdev_obj_ipv4_fib *fib4,
-+				struct switchdev_trans *trans);
-+	int	(*ipv4_fib_del)(struct dsa_switch *ds, int port,
-+				const struct switchdev_obj_ipv4_fib *fib4);
- };
- 
- void register_switch_driver(struct dsa_switch_ops *type);
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 9ecbe78..9e6ceb2 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -334,6 +334,38 @@ static int dsa_slave_port_mdb_dump(struct net_device *dev,
- 	return -EOPNOTSUPP;
- }
- 
-+static int dsa_slave_ipv4_fib_add(struct net_device *dev,
-+				  const struct switchdev_obj_ipv4_fib *fib4,
-+				  struct switchdev_trans *trans)
-+{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_switch *ds = p->parent;
-+	int ret;
-+
-+	if (!ds->drv->ipv4_fib_prepare || !ds->drv->ipv4_fib_add)
-+		return -EOPNOTSUPP;
-+
-+	if (switchdev_trans_ph_prepare(trans))
-+		ret = ds->drv->ipv4_fib_prepare(ds, p->port, fib4, trans);
-+	else
-+		ret = ds->drv->ipv4_fib_add(ds, p->port, fib4, trans);
-+
-+	return ret;
-+}
-+
-+static int dsa_slave_ipv4_fib_del(struct net_device *dev,
-+				  const struct switchdev_obj_ipv4_fib *fib4)
-+{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_switch *ds = p->parent;
-+	int ret = -EOPNOTSUPP;
-+
-+	if (ds->drv->ipv4_fib_del)
-+		ret = ds->drv->ipv4_fib_del(ds, p->port, fib4);
-+
-+	return ret;
-+}
-+
- static int dsa_slave_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
-@@ -465,6 +497,11 @@ static int dsa_slave_port_obj_add(struct net_device *dev,
- 					      SWITCHDEV_OBJ_PORT_VLAN(obj),
- 					      trans);
- 		break;
-+	case SWITCHDEV_OBJ_ID_IPV4_FIB:
-+		err = dsa_slave_ipv4_fib_add(dev,
-+					     SWITCHDEV_OBJ_IPV4_FIB(obj),
-+					     trans);
-+		break;
- 	default:
- 		err = -EOPNOTSUPP;
- 		break;
-@@ -490,6 +527,10 @@ static int dsa_slave_port_obj_del(struct net_device *dev,
- 		err = dsa_slave_port_vlan_del(dev,
- 					      SWITCHDEV_OBJ_PORT_VLAN(obj));
- 		break;
-+	case SWITCHDEV_OBJ_ID_IPV4_FIB:
-+		err = dsa_slave_ipv4_fib_del(dev,
-+					     SWITCHDEV_OBJ_IPV4_FIB(obj));
-+		break;
- 	default:
- 		err = -EOPNOTSUPP;
- 		break;
+I welcome implementing both approaches and benchmarking them against
+each-other, I'll gladly dedicate time for this!
+
+I'm reacting so loudly, because this is a mental model switch, that
+need to be applied to the full drivers RX path. Also for normal stack
+delivery of SKBs. As both Edward Cree[1] and I[2] have demonstrated,
+there is between 10%-25% perf gain here.
+
+The key point is stop seeing the lowest driver RX as something that
+works on a per packet basis.  It might be easier to view this as a kind
+of vector processing.  This is about having a vector of packets, where
+we apply some action/operation.
+
+This is about using the CPU more efficiently, getting it to do more
+instructions per cycle.  The next level of optimization (for >= Sandy
+Bridge CPUs) is to make these vector processing stages small enough to fit
+into the CPUs decoded-I-cache section.
+
+
+It might also be important to mention, that for netstack delivery, I
+don't imagine bulking 64 packets.  Instead, I imagine doing 8-16
+packets.  Why, because the NIC-HW runs independently and have the
+opportunity to deliver more frames in the RX ring queue, while the
+stack "slow" processed packets.  You can view this as "bulking" from
+the RX ring queue, with a "look-back" before exiting the NAPI poll loop.
+
+
+> this must be marked as future work and not have this from the start.
+
+We both know that statement is BS, and the other approach will never be
+implemented once this patch is accepted upstream.
+
+
+> > mlx4 already does bulking and this proposed mlx5 set of patches
+> > does bulking as well.
+
+I'm reacting exactly because mlx4 is also doing "bulking" in the wrong
+way IMHO.  And now mlx5 is building on the same principle. That is why
+I'm yelling STOP.
+
+
+> >> The reason behind the xmit_more API is that we could not change the
+> >> API of all the drivers.  And we found that calling an explicit NDO
+> >> flush came at a cost (only approx 7 ns IIRC), but it still a cost that
+> >> would hit the common single packet use-case.
+> >>
+> >> It should be really easy to build a bundle of packets that need XDP_TX
+> >> action, especially given you only have a single destination "port".
+> >> And then you XDP_TX send this bundle before mlx5_cqwq_update_db_record.  
+
+
+[1] http://lists.openwall.net/netdev/2016/04/19/89
+[2] http://lists.openwall.net/netdev/2016/01/15/51
+
 -- 
-1.7.10.4
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
