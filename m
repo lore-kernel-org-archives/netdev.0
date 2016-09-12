@@ -1,120 +1,72 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH v2 net 1/1] net sched actions: fix GETing actions
-Date: Mon, 12 Sep 2016 10:18:15 -0700
-Message-ID: <CAM_iQpX3j_ejd1MjnaYkq0OL8B_gsN+SEoFk-8Srp+nWxKHzQg@mail.gmail.com>
-References: <1473675692-8490-1-git-send-email-jhs@emojatatu.com>
+From: Bjorn Helgaas <helgaas-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v4 01/16] vmxnet3: Move PCI Id to pci_ids.h
+Date: Mon, 12 Sep 2016 12:21:26 -0500
+Message-ID: <20160912172126.GA23532@localhost>
+References: <1473655766-31628-1-git-send-email-aditr@vmware.com>
+ <1473655766-31628-2-git-send-email-aditr@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:32993 "EHLO
-        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751321AbcILRTQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 13:19:16 -0400
-Received: by mail-oi0-f67.google.com with SMTP id y2so19003447oie.0
-        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 10:19:16 -0700 (PDT)
-In-Reply-To: <1473675692-8490-1-git-send-email-jhs@emojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        pv-drivers-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jhansen-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org, asarwade-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org,
+        georgezhang-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org, bryantan-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org
+To: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1473655766-31628-2-git-send-email-aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 12, 2016 at 3:21 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
->
-> With the batch changes that translated transient actions into
-> a temporary list we lost in the translation the fact that
-> tcf_action_destroy() will eventually delete the action from
-> the permanent location if the refcount is zero.
->
-> Example of what broke:
-> ...add a gact action to drop
-> sudo $TC actions add action drop index 10
-> ...now retrieve it, looks good
-> sudo $TC actions get action gact index 10
-> ...retrieve it again and find it is gone!
-> sudo $TC actions get action gact index 10
->
-> Fixes:
-> 22dc13c837c3 ("net_sched: convert tcf_exts from list to pointer array"),
-> 824a7e8863b3 ("net_sched: remove an unnecessary list_del()")
-> f07fed82ad79 ("net_sched: remove the leftover cleanup_a()")
->
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+On Sun, Sep 11, 2016 at 09:49:11PM -0700, Adit Ranadive wrote:
+> The VMXNet3 PCI Id will be shared with our paravirtual RDMA driver.
+> Moved it to the shared location in pci_ids.h.
+> 
+> Suggested-by: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> Signed-off-by: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+
+Acked-by: Bjorn Helgaas <bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+
 > ---
->  net/sched/act_api.c | 19 +++++++++++++++++++
->  1 file changed, 19 insertions(+)
->
-> diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-> index d09d068..63b8167 100644
-> --- a/net/sched/act_api.c
-> +++ b/net/sched/act_api.c
-> @@ -592,6 +592,16 @@ err_out:
->         return ERR_PTR(err);
->  }
->
-> +static void cleanup_a(struct list_head *actions, int ovr)
-> +{
-> +       struct tc_action *a, *tmp;
-> +
-> +       list_for_each_entry_safe(a, tmp, actions, list) {
-
-
-No need the safe version.
-
-> +               if (ovr)
-> +                       a->tcfa_refcnt-=1;
-
-How about tcfa_bindcnt?
-
-I hate to point out coding style issue, but since you need to update
-the patch anyway, please add two spaces surround '-='.
-
-I think checkpatch.pl should be able to catch this.
-
-> +       }
-> +}
-> +
->  int tcf_action_init(struct net *net, struct nlattr *nla,
->                                   struct nlattr *est, char *name, int ovr,
->                                   int bind, struct list_head *actions)
-> @@ -612,8 +622,15 @@ int tcf_action_init(struct net *net, struct nlattr *nla,
->                         goto err;
->                 }
->                 act->order = i;
-> +               if (ovr)
-
-Need to check this boolean? It looks like we need this for !ovr case too?
-
-
-> +                       act->tcfa_refcnt+=1;
-
-
-Ditto for coding style.
-
->                 list_add_tail(&act->list, actions);
->         }
-> +
-> +       /* Remove the temp refcnt which was necessary to protect against
-> +        * destroying an existing action which was being replaced
-> +        */
-> +       cleanup_a(actions, ovr);
->         return 0;
->
->  err:
-> @@ -883,6 +900,8 @@ tca_action_gd(struct net *net, struct nlattr *nla, struct nlmsghdr *n,
->                         goto err;
->                 }
->                 act->order = i;
-> +               if (event == RTM_GETACTION)
-> +                       act->tcfa_refcnt+=1;
-
-Ditto.
-
-
->                 list_add_tail(&act->list, &actions);
->         }
->
-
-
-Thanks.
+> ---
+>  drivers/net/vmxnet3/vmxnet3_int.h | 3 +--
+>  include/linux/pci_ids.h           | 1 +
+>  2 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
+> index 74fc030..2bd6bf8 100644
+> --- a/drivers/net/vmxnet3/vmxnet3_int.h
+> +++ b/drivers/net/vmxnet3/vmxnet3_int.h
+> @@ -119,9 +119,8 @@ enum {
+>  };
+>  
+>  /*
+> - * PCI vendor and device IDs.
+> + * Maximum devices supported.
+>   */
+> -#define PCI_DEVICE_ID_VMWARE_VMXNET3    0x07B0
+>  #define MAX_ETHERNET_CARDS		10
+>  #define MAX_PCI_PASSTHRU_DEVICE		6
+>  
+> diff --git a/include/linux/pci_ids.h b/include/linux/pci_ids.h
+> index c58752f..98bb455 100644
+> --- a/include/linux/pci_ids.h
+> +++ b/include/linux/pci_ids.h
+> @@ -2251,6 +2251,7 @@
+>  #define PCI_DEVICE_ID_RASTEL_2PORT	0x2000
+>  
+>  #define PCI_VENDOR_ID_VMWARE		0x15ad
+> +#define PCI_DEVICE_ID_VMWARE_VMXNET3	0x07b0
+>  
+>  #define PCI_VENDOR_ID_ZOLTRIX		0x15b0
+>  #define PCI_DEVICE_ID_ZOLTRIX_2BD0	0x2bd0
+> -- 
+> 2.7.4
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-pci" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
