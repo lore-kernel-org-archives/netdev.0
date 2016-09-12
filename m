@@ -1,7 +1,7 @@
 From: kan.liang@intel.com
-Subject: [RFC V3 PATCH 23/26] net/netpolicy: fast path for finding the queues
-Date: Mon, 12 Sep 2016 07:55:56 -0700
-Message-ID: <1473692159-4017-24-git-send-email-kan.liang@intel.com>
+Subject: [RFC V3 PATCH 21/26] net/netpolicy: introduce per task net policy
+Date: Mon, 12 Sep 2016 07:55:54 -0700
+Message-ID: <1473692159-4017-22-git-send-email-kan.liang@intel.com>
 References: <1473692159-4017-1-git-send-email-kan.liang@intel.com>
 Cc: jeffrey.t.kirsher@intel.com, mingo@redhat.com,
         peterz@infradead.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
@@ -17,314 +17,319 @@ Cc: jeffrey.t.kirsher@intel.com, mingo@redhat.com,
         Kan Liang <kan.liang@intel.com>
 To: davem@davemloft.net, linux-kernel@vger.kernel.org,
         netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga04.intel.com ([192.55.52.120]:37125 "EHLO mga04.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1759629AbcILO4t (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 12 Sep 2016 10:56:49 -0400
 In-Reply-To: <1473692159-4017-1-git-send-email-kan.liang@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Kan Liang <kan.liang@intel.com>
 
-Current implementation searches the hash table to get assigned object
-for each transmit/receive packet. It's not necessory, because the
-assigned object usually remain unchanged. This patch store the assigned
-queue to speed up the searching process.
+Usually, application as a whole has specific requirement. Applying the
+net policy to all sockets one by one in the application is too complex.
+This patch introduces per task net policy to address this case.
+Once the per task net policy is applied, all the sockets in the
+application will apply the same net policy. Also, per task net policy
+can be inherited by all children.
 
-But under certain situations, the assigned objects has to be changed,
-especially when system cpu and queue mapping changed, such as CPU
-hotplug, device hotplug, queue number changes and so on. In this patch,
-the netpolicy_sys_map_version is used to track the system cpu and queue
-mapping changes. If the netpolicy_sys_map_version doesn't match with the
-instance's version, the stored queue will be dropped. The
-netpolicy_sys_map_version is protected by RCU lock.
-
-Also, to reduce the overhead, this patch asynchronously find the
-available object by work queue. So the first several packets may not be
-benefited.
+The usage of PR_SET_NETPOLICY option is as below.
+prctl(PR_SET_NETPOLICY, POLICY_NAME, NULL, NULL, NULL).
+It applies per task policy. The policy name must be valid and compatible
+with current device policy. Othrewise, it will error out. The task
+policy will be set to NET_POLICY_INVALID.
 
 Signed-off-by: Kan Liang <kan.liang@intel.com>
 ---
- include/linux/netpolicy.h |  23 +++++++---
- net/core/netpolicy.c      | 106 +++++++++++++++++++++++++++++++++++++++++++++-
- net/ipv4/af_inet.c        |   7 +--
- 3 files changed, 125 insertions(+), 11 deletions(-)
+ include/linux/init_task.h  |  9 +++++++++
+ include/linux/sched.h      |  5 +++++
+ include/net/sock.h         | 12 +++++++++++-
+ include/uapi/linux/prctl.h |  4 ++++
+ kernel/exit.c              |  4 ++++
+ kernel/fork.c              |  6 ++++++
+ kernel/sys.c               | 31 +++++++++++++++++++++++++++++++
+ net/core/netpolicy.c       | 35 +++++++++++++++++++++++++++++++++++
+ net/core/sock.c            | 10 +++++++++-
+ net/ipv4/af_inet.c         |  7 +++++--
+ 10 files changed, 119 insertions(+), 4 deletions(-)
 
-diff --git a/include/linux/netpolicy.h b/include/linux/netpolicy.h
-index 04cd07d..88f4f60 100644
---- a/include/linux/netpolicy.h
-+++ b/include/linux/netpolicy.h
-@@ -55,14 +55,20 @@ struct netpolicy_sys_map {
- 	u32	irq;
- };
+diff --git a/include/linux/init_task.h b/include/linux/init_task.h
+index f8834f8..133d1cb 100644
+--- a/include/linux/init_task.h
++++ b/include/linux/init_task.h
+@@ -183,6 +183,14 @@ extern struct task_group root_task_group;
+ # define INIT_KASAN(tsk)
+ #endif
  
-+struct netpolicy_sys_map_version {
-+	struct rcu_head		rcu;
-+	int			major;
-+};
++#ifdef CONFIG_NETPOLICY
++#define INIT_NETPOLICY(tsk)						\
++	.task_netpolicy.policy = NET_POLICY_INVALID,			\
++	.task_netpolicy.dev = NULL,					\
++	.task_netpolicy.ptr = (void *)&tsk,
++#else
++#define INIT_NETPOLICY(tsk)
++#endif
+ /*
+  *  INIT_TASK is used to set up the first task table, touch at
+  * your own risk!. Base=0, limit=0x1fffff (=2MB)
+@@ -260,6 +268,7 @@ extern struct task_group root_task_group;
+ 	INIT_VTIME(tsk)							\
+ 	INIT_NUMA_BALANCING(tsk)					\
+ 	INIT_KASAN(tsk)							\
++	INIT_NETPOLICY(tsk)						\
+ }
+ 
+ 
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index 3b716a3..1c8c674 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -62,6 +62,8 @@ struct sched_param {
+ 
+ #include <asm/processor.h>
+ 
++#include <linux/netpolicy.h>
 +
- struct netpolicy_sys_info {
+ #define SCHED_ATTR_SIZE_VER0	48	/* sizeof first published struct */
+ 
+ /*
+@@ -1923,6 +1925,9 @@ struct task_struct {
+ #ifdef CONFIG_MMU
+ 	struct task_struct *oom_reaper_list;
+ #endif
++#ifdef CONFIG_NETPOLICY
++	struct netpolicy_instance task_netpolicy;
++#endif
+ /* CPU-specific state of this task */
+ 	struct thread_struct thread;
+ /*
+diff --git a/include/net/sock.h b/include/net/sock.h
+index ca97f35..867dc84 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1484,6 +1484,7 @@ void sock_edemux(struct sk_buff *skb);
+ #define sock_edemux(skb) sock_efree(skb)
+ #endif
+ 
++void sock_setnetpolicy(struct socket *sock);
+ int sock_setsockopt(struct socket *sock, int level, int op,
+ 		    char __user *optval, unsigned int optlen);
+ 
+@@ -2280,10 +2281,19 @@ extern int sysctl_optmem_max;
+ extern __u32 sysctl_wmem_default;
+ extern __u32 sysctl_rmem_default;
+ 
+-/* Return netpolicy instance information from socket. */
++/* Return netpolicy instance information from either task or socket.
++ * If both task and socket have netpolicy instance information,
++ * using task's and unregistering socket's. Because task policy is
++ * dominant policy
++ */
+ static inline struct netpolicy_instance *netpolicy_find_instance(struct sock *sk)
+ {
+ #ifdef CONFIG_NETPOLICY
++	if (is_net_policy_valid(current->task_netpolicy.policy)) {
++		if (is_net_policy_valid(sk->sk_netpolicy.policy))
++			netpolicy_unregister(&sk->sk_netpolicy);
++		return &current->task_netpolicy;
++	}
+ 	if (is_net_policy_valid(sk->sk_netpolicy.policy))
+ 		return &sk->sk_netpolicy;
+ #endif
+diff --git a/include/uapi/linux/prctl.h b/include/uapi/linux/prctl.h
+index a8d0759..bc182d2 100644
+--- a/include/uapi/linux/prctl.h
++++ b/include/uapi/linux/prctl.h
+@@ -197,4 +197,8 @@ struct prctl_mm_map {
+ # define PR_CAP_AMBIENT_LOWER		3
+ # define PR_CAP_AMBIENT_CLEAR_ALL	4
+ 
++/* Control net policy */
++#define PR_SET_NETPOLICY		48
++#define PR_GET_NETPOLICY		49
++
+ #endif /* _LINUX_PRCTL_H */
+diff --git a/kernel/exit.c b/kernel/exit.c
+index 2f974ae..37841da 100644
+--- a/kernel/exit.c
++++ b/kernel/exit.c
+@@ -858,6 +858,10 @@ void do_exit(long code)
+ 	if (unlikely(current->pi_state_cache))
+ 		kfree(current->pi_state_cache);
+ #endif
++#ifdef CONFIG_NETPOLICY
++	if (is_net_policy_valid(current->task_netpolicy.policy))
++		netpolicy_unregister(&current->task_netpolicy);
++#endif
  	/*
- 	 * Record the cpu and queue 1:1 mapping
+ 	 * Make sure we are holding no locks:
  	 */
--	u32				avail_rx_num;
--	struct netpolicy_sys_map	*rx;
--	u32				avail_tx_num;
--	struct netpolicy_sys_map	*tx;
-+	u32					avail_rx_num;
-+	struct netpolicy_sys_map		*rx;
-+	u32					avail_tx_num;
-+	struct netpolicy_sys_map		*tx;
-+	struct netpolicy_sys_map_version __rcu	*version;
- };
+diff --git a/kernel/fork.c b/kernel/fork.c
+index 52e725d..fd61b7d 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -1451,6 +1451,12 @@ static struct task_struct *copy_process(unsigned long clone_flags,
+ 	p->sequential_io_avg	= 0;
+ #endif
  
- struct netpolicy_object {
-@@ -110,7 +116,14 @@ struct netpolicy_instance {
- 	struct work_struct	fc_wk;		/* flow classification work */
- 	atomic_t		fc_wk_cnt;	/* flow classification work number */
- 	struct netpolicy_flow_spec	flow;	/* flow information */
--
-+	/* For fast path */
-+	atomic_t		rx_queue;
-+	atomic_t		tx_queue;
-+	struct work_struct	get_rx_wk;
-+	atomic_t		get_rx_wk_cnt;
-+	struct work_struct	get_tx_wk;
-+	atomic_t		get_tx_wk_cnt;
-+	int			sys_map_version;
- };
++#ifdef CONFIG_NETPOLICY
++	p->task_netpolicy.ptr = (void *)p;
++	if (is_net_policy_valid(p->task_netpolicy.policy))
++		netpolicy_register(&p->task_netpolicy, p->task_netpolicy.policy);
++#endif
++
+ 	/* Perform scheduler related setup. Assign this task to a CPU. */
+ 	retval = sched_fork(clone_flags, p);
+ 	if (retval)
+diff --git a/kernel/sys.c b/kernel/sys.c
+index 89d5be4..b481a64 100644
+--- a/kernel/sys.c
++++ b/kernel/sys.c
+@@ -2072,6 +2072,31 @@ static int prctl_get_tid_address(struct task_struct *me, int __user **tid_addr)
+ }
+ #endif
  
- struct netpolicy_cpu_load {
++#ifdef CONFIG_NETPOLICY
++static int prctl_set_netpolicy(struct task_struct *me, int policy)
++{
++	return netpolicy_register(&me->task_netpolicy, policy);
++}
++
++static int prctl_get_netpolicy(struct task_struct *me, unsigned long adr)
++{
++	return put_user(me->task_netpolicy.policy, (int __user *)adr);
++}
++
++#else /* CONFIG_NETPOLICY */
++
++static int prctl_set_netpolicy(struct task_struct *me, int policy)
++{
++	return -EINVAL;
++}
++
++static int prctl_get_netpolicy(struct task_struct *me, unsigned long adr)
++{
++	return -EINVAL;
++}
++
++#endif /* CONFIG_NETPOLICY */
++
+ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
+ 		unsigned long, arg4, unsigned long, arg5)
+ {
+@@ -2270,6 +2295,12 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
+ 	case PR_GET_FP_MODE:
+ 		error = GET_FP_MODE(me);
+ 		break;
++	case PR_SET_NETPOLICY:
++		error = prctl_set_netpolicy(me, arg2);
++		break;
++	case PR_GET_NETPOLICY:
++		error = prctl_get_netpolicy(me, arg2);
++		break;
+ 	default:
+ 		error = -EINVAL;
+ 		break;
 diff --git a/net/core/netpolicy.c b/net/core/netpolicy.c
-index 60a6d69..2f55a14 100644
+index 252cbee..60a6d69 100644
 --- a/net/core/netpolicy.c
 +++ b/net/core/netpolicy.c
-@@ -84,6 +84,7 @@ static DEFINE_HASHTABLE(np_record_hash, 10);
- static DEFINE_SPINLOCK(np_hashtable_lock);
- 
- struct workqueue_struct *np_fc_wq;
-+struct workqueue_struct *np_fast_path_wq;
- 
- static int netpolicy_get_dev_info(struct net_device *dev,
- 				  struct netpolicy_dev_info *d_info)
-@@ -456,6 +457,37 @@ err:
- 	return queue;
- }
- 
-+static void np_find_rx_queue(struct work_struct *wk)
-+{
-+	struct netpolicy_instance *instance;
-+	int queue;
-+
-+	instance = container_of(wk, struct netpolicy_instance,
-+				get_rx_wk);
-+
-+	if (instance) {
-+		queue = get_avail_queue(instance, true);
-+		if (queue >= 0)
-+			atomic_set(&instance->rx_queue, queue);
-+	}
-+	atomic_set(&instance->get_rx_wk_cnt, 0);
-+}
-+
-+static void np_find_tx_queue(struct work_struct *wk)
-+{
-+	struct netpolicy_instance *instance;
-+	int queue;
-+
-+	instance = container_of(wk, struct netpolicy_instance,
-+				get_tx_wk);
-+	if (instance) {
-+		queue = get_avail_queue(instance, false);
-+		if (queue >= 0)
-+			atomic_set(&instance->tx_queue, queue);
-+	}
-+	atomic_set(&instance->get_tx_wk_cnt, 0);
-+}
-+
- static inline bool policy_validate(struct netpolicy_instance *instance)
- {
- 	struct net_device *dev = instance->dev;
-@@ -498,6 +530,7 @@ static inline bool policy_validate(struct netpolicy_instance *instance)
- int netpolicy_pick_queue(struct netpolicy_instance *instance, bool is_rx)
- {
- 	struct net_device *dev = instance->dev;
-+	int version;
- 
- 	if (!dev || !dev->netpolicy)
- 		return -EINVAL;
-@@ -505,7 +538,35 @@ int netpolicy_pick_queue(struct netpolicy_instance *instance, bool is_rx)
- 	if (!policy_validate(instance))
- 		return -EINVAL;
- 
--	return get_avail_queue(instance, is_rx);
-+	/* fast path */
-+	rcu_read_lock();
-+	version = rcu_dereference(dev->netpolicy->sys_info.version)->major;
-+	if (version == instance->sys_map_version) {
-+		if (is_rx && (atomic_read(&instance->rx_queue) != NETPOLICY_INVALID_QUEUE)) {
-+			rcu_read_unlock();
-+			return atomic_read(&instance->rx_queue);
-+		}
-+		if (!is_rx && (atomic_read(&instance->tx_queue) != NETPOLICY_INVALID_QUEUE)) {
-+			rcu_read_unlock();
-+			return atomic_read(&instance->tx_queue);
-+		}
-+	} else {
-+		atomic_set(&instance->rx_queue, NETPOLICY_INVALID_QUEUE);
-+		atomic_set(&instance->tx_queue, NETPOLICY_INVALID_QUEUE);
-+		instance->sys_map_version = version;
-+	}
-+	rcu_read_unlock();
-+
-+	if (is_rx && !atomic_cmpxchg(&instance->get_rx_wk_cnt, 0, 1)) {
-+		instance->task = current;
-+		queue_work(np_fast_path_wq, &instance->get_rx_wk);
-+	}
-+	if (!is_rx && !atomic_cmpxchg(&instance->get_tx_wk_cnt, 0, 1)) {
-+		instance->task = current;
-+		queue_work(np_fast_path_wq, &instance->get_tx_wk);
-+	}
-+
-+	return -1;
- }
- EXPORT_SYMBOL(netpolicy_pick_queue);
- 
-@@ -541,6 +602,7 @@ void np_flow_rule_set(struct work_struct *wk)
- 	queue = get_avail_queue(instance, true);
- 	if (queue < 0)
- 		goto done;
-+	atomic_set(&instance->rx_queue, queue);
- 
- 	/* using ethtool flow-type to configure
- 	 * Rx network flow classification options or rules
-@@ -591,6 +653,14 @@ static void init_instance(struct netpolicy_instance *instance)
- 	atomic_set(&instance->rule_queue, NETPOLICY_INVALID_QUEUE);
- 	atomic_set(&instance->fc_wk_cnt, 0);
- 	INIT_WORK(&instance->fc_wk, np_flow_rule_set);
-+
-+	atomic_set(&instance->rx_queue, NETPOLICY_INVALID_QUEUE);
-+	atomic_set(&instance->tx_queue, NETPOLICY_INVALID_QUEUE);
-+	instance->sys_map_version = 0;
-+	atomic_set(&instance->get_rx_wk_cnt, 0);
-+	atomic_set(&instance->get_tx_wk_cnt, 0);
-+	INIT_WORK(&instance->get_rx_wk, np_find_rx_queue);
-+	INIT_WORK(&instance->get_tx_wk, np_find_tx_queue);
- }
- 
- /**
-@@ -664,6 +734,8 @@ void netpolicy_unregister(struct netpolicy_instance *instance)
- 	struct net_device *dev = instance->dev;
- 	struct netpolicy_record *record;
- 
-+	cancel_work_sync(&instance->get_rx_wk);
-+	cancel_work_sync(&instance->get_tx_wk);
- 	cancel_work_sync(&instance->fc_wk);
- 	/* remove FD rules */
- 	if (dev && instance->location != NETPOLICY_INVALID_LOC) {
-@@ -1196,6 +1268,7 @@ static int netpolicy_proc_dev_init(struct net *net, struct net_device *dev)
- 
- int init_netpolicy(struct net_device *dev)
- {
-+	struct netpolicy_sys_map_version *version;
- 	int ret, i, j;
- 
- 	spin_lock(&dev->np_lock);
-@@ -1229,6 +1302,14 @@ int init_netpolicy(struct net_device *dev)
+@@ -24,6 +24,35 @@
+  *	  is too difficult for users.
+  * 	So, it is a big challenge to get good network performance.
+  *
++ * NET policy supports four policies per device, and three policies per task
++ * and per socket. For using NET policy, the device policy must be set in
++ * advance. The task policy or socket policy must be compatible with device
++ * policy.
++ *
++ * BULK policy		This policy is designed for high throughput. It can be
++ *			applied to either device policy or task/socket policy.
++ *			If it is applied to device policy, the only compatible
++ *			task/socket policy is BULK policy itself.
++ * CPU policy		This policy is designed for high throughput and lower
++ *			CPU utilization. It can be applied to either device
++ *			policy or task/socket policy. If it is applied to
++ *			device policy, the only compatible task/socket policy
++ *			is CPU policy itself.
++ * LATENCY policy	This policy is designed for low latency. It can be
++ *			applied to either device policy or task/socket policy.
++ *			If it is applied to device policy, the only compatible
++ *			task/socket policy is LATENCY policy itself.
++ * MIX policy		This policy can only be applied to device policy. It
++ *			is compatible with BULK and LATENCY policy. This
++ *			policy is designed for the case which miscellaneous
++ *			types of workload running on the device.
++ *
++ * The device policy changes the system configuration and reorganize the
++ * resource on the device, but it does not change the packets behavior.
++ * The task policy and socket policy redirect the packets to get good
++ * performance. If both task policy and socket policy are set in the same
++ * task, task policy will be applied. The task policy can also be inherited by
++ * children.
+  */
+ #include <linux/module.h>
+ #include <linux/kernel.h>
+@@ -444,6 +473,12 @@ static inline bool policy_validate(struct netpolicy_instance *instance)
+ 			policy_name[instance->policy]);
+ 		return false;
  	}
- 	spin_unlock(&dev->np_ob_list_lock);
- 
-+	version = kzalloc(sizeof(*version), GFP_ATOMIC);
-+	if (version)
-+		rcu_assign_pointer(dev->netpolicy->sys_info.version, version);
-+	else {
-+		kfree(dev->netpolicy);
-+		dev->netpolicy = NULL;
-+		ret = -ENOMEM;
-+	}
- unlock:
- 	spin_unlock(&dev->np_lock);
- 	return ret;
-@@ -1240,6 +1321,8 @@ void uninit_netpolicy(struct net_device *dev)
- 	if (dev->netpolicy) {
- 		if (dev->netpolicy->cur_policy > NET_POLICY_NONE)
- 			netpolicy_disable(dev);
-+		RCU_INIT_POINTER(dev->netpolicy->sys_info.version, NULL);
-+		synchronize_rcu();
- 		kfree(dev->netpolicy);
- 		dev->netpolicy = NULL;
- 	}
-@@ -1348,6 +1431,7 @@ void update_netpolicy_sys_map(void)
- 	struct net *net;
- 	struct net_device *dev, *aux;
- 	enum netpolicy_name cur_policy;
-+	struct netpolicy_sys_map_version *new_version, *old_version;
- 
- 	for_each_net(net) {
- 		for_each_netdev_safe(net, dev, aux) {
-@@ -1379,6 +1463,19 @@ void update_netpolicy_sys_map(void)
- 			}
- 
- 			dev->netpolicy->cur_policy = cur_policy;
 +
-+			old_version = rcu_dereference_protected(dev->netpolicy->sys_info.version, 1);
-+			new_version = kzalloc(sizeof(*new_version), GFP_ATOMIC);
-+			if (new_version) {
-+				new_version->major = old_version->major + 1;
-+				if (new_version->major < 0)
-+					new_version->major = 0;
-+				rcu_assign_pointer(dev->netpolicy->sys_info.version, new_version);
-+				kfree_rcu(old_version, rcu);
-+			} else {
-+				pr_warn("NETPOLICY: Failed to update sys map version for dev %s\n",
-+					dev->name);
-+			}
- unlock:
- 			spin_unlock(&dev->np_lock);
- 		}
-@@ -1418,6 +1515,12 @@ static int __init netpolicy_init(void)
- 	if (!np_fc_wq)
- 		return -ENOMEM;
- 
-+	np_fast_path_wq = create_workqueue("np_fast_path");
-+	if (!np_fast_path_wq) {
-+		destroy_workqueue(np_fc_wq);
-+		return -ENOMEM;
-+	}
++	/* task policy is dominant policy */
++	if (is_net_policy_valid(current->task_netpolicy.policy) &&
++	    (current->task_netpolicy.policy != instance->policy))
++		return false;
 +
- 	ret = register_pernet_subsys(&netpolicy_net_ops);
- 	if (!ret)
- 		register_netdevice_notifier(&netpolicy_dev_notf);
-@@ -1432,6 +1535,7 @@ static int __init netpolicy_init(void)
- static void __exit netpolicy_exit(void)
- {
- 	destroy_workqueue(np_fc_wq);
-+	destroy_workqueue(np_fast_path_wq);
+ 	return true;
+ }
  
- 	unregister_netdevice_notifier(&netpolicy_dev_notf);
- 	unregister_pernet_subsys(&netpolicy_net_ops);
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 80d9f08..1726a3c 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1006,7 +1006,13 @@ set_rcvbuf:
+ 
+ #ifdef CONFIG_NETPOLICY
+ 	case SO_NETPOLICY:
+-		ret = netpolicy_register(&sk->sk_netpolicy, val);
++		if (is_net_policy_valid(current->task_netpolicy.policy) &&
++		    (current->task_netpolicy.policy != val)) {
++			printk_ratelimited(KERN_WARNING "NETPOLICY: new policy is not compatible with task netpolicy\n");
++			ret = -EINVAL;
++		} else {
++			ret = netpolicy_register(&sk->sk_netpolicy, val);
++		}
+ 		break;
+ #endif
+ 	default:
+@@ -1599,6 +1605,8 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
+ 
+ #ifdef CONFIG_NETPOLICY
+ 		newsk->sk_netpolicy.ptr = (void *)newsk;
++		if (is_net_policy_valid(current->task_netpolicy.policy))
++			newsk->sk_netpolicy.policy = NET_POLICY_INVALID;
+ 		if (is_net_policy_valid(newsk->sk_netpolicy.policy))
+ 			netpolicy_register(&newsk->sk_netpolicy, newsk->sk_netpolicy.policy);
+ 
 diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 71bee44..8d90afd 100644
+index 209edc4..71bee44 100644
 --- a/net/ipv4/af_inet.c
 +++ b/net/ipv4/af_inet.c
-@@ -760,7 +760,6 @@ static void sock_netpolicy_manage_flow(struct sock *sk, struct msghdr *msg)
- 	struct netpolicy_instance *instance;
- 	struct netpolicy_flow_spec *flow;
- 	bool change = false;
--	int queue;
- 
- 	instance = netpolicy_find_instance(sk);
+@@ -766,8 +766,11 @@ static void sock_netpolicy_manage_flow(struct sock *sk, struct msghdr *msg)
  	if (!instance)
-@@ -814,10 +813,8 @@ static void sock_netpolicy_manage_flow(struct sock *sk, struct msghdr *msg)
  		return;
- 	}
  
--	queue = netpolicy_pick_queue(instance, true);
--	if (queue < 0)
+-	if (!instance->dev)
 -		return;
--	if ((queue != atomic_read(&instance->rule_queue)) || change)
-+	if ((atomic_read(&instance->rx_queue) != atomic_read(&instance->rule_queue)) ||
-+	    change)
- 		netpolicy_set_rules(instance);
- #endif
- }
++	if (!instance->dev) {
++		if (!sk->sk_netpolicy.dev)
++			return;
++		instance->dev = sk->sk_netpolicy.dev;
++	}
+ 
+ 	flow = &instance->flow;
+ 	/* TODO: need to change here and add more protocol support */
 -- 
 2.5.5
