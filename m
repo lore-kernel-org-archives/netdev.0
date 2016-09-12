@@ -1,70 +1,150 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [PATCH 23/26] sh_eth: constify local structures
-Date: Mon, 12 Sep 2016 11:43:05 +0200 (CEST)
-Message-ID: <alpine.DEB.2.10.1609121137430.3049@hadrien>
-References: <1473599168-30561-1-git-send-email-Julia.Lawall@lip6.fr> <1473599168-30561-24-git-send-email-Julia.Lawall@lip6.fr> <cb443416-4fb9-5593-2529-66211299c9a8@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: joe@perches.com, kernel-janitors@vger.kernel.org,
-        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <cb443416-4fb9-5593-2529-66211299c9a8@cogentembedded.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+From: John Crispin <john@phrozen.org>
+Subject: [PATCH] net: dsa: add FIB support
+Date: Mon, 12 Sep 2016 12:13:53 +0200
+Message-ID: <1473675233-36952-1-git-send-email-john@phrozen.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        John Crispin <john@phrozen.org>
+To: "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Add SWITCHDEV_OBJ_ID_IPV4_FIB support to the DSA layer.
 
+Signed-off-by: John Crispin <john@phrozen.org>
+---
+ Documentation/networking/dsa/dsa.txt |   18 +++++++++++++++
+ include/net/dsa.h                    |   13 +++++++++++
+ net/dsa/slave.c                      |   41 ++++++++++++++++++++++++++++++++++
+ 3 files changed, 72 insertions(+)
 
-On Sun, 11 Sep 2016, Sergei Shtylyov wrote:
-
-> On 09/11/2016 04:06 PM, Julia Lawall wrote:
-> > For structure types defined in the same file or local header files, find
-> > top-level static structure declarations that have the following
-> > properties:
-> > 1. Never reassigned.
->
->   Really?
->
-> > 2. Address never taken
->
->   Really?
-
-OK, I see the problem.  The code has, eg:
-
-{ "sh7724-ether", (kernel_ulong_t)&sh7724_data }
-
-Coccinelle doesn't know anything about kernel_ulong_t, so it assumes that
-it is an identifier, and that the whole expression is a bit and, rather
-than an address computation.  And at the same time, the cast causes the
-compiler to discard the const annotation, so it doesn't complain either.
-
-I can update the rule to avoid this case, since taking a bit and on the
-address of a top-level structure is not likely to be useful, and I will
-check whether any of the other patches are affected by this issue.
-
-Thanks for the report.
-
-julia
-
-
->
-> > 3. Not passed to a top-level macro call
-> > 4. No pointer or array-typed field passed to a function or stored in a
-> > variable.
-> > Declare structures having all of these properties as const.
-> >
-> > Done using Coccinelle.
-> > Based on a suggestion by Joe Perches <joe@perches.com>.
-> >
-> > Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
->
->    NAK, see sh_eth_set_default_cpu_data().
->
-> MBR, Sergei
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe kernel-janitors" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+diff --git a/Documentation/networking/dsa/dsa.txt b/Documentation/networking/dsa/dsa.txt
+index 6d6c07c..6cd5831 100644
+--- a/Documentation/networking/dsa/dsa.txt
++++ b/Documentation/networking/dsa/dsa.txt
+@@ -607,6 +607,24 @@ of DSA, would be the its port-based VLAN, used by the associated bridge device.
+   function that the driver has to call for each MAC address known to be behind
+   the given port. A switchdev object is used to carry the VID and MDB info.
+ 
++Route offloading
++----------------
++
++- ipv4_fib_prepare: routing layer function invoked to prepare the installation
++  of an ipv4 route into the switches routing database. If the operation is not
++  supported this function should return -EOPNOTSUPP. No hardware setup must be
++  done in this function. See ipv4_fib_add for this and details.
++
++- ipv4_fib_add: routing layer function invoked when a new ipv4 route should be
++  installed into the routing database of the switch, it should be programmed
++  with the route for the specified VLAN ID of the device that the route applies
++  to.
++
++- ipv4_fib_del: routing layer function invoked when an ipv4 route should be
++  removed from the routing database, the switch hardware should be programmed
++  to delete the specified MAC address of the nexthop from the specified VLAN ID
++  if it was mapped into the forwarding database.
++
+ TODO
+ ====
+ 
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 7556646..7fdd63e 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -237,6 +237,7 @@ struct switchdev_obj;
+ struct switchdev_obj_port_fdb;
+ struct switchdev_obj_port_mdb;
+ struct switchdev_obj_port_vlan;
++struct switchdev_obj_ipv4_fib;
+ 
+ struct dsa_switch_ops {
+ 	struct list_head	list;
+@@ -386,6 +387,18 @@ struct dsa_switch_ops {
+ 	int	(*port_mdb_dump)(struct dsa_switch *ds, int port,
+ 				 struct switchdev_obj_port_mdb *mdb,
+ 				 int (*cb)(struct switchdev_obj *obj));
++
++	/*
++	 * IPV4 routing
++	 */
++	int	(*ipv4_fib_prepare)(struct dsa_switch *ds, int port,
++				    const struct switchdev_obj_ipv4_fib *fib4,
++				    struct switchdev_trans *trans);
++	int	(*ipv4_fib_add)(struct dsa_switch *ds, int port,
++				const struct switchdev_obj_ipv4_fib *fib4,
++				struct switchdev_trans *trans);
++	int	(*ipv4_fib_del)(struct dsa_switch *ds, int port,
++				const struct switchdev_obj_ipv4_fib *fib4);
+ };
+ 
+ void register_switch_driver(struct dsa_switch_ops *type);
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 9ecbe78..9e6ceb2 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -334,6 +334,38 @@ static int dsa_slave_port_mdb_dump(struct net_device *dev,
+ 	return -EOPNOTSUPP;
+ }
+ 
++static int dsa_slave_ipv4_fib_add(struct net_device *dev,
++				  const struct switchdev_obj_ipv4_fib *fib4,
++				  struct switchdev_trans *trans)
++{
++	struct dsa_slave_priv *p = netdev_priv(dev);
++	struct dsa_switch *ds = p->parent;
++	int ret;
++
++	if (!ds->drv->ipv4_fib_prepare || !ds->drv->ipv4_fib_add)
++		return -EOPNOTSUPP;
++
++	if (switchdev_trans_ph_prepare(trans))
++		ret = ds->drv->ipv4_fib_prepare(ds, p->port, fib4, trans);
++	else
++		ret = ds->drv->ipv4_fib_add(ds, p->port, fib4, trans);
++
++	return ret;
++}
++
++static int dsa_slave_ipv4_fib_del(struct net_device *dev,
++				  const struct switchdev_obj_ipv4_fib *fib4)
++{
++	struct dsa_slave_priv *p = netdev_priv(dev);
++	struct dsa_switch *ds = p->parent;
++	int ret = -EOPNOTSUPP;
++
++	if (ds->drv->ipv4_fib_del)
++		ret = ds->drv->ipv4_fib_del(ds, p->port, fib4);
++
++	return ret;
++}
++
+ static int dsa_slave_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ {
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+@@ -465,6 +497,11 @@ static int dsa_slave_port_obj_add(struct net_device *dev,
+ 					      SWITCHDEV_OBJ_PORT_VLAN(obj),
+ 					      trans);
+ 		break;
++	case SWITCHDEV_OBJ_ID_IPV4_FIB:
++		err = dsa_slave_ipv4_fib_add(dev,
++					     SWITCHDEV_OBJ_IPV4_FIB(obj),
++					     trans);
++		break;
+ 	default:
+ 		err = -EOPNOTSUPP;
+ 		break;
+@@ -490,6 +527,10 @@ static int dsa_slave_port_obj_del(struct net_device *dev,
+ 		err = dsa_slave_port_vlan_del(dev,
+ 					      SWITCHDEV_OBJ_PORT_VLAN(obj));
+ 		break;
++	case SWITCHDEV_OBJ_ID_IPV4_FIB:
++		err = dsa_slave_ipv4_fib_del(dev,
++					     SWITCHDEV_OBJ_IPV4_FIB(obj));
++		break;
+ 	default:
+ 		err = -EOPNOTSUPP;
+ 		break;
+-- 
+1.7.10.4
