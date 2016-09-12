@@ -1,31 +1,55 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: [PATCH v4 16/16] MAINTAINERS: Update for PVRDMA driver
-Date: Mon, 12 Sep 2016 11:52:22 -0600
-Message-ID: <20160912175222.GG5843@obsidianresearch.com>
-References: <1473655766-31628-1-git-send-email-aditr@vmware.com>
- <1473655766-31628-17-git-send-email-aditr@vmware.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dledford@redhat.com, linux-rdma@vger.kernel.org,
-        pv-drivers@vmware.com, netdev@vger.kernel.org,
-        linux-pci@vger.kernel.org, jhansen@vmware.com, asarwade@vmware.com,
-        georgezhang@vmware.com, bryantan@vmware.com
-To: Adit Ranadive <aditr@vmware.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from quartz.orcorp.ca ([184.70.90.242]:33026 "EHLO quartz.orcorp.ca"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932334AbcILRwX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 12 Sep 2016 13:52:23 -0400
-Content-Disposition: inline
-In-Reply-To: <1473655766-31628-17-git-send-email-aditr@vmware.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net-next 2/2] errqueue: include linux/time.h
+Date: Mon, 12 Sep 2016 13:05:30 -0400
+Message-ID: <1473699930-58865-3-git-send-email-willemdebruijn.kernel@gmail.com>
+References: <1473699930-58865-1-git-send-email-willemdebruijn.kernel@gmail.com>
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+        john.stultz@linaro.rg, bmoses@google.com,
+        Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1473699930-58865-1-git-send-email-willemdebruijn.kernel@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Sep 11, 2016 at 09:49:26PM -0700, Adit Ranadive wrote:
-> Add maintainer info for the PVRDMA driver.
+From: Willem de Bruijn <willemb@google.com>
 
-You can probably squash the last three patches.
+struct scm_timestamping has fields of type struct timespec. Now that
+it is safe to include linux/time.h and time.h at the same time,
+include linux/time.h directly in linux/errqueue.h
 
-.. and fix the __u32 stuff throughout the entire driver please.
+Without this patch, when compiling the following program after
+make headers_install:
 
-Jason
+gcc -Wall -Werror -Iusr/include -c -xc - <<EOF
+  #include <linux/errqueue.h>
+  static struct scm_timestamping tss;
+  int main(void) { tss.ts[0].tv_sec = 1; return 0; }
+EOF
+
+gcc gives this error:
+
+  In file included from <stdin>:1:0:
+  usr/include/linux/errqueue.h:33:18: error: array type has incomplete element type
+    struct timespec ts[3];
+
+Reported-by: Brooks Moses <bmoses@google.com>
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+---
+ include/uapi/linux/errqueue.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/include/uapi/linux/errqueue.h b/include/uapi/linux/errqueue.h
+index 07bdce1..abafec8 100644
+--- a/include/uapi/linux/errqueue.h
++++ b/include/uapi/linux/errqueue.h
+@@ -1,6 +1,7 @@
+ #ifndef _UAPI_LINUX_ERRQUEUE_H
+ #define _UAPI_LINUX_ERRQUEUE_H
+ 
++#include <linux/time.h>
+ #include <linux/types.h>
+ 
+ struct sock_extended_err {
+-- 
+2.8.0.rc3.226.g39d4020
