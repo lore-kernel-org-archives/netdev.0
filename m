@@ -1,796 +1,1042 @@
-From: Ram Amrani <Ram.Amrani@qlogic.com>
-Subject: [RFC 04/11] Add support for user context verbs
-Date: Mon, 12 Sep 2016 19:07:38 +0300
-Message-ID: <1473696465-27986-5-git-send-email-Ram.Amrani@qlogic.com>
+From: Ram Amrani <Ram.Amrani-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>
+Subject: [RFC 02/11] Add RoCE driver framework
+Date: Mon, 12 Sep 2016 19:07:36 +0300
+Message-ID: <1473696465-27986-3-git-send-email-Ram.Amrani@qlogic.com>
 References: <1473696465-27986-1-git-send-email-Ram.Amrani@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <Yuval.Mintz@qlogic.com>, <Ariel.Elior@qlogic.com>,
-        <Michal.Kalderon@qlogic.com>, <rajesh.borundia@qlogic.com>,
-        <linux-rdma@vger.kernel.org>, <netdev@vger.kernel.org>,
-        Ram Amrani <Ram.Amrani@qlogic.com>
-To: <dledford@redhat.com>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:41319 "EHLO
-        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752105AbcILQIT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 12:08:19 -0400
-In-Reply-To: <1473696465-27986-1-git-send-email-Ram.Amrani@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>, <Ariel.Elior-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+        <Michal.Kalderon-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>, <rajesh.borundia-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+        <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Ram Amrani <Ram.Amrani-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>
+To: <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1473696465-27986-1-git-send-email-Ram.Amrani-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Add support for ucontext, query port, add and del gid verbs.
+Adds a skeletal implementation of the qed* RoCE driver -
+basically the ability to communicate with the qede driver and
+receive notifications from it regarding various init/exit events.
 
-Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Signed-off-by: Ram Amrani <Ram.Amrani@qlogic.com>
+Signed-off-by: Rajesh Borundia <rajesh.borundia-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Ram Amrani <Ram.Amrani-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>
 ---
- drivers/infiniband/hw/qedr/Makefile        |   2 +-
- drivers/infiniband/hw/qedr/main.c          |  44 ++-
- drivers/infiniband/hw/qedr/qedr.h          |  38 +++
- drivers/infiniband/hw/qedr/qedr_user.h     |  27 ++
- drivers/infiniband/hw/qedr/verbs.c         | 417 +++++++++++++++++++++++++++++
- drivers/infiniband/hw/qedr/verbs.h         |  26 ++
- drivers/net/ethernet/qlogic/qed/qed.h      |   2 +-
- drivers/net/ethernet/qlogic/qed/qed_dev.c  |   1 +
- drivers/net/ethernet/qlogic/qed/qed_roce.c |  19 +-
- drivers/net/ethernet/qlogic/qed/qed_roce.h |   1 +
- include/linux/qed/qed_roce_if.h            |   1 +
- include/linux/qed/rdma_common.h            |   1 +
- 12 files changed, 568 insertions(+), 11 deletions(-)
- create mode 100644 drivers/infiniband/hw/qedr/qedr_user.h
- create mode 100644 drivers/infiniband/hw/qedr/verbs.c
- create mode 100644 drivers/infiniband/hw/qedr/verbs.h
+ drivers/infiniband/Kconfig                   |   2 +
+ drivers/infiniband/hw/Makefile               |   1 +
+ drivers/infiniband/hw/qedr/Kconfig           |   7 +
+ drivers/infiniband/hw/qedr/Makefile          |   3 +
+ drivers/infiniband/hw/qedr/main.c            | 293 +++++++++++++++++++++++++
+ drivers/infiniband/hw/qedr/qedr.h            |  60 ++++++
+ drivers/net/ethernet/qlogic/qede/Makefile    |   1 +
+ drivers/net/ethernet/qlogic/qede/qede.h      |   9 +
+ drivers/net/ethernet/qlogic/qede/qede_main.c |  35 ++-
+ drivers/net/ethernet/qlogic/qede/qede_roce.c | 309 +++++++++++++++++++++++++++
+ include/linux/qed/qed_if.h                   |   3 +-
+ include/linux/qed/qede_roce.h                |  88 ++++++++
+ include/uapi/linux/pci_regs.h                |   3 +
+ 13 files changed, 803 insertions(+), 11 deletions(-)
+ create mode 100644 drivers/infiniband/hw/qedr/Kconfig
+ create mode 100644 drivers/infiniband/hw/qedr/Makefile
+ create mode 100644 drivers/infiniband/hw/qedr/main.c
+ create mode 100644 drivers/infiniband/hw/qedr/qedr.h
+ create mode 100644 drivers/net/ethernet/qlogic/qede/qede_roce.c
+ create mode 100644 include/linux/qed/qede_roce.h
 
+diff --git a/drivers/infiniband/Kconfig b/drivers/infiniband/Kconfig
+index e9b7dc0..77ab0f3 100644
+--- a/drivers/infiniband/Kconfig
++++ b/drivers/infiniband/Kconfig
+@@ -88,4 +88,6 @@ source "drivers/infiniband/sw/rxe/Kconfig"
+ 
+ source "drivers/infiniband/hw/hfi1/Kconfig"
+ 
++source "drivers/infiniband/hw/qedr/Kconfig"
++
+ endif # INFINIBAND
+diff --git a/drivers/infiniband/hw/Makefile b/drivers/infiniband/hw/Makefile
+index c0c7cf8..c51e464 100644
+--- a/drivers/infiniband/hw/Makefile
++++ b/drivers/infiniband/hw/Makefile
+@@ -9,3 +9,4 @@ obj-$(CONFIG_INFINIBAND_NES)		+= nes/
+ obj-$(CONFIG_INFINIBAND_OCRDMA)		+= ocrdma/
+ obj-$(CONFIG_INFINIBAND_USNIC)		+= usnic/
+ obj-$(CONFIG_INFINIBAND_HFI1)		+= hfi1/
++obj-$(CONFIG_INFINIBAND_QEDR)		+= qedr/
+diff --git a/drivers/infiniband/hw/qedr/Kconfig b/drivers/infiniband/hw/qedr/Kconfig
+new file mode 100644
+index 0000000..58b584f
+--- /dev/null
++++ b/drivers/infiniband/hw/qedr/Kconfig
+@@ -0,0 +1,7 @@
++config INFINIBAND_QEDR
++	tristate "QLogic RoCE driver"
++	depends on NETDEVICES && ETHERNET && PCI && 64BIT && QEDE
++	select QED_LL2
++	---help---
++	  This driver provides low-level InfiniBand over Ethernet
++	  support for QLogic QED host channel adapters (HCAs).
 diff --git a/drivers/infiniband/hw/qedr/Makefile b/drivers/infiniband/hw/qedr/Makefile
-index 3a5b7a2..b10f2b1 100644
---- a/drivers/infiniband/hw/qedr/Makefile
+new file mode 100644
+index 0000000..3a5b7a2
+--- /dev/null
 +++ b/drivers/infiniband/hw/qedr/Makefile
-@@ -1,3 +1,3 @@
- obj-$(CONFIG_INFINIBAND_QEDR) := qedr.o
- 
--qedr-y := main.o
-+qedr-y := main.o verbs.o
+@@ -0,0 +1,3 @@
++obj-$(CONFIG_INFINIBAND_QEDR) := qedr.o
++
++qedr-y := main.o
 diff --git a/drivers/infiniband/hw/qedr/main.c b/drivers/infiniband/hw/qedr/main.c
-index 0b5274a..a01983c 100644
---- a/drivers/infiniband/hw/qedr/main.c
+new file mode 100644
+index 0000000..3fe58a3
+--- /dev/null
 +++ b/drivers/infiniband/hw/qedr/main.c
-@@ -32,6 +32,7 @@
- #include <linux/module.h>
- #include <rdma/ib_verbs.h>
- #include <rdma/ib_addr.h>
-+#include <rdma/ib_user_verbs.h>
- #include <linux/netdevice.h>
- #include <linux/iommu.h>
- #include <net/addrconf.h>
-@@ -39,6 +40,8 @@
- #include <linux/qed/qed_chain.h>
- #include <linux/qed/qed_if.h>
- #include "qedr.h"
-+#include "verbs.h"
-+#include "qedr_user.h"
- 
- MODULE_DESCRIPTION("QLogic 40G/100G ROCE Driver");
- MODULE_AUTHOR("QLogic Corporation");
-@@ -70,14 +73,47 @@ static enum rdma_link_layer qedr_link_layer(struct ib_device *device,
- 	return IB_LINK_LAYER_ETHERNET;
- }
- 
-+static void qedr_get_dev_fw_str(struct ib_device *ibdev, char *str,
-+				size_t str_len)
-+{
-+	struct qedr_dev *qedr = get_qedr_dev(ibdev);
-+	u32 fw_ver = (u32)qedr->attr.fw_ver;
-+
-+	snprintf(str, str_len, "%d. %d. %d. %d",
-+		 (fw_ver >> 24) & 0xFF, (fw_ver >> 16) & 0xFF,
-+		 (fw_ver >> 8) & 0xFF, fw_ver & 0xFF);
-+}
-+
- static int qedr_register_device(struct qedr_dev *dev)
- {
- 	strlcpy(dev->ibdev.name, "qedr%d", IB_DEVICE_NAME_MAX);
- 
- 	memcpy(dev->ibdev.node_desc, QEDR_NODE_DESC, sizeof(QEDR_NODE_DESC));
- 	dev->ibdev.owner = THIS_MODULE;
-+	dev->ibdev.uverbs_abi_ver = QEDR_ABI_VERSION;
-+
-+	dev->ibdev.uverbs_cmd_mask = QEDR_UVERBS(GET_CONTEXT) |
-+				     QEDR_UVERBS(QUERY_DEVICE) |
-+				     QEDR_UVERBS(QUERY_PORT);
-+
-+	dev->ibdev.phys_port_cnt = 1;
-+	dev->ibdev.num_comp_vectors = dev->num_cnq;
-+	dev->ibdev.node_type = RDMA_NODE_IB_CA;
- 
-+	dev->ibdev.query_device = qedr_query_device;
-+	dev->ibdev.query_port = qedr_query_port;
-+
-+	dev->ibdev.query_gid = qedr_query_gid;
-+	dev->ibdev.add_gid = qedr_add_gid;
-+	dev->ibdev.del_gid = qedr_del_gid;
-+
-+	dev->ibdev.alloc_ucontext = qedr_alloc_ucontext;
-+	dev->ibdev.dealloc_ucontext = qedr_dealloc_ucontext;
-+	dev->ibdev.mmap = qedr_mmap;
-+
-+	dev->ibdev.dma_device = &dev->pdev->dev;
- 	dev->ibdev.get_link_layer = qedr_link_layer;
-+	dev->ibdev.get_dev_fw_str = qedr_get_dev_fw_str;
- 
- 	return 0;
- }
-@@ -224,12 +260,6 @@ static ssize_t show_rev(struct device *device, struct device_attribute *attr,
- 	return scnprintf(buf, PAGE_SIZE, "0x%x\n", dev->pdev->vendor);
- }
- 
--static ssize_t show_fw_ver(struct device *device, struct device_attribute *attr,
--			   char *buf)
--{
--	return scnprintf(buf, PAGE_SIZE, "%s\n", "FW_VER_TO_ADD");
--}
--
- static ssize_t show_hca_type(struct device *device,
- 			     struct device_attribute *attr, char *buf)
- {
-@@ -237,12 +267,10 @@ static ssize_t show_hca_type(struct device *device,
- }
- 
- static DEVICE_ATTR(hw_rev, S_IRUGO, show_rev, NULL);
--static DEVICE_ATTR(fw_ver, S_IRUGO, show_fw_ver, NULL);
- static DEVICE_ATTR(hca_type, S_IRUGO, show_hca_type, NULL);
- 
- static struct device_attribute *qedr_attributes[] = {
- 	&dev_attr_hw_rev,
--	&dev_attr_fw_ver,
- 	&dev_attr_hca_type
- };
- 
-diff --git a/drivers/infiniband/hw/qedr/qedr.h b/drivers/infiniband/hw/qedr/qedr.h
-index 0663a4c9..ed3ef33 100644
---- a/drivers/infiniband/hw/qedr/qedr.h
-+++ b/drivers/infiniband/hw/qedr/qedr.h
-@@ -46,6 +46,7 @@
- 
- enum DP_QEDR_MODULE {
- 	QEDR_MSG_INIT = 0x10000,
-+	QEDR_MSG_MISC = 0x400000,
- };
- 
- struct qedr_dev;
-@@ -175,4 +176,41 @@ struct qedr_dev {
- 
- #define QEDR_UVERBS(CMD_NAME) (1ull << IB_USER_VERBS_CMD_##CMD_NAME)
- 
-+#define QEDR_ROCE_PKEY_MAX 1
-+#define QEDR_ROCE_PKEY_TABLE_LEN 1
-+#define QEDR_ROCE_PKEY_DEFAULT 0xffff
-+
-+struct qedr_ucontext {
-+	struct ib_ucontext ibucontext;
-+	struct qedr_dev *dev;
-+	struct qedr_pd *pd;
-+	u64 dpi_addr;
-+	u64 dpi_phys_addr;
-+	u32 dpi_size;
-+	u16 dpi;
-+
-+	struct list_head mm_head;
-+
-+	/* Lock to protect mm list */
-+	struct mutex mm_list_lock;
-+};
-+
-+struct qedr_mm {
-+	struct {
-+		u64 phy_addr;
-+		unsigned long len;
-+	} key;
-+	struct list_head entry;
-+};
-+
-+static inline struct qedr_dev *get_qedr_dev(struct ib_device *ibdev)
-+{
-+	return container_of(ibdev, struct qedr_dev, ibdev);
-+}
-+
-+static inline
-+struct qedr_ucontext *get_qedr_ucontext(struct ib_ucontext *ibucontext)
-+{
-+	return container_of(ibucontext, struct qedr_ucontext, ibucontext);
-+}
- #endif
-diff --git a/drivers/infiniband/hw/qedr/qedr_user.h b/drivers/infiniband/hw/qedr/qedr_user.h
-new file mode 100644
-index 0000000..45288dc
---- /dev/null
-+++ b/drivers/infiniband/hw/qedr/qedr_user.h
-@@ -0,0 +1,27 @@
-+/* QLogic qed NIC Driver
-+ * Copyright (c) 2015 QLogic Corporation
+@@ -0,0 +1,293 @@
++/* QLogic qedr NIC Driver
++ * Copyright (c) 2015-2016  QLogic Corporation
 + *
-+ * This software is available under the terms of the GNU General Public License
-+ * (GPL) Version 2, available from the file COPYING in the main directory of
-+ * this source tree.
-+ */
-+#ifndef __QEDR_USER_H__
-+#define __QEDR_USER_H__
-+
-+#define QEDR_ABI_VERSION		(6)
-+
-+/* user kernel communication data structures. */
-+
-+struct qedr_alloc_ucontext_resp {
-+	u64 db_pa;
-+	u32 db_size;
-+
-+	u32 max_send_wr;
-+	u32 max_recv_wr;
-+	u32 max_srq_wr;
-+	u32 sges_per_send_wr;
-+	u32 sges_per_recv_wr;
-+	u32 sges_per_srq_wr;
-+	int max_cqes;
-+};
-+#endif /* __QEDR_USER_H__ */
-diff --git a/drivers/infiniband/hw/qedr/verbs.c b/drivers/infiniband/hw/qedr/verbs.c
-new file mode 100644
-index 0000000..e765b50
---- /dev/null
-+++ b/drivers/infiniband/hw/qedr/verbs.c
-@@ -0,0 +1,417 @@
-+/* QLogic qed NIC Driver
-+ * Copyright (c) 2015 QLogic Corporation
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
 + *
-+ * This software is available under the terms of the GNU General Public License
-+ * (GPL) Version 2, available from the file COPYING in the main directory of
-+ * this source tree.
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and /or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
 + */
-+#include <linux/dma-mapping.h>
-+#include <linux/crc32.h>
-+#include <net/ip.h>
-+#include <net/ipv6.h>
-+#include <net/udp.h>
-+#include <linux/iommu.h>
-+
++#include <linux/module.h>
 +#include <rdma/ib_verbs.h>
-+#include <rdma/ib_user_verbs.h>
-+#include <rdma/iw_cm.h>
-+#include <rdma/ib_umem.h>
 +#include <rdma/ib_addr.h>
-+#include <rdma/ib_cache.h>
-+
-+#include "qedr_hsi.h"
-+#include <linux/qed/qed_if.h>
++#include <linux/netdevice.h>
++#include <linux/iommu.h>
++#include <net/addrconf.h>
++#include <linux/qed/qede_roce.h>
 +#include "qedr.h"
-+#include "verbs.h"
-+#include "qedr_user.h"
 +
-+int qedr_query_gid(struct ib_device *ibdev, u8 port, int index,
-+		   union ib_gid *sgid)
++MODULE_DESCRIPTION("QLogic 40G/100G ROCE Driver");
++MODULE_AUTHOR("QLogic Corporation");
++MODULE_LICENSE("Dual BSD/GPL");
++MODULE_VERSION(QEDR_MODULE_VERSION);
++
++uint debug;
++module_param(debug, uint, 0);
++MODULE_PARM_DESC(debug, "Default debug msglevel");
++
++static LIST_HEAD(qedr_dev_list);
++static DEFINE_SPINLOCK(qedr_devlist_lock);
++
++void qedr_ib_dispatch_event(struct qedr_dev *dev, u8 port_num,
++			    enum ib_event_type type)
 +{
-+	struct qedr_dev *dev = get_qedr_dev(ibdev);
-+	int rc = 0;
++	struct ib_event ibev;
 +
-+	if (!rdma_cap_roce_gid_table(ibdev, port))
-+		return -ENODEV;
++	ibev.device = &dev->ibdev;
++	ibev.element.port_num = port_num;
++	ibev.event = type;
 +
-+	rc = ib_get_cached_gid(ibdev, port, index, sgid, NULL);
-+	if (rc == -EAGAIN) {
-+		memcpy(sgid, &zgid, sizeof(*sgid));
-+		return 0;
-+	}
-+
-+	DP_VERBOSE(dev, QEDR_MSG_INIT, "query gid: index=%d %llx:%llx\n", index,
-+		   sgid->global.interface_id, sgid->global.subnet_prefix);
-+
-+	return rc;
++	ib_dispatch_event(&ibev);
 +}
 +
-+int qedr_add_gid(struct ib_device *device, u8 port_num,
-+		 unsigned int index, const union ib_gid *gid,
-+		 const struct ib_gid_attr *attr, void **context)
++static enum rdma_link_layer qedr_link_layer(struct ib_device *device,
++					    u8 port_num)
 +{
-+	if (!rdma_cap_roce_gid_table(device, port_num))
-+		return -EINVAL;
++	return IB_LINK_LAYER_ETHERNET;
++}
 +
-+	if (port_num > QEDR_MAX_PORT)
-+		return -EINVAL;
++static int qedr_register_device(struct qedr_dev *dev)
++{
++	strlcpy(dev->ibdev.name, "qedr%d", IB_DEVICE_NAME_MAX);
 +
-+	if (!context)
-+		return -EINVAL;
++	memcpy(dev->ibdev.node_desc, QEDR_NODE_DESC, sizeof(QEDR_NODE_DESC));
++	dev->ibdev.owner = THIS_MODULE;
++
++	dev->ibdev.get_link_layer = qedr_link_layer;
 +
 +	return 0;
 +}
 +
-+int qedr_del_gid(struct ib_device *device, u8 port_num,
-+		 unsigned int index, void **context)
++/* QEDR sysfs interface */
++static ssize_t show_rev(struct device *device, struct device_attribute *attr,
++			char *buf)
 +{
-+	if (!rdma_cap_roce_gid_table(device, port_num))
-+		return -EINVAL;
++	struct qedr_dev *dev = dev_get_drvdata(device);
 +
-+	if (port_num > QEDR_MAX_PORT)
-+		return -EINVAL;
-+
-+	if (!context)
-+		return -EINVAL;
-+
-+	return 0;
++	return scnprintf(buf, PAGE_SIZE, "0x%x\n", dev->pdev->vendor);
 +}
 +
-+int qedr_query_device(struct ib_device *ibdev,
-+		      struct ib_device_attr *attr, struct ib_udata *udata)
++static ssize_t show_fw_ver(struct device *device, struct device_attribute *attr,
++			   char *buf)
 +{
-+	struct qedr_dev *dev = get_qedr_dev(ibdev);
-+	struct qedr_device_attr *qattr = &dev->attr;
-+
-+	if (!dev->rdma_ctx) {
-+		DP_ERR(dev,
-+		       "qedr_query_device called with invalid params rdma_ctx=%p\n",
-+		       dev->rdma_ctx);
-+		return -EINVAL;
-+	}
-+
-+	memset(attr, 0, sizeof(*attr));
-+
-+	attr->fw_ver = qattr->fw_ver;
-+	attr->sys_image_guid = qattr->sys_image_guid;
-+	attr->max_mr_size = qattr->max_mr_size;
-+	attr->page_size_cap = qattr->page_size_caps;
-+	attr->vendor_id = qattr->vendor_id;
-+	attr->vendor_part_id = qattr->vendor_part_id;
-+	attr->hw_ver = qattr->hw_ver;
-+	attr->max_qp = qattr->max_qp;
-+	attr->max_qp_wr = max_t(u32, qattr->max_sqe, qattr->max_rqe);
-+	attr->device_cap_flags = IB_DEVICE_CURR_QP_STATE_MOD |
-+	    IB_DEVICE_RC_RNR_NAK_GEN |
-+	    IB_DEVICE_LOCAL_DMA_LKEY | IB_DEVICE_MEM_MGT_EXTENSIONS;
-+
-+	attr->max_sge = qattr->max_sge;
-+	attr->max_sge_rd = qattr->max_sge;
-+	attr->max_cq = qattr->max_cq;
-+	attr->max_cqe = qattr->max_cqe;
-+	attr->max_mr = qattr->max_mr;
-+	attr->max_mw = qattr->max_mw;
-+	attr->max_pd = qattr->max_pd;
-+	attr->atomic_cap = dev->atomic_cap;
-+	attr->max_fmr = qattr->max_fmr;
-+	attr->max_map_per_fmr = 16;
-+	attr->max_qp_init_rd_atom =
-+	    1 << (fls(qattr->max_qp_req_rd_atomic_resc) - 1);
-+	attr->max_qp_rd_atom =
-+	    min(1 << (fls(qattr->max_qp_resp_rd_atomic_resc) - 1),
-+		attr->max_qp_init_rd_atom);
-+
-+	attr->max_srq = qattr->max_srq;
-+	attr->max_srq_sge = qattr->max_srq_sge;
-+	attr->max_srq_wr = qattr->max_srq_wr;
-+
-+	attr->local_ca_ack_delay = qattr->dev_ack_delay;
-+	attr->max_fast_reg_page_list_len = qattr->max_mr / 8;
-+	attr->max_pkeys = QEDR_ROCE_PKEY_MAX;
-+	attr->max_ah = qattr->max_ah;
-+
-+	return 0;
++	return scnprintf(buf, PAGE_SIZE, "%s\n", "FW_VER_TO_ADD");
 +}
 +
-+#define QEDR_SPEED_SDR		(1)
-+#define QEDR_SPEED_DDR		(2)
-+#define QEDR_SPEED_QDR		(4)
-+#define QEDR_SPEED_FDR10	(8)
-+#define QEDR_SPEED_FDR		(16)
-+#define QEDR_SPEED_EDR		(32)
-+
-+static inline void get_link_speed_and_width(int speed, u8 *ib_speed,
-+					    u8 *ib_width)
++static ssize_t show_hca_type(struct device *device,
++			     struct device_attribute *attr, char *buf)
 +{
-+	switch (speed) {
-+	case 1000:
-+		*ib_speed = QEDR_SPEED_SDR;
-+		*ib_width = IB_WIDTH_1X;
-+		break;
-+	case 10000:
-+		*ib_speed = QEDR_SPEED_QDR;
-+		*ib_width = IB_WIDTH_1X;
-+		break;
++	return scnprintf(buf, PAGE_SIZE, "%s\n", "HCA_TYPE_TO_SET");
++}
 +
-+	case 20000:
-+		*ib_speed = QEDR_SPEED_DDR;
-+		*ib_width = IB_WIDTH_4X;
-+		break;
++static DEVICE_ATTR(hw_rev, S_IRUGO, show_rev, NULL);
++static DEVICE_ATTR(fw_ver, S_IRUGO, show_fw_ver, NULL);
++static DEVICE_ATTR(hca_type, S_IRUGO, show_hca_type, NULL);
 +
-+	case 25000:
-+		*ib_speed = QEDR_SPEED_EDR;
-+		*ib_width = IB_WIDTH_1X;
-+		break;
++static struct device_attribute *qedr_attributes[] = {
++	&dev_attr_hw_rev,
++	&dev_attr_fw_ver,
++	&dev_attr_hca_type
++};
 +
-+	case 40000:
-+		*ib_speed = QEDR_SPEED_QDR;
-+		*ib_width = IB_WIDTH_4X;
-+		break;
++static void qedr_remove_sysfiles(struct qedr_dev *dev)
++{
++	int i;
 +
-+	case 50000:
-+		*ib_speed = QEDR_SPEED_QDR;
-+		*ib_width = IB_WIDTH_4X;
-+		break;
++	for (i = 0; i < ARRAY_SIZE(qedr_attributes); i++)
++		device_remove_file(&dev->ibdev.dev, qedr_attributes[i]);
++}
 +
-+	case 100000:
-+		*ib_speed = QEDR_SPEED_EDR;
-+		*ib_width = IB_WIDTH_4X;
-+		break;
++void qedr_config_debug(uint debug, u32 *p_dp_module, u8 *p_dp_level)
++{
++	*p_dp_level = 0;
++	*p_dp_module = 0;
 +
-+	default:
-+		/* Unsupported */
-+		*ib_speed = QEDR_SPEED_SDR;
-+		*ib_width = IB_WIDTH_1X;
++	if (debug & QED_LOG_VERBOSE_MASK) {
++		*p_dp_level = QED_LEVEL_VERBOSE;
++		*p_dp_module = (debug & 0x3FFFFFFF);
++	} else if (debug & QED_LOG_INFO_MASK) {
++		*p_dp_level = QED_LEVEL_INFO;
++	} else if (debug & QED_LOG_NOTICE_MASK) {
++		*p_dp_level = QED_LEVEL_NOTICE;
 +	}
 +}
 +
-+int qedr_query_port(struct ib_device *ibdev, u8 port, struct ib_port_attr *attr)
++static void qedr_pci_set_atomic(struct qedr_dev *dev, struct pci_dev *pdev)
++{
++	struct pci_dev *bridge;
++	u32 val;
++
++	dev->atomic_cap = IB_ATOMIC_NONE;
++
++	bridge = pdev->bus->self;
++	if (!bridge)
++		return;
++
++	/* Check whether we are connected directly or via a switch */
++	while (bridge && bridge->bus->parent) {
++		DP_NOTICE(dev,
++			  "Device is not connected directly to root. bridge->bus->number=%d primary=%d\n",
++			  bridge->bus->number, bridge->bus->primary);
++		/* Need to check Atomic Op Routing Supported all the way to
++		 * root complex.
++		 */
++		pcie_capability_read_dword(bridge, PCI_EXP_DEVCAP2, &val);
++		if (!(val & PCI_EXP_DEVCAP2_ATOMIC_ROUTE)) {
++			pcie_capability_clear_word(pdev,
++						   PCI_EXP_DEVCTL2,
++						   PCI_EXP_DEVCTL2_ATOMIC_REQ);
++			return;
++		}
++		bridge = bridge->bus->parent->self;
++	}
++	bridge = pdev->bus->self;
++
++	/* according to bridge capability */
++	pcie_capability_read_dword(bridge, PCI_EXP_DEVCAP2, &val);
++	if (val & PCI_EXP_DEVCAP2_ATOMIC_COMP64) {
++		pcie_capability_set_word(pdev, PCI_EXP_DEVCTL2,
++					 PCI_EXP_DEVCTL2_ATOMIC_REQ);
++		dev->atomic_cap = IB_ATOMIC_GLOB;
++	} else {
++		pcie_capability_clear_word(pdev, PCI_EXP_DEVCTL2,
++					   PCI_EXP_DEVCTL2_ATOMIC_REQ);
++	}
++}
++
++static struct qedr_dev *qedr_add(struct qed_dev *cdev, struct pci_dev *pdev,
++				 struct net_device *ndev)
 +{
 +	struct qedr_dev *dev;
-+	struct qed_rdma_port *rdma_port;
++	int rc = 0, i;
 +
-+	dev = get_qedr_dev(ibdev);
-+	if (port > 1) {
-+		DP_ERR(dev, "invalid_port=0x%x\n", port);
-+		return -EINVAL;
++	dev = (struct qedr_dev *)ib_alloc_device(sizeof(*dev));
++	if (!dev) {
++		pr_err("Unable to allocate ib device\n");
++		return NULL;
 +	}
 +
-+	if (!dev->rdma_ctx) {
-+		DP_ERR(dev, "rdma_ctx is NULL\n");
-+		return -EINVAL;
++	qedr_config_debug(debug, &dev->dp_module, &dev->dp_level);
++	DP_VERBOSE(dev, QEDR_MSG_INIT, "qedr add device called\n");
++
++	dev->pdev = pdev;
++	dev->ndev = ndev;
++	dev->cdev = cdev;
++
++	qedr_pci_set_atomic(dev, pdev);
++
++	rc = qedr_register_device(dev);
++	if (rc) {
++		DP_ERR(dev, "Unable to allocate register device\n");
++		goto init_err;
 +	}
 +
-+	rdma_port = dev->ops->rdma_query_port(dev->rdma_ctx);
-+	memset(attr, 0, sizeof(*attr));
++	for (i = 0; i < ARRAY_SIZE(qedr_attributes); i++)
++		if (device_create_file(&dev->ibdev.dev, qedr_attributes[i]))
++			goto init_err;
 +
-+	if (rdma_port->port_state == QED_RDMA_PORT_UP) {
-+		attr->state = IB_PORT_ACTIVE;
-+		attr->phys_state = 5;
-+	} else {
-+		attr->state = IB_PORT_DOWN;
-+		attr->phys_state = 3;
-+	}
-+	attr->max_mtu = IB_MTU_4096;
-+	attr->active_mtu = iboe_get_mtu(dev->ndev->mtu);
-+	attr->lid = 0;
-+	attr->lmc = 0;
-+	attr->sm_lid = 0;
-+	attr->sm_sl = 0;
-+	attr->port_cap_flags = IB_PORT_IP_BASED_GIDS;
-+	attr->gid_tbl_len = QEDR_MAX_SGID;
-+	attr->pkey_tbl_len = QEDR_ROCE_PKEY_TABLE_LEN;
-+	attr->bad_pkey_cntr = rdma_port->pkey_bad_counter;
-+	attr->qkey_viol_cntr = 0;
-+	get_link_speed_and_width(rdma_port->link_speed,
-+				 &attr->active_speed, &attr->active_width);
-+	attr->max_msg_sz = rdma_port->max_msg_size;
-+	attr->max_vl_num = 4;
++	spin_lock(&qedr_devlist_lock);
++	list_add_tail_rcu(&dev->entry, &qedr_dev_list);
++	spin_unlock(&qedr_devlist_lock);
 +
-+	return 0;
++	DP_VERBOSE(dev, QEDR_MSG_INIT, "qedr driver loaded successfully\n");
++	return dev;
++
++init_err:
++	ib_dealloc_device(&dev->ibdev);
++	DP_ERR(dev, "qedr driver load failed rc=%d\n", rc);
++
++	return NULL;
 +}
 +
-+static int qedr_add_mmap(struct qedr_ucontext *uctx, u64 phy_addr,
-+			 unsigned long len)
++static void qedr_remove(struct qedr_dev *dev)
 +{
-+	struct qedr_mm *mm;
-+
-+	mm = kzalloc(sizeof(*mm), GFP_KERNEL);
-+	if (!mm)
-+		return -ENOMEM;
-+	mm->key.phy_addr = phy_addr;
-+	/* This function might be called with a length which is not a multiple
-+	 * of PAGE_SIZE, while the mapping is PAGE_SIZE grained and the kernel
-+	 * forces this granularity by increasing the requested size if needed.
-+	 * When qedr_mmap is called, it will search the list with the updated
-+	 * length as a key. To prevent search failures, the length is rounded up
-+	 * in advance to PAGE_SIZE.
++	/* First unregister with stack to stop all the active traffic
++	 * of the registered clients.
 +	 */
-+	mm->key.len = roundup(len, PAGE_SIZE);
-+	INIT_LIST_HEAD(&mm->entry);
++	qedr_remove_sysfiles(dev);
 +
-+	mutex_lock(&uctx->mm_list_lock);
-+	list_add(&mm->entry, &uctx->mm_head);
-+	mutex_unlock(&uctx->mm_list_lock);
++	spin_lock(&qedr_devlist_lock);
++	list_del_rcu(&dev->entry);
++	spin_unlock(&qedr_devlist_lock);
 +
-+	DP_VERBOSE(uctx->dev, QEDR_MSG_MISC,
-+		   "added (addr=0x%llx,len=0x%lx) for ctx=%p\n",
-+		   (unsigned long long)mm->key.phy_addr,
-+		   (unsigned long)mm->key.len, uctx);
++	ib_dealloc_device(&dev->ibdev);
++}
++
++static int qedr_close(struct qedr_dev *dev)
++{
++	qedr_ib_dispatch_event(dev, 1, IB_EVENT_PORT_ERR);
 +
 +	return 0;
 +}
 +
-+static bool qedr_search_mmap(struct qedr_ucontext *uctx, u64 phy_addr,
-+			     unsigned long len)
++static void qedr_shutdown(struct qedr_dev *dev)
 +{
-+	bool found = false;
-+	struct qedr_mm *mm;
++	qedr_close(dev);
++	qedr_remove(dev);
++}
 +
-+	mutex_lock(&uctx->mm_list_lock);
-+	list_for_each_entry(mm, &uctx->mm_head, entry) {
-+		if (len != mm->key.len || phy_addr != mm->key.phy_addr)
-+			continue;
++/* event handling via NIC driver ensures that all the NIC specific
++ * initialization done before RoCE driver notifies
++ * event to stack.
++ */
++static void qedr_notify(struct qedr_dev *dev, enum qede_roce_event event)
++{
++	switch (event) {
++	case QEDE_UP:
++		qedr_ib_dispatch_event(dev, 1, IB_EVENT_PORT_ACTIVE);
++		break;
++	case QEDE_DOWN:
++		qedr_close(dev);
++		break;
++	case QEDE_CLOSE:
++		qedr_shutdown(dev);
++		break;
++	case QEDE_CHANGE_ADDR:
++		qedr_ib_dispatch_event(dev, 1, IB_EVENT_GID_CHANGE);
++		break;
++	default:
++		pr_err("Event not supported\n");
++	}
++}
 +
-+		found = true;
++static struct qedr_driver qedr_drv = {
++	.name = "qedr_driver",
++	.add = qedr_add,
++	.remove = qedr_remove,
++	.notify = qedr_notify,
++};
++
++static int __init qedr_init_module(void)
++{
++	return qede_roce_register_driver(&qedr_drv);
++}
++
++static void __exit qedr_exit_module(void)
++{
++	qede_roce_unregister_driver(&qedr_drv);
++}
++
++module_init(qedr_init_module);
++module_exit(qedr_exit_module);
+diff --git a/drivers/infiniband/hw/qedr/qedr.h b/drivers/infiniband/hw/qedr/qedr.h
+new file mode 100644
+index 0000000..c3f93b5
+--- /dev/null
++++ b/drivers/infiniband/hw/qedr/qedr.h
+@@ -0,0 +1,60 @@
++/* QLogic qedr NIC Driver
++ * Copyright (c) 2015-2016  QLogic Corporation
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and /or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++#ifndef __QEDR_H__
++#define __QEDR_H__
++
++#include <linux/pci.h>
++#include <rdma/ib_addr.h>
++#include <linux/qed/qed_if.h>
++#include <linux/qed/qede_roce.h>
++
++#define QEDR_MODULE_VERSION	"8.10.10.0"
++#define QEDR_NODE_DESC "QLogic 579xx RoCE HCA"
++#define DP_NAME(dev) ((dev)->ibdev.name)
++
++enum DP_QEDR_MODULE {
++	QEDR_MSG_INIT = 0x10000,
++};
++
++struct qedr_dev {
++	struct ib_device	ibdev;
++	struct qed_dev		*cdev;
++	struct pci_dev		*pdev;
++	struct net_device	*ndev;
++	struct list_head	entry;
++
++	enum ib_atomic_cap	atomic_cap;
++
++	u32			dp_module;
++	u8			dp_level;
++};
++#endif
+diff --git a/drivers/net/ethernet/qlogic/qede/Makefile b/drivers/net/ethernet/qlogic/qede/Makefile
+index 74a4985..28dc589 100644
+--- a/drivers/net/ethernet/qlogic/qede/Makefile
++++ b/drivers/net/ethernet/qlogic/qede/Makefile
+@@ -2,3 +2,4 @@ obj-$(CONFIG_QEDE) := qede.o
+ 
+ qede-y := qede_main.o qede_ethtool.o
+ qede-$(CONFIG_DCB) += qede_dcbnl.o
++qede-$(CONFIG_INFINIBAND_QEDR) += qede_roce.o
+diff --git a/drivers/net/ethernet/qlogic/qede/qede.h b/drivers/net/ethernet/qlogic/qede/qede.h
+index e01adce..28c0e9f 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede.h
++++ b/drivers/net/ethernet/qlogic/qede/qede.h
+@@ -106,6 +106,13 @@ struct qede_vlan {
+ 	bool configured;
+ };
+ 
++struct qede_rdma_dev {
++	struct qedr_dev *qedr_dev;
++	struct list_head entry;
++	struct list_head roce_event_list;
++	struct workqueue_struct *roce_wq;
++};
++
+ struct qede_dev {
+ 	struct qed_dev			*cdev;
+ 	struct net_device		*ndev;
+@@ -185,6 +192,8 @@ struct qede_dev {
+ 	unsigned long			sp_flags;
+ 	u16				vxlan_dst_port;
+ 	u16				geneve_dst_port;
++
++	struct qede_rdma_dev		rdma_info;
+ };
+ 
+ enum QEDE_STATE {
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
+index 4056219..4f744ee 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_main.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
+@@ -36,7 +36,7 @@
+ #include <linux/random.h>
+ #include <net/ip6_checksum.h>
+ #include <linux/bitops.h>
+-
++#include <linux/qed/qede_roce.h>
+ #include "qede.h"
+ 
+ static char version[] =
+@@ -189,8 +189,7 @@ static int qede_netdev_event(struct notifier_block *this, unsigned long event,
+ 	struct ethtool_drvinfo drvinfo;
+ 	struct qede_dev *edev;
+ 
+-	/* Currently only support name change */
+-	if (event != NETDEV_CHANGENAME)
++	if ((event != NETDEV_CHANGENAME) && (event != NETDEV_CHANGEADDR))
+ 		goto done;
+ 
+ 	/* Check whether this is a qede device */
+@@ -203,11 +202,18 @@ static int qede_netdev_event(struct notifier_block *this, unsigned long event,
+ 		goto done;
+ 	edev = netdev_priv(ndev);
+ 
+-	/* Notify qed of the name change */
+-	if (!edev->ops || !edev->ops->common)
+-		goto done;
+-	edev->ops->common->set_id(edev->cdev, edev->ndev->name,
+-				  "qede");
++	switch (event) {
++	case NETDEV_CHANGENAME:
++		/* Notify qed of the name change */
++		if (!edev->ops || !edev->ops->common)
++			goto done;
++		edev->ops->common->set_id(edev->cdev, edev->ndev->name, "qede");
++		break;
++	case NETDEV_CHANGEADDR:
++		edev = netdev_priv(ndev);
++		qede_roce_event_changeaddr(edev);
 +		break;
 +	}
-+	mutex_unlock(&uctx->mm_list_lock);
-+	DP_VERBOSE(uctx->dev, QEDR_MSG_MISC,
-+		   "searched for (addr=0x%llx,len=0x%lx) for ctx=%p, result=%d\n",
-+		   mm->key.phy_addr, mm->key.len, uctx, found);
-+
-+	return found;
-+}
-+
-+struct ib_ucontext *qedr_alloc_ucontext(struct ib_device *ibdev,
-+					struct ib_udata *udata)
-+{
-+	int rc;
-+	struct qedr_ucontext *ctx;
-+	struct qedr_alloc_ucontext_resp uresp;
-+	struct qedr_dev *dev = get_qedr_dev(ibdev);
-+	struct qed_rdma_add_user_out_params oparams;
-+
-+	if (!udata)
-+		return ERR_PTR(-EFAULT);
-+
-+	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
-+	if (!ctx)
-+		return ERR_PTR(-ENOMEM);
-+
-+	rc = dev->ops->rdma_add_user(dev->rdma_ctx, &oparams);
-+	if (rc) {
-+		DP_ERR(dev,
-+		       "failed to allocate a DPI for a new RoCE application, rc=%d. To overcome this consider to increase the number of DPIs, increase the doorbell BAR size or just close unnecessary RoCE applications. In order to increase the number of DPIs consult the QEDR readme\n",
-+		       rc);
-+		goto err;
-+	}
-+
-+	ctx->dpi = oparams.dpi;
-+	ctx->dpi_addr = oparams.dpi_addr;
-+	ctx->dpi_phys_addr = oparams.dpi_phys_addr;
-+	ctx->dpi_size = oparams.dpi_size;
-+	INIT_LIST_HEAD(&ctx->mm_head);
-+	mutex_init(&ctx->mm_list_lock);
-+
-+	memset(&uresp, 0, sizeof(uresp));
-+
-+	uresp.db_pa = ctx->dpi_phys_addr;
-+	uresp.db_size = ctx->dpi_size;
-+	uresp.max_send_wr = dev->attr.max_sqe;
-+	uresp.max_recv_wr = dev->attr.max_rqe;
-+	uresp.max_srq_wr = dev->attr.max_srq_wr;
-+	uresp.sges_per_send_wr = QEDR_MAX_SQE_ELEMENTS_PER_SQE;
-+	uresp.sges_per_recv_wr = QEDR_MAX_RQE_ELEMENTS_PER_RQE;
-+	uresp.sges_per_srq_wr = dev->attr.max_srq_sge;
-+	uresp.max_cqes = QEDR_MAX_CQES;
-+
-+	rc = ib_copy_to_udata(udata, &uresp, sizeof(uresp));
-+	if (rc)
-+		goto err;
-+
-+	ctx->dev = dev;
-+
-+	rc = qedr_add_mmap(ctx, ctx->dpi_phys_addr, ctx->dpi_size);
-+	if (rc)
-+		goto err;
-+
-+	DP_VERBOSE(dev, QEDR_MSG_INIT, "Allocating user context %p\n",
-+		   &ctx->ibucontext);
-+	return &ctx->ibucontext;
-+
-+err:
-+	kfree(ctx);
-+	return ERR_PTR(rc);
-+}
-+
-+int qedr_dealloc_ucontext(struct ib_ucontext *ibctx)
-+{
-+	struct qedr_ucontext *uctx = get_qedr_ucontext(ibctx);
-+	struct qedr_mm *mm, *tmp;
-+	int status = 0;
-+
-+	DP_VERBOSE(uctx->dev, QEDR_MSG_INIT, "Deallocating user context %p\n",
-+		   uctx);
-+	uctx->dev->ops->rdma_remove_user(uctx->dev->rdma_ctx, uctx->dpi);
-+
-+	list_for_each_entry_safe(mm, tmp, &uctx->mm_head, entry) {
-+		DP_VERBOSE(uctx->dev, QEDR_MSG_MISC,
-+			   "deleted (addr=0x%llx,len=0x%lx) for ctx=%p\n",
-+			   mm->key.phy_addr, mm->key.len, uctx);
-+		list_del(&mm->entry);
-+		kfree(mm);
-+	}
-+
-+	kfree(uctx);
-+	return status;
-+}
-+
-+int qedr_mmap(struct ib_ucontext *context, struct vm_area_struct *vma)
-+{
-+	struct qedr_ucontext *ucontext = get_qedr_ucontext(context);
-+	struct qedr_dev *dev = get_qedr_dev(context->device);
-+	unsigned long vm_page = vma->vm_pgoff << PAGE_SHIFT;
-+	u64 unmapped_db = dev->db_phys_addr;
-+	unsigned long len = (vma->vm_end - vma->vm_start);
-+	int rc = 0;
-+	bool found;
-+
-+	DP_VERBOSE(dev, QEDR_MSG_INIT,
-+		   "qedr_mmap called vm_page=0x%lx vm_pgoff=0x%lx unmapped_db=0x%llx db_size=%x, len=%lx\n",
-+		   vm_page, vma->vm_pgoff, unmapped_db, dev->db_size, len);
-+	if (vma->vm_start & (PAGE_SIZE - 1)) {
-+		DP_ERR(dev, "Vma_start not page aligned = %ld\n",
-+		       vma->vm_start);
-+		return -EINVAL;
-+	}
-+
-+	found = qedr_search_mmap(ucontext, vm_page, len);
-+	if (!found) {
-+		DP_ERR(dev, "Vma_pgoff not found in mapped array = %ld\n",
-+		       vma->vm_pgoff);
-+		return -EINVAL;
-+	}
-+
-+	DP_VERBOSE(dev, QEDR_MSG_INIT, "Mapping doorbell bar\n");
-+
-+	if ((vm_page >= unmapped_db) && (vm_page <= (unmapped_db +
-+						     dev->db_size))) {
-+		DP_VERBOSE(dev, QEDR_MSG_INIT, "Mapping doorbell bar\n");
-+		if (vma->vm_flags & VM_READ) {
-+			DP_ERR(dev, "Trying to map doorbell bar for read\n");
-+			return -EPERM;
-+		}
-+
-+		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
-+
-+		rc = io_remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
-+					PAGE_SIZE, vma->vm_page_prot);
-+	} else {
-+		DP_VERBOSE(dev, QEDR_MSG_INIT, "Mapping chains\n");
-+		rc = remap_pfn_range(vma, vma->vm_start,
-+				     vma->vm_pgoff, len, vma->vm_page_prot);
-+	}
-+	DP_VERBOSE(dev, QEDR_MSG_INIT, "qedr_mmap return code: %d\n", rc);
-+	return rc;
-+}
-diff --git a/drivers/infiniband/hw/qedr/verbs.h b/drivers/infiniband/hw/qedr/verbs.h
-new file mode 100644
-index 0000000..f731063
---- /dev/null
-+++ b/drivers/infiniband/hw/qedr/verbs.h
-@@ -0,0 +1,26 @@
-+/* QLogic qed NIC Driver
-+ * Copyright (c) 2015 QLogic Corporation
-+ *
-+ * This software is available under the terms of the GNU General Public License
-+ * (GPL) Version 2, available from the file COPYING in the main directory of
-+ * this source tree.
-+ */
-+#ifndef __QEDR_VERBS_H__
-+#define __QEDR_VERBS_H__
-+
-+int qedr_query_device(struct ib_device *ibdev,
-+		      struct ib_device_attr *attr, struct ib_udata *udata);
-+int qedr_query_port(struct ib_device *, u8 port, struct ib_port_attr *props);
-+
-+int qedr_query_gid(struct ib_device *, u8 port, int index, union ib_gid *gid);
-+
-+struct ib_ucontext *qedr_alloc_ucontext(struct ib_device *, struct ib_udata *);
-+int qedr_dealloc_ucontext(struct ib_ucontext *);
-+
-+int qedr_mmap(struct ib_ucontext *, struct vm_area_struct *vma);
-+int qedr_del_gid(struct ib_device *device, u8 port_num,
-+		 unsigned int index, void **context);
-+int qedr_add_gid(struct ib_device *device, u8 port_num,
-+		 unsigned int index, const union ib_gid *gid,
-+		 const struct ib_gid_attr *attr, void **context);
-+#endif
-diff --git a/drivers/net/ethernet/qlogic/qed/qed.h b/drivers/net/ethernet/qlogic/qed/qed.h
-index f5ff97b..9640475 100644
---- a/drivers/net/ethernet/qlogic/qed/qed.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed.h
-@@ -52,7 +52,7 @@ enum qed_mcp_protocol_type;
- static inline u32 qed_db_addr(u32 cid, u32 DEMS)
- {
- 	u32 db_addr = FIELD_VALUE(DB_LEGACY_ADDR_DEMS, DEMS) |
--		      FIELD_VALUE(DB_LEGACY_ADDR_ICID, cid);
-+		      (cid * QED_PF_DEMS_SIZE);
  
- 	return db_addr;
- }
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-index 219b3b7..4ae8ed0 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-@@ -1495,6 +1495,7 @@ static int qed_hw_get_resc(struct qed_hwfn *p_hwfn)
- 	resc_num[QED_ILT] = PXP_NUM_ILT_RECORDS_BB / num_funcs;
- 	resc_num[QED_LL2_QUEUE] = MAX_NUM_LL2_RX_QUEUES / num_funcs;
- 	resc_num[QED_RDMA_CNQ_RAM] = NUM_OF_CMDQS_CQS / num_funcs;
-+	resc_num[QED_RDMA_STATS_QUEUE] = RDMA_NUM_STATISTIC_COUNTERS_BB / num_funcs;
+ done:
+ 	return NOTIFY_DONE;
+@@ -2538,10 +2544,14 @@ static int __qede_probe(struct pci_dev *pdev, u32 dp_module, u8 dp_level,
  
- 	for (i = 0; i < QED_MAX_RESC; i++)
- 		resc_start[i] = resc_num[i] * enabled_func_idx;
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_roce.c b/drivers/net/ethernet/qlogic/qed/qed_roce.c
-index e65a130..9cdb472 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_roce.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_roce.c
-@@ -158,7 +158,7 @@ static int qed_rdma_alloc(struct qed_hwfn *p_hwfn,
- 		return rc;
+ 	qede_init_ndev(edev);
+ 
++	rc = qede_roce_dev_add(edev);
++	if (rc)
++		goto err3;
++
+ 	rc = register_netdev(edev->ndev);
+ 	if (rc) {
+ 		DP_NOTICE(edev, "Cannot register net-device\n");
+-		goto err3;
++		goto err4;
  	}
  
--	p_rdma_info = p_rdma_info;
-+	p_hwfn->p_rdma_info = p_rdma_info;
- 	p_rdma_info->proto = PROTOCOLID_ROCE;
+ 	edev->ops->common->set_id(cdev, edev->ndev->name, DRV_MODULE_VERSION);
+@@ -2560,6 +2570,8 @@ static int __qede_probe(struct pci_dev *pdev, u32 dp_module, u8 dp_level,
  
- 	num_cons = qed_cxt_get_proto_cid_count(p_hwfn, p_rdma_info->proto, 0);
-@@ -664,6 +664,22 @@ int qed_rdma_add_user(void *rdma_cxt,
- 	return rc;
- }
+ 	return 0;
  
-+struct qed_rdma_port *qed_rdma_query_port(void *rdma_cxt)
++err4:
++	qede_roce_dev_remove(edev);
+ err3:
+ 	free_netdev(edev->ndev);
+ err2:
+@@ -2606,8 +2618,11 @@ static void __qede_remove(struct pci_dev *pdev, enum qede_remove_mode mode)
+ 	DP_INFO(edev, "Starting qede_remove\n");
+ 
+ 	cancel_delayed_work_sync(&edev->sp_task);
++
+ 	unregister_netdev(ndev);
+ 
++	qede_roce_dev_remove(edev);
++
+ 	edev->ops->common->set_power_state(cdev, PCI_D0);
+ 
+ 	pci_set_drvdata(pdev, NULL);
+@@ -3504,6 +3519,7 @@ static void qede_unload(struct qede_dev *edev, enum qede_unload_mode mode)
+ 
+ 	DP_INFO(edev, "Starting qede unload\n");
+ 
++	qede_roce_dev_event_close(edev);
+ 	mutex_lock(&edev->qede_lock);
+ 	edev->state = QEDE_STATE_CLOSED;
+ 
+@@ -3604,6 +3620,7 @@ static int qede_load(struct qede_dev *edev, enum qede_load_mode mode)
+ 	/* Query whether link is already-up */
+ 	memset(&link_output, 0, sizeof(link_output));
+ 	edev->ops->common->get_link(edev->cdev, &link_output);
++	qede_roce_dev_event_open(edev);
+ 	qede_link_update(edev, &link_output);
+ 
+ 	DP_INFO(edev, "Ending successfully qede load\n");
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_roce.c b/drivers/net/ethernet/qlogic/qede/qede_roce.c
+new file mode 100644
+index 0000000..b7e0ed9
+--- /dev/null
++++ b/drivers/net/ethernet/qlogic/qede/qede_roce.c
+@@ -0,0 +1,309 @@
++/* QLogic qedr NIC Driver
++ * Copyright (c) 2015-2016  QLogic Corporation
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and /or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++#include <linux/pci.h>
++#include <linux/netdevice.h>
++#include <linux/list.h>
++#include <linux/mutex.h>
++#include <linux/qede/qede_roce.h>
++#include "qede.h"
++
++static struct qedr_driver *qedr_drv;
++static LIST_HEAD(qedr_dev_list);
++static DEFINE_MUTEX(qedr_dev_list_lock);
++
++bool qede_roce_supported(struct qede_dev *dev)
 +{
-+	struct qed_hwfn *p_hwfn = (struct qed_hwfn *)rdma_cxt;
-+	struct qed_rdma_port *p_port = p_hwfn->p_rdma_info->port;
-+
-+	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "RDMA Query port\n");
-+
-+	/* Link may have changed */
-+	p_port->port_state = p_hwfn->mcp_info->link_output.link_up ?
-+			     QED_RDMA_PORT_UP : QED_RDMA_PORT_DOWN;
-+
-+	p_port->link_speed = p_hwfn->mcp_info->link_output.speed;
-+
-+	return p_port;
++	return dev->dev_info.common.rdma_supported;
 +}
 +
- struct qed_rdma_device *qed_rdma_query_device(void *rdma_cxt)
- {
- 	struct qed_hwfn *p_hwfn = (struct qed_hwfn *)rdma_cxt;
-@@ -872,6 +888,7 @@ static const struct qed_rdma_ops qed_rdma_ops_pass = {
- 	.rdma_add_user = &qed_rdma_add_user,
- 	.rdma_remove_user = &qed_rdma_remove_user,
- 	.rdma_stop = &qed_rdma_stop,
-+	.rdma_query_port = &qed_rdma_query_port,
- 	.rdma_query_device = &qed_rdma_query_device,
- 	.rdma_get_start_sb = &qed_rdma_get_sb_start,
- 	.rdma_get_rdma_int = &qed_rdma_get_int,
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_roce.h b/drivers/net/ethernet/qlogic/qed/qed_roce.h
-index 46f14b2..c94c39e 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_roce.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_roce.h
-@@ -102,6 +102,7 @@ int qed_rdma_alloc_tid(void *rdma_cxt, u32 *tid);
- int qed_rdma_deregister_tid(void *rdma_cxt, u32 tid);
- void qed_rdma_free_tid(void *rdma_cxt, u32 tid);
- struct qed_rdma_device *qed_rdma_query_device(void *rdma_cxt);
-+struct qed_rdma_port *qed_rdma_query_port(void *rdma_cxt);
- int
- qed_rdma_register_tid(void *rdma_cxt,
- 		      struct qed_rdma_register_tid_in_params *params);
-diff --git a/include/linux/qed/qed_roce_if.h b/include/linux/qed/qed_roce_if.h
-index 0f7d527..e99470c 100644
---- a/include/linux/qed/qed_roce_if.h
-+++ b/include/linux/qed/qed_roce_if.h
-@@ -332,6 +332,7 @@ struct qed_rdma_ops {
- 	void (*rdma_remove_user)(void *rdma_cxt, u16 dpi);
- 	int (*rdma_stop)(void *rdma_cxt);
- 	struct qed_rdma_device* (*rdma_query_device)(void *rdma_cxt);
-+	struct qed_rdma_port* (*rdma_query_port)(void *rdma_cxt);
- 	int (*rdma_get_start_sb)(struct qed_dev *cdev);
- 	int (*rdma_get_min_cnq_msix)(struct qed_dev *cdev);
- 	void (*rdma_cnq_prod_update)(void *rdma_cxt, u8 cnq_index, u16 prod);
-diff --git a/include/linux/qed/rdma_common.h b/include/linux/qed/rdma_common.h
-index 187991c..7663725 100644
---- a/include/linux/qed/rdma_common.h
-+++ b/include/linux/qed/rdma_common.h
-@@ -28,6 +28,7 @@
- #define RDMA_MAX_PDS                            (64 * 1024)
++static void _qede_roce_dev_add(struct qede_dev *edev)
++{
++	if (!qedr_drv)
++		return;
++
++	edev->rdma_info.qedr_dev = qedr_drv->add(edev->cdev, edev->pdev,
++						 edev->ndev);
++}
++
++static int qede_roce_create_wq(struct qede_dev *edev)
++{
++	INIT_LIST_HEAD(&edev->rdma_info.roce_event_list);
++	edev->rdma_info.roce_wq = create_singlethread_workqueue("roce_wq");
++	if (!edev->rdma_info.roce_wq) {
++		pr_err("qedr: Could not create workqueue\n");
++		return -ENOMEM;
++	}
++
++	return 0;
++}
++
++static void qede_roce_cleanup_event(struct qede_dev *edev)
++{
++	struct list_head *head = &edev->rdma_info.roce_event_list;
++	struct qede_roce_event_work *event_node;
++
++	flush_workqueue(edev->rdma_info.roce_wq);
++	while (!list_empty(head)) {
++		event_node = list_entry(head->next, struct qede_roce_event_work,
++					list);
++		cancel_work_sync(&event_node->work);
++		list_del(&event_node->list);
++		kfree(event_node);
++	}
++}
++
++static void qede_roce_destroy_wq(struct qede_dev *edev)
++{
++	qede_roce_cleanup_event(edev);
++	destroy_workqueue(edev->rdma_info.roce_wq);
++}
++
++int qede_roce_dev_add(struct qede_dev *edev)
++{
++	int rc = 0;
++
++	if (qede_roce_supported(edev)) {
++		rc = qede_roce_create_wq(edev);
++		if (rc)
++			return rc;
++
++		INIT_LIST_HEAD(&edev->rdma_info.entry);
++		mutex_lock(&qedr_dev_list_lock);
++		list_add_tail(&edev->rdma_info.entry, &qedr_dev_list);
++		_qede_roce_dev_add(edev);
++		mutex_unlock(&qedr_dev_list_lock);
++	}
++
++	return rc;
++}
++
++static void _qede_roce_dev_remove(struct qede_dev *edev)
++{
++	if (qedr_drv && qedr_drv->remove && edev->rdma_info.qedr_dev)
++		qedr_drv->remove(edev->rdma_info.qedr_dev);
++	edev->rdma_info.qedr_dev = NULL;
++}
++
++void qede_roce_dev_remove(struct qede_dev *edev)
++{
++	if (!qede_roce_supported(edev))
++		return;
++
++	qede_roce_destroy_wq(edev);
++	mutex_lock(&qedr_dev_list_lock);
++	_qede_roce_dev_remove(edev);
++	list_del(&edev->rdma_info.entry);
++	mutex_unlock(&qedr_dev_list_lock);
++}
++
++static void _qede_roce_dev_open(struct qede_dev *edev)
++{
++	if (qedr_drv && edev->rdma_info.qedr_dev && qedr_drv->notify)
++		qedr_drv->notify(edev->rdma_info.qedr_dev, QEDE_UP);
++}
++
++void qede_roce_dev_open(struct qede_dev *edev)
++{
++	if (!qede_roce_supported(edev))
++		return;
++
++	mutex_lock(&qedr_dev_list_lock);
++	_qede_roce_dev_open(edev);
++	mutex_unlock(&qedr_dev_list_lock);
++}
++
++static void _qede_roce_dev_close(struct qede_dev *edev)
++{
++	if (qedr_drv && edev->rdma_info.qedr_dev && qedr_drv->notify)
++		qedr_drv->notify(edev->rdma_info.qedr_dev, QEDE_DOWN);
++}
++
++void qede_roce_dev_close(struct qede_dev *edev)
++{
++	if (!qede_roce_supported(edev))
++		return;
++
++	mutex_lock(&qedr_dev_list_lock);
++	_qede_roce_dev_close(edev);
++	mutex_unlock(&qedr_dev_list_lock);
++}
++
++void qede_roce_dev_shutdown(struct qede_dev *edev)
++{
++	if (!qede_roce_supported(edev))
++		return;
++
++	mutex_lock(&qedr_dev_list_lock);
++	if (qedr_drv && edev->rdma_info.qedr_dev && qedr_drv->notify)
++		qedr_drv->notify(edev->rdma_info.qedr_dev, QEDE_CLOSE);
++	mutex_unlock(&qedr_dev_list_lock);
++}
++
++int qede_roce_register_driver(struct qedr_driver *drv)
++{
++	struct qede_dev *edev;
++	u8 qedr_counter = 0;
++
++	mutex_lock(&qedr_dev_list_lock);
++	if (qedr_drv) {
++		mutex_unlock(&qedr_dev_list_lock);
++		return -EINVAL;
++	}
++	qedr_drv = drv;
++
++	list_for_each_entry(edev, &qedr_dev_list, rdma_info.entry) {
++		struct net_device *netdev;
++
++		qedr_counter++;
++		_qede_roce_dev_add(edev);
++		netdev = edev->ndev;
++		if (netif_running(netdev) && netif_oper_up(netdev))
++			_qede_roce_dev_open(edev);
++	}
++	mutex_unlock(&qedr_dev_list_lock);
++
++	pr_err("qedr: discovered and registered %d RoCE funcs\n", qedr_counter);
++
++	return 0;
++}
++EXPORT_SYMBOL(qede_roce_register_driver);
++
++void qede_roce_unregister_driver(struct qedr_driver *drv)
++{
++	struct qede_dev *edev;
++
++	mutex_lock(&qedr_dev_list_lock);
++	list_for_each_entry(edev, &qedr_dev_list, rdma_info.entry) {
++		if (edev->rdma_info.qedr_dev)
++			_qede_roce_dev_remove(edev);
++	}
++	qedr_drv = NULL;
++	mutex_unlock(&qedr_dev_list_lock);
++}
++EXPORT_SYMBOL(qede_roce_unregister_driver);
++
++void qede_roce_changeaddr(struct qede_dev *edev)
++{
++	if (!qede_roce_supported(edev))
++		return;
++
++	if (qedr_drv && edev->rdma_info.qedr_dev && qedr_drv->notify)
++		qedr_drv->notify(edev->rdma_info.qedr_dev, QEDE_CHANGE_ADDR);
++}
++
++struct qede_roce_event_work *qede_roce_get_free_event_node(struct qede_dev
++							   *edev)
++{
++	struct qede_roce_event_work *event_node = NULL;
++	struct list_head *list_node = NULL;
++	bool found = false;
++
++	list_for_each(list_node, &edev->rdma_info.roce_event_list) {
++		event_node = list_entry(list_node, struct qede_roce_event_work,
++					list);
++		if (!work_pending(&event_node->work)) {
++			found = true;
++			break;
++		}
++	}
++
++	if (!found) {
++		event_node = kzalloc(sizeof(*event_node), GFP_KERNEL);
++		if (!event_node) {
++			pr_err("qedr: Could not allocate memory for roce work\n");
++			return NULL;
++		}
++		list_add_tail(&event_node->list,
++			      &edev->rdma_info.roce_event_list);
++	}
++
++	return event_node;
++}
++
++static void qede_roce_handle_event(struct work_struct *work)
++{
++	struct qede_roce_event_work *event_node;
++	enum qede_roce_event event;
++	struct qede_dev *edev;
++
++	event_node = container_of(work, struct qede_roce_event_work, work);
++	event = event_node->event;
++	edev = event_node->ptr;
++
++	switch (event) {
++	case QEDE_UP:
++		qede_roce_dev_open(edev);
++		break;
++	case QEDE_DOWN:
++		qede_roce_dev_close(edev);
++		break;
++	case QEDE_CLOSE:
++		qede_roce_dev_shutdown(edev);
++		break;
++	case QEDE_CHANGE_ADDR:
++		qede_roce_changeaddr(edev);
++		break;
++	default:
++		pr_err("qede: Invalid roce event %d", event);
++	}
++}
++
++static void qede_roce_add_event(struct qede_dev *edev,
++				enum qede_roce_event event)
++{
++	struct qede_roce_event_work *event_node;
++
++	event_node = qede_roce_get_free_event_node(edev);
++	if (!event_node)
++		return;
++
++	event_node->event = event;
++	event_node->ptr = edev;
++
++	INIT_WORK(&event_node->work, qede_roce_handle_event);
++	queue_work(edev->rdma_info.roce_wq, &event_node->work);
++}
++
++void qede_roce_dev_event_open(struct qede_dev *edev)
++{
++	qede_roce_add_event(edev, QEDE_UP);
++}
++
++void qede_roce_dev_event_close(struct qede_dev *edev)
++{
++	qede_roce_add_event(edev, QEDE_DOWN);
++}
++
++void qede_roce_event_changeaddr(struct qede_dev *edev)
++{
++	qede_roce_add_event(edev, QEDE_CHANGE_ADDR);
++}
+diff --git a/include/linux/qed/qed_if.h b/include/linux/qed/qed_if.h
+index 6611441..cb899b2 100644
+--- a/include/linux/qed/qed_if.h
++++ b/include/linux/qed/qed_if.h
+@@ -260,11 +260,10 @@ struct qed_dev_info {
+ 	/* MFW version */
+ 	u32		mfw_rev;
  
- #define RDMA_NUM_STATISTIC_COUNTERS                     MAX_NUM_VPORTS
-+#define RDMA_NUM_STATISTIC_COUNTERS_BB			MAX_NUM_VPORTS_BB
+-	bool rdma_supported;
+-
+ 	u32		flash_size;
+ 	u8		mf_mode;
+ 	bool		tx_switching;
++	bool		rdma_supported;
+ };
  
- #define RDMA_TASK_TYPE (PROTOCOLID_ROCE)
- 
+ enum qed_sb_type {
+diff --git a/include/linux/qed/qede_roce.h b/include/linux/qed/qede_roce.h
+new file mode 100644
+index 0000000..fd7acc1
+--- /dev/null
++++ b/include/linux/qed/qede_roce.h
+@@ -0,0 +1,88 @@
++/* QLogic qedr NIC Driver
++ * Copyright (c) 2015-2016  QLogic Corporation
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and /or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++#ifndef QEDE_ROCE_H
++#define QEDE_ROCE_H
++
++struct qedr_dev;
++struct qed_dev;
++struct qede_dev;
++
++enum qede_roce_event {
++	QEDE_UP,
++	QEDE_DOWN,
++	QEDE_CHANGE_ADDR,
++	QEDE_CLOSE
++};
++
++struct qede_roce_event_work {
++	struct list_head list;
++	struct work_struct work;
++	void *ptr;
++	enum qede_roce_event event;
++};
++
++struct qedr_driver {
++	unsigned char name[32];
++
++	struct qedr_dev* (*add)(struct qed_dev *, struct pci_dev *,
++				struct net_device *);
++
++	void (*remove)(struct qedr_dev *);
++	void (*notify)(struct qedr_dev *, enum qede_roce_event);
++};
++
++/* APIs for RoCE driver to register callback handlers,
++ * which will be invoked when device is added, removed, ifup, ifdown
++ */
++int qede_roce_register_driver(struct qedr_driver *drv);
++void qede_roce_unregister_driver(struct qedr_driver *drv);
++
++bool qede_roce_supported(struct qede_dev *dev);
++
++#if IS_ENABLED(CONFIG_INFINIBAND_QEDR)
++int qede_roce_dev_add(struct qede_dev *dev);
++void qede_roce_dev_event_open(struct qede_dev *dev);
++void qede_roce_dev_event_close(struct qede_dev *dev);
++void qede_roce_dev_remove(struct qede_dev *dev);
++void qede_roce_event_changeaddr(struct qede_dev *qedr);
++#else
++static int qede_roce_dev_add(struct qede_dev *dev)
++{
++	return 0;
++}
++
++static void qede_roce_dev_event_open(struct qede_dev *dev) {}
++static void qede_roce_dev_event_close(struct qede_dev *dev) {}
++static void qede_roce_dev_remove(struct qede_dev *dev) {}
++static void qede_roce_event_changeaddr(struct qede_dev *qedr) {}
++#endif
++#endif
+diff --git a/include/uapi/linux/pci_regs.h b/include/uapi/linux/pci_regs.h
+index 4040951..3973000 100644
+--- a/include/uapi/linux/pci_regs.h
++++ b/include/uapi/linux/pci_regs.h
+@@ -612,6 +612,8 @@
+  */
+ #define PCI_EXP_DEVCAP2		36	/* Device Capabilities 2 */
+ #define  PCI_EXP_DEVCAP2_ARI		0x00000020 /* Alternative Routing-ID */
++#define  PCI_EXP_DEVCAP2_ATOMIC_ROUTE	0x00000040 /* Atomic Op routing */
++#define PCI_EXP_DEVCAP2_ATOMIC_COMP64	0x00000100 /* Atomic 64-bit comparison */
+ #define  PCI_EXP_DEVCAP2_LTR		0x00000800 /* Latency tolerance reporting */
+ #define  PCI_EXP_DEVCAP2_OBFF_MASK	0x000c0000 /* OBFF support mechanism */
+ #define  PCI_EXP_DEVCAP2_OBFF_MSG	0x00040000 /* New message signaling */
+@@ -619,6 +621,7 @@
+ #define PCI_EXP_DEVCTL2		40	/* Device Control 2 */
+ #define  PCI_EXP_DEVCTL2_COMP_TIMEOUT	0x000f	/* Completion Timeout Value */
+ #define  PCI_EXP_DEVCTL2_ARI		0x0020	/* Alternative Routing-ID */
++#define PCI_EXP_DEVCTL2_ATOMIC_REQ	0x0040	/* Set Atomic requests */
+ #define  PCI_EXP_DEVCTL2_IDO_REQ_EN	0x0100	/* Allow IDO for requests */
+ #define  PCI_EXP_DEVCTL2_IDO_CMP_EN	0x0200	/* Allow IDO for completions */
+ #define  PCI_EXP_DEVCTL2_LTR_EN		0x0400	/* Enable LTR mechanism */
 -- 
 1.8.3.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
