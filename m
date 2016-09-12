@@ -1,98 +1,38 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH v2 2/2] e1000: bundle xdp xmit routines
-Date: Mon, 12 Sep 2016 11:11:52 -0700
-Message-ID: <57D6EFE8.50707@gmail.com>
-References: <20160909212915.4001.25504.stgit@john-Precision-Tower-5810>
- <20160909212938.4001.40540.stgit@john-Precision-Tower-5810>
- <20160912141755.365c169e@redhat.com>
+From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Subject: Re: [PATCH] net: inet: diag: Fix an error handling
+Date: Mon, 12 Sep 2016 20:20:53 +0200
+Message-ID: <3861cfae-c325-c6c1-803a-3996ee3e8242@wanadoo.fr>
+References: <1473660133-9195-1-git-send-email-christophe.jaillet@wanadoo.fr>
+ <255c4841-f8d2-062f-f4ba-871c91b92e1b@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: bblanco@plumgrid.com, alexei.starovoitov@gmail.com,
-        jeffrey.t.kirsher@intel.com, davem@davemloft.net,
-        xiyou.wangcong@gmail.com, intel-wired-lan@lists.osuosl.org,
-        u9012063@gmail.com, netdev@vger.kernel.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f67.google.com ([209.85.220.67]:34166 "EHLO
-        mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751745AbcILSML (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 14:12:11 -0400
-Received: by mail-pa0-f67.google.com with SMTP id ph5so1977580pab.1
-        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 11:12:11 -0700 (PDT)
-In-Reply-To: <20160912141755.365c169e@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>, davem@davemloft.net,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <255c4841-f8d2-062f-f4ba-871c91b92e1b@cumulusnetworks.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16-09-12 05:17 AM, Jesper Dangaard Brouer wrote:
-> On Fri, 09 Sep 2016 14:29:38 -0700
-> John Fastabend <john.fastabend@gmail.com> wrote:
-> 
->> e1000 supports a single TX queue so it is being shared with the stack
->> when XDP runs XDP_TX action. This requires taking the xmit lock to
->> ensure we don't corrupt the tx ring. To avoid taking and dropping the
->> lock per packet this patch adds a bundling implementation to submit
->> a bundle of packets to the xmit routine.
+Le 12/09/2016 à 16:35, David Ahern a écrit :
+> On 9/12/16 12:02 AM, Christophe JAILLET wrote:
+>> diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+>> index abfbe492ebfe..795af25cf84c 100644
+>> --- a/net/ipv4/inet_diag.c
+>> +++ b/net/ipv4/inet_diag.c
+>> @@ -1134,7 +1134,6 @@ int inet_diag_handler_get_info(struct sk_buff *skb, struct sock *sk)
+>>   
+>>   	handler = inet_diag_lock_handler(sk->sk_protocol);
+>>   	if (IS_ERR(handler)) {
+>> -		inet_diag_unlock_handler(handler);
+>>   		nlmsg_cancel(skb, nlh);
+>>   		return PTR_ERR(handler);
+>>   	}
 >>
->> I tested this patch running e1000 in a VM using KVM over a tap
->> device using pktgen to generate traffic along with 'ping -f -l 100'.
->>
->> Suggested-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> 
-> Thank you for actually implementing this! :-)
-> 
+> That call is needed. inet_diag_unlock_handler does not operate on the input arg but a global mutex. Perhaps a better patch is to change inet_diag_unlock_handler() to a void.
+This is obvious. Sorry for the noise.
 
-Yep no problem the effects are minimal on e1000 but should be
-noticeable at 10/40/100gbps nics.
-
->> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
->> ---
-> [...]
-
-
-[...]
-
->> +static void e1000_xdp_xmit_bundle(struct e1000_rx_buffer_bundle *buffer_info,
->> +				  struct net_device *netdev,
->> +				  struct e1000_adapter *adapter)
->> +{
->> +	struct netdev_queue *txq = netdev_get_tx_queue(netdev, 0);
->> +	struct e1000_tx_ring *tx_ring = adapter->tx_ring;
->> +	struct e1000_hw *hw = &adapter->hw;
->> +	int i = 0;
->> +
->>  	/* e1000 only support a single txq at the moment so the queue is being
->>  	 * shared with stack. To support this requires locking to ensure the
->>  	 * stack and XDP are not running at the same time. Devices with
->>  	 * multiple queues should allocate a separate queue space.
->> +	 *
->> +	 * To amortize the locking cost e1000 bundles the xmits and sends as
->> +	 * many as possible until either running out of descriptors or failing.
->>  	 */
->>  	HARD_TX_LOCK(netdev, txq, smp_processor_id());
->>  
->> -	tx_ring = adapter->tx_ring;
->> -
->> -	if (E1000_DESC_UNUSED(tx_ring) < 2) {
->> -		HARD_TX_UNLOCK(netdev, txq);
->> -		return;
->> +	for (; i < E1000_XDP_XMIT_BUNDLE_MAX && buffer_info[i].buffer; i++) {
->                                                                        ^^^
->> +		e1000_xmit_raw_frame(buffer_info[i].buffer,
->> +				     buffer_info[i].length,
->> +				     adapter, tx_ring);
->> +		buffer_info[i].buffer->rxbuf.page = NULL;
->> +		buffer_info[i].buffer = NULL;
->> +		buffer_info[i].length = 0;
->> +		i++;
->                 ^^^
-> Looks like "i" is incremented twice, is that correct?
-> 
->>  	}
-
-Yep this and a couple other issues are resolved in v3 which I'll send
-out in a moment.
-
-Also in v3 I kept the program in the adapter structure. Moving it into
-the ring structure made the code a bit uglier IMO. I agree with the
-logic but practically only one program can exist for e1000.
+CJ
