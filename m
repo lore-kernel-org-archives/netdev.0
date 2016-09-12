@@ -1,30 +1,50 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 0/2] Misc cls_bpf/act_bpf improvements
-Date: Mon, 12 Sep 2016 23:38:41 +0200
-Message-ID: <cover.1473715365.git.daniel@iogearbox.net>
-Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:42371 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751068AbcILVjA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 17:39:00 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [PATCH] [RFC] proc connector: add namespace events
+Date: Tue, 13 Sep 2016 00:39:44 +0300
+Message-ID: <772621473716384@web6g.yandex.ru>
+References: <1473349086-31260-1-git-send-email-alban@kinvolk.io>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Tejun Heo <tj@kernel.org>, Aditya Kali <adityakali@google.com>,
+        Serge Hallyn <serge.hallyn@canonical.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Iago Lopez Galeiras <iago@kinvolk.io>
+To: Alban Crequy <alban.crequy@gmail.com>,
+        Alban Crequy <alban@kinvolk.io>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1473349086-31260-1-git-send-email-alban@kinvolk.io>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Two minor improvements to {cls,act}_bpf. For details please see
-individual patches.
+Hi everyone
 
-Thanks!
+08.09.2016, 18:39, "Alban Crequy" <alban.crequy@gmail.com>:
+> The act of a process creating or joining a namespace via clone(),
+> unshare() or setns() is a useful signal for monitoring applications.
 
-Daniel Borkmann (2):
-  bpf: drop unnecessary test in cls_bpf_classify and tcf_bpf
-  bpf: use skb_at_tc_ingress helper in tcf_bpf
+> + if (old_ns->mnt_ns != new_ns->mnt_ns)
+> + proc_ns_connector(tsk, CLONE_NEWNS, PROC_NM_REASON_CLONE, old_mntns_inum, new_mntns_inum);
+> +
+> + if (old_ns->uts_ns != new_ns->uts_ns)
+> + proc_ns_connector(tsk, CLONE_NEWUTS, PROC_NM_REASON_CLONE, old_ns->uts_ns->ns.inum, new_ns->uts_ns->ns.inum);
+> +
+> + if (old_ns->ipc_ns != new_ns->ipc_ns)
+> + proc_ns_connector(tsk, CLONE_NEWIPC, PROC_NM_REASON_CLONE, old_ns->ipc_ns->ns.inum, new_ns->ipc_ns->ns.inum);
+> +
+> + if (old_ns->net_ns != new_ns->net_ns)
+> + proc_ns_connector(tsk, CLONE_NEWNET, PROC_NM_REASON_CLONE, old_ns->net_ns->ns.inum, new_ns->net_ns->ns.inum);
+> +
+> + if (old_ns->cgroup_ns != new_ns->cgroup_ns)
+> + proc_ns_connector(tsk, CLONE_NEWCGROUP, PROC_NM_REASON_CLONE, old_ns->cgroup_ns->ns.inum, new_ns->cgroup_ns->ns.inum);
+> +
+> + if (old_ns->pid_ns_for_children != new_ns->pid_ns_for_children)
+> + proc_ns_connector(tsk, CLONE_NEWPID, PROC_NM_REASON_CLONE, old_ns->pid_ns_for_children->ns.inum, new_ns->pid_ns_for_children->ns.inum);
+> + }
+> +
 
- net/sched/act_bpf.c | 5 +----
- net/sched/cls_bpf.c | 3 ---
- 2 files changed, 1 insertion(+), 7 deletions(-)
+Patch looks good to me from technical/connector point of view, but these even multiplication is a bit weird imho.
 
--- 
-1.9.3
+I'm not against it, but did you consider sending just 2 serialized ns structures via single message, and client
+would check all ns bits himself?
