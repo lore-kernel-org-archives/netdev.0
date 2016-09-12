@@ -1,8 +1,8 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Subject: Re: [PATCH] atm: iphase: fix newline escape and minor tweak to source
  formatting
-Date: Mon, 12 Sep 2016 14:55:15 +0300
-Message-ID: <dc4b1df0-4d8a-cab3-3d6f-62c0ca25d686@cogentembedded.com>
+Date: Mon, 12 Sep 2016 14:55:23 +0300
+Message-ID: <ac162c0a-eca0-5d03-ad9c-9ca23becb1b9@cogentembedded.com>
 References: <20160912092930.20683-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
@@ -44,8 +44,8 @@ On 9/12/2016 12:29 PM, Colin King wrote:
 > +	} else
 > +		printk("iadev:  Non UBR, ABR and CBR traffic not supported\n");
 
-    All branches of the *if* statement should have {} if at least one has 
-them, perhaps a material for a follow-up patch).
+    All branches of the *if* statement should have {} if at least one has them 
+(perhaps a material for a follow-up patch).
 
 [...]
 
