@@ -1,72 +1,94 @@
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: Re: [PATCH net-next] xen-netfront: avoid packet loss when ethernet header crosses page boundary
-Date: Mon, 12 Sep 2016 13:52:17 +0200
-Message-ID: <87sht59vym.fsf@vitty.brq.redhat.com>
-References: <1471880577-21380-1-git-send-email-vkuznets@redhat.com>
-        <57D2BC13.8050903@citrix.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 1/3] Documentation: devicetree: add qca8k binding
+Date: Mon, 12 Sep 2016 14:53:19 +0300
+Message-ID: <c6c64bcc-50ad-0cbb-3e56-0f8dab45c413@cogentembedded.com>
+References: <1473669337-21221-1-git-send-email-john@phrozen.org>
+ <1473669337-21221-2-git-send-email-john@phrozen.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
-        <linux-kernel@vger.kernel.org>,
-        "Boris Ostrovsky" <boris.ostrovsky@oracle.com>,
-        Juergen Gross <jgross@suse.com>,
-        Patrick Talbert <ptalbert@redhat.com>,
-        David Vrabel <david.vrabel@citrix.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        qsdk-review@qca.qualcomm.com, devicetree@vger.kernel.org
+To: John Crispin <john@phrozen.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <57D2BC13.8050903@citrix.com> (David Vrabel's message of "Fri, 9
-        Sep 2016 14:41:39 +0100")
+In-Reply-To: <1473669337-21221-2-git-send-email-john@phrozen.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Vrabel <david.vrabel@citrix.com> writes:
+On 9/12/2016 11:35 AM, John Crispin wrote:
 
-> On 22/08/16 16:42, Vitaly Kuznetsov wrote:
->> Small packet loss is reported on complex multi host network configurations
->> including tunnels, NAT, ... My investigation led me to the following check
->> in netback which drops packets:
->> 
->>         if (unlikely(txreq.size < ETH_HLEN)) {
->>                 netdev_err(queue->vif->dev,
->>                            "Bad packet size: %d\n", txreq.size);
->>                 xenvif_tx_err(queue, &txreq, extra_count, idx);
->>                 break;
->>         }
->> 
->> But this check itself is legitimate. SKBs consist of a linear part (which
->> has to have the ethernet header) and (optionally) a number of frags.
->> Netfront transmits the head of the linear part up to the page boundary
->> as the first request and all the rest becomes frags so when we're
->> reconstructing the SKB in netback we can't distinguish between original
->> frags and the 'tail' of the linear part. The first SKB needs to be at
->> least ETH_HLEN size. So in case we have an SKB with its linear part
->> starting too close to the page boundary the packet is lost.
->> 
->> I see two ways to fix the issue:
->> - Change the 'wire' protocol between netfront and netback to start keeping
->>   the original SKB structure. We'll have to add a flag indicating the fact
->>   that the particular request is a part of the original linear part and not
->>   a frag. We'll need to know the length of the linear part to pre-allocate
->>   memory.
->> - Avoid transmitting SKBs with linear parts starting too close to the page
->>   boundary. That seems preferable short-term and shouldn't bring
->>   significant performance degradation as such packets are rare. That's what
->>   this patch is trying to achieve with skb_copy().
->> 
->> Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+> Add device-tree binding for ar8xxx switch families.
 >
-> We should probably fix the backend to handle this (by grant copying a
-> minimum amount in the linear area, but since netfront needs to work with
-> older netback.
+> Cc: devicetree@vger.kernel.org
+> Signed-off-by: John Crispin <john@phrozen.org>
+> ---
+>  .../devicetree/bindings/net/dsa/qca8k.txt          |   53 ++++++++++++++++++++
+>  1 file changed, 53 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/dsa/qca8k.txt
 >
-> Acked-by: David Vrabel <david.vrabel@citrix.com>
+> diff --git a/Documentation/devicetree/bindings/net/dsa/qca8k.txt b/Documentation/devicetree/bindings/net/dsa/qca8k.txt
+> new file mode 100644
+> index 0000000..2a1ad06
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/dsa/qca8k.txt
+> @@ -0,0 +1,53 @@
+> +* Qualcomm Atheros QCA8xxx switch family
+> +
+> +Required properties:
+> +
+> +- compatible: should be "qca,qca8337"
+> +- #size-cells: must be 0
+> +- #address-cells: must be 1
+> +
+> +Subnodes:
+> +
+> +The integrated switch subnode should be specified according to the binding
+> +described in dsa/dsa.txt.
+> +
+> +Example:
+> +
+> +	&mdio0 {
+> +		switch@0 {
+> +			compatible = "qca,qca8337";
+> +
+> +			#address-cells = <1>;
+> +			#size-cells = <0>;
+> +			reg = <30>;
+> +
+> +			ports {
+> +				port@0 {
+> +					reg = <11>;
+> +					label = "cpu";
+> +					ethernet = <&gmac1>;
+> +					phy-mode = "rgmii";
+> +				};
+> +
+> +				port@1 {
+> +					reg = <0>;
+> +					label = "lan1";
+> +				};
+> +
+> +				port@2 {
+> +					reg = <1>;
+> +					label = "lan2";
+> +				};
+> +
+> +				port@3 {
+> +					reg = <2>;
+> +					label = "lan3";
+> +				};
+> +
+> +				port@4 {
+> +					reg = <3>;
+> +					label = "lan4";
+> +				};
 
-David,
+    The <unit-address> part of the node name should correspond to the "reg" 
+prop. I think modern 'dtc' even warns about that...
 
-could you please pick this up for net-next or are there any concerns
-remaining?
+[...]
 
-Thanks,
-
--- 
-  Vitaly
+MBR, Sergei
