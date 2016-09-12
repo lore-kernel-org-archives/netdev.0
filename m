@@ -1,7 +1,7 @@
 From: kan.liang@intel.com
-Subject: [RFC V3 PATCH 07/26] net/netpolicy: enable and disable NET policy
-Date: Mon, 12 Sep 2016 07:55:40 -0700
-Message-ID: <1473692159-4017-8-git-send-email-kan.liang@intel.com>
+Subject: [RFC V3 PATCH 14/26] net/netpolicy: handle channel changes
+Date: Mon, 12 Sep 2016 07:55:47 -0700
+Message-ID: <1473692159-4017-15-git-send-email-kan.liang@intel.com>
 References: <1473692159-4017-1-git-send-email-kan.liang@intel.com>
 Cc: jeffrey.t.kirsher@intel.com, mingo@redhat.com,
         peterz@infradead.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
@@ -17,95 +17,81 @@ Cc: jeffrey.t.kirsher@intel.com, mingo@redhat.com,
         Kan Liang <kan.liang@intel.com>
 To: davem@davemloft.net, linux-kernel@vger.kernel.org,
         netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga04.intel.com ([192.55.52.120]:7470 "EHLO mga04.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1759590AbcILO4p (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 12 Sep 2016 10:56:45 -0400
 In-Reply-To: <1473692159-4017-1-git-send-email-kan.liang@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Kan Liang <kan.liang@intel.com>
 
-This patch introduces functions to enable and disable NET policy.
-
-For enabling, it collects device and CPU information and setup CPU/queue
-mapping. Also, for some drivers like i40e driver, it will get better
-performance if setting IRQ affinity. This patch provides an option
-irq_affinity for driver to set IRQ affinity in NET policy enabling.
-
-For disabling, it removes the IRQ affinity (if set) and mapping
-information.
-
-np_lock should protect the enable and disable state. It will be done
-later in this series.
+User can uses ethtool to set the channel number. This patch handles the
+channel changes by rebuilding the object list.
 
 Signed-off-by: Kan Liang <kan.liang@intel.com>
 ---
- include/linux/netpolicy.h |  1 +
- net/core/netpolicy.c      | 41 +++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 42 insertions(+)
+ include/linux/netpolicy.h | 8 ++++++++
+ net/core/ethtool.c        | 8 +++++++-
+ net/core/netpolicy.c      | 1 +
+ 3 files changed, 16 insertions(+), 1 deletion(-)
 
 diff --git a/include/linux/netpolicy.h b/include/linux/netpolicy.h
-index a946b75c..bfab7b8 100644
+index f60331d..d6ba9f6 100644
 --- a/include/linux/netpolicy.h
 +++ b/include/linux/netpolicy.h
-@@ -49,6 +49,7 @@ struct netpolicy_sys_info {
- struct netpolicy_info {
- 	enum netpolicy_name	cur_policy;
- 	unsigned long avail_policy[BITS_TO_LONGS(NET_POLICY_MAX)];
-+	bool irq_affinity;
- 	/* cpu and queue mapping information */
- 	struct netpolicy_sys_info	sys_info;
+@@ -80,4 +80,12 @@ struct netpolicy_info {
+ 	struct list_head	obj_list[NETPOLICY_RXTX][NET_POLICY_MAX];
  };
-diff --git a/net/core/netpolicy.c b/net/core/netpolicy.c
-index adcb5e3..a6e240f 100644
---- a/net/core/netpolicy.c
-+++ b/net/core/netpolicy.c
-@@ -162,6 +162,47 @@ static void netpolicy_set_affinity(struct net_device *dev)
- 	}
+ 
++#ifdef CONFIG_NETPOLICY
++extern void update_netpolicy_sys_map(void);
++#else
++static inline void update_netpolicy_sys_map(void)
++{
++}
++#endif
++
+ #endif /*__LINUX_NETPOLICY_H*/
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 9774898..e1f8bd0 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -1703,6 +1703,7 @@ static noinline_for_stack int ethtool_set_channels(struct net_device *dev,
+ {
+ 	struct ethtool_channels channels, max;
+ 	u32 max_rx_in_use = 0;
++	int ret;
+ 
+ 	if (!dev->ethtool_ops->set_channels || !dev->ethtool_ops->get_channels)
+ 		return -EOPNOTSUPP;
+@@ -1726,7 +1727,12 @@ static noinline_for_stack int ethtool_set_channels(struct net_device *dev,
+ 	    (channels.combined_count + channels.rx_count) <= max_rx_in_use)
+ 	    return -EINVAL;
+ 
+-	return dev->ethtool_ops->set_channels(dev, &channels);
++	ret = dev->ethtool_ops->set_channels(dev, &channels);
++#ifdef CONFIG_NETPOLICY
++	if (!ret)
++		update_netpolicy_sys_map();
++#endif
++	return ret;
  }
  
-+static int netpolicy_disable(struct net_device *dev)
-+{
-+	if (dev->netpolicy->irq_affinity)
-+		netpolicy_clear_affinity(dev);
-+	netpolicy_free_sys_map(dev);
-+
-+	return 0;
-+}
-+
-+static int netpolicy_enable(struct net_device *dev)
-+{
-+	int ret;
-+	struct netpolicy_dev_info d_info;
-+	u32 cpu;
-+
-+	if (WARN_ON(!dev->netpolicy))
-+		return -EINVAL;
-+
-+	/* get driver information */
-+	ret = netpolicy_get_dev_info(dev, &d_info);
-+	if (ret)
-+		return ret;
-+
-+	/* get cpu information */
-+	cpu = netpolicy_get_cpu_information();
-+
-+	/* create sys map */
-+	ret = netpolicy_update_sys_map(dev, &d_info, cpu);
-+	if (ret) {
-+		netpolicy_free_dev_info(&d_info);
-+		return ret;
-+	}
-+
-+	/* set irq affinity */
-+	if (dev->netpolicy->irq_affinity)
-+		netpolicy_set_affinity(dev);
-+
-+	netpolicy_free_dev_info(&d_info);
-+	return 0;
-+}
-+
- const char *policy_name[NET_POLICY_MAX] = {
- 	"NONE"
- };
+ static int ethtool_get_pauseparam(struct net_device *dev, void __user *useraddr)
+diff --git a/net/core/netpolicy.c b/net/core/netpolicy.c
+index 3bf0a44..a739ac7 100644
+--- a/net/core/netpolicy.c
++++ b/net/core/netpolicy.c
+@@ -893,6 +893,7 @@ unlock:
+ 		}
+ 	}
+ }
++EXPORT_SYMBOL(update_netpolicy_sys_map);
+ 
+ static int netpolicy_cpu_callback(struct notifier_block *nfb,
+ 				  unsigned long action, void *hcpu)
 -- 
 2.5.5
