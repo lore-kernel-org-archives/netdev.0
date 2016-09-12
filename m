@@ -1,69 +1,126 @@
-From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Subject: Re: Minimum MTU Mess
-Date: Mon, 12 Sep 2016 11:59:41 +0900
-Message-ID: <08e44341-cfcd-5644-8e23-f7348de376b2@miraclelinux.com>
-References: <20160902170742.GA17677@redhat.com>
- <20160906.165529.496766310703537877.davem@davemloft.net>
- <20160907195356.GX33916@redhat.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH v2 2/2] e1000: bundle xdp xmit routines
+Date: Sun, 11 Sep 2016 20:07:18 -0700
+Message-ID: <57D61BE6.2080002@gmail.com>
+References: <20160909212915.4001.25504.stgit@john-Precision-Tower-5810>
+ <20160909212938.4001.40540.stgit@john-Precision-Tower-5810>
+ <CALx6S34+Mgb173vReYt=yPOztcFhVU9rRZyodVc56toXP1OiHQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: hideaki.yoshifuji@miraclelinux.com, netdev@vger.kernel.org
-To: Jarod Wilson <jarod@redhat.com>, David Miller <davem@davemloft.net>
+Cc: Brenden Blanco <bblanco@plumgrid.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+        William Tu <u9012063@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:34624 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932336AbcILC7p (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 11 Sep 2016 22:59:45 -0400
-Received: by mail-pf0-f174.google.com with SMTP id p64so47799097pfb.1
-        for <netdev@vger.kernel.org>; Sun, 11 Sep 2016 19:59:44 -0700 (PDT)
-In-Reply-To: <20160907195356.GX33916@redhat.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33418 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755530AbcILDHj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 11 Sep 2016 23:07:39 -0400
+Received: by mail-pf0-f193.google.com with SMTP id 128so7397367pfb.0
+        for <netdev@vger.kernel.org>; Sun, 11 Sep 2016 20:07:38 -0700 (PDT)
+In-Reply-To: <CALx6S34+Mgb173vReYt=yPOztcFhVU9rRZyodVc56toXP1OiHQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-Jarod Wilson wrote:
-> On Tue, Sep 06, 2016 at 04:55:29PM -0700, David Miller wrote:
->> From: Jarod Wilson <jarod@redhat.com>
->> Date: Fri, 2 Sep 2016 13:07:42 -0400
+On 16-09-10 08:36 AM, Tom Herbert wrote:
+> On Fri, Sep 9, 2016 at 2:29 PM, John Fastabend <john.fastabend@gmail.com> wrote:
+>> e1000 supports a single TX queue so it is being shared with the stack
+>> when XDP runs XDP_TX action. This requires taking the xmit lock to
+>> ensure we don't corrupt the tx ring. To avoid taking and dropping the
+>> lock per packet this patch adds a bundling implementation to submit
+>> a bundle of packets to the xmit routine.
 >>
->>> In any case, the number of "mtu < 68" and "#define FOO_MIN_MTU 68", or
->>> variations thereof, under drivers/net/ is kind of crazy.
+>> I tested this patch running e1000 in a VM using KVM over a tap
+>> device using pktgen to generate traffic along with 'ping -f -l 100'.
 >>
->> Agreed, we can have a default and let the different cases provide
->> overrides.
+>> Suggested-by: Jesper Dangaard Brouer <brouer@redhat.com>
+>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>> ---
+
+[...]
+
+>> diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+>> index 91d5c87..b985271 100644
+>> --- a/drivers/net/ethernet/intel/e1000/e1000_main.c
+>> +++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+>> @@ -1738,10 +1738,18 @@ static int e1000_setup_rx_resources(struct e1000_adapter *adapter,
+>>         struct pci_dev *pdev = adapter->pdev;
+>>         int size, desc_len;
 >>
->> Mostly what to do here is a function of the hardware though.
+>> +       size = sizeof(struct e1000_rx_buffer_bundle) *
+>> +                       E1000_XDP_XMIT_BUNDLE_MAX;
+>> +       rxdr->xdp_buffer = vzalloc(size);
+>> +       if (!rxdr->xdp_buffer)
+>> +               return -ENOMEM;
+>> +
+>>         size = sizeof(struct e1000_rx_buffer) * rxdr->count;
+>>         rxdr->buffer_info = vzalloc(size);
+>> -       if (!rxdr->buffer_info)
+>> +       if (!rxdr->buffer_info) {
+>> +               vfree(rxdr->xdp_buffer);
 > 
-> So I've been tinkering with this some, and it looks like having both
-> centralized min and max checking could be useful here. I'm hacking away at
-> drivers now, but the basis of all this would potentially look about like
-> the patch below, and each device would have to set dev->m{in,ax}_mtu one
-> way or another. Drivers using alloc_etherdev and/or ether_setup would get
-> the "default" values, and then they can be overridden. Probably need
-> something to make sure dev->max_mtu isn't set to 0 though...
-> 
-> Possibly on the right track here, or might there be a better way to
-> approach this?
-> 
-> diff --git a/include/uapi/linux/if_ether.h b/include/uapi/linux/if_ether.h
-> index 117d02e..864d6f2 100644
-> --- a/include/uapi/linux/if_ether.h
-> +++ b/include/uapi/linux/if_ether.h
-> @@ -35,6 +35,8 @@
->  #define ETH_FRAME_LEN	1514		/* Max. octets in frame sans FCS */
->  #define ETH_FCS_LEN	4		/* Octets in the FCS		 */
->  
-> +#define ETH_MIN_MTU	68		/* Min IPv4 MTU per RFC791	*/
-> +
->  /*
->   *	These are the defined Ethernet Protocol ID's.
->   */
+> This could be deferred until an XDP program is added.
 
-Why don't we disable IPv4 if the MTU is lower than this value
-as we do for IPv6?
+Yep that would be best to avoid overhead in the normal non-XDP case.
+Also I'll move the xdp prog pointer into the rx ring per Jespers comment
+that I missed in this rev.
 
--- 
-Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
-Technical Division, MIRACLE LINUX CORPORATION
+[...]
+
+>> +
+>> +static void e1000_xdp_xmit_bundle(struct e1000_rx_buffer_bundle *buffer_info,
+>> +                                 struct net_device *netdev,
+>> +                                 struct e1000_adapter *adapter)
+>> +{
+>> +       struct netdev_queue *txq = netdev_get_tx_queue(netdev, 0);
+>> +       struct e1000_tx_ring *tx_ring = adapter->tx_ring;
+>> +       struct e1000_hw *hw = &adapter->hw;
+>> +       int i = 0;
+>> +
+>>         /* e1000 only support a single txq at the moment so the queue is being
+>>          * shared with stack. To support this requires locking to ensure the
+>>          * stack and XDP are not running at the same time. Devices with
+>>          * multiple queues should allocate a separate queue space.
+>> +        *
+>> +        * To amortize the locking cost e1000 bundles the xmits and sends as
+>> +        * many as possible until either running out of descriptors or failing.
+> 
+> Up to E1000_XDP_XMIT_BUNDLE_MAX  at least...
+
+Yep will fix comment.
+
+[...]
+
+>>
+>>                 /* use prefetched values */
+>> @@ -4498,8 +4536,11 @@ next_desc:
+>>         rx_ring->next_to_clean = i;
+>>
+>>         cleaned_count = E1000_DESC_UNUSED(rx_ring);
+>> -       if (cleaned_count)
+>> +       if (cleaned_count) {
+>> +               if (xdp_xmit)
+>> +                       e1000_xdp_xmit_bundle(xdp_bundle, netdev, adapter);
+>>                 adapter->alloc_rx_buf(adapter, rx_ring, cleaned_count);
+>> +       }
+> 
+> Looks good for XDP path. Is this something we can abstract out into a
+> library for use by other drivers?
+> 
+
+I'm not really sure it can be abstracted much its a bit intertwined with
+the normal rx receive path. But it should probably be a pattern that
+gets copied so we avoid unnecessary tx work.
+
+> 
+>>
+>>         adapter->total_rx_packets += total_rx_packets;
+>>         adapter->total_rx_bytes += total_rx_bytes;
+>>
