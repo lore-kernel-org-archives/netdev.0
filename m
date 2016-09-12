@@ -1,119 +1,220 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [RFC V3 PATCH 18/26] net/netpolicy: set tx queues according to policy
-Date: Mon, 12 Sep 2016 13:23:24 -0700
-Message-ID: <CALx6S36C3cJvH==e3FVf5jox=-OqEziEQTXvr8hmqshMgbGd8w@mail.gmail.com>
-References: <1473692159-4017-1-git-send-email-kan.liang@intel.com> <1473692159-4017-19-git-send-email-kan.liang@intel.com>
+From: Maxime Ripard <maxime.ripard@free-electrons.com>
+Subject: Re: [RFC PATCH 9/9] ethernet: sun8i-emac: add pm_runtime support
+Date: Mon, 12 Sep 2016 22:44:51 +0200
+Message-ID: <20160912204451.GO9449@lukather>
+References: <1473425117-18645-1-git-send-email-clabbe.montjoie@gmail.com>
+ <1473425117-18645-10-git-send-email-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Ingo Molnar <mingo@redhat.com>, peterz@infradead.org,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>, akpm@linux-foundation.org,
-        Kees Cook <keescook@chromium.org>, viro@zeniv.linux.org.uk,
-        gorcunov@openvz.org, John Stultz <john.stultz@linaro.org>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        Ben Hutchings <ben@decadent.org.uk>,
-        David Decotigny <decot@googlers.com>,
-        Florian Westphal <fw@strlen.de>,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>, r
-To: "Liang, Kan" <kan.liang@intel.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="vDEbda84Uy/oId5W"
+Cc: robh+dt@kernel.org, mark.rutland@arm.com, wens@csie.org,
+        linux@armlinux.org.uk, davem@davemloft.net, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: Corentin Labbe <clabbe.montjoie@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:33518 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750832AbcILUXZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 16:23:25 -0400
-Received: by mail-qt0-f193.google.com with SMTP id p47so613747qtc.0
-        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 13:23:25 -0700 (PDT)
-In-Reply-To: <1473692159-4017-19-git-send-email-kan.liang@intel.com>
+Received: from down.free-electrons.com ([37.187.137.238]:45140 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1752736AbcILUoy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 16:44:54 -0400
+Content-Disposition: inline
+In-Reply-To: <1473425117-18645-10-git-send-email-clabbe.montjoie@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 12, 2016 at 7:55 AM,  <kan.liang@intel.com> wrote:
-> From: Kan Liang <kan.liang@intel.com>
->
-> When the device tries to transmit a packet, netdev_pick_tx is called to
-> find the available tx queues. If the net policy is applied, it picks up
-> the assigned tx queue from net policy subsystem, and redirect the
-> traffic to the assigned queue.
->
-> Signed-off-by: Kan Liang <kan.liang@intel.com>
+
+--vDEbda84Uy/oId5W
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+Hi,
+
+On Fri, Sep 09, 2016 at 02:45:17PM +0200, Corentin Labbe wrote:
+> This patch add pm_runtime support to sun8i-emac.
+> For the moment, only basic support is added, (the device is marked as
+> used when net/open)
+>=20
+> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
 > ---
->  include/net/sock.h |  9 +++++++++
->  net/core/dev.c     | 20 ++++++++++++++++++--
->  2 files changed, 27 insertions(+), 2 deletions(-)
->
-> diff --git a/include/net/sock.h b/include/net/sock.h
-> index e1e9e3d..ca97f35 100644
-> --- a/include/net/sock.h
-> +++ b/include/net/sock.h
-> @@ -2280,4 +2280,13 @@ extern int sysctl_optmem_max;
->  extern __u32 sysctl_wmem_default;
->  extern __u32 sysctl_rmem_default;
->
-> +/* Return netpolicy instance information from socket. */
-> +static inline struct netpolicy_instance *netpolicy_find_instance(struct sock *sk)
-> +{
-> +#ifdef CONFIG_NETPOLICY
-> +       if (is_net_policy_valid(sk->sk_netpolicy.policy))
-> +               return &sk->sk_netpolicy;
-> +#endif
-> +       return NULL;
-> +}
->  #endif /* _SOCK_H */
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 34b5322..b9a8044 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -3266,6 +3266,7 @@ struct netdev_queue *netdev_pick_tx(struct net_device *dev,
->                                     struct sk_buff *skb,
->                                     void *accel_priv)
->  {
-> +       struct sock *sk = skb->sk;
->         int queue_index = 0;
->
->  #ifdef CONFIG_XPS
-> @@ -3280,8 +3281,23 @@ struct netdev_queue *netdev_pick_tx(struct net_device *dev,
->                 if (ops->ndo_select_queue)
->                         queue_index = ops->ndo_select_queue(dev, skb, accel_priv,
->                                                             __netdev_pick_tx);
-> -               else
-> -                       queue_index = __netdev_pick_tx(dev, skb);
-> +               else {
-> +#ifdef CONFIG_NETPOLICY
-> +                       struct netpolicy_instance *instance;
+>  drivers/net/ethernet/allwinner/sun8i-emac.c | 62 +++++++++++++++++++++++=
++++++-
+>  1 file changed, 60 insertions(+), 2 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/allwinner/sun8i-emac.c b/drivers/net/et=
+hernet/allwinner/sun8i-emac.c
+> index 1c4bc80..cce886e 100644
+> --- a/drivers/net/ethernet/allwinner/sun8i-emac.c
+> +++ b/drivers/net/ethernet/allwinner/sun8i-emac.c
+> @@ -9,7 +9,6 @@
+>   * - MAC filtering
+>   * - Jumbo frame
+>   * - features rx-all (NETIF_F_RXALL_BIT)
+> - * - PM runtime
+>   */
+>  #include <linux/bitops.h>
+>  #include <linux/clk.h>
+> @@ -27,6 +26,7 @@
+>  #include <linux/pinctrl/consumer.h>
+>  #include <linux/pinctrl/pinctrl.h>
+>  #include <linux/platform_device.h>
+> +#include <linux/pm_runtime.h>
+>  #include <linux/reset.h>
+>  #include <linux/scatterlist.h>
+>  #include <linux/skbuff.h>
+> @@ -1301,11 +1301,18 @@ static int sun8i_emac_open(struct net_device *nde=
+v)
+>  	int err;
+>  	u32 v;
+> =20
+> +	err =3D pm_runtime_get_sync(priv->dev);
+> +	if (err) {
+> +		pm_runtime_put_noidle(priv->dev);
+> +		dev_err(priv->dev, "pm_runtime error: %d\n", err);
+> +		return err;
+> +	}
 > +
-> +                       queue_index = -1;
-> +                       if (dev->netpolicy && sk) {
-> +                               instance = netpolicy_find_instance(sk);
-> +                               if (instance) {
-> +                                       if (!instance->dev)
-> +                                               instance->dev = dev;
-> +                                       queue_index = netpolicy_pick_queue(instance, false);
-> +                               }
-> +                       }
-> +                       if (queue_index < 0)
-> +#endif
+>  	err =3D request_irq(priv->irq, sun8i_emac_dma_interrupt, 0,
+>  			  dev_name(priv->dev), ndev);
+>  	if (err) {
+>  		dev_err(priv->dev, "Cannot request IRQ: %d\n", err);
+> -		return err;
+> +		goto err_runtime;
+>  	}
+> =20
+>  	/* Set interface mode (and configure internal PHY on H3) */
+> @@ -1395,6 +1402,8 @@ err_syscon:
+>  	sun8i_emac_unset_syscon(ndev);
+>  err_irq:
+>  	free_irq(priv->irq, ndev);
+> +err_runtime:
+> +	pm_runtime_put(priv->dev);
+>  	return err;
+>  }
+> =20
+> @@ -1483,6 +1492,8 @@ static int sun8i_emac_stop(struct net_device *ndev)
+>  	dma_free_coherent(priv->dev, priv->nbdesc_tx * sizeof(struct dma_desc),
+>  			  priv->dd_tx, priv->dd_tx_phy);
+> =20
+> +	pm_runtime_put(priv->dev);
+> +
+>  	return 0;
+>  }
+> =20
+> @@ -2210,6 +2221,8 @@ static int sun8i_emac_probe(struct platform_device =
+*pdev)
+>  		goto probe_err;
+>  	}
+> =20
+> +	pm_runtime_enable(priv->dev);
+> +
+>  	return 0;
+> =20
+>  probe_err:
+> @@ -2221,6 +2234,8 @@ static int sun8i_emac_remove(struct platform_device=
+ *pdev)
+>  {
+>  	struct net_device *ndev =3D platform_get_drvdata(pdev);
+> =20
+> +	pm_runtime_disable(&pdev->dev);
+> +
+>  	unregister_netdev(ndev);
+>  	platform_set_drvdata(pdev, NULL);
+>  	free_netdev(ndev);
+> @@ -2228,6 +2243,47 @@ static int sun8i_emac_remove(struct platform_devic=
+e *pdev)
+>  	return 0;
+>  }
+> =20
+> +static int __maybe_unused sun8i_emac_suspend(struct platform_device *pde=
+v, pm_message_t state)
+> +{
+> +	struct net_device *ndev =3D platform_get_drvdata(pdev);
+> +	struct sun8i_emac_priv *priv =3D netdev_priv(ndev);
+> +
+> +	napi_disable(&priv->napi);
+> +
+> +	if (netif_running(ndev))
+> +		netif_device_detach(ndev);
+> +
+> +	sun8i_emac_stop_tx(ndev);
+> +	sun8i_emac_stop_rx(ndev);
+> +
+> +	sun8i_emac_rx_clean(ndev);
+> +	sun8i_emac_tx_clean(ndev);
+> +
+> +	phy_stop(ndev->phydev);
+> +
+> +	return 0;
+> +}
+> +
+> +static int __maybe_unused sun8i_emac_resume(struct platform_device *pdev)
+> +{
+> +	struct net_device *ndev =3D platform_get_drvdata(pdev);
+> +	struct sun8i_emac_priv *priv =3D netdev_priv(ndev);
+> +
+> +	phy_start(ndev->phydev);
+> +
+> +	sun8i_emac_start_tx(ndev);
+> +	sun8i_emac_start_rx(ndev);
+> +
+> +	if (netif_running(ndev))
+> +		netif_device_attach(ndev);
+> +
+> +	netif_start_queue(ndev);
+> +
+> +	napi_enable(&priv->napi);
+> +
+> +	return 0;
+> +}
 
-I doubt this produces the intended effect. Several drivers use
-ndo_select_queue (such as mlx4) where there might do something special
-for a few packets but end up called the default handler which
-__netdev_pick_tx for most packets. So in such cases the netpolicy path
-would be routinely bypassed. Maybe this code should be in
-__netdev_pick_tx.
+The main idea behind the runtime PM hooks is that they bring the
+device to a working state and shuts it down when it's not needed
+anymore.
 
-Tom
+However, they shouldn't be called when the device is still in used, so
+all the mangling with NAPI, the phy and so on is irrelevant here, but
+the clocks, resets, for example, are.
 
-> +                               queue_index = __netdev_pick_tx(dev, skb);
-> +               }
->
->                 if (!accel_priv)
->                         queue_index = netdev_cap_txqueue(dev, queue_index);
-> --
-> 2.5.5
->
+>  static const struct of_device_id sun8i_emac_of_match_table[] =3D {
+>  	{ .compatible =3D "allwinner,sun8i-a83t-emac",
+>  	  .data =3D &emac_variant_a83t },
+> @@ -2246,6 +2302,8 @@ static struct platform_driver sun8i_emac_driver =3D=
+ {
+>  		.name           =3D "sun8i-emac",
+>  		.of_match_table	=3D sun8i_emac_of_match_table,
+>  	},
+> +	.suspend	=3D sun8i_emac_suspend,
+> +	.resume		=3D sun8i_emac_resume,
+
+These are not the runtime PM hooks. How did you test that?
+
+Maxime
+
+--=20
+Maxime Ripard, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
+
+--vDEbda84Uy/oId5W
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJX1xPDAAoJEBx+YmzsjxAgBxMP/0OHclENQ0ToA2ihIE2wFDbe
+sphvSfQZF/+57gEaiY61WAt6uoOOpNHnN5jF1EVJXzzu3kiD5cX/QjvMAVz4kM+j
+gqJFediAcfzaIgWvtkj5/xS4zBlToR8eHWy18SkCe5C2EkuBlD/TkjyFCd4KfWMD
+B2LgWYpkVRGJ/APCrIxNYRWrJf8VEcLmnKJ1wrqHRW4aaSwUng7gPdwRySSK+dvZ
+SZ7JesisypxoX2Nf1Ju476CpX2bvdEhDuKziaKheV3LjZMfpWiVNK6CY6FA62BWI
+w4lN5UsYS1hDDcFFkXmA6s5mXF4b2C0PoYN+KNso+Lsmy/EA961fKKy5AOQZCUnn
+A7OCPMZ4oABbY13XI4qtsFm+XM771MyBQuF6QUvIKZ1kbem3qjgB3ZZYjU1DgqZW
+XGtJS9Xh5VgaEk5ZC6+/SM9j62g1E86IapOSMLZXD1ojC/Gxgeha9jj+3k6R5lOv
+IM/mkAgpLIMiYV7uWs06XXqfcCPPAmlTm7/3BRt3IikJfy4TSCVrxPudmzOQaZGF
+i9Ul3FVt+oi06aCWZINslLJptT33SllIjgmQ0iEcgwRikg1Fth7PHaKZAG0s3dOO
+22XtPbzUxirxIht5qqTZxdaDyThHHRMQRBDL9Hnhzxh3mNisQ3yU2sDryi+JOJpL
+0uyX+ilDfCLrrSRg2TLd
+=iK1/
+-----END PGP SIGNATURE-----
+
+--vDEbda84Uy/oId5W--
