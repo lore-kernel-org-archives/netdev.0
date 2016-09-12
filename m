@@ -1,40 +1,29 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: Minimum MTU Mess
-Date: Mon, 12 Sep 2016 04:41:40 +0200
-Message-ID: <20160912024140.GA6264@lunn.ch>
-References: <20160902170742.GA17677@redhat.com>
- <20160906.165529.496766310703537877.davem@davemloft.net>
- <20160907195356.GX33916@redhat.com>
- <20160907203112.GA26445@lunn.ch>
- <20160907234306.GY33916@redhat.com>
- <20160908012413.GA12745@lunn.ch>
- <20160909180555.GE20632@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 25/26] pch_gbe: constify local structures
+Date: Sun, 11 Sep 2016 19:48:19 -0700 (PDT)
+Message-ID: <20160911.194819.1394072668837372328.davem@davemloft.net>
+References: <1473599168-30561-1-git-send-email-Julia.Lawall@lip6.fr>
+        <1473599168-30561-26-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jarod Wilson <jarod@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:41166 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756080AbcILClp (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 11 Sep 2016 22:41:45 -0400
-Content-Disposition: inline
-In-Reply-To: <20160909180555.GE20632@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, joe@perches.com,
+        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Julia.Lawall@lip6.fr
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <1473599168-30561-26-git-send-email-Julia.Lawall@lip6.fr>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Actually breaking this up into easily digestable/mergeable chunks is going
-> to be kind of entertaining... Suggestions welcomed on that. First up is
-> obviously the core change, which touches just net/ethernet/eth.c,
-> net/core/dev.c, include/linux/netdevice.h and
-> include/uapi/linux/if_ether.h, and should let existing code continue to
-> Just Work(tm), though devices using ether_setup() that had no MTU range
-> checking (or one or the other missing) will wind up with new bounds.
 
-Hi Jarod
+Julia, I went over the networking driver patches in this series and
+I have to say that I'd rather see these changes be more durable
+and self-checking.
 
-Did you find any drivers which support jumbo packets, but don't have
-checks? These drivers, if there are any, need handling first, before
-this core change is made. Otherwise you introduce regressions.
+By this I mean that I want you to also make the driver private pointer
+that holds these structures be const too.
 
-     Andrew
+Then if there are really any assignments to the objects being marked
+const, it will show immediately.
+
+Thank you.
