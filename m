@@ -1,91 +1,58 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 3/3] net-next: dsa: add new driver for qca8xxx family
-Date: Tue, 13 Sep 2016 00:52:14 +0200
-Message-ID: <20160912225214.GA3585@lunn.ch>
-References: <1473669337-21221-1-git-send-email-john@phrozen.org>
- <1473669337-21221-4-git-send-email-john@phrozen.org>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH v4 net-next 1/1] net_sched: Introduce skbmod action
+Date: Mon, 12 Sep 2016 19:02:35 -0400
+Message-ID: <3a1da0eb-b253-ef9c-8679-0290e670238c@mojatatu.com>
+References: <1473713206-2450-1-git-send-email-jhs@emojatatu.com>
+ <1473717691.18970.82.camel@edumazet-glaptop3.roam.corp.google.com>
+ <77bca669-9113-3977-ad3c-478091422ff8@mojatatu.com>
+ <1473719192.18970.84.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        qsdk-review@qca.qualcomm.com
-To: John Crispin <john@phrozen.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1473669337-21221-4-git-send-email-john@phrozen.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        xiyou.wangcong@gmail.com, daniel@iogearbox.net,
+        john.r.fastabend@intel.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f46.google.com ([209.85.214.46]:36522 "EHLO
+        mail-it0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752224AbcILXCq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 19:02:46 -0400
+Received: by mail-it0-f46.google.com with SMTP id o3so26833780ita.1
+        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 16:02:46 -0700 (PDT)
+In-Reply-To: <1473719192.18970.84.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi John
+On 16-09-12 06:26 PM, Eric Dumazet wrote:
+> On Mon, 2016-09-12 at 18:14 -0400, Jamal Hadi Salim wrote:
+>
+>> I noticed some very weird issues when I took that out.
+>> Running sufficiently large amount of traffic (ping -f is sufficient)
+>> I saw that when i did a dump it took anywhere between 6-15 seconds.
+>> With the read_lock in place response was immediate.
+>> I can go back and run things to verify - but it was very odd.
+>
+> This was on uni processor ?
+>
 
-> +#include <linux/module.h>
-> +#include <linux/phy.h>
-> +#include <linux/netdevice.h>
-> +#include <net/dsa.h>
-> +#include <net/switchdev.h>
-> +#include <linux/phy.h>
+It was a VM.
 
-One linux/phy.h is enough.
+> Looks like typical starvation caused by aggressive softirq.
+>
 
-> +	/* Setup connection between CPU ports & PHYs */
-> +	for (i = 0; i < DSA_MAX_PORTS; i++) {
-> +		/* CPU port gets connected to all PHYs in the switch */
-> +		if (dsa_is_cpu_port(ds, i)) {
-> +			qca8k_rmw(priv, QCA8K_PORT_LOOKUP_CTRL(priv->cpu_port),
-> +				  QCA8K_PORT_LOOKUP_MEMBER,
-> +				  ds->enabled_port_mask << 1);
-> +		}
-> +
-> +		/* Invividual PHYs gets connected to CPU port only */
-> +		if (ds->enabled_port_mask & BIT(i)) {
-> +			int port = qca8k_phy_to_port(i);
-> +			int shift = 16 * (port % 2);
-> +
+Well, then it is strange that in one case a tc dump of the rule
+was immediate and in the other case it was consistent for 5-15
+seconds.
 
-snip
+> Anyway, I suspect your kernel build has rcu_read_lock() and
+> rcu_read_unlock() as NOP ;)
+>
 
-> +static void
-> +qca8k_get_ethtool_stats(struct dsa_switch *ds, int phy,
-> +			uint64_t *data)
-> +{
-> +	struct qca8k_priv *priv = qca8k_to_priv(ds);
-> +	const struct qca8k_mib_desc *mib;
-> +	u32 reg, i, port;
-> +	u64 hi;
-> +
-> +	port = qca8k_phy_to_port(phy);
+Which doesnt give me a good feel if i tested this well ;->
 
-snip
+I would like to try again with those two kernels just to
+make sure i was not imagining this.
 
-> +static inline int qca8k_phy_to_port(int phy)
-> +{
-> +	if (phy < 5)
-> +		return phy + 1;
-> +
-> +	return -1;
-> +}
-
-What keep throwing me while reading this code is the use of PHY/phy.
-
-What is meant by a phy in this driver?
-
-DSA is all about switches. Switches are a switch fabric and a number
-of ports. The ports contain Ethernet MACs, and optionally contain
-embedded PHYs. If there are not embedded PHYs, there are often
-external PHYs, and sometimes we just have MACs connected back to back.
-
-Generally, DSA drivers don't need to do much with the MAC. Maybe set
-the speed and duplex, and maybe signal delays. They also don't need to
-do much with the PHY, phylib and a phy driver does all the work. DSA
-is all about the switch fabric.
-
-Yet i see phy scattered in a few places in this driver, and it seems
-like they have nothing to do with the PHY.
-
-Please can you change the terminology here? It might help if you can
-remove qca8k_phy_to_port(). Why do you need to add 1? Could this be
-eliminated via a better choice of reg in the device tree?
-
-Thanks
-	Andrew	   
+cheers,
+jamal
