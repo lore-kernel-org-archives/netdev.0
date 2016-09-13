@@ -1,43 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: bridge: add helper to call
- /sbin/bridge-stp
-Date: Tue, 13 Sep 2016 11:22:42 -0400 (EDT)
-Message-ID: <20160913.112242.2097095000095740530.davem@davemloft.net>
-References: <20160908165043.31042-1-vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH] bnx2: Reset device during driver initialization
+Date: Tue, 13 Sep 2016 11:25:10 -0400 (EDT)
+Message-ID: <20160913.112510.2054378133306191773.davem@davemloft.net>
+References: <1473408667-7107-1-git-send-email-bhe@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com, stephen@networkplumber.org
-To: vivien.didelot@savoirfairelinux.com
+Cc: netdev@vger.kernel.org, sony.chacko@qlogic.com,
+        Dept-HSGLinuxNICDev@qlogic.com, linux-kernel@vger.kernel.org,
+        kexec@lists.infradead.org
+To: bhe@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160908165043.31042-1-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <1473408667-7107-1-git-send-email-bhe@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Thu,  8 Sep 2016 12:50:43 -0400
+From: Baoquan He <bhe@redhat.com>
+Date: Fri,  9 Sep 2016 16:11:07 +0800
 
-> If /sbin/bridge-stp is available on the system, bridge tries to execute
-> it instead of the kernel implementation when starting/stopping STP.
+> When system enters into kdump kernel because of kernel panic, it won't
+> shutdown devices. On-flight DMA will continue transferring data until
+> device driver initializes. All devices are supposed to reset during
+> driver initialization. And this property is used to fix the kdump
+> failure in system with intel iommu. Other systems with hardware iommu
+> should be similar. Please check commit 091d42e ("iommu/vt-d: Copy
+> translation tables from old kernel") and those commits around it.
 > 
-> If anything goes wrong with /sbin/bridge-stp, bridge silently falls back
-> to kernel STP, making hard to debug userspace STP.
+> But bnx2 driver doesn't reset device during driver initialization. The
+> device resetting is deferred to net device up stage. This will cause
+> hardware iommu handling failure on bnx2 device. And its resetting relies
+> on firmware. So in this patch move the firmware requesting code to earlier
+> bnx2_init_one(), then next call bnx2_reset_chip to reset device.
 > 
-> This patch adds a br_stp_call_user helper to start/stop userspace STP
-> and debug errors from the program: abnormal exit status is stored in the
-> lower byte and normal exit status is stored in higher byte.
-> 
-> Below is a simple example on a kernel with dynamic debug enabled:
-> 
->     # ln -s /bin/false /sbin/bridge-stp
->     # brctl stp br0 on
->     br0: failed to start userspace STP (256)
->     # dmesg
->     br0: /sbin/bridge-stp exited with code 1
->     br0: failed to start userspace STP (256)
->     br0: using kernel STP
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> Signed-off-by: Baoquan He <bhe@redhat.com>
 
-Applied.
+Applied, thanks.
