@@ -1,94 +1,181 @@
-From: Leon Romanovsky <leon@kernel.org>
-Subject: Re: [RFC 02/11] Add RoCE driver framework
-Date: Tue, 13 Sep 2016 13:16:16 +0300
-Message-ID: <20160913101616.GT8812@leon.nu>
-References: <1473696465-27986-1-git-send-email-Ram.Amrani@qlogic.com>
- <1473696465-27986-3-git-send-email-Ram.Amrani@qlogic.com>
- <516b98c7-477a-4890-0d92-529dc32f2c4e@mellanox.com>
- <CY4PR11MB1720F9B74BBF82D0779FAC8F97FF0@CY4PR11MB1720.namprd11.prod.outlook.com>
- <20160913063806.GP8812@leon.nu>
- <BL2PR07MB2306937C8C495DB80DA776CA8DFE0@BL2PR07MB2306.namprd07.prod.outlook.com>
+From: Tariq Toukan via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: [PATCH RFC 03/11] net/mlx5e: Implement RX mapped
+ page cache for page recycle
+Date: Tue, 13 Sep 2016 13:16:29 +0300
+Message-ID: <549ee0e2-b76b-ec62-4287-e63c4320e7c6@mellanox.com>
+References: <1473252152-11379-1-git-send-email-saeedm@mellanox.com>
+	<1473252152-11379-4-git-send-email-saeedm@mellanox.com>
+	<20160907204501.08cc4ede@redhat.com>
+Reply-To: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="8+OS07CeIgZ706fH"
-Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>,
-        Mark Bloch <markb@mellanox.com>,
-        Ram Amrani <Ram.Amrani@qlogic.com>,
-        "dledford@redhat.com" <dledford@redhat.com>,
-        David Miller <davem@davemloft.net>,
-        Ariel Elior <Ariel.Elior@qlogic.com>,
-        Michal Kalderon <Michal.Kalderon@qlogic.com>,
-        Rajesh Borundia <rajesh.borundia@qlogic.com>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>
-To: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:46690 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756243AbcIMKQW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 13 Sep 2016 06:16:22 -0400
-Content-Disposition: inline
-In-Reply-To: <BL2PR07MB2306937C8C495DB80DA776CA8DFE0@BL2PR07MB2306.namprd07.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, Eric
+	Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>
+To: Jesper Dangaard Brouer <brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Saeed Mahameed
+	<saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <20160907204501.08cc4ede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
---8+OS07CeIgZ706fH
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Tue, Sep 13, 2016 at 07:18:01AM +0000, Mintz, Yuval wrote:
-> >> >> +uint debug;
-> >> >> +module_param(debug, uint, 0);
-> > >>> +MODULE_PARM_DESC(debug, "Default debug msglevel");
-> >>
-> >> >Why are you adding this as a module parameter?
-> >>
-> >>  I believe this is mostly to follow same line as qede which also defines
-> > > 'debug' module parameter for allowing easy user control of debug
-> > > prints [& specifically for probe prints, which can't be controlled
-> > > otherwise].
+On 07/09/2016 9:45 PM, Jesper Dangaard Brouer wrote:
+> On Wed,  7 Sep 2016 15:42:24 +0300 Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org> wrote:
 >
-> > Can you give us an example where dynamic debug and tracing infrastructures
-> > are not enough?
+>> From: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+>>
+>> Instead of reallocating and mapping pages for RX data-path,
+>> recycle already used pages in a per ring cache.
+>>
+>> We ran pktgen single-stream benchmarks, with iptables-raw-drop:
+>>
+>> Single stride, 64 bytes:
+>> * 4,739,057 - baseline
+>> * 4,749,550 - order0 no cache
+>> * 4,786,899 - order0 with cache
+>> 1% gain
+>>
+>> Larger packets, no page cross, 1024 bytes:
+>> * 3,982,361 - baseline
+>> * 3,845,682 - order0 no cache
+>> * 4,127,852 - order0 with cache
+>> 3.7% gain
+>>
+>> Larger packets, every 3rd packet crosses a page, 1500 bytes:
+>> * 3,731,189 - baseline
+>> * 3,579,414 - order0 no cache
+>> * 3,931,708 - order0 with cache
+>> 5.4% gain
+>>
+>> Signed-off-by: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+>> Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+>> ---
+>>   drivers/net/ethernet/mellanox/mlx5/core/en.h       | 16 ++++++
+>>   drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 15 ++++++
+>>   drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    | 57 ++++++++++++++++++++--
+>>   drivers/net/ethernet/mellanox/mlx5/core/en_stats.h | 16 ++++++
+>>   4 files changed, 99 insertions(+), 5 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+>> index 075cdfc..afbdf70 100644
+>> --- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
+>> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+>> @@ -287,6 +287,18 @@ struct mlx5e_rx_am { /* Adaptive Moderation */
+>>   	u8					tired;
+>>   };
+>>   
+>> +/* a single cache unit is capable to serve one napi call (for non-striding rq)
+>> + * or a MPWQE (for striding rq).
+>> + */
+>> +#define MLX5E_CACHE_UNIT	(MLX5_MPWRQ_PAGES_PER_WQE > NAPI_POLL_WEIGHT ? \
+>> +				 MLX5_MPWRQ_PAGES_PER_WQE : NAPI_POLL_WEIGHT)
+>> +#define MLX5E_CACHE_SIZE	(2 * roundup_pow_of_two(MLX5E_CACHE_UNIT))
+>> +struct mlx5e_page_cache {
+>> +	u32 head;
+>> +	u32 tail;
+>> +	struct mlx5e_dma_info page_cache[MLX5E_CACHE_SIZE];
+>> +};
+>> +
+> [...]
+>>   
+>> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+>> index c1cb510..8e02af3 100644
+>> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+>> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+>> @@ -305,11 +305,55 @@ static inline void mlx5e_post_umr_wqe(struct mlx5e_rq *rq, u16 ix)
+>>   	mlx5e_tx_notify_hw(sq, &wqe->ctrl, 0);
+>>   }
+>>   
+>> +static inline bool mlx5e_rx_cache_put(struct mlx5e_rq *rq,
+>> +				      struct mlx5e_dma_info *dma_info)
+>> +{
+>> +	struct mlx5e_page_cache *cache = &rq->page_cache;
+>> +	u32 tail_next = (cache->tail + 1) & (MLX5E_CACHE_SIZE - 1);
+>> +
+>> +	if (tail_next == cache->head) {
+>> +		rq->stats.cache_full++;
+>> +		return false;
+>> +	}
+>> +
+>> +	cache->page_cache[cache->tail] = *dma_info;
+>> +	cache->tail = tail_next;
+>> +	return true;
+>> +}
+>> +
+>> +static inline bool mlx5e_rx_cache_get(struct mlx5e_rq *rq,
+>> +				      struct mlx5e_dma_info *dma_info)
+>> +{
+>> +	struct mlx5e_page_cache *cache = &rq->page_cache;
+>> +
+>> +	if (unlikely(cache->head == cache->tail)) {
+>> +		rq->stats.cache_empty++;
+>> +		return false;
+>> +	}
+>> +
+>> +	if (page_ref_count(cache->page_cache[cache->head].page) != 1) {
+>> +		rq->stats.cache_busy++;
+>> +		return false;
+>> +	}
+> Hmmm... doesn't this cause "blocking" of the page_cache recycle
+> facility until the page at the head of the queue gets (page) refcnt
+> decremented?  Real use-case could fairly easily block/cause this...
+Hi Jesper,
+
+That's right. We are aware of this issue.
+We considered ways of solving this, but decided to keep current 
+implementation for now.
+One way of solving this is to look deeper in the cache.
+Cons:
+- this will consume time, and the chance of finding an available page is 
+not that high: if the page in head of queue is busy then there's a good 
+chance that all the others are too (because of FIFO).
+in other words, you already checked all pages and anyway you're going to 
+allocate a new one (higher penalty for same decision).
+- this will make holes in the array causing complex accounting when 
+looking for an available page (this can easily be fixed by swapping 
+between the page in head and the available one).
+
+Another way is sharing pages between different RQs.
+- For now we're not doing this for simplicity and to keep 
+synchronization away.
+
+What do you think?
+
+Anyway, we're looking forward to use your page-pool API which solves 
+these issues.
+
+Regards,
+Tariq
 >
-> > AFAIK, most of these debug module parameters are legacy copy/paste
-> > code which is useless in real life scenarios.
->
-> Define 'enough'; Using dynamic debug you can provide all the necessary
-> information and at an even better granularity that's achieved by suggested
-> infrastructure,  but is harder for an end-user to use. Same goes for tracing.
->
-> The 'debug' option provides an easy grouping for prints related to a specific
-> area in the driver.
-
-It is hard to agree with you that user which knows how-to load modules
-with parameters won't success to enable debug prints.
-
-In addition, global increase in debug level for whole driver will create
-printk storm in dmesg and give nothing to debuggability.
-
-Thanks
-
---8+OS07CeIgZ706fH
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJX19HwAAoJEORje4g2clinOscQAKJKA/na00GeIY+82Gq1s55/
-LCEp9IfD4WN8jAsqRzSwUUJlYMmmT2hi2VCVmFRQBoArkcGfJpTtzs02NEqqCk4d
-Eoit/keuwFwMjA/H6OmY2YPGJbCIvLCeA6AUiiUunAN0U4XwsKdEWDtEfWJlVd3z
-x+zXHAsBuidWz+XC8VP6hVjNrMu708hRN6tv4fjIGLt+CFu0gtjlyqLbUyQwfdtn
-J1ulS7J6I4uWhw8APl/L5sUn+PoM/W0S5ruVNkI4XmqerxX+UL20I34vWPGBF0Yb
-ETufD2WqLjEGXY1CpmCaINEIJMZjXDFztMmppyr69Lr0+LJBAcVAyrpnJgJjZZm/
-ETUUbcfeKnnnXkZDEAJJhPdO7b07SDOpU863US0rpQM6mmEcvv2Yr5Bl9ZgphABT
-7Vt3G9J4xIgZV03j3qKk6coWoly73PhOomXC6AZHHByYRNEzBAvAXLfijMQiV1V8
-32uGmJzgdAxjZ/7n1Wcste8sI+J8VgdHxifp7jhF9FXtxI73zrtrAO1Ca4cPv/YI
-E3aWksbH/UwgEgKnohwsIAxBFzE80EgRY7Z9W3M00lYG8/TQFIzgMjApqQlf1p4v
-p1dZ8t9MVTxxxp91t8jiaah/i0+P7hGg6JCb33rJ0tx0Wtks/XlZVmJkWN6oxWL5
-5xwD8Vc2OVzfdXEMNN3R
-=DdtV
------END PGP SIGNATURE-----
-
---8+OS07CeIgZ706fH--
+>> +
+>> +	*dma_info = cache->page_cache[cache->head];
+>> +	cache->head = (cache->head + 1) & (MLX5E_CACHE_SIZE - 1);
+>> +	rq->stats.cache_reuse++;
+>> +
+>> +	dma_sync_single_for_device(rq->pdev, dma_info->addr, PAGE_SIZE,
+>> +				   DMA_FROM_DEVICE);
+>> +	return true;
+>> +}
+>> +
+>>   static inline int mlx5e_page_alloc_mapped(struct mlx5e_rq *rq,
+>>   					  struct mlx5e_dma_info *dma_info)
+>>   {
+>> -	struct page *page = dev_alloc_page();
+>> +	struct page *page;
+>> +
+>> +	if (mlx5e_rx_cache_get(rq, dma_info))
+>> +		return 0;
+>>   
+>> +	page = dev_alloc_page();
+>>   	if (unlikely(!page))
+>>   		return -ENOMEM;
