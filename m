@@ -1,37 +1,34 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 3/3] net-next: dsa: add new driver for qca8xxx family
-Date: Tue, 13 Sep 2016 17:59:26 +0200
-Message-ID: <20160913155926.GP11400@lunn.ch>
-References: <1473669337-21221-1-git-send-email-john@phrozen.org>
- <1473669337-21221-4-git-send-email-john@phrozen.org>
- <20160913004047.GB3585@lunn.ch>
- <7f9c1463-1cc0-e230-e7fe-dbb434427251@phrozen.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] drivers: net: phy: xgene: Fix 'remove' function
+Date: Tue, 13 Sep 2016 12:06:36 -0400 (EDT)
+Message-ID: <20160913.120636.145288761809547250.davem@davemloft.net>
+References: <1473623014-7801-1-git-send-email-christophe.jaillet@wanadoo.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: isubramanian@apm.com, kchudgar@apm.com, f.fainelli@gmail.com,
         netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        qsdk-review@qca.qualcomm.com
-To: John Crispin <john@phrozen.org>,
-        Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <7f9c1463-1cc0-e230-e7fe-dbb434427251@phrozen.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        kernel-janitors@vger.kernel.org
+To: christophe.jaillet@wanadoo.fr
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:40658 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1759411AbcIMQGp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 12:06:45 -0400
+In-Reply-To: <1473623014-7801-1-git-send-email-christophe.jaillet@wanadoo.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Hi Andrew,
+From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Date: Sun, 11 Sep 2016 21:43:34 +0200
+
+> If 'IS_ERR(pdata->clk)' is true, then 'clk_disable_unprepare(pdata->clk)'
+> will do nothing.
 > 
-> this function does indeed duplicate the functionality of
-> phy_ethtool_get_eee() with the small difference, that e->eee_active is
-> also set which phy_ethtool_get_eee() does not set.
+> It is likely that 'if (!IS_ERR(pdata->clk))' was expected here.
+> In fact, the test can even be removed because 'clk_disable_unprepare'
+> already handles such cases.
 > 
-> dsa_slave_get_eee() will call phy_ethtool_get_eee() right after the
-> get_eee() op has been called. would it be ok to move the code setting
-> eee_active to  phy_ethtool_get_eee().
+> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
 
-Hi John
-
-I think that is a question for Florian.
-
-  Andrew
+Applied.
