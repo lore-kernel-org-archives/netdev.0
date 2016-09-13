@@ -1,29 +1,47 @@
-From: Sagi Grimberg <sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org>
-Subject: Re: [RFC 03/11] Add support for RoCE HW init
-Date: Tue, 13 Sep 2016 17:38:13 +0300
-Message-ID: <29e0d88d-63f2-2b30-2856-a0e94cf31f8e@grimberg.me>
-References: <1473696465-27986-1-git-send-email-Ram.Amrani@qlogic.com>
- <1473696465-27986-4-git-send-email-Ram.Amrani@qlogic.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/2] net: mvneta: add xmit_more support
+Date: Tue, 13 Sep 2016 07:42:28 -0700
+Message-ID: <1473777748.18970.120.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1473750006-21199-1-git-send-email-mw@semihalf.com>
+         <1473750006-21199-2-git-send-email-mw@semihalf.com>
+         <1473777182.18970.118.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, Ariel.Elior-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org,
-        Michal.Kalderon-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, rajesh.borundia-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Ram Amrani <Ram.Amrani-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1473696465-27986-4-git-send-email-Ram.Amrani-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        netdev@vger.kernel.org, davem@davemloft.net,
+        linux@arm.linux.org.uk, sebastian.hesselbarth@gmail.com,
+        andrew@lunn.ch, jason@lakedaemon.net,
+        thomas.petazzoni@free-electrons.com,
+        gregory.clement@free-electrons.com, nadavh@marvell.com,
+        alior@marvell.com, simon.guinot@sequanux.org, nitroshift@yahoo.com,
+        jaz@semihalf.com
+To: Marcin Wojtas <mw@semihalf.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1473777182.18970.118.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, 2016-09-13 at 07:33 -0700, Eric Dumazet wrote:
 
-> +	dev->max_sge = min_t(u32, RDMA_MAX_SGE_PER_SQ_WQE,
-> +			     RDMA_MAX_SGE_PER_RQ_WQE);
+> Hi Marcin
+> 
+> Well, given the above comment, and fact that MVNETA_MAX_TXD == 532, it
+> looks like you might add a bug if more than 256 skb are given to your
+> ndo_start_xmit() with skb->xmit_more = 1
+> 
+> I therefore suggest you make sure it does not happen.
+> 
+> txq->pending += frags;
+> if (!skb->xmit_more ||
+>     txq->pending > 256 - MVNETA_MAX_SKB_DESCS ||
+>     netif_xmit_stopped(nq))
+> 	mvneta_txq_pend_desc_add(pp, txq)
+> 
 
-Our kernel target mode consumers sort of rely on max_sge_rd, you need
-to make sure to set it too.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Another solution would be to test the potential overflow in mvneta_tx()
+and force a mvneta_txq_pend_desc_add(pp, txq) _before_ adding the desc
+of the "about to be cooked" TSO packet.
+
+(This is because MVNETA_MAX_SKB_DESCS is 217, so 255-217 leaves few room
+for xmit_more to show its power)
