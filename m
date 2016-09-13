@@ -1,32 +1,37 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 3/3] net/sched: cls_flower: Specify vlan
- attributes format in the UAPI header
-Date: Tue, 13 Sep 2016 16:21:14 +0200
-Message-ID: <20160913142114.GD1942@nanopsycho>
-References: <1473775361-16547-1-git-send-email-ogerlitz@mellanox.com>
- <1473775361-16547-4-git-send-email-ogerlitz@mellanox.com>
+From: Sagi Grimberg <sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org>
+Subject: Re: [RFC 00/11] QLogic RDMA Driver (qedr) RFC
+Date: Tue, 13 Sep 2016 17:23:44 +0300
+Message-ID: <317f85a5-8890-e02e-6093-876f61aed1b5@grimberg.me>
+References: <1473696465-27986-1-git-send-email-Ram.Amrani@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Jiri Pirko <jiri@mellanox.com>, netdev@vger.kernel.org,
-        Hadar Har-Zion <hadarh@mellanox.com>,
-        Paul Blakey <paulb@mellanox.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34483 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758587AbcIMOVR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 10:21:17 -0400
-Received: by mail-wm0-f67.google.com with SMTP id g141so7550965wmd.1
-        for <netdev@vger.kernel.org>; Tue, 13 Sep 2016 07:21:17 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1473775361-16547-4-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, Ariel.Elior-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org,
+        Michal.Kalderon-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, rajesh.borundia-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ram Amrani <Ram.Amrani-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1473696465-27986-1-git-send-email-Ram.Amrani-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Sep 13, 2016 at 04:02:41PM CEST, ogerlitz@mellanox.com wrote:
->Specify the format (size and endianess) for the vlan attributes.
+Hey Ram and Co,
+
+> This series introduces RoCE RDMA driver for the 579xx RDMA products by Qlogic.
+> The RDMA support is added as an additional loadable module (qedr) over the Ethernet qede driver.
+> The qedr module will support both RoCE and iWarp, although this series only adds RoCE support.
+> The qed and qede drivers are enhanced with functionality required for RDMA support.
 >
->Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> Any review/comment is appreciated.
 
-Acked-by: Jiri Pirko <jiri@mellanox.com>
+Was this driver tested with any of our kernel consumers (nfs/iser/nvmf)?
+
+If so, are there known issues?
+
+Thanks,
+Sagi.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
