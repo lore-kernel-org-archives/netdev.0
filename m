@@ -1,156 +1,128 @@
-From: John Crispin <john@phrozen.org>
-Subject: [PATCH V3] net-next: dsa: add FIB support
-Date: Tue, 13 Sep 2016 08:02:21 +0200
-Message-ID: <1473746541-52314-1-git-send-email-john@phrozen.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        John Crispin <john@phrozen.org>
-To: "David S. Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [RFC 00/11] QLogic RDMA Driver (qedr) RFC
+Date: Tue, 13 Sep 2016 09:05:45 +0300
+Message-ID: <20160913060545.GN8812@leon.nu>
+References: <1473696465-27986-1-git-send-email-Ram.Amrani@qlogic.com>
+ <20160912163928.GK8812@leon.nu>
+ <CAG53R5UqF21z34jB2HJCTXU8w3Kbj_Jon=wBAoO5tYSqbD1f6g@mail.gmail.com>
+ <CY4PR11MB17202A542AC07CBA4A65E93697FF0@CY4PR11MB1720.namprd11.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="7VkxxUl3xUvPtoxk"
+Cc: Parav Pandit <pandit.parav-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Ram Amrani <Ram.Amrani-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Ariel Elior <Ariel.Elior-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+        Michal Kalderon <Michal.Kalderon-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+        Rajesh Borundia <rajesh.borundia-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Yuval Mintz <Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CY4PR11MB17202A542AC07CBA4A65E93697FF0-JNf6+SjKdlG0ooKL/ADlEpPPoyLQLiKMvxpqHgZTriW3zl9H0oFU5g@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Add SWITCHDEV_OBJ_ID_IPV4_FIB support to the DSA layer.
 
-Signed-off-by: John Crispin <john@phrozen.org>
----
-Changes in V2
-* rebase on latest net-next to fix compile errors
+--7VkxxUl3xUvPtoxk
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Changes in V3
-* fix subject prefix. this needs to go into the next tree
+On Mon, Sep 12, 2016 at 05:39:35PM +0000, Yuval Mintz wrote:
+> >>>=C2=A0 include/linux/qed/common_hsi.h=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 |=C2=A0=C2=
+=A0=C2=A0 1 +
+> >>>=C2=A0 include/linux/qed/qed_if.h=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
+=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0 |=C2=A0=C2=A0=C2=A0 9 +-
+> >>>=C2=A0 include/linux/qed/qed_ll2_if.h=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 |=C2=A0 140=
+ +
+> >>>=C2=A0 include/linux/qed/qed_roce_if.h=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
+=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 |=C2=A0 604 ++=
+++
+> >>>=C2=A0 include/linux/qed/qede_roce.h=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 |=C2=
+=A0=C2=A0 88 +
+> >>=C2=A0> include/linux/qed/rdma_common.h=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
+=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 |=C2=A0=C2=A0=
+=C2=A0 1 +
+> >>
+> >> Something not directly related to your patches, but they brought my
+> >> attention to the fact that all these new (and old) rdma<->net devices
+> >> are polluting include/linux
+> >>
+> > ocrdma driver includes be_roce.h located in net/ethernet/emulex/benet
+> > location instead of include/linux/.
+> > This file helps to bind rdma to net device or underlying hw device.
+>
+> > May be similar change can be done for rest of the drivers for
+> > rdma<-->net devices?
+>
+> By adding explicit inclusion paths in the Makefile, a la
+> ccflags-y :=3D -Idrivers/net/ethernet/emulex/benet   ?
+>
+> While this might work, I personally dislike it as I find it
+> counter-intuitive when going over the code -
+> I don't expect driver to locally modify the inclusion path.
+> Besides, we're going to [eventually] a whole suite of drivers based
+> on the qed module, some of which would reside under drivers/scsi;
+> Not sure it's best to have 3 or 4 different drivers privately include the
+> same directory under a different subsystem.
 
- Documentation/networking/dsa/dsa.txt |   18 +++++++++++++++
- include/net/dsa.h                    |   13 +++++++++++
- net/dsa/slave.c                      |   41 ++++++++++++++++++++++++++++++++++
- 3 files changed, 72 insertions(+)
+I agree with you that orcdma's way can be valuable for small drivers.
 
-diff --git a/Documentation/networking/dsa/dsa.txt b/Documentation/networking/dsa/dsa.txt
-index 6d6c07c..6cd5831 100644
---- a/Documentation/networking/dsa/dsa.txt
-+++ b/Documentation/networking/dsa/dsa.txt
-@@ -607,6 +607,24 @@ of DSA, would be the its port-based VLAN, used by the associated bridge device.
-   function that the driver has to call for each MAC address known to be behind
-   the given port. A switchdev object is used to carry the VID and MDB info.
- 
-+Route offloading
-+----------------
-+
-+- ipv4_fib_prepare: routing layer function invoked to prepare the installation
-+  of an ipv4 route into the switches routing database. If the operation is not
-+  supported this function should return -EOPNOTSUPP. No hardware setup must be
-+  done in this function. See ipv4_fib_add for this and details.
-+
-+- ipv4_fib_add: routing layer function invoked when a new ipv4 route should be
-+  installed into the routing database of the switch, it should be programmed
-+  with the route for the specified VLAN ID of the device that the route applies
-+  to.
-+
-+- ipv4_fib_del: routing layer function invoked when an ipv4 route should be
-+  removed from the routing database, the switch hardware should be programmed
-+  to delete the specified MAC address of the nexthop from the specified VLAN ID
-+  if it was mapped into the forwarding database.
-+
- TODO
- ====
- 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 7556646..7fdd63e 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -237,6 +237,7 @@ struct switchdev_obj;
- struct switchdev_obj_port_fdb;
- struct switchdev_obj_port_mdb;
- struct switchdev_obj_port_vlan;
-+struct switchdev_obj_ipv4_fib;
- 
- struct dsa_switch_ops {
- 	struct list_head	list;
-@@ -386,6 +387,18 @@ struct dsa_switch_ops {
- 	int	(*port_mdb_dump)(struct dsa_switch *ds, int port,
- 				 struct switchdev_obj_port_mdb *mdb,
- 				 int (*cb)(struct switchdev_obj *obj));
-+
-+	/*
-+	 * IPV4 routing
-+	 */
-+	int	(*ipv4_fib_prepare)(struct dsa_switch *ds, int port,
-+				    const struct switchdev_obj_ipv4_fib *fib4,
-+				    struct switchdev_trans *trans);
-+	int	(*ipv4_fib_add)(struct dsa_switch *ds, int port,
-+				const struct switchdev_obj_ipv4_fib *fib4,
-+				struct switchdev_trans *trans);
-+	int	(*ipv4_fib_del)(struct dsa_switch *ds, int port,
-+				const struct switchdev_obj_ipv4_fib *fib4);
- };
- 
- void register_switch_driver(struct dsa_switch_ops *type);
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 9ecbe78..c974ac0 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -334,6 +334,38 @@ static int dsa_slave_port_mdb_dump(struct net_device *dev,
- 	return -EOPNOTSUPP;
- }
- 
-+static int dsa_slave_ipv4_fib_add(struct net_device *dev,
-+				  const struct switchdev_obj_ipv4_fib *fib4,
-+				  struct switchdev_trans *trans)
-+{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_switch *ds = p->parent;
-+	int ret;
-+
-+	if (!ds->ops->ipv4_fib_prepare || !ds->ops->ipv4_fib_add)
-+		return -EOPNOTSUPP;
-+
-+	if (switchdev_trans_ph_prepare(trans))
-+		ret = ds->ops->ipv4_fib_prepare(ds, p->port, fib4, trans);
-+	else
-+		ret = ds->ops->ipv4_fib_add(ds, p->port, fib4, trans);
-+
-+	return ret;
-+}
-+
-+static int dsa_slave_ipv4_fib_del(struct net_device *dev,
-+				  const struct switchdev_obj_ipv4_fib *fib4)
-+{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_switch *ds = p->parent;
-+	int ret = -EOPNOTSUPP;
-+
-+	if (ds->ops->ipv4_fib_del)
-+		ret = ds->ops->ipv4_fib_del(ds, p->port, fib4);
-+
-+	return ret;
-+}
-+
- static int dsa_slave_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
-@@ -465,6 +497,11 @@ static int dsa_slave_port_obj_add(struct net_device *dev,
- 					      SWITCHDEV_OBJ_PORT_VLAN(obj),
- 					      trans);
- 		break;
-+	case SWITCHDEV_OBJ_ID_IPV4_FIB:
-+		err = dsa_slave_ipv4_fib_add(dev,
-+					     SWITCHDEV_OBJ_IPV4_FIB(obj),
-+					     trans);
-+		break;
- 	default:
- 		err = -EOPNOTSUPP;
- 		break;
-@@ -490,6 +527,10 @@ static int dsa_slave_port_obj_del(struct net_device *dev,
- 		err = dsa_slave_port_vlan_del(dev,
- 					      SWITCHDEV_OBJ_PORT_VLAN(obj));
- 		break;
-+	case SWITCHDEV_OBJ_ID_IPV4_FIB:
-+		err = dsa_slave_ipv4_fib_del(dev,
-+					     SWITCHDEV_OBJ_IPV4_FIB(obj));
-+		break;
- 	default:
- 		err = -EOPNOTSUPP;
- 		break;
--- 
-1.7.10.4
+Orcmda has small shared headers set and doesn't need to change them rapidly
+to support different devices.
+
+I thought to place them in similar directory to include/soc/* and remove
+=66rom include/linux/. We have include/rdma/ and it looks like a good
+candidate.
+
+>
+> >> Filtered output:
+> >> =E2=9E=9C=C2=A0 linux-rdma git:(topic/fixes-for-4.8-2) ls -dl include/=
+linux/*/
+> >> drwxrwxr-x=C2=A0 2 leonro leonro=C2=A0 4096 Aug 30 16:27 include/linux=
+/hsi/
+> >> drwxrwxr-x=C2=A0 2 leonro leonro=C2=A0 4096 Sep 12 19:08 include/linux=
+/mlx4/
+> >> drwxrwxr-x=C2=A0 2 leonro leonro=C2=A0 4096 Sep=C2=A0 7 15:31 include/=
+linux/mlx5/
+> >> drwxrwxr-x=C2=A0 2 leonro leonro=C2=A0 4096 Sep=C2=A0 8 17:46 include/=
+linux/qed/
+> >>
+> >> Is this the right place for them?
+> >
+> > Thanks
+>
+
+--7VkxxUl3xUvPtoxk
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJX15c5AAoJEORje4g2clinSJkP/2F67ghkBA2xeXOLuMoBb3Nc
+ue+MAHB8ACDfcIUhpJUkZFU0jqMUi3j0Yc0itux7mGnwEIlkBc6dTWMKQG6l3zcF
+bonsUv4B0m6U8//92R/1hkIBhiXGmwkO22tzWz469rodIrvM5I14btumHpvKrpcj
+DUk/WrTh37j+SNvViZ/xjlJUJN6H7t38Wp+arDCay8VBmElvRYejQEsSdhn9SeEi
+tay7USTmljdh6lCUJugM7usRIcxXjGXcIxu/JZoU5BmBMJvleIVK09TkyppY7HHD
+bRizp0OztjSBwW7gKRwfYZeqloo2/RvhIk+FKS9L9bqHMnqKHsQ9i9CnPbgMd9Lh
+i03fSn4wPt24NBY8cyqumfTJyKCn47KKkAXCzVzRJFbAifEnNZpQik4fl+axZPuv
+0m5avLLVdXyC+QI3KESuongZVbVHYQ9GFPHqkV76BW9Jg14V2DCkNv6tQmCdiC8X
+WQwRAbcJZWDHtBsuiww5oHidSGn+pYyhpD+FTBvEkdI0tlmay+RM68jsfdgb4alN
+ixMMGUoYOE8/BqaKyITRJDcMDCKfU0tXkg6WfHmHfpnVHjjm08JcHx6tAclDNBnB
+Xliwl+qg6hzpypUP9EweWz4U7RTWpE+AYa1la+wqTiyNRuDckMdl+Bzs8AEIncW9
+Ap49lZ2YRAM9bb2cnWrw
+=ASWE
+-----END PGP SIGNATURE-----
+
+--7VkxxUl3xUvPtoxk--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
