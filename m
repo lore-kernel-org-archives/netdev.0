@@ -1,8 +1,7 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 10/10] rxrpc: Correctly initialise,
- limit and transmit call->rx_winsize
-Date: Tue, 13 Sep 2016 23:22:04 +0100
-Message-ID: <147380532484.23135.8759966582762396495.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 09/10] rxrpc: Fix prealloc refcounting
+Date: Tue, 13 Sep 2016 23:21:57 +0100
+Message-ID: <147380531789.23135.12013112169814398323.stgit@warthog.procyon.org.uk>
 References: <147380525614.23135.7539695651371953351.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,182 +9,102 @@ Content-Transfer-Encoding: 7bit
 Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
         linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52410 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932669AbcIMWWH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 13 Sep 2016 18:22:07 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <147380525614.23135.7539695651371953351.stgit@warthog.procyon.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-call->rx_winsize should be initialised to the sysctl setting and the sysctl
-setting should be limited to the maximum we want to permit.  Further, we
-need to place this in the ACK info instead of the sysctl setting.
+The preallocated call buffer holds a ref on the calls within that buffer.
+The ref was being released in the wrong place - it worked okay for incoming
+calls to the AFS cache manager service, but doesn't work right for incoming
+calls to a userspace service.
 
-Furthermore, discard the idea of accepting the subpackets of a jumbo packet
-that lie beyond the receive window when the first packet of the jumbo is
-within the window.  Just discard the excess subpackets instead.  This
-allows the receive window to be opened up right to the buffer size less one
-for the dead slot.
+Instead of releasing an extra ref service calls in rxrpc_release_call(),
+the ref needs to be released during the acceptance/rejectance process.  To
+this end:
+
+ (1) The prealloc ref is now normally released during
+     rxrpc_new_incoming_call().
+
+ (2) For preallocated kernel API calls, the kernel API's ref needs to be
+     released when the call is discarded on socket close.
+
+ (3) We shouldn't take a second ref in rxrpc_accept_call().
+
+ (4) rxrpc_recvmsg_new_call() needs to get a ref of its own when it adds
+     the call to the to_be_accepted socket queue.
+
+In doing (4) above, we would prefer not to put the call's refcount down to
+0 as that entails doing cleanup in softirq context, but it's unlikely as
+there are several refs held elsewhere, at least one of which must be put by
+someone in process context calling rxrpc_release_call().  However, it's not
+a problem if we do have to do that.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/ar-internal.h |    3 ++-
- net/rxrpc/call_object.c |    2 +-
- net/rxrpc/input.c       |   23 ++++++++++++++++-------
- net/rxrpc/misc.c        |    5 ++++-
- net/rxrpc/output.c      |    4 ++--
- net/rxrpc/sysctl.c      |    2 +-
- 6 files changed, 26 insertions(+), 13 deletions(-)
+ net/rxrpc/call_accept.c |    9 ++++++++-
+ net/rxrpc/call_object.c |    3 ---
+ net/rxrpc/recvmsg.c     |    1 +
+ 3 files changed, 9 insertions(+), 4 deletions(-)
 
-diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index 47c74a581a0f..e78c40b37db5 100644
---- a/net/rxrpc/ar-internal.h
-+++ b/net/rxrpc/ar-internal.h
-@@ -498,6 +498,7 @@ struct rxrpc_call {
- 	 */
- #define RXRPC_RXTX_BUFF_SIZE	64
- #define RXRPC_RXTX_BUFF_MASK	(RXRPC_RXTX_BUFF_SIZE - 1)
-+#define RXRPC_INIT_RX_WINDOW_SIZE 32
- 	struct sk_buff		**rxtx_buffer;
- 	u8			*rxtx_annotations;
- #define RXRPC_TX_ANNO_ACK	0
-@@ -518,7 +519,7 @@ struct rxrpc_call {
- 	rxrpc_seq_t		rx_expect_next;	/* Expected next packet sequence number */
- 	u8			rx_winsize;	/* Size of Rx window */
- 	u8			tx_winsize;	/* Maximum size of Tx window */
--	u8			nr_jumbo_dup;	/* Number of jumbo duplicates */
-+	u8			nr_jumbo_bad;	/* Number of jumbo dups/exceeds-windows */
+diff --git a/net/rxrpc/call_accept.c b/net/rxrpc/call_accept.c
+index 5fd9d2c89b7f..26c293ef98eb 100644
+--- a/net/rxrpc/call_accept.c
++++ b/net/rxrpc/call_accept.c
+@@ -221,6 +221,7 @@ void rxrpc_discard_prealloc(struct rxrpc_sock *rx)
+ 		if (rx->discard_new_call) {
+ 			_debug("discard %lx", call->user_call_ID);
+ 			rx->discard_new_call(call, call->user_call_ID);
++			rxrpc_put_call(call, rxrpc_call_put_kernel);
+ 		}
+ 		rxrpc_call_completed(call);
+ 		rxrpc_release_call(rx, call);
+@@ -402,6 +403,13 @@ found_service:
+ 	if (call->state == RXRPC_CALL_SERVER_ACCEPTING)
+ 		rxrpc_notify_socket(call);
  
- 	/* receive-phase ACK management */
- 	u8			ackr_reason;	/* reason to ACK */
++	/* We have to discard the prealloc queue's ref here and rely on a
++	 * combination of the RCU read lock and refs held either by the socket
++	 * (recvmsg queue, to-be-accepted queue or user ID tree) or the kernel
++	 * service to prevent the call from being deallocated too early.
++	 */
++	rxrpc_put_call(call, rxrpc_call_put);
++
+ 	_leave(" = %p{%d}", call, call->debug_id);
+ out:
+ 	spin_unlock(&rx->incoming_lock);
+@@ -469,7 +477,6 @@ struct rxrpc_call *rxrpc_accept_call(struct rxrpc_sock *rx,
+ 	}
+ 
+ 	/* formalise the acceptance */
+-	rxrpc_get_call(call, rxrpc_call_got);
+ 	call->notify_rx = notify_rx;
+ 	call->user_call_ID = user_call_ID;
+ 	rxrpc_get_call(call, rxrpc_call_got_userid);
 diff --git a/net/rxrpc/call_object.c b/net/rxrpc/call_object.c
-index 9aa1c4b53563..22f9b0d1a138 100644
+index 3f9476508204..9aa1c4b53563 100644
 --- a/net/rxrpc/call_object.c
 +++ b/net/rxrpc/call_object.c
-@@ -152,7 +152,7 @@ struct rxrpc_call *rxrpc_alloc_call(gfp_t gfp)
- 	memset(&call->sock_node, 0xed, sizeof(call->sock_node));
- 
- 	/* Leave space in the ring to handle a maxed-out jumbo packet */
--	call->rx_winsize = RXRPC_RXTX_BUFF_SIZE - 1 - 46;
-+	call->rx_winsize = rxrpc_rx_window_size;
- 	call->tx_winsize = 16;
- 	call->rx_expect_next = 1;
- 	return call;
-diff --git a/net/rxrpc/input.c b/net/rxrpc/input.c
-index 8e529afcd6c1..75af0bd316c7 100644
---- a/net/rxrpc/input.c
-+++ b/net/rxrpc/input.c
-@@ -164,7 +164,7 @@ protocol_error:
-  * (that information is encoded in the ACK packet).
-  */
- static void rxrpc_input_dup_data(struct rxrpc_call *call, rxrpc_seq_t seq,
--				 u8 annotation, bool *_jumbo_dup)
-+				 u8 annotation, bool *_jumbo_bad)
- {
- 	/* Discard normal packets that are duplicates. */
- 	if (annotation == 0)
-@@ -174,9 +174,9 @@ static void rxrpc_input_dup_data(struct rxrpc_call *call, rxrpc_seq_t seq,
- 	 * more partially duplicate jumbo packets, we refuse to take any more
- 	 * jumbos for this call.
- 	 */
--	if (!*_jumbo_dup) {
--		call->nr_jumbo_dup++;
--		*_jumbo_dup = true;
-+	if (!*_jumbo_bad) {
-+		call->nr_jumbo_bad++;
-+		*_jumbo_bad = true;
+@@ -464,9 +464,6 @@ void rxrpc_release_call(struct rxrpc_sock *rx, struct rxrpc_call *call)
+ 		call->rxtx_buffer[i] = NULL;
  	}
+ 
+-	/* We have to release the prealloc backlog ref */
+-	if (rxrpc_is_service_call(call))
+-		rxrpc_put_call(call, rxrpc_call_put);
+ 	_leave("");
  }
  
-@@ -191,7 +191,7 @@ static void rxrpc_input_data(struct rxrpc_call *call, struct sk_buff *skb,
- 	unsigned int ix;
- 	rxrpc_serial_t serial = sp->hdr.serial, ack_serial = 0;
- 	rxrpc_seq_t seq = sp->hdr.seq, hard_ack;
--	bool immediate_ack = false, jumbo_dup = false, queued;
-+	bool immediate_ack = false, jumbo_bad = false, queued;
- 	u16 len;
- 	u8 ack = 0, flags, annotation = 0;
+diff --git a/net/rxrpc/recvmsg.c b/net/rxrpc/recvmsg.c
+index 16ff56f69256..a284205b8ecf 100644
+--- a/net/rxrpc/recvmsg.c
++++ b/net/rxrpc/recvmsg.c
+@@ -118,6 +118,7 @@ static int rxrpc_recvmsg_new_call(struct rxrpc_sock *rx,
+ 		list_del_init(&call->recvmsg_link);
+ 		write_unlock_bh(&rx->recvmsg_lock);
  
-@@ -222,7 +222,7 @@ static void rxrpc_input_data(struct rxrpc_call *call, struct sk_buff *skb,
- 
- 	flags = sp->hdr.flags;
- 	if (flags & RXRPC_JUMBO_PACKET) {
--		if (call->nr_jumbo_dup > 3) {
-+		if (call->nr_jumbo_bad > 3) {
- 			ack = RXRPC_ACK_NOSPACE;
- 			ack_serial = serial;
- 			goto ack;
-@@ -259,7 +259,7 @@ next_subpacket:
- 	}
- 
- 	if (call->rxtx_buffer[ix]) {
--		rxrpc_input_dup_data(call, seq, annotation, &jumbo_dup);
-+		rxrpc_input_dup_data(call, seq, annotation, &jumbo_bad);
- 		if (ack != RXRPC_ACK_DUPLICATE) {
- 			ack = RXRPC_ACK_DUPLICATE;
- 			ack_serial = serial;
-@@ -304,6 +304,15 @@ skip:
- 		annotation++;
- 		if (flags & RXRPC_JUMBO_PACKET)
- 			annotation |= RXRPC_RX_ANNO_JLAST;
-+		if (after(seq, hard_ack + call->rx_winsize)) {
-+			ack = RXRPC_ACK_EXCEEDS_WINDOW;
-+			ack_serial = serial;
-+			if (!jumbo_bad) {
-+				call->nr_jumbo_bad++;
-+				jumbo_bad = true;
-+			}
-+			goto ack;
-+		}
- 
- 		_proto("Rx DATA Jumbo %%%u", serial);
- 		goto next_subpacket;
-diff --git a/net/rxrpc/misc.c b/net/rxrpc/misc.c
-index fd096f742e4b..8b910780f1ac 100644
---- a/net/rxrpc/misc.c
-+++ b/net/rxrpc/misc.c
-@@ -50,7 +50,10 @@ unsigned int rxrpc_idle_ack_delay = 0.5 * HZ;
-  * limit is hit, we should generate an EXCEEDS_WINDOW ACK and discard further
-  * packets.
-  */
--unsigned int rxrpc_rx_window_size = RXRPC_RXTX_BUFF_SIZE - 46;
-+unsigned int rxrpc_rx_window_size = RXRPC_INIT_RX_WINDOW_SIZE;
-+#if (RXRPC_RXTX_BUFF_SIZE - 1) < RXRPC_INIT_RX_WINDOW_SIZE
-+#error Need to reduce RXRPC_INIT_RX_WINDOW_SIZE
-+#endif
- 
- /*
-  * Maximum Rx MTU size.  This indicates to the sender the size of jumbo packet
-diff --git a/net/rxrpc/output.c b/net/rxrpc/output.c
-index 719a4c23f09d..90c7722d5779 100644
---- a/net/rxrpc/output.c
-+++ b/net/rxrpc/output.c
-@@ -71,10 +71,10 @@ static size_t rxrpc_fill_out_ack(struct rxrpc_call *call,
- 
- 	mtu = call->conn->params.peer->if_mtu;
- 	mtu -= call->conn->params.peer->hdrsize;
--	jmax = (call->nr_jumbo_dup > 3) ? 1 : rxrpc_rx_jumbo_max;
-+	jmax = (call->nr_jumbo_bad > 3) ? 1 : rxrpc_rx_jumbo_max;
- 	pkt->ackinfo.rxMTU	= htonl(rxrpc_rx_mtu);
- 	pkt->ackinfo.maxMTU	= htonl(mtu);
--	pkt->ackinfo.rwind	= htonl(rxrpc_rx_window_size);
-+	pkt->ackinfo.rwind	= htonl(call->rx_winsize);
- 	pkt->ackinfo.jumbo_max	= htonl(jmax);
- 
- 	*ackp++ = 0;
-diff --git a/net/rxrpc/sysctl.c b/net/rxrpc/sysctl.c
-index b7ca8cf13c84..a03c61c672f5 100644
---- a/net/rxrpc/sysctl.c
-+++ b/net/rxrpc/sysctl.c
-@@ -20,7 +20,7 @@ static const unsigned int one = 1;
- static const unsigned int four = 4;
- static const unsigned int thirtytwo = 32;
- static const unsigned int n_65535 = 65535;
--static const unsigned int n_max_acks = RXRPC_MAXACKS;
-+static const unsigned int n_max_acks = RXRPC_RXTX_BUFF_SIZE - 1;
- 
- /*
-  * RxRPC operating parameters.
++		rxrpc_get_call(call, rxrpc_call_got);
+ 		write_lock(&rx->call_lock);
+ 		list_add_tail(&call->accept_link, &rx->to_be_accepted);
+ 		write_unlock(&rx->call_lock);
