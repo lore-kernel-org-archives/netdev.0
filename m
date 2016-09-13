@@ -1,64 +1,138 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [net-next PATCH v3 2/3] e1000: add initial XDP support
-Date: Mon, 12 Sep 2016 18:21:21 -0700
-Message-ID: <20160913012119.GA25756@ast-mbp.thefacebook.com>
-References: <20160912220312.5610.77528.stgit@john-Precision-Tower-5810>
- <20160912221351.5610.29043.stgit@john-Precision-Tower-5810>
- <1473720399.18970.91.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160912230745.GA24171@ast-mbp.thefacebook.com>
- <1473723968.18970.111.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 3/3] net-next: dsa: add new driver for qca8xxx family
+Date: Tue, 13 Sep 2016 03:23:04 +0200
+Message-ID: <20160913012304.GC3585@lunn.ch>
+References: <1473669337-21221-1-git-send-email-john@phrozen.org>
+ <1473669337-21221-4-git-send-email-john@phrozen.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: John Fastabend <john.fastabend@gmail.com>, bblanco@plumgrid.com,
-        jeffrey.t.kirsher@intel.com, brouer@redhat.com,
-        davem@davemloft.net, xiyou.wangcong@gmail.com,
-        intel-wired-lan@lists.osuosl.org, u9012063@gmail.com,
-        netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        qsdk-review@qca.qualcomm.com
+To: John Crispin <john@phrozen.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:32907 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751561AbcIMBVZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 21:21:25 -0400
-Received: by mail-pf0-f196.google.com with SMTP id 128so8826417pfb.0
-        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 18:21:25 -0700 (PDT)
+Received: from vps0.lunn.ch ([178.209.37.122]:42282 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751561AbcIMBXJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 12 Sep 2016 21:23:09 -0400
 Content-Disposition: inline
-In-Reply-To: <1473723968.18970.111.camel@edumazet-glaptop3.roam.corp.google.com>
+In-Reply-To: <1473669337-21221-4-git-send-email-john@phrozen.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 12, 2016 at 04:46:08PM -0700, Eric Dumazet wrote:
-> On Mon, 2016-09-12 at 16:07 -0700, Alexei Starovoitov wrote:
-> 
-> > yep. there are various ways to shoot yourself in the foot with xdp.
-> > The simplest program that drops all the packets will make the box unpingable.
-> 
-> Well, my comment was about XDP_TX only, not about XDP_DROP or driving a
-> scooter on 101 highway ;)
-> 
-> This XDP_TX thing was one of the XDP marketing stuff, but there is
-> absolutely no documentation on it, warning users about possible
-> limitations/outcomes.
+> +static int
+> +qca8k_setup(struct dsa_switch *ds)
+> +{
+> +	struct qca8k_priv *priv = qca8k_to_priv(ds);
+> +	int ret, i, phy_mode = -1;
+> +
+> +	/* Keep track of which port is the connected to the cpu. This can be
+> +	 * phy 11 / port 0 or phy 5 / port 6.
+> +	 */
+> +	switch (dsa_upstream_port(ds)) {
+> +	case 11:
+> +		priv->cpu_port = 0;
+> +		break;
+> +	case 5:
+> +		priv->cpu_port = 6;
+> +		break;
+> +	default:
+> +		return -EOPNOTSUPP;
+> +	}
 
-that's fair critique. there is no documentation for xdp in general.
+Hi John
 
-> BTW, I am not sure mlx4 implementation even works, vs BQL :
+Can you explain this funkiness with CPU port numbers. Why use 11
+instead of 0? I ideally i would like to use 0 here, but if that it not
+possible, it needs documenting in the device tree binding that 5 and
+11 are special, representing ports 0 and 6.
 
-it doesn't and it shouldn't. xdp and stack use different tx queues.
+> +
+> +	/* Start by setting up the register mapping */
+> +	priv->regmap = devm_regmap_init(ds->dev, NULL, priv,
+> +					&qca8k_regmap_config);
+> +
+> +	if (IS_ERR(priv->regmap))
+> +		pr_warn("regmap initialization failed");
+> +
+> +	/* Initialize CPU port pad mode (xMII type, delays...) */
+> +	phy_mode = of_get_phy_mode(ds->ports[ds->dst->cpu_port].dn);
+> +	if (phy_mode < 0) {
+> +		pr_err("Can't find phy-mode for master device\n");
+> +		return phy_mode;
+> +	}
+> +	ret = qca8k_set_pad_ctrl(priv, priv->cpu_port, phy_mode);
+> +	if (ret < 0)
+> +		return ret;
+> +
+> +	/* Enable CPU Port */
+> +	qca8k_reg_set(priv, QCA8K_REG_GLOBAL_FW_CTRL0,
+> +		      QCA8K_GLOBAL_FW_CTRL0_CPU_PORT_EN);
 
-> mlx4_en_xmit_frame() does not call netdev_tx_sent_queue(),
-> but tx completion will call netdev_tx_completed_queue() -> crash
+Does it matter which port is the CPU port here? 11 or 5
 
-not quite. netdev_tx_completed_queue() is not called for xdp queues.
+> +
+> +	/* Enable MIB counters */
+> +	qca8k_reg_set(priv, QCA8K_REG_MIB, QCA8K_MIB_CPU_KEEP);
+> +	qca8k_write(priv, QCA8K_REG_MODULE_EN, QCA8K_MODULE_EN_MIB);
+> +
+> +	/* Enable QCA header mode on Port 0 */
+> +	qca8k_write(priv, QCA8K_REG_PORT_HDR_CTRL(priv->cpu_port),
+> +		    QCA8K_PORT_HDR_CTRL_ALL << QCA8K_PORT_HDR_CTRL_TX_S |
+> +		    QCA8K_PORT_HDR_CTRL_ALL << QCA8K_PORT_HDR_CTRL_RX_S);
 
-> Do we have one test to validate that a XDP_TX implementation is actually
-> correct ?
+Does the header mode only work on port 0?
 
-it's correct in the scope that it was defined for.
-There is no objective to share the same tx queue with the stack in xdp.
-The queues must be absolutely separate otherwise performance will tank.
+> +static int
+> +qca8k_phy_read(struct dsa_switch *ds, int phy, int regnum)
+> +{
+> +	struct qca8k_priv *priv = qca8k_to_priv(ds);
+> +
+> +	return mdiobus_read(priv->bus, phy, regnum);
+> +}
+> +
+> +static int
+> +qca8k_phy_write(struct dsa_switch *ds, int phy, int regnum, u16 val)
+> +{
+> +	struct qca8k_priv *priv = qca8k_to_priv(ds);
+> +
+> +	return mdiobus_write(priv->bus, phy, regnum, val);
+> +}
 
-This e1k patch is really special, because the e1k has one tx queue,
-but this is for debugging of the programs, so it's ok to cut corners.
-The e1k xdp support doesn't need to interact nicely with stack.
-It's impossible in the first place. xdp is the layer before the stack.
+snip
+
+> +static int
+> +qca8k_sw_probe(struct mdio_device *mdiodev)
+> +{
+> +	struct qca8k_priv *priv;
+> +	u32 phy_id;
+> +
+> +	/* sw_addr is irrelevant as the switch occupies the MDIO bus from
+> +	 * addresses 0 to 4 (PHYs) and 16-23 (for MDIO 32bits protocol). So
+> +	 * we'll probe address 0 to see if we see the right switch family.
+> +	 */
+
+So lets see if i have this right.
+
+Port 0 has no internal phy.
+Port 1 has an internal PHY at MDIO address 0.
+Port 2 has an internal PHY at MDIO address 1.
+...
+Port 5 has an internal PHY ad MDIO address 4.
+Port 6 has no internal PHY.
+
+This is why you have funky port numbers, and phy_to_port.
+
+I think it would be a lot cleaner to handle this in qca8k_phy_read()
+and qca8k_phy_write(). 
+
+Also, the comment it a bit misleading. You are probing the PHY ID, not
+the switch ID. At least for the Marvell switches, different switches
+can have the same embedded PHY. It would be annoying to find there is
+another incompatible switch with the same PHY ID.
+
+Is the embedded PHY compatible with the at803x driver?
+
+   Thanks
+	Andrew
