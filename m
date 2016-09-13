@@ -1,75 +1,77 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH v5 0/6] Add eBPF hooks for cgroups
-Date: Tue, 13 Sep 2016 13:56:27 +0200
-Message-ID: <20160913115627.GA4898@salvia>
-References: <1473696735-11269-1-git-send-email-daniel@zonque.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net 1/6] sctp: remove the unnecessary state check in
+ sctp_outq_tail
+Date: Tue, 13 Sep 2016 07:57:22 -0400
+Message-ID: <20160913115722.GA4501@hmsreliant.think-freely.org>
+References: <cover.1473326067.git.lucien.xin@gmail.com>
+ <1718155e984f63995d1be9b053c58aa1a645718e.1473326067.git.lucien.xin@gmail.com>
+ <20160908142701.GC16608@hmsreliant.think-freely.org>
+ <CADvbK_dxTYrPPFJT5UPZErZLbW9y9oRm+VWbQXxhruwV6UgOZA@mail.gmail.com>
+ <20160908192319.GD16608@hmsreliant.think-freely.org>
+ <CADvbK_ddvZ4855B1PPLYVY2JV1okKzYXCpv-quNMBXp0Qb5Otw@mail.gmail.com>
+ <20160909142841.GB15908@hmsreliant.think-freely.org>
+ <CADvbK_f-09NvfeCbeaZZF8+LuMASTYnrh+02RvTz5UR-huiR3g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: htejun@fb.com, daniel@iogearbox.net, ast@fb.com,
-        davem@davemloft.net, kafai@fb.com, fw@strlen.de, harald@redhat.com,
-        netdev@vger.kernel.org, sargun@sargun.me, cgroups@vger.kernel.org
-To: Daniel Mack <daniel@zonque.org>
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        davem <davem@davemloft.net>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:36016 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751044AbcIML4h (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 13 Sep 2016 07:56:37 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id B075B12A690
-        for <netdev@vger.kernel.org>; Tue, 13 Sep 2016 13:56:34 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id A14E6100795
-        for <netdev@vger.kernel.org>; Tue, 13 Sep 2016 13:56:34 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 5A8911150D3
-        for <netdev@vger.kernel.org>; Tue, 13 Sep 2016 13:56:32 +0200 (CEST)
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:36940 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753647AbcIML5i (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 07:57:38 -0400
 Content-Disposition: inline
-In-Reply-To: <1473696735-11269-1-git-send-email-daniel@zonque.org>
+In-Reply-To: <CADvbK_f-09NvfeCbeaZZF8+LuMASTYnrh+02RvTz5UR-huiR3g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Sat, Sep 10, 2016 at 12:03:53AM +0800, Xin Long wrote:
+> > I don't know, I still don't feel safe about it.  I agree the socket lock keeps
+> > the state from changing during a single transmission, which makes the use case
+> > you are focused on correct.
+> ok, :-)
+> 
+> >
+> > That said, have you considered the retransmit case?  That is to say, if you
+> > queue and flush the outq, and some packets fail delivery, and in the time
+> > between the intial send and the expiration of the RTX timer (during which the
+> > socket lock will have been released), an event may occur which changes the
+> > transport state, which will then be ignored with your patch.
+> Sorry, I'm not sure if I got it.
+> 
+> You mean "during which changes q->asoc->state", right ?
+> 
+> This patch removes the check of q->asoc->state in sctp_outq_tail().
+> 
+> sctp_outq_tail() is called for data only in:
+> sctp_primitive_SEND -> sctp_do_sm -> sctp_cmd_send_msg ->
+> sctp_cmd_interpreter -> sctp_cmd_send_msg() -> sctp_outq_tail()
+> 
+> before calling sctp_primitive_SEND, hold sock lock first.
+> then sctp_primitive_SEND choose FUNC according:
+> 
+> #define TYPE_SCTP_PRIMITIVE_SEND  {
+> ....
+> 
+> if asoc->state is unavailable, FUNC can't be sctp_cmd_send_msg,
+> but sctp_sf_error_closed/sctp_sf_error_shutdown,  sctp_outq_tail
+> can't be called, either.
+> I mean sctp_primitive_SEND do the same check for asoc->state
+> already actually.
+> 
+> so the code in sctp_outq_tail is redundant actually.
+> 
+> 
+> 
+> 
+> >
+> > Neil
+> >
+> 
 
-On Mon, Sep 12, 2016 at 06:12:09PM +0200, Daniel Mack wrote:
-> This is v5 of the patch set to allow eBPF programs for network
-> filtering and accounting to be attached to cgroups, so that they apply
-> to all sockets of all tasks placed in that cgroup. The logic also
-> allows to be extendeded for other cgroup based eBPF logic.
+Ok, you've convinced me, thanks for taking the time to go through it
 
-1) This infrastructure can only be useful to systemd, or any similar
-   orchestration daemon. Look, you can only apply filtering policies
-   to processes that are launched by systemd, so this only works
-   for server processes. For client processes this infrastructure is
-   *racy*, you have to add new processes in runtime to the cgroup,
-   thus there will be time some little time where no filtering policy
-   will be applied. For quality of service, this may be an acceptable
-   race, but this is aiming to deploy a filtering policy.
-
-2) This aproach looks uninfrastructured to me. This provides a hook
-   to push a bpf blob at a place in the stack that deploys a filtering
-   policy that is not visible to others. We have interfaces that allows
-   us to dump the filtering policy that is being applied, report events
-   to enable cooperation between several processes with similar
-   capabilities and so on.  For the XDP thing, this ability to push
-   blobs may be fine as long as it will not interfer with the stack so
-   we can provide an alternative to DPDK in Linux. For tracing, that's
-   fine too since it is innocuous. And likely for other applications is
-   a good fit. But I don't think this is the case.
-
-> After chatting with Daniel Borkmann and Alexei off-list, we concluded
-> that __dev_queue_xmit() is the place where the egress hooks should live
-> when eBPF programs need access to the L2 bits of the skb.
-
-3) This egress hook is coming very late, the only reason I find to
-   place it at __dev_queue_xmit() is that bpf naturally works with
-   layer 2 information in place. But this new hook is placed in
-   _everyone's output ath_ that only works for the very specific
-   usecase I exposed above.
-
-The main concern during the workshop was that a hook only for cgroups
-is too specific, but this is actually even more specific than this.
-
-I have nothing against systemd or the needs for more
-programmability/flexibility in the stack, but I think this needs to
-fulfill some requirements to fit into the infrastructure that we have
-in the right way.
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
