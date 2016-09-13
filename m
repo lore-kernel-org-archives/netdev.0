@@ -1,59 +1,69 @@
-From: pravin shelar <pshelar@ovn.org>
-Subject: Re: [PATCH net-next] openvswitch: avoid deferred execution of recirc actions
-Date: Tue, 13 Sep 2016 13:52:32 -0700
-Message-ID: <CAOrHB_DE-iTQQawmbthXwngMar5Pm+RVE6PED_trkMXv3P2t2Q@mail.gmail.com>
-References: <1473775734-27382-1-git-send-email-lrichard@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        ovs dev <dev@openvswitch.org>, sramamur@linux.vnet.ibm.com
-To: Lance Richardson <lrichard@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay3-d.mail.gandi.net ([217.70.183.195]:46542 "EHLO
-        relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751621AbcIMUwh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 16:52:37 -0400
-Received: from mfilter10-d.gandi.net (mfilter10-d.gandi.net [217.70.178.139])
-        by relay3-d.mail.gandi.net (Postfix) with ESMTP id C08ADA861A
-        for <netdev@vger.kernel.org>; Tue, 13 Sep 2016 22:52:35 +0200 (CEST)
-Received: from relay3-d.mail.gandi.net ([IPv6:::ffff:217.70.183.195])
-        by mfilter10-d.gandi.net (mfilter10-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id nP3ScvlfyQcH for <netdev@vger.kernel.org>;
-        Tue, 13 Sep 2016 22:52:34 +0200 (CEST)
-Received: from mail-it0-f53.google.com (mail-it0-f53.google.com [209.85.214.53])
-        (Authenticated sender: pshelar@ovn.org)
-        by relay3-d.mail.gandi.net (Postfix) with ESMTPSA id 1B051A841C
-        for <netdev@vger.kernel.org>; Tue, 13 Sep 2016 22:52:33 +0200 (CEST)
-Received: by mail-it0-f53.google.com with SMTP id o3so15045291ita.1
-        for <netdev@vger.kernel.org>; Tue, 13 Sep 2016 13:52:33 -0700 (PDT)
-In-Reply-To: <1473775734-27382-1-git-send-email-lrichard@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Olof Johansson <olof@lixom.net>
+Subject: [PATCH] MAINTAINERS: Remove myself from PA Semi entries
+Date: Tue, 13 Sep 2016 14:48:38 -0700
+Message-ID: <1473803318-25197-1-git-send-email-olof@lixom.net>
+Cc: netdev@vger.kernel.org, linux-i2c@vger.kernel.org,
+        davem@davemloft.net, jdelvare@suse.com,
+        Olof Johansson <olof@lixom.net>
+To: Michael Ellerman <mpe@ellerman.id.au>
+Return-path: <linux-i2c-owner@vger.kernel.org>
+Sender: linux-i2c-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 13, 2016 at 7:08 AM, Lance Richardson <lrichard@redhat.com> wrote:
-> The ovs kernel data path currently defers the execution of all
-> recirc actions until stack utilization is at a minimum.
-> This is too limiting for some packet forwarding scenarios due to
-> the small size of the deferred action FIFO (10 entries). For
-> example, broadcast traffic sent out more than 10 ports with
-> recirculation results in packet drops when the deferred action
-> FIFO becomes full, as reported here:
->
->      http://openvswitch.org/pipermail/dev/2016-March/067672.html
->
-> Since the current recursion depth is available (it is already tracked
-> by the exec_actions_level pcpu variable), we can use it to determine
-> whether to execute recirculation actions immediately (safe when
-> recursion depth is low) or defer execution until more stack space is
-> available.
->
-> With this change, the deferred action fifo size becomes a non-issue
-> for currently failing scenarios because it is no longer used when
-> there are three or fewer recursions through ovs_execute_actions().
->
-> Suggested-by: Pravin Shelar <pshelar@ovn.org>
-> Signed-off-by: Lance Richardson <lrichard@redhat.com>
+The platform is old, very few users and I lack bandwidth to keep after
+it these days.
 
-Thanks for working on it.
+Mark the base platform as well as the drivers as orphans, patches have
+been flowing through the fallback maintainers for a while already.
 
-Acked-by: Pravin B Shelar <pshelar@ovn.org>
+Signed-off-by: Olof Johansson <olof@lixom.net>
+---
+
+Jean, Dave,
+
+I was hoping to have Michael merge this since the bulk of the platform is under him,
+cc:ing you mostly to be aware that I am orphaning a driver in your subsystems.
+
+
+Thanks,
+
+-Olof
+
+ MAINTAINERS | 9 +++------
+ 1 file changed, 3 insertions(+), 6 deletions(-)
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index d8e81b1..411f4f7 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -7155,9 +7155,8 @@ F:	arch/powerpc/platforms/83xx/
+ F:	arch/powerpc/platforms/85xx/
+ 
+ LINUX FOR POWERPC PA SEMI PWRFICIENT
+-M:	Olof Johansson <olof@lixom.net>
+ L:	linuxppc-dev@lists.ozlabs.org
+-S:	Maintained
++S:	Orphan
+ F:	arch/powerpc/platforms/pasemi/
+ F:	drivers/*/*pasemi*
+ F:	drivers/*/*/*pasemi*
+@@ -8849,15 +8848,13 @@ S:	Maintained
+ F:	drivers/net/wireless/intersil/p54/
+ 
+ PA SEMI ETHERNET DRIVER
+-M:	Olof Johansson <olof@lixom.net>
+ L:	netdev@vger.kernel.org
+-S:	Maintained
++S:	Orphan
+ F:	drivers/net/ethernet/pasemi/*
+ 
+ PA SEMI SMBUS DRIVER
+-M:	Olof Johansson <olof@lixom.net>
+ L:	linux-i2c@vger.kernel.org
+-S:	Maintained
++S:	Orphan
+ F:	drivers/i2c/busses/i2c-pasemi.c
+ 
+ PADATA PARALLEL EXECUTION MECHANISM
+-- 
+2.8.0.rc3.29.gb552ff8
