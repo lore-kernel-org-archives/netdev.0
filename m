@@ -1,54 +1,98 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next] MAINTAINERS: Add an entry for the core network
- DSA code
-Date: Tue, 13 Sep 2016 12:01:51 -0700
-Message-ID: <b83db123-e76a-0f27-39f9-5352899b5346@gmail.com>
-References: <1473793231-26130-1-git-send-email-andrew@lunn.ch>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 3/3] net-next: dsa: add new driver for qca8xxx family
+Date: Tue, 13 Sep 2016 21:07:08 +0200
+Message-ID: <20160913190708.GA26181@lunn.ch>
+References: <1473669337-21221-1-git-send-email-john@phrozen.org>
+ <1473669337-21221-4-git-send-email-john@phrozen.org>
+ <20160913012304.GC3585@lunn.ch>
+ <5c028659-db7e-9a98-7ec1-1e2d19d135f9@phrozen.org>
+ <20160913131408.GE15332@lunn.ch>
+ <87twdjafmr.fsf@ketchup.mtl.sfl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:36384 "EHLO
-        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932416AbcIMTBz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 15:01:55 -0400
-Received: by mail-pa0-f66.google.com with SMTP id p2so3306650pap.3
-        for <netdev@vger.kernel.org>; Tue, 13 Sep 2016 12:01:55 -0700 (PDT)
-In-Reply-To: <1473793231-26130-1-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: John Crispin <john@phrozen.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        qsdk-review@qca.qualcomm.com
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <87twdjafmr.fsf@ketchup.mtl.sfl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/13/2016 12:00 PM, Andrew Lunn wrote:
-> The core distributed switch architecture code currently does not have
-> a MAINTAINERS entry, which results in some contributions not landing
-> in the right peoples inbox.
-> 
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-> ---
->  MAINTAINERS | 7 +++++++
->  1 file changed, 7 insertions(+)
-> 
-> diff --git a/MAINTAINERS b/MAINTAINERS
-> index ce80b36aab69..98cf0c4a14cf 100644
-> --- a/MAINTAINERS
-> +++ b/MAINTAINERS
-> @@ -8169,6 +8169,13 @@ S:	Maintained
->  W:	https://fedorahosted.org/dropwatch/
->  F:	net/core/drop_monitor.c
->  
-> +NETWORKING [DSA]
-> +M:	Andrew Lunn <andrew@lunn.ch>
-> +M:	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> +M:	Florian Fainelli <f.fainelli@gmail.com>
-> +S:	Maintained
-> +F:	net/dsa/
+> Since the former alternative is prefered, we may want to remove the
+> latter soon from DSA. If this phy_port_map is needed for that case, it'd
+> be preferable not to add it.
 
-F:	include/net/dsa.h
-F:	drivers/net/dsa/
+O.K, so maybe we should solve it the device tree way:
 
-Other than that, LGTM
--- 
-Florian
+
+       &mdio0 {
+       	      	phy_port1: phy@0 {
+	      		reg = <0>;
+		};
+
+       	      	phy_port2: phy@1 {
+	      		reg = <1>;
+		};
+
+       	      	phy_port3: phy@2 {
+	      		reg = <2>;
+		};
+
+       	      	phy_port4: phy@3 {
+	      		reg = <3>;
+		};
+
+       	      	phy_port5: phy@4 {
+	      		reg = <4>;
+		};
+
+		switch@0 {
+                       compatible = "qca,qca8337";
+
+                       #address-cells = <1>;
+                       #size-cells = <0>;
+                       reg = <30>;
+
+                       ports {
+                               port@11 {
+                                       reg = <11>;
+                                       label = "cpu";
+                                       ethernet = <&gmac1>;
+                                       phy-mode = "rgmii";
+                               };
+
+                               port@1 {
+                                       reg = <1>;
+                                       label = "lan1";
+				       phy-handle = <&phy_port1>;
+                               };
+
+                               port@2 {
+                                       reg = <2>;
+                                       label = "lan2";
+				       phy-handle = <&phy_port2>;
+                               };
+
+                               port@3 {
+                                       reg = <3>;
+                                       label = "lan3";
+				       phy-handle = <&phy_port3>;
+                               };
+
+                               port@4 {
+                                       reg = <4>;
+                                       label = "lan4";
+				       phy-handle = <&phy_port4>;
+                               };
+                       };
+               };
+       };
+
+and remove the phy_read() and phy_write() functions.
+
+
+       Andrew
