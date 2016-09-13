@@ -1,8 +1,7 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 05/10] rxrpc: Add missing unlock in
- rxrpc_call_accept()
-Date: Tue, 13 Sep 2016 23:21:30 +0100
-Message-ID: <147380529065.23135.14835990321667645327.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 04/10] rxrpc: Requeue call for recvmsg if more data
+Date: Tue, 13 Sep 2016 23:21:23 +0100
+Message-ID: <147380528385.23135.2106954961242678721.stgit@warthog.procyon.org.uk>
 References: <147380525614.23135.7539695651371953351.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,40 +9,39 @@ Content-Transfer-Encoding: 7bit
 Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
         linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34282 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932669AbcIMWVc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 13 Sep 2016 18:21:32 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <147380525614.23135.7539695651371953351.stgit@warthog.procyon.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add a missing unlock in rxrpc_call_accept() in the path taken if there's no
-call to wake up.
+rxrpc_recvmsg() needs to make sure that the call it has just been
+processing gets requeued for further attention if the buffer has been
+filled and there's more data to be consumed.  The softirq producer only
+queues the call and wakes the socket if it fills the first slot in the
+window, so userspace might end up sleeping forever otherwise, despite there
+being data available.
+
+This is not a problem provided the userspace buffer is big enough or it
+empties the buffer completely before more data comes in.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/call_accept.c |    8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ net/rxrpc/recvmsg.c |    4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/net/rxrpc/call_accept.c b/net/rxrpc/call_accept.c
-index b8acec0d596e..06e328f6b0f0 100644
---- a/net/rxrpc/call_accept.c
-+++ b/net/rxrpc/call_accept.c
-@@ -425,9 +425,11 @@ struct rxrpc_call *rxrpc_accept_call(struct rxrpc_sock *rx,
- 
- 	write_lock(&rx->call_lock);
- 
--	ret = -ENODATA;
--	if (list_empty(&rx->to_be_accepted))
--		goto out;
-+	if (list_empty(&rx->to_be_accepted)) {
-+		write_unlock(&rx->call_lock);
-+		kleave(" = -ENODATA [empty]");
-+		return ERR_PTR(-ENODATA);
-+	}
- 
- 	/* check the user ID isn't already in use */
- 	pp = &rx->calls.rb_node;
+diff --git a/net/rxrpc/recvmsg.c b/net/rxrpc/recvmsg.c
+index 20d0b5c6f81b..16ff56f69256 100644
+--- a/net/rxrpc/recvmsg.c
++++ b/net/rxrpc/recvmsg.c
+@@ -463,6 +463,10 @@ try_again:
+ 					 flags, &copied);
+ 		if (ret == -EAGAIN)
+ 			ret = 0;
++
++		if (after(call->rx_top, call->rx_hard_ack) &&
++		    call->rxtx_buffer[(call->rx_hard_ack + 1) & RXRPC_RXTX_BUFF_MASK])
++			rxrpc_notify_socket(call);
+ 		break;
+ 	default:
+ 		ret = 0;
