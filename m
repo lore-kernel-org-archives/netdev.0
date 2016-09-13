@@ -1,73 +1,67 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [net-next PATCH v3 2/3] e1000: add initial XDP support
-Date: Mon, 12 Sep 2016 18:28:16 -0700
-Message-ID: <20160913012815.GB25756@ast-mbp.thefacebook.com>
-References: <20160912220312.5610.77528.stgit@john-Precision-Tower-5810>
- <20160912221351.5610.29043.stgit@john-Precision-Tower-5810>
- <1473720399.18970.91.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160912230745.GA24171@ast-mbp.thefacebook.com>
- <1473723968.18970.111.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALx6S35CE+ZYbGm96Y5YKnTqU0zfhg9_h0VSpD3ot8xB-scdFQ@mail.gmail.com>
+From: Sowmini Varadhan <sowmini05@gmail.com>
+Subject: Re: icmpv6: issue with routing table entries from link local addresses
+Date: Mon, 12 Sep 2016 22:03:55 -0400
+Message-ID: <CACP96tTFX7nyGz6uARYxemvE7-WDxvX7Wj+Jf95PC0Advy7ynw@mail.gmail.com>
+References: <20160912142732.GI26782@targo.k4n.de> <b6804e09-403f-64ff-257b-6c5fda7f8047@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        William Tu <u9012063@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: =?UTF-8?Q?Andreas_H=C3=BCbner?= <andreas@k4n.de>,
+        netdev <netdev@vger.kernel.org>,
+        "d. caratti" <davide.caratti@gmail.com>,
+        Sowmini Varadhan <sowmini.varadhan@oracle.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:36815 "EHLO
-        mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750975AbcIMB2U (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 21:28:20 -0400
-Received: by mail-pa0-f49.google.com with SMTP id id6so56066316pad.3
-        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 18:28:20 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CALx6S35CE+ZYbGm96Y5YKnTqU0zfhg9_h0VSpD3ot8xB-scdFQ@mail.gmail.com>
+Received: from mail-oi0-f47.google.com ([209.85.218.47]:33530 "EHLO
+        mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752778AbcIMCD5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 22:03:57 -0400
+Received: by mail-oi0-f47.google.com with SMTP id y2so352624881oie.0
+        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 19:03:56 -0700 (PDT)
+In-Reply-To: <b6804e09-403f-64ff-257b-6c5fda7f8047@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 12, 2016 at 05:03:25PM -0700, Tom Herbert wrote:
-> On Mon, Sep 12, 2016 at 4:46 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > On Mon, 2016-09-12 at 16:07 -0700, Alexei Starovoitov wrote:
-> >
-> >> yep. there are various ways to shoot yourself in the foot with xdp.
-> >> The simplest program that drops all the packets will make the box unpingable.
-> >
-> > Well, my comment was about XDP_TX only, not about XDP_DROP or driving a
-> > scooter on 101 highway ;)
-> >
-> > This XDP_TX thing was one of the XDP marketing stuff, but there is
-> > absolutely no documentation on it, warning users about possible
-> > limitations/outcomes.
-> >
-> > BTW, I am not sure mlx4 implementation even works, vs BQL :
-> >
-> > mlx4_en_xmit_frame() does not call netdev_tx_sent_queue(),
-> > but tx completion will call netdev_tx_completed_queue() -> crash
-> >
-> > Do we have one test to validate that a XDP_TX implementation is actually
-> > correct ?
-> >
-> Obviously not for e1000 :-(. We really need some real test and
-> performance results and analysis on the interaction between the stack
-> data path and XDP data path.
+On Mon, Sep 12, 2016 at 1:26 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> Hello,
+>
+> On 12.09.2016 16:27, Andreas H=C3=BCbner wrote:
 
-no. we don't need it for e1k and we cannot really do it.
-<broken record mode on> this patch is for debugging of xdp programs only.
+>>
+>> I have the following setup:
+>>   - 2 directly connected hosts (A+B), both have only link local addresse=
+s
+>>     configured (interface on both hosts is eth0)
+           :
+>>       fe80::/64 dev eth1  proto kernel  metric 256
+>>       fe80::/64 dev eth0  proto kernel  metric 256
+           :
+>> The issue I currently have is, that the echo reply that host B should
+>> generate is never sent back to host A. If I change the order of the
+>> routing table entries on host B, everything works fine.
+>> (host A is connected on eth0)
+   :
+> This shouldn't be the case. We certainly carry over the ifindex of the
+> received packet into the routing lookup of the outgoing packet, thus the
+> appropriate rule, with outgoing ifindex should be selected.
 
-> The fact that these changes are being
-> passed of as something only needed for KCM is irrelevant, e1000 is a
-> well deployed a NIC and there's no restriction that I see that would
-> prevent any users from enabling this feature on real devices.
+Like Hannes,  I too would first check "is B sending out the echo-resp? on
+which interface?".
 
-e1k is not even manufactured any more. Probably the only place
-where it can be found is computer history museum.
-e1000e fairs slightly better, but it's a different nic and this
-patch is not about it.
+But a couple of unexpected things I noticed in linux: the link-local
+prefix should have a prefixlen of /10 according to
+http://www.iana.org/assignments/ipv6-address-space/ipv6-address-space.xhtml
+but "ip -6 route show"  lists this as a /64..
+
+moreover, even though I cannot use "ip [-6] route add.." to add the
+same prefix multiple times (with different nexthop and/or interface)
+unless I explicitly mark them as ECMP with /sbin/ip, it seems like you
+can create the same onlink prefix on multiple interfaces, but the
+kernel will not treat this as an ECMP group (and sometimes this
+can produce inconsistent results depending on the order of
+route addition, e.g., for ipv4 rp_filter checks). I dont know if some
+variant of  this (latter observation) may be the reason for the behavior
+that  Andreas reports.
+
+--Sowmini
