@@ -1,92 +1,445 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [net-next PATCH v3 2/3] e1000: add initial XDP support
-Date: Tue, 13 Sep 2016 10:13:42 -0700
-Message-ID: <20160913171340.GA37341@ast-mbp.thefacebook.com>
-References: <20160912220312.5610.77528.stgit@john-Precision-Tower-5810>
- <20160912221351.5610.29043.stgit@john-Precision-Tower-5810>
- <1473720399.18970.91.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160912230745.GA24171@ast-mbp.thefacebook.com>
- <1473723968.18970.111.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALx6S35CE+ZYbGm96Y5YKnTqU0zfhg9_h0VSpD3ot8xB-scdFQ@mail.gmail.com>
- <20160913012815.GB25756@ast-mbp.thefacebook.com>
- <CALx6S36u+tQUEVhu0BaLZ6-_0=GSMwxd4m89-H+brVZ-rr-U2g@mail.gmail.com>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: [PATCH v3] net: ip, diag -- Add diag interface for raw sockets
+Date: Tue, 13 Sep 2016 20:19:50 +0300
+Message-ID: <20160913171950.GC32643@uranus>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        William Tu <u9012063@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35019 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1759957AbcIMRNs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 13:13:48 -0400
-Received: by mail-pf0-f195.google.com with SMTP id z84so1493061pfi.2
-        for <netdev@vger.kernel.org>; Tue, 13 Sep 2016 10:13:47 -0700 (PDT)
+Cc: David Miller <davem@davemloft.net>, dsa@cumulusnetworks.com,
+        eric.dumazet@gmail.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+        yoshfuji@linux-ipv6.org, kaber@trash.net, avagin@openvz.org,
+        stephen@networkplumber.org
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CALx6S36u+tQUEVhu0BaLZ6-_0=GSMwxd4m89-H+brVZ-rr-U2g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 13, 2016 at 09:21:47AM -0700, Tom Herbert wrote:
-> On Mon, Sep 12, 2016 at 6:28 PM, Alexei Starovoitov
-> <alexei.starovoitov@gmail.com> wrote:
-> > On Mon, Sep 12, 2016 at 05:03:25PM -0700, Tom Herbert wrote:
-> >> On Mon, Sep 12, 2016 at 4:46 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >> > On Mon, 2016-09-12 at 16:07 -0700, Alexei Starovoitov wrote:
-> >> >
-> >> >> yep. there are various ways to shoot yourself in the foot with xdp.
-> >> >> The simplest program that drops all the packets will make the box unpingable.
-> >> >
-> >> > Well, my comment was about XDP_TX only, not about XDP_DROP or driving a
-> >> > scooter on 101 highway ;)
-> >> >
-> >> > This XDP_TX thing was one of the XDP marketing stuff, but there is
-> >> > absolutely no documentation on it, warning users about possible
-> >> > limitations/outcomes.
-> >> >
-> >> > BTW, I am not sure mlx4 implementation even works, vs BQL :
-> >> >
-> >> > mlx4_en_xmit_frame() does not call netdev_tx_sent_queue(),
-> >> > but tx completion will call netdev_tx_completed_queue() -> crash
-> >> >
-> >> > Do we have one test to validate that a XDP_TX implementation is actually
-> >> > correct ?
-> >> >
-> >> Obviously not for e1000 :-(. We really need some real test and
-> >> performance results and analysis on the interaction between the stack
-> >> data path and XDP data path.
-> >
-> > no. we don't need it for e1k and we cannot really do it.
-> > <broken record mode on> this patch is for debugging of xdp programs only.
-> >
-> You can say this "only for a debugging" a thousand times and that
-> still won't justify putting bad code into the kernel. Material issues
-> have been raised with these patches, I have proposed a fix for one
-> core issue, and we have requested a lot more testing. So, please, if
-> you really want to move these patches forward start addressing the
-> concerns being raised by reviewers.
+In criu we are actively using diag interface to collect sockets
+present in the system when dumping applications. And while for
+unix, tcp, udp[lite], packet, netlink it works as expected,
+the raw sockets do not have. Thus add it.
 
-I'm afraid the point 'only for debugging' still didn't make it across.
-xdp+e1k is for development (and debugging) of xdp-type of bpf
-programs and _not_ for debugging of xdp itself, kernel or anything else.
-The e1k provided interfaces and behavior needs to match exactly
-what real hw nics (like mlx4, mlx5, igxbe, i40e) will do.
-Doing special hacks are not acceptable. Therefore your
-'proposed fix' misses the mark, since:
-1. ignoring bql/qdisc is not a bug, but the requirement
-2. such 'fix' goes against the goal above since behaviors will be
-different and xdp developer won't be able to build something like
-xdp loadbalancer in the kvm.
+v2:
+ - add missing sock_put calls in raw_diag_dump_one (by eric.dumazet@)
+ - implement @destroy for diag requests (by dsa@)
 
-If you have other concerns please raise them or if you have
-suggestions on how to develop xdp programs without this e1k patch
-I would love hear them.
-Alexander's review comments are discussed in separate thread.
+v3:
+ - add export of raw_abort for IPv6 (by dsa@)
+ - pass net-admin flag into inet_sk_diag_fill due to
+   changes in net-next branch (by dsa@)
+
+CC: David S. Miller <davem@davemloft.net>
+CC: Eric Dumazet <eric.dumazet@gmail.com>
+CC: David Ahern <dsa@cumulusnetworks.com>
+CC: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+CC: James Morris <jmorris@namei.org>
+CC: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+CC: Patrick McHardy <kaber@trash.net>
+CC: Andrey Vagin <avagin@openvz.org>
+CC: Stephen Hemminger <stephen@networkplumber.org>
+Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
+---
+
+ include/net/raw.h   |    6 +
+ include/net/rawv6.h |    7 +
+ net/ipv4/Kconfig    |    8 +
+ net/ipv4/Makefile   |    1 
+ net/ipv4/raw.c      |   21 ++++
+ net/ipv4/raw_diag.c |  226 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ net/ipv6/raw.c      |    7 +
+ 7 files changed, 272 insertions(+), 4 deletions(-)
+
+Index: linux-ml.git/include/net/raw.h
+===================================================================
+--- linux-ml.git.orig/include/net/raw.h
++++ linux-ml.git/include/net/raw.h
+@@ -23,6 +23,12 @@
+ 
+ extern struct proto raw_prot;
+ 
++extern struct raw_hashinfo raw_v4_hashinfo;
++struct sock *__raw_v4_lookup(struct net *net, struct sock *sk,
++			     unsigned short num, __be32 raddr,
++			     __be32 laddr, int dif);
++
++int raw_abort(struct sock *sk, int err);
+ void raw_icmp_error(struct sk_buff *, int, u32);
+ int raw_local_deliver(struct sk_buff *, int);
+ 
+Index: linux-ml.git/include/net/rawv6.h
+===================================================================
+--- linux-ml.git.orig/include/net/rawv6.h
++++ linux-ml.git/include/net/rawv6.h
+@@ -3,6 +3,13 @@
+ 
+ #include <net/protocol.h>
+ 
++extern struct raw_hashinfo raw_v6_hashinfo;
++struct sock *__raw_v6_lookup(struct net *net, struct sock *sk,
++			     unsigned short num, const struct in6_addr *loc_addr,
++			     const struct in6_addr *rmt_addr, int dif);
++
++int raw_abort(struct sock *sk, int err);
++
+ void raw6_icmp_error(struct sk_buff *, int nexthdr,
+ 		u8 type, u8 code, int inner_offset, __be32);
+ bool raw6_local_deliver(struct sk_buff *, int);
+Index: linux-ml.git/net/ipv4/Kconfig
+===================================================================
+--- linux-ml.git.orig/net/ipv4/Kconfig
++++ linux-ml.git/net/ipv4/Kconfig
+@@ -430,6 +430,14 @@ config INET_UDP_DIAG
+ 	  Support for UDP socket monitoring interface used by the ss tool.
+ 	  If unsure, say Y.
+ 
++config INET_RAW_DIAG
++	tristate "RAW: socket monitoring interface"
++	depends on INET_DIAG && (IPV6 || IPV6=n)
++	default n
++	---help---
++	  Support for RAW socket monitoring interface used by the ss tool.
++	  If unsure, say Y.
++
+ config INET_DIAG_DESTROY
+ 	bool "INET: allow privileged process to administratively close sockets"
+ 	depends on INET_DIAG
+Index: linux-ml.git/net/ipv4/Makefile
+===================================================================
+--- linux-ml.git.orig/net/ipv4/Makefile
++++ linux-ml.git/net/ipv4/Makefile
+@@ -40,6 +40,7 @@ obj-$(CONFIG_NETFILTER)	+= netfilter.o n
+ obj-$(CONFIG_INET_DIAG) += inet_diag.o 
+ obj-$(CONFIG_INET_TCP_DIAG) += tcp_diag.o
+ obj-$(CONFIG_INET_UDP_DIAG) += udp_diag.o
++obj-$(CONFIG_INET_RAW_DIAG) += raw_diag.o
+ obj-$(CONFIG_NET_TCPPROBE) += tcp_probe.o
+ obj-$(CONFIG_TCP_CONG_BIC) += tcp_bic.o
+ obj-$(CONFIG_TCP_CONG_CDG) += tcp_cdg.o
+Index: linux-ml.git/net/ipv4/raw.c
+===================================================================
+--- linux-ml.git.orig/net/ipv4/raw.c
++++ linux-ml.git/net/ipv4/raw.c
+@@ -89,9 +89,10 @@ struct raw_frag_vec {
+ 	int hlen;
+ };
+ 
+-static struct raw_hashinfo raw_v4_hashinfo = {
++struct raw_hashinfo raw_v4_hashinfo = {
+ 	.lock = __RW_LOCK_UNLOCKED(raw_v4_hashinfo.lock),
+ };
++EXPORT_SYMBOL_GPL(raw_v4_hashinfo);
+ 
+ int raw_hash_sk(struct sock *sk)
+ {
+@@ -120,7 +121,7 @@ void raw_unhash_sk(struct sock *sk)
+ }
+ EXPORT_SYMBOL_GPL(raw_unhash_sk);
+ 
+-static struct sock *__raw_v4_lookup(struct net *net, struct sock *sk,
++struct sock *__raw_v4_lookup(struct net *net, struct sock *sk,
+ 		unsigned short num, __be32 raddr, __be32 laddr, int dif)
+ {
+ 	sk_for_each_from(sk) {
+@@ -136,6 +137,7 @@ static struct sock *__raw_v4_lookup(stru
+ found:
+ 	return sk;
+ }
++EXPORT_SYMBOL_GPL(__raw_v4_lookup);
+ 
+ /*
+  *	0 - deliver
+@@ -918,6 +920,20 @@ static int compat_raw_ioctl(struct sock
+ }
+ #endif
+ 
++int raw_abort(struct sock *sk, int err)
++{
++	lock_sock(sk);
++
++	sk->sk_err = err;
++	sk->sk_error_report(sk);
++	udp_disconnect(sk, 0);
++
++	release_sock(sk);
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(raw_abort);
++
+ struct proto raw_prot = {
+ 	.name		   = "RAW",
+ 	.owner		   = THIS_MODULE,
+@@ -943,6 +959,7 @@ struct proto raw_prot = {
+ 	.compat_getsockopt = compat_raw_getsockopt,
+ 	.compat_ioctl	   = compat_raw_ioctl,
+ #endif
++	.diag_destroy	   = raw_abort,
+ };
+ 
+ #ifdef CONFIG_PROC_FS
+Index: linux-ml.git/net/ipv4/raw_diag.c
+===================================================================
+--- /dev/null
++++ linux-ml.git/net/ipv4/raw_diag.c
+@@ -0,0 +1,226 @@
++#include <linux/module.h>
++
++#include <linux/inet_diag.h>
++#include <linux/sock_diag.h>
++
++#include <net/raw.h>
++#include <net/rawv6.h>
++
++#ifdef pr_fmt
++# undef pr_fmt
++#endif
++
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
++static struct raw_hashinfo *
++raw_get_hashinfo(const struct inet_diag_req_v2 *r)
++{
++	if (r->sdiag_family == AF_INET) {
++		return &raw_v4_hashinfo;
++#if IS_ENABLED(CONFIG_IPV6)
++	} else if (r->sdiag_family == AF_INET6) {
++		return &raw_v6_hashinfo;
++#endif
++	} else {
++		pr_warn_once("Unexpected inet family %d\n",
++			     r->sdiag_family);
++		WARN_ON_ONCE(1);
++		return ERR_PTR(-EINVAL);
++	}
++}
++
++static struct sock *raw_lookup(struct net *net, struct sock *from,
++			       const struct inet_diag_req_v2 *r)
++{
++	struct sock *sk = NULL;
++
++	if (r->sdiag_family == AF_INET)
++		sk = __raw_v4_lookup(net, from, r->sdiag_protocol,
++				     r->id.idiag_dst[0],
++				     r->id.idiag_src[0],
++				     r->id.idiag_if);
++#if IS_ENABLED(CONFIG_IPV6)
++	else
++		sk = __raw_v6_lookup(net, from, r->sdiag_protocol,
++				     (const struct in6_addr *)r->id.idiag_src,
++				     (const struct in6_addr *)r->id.idiag_dst,
++				     r->id.idiag_if);
++#endif
++	return sk;
++}
++
++static struct sock *raw_sock_get(struct net *net, const struct inet_diag_req_v2 *r)
++{
++	struct raw_hashinfo *hashinfo = raw_get_hashinfo(r);
++	struct sock *sk = NULL, *s;
++	int slot;
++
++	if (IS_ERR(hashinfo))
++		return ERR_CAST(hashinfo);
++
++	read_lock(&hashinfo->lock);
++	for (slot = 0; slot < RAW_HTABLE_SIZE; slot++) {
++		sk_for_each(s, &hashinfo->ht[slot]) {
++			sk = raw_lookup(net, s, r);
++			if (sk)
++				break;
++		}
++	}
++	if (sk && !atomic_inc_not_zero(&sk->sk_refcnt))
++		sk = NULL;
++	read_unlock(&hashinfo->lock);
++
++	return sk ? sk : ERR_PTR(-ENOENT);
++}
++
++static int raw_diag_dump_one(struct sk_buff *in_skb,
++			     const struct nlmsghdr *nlh,
++			     const struct inet_diag_req_v2 *r)
++{
++	struct net *net = sock_net(in_skb->sk);
++	struct sk_buff *rep;
++	struct sock *sk;
++	int err;
++
++	sk = raw_sock_get(net, r);
++	if (IS_ERR(sk))
++		return PTR_ERR(sk);
++
++	rep = nlmsg_new(sizeof(struct inet_diag_msg) +
++			sizeof(struct inet_diag_meminfo) + 64,
++			GFP_KERNEL);
++	if (!rep) {
++		sock_put(sk);
++		return -ENOMEM;
++	}
++
++	err = inet_sk_diag_fill(sk, NULL, rep, r,
++				sk_user_ns(NETLINK_CB(in_skb).sk),
++				NETLINK_CB(in_skb).portid,
++				nlh->nlmsg_seq, 0, nlh,
++				netlink_net_capable(in_skb, CAP_NET_ADMIN));
++	sock_put(sk);
++
++	if (err < 0) {
++		kfree_skb(rep);
++		return err;
++	}
++
++	err = netlink_unicast(net->diag_nlsk, rep,
++			      NETLINK_CB(in_skb).portid,
++			      MSG_DONTWAIT);
++	if (err > 0)
++		err = 0;
++	return err;
++}
++
++static int sk_diag_dump(struct sock *sk, struct sk_buff *skb,
++			struct netlink_callback *cb,
++			const struct inet_diag_req_v2 *r,
++			struct nlattr *bc, bool net_admin)
++{
++	if (!inet_diag_bc_sk(bc, sk))
++		return 0;
++
++	return inet_sk_diag_fill(sk, NULL, skb, r,
++			sk_user_ns(NETLINK_CB(cb->skb).sk),
++			NETLINK_CB(cb->skb).portid,
++			cb->nlh->nlmsg_seq, NLM_F_MULTI,
++			cb->nlh, net_admin);
++}
++
++static void raw_diag_dump(struct sk_buff *skb, struct netlink_callback *cb,
++			  const struct inet_diag_req_v2 *r, struct nlattr *bc)
++{
++	bool net_admin = netlink_net_capable(cb->skb, CAP_NET_ADMIN);
++	struct raw_hashinfo *hashinfo = raw_get_hashinfo(r);
++	struct net *net = sock_net(skb->sk);
++	int num, s_num, slot, s_slot;
++	struct sock *sk = NULL;
++
++	if (IS_ERR(hashinfo))
++		return;
++
++	s_slot = cb->args[0];
++	num = s_num = cb->args[1];
++
++	read_lock(&hashinfo->lock);
++	for (slot = s_slot; slot < RAW_HTABLE_SIZE; s_num = 0, slot++) {
++		num = 0;
++
++		sk_for_each(sk, &hashinfo->ht[slot]) {
++			struct inet_sock *inet = inet_sk(sk);
++
++			if (!net_eq(sock_net(sk), net))
++				continue;
++			if (num < s_num)
++				goto next;
++			if (sk->sk_family != r->sdiag_family)
++				goto next;
++			if (r->id.idiag_sport != inet->inet_sport &&
++			    r->id.idiag_sport)
++				goto next;
++			if (r->id.idiag_dport != inet->inet_dport &&
++			    r->id.idiag_dport)
++				goto next;
++			if (sk_diag_dump(sk, skb, cb, r, bc, net_admin) < 0)
++				goto out_unlock;
++next:
++			num++;
++		}
++	}
++
++out_unlock:
++	read_unlock(&hashinfo->lock);
++
++	cb->args[0] = slot;
++	cb->args[1] = num;
++}
++
++static void raw_diag_get_info(struct sock *sk, struct inet_diag_msg *r,
++			      void *info)
++{
++	r->idiag_rqueue = sk_rmem_alloc_get(sk);
++	r->idiag_wqueue = sk_wmem_alloc_get(sk);
++}
++
++#ifdef CONFIG_INET_DIAG_DESTROY
++static int raw_diag_destroy(struct sk_buff *in_skb,
++			    const struct inet_diag_req_v2 *r)
++{
++	struct net *net = sock_net(in_skb->sk);
++	struct sock *sk;
++
++	sk = raw_sock_get(net, r);
++	if (IS_ERR(sk))
++		return PTR_ERR(sk);
++	return sock_diag_destroy(sk, ECONNABORTED);
++}
++#endif
++
++static const struct inet_diag_handler raw_diag_handler = {
++	.dump			= raw_diag_dump,
++	.dump_one		= raw_diag_dump_one,
++	.idiag_get_info		= raw_diag_get_info,
++	.idiag_type		= IPPROTO_RAW,
++	.idiag_info_size	= 0,
++#ifdef CONFIG_INET_DIAG_DESTROY
++	.destroy		= raw_diag_destroy,
++#endif
++};
++
++static int __init raw_diag_init(void)
++{
++	return inet_diag_register(&raw_diag_handler);
++}
++
++static void __exit raw_diag_exit(void)
++{
++	inet_diag_unregister(&raw_diag_handler);
++}
++
++module_init(raw_diag_init);
++module_exit(raw_diag_exit);
++MODULE_LICENSE("GPL");
++MODULE_ALIAS_NET_PF_PROTO_TYPE(PF_NETLINK, NETLINK_SOCK_DIAG, 2-255 /* AF_INET - IPPROTO_RAW */);
++MODULE_ALIAS_NET_PF_PROTO_TYPE(PF_NETLINK, NETLINK_SOCK_DIAG, 10-255 /* AF_INET6 - IPPROTO_RAW */);
+Index: linux-ml.git/net/ipv6/raw.c
+===================================================================
+--- linux-ml.git.orig/net/ipv6/raw.c
++++ linux-ml.git/net/ipv6/raw.c
+@@ -65,11 +65,12 @@
+ 
+ #define	ICMPV6_HDRLEN	4	/* ICMPv6 header, RFC 4443 Section 2.1 */
+ 
+-static struct raw_hashinfo raw_v6_hashinfo = {
++struct raw_hashinfo raw_v6_hashinfo = {
+ 	.lock = __RW_LOCK_UNLOCKED(raw_v6_hashinfo.lock),
+ };
++EXPORT_SYMBOL_GPL(raw_v6_hashinfo);
+ 
+-static struct sock *__raw_v6_lookup(struct net *net, struct sock *sk,
++struct sock *__raw_v6_lookup(struct net *net, struct sock *sk,
+ 		unsigned short num, const struct in6_addr *loc_addr,
+ 		const struct in6_addr *rmt_addr, int dif)
+ {
+@@ -102,6 +103,7 @@ static struct sock *__raw_v6_lookup(stru
+ found:
+ 	return sk;
+ }
++EXPORT_SYMBOL_GPL(__raw_v6_lookup);
+ 
+ /*
+  *	0 - deliver
+@@ -1252,6 +1254,7 @@ struct proto rawv6_prot = {
+ 	.compat_getsockopt = compat_rawv6_getsockopt,
+ 	.compat_ioctl	   = compat_rawv6_ioctl,
+ #endif
++	.diag_destroy	   = raw_abort,
+ };
+ 
+ #ifdef CONFIG_PROC_FS
