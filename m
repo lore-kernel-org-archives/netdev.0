@@ -1,48 +1,29 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [RFC 00/11] QLogic RDMA Driver (qedr) RFC
-Date: Tue, 13 Sep 2016 09:40:00 -0600
-Message-ID: <20160913154000.GA25878@obsidianresearch.com>
-References: <1473696465-27986-1-git-send-email-Ram.Amrani@qlogic.com>
- <20160912180508.GI5843@obsidianresearch.com>
- <DM3PR1101MB1181DF570D4F01A0CEB1CFC7E2FE0@DM3PR1101MB1181.namprd11.prod.outlook.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: Remove NO_IRQ from powerpc-only network drivers
+Date: Tue, 13 Sep 2016 11:41:23 -0400 (EDT)
+Message-ID: <20160913.114123.130707105572714908.davem@davemloft.net>
+References: <1473501545-10134-1-git-send-email-mpe@ellerman.id.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Yuval Mintz <Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        Ariel Elior <Ariel.Elior-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        Michal Kalderon <Michal.Kalderon-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        Rajesh Borundia <rajesh.borundia-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Ram Amrani <Ram.Amrani-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <DM3PR1101MB1181DF570D4F01A0CEB1CFC7E2FE0-xYdf0wd+uoGW1Nawvih6nR68uu4wjhmwnBOFsp37pqbUKgpGm//BTAC/G2K4zDHf@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linuxppc-dev@ozlabs.org, arnd@arndb.de
+To: mpe@ellerman.id.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:40190 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752710AbcIMPlX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 11:41:23 -0400
+In-Reply-To: <1473501545-10134-1-git-send-email-mpe@ellerman.id.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 13, 2016 at 08:44:06AM +0000, Ram Amrani wrote:
-> Hi Jason,
-> I see that "include/uapi/rdma" contains API that is common.
+From: Michael Ellerman <mpe@ellerman.id.au>
+Date: Sat, 10 Sep 2016 19:59:05 +1000
 
-It is intended to contain *all* the uapi.
+> We'd like to eventually remove NO_IRQ on powerpc, so remove usages of it
+> from powerpc-only drivers.
+> 
+> Signed-off-by: Michael Ellerman <mpe@ellerman.id.au>
 
-> The qedr_user.h, that I assume you are referring to, is a qedr specific API.
-> For example, we issue the ib_copy_to_udata() on structures defined in the file.
-> So per my understanding it is in place.
-
-Anything that is used with copy_to/from_user, ib_copy_to/from_udata,
-etc, etc must be in a include/uapi header.
-
-Any constant you might want to copy into your userspace provider must
-be in include/uapi.
-
-Avoid copying headers in your user space and use the standard kernel
-names to access your driver's uapi.
-
-Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied to net-next, thanks.
