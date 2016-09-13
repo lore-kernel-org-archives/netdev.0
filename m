@@ -1,77 +1,153 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [Intel-wired-lan] [net-next PATCH v3 1/3] e1000: track BQL bytes
- regardless of skb or not
-Date: Mon, 12 Sep 2016 21:25:43 -0700
-Message-ID: <CALx6S364cmWz-6trzyX5pdhk_G_AC4XNoxCga13=_6uoWb5CTg@mail.gmail.com>
-References: <20160912220312.5610.77528.stgit@john-Precision-Tower-5810>
- <20160912221327.5610.74333.stgit@john-Precision-Tower-5810> <CAKgT0UdShvcviYP=VVp8c0OOESDnqsppArVeUhjxfM6XqX6HwQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: John Fastabend <john.fastabend@gmail.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        David Miller <davem@davemloft.net>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        William Tu <u9012063@gmail.com>,
-        Netdev <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:35067 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751044AbcIMEZo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 00:25:44 -0400
-Received: by mail-qk0-f195.google.com with SMTP id w204so13184104qka.2
-        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 21:25:44 -0700 (PDT)
-In-Reply-To: <CAKgT0UdShvcviYP=VVp8c0OOESDnqsppArVeUhjxfM6XqX6HwQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: John Crispin <john@phrozen.org>
+Subject: [PATCH V2] net: dsa: add FIB support
+Date: Tue, 13 Sep 2016 08:00:45 +0200
+Message-ID: <1473746445-52274-1-git-send-email-john@phrozen.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        John Crispin <john@phrozen.org>
+To: "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 12, 2016 at 8:00 PM, Alexander Duyck
-<alexander.duyck@gmail.com> wrote:
-> On Mon, Sep 12, 2016 at 3:13 PM, John Fastabend
-> <john.fastabend@gmail.com> wrote:
->> The BQL API does not reference the sk_buff nor does the driver need to
->> reference the sk_buff to calculate the length of a transmitted frame.
->> This patch removes an sk_buff reference from the xmit irq path and
->> also allows packets sent from XDP to use BQL.
->>
->> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
->> ---
->>  drivers/net/ethernet/intel/e1000/e1000_main.c |    7 ++-----
->>  1 file changed, 2 insertions(+), 5 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
->> index f42129d..62a7f8d 100644
->> --- a/drivers/net/ethernet/intel/e1000/e1000_main.c
->> +++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
->> @@ -3882,11 +3882,8 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter,
->>                         if (cleaned) {
->>                                 total_tx_packets += buffer_info->segs;
->>                                 total_tx_bytes += buffer_info->bytecount;
->> -                               if (buffer_info->skb) {
->> -                                       bytes_compl += buffer_info->skb->len;
->> -                                       pkts_compl++;
->> -                               }
->> -
->> +                               bytes_compl += buffer_info->length;
->> +                               pkts_compl++;
->>                         }
->>                         e1000_unmap_and_free_tx_resource(adapter, buffer_info);
->>                         tx_desc->upper.data = 0;
->
-> Actually it might be worth looking into why we have two different
-> stats for tracking bytecount and segs.  From what I can tell the
-> pkts_compl value is never actually used.  The function doesn't even
-> use the value so it is just wasted cycles.  And as far as the bytes go
+Add SWITCHDEV_OBJ_ID_IPV4_FIB support to the DSA layer.
 
-Transmit flow steering which I posted and is pending on some testing
-uses the pkt count BQL to track inflight packets.
+Signed-off-by: John Crispin <john@phrozen.org>
+---
+Changes in V2
+* rebase on latest net-next to fix compile errors
 
-> the accounting would be more accurate if you were to use bytecount
-> instead of buffer_info->skb->len.  You would just need to update the
-> xmit function to use that on the other side so that they match.
->
-> - Alex
+ Documentation/networking/dsa/dsa.txt |   18 +++++++++++++++
+ include/net/dsa.h                    |   13 +++++++++++
+ net/dsa/slave.c                      |   41 ++++++++++++++++++++++++++++++++++
+ 3 files changed, 72 insertions(+)
+
+diff --git a/Documentation/networking/dsa/dsa.txt b/Documentation/networking/dsa/dsa.txt
+index 6d6c07c..6cd5831 100644
+--- a/Documentation/networking/dsa/dsa.txt
++++ b/Documentation/networking/dsa/dsa.txt
+@@ -607,6 +607,24 @@ of DSA, would be the its port-based VLAN, used by the associated bridge device.
+   function that the driver has to call for each MAC address known to be behind
+   the given port. A switchdev object is used to carry the VID and MDB info.
+ 
++Route offloading
++----------------
++
++- ipv4_fib_prepare: routing layer function invoked to prepare the installation
++  of an ipv4 route into the switches routing database. If the operation is not
++  supported this function should return -EOPNOTSUPP. No hardware setup must be
++  done in this function. See ipv4_fib_add for this and details.
++
++- ipv4_fib_add: routing layer function invoked when a new ipv4 route should be
++  installed into the routing database of the switch, it should be programmed
++  with the route for the specified VLAN ID of the device that the route applies
++  to.
++
++- ipv4_fib_del: routing layer function invoked when an ipv4 route should be
++  removed from the routing database, the switch hardware should be programmed
++  to delete the specified MAC address of the nexthop from the specified VLAN ID
++  if it was mapped into the forwarding database.
++
+ TODO
+ ====
+ 
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 7556646..7fdd63e 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -237,6 +237,7 @@ struct switchdev_obj;
+ struct switchdev_obj_port_fdb;
+ struct switchdev_obj_port_mdb;
+ struct switchdev_obj_port_vlan;
++struct switchdev_obj_ipv4_fib;
+ 
+ struct dsa_switch_ops {
+ 	struct list_head	list;
+@@ -386,6 +387,18 @@ struct dsa_switch_ops {
+ 	int	(*port_mdb_dump)(struct dsa_switch *ds, int port,
+ 				 struct switchdev_obj_port_mdb *mdb,
+ 				 int (*cb)(struct switchdev_obj *obj));
++
++	/*
++	 * IPV4 routing
++	 */
++	int	(*ipv4_fib_prepare)(struct dsa_switch *ds, int port,
++				    const struct switchdev_obj_ipv4_fib *fib4,
++				    struct switchdev_trans *trans);
++	int	(*ipv4_fib_add)(struct dsa_switch *ds, int port,
++				const struct switchdev_obj_ipv4_fib *fib4,
++				struct switchdev_trans *trans);
++	int	(*ipv4_fib_del)(struct dsa_switch *ds, int port,
++				const struct switchdev_obj_ipv4_fib *fib4);
+ };
+ 
+ void register_switch_driver(struct dsa_switch_ops *type);
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 9ecbe78..c974ac0 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -334,6 +334,38 @@ static int dsa_slave_port_mdb_dump(struct net_device *dev,
+ 	return -EOPNOTSUPP;
+ }
+ 
++static int dsa_slave_ipv4_fib_add(struct net_device *dev,
++				  const struct switchdev_obj_ipv4_fib *fib4,
++				  struct switchdev_trans *trans)
++{
++	struct dsa_slave_priv *p = netdev_priv(dev);
++	struct dsa_switch *ds = p->parent;
++	int ret;
++
++	if (!ds->ops->ipv4_fib_prepare || !ds->ops->ipv4_fib_add)
++		return -EOPNOTSUPP;
++
++	if (switchdev_trans_ph_prepare(trans))
++		ret = ds->ops->ipv4_fib_prepare(ds, p->port, fib4, trans);
++	else
++		ret = ds->ops->ipv4_fib_add(ds, p->port, fib4, trans);
++
++	return ret;
++}
++
++static int dsa_slave_ipv4_fib_del(struct net_device *dev,
++				  const struct switchdev_obj_ipv4_fib *fib4)
++{
++	struct dsa_slave_priv *p = netdev_priv(dev);
++	struct dsa_switch *ds = p->parent;
++	int ret = -EOPNOTSUPP;
++
++	if (ds->ops->ipv4_fib_del)
++		ret = ds->ops->ipv4_fib_del(ds, p->port, fib4);
++
++	return ret;
++}
++
+ static int dsa_slave_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ {
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+@@ -465,6 +497,11 @@ static int dsa_slave_port_obj_add(struct net_device *dev,
+ 					      SWITCHDEV_OBJ_PORT_VLAN(obj),
+ 					      trans);
+ 		break;
++	case SWITCHDEV_OBJ_ID_IPV4_FIB:
++		err = dsa_slave_ipv4_fib_add(dev,
++					     SWITCHDEV_OBJ_IPV4_FIB(obj),
++					     trans);
++		break;
+ 	default:
+ 		err = -EOPNOTSUPP;
+ 		break;
+@@ -490,6 +527,10 @@ static int dsa_slave_port_obj_del(struct net_device *dev,
+ 		err = dsa_slave_port_vlan_del(dev,
+ 					      SWITCHDEV_OBJ_PORT_VLAN(obj));
+ 		break;
++	case SWITCHDEV_OBJ_ID_IPV4_FIB:
++		err = dsa_slave_ipv4_fib_del(dev,
++					     SWITCHDEV_OBJ_IPV4_FIB(obj));
++		break;
+ 	default:
+ 		err = -EOPNOTSUPP;
+ 		break;
+-- 
+1.7.10.4
