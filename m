@@ -1,121 +1,118 @@
 From: Varun Prakash <varun@chelsio.com>
-Subject: [net-next PATCH 09/11] libcxgb,iw_cxgb4,cxgbit: add cxgb_mk_abort_req()
-Date: Tue, 13 Sep 2016 21:24:04 +0530
-Message-ID: <742a53c0b23bf9d9e2f0d2c96e8359ec466ce069.1473781521.git.varun@chelsio.com>
+Subject: [net-next PATCH 10/11] libcxgb,iw_cxgb4,cxgbit: add cxgb_mk_abort_rpl()
+Date: Tue, 13 Sep 2016 21:24:05 +0530
+Message-ID: <df6f672316df4f3d804f0c60d10504f85178e559.1473781521.git.varun@chelsio.com>
 References: <cover.1473781521.git.varun@chelsio.com>
 Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
         target-devel@vger.kernel.org, nab@linux-iscsi.org,
         dledford@redhat.com, swise@opengridcomputing.com,
         gerlitz.or@gmail.com, indranil@chelsio.com, varun@chelsio.com
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:52197 "EHLO
-        stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1759445AbcIMP5P (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 11:57:15 -0400
+Return-path: <target-devel-owner@vger.kernel.org>
 In-Reply-To: <cover.1473781521.git.varun@chelsio.com>
 In-Reply-To: <cover.1473781521.git.varun@chelsio.com>
 References: <cover.1473781521.git.varun@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: target-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add cxgb_mk_abort_req() to remove duplicate code
-to form CPL_ABORT_REQ hardware command.
+Add cxgb_mk_abort_rpl() to remove duplicate
+code to form CPL_ABORT_RPL hardware command.
 
 Signed-off-by: Varun Prakash <varun@chelsio.com>
 ---
- drivers/infiniband/hw/cxgb4/cm.c                  | 13 ++++---------
- drivers/net/ethernet/chelsio/libcxgb/libcxgb_cm.h | 16 ++++++++++++++++
- drivers/target/iscsi/cxgbit/cxgbit_cm.c           | 13 +++----------
- 3 files changed, 23 insertions(+), 19 deletions(-)
+ drivers/infiniband/hw/cxgb4/cm.c                  | 10 ++++------
+ drivers/net/ethernet/chelsio/libcxgb/libcxgb_cm.h | 14 ++++++++++++++
+ drivers/target/iscsi/cxgbit/cxgbit_cm.c           | 11 ++---------
+ 3 files changed, 20 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
-index 22bccd8..484196e 100644
+index 484196e..a6d5fcb 100644
 --- a/drivers/infiniband/hw/cxgb4/cm.c
 +++ b/drivers/infiniband/hw/cxgb4/cm.c
-@@ -652,21 +652,16 @@ static int send_halfclose(struct c4iw_ep *ep)
- 
- static int send_abort(struct c4iw_ep *ep)
+@@ -2705,12 +2705,12 @@ static int peer_abort(struct c4iw_dev *dev, struct sk_buff *skb)
  {
--	struct cpl_abort_req *req;
--	int wrlen = roundup(sizeof *req, 16);
-+	u32 wrlen = roundup(sizeof(struct cpl_abort_req), 16);
- 	struct sk_buff *req_skb = skb_dequeue(&ep->com.ep_skb_list);
+ 	struct cpl_abort_req_rss *req = cplhdr(skb);
+ 	struct c4iw_ep *ep;
+-	struct cpl_abort_rpl *rpl;
+ 	struct sk_buff *rpl_skb;
+ 	struct c4iw_qp_attributes attrs;
+ 	int ret;
+ 	int release = 0;
+ 	unsigned int tid = GET_TID(req);
++	u32 len = roundup(sizeof(struct cpl_abort_rpl), 16);
  
- 	PDBG("%s ep %p tid %u\n", __func__, ep, ep->hwtid);
- 	if (WARN_ON(!req_skb))
- 		return -ENOMEM;
- 
--	set_wr_txq(req_skb, CPL_PRIORITY_DATA, ep->txq_idx);
--	t4_set_arp_err_handler(req_skb, ep, abort_arp_failure);
--	req = (struct cpl_abort_req *)skb_put(req_skb, wrlen);
--	memset(req, 0, wrlen);
--	INIT_TP_WR(req, ep->hwtid);
--	OPCODE_TID(req) = cpu_to_be32(MK_OPCODE_TID(CPL_ABORT_REQ, ep->hwtid));
--	req->cmd = CPL_ABORT_SEND_RST;
-+	cxgb_mk_abort_req(req_skb, wrlen, ep->hwtid, ep->txq_idx,
-+			  ep, abort_arp_failure);
+ 	ep = get_ep_from_tid(dev, tid);
+ 	if (!ep)
+@@ -2809,11 +2809,9 @@ static int peer_abort(struct c4iw_dev *dev, struct sk_buff *skb)
+ 		release = 1;
+ 		goto out;
+ 	}
+-	set_wr_txq(skb, CPL_PRIORITY_DATA, ep->txq_idx);
+-	rpl = (struct cpl_abort_rpl *) skb_put(rpl_skb, sizeof(*rpl));
+-	INIT_TP_WR(rpl, ep->hwtid);
+-	OPCODE_TID(rpl) = cpu_to_be32(MK_OPCODE_TID(CPL_ABORT_RPL, ep->hwtid));
+-	rpl->cmd = CPL_ABORT_NO_RST;
 +
- 	return c4iw_l2t_send(&ep->com.dev->rdev, req_skb, ep->l2t);
- }
- 
++	cxgb_mk_abort_rpl(rpl_skb, len, ep->hwtid, ep->txq_idx);
++
+ 	c4iw_ofld_send(&ep->com.dev->rdev, rpl_skb);
+ out:
+ 	if (release)
 diff --git a/drivers/net/ethernet/chelsio/libcxgb/libcxgb_cm.h b/drivers/net/ethernet/chelsio/libcxgb/libcxgb_cm.h
-index e77661d..2d3a3bf 100644
+index 2d3a3bf..70999e8 100644
 --- a/drivers/net/ethernet/chelsio/libcxgb/libcxgb_cm.h
 +++ b/drivers/net/ethernet/chelsio/libcxgb/libcxgb_cm.h
-@@ -112,4 +112,20 @@ cxgb_mk_close_con_req(struct sk_buff *skb, u32 len, u32 tid, u16 chan,
+@@ -128,4 +128,18 @@ cxgb_mk_abort_req(struct sk_buff *skb, u32 len, u32 tid, u16 chan,
  	set_wr_txq(skb, CPL_PRIORITY_DATA, chan);
  	t4_set_arp_err_handler(skb, handle, handler);
  }
 +
 +static inline void
-+cxgb_mk_abort_req(struct sk_buff *skb, u32 len, u32 tid, u16 chan,
-+		  void *handle, arp_err_handler_t handler)
++cxgb_mk_abort_rpl(struct sk_buff *skb, u32 len, u32 tid, u16 chan)
 +{
-+	struct cpl_abort_req *req;
++	struct cpl_abort_rpl *rpl;
 +
-+	req = (struct cpl_abort_req *)__skb_put(skb, len);
-+	memset(req, 0, len);
++	rpl = (struct cpl_abort_rpl *)__skb_put(skb, len);
++	memset(rpl, 0, len);
 +
-+	INIT_TP_WR(req, tid);
-+	OPCODE_TID(req) = cpu_to_be32(MK_OPCODE_TID(CPL_ABORT_REQ, tid));
-+	req->cmd = CPL_ABORT_SEND_RST;
++	INIT_TP_WR(rpl, tid);
++	OPCODE_TID(rpl) = cpu_to_be32(MK_OPCODE_TID(CPL_ABORT_RPL, tid));
++	rpl->cmd = CPL_ABORT_NO_RST;
 +	set_wr_txq(skb, CPL_PRIORITY_DATA, chan);
-+	t4_set_arp_err_handler(skb, handle, handler);
 +}
  #endif
 diff --git a/drivers/target/iscsi/cxgbit/cxgbit_cm.c b/drivers/target/iscsi/cxgbit/cxgbit_cm.c
-index a8f5f36..f2b737e 100644
+index f2b737e..9bdbe3b 100644
 --- a/drivers/target/iscsi/cxgbit/cxgbit_cm.c
 +++ b/drivers/target/iscsi/cxgbit/cxgbit_cm.c
-@@ -647,9 +647,8 @@ static void cxgbit_abort_arp_failure(void *handle, struct sk_buff *skb)
- 
- static int cxgbit_send_abort_req(struct cxgbit_sock *csk)
+@@ -1642,11 +1642,10 @@ static void cxgbit_abort_req_rss(struct cxgbit_sock *csk, struct sk_buff *skb)
  {
--	struct cpl_abort_req *req;
--	unsigned int len = roundup(sizeof(*req), 16);
- 	struct sk_buff *skb;
-+	u32 len = roundup(sizeof(struct cpl_abort_req), 16);
+ 	struct cpl_abort_req_rss *hdr = cplhdr(skb);
+ 	unsigned int tid = GET_TID(hdr);
+-	struct cpl_abort_rpl *rpl;
+ 	struct sk_buff *rpl_skb;
+ 	bool release = false;
+ 	bool wakeup_thread = false;
+-	unsigned int len = roundup(sizeof(*rpl), 16);
++	u32 len = roundup(sizeof(struct cpl_abort_rpl), 16);
  
- 	pr_debug("%s: csk %p tid %u; state %d\n",
- 		 __func__, csk, csk->tid, csk->com.state);
-@@ -660,15 +659,9 @@ static int cxgbit_send_abort_req(struct cxgbit_sock *csk)
+ 	pr_debug("%s: csk %p; tid %u; state %d\n",
+ 		 __func__, csk, tid, csk->com.state);
+@@ -1686,14 +1685,8 @@ static void cxgbit_abort_req_rss(struct cxgbit_sock *csk, struct sk_buff *skb)
  		cxgbit_send_tx_flowc_wr(csk);
  
- 	skb = __skb_dequeue(&csk->skbq);
--	req = (struct cpl_abort_req *)__skb_put(skb, len);
--	memset(req, 0, len);
-+	cxgb_mk_abort_req(skb, len, csk->tid, csk->txq_idx,
-+			  csk->com.cdev, cxgbit_abort_arp_failure);
- 
+ 	rpl_skb = __skb_dequeue(&csk->skbq);
 -	set_wr_txq(skb, CPL_PRIORITY_DATA, csk->txq_idx);
--	t4_set_arp_err_handler(skb, csk->com.cdev, cxgbit_abort_arp_failure);
--	INIT_TP_WR(req, csk->tid);
--	OPCODE_TID(req) = cpu_to_be32(MK_OPCODE_TID(CPL_ABORT_REQ,
--						    csk->tid));
--	req->cmd = CPL_ABORT_SEND_RST;
- 	return cxgbit_l2t_send(csk->com.cdev, skb, csk->l2t);
- }
+-
+-	rpl = (struct cpl_abort_rpl *)__skb_put(rpl_skb, len);
+-	memset(rpl, 0, len);
  
+-	INIT_TP_WR(rpl, csk->tid);
+-	OPCODE_TID(rpl) = cpu_to_be32(MK_OPCODE_TID(CPL_ABORT_RPL, tid));
+-	rpl->cmd = CPL_ABORT_NO_RST;
++	cxgb_mk_abort_rpl(rpl_skb, len, csk->tid, csk->txq_idx);
+ 	cxgbit_ofld_send(csk->com.cdev, rpl_skb);
+ 
+ 	if (wakeup_thread) {
 -- 
 2.0.2
