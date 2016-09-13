@@ -1,48 +1,105 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 01/10] rxrpc: Make sure we initialise the peer hash
- key
-Date: Tue, 13 Sep 2016 23:21:03 +0100
-Message-ID: <147380526330.23135.11297375286469560472.stgit@warthog.procyon.org.uk>
-References: <147380525614.23135.7539695651371953351.stgit@warthog.procyon.org.uk>
+From: Scott Wood <oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [v11, 5/8] soc: fsl: add GUTS driver for QorIQ platforms
+Date: Tue, 13 Sep 2016 17:24:23 -0500
+Message-ID: <1473805463.30217.206.camel@buserror.net>
+References: <1473150503-9550-1-git-send-email-yangbo.lu@nxp.com>
+	<1473150503-9550-6-git-send-email-yangbo.lu@nxp.com>
+	<1473392840.30217.170.camel@buserror.net>
+	<HE1PR04MB08892D8354E38EC32F549E98F8FF0@HE1PR04MB0889.eurprd04.prod.outlook.com>
+	<1473722714.30217.196.camel@buserror.net>
+	<HE1PR04MB08892E63EB2D579D6F0A7550F8FE0@HE1PR04MB0889.eurprd04.prod.outlook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <147380525614.23135.7539695651371953351.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Transfer-Encoding: base64
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	Bhupesh Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Jochen Friedrich <jochen-NIgtFMG+Po8@public.gmane.org>, "X.B. Xie" <xiaobo.xie-3arQi8VN3Tc@public.gmane.org>,
+	"iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org" <iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, Leo Li <leoyang.li-3arQi8VN3Tc@public.gmane.org>,
+	"linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org" <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+	"linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+To: "Y.B. Lu" <yangbo.lu-3arQi8VN3Tc@public.gmane.org>, "linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
+	<linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org"
+	<ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,  Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <HE1PR04MB08892E63EB2D579D6F0A7550F8FE0-6LN7OEpIatX1kPMWxTxe+c9NdZoXdze2vxpqHgZTriW3zl9H0oFU5g@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
+List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Peer records created for incoming connections weren't getting their hash
-key set.  This meant that incoming calls wouldn't see more than one DATA
-packet - which is not a problem for AFS CM calls with small request data
-blobs.
-
-Signed-off-by: David Howells <dhowells@redhat.com>
----
-
- net/rxrpc/peer_object.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/rxrpc/peer_object.c b/net/rxrpc/peer_object.c
-index 2efe29a4c232..3e6cd174b53d 100644
---- a/net/rxrpc/peer_object.c
-+++ b/net/rxrpc/peer_object.c
-@@ -203,6 +203,7 @@ struct rxrpc_peer *rxrpc_alloc_peer(struct rxrpc_local *local, gfp_t gfp)
-  */
- static void rxrpc_init_peer(struct rxrpc_peer *peer, unsigned long hash_key)
- {
-+	peer->hash_key = hash_key;
- 	rxrpc_assess_MTU_size(peer);
- 	peer->mtu = peer->if_mtu;
- 
-@@ -238,7 +239,6 @@ static struct rxrpc_peer *rxrpc_create_peer(struct rxrpc_local *local,
- 
- 	peer = rxrpc_alloc_peer(local, gfp);
- 	if (peer) {
--		peer->hash_key = hash_key;
- 		memcpy(&peer->srx, srx, sizeof(*srx));
- 		rxrpc_init_peer(peer, hash_key);
- 	}
+T24gVHVlLCAyMDE2LTA5LTEzIGF0IDA3OjIzICswMDAwLCBZLkIuIEx1IHdyb3RlOgo+ID4gCgoK
+PiA+IAo+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0KPiA+IEZyb206IGxpbnV4LW1tYy1v
+d25lckB2Z2VyLmtlcm5lbC5vcmcgW21haWx0bzpsaW51eC1tbWMtCj4gPiBvd25lckB2Z2VyLmtl
+cm5lbC5vcmddIE9uIEJlaGFsZiBPZiBTY290dCBXb29kCj4gPiBTZW50OiBUdWVzZGF5LCBTZXB0
+ZW1iZXIgMTMsIDIwMTYgNzoyNSBBTQo+ID4gVG86IFkuQi4gTHU7IGxpbnV4LW1tY0B2Z2VyLmtl
+cm5lbC5vcmc7IHVsZi5oYW5zc29uQGxpbmFyby5vcmc7IEFybmQKPiA+IEJlcmdtYW5uCj4gPiBD
+YzogbGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5vcmc7IGRldmljZXRyZWVAdmdlci5rZXJuZWwu
+b3JnOyBsaW51eC1hcm0tCj4gPiBrZXJuZWxAbGlzdHMuaW5mcmFkZWFkLm9yZzsgbGludXgta2Vy
+bmVsQHZnZXIua2VybmVsLm9yZzsgbGludXgtCj4gPiBjbGtAdmdlci5rZXJuZWwub3JnOyBsaW51
+eC1pMmNAdmdlci5rZXJuZWwub3JnOyBpb21tdUBsaXN0cy5saW51eC0KPiA+IGZvdW5kYXRpb24u
+b3JnOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBNYXJrIFJ1dGxhbmQ7IFJvYiBIZXJyaW5nOwo+
+ID4gUnVzc2VsbCBLaW5nOyBKb2NoZW4gRnJpZWRyaWNoOyBKb2VyZyBSb2VkZWw7IENsYXVkaXUg
+TWFub2lsOyBCaHVwZXNoCj4gPiBTaGFybWE7IFFpYW5nIFpoYW87IEt1bWFyIEdhbGE7IFNhbnRv
+c2ggU2hpbGlta2FyOyBMZW8gTGk7IFguQi4gWGllCj4gPiBTdWJqZWN0OiBSZTogW3YxMSwgNS84
+XSBzb2M6IGZzbDogYWRkIEdVVFMgZHJpdmVyIGZvciBRb3JJUSBwbGF0Zm9ybXMKPiA+IAo+ID4g
+QlRXLCBhcmVuJ3QgbHMyMDgwYSBhbmQgbHMyMDg1YSB0aGUgc2FtZSBkaWU/IMKgQW5kIGlzIHRo
+ZXJlIG5vIG5vbi1FCj4gPiB2ZXJzaW9uIG9mIExTMjA4MEEvTFMyMDQwQT8KPiBbTHUgWWFuZ2Jv
+LUI0NzA5M10gSSBjaGVja2VkIGFsbCB0aGUgc3ZyIHZhbHVlcyBpbiBjaGlwIGVycmF0YSBkb2Mg
+IlJldmlzaW9uCj4gbGV2ZWwgdG8gcGFydCBtYXJraW5nIGNyb3NzLXJlZmVyZW5jZSIgdGFibGUu
+Cj4gSSBmb3VuZCBsczIwODBhIGFuZCBsczIwODVhIHdlcmUgaW4gdHdvIHNlcGFyYXRlIGRvYy4g
+QW5kIEkgZGlkbuKAmXQgZmluZCBub24tCj4gRSB2ZXJzaW9uIG9mIExTMjA4MEEvTFMyMDQwQSBp
+biBjaGlwIGVycmF0YSBkb2MuCj4gRG8geW91IGtub3cgaXMgdGhlcmUgYW55IG90aGVyIGRvYyB3
+ZSBjYW4gY29uZmlybSB0aGlzPwoKTm8uIMKgVHJhZGl0aW9uYWxseSB3ZSd2ZSBhbHdheXMgaGFk
+IEUgYW5kIG5vbi1FIHZlcnNpb25zIG9mIGVhY2ggY2hpcCwgYnV0IEkKaGF2ZSBubyBrbm93bGVk
+Z2Ugb2Ygd2hldGhlciB0aGF0IGhhcyBjaGFuZ2VkIChJIGRvIG5vdGUgdGhhdCB0aGUgd2F5IHRo
+YXQgRS0Kc3RhdHVzIGlzIGluZGljYXRlZCBpbiBTVlIgaGFzIGNoYW5nZWQpLgoKQnV0IHBsZWFz
+ZSBsYWJlbCBMUzIwODBBIGFuZCBMUzIwODVBIGFzIHRoZSBzYW1lIGRpZSAob3IgcHJvdmlkZSBz
+dHJvbmcKZXZpZGVuY2UgdGhhdCB0aGV5IGFyZSBub3QpLgoKPiAKPiA+IAo+ID4gCj4gPiA+IAo+
+ID4gPiA+ID4gCj4gPiA+ID4gPiArCWRvIHsKPiA+ID4gPiA+ICsJCWlmICghbWF0Y2hlcy0+c29j
+X2lkKQo+ID4gPiA+ID4gKwkJCXJldHVybiBOVUxMOwo+ID4gPiA+ID4gKwkJaWYgKGdsb2JfbWF0
+Y2goc3ZyX21hdGNoLCBtYXRjaGVzLT5zb2NfaWQpKQo+ID4gPiA+ID4gKwkJCWJyZWFrOwo+ID4g
+PiA+ID4gKwl9IHdoaWxlIChtYXRjaGVzKyspOwo+ID4gPiA+IEFyZSB5b3UgZXhwZWN0aW5nICJt
+YXRjaGVzKysiIHRvIGV2ZXIgZXZhbHVhdGUgYXMgZmFsc2U/Cj4gPiA+IFtMdSBZYW5nYm8tQjQ3
+MDkzXSBZZXMsIHRoaXMgaXMgdXNlZCB0byBtYXRjaCB0aGUgc29jIHdlIHVzZSBpbgo+ID4gPiBx
+b3JpcV9zb2MgYXJyYXkgdW50aWwgZ2V0dGluZyB0cnVlLgo+ID4gPiBXZSBuZWVkIHRvIGdldCB0
+aGUgbmFtZSBhbmQgZGllIGluZm9ybWF0aW9uIGRlZmluZWQgaW4gYXJyYXkuCj4gPiBJJ20gbm90
+IGFza2luZyB3aGV0aGVyIHRoZSBnbG9iX21hdGNoIHdpbGwgZXZlciByZXR1cm4gdHJ1ZS4gwqBJ
+J20gc2F5aW5nCj4gPiB0aGF0ICJtYXRjaGVzKysiIHdpbGwgbmV2ZXIgYmVjb21lIE5VTEwuCj4g
+W0x1IFlhbmdiby1CNDcwOTNdIFRoZSBtYXRjaGVzKysgd2lsbCBuZXZlciBiZWNvbWUgTlVMTCB3
+aGlsZSBpdCB3aWxsIHJldHVybgo+IE5VTEwgYWZ0ZXIgbWF0Y2hpbmcgZm9yIGFsbCB0aGUgbWVt
+YmVycyBpbiBhcnJheS4KCiJtYXRjaGVzKysiIHdpbGwgbmV2ZXIgInJldHVybiBOVUxMIi4gwqBJ
+dCdzIGp1c3QgYW4gaW5jcmVtZW50aW5nIGFkZHJlc3MuIMKgSXQKd29uJ3QgYmUgbnVsbCB1bnRp
+bCB5b3Ugd3JhcCBhcm91bmQgdGhlIGFkZHJlc3Mgc3BhY2UsIGFuZCBldmVuIGlmIHRoZSBvdGhl
+cgpsb29wIHRlcm1pbmF0b3JzIG5ldmVyIGtpY2tlZCBpbiB5b3UnZCBjcmFzaCBsb25nIGJlZm9y
+ZSB0aGF0IGhhcHBlbnMuCgpQbGVhc2UgcmV3cml0ZSB0aGUgbG9vcCBhcyBzb21ldGhpbmcgbGlr
+ZToKCgl3aGlsZSAobWF0Y2hlcy0+c29jX2lkKSB7CgkJaWYgKGdsb2JfbWF0Y2goLi4uKSkKCQkJ
+cmV0dXJuIG1hdGNoZXM7CgoJCW1hdGNoZXMrKzsKCX0KCglyZXR1cm4gTlVMTDsKCgo+ID4gPiA+
+ID4gKwkvKiBSZWdpc3RlciBzb2MgZGV2aWNlICovCj4gPiA+ID4gPiArCXNvY19kZXZfYXR0ciA9
+IGt6YWxsb2Moc2l6ZW9mKCpzb2NfZGV2X2F0dHIpLCBHRlBfS0VSTkVMKTsKPiA+ID4gPiA+ICsJ
+aWYgKCFzb2NfZGV2X2F0dHIpIHsKPiA+ID4gPiA+ICsJCXJldCA9IC1FTk9NRU07Cj4gPiA+ID4g
+PiArCQlnb3RvIG91dF91bm1hcDsKPiA+ID4gPiA+ICsJfQo+ID4gPiA+IENvdWxkbid0IHRoaXMg
+YmUgc3RhdGljYWxseSBhbGxvY2F0ZWQ/Cj4gPiA+IFtMdSBZYW5nYm8tQjQ3MDkzXSBEbyB5b3Ug
+bWVhbiB3ZSBkZWZpbmUgdGhpcyBzdHJ1Y3Qgc3RhdGljYWxseSA/Cj4gPiA+IAo+ID4gPiBzdGF0
+aWMgc3RydWN0IHNvY19kZXZpY2VfYXR0cmlidXRlIHNvY19kZXZfYXR0cjsKPiA+IFllcy4KPiA+
+IAo+IFtMdSBZYW5nYm8tQjQ3MDkzXSBJdCdzIG9rIHRvIGRlZmluZSBpdCBzdGF0aWNhbGx5LiBJ
+cyB0aGVyZSBhbnkgbmVlZCB0byBkbwo+IHRoYXQ/CgpJdCdzIHNpbXBsZXIuCgotU2NvdHQKCl9f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmlvbW11IG1haWxp
+bmcgbGlzdAppb21tdUBsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxp
+bnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby9pb21tdQ==
