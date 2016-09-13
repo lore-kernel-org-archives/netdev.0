@@ -1,143 +1,83 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH V3] net-next: dsa: add FIB support
-Date: Tue, 13 Sep 2016 12:21:37 -0400
-Message-ID: <87intz22jy.fsf@ketchup.mtl.sfl>
-References: <1473746541-52314-1-git-send-email-john@phrozen.org>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [net-next PATCH v3 2/3] e1000: add initial XDP support
+Date: Tue, 13 Sep 2016 09:21:47 -0700
+Message-ID: <CALx6S36u+tQUEVhu0BaLZ6-_0=GSMwxd4m89-H+brVZ-rr-U2g@mail.gmail.com>
+References: <20160912220312.5610.77528.stgit@john-Precision-Tower-5810>
+ <20160912221351.5610.29043.stgit@john-Precision-Tower-5810>
+ <1473720399.18970.91.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160912230745.GA24171@ast-mbp.thefacebook.com> <1473723968.18970.111.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CALx6S35CE+ZYbGm96Y5YKnTqU0zfhg9_h0VSpD3ot8xB-scdFQ@mail.gmail.com> <20160913012815.GB25756@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        John Crispin <john@phrozen.org>, Jiri Pirko <jiri@mellanox.com>
-To: John Crispin <john@phrozen.org>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
         "David S. Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1473746541-52314-1-git-send-email-john@phrozen.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+        William Tu <u9012063@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f171.google.com ([209.85.220.171]:35655 "EHLO
+        mail-qk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1759305AbcIMQVt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 12:21:49 -0400
+Received: by mail-qk0-f171.google.com with SMTP id t7so77790197qkh.2
+        for <netdev@vger.kernel.org>; Tue, 13 Sep 2016 09:21:49 -0700 (PDT)
+In-Reply-To: <20160913012815.GB25756@ast-mbp.thefacebook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi John,
+On Mon, Sep 12, 2016 at 6:28 PM, Alexei Starovoitov
+<alexei.starovoitov@gmail.com> wrote:
+> On Mon, Sep 12, 2016 at 05:03:25PM -0700, Tom Herbert wrote:
+>> On Mon, Sep 12, 2016 at 4:46 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> > On Mon, 2016-09-12 at 16:07 -0700, Alexei Starovoitov wrote:
+>> >
+>> >> yep. there are various ways to shoot yourself in the foot with xdp.
+>> >> The simplest program that drops all the packets will make the box unpingable.
+>> >
+>> > Well, my comment was about XDP_TX only, not about XDP_DROP or driving a
+>> > scooter on 101 highway ;)
+>> >
+>> > This XDP_TX thing was one of the XDP marketing stuff, but there is
+>> > absolutely no documentation on it, warning users about possible
+>> > limitations/outcomes.
+>> >
+>> > BTW, I am not sure mlx4 implementation even works, vs BQL :
+>> >
+>> > mlx4_en_xmit_frame() does not call netdev_tx_sent_queue(),
+>> > but tx completion will call netdev_tx_completed_queue() -> crash
+>> >
+>> > Do we have one test to validate that a XDP_TX implementation is actually
+>> > correct ?
+>> >
+>> Obviously not for e1000 :-(. We really need some real test and
+>> performance results and analysis on the interaction between the stack
+>> data path and XDP data path.
+>
+> no. we don't need it for e1k and we cannot really do it.
+> <broken record mode on> this patch is for debugging of xdp programs only.
+>
+You can say this "only for a debugging" a thousand times and that
+still won't justify putting bad code into the kernel. Material issues
+have been raised with these patches, I have proposed a fix for one
+core issue, and we have requested a lot more testing. So, please, if
+you really want to move these patches forward start addressing the
+concerns being raised by reviewers.
 
-John Crispin <john@phrozen.org> writes:
+Tom
 
-> @@ -237,6 +237,7 @@ struct switchdev_obj;
->  struct switchdev_obj_port_fdb;
->  struct switchdev_obj_port_mdb;
->  struct switchdev_obj_port_vlan;
-> +struct switchdev_obj_ipv4_fib;
-
-Can you keep it ordered please (put obj_ipv4 above port_fdb).
-
->  
->  struct dsa_switch_ops {
->  	struct list_head	list;
-> @@ -386,6 +387,18 @@ struct dsa_switch_ops {
->  	int	(*port_mdb_dump)(struct dsa_switch *ds, int port,
->  				 struct switchdev_obj_port_mdb *mdb,
->  				 int (*cb)(struct switchdev_obj *obj));
-> +
-> +	/*
-> +	 * IPV4 routing
-> +	 */
-> +	int	(*ipv4_fib_prepare)(struct dsa_switch *ds, int port,
-> +				    const struct switchdev_obj_ipv4_fib *fib4,
-> +				    struct switchdev_trans *trans);
-> +	int	(*ipv4_fib_add)(struct dsa_switch *ds, int port,
-> +				const struct switchdev_obj_ipv4_fib *fib4,
-> +				struct switchdev_trans *trans);
-
-DSA *_add ops should return void, since no error is supposed to occure in
-the commit phase.
-
-If they are port-based operations, please prefix them with "port_",
-otherwise, the int port parameter is not necessary.
-
-> +	int	(*ipv4_fib_del)(struct dsa_switch *ds, int port,
-> +				const struct switchdev_obj_ipv4_fib *fib4);
->  };
->  
->  void register_switch_driver(struct dsa_switch_ops *type);
-> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-> index 9ecbe78..c974ac0 100644
-> --- a/net/dsa/slave.c
-> +++ b/net/dsa/slave.c
-> @@ -334,6 +334,38 @@ static int dsa_slave_port_mdb_dump(struct net_device *dev,
->  	return -EOPNOTSUPP;
->  }
->  
-> +static int dsa_slave_ipv4_fib_add(struct net_device *dev,
-> +				  const struct switchdev_obj_ipv4_fib *fib4,
-> +				  struct switchdev_trans *trans)
-> +{
-> +	struct dsa_slave_priv *p = netdev_priv(dev);
-> +	struct dsa_switch *ds = p->parent;
-> +	int ret;
-> +
-> +	if (!ds->ops->ipv4_fib_prepare || !ds->ops->ipv4_fib_add)
-> +		return -EOPNOTSUPP;
-> +
-> +	if (switchdev_trans_ph_prepare(trans))
-> +		ret = ds->ops->ipv4_fib_prepare(ds, p->port, fib4, trans);
-> +	else
-> +		ret = ds->ops->ipv4_fib_add(ds, p->port, fib4, trans);
-> +
-> +	return ret;
-> +}
-
-Please see dsa_slave_port_vlan_add for a better logic with the prepare
-phase and void add routine.
-
-> +
-> +static int dsa_slave_ipv4_fib_del(struct net_device *dev,
-> +				  const struct switchdev_obj_ipv4_fib *fib4)
-> +{
-> +	struct dsa_slave_priv *p = netdev_priv(dev);
-> +	struct dsa_switch *ds = p->parent;
-> +	int ret = -EOPNOTSUPP;
-> +
-> +	if (ds->ops->ipv4_fib_del)
-> +		ret = ds->ops->ipv4_fib_del(ds, p->port, fib4);
-> +
-> +	return ret;
-> +}
-
-Just curious, isn't there a dump operation for SWITCHDEV_OBJ_ID_IPV4_FIB?
-
-> +
->  static int dsa_slave_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
->  {
->  	struct dsa_slave_priv *p = netdev_priv(dev);
-> @@ -465,6 +497,11 @@ static int dsa_slave_port_obj_add(struct net_device *dev,
->  					      SWITCHDEV_OBJ_PORT_VLAN(obj),
->  					      trans);
->  		break;
-> +	case SWITCHDEV_OBJ_ID_IPV4_FIB:
-> +		err = dsa_slave_ipv4_fib_add(dev,
-> +					     SWITCHDEV_OBJ_IPV4_FIB(obj),
-> +					     trans);
-> +		break;
->  	default:
->  		err = -EOPNOTSUPP;
->  		break;
-> @@ -490,6 +527,10 @@ static int dsa_slave_port_obj_del(struct net_device *dev,
->  		err = dsa_slave_port_vlan_del(dev,
->  					      SWITCHDEV_OBJ_PORT_VLAN(obj));
->  		break;
-> +	case SWITCHDEV_OBJ_ID_IPV4_FIB:
-> +		err = dsa_slave_ipv4_fib_del(dev,
-> +					     SWITCHDEV_OBJ_IPV4_FIB(obj));
-> +		break;
->  	default:
->  		err = -EOPNOTSUPP;
->  		break;
-
-Please keep the SWITCHDEV_OBJ_ID_IPV4_FIB case ordered with other cases
-as well.
-
-I'm adding Jiri's in the loop, since he has started a thread on FIB
-notifications a few days ago, his feedback might be interesting. If I'm
-not mistaken, there is a plan to factorize FID routines (not sure).
-
-Thanks,
-
-        Vivien
+>> The fact that these changes are being
+>> passed of as something only needed for KCM is irrelevant, e1000 is a
+>> well deployed a NIC and there's no restriction that I see that would
+>> prevent any users from enabling this feature on real devices.
+>
+> e1k is not even manufactured any more. Probably the only place
+> where it can be found is computer history museum.
+> e1000e fairs slightly better, but it's a different nic and this
+> patch is not about it.
+>
