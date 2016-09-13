@@ -1,34 +1,45 @@
-From: Nelson Chang <nelson.chang@mediatek.com>
-Subject: [PATCH net-next 0/3] net: ethernet: mediatek: add HW LRO functions
-Date: Tue, 13 Sep 2016 21:54:23 +0800
-Message-ID: <1473774866-3156-1-git-send-email-nelson.chang@mediatek.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
-        <linux-mediatek@lists.infradead.org>, <nelsonch.tw@gmail.com>,
-        Nelson Chang <nelson.chang@mediatek.com>
-To: <john@phrozen.org>, <davem@davemloft.net>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next 3/3] net/sched: cls_flower: Specify vlan attributes format in the UAPI header
+Date: Tue, 13 Sep 2016 17:02:41 +0300
+Message-ID: <1473775361-16547-4-git-send-email-ogerlitz@mellanox.com>
+References: <1473775361-16547-1-git-send-email-ogerlitz@mellanox.com>
+Cc: Jiri Pirko <jiri@mellanox.com>, netdev@vger.kernel.org,
+        Hadar Har-Zion <hadarh@mellanox.com>,
+        Paul Blakey <paulb@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw01.mediatek.com ([210.61.82.183]:39024 "EHLO
-        mailgw01.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751234AbcIMNyi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 09:54:38 -0400
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:36270 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751567AbcIMOCz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 10:02:55 -0400
+In-Reply-To: <1473775361-16547-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The patches add the large receive offload (LRO) functions by hardware and
-the ethtool functions to configure RX flows of HW LRO.
+Specify the format (size and endianess) for the vlan attributes.
 
-Nelson Chang (3):
-  net: ethernet: mediatek: add HW LRO functions of PDMA RX rings
-  net: ethernet: mediatek: add ethtool functions to configure RX flows
-    of HW LRO
-  net: ethernet: mediatek: add dts configuration to enable HW LRO
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ include/uapi/linux/pkt_cls.h | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
- .../devicetree/bindings/net/mediatek-net.txt       |   2 +
- drivers/net/ethernet/mediatek/mtk_eth_soc.c        | 433 +++++++++++++++++++--
- drivers/net/ethernet/mediatek/mtk_eth_soc.h        |  75 +++-
- 3 files changed, 485 insertions(+), 25 deletions(-)
-
+diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+index 60ea2a0..8915b61 100644
+--- a/include/uapi/linux/pkt_cls.h
++++ b/include/uapi/linux/pkt_cls.h
+@@ -428,9 +428,9 @@ enum {
+ 	TCA_FLOWER_KEY_UDP_DST,		/* be16 */
+ 
+ 	TCA_FLOWER_FLAGS,
+-	TCA_FLOWER_KEY_VLAN_ID,
+-	TCA_FLOWER_KEY_VLAN_PRIO,
+-	TCA_FLOWER_KEY_VLAN_ETH_TYPE,
++	TCA_FLOWER_KEY_VLAN_ID,		/* be16 */
++	TCA_FLOWER_KEY_VLAN_PRIO,	/* u8   */
++	TCA_FLOWER_KEY_VLAN_ETH_TYPE,	/* be16 */
+ 
+ 	TCA_FLOWER_KEY_ENC_KEY_ID,	/* be32 */
+ 	TCA_FLOWER_KEY_ENC_IPV4_SRC,	/* be32 */
 -- 
-1.9.1
+2.3.7
