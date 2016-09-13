@@ -1,106 +1,89 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 1/3] net/sched: cls_flower: Support masking for matching on tcp/udp ports
-Date: Tue, 13 Sep 2016 17:02:39 +0300
-Message-ID: <1473775361-16547-2-git-send-email-ogerlitz@mellanox.com>
-References: <1473775361-16547-1-git-send-email-ogerlitz@mellanox.com>
-Cc: Jiri Pirko <jiri@mellanox.com>, netdev@vger.kernel.org,
-        Hadar Har-Zion <hadarh@mellanox.com>,
-        Paul Blakey <paulb@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:36271 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751745AbcIMOCx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 10:02:53 -0400
-In-Reply-To: <1473775361-16547-1-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Lance Richardson <lrichard-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH net-next] openvswitch: avoid deferred execution of
+	recirc actions
+Date: Tue, 13 Sep 2016 10:08:54 -0400
+Message-ID: <1473775734-27382-1-git-send-email-lrichard@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: sramamur-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Add the definitions for src/dst udp/tcp port masks and use
-them when setting && dumping the relevant keys.
-
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Signed-off-by: Paul Blakey <paulb@mellanox.com>
----
- include/uapi/linux/pkt_cls.h |  4 ++++
- net/sched/cls_flower.c       | 20 ++++++++++++--------
- 2 files changed, 16 insertions(+), 8 deletions(-)
-
-diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
-index f9c287c..60ea2a0 100644
---- a/include/uapi/linux/pkt_cls.h
-+++ b/include/uapi/linux/pkt_cls.h
-@@ -442,6 +442,10 @@ enum {
- 	TCA_FLOWER_KEY_ENC_IPV6_DST,	/* struct in6_addr */
- 	TCA_FLOWER_KEY_ENC_IPV6_DST_MASK,/* struct in6_addr */
- 
-+	TCA_FLOWER_KEY_TCP_SRC_MASK,	/* be16 */
-+	TCA_FLOWER_KEY_TCP_DST_MASK,	/* be16 */
-+	TCA_FLOWER_KEY_UDP_SRC_MASK,	/* be16 */
-+	TCA_FLOWER_KEY_UDP_DST_MASK,	/* be16 */
- 	__TCA_FLOWER_MAX,
- };
- 
-diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index b084b2a..027523c 100644
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@ -335,6 +335,10 @@ static const struct nla_policy fl_policy[TCA_FLOWER_MAX + 1] = {
- 	[TCA_FLOWER_KEY_ENC_IPV6_SRC_MASK] = { .len = sizeof(struct in6_addr) },
- 	[TCA_FLOWER_KEY_ENC_IPV6_DST]	= { .len = sizeof(struct in6_addr) },
- 	[TCA_FLOWER_KEY_ENC_IPV6_DST_MASK] = { .len = sizeof(struct in6_addr) },
-+	[TCA_FLOWER_KEY_TCP_SRC_MASK]	= { .type = NLA_U16 },
-+	[TCA_FLOWER_KEY_TCP_DST_MASK]	= { .type = NLA_U16 },
-+	[TCA_FLOWER_KEY_UDP_SRC_MASK]	= { .type = NLA_U16 },
-+	[TCA_FLOWER_KEY_UDP_DST_MASK]	= { .type = NLA_U16 },
- };
- 
- static void fl_set_key_val(struct nlattr **tb,
-@@ -432,17 +436,17 @@ static int fl_set_key(struct net *net, struct nlattr **tb,
- 
- 	if (key->basic.ip_proto == IPPROTO_TCP) {
- 		fl_set_key_val(tb, &key->tp.src, TCA_FLOWER_KEY_TCP_SRC,
--			       &mask->tp.src, TCA_FLOWER_UNSPEC,
-+			       &mask->tp.src, TCA_FLOWER_KEY_TCP_SRC_MASK,
- 			       sizeof(key->tp.src));
- 		fl_set_key_val(tb, &key->tp.dst, TCA_FLOWER_KEY_TCP_DST,
--			       &mask->tp.dst, TCA_FLOWER_UNSPEC,
-+			       &mask->tp.dst, TCA_FLOWER_KEY_TCP_DST_MASK,
- 			       sizeof(key->tp.dst));
- 	} else if (key->basic.ip_proto == IPPROTO_UDP) {
- 		fl_set_key_val(tb, &key->tp.src, TCA_FLOWER_KEY_UDP_SRC,
--			       &mask->tp.src, TCA_FLOWER_UNSPEC,
-+			       &mask->tp.src, TCA_FLOWER_KEY_UDP_SRC_MASK,
- 			       sizeof(key->tp.src));
- 		fl_set_key_val(tb, &key->tp.dst, TCA_FLOWER_KEY_UDP_DST,
--			       &mask->tp.dst, TCA_FLOWER_UNSPEC,
-+			       &mask->tp.dst, TCA_FLOWER_KEY_UDP_DST_MASK,
- 			       sizeof(key->tp.dst));
- 	}
- 
-@@ -877,18 +881,18 @@ static int fl_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
- 
- 	if (key->basic.ip_proto == IPPROTO_TCP &&
- 	    (fl_dump_key_val(skb, &key->tp.src, TCA_FLOWER_KEY_TCP_SRC,
--			     &mask->tp.src, TCA_FLOWER_UNSPEC,
-+			     &mask->tp.src, TCA_FLOWER_KEY_TCP_SRC_MASK,
- 			     sizeof(key->tp.src)) ||
- 	     fl_dump_key_val(skb, &key->tp.dst, TCA_FLOWER_KEY_TCP_DST,
--			     &mask->tp.dst, TCA_FLOWER_UNSPEC,
-+			     &mask->tp.dst, TCA_FLOWER_KEY_TCP_DST_MASK,
- 			     sizeof(key->tp.dst))))
- 		goto nla_put_failure;
- 	else if (key->basic.ip_proto == IPPROTO_UDP &&
- 		 (fl_dump_key_val(skb, &key->tp.src, TCA_FLOWER_KEY_UDP_SRC,
--				  &mask->tp.src, TCA_FLOWER_UNSPEC,
-+				  &mask->tp.src, TCA_FLOWER_KEY_UDP_SRC_MASK,
- 				  sizeof(key->tp.src)) ||
- 		  fl_dump_key_val(skb, &key->tp.dst, TCA_FLOWER_KEY_UDP_DST,
--				  &mask->tp.dst, TCA_FLOWER_UNSPEC,
-+				  &mask->tp.dst, TCA_FLOWER_KEY_UDP_DST_MASK,
- 				  sizeof(key->tp.dst))))
- 		goto nla_put_failure;
- 
--- 
-2.3.7
+VGhlIG92cyBrZXJuZWwgZGF0YSBwYXRoIGN1cnJlbnRseSBkZWZlcnMgdGhlIGV4ZWN1dGlvbiBv
+ZiBhbGwKcmVjaXJjIGFjdGlvbnMgdW50aWwgc3RhY2sgdXRpbGl6YXRpb24gaXMgYXQgYSBtaW5p
+bXVtLgpUaGlzIGlzIHRvbyBsaW1pdGluZyBmb3Igc29tZSBwYWNrZXQgZm9yd2FyZGluZyBzY2Vu
+YXJpb3MgZHVlIHRvCnRoZSBzbWFsbCBzaXplIG9mIHRoZSBkZWZlcnJlZCBhY3Rpb24gRklGTyAo
+MTAgZW50cmllcykuIEZvcgpleGFtcGxlLCBicm9hZGNhc3QgdHJhZmZpYyBzZW50IG91dCBtb3Jl
+IHRoYW4gMTAgcG9ydHMgd2l0aApyZWNpcmN1bGF0aW9uIHJlc3VsdHMgaW4gcGFja2V0IGRyb3Bz
+IHdoZW4gdGhlIGRlZmVycmVkIGFjdGlvbgpGSUZPIGJlY29tZXMgZnVsbCwgYXMgcmVwb3J0ZWQg
+aGVyZToKCiAgICAgaHR0cDovL29wZW52c3dpdGNoLm9yZy9waXBlcm1haWwvZGV2LzIwMTYtTWFy
+Y2gvMDY3NjcyLmh0bWwKClNpbmNlIHRoZSBjdXJyZW50IHJlY3Vyc2lvbiBkZXB0aCBpcyBhdmFp
+bGFibGUgKGl0IGlzIGFscmVhZHkgdHJhY2tlZApieSB0aGUgZXhlY19hY3Rpb25zX2xldmVsIHBj
+cHUgdmFyaWFibGUpLCB3ZSBjYW4gdXNlIGl0IHRvIGRldGVybWluZQp3aGV0aGVyIHRvIGV4ZWN1
+dGUgcmVjaXJjdWxhdGlvbiBhY3Rpb25zIGltbWVkaWF0ZWx5IChzYWZlIHdoZW4KcmVjdXJzaW9u
+IGRlcHRoIGlzIGxvdykgb3IgZGVmZXIgZXhlY3V0aW9uIHVudGlsIG1vcmUgc3RhY2sgc3BhY2Ug
+aXMKYXZhaWxhYmxlLgoKV2l0aCB0aGlzIGNoYW5nZSwgdGhlIGRlZmVycmVkIGFjdGlvbiBmaWZv
+IHNpemUgYmVjb21lcyBhIG5vbi1pc3N1ZQpmb3IgY3VycmVudGx5IGZhaWxpbmcgc2NlbmFyaW9z
+IGJlY2F1c2UgaXQgaXMgbm8gbG9uZ2VyIHVzZWQgd2hlbgp0aGVyZSBhcmUgdGhyZWUgb3IgZmV3
+ZXIgcmVjdXJzaW9ucyB0aHJvdWdoIG92c19leGVjdXRlX2FjdGlvbnMoKS4KClN1Z2dlc3RlZC1i
+eTogUHJhdmluIFNoZWxhciA8cHNoZWxhckBvdm4ub3JnPgpTaWduZWQtb2ZmLWJ5OiBMYW5jZSBS
+aWNoYXJkc29uIDxscmljaGFyZEByZWRoYXQuY29tPgotLS0KIG5ldC9vcGVudnN3aXRjaC9hY3Rp
+b25zLmMgfCAzMCArKysrKysrKysrKysrKysrKysrKysrKysrKysrLS0KIDEgZmlsZSBjaGFuZ2Vk
+LCAyOCBpbnNlcnRpb25zKCspLCAyIGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL25ldC9vcGVu
+dnN3aXRjaC9hY3Rpb25zLmMgYi9uZXQvb3BlbnZzd2l0Y2gvYWN0aW9ucy5jCmluZGV4IDZlYjUy
+NjEuLmVmN2NjNmMgMTAwNjQ0Ci0tLSBhL25ldC9vcGVudnN3aXRjaC9hY3Rpb25zLmMKKysrIGIv
+bmV0L29wZW52c3dpdGNoL2FjdGlvbnMuYwpAQCAtNzEsNiArNzEsOCBAQCBzdHJ1Y3Qgb3ZzX2Zy
+YWdfZGF0YSB7CiBzdGF0aWMgREVGSU5FX1BFUl9DUFUoc3RydWN0IG92c19mcmFnX2RhdGEsIG92
+c19mcmFnX2RhdGFfc3RvcmFnZSk7CiAKICNkZWZpbmUgREVGRVJSRURfQUNUSU9OX0ZJRk9fU0la
+RSAxMAorI2RlZmluZSBPVlNfUkVDVVJTSU9OX0xJTUlUIDUKKyNkZWZpbmUgT1ZTX0RFRkVSUkVE
+X0FDVElPTl9USFJFU0hPTEQgKE9WU19SRUNVUlNJT05fTElNSVQgLSAyKQogc3RydWN0IGFjdGlv
+bl9maWZvIHsKIAlpbnQgaGVhZDsKIAlpbnQgdGFpbDsKQEAgLTc4LDcgKzgwLDEyIEBAIHN0cnVj
+dCBhY3Rpb25fZmlmbyB7CiAJc3RydWN0IGRlZmVycmVkX2FjdGlvbiBmaWZvW0RFRkVSUkVEX0FD
+VElPTl9GSUZPX1NJWkVdOwogfTsKIAorc3RydWN0IHJlY2lyY19rZXlzIHsKKwlzdHJ1Y3Qgc3df
+Zmxvd19rZXkga2V5W09WU19ERUZFUlJFRF9BQ1RJT05fVEhSRVNIT0xEXTsKK307CisKIHN0YXRp
+YyBzdHJ1Y3QgYWN0aW9uX2ZpZm8gX19wZXJjcHUgKmFjdGlvbl9maWZvczsKK3N0YXRpYyBzdHJ1
+Y3QgcmVjaXJjX2tleXMgX19wZXJjcHUgKnJlY2lyY19rZXlzOwogc3RhdGljIERFRklORV9QRVJf
+Q1BVKGludCwgZXhlY19hY3Rpb25zX2xldmVsKTsKIAogc3RhdGljIHZvaWQgYWN0aW9uX2ZpZm9f
+aW5pdChzdHJ1Y3QgYWN0aW9uX2ZpZm8gKmZpZm8pCkBAIC0xMDIwLDYgKzEwMjcsNyBAQCBzdGF0
+aWMgaW50IGV4ZWN1dGVfcmVjaXJjKHN0cnVjdCBkYXRhcGF0aCAqZHAsIHN0cnVjdCBza19idWZm
+ICpza2IsCiAJCQkgIGNvbnN0IHN0cnVjdCBubGF0dHIgKmEsIGludCByZW0pCiB7CiAJc3RydWN0
+IGRlZmVycmVkX2FjdGlvbiAqZGE7CisJaW50IGxldmVsOwogCiAJaWYgKCFpc19mbG93X2tleV92
+YWxpZChrZXkpKSB7CiAJCWludCBlcnI7CkBAIC0xMDQzLDYgKzEwNTEsMTggQEAgc3RhdGljIGlu
+dCBleGVjdXRlX3JlY2lyYyhzdHJ1Y3QgZGF0YXBhdGggKmRwLCBzdHJ1Y3Qgc2tfYnVmZiAqc2ti
+LAogCQkJcmV0dXJuIDA7CiAJfQogCisJbGV2ZWwgPSB0aGlzX2NwdV9yZWFkKGV4ZWNfYWN0aW9u
+c19sZXZlbCk7CisJaWYgKGxldmVsIDw9IE9WU19ERUZFUlJFRF9BQ1RJT05fVEhSRVNIT0xEKSB7
+CisJCXN0cnVjdCByZWNpcmNfa2V5cyAqcmtzID0gdGhpc19jcHVfcHRyKHJlY2lyY19rZXlzKTsK
+KwkJc3RydWN0IHN3X2Zsb3dfa2V5ICpyZWNpcmNfa2V5ID0gJnJrcy0+a2V5W2xldmVsIC0gMV07
+CisKKwkJKnJlY2lyY19rZXkgPSAqa2V5OworCQlyZWNpcmNfa2V5LT5yZWNpcmNfaWQgPSBubGFf
+Z2V0X3UzMihhKTsKKwkJb3ZzX2RwX3Byb2Nlc3NfcGFja2V0KHNrYiwgcmVjaXJjX2tleSk7CisK
+KwkJcmV0dXJuIDA7CisJfQorCiAJZGEgPSBhZGRfZGVmZXJyZWRfYWN0aW9ucyhza2IsIGtleSwg
+TlVMTCk7CiAJaWYgKGRhKSB7CiAJCWRhLT5wa3Rfa2V5LnJlY2lyY19pZCA9IG5sYV9nZXRfdTMy
+KGEpOwpAQCAtMTIwOSwxMSArMTIyOSwxMCBAQCBpbnQgb3ZzX2V4ZWN1dGVfYWN0aW9ucyhzdHJ1
+Y3QgZGF0YXBhdGggKmRwLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAogCQkJY29uc3Qgc3RydWN0IHN3
+X2Zsb3dfYWN0aW9ucyAqYWN0cywKIAkJCXN0cnVjdCBzd19mbG93X2tleSAqa2V5KQogewotCXN0
+YXRpYyBjb25zdCBpbnQgb3ZzX3JlY3Vyc2lvbl9saW1pdCA9IDU7CiAJaW50IGVyciwgbGV2ZWw7
+CiAKIAlsZXZlbCA9IF9fdGhpc19jcHVfaW5jX3JldHVybihleGVjX2FjdGlvbnNfbGV2ZWwpOwot
+CWlmICh1bmxpa2VseShsZXZlbCA+IG92c19yZWN1cnNpb25fbGltaXQpKSB7CisJaWYgKHVubGlr
+ZWx5KGxldmVsID4gT1ZTX1JFQ1VSU0lPTl9MSU1JVCkpIHsKIAkJbmV0X2NyaXRfcmF0ZWxpbWl0
+ZWQoIm92czogcmVjdXJzaW9uIGxpbWl0IHJlYWNoZWQgb24gZGF0YXBhdGggJXMsIHByb2JhYmxl
+IGNvbmZpZ3VyYXRpb24gZXJyb3JcbiIsCiAJCQkJICAgICBvdnNfZHBfbmFtZShkcCkpOwogCQlr
+ZnJlZV9za2Ioc2tiKTsKQEAgLTEyMzgsMTAgKzEyNTcsMTcgQEAgaW50IGFjdGlvbl9maWZvc19p
+bml0KHZvaWQpCiAJaWYgKCFhY3Rpb25fZmlmb3MpCiAJCXJldHVybiAtRU5PTUVNOwogCisJcmVj
+aXJjX2tleXMgPSBhbGxvY19wZXJjcHUoc3RydWN0IHJlY2lyY19rZXlzKTsKKwlpZiAoIXJlY2ly
+Y19rZXlzKSB7CisJCWZyZWVfcGVyY3B1KGFjdGlvbl9maWZvcyk7CisJCXJldHVybiAtRU5PTUVN
+OworCX0KKwogCXJldHVybiAwOwogfQogCiB2b2lkIGFjdGlvbl9maWZvc19leGl0KHZvaWQpCiB7
+CiAJZnJlZV9wZXJjcHUoYWN0aW9uX2ZpZm9zKTsKKwlmcmVlX3BlcmNwdShyZWNpcmNfa2V5cyk7
+CiB9Ci0tIAoyLjUuNQoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3
+aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
