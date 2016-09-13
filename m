@@ -1,254 +1,120 @@
-From: Varun Prakash <varun-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [net-next PATCH 02/11] libcxgb,iw_cxgb4,cxgbit: add cxgb_find_route()
-Date: Tue, 13 Sep 2016 21:23:57 +0530
-Message-ID: <109658fdf85a08113aa425eefe3ff4dab7249a11.1473781521.git.varun@chelsio.com>
+From: Varun Prakash <varun@chelsio.com>
+Subject: [net-next PATCH 08/11] libcxgb,iw_cxgb4,cxgbit: add cxgb_mk_close_con_req()
+Date: Tue, 13 Sep 2016 21:24:03 +0530
+Message-ID: <bab96a7ca90a0aa17f0698f5c248de3209f62a8f.1473781521.git.varun@chelsio.com>
 References: <cover.1473781521.git.varun@chelsio.com>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nab-IzHhD5pYlfBP7FQvKIMDCQ@public.gmane.org,
-        dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org,
-        gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, indranil-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, varun-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <cover.1473781521.git.varun-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-In-Reply-To: <cover.1473781521.git.varun-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-References: <cover.1473781521.git.varun-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        target-devel@vger.kernel.org, nab@linux-iscsi.org,
+        dledford@redhat.com, swise@opengridcomputing.com,
+        gerlitz.or@gmail.com, indranil@chelsio.com, varun@chelsio.com
+To: davem@davemloft.net
+Return-path: <target-devel-owner@vger.kernel.org>
+In-Reply-To: <cover.1473781521.git.varun@chelsio.com>
+In-Reply-To: <cover.1473781521.git.varun@chelsio.com>
+References: <cover.1473781521.git.varun@chelsio.com>
+Sender: target-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add cxgb_find_route() in libcxgb_cm.c to remove
-it's duplicate definitions from cxgb4/cm.c and
-cxgbit/cxgbit_cm.c.
+Add cxgb_mk_close_con_req() to remove duplicate
+code to form CPL_CLOSE_CON_REQ hardware command.
 
-Signed-off-by: Varun Prakash <varun-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Signed-off-by: Varun Prakash <varun@chelsio.com>
 ---
- drivers/infiniband/hw/cxgb4/cm.c                  | 53 +++++++----------------
- drivers/net/ethernet/chelsio/libcxgb/libcxgb_cm.c | 44 +++++++++++++++++++
- drivers/net/ethernet/chelsio/libcxgb/libcxgb_cm.h |  4 ++
- drivers/target/iscsi/cxgbit/cxgbit_cm.c           | 36 +++------------
- 4 files changed, 69 insertions(+), 68 deletions(-)
+ drivers/infiniband/hw/cxgb4/cm.c                  | 13 ++++---------
+ drivers/net/ethernet/chelsio/libcxgb/libcxgb_cm.h | 16 ++++++++++++++++
+ drivers/target/iscsi/cxgbit/cxgbit_cm.c           | 13 +++----------
+ 3 files changed, 23 insertions(+), 19 deletions(-)
 
 diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
-index e591f61..02f5e20 100644
+index b818bd6..22bccd8 100644
 --- a/drivers/infiniband/hw/cxgb4/cm.c
 +++ b/drivers/infiniband/hw/cxgb4/cm.c
-@@ -505,32 +505,6 @@ out:
- 	return dst;
- }
+@@ -637,21 +637,16 @@ static int send_flowc(struct c4iw_ep *ep)
  
--static struct dst_entry *find_route(struct c4iw_dev *dev, __be32 local_ip,
--				 __be32 peer_ip, __be16 local_port,
--				 __be16 peer_port, u8 tos)
--{
--	struct rtable *rt;
--	struct flowi4 fl4;
--	struct neighbour *n;
--
--	rt = ip_route_output_ports(&init_net, &fl4, NULL, peer_ip, local_ip,
--				   peer_port, local_port, IPPROTO_TCP,
--				   tos, 0);
--	if (IS_ERR(rt))
--		return NULL;
--	n = dst_neigh_lookup(&rt->dst, &peer_ip);
--	if (!n)
--		return NULL;
--	if (!our_interface(dev, n->dev) &&
--	    !(n->dev->flags & IFF_LOOPBACK)) {
--		neigh_release(n);
--		dst_release(&rt->dst);
--		return NULL;
--	}
--	neigh_release(n);
--	return &rt->dst;
--}
--
- static void arp_failure_discard(void *handle, struct sk_buff *skb)
+ static int send_halfclose(struct c4iw_ep *ep)
  {
- 	pr_err(MOD "ARP failure\n");
-@@ -2215,9 +2189,11 @@ static int c4iw_reconnect(struct c4iw_ep *ep)
+-	struct cpl_close_con_req *req;
+ 	struct sk_buff *skb = skb_dequeue(&ep->com.ep_skb_list);
+-	int wrlen = roundup(sizeof *req, 16);
++	u32 wrlen = roundup(sizeof(struct cpl_close_con_req), 16);
  
- 	/* find a route */
- 	if (ep->com.cm_id->m_local_addr.ss_family == AF_INET) {
--		ep->dst = find_route(ep->com.dev, laddr->sin_addr.s_addr,
--				     raddr->sin_addr.s_addr, laddr->sin_port,
--				     raddr->sin_port, ep->com.cm_id->tos);
-+		ep->dst = cxgb_find_route(&ep->com.dev->rdev.lldi, get_real_dev,
-+					  laddr->sin_addr.s_addr,
-+					  raddr->sin_addr.s_addr,
-+					  laddr->sin_port,
-+					  raddr->sin_port, ep->com.cm_id->tos);
- 		iptype = 4;
- 		ra = (__u8 *)&raddr->sin_addr;
- 	} else {
-@@ -2556,9 +2532,9 @@ static int pass_accept_req(struct c4iw_dev *dev, struct sk_buff *skb)
- 		     , __func__, parent_ep, hwtid,
- 		     local_ip, peer_ip, ntohs(local_port),
- 		     ntohs(peer_port), peer_mss);
--		dst = find_route(dev, *(__be32 *)local_ip, *(__be32 *)peer_ip,
--				 local_port, peer_port,
--				 tos);
-+		dst = cxgb_find_route(&dev->rdev.lldi, get_real_dev,
-+				      *(__be32 *)local_ip, *(__be32 *)peer_ip,
-+				      local_port, peer_port, tos);
- 	} else {
- 		PDBG("%s parent ep %p hwtid %u laddr %pI6 raddr %pI6 lport %d rport %d peer_mss %d\n"
- 		     , __func__, parent_ep, hwtid,
-@@ -3340,9 +3316,11 @@ int c4iw_connect(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
- 		PDBG("%s saddr %pI4 sport 0x%x raddr %pI4 rport 0x%x\n",
- 		     __func__, &laddr->sin_addr, ntohs(laddr->sin_port),
- 		     ra, ntohs(raddr->sin_port));
--		ep->dst = find_route(dev, laddr->sin_addr.s_addr,
--				     raddr->sin_addr.s_addr, laddr->sin_port,
--				     raddr->sin_port, cm_id->tos);
-+		ep->dst = cxgb_find_route(&dev->rdev.lldi, get_real_dev,
-+					  laddr->sin_addr.s_addr,
-+					  raddr->sin_addr.s_addr,
-+					  laddr->sin_port,
-+					  raddr->sin_port, cm_id->tos);
- 	} else {
- 		iptype = 6;
- 		ra = (__u8 *)&raddr6->sin6_addr;
-@@ -4006,8 +3984,9 @@ static int rx_pkt(struct c4iw_dev *dev, struct sk_buff *skb)
- 	     ntohl(iph->daddr), ntohs(tcph->dest), ntohl(iph->saddr),
- 	     ntohs(tcph->source), iph->tos);
+ 	PDBG("%s ep %p tid %u\n", __func__, ep, ep->hwtid);
+ 	if (WARN_ON(!skb))
+ 		return -ENOMEM;
  
--	dst = find_route(dev, iph->daddr, iph->saddr, tcph->dest, tcph->source,
--			 iph->tos);
-+	dst = cxgb_find_route(&dev->rdev.lldi, get_real_dev,
-+			      iph->daddr, iph->saddr, tcph->dest,
-+			      tcph->source, iph->tos);
- 	if (!dst) {
- 		pr_err("%s - failed to find dst entry!\n",
- 		       __func__);
-diff --git a/drivers/net/ethernet/chelsio/libcxgb/libcxgb_cm.c b/drivers/net/ethernet/chelsio/libcxgb/libcxgb_cm.c
-index d7342bb..a318412 100644
---- a/drivers/net/ethernet/chelsio/libcxgb/libcxgb_cm.c
-+++ b/drivers/net/ethernet/chelsio/libcxgb/libcxgb_cm.c
-@@ -32,6 +32,7 @@
- 
- #include <linux/tcp.h>
- #include <linux/ipv6.h>
-+#include <net/route.h>
- 
- #include "libcxgb_cm.h"
- 
-@@ -70,3 +71,46 @@ cxgb_get_4tuple(struct cpl_pass_accept_req *req, enum chip_type type,
- 	*local_port = tcp->dest;
+-	set_wr_txq(skb, CPL_PRIORITY_DATA, ep->txq_idx);
+-	t4_set_arp_err_handler(skb, NULL, arp_failure_discard);
+-	req = (struct cpl_close_con_req *) skb_put(skb, wrlen);
+-	memset(req, 0, wrlen);
+-	INIT_TP_WR(req, ep->hwtid);
+-	OPCODE_TID(req) = cpu_to_be32(MK_OPCODE_TID(CPL_CLOSE_CON_REQ,
+-						    ep->hwtid));
++	cxgb_mk_close_con_req(skb, wrlen, ep->hwtid, ep->txq_idx,
++			      NULL, arp_failure_discard);
++
+ 	return c4iw_l2t_send(&ep->com.dev->rdev, skb, ep->l2t);
  }
- EXPORT_SYMBOL(cxgb_get_4tuple);
-+
-+static bool
-+cxgb_our_interface(struct cxgb4_lld_info *lldi,
-+		   struct net_device *(*get_real_dev)(struct net_device *),
-+		   struct net_device *egress_dev)
-+{
-+	int i;
-+
-+	egress_dev = get_real_dev(egress_dev);
-+	for (i = 0; i < lldi->nports; i++)
-+		if (lldi->ports[i] == egress_dev)
-+			return true;
-+	return false;
-+}
-+
-+struct dst_entry *
-+cxgb_find_route(struct cxgb4_lld_info *lldi,
-+		struct net_device *(*get_real_dev)(struct net_device *),
-+		__be32 local_ip, __be32 peer_ip, __be16 local_port,
-+		__be16 peer_port, u8 tos)
-+{
-+	struct rtable *rt;
-+	struct flowi4 fl4;
-+	struct neighbour *n;
-+
-+	rt = ip_route_output_ports(&init_net, &fl4, NULL, peer_ip, local_ip,
-+				   peer_port, local_port, IPPROTO_TCP,
-+				   tos, 0);
-+	if (IS_ERR(rt))
-+		return NULL;
-+	n = dst_neigh_lookup(&rt->dst, &peer_ip);
-+	if (!n)
-+		return NULL;
-+	if (!cxgb_our_interface(lldi, get_real_dev, n->dev) &&
-+	    !(n->dev->flags & IFF_LOOPBACK)) {
-+		neigh_release(n);
-+		dst_release(&rt->dst);
-+		return NULL;
-+	}
-+	neigh_release(n);
-+	return &rt->dst;
-+}
-+EXPORT_SYMBOL(cxgb_find_route);
+ 
 diff --git a/drivers/net/ethernet/chelsio/libcxgb/libcxgb_cm.h b/drivers/net/ethernet/chelsio/libcxgb/libcxgb_cm.h
-index 2ab8d9b..fe69161 100644
+index fbb973e..e77661d 100644
 --- a/drivers/net/ethernet/chelsio/libcxgb/libcxgb_cm.h
 +++ b/drivers/net/ethernet/chelsio/libcxgb/libcxgb_cm.h
-@@ -39,4 +39,8 @@
+@@ -38,6 +38,7 @@
+ 
+ #include <cxgb4.h>
+ #include <t4_msg.h>
++#include <l2t.h>
+ 
  void
  cxgb_get_4tuple(struct cpl_pass_accept_req *, enum chip_type,
- 		int *, __u8 *, __u8 *, __be16 *, __be16 *);
-+struct dst_entry *
-+cxgb_find_route(struct cxgb4_lld_info *,
-+		struct net_device *(*)(struct net_device *),
-+		__be32, __be32, __be16,	__be16, u8);
+@@ -96,4 +97,19 @@ cxgb_mk_tid_release(struct sk_buff *skb, u32 len, u32 tid, u16 chan)
+ 	OPCODE_TID(req) = cpu_to_be32(MK_OPCODE_TID(CPL_TID_RELEASE, tid));
+ 	set_wr_txq(skb, CPL_PRIORITY_SETUP, chan);
+ }
++
++static inline void
++cxgb_mk_close_con_req(struct sk_buff *skb, u32 len, u32 tid, u16 chan,
++		      void *handle, arp_err_handler_t handler)
++{
++	struct cpl_close_con_req *req;
++
++	req = (struct cpl_close_con_req *)__skb_put(skb, len);
++	memset(req, 0, len);
++
++	INIT_TP_WR(req, tid);
++	OPCODE_TID(req) = cpu_to_be32(MK_OPCODE_TID(CPL_CLOSE_CON_REQ, tid));
++	set_wr_txq(skb, CPL_PRIORITY_DATA, chan);
++	t4_set_arp_err_handler(skb, handle, handler);
++}
  #endif
 diff --git a/drivers/target/iscsi/cxgbit/cxgbit_cm.c b/drivers/target/iscsi/cxgbit/cxgbit_cm.c
-index 8bb5a25..49b24b9 100644
+index 994058f..a8f5f36 100644
 --- a/drivers/target/iscsi/cxgbit/cxgbit_cm.c
 +++ b/drivers/target/iscsi/cxgbit/cxgbit_cm.c
-@@ -830,33 +830,6 @@ out:
- 	return dst;
- }
- 
--static struct dst_entry *
--cxgbit_find_route(struct cxgbit_device *cdev, __be32 local_ip, __be32 peer_ip,
--		  __be16 local_port, __be16 peer_port, u8 tos)
--{
--	struct rtable *rt;
--	struct flowi4 fl4;
--	struct neighbour *n;
--
--	rt = ip_route_output_ports(&init_net, &fl4, NULL, peer_ip,
--				   local_ip,
--				   peer_port, local_port, IPPROTO_TCP,
--				   tos, 0);
--	if (IS_ERR(rt))
--		return NULL;
--	n = dst_neigh_lookup(&rt->dst, &peer_ip);
--	if (!n)
--		return NULL;
--	if (!cxgbit_our_interface(cdev, n->dev) &&
--	    !(n->dev->flags & IFF_LOOPBACK)) {
--		neigh_release(n);
--		dst_release(&rt->dst);
--		return NULL;
--	}
--	neigh_release(n);
--	return &rt->dst;
--}
--
- static void cxgbit_set_tcp_window(struct cxgbit_sock *csk, struct port_info *pi)
+@@ -615,21 +615,14 @@ void cxgbit_free_np(struct iscsi_np *np)
+ static void cxgbit_send_halfclose(struct cxgbit_sock *csk)
  {
- 	unsigned int linkspeed;
-@@ -1315,10 +1288,11 @@ cxgbit_pass_accept_req(struct cxgbit_device *cdev, struct sk_buff *skb)
- 			 , __func__, cnp, tid,
- 			 local_ip, peer_ip, ntohs(local_port),
- 			 ntohs(peer_port), peer_mss);
--		dst = cxgbit_find_route(cdev, *(__be32 *)local_ip,
--					*(__be32 *)peer_ip,
--					local_port, peer_port,
--					PASS_OPEN_TOS_G(ntohl(req->tos_stid)));
-+		dst = cxgb_find_route(&cdev->lldi, cxgbit_get_real_dev,
-+				      *(__be32 *)local_ip,
-+				      *(__be32 *)peer_ip,
-+				      local_port, peer_port,
-+				      PASS_OPEN_TOS_G(ntohl(req->tos_stid)));
- 	} else {
- 		pr_debug("%s parent sock %p tid %u laddr %pI6 raddr %pI6 "
- 			 "lport %d rport %d peer_mss %d\n"
+ 	struct sk_buff *skb;
+-	struct cpl_close_con_req *req;
+-	unsigned int len = roundup(sizeof(struct cpl_close_con_req), 16);
++	u32 len = roundup(sizeof(struct cpl_close_con_req), 16);
+ 
+ 	skb = alloc_skb(len, GFP_ATOMIC);
+ 	if (!skb)
+ 		return;
+ 
+-	req = (struct cpl_close_con_req *)__skb_put(skb, len);
+-	memset(req, 0, len);
+-
+-	set_wr_txq(skb, CPL_PRIORITY_DATA, csk->txq_idx);
+-	INIT_TP_WR(req, csk->tid);
+-	OPCODE_TID(req) = cpu_to_be32(MK_OPCODE_TID(CPL_CLOSE_CON_REQ,
+-						    csk->tid));
+-	req->rsvd = 0;
++	cxgb_mk_close_con_req(skb, len, csk->tid, csk->txq_idx,
++			      NULL, NULL);
+ 
+ 	cxgbit_skcb_flags(skb) |= SKCBF_TX_FLAG_COMPL;
+ 	__skb_queue_tail(&csk->txq, skb);
 -- 
 2.0.2
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
