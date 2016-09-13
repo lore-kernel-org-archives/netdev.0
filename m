@@ -1,91 +1,143 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH v3 net 1/1] net sched actions: fix GETing actions
-Date: Tue, 13 Sep 2016 09:20:39 -0700
-Message-ID: <CAM_iQpWDNzceBLqzVibyyqExk5MXajJCt6Yu3KkC2r2poU0DQQ@mail.gmail.com>
-References: <1473721658-6034-1-git-send-email-jhs@emojatatu.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH V3] net-next: dsa: add FIB support
+Date: Tue, 13 Sep 2016 12:21:37 -0400
+Message-ID: <87intz22jy.fsf@ketchup.mtl.sfl>
+References: <1473746541-52314-1-git-send-email-john@phrozen.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f65.google.com ([209.85.214.65]:36615 "EHLO
-        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754885AbcIMQVB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 12:21:01 -0400
-Received: by mail-it0-f65.google.com with SMTP id n143so1662351ita.3
-        for <netdev@vger.kernel.org>; Tue, 13 Sep 2016 09:21:00 -0700 (PDT)
-In-Reply-To: <1473721658-6034-1-git-send-email-jhs@emojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        John Crispin <john@phrozen.org>, Jiri Pirko <jiri@mellanox.com>
+To: John Crispin <john@phrozen.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1473746541-52314-1-git-send-email-john@phrozen.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 12, 2016 at 4:07 PM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
->
-> With the batch changes that translated transient actions into
-> a temporary list lost in the translation was the fact that
-> tcf_action_destroy() will eventually delete the action from
-> the permanent location if the refcount is zero.
->
-> Example of what broke:
-> ...add a gact action to drop
-> sudo $TC actions add action drop index 10
-> ...now retrieve it, looks good
-> sudo $TC actions get action gact index 10
-> ...retrieve it again and find it is gone!
-> sudo $TC actions get action gact index 10
->
-> Fixes:
-> commit 22dc13c837c3 ("net_sched: convert tcf_exts from list to pointer array"),
-> commit 824a7e8863b3 ("net_sched: remove an unnecessary list_del()")
-> commit f07fed82ad79 ("net_sched: remove the leftover cleanup_a()")
->
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
-> ---
->  net/sched/act_api.c | 19 +++++++++++++++++++
->  1 file changed, 19 insertions(+)
->
-> diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-> index d09d068..50720b1 100644
-> --- a/net/sched/act_api.c
-> +++ b/net/sched/act_api.c
-> @@ -592,6 +592,16 @@ err_out:
->         return ERR_PTR(err);
+Hi John,
+
+John Crispin <john@phrozen.org> writes:
+
+> @@ -237,6 +237,7 @@ struct switchdev_obj;
+>  struct switchdev_obj_port_fdb;
+>  struct switchdev_obj_port_mdb;
+>  struct switchdev_obj_port_vlan;
+> +struct switchdev_obj_ipv4_fib;
+
+Can you keep it ordered please (put obj_ipv4 above port_fdb).
+
+>  
+>  struct dsa_switch_ops {
+>  	struct list_head	list;
+> @@ -386,6 +387,18 @@ struct dsa_switch_ops {
+>  	int	(*port_mdb_dump)(struct dsa_switch *ds, int port,
+>  				 struct switchdev_obj_port_mdb *mdb,
+>  				 int (*cb)(struct switchdev_obj *obj));
+> +
+> +	/*
+> +	 * IPV4 routing
+> +	 */
+> +	int	(*ipv4_fib_prepare)(struct dsa_switch *ds, int port,
+> +				    const struct switchdev_obj_ipv4_fib *fib4,
+> +				    struct switchdev_trans *trans);
+> +	int	(*ipv4_fib_add)(struct dsa_switch *ds, int port,
+> +				const struct switchdev_obj_ipv4_fib *fib4,
+> +				struct switchdev_trans *trans);
+
+DSA *_add ops should return void, since no error is supposed to occure in
+the commit phase.
+
+If they are port-based operations, please prefix them with "port_",
+otherwise, the int port parameter is not necessary.
+
+> +	int	(*ipv4_fib_del)(struct dsa_switch *ds, int port,
+> +				const struct switchdev_obj_ipv4_fib *fib4);
+>  };
+>  
+>  void register_switch_driver(struct dsa_switch_ops *type);
+> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+> index 9ecbe78..c974ac0 100644
+> --- a/net/dsa/slave.c
+> +++ b/net/dsa/slave.c
+> @@ -334,6 +334,38 @@ static int dsa_slave_port_mdb_dump(struct net_device *dev,
+>  	return -EOPNOTSUPP;
 >  }
->
-> +static void cleanup_a(struct list_head *actions, int ovr)
+>  
+> +static int dsa_slave_ipv4_fib_add(struct net_device *dev,
+> +				  const struct switchdev_obj_ipv4_fib *fib4,
+> +				  struct switchdev_trans *trans)
 > +{
-> +       struct tc_action *a;
+> +	struct dsa_slave_priv *p = netdev_priv(dev);
+> +	struct dsa_switch *ds = p->parent;
+> +	int ret;
 > +
-> +       list_for_each_entry(a, actions, list) {
-> +               if (ovr)
-> +                       a->tcfa_refcnt -= 1;
-> +       }
+> +	if (!ds->ops->ipv4_fib_prepare || !ds->ops->ipv4_fib_add)
+> +		return -EOPNOTSUPP;
+> +
+> +	if (switchdev_trans_ph_prepare(trans))
+> +		ret = ds->ops->ipv4_fib_prepare(ds, p->port, fib4, trans);
+> +	else
+> +		ret = ds->ops->ipv4_fib_add(ds, p->port, fib4, trans);
+> +
+> +	return ret;
 > +}
+
+Please see dsa_slave_port_vlan_add for a better logic with the prepare
+phase and void add routine.
+
 > +
->  int tcf_action_init(struct net *net, struct nlattr *nla,
->                                   struct nlattr *est, char *name, int ovr,
->                                   int bind, struct list_head *actions)
-> @@ -612,8 +622,15 @@ int tcf_action_init(struct net *net, struct nlattr *nla,
->                         goto err;
->                 }
->                 act->order = i;
-> +               if (ovr)
-> +                       act->tcfa_refcnt += 1;
->                 list_add_tail(&act->list, actions);
->         }
+> +static int dsa_slave_ipv4_fib_del(struct net_device *dev,
+> +				  const struct switchdev_obj_ipv4_fib *fib4)
+> +{
+> +	struct dsa_slave_priv *p = netdev_priv(dev);
+> +	struct dsa_switch *ds = p->parent;
+> +	int ret = -EOPNOTSUPP;
 > +
-> +       /* Remove the temp refcnt which was necessary to protect against
-> +        * destroying an existing action which was being replaced
-> +        */
-> +       cleanup_a(actions, ovr);
->         return 0;
+> +	if (ds->ops->ipv4_fib_del)
+> +		ret = ds->ops->ipv4_fib_del(ds, p->port, fib4);
+> +
+> +	return ret;
+> +}
 
-I am still trying to understand this piece, so here you hold the refcnt
-for the same action used by the later iteration? Otherwise there is
-almost none user inbetween hold and release...
+Just curious, isn't there a dump operation for SWITCHDEV_OBJ_ID_IPV4_FIB?
 
-The comment you add is not clear to me, we use RTNL/RCU to
-sync destroy and replace, so how could that happen?
+> +
+>  static int dsa_slave_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+>  {
+>  	struct dsa_slave_priv *p = netdev_priv(dev);
+> @@ -465,6 +497,11 @@ static int dsa_slave_port_obj_add(struct net_device *dev,
+>  					      SWITCHDEV_OBJ_PORT_VLAN(obj),
+>  					      trans);
+>  		break;
+> +	case SWITCHDEV_OBJ_ID_IPV4_FIB:
+> +		err = dsa_slave_ipv4_fib_add(dev,
+> +					     SWITCHDEV_OBJ_IPV4_FIB(obj),
+> +					     trans);
+> +		break;
+>  	default:
+>  		err = -EOPNOTSUPP;
+>  		break;
+> @@ -490,6 +527,10 @@ static int dsa_slave_port_obj_del(struct net_device *dev,
+>  		err = dsa_slave_port_vlan_del(dev,
+>  					      SWITCHDEV_OBJ_PORT_VLAN(obj));
+>  		break;
+> +	case SWITCHDEV_OBJ_ID_IPV4_FIB:
+> +		err = dsa_slave_ipv4_fib_del(dev,
+> +					     SWITCHDEV_OBJ_IPV4_FIB(obj));
+> +		break;
+>  	default:
+>  		err = -EOPNOTSUPP;
+>  		break;
 
-Thanks.
+Please keep the SWITCHDEV_OBJ_ID_IPV4_FIB case ordered with other cases
+as well.
+
+I'm adding Jiri's in the loop, since he has started a thread on FIB
+notifications a few days ago, his feedback might be interesting. If I'm
+not mistaken, there is a plan to factorize FID routines (not sure).
+
+Thanks,
+
+        Vivien
