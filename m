@@ -1,7 +1,7 @@
 From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: [PATCH v2 2/6] selftests: move prctl tests from Documentation/prctl
-Date: Tue, 13 Sep 2016 14:18:41 -0600
-Message-ID: <32d3a85e67c26278ff5a9bf9cbab811ac716f221.1473795601.git.shuahkh@osg.samsung.com>
+Subject: [PATCH v2 5/6] selftests: move ia64 tests from Documentation/ia64
+Date: Tue, 13 Sep 2016 14:18:44 -0600
+Message-ID: <27dc09c0d9a9fb0f372c70696732867ff8837e64.1473795601.git.shuahkh@osg.samsung.com>
 References: <cover.1473795601.git.shuahkh@osg.samsung.com>
 Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-doc@vger.kernel.org,
         linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
@@ -13,723 +13,624 @@ To: corbet@lwn.net, richardcochran@gmail.com, wim@iguana.be,
         christopher.s.hall@intel.com, john.stultz@linaro.org,
         sergei.shtylyov@cogentembedded.com, mpe@ellerman.id.au,
         jani.nikula@linux.intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from resqmta-po-12v.sys.comcast.net ([96.114.154.171]:48482 "EHLO
-        resqmta-po-12v.sys.comcast.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1760742AbcIMUS7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 16:18:59 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1473795601.git.shuahkh@osg.samsung.com>
 In-Reply-To: <cover.1473795601.git.shuahkh@osg.samsung.com>
 References: <cover.1473795601.git.shuahkh@osg.samsung.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Move prctl tests from Documentation/prctl to selftests/prctl.
+Remove ia64 from Makefile to move the test to selftests.
 
-Remove prctl from Makefile to move the test. Update prctl Makefile to work
-under selftests. prctl will not be run as part of selftests suite and will
-not be included in install targets. They can be built separately for now.
+Update ia64 Makefile to work under selftests. ia64 will not be run as part
+of selftests suite and will not be included in install targets. They can be
+built separately for now.
+
+The original Makefile built this test on all archirectures and this update
+doesn't change that.
 
 Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
 ---
- Documentation/Makefile                             |  2 +-
- Documentation/prctl/.gitignore                     |  3 -
- Documentation/prctl/Makefile                       | 10 ---
- .../prctl/disable-tsc-ctxt-sw-stress-test.c        | 97 ----------------------
- .../prctl/disable-tsc-on-off-stress-test.c         | 96 ---------------------
- Documentation/prctl/disable-tsc-test.c             | 95 ---------------------
- tools/testing/selftests/prctl/.gitignore           |  3 +
- tools/testing/selftests/prctl/Makefile             | 15 ++++
- .../prctl/disable-tsc-ctxt-sw-stress-test.c        | 97 ++++++++++++++++++++++
- .../prctl/disable-tsc-on-off-stress-test.c         | 96 +++++++++++++++++++++
- tools/testing/selftests/prctl/disable-tsc-test.c   | 95 +++++++++++++++++++++
- 11 files changed, 307 insertions(+), 302 deletions(-)
- delete mode 100644 Documentation/prctl/.gitignore
- delete mode 100644 Documentation/prctl/Makefile
- delete mode 100644 Documentation/prctl/disable-tsc-ctxt-sw-stress-test.c
- delete mode 100644 Documentation/prctl/disable-tsc-on-off-stress-test.c
- delete mode 100644 Documentation/prctl/disable-tsc-test.c
- create mode 100644 tools/testing/selftests/prctl/.gitignore
- create mode 100644 tools/testing/selftests/prctl/Makefile
- create mode 100644 tools/testing/selftests/prctl/disable-tsc-ctxt-sw-stress-test.c
- create mode 100644 tools/testing/selftests/prctl/disable-tsc-on-off-stress-test.c
- create mode 100644 tools/testing/selftests/prctl/disable-tsc-test.c
+ Documentation/Makefile                       |   2 +-
+ Documentation/ia64/.gitignore                |   1 -
+ Documentation/ia64/Makefile                  |   5 -
+ Documentation/ia64/aliasing-test.c           | 263 ---------------------------
+ tools/testing/selftests/ia64/.gitignore      |   1 +
+ tools/testing/selftests/ia64/Makefile        |   8 +
+ tools/testing/selftests/ia64/aliasing-test.c | 263 +++++++++++++++++++++++++++
+ 7 files changed, 273 insertions(+), 270 deletions(-)
+ delete mode 100644 Documentation/ia64/.gitignore
+ delete mode 100644 Documentation/ia64/Makefile
+ delete mode 100644 Documentation/ia64/aliasing-test.c
+ create mode 100644 tools/testing/selftests/ia64/.gitignore
+ create mode 100644 tools/testing/selftests/ia64/Makefile
+ create mode 100644 tools/testing/selftests/ia64/aliasing-test.c
 
 diff --git a/Documentation/Makefile b/Documentation/Makefile
-index 0473710..7a28f6c 100644
+index 085b917..572e9b7 100644
 --- a/Documentation/Makefile
 +++ b/Documentation/Makefile
 @@ -1,3 +1,3 @@
  subdir-y := accounting auxdisplay blackfin \
- 	ia64 laptops mic misc-devices \
--	networking pcmcia prctl ptp timers vDSO watchdog
-+	networking pcmcia ptp timers vDSO watchdog
-diff --git a/Documentation/prctl/.gitignore b/Documentation/prctl/.gitignore
+-	ia64 laptops mic misc-devices \
++	laptops mic misc-devices \
+ 	networking pcmcia timers watchdog
+diff --git a/Documentation/ia64/.gitignore b/Documentation/ia64/.gitignore
 deleted file mode 100644
-index 0b5c274..0000000
---- a/Documentation/prctl/.gitignore
+index ab806ed..0000000
+--- a/Documentation/ia64/.gitignore
 +++ /dev/null
-@@ -1,3 +0,0 @@
--disable-tsc-ctxt-sw-stress-test
--disable-tsc-on-off-stress-test
--disable-tsc-test
-diff --git a/Documentation/prctl/Makefile b/Documentation/prctl/Makefile
+@@ -1 +0,0 @@
+-aliasing-test
+diff --git a/Documentation/ia64/Makefile b/Documentation/ia64/Makefile
 deleted file mode 100644
-index 44de308..0000000
---- a/Documentation/prctl/Makefile
+index d493163..0000000
+--- a/Documentation/ia64/Makefile
 +++ /dev/null
-@@ -1,10 +0,0 @@
--ifndef CROSS_COMPILE
+@@ -1,5 +0,0 @@
 -# List of programs to build
--hostprogs-$(CONFIG_X86) := disable-tsc-ctxt-sw-stress-test disable-tsc-on-off-stress-test disable-tsc-test
+-hostprogs-y := aliasing-test
+-
 -# Tell kbuild to always build the programs
 -always := $(hostprogs-y)
--
--HOSTCFLAGS_disable-tsc-ctxt-sw-stress-test.o += -I$(objtree)/usr/include
--HOSTCFLAGS_disable-tsc-on-off-stress-test.o += -I$(objtree)/usr/include
--HOSTCFLAGS_disable-tsc-test.o += -I$(objtree)/usr/include
--endif
-diff --git a/Documentation/prctl/disable-tsc-ctxt-sw-stress-test.c b/Documentation/prctl/disable-tsc-ctxt-sw-stress-test.c
+diff --git a/Documentation/ia64/aliasing-test.c b/Documentation/ia64/aliasing-test.c
 deleted file mode 100644
-index f7499d1..0000000
---- a/Documentation/prctl/disable-tsc-ctxt-sw-stress-test.c
+index 62a190d..0000000
+--- a/Documentation/ia64/aliasing-test.c
 +++ /dev/null
-@@ -1,97 +0,0 @@
+@@ -1,263 +0,0 @@
 -/*
-- * Tests for prctl(PR_GET_TSC, ...) / prctl(PR_SET_TSC, ...)
+- * Exercise /dev/mem mmap cases that have been troublesome in the past
 - *
-- * Tests if the control register is updated correctly
-- * at context switches
+- * (c) Copyright 2007 Hewlett-Packard Development Company, L.P.
+- *	Bjorn Helgaas <bjorn.helgaas@hp.com>
 - *
-- * Warning: this test will cause a very high load for a few seconds
-- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
 - */
 -
--#include <stdio.h>
 -#include <stdlib.h>
+-#include <stdio.h>
+-#include <sys/types.h>
+-#include <dirent.h>
+-#include <fcntl.h>
+-#include <fnmatch.h>
+-#include <string.h>
+-#include <sys/ioctl.h>
+-#include <sys/mman.h>
+-#include <sys/stat.h>
 -#include <unistd.h>
--#include <signal.h>
--#include <inttypes.h>
--#include <wait.h>
+-#include <linux/pci.h>
 -
+-int sum;
 -
--#include <sys/prctl.h>
--#include <linux/prctl.h>
--
--/* Get/set the process' ability to use the timestamp counter instruction */
--#ifndef PR_GET_TSC
--#define PR_GET_TSC 25
--#define PR_SET_TSC 26
--# define PR_TSC_ENABLE		1   /* allow the use of the timestamp counter */
--# define PR_TSC_SIGSEGV		2   /* throw a SIGSEGV instead of reading the TSC */
--#endif
--
--static uint64_t rdtsc(void)
+-static int map_mem(char *path, off_t offset, size_t length, int touch)
 -{
--uint32_t lo, hi;
--/* We cannot use "=A", since this would use %rax on x86_64 */
--__asm__ __volatile__ ("rdtsc" : "=a" (lo), "=d" (hi));
--return (uint64_t)hi << 32 | lo;
--}
+-	int fd, rc;
+-	void *addr;
+-	int *c;
 -
--static void sigsegv_expect(int sig)
--{
--	/* */
--}
--
--static void segvtask(void)
--{
--	if (prctl(PR_SET_TSC, PR_TSC_SIGSEGV) < 0)
--	{
--		perror("prctl");
--		exit(0);
+-	fd = open(path, O_RDWR);
+-	if (fd == -1) {
+-		perror(path);
+-		return -1;
 -	}
--	signal(SIGSEGV, sigsegv_expect);
--	alarm(10);
--	rdtsc();
--	fprintf(stderr, "FATAL ERROR, rdtsc() succeeded while disabled\n");
--	exit(0);
--}
 -
--
--static void sigsegv_fail(int sig)
--{
--	fprintf(stderr, "FATAL ERROR, rdtsc() failed while enabled\n");
--	exit(0);
--}
--
--static void rdtsctask(void)
--{
--	if (prctl(PR_SET_TSC, PR_TSC_ENABLE) < 0)
--	{
--		perror("prctl");
--		exit(0);
+-	if (fnmatch("/proc/bus/pci/*", path, 0) == 0) {
+-		rc = ioctl(fd, PCIIOC_MMAP_IS_MEM);
+-		if (rc == -1)
+-			perror("PCIIOC_MMAP_IS_MEM ioctl");
 -	}
--	signal(SIGSEGV, sigsegv_fail);
--	alarm(10);
--	for(;;) rdtsc();
+-
+-	addr = mmap(NULL, length, PROT_READ|PROT_WRITE, MAP_SHARED, fd, offset);
+-	if (addr == MAP_FAILED)
+-		return 1;
+-
+-	if (touch) {
+-		c = (int *) addr;
+-		while (c < (int *) (addr + length))
+-			sum += *c++;
+-	}
+-
+-	rc = munmap(addr, length);
+-	if (rc == -1) {
+-		perror("munmap");
+-		return -1;
+-	}
+-
+-	close(fd);
+-	return 0;
 -}
 -
--
--int main(void)
+-static int scan_tree(char *path, char *file, off_t offset, size_t length, int touch)
 -{
--	int n_tasks = 100, i;
+-	struct dirent **namelist;
+-	char *name, *path2;
+-	int i, n, r, rc = 0, result = 0;
+-	struct stat buf;
 -
--	fprintf(stderr, "[No further output means we're allright]\n");
+-	n = scandir(path, &namelist, 0, alphasort);
+-	if (n < 0) {
+-		perror("scandir");
+-		return -1;
+-	}
 -
--	for (i=0; i<n_tasks; i++)
--		if (fork() == 0)
--		{
--			if (i & 1)
--				segvtask();
--			else
--				rdtsctask();
+-	for (i = 0; i < n; i++) {
+-		name = namelist[i]->d_name;
+-
+-		if (fnmatch(".", name, 0) == 0)
+-			goto skip;
+-		if (fnmatch("..", name, 0) == 0)
+-			goto skip;
+-
+-		path2 = malloc(strlen(path) + strlen(name) + 3);
+-		strcpy(path2, path);
+-		strcat(path2, "/");
+-		strcat(path2, name);
+-
+-		if (fnmatch(file, name, 0) == 0) {
+-			rc = map_mem(path2, offset, length, touch);
+-			if (rc == 0)
+-				fprintf(stderr, "PASS: %s 0x%lx-0x%lx is %s\n", path2, offset, offset + length, touch ? "readable" : "mappable");
+-			else if (rc > 0)
+-				fprintf(stderr, "PASS: %s 0x%lx-0x%lx not mappable\n", path2, offset, offset + length);
+-			else {
+-				fprintf(stderr, "FAIL: %s 0x%lx-0x%lx not accessible\n", path2, offset, offset + length);
+-				return rc;
+-			}
+-		} else {
+-			r = lstat(path2, &buf);
+-			if (r == 0 && S_ISDIR(buf.st_mode)) {
+-				rc = scan_tree(path2, file, offset, length, touch);
+-				if (rc < 0)
+-					return rc;
+-			}
 -		}
 -
--	for (i=0; i<n_tasks; i++)
--		wait(NULL);
+-		result |= rc;
+-		free(path2);
 -
--	exit(0);
--}
--
-diff --git a/Documentation/prctl/disable-tsc-on-off-stress-test.c b/Documentation/prctl/disable-tsc-on-off-stress-test.c
-deleted file mode 100644
-index a06f027..0000000
---- a/Documentation/prctl/disable-tsc-on-off-stress-test.c
-+++ /dev/null
-@@ -1,96 +0,0 @@
--/*
-- * Tests for prctl(PR_GET_TSC, ...) / prctl(PR_SET_TSC, ...)
-- *
-- * Tests if the control register is updated correctly
-- * when set with prctl()
-- *
-- * Warning: this test will cause a very high load for a few seconds
-- *
-- */
--
--#include <stdio.h>
--#include <stdlib.h>
--#include <unistd.h>
--#include <signal.h>
--#include <inttypes.h>
--#include <wait.h>
--
--
--#include <sys/prctl.h>
--#include <linux/prctl.h>
--
--/* Get/set the process' ability to use the timestamp counter instruction */
--#ifndef PR_GET_TSC
--#define PR_GET_TSC 25
--#define PR_SET_TSC 26
--# define PR_TSC_ENABLE		1   /* allow the use of the timestamp counter */
--# define PR_TSC_SIGSEGV		2   /* throw a SIGSEGV instead of reading the TSC */
--#endif
--
--/* snippet from wikipedia :-) */
--
--static uint64_t rdtsc(void)
--{
--uint32_t lo, hi;
--/* We cannot use "=A", since this would use %rax on x86_64 */
--__asm__ __volatile__ ("rdtsc" : "=a" (lo), "=d" (hi));
--return (uint64_t)hi << 32 | lo;
--}
--
--int should_segv = 0;
--
--static void sigsegv_cb(int sig)
--{
--	if (!should_segv)
--	{
--		fprintf(stderr, "FATAL ERROR, rdtsc() failed while enabled\n");
--		exit(0);
+-skip:
+-		free(namelist[i]);
 -	}
--	if (prctl(PR_SET_TSC, PR_TSC_ENABLE) < 0)
--	{
--		perror("prctl");
--		exit(0);
--	}
--	should_segv = 0;
--
--	rdtsc();
+-	free(namelist);
+-	return result;
 -}
 -
--static void task(void)
+-char buf[1024];
+-
+-static int read_rom(char *path)
 -{
--	signal(SIGSEGV, sigsegv_cb);
--	alarm(10);
--	for(;;)
--	{
--		rdtsc();
--		if (should_segv)
--		{
--			fprintf(stderr, "FATAL ERROR, rdtsc() succeeded while disabled\n");
--			exit(0);
+-	int fd, rc;
+-	size_t size = 0;
+-
+-	fd = open(path, O_RDWR);
+-	if (fd == -1) {
+-		perror(path);
+-		return -1;
+-	}
+-
+-	rc = write(fd, "1", 2);
+-	if (rc <= 0) {
+-		close(fd);
+-		perror("write");
+-		return -1;
+-	}
+-
+-	do {
+-		rc = read(fd, buf, sizeof(buf));
+-		if (rc > 0)
+-			size += rc;
+-	} while (rc > 0);
+-
+-	close(fd);
+-	return size;
+-}
+-
+-static int scan_rom(char *path, char *file)
+-{
+-	struct dirent **namelist;
+-	char *name, *path2;
+-	int i, n, r, rc = 0, result = 0;
+-	struct stat buf;
+-
+-	n = scandir(path, &namelist, 0, alphasort);
+-	if (n < 0) {
+-		perror("scandir");
+-		return -1;
+-	}
+-
+-	for (i = 0; i < n; i++) {
+-		name = namelist[i]->d_name;
+-
+-		if (fnmatch(".", name, 0) == 0)
+-			goto skip;
+-		if (fnmatch("..", name, 0) == 0)
+-			goto skip;
+-
+-		path2 = malloc(strlen(path) + strlen(name) + 3);
+-		strcpy(path2, path);
+-		strcat(path2, "/");
+-		strcat(path2, name);
+-
+-		if (fnmatch(file, name, 0) == 0) {
+-			rc = read_rom(path2);
+-
+-			/*
+-			 * It's OK if the ROM is unreadable.  Maybe there
+-			 * is no ROM, or some other error occurred.  The
+-			 * important thing is that no MCA happened.
+-			 */
+-			if (rc > 0)
+-				fprintf(stderr, "PASS: %s read %d bytes\n", path2, rc);
+-			else {
+-				fprintf(stderr, "PASS: %s not readable\n", path2);
+-				return rc;
+-			}
+-		} else {
+-			r = lstat(path2, &buf);
+-			if (r == 0 && S_ISDIR(buf.st_mode)) {
+-				rc = scan_rom(path2, file);
+-				if (rc < 0)
+-					return rc;
+-			}
 -		}
--		if (prctl(PR_SET_TSC, PR_TSC_SIGSEGV) < 0)
--		{
--			perror("prctl");
--			exit(0);
--		}
--		should_segv = 1;
+-
+-		result |= rc;
+-		free(path2);
+-
+-skip:
+-		free(namelist[i]);
 -	}
--}
--
--
--int main(void)
--{
--	int n_tasks = 100, i;
--
--	fprintf(stderr, "[No further output means we're allright]\n");
--
--	for (i=0; i<n_tasks; i++)
--		if (fork() == 0)
--			task();
--
--	for (i=0; i<n_tasks; i++)
--		wait(NULL);
--
--	exit(0);
--}
--
-diff --git a/Documentation/prctl/disable-tsc-test.c b/Documentation/prctl/disable-tsc-test.c
-deleted file mode 100644
-index 8d494f7..0000000
---- a/Documentation/prctl/disable-tsc-test.c
-+++ /dev/null
-@@ -1,95 +0,0 @@
--/*
-- * Tests for prctl(PR_GET_TSC, ...) / prctl(PR_SET_TSC, ...)
-- *
-- * Basic test to test behaviour of PR_GET_TSC and PR_SET_TSC
-- */
--
--#include <stdio.h>
--#include <stdlib.h>
--#include <unistd.h>
--#include <signal.h>
--#include <inttypes.h>
--
--
--#include <sys/prctl.h>
--#include <linux/prctl.h>
--
--/* Get/set the process' ability to use the timestamp counter instruction */
--#ifndef PR_GET_TSC
--#define PR_GET_TSC 25
--#define PR_SET_TSC 26
--# define PR_TSC_ENABLE		1   /* allow the use of the timestamp counter */
--# define PR_TSC_SIGSEGV		2   /* throw a SIGSEGV instead of reading the TSC */
--#endif
--
--const char *tsc_names[] =
--{
--	[0] = "[not set]",
--	[PR_TSC_ENABLE] = "PR_TSC_ENABLE",
--	[PR_TSC_SIGSEGV] = "PR_TSC_SIGSEGV",
--};
--
--static uint64_t rdtsc(void)
--{
--uint32_t lo, hi;
--/* We cannot use "=A", since this would use %rax on x86_64 */
--__asm__ __volatile__ ("rdtsc" : "=a" (lo), "=d" (hi));
--return (uint64_t)hi << 32 | lo;
--}
--
--static void sigsegv_cb(int sig)
--{
--	int tsc_val = 0;
--
--	printf("[ SIG_SEGV ]\n");
--	printf("prctl(PR_GET_TSC, &tsc_val); ");
--	fflush(stdout);
--
--	if ( prctl(PR_GET_TSC, &tsc_val) == -1)
--		perror("prctl");
--
--	printf("tsc_val == %s\n", tsc_names[tsc_val]);
--	printf("prctl(PR_SET_TSC, PR_TSC_ENABLE)\n");
--	fflush(stdout);
--	if ( prctl(PR_SET_TSC, PR_TSC_ENABLE) == -1)
--		perror("prctl");
--
--	printf("rdtsc() == ");
+-	free(namelist);
+-	return result;
 -}
 -
 -int main(void)
 -{
--	int tsc_val = 0;
+-	int rc;
 -
--	signal(SIGSEGV, sigsegv_cb);
+-	if (map_mem("/dev/mem", 0, 0xA0000, 1) == 0)
+-		fprintf(stderr, "PASS: /dev/mem 0x0-0xa0000 is readable\n");
+-	else
+-		fprintf(stderr, "FAIL: /dev/mem 0x0-0xa0000 not accessible\n");
 -
--	printf("rdtsc() == %llu\n", (unsigned long long)rdtsc());
--	printf("prctl(PR_GET_TSC, &tsc_val); ");
--	fflush(stdout);
+-	/*
+-	 * It's not safe to blindly read the VGA frame buffer.  If you know
+-	 * how to poke the card the right way, it should respond, but it's
+-	 * not safe in general.  Many machines, e.g., Intel chipsets, cover
+-	 * up a non-responding card by just returning -1, but others will
+-	 * report the failure as a machine check.
+-	 */
+-	if (map_mem("/dev/mem", 0xA0000, 0x20000, 0) == 0)
+-		fprintf(stderr, "PASS: /dev/mem 0xa0000-0xc0000 is mappable\n");
+-	else
+-		fprintf(stderr, "FAIL: /dev/mem 0xa0000-0xc0000 not accessible\n");
 -
--	if ( prctl(PR_GET_TSC, &tsc_val) == -1)
--		perror("prctl");
+-	if (map_mem("/dev/mem", 0xC0000, 0x40000, 1) == 0)
+-		fprintf(stderr, "PASS: /dev/mem 0xc0000-0x100000 is readable\n");
+-	else
+-		fprintf(stderr, "FAIL: /dev/mem 0xc0000-0x100000 not accessible\n");
 -
--	printf("tsc_val == %s\n", tsc_names[tsc_val]);
--	printf("rdtsc() == %llu\n", (unsigned long long)rdtsc());
--	printf("prctl(PR_SET_TSC, PR_TSC_ENABLE)\n");
--	fflush(stdout);
+-	/*
+-	 * Often you can map all the individual pieces above (0-0xA0000,
+-	 * 0xA0000-0xC0000, and 0xC0000-0x100000), but can't map the whole
+-	 * thing at once.  This is because the individual pieces use different
+-	 * attributes, and there's no single attribute supported over the
+-	 * whole region.
+-	 */
+-	rc = map_mem("/dev/mem", 0, 1024*1024, 0);
+-	if (rc == 0)
+-		fprintf(stderr, "PASS: /dev/mem 0x0-0x100000 is mappable\n");
+-	else if (rc > 0)
+-		fprintf(stderr, "PASS: /dev/mem 0x0-0x100000 not mappable\n");
+-	else
+-		fprintf(stderr, "FAIL: /dev/mem 0x0-0x100000 not accessible\n");
 -
--	if ( prctl(PR_SET_TSC, PR_TSC_ENABLE) == -1)
--		perror("prctl");
+-	scan_tree("/sys/class/pci_bus", "legacy_mem", 0, 0xA0000, 1);
+-	scan_tree("/sys/class/pci_bus", "legacy_mem", 0xA0000, 0x20000, 0);
+-	scan_tree("/sys/class/pci_bus", "legacy_mem", 0xC0000, 0x40000, 1);
+-	scan_tree("/sys/class/pci_bus", "legacy_mem", 0, 1024*1024, 0);
 -
--	printf("rdtsc() == %llu\n", (unsigned long long)rdtsc());
--	printf("prctl(PR_SET_TSC, PR_TSC_SIGSEGV)\n");
--	fflush(stdout);
+-	scan_rom("/sys/devices", "rom");
 -
--	if ( prctl(PR_SET_TSC, PR_TSC_SIGSEGV) == -1)
--		perror("prctl");
+-	scan_tree("/proc/bus/pci", "??.?", 0, 0xA0000, 1);
+-	scan_tree("/proc/bus/pci", "??.?", 0xA0000, 0x20000, 0);
+-	scan_tree("/proc/bus/pci", "??.?", 0xC0000, 0x40000, 1);
+-	scan_tree("/proc/bus/pci", "??.?", 0, 1024*1024, 0);
 -
--	printf("rdtsc() == ");
--	fflush(stdout);
--	printf("%llu\n", (unsigned long long)rdtsc());
--	fflush(stdout);
--
--	exit(EXIT_SUCCESS);
+-	return rc;
 -}
--
-diff --git a/tools/testing/selftests/prctl/.gitignore b/tools/testing/selftests/prctl/.gitignore
+diff --git a/tools/testing/selftests/ia64/.gitignore b/tools/testing/selftests/ia64/.gitignore
 new file mode 100644
-index 0000000..0b5c274
+index 0000000..ab806ed
 --- /dev/null
-+++ b/tools/testing/selftests/prctl/.gitignore
-@@ -0,0 +1,3 @@
-+disable-tsc-ctxt-sw-stress-test
-+disable-tsc-on-off-stress-test
-+disable-tsc-test
-diff --git a/tools/testing/selftests/prctl/Makefile b/tools/testing/selftests/prctl/Makefile
++++ b/tools/testing/selftests/ia64/.gitignore
+@@ -0,0 +1 @@
++aliasing-test
+diff --git a/tools/testing/selftests/ia64/Makefile b/tools/testing/selftests/ia64/Makefile
 new file mode 100644
-index 0000000..35aa1c8
+index 0000000..2b3de2d
 --- /dev/null
-+++ b/tools/testing/selftests/prctl/Makefile
-@@ -0,0 +1,15 @@
-+ifndef CROSS_COMPILE
-+uname_M := $(shell uname -m 2>/dev/null || echo not)
-+ARCH ?= $(shell echo $(uname_M) | sed -e s/i.86/x86/ -e s/x86_64/x86/)
++++ b/tools/testing/selftests/ia64/Makefile
+@@ -0,0 +1,8 @@
++TEST_PROGS := aliasing-test
 +
-+ifeq ($(ARCH),x86)
-+TEST_PROGS := disable-tsc-ctxt-sw-stress-test disable-tsc-on-off-stress-test \
-+		disable-tsc-test
 +all: $(TEST_PROGS)
 +
 +include ../lib.mk
 +
 +clean:
 +	rm -fr $(TEST_PROGS)
-+endif
-+endif
-diff --git a/tools/testing/selftests/prctl/disable-tsc-ctxt-sw-stress-test.c b/tools/testing/selftests/prctl/disable-tsc-ctxt-sw-stress-test.c
+diff --git a/tools/testing/selftests/ia64/aliasing-test.c b/tools/testing/selftests/ia64/aliasing-test.c
 new file mode 100644
-index 0000000..f7499d1
+index 0000000..62a190d
 --- /dev/null
-+++ b/tools/testing/selftests/prctl/disable-tsc-ctxt-sw-stress-test.c
-@@ -0,0 +1,97 @@
++++ b/tools/testing/selftests/ia64/aliasing-test.c
+@@ -0,0 +1,263 @@
 +/*
-+ * Tests for prctl(PR_GET_TSC, ...) / prctl(PR_SET_TSC, ...)
++ * Exercise /dev/mem mmap cases that have been troublesome in the past
 + *
-+ * Tests if the control register is updated correctly
-+ * at context switches
++ * (c) Copyright 2007 Hewlett-Packard Development Company, L.P.
++ *	Bjorn Helgaas <bjorn.helgaas@hp.com>
 + *
-+ * Warning: this test will cause a very high load for a few seconds
-+ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
 + */
 +
-+#include <stdio.h>
 +#include <stdlib.h>
++#include <stdio.h>
++#include <sys/types.h>
++#include <dirent.h>
++#include <fcntl.h>
++#include <fnmatch.h>
++#include <string.h>
++#include <sys/ioctl.h>
++#include <sys/mman.h>
++#include <sys/stat.h>
 +#include <unistd.h>
-+#include <signal.h>
-+#include <inttypes.h>
-+#include <wait.h>
++#include <linux/pci.h>
 +
++int sum;
 +
-+#include <sys/prctl.h>
-+#include <linux/prctl.h>
-+
-+/* Get/set the process' ability to use the timestamp counter instruction */
-+#ifndef PR_GET_TSC
-+#define PR_GET_TSC 25
-+#define PR_SET_TSC 26
-+# define PR_TSC_ENABLE		1   /* allow the use of the timestamp counter */
-+# define PR_TSC_SIGSEGV		2   /* throw a SIGSEGV instead of reading the TSC */
-+#endif
-+
-+static uint64_t rdtsc(void)
++static int map_mem(char *path, off_t offset, size_t length, int touch)
 +{
-+uint32_t lo, hi;
-+/* We cannot use "=A", since this would use %rax on x86_64 */
-+__asm__ __volatile__ ("rdtsc" : "=a" (lo), "=d" (hi));
-+return (uint64_t)hi << 32 | lo;
-+}
++	int fd, rc;
++	void *addr;
++	int *c;
 +
-+static void sigsegv_expect(int sig)
-+{
-+	/* */
-+}
-+
-+static void segvtask(void)
-+{
-+	if (prctl(PR_SET_TSC, PR_TSC_SIGSEGV) < 0)
-+	{
-+		perror("prctl");
-+		exit(0);
++	fd = open(path, O_RDWR);
++	if (fd == -1) {
++		perror(path);
++		return -1;
 +	}
-+	signal(SIGSEGV, sigsegv_expect);
-+	alarm(10);
-+	rdtsc();
-+	fprintf(stderr, "FATAL ERROR, rdtsc() succeeded while disabled\n");
-+	exit(0);
-+}
 +
-+
-+static void sigsegv_fail(int sig)
-+{
-+	fprintf(stderr, "FATAL ERROR, rdtsc() failed while enabled\n");
-+	exit(0);
-+}
-+
-+static void rdtsctask(void)
-+{
-+	if (prctl(PR_SET_TSC, PR_TSC_ENABLE) < 0)
-+	{
-+		perror("prctl");
-+		exit(0);
++	if (fnmatch("/proc/bus/pci/*", path, 0) == 0) {
++		rc = ioctl(fd, PCIIOC_MMAP_IS_MEM);
++		if (rc == -1)
++			perror("PCIIOC_MMAP_IS_MEM ioctl");
 +	}
-+	signal(SIGSEGV, sigsegv_fail);
-+	alarm(10);
-+	for(;;) rdtsc();
++
++	addr = mmap(NULL, length, PROT_READ|PROT_WRITE, MAP_SHARED, fd, offset);
++	if (addr == MAP_FAILED)
++		return 1;
++
++	if (touch) {
++		c = (int *) addr;
++		while (c < (int *) (addr + length))
++			sum += *c++;
++	}
++
++	rc = munmap(addr, length);
++	if (rc == -1) {
++		perror("munmap");
++		return -1;
++	}
++
++	close(fd);
++	return 0;
 +}
 +
-+
-+int main(void)
++static int scan_tree(char *path, char *file, off_t offset, size_t length, int touch)
 +{
-+	int n_tasks = 100, i;
++	struct dirent **namelist;
++	char *name, *path2;
++	int i, n, r, rc = 0, result = 0;
++	struct stat buf;
 +
-+	fprintf(stderr, "[No further output means we're allright]\n");
++	n = scandir(path, &namelist, 0, alphasort);
++	if (n < 0) {
++		perror("scandir");
++		return -1;
++	}
 +
-+	for (i=0; i<n_tasks; i++)
-+		if (fork() == 0)
-+		{
-+			if (i & 1)
-+				segvtask();
-+			else
-+				rdtsctask();
++	for (i = 0; i < n; i++) {
++		name = namelist[i]->d_name;
++
++		if (fnmatch(".", name, 0) == 0)
++			goto skip;
++		if (fnmatch("..", name, 0) == 0)
++			goto skip;
++
++		path2 = malloc(strlen(path) + strlen(name) + 3);
++		strcpy(path2, path);
++		strcat(path2, "/");
++		strcat(path2, name);
++
++		if (fnmatch(file, name, 0) == 0) {
++			rc = map_mem(path2, offset, length, touch);
++			if (rc == 0)
++				fprintf(stderr, "PASS: %s 0x%lx-0x%lx is %s\n", path2, offset, offset + length, touch ? "readable" : "mappable");
++			else if (rc > 0)
++				fprintf(stderr, "PASS: %s 0x%lx-0x%lx not mappable\n", path2, offset, offset + length);
++			else {
++				fprintf(stderr, "FAIL: %s 0x%lx-0x%lx not accessible\n", path2, offset, offset + length);
++				return rc;
++			}
++		} else {
++			r = lstat(path2, &buf);
++			if (r == 0 && S_ISDIR(buf.st_mode)) {
++				rc = scan_tree(path2, file, offset, length, touch);
++				if (rc < 0)
++					return rc;
++			}
 +		}
 +
-+	for (i=0; i<n_tasks; i++)
-+		wait(NULL);
++		result |= rc;
++		free(path2);
 +
-+	exit(0);
-+}
-+
-diff --git a/tools/testing/selftests/prctl/disable-tsc-on-off-stress-test.c b/tools/testing/selftests/prctl/disable-tsc-on-off-stress-test.c
-new file mode 100644
-index 0000000..a06f027
---- /dev/null
-+++ b/tools/testing/selftests/prctl/disable-tsc-on-off-stress-test.c
-@@ -0,0 +1,96 @@
-+/*
-+ * Tests for prctl(PR_GET_TSC, ...) / prctl(PR_SET_TSC, ...)
-+ *
-+ * Tests if the control register is updated correctly
-+ * when set with prctl()
-+ *
-+ * Warning: this test will cause a very high load for a few seconds
-+ *
-+ */
-+
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <unistd.h>
-+#include <signal.h>
-+#include <inttypes.h>
-+#include <wait.h>
-+
-+
-+#include <sys/prctl.h>
-+#include <linux/prctl.h>
-+
-+/* Get/set the process' ability to use the timestamp counter instruction */
-+#ifndef PR_GET_TSC
-+#define PR_GET_TSC 25
-+#define PR_SET_TSC 26
-+# define PR_TSC_ENABLE		1   /* allow the use of the timestamp counter */
-+# define PR_TSC_SIGSEGV		2   /* throw a SIGSEGV instead of reading the TSC */
-+#endif
-+
-+/* snippet from wikipedia :-) */
-+
-+static uint64_t rdtsc(void)
-+{
-+uint32_t lo, hi;
-+/* We cannot use "=A", since this would use %rax on x86_64 */
-+__asm__ __volatile__ ("rdtsc" : "=a" (lo), "=d" (hi));
-+return (uint64_t)hi << 32 | lo;
-+}
-+
-+int should_segv = 0;
-+
-+static void sigsegv_cb(int sig)
-+{
-+	if (!should_segv)
-+	{
-+		fprintf(stderr, "FATAL ERROR, rdtsc() failed while enabled\n");
-+		exit(0);
++skip:
++		free(namelist[i]);
 +	}
-+	if (prctl(PR_SET_TSC, PR_TSC_ENABLE) < 0)
-+	{
-+		perror("prctl");
-+		exit(0);
-+	}
-+	should_segv = 0;
-+
-+	rdtsc();
++	free(namelist);
++	return result;
 +}
 +
-+static void task(void)
++char buf[1024];
++
++static int read_rom(char *path)
 +{
-+	signal(SIGSEGV, sigsegv_cb);
-+	alarm(10);
-+	for(;;)
-+	{
-+		rdtsc();
-+		if (should_segv)
-+		{
-+			fprintf(stderr, "FATAL ERROR, rdtsc() succeeded while disabled\n");
-+			exit(0);
++	int fd, rc;
++	size_t size = 0;
++
++	fd = open(path, O_RDWR);
++	if (fd == -1) {
++		perror(path);
++		return -1;
++	}
++
++	rc = write(fd, "1", 2);
++	if (rc <= 0) {
++		close(fd);
++		perror("write");
++		return -1;
++	}
++
++	do {
++		rc = read(fd, buf, sizeof(buf));
++		if (rc > 0)
++			size += rc;
++	} while (rc > 0);
++
++	close(fd);
++	return size;
++}
++
++static int scan_rom(char *path, char *file)
++{
++	struct dirent **namelist;
++	char *name, *path2;
++	int i, n, r, rc = 0, result = 0;
++	struct stat buf;
++
++	n = scandir(path, &namelist, 0, alphasort);
++	if (n < 0) {
++		perror("scandir");
++		return -1;
++	}
++
++	for (i = 0; i < n; i++) {
++		name = namelist[i]->d_name;
++
++		if (fnmatch(".", name, 0) == 0)
++			goto skip;
++		if (fnmatch("..", name, 0) == 0)
++			goto skip;
++
++		path2 = malloc(strlen(path) + strlen(name) + 3);
++		strcpy(path2, path);
++		strcat(path2, "/");
++		strcat(path2, name);
++
++		if (fnmatch(file, name, 0) == 0) {
++			rc = read_rom(path2);
++
++			/*
++			 * It's OK if the ROM is unreadable.  Maybe there
++			 * is no ROM, or some other error occurred.  The
++			 * important thing is that no MCA happened.
++			 */
++			if (rc > 0)
++				fprintf(stderr, "PASS: %s read %d bytes\n", path2, rc);
++			else {
++				fprintf(stderr, "PASS: %s not readable\n", path2);
++				return rc;
++			}
++		} else {
++			r = lstat(path2, &buf);
++			if (r == 0 && S_ISDIR(buf.st_mode)) {
++				rc = scan_rom(path2, file);
++				if (rc < 0)
++					return rc;
++			}
 +		}
-+		if (prctl(PR_SET_TSC, PR_TSC_SIGSEGV) < 0)
-+		{
-+			perror("prctl");
-+			exit(0);
-+		}
-+		should_segv = 1;
++
++		result |= rc;
++		free(path2);
++
++skip:
++		free(namelist[i]);
 +	}
-+}
-+
-+
-+int main(void)
-+{
-+	int n_tasks = 100, i;
-+
-+	fprintf(stderr, "[No further output means we're allright]\n");
-+
-+	for (i=0; i<n_tasks; i++)
-+		if (fork() == 0)
-+			task();
-+
-+	for (i=0; i<n_tasks; i++)
-+		wait(NULL);
-+
-+	exit(0);
-+}
-+
-diff --git a/tools/testing/selftests/prctl/disable-tsc-test.c b/tools/testing/selftests/prctl/disable-tsc-test.c
-new file mode 100644
-index 0000000..8d494f7
---- /dev/null
-+++ b/tools/testing/selftests/prctl/disable-tsc-test.c
-@@ -0,0 +1,95 @@
-+/*
-+ * Tests for prctl(PR_GET_TSC, ...) / prctl(PR_SET_TSC, ...)
-+ *
-+ * Basic test to test behaviour of PR_GET_TSC and PR_SET_TSC
-+ */
-+
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <unistd.h>
-+#include <signal.h>
-+#include <inttypes.h>
-+
-+
-+#include <sys/prctl.h>
-+#include <linux/prctl.h>
-+
-+/* Get/set the process' ability to use the timestamp counter instruction */
-+#ifndef PR_GET_TSC
-+#define PR_GET_TSC 25
-+#define PR_SET_TSC 26
-+# define PR_TSC_ENABLE		1   /* allow the use of the timestamp counter */
-+# define PR_TSC_SIGSEGV		2   /* throw a SIGSEGV instead of reading the TSC */
-+#endif
-+
-+const char *tsc_names[] =
-+{
-+	[0] = "[not set]",
-+	[PR_TSC_ENABLE] = "PR_TSC_ENABLE",
-+	[PR_TSC_SIGSEGV] = "PR_TSC_SIGSEGV",
-+};
-+
-+static uint64_t rdtsc(void)
-+{
-+uint32_t lo, hi;
-+/* We cannot use "=A", since this would use %rax on x86_64 */
-+__asm__ __volatile__ ("rdtsc" : "=a" (lo), "=d" (hi));
-+return (uint64_t)hi << 32 | lo;
-+}
-+
-+static void sigsegv_cb(int sig)
-+{
-+	int tsc_val = 0;
-+
-+	printf("[ SIG_SEGV ]\n");
-+	printf("prctl(PR_GET_TSC, &tsc_val); ");
-+	fflush(stdout);
-+
-+	if ( prctl(PR_GET_TSC, &tsc_val) == -1)
-+		perror("prctl");
-+
-+	printf("tsc_val == %s\n", tsc_names[tsc_val]);
-+	printf("prctl(PR_SET_TSC, PR_TSC_ENABLE)\n");
-+	fflush(stdout);
-+	if ( prctl(PR_SET_TSC, PR_TSC_ENABLE) == -1)
-+		perror("prctl");
-+
-+	printf("rdtsc() == ");
++	free(namelist);
++	return result;
 +}
 +
 +int main(void)
 +{
-+	int tsc_val = 0;
++	int rc;
 +
-+	signal(SIGSEGV, sigsegv_cb);
++	if (map_mem("/dev/mem", 0, 0xA0000, 1) == 0)
++		fprintf(stderr, "PASS: /dev/mem 0x0-0xa0000 is readable\n");
++	else
++		fprintf(stderr, "FAIL: /dev/mem 0x0-0xa0000 not accessible\n");
 +
-+	printf("rdtsc() == %llu\n", (unsigned long long)rdtsc());
-+	printf("prctl(PR_GET_TSC, &tsc_val); ");
-+	fflush(stdout);
++	/*
++	 * It's not safe to blindly read the VGA frame buffer.  If you know
++	 * how to poke the card the right way, it should respond, but it's
++	 * not safe in general.  Many machines, e.g., Intel chipsets, cover
++	 * up a non-responding card by just returning -1, but others will
++	 * report the failure as a machine check.
++	 */
++	if (map_mem("/dev/mem", 0xA0000, 0x20000, 0) == 0)
++		fprintf(stderr, "PASS: /dev/mem 0xa0000-0xc0000 is mappable\n");
++	else
++		fprintf(stderr, "FAIL: /dev/mem 0xa0000-0xc0000 not accessible\n");
 +
-+	if ( prctl(PR_GET_TSC, &tsc_val) == -1)
-+		perror("prctl");
++	if (map_mem("/dev/mem", 0xC0000, 0x40000, 1) == 0)
++		fprintf(stderr, "PASS: /dev/mem 0xc0000-0x100000 is readable\n");
++	else
++		fprintf(stderr, "FAIL: /dev/mem 0xc0000-0x100000 not accessible\n");
 +
-+	printf("tsc_val == %s\n", tsc_names[tsc_val]);
-+	printf("rdtsc() == %llu\n", (unsigned long long)rdtsc());
-+	printf("prctl(PR_SET_TSC, PR_TSC_ENABLE)\n");
-+	fflush(stdout);
++	/*
++	 * Often you can map all the individual pieces above (0-0xA0000,
++	 * 0xA0000-0xC0000, and 0xC0000-0x100000), but can't map the whole
++	 * thing at once.  This is because the individual pieces use different
++	 * attributes, and there's no single attribute supported over the
++	 * whole region.
++	 */
++	rc = map_mem("/dev/mem", 0, 1024*1024, 0);
++	if (rc == 0)
++		fprintf(stderr, "PASS: /dev/mem 0x0-0x100000 is mappable\n");
++	else if (rc > 0)
++		fprintf(stderr, "PASS: /dev/mem 0x0-0x100000 not mappable\n");
++	else
++		fprintf(stderr, "FAIL: /dev/mem 0x0-0x100000 not accessible\n");
 +
-+	if ( prctl(PR_SET_TSC, PR_TSC_ENABLE) == -1)
-+		perror("prctl");
++	scan_tree("/sys/class/pci_bus", "legacy_mem", 0, 0xA0000, 1);
++	scan_tree("/sys/class/pci_bus", "legacy_mem", 0xA0000, 0x20000, 0);
++	scan_tree("/sys/class/pci_bus", "legacy_mem", 0xC0000, 0x40000, 1);
++	scan_tree("/sys/class/pci_bus", "legacy_mem", 0, 1024*1024, 0);
 +
-+	printf("rdtsc() == %llu\n", (unsigned long long)rdtsc());
-+	printf("prctl(PR_SET_TSC, PR_TSC_SIGSEGV)\n");
-+	fflush(stdout);
++	scan_rom("/sys/devices", "rom");
 +
-+	if ( prctl(PR_SET_TSC, PR_TSC_SIGSEGV) == -1)
-+		perror("prctl");
++	scan_tree("/proc/bus/pci", "??.?", 0, 0xA0000, 1);
++	scan_tree("/proc/bus/pci", "??.?", 0xA0000, 0x20000, 0);
++	scan_tree("/proc/bus/pci", "??.?", 0xC0000, 0x40000, 1);
++	scan_tree("/proc/bus/pci", "??.?", 0, 1024*1024, 0);
 +
-+	printf("rdtsc() == ");
-+	fflush(stdout);
-+	printf("%llu\n", (unsigned long long)rdtsc());
-+	fflush(stdout);
-+
-+	exit(EXIT_SUCCESS);
++	return rc;
 +}
-+
 -- 
 2.7.4
