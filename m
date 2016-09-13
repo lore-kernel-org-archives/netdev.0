@@ -1,70 +1,54 @@
-From: Jiri Slaby <jslaby-AlSwsSmVLrQ@public.gmane.org>
-Subject: Re: net/bluetooth: workqueue destruction WARNING in
- hci_unregister_dev
-Date: Tue, 13 Sep 2016 20:14:40 +0200
-Message-ID: <c70c2e6f-1451-0705-db14-71bc022102c6@suse.cz>
-References: <20160311171205.GB24046@htj.duckdns.org>
- <56EA9C4D.2080803@suse.cz> <20160318205231.GO20028@mtj.duckdns.org>
- <56F01A1C.40208@suse.cz> <56F0FDCE.1040701@suse.cz>
- <CACT4Y+b+9Ubsbfs58nHAraG+7iXRBkrn=XyCTPDJLike7w-mjQ@mail.gmail.com>
- <CACT4Y+Zs6vkjHo9qHb4TrEiz3S4+quvvVQ9VWvj2Mx6pETGb9Q@mail.gmail.com>
- <20160905130832.GD20784@mtj.duckdns.org>
- <CACT4Y+axnBPkUpMyUC74TFwq-_3Aia-fQRoSSBwbZuiguhjEaA@mail.gmail.com>
- <CACT4Y+Z2dP--yr5oJYPnAmTtzJDHbR6h=6d0nSdg6KB-qseEzg@mail.gmail.com>
- <20160913153520.GC21123@htj.duckdns.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 3/3] net: ethernet: mediatek: add dts
+ configuration to enable HW LRO
+Date: Tue, 13 Sep 2016 11:24:38 -0700
+Message-ID: <3103c7f5-0c67-1ad7-20f5-7722f412c152@gmail.com>
+References: <1473774866-3156-1-git-send-email-nelson.chang@mediatek.com>
+ <1473774866-3156-4-git-send-email-nelson.chang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-        Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-        Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        linux-bluetooth <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        syzkaller <syzkaller-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
-        Kostya Serebryany <kcc-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        Alexander Potapenko <glider-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        Takashi Iwai <tiwai-IBi9RG/b67k@public.gmane.org>
-To: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Dmitry Vyukov <dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160913153520.GC21123-piEFEHQLUPpN0TnZuCh8vA@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: nbd@openwrt.org, netdev@vger.kernel.org,
+        linux-mediatek@lists.infradead.org, nelsonch.tw@gmail.com
+To: Nelson Chang <nelson.chang@mediatek.com>, john@phrozen.org,
+        davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:34807 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752337AbcIMSYo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 14:24:44 -0400
+Received: by mail-pf0-f193.google.com with SMTP id g202so9913218pfb.1
+        for <netdev@vger.kernel.org>; Tue, 13 Sep 2016 11:24:43 -0700 (PDT)
+In-Reply-To: <1473774866-3156-4-git-send-email-nelson.chang@mediatek.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/13/2016, 05:35 PM, Tejun Heo wrote:
-> Hello,
+On 09/13/2016 06:54 AM, Nelson Chang wrote:
+> Add the configuration of HW LRO in the binding document.
 > 
-> On Sat, Sep 10, 2016 at 11:33:48AM +0200, Dmitry Vyukov wrote:
->> Hit the WARNING with the patch. It showed "Showing busy workqueues and
->> worker pools:" after the WARNING, but then no queue info. Was it
->> already destroyed and removed from the list?...
+> Signed-off-by: Nelson Chang <nelson.chang@mediatek.com>
+> ---
+>  Documentation/devicetree/bindings/net/mediatek-net.txt | 2 ++
+>  1 file changed, 2 insertions(+)
 > 
-> Hmm...  It either means that the work item which was in flight when
-> WARN_ON() ran finished by the time the debug printout got to it or
-> that it's something unrelated to busy work items.
-> 
->> [ 198.113838] WARNING: CPU: 2 PID: 26691 at kernel/workqueue.c:4042
->> destroy_workqueue+0x17b/0x630
-> 
-> I don't seem to have the same source code that you have.  Which exact
-> WARN_ON() is this?
+> diff --git a/Documentation/devicetree/bindings/net/mediatek-net.txt b/Documentation/devicetree/bindings/net/mediatek-net.txt
+> index 32eaaca..f43c0d1 100644
+> --- a/Documentation/devicetree/bindings/net/mediatek-net.txt
+> +++ b/Documentation/devicetree/bindings/net/mediatek-net.txt
+> @@ -20,6 +20,7 @@ Required properties:
+>  - mediatek,ethsys: phandle to the syscon node that handles the port setup
+>  - mediatek,pctl: phandle to the syscon node that handles the ports slew rate
+>  	and driver current
+> +- mediatek,hwlro: set to enable HW LRO functions of PDMA rx rings
 
-I assume Dmitry sees the same what I am still seeing, so I reported this
-some time ago:
-https://lkml.org/lkml/2016/3/21/492
+That sounds like implementing a enable/disable policy in the Device Tree
+as opposed to providing an indication as to whether the HW supports LRO
+or not. If all versions of the hardware support LRO, then you would
+rather let the users change NETIF_F_LRO using ethtool features instead
+of having this be defined in the Device Tree.
 
-This warning is trigerred there and still occurs with "HEAD":
-  (pwq != wq->dfl_pwq) && (pwq->refcnt > 1)
-and the state dump is in the log empty too:
-destroy_workqueue: name='hci0' pwq=ffff88006b5c8f00
-wq->dfl_pwq=ffff88006b5c9b00 pwq->refcnt=2 pwq->nr_active=0 delayed_works:
-  pwq 13:
- cpus=2-3 node=1 flags=0x4 nice=-20 active=0/1
-    in-flight: 2669:wq_barrier_func
-
-thanks,
+If, on the other hand, not all version of the HW support LRO, then you
+would just want to rephrase the property description to say this
+describes a capability.
 -- 
-js
-suse labs
+Florian
