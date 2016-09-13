@@ -1,51 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/7] cxgb4: add support for offloading TC u32
- filters
-Date: Tue, 13 Sep 2016 12:12:57 -0400 (EDT)
-Message-ID: <20160913.121257.1557877495657097138.davem@davemloft.net>
-References: <cover.1473667613.git.rahul.lakkireddy@chelsio.com>
+Subject: Re: [patch net-next 0/5] mlxsw: ethtool enhancements
+Date: Tue, 13 Sep 2016 12:17:36 -0400 (EDT)
+Message-ID: <20160913.121736.1143024299087434838.davem@davemloft.net>
+References: <1473679587-9112-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hariprasad@chelsio.com, leedom@chelsio.com,
-        nirranjan@chelsio.com, indranil@chelsio.com
-To: rahul.lakkireddy@chelsio.com
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40722 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:40770 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753312AbcIMQM6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 12:12:58 -0400
-In-Reply-To: <cover.1473667613.git.rahul.lakkireddy@chelsio.com>
+        with ESMTP id S1753312AbcIMQRk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 12:17:40 -0400
+In-Reply-To: <1473679587-9112-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
-Date: Mon, 12 Sep 2016 13:42:33 +0530
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Mon, 12 Sep 2016 13:26:22 +0200
 
-> This series of patches add support to offload TC u32 filters onto
-> Chelsio NICs.
+> From: Jiri Pirko <jiri@mellanox.com>
 > 
-> Patch 1 moves current common filter code to separate files
-> in order to provide a common api for performing packet classification
-> and filtering in Chelsio NICs.
+> Ido says:
 > 
-> Patch 2 enables filters for normal NIC configuration and implements
-> common api for setting and deleting filters.
-> 
-> Patch 3 provides a debugfs for dumping filter information.
-> 
-> Patches 4-7 add support for TC u32 offload via ndo_setup_tc.
+> Patches 1-4 do some minor cleanup in current ethtool ops. Patch 5
+> replace legacy {get,set}_settings callbacks with
+> {get,set}_link_ksettings.
 
-Like Jiri I'm getting increasingly disappointed how liberally people
-toss tons of things into debugfs.
-
-This seems to be the way driver developers throw their hands into the
-air when they can't find a quick and easy way to export some piece of
-information.
-
-Please work on the long term usability of the kernel and all
-networking drivers by finding a bonafide piece of existing
-infrastructure by which to export things, or build a new one if
-needed.
-
-Thanks.
+Series applied, thanks guys.
