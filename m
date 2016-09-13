@@ -1,7 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 04/10] rxrpc: Requeue call for recvmsg if more data
-Date: Tue, 13 Sep 2016 23:21:23 +0100
-Message-ID: <147380528385.23135.2106954961242678721.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 07/10] rxrpc: Allow tx_winsize to grow in response
+ to an ACK
+Date: Tue, 13 Sep 2016 23:21:44 +0100
+Message-ID: <147380530434.23135.10090736308604988088.stgit@warthog.procyon.org.uk>
 References: <147380525614.23135.7539695651371953351.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,34 +15,36 @@ In-Reply-To: <147380525614.23135.7539695651371953351.stgit@warthog.procyon.org.u
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-rxrpc_recvmsg() needs to make sure that the call it has just been
-processing gets requeued for further attention if the buffer has been
-filled and there's more data to be consumed.  The softirq producer only
-queues the call and wakes the socket if it fills the first slot in the
-window, so userspace might end up sleeping forever otherwise, despite there
-being data available.
-
-This is not a problem provided the userspace buffer is big enough or it
-empties the buffer completely before more data comes in.
+Allow tx_winsize to grow when the ACK info packet shows a larger receive
+window at the other end rather than only permitting it to shrink.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/recvmsg.c |    4 ++++
- 1 file changed, 4 insertions(+)
+ net/rxrpc/input.c |    8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/net/rxrpc/recvmsg.c b/net/rxrpc/recvmsg.c
-index 20d0b5c6f81b..16ff56f69256 100644
---- a/net/rxrpc/recvmsg.c
-+++ b/net/rxrpc/recvmsg.c
-@@ -463,6 +463,10 @@ try_again:
- 					 flags, &copied);
- 		if (ret == -EAGAIN)
- 			ret = 0;
-+
-+		if (after(call->rx_top, call->rx_hard_ack) &&
-+		    call->rxtx_buffer[(call->rx_hard_ack + 1) & RXRPC_RXTX_BUFF_MASK])
-+			rxrpc_notify_socket(call);
- 		break;
- 	default:
- 		ret = 0;
+diff --git a/net/rxrpc/input.c b/net/rxrpc/input.c
+index 5958ef8ba2a0..8e529afcd6c1 100644
+--- a/net/rxrpc/input.c
++++ b/net/rxrpc/input.c
+@@ -333,14 +333,16 @@ static void rxrpc_input_ackinfo(struct rxrpc_call *call, struct sk_buff *skb,
+ 	struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
+ 	struct rxrpc_peer *peer;
+ 	unsigned int mtu;
++	u32 rwind = ntohl(ackinfo->rwind);
+ 
+ 	_proto("Rx ACK %%%u Info { rx=%u max=%u rwin=%u jm=%u }",
+ 	       sp->hdr.serial,
+ 	       ntohl(ackinfo->rxMTU), ntohl(ackinfo->maxMTU),
+-	       ntohl(ackinfo->rwind), ntohl(ackinfo->jumbo_max));
++	       rwind, ntohl(ackinfo->jumbo_max));
+ 
+-	if (call->tx_winsize > ntohl(ackinfo->rwind))
+-		call->tx_winsize = ntohl(ackinfo->rwind);
++	if (rwind > RXRPC_RXTX_BUFF_SIZE - 1)
++		rwind = RXRPC_RXTX_BUFF_SIZE - 1;
++	call->tx_winsize = rwind;
+ 
+ 	mtu = min(ntohl(ackinfo->rxMTU), ntohl(ackinfo->maxMTU));
+ 
