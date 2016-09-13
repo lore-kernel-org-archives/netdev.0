@@ -1,98 +1,67 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [RFC 00/11] QLogic RDMA Driver (qedr) RFC
-Date: Tue, 13 Sep 2016 13:39:34 +0300
-Message-ID: <20160913103934.GX8812@leon.nu>
-References: <1473696465-27986-1-git-send-email-Ram.Amrani@qlogic.com>
- <20160912163928.GK8812@leon.nu>
- <CAG53R5UqF21z34jB2HJCTXU8w3Kbj_Jon=wBAoO5tYSqbD1f6g@mail.gmail.com>
- <CY4PR11MB17202A542AC07CBA4A65E93697FF0@CY4PR11MB1720.namprd11.prod.outlook.com>
- <20160913060545.GN8812@leon.nu>
- <BL2PR07MB23064356EA2492675AC980A78DFE0@BL2PR07MB2306.namprd07.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="jn/MQTzma+jNUHFC"
-Cc: Yuval Mintz <Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        Parav Pandit <pandit.parav-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Ram Amrani <Ram.Amrani-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Ariel Elior <Ariel.Elior-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        Michal Kalderon <Michal.Kalderon-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        Rajesh Borundia <rajesh.borundia-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Mintz, Yuval" <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <BL2PR07MB23064356EA2492675AC980A78DFE0-I6Fv6QFlT9L2NWYWB7JgfuFPX92sqiQdvxpqHgZTriW3zl9H0oFU5g@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
+Subject: [PATCH net-next v2 0/5] cxgb4: add support for offloading TC u32 filters
+Date: Tue, 13 Sep 2016 17:12:24 +0530
+Message-ID: <cover.1473759872.git.rahul.lakkireddy@chelsio.com>
+Cc: davem@davemloft.net, hariprasad@chelsio.com, leedom@chelsio.com,
+        nirranjan@chelsio.com, indranil@chelsio.com,
+        Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([12.32.117.8]:55426 "EHLO
+        stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1750747AbcIMLnw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 07:43:52 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+This series of patches add support to offload TC u32 filters onto
+Chelsio NICs.
 
---jn/MQTzma+jNUHFC
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Patch 1 moves current common filter code to separate files
+in order to provide a common api for performing packet classification
+and filtering in Chelsio NICs.
 
-On Tue, Sep 13, 2016 at 06:48:00AM +0000, Mintz, Yuval wrote:
-> >> While this might work, I personally dislike it as I find it
-> >> counter-intuitive when going over the code -
-> >> I don't expect driver to locally modify the inclusion path.
-> >> Besides, we're going to [eventually] a whole suite of drivers based
-> >> on the qed module, some of which would reside under drivers/scsi;
-> >> Not sure it's best to have 3 or 4 different drivers privately include the
-> >> same directory under a different subsystem.
->
-> > I agree with you that orcdma's way can be valuable for small drivers.
->
-> > Orcmda has small shared headers set and doesn't need to change them rapidly
-> > to support different devices.
->
-> > I thought to place them in similar directory to include/soc/* and remove
-> > from include/linux/. We have include/rdma/ and it looks like a good
-> > candidate.
->
-> I'm perfectly fine with relocating those to a different directory under include/,
-> although using 'rdma' doesn't sound like a good fit [as the headers would be
-> included by ethernet, scsi and rdma drivers].
-> Are there good existing alternatives?
+Patch 2 enables filters for normal NIC configuration and implements
+common api for setting and deleting filters.
 
-There is nothing that I can name.
+Patches 3-5 add support for TC u32 offload via ndo_setup_tc.
 
->
-> Regardless, I don't believe this should be part of the initial submission,
-> as it would involve in relocating existing networking headers as well.
-> I think we can move those at leisure later on.
+---
+v2:
+Based on review and suggestions from Jiri Pirko <jiri@resnulli.us>:
+- Replaced macros S and U with appropriate static helper functions.
+- Moved completion code for set and delete filters to respective
+  functions cxgb4_set_filter() and cxgb4_del_filter().  Renamed the
+  original functions to __cxgb4_set_filter() and __cxgb4_del_filter()
+  in case synchronization is not required.
+- Dropped debugfs patch.
+- Merged code for inserting and deleting u32 filters into a single
+  patch.
+- Reworked and fixed bugs with traversing the actions list.
+- Removed all unnecessary extra ().
 
-Sure, it is good time and context to discuss, but orthogonal to this
-submission.
+Rahul Lakkireddy (5):
+  cxgb4: move common filter code to separate file
+  cxgb4: add common api support for configuring filters
+  cxgb4: add parser to translate u32 filters to internal spec
+  cxgb4: add support for offloading u32 filters
+  cxgb4: add support for drop and redirect actions
 
->
-> [We're in the middle of transitioning our e-mails from qlogic -> cavium,
-> so sorry if things become corrupted]
+ drivers/net/ethernet/chelsio/cxgb4/Makefile        |   2 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |  29 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c  | 722 +++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.h  |  48 ++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    | 338 ++--------
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c  | 485 ++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.h  |  57 ++
+ .../ethernet/chelsio/cxgb4/cxgb4_tc_u32_parse.h    | 294 +++++++++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h     |  26 +-
+ 9 files changed, 1720 insertions(+), 281 deletions(-)
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.h
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.h
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32_parse.h
 
---jn/MQTzma+jNUHFC
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJX19dmAAoJEORje4g2clin1YUP/1+UFUAU2NMfLBomkXOZVWJo
-W1YqxjWuqS9Tg9xXuqQDHLZkGRmQAz+bVZMb6bPlgnS1yXgV1nIas4O3kOl7pBCa
-pDv36QPwgpdeV4FRa+s37p7bENWJ0zoL67iUSH6dqmAKjwz55f0ipaCw/e5vxgfy
-fmS6tAkSlNM3zcxmTr+J7X4pw3MYEqa8wmSxhqjOKMgX+5RPKkCmbPae460PVlyU
-oe30U53+Rh4Mo4w3Ke7fSFpaLVTiiQ6j60EUCx/RA9wdYVLYQPmW13ZWv9Uu7kv/
-NTg4TPdQYsdOw0CfOgtItwm6gtsURkg4og9EkM2JlAAGZP1R/EPuCFL3zzVf/qUj
-41bYRFueEru9VI13NobbpKDgfPFsQShCHTdn5aNdAN4s2VdA9Z5wRzs/xPxxYYev
-5aA44KMFDsmzmXq+SVRWV7w6hqoqnWMqgIUI9F+8eJ8Ejl/evtIdRmCHipE7hbVt
-y5H3cRyYCYPCTWuQYOc37R4betDrhPh+h3+/0sYwgURMOa0cvPB57JktH1R9+lqG
-ajRWWvPK84BW8oDACpVb7UTNv3faLnWCZVbasSRahTXpV4PLsN2TovI0LiRmQBQj
-JHKFipgRcooHE8PuDVCxRkvD06a7jdLwstxHhBvUQUD1JQBcgsnjVnjrhHyZ3nw1
-fPfpOOk2IxV9nfuxrPLN
-=Ghdd
------END PGP SIGNATURE-----
-
---jn/MQTzma+jNUHFC--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+2.5.3
