@@ -1,28 +1,69 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH v5 net-next 1/1] net_sched: Introduce skbmod action
-Date: Mon, 12 Sep 2016 20:10:21 -0400
-Message-ID: <c9a88b54-e022-b57a-28c7-ec5804ece8e1@mojatatu.com>
-References: <1473725180-26987-1-git-send-email-jhs@emojatatu.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the netfilter-next tree with the net
+ tree
+Date: Tue, 13 Sep 2016 10:12:50 +1000
+Message-ID: <20160913101250.0ffee30f@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
-        xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
-        john.r.fastabend@intel.com, Florian Westphal <fw@strlen.de>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f52.google.com ([209.85.218.52]:34941 "EHLO
-        mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750975AbcIMAKY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2016 20:10:24 -0400
-Received: by mail-oi0-f52.google.com with SMTP id d191so129828793oih.2
-        for <netdev@vger.kernel.org>; Mon, 12 Sep 2016 17:10:23 -0700 (PDT)
-In-Reply-To: <1473725180-26987-1-git-send-email-jhs@emojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Liping Zhang <liping.zhang@spreadtrum.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+        NetFilter <netfilter-devel@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ok, screwup. I used version 5 again ;-< I will resend and incorporate
-Florian's comment.
+Hi all,
 
-cheers,
-jamal
+Today's linux-next merge of the netfilter-next tree got a conflict in:
+
+  net/netfilter/nf_tables_netdev.c
+
+between commit:
+
+  c73c24849011 ("netfilter: nf_tables_netdev: remove redundant ip_hdr assignment")
+
+from the net tree and commit:
+
+  ddc8b6027ad0 ("netfilter: introduce nft_set_pktinfo_{ipv4, ipv6}_validate()")
+
+from the netfilter-next tree.
+
+I fixed it up (I used the latter version of this file and applied the
+patch below) and can carry the fix as necessary. This is now fixed as
+far as linux-next is concerned, but any non trivial conflicts should be
+mentioned to your upstream maintainer when your tree is submitted for
+merging.  You may also want to consider cooperating with the maintainer
+of the conflicting tree to minimise any particularly complex conflicts.
+
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Tue, 13 Sep 2016 10:08:58 +1000
+Subject: [PATCH] netfilter: merge fixup for "nf_tables_netdev: remove
+ redundant ip_hdr assignment"
+
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+---
+ include/net/netfilter/nf_tables_ipv4.h | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/include/net/netfilter/nf_tables_ipv4.h b/include/net/netfilter/nf_tables_ipv4.h
+index 968f00b82fb5..25e33aee91e7 100644
+--- a/include/net/netfilter/nf_tables_ipv4.h
++++ b/include/net/netfilter/nf_tables_ipv4.h
+@@ -33,7 +33,6 @@ __nft_set_pktinfo_ipv4_validate(struct nft_pktinfo *pkt,
+ 	if (!iph)
+ 		return -1;
+ 
+-	iph = ip_hdr(skb);
+ 	if (iph->ihl < 5 || iph->version != 4)
+ 		return -1;
+ 
+-- 
+2.8.1
+
+-- 
+Cheers,
+Stephen Rothwell
