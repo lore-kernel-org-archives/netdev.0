@@ -1,77 +1,37 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net 1/6] sctp: remove the unnecessary state check in
- sctp_outq_tail
-Date: Tue, 13 Sep 2016 07:57:22 -0400
-Message-ID: <20160913115722.GA4501@hmsreliant.think-freely.org>
-References: <cover.1473326067.git.lucien.xin@gmail.com>
- <1718155e984f63995d1be9b053c58aa1a645718e.1473326067.git.lucien.xin@gmail.com>
- <20160908142701.GC16608@hmsreliant.think-freely.org>
- <CADvbK_dxTYrPPFJT5UPZErZLbW9y9oRm+VWbQXxhruwV6UgOZA@mail.gmail.com>
- <20160908192319.GD16608@hmsreliant.think-freely.org>
- <CADvbK_ddvZ4855B1PPLYVY2JV1okKzYXCpv-quNMBXp0Qb5Otw@mail.gmail.com>
- <20160909142841.GB15908@hmsreliant.think-freely.org>
- <CADvbK_f-09NvfeCbeaZZF8+LuMASTYnrh+02RvTz5UR-huiR3g@mail.gmail.com>
+From: Andreas =?iso-8859-1?Q?H=FCbner?= <andreas@k4n.de>
+Subject: Re: icmpv6: issue with routing table entries from link local
+ addresses
+Date: Tue, 13 Sep 2016 13:59:18 +0200
+Message-ID: <20160913115918.GL26782@targo.k4n.de>
+References: <20160912142732.GI26782@targo.k4n.de>
+ <b6804e09-403f-64ff-257b-6c5fda7f8047@stressinduktion.org>
+ <bf36b487-1cdf-ede9-1ed8-cca17c7f5fc6@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        davem <davem@davemloft.net>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
-To: Xin Long <lucien.xin@gmail.com>
+Cc: netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:36940 "EHLO
-        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753647AbcIML5i (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 07:57:38 -0400
+Received: from targo.k4n.de ([213.133.103.195]:45914 "EHLO targo.k4n.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751044AbcIML70 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 13 Sep 2016 07:59:26 -0400
 Content-Disposition: inline
-In-Reply-To: <CADvbK_f-09NvfeCbeaZZF8+LuMASTYnrh+02RvTz5UR-huiR3g@mail.gmail.com>
+In-Reply-To: <bf36b487-1cdf-ede9-1ed8-cca17c7f5fc6@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Sep 10, 2016 at 12:03:53AM +0800, Xin Long wrote:
-> > I don't know, I still don't feel safe about it.  I agree the socket lock keeps
-> > the state from changing during a single transmission, which makes the use case
-> > you are focused on correct.
-> ok, :-)
-> 
-> >
-> > That said, have you considered the retransmit case?  That is to say, if you
-> > queue and flush the outq, and some packets fail delivery, and in the time
-> > between the intial send and the expiration of the RTX timer (during which the
-> > socket lock will have been released), an event may occur which changes the
-> > transport state, which will then be ignored with your patch.
-> Sorry, I'm not sure if I got it.
-> 
-> You mean "during which changes q->asoc->state", right ?
-> 
-> This patch removes the check of q->asoc->state in sctp_outq_tail().
-> 
-> sctp_outq_tail() is called for data only in:
-> sctp_primitive_SEND -> sctp_do_sm -> sctp_cmd_send_msg ->
-> sctp_cmd_interpreter -> sctp_cmd_send_msg() -> sctp_outq_tail()
-> 
-> before calling sctp_primitive_SEND, hold sock lock first.
-> then sctp_primitive_SEND choose FUNC according:
-> 
-> #define TYPE_SCTP_PRIMITIVE_SEND  {
-> ....
-> 
-> if asoc->state is unavailable, FUNC can't be sctp_cmd_send_msg,
-> but sctp_sf_error_closed/sctp_sf_error_shutdown,  sctp_outq_tail
-> can't be called, either.
-> I mean sctp_primitive_SEND do the same check for asoc->state
-> already actually.
-> 
-> so the code in sctp_outq_tail is redundant actually.
-> 
-> 
-> 
-> 
-> >
-> > Neil
-> >
-> 
+I think I found the relevant fixes:
 
-Ok, you've convinced me, thanks for taking the time to go through it
+First and foremost it's 741a11d9e410.
+(net: ipv6: Add RT6_LOOKUP_F_IFACE flag if oif is set)
 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+This seems to have already solved my problem, however there were two
+followup fixes that I should probably also apply:
+
+d46a9d678e4c net: ipv6: Dont add RT6_LOOKUP_F_IFACE flag if saddr set
+6f21c96a78b8 ipv6: enforce flowi6_oif usage in ip6_dst_lookup_tail()
+
+
+So again, sorry for the noise and thanks for your help!
+
+Andreas
