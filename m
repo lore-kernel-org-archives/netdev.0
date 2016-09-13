@@ -1,10 +1,10 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 3/3] net: ethernet: mediatek: add dts
- configuration to enable HW LRO
-Date: Tue, 13 Sep 2016 11:24:38 -0700
-Message-ID: <3103c7f5-0c67-1ad7-20f5-7722f412c152@gmail.com>
+Subject: Re: [PATCH net-next 2/3] net: ethernet: mediatek: add ethtool
+ functions to configure RX flows of HW LRO
+Date: Tue, 13 Sep 2016 11:26:51 -0700
+Message-ID: <0416bf6a-1a3d-f8fe-9150-8f143c48ee8c@gmail.com>
 References: <1473774866-3156-1-git-send-email-nelson.chang@mediatek.com>
- <1473774866-3156-4-git-send-email-nelson.chang@mediatek.com>
+ <1473774866-3156-3-git-send-email-nelson.chang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
@@ -13,42 +13,42 @@ Cc: nbd@openwrt.org, netdev@vger.kernel.org,
 To: Nelson Chang <nelson.chang@mediatek.com>, john@phrozen.org,
         davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:34807 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752337AbcIMSYo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 14:24:44 -0400
-Received: by mail-pf0-f193.google.com with SMTP id g202so9913218pfb.1
-        for <netdev@vger.kernel.org>; Tue, 13 Sep 2016 11:24:43 -0700 (PDT)
-In-Reply-To: <1473774866-3156-4-git-send-email-nelson.chang@mediatek.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33380 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755373AbcIMS05 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 14:26:57 -0400
+Received: by mail-pf0-f195.google.com with SMTP id 128so9899368pfb.0
+        for <netdev@vger.kernel.org>; Tue, 13 Sep 2016 11:26:56 -0700 (PDT)
+In-Reply-To: <1473774866-3156-3-git-send-email-nelson.chang@mediatek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 09/13/2016 06:54 AM, Nelson Chang wrote:
-> Add the configuration of HW LRO in the binding document.
+> The codes add ethtool functions to set RX flows for HW LRO. Because the
+> HW LRO hardware can only recognize the destination IP of TCP/IP RX flows,
+> the ethtool command to add HW LRO flow is as below:
+> ethtool -N [devname] flow-type tcp4 dst-ip [ip_addr] loc [0~1]
+> 
+> Otherwise, cause the hardware can set total four destination IPs, each
+> GMAC (GMAC1/GMAC2) can set two IPs separately at most.
 > 
 > Signed-off-by: Nelson Chang <nelson.chang@mediatek.com>
 > ---
->  Documentation/devicetree/bindings/net/mediatek-net.txt | 2 ++
->  1 file changed, 2 insertions(+)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/mediatek-net.txt b/Documentation/devicetree/bindings/net/mediatek-net.txt
-> index 32eaaca..f43c0d1 100644
-> --- a/Documentation/devicetree/bindings/net/mediatek-net.txt
-> +++ b/Documentation/devicetree/bindings/net/mediatek-net.txt
-> @@ -20,6 +20,7 @@ Required properties:
->  - mediatek,ethsys: phandle to the syscon node that handles the port setup
->  - mediatek,pctl: phandle to the syscon node that handles the ports slew rate
->  	and driver current
-> +- mediatek,hwlro: set to enable HW LRO functions of PDMA rx rings
 
-That sounds like implementing a enable/disable policy in the Device Tree
-as opposed to providing an indication as to whether the HW supports LRO
-or not. If all versions of the hardware support LRO, then you would
-rather let the users change NETIF_F_LRO using ethtool features instead
-of having this be defined in the Device Tree.
+> +
+> +static int mtk_set_features(struct net_device *dev, netdev_features_t features)
+> +{
+> +	int err = 0;
+> +
+> +	if (!((dev->features ^ features) & NETIF_F_LRO))
+> +		return 0;
+> +
+> +	if (!(features & NETIF_F_LRO))
+> +		mtk_hwlro_netdev_disable(dev);
 
-If, on the other hand, not all version of the HW support LRO, then you
-would just want to rephrase the property description to say this
-describes a capability.
+you may want to implement a fix_features ndo operations which makes sure
+that NETIF_F_LRO is turned on in case a RX flow is programmed,
+otherwise, it may be confusing to the user that a flow was programmed,
+but no offload is happening.
 -- 
 Florian
