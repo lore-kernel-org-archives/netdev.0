@@ -1,29 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Remove NO_IRQ from powerpc-only network drivers
-Date: Tue, 13 Sep 2016 11:41:23 -0400 (EDT)
-Message-ID: <20160913.114123.130707105572714908.davem@davemloft.net>
-References: <1473501545-10134-1-git-send-email-mpe@ellerman.id.au>
+Subject: Re: [PATCH -next] net: macb: fix missing unlock on error in
+ macb_start_xmit()
+Date: Tue, 13 Sep 2016 11:42:54 -0400 (EDT)
+Message-ID: <20160913.114254.1565753177993853606.davem@davemloft.net>
+References: <1473506277-31304-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linuxppc-dev@ozlabs.org, arnd@arndb.de
-To: mpe@ellerman.id.au
+Cc: nicolas.ferre@atmel.com, helmut.buchsbaum@gmail.com,
+        weiyongjun1@huawei.com, netdev@vger.kernel.org
+To: weiyj.lk@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40190 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:40216 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752710AbcIMPlX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 11:41:23 -0400
-In-Reply-To: <1473501545-10134-1-git-send-email-mpe@ellerman.id.au>
+        with ESMTP id S1759196AbcIMPmz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 11:42:55 -0400
+In-Reply-To: <1473506277-31304-1-git-send-email-weiyj.lk@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Ellerman <mpe@ellerman.id.au>
-Date: Sat, 10 Sep 2016 19:59:05 +1000
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Date: Sat, 10 Sep 2016 11:17:57 +0000
 
-> We'd like to eventually remove NO_IRQ on powerpc, so remove usages of it
-> from powerpc-only drivers.
+> From: Wei Yongjun <weiyongjun1@huawei.com>
 > 
-> Signed-off-by: Michael Ellerman <mpe@ellerman.id.au>
+> Fix missing unlock before return from function macb_start_xmit()
+> in the error handling case.
+> 
+> Fixes: 007e4ba3ee13 ("net: macb: initialize checksum when using
+> checksum offloading")
+> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
 
-Applied to net-next, thanks.
+Applied.
