@@ -1,62 +1,35 @@
-From: Filipe Manco <filipe.manco@neclab.eu>
-Subject: [RFC PATCH] xen-netback: fix error handling on netback_probe()
-Date: Tue, 13 Sep 2016 14:11:27 +0200
-Message-ID: <1473768687-27384-1-git-send-email-filipe.manco@neclab.eu>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: [V2] ath10k: fix memory leak on caldata on error exit path
+Date: Tue, 13 Sep 2016 14:24:40 +0200
+Message-ID: <c603113a967a45c18ddce5deff55b753@euamsexm01a.eu.qualcomm.com>
+References: <20160903163819.13115-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <wei.liu2@citrix.com>, <filipe.manco@neclab.eu>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.neclab.eu ([195.37.70.40]:48293 "EHLO mailer1.neclab.eu"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751433AbcIMMYT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 13 Sep 2016 08:24:19 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <ath10k@lists.infradead.org>, <linux-wireless@vger.kernel.org>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Colin Ian King <colin.king@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160903163819.13115-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In case of error during netback_probe() (e.g. an entry missing on the
-xenstore) netback_remove() is called on the new device, which will set
-the device backend state to XenbusStateClosed by calling
-set_backend_state(). However, the backend state wasn't initialized by
-netback_probe() at this point, which will cause and invalid transaction
-and set_backend_state() to BUG().
+Colin Ian King <colin.king@canonical.com> wrote:
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> caldata is not being free'd on the error exit path, causing
+> a memory leak and data definitely should not be freed. Free
+> caldata instead of data.
+> 
+> Thanks to Kalle Valo for spotting that data should not be
+> free'd.
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Initialize the backend state at the beginning of netback_probe() to
-XenbusStateInitialising, and create a new valid state transaction on
-set_backend_state(), from XenbusStateInitialising to XenbusStateClosed.
+Thanks, 1 patch applied to ath-next branch of ath.git:
 
-Signed-off-by: Filipe Manco <filipe.manco@neclab.eu>
----
- drivers/net/xen-netback/xenbus.c | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+5f4761dda2ba ath10k: fix memory leak on caldata on error exit path
 
-diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
-index 6a31f2610c23..c0e5f6994d01 100644
---- a/drivers/net/xen-netback/xenbus.c
-+++ b/drivers/net/xen-netback/xenbus.c
-@@ -270,6 +270,7 @@ static int netback_probe(struct xenbus_device *dev,
- 
- 	be->dev = dev;
- 	dev_set_drvdata(&dev->dev, be);
-+	be->state = XenbusStateInitialising;
- 
- 	sg = 1;
- 
-@@ -515,6 +516,15 @@ static void set_backend_state(struct backend_info *be,
- {
- 	while (be->state != state) {
- 		switch (be->state) {
-+		case XenbusStateInitialising:
-+			switch (state) {
-+			case XenbusStateClosed:
-+				backend_switch_state(be, XenbusStateClosed);
-+				break;
-+			default:
-+				BUG();
-+			}
-+			break;
- 		case XenbusStateClosed:
- 			switch (state) {
- 			case XenbusStateInitWait:
 -- 
-2.7.4
+Sent by pwcli
+https://patchwork.kernel.org/patch/9312163/
