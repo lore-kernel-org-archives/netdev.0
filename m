@@ -1,84 +1,71 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+From: Leon Romanovsky <leon@kernel.org>
 Subject: Re: [RFC 02/11] Add RoCE driver framework
-Date: Tue, 13 Sep 2016 09:38:06 +0300
-Message-ID: <20160913063806.GP8812@leon.nu>
+Date: Tue, 13 Sep 2016 09:46:19 +0300
+Message-ID: <20160913064618.GQ8812@leon.nu>
 References: <1473696465-27986-1-git-send-email-Ram.Amrani@qlogic.com>
  <1473696465-27986-3-git-send-email-Ram.Amrani@qlogic.com>
- <516b98c7-477a-4890-0d92-529dc32f2c4e@mellanox.com>
- <CY4PR11MB1720F9B74BBF82D0779FAC8F97FF0@CY4PR11MB1720.namprd11.prod.outlook.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="CUrluEZVXmx7ezWQ"
-Cc: Mark Bloch <markb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Ram Amrani <Ram.Amrani-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Ariel Elior <Ariel.Elior-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        Michal Kalderon <Michal.Kalderon-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        Rajesh Borundia <rajesh.borundia-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Yuval Mintz <Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+        protocol="application/pgp-signature"; boundary="de1H0RjRxOSdb4we"
+Cc: dledford@redhat.com, davem@davemloft.net, Yuval.Mintz@qlogic.com,
+        Ariel.Elior@qlogic.com, Michal.Kalderon@qlogic.com,
+        rajesh.borundia@qlogic.com, linux-rdma@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Ram Amrani <Ram.Amrani@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.136]:45270 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751389AbcIMGqY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 13 Sep 2016 02:46:24 -0400
 Content-Disposition: inline
-In-Reply-To: <CY4PR11MB1720F9B74BBF82D0779FAC8F97FF0-JNf6+SjKdlG0ooKL/ADlEpPPoyLQLiKMvxpqHgZTriW3zl9H0oFU5g@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1473696465-27986-3-git-send-email-Ram.Amrani@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---CUrluEZVXmx7ezWQ
+--de1H0RjRxOSdb4we
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-On Mon, Sep 12, 2016 at 07:17:35PM +0000, Yuval Mintz wrote:
-> >> +uint debug;
-> >> +module_param(debug, uint, 0);
-> >> +MODULE_PARM_DESC(debug, "Default debug msglevel");
+On Mon, Sep 12, 2016 at 07:07:36PM +0300, Ram Amrani wrote:
+> Adds a skeletal implementation of the qed* RoCE driver -
+> basically the ability to communicate with the qede driver and
+> receive notifications from it regarding various init/exit events.
 >
-> >Why are you adding this as a module parameter?
->
-> I believe this is mostly to follow same line as qede which also defines
-> 'debug' module parameter for allowing easy user control of debug
-> prints [& specifically for probe prints, which can't be controlled
-> otherwise].
+> Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
+> Signed-off-by: Ram Amrani <Ram.Amrani@qlogic.com>
+> ---
 
-Can you give us an example where dynamic debug and tracing infrastructures
-are not enough?
+<...>
 
-AFAIK, most of these debug module parameters are legacy copy/paste
-code which is useless in real life scenarios.
+> +
+> +#define QEDR_MODULE_VERSION	"8.10.10.0"
 
-Thanks
+I am strongly against module versions. You should rely on official
+kernel version.
 
+> +#define QEDR_NODE_DESC "QLogic 579xx RoCE HCA"
+> +#define DP_NAME(dev) ((dev)->ibdev.name)
 
->      --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
---CUrluEZVXmx7ezWQ
+--de1H0RjRxOSdb4we
 Content-Type: application/pgp-signature; name="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIcBAEBAgAGBQJX157OAAoJEORje4g2clinZF4P/09+aMYlB2bG4cDhVZSBB7OW
-u6aR5r5sKflv0TGF2L+X9fSmDf7jYABHPifYXheigy3Zg2zWbFLAf9s1tbPzeQql
-N9Dzlw1hnZjL9OTB0gVKblkOQ89sPMeJTllemkLTLpEzJcYallnBfDCyXQU3vAxb
-Y6PXdQViqWvxKumr4DIst1Zj+6Uawi3DdxdO0CR4Km8Gzlcooc+Kh8zmR0jCRSpP
-xtYp+BodGtp7UQhYGUFYt2Ks/QfSFQ4N0Vd89oyaOLo5ri6VIQpJkbnXQxev5wU0
-xWLBFD7l0YRtHE4cPlXoOHw7vyws44Area7uGH8WFh6hLEMuGvE9IlwjDBXHGFb9
-YQN41Hhl6ua8eerI5tJ/ctAOKL9G3Ddcw0f4QBp+RQsgGDbPByAbvjPmgAOvuF7D
-maSWtWFsS2UsP98xxxJXCxnQ/h6dmDdYvsvYHNgpmERvQwSr09F5ztbB9BRL6DdV
-eSesFmRFtHIsCUvxYHvg3iZfdjCNoY15yx2WePAXRWVj7W2DNsJYoUiIZP8Zq4xN
-rvU1lM9aabz5hEGA6Z8ME9v1rA+Dv8oBOTQWnbKYUEoR7JOiCaAfz8GielnVUPgR
-P3SCZZAOeSAFzrLy5toKggKy67lHhNJxsKkHAp3IYFgzOPvI/tsOEskUOTCUUaLZ
-vSS9tmxSnbUBmIkU+KkC
-=2ENN
+iQIcBAEBAgAGBQJX16C6AAoJEORje4g2clinDzAP/jxsNSAxKcogLHQEKCb4d0j7
+RWTiP8bjTig7n/5zC14v0F8lHgB0Z1XZ/gFvKe2R2QUVP6wxsiy3nD+F9vR/W4BW
+FTug0AloItJ2J+8dPlDZkz5w1hYvfktG0weqwIuIlkunavZneYbgo2wgn/0WhE4F
+lGeKiX5n0OIgktM5R6FvegSJZ+lUNRrVi4TWTI/jkH57Db3ArlCnc3iArz2uf5ND
+6G1DQ0hm2YWD1WIRlbJ26iVGyWirkLpcO/ggFka0cNVPtiQmPjQXqSjhrGvCwN5b
+oCCjn/48ZvfRyYk9Z8vbkUiL+MxloXaczGLtNjc/H1uYEpbZW7iP70mv9ziRX5v7
+mwgKgJsTgp2h5u7NVezUT9qgzItGERd/KYWmPjWL8An++IyyQeE7YR+Jy0fVBLRg
+2SDIc78fdZUnvb1d++zrq1ZmZ93zBycQZLLH5s+Ep9av86jQgGTIt4//F7OHIC++
+FRydRfH/ALG1L+YuZHuMYwqna7XlVP06Gi0UqXydMULon0FFHoZPc75d/ys+9izL
+/tET/llpeIoo7sLwRvRwamWSURSXPSs6M3+gmUGSfDkNHOJoom+kWYqBp5fjYi/2
+8sG81f4XHqeJr9P+Am9CM3dJ5zq7Dd0LqgjPbA9GSf/n+5jmDFECNnSjj7eW4Sce
+R9qQm6+hEDRPRzYpfxy1
+=7nRw
 -----END PGP SIGNATURE-----
 
---CUrluEZVXmx7ezWQ--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--de1H0RjRxOSdb4we--
