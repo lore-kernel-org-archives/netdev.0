@@ -1,166 +1,108 @@
-From: Varun Prakash <varun@chelsio.com>
-Subject: [net-next PATCH 05/11] libcxgb,iw_cxgb4,cxgbit: add cxgb_best_mtu()
-Date: Tue, 13 Sep 2016 21:24:00 +0530
-Message-ID: <8b5ebd894ec2d5705d76966a77c53845a2a27287.1473781521.git.varun@chelsio.com>
+From: Varun Prakash <varun-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: [net-next PATCH 07/11] libcxgb,iw_cxgb4,cxgbit: add cxgb_mk_tid_release()
+Date: Tue, 13 Sep 2016 21:24:02 +0530
+Message-ID: <fd902f05ba1c5e47480e66924041696df43f5a78.1473781521.git.varun@chelsio.com>
 References: <cover.1473781521.git.varun@chelsio.com>
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        target-devel@vger.kernel.org, nab@linux-iscsi.org,
-        dledford@redhat.com, swise@opengridcomputing.com,
-        gerlitz.or@gmail.com, indranil@chelsio.com, varun@chelsio.com
-To: davem@davemloft.net
-Return-path: <target-devel-owner@vger.kernel.org>
-In-Reply-To: <cover.1473781521.git.varun@chelsio.com>
-In-Reply-To: <cover.1473781521.git.varun@chelsio.com>
-References: <cover.1473781521.git.varun@chelsio.com>
-Sender: target-devel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nab-IzHhD5pYlfBP7FQvKIMDCQ@public.gmane.org,
+        dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org,
+        gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, indranil-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, varun-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <cover.1473781521.git.varun-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+In-Reply-To: <cover.1473781521.git.varun-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+References: <cover.1473781521.git.varun-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Add cxgb_best_mtu() in libcxgb_cm.h to remove
-it's duplicate definitions from cxgb4/cm.c and
-cxgbit/cxgbit_cm.c
+Add cxgb_mk_tid_release() to remove duplicate code
+to form CPL_TID_RELEASE hardware command.
 
-Signed-off-by: Varun Prakash <varun@chelsio.com>
+Signed-off-by: Varun Prakash <varun-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
 ---
- drivers/infiniband/hw/cxgb4/cm.c                  | 32 +++++++----------------
- drivers/net/ethernet/chelsio/libcxgb/libcxgb_cm.h | 18 +++++++++++++
- drivers/target/iscsi/cxgbit/cxgbit_cm.c           | 20 +++-----------
- 3 files changed, 30 insertions(+), 40 deletions(-)
+ drivers/infiniband/hw/cxgb4/cm.c                  | 10 ++++------
+ drivers/net/ethernet/chelsio/libcxgb/libcxgb_cm.h | 13 +++++++++++++
+ drivers/target/iscsi/cxgbit/cxgbit_cm.c           | 11 ++---------
+ 3 files changed, 19 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
-index b35fdc0..c3c678f 100644
+index b9d77df..b818bd6 100644
 --- a/drivers/infiniband/hw/cxgb4/cm.c
 +++ b/drivers/infiniband/hw/cxgb4/cm.c
-@@ -677,20 +677,6 @@ static int send_abort(struct c4iw_ep *ep)
- 	return c4iw_l2t_send(&ep->com.dev->rdev, req_skb, ep->l2t);
- }
+@@ -240,15 +240,13 @@ int c4iw_ofld_send(struct c4iw_rdev *rdev, struct sk_buff *skb)
  
--static void best_mtu(const unsigned short *mtus, unsigned short mtu,
--		     unsigned int *idx, int use_ts, int ipv6)
--{
--	unsigned short hdr_size = (ipv6 ?
--				   sizeof(struct ipv6hdr) :
--				   sizeof(struct iphdr)) +
--				  sizeof(struct tcphdr) +
--				  (use_ts ?
--				   round_up(TCPOLEN_TIMESTAMP, 4) : 0);
--	unsigned short data_size = mtu - hdr_size;
--
--	cxgb4_best_aligned_mtu(mtus, hdr_size, data_size, 8, idx);
--}
--
- static int send_connect(struct c4iw_ep *ep)
+ static void release_tid(struct c4iw_rdev *rdev, u32 hwtid, struct sk_buff *skb)
  {
- 	struct cpl_act_open_req *req = NULL;
-@@ -750,9 +736,9 @@ static int send_connect(struct c4iw_ep *ep)
- 	}
- 	set_wr_txq(skb, CPL_PRIORITY_SETUP, ep->ctrlq_idx);
+-	struct cpl_tid_release *req;
++	u32 len = roundup(sizeof(struct cpl_tid_release), 16);
  
--	best_mtu(ep->com.dev->rdev.lldi.mtus, ep->mtu, &mtu_idx,
--		 enable_tcp_timestamps,
--		 (AF_INET == ep->com.remote_addr.ss_family) ? 0 : 1);
-+	cxgb_best_mtu(ep->com.dev->rdev.lldi.mtus, ep->mtu, &mtu_idx,
-+		      enable_tcp_timestamps,
-+		      (ep->com.remote_addr.ss_family == AF_INET) ? 0 : 1);
- 	wscale = compute_wscale(rcv_win);
- 
- 	/*
-@@ -1930,9 +1916,9 @@ static int send_fw_act_open_req(struct c4iw_ep *ep, unsigned int atid)
- 			htons(FW_OFLD_CONNECTION_WR_CPLRXDATAACK_F);
- 	req->tcb.tx_max = (__force __be32) jiffies;
- 	req->tcb.rcv_adv = htons(1);
--	best_mtu(ep->com.dev->rdev.lldi.mtus, ep->mtu, &mtu_idx,
--		 enable_tcp_timestamps,
--		 (AF_INET == ep->com.remote_addr.ss_family) ? 0 : 1);
-+	cxgb_best_mtu(ep->com.dev->rdev.lldi.mtus, ep->mtu, &mtu_idx,
-+		      enable_tcp_timestamps,
-+		      (ep->com.remote_addr.ss_family == AF_INET) ? 0 : 1);
- 	wscale = compute_wscale(rcv_win);
- 
- 	/*
-@@ -2374,9 +2360,9 @@ static int accept_cr(struct c4iw_ep *ep, struct sk_buff *skb,
- 	OPCODE_TID(rpl) = cpu_to_be32(MK_OPCODE_TID(CPL_PASS_ACCEPT_RPL,
- 						    ep->hwtid));
- 
--	best_mtu(ep->com.dev->rdev.lldi.mtus, ep->mtu, &mtu_idx,
--		 enable_tcp_timestamps && req->tcpopt.tstamp,
--		 (AF_INET == ep->com.remote_addr.ss_family) ? 0 : 1);
-+	cxgb_best_mtu(ep->com.dev->rdev.lldi.mtus, ep->mtu, &mtu_idx,
-+		      enable_tcp_timestamps && req->tcpopt.tstamp,
-+		      (ep->com.remote_addr.ss_family == AF_INET) ? 0 : 1);
- 	wscale = compute_wscale(rcv_win);
- 
- 	/*
+-	skb = get_skb(skb, sizeof *req, GFP_KERNEL);
++	skb = get_skb(skb, len, GFP_KERNEL);
+ 	if (!skb)
+ 		return;
+-	req = (struct cpl_tid_release *) skb_put(skb, sizeof(*req));
+-	INIT_TP_WR(req, hwtid);
+-	OPCODE_TID(req) = cpu_to_be32(MK_OPCODE_TID(CPL_TID_RELEASE, hwtid));
+-	set_wr_txq(skb, CPL_PRIORITY_SETUP, 0);
++
++	cxgb_mk_tid_release(skb, len, hwtid, 0);
+ 	c4iw_ofld_send(rdev, skb);
+ 	return;
+ }
 diff --git a/drivers/net/ethernet/chelsio/libcxgb/libcxgb_cm.h b/drivers/net/ethernet/chelsio/libcxgb/libcxgb_cm.h
-index 57fcc98..7fb4feb 100644
+index ecf3baa..fbb973e 100644
 --- a/drivers/net/ethernet/chelsio/libcxgb/libcxgb_cm.h
 +++ b/drivers/net/ethernet/chelsio/libcxgb/libcxgb_cm.h
-@@ -33,6 +33,9 @@
- #ifndef __LIBCXGB_CM_H__
- #define __LIBCXGB_CM_H__
- 
-+
-+#include <net/tcp.h>
-+
- #include <cxgb4.h>
- #include <t4_msg.h>
- 
-@@ -56,4 +59,19 @@ static inline bool cxgb_is_neg_adv(unsigned int status)
- 	       status == CPL_ERR_PERSIST_NEG_ADVICE ||
- 	       status == CPL_ERR_KEEPALV_NEG_ADVICE;
+@@ -83,4 +83,17 @@ static inline u32 cxgb_compute_wscale(u32 win)
+ 		wscale++;
+ 	return wscale;
  }
 +
 +static inline void
-+cxgb_best_mtu(const unsigned short *mtus, unsigned short mtu,
-+	      unsigned int *idx, int use_ts, int ipv6)
++cxgb_mk_tid_release(struct sk_buff *skb, u32 len, u32 tid, u16 chan)
 +{
-+	unsigned short hdr_size = (ipv6 ?
-+				   sizeof(struct ipv6hdr) :
-+				   sizeof(struct iphdr)) +
-+				  sizeof(struct tcphdr) +
-+				  (use_ts ?
-+				   round_up(TCPOLEN_TIMESTAMP, 4) : 0);
-+	unsigned short data_size = mtu - hdr_size;
++	struct cpl_tid_release *req;
 +
-+	cxgb4_best_aligned_mtu(mtus, hdr_size, data_size, 8, idx);
++	req = (struct cpl_tid_release *)__skb_put(skb, len);
++	memset(req, 0, len);
++
++	INIT_TP_WR(req, tid);
++	OPCODE_TID(req) = cpu_to_be32(MK_OPCODE_TID(CPL_TID_RELEASE, tid));
++	set_wr_txq(skb, CPL_PRIORITY_SETUP, chan);
 +}
  #endif
 diff --git a/drivers/target/iscsi/cxgbit/cxgbit_cm.c b/drivers/target/iscsi/cxgbit/cxgbit_cm.c
-index c46bdd5..b09c09b 100644
+index cd29c91..994058f 100644
 --- a/drivers/target/iscsi/cxgbit/cxgbit_cm.c
 +++ b/drivers/target/iscsi/cxgbit/cxgbit_cm.c
-@@ -997,20 +997,6 @@ cxgbit_l2t_send(struct cxgbit_device *cdev, struct sk_buff *skb,
- 	return ret < 0 ? ret : 0;
+@@ -961,21 +961,14 @@ int cxgbit_ofld_send(struct cxgbit_device *cdev, struct sk_buff *skb)
+ 
+ static void cxgbit_release_tid(struct cxgbit_device *cdev, u32 tid)
+ {
+-	struct cpl_tid_release *req;
+-	unsigned int len = roundup(sizeof(*req), 16);
++	u32 len = roundup(sizeof(struct cpl_tid_release), 16);
+ 	struct sk_buff *skb;
+ 
+ 	skb = alloc_skb(len, GFP_ATOMIC);
+ 	if (!skb)
+ 		return;
+ 
+-	req = (struct cpl_tid_release *)__skb_put(skb, len);
+-	memset(req, 0, len);
+-
+-	INIT_TP_WR(req, tid);
+-	OPCODE_TID(req) = cpu_to_be32(MK_OPCODE_TID(
+-		   CPL_TID_RELEASE, tid));
+-	set_wr_txq(skb, CPL_PRIORITY_SETUP, 0);
++	cxgb_mk_tid_release(skb, len, tid, 0);
+ 	cxgbit_ofld_send(cdev, skb);
  }
  
--static void
--cxgbit_best_mtu(const unsigned short *mtus, unsigned short mtu,
--		unsigned int *idx, int use_ts, int ipv6)
--{
--	unsigned short hdr_size = (ipv6 ? sizeof(struct ipv6hdr) :
--				   sizeof(struct iphdr)) +
--				   sizeof(struct tcphdr) +
--				   (use_ts ? round_up(TCPOLEN_TIMESTAMP,
--				    4) : 0);
--	unsigned short data_size = mtu - hdr_size;
--
--	cxgb4_best_aligned_mtu(mtus, hdr_size, data_size, 8, idx);
--}
--
- static void cxgbit_send_rx_credits(struct cxgbit_sock *csk, struct sk_buff *skb)
- {
- 	if (csk->com.state != CSK_STATE_ESTABLISHED) {
-@@ -1135,9 +1121,9 @@ cxgbit_pass_accept_rpl(struct cxgbit_sock *csk, struct cpl_pass_accept_req *req)
- 	INIT_TP_WR(rpl5, csk->tid);
- 	OPCODE_TID(rpl5) = cpu_to_be32(MK_OPCODE_TID(CPL_PASS_ACCEPT_RPL,
- 						     csk->tid));
--	cxgbit_best_mtu(csk->com.cdev->lldi.mtus, csk->mtu, &mtu_idx,
--			req->tcpopt.tstamp,
--			(csk->com.remote_addr.ss_family == AF_INET) ? 0 : 1);
-+	cxgb_best_mtu(csk->com.cdev->lldi.mtus, csk->mtu, &mtu_idx,
-+		      req->tcpopt.tstamp,
-+		      (csk->com.remote_addr.ss_family == AF_INET) ? 0 : 1);
- 	wscale = cxgbit_compute_wscale(csk->rcv_win);
- 	/*
- 	 * Specify the largest window that will fit in opt0. The
 -- 
 2.0.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
