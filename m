@@ -1,8 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 02/10] rxrpc: Add missing wakeup on Tx window
- rotation
-Date: Tue, 13 Sep 2016 23:21:10 +0100
-Message-ID: <147380527029.23135.18355783643218711122.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 03/10] rxrpc: The IDLE ACK packet should use
+ rxrpc_idle_ack_delay
+Date: Tue, 13 Sep 2016 23:21:17 +0100
+Message-ID: <147380527707.23135.8884709851761338836.stgit@warthog.procyon.org.uk>
 References: <147380525614.23135.7539695651371953351.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,30 +15,25 @@ In-Reply-To: <147380525614.23135.7539695651371953351.stgit@warthog.procyon.org.u
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We need to wake up the sender when Tx window rotation due to an incoming
-ACK makes space in the buffer otherwise the sender is liable to just hang
-endlessly.
-
-This problem isn't noticeable if the Tx phase transfers no more than will
-fit in a single window or the Tx window rotates fast enough that it doesn't
-get full.
+The IDLE ACK packet should use the rxrpc_idle_ack_delay setting when the
+timer is set for it.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/input.c |    2 ++
- 1 file changed, 2 insertions(+)
+ net/rxrpc/call_event.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/rxrpc/input.c b/net/rxrpc/input.c
-index afeba98004b1..a707d5952164 100644
---- a/net/rxrpc/input.c
-+++ b/net/rxrpc/input.c
-@@ -59,6 +59,8 @@ static void rxrpc_rotate_tx_window(struct rxrpc_call *call, rxrpc_seq_t to)
+diff --git a/net/rxrpc/call_event.c b/net/rxrpc/call_event.c
+index 2b976e789562..61432049869b 100644
+--- a/net/rxrpc/call_event.c
++++ b/net/rxrpc/call_event.c
+@@ -95,7 +95,7 @@ static void __rxrpc_propose_ACK(struct rxrpc_call *call, u8 ack_reason,
+ 		break;
  
- 	spin_unlock(&call->lock);
+ 	case RXRPC_ACK_IDLE:
+-		if (rxrpc_soft_ack_delay < expiry)
++		if (rxrpc_idle_ack_delay < expiry)
+ 			expiry = rxrpc_idle_ack_delay;
+ 		break;
  
-+	wake_up(&call->waitq);
-+
- 	while (list) {
- 		skb = list;
- 		list = skb->next;
