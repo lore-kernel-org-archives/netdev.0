@@ -1,34 +1,40 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 1/3] net/sched: cls_flower: Support masking for
- matching on tcp/udp ports
-Date: Tue, 13 Sep 2016 16:12:05 +0200
-Message-ID: <20160913141205.GB1942@nanopsycho>
-References: <1473775361-16547-1-git-send-email-ogerlitz@mellanox.com>
- <1473775361-16547-2-git-send-email-ogerlitz@mellanox.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v3 3/9] ARM: sun8i: dt: Add DT bindings documentation for
+ Allwinner sun8i-emac
+Date: Tue, 13 Sep 2016 16:12:02 +0200
+Message-ID: <20160913141202.GO11400@lunn.ch>
+References: <1473425117-18645-1-git-send-email-clabbe.montjoie@gmail.com>
+ <1473425117-18645-4-git-send-email-clabbe.montjoie@gmail.com>
+ <20160909141710.GF30871@lunn.ch>
+ <20160913133417.GC31990@Red>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Jiri Pirko <jiri@mellanox.com>, netdev@vger.kernel.org,
-        Hadar Har-Zion <hadarh@mellanox.com>,
-        Paul Blakey <paulb@mellanox.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:33069 "EHLO
-        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758201AbcIMOMJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 10:12:09 -0400
-Received: by mail-wm0-f46.google.com with SMTP id b187so17297562wme.0
-        for <netdev@vger.kernel.org>; Tue, 13 Sep 2016 07:12:08 -0700 (PDT)
+Cc: robh+dt@kernel.org, mark.rutland@arm.com,
+        maxime.ripard@free-electrons.com, wens@csie.org,
+        linux@armlinux.org.uk, davem@davemloft.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        devicetree@vger.kernel.org
+To: LABBE Corentin <clabbe.montjoie@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1473775361-16547-2-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20160913133417.GC31990@Red>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Sep 13, 2016 at 04:02:39PM CEST, ogerlitz@mellanox.com wrote:
->Add the definitions for src/dst udp/tcp port masks and use
->them when setting && dumping the relevant keys.
->
->Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
->Signed-off-by: Paul Blakey <paulb@mellanox.com>
+On Tue, Sep 13, 2016 at 03:34:17PM +0200, LABBE Corentin wrote:
+> On Fri, Sep 09, 2016 at 04:17:10PM +0200, Andrew Lunn wrote:
+> > > +Optional properties:
+> > > +- allwinner,tx-delay: TX clock delay chain value. Range value is 0-0x07. Default is 0)
+> > > +- allwinner,rx-delay: RX clock delay chain value. Range value is 0-0x1F. Default is 0)
+> > 
+> > What are the units? pS? nS?
+> > 
+> >      Andrew
+> 
+> No units, only raw number.
+> I will add a comment for this.
 
-Acked-by: Jiri Pirko <jiri@mellanox.com>
+And it is likely it will get NACKed by the device tree
+maintainers. You should use real unit here.
+
+       Andrew
