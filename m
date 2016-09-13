@@ -1,161 +1,169 @@
-From: John Crispin <john@phrozen.org>
-Subject: Re: [PATCH V3] net-next: dsa: add FIB support
-Date: Tue, 13 Sep 2016 18:27:46 +0200
-Message-ID: <4f5e1704-daab-b9d3-c865-fad834d9f80b@phrozen.org>
-References: <1473746541-52314-1-git-send-email-john@phrozen.org>
- <87intz22jy.fsf@ketchup.mtl.sfl>
+From: Jesper Dangaard Brouer via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: [PATCH RFC 03/11] net/mlx5e: Implement RX mapped
+ page cache for page recycle
+Date: Tue, 13 Sep 2016 18:28:11 +0200
+Message-ID: <20160913182811.0d475300@redhat.com>
+References: <1473252152-11379-1-git-send-email-saeedm@mellanox.com>
+	<1473252152-11379-4-git-send-email-saeedm@mellanox.com>
+	<20160907204501.08cc4ede@redhat.com>
+	<549ee0e2-b76b-ec62-4287-e63c4320e7c6@mellanox.com>
+Reply-To: Jesper Dangaard Brouer <brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Jiri Pirko <jiri@mellanox.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbd.name ([46.4.11.11]:39056 "EHLO nbd.name"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754811AbcIMQ1w (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 13 Sep 2016 12:27:52 -0400
-In-Reply-To: <87intz22jy.fsf@ketchup.mtl.sfl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
+	iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <549ee0e2-b76b-ec62-4287-e63c4320e7c6-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, 13 Sep 2016 13:16:29 +0300
+Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org> wrote:
 
+> On 07/09/2016 9:45 PM, Jesper Dangaard Brouer wrote:
+> > On Wed,  7 Sep 2016 15:42:24 +0300 Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org> wrote:
+> >  
+> >> From: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> >>
+> >> Instead of reallocating and mapping pages for RX data-path,
+> >> recycle already used pages in a per ring cache.
+> >>
+> >> We ran pktgen single-stream benchmarks, with iptables-raw-drop:
+> >>
+> >> Single stride, 64 bytes:
+> >> * 4,739,057 - baseline
+> >> * 4,749,550 - order0 no cache
+> >> * 4,786,899 - order0 with cache
+> >> 1% gain
+> >>
+> >> Larger packets, no page cross, 1024 bytes:
+> >> * 3,982,361 - baseline
+> >> * 3,845,682 - order0 no cache
+> >> * 4,127,852 - order0 with cache
+> >> 3.7% gain
+> >>
+> >> Larger packets, every 3rd packet crosses a page, 1500 bytes:
+> >> * 3,731,189 - baseline
+> >> * 3,579,414 - order0 no cache
+> >> * 3,931,708 - order0 with cache
+> >> 5.4% gain
+> >>
+> >> Signed-off-by: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> >> Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> >> ---
+> >>   drivers/net/ethernet/mellanox/mlx5/core/en.h       | 16 ++++++
+> >>   drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 15 ++++++
+> >>   drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    | 57 ++++++++++++++++++++--
+> >>   drivers/net/ethernet/mellanox/mlx5/core/en_stats.h | 16 ++++++
+> >>   4 files changed, 99 insertions(+), 5 deletions(-)
+> >>
+> >> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+> >> index 075cdfc..afbdf70 100644
+> >> --- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
+> >> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+> >> @@ -287,6 +287,18 @@ struct mlx5e_rx_am { /* Adaptive Moderation */
+> >>   	u8					tired;
+> >>   };
+> >>   
+> >> +/* a single cache unit is capable to serve one napi call (for non-striding rq)
+> >> + * or a MPWQE (for striding rq).
+> >> + */
+> >> +#define MLX5E_CACHE_UNIT	(MLX5_MPWRQ_PAGES_PER_WQE > NAPI_POLL_WEIGHT ? \
+> >> +				 MLX5_MPWRQ_PAGES_PER_WQE : NAPI_POLL_WEIGHT)
+> >> +#define MLX5E_CACHE_SIZE	(2 * roundup_pow_of_two(MLX5E_CACHE_UNIT))
+> >> +struct mlx5e_page_cache {
+> >> +	u32 head;
+> >> +	u32 tail;
+> >> +	struct mlx5e_dma_info page_cache[MLX5E_CACHE_SIZE];
+> >> +};
+> >> +  
+> > [...]  
+> >>   
+> >> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+> >> index c1cb510..8e02af3 100644
+> >> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+> >> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+> >> @@ -305,11 +305,55 @@ static inline void mlx5e_post_umr_wqe(struct mlx5e_rq *rq, u16 ix)
+> >>   	mlx5e_tx_notify_hw(sq, &wqe->ctrl, 0);
+> >>   }
+> >>   
+> >> +static inline bool mlx5e_rx_cache_put(struct mlx5e_rq *rq,
+> >> +				      struct mlx5e_dma_info *dma_info)
+> >> +{
+> >> +	struct mlx5e_page_cache *cache = &rq->page_cache;
+> >> +	u32 tail_next = (cache->tail + 1) & (MLX5E_CACHE_SIZE - 1);
+> >> +
+> >> +	if (tail_next == cache->head) {
+> >> +		rq->stats.cache_full++;
+> >> +		return false;
+> >> +	}
+> >> +
+> >> +	cache->page_cache[cache->tail] = *dma_info;
+> >> +	cache->tail = tail_next;
+> >> +	return true;
+> >> +}
+> >> +
+> >> +static inline bool mlx5e_rx_cache_get(struct mlx5e_rq *rq,
+> >> +				      struct mlx5e_dma_info *dma_info)
+> >> +{
+> >> +	struct mlx5e_page_cache *cache = &rq->page_cache;
+> >> +
+> >> +	if (unlikely(cache->head == cache->tail)) {
+> >> +		rq->stats.cache_empty++;
+> >> +		return false;
+> >> +	}
+> >> +
+> >> +	if (page_ref_count(cache->page_cache[cache->head].page) != 1) {
+> >> +		rq->stats.cache_busy++;
+> >> +		return false;
+> >> +	}  
+> > Hmmm... doesn't this cause "blocking" of the page_cache recycle
+> > facility until the page at the head of the queue gets (page) refcnt
+> > decremented?  Real use-case could fairly easily block/cause this...  
+> Hi Jesper,
+> 
+> That's right. We are aware of this issue.
+> We considered ways of solving this, but decided to keep current 
+> implementation for now.
+> One way of solving this is to look deeper in the cache.
+> Cons:
+> - this will consume time, and the chance of finding an available page is 
+> not that high: if the page in head of queue is busy then there's a good 
+> chance that all the others are too (because of FIFO).
+> in other words, you already checked all pages and anyway you're going to 
+> allocate a new one (higher penalty for same decision).
+> - this will make holes in the array causing complex accounting when 
+> looking for an available page (this can easily be fixed by swapping 
+> between the page in head and the available one).
+> 
+> Another way is sharing pages between different RQs.
+> - For now we're not doing this for simplicity and to keep 
+> synchronization away.
+> 
+> What do you think?
+> 
+> Anyway, we're looking forward to use your page-pool API which solves 
+> these issues.
 
-On 13/09/2016 18:21, Vivien Didelot wrote:
-> Hi John,
-> 
-> John Crispin <john@phrozen.org> writes:
-> 
->> @@ -237,6 +237,7 @@ struct switchdev_obj;
->>  struct switchdev_obj_port_fdb;
->>  struct switchdev_obj_port_mdb;
->>  struct switchdev_obj_port_vlan;
->> +struct switchdev_obj_ipv4_fib;
-> 
-> Can you keep it ordered please (put obj_ipv4 above port_fdb).
-> 
->>  
->>  struct dsa_switch_ops {
->>  	struct list_head	list;
->> @@ -386,6 +387,18 @@ struct dsa_switch_ops {
->>  	int	(*port_mdb_dump)(struct dsa_switch *ds, int port,
->>  				 struct switchdev_obj_port_mdb *mdb,
->>  				 int (*cb)(struct switchdev_obj *obj));
->> +
->> +	/*
->> +	 * IPV4 routing
->> +	 */
->> +	int	(*ipv4_fib_prepare)(struct dsa_switch *ds, int port,
->> +				    const struct switchdev_obj_ipv4_fib *fib4,
->> +				    struct switchdev_trans *trans);
->> +	int	(*ipv4_fib_add)(struct dsa_switch *ds, int port,
->> +				const struct switchdev_obj_ipv4_fib *fib4,
->> +				struct switchdev_trans *trans);
-> 
-> DSA *_add ops should return void, since no error is supposed to occure in
-> the commit phase.
-> 
-> If they are port-based operations, please prefix them with "port_",
-> otherwise, the int port parameter is not necessary.
-> 
->> +	int	(*ipv4_fib_del)(struct dsa_switch *ds, int port,
->> +				const struct switchdev_obj_ipv4_fib *fib4);
->>  };
->>  
->>  void register_switch_driver(struct dsa_switch_ops *type);
->> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
->> index 9ecbe78..c974ac0 100644
->> --- a/net/dsa/slave.c
->> +++ b/net/dsa/slave.c
->> @@ -334,6 +334,38 @@ static int dsa_slave_port_mdb_dump(struct net_device *dev,
->>  	return -EOPNOTSUPP;
->>  }
->>  
->> +static int dsa_slave_ipv4_fib_add(struct net_device *dev,
->> +				  const struct switchdev_obj_ipv4_fib *fib4,
->> +				  struct switchdev_trans *trans)
->> +{
->> +	struct dsa_slave_priv *p = netdev_priv(dev);
->> +	struct dsa_switch *ds = p->parent;
->> +	int ret;
->> +
->> +	if (!ds->ops->ipv4_fib_prepare || !ds->ops->ipv4_fib_add)
->> +		return -EOPNOTSUPP;
->> +
->> +	if (switchdev_trans_ph_prepare(trans))
->> +		ret = ds->ops->ipv4_fib_prepare(ds, p->port, fib4, trans);
->> +	else
->> +		ret = ds->ops->ipv4_fib_add(ds, p->port, fib4, trans);
->> +
->> +	return ret;
->> +}
-> 
-> Please see dsa_slave_port_vlan_add for a better logic with the prepare
-> phase and void add routine.
-> 
->> +
->> +static int dsa_slave_ipv4_fib_del(struct net_device *dev,
->> +				  const struct switchdev_obj_ipv4_fib *fib4)
->> +{
->> +	struct dsa_slave_priv *p = netdev_priv(dev);
->> +	struct dsa_switch *ds = p->parent;
->> +	int ret = -EOPNOTSUPP;
->> +
->> +	if (ds->ops->ipv4_fib_del)
->> +		ret = ds->ops->ipv4_fib_del(ds, p->port, fib4);
->> +
->> +	return ret;
->> +}
-> 
-> Just curious, isn't there a dump operation for SWITCHDEV_OBJ_ID_IPV4_FIB?
-> 
->> +
->>  static int dsa_slave_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
->>  {
->>  	struct dsa_slave_priv *p = netdev_priv(dev);
->> @@ -465,6 +497,11 @@ static int dsa_slave_port_obj_add(struct net_device *dev,
->>  					      SWITCHDEV_OBJ_PORT_VLAN(obj),
->>  					      trans);
->>  		break;
->> +	case SWITCHDEV_OBJ_ID_IPV4_FIB:
->> +		err = dsa_slave_ipv4_fib_add(dev,
->> +					     SWITCHDEV_OBJ_IPV4_FIB(obj),
->> +					     trans);
->> +		break;
->>  	default:
->>  		err = -EOPNOTSUPP;
->>  		break;
->> @@ -490,6 +527,10 @@ static int dsa_slave_port_obj_del(struct net_device *dev,
->>  		err = dsa_slave_port_vlan_del(dev,
->>  					      SWITCHDEV_OBJ_PORT_VLAN(obj));
->>  		break;
->> +	case SWITCHDEV_OBJ_ID_IPV4_FIB:
->> +		err = dsa_slave_ipv4_fib_del(dev,
->> +					     SWITCHDEV_OBJ_IPV4_FIB(obj));
->> +		break;
->>  	default:
->>  		err = -EOPNOTSUPP;
->>  		break;
-> 
-> Please keep the SWITCHDEV_OBJ_ID_IPV4_FIB case ordered with other cases
-> as well.
-> 
-> I'm adding Jiri's in the loop, since he has started a thread on FIB
-> notifications a few days ago, his feedback might be interesting. If I'm
-> not mistaken, there is a plan to factorize FID routines (not sure).
-> 
-> Thanks,
-> 
->         Vivien
+Yes, as you mention yourself, the page-pool API solves this problem.
+Thus, I'm not sure it is worth investing more time in optimizing this
+driver local page cache mechanism.
 
-Hi Vivien,
-
-i sent an email to Jiri earlier today and he asked me to drop this until
-his notification series got merged.
-
-	John
-
-> 
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
