@@ -1,89 +1,72 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 4/4] netfilter: synproxy: Check oom when adding synproxy and seqadj ct extensions
-Date: Tue, 13 Sep 2016 11:05:17 +0200
-Message-ID: <1473757517-3764-5-git-send-email-pablo@netfilter.org>
-References: <1473757517-3764-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1473757517-3764-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
+Subject: Re: [PATCH net-next 0/7] cxgb4: add support for offloading TC u32
+ filters
+Date: Tue, 13 Sep 2016 14:37:59 +0530
+Message-ID: <20160913090758.GA30545@chelsio.com>
+References: <cover.1473667613.git.rahul.lakkireddy@chelsio.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        hariprasad@chelsio.com, leedom@chelsio.com, nirranjan@chelsio.com,
+        indranil@chelsio.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([12.32.117.8]:54423 "EHLO
+        stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751625AbcIMJJ0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 05:09:26 -0400
+Content-Disposition: inline
+In-Reply-To: <cover.1473667613.git.rahul.lakkireddy@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <fgao@ikuai8.com>
+On Monday, September 09/12/16, 2016 at 13:42:33 +0530, Rahul Lakkireddy wrote:
+> This series of patches add support to offload TC u32 filters onto
+> Chelsio NICs.
+> 
+> Patch 1 moves current common filter code to separate files
+> in order to provide a common api for performing packet classification
+> and filtering in Chelsio NICs.
+> 
+> Patch 2 enables filters for normal NIC configuration and implements
+> common api for setting and deleting filters.
+> 
+> Patch 3 provides a debugfs for dumping filter information.
+> 
+> Patches 4-7 add support for TC u32 offload via ndo_setup_tc.
+> 
+> Rahul Lakkireddy (7):
+>   cxgb4: move common filter code to separate file
+>   cxgb4: add common api support for configuring filters
+>   cxgb4: add debugfs support to dump filter debug logs
+>   cxgb4: add parser to translate u32 filters to internal spec
+>   cxgb4: add support for setting u32 filters
+>   cxgb4: add support for deleting u32 filters
+>   cxgb4: add support for drop and redirect actions
+> 
+>  drivers/net/ethernet/chelsio/cxgb4/Makefile        |    2 +-
+>  drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |   30 +
+>  drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c |    4 +-
+>  drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c  | 1086 ++++++++++++++++++++
+>  drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.h  |   50 +
+>  drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |  338 ++----
+>  drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c  |  498 +++++++++
+>  drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.h  |   57 +
+>  .../ethernet/chelsio/cxgb4/cxgb4_tc_u32_parse.h    |  294 ++++++
+>  drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h     |   23 +-
+>  drivers/net/ethernet/chelsio/cxgb4/t4_values.h     |    5 +-
+>  11 files changed, 2104 insertions(+), 283 deletions(-)
+>  create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
+>  create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.h
+>  create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c
+>  create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.h
+>  create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32_parse.h
+> 
+> -- 
+> 2.5.3
+> 
 
-When memory is exhausted, nfct_seqadj_ext_add may fail to add the
-synproxy and seqadj extensions. The function nf_ct_seqadj_init doesn't
-check if get valid seqadj pointer by the nfct_seqadj.
+Thanks for the review Jiri.  Will send a v2 with necessary changes.
 
-Now drop the packet directly when fail to add seqadj extension to
-avoid dereference NULL pointer in nf_ct_seqadj_init from
-init_conntrack().
-
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- include/net/netfilter/nf_conntrack_synproxy.h | 14 ++++++++++++++
- net/netfilter/nf_conntrack_core.c             |  6 +++---
- net/netfilter/nf_nat_core.c                   |  3 ++-
- 3 files changed, 19 insertions(+), 4 deletions(-)
-
-diff --git a/include/net/netfilter/nf_conntrack_synproxy.h b/include/net/netfilter/nf_conntrack_synproxy.h
-index 6793614..e693731 100644
---- a/include/net/netfilter/nf_conntrack_synproxy.h
-+++ b/include/net/netfilter/nf_conntrack_synproxy.h
-@@ -27,6 +27,20 @@ static inline struct nf_conn_synproxy *nfct_synproxy_ext_add(struct nf_conn *ct)
- #endif
- }
- 
-+static inline bool nf_ct_add_synproxy(struct nf_conn *ct,
-+				      const struct nf_conn *tmpl)
-+{
-+	if (tmpl && nfct_synproxy(tmpl)) {
-+		if (!nfct_seqadj_ext_add(ct))
-+			return false;
-+
-+		if (!nfct_synproxy_ext_add(ct))
-+			return false;
-+	}
-+
-+	return true;
-+}
-+
- struct synproxy_stats {
- 	unsigned int			syn_received;
- 	unsigned int			cookie_invalid;
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index dd2c43a..9934b0c 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -1035,9 +1035,9 @@ init_conntrack(struct net *net, struct nf_conn *tmpl,
- 	if (IS_ERR(ct))
- 		return (struct nf_conntrack_tuple_hash *)ct;
- 
--	if (tmpl && nfct_synproxy(tmpl)) {
--		nfct_seqadj_ext_add(ct);
--		nfct_synproxy_ext_add(ct);
-+	if (!nf_ct_add_synproxy(ct, tmpl)) {
-+		nf_conntrack_free(ct);
-+		return ERR_PTR(-ENOMEM);
- 	}
- 
- 	timeout_ext = tmpl ? nf_ct_timeout_find(tmpl) : NULL;
-diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
-index 19c081e..ecee105 100644
---- a/net/netfilter/nf_nat_core.c
-+++ b/net/netfilter/nf_nat_core.c
-@@ -441,7 +441,8 @@ nf_nat_setup_info(struct nf_conn *ct,
- 			ct->status |= IPS_DST_NAT;
- 
- 		if (nfct_help(ct))
--			nfct_seqadj_ext_add(ct);
-+			if (!nfct_seqadj_ext_add(ct))
-+				return NF_DROP;
- 	}
- 
- 	if (maniptype == NF_NAT_MANIP_SRC) {
--- 
-2.1.4
-
+Thanks,
+Rahul
