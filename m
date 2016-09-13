@@ -1,31 +1,30 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [PATCH v3] net: ip, diag -- Add diag interface for raw sockets
-Date: Tue, 13 Sep 2016 19:31:47 +0300
-Message-ID: <20160913163147.GB32643@uranus>
-References: <20160910220528.GB2001@uranus.lan>
- <c5889fbd-ad20-0626-be1f-9d09a1d35b1a@cumulusnetworks.com>
- <20160911191714.GC2001@uranus.lan>
- <20160913.115735.1397234520899437294.davem@davemloft.net>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH V3] net-next: dsa: add FIB support
+Date: Tue, 13 Sep 2016 12:34:52 -0400
+Message-ID: <87wpifg3mb.fsf@ketchup.mtl.sfl>
+References: <1473746541-52314-1-git-send-email-john@phrozen.org> <87intz22jy.fsf@ketchup.mtl.sfl> <4f5e1704-daab-b9d3-c865-fad834d9f80b@phrozen.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dsa@cumulusnetworks.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, eric.dumazet@gmail.com,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, avagin@openvz.org, stephen@networkplumber.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Jiri Pirko <jiri@mellanox.com>
+To: John Crispin <john@phrozen.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160913.115735.1397234520899437294.davem@davemloft.net>
+In-Reply-To: <4f5e1704-daab-b9d3-c865-fad834d9f80b@phrozen.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 13, 2016 at 11:57:35AM -0400, David Miller wrote:
-> > 
-> > Thanks for review, David. I updated against net-next.
-> 
-> Please do not post new versions of patches as replies to existing
-> discussions.
-> 
-> Instead, make fresh patch postings to the list.
+Hi John,
 
-Oh, will do. Sorry for inconvenience.
+John Crispin <john@phrozen.org> writes:
+
+> i sent an email to Jiri earlier today and he asked me to drop this
+> until his notification series got merged.
+
+That makes sense then. So David should ignore this for the moment.
+
+Thanks,
+
+        Vivien
