@@ -1,445 +1,113 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: [PATCH v3] net: ip, diag -- Add diag interface for raw sockets
-Date: Tue, 13 Sep 2016 20:19:50 +0300
-Message-ID: <20160913171950.GC32643@uranus>
+From: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
+Subject: Re: [PATCH v5 0/6] Add eBPF hooks for cgroups
+Date: Tue, 13 Sep 2016 19:24:08 +0200
+Message-ID: <20160913172408.GC6138@salvia>
+References: <1473696735-11269-1-git-send-email-daniel@zonque.org>
+ <20160913115627.GA4898@salvia>
+ <da300784-284c-0d1f-a82e-aa0a0f8ae116@zonque.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, dsa@cumulusnetworks.com,
-        eric.dumazet@gmail.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        yoshfuji@linux-ipv6.org, kaber@trash.net, avagin@openvz.org,
-        stephen@networkplumber.org
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: htejun-b10kYP2dOMg@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, ast-b10kYP2dOMg@public.gmane.org,
+        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, kafai-b10kYP2dOMg@public.gmane.org, fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org, harald-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <da300784-284c-0d1f-a82e-aa0a0f8ae116-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-In criu we are actively using diag interface to collect sockets
-present in the system when dumping applications. And while for
-unix, tcp, udp[lite], packet, netlink it works as expected,
-the raw sockets do not have. Thus add it.
+On Tue, Sep 13, 2016 at 03:31:20PM +0200, Daniel Mack wrote:
+> Hi,
+> 
+> On 09/13/2016 01:56 PM, Pablo Neira Ayuso wrote:
+> > On Mon, Sep 12, 2016 at 06:12:09PM +0200, Daniel Mack wrote:
+> >> This is v5 of the patch set to allow eBPF programs for network
+> >> filtering and accounting to be attached to cgroups, so that they apply
+> >> to all sockets of all tasks placed in that cgroup. The logic also
+> >> allows to be extendeded for other cgroup based eBPF logic.
+> > 
+> > 1) This infrastructure can only be useful to systemd, or any similar
+> >    orchestration daemon. Look, you can only apply filtering policies
+> >    to processes that are launched by systemd, so this only works
+> >    for server processes.
+> 
+> Sorry, but both statements aren't true. The eBPF policies apply to every
+> process that is placed in a cgroup, and my example program in 6/6 shows
+> how that can be done from the command line.
 
-v2:
- - add missing sock_put calls in raw_diag_dump_one (by eric.dumazet@)
- - implement @destroy for diag requests (by dsa@)
+Then you have to explain me how can anyone else than systemd use this
+infrastructure?
 
-v3:
- - add export of raw_abort for IPv6 (by dsa@)
- - pass net-admin flag into inet_sk_diag_fill due to
-   changes in net-next branch (by dsa@)
+> Also, systemd is able to control userspace processes just fine, and
+> it not limited to 'server processes'.
 
-CC: David S. Miller <davem@davemloft.net>
-CC: Eric Dumazet <eric.dumazet@gmail.com>
-CC: David Ahern <dsa@cumulusnetworks.com>
-CC: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-CC: James Morris <jmorris@namei.org>
-CC: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-CC: Patrick McHardy <kaber@trash.net>
-CC: Andrey Vagin <avagin@openvz.org>
-CC: Stephen Hemminger <stephen@networkplumber.org>
-Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
----
+My main point is that those processes *need* to be launched by the
+orchestrator, which is was refering as 'server processes'.
 
- include/net/raw.h   |    6 +
- include/net/rawv6.h |    7 +
- net/ipv4/Kconfig    |    8 +
- net/ipv4/Makefile   |    1 
- net/ipv4/raw.c      |   21 ++++
- net/ipv4/raw_diag.c |  226 ++++++++++++++++++++++++++++++++++++++++++++++++++++
- net/ipv6/raw.c      |    7 +
- 7 files changed, 272 insertions(+), 4 deletions(-)
+> > For client processes this infrastructure is
+> >    *racy*, you have to add new processes in runtime to the cgroup,
+> >    thus there will be time some little time where no filtering policy
+> >    will be applied. For quality of service, this may be an acceptable
+> >    race, but this is aiming to deploy a filtering policy.
+> 
+> That's a limitation that applies to many more control mechanisms in the
+> kernel, and it's something that can easily be solved with fork+exec.
 
-Index: linux-ml.git/include/net/raw.h
-===================================================================
---- linux-ml.git.orig/include/net/raw.h
-+++ linux-ml.git/include/net/raw.h
-@@ -23,6 +23,12 @@
- 
- extern struct proto raw_prot;
- 
-+extern struct raw_hashinfo raw_v4_hashinfo;
-+struct sock *__raw_v4_lookup(struct net *net, struct sock *sk,
-+			     unsigned short num, __be32 raddr,
-+			     __be32 laddr, int dif);
-+
-+int raw_abort(struct sock *sk, int err);
- void raw_icmp_error(struct sk_buff *, int, u32);
- int raw_local_deliver(struct sk_buff *, int);
- 
-Index: linux-ml.git/include/net/rawv6.h
-===================================================================
---- linux-ml.git.orig/include/net/rawv6.h
-+++ linux-ml.git/include/net/rawv6.h
-@@ -3,6 +3,13 @@
- 
- #include <net/protocol.h>
- 
-+extern struct raw_hashinfo raw_v6_hashinfo;
-+struct sock *__raw_v6_lookup(struct net *net, struct sock *sk,
-+			     unsigned short num, const struct in6_addr *loc_addr,
-+			     const struct in6_addr *rmt_addr, int dif);
-+
-+int raw_abort(struct sock *sk, int err);
-+
- void raw6_icmp_error(struct sk_buff *, int nexthdr,
- 		u8 type, u8 code, int inner_offset, __be32);
- bool raw6_local_deliver(struct sk_buff *, int);
-Index: linux-ml.git/net/ipv4/Kconfig
-===================================================================
---- linux-ml.git.orig/net/ipv4/Kconfig
-+++ linux-ml.git/net/ipv4/Kconfig
-@@ -430,6 +430,14 @@ config INET_UDP_DIAG
- 	  Support for UDP socket monitoring interface used by the ss tool.
- 	  If unsure, say Y.
- 
-+config INET_RAW_DIAG
-+	tristate "RAW: socket monitoring interface"
-+	depends on INET_DIAG && (IPV6 || IPV6=n)
-+	default n
-+	---help---
-+	  Support for RAW socket monitoring interface used by the ss tool.
-+	  If unsure, say Y.
-+
- config INET_DIAG_DESTROY
- 	bool "INET: allow privileged process to administratively close sockets"
- 	depends on INET_DIAG
-Index: linux-ml.git/net/ipv4/Makefile
-===================================================================
---- linux-ml.git.orig/net/ipv4/Makefile
-+++ linux-ml.git/net/ipv4/Makefile
-@@ -40,6 +40,7 @@ obj-$(CONFIG_NETFILTER)	+= netfilter.o n
- obj-$(CONFIG_INET_DIAG) += inet_diag.o 
- obj-$(CONFIG_INET_TCP_DIAG) += tcp_diag.o
- obj-$(CONFIG_INET_UDP_DIAG) += udp_diag.o
-+obj-$(CONFIG_INET_RAW_DIAG) += raw_diag.o
- obj-$(CONFIG_NET_TCPPROBE) += tcp_probe.o
- obj-$(CONFIG_TCP_CONG_BIC) += tcp_bic.o
- obj-$(CONFIG_TCP_CONG_CDG) += tcp_cdg.o
-Index: linux-ml.git/net/ipv4/raw.c
-===================================================================
---- linux-ml.git.orig/net/ipv4/raw.c
-+++ linux-ml.git/net/ipv4/raw.c
-@@ -89,9 +89,10 @@ struct raw_frag_vec {
- 	int hlen;
- };
- 
--static struct raw_hashinfo raw_v4_hashinfo = {
-+struct raw_hashinfo raw_v4_hashinfo = {
- 	.lock = __RW_LOCK_UNLOCKED(raw_v4_hashinfo.lock),
- };
-+EXPORT_SYMBOL_GPL(raw_v4_hashinfo);
- 
- int raw_hash_sk(struct sock *sk)
- {
-@@ -120,7 +121,7 @@ void raw_unhash_sk(struct sock *sk)
- }
- EXPORT_SYMBOL_GPL(raw_unhash_sk);
- 
--static struct sock *__raw_v4_lookup(struct net *net, struct sock *sk,
-+struct sock *__raw_v4_lookup(struct net *net, struct sock *sk,
- 		unsigned short num, __be32 raddr, __be32 laddr, int dif)
- {
- 	sk_for_each_from(sk) {
-@@ -136,6 +137,7 @@ static struct sock *__raw_v4_lookup(stru
- found:
- 	return sk;
- }
-+EXPORT_SYMBOL_GPL(__raw_v4_lookup);
- 
- /*
-  *	0 - deliver
-@@ -918,6 +920,20 @@ static int compat_raw_ioctl(struct sock
- }
- #endif
- 
-+int raw_abort(struct sock *sk, int err)
-+{
-+	lock_sock(sk);
-+
-+	sk->sk_err = err;
-+	sk->sk_error_report(sk);
-+	udp_disconnect(sk, 0);
-+
-+	release_sock(sk);
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(raw_abort);
-+
- struct proto raw_prot = {
- 	.name		   = "RAW",
- 	.owner		   = THIS_MODULE,
-@@ -943,6 +959,7 @@ struct proto raw_prot = {
- 	.compat_getsockopt = compat_raw_getsockopt,
- 	.compat_ioctl	   = compat_raw_ioctl,
- #endif
-+	.diag_destroy	   = raw_abort,
- };
- 
- #ifdef CONFIG_PROC_FS
-Index: linux-ml.git/net/ipv4/raw_diag.c
-===================================================================
---- /dev/null
-+++ linux-ml.git/net/ipv4/raw_diag.c
-@@ -0,0 +1,226 @@
-+#include <linux/module.h>
-+
-+#include <linux/inet_diag.h>
-+#include <linux/sock_diag.h>
-+
-+#include <net/raw.h>
-+#include <net/rawv6.h>
-+
-+#ifdef pr_fmt
-+# undef pr_fmt
-+#endif
-+
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
-+static struct raw_hashinfo *
-+raw_get_hashinfo(const struct inet_diag_req_v2 *r)
-+{
-+	if (r->sdiag_family == AF_INET) {
-+		return &raw_v4_hashinfo;
-+#if IS_ENABLED(CONFIG_IPV6)
-+	} else if (r->sdiag_family == AF_INET6) {
-+		return &raw_v6_hashinfo;
-+#endif
-+	} else {
-+		pr_warn_once("Unexpected inet family %d\n",
-+			     r->sdiag_family);
-+		WARN_ON_ONCE(1);
-+		return ERR_PTR(-EINVAL);
-+	}
-+}
-+
-+static struct sock *raw_lookup(struct net *net, struct sock *from,
-+			       const struct inet_diag_req_v2 *r)
-+{
-+	struct sock *sk = NULL;
-+
-+	if (r->sdiag_family == AF_INET)
-+		sk = __raw_v4_lookup(net, from, r->sdiag_protocol,
-+				     r->id.idiag_dst[0],
-+				     r->id.idiag_src[0],
-+				     r->id.idiag_if);
-+#if IS_ENABLED(CONFIG_IPV6)
-+	else
-+		sk = __raw_v6_lookup(net, from, r->sdiag_protocol,
-+				     (const struct in6_addr *)r->id.idiag_src,
-+				     (const struct in6_addr *)r->id.idiag_dst,
-+				     r->id.idiag_if);
-+#endif
-+	return sk;
-+}
-+
-+static struct sock *raw_sock_get(struct net *net, const struct inet_diag_req_v2 *r)
-+{
-+	struct raw_hashinfo *hashinfo = raw_get_hashinfo(r);
-+	struct sock *sk = NULL, *s;
-+	int slot;
-+
-+	if (IS_ERR(hashinfo))
-+		return ERR_CAST(hashinfo);
-+
-+	read_lock(&hashinfo->lock);
-+	for (slot = 0; slot < RAW_HTABLE_SIZE; slot++) {
-+		sk_for_each(s, &hashinfo->ht[slot]) {
-+			sk = raw_lookup(net, s, r);
-+			if (sk)
-+				break;
-+		}
-+	}
-+	if (sk && !atomic_inc_not_zero(&sk->sk_refcnt))
-+		sk = NULL;
-+	read_unlock(&hashinfo->lock);
-+
-+	return sk ? sk : ERR_PTR(-ENOENT);
-+}
-+
-+static int raw_diag_dump_one(struct sk_buff *in_skb,
-+			     const struct nlmsghdr *nlh,
-+			     const struct inet_diag_req_v2 *r)
-+{
-+	struct net *net = sock_net(in_skb->sk);
-+	struct sk_buff *rep;
-+	struct sock *sk;
-+	int err;
-+
-+	sk = raw_sock_get(net, r);
-+	if (IS_ERR(sk))
-+		return PTR_ERR(sk);
-+
-+	rep = nlmsg_new(sizeof(struct inet_diag_msg) +
-+			sizeof(struct inet_diag_meminfo) + 64,
-+			GFP_KERNEL);
-+	if (!rep) {
-+		sock_put(sk);
-+		return -ENOMEM;
-+	}
-+
-+	err = inet_sk_diag_fill(sk, NULL, rep, r,
-+				sk_user_ns(NETLINK_CB(in_skb).sk),
-+				NETLINK_CB(in_skb).portid,
-+				nlh->nlmsg_seq, 0, nlh,
-+				netlink_net_capable(in_skb, CAP_NET_ADMIN));
-+	sock_put(sk);
-+
-+	if (err < 0) {
-+		kfree_skb(rep);
-+		return err;
-+	}
-+
-+	err = netlink_unicast(net->diag_nlsk, rep,
-+			      NETLINK_CB(in_skb).portid,
-+			      MSG_DONTWAIT);
-+	if (err > 0)
-+		err = 0;
-+	return err;
-+}
-+
-+static int sk_diag_dump(struct sock *sk, struct sk_buff *skb,
-+			struct netlink_callback *cb,
-+			const struct inet_diag_req_v2 *r,
-+			struct nlattr *bc, bool net_admin)
-+{
-+	if (!inet_diag_bc_sk(bc, sk))
-+		return 0;
-+
-+	return inet_sk_diag_fill(sk, NULL, skb, r,
-+			sk_user_ns(NETLINK_CB(cb->skb).sk),
-+			NETLINK_CB(cb->skb).portid,
-+			cb->nlh->nlmsg_seq, NLM_F_MULTI,
-+			cb->nlh, net_admin);
-+}
-+
-+static void raw_diag_dump(struct sk_buff *skb, struct netlink_callback *cb,
-+			  const struct inet_diag_req_v2 *r, struct nlattr *bc)
-+{
-+	bool net_admin = netlink_net_capable(cb->skb, CAP_NET_ADMIN);
-+	struct raw_hashinfo *hashinfo = raw_get_hashinfo(r);
-+	struct net *net = sock_net(skb->sk);
-+	int num, s_num, slot, s_slot;
-+	struct sock *sk = NULL;
-+
-+	if (IS_ERR(hashinfo))
-+		return;
-+
-+	s_slot = cb->args[0];
-+	num = s_num = cb->args[1];
-+
-+	read_lock(&hashinfo->lock);
-+	for (slot = s_slot; slot < RAW_HTABLE_SIZE; s_num = 0, slot++) {
-+		num = 0;
-+
-+		sk_for_each(sk, &hashinfo->ht[slot]) {
-+			struct inet_sock *inet = inet_sk(sk);
-+
-+			if (!net_eq(sock_net(sk), net))
-+				continue;
-+			if (num < s_num)
-+				goto next;
-+			if (sk->sk_family != r->sdiag_family)
-+				goto next;
-+			if (r->id.idiag_sport != inet->inet_sport &&
-+			    r->id.idiag_sport)
-+				goto next;
-+			if (r->id.idiag_dport != inet->inet_dport &&
-+			    r->id.idiag_dport)
-+				goto next;
-+			if (sk_diag_dump(sk, skb, cb, r, bc, net_admin) < 0)
-+				goto out_unlock;
-+next:
-+			num++;
-+		}
-+	}
-+
-+out_unlock:
-+	read_unlock(&hashinfo->lock);
-+
-+	cb->args[0] = slot;
-+	cb->args[1] = num;
-+}
-+
-+static void raw_diag_get_info(struct sock *sk, struct inet_diag_msg *r,
-+			      void *info)
-+{
-+	r->idiag_rqueue = sk_rmem_alloc_get(sk);
-+	r->idiag_wqueue = sk_wmem_alloc_get(sk);
-+}
-+
-+#ifdef CONFIG_INET_DIAG_DESTROY
-+static int raw_diag_destroy(struct sk_buff *in_skb,
-+			    const struct inet_diag_req_v2 *r)
-+{
-+	struct net *net = sock_net(in_skb->sk);
-+	struct sock *sk;
-+
-+	sk = raw_sock_get(net, r);
-+	if (IS_ERR(sk))
-+		return PTR_ERR(sk);
-+	return sock_diag_destroy(sk, ECONNABORTED);
-+}
-+#endif
-+
-+static const struct inet_diag_handler raw_diag_handler = {
-+	.dump			= raw_diag_dump,
-+	.dump_one		= raw_diag_dump_one,
-+	.idiag_get_info		= raw_diag_get_info,
-+	.idiag_type		= IPPROTO_RAW,
-+	.idiag_info_size	= 0,
-+#ifdef CONFIG_INET_DIAG_DESTROY
-+	.destroy		= raw_diag_destroy,
-+#endif
-+};
-+
-+static int __init raw_diag_init(void)
-+{
-+	return inet_diag_register(&raw_diag_handler);
-+}
-+
-+static void __exit raw_diag_exit(void)
-+{
-+	inet_diag_unregister(&raw_diag_handler);
-+}
-+
-+module_init(raw_diag_init);
-+module_exit(raw_diag_exit);
-+MODULE_LICENSE("GPL");
-+MODULE_ALIAS_NET_PF_PROTO_TYPE(PF_NETLINK, NETLINK_SOCK_DIAG, 2-255 /* AF_INET - IPPROTO_RAW */);
-+MODULE_ALIAS_NET_PF_PROTO_TYPE(PF_NETLINK, NETLINK_SOCK_DIAG, 10-255 /* AF_INET6 - IPPROTO_RAW */);
-Index: linux-ml.git/net/ipv6/raw.c
-===================================================================
---- linux-ml.git.orig/net/ipv6/raw.c
-+++ linux-ml.git/net/ipv6/raw.c
-@@ -65,11 +65,12 @@
- 
- #define	ICMPV6_HDRLEN	4	/* ICMPv6 header, RFC 4443 Section 2.1 */
- 
--static struct raw_hashinfo raw_v6_hashinfo = {
-+struct raw_hashinfo raw_v6_hashinfo = {
- 	.lock = __RW_LOCK_UNLOCKED(raw_v6_hashinfo.lock),
- };
-+EXPORT_SYMBOL_GPL(raw_v6_hashinfo);
- 
--static struct sock *__raw_v6_lookup(struct net *net, struct sock *sk,
-+struct sock *__raw_v6_lookup(struct net *net, struct sock *sk,
- 		unsigned short num, const struct in6_addr *loc_addr,
- 		const struct in6_addr *rmt_addr, int dif)
- {
-@@ -102,6 +103,7 @@ static struct sock *__raw_v6_lookup(stru
- found:
- 	return sk;
- }
-+EXPORT_SYMBOL_GPL(__raw_v6_lookup);
- 
- /*
-  *	0 - deliver
-@@ -1252,6 +1254,7 @@ struct proto rawv6_prot = {
- 	.compat_getsockopt = compat_rawv6_getsockopt,
- 	.compat_ioctl	   = compat_rawv6_ioctl,
- #endif
-+	.diag_destroy	   = raw_abort,
- };
- 
- #ifdef CONFIG_PROC_FS
+As long as you have control to launch the processes yes, but this
+will not work in other scenarios. Just like cgroup net_cls and friends
+are broken for filtering for things that you have no control to
+fork+exec.
+
+To use this infrastructure from a non-launcher process, you'll have to
+rely on the proc connection to subscribe to new process events, then
+echo that pid to the cgroup, and that interface is asynchronous so
+*adding new processes to the cgroup is subject to races*.
+
+> > 2) This aproach looks uninfrastructured to me. This provides a hook
+> >    to push a bpf blob at a place in the stack that deploys a filtering
+> >    policy that is not visible to others.
+> 
+> That's just as transparent as SO_ATTACH_FILTER. What kind of
+> introspection mechanism do you have in mind?
+
+SO_ATTACH_FILTER is called from the process itself, so this is a local
+filtering policy that you apply to your own process.
+
+In this case, this filtering policy is *global*, other processes with
+similar capabilities can get just a bpf blob at best...
+
+[...]
+> >> After chatting with Daniel Borkmann and Alexei off-list, we concluded
+> >> that __dev_queue_xmit() is the place where the egress hooks should live
+> >> when eBPF programs need access to the L2 bits of the skb.
+> > 
+> > 3) This egress hook is coming very late, the only reason I find to
+> >    place it at __dev_queue_xmit() is that bpf naturally works with
+> >    layer 2 information in place. But this new hook is placed in
+> >    _everyone's output ath_ that only works for the very specific
+> >    usecase I exposed above.
+> 
+> It's about filtering outgoing network packets of applications, and
+> providing them with L2 information for filtering purposes. I don't think
+> that's a very specific use-case.
+> 
+> When the feature is not used at all, the added costs on the output path
+> are close to zero, due to the use of static branches.
+
+*You're proposing a socket filtering facility that hooks layer 2
+output path*!
+
+[...]
+> > I have nothing against systemd or the needs for more
+> > programmability/flexibility in the stack, but I think this needs to
+> > fulfill some requirements to fit into the infrastructure that we have
+> > in the right way.
+> 
+> Well, as I explained already, this patch set results from endless
+> discussions that went nowhere, about how such a thing can be achieved
+> with netfilter.
+
+That is only a rough ~30 lines kernel patchset to support this in
+netfilter and only one extra input hook, with potential access to
+conntrack and better integration with other existing subsystems.
