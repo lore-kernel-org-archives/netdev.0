@@ -1,47 +1,141 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCHv2 net 0/6] sctp: fix the transmit err process
-Date: Wed, 14 Sep 2016 02:04:17 +0800
-Message-ID: <cover.1473789537.git.lucien.xin@gmail.com>
+Subject: [PATCHv2 net 4/6] sctp: save transmit error to sk_err in sctp_outq_flush
+Date: Wed, 14 Sep 2016 02:04:21 +0800
+Message-ID: <f4f0d53e93368c69f55df9f4aba4da2148fcca7e.1473789537.git.lucien.xin@gmail.com>
+References: <cover.1473789537.git.lucien.xin@gmail.com>
+ <4f21a8880a3f8e7daed8a53f10649a1d4dfbb12a.1473789537.git.lucien.xin@gmail.com>
+ <10622d6256e2c49fa7ec555dec3bd35b47a50b2b.1473789537.git.lucien.xin@gmail.com>
+ <6b43f456f94dfcaeabc8071806f0609fed59a595.1473789537.git.lucien.xin@gmail.com>
 Cc: davem@davemloft.net,
         Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
         Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:35839 "EHLO
-        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752439AbcIMSEe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 14:04:34 -0400
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34272 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1759746AbcIMSEp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 14:04:45 -0400
+In-Reply-To: <6b43f456f94dfcaeabc8071806f0609fed59a595.1473789537.git.lucien.xin@gmail.com>
+In-Reply-To: <cover.1473789537.git.lucien.xin@gmail.com>
+References: <cover.1473789537.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patchset is to improve the transmit err process and also fix some
-issues.
+Every time when sctp calls sctp_outq_flush, it sends out the chunks of
+control queue, retransmit queue and data queue. Even if some trunks are
+failed to transmit, it still has to flush all the transports, as it's
+the only chance to clean that transmit_list.
 
-After this patchset, once the chunks are enqueued successfully, even
-if the chunks fail to send out, no matter because of nodst or nomem,
-no err retruns back to users any more. Instead, they are taken care
-of by retransmit.
+So the latest transmit error here should be returned back. This transmit
+error is an internal error of sctp stack.
 
-v1->v2:
-  - add more details to the changelog in patch 1/6
-  - add Fixes: tag in patch 2/6, 3/6
-  - also revert 69b5777f2e57 in patch 3/6
+I checked all the places where it uses the transmit error (the return
+value of sctp_outq_flush), most of them are actually just save it to
+sk_err.
 
-Xin Long (6):
-  sctp: remove the unnecessary state check in sctp_outq_tail
-  sctp: do not return the transmit err back to sctp_sendmsg
-  sctp: free msg->chunks when sctp_primitive_SEND return err
-  sctp: save transmit error to sk_err in sctp_outq_flush
-  sctp: make sctp_outq_flush/tail/uncork return void
-  sctp: not return ENOMEM err back in sctp_packet_transmit
+Except for sctp_assoc/endpoint_bh_rcv, they will drop the chunk if
+it's failed to send a REPLY, which is actually incorrect, as we can't
+be sure the error that sctp_outq_flush returns is from sending that
+REPLY.
 
- include/net/sctp/structs.h |  5 +--
- net/sctp/chunk.c           | 13 +++++++
- net/sctp/output.c          | 50 +++++++++++++-------------
- net/sctp/outqueue.c        | 88 ++++++++++++++++------------------------------
- net/sctp/sm_sideeffect.c   | 25 +++++--------
- net/sctp/socket.c          |  8 +++--
- 6 files changed, 85 insertions(+), 104 deletions(-)
+So it's meaningless for sctp_outq_flush to return error back.
 
+This patch is to save transmit error to sk_err in sctp_outq_flush, the
+new error can update the old value. Eventually, sctp_wait_for_* would
+check for it.
+
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/sctp/output.c   |  3 ++-
+ net/sctp/outqueue.c | 21 ++++++++++++---------
+ 2 files changed, 14 insertions(+), 10 deletions(-)
+
+diff --git a/net/sctp/output.c b/net/sctp/output.c
+index 31b7bc3..f2597a9 100644
+--- a/net/sctp/output.c
++++ b/net/sctp/output.c
+@@ -180,7 +180,6 @@ sctp_xmit_t sctp_packet_transmit_chunk(struct sctp_packet *packet,
+ 				       int one_packet, gfp_t gfp)
+ {
+ 	sctp_xmit_t retval;
+-	int error = 0;
+ 
+ 	pr_debug("%s: packet:%p size:%Zu chunk:%p size:%d\n", __func__,
+ 		 packet, packet->size, chunk, chunk->skb ? chunk->skb->len : -1);
+@@ -188,6 +187,8 @@ sctp_xmit_t sctp_packet_transmit_chunk(struct sctp_packet *packet,
+ 	switch ((retval = (sctp_packet_append_chunk(packet, chunk)))) {
+ 	case SCTP_XMIT_PMTU_FULL:
+ 		if (!packet->has_cookie_echo) {
++			int error = 0;
++
+ 			error = sctp_packet_transmit(packet, gfp);
+ 			if (error < 0)
+ 				chunk->skb->sk->sk_err = -error;
+diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+index 6c109b0..052a479 100644
+--- a/net/sctp/outqueue.c
++++ b/net/sctp/outqueue.c
+@@ -533,7 +533,6 @@ void sctp_retransmit(struct sctp_outq *q, struct sctp_transport *transport,
+ 		     sctp_retransmit_reason_t reason)
+ {
+ 	struct net *net = sock_net(q->asoc->base.sk);
+-	int error = 0;
+ 
+ 	switch (reason) {
+ 	case SCTP_RTXR_T3_RTX:
+@@ -577,10 +576,7 @@ void sctp_retransmit(struct sctp_outq *q, struct sctp_transport *transport,
+ 	 * will be flushed at the end.
+ 	 */
+ 	if (reason != SCTP_RTXR_FAST_RTX)
+-		error = sctp_outq_flush(q, /* rtx_timeout */ 1, GFP_ATOMIC);
+-
+-	if (error)
+-		q->asoc->base.sk->sk_err = -error;
++		sctp_outq_flush(q, /* rtx_timeout */ 1, GFP_ATOMIC);
+ }
+ 
+ /*
+@@ -893,8 +889,10 @@ static int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout, gfp_t gfp)
+ 			sctp_packet_config(&singleton, vtag, 0);
+ 			sctp_packet_append_chunk(&singleton, chunk);
+ 			error = sctp_packet_transmit(&singleton, gfp);
+-			if (error < 0)
+-				return error;
++			if (error < 0) {
++				asoc->base.sk->sk_err = -error;
++				return 0;
++			}
+ 			break;
+ 
+ 		case SCTP_CID_ABORT:
+@@ -992,6 +990,8 @@ static int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout, gfp_t gfp)
+ 		retran:
+ 			error = sctp_outq_flush_rtx(q, packet,
+ 						    rtx_timeout, &start_timer);
++			if (error < 0)
++				asoc->base.sk->sk_err = -error;
+ 
+ 			if (start_timer) {
+ 				sctp_transport_reset_t3_rtx(transport);
+@@ -1166,14 +1166,17 @@ sctp_flush_out:
+ 						      struct sctp_transport,
+ 						      send_ready);
+ 		packet = &t->packet;
+-		if (!sctp_packet_empty(packet))
++		if (!sctp_packet_empty(packet)) {
+ 			error = sctp_packet_transmit(packet, gfp);
++			if (error < 0)
++				asoc->base.sk->sk_err = -error;
++		}
+ 
+ 		/* Clear the burst limited state, if any */
+ 		sctp_transport_burst_reset(t);
+ 	}
+ 
+-	return error;
++	return 0;
+ }
+ 
+ /* Update unack_data based on the incoming SACK chunk */
 -- 
 2.1.0
