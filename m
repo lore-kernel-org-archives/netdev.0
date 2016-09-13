@@ -1,81 +1,47 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCHv2 net 2/6] sctp: do not return the transmit err back to sctp_sendmsg
-Date: Wed, 14 Sep 2016 02:04:19 +0800
-Message-ID: <10622d6256e2c49fa7ec555dec3bd35b47a50b2b.1473789537.git.lucien.xin@gmail.com>
-References: <cover.1473789537.git.lucien.xin@gmail.com>
- <4f21a8880a3f8e7daed8a53f10649a1d4dfbb12a.1473789537.git.lucien.xin@gmail.com>
+Subject: [PATCHv2 net 0/6] sctp: fix the transmit err process
+Date: Wed, 14 Sep 2016 02:04:17 +0800
+Message-ID: <cover.1473789537.git.lucien.xin@gmail.com>
 Cc: davem@davemloft.net,
         Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
         Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:34254 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1759618AbcIMSEg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 14:04:36 -0400
-In-Reply-To: <4f21a8880a3f8e7daed8a53f10649a1d4dfbb12a.1473789537.git.lucien.xin@gmail.com>
-In-Reply-To: <cover.1473789537.git.lucien.xin@gmail.com>
-References: <cover.1473789537.git.lucien.xin@gmail.com>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:35839 "EHLO
+        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752439AbcIMSEe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 14:04:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Once a chunk is enqueued successfully, sctp queues can take care of it.
-Even if it is failed to transmit (like because of nomem), it should be
-put into retransmit queue.
+This patchset is to improve the transmit err process and also fix some
+issues.
 
-If sctp report this error to users, it confuses them, they may resend
-that msg, but actually in kernel sctp stack is in charge of retransmit
-it already.
+After this patchset, once the chunks are enqueued successfully, even
+if the chunks fail to send out, no matter because of nodst or nomem,
+no err retruns back to users any more. Instead, they are taken care
+of by retransmit.
 
-Besides, this error probably is not from the failure of transmitting
-current msg, but transmitting or retransmitting another msg's chunks,
-as sctp_outq_flush just tries to send out all transports' chunks.
+v1->v2:
+  - add more details to the changelog in patch 1/6
+  - add Fixes: tag in patch 2/6, 3/6
+  - also revert 69b5777f2e57 in patch 3/6
 
-This patch is to make sctp_cmd_send_msg return avoid, and not return the
-transmit err back to sctp_sendmsg
+Xin Long (6):
+  sctp: remove the unnecessary state check in sctp_outq_tail
+  sctp: do not return the transmit err back to sctp_sendmsg
+  sctp: free msg->chunks when sctp_primitive_SEND return err
+  sctp: save transmit error to sk_err in sctp_outq_flush
+  sctp: make sctp_outq_flush/tail/uncork return void
+  sctp: not return ENOMEM err back in sctp_packet_transmit
 
-Fixes: 8b570dc9f7b6 ("sctp: only drop the reference on the datamsg after sending a msg")
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/sctp/sm_sideeffect.c | 16 +++++-----------
- 1 file changed, 5 insertions(+), 11 deletions(-)
+ include/net/sctp/structs.h |  5 +--
+ net/sctp/chunk.c           | 13 +++++++
+ net/sctp/output.c          | 50 +++++++++++++-------------
+ net/sctp/outqueue.c        | 88 ++++++++++++++++------------------------------
+ net/sctp/sm_sideeffect.c   | 25 +++++--------
+ net/sctp/socket.c          |  8 +++--
+ 6 files changed, 85 insertions(+), 104 deletions(-)
 
-diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-index 12d4519..cf6e4f0 100644
---- a/net/sctp/sm_sideeffect.c
-+++ b/net/sctp/sm_sideeffect.c
-@@ -1020,19 +1020,13 @@ static void sctp_cmd_t1_timer_update(struct sctp_association *asoc,
-  * This way the whole message is queued up and bundling if
-  * encouraged for small fragments.
-  */
--static int sctp_cmd_send_msg(struct sctp_association *asoc,
--				struct sctp_datamsg *msg, gfp_t gfp)
-+static void sctp_cmd_send_msg(struct sctp_association *asoc,
-+			      struct sctp_datamsg *msg, gfp_t gfp)
- {
- 	struct sctp_chunk *chunk;
--	int error = 0;
--
--	list_for_each_entry(chunk, &msg->chunks, frag_list) {
--		error = sctp_outq_tail(&asoc->outqueue, chunk, gfp);
--		if (error)
--			break;
--	}
- 
--	return error;
-+	list_for_each_entry(chunk, &msg->chunks, frag_list)
-+		sctp_outq_tail(&asoc->outqueue, chunk, gfp);
- }
- 
- 
-@@ -1709,7 +1703,7 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
- 				sctp_outq_cork(&asoc->outqueue);
- 				local_cork = 1;
- 			}
--			error = sctp_cmd_send_msg(asoc, cmd->obj.msg, gfp);
-+			sctp_cmd_send_msg(asoc, cmd->obj.msg, gfp);
- 			break;
- 		case SCTP_CMD_SEND_NEXT_ASCONF:
- 			sctp_cmd_send_asconf(asoc);
 -- 
 2.1.0
