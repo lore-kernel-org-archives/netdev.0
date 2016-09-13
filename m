@@ -1,7 +1,7 @@
 From: John Crispin <john@phrozen.org>
-Subject: [PATCH V2] net: dsa: add FIB support
-Date: Tue, 13 Sep 2016 08:00:45 +0200
-Message-ID: <1473746445-52274-1-git-send-email-john@phrozen.org>
+Subject: [PATCH V3] net-next: dsa: add FIB support
+Date: Tue, 13 Sep 2016 08:02:21 +0200
+Message-ID: <1473746541-52314-1-git-send-email-john@phrozen.org>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         John Crispin <john@phrozen.org>
 To: "David S. Miller" <davem@davemloft.net>,
@@ -17,6 +17,9 @@ Signed-off-by: John Crispin <john@phrozen.org>
 ---
 Changes in V2
 * rebase on latest net-next to fix compile errors
+
+Changes in V3
+* fix subject prefix. this needs to go into the next tree
 
  Documentation/networking/dsa/dsa.txt |   18 +++++++++++++++
  include/net/dsa.h                    |   13 +++++++++++
