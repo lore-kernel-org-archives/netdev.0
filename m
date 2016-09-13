@@ -1,54 +1,71 @@
-From: "Liang, Kan" <kan.liang@intel.com>
-Subject: RE: [RFC V3 PATCH 03/26] net/netpolicy: get device queue irq
- information
-Date: Tue, 13 Sep 2016 13:22:50 +0000
-Message-ID: <37D7C6CF3E00A74B8858931C1DB2F07750BBF5AA@SHSMSX103.ccr.corp.intel.com>
-References: <1473692159-4017-1-git-send-email-kan.liang@intel.com>
- <1473692159-4017-4-git-send-email-kan.liang@intel.com>
- <665fd0a7-fe83-742a-28fd-d597b28505b5@cogentembedded.com>
- <37D7C6CF3E00A74B8858931C1DB2F07750BBF530@SHSMSX103.ccr.corp.intel.com>
- <CAKgT0Uf+guzBrfPUFvMk0RnXbQOJUjkBUp0TeK9HOSb_LU7e8Q@mail.gmail.com>
+From: Shuah Khan <shuahkh@osg.samsung.com>
+Subject: Re: [PATCH 0/9] Move runnable code (tests) from Documentation to
+ selftests
+Date: Tue, 13 Sep 2016 07:25:50 -0600
+Message-ID: <235dbbac-4950-9631-908a-b2dfbbd06def@osg.samsung.com>
+References: <cover.1473458697.git.shuahkh@osg.samsung.com>
+ <20160910010100.72f1a9c4@lwn.net> <87sht4tav2.fsf@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-        "mingo@redhat.com" <mingo@redhat.com>,
-        "peterz@infradead.org" <peterz@infradead.org>,
-        "kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
-        "jmorris@namei.org" <jmorris@namei.org>,
-        "yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
-        "kaber@trash.net" <kaber@trash.net>,
-        "akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-        "keescook@chromium.org" <keescook@chromium.org>,
-        "viro@zeniv.linux.org.uk" <viro@zeniv.linux.org.uk>,
-        "gorcunov@openvz.org" <gorcunov@openvz.org>,
-        "john.stultz@linaro.org" <john.stultz@linar
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAKgT0Uf+guzBrfPUFvMk0RnXbQOJUjkBUp0TeK9HOSb_LU7e8Q@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: richardcochran@gmail.com, linux-doc@vger.kernel.org,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kselftest@vger.kernel.org,
+        Shuah Khan <shuahkh@osg.samsung.com>
+To: Jani Nikula <jani.nikula@linux.intel.com>,
+        Jonathan Corbet <corbet@lwn.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ec2-52-27-115-49.us-west-2.compute.amazonaws.com ([52.27.115.49]:35616
+        "EHLO s-opensource.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757906AbcIMNZz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 09:25:55 -0400
+In-Reply-To: <87sht4tav2.fsf@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gT24gVHVlLCBTZXAgMTMsIDIwMTYgYXQgNToyMyBBTSwgTGlhbmcsIEthbiA8a2FuLmxp
-YW5nQGludGVsLmNvbT4gd3JvdGU6DQo+ID4+DQo+ID4+IEhlbGxvLg0KPiA+Pg0KPiA+PiBPbiAw
-OS8xMi8yMDE2IDA1OjU1IFBNLCBrYW4ubGlhbmdAaW50ZWwuY29tIHdyb3RlOg0KPiA+Pg0KPiA+
-PiA+IEZyb206IEthbiBMaWFuZyA8a2FuLmxpYW5nQGludGVsLmNvbT4NCj4gPj4gPg0KPiA+PiA+
-IE5ldCBwb2xpY3kgbmVlZHMgdG8ga25vdyBkZXZpY2UgaW5mb3JtYXRpb24uIEN1cnJlbnRseSwg
-aXQncyBlbm91Z2gNCj4gPj4gPiB0byBvbmx5IGdldCBpcnEgaW5mb3JtYXRpb24gb2YgcnggYW5k
-IHR4IHF1ZXVlcy4NCj4gPj4gPg0KPiA+PiA+IFRoaXMgcGF0Y2ggaW50cm9kdWNlcyBuZG8gb3Bz
-IHRvIGRvIHNvLCBub3QgZXRodG9vbCBvcHMuDQo+ID4+ID4gQmVjYXVzZSB0aGVyZSBhcmUgYWxy
-ZWFkeSBzZXZlcmFsIHdheXMgdG8gZ2V0IGlycSBpbmZvcm1hdGlvbiBpbg0KPiA+PiA+IHVzZXJz
-cGFjZS4gSXQncyBub3QgbmVjZXNzb3J5IHRvIGV4dGVuZCB0aGUgZXRodG9vbC4NCj4gPj4NCj4g
-Pj4gICAgIE5lY2Vzc2FyeS4NCj4gPg0KPiA+IE9LLiBJIHdpbGwgZXh0ZW5kIHRoZSBldGh0b29s
-IGluIG5leHQgdmVyc2lvbi4NCj4gPg0KPiA+IFRoYW5rcywNCj4gPiBLYW4NCj4gDQo+IEthbiwg
-SSBkb24ndCB0aGluayBTZXJnZWkgd2FzIHNheWluZyB5b3UgaGF2ZSB0byBleHRlbmQgdGhlIGV0
-aHRvb2wuDQo+IFlvdXIgc3BlbGxpbmcgb2YgbmVjZXNzYXJ5IHdhcyBpbmNvcnJlY3QgaW4geW91
-ciBwYXRjaCBkZXNjcmlwdGlvbi4NCj4gDQo+IFNlcmdlaSwgcGxlYXNlIGZlZWwgZnJlZSB0byB0
-ZWxsIG1lIEkgYW0gd3JvbmcgaWYgbXkgYXNzdW1wdGlvbiBvbiB0aGF0IGlzDQo+IGluY29ycmVj
-dC4NCj4gDQo+IC0gQWxleA0KDQpPaCwgSSBzZWUuIFRoYW5rcyBBbGV4LiA6KQ0KDQpLYW4NCg0K
-DQo=
+On 09/13/2016 03:20 AM, Jani Nikula wrote:
+> On Sat, 10 Sep 2016, Jonathan Corbet <corbet@lwn.net> wrote:
+>> On Fri,  9 Sep 2016 16:22:41 -0600
+>> Shuah Khan <shuahkh@osg.samsung.com> wrote:
+>>
+>>> Move runnable code (tests) from Documentation to selftests and update
+>>> Makefiles to work under selftests.
+>>>
+>>> Jon Corbet and I discussed this in an email thread and as per that
+>>> discussion, this patch series moves all the tests that are under the
+>>> Documentation directory to selftests. There is more runnable code in
+>>> the form of examples and utils and that is going to be another patch
+>>> series. I moved just the tests and left the documentation files as is.
+>>
+>> I'm fine with the idea, but it looks like a couple of tweaks are needed,
+>> in particular to avoid leaving behind dangling references in
+>> Documentation/Makefile that cause build errors.
+>>
+>> I think the individual patches probably need a wider CC list as well.
+>> I'd use the get_maintainer script (or git) to see who has taken an
+>> interest in the individual tests and make sure they are aware of the
+>> move.
+> 
+> FWIW, I'm in favor of moving *all* the code away from Documentation, not
+> just tests. Essentially removing the CONFIG_BUILD_DOCSRC config option,
+> and reserving Documentation/Makefile for documentation build. After this
+> series, some of the remaining code belongs under samples, some under
+> tools.
+
+I am planning another patch series to move all the examples and samples
+and tools to their right location.
+
+> 
+> We could make it possible to include the code samples from samples into
+> the Sphinx built documentation.
+> 
+> BR,
+> Jani.
+> 
+
+I can't say I understand Sphinx, however, it might make sense to include
+samples into Sphinx build. Is this approach different from the way they
+are built under Documentation via Doc Makfiles now?
+
+thanks,
+-- Shuah
