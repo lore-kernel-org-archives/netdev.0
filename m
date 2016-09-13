@@ -1,90 +1,176 @@
-From: "Rustad, Mark D" <mark.d.rustad@intel.com>
-Subject: Re: [PATCH v3] net: ip, diag -- Add diag interface for raw sockets
-Date: Tue, 13 Sep 2016 20:18:38 +0000
-Message-ID: <69DF2AA5-F813-476F-BB10-B3CB35656512@intel.com>
-References: <20160913171950.GC32643@uranus>
- <1473791620.14269.2.camel@gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed;
-        boundary="Apple-Mail=_D3F52B2A-CA3C-4D7A-AA3B-4258D14F25A1";
-        protocol="application/pgp-signature"; micalg=pgp-sha256
-Cc: Cyrill Gorcunov <gorcunov@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        "dsa@cumulusnetworks.com" <dsa@cumulusnetworks.com>,
-        "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-        "kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
-        "jmorris@namei.org" <jmorris@namei.org>,
-        "yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
-        "kaber@trash.net" <kaber@trash.net>,
-        "avagin@openvz.org" <avagin@openvz.org>,
-        "stephen@networkplumber.org" <stephen@networkplumber.org>
-To: Greg <gvrose8192@gmail.com>
+From: Shuah Khan <shuahkh@osg.samsung.com>
+Subject: [PATCH v2 1/6] selftests: move dnotify_test from Documentation/filesystems
+Date: Tue, 13 Sep 2016 14:18:40 -0600
+Message-ID: <9ff3eb8efe6d6f233c5e85bda712f2ff8a31dbf8.1473795601.git.shuahkh@osg.samsung.com>
+References: <cover.1473795601.git.shuahkh@osg.samsung.com>
+Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-doc@vger.kernel.org,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        linux-watchdog@vger.kernel.org, linux-kselftest@vger.kernel.org
+To: corbet@lwn.net, richardcochran@gmail.com, wim@iguana.be,
+        linux@roeck-us.net, nab@linux-iscsi.org,
+        maheshkhanwalkar@gmail.com, timur@codeaurora.org, arnd@arndb.de,
+        ghackmann@google.com, ben@decadent.org.uk, thuth@redhat.com,
+        christopher.s.hall@intel.com, john.stultz@linaro.org,
+        sergei.shtylyov@cogentembedded.com, mpe@ellerman.id.au,
+        jani.nikula@linux.intel.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1473791620.14269.2.camel@gmail.com>
-Content-Language: en-US
+In-Reply-To: <cover.1473795601.git.shuahkh@osg.samsung.com>
+In-Reply-To: <cover.1473795601.git.shuahkh@osg.samsung.com>
+References: <cover.1473795601.git.shuahkh@osg.samsung.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Apple-Mail=_D3F52B2A-CA3C-4D7A-AA3B-4258D14F25A1
-Content-Transfer-Encoding: 7bit
-Content-Type: text/plain;
-	charset=us-ascii;
-	delsp=yes;
-	format=flowed
+Move dnotify_test.c, Makefile, and .gitignore from Documentation/filesystems
+to selftests/filesystems.
 
-Greg <gvrose8192@gmail.com> wrote:
+Remove filesystems build target from Documentation/Makefile and update
+selftests/filesystems/Makefile to work under selftests. dnotify_test will
+not be run as part of selftests suite and will not be included in install
+targets. It can be built separately for now.
 
-> Someday Linux will be a modern OS that just includes IPV6 and forces a
-> config option to NOT have it.
->
-> That'll be great.  All the IS_ENABLED_(CONFIG_IPV6) scattered everywhere
-> is nuts.
->
-> </editorial comment>
+Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
+---
+ Documentation/Makefile                             |  2 +-
+ Documentation/filesystems/.gitignore               |  1 -
+ Documentation/filesystems/Makefile                 |  5 ----
+ Documentation/filesystems/dnotify_test.c           | 34 ----------------------
+ tools/testing/selftests/filesystems/.gitignore     |  1 +
+ tools/testing/selftests/filesystems/Makefile       |  7 +++++
+ tools/testing/selftests/filesystems/dnotify_test.c | 34 ++++++++++++++++++++++
+ 7 files changed, 43 insertions(+), 41 deletions(-)
+ delete mode 100644 Documentation/filesystems/.gitignore
+ delete mode 100644 Documentation/filesystems/Makefile
+ delete mode 100644 Documentation/filesystems/dnotify_test.c
+ create mode 100644 tools/testing/selftests/filesystems/.gitignore
+ create mode 100644 tools/testing/selftests/filesystems/Makefile
+ create mode 100644 tools/testing/selftests/filesystems/dnotify_test.c
 
-Better wait until everyone at least *has* IPv6! I have yet to have IPv6  
-deployed on any of my employer's networks or get IPv6 service from any ISP  
-at my home. When I was at Apple in the 90's I was told that Apple needed  
-IPv6 by next year or "we were dead". Well Apple nearly died, but IPv6 had  
-nothing to do with that! And I still haven't experienced an IPv6  
-deployment! Yeah, I have run it a bit point-to-point to resolve technical  
-issues, but that isn't a "deployment" and not very interesting.
-
-As much as we would like things to move faster, much of the world just  
-doesn't. Witness the e1000 discussion today for example. Hardware doesn't  
-vanish overnight, and I know that my ISP has a network full of CPE that  
-doesn't do IPv6, so I'm not expecting their status to change any time soon.
-
-It would be great though.
-</pipedream>
-
---
-Mark Rustad, Networking Division, Intel Corporation
-
---Apple-Mail=_D3F52B2A-CA3C-4D7A-AA3B-4258D14F25A1
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename="signature.asc"
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Message signed with OpenPGP using GPGMail
-
------BEGIN PGP SIGNATURE-----
-Comment: GPGTools - http://gpgtools.org
-
-iQIcBAEBCAAGBQJX2F8dAAoJEDwO/+eO4+5uHQsQAIu0DngyF5xEouJZLBW0bH1n
-q9wOf/+FyjxyHIUhNm6lWLFdylF34/e6HvUIcFuFOl6BPDHfAOWokgZ/INvfk+ci
-/C+0ItbPERIFVZ9GvQCCgkK1vw2xTZmPNV//sClTuS2ToSPN/2U3m2bW/QdbQiI8
-4JGoaR2duRNlkP4+NVbP2eLv2cMd4QjFXoYUNYkG78H9C5oKZvT75ZLONk/ro9SZ
-Ch+LnVCvkjrM9s0fwuc58B/EAyIZLOkuiJbUYSyFK7GuBwoLM8ZCCcDcDl58CNs6
-7fYwFL/LtP00DkU8bj71DnFrpNmPlapvEnY654+6kqVLqZR6K5JhlQi9w3jUPcts
-sv/rPzudEjUo97Cy4hDuAPwuDs81LwosslQzkXsriFzO+Ez4Xo4bEzjNEdCzlMv1
-a/9NME9swQ/xpXgoR+4GRid0Wiyy3hwwuwlXRYtZhsCPA6+xg5R86T0w19oTOqpP
-E60GkivD3/Tnel6Sh7rzD9FMMIwwd5dMddMxzkxevYUQPMGOveVStTPhUOip8drm
-GLkOFsLH9qz/Vzlh5FbwfSQXS/cUbO+ba3MKWgtSidoFNdvDOyuTHwW125M+Reqm
-gx8l372o3snSxEE36FhEt9gciBF14FlyppdQHZ+sQXf6Cfqr6f/TdyCHVwnzii84
-mo5wxRZ2+0URkKEO01ZH
-=k07m
------END PGP SIGNATURE-----
-
---Apple-Mail=_D3F52B2A-CA3C-4D7A-AA3B-4258D14F25A1--
+diff --git a/Documentation/Makefile b/Documentation/Makefile
+index de955e1..0473710 100644
+--- a/Documentation/Makefile
++++ b/Documentation/Makefile
+@@ -1,3 +1,3 @@
+ subdir-y := accounting auxdisplay blackfin \
+-	filesystems filesystems ia64 laptops mic misc-devices \
++	ia64 laptops mic misc-devices \
+ 	networking pcmcia prctl ptp timers vDSO watchdog
+diff --git a/Documentation/filesystems/.gitignore b/Documentation/filesystems/.gitignore
+deleted file mode 100644
+index 31d6e42..0000000
+--- a/Documentation/filesystems/.gitignore
++++ /dev/null
+@@ -1 +0,0 @@
+-dnotify_test
+diff --git a/Documentation/filesystems/Makefile b/Documentation/filesystems/Makefile
+deleted file mode 100644
+index 883010c..0000000
+--- a/Documentation/filesystems/Makefile
++++ /dev/null
+@@ -1,5 +0,0 @@
+-# List of programs to build
+-hostprogs-y := dnotify_test
+-
+-# Tell kbuild to always build the programs
+-always := $(hostprogs-y)
+diff --git a/Documentation/filesystems/dnotify_test.c b/Documentation/filesystems/dnotify_test.c
+deleted file mode 100644
+index 8b37b4a..0000000
+--- a/Documentation/filesystems/dnotify_test.c
++++ /dev/null
+@@ -1,34 +0,0 @@
+-#define _GNU_SOURCE	/* needed to get the defines */
+-#include <fcntl.h>	/* in glibc 2.2 this has the needed
+-				   values defined */
+-#include <signal.h>
+-#include <stdio.h>
+-#include <unistd.h>
+-
+-static volatile int event_fd;
+-
+-static void handler(int sig, siginfo_t *si, void *data)
+-{
+-	event_fd = si->si_fd;
+-}
+-
+-int main(void)
+-{
+-	struct sigaction act;
+-	int fd;
+-
+-	act.sa_sigaction = handler;
+-	sigemptyset(&act.sa_mask);
+-	act.sa_flags = SA_SIGINFO;
+-	sigaction(SIGRTMIN + 1, &act, NULL);
+-
+-	fd = open(".", O_RDONLY);
+-	fcntl(fd, F_SETSIG, SIGRTMIN + 1);
+-	fcntl(fd, F_NOTIFY, DN_MODIFY|DN_CREATE|DN_MULTISHOT);
+-	/* we will now be notified if any of the files
+-	   in "." is modified or new files are created */
+-	while (1) {
+-		pause();
+-		printf("Got event on fd=%d\n", event_fd);
+-	}
+-}
+diff --git a/tools/testing/selftests/filesystems/.gitignore b/tools/testing/selftests/filesystems/.gitignore
+new file mode 100644
+index 0000000..31d6e42
+--- /dev/null
++++ b/tools/testing/selftests/filesystems/.gitignore
+@@ -0,0 +1 @@
++dnotify_test
+diff --git a/tools/testing/selftests/filesystems/Makefile b/tools/testing/selftests/filesystems/Makefile
+new file mode 100644
+index 0000000..0ab1130
+--- /dev/null
++++ b/tools/testing/selftests/filesystems/Makefile
+@@ -0,0 +1,7 @@
++TEST_PROGS := dnotify_test
++all: $(TEST_PROGS)
++
++include ../lib.mk
++
++clean:
++	rm -fr $(TEST_PROGS)
+diff --git a/tools/testing/selftests/filesystems/dnotify_test.c b/tools/testing/selftests/filesystems/dnotify_test.c
+new file mode 100644
+index 0000000..8b37b4a
+--- /dev/null
++++ b/tools/testing/selftests/filesystems/dnotify_test.c
+@@ -0,0 +1,34 @@
++#define _GNU_SOURCE	/* needed to get the defines */
++#include <fcntl.h>	/* in glibc 2.2 this has the needed
++				   values defined */
++#include <signal.h>
++#include <stdio.h>
++#include <unistd.h>
++
++static volatile int event_fd;
++
++static void handler(int sig, siginfo_t *si, void *data)
++{
++	event_fd = si->si_fd;
++}
++
++int main(void)
++{
++	struct sigaction act;
++	int fd;
++
++	act.sa_sigaction = handler;
++	sigemptyset(&act.sa_mask);
++	act.sa_flags = SA_SIGINFO;
++	sigaction(SIGRTMIN + 1, &act, NULL);
++
++	fd = open(".", O_RDONLY);
++	fcntl(fd, F_SETSIG, SIGRTMIN + 1);
++	fcntl(fd, F_NOTIFY, DN_MODIFY|DN_CREATE|DN_MULTISHOT);
++	/* we will now be notified if any of the files
++	   in "." is modified or new files are created */
++	while (1) {
++		pause();
++		printf("Got event on fd=%d\n", event_fd);
++	}
++}
+-- 
+2.7.4
