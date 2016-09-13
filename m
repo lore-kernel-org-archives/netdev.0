@@ -1,65 +1,54 @@
-From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: Re: [PATCH 2/9] selftests: update filesystems Makefile to work under
- selftests
-Date: Tue, 13 Sep 2016 07:20:56 -0600
-Message-ID: <4756400f-e332-a652-f759-6655acdb39cd@osg.samsung.com>
-References: <cover.1473458697.git.shuahkh@osg.samsung.com>
- <239195aa67e72b7eb971cdacfc9e338de912524e.1473458697.git.shuahkh@osg.samsung.com>
- <87fup4ovx6.fsf@concordia.ellerman.id.au>
+From: "Liang, Kan" <kan.liang@intel.com>
+Subject: RE: [RFC V3 PATCH 03/26] net/netpolicy: get device queue irq
+ information
+Date: Tue, 13 Sep 2016 13:22:50 +0000
+Message-ID: <37D7C6CF3E00A74B8858931C1DB2F07750BBF5AA@SHSMSX103.ccr.corp.intel.com>
+References: <1473692159-4017-1-git-send-email-kan.liang@intel.com>
+ <1473692159-4017-4-git-send-email-kan.liang@intel.com>
+ <665fd0a7-fe83-742a-28fd-d597b28505b5@cogentembedded.com>
+ <37D7C6CF3E00A74B8858931C1DB2F07750BBF530@SHSMSX103.ccr.corp.intel.com>
+ <CAKgT0Uf+guzBrfPUFvMk0RnXbQOJUjkBUp0TeK9HOSb_LU7e8Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kselftest@vger.kernel.org,
-        Shuah Khan <shuahkh@osg.samsung.com>
-To: Michael Ellerman <mpe@ellerman.id.au>, corbet@lwn.net,
-        richardcochran@gmail.com
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <87fup4ovx6.fsf@concordia.ellerman.id.au>
-Sender: linux-doc-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+        "mingo@redhat.com" <mingo@redhat.com>,
+        "peterz@infradead.org" <peterz@infradead.org>,
+        "kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
+        "jmorris@namei.org" <jmorris@namei.org>,
+        "yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
+        "kaber@trash.net" <kaber@trash.net>,
+        "akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+        "keescook@chromium.org" <keescook@chromium.org>,
+        "viro@zeniv.linux.org.uk" <viro@zeniv.linux.org.uk>,
+        "gorcunov@openvz.org" <gorcunov@openvz.org>,
+        "john.stultz@linaro.org" <john.stultz@linar
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAKgT0Uf+guzBrfPUFvMk0RnXbQOJUjkBUp0TeK9HOSb_LU7e8Q@mail.gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 09/13/2016 05:56 AM, Michael Ellerman wrote:
-> Shuah Khan <shuahkh@osg.samsung.com> writes:
-> 
->> Update to work under selftests. dnotify_test will not be run as part of
->> selftests suite and will not included in install targets. It can be built
->> separately for now.
->>
->> Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
->> ---
->>  tools/testing/selftests/filesystems/Makefile | 10 ++++++----
->>  1 file changed, 6 insertions(+), 4 deletions(-)
->>
->> diff --git a/tools/testing/selftests/filesystems/Makefile b/tools/testing/selftests/filesystems/Makefile
->> index 883010c..f1dce5c 100644
->> --- a/tools/testing/selftests/filesystems/Makefile
->> +++ b/tools/testing/selftests/filesystems/Makefile
->> @@ -1,5 +1,7 @@
->> -# List of programs to build
->> -hostprogs-y := dnotify_test
->> +TEST_PROGS := dnotify_test
->> +all: $(TEST_PROGS)
->>  
->> -# Tell kbuild to always build the programs
->> -always := $(hostprogs-y)
->> +include ../lib.mk
->> +
->> +clean:
->> +	rm -fr dnotify_test
-> 
-> That's a complete rewrite of the Makefile, so I don't think there's any
-> value in bringing its content across from Documentation.
-
-Moving Makefile accomplishes delete at the same time. I can combine
-the move and updating Makefile into one single patch.
-
-> 
-> Better IMHO would be to squash this with the previous patch, so we get a
-> working test under selftests in a single commit.
-> 
-> cheers
-> 
-
-thanks,
--- Shuah
+DQoNCj4gT24gVHVlLCBTZXAgMTMsIDIwMTYgYXQgNToyMyBBTSwgTGlhbmcsIEthbiA8a2FuLmxp
+YW5nQGludGVsLmNvbT4gd3JvdGU6DQo+ID4+DQo+ID4+IEhlbGxvLg0KPiA+Pg0KPiA+PiBPbiAw
+OS8xMi8yMDE2IDA1OjU1IFBNLCBrYW4ubGlhbmdAaW50ZWwuY29tIHdyb3RlOg0KPiA+Pg0KPiA+
+PiA+IEZyb206IEthbiBMaWFuZyA8a2FuLmxpYW5nQGludGVsLmNvbT4NCj4gPj4gPg0KPiA+PiA+
+IE5ldCBwb2xpY3kgbmVlZHMgdG8ga25vdyBkZXZpY2UgaW5mb3JtYXRpb24uIEN1cnJlbnRseSwg
+aXQncyBlbm91Z2gNCj4gPj4gPiB0byBvbmx5IGdldCBpcnEgaW5mb3JtYXRpb24gb2YgcnggYW5k
+IHR4IHF1ZXVlcy4NCj4gPj4gPg0KPiA+PiA+IFRoaXMgcGF0Y2ggaW50cm9kdWNlcyBuZG8gb3Bz
+IHRvIGRvIHNvLCBub3QgZXRodG9vbCBvcHMuDQo+ID4+ID4gQmVjYXVzZSB0aGVyZSBhcmUgYWxy
+ZWFkeSBzZXZlcmFsIHdheXMgdG8gZ2V0IGlycSBpbmZvcm1hdGlvbiBpbg0KPiA+PiA+IHVzZXJz
+cGFjZS4gSXQncyBub3QgbmVjZXNzb3J5IHRvIGV4dGVuZCB0aGUgZXRodG9vbC4NCj4gPj4NCj4g
+Pj4gICAgIE5lY2Vzc2FyeS4NCj4gPg0KPiA+IE9LLiBJIHdpbGwgZXh0ZW5kIHRoZSBldGh0b29s
+IGluIG5leHQgdmVyc2lvbi4NCj4gPg0KPiA+IFRoYW5rcywNCj4gPiBLYW4NCj4gDQo+IEthbiwg
+SSBkb24ndCB0aGluayBTZXJnZWkgd2FzIHNheWluZyB5b3UgaGF2ZSB0byBleHRlbmQgdGhlIGV0
+aHRvb2wuDQo+IFlvdXIgc3BlbGxpbmcgb2YgbmVjZXNzYXJ5IHdhcyBpbmNvcnJlY3QgaW4geW91
+ciBwYXRjaCBkZXNjcmlwdGlvbi4NCj4gDQo+IFNlcmdlaSwgcGxlYXNlIGZlZWwgZnJlZSB0byB0
+ZWxsIG1lIEkgYW0gd3JvbmcgaWYgbXkgYXNzdW1wdGlvbiBvbiB0aGF0IGlzDQo+IGluY29ycmVj
+dC4NCj4gDQo+IC0gQWxleA0KDQpPaCwgSSBzZWUuIFRoYW5rcyBBbGV4LiA6KQ0KDQpLYW4NCg0K
+DQo=
