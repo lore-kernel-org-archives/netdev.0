@@ -1,41 +1,53 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Subject: Re: [PATCH 3/3] net-next: dsa: add new driver for qca8xxx family
-Date: Tue, 13 Sep 2016 10:09:56 -0700
-Message-ID: <371ed906-5ce8-0553-1400-11f0abf4b489@gmail.com>
-References: <1473669337-21221-1-git-send-email-john@phrozen.org>
- <1473669337-21221-4-git-send-email-john@phrozen.org>
- <20160913004047.GB3585@lunn.ch>
- <7f9c1463-1cc0-e230-e7fe-dbb434427251@phrozen.org>
- <20160913155926.GP11400@lunn.ch>
+Date: Tue, 13 Sep 2016 13:11:56 -0400
+Message-ID: <87twdjafmr.fsf@ketchup.mtl.sfl>
+References: <1473669337-21221-1-git-send-email-john@phrozen.org> <1473669337-21221-4-git-send-email-john@phrozen.org> <20160913012304.GC3585@lunn.ch> <5c028659-db7e-9a98-7ec1-1e2d19d135f9@phrozen.org> <20160913131408.GE15332@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, qsdk-review@qca.qualcomm.com
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        qsdk-review@qca.qualcomm.com
 To: Andrew Lunn <andrew@lunn.ch>, John Crispin <john@phrozen.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160913155926.GP11400@lunn.ch>
+In-Reply-To: <20160913131408.GE15332@lunn.ch>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 09/13/2016 08:59 AM, Andrew Lunn wrote:
->> Hi Andrew,
->>
->> this function does indeed duplicate the functionality of
->> phy_ethtool_get_eee() with the small difference, that e->eee_active is
->> also set which phy_ethtool_get_eee() does not set.
->>
->> dsa_slave_get_eee() will call phy_ethtool_get_eee() right after the
->> get_eee() op has been called. would it be ok to move the code setting
->> eee_active to  phy_ethtool_get_eee().
+Hi Andrew,
 
-Humm, AFAIR, the reason why eee_active is set outside of
-phy_ethtool_set_eee() is because this is a MAC + PHY thing, both need to
-agree and support that, and so while the PHY may be configured to have
-EEE advertised and enabled, you also need to take care of the MAC
-portion and enable EEE in there as well. Is not there such a thing for
-the qca8k switch where the PHY needs to be configured through the
-standard phylib calls, but the switch's transmitter/receiver also needs
-to have EEE enabled?
--- 
-Florian
+Andrew Lunn <andrew@lunn.ch> writes:
+
+>> ok, i will simply substract 1 from the phy_addr inside the mdio
+>> callbacks. this would make the code more readable and make the DT
+>> binding compliant with the ePAPR spec.
+>
+> It does however need well commenting. It is setting a trap for anybody
+> who puts an external PHY on port 6. If they access that PHY via these
+> functions, the address is off by one.
+>
+> This is the first silicon vendor who made their MDIO addresses for
+> PHYs illogical. So i'm thinking we maybe should add a new function to
+> dsa_switch_ops.
+>
+> 	/* Return the MDIO address for the PHY for this port. */
+>         int     (*phy_port_map(struct dsa_switch *ds, int port);
+>
+> This should return the MDIO address for integrated PHYs only, or
+> -ENODEV if the port does not have an integrated PHY. For an external
+> PHY, a phy-handle should be used. This phy_port_map() is used in
+> dsa_slave_phy_setup(). But dsa_slave_phy_setup() is already too
+> complex, so it needs doing with care.
+
+Note that some switch drivers *have to* register their slave MDIO bus
+themselves (e.g. bcm_sf2). This becomes confusing with the DSA
+phy_{read,write} ops.
+
+Since the former alternative is prefered, we may want to remove the
+latter soon from DSA. If this phy_port_map is needed for that case, it'd
+be preferable not to add it.
+
+Thanks,
+
+        Vivien
