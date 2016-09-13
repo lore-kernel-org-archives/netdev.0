@@ -1,47 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/2] net: mvneta: add xmit_more support
-Date: Tue, 13 Sep 2016 07:42:28 -0700
-Message-ID: <1473777748.18970.120.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1473750006-21199-1-git-send-email-mw@semihalf.com>
-         <1473750006-21199-2-git-send-email-mw@semihalf.com>
-         <1473777182.18970.118.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Alban Crequy <alban.crequy@gmail.com>
+Subject: Re: [PATCH] [RFC] proc connector: add namespace events
+Date: Tue, 13 Sep 2016 16:42:43 +0200
+Message-ID: <CAMXgnP4tNg1U5v1R3XEDp9jFKhX4n70iqiDmt1Vp5vySpO9LhQ@mail.gmail.com>
+References: <1473349086-31260-1-git-send-email-alban@kinvolk.io> <772621473716384@web6g.yandex.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        netdev@vger.kernel.org, davem@davemloft.net,
-        linux@arm.linux.org.uk, sebastian.hesselbarth@gmail.com,
-        andrew@lunn.ch, jason@lakedaemon.net,
-        thomas.petazzoni@free-electrons.com,
-        gregory.clement@free-electrons.com, nadavh@marvell.com,
-        alior@marvell.com, simon.guinot@sequanux.org, nitroshift@yahoo.com,
-        jaz@semihalf.com
-To: Marcin Wojtas <mw@semihalf.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Alban Crequy <alban@kinvolk.io>, Tejun Heo <tj@kernel.org>,
+        Aditya Kali <adityakali@google.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Iago Lopez Galeiras <iago@kinvolk.io>,
+        "Serge E. Hallyn" <serge@hallyn.com>
+To: Evgeniy Polyakov <zbr@ioremap.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1473777182.18970.118.camel@edumazet-glaptop3.roam.corp.google.com>
+In-Reply-To: <772621473716384@web6g.yandex.ru>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-09-13 at 07:33 -0700, Eric Dumazet wrote:
+On 12 September 2016 at 23:39, Evgeniy Polyakov <zbr@ioremap.net> wrote:
+> Hi everyone
+>
+> 08.09.2016, 18:39, "Alban Crequy" <alban.crequy@gmail.com>:
+>> The act of a process creating or joining a namespace via clone(),
+>> unshare() or setns() is a useful signal for monitoring applications.
+>
+>> + if (old_ns->mnt_ns != new_ns->mnt_ns)
+>> + proc_ns_connector(tsk, CLONE_NEWNS, PROC_NM_REASON_CLONE, old_mntns_inum, new_mntns_inum);
+>> +
+>> + if (old_ns->uts_ns != new_ns->uts_ns)
+>> + proc_ns_connector(tsk, CLONE_NEWUTS, PROC_NM_REASON_CLONE, old_ns->uts_ns->ns.inum, new_ns->uts_ns->ns.inum);
+>> +
+>> + if (old_ns->ipc_ns != new_ns->ipc_ns)
+>> + proc_ns_connector(tsk, CLONE_NEWIPC, PROC_NM_REASON_CLONE, old_ns->ipc_ns->ns.inum, new_ns->ipc_ns->ns.inum);
+>> +
+>> + if (old_ns->net_ns != new_ns->net_ns)
+>> + proc_ns_connector(tsk, CLONE_NEWNET, PROC_NM_REASON_CLONE, old_ns->net_ns->ns.inum, new_ns->net_ns->ns.inum);
+>> +
+>> + if (old_ns->cgroup_ns != new_ns->cgroup_ns)
+>> + proc_ns_connector(tsk, CLONE_NEWCGROUP, PROC_NM_REASON_CLONE, old_ns->cgroup_ns->ns.inum, new_ns->cgroup_ns->ns.inum);
+>> +
+>> + if (old_ns->pid_ns_for_children != new_ns->pid_ns_for_children)
+>> + proc_ns_connector(tsk, CLONE_NEWPID, PROC_NM_REASON_CLONE, old_ns->pid_ns_for_children->ns.inum, new_ns->pid_ns_for_children->ns.inum);
+>> + }
+>> +
+>
+> Patch looks good to me from technical/connector point of view, but these even multiplication is a bit weird imho.
+>
+> I'm not against it, but did you consider sending just 2 serialized ns structures via single message, and client
+> would check all ns bits himself?
 
-> Hi Marcin
-> 
-> Well, given the above comment, and fact that MVNETA_MAX_TXD == 532, it
-> looks like you might add a bug if more than 256 skb are given to your
-> ndo_start_xmit() with skb->xmit_more = 1
-> 
-> I therefore suggest you make sure it does not happen.
-> 
-> txq->pending += frags;
-> if (!skb->xmit_more ||
->     txq->pending > 256 - MVNETA_MAX_SKB_DESCS ||
->     netif_xmit_stopped(nq))
-> 	mvneta_txq_pend_desc_add(pp, txq)
-> 
+I have not considered it, thanks for the suggestion. Should we offer
+the guarantee to userspace that it will always be send in one single
+message? If we want to give the information about the userns change
+too, it will be a bit more complicated to write the patch because it
+is not done in the same function.
 
-Another solution would be to test the potential overflow in mvneta_tx()
-and force a mvneta_txq_pend_desc_add(pp, txq) _before_ adding the desc
-of the "about to be cooked" TSO packet.
-
-(This is because MVNETA_MAX_SKB_DESCS is 217, so 255-217 leaves few room
-for xmit_more to show its power)
+Note that I will probably not have the chance to spend more time on
+this patch soon because Iago will explore other methods with
+eBPF+kprobes instead. eBPF+kprobes would not have the same API
+stability though. I was curious to see if anyone would find the
+namespace addition to proc connector interesting for other projects.
