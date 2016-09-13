@@ -1,7 +1,7 @@
 From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: [PATCH v2 3/6] selftests: move ptp tests from Documentation/ptp
-Date: Tue, 13 Sep 2016 14:18:42 -0600
-Message-ID: <16d99f76e265b3b5398b40c4a61a27c97cac3cba.1473795601.git.shuahkh@osg.samsung.com>
+Subject: [PATCH v2 2/6] selftests: move prctl tests from Documentation/prctl
+Date: Tue, 13 Sep 2016 14:18:41 -0600
+Message-ID: <32d3a85e67c26278ff5a9bf9cbab811ac716f221.1473795601.git.shuahkh@osg.samsung.com>
 References: <cover.1473795601.git.shuahkh@osg.samsung.com>
 Cc: Shuah Khan <shuahkh@osg.samsung.com>, linux-doc@vger.kernel.org,
         linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
@@ -14,1228 +14,722 @@ To: corbet@lwn.net, richardcochran@gmail.com, wim@iguana.be,
         sergei.shtylyov@cogentembedded.com, mpe@ellerman.id.au,
         jani.nikula@linux.intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from resqmta-po-02v.sys.comcast.net ([96.114.154.161]:42203 "EHLO
-        resqmta-po-02v.sys.comcast.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1760771AbcIMUTC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 16:19:02 -0400
+Received: from resqmta-po-12v.sys.comcast.net ([96.114.154.171]:48482 "EHLO
+        resqmta-po-12v.sys.comcast.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1760742AbcIMUS7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 16:18:59 -0400
 In-Reply-To: <cover.1473795601.git.shuahkh@osg.samsung.com>
 In-Reply-To: <cover.1473795601.git.shuahkh@osg.samsung.com>
 References: <cover.1473795601.git.shuahkh@osg.samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove ptp from Makefile to move the test to selftests. Update ptp Makefile
-to work under selftests. ptp will not be run as part of selftests suite and
-will not be included in install targets. They can be built separately for
-now.
+Move prctl tests from Documentation/prctl to selftests/prctl.
+
+Remove prctl from Makefile to move the test. Update prctl Makefile to work
+under selftests. prctl will not be run as part of selftests suite and will
+not be included in install targets. They can be built separately for now.
 
 Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
 ---
- Documentation/Makefile                 |   2 +-
- Documentation/ptp/.gitignore           |   1 -
- Documentation/ptp/Makefile             |   8 -
- Documentation/ptp/testptp.c            | 523 ---------------------------------
- Documentation/ptp/testptp.mk           |  33 ---
- tools/testing/selftests/ptp/.gitignore |   1 +
- tools/testing/selftests/ptp/Makefile   |   8 +
- tools/testing/selftests/ptp/testptp.c  | 523 +++++++++++++++++++++++++++++++++
- tools/testing/selftests/ptp/testptp.mk |  33 +++
- 9 files changed, 566 insertions(+), 566 deletions(-)
- delete mode 100644 Documentation/ptp/.gitignore
- delete mode 100644 Documentation/ptp/Makefile
- delete mode 100644 Documentation/ptp/testptp.c
- delete mode 100644 Documentation/ptp/testptp.mk
- create mode 100644 tools/testing/selftests/ptp/.gitignore
- create mode 100644 tools/testing/selftests/ptp/Makefile
- create mode 100644 tools/testing/selftests/ptp/testptp.c
- create mode 100644 tools/testing/selftests/ptp/testptp.mk
+ Documentation/Makefile                             |  2 +-
+ Documentation/prctl/.gitignore                     |  3 -
+ Documentation/prctl/Makefile                       | 10 ---
+ .../prctl/disable-tsc-ctxt-sw-stress-test.c        | 97 ----------------------
+ .../prctl/disable-tsc-on-off-stress-test.c         | 96 ---------------------
+ Documentation/prctl/disable-tsc-test.c             | 95 ---------------------
+ tools/testing/selftests/prctl/.gitignore           |  3 +
+ tools/testing/selftests/prctl/Makefile             | 15 ++++
+ .../prctl/disable-tsc-ctxt-sw-stress-test.c        | 97 ++++++++++++++++++++++
+ .../prctl/disable-tsc-on-off-stress-test.c         | 96 +++++++++++++++++++++
+ tools/testing/selftests/prctl/disable-tsc-test.c   | 95 +++++++++++++++++++++
+ 11 files changed, 307 insertions(+), 302 deletions(-)
+ delete mode 100644 Documentation/prctl/.gitignore
+ delete mode 100644 Documentation/prctl/Makefile
+ delete mode 100644 Documentation/prctl/disable-tsc-ctxt-sw-stress-test.c
+ delete mode 100644 Documentation/prctl/disable-tsc-on-off-stress-test.c
+ delete mode 100644 Documentation/prctl/disable-tsc-test.c
+ create mode 100644 tools/testing/selftests/prctl/.gitignore
+ create mode 100644 tools/testing/selftests/prctl/Makefile
+ create mode 100644 tools/testing/selftests/prctl/disable-tsc-ctxt-sw-stress-test.c
+ create mode 100644 tools/testing/selftests/prctl/disable-tsc-on-off-stress-test.c
+ create mode 100644 tools/testing/selftests/prctl/disable-tsc-test.c
 
 diff --git a/Documentation/Makefile b/Documentation/Makefile
-index 7a28f6c..8cd6d1a 100644
+index 0473710..7a28f6c 100644
 --- a/Documentation/Makefile
 +++ b/Documentation/Makefile
 @@ -1,3 +1,3 @@
  subdir-y := accounting auxdisplay blackfin \
  	ia64 laptops mic misc-devices \
--	networking pcmcia ptp timers vDSO watchdog
-+	networking pcmcia timers vDSO watchdog
-diff --git a/Documentation/ptp/.gitignore b/Documentation/ptp/.gitignore
+-	networking pcmcia prctl ptp timers vDSO watchdog
++	networking pcmcia ptp timers vDSO watchdog
+diff --git a/Documentation/prctl/.gitignore b/Documentation/prctl/.gitignore
 deleted file mode 100644
-index f562e49..0000000
---- a/Documentation/ptp/.gitignore
+index 0b5c274..0000000
+--- a/Documentation/prctl/.gitignore
 +++ /dev/null
-@@ -1 +0,0 @@
--testptp
-diff --git a/Documentation/ptp/Makefile b/Documentation/ptp/Makefile
+@@ -1,3 +0,0 @@
+-disable-tsc-ctxt-sw-stress-test
+-disable-tsc-on-off-stress-test
+-disable-tsc-test
+diff --git a/Documentation/prctl/Makefile b/Documentation/prctl/Makefile
 deleted file mode 100644
-index 293d6c0..0000000
---- a/Documentation/ptp/Makefile
+index 44de308..0000000
+--- a/Documentation/prctl/Makefile
 +++ /dev/null
-@@ -1,8 +0,0 @@
+@@ -1,10 +0,0 @@
+-ifndef CROSS_COMPILE
 -# List of programs to build
--hostprogs-y := testptp
--
+-hostprogs-$(CONFIG_X86) := disable-tsc-ctxt-sw-stress-test disable-tsc-on-off-stress-test disable-tsc-test
 -# Tell kbuild to always build the programs
 -always := $(hostprogs-y)
 -
--HOSTCFLAGS_testptp.o += -I$(objtree)/usr/include
--HOSTLOADLIBES_testptp := -lrt
-diff --git a/Documentation/ptp/testptp.c b/Documentation/ptp/testptp.c
+-HOSTCFLAGS_disable-tsc-ctxt-sw-stress-test.o += -I$(objtree)/usr/include
+-HOSTCFLAGS_disable-tsc-on-off-stress-test.o += -I$(objtree)/usr/include
+-HOSTCFLAGS_disable-tsc-test.o += -I$(objtree)/usr/include
+-endif
+diff --git a/Documentation/prctl/disable-tsc-ctxt-sw-stress-test.c b/Documentation/prctl/disable-tsc-ctxt-sw-stress-test.c
 deleted file mode 100644
-index 5d2eae1..0000000
---- a/Documentation/ptp/testptp.c
+index f7499d1..0000000
+--- a/Documentation/prctl/disable-tsc-ctxt-sw-stress-test.c
 +++ /dev/null
-@@ -1,523 +0,0 @@
+@@ -1,97 +0,0 @@
 -/*
-- * PTP 1588 clock support - User space test program
+- * Tests for prctl(PR_GET_TSC, ...) / prctl(PR_SET_TSC, ...)
 - *
-- * Copyright (C) 2010 OMICRON electronics GmbH
+- * Tests if the control register is updated correctly
+- * at context switches
 - *
-- *  This program is free software; you can redistribute it and/or modify
-- *  it under the terms of the GNU General Public License as published by
-- *  the Free Software Foundation; either version 2 of the License, or
-- *  (at your option) any later version.
+- * Warning: this test will cause a very high load for a few seconds
 - *
-- *  This program is distributed in the hope that it will be useful,
-- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-- *  GNU General Public License for more details.
-- *
-- *  You should have received a copy of the GNU General Public License
-- *  along with this program; if not, write to the Free Software
-- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 - */
--#define _GNU_SOURCE
--#define __SANE_USERSPACE_TYPES__        /* For PPC64, to get LL64 types */
--#include <errno.h>
--#include <fcntl.h>
--#include <inttypes.h>
--#include <math.h>
--#include <signal.h>
+-
 -#include <stdio.h>
 -#include <stdlib.h>
--#include <string.h>
--#include <sys/ioctl.h>
--#include <sys/mman.h>
--#include <sys/stat.h>
--#include <sys/time.h>
--#include <sys/timex.h>
--#include <sys/types.h>
--#include <time.h>
 -#include <unistd.h>
+-#include <signal.h>
+-#include <inttypes.h>
+-#include <wait.h>
 -
--#include <linux/ptp_clock.h>
 -
--#define DEVICE "/dev/ptp0"
+-#include <sys/prctl.h>
+-#include <linux/prctl.h>
 -
--#ifndef ADJ_SETOFFSET
--#define ADJ_SETOFFSET 0x0100
+-/* Get/set the process' ability to use the timestamp counter instruction */
+-#ifndef PR_GET_TSC
+-#define PR_GET_TSC 25
+-#define PR_SET_TSC 26
+-# define PR_TSC_ENABLE		1   /* allow the use of the timestamp counter */
+-# define PR_TSC_SIGSEGV		2   /* throw a SIGSEGV instead of reading the TSC */
 -#endif
 -
--#ifndef CLOCK_INVALID
--#define CLOCK_INVALID -1
--#endif
--
--/* clock_adjtime is not available in GLIBC < 2.14 */
--#if !__GLIBC_PREREQ(2, 14)
--#include <sys/syscall.h>
--static int clock_adjtime(clockid_t id, struct timex *tx)
+-static uint64_t rdtsc(void)
 -{
--	return syscall(__NR_clock_adjtime, id, tx);
--}
--#endif
--
--static clockid_t get_clockid(int fd)
--{
--#define CLOCKFD 3
--#define FD_TO_CLOCKID(fd)	((~(clockid_t) (fd) << 3) | CLOCKFD)
--
--	return FD_TO_CLOCKID(fd);
+-uint32_t lo, hi;
+-/* We cannot use "=A", since this would use %rax on x86_64 */
+-__asm__ __volatile__ ("rdtsc" : "=a" (lo), "=d" (hi));
+-return (uint64_t)hi << 32 | lo;
 -}
 -
--static void handle_alarm(int s)
+-static void sigsegv_expect(int sig)
 -{
--	printf("received signal %d\n", s);
+-	/* */
 -}
 -
--static int install_handler(int signum, void (*handler)(int))
+-static void segvtask(void)
 -{
--	struct sigaction action;
--	sigset_t mask;
--
--	/* Unblock the signal. */
--	sigemptyset(&mask);
--	sigaddset(&mask, signum);
--	sigprocmask(SIG_UNBLOCK, &mask, NULL);
--
--	/* Install the signal handler. */
--	action.sa_handler = handler;
--	action.sa_flags = 0;
--	sigemptyset(&action.sa_mask);
--	sigaction(signum, &action, NULL);
--
--	return 0;
+-	if (prctl(PR_SET_TSC, PR_TSC_SIGSEGV) < 0)
+-	{
+-		perror("prctl");
+-		exit(0);
+-	}
+-	signal(SIGSEGV, sigsegv_expect);
+-	alarm(10);
+-	rdtsc();
+-	fprintf(stderr, "FATAL ERROR, rdtsc() succeeded while disabled\n");
+-	exit(0);
 -}
 -
--static long ppb_to_scaled_ppm(int ppb)
+-
+-static void sigsegv_fail(int sig)
 -{
--	/*
--	 * The 'freq' field in the 'struct timex' is in parts per
--	 * million, but with a 16 bit binary fractional field.
--	 * Instead of calculating either one of
--	 *
--	 *    scaled_ppm = (ppb / 1000) << 16  [1]
--	 *    scaled_ppm = (ppb << 16) / 1000  [2]
--	 *
--	 * we simply use double precision math, in order to avoid the
--	 * truncation in [1] and the possible overflow in [2].
--	 */
--	return (long) (ppb * 65.536);
+-	fprintf(stderr, "FATAL ERROR, rdtsc() failed while enabled\n");
+-	exit(0);
 -}
 -
--static int64_t pctns(struct ptp_clock_time *t)
+-static void rdtsctask(void)
 -{
--	return t->sec * 1000000000LL + t->nsec;
+-	if (prctl(PR_SET_TSC, PR_TSC_ENABLE) < 0)
+-	{
+-		perror("prctl");
+-		exit(0);
+-	}
+-	signal(SIGSEGV, sigsegv_fail);
+-	alarm(10);
+-	for(;;) rdtsc();
 -}
 -
--static void usage(char *progname)
+-
+-int main(void)
 -{
--	fprintf(stderr,
--		"usage: %s [options]\n"
--		" -a val     request a one-shot alarm after 'val' seconds\n"
--		" -A val     request a periodic alarm every 'val' seconds\n"
--		" -c         query the ptp clock's capabilities\n"
--		" -d name    device to open\n"
--		" -e val     read 'val' external time stamp events\n"
--		" -f val     adjust the ptp clock frequency by 'val' ppb\n"
--		" -g         get the ptp clock time\n"
--		" -h         prints this message\n"
--		" -i val     index for event/trigger\n"
--		" -k val     measure the time offset between system and phc clock\n"
--		"            for 'val' times (Maximum 25)\n"
--		" -l         list the current pin configuration\n"
--		" -L pin,val configure pin index 'pin' with function 'val'\n"
--		"            the channel index is taken from the '-i' option\n"
--		"            'val' specifies the auxiliary function:\n"
--		"            0 - none\n"
--		"            1 - external time stamp\n"
--		"            2 - periodic output\n"
--		" -p val     enable output with a period of 'val' nanoseconds\n"
--		" -P val     enable or disable (val=1|0) the system clock PPS\n"
--		" -s         set the ptp clock time from the system time\n"
--		" -S         set the system time from the ptp clock time\n"
--		" -t val     shift the ptp clock time by 'val' seconds\n"
--		" -T val     set the ptp clock time to 'val' seconds\n",
--		progname);
+-	int n_tasks = 100, i;
+-
+-	fprintf(stderr, "[No further output means we're allright]\n");
+-
+-	for (i=0; i<n_tasks; i++)
+-		if (fork() == 0)
+-		{
+-			if (i & 1)
+-				segvtask();
+-			else
+-				rdtsctask();
+-		}
+-
+-	for (i=0; i<n_tasks; i++)
+-		wait(NULL);
+-
+-	exit(0);
 -}
 -
--int main(int argc, char *argv[])
--{
--	struct ptp_clock_caps caps;
--	struct ptp_extts_event event;
--	struct ptp_extts_request extts_request;
--	struct ptp_perout_request perout_request;
--	struct ptp_pin_desc desc;
--	struct timespec ts;
--	struct timex tx;
--
--	static timer_t timerid;
--	struct itimerspec timeout;
--	struct sigevent sigevent;
--
--	struct ptp_clock_time *pct;
--	struct ptp_sys_offset *sysoff;
--
--
--	char *progname;
--	unsigned int i;
--	int c, cnt, fd;
--
--	char *device = DEVICE;
--	clockid_t clkid;
--	int adjfreq = 0x7fffffff;
--	int adjtime = 0;
--	int capabilities = 0;
--	int extts = 0;
--	int gettime = 0;
--	int index = 0;
--	int list_pins = 0;
--	int oneshot = 0;
--	int pct_offset = 0;
--	int n_samples = 0;
--	int periodic = 0;
--	int perout = -1;
--	int pin_index = -1, pin_func;
--	int pps = -1;
--	int seconds = 0;
--	int settime = 0;
--
--	int64_t t1, t2, tp;
--	int64_t interval, offset;
--
--	progname = strrchr(argv[0], '/');
--	progname = progname ? 1+progname : argv[0];
--	while (EOF != (c = getopt(argc, argv, "a:A:cd:e:f:ghi:k:lL:p:P:sSt:T:v"))) {
--		switch (c) {
--		case 'a':
--			oneshot = atoi(optarg);
--			break;
--		case 'A':
--			periodic = atoi(optarg);
--			break;
--		case 'c':
--			capabilities = 1;
--			break;
--		case 'd':
--			device = optarg;
--			break;
--		case 'e':
--			extts = atoi(optarg);
--			break;
--		case 'f':
--			adjfreq = atoi(optarg);
--			break;
--		case 'g':
--			gettime = 1;
--			break;
--		case 'i':
--			index = atoi(optarg);
--			break;
--		case 'k':
--			pct_offset = 1;
--			n_samples = atoi(optarg);
--			break;
--		case 'l':
--			list_pins = 1;
--			break;
--		case 'L':
--			cnt = sscanf(optarg, "%d,%d", &pin_index, &pin_func);
--			if (cnt != 2) {
--				usage(progname);
--				return -1;
--			}
--			break;
--		case 'p':
--			perout = atoi(optarg);
--			break;
--		case 'P':
--			pps = atoi(optarg);
--			break;
--		case 's':
--			settime = 1;
--			break;
--		case 'S':
--			settime = 2;
--			break;
--		case 't':
--			adjtime = atoi(optarg);
--			break;
--		case 'T':
--			settime = 3;
--			seconds = atoi(optarg);
--			break;
--		case 'h':
--			usage(progname);
--			return 0;
--		case '?':
--		default:
--			usage(progname);
--			return -1;
--		}
--	}
--
--	fd = open(device, O_RDWR);
--	if (fd < 0) {
--		fprintf(stderr, "opening %s: %s\n", device, strerror(errno));
--		return -1;
--	}
--
--	clkid = get_clockid(fd);
--	if (CLOCK_INVALID == clkid) {
--		fprintf(stderr, "failed to read clock id\n");
--		return -1;
--	}
--
--	if (capabilities) {
--		if (ioctl(fd, PTP_CLOCK_GETCAPS, &caps)) {
--			perror("PTP_CLOCK_GETCAPS");
--		} else {
--			printf("capabilities:\n"
--			       "  %d maximum frequency adjustment (ppb)\n"
--			       "  %d programmable alarms\n"
--			       "  %d external time stamp channels\n"
--			       "  %d programmable periodic signals\n"
--			       "  %d pulse per second\n"
--			       "  %d programmable pins\n"
--			       "  %d cross timestamping\n",
--			       caps.max_adj,
--			       caps.n_alarm,
--			       caps.n_ext_ts,
--			       caps.n_per_out,
--			       caps.pps,
--			       caps.n_pins,
--			       caps.cross_timestamping);
--		}
--	}
--
--	if (0x7fffffff != adjfreq) {
--		memset(&tx, 0, sizeof(tx));
--		tx.modes = ADJ_FREQUENCY;
--		tx.freq = ppb_to_scaled_ppm(adjfreq);
--		if (clock_adjtime(clkid, &tx)) {
--			perror("clock_adjtime");
--		} else {
--			puts("frequency adjustment okay");
--		}
--	}
--
--	if (adjtime) {
--		memset(&tx, 0, sizeof(tx));
--		tx.modes = ADJ_SETOFFSET;
--		tx.time.tv_sec = adjtime;
--		tx.time.tv_usec = 0;
--		if (clock_adjtime(clkid, &tx) < 0) {
--			perror("clock_adjtime");
--		} else {
--			puts("time shift okay");
--		}
--	}
--
--	if (gettime) {
--		if (clock_gettime(clkid, &ts)) {
--			perror("clock_gettime");
--		} else {
--			printf("clock time: %ld.%09ld or %s",
--			       ts.tv_sec, ts.tv_nsec, ctime(&ts.tv_sec));
--		}
--	}
--
--	if (settime == 1) {
--		clock_gettime(CLOCK_REALTIME, &ts);
--		if (clock_settime(clkid, &ts)) {
--			perror("clock_settime");
--		} else {
--			puts("set time okay");
--		}
--	}
--
--	if (settime == 2) {
--		clock_gettime(clkid, &ts);
--		if (clock_settime(CLOCK_REALTIME, &ts)) {
--			perror("clock_settime");
--		} else {
--			puts("set time okay");
--		}
--	}
--
--	if (settime == 3) {
--		ts.tv_sec = seconds;
--		ts.tv_nsec = 0;
--		if (clock_settime(clkid, &ts)) {
--			perror("clock_settime");
--		} else {
--			puts("set time okay");
--		}
--	}
--
--	if (extts) {
--		memset(&extts_request, 0, sizeof(extts_request));
--		extts_request.index = index;
--		extts_request.flags = PTP_ENABLE_FEATURE;
--		if (ioctl(fd, PTP_EXTTS_REQUEST, &extts_request)) {
--			perror("PTP_EXTTS_REQUEST");
--			extts = 0;
--		} else {
--			puts("external time stamp request okay");
--		}
--		for (; extts; extts--) {
--			cnt = read(fd, &event, sizeof(event));
--			if (cnt != sizeof(event)) {
--				perror("read");
--				break;
--			}
--			printf("event index %u at %lld.%09u\n", event.index,
--			       event.t.sec, event.t.nsec);
--			fflush(stdout);
--		}
--		/* Disable the feature again. */
--		extts_request.flags = 0;
--		if (ioctl(fd, PTP_EXTTS_REQUEST, &extts_request)) {
--			perror("PTP_EXTTS_REQUEST");
--		}
--	}
--
--	if (list_pins) {
--		int n_pins = 0;
--		if (ioctl(fd, PTP_CLOCK_GETCAPS, &caps)) {
--			perror("PTP_CLOCK_GETCAPS");
--		} else {
--			n_pins = caps.n_pins;
--		}
--		for (i = 0; i < n_pins; i++) {
--			desc.index = i;
--			if (ioctl(fd, PTP_PIN_GETFUNC, &desc)) {
--				perror("PTP_PIN_GETFUNC");
--				break;
--			}
--			printf("name %s index %u func %u chan %u\n",
--			       desc.name, desc.index, desc.func, desc.chan);
--		}
--	}
--
--	if (oneshot) {
--		install_handler(SIGALRM, handle_alarm);
--		/* Create a timer. */
--		sigevent.sigev_notify = SIGEV_SIGNAL;
--		sigevent.sigev_signo = SIGALRM;
--		if (timer_create(clkid, &sigevent, &timerid)) {
--			perror("timer_create");
--			return -1;
--		}
--		/* Start the timer. */
--		memset(&timeout, 0, sizeof(timeout));
--		timeout.it_value.tv_sec = oneshot;
--		if (timer_settime(timerid, 0, &timeout, NULL)) {
--			perror("timer_settime");
--			return -1;
--		}
--		pause();
--		timer_delete(timerid);
--	}
--
--	if (periodic) {
--		install_handler(SIGALRM, handle_alarm);
--		/* Create a timer. */
--		sigevent.sigev_notify = SIGEV_SIGNAL;
--		sigevent.sigev_signo = SIGALRM;
--		if (timer_create(clkid, &sigevent, &timerid)) {
--			perror("timer_create");
--			return -1;
--		}
--		/* Start the timer. */
--		memset(&timeout, 0, sizeof(timeout));
--		timeout.it_interval.tv_sec = periodic;
--		timeout.it_value.tv_sec = periodic;
--		if (timer_settime(timerid, 0, &timeout, NULL)) {
--			perror("timer_settime");
--			return -1;
--		}
--		while (1) {
--			pause();
--		}
--		timer_delete(timerid);
--	}
--
--	if (perout >= 0) {
--		if (clock_gettime(clkid, &ts)) {
--			perror("clock_gettime");
--			return -1;
--		}
--		memset(&perout_request, 0, sizeof(perout_request));
--		perout_request.index = index;
--		perout_request.start.sec = ts.tv_sec + 2;
--		perout_request.start.nsec = 0;
--		perout_request.period.sec = 0;
--		perout_request.period.nsec = perout;
--		if (ioctl(fd, PTP_PEROUT_REQUEST, &perout_request)) {
--			perror("PTP_PEROUT_REQUEST");
--		} else {
--			puts("periodic output request okay");
--		}
--	}
--
--	if (pin_index >= 0) {
--		memset(&desc, 0, sizeof(desc));
--		desc.index = pin_index;
--		desc.func = pin_func;
--		desc.chan = index;
--		if (ioctl(fd, PTP_PIN_SETFUNC, &desc)) {
--			perror("PTP_PIN_SETFUNC");
--		} else {
--			puts("set pin function okay");
--		}
--	}
--
--	if (pps != -1) {
--		int enable = pps ? 1 : 0;
--		if (ioctl(fd, PTP_ENABLE_PPS, enable)) {
--			perror("PTP_ENABLE_PPS");
--		} else {
--			puts("pps for system time request okay");
--		}
--	}
--
--	if (pct_offset) {
--		if (n_samples <= 0 || n_samples > 25) {
--			puts("n_samples should be between 1 and 25");
--			usage(progname);
--			return -1;
--		}
--
--		sysoff = calloc(1, sizeof(*sysoff));
--		if (!sysoff) {
--			perror("calloc");
--			return -1;
--		}
--		sysoff->n_samples = n_samples;
--
--		if (ioctl(fd, PTP_SYS_OFFSET, sysoff))
--			perror("PTP_SYS_OFFSET");
--		else
--			puts("system and phc clock time offset request okay");
--
--		pct = &sysoff->ts[0];
--		for (i = 0; i < sysoff->n_samples; i++) {
--			t1 = pctns(pct+2*i);
--			tp = pctns(pct+2*i+1);
--			t2 = pctns(pct+2*i+2);
--			interval = t2 - t1;
--			offset = (t2 + t1) / 2 - tp;
--
--			printf("system time: %lld.%u\n",
--				(pct+2*i)->sec, (pct+2*i)->nsec);
--			printf("phc    time: %lld.%u\n",
--				(pct+2*i+1)->sec, (pct+2*i+1)->nsec);
--			printf("system time: %lld.%u\n",
--				(pct+2*i+2)->sec, (pct+2*i+2)->nsec);
--			printf("system/phc clock time offset is %" PRId64 " ns\n"
--			       "system     clock time delay  is %" PRId64 " ns\n",
--				offset, interval);
--		}
--
--		free(sysoff);
--	}
--
--	close(fd);
--	return 0;
--}
-diff --git a/Documentation/ptp/testptp.mk b/Documentation/ptp/testptp.mk
+diff --git a/Documentation/prctl/disable-tsc-on-off-stress-test.c b/Documentation/prctl/disable-tsc-on-off-stress-test.c
 deleted file mode 100644
-index 4ef2d97..0000000
---- a/Documentation/ptp/testptp.mk
+index a06f027..0000000
+--- a/Documentation/prctl/disable-tsc-on-off-stress-test.c
 +++ /dev/null
-@@ -1,33 +0,0 @@
--# PTP 1588 clock support - User space test program
--#
--# Copyright (C) 2010 OMICRON electronics GmbH
--#
--#  This program is free software; you can redistribute it and/or modify
--#  it under the terms of the GNU General Public License as published by
--#  the Free Software Foundation; either version 2 of the License, or
--#  (at your option) any later version.
--#
--#  This program is distributed in the hope that it will be useful,
--#  but WITHOUT ANY WARRANTY; without even the implied warranty of
--#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
--#  GNU General Public License for more details.
--#
--#  You should have received a copy of the GNU General Public License
--#  along with this program; if not, write to the Free Software
--#  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+@@ -1,96 +0,0 @@
+-/*
+- * Tests for prctl(PR_GET_TSC, ...) / prctl(PR_SET_TSC, ...)
+- *
+- * Tests if the control register is updated correctly
+- * when set with prctl()
+- *
+- * Warning: this test will cause a very high load for a few seconds
+- *
+- */
 -
--CC        = $(CROSS_COMPILE)gcc
--INC       = -I$(KBUILD_OUTPUT)/usr/include
--CFLAGS    = -Wall $(INC)
--LDLIBS    = -lrt
--PROGS     = testptp
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <unistd.h>
+-#include <signal.h>
+-#include <inttypes.h>
+-#include <wait.h>
 -
--all: $(PROGS)
 -
--testptp: testptp.o
+-#include <sys/prctl.h>
+-#include <linux/prctl.h>
 -
--clean:
--	rm -f testptp.o
+-/* Get/set the process' ability to use the timestamp counter instruction */
+-#ifndef PR_GET_TSC
+-#define PR_GET_TSC 25
+-#define PR_SET_TSC 26
+-# define PR_TSC_ENABLE		1   /* allow the use of the timestamp counter */
+-# define PR_TSC_SIGSEGV		2   /* throw a SIGSEGV instead of reading the TSC */
+-#endif
 -
--distclean: clean
--	rm -f $(PROGS)
-diff --git a/tools/testing/selftests/ptp/.gitignore b/tools/testing/selftests/ptp/.gitignore
+-/* snippet from wikipedia :-) */
+-
+-static uint64_t rdtsc(void)
+-{
+-uint32_t lo, hi;
+-/* We cannot use "=A", since this would use %rax on x86_64 */
+-__asm__ __volatile__ ("rdtsc" : "=a" (lo), "=d" (hi));
+-return (uint64_t)hi << 32 | lo;
+-}
+-
+-int should_segv = 0;
+-
+-static void sigsegv_cb(int sig)
+-{
+-	if (!should_segv)
+-	{
+-		fprintf(stderr, "FATAL ERROR, rdtsc() failed while enabled\n");
+-		exit(0);
+-	}
+-	if (prctl(PR_SET_TSC, PR_TSC_ENABLE) < 0)
+-	{
+-		perror("prctl");
+-		exit(0);
+-	}
+-	should_segv = 0;
+-
+-	rdtsc();
+-}
+-
+-static void task(void)
+-{
+-	signal(SIGSEGV, sigsegv_cb);
+-	alarm(10);
+-	for(;;)
+-	{
+-		rdtsc();
+-		if (should_segv)
+-		{
+-			fprintf(stderr, "FATAL ERROR, rdtsc() succeeded while disabled\n");
+-			exit(0);
+-		}
+-		if (prctl(PR_SET_TSC, PR_TSC_SIGSEGV) < 0)
+-		{
+-			perror("prctl");
+-			exit(0);
+-		}
+-		should_segv = 1;
+-	}
+-}
+-
+-
+-int main(void)
+-{
+-	int n_tasks = 100, i;
+-
+-	fprintf(stderr, "[No further output means we're allright]\n");
+-
+-	for (i=0; i<n_tasks; i++)
+-		if (fork() == 0)
+-			task();
+-
+-	for (i=0; i<n_tasks; i++)
+-		wait(NULL);
+-
+-	exit(0);
+-}
+-
+diff --git a/Documentation/prctl/disable-tsc-test.c b/Documentation/prctl/disable-tsc-test.c
+deleted file mode 100644
+index 8d494f7..0000000
+--- a/Documentation/prctl/disable-tsc-test.c
++++ /dev/null
+@@ -1,95 +0,0 @@
+-/*
+- * Tests for prctl(PR_GET_TSC, ...) / prctl(PR_SET_TSC, ...)
+- *
+- * Basic test to test behaviour of PR_GET_TSC and PR_SET_TSC
+- */
+-
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <unistd.h>
+-#include <signal.h>
+-#include <inttypes.h>
+-
+-
+-#include <sys/prctl.h>
+-#include <linux/prctl.h>
+-
+-/* Get/set the process' ability to use the timestamp counter instruction */
+-#ifndef PR_GET_TSC
+-#define PR_GET_TSC 25
+-#define PR_SET_TSC 26
+-# define PR_TSC_ENABLE		1   /* allow the use of the timestamp counter */
+-# define PR_TSC_SIGSEGV		2   /* throw a SIGSEGV instead of reading the TSC */
+-#endif
+-
+-const char *tsc_names[] =
+-{
+-	[0] = "[not set]",
+-	[PR_TSC_ENABLE] = "PR_TSC_ENABLE",
+-	[PR_TSC_SIGSEGV] = "PR_TSC_SIGSEGV",
+-};
+-
+-static uint64_t rdtsc(void)
+-{
+-uint32_t lo, hi;
+-/* We cannot use "=A", since this would use %rax on x86_64 */
+-__asm__ __volatile__ ("rdtsc" : "=a" (lo), "=d" (hi));
+-return (uint64_t)hi << 32 | lo;
+-}
+-
+-static void sigsegv_cb(int sig)
+-{
+-	int tsc_val = 0;
+-
+-	printf("[ SIG_SEGV ]\n");
+-	printf("prctl(PR_GET_TSC, &tsc_val); ");
+-	fflush(stdout);
+-
+-	if ( prctl(PR_GET_TSC, &tsc_val) == -1)
+-		perror("prctl");
+-
+-	printf("tsc_val == %s\n", tsc_names[tsc_val]);
+-	printf("prctl(PR_SET_TSC, PR_TSC_ENABLE)\n");
+-	fflush(stdout);
+-	if ( prctl(PR_SET_TSC, PR_TSC_ENABLE) == -1)
+-		perror("prctl");
+-
+-	printf("rdtsc() == ");
+-}
+-
+-int main(void)
+-{
+-	int tsc_val = 0;
+-
+-	signal(SIGSEGV, sigsegv_cb);
+-
+-	printf("rdtsc() == %llu\n", (unsigned long long)rdtsc());
+-	printf("prctl(PR_GET_TSC, &tsc_val); ");
+-	fflush(stdout);
+-
+-	if ( prctl(PR_GET_TSC, &tsc_val) == -1)
+-		perror("prctl");
+-
+-	printf("tsc_val == %s\n", tsc_names[tsc_val]);
+-	printf("rdtsc() == %llu\n", (unsigned long long)rdtsc());
+-	printf("prctl(PR_SET_TSC, PR_TSC_ENABLE)\n");
+-	fflush(stdout);
+-
+-	if ( prctl(PR_SET_TSC, PR_TSC_ENABLE) == -1)
+-		perror("prctl");
+-
+-	printf("rdtsc() == %llu\n", (unsigned long long)rdtsc());
+-	printf("prctl(PR_SET_TSC, PR_TSC_SIGSEGV)\n");
+-	fflush(stdout);
+-
+-	if ( prctl(PR_SET_TSC, PR_TSC_SIGSEGV) == -1)
+-		perror("prctl");
+-
+-	printf("rdtsc() == ");
+-	fflush(stdout);
+-	printf("%llu\n", (unsigned long long)rdtsc());
+-	fflush(stdout);
+-
+-	exit(EXIT_SUCCESS);
+-}
+-
+diff --git a/tools/testing/selftests/prctl/.gitignore b/tools/testing/selftests/prctl/.gitignore
 new file mode 100644
-index 0000000..f562e49
+index 0000000..0b5c274
 --- /dev/null
-+++ b/tools/testing/selftests/ptp/.gitignore
-@@ -0,0 +1 @@
-+testptp
-diff --git a/tools/testing/selftests/ptp/Makefile b/tools/testing/selftests/ptp/Makefile
++++ b/tools/testing/selftests/prctl/.gitignore
+@@ -0,0 +1,3 @@
++disable-tsc-ctxt-sw-stress-test
++disable-tsc-on-off-stress-test
++disable-tsc-test
+diff --git a/tools/testing/selftests/prctl/Makefile b/tools/testing/selftests/prctl/Makefile
 new file mode 100644
-index 0000000..83dd42b
+index 0000000..35aa1c8
 --- /dev/null
-+++ b/tools/testing/selftests/ptp/Makefile
-@@ -0,0 +1,8 @@
-+TEST_PROGS := testptp
-+LDLIBS += -lrt
++++ b/tools/testing/selftests/prctl/Makefile
+@@ -0,0 +1,15 @@
++ifndef CROSS_COMPILE
++uname_M := $(shell uname -m 2>/dev/null || echo not)
++ARCH ?= $(shell echo $(uname_M) | sed -e s/i.86/x86/ -e s/x86_64/x86/)
++
++ifeq ($(ARCH),x86)
++TEST_PROGS := disable-tsc-ctxt-sw-stress-test disable-tsc-on-off-stress-test \
++		disable-tsc-test
 +all: $(TEST_PROGS)
 +
 +include ../lib.mk
 +
 +clean:
 +	rm -fr $(TEST_PROGS)
-diff --git a/tools/testing/selftests/ptp/testptp.c b/tools/testing/selftests/ptp/testptp.c
++endif
++endif
+diff --git a/tools/testing/selftests/prctl/disable-tsc-ctxt-sw-stress-test.c b/tools/testing/selftests/prctl/disable-tsc-ctxt-sw-stress-test.c
 new file mode 100644
-index 0000000..5d2eae1
+index 0000000..f7499d1
 --- /dev/null
-+++ b/tools/testing/selftests/ptp/testptp.c
-@@ -0,0 +1,523 @@
++++ b/tools/testing/selftests/prctl/disable-tsc-ctxt-sw-stress-test.c
+@@ -0,0 +1,97 @@
 +/*
-+ * PTP 1588 clock support - User space test program
++ * Tests for prctl(PR_GET_TSC, ...) / prctl(PR_SET_TSC, ...)
 + *
-+ * Copyright (C) 2010 OMICRON electronics GmbH
++ * Tests if the control register is updated correctly
++ * at context switches
 + *
-+ *  This program is free software; you can redistribute it and/or modify
-+ *  it under the terms of the GNU General Public License as published by
-+ *  the Free Software Foundation; either version 2 of the License, or
-+ *  (at your option) any later version.
++ * Warning: this test will cause a very high load for a few seconds
 + *
-+ *  This program is distributed in the hope that it will be useful,
-+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ *  GNU General Public License for more details.
-+ *
-+ *  You should have received a copy of the GNU General Public License
-+ *  along with this program; if not, write to the Free Software
-+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 + */
-+#define _GNU_SOURCE
-+#define __SANE_USERSPACE_TYPES__        /* For PPC64, to get LL64 types */
-+#include <errno.h>
-+#include <fcntl.h>
-+#include <inttypes.h>
-+#include <math.h>
-+#include <signal.h>
++
 +#include <stdio.h>
 +#include <stdlib.h>
-+#include <string.h>
-+#include <sys/ioctl.h>
-+#include <sys/mman.h>
-+#include <sys/stat.h>
-+#include <sys/time.h>
-+#include <sys/timex.h>
-+#include <sys/types.h>
-+#include <time.h>
 +#include <unistd.h>
++#include <signal.h>
++#include <inttypes.h>
++#include <wait.h>
 +
-+#include <linux/ptp_clock.h>
 +
-+#define DEVICE "/dev/ptp0"
++#include <sys/prctl.h>
++#include <linux/prctl.h>
 +
-+#ifndef ADJ_SETOFFSET
-+#define ADJ_SETOFFSET 0x0100
++/* Get/set the process' ability to use the timestamp counter instruction */
++#ifndef PR_GET_TSC
++#define PR_GET_TSC 25
++#define PR_SET_TSC 26
++# define PR_TSC_ENABLE		1   /* allow the use of the timestamp counter */
++# define PR_TSC_SIGSEGV		2   /* throw a SIGSEGV instead of reading the TSC */
 +#endif
 +
-+#ifndef CLOCK_INVALID
-+#define CLOCK_INVALID -1
-+#endif
-+
-+/* clock_adjtime is not available in GLIBC < 2.14 */
-+#if !__GLIBC_PREREQ(2, 14)
-+#include <sys/syscall.h>
-+static int clock_adjtime(clockid_t id, struct timex *tx)
++static uint64_t rdtsc(void)
 +{
-+	return syscall(__NR_clock_adjtime, id, tx);
-+}
-+#endif
-+
-+static clockid_t get_clockid(int fd)
-+{
-+#define CLOCKFD 3
-+#define FD_TO_CLOCKID(fd)	((~(clockid_t) (fd) << 3) | CLOCKFD)
-+
-+	return FD_TO_CLOCKID(fd);
++uint32_t lo, hi;
++/* We cannot use "=A", since this would use %rax on x86_64 */
++__asm__ __volatile__ ("rdtsc" : "=a" (lo), "=d" (hi));
++return (uint64_t)hi << 32 | lo;
 +}
 +
-+static void handle_alarm(int s)
++static void sigsegv_expect(int sig)
 +{
-+	printf("received signal %d\n", s);
++	/* */
 +}
 +
-+static int install_handler(int signum, void (*handler)(int))
++static void segvtask(void)
 +{
-+	struct sigaction action;
-+	sigset_t mask;
-+
-+	/* Unblock the signal. */
-+	sigemptyset(&mask);
-+	sigaddset(&mask, signum);
-+	sigprocmask(SIG_UNBLOCK, &mask, NULL);
-+
-+	/* Install the signal handler. */
-+	action.sa_handler = handler;
-+	action.sa_flags = 0;
-+	sigemptyset(&action.sa_mask);
-+	sigaction(signum, &action, NULL);
-+
-+	return 0;
++	if (prctl(PR_SET_TSC, PR_TSC_SIGSEGV) < 0)
++	{
++		perror("prctl");
++		exit(0);
++	}
++	signal(SIGSEGV, sigsegv_expect);
++	alarm(10);
++	rdtsc();
++	fprintf(stderr, "FATAL ERROR, rdtsc() succeeded while disabled\n");
++	exit(0);
 +}
 +
-+static long ppb_to_scaled_ppm(int ppb)
++
++static void sigsegv_fail(int sig)
 +{
-+	/*
-+	 * The 'freq' field in the 'struct timex' is in parts per
-+	 * million, but with a 16 bit binary fractional field.
-+	 * Instead of calculating either one of
-+	 *
-+	 *    scaled_ppm = (ppb / 1000) << 16  [1]
-+	 *    scaled_ppm = (ppb << 16) / 1000  [2]
-+	 *
-+	 * we simply use double precision math, in order to avoid the
-+	 * truncation in [1] and the possible overflow in [2].
-+	 */
-+	return (long) (ppb * 65.536);
++	fprintf(stderr, "FATAL ERROR, rdtsc() failed while enabled\n");
++	exit(0);
 +}
 +
-+static int64_t pctns(struct ptp_clock_time *t)
++static void rdtsctask(void)
 +{
-+	return t->sec * 1000000000LL + t->nsec;
++	if (prctl(PR_SET_TSC, PR_TSC_ENABLE) < 0)
++	{
++		perror("prctl");
++		exit(0);
++	}
++	signal(SIGSEGV, sigsegv_fail);
++	alarm(10);
++	for(;;) rdtsc();
 +}
 +
-+static void usage(char *progname)
++
++int main(void)
 +{
-+	fprintf(stderr,
-+		"usage: %s [options]\n"
-+		" -a val     request a one-shot alarm after 'val' seconds\n"
-+		" -A val     request a periodic alarm every 'val' seconds\n"
-+		" -c         query the ptp clock's capabilities\n"
-+		" -d name    device to open\n"
-+		" -e val     read 'val' external time stamp events\n"
-+		" -f val     adjust the ptp clock frequency by 'val' ppb\n"
-+		" -g         get the ptp clock time\n"
-+		" -h         prints this message\n"
-+		" -i val     index for event/trigger\n"
-+		" -k val     measure the time offset between system and phc clock\n"
-+		"            for 'val' times (Maximum 25)\n"
-+		" -l         list the current pin configuration\n"
-+		" -L pin,val configure pin index 'pin' with function 'val'\n"
-+		"            the channel index is taken from the '-i' option\n"
-+		"            'val' specifies the auxiliary function:\n"
-+		"            0 - none\n"
-+		"            1 - external time stamp\n"
-+		"            2 - periodic output\n"
-+		" -p val     enable output with a period of 'val' nanoseconds\n"
-+		" -P val     enable or disable (val=1|0) the system clock PPS\n"
-+		" -s         set the ptp clock time from the system time\n"
-+		" -S         set the system time from the ptp clock time\n"
-+		" -t val     shift the ptp clock time by 'val' seconds\n"
-+		" -T val     set the ptp clock time to 'val' seconds\n",
-+		progname);
++	int n_tasks = 100, i;
++
++	fprintf(stderr, "[No further output means we're allright]\n");
++
++	for (i=0; i<n_tasks; i++)
++		if (fork() == 0)
++		{
++			if (i & 1)
++				segvtask();
++			else
++				rdtsctask();
++		}
++
++	for (i=0; i<n_tasks; i++)
++		wait(NULL);
++
++	exit(0);
 +}
 +
-+int main(int argc, char *argv[])
-+{
-+	struct ptp_clock_caps caps;
-+	struct ptp_extts_event event;
-+	struct ptp_extts_request extts_request;
-+	struct ptp_perout_request perout_request;
-+	struct ptp_pin_desc desc;
-+	struct timespec ts;
-+	struct timex tx;
-+
-+	static timer_t timerid;
-+	struct itimerspec timeout;
-+	struct sigevent sigevent;
-+
-+	struct ptp_clock_time *pct;
-+	struct ptp_sys_offset *sysoff;
-+
-+
-+	char *progname;
-+	unsigned int i;
-+	int c, cnt, fd;
-+
-+	char *device = DEVICE;
-+	clockid_t clkid;
-+	int adjfreq = 0x7fffffff;
-+	int adjtime = 0;
-+	int capabilities = 0;
-+	int extts = 0;
-+	int gettime = 0;
-+	int index = 0;
-+	int list_pins = 0;
-+	int oneshot = 0;
-+	int pct_offset = 0;
-+	int n_samples = 0;
-+	int periodic = 0;
-+	int perout = -1;
-+	int pin_index = -1, pin_func;
-+	int pps = -1;
-+	int seconds = 0;
-+	int settime = 0;
-+
-+	int64_t t1, t2, tp;
-+	int64_t interval, offset;
-+
-+	progname = strrchr(argv[0], '/');
-+	progname = progname ? 1+progname : argv[0];
-+	while (EOF != (c = getopt(argc, argv, "a:A:cd:e:f:ghi:k:lL:p:P:sSt:T:v"))) {
-+		switch (c) {
-+		case 'a':
-+			oneshot = atoi(optarg);
-+			break;
-+		case 'A':
-+			periodic = atoi(optarg);
-+			break;
-+		case 'c':
-+			capabilities = 1;
-+			break;
-+		case 'd':
-+			device = optarg;
-+			break;
-+		case 'e':
-+			extts = atoi(optarg);
-+			break;
-+		case 'f':
-+			adjfreq = atoi(optarg);
-+			break;
-+		case 'g':
-+			gettime = 1;
-+			break;
-+		case 'i':
-+			index = atoi(optarg);
-+			break;
-+		case 'k':
-+			pct_offset = 1;
-+			n_samples = atoi(optarg);
-+			break;
-+		case 'l':
-+			list_pins = 1;
-+			break;
-+		case 'L':
-+			cnt = sscanf(optarg, "%d,%d", &pin_index, &pin_func);
-+			if (cnt != 2) {
-+				usage(progname);
-+				return -1;
-+			}
-+			break;
-+		case 'p':
-+			perout = atoi(optarg);
-+			break;
-+		case 'P':
-+			pps = atoi(optarg);
-+			break;
-+		case 's':
-+			settime = 1;
-+			break;
-+		case 'S':
-+			settime = 2;
-+			break;
-+		case 't':
-+			adjtime = atoi(optarg);
-+			break;
-+		case 'T':
-+			settime = 3;
-+			seconds = atoi(optarg);
-+			break;
-+		case 'h':
-+			usage(progname);
-+			return 0;
-+		case '?':
-+		default:
-+			usage(progname);
-+			return -1;
-+		}
-+	}
-+
-+	fd = open(device, O_RDWR);
-+	if (fd < 0) {
-+		fprintf(stderr, "opening %s: %s\n", device, strerror(errno));
-+		return -1;
-+	}
-+
-+	clkid = get_clockid(fd);
-+	if (CLOCK_INVALID == clkid) {
-+		fprintf(stderr, "failed to read clock id\n");
-+		return -1;
-+	}
-+
-+	if (capabilities) {
-+		if (ioctl(fd, PTP_CLOCK_GETCAPS, &caps)) {
-+			perror("PTP_CLOCK_GETCAPS");
-+		} else {
-+			printf("capabilities:\n"
-+			       "  %d maximum frequency adjustment (ppb)\n"
-+			       "  %d programmable alarms\n"
-+			       "  %d external time stamp channels\n"
-+			       "  %d programmable periodic signals\n"
-+			       "  %d pulse per second\n"
-+			       "  %d programmable pins\n"
-+			       "  %d cross timestamping\n",
-+			       caps.max_adj,
-+			       caps.n_alarm,
-+			       caps.n_ext_ts,
-+			       caps.n_per_out,
-+			       caps.pps,
-+			       caps.n_pins,
-+			       caps.cross_timestamping);
-+		}
-+	}
-+
-+	if (0x7fffffff != adjfreq) {
-+		memset(&tx, 0, sizeof(tx));
-+		tx.modes = ADJ_FREQUENCY;
-+		tx.freq = ppb_to_scaled_ppm(adjfreq);
-+		if (clock_adjtime(clkid, &tx)) {
-+			perror("clock_adjtime");
-+		} else {
-+			puts("frequency adjustment okay");
-+		}
-+	}
-+
-+	if (adjtime) {
-+		memset(&tx, 0, sizeof(tx));
-+		tx.modes = ADJ_SETOFFSET;
-+		tx.time.tv_sec = adjtime;
-+		tx.time.tv_usec = 0;
-+		if (clock_adjtime(clkid, &tx) < 0) {
-+			perror("clock_adjtime");
-+		} else {
-+			puts("time shift okay");
-+		}
-+	}
-+
-+	if (gettime) {
-+		if (clock_gettime(clkid, &ts)) {
-+			perror("clock_gettime");
-+		} else {
-+			printf("clock time: %ld.%09ld or %s",
-+			       ts.tv_sec, ts.tv_nsec, ctime(&ts.tv_sec));
-+		}
-+	}
-+
-+	if (settime == 1) {
-+		clock_gettime(CLOCK_REALTIME, &ts);
-+		if (clock_settime(clkid, &ts)) {
-+			perror("clock_settime");
-+		} else {
-+			puts("set time okay");
-+		}
-+	}
-+
-+	if (settime == 2) {
-+		clock_gettime(clkid, &ts);
-+		if (clock_settime(CLOCK_REALTIME, &ts)) {
-+			perror("clock_settime");
-+		} else {
-+			puts("set time okay");
-+		}
-+	}
-+
-+	if (settime == 3) {
-+		ts.tv_sec = seconds;
-+		ts.tv_nsec = 0;
-+		if (clock_settime(clkid, &ts)) {
-+			perror("clock_settime");
-+		} else {
-+			puts("set time okay");
-+		}
-+	}
-+
-+	if (extts) {
-+		memset(&extts_request, 0, sizeof(extts_request));
-+		extts_request.index = index;
-+		extts_request.flags = PTP_ENABLE_FEATURE;
-+		if (ioctl(fd, PTP_EXTTS_REQUEST, &extts_request)) {
-+			perror("PTP_EXTTS_REQUEST");
-+			extts = 0;
-+		} else {
-+			puts("external time stamp request okay");
-+		}
-+		for (; extts; extts--) {
-+			cnt = read(fd, &event, sizeof(event));
-+			if (cnt != sizeof(event)) {
-+				perror("read");
-+				break;
-+			}
-+			printf("event index %u at %lld.%09u\n", event.index,
-+			       event.t.sec, event.t.nsec);
-+			fflush(stdout);
-+		}
-+		/* Disable the feature again. */
-+		extts_request.flags = 0;
-+		if (ioctl(fd, PTP_EXTTS_REQUEST, &extts_request)) {
-+			perror("PTP_EXTTS_REQUEST");
-+		}
-+	}
-+
-+	if (list_pins) {
-+		int n_pins = 0;
-+		if (ioctl(fd, PTP_CLOCK_GETCAPS, &caps)) {
-+			perror("PTP_CLOCK_GETCAPS");
-+		} else {
-+			n_pins = caps.n_pins;
-+		}
-+		for (i = 0; i < n_pins; i++) {
-+			desc.index = i;
-+			if (ioctl(fd, PTP_PIN_GETFUNC, &desc)) {
-+				perror("PTP_PIN_GETFUNC");
-+				break;
-+			}
-+			printf("name %s index %u func %u chan %u\n",
-+			       desc.name, desc.index, desc.func, desc.chan);
-+		}
-+	}
-+
-+	if (oneshot) {
-+		install_handler(SIGALRM, handle_alarm);
-+		/* Create a timer. */
-+		sigevent.sigev_notify = SIGEV_SIGNAL;
-+		sigevent.sigev_signo = SIGALRM;
-+		if (timer_create(clkid, &sigevent, &timerid)) {
-+			perror("timer_create");
-+			return -1;
-+		}
-+		/* Start the timer. */
-+		memset(&timeout, 0, sizeof(timeout));
-+		timeout.it_value.tv_sec = oneshot;
-+		if (timer_settime(timerid, 0, &timeout, NULL)) {
-+			perror("timer_settime");
-+			return -1;
-+		}
-+		pause();
-+		timer_delete(timerid);
-+	}
-+
-+	if (periodic) {
-+		install_handler(SIGALRM, handle_alarm);
-+		/* Create a timer. */
-+		sigevent.sigev_notify = SIGEV_SIGNAL;
-+		sigevent.sigev_signo = SIGALRM;
-+		if (timer_create(clkid, &sigevent, &timerid)) {
-+			perror("timer_create");
-+			return -1;
-+		}
-+		/* Start the timer. */
-+		memset(&timeout, 0, sizeof(timeout));
-+		timeout.it_interval.tv_sec = periodic;
-+		timeout.it_value.tv_sec = periodic;
-+		if (timer_settime(timerid, 0, &timeout, NULL)) {
-+			perror("timer_settime");
-+			return -1;
-+		}
-+		while (1) {
-+			pause();
-+		}
-+		timer_delete(timerid);
-+	}
-+
-+	if (perout >= 0) {
-+		if (clock_gettime(clkid, &ts)) {
-+			perror("clock_gettime");
-+			return -1;
-+		}
-+		memset(&perout_request, 0, sizeof(perout_request));
-+		perout_request.index = index;
-+		perout_request.start.sec = ts.tv_sec + 2;
-+		perout_request.start.nsec = 0;
-+		perout_request.period.sec = 0;
-+		perout_request.period.nsec = perout;
-+		if (ioctl(fd, PTP_PEROUT_REQUEST, &perout_request)) {
-+			perror("PTP_PEROUT_REQUEST");
-+		} else {
-+			puts("periodic output request okay");
-+		}
-+	}
-+
-+	if (pin_index >= 0) {
-+		memset(&desc, 0, sizeof(desc));
-+		desc.index = pin_index;
-+		desc.func = pin_func;
-+		desc.chan = index;
-+		if (ioctl(fd, PTP_PIN_SETFUNC, &desc)) {
-+			perror("PTP_PIN_SETFUNC");
-+		} else {
-+			puts("set pin function okay");
-+		}
-+	}
-+
-+	if (pps != -1) {
-+		int enable = pps ? 1 : 0;
-+		if (ioctl(fd, PTP_ENABLE_PPS, enable)) {
-+			perror("PTP_ENABLE_PPS");
-+		} else {
-+			puts("pps for system time request okay");
-+		}
-+	}
-+
-+	if (pct_offset) {
-+		if (n_samples <= 0 || n_samples > 25) {
-+			puts("n_samples should be between 1 and 25");
-+			usage(progname);
-+			return -1;
-+		}
-+
-+		sysoff = calloc(1, sizeof(*sysoff));
-+		if (!sysoff) {
-+			perror("calloc");
-+			return -1;
-+		}
-+		sysoff->n_samples = n_samples;
-+
-+		if (ioctl(fd, PTP_SYS_OFFSET, sysoff))
-+			perror("PTP_SYS_OFFSET");
-+		else
-+			puts("system and phc clock time offset request okay");
-+
-+		pct = &sysoff->ts[0];
-+		for (i = 0; i < sysoff->n_samples; i++) {
-+			t1 = pctns(pct+2*i);
-+			tp = pctns(pct+2*i+1);
-+			t2 = pctns(pct+2*i+2);
-+			interval = t2 - t1;
-+			offset = (t2 + t1) / 2 - tp;
-+
-+			printf("system time: %lld.%u\n",
-+				(pct+2*i)->sec, (pct+2*i)->nsec);
-+			printf("phc    time: %lld.%u\n",
-+				(pct+2*i+1)->sec, (pct+2*i+1)->nsec);
-+			printf("system time: %lld.%u\n",
-+				(pct+2*i+2)->sec, (pct+2*i+2)->nsec);
-+			printf("system/phc clock time offset is %" PRId64 " ns\n"
-+			       "system     clock time delay  is %" PRId64 " ns\n",
-+				offset, interval);
-+		}
-+
-+		free(sysoff);
-+	}
-+
-+	close(fd);
-+	return 0;
-+}
-diff --git a/tools/testing/selftests/ptp/testptp.mk b/tools/testing/selftests/ptp/testptp.mk
+diff --git a/tools/testing/selftests/prctl/disable-tsc-on-off-stress-test.c b/tools/testing/selftests/prctl/disable-tsc-on-off-stress-test.c
 new file mode 100644
-index 0000000..4ef2d97
+index 0000000..a06f027
 --- /dev/null
-+++ b/tools/testing/selftests/ptp/testptp.mk
-@@ -0,0 +1,33 @@
-+# PTP 1588 clock support - User space test program
-+#
-+# Copyright (C) 2010 OMICRON electronics GmbH
-+#
-+#  This program is free software; you can redistribute it and/or modify
-+#  it under the terms of the GNU General Public License as published by
-+#  the Free Software Foundation; either version 2 of the License, or
-+#  (at your option) any later version.
-+#
-+#  This program is distributed in the hope that it will be useful,
-+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+#  GNU General Public License for more details.
-+#
-+#  You should have received a copy of the GNU General Public License
-+#  along with this program; if not, write to the Free Software
-+#  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
++++ b/tools/testing/selftests/prctl/disable-tsc-on-off-stress-test.c
+@@ -0,0 +1,96 @@
++/*
++ * Tests for prctl(PR_GET_TSC, ...) / prctl(PR_SET_TSC, ...)
++ *
++ * Tests if the control register is updated correctly
++ * when set with prctl()
++ *
++ * Warning: this test will cause a very high load for a few seconds
++ *
++ */
 +
-+CC        = $(CROSS_COMPILE)gcc
-+INC       = -I$(KBUILD_OUTPUT)/usr/include
-+CFLAGS    = -Wall $(INC)
-+LDLIBS    = -lrt
-+PROGS     = testptp
++#include <stdio.h>
++#include <stdlib.h>
++#include <unistd.h>
++#include <signal.h>
++#include <inttypes.h>
++#include <wait.h>
 +
-+all: $(PROGS)
 +
-+testptp: testptp.o
++#include <sys/prctl.h>
++#include <linux/prctl.h>
 +
-+clean:
-+	rm -f testptp.o
++/* Get/set the process' ability to use the timestamp counter instruction */
++#ifndef PR_GET_TSC
++#define PR_GET_TSC 25
++#define PR_SET_TSC 26
++# define PR_TSC_ENABLE		1   /* allow the use of the timestamp counter */
++# define PR_TSC_SIGSEGV		2   /* throw a SIGSEGV instead of reading the TSC */
++#endif
 +
-+distclean: clean
-+	rm -f $(PROGS)
++/* snippet from wikipedia :-) */
++
++static uint64_t rdtsc(void)
++{
++uint32_t lo, hi;
++/* We cannot use "=A", since this would use %rax on x86_64 */
++__asm__ __volatile__ ("rdtsc" : "=a" (lo), "=d" (hi));
++return (uint64_t)hi << 32 | lo;
++}
++
++int should_segv = 0;
++
++static void sigsegv_cb(int sig)
++{
++	if (!should_segv)
++	{
++		fprintf(stderr, "FATAL ERROR, rdtsc() failed while enabled\n");
++		exit(0);
++	}
++	if (prctl(PR_SET_TSC, PR_TSC_ENABLE) < 0)
++	{
++		perror("prctl");
++		exit(0);
++	}
++	should_segv = 0;
++
++	rdtsc();
++}
++
++static void task(void)
++{
++	signal(SIGSEGV, sigsegv_cb);
++	alarm(10);
++	for(;;)
++	{
++		rdtsc();
++		if (should_segv)
++		{
++			fprintf(stderr, "FATAL ERROR, rdtsc() succeeded while disabled\n");
++			exit(0);
++		}
++		if (prctl(PR_SET_TSC, PR_TSC_SIGSEGV) < 0)
++		{
++			perror("prctl");
++			exit(0);
++		}
++		should_segv = 1;
++	}
++}
++
++
++int main(void)
++{
++	int n_tasks = 100, i;
++
++	fprintf(stderr, "[No further output means we're allright]\n");
++
++	for (i=0; i<n_tasks; i++)
++		if (fork() == 0)
++			task();
++
++	for (i=0; i<n_tasks; i++)
++		wait(NULL);
++
++	exit(0);
++}
++
+diff --git a/tools/testing/selftests/prctl/disable-tsc-test.c b/tools/testing/selftests/prctl/disable-tsc-test.c
+new file mode 100644
+index 0000000..8d494f7
+--- /dev/null
++++ b/tools/testing/selftests/prctl/disable-tsc-test.c
+@@ -0,0 +1,95 @@
++/*
++ * Tests for prctl(PR_GET_TSC, ...) / prctl(PR_SET_TSC, ...)
++ *
++ * Basic test to test behaviour of PR_GET_TSC and PR_SET_TSC
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <unistd.h>
++#include <signal.h>
++#include <inttypes.h>
++
++
++#include <sys/prctl.h>
++#include <linux/prctl.h>
++
++/* Get/set the process' ability to use the timestamp counter instruction */
++#ifndef PR_GET_TSC
++#define PR_GET_TSC 25
++#define PR_SET_TSC 26
++# define PR_TSC_ENABLE		1   /* allow the use of the timestamp counter */
++# define PR_TSC_SIGSEGV		2   /* throw a SIGSEGV instead of reading the TSC */
++#endif
++
++const char *tsc_names[] =
++{
++	[0] = "[not set]",
++	[PR_TSC_ENABLE] = "PR_TSC_ENABLE",
++	[PR_TSC_SIGSEGV] = "PR_TSC_SIGSEGV",
++};
++
++static uint64_t rdtsc(void)
++{
++uint32_t lo, hi;
++/* We cannot use "=A", since this would use %rax on x86_64 */
++__asm__ __volatile__ ("rdtsc" : "=a" (lo), "=d" (hi));
++return (uint64_t)hi << 32 | lo;
++}
++
++static void sigsegv_cb(int sig)
++{
++	int tsc_val = 0;
++
++	printf("[ SIG_SEGV ]\n");
++	printf("prctl(PR_GET_TSC, &tsc_val); ");
++	fflush(stdout);
++
++	if ( prctl(PR_GET_TSC, &tsc_val) == -1)
++		perror("prctl");
++
++	printf("tsc_val == %s\n", tsc_names[tsc_val]);
++	printf("prctl(PR_SET_TSC, PR_TSC_ENABLE)\n");
++	fflush(stdout);
++	if ( prctl(PR_SET_TSC, PR_TSC_ENABLE) == -1)
++		perror("prctl");
++
++	printf("rdtsc() == ");
++}
++
++int main(void)
++{
++	int tsc_val = 0;
++
++	signal(SIGSEGV, sigsegv_cb);
++
++	printf("rdtsc() == %llu\n", (unsigned long long)rdtsc());
++	printf("prctl(PR_GET_TSC, &tsc_val); ");
++	fflush(stdout);
++
++	if ( prctl(PR_GET_TSC, &tsc_val) == -1)
++		perror("prctl");
++
++	printf("tsc_val == %s\n", tsc_names[tsc_val]);
++	printf("rdtsc() == %llu\n", (unsigned long long)rdtsc());
++	printf("prctl(PR_SET_TSC, PR_TSC_ENABLE)\n");
++	fflush(stdout);
++
++	if ( prctl(PR_SET_TSC, PR_TSC_ENABLE) == -1)
++		perror("prctl");
++
++	printf("rdtsc() == %llu\n", (unsigned long long)rdtsc());
++	printf("prctl(PR_SET_TSC, PR_TSC_SIGSEGV)\n");
++	fflush(stdout);
++
++	if ( prctl(PR_SET_TSC, PR_TSC_SIGSEGV) == -1)
++		perror("prctl");
++
++	printf("rdtsc() == ");
++	fflush(stdout);
++	printf("%llu\n", (unsigned long long)rdtsc());
++	fflush(stdout);
++
++	exit(EXIT_SUCCESS);
++}
++
 -- 
 2.7.4
