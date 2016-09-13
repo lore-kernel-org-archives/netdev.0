@@ -1,66 +1,67 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: pull-request: mac80211 2016-09-13
-Date: Tue, 13 Sep 2016 22:03:23 +0200
-Message-ID: <1473797004-24158-1-git-send-email-johannes@sipsolutions.net>
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: "Steve Wise" <swise@opengridcomputing.com>
+Subject: RE: [net-next PATCH 00/11] iw_cxgb4,cxgbit: remove duplicate code
+Date: Tue, 13 Sep 2016 15:18:42 -0500
+Message-ID: <022b01d20dfc$05864150$1092c3f0$@opengridcomputing.com>
+References: <cover.1473781521.git.varun@chelsio.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+        charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-rdma@vger.kernel.org>,
+        <target-devel@vger.kernel.org>, <nab@linux-iscsi.org>,
+        <dledford@redhat.com>, <gerlitz.or@gmail.com>,
+        <indranil@chelsio.com>
+To: "'Varun Prakash'" <varun@chelsio.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:39795 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1760024AbcIMUDb (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 13 Sep 2016 16:03:31 -0400
+Received: from smtp.opengridcomputing.com ([72.48.136.20]:44812 "EHLO
+        smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1754740AbcIMUSk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 16:18:40 -0400
+In-Reply-To: <cover.1473781521.git.varun@chelsio.com>
+Content-Language: en-us
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+> This patch series removes duplicate code from
+> iw_cxgb4 and cxgbit by adding common function
+> definitions in libcxgb.
+> 
+> Please review.
+> 
+> Thanks
+> Varun
+> 
+> Varun Prakash (11):
+>   libcxgb,iw_cxgb4,cxgbit: add cxgb_get_4tuple()
+>   libcxgb,iw_cxgb4,cxgbit: add cxgb_find_route()
+>   libcxgb,iw_cxgb4,cxgbit: add cxgb_find_route6()
+>   libcxgb,iw_cxgb4,cxgbit: add cxgb_is_neg_adv()
+>   libcxgb,iw_cxgb4,cxgbit: add cxgb_best_mtu()
+>   libcxgb,iw_cxgb4,cxgbit: add cxgb_compute_wscale()
+>   libcxgb,iw_cxgb4,cxgbit: add cxgb_mk_tid_release()
+>   libcxgb,iw_cxgb4,cxgbit: add cxgb_mk_close_con_req()
+>   libcxgb,iw_cxgb4,cxgbit: add cxgb_mk_abort_req()
+>   libcxgb,iw_cxgb4,cxgbit: add cxgb_mk_abort_rpl()
+>   libcxgb,iw_cxgb4,cxgbit: add cxgb_mk_rx_data_ack()
+> 
+>  drivers/infiniband/hw/cxgb4/Kconfig               |   1 +
+>  drivers/infiniband/hw/cxgb4/Makefile              |   1 +
+>  drivers/infiniband/hw/cxgb4/cm.c                  | 288
+++++++----------------
+>  drivers/infiniband/hw/cxgb4/iw_cxgb4.h            |   9 -
+>  drivers/net/ethernet/chelsio/libcxgb/Makefile     |   4 +-
+>  drivers/net/ethernet/chelsio/libcxgb/libcxgb_cm.c | 149 +++++++++++
+>  drivers/net/ethernet/chelsio/libcxgb/libcxgb_cm.h | 160 ++++++++++++
+>  drivers/target/iscsi/cxgbit/cxgbit_cm.c           | 234 +++---------------
+>  8 files changed, 428 insertions(+), 418 deletions(-)
+>  create mode 100644 drivers/net/ethernet/chelsio/libcxgb/libcxgb_cm.c
+>  create mode 100644 drivers/net/ethernet/chelsio/libcxgb/libcxgb_cm.h
+> 
 
-We found a few more issues, I'm sending you small fixes here. The diffstat
-would be even shorter, but one of Felix's patches has to move about 30 lines
-of code, which makes it seem much bigger than it really is.
+This series looks good.
 
-Let me know if there's any problem.
+Reviewed-by: Steve Wise <swise@opengridcomputing.com>
 
-Thanks,
-johannes
+Thanks Varun!
 
-
-
-The following changes since commit 15543692a010192b4264ade0d45390e8bb3dc639:
-
-  Merge tag 'mac80211-for-davem-2016-08-30' of git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211 (2016-08-30 21:34:48 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2016-09-13
-
-for you to fetch changes up to ad5987b47e96a0fb6d13fea250e936aed000093c:
-
-  nl80211: validate number of probe response CSA counters (2016-09-13 20:19:27 +0200)
-
-----------------------------------------------------------------
-A few more fixes:
- * better mesh path fixing, from Thomas
- * fix TIM IE recalculation after sending frames
-   to a sleeping station, from Felix
- * fix sequence number assignment while sending
-   frames to a sleeping station, also from Felix
- * validate number of probe response CSA counter
-   offsets, fixing a copy/paste bug (from myself)
-
-----------------------------------------------------------------
-Felix Fietkau (2):
-      mac80211: fix tim recalculation after PS response
-      mac80211: fix sequence number assignment for PS response frames
-
-Johannes Berg (1):
-      nl80211: validate number of probe response CSA counters
-
-Pedersen, Thomas (1):
-      mac80211: make mpath path fixing more robust
-
- net/mac80211/mesh_hwmp.c    |  3 ++-
- net/mac80211/mesh_pathtbl.c |  2 +-
- net/mac80211/sta_info.c     |  4 +--
- net/mac80211/tx.c           | 65 +++++++++++++++++++++++----------------------
- net/wireless/nl80211.c      |  2 +-
- 5 files changed, 39 insertions(+), 37 deletions(-)
+Steve
