@@ -1,38 +1,50 @@
-From: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
-Subject: Re: [PATCH v5 0/6] Add eBPF hooks for cgroups
-Date: Wed, 14 Sep 2016 12:30:38 +0200
-Message-ID: <20160914103038.GA910@salvia>
-References: <1473696735-11269-1-git-send-email-daniel@zonque.org>
- <20160913115627.GA4898@salvia>
- <da300784-284c-0d1f-a82e-aa0a0f8ae116@zonque.org>
- <20160913172408.GC6138@salvia>
- <20160914044217.GA44742@ast-mbp.thefacebook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>, htejun-b10kYP2dOMg@public.gmane.org,
-        daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, ast-b10kYP2dOMg@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-        kafai-b10kYP2dOMg@public.gmane.org, fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org, harald-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20160914044217.GA44742-+o4/htvd0TDFYCXBM6kdu7fOX0fSgVTm@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: John Crispin <john@phrozen.org>
+Subject: [PATCH V2 0/3] net-next: dsa: add QCA8K support
+Date: Wed, 14 Sep 2016 12:38:59 +0200
+Message-ID: <1473849542-3298-1-git-send-email-john@phrozen.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        qsdk-review@qca.qualcomm.com, John Crispin <john@phrozen.org>
+To: "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 13, 2016 at 09:42:19PM -0700, Alexei Starovoitov wrote:
-[...]
-> For us this cgroup+bpf is _not_ for filterting and _not_ for security.
+This series is based on the AR8xxx series posted by Matthieu Olivari in may
+2015. The following changes were made since then
 
-If your goal is monitoring, then convert these hooks not to allow to
-issue a verdict on the packet, so this becomes inoquous in the same
-fashion as the tracing infrastructure.
+* fixed the nitpicks from the previous review
+* updated to latest API
+* turned it into an mdio device
+* added callbacks for fdb, bridge offloading, stp, eee, port status
+* fixed several minor issues to the port setup and arp learning
+* changed the namespacing as this driver to qca8k
 
-[...]
-> I'd really love to have an alternative to bpf for such tasks,
-> but you seem to spend all the energy arguing against bpf whereas
-> nft still has a lot to be desired.
+The driver has so far only been tested on qca8337/N. It should work on other QCA
+switches such as the qca8327 with minor changes.
 
-Please Alexei, stop that FUD. Anyone that has spent just one day using
-the bpf tooling and infrastructure knows you have problems to
-resolve...
+John Crispin (3):
+  Documentation: devicetree: add qca8k binding
+  net-next: dsa: add Qualcomm tag RX/TX handler
+  net-next: dsa: add new driver for qca8xxx family
+
+ .../devicetree/bindings/net/dsa/qca8k.txt          |   88 ++
+ drivers/net/dsa/Kconfig                            |    9 +
+ drivers/net/dsa/Makefile                           |    1 +
+ drivers/net/dsa/qca8k.c                            |  968 ++++++++++++++++++++
+ drivers/net/dsa/qca8k.h                            |  180 ++++
+ include/net/dsa.h                                  |    1 +
+ net/dsa/Kconfig                                    |    3 +
+ net/dsa/Makefile                                   |    1 +
+ net/dsa/dsa.c                                      |    3 +
+ net/dsa/dsa_priv.h                                 |    2 +
+ net/dsa/tag_qca.c                                  |  138 +++
+ 11 files changed, 1394 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/dsa/qca8k.txt
+ create mode 100644 drivers/net/dsa/qca8k.c
+ create mode 100644 drivers/net/dsa/qca8k.h
+ create mode 100644 net/dsa/tag_qca.c
+
+-- 
+1.7.10.4
