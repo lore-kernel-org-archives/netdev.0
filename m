@@ -1,314 +1,395 @@
 From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
-Subject: [RFC v3 05/22] bpf,landlock: Add eBPF program subtype and is_valid_subtype() verifier
-Date: Wed, 14 Sep 2016 09:23:58 +0200
-Message-ID: <20160914072415.26021-6-mic@digikod.net>
+Subject: [RFC v3 16/22] bpf/cgroup,landlock: Handle Landlock hooks per cgroup
+Date: Wed, 14 Sep 2016 09:24:09 +0200
+Message-ID: <20160914072415.26021-17-mic@digikod.net>
 References: <20160914072415.26021-1-mic@digikod.net>
-Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
 Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
         Alexei Starovoitov <ast@kernel.org>,
-        Andy Lutomirski <luto@amacapital.net>, Arnd Bergmann <arnd@arndb.de>,
+        Andy Lutomirski <luto@amacapital.net>,
+        Arnd Bergmann <arnd@arndb.de>,
         Casey Schaufler <casey@schaufler-ca.com>,
         Daniel Borkmann <daniel@iogearbox.net>,
-        Daniel Mack <daniel@zonque.org>, David Drysdale <drysdale@google.com>,
+        Daniel Mack <daniel@zonque.org>,
+        David Drysdale <drysdale@google.com>,
         "David S . Miller" <davem@davemloft.net>,
         Elena Reshetova <elena.reshetova@intel.com>,
         "Eric W . Biederman" <ebiederm@xmission.com>,
         James Morris <james.l.morris@oracle.com>,
-        Kees Cook <keescook@chromium.org>, Paul Moore <pmoore@redhat.com>,
+        Kees Cook <keescook@chromium.org>,
+        Paul Moore <pmoore@redhat.com>,
         Sargun Dhillon <sargun@sargun.me>,
         "Serge E . Hallyn" <serge@hallyn.com>, Tejun Heo <tj@kernel.org>,
-        Will Drewry <wad@chromium.org>, kernel-hardening@lists.openwall.com,
-        linux-api@vger.kernel.org, linux-security-module@vger.
+        Will Drewry <wad@chromium.org>,
+        kernel-hardening@lists.openwall.com, linux-api@vger.kernel.org,
 To: linux-kernel@vger.kernel.org
-Return-path: <kernel-hardening-return-4590-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20160914072415.26021-1-mic@digikod.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The program subtype goal is to be able to have different static
-fine-grained verifications for a unique program type.
+This allows to add new eBPF programs to Landlock hooks dedicated to a
+cgroup thanks to the BPF_PROG_ATTACH command. Like for socket eBPF
+programs, the Landlock hooks attached to a cgroup are propagated to the
+nested cgroups. However, when a new Landlock program is attached to one
+of this nested cgroup, this cgroup hierarchy fork the Landlock hooks.
+This design is simple and match the current CONFIG_BPF_CGROUP
+inheritance. The difference lie in the fact that Landlock programs can
+only be stacked but not removed. This match the append-only seccomp
+behavior. Userland is free to handle Landlock hooks attached to a cgroup
+in more complicated ways (e.g. continuous inheritance), but care should
+be taken to properly handle error cases (e.g. memory allocation errors).
 
-The struct bpf_verifier_ops gets a new optional function:
-is_valid_subtype(). This new verifier is called at the begening of the
-eBPF program verification to check if the (optional) program subtype is
-valid.
-
-For now, only Landlock eBPF programs are using a program subtype but
-this could be used by other program types in the future.
-
-Cf. the next commit to see how the subtype is used by Landlock LSM.
+Changes since v2:
+* new design based on BPF_PROG_ATTACH (suggested by Alexei Starovoitov)
 
 Signed-off-by: Mickaël Salaün <mic@digikod.net>
-Link: https://lkml.kernel.org/r/20160827205559.GA43880@ast-mbp.thefacebook.com
 Cc: Alexei Starovoitov <ast@kernel.org>
+Cc: Andy Lutomirski <luto@amacapital.net>
 Cc: Daniel Borkmann <daniel@iogearbox.net>
+Cc: Daniel Mack <daniel@zonque.org>
 Cc: David S. Miller <davem@davemloft.net>
+Cc: Kees Cook <keescook@chromium.org>
+Cc: Tejun Heo <tj@kernel.org>
+Link: https://lkml.kernel.org/r/20160826021432.GA8291@ast-mbp.thefacebook.com
+Link: https://lkml.kernel.org/r/20160827204307.GA43714@ast-mbp.thefacebook.com
 ---
- include/linux/bpf.h      |  8 ++++++--
- include/linux/filter.h   |  1 +
- include/uapi/linux/bpf.h |  9 +++++++++
- kernel/bpf/syscall.c     |  5 +++--
- kernel/bpf/verifier.c    |  9 +++++++--
- kernel/trace/bpf_trace.c | 12 ++++++++----
- net/core/filter.c        | 21 +++++++++++++--------
- 7 files changed, 47 insertions(+), 18 deletions(-)
+ include/linux/bpf-cgroup.h  |  7 +++++++
+ include/linux/cgroup-defs.h |  2 ++
+ include/linux/landlock.h    |  9 +++++++++
+ include/uapi/linux/bpf.h    |  1 +
+ kernel/bpf/cgroup.c         | 33 ++++++++++++++++++++++++++++++---
+ kernel/bpf/syscall.c        | 11 +++++++++++
+ security/landlock/lsm.c     | 40 +++++++++++++++++++++++++++++++++++++++-
+ security/landlock/manager.c | 32 ++++++++++++++++++++++++++++++++
+ 8 files changed, 131 insertions(+), 4 deletions(-)
 
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index eae4ce4542c1..9aa01d9d3d80 100644
---- a/include/linux/bpf.h
-+++ b/include/linux/bpf.h
-@@ -149,17 +149,21 @@ struct bpf_prog;
+diff --git a/include/linux/bpf-cgroup.h b/include/linux/bpf-cgroup.h
+index 6cca7924ee17..439c681159e2 100644
+--- a/include/linux/bpf-cgroup.h
++++ b/include/linux/bpf-cgroup.h
+@@ -14,8 +14,15 @@ struct sk_buff;
+ extern struct static_key_false cgroup_bpf_enabled_key;
+ #define cgroup_bpf_enabled static_branch_unlikely(&cgroup_bpf_enabled_key)
  
- struct bpf_verifier_ops {
- 	/* return eBPF function prototype for verification */
--	const struct bpf_func_proto *(*get_func_proto)(enum bpf_func_id func_id);
-+	const struct bpf_func_proto *(*get_func_proto)(enum bpf_func_id func_id,
-+			union bpf_prog_subtype *prog_subtype);
- 
- 	/* return true if 'size' wide access at offset 'off' within bpf_context
- 	 * with 'type' (read or write) is allowed
- 	 */
- 	bool (*is_valid_access)(int off, int size, enum bpf_access_type type,
--				enum bpf_reg_type *reg_type);
-+				enum bpf_reg_type *reg_type,
-+				union bpf_prog_subtype *prog_subtype);
- 
- 	u32 (*convert_ctx_access)(enum bpf_access_type type, int dst_reg,
- 				  int src_reg, int ctx_off,
- 				  struct bpf_insn *insn, struct bpf_prog *prog);
++#ifdef CONFIG_SECURITY_LANDLOCK
++struct landlock_hooks;
++#endif /* CONFIG_SECURITY_LANDLOCK */
 +
-+	bool (*is_valid_subtype)(union bpf_prog_subtype *prog_subtype);
+ union bpf_object {
+ 	struct bpf_prog *prog;
++#ifdef CONFIG_SECURITY_LANDLOCK
++	struct landlock_hooks *hooks;
++#endif /* CONFIG_SECURITY_LANDLOCK */
  };
  
- struct bpf_prog_type_list {
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 1f09c521adfe..88470cdd3ee1 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -406,6 +406,7 @@ struct bpf_prog {
- 	kmemcheck_bitfield_end(meta);
- 	u32			len;		/* Number of filter blocks */
- 	enum bpf_prog_type	type;		/* Type of BPF program */
-+	union bpf_prog_subtype	subtype;	/* For fine-grained verifications */
- 	struct bpf_prog_aux	*aux;		/* Auxiliary fields */
- 	struct sock_fprog_kern	*orig_prog;	/* Original BPF program */
- 	unsigned int		(*bpf_func)(const struct sk_buff *skb,
+ struct cgroup_bpf {
+diff --git a/include/linux/cgroup-defs.h b/include/linux/cgroup-defs.h
+index 861b4677fc5b..fe1023bf7b9d 100644
+--- a/include/linux/cgroup-defs.h
++++ b/include/linux/cgroup-defs.h
+@@ -301,8 +301,10 @@ struct cgroup {
+ 	/* used to schedule release agent */
+ 	struct work_struct release_agent_work;
+ 
++#ifdef CONFIG_CGROUP_BPF
+ 	/* used to store eBPF programs */
+ 	struct cgroup_bpf bpf;
++#endif /* CONFIG_CGROUP_BPF */
+ 
+ 	/* ids of the ancestors at each level including self */
+ 	int ancestor_ids[];
+diff --git a/include/linux/landlock.h b/include/linux/landlock.h
+index 932ae57fa70e..179a848110f3 100644
+--- a/include/linux/landlock.h
++++ b/include/linux/landlock.h
+@@ -19,6 +19,9 @@
+ #include <linux/seccomp.h> /* struct seccomp_filter */
+ #endif /* CONFIG_SECCOMP_FILTER */
+ 
++#ifdef CONFIG_CGROUP_BPF
++#include <linux/cgroup-defs.h> /* struct cgroup */
++#endif /* CONFIG_CGROUP_BPF */
+ 
+ #ifdef CONFIG_SECCOMP_FILTER
+ struct landlock_seccomp_ret {
+@@ -65,6 +68,7 @@ struct landlock_hooks {
+ 
+ 
+ struct landlock_hooks *new_landlock_hooks(void);
++void get_landlock_hooks(struct landlock_hooks *hooks);
+ void put_landlock_hooks(struct landlock_hooks *hooks);
+ 
+ #ifdef CONFIG_SECCOMP_FILTER
+@@ -73,5 +77,10 @@ int landlock_seccomp_set_hook(unsigned int flags,
+ 		const char __user *user_bpf_fd);
+ #endif /* CONFIG_SECCOMP_FILTER */
+ 
++#ifdef CONFIG_CGROUP_BPF
++struct landlock_hooks *landlock_cgroup_set_hook(struct cgroup *cgrp,
++		struct bpf_prog *prog);
++#endif /* CONFIG_CGROUP_BPF */
++
+ #endif /* CONFIG_SECURITY_LANDLOCK */
+ #endif /* _LINUX_LANDLOCK_H */
 diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index b68de57f7ab8..667b6ef3ff1e 100644
+index 905dcace7255..12e61508f879 100644
 --- a/include/uapi/linux/bpf.h
 +++ b/include/uapi/linux/bpf.h
-@@ -127,6 +127,14 @@ enum bpf_attach_type {
+@@ -124,6 +124,7 @@ enum bpf_prog_type {
+ enum bpf_attach_type {
+ 	BPF_CGROUP_INET_INGRESS,
+ 	BPF_CGROUP_INET_EGRESS,
++	BPF_CGROUP_LANDLOCK,
+ 	__MAX_BPF_ATTACH_TYPE
+ };
  
- #define BPF_F_NO_PREALLOC	(1U << 0)
+diff --git a/kernel/bpf/cgroup.c b/kernel/bpf/cgroup.c
+index 7b75fa692617..1c18fe46958a 100644
+--- a/kernel/bpf/cgroup.c
++++ b/kernel/bpf/cgroup.c
+@@ -15,6 +15,7 @@
+ #include <linux/bpf.h>
+ #include <linux/bpf-cgroup.h>
+ #include <net/sock.h>
++#include <linux/landlock.h>
  
-+union bpf_prog_subtype {
-+	struct {
-+		__u32		id; /* enum landlock_hook_id */
-+		__u16		origin; /* LANDLOCK_FLAG_ORIGIN_* */
-+		__aligned_u64	access; /* LANDLOCK_FLAG_ACCESS_* */
-+	} landlock_hook;
-+} __attribute__((aligned(8)));
-+
- union bpf_attr {
- 	struct { /* anonymous struct used by BPF_MAP_CREATE command */
- 		__u32	map_type;	/* one of enum bpf_map_type */
-@@ -155,6 +163,7 @@ union bpf_attr {
- 		__u32		log_size;	/* size of user buffer */
- 		__aligned_u64	log_buf;	/* user supplied buffer */
- 		__u32		kern_version;	/* checked when prog_type=kprobe */
-+		union bpf_prog_subtype prog_subtype;	/* checked when prog_type=landlock */
- 	};
+ DEFINE_STATIC_KEY_FALSE(cgroup_bpf_enabled_key);
+ EXPORT_SYMBOL(cgroup_bpf_enabled_key);
+@@ -31,7 +32,15 @@ void cgroup_bpf_put(struct cgroup *cgrp)
+ 		union bpf_object pinned = cgrp->bpf.pinned[type];
  
- 	struct { /* anonymous struct used by BPF_OBJ_* commands */
+ 		if (pinned.prog) {
+-			bpf_prog_put(pinned.prog);
++			switch (type) {
++			case BPF_CGROUP_LANDLOCK:
++#ifdef CONFIG_SECURITY_LANDLOCK
++				put_landlock_hooks(pinned.hooks);
++				break;
++#endif /* CONFIG_SECURITY_LANDLOCK */
++			default:
++				bpf_prog_put(pinned.prog);
++			}
+ 			static_branch_dec(&cgroup_bpf_enabled_key);
+ 		}
+ 	}
+@@ -53,6 +62,10 @@ void cgroup_bpf_inherit(struct cgroup *cgrp, struct cgroup *parent)
+ 				parent->bpf.effective[type].prog,
+ 				lockdep_is_held(&cgroup_mutex));
+ 		rcu_assign_pointer(cgrp->bpf.effective[type].prog, e.prog);
++#ifdef CONFIG_SECURITY_LANDLOCK
++		if (type == BPF_CGROUP_LANDLOCK)
++			get_landlock_hooks(e.hooks);
++#endif /* CONFIG_SECURITY_LANDLOCK */
+ 	}
+ }
+ 
+@@ -91,7 +104,18 @@ int __cgroup_bpf_update(struct cgroup *cgrp,
+ 	union bpf_object obj, old_pinned, effective;
+ 	struct cgroup_subsys_state *pos;
+ 
+-	obj.prog = prog;
++	switch (type) {
++	case BPF_CGROUP_LANDLOCK:
++#ifdef CONFIG_SECURITY_LANDLOCK
++		/* append hook */
++		obj.hooks = landlock_cgroup_set_hook(cgrp, prog);
++		if (IS_ERR(obj.hooks))
++			return PTR_ERR(obj.hooks);
++		break;
++#endif /* CONFIG_SECURITY_LANDLOCK */
++	default:
++		obj.prog = prog;
++	}
+ 	old_pinned = xchg(cgrp->bpf.pinned + type, obj);
+ 
+ 	effective.prog = (!obj.prog && parent) ?
+@@ -114,7 +138,10 @@ int __cgroup_bpf_update(struct cgroup *cgrp,
+ 		static_branch_inc(&cgroup_bpf_enabled_key);
+ 
+ 	if (old_pinned.prog) {
+-		bpf_prog_put(old_pinned.prog);
++#ifdef CONFIG_SECURITY_LANDLOCK
++		if (type != BPF_CGROUP_LANDLOCK)
++			bpf_prog_put(old_pinned.prog);
++#endif /* CONFIG_SECURITY_LANDLOCK */
+ 		static_branch_dec(&cgroup_bpf_enabled_key);
+ 	}
+ 	return 0;
 diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 776c752604b0..8b3f4d2b4802 100644
+index 8599596fd6cf..e9c5add327e6 100644
 --- a/kernel/bpf/syscall.c
 +++ b/kernel/bpf/syscall.c
-@@ -572,7 +572,7 @@ static void fixup_bpf_calls(struct bpf_prog *prog)
- 				continue;
- 			}
+@@ -846,6 +846,16 @@ static int bpf_prog_attach(const union bpf_attr *attr)
+ 					 BPF_PROG_TYPE_CGROUP_SOCKET);
+ 		break;
  
--			fn = prog->aux->ops->get_func_proto(insn->imm);
-+			fn = prog->aux->ops->get_func_proto(insn->imm, &prog->subtype);
- 			/* all functions that have prototype and verifier allowed
- 			 * programs to call them, must be real in-kernel functions
- 			 */
-@@ -710,7 +710,7 @@ struct bpf_prog *bpf_prog_get_type(u32 ufd, enum bpf_prog_type type)
- EXPORT_SYMBOL_GPL(bpf_prog_get_type);
- 
- /* last field in 'union bpf_attr' used by this command */
--#define	BPF_PROG_LOAD_LAST_FIELD kern_version
-+#define	BPF_PROG_LOAD_LAST_FIELD prog_subtype
- 
- static int bpf_prog_load(union bpf_attr *attr)
- {
-@@ -768,6 +768,7 @@ static int bpf_prog_load(union bpf_attr *attr)
- 	err = find_prog_type(type, prog);
- 	if (err < 0)
- 		goto free_prog;
-+	prog->subtype = attr->prog_subtype;
- 
- 	/* run eBPF verifier */
- 	err = bpf_check(&prog, attr);
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 608cbffb0e86..c434817e6ef4 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -684,7 +684,8 @@ static int check_ctx_access(struct verifier_env *env, int off, int size,
- 			    enum bpf_access_type t, enum bpf_reg_type *reg_type)
- {
- 	if (env->prog->aux->ops->is_valid_access &&
--	    env->prog->aux->ops->is_valid_access(off, size, t, reg_type)) {
-+	    env->prog->aux->ops->is_valid_access(off, size, t, reg_type,
-+		    &env->prog->subtype)) {
- 		/* remember the offset of last byte accessed in ctx */
- 		if (env->prog->aux->max_ctx_offset < off + size)
- 			env->prog->aux->max_ctx_offset = off + size;
-@@ -1173,7 +1174,7 @@ static int check_call(struct verifier_env *env, int func_id)
- 	}
- 
- 	if (env->prog->aux->ops->get_func_proto)
--		fn = env->prog->aux->ops->get_func_proto(func_id);
-+		fn = env->prog->aux->ops->get_func_proto(func_id, &env->prog->subtype);
- 
- 	if (!fn) {
- 		verbose("unknown func %d\n", func_id);
-@@ -2768,6 +2769,10 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr)
- 	if ((*prog)->len <= 0 || (*prog)->len > BPF_MAXINSNS)
- 		return -E2BIG;
- 
-+	if ((*prog)->aux->ops->is_valid_subtype &&
-+	    !(*prog)->aux->ops->is_valid_subtype(&(*prog)->subtype))
-+		return -EINVAL;
++	case BPF_CGROUP_LANDLOCK:
++#ifdef CONFIG_SECURITY_LANDLOCK
++		if (!capable(CAP_SYS_ADMIN))
++			return -EPERM;
 +
- 	/* 'struct verifier_env' can be global, but since it's not small,
- 	 * allocate/free it every time bpf_check() is called
- 	 */
-diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
-index 5dcb99281259..51cf0f254bf2 100644
---- a/kernel/trace/bpf_trace.c
-+++ b/kernel/trace/bpf_trace.c
-@@ -435,7 +435,8 @@ static const struct bpf_func_proto *tracing_func_proto(enum bpf_func_id func_id)
++		prog = bpf_prog_get_type(attr->attach_bpf_fd,
++				BPF_PROG_TYPE_LANDLOCK);
++		break;
++#endif /* CONFIG_SECURITY_LANDLOCK */
++
+ 	default:
+ 		return -EINVAL;
  	}
+@@ -889,6 +899,7 @@ static int bpf_prog_detach(const union bpf_attr *attr)
+ 		cgroup_put(cgrp);
+ 		break;
+ 
++	case BPF_CGROUP_LANDLOCK:
+ 	default:
+ 		return -EINVAL;
+ 	}
+diff --git a/security/landlock/lsm.c b/security/landlock/lsm.c
+index b6e0bace683d..000dd0c7ec3d 100644
+--- a/security/landlock/lsm.c
++++ b/security/landlock/lsm.c
+@@ -9,6 +9,7 @@
+  */
+ 
+ #include <asm/current.h>
++#include <linux/bpf-cgroup.h> /* cgroup_bpf_enabled */
+ #include <linux/bpf.h> /* enum bpf_reg_type, struct landlock_data */
+ #include <linux/cred.h>
+ #include <linux/err.h> /* MAX_ERRNO */
+@@ -19,6 +20,10 @@
+ #include <linux/seccomp.h> /* struct seccomp_* */
+ #include <linux/types.h> /* uintptr_t */
+ 
++#ifdef CONFIG_CGROUP_BPF
++#include <linux/cgroup-defs.h> /* struct cgroup */
++#endif /* CONFIG_CGROUP_BPF */
++
+ #include "checker_fs.h"
+ #include "common.h"
+ 
+@@ -99,6 +104,9 @@ static int landlock_run_prog(enum landlock_hook_id hook_id, __u64 args[6])
+ #ifdef CONFIG_SECCOMP_FILTER
+ 	struct landlock_seccomp_ret *lr;
+ #endif /* CONFIG_SECCOMP_FILTER */
++#ifdef CONFIG_CGROUP_BPF
++	struct cgroup *cgrp;
++#endif /* CONFIG_CGROUP_BPF */
+ 	struct landlock_rule *rule;
+ 	u32 hook_idx = get_index(hook_id);
+ 
+@@ -115,6 +123,11 @@ static int landlock_run_prog(enum landlock_hook_id hook_id, __u64 args[6])
+ 
+ 	/* TODO: use lockless_dereference()? */
+ 
++	/*
++	 * Run the seccomp-based triggers before the cgroup-based triggers to
++	 * prioritize fine-grained policies (i.e. per thread), and return early.
++	 */
++
+ #ifdef CONFIG_SECCOMP_FILTER
+ 	/* seccomp triggers and landlock_ret cleanup */
+ 	ctx.origin = LANDLOCK_FLAG_ORIGIN_SECCOMP;
+@@ -155,8 +168,21 @@ static int landlock_run_prog(enum landlock_hook_id hook_id, __u64 args[6])
+ 	ctx.origin = LANDLOCK_FLAG_ORIGIN_SYSCALL;
+ 	ret = landlock_run_prog_for_syscall(hook_idx, &ctx,
+ 			current->seccomp.landlock_hooks);
++	if (ret)
++		return -ret;
+ #endif /* CONFIG_SECCOMP_FILTER */
+ 
++#ifdef CONFIG_CGROUP_BPF
++	/* syscall trigger */
++	if (cgroup_bpf_enabled) {
++		ctx.origin = LANDLOCK_FLAG_ORIGIN_SYSCALL;
++		/* get the default cgroup associated with the current thread */
++		cgrp = task_css_set(current)->dfl_cgrp;
++		ret = landlock_run_prog_for_syscall(hook_idx, &ctx,
++				cgrp->bpf.effective[BPF_CGROUP_LANDLOCK].hooks);
++	}
++#endif /* CONFIG_CGROUP_BPF */
++
+ 	return -ret;
  }
  
--static const struct bpf_func_proto *kprobe_prog_func_proto(enum bpf_func_id func_id)
-+static const struct bpf_func_proto *kprobe_prog_func_proto(enum bpf_func_id func_id,
-+		union bpf_prog_subtype *prog_subtype)
- {
- 	switch (func_id) {
- 	case BPF_FUNC_perf_event_output:
-@@ -449,7 +450,8 @@ static const struct bpf_func_proto *kprobe_prog_func_proto(enum bpf_func_id func
- 
- /* bpf+kprobe programs can access fields of 'struct pt_regs' */
- static bool kprobe_prog_is_valid_access(int off, int size, enum bpf_access_type type,
--					enum bpf_reg_type *reg_type)
-+					enum bpf_reg_type *reg_type,
-+					union bpf_prog_subtype *prog_subtype)
- {
- 	if (off < 0 || off >= sizeof(struct pt_regs))
- 		return false;
-@@ -517,7 +519,8 @@ static const struct bpf_func_proto bpf_get_stackid_proto_tp = {
- 	.arg3_type	= ARG_ANYTHING,
+@@ -242,9 +268,21 @@ static struct security_hook_list landlock_hooks[] = {
+ 	LANDLOCK_HOOK_INIT(mmap_file),
  };
  
--static const struct bpf_func_proto *tp_prog_func_proto(enum bpf_func_id func_id)
-+static const struct bpf_func_proto *tp_prog_func_proto(enum bpf_func_id func_id,
-+		union bpf_prog_subtype *prog_subtype)
++#ifdef CONFIG_SECCOMP_FILTER
++#ifdef CONFIG_CGROUP_BPF
++#define LANDLOCK_MANAGERS "seccomp and cgroups"
++#else /* CONFIG_CGROUP_BPF */
++#define LANDLOCK_MANAGERS "seccomp"
++#endif /* CONFIG_CGROUP_BPF */
++#elif define(CONFIG_CGROUP_BPF)
++#define LANDLOCK_MANAGERS "cgroups"
++#else
++#error "Need CONFIG_SECCOMP_FILTER or CONFIG_CGROUP_BPF"
++#endif /* CONFIG_SECCOMP_FILTER */
++
+ void __init landlock_add_hooks(void)
  {
- 	switch (func_id) {
- 	case BPF_FUNC_perf_event_output:
-@@ -530,7 +533,8 @@ static const struct bpf_func_proto *tp_prog_func_proto(enum bpf_func_id func_id)
+-	pr_info("landlock: Becoming ready to sandbox with seccomp\n");
++	pr_info("landlock: Becoming ready to sandbox with " LANDLOCK_MANAGERS "\n");
+ 	security_add_hooks(landlock_hooks, ARRAY_SIZE(landlock_hooks));
  }
  
- static bool tp_prog_is_valid_access(int off, int size, enum bpf_access_type type,
--				    enum bpf_reg_type *reg_type)
-+				    enum bpf_reg_type *reg_type,
-+				    union bpf_prog_subtype *prog_subtype)
- {
- 	if (off < sizeof(void *) || off >= PERF_MAX_TRACE_SIZE)
- 		return false;
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 9e9d99e52814..e61f02d0dd64 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -2411,7 +2411,8 @@ static const struct bpf_func_proto bpf_xdp_event_output_proto = {
- };
+diff --git a/security/landlock/manager.c b/security/landlock/manager.c
+index e9f3f1092023..50aa1305d0d1 100644
+--- a/security/landlock/manager.c
++++ b/security/landlock/manager.c
+@@ -24,6 +24,11 @@
+ #include <linux/seccomp.h> /* struct seccomp_filter */
+ #endif /* CONFIG_SECCOMP_FILTER */
  
- static const struct bpf_func_proto *
--sk_filter_func_proto(enum bpf_func_id func_id)
-+sk_filter_func_proto(enum bpf_func_id func_id,
-+		union bpf_prog_subtype *prog_subtype)
- {
- 	switch (func_id) {
- 	case BPF_FUNC_map_lookup_elem:
-@@ -2437,7 +2438,8 @@ sk_filter_func_proto(enum bpf_func_id func_id)
++#ifdef CONFIG_CGROUP_BPF
++#include <linux/bpf-cgroup.h> /* struct cgroup_bpf */
++#include <linux/cgroup-defs.h> /* struct cgroup */
++#endif /* CONFIG_CGROUP_BPF */
++
+ #include "common.h"
+ 
+ static void put_landlock_rule(struct landlock_rule *rule)
+@@ -84,6 +89,12 @@ struct landlock_hooks *new_landlock_hooks(void)
+ 	return ret;
  }
  
- static const struct bpf_func_proto *
--tc_cls_act_func_proto(enum bpf_func_id func_id)
-+tc_cls_act_func_proto(enum bpf_func_id func_id,
-+		union bpf_prog_subtype *prog_subtype)
- {
- 	switch (func_id) {
- 	case BPF_FUNC_skb_store_bytes:
-@@ -2485,18 +2487,18 @@ tc_cls_act_func_proto(enum bpf_func_id func_id)
- 	case BPF_FUNC_skb_under_cgroup:
- 		return &bpf_skb_under_cgroup_proto;
- 	default:
--		return sk_filter_func_proto(func_id);
-+		return sk_filter_func_proto(func_id, prog_subtype);
- 	}
++inline void get_landlock_hooks(struct landlock_hooks *hooks)
++{
++	if (hooks)
++		atomic_inc(&hooks->usage);
++}
++
+ /* Limit Landlock hooks to 256KB. */
+ #define LANDLOCK_HOOKS_MAX_PAGES (1 << 6)
+ 
+@@ -240,3 +251,24 @@ int landlock_seccomp_set_hook(unsigned int flags, const char __user *user_bpf_fd
+ 	return 0;
  }
- 
- static const struct bpf_func_proto *
--xdp_func_proto(enum bpf_func_id func_id)
-+xdp_func_proto(enum bpf_func_id func_id, union bpf_prog_subtype *prog_subtype)
- {
- 	switch (func_id) {
- 	case BPF_FUNC_perf_event_output:
- 		return &bpf_xdp_event_output_proto;
- 	default:
--		return sk_filter_func_proto(func_id);
-+		return sk_filter_func_proto(func_id, prog_subtype);
- 	}
- }
- 
-@@ -2515,7 +2517,8 @@ static bool __is_valid_access(int off, int size, enum bpf_access_type type)
- 
- static bool sk_filter_is_valid_access(int off, int size,
- 				      enum bpf_access_type type,
--				      enum bpf_reg_type *reg_type)
-+				      enum bpf_reg_type *reg_type,
-+				      union bpf_prog_subtype *prog_subtype)
- {
- 	switch (off) {
- 	case offsetof(struct __sk_buff, tc_classid):
-@@ -2539,7 +2542,8 @@ static bool sk_filter_is_valid_access(int off, int size,
- 
- static bool tc_cls_act_is_valid_access(int off, int size,
- 				       enum bpf_access_type type,
--				       enum bpf_reg_type *reg_type)
-+				       enum bpf_reg_type *reg_type,
-+				       union bpf_prog_subtype *prog_subtype)
- {
- 	if (type == BPF_WRITE) {
- 		switch (off) {
-@@ -2582,7 +2586,8 @@ static bool __is_valid_xdp_access(int off, int size,
- 
- static bool xdp_is_valid_access(int off, int size,
- 				enum bpf_access_type type,
--				enum bpf_reg_type *reg_type)
-+				enum bpf_reg_type *reg_type,
-+				union bpf_prog_subtype *prog_subtype)
- {
- 	if (type == BPF_WRITE)
- 		return false;
+ #endif /* CONFIG_SECCOMP_FILTER */
++
++/**
++ * landlock_cgroup_set_hook - attach a Landlock program to a cgroup
++ *
++ * Must be called with cgroup_mutex held.
++ *
++ * @crgp: non-NULL cgroup pointer to attach to
++ * @prog: Landlock program pointer
++ */
++#ifdef CONFIG_CGROUP_BPF
++struct landlock_hooks *landlock_cgroup_set_hook(struct cgroup *cgrp,
++		struct bpf_prog *prog)
++{
++	if (!prog)
++		return ERR_PTR(-EINVAL);
++
++	/* copy the inherited hooks and append a new one */
++	return landlock_set_hook(cgrp->bpf.effective[BPF_CGROUP_LANDLOCK].hooks,
++			prog, NULL);
++}
++#endif /* CONFIG_CGROUP_BPF */
 -- 
 2.9.3
