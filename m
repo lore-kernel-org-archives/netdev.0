@@ -1,205 +1,115 @@
-From: <sean.wang@mediatek.com>
-Subject: [PATCH net-next v2 5/7] net: ethernet: mediatek: add the whole ethernet reset into the reset process
-Date: Wed, 14 Sep 2016 23:13:19 +0800
-Message-ID: <1473866001-9805-6-git-send-email-sean.wang@mediatek.com>
+From: <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH net-next v2 3/7] net: ethernet: mediatek: cleanup error path
+ inside mtk_hw_init
+Date: Wed, 14 Sep 2016 23:13:17 +0800
+Message-ID: <1473866001-9805-4-git-send-email-sean.wang@mediatek.com>
 References: <1473866001-9805-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
-        <linux-mediatek@lists.infradead.org>, <keyhaede@gmail.com>,
-        <objelf@gmail.com>, Sean Wang <sean.wang@mediatek.com>
-To: <john@phrozen.org>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw02.mediatek.com ([210.61.82.184]:26317 "EHLO
-        mailgw02.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1762299AbcINPNc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 11:13:32 -0400
-In-Reply-To: <1473866001-9805-1-git-send-email-sean.wang@mediatek.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ objelf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1473866001-9805-1-git-send-email-sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
+List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Sean Wang <sean.wang@mediatek.com>
+From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
 
-1) original driver only resets DMA used by descriptor rings
-which can't guarantee it can recover all various kinds of fatal
-errors, so the patch tries to reset the underlying hardware
-resource from scratch on Mediatek SoC required for ethernet
-running, including power, pin mux control, clock and internal
-circuits on the ethernet in order to restore into the initial
-state which the rebooted machine gives.
+This cleans up the error path inside mtk_hw_init call, causing it able
+to exit appropriately when something fails and also includes refactoring
+mtk_cleanup call to make the partial logic reusable on the error path.
 
-2) add state variable inside structure mtk_eth to help distinguish
-mtk_hw_init is called between the initialization during boot time
-or re-initialization during the reset process.
-
-3) add ge_mode variable inside structure mtk_mac for restoring
-the interface mode of the current setup for the target MAC.
-
-4) remove __init attribute from mtk_hw_init definition
-
-Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 51 ++++++++++++++++++++++++-----
- drivers/net/ethernet/mediatek/mtk_eth_soc.h |  8 +++++
- 2 files changed, 51 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 34 ++++++++++++++++++++++++-----
+ 1 file changed, 29 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index fd5d064..a7e2e77 100644
+index c71b0b3..917a49c6 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -231,7 +231,7 @@ static int mtk_phy_connect(struct mtk_mac *mac)
- {
- 	struct mtk_eth *eth = mac->hw;
- 	struct device_node *np;
--	u32 val, ge_mode;
-+	u32 val;
- 
- 	np = of_parse_phandle(mac->of_node, "phy-handle", 0);
- 	if (!np && of_phy_is_fixed_link(mac->of_node))
-@@ -245,18 +245,18 @@ static int mtk_phy_connect(struct mtk_mac *mac)
- 	case PHY_INTERFACE_MODE_RGMII_RXID:
- 	case PHY_INTERFACE_MODE_RGMII_ID:
- 	case PHY_INTERFACE_MODE_RGMII:
--		ge_mode = 0;
-+		mac->ge_mode = 0;
- 		break;
- 	case PHY_INTERFACE_MODE_MII:
--		ge_mode = 1;
-+		mac->ge_mode = 1;
- 		break;
- 	case PHY_INTERFACE_MODE_REVMII:
--		ge_mode = 2;
-+		mac->ge_mode = 2;
- 		break;
- 	case PHY_INTERFACE_MODE_RMII:
- 		if (!mac->id)
- 			goto err_phy;
--		ge_mode = 3;
-+		mac->ge_mode = 3;
- 		break;
- 	default:
- 		goto err_phy;
-@@ -265,7 +265,7 @@ static int mtk_phy_connect(struct mtk_mac *mac)
- 	/* put the gmac into the right mode */
- 	regmap_read(eth->ethsys, ETHSYS_SYSCFG0, &val);
- 	val &= ~SYSCFG0_GE_MODE(SYSCFG0_GE_MASK, mac->id);
--	val |= SYSCFG0_GE_MODE(ge_mode, mac->id);
-+	val |= SYSCFG0_GE_MODE(mac->ge_mode, mac->id);
- 	regmap_write(eth->ethsys, ETHSYS_SYSCFG0, val);
- 
- 	mtk_phy_connect_node(eth, mac, np);
-@@ -1414,9 +1414,12 @@ static int mtk_stop(struct net_device *dev)
- 	return 0;
+@@ -1564,17 +1564,36 @@ static void mtk_pending_work(struct work_struct *work)
+ 	rtnl_unlock();
  }
  
--static int __init mtk_hw_init(struct mtk_eth *eth)
-+static int mtk_hw_init(struct mtk_eth *eth)
+-static int mtk_cleanup(struct mtk_eth *eth)
++static int mtk_free_dev(struct mtk_eth *eth)
  {
--	int i;
-+	int i, val;
-+
-+	if (test_and_set_bit(MTK_HW_INIT, &eth->state))
-+		return 0;
+ 	int i;
  
- 	pm_runtime_enable(eth->dev);
- 	pm_runtime_get_sync(eth->dev);
-@@ -1432,6 +1435,15 @@ static int __init mtk_hw_init(struct mtk_eth *eth)
- 	reset_control_deassert(eth->rstc);
- 	usleep_range(10, 20);
- 
-+	regmap_read(eth->ethsys, ETHSYS_SYSCFG0, &val);
-+	for (i = 0; i < MTK_MAC_COUNT; i++) {
-+		if (!eth->mac[i])
-+			continue;
-+		val &= ~SYSCFG0_GE_MODE(SYSCFG0_GE_MASK, eth->mac[i]->id);
-+		val |= SYSCFG0_GE_MODE(eth->mac[i]->ge_mode, eth->mac[i]->id);
+ 	for (i = 0; i < MTK_MAC_COUNT; i++) {
+ 		if (!eth->netdev[i])
+ 			continue;
++		free_netdev(eth->netdev[i]);
 +	}
-+	regmap_write(eth->ethsys, ETHSYS_SYSCFG0, val);
 +
- 	/* Set GE2 driving and slew rate */
- 	regmap_write(eth->pctl, GPIO_DRV_SEL10, 0xa00);
++	return 0;
++}
  
-@@ -1483,6 +1495,9 @@ static int __init mtk_hw_init(struct mtk_eth *eth)
- 
- static int mtk_hw_deinit(struct mtk_eth *eth)
- {
-+	if (!test_and_clear_bit(MTK_HW_INIT, &eth->state))
-+		return 0;
++static int mtk_unreg_dev(struct mtk_eth *eth)
++{
++	int i;
 +
- 	clk_disable_unprepare(eth->clks[MTK_CLK_GP2]);
- 	clk_disable_unprepare(eth->clks[MTK_CLK_GP1]);
- 	clk_disable_unprepare(eth->clks[MTK_CLK_ESW]);
-@@ -1557,6 +1572,26 @@ static void mtk_pending_work(struct work_struct *work)
- 		__set_bit(i, &restart);
++	for (i = 0; i < MTK_MAC_COUNT; i++) {
++		if (!eth->netdev[i])
++			continue;
+ 		unregister_netdev(eth->netdev[i]);
+-		free_netdev(eth->netdev[i]);
+ 	}
++
++	return 0;
++}
++
++static int mtk_cleanup(struct mtk_eth *eth)
++{
++	mtk_unreg_dev(eth);
++	mtk_free_dev(eth);
+ 	cancel_work_sync(&eth->pending_work);
+ 
+ 	return 0;
+@@ -1872,7 +1891,7 @@ static int mtk_probe(struct platform_device *pdev)
+ 
+ 		err = mtk_add_mac(eth, mac_np);
+ 		if (err)
+-			goto err_free_dev;
++			goto err_deinit_hw;
  	}
  
-+	/* restart underlying hardware such as power, clock, pin mux
-+	 * and the connected phy
-+	 */
+ 	err = devm_request_irq(eth->dev, eth->irq[1], mtk_handle_irq_tx, 0,
+@@ -1896,7 +1915,7 @@ static int mtk_probe(struct platform_device *pdev)
+ 		err = register_netdev(eth->netdev[i]);
+ 		if (err) {
+ 			dev_err(eth->dev, "error bringing up device\n");
+-			goto err_free_dev;
++			goto err_deinit_mdio;
+ 		} else
+ 			netif_info(eth, probe, eth->netdev[i],
+ 				   "mediatek frame engine at 0x%08lx, irq %d\n",
+@@ -1916,8 +1935,13 @@ static int mtk_probe(struct platform_device *pdev)
+ 
+ 	return 0;
+ 
++err_deinit_mdio:
++	mtk_mdio_cleanup(eth);
+ err_free_dev:
+-	mtk_cleanup(eth);
++	mtk_free_dev(eth);
++err_deinit_hw:
 +	mtk_hw_deinit(eth);
 +
-+	if (eth->dev->pins)
-+		pinctrl_select_state(eth->dev->pins->p,
-+				     eth->dev->pins->default_state);
-+	mtk_hw_init(eth);
-+
-+	for (i = 0; i < MTK_MAC_COUNT; i++) {
-+		if (!eth->mac[i] ||
-+		    of_phy_is_fixed_link(eth->mac[i]->of_node))
-+			continue;
-+		err = phy_init_hw(eth->mac[i]->phy_dev);
-+		if (err)
-+			dev_err(eth->dev, "%s: PHY init failed.\n",
-+				eth->netdev[i]->name);
-+	}
-+
- 	/* restart DMA and enable IRQs */
- 	for (i = 0; i < MTK_MAC_COUNT; i++) {
- 		if (!test_bit(i, &restart))
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-index 0b984dc..388cbe7 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-@@ -330,6 +330,10 @@ enum mtk_clks_map {
- 	MTK_CLK_MAX
- };
+ 	return err;
+ }
  
-+enum mtk_dev_state {
-+	MTK_HW_INIT
-+};
-+
- /* struct mtk_tx_buf -	This struct holds the pointers to the memory pointed at
-  *			by the TX descriptor	s
-  * @skb:		The SKB pointer of the packet being sent
-@@ -413,6 +417,7 @@ struct mtk_rx_ring {
-  * @clks:		clock array for all clocks required
-  * @mii_bus:		If there is a bus we need to create an instance for it
-  * @pending_work:	The workqueue used to reset the dma ring
-+ * @state               Initialization and runtime state of the device.
-  */
- 
- struct mtk_eth {
-@@ -441,11 +446,13 @@ struct mtk_eth {
- 
- 	struct mii_bus			*mii_bus;
- 	struct work_struct		pending_work;
-+	unsigned long			state;
- };
- 
- /* struct mtk_mac -	the structure that holds the info about the MACs of the
-  *			SoC
-  * @id:			The number of the MAC
-+ * @ge_mode:            Interface mode kept for setup restoring
-  * @of_node:		Our devicetree node
-  * @hw:			Backpointer to our main datastruture
-  * @hw_stats:		Packet statistics counter
-@@ -453,6 +460,7 @@ struct mtk_eth {
-  */
- struct mtk_mac {
- 	int				id;
-+	int				ge_mode;
- 	struct device_node		*of_node;
- 	struct mtk_eth			*hw;
- 	struct mtk_hw_stats		*hw_stats;
 -- 
 1.9.1
