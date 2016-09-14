@@ -1,153 +1,131 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [RFC v3 03/22] bpf,landlock: Add a new arraymap type to deal
- with (Landlock) handles
-Date: Wed, 14 Sep 2016 11:51:58 -0700
-Message-ID: <20160914185157.GA53542@ast-mbp.thefacebook.com>
-References: <20160914072415.26021-1-mic@digikod.net>
- <20160914072415.26021-4-mic@digikod.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
-        Andy Lutomirski <luto@amacapital.net>,
-        Arnd Bergmann <arnd@arndb.de>,
-        Casey Schaufler <casey@schaufler-ca.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Daniel Mack <daniel@zonque.org>,
-        David Drysdale <drysdale@google.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Elena Reshetova <elena.reshetova@intel.com>,
-        "Eric W . Biederman" <ebiederm@xmission.com>,
-        James Morris <james.l.morris@oracle.com>,
-        Kees Cook <keescook@chromium.org>,
-        Paul Moore <pmoore@redhat.com>,
-        Sargun Dhillon <sargun@sargun.me>,
-        "Serge E . Hallyn" <serge@hallyn.com>, Tejun Heo <tj@kernel.org>,
-        Will Drewry <wad@chromium.org>,
-        kernel-hardening@lists.openwall.com, linux-api@vger.kernel.org,
-        linux-security-module@vger.kern
-To: =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160914072415.26021-4-mic@digikod.net>
-Sender: owner-linux-security-module@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCHv3 net-next 00/15] BPF hardware offload (cls_bpf for now)
+Date: Wed, 14 Sep 2016 20:00:08 +0100
+Message-ID: <1473879623-15382-1-git-send-email-jakub.kicinski@netronome.com>
+Cc: ast@kernel.org, daniel@iogearbox.net, jiri@resnulli.us,
+        john.fastabend@gmail.com, kubakici@wp.pl,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:35714 "EHLO
+        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756110AbcINTAm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 15:00:42 -0400
+Received: by mail-wm0-f41.google.com with SMTP id i130so63885711wmf.0
+        for <netdev@vger.kernel.org>; Wed, 14 Sep 2016 12:00:41 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 14, 2016 at 09:23:56AM +0200, Mickaël Salaün wrote:
-> This new arraymap looks like a set and brings new properties:
-> * strong typing of entries: the eBPF functions get the array type of
->   elements instead of CONST_PTR_TO_MAP (e.g.
->   CONST_PTR_TO_LANDLOCK_HANDLE_FS);
-> * force sequential filling (i.e. replace or append-only update), which
->   allow quick browsing of all entries.
-> 
-> This strong typing is useful to statically check if the content of a map
-> can be passed to an eBPF function. For example, Landlock use it to store
-> and manage kernel objects (e.g. struct file) instead of dealing with
-> userland raw data. This improve efficiency and ensure that an eBPF
-> program can only call functions with the right high-level arguments.
-> 
-> The enum bpf_map_handle_type list low-level types (e.g.
-> BPF_MAP_HANDLE_TYPE_LANDLOCK_FS_FD) which are identified when
-> updating a map entry (handle). This handle types are used to infer a
-> high-level arraymap type which are listed in enum bpf_map_array_type
-> (e.g. BPF_MAP_ARRAY_TYPE_LANDLOCK_FS).
-> 
-> For now, this new arraymap is only used by Landlock LSM (cf. next
-> commits) but it could be useful for other needs.
-> 
-> Changes since v2:
-> * add a RLIMIT_NOFILE-based limit to the maximum number of arraymap
->   handle entries (suggested by Andy Lutomirski)
-> * remove useless checks
-> 
-> Changes since v1:
-> * arraymap of handles replace custom checker groups
-> * simpler userland API
-> 
-> Signed-off-by: Mickaël Salaün <mic@digikod.net>
-> Cc: Alexei Starovoitov <ast@kernel.org>
-> Cc: Andy Lutomirski <luto@amacapital.net>
-> Cc: Daniel Borkmann <daniel@iogearbox.net>
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: Kees Cook <keescook@chromium.org>
-> Link: https://lkml.kernel.org/r/CALCETrWwTiz3kZTkEgOW24-DvhQq6LftwEXh77FD2G5o71yD7g@mail.gmail.com
-> ---
->  include/linux/bpf.h      |  14 ++++
->  include/uapi/linux/bpf.h |  18 +++++
->  kernel/bpf/arraymap.c    | 203 +++++++++++++++++++++++++++++++++++++++++++++++
->  kernel/bpf/verifier.c    |  12 ++-
->  4 files changed, 246 insertions(+), 1 deletion(-)
-> 
-> diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-> index fa9a988400d9..eae4ce4542c1 100644
-> --- a/include/linux/bpf.h
-> +++ b/include/linux/bpf.h
-> @@ -13,6 +13,10 @@
->  #include <linux/percpu.h>
->  #include <linux/err.h>
->  
-> +#ifdef CONFIG_SECURITY_LANDLOCK
-> +#include <linux/fs.h> /* struct file */
-> +#endif /* CONFIG_SECURITY_LANDLOCK */
-> +
->  struct perf_event;
->  struct bpf_map;
->  
-> @@ -38,6 +42,7 @@ struct bpf_map_ops {
->  struct bpf_map {
->  	atomic_t refcnt;
->  	enum bpf_map_type map_type;
-> +	enum bpf_map_array_type map_array_type;
->  	u32 key_size;
->  	u32 value_size;
->  	u32 max_entries;
-> @@ -187,6 +192,9 @@ struct bpf_array {
->  	 */
->  	enum bpf_prog_type owner_prog_type;
->  	bool owner_jited;
-> +#ifdef CONFIG_SECURITY_LANDLOCK
-> +	u32 n_entries;	/* number of entries in a handle array */
-> +#endif /* CONFIG_SECURITY_LANDLOCK */
->  	union {
->  		char value[0] __aligned(8);
->  		void *ptrs[0] __aligned(8);
-> @@ -194,6 +202,12 @@ struct bpf_array {
->  	};
->  };
->  
-> +#ifdef CONFIG_SECURITY_LANDLOCK
-> +struct map_landlock_handle {
-> +	u32 type; /* enum bpf_map_handle_type */
-> +};
-> +#endif /* CONFIG_SECURITY_LANDLOCK */
-> +
->  #define MAX_TAIL_CALL_CNT 32
->  
->  struct bpf_event_entry {
-> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-> index 7cd36166f9b7..b68de57f7ab8 100644
-> --- a/include/uapi/linux/bpf.h
-> +++ b/include/uapi/linux/bpf.h
-> @@ -87,6 +87,15 @@ enum bpf_map_type {
->  	BPF_MAP_TYPE_PERCPU_ARRAY,
->  	BPF_MAP_TYPE_STACK_TRACE,P_TYPE_CGROUP_ARRAY
->  	BPF_MAP_TYPE_CGROUP_ARRAY,
-> +	BPF_MAP_TYPE_LANDLOCK_ARRAY,
-> +};
-> +
-> +enum bpf_map_array_type {
-> +	BPF_MAP_ARRAY_TYPE_UNSPEC,
-> +};
-> +
-> +enum bpf_map_handle_type {
-> +	BPF_MAP_HANDLE_TYPE_UNSPEC,
->  };
+Hi!
 
-missing something. why it has to be special to have it's own
-fd array implementation?
-Please take a look how BPF_MAP_TYPE_PERF_EVENT_ARRAY, 
-BPF_MAP_TYPE_CGROUP_ARRAY and BPF_MAP_TYPE_PROG_ARRAY are done.
-The all store objects into array map that user space passes via FD.
-I think the same model should apply here.
+In the last year a lot of progress have been made on offloading
+simpler TC classifiers.  There is also growing interest in using
+BPF for generic high-speed packet processing in the kernel.
+It seems beneficial to tie those two trends together and think
+about hardware offloads of BPF programs.  This patch set presents
+such offload to Netronome smart NICs.  cls_bpf is extended with
+hardware offload capabilities and NFP driver gets a JIT translator
+which in presence of capable firmware can be used to offload
+the BPF program onto the card.
 
+BPF JIT implementation is not 100% complete (e.g. missing instructions)
+but it is functional.  Encouragingly it should be possible to
+offload most (if not all) advanced BPF features onto the NIC - 
+including packet modification, maps, tunnel encap/decap etc.
+
+Example of basic tests I used:
+  __section_cls_entry
+  int cls_entry(struct __sk_buff *skb)
+  {
+	if (load_byte(skb, 0) != 0x0)
+		return 0;
+
+	if (load_byte(skb, 4) != 0x1)
+		return 0;
+
+	skb->mark = 0xcafe;
+
+	if (load_byte(skb, 50) != 0xff)
+		return 0;
+
+	return ~0U;
+  }
+
+Above code can be compiled with Clang and loaded like this:
+# ethtool -K p1p1 hw-tc-offload on
+# tc qdisc add dev p1p1 ingress
+# tc filter add dev p1p1 parent ffff:  bpf obj prog.o action drop
+
+This set implements the basic transparent offload, the skip_{sw,hw}
+flags and reporting statistics for cls_bpf.
+---
+I'm posting the BPF offload as non-RFC with changes requested.
+
+I did not carry John's and Jiri's acks on patches 2 and 3
+because unlike other classifiers in v3 I'm rejecting unsupported
+flags instead of ignoring them.
+
+As suggested by Daniel I prefixed the now-exported verfier
+structures with bpf_.  I kept it as a separate patch for
+clarity.
+
+I removed the dependency on bitfield.h for now by copying
+the macros into the driver's main header, I'll drop that copy
+once bitfield.h trickles into net-next (it'll be a 12 LOC patch).
+
+I've also revised the metadata format into something I'm more
+happy with (patch 12).
+
+Other noteworthy changes:
+ - dropped the reg ^ reg -> CONST_IMM(0) interpretation;
+ - made the 64bit load only interpreted in non-verifier mode;
+ - create&use per-insn storage instead of reserved fields.
+
+Please see individual patches for detailed changelog.
+
+
+Jakub Kicinski (15):
+  net: cls_bpf: add hardware offload
+  net: cls_bpf: limit hardware offload by software-only flag
+  net: cls_bpf: add support for marking filters as hardware-only
+  bpf: don't (ab)use instructions to store state
+  bpf: enable non-core use of the verfier
+  bpf: prefix structures in bpf_parser.h with bpf_
+  bpf: recognize 64bit immediate loads as consts
+  nfp: add BPF to NFP code translator
+  nfp: bpf: add hardware bpf offload
+  net: cls_bpf: allow offloaded filters to update stats
+  net: bpf: allow offloaded filters to update stats
+  nfp: bpf: add packet marking support
+  net: act_mirred: allow statistic updates from offloaded actions
+  nfp: bpf: add support for legacy redirect action
+  nfp: bpf: add offload of TC direct action mode
+
+ drivers/net/ethernet/netronome/nfp/Makefile        |    7 +
+ drivers/net/ethernet/netronome/nfp/nfp_asm.h       |  233 +++
+ drivers/net/ethernet/netronome/nfp/nfp_bpf.h       |  223 +++
+ drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c   | 1816 ++++++++++++++++++++
+ .../net/ethernet/netronome/nfp/nfp_bpf_verifier.c  |  160 ++
+ drivers/net/ethernet/netronome/nfp/nfp_net.h       |   47 +-
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    |  134 +-
+ drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h  |   51 +-
+ .../net/ethernet/netronome/nfp/nfp_net_ethtool.c   |   12 +
+ .../net/ethernet/netronome/nfp/nfp_net_offload.c   |  291 ++++
+ .../net/ethernet/netronome/nfp/nfp_netvf_main.c    |    2 +-
+ include/linux/bpf_parser.h                         |   89 +
+ include/linux/netdevice.h                          |    2 +
+ include/net/pkt_cls.h                              |   16 +
+ include/uapi/linux/pkt_cls.h                       |    1 +
+ kernel/bpf/verifier.c                              |  384 +++--
+ net/sched/act_mirred.c                             |    8 +
+ net/sched/cls_bpf.c                                |  117 +-
+ 18 files changed, 3387 insertions(+), 206 deletions(-)
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_asm.h
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_bpf.h
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_bpf_verifier.c
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_net_offload.c
+ create mode 100644 include/linux/bpf_parser.h
+
+-- 
+1.9.1
