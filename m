@@ -1,86 +1,91 @@
-From: LABBE Corentin <clabbe.montjoie@gmail.com>
-Subject: Re: [PATCH v3 5/9] ARM: dts: sun8i-h3: add sun8i-emac ethernet driver
-Date: Wed, 14 Sep 2016 10:54:38 +0200
-Message-ID: <20160914085438.GA9672@Red>
-References: <1473425117-18645-1-git-send-email-clabbe.montjoie@gmail.com>
- <1473425117-18645-6-git-send-email-clabbe.montjoie@gmail.com>
- <20160912072933.GC9449@lukather>
+From: Michael Ellerman <mpe@ellerman.id.au>
+Subject: Re: [PATCH] MAINTAINERS: Remove myself from PA Semi entries
+Date: Wed, 14 Sep 2016 18:57:55 +1000
+Message-ID: <87k2eeoo30.fsf@concordia.ellerman.id.au>
+References: <1473803318-25197-1-git-send-email-olof@lixom.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: robh+dt@kernel.org, mark.rutland@arm.com, wens@csie.org,
-        linux@armlinux.org.uk, davem@davemloft.net, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: Maxime Ripard <maxime.ripard@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160912072933.GC9449@lukather>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-i2c@vger.kernel.org,
+        davem@davemloft.net, jdelvare@suse.com,
+        Olof Johansson <olof@lixom.net>
+To: Olof Johansson <olof@lixom.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([103.22.144.67]:50998 "EHLO ozlabs.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751621AbcINI55 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 14 Sep 2016 04:57:57 -0400
+In-Reply-To: <1473803318-25197-1-git-send-email-olof@lixom.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 12, 2016 at 09:29:33AM +0200, Maxime Ripard wrote:
-> On Fri, Sep 09, 2016 at 02:45:13PM +0200, Corentin Labbe wrote:
-> > The sun8i-emac is an ethernet MAC hardware that support 10/100/1000
-> > speed.
-> > 
-> > This patch enable the sun8i-emac on the Allwinner H3 SoC Device-tree.
-> > The SoC H3 have an internal PHY, so optionals syscon and ephy are set.
-> > 
-> > Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
-> > ---
-> >  arch/arm/boot/dts/sun8i-h3.dtsi | 19 +++++++++++++++++++
-> >  1 file changed, 19 insertions(+)
-> > 
-> > diff --git a/arch/arm/boot/dts/sun8i-h3.dtsi b/arch/arm/boot/dts/sun8i-h3.dtsi
-> > index a39da6f..a3ac476 100644
-> > --- a/arch/arm/boot/dts/sun8i-h3.dtsi
-> > +++ b/arch/arm/boot/dts/sun8i-h3.dtsi
-> > @@ -50,6 +50,10 @@
-> >  / {
-> >  	interrupt-parent = <&gic>;
-> >  
-> > +	aliases {
-> > +		ethernet0 = &emac;
-> > +	};
-> > +
-> 
-> This needs to be done at the board level.
-> 
+Olof Johansson <olof@lixom.net> writes:
 
-ok
+> The platform is old, very few users and I lack bandwidth to keep after
+> it these days.
+>
+> Mark the base platform as well as the drivers as orphans, patches have
+> been flowing through the fallback maintainers for a while already.
 
-> >  	cpus {
-> >  		#address-cells = <1>;
-> >  		#size-cells = <0>;
-> > @@ -446,6 +450,21 @@
-> >  			status = "disabled";
-> >  		};
-> >  
-> > +		emac: ethernet@1c30000 {
-> > +			compatible = "allwinner,sun8i-h3-emac";
-> > +			syscon = <&syscon>;
-> > +			reg = <0x01c30000 0x104>;
-> > +			reg-names = "emac";
-> 
-> You don't need reg-names anymore.
-> 
+Sorry to see you go, but thanks for keeping an eye on it as long as you
+did!
 
-ok
+> Jean, Dave,
+>
+> I was hoping to have Michael merge this since the bulk of the platform is under him,
+> cc:ing you mostly to be aware that I am orphaning a driver in your subsystems.
 
-> > +			interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
-> > +			resets = <&ccu RST_BUS_EMAC>, <&ccu RST_BUS_EPHY>;
-> > +			reset-names = "ahb", "ephy";
-> > +			clocks = <&ccu CLK_BUS_EMAC>, <&ccu CLK_BUS_EPHY>;
-> > +			clock-names = "ahb", "ephy";
-> 
-> I still believe that having the same node for both the PHY and the MAC
-> is wrong.
-> 
+I'll merge it unless I hear otherwise from Dave.
 
-Ok I have moved clock/reset of ephy in its node.
+Should we go the whole hog and just do as below? I think most folks use
+get_maintainers.pl these days, so this should have basically the same
+effect. Happy to go with your original version though if you prefer.
 
-Thanks
+cheers
 
-Regards
 
-Corentin Labbe
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 0bbe4b105c34..8ca1c25d870d 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -7049,6 +7049,7 @@ N:	powermac
+ N:	powernv
+ N:	[^a-z0-9]ps3
+ N:	pseries
++N:	pasemi
+ 
+ LINUX FOR POWER MACINTOSH
+ M:	Benjamin Herrenschmidt <benh@kernel.crashing.org>
+@@ -7098,14 +7099,6 @@ S:	Maintained
+ F:	arch/powerpc/platforms/83xx/
+ F:	arch/powerpc/platforms/85xx/
+ 
+-LINUX FOR POWERPC PA SEMI PWRFICIENT
+-M:	Olof Johansson <olof@lixom.net>
+-L:	linuxppc-dev@lists.ozlabs.org
+-S:	Maintained
+-F:	arch/powerpc/platforms/pasemi/
+-F:	drivers/*/*pasemi*
+-F:	drivers/*/*/*pasemi*
+-
+ LINUX SECURITY MODULE (LSM) FRAMEWORK
+ M:	Chris Wright <chrisw@sous-sol.org>
+ L:	linux-security-module@vger.kernel.org
+@@ -8773,18 +8766,6 @@ W:	http://wireless.kernel.org/en/users/Drivers/p54
+ S:	Maintained
+ F:	drivers/net/wireless/intersil/p54/
+ 
+-PA SEMI ETHERNET DRIVER
+-M:	Olof Johansson <olof@lixom.net>
+-L:	netdev@vger.kernel.org
+-S:	Maintained
+-F:	drivers/net/ethernet/pasemi/*
+-
+-PA SEMI SMBUS DRIVER
+-M:	Olof Johansson <olof@lixom.net>
+-L:	linux-i2c@vger.kernel.org
+-S:	Maintained
+-F:	drivers/i2c/busses/i2c-pasemi.c
+-
+ PADATA PARALLEL EXECUTION MECHANISM
+ M:	Steffen Klassert <steffen.klassert@secunet.com>
+ L:	linux-crypto@vger.kernel.org
