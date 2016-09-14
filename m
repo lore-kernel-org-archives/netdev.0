@@ -1,37 +1,53 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH] net: VRF: Pass original iif to ip_route_input()
-Date: Wed, 14 Sep 2016 13:29:46 -0600
-Message-ID: <e05505c9-f60b-2241-4426-f70548c20efa@cumulusnetworks.com>
-References: <20160912014553.20927-1-mark.tomlinson@alliedtelesis.co.nz>
+From: Adit Ranadive <aditr@vmware.com>
+Subject: Re: [PATCH v4 01/16] vmxnet3: Move PCI Id to pci_ids.h
+Date: Wed, 14 Sep 2016 19:36:34 +0000
+Message-ID: <DM2PR0501MB84422A1029EE72FC727F960C5F10@DM2PR0501MB844.namprd05.prod.outlook.com>
+References: <1473655766-31628-1-git-send-email-aditr@vmware.com>
+ <1473655766-31628-2-git-send-email-aditr@vmware.com>
+ <20160914110854.GA15800@yuval-lap.uk.oracle.com>
+ <DM2PR0501MB844852987661859C6654E40C5F10@DM2PR0501MB844.namprd05.prod.outlook.com>
+ <20160914162452.GA3216@yuval-lap.Home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-To: Mark Tomlinson <mark.tomlinson@alliedtelesis.co.nz>,
-        netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "dledford@redhat.com" <dledford@redhat.com>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        pv-drivers <pv-drivers@vmware.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+        "Jorgen S. Hansen" <jhansen@vmware.com>,
+        Aditya Sarwade <asarwade@vmware.com>,
+        George Zhang <georgezhang@vmware.com>,
+        Bryan Tan <bryantan@vmware.com>
+To: Yuval Shaia <yuval.shaia@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:36803 "EHLO
-        mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1760398AbcINT3t (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 15:29:49 -0400
-Received: by mail-pa0-f44.google.com with SMTP id id6so8151749pad.3
-        for <netdev@vger.kernel.org>; Wed, 14 Sep 2016 12:29:49 -0700 (PDT)
-In-Reply-To: <20160912014553.20927-1-mark.tomlinson@alliedtelesis.co.nz>
+Received: from ex13-edg-ou-002.vmware.com ([208.91.0.190]:51185 "EHLO
+        EX13-EDG-OU-002.vmware.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1761984AbcINTgq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 15:36:46 -0400
+In-Reply-To: <20160914162452.GA3216@yuval-lap.Home>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/11/16 7:45 PM, Mark Tomlinson wrote:
-> Please note that while this patch fixes my issue, I am not entirely sure
-> why the skb->dev is changed to the master device, so I am not sure this
-> is the right fix.
+On Wed, Sep 14, 2016 at 09:25:18 -0700, Yuval Shaia wrote:
+> On Wed, Sep 14, 2016 at 04:00:25PM +0000, Adit Ranadive wrote:
+> > On Wed, Sep 14, 2016 at 04:09:12 -0700, Yuval Shaia wrote:
+> > > Please update vmxnet3_drv.c accordingly.
+> >
+> > Any reason why? I don't think we need to. Vmxnet3 should just pick up
+> > the moved PCI device id from pci_ids.h file.
+>=20
+> So now you need to include it from vmxnet3_drv.c.
+> Same with pvrdma_main.c
 
-Can you send a v2 dropping the above paragraph from the commit log.
+If you're asking me to include pci_ids.h in our drivers we already do that
+by including pci.h in both the drivers.=20
+pci.h already includes pci_ids.h -=20
+https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/includ=
+e/linux/pci.h#n35
 
-> 
-> Signed-off-by: Mark Tomlinson <mark.tomlinson@alliedtelesis.co.nz>
-> ---
->  net/ipv4/ip_input.c | 5 +++--
->  1 file changed, 3 insertions(+), 2 deletions(-)
+If that's going to change maybe someone from the PCI group can comment on.
 
-And you can add
-
-Acked-by: David Ahern <dsa@cumulusnetworks.com>
+Thanks,
+Adit
