@@ -1,114 +1,85 @@
-From: Tariq Toukan via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: [PATCH RFC 08/11] net/mlx5e: XDP fast RX drop bpf
- programs support
-Date: Wed, 14 Sep 2016 12:24:45 +0300
-Message-ID: <64b2f122-d206-d94c-e87d-f6776eae518d@mellanox.com>
-References: <1473252152-11379-1-git-send-email-saeedm@mellanox.com>
-	<1473252152-11379-9-git-send-email-saeedm@mellanox.com>
-	<CAJ3xEMgsGHqQ7x8wky6Sfs34Ry67PnZEhYmnK=g8XnnXbgWagg@mail.gmail.com>
-	<20160908093833.58101878@redhat.com>
-	<CAJ3xEMiDBZ2-FdE7wniW0Y_S6k8NKfKEdy3w+1vs83oPuMAG5Q@mail.gmail.com>
-Reply-To: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+From: Sagi Grimberg <sagi@grimberg.me>
+Subject: Re: [RFC 07/11] Add support for memory registeration verbs
+Date: Wed, 14 Sep 2016 12:25:30 +0300
+Message-ID: <4b392963-c14c-d793-147a-67b08e97ee06@grimberg.me>
+References: <1473696465-27986-1-git-send-email-Ram.Amrani@qlogic.com>
+ <1473696465-27986-8-git-send-email-Ram.Amrani@qlogic.com>
+ <7fa4a9b8-7cb1-0f83-d6e5-1055ae59bce4@grimberg.me>
+ <BLUPR0701MB192207820BA5CF59A835181088F10@BLUPR0701MB1922.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
-	iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
-	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-	Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Rana
-	Shahout <ranas-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Jesper Dangaard Brouer
-	<brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <CAJ3xEMiDBZ2-FdE7wniW0Y_S6k8NKfKEdy3w+1vs83oPuMAG5Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "Yuval.Mintz@qlogic.com" <Yuval.Mintz@qlogic.com>,
+        "Ariel.Elior@qlogic.com" <Ariel.Elior@qlogic.com>,
+        "Michal.Kalderon@qlogic.com" <Michal.Kalderon@qlogic.com>,
+        "rajesh.borundia@qlogic.com" <rajesh.borundia@qlogic.com>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Kalderon, Michal" <Michal.Kalderon@cavium.com>,
+        Ram Amrani <Ram.Amrani@qlogic.com>,
+        "dledford@redhat.com" <dledford@redhat.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35425 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751567AbcINJZf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 05:25:35 -0400
+In-Reply-To: <BLUPR0701MB192207820BA5CF59A835181088F10@BLUPR0701MB1922.namprd07.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-
-On 08/09/2016 12:31 PM, Or Gerlitz wrote:
-> On Thu, Sep 8, 2016 at 10:38 AM, Jesper Dangaard Brouer
-> <brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
->> On Wed, 7 Sep 2016 23:55:42 +0300
->> Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>>> +struct qedr_mr *__qedr_alloc_mr(struct ib_pd *ibpd, int
+>>> +max_page_list_len) {
+>>> +	struct qedr_pd *pd = get_qedr_pd(ibpd);
+>>> +	struct qedr_dev *dev = get_qedr_dev(ibpd->device);
+>>> +	struct qedr_mr *mr;
+>>> +	int rc = -ENOMEM;
+>>> +
+>>> +	DP_VERBOSE(dev, QEDR_MSG_MR,
+>>> +		   "qedr_alloc_frmr pd = %d max_page_list_len= %d\n", pd-
+>>> pd_id,
+>>> +		   max_page_list_len);
+>>> +
+>>> +	mr = kzalloc(sizeof(*mr), GFP_KERNEL);
+>>> +	if (!mr)
+>>> +		return ERR_PTR(rc);
+>>> +
+>>> +	mr->dev = dev;
+>>> +	mr->type = QEDR_MR_FRMR;
+>>> +
+>>> +	rc = init_mr_info(dev, &mr->info, max_page_list_len, 1);
+>>> +	if (rc)
+>>> +		goto err0;
+>>> +
+>>> +	rc = dev->ops->rdma_alloc_tid(dev->rdma_ctx, &mr->hw_mr.itid);
+>>> +	if (rc) {
+>>> +		DP_ERR(dev, "roce alloc tid returned an error %d\n", rc);
+>>> +		goto err0;
+>>> +	}
+>>> +
+>>> +	/* Index only, 18 bit long, lkey = itid << 8 | key */
+>>> +	mr->hw_mr.tid_type = QED_RDMA_TID_FMR;
+>>> +	mr->hw_mr.key = 0;
+>>> +	mr->hw_mr.pd = pd->pd_id;
 >>
->>> On Wed, Sep 7, 2016 at 3:42 PM, Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org> wrote:
->>>> From: Rana Shahout <ranas-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
->>>>
->>>> Add support for the BPF_PROG_TYPE_PHYS_DEV hook in mlx5e driver.
->>>>
->>>> When XDP is on we make sure to change channels RQs type to
->>>> MLX5_WQ_TYPE_LINKED_LIST rather than "striding RQ" type to
->>>> ensure "page per packet".
->>>>
->>>> On XDP set, we fail if HW LRO is set and request from user to turn it
->>>> off.  Since on ConnectX4-LX HW LRO is always on by default, this will be
->>>> annoying, but we prefer not to enforce LRO off from XDP set function.
->>>>
->>>> Full channels reset (close/open) is required only when setting XDP
->>>> on/off.
->>>>
->>>> When XDP set is called just to exchange programs, we will update
->>>> each RQ xdp program on the fly and for synchronization with current
->>>> data path RX activity of that RQ, we temporally disable that RQ and
->>>> ensure RX path is not running, quickly update and re-enable that RQ,
->>>> for that we do:
->>>>          - rq.state = disabled
->>>>          - napi_synnchronize
->>>>          - xchg(rq->xdp_prg)
->>>>          - rq.state = enabled
->>>>          - napi_schedule // Just in case we've missed an IRQ
->>>>
->>>> Packet rate performance testing was done with pktgen 64B packets and on
->>>> TX side and, TC drop action on RX side compared to XDP fast drop.
->>>>
->>>> CPU: Intel(R) Xeon(R) CPU E5-2680 v3 @ 2.50GHz
->>>>
->>>> Comparison is done between:
->>>>          1. Baseline, Before this patch with TC drop action
->>>>          2. This patch with TC drop action
->>>>          3. This patch with XDP RX fast drop
->>>>
->>>> Streams    Baseline(TC drop)    TC drop    XDP fast Drop
->>>> --------------------------------------------------------------
->>>> 1           5.51Mpps            5.14Mpps     13.5Mpps
->>> This (13.5 M PPS) is less than 50% of the result we presented @ the
->>> XDP summit which was obtained by Rana. Please see if/how much does
->>> this grows if you use more sender threads, but all of them to xmit the
->>> same stream/flows, so we're on one ring. That (XDP with single RX ring
->>> getting packets from N remote TX rings) would be your canonical
->>> base-line for any further numbers.
->> Well, my experiments with this hardware (mlx5/CX4 at 50Gbit/s) show
->> that you should be able to reach 23Mpps on a single CPU.  This is
->> a XDP-drop-simulation with order-0 pages being recycled through my
->> page_pool code, plus avoiding the cache-misses (notice you are using a
->> CPU E5-2680 with DDIO, thus you should only see a L3 cache miss).
-> so this takes up from 13M to 23M, good.
->
-> Could you explain why the move from order-3 to order-0 is hurting the
-> performance so much (drop from 32M to 23M), any way we can overcome that?
-The issue is not moving from high-order to order-0.
-It's moving from Striding RQ to non-Striding RQ without using a 
-page-reuse mechanism (not cache).
-In current memory-scheme, each 64B packet consumes a 4K page, including 
-allocate/release (from cache in this case, but still...).
-I believe that once we implement page-reuse for non Striding RQ we'll 
-hit 32M PPS again.
->> The 23Mpps number looks like some HW limitation, as the increase was
-> not HW, I think. As I said, Rana got 32M with striding RQ when she was
-> using order-3
-> (or did we use order-5?)
-order-5.
->> is not proportional to page-allocator overhead I removed (and CPU freq
->> starts to decrease).  I also did scaling tests to more CPUs, which
->> showed it scaled up to 40Mpps (you reported 45M).  And at the Phy RX
->> level I see 60Mpps (50G max is 74Mpps).
+>> Do you have a real MR<->PD association in HW? If so, can you point me to the
+>> code that binds it? If not, any reason not to expose the local_dma_lkey?
+>>
+> Yes, we send the pd id to the FW in function qed_rdma_register_tid.
+
+Right, thanks.
+
+> In any case, if we didn't have the association in HW
+> Wouldn't the local_dma_lkey be relevant only to dma_mr ? ( code snippet above refers to FMR)
+
+I was just sticking to a location in the code where you associate
+MR<->PD...
+
+The local_dma_lkey is a special key that spans the entire memory space
+and unlike the notorious dma_mr, its not associated with a PD.
+
+See the code in ib_alloc_pd(), if the device does not support a single
+device local dma lkey, the core allocates a dma mr associated with
+the pd. If your device has such a key, you can save a dma mr allocation
+for each pd in the system.
