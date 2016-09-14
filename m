@@ -1,45 +1,37 @@
-From: Sagi Grimberg <sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org>
-Subject: Re: [RFC 00/11] QLogic RDMA Driver (qedr) RFC
-Date: Wed, 14 Sep 2016 11:17:27 +0300
-Message-ID: <fbb0eb54-da12-5766-9a79-acc0d088aca0@grimberg.me>
+From: "Amrani, Ram" <Ram.Amrani@cavium.com>
+Subject: RE: [RFC 07/11] Add support for memory registeration verbs
+Date: Wed, 14 Sep 2016 08:02:01 +0000
+Message-ID: <SN1PR07MB2207AB804FB12A2B010C56A5F8F10@SN1PR07MB2207.namprd07.prod.outlook.com>
 References: <1473696465-27986-1-git-send-email-Ram.Amrani@qlogic.com>
- <317f85a5-8890-e02e-6093-876f61aed1b5@grimberg.me>
- <CY1PR0701MB133732FA8478FC0B5003D97A90F10@CY1PR0701MB1337.namprd07.prod.outlook.com>
+ <1473696465-27986-8-git-send-email-Ram.Amrani@qlogic.com>
+ <dfff3b6a-07da-38eb-e844-a48f713ff0f7@grimberg.me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: "Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org" <Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        "Ariel.Elior-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org" <Ariel.Elior-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        "Michal.Kalderon-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org" <Michal.Kalderon-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        "rajesh.borundia-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org" <rajesh.borundia-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Elior, Ariel" <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-        Ram Amrani <Ram.Amrani-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CY1PR0701MB133732FA8478FC0B5003D97A90F10-UpKza+2NMNLi6bjPjkn3FE5OhdzP3rhOnBOFsp37pqbUKgpGm//BTAC/G2K4zDHf@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "Yuval.Mintz@qlogic.com" <Yuval.Mintz@qlogic.com>,
+        "Ariel.Elior@qlogic.com" <Ariel.Elior@qlogic.com>,
+        "Michal.Kalderon@qlogic.com" <Michal.Kalderon@qlogic.com>,
+        "rajesh.borundia@qlogic.com" <rajesh.borundia@qlogic.com>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "dledford@redhat.com" <dledford@redhat.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+To: Sagi Grimberg <sagi@grimberg.me>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-dm3nam03on0048.outbound.protection.outlook.com ([104.47.41.48]:31392
+        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1759814AbcINIRm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 14 Sep 2016 04:17:42 -0400
+In-Reply-To: <dfff3b6a-07da-38eb-e844-a48f713ff0f7@grimberg.me>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->> > SRQ is not part of the RFC (but we do have it and NVMF was tested
-> with it).
->
->>
->
->> Nice, I have plans to make SRQs better usable for our ULPs so it'd be
->
->> good to have it.
->
-> That’s good to know. Are there plans on implementing XRC?
->
-> Right now it looks like none of the ULPS make use of it.
+> > +static inline struct qedr_ah *get_qedr_ah(struct ib_ah *ibah) {
+> > +	return container_of(ibah, struct qedr_ah, ibah); }
+>=20
+> Little surprising to find that here... how is the ah related to this patc=
+h?
 
-The problem with XRC is that it needs to be reflected on the
-wire protocol for it to actually be useful for our ULPs. Not
-sure if its worth the effort...
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks, Sagi. Will move into a proper location.
