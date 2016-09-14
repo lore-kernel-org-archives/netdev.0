@@ -1,59 +1,86 @@
-From: Wolfram Sang <wsa@the-dreams.de>
-Subject: Re: [PATCH] MAINTAINERS: Remove myself from PA Semi entries
-Date: Wed, 14 Sep 2016 10:36:27 +0200
-Message-ID: <20160914083626.GA1456@katana>
-References: <1473803318-25197-1-git-send-email-olof@lixom.net>
- <20160914003157.GA1420@katana>
+From: LABBE Corentin <clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH v3 5/9] ARM: dts: sun8i-h3: add sun8i-emac ethernet driver
+Date: Wed, 14 Sep 2016 10:54:38 +0200
+Message-ID: <20160914085438.GA9672@Red>
+References: <1473425117-18645-1-git-send-email-clabbe.montjoie@gmail.com>
+ <1473425117-18645-6-git-send-email-clabbe.montjoie@gmail.com>
+ <20160912072933.GC9449@lukather>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="pf9I7BMVVzbSWLtt"
-Cc: Michael Ellerman <mpe@ellerman.id.au>, netdev@vger.kernel.org,
-        linux-i2c@vger.kernel.org, davem@davemloft.net, jdelvare@suse.com
-To: Olof Johansson <olof@lixom.net>
-Return-path: <linux-i2c-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: robh+dt@kernel.org, mark.rutland@arm.com, wens@csie.org,
+        linux@armlinux.org.uk, davem@davemloft.net, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: Maxime Ripard <maxime.ripard@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20160914003157.GA1420@katana>
-Sender: linux-i2c-owner@vger.kernel.org
+In-Reply-To: <20160912072933.GC9449@lukather>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, Sep 12, 2016 at 09:29:33AM +0200, Maxime Ripard wrote:
+> On Fri, Sep 09, 2016 at 02:45:13PM +0200, Corentin Labbe wrote:
+> > The sun8i-emac is an ethernet MAC hardware that support 10/100/1000
+> > speed.
+> > 
+> > This patch enable the sun8i-emac on the Allwinner H3 SoC Device-tree.
+> > The SoC H3 have an internal PHY, so optionals syscon and ephy are set.
+> > 
+> > Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+> > ---
+> >  arch/arm/boot/dts/sun8i-h3.dtsi | 19 +++++++++++++++++++
+> >  1 file changed, 19 insertions(+)
+> > 
+> > diff --git a/arch/arm/boot/dts/sun8i-h3.dtsi b/arch/arm/boot/dts/sun8i-h3.dtsi
+> > index a39da6f..a3ac476 100644
+> > --- a/arch/arm/boot/dts/sun8i-h3.dtsi
+> > +++ b/arch/arm/boot/dts/sun8i-h3.dtsi
+> > @@ -50,6 +50,10 @@
+> >  / {
+> >  	interrupt-parent = <&gic>;
+> >  
+> > +	aliases {
+> > +		ethernet0 = &emac;
+> > +	};
+> > +
+> 
+> This needs to be done at the board level.
+> 
 
---pf9I7BMVVzbSWLtt
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+ok
 
+> >  	cpus {
+> >  		#address-cells = <1>;
+> >  		#size-cells = <0>;
+> > @@ -446,6 +450,21 @@
+> >  			status = "disabled";
+> >  		};
+> >  
+> > +		emac: ethernet@1c30000 {
+> > +			compatible = "allwinner,sun8i-h3-emac";
+> > +			syscon = <&syscon>;
+> > +			reg = <0x01c30000 0x104>;
+> > +			reg-names = "emac";
+> 
+> You don't need reg-names anymore.
+> 
 
-> > I was hoping to have Michael merge this since the bulk of the platform =
-is under him,
-> > cc:ing you mostly to be aware that I am orphaning a driver in your subs=
-ystems.
->=20
-> Let me answer for Jean since I took over I2C in November 2012 ;) I'd
-> think the entry can go completely. The last 'F:' tag for the platform
-> catches the I2C driver anyhow. But in general:
+ok
 
-To make it crystal clear: I meant the I2C entry for PASEMI could go.
+> > +			interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
+> > +			resets = <&ccu RST_BUS_EMAC>, <&ccu RST_BUS_EPHY>;
+> > +			reset-names = "ahb", "ephy";
+> > +			clocks = <&ccu CLK_BUS_EMAC>, <&ccu CLK_BUS_EPHY>;
+> > +			clock-names = "ahb", "ephy";
+> 
+> I still believe that having the same node for both the PHY and the MAC
+> is wrong.
+> 
 
+Ok I have moved clock/reset of ephy in its node.
 
---pf9I7BMVVzbSWLtt
-Content-Type: application/pgp-signature; name="signature.asc"
+Thanks
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+Regards
 
-iQIcBAEBAgAGBQJX2QwKAAoJEBQN5MwUoCm2ZOoP/3TZvWWtOZzr57AWItdjGqju
-UiR7UnF6rRW4LWX6pd+yV3fG/lY5AW5wcNpliBymN1NmH1zDPWOo5T++rFUQARTr
-os2pmVogVboSRtMXNOEjkOSxC3XSFcSHu3gEOvUmRHQwKkw/hFG9yF2lHQ4UuI9+
-RlMzZ/9YRhnVv5IdLwTZk9W1ebGLi40fwtzaEvoX3eisUq9uk9oaCuWCp/ALBLP6
-CAB6Uetrx5kyDUj/dOWRD7sxNf1bz3MSvxfGlqflL1F9yUuLdhyn61aE9X2T0cPI
-qHdCT50p3b6aZJJ9DxE+eEsjBwB4rJd9v8fGacOKU4csdeARaGcZi7wg9EoJfUX4
-G3lcLWJx6QRf90Kc10VJ1eb8vkYTlUY6PjzgrRycXU4AO3V/Ah37+XGdb4g51q7G
-sxRNne7zV0RU8rnOcu3gJ1h4sq8pX2gSmQNAY2H57j5u6bL7f7s5SSN/fCI3t3IK
-EkVALACvbHTAVlNDiIX45okgkFcv5pJgbAhXPk8Fw2JLPBqnPCFosv/OXtpFR6Hd
-43kAXd7vtYgS9UhtcrdQPKkR3cIgWfzLeo65yA4GpJpBTd+i0pM3tbsgnBVovmRP
-KOHzmY9n5GQ7O+cJjyeScEhRVdRGdry70KnOXE95tT4y89Dj+Bq+KMrY2XfKr+kT
-Fse3LZZfWMATaE4zI5Si
-=3ad9
------END PGP SIGNATURE-----
-
---pf9I7BMVVzbSWLtt--
+Corentin Labbe
