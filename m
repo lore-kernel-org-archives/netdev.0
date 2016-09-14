@@ -1,101 +1,36 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH 3/3] mm: memcontrol: consolidate cgroup socket tracking
-Date: Wed, 14 Sep 2016 15:17:14 -0700
-Message-ID: <20160914151714.f6d1b2a57da0619bf9e2372c@linux-foundation.org>
-References: <20160914194846.11153-3-hannes@cmpxchg.org>
-	<201609151357.bgs2EcXM%fengguang.wu@intel.com>
+From: "Woodruff, Robert J" <robert.j.woodruff@intel.com>
+Subject: RE: [PATCH v4 00/16] Add Paravirtual RDMA Driver
+Date: Wed, 14 Sep 2016 22:20:22 +0000
+Message-ID: <9C6B67F36DCAFC479B1CF6A967258A8C7DE14D3E@ORSMSX115.amr.corp.intel.com>
+References: <1473655766-31628-1-git-send-email-aditr@vmware.com>
+ <20160912180251.GH5843@obsidianresearch.com>
+ <BLUPR0501MB836ED564F2AE7AB9221AC25C5FF0@BLUPR0501MB836.namprd05.prod.outlook.com>
+ <20160914173636.GA10309@obsidianresearch.com>
+ <DM2PR0501MB844473AE0FCAD0FD748D43DC5F10@DM2PR0501MB844.namprd05.prod.outlook.com>
+ <9C6B67F36DCAFC479B1CF6A967258A8C7DE14CE8@ORSMSX115.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Johannes Weiner <hannes@cmpxchg.org>, kbuild-all@01.org, Tejun Heo
- <tj@kernel.org>, "David S. Miller" <davem@davemloft.net>, Michal Hocko
- <mhocko@suse.cz>, Vladimir Davydov <vdavydov@virtuozzo.com>,
- linux-mm@kvack.org, cgroups@vger.kernel.org, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, kernel-team@fb.com
-To: kbuild test robot <lkp@intel.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <201609151357.bgs2EcXM%fengguang.wu@intel.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "dledford@redhat.com" <dledford@redhat.com>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        pv-drivers <pv-drivers@vmware.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+        "Jorgen S. Hansen" <jhansen@vmware.com>,
+        Aditya Sarwade <asarwade@vmware.com>,
+        George Zhang <georgezhang@vmware.com>,
+        Bryan Tan <bryantan@vmware.com>
+To: "Woodruff, Robert J" <robert.j.woodruff@intel.com>,
+        Adit Ranadive <aditr@vmware.com>,
+        Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <9C6B67F36DCAFC479B1CF6A967258A8C7DE14CE8@ORSMSX115.amr.corp.intel.com>
+Content-Language: en-US
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 15 Sep 2016 13:34:24 +0800 kbuild test robot <lkp@intel.com> wrote:
+Woody Wrote,
+>We are still discussing this within the OFA EWG for the OFED releases. I suspect that if all of the maintainers of the user-space packages agree to merge into >and support this new merged repo-model, then OFED would eventually base their OFED user-space packages on that repo, rather than the individual repo's >that are used today. The question is, when. Work has now just started on OFED-4.8, that is based on the kernel.org 4.8 kernel. If this new scheme works with >kernel.org 4.8, then it is possible that it could go into that OFED-4.8 Release, but again, we are still looking at the new scheme and evaluating how it affects >the community OFED.
 
-> Hi Johannes,
-> 
-> [auto build test ERROR on net/master]
-> [also build test ERROR on v4.8-rc6 next-20160914]
-> [if your patch is applied to the wrong git tree, please drop us a note to help improve the system]
-> [Suggest to use git(>=2.9.0) format-patch --base=<commit> (or --base=auto for convenience) to record what (public, well-known) commit your patch series was built on]
-> [Check https://git-scm.com/docs/git-format-patch for more information]
-> 
-> url:    https://github.com/0day-ci/linux/commits/Johannes-Weiner/mm-memcontrol-make-per-cpu-charge-cache-IRQ-safe-for-socket-accounting/20160915-035634
-> config: m68k-sun3_defconfig (attached as .config)
-> compiler: m68k-linux-gcc (GCC) 4.9.0
-> reproduce:
->         wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
->         chmod +x ~/bin/make.cross
->         # save the attached .config to linux build tree
->         make.cross ARCH=m68k 
-> 
-> All errors (new ones prefixed by >>):
-> 
->    net/built-in.o: In function `sk_alloc':
-> >> (.text+0x4076): undefined reference to `mem_cgroup_sk_alloc'
->    net/built-in.o: In function `__sk_destruct':
-> >> sock.c:(.text+0x457e): undefined reference to `mem_cgroup_sk_free'
->    net/built-in.o: In function `sk_clone_lock':
->    (.text+0x4f1c): undefined reference to `mem_cgroup_sk_alloc'
-
-This?
-
---- a/mm/memcontrol.c~mm-memcontrol-consolidate-cgroup-socket-tracking-fix
-+++ a/mm/memcontrol.c
-@@ -5655,9 +5655,6 @@ void mem_cgroup_sk_alloc(struct sock *sk
- {
- 	struct mem_cgroup *memcg;
- 
--	if (!mem_cgroup_sockets_enabled)
--		return;
--
- 	/*
- 	 * Socket cloning can throw us here with sk_memcg already
- 	 * filled. It won't however, necessarily happen from
---- a/net/core/sock.c~mm-memcontrol-consolidate-cgroup-socket-tracking-fix
-+++ a/net/core/sock.c
-@@ -1385,7 +1385,8 @@ static void sk_prot_free(struct proto *p
- 	slab = prot->slab;
- 
- 	cgroup_sk_free(&sk->sk_cgrp_data);
--	mem_cgroup_sk_free(sk);
-+	if (mem_cgroup_sockets_enabled)
-+		mem_cgroup_sk_free(sk);
- 	security_sk_free(sk);
- 	if (slab != NULL)
- 		kmem_cache_free(slab, sk);
-@@ -1422,7 +1423,8 @@ struct sock *sk_alloc(struct net *net, i
- 		sock_net_set(sk, net);
- 		atomic_set(&sk->sk_wmem_alloc, 1);
- 
--		mem_cgroup_sk_alloc(sk);
-+		if (mem_cgroup_sockets_enabled)
-+			mem_cgroup_sk_alloc(sk);
- 		cgroup_sk_alloc(&sk->sk_cgrp_data);
- 		sock_update_classid(&sk->sk_cgrp_data);
- 		sock_update_netprioidx(&sk->sk_cgrp_data);
-@@ -1569,7 +1571,8 @@ struct sock *sk_clone_lock(const struct
- 		newsk->sk_incoming_cpu = raw_smp_processor_id();
- 		atomic64_set(&newsk->sk_cookie, 0);
- 
--		mem_cgroup_sk_alloc(newsk);
-+		if (mem_cgroup_sockets_enabled)
-+			mem_cgroup_sk_alloc(newsk);
- 		cgroup_sk_alloc(&newsk->sk_cgrp_data);
- 
- 		/*
-_
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+One other question.  Jason, the OFA (and its members) want to maintain the dual-license (BSD/GPL) for the code, as is the case for all the code that was in the OFA git trees on the OFA server that you pulled from. Will you guys be ensuring that this new user-space package 
+follows that licensing model for accepting any new code into that combined repo ?
