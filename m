@@ -1,233 +1,62 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCHv3 net-next 11/15] net: bpf: allow offloaded filters to update stats
-Date: Wed, 14 Sep 2016 20:00:19 +0100
-Message-ID: <1473879623-15382-12-git-send-email-jakub.kicinski@netronome.com>
+Subject: [PATCHv3 net-next 07/15] bpf: recognize 64bit immediate loads as consts
+Date: Wed, 14 Sep 2016 20:00:15 +0100
+Message-ID: <1473879623-15382-8-git-send-email-jakub.kicinski@netronome.com>
 References: <1473879623-15382-1-git-send-email-jakub.kicinski@netronome.com>
 Cc: ast@kernel.org, daniel@iogearbox.net, jiri@resnulli.us,
         john.fastabend@gmail.com, kubakici@wp.pl,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:38776 "EHLO
-        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756189AbcINTAy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 15:00:54 -0400
-Received: by mail-wm0-f43.google.com with SMTP id 1so49352996wmz.1
-        for <netdev@vger.kernel.org>; Wed, 14 Sep 2016 12:00:53 -0700 (PDT)
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:38691 "EHLO
+        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1762188AbcINTAt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 15:00:49 -0400
+Received: by mail-wm0-f50.google.com with SMTP id 1so49348982wmz.1
+        for <netdev@vger.kernel.org>; Wed, 14 Sep 2016 12:00:48 -0700 (PDT)
 In-Reply-To: <1473879623-15382-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Periodically poll stats and call into offloaded actions
-to update them.
+When running as parser interpret BPF_LD | BPF_IMM | BPF_DW
+instructions as loading CONST_IMM with the value stored
+in imm.  The verifier will continue not recognizing those
+due to concerns about search space/program complexity
+increase.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
 v3:
- - add missing hunk with ethtool stats.
+ - limit to parsers.
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net.h       | 19 +++++++
- .../net/ethernet/netronome/nfp/nfp_net_common.c    |  3 ++
- .../net/ethernet/netronome/nfp/nfp_net_ethtool.c   | 12 +++++
- .../net/ethernet/netronome/nfp/nfp_net_offload.c   | 63 ++++++++++++++++++++++
- 4 files changed, 97 insertions(+)
+ kernel/bpf/verifier.c | 14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-index ea6f5e667f27..13c6a9001b4d 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-@@ -62,6 +62,9 @@
- /* Max time to wait for NFP to respond on updates (in seconds) */
- #define NFP_NET_POLL_TIMEOUT	5
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index ebd5b1c3d06f..988b69363f61 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -1766,9 +1766,19 @@ static int check_ld_imm(struct bpf_verifier_env *env, struct bpf_insn *insn)
+ 	if (err)
+ 		return err;
  
-+/* Interval for reading offloaded filter stats */
-+#define NFP_NET_STAT_POLL_IVL	msecs_to_jiffies(100)
+-	if (insn->src_reg == 0)
+-		/* generic move 64-bit immediate into a register */
++	if (insn->src_reg == 0) {
++		/* generic move 64-bit immediate into a register,
++		 * only parsing needs to collect the ld_imm value.
++		 */
++		u64 imm = ((u64)(insn + 1)->imm << 32) | (u32)insn->imm;
 +
- /* Bar allocation */
- #define NFP_NET_CTRL_BAR	0
- #define NFP_NET_Q0_BAR		2
-@@ -405,6 +408,11 @@ static inline bool nfp_net_fw_ver_eq(struct nfp_net_fw_version *fw_ver,
- 	       fw_ver->minor == minor;
- }
- 
-+struct nfp_stat_pair {
-+	u64 pkts;
-+	u64 bytes;
-+};
++		if (!env->pops)
++			return 0;
 +
- /**
-  * struct nfp_net - NFP network device structure
-  * @pdev:               Backpointer to PCI device
-@@ -428,6 +436,11 @@ static inline bool nfp_net_fw_ver_eq(struct nfp_net_fw_version *fw_ver,
-  * @rss_cfg:            RSS configuration
-  * @rss_key:            RSS secret key
-  * @rss_itbl:           RSS indirection table
-+ * @rx_filter:		Filter offload statistics - dropped packets/bytes
-+ * @rx_filter_prev:	Filter offload statistics - values from previous update
-+ * @rx_filter_change:	Jiffies when statistics last changed
-+ * @rx_filter_stats_timer:  Timer for polling filter offload statistics
-+ * @rx_filter_lock:	Lock protecting timer state changes (teardown)
-  * @max_tx_rings:       Maximum number of TX rings supported by the Firmware
-  * @max_rx_rings:       Maximum number of RX rings supported by the Firmware
-  * @num_tx_rings:       Currently configured number of TX rings
-@@ -504,6 +517,11 @@ struct nfp_net {
- 	u8 rss_key[NFP_NET_CFG_RSS_KEY_SZ];
- 	u8 rss_itbl[NFP_NET_CFG_RSS_ITBL_SZ];
- 
-+	struct nfp_stat_pair rx_filter, rx_filter_prev;
-+	unsigned long rx_filter_change;
-+	struct timer_list rx_filter_stats_timer;
-+	spinlock_t rx_filter_lock;
-+
- 	int max_tx_rings;
- 	int max_rx_rings;
- 
-@@ -775,6 +793,7 @@ static inline void nfp_net_debugfs_adapter_del(struct nfp_net *nn)
- }
- #endif /* CONFIG_NFP_NET_DEBUG */
- 
-+void nfp_net_filter_stats_timer(unsigned long data);
- int
- nfp_net_bpf_offload(struct nfp_net *nn, u32 handle, __be16 proto,
- 		    struct tc_cls_bpf_offload *cls_bpf);
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index 51978dfe883b..f091eb758ca2 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -2703,10 +2703,13 @@ struct nfp_net *nfp_net_netdev_alloc(struct pci_dev *pdev,
- 	nn->rxd_cnt = NFP_NET_RX_DESCS_DEFAULT;
- 
- 	spin_lock_init(&nn->reconfig_lock);
-+	spin_lock_init(&nn->rx_filter_lock);
- 	spin_lock_init(&nn->link_status_lock);
- 
- 	setup_timer(&nn->reconfig_timer,
- 		    nfp_net_reconfig_timer, (unsigned long)nn);
-+	setup_timer(&nn->rx_filter_stats_timer,
-+		    nfp_net_filter_stats_timer, (unsigned long)nn);
- 
- 	return nn;
- }
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-index 4c9897220969..3418f2277e9d 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-@@ -106,6 +106,18 @@ static const struct _nfp_net_et_stats nfp_net_et_stats[] = {
- 	{"dev_tx_pkts", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_TX_FRAMES)},
- 	{"dev_tx_mc_pkts", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_TX_MC_FRAMES)},
- 	{"dev_tx_bc_pkts", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_TX_BC_FRAMES)},
-+
-+	{"bpf_pass_pkts", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_APP0_FRAMES)},
-+	{"bpf_pass_bytes", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_APP0_BYTES)},
-+	/* see comments in outro functions in nfp_bpf_jit.c to find out
-+	 * how different BPF modes use app-specific counters
-+	 */
-+	{"bpf_app1_pkts", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_APP1_FRAMES)},
-+	{"bpf_app1_bytes", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_APP1_BYTES)},
-+	{"bpf_app2_pkts", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_APP2_FRAMES)},
-+	{"bpf_app2_bytes", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_APP2_BYTES)},
-+	{"bpf_app3_pkts", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_APP3_FRAMES)},
-+	{"bpf_app3_bytes", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_APP3_BYTES)},
- };
- 
- #define NN_ET_GLOBAL_STATS_LEN ARRAY_SIZE(nfp_net_et_stats)
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_offload.c b/drivers/net/ethernet/netronome/nfp/nfp_net_offload.c
-index 313988cd3a43..0537a53e2174 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_offload.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_offload.c
-@@ -51,6 +51,60 @@
- #include "nfp_net_ctrl.h"
- #include "nfp_net.h"
- 
-+void nfp_net_filter_stats_timer(unsigned long data)
-+{
-+	struct nfp_net *nn = (void *)data;
-+	struct nfp_stat_pair latest;
-+
-+	spin_lock_bh(&nn->rx_filter_lock);
-+
-+	if (nn->ctrl & NFP_NET_CFG_CTRL_BPF)
-+		mod_timer(&nn->rx_filter_stats_timer,
-+			  jiffies + NFP_NET_STAT_POLL_IVL);
-+
-+	spin_unlock_bh(&nn->rx_filter_lock);
-+
-+	latest.pkts = nn_readq(nn, NFP_NET_CFG_STATS_APP1_FRAMES);
-+	latest.bytes = nn_readq(nn, NFP_NET_CFG_STATS_APP1_BYTES);
-+
-+	if (latest.pkts != nn->rx_filter.pkts)
-+		nn->rx_filter_change = jiffies;
-+
-+	nn->rx_filter = latest;
-+}
-+
-+static void nfp_net_bpf_stats_reset(struct nfp_net *nn)
-+{
-+	nn->rx_filter.pkts = nn_readq(nn, NFP_NET_CFG_STATS_APP1_FRAMES);
-+	nn->rx_filter.bytes = nn_readq(nn, NFP_NET_CFG_STATS_APP1_BYTES);
-+	nn->rx_filter_prev = nn->rx_filter;
-+	nn->rx_filter_change = jiffies;
-+}
-+
-+static int
-+nfp_net_bpf_stats_update(struct nfp_net *nn, struct tc_cls_bpf_offload *cls_bpf)
-+{
-+	struct tc_action *a;
-+	LIST_HEAD(actions);
-+	u64 bytes, pkts;
-+
-+	pkts = nn->rx_filter.pkts - nn->rx_filter_prev.pkts;
-+	bytes = nn->rx_filter.bytes - nn->rx_filter_prev.bytes;
-+	bytes -= pkts * ETH_HLEN;
-+
-+	nn->rx_filter_prev = nn->rx_filter;
-+
-+	preempt_disable();
-+
-+	tcf_exts_to_list(cls_bpf->exts, &actions);
-+	list_for_each_entry(a, &actions, list)
-+		tcf_action_stats_update(a, bytes, pkts, nn->rx_filter_change);
-+
-+	preempt_enable();
-+
-+	return 0;
-+}
-+
- static int
- nfp_net_bpf_get_act(struct nfp_net *nn, struct tc_cls_bpf_offload *cls_bpf)
- {
-@@ -147,6 +201,9 @@ nfp_net_bpf_load_and_start(struct nfp_net *nn, u32 tc_flags,
- 		nn_err(nn, "FW command error while enabling BPF: %d\n", err);
- 
- 	dma_free_coherent(&nn->pdev->dev, code_sz, code, dma_addr);
-+
-+	nfp_net_bpf_stats_reset(nn);
-+	mod_timer(&nn->rx_filter_stats_timer, jiffies + NFP_NET_STAT_POLL_IVL);
- }
- 
- static int nfp_net_bpf_stop(struct nfp_net *nn)
-@@ -154,9 +211,12 @@ static int nfp_net_bpf_stop(struct nfp_net *nn)
- 	if (!(nn->ctrl & NFP_NET_CFG_CTRL_BPF))
++		regs[insn->dst_reg].type = CONST_IMM;
++		regs[insn->dst_reg].imm = imm;
  		return 0;
++	}
  
-+	spin_lock_bh(&nn->rx_filter_lock);
- 	nn->ctrl &= ~NFP_NET_CFG_CTRL_BPF;
-+	spin_unlock_bh(&nn->rx_filter_lock);
- 	nn_writel(nn, NFP_NET_CFG_CTRL, nn->ctrl);
- 
-+	del_timer_sync(&nn->rx_filter_stats_timer);
- 	nn->bpf_offload_skip_sw = 0;
- 
- 	return nfp_net_reconfig(nn, NFP_NET_CFG_UPDATE_GEN);
-@@ -214,6 +274,9 @@ nfp_net_bpf_offload(struct nfp_net *nn, u32 handle, __be16 proto,
- 	case TC_CLSBPF_DESTROY:
- 		return nfp_net_bpf_stop(nn);
- 
-+	case TC_CLSBPF_STATS:
-+		return nfp_net_bpf_stats_update(nn, cls_bpf);
-+
- 	default:
- 		return -ENOTSUPP;
- 	}
+ 	/* replace_map_fd_with_map_ptr() should have caught bad ld_imm64 */
+ 	BUG_ON(insn->src_reg != BPF_PSEUDO_MAP_FD);
 -- 
 1.9.1
