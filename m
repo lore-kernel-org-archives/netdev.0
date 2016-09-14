@@ -1,115 +1,70 @@
-From: <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH net-next v2 3/7] net: ethernet: mediatek: cleanup error path
- inside mtk_hw_init
-Date: Wed, 14 Sep 2016 23:13:17 +0800
-Message-ID: <1473866001-9805-4-git-send-email-sean.wang@mediatek.com>
-References: <1473866001-9805-1-git-send-email-sean.wang@mediatek.com>
+From: Vincent Bernat <vincent@bernat.im>
+Subject: Re: [net v1] fib_rules: interface group matching
+Date: Wed, 14 Sep 2016 17:14:38 +0200
+Message-ID: <87a8fapl7l.fsf@zoro.exoscale.ch>
+References: <20160914124025.13417-1-vincent@bernat.im>
+        <9540c014-78c5-9f9c-16d7-75a564f6c018@cumulusnetworks.com>
+        <87h99ipnhu.fsf@zoro.exoscale.ch>
+        <e8df55df-c22f-19a3-fabc-5fb592433706@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- objelf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1473866001-9805-1-git-send-email-sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
-List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+        Wilson Kok <wkok@cumulusnetworks.com>, netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bart.luffy.cx ([78.47.78.131]:57912 "EHLO bart.luffy.cx"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1761813AbcINPOo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 14 Sep 2016 11:14:44 -0400
+In-Reply-To: <e8df55df-c22f-19a3-fabc-5fb592433706@cumulusnetworks.com> (David
+        Ahern's message of "Wed, 14 Sep 2016 08:39:15 -0600")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+ =E2=9D=A6 14 septembre 2016 16:39 CEST, David Ahern <dsa@cumulusnetworks.c=
+om>=C2=A0:
 
-This cleans up the error path inside mtk_hw_init call, causing it able
-to exit appropriately when something fails and also includes refactoring
-mtk_cleanup call to make the partial logic reusable on the error path.
+>>>> When a user wants to assign a routing table to a group of incoming
+>>>> interfaces, the current solutions are:
+>>>>
+>>>>  - one IP rule for each interface (scalability problems)
+>>>>  - use of fwmark and devgroup matcher (don't work with internal route
+>>>>    lookups, used for example by RPF)
+>>>>  - use of VRF devices (more complex)
+>>>
+>>> Why do you believe that? A VRF is a formalized grouping of interfaces
+>>> that includes an API for locally generated traffic to specify which
+>>> VRF/group to use. And, with the l3mdev rule you only need 1 rule for
+>>> all VRFs regardless of the number which is the best solution to the
+>>> scalability problem of adding rules per device/group/VRF.
+>>>
+>>> What use case are trying to solve?
+>>=20
+>> Local processes have to be made aware of the VRF by binding to the
+>> pseudo-device. Some processes may be tricked by LD_PRELOAD but some
+>> won't (like stuff written in Go). Maybe I should just find a better way
+>> to bind a process to a VRF without its cooperation.
+>
+> What API are you using for interface groups? How does an app tell the
+> kernel to use interface group 1 versus group 2?
 
-Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
----
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 34 ++++++++++++++++++++++++-----
- 1 file changed, 29 insertions(+), 5 deletions(-)
+In my testbed, I have only one local application which is dnsmasq as a
+DHCP server. It sends back the answer to the physical interface (with
+sendmsg() and auxillary data). So it makes my argument a bit moot as the
+situation is in fact worse without VRF. :-/
 
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index c71b0b3..917a49c6 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -1564,17 +1564,36 @@ static void mtk_pending_work(struct work_struct *work)
- 	rtnl_unlock();
- }
- 
--static int mtk_cleanup(struct mtk_eth *eth)
-+static int mtk_free_dev(struct mtk_eth *eth)
- {
- 	int i;
- 
- 	for (i = 0; i < MTK_MAC_COUNT; i++) {
- 		if (!eth->netdev[i])
- 			continue;
-+		free_netdev(eth->netdev[i]);
-+	}
-+
-+	return 0;
-+}
- 
-+static int mtk_unreg_dev(struct mtk_eth *eth)
-+{
-+	int i;
-+
-+	for (i = 0; i < MTK_MAC_COUNT; i++) {
-+		if (!eth->netdev[i])
-+			continue;
- 		unregister_netdev(eth->netdev[i]);
--		free_netdev(eth->netdev[i]);
- 	}
-+
-+	return 0;
-+}
-+
-+static int mtk_cleanup(struct mtk_eth *eth)
-+{
-+	mtk_unreg_dev(eth);
-+	mtk_free_dev(eth);
- 	cancel_work_sync(&eth->pending_work);
- 
- 	return 0;
-@@ -1872,7 +1891,7 @@ static int mtk_probe(struct platform_device *pdev)
- 
- 		err = mtk_add_mac(eth, mac_np);
- 		if (err)
--			goto err_free_dev;
-+			goto err_deinit_hw;
- 	}
- 
- 	err = devm_request_irq(eth->dev, eth->irq[1], mtk_handle_irq_tx, 0,
-@@ -1896,7 +1915,7 @@ static int mtk_probe(struct platform_device *pdev)
- 		err = register_netdev(eth->netdev[i]);
- 		if (err) {
- 			dev_err(eth->dev, "error bringing up device\n");
--			goto err_free_dev;
-+			goto err_deinit_mdio;
- 		} else
- 			netif_info(eth, probe, eth->netdev[i],
- 				   "mediatek frame engine at 0x%08lx, irq %d\n",
-@@ -1916,8 +1935,13 @@ static int mtk_probe(struct platform_device *pdev)
- 
- 	return 0;
- 
-+err_deinit_mdio:
-+	mtk_mdio_cleanup(eth);
- err_free_dev:
--	mtk_cleanup(eth);
-+	mtk_free_dev(eth);
-+err_deinit_hw:
-+	mtk_hw_deinit(eth);
-+
- 	return err;
- }
- 
--- 
-1.9.1
+My testbed is here (with use of VRF, more recent commits just use plain
+ip rules):
+
+ https://github.com/vincentbernat/network-lab/blob/d86e9ed658863ef0f51d7b85=
+3d0dc9f8b7427b21/lab-l3-hyperv/setup
+
+I could just give more time to VRF. I also had some concerns over
+performance with the way Netfilter integration is done, but I understand
+that I could just stay away from POSTROUTING rules which is the only
+hook executed twice?
+--=20
+All things that are, are with more spirit chased than enjoyed.
+		-- Shakespeare, "Merchant of Venice"
