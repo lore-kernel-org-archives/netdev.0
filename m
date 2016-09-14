@@ -1,7 +1,8 @@
 From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH 0/9] net: ethernet: ti: cpts: update and fixes
-Date: Wed, 14 Sep 2016 16:02:22 +0300
-Message-ID: <20160914130231.3035-1-grygorii.strashko@ti.com>
+Subject: [PATCH 9/9] net: ethernet: ti: cpts: switch to readl/writel_relaxed()
+Date: Wed, 14 Sep 2016 16:02:31 +0300
+Message-ID: <20160914130231.3035-10-grygorii.strashko@ti.com>
+References: <20160914130231.3035-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
@@ -11,40 +12,32 @@ To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
         Mugunthan V N <mugunthanvnm@ti.com>,
         Richard Cochran <richardcochran@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160914130231.3035-1-grygorii.strashko@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Switch to readl/writel_relaxed() APIs, because The CPTS IP is reused
+on Keystone 2 SoCs where LE/BE modes are supported.
 
-It is preparation serie intended to clean up and optimize TI CPTS driver to
-facilitate further integration with other TI's SoCs like Keystone 2.
-It also include some non critical fixes:
- net: ethernet: ti: exclude cpts from build when disabled
- net: ethernet: ti: cpts: fix overflow check period
- net: ethernet: ti: cpts: clean up event list if event pool is empty
+Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+---
+ drivers/net/ethernet/ti/cpts.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-
-Grygorii Strashko (7):
-  net: ethernet: ti: exclude cpts from build when disabled
-  net: ethernet: ti: cpsw: minimize direct access to struct cpts
-  net: ethernet: ti: cpts: rework initialization/deinitialization
-  net: ethernet: ti: cpts: move dt props parsing to cpts driver
-  net: ethernet: ti: cpts: calc mult and shift from refclk freq
-  net: ethernet: ti: cpts: fix overflow check period
-  net: ethernet: ti: cpts: switch to readl/writel_relaxed()
-
-WingMan Kwok (2):
-  net: ethernet: ti: cpts: add return value to tx and rx timestamp
-    funcitons
-  net: ethernet: ti: cpts: clean up event list if event pool is empty
-
- Documentation/devicetree/bindings/net/cpsw.txt |   4 +-
- drivers/net/ethernet/ti/Makefile               |   3 +-
- drivers/net/ethernet/ti/cpsw.c                 |  83 ++++----
- drivers/net/ethernet/ti/cpsw.h                 |   2 -
- drivers/net/ethernet/ti/cpts.c                 | 256 ++++++++++++++++++-------
- drivers/net/ethernet/ti/cpts.h                 |  93 +++++++--
- 6 files changed, 319 insertions(+), 122 deletions(-)
-
+diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
+index cbe0974..0226582 100644
+--- a/drivers/net/ethernet/ti/cpts.c
++++ b/drivers/net/ethernet/ti/cpts.c
+@@ -31,8 +31,8 @@
+ 
+ #include "cpts.h"
+ 
+-#define cpts_read32(c, r)	__raw_readl(&c->reg->r)
+-#define cpts_write32(c, v, r)	__raw_writel(v, &c->reg->r)
++#define cpts_read32(c, r)	readl_relaxed(&c->reg->r)
++#define cpts_write32(c, v, r)	writel_relaxed(v, &c->reg->r)
+ 
+ static int event_expired(struct cpts_event *event)
+ {
 -- 
 2.9.3
