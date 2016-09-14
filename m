@@ -1,38 +1,50 @@
-From: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-Subject: RE: [PATCH v4 01/16] vmxnet3: Move PCI Id to pci_ids.h
-Date: Wed, 14 Sep 2016 16:00:25 +0000
-Message-ID: <DM2PR0501MB844852987661859C6654E40C5F10@DM2PR0501MB844.namprd05.prod.outlook.com>
-References: <1473655766-31628-1-git-send-email-aditr@vmware.com>
- <1473655766-31628-2-git-send-email-aditr@vmware.com>
- <20160914110854.GA15800@yuval-lap.uk.oracle.com>
+From: Vincent Bernat <vincent@bernat.im>
+Subject: Re: [net v1] fib_rules: interface group matching
+Date: Wed, 14 Sep 2016 18:01:10 +0200
+Message-ID: <8760pypj21.fsf@zoro.exoscale.ch>
+References: <20160914124025.13417-1-vincent@bernat.im>
+        <9540c014-78c5-9f9c-16d7-75a564f6c018@cumulusnetworks.com>
+        <87h99ipnhu.fsf@zoro.exoscale.ch>
+        <e8df55df-c22f-19a3-fabc-5fb592433706@cumulusnetworks.com>
+        <87a8fapl7l.fsf@zoro.exoscale.ch>
+        <c4f00f4e-aad3-f3d4-3c7c-8fe39c8f1720@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: quoted-printable
-Cc: "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        pv-drivers <pv-drivers-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "Jorgen S. Hansen" <jhansen-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
-        Aditya Sarwade <asarwade-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
-        George Zhang <georgezhang-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
-        Bryan Tan <bryantan-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-To: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160914110854.GA15800-Hxa29pjIrETlQW142y8m19+IiqhCXseY@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+        Wilson Kok <wkok@cumulusnetworks.com>, netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bart.luffy.cx ([78.47.78.131]:58118 "EHLO bart.luffy.cx"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1761966AbcINQBP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 14 Sep 2016 12:01:15 -0400
+In-Reply-To: <c4f00f4e-aad3-f3d4-3c7c-8fe39c8f1720@cumulusnetworks.com> (David
+        Ahern's message of "Wed, 14 Sep 2016 09:25:49 -0600")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 14, 2016 at 04:09:12 -0700, Yuval Shaia wrote:
-> Please update vmxnet3_drv.c accordingly.
+ =E2=9D=A6 14 septembre 2016 17:25 CEST, David Ahern <dsa@cumulusnetworks.c=
+om>=C2=A0:
 
-Any reason why? I don't think we need to. Vmxnet3 should just pick up the m=
-oved
-PCI device id from pci_ids.h file.
+>> I could just give more time to VRF. I also had some concerns over
+>> performance with the way Netfilter integration is done, but I understand
+>> that I could just stay away from POSTROUTING rules which is the only
+>> hook executed twice?
 
-- Adit
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> With the changes that were committed this past weekend, the VRF code
+> is now setup where I can set a flag on a per VRF basis to disable the
+> extra rx and tx processing - ie., no network taps, no netfilter, no
+> qdisc, etc. Drops the overhead of VRF to ~3% maybe a bit less. I need
+> to think about the user api a bit more and formalize the patch. Given
+> my other commitments that probably won't happen until mid-October. But
+> in terms of a building block, the overhead of VRF is continuing to
+> drop.
+
+Fine by me. We can drop my patch.
+
+Thanks!
+--=20
+Program defensively.
+            - The Elements of Programming Style (Kernighan & Plauger)
