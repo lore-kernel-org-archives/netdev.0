@@ -1,7 +1,7 @@
 From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH 6/9] net: ethernet: ti: cpts: clean up event list if event pool is empty
-Date: Wed, 14 Sep 2016 16:02:28 +0300
-Message-ID: <20160914130231.3035-7-grygorii.strashko@ti.com>
+Subject: [PATCH 5/9] net: ethernet: ti: cpts: add return value to tx and rx timestamp funcitons
+Date: Wed, 14 Sep 2016 16:02:27 +0300
+Message-ID: <20160914130231.3035-6-grygorii.strashko@ti.com>
 References: <20160914130231.3035-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,79 +11,108 @@ Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
 To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
         Mugunthan V N <mugunthanvnm@ti.com>,
         Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from comal.ext.ti.com ([198.47.26.152]:51700 "EHLO comal.ext.ti.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1762008AbcINNCp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 14 Sep 2016 09:02:45 -0400
 In-Reply-To: <20160914130231.3035-1-grygorii.strashko@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: WingMan Kwok <w-kwok2@ti.com>
 
-When a CPTS user does not exit gracefully by disabling cpts
-timestamping and leaving a joined multicast group, the system
-continues to receive and timestamps the ptp packets which eventually
-occupy all the event list entries.  When this happns, the added code
-tries to remove some list entries which are expired.
+Added return values in tx and rx timestamp funcitons facilitate the
+possibililies of timestamping by CPSW modules other than CPTS, such as
+packet accelerator on Keystone 2 devices.
 
 Signed-off-by: WingMan Kwok <w-kwok2@ti.com>
 Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 ---
- drivers/net/ethernet/ti/cpts.c | 30 ++++++++++++++++++++++++++++--
- 1 file changed, 28 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/ti/cpts.c | 16 ++++++++++------
+ drivers/net/ethernet/ti/cpts.h | 11 +++++++----
+ 2 files changed, 17 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
-index 970d4e2..ff8bb85 100644
+index 1ee64c6..970d4e2 100644
 --- a/drivers/net/ethernet/ti/cpts.c
 +++ b/drivers/net/ethernet/ti/cpts.c
-@@ -57,22 +57,48 @@ static int cpts_fifo_pop(struct cpts *cpts, u32 *high, u32 *low)
- 	return -1;
+@@ -302,34 +302,38 @@ static u64 cpts_find_ts(struct cpts *cpts, struct sk_buff *skb, int ev_type)
+ 	return ns;
  }
  
-+static int cpts_event_list_clean_up(struct cpts *cpts)
-+{
-+	struct list_head *this, *next;
-+	struct cpts_event *event;
-+	int removed = 0;
-+
-+	list_for_each_safe(this, next, &cpts->events) {
-+		event = list_entry(this, struct cpts_event, list);
-+		if (event_expired(event)) {
-+			list_del_init(&event->list);
-+			list_add(&event->list, &cpts->pool);
-+			++removed;
-+		}
-+	}
-+	return removed;
-+}
-+
- /*
-  * Returns zero if matching event type was found.
-  */
- static int cpts_fifo_read(struct cpts *cpts, int match)
+-void cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb)
++int cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb)
  {
- 	int i, type = -1;
-+	int removed;
- 	u32 hi, lo;
- 	struct cpts_event *event;
+ 	u64 ns;
+ 	struct skb_shared_hwtstamps *ssh;
  
- 	for (i = 0; i < CPTS_FIFO_DEPTH; i++) {
- 		if (cpts_fifo_pop(cpts, &hi, &lo))
- 			break;
+ 	if (!cpts || !cpts->rx_enable)
+-		return;
++		return -EPERM;
+ 	ns = cpts_find_ts(cpts, skb, CPTS_EV_RX);
+ 	if (!ns)
+-		return;
++		return -ENOENT;
+ 	ssh = skb_hwtstamps(skb);
+ 	memset(ssh, 0, sizeof(*ssh));
+ 	ssh->hwtstamp = ns_to_ktime(ns);
 +
- 		if (list_empty(&cpts->pool)) {
--			pr_err("cpts: event pool is empty\n");
--			return -1;
-+			removed = cpts_event_list_clean_up(cpts);
-+			if (!removed) {
-+				dev_err(cpts->dev,
-+					"cpts: event pool is empty\n");
-+				return -1;
-+			}
-+			dev_dbg(cpts->dev,
-+				"cpts: event pool cleaned up %d\n", removed);
- 		}
++	return 0;
+ }
+ 
+-void cpts_tx_timestamp(struct cpts *cpts, struct sk_buff *skb)
++int cpts_tx_timestamp(struct cpts *cpts, struct sk_buff *skb)
+ {
+ 	u64 ns;
+ 	struct skb_shared_hwtstamps ssh;
+ 
+ 	if (!cpts || !(skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS))
+-		return;
++		return -EPERM;
+ 	ns = cpts_find_ts(cpts, skb, CPTS_EV_TX);
+ 	if (!ns)
+-		return;
++		return -ENOENT;
+ 	memset(&ssh, 0, sizeof(ssh));
+ 	ssh.hwtstamp = ns_to_ktime(ns);
+ 	skb_tstamp_tx(skb, &ssh);
 +
- 		event = list_first_entry(&cpts->pool, struct cpts_event, list);
- 		event->tmo = jiffies + 2;
- 		event->high = hi;
++	return 0;
+ }
+ 
+ int cpts_register(struct cpts *cpts)
+diff --git a/drivers/net/ethernet/ti/cpts.h b/drivers/net/ethernet/ti/cpts.h
+index a865193..47026ec 100644
+--- a/drivers/net/ethernet/ti/cpts.h
++++ b/drivers/net/ethernet/ti/cpts.h
+@@ -129,8 +129,8 @@ struct cpts {
+ 	struct cpts_event pool_data[CPTS_MAX_EVENTS];
+ };
+ 
+-void cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb);
+-void cpts_tx_timestamp(struct cpts *cpts, struct sk_buff *skb);
++int cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb);
++int cpts_tx_timestamp(struct cpts *cpts, struct sk_buff *skb);
+ int cpts_register(struct cpts *cpts);
+ void cpts_unregister(struct cpts *cpts);
+ struct cpts *cpts_create(struct device *dev, void __iomem *regs,
+@@ -162,11 +162,14 @@ static inline bool cpts_is_tx_enabled(struct cpts *cpts)
+ #else
+ struct cpts;
+ 
+-static inline void cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb)
++static inline int cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb)
+ {
++	return -EOPNOTSUPP;
+ }
+-static inline void cpts_tx_timestamp(struct cpts *cpts, struct sk_buff *skb)
++
++static inline int cpts_tx_timestamp(struct cpts *cpts, struct sk_buff *skb)
+ {
++	return -EOPNOTSUPP;
+ }
+ 
+ static inline
 -- 
 2.9.3
