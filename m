@@ -1,49 +1,52 @@
-From: "Amrani, Ram" <Ram.Amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Subject: RE: [RFC 00/11] QLogic RDMA Driver (qedr) RFC
-Date: Wed, 14 Sep 2016 14:44:47 +0000
-Message-ID: <SN1PR07MB2207486633D88B5C65D547F9F8F10@SN1PR07MB2207.namprd07.prod.outlook.com>
-References: <1473696465-27986-1-git-send-email-Ram.Amrani@qlogic.com>
- <20160912180508.GI5843@obsidianresearch.com>
- <DM3PR1101MB1181DF570D4F01A0CEB1CFC7E2FE0@DM3PR1101MB1181.namprd11.prod.outlook.com>
- <20160913154000.GA25878@obsidianresearch.com>
+From: Tariq Toukan <ttoukan.linux@gmail.com>
+Subject: Re: [PATCH] net/mlx4_en: fix off by one in error handling
+Date: Wed, 14 Sep 2016 17:49:49 +0300
+Message-ID: <b2197c51-57a9-ab01-e940-9850a39484d6@gmail.com>
+References: <alpine.LFD.2.20.1609141305360.1727@schleppi>
+ <df5834ee-00c2-3f18-ae83-8bb06b6c675b@gmail.com>
+ <alpine.LFD.2.20.1609141548390.11022@schleppi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Yuval Mintz <Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        Ariel Elior <Ariel.Elior-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        Michal Kalderon <Michal.Kalderon-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        Rajesh Borundia <rajesh.borundia-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160913154000.GA25878-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Yishai Hadas <yishaih@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Sebastian Ott <sebott@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.20.1609141548390.11022@schleppi>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Anything that is used with copy_to/from_user, ib_copy_to/from_udata,=20
-> etc, etc must be in a include/uapi header.
->=20
-> Any constant you might want to copy into your userspace provider must=20
-> be in include/uapi.
->=20
-I understand you mean something like https://www.spinics.net/lists/linux-rd=
-ma/msg40414.html ([RFC rdma-next 0/3] Move mlx5 vendor specific to UAPI dir=
-ectory)
 
-> Avoid copying headers in your user space and use the standard kernel=20
-> names to access your driver's uapi.
-So the user library should be able to compile against these headers in thei=
-r location and not hold identical copies.
-What do you mean by "standard kernel names"?
 
-Thanks,
-Ram
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On 14/09/2016 4:53 PM, Sebastian Ott wrote:
+> Hello Tariq,
+>
+> On Wed, 14 Sep 2016, Tariq Toukan wrote:
+>> On 14/09/2016 2:09 PM, Sebastian Ott wrote:
+>>> If an error occurs in mlx4_init_eq_table the index used in the
+>>> err_out_unmap label is one too big which results in a panic in
+>>> mlx4_free_eq. This patch fixes the index in the error path.
+>> You are right, but your change below does not cover all cases.
+>> The full solution looks like this:
+>>
+>> @@ -1260,7 +1260,7 @@ int mlx4_init_eq_table(struct mlx4_dev *dev)
+>>                                               eq);
+>>                  }
+>>                  if (err)
+>> -                       goto err_out_unmap;
+>> +                       goto err_out_unmap_excluded;
+> In this case a call to mlx4_create_eq failed. Do you really have to call
+> mlx4_free_eq for this index again?
+We agree on this part, that's why here we should goto the _excluded_ label.
+For all other parts, we should not exclude the eq in the highest index, 
+and thus we goto the _non_excluded_ label.
+>   As far as I understood this code
+> mlx4_create_eq cleans up when it fails and thus there is no need for an
+> additional mlx4_free_eq call.
+>
+> Regards,
+> Sebastian
+>
+Regards,
+Tariq
