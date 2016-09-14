@@ -1,143 +1,69 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCHv3 net-next 05/15] bpf: enable non-core use of the verfier
-Date: Wed, 14 Sep 2016 16:05:51 -0700
-Message-ID: <20160914230549.GB60248@ast-mbp.thefacebook.com>
-References: <1473879623-15382-1-git-send-email-jakub.kicinski@netronome.com>
- <1473879623-15382-6-git-send-email-jakub.kicinski@netronome.com>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH net-next 0/4] rxrpc: Support IPv6 [ver #2]
+Date: Thu, 15 Sep 2016 00:06:00 +0100
+Message-ID: <147389436004.2083.13454744739435764689.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, ast@kernel.org, daniel@iogearbox.net,
-        jiri@resnulli.us, john.fastabend@gmail.com, kubakici@wp.pl
-To: Jakub Kicinski <jakub.kicinski@netronome.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:34983 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751061AbcINXFx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 19:05:53 -0400
-Received: by mail-pf0-f196.google.com with SMTP id z84so1359293pfi.2
-        for <netdev@vger.kernel.org>; Wed, 14 Sep 2016 16:05:53 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1473879623-15382-6-git-send-email-jakub.kicinski@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 14, 2016 at 08:00:13PM +0100, Jakub Kicinski wrote:
-> Advanced JIT compilers and translators may want to use
-> eBPF verifier as a base for parsers or to perform custom
-> checks and validations.
-> 
-> Add ability for external users to invoke the verifier
-> and provide callbacks to be invoked for every intruction
-> checked.  For now only add most basic callback for
-> per-instruction pre-interpretation checks is added.  More
-> advanced users may also like to have per-instruction post
-> callback and state comparison callback.
-> 
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> ---
->  include/linux/bpf_parser.h |  89 ++++++++++++++++++++++++++++++
->  kernel/bpf/verifier.c      | 134 +++++++++++++++++++++++----------------------
->  2 files changed, 158 insertions(+), 65 deletions(-)
->  create mode 100644 include/linux/bpf_parser.h
-> 
-> diff --git a/include/linux/bpf_parser.h b/include/linux/bpf_parser.h
-> new file mode 100644
-> index 000000000000..daa53b204f4d
-> --- /dev/null
-> +++ b/include/linux/bpf_parser.h
 
-'bpf parser' is a bit misleading name, since it can be interpreted
-as parser written in bpf.
-Also the header file containes verifier bits, therefore I think
-the better name would be bpf_verifier.h ?
+Here is a set of patches that add IPv6 support.  They need to be applied on
+top of the just-posted miscellaneous fix patches.  They are:
 
-> @@ -0,0 +1,89 @@
-> +/* Copyright (c) 2011-2014 PLUMgrid, http://plumgrid.com
-> + *
-> + * This program is free software; you can redistribute it and/or
-> + * modify it under the terms of version 2 of the GNU General Public
-> + * License as published by the Free Software Foundation.
-> + */
-> +#ifndef _LINUX_BPF_PARSER_H
-> +#define _LINUX_BPF_PARSER_H 1
-> +
-> +#include <linux/bpf.h> /* for enum bpf_reg_type */
-> +#include <linux/filter.h> /* for MAX_BPF_STACK */
-> +
-> +struct reg_state {
-> +	enum bpf_reg_type type;
-> +	union {
-> +		/* valid when type == CONST_IMM | PTR_TO_STACK | UNKNOWN_VALUE */
-> +		s64 imm;
-> +
-> +		/* valid when type == PTR_TO_PACKET* */
-> +		struct {
-> +			u32 id;
-> +			u16 off;
-> +			u16 range;
-> +		};
-> +
-> +		/* valid when type == CONST_PTR_TO_MAP | PTR_TO_MAP_VALUE |
-> +		 *   PTR_TO_MAP_VALUE_OR_NULL
-> +		 */
-> +		struct bpf_map *map_ptr;
-> +	};
-> +};
-> +
-> +enum bpf_stack_slot_type {
-> +	STACK_INVALID,    /* nothing was stored in this stack slot */
-> +	STACK_SPILL,      /* register spilled into stack */
-> +	STACK_MISC	  /* BPF program wrote some data into this slot */
-> +};
-> +
-> +#define BPF_REG_SIZE 8	/* size of eBPF register in bytes */
-> +
-> +/* state of the program:
-> + * type of all registers and stack info
-> + */
-> +struct verifier_state {
-> +	struct reg_state regs[MAX_BPF_REG];
-> +	u8 stack_slot_type[MAX_BPF_STACK];
-> +	struct reg_state spilled_regs[MAX_BPF_STACK / BPF_REG_SIZE];
-> +};
-> +
-> +/* linked list of verifier states used to prune search */
-> +struct verifier_state_list {
-> +	struct verifier_state state;
-> +	struct verifier_state_list *next;
-> +};
-> +
-> +struct bpf_insn_aux_data {
-> +	enum bpf_reg_type ptr_type;	/* pointer type for load/store insns */
-> +};
-> +
-> +#define MAX_USED_MAPS 64 /* max number of maps accessed by one eBPF program */
-> +
-> +struct verifier_env;
-> +struct bpf_ext_parser_ops {
-> +	int (*insn_hook)(struct verifier_env *env,
-> +			 int insn_idx, int prev_insn_idx);
-> +};
+ (1) Make autobinding of an unconnected socket work when sendmsg() is
+     called to initiate a client call.
 
-How about calling this bpf_ext_analyzer_ops
-and main entry bpf_analyzer() ?
-I think it will better convey what it's doing.
+ (2) Don't specify the protocol when creating the client socket, but rather
+     take the default instead.
 
-> +
-> +/* single container for all structs
-> + * one verifier_env per bpf_check() call
-> + */
-> +struct verifier_env {
-> +	struct bpf_prog *prog;		/* eBPF program being verified */
-> +	struct verifier_stack_elem *head; /* stack of verifier states to be processed */
-> +	int stack_size;			/* number of states to be processed */
-> +	struct verifier_state cur_state; /* current verifier state */
-> +	struct verifier_state_list **explored_states; /* search pruning optimization */
-> +	const struct bpf_ext_parser_ops *pops; /* external parser ops */
-> +	void *ppriv; /* pointer to external parser's private data */
+ (3) Use rxrpc_extract_addr_from_skb() in a couple of places that were
+     doing the same thing manually.  This allows the IPv6 address
+     extraction to be done in fewer places.
 
-a bit hard to review, since move and addition is in one patch.
-I think ppriv and pops are too obscure names.
-May be analyzer_ops and analyzer_priv ?
+ (4) Add IPv6 support.  With this, calls can be made to IPv6 servers from
+     userspace AF_RXRPC programs; AFS, however, can't use IPv6 yet as the
+     RPC calls need to be upgradeable.
 
-Conceptually looks good.
+Changes:
+
+ (V2) Made IPv6 support conditional on CONFIG_IPV6.
+
+      Changed a memcpy argument that was taking the address of an array
+      struct member (with the '&' operator) and adding 12 to just add 12 to
+      the array member.  This otherwise causes a problem on gcc-4.9.
+
+The patches can be found here also:
+
+	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-rewrite
+
+Tagged thusly:
+
+	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
+	rxrpc-rewrite-20160913-2
+
+David
+---
+David Howells (4):
+      rxrpc: Create an address for sendmsg() to bind unbound socket with
+      rxrpc: Don't specify protocol to when creating transport socket
+      rxrpc: Use rxrpc_extract_addr_from_skb() rather than doing this manually
+      rxrpc: Add IPv6 support
+
+
+ net/rxrpc/Kconfig        |    7 +++
+ net/rxrpc/af_rxrpc.c     |   32 +++++++++++-
+ net/rxrpc/conn_object.c  |   10 ++++
+ net/rxrpc/local_event.c  |   13 ++---
+ net/rxrpc/local_object.c |   41 +++++++---------
+ net/rxrpc/output.c       |   50 +++++++++----------
+ net/rxrpc/peer_event.c   |   26 ++++++++++
+ net/rxrpc/peer_object.c  |  119 ++++++++++++++++++++++++++++++----------------
+ net/rxrpc/proc.c         |   30 +++++-------
+ net/rxrpc/utils.c        |    2 +
+ 10 files changed, 211 insertions(+), 119 deletions(-)
