@@ -1,7 +1,7 @@
 From: <sean.wang@mediatek.com>
-Subject: [PATCH net-next v2 7/7] net: ethernet: mediatek: avoid race condition during the reset process
-Date: Wed, 14 Sep 2016 23:13:21 +0800
-Message-ID: <1473866001-9805-8-git-send-email-sean.wang@mediatek.com>
+Subject: [PATCH net-next v2 6/7] net: ethernet: mediatek: add more resets for internal ethernet circuit block
+Date: Wed, 14 Sep 2016 23:13:20 +0800
+Message-ID: <1473866001-9805-7-git-send-email-sean.wang@mediatek.com>
 References: <1473866001-9805-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,156 +10,103 @@ Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
         <objelf@gmail.com>, Sean Wang <sean.wang@mediatek.com>
 To: <john@phrozen.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw02.mediatek.com ([210.61.82.184]:41714 "EHLO
+Received: from mailgw02.mediatek.com ([210.61.82.184]:26317 "EHLO
         mailgw02.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1762269AbcINPNd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 11:13:33 -0400
+        with ESMTP id S1760246AbcINPNb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 11:13:31 -0400
 In-Reply-To: <1473866001-9805-1-git-send-email-sean.wang@mediatek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Sean Wang <sean.wang@mediatek.com>
 
-add the protection of the race condition between
-the reset process and hardware access happening
-on the related callbacks.
+struct mtk_eth has already contained struct regmap ethsys pointer
+to the address range of the internal circuit reset, so we reuse it
+to reset more internal blocks on ethernet hardware such as packet
+processing engine (PPE) and frame engine (FE) instead of rstc which
+deals with FE only.
 
 Signed-off-by: Sean Wang <sean.wang@mediatek.com>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 36 +++++++++++++++++++++++++++++
- drivers/net/ethernet/mediatek/mtk_eth_soc.h |  3 ++-
- 2 files changed, 38 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 27 +++++++++++++++------------
+ drivers/net/ethernet/mediatek/mtk_eth_soc.h |  6 +++++-
+ 2 files changed, 20 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index cde9cd6..b46b08a 100644
+index a7e2e77..cde9cd6 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -145,6 +145,9 @@ static void mtk_phy_link_adjust(struct net_device *dev)
- 		  MAC_MCR_RX_EN | MAC_MCR_BACKOFF_EN |
- 		  MAC_MCR_BACKPR_EN;
- 
-+	if (unlikely(test_bit(MTK_RESETTING, &mac->hw->state)))
-+		return;
-+
- 	switch (mac->phy_dev->speed) {
- 	case SPEED_1000:
- 		mcr |= MAC_MCR_SPEED_1000;
-@@ -370,6 +373,9 @@ static int mtk_set_mac_address(struct net_device *dev, void *p)
- 	if (ret)
- 		return ret;
- 
-+	if (unlikely(test_bit(MTK_RESETTING, &mac->hw->state)))
-+		return -EBUSY;
-+
- 	spin_lock_bh(&mac->hw->page_lock);
- 	mtk_w32(mac->hw, (macaddr[0] << 8) | macaddr[1],
- 		MTK_GDMA_MAC_ADRH(mac->id));
-@@ -770,6 +776,9 @@ static int mtk_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	 */
- 	spin_lock(&eth->page_lock);
- 
-+	if (unlikely(test_bit(MTK_RESETTING, &eth->state)))
-+		goto drop;
-+
- 	tx_num = mtk_cal_txd_req(skb);
- 	if (unlikely(atomic_read(&ring->free_count) <= tx_num)) {
- 		mtk_stop_queue(eth);
-@@ -842,6 +851,9 @@ static int mtk_poll_rx(struct napi_struct *napi, int budget,
- 
- 		netdev = eth->netdev[mac];
- 
-+		if (unlikely(test_bit(MTK_RESETTING, &eth->state)))
-+			goto release_desc;
-+
- 		/* alloc new buffer */
- 		new_data = napi_alloc_frag(ring->frag_size);
- 		if (unlikely(!new_data)) {
-@@ -1573,6 +1585,12 @@ static void mtk_pending_work(struct work_struct *work)
- 
- 	rtnl_lock();
- 
-+	dev_dbg(eth->dev, "[%s][%d] reset\n", __func__, __LINE__);
-+
-+	while (test_and_set_bit_lock(MTK_RESETTING, &eth->state))
-+		cpu_relax();
-+
-+	dev_dbg(eth->dev, "[%s][%d] mtk_stop starts\n", __func__, __LINE__);
- 	/* stop all devices to make sure that dma is properly shut down */
- 	for (i = 0; i < MTK_MAC_COUNT; i++) {
- 		if (!eth->netdev[i])
-@@ -1580,6 +1598,7 @@ static void mtk_pending_work(struct work_struct *work)
- 		mtk_stop(eth->netdev[i]);
- 		__set_bit(i, &restart);
- 	}
-+	dev_dbg(eth->dev, "[%s][%d] mtk_stop ends\n", __func__, __LINE__);
- 
- 	/* restart underlying hardware such as power, clock, pin mux
- 	 * and the connected phy
-@@ -1612,6 +1631,11 @@ static void mtk_pending_work(struct work_struct *work)
- 			dev_close(eth->netdev[i]);
- 		}
- 	}
-+
-+	dev_dbg(eth->dev, "[%s][%d] reset done\n", __func__, __LINE__);
-+
-+	clear_bit_unlock(MTK_RESETTING, &eth->state);
-+
- 	rtnl_unlock();
+@@ -1414,6 +1414,19 @@ static int mtk_stop(struct net_device *dev)
+ 	return 0;
  }
  
-@@ -1656,6 +1680,9 @@ static int mtk_get_settings(struct net_device *dev,
- 	struct mtk_mac *mac = netdev_priv(dev);
- 	int err;
- 
-+	if (unlikely(test_bit(MTK_RESETTING, &mac->hw->state)))
-+		return -EBUSY;
++static void ethsys_reset(struct mtk_eth *eth, u32 reset_bits)
++{
++	regmap_update_bits(eth->ethsys, ETHSYS_RSTCTRL,
++			   reset_bits,
++			   reset_bits);
 +
- 	err = phy_read_status(mac->phy_dev);
- 	if (err)
- 		return -ENODEV;
-@@ -1706,6 +1733,9 @@ static int mtk_nway_reset(struct net_device *dev)
++	usleep_range(1000, 1100);
++	regmap_update_bits(eth->ethsys, ETHSYS_RSTCTRL,
++			   reset_bits,
++			   ~reset_bits);
++	mdelay(10);
++}
++
+ static int mtk_hw_init(struct mtk_eth *eth)
  {
- 	struct mtk_mac *mac = netdev_priv(dev);
+ 	int i, val;
+@@ -1428,12 +1441,8 @@ static int mtk_hw_init(struct mtk_eth *eth)
+ 	clk_prepare_enable(eth->clks[MTK_CLK_ESW]);
+ 	clk_prepare_enable(eth->clks[MTK_CLK_GP1]);
+ 	clk_prepare_enable(eth->clks[MTK_CLK_GP2]);
+-
+-	/* reset the frame engine */
+-	reset_control_assert(eth->rstc);
+-	usleep_range(10, 20);
+-	reset_control_deassert(eth->rstc);
+-	usleep_range(10, 20);
++	ethsys_reset(eth, RSTCTRL_FE);
++	ethsys_reset(eth, RSTCTRL_PPE);
  
-+	if (unlikely(test_bit(MTK_RESETTING, &mac->hw->state)))
-+		return -EBUSY;
-+
- 	return genphy_restart_aneg(mac->phy_dev);
- }
+ 	regmap_read(eth->ethsys, ETHSYS_SYSCFG0, &val);
+ 	for (i = 0; i < MTK_MAC_COUNT; i++) {
+@@ -1893,12 +1902,6 @@ static int mtk_probe(struct platform_device *pdev)
+ 		return PTR_ERR(eth->pctl);
+ 	}
  
-@@ -1714,6 +1744,9 @@ static u32 mtk_get_link(struct net_device *dev)
- 	struct mtk_mac *mac = netdev_priv(dev);
- 	int err;
- 
-+	if (unlikely(test_bit(MTK_RESETTING, &mac->hw->state)))
-+		return -EBUSY;
-+
- 	err = genphy_update_link(mac->phy_dev);
- 	if (err)
- 		return ethtool_op_get_link(dev);
-@@ -1754,6 +1787,9 @@ static void mtk_get_ethtool_stats(struct net_device *dev,
- 	unsigned int start;
- 	int i;
- 
-+	if (unlikely(test_bit(MTK_RESETTING, &mac->hw->state)))
-+		return;
-+
- 	if (netif_running(dev) && netif_device_present(dev)) {
- 		if (spin_trylock(&hwstats->stats_lock)) {
- 			mtk_stats_update_mac(mac);
+-	eth->rstc = devm_reset_control_get(&pdev->dev, "eth");
+-	if (IS_ERR(eth->rstc)) {
+-		dev_err(&pdev->dev, "no eth reset found\n");
+-		return PTR_ERR(eth->rstc);
+-	}
+-
+ 	for (i = 0; i < 3; i++) {
+ 		eth->irq[i] = platform_get_irq(pdev, i);
+ 		if (eth->irq[i] < 0) {
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-index 7efa00f..79954b4 100644
+index 388cbe7..7efa00f 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-@@ -336,7 +336,8 @@ enum mtk_clks_map {
- };
+@@ -266,6 +266,11 @@
+ #define SYSCFG0_GE_MASK		0x3
+ #define SYSCFG0_GE_MODE(x, y)	(x << (12 + (y * 2)))
  
- enum mtk_dev_state {
--	MTK_HW_INIT
-+	MTK_HW_INIT,
-+	MTK_RESETTING
- };
- 
- /* struct mtk_tx_buf -	This struct holds the pointers to the memory pointed at
++/*ethernet reset control register*/
++#define ETHSYS_RSTCTRL		0x34
++#define RSTCTRL_FE		BIT(6)
++#define RSTCTRL_PPE		BIT(31)
++
+ struct mtk_rx_dma {
+ 	unsigned int rxd1;
+ 	unsigned int rxd2;
+@@ -423,7 +428,6 @@ struct mtk_rx_ring {
+ struct mtk_eth {
+ 	struct device			*dev;
+ 	void __iomem			*base;
+-	struct reset_control		*rstc;
+ 	spinlock_t			page_lock;
+ 	spinlock_t			irq_lock;
+ 	struct net_device		dummy_dev;
 -- 
 1.9.1
