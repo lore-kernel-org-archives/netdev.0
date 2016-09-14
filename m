@@ -1,79 +1,103 @@
-From: Marcelo <marcelo.leitner@gmail.com>
-Subject: Re: [RFC PATCH v3 2/7] proc: Reduce cache miss in
- {snmp,netstat}_seq_show
-Date: Wed, 14 Sep 2016 08:55:43 -0300
-Message-ID: <20160914115543.GF17689@localhost.localdomain>
-References: <1473402842-1987-1-git-send-email-hejianet@gmail.com>
- <1473402842-1987-3-git-send-email-hejianet@gmail.com>
- <20160912185752.GB17689@localhost.localdomain>
- <22d87ec3-608f-fe41-5eb7-fe1104f133dd@gmail.com>
+From: Yuval Shaia <yuval.shaia@oracle.com>
+Subject: Re: [PATCH v4 05/16] IB/pvrdma: Add functions for Verbs support
+Date: Wed, 14 Sep 2016 15:28:12 +0300
+Message-ID: <20160914122811.GD15800@yuval-lap.uk.oracle.com>
+References: <1473655766-31628-1-git-send-email-aditr@vmware.com>
+ <1473655766-31628-6-git-send-email-aditr@vmware.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        linux-kernel@vger.kernel.org, davem@davemloft.net,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>
-To: hejianet <hejianet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: dledford@redhat.com, linux-rdma@vger.kernel.org,
+        pv-drivers@vmware.com, netdev@vger.kernel.org,
+        linux-pci@vger.kernel.org, jhansen@vmware.com, asarwade@vmware.com,
+        georgezhang@vmware.com, bryantan@vmware.com
+To: Adit Ranadive <aditr@vmware.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:47720 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752470AbcINM2X (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 08:28:23 -0400
 Content-Disposition: inline
-In-Reply-To: <22d87ec3-608f-fe41-5eb7-fe1104f133dd@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1473655766-31628-6-git-send-email-aditr@vmware.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Jia,
+On Sun, Sep 11, 2016 at 09:49:15PM -0700, Adit Ranadive wrote:
+> +
+> +/**
+> + * pvrdma_alloc_pd - allocate protection domain
+> + * @ibdev: the IB device
+> + * @context: user context
+> + * @udata: user data
+> + *
+> + * @return: the ib_pd protection domain pointer on success, otherwise errno.
+> + */
+> +struct ib_pd *pvrdma_alloc_pd(struct ib_device *ibdev,
+> +			      struct ib_ucontext *context,
+> +			      struct ib_udata *udata)
+> +{
+> +	struct pvrdma_pd *pd;
+> +	struct pvrdma_dev *dev = to_vdev(ibdev);
+> +	union pvrdma_cmd_req req;
+> +	union pvrdma_cmd_resp rsp;
+> +	struct pvrdma_cmd_create_pd *cmd = &req.create_pd;
+> +	struct pvrdma_cmd_create_pd_resp *resp = &rsp.create_pd_resp;
+> +	int ret;
+> +	void *ptr;
+> +
+> +	/* Check allowed max pds */
+> +	if (!atomic_add_unless(&dev->num_pds, 1, dev->dsr->caps.max_pd))
+> +		return ERR_PTR(-EINVAL);
+> +
+> +	memset(cmd, 0, sizeof(*cmd));
+> +	cmd->hdr.cmd = PVRDMA_CMD_CREATE_PD;
+> +	cmd->ctx_handle = (context) ? to_vucontext(context)->ctx_handle : 0;
+> +	ret = pvrdma_cmd_post(dev, &req, &rsp);
+> +	if (ret < 0) {
+> +		dev_warn(&dev->pdev->dev,
+> +			 "failed to allocate protection domain, error: %d\n",
+> +			 ret);
+> +		ptr = ERR_PTR(ret);
+> +		goto err;
+> +	} else if (resp->hdr.ack != PVRDMA_CMD_CREATE_PD_RESP) {
+> +		dev_warn(&dev->pdev->dev,
+> +			 "unknown response for allocate protection domain\n");
+> +		ptr = ERR_PTR(-EFAULT);
+> +		goto err;
+> +	}
+> +
+> +	pd = kmalloc(sizeof(*pd), GFP_KERNEL);
+> +	if (!pd) {
+> +		ptr = ERR_PTR(-ENOMEM);
+> +		goto err;
+> +	}
 
-On Wed, Sep 14, 2016 at 01:58:42PM +0800, hejianet wrote:
-> Hi Marcelo
-> 
-> 
-> On 9/13/16 2:57 AM, Marcelo wrote:
-> > On Fri, Sep 09, 2016 at 02:33:57PM +0800, Jia He wrote:
-> > > This is to use the generic interface snmp_get_cpu_field{,64}_batch to
-> > > aggregate the data by going through all the items of each cpu sequentially.
-> > > Then snmp_seq_show and netstat_seq_show are split into 2 parts to avoid build
-> > > warning "the frame size" larger than 1024 on s390.
-> > Yeah about that, did you test it with stack overflow detection?
-> > These arrays can be quite large.
-> > 
-> > One more below..
-> Do you think it is acceptable if the stack usage is a little larger than 1024?
-> e.g. 1120
-> I can't find any other way to reduce the stack usage except use "static" before
-> unsigned long buff[TCP_MIB_MAX]
-> 
-> PS. sizeof buff is about TCP_MIB_MAX(116)*8=928
-> B.R.
+I know that this was my suggestion but also remember that you raised a
+(correct) argument that it is preferred to first do other allocation and
+free them if command fails then the other way around where failure of
+memory allocation (like here) will force us to do the opposite command
+(pvrdma_dealloc_pd in this case).
 
-That's pretty much the question. Linux has the option on some archs to
-run with 4Kb (4KSTACKS option), so this function alone would be using
-25% of it in this last case. While on x86_64, it uses 16Kb (6538b8ea886e
-("x86_64: expand kernel stack to 16K")).
+So either accept your way (better) or call pvrdma_dealloc_pd when kmalloc
+fails.
 
-Adding static to it is not an option as it actually makes the variable
-shared amongst the CPUs (and then you have concurrency issues), plus the
-fact that it's always allocated, even while not in use.
-
-Others here certainly know better than me if it's okay to make such
-usage of the stach.
-
-> > > +static int netstat_seq_show_ipext(struct seq_file *seq, void *v)
-> > > +{
-> > > +	int i;
-> > > +	u64 buff64[IPSTATS_MIB_MAX];
-> > > +	struct net *net = seq->private;
-> > >   	seq_puts(seq, "\nIpExt:");
-> > >   	for (i = 0; snmp4_ipextstats_list[i].name != NULL; i++)
-> > >   		seq_printf(seq, " %s", snmp4_ipextstats_list[i].name);
-> > >   	seq_puts(seq, "\nIpExt:");
-> > You're missing a memset() call here.
-
-Not sure if you missed this one or not..
-
-Thanks,
-Marcelo
+> +
+> +	pd->privileged = !context;
+> +	pd->pd_handle = resp->pd_handle;
+> +	pd->pdn = resp->pd_handle;
+> +
+> +	if (context) {
+> +		if (ib_copy_to_udata(udata, &pd->pdn, sizeof(__u32))) {
+> +			dev_warn(&dev->pdev->dev,
+> +				 "failed to copy back protection domain\n");
+> +			pvrdma_dealloc_pd(&pd->ibpd);
+> +			return ERR_PTR(-EFAULT);
+> +		}
+> +	}
+> +
+> +	/* u32 pd handle */
+> +	return  &pd->ibpd;
+> +
+> +err:
+> +	atomic_dec(&dev->num_pds);
+> +	return ptr;
+> +}
