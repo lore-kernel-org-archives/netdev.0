@@ -1,162 +1,174 @@
 From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
-Subject: [RFC v3 17/22] cgroup: Add access check for cgroup_get_from_fd()
-Date: Wed, 14 Sep 2016 09:24:10 +0200
-Message-ID: <20160914072415.26021-18-mic@digikod.net>
+Subject: [RFC v3 13/22] bpf/cgroup: Replace struct bpf_prog with union bpf_object
+Date: Wed, 14 Sep 2016 09:24:06 +0200
+Message-ID: <20160914072415.26021-14-mic@digikod.net>
 References: <20160914072415.26021-1-mic@digikod.net>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
 Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
         Alexei Starovoitov <ast@kernel.org>,
-        Andy Lutomirski <luto@amacapital.net>,
-        Arnd Bergmann <arnd@arndb.de>,
+        Andy Lutomirski <luto@amacapital.net>, Arnd Bergmann <arnd@arndb.de>,
         Casey Schaufler <casey@schaufler-ca.com>,
         Daniel Borkmann <daniel@iogearbox.net>,
-        Daniel Mack <daniel@zonque.org>,
-        David Drysdale <drysdale@google.com>,
+        Daniel Mack <daniel@zonque.org>, David Drysdale <drysdale@google.com>,
         "David S . Miller" <davem@davemloft.net>,
         Elena Reshetova <elena.reshetova@intel.com>,
         "Eric W . Biederman" <ebiederm@xmission.com>,
         James Morris <james.l.morris@oracle.com>,
-        Kees Cook <keescook@chromium.org>,
-        Paul Moore <pmoore@redhat.com>,
+        Kees Cook <keescook@chromium.org>, Paul Moore <pmoore@redhat.com>,
         Sargun Dhillon <sargun@sargun.me>,
         "Serge E . Hallyn" <serge@hallyn.com>, Tejun Heo <tj@kernel.org>,
-        Will Drewry <wad@chromium.org>,
-        kernel-hardening@lists.openwall.com, linux-api@vger.kernel.org,
+        Will Drewry <wad@chromium.org>, kernel-hardening@lists.openwall.com,
+        linux-api@vger.kernel.org, linux-security-module@vger.
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-sh.infomaniak.ch ([128.65.195.4]:41893 "EHLO
-        smtp-sh.infomaniak.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1759721AbcINH0J (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 03:26:09 -0400
+Return-path: <kernel-hardening-return-4599-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
 In-Reply-To: <20160914072415.26021-1-mic@digikod.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Id: netdev.vger.kernel.org
 
-Add security access check for cgroup backed FD. The "cgroup.procs" file
-of the corresponding cgroup must be readable to identify the cgroup, and
-writable to prove that the current process can manage this cgroup (e.g.
-through delegation). This is similar to the check done by
-cgroup_procs_write_permission().
+This allows CONFIG_CGROUP_BPF to manage different type of pointers
+instead of only eBPF programs. This will be useful for the next commits
+to support Landlock with cgroups.
 
 Signed-off-by: Mickaël Salaün <mic@digikod.net>
 Cc: Alexei Starovoitov <ast@kernel.org>
-Cc: Andy Lutomirski <luto@amacapital.net>
 Cc: Daniel Borkmann <daniel@iogearbox.net>
 Cc: Daniel Mack <daniel@zonque.org>
 Cc: David S. Miller <davem@davemloft.net>
-Cc: Kees Cook <keescook@chromium.org>
 Cc: Tejun Heo <tj@kernel.org>
 ---
- include/linux/cgroup.h |  2 +-
- kernel/bpf/arraymap.c  |  2 +-
- kernel/bpf/syscall.c   |  6 +++---
- kernel/cgroup.c        | 16 +++++++++++++++-
- 4 files changed, 20 insertions(+), 6 deletions(-)
+ include/linux/bpf-cgroup.h |  8 ++++++--
+ kernel/bpf/cgroup.c        | 44 +++++++++++++++++++++++---------------------
+ 2 files changed, 29 insertions(+), 23 deletions(-)
 
-diff --git a/include/linux/cgroup.h b/include/linux/cgroup.h
-index c4688742ddc4..5767d471e292 100644
---- a/include/linux/cgroup.h
-+++ b/include/linux/cgroup.h
-@@ -87,7 +87,7 @@ struct cgroup_subsys_state *css_tryget_online_from_dir(struct dentry *dentry,
- 						       struct cgroup_subsys *ss);
+diff --git a/include/linux/bpf-cgroup.h b/include/linux/bpf-cgroup.h
+index fc076de74ab9..2234042d7f61 100644
+--- a/include/linux/bpf-cgroup.h
++++ b/include/linux/bpf-cgroup.h
+@@ -14,14 +14,18 @@ struct sk_buff;
+ extern struct static_key_false cgroup_bpf_enabled_key;
+ #define cgroup_bpf_enabled static_branch_unlikely(&cgroup_bpf_enabled_key)
  
- struct cgroup *cgroup_get_from_path(const char *path);
--struct cgroup *cgroup_get_from_fd(int fd);
-+struct cgroup *cgroup_get_from_fd(int fd, int access_mask);
++union bpf_object {
++	struct bpf_prog *prog;
++};
++
+ struct cgroup_bpf {
+ 	/*
+ 	 * Store two sets of bpf_prog pointers, one for programs that are
+ 	 * pinned directly to this cgroup, and one for those that are effective
+ 	 * when this cgroup is accessed.
+ 	 */
+-	struct bpf_prog *prog[MAX_BPF_ATTACH_TYPE];
+-	struct bpf_prog *effective[MAX_BPF_ATTACH_TYPE];
++	union bpf_object pinned[MAX_BPF_ATTACH_TYPE];
++	union bpf_object effective[MAX_BPF_ATTACH_TYPE];
+ };
  
- int cgroup_attach_task_all(struct task_struct *from, struct task_struct *);
- int cgroup_transfer_tasks(struct cgroup *to, struct cgroup *from);
-diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
-index edaab4c87292..1d4de8e0ab13 100644
---- a/kernel/bpf/arraymap.c
-+++ b/kernel/bpf/arraymap.c
-@@ -552,7 +552,7 @@ static void *cgroup_fd_array_get_ptr(struct bpf_map *map,
- 				     struct file *map_file /* not used */,
- 				     int fd)
+ void cgroup_bpf_put(struct cgroup *cgrp);
+diff --git a/kernel/bpf/cgroup.c b/kernel/bpf/cgroup.c
+index 21d168c3ad35..782878ec4f2d 100644
+--- a/kernel/bpf/cgroup.c
++++ b/kernel/bpf/cgroup.c
+@@ -20,18 +20,18 @@ DEFINE_STATIC_KEY_FALSE(cgroup_bpf_enabled_key);
+ EXPORT_SYMBOL(cgroup_bpf_enabled_key);
+ 
+ /**
+- * cgroup_bpf_put() - put references of all bpf programs
++ * cgroup_bpf_put() - put references of all bpf objects
+  * @cgrp: the cgroup to modify
+  */
+ void cgroup_bpf_put(struct cgroup *cgrp)
  {
--	return cgroup_get_from_fd(fd);
-+	return cgroup_get_from_fd(fd, MAY_READ);
+ 	unsigned int type;
+ 
+-	for (type = 0; type < ARRAY_SIZE(cgrp->bpf.prog); type++) {
+-		struct bpf_prog *prog = cgrp->bpf.prog[type];
++	for (type = 0; type < ARRAY_SIZE(cgrp->bpf.pinned); type++) {
++		union bpf_object pinned = cgrp->bpf.pinned[type];
+ 
+-		if (prog) {
+-			bpf_prog_put(prog);
++		if (pinned.prog) {
++			bpf_prog_put(pinned.prog);
+ 			static_branch_dec(&cgroup_bpf_enabled_key);
+ 		}
+ 	}
+@@ -47,11 +47,12 @@ void cgroup_bpf_inherit(struct cgroup *cgrp, struct cgroup *parent)
+ 	unsigned int type;
+ 
+ 	for (type = 0; type < ARRAY_SIZE(cgrp->bpf.effective); type++) {
+-		struct bpf_prog *e;
++		union bpf_object e;
+ 
+-		e = rcu_dereference_protected(parent->bpf.effective[type],
+-					      lockdep_is_held(&cgroup_mutex));
+-		rcu_assign_pointer(cgrp->bpf.effective[type], e);
++		e.prog = rcu_dereference_protected(
++				parent->bpf.effective[type].prog,
++				lockdep_is_held(&cgroup_mutex));
++		rcu_assign_pointer(cgrp->bpf.effective[type].prog, e.prog);
+ 	}
  }
  
- static void cgroup_fd_array_put_ptr(void *ptr)
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index e9c5add327e6..f90225dbbb59 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -17,6 +17,7 @@
- #include <linux/license.h>
- #include <linux/filter.h>
- #include <linux/version.h>
-+#include <linux/fs.h>
- 
- DEFINE_PER_CPU(int, bpf_prog_active);
- 
-@@ -863,7 +864,7 @@ static int bpf_prog_attach(const union bpf_attr *attr)
- 	if (IS_ERR(prog))
- 		return PTR_ERR(prog);
- 
--	cgrp = cgroup_get_from_fd(attr->target_fd);
-+	cgrp = cgroup_get_from_fd(attr->target_fd, MAY_WRITE);
- 	if (IS_ERR(cgrp)) {
- 		bpf_prog_put(prog);
- 		return PTR_ERR(cgrp);
-@@ -891,10 +892,9 @@ static int bpf_prog_detach(const union bpf_attr *attr)
- 		if (!capable(CAP_NET_ADMIN))
- 			return -EPERM;
- 
--		cgrp = cgroup_get_from_fd(attr->target_fd);
-+		cgrp = cgroup_get_from_fd(attr->target_fd, MAY_WRITE);
- 		if (IS_ERR(cgrp))
- 			return PTR_ERR(cgrp);
--
- 		result = cgroup_bpf_update(cgrp, NULL, attr->attach_type);
- 		cgroup_put(cgrp);
- 		break;
-diff --git a/kernel/cgroup.c b/kernel/cgroup.c
-index 48b650a640a9..3bbaf3f02ed2 100644
---- a/kernel/cgroup.c
-+++ b/kernel/cgroup.c
-@@ -6241,17 +6241,20 @@ EXPORT_SYMBOL_GPL(cgroup_get_from_path);
- /**
-  * cgroup_get_from_fd - get a cgroup pointer from a fd
-  * @fd: fd obtained by open(cgroup2_dir)
-+ * @access_mask: contains the permission mask
-  *
-  * Find the cgroup from a fd which should be obtained
-  * by opening a cgroup directory.  Returns a pointer to the
-  * cgroup on success. ERR_PTR is returned if the cgroup
-  * cannot be found.
-  */
--struct cgroup *cgroup_get_from_fd(int fd)
-+struct cgroup *cgroup_get_from_fd(int fd, int access_mask)
+@@ -87,32 +88,33 @@ void __cgroup_bpf_update(struct cgroup *cgrp,
+ 			 struct bpf_prog *prog,
+ 			 enum bpf_attach_type type)
  {
- 	struct cgroup_subsys_state *css;
- 	struct cgroup *cgrp;
- 	struct file *f;
-+	struct inode *inode;
-+	int ret;
+-	struct bpf_prog *old_prog, *effective;
++	union bpf_object obj, old_pinned, effective;
+ 	struct cgroup_subsys_state *pos;
  
- 	f = fget_raw(fd);
- 	if (!f)
-@@ -6268,6 +6271,17 @@ struct cgroup *cgroup_get_from_fd(int fd)
- 		return ERR_PTR(-EBADF);
+-	old_prog = xchg(cgrp->bpf.prog + type, prog);
++	obj.prog = prog;
++	old_pinned = xchg(cgrp->bpf.pinned + type, obj);
+ 
+-	effective = (!prog && parent) ?
+-		rcu_dereference_protected(parent->bpf.effective[type],
++	effective.prog = (!obj.prog && parent) ?
++		rcu_dereference_protected(parent->bpf.effective[type].prog,
+ 					  lockdep_is_held(&cgroup_mutex)) :
+-		prog;
++		obj.prog;
+ 
+ 	css_for_each_descendant_pre(pos, &cgrp->self) {
+ 		struct cgroup *desc = container_of(pos, struct cgroup, self);
+ 
+ 		/* skip the subtree if the descendant has its own program */
+-		if (desc->bpf.prog[type] && desc != cgrp)
++		if (desc->bpf.pinned[type].prog && desc != cgrp)
+ 			pos = css_rightmost_descendant(pos);
+ 		else
+-			rcu_assign_pointer(desc->bpf.effective[type],
+-					   effective);
++			rcu_assign_pointer(desc->bpf.effective[type].prog,
++					   effective.prog);
  	}
  
-+	ret = -ENOMEM;
-+	inode = kernfs_get_inode(f->f_path.dentry->d_sb, cgrp->procs_file.kn);
-+	if (inode) {
-+		ret = inode_permission(inode, access_mask);
-+		iput(inode);
-+	}
-+	if (ret) {
-+		cgroup_put(cgrp);
-+		return ERR_PTR(ret);
-+	}
-+
- 	return cgrp;
+-	if (prog)
++	if (obj.prog)
+ 		static_branch_inc(&cgroup_bpf_enabled_key);
+ 
+-	if (old_prog) {
+-		bpf_prog_put(old_prog);
++	if (old_pinned.prog) {
++		bpf_prog_put(old_pinned.prog);
+ 		static_branch_dec(&cgroup_bpf_enabled_key);
+ 	}
  }
- EXPORT_SYMBOL_GPL(cgroup_get_from_fd);
+@@ -151,7 +153,7 @@ int __cgroup_bpf_run_filter(struct sock *sk,
+ 
+ 	rcu_read_lock();
+ 
+-	prog = rcu_dereference(cgrp->bpf.effective[type]);
++	prog = rcu_dereference(cgrp->bpf.effective[type].prog);
+ 	if (prog) {
+ 		unsigned int offset = skb->data - skb_mac_header(skb);
+ 
 -- 
 2.9.3
