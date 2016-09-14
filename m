@@ -1,174 +1,192 @@
 From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
-Subject: [RFC v3 13/22] bpf/cgroup: Replace struct bpf_prog with union bpf_object
-Date: Wed, 14 Sep 2016 09:24:06 +0200
-Message-ID: <20160914072415.26021-14-mic@digikod.net>
+Subject: [RFC v3 21/22] bpf,landlock: Add optional skb pointer in the Landlock context
+Date: Wed, 14 Sep 2016 09:24:14 +0200
+Message-ID: <20160914072415.26021-22-mic@digikod.net>
 References: <20160914072415.26021-1-mic@digikod.net>
-Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
 Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
         Alexei Starovoitov <ast@kernel.org>,
-        Andy Lutomirski <luto@amacapital.net>, Arnd Bergmann <arnd@arndb.de>,
+        Andy Lutomirski <luto@amacapital.net>,
+        Arnd Bergmann <arnd@arndb.de>,
         Casey Schaufler <casey@schaufler-ca.com>,
         Daniel Borkmann <daniel@iogearbox.net>,
-        Daniel Mack <daniel@zonque.org>, David Drysdale <drysdale@google.com>,
+        Daniel Mack <daniel@zonque.org>,
+        David Drysdale <drysdale@google.com>,
         "David S . Miller" <davem@davemloft.net>,
         Elena Reshetova <elena.reshetova@intel.com>,
         "Eric W . Biederman" <ebiederm@xmission.com>,
         James Morris <james.l.morris@oracle.com>,
-        Kees Cook <keescook@chromium.org>, Paul Moore <pmoore@redhat.com>,
+        Kees Cook <keescook@chromium.org>,
+        Paul Moore <pmoore@redhat.com>,
         Sargun Dhillon <sargun@sargun.me>,
         "Serge E . Hallyn" <serge@hallyn.com>, Tejun Heo <tj@kernel.org>,
-        Will Drewry <wad@chromium.org>, kernel-hardening@lists.openwall.com,
-        linux-api@vger.kernel.org, linux-security-module@vger.
+        Will Drewry <wad@chromium.org>,
+        kernel-hardening@lists.openwall.com, linux-api@vger.kernel.org,
 To: linux-kernel@vger.kernel.org
-Return-path: <kernel-hardening-return-4599-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-sh.infomaniak.ch ([128.65.195.4]:59211 "EHLO
+        smtp-sh.infomaniak.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1760588AbcINH0I (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 03:26:08 -0400
 In-Reply-To: <20160914072415.26021-1-mic@digikod.net>
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This allows CONFIG_CGROUP_BPF to manage different type of pointers
-instead of only eBPF programs. This will be useful for the next commits
-to support Landlock with cgroups.
+This is a proof of concept to expose optional values that could depend
+of the process access rights.
+
+There is two dedicated flags: LANDLOCK_FLAG_ACCESS_SKB_READ and
+LANDLOCK_FLAG_ACCESS_SKB_WRITE. Each of them can be activated to access
+eBPF functions manipulating a skb in a read or write way.
 
 Signed-off-by: Mickaël Salaün <mic@digikod.net>
 Cc: Alexei Starovoitov <ast@kernel.org>
+Cc: Andy Lutomirski <luto@amacapital.net>
 Cc: Daniel Borkmann <daniel@iogearbox.net>
-Cc: Daniel Mack <daniel@zonque.org>
 Cc: David S. Miller <davem@davemloft.net>
-Cc: Tejun Heo <tj@kernel.org>
+Cc: Kees Cook <keescook@chromium.org>
+Cc: Sargun Dhillon <sargun@sargun.me>
 ---
- include/linux/bpf-cgroup.h |  8 ++++++--
- kernel/bpf/cgroup.c        | 44 +++++++++++++++++++++++---------------------
- 2 files changed, 29 insertions(+), 23 deletions(-)
+ include/linux/bpf.h      |  2 ++
+ include/uapi/linux/bpf.h |  7 ++++++-
+ kernel/bpf/verifier.c    |  6 ++++++
+ security/landlock/lsm.c  | 26 ++++++++++++++++++++++++++
+ 4 files changed, 40 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/bpf-cgroup.h b/include/linux/bpf-cgroup.h
-index fc076de74ab9..2234042d7f61 100644
---- a/include/linux/bpf-cgroup.h
-+++ b/include/linux/bpf-cgroup.h
-@@ -14,14 +14,18 @@ struct sk_buff;
- extern struct static_key_false cgroup_bpf_enabled_key;
- #define cgroup_bpf_enabled static_branch_unlikely(&cgroup_bpf_enabled_key)
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index f7325c17f720..218973777612 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -88,6 +88,7 @@ enum bpf_arg_type {
  
-+union bpf_object {
-+	struct bpf_prog *prog;
-+};
-+
- struct cgroup_bpf {
- 	/*
- 	 * Store two sets of bpf_prog pointers, one for programs that are
- 	 * pinned directly to this cgroup, and one for those that are effective
- 	 * when this cgroup is accessed.
- 	 */
--	struct bpf_prog *prog[MAX_BPF_ATTACH_TYPE];
--	struct bpf_prog *effective[MAX_BPF_ATTACH_TYPE];
-+	union bpf_object pinned[MAX_BPF_ATTACH_TYPE];
-+	union bpf_object effective[MAX_BPF_ATTACH_TYPE];
+ 	ARG_PTR_TO_STRUCT_FILE,		/* pointer to struct file */
+ 	ARG_CONST_PTR_TO_LANDLOCK_HANDLE_FS,	/* pointer to Landlock FS handle */
++	ARG_PTR_TO_STRUCT_SKB,		/* pointer to struct skb */
  };
  
- void cgroup_bpf_put(struct cgroup *cgrp);
-diff --git a/kernel/bpf/cgroup.c b/kernel/bpf/cgroup.c
-index 21d168c3ad35..782878ec4f2d 100644
---- a/kernel/bpf/cgroup.c
-+++ b/kernel/bpf/cgroup.c
-@@ -20,18 +20,18 @@ DEFINE_STATIC_KEY_FALSE(cgroup_bpf_enabled_key);
- EXPORT_SYMBOL(cgroup_bpf_enabled_key);
+ /* type of values returned from helper functions */
+@@ -150,6 +151,7 @@ enum bpf_reg_type {
+ 	/* Landlock */
+ 	PTR_TO_STRUCT_FILE,
+ 	CONST_PTR_TO_LANDLOCK_HANDLE_FS,
++	PTR_TO_STRUCT_SKB,
+ };
  
- /**
-- * cgroup_bpf_put() - put references of all bpf programs
-+ * cgroup_bpf_put() - put references of all bpf objects
-  * @cgrp: the cgroup to modify
+ struct bpf_prog;
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 8cfc2de2ab76..7d9e56952ed9 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -586,7 +586,9 @@ enum landlock_hook_id {
+ /* context of function access flags */
+ #define LANDLOCK_FLAG_ACCESS_UPDATE	(1 << 0)
+ #define LANDLOCK_FLAG_ACCESS_DEBUG	(1 << 1)
+-#define _LANDLOCK_FLAG_ACCESS_MASK	((1ULL << 2) - 1)
++#define LANDLOCK_FLAG_ACCESS_SKB_READ	(1 << 2)
++#define LANDLOCK_FLAG_ACCESS_SKB_WRITE	(1 << 3)
++#define _LANDLOCK_FLAG_ACCESS_MASK	((1ULL << 4) - 1)
+ 
+ /* Handle check flags */
+ #define LANDLOCK_FLAG_FS_DENTRY		(1 << 0)
+@@ -619,12 +621,15 @@ struct landlock_handle {
+  * @args: LSM hook arguments, see include/linux/lsm_hooks.h for there
+  *        description and the LANDLOCK_HOOK* definitions from
+  *        security/landlock/lsm.c for their types.
++ * @opt_skb: optional skb pointer, accessible with the
++ *           LANDLOCK_FLAG_ACCESS_SKB_* flags for network-related hooks.
   */
- void cgroup_bpf_put(struct cgroup *cgrp)
- {
- 	unsigned int type;
+ struct landlock_data {
+ 	__u32 hook; /* enum landlock_hook_id */
+ 	__u16 origin; /* LANDLOCK_FLAG_ORIGIN_* */
+ 	__u16 cookie; /* seccomp RET_LANDLOCK */
+ 	__u64 args[6];
++	__u64 opt_skb;
+ };
  
--	for (type = 0; type < ARRAY_SIZE(cgrp->bpf.prog); type++) {
--		struct bpf_prog *prog = cgrp->bpf.prog[type];
-+	for (type = 0; type < ARRAY_SIZE(cgrp->bpf.pinned); type++) {
-+		union bpf_object pinned = cgrp->bpf.pinned[type];
+ #endif /* _UAPI__LINUX_BPF_H__ */
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 8d7b18574f5a..a95154c1a60f 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -247,6 +247,7 @@ static const char * const reg_type_str[] = {
+ 	[PTR_TO_PACKET_END]	= "pkt_end",
+ 	[PTR_TO_STRUCT_FILE]	= "struct_file",
+ 	[CONST_PTR_TO_LANDLOCK_HANDLE_FS] = "landlock_handle_fs",
++	[PTR_TO_STRUCT_SKB]	= "struct_skb",
+ };
  
--		if (prog) {
--			bpf_prog_put(prog);
-+		if (pinned.prog) {
-+			bpf_prog_put(pinned.prog);
- 			static_branch_dec(&cgroup_bpf_enabled_key);
- 		}
+ static void print_verifier_state(struct verifier_state *state)
+@@ -559,6 +560,7 @@ static bool is_spillable_regtype(enum bpf_reg_type type)
+ 	case CONST_PTR_TO_MAP:
+ 	case PTR_TO_STRUCT_FILE:
+ 	case CONST_PTR_TO_LANDLOCK_HANDLE_FS:
++	case PTR_TO_STRUCT_SKB:
+ 		return true;
+ 	default:
+ 		return false;
+@@ -984,6 +986,10 @@ static int check_func_arg(struct verifier_env *env, u32 regno,
+ 		expected_type = CONST_PTR_TO_LANDLOCK_HANDLE_FS;
+ 		if (type != expected_type)
+ 			goto err_type;
++	} else if (arg_type == ARG_PTR_TO_STRUCT_SKB) {
++		expected_type = PTR_TO_STRUCT_SKB;
++		if (type != expected_type)
++			goto err_type;
+ 	} else if (arg_type == ARG_PTR_TO_STACK ||
+ 		   arg_type == ARG_PTR_TO_RAW_STACK) {
+ 		expected_type = PTR_TO_STACK;
+diff --git a/security/landlock/lsm.c b/security/landlock/lsm.c
+index 56c45abe979c..8b0e6f0eb6b7 100644
+--- a/security/landlock/lsm.c
++++ b/security/landlock/lsm.c
+@@ -281,6 +281,7 @@ static bool __is_valid_access(int off, int size, enum bpf_access_type type,
+ 		break;
+ 	case offsetof(struct landlock_data, args[0]) ...
+ 			offsetof(struct landlock_data, args[5]):
++	case offsetof(struct landlock_data, opt_skb):
+ 		expected_size = sizeof(__u64);
+ 		break;
+ 	default:
+@@ -299,6 +300,13 @@ static bool __is_valid_access(int off, int size, enum bpf_access_type type,
+ 		if (*reg_type == NOT_INIT)
+ 			return false;
+ 		break;
++	case offsetof(struct landlock_data, opt_skb):
++		if (!(prog_subtype->landlock_hook.access &
++				(LANDLOCK_FLAG_ACCESS_SKB_READ |
++				 LANDLOCK_FLAG_ACCESS_SKB_WRITE)))
++			return false;
++		*reg_type = PTR_TO_STRUCT_SKB;
++		break;
  	}
-@@ -47,11 +47,12 @@ void cgroup_bpf_inherit(struct cgroup *cgrp, struct cgroup *parent)
- 	unsigned int type;
  
- 	for (type = 0; type < ARRAY_SIZE(cgrp->bpf.effective); type++) {
--		struct bpf_prog *e;
-+		union bpf_object e;
+ 	return true;
+@@ -401,6 +409,24 @@ static inline bool bpf_landlock_is_valid_subtype(
+ 	if (prog_subtype->landlock_hook.access & LANDLOCK_FLAG_ACCESS_DEBUG &&
+ 			!capable(CAP_SYS_ADMIN))
+ 		return false;
++	/*
++	 * Capability checks must be enforced for every landlocked process.
++	 * To support user namespaces/capabilities, we must then check the
++	 * namespaces of a task before putting it in a landlocked cgroup.
++	 * This could be implemented in the future.
++	 */
++	if (prog_subtype->landlock_hook.access & LANDLOCK_FLAG_ACCESS_SKB_READ &&
++			!capable(CAP_NET_ADMIN))
++		return false;
++	/*
++	 * It is interesting to differentiate read and write access to be able
++	 * to securely delegate some work to unprivileged (and potentially
++	 * compromised/untrusted) processes. This different type of access can
++	 * be checked for function calls or context accesses.
++	 */
++	if (prog_subtype->landlock_hook.access & LANDLOCK_FLAG_ACCESS_SKB_WRITE &&
++			!capable(CAP_NET_ADMIN))
++		return false;
  
--		e = rcu_dereference_protected(parent->bpf.effective[type],
--					      lockdep_is_held(&cgroup_mutex));
--		rcu_assign_pointer(cgrp->bpf.effective[type], e);
-+		e.prog = rcu_dereference_protected(
-+				parent->bpf.effective[type].prog,
-+				lockdep_is_held(&cgroup_mutex));
-+		rcu_assign_pointer(cgrp->bpf.effective[type].prog, e.prog);
- 	}
+ 	return true;
  }
- 
-@@ -87,32 +88,33 @@ void __cgroup_bpf_update(struct cgroup *cgrp,
- 			 struct bpf_prog *prog,
- 			 enum bpf_attach_type type)
- {
--	struct bpf_prog *old_prog, *effective;
-+	union bpf_object obj, old_pinned, effective;
- 	struct cgroup_subsys_state *pos;
- 
--	old_prog = xchg(cgrp->bpf.prog + type, prog);
-+	obj.prog = prog;
-+	old_pinned = xchg(cgrp->bpf.pinned + type, obj);
- 
--	effective = (!prog && parent) ?
--		rcu_dereference_protected(parent->bpf.effective[type],
-+	effective.prog = (!obj.prog && parent) ?
-+		rcu_dereference_protected(parent->bpf.effective[type].prog,
- 					  lockdep_is_held(&cgroup_mutex)) :
--		prog;
-+		obj.prog;
- 
- 	css_for_each_descendant_pre(pos, &cgrp->self) {
- 		struct cgroup *desc = container_of(pos, struct cgroup, self);
- 
- 		/* skip the subtree if the descendant has its own program */
--		if (desc->bpf.prog[type] && desc != cgrp)
-+		if (desc->bpf.pinned[type].prog && desc != cgrp)
- 			pos = css_rightmost_descendant(pos);
- 		else
--			rcu_assign_pointer(desc->bpf.effective[type],
--					   effective);
-+			rcu_assign_pointer(desc->bpf.effective[type].prog,
-+					   effective.prog);
- 	}
- 
--	if (prog)
-+	if (obj.prog)
- 		static_branch_inc(&cgroup_bpf_enabled_key);
- 
--	if (old_prog) {
--		bpf_prog_put(old_prog);
-+	if (old_pinned.prog) {
-+		bpf_prog_put(old_pinned.prog);
- 		static_branch_dec(&cgroup_bpf_enabled_key);
- 	}
- }
-@@ -151,7 +153,7 @@ int __cgroup_bpf_run_filter(struct sock *sk,
- 
- 	rcu_read_lock();
- 
--	prog = rcu_dereference(cgrp->bpf.effective[type]);
-+	prog = rcu_dereference(cgrp->bpf.effective[type].prog);
- 	if (prog) {
- 		unsigned int offset = skb->data - skb_mac_header(skb);
- 
 -- 
 2.9.3
