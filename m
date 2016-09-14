@@ -1,92 +1,80 @@
-From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
-Subject: [RFC v3 01/22] landlock: Add Kconfig
-Date: Wed, 14 Sep 2016 09:23:54 +0200
-Message-ID: <20160914072415.26021-2-mic@digikod.net>
+From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
+Subject: [RFC v3 02/22] bpf: Move u64_to_ptr() to BPF headers and inline it
+Date: Wed, 14 Sep 2016 09:23:55 +0200
+Message-ID: <20160914072415.26021-3-mic@digikod.net>
 References: <20160914072415.26021-1-mic@digikod.net>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>,
-        Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-        Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-        Casey Schaufler <casey-iSGtlc1asvQWG2LlvL+J4A@public.gmane.org>,
-        Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-        Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>,
-        David Drysdale <drysdale-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Elena Reshetova <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        "Eric W . Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-        James Morris <james.l.morris-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-        Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-        Paul Moore <pmoore-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Sargun Dhillon <sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org>,
-        "Serge E . Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-        kernel-hardening-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160914072415.26021-1-mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Andy Lutomirski <luto@amacapital.net>, Arnd Bergmann <arnd@arndb.de>,
+        Casey Schaufler <casey@schaufler-ca.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Daniel Mack <daniel@zonque.org>, David Drysdale <drysdale@google.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Elena Reshetova <elena.reshetova@intel.com>,
+        "Eric W . Biederman" <ebiederm@xmission.com>,
+        James Morris <james.l.morris@oracle.com>,
+        Kees Cook <keescook@chromium.org>, Paul Moore <pmoore@redhat.com>,
+        Sargun Dhillon <sargun@sargun.me>,
+        "Serge E . Hallyn" <serge@hallyn.com>, Tejun Heo <tj@kernel.org>,
+        Will Drewry <wad@chromium.org>, kernel-hardening@lists.openwall.com,
+        linux-api@vger.kernel.org, linux-security-module@vger.
+To: linux-kernel@vger.kernel.org
+Return-path: <kernel-hardening-return-4586-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <20160914072415.26021-1-mic@digikod.net>
 List-Id: netdev.vger.kernel.org
 
-Initial Landlock Kconfig needed to split the Landlock eBPF and seccomp
-parts to ease the review.
+This helper will be useful for arraymap (next commit).
 
-Changes from v2:
-* add seccomp filter or cgroups (with eBPF programs attached support)
-  dependencies
-
-Signed-off-by: Mickaël Salaün <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
-Cc: James Morris <james.l.morris-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Cc: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Cc: Serge E. Hallyn <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Mickaël Salaün <mic@digikod.net>
+Cc: Alexei Starovoitov <ast@kernel.org>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Daniel Borkmann <daniel@iogearbox.net>
 ---
- security/Kconfig          |  1 +
- security/landlock/Kconfig | 23 +++++++++++++++++++++++
- 2 files changed, 24 insertions(+)
- create mode 100644 security/landlock/Kconfig
+ include/linux/bpf.h  | 6 ++++++
+ kernel/bpf/syscall.c | 6 ------
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/security/Kconfig b/security/Kconfig
-index 118f4549404e..c63194c561c5 100644
---- a/security/Kconfig
-+++ b/security/Kconfig
-@@ -164,6 +164,7 @@ source security/tomoyo/Kconfig
- source security/apparmor/Kconfig
- source security/loadpin/Kconfig
- source security/yama/Kconfig
-+source security/landlock/Kconfig
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index 9a904f63f8c1..fa9a988400d9 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -274,6 +274,12 @@ static inline void bpf_long_memcpy(void *dst, const void *src, u32 size)
  
- source security/integrity/Kconfig
+ /* verify correctness of eBPF program */
+ int bpf_check(struct bpf_prog **fp, union bpf_attr *attr);
++
++/* helper to convert user pointers passed inside __aligned_u64 fields */
++static inline void __user *u64_to_ptr(__u64 val)
++{
++	return (void __user *) (unsigned long) val;
++}
+ #else
+ static inline void bpf_register_prog_type(struct bpf_prog_type_list *tl)
+ {
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index 1a8592a082ce..776c752604b0 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -252,12 +252,6 @@ struct bpf_map *bpf_map_get_with_uref(u32 ufd)
+ 	return map;
+ }
  
-diff --git a/security/landlock/Kconfig b/security/landlock/Kconfig
-new file mode 100644
-index 000000000000..dec64270b06d
---- /dev/null
-+++ b/security/landlock/Kconfig
-@@ -0,0 +1,23 @@
-+config SECURITY_LANDLOCK
-+	bool "Landlock sandbox support"
-+	depends on SECURITY
-+	depends on BPF_SYSCALL
-+	depends on SECCOMP_FILTER || CGROUP_BPF
-+	default y
-+	help
-+	  Landlock is a stacked LSM which allows any user to load a security
-+	  policy to restrict their processes (i.e. create a sandbox). The
-+	  policy is a list of stacked eBPF programs for some LSM hooks. Each
-+	  program can do some access comparison to check if an access request
-+	  is legitimate.
-+
-+	  You need to enable seccomp filter and/or cgroups (with eBPF programs
-+	  attached support) to apply a security policy to either a process
-+	  hierarchy (e.g. application with built-in sandboxing) or a group of
-+	  processes (e.g. container sandboxing). It is recommended to enable
-+	  both seccomp filter and cgroups.
-+
-+	  Further information about eBPF can be found in
-+	  Documentation/networking/filter.txt
-+
-+	  If you are unsure how to answer this question, answer Y.
+-/* helper to convert user pointers passed inside __aligned_u64 fields */
+-static void __user *u64_to_ptr(__u64 val)
+-{
+-	return (void __user *) (unsigned long) val;
+-}
+-
+ int __weak bpf_stackmap_copy(struct bpf_map *map, void *key, void *value)
+ {
+ 	return -ENOTSUPP;
 -- 
 2.9.3
