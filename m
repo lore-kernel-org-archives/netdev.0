@@ -1,363 +1,57 @@
-From: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v4 07/16] IB/pvrdma: Add helper functions
-Date: Wed, 14 Sep 2016 14:21:15 +0300
-Message-ID: <20160914112115.GC15800@yuval-lap.uk.oracle.com>
-References: <1473655766-31628-1-git-send-email-aditr@vmware.com>
- <1473655766-31628-8-git-send-email-aditr@vmware.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH v3 net 1/1] net sched actions: fix GETing actions
+Date: Wed, 14 Sep 2016 07:33:27 -0400
+Message-ID: <61972f5c-b2b7-efca-4068-1b3af9aabbf4@mojatatu.com>
+References: <1473721658-6034-1-git-send-email-jhs@emojatatu.com>
+ <CAM_iQpWDNzceBLqzVibyyqExk5MXajJCt6Yu3KkC2r2poU0DQQ@mail.gmail.com>
+ <f24e1121-84c8-01d1-23cd-1288ba1402aa@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        pv-drivers-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jhansen-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org, asarwade-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org,
-        georgezhang-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org, bryantan-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org
-To: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1473655766-31628-8-git-send-email-aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f67.google.com ([209.85.214.67]:35375 "EHLO
+        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1760636AbcINLda (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 07:33:30 -0400
+Received: by mail-it0-f67.google.com with SMTP id e20so1249079itc.2
+        for <netdev@vger.kernel.org>; Wed, 14 Sep 2016 04:33:30 -0700 (PDT)
+In-Reply-To: <f24e1121-84c8-01d1-23cd-1288ba1402aa@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-No more comments.
-Reviewed-by: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+On 16-09-13 03:47 PM, Jamal Hadi Salim wrote:
+> On 16-09-13 12:20 PM, Cong Wang wrote:
+>> On Mon, Sep 12, 2016 at 4:07 PM, Jamal Hadi Salim <jhs@mojatatu.com>
+>> wrote:
 
-On Sun, Sep 11, 2016 at 09:49:17PM -0700, Adit Ranadive wrote:
-> This patch adds helper functions to store guest page addresses in a page
-> directory structure. The page directory pointer is passed down to the
-> backend which then maps the entire memory for the RDMA object by
-> traversing the directory. We add some more helper functions for converting
-> to/from RDMA stack address handles from/to PVRDMA ones.
-> 
-> Reviewed-by: Jorgen Hansen <jhansen-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-> Reviewed-by: George Zhang <georgezhang-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-> Reviewed-by: Aditya Sarwade <asarwade-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-> Reviewed-by: Bryan Tan <bryantan-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-> ---
-> Changes v3->v4:
->  - Updated conversion functions to func_name(dst, src) format.
->  - Removed unneeded local variables.
-> ---
->  drivers/infiniband/hw/pvrdma/pvrdma_misc.c | 303 +++++++++++++++++++++++++++++
->  1 file changed, 303 insertions(+)
->  create mode 100644 drivers/infiniband/hw/pvrdma/pvrdma_misc.c
-> 
-> diff --git a/drivers/infiniband/hw/pvrdma/pvrdma_misc.c b/drivers/infiniband/hw/pvrdma/pvrdma_misc.c
-> new file mode 100644
-> index 0000000..1f12cd6
-> --- /dev/null
-> +++ b/drivers/infiniband/hw/pvrdma/pvrdma_misc.c
-> @@ -0,0 +1,303 @@
-> +/*
-> + * Copyright (c) 2012-2016 VMware, Inc.  All rights reserved.
-> + *
-> + * This program is free software; you can redistribute it and/or
-> + * modify it under the terms of EITHER the GNU General Public License
-> + * version 2 as published by the Free Software Foundation or the BSD
-> + * 2-Clause License. This program is distributed in the hope that it
-> + * will be useful, but WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED
-> + * WARRANTY OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
-> + * See the GNU General Public License version 2 for more details at
-> + * http://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html.
-> + *
-> + * You should have received a copy of the GNU General Public License
-> + * along with this program available in the file COPYING in the main
-> + * directory of this source tree.
-> + *
-> + * The BSD 2-Clause License
-> + *
-> + *     Redistribution and use in source and binary forms, with or
-> + *     without modification, are permitted provided that the following
-> + *     conditions are met:
-> + *
-> + *      - Redistributions of source code must retain the above
-> + *        copyright notice, this list of conditions and the following
-> + *        disclaimer.
-> + *
-> + *      - Redistributions in binary form must reproduce the above
-> + *        copyright notice, this list of conditions and the following
-> + *        disclaimer in the documentation and/or other materials
-> + *        provided with the distribution.
-> + *
-> + * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-> + * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-> + * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-> + * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-> + * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
-> + * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-> + * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-> + * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-> + * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-> + * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-> + * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
-> + * OF THE POSSIBILITY OF SUCH DAMAGE.
-> + */
-> +
-> +#include <linux/errno.h>
-> +#include <linux/slab.h>
-> +#include <linux/bitmap.h>
-> +
-> +#include "pvrdma.h"
-> +
-> +int pvrdma_page_dir_init(struct pvrdma_dev *dev, struct pvrdma_page_dir *pdir,
-> +			 u64 npages, bool alloc_pages)
-> +{
-> +	u64 i;
-> +
-> +	if (npages > PVRDMA_PAGE_DIR_MAX_PAGES)
-> +		return -EINVAL;
-> +
-> +	memset(pdir, 0, sizeof(*pdir));
-> +
-> +	pdir->dir = dma_alloc_coherent(&dev->pdev->dev, PAGE_SIZE,
-> +				       &pdir->dir_dma, GFP_KERNEL);
-> +	if (!pdir->dir)
-> +		goto err;
-> +
-> +	pdir->ntables = PVRDMA_PAGE_DIR_TABLE(npages - 1) + 1;
-> +	pdir->tables = kcalloc(pdir->ntables, sizeof(*pdir->tables),
-> +			       GFP_KERNEL);
-> +	if (!pdir->tables)
-> +		goto err;
-> +
-> +	for (i = 0; i < pdir->ntables; i++) {
-> +		pdir->tables[i] = dma_alloc_coherent(&dev->pdev->dev, PAGE_SIZE,
-> +						     &pdir->dir[i], GFP_KERNEL);
-> +		if (!pdir->tables[i])
-> +			goto err;
-> +	}
-> +
-> +	pdir->npages = npages;
-> +
-> +	if (alloc_pages) {
-> +		pdir->pages = kcalloc(npages, sizeof(*pdir->pages),
-> +				      GFP_KERNEL);
-> +		if (!pdir->pages)
-> +			goto err;
-> +
-> +		for (i = 0; i < pdir->npages; i++) {
-> +			dma_addr_t page_dma;
-> +
-> +			pdir->pages[i] = dma_alloc_coherent(&dev->pdev->dev,
-> +							    PAGE_SIZE,
-> +							    &page_dma,
-> +							    GFP_KERNEL);
-> +			if (!pdir->pages[i])
-> +				goto err;
-> +
-> +			pvrdma_page_dir_insert_dma(pdir, i, page_dma);
-> +		}
-> +	}
-> +
-> +	return 0;
-> +
-> +err:
-> +	pvrdma_page_dir_cleanup(dev, pdir);
-> +
-> +	return -ENOMEM;
-> +}
-> +
-> +static u64 *pvrdma_page_dir_table(struct pvrdma_page_dir *pdir, u64 idx)
-> +{
-> +	return pdir->tables[PVRDMA_PAGE_DIR_TABLE(idx)];
-> +}
-> +
-> +dma_addr_t pvrdma_page_dir_get_dma(struct pvrdma_page_dir *pdir, u64 idx)
-> +{
-> +	return pvrdma_page_dir_table(pdir, idx)[PVRDMA_PAGE_DIR_PAGE(idx)];
-> +}
-> +
-> +static void pvrdma_page_dir_cleanup_pages(struct pvrdma_dev *dev,
-> +					  struct pvrdma_page_dir *pdir)
-> +{
-> +	if (pdir->pages) {
-> +		u64 i;
-> +
-> +		for (i = 0; i < pdir->npages && pdir->pages[i]; i++) {
-> +			dma_addr_t page_dma = pvrdma_page_dir_get_dma(pdir, i);
-> +
-> +			dma_free_coherent(&dev->pdev->dev, PAGE_SIZE,
-> +					  pdir->pages[i], page_dma);
-> +		}
-> +
-> +		kfree(pdir->pages);
-> +	}
-> +}
-> +
-> +static void pvrdma_page_dir_cleanup_tables(struct pvrdma_dev *dev,
-> +					   struct pvrdma_page_dir *pdir)
-> +{
-> +	if (pdir->tables) {
-> +		int i;
-> +
-> +		pvrdma_page_dir_cleanup_pages(dev, pdir);
-> +
-> +		for (i = 0; i < pdir->ntables; i++) {
-> +			u64 *table = pdir->tables[i];
-> +
-> +			if (table)
-> +				dma_free_coherent(&dev->pdev->dev, PAGE_SIZE,
-> +						  table, pdir->dir[i]);
-> +		}
-> +
-> +		kfree(pdir->tables);
-> +	}
-> +}
-> +
-> +void pvrdma_page_dir_cleanup(struct pvrdma_dev *dev,
-> +			     struct pvrdma_page_dir *pdir)
-> +{
-> +	if (pdir->dir) {
-> +		pvrdma_page_dir_cleanup_tables(dev, pdir);
-> +		dma_free_coherent(&dev->pdev->dev, PAGE_SIZE,
-> +				  pdir->dir, pdir->dir_dma);
-> +	}
-> +}
-> +
-> +int pvrdma_page_dir_insert_dma(struct pvrdma_page_dir *pdir, u64 idx,
-> +			       dma_addr_t daddr)
-> +{
-> +	u64 *table;
-> +
-> +	if (idx >= pdir->npages)
-> +		return -EINVAL;
-> +
-> +	table = pvrdma_page_dir_table(pdir, idx);
-> +	table[PVRDMA_PAGE_DIR_PAGE(idx)] = daddr;
-> +
-> +	return 0;
-> +}
-> +
-> +int pvrdma_page_dir_insert_umem(struct pvrdma_page_dir *pdir,
-> +				struct ib_umem *umem, u64 offset)
-> +{
-> +	u64 i = offset;
-> +	int j, entry;
-> +	int ret = 0, len = 0;
-> +	struct scatterlist *sg;
-> +
-> +	if (offset >= pdir->npages)
-> +		return -EINVAL;
-> +
-> +	for_each_sg(umem->sg_head.sgl, sg, umem->nmap, entry) {
-> +		len = sg_dma_len(sg) >> PAGE_SHIFT;
-> +		for (j = 0; j < len; j++) {
-> +			dma_addr_t addr = sg_dma_address(sg) +
-> +					  umem->page_size * j;
-> +
-> +			ret = pvrdma_page_dir_insert_dma(pdir, i, addr);
-> +			if (ret)
-> +				goto exit;
-> +
-> +			i++;
-> +		}
-> +	}
-> +
-> +exit:
-> +	return ret;
-> +}
-> +
-> +int pvrdma_page_dir_insert_page_list(struct pvrdma_page_dir *pdir,
-> +				     u64 *page_list,
-> +				     int num_pages)
-> +{
-> +	int i;
-> +	int ret;
-> +
-> +	if (num_pages > pdir->npages)
-> +		return -EINVAL;
-> +
-> +	for (i = 0; i < num_pages; i++) {
-> +		ret = pvrdma_page_dir_insert_dma(pdir, i, page_list[i]);
-> +		if (ret)
-> +			return ret;
-> +	}
-> +
-> +	return 0;
-> +}
-> +
-> +void pvrdma_qp_cap_to_ib(struct ib_qp_cap *dst, const struct pvrdma_qp_cap *src)
-> +{
-> +	dst->max_send_wr = src->max_send_wr;
-> +	dst->max_recv_wr = src->max_recv_wr;
-> +	dst->max_send_sge = src->max_send_sge;
-> +	dst->max_recv_sge = src->max_recv_sge;
-> +	dst->max_inline_data = src->max_inline_data;
-> +}
-> +
-> +void ib_qp_cap_to_pvrdma(struct pvrdma_qp_cap *dst, const struct ib_qp_cap *src)
-> +{
-> +	dst->max_send_wr = src->max_send_wr;
-> +	dst->max_recv_wr = src->max_recv_wr;
-> +	dst->max_send_sge = src->max_send_sge;
-> +	dst->max_recv_sge = src->max_recv_sge;
-> +	dst->max_inline_data = src->max_inline_data;
-> +}
-> +
-> +void pvrdma_gid_to_ib(union ib_gid *dst, const union pvrdma_gid *src)
-> +{
-> +	BUILD_BUG_ON(sizeof(union pvrdma_gid) != sizeof(union ib_gid));
-> +	memcpy(dst, src, sizeof(*src));
-> +}
-> +
-> +void ib_gid_to_pvrdma(union pvrdma_gid *dst, const union ib_gid *src)
-> +{
-> +	BUILD_BUG_ON(sizeof(union pvrdma_gid) != sizeof(union ib_gid));
-> +	memcpy(dst, src, sizeof(*src));
-> +}
-> +
-> +void pvrdma_global_route_to_ib(struct ib_global_route *dst,
-> +			       const struct pvrdma_global_route *src)
-> +{
-> +	pvrdma_gid_to_ib(&dst->dgid, &src->dgid);
-> +	dst->flow_label = src->flow_label;
-> +	dst->sgid_index = src->sgid_index;
-> +	dst->hop_limit = src->hop_limit;
-> +	dst->traffic_class = src->traffic_class;
-> +}
-> +
-> +void ib_global_route_to_pvrdma(struct pvrdma_global_route *dst,
-> +			       const struct ib_global_route *src)
-> +{
-> +	ib_gid_to_pvrdma(&dst->dgid, &src->dgid);
-> +	dst->flow_label = src->flow_label;
-> +	dst->sgid_index = src->sgid_index;
-> +	dst->hop_limit = src->hop_limit;
-> +	dst->traffic_class = src->traffic_class;
-> +}
-> +
-> +void pvrdma_ah_attr_to_ib(struct ib_ah_attr *dst,
-> +			  const struct pvrdma_ah_attr *src)
-> +{
-> +	pvrdma_global_route_to_ib(&dst->grh, &src->grh);
-> +	dst->dlid = src->dlid;
-> +	dst->sl = src->sl;
-> +	dst->src_path_bits = src->src_path_bits;
-> +	dst->static_rate = src->static_rate;
-> +	dst->ah_flags = src->ah_flags;
-> +	dst->port_num = src->port_num;
-> +	memcpy(&dst->dmac, &src->dmac, sizeof(dst->dmac));
-> +}
-> +
-> +void ib_ah_attr_to_pvrdma(struct pvrdma_ah_attr *dst,
-> +			  const struct ib_ah_attr *src)
-> +{
-> +	ib_global_route_to_pvrdma(&dst->grh, &src->grh);
-> +	dst->dlid = src->dlid;
-> +	dst->sl = src->sl;
-> +	dst->src_path_bits = src->src_path_bits;
-> +	dst->static_rate = src->static_rate;
-> +	dst->ah_flags = src->ah_flags;
-> +	dst->port_num = src->port_num;
-> +	memcpy(&dst->dmac, &src->dmac, sizeof(dst->dmac));
-> +}
-> -- 
-> 2.7.4
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+[..]
+>> I am still trying to understand this piece, so here you hold the refcnt
+>> for the same action used by the later iteration? Otherwise there is
+>> almost none user inbetween hold and release...
+>>
+>> The comment you add is not clear to me, we use RTNL/RCU to
+>> sync destroy and replace, so how could that happen?
+>>
+>
+> I was worried about the destroy() hitting an error in that function.
+> If an action already existed and all we asked for was to
+> replace some attribute it would be deleted. It was the way the code was
+> before your changes so i just restored it to its original form.
+>
+
+And I have verified this is needed. I went and made gact return
+a failure if you replace something. I added a gact action; then
+when i replaced it failed. And when it failed it replace the existing
+action.
+I then tried another experiment and batch replaced several actions
+including the one i know would fail. I placed the failing action in
+the middle and hallelujah, all the actions before the middle one got
+deleted.
+
+So please ACK this so we can move forward.
+
+cheers,
+jamal
