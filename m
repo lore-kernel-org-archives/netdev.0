@@ -1,83 +1,132 @@
-From: Tariq Toukan <ttoukan.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] net/mlx4_en: fix off by one in error handling
-Date: Wed, 14 Sep 2016 16:43:33 +0300
-Message-ID: <df5834ee-00c2-3f18-ae83-8bb06b6c675b@gmail.com>
-References: <alpine.LFD.2.20.1609141305360.1727@schleppi>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 5/9] net: ethernet: ti: cpts: add return value to tx and
+ rx timestamp funcitons
+Date: Wed, 14 Sep 2016 16:00:15 +0200
+Message-ID: <20160914140015.GC28592@localhost.localdomain>
+References: <20160914130231.3035-1-grygorii.strashko@ti.com>
+ <20160914130231.3035-6-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Sebastian Ott <sebott-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-        Yishai Hadas <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <alpine.LFD.2.20.1609141305360.1727@schleppi>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org,
+        linux-omap@vger.kernel.org, WingMan Kwok <w-kwok2@ti.com>
+To: Grygorii Strashko <grygorii.strashko@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160914130231.3035-6-grygorii.strashko@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Sebastian,
+On Wed, Sep 14, 2016 at 04:02:27PM +0300, Grygorii Strashko wrote:
+> From: WingMan Kwok <w-kwok2@ti.com>
+> 
+> Added return values in tx and rx timestamp funcitons facilitate the
+> possibililies of timestamping by CPSW modules other than CPTS, such as
+> packet accelerator on Keystone 2 devices.
 
-Thanks for this fix.
-
-On 14/09/2016 2:09 PM, Sebastian Ott wrote:
-> If an error occurs in mlx4_init_eq_table the index used in the
-> err_out_unmap label is one too big which results in a panic in
-> mlx4_free_eq. This patch fixes the index in the error path.
-You are right, but your change below does not cover all cases.
-The full solution looks like this:
-
-@@ -1260,7 +1260,7 @@ int mlx4_init_eq_table(struct mlx4_dev *dev)
-                                              eq);
-                 }
-                 if (err)
--                       goto err_out_unmap;
-+                       goto err_out_unmap_excluded;
-         }
-
-         if (dev->flags & MLX4_FLAG_MSI_X) {
-@@ -1306,8 +1306,10 @@ int mlx4_init_eq_table(struct mlx4_dev *dev)
-         return 0;
-
-  err_out_unmap:
--       while (i >= 0)
--               mlx4_free_eq(dev, &priv->eq_table.eq[i--]);
-+       mlx4_free_eq(dev, &priv->eq_table.eq[i]);
-+err_out_unmap_excluded:
-+       while (i > 0)
-+               mlx4_free_eq(dev, &priv->eq_table.eq[--i]);
-  #ifdef CONFIG_RFS_ACCEL
-         for (i = 1; i <= dev->caps.num_ports; i++) {
-                 if (mlx4_priv(dev)->port[i].rmap) {
-
-
->
-> Signed-off-by: Sebastian Ott <sebott-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+I'm sorry, this is totally bogus.
+ 
+> Signed-off-by: WingMan Kwok <w-kwok2@ti.com>
+> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 > ---
->   drivers/net/ethernet/mellanox/mlx4/eq.c | 4 ++--
->   1 file changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/eq.c b/drivers/net/ethernet/mellanox/mlx4/eq.c
-> index f613977..cf8f8a7 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/eq.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/eq.c
-> @@ -1305,8 +1305,8 @@ int mlx4_init_eq_table(struct mlx4_dev *dev)
->   	return 0;
->   
->   err_out_unmap:
-> -	while (i >= 0)
-> -		mlx4_free_eq(dev, &priv->eq_table.eq[i--]);
-> +	while (i > 0)
-> +		mlx4_free_eq(dev, &priv->eq_table.eq[--i]);
->   #ifdef CONFIG_RFS_ACCEL
->   	for (i = 1; i <= dev->caps.num_ports; i++) {
->   		if (mlx4_priv(dev)->port[i].rmap) {
-You can choose to submit again, or we can take it from here. Whatever 
-you prefer.
+>  drivers/net/ethernet/ti/cpts.c | 16 ++++++++++------
+>  drivers/net/ethernet/ti/cpts.h | 11 +++++++----
+>  2 files changed, 17 insertions(+), 10 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
+> index 1ee64c6..970d4e2 100644
+> --- a/drivers/net/ethernet/ti/cpts.c
+> +++ b/drivers/net/ethernet/ti/cpts.c
+> @@ -302,34 +302,38 @@ static u64 cpts_find_ts(struct cpts *cpts, struct sk_buff *skb, int ev_type)
+>  	return ns;
+>  }
+>  
+> -void cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb)
+> +int cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb)
+>  {
+>  	u64 ns;
+>  	struct skb_shared_hwtstamps *ssh;
+>  
+>  	if (!cpts || !cpts->rx_enable)
+> -		return;
+> +		return -EPERM;
 
-Regards,
-Tariq
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+EPERM?  Come on.
+
+>  	ns = cpts_find_ts(cpts, skb, CPTS_EV_RX);
+>  	if (!ns)
+> -		return;
+> +		return -ENOENT;
+>  	ssh = skb_hwtstamps(skb);
+>  	memset(ssh, 0, sizeof(*ssh));
+>  	ssh->hwtstamp = ns_to_ktime(ns);
+> +
+> +	return 0;
+>  }
+>  
+> -void cpts_tx_timestamp(struct cpts *cpts, struct sk_buff *skb)
+> +int cpts_tx_timestamp(struct cpts *cpts, struct sk_buff *skb)
+>  {
+>  	u64 ns;
+>  	struct skb_shared_hwtstamps ssh;
+>  
+>  	if (!cpts || !(skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS))
+> -		return;
+> +		return -EPERM;
+>  	ns = cpts_find_ts(cpts, skb, CPTS_EV_TX);
+>  	if (!ns)
+> -		return;
+> +		return -ENOENT;
+>  	memset(&ssh, 0, sizeof(ssh));
+>  	ssh.hwtstamp = ns_to_ktime(ns);
+>  	skb_tstamp_tx(skb, &ssh);
+> +
+> +	return 0;
+>  }
+>  
+>  int cpts_register(struct cpts *cpts)
+> diff --git a/drivers/net/ethernet/ti/cpts.h b/drivers/net/ethernet/ti/cpts.h
+> index a865193..47026ec 100644
+> --- a/drivers/net/ethernet/ti/cpts.h
+> +++ b/drivers/net/ethernet/ti/cpts.h
+> @@ -129,8 +129,8 @@ struct cpts {
+>  	struct cpts_event pool_data[CPTS_MAX_EVENTS];
+>  };
+>  
+> -void cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb);
+> -void cpts_tx_timestamp(struct cpts *cpts, struct sk_buff *skb);
+> +int cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb);
+> +int cpts_tx_timestamp(struct cpts *cpts, struct sk_buff *skb);
+>  int cpts_register(struct cpts *cpts);
+>  void cpts_unregister(struct cpts *cpts);
+>  struct cpts *cpts_create(struct device *dev, void __iomem *regs,
+> @@ -162,11 +162,14 @@ static inline bool cpts_is_tx_enabled(struct cpts *cpts)
+>  #else
+>  struct cpts;
+>  
+> -static inline void cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb)
+> +static inline int cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb)
+>  {
+> +	return -EOPNOTSUPP;
+
+You are planning to check in the hot path if a compile time feature is
+enabled?
+
+Brilliant stuff.
+
+>  }
+> -static inline void cpts_tx_timestamp(struct cpts *cpts, struct sk_buff *skb)
+> +
+> +static inline int cpts_tx_timestamp(struct cpts *cpts, struct sk_buff *skb)
+>  {
+> +	return -EOPNOTSUPP;
+>  }
+>  
+>  static inline
+> -- 
+> 2.9.3
+> 
+
+Thanks,
+Richard
