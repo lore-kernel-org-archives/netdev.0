@@ -1,539 +1,180 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next 7/7] ila: Resolver mechanism
-Date: Wed, 14 Sep 2016 16:22:56 -0700
-Message-ID: <1473895376-347096-8-git-send-email-tom@herbertland.com>
-References: <1473895376-347096-1-git-send-email-tom@herbertland.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [RFC v3 03/22] bpf,landlock: Add a new arraymap type to deal
+ with (Landlock) handles
+Date: Wed, 14 Sep 2016 16:28:17 -0700
+Message-ID: <20160914232815.GE60248@ast-mbp.thefacebook.com>
+References: <20160914072415.26021-1-mic@digikod.net>
+ <20160914072415.26021-4-mic@digikod.net>
+ <20160914185157.GA53542@ast-mbp.thefacebook.com>
+ <57D9DBC9.2010605@digikod.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <tgraf@suug.ch>, <roopa@cumulusnetworks.com>, <kernel-team@fb.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:48391 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1765899AbcINXYl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 19:24:41 -0400
-Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
-        by mx0b-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8ENLoeR018417
-        for <netdev@vger.kernel.org>; Wed, 14 Sep 2016 16:24:40 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0b-00082601.pphosted.com with ESMTP id 25f0w26713-10
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 14 Sep 2016 16:24:40 -0700
-Received: from facebook.com (2401:db00:21:6030:face:0:92:0)     by
- mx-out.facebook.com (10.103.99.97) with ESMTP  id
- 337c70fa7ad211e6bbe20002c9931860-438eba50 for <netdev@vger.kernel.org>;        Wed,
- 14 Sep 2016 16:23:10 -0700
-In-Reply-To: <1473895376-347096-1-git-send-email-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
+        Andy Lutomirski <luto@amacapital.net>,
+        Arnd Bergmann <arnd@arndb.de>,
+        Casey Schaufler <casey@schaufler-ca.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Daniel Mack <daniel@zonque.org>,
+        David Drysdale <drysdale@google.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Elena Reshetova <elena.reshetova@intel.com>,
+        "Eric W . Biederman" <ebiederm@xmission.com>,
+        James Morris <james.l.morris@oracle.com>,
+        Kees Cook <keescook@chromium.org>,
+        Paul Moore <pmoore@redhat.com>,
+        Sargun Dhillon <sargun@sargun.me>,
+        "Serge E . Hallyn" <serge@hallyn.com>, Tejun Heo <tj@kernel.org>,
+        Will Drewry <wad@chromium.org>,
+        kernel-hardening@lists.openwall.com, linux-api@vger.kernel.org,
+        linux-security-module@vger.kern
+To: =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <57D9DBC9.2010605@digikod.net>
+Sender: owner-linux-security-module@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Implement an ILA resolver. This uses LWT to implement the hook to a
-userspace resolver and tracks pending unresolved address using the
-backend net resolver.
+On Thu, Sep 15, 2016 at 01:22:49AM +0200, Mickaël Salaün wrote:
+> 
+> On 14/09/2016 20:51, Alexei Starovoitov wrote:
+> > On Wed, Sep 14, 2016 at 09:23:56AM +0200, Mickaël Salaün wrote:
+> >> This new arraymap looks like a set and brings new properties:
+> >> * strong typing of entries: the eBPF functions get the array type of
+> >>   elements instead of CONST_PTR_TO_MAP (e.g.
+> >>   CONST_PTR_TO_LANDLOCK_HANDLE_FS);
+> >> * force sequential filling (i.e. replace or append-only update), which
+> >>   allow quick browsing of all entries.
+> >>
+> >> This strong typing is useful to statically check if the content of a map
+> >> can be passed to an eBPF function. For example, Landlock use it to store
+> >> and manage kernel objects (e.g. struct file) instead of dealing with
+> >> userland raw data. This improve efficiency and ensure that an eBPF
+> >> program can only call functions with the right high-level arguments.
+> >>
+> >> The enum bpf_map_handle_type list low-level types (e.g.
+> >> BPF_MAP_HANDLE_TYPE_LANDLOCK_FS_FD) which are identified when
+> >> updating a map entry (handle). This handle types are used to infer a
+> >> high-level arraymap type which are listed in enum bpf_map_array_type
+> >> (e.g. BPF_MAP_ARRAY_TYPE_LANDLOCK_FS).
+> >>
+> >> For now, this new arraymap is only used by Landlock LSM (cf. next
+> >> commits) but it could be useful for other needs.
+> >>
+> >> Changes since v2:
+> >> * add a RLIMIT_NOFILE-based limit to the maximum number of arraymap
+> >>   handle entries (suggested by Andy Lutomirski)
+> >> * remove useless checks
+> >>
+> >> Changes since v1:
+> >> * arraymap of handles replace custom checker groups
+> >> * simpler userland API
+> >>
+> >> Signed-off-by: Mickaël Salaün <mic@digikod.net>
+> >> Cc: Alexei Starovoitov <ast@kernel.org>
+> >> Cc: Andy Lutomirski <luto@amacapital.net>
+> >> Cc: Daniel Borkmann <daniel@iogearbox.net>
+> >> Cc: David S. Miller <davem@davemloft.net>
+> >> Cc: Kees Cook <keescook@chromium.org>
+> >> Link: https://lkml.kernel.org/r/CALCETrWwTiz3kZTkEgOW24-DvhQq6LftwEXh77FD2G5o71yD7g@mail.gmail.com
+> >> ---
+> >>  include/linux/bpf.h      |  14 ++++
+> >>  include/uapi/linux/bpf.h |  18 +++++
+> >>  kernel/bpf/arraymap.c    | 203 +++++++++++++++++++++++++++++++++++++++++++++++
+> >>  kernel/bpf/verifier.c    |  12 ++-
+> >>  4 files changed, 246 insertions(+), 1 deletion(-)
+> >>
+> >> diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+> >> index fa9a988400d9..eae4ce4542c1 100644
+> >> --- a/include/linux/bpf.h
+> >> +++ b/include/linux/bpf.h
+> >> @@ -13,6 +13,10 @@
+> >>  #include <linux/percpu.h>
+> >>  #include <linux/err.h>
+> >>  
+> >> +#ifdef CONFIG_SECURITY_LANDLOCK
+> >> +#include <linux/fs.h> /* struct file */
+> >> +#endif /* CONFIG_SECURITY_LANDLOCK */
+> >> +
+> >>  struct perf_event;
+> >>  struct bpf_map;
+> >>  
+> >> @@ -38,6 +42,7 @@ struct bpf_map_ops {
+> >>  struct bpf_map {
+> >>  	atomic_t refcnt;
+> >>  	enum bpf_map_type map_type;
+> >> +	enum bpf_map_array_type map_array_type;
+> >>  	u32 key_size;
+> >>  	u32 value_size;
+> >>  	u32 max_entries;
+> >> @@ -187,6 +192,9 @@ struct bpf_array {
+> >>  	 */
+> >>  	enum bpf_prog_type owner_prog_type;
+> >>  	bool owner_jited;
+> >> +#ifdef CONFIG_SECURITY_LANDLOCK
+> >> +	u32 n_entries;	/* number of entries in a handle array */
+> >> +#endif /* CONFIG_SECURITY_LANDLOCK */
+> >>  	union {
+> >>  		char value[0] __aligned(8);
+> >>  		void *ptrs[0] __aligned(8);
+> >> @@ -194,6 +202,12 @@ struct bpf_array {
+> >>  	};
+> >>  };
+> >>  
+> >> +#ifdef CONFIG_SECURITY_LANDLOCK
+> >> +struct map_landlock_handle {
+> >> +	u32 type; /* enum bpf_map_handle_type */
+> >> +};
+> >> +#endif /* CONFIG_SECURITY_LANDLOCK */
+> >> +
+> >>  #define MAX_TAIL_CALL_CNT 32
+> >>  
+> >>  struct bpf_event_entry {
+> >> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+> >> index 7cd36166f9b7..b68de57f7ab8 100644
+> >> --- a/include/uapi/linux/bpf.h
+> >> +++ b/include/uapi/linux/bpf.h
+> >> @@ -87,6 +87,15 @@ enum bpf_map_type {
+> >>  	BPF_MAP_TYPE_PERCPU_ARRAY,
+> >>  	BPF_MAP_TYPE_STACK_TRACE,P_TYPE_CGROUP_ARRAY
+> >>  	BPF_MAP_TYPE_CGROUP_ARRAY,
+> >> +	BPF_MAP_TYPE_LANDLOCK_ARRAY,
+> >> +};
+> >> +
+> >> +enum bpf_map_array_type {
+> >> +	BPF_MAP_ARRAY_TYPE_UNSPEC,
+> >> +};
+> >> +
+> >> +enum bpf_map_handle_type {
+> >> +	BPF_MAP_HANDLE_TYPE_UNSPEC,
+> >>  };
+> > 
+> > missing something. why it has to be special to have it's own
+> > fd array implementation?
+> > Please take a look how BPF_MAP_TYPE_PERF_EVENT_ARRAY, 
+> > BPF_MAP_TYPE_CGROUP_ARRAY and BPF_MAP_TYPE_PROG_ARRAY are done.
+> > The all store objects into array map that user space passes via FD.
+> > I think the same model should apply here.
+> 
+> The idea is to have multiple way for userland to describe a resource
+> (e.g. an open file descriptor, a path or a glob pattern). The kernel
+> representation could then be a "struct path *" or dedicated types (e.g.
+> custom glob).
 
-The idea is that the kernel sets an ILA resolver route to the
-SIR prefix, something like:
+hmm. I think user space api should only deal with FD. Everything
+else is user space job to encapsulate/hide.
 
-ip route add 3333::/64 encap ila-resolve \
-     via 2401:db00:20:911a::27:0 dev eth0
+> Another interesting point (that could replace
+> check_map_func_compatibility()) is that BPF_MAP_TYPE_LANDLOCK_ARRAY
+> translate to dedicated (abstract) types (instead of CONST_PTR_TO_MAP)
+> thanks to bpf_reg_type_from_map(). This is useful to abstract userland
+> (map) interface with kernel object(s) dealing with that type.
 
-When a packet hits the route the address is looked up in a resolver
-table. If the entry is created (no entry with the address already
-exists) then an rtnl message is generated with group
-RTNLGRP_ILA_NOTIFY and type RTM_ADDR_RESOLVE. A userspace
-daemon can listen for such messages and perform an ILA resolution
-protocol to determine the ILA mapping. If the mapping is resolved
-then a /128 ila encap router is set so that host can perform
-ILA translation and send directly to destination.
+I probably missing something. If user space interface is FD,
+to the kernel they're different object types. Nothing else.
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
----
- include/uapi/linux/ila.h       |   9 ++
- include/uapi/linux/lwtunnel.h  |   1 +
- include/uapi/linux/rtnetlink.h |   8 +-
- net/ipv6/Kconfig               |   1 +
- net/ipv6/ila/Makefile          |   2 +-
- net/ipv6/ila/ila.h             |  16 +++
- net/ipv6/ila/ila_common.c      |   7 ++
- net/ipv6/ila/ila_lwt.c         |   9 ++
- net/ipv6/ila/ila_resolver.c    | 246 +++++++++++++++++++++++++++++++++++++++++
- net/ipv6/ila/ila_xlat.c        |  15 ++-
- 10 files changed, 304 insertions(+), 10 deletions(-)
- create mode 100644 net/ipv6/ila/ila_resolver.c
+> A third point is that BPF_MAP_TYPE_LANDLOCK_ARRAY is a kind of set. It
+> is optimized to quickly walk through all the elements in a sequential way.
 
-diff --git a/include/uapi/linux/ila.h b/include/uapi/linux/ila.h
-index 948c0a9..f186f8b 100644
---- a/include/uapi/linux/ila.h
-+++ b/include/uapi/linux/ila.h
-@@ -42,4 +42,13 @@ enum {
- 	ILA_CSUM_NO_ACTION,
- };
- 
-+enum {
-+	ILA_NOTIFY_ATTR_UNSPEC,
-+	ILA_NOTIFY_ATTR_TIMEOUT,		/* u32 */
-+
-+	__ILA_NOTIFY_ATTR_MAX,
-+};
-+
-+#define ILA_NOTIFY_ATTR_MAX	(__ILA_NOTIFY_ATTR_MAX - 1)
-+
- #endif /* _UAPI_LINUX_ILA_H */
-diff --git a/include/uapi/linux/lwtunnel.h b/include/uapi/linux/lwtunnel.h
-index a478fe8..d880e49 100644
---- a/include/uapi/linux/lwtunnel.h
-+++ b/include/uapi/linux/lwtunnel.h
-@@ -9,6 +9,7 @@ enum lwtunnel_encap_types {
- 	LWTUNNEL_ENCAP_IP,
- 	LWTUNNEL_ENCAP_ILA,
- 	LWTUNNEL_ENCAP_IP6,
-+	LWTUNNEL_ENCAP_ILA_NOTIFY,
- 	__LWTUNNEL_ENCAP_MAX,
- };
- 
-diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
-index 262f037..a775464 100644
---- a/include/uapi/linux/rtnetlink.h
-+++ b/include/uapi/linux/rtnetlink.h
-@@ -12,7 +12,8 @@
-  */
- #define RTNL_FAMILY_IPMR		128
- #define RTNL_FAMILY_IP6MR		129
--#define RTNL_FAMILY_MAX			129
-+#define RTNL_FAMILY_ILA			130
-+#define RTNL_FAMILY_MAX			130
- 
- /****
-  *		Routing/neighbour discovery messages.
-@@ -144,6 +145,9 @@ enum {
- 	RTM_GETSTATS = 94,
- #define RTM_GETSTATS RTM_GETSTATS
- 
-+	RTM_ADDR_RESOLVE = 95,
-+#define RTM_ADDR_RESOLVE RTM_ADDR_RESOLVE
-+
- 	__RTM_MAX,
- #define RTM_MAX		(((__RTM_MAX + 3) & ~3) - 1)
- };
-@@ -656,6 +660,8 @@ enum rtnetlink_groups {
- #define RTNLGRP_MPLS_ROUTE	RTNLGRP_MPLS_ROUTE
- 	RTNLGRP_NSID,
- #define RTNLGRP_NSID		RTNLGRP_NSID
-+	RTNLGRP_ILA_NOTIFY,
-+#define RTNLGRP_ILA_NOTIFY	RTNLGRP_ILA_NOTIFY
- 	__RTNLGRP_MAX
- };
- #define RTNLGRP_MAX	(__RTNLGRP_MAX - 1)
-diff --git a/net/ipv6/Kconfig b/net/ipv6/Kconfig
-index 2343e4f..cf3ea8e 100644
---- a/net/ipv6/Kconfig
-+++ b/net/ipv6/Kconfig
-@@ -97,6 +97,7 @@ config IPV6_ILA
- 	tristate "IPv6: Identifier Locator Addressing (ILA)"
- 	depends on NETFILTER
- 	select LWTUNNEL
-+	select NET_EXT_RESOLVER
- 	---help---
- 	  Support for IPv6 Identifier Locator Addressing (ILA).
- 
-diff --git a/net/ipv6/ila/Makefile b/net/ipv6/ila/Makefile
-index 4b32e59..f2aadc3 100644
---- a/net/ipv6/ila/Makefile
-+++ b/net/ipv6/ila/Makefile
-@@ -4,4 +4,4 @@
- 
- obj-$(CONFIG_IPV6_ILA) += ila.o
- 
--ila-objs := ila_common.o ila_lwt.o ila_xlat.o
-+ila-objs := ila_common.o ila_lwt.o ila_xlat.o ila_resolver.o
-diff --git a/net/ipv6/ila/ila.h b/net/ipv6/ila/ila.h
-index e0170f6..e369611 100644
---- a/net/ipv6/ila/ila.h
-+++ b/net/ipv6/ila/ila.h
-@@ -15,6 +15,7 @@
- #include <linux/ip.h>
- #include <linux/kernel.h>
- #include <linux/module.h>
-+#include <linux/rhashtable.h>
- #include <linux/socket.h>
- #include <linux/skbuff.h>
- #include <linux/types.h>
-@@ -23,6 +24,16 @@
- #include <net/protocol.h>
- #include <uapi/linux/ila.h>
- 
-+extern unsigned int ila_net_id;
-+
-+struct ila_net {
-+	struct rhashtable rhash_table;
-+	spinlock_t *locks; /* Bucket locks for entry manipulation */
-+	unsigned int locks_mask;
-+	bool hooks_registered;
-+	struct net_rslv *nrslv;
-+};
-+
- struct ila_locator {
- 	union {
- 		__u8            v8[8];
-@@ -114,9 +125,14 @@ void ila_update_ipv6_locator(struct sk_buff *skb, struct ila_params *p,
- 
- void ila_init_saved_csum(struct ila_params *p);
- 
-+void ila_rslv_resolved(struct ila_net *ilan, struct ila_addr *iaddr);
- int ila_lwt_init(void);
- void ila_lwt_fini(void);
- int ila_xlat_init(void);
- void ila_xlat_fini(void);
-+int ila_rslv_init(void);
-+void ila_rslv_fini(void);
-+int ila_init_resolver_net(struct ila_net *ilan);
-+void ila_exit_resolver_net(struct ila_net *ilan);
- 
- #endif /* __ILA_H */
-diff --git a/net/ipv6/ila/ila_common.c b/net/ipv6/ila/ila_common.c
-index aba0998..83c7d4a 100644
---- a/net/ipv6/ila/ila_common.c
-+++ b/net/ipv6/ila/ila_common.c
-@@ -157,7 +157,13 @@ static int __init ila_init(void)
- 	if (ret)
- 		goto fail_xlat;
- 
-+	ret = ila_rslv_init();
-+	if (ret)
-+		goto fail_rslv;
-+
- 	return 0;
-+fail_rslv:
-+	ila_xlat_fini();
- fail_xlat:
- 	ila_lwt_fini();
- fail_lwt:
-@@ -168,6 +174,7 @@ static void __exit ila_fini(void)
- {
- 	ila_xlat_fini();
- 	ila_lwt_fini();
-+	ila_rslv_fini();
- }
- 
- module_init(ila_init);
-diff --git a/net/ipv6/ila/ila_lwt.c b/net/ipv6/ila/ila_lwt.c
-index 30a6920..70d8988 100644
---- a/net/ipv6/ila/ila_lwt.c
-+++ b/net/ipv6/ila/ila_lwt.c
-@@ -9,6 +9,7 @@
- #include <net/ip.h>
- #include <net/ip6_fib.h>
- #include <net/lwtunnel.h>
-+#include <net/netns/generic.h>
- #include <net/protocol.h>
- #include <uapi/linux/ila.h>
- #include "ila.h"
-@@ -122,6 +123,14 @@ static int ila_build_state(struct net *net, struct net_device *dev,
- 
- 	*ts = newts;
- 
-+	if (cfg6->fc_dst_len >= sizeof(struct ila_addr)) {
-+		struct net *net = dev_net(dev);
-+		struct ila_net *ilan = net_generic(net, ila_net_id);
-+
-+		/* Cancel any pending resolution on this address */
-+		ila_rslv_resolved(ilan, iaddr);
-+	}
-+
- 	return 0;
- }
- 
-diff --git a/net/ipv6/ila/ila_resolver.c b/net/ipv6/ila/ila_resolver.c
-new file mode 100644
-index 0000000..0b975d6
---- /dev/null
-+++ b/net/ipv6/ila/ila_resolver.c
-@@ -0,0 +1,246 @@
-+#include <linux/errno.h>
-+#include <linux/ip.h>
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/netlink.h>
-+#include <linux/skbuff.h>
-+#include <linux/socket.h>
-+#include <linux/types.h>
-+#include <net/checksum.h>
-+#include <net/ip.h>
-+#include <net/ip6_fib.h>
-+#include <net/lwtunnel.h>
-+#include <net/netns/generic.h>
-+#include <net/protocol.h>
-+#include <net/resolver.h>
-+#include <uapi/linux/ila.h>
-+#include "ila.h"
-+
-+struct ila_notify_params {
-+	unsigned int timeout;
-+};
-+
-+static inline struct ila_notify_params *ila_notify_params_lwtunnel(
-+	struct lwtunnel_state *lwstate)
-+{
-+	return (struct ila_notify_params *)lwstate->data;
-+}
-+
-+static int ila_fill_notify(struct sk_buff *skb, struct in6_addr *addr,
-+			   u32 pid, u32 seq, int event, int flags)
-+{
-+	struct nlmsghdr *nlh;
-+	struct rtmsg *rtm;
-+
-+	nlh = nlmsg_put(skb, pid, seq, event, sizeof(*rtm), flags);
-+	if (!nlh)
-+		return -EMSGSIZE;
-+
-+	rtm = nlmsg_data(nlh);
-+	rtm->rtm_family   = RTNL_FAMILY_ILA;
-+	rtm->rtm_dst_len  = 128;
-+	rtm->rtm_src_len  = 0;
-+	rtm->rtm_tos      = 0;
-+	rtm->rtm_table    = RT6_TABLE_UNSPEC;
-+	rtm->rtm_type     = RTN_UNICAST;
-+	rtm->rtm_scope    = RT_SCOPE_UNIVERSE;
-+
-+	if (nla_put_in6_addr(skb, RTA_DST, addr)) {
-+		nlmsg_cancel(skb, nlh);
-+		return -EMSGSIZE;
-+	}
-+
-+	nlmsg_end(skb, nlh);
-+	return 0;
-+}
-+
-+static size_t ila_rslv_msgsize(void)
-+{
-+	size_t len =
-+		NLMSG_ALIGN(sizeof(struct rtmsg))
-+		+ nla_total_size(16)     /* RTA_DST */
-+		;
-+
-+	return len;
-+}
-+
-+void ila_rslv_notify(struct net *net, struct sk_buff *skb)
-+{
-+	struct ipv6hdr *ip6h = ipv6_hdr(skb);
-+	struct sk_buff *nlskb;
-+	int err = 0;
-+
-+	/* Send ILA notification to user */
-+	nlskb = nlmsg_new(ila_rslv_msgsize(), GFP_KERNEL);
-+	if (!nlskb)
-+		goto errout;
-+
-+	err = ila_fill_notify(nlskb, &ip6h->daddr, 0, 0, RTM_ADDR_RESOLVE,
-+			      NLM_F_MULTI);
-+	if (err < 0) {
-+		WARN_ON(err == -EMSGSIZE);
-+		kfree_skb(nlskb);
-+		goto errout;
-+	}
-+	rtnl_notify(nlskb, net, 0, RTNLGRP_ILA_NOTIFY, NULL, GFP_ATOMIC);
-+	return;
-+
-+errout:
-+	if (err < 0)
-+		rtnl_set_sk_err(net, RTNLGRP_ILA_NOTIFY, err);
-+}
-+
-+static int ila_rslv_output(struct net *net, struct sock *sk,
-+			   struct sk_buff *skb)
-+{
-+	struct ila_net *ilan = net_generic(net, ila_net_id);
-+	struct dst_entry *dst = skb_dst(skb);
-+	struct net_rslv_ent *nrent;
-+	struct ipv6hdr *ip6h = ipv6_hdr(skb);
-+	struct ila_notify_params *p;
-+	bool new;
-+
-+	p = ila_notify_params_lwtunnel(dst->lwtstate);
-+
-+	/* Don't bother taking rcu lock, we only want to know if the entry
-+	 * exists or not.
-+	 */
-+	nrent = net_rslv_lookup_and_create(ilan->nrslv, &ip6h->daddr, &new,
-+					   p->timeout);
-+
-+	if (nrent && new)
-+		ila_rslv_notify(net, skb);
-+
-+	return dst->lwtstate->orig_output(net, sk, skb);
-+}
-+
-+void ila_rslv_resolved(struct ila_net *ilan, struct ila_addr *iaddr)
-+{
-+	if (ilan->nrslv)
-+		net_rslv_resolved(ilan->nrslv, iaddr);
-+}
-+
-+static int ila_rslv_input(struct sk_buff *skb)
-+{
-+	struct dst_entry *dst = skb_dst(skb);
-+
-+	return dst->lwtstate->orig_input(skb);
-+}
-+
-+static const struct nla_policy ila_notify_nl_policy[ILA_NOTIFY_ATTR_MAX + 1] = {
-+	[ILA_NOTIFY_ATTR_TIMEOUT] = { .type = NLA_U32, },
-+};
-+
-+static int ila_rslv_build_state(struct net *net, struct net_device *dev,
-+				struct nlattr *nla, unsigned int family,
-+				const void *cfg, struct lwtunnel_state **ts)
-+{
-+	struct ila_notify_params *p;
-+	struct nlattr *tb[ILA_NOTIFY_ATTR_MAX + 1];
-+	struct lwtunnel_state *newts;
-+	struct ila_net *ilan = net_generic(net, ila_net_id);
-+	size_t encap_len = sizeof(*p);
-+	int ret;
-+
-+	if (unlikely(!ilan->nrslv)) {
-+		int err;
-+
-+		/* Only create net resolver on demand */
-+		err = ila_init_resolver_net(ilan);
-+		if (err)
-+			return err;
-+	}
-+
-+	if (family != AF_INET6)
-+		return -EINVAL;
-+
-+	ret = nla_parse_nested(tb, ILA_NOTIFY_ATTR_MAX, nla,
-+			       ila_notify_nl_policy);
-+
-+	if (ret < 0)
-+		return ret;
-+
-+	newts = lwtunnel_state_alloc(encap_len);
-+	if (!newts)
-+		return -ENOMEM;
-+
-+	newts->len = 0;
-+	newts->type = LWTUNNEL_ENCAP_ILA_NOTIFY;
-+	newts->flags |= LWTUNNEL_STATE_OUTPUT_REDIRECT |
-+			LWTUNNEL_STATE_INPUT_REDIRECT;
-+
-+	p = ila_notify_params_lwtunnel(newts);
-+
-+	if (tb[ILA_NOTIFY_ATTR_TIMEOUT])
-+		p->timeout = msecs_to_jiffies(nla_get_u32(
-+			tb[ILA_NOTIFY_ATTR_TIMEOUT]));
-+
-+	*ts = newts;
-+
-+	return 0;
-+}
-+
-+static int ila_rslv_fill_encap_info(struct sk_buff *skb,
-+				    struct lwtunnel_state *lwtstate)
-+{
-+	struct ila_notify_params *p = ila_notify_params_lwtunnel(lwtstate);
-+
-+	if (nla_put_u32(skb, ILA_NOTIFY_ATTR_TIMEOUT,
-+			(__force u32)jiffies_to_msecs(p->timeout)))
-+		goto nla_put_failure;
-+
-+	return 0;
-+
-+nla_put_failure:
-+	return -EMSGSIZE;
-+}
-+
-+static int ila_rslv_nlsize(struct lwtunnel_state *lwtstate)
-+{
-+	return nla_total_size(sizeof(u32)) + /* ILA_NOTIFY_ATTR_TIMEOUT */
-+	       0;
-+}
-+
-+static int ila_rslv_cmp(struct lwtunnel_state *a, struct lwtunnel_state *b)
-+{
-+	return 0;
-+}
-+
-+static const struct lwtunnel_encap_ops ila_rslv_ops = {
-+	.build_state = ila_rslv_build_state,
-+	.output = ila_rslv_output,
-+	.input = ila_rslv_input,
-+	.fill_encap = ila_rslv_fill_encap_info,
-+	.get_encap_size = ila_rslv_nlsize,
-+	.cmp_encap = ila_rslv_cmp,
-+};
-+
-+#define ILA_MAX_SIZE 8192
-+
-+int ila_init_resolver_net(struct ila_net *ilan)
-+{
-+	ilan->nrslv = net_rslv_create(sizeof(struct ila_addr),
-+				      sizeof(struct ila_addr), ILA_MAX_SIZE,
-+				      NULL, NULL, NULL);
-+
-+	if (!ilan->nrslv)
-+		return -ENOMEM;
-+
-+	return 0;
-+}
-+
-+void ila_exit_resolver_net(struct ila_net *ilan)
-+{
-+	if (ilan->nrslv)
-+		net_rslv_destroy(ilan->nrslv);
-+}
-+
-+int ila_rslv_init(void)
-+{
-+	return lwtunnel_encap_add_ops(&ila_rslv_ops, LWTUNNEL_ENCAP_ILA_NOTIFY);
-+}
-+
-+void ila_rslv_fini(void)
-+{
-+	lwtunnel_encap_del_ops(&ila_rslv_ops, LWTUNNEL_ENCAP_ILA_NOTIFY);
-+}
-diff --git a/net/ipv6/ila/ila_xlat.c b/net/ipv6/ila/ila_xlat.c
-index 7d1c34b..857f8b5 100644
---- a/net/ipv6/ila/ila_xlat.c
-+++ b/net/ipv6/ila/ila_xlat.c
-@@ -21,14 +21,7 @@ struct ila_map {
- 	struct rcu_head rcu;
- };
- 
--static unsigned int ila_net_id;
--
--struct ila_net {
--	struct rhashtable rhash_table;
--	spinlock_t *locks; /* Bucket locks for entry manipulation */
--	unsigned int locks_mask;
--	bool hooks_registered;
--};
-+unsigned int ila_net_id;
- 
- static u32 hashrnd __read_mostly;
- static __always_inline void __ila_hash_secret_init(void)
-@@ -546,6 +539,10 @@ static __net_init int ila_init_net(struct net *net)
- 	if (err)
- 		return err;
- 
-+	/* Resolver net is created on demand when LWT ILA resolver route
-+	 * is made.
-+	 */
-+
- 	rhashtable_init(&ilan->rhash_table, &rht_params);
- 
- 	return 0;
-@@ -557,6 +554,8 @@ static __net_exit void ila_exit_net(struct net *net)
- 
- 	rhashtable_free_and_destroy(&ilan->rhash_table, ila_free_cb, NULL);
- 
-+	ila_exit_resolver_net(ilan);
-+
- 	free_bucket_spinlocks(ilan->locks);
- 
- 	if (ilan->hooks_registered)
--- 
-2.8.0.rc2
+why set is any faster to walk vs array?
+
