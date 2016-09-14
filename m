@@ -1,104 +1,229 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next 0/7] net: ILA resolver and generic resolver backend
-Date: Wed, 14 Sep 2016 16:22:49 -0700
-Message-ID: <1473895376-347096-1-git-send-email-tom@herbertland.com>
+From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
+Subject: Re: [RFC v3 03/22] bpf,landlock: Add a new arraymap type to deal with
+ (Landlock) handles
+Date: Thu, 15 Sep 2016 01:22:49 +0200
+Message-ID: <57D9DBC9.2010605@digikod.net>
+References: <20160914072415.26021-1-mic@digikod.net>
+ <20160914072415.26021-4-mic@digikod.net>
+ <20160914185157.GA53542@ast-mbp.thefacebook.com>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <tgraf@suug.ch>, <roopa@cumulusnetworks.com>, <kernel-team@fb.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:48172 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1756385AbcINXXa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 19:23:30 -0400
-Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
-        by mx0b-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8ENLsSL018428
-        for <netdev@vger.kernel.org>; Wed, 14 Sep 2016 16:23:29 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0b-00082601.pphosted.com with ESMTP id 25f0w2670y-2
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 14 Sep 2016 16:23:29 -0700
-Received: from facebook.com (2401:db00:21:6030:face:0:92:0)     by
- mx-out.facebook.com (10.103.99.97) with ESMTP  id
- 2f7700887ad211e688190002c9931860-412e1a50 for <netdev@vger.kernel.org>;        Wed,
- 14 Sep 2016 16:23:03 -0700
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="UPGkAw2AHu1mFktC0wkiPFcXM1xMapqCd"
+Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
+        Andy Lutomirski <luto@amacapital.net>, Arnd Bergmann <arnd@arndb.de>,
+        Casey Schaufler <casey@schaufler-ca.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Daniel Mack <daniel@zonque.org>, David Drysdale <drysdale@google.com>,
+        "David S . Miller"
+ <davem@davemloft.net>,
+        Elena Reshetova <elena.reshetova@intel.com>,
+        "Eric W . Biederman" <ebiederm@xmission.com>,
+        James Morris <james.l.morris@oracle.com>,
+        Kees Cook <keescook@chromium.org>, Paul Moore <pmoore@redhat.com>,
+        Sargun Dhillon <sargun@sargun.me>,
+        "Serge E . Hallyn" <serge@hallyn.com>, Tejun Heo <tj@kernel.org>,
+        Will Drewry <wad@chromium.org>, kernel-hardening@lists.openwall.com,
+        linux-api@vger.kernel.org, linux-security-module@vger.kernel.org,
+        netdev@vger.ker
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <kernel-hardening-return-4642-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <20160914185157.GA53542@ast-mbp.thefacebook.com>
+List-Id: netdev.vger.kernel.org
 
-This patch set implements an ILA host side resolver. This uses LWT to
-implement the hook to a userspace resolver and tracks pending unresolved
-address using the backend net resolver.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--UPGkAw2AHu1mFktC0wkiPFcXM1xMapqCd
+Content-Type: multipart/mixed; boundary="kGu4VJSvr7M189NUoiXHrVNXfHAD1iXGI";
+ protected-headers="v1"
+From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
+ Andy Lutomirski <luto@amacapital.net>, Arnd Bergmann <arnd@arndb.de>,
+ Casey Schaufler <casey@schaufler-ca.com>,
+ Daniel Borkmann <daniel@iogearbox.net>, Daniel Mack <daniel@zonque.org>,
+ David Drysdale <drysdale@google.com>, "David S . Miller"
+ <davem@davemloft.net>, Elena Reshetova <elena.reshetova@intel.com>,
+ "Eric W . Biederman" <ebiederm@xmission.com>,
+ James Morris <james.l.morris@oracle.com>, Kees Cook <keescook@chromium.org>,
+ Paul Moore <pmoore@redhat.com>, Sargun Dhillon <sargun@sargun.me>,
+ "Serge E . Hallyn" <serge@hallyn.com>, Tejun Heo <tj@kernel.org>,
+ Will Drewry <wad@chromium.org>, kernel-hardening@lists.openwall.com,
+ linux-api@vger.kernel.org, linux-security-module@vger.kernel.org,
+ netdev@vger.kernel.org, cgroups@vger.kernel.org
+Message-ID: <57D9DBC9.2010605@digikod.net>
+Subject: Re: [RFC v3 03/22] bpf,landlock: Add a new arraymap type to deal with
+ (Landlock) handles
+References: <20160914072415.26021-1-mic@digikod.net>
+ <20160914072415.26021-4-mic@digikod.net>
+ <20160914185157.GA53542@ast-mbp.thefacebook.com>
+In-Reply-To: <20160914185157.GA53542@ast-mbp.thefacebook.com>
 
-This patch set contains:
+--kGu4VJSvr7M189NUoiXHrVNXfHAD1iXGI
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: quoted-printable
 
-- An new library function to allocate an array of spinlocks for use
-  with locking hash buckets.
-- Make hash function in rhashtable directly callable.
-- A generic resolver backend infrastructure. This primary does two
-  things: track unsesolved addresses and implement a timeout for
-  resolution not happening. These mechanisms provides rate limiting
-  control over resolution requests (for instance in ILA it use used
-  to rate limit requests to userspace to resolve addresses).
-- The ILA resolver. This is implements to path from the kernel ILA
-  implementation to a userspace daemon that an identifier address
-  needs to be resolved.
-- Routing messages are used over netlink to indicate resoltion
-  requests.
 
-Changes from intial RFC:
+On 14/09/2016 20:51, Alexei Starovoitov wrote:
+> On Wed, Sep 14, 2016 at 09:23:56AM +0200, Micka=EBl Sala=FCn wrote:
+>> This new arraymap looks like a set and brings new properties:
+>> * strong typing of entries: the eBPF functions get the array type of
+>>   elements instead of CONST_PTR_TO_MAP (e.g.
+>>   CONST_PTR_TO_LANDLOCK_HANDLE_FS);
+>> * force sequential filling (i.e. replace or append-only update), which=
 
- - Added net argument to LWT build_state
- - Made resolve timeout an attribute of the LWT encap route
- - Changed ILA notifications to be regular routing messages of event
-   RTM_ADDR_RESOLVE, family RTNL_FAMILY_ILA, and group
-   RTNLGRP_ILA_NOTIFY
+>>   allow quick browsing of all entries.
+>>
+>> This strong typing is useful to statically check if the content of a m=
+ap
+>> can be passed to an eBPF function. For example, Landlock use it to sto=
+re
+>> and manage kernel objects (e.g. struct file) instead of dealing with
+>> userland raw data. This improve efficiency and ensure that an eBPF
+>> program can only call functions with the right high-level arguments.
+>>
+>> The enum bpf_map_handle_type list low-level types (e.g.
+>> BPF_MAP_HANDLE_TYPE_LANDLOCK_FS_FD) which are identified when
+>> updating a map entry (handle). This handle types are used to infer a
+>> high-level arraymap type which are listed in enum bpf_map_array_type
+>> (e.g. BPF_MAP_ARRAY_TYPE_LANDLOCK_FS).
+>>
+>> For now, this new arraymap is only used by Landlock LSM (cf. next
+>> commits) but it could be useful for other needs.
+>>
+>> Changes since v2:
+>> * add a RLIMIT_NOFILE-based limit to the maximum number of arraymap
+>>   handle entries (suggested by Andy Lutomirski)
+>> * remove useless checks
+>>
+>> Changes since v1:
+>> * arraymap of handles replace custom checker groups
+>> * simpler userland API
+>>
+>> Signed-off-by: Micka=EBl Sala=FCn <mic@digikod.net>
+>> Cc: Alexei Starovoitov <ast@kernel.org>
+>> Cc: Andy Lutomirski <luto@amacapital.net>
+>> Cc: Daniel Borkmann <daniel@iogearbox.net>
+>> Cc: David S. Miller <davem@davemloft.net>
+>> Cc: Kees Cook <keescook@chromium.org>
+>> Link: https://lkml.kernel.org/r/CALCETrWwTiz3kZTkEgOW24-DvhQq6LftwEXh7=
+7FD2G5o71yD7g@mail.gmail.com
+>> ---
+>>  include/linux/bpf.h      |  14 ++++
+>>  include/uapi/linux/bpf.h |  18 +++++
+>>  kernel/bpf/arraymap.c    | 203 ++++++++++++++++++++++++++++++++++++++=
++++++++++
+>>  kernel/bpf/verifier.c    |  12 ++-
+>>  4 files changed, 246 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+>> index fa9a988400d9..eae4ce4542c1 100644
+>> --- a/include/linux/bpf.h
+>> +++ b/include/linux/bpf.h
+>> @@ -13,6 +13,10 @@
+>>  #include <linux/percpu.h>
+>>  #include <linux/err.h>
+>> =20
+>> +#ifdef CONFIG_SECURITY_LANDLOCK
+>> +#include <linux/fs.h> /* struct file */
+>> +#endif /* CONFIG_SECURITY_LANDLOCK */
+>> +
+>>  struct perf_event;
+>>  struct bpf_map;
+>> =20
+>> @@ -38,6 +42,7 @@ struct bpf_map_ops {
+>>  struct bpf_map {
+>>  	atomic_t refcnt;
+>>  	enum bpf_map_type map_type;
+>> +	enum bpf_map_array_type map_array_type;
+>>  	u32 key_size;
+>>  	u32 value_size;
+>>  	u32 max_entries;
+>> @@ -187,6 +192,9 @@ struct bpf_array {
+>>  	 */
+>>  	enum bpf_prog_type owner_prog_type;
+>>  	bool owner_jited;
+>> +#ifdef CONFIG_SECURITY_LANDLOCK
+>> +	u32 n_entries;	/* number of entries in a handle array */
+>> +#endif /* CONFIG_SECURITY_LANDLOCK */
+>>  	union {
+>>  		char value[0] __aligned(8);
+>>  		void *ptrs[0] __aligned(8);
+>> @@ -194,6 +202,12 @@ struct bpf_array {
+>>  	};
+>>  };
+>> =20
+>> +#ifdef CONFIG_SECURITY_LANDLOCK
+>> +struct map_landlock_handle {
+>> +	u32 type; /* enum bpf_map_handle_type */
+>> +};
+>> +#endif /* CONFIG_SECURITY_LANDLOCK */
+>> +
+>>  #define MAX_TAIL_CALL_CNT 32
+>> =20
+>>  struct bpf_event_entry {
+>> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+>> index 7cd36166f9b7..b68de57f7ab8 100644
+>> --- a/include/uapi/linux/bpf.h
+>> +++ b/include/uapi/linux/bpf.h
+>> @@ -87,6 +87,15 @@ enum bpf_map_type {
+>>  	BPF_MAP_TYPE_PERCPU_ARRAY,
+>>  	BPF_MAP_TYPE_STACK_TRACE,P_TYPE_CGROUP_ARRAY
+>>  	BPF_MAP_TYPE_CGROUP_ARRAY,
+>> +	BPF_MAP_TYPE_LANDLOCK_ARRAY,
+>> +};
+>> +
+>> +enum bpf_map_array_type {
+>> +	BPF_MAP_ARRAY_TYPE_UNSPEC,
+>> +};
+>> +
+>> +enum bpf_map_handle_type {
+>> +	BPF_MAP_HANDLE_TYPE_UNSPEC,
+>>  };
+>=20
+> missing something. why it has to be special to have it's own
+> fd array implementation?
+> Please take a look how BPF_MAP_TYPE_PERF_EVENT_ARRAY,=20
+> BPF_MAP_TYPE_CGROUP_ARRAY and BPF_MAP_TYPE_PROG_ARRAY are done.
+> The all store objects into array map that user space passes via FD.
+> I think the same model should apply here.
 
-Tested:
- - Ran a UDP flood to random addresses in a resolver prefix. Observed
-   timeout and limits were working (watching "ip monitor").
- - Also ran against an ILA client daemon that runs the resolver
-   protocol. Observed that when resolution completes (ILA encap route is
-   installed) routing messages are no longer sent.
+The idea is to have multiple way for userland to describe a resource
+(e.g. an open file descriptor, a path or a glob pattern). The kernel
+representation could then be a "struct path *" or dedicated types (e.g.
+custom glob).
 
-Tom Herbert (7):
-  lwt: Add net to build_state argument
-  spinlock: Add library function to allocate spinlock buckets array
-  rhashtable: Call library function alloc_bucket_locks
-  ila: Call library function alloc_bucket_locks
-  rhashtable: abstract out function to get hash
-  net: Generic resolver backend
-  ila: Resolver mechanism
+Another interesting point (that could replace
+check_map_func_compatibility()) is that BPF_MAP_TYPE_LANDLOCK_ARRAY
+translate to dedicated (abstract) types (instead of CONST_PTR_TO_MAP)
+thanks to bpf_reg_type_from_map(). This is useful to abstract userland
+(map) interface with kernel object(s) dealing with that type.
 
- include/linux/rhashtable.h     |  28 +++--
- include/linux/spinlock.h       |   6 +
- include/net/lwtunnel.h         |  10 +-
- include/net/resolver.h         |  58 +++++++++
- include/uapi/linux/ila.h       |   9 ++
- include/uapi/linux/lwtunnel.h  |   1 +
- include/uapi/linux/rtnetlink.h |   8 +-
- lib/Makefile                   |   2 +-
- lib/bucket_locks.c             |  63 ++++++++++
- lib/rhashtable.c               |  46 +------
- net/Kconfig                    |   4 +
- net/core/Makefile              |   1 +
- net/core/lwtunnel.c            |  11 +-
- net/core/resolver.c            | 268 +++++++++++++++++++++++++++++++++++++++++
- net/ipv4/fib_semantics.c       |   7 +-
- net/ipv4/ip_tunnel_core.c      |  12 +-
- net/ipv6/Kconfig               |   1 +
- net/ipv6/ila/Makefile          |   2 +-
- net/ipv6/ila/ila.h             |  16 +++
- net/ipv6/ila/ila_common.c      |   7 ++
- net/ipv6/ila/ila_lwt.c         |  15 ++-
- net/ipv6/ila/ila_resolver.c    | 246 +++++++++++++++++++++++++++++++++++++
- net/ipv6/ila/ila_xlat.c        |  51 ++------
- net/ipv6/route.c               |   2 +-
- net/mpls/mpls_iptunnel.c       |   6 +-
- 25 files changed, 761 insertions(+), 119 deletions(-)
- create mode 100644 include/net/resolver.h
- create mode 100644 lib/bucket_locks.c
- create mode 100644 net/core/resolver.c
- create mode 100644 net/ipv6/ila/ila_resolver.c
+A third point is that BPF_MAP_TYPE_LANDLOCK_ARRAY is a kind of set. It
+is optimized to quickly walk through all the elements in a sequential way=
+=2E
 
--- 
-2.8.0.rc2
+
+--kGu4VJSvr7M189NUoiXHrVNXfHAD1iXGI--
+
+--UPGkAw2AHu1mFktC0wkiPFcXM1xMapqCd
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBCgAGBQJX2dvJAAoJECLe/t9zvWqVMtIIAKWa0Kw454QRJ8SX7w4o06TU
+By7mOwkMUS5UAbOdwikhxTq/+DU6xZh7E1MU00dBnDjxPxVDbcpZOmbEpLq+ypkg
+2ZK7JmNDOL08HuZRUqIY760ScQoxqE1s82Qyh9XqhTL2Dms7SU2VvUBA7clWlhiL
+dXri+gau+++un4d33v9I+d91lEsoOHnYrjKzHch7MDkWzJSRAfkGBk22Uko4iBNc
+R7lWq/oEPQEnsKjYxDjZhLRz46hSiGXDwL/iHe6aZaWHkzMbFqU7MgYZfRmqeAEZ
+ifHRFdnTZl3T+SmbBTitylbhUYjQBjLXj+en6RcpvzRJ+INikD39BSIaKLHhdP8=
+=F9R/
+-----END PGP SIGNATURE-----
+
+--UPGkAw2AHu1mFktC0wkiPFcXM1xMapqCd--
