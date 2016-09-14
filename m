@@ -1,7 +1,7 @@
 From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH 7/9] net: ethernet: ti: cpts: calc mult and shift from refclk freq
-Date: Wed, 14 Sep 2016 16:02:29 +0300
-Message-ID: <20160914130231.3035-8-grygorii.strashko@ti.com>
+Subject: [PATCH 6/9] net: ethernet: ti: cpts: clean up event list if event pool is empty
+Date: Wed, 14 Sep 2016 16:02:28 +0300
+Message-ID: <20160914130231.3035-7-grygorii.strashko@ti.com>
 References: <20160914130231.3035-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,123 +16,74 @@ In-Reply-To: <20160914130231.3035-1-grygorii.strashko@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The cyclecounter mult and shift values can be calculated based on the
-CPTS rftclk frequency and timekeepnig framework provides required algos
-and API's.
+From: WingMan Kwok <w-kwok2@ti.com>
 
-Hence, calc mult and shift basing on CPTS rftclk frequency if both
-cpts_clock_shift and cpts_clock_mult properties are not provided in DT
-(the basis of calculation algorithm is borrowed from
-__clocksource_update_freq_scale()). After this change cpts_clock_shift
-and cpts_clock_mult DT properties will become optional.
+When a CPTS user does not exit gracefully by disabling cpts
+timestamping and leaving a joined multicast group, the system
+continues to receive and timestamps the ptp packets which eventually
+occupy all the event list entries.  When this happns, the added code
+tries to remove some list entries which are expired.
 
+Signed-off-by: WingMan Kwok <w-kwok2@ti.com>
 Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 ---
- Documentation/devicetree/bindings/net/cpsw.txt |  4 +-
- drivers/net/ethernet/ti/cpts.c                 | 56 +++++++++++++++++++++++---
- 2 files changed, 52 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/ti/cpts.c | 30 ++++++++++++++++++++++++++++--
+ 1 file changed, 28 insertions(+), 2 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
-index 5ad439f..88f81c7 100644
---- a/Documentation/devicetree/bindings/net/cpsw.txt
-+++ b/Documentation/devicetree/bindings/net/cpsw.txt
-@@ -20,8 +20,6 @@ Required properties:
- - slaves		: Specifies number for slaves
- - active_slave		: Specifies the slave to use for time stamping,
- 			  ethtool and SIOCGMIIPHY
--- cpts_clock_mult	: Numerator to convert input clock ticks into nanoseconds
--- cpts_clock_shift	: Denominator to convert input clock ticks into nanoseconds
- 
- Optional properties:
- - ti,hwmods		: Must be "cpgmac0"
-@@ -35,6 +33,8 @@ Optional properties:
- 			  For example in dra72x-evm, pcf gpio has to be
- 			  driven low so that cpsw slave 0 and phy data
- 			  lines are connected via mux.
-+- cpts_clock_mult	: Numerator to convert input clock ticks into nanoseconds
-+- cpts_clock_shift	: Denominator to convert input clock ticks into nanoseconds
- 
- 
- Slave Properties:
 diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
-index ff8bb85..8046a21 100644
+index 970d4e2..ff8bb85 100644
 --- a/drivers/net/ethernet/ti/cpts.c
 +++ b/drivers/net/ethernet/ti/cpts.c
-@@ -418,18 +418,60 @@ void cpts_unregister(struct cpts *cpts)
- 	clk_disable(cpts->refclk);
+@@ -57,22 +57,48 @@ static int cpts_fifo_pop(struct cpts *cpts, u32 *high, u32 *low)
+ 	return -1;
  }
  
-+static void cpts_calc_mult_shift(struct cpts *cpts)
++static int cpts_event_list_clean_up(struct cpts *cpts)
 +{
-+	u64 maxsec;
-+	u32 freq;
-+	u32 mult;
-+	u32 shift;
-+	u64 ns;
-+	u64 frac;
++	struct list_head *this, *next;
++	struct cpts_event *event;
++	int removed = 0;
 +
-+	if (cpts->cc_mult || cpts->cc.shift)
-+		return;
-+
-+	freq = clk_get_rate(cpts->refclk);
-+
-+	/* Calc the maximum number of seconds which we can run before
-+	 * wrapping around.
-+	 */
-+	maxsec = cpts->cc.mask;
-+	do_div(maxsec, freq);
-+	if (!maxsec)
-+		maxsec = 1;
-+	else if (maxsec > 600 && cpts->cc.mask > UINT_MAX)
-+		maxsec = 600;
-+
-+	clocks_calc_mult_shift(&mult, &shift, freq, NSEC_PER_SEC, maxsec);
-+
-+	cpts->cc_mult = mult;
-+	cpts->cc.mult = mult;
-+	cpts->cc.shift = shift;
-+	/* Check calculations and inform if not precise */
-+	frac = 0;
-+	ns = cyclecounter_cyc2ns(&cpts->cc, freq, cpts->cc.mask, &frac);
-+
-+	dev_info(cpts->dev,
-+		 "CPTS: ref_clk_freq:%u calc_mult:%u calc_shift:%u error:%lld nsec/sec\n",
-+		 freq, cpts->cc_mult, cpts->cc.shift, (ns - NSEC_PER_SEC));
++	list_for_each_safe(this, next, &cpts->events) {
++		event = list_entry(this, struct cpts_event, list);
++		if (event_expired(event)) {
++			list_del_init(&event->list);
++			list_add(&event->list, &cpts->pool);
++			++removed;
++		}
++	}
++	return removed;
 +}
 +
- static int cpts_of_parse(struct cpts *cpts, struct device_node *node)
+ /*
+  * Returns zero if matching event type was found.
+  */
+ static int cpts_fifo_read(struct cpts *cpts, int match)
  {
- 	int ret = -EINVAL;
- 	u32 prop;
+ 	int i, type = -1;
++	int removed;
+ 	u32 hi, lo;
+ 	struct cpts_event *event;
  
--	if (of_property_read_u32(node, "cpts_clock_mult", &prop))
--		goto  of_error;
--	cpts->cc_mult = prop;
-+	cpts->cc_mult = 0;
-+	if (!of_property_read_u32(node, "cpts_clock_mult", &prop))
-+		cpts->cc_mult = prop;
- 
--	if (of_property_read_u32(node, "cpts_clock_shift", &prop))
--		goto  of_error;
--	cpts->cc.shift = prop;
-+	cpts->cc.shift = 0;
-+	if (!of_property_read_u32(node, "cpts_clock_shift", &prop))
-+		cpts->cc.shift = prop;
+ 	for (i = 0; i < CPTS_FIFO_DEPTH; i++) {
+ 		if (cpts_fifo_pop(cpts, &hi, &lo))
+ 			break;
 +
-+	if ((cpts->cc_mult && !cpts->cc.shift) ||
-+	    (!cpts->cc_mult && cpts->cc.shift))
-+		goto of_error;
- 
- 	return 0;
- 
-@@ -471,6 +513,8 @@ struct cpts *cpts_create(struct device *dev, void __iomem *regs,
- 	cpts->cc.read = cpts_systim_read;
- 	cpts->cc.mask = CLOCKSOURCE_MASK(32);
- 
-+	cpts_calc_mult_shift(cpts);
+ 		if (list_empty(&cpts->pool)) {
+-			pr_err("cpts: event pool is empty\n");
+-			return -1;
++			removed = cpts_event_list_clean_up(cpts);
++			if (!removed) {
++				dev_err(cpts->dev,
++					"cpts: event pool is empty\n");
++				return -1;
++			}
++			dev_dbg(cpts->dev,
++				"cpts: event pool cleaned up %d\n", removed);
+ 		}
 +
- 	return cpts;
- }
- 
+ 		event = list_first_entry(&cpts->pool, struct cpts_event, list);
+ 		event->tmo = jiffies + 2;
+ 		event->high = hi;
 -- 
 2.9.3
