@@ -1,79 +1,91 @@
-From: "Mintz, Yuval" <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Subject: Re: [RFC 02/11] Add RoCE driver framework
-Date: Wed, 14 Sep 2016 08:15:23 +0000
-Message-ID: <BL2PR07MB2306533A710B9EC40F56E8678DF10@BL2PR07MB2306.namprd07.prod.outlook.com>
-References: <1473696465-27986-1-git-send-email-Ram.Amrani@qlogic.com>
- <1473696465-27986-3-git-send-email-Ram.Amrani@qlogic.com>
- <516b98c7-477a-4890-0d92-529dc32f2c4e@mellanox.com>
- <CY4PR11MB1720F9B74BBF82D0779FAC8F97FF0@CY4PR11MB1720.namprd11.prod.outlook.com>
- <20160913063806.GP8812@leon.nu>
- <BL2PR07MB2306937C8C495DB80DA776CA8DFE0@BL2PR07MB2306.namprd07.prod.outlook.com>,<20160913101616.GT8812@leon.nu>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH RFC 5/6] net: Generic resolver backend
+Date: Wed, 14 Sep 2016 11:49:11 +0200
+Message-ID: <20160914094911.GE11841@pox.localdomain>
+References: <1473463197-3076903-1-git-send-email-tom@herbertland.com>
+ <1473463197-3076903-6-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Yuval Mintz <Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        Mark Bloch <markb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Ram Amrani <Ram.Amrani-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Ariel Elior <Ariel.Elior-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        Michal Kalderon <Michal.Kalderon-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        Rajesh Borundia <rajesh.borundia-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160913101616.GT8812-2ukJVAZIZ/Y@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, kernel-team@fb.com
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:35309 "EHLO
+        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751621AbcINJtN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 05:49:13 -0400
+Received: by mail-wm0-f50.google.com with SMTP id i130so38802291wmf.0
+        for <netdev@vger.kernel.org>; Wed, 14 Sep 2016 02:49:13 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1473463197-3076903-6-git-send-email-tom@herbertland.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > >> >> +uint debug;
-> > >> >> +module_param(debug, uint, 0);
-> > > >>> +MODULE_PARM_DESC(debug, "Default debug msglevel");
-> > >>
-> > >> >Why are you adding this as a module parameter?
-> > >>
-> > >>=A0 I believe this is mostly to follow same line as qede which also d=
-efines
-> > > > 'debug' module parameter for allowing easy user control of debug
-> > > > prints [& specifically for probe prints, which can't be controlled
-> > > > otherwise].
-> >
-> > > Can you give us an example where dynamic debug and tracing infrastruc=
-tures
-> > > are not enough?
-> >
-> > > AFAIK, most of these debug module parameters are legacy copy/paste
-> > > code which is useless in real life scenarios.
-> >
-> > Define 'enough'; Using dynamic debug you can provide all the necessary
-> > information and at an even better granularity that's achieved by sugges=
-ted
-> > infrastructure,=A0 but is harder for an end-user to use. Same goes for =
-tracing.
-> >
-> > The 'debug' option provides an easy grouping for prints related to a sp=
-ecific
-> > area in the driver.
->=20
-> It is hard to agree with you that user which knows how-to load modules
-> with parameters won't success to enable debug prints.
+On 09/09/16 at 04:19pm, Tom Herbert wrote:
+> diff --git a/net/core/resolver.c b/net/core/resolver.c
+> new file mode 100644
+> index 0000000..61b36c5
+> --- /dev/null
+> +++ b/net/core/resolver.c
+> @@ -0,0 +1,267 @@
+> +#include <linux/errno.h>
+> +#include <linux/ip.h>
+> +#include <linux/kernel.h>
+> +#include <linux/module.h>
+> +#include <linux/netlink.h>
+> +#include <linux/skbuff.h>
+> +#include <linux/socket.h>
+> +#include <linux/types.h>
+> +#include <linux/vmalloc.h>
+> +#include <net/checksum.h>
+> +#include <net/ip.h>
+> +#include <net/ip6_fib.h>
+> +#include <net/lwtunnel.h>
+> +#include <net/protocol.h>
+> +#include <net/resolver.h>
+> +#include <uapi/linux/ila.h>
 
-I think you're giving too much credit to the end-user. :-D
+This include list could be stripped down a bit. ila, lwt, fib, ...
 
-> In addition, global increase in debug level for whole driver will create
-> printk storm in dmesg and give nothing to debuggability.
+> +
+> +static struct net_rslv_ent *net_rslv_new_ent(struct net_rslv *nrslv,
+> +					     void *key)
 
-So basically, what you're claiming is that ethtool 'msglvl' setting for dev=
-ices
-is completely obselete. While this *might* be true, we use it extensively
-in our qede and qed drivers; The debug module parameter merely provides
-a manner of setting the debug value prior to initial probe for all interfac=
-es.
-qedr follows the same practice.
+Comment above that net_rslv_get_lock() must be held?
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> +{
+> +	struct net_rslv_ent *nrent;
+> +	int err;
+> +
+> +	nrent = kzalloc(sizeof(*nrent) + nrslv->obj_size, GFP_KERNEL);
+
+GFP_ATOMIC since you typically hold net_rslv_get_lock() spinlock?
+
+> +	if (!nrent)
+> +		return ERR_PTR(-EAGAIN);
+> +
+> +	/* Key is always at beginning of object data */
+> +	memcpy(nrent->object, key, nrslv->params.key_len);
+> +
+> +	/* Initialize user data */
+> +	if (nrslv->rslv_init)
+> +		nrslv->rslv_init(nrslv, nrent);
+> +
+> +	/* Put in hash table */
+> +	err = rhashtable_lookup_insert_fast(&nrslv->rhash_table,
+> +					    &nrent->node, nrslv->params);
+> +	if (err)
+> +		return ERR_PTR(err);
+> +
+> +	if (nrslv->timeout) {
+> +		/* Schedule timeout for resolver */
+> +		INIT_DELAYED_WORK(&nrent->timeout_work, net_rslv_delayed_work);
+
+Should this be done before inserting into rhashtable?
+
+> +		schedule_delayed_work(&nrent->timeout_work, nrslv->timeout);
+> +	}
+> +
+> +	nrent->nrslv = nrslv;
+
+Same here.  net_rslv_cancel_all_delayed_work() walking the rhashtable could
+see ->nrslv as NULL.
