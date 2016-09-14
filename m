@@ -1,35 +1,82 @@
-From: Jonathan Corbet <corbet@lwn.net>
-Subject: Re: [PATCH v2 0/6] Move runnable code (tests) from Documentation to
- selftests
-Date: Wed, 14 Sep 2016 07:35:44 -0600
-Message-ID: <20160914073544.578dc128@lwn.net>
-References: <cover.1473795601.git.shuahkh@osg.samsung.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 3/9] net: ethernet: ti: cpts: rework
+ initialization/deinitialization
+Date: Wed, 14 Sep 2016 15:52:14 +0200
+Message-ID: <20160914135214.GA28592@localhost.localdomain>
+References: <20160914130231.3035-1-grygorii.strashko@ti.com>
+ <20160914130231.3035-4-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8bit
-Cc: richardcochran@gmail.com, wim@iguana.be, linux@roeck-us.net,
-        nab@linux-iscsi.org, maheshkhanwalkar@gmail.com,
-        timur@codeaurora.org, arnd@arndb.de, ghackmann@google.com,
-        ben@decadent.org.uk, thuth@redhat.com,
-        christopher.s.hall@intel.com, john.stultz@linaro.org,
-        sergei.shtylyov@cogentembedded.com, mpe@ellerman.id.au,
-        jani.nikula@linux.intel.com, linux-doc@vger.kernel.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        linux-watchdog@vger.kernel.org, linux-kselftest@vger.kernel.org
-To: Shuah Khan <shuahkh@osg.samsung.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1473795601.git.shuahkh@osg.samsung.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org,
+        linux-omap@vger.kernel.org, WingMan Kwok <w-kwok2@ti.com>
+To: Grygorii Strashko <grygorii.strashko@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34367 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756319AbcINNwU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 09:52:20 -0400
+Content-Disposition: inline
+In-Reply-To: <20160914130231.3035-4-grygorii.strashko@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 13 Sep 2016 14:18:39 -0600
-Shuah Khan <shuahkh@osg.samsung.com> wrote:
+On Wed, Sep 14, 2016 at 04:02:25PM +0300, Grygorii Strashko wrote:
+> @@ -323,7 +307,7 @@ void cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb)
+>  	u64 ns;
+>  	struct skb_shared_hwtstamps *ssh;
+>  
+> -	if (!cpts->rx_enable)
+> +	if (!cpts || !cpts->rx_enable)
+>  		return;
 
-> Move runnable code (tests) from Documentation to selftests and update
-> Makefiles to work under selftests.
+This function is in the hot path, and you have added a pointless new
+test.  Don't do that.
 
-This all seems good to me.
+>  	ns = cpts_find_ts(cpts, skb, CPTS_EV_RX);
+>  	if (!ns)
+> @@ -338,7 +322,7 @@ void cpts_tx_timestamp(struct cpts *cpts, struct sk_buff *skb)
+>  	u64 ns;
+>  	struct skb_shared_hwtstamps ssh;
+>  
+> -	if (!(skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS))
+> +	if (!cpts || !(skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS))
+>  		return;
 
-Acked-by: Jonathan Corbet <corbet@lwn.net>
+Same here.
 
-jon
+>  	ns = cpts_find_ts(cpts, skb, CPTS_EV_TX);
+>  	if (!ns)
+> @@ -348,53 +332,102 @@ void cpts_tx_timestamp(struct cpts *cpts, struct sk_buff *skb)
+>  	skb_tstamp_tx(skb, &ssh);
+>  }
+>  
+> -int cpts_register(struct device *dev, struct cpts *cpts,
+> -		  u32 mult, u32 shift)
+> +int cpts_register(struct cpts *cpts)
+>  {
+>  	int err, i;
+> -	unsigned long flags;
+>  
+> -	cpts->info = cpts_info;
+> -	cpts->clock = ptp_clock_register(&cpts->info, dev);
+> -	if (IS_ERR(cpts->clock)) {
+> -		err = PTR_ERR(cpts->clock);
+> -		cpts->clock = NULL;
+> -		return err;
+> -	}
+> -	spin_lock_init(&cpts->lock);
+> -
+> -	cpts->cc.read = cpts_systim_read;
+> -	cpts->cc.mask = CLOCKSOURCE_MASK(32);
+> -	cpts->cc_mult = mult;
+> -	cpts->cc.mult = mult;
+> -	cpts->cc.shift = shift;
+> +	if (!cpts)
+> +		return -EINVAL;
+
+Not hot path, but still silly.  The caller should never pass NULL.
+
+Thanks,
+Richard
