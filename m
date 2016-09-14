@@ -1,51 +1,38 @@
-From: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v5 0/6] Add eBPF hooks for cgroups
-Date: Wed, 14 Sep 2016 08:55:21 -0700
-Message-ID: <20160914155519.GA48309@ast-mbp.thefacebook.com>
-References: <1473696735-11269-1-git-send-email-daniel@zonque.org>
- <20160913115627.GA4898@salvia>
- <da300784-284c-0d1f-a82e-aa0a0f8ae116@zonque.org>
- <20160913172408.GC6138@salvia>
- <6de6809a-13f5-4000-5639-c760dde30223@zonque.org>
- <57D937B9.2090100@iogearbox.net>
+From: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+Subject: RE: [PATCH v4 01/16] vmxnet3: Move PCI Id to pci_ids.h
+Date: Wed, 14 Sep 2016 16:00:25 +0000
+Message-ID: <DM2PR0501MB844852987661859C6654E40C5F10@DM2PR0501MB844.namprd05.prod.outlook.com>
+References: <1473655766-31628-1-git-send-email-aditr@vmware.com>
+ <1473655766-31628-2-git-send-email-aditr@vmware.com>
+ <20160914110854.GA15800@yuval-lap.uk.oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>,
-        Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>, htejun-b10kYP2dOMg@public.gmane.org,
-        ast-b10kYP2dOMg@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, kafai-b10kYP2dOMg@public.gmane.org, fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org,
-        harald-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org,
-        cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <57D937B9.2090100-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        pv-drivers <pv-drivers-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "Jorgen S. Hansen" <jhansen-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
+        Aditya Sarwade <asarwade-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
+        George Zhang <georgezhang-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
+        Bryan Tan <bryantan-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+To: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160914110854.GA15800-Hxa29pjIrETlQW142y8m19+IiqhCXseY@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 14, 2016 at 01:42:49PM +0200, Daniel Borkmann wrote:
-> >As I said, I'm open to discussing that. In order to make it work for L3,
-> >the LL_OFF issues need to be solved, as Daniel explained. Daniel,
-> >Alexei, any idea how much work that would be?
-> 
-> Not much. You simply need to declare your own struct bpf_verifier_ops
-> with a get_func_proto() handler that handles BPF_FUNC_skb_load_bytes,
-> and verifier in do_check() loop would need to handle that these ld_abs/
-> ld_ind are rejected for BPF_PROG_TYPE_CGROUP_SOCKET.
+On Wed, Sep 14, 2016 at 04:09:12 -0700, Yuval Shaia wrote:
+> Please update vmxnet3_drv.c accordingly.
 
-yep. that part is solvable.
-I'm still torn between l2 and l3.
-On one side it sux to lose l2 information. yet we don't have a use case
-to look into l2 for our container monitoring, so the only thing
-lack of l2 will do is confuse byte accounting, since instead of
-skb->len, we'd need to do skb->len + ETH_HLEN...
-but I guess vlan handling messes it up as well.
-On the other side doing it at socket level we can drop these checks:
-+       if (!sk || !sk_fullsock(sk))
-+               return 0;
-+
-+       if (sk->sk_family != AF_INET &&
-+           sk->sk_family != AF_INET6)
-+               return 0;
-which will make it even faster when it's on.
-So I don't mind either l2 and l3. I guess if l3 approach will prove
-to be limiting, we can add l2 later?
+Any reason why? I don't think we need to. Vmxnet3 should just pick up the m=
+oved
+PCI device id from pci_ids.h file.
+
+- Adit
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
