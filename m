@@ -1,10 +1,12 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 7/9] net: ethernet: ti: cpts: calc mult and shift from
- refclk freq
-Date: Wed, 14 Sep 2016 22:26:19 +0200
-Message-ID: <20160914202618.GC12195@netboy>
+Subject: Re: [PATCH 3/9] net: ethernet: ti: cpts: rework
+ initialization/deinitialization
+Date: Wed, 14 Sep 2016 22:32:17 +0200
+Message-ID: <20160914203217.GD12195@netboy>
 References: <20160914130231.3035-1-grygorii.strashko@ti.com>
- <20160914130231.3035-8-grygorii.strashko@ti.com>
+ <20160914130231.3035-4-grygorii.strashko@ti.com>
+ <20160914135214.GA28592@localhost.localdomain>
+ <606f7cfc-aa34-528b-df04-7a60a9695425@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
@@ -14,63 +16,27 @@ Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 To: Grygorii Strashko <grygorii.strashko@ti.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20160914130231.3035-8-grygorii.strashko@ti.com>
+In-Reply-To: <606f7cfc-aa34-528b-df04-7a60a9695425@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 14, 2016 at 04:02:29PM +0300, Grygorii Strashko wrote:
-> +static void cpts_calc_mult_shift(struct cpts *cpts)
-> +{
-> +	u64 maxsec;
-> +	u32 freq;
-> +	u32 mult;
-> +	u32 shift;
-> +	u64 ns;
-> +	u64 frac;
-> +
-> +	if (cpts->cc_mult || cpts->cc.shift)
-> +		return;
-> +
-> +	freq = clk_get_rate(cpts->refclk);
-> +
-> +	/* Calc the maximum number of seconds which we can run before
-> +	 * wrapping around.
-> +	 */
-> +	maxsec = cpts->cc.mask;
-> +	do_div(maxsec, freq);
-> +	if (!maxsec)
-> +		maxsec = 1;
+On Wed, Sep 14, 2016 at 11:10:48PM +0300, Grygorii Strashko wrote:
+> On 09/14/2016 04:52 PM, Richard Cochran wrote:
+> > On Wed, Sep 14, 2016 at 04:02:25PM +0300, Grygorii Strashko wrote:
 
-This doesn't pass the smell test.  If the max counter value is M, you
-are figuring M*1/F which is the time in seconds corresponding to M.
-We set M=2^32-1, and so 'freq' would have to be greater than 4 GHz in
-order for 'maxsec' to be zero.  Do you really expect such high
-frequency input clocks?
+> >> -	if (!cpts->rx_enable)
+> >> +	if (!cpts || !cpts->rx_enable)
+> >>  		return;
 
-> +	else if (maxsec > 600 && cpts->cc.mask > UINT_MAX)
-> +		maxsec = 600;
+> Ok. I can't say I'd like all this checks, but there are internal requirement 
+> to allow CPTS to be disabled though DT on KS2 (even if built in).
+> I'd try to clarify and return back here.
+> 
+> But It'll be good to know your position - acceptable/can be discussed/completely unacceptable?
 
-What is this all about?  cc.mask is always 2^32 - 1.
-
-> +	clocks_calc_mult_shift(&mult, &shift, freq, NSEC_PER_SEC, maxsec);
-> +
-> +	cpts->cc_mult = mult;
-> +	cpts->cc.mult = mult;
-
-In order to get good resolution on the frequency adjustment, we want
-to keep 'mult' as large as possible.  I don't see your code doing
-this.  We can rely on the watchdog reader (work queue) to prevent
-overflows.
+Look at that code snippet.  We already test for @cpts->rx_enable.  If
+you want to disable cpts at run time, just avoid setting that field.
+There is no need for any new tests or return codes.
 
 Thanks,
 Richard
-
-> +	cpts->cc.shift = shift;
-> +	/* Check calculations and inform if not precise */
-> +	frac = 0;
-> +	ns = cyclecounter_cyc2ns(&cpts->cc, freq, cpts->cc.mask, &frac);
-> +
-> +	dev_info(cpts->dev,
-> +		 "CPTS: ref_clk_freq:%u calc_mult:%u calc_shift:%u error:%lld nsec/sec\n",
-> +		 freq, cpts->cc_mult, cpts->cc.shift, (ns - NSEC_PER_SEC));
-> +}
