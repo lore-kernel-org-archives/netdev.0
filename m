@@ -1,37 +1,35 @@
-From: "Amrani, Ram" <Ram.Amrani@cavium.com>
-Subject: RE: [RFC 07/11] Add support for memory registeration verbs
-Date: Wed, 14 Sep 2016 08:02:01 +0000
-Message-ID: <SN1PR07MB2207AB804FB12A2B010C56A5F8F10@SN1PR07MB2207.namprd07.prod.outlook.com>
-References: <1473696465-27986-1-git-send-email-Ram.Amrani@qlogic.com>
- <1473696465-27986-8-git-send-email-Ram.Amrani@qlogic.com>
- <dfff3b6a-07da-38eb-e844-a48f713ff0f7@grimberg.me>
+From: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [net-next PATCH 00/11] iw_cxgb4,cxgbit: remove duplicate code
+Date: Wed, 14 Sep 2016 11:32:43 +0300
+Message-ID: <CAJ3xEMi_w3nhqSpODsm=Cs42dg9w0Cu3Cc-0mZvauY7Coc+fwg@mail.gmail.com>
+References: <cover.1473781521.git.varun@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "Yuval.Mintz@qlogic.com" <Yuval.Mintz@qlogic.com>,
-        "Ariel.Elior@qlogic.com" <Ariel.Elior@qlogic.com>,
-        "Michal.Kalderon@qlogic.com" <Michal.Kalderon@qlogic.com>,
-        "rajesh.borundia@qlogic.com" <rajesh.borundia@qlogic.com>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "dledford@redhat.com" <dledford@redhat.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
-To: Sagi Grimberg <sagi@grimberg.me>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-dm3nam03on0048.outbound.protection.outlook.com ([104.47.41.48]:31392
-        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1759814AbcINIRm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 14 Sep 2016 04:17:42 -0400
-In-Reply-To: <dfff3b6a-07da-38eb-e844-a48f713ff0f7@grimberg.me>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        "Nicholas A. Bellinger" <nab-IzHhD5pYlfBP7FQvKIMDCQ@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>, indranil-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: Varun Prakash <varun-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <cover.1473781521.git.varun-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> > +static inline struct qedr_ah *get_qedr_ah(struct ib_ah *ibah) {
-> > +	return container_of(ibah, struct qedr_ah, ibah); }
->=20
-> Little surprising to find that here... how is the ah related to this patc=
-h?
+On Tue, Sep 13, 2016 at 6:53 PM, Varun Prakash <varun-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org> wrote:
+> This patch series removes duplicate code from
+> iw_cxgb4 and cxgbit by adding common function definitions in libcxgb.
 
-Thanks, Sagi. Will move into a proper location.
+Is that bunch of misc functionalities or you can provide a more high
+level description what
+you are cleaning out. Also, what other areas are you planning to
+refactor following the review
+comments we had on the target driver?
+
+Or.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
