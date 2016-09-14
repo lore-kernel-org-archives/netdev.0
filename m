@@ -1,7 +1,7 @@
 From: <sean.wang@mediatek.com>
-Subject: [PATCH net-next 3/7] net: ethernet: mediatek: cleanup error path inside mtk_hw_init
-Date: Wed, 14 Sep 2016 11:50:37 +0800
-Message-ID: <1473825041-21072-4-git-send-email-sean.wang@mediatek.com>
+Subject: [PATCH net-next 6/7] net: ethernet: mediatek: add more resets for internal ethernet circuit block
+Date: Wed, 14 Sep 2016 11:50:40 +0800
+Message-ID: <1473825041-21072-7-git-send-email-sean.wang@mediatek.com>
 References: <1473825041-21072-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,100 +10,103 @@ Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
         <objelf@gmail.com>, Sean Wang <sean.wang@mediatek.com>
 To: <john@phrozen.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw01.mediatek.com ([210.61.82.183]:1727 "EHLO
+Received: from mailgw01.mediatek.com ([210.61.82.183]:46069 "EHLO
         mailgw01.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1754811AbcINDuw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 23:50:52 -0400
+        with ESMTP id S1755890AbcINDux (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 23:50:53 -0400
 In-Reply-To: <1473825041-21072-1-git-send-email-sean.wang@mediatek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Sean Wang <sean.wang@mediatek.com>
 
-This cleans up the error path inside mtk_hw_init call, causing it able
-to exit appropriately when something fails and also includes refactoring
-mtk_cleanup call to make the partial logic reusable on the error path.
+struct mtk_eth has already contained struct regmap ethsys pointer
+to the address range of the internal circuit reset, so we reuse it
+to reset more internal blocks on ethernet hardware such as packet
+processing engine (PPE) and frame engine (FE) instead of rstc which
+deals with FE only.
 
 Signed-off-by: Sean Wang <sean.wang@mediatek.com>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 34 ++++++++++++++++++++++++-----
- 1 file changed, 29 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 27 +++++++++++++++------------
+ drivers/net/ethernet/mediatek/mtk_eth_soc.h |  6 +++++-
+ 2 files changed, 20 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index c71b0b3..917a49c6 100644
+index b9ddbcb..48cddf9 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -1564,17 +1564,36 @@ static void mtk_pending_work(struct work_struct *work)
- 	rtnl_unlock();
+@@ -1414,6 +1414,19 @@ static int mtk_stop(struct net_device *dev)
+ 	return 0;
  }
  
--static int mtk_cleanup(struct mtk_eth *eth)
-+static int mtk_free_dev(struct mtk_eth *eth)
++static void ethsys_reset(struct mtk_eth *eth, u32 reset_bits)
++{
++	regmap_update_bits(eth->ethsys, ETHSYS_RSTCTRL,
++			   reset_bits,
++			   reset_bits);
++
++	usleep_range(1000, 1100);
++	regmap_update_bits(eth->ethsys, ETHSYS_RSTCTRL,
++			   reset_bits,
++			   ~reset_bits);
++	mdelay(10);
++}
++
+ static int mtk_hw_init(struct mtk_eth *eth)
  {
- 	int i;
+ 	int i, val;
+@@ -1428,12 +1441,8 @@ static int mtk_hw_init(struct mtk_eth *eth)
+ 	clk_prepare_enable(eth->clks[MTK_CLK_ESW]);
+ 	clk_prepare_enable(eth->clks[MTK_CLK_GP1]);
+ 	clk_prepare_enable(eth->clks[MTK_CLK_GP2]);
+-
+-	/* reset the frame engine */
+-	reset_control_assert(eth->rstc);
+-	usleep_range(10, 20);
+-	reset_control_deassert(eth->rstc);
+-	usleep_range(10, 20);
++	ethsys_reset(eth, RSTCTRL_FE);
++	ethsys_reset(eth, RSTCTRL_PPE);
  
+ 	regmap_read(eth->ethsys, ETHSYS_SYSCFG0, &val);
  	for (i = 0; i < MTK_MAC_COUNT; i++) {
- 		if (!eth->netdev[i])
- 			continue;
-+		free_netdev(eth->netdev[i]);
-+	}
-+
-+	return 0;
-+}
- 
-+static int mtk_unreg_dev(struct mtk_eth *eth)
-+{
-+	int i;
-+
-+	for (i = 0; i < MTK_MAC_COUNT; i++) {
-+		if (!eth->netdev[i])
-+			continue;
- 		unregister_netdev(eth->netdev[i]);
--		free_netdev(eth->netdev[i]);
- 	}
-+
-+	return 0;
-+}
-+
-+static int mtk_cleanup(struct mtk_eth *eth)
-+{
-+	mtk_unreg_dev(eth);
-+	mtk_free_dev(eth);
- 	cancel_work_sync(&eth->pending_work);
- 
- 	return 0;
-@@ -1872,7 +1891,7 @@ static int mtk_probe(struct platform_device *pdev)
- 
- 		err = mtk_add_mac(eth, mac_np);
- 		if (err)
--			goto err_free_dev;
-+			goto err_deinit_hw;
+@@ -1894,12 +1903,6 @@ static int mtk_probe(struct platform_device *pdev)
+ 		return PTR_ERR(eth->pctl);
  	}
  
- 	err = devm_request_irq(eth->dev, eth->irq[1], mtk_handle_irq_tx, 0,
-@@ -1896,7 +1915,7 @@ static int mtk_probe(struct platform_device *pdev)
- 		err = register_netdev(eth->netdev[i]);
- 		if (err) {
- 			dev_err(eth->dev, "error bringing up device\n");
--			goto err_free_dev;
-+			goto err_deinit_mdio;
- 		} else
- 			netif_info(eth, probe, eth->netdev[i],
- 				   "mediatek frame engine at 0x%08lx, irq %d\n",
-@@ -1916,8 +1935,13 @@ static int mtk_probe(struct platform_device *pdev)
+-	eth->rstc = devm_reset_control_get(&pdev->dev, "eth");
+-	if (IS_ERR(eth->rstc)) {
+-		dev_err(&pdev->dev, "no eth reset found\n");
+-		return PTR_ERR(eth->rstc);
+-	}
+-
+ 	for (i = 0; i < 3; i++) {
+ 		eth->irq[i] = platform_get_irq(pdev, i);
+ 		if (eth->irq[i] < 0) {
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+index 388cbe7..7efa00f 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+@@ -266,6 +266,11 @@
+ #define SYSCFG0_GE_MASK		0x3
+ #define SYSCFG0_GE_MODE(x, y)	(x << (12 + (y * 2)))
  
- 	return 0;
- 
-+err_deinit_mdio:
-+	mtk_mdio_cleanup(eth);
- err_free_dev:
--	mtk_cleanup(eth);
-+	mtk_free_dev(eth);
-+err_deinit_hw:
-+	mtk_hw_deinit(eth);
++/*ethernet reset control register*/
++#define ETHSYS_RSTCTRL		0x34
++#define RSTCTRL_FE		BIT(6)
++#define RSTCTRL_PPE		BIT(31)
 +
- 	return err;
- }
- 
+ struct mtk_rx_dma {
+ 	unsigned int rxd1;
+ 	unsigned int rxd2;
+@@ -423,7 +428,6 @@ struct mtk_rx_ring {
+ struct mtk_eth {
+ 	struct device			*dev;
+ 	void __iomem			*base;
+-	struct reset_control		*rstc;
+ 	spinlock_t			page_lock;
+ 	spinlock_t			irq_lock;
+ 	struct net_device		dummy_dev;
 -- 
 1.9.1
