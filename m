@@ -1,57 +1,39 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: [PATCH v4 00/16] Add Paravirtual RDMA Driver
-Date: Wed, 14 Sep 2016 14:50:20 -0600
-Message-ID: <20160914205020.GB14548@obsidianresearch.com>
-References: <1473655766-31628-1-git-send-email-aditr@vmware.com>
- <20160912180251.GH5843@obsidianresearch.com>
- <BLUPR0501MB836ED564F2AE7AB9221AC25C5FF0@BLUPR0501MB836.namprd05.prod.outlook.com>
- <20160914173636.GA10309@obsidianresearch.com>
- <DM2PR0501MB844473AE0FCAD0FD748D43DC5F10@DM2PR0501MB844.namprd05.prod.outlook.com>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: Re: [PATCH 8/9] net: ethernet: ti: cpts: fix overflow check period
+Date: Wed, 14 Sep 2016 23:48:37 +0300
+Message-ID: <ebe205d4-9ee4-57db-052b-5f79c7e92286@ti.com>
+References: <20160914130231.3035-1-grygorii.strashko@ti.com>
+ <20160914130231.3035-9-grygorii.strashko@ti.com>
+ <20160914142503.GF28592@localhost.localdomain>
+ <d4cde14a-8147-6097-f034-c9cde6cdb718@ti.com> <20160914200845.GB12195@netboy>
+ <33f6f81b-ce41-4eba-c62d-93cdb06daa8f@ti.com> <20160914204307.GE12195@netboy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "dledford@redhat.com" <dledford@redhat.com>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        pv-drivers <pv-drivers@vmware.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-        "Jorgen S. Hansen" <jhansen@vmware.com>,
-        Aditya Sarwade <asarwade@vmware.com>,
-        George Zhang <georgezhang@vmware.com>,
-        Bryan Tan <bryantan@vmware.com>
-To: Adit Ranadive <aditr@vmware.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <DM2PR0501MB844473AE0FCAD0FD748D43DC5F10@DM2PR0501MB844.namprd05.prod.outlook.com>
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
+        <linux-omap@vger.kernel.org>, WingMan Kwok <w-kwok2@ti.com>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160914204307.GE12195@netboy>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 14, 2016 at 07:44:45PM +0000, Adit Ranadive wrote:
-> On Wed, Sep 14, 2016 at 10:37:00 -0700, Jason Gunthorpe wrote:
-> > We desire to use this as the vehical for the userspace included with the 4.9
-> > kernel.
-> > 
-> > I anticipate the tree will be running by Oct 1.
-> 
-> Thanks. So does this mean that the libraries distributed via OFED (openfabrics.org)
-> will be now from the rdma-plumbing git tree?
+On 09/14/2016 11:43 PM, Richard Cochran wrote:
+> On Wed, Sep 14, 2016 at 11:23:43PM +0300, Grygorii Strashko wrote:
+>> if yes then those changes are correct as from patch#7 point of
+>> view, as from patch#8 because they are separate standalone changes.
+>> In patch patch#7 it reasonable to ball out earlier, while in patch#8
+>> it required to move forward a bit as I need to know maxsec.
+>
+> And what about the extra blank line?  AFAICT, placing the test later
+> in patch #7 is correct logic and has the advantage of not distracting
+> reviews with pointless churn!
+>
 
-I can't speak to the exact transition schedule each downstream will
-follow. OFED is a downstream distribution focused on backporting to
-old distros.
+NP. I'll change it.
 
-I would expect that by the time OFED starts to backport 4.9 they will
-need to use rdma plumbing.
-
-At the cutoff point we will immediately tell all downstreams the
-latest official upstream source is in rdma-plumbing and they should
-stop monitoring the old repos.
-
-> Or is the switch to happen only when distros start shipping with the
-> 4.9 kernel by default?
-
-Now that we are going down this path with the 4.9 set as the time
-frame, I wouldn't worry about timing, there is no down-side to you for
-working within rdma-plumbing, and it guarantees that eventually your
-code will be widely distributed.
-
-Jason
+-- 
+regards,
+-grygorii
