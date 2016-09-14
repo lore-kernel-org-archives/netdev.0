@@ -1,35 +1,44 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [net v1] fib_rules: interface group matching
-Date: Wed, 14 Sep 2016 09:25:49 -0600
-Message-ID: <c4f00f4e-aad3-f3d4-3c7c-8fe39c8f1720@cumulusnetworks.com>
-References: <20160914124025.13417-1-vincent@bernat.im>
- <9540c014-78c5-9f9c-16d7-75a564f6c018@cumulusnetworks.com>
- <87h99ipnhu.fsf@zoro.exoscale.ch>
- <e8df55df-c22f-19a3-fabc-5fb592433706@cumulusnetworks.com>
- <87a8fapl7l.fsf@zoro.exoscale.ch>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH stable] tipc: apply skb linearization
+	commit to stable 4.4.x
+Date: Wed, 14 Sep 2016 11:28:37 -0400
+Message-ID: <1473866917-10520-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-        Wilson Kok <wkok@cumulusnetworks.com>, netdev@vger.kernel.org
-To: Vincent Bernat <vincent@bernat.im>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f42.google.com ([209.85.214.42]:35665 "EHLO
-        mail-it0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1760246AbcINPZx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 11:25:53 -0400
-Received: by mail-it0-f42.google.com with SMTP id r192so49153852ita.0
-        for <netdev@vger.kernel.org>; Wed, 14 Sep 2016 08:25:52 -0700 (PDT)
-In-Reply-To: <87a8fapl7l.fsf@zoro.exoscale.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	tipc-discussion@lists.sourceforge.net
+To: davem@davemloft.net
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On 9/14/16 9:14 AM, Vincent Bernat wrote:
-> I could just give more time to VRF. I also had some concerns over
-> performance with the way Netfilter integration is done, but I understand
-> that I could just stay away from POSTROUTING rules which is the only
-> hook executed twice?
-> 
-
-With the changes that were committed this past weekend, the VRF code is now setup where I can set a flag on a per VRF basis to disable the extra rx and tx processing - ie., no network taps, no netfilter, no qdisc, etc. Drops the overhead of VRF to ~3% maybe a bit less. I need to think about the user api a bit more and formalize the patch. Given my other commitments that probably won't happen until mid-October. But in terms of a building block, the overhead of VRF is continuing to drop.
+Y29tbWl0IGM3Y2FkMGQ2ZjcwY2QgdXBzdHJlYW0KKOKAnHRpcGM6IG1vdmUgbGluZWFyaXphdGlv
+biBvZiBidWZmZXJzIHRvIGdlbmVyaWMgY29kZeKAnSkKCndhcyBhcHBsaWVkIHRvIG5ldC1uZXh0
+IGluIE5vdmVtYmVyIDIwMTUsIGFuZCBpcyBwcmVzZW50IGluIGtlcm5lbAp2ZXJzaW9ucyBmcm9t
+IDQuNS54IG9ud2FyZHMuCgpXZSBsYXRlciBkaXNjb3ZlcmVkIHRoYXQgdGhpcyBjb21taXQgYWxz
+byBmaXhlcyBhIHNlcmlvdXMgYnVnLCBzaW5jZQpldmVuIEwyIGJ1ZmZlcnMgbWF5IGFycml2ZSBu
+b24tbGluZWFyaXplZC4gSGVuY2UsIGluIDQuNC54IGtlcm5lbHMgd2UKb2Z0ZW4gc2VlIGRlYnVn
+IHByaW50b3V0cyBsaWtlIHRoaXM6CgpbODgwLjY4ODg1Nl0gRHJvcHBpbmcgbmFtZSB0YWJsZSB1
+cGRhdGUgKDApIG9mIHsxNjUxNjQ5ODkxLCAxODE5MDgyNzUyLCAwfSBmcm9tIDwxLjEuMT4ga2V5
+PTQwMjcxMDAyMgpbODgwLjY4ODg2Ml0gRHJvcHBpbmcgbmFtZSB0YWJsZSB1cGRhdGUgKDApIG9m
+IHs0MDI5ODA4NTk5LCAyNzExNzI5NjE0LCAxNjM5MjE4Njg1fSBmcm9tIDwxLjEuMT4ga2V5PTE4
+MTAyMzk0Cls4ODAuNjg4ODY1XSBEcm9wcGluZyBuYW1lIHRhYmxlIHVwZGF0ZSAoMCkgb2YgezEz
+NDIxODQ5NSwgNDI3ODE5MTYxNiwgMTAwNjY5MTg0fSBmcm9tIDwxLjEuMT4ga2V5PTAKClRob3Nl
+IGFyZSBzeW1wdG9tcyBvZiB0aGUgYmluZGluZyB0YWJsZSBoYXZpbmcgcmVjZWl2ZWQgImNvcnJ1
+cHQiIApwdWJsaWNhdGlvbnMgcmVhZCBsaW5lYXJseSBmcm9tIG5vbi1saW5lYXIgYnVmZmVycy4g
+VGhlIGFib3ZlIGxpc3RlZApjb21taXQgc29sdmVzIHRoaXMgcHJvYmxlbSwgYW5kIHNob3VsZCBi
+ZSBhcHBsaWVkIGV2ZW4gdG8gNC40IGtlcm5lbHMuCgoyLjcuNAoKCi0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLQpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwp0aXBj
+LWRpc2N1c3Npb24gbWFpbGluZyBsaXN0CnRpcGMtZGlzY3Vzc2lvbkBsaXN0cy5zb3VyY2Vmb3Jn
+ZS5uZXQKaHR0cHM6Ly9saXN0cy5zb3VyY2Vmb3JnZS5uZXQvbGlzdHMvbGlzdGluZm8vdGlwYy1k
+aXNjdXNzaW9uCg==
