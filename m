@@ -1,112 +1,34 @@
-From: <sean.wang@mediatek.com>
-Subject: [PATCH net-next 6/7] net: ethernet: mediatek: add more resets for internal ethernet circuit block
-Date: Wed, 14 Sep 2016 11:50:40 +0800
-Message-ID: <1473825041-21072-7-git-send-email-sean.wang@mediatek.com>
-References: <1473825041-21072-1-git-send-email-sean.wang@mediatek.com>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH net-next v3] net: inet: diag: expose the socket mark to
+ privileged processes.
+Date: Wed, 14 Sep 2016 13:00:09 +0900
+Message-ID: <CAKD1Yr3q71ap3TQDyeuKFsZ4LTt6yEBh2pAZ5=FMnCd9UmyuGA@mail.gmail.com>
+References: <1473262945-144932-1-git-send-email-lorenzo@google.com>
+ <20160908.161348.297729487225819070.davem@davemloft.net> <CAKD1Yr3p+ZcVbawRW98LCVEW763UYCj4tfHYxadk+dSuxfEy1A@mail.gmail.com>
+ <20160908.175703.1354122300312111500.davem@davemloft.net> <CAKD1Yr2JovZ=dmNXuDCLT6gzVtC9JZ30bW6ND=10733je60bDw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
-        <linux-mediatek@lists.infradead.org>, <keyhaede@gmail.com>,
-        <objelf@gmail.com>, Sean Wang <sean.wang@mediatek.com>
-To: <john@phrozen.org>, <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Erik Kline <ek@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw01.mediatek.com ([210.61.82.183]:46069 "EHLO
-        mailgw01.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1755890AbcINDux (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2016 23:50:53 -0400
-In-Reply-To: <1473825041-21072-1-git-send-email-sean.wang@mediatek.com>
+Received: from mail-it0-f48.google.com ([209.85.214.48]:38905 "EHLO
+        mail-it0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750715AbcINEAb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 00:00:31 -0400
+Received: by mail-it0-f48.google.com with SMTP id n143so6514600ita.1
+        for <netdev@vger.kernel.org>; Tue, 13 Sep 2016 21:00:31 -0700 (PDT)
+In-Reply-To: <CAKD1Yr2JovZ=dmNXuDCLT6gzVtC9JZ30bW6ND=10733je60bDw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sean Wang <sean.wang@mediatek.com>
+On Fri, Sep 9, 2016 at 2:23 PM, Lorenzo Colitti <lorenzo@google.com> wrote:
+> RFC patch sent out as http://patchwork.ozlabs.org/patch/667892/ . This
+> achieves a fair bit of simplification with no or negligible
+> performance impact, because there was a lot of redundancy in the
+> parameters that were passed in.
 
-struct mtk_eth has already contained struct regmap ethsys pointer
-to the address range of the internal circuit reset, so we reuse it
-to reset more internal blocks on ethernet hardware such as packet
-processing engine (PPE) and frame engine (FE) instead of rstc which
-deals with FE only.
-
-Signed-off-by: Sean Wang <sean.wang@mediatek.com>
----
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 27 +++++++++++++++------------
- drivers/net/ethernet/mediatek/mtk_eth_soc.h |  6 +++++-
- 2 files changed, 20 insertions(+), 13 deletions(-)
-
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index b9ddbcb..48cddf9 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -1414,6 +1414,19 @@ static int mtk_stop(struct net_device *dev)
- 	return 0;
- }
- 
-+static void ethsys_reset(struct mtk_eth *eth, u32 reset_bits)
-+{
-+	regmap_update_bits(eth->ethsys, ETHSYS_RSTCTRL,
-+			   reset_bits,
-+			   reset_bits);
-+
-+	usleep_range(1000, 1100);
-+	regmap_update_bits(eth->ethsys, ETHSYS_RSTCTRL,
-+			   reset_bits,
-+			   ~reset_bits);
-+	mdelay(10);
-+}
-+
- static int mtk_hw_init(struct mtk_eth *eth)
- {
- 	int i, val;
-@@ -1428,12 +1441,8 @@ static int mtk_hw_init(struct mtk_eth *eth)
- 	clk_prepare_enable(eth->clks[MTK_CLK_ESW]);
- 	clk_prepare_enable(eth->clks[MTK_CLK_GP1]);
- 	clk_prepare_enable(eth->clks[MTK_CLK_GP2]);
--
--	/* reset the frame engine */
--	reset_control_assert(eth->rstc);
--	usleep_range(10, 20);
--	reset_control_deassert(eth->rstc);
--	usleep_range(10, 20);
-+	ethsys_reset(eth, RSTCTRL_FE);
-+	ethsys_reset(eth, RSTCTRL_PPE);
- 
- 	regmap_read(eth->ethsys, ETHSYS_SYSCFG0, &val);
- 	for (i = 0; i < MTK_MAC_COUNT; i++) {
-@@ -1894,12 +1903,6 @@ static int mtk_probe(struct platform_device *pdev)
- 		return PTR_ERR(eth->pctl);
- 	}
- 
--	eth->rstc = devm_reset_control_get(&pdev->dev, "eth");
--	if (IS_ERR(eth->rstc)) {
--		dev_err(&pdev->dev, "no eth reset found\n");
--		return PTR_ERR(eth->rstc);
--	}
--
- 	for (i = 0; i < 3; i++) {
- 		eth->irq[i] = platform_get_irq(pdev, i);
- 		if (eth->irq[i] < 0) {
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-index 388cbe7..7efa00f 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-@@ -266,6 +266,11 @@
- #define SYSCFG0_GE_MASK		0x3
- #define SYSCFG0_GE_MODE(x, y)	(x << (12 + (y * 2)))
- 
-+/*ethernet reset control register*/
-+#define ETHSYS_RSTCTRL		0x34
-+#define RSTCTRL_FE		BIT(6)
-+#define RSTCTRL_PPE		BIT(31)
-+
- struct mtk_rx_dma {
- 	unsigned int rxd1;
- 	unsigned int rxd2;
-@@ -423,7 +428,6 @@ struct mtk_rx_ring {
- struct mtk_eth {
- 	struct device			*dev;
- 	void __iomem			*base;
--	struct reset_control		*rstc;
- 	spinlock_t			page_lock;
- 	spinlock_t			irq_lock;
- 	struct net_device		dummy_dev;
--- 
-1.9.1
+David, any thoughts on that patch? I submitted it as RFC because I
+wasn't sure what you wanted. Should I have sent it as non-RFC instead?
