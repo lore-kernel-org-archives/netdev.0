@@ -1,109 +1,71 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next 3/7] rhashtable: Call library function alloc_bucket_locks
-Date: Wed, 14 Sep 2016 16:22:52 -0700
-Message-ID: <1473895376-347096-4-git-send-email-tom@herbertland.com>
-References: <1473895376-347096-1-git-send-email-tom@herbertland.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [RFC v3 07/22] landlock: Handle file comparisons
+Date: Wed, 14 Sep 2016 16:24:20 -0700
+Message-ID: <20160914232418.GD60248@ast-mbp.thefacebook.com>
+References: <20160914072415.26021-1-mic@digikod.net>
+ <20160914072415.26021-8-mic@digikod.net>
+ <20160914210649.GA57174@ast-mbp.thefacebook.com>
+ <57D9D6FE.4090708@digikod.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <tgraf@suug.ch>, <roopa@cumulusnetworks.com>, <kernel-team@fb.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:60334 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1764459AbcINXY1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 19:24:27 -0400
-Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
-        by m0089730.ppops.net (8.16.0.17/8.16.0.17) with SMTP id u8ENOQKF004886
-        for <netdev@vger.kernel.org>; Wed, 14 Sep 2016 16:24:26 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by m0089730.ppops.net with ESMTP id 25ff90rbxk-10
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 14 Sep 2016 16:24:26 -0700
-Received: from facebook.com (2401:db00:21:6030:face:0:92:0)     by
- mx-out.facebook.com (10.103.99.97) with ESMTP  id
- 31b872467ad211e69f570002c9931860-425e6a50 for <netdev@vger.kernel.org>;        Wed,
- 14 Sep 2016 16:23:07 -0700
-In-Reply-To: <1473895376-347096-1-git-send-email-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
+        Andy Lutomirski <luto@amacapital.net>,
+        Arnd Bergmann <arnd@arndb.de>,
+        Casey Schaufler <casey@schaufler-ca.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Daniel Mack <daniel@zonque.org>,
+        David Drysdale <drysdale@google.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Elena Reshetova <elena.reshetova@intel.com>,
+        "Eric W . Biederman" <ebiederm@xmission.com>,
+        James Morris <james.l.morris@oracle.com>,
+        Kees Cook <keescook@chromium.org>,
+        Paul Moore <pmoore@redhat.com>,
+        Sargun Dhillon <sargun@sargun.me>,
+        "Serge E . Hallyn" <serge@hallyn.com>, Tejun Heo <tj@kernel.org>,
+        Will Drewry <wad@chromium.org>,
+        kernel-hardening@lists.openwall.com, linux-api@vger.kernel.org,
+        linux-security-module@vger.kern
+To: =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <57D9D6FE.4090708@digikod.net>
+Sender: owner-linux-security-module@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-To allocate the array of bucket locks for the hash table we now
-call library function alloc_bucket_spinlocks. This function is
-based on the old alloc_bucket_locks in rhashtable and should
-produce the same effect.
+On Thu, Sep 15, 2016 at 01:02:22AM +0200, Mickaël Salaün wrote:
+> > 
+> > I would suggest for the next RFC to do minimal 7 patches up to this point
+> > with simple example that demonstrates the use case.
+> > I would avoid all unpriv stuff and all of seccomp for the next RFC as well,
+> > otherwise I don't think we can realistically make forward progress, since
+> > there are too many issues raised in the subsequent patches.
+> 
+> I hope we will find a common agreement about seccomp vs cgroup… I think
+> both approaches have their advantages, can be complementary and nicely
+> combined.
 
-Acked-by: Thomas Graf <tgraf@suug.ch>
-Signed-off-by: Tom Herbert <tom@herbertland.com>
----
- lib/rhashtable.c | 46 ++++------------------------------------------
- 1 file changed, 4 insertions(+), 42 deletions(-)
+I don't mind having both task based lsm and cgroup based as long as
+infrastracture is not duplicated and scaling issues from earlier version
+are resolved.
+I'm proposing to do cgroup only for the next RFC, since mine and Sargun's
+use case for this bpf+lsm+cgroup is _not_ security or sandboxing.
+No need for unpriv, no_new_priv to cgroups are other things that Andy
+is concerned about.
 
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index 06c2872..5b53304 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -59,50 +59,10 @@ EXPORT_SYMBOL_GPL(lockdep_rht_bucket_is_held);
- #define ASSERT_RHT_MUTEX(HT)
- #endif
- 
--
--static int alloc_bucket_locks(struct rhashtable *ht, struct bucket_table *tbl,
--			      gfp_t gfp)
--{
--	unsigned int i, size;
--#if defined(CONFIG_PROVE_LOCKING)
--	unsigned int nr_pcpus = 2;
--#else
--	unsigned int nr_pcpus = num_possible_cpus();
--#endif
--
--	nr_pcpus = min_t(unsigned int, nr_pcpus, 64UL);
--	size = roundup_pow_of_two(nr_pcpus * ht->p.locks_mul);
--
--	/* Never allocate more than 0.5 locks per bucket */
--	size = min_t(unsigned int, size, tbl->size >> 1);
--
--	if (sizeof(spinlock_t) != 0) {
--		tbl->locks = NULL;
--#ifdef CONFIG_NUMA
--		if (size * sizeof(spinlock_t) > PAGE_SIZE &&
--		    gfp == GFP_KERNEL)
--			tbl->locks = vmalloc(size * sizeof(spinlock_t));
--#endif
--		if (gfp != GFP_KERNEL)
--			gfp |= __GFP_NOWARN | __GFP_NORETRY;
--
--		if (!tbl->locks)
--			tbl->locks = kmalloc_array(size, sizeof(spinlock_t),
--						   gfp);
--		if (!tbl->locks)
--			return -ENOMEM;
--		for (i = 0; i < size; i++)
--			spin_lock_init(&tbl->locks[i]);
--	}
--	tbl->locks_mask = size - 1;
--
--	return 0;
--}
--
- static void bucket_table_free(const struct bucket_table *tbl)
- {
- 	if (tbl)
--		kvfree(tbl->locks);
-+		free_bucket_spinlocks(tbl->locks);
- 
- 	kvfree(tbl);
- }
-@@ -131,7 +91,9 @@ static struct bucket_table *bucket_table_alloc(struct rhashtable *ht,
- 
- 	tbl->size = nbuckets;
- 
--	if (alloc_bucket_locks(ht, tbl, gfp) < 0) {
-+	/* Never allocate more than 0.5 locks per bucket */
-+	if (alloc_bucket_spinlocks(&tbl->locks, &tbl->locks_mask,
-+				   tbl->size >> 1, ht->p.locks_mul, gfp)) {
- 		bucket_table_free(tbl);
- 		return NULL;
- 	}
--- 
-2.8.0.rc2
+> Unprivileged sandboxing is the main goal of Landlock. This should not be
+> a problem, even for privileged features, thanks to the new subtype/access.
+
+yes. the point that unpriv stuff can come later after agreement is reached.
+If we keep arguing about seccomp details this set won't go anywhere.
+Even in basic part (which is cgroup+bpf+lsm) are plenty of questions
+to be still agreed.
+
+> Agreed. With this RFC, the Checmate features (i.e. network helpers)
+> should be able to sit on top of Landlock.
+
+I think neither of them should be called fancy names for no technical reason.
+We will have only one bpf based lsm. That's it and it doesn't
+need an obscure name. Directory name can be security/bpf/..stuff.c
+
