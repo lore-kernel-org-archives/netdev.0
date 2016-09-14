@@ -1,91 +1,79 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH RFC 5/6] net: Generic resolver backend
-Date: Wed, 14 Sep 2016 11:49:11 +0200
-Message-ID: <20160914094911.GE11841@pox.localdomain>
-References: <1473463197-3076903-1-git-send-email-tom@herbertland.com>
- <1473463197-3076903-6-git-send-email-tom@herbertland.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [RFC PATCH] xen-netback: fix error handling on netback_probe()
+Date: Wed, 14 Sep 2016 11:10:23 +0100
+Message-ID: <20160914101023.GY15958@citrix.com>
+References: <1473768687-27384-1-git-send-email-filipe.manco@neclab.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, kernel-team@fb.com
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <wei.liu2@citrix.com>,
+        Xen-devel <xen-devel@lists.xenproject.org>
+To: Filipe Manco <filipe.manco@neclab.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:35309 "EHLO
-        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751621AbcINJtN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 05:49:13 -0400
-Received: by mail-wm0-f50.google.com with SMTP id i130so38802291wmf.0
-        for <netdev@vger.kernel.org>; Wed, 14 Sep 2016 02:49:13 -0700 (PDT)
+Received: from smtp02.citrix.com ([66.165.176.63]:22992 "EHLO
+        SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751621AbcINKK0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 06:10:26 -0400
 Content-Disposition: inline
-In-Reply-To: <1473463197-3076903-6-git-send-email-tom@herbertland.com>
+In-Reply-To: <1473768687-27384-1-git-send-email-filipe.manco@neclab.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/09/16 at 04:19pm, Tom Herbert wrote:
-> diff --git a/net/core/resolver.c b/net/core/resolver.c
-> new file mode 100644
-> index 0000000..61b36c5
-> --- /dev/null
-> +++ b/net/core/resolver.c
-> @@ -0,0 +1,267 @@
-> +#include <linux/errno.h>
-> +#include <linux/ip.h>
-> +#include <linux/kernel.h>
-> +#include <linux/module.h>
-> +#include <linux/netlink.h>
-> +#include <linux/skbuff.h>
-> +#include <linux/socket.h>
-> +#include <linux/types.h>
-> +#include <linux/vmalloc.h>
-> +#include <net/checksum.h>
-> +#include <net/ip.h>
-> +#include <net/ip6_fib.h>
-> +#include <net/lwtunnel.h>
-> +#include <net/protocol.h>
-> +#include <net/resolver.h>
-> +#include <uapi/linux/ila.h>
+CC xen-devel as well.
 
-This include list could be stripped down a bit. ila, lwt, fib, ...
+On Tue, Sep 13, 2016 at 02:11:27PM +0200, Filipe Manco wrote:
+> In case of error during netback_probe() (e.g. an entry missing on the
+> xenstore) netback_remove() is called on the new device, which will set
+> the device backend state to XenbusStateClosed by calling
+> set_backend_state(). However, the backend state wasn't initialized by
+> netback_probe() at this point, which will cause and invalid transaction
+> and set_backend_state() to BUG().
+> 
+> Initialize the backend state at the beginning of netback_probe() to
+> XenbusStateInitialising, and create a new valid state transaction on
+> set_backend_state(), from XenbusStateInitialising to XenbusStateClosed.
+> 
+> Signed-off-by: Filipe Manco <filipe.manco@neclab.eu>
 
-> +
-> +static struct net_rslv_ent *net_rslv_new_ent(struct net_rslv *nrslv,
-> +					     void *key)
+There is a state machine right before set_backend_state. You would also
+need to update that.
 
-Comment above that net_rslv_get_lock() must be held?
+According to the definition of XenbusStateInitialising, this patch looks
+plausible to me.
 
-> +{
-> +	struct net_rslv_ent *nrent;
-> +	int err;
-> +
-> +	nrent = kzalloc(sizeof(*nrent) + nrslv->obj_size, GFP_KERNEL);
+Wei.
 
-GFP_ATOMIC since you typically hold net_rslv_get_lock() spinlock?
-
-> +	if (!nrent)
-> +		return ERR_PTR(-EAGAIN);
-> +
-> +	/* Key is always at beginning of object data */
-> +	memcpy(nrent->object, key, nrslv->params.key_len);
-> +
-> +	/* Initialize user data */
-> +	if (nrslv->rslv_init)
-> +		nrslv->rslv_init(nrslv, nrent);
-> +
-> +	/* Put in hash table */
-> +	err = rhashtable_lookup_insert_fast(&nrslv->rhash_table,
-> +					    &nrent->node, nrslv->params);
-> +	if (err)
-> +		return ERR_PTR(err);
-> +
-> +	if (nrslv->timeout) {
-> +		/* Schedule timeout for resolver */
-> +		INIT_DELAYED_WORK(&nrent->timeout_work, net_rslv_delayed_work);
-
-Should this be done before inserting into rhashtable?
-
-> +		schedule_delayed_work(&nrent->timeout_work, nrslv->timeout);
-> +	}
-> +
-> +	nrent->nrslv = nrslv;
-
-Same here.  net_rslv_cancel_all_delayed_work() walking the rhashtable could
-see ->nrslv as NULL.
+> ---
+>  drivers/net/xen-netback/xenbus.c | 10 ++++++++++
+>  1 file changed, 10 insertions(+)
+> 
+> diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
+> index 6a31f2610c23..c0e5f6994d01 100644
+> --- a/drivers/net/xen-netback/xenbus.c
+> +++ b/drivers/net/xen-netback/xenbus.c
+> @@ -270,6 +270,7 @@ static int netback_probe(struct xenbus_device *dev,
+>  
+>  	be->dev = dev;
+>  	dev_set_drvdata(&dev->dev, be);
+> +	be->state = XenbusStateInitialising;
+>  
+>  	sg = 1;
+>  
+> @@ -515,6 +516,15 @@ static void set_backend_state(struct backend_info *be,
+>  {
+>  	while (be->state != state) {
+>  		switch (be->state) {
+> +		case XenbusStateInitialising:
+> +			switch (state) {
+> +			case XenbusStateClosed:
+> +				backend_switch_state(be, XenbusStateClosed);
+> +				break;
+> +			default:
+> +				BUG();
+> +			}
+> +			break;
+>  		case XenbusStateClosed:
+>  			switch (state) {
+>  			case XenbusStateInitWait:
+> -- 
+> 2.7.4
+> 
