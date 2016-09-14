@@ -1,106 +1,540 @@
-From: Daniel Mack <daniel@zonque.org>
-Subject: Re: [PATCH v5 0/6] Add eBPF hooks for cgroups
-Date: Wed, 14 Sep 2016 13:13:16 +0200
-Message-ID: <6de6809a-13f5-4000-5639-c760dde30223@zonque.org>
-References: <1473696735-11269-1-git-send-email-daniel@zonque.org>
- <20160913115627.GA4898@salvia>
- <da300784-284c-0d1f-a82e-aa0a0f8ae116@zonque.org>
- <20160913172408.GC6138@salvia>
+From: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v4 06/16] IB/pvrdma: Add paravirtual rdma device
+Date: Wed, 14 Sep 2016 14:17:30 +0300
+Message-ID: <20160914111729.GB15800@yuval-lap.uk.oracle.com>
+References: <1473655766-31628-1-git-send-email-aditr@vmware.com>
+ <1473655766-31628-7-git-send-email-aditr@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: htejun@fb.com, daniel@iogearbox.net, ast@fb.com,
-        davem@davemloft.net, kafai@fb.com, fw@strlen.de, harald@redhat.com,
-        netdev@vger.kernel.org, sargun@sargun.me, cgroups@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:47524 "EHLO mail.zonque.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1761808AbcINLNT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 14 Sep 2016 07:13:19 -0400
-In-Reply-To: <20160913172408.GC6138@salvia>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        pv-drivers-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jhansen-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org, asarwade-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org,
+        georgezhang-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org, bryantan-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org
+To: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1473655766-31628-7-git-send-email-aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Pablo,
+No more comments.
+Reviewed-by: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 
-On 09/13/2016 07:24 PM, Pablo Neira Ayuso wrote:
-> On Tue, Sep 13, 2016 at 03:31:20PM +0200, Daniel Mack wrote:
->> On 09/13/2016 01:56 PM, Pablo Neira Ayuso wrote:
->>> On Mon, Sep 12, 2016 at 06:12:09PM +0200, Daniel Mack wrote:
->>>> This is v5 of the patch set to allow eBPF programs for network
->>>> filtering and accounting to be attached to cgroups, so that they apply
->>>> to all sockets of all tasks placed in that cgroup. The logic also
->>>> allows to be extendeded for other cgroup based eBPF logic.
->>>
->>> 1) This infrastructure can only be useful to systemd, or any similar
->>>    orchestration daemon. Look, you can only apply filtering policies
->>>    to processes that are launched by systemd, so this only works
->>>    for server processes.
->>
->> Sorry, but both statements aren't true. The eBPF policies apply to every
->> process that is placed in a cgroup, and my example program in 6/6 shows
->> how that can be done from the command line.
+On Sun, Sep 11, 2016 at 09:49:16PM -0700, Adit Ranadive wrote:
+> This patch adds the main device-level structures and functions to be used
+> to provide RDMA functionality. Also, we define conversion functions from
+> the IB core stack structures to the device-specific ones.
 > 
-> Then you have to explain me how can anyone else than systemd use this
-> infrastructure?
-
-I have no idea what makes you think this is limited to systemd. As I
-said, I provided an example for userspace that works from the command
-line. The same limitation apply as for all other users of cgroups.
-
-> My main point is that those processes *need* to be launched by the
-> orchestrator, which is was refering as 'server processes'.
-
-Yes, that's right. But as I said, this rule applies to many other kernel
-concepts, so I don't see any real issue.
-
->> That's a limitation that applies to many more control mechanisms in the
->> kernel, and it's something that can easily be solved with fork+exec.
+> Reviewed-by: Jorgen Hansen <jhansen-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+> Reviewed-by: George Zhang <georgezhang-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+> Reviewed-by: Aditya Sarwade <asarwade-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+> Reviewed-by: Bryan Tan <bryantan-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+> ---
+> Changes v3->v4:
+>  - Renamed pvrdma_flush_cqe to _pvrdma_flush_cqe since we hold a lock
+>  to call it.
+>  - Added wrapper functions for writing to UARs for CQ/QP.
+>  - The conversion functions are updated as func_name(dst, src) format.
+>  - Renamed max_gs to max_sg.
+>  - Added work struct for net device events.
+>  - priviledged -> privileged.
 > 
-> As long as you have control to launch the processes yes, but this
-> will not work in other scenarios. Just like cgroup net_cls and friends
-> are broken for filtering for things that you have no control to
-> fork+exec.
-
-Probably, but that's only solvable with rules that store the full cgroup
-path then, and do a string comparison (!) for each packet flying by.
-
->> That's just as transparent as SO_ATTACH_FILTER. What kind of
->> introspection mechanism do you have in mind?
+> Changes v2->v3:
+>  - Removed VMware vendor id redefinition.
+>  - Removed the boolean in pvrdma_cmd_post.
+> ---
+>  drivers/infiniband/hw/pvrdma/pvrdma.h | 473 ++++++++++++++++++++++++++++++++++
+>  1 file changed, 473 insertions(+)
+>  create mode 100644 drivers/infiniband/hw/pvrdma/pvrdma.h
 > 
-> SO_ATTACH_FILTER is called from the process itself, so this is a local
-> filtering policy that you apply to your own process.
-
-Not necessarily. You can as well do it the inetd way, and pass the
-socket to a process that is launched on demand, but do SO_ATTACH_FILTER
-+ SO_LOCK_FILTER  in the middle. What happens with payload on the socket
-is not transparent to the launched binary at all. The proposed cgroup
-eBPF solution implements a very similar behavior in that regard.
-
->> It's about filtering outgoing network packets of applications, and
->> providing them with L2 information for filtering purposes. I don't think
->> that's a very specific use-case.
->>
->> When the feature is not used at all, the added costs on the output path
->> are close to zero, due to the use of static branches.
+> diff --git a/drivers/infiniband/hw/pvrdma/pvrdma.h b/drivers/infiniband/hw/pvrdma/pvrdma.h
+> new file mode 100644
+> index 0000000..fedd7cb
+> --- /dev/null
+> +++ b/drivers/infiniband/hw/pvrdma/pvrdma.h
+> @@ -0,0 +1,473 @@
+> +/*
+> + * Copyright (c) 2012-2016 VMware, Inc.  All rights reserved.
+> + *
+> + * This program is free software; you can redistribute it and/or
+> + * modify it under the terms of EITHER the GNU General Public License
+> + * version 2 as published by the Free Software Foundation or the BSD
+> + * 2-Clause License. This program is distributed in the hope that it
+> + * will be useful, but WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED
+> + * WARRANTY OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
+> + * See the GNU General Public License version 2 for more details at
+> + * http://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html.
+> + *
+> + * You should have received a copy of the GNU General Public License
+> + * along with this program available in the file COPYING in the main
+> + * directory of this source tree.
+> + *
+> + * The BSD 2-Clause License
+> + *
+> + *     Redistribution and use in source and binary forms, with or
+> + *     without modification, are permitted provided that the following
+> + *     conditions are met:
+> + *
+> + *      - Redistributions of source code must retain the above
+> + *        copyright notice, this list of conditions and the following
+> + *        disclaimer.
+> + *
+> + *      - Redistributions in binary form must reproduce the above
+> + *        copyright notice, this list of conditions and the following
+> + *        disclaimer in the documentation and/or other materials
+> + *        provided with the distribution.
+> + *
+> + * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+> + * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+> + * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+> + * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+> + * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+> + * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+> + * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+> + * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+> + * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+> + * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+> + * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+> + * OF THE POSSIBILITY OF SUCH DAMAGE.
+> + */
+> +
+> +#ifndef __PVRDMA_H__
+> +#define __PVRDMA_H__
+> +
+> +#include <linux/compiler.h>
+> +#include <linux/interrupt.h>
+> +#include <linux/list.h>
+> +#include <linux/mutex.h>
+> +#include <linux/pci.h>
+> +#include <linux/semaphore.h>
+> +#include <linux/workqueue.h>
+> +#include <rdma/ib_umem.h>
+> +#include <rdma/ib_verbs.h>
+> +
+> +#include "pvrdma_defs.h"
+> +#include "pvrdma_dev_api.h"
+> +#include "pvrdma_verbs.h"
+> +
+> +/* NOT the same as BIT_MASK(). */
+> +#define PVRDMA_MASK(n) ((n << 1) - 1)
+> +
+> +/*
+> + * VMware PVRDMA PCI device id.
+> + */
+> +#define PCI_DEVICE_ID_VMWARE_PVRDMA	0x0820
+> +
+> +struct pvrdma_dev;
+> +
+> +struct pvrdma_page_dir {
+> +	dma_addr_t dir_dma;
+> +	u64 *dir;
+> +	int ntables;
+> +	u64 **tables;
+> +	u64 npages;
+> +	void **pages;
+> +};
+> +
+> +struct pvrdma_cq {
+> +	struct ib_cq ibcq;
+> +	int offset;
+> +	spinlock_t cq_lock; /* Poll lock. */
+> +	struct pvrdma_uar_map *uar;
+> +	struct ib_umem *umem;
+> +	struct pvrdma_ring_state *ring_state;
+> +	struct pvrdma_page_dir pdir;
+> +	u32 cq_handle;
+> +	bool is_kernel;
+> +	atomic_t refcnt;
+> +	wait_queue_head_t wait;
+> +};
+> +
+> +struct pvrdma_id_table {
+> +	u32 last;
+> +	u32 top;
+> +	u32 max;
+> +	u32 mask;
+> +	spinlock_t lock; /* Table lock. */
+> +	unsigned long *table;
+> +};
+> +
+> +struct pvrdma_uar_map {
+> +	unsigned long pfn;
+> +	void __iomem *map;
+> +	int index;
+> +};
+> +
+> +struct pvrdma_uar_table {
+> +	struct pvrdma_id_table tbl;
+> +	int size;
+> +};
+> +
+> +struct pvrdma_ucontext {
+> +	struct ib_ucontext ibucontext;
+> +	struct pvrdma_dev *dev;
+> +	struct pvrdma_uar_map uar;
+> +	u64 ctx_handle;
+> +};
+> +
+> +struct pvrdma_pd {
+> +	struct ib_pd ibpd;
+> +	u32 pdn;
+> +	u32 pd_handle;
+> +	int privileged;
+> +};
+> +
+> +struct pvrdma_mr {
+> +	u32 mr_handle;
+> +	u64 iova;
+> +	u64 size;
+> +};
+> +
+> +struct pvrdma_user_mr {
+> +	struct ib_mr ibmr;
+> +	struct ib_umem *umem;
+> +	struct pvrdma_mr mmr;
+> +	struct pvrdma_page_dir pdir;
+> +	u64 *pages;
+> +	u32 npages;
+> +	u32 max_pages;
+> +	u32 page_shift;
+> +};
+> +
+> +struct pvrdma_wq {
+> +	struct pvrdma_ring *ring;
+> +	spinlock_t lock; /* Work queue lock. */
+> +	int wqe_cnt;
+> +	int wqe_size;
+> +	int max_sg;
+> +	int offset;
+> +};
+> +
+> +struct pvrdma_ah {
+> +	struct ib_ah ibah;
+> +	struct pvrdma_av av;
+> +};
+> +
+> +struct pvrdma_qp {
+> +	struct ib_qp ibqp;
+> +	u32 qp_handle;
+> +	u32 qkey;
+> +	struct pvrdma_wq sq;
+> +	struct pvrdma_wq rq;
+> +	struct ib_umem *rumem;
+> +	struct ib_umem *sumem;
+> +	struct pvrdma_page_dir pdir;
+> +	int npages;
+> +	int npages_send;
+> +	int npages_recv;
+> +	u32 flags;
+> +	u8 port;
+> +	u8 state;
+> +	bool is_kernel;
+> +	struct mutex mutex; /* QP state mutex. */
+> +	atomic_t refcnt;
+> +	wait_queue_head_t wait;
+> +};
+> +
+> +struct pvrdma_dev {
+> +	/* PCI device-related information. */
+> +	struct ib_device ib_dev;
+> +	struct pci_dev *pdev;
+> +	void __iomem *regs;
+> +	struct pvrdma_device_shared_region *dsr; /* Shared region pointer */
+> +	dma_addr_t dsrbase; /* Shared region base address */
+> +	void *cmd_slot;
+> +	void *resp_slot;
+> +	unsigned long flags;
+> +	struct list_head device_link;
+> +
+> +	/* Locking and interrupt information. */
+> +	spinlock_t cmd_lock; /* Command lock. */
+> +	struct semaphore cmd_sema;
+> +	struct completion cmd_done;
+> +	struct {
+> +		enum pvrdma_intr_type type; /* Intr type */
+> +		struct msix_entry msix_entry[PVRDMA_MAX_INTERRUPTS];
+> +		irq_handler_t handler[PVRDMA_MAX_INTERRUPTS];
+> +		u8 enabled[PVRDMA_MAX_INTERRUPTS];
+> +		u8 size;
+> +	} intr;
+> +
+> +	/* RDMA-related device information. */
+> +	union ib_gid *sgid_tbl;
+> +	struct pvrdma_ring_state *async_ring_state;
+> +	struct pvrdma_page_dir async_pdir;
+> +	struct pvrdma_ring_state *cq_ring_state;
+> +	struct pvrdma_page_dir cq_pdir;
+> +	struct pvrdma_cq **cq_tbl;
+> +	spinlock_t cq_tbl_lock;
+> +	struct pvrdma_qp **qp_tbl;
+> +	spinlock_t qp_tbl_lock;
+> +	struct pvrdma_uar_table uar_table;
+> +	struct pvrdma_uar_map driver_uar;
+> +	__be64 sys_image_guid;
+> +	spinlock_t desc_lock; /* Device modification lock. */
+> +	u32 port_cap_mask;
+> +	struct mutex port_mutex; /* Port modification mutex. */
+> +	bool ib_active;
+> +	atomic_t num_qps;
+> +	atomic_t num_cqs;
+> +	atomic_t num_pds;
+> +	atomic_t num_ahs;
+> +
+> +	/* Network device information. */
+> +	struct net_device *netdev;
+> +	struct notifier_block nb_netdev;
+> +};
+> +
+> +struct pvrdma_netdevice_work {
+> +	struct work_struct work;
+> +	struct net_device *event_netdev;
+> +	unsigned long event;
+> +};
+> +
+> +static inline struct pvrdma_dev *to_vdev(struct ib_device *ibdev)
+> +{
+> +	return container_of(ibdev, struct pvrdma_dev, ib_dev);
+> +}
+> +
+> +static inline struct
+> +pvrdma_ucontext *to_vucontext(struct ib_ucontext *ibucontext)
+> +{
+> +	return container_of(ibucontext, struct pvrdma_ucontext, ibucontext);
+> +}
+> +
+> +static inline struct pvrdma_pd *to_vpd(struct ib_pd *ibpd)
+> +{
+> +	return container_of(ibpd, struct pvrdma_pd, ibpd);
+> +}
+> +
+> +static inline struct pvrdma_cq *to_vcq(struct ib_cq *ibcq)
+> +{
+> +	return container_of(ibcq, struct pvrdma_cq, ibcq);
+> +}
+> +
+> +static inline struct pvrdma_user_mr *to_vmr(struct ib_mr *ibmr)
+> +{
+> +	return container_of(ibmr, struct pvrdma_user_mr, ibmr);
+> +}
+> +
+> +static inline struct pvrdma_qp *to_vqp(struct ib_qp *ibqp)
+> +{
+> +	return container_of(ibqp, struct pvrdma_qp, ibqp);
+> +}
+> +
+> +static inline struct pvrdma_ah *to_vah(struct ib_ah *ibah)
+> +{
+> +	return container_of(ibah, struct pvrdma_ah, ibah);
+> +}
+> +
+> +static inline void pvrdma_write_reg(struct pvrdma_dev *dev, u32 reg, u32 val)
+> +{
+> +	writel(cpu_to_le32(val), dev->regs + reg);
+> +}
+> +
+> +static inline u32 pvrdma_read_reg(struct pvrdma_dev *dev, u32 reg)
+> +{
+> +	return le32_to_cpu(readl(dev->regs + reg));
+> +}
+> +
+> +static inline void pvrdma_write_uar_cq(struct pvrdma_dev *dev, u32 val)
+> +{
+> +	writel(cpu_to_le32(val), dev->driver_uar.map + PVRDMA_UAR_CQ_OFFSET);
+> +}
+> +
+> +static inline void pvrdma_write_uar_qp(struct pvrdma_dev *dev, u32 val)
+> +{
+> +	writel(cpu_to_le32(val), dev->driver_uar.map + PVRDMA_UAR_QP_OFFSET);
+> +}
+> +
+> +static inline void *pvrdma_page_dir_get_ptr(struct pvrdma_page_dir *pdir,
+> +					    u64 offset)
+> +{
+> +	return pdir->pages[offset / PAGE_SIZE] + (offset % PAGE_SIZE);
+> +}
+> +
+> +static inline enum pvrdma_mtu ib_mtu_to_pvrdma(enum ib_mtu mtu)
+> +{
+> +	return (enum pvrdma_mtu)mtu;
+> +}
+> +
+> +static inline enum ib_mtu pvrdma_mtu_to_ib(enum pvrdma_mtu mtu)
+> +{
+> +	return (enum ib_mtu)mtu;
+> +}
+> +
+> +static inline enum pvrdma_port_state ib_port_state_to_pvrdma(
+> +					enum ib_port_state state)
+> +{
+> +	return (enum pvrdma_port_state)state;
+> +}
+> +
+> +static inline enum ib_port_state pvrdma_port_state_to_ib(
+> +					enum pvrdma_port_state state)
+> +{
+> +	return (enum ib_port_state)state;
+> +}
+> +
+> +static inline int ib_port_cap_flags_to_pvrdma(int flags)
+> +{
+> +	return flags & PVRDMA_MASK(PVRDMA_PORT_CAP_FLAGS_MAX);
+> +}
+> +
+> +static inline int pvrdma_port_cap_flags_to_ib(int flags)
+> +{
+> +	return flags;
+> +}
+> +
+> +static inline enum pvrdma_port_width ib_port_width_to_pvrdma(
+> +					enum ib_port_width width)
+> +{
+> +	return (enum pvrdma_port_width)width;
+> +}
+> +
+> +static inline enum ib_port_width pvrdma_port_width_to_ib(
+> +					enum pvrdma_port_width width)
+> +{
+> +	return (enum ib_port_width)width;
+> +}
+> +
+> +static inline enum pvrdma_port_speed ib_port_speed_to_pvrdma(
+> +					enum ib_port_speed speed)
+> +{
+> +	return (enum pvrdma_port_speed)speed;
+> +}
+> +
+> +static inline enum ib_port_speed pvrdma_port_speed_to_ib(
+> +					enum pvrdma_port_speed speed)
+> +{
+> +	return (enum ib_port_speed)speed;
+> +}
+> +
+> +static inline int pvrdma_qp_attr_mask_to_ib(int attr_mask)
+> +{
+> +	return attr_mask;
+> +}
+> +
+> +static inline int ib_qp_attr_mask_to_pvrdma(int attr_mask)
+> +{
+> +	return attr_mask & PVRDMA_MASK(PVRDMA_QP_ATTR_MASK_MAX);
+> +}
+> +
+> +static inline enum pvrdma_mig_state ib_mig_state_to_pvrdma(
+> +					enum ib_mig_state state)
+> +{
+> +	return (enum pvrdma_mig_state)state;
+> +}
+> +
+> +static inline enum ib_mig_state pvrdma_mig_state_to_ib(
+> +					enum pvrdma_mig_state state)
+> +{
+> +	return (enum ib_mig_state)state;
+> +}
+> +
+> +static inline int ib_access_flags_to_pvrdma(int flags)
+> +{
+> +	return flags;
+> +}
+> +
+> +static inline int pvrdma_access_flags_to_ib(int flags)
+> +{
+> +	return flags & PVRDMA_MASK(PVRDMA_ACCESS_FLAGS_MAX);
+> +}
+> +
+> +static inline enum pvrdma_qp_type ib_qp_type_to_pvrdma(enum ib_qp_type type)
+> +{
+> +	return (enum pvrdma_qp_type)type;
+> +}
+> +
+> +static inline enum ib_qp_type pvrdma_qp_type_to_ib(enum pvrdma_qp_type type)
+> +{
+> +	return (enum ib_qp_type)type;
+> +}
+> +
+> +static inline enum pvrdma_qp_state ib_qp_state_to_pvrdma(enum ib_qp_state state)
+> +{
+> +	return (enum pvrdma_qp_state)state;
+> +}
+> +
+> +static inline enum ib_qp_state pvrdma_qp_state_to_ib(enum pvrdma_qp_state state)
+> +{
+> +	return (enum ib_qp_state)state;
+> +}
+> +
+> +static inline enum pvrdma_wr_opcode ib_wr_opcode_to_pvrdma(enum ib_wr_opcode op)
+> +{
+> +	return (enum pvrdma_wr_opcode)op;
+> +}
+> +
+> +static inline enum ib_wc_status pvrdma_wc_status_to_ib(
+> +					enum pvrdma_wc_status status)
+> +{
+> +	return (enum ib_wc_status)status;
+> +}
+> +
+> +static inline int pvrdma_wc_opcode_to_ib(int opcode)
+> +{
+> +	return opcode;
+> +}
+> +
+> +static inline int pvrdma_wc_flags_to_ib(int flags)
+> +{
+> +	return flags;
+> +}
+> +
+> +static inline int ib_send_flags_to_pvrdma(int flags)
+> +{
+> +	return flags & PVRDMA_MASK(PVRDMA_SEND_FLAGS_MAX);
+> +}
+> +
+> +void pvrdma_qp_cap_to_ib(struct ib_qp_cap *dst,
+> +			 const struct pvrdma_qp_cap *src);
+> +void ib_qp_cap_to_pvrdma(struct pvrdma_qp_cap *dst,
+> +			 const struct ib_qp_cap *src);
+> +void pvrdma_gid_to_ib(union ib_gid *dst, const union pvrdma_gid *src);
+> +void ib_gid_to_pvrdma(union pvrdma_gid *dst, const union ib_gid *src);
+> +void pvrdma_global_route_to_ib(struct ib_global_route *dst,
+> +			       const struct pvrdma_global_route *src);
+> +void ib_global_route_to_pvrdma(struct pvrdma_global_route *dst,
+> +			       const struct ib_global_route *src);
+> +void pvrdma_ah_attr_to_ib(struct ib_ah_attr *dst,
+> +			  const struct pvrdma_ah_attr *src);
+> +void ib_ah_attr_to_pvrdma(struct pvrdma_ah_attr *dst,
+> +			  const struct ib_ah_attr *src);
+> +
+> +int pvrdma_uar_table_init(struct pvrdma_dev *dev);
+> +void pvrdma_uar_table_cleanup(struct pvrdma_dev *dev);
+> +
+> +int pvrdma_uar_alloc(struct pvrdma_dev *dev, struct pvrdma_uar_map *uar);
+> +void pvrdma_uar_free(struct pvrdma_dev *dev, struct pvrdma_uar_map *uar);
+> +
+> +void _pvrdma_flush_cqe(struct pvrdma_qp *qp, struct pvrdma_cq *cq);
+> +
+> +int pvrdma_page_dir_init(struct pvrdma_dev *dev, struct pvrdma_page_dir *pdir,
+> +			 u64 npages, bool alloc_pages);
+> +void pvrdma_page_dir_cleanup(struct pvrdma_dev *dev,
+> +			     struct pvrdma_page_dir *pdir);
+> +int pvrdma_page_dir_insert_dma(struct pvrdma_page_dir *pdir, u64 idx,
+> +			       dma_addr_t daddr);
+> +int pvrdma_page_dir_insert_umem(struct pvrdma_page_dir *pdir,
+> +				struct ib_umem *umem, u64 offset);
+> +dma_addr_t pvrdma_page_dir_get_dma(struct pvrdma_page_dir *pdir, u64 idx);
+> +int pvrdma_page_dir_insert_page_list(struct pvrdma_page_dir *pdir,
+> +				     u64 *page_list, int num_pages);
+> +
+> +int pvrdma_cmd_post(struct pvrdma_dev *dev, union pvrdma_cmd_req *req,
+> +		    union pvrdma_cmd_resp *rsp);
+> +
+> +#endif /* __PVRDMA_H__ */
+> -- 
+> 2.7.4
 > 
-> *You're proposing a socket filtering facility that hooks layer 2
-> output path*!
-
-As I said, I'm open to discussing that. In order to make it work for L3,
-the LL_OFF issues need to be solved, as Daniel explained. Daniel,
-Alexei, any idea how much work that would be?
-
-> That is only a rough ~30 lines kernel patchset to support this in
-> netfilter and only one extra input hook, with potential access to
-> conntrack and better integration with other existing subsystems.
-
-Care to share the patches for that? I'd really like to have a look.
-
-And FWIW, I agree with Thomas - there is nothing wrong with having
-multiple options to use for such use-cases.
-
-
-Thanks,
-Daniel
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
