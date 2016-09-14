@@ -1,108 +1,100 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH RFC 5/6] net: Generic resolver backend
-Date: Wed, 14 Sep 2016 12:56:11 -0700
-Message-ID: <CALx6S356PRaqCP=ZwceyqSgSg4vR8zthTnPTvsn3ZVMm6vmetg@mail.gmail.com>
-References: <1473463197-3076903-1-git-send-email-tom@herbertland.com>
- <1473463197-3076903-6-git-send-email-tom@herbertland.com> <20160914094911.GE11841@pox.localdomain>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: Re: [PATCH 7/9] net: ethernet: ti: cpts: calc mult and shift from
+ refclk freq
+Date: Wed, 14 Sep 2016 22:59:53 +0300
+Message-ID: <df77795a-c0f9-b6c4-497a-6386a0a6b1e5@ti.com>
+References: <20160914130231.3035-1-grygorii.strashko@ti.com>
+ <20160914130231.3035-8-grygorii.strashko@ti.com>
+ <20160914142210.GE28592@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Kernel Team <kernel-team@fb.com>
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:36724 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755879AbcINT4M (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 15:56:12 -0400
-Received: by mail-qk0-f195.google.com with SMTP id z143so1819112qka.3
-        for <netdev@vger.kernel.org>; Wed, 14 Sep 2016 12:56:12 -0700 (PDT)
-In-Reply-To: <20160914094911.GE11841@pox.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
+        <linux-omap@vger.kernel.org>, WingMan Kwok <w-kwok2@ti.com>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160914142210.GE28592@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 14, 2016 at 2:49 AM, Thomas Graf <tgraf@suug.ch> wrote:
-> On 09/09/16 at 04:19pm, Tom Herbert wrote:
->> diff --git a/net/core/resolver.c b/net/core/resolver.c
->> new file mode 100644
->> index 0000000..61b36c5
->> --- /dev/null
->> +++ b/net/core/resolver.c
->> @@ -0,0 +1,267 @@
->> +#include <linux/errno.h>
->> +#include <linux/ip.h>
->> +#include <linux/kernel.h>
->> +#include <linux/module.h>
->> +#include <linux/netlink.h>
->> +#include <linux/skbuff.h>
->> +#include <linux/socket.h>
->> +#include <linux/types.h>
->> +#include <linux/vmalloc.h>
->> +#include <net/checksum.h>
->> +#include <net/ip.h>
->> +#include <net/ip6_fib.h>
->> +#include <net/lwtunnel.h>
->> +#include <net/protocol.h>
->> +#include <net/resolver.h>
->> +#include <uapi/linux/ila.h>
+On 09/14/2016 05:22 PM, Richard Cochran wrote:
+> On Wed, Sep 14, 2016 at 04:02:29PM +0300, Grygorii Strashko wrote:
+>> @@ -35,6 +33,8 @@ Optional properties:
+>>  			  For example in dra72x-evm, pcf gpio has to be
+>>  			  driven low so that cpsw slave 0 and phy data
+>>  			  lines are connected via mux.
+>> +- cpts_clock_mult	: Numerator to convert input clock ticks into nanoseconds
+>> +- cpts_clock_shift	: Denominator to convert input clock ticks into nanoseconds
 >
-> This include list could be stripped down a bit. ila, lwt, fib, ...
+> You should explain to the reader how these will be calculated when the
+> properties are missing.
+
+Not sure how full should it be explained in bindings - I'll try.
+
+
 >
->> +
->> +static struct net_rslv_ent *net_rslv_new_ent(struct net_rslv *nrslv,
->> +                                          void *key)
->
-> Comment above that net_rslv_get_lock() must be held?
->
+>> diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
+>> index ff8bb85..8046a21 100644
+>> --- a/drivers/net/ethernet/ti/cpts.c
+>> +++ b/drivers/net/ethernet/ti/cpts.c
+>> @@ -418,18 +418,60 @@ void cpts_unregister(struct cpts *cpts)
+>>  	clk_disable(cpts->refclk);
+>>  }
+>>
+>> +static void cpts_calc_mult_shift(struct cpts *cpts)
 >> +{
->> +     struct net_rslv_ent *nrent;
->> +     int err;
->> +
->> +     nrent = kzalloc(sizeof(*nrent) + nrslv->obj_size, GFP_KERNEL);
+>> +	u64 maxsec;
+>> +	u32 freq;
+>> +	u32 mult;
+>> +	u32 shift;
+>> +	u64 ns;
+>> +	u64 frac;
 >
-> GFP_ATOMIC since you typically hold net_rslv_get_lock() spinlock?
->
->> +     if (!nrent)
->> +             return ERR_PTR(-EAGAIN);
->> +
->> +     /* Key is always at beginning of object data */
->> +     memcpy(nrent->object, key, nrslv->params.key_len);
->> +
->> +     /* Initialize user data */
->> +     if (nrslv->rslv_init)
->> +             nrslv->rslv_init(nrslv, nrent);
->> +
->> +     /* Put in hash table */
->> +     err = rhashtable_lookup_insert_fast(&nrslv->rhash_table,
->> +                                         &nrent->node, nrslv->params);
->> +     if (err)
->> +             return ERR_PTR(err);
->> +
->> +     if (nrslv->timeout) {
->> +             /* Schedule timeout for resolver */
->> +             INIT_DELAYED_WORK(&nrent->timeout_work, net_rslv_delayed_work);
->
-> Should this be done before inserting into rhashtable?
->
-Adding to the table and setting delayed work are done under a lock so
-I think it should be okay. I'll add a comment to the function that the
-lock is held.
+> Why so many new lines?  This isn't good style.  Please combine
+> variables of the same type into one line and sort the lists
+> alphabetically.
 
->> +             schedule_delayed_work(&nrent->timeout_work, nrslv->timeout);
->> +     }
+Its matter of preferences :), but sure - I'll update.
+>
+>> +	if (cpts->cc_mult || cpts->cc.shift)
+>> +		return;
 >> +
->> +     nrent->nrslv = nrslv;
+>> +	freq = clk_get_rate(cpts->refclk);
+>> +
+>> +	/* Calc the maximum number of seconds which we can run before
+>> +	 * wrapping around.
+>> +	 */
+>> +	maxsec = cpts->cc.mask;
+>> +	do_div(maxsec, freq);
+>> +	if (!maxsec)
+>> +		maxsec = 1;
+>> +	else if (maxsec > 600 && cpts->cc.mask > UINT_MAX)
+>> +		maxsec = 600;
+>> +
+>> +	clocks_calc_mult_shift(&mult, &shift, freq, NSEC_PER_SEC, maxsec);
+>> +
+>> +	cpts->cc_mult = mult;
+>> +	cpts->cc.mult = mult;
+>> +	cpts->cc.shift = shift;
+>> +	/* Check calculations and inform if not precise */
 >
-> Same here.  net_rslv_cancel_all_delayed_work() walking the rhashtable could
-> see ->nrslv as NULL.
-
-I'll move it up, but net_rslv_cancel_all_delayed_work is only called
-when we're destroying the table so it would be a bug in the higher
-layer if it is both destroying the table and adding entries at the
-same time.
-
-Thanks,
-Tom
-
-
+> Contrary to this comment, you are not making any kind of judgment
+> about whether the calculations are precise or not.
 >
+>> +	frac = 0;
+>> +	ns = cyclecounter_cyc2ns(&cpts->cc, freq, cpts->cc.mask, &frac);
+>> +
+>> +	dev_info(cpts->dev,
+>> +		 "CPTS: ref_clk_freq:%u calc_mult:%u calc_shift:%u error:%lld nsec/sec\n",
+>> +		 freq, cpts->cc_mult, cpts->cc.shift, (ns - NSEC_PER_SEC));
+>> +}
+>> +
+>
+
+Thanks for the review.
+
+-- 
+regards,
+-grygorii
