@@ -1,49 +1,59 @@
-From: Vincent Bernat <vincent@bernat.im>
-Subject: Re: [net v1] fib_rules: interface group matching
-Date: Wed, 14 Sep 2016 16:25:17 +0200
-Message-ID: <87h99ipnhu.fsf@zoro.exoscale.ch>
-References: <20160914124025.13417-1-vincent@bernat.im>
-        <9540c014-78c5-9f9c-16d7-75a564f6c018@cumulusnetworks.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [RFC v3 00/22] Landlock LSM: Unprivileged sandboxing
+Date: Wed, 14 Sep 2016 14:36:40 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB00FC881@AcuExch.aculab.com>
+References: <20160914072415.26021-1-mic@digikod.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-        Wilson Kok <wkok@cumulusnetworks.com>, netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Alexei Starovoitov <ast@kernel.org>,
+        Andy Lutomirski <luto@amacapital.net>,
+        Arnd Bergmann <arnd@arndb.de>,
+        Casey Schaufler <casey@schaufler-ca.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Daniel Mack <daniel@zonque.org>,
+        David Drysdale <drysdale@google.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Elena Reshetova <elena.reshetova@intel.com>,
+        "Eric W . Biederman" <ebiederm@xmission.com>,
+        James Morris <james.l.morris@oracle.com>,
+        Kees Cook <keescook@chromium.org>,
+        Paul Moore <pmoore@redhat.com>,
+        Sargun Dhillon <sargun@sargun.me>,
+        "Serge E . Hallyn" <serge@hallyn.com>, Tejun Heo <tj@kernel.org>,
+        Will Drewry <wad@chromium.org>,
+        "kernel-hardening@lists.openwall.com"
+        <kernel-hardening@lists.openwall.com>,
+        "linux-api@vger.kernel.org" <linux-api@
+To: =?utf-8?B?J01pY2thw6tsIFNhbGHDvG4n?= <mic@digikod.net>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bart.luffy.cx ([78.47.78.131]:57670 "EHLO bart.luffy.cx"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1763868AbcINOZW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 14 Sep 2016 10:25:22 -0400
-In-Reply-To: <9540c014-78c5-9f9c-16d7-75a564f6c018@cumulusnetworks.com> (David
-        Ahern's message of "Wed, 14 Sep 2016 08:15:21 -0600")
+Received: from smtp-out6.electric.net ([192.162.217.181]:53442 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1762000AbcINOi7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 10:38:59 -0400
+In-Reply-To: <20160914072415.26021-1-mic@digikod.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- =E2=9D=A6 14 septembre 2016 16:15 CEST, David Ahern <dsa@cumulusnetworks.c=
-om>=C2=A0:
-
->> When a user wants to assign a routing table to a group of incoming
->> interfaces, the current solutions are:
->>=20
->>  - one IP rule for each interface (scalability problems)
->>  - use of fwmark and devgroup matcher (don't work with internal route
->>    lookups, used for example by RPF)
->>  - use of VRF devices (more complex)
->
-> Why do you believe that? A VRF is a formalized grouping of interfaces
-> that includes an API for locally generated traffic to specify which
-> VRF/group to use. And, with the l3mdev rule you only need 1 rule for
-> all VRFs regardless of the number which is the best solution to the
-> scalability problem of adding rules per device/group/VRF.
->
-> What use case are trying to solve?
-
-Local processes have to be made aware of the VRF by binding to the
-pseudo-device. Some processes may be tricked by LD_PRELOAD but some
-won't (like stuff written in Go). Maybe I should just find a better way
-to bind a process to a VRF without its cooperation.
---=20
-Instrument your programs.  Measure before making "efficiency" changes.
-            - The Elements of Programming Style (Kernighan & Plauger)
+RnJvbTogTWlja2HDq2wgU2FsYcO8bg0KPiBTZW50OiAxNCBTZXB0ZW1iZXIgMjAxNiAwODoyNA0K
+Li4uDQo+ICMjIFdoeSBkb2VzIHNlY2NvbXAtZmlsdGVyIGlzIG5vdCBlbm91Z2g/DQo+IA0KPiBB
+IHNlY2NvbXAgZmlsdGVyIGNhbiBhY2Nlc3MgdG8gcmF3IHN5c2NhbGwgYXJndW1lbnRzIHdoaWNo
+IG1lYW5zIHRoYXQgaXQgaXMgbm90DQo+IHBvc3NpYmxlIHRvIGZpbHRlciBhY2NvcmRpbmcgdG8g
+cG9pbnRlZCBkYXRhIGFzIGEgZmlsZSBwYXRoLiBBcyBkZW1vbnN0cmF0ZWQNCj4gdGhlIGZpcnN0
+IHZlcnNpb24gb2YgdGhpcyBwYXRjaCBzZXJpZXMsIGZpbHRlcmluZyBhdCB0aGUgc3lzY2FsbCBs
+ZXZlbCBpcw0KPiBjb21wbGljYXRlZCAoZS5nLiBuZWVkIHRvIHRha2UgY2FyZSBvZiByYWNlIGNv
+bmRpdGlvbnMpLiBUaGlzIGlzIG1haW5seSBiZWNhdXNlDQo+IHRoZSBhY2Nlc3MgY29udHJvbCBj
+aGVja3BvaW50cyBvZiB0aGUga2VybmVsIGFyZSBub3QgYXQgdGhpcyBoaWdoLWxldmVsIGJ1dA0K
+PiBtb3JlIHVuZGVybmVhdGgsIGF0IExTTSBob29rcyBsZXZlbC4gVGhlIExTTSBob29rcyBhcmUg
+ZGVzaWduZWQgdG8gaGFuZGxlIHRoaXMNCj4ga2luZCBvZiBjaGVja3MuIFRoaXMgc2VyaWVzIHVz
+ZSB0aGlzIGFwcHJvYWNoIHRvIGxldmVyYWdlIHRoZSBhYmlsaXR5IG9mDQo+IHVucHJpdmlsZWdl
+ZCB1c2VycyB0byBsaW1pdCB0aGVtc2VsdmVzLg0KDQpZb3UgY2Fubm90IHZhbGlkYXRlIGZpbGUg
+cGF0aCBwYXJhbWV0ZXJzIGR1cmluZyBzeXNjYWxsIGVudHJ5Lg0KSXQgY2FuIG9ubHkgYmUgZG9u
+ZSBhZnRlciB0aGUgdXNlciBidWZmZXIgaGFzIGJlZW4gcmVhZCBpbnRvIGtlcm5lbCBtZW1vcnku
+DQooaWUgeW91IG11c3Qgb25seSBhY2Nlc3MgdGhlIGJ1ZmZlciBvbmNlLikNCg0KVGhpcyBoYXMg
+bm90aGluZyB0byBkbyB3aXRoIHdoZXJlIHRoZSBrZXJuZWwgZG9lcyBhbnkgYWNjZXNzIGNoZWNr
+cywNCmFuZCBldmVyeXRoaW5nIHRvIGRvIHdpdGggdGhlIGZhY3QgdGhhdCBhbm90aGVyIHRocmVh
+ZC9wcm9jZXNzIGNhbg0KbW9kaWZ5IHRoZSBidWZmZXIgYWZ0ZXIgeW91IGhhdmUgdmFsaWRhdGVk
+IGl0Lg0KDQoJRGF2aWQNCg0K
