@@ -1,147 +1,218 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next 2/7] spinlock: Add library function to allocate spinlock buckets array
-Date: Wed, 14 Sep 2016 16:22:51 -0700
-Message-ID: <1473895376-347096-3-git-send-email-tom@herbertland.com>
+Subject: [PATCH net-next 1/7] lwt: Add net to build_state argument
+Date: Wed, 14 Sep 2016 16:22:50 -0700
+Message-ID: <1473895376-347096-2-git-send-email-tom@herbertland.com>
 References: <1473895376-347096-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <tgraf@suug.ch>, <roopa@cumulusnetworks.com>, <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:48202 "EHLO
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:48351 "EHLO
         mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1756385AbcINXXk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 19:23:40 -0400
+        by vger.kernel.org with ESMTP id S1764429AbcINXY0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 19:24:26 -0400
 Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
-        by mx0b-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8ENLsSP018428
-        for <netdev@vger.kernel.org>; Wed, 14 Sep 2016 16:23:39 -0700
+        by mx0b-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8ENLoe8018417
+        for <netdev@vger.kernel.org>; Wed, 14 Sep 2016 16:24:25 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0b-00082601.pphosted.com with ESMTP id 25f0w2670y-4
+        by mx0b-00082601.pphosted.com with ESMTP id 25f0w26713-4
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 14 Sep 2016 16:23:37 -0700
+        for <netdev@vger.kernel.org>; Wed, 14 Sep 2016 16:24:24 -0700
 Received: from facebook.com (2401:db00:21:6030:face:0:92:0)     by
- mx-out.facebook.com (10.102.107.97) with ESMTP id
- 312207167ad211e6bde70002c99331b0-c37f5a50 for <netdev@vger.kernel.org>;        Wed,
- 14 Sep 2016 16:23:06 -0700
+ mx-out.facebook.com (10.103.99.97) with ESMTP  id
+ 308069c47ad211e6b4030002c9931860-463f5a50 for <netdev@vger.kernel.org>;        Wed,
+ 14 Sep 2016 16:23:05 -0700
 In-Reply-To: <1473895376-347096-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add two new library functions alloc_bucket_spinlocks and
-free_bucket_spinlocks. These are use to allocate and free an array
-of spinlocks that are useful as locks for hash buckets. The interface
-specifies the maximum number of spinlocks in the array as well
-as a CPU multiplier to derive the number of spinlocks to allocate.
-The number to allocated is rounded up to a power of two to make
-the array amenable to hash lookup.
-
-Reviewed by Greg Rose <grose@lightfleet.com>
-Acked-by: Thomas Graf <tgraf@suug.ch>
+Users of LWT need to know net if they want to have per net operations
+in LWT.
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- include/linux/spinlock.h |  6 +++++
- lib/Makefile             |  2 +-
- lib/bucket_locks.c       | 63 ++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 70 insertions(+), 1 deletion(-)
- create mode 100644 lib/bucket_locks.c
+ include/net/lwtunnel.h    | 10 +++++-----
+ net/core/lwtunnel.c       | 11 +++++++----
+ net/ipv4/fib_semantics.c  |  7 ++++---
+ net/ipv4/ip_tunnel_core.c | 12 ++++++------
+ net/ipv6/ila/ila_lwt.c    |  6 +++---
+ net/ipv6/route.c          |  2 +-
+ net/mpls/mpls_iptunnel.c  |  6 +++---
+ 7 files changed, 29 insertions(+), 25 deletions(-)
 
-diff --git a/include/linux/spinlock.h b/include/linux/spinlock.h
-index 47dd0ce..4ebdfbf 100644
---- a/include/linux/spinlock.h
-+++ b/include/linux/spinlock.h
-@@ -416,4 +416,10 @@ extern int _atomic_dec_and_lock(atomic_t *atomic, spinlock_t *lock);
- #define atomic_dec_and_lock(atomic, lock) \
- 		__cond_lock(lock, _atomic_dec_and_lock(atomic, lock))
+diff --git a/include/net/lwtunnel.h b/include/net/lwtunnel.h
+index ea3f80f..3cd6b7c 100644
+--- a/include/net/lwtunnel.h
++++ b/include/net/lwtunnel.h
+@@ -33,9 +33,9 @@ struct lwtunnel_state {
+ };
  
-+int alloc_bucket_spinlocks(spinlock_t **locks, unsigned int *lock_mask,
-+			   unsigned int max_size, unsigned int cpu_mult,
-+			   gfp_t gfp);
-+
-+void free_bucket_spinlocks(spinlock_t *locks);
-+
- #endif /* __LINUX_SPINLOCK_H */
-diff --git a/lib/Makefile b/lib/Makefile
-index 5dc77a8..f91185e 100644
---- a/lib/Makefile
-+++ b/lib/Makefile
-@@ -36,7 +36,7 @@ obj-y += bcd.o div64.o sort.o parser.o halfmd4.o debug_locks.o random32.o \
- 	 gcd.o lcm.o list_sort.o uuid.o flex_array.o iov_iter.o clz_ctz.o \
- 	 bsearch.o find_bit.o llist.o memweight.o kfifo.o \
- 	 percpu-refcount.o percpu_ida.o rhashtable.o reciprocal_div.o \
--	 once.o
-+	 once.o bucket_locks.o
- obj-y += string_helpers.o
- obj-$(CONFIG_TEST_STRING_HELPERS) += test-string_helpers.o
- obj-y += hexdump.o
-diff --git a/lib/bucket_locks.c b/lib/bucket_locks.c
-new file mode 100644
-index 0000000..bb9bf11
---- /dev/null
-+++ b/lib/bucket_locks.c
-@@ -0,0 +1,63 @@
-+#include <linux/kernel.h>
-+#include <linux/slab.h>
-+#include <linux/vmalloc.h>
-+#include <linux/mm.h>
-+#include <linux/export.h>
-+
-+/* Allocate an array of spinlocks to be accessed by a hash. Two arguments
-+ * indicate the number of elements to allocate in the array. max_size
-+ * gives the maximum number of elements to allocate. cpu_mult gives
-+ * the number of locks per CPU to allocate. The size is rounded up
-+ * to a power of 2 to be suitable as a hash table.
-+ */
-+int alloc_bucket_spinlocks(spinlock_t **locks, unsigned int *locks_mask,
-+			   unsigned int max_size, unsigned int cpu_mult,
-+			   gfp_t gfp)
-+{
-+	unsigned int i, size;
-+#if defined(CONFIG_PROVE_LOCKING)
-+	unsigned int nr_pcpus = 2;
-+#else
-+	unsigned int nr_pcpus = num_possible_cpus();
-+#endif
-+	spinlock_t *tlocks = NULL;
-+
-+	if (cpu_mult) {
-+		nr_pcpus = min_t(unsigned int, nr_pcpus, 64UL);
-+		size = min_t(unsigned int, nr_pcpus * cpu_mult, max_size);
-+	} else {
-+		size = max_size;
-+	}
-+	size = roundup_pow_of_two(size);
-+
-+	if (!size)
-+		return -EINVAL;
-+
-+	if (sizeof(spinlock_t) != 0) {
-+#ifdef CONFIG_NUMA
-+		if (size * sizeof(spinlock_t) > PAGE_SIZE &&
-+		    gfp == GFP_KERNEL)
-+			tlocks = vmalloc(size * sizeof(spinlock_t));
-+#endif
-+		if (gfp != GFP_KERNEL)
-+			gfp |= __GFP_NOWARN | __GFP_NORETRY;
-+
-+		if (!tlocks)
-+			tlocks = kmalloc_array(size, sizeof(spinlock_t), gfp);
-+		if (!tlocks)
-+			return -ENOMEM;
-+		for (i = 0; i < size; i++)
-+			spin_lock_init(&tlocks[i]);
-+	}
-+	*locks = tlocks;
-+	*locks_mask = size - 1;
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL(alloc_bucket_spinlocks);
-+
-+void free_bucket_spinlocks(spinlock_t *locks)
-+{
-+	kvfree(locks);
-+}
-+EXPORT_SYMBOL(free_bucket_spinlocks);
+ struct lwtunnel_encap_ops {
+-	int (*build_state)(struct net_device *dev, struct nlattr *encap,
+-			   unsigned int family, const void *cfg,
+-			   struct lwtunnel_state **ts);
++	int (*build_state)(struct net *net, struct net_device *dev,
++			   struct nlattr *encap, unsigned int family,
++			   const void *cfg, struct lwtunnel_state **ts);
+ 	int (*output)(struct net *net, struct sock *sk, struct sk_buff *skb);
+ 	int (*input)(struct sk_buff *skb);
+ 	int (*fill_encap)(struct sk_buff *skb,
+@@ -106,8 +106,8 @@ int lwtunnel_encap_add_ops(const struct lwtunnel_encap_ops *op,
+ 			   unsigned int num);
+ int lwtunnel_encap_del_ops(const struct lwtunnel_encap_ops *op,
+ 			   unsigned int num);
+-int lwtunnel_build_state(struct net_device *dev, u16 encap_type,
+-			 struct nlattr *encap,
++int lwtunnel_build_state(struct net *net, struct net_device *dev,
++			 u16 encap_type, struct nlattr *encap,
+ 			 unsigned int family, const void *cfg,
+ 			 struct lwtunnel_state **lws);
+ int lwtunnel_fill_encap(struct sk_buff *skb,
+diff --git a/net/core/lwtunnel.c b/net/core/lwtunnel.c
+index e5f84c2..ba8be0b 100644
+--- a/net/core/lwtunnel.c
++++ b/net/core/lwtunnel.c
+@@ -39,6 +39,8 @@ static const char *lwtunnel_encap_str(enum lwtunnel_encap_types encap_type)
+ 		return "MPLS";
+ 	case LWTUNNEL_ENCAP_ILA:
+ 		return "ILA";
++	case LWTUNNEL_ENCAP_ILA_NOTIFY:
++		return "ILA_NOTIFY";
+ 	case LWTUNNEL_ENCAP_IP6:
+ 	case LWTUNNEL_ENCAP_IP:
+ 	case LWTUNNEL_ENCAP_NONE:
+@@ -96,9 +98,10 @@ int lwtunnel_encap_del_ops(const struct lwtunnel_encap_ops *ops,
+ }
+ EXPORT_SYMBOL(lwtunnel_encap_del_ops);
+ 
+-int lwtunnel_build_state(struct net_device *dev, u16 encap_type,
+-			 struct nlattr *encap, unsigned int family,
+-			 const void *cfg, struct lwtunnel_state **lws)
++int lwtunnel_build_state(struct net *net, struct net_device *dev,
++			 u16 encap_type, struct nlattr *encap,
++			 unsigned int family, const void *cfg,
++			 struct lwtunnel_state **lws)
+ {
+ 	const struct lwtunnel_encap_ops *ops;
+ 	int ret = -EINVAL;
+@@ -123,7 +126,7 @@ int lwtunnel_build_state(struct net_device *dev, u16 encap_type,
+ 	}
+ #endif
+ 	if (likely(ops && ops->build_state))
+-		ret = ops->build_state(dev, encap, family, cfg, lws);
++		ret = ops->build_state(net, dev, encap, family, cfg, lws);
+ 	rcu_read_unlock();
+ 
+ 	return ret;
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 388d3e2..aee4e95 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -511,7 +511,8 @@ static int fib_get_nhs(struct fib_info *fi, struct rtnexthop *rtnh,
+ 					goto err_inval;
+ 				if (cfg->fc_oif)
+ 					dev = __dev_get_by_index(net, cfg->fc_oif);
+-				ret = lwtunnel_build_state(dev, nla_get_u16(
++				ret = lwtunnel_build_state(net, dev,
++							   nla_get_u16(
+ 							   nla_entype),
+ 							   nla,  AF_INET, cfg,
+ 							   &lwtstate);
+@@ -610,7 +611,7 @@ static int fib_encap_match(struct net *net, u16 encap_type,
+ 
+ 	if (oif)
+ 		dev = __dev_get_by_index(net, oif);
+-	ret = lwtunnel_build_state(dev, encap_type, encap,
++	ret = lwtunnel_build_state(net, dev, encap_type, encap,
+ 				   AF_INET, cfg, &lwtstate);
+ 	if (!ret) {
+ 		result = lwtunnel_cmp_encap(lwtstate, nh->nh_lwtstate);
+@@ -1098,7 +1099,7 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
+ 				goto err_inval;
+ 			if (cfg->fc_oif)
+ 				dev = __dev_get_by_index(net, cfg->fc_oif);
+-			err = lwtunnel_build_state(dev, cfg->fc_encap_type,
++			err = lwtunnel_build_state(net, dev, cfg->fc_encap_type,
+ 						   cfg->fc_encap, AF_INET, cfg,
+ 						   &lwtstate);
+ 			if (err)
+diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
+index 777bc18..6a0cac3 100644
+--- a/net/ipv4/ip_tunnel_core.c
++++ b/net/ipv4/ip_tunnel_core.c
+@@ -239,9 +239,9 @@ static const struct nla_policy ip_tun_policy[LWTUNNEL_IP_MAX + 1] = {
+ 	[LWTUNNEL_IP_FLAGS]	= { .type = NLA_U16 },
+ };
+ 
+-static int ip_tun_build_state(struct net_device *dev, struct nlattr *attr,
+-			      unsigned int family, const void *cfg,
+-			      struct lwtunnel_state **ts)
++static int ip_tun_build_state(struct net *net, struct net_device *dev,
++			      struct nlattr *attr, unsigned int family,
++			      const void *cfg, struct lwtunnel_state **ts)
+ {
+ 	struct ip_tunnel_info *tun_info;
+ 	struct lwtunnel_state *new_state;
+@@ -335,9 +335,9 @@ static const struct nla_policy ip6_tun_policy[LWTUNNEL_IP6_MAX + 1] = {
+ 	[LWTUNNEL_IP6_FLAGS]		= { .type = NLA_U16 },
+ };
+ 
+-static int ip6_tun_build_state(struct net_device *dev, struct nlattr *attr,
+-			       unsigned int family, const void *cfg,
+-			       struct lwtunnel_state **ts)
++static int ip6_tun_build_state(struct net *net, struct net_device *dev,
++			       struct nlattr *attr, unsigned int family,
++			       const void *cfg, struct lwtunnel_state **ts)
+ {
+ 	struct ip_tunnel_info *tun_info;
+ 	struct lwtunnel_state *new_state;
+diff --git a/net/ipv6/ila/ila_lwt.c b/net/ipv6/ila/ila_lwt.c
+index e50c27a..30a6920 100644
+--- a/net/ipv6/ila/ila_lwt.c
++++ b/net/ipv6/ila/ila_lwt.c
+@@ -56,9 +56,9 @@ static const struct nla_policy ila_nl_policy[ILA_ATTR_MAX + 1] = {
+ 	[ILA_ATTR_CSUM_MODE] = { .type = NLA_U8, },
+ };
+ 
+-static int ila_build_state(struct net_device *dev, struct nlattr *nla,
+-			   unsigned int family, const void *cfg,
+-			   struct lwtunnel_state **ts)
++static int ila_build_state(struct net *net, struct net_device *dev,
++			   struct nlattr *nla, unsigned int family,
++			   const void *cfg, struct lwtunnel_state **ts)
+ {
+ 	struct ila_params *p;
+ 	struct nlattr *tb[ILA_ATTR_MAX + 1];
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index ad4a7ff..48c3aa7 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1884,7 +1884,7 @@ static struct rt6_info *ip6_route_info_create(struct fib6_config *cfg)
+ 	if (cfg->fc_encap) {
+ 		struct lwtunnel_state *lwtstate;
+ 
+-		err = lwtunnel_build_state(dev, cfg->fc_encap_type,
++		err = lwtunnel_build_state(net, dev, cfg->fc_encap_type,
+ 					   cfg->fc_encap, AF_INET6, cfg,
+ 					   &lwtstate);
+ 		if (err)
+diff --git a/net/mpls/mpls_iptunnel.c b/net/mpls/mpls_iptunnel.c
+index cf52cf3..d2df225 100644
+--- a/net/mpls/mpls_iptunnel.c
++++ b/net/mpls/mpls_iptunnel.c
+@@ -126,9 +126,9 @@ drop:
+ 	return -EINVAL;
+ }
+ 
+-static int mpls_build_state(struct net_device *dev, struct nlattr *nla,
+-			    unsigned int family, const void *cfg,
+-			    struct lwtunnel_state **ts)
++static int mpls_build_state(struct net *net, struct net_device *dev,
++			    struct nlattr *nla, unsigned int family,
++			    const void *cfg, struct lwtunnel_state **ts)
+ {
+ 	struct mpls_iptunnel_encap *tun_encap_info;
+ 	struct nlattr *tb[MPLS_IPTUNNEL_MAX + 1];
 -- 
 2.8.0.rc2
