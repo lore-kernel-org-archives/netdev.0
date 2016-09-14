@@ -1,119 +1,101 @@
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-Subject: Re: [RFC v3 19/22] landlock: Add interrupted origin
-Date: Thu, 15 Sep 2016 00:14:43 +0200
-Message-ID: <57D9CBD3.7030100@digikod.net>
-References: <20160914072415.26021-1-mic@digikod.net>
- <20160914072415.26021-20-mic@digikod.net>
- <CALCETrUyqZEcJansuN=NX04CXv4ROtNqB25YZw7mBGuu43DFew@mail.gmail.com>
-Reply-To: kernel-hardening@lists.openwall.com
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 3/3] mm: memcontrol: consolidate cgroup socket tracking
+Date: Wed, 14 Sep 2016 15:17:14 -0700
+Message-ID: <20160914151714.f6d1b2a57da0619bf9e2372c@linux-foundation.org>
+References: <20160914194846.11153-3-hannes@cmpxchg.org>
+	<201609151357.bgs2EcXM%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="H4tLqI0LGvhoh5WBMCq726GUGMd0KgPnH"
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Alexei Starovoitov <ast@kernel.org>, Arnd Bergmann <arnd@arndb.de>,
-        Casey Schaufler <casey@schaufler-ca.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Daniel Mack <daniel@zonque.org>, David Drysdale <drysdale@google.com>,
-        "David S . Miller"
- <davem@davemloft.net>,
-        Elena Reshetova <elena.reshetova@intel.com>,
-        "Eric W . Biederman" <ebiederm@xmission.com>,
-        James Morris <james.l.morris@oracle.com>,
-        Kees Cook <keescook@chromium.org>, Paul Moore <pmoore@redhat.com>,
-        Sargun Dhillon <sargun@sargun.me>,
-        "Serge E . Hallyn" <serge@hallyn.com>, Tejun Heo <tj@kernel.org>,
-        Will Drewry <wad@chromium.org>,
-        "kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>,
-        Linux API <linux-api@vger.kernel.org>,
-To: Andy Lutomirski <luto@amacapital.net>
-Return-path: <kernel-hardening-return-4637-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <CALCETrUyqZEcJansuN=NX04CXv4ROtNqB25YZw7mBGuu43DFew@mail.gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Johannes Weiner <hannes@cmpxchg.org>, kbuild-all@01.org, Tejun Heo
+ <tj@kernel.org>, "David S. Miller" <davem@davemloft.net>, Michal Hocko
+ <mhocko@suse.cz>, Vladimir Davydov <vdavydov@virtuozzo.com>,
+ linux-mm@kvack.org, cgroups@vger.kernel.org, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, kernel-team@fb.com
+To: kbuild test robot <lkp@intel.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <201609151357.bgs2EcXM%fengguang.wu@intel.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---H4tLqI0LGvhoh5WBMCq726GUGMd0KgPnH
-Content-Type: multipart/mixed; boundary="9ARiWJNHwiMxnqur83ibVoOnfb9lrgvrG";
- protected-headers="v1"
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-To: Andy Lutomirski <luto@amacapital.net>
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- Alexei Starovoitov <ast@kernel.org>, Arnd Bergmann <arnd@arndb.de>,
- Casey Schaufler <casey@schaufler-ca.com>,
- Daniel Borkmann <daniel@iogearbox.net>, Daniel Mack <daniel@zonque.org>,
- David Drysdale <drysdale@google.com>, "David S . Miller"
- <davem@davemloft.net>, Elena Reshetova <elena.reshetova@intel.com>,
- "Eric W . Biederman" <ebiederm@xmission.com>,
- James Morris <james.l.morris@oracle.com>, Kees Cook <keescook@chromium.org>,
- Paul Moore <pmoore@redhat.com>, Sargun Dhillon <sargun@sargun.me>,
- "Serge E . Hallyn" <serge@hallyn.com>, Tejun Heo <tj@kernel.org>,
- Will Drewry <wad@chromium.org>,
- "kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>,
- Linux API <linux-api@vger.kernel.org>,
- LSM List <linux-security-module@vger.kernel.org>,
- Network Development <netdev@vger.kernel.org>,
- "open list:CONTROL GROUP (CGROUP)" <cgroups@vger.kernel.org>
-Message-ID: <57D9CBD3.7030100@digikod.net>
-Subject: Re: [RFC v3 19/22] landlock: Add interrupted origin
-References: <20160914072415.26021-1-mic@digikod.net>
- <20160914072415.26021-20-mic@digikod.net>
- <CALCETrUyqZEcJansuN=NX04CXv4ROtNqB25YZw7mBGuu43DFew@mail.gmail.com>
-In-Reply-To: <CALCETrUyqZEcJansuN=NX04CXv4ROtNqB25YZw7mBGuu43DFew@mail.gmail.com>
+On Thu, 15 Sep 2016 13:34:24 +0800 kbuild test robot <lkp@intel.com> wrote:
 
---9ARiWJNHwiMxnqur83ibVoOnfb9lrgvrG
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+> Hi Johannes,
+> 
+> [auto build test ERROR on net/master]
+> [also build test ERROR on v4.8-rc6 next-20160914]
+> [if your patch is applied to the wrong git tree, please drop us a note to help improve the system]
+> [Suggest to use git(>=2.9.0) format-patch --base=<commit> (or --base=auto for convenience) to record what (public, well-known) commit your patch series was built on]
+> [Check https://git-scm.com/docs/git-format-patch for more information]
+> 
+> url:    https://github.com/0day-ci/linux/commits/Johannes-Weiner/mm-memcontrol-make-per-cpu-charge-cache-IRQ-safe-for-socket-accounting/20160915-035634
+> config: m68k-sun3_defconfig (attached as .config)
+> compiler: m68k-linux-gcc (GCC) 4.9.0
+> reproduce:
+>         wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
+>         chmod +x ~/bin/make.cross
+>         # save the attached .config to linux build tree
+>         make.cross ARCH=m68k 
+> 
+> All errors (new ones prefixed by >>):
+> 
+>    net/built-in.o: In function `sk_alloc':
+> >> (.text+0x4076): undefined reference to `mem_cgroup_sk_alloc'
+>    net/built-in.o: In function `__sk_destruct':
+> >> sock.c:(.text+0x457e): undefined reference to `mem_cgroup_sk_free'
+>    net/built-in.o: In function `sk_clone_lock':
+>    (.text+0x4f1c): undefined reference to `mem_cgroup_sk_alloc'
 
+This?
 
-On 14/09/2016 20:29, Andy Lutomirski wrote:
-> On Wed, Sep 14, 2016 at 12:24 AM, Micka=C3=ABl Sala=C3=BCn <mic@digikod=
-=2Enet> wrote:
->> This third origin of hook call should cover all possible trigger paths=
+--- a/mm/memcontrol.c~mm-memcontrol-consolidate-cgroup-socket-tracking-fix
++++ a/mm/memcontrol.c
+@@ -5655,9 +5655,6 @@ void mem_cgroup_sk_alloc(struct sock *sk
+ {
+ 	struct mem_cgroup *memcg;
+ 
+-	if (!mem_cgroup_sockets_enabled)
+-		return;
+-
+ 	/*
+ 	 * Socket cloning can throw us here with sk_memcg already
+ 	 * filled. It won't however, necessarily happen from
+--- a/net/core/sock.c~mm-memcontrol-consolidate-cgroup-socket-tracking-fix
++++ a/net/core/sock.c
+@@ -1385,7 +1385,8 @@ static void sk_prot_free(struct proto *p
+ 	slab = prot->slab;
+ 
+ 	cgroup_sk_free(&sk->sk_cgrp_data);
+-	mem_cgroup_sk_free(sk);
++	if (mem_cgroup_sockets_enabled)
++		mem_cgroup_sk_free(sk);
+ 	security_sk_free(sk);
+ 	if (slab != NULL)
+ 		kmem_cache_free(slab, sk);
+@@ -1422,7 +1423,8 @@ struct sock *sk_alloc(struct net *net, i
+ 		sock_net_set(sk, net);
+ 		atomic_set(&sk->sk_wmem_alloc, 1);
+ 
+-		mem_cgroup_sk_alloc(sk);
++		if (mem_cgroup_sockets_enabled)
++			mem_cgroup_sk_alloc(sk);
+ 		cgroup_sk_alloc(&sk->sk_cgrp_data);
+ 		sock_update_classid(&sk->sk_cgrp_data);
+ 		sock_update_netprioidx(&sk->sk_cgrp_data);
+@@ -1569,7 +1571,8 @@ struct sock *sk_clone_lock(const struct
+ 		newsk->sk_incoming_cpu = raw_smp_processor_id();
+ 		atomic64_set(&newsk->sk_cookie, 0);
+ 
+-		mem_cgroup_sk_alloc(newsk);
++		if (mem_cgroup_sockets_enabled)
++			mem_cgroup_sk_alloc(newsk);
+ 		cgroup_sk_alloc(&newsk->sk_cgrp_data);
+ 
+ 		/*
+_
 
->> (e.g. page fault). Landlock eBPF programs can then take decisions
->> accordingly.
->>
->> Signed-off-by: Micka=C3=ABl Sala=C3=BCn <mic@digikod.net>
->> Cc: Alexei Starovoitov <ast@kernel.org>
->> Cc: Andy Lutomirski <luto@amacapital.net>
->> Cc: Daniel Borkmann <daniel@iogearbox.net>
->> Cc: Kees Cook <keescook@chromium.org>
->> ---
->=20
->=20
->>
->> +       if (unlikely(in_interrupt())) {
->=20
-> IMO security hooks have no business being called from interrupts.
-> Aren't they all synchronous things done by tasks?  Interrupts are
-> driver things.
->=20
-> Are you trying to check for page faults and such?
-
-Yes, that was the idea you did put in my mind. Not sure how to deal with
-this.
-
-
---9ARiWJNHwiMxnqur83ibVoOnfb9lrgvrG--
-
---H4tLqI0LGvhoh5WBMCq726GUGMd0KgPnH
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBCgAGBQJX2cvTAAoJECLe/t9zvWqVhMgH/j8wPM8xKRnzaWBH/cuw4ddN
-DRmyWymzWG7lGEhAJtuxSg078AXDrJtEL3c172IQpoDnCwWzw5gLfobXpfshWBCp
-iXE2A1rjGSc/RFAdd+CF6cfJCy8XQCZke87eAmWewedx5Z6WJeG2wHJQN3uEFkYx
-3C3XC2I0CQ58iAUP/216A2WlCGmnPTmsDV2pFuogvG8477xyWWBrq2dYkd4vW0dY
-ZhnQcAR+JRqFXE1ngo4uaHiVYGo3O0VsBt1eM/3rnQqCkBMoT7E2EUhCGC3TNtGw
-Hk4qVFA+dUHR9DCeuKrWzgrt+oizUmRqlZ/aOLi7A+OEFgWGtK6CThdwPn9eM3w=
-=JP2k
------END PGP SIGNATURE-----
-
---H4tLqI0LGvhoh5WBMCq726GUGMd0KgPnH--
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
