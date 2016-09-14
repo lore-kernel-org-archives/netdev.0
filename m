@@ -1,57 +1,42 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH v3 net 1/1] net sched actions: fix GETing actions
-Date: Wed, 14 Sep 2016 07:33:27 -0400
-Message-ID: <61972f5c-b2b7-efca-4068-1b3af9aabbf4@mojatatu.com>
-References: <1473721658-6034-1-git-send-email-jhs@emojatatu.com>
- <CAM_iQpWDNzceBLqzVibyyqExk5MXajJCt6Yu3KkC2r2poU0DQQ@mail.gmail.com>
- <f24e1121-84c8-01d1-23cd-1288ba1402aa@mojatatu.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v5 0/6] Add eBPF hooks for cgroups
+Date: Wed, 14 Sep 2016 13:36:55 +0200
+Message-ID: <57D93657.6020806@iogearbox.net>
+References: <1473696735-11269-1-git-send-email-daniel@zonque.org> <20160913115627.GA4898@salvia> <da300784-284c-0d1f-a82e-aa0a0f8ae116@zonque.org> <20160913172408.GC6138@salvia> <20160914044217.GA44742@ast-mbp.thefacebook.com> <20160914103038.GA910@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: Daniel Mack <daniel@zonque.org>, htejun@fb.com, ast@fb.com,
+        davem@davemloft.net, kafai@fb.com, fw@strlen.de, harald@redhat.com,
+        netdev@vger.kernel.org, sargun@sargun.me, cgroups@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f67.google.com ([209.85.214.67]:35375 "EHLO
-        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1760636AbcINLda (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 07:33:30 -0400
-Received: by mail-it0-f67.google.com with SMTP id e20so1249079itc.2
-        for <netdev@vger.kernel.org>; Wed, 14 Sep 2016 04:33:30 -0700 (PDT)
-In-Reply-To: <f24e1121-84c8-01d1-23cd-1288ba1402aa@mojatatu.com>
+Received: from www62.your-server.de ([213.133.104.62]:34499 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756146AbcINLhP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 07:37:15 -0400
+In-Reply-To: <20160914103038.GA910@salvia>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-09-13 03:47 PM, Jamal Hadi Salim wrote:
-> On 16-09-13 12:20 PM, Cong Wang wrote:
->> On Mon, Sep 12, 2016 at 4:07 PM, Jamal Hadi Salim <jhs@mojatatu.com>
->> wrote:
-
-[..]
->> I am still trying to understand this piece, so here you hold the refcnt
->> for the same action used by the later iteration? Otherwise there is
->> almost none user inbetween hold and release...
->>
->> The comment you add is not clear to me, we use RTNL/RCU to
->> sync destroy and replace, so how could that happen?
->>
+On 09/14/2016 12:30 PM, Pablo Neira Ayuso wrote:
+> On Tue, Sep 13, 2016 at 09:42:19PM -0700, Alexei Starovoitov wrote:
+> [...]
+>> For us this cgroup+bpf is _not_ for filterting and _not_ for security.
 >
-> I was worried about the destroy() hitting an error in that function.
-> If an action already existed and all we asked for was to
-> replace some attribute it would be deleted. It was the way the code was
-> before your changes so i just restored it to its original form.
+> If your goal is monitoring, then convert these hooks not to allow to
+> issue a verdict on the packet, so this becomes inoquous in the same
+> fashion as the tracing infrastructure.
 >
+> [...]
+>> I'd really love to have an alternative to bpf for such tasks,
+>> but you seem to spend all the energy arguing against bpf whereas
+>> nft still has a lot to be desired.
+>
+> Please Alexei, stop that FUD. Anyone that has spent just one day using
+> the bpf tooling and infrastructure knows you have problems to
+> resolve...
 
-And I have verified this is needed. I went and made gact return
-a failure if you replace something. I added a gact action; then
-when i replaced it failed. And when it failed it replace the existing
-action.
-I then tried another experiment and batch replaced several actions
-including the one i know would fail. I placed the failing action in
-the middle and hallelujah, all the actions before the middle one got
-deleted.
-
-So please ACK this so we can move forward.
-
-cheers,
-jamal
+Not quite sure on the spreading of FUD, but sounds like we should all
+get back to technical things to resolve. ;)
