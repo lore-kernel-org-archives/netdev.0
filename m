@@ -1,71 +1,92 @@
-From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
-Subject: [RFC v3 04/22] bpf: Set register type according to is_valid_access()
-Date: Wed, 14 Sep 2016 09:23:57 +0200
-Message-ID: <20160914072415.26021-5-mic@digikod.net>
+From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
+Subject: [RFC v3 01/22] landlock: Add Kconfig
+Date: Wed, 14 Sep 2016 09:23:54 +0200
+Message-ID: <20160914072415.26021-2-mic@digikod.net>
 References: <20160914072415.26021-1-mic@digikod.net>
-Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Andy Lutomirski <luto@amacapital.net>, Arnd Bergmann <arnd@arndb.de>,
-        Casey Schaufler <casey@schaufler-ca.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Daniel Mack <daniel@zonque.org>, David Drysdale <drysdale@google.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Elena Reshetova <elena.reshetova@intel.com>,
-        "Eric W . Biederman" <ebiederm@xmission.com>,
-        James Morris <james.l.morris@oracle.com>,
-        Kees Cook <keescook@chromium.org>, Paul Moore <pmoore@redhat.com>,
-        Sargun Dhillon <sargun@sargun.me>,
-        "Serge E . Hallyn" <serge@hallyn.com>, Tejun Heo <tj@kernel.org>,
-        Will Drewry <wad@chromium.org>, kernel-hardening@lists.openwall.com,
-        linux-api@vger.kernel.org, linux-security-module@vger.
-To: linux-kernel@vger.kernel.org
-Return-path: <kernel-hardening-return-4584-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <20160914072415.26021-1-mic@digikod.net>
+Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>,
+        Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+        Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+        Casey Schaufler <casey-iSGtlc1asvQWG2LlvL+J4A@public.gmane.org>,
+        Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+        Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>,
+        David Drysdale <drysdale-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Elena Reshetova <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        "Eric W . Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
+        James Morris <james.l.morris-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+        Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+        Paul Moore <pmoore-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Sargun Dhillon <sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org>,
+        "Serge E . Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+        kernel-hardening-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160914072415.26021-1-mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This fix a pointer leak when an unprivileged eBPF program read a pointer
-value from the context. Even if is_valid_access() returns a pointer
-type, the eBPF verifier replace it with UNKNOWN_VALUE. The register
-value containing an address is then allowed to leak. Moreover, this
-prevented unprivileged eBPF programs to use functions with (legitimate)
-pointer arguments.
+Initial Landlock Kconfig needed to split the Landlock eBPF and seccomp
+parts to ease the review.
 
-This bug was not a problem until now because the only unprivileged eBPF
-program allowed is of type BPF_PROG_TYPE_SOCKET_FILTER and all the types
-from its context are UNKNOWN_VALUE.
+Changes from v2:
+* add seccomp filter or cgroups (with eBPF programs attached support)
+  dependencies
 
-Signed-off-by: Mickaël Salaün <mic@digikod.net>
-Fixes: 969bf05eb3ce ("bpf: direct packet access")
-Cc: Alexei Starovoitov <ast@kernel.org>
-Cc: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Mickaël Salaün <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
+Cc: James Morris <james.l.morris-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Cc: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Cc: Serge E. Hallyn <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>
 ---
- kernel/bpf/verifier.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ security/Kconfig          |  1 +
+ security/landlock/Kconfig | 23 +++++++++++++++++++++++
+ 2 files changed, 24 insertions(+)
+ create mode 100644 security/landlock/Kconfig
 
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index c0c4a92dae8c..608cbffb0e86 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -794,10 +794,8 @@ static int check_mem_access(struct verifier_env *env, u32 regno, int off,
- 		}
- 		err = check_ctx_access(env, off, size, t, &reg_type);
- 		if (!err && t == BPF_READ && value_regno >= 0) {
--			mark_reg_unknown_value(state->regs, value_regno);
--			if (env->allow_ptr_leaks)
--				/* note that reg.[id|off|range] == 0 */
--				state->regs[value_regno].type = reg_type;
-+			/* note that reg.[id|off|range] == 0 */
-+			state->regs[value_regno].type = reg_type;
- 		}
+diff --git a/security/Kconfig b/security/Kconfig
+index 118f4549404e..c63194c561c5 100644
+--- a/security/Kconfig
++++ b/security/Kconfig
+@@ -164,6 +164,7 @@ source security/tomoyo/Kconfig
+ source security/apparmor/Kconfig
+ source security/loadpin/Kconfig
+ source security/yama/Kconfig
++source security/landlock/Kconfig
  
- 	} else if (reg->type == FRAME_PTR || reg->type == PTR_TO_STACK) {
+ source security/integrity/Kconfig
+ 
+diff --git a/security/landlock/Kconfig b/security/landlock/Kconfig
+new file mode 100644
+index 000000000000..dec64270b06d
+--- /dev/null
++++ b/security/landlock/Kconfig
+@@ -0,0 +1,23 @@
++config SECURITY_LANDLOCK
++	bool "Landlock sandbox support"
++	depends on SECURITY
++	depends on BPF_SYSCALL
++	depends on SECCOMP_FILTER || CGROUP_BPF
++	default y
++	help
++	  Landlock is a stacked LSM which allows any user to load a security
++	  policy to restrict their processes (i.e. create a sandbox). The
++	  policy is a list of stacked eBPF programs for some LSM hooks. Each
++	  program can do some access comparison to check if an access request
++	  is legitimate.
++
++	  You need to enable seccomp filter and/or cgroups (with eBPF programs
++	  attached support) to apply a security policy to either a process
++	  hierarchy (e.g. application with built-in sandboxing) or a group of
++	  processes (e.g. container sandboxing). It is recommended to enable
++	  both seccomp filter and cgroups.
++
++	  Further information about eBPF can be found in
++	  Documentation/networking/filter.txt
++
++	  If you are unsure how to answer this question, answer Y.
 -- 
 2.9.3
