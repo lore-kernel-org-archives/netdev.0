@@ -1,58 +1,87 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Modification to skb->queue_mapping affecting performance
-Date: Tue, 13 Sep 2016 22:22:51 -0700
-Message-ID: <1473830571.22679.4.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAAmHdhxyrwJXHysUU6KoXeTaRHK8Mxr5PH9j4drR_87T+Wnypg@mail.gmail.com>
-         <1473808021.18970.246.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAAmHdhw6JXYtYNjcJchieW-KcwRkNnFmXTRTXrLQS_Kh+rfP2w@mail.gmail.com>
-         <1473811749.18970.259.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAAmHdhy_=GJKBE9=YD2n8MZOaBzD_JJrk4i8Rq43ob2HbWqbCA@mail.gmail.com>
-         <1473815917.18970.266.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAAmHdhxGBBOCebkvq43pwsaZ8HcULZmXnikQAtc2uLBMWZgXjA@mail.gmail.com>
+Subject: [PATCH net-next] tcp: fix a stale ooo_last_skb after a replace
+Date: Tue, 13 Sep 2016 22:55:05 -0700
+Message-ID: <1473832505.22679.17.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Michael Ma <make0818@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>,
+        Yaogong Wang <wygivan@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:35865 "EHLO
-        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755231AbcINFWx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 01:22:53 -0400
-Received: by mail-pf0-f170.google.com with SMTP id 128so1768671pfb.3
-        for <netdev@vger.kernel.org>; Tue, 13 Sep 2016 22:22:53 -0700 (PDT)
-In-Reply-To: <CAAmHdhxGBBOCebkvq43pwsaZ8HcULZmXnikQAtc2uLBMWZgXjA@mail.gmail.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:36722 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752470AbcINFzH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 01:55:07 -0400
+Received: by mail-pf0-f193.google.com with SMTP id n24so255690pfb.3
+        for <netdev@vger.kernel.org>; Tue, 13 Sep 2016 22:55:07 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-09-13 at 22:13 -0700, Michael Ma wrote:
+From: Eric Dumazet <edumazet@google.com>
 
-> I don't intend to install multiple qdisc - the only reason that I'm
-> doing this now is to leverage MQ to workaround the lock contention,
-> and based on the profile this all worked. However to simplify the way
-> to setup HTB I wanted to use TXQ to partition HTB classes so that a
-> HTB class only belongs to one TXQ, which also requires mapping skb to
-> TXQ using some rules (here I'm using priority but I assume it's
-> straightforward to use other information such as classid). And the
-> problem I found here is that when using priority to infer the TXQ so
-> that queue_mapping is changed, bandwidth is affected significantly -
-> the only thing I can guess is that due to queue switch, there are more
-> cache misses assuming processor cores have a static mapping to all the
-> queues. Any suggestion on what to do next for the investigation?
-> 
-> I would also guess that this should be a common problem if anyone
-> wants to use MQ+IFB to workaround the qdisc lock contention on the
-> receiver side and classful qdisc is used on IFB, but haven't really
-> found a similar thread here...
+When skb replaces another one in ooo queue, I forgot to also
+update tp->ooo_last_skb as well, if the replaced skb was the last one
+in the queue.
 
-But why are you changing the queue ?
+To fix this, we simply can re-use the code that runs after an insertion,
+trying to merge skbs at the right of current skb.
 
-NIC already does the proper RSS thing, meaning all packets of one flow
-should land on one RX queue. No need to ' classify yourself and risk
-lock contention' 
+This not only fixes the bug, but also remove all small skbs that might
+be a subset of the new one.
 
-I use IFB + MQ + netem every day, and it scales to 10 Mpps with no
-problem.
+Example:
 
-Do you really need to rate limit flows ? Not clear what are your goals,
-why for example you use HTB to begin with.
+We receive segments 2001:3001,  4001:5001
+
+Then we receive 2001:8001 : We should replace 2001:3001 with the big
+skb, but also remove 4001:50001 from the queue to save space.
+
+packetdrill test demonstrating the bug
+
+0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
++0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
++0 bind(3, ..., ...) = 0
++0 listen(3, 1) = 0
+
++0 < S 0:0(0) win 32792 <mss 1000,sackOK,nop,nop,nop,wscale 7>
++0 > S. 0:0(0) ack 1 <mss 1460,nop,nop,sackOK,nop,wscale 7>
++0.100 < . 1:1(0) ack 1 win 1024
++0 accept(3, ..., ...) = 4
+
++0.01 < . 1001:2001(1000) ack 1 win 1024
++0    > . 1:1(0) ack 1 <nop,nop, sack 1001:2001>
+
++0.01 < . 1001:3001(2000) ack 1 win 1024
++0    > . 1:1(0) ack 1 <nop,nop, sack 1001:2001 1001:3001>
+
+
+Fixes: 9f5afeae5152 ("tcp: use an RB tree for ooo receive queue")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Yuchung Cheng <ycheng@google.com>
+Cc: Yaogong Wang <wygivan@google.com>
+---
+ net/ipv4/tcp_input.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 70b892db99018fb42ab38ab7e5ce0dab498f9571..dad3e7eeed94b6f76f4bef4812c5d0fe9944e5f0 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -4502,7 +4502,7 @@ coalesce_done:
+ 				NET_INC_STATS(sock_net(sk),
+ 					      LINUX_MIB_TCPOFOMERGE);
+ 				__kfree_skb(skb1);
+-				goto add_sack;
++				goto merge_right;
+ 			}
+ 		} else if (tcp_try_coalesce(sk, skb1, skb, &fragstolen)) {
+ 			goto coalesce_done;
+@@ -4514,6 +4514,7 @@ insert:
+ 	rb_link_node(&skb->rbnode, parent, p);
+ 	rb_insert_color(&skb->rbnode, &tp->out_of_order_queue);
+ 
++merge_right:
+ 	/* Remove other segments covered by skb. */
+ 	while ((q = rb_next(&skb->rbnode)) != NULL) {
+ 		skb1 = rb_entry(q, struct sk_buff, rbnode);
