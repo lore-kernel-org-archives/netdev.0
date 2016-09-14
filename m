@@ -1,50 +1,75 @@
-From: Vincent Bernat <vincent@bernat.im>
-Subject: Re: [net v1] fib_rules: interface group matching
-Date: Wed, 14 Sep 2016 18:01:10 +0200
-Message-ID: <8760pypj21.fsf@zoro.exoscale.ch>
-References: <20160914124025.13417-1-vincent@bernat.im>
-        <9540c014-78c5-9f9c-16d7-75a564f6c018@cumulusnetworks.com>
-        <87h99ipnhu.fsf@zoro.exoscale.ch>
-        <e8df55df-c22f-19a3-fabc-5fb592433706@cumulusnetworks.com>
-        <87a8fapl7l.fsf@zoro.exoscale.ch>
-        <c4f00f4e-aad3-f3d4-3c7c-8fe39c8f1720@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-        Wilson Kok <wkok@cumulusnetworks.com>, netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bart.luffy.cx ([78.47.78.131]:58118 "EHLO bart.luffy.cx"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1761966AbcINQBP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 14 Sep 2016 12:01:15 -0400
-In-Reply-To: <c4f00f4e-aad3-f3d4-3c7c-8fe39c8f1720@cumulusnetworks.com> (David
-        Ahern's message of "Wed, 14 Sep 2016 09:25:49 -0600")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ivan Mikhaylov <ivan@de.ibm.com>
+Subject: [PATCH 1/2] net/ibm/emac: add set mac addr callback
+Date: Wed, 14 Sep 2016 19:06:44 +0300
+Message-ID: <1473869205-85314-1-git-send-email-ivan@de.ibm.com>
+Cc: netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- =E2=9D=A6 14 septembre 2016 17:25 CEST, David Ahern <dsa@cumulusnetworks.c=
-om>=C2=A0:
+add realization for mac address set and remove dummy callback.
 
->> I could just give more time to VRF. I also had some concerns over
->> performance with the way Netfilter integration is done, but I understand
->> that I could just stay away from POSTROUTING rules which is the only
->> hook executed twice?
+Signed-off-by: Ivan Mikhaylov <ivan@de.ibm.com>
+---
+ drivers/net/ethernet/ibm/emac/core.c | 31 +++++++++++++++++++++++++++++--
+ 1 file changed, 29 insertions(+), 2 deletions(-)
 
-> With the changes that were committed this past weekend, the VRF code
-> is now setup where I can set a flag on a per VRF basis to disable the
-> extra rx and tx processing - ie., no network taps, no netfilter, no
-> qdisc, etc. Drops the overhead of VRF to ~3% maybe a bit less. I need
-> to think about the user api a bit more and formalize the patch. Given
-> my other commitments that probably won't happen until mid-October. But
-> in terms of a building block, the overhead of VRF is continuing to
-> drop.
-
-Fine by me. We can drop my patch.
-
-Thanks!
---=20
-Program defensively.
-            - The Elements of Programming Style (Kernighan & Plauger)
+diff --git a/drivers/net/ethernet/ibm/emac/core.c b/drivers/net/ethernet/ibm/emac/core.c
+index 4c9771d..2dfc603 100644
+--- a/drivers/net/ethernet/ibm/emac/core.c
++++ b/drivers/net/ethernet/ibm/emac/core.c
+@@ -980,6 +980,33 @@ static void emac_set_multicast_list(struct net_device *ndev)
+ 	__emac_set_multicast_list(dev);
+ }
+ 
++static int emac_set_mac_address(struct net_device *ndev, void *sa)
++{
++	struct emac_instance *dev = netdev_priv(ndev);
++	struct sockaddr *addr = sa;
++	struct emac_regs __iomem *p = dev->emacp;
++
++	if (!is_valid_ether_addr(addr->sa_data))
++	       return -EADDRNOTAVAIL;
++
++	mutex_lock(&dev->link_lock);
++
++	memcpy(ndev->dev_addr, addr->sa_data, ndev->addr_len);
++
++	emac_rx_disable(dev);
++	emac_tx_disable(dev);
++	out_be32(&p->iahr, (ndev->dev_addr[0] << 8) | ndev->dev_addr[1]);
++	out_be32(&p->ialr, (ndev->dev_addr[2] << 24) |
++		(ndev->dev_addr[3] << 16) | (ndev->dev_addr[4] << 8) |
++		ndev->dev_addr[5]);
++	emac_tx_enable(dev);
++	emac_rx_enable(dev);
++
++	mutex_unlock(&dev->link_lock);
++
++	return 0;
++}
++
+ static int emac_resize_rx_ring(struct emac_instance *dev, int new_mtu)
+ {
+ 	int rx_sync_size = emac_rx_sync_size(new_mtu);
+@@ -2686,7 +2713,7 @@ static const struct net_device_ops emac_netdev_ops = {
+ 	.ndo_do_ioctl		= emac_ioctl,
+ 	.ndo_tx_timeout		= emac_tx_timeout,
+ 	.ndo_validate_addr	= eth_validate_addr,
+-	.ndo_set_mac_address	= eth_mac_addr,
++	.ndo_set_mac_address	= emac_set_mac_address,
+ 	.ndo_start_xmit		= emac_start_xmit,
+ 	.ndo_change_mtu		= eth_change_mtu,
+ };
+@@ -2699,7 +2726,7 @@ static const struct net_device_ops emac_gige_netdev_ops = {
+ 	.ndo_do_ioctl		= emac_ioctl,
+ 	.ndo_tx_timeout		= emac_tx_timeout,
+ 	.ndo_validate_addr	= eth_validate_addr,
+-	.ndo_set_mac_address	= eth_mac_addr,
++	.ndo_set_mac_address	= emac_set_mac_address,
+ 	.ndo_start_xmit		= emac_start_xmit_sg,
+ 	.ndo_change_mtu		= emac_change_mtu,
+ };
+-- 
+2.7.4 (Apple Git-66)
