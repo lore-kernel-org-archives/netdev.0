@@ -1,40 +1,58 @@
-From: Adit Ranadive <aditr@vmware.com>
-Subject: Re: [PATCH v4 00/16] Add Paravirtual RDMA Driver
-Date: Wed, 14 Sep 2016 19:44:45 +0000
-Message-ID: <DM2PR0501MB844473AE0FCAD0FD748D43DC5F10@DM2PR0501MB844.namprd05.prod.outlook.com>
-References: <1473655766-31628-1-git-send-email-aditr@vmware.com>
- <20160912180251.GH5843@obsidianresearch.com>
- <BLUPR0501MB836ED564F2AE7AB9221AC25C5FF0@BLUPR0501MB836.namprd05.prod.outlook.com>
- <20160914173636.GA10309@obsidianresearch.com>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: Re: [PATCH 4/9] net: ethernet: ti: cpts: move dt props parsing to
+ cpts driver
+Date: Wed, 14 Sep 2016 22:45:54 +0300
+Message-ID: <179724dc-dcc2-6052-84c6-eef9807d867c@ti.com>
+References: <20160914130231.3035-1-grygorii.strashko@ti.com>
+ <20160914130231.3035-5-grygorii.strashko@ti.com>
+ <20160914135535.GB28592@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "dledford@redhat.com" <dledford@redhat.com>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        pv-drivers <pv-drivers@vmware.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-        "Jorgen S. Hansen" <jhansen@vmware.com>,
-        Aditya Sarwade <asarwade@vmware.com>,
-        George Zhang <georgezhang@vmware.com>,
-        Bryan Tan <bryantan@vmware.com>
-To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20160914173636.GA10309@obsidianresearch.com>
-Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
+        <linux-omap@vger.kernel.org>, WingMan Kwok <w-kwok2@ti.com>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160914135535.GB28592@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 14, 2016 at 10:37:00 -0700, Jason Gunthorpe wrote:
-> We desire to use this as the vehical for the userspace included with the =
-4.9
-> kernel.
->=20
-> I anticipate the tree will be running by Oct 1.
+On 09/14/2016 04:55 PM, Richard Cochran wrote:
+> On Wed, Sep 14, 2016 at 04:02:26PM +0300, Grygorii Strashko wrote:
+>> Move DT properties parsing into CPTS driver to simplify consumer's
+>> code and CPTS driver porting on other SoC in the future
+>> (like Keystone 2).
+> 
+> And just who is the consumer?
 
-Thanks. So does this mean that the libraries distributed via OFED (openfabr=
-ics.org)
-will be now from the rdma-plumbing git tree?
-Or is the switch to happen only when distros start shipping with the 4.9 ke=
-rnel by
-default?
+Now CPSW, and Keystone 2 netcp in the future.
+
+>  
+>> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+>> ---
+>>  drivers/net/ethernet/ti/cpsw.c | 16 +---------------
+>>  drivers/net/ethernet/ti/cpsw.h |  2 --
+>>  drivers/net/ethernet/ti/cpts.c | 29 ++++++++++++++++++++++++++---
+>>  drivers/net/ethernet/ti/cpts.h |  5 +++--
+>>  4 files changed, 30 insertions(+), 22 deletions(-)
+> 
+> You have more (+) than (-).  I wouldn't call that a simplification.
+
+
+With this change It will not be required to add the same DT parsing code
+in Keystone 2 netcp driver, so overall number of lines will be reduced.
+
+As I mentioned in cover letter - this is preparation step and this series
+ indented help and simplify CPTS integration with few TI net drivers
+(now cpsw, soon KS2 netcp), because similar CPTS IP is integrated
+in two different TI's SoC families (and might be in more the future).  
+
+I've not posted KS2 patches here, because of two reasons:
+- they are still under internal review
+- I hate big patch series
+
+-- 
+regards,
+-grygorii
