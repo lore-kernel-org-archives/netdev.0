@@ -1,42 +1,38 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [06/26] ath: constify local structures
-Date: Wed, 14 Sep 2016 17:02:06 +0000 (UTC)
-Message-ID: <20160914170206.10A9B613FB@smtp.codeaurora.org>
-References: <1473599168-30561-7-git-send-email-Julia.Lawall@lip6.fr>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCHv2 net 0/6] sctp: fix the transmit err process
+Date: Wed, 14 Sep 2016 14:16:05 -0300
+Message-ID: <20160914171605.GG17689@localhost.localdomain>
+References: <cover.1473789537.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>, joe@perches.com,
-        kernel-janitors@vger.kernel.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Julia Lawall <Julia.Lawall@lip6.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1473599168-30561-7-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        davem@davemloft.net, Vlad Yasevich <vyasevich@gmail.com>,
+        daniel@iogearbox.net
+To: Xin Long <lucien.xin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:42216 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933231AbcINRQP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 14 Sep 2016 13:16:15 -0400
+Content-Disposition: inline
+In-Reply-To: <cover.1473789537.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Julia Lawall <Julia.Lawall@lip6.fr> wrote:
-> For structure types defined in the same file or local header files, find
-> top-level static structure declarations that have the following
-> properties:
-> 1. Never reassigned.
-> 2. Address never taken
-> 3. Not passed to a top-level macro call
-> 4. No pointer or array-typed field passed to a function or stored in a
-> variable.
-> Declare structures having all of these properties as const.
+On Wed, Sep 14, 2016 at 02:04:17AM +0800, Xin Long wrote:
+> This patchset is to improve the transmit err process and also fix some
+> issues.
 > 
-> Done using Coccinelle.
-> Based on a suggestion by Joe Perches <joe@perches.com>.
+> After this patchset, once the chunks are enqueued successfully, even
+> if the chunks fail to send out, no matter because of nodst or nomem,
+> no err retruns back to users any more. Instead, they are taken care
+> of by retransmit.
 > 
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+> v1->v2:
+>   - add more details to the changelog in patch 1/6
+>   - add Fixes: tag in patch 2/6, 3/6
+>   - also revert 69b5777f2e57 in patch 3/6
 
-Thanks, 3 patches applied to wireless-drivers-next.git:
+Looks good to me, thanks
 
-8136fd58ad60 ath: constify local structures
-1dc80798a8ca iwlegacy: constify local structures
-d86e64768859 rtlwifi: rtl818x: constify local structures
-
--- 
-Sent by pwcli
-https://patchwork.kernel.org/patch/9325363/
+Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
