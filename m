@@ -1,35 +1,92 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [net v1] fib_rules: interface group matching
-Date: Wed, 14 Sep 2016 08:15:21 -0600
-Message-ID: <9540c014-78c5-9f9c-16d7-75a564f6c018@cumulusnetworks.com>
-References: <20160914124025.13417-1-vincent@bernat.im>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 7/9] net: ethernet: ti: cpts: calc mult and shift from
+ refclk freq
+Date: Wed, 14 Sep 2016 16:22:11 +0200
+Message-ID: <20160914142210.GE28592@localhost.localdomain>
+References: <20160914130231.3035-1-grygorii.strashko@ti.com>
+ <20160914130231.3035-8-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-To: Vincent Bernat <vincent@bernat.im>,
-        "David S. Miller" <davem@davemloft.net>,
-        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-        Wilson Kok <wkok@cumulusnetworks.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org,
+        linux-omap@vger.kernel.org, WingMan Kwok <w-kwok2@ti.com>
+To: Grygorii Strashko <grygorii.strashko@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f48.google.com ([209.85.214.48]:36194 "EHLO
-        mail-it0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755219AbcINOPZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 10:15:25 -0400
-Received: by mail-it0-f48.google.com with SMTP id o3so46342561ita.1
-        for <netdev@vger.kernel.org>; Wed, 14 Sep 2016 07:15:24 -0700 (PDT)
-In-Reply-To: <20160914124025.13417-1-vincent@bernat.im>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34193 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932773AbcINOWR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2016 10:22:17 -0400
+Content-Disposition: inline
+In-Reply-To: <20160914130231.3035-8-grygorii.strashko@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/14/16 6:40 AM, Vincent Bernat wrote:
-> When a user wants to assign a routing table to a group of incoming
-> interfaces, the current solutions are:
-> 
->  - one IP rule for each interface (scalability problems)
->  - use of fwmark and devgroup matcher (don't work with internal route
->    lookups, used for example by RPF)
->  - use of VRF devices (more complex)
+On Wed, Sep 14, 2016 at 04:02:29PM +0300, Grygorii Strashko wrote:
+> @@ -35,6 +33,8 @@ Optional properties:
+>  			  For example in dra72x-evm, pcf gpio has to be
+>  			  driven low so that cpsw slave 0 and phy data
+>  			  lines are connected via mux.
+> +- cpts_clock_mult	: Numerator to convert input clock ticks into nanoseconds
+> +- cpts_clock_shift	: Denominator to convert input clock ticks into nanoseconds
 
-Why do you believe that? A VRF is a formalized grouping of interfaces that includes an API for locally generated traffic to specify which VRF/group to use. And, with the l3mdev rule you only need 1 rule for all VRFs regardless of the number which is the best solution to the scalability problem of adding rules per device/group/VRF.
+You should explain to the reader how these will be calculated when the
+properties are missing.
 
-What use case are trying to solve?
+> diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
+> index ff8bb85..8046a21 100644
+> --- a/drivers/net/ethernet/ti/cpts.c
+> +++ b/drivers/net/ethernet/ti/cpts.c
+> @@ -418,18 +418,60 @@ void cpts_unregister(struct cpts *cpts)
+>  	clk_disable(cpts->refclk);
+>  }
+>  
+> +static void cpts_calc_mult_shift(struct cpts *cpts)
+> +{
+> +	u64 maxsec;
+> +	u32 freq;
+> +	u32 mult;
+> +	u32 shift;
+> +	u64 ns;
+> +	u64 frac;
+
+Why so many new lines?  This isn't good style.  Please combine
+variables of the same type into one line and sort the lists
+alphabetically.
+
+> +	if (cpts->cc_mult || cpts->cc.shift)
+> +		return;
+> +
+> +	freq = clk_get_rate(cpts->refclk);
+> +
+> +	/* Calc the maximum number of seconds which we can run before
+> +	 * wrapping around.
+> +	 */
+> +	maxsec = cpts->cc.mask;
+> +	do_div(maxsec, freq);
+> +	if (!maxsec)
+> +		maxsec = 1;
+> +	else if (maxsec > 600 && cpts->cc.mask > UINT_MAX)
+> +		maxsec = 600;
+> +
+> +	clocks_calc_mult_shift(&mult, &shift, freq, NSEC_PER_SEC, maxsec);
+> +
+> +	cpts->cc_mult = mult;
+> +	cpts->cc.mult = mult;
+> +	cpts->cc.shift = shift;
+> +	/* Check calculations and inform if not precise */
+
+Contrary to this comment, you are not making any kind of judgment
+about whether the calculations are precise or not.
+
+> +	frac = 0;
+> +	ns = cyclecounter_cyc2ns(&cpts->cc, freq, cpts->cc.mask, &frac);
+> +
+> +	dev_info(cpts->dev,
+> +		 "CPTS: ref_clk_freq:%u calc_mult:%u calc_shift:%u error:%lld nsec/sec\n",
+> +		 freq, cpts->cc_mult, cpts->cc.shift, (ns - NSEC_PER_SEC));
+> +}
+> +
+
+Thanks,
+Richard
