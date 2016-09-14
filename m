@@ -1,58 +1,126 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH 4/9] net: ethernet: ti: cpts: move dt props parsing to
- cpts driver
-Date: Wed, 14 Sep 2016 22:45:54 +0300
-Message-ID: <179724dc-dcc2-6052-84c6-eef9807d867c@ti.com>
-References: <20160914130231.3035-1-grygorii.strashko@ti.com>
- <20160914130231.3035-5-grygorii.strashko@ti.com>
- <20160914135535.GB28592@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        Mugunthan V N <mugunthanvnm@ti.com>,
-        Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
-        <linux-omap@vger.kernel.org>, WingMan Kwok <w-kwok2@ti.com>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160914135535.GB28592@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Johannes Weiner <hannes@cmpxchg.org>
+Subject: [PATCH 1/3] mm: memcontrol: make per-cpu charge cache IRQ-safe for socket accounting
+Date: Wed, 14 Sep 2016 15:48:44 -0400
+Message-ID: <20160914194846.11153-1-hannes@cmpxchg.org>
+Cc: Michal Hocko <mhocko@suse.cz>,
+	Vladimir Davydov <vdavydov@virtuozzo.com>,
+	linux-mm@kvack.org,
+	cgroups@vger.kernel.org,
+	netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	kernel-team@fb.com
+To: Andrew Morton <akpm@linux-foundation.org>,
+	Tejun Heo <tj@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <owner-linux-mm@kvack.org>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On 09/14/2016 04:55 PM, Richard Cochran wrote:
-> On Wed, Sep 14, 2016 at 04:02:26PM +0300, Grygorii Strashko wrote:
->> Move DT properties parsing into CPTS driver to simplify consumer's
->> code and CPTS driver porting on other SoC in the future
->> (like Keystone 2).
-> 
-> And just who is the consumer?
+From: Johannes Weiner <jweiner@fb.com>
 
-Now CPSW, and Keystone 2 netcp in the future.
+During cgroup2 rollout into production, we started encountering css
+refcount underflows and css access crashes in the memory controller.
+Splitting the heavily shared css reference counter into logical users
+narrowed the imbalance down to the cgroup2 socket memory accounting.
 
->  
->> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
->> ---
->>  drivers/net/ethernet/ti/cpsw.c | 16 +---------------
->>  drivers/net/ethernet/ti/cpsw.h |  2 --
->>  drivers/net/ethernet/ti/cpts.c | 29 ++++++++++++++++++++++++++---
->>  drivers/net/ethernet/ti/cpts.h |  5 +++--
->>  4 files changed, 30 insertions(+), 22 deletions(-)
-> 
-> You have more (+) than (-).  I wouldn't call that a simplification.
+The problem turns out to be the per-cpu charge cache. Cgroup1 had a
+separate socket counter, but the new cgroup2 socket accounting goes
+through the common charge path that uses a shared per-cpu cache for
+all memory that is being tracked. Those caches are safe against
+scheduling preemption, but not against interrupts - such as the newly
+added packet receive path. When cache draining is interrupted by
+network RX taking pages out of the cache, the resuming drain operation
+will put references of in-use pages, thus causing the imbalance.
 
+Disable IRQs during all per-cpu charge cache operations.
 
-With this change It will not be required to add the same DT parsing code
-in Keystone 2 netcp driver, so overall number of lines will be reduced.
+Fixes: f7e1cb6ec51b ("mm: memcontrol: account socket memory in unified hierarchy memory controller")
+Cc: <stable@vger.kernel.org> # 4.5+
+Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
+---
+ mm/memcontrol.c | 31 ++++++++++++++++++++++---------
+ 1 file changed, 22 insertions(+), 9 deletions(-)
 
-As I mentioned in cover letter - this is preparation step and this series
- indented help and simplify CPTS integration with few TI net drivers
-(now cpsw, soon KS2 netcp), because similar CPTS IP is integrated
-in two different TI's SoC families (and might be in more the future).  
-
-I've not posted KS2 patches here, because of two reasons:
-- they are still under internal review
-- I hate big patch series
-
+diff --git a/mm/memcontrol.c b/mm/memcontrol.c
+index 7a8d6624758a..60bb830abc34 100644
+--- a/mm/memcontrol.c
++++ b/mm/memcontrol.c
+@@ -1710,17 +1710,22 @@ static DEFINE_MUTEX(percpu_charge_mutex);
+ static bool consume_stock(struct mem_cgroup *memcg, unsigned int nr_pages)
+ {
+ 	struct memcg_stock_pcp *stock;
++	unsigned long flags;
+ 	bool ret = false;
+ 
+ 	if (nr_pages > CHARGE_BATCH)
+ 		return ret;
+ 
+-	stock = &get_cpu_var(memcg_stock);
++	local_irq_save(flags);
++
++	stock = this_cpu_ptr(&memcg_stock);
+ 	if (memcg == stock->cached && stock->nr_pages >= nr_pages) {
+ 		stock->nr_pages -= nr_pages;
+ 		ret = true;
+ 	}
+-	put_cpu_var(memcg_stock);
++
++	local_irq_restore(flags);
++
+ 	return ret;
+ }
+ 
+@@ -1741,15 +1746,18 @@ static void drain_stock(struct memcg_stock_pcp *stock)
+ 	stock->cached = NULL;
+ }
+ 
+-/*
+- * This must be called under preempt disabled or must be called by
+- * a thread which is pinned to local cpu.
+- */
+ static void drain_local_stock(struct work_struct *dummy)
+ {
+-	struct memcg_stock_pcp *stock = this_cpu_ptr(&memcg_stock);
++	struct memcg_stock_pcp *stock;
++	unsigned long flags;
++
++	local_irq_save(flags);
++
++	stock = this_cpu_ptr(&memcg_stock);
+ 	drain_stock(stock);
+ 	clear_bit(FLUSHING_CACHED_CHARGE, &stock->flags);
++
++	local_irq_restore(flags);
+ }
+ 
+ /*
+@@ -1758,14 +1766,19 @@ static void drain_local_stock(struct work_struct *dummy)
+  */
+ static void refill_stock(struct mem_cgroup *memcg, unsigned int nr_pages)
+ {
+-	struct memcg_stock_pcp *stock = &get_cpu_var(memcg_stock);
++	struct memcg_stock_pcp *stock;
++	unsigned long flags;
++
++	local_irq_save(flags);
+ 
++	stock = this_cpu_ptr(&memcg_stock);
+ 	if (stock->cached != memcg) { /* reset if necessary */
+ 		drain_stock(stock);
+ 		stock->cached = memcg;
+ 	}
+ 	stock->nr_pages += nr_pages;
+-	put_cpu_var(memcg_stock);
++
++	local_irq_restore(flags);
+ }
+ 
+ /*
 -- 
-regards,
--grygorii
+2.9.3
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
