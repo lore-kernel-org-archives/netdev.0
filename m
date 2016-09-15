@@ -1,74 +1,108 @@
-From: Leon Romanovsky <leon@kernel.org>
-Subject: Re: [RFC 09/11] Add LL2 RoCE interface
-Date: Thu, 15 Sep 2016 13:20:13 +0300
-Message-ID: <20160915102013.GZ26069@leon.nu>
-References: <1473696465-27986-1-git-send-email-Ram.Amrani@qlogic.com>
- <1473696465-27986-10-git-send-email-Ram.Amrani@qlogic.com>
+From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Subject: Re: [PATCH v2 net-next 1/2] net: phy: Add Edge-rate driver for
+ Microsemi PHYs.
+Date: Thu, 15 Sep 2016 15:56:37 +0530
+Message-ID: <20160915102633.GA24647@microsemi.com>
+References: <20160824125934.GC13406@lunn.ch>
+ <1473326242-4198-1-git-send-email-Raju.Lakkaraju@microsemi.com>
+ <1473326242-4198-2-git-send-email-Raju.Lakkaraju@microsemi.com>
+ <20160908131415.GG26445@lunn.ch>
+ <20160909054009.GA26767@microsemi.com>
+ <20160909131832.GB30871@lunn.ch>
+Reply-To: <Raju.Lakkaraju@microsemi.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="qrotSzihSRAsrOtf"
-Cc: dledford@redhat.com, davem@davemloft.net, Yuval.Mintz@qlogic.com,
-        Ariel.Elior@qlogic.com, Michal.Kalderon@qlogic.com,
-        rajesh.borundia@qlogic.com, linux-rdma@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Ram Amrani <Ram.Amrani@qlogic.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <f.fainelli@gmail.com>,
+        <Allan.Nielsen@microsemi.com>, <robh+dt@kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:46106 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1765375AbcIOKUU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 15 Sep 2016 06:20:20 -0400
+Received: from mail-sn1nam01on0086.outbound.protection.outlook.com ([104.47.32.86]:2112
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1755151AbcIOK0y (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 15 Sep 2016 06:26:54 -0400
 Content-Disposition: inline
-In-Reply-To: <1473696465-27986-10-git-send-email-Ram.Amrani@qlogic.com>
+In-Reply-To: <20160909131832.GB30871@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Andrew,
 
---qrotSzihSRAsrOtf
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Thank you for review the code.
 
-On Mon, Sep 12, 2016 at 07:07:43PM +0300, Ram Amrani wrote:
-> Add light L2 interface for RoCE.
->
-> Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
-> Signed-off-by: Ram Amrani <Ram.Amrani@qlogic.com>
-> ---
+On Fri, Sep 09, 2016 at 03:18:32PM +0200, Andrew Lunn wrote:
+> EXTERNAL EMAIL
+> 
+> 
+> > > > +static int vsc85xx_edge_rate_cntl_set(struct phy_device *phydev,
+> > > > +                                   u8     edge_rate)
+> > >
+> > > No spaces place.
+> > >
+> > I ran the checkpatch. I did not find any error. I created another workspace and
+> > applied the same patch. It shows the correct alignement. I have used tabs (8 space width).
+> > then some spaces to align braces.
+> 
+> Sorry, i worded that poorly. I was meaning between the u8 and edge. A
+> single space is enough.
+> 
+I accepted your suggestion.
 
-<....>
+> > > > +#ifdef CONFIG_OF_MDIO
+> > > > +static int vsc8531_of_init(struct phy_device *phydev)
+> > > > +{
+> > > > +     int rc;
+> > > > +     struct vsc8531_private *vsc8531 = phydev->priv;
+> > > > +     struct device *dev = &phydev->mdio.dev;
+> > > > +     struct device_node *of_node = dev->of_node;
+> > > > +
+> > > > +     if (!of_node)
+> > > > +             return -ENODEV;
+> > > > +
+> > > > +     rc = of_property_read_u8(of_node, "vsc8531,edge-rate",
+> > > > +                              &vsc8531->edge_rate);
+> > >
+> > > Until you have written the Documentation, it is hard for me to tell,
+> > > but device tree bindings should use real units, like seconds, Ohms,
+> > > Farads, etc. Is the edge rate in nS? Or is it some magic value which
+> > > just gets written into the register?
+> > >
+> >
+> > This is some magic value which just gets written into the register.
+> 
+> Magic values are generally not accepted in device tree bindings. Both
+> Micrel and Renesas define their clock skew in ps, for example. Since
+> this is rise time, it should also be possible to define it in a unit
+> of time.
+> 
 
-> +		DP_ERR(cdev,
-> +		       "QED RoCE set MAC filter failed - roce_info/ll2 NULL\n");
-> +		return -EINVAL;
-> +	}
-> +
-> +	p_ptt = qed_ptt_acquire(QED_LEADING_HWFN(cdev));
-> +	if (!p_ptt) {
-> +		DP_ERR(cdev,
-> +		       "qed roce ll2 mac filter set: failed to acquire PTT\n");
-> +		return -EINVAL;
-> +	}
+I accepted your comment. I had discussion with my hardware team and explained
+the code review comments.
+They asked me to define as picoseconds as units.
 
-Please use single style for your debug prints QED RoCE vs. qed roce.
+> > > >  static int vsc85xx_config_init(struct phy_device *phydev)
+> > > >  {
+> > > >       int rc;
+> > > > +     struct vsc8531_private *vsc8531;
+> > > > +
+> > > > +     if (!phydev->priv) {
+> > >
+> > > How can this happen?
+> > >
+> >
+> > VSC 8531 driver don't have any private structure assigned initially.
+> > Allways priv points to NULL.
+> 
+> So if it cannot happen, don't check for it.
+> 
+> Also, by convention, you allocate memory in the .probe() function of a
+> driver. Please do it there.
+> 
+I accepted your review comment. 
+I will re-send the patch with updates.
 
---qrotSzihSRAsrOtf
-Content-Type: application/pgp-signature; name="signature.asc"
+>         Andrew
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJX2nXdAAoJEORje4g2clinOU8QAJLhUZ8nYTEQEFOOD7OMpo5m
-nIfxpEexVe3rSegE5Z6qHEya6WNKsA53tSlamweaIDgKkZmDHqcSo2hgL+NPbLIu
-Z0xbuQ4oIGuEfBtQxCLHrts+oD8RYxJTsmS7WzV8GqoaVYwCgoXlZxiJPnm8ahBf
-qfHtfJeVk7ylTFx6eMAG+w9flB8rSmPUCGntu/qDNO1FdXREmcToxR+WNA5RBAfJ
-9SfW1XkjTiiXKuKAlnMz7/FQVayhyPrFkhJhiSM4RiOmdK3I2Gd8KnidfQf1Dob2
-GXPzuq1PhP4YvR9MZFJ3ufcbSsKSnTc+47fyq58wswWbIieuzvoL/o6pIAzFyEKx
-8aghIRMMVhgnvhcSYMsX3Cy4oxlnqNLUhBgt4PgFKWDohEGEKEB6bHb5FStFJ9g0
-olLZB8SI7RlwJEFinkJzGvbFIT4MDkSBuVKbV4POZC9jQKZOmShTrAHWIrjoluFl
-IWlDAgaWr3WMeXRfnCaNaigHyIwoAiYqeUpM0RyziwDxXrm5B9sToXrEv+E4bgd7
-KetvfWJ5favREqNjRIOYUETon8ZbMwfLbYe81uMNAEZDjARBHeFw5fY8wr79Y8Hq
-NBYN1cJhEooNG1asTm37Y7pKjGZHONs/Pm3A0CcRbxp1mQR4lRUYrCCfv/+ppsvK
-boHU/fMY5sZrbw3bqiBF
-=Hzyi
------END PGP SIGNATURE-----
-
---qrotSzihSRAsrOtf--
+---
+Thanks,
+Raju.
