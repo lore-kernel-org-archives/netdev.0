@@ -1,109 +1,109 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v2 net-next 0/7] net: ILA resolver and generic resolver backend
-Date: Thu, 15 Sep 2016 14:19:14 -0700
-Message-ID: <1473974361-2275254-1-git-send-email-tom@herbertland.com>
+Subject: [PATCH v2 net-next 3/7] rhashtable: Call library function alloc_bucket_locks
+Date: Thu, 15 Sep 2016 14:19:17 -0700
+Message-ID: <1473974361-2275254-4-git-send-email-tom@herbertland.com>
+References: <1473974361-2275254-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>, <roopa@cumulusnetworks.com>, <tgraf@suug.ch>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:55396 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1754063AbcIOVTe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 17:19:34 -0400
-Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
-        by mx0b-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8FLHL4q030270
-        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 14:19:33 -0700
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:34080 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1755491AbcIOVTi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 17:19:38 -0400
+Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8FLJXdD008085
+        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 14:19:36 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0b-00082601.pphosted.com with ESMTP id 25g1xm8kg4-1
+        by mx0a-00082601.pphosted.com with ESMTP id 25g2yag75p-1
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 14:19:33 -0700
+        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 14:19:36 -0700
 Received: from facebook.com (2401:db00:21:6030:face:0:92:0)     by
- mx-out.facebook.com (10.212.236.87) with ESMTP id
- 1638d8047b8a11e6907a0002c9521c9e-ca3faa50 for <netdev@vger.kernel.org>;        Thu,
- 15 Sep 2016 14:19:29 -0700
+ mx-out.facebook.com (10.223.100.97) with ESMTP id
+ 19435ca47b8a11e69ce024be0593f280-f75f9a50 for <netdev@vger.kernel.org>;        Thu,
+ 15 Sep 2016 14:19:34 -0700
+In-Reply-To: <1473974361-2275254-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch set implements an ILA host side resolver. This uses LWT to
-implement the hook to a userspace resolver and tracks pending unresolved
-address using the backend net resolver.
+To allocate the array of bucket locks for the hash table we now
+call library function alloc_bucket_spinlocks. This function is
+based on the old alloc_bucket_locks in rhashtable and should
+produce the same effect.
 
-This patch set contains:
+Acked-by: Thomas Graf <tgraf@suug.ch>
+Signed-off-by: Tom Herbert <tom@herbertland.com>
+---
+ lib/rhashtable.c | 46 ++++------------------------------------------
+ 1 file changed, 4 insertions(+), 42 deletions(-)
 
-- An new library function to allocate an array of spinlocks for use
-  with locking hash buckets.
-- Make hash function in rhashtable directly callable.
-- A generic resolver backend infrastructure. This primary does two
-  things: track unsesolved addresses and implement a timeout for
-  resolution not happening. These mechanisms provides rate limiting
-  control over resolution requests (for instance in ILA it use used
-  to rate limit requests to userspace to resolve addresses).
-- The ILA resolver. This is implements to path from the kernel ILA
-  implementation to a userspace daemon that an identifier address
-  needs to be resolved.
-- Routing messages are used over netlink to indicate resoltion
-  requests.
-
-Changes from intial RFC:
-
- - Added net argument to LWT build_state
- - Made resolve timeout an attribute of the LWT encap route
- - Changed ILA notifications to be regular routing messages of event
-   RTM_ADDR_RESOLVE, family RTNL_FAMILY_ILA, and group
-   RTNLGRP_ILA_NOTIFY
-
-Tested:
- - Ran a UDP flood to random addresses in a resolver prefix. Observed
-   timeout and limits were working (watching "ip monitor").
- - Also ran against an ILA client daemon that runs the resolver
-   protocol. Observed that when resolution completes (ILA encap route is
-   installed) routing messages are no longer sent.
-
-v2:
- - Fixed function prototype issue found by kbuild
- - Fix inccorrect interpretation of return code from
-   net_rslv_lookup_and_create
-
-Tom Herbert (7):
-  lwt: Add net to build_state argument
-  spinlock: Add library function to allocate spinlock buckets array
-  rhashtable: Call library function alloc_bucket_locks
-  ila: Call library function alloc_bucket_locks
-  rhashtable: abstract out function to get hash
-  net: Generic resolver backend
-  ila: Resolver mechanism
-
- include/linux/rhashtable.h     |  28 +++--
- include/linux/spinlock.h       |   6 +
- include/net/lwtunnel.h         |  14 +--
- include/net/resolver.h         |  58 +++++++++
- include/uapi/linux/ila.h       |   9 ++
- include/uapi/linux/lwtunnel.h  |   1 +
- include/uapi/linux/rtnetlink.h |   8 +-
- lib/Makefile                   |   2 +-
- lib/bucket_locks.c             |  63 ++++++++++
- lib/rhashtable.c               |  46 +------
- net/Kconfig                    |   4 +
- net/core/Makefile              |   1 +
- net/core/lwtunnel.c            |  11 +-
- net/core/resolver.c            | 272 +++++++++++++++++++++++++++++++++++++++++
- net/ipv4/fib_semantics.c       |   7 +-
- net/ipv4/ip_tunnel_core.c      |  12 +-
- net/ipv6/Kconfig               |   1 +
- net/ipv6/ila/Makefile          |   2 +-
- net/ipv6/ila/ila.h             |  16 +++
- net/ipv6/ila/ila_common.c      |   7 ++
- net/ipv6/ila/ila_lwt.c         |  15 ++-
- net/ipv6/ila/ila_resolver.c    | 249 +++++++++++++++++++++++++++++++++++++
- net/ipv6/ila/ila_xlat.c        |  51 ++------
- net/ipv6/route.c               |   2 +-
- net/mpls/mpls_iptunnel.c       |   6 +-
- 25 files changed, 770 insertions(+), 121 deletions(-)
- create mode 100644 include/net/resolver.h
- create mode 100644 lib/bucket_locks.c
- create mode 100644 net/core/resolver.c
- create mode 100644 net/ipv6/ila/ila_resolver.c
-
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index 06c2872..5b53304 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -59,50 +59,10 @@ EXPORT_SYMBOL_GPL(lockdep_rht_bucket_is_held);
+ #define ASSERT_RHT_MUTEX(HT)
+ #endif
+ 
+-
+-static int alloc_bucket_locks(struct rhashtable *ht, struct bucket_table *tbl,
+-			      gfp_t gfp)
+-{
+-	unsigned int i, size;
+-#if defined(CONFIG_PROVE_LOCKING)
+-	unsigned int nr_pcpus = 2;
+-#else
+-	unsigned int nr_pcpus = num_possible_cpus();
+-#endif
+-
+-	nr_pcpus = min_t(unsigned int, nr_pcpus, 64UL);
+-	size = roundup_pow_of_two(nr_pcpus * ht->p.locks_mul);
+-
+-	/* Never allocate more than 0.5 locks per bucket */
+-	size = min_t(unsigned int, size, tbl->size >> 1);
+-
+-	if (sizeof(spinlock_t) != 0) {
+-		tbl->locks = NULL;
+-#ifdef CONFIG_NUMA
+-		if (size * sizeof(spinlock_t) > PAGE_SIZE &&
+-		    gfp == GFP_KERNEL)
+-			tbl->locks = vmalloc(size * sizeof(spinlock_t));
+-#endif
+-		if (gfp != GFP_KERNEL)
+-			gfp |= __GFP_NOWARN | __GFP_NORETRY;
+-
+-		if (!tbl->locks)
+-			tbl->locks = kmalloc_array(size, sizeof(spinlock_t),
+-						   gfp);
+-		if (!tbl->locks)
+-			return -ENOMEM;
+-		for (i = 0; i < size; i++)
+-			spin_lock_init(&tbl->locks[i]);
+-	}
+-	tbl->locks_mask = size - 1;
+-
+-	return 0;
+-}
+-
+ static void bucket_table_free(const struct bucket_table *tbl)
+ {
+ 	if (tbl)
+-		kvfree(tbl->locks);
++		free_bucket_spinlocks(tbl->locks);
+ 
+ 	kvfree(tbl);
+ }
+@@ -131,7 +91,9 @@ static struct bucket_table *bucket_table_alloc(struct rhashtable *ht,
+ 
+ 	tbl->size = nbuckets;
+ 
+-	if (alloc_bucket_locks(ht, tbl, gfp) < 0) {
++	/* Never allocate more than 0.5 locks per bucket */
++	if (alloc_bucket_spinlocks(&tbl->locks, &tbl->locks_mask,
++				   tbl->size >> 1, ht->p.locks_mul, gfp)) {
+ 		bucket_table_free(tbl);
+ 		return NULL;
+ 	}
 -- 
 2.8.0.rc2
