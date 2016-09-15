@@ -1,45 +1,67 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH] iproute2: build nsid-name cache only for commands that
- need it
-Date: Thu, 15 Sep 2016 15:26:18 +0200
-Message-ID: <2ab25704-d8aa-1532-a07a-c1765b937d66@6wind.com>
-References: <20160915082326.GA1635@toys.tundra.dog-lvm.novalocal>
-Reply-To: nicolas.dichtel@6wind.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-To: Anton Aksola <aakso@iki.fi>, netdev@vger.kernel.org
+From: Stefan Assmann <sassmann@kpanic.de>
+Subject: [PATCH net-next 2/2] i40e: fix setting debug parameter early
+Date: Thu, 15 Sep 2016 15:38:09 +0200
+Message-ID: <1473946689-28427-3-git-send-email-sassmann@kpanic.de>
+References: <1473946689-28427-1-git-send-email-sassmann@kpanic.de>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        jeffrey.t.kirsher@intel.com, sassmann@kpanic.de
+To: intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f169.google.com ([209.85.220.169]:33743 "EHLO
-        mail-qk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752183AbcION0V (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 09:26:21 -0400
-Received: by mail-qk0-f169.google.com with SMTP id w204so49413383qka.0
-        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 06:26:21 -0700 (PDT)
-In-Reply-To: <20160915082326.GA1635@toys.tundra.dog-lvm.novalocal>
+Received: from mx1.redhat.com ([209.132.183.28]:60424 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753100AbcIONie (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 15 Sep 2016 09:38:34 -0400
+In-Reply-To: <1473946689-28427-1-git-send-email-sassmann@kpanic.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 15/09/2016 à 10:23, Anton Aksola a écrit :
-[snip]
-> --- a/ip/ipnetns.c
-> +++ b/ip/ipnetns.c
-> @@ -775,8 +775,6 @@ static int netns_monitor(int argc, char **argv)
->  
->  int do_netns(int argc, char **argv)
->  {
-> -	netns_map_init();
-> -
->  	if (argc < 1)
->  		return netns_list(0, NULL);
->  
-> @@ -784,8 +782,10 @@ int do_netns(int argc, char **argv)
->  	    (matches(*argv, "lst") == 0))
->  		return netns_list(argc-1, argv+1);
->  
-> -	if ((matches(*argv, "list-id") == 0))
-> +	if ((matches(*argv, "list-id") == 0)) {
-> +		netns_map_init();
->  		return netns_list_id(argc-1, argv+1);
-> +	}
-'ip netns' (ip netns list) also need it.
+pf->msg_enable is a bitmask, therefore assigning the value of the
+"debug" parameter is wrong. It is initialized again later in
+i40e_sw_init() so it didn't cause any problem, except that we missed
+early debug messages. Moved the initialization and assigned
+pf->hw.debug_mask the bitmask as that's what the driver actually uses
+in i40e_debug(). Otherwise the debug parameter is just a noop.
+
+Fixes: 5b5faa4 ("i40e: enable debug earlier")
+
+Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 16 +++++++---------
+ 1 file changed, 7 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 56369761..f972f0d 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -8498,11 +8498,6 @@ static int i40e_sw_init(struct i40e_pf *pf)
+ 	int err = 0;
+ 	int size;
+ 
+-	pf->msg_enable = netif_msg_init(debug,
+-					NETIF_MSG_DRV    |
+-					NETIF_MSG_PROBE  |
+-					NETIF_MSG_LINK);
+-
+ 	/* Set default capability flags */
+ 	pf->flags = I40E_FLAG_RX_CSUM_ENABLED |
+ 		    I40E_FLAG_MSI_ENABLED     |
+@@ -10812,10 +10807,13 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	mutex_init(&hw->aq.asq_mutex);
+ 	mutex_init(&hw->aq.arq_mutex);
+ 
+-	if (debug != -1) {
+-		pf->msg_enable = pf->hw.debug_mask;
+-		pf->msg_enable = debug;
+-	}
++	/* enable debug prints if requested */
++	pf->msg_enable = netif_msg_init(debug,
++					NETIF_MSG_DRV   |
++					NETIF_MSG_PROBE |
++					NETIF_MSG_LINK);
++	if (debug != -1)
++		pf->hw.debug_mask = pf->msg_enable;
+ 
+ 	/* do a special CORER for clearing PXE mode once at init */
+ 	if (hw->revision_id == 0 &&
+-- 
+2.7.4
