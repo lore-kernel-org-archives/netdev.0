@@ -1,101 +1,97 @@
 From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH net 3/7] s390/qeth: allow hsuid configuration in DOWN state
-Date: Thu, 15 Sep 2016 14:39:23 +0200
-Message-ID: <20160915123927.86579-4-ubraun@linux.vnet.ibm.com>
+Subject: [PATCH net 4/7] qeth: check not more than 16 SBALEs on the completion queue
+Date: Thu, 15 Sep 2016 14:39:24 +0200
+Message-ID: <20160915123927.86579-5-ubraun@linux.vnet.ibm.com>
 References: <20160915123927.86579-1-ubraun@linux.vnet.ibm.com>
 Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
         schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
         ubraun@linux.vnet.ibm.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:53666 "EHLO
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:46779 "EHLO
         mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S934042AbcIOMjj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 08:39:39 -0400
-Received: from pps.filterd (m0098414.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8FCXAVd130835
-        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 08:39:39 -0400
-Received: from e06smtp14.uk.ibm.com (e06smtp14.uk.ibm.com [195.75.94.110])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 25fnnxk8g0-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        by vger.kernel.org with ESMTP id S1765809AbcIOMji (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 08:39:38 -0400
+Received: from pps.filterd (m0098421.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8FCXCiZ020632
         for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 08:39:38 -0400
+Received: from e06smtp11.uk.ibm.com (e06smtp11.uk.ibm.com [195.75.94.107])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 25fmcqpcnm-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 08:39:37 -0400
 Received: from localhost
-        by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        by e06smtp11.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
         Thu, 15 Sep 2016 13:39:36 +0100
 In-Reply-To: <20160915123927.86579-1-ubraun@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The qeth IP address mapping logic has been reworked recently. It
-causes now problems to specify qeth sysfs attribute "hsuid" in DOWN
-state, which is allowed. Postpone registering or deregistering of
-IP-addresses in this case.
+af_iucv socket programs with HiperSockets as transport make use of the qdio
+completion queue. Running such an af_iucv socket program may result in a
+crash:
+
+[90341.677709] Oops: 0038 ilc:2 [#1] SMP
+[90341.677743] CPU: 1 PID: 0 Comm: swapper/1 Not tainted 4.6.0-20160720.0.0e86ec7.5e62689.fc23.s390xperformance #1
+[90341.677744] Hardware name: IBM              2964 N96              703              (LPAR)
+[90341.677746] task: 00000000edb79f00 ti: 00000000edb84000 task.ti: 00000000edb84000
+[90341.677748] Krnl PSW : 0704d00180000000 000000000075bc50 (qeth_qdio_input_handler+0x258/0x4e0)
+[90341.677756]            R:0 T:1 IO:1 EX:1 Key:0 M:1 W:0 P:0 AS:3 CC:1 PM:0 RI:0 EA:3
+Krnl GPRS: 000003d10391e900 0000000000000001 00000000e61e6000 0000000000000005
+[90341.677759]            0000000000a9e6ec 5420040001a77400 0000000000000001 000000000000006f
+[90341.677761]            00000000e0d83f00 0000000000000003 0000000000000010 5420040001a77400
+[90341.677784]            000000007ba8b000 0000000000943fd0 000000000075bc4e 00000000ed3b3c10
+[90341.677793] Krnl Code: 000000000075bc42: e320cc180004        lg      %r2,3096(%r12)
+           000000000075bc48: c0e5ffffc5cc       brasl   %r14,7547e0
+          #000000000075bc4e: 1816               lr      %r1,%r6
+          >000000000075bc50: ba19b008           cs      %r1,%r9,8(%r11)
+           000000000075bc54: ec180041017e       cij     %r1,1,8,75bcd6
+           000000000075bc5a: 5810b008           l       %r1,8(%r11)
+           000000000075bc5e: ec16005c027e       cij     %r1,2,6,75bd16
+           000000000075bc64: 5090b008           st      %r9,8(%r11)
+[90341.677807] Call Trace:
+[90341.677810] ([<000000000075bbc0>] qeth_qdio_input_handler+0x1c8/0x4e0)
+[90341.677812] ([<000000000070efbc>] qdio_kick_handler+0x124/0x2a8)
+[90341.677814] ([<0000000000713570>] __tiqdio_inbound_processing+0xf0/0xcd0)
+[90341.677818] ([<0000000000143312>] tasklet_action+0x92/0x120)
+[90341.677823] ([<00000000008b6e72>] __do_softirq+0x112/0x308)
+[90341.677824] ([<0000000000142bce>] irq_exit+0xd6/0xf8)
+[90341.677829] ([<000000000010b1d2>] do_IRQ+0x6a/0x88)
+[90341.677830] ([<00000000008b6322>] io_int_handler+0x112/0x220)
+[90341.677832] ([<0000000000102b2e>] enabled_wait+0x56/0xa8)
+[90341.677833] ([<0000000000000000>]           (null))
+[90341.677835] ([<0000000000102e32>] arch_cpu_idle+0x32/0x48)
+[90341.677838] ([<000000000018a126>] cpu_startup_entry+0x266/0x2b0)
+[90341.677841] ([<0000000000113b38>] smp_start_secondary+0x100/0x110)
+[90341.677843] ([<00000000008b68a6>] restart_int_handler+0x62/0x78)
+[90341.677845] ([<00000000008b6588>] psw_idle+0x3c/0x40)
+[90341.677846] Last Breaking-Event-Address:
+[90341.677848]  [<00000000007547ec>] qeth_dbf_longtext+0xc/0xc0
+[90341.677849]
+[90341.677850] Kernel panic - not syncing: Fatal exception in interrupt
+
+qeth_qdio_cq_handler() analyzes SBALs on this completion queue, but does
+not observe the limit of 16 SBAL elements per SBAL. This patch adds the
+additional check to process not more than 16 SBAL elements.
 
 Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Reviewed-by: Thomas Richter <tmricht@linux.vnet.ibm.com>
 ---
- drivers/s390/net/qeth_l3_main.c | 22 +++++++++++++++++-----
- 1 file changed, 17 insertions(+), 5 deletions(-)
+ drivers/s390/net/qeth_core_main.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/s390/net/qeth_l3_main.c b/drivers/s390/net/qeth_l3_main.c
-index 2f51271..4ba82e1 100644
---- a/drivers/s390/net/qeth_l3_main.c
-+++ b/drivers/s390/net/qeth_l3_main.c
-@@ -257,6 +257,11 @@ int qeth_l3_delete_ip(struct qeth_card *card, struct qeth_ipaddr *tmp_addr)
- 	if (addr->in_progress)
- 		return -EINPROGRESS;
+diff --git a/drivers/s390/net/qeth_core_main.c b/drivers/s390/net/qeth_core_main.c
+index 6ad5a14..20cf296 100644
+--- a/drivers/s390/net/qeth_core_main.c
++++ b/drivers/s390/net/qeth_core_main.c
+@@ -3619,7 +3619,8 @@ static void qeth_qdio_cq_handler(struct qeth_card *card,
+ 		int e;
  
-+	if (!qeth_card_hw_is_reachable(card)) {
-+		addr->disp_flag = QETH_DISP_ADDR_DELETE;
-+		return 0;
-+	}
-+
- 	rc = qeth_l3_deregister_addr_entry(card, addr);
+ 		e = 0;
+-		while (buffer->element[e].addr) {
++		while ((e < QDIO_MAX_ELEMENTS_PER_BUFFER) &&
++		       buffer->element[e].addr) {
+ 			unsigned long phys_aob_addr;
  
- 	hash_del(&addr->hnode);
-@@ -296,6 +301,11 @@ int qeth_l3_add_ip(struct qeth_card *card, struct qeth_ipaddr *tmp_addr)
- 		hash_add(card->ip_htable, &addr->hnode,
- 				qeth_l3_ipaddr_hash(addr));
- 
-+		if (!qeth_card_hw_is_reachable(card)) {
-+			addr->disp_flag = QETH_DISP_ADDR_ADD;
-+			return 0;
-+		}
-+
- 		/* qeth_l3_register_addr_entry can go to sleep
- 		 * if we add a IPV4 addr. It is caused by the reason
- 		 * that SETIP ipa cmd starts ARP staff for IPV4 addr.
-@@ -390,12 +400,16 @@ static void qeth_l3_recover_ip(struct qeth_card *card)
- 	int i;
- 	int rc;
- 
--	QETH_CARD_TEXT(card, 4, "recoverip");
-+	QETH_CARD_TEXT(card, 4, "recovrip");
- 
- 	spin_lock_bh(&card->ip_lock);
- 
- 	hash_for_each_safe(card->ip_htable, i, tmp, addr, hnode) {
--		if (addr->disp_flag == QETH_DISP_ADDR_ADD) {
-+		if (addr->disp_flag == QETH_DISP_ADDR_DELETE) {
-+			qeth_l3_deregister_addr_entry(card, addr);
-+			hash_del(&addr->hnode);
-+			kfree(addr);
-+		} else if (addr->disp_flag == QETH_DISP_ADDR_ADD) {
- 			if (addr->proto == QETH_PROT_IPV4) {
- 				addr->in_progress = 1;
- 				spin_unlock_bh(&card->ip_lock);
-@@ -407,10 +421,8 @@ static void qeth_l3_recover_ip(struct qeth_card *card)
- 
- 			if (!rc) {
- 				addr->disp_flag = QETH_DISP_ADDR_DO_NOTHING;
--				if (addr->ref_counter < 1) {
-+				if (addr->ref_counter < 1)
- 					qeth_l3_delete_ip(card, addr);
--					kfree(addr);
--				}
- 			} else {
- 				hash_del(&addr->hnode);
- 				kfree(addr);
+ 			phys_aob_addr = (unsigned long) buffer->element[e].addr;
 -- 
 2.8.4
