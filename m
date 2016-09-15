@@ -1,775 +1,515 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [RFC 2/3] staging: rtl8712: Change _LED_STATE enum in rtl871x
- driver to avoid conflicts with LED namespace
-Date: Wed, 14 Sep 2016 19:13:49 -0500
-Message-ID: <0b2db70b-f171-4b07-814d-e855b951a672@lwfinger.net>
-References: <1473890149-2066-1-git-send-email-zach.brown@ni.com>
- <1473890149-2066-3-git-send-email-zach.brown@ni.com>
+From: kbuild test robot <lkp@intel.com>
+Subject: Re: [PATCH net-next 1/7] lwt: Add net to build_state argument
+Date: Thu, 15 Sep 2016 08:17:51 +0800
+Message-ID: <201609150810.wcaNBiSA%fengguang.wu@intel.com>
+References: <1473895376-347096-2-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, florian.c.schilhabel@googlemail.com,
- netdev@vger.kernel.org, linux-kernel@vger.kernel.org, mlindner@marvell.com
-To: Zach Brown <zach.brown@ni.com>, f.fainelli@gmail.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1473890149-2066-3-git-send-email-zach.brown@ni.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary="vkogqOf2sHV7VnPd"
+Cc: kbuild-all@01.org, davem@davemloft.net, netdev@vger.kernel.org,
+        tgraf@suug.ch, roopa@cumulusnetworks.com, kernel-team@fb.com
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga07.intel.com ([134.134.136.100]:12723 "EHLO mga07.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755074AbcIOATB (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 14 Sep 2016 20:19:01 -0400
+Content-Disposition: inline
+In-Reply-To: <1473895376-347096-2-git-send-email-tom@herbertland.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/14/2016 04:55 PM, Zach Brown wrote:
-> Adding led support for phy causes namespace conflicts for some
-> phy drivers.
->
-> The rtl871 driver declared an enum for representing LED states. The enum
-> contains constant LED_OFF which conflicted with declartation found in
-> linux/leds.h. LED_OFF changed to LED_STATE_OFF
->
-> Signed-off-by: Zach Brown <zach.brown@ni.com>
 
-I have no objection to this change. My only substantive comment is that LED_ON 
-should also be changed to LED_STATE_ON, otherwise there might be another 
-namespace collision later. There is also a typo in the commit message. In 
-addition, staging driver patches should be sent to Greg KH.
+--vkogqOf2sHV7VnPd
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Larry
+Hi Tom,
 
-> ---
->  drivers/staging/rtl8712/rtl8712_led.c | 192 +++++++++++++++++-----------------
->  1 file changed, 96 insertions(+), 96 deletions(-)
->
-> diff --git a/drivers/staging/rtl8712/rtl8712_led.c b/drivers/staging/rtl8712/rtl8712_led.c
-> index 9055827..d53ad76 100644
-> --- a/drivers/staging/rtl8712/rtl8712_led.c
-> +++ b/drivers/staging/rtl8712/rtl8712_led.c
-> @@ -52,7 +52,7 @@
->  enum _LED_STATE_871x {
->  	LED_UNKNOWN = 0,
->  	LED_ON = 1,
-> -	LED_OFF = 2,
-> +	LED_STATE_OFF = 2,
->  	LED_BLINK_NORMAL = 3,
->  	LED_BLINK_SLOWLY = 4,
->  	LED_POWER_ON_BLINK = 5,
-> @@ -92,7 +92,7 @@ static void InitLed871x(struct _adapter *padapter, struct LED_871x *pLed,
->  	nic = padapter->pnetdev;
->  	pLed->padapter = padapter;
->  	pLed->LedPin = LedPin;
-> -	pLed->CurrLedState = LED_OFF;
-> +	pLed->CurrLedState = LED_STATE_OFF;
->  	pLed->bLedOn = false;
->  	pLed->bLedBlinkInProgress = false;
->  	pLed->BlinkTimes = 0;
-> @@ -249,7 +249,7 @@ static void SwLedBlink(struct LED_871x *pLed)
->  	} else {
->  		/* Assign LED state to toggle. */
->  		if (pLed->BlinkingLedState == LED_ON)
-> -			pLed->BlinkingLedState = LED_OFF;
-> +			pLed->BlinkingLedState = LED_STATE_OFF;
->  		else
->  			pLed->BlinkingLedState = LED_ON;
->
-> @@ -312,7 +312,7 @@ static void SwLedBlink1(struct LED_871x *pLed)
->  	switch (pLed->CurrLedState) {
->  	case LED_BLINK_SLOWLY:
->  		if (pLed->bLedOn)
-> -			pLed->BlinkingLedState = LED_OFF;
-> +			pLed->BlinkingLedState = LED_STATE_OFF;
->  		else
->  			pLed->BlinkingLedState = LED_ON;
->  		mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -320,7 +320,7 @@ static void SwLedBlink1(struct LED_871x *pLed)
->  		break;
->  	case LED_BLINK_NORMAL:
->  		if (pLed->bLedOn)
-> -			pLed->BlinkingLedState = LED_OFF;
-> +			pLed->BlinkingLedState = LED_STATE_OFF;
->  		else
->  			pLed->BlinkingLedState = LED_ON;
->  		mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -335,7 +335,7 @@ static void SwLedBlink1(struct LED_871x *pLed)
->  				pLed->bLedLinkBlinkInProgress = true;
->  				pLed->CurrLedState = LED_BLINK_NORMAL;
->  				if (pLed->bLedOn)
-> -					pLed->BlinkingLedState = LED_OFF;
-> +					pLed->BlinkingLedState = LED_STATE_OFF;
->  				else
->  					pLed->BlinkingLedState = LED_ON;
->  				mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -344,7 +344,7 @@ static void SwLedBlink1(struct LED_871x *pLed)
->  				pLed->bLedNoLinkBlinkInProgress = true;
->  				pLed->CurrLedState = LED_BLINK_SLOWLY;
->  				if (pLed->bLedOn)
-> -					pLed->BlinkingLedState = LED_OFF;
-> +					pLed->BlinkingLedState = LED_STATE_OFF;
->  				else
->  					pLed->BlinkingLedState = LED_ON;
->  				mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -353,7 +353,7 @@ static void SwLedBlink1(struct LED_871x *pLed)
->  			pLed->bLedScanBlinkInProgress = false;
->  		} else {
->  			 if (pLed->bLedOn)
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  			else
->  				pLed->BlinkingLedState = LED_ON;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -369,7 +369,7 @@ static void SwLedBlink1(struct LED_871x *pLed)
->  				pLed->bLedLinkBlinkInProgress = true;
->  				pLed->CurrLedState = LED_BLINK_NORMAL;
->  				if (pLed->bLedOn)
-> -					pLed->BlinkingLedState = LED_OFF;
-> +					pLed->BlinkingLedState = LED_STATE_OFF;
->  				else
->  					pLed->BlinkingLedState = LED_ON;
->  				mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -378,7 +378,7 @@ static void SwLedBlink1(struct LED_871x *pLed)
->  				pLed->bLedNoLinkBlinkInProgress = true;
->  				pLed->CurrLedState = LED_BLINK_SLOWLY;
->  				if (pLed->bLedOn)
-> -					pLed->BlinkingLedState = LED_OFF;
-> +					pLed->BlinkingLedState = LED_STATE_OFF;
->  				else
->  					pLed->BlinkingLedState = LED_ON;
->  				mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -388,7 +388,7 @@ static void SwLedBlink1(struct LED_871x *pLed)
->  			pLed->bLedBlinkInProgress = false;
->  		} else {
->  			 if (pLed->bLedOn)
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  			else
->  				pLed->BlinkingLedState = LED_ON;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -397,7 +397,7 @@ static void SwLedBlink1(struct LED_871x *pLed)
->  		break;
->  	case LED_BLINK_WPS:
->  		if (pLed->bLedOn)
-> -			pLed->BlinkingLedState = LED_OFF;
-> +			pLed->BlinkingLedState = LED_STATE_OFF;
->  		else
->  			pLed->BlinkingLedState = LED_ON;
->  		mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -405,7 +405,7 @@ static void SwLedBlink1(struct LED_871x *pLed)
->  		break;
->  	case LED_BLINK_WPS_STOP:	/* WPS success */
->  		if (pLed->BlinkingLedState == LED_ON) {
-> -			pLed->BlinkingLedState = LED_OFF;
-> +			pLed->BlinkingLedState = LED_STATE_OFF;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
->  				  msecs_to_jiffies(LED_BLINK_WPS_SUCESS_INTERVAL_ALPHA));
->  			bStopBlinking = false;
-> @@ -416,7 +416,7 @@ static void SwLedBlink1(struct LED_871x *pLed)
->  			pLed->bLedLinkBlinkInProgress = true;
->  			pLed->CurrLedState = LED_BLINK_NORMAL;
->  			if (pLed->bLedOn)
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  			else
->  				pLed->BlinkingLedState = LED_ON;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -451,14 +451,14 @@ static void SwLedBlink2(struct LED_871x *pLed)
->  				pLed->BlinkingLedState = LED_ON;
->  				SwLedOn(padapter, pLed);
->  			} else if (!check_fwstate(pmlmepriv, _FW_LINKED)) {
-> -				pLed->CurrLedState = LED_OFF;
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->CurrLedState = LED_STATE_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  				SwLedOff(padapter, pLed);
->  			}
->  			pLed->bLedScanBlinkInProgress = false;
->  		} else {
->  			 if (pLed->bLedOn)
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  			else
->  				pLed->BlinkingLedState = LED_ON;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -475,14 +475,14 @@ static void SwLedBlink2(struct LED_871x *pLed)
->  				pLed->BlinkingLedState = LED_ON;
->  				SwLedOn(padapter, pLed);
->  			} else if (!check_fwstate(pmlmepriv, _FW_LINKED)) {
-> -				pLed->CurrLedState = LED_OFF;
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->CurrLedState = LED_STATE_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  				SwLedOff(padapter, pLed);
->  			}
->  			pLed->bLedBlinkInProgress = false;
->  		} else {
->  			if (pLed->bLedOn)
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  			else
->  				pLed->BlinkingLedState = LED_ON;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -518,15 +518,15 @@ static void SwLedBlink3(struct LED_871x *pLed)
->  				if (!pLed->bLedOn)
->  					SwLedOn(padapter, pLed);
->  			} else if (!check_fwstate(pmlmepriv, _FW_LINKED)) {
-> -				pLed->CurrLedState = LED_OFF;
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->CurrLedState = LED_STATE_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  				if (pLed->bLedOn)
->  					SwLedOff(padapter, pLed);
->  			}
->  			pLed->bLedScanBlinkInProgress = false;
->  		} else {
->  			if (pLed->bLedOn)
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  			else
->  				pLed->BlinkingLedState = LED_ON;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -544,15 +544,15 @@ static void SwLedBlink3(struct LED_871x *pLed)
->  				if (!pLed->bLedOn)
->  					SwLedOn(padapter, pLed);
->  			} else if (!check_fwstate(pmlmepriv, _FW_LINKED)) {
-> -				pLed->CurrLedState = LED_OFF;
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->CurrLedState = LED_STATE_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  				if (pLed->bLedOn)
->  					SwLedOff(padapter, pLed);
->  			}
->  			pLed->bLedBlinkInProgress = false;
->  		} else {
->  			if (pLed->bLedOn)
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  			else
->  				pLed->BlinkingLedState = LED_ON;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -561,7 +561,7 @@ static void SwLedBlink3(struct LED_871x *pLed)
->  		break;
->  	case LED_BLINK_WPS:
->  		if (pLed->bLedOn)
-> -			pLed->BlinkingLedState = LED_OFF;
-> +			pLed->BlinkingLedState = LED_STATE_OFF;
->  		else
->  			pLed->BlinkingLedState = LED_ON;
->  		mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -569,7 +569,7 @@ static void SwLedBlink3(struct LED_871x *pLed)
->  		break;
->  	case LED_BLINK_WPS_STOP:	/*WPS success*/
->  		if (pLed->BlinkingLedState == LED_ON) {
-> -			pLed->BlinkingLedState = LED_OFF;
-> +			pLed->BlinkingLedState = LED_STATE_OFF;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
->  				  msecs_to_jiffies(LED_BLINK_WPS_SUCESS_INTERVAL_ALPHA));
->  			bStopBlinking = false;
-> @@ -602,14 +602,14 @@ static void SwLedBlink4(struct LED_871x *pLed)
->  		SwLedOff(padapter, pLed);
->  	if (!pLed1->bLedWPSBlinkInProgress &&
->  	    pLed1->BlinkingLedState == LED_UNKNOWN) {
-> -		pLed1->BlinkingLedState = LED_OFF;
-> -		pLed1->CurrLedState = LED_OFF;
-> +		pLed1->BlinkingLedState = LED_STATE_OFF;
-> +		pLed1->CurrLedState = LED_STATE_OFF;
->  		SwLedOff(padapter, pLed1);
->  	}
->  	switch (pLed->CurrLedState) {
->  	case LED_BLINK_SLOWLY:
->  		if (pLed->bLedOn)
-> -			pLed->BlinkingLedState = LED_OFF;
-> +			pLed->BlinkingLedState = LED_STATE_OFF;
->  		else
->  			pLed->BlinkingLedState = LED_ON;
->  		mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -617,7 +617,7 @@ static void SwLedBlink4(struct LED_871x *pLed)
->  		break;
->  	case LED_BLINK_StartToBlink:
->  		if (pLed->bLedOn) {
-> -			pLed->BlinkingLedState = LED_OFF;
-> +			pLed->BlinkingLedState = LED_STATE_OFF;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
->  				  msecs_to_jiffies(LED_BLINK_SLOWLY_INTERVAL));
->  		} else {
-> @@ -634,7 +634,7 @@ static void SwLedBlink4(struct LED_871x *pLed)
->  			pLed->bLedNoLinkBlinkInProgress = true;
->  			pLed->CurrLedState = LED_BLINK_SLOWLY;
->  			if (pLed->bLedOn)
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  			else
->  				pLed->BlinkingLedState = LED_ON;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -642,7 +642,7 @@ static void SwLedBlink4(struct LED_871x *pLed)
->  			pLed->bLedScanBlinkInProgress = false;
->  		} else {
->  			if (pLed->bLedOn)
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  			else
->  				pLed->BlinkingLedState = LED_ON;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -657,7 +657,7 @@ static void SwLedBlink4(struct LED_871x *pLed)
->  			pLed->bLedNoLinkBlinkInProgress = true;
->  			pLed->CurrLedState = LED_BLINK_SLOWLY;
->  			if (pLed->bLedOn)
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  			else
->  				pLed->BlinkingLedState = LED_ON;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -665,7 +665,7 @@ static void SwLedBlink4(struct LED_871x *pLed)
->  			pLed->bLedBlinkInProgress = false;
->  		} else {
->  			 if (pLed->bLedOn)
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  			else
->  				pLed->BlinkingLedState = LED_ON;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -674,7 +674,7 @@ static void SwLedBlink4(struct LED_871x *pLed)
->  		break;
->  	case LED_BLINK_WPS:
->  		if (pLed->bLedOn) {
-> -			pLed->BlinkingLedState = LED_OFF;
-> +			pLed->BlinkingLedState = LED_STATE_OFF;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
->  				  msecs_to_jiffies(LED_BLINK_SLOWLY_INTERVAL));
->  		} else {
-> @@ -685,7 +685,7 @@ static void SwLedBlink4(struct LED_871x *pLed)
->  		break;
->  	case LED_BLINK_WPS_STOP:	/*WPS authentication fail*/
->  		if (pLed->bLedOn)
-> -			pLed->BlinkingLedState = LED_OFF;
-> +			pLed->BlinkingLedState = LED_STATE_OFF;
->  		else
->  			pLed->BlinkingLedState = LED_ON;
->  		mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -706,7 +706,7 @@ static void SwLedBlink4(struct LED_871x *pLed)
->  				  msecs_to_jiffies(LED_BLINK_LINK_INTERVAL_ALPHA));
->  		} else {
->  			if (pLed->bLedOn)
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  			else
->  				pLed->BlinkingLedState = LED_ON;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -742,7 +742,7 @@ static void SwLedBlink5(struct LED_871x *pLed)
->  			pLed->bLedScanBlinkInProgress = false;
->  		} else {
->  			if (pLed->bLedOn)
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  			else
->  				pLed->BlinkingLedState = LED_ON;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -762,7 +762,7 @@ static void SwLedBlink5(struct LED_871x *pLed)
->  			pLed->bLedBlinkInProgress = false;
->  		} else {
->  			 if (pLed->bLedOn)
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  			else
->  				pLed->BlinkingLedState = LED_ON;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -797,7 +797,7 @@ static void SwLedBlink6(struct LED_871x *pLed)
->  			pLed->bLedBlinkInProgress = false;
->  		} else {
->  			if (pLed->bLedOn)
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  			else
->  				pLed->BlinkingLedState = LED_ON;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -806,7 +806,7 @@ static void SwLedBlink6(struct LED_871x *pLed)
->  		break;
->  	case LED_BLINK_WPS:
->  		if (pLed->bLedOn)
-> -			pLed->BlinkingLedState = LED_OFF;
-> +			pLed->BlinkingLedState = LED_STATE_OFF;
->  		else
->  			pLed->BlinkingLedState = LED_ON;
->  		mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -908,7 +908,7 @@ static void SwLedControlMode1(struct _adapter *padapter,
->  			pLed->bLedNoLinkBlinkInProgress = true;
->  			pLed->CurrLedState = LED_BLINK_SLOWLY;
->  			if (pLed->bLedOn)
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  			else
->  				pLed->BlinkingLedState = LED_ON;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -931,7 +931,7 @@ static void SwLedControlMode1(struct _adapter *padapter,
->  			pLed->bLedLinkBlinkInProgress = true;
->  			pLed->CurrLedState = LED_BLINK_NORMAL;
->  			if (pLed->bLedOn)
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  			else
->  				pLed->BlinkingLedState = LED_ON;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -961,7 +961,7 @@ static void SwLedControlMode1(struct _adapter *padapter,
->  			pLed->CurrLedState = LED_SCAN_BLINK;
->  			pLed->BlinkTimes = 24;
->  			if (pLed->bLedOn)
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  			else
->  				pLed->BlinkingLedState = LED_ON;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -986,7 +986,7 @@ static void SwLedControlMode1(struct _adapter *padapter,
->  			pLed->CurrLedState = LED_TXRX_BLINK;
->  			pLed->BlinkTimes = 2;
->  			if (pLed->bLedOn)
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  			else
->  				pLed->BlinkingLedState = LED_ON;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -1016,7 +1016,7 @@ static void SwLedControlMode1(struct _adapter *padapter,
->  			pLed->bLedWPSBlinkInProgress = true;
->  			pLed->CurrLedState = LED_BLINK_WPS;
->  			if (pLed->bLedOn)
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  			else
->  				pLed->BlinkingLedState = LED_ON;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -1046,7 +1046,7 @@ static void SwLedControlMode1(struct _adapter *padapter,
->  			pLed->bLedWPSBlinkInProgress = true;
->  		pLed->CurrLedState = LED_BLINK_WPS_STOP;
->  		if (pLed->bLedOn) {
-> -			pLed->BlinkingLedState = LED_OFF;
-> +			pLed->BlinkingLedState = LED_STATE_OFF;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
->  				  msecs_to_jiffies(LED_BLINK_WPS_SUCESS_INTERVAL_ALPHA));
->  		} else {
-> @@ -1063,15 +1063,15 @@ static void SwLedControlMode1(struct _adapter *padapter,
->  		pLed->bLedNoLinkBlinkInProgress = true;
->  		pLed->CurrLedState = LED_BLINK_SLOWLY;
->  		if (pLed->bLedOn)
-> -			pLed->BlinkingLedState = LED_OFF;
-> +			pLed->BlinkingLedState = LED_STATE_OFF;
->  		else
->  			pLed->BlinkingLedState = LED_ON;
->  		mod_timer(&pLed->BlinkTimer, jiffies +
->  			  msecs_to_jiffies(LED_BLINK_NO_LINK_INTERVAL_ALPHA));
->  		break;
->  	case LED_CTL_POWER_OFF:
-> -		pLed->CurrLedState = LED_OFF;
-> -		pLed->BlinkingLedState = LED_OFF;
-> +		pLed->CurrLedState = LED_STATE_OFF;
-> +		pLed->BlinkingLedState = LED_STATE_OFF;
->  		if (pLed->bLedNoLinkBlinkInProgress) {
->  			del_timer(&pLed->BlinkTimer);
->  			pLed->bLedNoLinkBlinkInProgress = false;
-> @@ -1123,7 +1123,7 @@ static void SwLedControlMode2(struct _adapter *padapter,
->  			pLed->CurrLedState = LED_SCAN_BLINK;
->  			pLed->BlinkTimes = 24;
->  			if (pLed->bLedOn)
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  			else
->  				pLed->BlinkingLedState = LED_ON;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -1142,7 +1142,7 @@ static void SwLedControlMode2(struct _adapter *padapter,
->  			pLed->CurrLedState = LED_TXRX_BLINK;
->  			pLed->BlinkTimes = 2;
->  			if (pLed->bLedOn)
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  			else
->  				pLed->BlinkingLedState = LED_ON;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -1195,8 +1195,8 @@ static void SwLedControlMode2(struct _adapter *padapter,
->
->  	case LED_CTL_STOP_WPS_FAIL:
->  		pLed->bLedWPSBlinkInProgress = false;
-> -		pLed->CurrLedState = LED_OFF;
-> -		pLed->BlinkingLedState = LED_OFF;
-> +		pLed->CurrLedState = LED_STATE_OFF;
-> +		pLed->BlinkingLedState = LED_STATE_OFF;
->  		mod_timer(&pLed->BlinkTimer,
->  			  jiffies + msecs_to_jiffies(0));
->  		break;
-> @@ -1204,15 +1204,15 @@ static void SwLedControlMode2(struct _adapter *padapter,
->  	case LED_CTL_START_TO_LINK:
->  	case LED_CTL_NO_LINK:
->  		if (!IS_LED_BLINKING(pLed)) {
-> -			pLed->CurrLedState = LED_OFF;
-> -			pLed->BlinkingLedState = LED_OFF;
-> +			pLed->CurrLedState = LED_STATE_OFF;
-> +			pLed->BlinkingLedState = LED_STATE_OFF;
->  			mod_timer(&pLed->BlinkTimer,
->  				  jiffies + msecs_to_jiffies(0));
->  		}
->  		break;
->  	case LED_CTL_POWER_OFF:
-> -		pLed->CurrLedState = LED_OFF;
-> -		pLed->BlinkingLedState = LED_OFF;
-> +		pLed->CurrLedState = LED_STATE_OFF;
-> +		pLed->BlinkingLedState = LED_STATE_OFF;
->  		if (pLed->bLedBlinkInProgress) {
->  			del_timer(&pLed->BlinkTimer);
->  			pLed->bLedBlinkInProgress = false;
-> @@ -1255,7 +1255,7 @@ static void SwLedControlMode3(struct _adapter *padapter,
->  			pLed->CurrLedState = LED_SCAN_BLINK;
->  			pLed->BlinkTimes = 24;
->  			if (pLed->bLedOn)
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  			else
->  				pLed->BlinkingLedState = LED_ON;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -1273,7 +1273,7 @@ static void SwLedControlMode3(struct _adapter *padapter,
->  			pLed->CurrLedState = LED_TXRX_BLINK;
->  			pLed->BlinkTimes = 2;
->  			if (pLed->bLedOn)
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  			else
->  				pLed->BlinkingLedState = LED_ON;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -1310,7 +1310,7 @@ static void SwLedControlMode3(struct _adapter *padapter,
->  			pLed->bLedWPSBlinkInProgress = true;
->  			pLed->CurrLedState = LED_BLINK_WPS;
->  			if (pLed->bLedOn)
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  			else
->  				pLed->BlinkingLedState = LED_ON;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -1326,7 +1326,7 @@ static void SwLedControlMode3(struct _adapter *padapter,
->  		}
->  		pLed->CurrLedState = LED_BLINK_WPS_STOP;
->  		if (pLed->bLedOn) {
-> -			pLed->BlinkingLedState = LED_OFF;
-> +			pLed->BlinkingLedState = LED_STATE_OFF;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
->  				  msecs_to_jiffies(LED_BLINK_WPS_SUCESS_INTERVAL_ALPHA));
->  		} else {
-> @@ -1340,23 +1340,23 @@ static void SwLedControlMode3(struct _adapter *padapter,
->  			del_timer(&pLed->BlinkTimer);
->  			pLed->bLedWPSBlinkInProgress = false;
->  		}
-> -		pLed->CurrLedState = LED_OFF;
-> -		pLed->BlinkingLedState = LED_OFF;
-> +		pLed->CurrLedState = LED_STATE_OFF;
-> +		pLed->BlinkingLedState = LED_STATE_OFF;
->  		mod_timer(&pLed->BlinkTimer,
->  			  jiffies + msecs_to_jiffies(0));
->  		break;
->  	case LED_CTL_START_TO_LINK:
->  	case LED_CTL_NO_LINK:
->  		if (!IS_LED_BLINKING(pLed)) {
-> -			pLed->CurrLedState = LED_OFF;
-> -			pLed->BlinkingLedState = LED_OFF;
-> +			pLed->CurrLedState = LED_STATE_OFF;
-> +			pLed->BlinkingLedState = LED_STATE_OFF;
->  			mod_timer(&pLed->BlinkTimer,
->  				  jiffies + msecs_to_jiffies(0));
->  		}
->  		break;
->  	case LED_CTL_POWER_OFF:
-> -		pLed->CurrLedState = LED_OFF;
-> -		pLed->BlinkingLedState = LED_OFF;
-> +		pLed->CurrLedState = LED_STATE_OFF;
-> +		pLed->BlinkingLedState = LED_STATE_OFF;
->  		if (pLed->bLedBlinkInProgress) {
->  			del_timer(&pLed->BlinkTimer);
->  			pLed->bLedBlinkInProgress = false;
-> @@ -1390,8 +1390,8 @@ static void SwLedControlMode4(struct _adapter *padapter,
->  		if (pLed1->bLedWPSBlinkInProgress) {
->  			pLed1->bLedWPSBlinkInProgress = false;
->  			del_timer(&pLed1->BlinkTimer);
-> -			pLed1->BlinkingLedState = LED_OFF;
-> -			pLed1->CurrLedState = LED_OFF;
-> +			pLed1->BlinkingLedState = LED_STATE_OFF;
-> +			pLed1->CurrLedState = LED_STATE_OFF;
->  			if (pLed1->bLedOn)
->  				mod_timer(&pLed->BlinkTimer,
->  					  jiffies + msecs_to_jiffies(0));
-> @@ -1411,7 +1411,7 @@ static void SwLedControlMode4(struct _adapter *padapter,
->  			pLed->bLedStartToLinkBlinkInProgress = true;
->  			pLed->CurrLedState = LED_BLINK_StartToBlink;
->  			if (pLed->bLedOn) {
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  				mod_timer(&pLed->BlinkTimer, jiffies +
->  					  msecs_to_jiffies(LED_BLINK_SLOWLY_INTERVAL));
->  			} else {
-> @@ -1428,8 +1428,8 @@ static void SwLedControlMode4(struct _adapter *padapter,
->  			if (pLed1->bLedWPSBlinkInProgress) {
->  				pLed1->bLedWPSBlinkInProgress = false;
->  				del_timer(&pLed1->BlinkTimer);
-> -				pLed1->BlinkingLedState = LED_OFF;
-> -				pLed1->CurrLedState = LED_OFF;
-> +				pLed1->BlinkingLedState = LED_STATE_OFF;
-> +				pLed1->CurrLedState = LED_STATE_OFF;
->  				if (pLed1->bLedOn)
->  					mod_timer(&pLed->BlinkTimer,
->  						  jiffies + msecs_to_jiffies(0));
-> @@ -1446,7 +1446,7 @@ static void SwLedControlMode4(struct _adapter *padapter,
->  			pLed->bLedNoLinkBlinkInProgress = true;
->  			pLed->CurrLedState = LED_BLINK_SLOWLY;
->  			if (pLed->bLedOn)
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  			else
->  				pLed->BlinkingLedState = LED_ON;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -1472,7 +1472,7 @@ static void SwLedControlMode4(struct _adapter *padapter,
->  			pLed->CurrLedState = LED_SCAN_BLINK;
->  			pLed->BlinkTimes = 24;
->  			if (pLed->bLedOn)
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  			else
->  				pLed->BlinkingLedState = LED_ON;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -1493,7 +1493,7 @@ static void SwLedControlMode4(struct _adapter *padapter,
->  			pLed->CurrLedState = LED_TXRX_BLINK;
->  			pLed->BlinkTimes = 2;
->  			if (pLed->bLedOn)
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  			else
->  				pLed->BlinkingLedState = LED_ON;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -1505,8 +1505,8 @@ static void SwLedControlMode4(struct _adapter *padapter,
->  		if (pLed1->bLedWPSBlinkInProgress) {
->  			pLed1->bLedWPSBlinkInProgress = false;
->  			del_timer(&pLed1->BlinkTimer);
-> -			pLed1->BlinkingLedState = LED_OFF;
-> -			pLed1->CurrLedState = LED_OFF;
-> +			pLed1->BlinkingLedState = LED_STATE_OFF;
-> +			pLed1->CurrLedState = LED_STATE_OFF;
->  			if (pLed1->bLedOn)
->  				mod_timer(&pLed->BlinkTimer,
->  					  jiffies + msecs_to_jiffies(0));
-> @@ -1527,7 +1527,7 @@ static void SwLedControlMode4(struct _adapter *padapter,
->  			pLed->bLedWPSBlinkInProgress = true;
->  			pLed->CurrLedState = LED_BLINK_WPS;
->  			if (pLed->bLedOn) {
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  				mod_timer(&pLed->BlinkTimer, jiffies +
->  					  msecs_to_jiffies(LED_BLINK_SLOWLY_INTERVAL));
->  			} else {
-> @@ -1545,7 +1545,7 @@ static void SwLedControlMode4(struct _adapter *padapter,
->  		pLed->bLedNoLinkBlinkInProgress = true;
->  		pLed->CurrLedState = LED_BLINK_SLOWLY;
->  		if (pLed->bLedOn)
-> -			pLed->BlinkingLedState = LED_OFF;
-> +			pLed->BlinkingLedState = LED_STATE_OFF;
->  		else
->  			pLed->BlinkingLedState = LED_ON;
->  		mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -1559,7 +1559,7 @@ static void SwLedControlMode4(struct _adapter *padapter,
->  		pLed->bLedNoLinkBlinkInProgress = true;
->  		pLed->CurrLedState = LED_BLINK_SLOWLY;
->  		if (pLed->bLedOn)
-> -			pLed->BlinkingLedState = LED_OFF;
-> +			pLed->BlinkingLedState = LED_STATE_OFF;
->  		else
->  			pLed->BlinkingLedState = LED_ON;
->  		mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -1571,7 +1571,7 @@ static void SwLedControlMode4(struct _adapter *padapter,
->  			pLed1->bLedWPSBlinkInProgress = true;
->  		pLed1->CurrLedState = LED_BLINK_WPS_STOP;
->  		if (pLed1->bLedOn)
-> -			pLed1->BlinkingLedState = LED_OFF;
-> +			pLed1->BlinkingLedState = LED_STATE_OFF;
->  		else
->  			pLed1->BlinkingLedState = LED_ON;
->  		mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -1585,7 +1585,7 @@ static void SwLedControlMode4(struct _adapter *padapter,
->  		pLed->bLedNoLinkBlinkInProgress = true;
->  		pLed->CurrLedState = LED_BLINK_SLOWLY;
->  		if (pLed->bLedOn)
-> -			pLed->BlinkingLedState = LED_OFF;
-> +			pLed->BlinkingLedState = LED_STATE_OFF;
->  		else
->  			pLed->BlinkingLedState = LED_ON;
->  		mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -1598,15 +1598,15 @@ static void SwLedControlMode4(struct _adapter *padapter,
->  		pLed1->CurrLedState = LED_BLINK_WPS_STOP_OVERLAP;
->  		pLed1->BlinkTimes = 10;
->  		if (pLed1->bLedOn)
-> -			pLed1->BlinkingLedState = LED_OFF;
-> +			pLed1->BlinkingLedState = LED_STATE_OFF;
->  		else
->  			pLed1->BlinkingLedState = LED_ON;
->  		mod_timer(&pLed->BlinkTimer, jiffies +
->  			  msecs_to_jiffies(LED_BLINK_NORMAL_INTERVAL));
->  		break;
->  	case LED_CTL_POWER_OFF:
-> -		pLed->CurrLedState = LED_OFF;
-> -		pLed->BlinkingLedState = LED_OFF;
-> +		pLed->CurrLedState = LED_STATE_OFF;
-> +		pLed->BlinkingLedState = LED_STATE_OFF;
->  		if (pLed->bLedNoLinkBlinkInProgress) {
->  			del_timer(&pLed->BlinkTimer);
->  			pLed->bLedNoLinkBlinkInProgress = false;
-> @@ -1679,7 +1679,7 @@ static void SwLedControlMode5(struct _adapter *padapter,
->  			pLed->CurrLedState = LED_SCAN_BLINK;
->  			pLed->BlinkTimes = 24;
->  			if (pLed->bLedOn)
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  			else
->  				pLed->BlinkingLedState = LED_ON;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -1695,7 +1695,7 @@ static void SwLedControlMode5(struct _adapter *padapter,
->  			pLed->CurrLedState = LED_TXRX_BLINK;
->  			pLed->BlinkTimes = 2;
->  			if (pLed->bLedOn)
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  			else
->  				pLed->BlinkingLedState = LED_ON;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -1703,8 +1703,8 @@ static void SwLedControlMode5(struct _adapter *padapter,
->  		}
->  		break;
->  	case LED_CTL_POWER_OFF:
-> -		pLed->CurrLedState = LED_OFF;
-> -		pLed->BlinkingLedState = LED_OFF;
-> +		pLed->CurrLedState = LED_STATE_OFF;
-> +		pLed->BlinkingLedState = LED_STATE_OFF;
->  		if (pLed->bLedBlinkInProgress) {
->  			del_timer(&pLed->BlinkTimer);
->  			pLed->bLedBlinkInProgress = false;
-> @@ -1746,7 +1746,7 @@ static void SwLedControlMode6(struct _adapter *padapter,
->  			pLed->CurrLedState = LED_TXRX_BLINK;
->  			pLed->BlinkTimes = 2;
->  			if (pLed->bLedOn)
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  			else
->  				pLed->BlinkingLedState = LED_ON;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -1763,7 +1763,7 @@ static void SwLedControlMode6(struct _adapter *padapter,
->  			pLed->bLedWPSBlinkInProgress = true;
->  			pLed->CurrLedState = LED_BLINK_WPS;
->  			if (pLed->bLedOn)
-> -				pLed->BlinkingLedState = LED_OFF;
-> +				pLed->BlinkingLedState = LED_STATE_OFF;
->  			else
->  				pLed->BlinkingLedState = LED_ON;
->  			mod_timer(&pLed->BlinkTimer, jiffies +
-> @@ -1782,8 +1782,8 @@ static void SwLedControlMode6(struct _adapter *padapter,
->  			  jiffies + msecs_to_jiffies(0));
->  		break;
->  	case LED_CTL_POWER_OFF:
-> -		pLed->CurrLedState = LED_OFF;
-> -		pLed->BlinkingLedState = LED_OFF;
-> +		pLed->CurrLedState = LED_STATE_OFF;
-> +		pLed->BlinkingLedState = LED_STATE_OFF;
->  		if (pLed->bLedBlinkInProgress) {
->  			del_timer(&pLed->BlinkTimer);
->  			pLed->bLedBlinkInProgress = false;
->
+[auto build test ERROR on net-next/master]
+
+url:    https://github.com/0day-ci/linux/commits/Tom-Herbert/net-ILA-resolver-and-generic-resolver-backend/20160915-073357
+config: i386-randconfig-x003-201637 (attached as .config)
+compiler: gcc-6 (Debian 6.1.1-9) 6.1.1 20160705
+reproduce:
+        # save the attached .config to linux build tree
+        make ARCH=i386 
+
+Note: the linux-review/Tom-Herbert/net-ILA-resolver-and-generic-resolver-backend/20160915-073357 HEAD ef54da9d3e09732810a23f283e0f8039fb18eede builds fine.
+      It only hurts bisectibility.
+
+All errors (new ones prefixed by >>):
+
+   net/core/lwtunnel.c: In function 'lwtunnel_encap_str':
+>> net/core/lwtunnel.c:42:7: error: 'LWTUNNEL_ENCAP_ILA_NOTIFY' undeclared (first use in this function)
+     case LWTUNNEL_ENCAP_ILA_NOTIFY:
+          ^~~~~~~~~~~~~~~~~~~~~~~~~
+   net/core/lwtunnel.c:42:7: note: each undeclared identifier is reported only once for each function it appears in
+
+vim +/LWTUNNEL_ENCAP_ILA_NOTIFY +42 net/core/lwtunnel.c
+
+    36		 */
+    37		switch (encap_type) {
+    38		case LWTUNNEL_ENCAP_MPLS:
+    39			return "MPLS";
+    40		case LWTUNNEL_ENCAP_ILA:
+    41			return "ILA";
+  > 42		case LWTUNNEL_ENCAP_ILA_NOTIFY:
+    43			return "ILA_NOTIFY";
+    44		case LWTUNNEL_ENCAP_IP6:
+    45		case LWTUNNEL_ENCAP_IP:
+
+---
+0-DAY kernel test infrastructure                Open Source Technology Center
+https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+
+--vkogqOf2sHV7VnPd
+Content-Type: application/octet-stream
+Content-Disposition: attachment; filename=".config.gz"
+Content-Transfer-Encoding: base64
+
+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
+
+--vkogqOf2sHV7VnPd--
