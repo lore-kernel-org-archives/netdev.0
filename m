@@ -1,54 +1,96 @@
-From: John Crispin <john@phrozen.org>
-Subject: [PATCH V3 0/3] net-next: dsa: add QCA8K support
-Date: Thu, 15 Sep 2016 16:26:38 +0200
-Message-ID: <1473949601-20674-1-git-send-email-john@phrozen.org>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        qsdk-review@qca.qualcomm.com, John Crispin <john@phrozen.org>
-To: "David S. Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>
+From: Johannes Weiner <hannes@cmpxchg.org>
+Subject: Re: [PATCH 3/3] mm: memcontrol: consolidate cgroup socket tracking
+Date: Thu, 15 Sep 2016 10:27:33 -0400
+Message-ID: <20160915142733.GA25519@cmpxchg.org>
+References: <20160914194846.11153-3-hannes@cmpxchg.org>
+ <201609151357.bgs2EcXM%fengguang.wu@intel.com>
+ <20160914151714.f6d1b2a57da0619bf9e2372c@linux-foundation.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: kbuild test robot <lkp@intel.com>, kbuild-all@01.org,
+        Tejun Heo <tj@kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Michal Hocko <mhocko@suse.cz>,
+        Vladimir Davydov <vdavydov@virtuozzo.com>, linux-mm@kvack.org,
+        cgroups@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel-team@fb.com
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbd.name ([46.4.11.11]:50598 "EHLO nbd.name"
+Received: from gum.cmpxchg.org ([85.214.110.215]:53124 "EHLO gum.cmpxchg.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1758470AbcIOO05 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 15 Sep 2016 10:26:57 -0400
+        id S1751905AbcIOObu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 15 Sep 2016 10:31:50 -0400
+Content-Disposition: inline
+In-Reply-To: <20160914151714.f6d1b2a57da0619bf9e2372c@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series is based on the AR8xxx series posted by Matthieu Olivari in may
-2015. The following changes were made since then
+On Wed, Sep 14, 2016 at 03:17:14PM -0700, Andrew Morton wrote:
+> On Thu, 15 Sep 2016 13:34:24 +0800 kbuild test robot <lkp@intel.com> wrote:
+> 
+> > Hi Johannes,
+> > 
+> > [auto build test ERROR on net/master]
+> > [also build test ERROR on v4.8-rc6 next-20160914]
+> > [if your patch is applied to the wrong git tree, please drop us a note to help improve the system]
+> > [Suggest to use git(>=2.9.0) format-patch --base=<commit> (or --base=auto for convenience) to record what (public, well-known) commit your patch series was built on]
+> > [Check https://git-scm.com/docs/git-format-patch for more information]
+> > 
+> > url:    https://github.com/0day-ci/linux/commits/Johannes-Weiner/mm-memcontrol-make-per-cpu-charge-cache-IRQ-safe-for-socket-accounting/20160915-035634
+> > config: m68k-sun3_defconfig (attached as .config)
+> > compiler: m68k-linux-gcc (GCC) 4.9.0
+> > reproduce:
+> >         wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
+> >         chmod +x ~/bin/make.cross
+> >         # save the attached .config to linux build tree
+> >         make.cross ARCH=m68k 
+> > 
+> > All errors (new ones prefixed by >>):
+> > 
+> >    net/built-in.o: In function `sk_alloc':
+> > >> (.text+0x4076): undefined reference to `mem_cgroup_sk_alloc'
+> >    net/built-in.o: In function `__sk_destruct':
+> > >> sock.c:(.text+0x457e): undefined reference to `mem_cgroup_sk_free'
+> >    net/built-in.o: In function `sk_clone_lock':
+> >    (.text+0x4f1c): undefined reference to `mem_cgroup_sk_alloc'
+> 
+> This?
 
-* fixed the nitpicks from the previous review
-* updated to latest API
-* turned it into an mdio device
-* added callbacks for fdb, bridge offloading, stp, eee, port status
-* fixed several minor issues to the port setup and arp learning
-* changed the namespacing as this driver to qca8k
+Thanks for fixing it up, Andrew.
 
-The driver has so far only been tested on qca8337/N. It should work on other QCA
-switches such as the qca8327 with minor changes.
+I think it'd be nicer to declare the dummy functions for !CONFIG_MEMCG;
+it also doesn't look like a hotpath that would necessitate the jump
+label in that place. Dave, any preference either way?
 
-John Crispin (3):
-  Documentation: devicetree: add qca8k binding
-  net-next: dsa: add Qualcomm tag RX/TX handler
-  net-next: dsa: add new driver for qca8xxx family
+Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
+---
 
- .../devicetree/bindings/net/dsa/qca8k.txt          |   89 ++
- drivers/net/dsa/Kconfig                            |    9 +
- drivers/net/dsa/Makefile                           |    1 +
- drivers/net/dsa/qca8k.c                            | 1060 ++++++++++++++++++++
- drivers/net/dsa/qca8k.h                            |  185 ++++
- include/net/dsa.h                                  |    1 +
- net/dsa/Kconfig                                    |    3 +
- net/dsa/Makefile                                   |    1 +
- net/dsa/dsa.c                                      |    3 +
- net/dsa/dsa_priv.h                                 |    2 +
- net/dsa/tag_qca.c                                  |  138 +++
- 11 files changed, 1492 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/dsa/qca8k.txt
- create mode 100644 drivers/net/dsa/qca8k.c
- create mode 100644 drivers/net/dsa/qca8k.h
- create mode 100644 net/dsa/tag_qca.c
-
--- 
-1.7.10.4
+diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
+index ca11b3e6dd65..61d20c17f3b7 100644
+--- a/include/linux/memcontrol.h
++++ b/include/linux/memcontrol.h
+@@ -773,13 +773,13 @@ static inline void mem_cgroup_wb_stats(struct bdi_writeback *wb,
+ #endif	/* CONFIG_CGROUP_WRITEBACK */
+ 
+ struct sock;
+-void mem_cgroup_sk_alloc(struct sock *sk);
+-void mem_cgroup_sk_free(struct sock *sk);
+ bool mem_cgroup_charge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages);
+ void mem_cgroup_uncharge_skmem(struct mem_cgroup *memcg, unsigned int nr_pages);
+ #ifdef CONFIG_MEMCG
+ extern struct static_key_false memcg_sockets_enabled_key;
+ #define mem_cgroup_sockets_enabled static_branch_unlikely(&memcg_sockets_enabled_key)
++void mem_cgroup_sk_alloc(struct sock *sk);
++void mem_cgroup_sk_free(struct sock *sk);
+ static inline bool mem_cgroup_under_socket_pressure(struct mem_cgroup *memcg)
+ {
+ 	if (!cgroup_subsys_on_dfl(memory_cgrp_subsys) && memcg->tcpmem_pressure)
+@@ -792,6 +792,8 @@ static inline bool mem_cgroup_under_socket_pressure(struct mem_cgroup *memcg)
+ }
+ #else
+ #define mem_cgroup_sockets_enabled 0
++static inline void mem_cgroup_sk_alloc(struct sock *sk) { };
++static inline void mem_cgroup_sk_free(struct sock *sk) { };
+ static inline bool mem_cgroup_under_socket_pressure(struct mem_cgroup *memcg)
+ {
+ 	return false;
