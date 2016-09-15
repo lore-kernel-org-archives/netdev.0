@@ -1,53 +1,39 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH] mwifiex: fix memory leak on regd when chan is zero
-Date: Thu, 15 Sep 2016 20:10:47 +0300
-Message-ID: <87vaxx9jhk.fsf@kamboji.qca.qualcomm.com>
-References: <20160915162117.1209-1-colin.king@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Amitkumar Karwar <akarwar@marvell.com>,
-        Nishant Sarmukadam <nishants@marvell.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160915162117.1209-1-colin.king@canonical.com> (Colin King's
-        message of "Thu, 15 Sep 2016 17:21:17 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next] net: vrf: Remove RT_FL_TOS
+Date: Thu, 15 Sep 2016 10:13:47 -0700
+Message-ID: <1473959627-5268-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:36244 "EHLO
+        mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750878AbcIORN6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 13:13:58 -0400
+Received: by mail-pa0-f49.google.com with SMTP id id6so17706564pad.3
+        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 10:13:53 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Colin King <colin.king@canonical.com> writes:
+No longer used after d66f6c0a8f3c0 ("net: ipv4: Remove l3mdev_get_saddr")
 
-> From: Colin Ian King <colin.king@canonical.com>
->
-> When chan is zero mwifiex_create_custom_regdomain does not kfree
-> regd and we have a memory leak. Fix this by freeing regd before
-> the return.
->
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
-> ---
->  drivers/net/wireless/marvell/mwifiex/sta_cmdresp.c | 4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/wireless/marvell/mwifiex/sta_cmdresp.c b/drivers/net/wireless/marvell/mwifiex/sta_cmdresp.c
-> index 3344a26..15a91f3 100644
-> --- a/drivers/net/wireless/marvell/mwifiex/sta_cmdresp.c
-> +++ b/drivers/net/wireless/marvell/mwifiex/sta_cmdresp.c
-> @@ -1049,8 +1049,10 @@ mwifiex_create_custom_regdomain(struct mwifiex_private *priv,
->  		enum nl80211_band band;
->  
->  		chan = *buf++;
-> -		if (!chan)
-> +		if (!chan) {
-> +			kfree(regd);
->  			return NULL;
-> +		}
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ drivers/net/vrf.c | 3 ---
+ 1 file changed, 3 deletions(-)
 
-Bob sent a similar fix and he also did more:
-
-mwifiex: fix error handling in mwifiex_create_custom_regdomain
-
-https://patchwork.kernel.org/patch/9331337/
-
+diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
+index 55674b0e65b7..85c271c70d42 100644
+--- a/drivers/net/vrf.c
++++ b/drivers/net/vrf.c
+@@ -37,9 +37,6 @@
+ #include <net/l3mdev.h>
+ #include <net/fib_rules.h>
+ 
+-#define RT_FL_TOS(oldflp4) \
+-	((oldflp4)->flowi4_tos & (IPTOS_RT_MASK | RTO_ONLINK))
+-
+ #define DRV_NAME	"vrf"
+ #define DRV_VERSION	"1.0"
+ 
 -- 
-Kalle Valo
+2.1.4
