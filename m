@@ -1,45 +1,43 @@
 From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH net] sctp: fix SSN comparision
-Date: Thu, 15 Sep 2016 15:02:38 -0300
-Message-ID: <9f22e4725d836feda1b2c2483303adb30838216f.1473962178.git.marcelo.leitner@gmail.com>
+Subject: [PATCH next] sctp: make use of WORD_TRUNC macro
+Date: Thu, 15 Sep 2016 15:12:30 -0300
+Message-ID: <b40b1bd4adff2d389588d9a4710af0399ce68d1e.1473963064.git.marcelo.leitner@gmail.com>
 Cc: linux-sctp@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
         Vlad Yasevich <vyasevich@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35620 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:41606 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752578AbcIOSC6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 15 Sep 2016 14:02:58 -0400
+        id S1753418AbcIOSMj (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 15 Sep 2016 14:12:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This function actually operates on u32 yet its paramteres were declared
-as u16, causing integer truncation upon calling.
-
-Note in patch context that ADDIP_SERIAL_SIGN_BIT is already 32 bits.
+No functional change. Just to avoid the usage of '&~3'.
+Also break the line to make it easier to read.
 
 Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 ---
+ net/sctp/chunk.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-This issue exists since before git import, so I can't put a Fixes tag.
-Also, that said, probably not worth queueing it to stable.
-Thanks
-
- include/net/sctp/sm.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/include/net/sctp/sm.h b/include/net/sctp/sm.h
-index efc01743b9d641bf6b16a37780ee0df34b4ec698..bafe2a0ab9085f24e17038516c55c00cfddd02f4 100644
---- a/include/net/sctp/sm.h
-+++ b/include/net/sctp/sm.h
-@@ -382,7 +382,7 @@ enum {
- 	ADDIP_SERIAL_SIGN_BIT = (1<<31)
- };
+diff --git a/net/sctp/chunk.c b/net/sctp/chunk.c
+index a55e54738b81ff8cf9cd711cf5fc466ac71374c0..adae4a41ca2078cfee387631f76e5cb768c2269c 100644
+--- a/net/sctp/chunk.c
++++ b/net/sctp/chunk.c
+@@ -182,9 +182,10 @@ struct sctp_datamsg *sctp_datamsg_from_user(struct sctp_association *asoc,
+ 	/* This is the biggest possible DATA chunk that can fit into
+ 	 * the packet
+ 	 */
+-	max_data = (asoc->pathmtu -
+-		sctp_sk(asoc->base.sk)->pf->af->net_header_len -
+-		sizeof(struct sctphdr) - sizeof(struct sctp_data_chunk)) & ~3;
++	max_data = asoc->pathmtu -
++		   sctp_sk(asoc->base.sk)->pf->af->net_header_len -
++		   sizeof(struct sctphdr) - sizeof(struct sctp_data_chunk);
++	max_data = WORD_TRUNC(max_data);
  
--static inline int ADDIP_SERIAL_gte(__u16 s, __u16 t)
-+static inline int ADDIP_SERIAL_gte(__u32 s, __u32 t)
- {
- 	return ((s) == (t)) || (((t) - (s)) & ADDIP_SERIAL_SIGN_BIT);
- }
+ 	max = asoc->frag_point;
+ 	/* If the the peer requested that we authenticate DATA chunks
 -- 
 2.7.4
