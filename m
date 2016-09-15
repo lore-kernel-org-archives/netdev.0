@@ -1,39 +1,30 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next] net: vrf: Remove RT_FL_TOS
-Date: Thu, 15 Sep 2016 10:13:47 -0700
-Message-ID: <1473959627-5268-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 1/7] lwt: Add net to build_state argument
+Date: Thu, 15 Sep 2016 10:17:58 -0700
+Message-ID: <57DAD7C6.9030207@cumulusnetworks.com>
+References: <1473895376-347096-1-git-send-email-tom@herbertland.com> <1473895376-347096-2-git-send-email-tom@herbertland.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, tgraf@suug.ch,
+        kernel-team@fb.com
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:36244 "EHLO
-        mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750878AbcIORN6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 13:13:58 -0400
-Received: by mail-pa0-f49.google.com with SMTP id id6so17706564pad.3
-        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 10:13:53 -0700 (PDT)
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:35630 "EHLO
+        mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751021AbcIORSF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 13:18:05 -0400
+Received: by mail-pa0-f50.google.com with SMTP id oz2so13232276pac.2
+        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 10:18:04 -0700 (PDT)
+In-Reply-To: <1473895376-347096-2-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-No longer used after d66f6c0a8f3c0 ("net: ipv4: Remove l3mdev_get_saddr")
-
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- drivers/net/vrf.c | 3 ---
- 1 file changed, 3 deletions(-)
-
-diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
-index 55674b0e65b7..85c271c70d42 100644
---- a/drivers/net/vrf.c
-+++ b/drivers/net/vrf.c
-@@ -37,9 +37,6 @@
- #include <net/l3mdev.h>
- #include <net/fib_rules.h>
- 
--#define RT_FL_TOS(oldflp4) \
--	((oldflp4)->flowi4_tos & (IPTOS_RT_MASK | RTO_ONLINK))
--
- #define DRV_NAME	"vrf"
- #define DRV_VERSION	"1.0"
- 
--- 
-2.1.4
+On 9/14/16, 4:22 PM, Tom Herbert wrote:
+> Users of LWT need to know net if they want to have per net operations
+> in LWT.
+>
+> Signed-off-by: Tom Herbert <tom@herbertland.com>
+> ---
+>  
+Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
