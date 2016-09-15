@@ -1,83 +1,62 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 2/3] dwc_eth_qos: constify net_device_ops structures
-Date: Thu, 15 Sep 2016 22:23:25 +0200
-Message-ID: <1473971006-2074-3-git-send-email-Julia.Lawall@lip6.fr>
-References: <1473971006-2074-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Lars Persson <lars.persson@axis.com>
+From: Ido Schimmel <idosch@idosch.org>
+Subject: Re: MDB offloading of local ipv4 multicast groups
+Date: Thu, 15 Sep 2016 23:42:18 +0300
+Message-ID: <20160915204218.GA21035@splinter>
+References: <ebb1092f-4fab-c490-0553-b108feb5e8d4@phrozen.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Elad Raz <eladr@mellanox.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Ido Schimmel <idosch@mellanox.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        "David S. Miller" <davem@davemloft.net>
+To: John Crispin <john@phrozen.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3-relais-sop.national.inria.fr ([192.134.164.104]:44355
-        "EHLO mail3-relais-sop.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1755998AbcIOUln (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 16:41:43 -0400
-In-Reply-To: <1473971006-2074-1-git-send-email-Julia.Lawall@lip6.fr>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:47755 "EHLO
+        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1755998AbcIOUmW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 16:42:22 -0400
+Content-Disposition: inline
+In-Reply-To: <ebb1092f-4fab-c490-0553-b108feb5e8d4@phrozen.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Check for net_device_ops structures that are only stored in the netdev_ops
-field of a net_device structure.  This field is declared const, so
-net_device_ops structures that have this property can be declared as const
-also.
+On Thu, Sep 15, 2016 at 08:58:50PM +0200, John Crispin wrote:
+> Hi,
+> 
+> While adding MDB support to the qca8k dsa driver I found that ipv4 mcast
+> groups don't always get propagated to the dsa driver. In my setup there
+> are 2 clients connected to the switch, both running a mdns client. The
+> .port_mdb_add() callback is properly called for 33:33:00:00:00:FB but
+> 01:00:5E:00:00:FB never got propagated to the dsa driver.
+> 
+> The reason is that the call to ipv4_is_local_multicast() here [1] will
+> return true and the notifier is never called. Is this intentional or is
+> there something missing in the code ?
 
-The semantic patch that makes this change is as follows:
-(http://coccinelle.lip6.fr/)
+I believe this is based on RFC 4541:
 
-// <smpl>
-@r disable optional_qualifier@
-identifier i;
-position p;
-@@
-static struct net_device_ops i@p = { ... };
+"Packets with a destination IP (DIP) address in the 224.0.0.X range
+which are not IGMP must be forwarded on all ports."
+https://tools.ietf.org/html/rfc4541
 
-@ok@
-identifier r.i;
-struct net_device e;
-position p;
-@@
-e.netdev_ops = &i@p;
+But, we are missing the offloading of router ports, which is needed for
+the device to correctly flood unregistered multicast packets. That's
+also according to the mentioned RFC:
 
-@bad@
-position p != {r.p,ok.p};
-identifier r.i;
-struct net_device_ops e;
-@@
-e@i@p
+"If a switch receives an unregistered packet, it must forward that
+packet on all ports to which an IGMP router is attached."
 
-@depends on !bad disable optional_qualifier@
-identifier r.i;
-@@
-static
-+const
- struct net_device_ops i = { ... };
-// </smpl>
+Implemented at br_flood_multicast()
 
-The result of size on this file before the change is:
-   text	      data     bss     dec         hex	  filename
-  21623       1316      40   22979        59c3
-   drivers/net/ethernet/synopsys/dwc_eth_qos.o
+However, the marking is done per-port and not per-{port, VID}. We need
+that in case vlan filtering is enabled. I think Nik is working on that,
+but he can correct me if I'm wrong :). The switchdev bits can be added
+soon after.
 
-and after the change it is:
-   text	     data        bss	    dec	    hex	filename
-  22199       724         40      22963    59b3
-   drivers/net/ethernet/synopsys/dwc_eth_qos.o
-
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
-
----
- drivers/net/ethernet/synopsys/dwc_eth_qos.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/synopsys/dwc_eth_qos.c b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
-index c25d971..b5c4554 100644
---- a/drivers/net/ethernet/synopsys/dwc_eth_qos.c
-+++ b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
-@@ -2761,7 +2761,7 @@ static const struct ethtool_ops dwceqos_ethtool_ops = {
- 	.set_link_ksettings = phy_ethtool_set_link_ksettings,
- };
- 
--static struct net_device_ops netdev_ops = {
-+static const struct net_device_ops netdev_ops = {
- 	.ndo_open		= dwceqos_open,
- 	.ndo_stop		= dwceqos_stop,
- 	.ndo_start_xmit		= dwceqos_start_xmit,
+> 
+> 	John
+> 
+> [1]
+> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/net/bridge/br_multicast.c?id=refs/tags/v4.8-rc6#n737
