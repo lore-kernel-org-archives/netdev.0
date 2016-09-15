@@ -1,66 +1,31 @@
-From: Thadeu Lima de Souza Cascardo <cascardo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v2 2/2] openvswitch: use percpu flow stats
-Date: Thu, 15 Sep 2016 20:36:43 -0300
-Message-ID: <20160915233642.GB4027@indiana.gru.redhat.com>
-References: <1473977513-7617-1-git-send-email-cascardo@redhat.com>
- <1473977513-7617-2-git-send-email-cascardo@redhat.com>
- <1473980966.22679.58.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv2 net-next] cxgb4vf: don't offload Rx checksums for
+ IPv6 fragments
+Date: Thu, 15 Sep 2016 19:38:12 -0400 (EDT)
+Message-ID: <20160915.193812.625337067539560540.davem@davemloft.net>
+References: <1473754164-14478-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1473980966.22679.58.camel-XN9IlZ5yJG9HTL0Zs8A6p+yfmBU6pStAUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
+To: hariprasad@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:58868 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756530AbcIOXiP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 19:38:15 -0400
+In-Reply-To: <1473754164-14478-1-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVGh1LCBTZXAgMTUsIDIwMTYgYXQgMDQ6MDk6MjZQTSAtMDcwMCwgRXJpYyBEdW1hemV0IHdy
-b3RlOgo+IE9uIFRodSwgMjAxNi0wOS0xNSBhdCAxOToxMSAtMDMwMCwgVGhhZGV1IExpbWEgZGUg
-U291emEgQ2FzY2FyZG8gd3JvdGU6Cj4gPiBJbnN0ZWFkIG9mIHVzaW5nIGZsb3cgc3RhdHMgcGVy
-IE5VTUEgbm9kZSwgdXNlIGl0IHBlciBDUFUuIFdoZW4gdXNpbmcKPiA+IG1lZ2FmbG93cywgdGhl
-IHN0YXRzIGxvY2sgY2FuIGJlIGEgYm90dGxlbmVjayBpbiBzY2FsYWJpbGl0eS4KPiA+IAo+ID4g
-T24gYSBFNS0yNjkwIDEyLWNvcmUgc3lzdGVtLCB1c3VhbCB0aHJvdWdocHV0IHdlbnQgZnJvbSB+
-NE1wcHMgdG8KPiA+IH4xNU1wcHMgd2hlbiBmb3J3YXJkaW5nIGJldHdlZW4gdHdvIDQwR2JFIHBv
-cnRzIHdpdGggYSBzaW5nbGUgZmxvdwo+ID4gY29uZmlndXJlZCBvbiB0aGUgZGF0YXBhdGguCj4g
-PiAKPiA+IFRoaXMgaGFzIGJlZW4gdGVzdGVkIG9uIGEgc3lzdGVtIHdpdGggcG9zc2libGUgQ1BV
-cyAwLTcsMTYtMjMuIEFmdGVyCj4gPiBtb2R1bGUgcmVtb3ZhbCwgdGhlcmUgd2VyZSBubyBjb3Jy
-dXB0aW9uIG9uIHRoZSBzbGFiIGNhY2hlLgo+ID4gCj4gPiBTaWduZWQtb2ZmLWJ5OiBUaGFkZXUg
-TGltYSBkZSBTb3V6YSBDYXNjYXJkbyA8Y2FzY2FyZG9AcmVkaGF0LmNvbT4KPiA+IENjOiBwcmF2
-aW4gc2hlbGFyIDxwc2hlbGFyQG92bi5vcmc+Cj4gPiAtLS0KPiAKPiA+ICsJLyogV2Ugb3BlbiBj
-b2RlIHRoaXMgdG8gbWFrZSBzdXJlIGNwdSAwIGlzIGFsd2F5cyBjb25zaWRlcmVkICovCj4gPiAr
-CWZvciAoY3B1ID0gMDsgY3B1IDwgbnJfY3B1X2lkczsgY3B1ID0gY3B1bWFza19uZXh0KGNwdSwg
-Y3B1X3Bvc3NpYmxlX21hc2spKQo+ID4gKwkJaWYgKGZsb3ctPnN0YXRzW2NwdV0pCj4gPiAgCQkJ
-a21lbV9jYWNoZV9mcmVlKGZsb3dfc3RhdHNfY2FjaGUsCj4gPiAtCQkJCQkoc3RydWN0IGZsb3df
-c3RhdHMgX19mb3JjZSAqKWZsb3ctPnN0YXRzW25vZGVdKTsKPiA+ICsJCQkJCShzdHJ1Y3QgZmxv
-d19zdGF0cyBfX2ZvcmNlICopZmxvdy0+c3RhdHNbY3B1XSk7Cj4gPiAgCWttZW1fY2FjaGVfZnJl
-ZShmbG93X2NhY2hlLCBmbG93KTsKPiA+ICB9Cj4gPiAgCj4gPiBAQCAtNzU3LDcgKzc0OSw3IEBA
-IGludCBvdnNfZmxvd19pbml0KHZvaWQpCj4gPiAgCUJVSUxEX0JVR19PTihzaXplb2Yoc3RydWN0
-IHN3X2Zsb3dfa2V5KSAlIHNpemVvZihsb25nKSk7Cj4gPiAgCj4gPiAgCWZsb3dfY2FjaGUgPSBr
-bWVtX2NhY2hlX2NyZWF0ZSgic3dfZmxvdyIsIHNpemVvZihzdHJ1Y3Qgc3dfZmxvdykKPiA+IC0J
-CQkJICAgICAgICsgKG5yX25vZGVfaWRzCj4gPiArCQkJCSAgICAgICArIChucl9jcHVfaWRzCj4g
-PiAgCQkJCQkgICogc2l6ZW9mKHN0cnVjdCBmbG93X3N0YXRzICopKSwKPiA+ICAJCQkJICAgICAg
-IDAsIDAsIE5VTEwpOwo+ID4gIAlpZiAoZmxvd19jYWNoZSA9PSBOVUxMKQo+IAo+IFdlbGwsIGlm
-IHlvdSBzd2l0Y2ggdG8gcGVyY3B1IHN0YXRzLCBiZXR0ZXIgdXNlIG5vcm1hbAo+IGFsbG9jX3Bl
-cmNwdShzdHJ1Y3QgZmxvd19zdGF0cykKPiAKPiBUaGUgY29kZSB3YXMgZGVhbGluZyB3aXRoIHBl
-ciBub2RlIGFsbG9jYXRpb24gc28gY291bGQgbm90IHVzZSBleGlzdGluZwo+IGhlbHBlci4KPiAK
-PiBObyBuZWVkIHRvIGtlZXAgdGhpcyBmb3JldmVyLgoKVGhlIHByb2JsZW0gaXMgdGhhdCB0aGUg
-YWxsb2NfcGVyY3B1IHVzZXMgYSBnbG9iYWwgc3BpbmxvY2sgYW5kIHRoYXQgYWZmZWN0cwpzb21l
-IHdvcmtsb2FkcyBvbiBPVlMgdGhhdCBjcmVhdGVzIGxvdHMgb2YgZmxvd3MsIGFzIGRlc2NyaWJl
-ZCBpbiBjb21taXQKOWFjNTYzNThkZWMxYTVhYTdmNDI3NWE0Mjk3MWY1NWZhZDFmN2YzNSAoImRh
-dGFwYXRoOiBQZXIgTlVNQSBub2RlIGZsb3cKc3RhdHMuIikuCgpUaGlzIHByb2JsZW0gd291bGQg
-bm90IGhhcHBlbiBvbiB0aGlzIHZlcnNpb24gYXMgdGhlIGZsb3cgYWxsb2NhdGlvbiBkb2VzIG5v
-dApzdWZmZXIgZnJvbSB0aGUgc2FtZSBzY2FsYWJpbGl0eSBwcm9ibGVtIGFzIHdoZW4gdXNpbmcg
-YWxsb2NfcGVyY3B1LgoKQ2FzY2FyZG8uCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRw
-Oi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Tue, 13 Sep 2016 13:39:24 +0530
+
+> The checksum provided by the device doesn't include the L3 headers,
+> as IPv6 expects
+> 
+> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+> ---
+> V2: Fixed compilation issue reported by kbuild bot
+
+Applied.
