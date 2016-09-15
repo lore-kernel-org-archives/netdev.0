@@ -1,89 +1,60 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v3 net 1/1] net sched actions: fix GETing actions
-Date: Thu, 15 Sep 2016 15:15:58 +0300
-Message-ID: <8bd6eb1d-6fa6-7cbb-b42a-d1444ad5a989@cogentembedded.com>
-References: <1473721658-6034-1-git-send-email-jhs@emojatatu.com>
+From: Tariq Toukan <ttoukan.linux@gmail.com>
+Subject: Re: [PATCH] net/mlx4_en: fix off by one in error handling
+Date: Thu, 15 Sep 2016 15:18:32 +0300
+Message-ID: <2f37b3b3-af5d-6bf9-e972-1ddcb4535682@gmail.com>
+References: <alpine.LFD.2.20.1609141305360.1727@schleppi>
+ <df5834ee-00c2-3f18-ae83-8bb06b6c675b@gmail.com>
+ <alpine.LFD.2.20.1609141548390.11022@schleppi>
+ <b2197c51-57a9-ab01-e940-9850a39484d6@gmail.com>
+ <alpine.LFD.2.20.1609141757040.1730@schleppi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f53.google.com ([209.85.215.53]:34815 "EHLO
-        mail-lf0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1764687AbcIOMQF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 08:16:05 -0400
-Received: by mail-lf0-f53.google.com with SMTP id u14so32959965lfd.1
-        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 05:16:04 -0700 (PDT)
-In-Reply-To: <1473721658-6034-1-git-send-email-jhs@emojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Yishai Hadas <yishaih@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Sebastian Ott <sebott@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.20.1609141757040.1730@schleppi>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 9/13/2016 2:07 AM, Jamal Hadi Salim wrote:
 
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
+
+On 14/09/2016 7:08 PM, Sebastian Ott wrote:
+> On Wed, 14 Sep 2016, Tariq Toukan wrote:
+>> On 14/09/2016 4:53 PM, Sebastian Ott wrote:
+>>> On Wed, 14 Sep 2016, Tariq Toukan wrote:
+>>>> On 14/09/2016 2:09 PM, Sebastian Ott wrote:
+>>>>> If an error occurs in mlx4_init_eq_table the index used in the
+>>>>> err_out_unmap label is one too big which results in a panic in
+>>>>> mlx4_free_eq. This patch fixes the index in the error path.
+>>>> You are right, but your change below does not cover all cases.
+>>>> The full solution looks like this:
+>>>>
+>>>> @@ -1260,7 +1260,7 @@ int mlx4_init_eq_table(struct mlx4_dev *dev)
+>>>>                                                eq);
+>>>>                   }
+>>>>                   if (err)
+>>>> -                       goto err_out_unmap;
+>>>> +                       goto err_out_unmap_excluded;
+>>> In this case a call to mlx4_create_eq failed. Do you really have to call
+>>> mlx4_free_eq for this index again?
+>> We agree on this part, that's why here we should goto the _excluded_ label.
+>> For all other parts, we should not exclude the eq in the highest index, and
+>> thus we goto the _non_excluded_ label.
+> But that's exactly what the original patch does. If the failure is within
+> the for loop at index i, we do the cleanup starting at index i-1. If the
+> failure is after the for loop then i == dev->caps.num_comp_vectors + 1
+> and we do the cleanup starting at index i == dev->caps.num_comp_vectors.
 >
-> With the batch changes that translated transient actions into
-> a temporary list lost in the translation was the fact that
-> tcf_action_destroy() will eventually delete the action from
-> the permanent location if the refcount is zero.
+> In the latter case your patch would have an out of bounds array access.
+Indeed. Agreed.
+
+> Regards,
+> Sebastian
 >
-> Example of what broke:
-> ...add a gact action to drop
-> sudo $TC actions add action drop index 10
-> ...now retrieve it, looks good
-> sudo $TC actions get action gact index 10
-> ...retrieve it again and find it is gone!
-> sudo $TC actions get action gact index 10
->
-> Fixes:
-> commit 22dc13c837c3 ("net_sched: convert tcf_exts from list to pointer array"),
-> commit 824a7e8863b3 ("net_sched: remove an unnecessary list_del()")
-> commit f07fed82ad79 ("net_sched: remove the leftover cleanup_a()")
->
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
-> ---
->  net/sched/act_api.c | 19 +++++++++++++++++++
->  1 file changed, 19 insertions(+)
->
-> diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-> index d09d068..50720b1 100644
-> --- a/net/sched/act_api.c
-> +++ b/net/sched/act_api.c
-> @@ -592,6 +592,16 @@ err_out:
->  	return ERR_PTR(err);
->  }
->
-> +static void cleanup_a(struct list_head *actions, int ovr)
-> +{
-> +	struct tc_action *a;
-> +
-> +	list_for_each_entry(a, actions, list) {
-> +		if (ovr)
-> +			a->tcfa_refcnt -= 1;
 
-			a->tcfa_refcnt--;
+Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
 
-[...]
-> @@ -612,8 +622,15 @@ int tcf_action_init(struct net *net, struct nlattr *nla,
->  			goto err;
->  		}
->  		act->order = i;
-> +		if (ovr)
-> +			act->tcfa_refcnt += 1;
-
-			act->tcfa_refcnt++;
-
-[...]
-> @@ -883,6 +900,8 @@ tca_action_gd(struct net *net, struct nlattr *nla, struct nlmsghdr *n,
->  			goto err;
->  		}
->  		act->order = i;
-> +		if (event == RTM_GETACTION)
-> +			act->tcfa_refcnt += 1;
-
-		act->tcfa_refcnt++;
-
-[...]
-
-MBR, Sergei
+Thanks!
