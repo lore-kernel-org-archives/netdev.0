@@ -1,173 +1,268 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCHv4 net-next 06/15] bpf: enable non-core use of the verfier
-Date: Thu, 15 Sep 2016 20:12:26 +0100
-Message-ID: <1473966755-30106-7-git-send-email-jakub.kicinski@netronome.com>
+Subject: [PATCHv4 net-next 12/15] nfp: bpf: add packet marking support
+Date: Thu, 15 Sep 2016 20:12:32 +0100
+Message-ID: <1473966755-30106-13-git-send-email-jakub.kicinski@netronome.com>
 References: <1473966755-30106-1-git-send-email-jakub.kicinski@netronome.com>
 Cc: ast@kernel.org, daniel@iogearbox.net, jiri@resnulli.us,
         john.fastabend@gmail.com, kubakici@wp.pl,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f52.google.com ([74.125.82.52]:35972 "EHLO
-        mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753974AbcIOTOO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 15:14:14 -0400
-Received: by mail-wm0-f52.google.com with SMTP id b187so958830wme.1
-        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 12:14:14 -0700 (PDT)
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:36073 "EHLO
+        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754230AbcIOTOV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 15:14:21 -0400
+Received: by mail-wm0-f53.google.com with SMTP id b187so964182wme.1
+        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 12:14:20 -0700 (PDT)
 In-Reply-To: <1473966755-30106-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Advanced JIT compilers and translators may want to use
-eBPF verifier as a base for parsers or to perform custom
-checks and validations.
-
-Add ability for external users to invoke the verifier
-and provide callbacks to be invoked for every intruction
-checked.  For now only add most basic callback for
-per-instruction pre-interpretation checks is added.  More
-advanced users may also like to have per-instruction post
-callback and state comparison callback.
+Add missing ABI defines and eBPF instructions to allow
+mark to be passed on and extend prepend parsing on the
+RX path to pick it up from packet metadata.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
-v4:
- - separate from the header split patch.
+v3:
+ - change metadata format.
 ---
- include/linux/bpf_verifier.h | 11 +++++++
- kernel/bpf/verifier.c        | 68 ++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 79 insertions(+)
+ drivers/net/ethernet/netronome/nfp/nfp_bpf.h       |  2 +
+ drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c   | 19 +++++
+ drivers/net/ethernet/netronome/nfp/nfp_net.h       |  2 +
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    | 91 +++++++++++++++++-----
+ drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h  |  7 ++
+ .../net/ethernet/netronome/nfp/nfp_netvf_main.c    |  2 +-
+ 6 files changed, 101 insertions(+), 22 deletions(-)
 
-diff --git a/include/linux/bpf_verifier.h b/include/linux/bpf_verifier.h
-index 1c0511ef7eaf..e3de907d5bf6 100644
---- a/include/linux/bpf_verifier.h
-+++ b/include/linux/bpf_verifier.h
-@@ -59,6 +59,12 @@ struct bpf_insn_aux_data {
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_bpf.h b/drivers/net/ethernet/netronome/nfp/nfp_bpf.h
+index af43e058be97..d550fbc4768a 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_bpf.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_bpf.h
+@@ -91,6 +91,8 @@ enum nfp_bpf_reg_type {
+ #define imm_both(np)	reg_both((np)->regs_per_thread - STATIC_REG_IMM)
  
- #define MAX_USED_MAPS 64 /* max number of maps accessed by one eBPF program */
+ #define NFP_BPF_ABI_FLAGS	reg_nnr(0)
++#define   NFP_BPF_ABI_FLAG_MARK	1
++#define NFP_BPF_ABI_MARK	reg_nnr(1)
+ #define NFP_BPF_ABI_PKT		reg_nnr(2)
+ #define NFP_BPF_ABI_LEN		reg_nnr(3)
  
-+struct bpf_verifier_env;
-+struct bpf_ext_analyzer_ops {
-+	int (*insn_hook)(struct bpf_verifier_env *env,
-+			 int insn_idx, int prev_insn_idx);
-+};
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c b/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
+index dfcf162ccbb8..42a8afb67fc8 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
+@@ -674,6 +674,16 @@ static int construct_data_ld(struct nfp_prog *nfp_prog, u16 offset, u8 size)
+ 	return construct_data_ind_ld(nfp_prog, offset, 0, false, size);
+ }
+ 
++static int wrp_set_mark(struct nfp_prog *nfp_prog, u8 src)
++{
++	emit_alu(nfp_prog, NFP_BPF_ABI_MARK,
++		 reg_none(), ALU_OP_NONE, reg_b(src));
++	emit_alu(nfp_prog, NFP_BPF_ABI_FLAGS,
++		 NFP_BPF_ABI_FLAGS, ALU_OP_OR, reg_imm(NFP_BPF_ABI_FLAG_MARK));
 +
- /* single container for all structs
-  * one verifier_env per bpf_check() call
-  */
-@@ -68,6 +74,8 @@ struct bpf_verifier_env {
- 	int stack_size;			/* number of states to be processed */
- 	struct bpf_verifier_state cur_state; /* current verifier state */
- 	struct bpf_verifier_state_list **explored_states; /* search pruning optimization */
-+	const struct bpf_ext_analyzer_ops *analyzer_ops; /* external analyzer ops */
-+	void *analyzer_priv; /* pointer to external analyzer's private data */
- 	struct bpf_map *used_maps[MAX_USED_MAPS]; /* array of map's used by eBPF program */
- 	u32 used_map_cnt;		/* number of used maps */
- 	u32 id_gen;			/* used to generate unique reg IDs */
-@@ -75,4 +83,7 @@ struct bpf_verifier_env {
- 	struct bpf_insn_aux_data *insn_aux_data; /* array of per-insn state */
- };
- 
-+int bpf_analyzer(struct bpf_prog *prog, const struct bpf_ext_analyzer_ops *ops,
-+		 void *priv);
++	return 0;
++}
 +
- #endif /* _LINUX_BPF_ANALYZER_H */
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 6e126a417290..d93e78331b90 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -624,6 +624,10 @@ static int check_packet_access(struct bpf_verifier_env *env, u32 regno, int off,
- static int check_ctx_access(struct bpf_verifier_env *env, int off, int size,
- 			    enum bpf_access_type t, enum bpf_reg_type *reg_type)
+ static void
+ wrp_alu_imm(struct nfp_prog *nfp_prog, u8 dst, enum alu_op alu_op, u32 imm)
  {
-+	/* for analyzer ctx accesses are already validated and converted */
-+	if (env->analyzer_ops)
-+		return 0;
-+
- 	if (env->prog->aux->ops->is_valid_access &&
- 	    env->prog->aux->ops->is_valid_access(off, size, t, reg_type)) {
- 		/* remember the offset of last byte accessed in ctx */
-@@ -2222,6 +2226,15 @@ static int is_state_visited(struct bpf_verifier_env *env, int insn_idx)
+@@ -1117,6 +1127,14 @@ static int mem_ldx4(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
  	return 0;
  }
  
-+static int ext_analyzer_insn_hook(struct bpf_verifier_env *env,
-+				  int insn_idx, int prev_insn_idx)
++static int mem_stx4(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
 +{
-+	if (!env->analyzer_ops || !env->analyzer_ops->insn_hook)
-+		return 0;
++	if (meta->insn.off == offsetof(struct sk_buff, mark))
++		return wrp_set_mark(nfp_prog, meta->insn.src_reg * 2);
 +
-+	return env->analyzer_ops->insn_hook(env, insn_idx, prev_insn_idx);
++	return -ENOTSUPP;
 +}
 +
- static int do_check(struct bpf_verifier_env *env)
+ static int jump(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
  {
- 	struct bpf_verifier_state *state = &env->cur_state;
-@@ -2280,6 +2293,10 @@ static int do_check(struct bpf_verifier_env *env)
- 			print_bpf_insn(insn);
- 		}
+ 	if (meta->insn.off < 0) /* TODO */
+@@ -1306,6 +1324,7 @@ static const instr_cb_t instr_cb[256] = {
+ 	[BPF_LD | BPF_IND | BPF_H] =	data_ind_ld2,
+ 	[BPF_LD | BPF_IND | BPF_W] =	data_ind_ld4,
+ 	[BPF_LDX | BPF_MEM | BPF_W] =	mem_ldx4,
++	[BPF_STX | BPF_MEM | BPF_W] =	mem_stx4,
+ 	[BPF_JMP | BPF_JA | BPF_K] =	jump,
+ 	[BPF_JMP | BPF_JEQ | BPF_K] =	jeq_imm,
+ 	[BPF_JMP | BPF_JGT | BPF_K] =	jgt_imm,
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+index 13c6a9001b4d..ed824e11a1e3 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+@@ -269,6 +269,8 @@ struct nfp_net_rx_desc {
+ 	};
+ };
  
-+		err = ext_analyzer_insn_hook(env, insn_idx, prev_insn_idx);
-+		if (err)
-+			return err;
++#define NFP_NET_META_FIELD_MASK GENMASK(NFP_NET_META_FIELD_SIZE - 1, 0)
 +
- 		if (class == BPF_ALU || class == BPF_ALU64) {
- 			err = check_alu_op(env, insn);
- 			if (err)
-@@ -2829,3 +2846,54 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr)
- 	kfree(env);
- 	return ret;
+ struct nfp_net_rx_hash {
+ 	__be32 hash_type;
+ 	__be32 hash;
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+index f091eb758ca2..415691edcaa5 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+@@ -1293,38 +1293,72 @@ static void nfp_net_rx_csum(struct nfp_net *nn, struct nfp_net_r_vector *r_vec,
+ 	}
  }
-+
-+int bpf_analyzer(struct bpf_prog *prog, const struct bpf_ext_analyzer_ops *ops,
-+		 void *priv)
+ 
+-/**
+- * nfp_net_set_hash() - Set SKB hash data
+- * @netdev: adapter's net_device structure
+- * @skb:   SKB to set the hash data on
+- * @rxd:   RX descriptor
+- *
+- * The RSS hash and hash-type are pre-pended to the packet data.
+- * Extract and decode it and set the skb fields.
+- */
+ static void nfp_net_set_hash(struct net_device *netdev, struct sk_buff *skb,
+-			     struct nfp_net_rx_desc *rxd)
++			     unsigned int type, __be32 *hash)
+ {
+-	struct nfp_net_rx_hash *rx_hash;
+-
+-	if (!(rxd->rxd.flags & PCIE_DESC_RX_RSS) ||
+-	    !(netdev->features & NETIF_F_RXHASH))
++	if (!(netdev->features & NETIF_F_RXHASH))
+ 		return;
+ 
+-	rx_hash = (struct nfp_net_rx_hash *)(skb->data - sizeof(*rx_hash));
+-
+-	switch (be32_to_cpu(rx_hash->hash_type)) {
++	switch (type) {
+ 	case NFP_NET_RSS_IPV4:
+ 	case NFP_NET_RSS_IPV6:
+ 	case NFP_NET_RSS_IPV6_EX:
+-		skb_set_hash(skb, be32_to_cpu(rx_hash->hash), PKT_HASH_TYPE_L3);
++		skb_set_hash(skb, get_unaligned_be32(hash), PKT_HASH_TYPE_L3);
+ 		break;
+ 	default:
+-		skb_set_hash(skb, be32_to_cpu(rx_hash->hash), PKT_HASH_TYPE_L4);
++		skb_set_hash(skb, get_unaligned_be32(hash), PKT_HASH_TYPE_L4);
+ 		break;
+ 	}
+ }
+ 
++static void
++nfp_net_set_hash_desc(struct net_device *netdev, struct sk_buff *skb,
++		      struct nfp_net_rx_desc *rxd)
 +{
-+	struct bpf_verifier_env *env;
-+	int ret;
++	struct nfp_net_rx_hash *rx_hash;
 +
-+	env = kzalloc(sizeof(struct bpf_verifier_env), GFP_KERNEL);
-+	if (!env)
-+		return -ENOMEM;
++	if (!(rxd->rxd.flags & PCIE_DESC_RX_RSS))
++		return;
 +
-+	env->insn_aux_data = vzalloc(sizeof(struct bpf_insn_aux_data) *
-+				     prog->len);
-+	ret = -ENOMEM;
-+	if (!env->insn_aux_data)
-+		goto err_free_env;
-+	env->prog = prog;
-+	env->analyzer_ops = ops;
-+	env->analyzer_priv = priv;
++	rx_hash = (struct nfp_net_rx_hash *)(skb->data - sizeof(*rx_hash));
 +
-+	/* grab the mutex to protect few globals used by verifier */
-+	mutex_lock(&bpf_verifier_lock);
-+
-+	log_level = 0;
-+
-+	env->explored_states = kcalloc(env->prog->len,
-+				       sizeof(struct bpf_verifier_state_list *),
-+				       GFP_KERNEL);
-+	ret = -ENOMEM;
-+	if (!env->explored_states)
-+		goto skip_full_check;
-+
-+	ret = check_cfg(env);
-+	if (ret < 0)
-+		goto skip_full_check;
-+
-+	env->allow_ptr_leaks = capable(CAP_SYS_ADMIN);
-+
-+	ret = do_check(env);
-+
-+skip_full_check:
-+	while (pop_stack(env, NULL) >= 0);
-+	free_states(env);
-+
-+	mutex_unlock(&bpf_verifier_lock);
-+	vfree(env->insn_aux_data);
-+err_free_env:
-+	kfree(env);
-+	return ret;
++	nfp_net_set_hash(netdev, skb, get_unaligned_be32(&rx_hash->hash_type),
++			 &rx_hash->hash);
 +}
-+EXPORT_SYMBOL_GPL(bpf_analyzer);
++
++static void *
++nfp_net_parse_meta(struct net_device *netdev, struct sk_buff *skb,
++		   int meta_len)
++{
++	u8 *data = skb->data - meta_len;
++	u32 meta_info;
++
++	meta_info = get_unaligned_be32(data);
++	data += 4;
++
++	while (meta_info) {
++		switch (meta_info & NFP_NET_META_FIELD_MASK) {
++		case NFP_NET_META_HASH:
++			meta_info >>= NFP_NET_META_FIELD_SIZE;
++			nfp_net_set_hash(netdev, skb,
++					 meta_info & NFP_NET_META_FIELD_MASK,
++					 (__be32 *)data);
++			data += 4;
++			break;
++		case NFP_NET_META_MARK:
++			skb->mark = get_unaligned_be32(data);
++			data += 4;
++			break;
++		default:
++			return NULL;
++		}
++
++		meta_info >>= NFP_NET_META_FIELD_SIZE;
++	}
++
++	return data;
++}
++
+ /**
+  * nfp_net_rx() - receive up to @budget packets on @rx_ring
+  * @rx_ring:   RX ring to receive from
+@@ -1439,14 +1473,29 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
+ 			skb_reserve(skb, nn->rx_offset);
+ 		skb_put(skb, data_len - meta_len);
+ 
+-		nfp_net_set_hash(nn->netdev, skb, rxd);
+-
+ 		/* Stats update */
+ 		u64_stats_update_begin(&r_vec->rx_sync);
+ 		r_vec->rx_pkts++;
+ 		r_vec->rx_bytes += skb->len;
+ 		u64_stats_update_end(&r_vec->rx_sync);
+ 
++		if (nn->fw_ver.major <= 3) {
++			nfp_net_set_hash_desc(nn->netdev, skb, rxd);
++		} else if (meta_len) {
++			void *end;
++
++			end = nfp_net_parse_meta(nn->netdev, skb, meta_len);
++			if (unlikely(end != skb->data)) {
++				u64_stats_update_begin(&r_vec->rx_sync);
++				r_vec->rx_drops++;
++				u64_stats_update_end(&r_vec->rx_sync);
++
++				dev_kfree_skb_any(skb);
++				nn_warn_ratelimit(nn, "invalid RX packet metadata\n");
++				continue;
++			}
++		}
++
+ 		skb_record_rx_queue(skb, rx_ring->idx);
+ 		skb->protocol = eth_type_trans(skb, nn->netdev);
+ 
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h b/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h
+index 7aa11f3c5ef0..93b10b441acb 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h
+@@ -66,6 +66,13 @@
+ #define NFP_NET_LSO_MAX_HDR_SZ		255
+ 
+ /**
++ * Prepend field types
++ */
++#define NFP_NET_META_FIELD_SIZE		4
++#define NFP_NET_META_HASH		1 /* next field carries hash type */
++#define NFP_NET_META_MARK		2
++
++/**
+  * Hash type pre-pended when a RSS hash was computed
+  */
+ #define NFP_NET_RSS_NONE                0
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c b/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c
+index f7062cb648e1..2800bbf65a89 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c
+@@ -148,7 +148,7 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
+ 		dev_warn(&pdev->dev, "OBSOLETE Firmware detected - VF isolation not available\n");
+ 	} else {
+ 		switch (fw_ver.major) {
+-		case 1 ... 3:
++		case 1 ... 4:
+ 			if (is_nfp3200) {
+ 				stride = 2;
+ 				tx_bar_no = NFP_NET_Q0_BAR;
 -- 
 1.9.1
