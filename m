@@ -1,51 +1,44 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: MDB offloading of local ipv4 multicast groups
-Date: Fri, 16 Sep 2016 00:28:57 +0200
-Message-ID: <20160915222857.GE10784@lunn.ch>
-References: <ebb1092f-4fab-c490-0553-b108feb5e8d4@phrozen.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3] net: ip, diag -- Add diag interface for raw sockets
+Date: Thu, 15 Sep 2016 15:48:11 -0700
+Message-ID: <1473979691.22679.55.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20160913171950.GC32643@uranus>
+         <8260ff1f-6907-aed8-caae-68d63a4ad529@cumulusnetworks.com>
+         <20160915202219.GB1867@uranus.lan>
+         <f482796f-185e-a3b7-248c-20f1f39cb459@cumulusnetworks.com>
+         <20160915210126.GC1867@uranus.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Elad Raz <eladr@mellanox.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Ido Schimmel <idosch@mellanox.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-        "David S. Miller" <davem@davemloft.net>
-To: John Crispin <john@phrozen.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, avagin@openvz.org, stephen@networkplumber.org
+To: Cyrill Gorcunov <gorcunov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:49731 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1757285AbcIOW3B (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 15 Sep 2016 18:29:01 -0400
-Content-Disposition: inline
-In-Reply-To: <ebb1092f-4fab-c490-0553-b108feb5e8d4@phrozen.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:33192 "EHLO
+        mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754907AbcIOWsP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 18:48:15 -0400
+In-Reply-To: <20160915210126.GC1867@uranus.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 15, 2016 at 08:58:50PM +0200, John Crispin wrote:
-> Hi,
+On Fri, 2016-09-16 at 00:01 +0300, Cyrill Gorcunov wrote:
+
+> Here I get kicked off the server. Login back
 > 
-> While adding MDB support to the qca8k dsa driver I found that ipv4 mcast
-> groups don't always get propagated to the dsa driver. In my setup there
-> are 2 clients connected to the switch, both running a mdns client. The
-> .port_mdb_add() callback is properly called for 33:33:00:00:00:FB but
-> 01:00:5E:00:00:FB never got propagated to the dsa driver.
+> [cyrill@uranus ~] ssh root@pcs7 
+> Last login: Thu Sep 15 23:20:42 2016 from gateway
+> [root@pcs7 ~]# cd /home/iproute2/
+> [root@pcs7 iproute2]# misc/ss -A raw
+> State      Recv-Q Send-Q                                Local Address:Port                                                 Peer Address:Port                
+> UNCONN     0      0                                                :::ipv6-icmp                                                      :::*                    
+> UNCONN     0      0                                                :::ipv6-icmp                                                      :::*                    
 > 
-> The reason is that the call to ipv4_is_local_multicast() here [1] will
-> return true and the notifier is never called. Is this intentional or is
-> there something missing in the code ?
+> Maybe I do something wrong for testing?
 
-Hi John
+If you kill your shell, maybe /root/sock is killer as well, thus its raw
+sockets are closed.
 
-I've not looked too deeply at this yet, but here is my take on how it
-should work.
-
-By default, the switch needs to flood all multicast traffic from any
-port in a bridge, to all other ports in a bridge, including the host.
-
-Adding an mdb entry allows you to reduce where such flooding should
-occur, i.e. it allows you to implement IGMP snooping and block traffic
-going out a port when you know there is nobody interested in the
-traffic on that port.
-
-	Andrew
+Try to be selective in the -K , do not kill tcp sockets ?
