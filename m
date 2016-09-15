@@ -1,131 +1,65 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: [PATCH net 2/2] bna: fix crash in bnad_get_strings()
-Date: Thu, 15 Sep 2016 22:47:52 +0200
-Message-ID: <1473972472-29681-2-git-send-email-ivecera@redhat.com>
-References: <1473972472-29681-1-git-send-email-ivecera@redhat.com>
-Cc: jarod@redhat.com, rasesh.mody@qlogic.com
-To: netdev@vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH v3] net: ip, diag -- Add diag interface for raw sockets
+Date: Thu, 15 Sep 2016 14:54:57 -0600
+Message-ID: <f482796f-185e-a3b7-248c-20f1f39cb459@cumulusnetworks.com>
+References: <20160913171950.GC32643@uranus>
+ <8260ff1f-6907-aed8-caae-68d63a4ad529@cumulusnetworks.com>
+ <20160915202219.GB1867@uranus.lan>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, avagin@openvz.org, stephen@networkplumber.org
+To: Cyrill Gorcunov <gorcunov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52982 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751502AbcIOUr5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 15 Sep 2016 16:47:57 -0400
-In-Reply-To: <1473972472-29681-1-git-send-email-ivecera@redhat.com>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:34539 "EHLO
+        mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752197AbcIOUzA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 16:55:00 -0400
+Received: by mail-pa0-f45.google.com with SMTP id wk8so19171231pab.1
+        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 13:54:59 -0700 (PDT)
+In-Reply-To: <20160915202219.GB1867@uranus.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 6e7333d "net: add rx_nohandler stat counter" added the new entry
-rx_nohandler into struct rtnl_link_stats64. Unfortunately the bna
-driver foolishly depends on the structure. It uses part of it for
-ethtool statistics and it's not bad but the driver assumes its size
-is constant as it defines string for each existing entry. The problem
-occurs when the structure is extended because you need to modify bna
-driver as well. If not any attempt to retrieve ethtool statistics results
-in crash in bnad_get_strings().
-The patch changes BNAD_ETHTOOL_STATS_NUM so it counts real number of
-strings in the array and also removes rtnl_link_stats64 entries that
-are not used in output and are always zero.
+On 9/15/16 2:22 PM, Cyrill Gorcunov wrote:
+>> ss -K is not working. Socket lookup fails to find a match due to a protocol mismatch.
+>>
+>> haven't had time to track down why there is a mismatch since the kill uses the socket returned
+>> from the dump. Won't have time to come back to this until early next week.
+> 
+> Have you ran iproute2 patched? I just ran ss -K and all sockets get closed
+> (including raw ones), which actually kicked me off the testing machine sshd :/
+> 
 
-Fixes: 6e7333d "net: add rx_nohandler stat counter"
-Signed-off-by: Ivan Vecera <ivecera@redhat.com>
----
- drivers/net/ethernet/brocade/bna/bnad_ethtool.c | 50 ++++++++++++-------------
- 1 file changed, 23 insertions(+), 27 deletions(-)
 
-diff --git a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-index 5671353..31f61a7 100644
---- a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-@@ -34,12 +34,7 @@
- #define BNAD_NUM_RXQ_COUNTERS 7
- #define BNAD_NUM_TXQ_COUNTERS 5
- 
--#define BNAD_ETHTOOL_STATS_NUM						\
--	(sizeof(struct rtnl_link_stats64) / sizeof(u64) +	\
--	sizeof(struct bnad_drv_stats) / sizeof(u64) +		\
--	offsetof(struct bfi_enet_stats, rxf_stats[0]) / sizeof(u64))
--
--static const char *bnad_net_stats_strings[BNAD_ETHTOOL_STATS_NUM] = {
-+static const char *bnad_net_stats_strings[] = {
- 	"rx_packets",
- 	"tx_packets",
- 	"rx_bytes",
-@@ -50,22 +45,10 @@ static const char *bnad_net_stats_strings[BNAD_ETHTOOL_STATS_NUM] = {
- 	"tx_dropped",
- 	"multicast",
- 	"collisions",
--
- 	"rx_length_errors",
--	"rx_over_errors",
- 	"rx_crc_errors",
- 	"rx_frame_errors",
--	"rx_fifo_errors",
--	"rx_missed_errors",
--
--	"tx_aborted_errors",
--	"tx_carrier_errors",
- 	"tx_fifo_errors",
--	"tx_heartbeat_errors",
--	"tx_window_errors",
--
--	"rx_compressed",
--	"tx_compressed",
- 
- 	"netif_queue_stop",
- 	"netif_queue_wakeup",
-@@ -254,6 +237,8 @@ static const char *bnad_net_stats_strings[BNAD_ETHTOOL_STATS_NUM] = {
- 	"fc_tx_fid_parity_errors",
- };
- 
-+#define BNAD_ETHTOOL_STATS_NUM	ARRAY_SIZE(bnad_net_stats_strings)
+This is the patch I applied to iproute2; the change in your goo.gl link plus a debug to confirm the kill action is initiated by ss:
+
+diff --git a/misc/ss.c b/misc/ss.c
+index 3b268d999426..4d98411738ea 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -2334,6 +2334,10 @@ static int show_one_inet_sock(const struct sockaddr_nl *addr,
+        if (diag_arg->f->f && run_ssfilter(diag_arg->f->f, &s) == 0)
+                return 0;
+
++       if (diag_arg->f->kill) {
++printf("want to kill:\n");
++       err = inet_show_sock(h, &s, diag_arg->protocol);
++       }
+        if (diag_arg->f->kill && kill_inet_sock(h, arg) != 0) {
+                if (errno == EOPNOTSUPP || errno == ENOENT) {
+                        /* Socket can't be closed, or is already closed. */
+@@ -2631,6 +2635,10 @@ static int raw_show(struct filter *f)
+
+        dg_proto = RAW_PROTO;
+
++if (!getenv("PROC_NET_RAW") && !getenv("PROC_ROOT") &&
++inet_show_netlink(f, NULL, IPPROTO_RAW) == 0)
++return 0;
 +
- static int
- bnad_get_settings(struct net_device *netdev, struct ethtool_cmd *cmd)
- {
-@@ -859,9 +844,9 @@ bnad_get_ethtool_stats(struct net_device *netdev, struct ethtool_stats *stats,
- 		       u64 *buf)
- {
- 	struct bnad *bnad = netdev_priv(netdev);
--	int i, j, bi;
-+	int i, j, bi = 0;
- 	unsigned long flags;
--	struct rtnl_link_stats64 *net_stats64;
-+	struct rtnl_link_stats64 net_stats64;
- 	u64 *stats64;
- 	u32 bmap;
- 
-@@ -876,14 +861,25 @@ bnad_get_ethtool_stats(struct net_device *netdev, struct ethtool_stats *stats,
- 	 * under the same lock
- 	 */
- 	spin_lock_irqsave(&bnad->bna_lock, flags);
--	bi = 0;
--	memset(buf, 0, stats->n_stats * sizeof(u64));
--
--	net_stats64 = (struct rtnl_link_stats64 *)buf;
--	bnad_netdev_qstats_fill(bnad, net_stats64);
--	bnad_netdev_hwstats_fill(bnad, net_stats64);
- 
--	bi = sizeof(*net_stats64) / sizeof(u64);
-+	memset(&net_stats64, 0, sizeof(net_stats64));
-+	bnad_netdev_qstats_fill(bnad, &net_stats64);
-+	bnad_netdev_hwstats_fill(bnad, &net_stats64);
-+
-+	buf[bi++] = net_stats64.rx_packets;
-+	buf[bi++] = net_stats64.tx_packets;
-+	buf[bi++] = net_stats64.rx_bytes;
-+	buf[bi++] = net_stats64.tx_bytes;
-+	buf[bi++] = net_stats64.rx_errors;
-+	buf[bi++] = net_stats64.tx_errors;
-+	buf[bi++] = net_stats64.rx_dropped;
-+	buf[bi++] = net_stats64.tx_dropped;
-+	buf[bi++] = net_stats64.multicast;
-+	buf[bi++] = net_stats64.collisions;
-+	buf[bi++] = net_stats64.rx_length_errors;
-+	buf[bi++] = net_stats64.rx_crc_errors;
-+	buf[bi++] = net_stats64.rx_frame_errors;
-+	buf[bi++] = net_stats64.tx_fifo_errors;
- 
- 	/* Get netif_queue_stopped from stack */
- 	bnad->stats.drv_stats.netif_queue_stopped = netif_queue_stopped(netdev);
--- 
-2.7.3
+        if (f->families&(1<<AF_INET)) {
+                if ((fp = net_raw_open()) == NULL)
+                        goto outerr;
