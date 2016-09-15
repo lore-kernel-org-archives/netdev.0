@@ -1,76 +1,93 @@
-From: Anton Aksola <aakso@iki.fi>
-Subject: [PATCH] iproute2: build nsid-name cache only for commands that need
- it
-Date: Thu, 15 Sep 2016 08:23:26 +0000
-Message-ID: <20160915082326.GA1635@toys.tundra.dog-lvm.novalocal>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [RFC v2 00/10] Landlock LSM: Unprivileged sandboxing
+Date: Thu, 15 Sep 2016 11:19:02 +0200
+Message-ID: <20160915091902.GA13132@amd>
+References: <1472121165-29071-1-git-send-email-mic@digikod.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-78.nebula.fi ([83.145.220.78]:44014 "EHLO smtp.nebula.fi"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1758030AbcIOIaq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 15 Sep 2016 04:30:46 -0400
-Received: from toys.tundra.dog-lvm.novalocal (hel2-77-86-247-86.ext.nebulacloud.fi [77.86.247.86])
-        (using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
-        (No client certificate requested)
-        by smtp.nebula.fi (Postfix) with ESMTPS id 77832D00E86
-        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 11:23:20 +0300 (EEST)
+Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
+        Andy Lutomirski <luto@amacapital.net>,
+        Arnd Bergmann <arnd@arndb.de>,
+        Casey Schaufler <casey@schaufler-ca.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Daniel Mack <daniel@zonque.org>,
+        David Drysdale <drysdale@google.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Elena Reshetova <elena.reshetova@intel.com>,
+        James Morris <james.l.morris@oracle.com>,
+        Kees Cook <keescook@chromium.org>,
+        Paul Moore <pmoore@redhat.com>,
+        Sargun Dhillon <sargun@sargun.me>,
+        "Serge E . Hallyn" <serge@hallyn.com>,
+        Will Drewry <wad@chromium.org>,
+        kernel-hardening@lists.openwall.com, linux-api@vger.kernel.org,
+        linux-security-module@vger.kernel.org, netdev@vger.kernel.org
+To: =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>
+Return-path: <linux-security-module-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1472121165-29071-1-git-send-email-mic@digikod.net>
+Sender: owner-linux-security-module@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The calling of netns_map_init() before command parsing introduced
-a performance issue with large number of namespaces.
+Hi!
 
-As commands such as add, del and exec do not need to iterate through
-/var/run/netns it would be good not no build the cache before executing
-these commands.
+> This series is a proof of concept to fill some missing part of seccomp as the
+> ability to check syscall argument pointers or creating more dynamic security
+> policies. The goal of this new stackable Linux Security Module (LSM) called
+> Landlock is to allow any process, including unprivileged ones, to create
+> powerful security sandboxes comparable to the Seatbelt/XNU Sandbox or the
+> OpenBSD Pledge. This kind of sandbox help to mitigate the security impact of
+> bugs or unexpected/malicious behaviors in userland applications.
+> 
+> The first RFC [1] was focused on extending seccomp while staying at the syscall
+> level. This brought a working PoC but with some (mitigated) ToCToU race
+> conditions due to the seccomp ptrace hole (now fixed) and the non-atomic
+> syscall argument evaluation (hence the LSM hooks).
 
-Example:
-unpatched:
-time seq 1 1000 | xargs -n 1 ip netns add
+Long and nice description follows. Should it go to Documentation/
+somewhere?
 
-real    0m16.832s
-user    0m1.350s
-sys    0m15.029s
+Because some documentation would be useful...
+								Pavel
 
-patched:
-time seq 1 1000 | xargs -n 1 ip netns add
+>  include/linux/bpf.h                   |  41 +++++
+>  include/linux/lsm_hooks.h             |   5 +
+>  include/linux/seccomp.h               |  54 ++++++-
+>  include/uapi/asm-generic/errno-base.h |   1 +
+>  include/uapi/linux/bpf.h              | 103 ++++++++++++
+>  include/uapi/linux/seccomp.h          |   2 +
+>  kernel/bpf/arraymap.c                 | 222 +++++++++++++++++++++++++
+>  kernel/bpf/syscall.c                  |  18 ++-
+>  kernel/bpf/verifier.c                 |  32 +++-
+>  kernel/fork.c                         |  41 ++++-
+>  kernel/seccomp.c                      | 211 +++++++++++++++++++++++-
+>  samples/Makefile                      |   2 +-
+>  samples/landlock/.gitignore           |   1 +
+>  samples/landlock/Makefile             |  16 ++
+>  samples/landlock/sandbox.c            | 295 ++++++++++++++++++++++++++++++++++
+>  security/Kconfig                      |   1 +
+>  security/Makefile                     |   2 +
+>  security/landlock/Kconfig             |  19 +++
+>  security/landlock/Makefile            |   3 +
+>  security/landlock/checker_cgroup.c    |  96 +++++++++++
+>  security/landlock/checker_cgroup.h    |  18 +++
+>  security/landlock/checker_fs.c        | 183 +++++++++++++++++++++
+>  security/landlock/checker_fs.h        |  20 +++
+>  security/landlock/lsm.c               | 228 ++++++++++++++++++++++++++
+>  security/security.c                   |   1 +
+>  25 files changed, 1592 insertions(+), 23 deletions(-)
+>  create mode 100644 samples/landlock/.gitignore
+>  create mode 100644 samples/landlock/Makefile
+>  create mode 100644 samples/landlock/sandbox.c
+>  create mode 100644 security/landlock/Kconfig
+>  create mode 100644 security/landlock/Makefile
+>  create mode 100644 security/landlock/checker_cgroup.c
+>  create mode 100644 security/landlock/checker_cgroup.h
+>  create mode 100644 security/landlock/checker_fs.c
+>  create mode 100644 security/landlock/checker_fs.h
+>  create mode 100644 security/landlock/lsm.c
+> 
 
-real    0m3.859s
-user    0m0.132s
-sys    0m3.205s
-
-Signed-off-by: Anton Aksola <aakso@iki.fi>
----
- ip/ipnetns.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/ip/ipnetns.c b/ip/ipnetns.c
-index af87065..4546fe7 100644
---- a/ip/ipnetns.c
-+++ b/ip/ipnetns.c
-@@ -775,8 +775,6 @@ static int netns_monitor(int argc, char **argv)
- 
- int do_netns(int argc, char **argv)
- {
--	netns_map_init();
--
- 	if (argc < 1)
- 		return netns_list(0, NULL);
- 
-@@ -784,8 +782,10 @@ int do_netns(int argc, char **argv)
- 	    (matches(*argv, "lst") == 0))
- 		return netns_list(argc-1, argv+1);
- 
--	if ((matches(*argv, "list-id") == 0))
-+	if ((matches(*argv, "list-id") == 0)) {
-+		netns_map_init();
- 		return netns_list_id(argc-1, argv+1);
-+	}
- 
- 	if (matches(*argv, "help") == 0)
- 		return usage();
 -- 
-1.8.3.1
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
