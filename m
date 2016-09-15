@@ -1,61 +1,38 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] mwifiex: fix null pointer deference when adapter is null
-Date: Thu, 15 Sep 2016 14:42:38 +0100
-Message-ID: <20160915134238.5167-1-colin.king@canonical.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 7/9] net: ethernet: ti: cpts: calc mult and shift from
+ refclk freq
+Date: Thu, 15 Sep 2016 15:49:26 +0200
+Message-ID: <20160915134926.GA27352@localhost.localdomain>
+References: <20160914130231.3035-1-grygorii.strashko@ti.com>
+ <20160914130231.3035-8-grygorii.strashko@ti.com>
+ <20160914202618.GC12195@netboy>
+ <20160915115814.GB24676@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: Amitkumar Karwar <akarwar@marvell.com>,
-        Nishant Sarmukadam <nishants@marvell.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org,
+        linux-omap@vger.kernel.org, WingMan Kwok <w-kwok2@ti.com>
+To: Grygorii Strashko <grygorii.strashko@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f49.google.com ([209.85.215.49]:36804 "EHLO
+        mail-lf0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752297AbcIONte (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 09:49:34 -0400
+Content-Disposition: inline
+In-Reply-To: <20160915115814.GB24676@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+On Thu, Sep 15, 2016 at 01:58:15PM +0200, Richard Cochran wrote:
+> Can the input clock be higher than 1 GHz?  If not, I suggest using
+> clocks_calc_mult_shift() with maxsec=4 and a setting the watchdog also
+> to 4*HZ.
 
-If adapter is null the error exit path in mwifiex_shutdown_sw is
-to down the semaphore sem and print some debug via mwifiex_dbg.
-However, passing a NULL adapter to mwifiex_dbg causes a null
-pointer deference when accessing adapter->dev.  This fix checks
-for a null adapter at the start of the function and to exit
-without the need to up the semaphore and we also skip the debug
-to avoid the null pointer dereference.
+On second thought, with the new 12% timer batching, using 4*HZ for 32
+bits of 1 GHz is cutting it too close.  So just keep it like you had
+it, with maxsec=mask/freq and timeout=maxsec/2, to stay on the safe
+side.
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/wireless/marvell/mwifiex/main.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/wireless/marvell/mwifiex/main.c b/drivers/net/wireless/marvell/mwifiex/main.c
-index 9b2e98c..7a4f8cc 100644
---- a/drivers/net/wireless/marvell/mwifiex/main.c
-+++ b/drivers/net/wireless/marvell/mwifiex/main.c
-@@ -1369,12 +1369,12 @@ mwifiex_shutdown_sw(struct mwifiex_adapter *adapter, struct semaphore *sem)
- 	struct mwifiex_private *priv;
- 	int i;
- 
-+	if (!adapter)
-+		goto exit_return;
-+
- 	if (down_interruptible(sem))
- 		goto exit_sem_err;
- 
--	if (!adapter)
--		goto exit_remove;
--
- 	priv = mwifiex_get_priv(adapter, MWIFIEX_BSS_ROLE_ANY);
- 	mwifiex_deauthenticate(priv, NULL);
- 
-@@ -1434,6 +1434,7 @@ mwifiex_shutdown_sw(struct mwifiex_adapter *adapter, struct semaphore *sem)
- 	up(sem);
- exit_sem_err:
- 	mwifiex_dbg(adapter, INFO, "%s, successful\n", __func__);
-+exit_return:
- 	return 0;
- }
- 
--- 
-2.9.3
+Thanks,
+Richard
