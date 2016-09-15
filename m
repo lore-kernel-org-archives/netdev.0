@@ -1,116 +1,182 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCHv4 net-next 03/15] net: cls_bpf: add support for marking filters as hardware-only
-Date: Thu, 15 Sep 2016 20:12:23 +0100
-Message-ID: <1473966755-30106-4-git-send-email-jakub.kicinski@netronome.com>
+Subject: [PATCHv4 net-next 04/15] bpf: don't (ab)use instructions to store state
+Date: Thu, 15 Sep 2016 20:12:24 +0100
+Message-ID: <1473966755-30106-5-git-send-email-jakub.kicinski@netronome.com>
 References: <1473966755-30106-1-git-send-email-jakub.kicinski@netronome.com>
 Cc: ast@kernel.org, daniel@iogearbox.net, jiri@resnulli.us,
         john.fastabend@gmail.com, kubakici@wp.pl,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:37912 "EHLO
-        mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753904AbcIOTOK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 15:14:10 -0400
-Received: by mail-wm0-f49.google.com with SMTP id 1so1151455wmz.1
-        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 12:14:09 -0700 (PDT)
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:37463 "EHLO
+        mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751627AbcIOTOL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 15:14:11 -0400
+Received: by mail-wm0-f42.google.com with SMTP id k186so1234559wmd.0
+        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 12:14:10 -0700 (PDT)
 In-Reply-To: <1473966755-30106-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add cls_bpf support for the TCA_CLS_FLAGS_SKIP_SW flag.
+Storing state in reserved fields of instructions makes
+it impossible to run verifier on programs already
+marked as read-only. Allocate and use an array of
+per-instruction state instead.
 
+While touching the error path rename and move existing
+jump target.
+
+Suggested-by: Alexei Starovoitov <ast@kernel.org>
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- net/sched/cls_bpf.c | 34 +++++++++++++++++++++++++---------
- 1 file changed, 25 insertions(+), 9 deletions(-)
+v3:
+ - new patch.
+---
+ kernel/bpf/verifier.c | 51 ++++++++++++++++++++++++++++++++-------------------
+ 1 file changed, 32 insertions(+), 19 deletions(-)
 
-diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
-index 1ae5b6798363..1aad314089e9 100644
---- a/net/sched/cls_bpf.c
-+++ b/net/sched/cls_bpf.c
-@@ -28,7 +28,7 @@ MODULE_DESCRIPTION("TC BPF based classifier");
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 086b3979380c..ce9c0d1721c6 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -181,6 +181,10 @@ struct verifier_stack_elem {
+ 	struct verifier_stack_elem *next;
+ };
  
- #define CLS_BPF_NAME_LEN	256
- #define CLS_BPF_SUPPORTED_GEN_FLAGS		\
--	TCA_CLS_FLAGS_SKIP_HW
-+	(TCA_CLS_FLAGS_SKIP_HW | TCA_CLS_FLAGS_SKIP_SW)
- 
- struct cls_bpf_head {
- 	struct list_head plist;
-@@ -98,7 +98,9 @@ static int cls_bpf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 
- 		qdisc_skb_cb(skb)->tc_classid = prog->res.classid;
- 
--		if (at_ingress) {
-+		if (tc_skip_sw(prog->gen_flags)) {
-+			filter_res = prog->exts_integrated ? TC_ACT_UNSPEC : 0;
-+		} else if (at_ingress) {
- 			/* It is safe to push/pull even if skb_shared() */
- 			__skb_push(skb, skb->mac_len);
- 			bpf_compute_data_end(skb);
-@@ -166,32 +168,42 @@ static int cls_bpf_offload_cmd(struct tcf_proto *tp, struct cls_bpf_prog *prog,
- 					     tp->protocol, &offload);
- }
- 
--static void cls_bpf_offload(struct tcf_proto *tp, struct cls_bpf_prog *prog,
--			    struct cls_bpf_prog *oldprog)
-+static int cls_bpf_offload(struct tcf_proto *tp, struct cls_bpf_prog *prog,
-+			   struct cls_bpf_prog *oldprog)
- {
- 	struct net_device *dev = tp->q->dev_queue->dev;
- 	struct cls_bpf_prog *obj = prog;
- 	enum tc_clsbpf_command cmd;
-+	bool skip_sw;
-+	int ret;
++struct bpf_insn_aux_data {
++	enum bpf_reg_type ptr_type;	/* pointer type for load/store insns */
++};
 +
-+	skip_sw = tc_skip_sw(prog->gen_flags) ||
-+		(oldprog && tc_skip_sw(oldprog->gen_flags));
+ #define MAX_USED_MAPS 64 /* max number of maps accessed by one eBPF program */
  
- 	if (oldprog && oldprog->offloaded) {
- 		if (tc_should_offload(dev, tp, prog->gen_flags)) {
- 			cmd = TC_CLSBPF_REPLACE;
--		} else {
-+		} else if (!tc_skip_sw(prog->gen_flags)) {
- 			obj = oldprog;
- 			cmd = TC_CLSBPF_DESTROY;
-+		} else {
-+			return -EINVAL;
- 		}
+ /* single container for all structs
+@@ -196,6 +200,7 @@ struct verifier_env {
+ 	u32 used_map_cnt;		/* number of used maps */
+ 	u32 id_gen;			/* used to generate unique reg IDs */
+ 	bool allow_ptr_leaks;
++	struct bpf_insn_aux_data *insn_aux_data; /* array of per-insn state */
+ };
+ 
+ #define BPF_COMPLEXITY_LIMIT_INSNS	65536
+@@ -2340,7 +2345,7 @@ static int do_check(struct verifier_env *env)
+ 				return err;
+ 
+ 		} else if (class == BPF_LDX) {
+-			enum bpf_reg_type src_reg_type;
++			enum bpf_reg_type *prev_src_type, src_reg_type;
+ 
+ 			/* check for reserved fields is already done */
+ 
+@@ -2370,16 +2375,18 @@ static int do_check(struct verifier_env *env)
+ 				continue;
+ 			}
+ 
+-			if (insn->imm == 0) {
++			prev_src_type = &env->insn_aux_data[insn_idx].ptr_type;
++
++			if (*prev_src_type == NOT_INIT) {
+ 				/* saw a valid insn
+ 				 * dst_reg = *(u32 *)(src_reg + off)
+-				 * use reserved 'imm' field to mark this insn
++				 * save type to validate intersecting paths
+ 				 */
+-				insn->imm = src_reg_type;
++				*prev_src_type = src_reg_type;
+ 
+-			} else if (src_reg_type != insn->imm &&
++			} else if (src_reg_type != *prev_src_type &&
+ 				   (src_reg_type == PTR_TO_CTX ||
+-				    insn->imm == PTR_TO_CTX)) {
++				    *prev_src_type == PTR_TO_CTX)) {
+ 				/* ABuser program is trying to use the same insn
+ 				 * dst_reg = *(u32*) (src_reg + off)
+ 				 * with different pointer types:
+@@ -2392,7 +2399,7 @@ static int do_check(struct verifier_env *env)
+ 			}
+ 
+ 		} else if (class == BPF_STX) {
+-			enum bpf_reg_type dst_reg_type;
++			enum bpf_reg_type *prev_dst_type, dst_reg_type;
+ 
+ 			if (BPF_MODE(insn->code) == BPF_XADD) {
+ 				err = check_xadd(env, insn);
+@@ -2420,11 +2427,13 @@ static int do_check(struct verifier_env *env)
+ 			if (err)
+ 				return err;
+ 
+-			if (insn->imm == 0) {
+-				insn->imm = dst_reg_type;
+-			} else if (dst_reg_type != insn->imm &&
++			prev_dst_type = &env->insn_aux_data[insn_idx].ptr_type;
++
++			if (*prev_dst_type == NOT_INIT) {
++				*prev_dst_type = dst_reg_type;
++			} else if (dst_reg_type != *prev_dst_type &&
+ 				   (dst_reg_type == PTR_TO_CTX ||
+-				    insn->imm == PTR_TO_CTX)) {
++				    *prev_dst_type == PTR_TO_CTX)) {
+ 				verbose("same insn cannot be used with different pointers\n");
+ 				return -EINVAL;
+ 			}
+@@ -2703,11 +2712,8 @@ static int convert_ctx_accesses(struct verifier_env *env)
+ 		else
+ 			continue;
+ 
+-		if (insn->imm != PTR_TO_CTX) {
+-			/* clear internal mark */
+-			insn->imm = 0;
++		if (env->insn_aux_data[i].ptr_type != PTR_TO_CTX)
+ 			continue;
+-		}
+ 
+ 		cnt = env->prog->aux->ops->
+ 			convert_ctx_access(type, insn->dst_reg, insn->src_reg,
+@@ -2772,6 +2778,11 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr)
+ 	if (!env)
+ 		return -ENOMEM;
+ 
++	env->insn_aux_data = vzalloc(sizeof(struct bpf_insn_aux_data) *
++				     (*prog)->len);
++	ret = -ENOMEM;
++	if (!env->insn_aux_data)
++		goto err_free_env;
+ 	env->prog = *prog;
+ 
+ 	/* grab the mutex to protect few globals used by verifier */
+@@ -2790,12 +2801,12 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr)
+ 		/* log_* values have to be sane */
+ 		if (log_size < 128 || log_size > UINT_MAX >> 8 ||
+ 		    log_level == 0 || log_ubuf == NULL)
+-			goto free_env;
++			goto err_unlock;
+ 
+ 		ret = -ENOMEM;
+ 		log_buf = vmalloc(log_size);
+ 		if (!log_buf)
+-			goto free_env;
++			goto err_unlock;
  	} else {
- 		if (!tc_should_offload(dev, tp, prog->gen_flags))
--			return;
-+			return skip_sw ? -EINVAL : 0;
- 		cmd = TC_CLSBPF_ADD;
+ 		log_level = 0;
  	}
- 
--	if (cls_bpf_offload_cmd(tp, obj, cmd))
--		return;
-+	ret = cls_bpf_offload_cmd(tp, obj, cmd);
-+	if (ret)
-+		return skip_sw ? ret : 0;
- 
- 	obj->offloaded = true;
- 	if (oldprog)
- 		oldprog->offloaded = false;
-+
-+	return 0;
+@@ -2864,14 +2875,16 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr)
+ free_log_buf:
+ 	if (log_level)
+ 		vfree(log_buf);
+-free_env:
+ 	if (!env->prog->aux->used_maps)
+ 		/* if we didn't copy map pointers into bpf_prog_info, release
+ 		 * them now. Otherwise free_bpf_prog_info() will release them.
+ 		 */
+ 		release_maps(env);
+ 	*prog = env->prog;
+-	kfree(env);
++err_unlock:
+ 	mutex_unlock(&bpf_verifier_lock);
++	vfree(env->insn_aux_data);
++err_free_env:
++	kfree(env);
+ 	return ret;
  }
- 
- static void cls_bpf_stop_offload(struct tcf_proto *tp,
-@@ -499,7 +511,11 @@ static int cls_bpf_change(struct net *net, struct sk_buff *in_skb,
- 	if (ret < 0)
- 		goto errout;
- 
--	cls_bpf_offload(tp, prog, oldprog);
-+	ret = cls_bpf_offload(tp, prog, oldprog);
-+	if (ret) {
-+		cls_bpf_delete_prog(tp, prog);
-+		return ret;
-+	}
- 
- 	if (oldprog) {
- 		list_replace_rcu(&oldprog->link, &prog->link);
 -- 
 1.9.1
