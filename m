@@ -1,44 +1,61 @@
-From: "Amrani, Ram" <Ram.Amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Subject: RE: [RFC 09/11] Add LL2 RoCE interface
-Date: Thu, 15 Sep 2016 12:07:57 +0000
-Message-ID: <SN1PR07MB220746277461969526CFC6C3F8F00@SN1PR07MB2207.namprd07.prod.outlook.com>
-References: <1473696465-27986-1-git-send-email-Ram.Amrani@qlogic.com>
- <1473696465-27986-10-git-send-email-Ram.Amrani@qlogic.com>
- <20160915102013.GZ26069@leon.nu>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] mwifiex: fix null pointer deference when adapter is null
+Date: Thu, 15 Sep 2016 14:42:38 +0100
+Message-ID: <20160915134238.5167-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        "Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org" <Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        "Ariel.Elior-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org" <Ariel.Elior-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        "Michal.Kalderon-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org" <Michal.Kalderon-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        "rajesh.borundia-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org" <rajesh.borundia-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160915102013.GZ26069-2ukJVAZIZ/Y@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org
+To: Amitkumar Karwar <akarwar@marvell.com>,
+        Nishant Sarmukadam <nishants@marvell.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > +		DP_ERR(cdev,
-> > +		       "QED RoCE set MAC filter failed - roce_info/ll2 NULL\n");
-> > +		return -EINVAL;
-> > +	}
-> > +
-> > +	p_ptt =3D qed_ptt_acquire(QED_LEADING_HWFN(cdev));
-> > +	if (!p_ptt) {
-> > +		DP_ERR(cdev,
-> > +		       "qed roce ll2 mac filter set: failed to acquire PTT\n");
-> > +		return -EINVAL;
-> > +	}
->=20
-> Please use single style for your debug prints QED RoCE vs. qed roce.
-Sure. This bothers me too. Will fix. Thanks.
+From: Colin Ian King <colin.king@canonical.com>
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+If adapter is null the error exit path in mwifiex_shutdown_sw is
+to down the semaphore sem and print some debug via mwifiex_dbg.
+However, passing a NULL adapter to mwifiex_dbg causes a null
+pointer deference when accessing adapter->dev.  This fix checks
+for a null adapter at the start of the function and to exit
+without the need to up the semaphore and we also skip the debug
+to avoid the null pointer dereference.
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/wireless/marvell/mwifiex/main.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/wireless/marvell/mwifiex/main.c b/drivers/net/wireless/marvell/mwifiex/main.c
+index 9b2e98c..7a4f8cc 100644
+--- a/drivers/net/wireless/marvell/mwifiex/main.c
++++ b/drivers/net/wireless/marvell/mwifiex/main.c
+@@ -1369,12 +1369,12 @@ mwifiex_shutdown_sw(struct mwifiex_adapter *adapter, struct semaphore *sem)
+ 	struct mwifiex_private *priv;
+ 	int i;
+ 
++	if (!adapter)
++		goto exit_return;
++
+ 	if (down_interruptible(sem))
+ 		goto exit_sem_err;
+ 
+-	if (!adapter)
+-		goto exit_remove;
+-
+ 	priv = mwifiex_get_priv(adapter, MWIFIEX_BSS_ROLE_ANY);
+ 	mwifiex_deauthenticate(priv, NULL);
+ 
+@@ -1434,6 +1434,7 @@ mwifiex_shutdown_sw(struct mwifiex_adapter *adapter, struct semaphore *sem)
+ 	up(sem);
+ exit_sem_err:
+ 	mwifiex_dbg(adapter, INFO, "%s, successful\n", __func__);
++exit_return:
+ 	return 0;
+ }
+ 
+-- 
+2.9.3
