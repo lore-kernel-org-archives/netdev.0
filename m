@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net-next 2/4] ip6_tunnel: add collect_md mode to IPv6 tunnels
-Date: Thu, 15 Sep 2016 13:00:30 -0700
-Message-ID: <1473969632-2408261-3-git-send-email-ast@fb.com>
+Subject: [PATCH net-next 4/4] samples/bpf: add comprehensive ipip, ipip6, ip6ip6 test
+Date: Thu, 15 Sep 2016 13:00:32 -0700
+Message-ID: <1473969632-2408261-5-git-send-email-ast@fb.com>
 References: <1473969632-2408261-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,411 +10,380 @@ Cc: Daniel Borkmann <daniel@iogearbox.net>,
         <kernel-team@fb.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:57818 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1754485AbcIOUAg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 16:00:36 -0400
-Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8FJwfEf011040
-        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 13:00:35 -0700
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:43289 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1755954AbcIOUAh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 16:00:37 -0400
+Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
+        by m0089730.ppops.net (8.16.0.17/8.16.0.17) with SMTP id u8FJwYY1014383
+        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 13:00:36 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 25g0w08pan-3
+        by m0089730.ppops.net with ESMTP id 25fwh12nt4-4
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 13:00:35 -0700
+        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 13:00:36 -0700
 Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)     by
- mx-out.facebook.com (10.223.100.97) with ESMTP id
- 0f99ecc87b7f11e6950824be0593f280-f6df8a50 for <netdev@vger.kernel.org>;        Thu,
- 15 Sep 2016 13:00:33 -0700
+ mx-out.facebook.com (10.212.236.89) with ESMTP id
+ 100e80067b7f11e69bb60002c95209d8-c92f9a50 for <netdev@vger.kernel.org>;        Thu,
+ 15 Sep 2016 13:00:34 -0700
 In-Reply-To: <1473969632-2408261-1-git-send-email-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Similar to gre, vxlan, geneve tunnels allow IPIP6 and IP6IP6 tunnels
-to operate in 'collect metadata' mode.
-Unlike ipv4 code here it's possible to reuse ip6_tnl_xmit() function
-for both collect_md and traditional tunnels.
-bpf_skb_[gs]et_tunnel_key() helpers and ovs (in the future) are the users.
+the test creates 3 namespaces with veth connected via bridge.
+First two namespaces simulate two different hosts with the same
+IPv4 and IPv6 addresses configured on the tunnel interface and they
+communicate with outside world via standard tunnels.
+Third namespace creates collect_md tunnel that is driven by BPF
+program which selects different remote host (either first or
+second namespace) based on tcp dest port number while tcp dst
+ip is the same.
+This scenario is rough approximation of load balancer use case.
+The tests check both traditional tunnel configuration and collect_md mode.
 
 Signed-off-by: Alexei Starovoitov <ast@kernel.org>
-Acked-by: Thomas Graf <tgraf@suug.ch>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- include/net/ip6_tunnel.h |   1 +
- net/ipv6/ip6_tunnel.c    | 178 +++++++++++++++++++++++++++++++++++------------
- 2 files changed, 134 insertions(+), 45 deletions(-)
+ samples/bpf/tcbpf2_kern.c | 132 ++++++++++++++++++++++++++++++++++
+ samples/bpf/test_ipip.sh  | 178 ++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 310 insertions(+)
+ create mode 100755 samples/bpf/test_ipip.sh
 
-diff --git a/include/net/ip6_tunnel.h b/include/net/ip6_tunnel.h
-index 43a5a0e4524c..20ed9699fcd4 100644
---- a/include/net/ip6_tunnel.h
-+++ b/include/net/ip6_tunnel.h
-@@ -23,6 +23,7 @@ struct __ip6_tnl_parm {
- 	__u8 proto;		/* tunnel protocol */
- 	__u8 encap_limit;	/* encapsulation limit for tunnel */
- 	__u8 hop_limit;		/* hop limit for tunnel */
-+	bool collect_md;
- 	__be32 flowinfo;	/* traffic class and flowlabel for tunnel */
- 	__u32 flags;		/* tunnel flags */
- 	struct in6_addr laddr;	/* local tunnel end-point address */
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 5c5779720ef1..6a66adba0c22 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -57,6 +57,7 @@
- #include <net/inet_ecn.h>
- #include <net/net_namespace.h>
- #include <net/netns/generic.h>
-+#include <net/dst_metadata.h>
+diff --git a/samples/bpf/tcbpf2_kern.c b/samples/bpf/tcbpf2_kern.c
+index c1917d968fb4..3303bb85593b 100644
+--- a/samples/bpf/tcbpf2_kern.c
++++ b/samples/bpf/tcbpf2_kern.c
+@@ -9,12 +9,15 @@
+ #include <uapi/linux/if_ether.h>
+ #include <uapi/linux/if_packet.h>
+ #include <uapi/linux/ip.h>
++#include <uapi/linux/ipv6.h>
+ #include <uapi/linux/in.h>
+ #include <uapi/linux/tcp.h>
+ #include <uapi/linux/filter.h>
+ #include <uapi/linux/pkt_cls.h>
++#include <net/ipv6.h>
+ #include "bpf_helpers.h"
  
- MODULE_AUTHOR("Ville Nuorvala");
- MODULE_DESCRIPTION("IPv6 tunneling device");
-@@ -90,6 +91,7 @@ struct ip6_tnl_net {
- 	struct ip6_tnl __rcu *tnls_r_l[IP6_TUNNEL_HASH_SIZE];
- 	struct ip6_tnl __rcu *tnls_wc[1];
- 	struct ip6_tnl __rcu **tnls[2];
-+	struct ip6_tnl __rcu *collect_md_tun;
- };
- 
- static struct net_device_stats *ip6_get_stats(struct net_device *dev)
-@@ -166,6 +168,10 @@ ip6_tnl_lookup(struct net *net, const struct in6_addr *remote, const struct in6_
- 			return t;
- 	}
- 
-+	t = rcu_dereference(ip6n->collect_md_tun);
-+	if (t)
-+		return t;
-+
- 	t = rcu_dereference(ip6n->tnls_wc[0]);
- 	if (t && (t->dev->flags & IFF_UP))
- 		return t;
-@@ -209,6 +215,8 @@ ip6_tnl_link(struct ip6_tnl_net *ip6n, struct ip6_tnl *t)
- {
- 	struct ip6_tnl __rcu **tp = ip6_tnl_bucket(ip6n, &t->parms);
- 
-+	if (t->parms.collect_md)
-+		rcu_assign_pointer(ip6n->collect_md_tun, t);
- 	rcu_assign_pointer(t->next , rtnl_dereference(*tp));
- 	rcu_assign_pointer(*tp, t);
++#define _htonl __builtin_bswap32
+ #define ERROR(ret) do {\
+ 		char fmt[] = "ERROR line:%d ret:%d\n";\
+ 		bpf_trace_printk(fmt, sizeof(fmt), __LINE__, ret); \
+@@ -246,4 +249,133 @@ int _ipip_get_tunnel(struct __sk_buff *skb)
+ 	return TC_ACT_OK;
  }
-@@ -224,6 +232,9 @@ ip6_tnl_unlink(struct ip6_tnl_net *ip6n, struct ip6_tnl *t)
- 	struct ip6_tnl __rcu **tp;
- 	struct ip6_tnl *iter;
  
-+	if (t->parms.collect_md)
-+		rcu_assign_pointer(ip6n->collect_md_tun, NULL);
++SEC("ipip6_set_tunnel")
++int _ipip6_set_tunnel(struct __sk_buff *skb)
++{
++	struct bpf_tunnel_key key = {};
++	void *data = (void *)(long)skb->data;
++	struct iphdr *iph = data;
++	struct tcphdr *tcp = data + sizeof(*iph);
++	void *data_end = (void *)(long)skb->data_end;
++	int ret;
 +
- 	for (tp = ip6_tnl_bucket(ip6n, &t->parms);
- 	     (iter = rtnl_dereference(*tp)) != NULL;
- 	     tp = &iter->next) {
-@@ -829,6 +840,9 @@ static int __ip6_tnl_rcv(struct ip6_tnl *tunnel, struct sk_buff *skb,
- 
- 	skb_scrub_packet(skb, !net_eq(tunnel->net, dev_net(tunnel->dev)));
- 
-+	if (tun_dst)
-+		skb_dst_set(skb, (struct dst_entry *)tun_dst);
++	/* single length check */
++	if (data + sizeof(*iph) + sizeof(*tcp) > data_end) {
++		ERROR(1);
++		return TC_ACT_SHOT;
++	}
 +
- 	gro_cells_receive(&tunnel->gro_cells, skb);
- 	return 0;
- 
-@@ -865,6 +879,7 @@ static int ipxip6_rcv(struct sk_buff *skb, u8 ipproto,
- {
- 	struct ip6_tnl *t;
- 	const struct ipv6hdr *ipv6h = ipv6_hdr(skb);
-+	struct metadata_dst *tun_dst = NULL;
- 	int ret = -1;
- 
- 	rcu_read_lock();
-@@ -881,7 +896,12 @@ static int ipxip6_rcv(struct sk_buff *skb, u8 ipproto,
- 			goto drop;
- 		if (iptunnel_pull_header(skb, 0, tpi->proto, false))
- 			goto drop;
--		ret = __ip6_tnl_rcv(t, skb, tpi, NULL, dscp_ecn_decapsulate,
-+		if (t->parms.collect_md) {
-+			tun_dst = ipv6_tun_rx_dst(skb, 0, 0, 0);
-+			if (!tun_dst)
-+				return 0;
++	key.remote_ipv6[0] = _htonl(0x2401db00);
++	key.tunnel_ttl = 64;
++
++	if (iph->protocol == IPPROTO_ICMP) {
++		key.remote_ipv6[3] = _htonl(1);
++	} else {
++		if (iph->protocol != IPPROTO_TCP || iph->ihl != 5) {
++			ERROR(iph->protocol);
++			return TC_ACT_SHOT;
 +		}
-+		ret = __ip6_tnl_rcv(t, skb, tpi, tun_dst, dscp_ecn_decapsulate,
- 				    log_ecn_error);
- 	}
- 
-@@ -1012,8 +1032,16 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
- 	int mtu;
- 	unsigned int psh_hlen = sizeof(struct ipv6hdr) + t->encap_hlen;
- 	unsigned int max_headroom = psh_hlen;
-+	u8 hop_limit;
- 	int err = -1;
- 
-+	if (t->parms.collect_md) {
-+		hop_limit = skb_tunnel_info(skb)->key.ttl;
-+		goto route_lookup;
++
++		if (tcp->dest == htons(5200)) {
++			key.remote_ipv6[3] = _htonl(1);
++		} else if (tcp->dest == htons(5201)) {
++			key.remote_ipv6[3] = _htonl(2);
++		} else {
++			ERROR(tcp->dest);
++			return TC_ACT_SHOT;
++		}
++	}
++
++	ret = bpf_skb_set_tunnel_key(skb, &key, sizeof(key), BPF_F_TUNINFO_IPV6);
++	if (ret < 0) {
++		ERROR(ret);
++		return TC_ACT_SHOT;
++	}
++
++	return TC_ACT_OK;
++}
++
++SEC("ipip6_get_tunnel")
++int _ipip6_get_tunnel(struct __sk_buff *skb)
++{
++	int ret;
++	struct bpf_tunnel_key key;
++	char fmt[] = "remote ip6 %x::%x\n";
++
++	ret = bpf_skb_get_tunnel_key(skb, &key, sizeof(key), BPF_F_TUNINFO_IPV6);
++	if (ret < 0) {
++		ERROR(ret);
++		return TC_ACT_SHOT;
++	}
++
++	bpf_trace_printk(fmt, sizeof(fmt), _htonl(key.remote_ipv6[0]),
++			 _htonl(key.remote_ipv6[3]));
++	return TC_ACT_OK;
++}
++
++SEC("ip6ip6_set_tunnel")
++int _ip6ip6_set_tunnel(struct __sk_buff *skb)
++{
++	struct bpf_tunnel_key key = {};
++	void *data = (void *)(long)skb->data;
++	struct ipv6hdr *iph = data;
++	struct tcphdr *tcp = data + sizeof(*iph);
++	void *data_end = (void *)(long)skb->data_end;
++	int ret;
++
++	/* single length check */
++	if (data + sizeof(*iph) + sizeof(*tcp) > data_end) {
++		ERROR(1);
++		return TC_ACT_SHOT;
++	}
++
++	key.remote_ipv6[0] = _htonl(0x2401db00);
++	key.tunnel_ttl = 64;
++
++	if (iph->nexthdr == NEXTHDR_ICMP) {
++		key.remote_ipv6[3] = _htonl(1);
 +	} else {
-+		hop_limit = t->parms.hop_limit;
++		if (iph->nexthdr != NEXTHDR_TCP) {
++			ERROR(iph->nexthdr);
++			return TC_ACT_SHOT;
++		}
++
++		if (tcp->dest == htons(5200)) {
++			key.remote_ipv6[3] = _htonl(1);
++		} else if (tcp->dest == htons(5201)) {
++			key.remote_ipv6[3] = _htonl(2);
++		} else {
++			ERROR(tcp->dest);
++			return TC_ACT_SHOT;
++		}
 +	}
 +
- 	/* NBMA tunnel */
- 	if (ipv6_addr_any(&t->parms.raddr)) {
- 		struct in6_addr *addr6;
-@@ -1043,6 +1071,7 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
- 		goto tx_err_link_failure;
- 
- 	if (!dst) {
-+route_lookup:
- 		dst = ip6_route_output(net, NULL, fl6);
- 
- 		if (dst->error)
-@@ -1053,6 +1082,10 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
- 			dst = NULL;
- 			goto tx_err_link_failure;
- 		}
-+		if (t->parms.collect_md &&
-+		    ipv6_dev_get_saddr(net, ip6_dst_idev(dst)->dev,
-+				       &fl6->daddr, 0, &fl6->saddr))
-+			goto tx_err_link_failure;
- 		ndst = dst;
- 	}
- 
-@@ -1071,7 +1104,7 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
- 	}
- 	if (mtu < IPV6_MIN_MTU)
- 		mtu = IPV6_MIN_MTU;
--	if (skb_dst(skb))
-+	if (skb_dst(skb) && !t->parms.collect_md)
- 		skb_dst(skb)->ops->update_pmtu(skb_dst(skb), NULL, skb, mtu);
- 	if (skb->len > mtu && !skb_is_gso(skb)) {
- 		*pmtu = mtu;
-@@ -1111,8 +1144,13 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
- 		skb = new_skb;
- 	}
- 
--	if (!fl6->flowi6_mark && ndst)
--		dst_cache_set_ip6(&t->dst_cache, ndst, &fl6->saddr);
-+	if (t->parms.collect_md) {
-+		if (t->encap.type != TUNNEL_ENCAP_NONE)
-+			goto tx_err_dst_release;
-+	} else {
-+		if (!fl6->flowi6_mark && ndst)
-+			dst_cache_set_ip6(&t->dst_cache, ndst, &fl6->saddr);
++	ret = bpf_skb_set_tunnel_key(skb, &key, sizeof(key), BPF_F_TUNINFO_IPV6);
++	if (ret < 0) {
++		ERROR(ret);
++		return TC_ACT_SHOT;
 +	}
- 	skb_dst_set(skb, dst);
- 
- 	if (encap_limit >= 0) {
-@@ -1137,7 +1175,7 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
- 	ipv6h = ipv6_hdr(skb);
- 	ip6_flow_hdr(ipv6h, INET_ECN_encapsulate(0, dsfield),
- 		     ip6_make_flowlabel(net, skb, fl6->flowlabel, true, fl6));
--	ipv6h->hop_limit = t->parms.hop_limit;
-+	ipv6h->hop_limit = hop_limit;
- 	ipv6h->nexthdr = proto;
- 	ipv6h->saddr = fl6->saddr;
- 	ipv6h->daddr = fl6->daddr;
-@@ -1170,19 +1208,34 @@ ip4ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (tproto != IPPROTO_IPIP && tproto != 0)
- 		return -1;
- 
--	if (!(t->parms.flags & IP6_TNL_F_IGN_ENCAP_LIMIT))
--		encap_limit = t->parms.encap_limit;
-+	dsfield = ipv4_get_dsfield(iph);
- 
--	memcpy(&fl6, &t->fl.u.ip6, sizeof(fl6));
--	fl6.flowi6_proto = IPPROTO_IPIP;
-+	if (t->parms.collect_md) {
-+		struct ip_tunnel_info *tun_info;
-+		const struct ip_tunnel_key *key;
- 
--	dsfield = ipv4_get_dsfield(iph);
-+		tun_info = skb_tunnel_info(skb);
-+		if (unlikely(!tun_info || !(tun_info->mode & IP_TUNNEL_INFO_TX) ||
-+			     ip_tunnel_info_af(tun_info) != AF_INET6))
-+			return -1;
-+		key = &tun_info->key;
-+		memset(&fl6, 0, sizeof(fl6));
-+		fl6.flowi6_proto = IPPROTO_IPIP;
-+		fl6.daddr = key->u.ipv6.dst;
-+		fl6.flowlabel = key->label;
-+	} else {
-+		if (!(t->parms.flags & IP6_TNL_F_IGN_ENCAP_LIMIT))
-+			encap_limit = t->parms.encap_limit;
- 
--	if (t->parms.flags & IP6_TNL_F_USE_ORIG_TCLASS)
--		fl6.flowlabel |= htonl((__u32)iph->tos << IPV6_TCLASS_SHIFT)
--					  & IPV6_TCLASS_MASK;
--	if (t->parms.flags & IP6_TNL_F_USE_ORIG_FWMARK)
--		fl6.flowi6_mark = skb->mark;
-+		memcpy(&fl6, &t->fl.u.ip6, sizeof(fl6));
-+		fl6.flowi6_proto = IPPROTO_IPIP;
 +
-+		if (t->parms.flags & IP6_TNL_F_USE_ORIG_TCLASS)
-+			fl6.flowlabel |= htonl((__u32)iph->tos << IPV6_TCLASS_SHIFT)
-+					 & IPV6_TCLASS_MASK;
-+		if (t->parms.flags & IP6_TNL_F_USE_ORIG_FWMARK)
-+			fl6.flowi6_mark = skb->mark;
++	return TC_ACT_OK;
++}
++
++SEC("ip6ip6_get_tunnel")
++int _ip6ip6_get_tunnel(struct __sk_buff *skb)
++{
++	int ret;
++	struct bpf_tunnel_key key;
++	char fmt[] = "remote ip6 %x::%x\n";
++
++	ret = bpf_skb_get_tunnel_key(skb, &key, sizeof(key), BPF_F_TUNINFO_IPV6);
++	if (ret < 0) {
++		ERROR(ret);
++		return TC_ACT_SHOT;
 +	}
- 
- 	if (iptunnel_handle_offloads(skb, SKB_GSO_IPXIP6))
- 		return -1;
-@@ -1220,29 +1273,47 @@ ip6ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
- 	    ip6_tnl_addr_conflict(t, ipv6h))
- 		return -1;
- 
--	offset = ip6_tnl_parse_tlv_enc_lim(skb, skb_network_header(skb));
--	if (offset > 0) {
--		struct ipv6_tlv_tnl_enc_lim *tel;
--		tel = (struct ipv6_tlv_tnl_enc_lim *)&skb_network_header(skb)[offset];
--		if (tel->encap_limit == 0) {
--			icmpv6_send(skb, ICMPV6_PARAMPROB,
--				    ICMPV6_HDR_FIELD, offset + 2);
-+	dsfield = ipv6_get_dsfield(ipv6h);
 +
-+	if (t->parms.collect_md) {
-+		struct ip_tunnel_info *tun_info;
-+		const struct ip_tunnel_key *key;
++	bpf_trace_printk(fmt, sizeof(fmt), _htonl(key.remote_ipv6[0]),
++			 _htonl(key.remote_ipv6[3]));
++	return TC_ACT_OK;
++}
 +
-+		tun_info = skb_tunnel_info(skb);
-+		if (unlikely(!tun_info || !(tun_info->mode & IP_TUNNEL_INFO_TX) ||
-+			     ip_tunnel_info_af(tun_info) != AF_INET6))
- 			return -1;
-+		key = &tun_info->key;
-+		memset(&fl6, 0, sizeof(fl6));
-+		fl6.flowi6_proto = IPPROTO_IPV6;
-+		fl6.daddr = key->u.ipv6.dst;
-+		fl6.flowlabel = key->label;
-+	} else {
-+		offset = ip6_tnl_parse_tlv_enc_lim(skb, skb_network_header(skb));
-+		if (offset > 0) {
-+			struct ipv6_tlv_tnl_enc_lim *tel;
 +
-+			tel = (void *)&skb_network_header(skb)[offset];
-+			if (tel->encap_limit == 0) {
-+				icmpv6_send(skb, ICMPV6_PARAMPROB,
-+					    ICMPV6_HDR_FIELD, offset + 2);
-+				return -1;
-+			}
-+			encap_limit = tel->encap_limit - 1;
-+		} else if (!(t->parms.flags & IP6_TNL_F_IGN_ENCAP_LIMIT)) {
-+			encap_limit = t->parms.encap_limit;
- 		}
--		encap_limit = tel->encap_limit - 1;
--	} else if (!(t->parms.flags & IP6_TNL_F_IGN_ENCAP_LIMIT))
--		encap_limit = t->parms.encap_limit;
- 
--	memcpy(&fl6, &t->fl.u.ip6, sizeof(fl6));
--	fl6.flowi6_proto = IPPROTO_IPV6;
-+		memcpy(&fl6, &t->fl.u.ip6, sizeof(fl6));
-+		fl6.flowi6_proto = IPPROTO_IPV6;
- 
--	dsfield = ipv6_get_dsfield(ipv6h);
--	if (t->parms.flags & IP6_TNL_F_USE_ORIG_TCLASS)
--		fl6.flowlabel |= (*(__be32 *) ipv6h & IPV6_TCLASS_MASK);
--	if (t->parms.flags & IP6_TNL_F_USE_ORIG_FLOWLABEL)
--		fl6.flowlabel |= ip6_flowlabel(ipv6h);
--	if (t->parms.flags & IP6_TNL_F_USE_ORIG_FWMARK)
--		fl6.flowi6_mark = skb->mark;
-+		if (t->parms.flags & IP6_TNL_F_USE_ORIG_TCLASS)
-+			fl6.flowlabel |= (*(__be32 *)ipv6h & IPV6_TCLASS_MASK);
-+		if (t->parms.flags & IP6_TNL_F_USE_ORIG_FLOWLABEL)
-+			fl6.flowlabel |= ip6_flowlabel(ipv6h);
-+		if (t->parms.flags & IP6_TNL_F_USE_ORIG_FWMARK)
-+			fl6.flowi6_mark = skb->mark;
-+	}
- 
- 	if (iptunnel_handle_offloads(skb, SKB_GSO_IPXIP6))
- 		return -1;
-@@ -1741,6 +1812,10 @@ static int ip6_tnl_dev_init(struct net_device *dev)
- 	if (err)
- 		return err;
- 	ip6_tnl_link_config(t);
-+	if (t->parms.collect_md) {
-+		dev->features |= NETIF_F_NETNS_LOCAL;
-+		netif_keep_dst(dev);
-+	}
- 	return 0;
- }
- 
-@@ -1811,6 +1886,9 @@ static void ip6_tnl_netlink_parms(struct nlattr *data[],
- 
- 	if (data[IFLA_IPTUN_PROTO])
- 		parms->proto = nla_get_u8(data[IFLA_IPTUN_PROTO]);
+ char _license[] SEC("license") = "GPL";
+diff --git a/samples/bpf/test_ipip.sh b/samples/bpf/test_ipip.sh
+new file mode 100755
+index 000000000000..196925403ab4
+--- /dev/null
++++ b/samples/bpf/test_ipip.sh
+@@ -0,0 +1,178 @@
++#!/bin/bash
 +
-+	if (data[IFLA_IPTUN_COLLECT_METADATA])
-+		parms->collect_md = true;
- }
- 
- static bool ip6_tnl_netlink_encap_parms(struct nlattr *data[],
-@@ -1850,6 +1928,7 @@ static int ip6_tnl_newlink(struct net *src_net, struct net_device *dev,
- 			   struct nlattr *tb[], struct nlattr *data[])
- {
- 	struct net *net = dev_net(dev);
-+	struct ip6_tnl_net *ip6n = net_generic(net, ip6_tnl_net_id);
- 	struct ip6_tnl *nt, *t;
- 	struct ip_tunnel_encap ipencap;
- 
-@@ -1864,9 +1943,14 @@ static int ip6_tnl_newlink(struct net *src_net, struct net_device *dev,
- 
- 	ip6_tnl_netlink_parms(data, &nt->parms);
- 
--	t = ip6_tnl_locate(net, &nt->parms, 0);
--	if (!IS_ERR(t))
--		return -EEXIST;
-+	if (nt->parms.collect_md) {
-+		if (rtnl_dereference(ip6n->collect_md_tun))
-+			return -EEXIST;
-+	} else {
-+		t = ip6_tnl_locate(net, &nt->parms, 0);
-+		if (!IS_ERR(t))
-+			return -EEXIST;
-+	}
- 
- 	return ip6_tnl_create2(dev);
- }
-@@ -1890,6 +1974,8 @@ static int ip6_tnl_changelink(struct net_device *dev, struct nlattr *tb[],
- 			return err;
- 	}
- 	ip6_tnl_netlink_parms(data, &p);
-+	if (p.collect_md)
-+		return -EINVAL;
- 
- 	t = ip6_tnl_locate(net, &p, 0);
- 	if (!IS_ERR(t)) {
-@@ -1937,6 +2023,8 @@ static size_t ip6_tnl_get_size(const struct net_device *dev)
- 		nla_total_size(2) +
- 		/* IFLA_IPTUN_ENCAP_DPORT */
- 		nla_total_size(2) +
-+		/* IFLA_IPTUN_COLLECT_METADATA */
-+		nla_total_size(0) +
- 		0;
- }
- 
-@@ -1955,16 +2043,15 @@ static int ip6_tnl_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 	    nla_put_u8(skb, IFLA_IPTUN_PROTO, parm->proto))
- 		goto nla_put_failure;
- 
--	if (nla_put_u16(skb, IFLA_IPTUN_ENCAP_TYPE,
--			tunnel->encap.type) ||
--	nla_put_be16(skb, IFLA_IPTUN_ENCAP_SPORT,
--		     tunnel->encap.sport) ||
--	nla_put_be16(skb, IFLA_IPTUN_ENCAP_DPORT,
--		     tunnel->encap.dport) ||
--	nla_put_u16(skb, IFLA_IPTUN_ENCAP_FLAGS,
--		    tunnel->encap.flags))
-+	if (nla_put_u16(skb, IFLA_IPTUN_ENCAP_TYPE, tunnel->encap.type) ||
-+	    nla_put_be16(skb, IFLA_IPTUN_ENCAP_SPORT, tunnel->encap.sport) ||
-+	    nla_put_be16(skb, IFLA_IPTUN_ENCAP_DPORT, tunnel->encap.dport) ||
-+	    nla_put_u16(skb, IFLA_IPTUN_ENCAP_FLAGS, tunnel->encap.flags))
- 		goto nla_put_failure;
- 
-+	if (parm->collect_md)
-+		if (nla_put_flag(skb, IFLA_IPTUN_COLLECT_METADATA))
-+			goto nla_put_failure;
- 	return 0;
- 
- nla_put_failure:
-@@ -1992,6 +2079,7 @@ static const struct nla_policy ip6_tnl_policy[IFLA_IPTUN_MAX + 1] = {
- 	[IFLA_IPTUN_ENCAP_FLAGS]	= { .type = NLA_U16 },
- 	[IFLA_IPTUN_ENCAP_SPORT]	= { .type = NLA_U16 },
- 	[IFLA_IPTUN_ENCAP_DPORT]	= { .type = NLA_U16 },
-+	[IFLA_IPTUN_COLLECT_METADATA]	= { .type = NLA_FLAG },
- };
- 
- static struct rtnl_link_ops ip6_link_ops __read_mostly = {
++function config_device {
++	ip netns add at_ns0
++	ip netns add at_ns1
++	ip netns add at_ns2
++	ip link add veth0 type veth peer name veth0b
++	ip link add veth1 type veth peer name veth1b
++	ip link add veth2 type veth peer name veth2b
++	ip link set veth0b up
++	ip link set veth1b up
++	ip link set veth2b up
++	ip link set dev veth0b mtu 1500
++	ip link set dev veth1b mtu 1500
++	ip link set dev veth2b mtu 1500
++	ip link set veth0 netns at_ns0
++	ip link set veth1 netns at_ns1
++	ip link set veth2 netns at_ns2
++	ip netns exec at_ns0 ip addr add 172.16.1.100/24 dev veth0
++	ip netns exec at_ns0 ip addr add 2401:db00::1/64 dev veth0 nodad
++	ip netns exec at_ns0 ip link set dev veth0 up
++	ip netns exec at_ns1 ip addr add 172.16.1.101/24 dev veth1
++	ip netns exec at_ns1 ip addr add 2401:db00::2/64 dev veth1 nodad
++	ip netns exec at_ns1 ip link set dev veth1 up
++	ip netns exec at_ns2 ip addr add 172.16.1.200/24 dev veth2
++	ip netns exec at_ns2 ip addr add 2401:db00::3/64 dev veth2 nodad
++	ip netns exec at_ns2 ip link set dev veth2 up
++	ip link add br0 type bridge
++	ip link set br0 up
++	ip link set dev br0 mtu 1500
++	ip link set veth0b master br0
++	ip link set veth1b master br0
++	ip link set veth2b master br0
++}
++
++function add_ipip_tunnel {
++	ip netns exec at_ns0 \
++		ip link add dev $DEV_NS type ipip local 172.16.1.100 remote 172.16.1.200
++	ip netns exec at_ns0 ip link set dev $DEV_NS up
++	ip netns exec at_ns0 ip addr add dev $DEV_NS 10.1.1.100/24
++	ip netns exec at_ns1 \
++		ip link add dev $DEV_NS type ipip local 172.16.1.101 remote 172.16.1.200
++	ip netns exec at_ns1 ip link set dev $DEV_NS up
++	# same inner IP address in at_ns0 and at_ns1
++	ip netns exec at_ns1 ip addr add dev $DEV_NS 10.1.1.100/24
++
++	ip netns exec at_ns2 ip link add dev $DEV type ipip external
++	ip netns exec at_ns2 ip link set dev $DEV up
++	ip netns exec at_ns2 ip addr add dev $DEV 10.1.1.200/24
++}
++
++function add_ipip6_tunnel {
++	ip netns exec at_ns0 \
++		ip link add dev $DEV_NS type ip6tnl mode ipip6 local 2401:db00::1/64 remote 2401:db00::3/64
++	ip netns exec at_ns0 ip link set dev $DEV_NS up
++	ip netns exec at_ns0 ip addr add dev $DEV_NS 10.1.1.100/24
++	ip netns exec at_ns1 \
++		ip link add dev $DEV_NS type ip6tnl mode ipip6 local 2401:db00::2/64 remote 2401:db00::3/64
++	ip netns exec at_ns1 ip link set dev $DEV_NS up
++	# same inner IP address in at_ns0 and at_ns1
++	ip netns exec at_ns1 ip addr add dev $DEV_NS 10.1.1.100/24
++
++	ip netns exec at_ns2 ip link add dev $DEV type ip6tnl mode ipip6 external
++	ip netns exec at_ns2 ip link set dev $DEV up
++	ip netns exec at_ns2 ip addr add dev $DEV 10.1.1.200/24
++}
++
++function add_ip6ip6_tunnel {
++	ip netns exec at_ns0 \
++		ip link add dev $DEV_NS type ip6tnl mode ip6ip6 local 2401:db00::1/64 remote 2401:db00::3/64
++	ip netns exec at_ns0 ip link set dev $DEV_NS up
++	ip netns exec at_ns0 ip addr add dev $DEV_NS 2601:646::1/64
++	ip netns exec at_ns1 \
++		ip link add dev $DEV_NS type ip6tnl mode ip6ip6 local 2401:db00::2/64 remote 2401:db00::3/64
++	ip netns exec at_ns1 ip link set dev $DEV_NS up
++	# same inner IP address in at_ns0 and at_ns1
++	ip netns exec at_ns1 ip addr add dev $DEV_NS 2601:646::1/64
++
++	ip netns exec at_ns2 ip link add dev $DEV type ip6tnl mode ip6ip6 external
++	ip netns exec at_ns2 ip link set dev $DEV up
++	ip netns exec at_ns2 ip addr add dev $DEV 2601:646::2/64
++}
++
++function attach_bpf {
++	DEV=$1
++	SET_TUNNEL=$2
++	GET_TUNNEL=$3
++	ip netns exec at_ns2 tc qdisc add dev $DEV clsact
++	ip netns exec at_ns2 tc filter add dev $DEV egress bpf da obj tcbpf2_kern.o sec $SET_TUNNEL
++	ip netns exec at_ns2 tc filter add dev $DEV ingress bpf da obj tcbpf2_kern.o sec $GET_TUNNEL
++}
++
++function test_ipip {
++	DEV_NS=ipip_std
++	DEV=ipip_bpf
++	config_device
++#	tcpdump -nei br0 &
++	cat /sys/kernel/debug/tracing/trace_pipe &
++
++	add_ipip_tunnel
++	attach_bpf $DEV ipip_set_tunnel ipip_get_tunnel
++
++	ip netns exec at_ns0 ping -c 1 10.1.1.200
++	ip netns exec at_ns2 ping -c 1 10.1.1.100
++	ip netns exec at_ns0 iperf -sD -p 5200 > /dev/null
++	ip netns exec at_ns1 iperf -sD -p 5201 > /dev/null
++	sleep 0.2
++	# tcp check _same_ IP over different tunnels
++	ip netns exec at_ns2 iperf -c 10.1.1.100 -n 5k -p 5200
++	ip netns exec at_ns2 iperf -c 10.1.1.100 -n 5k -p 5201
++	cleanup
++}
++
++# IPv4 over IPv6 tunnel
++function test_ipip6 {
++	DEV_NS=ipip_std
++	DEV=ipip_bpf
++	config_device
++#	tcpdump -nei br0 &
++	cat /sys/kernel/debug/tracing/trace_pipe &
++
++	add_ipip6_tunnel
++	attach_bpf $DEV ipip6_set_tunnel ipip6_get_tunnel
++
++	ip netns exec at_ns0 ping -c 1 10.1.1.200
++	ip netns exec at_ns2 ping -c 1 10.1.1.100
++	ip netns exec at_ns0 iperf -sD -p 5200 > /dev/null
++	ip netns exec at_ns1 iperf -sD -p 5201 > /dev/null
++	sleep 0.2
++	# tcp check _same_ IP over different tunnels
++	ip netns exec at_ns2 iperf -c 10.1.1.100 -n 5k -p 5200
++	ip netns exec at_ns2 iperf -c 10.1.1.100 -n 5k -p 5201
++	cleanup
++}
++
++# IPv6 over IPv6 tunnel
++function test_ip6ip6 {
++	DEV_NS=ipip_std
++	DEV=ipip_bpf
++	config_device
++#	tcpdump -nei br0 &
++	cat /sys/kernel/debug/tracing/trace_pipe &
++
++	add_ip6ip6_tunnel
++	attach_bpf $DEV ip6ip6_set_tunnel ip6ip6_get_tunnel
++
++	ip netns exec at_ns0 ping -6 -c 1 2601:646::2
++	ip netns exec at_ns2 ping -6 -c 1 2601:646::1
++	ip netns exec at_ns0 iperf -6sD -p 5200 > /dev/null
++	ip netns exec at_ns1 iperf -6sD -p 5201 > /dev/null
++	sleep 0.2
++	# tcp check _same_ IP over different tunnels
++	ip netns exec at_ns2 iperf -6c 2601:646::1 -n 5k -p 5200
++	ip netns exec at_ns2 iperf -6c 2601:646::1 -n 5k -p 5201
++	cleanup
++}
++
++function cleanup {
++	set +ex
++	pkill iperf
++	ip netns delete at_ns0
++	ip netns delete at_ns1
++	ip netns delete at_ns2
++	ip link del veth0
++	ip link del veth1
++	ip link del veth2
++	ip link del br0
++	pkill tcpdump
++	pkill cat
++	set -ex
++}
++
++cleanup
++echo "Testing IP tunnels..."
++test_ipip
++test_ipip6
++test_ip6ip6
++echo "*** PASS ***"
 -- 
 2.8.0
