@@ -1,9 +1,10 @@
 From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Subject: Re: [RFC v3 19/22] landlock: Add interrupted origin
-Date: Wed, 14 Sep 2016 18:19:14 -0700
-Message-ID: <CALCETrWmp33g0_adWcLXLuQe7R2EeLchKGivQnEsK5A4nAwTfw@mail.gmail.com>
-References: <20160914072415.26021-1-mic@digikod.net> <20160914072415.26021-20-mic@digikod.net>
- <CALCETrUyqZEcJansuN=NX04CXv4ROtNqB25YZw7mBGuu43DFew@mail.gmail.com> <57D9CBD3.7030100@digikod.net>
+Subject: Re: [RFC v3 18/22] cgroup,landlock: Add CGRP_NO_NEW_PRIVS to handle
+ unprivileged hooks
+Date: Wed, 14 Sep 2016 18:25:07 -0700
+Message-ID: <CALCETrVjyLaL-0H1AFsfYUtDGA8NSn4R8LkvBMQT7Gpmxeswgg@mail.gmail.com>
+References: <20160914072415.26021-1-mic@digikod.net> <20160914072415.26021-19-mic@digikod.net>
+ <CALCETrXBDVe9AzHnD1B5r=GGVNsU5gsC92iqD0S94mQBZOzOBQ@mail.gmail.com> <57D9CB25.1010103@digikod.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: quoted-printable
@@ -28,43 +29,68 @@ Cc: "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL
         Linux API <linu
 To: =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
 Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <57D9CBD3.7030100-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
+In-Reply-To: <57D9CB25.1010103-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
 Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 14, 2016 at 3:14 PM, Micka=C3=ABl Sala=C3=BCn <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>=
+On Wed, Sep 14, 2016 at 3:11 PM, Micka=C3=ABl Sala=C3=BCn <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>=
  wrote:
 >
-> On 14/09/2016 20:29, Andy Lutomirski wrote:
+> On 14/09/2016 20:27, Andy Lutomirski wrote:
 >> On Wed, Sep 14, 2016 at 12:24 AM, Micka=C3=ABl Sala=C3=BCn <mic@digikod.=
 net> wrote:
->>> This third origin of hook call should cover all possible trigger paths
->>> (e.g. page fault). Landlock eBPF programs can then take decisions
->>> accordingly.
+>>> Add a new flag CGRP_NO_NEW_PRIVS for each cgroup. This flag is initiall=
+y
+>>> set for all cgroup except the root. The flag is clear when a new proces=
+s
+>>> without the no_new_privs flags is attached to the cgroup.
 >>>
->>> Signed-off-by: Micka=C3=ABl Sala=C3=BCn <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
->>> Cc: Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
->>> Cc: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
->>> Cc: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
->>> Cc: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
->>> ---
+>>> If a cgroup is landlocked, then any new attempt, from an unprivileged
+>>> process, to attach a process without no_new_privs to this cgroup will
+>>> be denied.
 >>
->>
->>>
->>> +       if (unlikely(in_interrupt())) {
->>
->> IMO security hooks have no business being called from interrupts.
->> Aren't they all synchronous things done by tasks?  Interrupts are
->> driver things.
->>
->> Are you trying to check for page faults and such?
+>> Until and unless everyone can agree on a way to properly namespace,
+>> delegate, etc cgroups, I think that trying to add unprivileged
+>> semantics to cgroups is nuts.  Given the big thread about cgroup v2,
+>> no-internal-tasks, etc, I just don't see how this approach can be
+>> viable.
 >
-> Yes, that was the idea you did put in my mind. Not sure how to deal with
-> this.
+> As far as I can tell, the no_new_privs flag of at task is not related to
+> namespaces. The CGRP_NO_NEW_PRIVS flag is only a cache to quickly access
+> the no_new_privs property of *tasks* in a cgroup. The semantic is unchang=
+ed.
 >
+> Using cgroup is optional, any task could use the seccomp-based
+> landlocking instead. However, for those that want/need to manage a
+> security policy in a more dynamic way, using cgroups may make sense.
+>
+> I though cgroup delegation was OK in the v2, isn't it the case? Do you
+> have some links?
+>
+>>
+>> Can we try to make landlock work completely independently of cgroups
+>> so that it doesn't get stuck and so that programs can use it without
+>> worrying about cgroup v1 vs v2, interactions with cgroup managers,
+>> cgroup managers that (supposedly?) will start migrating processes
+>> around piecemeal and almost certainly blowing up landlock in the
+>> process, etc?
+>
+> This RFC handle both cgroup and seccomp approaches in a similar way. I
+> don't see why building on top of cgroup v2 is a problem. Is there
+> security issues with delegation?
 
-It's not so easy, unfortunately.  The easiest reliable way might be to
-set a TS_ flag on all syscall entries when TIF_SECCOMP or similar is
-set.
+What I mean is: cgroup v2 delegation has a functionality problem.
+Tejun says [1]:
 
---Andy
+We haven't had to face this decision because cgroup has never properly
+supported delegating to applications and the in-use setups where this
+happens are custom configurations where there is no boundary between
+system and applications and adhoc trial-and-error is good enough a way
+to find a working solution.  That wiggle room goes away once we
+officially open this up to individual applications.
+
+Unless and until that changes, I think that landlock should stay away
+from cgroups.  Others could reasonably disagree with me.
+
+
+[1] https://lkml.kernel.org/g/<20160909225747.GA30105-qYNAdHglDFBN0TnZuCh8vA@public.gmane.org
