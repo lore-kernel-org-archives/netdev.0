@@ -1,121 +1,45 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net-next 2/3] net/mlx5e: Introduce API for RX mapped pages
-Date: Thu, 15 Sep 2016 16:08:37 +0300
-Message-ID: <1473944918-31290-3-git-send-email-tariqt@mellanox.com>
-References: <1473944918-31290-1-git-send-email-tariqt@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH] iproute2: build nsid-name cache only for commands that
+ need it
+Date: Thu, 15 Sep 2016 15:26:18 +0200
+Message-ID: <2ab25704-d8aa-1532-a07a-c1765b937d66@6wind.com>
+References: <20160915082326.GA1635@toys.tundra.dog-lvm.novalocal>
+Reply-To: nicolas.dichtel@6wind.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+To: Anton Aksola <aakso@iki.fi>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:50124 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1753434AbcIONJI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 09:09:08 -0400
-In-Reply-To: <1473944918-31290-1-git-send-email-tariqt@mellanox.com>
+Received: from mail-qk0-f169.google.com ([209.85.220.169]:33743 "EHLO
+        mail-qk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752183AbcION0V (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 09:26:21 -0400
+Received: by mail-qk0-f169.google.com with SMTP id w204so49413383qka.0
+        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 06:26:21 -0700 (PDT)
+In-Reply-To: <20160915082326.GA1635@toys.tundra.dog-lvm.novalocal>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Manage the allocation and deallocation of mapped RX pages only
-through dedicated API functions.
-
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c | 46 +++++++++++++++----------
- 1 file changed, 27 insertions(+), 19 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index 5d1b7b5e4f36..0c34daa04c43 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -305,26 +305,32 @@ static inline void mlx5e_post_umr_wqe(struct mlx5e_rq *rq, u16 ix)
- 	mlx5e_tx_notify_hw(sq, &wqe->ctrl, 0);
- }
- 
--static inline int mlx5e_alloc_and_map_page(struct mlx5e_rq *rq,
--					   struct mlx5e_mpw_info *wi,
--					   int i)
-+static inline int mlx5e_page_alloc_mapped(struct mlx5e_rq *rq,
-+					  struct mlx5e_dma_info *dma_info)
- {
- 	struct page *page = dev_alloc_page();
-+
- 	if (unlikely(!page))
- 		return -ENOMEM;
- 
--	wi->umr.dma_info[i].page = page;
--	wi->umr.dma_info[i].addr = dma_map_page(rq->pdev, page, 0, PAGE_SIZE,
--						PCI_DMA_FROMDEVICE);
--	if (unlikely(dma_mapping_error(rq->pdev, wi->umr.dma_info[i].addr))) {
-+	dma_info->page = page;
-+	dma_info->addr = dma_map_page(rq->pdev, page, 0, PAGE_SIZE,
-+				      DMA_FROM_DEVICE);
-+	if (unlikely(dma_mapping_error(rq->pdev, dma_info->addr))) {
- 		put_page(page);
- 		return -ENOMEM;
- 	}
--	wi->umr.mtt[i] = cpu_to_be64(wi->umr.dma_info[i].addr | MLX5_EN_WR);
- 
- 	return 0;
- }
- 
-+static inline void mlx5e_page_release(struct mlx5e_rq *rq,
-+				      struct mlx5e_dma_info *dma_info)
-+{
-+	dma_unmap_page(rq->pdev, dma_info->addr, PAGE_SIZE, DMA_FROM_DEVICE);
-+	put_page(dma_info->page);
-+}
-+
- static int mlx5e_alloc_rx_umr_mpwqe(struct mlx5e_rq *rq,
- 				    struct mlx5e_rx_wqe *wqe,
- 				    u16 ix)
-@@ -336,10 +342,13 @@ static int mlx5e_alloc_rx_umr_mpwqe(struct mlx5e_rq *rq,
- 	int i;
- 
- 	for (i = 0; i < MLX5_MPWRQ_PAGES_PER_WQE; i++) {
--		err = mlx5e_alloc_and_map_page(rq, wi, i);
-+		struct mlx5e_dma_info *dma_info = &wi->umr.dma_info[i];
-+
-+		err = mlx5e_page_alloc_mapped(rq, dma_info);
- 		if (unlikely(err))
- 			goto err_unmap;
--		page_ref_add(wi->umr.dma_info[i].page, pg_strides);
-+		wi->umr.mtt[i] = cpu_to_be64(dma_info->addr | MLX5_EN_WR);
-+		page_ref_add(dma_info->page, pg_strides);
- 		wi->skbs_frags[i] = 0;
- 	}
- 
-@@ -350,10 +359,10 @@ static int mlx5e_alloc_rx_umr_mpwqe(struct mlx5e_rq *rq,
- 
- err_unmap:
- 	while (--i >= 0) {
--		dma_unmap_page(rq->pdev, wi->umr.dma_info[i].addr, PAGE_SIZE,
--			       PCI_DMA_FROMDEVICE);
--		page_ref_sub(wi->umr.dma_info[i].page, pg_strides);
--		put_page(wi->umr.dma_info[i].page);
-+		struct mlx5e_dma_info *dma_info = &wi->umr.dma_info[i];
-+
-+		page_ref_sub(dma_info->page, pg_strides);
-+		mlx5e_page_release(rq, dma_info);
- 	}
- 
- 	return err;
-@@ -365,11 +374,10 @@ void mlx5e_free_rx_mpwqe(struct mlx5e_rq *rq, struct mlx5e_mpw_info *wi)
- 	int i;
- 
- 	for (i = 0; i < MLX5_MPWRQ_PAGES_PER_WQE; i++) {
--		dma_unmap_page(rq->pdev, wi->umr.dma_info[i].addr, PAGE_SIZE,
--			       PCI_DMA_FROMDEVICE);
--		page_ref_sub(wi->umr.dma_info[i].page,
--			     pg_strides - wi->skbs_frags[i]);
--		put_page(wi->umr.dma_info[i].page);
-+		struct mlx5e_dma_info *dma_info = &wi->umr.dma_info[i];
-+
-+		page_ref_sub(dma_info->page, pg_strides - wi->skbs_frags[i]);
-+		mlx5e_page_release(rq, dma_info);
- 	}
- }
- 
--- 
-1.8.3.1
+Le 15/09/2016 à 10:23, Anton Aksola a écrit :
+[snip]
+> --- a/ip/ipnetns.c
+> +++ b/ip/ipnetns.c
+> @@ -775,8 +775,6 @@ static int netns_monitor(int argc, char **argv)
+>  
+>  int do_netns(int argc, char **argv)
+>  {
+> -	netns_map_init();
+> -
+>  	if (argc < 1)
+>  		return netns_list(0, NULL);
+>  
+> @@ -784,8 +782,10 @@ int do_netns(int argc, char **argv)
+>  	    (matches(*argv, "lst") == 0))
+>  		return netns_list(argc-1, argv+1);
+>  
+> -	if ((matches(*argv, "list-id") == 0))
+> +	if ((matches(*argv, "list-id") == 0)) {
+> +		netns_map_init();
+>  		return netns_list_id(argc-1, argv+1);
+> +	}
+'ip netns' (ip netns list) also need it.
