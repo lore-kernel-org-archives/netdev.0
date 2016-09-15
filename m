@@ -1,477 +1,177 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v2 net-next 6/7] net: Generic resolver backend
-Date: Thu, 15 Sep 2016 14:19:20 -0700
-Message-ID: <1473974361-2275254-7-git-send-email-tom@herbertland.com>
-References: <1473974361-2275254-1-git-send-email-tom@herbertland.com>
+From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
+Subject: Re: [RFC v3 07/22] landlock: Handle file comparisons
+Date: Thu, 15 Sep 2016 23:25:10 +0200
+Message-ID: <57DB11B6.7090500@digikod.net>
+References: <20160914072415.26021-1-mic@digikod.net>
+ <20160914072415.26021-8-mic@digikod.net>
+ <20160914210649.GA57174@ast-mbp.thefacebook.com>
+ <57D9D6FE.4090708@digikod.net>
+ <20160914232418.GD60248@ast-mbp.thefacebook.com>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>, <roopa@cumulusnetworks.com>, <tgraf@suug.ch>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:50221 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1754213AbcIOVTm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 17:19:42 -0400
-Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
-        by m0001303.ppops.net (8.16.0.17/8.16.0.17) with SMTP id u8FLH1tP014183
-        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 14:19:41 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by m0001303.ppops.net with ESMTP id 25g35784py-1
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 14:19:41 -0700
-Received: from facebook.com (2401:db00:21:6030:face:0:92:0)     by
- mx-out.facebook.com (10.212.232.63) with ESMTP id
- 1c3427b87b8a11e688ca0002c992ebde-e1cf6a50 for <netdev@vger.kernel.org>;        Thu,
- 15 Sep 2016 14:19:39 -0700
-In-Reply-To: <1473974361-2275254-1-git-send-email-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="O3eSVVuCMVneGT8OKaWlt6EkL3kivSSDb"
+Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
+        Andy Lutomirski <luto@amacapital.net>, Arnd Bergmann <arnd@arndb.de>,
+        Casey Schaufler <casey@schaufler-ca.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Daniel Mack <daniel@zonque.org>, David Drysdale <drysdale@google.com>,
+        "David S . Miller"
+ <davem@davemloft.net>,
+        Elena Reshetova <elena.reshetova@intel.com>,
+        "Eric W . Biederman" <ebiederm@xmission.com>,
+        James Morris <james.l.morris@oracle.com>,
+        Kees Cook <keescook@chromium.org>, Paul Moore <pmoore@redhat.com>,
+        Sargun Dhillon <sargun@sargun.me>,
+        "Serge E . Hallyn" <serge@hallyn.com>, Tejun Heo <tj@kernel.org>,
+        Will Drewry <wad@chromium.org>, kernel-hardening@lists.openwall.com,
+        linux-api@vger.kernel.org, linux-security-module@vger.kernel.org,
+        netdev@vger.ker
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <kernel-hardening-return-4672-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <20160914232418.GD60248@ast-mbp.thefacebook.com>
+List-Id: netdev.vger.kernel.org
 
-This patch implements the backend of a resolver, specifically it
-provides a means to track unresolved addresses and to time them out.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--O3eSVVuCMVneGT8OKaWlt6EkL3kivSSDb
+Content-Type: multipart/mixed; boundary="h1DWkuqOL5MWqIXXbB7Bo1vQ3gvVj46jA";
+ protected-headers="v1"
+From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
+ Andy Lutomirski <luto@amacapital.net>, Arnd Bergmann <arnd@arndb.de>,
+ Casey Schaufler <casey@schaufler-ca.com>,
+ Daniel Borkmann <daniel@iogearbox.net>, Daniel Mack <daniel@zonque.org>,
+ David Drysdale <drysdale@google.com>, "David S . Miller"
+ <davem@davemloft.net>, Elena Reshetova <elena.reshetova@intel.com>,
+ "Eric W . Biederman" <ebiederm@xmission.com>,
+ James Morris <james.l.morris@oracle.com>, Kees Cook <keescook@chromium.org>,
+ Paul Moore <pmoore@redhat.com>, Sargun Dhillon <sargun@sargun.me>,
+ "Serge E . Hallyn" <serge@hallyn.com>, Tejun Heo <tj@kernel.org>,
+ Will Drewry <wad@chromium.org>, kernel-hardening@lists.openwall.com,
+ linux-api@vger.kernel.org, linux-security-module@vger.kernel.org,
+ netdev@vger.kernel.org, cgroups@vger.kernel.org
+Message-ID: <57DB11B6.7090500@digikod.net>
+Subject: Re: [RFC v3 07/22] landlock: Handle file comparisons
+References: <20160914072415.26021-1-mic@digikod.net>
+ <20160914072415.26021-8-mic@digikod.net>
+ <20160914210649.GA57174@ast-mbp.thefacebook.com>
+ <57D9D6FE.4090708@digikod.net>
+ <20160914232418.GD60248@ast-mbp.thefacebook.com>
+In-Reply-To: <20160914232418.GD60248@ast-mbp.thefacebook.com>
 
-The resolver is mostly a frontend to an rhashtable where the key
-of the table is whatever address type or object is tracked. A resolver
-instance is created by net_rslv_create. A resolver is destroyed by
-net_rslv_destroy.
+--h1DWkuqOL5MWqIXXbB7Bo1vQ3gvVj46jA
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-There are two functions that are used to manipulate entries in the
-table: net_rslv_lookup_and_create and net_rslv_resolved.
 
-net_rslv_lookup_and_create is called with an unresolved address as
-the argument. It returns a structure of type net_rslv_ent. When
-called a lookup is performed to see if an entry for the address
-is already in the table, if it is the entry is return and the
-false is returned in the new bool pointer argument to indicate that
-the entry was preexisting. If an entry is not found, one is create
-and true is returned on the new pointer argument. It is expected
-that when an entry is new the address resolution protocol is
-initiated (for instance a RTM_ADDR_RESOLVE message may be sent to a
-userspace daemon as we will do in ILA). If net_rslv_lookup_and_create
-returns NULL then presumably the hash table has reached the limit of
-number of outstanding unresolved addresses, the caller should take
-appropriate actions to avoid spamming the resolution protocol.
+On 15/09/2016 01:24, Alexei Starovoitov wrote:
+> On Thu, Sep 15, 2016 at 01:02:22AM +0200, Micka=C3=ABl Sala=C3=BCn wrot=
+e:
+>>>
+>>> I would suggest for the next RFC to do minimal 7 patches up to this p=
+oint
+>>> with simple example that demonstrates the use case.
+>>> I would avoid all unpriv stuff and all of seccomp for the next RFC as=
+ well,
+>>> otherwise I don't think we can realistically make forward progress, s=
+ince
+>>> there are too many issues raised in the subsequent patches.
+>>
+>> I hope we will find a common agreement about seccomp vs cgroup=E2=80=A6=
+ I think
+>> both approaches have their advantages, can be complementary and nicely=
 
-net_rslv_resolved is called when resolution is completely (e.g.
-ILA locator mapping was instantiated for a locator. The entry is
-removed for the hash table.
+>> combined.
+>=20
+> I don't mind having both task based lsm and cgroup based as long as
+> infrastracture is not duplicated and scaling issues from earlier versio=
+n
+> are resolved.
 
-An argument to net_rslv_create indicates a time for the pending
-resolution in milliseconds. If the timer fires before resolution
-then the entry is removed from the table. Subsequently, another
-attempt to resolve the same address will result in a new entry in
-the table.
+It should be much better with this RFC.
 
-net_rslv_lookup_and_create allocates an net_rslv_ent struct and
-includes allocating related user data. This is the object[] field
-in the structure. The key (unresolved address) is always the first
-field in the the object. Following that the caller may add it's
-own private field data. The key length and size of the user object
-(including the key) are specific in net_rslv_create.
+> I'm proposing to do cgroup only for the next RFC, since mine and Sargun=
+'s
+> use case for this bpf+lsm+cgroup is _not_ security or sandboxing.
 
-There are three callback functions that can be set as arugments in
-net_rslv_create:
+Well, LSM purpose is to do security stuff. The main goal of Landlock is
+to bring security features to userland, including unprivileged
+processes, at least via the seccomp interface [1].
 
-   - cmp_fn: Compare function for hash table. Arguments are the
-       key and an object in the table. If this is NULL then the
-       default memcmp of rhashtable is used.
+> No need for unpriv, no_new_priv to cgroups are other things that Andy
+> is concerned about.
 
-   - init_fn: Initial a new net_rslv_ent structure. This allows
-       initialization of the user portion of the structure
-       (the object[]).
+I'm concern about security too! :)
 
-   - destroy_fn: Called right before a net_rslv_ent is freed.
-       This allows cleanup of user data associated with the
-       entry.
+>=20
+>> Unprivileged sandboxing is the main goal of Landlock. This should not =
+be
+>> a problem, even for privileged features, thanks to the new subtype/acc=
+ess.
+>=20
+> yes. the point that unpriv stuff can come later after agreement is reac=
+hed.
+> If we keep arguing about seccomp details this set won't go anywhere.
+> Even in basic part (which is cgroup+bpf+lsm) are plenty of questions
+> to be still agreed.
 
-Note that the resolver backend only tracks unresolved addresses, it
-is up to the caller to perform the mechanism of resolution. This
-includes the possible of queuing packets awaiting resolution; this
-can be accomplished for instance by maintaining an skbuff queue
-in the net_rslv_ent user object[] data.
+Using the seccomp(2) (unpriv) *interface* is OK according to a more
+recent thread [1].
 
-DOS mitigation is done by limiting the number of entries in the
-resolver table (the max_size which argument of net_rslv_create)
-and setting a timeout. IF the timeout is set then the maximum rate
-of new resolution requests is max_table_size / timeout. For
-instance, with a maximum size of 1000 entries and a timeout of 100
-msecs the maximum rate of resolutions requests is 10000/s.
+[1]
+https://lkml.kernel.org/r/20160915044852.GA66000@ast-mbp.thefacebook.com
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
----
- include/net/resolver.h |  58 +++++++++++
- net/Kconfig            |   4 +
- net/core/Makefile      |   1 +
- net/core/resolver.c    | 272 +++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 335 insertions(+)
- create mode 100644 include/net/resolver.h
- create mode 100644 net/core/resolver.c
+>=20
+>> Agreed. With this RFC, the Checmate features (i.e. network helpers)
+>> should be able to sit on top of Landlock.
+>=20
+> I think neither of them should be called fancy names for no technical r=
+eason.
+> We will have only one bpf based lsm. That's it and it doesn't
+> need an obscure name. Directory name can be security/bpf/..stuff.c
 
-diff --git a/include/net/resolver.h b/include/net/resolver.h
-new file mode 100644
-index 0000000..9274237
---- /dev/null
-+++ b/include/net/resolver.h
-@@ -0,0 +1,58 @@
-+#ifndef __NET_RESOLVER_H
-+#define __NET_RESOLVER_H
-+
-+#include <linux/rhashtable.h>
-+
-+struct net_rslv;
-+struct net_rslv_ent;
-+
-+typedef int (*net_rslv_cmpfn)(struct net_rslv *nrslv, const void *key,
-+			      const void *object);
-+typedef void (*net_rslv_initfn)(struct net_rslv *nrslv, void *object);
-+typedef void (*net_rslv_destroyfn)(struct net_rslv_ent *nrent);
-+
-+struct net_rslv {
-+	struct rhashtable rhash_table;
-+	struct rhashtable_params params;
-+	net_rslv_cmpfn rslv_cmp;
-+	net_rslv_initfn rslv_init;
-+	net_rslv_destroyfn rslv_destroy;
-+	size_t obj_size;
-+	spinlock_t *locks;
-+	unsigned int locks_mask;
-+	unsigned int hash_rnd;
-+};
-+
-+struct net_rslv_ent {
-+	struct rcu_head rcu;
-+	union {
-+		/* Fields set when entry is in hash table */
-+		struct {
-+			struct rhash_head node;
-+			struct delayed_work timeout_work;
-+			struct net_rslv *nrslv;
-+		};
-+
-+		/* Fields set when rcu freeing structure */
-+		struct {
-+			net_rslv_destroyfn destroy;
-+		};
-+	};
-+	char object[];
-+};
-+
-+struct net_rslv *net_rslv_create(size_t size, size_t key_len,
-+				 size_t max_size,
-+				 net_rslv_cmpfn cmp_fn,
-+				 net_rslv_initfn init_fn,
-+				 net_rslv_destroyfn destroy_fn);
-+
-+struct net_rslv_ent *net_rslv_lookup_and_create(struct net_rslv *nrslv,
-+						void *key, bool *created,
-+						unsigned int timeout);
-+
-+void net_rslv_resolved(struct net_rslv *nrslv, void *key);
-+
-+void net_rslv_destroy(struct net_rslv *nrslv);
-+
-+#endif
-diff --git a/net/Kconfig b/net/Kconfig
-index 7b6cd34..fad4fac 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -255,6 +255,10 @@ config XPS
- 	depends on SMP
- 	default y
- 
-+config NET_EXT_RESOLVER
-+	bool
-+	default n
-+
- config HWBM
-        bool
- 
-diff --git a/net/core/Makefile b/net/core/Makefile
-index d6508c2..c0a0208 100644
---- a/net/core/Makefile
-+++ b/net/core/Makefile
-@@ -27,3 +27,4 @@ obj-$(CONFIG_LWTUNNEL) += lwtunnel.o
- obj-$(CONFIG_DST_CACHE) += dst_cache.o
- obj-$(CONFIG_HWBM) += hwbm.o
- obj-$(CONFIG_NET_DEVLINK) += devlink.o
-+obj-$(CONFIG_NET_EXT_RESOLVER) += resolver.o
-diff --git a/net/core/resolver.c b/net/core/resolver.c
-new file mode 100644
-index 0000000..49812aa
---- /dev/null
-+++ b/net/core/resolver.c
-@@ -0,0 +1,272 @@
-+#include <linux/errno.h>
-+#include <linux/ip.h>
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/netlink.h>
-+#include <linux/skbuff.h>
-+#include <linux/socket.h>
-+#include <linux/types.h>
-+#include <linux/vmalloc.h>
-+#include <net/checksum.h>
-+#include <net/ip.h>
-+#include <net/ip6_fib.h>
-+#include <net/lwtunnel.h>
-+#include <net/protocol.h>
-+#include <net/resolver.h>
-+#include <uapi/linux/ila.h>
-+
-+static void net_rslv_destroy_rcu(struct rcu_head *head)
-+{
-+	struct net_rslv_ent *nrent = container_of(head, struct net_rslv_ent,
-+						  rcu);
-+	if (nrent->destroy) {
-+		/* Call user's destroy function just before freeing */
-+		nrent->destroy(nrent);
-+	}
-+
-+	kfree(nrent);
-+}
-+
-+static void net_rslv_destroy_entry(struct net_rslv *nrslv,
-+				   struct net_rslv_ent *nrent)
-+{
-+	nrent->destroy = nrslv->rslv_destroy;
-+	call_rcu(&nrent->rcu, net_rslv_destroy_rcu);
-+}
-+
-+static inline spinlock_t *net_rslv_get_lock(struct net_rslv *nrslv, void *key)
-+{
-+	unsigned int hash;
-+
-+	/* Use the rhashtable hash function */
-+	hash = rht_key_get_hash(&nrslv->rhash_table, key, nrslv->params,
-+				nrslv->hash_rnd);
-+
-+	return &nrslv->locks[hash & nrslv->locks_mask];
-+}
-+
-+static void net_rslv_delayed_work(struct work_struct *w)
-+{
-+	struct delayed_work *delayed_work = to_delayed_work(w);
-+	struct net_rslv_ent *nrent = container_of(delayed_work,
-+						  struct net_rslv_ent,
-+						  timeout_work);
-+	struct net_rslv *nrslv = nrent->nrslv;
-+	spinlock_t *lock = net_rslv_get_lock(nrslv, nrent->object);
-+
-+	spin_lock(lock);
-+	rhashtable_remove_fast(&nrslv->rhash_table, &nrent->node,
-+			       nrslv->params);
-+	spin_unlock(lock);
-+
-+	net_rslv_destroy_entry(nrslv, nrent);
-+}
-+
-+static void net_rslv_ent_free_cb(void *ptr, void *arg)
-+{
-+	struct net_rslv_ent *nrent = (struct net_rslv_ent *)ptr;
-+	struct net_rslv *nrslv = nrent->nrslv;
-+
-+	net_rslv_destroy_entry(nrslv, nrent);
-+}
-+
-+void net_rslv_resolved(struct net_rslv *nrslv, void *key)
-+{
-+	spinlock_t *lock = net_rslv_get_lock(nrslv, key);
-+	struct net_rslv_ent *nrent;
-+
-+	rcu_read_lock();
-+
-+	nrent = rhashtable_lookup_fast(&nrslv->rhash_table, key,
-+				       nrslv->params);
-+	if (!nrent)
-+		goto out;
-+
-+	/* Cancel timer first */
-+	cancel_delayed_work_sync(&nrent->timeout_work);
-+
-+	spin_lock(lock);
-+
-+	/* Lookup again just in case someone already removed */
-+	nrent = rhashtable_lookup_fast(&nrslv->rhash_table, key,
-+				       nrslv->params);
-+	if (unlikely(!nrent)) {
-+		spin_unlock(lock);
-+		goto out;
-+	}
-+
-+	rhashtable_remove_fast(&nrslv->rhash_table, &nrent->node,
-+			       nrslv->params);
-+	spin_unlock(lock);
-+
-+	net_rslv_destroy_entry(nrslv, nrent);
-+
-+out:
-+	rcu_read_unlock();
-+}
-+EXPORT_SYMBOL_GPL(net_rslv_resolved);
-+
-+/* Called with hash bucket lock held */
-+static struct net_rslv_ent *net_rslv_new_ent(struct net_rslv *nrslv,
-+					     void *key, bool *created,
-+					     unsigned int timeout)
-+{
-+	struct net_rslv_ent *nrent;
-+	int err;
-+
-+	nrent = kzalloc(sizeof(*nrent) + nrslv->obj_size, GFP_KERNEL);
-+	if (!nrent)
-+		return NULL;
-+
-+	/* Key is always at beginning of object data */
-+	memcpy(nrent->object, key, nrslv->params.key_len);
-+
-+	nrent->nrslv = nrslv;
-+
-+	/* Initialize user data */
-+	if (nrslv->rslv_init)
-+		nrslv->rslv_init(nrslv, nrent);
-+
-+	/* Put in hash table */
-+	err = rhashtable_lookup_insert_fast(&nrslv->rhash_table,
-+					    &nrent->node, nrslv->params);
-+	if (err) {
-+		kfree(nrent);
-+		return NULL;
-+	}
-+
-+	if (timeout) {
-+		/* Schedule timeout for resolver */
-+		INIT_DELAYED_WORK(&nrent->timeout_work, net_rslv_delayed_work);
-+		schedule_delayed_work(&nrent->timeout_work, timeout);
-+	}
-+
-+	*created = true;
-+
-+	return nrent;
-+}
-+
-+struct net_rslv_ent *net_rslv_lookup_and_create(struct net_rslv *nrslv,
-+						void *key, bool *created,
-+						unsigned int timeout)
-+{
-+	spinlock_t *lock = net_rslv_get_lock(nrslv, key);
-+	struct net_rslv_ent *nrent;
-+
-+	*created = false;
-+
-+	nrent = rhashtable_lookup_fast(&nrslv->rhash_table, key,
-+				       nrslv->params);
-+	if (nrent)
-+		return nrent;
-+
-+	spin_lock(lock);
-+
-+	/* Check if someone beat us to the punch */
-+	nrent = rhashtable_lookup_fast(&nrslv->rhash_table, key,
-+				       nrslv->params);
-+	if (nrent) {
-+		spin_unlock(lock);
-+		return nrent;
-+	}
-+
-+	nrent = net_rslv_new_ent(nrslv, key, created, timeout);
-+
-+	spin_unlock(lock);
-+
-+	return nrent;
-+}
-+EXPORT_SYMBOL_GPL(net_rslv_lookup_and_create);
-+
-+static int net_rslv_cmp(struct rhashtable_compare_arg *arg,
-+			const void *obj)
-+{
-+	struct net_rslv *nrslv = container_of(arg->ht, struct net_rslv,
-+					      rhash_table);
-+
-+	return nrslv->rslv_cmp(nrslv, arg->key, obj);
-+}
-+
-+#define LOCKS_PER_CPU	10
-+#define MAX_LOCKS 1024
-+
-+struct net_rslv *net_rslv_create(size_t obj_size, size_t key_len,
-+				 size_t max_size,
-+				 net_rslv_cmpfn cmp_fn,
-+				 net_rslv_initfn init_fn,
-+				 net_rslv_destroyfn destroy_fn)
-+{
-+	struct net_rslv *nrslv;
-+	int err;
-+
-+	if (key_len < obj_size)
-+		return ERR_PTR(-EINVAL);
-+
-+	nrslv = kzalloc(sizeof(*nrslv), GFP_KERNEL);
-+	if (!nrslv)
-+		return ERR_PTR(-ENOMEM);
-+
-+	err = alloc_bucket_spinlocks(&nrslv->locks, &nrslv->locks_mask,
-+				     MAX_LOCKS, LOCKS_PER_CPU, GFP_KERNEL);
-+	if (err)
-+		return ERR_PTR(err);
-+
-+	nrslv->obj_size = obj_size;
-+	nrslv->rslv_init = init_fn;
-+	nrslv->rslv_cmp = cmp_fn;
-+	nrslv->rslv_destroy = destroy_fn;
-+	get_random_bytes(&nrslv->hash_rnd, sizeof(nrslv->hash_rnd));
-+
-+	nrslv->params.head_offset = offsetof(struct net_rslv_ent, node);
-+	nrslv->params.key_offset = offsetof(struct net_rslv_ent, object);
-+	nrslv->params.key_len = key_len;
-+	nrslv->params.max_size = max_size;
-+	nrslv->params.min_size = 256;
-+	nrslv->params.automatic_shrinking = true;
-+	nrslv->params.obj_cmpfn = cmp_fn ? net_rslv_cmp : NULL;
-+
-+	rhashtable_init(&nrslv->rhash_table, &nrslv->params);
-+
-+	return nrslv;
-+}
-+EXPORT_SYMBOL_GPL(net_rslv_create);
-+
-+static void net_rslv_cancel_all_delayed_work(struct net_rslv *nrslv)
-+{
-+	struct rhashtable_iter iter;
-+	struct net_rslv_ent *nrent;
-+	int ret;
-+
-+	ret = rhashtable_walk_init(&nrslv->rhash_table, &iter, GFP_ATOMIC);
-+	if (WARN_ON(ret))
-+		return;
-+
-+	ret = rhashtable_walk_start(&iter);
-+	if (WARN_ON(ret && ret != -EAGAIN))
-+		goto err;
-+
-+	while ((nrent = rhashtable_walk_next(&iter)))
-+		cancel_delayed_work_sync(&nrent->timeout_work);
-+
-+err:
-+	rhashtable_walk_stop(&iter);
-+	rhashtable_walk_exit(&iter);
-+}
-+
-+void net_rslv_destroy(struct net_rslv *nrslv)
-+{
-+	/* First cancel delayed work in all the nodes. We don't want
-+	 * delayed work trying to remove nodes from the table while
-+	 * rhashtable_free_and_destroy is walking.
-+	 */
-+	net_rslv_cancel_all_delayed_work(nrslv);
-+
-+	rhashtable_free_and_destroy(&nrslv->rhash_table,
-+				    net_rslv_ent_free_cb, NULL);
-+
-+	free_bucket_spinlocks(nrslv->locks);
-+
-+	kfree(nrslv);
-+}
-+EXPORT_SYMBOL_GPL(net_rslv_destroy);
-+
--- 
-2.8.0.rc2
+I disagree on an LSM named "BPF". I first started with the "seccomp LSM"
+name (first RFC) but I later realized that it is confusing because
+seccomp is associated to its syscall and the underlying features. Same
+thing goes for BPF. It is also artificially hard to grep on a name too
+used in the kernel source tree.
+Making an association between the generic eBPF mechanism and a security
+centric approach (i.e. LSM) seems a bit reductive (for BPF). Moreover,
+the seccomp interface [1] can still be used.
+
+Landlock is a nice name to depict a sandbox as an enclave (i.e. a
+landlocked country/state). I want to keep this name, which is simple,
+express the goal of Landlock nicely and is comparable to other sandbox
+mechanisms as Seatbelt or Pledge.
+Landlock should not be confused with the underlying eBPF implementation.
+Landlock could use more than only eBPF in the future and eBPF could be
+used in other LSM as well.
+
+ Micka=C3=ABl
+
+
+--h1DWkuqOL5MWqIXXbB7Bo1vQ3gvVj46jA--
+
+--O3eSVVuCMVneGT8OKaWlt6EkL3kivSSDb
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBCgAGBQJX2xG2AAoJECLe/t9zvWqVxNgH/0OSy0Qxz3fnRgd61Ekj6j5s
+llh1ceHlo922+21YqtZV7z4lwqKKKFXZmbOoO4n+U9uQJJPHCzFYwIfJdnxa+lC7
+adaCKy4RgguyuWBQBxKfMv7mG5roOvBX6OYIF744tsId8D08zkA1lOh1w+ev/k+D
+s5MAoiOBulFxoDmuGAP42DLNu8gh8F5Y6ScgqBVLLTItNggwpdjnlSTS/D+hoIu+
+UFKCwxzxAjDav9wEKx0h/gJI6xOI78AL4vHDwfWDO9IZDPsXeE27dEm+J00FCJ9e
+sUSpc+11l8J5/mI3wVTrGF67AlRwr5Tt3VH9ioQWg+LGCeypXJlJ1OTu3cYtRgk=
+=3M+j
+-----END PGP SIGNATURE-----
+
+--O3eSVVuCMVneGT8OKaWlt6EkL3kivSSDb--
