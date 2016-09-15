@@ -1,43 +1,41 @@
-From: "Amrani, Ram" <Ram.Amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Subject: RE: [RFC 00/11] QLogic RDMA Driver (qedr) RFC
-Date: Thu, 15 Sep 2016 05:55:39 +0000
-Message-ID: <SN1PR07MB2207EBA2BDF3405F9C717F20F8F00@SN1PR07MB2207.namprd07.prod.outlook.com>
-References: <1473696465-27986-1-git-send-email-Ram.Amrani@qlogic.com>
- <20160912180508.GI5843@obsidianresearch.com>
- <DM3PR1101MB1181DF570D4F01A0CEB1CFC7E2FE0@DM3PR1101MB1181.namprd11.prod.outlook.com>
- <20160913154000.GA25878@obsidianresearch.com>
- <SN1PR07MB2207486633D88B5C65D547F9F8F10@SN1PR07MB2207.namprd07.prod.outlook.com>
- <20160914171737.GH16014@obsidianresearch.com>
+From: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Subject: Re: [PATCH v4 05/16] IB/pvrdma: Add functions for Verbs support
+Date: Wed, 14 Sep 2016 23:15:37 -0700
+Message-ID: <20160915061537.GC4869@infradead.org>
+References: <1473655766-31628-1-git-send-email-aditr@vmware.com>
+ <1473655766-31628-6-git-send-email-aditr@vmware.com>
+ <20160914124947.GA14616@infradead.org>
+ <BLUPR0501MB836AB8BF5108322033C5DD6C5F00@BLUPR0501MB836.namprd05.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Yuval Mintz <Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        Ariel Elior <Ariel.Elior-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        Michal Kalderon <Michal.Kalderon-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
-        Rajesh Borundia <rajesh.borundia-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+        "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
         "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+        pv-drivers <pv-drivers-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "Jorgen S. Hansen" <jhansen-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
+        Aditya Sarwade <asarwade-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
+        George Zhang <georgezhang-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
+        Bryan Tan <bryantan-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+To: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160914171737.GH16014-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Content-Language: en-US
+Content-Disposition: inline
+In-Reply-To: <BLUPR0501MB836AB8BF5108322033C5DD6C5F00-84Rf5TRaNBMVDhIuTCx1aJLWcSx1hRipwIZJ9u9yWa8oOQlpcoRfSA@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> > What do you mean by "standard kernel names"?
->=20
-> By that I mean 'identical copies' do not copy the file and then randomly =
-change
-> it giving things different names or putting different content in structs.
->=20
-> You will want to submit your user provider to rdma-plumbing to get it int=
-o the
-> distros, we are planning to set it as the vehicle for code targeting 4.9
+On Thu, Sep 15, 2016 at 12:10:10AM +0000, Adit Ranadive wrote:
+> On Wed, Sep 14, 2016 at 05:49:50 -0700 Christoph Hellwig wrote:
+> > > +	props->max_fmr = dev->dsr->caps.max_fmr;
+> > > +	props->max_map_per_fmr = dev->dsr->caps.max_map_per_fmr;
+> > 
+> > Please don't add FMR support to any new drivers.
+> 
+> We don't and our device reports these as 0. If you want me to more explicit I
+> can remove the zero'd out properties.
 
-Got it. Thanks.
-
+Oh, ok.  I'll withdraw my comment then.
 --
 To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
