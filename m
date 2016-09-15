@@ -1,43 +1,91 @@
-From: Julian Calaby <julian.calaby@gmail.com>
-Subject: Re: [PATCH] mwifiex: fix null pointer deference when adapter is null
-Date: Thu, 15 Sep 2016 23:56:38 +1000
-Message-ID: <CAGRGNgVAWa8OK_qWkDapzy2L8oUhrXYCCfVYhrwWQc9F22vhVw@mail.gmail.com>
-References: <20160915134238.5167-1-colin.king@canonical.com>
+From: Filipe Manco <filipe.manco@neclab.eu>
+Subject: Re: [Xen-devel] [RFC PATCH] xen-netback: fix error handling on
+ netback_probe()
+Date: Thu, 15 Sep 2016 16:05:17 +0200
+Message-ID: <c8e11688-cb11-69f6-2c79-daa0f2b3e8b4@neclab.eu>
+References: <1473768687-27384-1-git-send-email-filipe.manco@neclab.eu>
+ <20160914101023.GY15958@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Amitkumar Karwar <akarwar@marvell.com>,
-        Nishant Sarmukadam <nishants@marvell.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless <linux-wireless@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Colin King <colin.king@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160915134238.5167-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>,
+        Xen-devel <xen-devel@lists.xenproject.org>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailer1.neclab.eu ([195.37.70.40]:54095 "EHLO mailer1.neclab.eu"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753626AbcIOOF1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 15 Sep 2016 10:05:27 -0400
+In-Reply-To: <20160914101023.GY15958@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi All,
-
-On Thu, Sep 15, 2016 at 11:42 PM, Colin King <colin.king@canonical.com> wrote:
-> From: Colin Ian King <colin.king@canonical.com>
+On 14-09-2016 12:10, Wei Liu wrote:
+> CC xen-devel as well.
 >
-> If adapter is null the error exit path in mwifiex_shutdown_sw is
-> to down the semaphore sem and print some debug via mwifiex_dbg.
-> However, passing a NULL adapter to mwifiex_dbg causes a null
-> pointer deference when accessing adapter->dev.  This fix checks
-> for a null adapter at the start of the function and to exit
-> without the need to up the semaphore and we also skip the debug
-> to avoid the null pointer dereference.
+> On Tue, Sep 13, 2016 at 02:11:27PM +0200, Filipe Manco wrote:
+>> In case of error during netback_probe() (e.g. an entry missing on the
+>> xenstore) netback_remove() is called on the new device, which will set
+>> the device backend state to XenbusStateClosed by calling
+>> set_backend_state(). However, the backend state wasn't initialized by
+>> netback_probe() at this point, which will cause and invalid transaction
+>> and set_backend_state() to BUG().
+>>
+>> Initialize the backend state at the beginning of netback_probe() to
+>> XenbusStateInitialising, and create a new valid state transaction on
+>> set_backend_state(), from XenbusStateInitialising to XenbusStateClosed.
+>>
+>> Signed-off-by: Filipe Manco <filipe.manco@neclab.eu>
+> There is a state machine right before set_backend_state. You would also
+> need to update that.
+Good point I'll update the diagram.
+
+After looking at the diagram and for consistency, shouldn't the transition
+Initialising -> InitWait be handled using set_backend_state()? Currently it
+is done directly in netback_probe() code. If you agree I'll submit a v2 with
+these two changes.
+> According to the definition of XenbusStateInitialising, this patch looks
+> plausible to me.
 >
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
-
-Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
-
-Thanks,
-
--- 
-Julian Calaby
-
-Email: julian.calaby@gmail.com
-Profile: http://www.google.com/profiles/julian.calaby/
+> Wei.
+>
+Filipe
+>> ---
+>>   drivers/net/xen-netback/xenbus.c | 10 ++++++++++
+>>   1 file changed, 10 insertions(+)
+>>
+>> diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
+>> index 6a31f2610c23..c0e5f6994d01 100644
+>> --- a/drivers/net/xen-netback/xenbus.c
+>> +++ b/drivers/net/xen-netback/xenbus.c
+>> @@ -270,6 +270,7 @@ static int netback_probe(struct xenbus_device *dev,
+>>   
+>>   	be->dev = dev;
+>>   	dev_set_drvdata(&dev->dev, be);
+>> +	be->state = XenbusStateInitialising;
+>>   
+>>   	sg = 1;
+>>   
+>> @@ -515,6 +516,15 @@ static void set_backend_state(struct backend_info *be,
+>>   {
+>>   	while (be->state != state) {
+>>   		switch (be->state) {
+>> +		case XenbusStateInitialising:
+>> +			switch (state) {
+>> +			case XenbusStateClosed:
+>> +				backend_switch_state(be, XenbusStateClosed);
+>> +				break;
+>> +			default:
+>> +				BUG();
+>> +			}
+>> +			break;
+>>   		case XenbusStateClosed:
+>>   			switch (state) {
+>>   			case XenbusStateInitWait:
+>> -- 
+>> 2.7.4
+>>
+> _______________________________________________
+> Xen-devel mailing list
+> Xen-devel@lists.xen.org
+> https://lists.xen.org/xen-devel
