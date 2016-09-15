@@ -1,16 +1,16 @@
 From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 3/3] l2tp: constify net_device_ops structures
-Date: Thu, 15 Sep 2016 22:23:26 +0200
-Message-ID: <1473971006-2074-4-git-send-email-Julia.Lawall@lip6.fr>
+Subject: [PATCH 2/3] dwc_eth_qos: constify net_device_ops structures
+Date: Thu, 15 Sep 2016 22:23:25 +0200
+Message-ID: <1473971006-2074-3-git-send-email-Julia.Lawall@lip6.fr>
 References: <1473971006-2074-1-git-send-email-Julia.Lawall@lip6.fr>
 Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+To: Lars Persson <lars.persson@axis.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3-relais-sop.national.inria.fr ([192.134.164.104]:28380
+Received: from mail3-relais-sop.national.inria.fr ([192.134.164.104]:44355
         "EHLO mail3-relais-sop.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1756280AbcIOUlo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 16:41:44 -0400
+        by vger.kernel.org with ESMTP id S1755998AbcIOUln (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 16:41:43 -0400
 In-Reply-To: <1473971006-2074-1-git-send-email-Julia.Lawall@lip6.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -54,28 +54,30 @@ static
 
 The result of size on this file before the change is:
    text	      data     bss     dec         hex	  filename
-   3401        931      44    4376        1118	net/l2tp/l2tp_eth.o
+  21623       1316      40   22979        59c3
+   drivers/net/ethernet/synopsys/dwc_eth_qos.o
 
 and after the change it is:
    text	     data        bss	    dec	    hex	filename
-   3993       347         44       4384    1120	net/l2tp/l2tp_eth.o
+  22199       724         40      22963    59b3
+   drivers/net/ethernet/synopsys/dwc_eth_qos.o
 
 Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
 ---
- net/l2tp/l2tp_eth.c |    2 +-
+ drivers/net/ethernet/synopsys/dwc_eth_qos.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
-index 57fc5a4..ddb744c 100644
---- a/net/l2tp/l2tp_eth.c
-+++ b/net/l2tp/l2tp_eth.c
-@@ -121,7 +121,7 @@ static struct rtnl_link_stats64 *l2tp_eth_get_stats64(struct net_device *dev,
- }
+diff --git a/drivers/net/ethernet/synopsys/dwc_eth_qos.c b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
+index c25d971..b5c4554 100644
+--- a/drivers/net/ethernet/synopsys/dwc_eth_qos.c
++++ b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
+@@ -2761,7 +2761,7 @@ static const struct ethtool_ops dwceqos_ethtool_ops = {
+ 	.set_link_ksettings = phy_ethtool_set_link_ksettings,
+ };
  
- 
--static struct net_device_ops l2tp_eth_netdev_ops = {
-+static const struct net_device_ops l2tp_eth_netdev_ops = {
- 	.ndo_init		= l2tp_eth_dev_init,
- 	.ndo_uninit		= l2tp_eth_dev_uninit,
- 	.ndo_start_xmit		= l2tp_eth_dev_xmit,
+-static struct net_device_ops netdev_ops = {
++static const struct net_device_ops netdev_ops = {
+ 	.ndo_open		= dwceqos_open,
+ 	.ndo_stop		= dwceqos_stop,
+ 	.ndo_start_xmit		= dwceqos_start_xmit,
