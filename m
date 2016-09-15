@@ -1,162 +1,116 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [RFC v3 18/22] cgroup,landlock: Add CGRP_NO_NEW_PRIVS to handle
- unprivileged hooks
-Date: Wed, 14 Sep 2016 21:48:54 -0700
-Message-ID: <20160915044852.GA66000@ast-mbp.thefacebook.com>
-References: <20160914072415.26021-19-mic@digikod.net>
- <CALCETrXBDVe9AzHnD1B5r=GGVNsU5gsC92iqD0S94mQBZOzOBQ@mail.gmail.com>
- <57D9CB25.1010103@digikod.net>
- <CALCETrVjyLaL-0H1AFsfYUtDGA8NSn4R8LkvBMQT7Gpmxeswgg@mail.gmail.com>
- <20160915021940.GA65119@ast-mbp.thefacebook.com>
- <CALCETrWXjJZZRj5XvDQ+-Grue+b4MW2TFKsfgYYFYoFBFVH71g@mail.gmail.com>
- <20160915040054.GA65308@ast-mbp.thefacebook.com>
- <CALCETrXTS8R1E2b9mmWzpOO6QOW5nWYW_RQRJYU1CGRsbNy+Yw@mail.gmail.com>
- <20160915043120.GA65819@ast-mbp.thefacebook.com>
- <CALCETrU=tGLx8s_eqji6SfXRi=3W8FkGC7wA6VMfD-_wAVb66w@mail.gmail.com>
+From: "Mintz, Yuval" <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Subject: RE: [RFC 02/11] Add RoCE driver framework
+Date: Thu, 15 Sep 2016 05:11:03 +0000
+Message-ID: <BL2PR07MB23060C776EDAE92B84FCFB768DF00@BL2PR07MB2306.namprd07.prod.outlook.com>
+References: <1473696465-27986-1-git-send-email-Ram.Amrani@qlogic.com>
+ <1473696465-27986-3-git-send-email-Ram.Amrani@qlogic.com>
+ <516b98c7-477a-4890-0d92-529dc32f2c4e@mellanox.com>
+ <CY4PR11MB1720F9B74BBF82D0779FAC8F97FF0@CY4PR11MB1720.namprd11.prod.outlook.com>
+ <20160913063806.GP8812@leon.nu>
+ <BL2PR07MB2306937C8C495DB80DA776CA8DFE0@BL2PR07MB2306.namprd07.prod.outlook.com>
+ <20160913101616.GT8812@leon.nu>
+ <BL2PR07MB2306533A710B9EC40F56E8678DF10@BL2PR07MB2306.namprd07.prod.outlook.com>
+ <20160914130032.GB26069@leon.nu>
+ <BL2PR07MB23066BBC4A019365A632E2FA8DF10@BL2PR07MB2306.namprd07.prod.outlook.com>
+ <20160915043716.GD26069@leon.nu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Arnd Bergmann <arnd@arndb.de>,
-        Casey Schaufler <casey@schaufler-ca.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Daniel Mack <daniel@zonque.org>,
-        David Drysdale <drysdale@google.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Elena Reshetova <elena.reshetova@intel.com>,
-        "Eric W . Biederman" <ebiederm@xmission.com>,
-        James Morris <james.l.morris@oracle.com>,
-        Kees Cook <keescook@chromium.org>,
-        Paul Moore <pmoore@redhat.com>,
-        Sargun Dhillon <sargun@sargun.me>,
-        "Serge E . Hallyn" <serge@hallyn.com>, Tejun Heo <tj@kernel.org>,
-        Will Drewry <wad@chromium.org>,
-        "kernel-hardening@lists.openwall.com"
-To: Andy Lutomirski <luto@amacapital.net>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CALCETrU=tGLx8s_eqji6SfXRi=3W8FkGC7wA6VMfD-_wAVb66w@mail.gmail.com>
-Sender: owner-linux-security-module@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: Mark Bloch <markb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Ram Amrani <Ram.Amrani-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+        "David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Ariel Elior <Ariel.Elior-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+        "Michal Kalderon" <Michal.Kalderon-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+        Rajesh Borundia <rajesh.borundia-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160915043716.GD26069-2ukJVAZIZ/Y@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 14, 2016 at 09:38:16PM -0700, Andy Lutomirski wrote:
-> On Wed, Sep 14, 2016 at 9:31 PM, Alexei Starovoitov
-> <alexei.starovoitov@gmail.com> wrote:
-> > On Wed, Sep 14, 2016 at 09:08:57PM -0700, Andy Lutomirski wrote:
-> >> On Wed, Sep 14, 2016 at 9:00 PM, Alexei Starovoitov
-> >> <alexei.starovoitov@gmail.com> wrote:
-> >> > On Wed, Sep 14, 2016 at 07:27:08PM -0700, Andy Lutomirski wrote:
-> >> >> >> >
-> >> >> >> > This RFC handle both cgroup and seccomp approaches in a similar way. I
-> >> >> >> > don't see why building on top of cgroup v2 is a problem. Is there
-> >> >> >> > security issues with delegation?
-> >> >> >>
-> >> >> >> What I mean is: cgroup v2 delegation has a functionality problem.
-> >> >> >> Tejun says [1]:
-> >> >> >>
-> >> >> >> We haven't had to face this decision because cgroup has never properly
-> >> >> >> supported delegating to applications and the in-use setups where this
-> >> >> >> happens are custom configurations where there is no boundary between
-> >> >> >> system and applications and adhoc trial-and-error is good enough a way
-> >> >> >> to find a working solution.  That wiggle room goes away once we
-> >> >> >> officially open this up to individual applications.
-> >> >> >>
-> >> >> >> Unless and until that changes, I think that landlock should stay away
-> >> >> >> from cgroups.  Others could reasonably disagree with me.
-> >> >> >
-> >> >> > Ours and Sargun's use cases for cgroup+lsm+bpf is not for security
-> >> >> > and not for sandboxing. So the above doesn't matter in such contexts.
-> >> >> > lsm hooks + cgroups provide convenient scope and existing entry points.
-> >> >> > Please see checmate examples how it's used.
-> >> >> >
-> >> >>
-> >> >> To be clear: I'm not arguing at all that there shouldn't be
-> >> >> bpf+lsm+cgroup integration.  I'm arguing that the unprivileged
-> >> >> landlock interface shouldn't expose any cgroup integration, at least
-> >> >> until the cgroup situation settles down a lot.
-> >> >
-> >> > ahh. yes. we're perfectly in agreement here.
-> >> > I'm suggesting that the next RFC shouldn't include unpriv
-> >> > and seccomp at all. Once bpf+lsm+cgroup is merged, we can
-> >> > argue about unpriv with cgroups and even unpriv as a whole,
-> >> > since it's not a given. Seccomp integration is also questionable.
-> >> > I'd rather not have seccomp as a gate keeper for this lsm.
-> >> > lsm and seccomp are orthogonal hook points. Syscalls and lsm hooks
-> >> > don't have one to one relationship, so mixing them up is only
-> >> > asking for trouble further down the road.
-> >> > If we really need to carry some information from seccomp to lsm+bpf,
-> >> > it's easier to add eBPF support to seccomp and let bpf side deal
-> >> > with passing whatever information.
-> >> >
-> >>
-> >> As an argument for keeping seccomp (or an extended seccomp) as the
-> >> interface for an unprivileged bpf+lsm: seccomp already checks off most
-> >> of the boxes for safely letting unprivileged programs sandbox
-> >> themselves.
+> > > If you want dynamic prints, you have two options:
+> > > 1. Add support of ethtool to whole RDMA stack.
+> > > 2. Use dynamic tracing infrastructure.
 > >
-> > you mean the attach part of seccomp syscall that deals with no_new_priv?
-> > sure, that's reusable.
-> >
-> >> Furthermore, to the extent that there are use cases for
-> >> unprivileged bpf+lsm that *aren't* expressible within the seccomp
-> >> hierarchy, I suspect that syscall filters have exactly the same
-> >> problem and that we should fix seccomp to cover it.
-> >
-> > not sure what you mean by 'seccomp hierarchy'. The normal process
-> > hierarchy ?
-> 
-> Kind of.  I mean the filter layers that are inherited across fork(),
-> the TSYNC mechanism, etc.
-> 
-> > imo the main deficiency of secccomp is inability to look into arguments.
-> > One can argue that it's a blessing, since composite args
-> > are not yet copied into the kernel memory.
-> > But in a lot of cases the seccomp arguments are FDs pointing
-> > to kernel objects and if programs could examine those objects
-> > the sandboxing scope would be more precise.
-> > lsm+bpf solves that part and I'd still argue that it's
-> > orthogonal to seccomp's pass/reject flow.
-> > I mean if seccomp says 'ok' the syscall should continue executing
-> > as normal and whatever LSM hooks were triggered by it may have
-> > their own lsm+bpf verdicts.
-> 
-> I agree with all of this...
-> 
-> > Furthermore in the process hierarchy different children
-> > should be able to set their own lsm+bpf filters that are not
-> > related to parallel seccomp+bpf hierarchy of programs.
-> > seccomp syscall can be an interface to attach programs
-> > to lsm hooks, but nothing more than that.
-> 
-> I'm not sure what you mean.  I mean that, logically, I think we should
-> be able to do:
-> 
-> seccomp(attach a syscall filter);
-> fork();
-> child does seccomp(attach some lsm filters);
-> 
-> I think that they *should* be related to the seccomp+bpf hierarchy of
-> programs in that they are entries in the same logical list of filter
-> layers installed.  Some of those layers can be syscall filters and
-> some of the layers can be lsm filters.  If we subsequently add a way
-> to attach a removable seccomp filter or a way to attach a seccomp
-> filter that logs failures to some fd watched by an outside monitor, I
-> think that should work for lsm, too, with more or less the same
-> interface.
-> 
-> If we need a way for a sandbox manager to opt different children into
-> different subsets of fancy filters, then I think that syscall filters
-> and lsm filters should use the same mechanism.
-> 
-> I think we might be on the same page here and just saying it different ways.
+> > > Which option do you prefer?
+> > Option 3 - continuing this discussion. :-)
+>=20
+> Sorry,
+> I was under impression that you want this driver to be merged, but it loo=
+ks like It
+> was incorrect assumption. Let's continue discussion.
 
-Sounds like it :)
-All of the above makes sense to me.
-The 'orthogonal' part is that the user should be able to use
-this seccomp-managed hierarchy without actually enabling
-TIF_SECCOMP for the task and syscalls should still go through
-fast path and all the way till lsm hooks as normal.
-I don't want to pay _any_ performance penalty for this feature
-for lsm hooks (and all syscalls) that don't have bpf programs attached.
+No, this is an RFC - there's no chance for *this* to merge, but this is exa=
+ctly
+the right time to discuss this sort of stuff.
 
+> > Perhaps I misread your intentions - I thought that by dynamic debug
+> > you meant that all debug in RDMA should be pr_debug() based, and
+> > therefore my objection regarding the ease with which users can
+> > configure it.
+>=20
+> It is not for all RDMA, but in your proposed driver. You are adding this =
+"debug"
+> module argument to your module.
+
+I don't get your answer.=20
+I made a generic remark [and actually one in favor of your arguments],
+and instead of saying something meaningful you bash the driver.
+
+> > If all you meant was 'dynamically set' as opposed to 'statically set'
+> > then I agree that having that sort of configurability is preferable
+> > [Even though end-user would still probably prefer a module parameter
+> > for reproductions; As the name implies, 'debug' isn't meant to be used
+> > in other situations].
+>=20
+> We are not adding code just for fun, but for a real reason, and especiall=
+y
+> interfaces which will be visible to user.
+>=20
+> The overall expectation from the driver's authors that they are submittin=
+g driver
+> which doesn't have bringup issues. For real life scenarios, where the bug=
+s will be
+> reveled after some time of usage, this global debug is useless.
+
+This has nothing to do with bringup; Real drivers are experiencing issues y=
+ears after
+they're productized.
+
+> > Do notice you would be harming user-experience of reproductions though
+> > - as it would have to follow different mechanisms to open debug prints
+> > of various qed* components.
+>=20
+> I don't understand this point at all. Do you think that it is normal to a=
+sk user to
+> debug your driver? Is this called "user-experience"?
+
+No, I call this 'user involved in fixing the driver' - it has nothing to do=
+ with
+user-experience. Sometimes user have specifics in his system that can't
+be easily identified and thus lab reproductions fail, and the user assists
+in the reproduction. While I never claimed this is good practice it does ha=
+ppen.
+
+> As a summary, I didn't see in your responses any real life example where =
+you will
+> need global debug level for your driver.
+
+Not sure what you you're expecting - a list of BZs /private e-mails where
+user reproductions were needed?
+You're basically ignoring my claims that such are used, instead wanting
+"evidence". I'm not going to try and produce any such.
+
+Doug - I think we need a definite answer from you here; Doesn't look like
+this discussion would bear any fruit.
+If a debug module parameter is completely unacceptable, we'd remove it
+[regardless of what I think about it].
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
