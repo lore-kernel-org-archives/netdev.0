@@ -1,94 +1,57 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: Re: [PATCHv3 net-next 05/15] bpf: enable non-core use of the
- verfier
-Date: Thu, 15 Sep 2016 08:52:51 +0100
-Message-ID: <20160915085251.4de090a1@jkicinski-Precision-T1700>
-References: <1473879623-15382-1-git-send-email-jakub.kicinski@netronome.com>
-        <1473879623-15382-6-git-send-email-jakub.kicinski@netronome.com>
-        <20160914230549.GB60248@ast-mbp.thefacebook.com>
+From: Yuval Shaia <yuval.shaia@oracle.com>
+Subject: Re: [PATCH v4 01/16] vmxnet3: Move PCI Id to pci_ids.h
+Date: Thu, 15 Sep 2016 10:55:26 +0300
+Message-ID: <20160915075525.GB3851@yuval-lap.uk.oracle.com>
+References: <1473655766-31628-1-git-send-email-aditr@vmware.com>
+ <1473655766-31628-2-git-send-email-aditr@vmware.com>
+ <20160914110854.GA15800@yuval-lap.uk.oracle.com>
+ <DM2PR0501MB844852987661859C6654E40C5F10@DM2PR0501MB844.namprd05.prod.outlook.com>
+ <20160914162452.GA3216@yuval-lap.Home>
+ <DM2PR0501MB84422A1029EE72FC727F960C5F10@DM2PR0501MB844.namprd05.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ast@kernel.org, daniel@iogearbox.net,
-        jiri@resnulli.us, john.fastabend@gmail.com, kubakici@wp.pl
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:38903 "EHLO
-        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933877AbcIOHw4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 03:52:56 -0400
-Received: by mail-wm0-f48.google.com with SMTP id 1so75841361wmz.1
-        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 00:52:55 -0700 (PDT)
-In-Reply-To: <20160914230549.GB60248@ast-mbp.thefacebook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "dledford@redhat.com" <dledford@redhat.com>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        pv-drivers <pv-drivers@vmware.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+        "Jorgen S. Hansen" <jhansen@vmware.com>,
+        Aditya Sarwade <asarwade@vmware.com>,
+        George Zhang <georgezhang@vmware.com>,
+        Bryan Tan <bryantan@vmware.com>
+To: Adit Ranadive <aditr@vmware.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <DM2PR0501MB84422A1029EE72FC727F960C5F10@DM2PR0501MB844.namprd05.prod.outlook.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 14 Sep 2016 16:05:51 -0700, Alexei Starovoitov wrote:
-> On Wed, Sep 14, 2016 at 08:00:13PM +0100, Jakub Kicinski wrote:
-> > Advanced JIT compilers and translators may want to use
-> > eBPF verifier as a base for parsers or to perform custom
-> > checks and validations.
+Besides that no more comments.
+
+Reviewed-by: Yuval Shaia <yuval.shaia@oracle.com>
+
+On Wed, Sep 14, 2016 at 07:36:34PM +0000, Adit Ranadive wrote:
+> On Wed, Sep 14, 2016 at 09:25:18 -0700, Yuval Shaia wrote:
+> > On Wed, Sep 14, 2016 at 04:00:25PM +0000, Adit Ranadive wrote:
+> > > On Wed, Sep 14, 2016 at 04:09:12 -0700, Yuval Shaia wrote:
+> > > > Please update vmxnet3_drv.c accordingly.
+> > >
+> > > Any reason why? I don't think we need to. Vmxnet3 should just pick up
+> > > the moved PCI device id from pci_ids.h file.
 > > 
-> > Add ability for external users to invoke the verifier
-> > and provide callbacks to be invoked for every intruction
-> > checked.  For now only add most basic callback for
-> > per-instruction pre-interpretation checks is added.  More
-> > advanced users may also like to have per-instruction post
-> > callback and state comparison callback.
-> > 
-> > Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> > ---
-> >  include/linux/bpf_parser.h |  89 ++++++++++++++++++++++++++++++
-> >  kernel/bpf/verifier.c      | 134 +++++++++++++++++++++++----------------------
-> >  2 files changed, 158 insertions(+), 65 deletions(-)
-> >  create mode 100644 include/linux/bpf_parser.h
-> > 
-> > diff --git a/include/linux/bpf_parser.h b/include/linux/bpf_parser.h
-> > new file mode 100644
-> > index 000000000000..daa53b204f4d
-> > --- /dev/null
-> > +++ b/include/linux/bpf_parser.h  
+> > So now you need to include it from vmxnet3_drv.c.
+> > Same with pvrdma_main.c
 > 
-> 'bpf parser' is a bit misleading name, since it can be interpreted
-> as parser written in bpf.
-> Also the header file containes verifier bits, therefore I think
-> the better name would be bpf_verifier.h ?
+> If you're asking me to include pci_ids.h in our drivers we already do that
+> by including pci.h in both the drivers. 
+> pci.h already includes pci_ids.h - 
+> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/include/linux/pci.h#n35
 > 
-> > +#define MAX_USED_MAPS 64 /* max number of maps accessed by one eBPF program */
-> > +
-> > +struct verifier_env;
-> > +struct bpf_ext_parser_ops {
-> > +	int (*insn_hook)(struct verifier_env *env,
-> > +			 int insn_idx, int prev_insn_idx);
-> > +};  
+> If that's going to change maybe someone from the PCI group can comment on.
 > 
-> How about calling this bpf_ext_analyzer_ops
-> and main entry bpf_analyzer() ?
-> I think it will better convey what it's doing.
-> 
-> > +
-> > +/* single container for all structs
-> > + * one verifier_env per bpf_check() call
-> > + */
-> > +struct verifier_env {
-> > +	struct bpf_prog *prog;		/* eBPF program being verified */
-> > +	struct verifier_stack_elem *head; /* stack of verifier states to be processed */
-> > +	int stack_size;			/* number of states to be processed */
-> > +	struct verifier_state cur_state; /* current verifier state */
-> > +	struct verifier_state_list **explored_states; /* search pruning optimization */
-> > +	const struct bpf_ext_parser_ops *pops; /* external parser ops */
-> > +	void *ppriv; /* pointer to external parser's private data */  
-> 
-> a bit hard to review, since move and addition is in one patch.
-
-Agreed, I'll do move+prefix with bpf_ to one patch since they're both
-"no functional changes" and additions to a separate one.
-
-> I think ppriv and pops are too obscure names.
-> May be analyzer_ops and analyzer_priv ?
-
-I'll rename everything as suggested.
- 
-> Conceptually looks good.
-
-Thanks!
+> Thanks,
+> Adit
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
