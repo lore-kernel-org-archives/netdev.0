@@ -1,42 +1,36 @@
-From: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Subject: Re: [PATCH v4 05/16] IB/pvrdma: Add functions for Verbs support
-Date: Wed, 14 Sep 2016 23:15:37 -0700
-Message-ID: <20160915061537.GC4869@infradead.org>
-References: <1473655766-31628-1-git-send-email-aditr@vmware.com>
- <1473655766-31628-6-git-send-email-aditr@vmware.com>
- <20160914124947.GA14616@infradead.org>
- <BLUPR0501MB836AB8BF5108322033C5DD6C5F00@BLUPR0501MB836.namprd05.prod.outlook.com>
+From: Vincent Bernat <bernat@luffy.cx>
+Subject: Re: [PATCH v5 0/6] Add eBPF hooks for cgroups
+Date: Thu, 15 Sep 2016 08:36:40 +0200
+Message-ID: <m3y42tlldz.fsf@neo.luffy.cx>
+References: <1473696735-11269-1-git-send-email-daniel@zonque.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-        "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        pv-drivers <pv-drivers-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "Jorgen S. Hansen" <jhansen-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
-        Aditya Sarwade <asarwade-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
-        George Zhang <georgezhang-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
-        Bryan Tan <bryantan-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-To: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <BLUPR0501MB836AB8BF5108322033C5DD6C5F00-84Rf5TRaNBMVDhIuTCx1aJLWcSx1hRipwIZJ9u9yWa8oOQlpcoRfSA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: htejun@fb.com, daniel@iogearbox.net, ast@fb.com,
+        davem@davemloft.net, kafai@fb.com, fw@strlen.de,
+        pablo@netfilter.org, harald@redhat.com, netdev@vger.kernel.org,
+        sargun@sargun.me, cgroups@vger.kernel.org
+To: Daniel Mack <daniel@zonque.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bart.luffy.cx ([78.47.78.131]:34504 "EHLO bart.luffy.cx"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755583AbcIOGhJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 15 Sep 2016 02:37:09 -0400
+In-Reply-To: <1473696735-11269-1-git-send-email-daniel@zonque.org> (Daniel
+        Mack's message of "Mon, 12 Sep 2016 18:12:09 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 15, 2016 at 12:10:10AM +0000, Adit Ranadive wrote:
-> On Wed, Sep 14, 2016 at 05:49:50 -0700 Christoph Hellwig wrote:
-> > > +	props->max_fmr = dev->dsr->caps.max_fmr;
-> > > +	props->max_map_per_fmr = dev->dsr->caps.max_map_per_fmr;
-> > 
-> > Please don't add FMR support to any new drivers.
-> 
-> We don't and our device reports these as 0. If you want me to more explicit I
-> can remove the zero'd out properties.
+ =E2=9D=A6 12 septembre 2016 18:12 CEST, Daniel Mack <daniel@zonque.org>=C2=
+=A0:
 
-Oh, ok.  I'll withdraw my comment then.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> * The sample program learned to support both ingress and egress, and
+>   can now optionally make the eBPF program drop packets by making it
+>   return 0.
+
+Ability to lock the eBPF program to avoid modification from a later
+program or in a subcgroup would be pretty interesting from a security
+perspective.
+--=20
+Use recursive procedures for recursively-defined data structures.
+            - The Elements of Programming Style (Kernighan & Plauger)
