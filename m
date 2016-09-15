@@ -1,60 +1,50 @@
-From: Colin Ian King <colin.king@canonical.com>
-Subject: Re: [PATCH] mwifiex: fix memory leak on regd when chan is zero
-Date: Thu, 15 Sep 2016 18:26:26 +0100
-Message-ID: <6afd51c2-c603-c887-3d75-3a1775bfe11c@canonical.com>
-References: <20160915162117.1209-1-colin.king@canonical.com>
- <87vaxx9jhk.fsf@kamboji.qca.qualcomm.com>
+From: Alan <alan@linux.intel.com>
+Subject: [PATCH] llc: switch type to bool as the timeout is only tested
+ versus 0
+Date: Thu, 15 Sep 2016 18:51:25 +0100
+Message-ID: <147396186808.57417.10184810920101482487.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Amitkumar Karwar <akarwar@marvell.com>,
-        Nishant Sarmukadam <nishants@marvell.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Kalle Valo <kvalo@codeaurora.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:48168 "EHLO
-        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751754AbcIOR2H (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 13:28:07 -0400
-In-Reply-To: <87vaxx9jhk.fsf@kamboji.qca.qualcomm.com>
+Received: from lxorguk.ukuu.org.uk ([81.2.110.251]:54496 "EHLO
+        lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751861AbcIORvd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 13:51:33 -0400
+Received: from localhost.localdomain (proxy [81.2.110.250])
+        by lxorguk.ukuu.org.uk (8.15.2/8.14.1) with ESMTP id u8FIelnO031320
+        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 19:40:53 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 15/09/16 18:10, Kalle Valo wrote:
-> Colin King <colin.king@canonical.com> writes:
-> 
->> From: Colin Ian King <colin.king@canonical.com>
->>
->> When chan is zero mwifiex_create_custom_regdomain does not kfree
->> regd and we have a memory leak. Fix this by freeing regd before
->> the return.
->>
->> Signed-off-by: Colin Ian King <colin.king@canonical.com>
->> ---
->>  drivers/net/wireless/marvell/mwifiex/sta_cmdresp.c | 4 +++-
->>  1 file changed, 3 insertions(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/wireless/marvell/mwifiex/sta_cmdresp.c b/drivers/net/wireless/marvell/mwifiex/sta_cmdresp.c
->> index 3344a26..15a91f3 100644
->> --- a/drivers/net/wireless/marvell/mwifiex/sta_cmdresp.c
->> +++ b/drivers/net/wireless/marvell/mwifiex/sta_cmdresp.c
->> @@ -1049,8 +1049,10 @@ mwifiex_create_custom_regdomain(struct mwifiex_private *priv,
->>  		enum nl80211_band band;
->>  
->>  		chan = *buf++;
->> -		if (!chan)
->> +		if (!chan) {
->> +			kfree(regd);
->>  			return NULL;
->> +		}
-> 
-> Bob sent a similar fix and he also did more:
-> 
-> mwifiex: fix error handling in mwifiex_create_custom_regdomain
-> 
-> https://patchwork.kernel.org/patch/9331337/
-> 
-Ah, sorry for the duplication noise.
+(As asked by Dave in Februrary)
 
-Colin
+Signed-off-by: Alan Cox <alan@linux.intel.com>
+
+---
+ net/llc/af_llc.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/llc/af_llc.c b/net/llc/af_llc.c
+index 8ae3ed9..db916cf 100644
+--- a/net/llc/af_llc.c
++++ b/net/llc/af_llc.c
+@@ -38,7 +38,7 @@ static u16 llc_ui_sap_link_no_max[256];
+ static struct sockaddr_llc llc_ui_addrnull;
+ static const struct proto_ops llc_ui_ops;
+ 
+-static long llc_ui_wait_for_conn(struct sock *sk, long timeout);
++static bool llc_ui_wait_for_conn(struct sock *sk, long timeout);
+ static int llc_ui_wait_for_disc(struct sock *sk, long timeout);
+ static int llc_ui_wait_for_busy_core(struct sock *sk, long timeout);
+ 
+@@ -551,7 +551,7 @@ static int llc_ui_wait_for_disc(struct sock *sk, long timeout)
+ 	return rc;
+ }
+ 
+-static long llc_ui_wait_for_conn(struct sock *sk, long timeout)
++static bool llc_ui_wait_for_conn(struct sock *sk, long timeout)
+ {
+ 	DEFINE_WAIT(wait);
+ 
