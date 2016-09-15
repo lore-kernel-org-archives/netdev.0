@@ -1,84 +1,216 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Subject: Re: [4.4-RT PATCH RFC/RFT] drivers: net: cpsw: mark rx/tx irq as
- IRQF_NO_THREAD
-Date: Thu, 15 Sep 2016 16:39:33 +0200
-Message-ID: <20160915143933.25mm53eewkmiqllm@linutronix.de>
-References: <20160811161540.9613-1-grygorii.strashko@ti.com>
- <20160812083206.t7lvxpo44marwpf5@linutronix.de>
- <9f811252-82ff-fd24-1006-2b40cd448927@ti.com>
- <20160908160042.lci5xkd37o4rrrg5@linutronix.de>
- <cdfe7655-a3b3-9b38-0231-cf90c2af037b@ti.com>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [net-next,RFC,1/2] fib: introduce fib notification infrastructure
+Date: Thu, 15 Sep 2016 10:41:20 -0400
+Message-ID: <CAHashqA2v_hFTZ2oK-Bf=LFyorQRP7Oy-20smywBY6QTb7Lb8Q@mail.gmail.com>
+References: <1473163300-2045-2-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Steven Rostedt <rostedt@goodmis.org>, linux-omap@vger.kernel.org,
-        Alison Chaiken <alison@peloton-tech.com>,
-        linux-rt-users@vger.kernel.org, netdev@vger.kernel.org
-To: Grygorii Strashko <grygorii.strashko@ti.com>
-Return-path: <linux-rt-users-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <cdfe7655-a3b3-9b38-0231-cf90c2af037b@ti.com>
-Sender: linux-rt-users-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>, idosch@mellanox.com,
+        eladr@mellanox.com, yotamg@mellanox.com, nogahf@mellanox.com,
+        ogerlitz <ogerlitz@mellanox.com>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>,
+        nikolay@cumulusnetworks.com,
+        John Linville <linville@tuxdriver.com>,
+        Thomas Graf <tgraf@suug.ch>, Scott Feldman <sfeldma@gmail.com>,
+        ast@plumgrid.com, Eric Dumazet <edumazet@google.com>,
+        hannes@stressinduktion.org,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        dsa@cumulusnetworks.com, Jamal Hadi Salim <jhs@mojatatu.com>,
+        vivien.didelot@savoirfairelinux.com, john.fastabend@intel.com,
+        andrew@lunn.ch, ivecera@redhat.com
+To: =?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f193.google.com ([209.85.220.193]:32782 "EHLO
+        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752230AbcIOOll (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 10:41:41 -0400
+Received: by mail-qk0-f193.google.com with SMTP id n66so3493318qkf.0
+        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 07:41:41 -0700 (PDT)
+In-Reply-To: <1473163300-2045-2-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2016-09-09 15:46:44 [+0300], Grygorii Strashko wrote:
-> 
-> It looks like scheduler playing ping-pong between CPUs with threaded irqs irq/354-355.
-> And seems this might be the case - if I pin both threaded IRQ handlers to CPU0
-> I can see better latency and netperf improvement
-> cyclictest -m -Sp98 -q  -D4m
-> T: 0 ( 1318) P:98 I:1000 C: 240000 Min:      9 Act:   14 Avg:   15 Max:      42
-> T: 1 ( 1319) P:98 I:1500 C: 159909 Min:      9 Act:   14 Avg:   16 Max:      39
-> 
-> if I arrange hwirqs  and pin pin both threaded IRQ handlers on CPU1 
-> I can observe more less similar results as with this patch. 
+On Tue, Sep 6, 2016 at 8:01 AM, Jiri Pirko
+<andrew.gospodarek@broadcom.com> wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
+>
+> This allows to pass information about added/deleted fib entries to
+> whoever is interested. This is done in a very similar way as devinet
+> notifies address additions/removals.
 
-so no patch then.
+(Sorry for the delayed response here...)
 
-> with this change i do not see  "NOHZ: local_softirq_pending 80" any more 
-> Tested-by: Grygorii Strashko <grygorii.strashko@ti.com> 
+I had tried a slightly different approach, but this one also seems
+reasonable and possibly better -- especially if this can be made more
+generic and shared between ipv4 and ipv6 despite their inherent
+differences.
 
-okay. So I need to think what I do about this. Either this or trying to
-run the "higher" softirq first but this could break things.
-Thanks for the confirmation.
+What I did differently was make a more ipv4-specific change to start
+with that did this:
 
-> > - having the hard-IRQ and IRQ-thread on the same CPU might help, too. It
-> >   is not strictly required but saves a few cycles if you don't have to
-> >   perform cross CPU wake ups and migrate task forth and back. The latter
-> >   happens at prio 99.
-> 
-> I've experimented with this and it improves netperf and I also followed instructions from [1].
-> But seems messed ti pin threaded irqs to cpu.
-> [1] https://www.osadl.org/Real-time-Ethernet-UDP-worst-case-roun.qa-farm-rt-ethernet-udp-monitor.0.html
++#define RTNH_F_MODIFIED                (1 << 7)        /* used for
+internal kernel tracking */
++
++#define RTNH_F_COMPARE_MASK    (RTNH_F_DEAD | \
++                                RTNH_F_LINKDOWN | \
++                                RTNH_F_MODIFIED) /* used as mask for
+route comparisons */
 
-There is irq_thread() => irq_thread_check_affinity(). It might not work
-as expected on ARM but it makes sense to follow the affinity mask HW irq
-for the thread.
+Then in various cases where the route was modified (fib_sync_up, etc),
+I added this:
 
-> > - I am not sure NAPI works as expected. I would assume so. There is IRQ
-> >   354 and 355 which fire after each other. One would be enough I guess.
-> >   And they seem to be short living / fire often. If NAPI works then it
-> >   should put an end to it and push it to the softirq thread.
-> >   If you have IRQ-pacing support I suggest to use something like 10ms or
-> >   so. That means your ping response will go from <= 1ms to 10ms in the
-> >   worst case but since you process more packets at a time your
-> >   throughput should increase.
-> >   If I count this correct, it too you alsmost 4ms from "raise SCHED" to
-> >   "try process SCHED" and most of the time was spent in 35[45] hard irq,
-> >   raise NET_RX or cross wakeup the IRQ thread.
-> 
-> The question I have to dial with is why switching to RT cause so significant
-> netperf drop (without additional tunning) comparing to vanilla - ~120% for 256K and ~200% for 128K windows?
++                                nexthop_nh->nh_flags |= RTNH_F_MODIFIED;
 
-You have a sched / thread ping/pong. That is one thing. !RT with
-threaded irqs should show similar problems. The higher latency is caused
-by the migration thread.
+Checking for the modified flag was then done in fib_table_update().
+This new function was a rewrite of fib_table_flush() and checks for
+RTNH_F_MODIFIED were done there before calling switchdev infra and
+then announce new routes if routes changed.
 
-> It's of course expected to see netperf drop, but I assume not so significant :(
-> And I can't find any reports or statistic related to this. Does the same happen on x86?
+The main issue I see right now is that neither userspace nor switchdev
+are notified when a route flag changes.  This needs to be resolved.
 
-It should. Maybe at a lower level if it handles migration more
-effective. There is this watchdog thread (for instance) which tries to
-detect lockups and runs at P99. It causes "worse" cyclictest numbers on
-x86 and on ARM but on ARM this is more visible than on x86.
+I think this RFC is along the proper path to provide notification, but
+I'm not sure that notification will happen when flags change (most
+notably the LNKDOWN flag) and there are some other corner cases that
+could probably be covered as well.
 
-Sebastian
+I need to forward-port my patch from where it was to the latest
+net-next and see if these cases I was concerned about were still an
+issue.  I'm happy to do that and see if we can put this all together
+to fix a few of the outstanding issues.
+
+
+>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> ---
+>  include/net/ip_fib.h | 19 +++++++++++++++++++
+>  net/ipv4/fib_trie.c  | 43 +++++++++++++++++++++++++++++++++++++++++++
+>  2 files changed, 62 insertions(+)
+>
+> diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+> index 4079fc1..9ad7ba9 100644
+> --- a/include/net/ip_fib.h
+> +++ b/include/net/ip_fib.h
+> @@ -22,6 +22,7 @@
+>  #include <net/fib_rules.h>
+>  #include <net/inetpeer.h>
+>  #include <linux/percpu.h>
+> +#include <linux/notifier.h>
+>
+>  struct fib_config {
+>         u8                      fc_dst_len;
+> @@ -184,6 +185,24 @@ __be32 fib_info_update_nh_saddr(struct net *net, struct fib_nh *nh);
+>  #define FIB_RES_PREFSRC(net, res)      ((res).fi->fib_prefsrc ? : \
+>                                          FIB_RES_SADDR(net, res))
+>
+> +struct fib_notifier_info {
+> +       u32 dst;
+> +       int dst_len;
+> +       struct fib_info *fi;
+> +       u8 tos;
+> +       u8 type;
+> +       u32 tb_id;
+> +       u32 nlflags;
+> +};
+> +
+> +enum fib_event_type {
+> +       FIB_EVENT_TYPE_ADD,
+> +       FIB_EVENT_TYPE_DEL,
+> +};
+> +
+> +int register_fib_notifier(struct notifier_block *nb);
+> +int unregister_fib_notifier(struct notifier_block *nb);
+> +
+>  struct fib_table {
+>         struct hlist_node       tb_hlist;
+>         u32                     tb_id;
+> diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+> index e2ffc2a..19ec471 100644
+> --- a/net/ipv4/fib_trie.c
+> +++ b/net/ipv4/fib_trie.c
+> @@ -73,6 +73,7 @@
+>  #include <linux/slab.h>
+>  #include <linux/export.h>
+>  #include <linux/vmalloc.h>
+> +#include <linux/notifier.h>
+>  #include <net/net_namespace.h>
+>  #include <net/ip.h>
+>  #include <net/protocol.h>
+> @@ -84,6 +85,36 @@
+>  #include <trace/events/fib.h>
+>  #include "fib_lookup.h"
+>
+> +static BLOCKING_NOTIFIER_HEAD(fib_chain);
+> +
+> +int register_fib_notifier(struct notifier_block *nb)
+> +{
+> +       return blocking_notifier_chain_register(&fib_chain, nb);
+> +}
+> +EXPORT_SYMBOL(register_fib_notifier);
+> +
+> +int unregister_fib_notifier(struct notifier_block *nb)
+> +{
+> +       return blocking_notifier_chain_unregister(&fib_chain, nb);
+> +}
+> +EXPORT_SYMBOL(unregister_fib_notifier);
+> +
+> +static int call_fib_notifiers(enum fib_event_type event_type, u32 dst,
+> +                             int dst_len, struct fib_info *fi,
+> +                             u8 tos, u8 type, u32 tb_id, u32 nlflags)
+> +{
+> +       struct fib_notifier_info info = {
+> +               .dst = dst,
+> +               .dst_len = dst_len,
+> +               .fi = fi,
+> +               .tos = tos,
+> +               .type = type,
+> +               .tb_id = tb_id,
+> +               .nlflags = nlflags,
+> +       };
+> +       return blocking_notifier_call_chain(&fib_chain, event_type, &info);
+> +}
+> +
+>  #define MAX_STAT_DEPTH 32
+>
+>  #define KEYLENGTH      (8*sizeof(t_key))
+> @@ -1190,6 +1221,10 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
+>                         fib_release_info(fi_drop);
+>                         if (state & FA_S_ACCESSED)
+>                                 rt_cache_flush(cfg->fc_nlinfo.nl_net);
+> +
+> +                       call_fib_notifiers(FIB_EVENT_TYPE_ADD, key, plen, fi,
+> +                                          new_fa->fa_tos, cfg->fc_type,
+> +                                          tb->tb_id, cfg->fc_nlflags);
+>                         rtmsg_fib(RTM_NEWROUTE, htonl(key), new_fa, plen,
+>                                 tb->tb_id, &cfg->fc_nlinfo, NLM_F_REPLACE);
+>
+> @@ -1241,6 +1276,8 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
+>                 tb->tb_num_default++;
+>
+>         rt_cache_flush(cfg->fc_nlinfo.nl_net);
+> +       call_fib_notifiers(FIB_EVENT_TYPE_ADD, key, plen, fi, tos,
+> +                          cfg->fc_type, tb->tb_id, cfg->fc_nlflags);
+>         rtmsg_fib(RTM_NEWROUTE, htonl(key), new_fa, plen, new_fa->tb_id,
+>                   &cfg->fc_nlinfo, nlflags);
+>  succeeded:
+> @@ -1542,6 +1579,8 @@ int fib_table_delete(struct fib_table *tb, struct fib_config *cfg)
+>         switchdev_fib_ipv4_del(key, plen, fa_to_delete->fa_info, tos,
+>                                cfg->fc_type, tb->tb_id);
+>
+> +       call_fib_notifiers(FIB_EVENT_TYPE_DEL, key, plen, fa_to_delete->fa_info,
+> +                          tos, cfg->fc_type, tb->tb_id, 0);
+>         rtmsg_fib(RTM_DELROUTE, htonl(key), fa_to_delete, plen, tb->tb_id,
+>                   &cfg->fc_nlinfo, 0);
+>
+> @@ -1857,6 +1896,10 @@ int fib_table_flush(struct fib_table *tb)
+>                         switchdev_fib_ipv4_del(n->key, KEYLENGTH - fa->fa_slen,
+>                                                fi, fa->fa_tos, fa->fa_type,
+>                                                tb->tb_id);
+> +                       call_fib_notifiers(FIB_EVENT_TYPE_DEL, n->key,
+> +                                          KEYLENGTH - fa->fa_slen,
+> +                                          fi, fa->fa_tos, fa->fa_type,
+> +                                          tb->tb_id, 0);
+>                         hlist_del_rcu(&fa->fa_list);
+>                         fib_release_info(fa->fa_info);
+>                         alias_free_mem_rcu(fa);
