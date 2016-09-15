@@ -1,52 +1,134 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [Xen-devel] [RFC PATCH] xen-netback: fix error handling on
- netback_probe()
-Date: Thu, 15 Sep 2016 15:10:04 +0100
-Message-ID: <20160915141004.GM15958@citrix.com>
-References: <1473768687-27384-1-git-send-email-filipe.manco@neclab.eu>
- <20160914101023.GY15958@citrix.com>
- <c8e11688-cb11-69f6-2c79-daa0f2b3e8b4@neclab.eu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>, <netdev@vger.kernel.org>,
-        Xen-devel <xen-devel@lists.xenproject.org>
-To: Filipe Manco <filipe.manco@neclab.eu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:22117 "EHLO SMTP.CITRIX.COM"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756721AbcIOOKQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 15 Sep 2016 10:10:16 -0400
-Content-Disposition: inline
-In-Reply-To: <c8e11688-cb11-69f6-2c79-daa0f2b3e8b4@neclab.eu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
+Subject: [PATCH V3 1/3] Documentation: devicetree: add qca8k binding
+Date: Thu, 15 Sep 2016 16:26:39 +0200
+Message-ID: <1473949601-20674-2-git-send-email-john@phrozen.org>
+References: <1473949601-20674-1-git-send-email-john@phrozen.org>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        qsdk-review-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org, John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1473949601-20674-1-git-send-email-john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 15, 2016 at 04:05:17PM +0200, Filipe Manco wrote:
-> On 14-09-2016 12:10, Wei Liu wrote:
-> >CC xen-devel as well.
-> >
-> >On Tue, Sep 13, 2016 at 02:11:27PM +0200, Filipe Manco wrote:
-> >>In case of error during netback_probe() (e.g. an entry missing on the
-> >>xenstore) netback_remove() is called on the new device, which will set
-> >>the device backend state to XenbusStateClosed by calling
-> >>set_backend_state(). However, the backend state wasn't initialized by
-> >>netback_probe() at this point, which will cause and invalid transaction
-> >>and set_backend_state() to BUG().
-> >>
-> >>Initialize the backend state at the beginning of netback_probe() to
-> >>XenbusStateInitialising, and create a new valid state transaction on
-> >>set_backend_state(), from XenbusStateInitialising to XenbusStateClosed.
-> >>
-> >>Signed-off-by: Filipe Manco <filipe.manco@neclab.eu>
-> >There is a state machine right before set_backend_state. You would also
-> >need to update that.
-> Good point I'll update the diagram.
-> 
-> After looking at the diagram and for consistency, shouldn't the transition
-> Initialising -> InitWait be handled using set_backend_state()? Currently it
-> is done directly in netback_probe() code. If you agree I'll submit a v2 with
-> these two changes.
+Add device-tree binding for ar8xxx switch families.
 
-That's fine with me.
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Signed-off-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
+---
+Changes in V2
+* fixup example to include phy nodes and corresponding phandles
+* add a note explaining why we need to phy nodes
 
-Wei.
+Changes in V3
+* add note stating that the cpu port is always 0
+
+ .../devicetree/bindings/net/dsa/qca8k.txt          |   89 ++++++++++++++++++++
+ 1 file changed, 89 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/dsa/qca8k.txt
+
+diff --git a/Documentation/devicetree/bindings/net/dsa/qca8k.txt b/Documentation/devicetree/bindings/net/dsa/qca8k.txt
+new file mode 100644
+index 0000000..9c67ee4
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/dsa/qca8k.txt
+@@ -0,0 +1,89 @@
++* Qualcomm Atheros QCA8xxx switch family
++
++Required properties:
++
++- compatible: should be "qca,qca8337"
++- #size-cells: must be 0
++- #address-cells: must be 1
++
++Subnodes:
++
++The integrated switch subnode should be specified according to the binding
++described in dsa/dsa.txt. As the QCA8K switches do not have a N:N mapping of
++port and PHY id, each subnode describing a port needs to have a valid phandle
++referencing the internal PHY connected to it. The CPU port of this switch is
++always port 0.
++
++Example:
++
++
++	&mdio0 {
++		phy_port1: phy@0 {
++			reg = <0>;
++		};
++
++		phy_port2: phy@1 {
++			reg = <1>;
++		};
++
++		phy_port3: phy@2 {
++			reg = <2>;
++		};
++
++		phy_port4: phy@3 {
++			reg = <3>;
++		};
++
++		phy_port5: phy@4 {
++			reg = <4>;
++		};
++
++		switch0@0 {
++			compatible = "qca,qca8337";
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			reg = <0>;
++
++			ports {
++				#address-cells = <1>;
++				#size-cells = <0>;
++				port@0 {
++					reg = <0>;
++					label = "cpu";
++					ethernet = <&gmac1>;
++					phy-mode = "rgmii";
++				};
++
++				port@1 {
++					reg = <1>;
++					label = "lan1";
++					phy-handle = <&phy_port1>;
++				};
++
++				port@2 {
++					reg = <2>;
++					label = "lan2";
++					phy-handle = <&phy_port2>;
++				};
++
++				port@3 {
++					reg = <3>;
++					label = "lan3";
++					phy-handle = <&phy_port3>;
++				};
++
++				port@4 {
++					reg = <4>;
++					label = "lan4";
++					phy-handle = <&phy_port4>;
++				};
++
++				port@5 {
++					reg = <5>;
++					label = "wan";
++					phy-handle = <&phy_port5>;
++				};
++			};
++		};
++	};
+-- 
+1.7.10.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
