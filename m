@@ -1,111 +1,247 @@
-From: Tariq Toukan via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: [PATCH RFC 01/11] net/mlx5e: Single flow order-0
- pages for Striding RQ
-Date: Thu, 15 Sep 2016 17:28:18 +0300
-Message-ID: <375b9772-ca04-3024-dacd-1a7293e2ae3a@mellanox.com>
-References: <1473252152-11379-1-git-send-email-saeedm@mellanox.com>
-	<1473252152-11379-2-git-send-email-saeedm@mellanox.com>
-	<20160907211840.36c37ea0@redhat.com>
-Reply-To: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
-	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, linux-mm <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>, Eric
-	Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>
-To: Jesper Dangaard Brouer <brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Saeed Mahameed
-	<saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <20160907211840.36c37ea0-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: John Crispin <john@phrozen.org>
+Subject: [PATCH V3 2/3] net-next: dsa: add Qualcomm tag RX/TX handler
+Date: Thu, 15 Sep 2016 16:26:40 +0200
+Message-ID: <1473949601-20674-3-git-send-email-john@phrozen.org>
+References: <1473949601-20674-1-git-send-email-john@phrozen.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        qsdk-review@qca.qualcomm.com, John Crispin <john@phrozen.org>
+To: "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbd.name ([46.4.11.11]:50596 "EHLO nbd.name"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1757418AbcIOO05 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 15 Sep 2016 10:26:57 -0400
+In-Reply-To: <1473949601-20674-1-git-send-email-john@phrozen.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Jesper,
+Add support for the 2-bytes Qualcomm tag that gigabit switches such as
+the QCA8337/N might insert when receiving packets, or that we need
+to insert while targeting specific switch ports. The tag is inserted
+directly behind the ethernet header.
 
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: John Crispin <john@phrozen.org>
+---
+Changes in V2
+* fix some comments
+* remove dead code
+* rename variable from phy->reg
 
-On 07/09/2016 10:18 PM, Jesper Dangaard Brouer wrote:
-> On Wed,  7 Sep 2016 15:42:22 +0300 Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org> wrote:
->
->> From: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
->>
->> To improve the memory consumption scheme, we omit the flow that
->> demands and splits high-order pages in Striding RQ, and stay
->> with a single Striding RQ flow that uses order-0 pages.
-> Thanks you for doing this! MM-list people thanks you!
-Thanks. I've just submitted it to net-next.
-> For others to understand what this means:  This driver was doing
-> split_page() on high-order pages (for Striding RQ).  This was really bad
-> because it will cause fragmenting the page-allocator, and depleting the
-> high-order pages available quickly.
->
-> (I've left rest of patch intact below, if some MM people should be
-> interested in looking at the changes).
->
-> There is even a funny comment in split_page() relevant to this:
->
-> /* [...]
->   * Note: this is probably too low level an operation for use in drivers.
->   * Please consult with lkml before using this in your driver.
->   */
->
->
->> Moving to fragmented memory allows the use of larger MPWQEs,
->> which reduces the number of UMR posts and filler CQEs.
->>
->> Moving to a single flow allows several optimizations that improve
->> performance, especially in production servers where we would
->> anyway fallback to order-0 allocations:
->> - inline functions that were called via function pointers.
->> - improve the UMR post process.
->>
->> This patch alone is expected to give a slight performance reduction.
->> However, the new memory scheme gives the possibility to use a page-cache
->> of a fair size, that doesn't inflate the memory footprint, which will
->> dramatically fix the reduction and even give a huge gain.
->>
->> We ran pktgen single-stream benchmarks, with iptables-raw-drop:
->>
->> Single stride, 64 bytes:
->> * 4,739,057 - baseline
->> * 4,749,550 - this patch
->> no reduction
->>
->> Larger packets, no page cross, 1024 bytes:
->> * 3,982,361 - baseline
->> * 3,845,682 - this patch
->> 3.5% reduction
->>
->> Larger packets, every 3rd packet crosses a page, 1500 bytes:
->> * 3,731,189 - baseline
->> * 3,579,414 - this patch
->> 4% reduction
->>
-> Well, the reduction does not really matter than much, because your
-> baseline benchmarks are from a freshly booted system, where you have
-> not fragmented and depleted the high-order pages yet... ;-)
-Indeed. On fragmented systems we'll get a gain, even w/o the page-cache 
-mechanism, as no time is wasted looking for high-order-pages.
->
->
->> Fixes: 461017cb006a ("net/mlx5e: Support RX multi-packet WQE (Striding RQ)")
->> Fixes: bc77b240b3c5 ("net/mlx5e: Add fragmented memory support for RX multi packet WQE")
->> Signed-off-by: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
->> Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
->> ---
->>   drivers/net/ethernet/mellanox/mlx5/core/en.h       |  54 ++--
->>   drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 136 ++++++++--
->>   drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    | 292 ++++-----------------
->>   drivers/net/ethernet/mellanox/mlx5/core/en_stats.h |   4 -
->>   drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c  |   2 +-
->>   5 files changed, 184 insertions(+), 304 deletions(-)
->>
-Regards,
-Tariq
+ include/net/dsa.h  |    1 +
+ net/dsa/Kconfig    |    3 ++
+ net/dsa/Makefile   |    1 +
+ net/dsa/dsa.c      |    3 ++
+ net/dsa/dsa_priv.h |    2 +
+ net/dsa/tag_qca.c  |  138 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 6 files changed, 148 insertions(+)
+ create mode 100644 net/dsa/tag_qca.c
+
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 24ee961..7fdd63e 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -26,6 +26,7 @@ enum dsa_tag_protocol {
+ 	DSA_TAG_PROTO_TRAILER,
+ 	DSA_TAG_PROTO_EDSA,
+ 	DSA_TAG_PROTO_BRCM,
++	DSA_TAG_PROTO_QCA,
+ 	DSA_TAG_LAST,		/* MUST BE LAST */
+ };
+ 
+diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
+index ff7736f..96e47c5 100644
+--- a/net/dsa/Kconfig
++++ b/net/dsa/Kconfig
+@@ -38,4 +38,7 @@ config NET_DSA_TAG_EDSA
+ config NET_DSA_TAG_TRAILER
+ 	bool
+ 
++config NET_DSA_TAG_QCA
++	bool
++
+ endif
+diff --git a/net/dsa/Makefile b/net/dsa/Makefile
+index 8af4ded..a3380ed 100644
+--- a/net/dsa/Makefile
++++ b/net/dsa/Makefile
+@@ -7,3 +7,4 @@ dsa_core-$(CONFIG_NET_DSA_TAG_BRCM) += tag_brcm.o
+ dsa_core-$(CONFIG_NET_DSA_TAG_DSA) += tag_dsa.o
+ dsa_core-$(CONFIG_NET_DSA_TAG_EDSA) += tag_edsa.o
+ dsa_core-$(CONFIG_NET_DSA_TAG_TRAILER) += tag_trailer.o
++dsa_core-$(CONFIG_NET_DSA_TAG_QCA) += tag_qca.o
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index d8d267e..66e31ac 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -54,6 +54,9 @@ const struct dsa_device_ops *dsa_device_ops[DSA_TAG_LAST] = {
+ #ifdef CONFIG_NET_DSA_TAG_BRCM
+ 	[DSA_TAG_PROTO_BRCM] = &brcm_netdev_ops,
+ #endif
++#ifdef CONFIG_NET_DSA_TAG_QCA
++	[DSA_TAG_PROTO_QCA] = &qca_netdev_ops,
++#endif
+ 	[DSA_TAG_PROTO_NONE] = &none_ops,
+ };
+ 
+diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
+index 00077a9..6cfd738 100644
+--- a/net/dsa/dsa_priv.h
++++ b/net/dsa/dsa_priv.h
+@@ -81,5 +81,7 @@ extern const struct dsa_device_ops trailer_netdev_ops;
+ /* tag_brcm.c */
+ extern const struct dsa_device_ops brcm_netdev_ops;
+ 
++/* tag_qca.c */
++extern const struct dsa_device_ops qca_netdev_ops;
+ 
+ #endif
+diff --git a/net/dsa/tag_qca.c b/net/dsa/tag_qca.c
+new file mode 100644
+index 0000000..0c90cac
+--- /dev/null
++++ b/net/dsa/tag_qca.c
+@@ -0,0 +1,138 @@
++/*
++ * Copyright (c) 2015, The Linux Foundation. All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 and
++ * only version 2 as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ */
++
++#include <linux/etherdevice.h>
++#include "dsa_priv.h"
++
++#define QCA_HDR_LEN	2
++#define QCA_HDR_VERSION	0x2
++
++#define QCA_HDR_RECV_VERSION_MASK	GENMASK(15, 14)
++#define QCA_HDR_RECV_VERSION_S		14
++#define QCA_HDR_RECV_PRIORITY_MASK	GENMASK(13, 11)
++#define QCA_HDR_RECV_PRIORITY_S		11
++#define QCA_HDR_RECV_TYPE_MASK		GENMASK(10, 6)
++#define QCA_HDR_RECV_TYPE_S		6
++#define QCA_HDR_RECV_FRAME_IS_TAGGED	BIT(3)
++#define QCA_HDR_RECV_SOURCE_PORT_MASK	GENMASK(2, 0)
++
++#define QCA_HDR_XMIT_VERSION_MASK	GENMASK(15, 14)
++#define QCA_HDR_XMIT_VERSION_S		14
++#define QCA_HDR_XMIT_PRIORITY_MASK	GENMASK(13, 11)
++#define QCA_HDR_XMIT_PRIORITY_S		11
++#define QCA_HDR_XMIT_CONTROL_MASK	GENMASK(10, 8)
++#define QCA_HDR_XMIT_CONTROL_S		8
++#define QCA_HDR_XMIT_FROM_CPU		BIT(7)
++#define QCA_HDR_XMIT_DP_BIT_MASK	GENMASK(6, 0)
++
++static struct sk_buff *qca_tag_xmit(struct sk_buff *skb, struct net_device *dev)
++{
++	struct dsa_slave_priv *p = netdev_priv(dev);
++	u16 *phdr, hdr;
++
++	dev->stats.tx_packets++;
++	dev->stats.tx_bytes += skb->len;
++
++	if (skb_cow_head(skb, 0) < 0)
++		goto out_free;
++
++	skb_push(skb, QCA_HDR_LEN);
++
++	memmove(skb->data, skb->data + QCA_HDR_LEN, 2 * ETH_ALEN);
++	phdr = (u16 *)(skb->data + 2 * ETH_ALEN);
++
++	/* Set the version field, and set destination port information */
++	hdr = QCA_HDR_VERSION << QCA_HDR_XMIT_VERSION_S |
++		QCA_HDR_XMIT_FROM_CPU |
++		BIT(p->port);
++
++	*phdr = htons(hdr);
++
++	return skb;
++
++out_free:
++	kfree_skb(skb);
++	return NULL;
++}
++
++static int qca_tag_rcv(struct sk_buff *skb, struct net_device *dev,
++		       struct packet_type *pt, struct net_device *orig_dev)
++{
++	struct dsa_switch_tree *dst = dev->dsa_ptr;
++	struct dsa_switch *ds;
++	u8 ver;
++	int port;
++	__be16 *phdr, hdr;
++
++	if (unlikely(!dst))
++		goto out_drop;
++
++	skb = skb_unshare(skb, GFP_ATOMIC);
++	if (!skb)
++		goto out;
++
++	if (unlikely(!pskb_may_pull(skb, QCA_HDR_LEN)))
++		goto out_drop;
++
++	/* The QCA header is added by the switch between src addr and Ethertype
++	 * At this point, skb->data points to ethertype so header should be
++	 * right before
++	 */
++	phdr = (__be16 *)(skb->data - 2);
++	hdr = ntohs(*phdr);
++
++	/* Make sure the version is correct */
++	ver = (hdr & QCA_HDR_RECV_VERSION_MASK) >> QCA_HDR_RECV_VERSION_S;
++	if (unlikely(ver != QCA_HDR_VERSION))
++		goto out_drop;
++
++	/* Remove QCA tag and recalculate checksum */
++	skb_pull_rcsum(skb, QCA_HDR_LEN);
++	memmove(skb->data - ETH_HLEN, skb->data - ETH_HLEN - QCA_HDR_LEN,
++		ETH_HLEN - QCA_HDR_LEN);
++
++	/* This protocol doesn't support cascading multiple switches so it's
++	 * safe to assume the switch is first in the tree
++	 */
++	ds = dst->ds[0];
++	if (!ds)
++		goto out_drop;
++
++	/* Get source port information */
++	port = (hdr & QCA_HDR_RECV_SOURCE_PORT_MASK);
++	if (!ds->ports[port].netdev)
++		goto out_drop;
++
++	/* Update skb & forward the frame accordingly */
++	skb_push(skb, ETH_HLEN);
++	skb->pkt_type = PACKET_HOST;
++	skb->dev = ds->ports[port].netdev;
++	skb->protocol = eth_type_trans(skb, skb->dev);
++
++	skb->dev->stats.rx_packets++;
++	skb->dev->stats.rx_bytes += skb->len;
++
++	netif_receive_skb(skb);
++
++	return 0;
++
++out_drop:
++	kfree_skb(skb);
++out:
++	return 0;
++}
++
++const struct dsa_device_ops qca_netdev_ops = {
++	.xmit	= qca_tag_xmit,
++	.rcv	= qca_tag_rcv,
++};
+-- 
+1.7.10.4
