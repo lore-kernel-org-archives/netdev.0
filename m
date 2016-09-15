@@ -1,50 +1,116 @@
-From: Alan <alan@linux.intel.com>
-Subject: [PATCH] llc: switch type to bool as the timeout is only tested
- versus 0
-Date: Thu, 15 Sep 2016 18:51:25 +0100
-Message-ID: <147396186808.57417.10184810920101482487.stgit@localhost.localdomain>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH net-next] tcp: prepare skbs for better sack shifting
+Date: Thu, 15 Sep 2016 10:52:21 -0700
+Message-ID: <CAK6E8=dgNjHzdONM-0bwzyAk4+R-BFdw_23pzHcg3=Rv5nNo3g@mail.gmail.com>
+References: <1473957182.22679.50.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lxorguk.ukuu.org.uk ([81.2.110.251]:54496 "EHLO
-        lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751861AbcIORvd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 13:51:33 -0400
-Received: from localhost.localdomain (proxy [81.2.110.250])
-        by lxorguk.ukuu.org.uk (8.15.2/8.14.1) with ESMTP id u8FIelnO031320
-        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 19:40:53 +0100
+Received: from mail-it0-f49.google.com ([209.85.214.49]:36362 "EHLO
+        mail-it0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750772AbcIORxD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 13:53:03 -0400
+Received: by mail-it0-f49.google.com with SMTP id o3so108375256ita.1
+        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 10:53:03 -0700 (PDT)
+In-Reply-To: <1473957182.22679.50.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(As asked by Dave in Februrary)
+On Thu, Sep 15, 2016 at 9:33 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>
+> From: Eric Dumazet <edumazet@google.com>
+>
+> With large BDP TCP flows and lossy networks, it is very important
+> to keep a low number of skbs in the write queue.
+>
+> RACK and SACK processing can perform a linear scan of it.
+>
+> We should avoid putting any payload in skb->head, so that SACK
+> shifting can be done if needed.
+>
+> With this patch, we allow to pack ~0.5 MB per skb instead of
+> the 64KB initially cooked at tcp_sendmsg() time.
+>
+> This gives a reduction of number of skbs in write queue by eight.
+> tcp_rack_detect_loss() likes this.
+>
+> We still allow payload in skb->head for first skb put in the queue,
+> to not impact RPC workloads.
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
+Acked-by: Yuchung Cheng <ycheng@google.com>
 
-Signed-off-by: Alan Cox <alan@linux.intel.com>
 
----
- net/llc/af_llc.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/llc/af_llc.c b/net/llc/af_llc.c
-index 8ae3ed9..db916cf 100644
---- a/net/llc/af_llc.c
-+++ b/net/llc/af_llc.c
-@@ -38,7 +38,7 @@ static u16 llc_ui_sap_link_no_max[256];
- static struct sockaddr_llc llc_ui_addrnull;
- static const struct proto_ops llc_ui_ops;
- 
--static long llc_ui_wait_for_conn(struct sock *sk, long timeout);
-+static bool llc_ui_wait_for_conn(struct sock *sk, long timeout);
- static int llc_ui_wait_for_disc(struct sock *sk, long timeout);
- static int llc_ui_wait_for_busy_core(struct sock *sk, long timeout);
- 
-@@ -551,7 +551,7 @@ static int llc_ui_wait_for_disc(struct sock *sk, long timeout)
- 	return rc;
- }
- 
--static long llc_ui_wait_for_conn(struct sock *sk, long timeout)
-+static bool llc_ui_wait_for_conn(struct sock *sk, long timeout)
- {
- 	DEFINE_WAIT(wait);
- 
+> ---
+>  net/ipv4/tcp.c |   31 ++++++++++++++++++++++++-------
+>  1 file changed, 24 insertions(+), 7 deletions(-)
+>
+> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> index a13fcb369f52fe85def7c9d856259bc0509f3453..7dae800092e62cec330544851289d20a68642561 100644
+> --- a/net/ipv4/tcp.c
+> +++ b/net/ipv4/tcp.c
+> @@ -1020,17 +1020,31 @@ int tcp_sendpage(struct sock *sk, struct page *page, int offset,
+>  }
+>  EXPORT_SYMBOL(tcp_sendpage);
+>
+> -static inline int select_size(const struct sock *sk, bool sg)
+> +/* Do not bother using a page frag for very small frames.
+> + * But use this heuristic only for the first skb in write queue.
+> + *
+> + * Having no payload in skb->head allows better SACK shifting
+> + * in tcp_shift_skb_data(), reducing sack/rack overhead, because
+> + * write queue has less skbs.
+> + * Each skb can hold up to MAX_SKB_FRAGS * 32Kbytes, or ~0.5 MB.
+> + * This also speeds up tso_fragment(), since it wont fallback
+> + * to tcp_fragment().
+> + */
+> +static int linear_payload_sz(bool first_skb)
+> +{
+> +       if (first_skb)
+> +               return SKB_WITH_OVERHEAD(2048 - MAX_TCP_HEADER);
+> +       return 0;
+> +}
+> +
+> +static int select_size(const struct sock *sk, bool sg, bool first_skb)
+>  {
+>         const struct tcp_sock *tp = tcp_sk(sk);
+>         int tmp = tp->mss_cache;
+>
+>         if (sg) {
+>                 if (sk_can_gso(sk)) {
+> -                       /* Small frames wont use a full page:
+> -                        * Payload will immediately follow tcp header.
+> -                        */
+> -                       tmp = SKB_WITH_OVERHEAD(2048 - MAX_TCP_HEADER);
+> +                       tmp = linear_payload_sz(first_skb);
+>                 } else {
+>                         int pgbreak = SKB_MAX_HEAD(MAX_TCP_HEADER);
+>
+> @@ -1161,6 +1175,8 @@ restart:
+>                 }
+>
+>                 if (copy <= 0 || !tcp_skb_can_collapse_to(skb)) {
+> +                       bool first_skb;
+> +
+>  new_segment:
+>                         /* Allocate new segment. If the interface is SG,
+>                          * allocate skb fitting to single page.
+> @@ -1172,10 +1188,11 @@ new_segment:
+>                                 process_backlog = false;
+>                                 goto restart;
+>                         }
+> +                       first_skb = skb_queue_empty(&sk->sk_write_queue);
+>                         skb = sk_stream_alloc_skb(sk,
+> -                                                 select_size(sk, sg),
+> +                                                 select_size(sk, sg, first_skb),
+>                                                   sk->sk_allocation,
+> -                                                 skb_queue_empty(&sk->sk_write_queue));
+> +                                                 first_skb);
+>                         if (!skb)
+>                                 goto wait_for_memory;
+>
+>
+>
