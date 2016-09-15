@@ -1,47 +1,66 @@
-From: Varun Prakash <varun@chelsio.com>
-Subject: Re: [net-next PATCH 00/11] iw_cxgb4,cxgbit: remove duplicate code
-Date: Thu, 15 Sep 2016 20:46:30 +0530
-Message-ID: <20160915151628.GA1682@chelsio.com>
-References: <cover.1473781521.git.varun@chelsio.com>
- <CAJ3xEMi_w3nhqSpODsm=Cs42dg9w0Cu3Cc-0mZvauY7Coc+fwg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] net: avoid sk_forward_alloc overflows
+Date: Thu, 15 Sep 2016 08:48:46 -0700
+Message-ID: <1473954526.22679.38.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: David Miller <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        "target-devel@vger.kernel.org" <target-devel@vger.kernel.org>,
-        "Nicholas A. Bellinger" <nab@linux-iscsi.org>,
-        Doug Ledford <dledford@redhat.com>,
-        SWise OGC <swise@opengridcomputing.com>,
-        Indranil Choudhury <indranil@chelsio.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:28751 "EHLO
-        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751263AbcIOPRL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 11:17:11 -0400
-Content-Disposition: inline
-In-Reply-To: <CAJ3xEMi_w3nhqSpODsm=Cs42dg9w0Cu3Cc-0mZvauY7Coc+fwg@mail.gmail.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:34987 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751606AbcIOPss (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 11:48:48 -0400
+Received: by mail-pf0-f196.google.com with SMTP id z84so2373031pfi.2
+        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 08:48:48 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Or,
+From: Eric Dumazet <edumazet@google.com>
 
-On Wed, Sep 14, 2016 at 02:02:43PM +0530, Or Gerlitz wrote:
-> On Tue, Sep 13, 2016 at 6:53 PM, Varun Prakash <varun@chelsio.com> wrote:
-> > This patch series removes duplicate code from
-> > iw_cxgb4 and cxgbit by adding common function definitions in libcxgb.
-> 
-> Is that bunch of misc functionalities or you can provide a more high
-> level description what
-> you are cleaning out. Also, what other areas are you planning to
-> refactor following the review
-> comments we had on the target driver?
+A malicious TCP receiver, sending SACK, can force the sender to split
+skbs in write queue and increase its memory usage.
 
-This patch series removes duplicate function definitions
-that are used in connection management.
-I am looking into more improvements in connection management,
-will post next series once it is ready. 
+Then, when socket is closed and its write queue purged, we might
+overflow sk_forward_alloc (It becomes negative)
 
-Thanks
-Varun 
+sk_mem_reclaim() does nothing in this case, and more than 2GB
+are leaked from TCP perspective (tcp_memory_allocated is not changed)
+
+Then warnings trigger from inet_sock_destruct() and
+sk_stream_kill_queues() seeing a not zero sk_forward_alloc
+
+All TCP stack can be stuck because TCP is under memory pressure.
+
+A simple fix is to preemptively reclaim from sk_mem_uncharge().
+
+This makes sure a socket wont have more than 2 MB forward allocated,
+after burst and idle period.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/net/sock.h |   10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+index c797c57f4d9f6b2ef6cc23f1d63210cd41c8cff4..ebf75db08e062dfe7867cc80c7699f593be16349 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1339,6 +1339,16 @@ static inline void sk_mem_uncharge(struct sock *sk, int size)
+ 	if (!sk_has_account(sk))
+ 		return;
+ 	sk->sk_forward_alloc += size;
++
++	/* Avoid a possible overflow.
++	 * TCP send queues can make this happen, if sk_mem_reclaim()
++	 * is not called and more than 2 GBytes are released at once.
++	 *
++	 * If we reach 2 MBytes, reclaim 1 MBytes right now, there is
++	 * no need to hold that much forward allocation anyway.
++	 */
++	if (unlikely(sk->sk_forward_alloc >= 1 << 21))
++		__sk_mem_reclaim(sk, 1 << 20);
+ }
+ 
+ static inline void sk_wmem_free_skb(struct sock *sk, struct sk_buff *skb)
