@@ -1,97 +1,56 @@
 From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH net 4/7] qeth: check not more than 16 SBALEs on the completion queue
-Date: Thu, 15 Sep 2016 14:39:24 +0200
-Message-ID: <20160915123927.86579-5-ubraun@linux.vnet.ibm.com>
-References: <20160915123927.86579-1-ubraun@linux.vnet.ibm.com>
+Subject: [PATCH net 0/7] 390: qeth patches
+Date: Thu, 15 Sep 2016 14:39:20 +0200
+Message-ID: <20160915123927.86579-1-ubraun@linux.vnet.ibm.com>
 Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
         schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
         ubraun@linux.vnet.ibm.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:46779 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1765809AbcIOMji (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 08:39:38 -0400
-Received: from pps.filterd (m0098421.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8FCXCiZ020632
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:37110 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S934346AbcIOMjk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 08:39:40 -0400
+Received: from pps.filterd (m0098393.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8FCX8Ch000636
         for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 08:39:38 -0400
-Received: from e06smtp11.uk.ibm.com (e06smtp11.uk.ibm.com [195.75.94.107])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 25fmcqpcnm-1
+Received: from e06smtp15.uk.ibm.com (e06smtp15.uk.ibm.com [195.75.94.111])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 25f8ucurxe-1
         (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
         for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 08:39:37 -0400
 Received: from localhost
-        by e06smtp11.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        by e06smtp15.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-        Thu, 15 Sep 2016 13:39:36 +0100
-In-Reply-To: <20160915123927.86579-1-ubraun@linux.vnet.ibm.com>
+        Thu, 15 Sep 2016 13:39:35 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-af_iucv socket programs with HiperSockets as transport make use of the qdio
-completion queue. Running such an af_iucv socket program may result in a
-crash:
+Hi Dave,
 
-[90341.677709] Oops: 0038 ilc:2 [#1] SMP
-[90341.677743] CPU: 1 PID: 0 Comm: swapper/1 Not tainted 4.6.0-20160720.0.0e86ec7.5e62689.fc23.s390xperformance #1
-[90341.677744] Hardware name: IBM              2964 N96              703              (LPAR)
-[90341.677746] task: 00000000edb79f00 ti: 00000000edb84000 task.ti: 00000000edb84000
-[90341.677748] Krnl PSW : 0704d00180000000 000000000075bc50 (qeth_qdio_input_handler+0x258/0x4e0)
-[90341.677756]            R:0 T:1 IO:1 EX:1 Key:0 M:1 W:0 P:0 AS:3 CC:1 PM:0 RI:0 EA:3
-Krnl GPRS: 000003d10391e900 0000000000000001 00000000e61e6000 0000000000000005
-[90341.677759]            0000000000a9e6ec 5420040001a77400 0000000000000001 000000000000006f
-[90341.677761]            00000000e0d83f00 0000000000000003 0000000000000010 5420040001a77400
-[90341.677784]            000000007ba8b000 0000000000943fd0 000000000075bc4e 00000000ed3b3c10
-[90341.677793] Krnl Code: 000000000075bc42: e320cc180004        lg      %r2,3096(%r12)
-           000000000075bc48: c0e5ffffc5cc       brasl   %r14,7547e0
-          #000000000075bc4e: 1816               lr      %r1,%r6
-          >000000000075bc50: ba19b008           cs      %r1,%r9,8(%r11)
-           000000000075bc54: ec180041017e       cij     %r1,1,8,75bcd6
-           000000000075bc5a: 5810b008           l       %r1,8(%r11)
-           000000000075bc5e: ec16005c027e       cij     %r1,2,6,75bd16
-           000000000075bc64: 5090b008           st      %r9,8(%r11)
-[90341.677807] Call Trace:
-[90341.677810] ([<000000000075bbc0>] qeth_qdio_input_handler+0x1c8/0x4e0)
-[90341.677812] ([<000000000070efbc>] qdio_kick_handler+0x124/0x2a8)
-[90341.677814] ([<0000000000713570>] __tiqdio_inbound_processing+0xf0/0xcd0)
-[90341.677818] ([<0000000000143312>] tasklet_action+0x92/0x120)
-[90341.677823] ([<00000000008b6e72>] __do_softirq+0x112/0x308)
-[90341.677824] ([<0000000000142bce>] irq_exit+0xd6/0xf8)
-[90341.677829] ([<000000000010b1d2>] do_IRQ+0x6a/0x88)
-[90341.677830] ([<00000000008b6322>] io_int_handler+0x112/0x220)
-[90341.677832] ([<0000000000102b2e>] enabled_wait+0x56/0xa8)
-[90341.677833] ([<0000000000000000>]           (null))
-[90341.677835] ([<0000000000102e32>] arch_cpu_idle+0x32/0x48)
-[90341.677838] ([<000000000018a126>] cpu_startup_entry+0x266/0x2b0)
-[90341.677841] ([<0000000000113b38>] smp_start_secondary+0x100/0x110)
-[90341.677843] ([<00000000008b68a6>] restart_int_handler+0x62/0x78)
-[90341.677845] ([<00000000008b6588>] psw_idle+0x3c/0x40)
-[90341.677846] Last Breaking-Event-Address:
-[90341.677848]  [<00000000007547ec>] qeth_dbf_longtext+0xc/0xc0
-[90341.677849]
-[90341.677850] Kernel panic - not syncing: Fatal exception in interrupt
+here are several fixes for the s390 qeth driver, built for net.
 
-qeth_qdio_cq_handler() analyzes SBALs on this completion queue, but does
-not observe the limit of 16 SBAL elements per SBAL. This patch adds the
-additional check to process not more than 16 SBAL elements.
+Thanks,
+Ursula
 
-Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
----
- drivers/s390/net/qeth_core_main.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Hans Wippel (1):
+  qeth: restore device features after recovery
 
-diff --git a/drivers/s390/net/qeth_core_main.c b/drivers/s390/net/qeth_core_main.c
-index 6ad5a14..20cf296 100644
---- a/drivers/s390/net/qeth_core_main.c
-+++ b/drivers/s390/net/qeth_core_main.c
-@@ -3619,7 +3619,8 @@ static void qeth_qdio_cq_handler(struct qeth_card *card,
- 		int e;
- 
- 		e = 0;
--		while (buffer->element[e].addr) {
-+		while ((e < QDIO_MAX_ELEMENTS_PER_BUFFER) &&
-+		       buffer->element[e].addr) {
- 			unsigned long phys_aob_addr;
- 
- 			phys_aob_addr = (unsigned long) buffer->element[e].addr;
+Thomas Richter (1):
+  s390/qeth: fix setting VIPA address
+
+Ursula Braun (5):
+  s390/qeth: use ip_lock for hsuid configuration
+  s390/qeth: allow hsuid configuration in DOWN state
+  qeth: check not more than 16 SBALEs on the completion queue
+  qeth: do not limit number of gso segments
+  qeth: do not turn on SG per default
+
+ drivers/s390/net/qeth_core.h      |  1 +
+ drivers/s390/net/qeth_core_main.c | 32 +++++++++++++++++++++++++++++++-
+ drivers/s390/net/qeth_l2_main.c   |  6 +++---
+ drivers/s390/net/qeth_l3_main.c   | 29 ++++++++++++++++++++---------
+ drivers/s390/net/qeth_l3_sys.c    |  5 +++++
+ 5 files changed, 60 insertions(+), 13 deletions(-)
+
 -- 
 2.8.4
