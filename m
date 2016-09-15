@@ -1,50 +1,40 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 7/9] net: ethernet: ti: cpts: calc mult and shift from
- refclk freq
-Date: Thu, 15 Sep 2016 13:58:15 +0200
-Message-ID: <20160915115814.GB24676@localhost.localdomain>
-References: <20160914130231.3035-1-grygorii.strashko@ti.com>
- <20160914130231.3035-8-grygorii.strashko@ti.com>
- <20160914202618.GC12195@netboy>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 2/3] net/sched: cls_flower: Remove an unsed field
+ from the filter key structure
+Date: Thu, 15 Sep 2016 15:01:23 +0300
+Message-ID: <a1d1551b-6eb8-df01-37e8-255cf1849987@cogentembedded.com>
+References: <1473775361-16547-1-git-send-email-ogerlitz@mellanox.com>
+ <1473775361-16547-3-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Mugunthan V N <mugunthanvnm@ti.com>,
-        Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org,
-        linux-omap@vger.kernel.org, WingMan Kwok <w-kwok2@ti.com>
-To: Grygorii Strashko <grygorii.strashko@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160914202618.GC12195@netboy>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jiri@mellanox.com>, netdev@vger.kernel.org,
+        Hadar Har-Zion <hadarh@mellanox.com>,
+        Paul Blakey <paulb@mellanox.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f54.google.com ([209.85.215.54]:32905 "EHLO
+        mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934778AbcIOMB1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 08:01:27 -0400
+Received: by mail-lf0-f54.google.com with SMTP id h127so32298065lfh.0
+        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 05:01:26 -0700 (PDT)
+In-Reply-To: <1473775361-16547-3-git-send-email-ogerlitz@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 14, 2016 at 10:26:19PM +0200, Richard Cochran wrote:
-> On Wed, Sep 14, 2016 at 04:02:29PM +0300, Grygorii Strashko wrote:
-> > +	clocks_calc_mult_shift(&mult, &shift, freq, NSEC_PER_SEC, maxsec);
-> > +
-> > +	cpts->cc_mult = mult;
-> > +	cpts->cc.mult = mult;
-> 
-> In order to get good resolution on the frequency adjustment, we want
-> to keep 'mult' as large as possible.  I don't see your code doing
-> this.  We can rely on the watchdog reader (work queue) to prevent
-> overflows.
+On 9/13/2016 5:02 PM, Or Gerlitz wrote:
 
-I took a closer look, and assuming cc.mask = 2^32 - 1, then using
-clocks_calc_mult_shift() produces good results for a reasonable range
-of input frequencies.  Keeping 'maxsec' constant at 4 we have:
+> Commit c3f8324188fa "net: Add full IPv6 addresses to flow_keys" added an
+> unsed instance of struct flow_dissector_key_addrs into struct fl_flow_key,
 
-   | Freq. MHz |       mult | shift |
-   |-----------+------------+-------|
-   |       100 | 0xa0000000 |    28 |
-   |       250 | 0x80000000 |    29 |
-   |       500 | 0x80000000 |    30 |
-   |      1000 | 0x80000000 |    31 |
+    Unused?
 
-Can the input clock be higher than 1 GHz?  If not, I suggest using
-clocks_calc_mult_shift() with maxsec=4 and a setting the watchdog also
-to 4*HZ.
+> remove it.
+>
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> Reported-by: Hadar Hen Zion <hadarh@mellanox.com>
+[...]
 
-Thanks,
-Richard
+MBR, Sergei
