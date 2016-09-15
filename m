@@ -1,33 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] mlx4 misc fixes and improvements
-Date: Thu, 15 Sep 2016 19:21:06 -0400 (EDT)
-Message-ID: <20160915.192106.739428651744920778.davem@davemloft.net>
-References: <1473686416-11779-1-git-send-email-tariqt@mellanox.com>
+Subject: Re: [PATCH v3 net 1/1] net sched actions: fix GETing actions
+Date: Thu, 15 Sep 2016 19:33:02 -0400 (EDT)
+Message-ID: <20160915.193302.677247650007637133.davem@davemloft.net>
+References: <1473721658-6034-1-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eranbe@mellanox.com
-To: tariqt@mellanox.com
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com
+To: jhs@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58636 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:58780 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751754AbcIOXVJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 19:21:09 -0400
-In-Reply-To: <1473686416-11779-1-git-send-email-tariqt@mellanox.com>
+        with ESMTP id S1751704AbcIOXdF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 19:33:05 -0400
+In-Reply-To: <1473721658-6034-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tariq Toukan <tariqt@mellanox.com>
-Date: Mon, 12 Sep 2016 16:20:11 +0300
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Date: Mon, 12 Sep 2016 19:07:38 -0400
 
-> This patchset contains some bug fixes, a cleanup, and small improvements
-> from the team to the mlx4 Eth and core drivers.
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
 > 
-> Series generated against net-next commit:
-> 02154927c115 "net: dsa: bcm_sf2: Get VLAN_PORT_MASK from b53_device"
+> With the batch changes that translated transient actions into
+> a temporary list lost in the translation was the fact that
+> tcf_action_destroy() will eventually delete the action from
+> the permanent location if the refcount is zero.
 > 
-> Please push the following patch to -stable  >= 4.6 as well:
-> "net/mlx4_core: Fix to clean devlink resources"
+> Example of what broke:
+> ...add a gact action to drop
+> sudo $TC actions add action drop index 10
+> ...now retrieve it, looks good
+> sudo $TC actions get action gact index 10
+> ...retrieve it again and find it is gone!
+> sudo $TC actions get action gact index 10
+> 
+> Fixes:
+> commit 22dc13c837c3 ("net_sched: convert tcf_exts from list to pointer array"),
+> commit 824a7e8863b3 ("net_sched: remove an unnecessary list_del()")
+> commit f07fed82ad79 ("net_sched: remove the leftover cleanup_a()")
+> 
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Again, coding style fixes and optimizations like branch prediction
-hints are not bug fixes and therefore not appropriate for 'net'.
+Please incorporate Sergei's feedback and resubmit, thanks Jamal.
