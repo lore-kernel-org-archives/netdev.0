@@ -1,67 +1,60 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next] net: l3mdev: Remove netif_index_is_l3_master
-Date: Thu, 15 Sep 2016 10:18:45 -0700
-Message-ID: <1473959925-22881-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Colin Ian King <colin.king@canonical.com>
+Subject: Re: [PATCH] mwifiex: fix memory leak on regd when chan is zero
+Date: Thu, 15 Sep 2016 18:26:26 +0100
+Message-ID: <6afd51c2-c603-c887-3d75-3a1775bfe11c@canonical.com>
+References: <20160915162117.1209-1-colin.king@canonical.com>
+ <87vaxx9jhk.fsf@kamboji.qca.qualcomm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Amitkumar Karwar <akarwar@marvell.com>,
+        Nishant Sarmukadam <nishants@marvell.com>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:36624 "EHLO
-        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751257AbcIORSx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 13:18:53 -0400
-Received: by mail-pf0-f170.google.com with SMTP id 128so18532953pfb.3
-        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 10:18:53 -0700 (PDT)
+Received: from youngberry.canonical.com ([91.189.89.112]:48168 "EHLO
+        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751754AbcIOR2H (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 13:28:07 -0400
+In-Reply-To: <87vaxx9jhk.fsf@kamboji.qca.qualcomm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-No longer used after e0d56fdd73422 ("net: l3mdev: remove redundant calls")
+On 15/09/16 18:10, Kalle Valo wrote:
+> Colin King <colin.king@canonical.com> writes:
+> 
+>> From: Colin Ian King <colin.king@canonical.com>
+>>
+>> When chan is zero mwifiex_create_custom_regdomain does not kfree
+>> regd and we have a memory leak. Fix this by freeing regd before
+>> the return.
+>>
+>> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+>> ---
+>>  drivers/net/wireless/marvell/mwifiex/sta_cmdresp.c | 4 +++-
+>>  1 file changed, 3 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/wireless/marvell/mwifiex/sta_cmdresp.c b/drivers/net/wireless/marvell/mwifiex/sta_cmdresp.c
+>> index 3344a26..15a91f3 100644
+>> --- a/drivers/net/wireless/marvell/mwifiex/sta_cmdresp.c
+>> +++ b/drivers/net/wireless/marvell/mwifiex/sta_cmdresp.c
+>> @@ -1049,8 +1049,10 @@ mwifiex_create_custom_regdomain(struct mwifiex_private *priv,
+>>  		enum nl80211_band band;
+>>  
+>>  		chan = *buf++;
+>> -		if (!chan)
+>> +		if (!chan) {
+>> +			kfree(regd);
+>>  			return NULL;
+>> +		}
+> 
+> Bob sent a similar fix and he also did more:
+> 
+> mwifiex: fix error handling in mwifiex_create_custom_regdomain
+> 
+> https://patchwork.kernel.org/patch/9331337/
+> 
+Ah, sorry for the duplication noise.
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- include/net/l3mdev.h | 24 ------------------------
- 1 file changed, 24 deletions(-)
-
-diff --git a/include/net/l3mdev.h b/include/net/l3mdev.h
-index 3832099289c5..b220dabeab45 100644
---- a/include/net/l3mdev.h
-+++ b/include/net/l3mdev.h
-@@ -114,25 +114,6 @@ static inline u32 l3mdev_fib_table(const struct net_device *dev)
- 	return tb_id;
- }
- 
--static inline bool netif_index_is_l3_master(struct net *net, int ifindex)
--{
--	struct net_device *dev;
--	bool rc = false;
--
--	if (ifindex == 0)
--		return false;
--
--	rcu_read_lock();
--
--	dev = dev_get_by_index_rcu(net, ifindex);
--	if (dev)
--		rc = netif_is_l3_master(dev);
--
--	rcu_read_unlock();
--
--	return rc;
--}
--
- struct dst_entry *l3mdev_link_scope_lookup(struct net *net, struct flowi6 *fl6);
- 
- static inline
-@@ -226,11 +207,6 @@ static inline u32 l3mdev_fib_table_by_index(struct net *net, int ifindex)
- 	return 0;
- }
- 
--static inline bool netif_index_is_l3_master(struct net *net, int ifindex)
--{
--	return false;
--}
--
- static inline
- struct dst_entry *l3mdev_link_scope_lookup(struct net *net, struct flowi6 *fl6)
- {
--- 
-2.1.4
+Colin
