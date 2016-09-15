@@ -1,68 +1,57 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [RFC 08/11] Add support for data path
-Date: Thu, 15 Sep 2016 10:24:50 +0300
-Message-ID: <20160915072450.GR26069@leon.nu>
-References: <1473696465-27986-1-git-send-email-Ram.Amrani@qlogic.com>
- <1473696465-27986-9-git-send-email-Ram.Amrani@qlogic.com>
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [PATCH v4 16/16] MAINTAINERS: Update for PVRDMA driver
+Date: Thu, 15 Sep 2016 10:27:38 +0300
+Message-ID: <20160915072738.GS26069@leon.nu>
+References: <1473655766-31628-1-git-send-email-aditr@vmware.com>
+ <1473655766-31628-17-git-send-email-aditr@vmware.com>
+ <20160912175222.GG5843@obsidianresearch.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="0Qexx6XJGNEACt6j"
-Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org,
-        Ariel.Elior-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, Michal.Kalderon-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org,
-        rajesh.borundia-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Ram Amrani <Ram.Amrani-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+        protocol="application/pgp-signature"; boundary="8DtChEGCcMdSgkU2"
+Cc: Adit Ranadive <aditr@vmware.com>, dledford@redhat.com,
+        linux-rdma@vger.kernel.org, pv-drivers@vmware.com,
+        netdev@vger.kernel.org, linux-pci@vger.kernel.org,
+        jhansen@vmware.com, asarwade@vmware.com, georgezhang@vmware.com,
+        bryantan@vmware.com
+To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1473696465-27986-9-git-send-email-Ram.Amrani-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <20160912175222.GG5843@obsidianresearch.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---0Qexx6XJGNEACt6j
+--8DtChEGCcMdSgkU2
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-On Mon, Sep 12, 2016 at 07:07:42PM +0300, Ram Amrani wrote:
+On Mon, Sep 12, 2016 at 11:52:22AM -0600, Jason Gunthorpe wrote:
+> On Sun, Sep 11, 2016 at 09:49:26PM -0700, Adit Ranadive wrote:
+> > Add maintainer info for the PVRDMA driver.
+>
+> You can probably squash the last three patches.
 
-> +++ b/drivers/infiniband/hw/qedr/qedr_hsi_rdma.h
-> @@ -150,6 +150,12 @@ struct rdma_rq_sge {
->  	struct regpair addr;
->  	__le32 length;
->  	__le32 flags;
-> +#define RDMA_RQ_SGE_L_KEY_MASK      0x3FFFFFF
-> +#define RDMA_RQ_SGE_L_KEY_SHIFT     0
-> +#define RDMA_RQ_SGE_NUM_SGES_MASK   0x7
-> +#define RDMA_RQ_SGE_NUM_SGES_SHIFT  26
-> +#define RDMA_RQ_SGE_RESERVED0_MASK  0x7
-> +#define RDMA_RQ_SGE_RESERVED0_SHIFT 29
->  };
+It doesn't matter, Doug will squash the whole series anyway.
 
-It is interesting twist to mix defines and structs together.
-
---0Qexx6XJGNEACt6j
+--8DtChEGCcMdSgkU2
 Content-Type: application/pgp-signature; name="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIcBAEBAgAGBQJX2kzCAAoJEORje4g2clinldYQALhcG8jsSv3pzwNGq3iO+MSw
-oaZ5tm7L97B7b3WRkfSIw+oCbhu40k+SxzBZomqplHVH13+HOU0GMyx+vmdbhQqK
-xGoIoryKSqc5rEE7WkSAJtmQzzKxZRlX5/PUWc8fVz0QAg/20YwrE379yu1jxKAR
-w6ppI+90NZFK+CTcMY0VdIBgvYvv2UfAPiBVGJleH7CbPcodjc/d+ux0lY/PRlWE
-b2GUsAFPBy4Ek1RaR/tro7nMDL85F8VzS122UBoeHlBn/zTVIejekj00l5INtyUH
-7nakky0QsXy45fCcr0xQTnviv3x8fzpFdWnvEOQT6xQ5RKk/kxGa/0i6OcClWpXH
-crjMaKuXqfkdO/wDYrS9bCW6HdYDI1ql91UZsCLdB7vqXIPvdWvryQZnPlELPGY2
-pKDCt04yadOkidoA3NEukPm52f/CXZNzg2NV5XAd1hBwJ21NNk4kZu9dFkajt0xt
-opVSHL3GlObL61UvkUWQ/mJZPM2XXFuHIF2rkBrQrmQrzNPlIbmScaYNUIJHgxau
-KE4dTCiI5XNLkuusyYPjJAhS4rdy3MRsFxJaJ63MMWaUs+/aMGNvGmqY9+Iqm6GQ
-VrugAkOQqPNs2Vo1y5BOKL1odIOD7XJBgW+kgdl52ycMT5ifHEgAOMeJRsByeYkF
-rbywmYmPnj0MJ1ikr3YP
-=/kmy
+iQIcBAEBAgAGBQJX2k1qAAoJEORje4g2clinlOwP/iew8hHwKAWmAPt7kU4JriHZ
+KPeBpC31OMajPCQffQElK9fnIbyZ/jBPWUt5vR69dgtz8AhGOcx/13tLQZw6rMJ/
+yG3IeaTJHsY8rLZq0qtvpN7jcc92YFgkTd6Lg2Prulh+5zILVx/wPSYn0epnekra
+3ZHVbFHL30RP2cd00Pph+eXSiYh47fL+omHY5C7ex++p2ZmpSrtycTnGv1z6J7/J
+FhCl/l+ZgRWqAUM60iBvSk479iQ0YHBC7089YjDYtVFJe7REU1JkOzX3YqZGWffC
+eGtMa/6jFM67GK3kNI+9z+NP46q+l8Lu7h2NXJhmi9nNUlRwyrsEQhsaGs0w5/u+
+UKeQcXTeGyeMHirRnaR54tVnYfn6SiBmFJ4VwfhWoIdKy2475F6+k1emHckDeR0X
+J1Z2WeYMd87W+TWmSRMT+6+jkSLGoFFWXnASNvG6vjhxkrePpNhkyt4daexCaMNj
+FzBiHH0GDixF5Kp+h8ZOiUnRy/Z/xg3XfKvujYY21u8zGm4EHRFri8RBvENuYWbW
+FDu7uFhl7hDmGKBBd5dnVn566JtVAE/eZ/tWzksOFjDD00Fcu6T0YTCxeHLVcOgo
+AT9Bay8sz0sQ0R6jdpBCrmDYYSOC/rPGnzdHRyp7WyI+Yl5Ed92H62UHv3XjBD5r
+i2gQ4EujnN9/nrMWO67s
+=F+Pl
 -----END PGP SIGNATURE-----
 
---0Qexx6XJGNEACt6j--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--8DtChEGCcMdSgkU2--
