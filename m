@@ -1,43 +1,51 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH next] sctp: make use of WORD_TRUNC macro
-Date: Thu, 15 Sep 2016 15:12:30 -0300
-Message-ID: <b40b1bd4adff2d389588d9a4710af0399ce68d1e.1473963064.git.marcelo.leitner@gmail.com>
-Cc: linux-sctp@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41606 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753418AbcIOSMj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 15 Sep 2016 14:12:39 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jesper Dangaard Brouer via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: XDP user interface conclusions
+Date: Thu, 15 Sep 2016 20:13:47 +0200
+Message-ID: <20160915201347.338061e6@redhat.com>
+Reply-To: Jesper Dangaard Brouer <brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
+	"iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org" <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Daniel Borkmann <borkmann-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+To: Brenden Blanco <bblanco-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-No functional change. Just to avoid the usage of '&~3'.
-Also break the line to make it easier to read.
+Hi Brenden,
 
-Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
----
- net/sctp/chunk.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+I don't quite understand the semantics of the XDP userspace interface.
 
-diff --git a/net/sctp/chunk.c b/net/sctp/chunk.c
-index a55e54738b81ff8cf9cd711cf5fc466ac71374c0..adae4a41ca2078cfee387631f76e5cb768c2269c 100644
---- a/net/sctp/chunk.c
-+++ b/net/sctp/chunk.c
-@@ -182,9 +182,10 @@ struct sctp_datamsg *sctp_datamsg_from_user(struct sctp_association *asoc,
- 	/* This is the biggest possible DATA chunk that can fit into
- 	 * the packet
- 	 */
--	max_data = (asoc->pathmtu -
--		sctp_sk(asoc->base.sk)->pf->af->net_header_len -
--		sizeof(struct sctphdr) - sizeof(struct sctp_data_chunk)) & ~3;
-+	max_data = asoc->pathmtu -
-+		   sctp_sk(asoc->base.sk)->pf->af->net_header_len -
-+		   sizeof(struct sctphdr) - sizeof(struct sctp_data_chunk);
-+	max_data = WORD_TRUNC(max_data);
- 
- 	max = asoc->frag_point;
- 	/* If the the peer requested that we authenticate DATA chunks
+We allow XDP programs to be (unconditionally) exchanged by another
+program, this avoids taking the link down+up and avoids reallocating
+RX ring resources (which is great).
+
+We have two XDP samples programs in samples/bpf/ xdp1 and xdp2.  Now I
+want to first load xdp1 and then to avoid the linkdown I load xdp2,
+and then afterwards remove/stop program xdp1.
+
+This does NOT work, because (in samples/bpf/xdp1_user.c) when xdp1
+exits it unconditionally removes the running XDP program (loaded by xdp2)
+via set_link_xdp_fd(ifindex, -1).  The xdp2 user program is still
+running, and is unaware of its xdp/bpf program have been unloaded.
+
+I find this userspace interface confusing. What this your intention?
+Perhaps you can explain what the intended semantics or specification is?
+
 -- 
-2.7.4
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
