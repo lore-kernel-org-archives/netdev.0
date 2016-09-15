@@ -1,119 +1,185 @@
-From: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC v3 18/22] cgroup,landlock: Add CGRP_NO_NEW_PRIVS to handle
- unprivileged hooks
-Date: Wed, 14 Sep 2016 21:31:22 -0700
-Message-ID: <20160915043120.GA65819@ast-mbp.thefacebook.com>
-References: <20160914072415.26021-1-mic@digikod.net>
- <20160914072415.26021-19-mic@digikod.net>
- <CALCETrXBDVe9AzHnD1B5r=GGVNsU5gsC92iqD0S94mQBZOzOBQ@mail.gmail.com>
- <57D9CB25.1010103@digikod.net>
- <CALCETrVjyLaL-0H1AFsfYUtDGA8NSn4R8LkvBMQT7Gpmxeswgg@mail.gmail.com>
- <20160915021940.GA65119@ast-mbp.thefacebook.com>
- <CALCETrWXjJZZRj5XvDQ+-Grue+b4MW2TFKsfgYYFYoFBFVH71g@mail.gmail.com>
- <20160915040054.GA65308@ast-mbp.thefacebook.com>
- <CALCETrXTS8R1E2b9mmWzpOO6QOW5nWYW_RQRJYU1CGRsbNy+Yw@mail.gmail.com>
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [RFC 02/11] Add RoCE driver framework
+Date: Thu, 15 Sep 2016 07:37:16 +0300
+Message-ID: <20160915043716.GD26069@leon.nu>
+References: <1473696465-27986-1-git-send-email-Ram.Amrani@qlogic.com>
+ <1473696465-27986-3-git-send-email-Ram.Amrani@qlogic.com>
+ <516b98c7-477a-4890-0d92-529dc32f2c4e@mellanox.com>
+ <CY4PR11MB1720F9B74BBF82D0779FAC8F97FF0@CY4PR11MB1720.namprd11.prod.outlook.com>
+ <20160913063806.GP8812@leon.nu>
+ <BL2PR07MB2306937C8C495DB80DA776CA8DFE0@BL2PR07MB2306.namprd07.prod.outlook.com>
+ <20160913101616.GT8812@leon.nu>
+ <BL2PR07MB2306533A710B9EC40F56E8678DF10@BL2PR07MB2306.namprd07.prod.outlook.com>
+ <20160914130032.GB26069@leon.nu>
+ <BL2PR07MB23066BBC4A019365A632E2FA8DF10@BL2PR07MB2306.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-        Casey Schaufler <casey-iSGtlc1asvQWG2LlvL+J4A@public.gmane.org>,
-        Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-        Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>,
-        David Drysdale <drysdale-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Elena Reshetova <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        "Eric W . Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-        James Morris <james.l.morris-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-        Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-        Paul Moore <pmoore-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Sargun Dhillon <sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org>,
-        "Serge E . Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-        "kernel-hardening-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org"
-To: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="48TaNjbzBVislYPb"
+Cc: Yuval Mintz <Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+        Mark Bloch <markb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Ram Amrani <Ram.Amrani-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+        "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Ariel Elior <Ariel.Elior-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+        Michal Kalderon <Michal.Kalderon-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+        Rajesh Borundia <rajesh.borundia-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Mintz, Yuval" <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <CALCETrXTS8R1E2b9mmWzpOO6QOW5nWYW_RQRJYU1CGRsbNy+Yw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <BL2PR07MB23066BBC4A019365A632E2FA8DF10-I6Fv6QFlT9L2NWYWB7JgfuFPX92sqiQdvxpqHgZTriW3zl9H0oFU5g@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 14, 2016 at 09:08:57PM -0700, Andy Lutomirski wrote:
-> On Wed, Sep 14, 2016 at 9:00 PM, Alexei Starovoitov
-> <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> > On Wed, Sep 14, 2016 at 07:27:08PM -0700, Andy Lutomirski wrote:
-> >> >> >
-> >> >> > This RFC handle both cgroup and seccomp approaches in a similar way. I
-> >> >> > don't see why building on top of cgroup v2 is a problem. Is there
-> >> >> > security issues with delegation?
-> >> >>
-> >> >> What I mean is: cgroup v2 delegation has a functionality problem.
-> >> >> Tejun says [1]:
-> >> >>
-> >> >> We haven't had to face this decision because cgroup has never properly
-> >> >> supported delegating to applications and the in-use setups where this
-> >> >> happens are custom configurations where there is no boundary between
-> >> >> system and applications and adhoc trial-and-error is good enough a way
-> >> >> to find a working solution.  That wiggle room goes away once we
-> >> >> officially open this up to individual applications.
-> >> >>
-> >> >> Unless and until that changes, I think that landlock should stay away
-> >> >> from cgroups.  Others could reasonably disagree with me.
-> >> >
-> >> > Ours and Sargun's use cases for cgroup+lsm+bpf is not for security
-> >> > and not for sandboxing. So the above doesn't matter in such contexts.
-> >> > lsm hooks + cgroups provide convenient scope and existing entry points.
-> >> > Please see checmate examples how it's used.
-> >> >
-> >>
-> >> To be clear: I'm not arguing at all that there shouldn't be
-> >> bpf+lsm+cgroup integration.  I'm arguing that the unprivileged
-> >> landlock interface shouldn't expose any cgroup integration, at least
-> >> until the cgroup situation settles down a lot.
-> >
-> > ahh. yes. we're perfectly in agreement here.
-> > I'm suggesting that the next RFC shouldn't include unpriv
-> > and seccomp at all. Once bpf+lsm+cgroup is merged, we can
-> > argue about unpriv with cgroups and even unpriv as a whole,
-> > since it's not a given. Seccomp integration is also questionable.
-> > I'd rather not have seccomp as a gate keeper for this lsm.
-> > lsm and seccomp are orthogonal hook points. Syscalls and lsm hooks
-> > don't have one to one relationship, so mixing them up is only
-> > asking for trouble further down the road.
-> > If we really need to carry some information from seccomp to lsm+bpf,
-> > it's easier to add eBPF support to seccomp and let bpf side deal
-> > with passing whatever information.
-> >
-> 
-> As an argument for keeping seccomp (or an extended seccomp) as the
-> interface for an unprivileged bpf+lsm: seccomp already checks off most
-> of the boxes for safely letting unprivileged programs sandbox
-> themselves.  
 
-you mean the attach part of seccomp syscall that deals with no_new_priv?
-sure, that's reusable.
+--48TaNjbzBVislYPb
+Content-Type: text/plain; charset=iso-8859-1
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> Furthermore, to the extent that there are use cases for
-> unprivileged bpf+lsm that *aren't* expressible within the seccomp
-> hierarchy, I suspect that syscall filters have exactly the same
-> problem and that we should fix seccomp to cover it.
+On Wed, Sep 14, 2016 at 06:25:38PM +0000, Mintz, Yuval wrote:
+> > > > > >> >> +uint debug;
+> > > > > >> >> +module_param(debug, uint, 0);
+> > > > > > >>> +MODULE_PARM_DESC(debug, "Default debug msglevel");
+> > > > > >>
+> > > > > >> >Why are you adding this as a module parameter?
+> > > > > >>
+> > > > > >>=A0 I believe this is mostly to follow same line as qede which =
+also defines
+> > > > > > > 'debug' module parameter for allowing easy user control of de=
+bug
+> > > > > > > prints [& specifically for probe prints, which can't be contr=
+olled
+> > > > > > > otherwise].
+> > > > >
+> > > > > > Can you give us an example where dynamic debug and tracing infr=
+astructures
+> > > > > > are not enough?
+> > > > >
+> > > > > > AFAIK, most of these debug module parameters are legacy copy/pa=
+ste
+> > > > > > code which is useless in real life scenarios.
+> > > > >
+> > > > > Define 'enough'; Using dynamic debug you can provide all the nece=
+ssary
+> > > > > information and at an even better granularity that's achieved by =
+suggested
+> > >  > > infrastructure,=A0 but is harder for an end-user to use. Same go=
+es for tracing.
+> > > > >
+> > > > > The 'debug' option provides an easy grouping for prints related t=
+o a specific
+> > > > > area in the driver.
+> > > >
+> > > > It is hard to agree with you that user which knows how-to load modu=
+les
+> > > > with parameters won't success to enable debug prints.
+> > >
+> > > I think you're giving too much credit to the end-user. :-D
+> > >
+> > > > In addition, global increase in debug level for whole driver will c=
+reate
+> > > > printk storm in dmesg and give nothing to debuggability.
+> > >
+> > > So basically, what you're claiming is that ethtool 'msglvl' setting f=
+or devices
+> > > is completely obselete. While this *might* be true, we use it extensi=
+vely
+> > > in our qede and qed drivers; The debug module parameter merely provid=
+es
+> > > a manner of setting the debug value prior to initial probe for all in=
+terfaces.
+> > > qedr follows the same practice.
+>
+> > Thanks for this excellent example. Ethtool 'msglvl' adds this
+> > dynamically, while your DEBUG argument works for loading module
+> > only.
+>
+> > If you want dynamic prints, you have two options:
+> > 1. Add support of ethtool to whole RDMA stack.
+> > 2. Use dynamic tracing infrastructure.
+>
+> > Which option do you prefer?
+> Option 3 - continuing this discussion. :-)
 
-not sure what you mean by 'seccomp hierarchy'. The normal process
-hierarchy ?
-imo the main deficiency of secccomp is inability to look into arguments.
-One can argue that it's a blessing, since composite args
-are not yet copied into the kernel memory.
-But in a lot of cases the seccomp arguments are FDs pointing
-to kernel objects and if programs could examine those objects
-the sandboxing scope would be more precise.
-lsm+bpf solves that part and I'd still argue that it's
-orthogonal to seccomp's pass/reject flow.
-I mean if seccomp says 'ok' the syscall should continue executing
-as normal and whatever LSM hooks were triggered by it may have
-their own lsm+bpf verdicts.
-Furthermore in the process hierarchy different children
-should be able to set their own lsm+bpf filters that are not
-related to parallel seccomp+bpf hierarchy of programs.
-seccomp syscall can be an interface to attach programs
-to lsm hooks, but nothing more than that.
+Sorry,
+I was under impression that you want this driver to be merged, but it
+looks like It was incorrect assumption. Let's continue discussion.
+
+>
+> Perhaps I misread your intentions - I thought that by dynamic debug
+> you meant that all debug in RDMA should be pr_debug() based, and
+> therefore my objection regarding the ease with which users can
+> configure it.
+
+It is not for all RDMA, but in your proposed driver. You are adding this
+"debug" module argument to your module.
+
+> If all you meant was 'dynamically set' as opposed to 'statically set'
+> then I agree that having that sort of configurability is preferable
+> [Even though end-user would still probably prefer a module
+> parameter for reproductions; As the name implies, 'debug' isn't
+> meant to be used in other situations].
+
+We are not adding code just for fun, but for a real reason, and
+especially interfaces which will be visible to user.
+
+The overall expectation from the driver's authors that they are
+submitting driver which doesn't have bringup issues. For real
+life scenarios, where the bugs will be reveled after some time of
+usage, this global debug is useless.
+
+>
+> The other thing to consider are the probe-time prints.
+> Problem is, you wouldn't have a control node between probe
+> and until after the probing would be over, so it would be a bit
+> hard to configure that.
+> You can always think of some generic method of fixing that as well
+> [sysfs node for the entire system for probe-time prints, perhaps?]
+
+/sys/kernel/debug/tracing
+/sys/kernel/debug/dynamic_debug
+
+>
+> Do notice you would be harming user-experience of reproductions
+> though - as it would have to follow different mechanisms to open
+> debug prints of various qed* components.
+
+I don't understand this point at all. Do you think that it is normal to
+ask user to debug your driver? Is this called "user-experience"?
+
+And regarding the second point, the old code is not an excuse to
+copy/paste bad practices.
+
+As a summary, I didn't see in your responses any real life example where
+you will need global debug level for your driver.
+
+Thanks
+
+--48TaNjbzBVislYPb
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJX2iV8AAoJEORje4g2clineSgP/0sOh2SscHUeajfXPjwMo8DF
+pX7crPRmvRtu6jYAgp0w6/GfQG7QyAMK9GJfL3tNiyGbNpIV6qp8gwTQhTf0TDZH
+Idq2DUcaCNVWykcGh5zYCMrIoGXI0bhR4ttkUBz186TxmQXYAh2za4F7aCztwAli
+ejiYwxQoOTop0UZsVYTquQavmGRQM2AqF/w8pBUKe0Pth/GyP4gYN34EWzS+wxS4
+B112254xykn7qt/mpNfhEvEhdjEQHXA9zMHpv8wVfmcMVOHV/PltwoLh+h+tkf+q
+O4Upq0k+ep6h9N/YnInfgo8oyN3XhaLMUz17a+4wsF29Pb65Cgp5GWxEdOhaP1Pl
+0CRTYFHihu5q5AA/0zkisOXl42grCrwuS0bp4B2BTo87YAmdDP1q2F83MnnmjX2B
+x/XxiuoRVk1zlKKTmOM1P/oXOrYAU5k5qf3nxOrMwqQpGUUUr1sv/+quRHVsg0yj
+KEENOn+o7MJNGXGGGbfU3jo7wCg+hqtw3XCuuS8hfDDKbfZc0sRe6TlirMC8uIJL
+UMsGbVcg4x8CafgqxdQ1jFS4BGXrjkm/T4/pl51faAoBiZQDaf6qKOceybHlvCGT
+alTXO2AbgDShxGhMe2R4OJmJt+HiuONB/rSvChrIkmYXqjGF4EB1DdldyrHCZhC/
+zZvO3SIKOL/z/g+bkY/Z
+=ZiPE
+-----END PGP SIGNATURE-----
+
+--48TaNjbzBVislYPb--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
