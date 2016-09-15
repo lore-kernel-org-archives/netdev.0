@@ -1,174 +1,187 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCHv4 net-next 15/15] nfp: bpf: add offload of TC direct action mode
-Date: Thu, 15 Sep 2016 20:12:35 +0100
-Message-ID: <1473966755-30106-16-git-send-email-jakub.kicinski@netronome.com>
-References: <1473966755-30106-1-git-send-email-jakub.kicinski@netronome.com>
-Cc: ast@kernel.org, daniel@iogearbox.net, jiri@resnulli.us,
-        john.fastabend@gmail.com, kubakici@wp.pl,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:36124 "EHLO
-        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754330AbcIOTOY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 15:14:24 -0400
-Received: by mail-wm0-f44.google.com with SMTP id b187so966720wme.1
-        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 12:14:24 -0700 (PDT)
-In-Reply-To: <1473966755-30106-1-git-send-email-jakub.kicinski@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
+Subject: Re: [RFC v3 18/22] cgroup,landlock: Add CGRP_NO_NEW_PRIVS to handle
+ unprivileged hooks
+Date: Thu, 15 Sep 2016 21:35:50 +0200
+Message-ID: <57DAF816.6040106@digikod.net>
+References: <20160914072415.26021-1-mic@digikod.net>
+ <20160914072415.26021-19-mic@digikod.net>
+ <CALCETrXBDVe9AzHnD1B5r=GGVNsU5gsC92iqD0S94mQBZOzOBQ@mail.gmail.com>
+ <57D9CB25.1010103@digikod.net>
+ <CALCETrVjyLaL-0H1AFsfYUtDGA8NSn4R8LkvBMQT7Gpmxeswgg@mail.gmail.com>
+Reply-To: kernel-hardening@lists.openwall.com
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="gCnBcQ1mSLdxVkOtqgAlXKJUvi49MFCWd"
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Alexei Starovoitov <ast@kernel.org>, Arnd Bergmann <arnd@arndb.de>,
+        Casey Schaufler <casey@schaufler-ca.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Daniel Mack <daniel@zonque.org>, David Drysdale <drysdale@google.com>,
+        "David S . Miller"
+ <davem@davemloft.net>,
+        Elena Reshetova <elena.reshetova@intel.com>,
+        "Eric W . Biederman" <ebiederm@xmission.com>,
+        James Morris <james.l.morris@oracle.com>,
+        Kees Cook <keescook@chromium.org>, Paul Moore <pmoore@redhat.com>,
+        Sargun Dhillon <sargun@sargun.me>,
+        "Serge E . Hallyn" <serge@hallyn.com>, Tejun Heo <tj@kernel.org>,
+        Will Drewry <wad@chromium.org>,
+        "kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>,
+        Linux API <linux-api@vger.kernel.org>,
+To: Andy Lutomirski <luto@amacapital.net>
+Return-path: <kernel-hardening-return-4670-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <CALCETrVjyLaL-0H1AFsfYUtDGA8NSn4R8LkvBMQT7Gpmxeswgg@mail.gmail.com>
+List-Id: netdev.vger.kernel.org
 
-Add offload of TC in direct action mode.  We just need
-to provide appropriate checks in the verifier and
-a new outro block to translate the exit codes to what
-data path expects
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--gCnBcQ1mSLdxVkOtqgAlXKJUvi49MFCWd
+Content-Type: multipart/mixed; boundary="2jrGIuWNgQwcrNJkqhn7tgafhkAQ0Md8q";
+ protected-headers="v1"
+From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
+To: Andy Lutomirski <luto@amacapital.net>
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ Alexei Starovoitov <ast@kernel.org>, Arnd Bergmann <arnd@arndb.de>,
+ Casey Schaufler <casey@schaufler-ca.com>,
+ Daniel Borkmann <daniel@iogearbox.net>, Daniel Mack <daniel@zonque.org>,
+ David Drysdale <drysdale@google.com>, "David S . Miller"
+ <davem@davemloft.net>, Elena Reshetova <elena.reshetova@intel.com>,
+ "Eric W . Biederman" <ebiederm@xmission.com>,
+ James Morris <james.l.morris@oracle.com>, Kees Cook <keescook@chromium.org>,
+ Paul Moore <pmoore@redhat.com>, Sargun Dhillon <sargun@sargun.me>,
+ "Serge E . Hallyn" <serge@hallyn.com>, Tejun Heo <tj@kernel.org>,
+ Will Drewry <wad@chromium.org>,
+ "kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>,
+ Linux API <linux-api@vger.kernel.org>,
+ LSM List <linux-security-module@vger.kernel.org>,
+ Network Development <netdev@vger.kernel.org>,
+ "open list:CONTROL GROUP (CGROUP)" <cgroups@vger.kernel.org>
+Message-ID: <57DAF816.6040106@digikod.net>
+Subject: Re: [RFC v3 18/22] cgroup,landlock: Add CGRP_NO_NEW_PRIVS to handle
+ unprivileged hooks
+References: <20160914072415.26021-1-mic@digikod.net>
+ <20160914072415.26021-19-mic@digikod.net>
+ <CALCETrXBDVe9AzHnD1B5r=GGVNsU5gsC92iqD0S94mQBZOzOBQ@mail.gmail.com>
+ <57D9CB25.1010103@digikod.net>
+ <CALCETrVjyLaL-0H1AFsfYUtDGA8NSn4R8LkvBMQT7Gpmxeswgg@mail.gmail.com>
+In-Reply-To: <CALCETrVjyLaL-0H1AFsfYUtDGA8NSn4R8LkvBMQT7Gpmxeswgg@mail.gmail.com>
 
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
----
- drivers/net/ethernet/netronome/nfp/nfp_bpf.h       |  1 +
- drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c   | 66 ++++++++++++++++++++++
- .../net/ethernet/netronome/nfp/nfp_bpf_verifier.c  | 11 +++-
- .../net/ethernet/netronome/nfp/nfp_net_offload.c   |  6 +-
- 4 files changed, 82 insertions(+), 2 deletions(-)
+--2jrGIuWNgQwcrNJkqhn7tgafhkAQ0Md8q
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_bpf.h b/drivers/net/ethernet/netronome/nfp/nfp_bpf.h
-index 378d3c35cad5..25e9bd885f6f 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_bpf.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_bpf.h
-@@ -61,6 +61,7 @@ enum static_regs {
- enum nfp_bpf_action_type {
- 	NN_ACT_TC_DROP,
- 	NN_ACT_TC_REDIR,
-+	NN_ACT_DIRECT,
- };
- 
- /* Software register representation, hardware encoding in asm.h */
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c b/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
-index 60a99e0bf459..ca741763b7e9 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
-@@ -321,6 +321,16 @@ __emit_br(struct nfp_prog *nfp_prog, enum br_mask mask, enum br_ev_pip ev_pip,
- 	nfp_prog_push(nfp_prog, insn);
- }
- 
-+static void emit_br_def(struct nfp_prog *nfp_prog, u16 addr, u8 defer)
-+{
-+	if (defer > 2) {
-+		pr_err("BUG: branch defer out of bounds %d\n", defer);
-+		nfp_prog->error = -EFAULT;
-+		return;
-+	}
-+	__emit_br(nfp_prog, BR_UNC, BR_EV_PIP_UNCOND, BR_CSS_NONE, addr, defer);
-+}
-+
- static void
- emit_br(struct nfp_prog *nfp_prog, enum br_mask mask, u16 addr, u8 defer)
- {
-@@ -1465,9 +1475,65 @@ static void nfp_outro_tc_legacy(struct nfp_prog *nfp_prog)
- 		      SHF_SC_L_SHF, 16);
- }
- 
-+static void nfp_outro_tc_da(struct nfp_prog *nfp_prog)
-+{
-+	/* TC direct-action mode:
-+	 *   0,1   ok        NOT SUPPORTED[1]
-+	 *   2   drop  0x22 -> drop,  count as stat1
-+	 *   4,5 nuke  0x02 -> drop
-+	 *   7  redir  0x44 -> redir, count as stat2
-+	 *   * unspec  0x11 -> pass,  count as stat0
-+	 *
-+	 * [1] We can't support OK and RECLASSIFY because we can't tell TC
-+	 *     the exact decision made.  We are forced to support UNSPEC
-+	 *     to handle aborts so that's the only one we handle for passing
-+	 *     packets up the stack.
-+	 */
-+	/* Target for aborts */
-+	nfp_prog->tgt_abort = nfp_prog_current_offset(nfp_prog);
-+
-+	emit_br_def(nfp_prog, nfp_prog->tgt_done, 2);
-+
-+	emit_alu(nfp_prog, reg_a(0),
-+		 reg_none(), ALU_OP_NONE, NFP_BPF_ABI_FLAGS);
-+	emit_ld_field(nfp_prog, reg_a(0), 0xc, reg_imm(0x11), SHF_SC_L_SHF, 16);
-+
-+	/* Target for normal exits */
-+	nfp_prog->tgt_out = nfp_prog_current_offset(nfp_prog);
-+
-+	/* if R0 > 7 jump to abort */
-+	emit_alu(nfp_prog, reg_none(), reg_imm(7), ALU_OP_SUB, reg_b(0));
-+	emit_br(nfp_prog, BR_BLO, nfp_prog->tgt_abort, 0);
-+	emit_alu(nfp_prog, reg_a(0),
-+		 reg_none(), ALU_OP_NONE, NFP_BPF_ABI_FLAGS);
-+
-+	wrp_immed(nfp_prog, reg_b(2), 0x41221211);
-+	wrp_immed(nfp_prog, reg_b(3), 0x41001211);
-+
-+	emit_shf(nfp_prog, reg_a(1),
-+		 reg_none(), SHF_OP_NONE, reg_b(0), SHF_SC_L_SHF, 2);
-+
-+	emit_alu(nfp_prog, reg_none(), reg_a(1), ALU_OP_OR, reg_imm(0));
-+	emit_shf(nfp_prog, reg_a(2),
-+		 reg_imm(0xf), SHF_OP_AND, reg_b(2), SHF_SC_R_SHF, 0);
-+
-+	emit_alu(nfp_prog, reg_none(), reg_a(1), ALU_OP_OR, reg_imm(0));
-+	emit_shf(nfp_prog, reg_b(2),
-+		 reg_imm(0xf), SHF_OP_AND, reg_b(3), SHF_SC_R_SHF, 0);
-+
-+	emit_br_def(nfp_prog, nfp_prog->tgt_done, 2);
-+
-+	emit_shf(nfp_prog, reg_b(2),
-+		 reg_a(2), SHF_OP_OR, reg_b(2), SHF_SC_L_SHF, 4);
-+	emit_ld_field(nfp_prog, reg_a(0), 0xc, reg_b(2), SHF_SC_L_SHF, 16);
-+}
-+
- static void nfp_outro(struct nfp_prog *nfp_prog)
- {
- 	switch (nfp_prog->act) {
-+	case NN_ACT_DIRECT:
-+		nfp_outro_tc_da(nfp_prog);
-+		break;
- 	case NN_ACT_TC_DROP:
- 	case NN_ACT_TC_REDIR:
- 		nfp_outro_tc_legacy(nfp_prog);
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_bpf_verifier.c b/drivers/net/ethernet/netronome/nfp/nfp_bpf_verifier.c
-index 15c460964810..af2d7c8bd8bf 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_bpf_verifier.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_bpf_verifier.c
-@@ -86,7 +86,16 @@ nfp_bpf_check_exit(struct nfp_prog *nfp_prog,
- 		return -EINVAL;
- 	}
- 
--	if (reg0->imm != 0 && (reg0->imm & ~0U) != ~0U) {
-+	if (nfp_prog->act != NN_ACT_DIRECT &&
-+	    reg0->imm != 0 && (reg0->imm & ~0U) != ~0U) {
-+		pr_info("unsupported exit state: %d, imm: %llx\n",
-+			reg0->type, reg0->imm);
-+		return -EINVAL;
-+	}
-+
-+	if (nfp_prog->act == NN_ACT_DIRECT && reg0->imm <= TC_ACT_REDIRECT &&
-+	    reg0->imm != TC_ACT_SHOT && reg0->imm != TC_ACT_STOLEN &&
-+	    reg0->imm != TC_ACT_QUEUED) {
- 		pr_info("unsupported exit state: %d, imm: %llx\n",
- 			reg0->type, reg0->imm);
- 		return -EINVAL;
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_offload.c b/drivers/net/ethernet/netronome/nfp/nfp_net_offload.c
-index 1ec8e5b74651..43f42f842eda 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_offload.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_offload.c
-@@ -112,8 +112,12 @@ nfp_net_bpf_get_act(struct nfp_net *nn, struct tc_cls_bpf_offload *cls_bpf)
- 	LIST_HEAD(actions);
- 
- 	/* TC direct action */
--	if (cls_bpf->exts_integrated)
-+	if (cls_bpf->exts_integrated) {
-+		if (tc_no_actions(cls_bpf->exts))
-+			return NN_ACT_DIRECT;
-+
- 		return -ENOTSUPP;
-+	}
- 
- 	/* TC legacy mode */
- 	if (!tc_single_action(cls_bpf->exts))
--- 
-1.9.1
+
+On 15/09/2016 03:25, Andy Lutomirski wrote:
+> On Wed, Sep 14, 2016 at 3:11 PM, Micka=C3=ABl Sala=C3=BCn <mic@digikod.=
+net> wrote:
+>>
+>> On 14/09/2016 20:27, Andy Lutomirski wrote:
+>>> On Wed, Sep 14, 2016 at 12:24 AM, Micka=C3=ABl Sala=C3=BCn <mic@digik=
+od.net> wrote:
+>>>> Add a new flag CGRP_NO_NEW_PRIVS for each cgroup. This flag is initi=
+ally
+>>>> set for all cgroup except the root. The flag is clear when a new pro=
+cess
+>>>> without the no_new_privs flags is attached to the cgroup.
+>>>>
+>>>> If a cgroup is landlocked, then any new attempt, from an unprivilege=
+d
+>>>> process, to attach a process without no_new_privs to this cgroup wil=
+l
+>>>> be denied.
+>>>
+>>> Until and unless everyone can agree on a way to properly namespace,
+>>> delegate, etc cgroups, I think that trying to add unprivileged
+>>> semantics to cgroups is nuts.  Given the big thread about cgroup v2,
+>>> no-internal-tasks, etc, I just don't see how this approach can be
+>>> viable.
+>>
+>> As far as I can tell, the no_new_privs flag of at task is not related =
+to
+>> namespaces. The CGRP_NO_NEW_PRIVS flag is only a cache to quickly acce=
+ss
+>> the no_new_privs property of *tasks* in a cgroup. The semantic is unch=
+anged.
+>>
+>> Using cgroup is optional, any task could use the seccomp-based
+>> landlocking instead. However, for those that want/need to manage a
+>> security policy in a more dynamic way, using cgroups may make sense.
+>>
+>> I though cgroup delegation was OK in the v2, isn't it the case? Do you=
+
+>> have some links?
+>>
+>>>
+>>> Can we try to make landlock work completely independently of cgroups
+>>> so that it doesn't get stuck and so that programs can use it without
+>>> worrying about cgroup v1 vs v2, interactions with cgroup managers,
+>>> cgroup managers that (supposedly?) will start migrating processes
+>>> around piecemeal and almost certainly blowing up landlock in the
+>>> process, etc?
+>>
+>> This RFC handle both cgroup and seccomp approaches in a similar way. I=
+
+>> don't see why building on top of cgroup v2 is a problem. Is there
+>> security issues with delegation?
+>=20
+> What I mean is: cgroup v2 delegation has a functionality problem.
+> Tejun says [1]:
+>=20
+> We haven't had to face this decision because cgroup has never properly
+> supported delegating to applications and the in-use setups where this
+> happens are custom configurations where there is no boundary between
+> system and applications and adhoc trial-and-error is good enough a way
+> to find a working solution.  That wiggle room goes away once we
+> officially open this up to individual applications.
+>=20
+> Unless and until that changes, I think that landlock should stay away
+> from cgroups.  Others could reasonably disagree with me.
+>=20
+> [1] https://lkml.kernel.org/r/20160909225747.GA30105@mtj.duckdns.org
+>=20
+
+I don't get the same echo here:
+https://lkml.kernel.org/r/20160826155026.GD16906@mtj.duckdns.org
+
+On 26/08/2016 17:50, Tejun Heo wrote:
+> Please refer to "2-5. Delegation" of Documentation/cgroup-v2.txt.
+> Delegation on v1 is broken on both core and specific controller
+> behaviors and thus discouraged.  On v2, delegation should work just
+> fine.
+
+Tejun, could you please clarify if there is still a problem with cgroup
+v2 delegation?
+
+This patch only implement a cache mechanism with the CGRP_NO_NEW_PRIVS
+flag. If cgroups can group processes correctly, I don't see any
+(security) issue here. It's the administrator choice to delegate a part
+of the cgroup management. It's then the delegatee responsibility to
+correctly put processes in cgroups. This is comparable to a process
+which is responsible to correctly call seccomp(2).
+
+ Micka=C3=ABl
+
+
+--2jrGIuWNgQwcrNJkqhn7tgafhkAQ0Md8q--
+
+--gCnBcQ1mSLdxVkOtqgAlXKJUvi49MFCWd
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBCgAGBQJX2vgXAAoJECLe/t9zvWqVi8gIAJ6DRqQNJUPZbyyiICaVTop0
+O7KoyGy8b/IHwUNcKkkbWcPuKK+Gzh30spjyTB+o772LJpZZ25fkXYFPmiwZp/Bn
+vqMeuSaM4KqIZvNakm8yW+kIrlHW0/JeEBIQtcO+KkTehTRd7BpgB0/x0fnyXtlr
+naInE+0/V0qmrPoJ9cr9fK9TFW1CcS6eF0lILWywKiK7jIEMoBPy2yckfiS8Wd7N
+gfXtLnNekLmbJbLzwztWGApUC6zCkAkgK64U+z8SAHrROi/Ox6kRSJlEA956RQHf
+sKASjfv0Fj2t0Zb/tagFHVyYLxAFxG8/lw1+A/q597foxrrvqcEUGMM2/M6FXsE=
+=s+er
+-----END PGP SIGNATURE-----
+
+--gCnBcQ1mSLdxVkOtqgAlXKJUvi49MFCWd--
