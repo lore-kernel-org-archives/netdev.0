@@ -1,522 +1,296 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCHv4 net-next 08/15] nfp: add BPF to NFP code translator
-Date: Thu, 15 Sep 2016 20:12:28 +0100
-Message-ID: <1473966755-30106-9-git-send-email-jakub.kicinski@netronome.com>
+Subject: [PATCHv4 net-next 09/15] nfp: bpf: add hardware bpf offload
+Date: Thu, 15 Sep 2016 20:12:29 +0100
+Message-ID: <1473966755-30106-10-git-send-email-jakub.kicinski@netronome.com>
 References: <1473966755-30106-1-git-send-email-jakub.kicinski@netronome.com>
 Cc: ast@kernel.org, daniel@iogearbox.net, jiri@resnulli.us,
         john.fastabend@gmail.com, kubakici@wp.pl,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:37543 "EHLO
-        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753629AbcIOTOR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 15:14:17 -0400
-Received: by mail-wm0-f44.google.com with SMTP id k186so1238938wmd.0
-        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 12:14:16 -0700 (PDT)
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:37560 "EHLO
+        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753899AbcIOTOS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 15:14:18 -0400
+Received: by mail-wm0-f41.google.com with SMTP id k186so1239888wmd.0
+        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 12:14:17 -0700 (PDT)
 In-Reply-To: <1473966755-30106-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add translator for JITing eBPF to operations which
-can be executed on NFP's programmable engines.
+Add hardware bpf offload on our smart NICs.  Detect if
+capable firmware is loaded and use it to load the code JITed
+with just added translator onto programmable engines.
+
+This commit only supports offloading cls_bpf in legacy mode
+(non-direct action).
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
-v4:
- - use bitfield.h directly.
-v3:
- - don't clone the program for the verifier (no longer needed);
- - temporarily add a local copy of macros from bitfield.h.
-
-NOTE: this one will probably trigger buildbot failures because
-      it depends on pull request from wireless-drivers-next.
----
- drivers/net/ethernet/netronome/nfp/Makefile        |    6 +
- drivers/net/ethernet/netronome/nfp/nfp_asm.h       |  233 +++
- drivers/net/ethernet/netronome/nfp/nfp_bpf.h       |  208 +++
- drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c   | 1729 ++++++++++++++++++++
- .../net/ethernet/netronome/nfp/nfp_bpf_verifier.c  |  151 ++
- 5 files changed, 2327 insertions(+)
- create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_asm.h
- create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_bpf.h
- create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
- create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_bpf_verifier.c
+ drivers/net/ethernet/netronome/nfp/Makefile        |   1 +
+ drivers/net/ethernet/netronome/nfp/nfp_net.h       |  26 ++-
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    |  40 +++-
+ drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h  |  44 ++++-
+ .../net/ethernet/netronome/nfp/nfp_net_offload.c   | 220 +++++++++++++++++++++
+ 5 files changed, 324 insertions(+), 7 deletions(-)
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_net_offload.c
 
 diff --git a/drivers/net/ethernet/netronome/nfp/Makefile b/drivers/net/ethernet/netronome/nfp/Makefile
-index 68178819ff12..5f12689bf523 100644
+index 5f12689bf523..0efb2ba9a558 100644
 --- a/drivers/net/ethernet/netronome/nfp/Makefile
 +++ b/drivers/net/ethernet/netronome/nfp/Makefile
-@@ -5,4 +5,10 @@ nfp_netvf-objs := \
+@@ -3,6 +3,7 @@ obj-$(CONFIG_NFP_NETVF)	+= nfp_netvf.o
+ nfp_netvf-objs := \
+ 	    nfp_net_common.o \
  	    nfp_net_ethtool.o \
++	    nfp_net_offload.o \
  	    nfp_netvf_main.o
  
-+ifeq ($(CONFIG_BPF_SYSCALL),y)
-+nfp_netvf-objs += \
-+	    nfp_bpf_verifier.o \
-+	    nfp_bpf_jit.o
-+endif
+ ifeq ($(CONFIG_BPF_SYSCALL),y)
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+index 690635660195..ea6f5e667f27 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+@@ -220,7 +220,7 @@ struct nfp_net_tx_ring {
+ #define PCIE_DESC_RX_I_TCP_CSUM_OK	cpu_to_le16(BIT(11))
+ #define PCIE_DESC_RX_I_UDP_CSUM		cpu_to_le16(BIT(10))
+ #define PCIE_DESC_RX_I_UDP_CSUM_OK	cpu_to_le16(BIT(9))
+-#define PCIE_DESC_RX_SPARE		cpu_to_le16(BIT(8))
++#define PCIE_DESC_RX_BPF		cpu_to_le16(BIT(8))
+ #define PCIE_DESC_RX_EOP		cpu_to_le16(BIT(7))
+ #define PCIE_DESC_RX_IP4_CSUM		cpu_to_le16(BIT(6))
+ #define PCIE_DESC_RX_IP4_CSUM_OK	cpu_to_le16(BIT(5))
+@@ -413,6 +413,7 @@ static inline bool nfp_net_fw_ver_eq(struct nfp_net_fw_version *fw_ver,
+  * @is_vf:              Is the driver attached to a VF?
+  * @is_nfp3200:         Is the driver for a NFP-3200 card?
+  * @fw_loaded:          Is the firmware loaded?
++ * @bpf_offload_skip_sw:  Offloaded BPF program will not be rerun by cls_bpf
+  * @ctrl:               Local copy of the control register/word.
+  * @fl_bufsz:           Currently configured size of the freelist buffers
+  * @rx_offset:		Offset in the RX buffers where packet data starts
+@@ -473,6 +474,7 @@ struct nfp_net {
+ 	unsigned is_vf:1;
+ 	unsigned is_nfp3200:1;
+ 	unsigned fw_loaded:1;
++	unsigned bpf_offload_skip_sw:1;
+ 
+ 	u32 ctrl;
+ 	u32 fl_bufsz;
+@@ -561,12 +563,28 @@ struct nfp_net {
+ /* Functions to read/write from/to a BAR
+  * Performs any endian conversion necessary.
+  */
++static inline u16 nn_readb(struct nfp_net *nn, int off)
++{
++	return readb(nn->ctrl_bar + off);
++}
 +
- nfp_netvf-$(CONFIG_NFP_NET_DEBUG) += nfp_net_debugfs.o
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_asm.h b/drivers/net/ethernet/netronome/nfp/nfp_asm.h
-new file mode 100644
-index 000000000000..22484b6fd3e8
---- /dev/null
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_asm.h
-@@ -0,0 +1,233 @@
-+/*
-+ * Copyright (C) 2016 Netronome Systems, Inc.
-+ *
-+ * This software is dual licensed under the GNU General License Version 2,
-+ * June 1991 as shown in the file COPYING in the top-level directory of this
-+ * source tree or the BSD 2-Clause License provided below.  You have the
-+ * option to license this software under the complete terms of either license.
-+ *
-+ * The BSD 2-Clause License:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      1. Redistributions of source code must retain the above
-+ *         copyright notice, this list of conditions and the following
-+ *         disclaimer.
-+ *
-+ *      2. Redistributions in binary form must reproduce the above
-+ *         copyright notice, this list of conditions and the following
-+ *         disclaimer in the documentation and/or other materials
-+ *         provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
+ static inline void nn_writeb(struct nfp_net *nn, int off, u8 val)
+ {
+ 	writeb(val, nn->ctrl_bar + off);
+ }
+ 
+-/* NFP-3200 can't handle 16-bit accesses too well - hence no readw/writew */
++/* NFP-3200 can't handle 16-bit accesses too well */
++static inline u16 nn_readw(struct nfp_net *nn, int off)
++{
++	WARN_ON_ONCE(nn->is_nfp3200);
++	return readw(nn->ctrl_bar + off);
++}
 +
-+#ifndef __NFP_ASM_H__
-+#define __NFP_ASM_H__ 1
++static inline void nn_writew(struct nfp_net *nn, int off, u16 val)
++{
++	WARN_ON_ONCE(nn->is_nfp3200);
++	writew(val, nn->ctrl_bar + off);
++}
+ 
+ static inline u32 nn_readl(struct nfp_net *nn, int off)
+ {
+@@ -757,4 +775,8 @@ static inline void nfp_net_debugfs_adapter_del(struct nfp_net *nn)
+ }
+ #endif /* CONFIG_NFP_NET_DEBUG */
+ 
++int
++nfp_net_bpf_offload(struct nfp_net *nn, u32 handle, __be16 proto,
++		    struct tc_cls_bpf_offload *cls_bpf);
 +
-+#include "nfp_bpf.h"
+ #endif /* _NFP_NET_H_ */
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+index 252e4924de0f..51978dfe883b 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+@@ -60,6 +60,7 @@
+ 
+ #include <linux/ktime.h>
+ 
++#include <net/pkt_cls.h>
+ #include <net/vxlan.h>
+ 
+ #include "nfp_net_ctrl.h"
+@@ -2382,6 +2383,31 @@ static struct rtnl_link_stats64 *nfp_net_stat64(struct net_device *netdev,
+ 	return stats;
+ }
+ 
++static bool nfp_net_ebpf_capable(struct nfp_net *nn)
++{
++	if (nn->cap & NFP_NET_CFG_CTRL_BPF &&
++	    nn_readb(nn, NFP_NET_CFG_BPF_ABI) == NFP_NET_BPF_ABI)
++		return true;
++	return false;
++}
 +
-+#define REG_NONE	0
++static int
++nfp_net_setup_tc(struct net_device *netdev, u32 handle, __be16 proto,
++		 struct tc_to_netdev *tc)
++{
++	struct nfp_net *nn = netdev_priv(netdev);
 +
-+#define RE_REG_NO_DST	0x020
-+#define RE_REG_IMM	0x020
-+#define RE_REG_IMM_encode(x)					\
-+	(RE_REG_IMM | ((x) & 0x1f) | (((x) & 0x60) << 1))
-+#define RE_REG_IMM_MAX	 0x07fULL
-+#define RE_REG_XFR	0x080
++	if (TC_H_MAJ(handle) != TC_H_MAJ(TC_H_INGRESS))
++		return -ENOTSUPP;
++	if (proto != htons(ETH_P_ALL))
++		return -ENOTSUPP;
 +
-+#define UR_REG_XFR	0x180
-+#define UR_REG_NN	0x280
-+#define UR_REG_NO_DST	0x300
-+#define UR_REG_IMM	UR_REG_NO_DST
-+#define UR_REG_IMM_encode(x) (UR_REG_IMM | (x))
-+#define UR_REG_IMM_MAX	 0x0ffULL
++	if (tc->type == TC_SETUP_CLSBPF && nfp_net_ebpf_capable(nn))
++		return nfp_net_bpf_offload(nn, handle, proto, tc->cls_bpf);
 +
-+#define OP_BR_BASE	0x0d800000020ULL
-+#define OP_BR_BASE_MASK	0x0f8000c3ce0ULL
-+#define OP_BR_MASK	0x0000000001fULL
-+#define OP_BR_EV_PIP	0x00000000300ULL
-+#define OP_BR_CSS	0x0000003c000ULL
-+#define OP_BR_DEFBR	0x00000300000ULL
-+#define OP_BR_ADDR_LO	0x007ffc00000ULL
-+#define OP_BR_ADDR_HI	0x10000000000ULL
++	return -EINVAL;
++}
 +
-+#define nfp_is_br(_insn)				\
-+	(((_insn) & OP_BR_BASE_MASK) == OP_BR_BASE)
+ static int nfp_net_set_features(struct net_device *netdev,
+ 				netdev_features_t features)
+ {
+@@ -2436,6 +2462,11 @@ static int nfp_net_set_features(struct net_device *netdev,
+ 			new_ctrl &= ~NFP_NET_CFG_CTRL_GATHER;
+ 	}
+ 
++	if (changed & NETIF_F_HW_TC && nn->ctrl & NFP_NET_CFG_CTRL_BPF) {
++		nn_err(nn, "Cannot disable HW TC offload while in use\n");
++		return -EBUSY;
++	}
 +
-+enum br_mask {
-+	BR_BEQ = 0x00,
-+	BR_BNE = 0x01,
-+	BR_BHS = 0x04,
-+	BR_BLO = 0x05,
-+	BR_BGE = 0x08,
-+	BR_UNC = 0x18,
-+};
+ 	nn_dbg(nn, "Feature change 0x%llx -> 0x%llx (changed=0x%llx)\n",
+ 	       netdev->features, features, changed);
+ 
+@@ -2585,6 +2616,7 @@ static const struct net_device_ops nfp_net_netdev_ops = {
+ 	.ndo_stop		= nfp_net_netdev_close,
+ 	.ndo_start_xmit		= nfp_net_tx,
+ 	.ndo_get_stats64	= nfp_net_stat64,
++	.ndo_setup_tc		= nfp_net_setup_tc,
+ 	.ndo_tx_timeout		= nfp_net_tx_timeout,
+ 	.ndo_set_rx_mode	= nfp_net_set_rx_mode,
+ 	.ndo_change_mtu		= nfp_net_change_mtu,
+@@ -2610,7 +2642,7 @@ void nfp_net_info(struct nfp_net *nn)
+ 		nn->fw_ver.resv, nn->fw_ver.class,
+ 		nn->fw_ver.major, nn->fw_ver.minor,
+ 		nn->max_mtu);
+-	nn_info(nn, "CAP: %#x %s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
++	nn_info(nn, "CAP: %#x %s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
+ 		nn->cap,
+ 		nn->cap & NFP_NET_CFG_CTRL_PROMISC  ? "PROMISC "  : "",
+ 		nn->cap & NFP_NET_CFG_CTRL_L2BC     ? "L2BCFILT " : "",
+@@ -2627,7 +2659,8 @@ void nfp_net_info(struct nfp_net *nn)
+ 		nn->cap & NFP_NET_CFG_CTRL_MSIXAUTO ? "AUTOMASK " : "",
+ 		nn->cap & NFP_NET_CFG_CTRL_IRQMOD   ? "IRQMOD "   : "",
+ 		nn->cap & NFP_NET_CFG_CTRL_VXLAN    ? "VXLAN "    : "",
+-		nn->cap & NFP_NET_CFG_CTRL_NVGRE    ? "NVGRE "	  : "");
++		nn->cap & NFP_NET_CFG_CTRL_NVGRE    ? "NVGRE "	  : "",
++		nfp_net_ebpf_capable(nn)            ? "BPF "	  : "");
+ }
+ 
+ /**
+@@ -2795,6 +2828,9 @@ int nfp_net_netdev_init(struct net_device *netdev)
+ 
+ 	netdev->features = netdev->hw_features;
+ 
++	if (nfp_net_ebpf_capable(nn))
++		netdev->hw_features |= NETIF_F_HW_TC;
 +
-+enum br_ev_pip {
-+	BR_EV_PIP_UNCOND = 0,
-+	BR_EV_PIP_COND = 1,
-+};
-+
-+enum br_ctx_signal_state {
-+	BR_CSS_NONE = 2,
-+};
-+
-+#define OP_BBYTE_BASE	0x0c800000000ULL
-+#define OP_BB_A_SRC	0x000000000ffULL
-+#define OP_BB_BYTE	0x00000000300ULL
-+#define OP_BB_B_SRC	0x0000003fc00ULL
-+#define OP_BB_I8	0x00000040000ULL
-+#define OP_BB_EQ	0x00000080000ULL
-+#define OP_BB_DEFBR	0x00000300000ULL
-+#define OP_BB_ADDR_LO	0x007ffc00000ULL
-+#define OP_BB_ADDR_HI	0x10000000000ULL
-+
-+#define OP_BALU_BASE	0x0e800000000ULL
-+#define OP_BA_A_SRC	0x000000003ffULL
-+#define OP_BA_B_SRC	0x000000ffc00ULL
-+#define OP_BA_DEFBR	0x00000300000ULL
-+#define OP_BA_ADDR_HI	0x0007fc00000ULL
-+
-+#define OP_IMMED_A_SRC	0x000000003ffULL
-+#define OP_IMMED_B_SRC	0x000000ffc00ULL
-+#define OP_IMMED_IMM	0x0000ff00000ULL
-+#define OP_IMMED_WIDTH	0x00060000000ULL
-+#define OP_IMMED_INV	0x00080000000ULL
-+#define OP_IMMED_SHIFT	0x00600000000ULL
-+#define OP_IMMED_BASE	0x0f000000000ULL
-+#define OP_IMMED_WR_AB	0x20000000000ULL
-+
-+enum immed_width {
-+	IMMED_WIDTH_ALL = 0,
-+	IMMED_WIDTH_BYTE = 1,
-+	IMMED_WIDTH_WORD = 2,
-+};
-+
-+enum immed_shift {
-+	IMMED_SHIFT_0B = 0,
-+	IMMED_SHIFT_1B = 1,
-+	IMMED_SHIFT_2B = 2,
-+};
-+
-+#define OP_SHF_BASE	0x08000000000ULL
-+#define OP_SHF_A_SRC	0x000000000ffULL
-+#define OP_SHF_SC	0x00000000300ULL
-+#define OP_SHF_B_SRC	0x0000003fc00ULL
-+#define OP_SHF_I8	0x00000040000ULL
-+#define OP_SHF_SW	0x00000080000ULL
-+#define OP_SHF_DST	0x0000ff00000ULL
-+#define OP_SHF_SHIFT	0x001f0000000ULL
-+#define OP_SHF_OP	0x00e00000000ULL
-+#define OP_SHF_DST_AB	0x01000000000ULL
-+#define OP_SHF_WR_AB	0x20000000000ULL
-+
-+enum shf_op {
-+	SHF_OP_NONE = 0,
-+	SHF_OP_AND = 2,
-+	SHF_OP_OR = 5,
-+};
-+
-+enum shf_sc {
-+	SHF_SC_R_ROT = 0,
-+	SHF_SC_R_SHF = 1,
-+	SHF_SC_L_SHF = 2,
-+	SHF_SC_R_DSHF = 3,
-+};
-+
-+#define OP_ALU_A_SRC	0x000000003ffULL
-+#define OP_ALU_B_SRC	0x000000ffc00ULL
-+#define OP_ALU_DST	0x0003ff00000ULL
-+#define OP_ALU_SW	0x00040000000ULL
-+#define OP_ALU_OP	0x00f80000000ULL
-+#define OP_ALU_DST_AB	0x01000000000ULL
-+#define OP_ALU_BASE	0x0a000000000ULL
-+#define OP_ALU_WR_AB	0x20000000000ULL
-+
-+enum alu_op {
-+	ALU_OP_NONE	= 0x00,
-+	ALU_OP_ADD	= 0x01,
-+	ALU_OP_NEG	= 0x04,
-+	ALU_OP_AND	= 0x08,
-+	ALU_OP_SUB_C	= 0x0d,
-+	ALU_OP_ADD_C	= 0x11,
-+	ALU_OP_OR	= 0x14,
-+	ALU_OP_SUB	= 0x15,
-+	ALU_OP_XOR	= 0x18,
-+};
-+
-+enum alu_dst_ab {
-+	ALU_DST_A = 0,
-+	ALU_DST_B = 1,
-+};
-+
-+#define OP_LDF_BASE	0x0c000000000ULL
-+#define OP_LDF_A_SRC	0x000000000ffULL
-+#define OP_LDF_SC	0x00000000300ULL
-+#define OP_LDF_B_SRC	0x0000003fc00ULL
-+#define OP_LDF_I8	0x00000040000ULL
-+#define OP_LDF_SW	0x00000080000ULL
-+#define OP_LDF_ZF	0x00000100000ULL
-+#define OP_LDF_BMASK	0x0000f000000ULL
-+#define OP_LDF_SHF	0x001f0000000ULL
-+#define OP_LDF_WR_AB	0x20000000000ULL
-+
-+#define OP_CMD_A_SRC	 0x000000000ffULL
-+#define OP_CMD_CTX	 0x00000000300ULL
-+#define OP_CMD_B_SRC	 0x0000003fc00ULL
-+#define OP_CMD_TOKEN	 0x000000c0000ULL
-+#define OP_CMD_XFER	 0x00001f00000ULL
-+#define OP_CMD_CNT	 0x0000e000000ULL
-+#define OP_CMD_SIG	 0x000f0000000ULL
-+#define OP_CMD_TGT_CMD	 0x07f00000000ULL
-+#define OP_CMD_MODE	0x1c0000000000ULL
-+
-+struct cmd_tgt_act {
-+	u8 token;
-+	u8 tgt_cmd;
-+};
-+
-+enum cmd_tgt_map {
-+	CMD_TGT_READ8,
-+	CMD_TGT_WRITE8,
-+	CMD_TGT_READ_LE,
-+	CMD_TGT_READ_SWAP_LE,
-+	__CMD_TGT_MAP_SIZE,
-+};
-+
-+enum cmd_mode {
-+	CMD_MODE_40b_AB	= 0,
-+	CMD_MODE_40b_BA	= 1,
-+	CMD_MODE_32b	= 4,
-+};
-+
-+enum cmd_ctx_swap {
-+	CMD_CTX_SWAP = 0,
-+	CMD_CTX_NO_SWAP = 3,
-+};
-+
-+#define OP_LCSR_BASE	0x0fc00000000ULL
-+#define OP_LCSR_A_SRC	0x000000003ffULL
-+#define OP_LCSR_B_SRC	0x000000ffc00ULL
-+#define OP_LCSR_WRITE	0x00000200000ULL
-+#define OP_LCSR_ADDR	0x001ffc00000ULL
-+
-+enum lcsr_wr_src {
-+	LCSR_WR_AREG,
-+	LCSR_WR_BREG,
-+	LCSR_WR_IMM,
-+};
-+
-+#define OP_CARB_BASE	0x0e000000000ULL
-+#define OP_CARB_OR	0x00000010000ULL
-+
-+#endif
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_bpf.h b/drivers/net/ethernet/netronome/nfp/nfp_bpf.h
-new file mode 100644
-index 000000000000..af43e058be97
---- /dev/null
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_bpf.h
-@@ -0,0 +1,208 @@
-+/*
-+ * Copyright (C) 2016 Netronome Systems, Inc.
-+ *
-+ * This software is dual licensed under the GNU General License Version 2,
-+ * June 1991 as shown in the file COPYING in the top-level directory of this
-+ * source tree or the BSD 2-Clause License provided below.  You have the
-+ * option to license this software under the complete terms of either license.
-+ *
-+ * The BSD 2-Clause License:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      1. Redistributions of source code must retain the above
-+ *         copyright notice, this list of conditions and the following
-+ *         disclaimer.
-+ *
-+ *      2. Redistributions in binary form must reproduce the above
-+ *         copyright notice, this list of conditions and the following
-+ *         disclaimer in the documentation and/or other materials
-+ *         provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#ifndef __NFP_BPF_H__
-+#define __NFP_BPF_H__ 1
-+
-+#include <linux/bpf.h>
-+#include <linux/bitfield.h>
-+#include <linux/list.h>
-+#include <linux/types.h>
-+
-+#define FIELD_FIT(mask, val)  (!((((u64)val) << __bf_shf(mask)) & ~(mask)))
-+
-+/* For branch fixup logic use up-most byte of branch instruction as scratch
-+ * area.  Remember to clear this before sending instructions to HW!
-+ */
-+#define OP_BR_SPECIAL	0xff00000000000000ULL
-+
-+enum br_special {
-+	OP_BR_NORMAL = 0,
-+	OP_BR_GO_OUT,
-+	OP_BR_GO_ABORT,
-+};
-+
-+enum static_regs {
-+	STATIC_REG_PKT		= 1,
-+#define REG_PKT_BANK	ALU_DST_A
-+	STATIC_REG_IMM		= 2, /* Bank AB */
-+};
-+
-+enum nfp_bpf_action_type {
-+	NN_ACT_TC_DROP,
-+};
-+
-+/* Software register representation, hardware encoding in asm.h */
-+#define NN_REG_TYPE	GENMASK(31, 24)
-+#define NN_REG_VAL	GENMASK(7, 0)
-+
-+enum nfp_bpf_reg_type {
-+	NN_REG_GPR_A =	BIT(0),
-+	NN_REG_GPR_B =	BIT(1),
-+	NN_REG_NNR =	BIT(2),
-+	NN_REG_XFER =	BIT(3),
-+	NN_REG_IMM =	BIT(4),
-+	NN_REG_NONE =	BIT(5),
-+};
-+
-+#define NN_REG_GPR_BOTH	(NN_REG_GPR_A | NN_REG_GPR_B)
-+
-+#define reg_both(x)	((x) | FIELD_PREP(NN_REG_TYPE, NN_REG_GPR_BOTH))
-+#define reg_a(x)	((x) | FIELD_PREP(NN_REG_TYPE, NN_REG_GPR_A))
-+#define reg_b(x)	((x) | FIELD_PREP(NN_REG_TYPE, NN_REG_GPR_B))
-+#define reg_nnr(x)	((x) | FIELD_PREP(NN_REG_TYPE, NN_REG_NNR))
-+#define reg_xfer(x)	((x) | FIELD_PREP(NN_REG_TYPE, NN_REG_XFER))
-+#define reg_imm(x)	((x) | FIELD_PREP(NN_REG_TYPE, NN_REG_IMM))
-+#define reg_none()	(FIELD_PREP(NN_REG_TYPE, NN_REG_NONE))
-+
-+#define pkt_reg(np)	reg_a((np)->regs_per_thread - STATIC_REG_PKT)
-+#define imm_a(np)	reg_a((np)->regs_per_thread - STATIC_REG_IMM)
-+#define imm_b(np)	reg_b((np)->regs_per_thread - STATIC_REG_IMM)
-+#define imm_both(np)	reg_both((np)->regs_per_thread - STATIC_REG_IMM)
-+
-+#define NFP_BPF_ABI_FLAGS	reg_nnr(0)
-+#define NFP_BPF_ABI_PKT		reg_nnr(2)
-+#define NFP_BPF_ABI_LEN		reg_nnr(3)
-+
-+struct nfp_prog;
-+struct nfp_insn_meta;
-+typedef int (*instr_cb_t)(struct nfp_prog *, struct nfp_insn_meta *);
-+
-+#define nfp_prog_first_meta(nfp_prog)					\
-+	list_first_entry(&(nfp_prog)->insns, struct nfp_insn_meta, l)
-+#define nfp_prog_last_meta(nfp_prog)					\
-+	list_last_entry(&(nfp_prog)->insns, struct nfp_insn_meta, l)
-+#define nfp_meta_next(meta)	list_next_entry(meta, l)
-+#define nfp_meta_prev(meta)	list_prev_entry(meta, l)
+ 	/* Advertise but disable TSO by default. */
+ 	netdev->features &= ~(NETIF_F_TSO | NETIF_F_TSO6);
+ 
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h b/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h
+index ad6c4e31cedd..7aa11f3c5ef0 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h
+@@ -123,6 +123,7 @@
+ #define   NFP_NET_CFG_CTRL_L2SWITCH_LOCAL (0x1 << 23) /* Switch to local */
+ #define   NFP_NET_CFG_CTRL_VXLAN	  (0x1 << 24) /* VXLAN tunnel support */
+ #define   NFP_NET_CFG_CTRL_NVGRE	  (0x1 << 25) /* NVGRE tunnel support */
++#define   NFP_NET_CFG_CTRL_BPF		  (0x1 << 27) /* BPF offload capable */
+ #define NFP_NET_CFG_UPDATE              0x0004
+ #define   NFP_NET_CFG_UPDATE_GEN          (0x1 <<  0) /* General update */
+ #define   NFP_NET_CFG_UPDATE_RING         (0x1 <<  1) /* Ring config change */
+@@ -134,6 +135,7 @@
+ #define   NFP_NET_CFG_UPDATE_RESET        (0x1 <<  7) /* Update due to FLR */
+ #define   NFP_NET_CFG_UPDATE_IRQMOD       (0x1 <<  8) /* IRQ mod change */
+ #define   NFP_NET_CFG_UPDATE_VXLAN	  (0x1 <<  9) /* VXLAN port change */
++#define   NFP_NET_CFG_UPDATE_BPF	  (0x1 << 10) /* BPF program load */
+ #define   NFP_NET_CFG_UPDATE_ERR          (0x1 << 31) /* A error occurred */
+ #define NFP_NET_CFG_TXRS_ENABLE         0x0008
+ #define NFP_NET_CFG_RXRS_ENABLE         0x0010
+@@ -196,10 +198,37 @@
+ #define NFP_NET_CFG_VXLAN_SZ		  0x0008
+ 
+ /**
+- * 64B reserved for future use (0x0080 - 0x00c0)
++ * NFP6000 - BPF section
++ * @NFP_NET_CFG_BPF_ABI:	BPF ABI version
++ * @NFP_NET_CFG_BPF_CAP:	BPF capabilities
++ * @NFP_NET_CFG_BPF_MAX_LEN:	Maximum size of JITed BPF code in bytes
++ * @NFP_NET_CFG_BPF_START:	Offset at which BPF will be loaded
++ * @NFP_NET_CFG_BPF_DONE:	Offset to jump to on exit
++ * @NFP_NET_CFG_BPF_STACK_SZ:	Total size of stack area in 64B chunks
++ * @NFP_NET_CFG_BPF_INL_MTU:	Packet data split offset in 64B chunks
++ * @NFP_NET_CFG_BPF_SIZE:	Size of the JITed BPF code in instructions
++ * @NFP_NET_CFG_BPF_ADDR:	DMA address of the buffer with JITed BPF code
+  */
+-#define NFP_NET_CFG_RESERVED            0x0080
+-#define NFP_NET_CFG_RESERVED_SZ         0x0040
++#define NFP_NET_CFG_BPF_ABI		0x0080
++#define   NFP_NET_BPF_ABI		1
++#define NFP_NET_CFG_BPF_CAP		0x0081
++#define   NFP_NET_BPF_CAP_RELO		(1 << 0) /* seamless reload */
++#define NFP_NET_CFG_BPF_MAX_LEN		0x0082
++#define NFP_NET_CFG_BPF_START		0x0084
++#define NFP_NET_CFG_BPF_DONE		0x0086
++#define NFP_NET_CFG_BPF_STACK_SZ	0x0088
++#define NFP_NET_CFG_BPF_INL_MTU		0x0089
++#define NFP_NET_CFG_BPF_SIZE		0x008e
++#define NFP_NET_CFG_BPF_ADDR		0x0090
++#define   NFP_NET_CFG_BPF_CFG_8CTX	(1 << 0) /* 8ctx mode */
++#define   NFP_NET_CFG_BPF_CFG_MASK	7ULL
++#define   NFP_NET_CFG_BPF_ADDR_MASK	(~NFP_NET_CFG_BPF_CFG_MASK)
 +
 +/**
-+ * struct nfp_insn_meta - BPF instruction wrapper
-+ * @insn: BPF instruction
-+ * @off: index of first generated machine instruction (in nfp_prog.prog)
-+ * @n: eBPF instruction number
-+ * @skip: skip this instruction (optimized out)
-+ * @double_cb: callback for second part of the instruction
-+ * @l: link on nfp_prog->insns list
++ * 40B reserved for future use (0x0098 - 0x00c0)
 + */
-+struct nfp_insn_meta {
-+	struct bpf_insn insn;
-+	unsigned int off;
-+	unsigned short n;
-+	bool skip;
-+	instr_cb_t double_cb;
++#define NFP_NET_CFG_RESERVED            0x0098
++#define NFP_NET_CFG_RESERVED_SZ         0x0028
+ 
+ /**
+  * RSS configuration (0x0100 - 0x01ac):
+@@ -303,6 +332,15 @@
+ #define NFP_NET_CFG_STATS_TX_MC_FRAMES  (NFP_NET_CFG_STATS_BASE + 0x80)
+ #define NFP_NET_CFG_STATS_TX_BC_FRAMES  (NFP_NET_CFG_STATS_BASE + 0x88)
+ 
++#define NFP_NET_CFG_STATS_APP0_FRAMES	(NFP_NET_CFG_STATS_BASE + 0x90)
++#define NFP_NET_CFG_STATS_APP0_BYTES	(NFP_NET_CFG_STATS_BASE + 0x98)
++#define NFP_NET_CFG_STATS_APP1_FRAMES	(NFP_NET_CFG_STATS_BASE + 0xa0)
++#define NFP_NET_CFG_STATS_APP1_BYTES	(NFP_NET_CFG_STATS_BASE + 0xa8)
++#define NFP_NET_CFG_STATS_APP2_FRAMES	(NFP_NET_CFG_STATS_BASE + 0xb0)
++#define NFP_NET_CFG_STATS_APP2_BYTES	(NFP_NET_CFG_STATS_BASE + 0xb8)
++#define NFP_NET_CFG_STATS_APP3_FRAMES	(NFP_NET_CFG_STATS_BASE + 0xc0)
++#define NFP_NET_CFG_STATS_APP3_BYTES	(NFP_NET_CFG_STATS_BASE + 0xc8)
 +
-+	struct list_head l;
-+};
-+
-+#define BPF_SIZE_MASK	0x18
-+
-+static inline u8 mbpf_class(const struct nfp_insn_meta *meta)
-+{
-+	return BPF_CLASS(meta->insn.code);
-+}
-+
-+static inline u8 mbpf_src(const struct nfp_insn_meta *meta)
-+{
-+	return BPF_SRC(meta->insn.code);
-+}
-+
-+static inline u8 mbpf_op(const struct nfp_insn_meta *meta)
-+{
-+	return BPF_OP(meta->insn.code);
-+}
-+
-+static inline u8 mbpf_mode(const struct nfp_insn_meta *meta)
-+{
-+	return BPF_MODE(meta->insn.code);
-+}
-+
-+/**
-+ * struct nfp_prog - nfp BPF program
-+ * @prog: machine code
-+ * @prog_len: number of valid instructions in @prog array
-+ * @__prog_alloc_len: alloc size of @prog array
-+ * @act: BPF program/action type (TC DA, TC with action, XDP etc.)
-+ * @num_regs: number of registers used by this program
-+ * @regs_per_thread: number of basic registers allocated per thread
-+ * @start_off: address of the first instruction in the memory
-+ * @tgt_out: jump target for normal exit
-+ * @tgt_abort: jump target for abort (e.g. access outside of packet buffer)
-+ * @tgt_done: jump target to get the next packet
-+ * @n_translated: number of successfully translated instructions (for errors)
-+ * @error: error code if something went wrong
-+ * @insns: list of BPF instruction wrappers (struct nfp_insn_meta)
-+ */
-+struct nfp_prog {
-+	u64 *prog;
-+	unsigned int prog_len;
-+	unsigned int __prog_alloc_len;
-+
-+	enum nfp_bpf_action_type act;
-+
-+	unsigned int num_regs;
-+	unsigned int regs_per_thread;
-+
-+	unsigned int start_off;
-+	unsigned int tgt_out;
-+	unsigned int tgt_abort;
-+	unsigned int tgt_done;
-+
-+	unsigned int n_translated;
-+	int error;
-+
-+	struct list_head insns;
-+};
-+
-+struct nfp_bpf_result {
-+	unsigned int n_instr;
-+	bool dense_mode;
-+};
-+
-+#ifdef CONFIG_BPF_SYSCALL
-+int
-+nfp_bpf_jit(struct bpf_prog *filter, void *prog, enum nfp_bpf_action_type act,
-+	    unsigned int prog_start, unsigned int prog_done,
-+	    unsigned int prog_sz, struct nfp_bpf_result *res);
-+#else
-+int
-+nfp_bpf_jit(struct bpf_prog *filter, void *prog, enum nfp_bpf_action_type act,
-+	    unsigned int prog_start, unsigned int prog_done,
-+	    unsigned int prog_sz, struct nfp_bpf_result *res)
-+{
-+	return -ENOTSUPP;
-+}
-+#endif
-+
-+int nfp_prog_verify(struct nfp_prog *nfp_prog, struct bpf_prog *prog);
-+
-+#endif
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c b/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
+ /**
+  * Per ring stats (0x1000 - 0x1800)
+  * options, 64bit per entry
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_offload.c b/drivers/net/ethernet/netronome/nfp/nfp_net_offload.c
 new file mode 100644
-index 000000000000..dfcf162ccbb8
+index 000000000000..313988cd3a43
 --- /dev/null
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
-@@ -0,0 +1,1729 @@
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_offload.c
+@@ -0,0 +1,220 @@
 +/*
 + * Copyright (C) 2016 Netronome Systems, Inc.
 + *
@@ -550,1858 +324,192 @@ index 000000000000..dfcf162ccbb8
 + * SOFTWARE.
 + */
 +
-+#define pr_fmt(fmt)	"NFP net bpf: " fmt
++/*
++ * nfp_net_offload.c
++ * Netronome network device driver: TC offload functions for PF and VF
++ */
 +
 +#include <linux/kernel.h>
-+#include <linux/bpf.h>
-+#include <linux/filter.h>
-+#include <linux/pkt_cls.h>
-+#include <linux/unistd.h>
++#include <linux/netdevice.h>
++#include <linux/pci.h>
++#include <linux/jiffies.h>
++#include <linux/timer.h>
++#include <linux/list.h>
 +
-+#include "nfp_asm.h"
++#include <net/pkt_cls.h>
++#include <net/tc_act/tc_gact.h>
++#include <net/tc_act/tc_mirred.h>
++
 +#include "nfp_bpf.h"
++#include "nfp_net_ctrl.h"
++#include "nfp_net.h"
 +
-+/* --- NFP prog --- */
-+/* Foreach "multiple" entries macros provide pos and next<n> pointers.
-+ * It's safe to modify the next pointers (but not pos).
-+ */
-+#define nfp_for_each_insn_walk2(nfp_prog, pos, next)			\
-+	for (pos = list_first_entry(&(nfp_prog)->insns, typeof(*pos), l), \
-+	     next = list_next_entry(pos, l);			\
-+	     &(nfp_prog)->insns != &pos->l &&			\
-+	     &(nfp_prog)->insns != &next->l;			\
-+	     pos = nfp_meta_next(pos),				\
-+	     next = nfp_meta_next(pos))
-+
-+#define nfp_for_each_insn_walk3(nfp_prog, pos, next, next2)		\
-+	for (pos = list_first_entry(&(nfp_prog)->insns, typeof(*pos), l), \
-+	     next = list_next_entry(pos, l),			\
-+	     next2 = list_next_entry(next, l);			\
-+	     &(nfp_prog)->insns != &pos->l &&			\
-+	     &(nfp_prog)->insns != &next->l &&			\
-+	     &(nfp_prog)->insns != &next2->l;			\
-+	     pos = nfp_meta_next(pos),				\
-+	     next = nfp_meta_next(pos),				\
-+	     next2 = nfp_meta_next(next))
-+
-+static bool
-+nfp_meta_has_next(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
++static int
++nfp_net_bpf_get_act(struct nfp_net *nn, struct tc_cls_bpf_offload *cls_bpf)
 +{
-+	return meta->l.next != &nfp_prog->insns;
-+}
++	const struct tc_action *a;
++	LIST_HEAD(actions);
 +
-+static bool
-+nfp_meta_has_prev(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	return meta->l.prev != &nfp_prog->insns;
-+}
++	/* TC direct action */
++	if (cls_bpf->exts_integrated)
++		return -ENOTSUPP;
 +
-+static void nfp_prog_free(struct nfp_prog *nfp_prog)
-+{
-+	struct nfp_insn_meta *meta, *tmp;
++	/* TC legacy mode */
++	if (!tc_single_action(cls_bpf->exts))
++		return -ENOTSUPP;
 +
-+	list_for_each_entry_safe(meta, tmp, &nfp_prog->insns, l) {
-+		list_del(&meta->l);
-+		kfree(meta);
-+	}
-+	kfree(nfp_prog);
-+}
-+
-+static void nfp_prog_push(struct nfp_prog *nfp_prog, u64 insn)
-+{
-+	if (nfp_prog->__prog_alloc_len == nfp_prog->prog_len) {
-+		nfp_prog->error = -ENOSPC;
-+		return;
++	tcf_exts_to_list(cls_bpf->exts, &actions);
++	list_for_each_entry(a, &actions, list) {
++		if (is_tcf_gact_shot(a))
++			return NN_ACT_TC_DROP;
 +	}
 +
-+	nfp_prog->prog[nfp_prog->prog_len] = insn;
-+	nfp_prog->prog_len++;
++	return -ENOTSUPP;
 +}
 +
-+static unsigned int nfp_prog_current_offset(struct nfp_prog *nfp_prog)
++static int
++nfp_net_bpf_offload_prepare(struct nfp_net *nn,
++			    struct tc_cls_bpf_offload *cls_bpf,
++			    struct nfp_bpf_result *res,
++			    void **code, dma_addr_t *dma_addr, u16 max_instr)
 +{
-+	return nfp_prog->start_off + nfp_prog->prog_len;
++	unsigned int code_sz = max_instr * sizeof(u64);
++	enum nfp_bpf_action_type act;
++	u16 start_off, done_off;
++	unsigned int max_mtu;
++	int ret;
++
++	ret = nfp_net_bpf_get_act(nn, cls_bpf);
++	if (ret < 0)
++		return ret;
++	act = ret;
++
++	max_mtu = nn_readb(nn, NFP_NET_CFG_BPF_INL_MTU) * 64 - 32;
++	if (max_mtu < nn->netdev->mtu) {
++		nn_info(nn, "BPF offload not supported with MTU larger than HW packet split boundary\n");
++		return -ENOTSUPP;
++	}
++
++	start_off = nn_readw(nn, NFP_NET_CFG_BPF_START);
++	done_off = nn_readw(nn, NFP_NET_CFG_BPF_DONE);
++
++	*code = dma_zalloc_coherent(&nn->pdev->dev, code_sz, dma_addr,
++				    GFP_KERNEL);
++	if (!*code)
++		return -ENOMEM;
++
++	ret = nfp_bpf_jit(cls_bpf->prog, *code, act, start_off, done_off,
++			  max_instr, res);
++	if (ret)
++		goto out;
++
++	return 0;
++
++out:
++	dma_free_coherent(&nn->pdev->dev, code_sz, *code, *dma_addr);
++	return ret;
 +}
 +
-+static unsigned int
-+nfp_prog_offset_to_index(struct nfp_prog *nfp_prog, unsigned int offset)
++static void
++nfp_net_bpf_load_and_start(struct nfp_net *nn, u32 tc_flags,
++			   void *code, dma_addr_t dma_addr,
++			   unsigned int code_sz, unsigned int n_instr,
++			   bool dense_mode)
 +{
-+	return offset - nfp_prog->start_off;
++	u64 bpf_addr = dma_addr;
++	int err;
++
++	nn->bpf_offload_skip_sw = !!(tc_flags & TCA_CLS_FLAGS_SKIP_SW);
++
++	if (dense_mode)
++		bpf_addr |= NFP_NET_CFG_BPF_CFG_8CTX;
++
++	nn_writew(nn, NFP_NET_CFG_BPF_SIZE, n_instr);
++	nn_writeq(nn, NFP_NET_CFG_BPF_ADDR, bpf_addr);
++
++	/* Load up the JITed code */
++	err = nfp_net_reconfig(nn, NFP_NET_CFG_UPDATE_BPF);
++	if (err)
++		nn_err(nn, "FW command error while loading BPF: %d\n", err);
++
++	/* Enable passing packets through BPF function */
++	nn->ctrl |= NFP_NET_CFG_CTRL_BPF;
++	nn_writel(nn, NFP_NET_CFG_CTRL, nn->ctrl);
++	err = nfp_net_reconfig(nn, NFP_NET_CFG_UPDATE_GEN);
++	if (err)
++		nn_err(nn, "FW command error while enabling BPF: %d\n", err);
++
++	dma_free_coherent(&nn->pdev->dev, code_sz, code, dma_addr);
 +}
 +
-+/* --- SW reg --- */
-+struct nfp_insn_ur_regs {
-+	enum alu_dst_ab dst_ab;
-+	u16 dst;
-+	u16 areg, breg;
-+	bool swap;
-+	bool wr_both;
-+};
-+
-+struct nfp_insn_re_regs {
-+	enum alu_dst_ab dst_ab;
-+	u8 dst;
-+	u8 areg, breg;
-+	bool swap;
-+	bool wr_both;
-+	bool i8;
-+};
-+
-+static u16 nfp_swreg_to_unreg(u32 swreg, bool is_dst)
++static int nfp_net_bpf_stop(struct nfp_net *nn)
 +{
-+	u16 val = FIELD_GET(NN_REG_VAL, swreg);
-+
-+	switch (FIELD_GET(NN_REG_TYPE, swreg)) {
-+	case NN_REG_GPR_A:
-+	case NN_REG_GPR_B:
-+	case NN_REG_GPR_BOTH:
-+		return val;
-+	case NN_REG_NNR:
-+		return UR_REG_NN | val;
-+	case NN_REG_XFER:
-+		return UR_REG_XFR | val;
-+	case NN_REG_IMM:
-+		if (val & ~0xff) {
-+			pr_err("immediate too large\n");
-+			return 0;
-+		}
-+		return UR_REG_IMM_encode(val);
-+	case NN_REG_NONE:
-+		return is_dst ? UR_REG_NO_DST : REG_NONE;
-+	default:
-+		pr_err("unrecognized reg encoding %08x\n", swreg);
++	if (!(nn->ctrl & NFP_NET_CFG_CTRL_BPF))
 +		return 0;
-+	}
++
++	nn->ctrl &= ~NFP_NET_CFG_CTRL_BPF;
++	nn_writel(nn, NFP_NET_CFG_CTRL, nn->ctrl);
++
++	nn->bpf_offload_skip_sw = 0;
++
++	return nfp_net_reconfig(nn, NFP_NET_CFG_UPDATE_GEN);
 +}
 +
-+static int
-+swreg_to_unrestricted(u32 dst, u32 lreg, u32 rreg, struct nfp_insn_ur_regs *reg)
++int
++nfp_net_bpf_offload(struct nfp_net *nn, u32 handle, __be16 proto,
++		    struct tc_cls_bpf_offload *cls_bpf)
 +{
-+	memset(reg, 0, sizeof(*reg));
-+
-+	/* Decode destination */
-+	if (FIELD_GET(NN_REG_TYPE, dst) == NN_REG_IMM)
-+		return -EFAULT;
-+
-+	if (FIELD_GET(NN_REG_TYPE, dst) == NN_REG_GPR_B)
-+		reg->dst_ab = ALU_DST_B;
-+	if (FIELD_GET(NN_REG_TYPE, dst) == NN_REG_GPR_BOTH)
-+		reg->wr_both = true;
-+	reg->dst = nfp_swreg_to_unreg(dst, true);
-+
-+	/* Decode source operands */
-+	if (FIELD_GET(NN_REG_TYPE, lreg) == FIELD_GET(NN_REG_TYPE, rreg))
-+		return -EFAULT;
-+
-+	if (FIELD_GET(NN_REG_TYPE, lreg) == NN_REG_GPR_B ||
-+	    FIELD_GET(NN_REG_TYPE, rreg) == NN_REG_GPR_A) {
-+		reg->areg = nfp_swreg_to_unreg(rreg, false);
-+		reg->breg = nfp_swreg_to_unreg(lreg, false);
-+		reg->swap = true;
-+	} else {
-+		reg->areg = nfp_swreg_to_unreg(lreg, false);
-+		reg->breg = nfp_swreg_to_unreg(rreg, false);
-+	}
-+
-+	return 0;
-+}
-+
-+static u16 nfp_swreg_to_rereg(u32 swreg, bool is_dst, bool has_imm8, bool *i8)
-+{
-+	u16 val = FIELD_GET(NN_REG_VAL, swreg);
-+
-+	switch (FIELD_GET(NN_REG_TYPE, swreg)) {
-+	case NN_REG_GPR_A:
-+	case NN_REG_GPR_B:
-+	case NN_REG_GPR_BOTH:
-+		return val;
-+	case NN_REG_XFER:
-+		return RE_REG_XFR | val;
-+	case NN_REG_IMM:
-+		if (val & ~(0x7f | has_imm8 << 7)) {
-+			pr_err("immediate too large\n");
-+			return 0;
-+		}
-+		*i8 = val & 0x80;
-+		return RE_REG_IMM_encode(val & 0x7f);
-+	case NN_REG_NONE:
-+		return is_dst ? RE_REG_NO_DST : REG_NONE;
-+	default:
-+		pr_err("unrecognized reg encoding\n");
-+		return 0;
-+	}
-+}
-+
-+static int
-+swreg_to_restricted(u32 dst, u32 lreg, u32 rreg, struct nfp_insn_re_regs *reg,
-+		    bool has_imm8)
-+{
-+	memset(reg, 0, sizeof(*reg));
-+
-+	/* Decode destination */
-+	if (FIELD_GET(NN_REG_TYPE, dst) == NN_REG_IMM)
-+		return -EFAULT;
-+
-+	if (FIELD_GET(NN_REG_TYPE, dst) == NN_REG_GPR_B)
-+		reg->dst_ab = ALU_DST_B;
-+	if (FIELD_GET(NN_REG_TYPE, dst) == NN_REG_GPR_BOTH)
-+		reg->wr_both = true;
-+	reg->dst = nfp_swreg_to_rereg(dst, true, false, NULL);
-+
-+	/* Decode source operands */
-+	if (FIELD_GET(NN_REG_TYPE, lreg) == FIELD_GET(NN_REG_TYPE, rreg))
-+		return -EFAULT;
-+
-+	if (FIELD_GET(NN_REG_TYPE, lreg) == NN_REG_GPR_B ||
-+	    FIELD_GET(NN_REG_TYPE, rreg) == NN_REG_GPR_A) {
-+		reg->areg = nfp_swreg_to_rereg(rreg, false, has_imm8, &reg->i8);
-+		reg->breg = nfp_swreg_to_rereg(lreg, false, has_imm8, &reg->i8);
-+		reg->swap = true;
-+	} else {
-+		reg->areg = nfp_swreg_to_rereg(lreg, false, has_imm8, &reg->i8);
-+		reg->breg = nfp_swreg_to_rereg(rreg, false, has_imm8, &reg->i8);
-+	}
-+
-+	return 0;
-+}
-+
-+/* --- Emitters --- */
-+static const struct cmd_tgt_act cmd_tgt_act[__CMD_TGT_MAP_SIZE] = {
-+	[CMD_TGT_WRITE8] =		{ 0x00, 0x42 },
-+	[CMD_TGT_READ8] =		{ 0x01, 0x43 },
-+	[CMD_TGT_READ_LE] =		{ 0x01, 0x40 },
-+	[CMD_TGT_READ_SWAP_LE] =	{ 0x03, 0x40 },
-+};
-+
-+static void
-+__emit_cmd(struct nfp_prog *nfp_prog, enum cmd_tgt_map op,
-+	   u8 mode, u8 xfer, u8 areg, u8 breg, u8 size, bool sync)
-+{
-+	enum cmd_ctx_swap ctx;
-+	u64 insn;
-+
-+	if (sync)
-+		ctx = CMD_CTX_SWAP;
-+	else
-+		ctx = CMD_CTX_NO_SWAP;
-+
-+	insn =	FIELD_PREP(OP_CMD_A_SRC, areg) |
-+		FIELD_PREP(OP_CMD_CTX, ctx) |
-+		FIELD_PREP(OP_CMD_B_SRC, breg) |
-+		FIELD_PREP(OP_CMD_TOKEN, cmd_tgt_act[op].token) |
-+		FIELD_PREP(OP_CMD_XFER, xfer) |
-+		FIELD_PREP(OP_CMD_CNT, size) |
-+		FIELD_PREP(OP_CMD_SIG, sync) |
-+		FIELD_PREP(OP_CMD_TGT_CMD, cmd_tgt_act[op].tgt_cmd) |
-+		FIELD_PREP(OP_CMD_MODE, mode);
-+
-+	nfp_prog_push(nfp_prog, insn);
-+}
-+
-+static void
-+emit_cmd(struct nfp_prog *nfp_prog, enum cmd_tgt_map op,
-+	 u8 mode, u8 xfer, u32 lreg, u32 rreg, u8 size, bool sync)
-+{
-+	struct nfp_insn_re_regs reg;
++	struct nfp_bpf_result res;
++	dma_addr_t dma_addr;
++	u16 max_instr;
++	void *code;
 +	int err;
 +
-+	err = swreg_to_restricted(reg_none(), lreg, rreg, &reg, false);
-+	if (err) {
-+		nfp_prog->error = err;
-+		return;
-+	}
-+	if (reg.swap) {
-+		pr_err("cmd can't swap arguments\n");
-+		nfp_prog->error = -EFAULT;
-+		return;
-+	}
-+
-+	__emit_cmd(nfp_prog, op, mode, xfer, reg.areg, reg.breg, size, sync);
-+}
-+
-+static void
-+__emit_br(struct nfp_prog *nfp_prog, enum br_mask mask, enum br_ev_pip ev_pip,
-+	  enum br_ctx_signal_state css, u16 addr, u8 defer)
-+{
-+	u16 addr_lo, addr_hi;
-+	u64 insn;
-+
-+	addr_lo = addr & (OP_BR_ADDR_LO >> __bf_shf(OP_BR_ADDR_LO));
-+	addr_hi = addr != addr_lo;
-+
-+	insn = OP_BR_BASE |
-+		FIELD_PREP(OP_BR_MASK, mask) |
-+		FIELD_PREP(OP_BR_EV_PIP, ev_pip) |
-+		FIELD_PREP(OP_BR_CSS, css) |
-+		FIELD_PREP(OP_BR_DEFBR, defer) |
-+		FIELD_PREP(OP_BR_ADDR_LO, addr_lo) |
-+		FIELD_PREP(OP_BR_ADDR_HI, addr_hi);
-+
-+	nfp_prog_push(nfp_prog, insn);
-+}
-+
-+static void
-+emit_br(struct nfp_prog *nfp_prog, enum br_mask mask, u16 addr, u8 defer)
-+{
-+	__emit_br(nfp_prog, mask,
-+		  mask != BR_UNC ? BR_EV_PIP_COND : BR_EV_PIP_UNCOND,
-+		  BR_CSS_NONE, addr, defer);
-+}
-+
-+static void
-+__emit_br_byte(struct nfp_prog *nfp_prog, u8 areg, u8 breg, bool imm8,
-+	       u8 byte, bool equal, u16 addr, u8 defer)
-+{
-+	u16 addr_lo, addr_hi;
-+	u64 insn;
-+
-+	addr_lo = addr & (OP_BB_ADDR_LO >> __bf_shf(OP_BB_ADDR_LO));
-+	addr_hi = addr != addr_lo;
-+
-+	insn = OP_BBYTE_BASE |
-+		FIELD_PREP(OP_BB_A_SRC, areg) |
-+		FIELD_PREP(OP_BB_BYTE, byte) |
-+		FIELD_PREP(OP_BB_B_SRC, breg) |
-+		FIELD_PREP(OP_BB_I8, imm8) |
-+		FIELD_PREP(OP_BB_EQ, equal) |
-+		FIELD_PREP(OP_BB_DEFBR, defer) |
-+		FIELD_PREP(OP_BB_ADDR_LO, addr_lo) |
-+		FIELD_PREP(OP_BB_ADDR_HI, addr_hi);
-+
-+	nfp_prog_push(nfp_prog, insn);
-+}
-+
-+static void
-+emit_br_byte_neq(struct nfp_prog *nfp_prog,
-+		 u32 dst, u8 imm, u8 byte, u16 addr, u8 defer)
-+{
-+	struct nfp_insn_re_regs reg;
-+	int err;
-+
-+	err = swreg_to_restricted(reg_none(), dst, reg_imm(imm), &reg, true);
-+	if (err) {
-+		nfp_prog->error = err;
-+		return;
-+	}
-+
-+	__emit_br_byte(nfp_prog, reg.areg, reg.breg, reg.i8, byte, false, addr,
-+		       defer);
-+}
-+
-+static void
-+__emit_immed(struct nfp_prog *nfp_prog, u16 areg, u16 breg, u16 imm_hi,
-+	     enum immed_width width, bool invert,
-+	     enum immed_shift shift, bool wr_both)
-+{
-+	u64 insn;
-+
-+	insn = OP_IMMED_BASE |
-+		FIELD_PREP(OP_IMMED_A_SRC, areg) |
-+		FIELD_PREP(OP_IMMED_B_SRC, breg) |
-+		FIELD_PREP(OP_IMMED_IMM, imm_hi) |
-+		FIELD_PREP(OP_IMMED_WIDTH, width) |
-+		FIELD_PREP(OP_IMMED_INV, invert) |
-+		FIELD_PREP(OP_IMMED_SHIFT, shift) |
-+		FIELD_PREP(OP_IMMED_WR_AB, wr_both);
-+
-+	nfp_prog_push(nfp_prog, insn);
-+}
-+
-+static void
-+emit_immed(struct nfp_prog *nfp_prog, u32 dst, u16 imm,
-+	   enum immed_width width, bool invert, enum immed_shift shift)
-+{
-+	struct nfp_insn_ur_regs reg;
-+	int err;
-+
-+	if (FIELD_GET(NN_REG_TYPE, dst) == NN_REG_IMM) {
-+		nfp_prog->error = -EFAULT;
-+		return;
-+	}
-+
-+	err = swreg_to_unrestricted(dst, dst, reg_imm(imm & 0xff), &reg);
-+	if (err) {
-+		nfp_prog->error = err;
-+		return;
-+	}
-+
-+	__emit_immed(nfp_prog, reg.areg, reg.breg, imm >> 8, width,
-+		     invert, shift, reg.wr_both);
-+}
-+
-+static void
-+__emit_shf(struct nfp_prog *nfp_prog, u16 dst, enum alu_dst_ab dst_ab,
-+	   enum shf_sc sc, u8 shift,
-+	   u16 areg, enum shf_op op, u16 breg, bool i8, bool sw, bool wr_both)
-+{
-+	u64 insn;
-+
-+	if (!FIELD_FIT(OP_SHF_SHIFT, shift)) {
-+		nfp_prog->error = -EFAULT;
-+		return;
-+	}
-+
-+	if (sc == SHF_SC_L_SHF)
-+		shift = 32 - shift;
-+
-+	insn = OP_SHF_BASE |
-+		FIELD_PREP(OP_SHF_A_SRC, areg) |
-+		FIELD_PREP(OP_SHF_SC, sc) |
-+		FIELD_PREP(OP_SHF_B_SRC, breg) |
-+		FIELD_PREP(OP_SHF_I8, i8) |
-+		FIELD_PREP(OP_SHF_SW, sw) |
-+		FIELD_PREP(OP_SHF_DST, dst) |
-+		FIELD_PREP(OP_SHF_SHIFT, shift) |
-+		FIELD_PREP(OP_SHF_OP, op) |
-+		FIELD_PREP(OP_SHF_DST_AB, dst_ab) |
-+		FIELD_PREP(OP_SHF_WR_AB, wr_both);
-+
-+	nfp_prog_push(nfp_prog, insn);
-+}
-+
-+static void
-+emit_shf(struct nfp_prog *nfp_prog, u32 dst, u32 lreg, enum shf_op op, u32 rreg,
-+	 enum shf_sc sc, u8 shift)
-+{
-+	struct nfp_insn_re_regs reg;
-+	int err;
-+
-+	err = swreg_to_restricted(dst, lreg, rreg, &reg, true);
-+	if (err) {
-+		nfp_prog->error = err;
-+		return;
-+	}
-+
-+	__emit_shf(nfp_prog, reg.dst, reg.dst_ab, sc, shift,
-+		   reg.areg, op, reg.breg, reg.i8, reg.swap, reg.wr_both);
-+}
-+
-+static void
-+__emit_alu(struct nfp_prog *nfp_prog, u16 dst, enum alu_dst_ab dst_ab,
-+	   u16 areg, enum alu_op op, u16 breg, bool swap, bool wr_both)
-+{
-+	u64 insn;
-+
-+	insn = OP_ALU_BASE |
-+		FIELD_PREP(OP_ALU_A_SRC, areg) |
-+		FIELD_PREP(OP_ALU_B_SRC, breg) |
-+		FIELD_PREP(OP_ALU_DST, dst) |
-+		FIELD_PREP(OP_ALU_SW, swap) |
-+		FIELD_PREP(OP_ALU_OP, op) |
-+		FIELD_PREP(OP_ALU_DST_AB, dst_ab) |
-+		FIELD_PREP(OP_ALU_WR_AB, wr_both);
-+
-+	nfp_prog_push(nfp_prog, insn);
-+}
-+
-+static void
-+emit_alu(struct nfp_prog *nfp_prog, u32 dst, u32 lreg, enum alu_op op, u32 rreg)
-+{
-+	struct nfp_insn_ur_regs reg;
-+	int err;
-+
-+	err = swreg_to_unrestricted(dst, lreg, rreg, &reg);
-+	if (err) {
-+		nfp_prog->error = err;
-+		return;
-+	}
-+
-+	__emit_alu(nfp_prog, reg.dst, reg.dst_ab,
-+		   reg.areg, op, reg.breg, reg.swap, reg.wr_both);
-+}
-+
-+static void
-+__emit_ld_field(struct nfp_prog *nfp_prog, enum shf_sc sc,
-+		u8 areg, u8 bmask, u8 breg, u8 shift, bool imm8,
-+		bool zero, bool swap, bool wr_both)
-+{
-+	u64 insn;
-+
-+	insn = OP_LDF_BASE |
-+		FIELD_PREP(OP_LDF_A_SRC, areg) |
-+		FIELD_PREP(OP_LDF_SC, sc) |
-+		FIELD_PREP(OP_LDF_B_SRC, breg) |
-+		FIELD_PREP(OP_LDF_I8, imm8) |
-+		FIELD_PREP(OP_LDF_SW, swap) |
-+		FIELD_PREP(OP_LDF_ZF, zero) |
-+		FIELD_PREP(OP_LDF_BMASK, bmask) |
-+		FIELD_PREP(OP_LDF_SHF, shift) |
-+		FIELD_PREP(OP_LDF_WR_AB, wr_both);
-+
-+	nfp_prog_push(nfp_prog, insn);
-+}
-+
-+static void
-+emit_ld_field_any(struct nfp_prog *nfp_prog, enum shf_sc sc, u8 shift,
-+		  u32 dst, u8 bmask, u32 src, bool zero)
-+{
-+	struct nfp_insn_re_regs reg;
-+	int err;
-+
-+	err = swreg_to_restricted(reg_none(), dst, src, &reg, true);
-+	if (err) {
-+		nfp_prog->error = err;
-+		return;
-+	}
-+
-+	__emit_ld_field(nfp_prog, sc, reg.areg, bmask, reg.breg, shift,
-+			reg.i8, zero, reg.swap, reg.wr_both);
-+}
-+
-+static void
-+emit_ld_field(struct nfp_prog *nfp_prog, u32 dst, u8 bmask, u32 src,
-+	      enum shf_sc sc, u8 shift)
-+{
-+	emit_ld_field_any(nfp_prog, sc, shift, dst, bmask, src, false);
-+}
-+
-+/* --- Wrappers --- */
-+static bool pack_immed(u32 imm, u16 *val, enum immed_shift *shift)
-+{
-+	if (!(imm & 0xffff0000)) {
-+		*val = imm;
-+		*shift = IMMED_SHIFT_0B;
-+	} else if (!(imm & 0xff0000ff)) {
-+		*val = imm >> 8;
-+		*shift = IMMED_SHIFT_1B;
-+	} else if (!(imm & 0x0000ffff)) {
-+		*val = imm >> 16;
-+		*shift = IMMED_SHIFT_2B;
-+	} else {
-+		return false;
-+	}
-+
-+	return true;
-+}
-+
-+static void wrp_immed(struct nfp_prog *nfp_prog, u32 dst, u32 imm)
-+{
-+	enum immed_shift shift;
-+	u16 val;
-+
-+	if (pack_immed(imm, &val, &shift)) {
-+		emit_immed(nfp_prog, dst, val, IMMED_WIDTH_ALL, false, shift);
-+	} else if (pack_immed(~imm, &val, &shift)) {
-+		emit_immed(nfp_prog, dst, val, IMMED_WIDTH_ALL, true, shift);
-+	} else {
-+		emit_immed(nfp_prog, dst, imm & 0xffff, IMMED_WIDTH_ALL,
-+			   false, IMMED_SHIFT_0B);
-+		emit_immed(nfp_prog, dst, imm >> 16, IMMED_WIDTH_WORD,
-+			   false, IMMED_SHIFT_2B);
-+	}
-+}
-+
-+/* ur_load_imm_any() - encode immediate or use tmp register (unrestricted)
-+ * If the @imm is small enough encode it directly in operand and return
-+ * otherwise load @imm to a spare register and return its encoding.
-+ */
-+static u32 ur_load_imm_any(struct nfp_prog *nfp_prog, u32 imm, u32 tmp_reg)
-+{
-+	if (FIELD_FIT(UR_REG_IMM_MAX, imm))
-+		return reg_imm(imm);
-+
-+	wrp_immed(nfp_prog, tmp_reg, imm);
-+	return tmp_reg;
-+}
-+
-+/* re_load_imm_any() - encode immediate or use tmp register (restricted)
-+ * If the @imm is small enough encode it directly in operand and return
-+ * otherwise load @imm to a spare register and return its encoding.
-+ */
-+static u32 re_load_imm_any(struct nfp_prog *nfp_prog, u32 imm, u32 tmp_reg)
-+{
-+	if (FIELD_FIT(RE_REG_IMM_MAX, imm))
-+		return reg_imm(imm);
-+
-+	wrp_immed(nfp_prog, tmp_reg, imm);
-+	return tmp_reg;
-+}
-+
-+static void
-+wrp_br_special(struct nfp_prog *nfp_prog, enum br_mask mask,
-+	       enum br_special special)
-+{
-+	emit_br(nfp_prog, mask, 0, 0);
-+
-+	nfp_prog->prog[nfp_prog->prog_len - 1] |=
-+		FIELD_PREP(OP_BR_SPECIAL, special);
-+}
-+
-+static void wrp_reg_mov(struct nfp_prog *nfp_prog, u16 dst, u16 src)
-+{
-+	emit_alu(nfp_prog, reg_both(dst), reg_none(), ALU_OP_NONE, reg_b(src));
-+}
-+
-+static int
-+construct_data_ind_ld(struct nfp_prog *nfp_prog, u16 offset,
-+		      u16 src, bool src_valid, u8 size)
-+{
-+	unsigned int i;
-+	u16 shift, sz;
-+	u32 tmp_reg;
-+
-+	/* We load the value from the address indicated in @offset and then
-+	 * shift out the data we don't need.  Note: this is big endian!
-+	 */
-+	sz = size < 4 ? 4 : size;
-+	shift = size < 4 ? 4 - size : 0;
-+
-+	if (src_valid) {
-+		/* Calculate the true offset (src_reg + imm) */
-+		tmp_reg = ur_load_imm_any(nfp_prog, offset, imm_b(nfp_prog));
-+		emit_alu(nfp_prog, imm_both(nfp_prog),
-+			 reg_a(src), ALU_OP_ADD, tmp_reg);
-+		/* Check packet length (size guaranteed to fit b/c it's u8) */
-+		emit_alu(nfp_prog, imm_a(nfp_prog),
-+			 imm_a(nfp_prog), ALU_OP_ADD, reg_imm(size));
-+		emit_alu(nfp_prog, reg_none(),
-+			 NFP_BPF_ABI_LEN, ALU_OP_SUB, imm_a(nfp_prog));
-+		wrp_br_special(nfp_prog, BR_BLO, OP_BR_GO_ABORT);
-+		/* Load data */
-+		emit_cmd(nfp_prog, CMD_TGT_READ8, CMD_MODE_32b, 0,
-+			 pkt_reg(nfp_prog), imm_b(nfp_prog), sz - 1, true);
-+	} else {
-+		/* Check packet length */
-+		tmp_reg = ur_load_imm_any(nfp_prog, offset + size,
-+					  imm_a(nfp_prog));
-+		emit_alu(nfp_prog, reg_none(),
-+			 NFP_BPF_ABI_LEN, ALU_OP_SUB, tmp_reg);
-+		wrp_br_special(nfp_prog, BR_BLO, OP_BR_GO_ABORT);
-+		/* Load data */
-+		tmp_reg = re_load_imm_any(nfp_prog, offset, imm_b(nfp_prog));
-+		emit_cmd(nfp_prog, CMD_TGT_READ8, CMD_MODE_32b, 0,
-+			 pkt_reg(nfp_prog), tmp_reg, sz - 1, true);
-+	}
-+
-+	i = 0;
-+	if (shift)
-+		emit_shf(nfp_prog, reg_both(0), reg_none(), SHF_OP_NONE,
-+			 reg_xfer(0), SHF_SC_R_SHF, shift * 8);
-+	else
-+		for (; i * 4 < size; i++)
-+			emit_alu(nfp_prog, reg_both(i),
-+				 reg_none(), ALU_OP_NONE, reg_xfer(i));
-+
-+	if (i < 2)
-+		wrp_immed(nfp_prog, reg_both(1), 0);
-+
-+	return 0;
-+}
-+
-+static int construct_data_ld(struct nfp_prog *nfp_prog, u16 offset, u8 size)
-+{
-+	return construct_data_ind_ld(nfp_prog, offset, 0, false, size);
-+}
-+
-+static void
-+wrp_alu_imm(struct nfp_prog *nfp_prog, u8 dst, enum alu_op alu_op, u32 imm)
-+{
-+	u32 tmp_reg;
-+
-+	if (alu_op == ALU_OP_AND) {
-+		if (!imm)
-+			wrp_immed(nfp_prog, reg_both(dst), 0);
-+		if (!imm || !~imm)
-+			return;
-+	}
-+	if (alu_op == ALU_OP_OR) {
-+		if (!~imm)
-+			wrp_immed(nfp_prog, reg_both(dst), ~0U);
-+		if (!imm || !~imm)
-+			return;
-+	}
-+	if (alu_op == ALU_OP_XOR) {
-+		if (!~imm)
-+			emit_alu(nfp_prog, reg_both(dst), reg_none(),
-+				 ALU_OP_NEG, reg_b(dst));
-+		if (!imm || !~imm)
-+			return;
-+	}
-+
-+	tmp_reg = ur_load_imm_any(nfp_prog, imm, imm_b(nfp_prog));
-+	emit_alu(nfp_prog, reg_both(dst), reg_a(dst), alu_op, tmp_reg);
-+}
-+
-+static int
-+wrp_alu64_imm(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta,
-+	      enum alu_op alu_op, bool skip)
-+{
-+	const struct bpf_insn *insn = &meta->insn;
-+	u64 imm = insn->imm; /* sign extend */
-+
-+	if (skip) {
-+		meta->skip = true;
-+		return 0;
-+	}
-+
-+	wrp_alu_imm(nfp_prog, insn->dst_reg * 2, alu_op, imm & ~0U);
-+	wrp_alu_imm(nfp_prog, insn->dst_reg * 2 + 1, alu_op, imm >> 32);
-+
-+	return 0;
-+}
-+
-+static int
-+wrp_alu64_reg(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta,
-+	      enum alu_op alu_op)
-+{
-+	u8 dst = meta->insn.dst_reg * 2, src = meta->insn.src_reg * 2;
-+
-+	emit_alu(nfp_prog, reg_both(dst), reg_a(dst), alu_op, reg_b(src));
-+	emit_alu(nfp_prog, reg_both(dst + 1),
-+		 reg_a(dst + 1), alu_op, reg_b(src + 1));
-+
-+	return 0;
-+}
-+
-+static int
-+wrp_alu32_imm(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta,
-+	      enum alu_op alu_op, bool skip)
-+{
-+	const struct bpf_insn *insn = &meta->insn;
-+
-+	if (skip) {
-+		meta->skip = true;
-+		return 0;
-+	}
-+
-+	wrp_alu_imm(nfp_prog, insn->dst_reg * 2, alu_op, insn->imm);
-+	wrp_immed(nfp_prog, reg_both(insn->dst_reg * 2 + 1), 0);
-+
-+	return 0;
-+}
-+
-+static int
-+wrp_alu32_reg(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta,
-+	      enum alu_op alu_op)
-+{
-+	u8 dst = meta->insn.dst_reg * 2, src = meta->insn.src_reg * 2;
-+
-+	emit_alu(nfp_prog, reg_both(dst), reg_a(dst), alu_op, reg_b(src));
-+	wrp_immed(nfp_prog, reg_both(meta->insn.dst_reg * 2 + 1), 0);
-+
-+	return 0;
-+}
-+
-+static void
-+wrp_test_reg_one(struct nfp_prog *nfp_prog, u8 dst, enum alu_op alu_op, u8 src,
-+		 enum br_mask br_mask, u16 off)
-+{
-+	emit_alu(nfp_prog, reg_none(), reg_a(dst), alu_op, reg_b(src));
-+	emit_br(nfp_prog, br_mask, off, 0);
-+}
-+
-+static int
-+wrp_test_reg(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta,
-+	     enum alu_op alu_op, enum br_mask br_mask)
-+{
-+	const struct bpf_insn *insn = &meta->insn;
-+
-+	if (insn->off < 0) /* TODO */
-+		return -ENOTSUPP;
-+
-+	wrp_test_reg_one(nfp_prog, insn->dst_reg * 2, alu_op,
-+			 insn->src_reg * 2, br_mask, insn->off);
-+	wrp_test_reg_one(nfp_prog, insn->dst_reg * 2 + 1, alu_op,
-+			 insn->src_reg * 2 + 1, br_mask, insn->off);
-+
-+	return 0;
-+}
-+
-+static int
-+wrp_cmp_imm(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta,
-+	    enum br_mask br_mask, bool swap)
-+{
-+	const struct bpf_insn *insn = &meta->insn;
-+	u64 imm = insn->imm; /* sign extend */
-+	u8 reg = insn->dst_reg * 2;
-+	u32 tmp_reg;
-+
-+	if (insn->off < 0) /* TODO */
-+		return -ENOTSUPP;
-+
-+	tmp_reg = ur_load_imm_any(nfp_prog, imm & ~0U, imm_b(nfp_prog));
-+	if (!swap)
-+		emit_alu(nfp_prog, reg_none(), reg_a(reg), ALU_OP_SUB, tmp_reg);
-+	else
-+		emit_alu(nfp_prog, reg_none(), tmp_reg, ALU_OP_SUB, reg_a(reg));
-+
-+	tmp_reg = ur_load_imm_any(nfp_prog, imm >> 32, imm_b(nfp_prog));
-+	if (!swap)
-+		emit_alu(nfp_prog, reg_none(),
-+			 reg_a(reg + 1), ALU_OP_SUB_C, tmp_reg);
-+	else
-+		emit_alu(nfp_prog, reg_none(),
-+			 tmp_reg, ALU_OP_SUB_C, reg_a(reg + 1));
-+
-+	emit_br(nfp_prog, br_mask, insn->off, 0);
-+
-+	return 0;
-+}
-+
-+static int
-+wrp_cmp_reg(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta,
-+	    enum br_mask br_mask, bool swap)
-+{
-+	const struct bpf_insn *insn = &meta->insn;
-+	u8 areg = insn->src_reg * 2, breg = insn->dst_reg * 2;
-+
-+	if (insn->off < 0) /* TODO */
-+		return -ENOTSUPP;
-+
-+	if (swap) {
-+		areg ^= breg;
-+		breg ^= areg;
-+		areg ^= breg;
-+	}
-+
-+	emit_alu(nfp_prog, reg_none(), reg_a(areg), ALU_OP_SUB, reg_b(breg));
-+	emit_alu(nfp_prog, reg_none(),
-+		 reg_a(areg + 1), ALU_OP_SUB_C, reg_b(breg + 1));
-+	emit_br(nfp_prog, br_mask, insn->off, 0);
-+
-+	return 0;
-+}
-+
-+/* --- Callbacks --- */
-+static int mov_reg64(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	const struct bpf_insn *insn = &meta->insn;
-+
-+	wrp_reg_mov(nfp_prog, insn->dst_reg * 2, insn->src_reg * 2);
-+	wrp_reg_mov(nfp_prog, insn->dst_reg * 2 + 1, insn->src_reg * 2 + 1);
-+
-+	return 0;
-+}
-+
-+static int mov_imm64(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	u64 imm = meta->insn.imm; /* sign extend */
-+
-+	wrp_immed(nfp_prog, reg_both(meta->insn.dst_reg * 2), imm & ~0U);
-+	wrp_immed(nfp_prog, reg_both(meta->insn.dst_reg * 2 + 1), imm >> 32);
-+
-+	return 0;
-+}
-+
-+static int xor_reg64(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	return wrp_alu64_reg(nfp_prog, meta, ALU_OP_XOR);
-+}
-+
-+static int xor_imm64(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	return wrp_alu64_imm(nfp_prog, meta, ALU_OP_XOR, !meta->insn.imm);
-+}
-+
-+static int and_reg64(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	return wrp_alu64_reg(nfp_prog, meta, ALU_OP_AND);
-+}
-+
-+static int and_imm64(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	return wrp_alu64_imm(nfp_prog, meta, ALU_OP_AND, !~meta->insn.imm);
-+}
-+
-+static int or_reg64(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	return wrp_alu64_reg(nfp_prog, meta, ALU_OP_OR);
-+}
-+
-+static int or_imm64(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	return wrp_alu64_imm(nfp_prog, meta, ALU_OP_OR, !meta->insn.imm);
-+}
-+
-+static int add_reg64(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	const struct bpf_insn *insn = &meta->insn;
-+
-+	emit_alu(nfp_prog, reg_both(insn->dst_reg * 2),
-+		 reg_a(insn->dst_reg * 2), ALU_OP_ADD,
-+		 reg_b(insn->src_reg * 2));
-+	emit_alu(nfp_prog, reg_both(insn->dst_reg * 2 + 1),
-+		 reg_a(insn->dst_reg * 2 + 1), ALU_OP_ADD_C,
-+		 reg_b(insn->src_reg * 2 + 1));
-+
-+	return 0;
-+}
-+
-+static int add_imm64(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	const struct bpf_insn *insn = &meta->insn;
-+	u64 imm = insn->imm; /* sign extend */
-+
-+	wrp_alu_imm(nfp_prog, insn->dst_reg * 2, ALU_OP_ADD, imm & ~0U);
-+	wrp_alu_imm(nfp_prog, insn->dst_reg * 2 + 1, ALU_OP_ADD_C, imm >> 32);
-+
-+	return 0;
-+}
-+
-+static int sub_reg64(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	const struct bpf_insn *insn = &meta->insn;
-+
-+	emit_alu(nfp_prog, reg_both(insn->dst_reg * 2),
-+		 reg_a(insn->dst_reg * 2), ALU_OP_SUB,
-+		 reg_b(insn->src_reg * 2));
-+	emit_alu(nfp_prog, reg_both(insn->dst_reg * 2 + 1),
-+		 reg_a(insn->dst_reg * 2 + 1), ALU_OP_SUB_C,
-+		 reg_b(insn->src_reg * 2 + 1));
-+
-+	return 0;
-+}
-+
-+static int sub_imm64(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	const struct bpf_insn *insn = &meta->insn;
-+	u64 imm = insn->imm; /* sign extend */
-+
-+	wrp_alu_imm(nfp_prog, insn->dst_reg * 2, ALU_OP_SUB, imm & ~0U);
-+	wrp_alu_imm(nfp_prog, insn->dst_reg * 2 + 1, ALU_OP_SUB_C, imm >> 32);
-+
-+	return 0;
-+}
-+
-+static int shl_imm64(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	const struct bpf_insn *insn = &meta->insn;
-+
-+	if (insn->imm != 32)
-+		return 1; /* TODO */
-+
-+	wrp_reg_mov(nfp_prog, insn->dst_reg * 2 + 1, insn->dst_reg * 2);
-+	wrp_immed(nfp_prog, reg_both(insn->dst_reg * 2), 0);
-+
-+	return 0;
-+}
-+
-+static int shr_imm64(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	const struct bpf_insn *insn = &meta->insn;
-+
-+	if (insn->imm != 32)
-+		return 1; /* TODO */
-+
-+	wrp_reg_mov(nfp_prog, insn->dst_reg * 2, insn->dst_reg * 2 + 1);
-+	wrp_immed(nfp_prog, reg_both(insn->dst_reg * 2 + 1), 0);
-+
-+	return 0;
-+}
-+
-+static int mov_reg(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	const struct bpf_insn *insn = &meta->insn;
-+
-+	wrp_reg_mov(nfp_prog, insn->dst_reg * 2,  insn->src_reg * 2);
-+	wrp_immed(nfp_prog, reg_both(insn->dst_reg * 2 + 1), 0);
-+
-+	return 0;
-+}
-+
-+static int mov_imm(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	const struct bpf_insn *insn = &meta->insn;
-+
-+	wrp_immed(nfp_prog, reg_both(insn->dst_reg * 2), insn->imm);
-+	wrp_immed(nfp_prog, reg_both(insn->dst_reg * 2 + 1), 0);
-+
-+	return 0;
-+}
-+
-+static int xor_reg(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	return wrp_alu32_reg(nfp_prog, meta, ALU_OP_XOR);
-+}
-+
-+static int xor_imm(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	return wrp_alu32_imm(nfp_prog, meta, ALU_OP_XOR, !~meta->insn.imm);
-+}
-+
-+static int and_reg(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	return wrp_alu32_reg(nfp_prog, meta, ALU_OP_AND);
-+}
-+
-+static int and_imm(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	return wrp_alu32_imm(nfp_prog, meta, ALU_OP_AND, !~meta->insn.imm);
-+}
-+
-+static int or_reg(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	return wrp_alu32_reg(nfp_prog, meta, ALU_OP_OR);
-+}
-+
-+static int or_imm(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	return wrp_alu32_imm(nfp_prog, meta, ALU_OP_OR, !meta->insn.imm);
-+}
-+
-+static int add_reg(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	return wrp_alu32_reg(nfp_prog, meta, ALU_OP_ADD);
-+}
-+
-+static int add_imm(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	return wrp_alu32_imm(nfp_prog, meta, ALU_OP_ADD, !meta->insn.imm);
-+}
-+
-+static int sub_reg(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	return wrp_alu32_reg(nfp_prog, meta, ALU_OP_SUB);
-+}
-+
-+static int sub_imm(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	return wrp_alu32_imm(nfp_prog, meta, ALU_OP_SUB, !meta->insn.imm);
-+}
-+
-+static int shl_imm(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	const struct bpf_insn *insn = &meta->insn;
-+
-+	if (!insn->imm)
-+		return 1; /* TODO: zero shift means indirect */
-+
-+	emit_shf(nfp_prog, reg_both(insn->dst_reg * 2),
-+		 reg_none(), SHF_OP_NONE, reg_b(insn->dst_reg * 2),
-+		 SHF_SC_L_SHF, insn->imm);
-+	wrp_immed(nfp_prog, reg_both(insn->dst_reg * 2 + 1), 0);
-+
-+	return 0;
-+}
-+
-+static int imm_ld8_part2(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	wrp_immed(nfp_prog, reg_both(nfp_meta_prev(meta)->insn.dst_reg * 2 + 1),
-+		  meta->insn.imm);
-+
-+	return 0;
-+}
-+
-+static int imm_ld8(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	const struct bpf_insn *insn = &meta->insn;
-+
-+	meta->double_cb = imm_ld8_part2;
-+	wrp_immed(nfp_prog, reg_both(insn->dst_reg * 2), insn->imm);
-+
-+	return 0;
-+}
-+
-+static int data_ld1(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	return construct_data_ld(nfp_prog, meta->insn.imm, 1);
-+}
-+
-+static int data_ld2(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	return construct_data_ld(nfp_prog, meta->insn.imm, 2);
-+}
-+
-+static int data_ld4(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	return construct_data_ld(nfp_prog, meta->insn.imm, 4);
-+}
-+
-+static int data_ind_ld1(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	return construct_data_ind_ld(nfp_prog, meta->insn.imm,
-+				     meta->insn.src_reg * 2, true, 1);
-+}
-+
-+static int data_ind_ld2(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	return construct_data_ind_ld(nfp_prog, meta->insn.imm,
-+				     meta->insn.src_reg * 2, true, 2);
-+}
-+
-+static int data_ind_ld4(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	return construct_data_ind_ld(nfp_prog, meta->insn.imm,
-+				     meta->insn.src_reg * 2, true, 4);
-+}
-+
-+static int mem_ldx4(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	if (meta->insn.off == offsetof(struct sk_buff, len))
-+		emit_alu(nfp_prog, reg_both(meta->insn.dst_reg * 2),
-+			 reg_none(), ALU_OP_NONE, NFP_BPF_ABI_LEN);
-+	else
-+		return -ENOTSUPP;
-+
-+	return 0;
-+}
-+
-+static int jump(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	if (meta->insn.off < 0) /* TODO */
-+		return -ENOTSUPP;
-+	emit_br(nfp_prog, BR_UNC, meta->insn.off, 0);
-+
-+	return 0;
-+}
-+
-+static int jeq_imm(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	const struct bpf_insn *insn = &meta->insn;
-+	u64 imm = insn->imm; /* sign extend */
-+	u32 or1 = reg_a(insn->dst_reg * 2), or2 = reg_b(insn->dst_reg * 2 + 1);
-+	u32 tmp_reg;
-+
-+	if (insn->off < 0) /* TODO */
-+		return -ENOTSUPP;
-+
-+	if (imm & ~0U) {
-+		tmp_reg = ur_load_imm_any(nfp_prog, imm & ~0U, imm_b(nfp_prog));
-+		emit_alu(nfp_prog, imm_a(nfp_prog),
-+			 reg_a(insn->dst_reg * 2), ALU_OP_XOR, tmp_reg);
-+		or1 = imm_a(nfp_prog);
-+	}
-+
-+	if (imm >> 32) {
-+		tmp_reg = ur_load_imm_any(nfp_prog, imm >> 32, imm_b(nfp_prog));
-+		emit_alu(nfp_prog, imm_b(nfp_prog),
-+			 reg_a(insn->dst_reg * 2 + 1), ALU_OP_XOR, tmp_reg);
-+		or2 = imm_b(nfp_prog);
-+	}
-+
-+	emit_alu(nfp_prog, reg_none(), or1, ALU_OP_OR, or2);
-+	emit_br(nfp_prog, BR_BEQ, insn->off, 0);
-+
-+	return 0;
-+}
-+
-+static int jgt_imm(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	return wrp_cmp_imm(nfp_prog, meta, BR_BLO, false);
-+}
-+
-+static int jge_imm(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	return wrp_cmp_imm(nfp_prog, meta, BR_BHS, true);
-+}
-+
-+static int jset_imm(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	const struct bpf_insn *insn = &meta->insn;
-+	u64 imm = insn->imm; /* sign extend */
-+	u32 tmp_reg;
-+
-+	if (insn->off < 0) /* TODO */
-+		return -ENOTSUPP;
-+
-+	if (!imm) {
-+		meta->skip = true;
-+		return 0;
-+	}
-+
-+	if (imm & ~0U) {
-+		tmp_reg = ur_load_imm_any(nfp_prog, imm & ~0U, imm_b(nfp_prog));
-+		emit_alu(nfp_prog, reg_none(),
-+			 reg_a(insn->dst_reg * 2), ALU_OP_AND, tmp_reg);
-+		emit_br(nfp_prog, BR_BNE, insn->off, 0);
-+	}
-+
-+	if (imm >> 32) {
-+		tmp_reg = ur_load_imm_any(nfp_prog, imm >> 32, imm_b(nfp_prog));
-+		emit_alu(nfp_prog, reg_none(),
-+			 reg_a(insn->dst_reg * 2 + 1), ALU_OP_AND, tmp_reg);
-+		emit_br(nfp_prog, BR_BNE, insn->off, 0);
-+	}
-+
-+	return 0;
-+}
-+
-+static int jne_imm(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	const struct bpf_insn *insn = &meta->insn;
-+	u64 imm = insn->imm; /* sign extend */
-+	u32 tmp_reg;
-+
-+	if (insn->off < 0) /* TODO */
-+		return -ENOTSUPP;
-+
-+	if (!imm) {
-+		emit_alu(nfp_prog, reg_none(), reg_a(insn->dst_reg * 2),
-+			 ALU_OP_OR, reg_b(insn->dst_reg * 2 + 1));
-+		emit_br(nfp_prog, BR_BNE, insn->off, 0);
-+	}
-+
-+	tmp_reg = ur_load_imm_any(nfp_prog, imm & ~0U, imm_b(nfp_prog));
-+	emit_alu(nfp_prog, reg_none(),
-+		 reg_a(insn->dst_reg * 2), ALU_OP_XOR, tmp_reg);
-+	emit_br(nfp_prog, BR_BNE, insn->off, 0);
-+
-+	tmp_reg = ur_load_imm_any(nfp_prog, imm >> 32, imm_b(nfp_prog));
-+	emit_alu(nfp_prog, reg_none(),
-+		 reg_a(insn->dst_reg * 2 + 1), ALU_OP_XOR, tmp_reg);
-+	emit_br(nfp_prog, BR_BNE, insn->off, 0);
-+
-+	return 0;
-+}
-+
-+static int jeq_reg(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	const struct bpf_insn *insn = &meta->insn;
-+
-+	if (insn->off < 0) /* TODO */
-+		return -ENOTSUPP;
-+
-+	emit_alu(nfp_prog, imm_a(nfp_prog), reg_a(insn->dst_reg * 2),
-+		 ALU_OP_XOR, reg_b(insn->src_reg * 2));
-+	emit_alu(nfp_prog, imm_b(nfp_prog), reg_a(insn->dst_reg * 2 + 1),
-+		 ALU_OP_XOR, reg_b(insn->src_reg * 2 + 1));
-+	emit_alu(nfp_prog, reg_none(),
-+		 imm_a(nfp_prog), ALU_OP_OR, imm_b(nfp_prog));
-+	emit_br(nfp_prog, BR_BEQ, insn->off, 0);
-+
-+	return 0;
-+}
-+
-+static int jgt_reg(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	return wrp_cmp_reg(nfp_prog, meta, BR_BLO, false);
-+}
-+
-+static int jge_reg(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	return wrp_cmp_reg(nfp_prog, meta, BR_BHS, true);
-+}
-+
-+static int jset_reg(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	return wrp_test_reg(nfp_prog, meta, ALU_OP_AND, BR_BNE);
-+}
-+
-+static int jne_reg(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	return wrp_test_reg(nfp_prog, meta, ALU_OP_XOR, BR_BNE);
-+}
-+
-+static int goto_out(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
-+{
-+	wrp_br_special(nfp_prog, BR_UNC, OP_BR_GO_OUT);
-+
-+	return 0;
-+}
-+
-+static const instr_cb_t instr_cb[256] = {
-+	[BPF_ALU64 | BPF_MOV | BPF_X] =	mov_reg64,
-+	[BPF_ALU64 | BPF_MOV | BPF_K] =	mov_imm64,
-+	[BPF_ALU64 | BPF_XOR | BPF_X] =	xor_reg64,
-+	[BPF_ALU64 | BPF_XOR | BPF_K] =	xor_imm64,
-+	[BPF_ALU64 | BPF_AND | BPF_X] =	and_reg64,
-+	[BPF_ALU64 | BPF_AND | BPF_K] =	and_imm64,
-+	[BPF_ALU64 | BPF_OR | BPF_X] =	or_reg64,
-+	[BPF_ALU64 | BPF_OR | BPF_K] =	or_imm64,
-+	[BPF_ALU64 | BPF_ADD | BPF_X] =	add_reg64,
-+	[BPF_ALU64 | BPF_ADD | BPF_K] =	add_imm64,
-+	[BPF_ALU64 | BPF_SUB | BPF_X] =	sub_reg64,
-+	[BPF_ALU64 | BPF_SUB | BPF_K] =	sub_imm64,
-+	[BPF_ALU64 | BPF_LSH | BPF_K] =	shl_imm64,
-+	[BPF_ALU64 | BPF_RSH | BPF_K] =	shr_imm64,
-+	[BPF_ALU | BPF_MOV | BPF_X] =	mov_reg,
-+	[BPF_ALU | BPF_MOV | BPF_K] =	mov_imm,
-+	[BPF_ALU | BPF_XOR | BPF_X] =	xor_reg,
-+	[BPF_ALU | BPF_XOR | BPF_K] =	xor_imm,
-+	[BPF_ALU | BPF_AND | BPF_X] =	and_reg,
-+	[BPF_ALU | BPF_AND | BPF_K] =	and_imm,
-+	[BPF_ALU | BPF_OR | BPF_X] =	or_reg,
-+	[BPF_ALU | BPF_OR | BPF_K] =	or_imm,
-+	[BPF_ALU | BPF_ADD | BPF_X] =	add_reg,
-+	[BPF_ALU | BPF_ADD | BPF_K] =	add_imm,
-+	[BPF_ALU | BPF_SUB | BPF_X] =	sub_reg,
-+	[BPF_ALU | BPF_SUB | BPF_K] =	sub_imm,
-+	[BPF_ALU | BPF_LSH | BPF_K] =	shl_imm,
-+	[BPF_LD | BPF_IMM | BPF_DW] =	imm_ld8,
-+	[BPF_LD | BPF_ABS | BPF_B] =	data_ld1,
-+	[BPF_LD | BPF_ABS | BPF_H] =	data_ld2,
-+	[BPF_LD | BPF_ABS | BPF_W] =	data_ld4,
-+	[BPF_LD | BPF_IND | BPF_B] =	data_ind_ld1,
-+	[BPF_LD | BPF_IND | BPF_H] =	data_ind_ld2,
-+	[BPF_LD | BPF_IND | BPF_W] =	data_ind_ld4,
-+	[BPF_LDX | BPF_MEM | BPF_W] =	mem_ldx4,
-+	[BPF_JMP | BPF_JA | BPF_K] =	jump,
-+	[BPF_JMP | BPF_JEQ | BPF_K] =	jeq_imm,
-+	[BPF_JMP | BPF_JGT | BPF_K] =	jgt_imm,
-+	[BPF_JMP | BPF_JGE | BPF_K] =	jge_imm,
-+	[BPF_JMP | BPF_JSET | BPF_K] =	jset_imm,
-+	[BPF_JMP | BPF_JNE | BPF_K] =	jne_imm,
-+	[BPF_JMP | BPF_JEQ | BPF_X] =	jeq_reg,
-+	[BPF_JMP | BPF_JGT | BPF_X] =	jgt_reg,
-+	[BPF_JMP | BPF_JGE | BPF_X] =	jge_reg,
-+	[BPF_JMP | BPF_JSET | BPF_X] =	jset_reg,
-+	[BPF_JMP | BPF_JNE | BPF_X] =	jne_reg,
-+	[BPF_JMP | BPF_EXIT] =		goto_out,
-+};
-+
-+/* --- Misc code --- */
-+static void br_set_offset(u64 *instr, u16 offset)
-+{
-+	u16 addr_lo, addr_hi;
-+
-+	addr_lo = offset & (OP_BR_ADDR_LO >> __bf_shf(OP_BR_ADDR_LO));
-+	addr_hi = offset != addr_lo;
-+	*instr &= ~(OP_BR_ADDR_HI | OP_BR_ADDR_LO);
-+	*instr |= FIELD_PREP(OP_BR_ADDR_HI, addr_hi);
-+	*instr |= FIELD_PREP(OP_BR_ADDR_LO, addr_lo);
-+}
-+
-+/* --- Assembler logic --- */
-+static int nfp_fixup_branches(struct nfp_prog *nfp_prog)
-+{
-+	struct nfp_insn_meta *meta, *next;
-+	u32 off, br_idx;
-+	u32 idx;
-+
-+	nfp_for_each_insn_walk2(nfp_prog, meta, next) {
-+		if (meta->skip)
-+			continue;
-+		if (BPF_CLASS(meta->insn.code) != BPF_JMP)
-+			continue;
-+
-+		br_idx = nfp_prog_offset_to_index(nfp_prog, next->off) - 1;
-+		if (!nfp_is_br(nfp_prog->prog[br_idx])) {
-+			pr_err("Fixup found block not ending in branch %d %02x %016llx!!\n",
-+			       br_idx, meta->insn.code, nfp_prog->prog[br_idx]);
-+			return -ELOOP;
-+		}
-+		/* Leave special branches for later */
-+		if (FIELD_GET(OP_BR_SPECIAL, nfp_prog->prog[br_idx]))
-+			continue;
-+
-+		/* Find the target offset in assembler realm */
-+		off = meta->insn.off;
-+		if (!off) {
-+			pr_err("Fixup found zero offset!!\n");
-+			return -ELOOP;
-+		}
-+
-+		while (off && nfp_meta_has_next(nfp_prog, next)) {
-+			next = nfp_meta_next(next);
-+			off--;
-+		}
-+		if (off) {
-+			pr_err("Fixup found too large jump!! %d\n", off);
-+			return -ELOOP;
-+		}
-+
-+		if (next->skip) {
-+			pr_err("Branch landing on removed instruction!!\n");
-+			return -ELOOP;
-+		}
-+
-+		for (idx = nfp_prog_offset_to_index(nfp_prog, meta->off);
-+		     idx <= br_idx; idx++) {
-+			if (!nfp_is_br(nfp_prog->prog[idx]))
-+				continue;
-+			br_set_offset(&nfp_prog->prog[idx], next->off);
-+		}
-+	}
-+
-+	/* Fixup 'goto out's separately, they can be scattered around */
-+	for (br_idx = 0; br_idx < nfp_prog->prog_len; br_idx++) {
-+		enum br_special special;
-+
-+		if ((nfp_prog->prog[br_idx] & OP_BR_BASE_MASK) != OP_BR_BASE)
-+			continue;
-+
-+		special = FIELD_GET(OP_BR_SPECIAL, nfp_prog->prog[br_idx]);
-+		switch (special) {
-+		case OP_BR_NORMAL:
-+			break;
-+		case OP_BR_GO_OUT:
-+			br_set_offset(&nfp_prog->prog[br_idx],
-+				      nfp_prog->tgt_out);
-+			break;
-+		case OP_BR_GO_ABORT:
-+			br_set_offset(&nfp_prog->prog[br_idx],
-+				      nfp_prog->tgt_abort);
-+			break;
-+		}
-+
-+		nfp_prog->prog[br_idx] &= ~OP_BR_SPECIAL;
-+	}
-+
-+	return 0;
-+}
-+
-+static void nfp_intro(struct nfp_prog *nfp_prog)
-+{
-+	emit_alu(nfp_prog, pkt_reg(nfp_prog),
-+		 reg_none(), ALU_OP_NONE, NFP_BPF_ABI_PKT);
-+}
-+
-+static void nfp_outro_tc_legacy(struct nfp_prog *nfp_prog)
-+{
-+	const u8 act2code[] = {
-+		[NN_ACT_TC_DROP]  = 0x22,
-+	};
-+	/* Target for aborts */
-+	nfp_prog->tgt_abort = nfp_prog_current_offset(nfp_prog);
-+	wrp_immed(nfp_prog, reg_both(0), 0);
-+
-+	/* Target for normal exits */
-+	nfp_prog->tgt_out = nfp_prog_current_offset(nfp_prog);
-+	/* Legacy TC mode:
-+	 *   0        0x11 -> pass,  count as stat0
-+	 *  -1  drop  0x22 -> drop,  count as stat1
-+	 *     redir  0x24 -> redir, count as stat1
-+	 *  ife mark  0x21 -> pass,  count as stat1
-+	 *  ife + tx  0x24 -> redir, count as stat1
-+	 */
-+	emit_br_byte_neq(nfp_prog, reg_b(0), 0xff, 0, nfp_prog->tgt_done, 2);
-+	emit_alu(nfp_prog, reg_a(0),
-+		 reg_none(), ALU_OP_NONE, NFP_BPF_ABI_FLAGS);
-+	emit_ld_field(nfp_prog, reg_a(0), 0xc, reg_imm(0x11), SHF_SC_L_SHF, 16);
-+
-+	emit_br(nfp_prog, BR_UNC, nfp_prog->tgt_done, 1);
-+	emit_ld_field(nfp_prog, reg_a(0), 0xc, reg_imm(act2code[nfp_prog->act]),
-+		      SHF_SC_L_SHF, 16);
-+}
-+
-+static void nfp_outro(struct nfp_prog *nfp_prog)
-+{
-+	switch (nfp_prog->act) {
-+	case NN_ACT_TC_DROP:
-+		nfp_outro_tc_legacy(nfp_prog);
-+		break;
-+	}
-+}
-+
-+static int nfp_translate(struct nfp_prog *nfp_prog)
-+{
-+	struct nfp_insn_meta *meta;
-+	int err;
-+
-+	nfp_intro(nfp_prog);
-+	if (nfp_prog->error)
-+		return nfp_prog->error;
-+
-+	list_for_each_entry(meta, &nfp_prog->insns, l) {
-+		instr_cb_t cb = instr_cb[meta->insn.code];
-+
-+		meta->off = nfp_prog_current_offset(nfp_prog);
-+
-+		if (meta->skip) {
-+			nfp_prog->n_translated++;
-+			continue;
-+		}
-+
-+		if (nfp_meta_has_prev(nfp_prog, meta) &&
-+		    nfp_meta_prev(meta)->double_cb)
-+			cb = nfp_meta_prev(meta)->double_cb;
-+		if (!cb)
-+			return -ENOENT;
-+		err = cb(nfp_prog, meta);
++	max_instr = nn_readw(nn, NFP_NET_CFG_BPF_MAX_LEN);
++
++	switch (cls_bpf->command) {
++	case TC_CLSBPF_REPLACE:
++		/* There is nothing stopping us from implementing seamless
++		 * replace but the simple method of loading I adopted in
++		 * the firmware does not handle atomic replace (i.e. we have to
++		 * stop the BPF offload and re-enable it).  Leaking-in a few
++		 * frames which didn't have BPF applied in the hardware should
++		 * be fine if software fallback is available, though.
++		 */
++		if (nn->bpf_offload_skip_sw)
++			return -EBUSY;
++
++		err = nfp_net_bpf_offload_prepare(nn, cls_bpf, &res, &code,
++						  &dma_addr, max_instr);
 +		if (err)
 +			return err;
 +
-+		nfp_prog->n_translated++;
++		nfp_net_bpf_stop(nn);
++		nfp_net_bpf_load_and_start(nn, cls_bpf->gen_flags, code,
++					   dma_addr, max_instr * sizeof(u64),
++					   res.n_instr, res.dense_mode);
++		return 0;
++
++	case TC_CLSBPF_ADD:
++		if (nn->ctrl & NFP_NET_CFG_CTRL_BPF)
++			return -EBUSY;
++
++		err = nfp_net_bpf_offload_prepare(nn, cls_bpf, &res, &code,
++						  &dma_addr, max_instr);
++		if (err)
++			return err;
++
++		nfp_net_bpf_load_and_start(nn, cls_bpf->gen_flags, code,
++					   dma_addr, max_instr * sizeof(u64),
++					   res.n_instr, res.dense_mode);
++		return 0;
++
++	case TC_CLSBPF_DESTROY:
++		return nfp_net_bpf_stop(nn);
++
++	default:
++		return -ENOTSUPP;
 +	}
-+
-+	nfp_outro(nfp_prog);
-+	if (nfp_prog->error)
-+		return nfp_prog->error;
-+
-+	return nfp_fixup_branches(nfp_prog);
-+}
-+
-+static int
-+nfp_prog_prepare(struct nfp_prog *nfp_prog, const struct bpf_insn *prog,
-+		 unsigned int cnt)
-+{
-+	unsigned int i;
-+
-+	for (i = 0; i < cnt; i++) {
-+		struct nfp_insn_meta *meta;
-+
-+		meta = kzalloc(sizeof(*meta), GFP_KERNEL);
-+		if (!meta)
-+			return -ENOMEM;
-+
-+		meta->insn = prog[i];
-+		meta->n = i;
-+
-+		list_add_tail(&meta->l, &nfp_prog->insns);
-+	}
-+
-+	return 0;
-+}
-+
-+/* --- Optimizations --- */
-+static void nfp_bpf_opt_reg_init(struct nfp_prog *nfp_prog)
-+{
-+	struct nfp_insn_meta *meta;
-+
-+	list_for_each_entry(meta, &nfp_prog->insns, l) {
-+		struct bpf_insn insn = meta->insn;
-+
-+		/* Programs converted from cBPF start with register xoring */
-+		if (insn.code == (BPF_ALU64 | BPF_XOR | BPF_X) &&
-+		    insn.src_reg == insn.dst_reg)
-+			continue;
-+
-+		/* Programs start with R6 = R1 but we ignore the skb pointer */
-+		if (insn.code == (BPF_ALU64 | BPF_MOV | BPF_X) &&
-+		    insn.src_reg == 1 && insn.dst_reg == 6)
-+			meta->skip = true;
-+
-+		/* Return as soon as something doesn't match */
-+		if (!meta->skip)
-+			return;
-+	}
-+}
-+
-+/* Try to rename registers so that program uses only low ones */
-+static int nfp_bpf_opt_reg_rename(struct nfp_prog *nfp_prog)
-+{
-+	bool reg_used[MAX_BPF_REG] = {};
-+	u8 tgt_reg[MAX_BPF_REG] = {};
-+	struct nfp_insn_meta *meta;
-+	unsigned int i, j;
-+
-+	list_for_each_entry(meta, &nfp_prog->insns, l) {
-+		if (meta->skip)
-+			continue;
-+
-+		reg_used[meta->insn.src_reg] = true;
-+		reg_used[meta->insn.dst_reg] = true;
-+	}
-+
-+	if (reg_used[BPF_REG_10]) {
-+		pr_err("Detected use of stack ptr\n");
-+		return -EINVAL;
-+	}
-+
-+	for (i = 0, j = 0; i < ARRAY_SIZE(tgt_reg); i++) {
-+		if (!reg_used[i])
-+			continue;
-+
-+		tgt_reg[i] = j++;
-+	}
-+	nfp_prog->num_regs = j;
-+
-+	list_for_each_entry(meta, &nfp_prog->insns, l) {
-+		meta->insn.src_reg = tgt_reg[meta->insn.src_reg];
-+		meta->insn.dst_reg = tgt_reg[meta->insn.dst_reg];
-+	}
-+
-+	return 0;
-+}
-+
-+/* Remove masking after load since our load guarantees this is not needed */
-+static void nfp_bpf_opt_ld_mask(struct nfp_prog *nfp_prog)
-+{
-+	struct nfp_insn_meta *meta1, *meta2;
-+	const s32 exp_mask[] = {
-+		[BPF_B] = 0x000000ffU,
-+		[BPF_H] = 0x0000ffffU,
-+		[BPF_W] = 0xffffffffU,
-+	};
-+
-+	nfp_for_each_insn_walk2(nfp_prog, meta1, meta2) {
-+		struct bpf_insn insn, next;
-+
-+		insn = meta1->insn;
-+		next = meta2->insn;
-+
-+		if (BPF_CLASS(insn.code) != BPF_LD)
-+			continue;
-+		if (BPF_MODE(insn.code) != BPF_ABS &&
-+		    BPF_MODE(insn.code) != BPF_IND)
-+			continue;
-+
-+		if (next.code != (BPF_ALU64 | BPF_AND | BPF_K))
-+			continue;
-+
-+		if (!exp_mask[BPF_SIZE(insn.code)])
-+			continue;
-+		if (exp_mask[BPF_SIZE(insn.code)] != next.imm)
-+			continue;
-+
-+		if (next.src_reg || next.dst_reg)
-+			continue;
-+
-+		meta2->skip = true;
-+	}
-+}
-+
-+static void nfp_bpf_opt_ld_shift(struct nfp_prog *nfp_prog)
-+{
-+	struct nfp_insn_meta *meta1, *meta2, *meta3;
-+
-+	nfp_for_each_insn_walk3(nfp_prog, meta1, meta2, meta3) {
-+		struct bpf_insn insn, next1, next2;
-+
-+		insn = meta1->insn;
-+		next1 = meta2->insn;
-+		next2 = meta3->insn;
-+
-+		if (BPF_CLASS(insn.code) != BPF_LD)
-+			continue;
-+		if (BPF_MODE(insn.code) != BPF_ABS &&
-+		    BPF_MODE(insn.code) != BPF_IND)
-+			continue;
-+		if (BPF_SIZE(insn.code) != BPF_W)
-+			continue;
-+
-+		if (!(next1.code == (BPF_LSH | BPF_K | BPF_ALU64) &&
-+		      next2.code == (BPF_RSH | BPF_K | BPF_ALU64)) &&
-+		    !(next1.code == (BPF_RSH | BPF_K | BPF_ALU64) &&
-+		      next2.code == (BPF_LSH | BPF_K | BPF_ALU64)))
-+			continue;
-+
-+		if (next1.src_reg || next1.dst_reg ||
-+		    next2.src_reg || next2.dst_reg)
-+			continue;
-+
-+		if (next1.imm != 0x20 || next2.imm != 0x20)
-+			continue;
-+
-+		meta2->skip = true;
-+		meta3->skip = true;
-+	}
-+}
-+
-+static int nfp_bpf_optimize(struct nfp_prog *nfp_prog)
-+{
-+	int ret;
-+
-+	nfp_bpf_opt_reg_init(nfp_prog);
-+
-+	ret = nfp_bpf_opt_reg_rename(nfp_prog);
-+	if (ret)
-+		return ret;
-+
-+	nfp_bpf_opt_ld_mask(nfp_prog);
-+	nfp_bpf_opt_ld_shift(nfp_prog);
-+
-+	return 0;
-+}
-+
-+/**
-+ * nfp_bpf_jit() - translate BPF code into NFP assembly
-+ * @filter:	kernel BPF filter struct
-+ * @prog_mem:	memory to store assembler instructions
-+ * @act:	action attached to this eBPF program
-+ * @prog_start:	offset of the first instruction when loaded
-+ * @prog_done:	where to jump on exit
-+ * @prog_sz:	size of @prog_mem in instructions
-+ * @res:	achieved parameters of translation results
-+ */
-+int
-+nfp_bpf_jit(struct bpf_prog *filter, void *prog_mem,
-+	    enum nfp_bpf_action_type act,
-+	    unsigned int prog_start, unsigned int prog_done,
-+	    unsigned int prog_sz, struct nfp_bpf_result *res)
-+{
-+	struct nfp_prog *nfp_prog;
-+	int ret;
-+
-+	nfp_prog = kzalloc(sizeof(*nfp_prog), GFP_KERNEL);
-+	if (!nfp_prog)
-+		return -ENOMEM;
-+
-+	INIT_LIST_HEAD(&nfp_prog->insns);
-+	nfp_prog->act = act;
-+	nfp_prog->start_off = prog_start;
-+	nfp_prog->tgt_done = prog_done;
-+
-+	ret = nfp_prog_prepare(nfp_prog, filter->insnsi, filter->len);
-+	if (ret)
-+		goto out;
-+
-+	ret = nfp_prog_verify(nfp_prog, filter);
-+	if (ret)
-+		return ret;
-+
-+	ret = nfp_bpf_optimize(nfp_prog);
-+	if (ret)
-+		goto out;
-+
-+	if (nfp_prog->num_regs <= 7)
-+		nfp_prog->regs_per_thread = 16;
-+	else
-+		nfp_prog->regs_per_thread = 32;
-+
-+	nfp_prog->prog = prog_mem;
-+	nfp_prog->__prog_alloc_len = prog_sz;
-+
-+	ret = nfp_translate(nfp_prog);
-+	if (ret) {
-+		pr_err("Translation failed with error %d (translated: %u)\n",
-+		       ret, nfp_prog->n_translated);
-+		ret = -EINVAL;
-+	}
-+
-+	res->n_instr = nfp_prog->prog_len;
-+	res->dense_mode = nfp_prog->num_regs <= 7;
-+out:
-+	nfp_prog_free(nfp_prog);
-+
-+	return ret;
-+}
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_bpf_verifier.c b/drivers/net/ethernet/netronome/nfp/nfp_bpf_verifier.c
-new file mode 100644
-index 000000000000..15c460964810
---- /dev/null
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_bpf_verifier.c
-@@ -0,0 +1,151 @@
-+/*
-+ * Copyright (C) 2016 Netronome Systems, Inc.
-+ *
-+ * This software is dual licensed under the GNU General License Version 2,
-+ * June 1991 as shown in the file COPYING in the top-level directory of this
-+ * source tree or the BSD 2-Clause License provided below.  You have the
-+ * option to license this software under the complete terms of either license.
-+ *
-+ * The BSD 2-Clause License:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      1. Redistributions of source code must retain the above
-+ *         copyright notice, this list of conditions and the following
-+ *         disclaimer.
-+ *
-+ *      2. Redistributions in binary form must reproduce the above
-+ *         copyright notice, this list of conditions and the following
-+ *         disclaimer in the documentation and/or other materials
-+ *         provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#define pr_fmt(fmt)	"NFP net bpf: " fmt
-+
-+#include <linux/bpf.h>
-+#include <linux/bpf_verifier.h>
-+#include <linux/kernel.h>
-+#include <linux/pkt_cls.h>
-+
-+#include "nfp_bpf.h"
-+
-+/* Analyzer/verifier definitions */
-+struct nfp_bpf_analyzer_priv {
-+	struct nfp_prog *prog;
-+	struct nfp_insn_meta *meta;
-+};
-+
-+static struct nfp_insn_meta *
-+nfp_bpf_goto_meta(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta,
-+		  unsigned int insn_idx, unsigned int n_insns)
-+{
-+	unsigned int forward, backward, i;
-+
-+	backward = meta->n - insn_idx;
-+	forward = insn_idx - meta->n;
-+
-+	if (min(forward, backward) > n_insns - insn_idx - 1) {
-+		backward = n_insns - insn_idx - 1;
-+		meta = nfp_prog_last_meta(nfp_prog);
-+	}
-+	if (min(forward, backward) > insn_idx && backward > insn_idx) {
-+		forward = insn_idx;
-+		meta = nfp_prog_first_meta(nfp_prog);
-+	}
-+
-+	if (forward < backward)
-+		for (i = 0; i < forward; i++)
-+			meta = nfp_meta_next(meta);
-+	else
-+		for (i = 0; i < backward; i++)
-+			meta = nfp_meta_prev(meta);
-+
-+	return meta;
-+}
-+
-+static int
-+nfp_bpf_check_exit(struct nfp_prog *nfp_prog,
-+		   const struct bpf_verifier_env *env)
-+{
-+	const struct bpf_reg_state *reg0 = &env->cur_state.regs[0];
-+
-+	if (reg0->type != CONST_IMM) {
-+		pr_info("unsupported exit state: %d, imm: %llx\n",
-+			reg0->type, reg0->imm);
-+		return -EINVAL;
-+	}
-+
-+	if (reg0->imm != 0 && (reg0->imm & ~0U) != ~0U) {
-+		pr_info("unsupported exit state: %d, imm: %llx\n",
-+			reg0->type, reg0->imm);
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
-+static int
-+nfp_bpf_check_ctx_ptr(struct nfp_prog *nfp_prog,
-+		      const struct bpf_verifier_env *env, u8 reg)
-+{
-+	if (env->cur_state.regs[reg].type != PTR_TO_CTX)
-+		return -EINVAL;
-+
-+	return 0;
-+}
-+
-+static int
-+nfp_verify_insn(struct bpf_verifier_env *env, int insn_idx, int prev_insn_idx)
-+{
-+	struct nfp_bpf_analyzer_priv *priv = env->analyzer_priv;
-+	struct nfp_insn_meta *meta = priv->meta;
-+
-+	meta = nfp_bpf_goto_meta(priv->prog, meta, insn_idx, env->prog->len);
-+	priv->meta = meta;
-+
-+	if (meta->insn.code == (BPF_JMP | BPF_EXIT))
-+		return nfp_bpf_check_exit(priv->prog, env);
-+
-+	if ((meta->insn.code & ~BPF_SIZE_MASK) == (BPF_LDX | BPF_MEM))
-+		return nfp_bpf_check_ctx_ptr(priv->prog, env,
-+					     meta->insn.src_reg);
-+	if ((meta->insn.code & ~BPF_SIZE_MASK) == (BPF_STX | BPF_MEM))
-+		return nfp_bpf_check_ctx_ptr(priv->prog, env,
-+					     meta->insn.dst_reg);
-+
-+	return 0;
-+}
-+
-+static const struct bpf_ext_analyzer_ops nfp_bpf_analyzer_ops = {
-+	.insn_hook = nfp_verify_insn,
-+};
-+
-+int nfp_prog_verify(struct nfp_prog *nfp_prog, struct bpf_prog *prog)
-+{
-+	struct nfp_bpf_analyzer_priv *priv;
-+	int ret;
-+
-+	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
-+	if (!priv)
-+		return -ENOMEM;
-+
-+	priv->prog = nfp_prog;
-+	priv->meta = nfp_prog_first_meta(nfp_prog);
-+
-+	ret = bpf_analyzer(prog, &nfp_bpf_analyzer_ops, priv);
-+
-+	kfree(priv);
-+
-+	return ret;
 +}
 -- 
 1.9.1
