@@ -1,93 +1,74 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [RFC v2 00/10] Landlock LSM: Unprivileged sandboxing
-Date: Thu, 15 Sep 2016 11:19:02 +0200
-Message-ID: <20160915091902.GA13132@amd>
-References: <1472121165-29071-1-git-send-email-mic@digikod.net>
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [RFC 09/11] Add LL2 RoCE interface
+Date: Thu, 15 Sep 2016 13:20:13 +0300
+Message-ID: <20160915102013.GZ26069@leon.nu>
+References: <1473696465-27986-1-git-send-email-Ram.Amrani@qlogic.com>
+ <1473696465-27986-10-git-send-email-Ram.Amrani@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
-        Andy Lutomirski <luto@amacapital.net>,
-        Arnd Bergmann <arnd@arndb.de>,
-        Casey Schaufler <casey@schaufler-ca.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Daniel Mack <daniel@zonque.org>,
-        David Drysdale <drysdale@google.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Elena Reshetova <elena.reshetova@intel.com>,
-        James Morris <james.l.morris@oracle.com>,
-        Kees Cook <keescook@chromium.org>,
-        Paul Moore <pmoore@redhat.com>,
-        Sargun Dhillon <sargun@sargun.me>,
-        "Serge E . Hallyn" <serge@hallyn.com>,
-        Will Drewry <wad@chromium.org>,
-        kernel-hardening@lists.openwall.com, linux-api@vger.kernel.org,
-        linux-security-module@vger.kernel.org, netdev@vger.kernel.org
-To: =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>
-Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="qrotSzihSRAsrOtf"
+Cc: dledford@redhat.com, davem@davemloft.net, Yuval.Mintz@qlogic.com,
+        Ariel.Elior@qlogic.com, Michal.Kalderon@qlogic.com,
+        rajesh.borundia@qlogic.com, linux-rdma@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Ram Amrani <Ram.Amrani@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.136]:46106 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1765375AbcIOKUU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 15 Sep 2016 06:20:20 -0400
 Content-Disposition: inline
-In-Reply-To: <1472121165-29071-1-git-send-email-mic@digikod.net>
-Sender: owner-linux-security-module@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1473696465-27986-10-git-send-email-Ram.Amrani@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi!
 
-> This series is a proof of concept to fill some missing part of seccomp as the
-> ability to check syscall argument pointers or creating more dynamic security
-> policies. The goal of this new stackable Linux Security Module (LSM) called
-> Landlock is to allow any process, including unprivileged ones, to create
-> powerful security sandboxes comparable to the Seatbelt/XNU Sandbox or the
-> OpenBSD Pledge. This kind of sandbox help to mitigate the security impact of
-> bugs or unexpected/malicious behaviors in userland applications.
-> 
-> The first RFC [1] was focused on extending seccomp while staying at the syscall
-> level. This brought a working PoC but with some (mitigated) ToCToU race
-> conditions due to the seccomp ptrace hole (now fixed) and the non-atomic
-> syscall argument evaluation (hence the LSM hooks).
+--qrotSzihSRAsrOtf
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Long and nice description follows. Should it go to Documentation/
-somewhere?
+On Mon, Sep 12, 2016 at 07:07:43PM +0300, Ram Amrani wrote:
+> Add light L2 interface for RoCE.
+>
+> Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
+> Signed-off-by: Ram Amrani <Ram.Amrani@qlogic.com>
+> ---
 
-Because some documentation would be useful...
-								Pavel
+<....>
 
->  include/linux/bpf.h                   |  41 +++++
->  include/linux/lsm_hooks.h             |   5 +
->  include/linux/seccomp.h               |  54 ++++++-
->  include/uapi/asm-generic/errno-base.h |   1 +
->  include/uapi/linux/bpf.h              | 103 ++++++++++++
->  include/uapi/linux/seccomp.h          |   2 +
->  kernel/bpf/arraymap.c                 | 222 +++++++++++++++++++++++++
->  kernel/bpf/syscall.c                  |  18 ++-
->  kernel/bpf/verifier.c                 |  32 +++-
->  kernel/fork.c                         |  41 ++++-
->  kernel/seccomp.c                      | 211 +++++++++++++++++++++++-
->  samples/Makefile                      |   2 +-
->  samples/landlock/.gitignore           |   1 +
->  samples/landlock/Makefile             |  16 ++
->  samples/landlock/sandbox.c            | 295 ++++++++++++++++++++++++++++++++++
->  security/Kconfig                      |   1 +
->  security/Makefile                     |   2 +
->  security/landlock/Kconfig             |  19 +++
->  security/landlock/Makefile            |   3 +
->  security/landlock/checker_cgroup.c    |  96 +++++++++++
->  security/landlock/checker_cgroup.h    |  18 +++
->  security/landlock/checker_fs.c        | 183 +++++++++++++++++++++
->  security/landlock/checker_fs.h        |  20 +++
->  security/landlock/lsm.c               | 228 ++++++++++++++++++++++++++
->  security/security.c                   |   1 +
->  25 files changed, 1592 insertions(+), 23 deletions(-)
->  create mode 100644 samples/landlock/.gitignore
->  create mode 100644 samples/landlock/Makefile
->  create mode 100644 samples/landlock/sandbox.c
->  create mode 100644 security/landlock/Kconfig
->  create mode 100644 security/landlock/Makefile
->  create mode 100644 security/landlock/checker_cgroup.c
->  create mode 100644 security/landlock/checker_cgroup.h
->  create mode 100644 security/landlock/checker_fs.c
->  create mode 100644 security/landlock/checker_fs.h
->  create mode 100644 security/landlock/lsm.c
-> 
+> +		DP_ERR(cdev,
+> +		       "QED RoCE set MAC filter failed - roce_info/ll2 NULL\n");
+> +		return -EINVAL;
+> +	}
+> +
+> +	p_ptt = qed_ptt_acquire(QED_LEADING_HWFN(cdev));
+> +	if (!p_ptt) {
+> +		DP_ERR(cdev,
+> +		       "qed roce ll2 mac filter set: failed to acquire PTT\n");
+> +		return -EINVAL;
+> +	}
 
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+Please use single style for your debug prints QED RoCE vs. qed roce.
+
+--qrotSzihSRAsrOtf
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJX2nXdAAoJEORje4g2clinOU8QAJLhUZ8nYTEQEFOOD7OMpo5m
+nIfxpEexVe3rSegE5Z6qHEya6WNKsA53tSlamweaIDgKkZmDHqcSo2hgL+NPbLIu
+Z0xbuQ4oIGuEfBtQxCLHrts+oD8RYxJTsmS7WzV8GqoaVYwCgoXlZxiJPnm8ahBf
+qfHtfJeVk7ylTFx6eMAG+w9flB8rSmPUCGntu/qDNO1FdXREmcToxR+WNA5RBAfJ
+9SfW1XkjTiiXKuKAlnMz7/FQVayhyPrFkhJhiSM4RiOmdK3I2Gd8KnidfQf1Dob2
+GXPzuq1PhP4YvR9MZFJ3ufcbSsKSnTc+47fyq58wswWbIieuzvoL/o6pIAzFyEKx
+8aghIRMMVhgnvhcSYMsX3Cy4oxlnqNLUhBgt4PgFKWDohEGEKEB6bHb5FStFJ9g0
+olLZB8SI7RlwJEFinkJzGvbFIT4MDkSBuVKbV4POZC9jQKZOmShTrAHWIrjoluFl
+IWlDAgaWr3WMeXRfnCaNaigHyIwoAiYqeUpM0RyziwDxXrm5B9sToXrEv+E4bgd7
+KetvfWJ5favREqNjRIOYUETon8ZbMwfLbYe81uMNAEZDjARBHeFw5fY8wr79Y8Hq
+NBYN1cJhEooNG1asTm37Y7pKjGZHONs/Pm3A0CcRbxp1mQR4lRUYrCCfv/+ppsvK
+boHU/fMY5sZrbw3bqiBF
+=Hzyi
+-----END PGP SIGNATURE-----
+
+--qrotSzihSRAsrOtf--
