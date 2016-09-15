@@ -1,7 +1,7 @@
 From: Jesper Dangaard Brouer via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: XDP user interface conclusions
-Date: Thu, 15 Sep 2016 20:13:47 +0200
-Message-ID: <20160915201347.338061e6@redhat.com>
+Subject: XDP user interface confusions
+Date: Thu, 15 Sep 2016 20:14:02 +0200
+Message-ID: <20160915201402.15b65136@redhat.com>
 Reply-To: Jesper Dangaard Brouer <brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
