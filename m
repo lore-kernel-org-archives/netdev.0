@@ -1,45 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net 1/1] net sched actions: fix GETing actions
-Date: Thu, 15 Sep 2016 19:33:02 -0400 (EDT)
-Message-ID: <20160915.193302.677247650007637133.davem@davemloft.net>
-References: <1473721658-6034-1-git-send-email-jhs@emojatatu.com>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: RE: [Intel-wired-lan] [net-next PATCH v3 1/3] e1000: track BQL
+ bytes regardless of skb or not
+Date: Thu, 15 Sep 2016 23:29:34 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B81F90900@ORSMSX101.amr.corp.intel.com>
+References: <20160912220312.5610.77528.stgit@john-Precision-Tower-5810>
+ <20160912221327.5610.74333.stgit@john-Precision-Tower-5810>
+ <309B89C4C689E141A5FF6A0C5FB2118B81F90268@ORSMSX101.amr.corp.intel.com>
+ <20160915004353.GA63116@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com
-To: jhs@mojatatu.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: John Fastabend <john.fastabend@gmail.com>,
+        "bblanco@plumgrid.com" <bblanco@plumgrid.com>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+        "brouer@redhat.com" <brouer@redhat.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "u9012063@gmail.com" <u9012063@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58780 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751704AbcIOXdF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 19:33:05 -0400
-In-Reply-To: <1473721658-6034-1-git-send-email-jhs@emojatatu.com>
+Received: from mga02.intel.com ([134.134.136.20]:45534 "EHLO mga02.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752244AbcIOX3h (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 15 Sep 2016 19:29:37 -0400
+In-Reply-To: <20160915004353.GA63116@ast-mbp.thefacebook.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Date: Mon, 12 Sep 2016 19:07:38 -0400
+> > ------------[ cut here ]------------
+> > WARNING: CPU: 1 PID: 0 at net/sched/sch_generic.c:316
+> dev_watchdog+0x1c2/0x1d0
+> > NETDEV WATCHDOG: eth1 (e1000): transmit queue 0 timed out
+> 
+> Thanks a lot for the tests! Really appreciate it.
 
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
-> 
-> With the batch changes that translated transient actions into
-> a temporary list lost in the translation was the fact that
-> tcf_action_destroy() will eventually delete the action from
-> the permanent location if the refcount is zero.
-> 
-> Example of what broke:
-> ...add a gact action to drop
-> sudo $TC actions add action drop index 10
-> ...now retrieve it, looks good
-> sudo $TC actions get action gact index 10
-> ...retrieve it again and find it is gone!
-> sudo $TC actions get action gact index 10
-> 
-> Fixes:
-> commit 22dc13c837c3 ("net_sched: convert tcf_exts from list to pointer array"),
-> commit 824a7e8863b3 ("net_sched: remove an unnecessary list_del()")
-> commit f07fed82ad79 ("net_sched: remove the leftover cleanup_a()")
-> 
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
-
-Please incorporate Sergei's feedback and resubmit, thanks Jamal.
+np, I needed to get my old compatibility systems back in running order anyway.
