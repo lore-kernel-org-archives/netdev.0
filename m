@@ -1,79 +1,68 @@
-From: Leon Romanovsky <leon@kernel.org>
-Subject: Re: [PATCH v4 05/16] IB/pvrdma: Add functions for Verbs support
-Date: Thu, 15 Sep 2016 10:15:16 +0300
-Message-ID: <20160915071516.GQ26069@leon.nu>
-References: <1473655766-31628-1-git-send-email-aditr@vmware.com>
- <1473655766-31628-6-git-send-email-aditr@vmware.com>
- <20160914124947.GA14616@infradead.org>
- <BLUPR0501MB836AB8BF5108322033C5DD6C5F00@BLUPR0501MB836.namprd05.prod.outlook.com>
- <20160915061537.GC4869@infradead.org>
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [RFC 08/11] Add support for data path
+Date: Thu, 15 Sep 2016 10:24:50 +0300
+Message-ID: <20160915072450.GR26069@leon.nu>
+References: <1473696465-27986-1-git-send-email-Ram.Amrani@qlogic.com>
+ <1473696465-27986-9-git-send-email-Ram.Amrani@qlogic.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="2D20dG0OqTzqkNh7"
-Cc: Adit Ranadive <aditr@vmware.com>,
-        "dledford@redhat.com" <dledford@redhat.com>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        pv-drivers <pv-drivers@vmware.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-        "Jorgen S. Hansen" <jhansen@vmware.com>,
-        Aditya Sarwade <asarwade@vmware.com>,
-        George Zhang <georgezhang@vmware.com>,
-        Bryan Tan <bryantan@vmware.com>
-To: Christoph Hellwig <hch@infradead.org>
-Return-path: <linux-pci-owner@vger.kernel.org>
+        protocol="application/pgp-signature"; boundary="0Qexx6XJGNEACt6j"
+Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org,
+        Ariel.Elior-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, Michal.Kalderon-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org,
+        rajesh.borundia-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ram Amrani <Ram.Amrani-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20160915061537.GC4869@infradead.org>
-Sender: linux-pci-owner@vger.kernel.org
+In-Reply-To: <1473696465-27986-9-git-send-email-Ram.Amrani-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
---2D20dG0OqTzqkNh7
+--0Qexx6XJGNEACt6j
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-On Wed, Sep 14, 2016 at 11:15:37PM -0700, Christoph Hellwig wrote:
-> On Thu, Sep 15, 2016 at 12:10:10AM +0000, Adit Ranadive wrote:
-> > On Wed, Sep 14, 2016 at 05:49:50 -0700 Christoph Hellwig wrote:
-> > > > +	props->max_fmr = dev->dsr->caps.max_fmr;
-> > > > +	props->max_map_per_fmr = dev->dsr->caps.max_map_per_fmr;
-> > >
-> > > Please don't add FMR support to any new drivers.
-> >
-> > We don't and our device reports these as 0. If you want me to more explicit I
-> > can remove the zero'd out properties.
->
-> Oh, ok.  I'll withdraw my comment then.
+On Mon, Sep 12, 2016 at 07:07:42PM +0300, Ram Amrani wrote:
 
-I would suggest to remove zero assignments to struct which is zero from
-the beginning. It will eliminate the confusions.
+> +++ b/drivers/infiniband/hw/qedr/qedr_hsi_rdma.h
+> @@ -150,6 +150,12 @@ struct rdma_rq_sge {
+>  	struct regpair addr;
+>  	__le32 length;
+>  	__le32 flags;
+> +#define RDMA_RQ_SGE_L_KEY_MASK      0x3FFFFFF
+> +#define RDMA_RQ_SGE_L_KEY_SHIFT     0
+> +#define RDMA_RQ_SGE_NUM_SGES_MASK   0x7
+> +#define RDMA_RQ_SGE_NUM_SGES_SHIFT  26
+> +#define RDMA_RQ_SGE_RESERVED0_MASK  0x7
+> +#define RDMA_RQ_SGE_RESERVED0_SHIFT 29
+>  };
 
-Thanks
+It is interesting twist to mix defines and structs together.
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
---2D20dG0OqTzqkNh7
+--0Qexx6XJGNEACt6j
 Content-Type: application/pgp-signature; name="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIcBAEBAgAGBQJX2kqEAAoJEORje4g2clin2kUQAJyxl81bO5ry5w41MxzvdezM
-azeczl/QTUnkUMItIHBMD6MWWhRjKg0BgZrg9+KOYnnmO5l9ZzFt6KPCNOiO8DbN
-Up6eOaLHtfDoMzWR0Cw6yFL6PfXZXqBVCs30j6XpoD6LNTnQXTroLRHonwqJ+T1+
-2Xnu9rLIc/N6KB8RW3aSpI7ESYfJkIxxKFk3K0srxSOKSC9cXuIkfWSw20vNGNSJ
-Ixk12SlWUe/W/YVmD6HS+iVNXoGOAoZt4Pu5DdaZZyuhCGeV7wiIuwS1SIU3DrLW
-7NErMwasQkAwrhnrORc0mor8qHPBSxZDeivfhEMryYsM2j8GCGuHIj+vaKeq85PI
-pCCr2N3DxPY8yro8GDX2wlM618FTtRypoQAJwaspAVQgz5PEbedtucXLGsRA/dkW
-Nm65vwzQU95EsX8ObvyIPn9bmHhOiJUzbCJHQSTpD769LA8sjgjnhf6RvCLnUPsT
-dn+ixYaIYLKRuwecP4lDmnGSh5pBkHMUUgSvDa9HpffLjEAhUUEIGt6MPOtlK5KH
-JdUyu+lGeJ8TOXraXaxQoPEiC7DRoNYuNYKrRlipzVRxNaAULliKOquuyglffcDc
-JDI6KVQXh/NxZ9iu/z/f2JawKoo3fc3JEhHXVvOWwMnMB8dRCYk6aHCL1Kl7+C2/
-wWrodwgKQVCKCWcmEfvD
-=tL4W
+iQIcBAEBAgAGBQJX2kzCAAoJEORje4g2clinldYQALhcG8jsSv3pzwNGq3iO+MSw
+oaZ5tm7L97B7b3WRkfSIw+oCbhu40k+SxzBZomqplHVH13+HOU0GMyx+vmdbhQqK
+xGoIoryKSqc5rEE7WkSAJtmQzzKxZRlX5/PUWc8fVz0QAg/20YwrE379yu1jxKAR
+w6ppI+90NZFK+CTcMY0VdIBgvYvv2UfAPiBVGJleH7CbPcodjc/d+ux0lY/PRlWE
+b2GUsAFPBy4Ek1RaR/tro7nMDL85F8VzS122UBoeHlBn/zTVIejekj00l5INtyUH
+7nakky0QsXy45fCcr0xQTnviv3x8fzpFdWnvEOQT6xQ5RKk/kxGa/0i6OcClWpXH
+crjMaKuXqfkdO/wDYrS9bCW6HdYDI1ql91UZsCLdB7vqXIPvdWvryQZnPlELPGY2
+pKDCt04yadOkidoA3NEukPm52f/CXZNzg2NV5XAd1hBwJ21NNk4kZu9dFkajt0xt
+opVSHL3GlObL61UvkUWQ/mJZPM2XXFuHIF2rkBrQrmQrzNPlIbmScaYNUIJHgxau
+KE4dTCiI5XNLkuusyYPjJAhS4rdy3MRsFxJaJ63MMWaUs+/aMGNvGmqY9+Iqm6GQ
+VrugAkOQqPNs2Vo1y5BOKL1odIOD7XJBgW+kgdl52ycMT5ifHEgAOMeJRsByeYkF
+rbywmYmPnj0MJ1ikr3YP
+=/kmy
 -----END PGP SIGNATURE-----
 
---2D20dG0OqTzqkNh7--
+--0Qexx6XJGNEACt6j--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
