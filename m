@@ -1,139 +1,70 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: pull-request: mac80211-next 2016-09-16
-Date: Fri, 16 Sep 2016 14:56:45 +0200
-Message-ID: <1474030606-16664-1-git-send-email-johannes@sipsolutions.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v10 1/3] netdevice: Add offload statistics ndo
+Date: Fri, 16 Sep 2016 15:05:36 +0200
+Message-ID: <1474031138-2065-2-git-send-email-jiri@resnulli.us>
+References: <1474031138-2065-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, nogahf@mellanox.com, idosch@mellanox.com,
+        eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
+        roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+        linville@tuxdriver.com, tgraf@suug.ch, gospo@cumulusnetworks.com,
+        sfeldma@gmail.com, sd@queasysnail.net, eranbe@mellanox.com,
+        ast@plumgrid.com, edumazet@google.com, hannes@stressinduktion.org,
+        f.fainelli@gmail.com, dsa@cumulusnetworks.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:59449 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752881AbcIPM4y (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 16 Sep 2016 08:56:54 -0400
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35749 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1765219AbcIPNFn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 09:05:43 -0400
+Received: by mail-wm0-f67.google.com with SMTP id 133so3689396wmq.2
+        for <netdev@vger.kernel.org>; Fri, 16 Sep 2016 06:05:42 -0700 (PDT)
+In-Reply-To: <1474031138-2065-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Nogah Frankel <nogahf@mellanox.com>
 
-And here's another set for net-next, it's been a month or so and we have a
-reasonably large number of patches (for a change, mostly because I cleaned
-up some WEP crypto thing and a few static checkers.)
+Add a new ndo to return statistics for offloaded operation.
+Since there can be many different offloaded operation with many
+stats types, the ndo gets an attribute id by which it knows which
+stats are wanted. The ndo also gets a void pointer to be cast according
+to the attribute id.
 
-Let me know if there's any problem.
+Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ include/linux/netdevice.h | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
 
-Thanks,
-johannes
-
-
-
-The following changes since commit 02154927c115c7599677df57203988e05b576346:
-
-  net: dsa: bcm_sf2: Get VLAN_PORT_MASK from b53_device (2016-09-11 19:37:02 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211-next.git tags/mac80211-next-for-davem-2016-09-16
-
-for you to fetch changes up to fbd05e4a6e82fd573d3aa79e284e424b8d78c149:
-
-  cfg80211: add helper to find an IE that matches a byte-array (2016-09-16 14:49:52 +0200)
-
-----------------------------------------------------------------
-This time we have various things - all across the board:
- * MU-MIMO sniffer support in mac80211
- * a create_singlethread_workqueue() cleanup
- * interface dump filtering that was documented but not implemented
- * support for the new radiotap timestamp field
- * send delBA in two unexpected conditions (as required by the spec)
- * connect keys cleanups - allow only WEP with index 0-3
- * per-station aggregation limit to work around broken APs
- * debugfs improvement for the integrated codel algorithm
-and various other small improvements and cleanups.
-
-----------------------------------------------------------------
-Aviya Erenfeld (2):
-      mac80211: refactor monitor representation in sdata
-      mac80211: add support for MU-MIMO air sniffer
-
-Bhaktipriya Shridhar (1):
-      cfg80211: Remove deprecated create_singlethread_workqueue
-
-Denis Kenzior (1):
-      nl80211: Allow GET_INTERFACE dumps to be filtered
-
-Emmanuel Grumbach (2):
-      cfg80211: clarify the requirements of .disconnect()
-      mac80211: allow using AP_LINK_PS with mac80211-generated TIM IE
-
-Johannes Berg (21):
-      mac80211: add support for radiotap timestamp field
-      mac80211: send delBA on unexpected BlockAck data frames
-      mac80211: send delBA on unexpected BlockAck Request
-      mac80211: simplify TDLS RA lookup
-      mac80211: remove useless open_count check
-      cfg80211: disallow shared key authentication with key index 4
-      nl80211: fix connect keys range check
-      nl80211: only allow WEP keys during connect command
-      cfg80211: wext: only allow WEP keys to be configured before connected
-      cfg80211: validate key index better
-      cfg80211: reduce connect key caching struct size
-      cfg80211: allow connect keys only with default (TX) key
-      mac80211: fix possible out-of-bounds access
-      mac80211: fix scan completed tracing
-      nl80211: always check nla_nest_start() return value
-      nl80211: always check nla_put* return values
-      mac80211: remove unused assignment
-      mac80211: remove pointless chanctx NULL check
-      mac80211: remove sta_remove_debugfs driver callback
-      cfg80211: remove unnecessary pointer-of
-      mac80211_hwsim: statically initialize hwsim_radios list
-
-Luca Coelho (1):
-      cfg80211: add helper to find an IE that matches a byte-array
-
-Maxim Altshul (1):
-      mac80211: RX BA support for sta max_rx_aggregation_subframes
-
-Rajkumar Manoharan (1):
-      mac80211: allow driver to handle packet-loss mechanism
-
-Toke Høiland-Jørgensen (1):
-      mac80211: Re-structure aqm debugfs output and keep CoDel stats per txq
-
- drivers/net/wireless/mac80211_hwsim.c |   3 +-
- include/net/cfg80211.h                |  36 +++++++-
- include/net/ieee80211_radiotap.h      |  21 +++++
- include/net/mac80211.h                |  33 ++++++--
- net/mac80211/agg-rx.c                 |  11 ++-
- net/mac80211/cfg.c                    |  35 ++++++--
- net/mac80211/debugfs.c                | 152 ++++++----------------------------
- net/mac80211/debugfs_netdev.c         |  37 ++++++++-
- net/mac80211/debugfs_sta.c            |  56 ++++++++++++-
- net/mac80211/driver-ops.c             |   2 +-
- net/mac80211/driver-ops.h             |  18 +---
- net/mac80211/ieee80211_i.h            |  11 ++-
- net/mac80211/iface.c                  |  21 +++--
- net/mac80211/main.c                   |   3 +
- net/mac80211/mlme.c                   |  12 ++-
- net/mac80211/pm.c                     |   3 +-
- net/mac80211/rx.c                     |  69 ++++++++++++++-
- net/mac80211/scan.c                   |   2 +-
- net/mac80211/sta_info.c               |   5 +-
- net/mac80211/sta_info.h               |   3 +
- net/mac80211/status.c                 |   8 +-
- net/mac80211/tx.c                     |  21 ++---
- net/mac80211/util.c                   |   3 +-
- net/wireless/core.c                   |   2 +-
- net/wireless/core.h                   |   6 +-
- net/wireless/ibss.c                   |  11 +--
- net/wireless/mlme.c                   |   2 +-
- net/wireless/nl80211.c                |  85 ++++++++++++++++---
- net/wireless/scan.c                   |  58 ++++++-------
- net/wireless/sme.c                    |   3 +
- net/wireless/sysfs.c                  |   2 +-
- net/wireless/util.c                   |  13 +--
- net/wireless/wext-compat.c            |   9 +-
- net/wireless/wext-sme.c               |   5 +-
- 34 files changed, 484 insertions(+), 277 deletions(-)
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 2095b6a..a10d8d1 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -924,6 +924,14 @@ struct netdev_xdp {
+  *	3. Update dev->stats asynchronously and atomically, and define
+  *	   neither operation.
+  *
++ * bool (*ndo_has_offload_stats)(int attr_id)
++ *	Return true if this device supports offload stats of this attr_id.
++ *
++ * int (*ndo_get_offload_stats)(int attr_id, const struct net_device *dev,
++ *	void *attr_data)
++ *	Get statistics for offload operations by attr_id. Write it into the
++ *	attr_data pointer.
++ *
+  * int (*ndo_vlan_rx_add_vid)(struct net_device *dev, __be16 proto, u16 vid);
+  *	If device supports VLAN filtering this function is called when a
+  *	VLAN id is registered.
+@@ -1155,6 +1163,10 @@ struct net_device_ops {
+ 
+ 	struct rtnl_link_stats64* (*ndo_get_stats64)(struct net_device *dev,
+ 						     struct rtnl_link_stats64 *storage);
++	bool			(*ndo_has_offload_stats)(int attr_id);
++	int			(*ndo_get_offload_stats)(int attr_id,
++							 const struct net_device *dev,
++							 void *attr_data);
+ 	struct net_device_stats* (*ndo_get_stats)(struct net_device *dev);
+ 
+ 	int			(*ndo_vlan_rx_add_vid)(struct net_device *dev,
+-- 
+2.5.5
