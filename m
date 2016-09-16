@@ -1,56 +1,120 @@
-From: Mike Manning <mmanning@brocade.com>
-Subject: [PATCH] net: ipv6: Disable forwarding per interface via sysctl
-Date: Fri, 16 Sep 2016 13:47:56 +0100
-Message-ID: <1474030076-24809-1-git-send-email-mmanning@brocade.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
+From: Vincent Bernat <vincent@bernat.im>
+Subject: [PATCH] net: ipv6: fallback to full lookup if table lookup is unsuitable
+Date: Fri, 16 Sep 2016 14:55:31 +0200
+Message-ID: <20160916125531.3486-1-vincent@bernat.im>
+Cc: Vincent Bernat <vincent@bernat.im>
+To: "David S. Miller" <davem@davemloft.net>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:37829 "EHLO
-        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S932698AbcIPMsp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 08:48:45 -0400
-Received: from pps.filterd (m0000542.ppops.net [127.0.0.1])
-        by mx0a-000f0801.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8GCmi3V016109
-        for <netdev@vger.kernel.org>; Fri, 16 Sep 2016 05:48:44 -0700
-Received: from brmwp-exmb12.corp.brocade.com ([208.47.132.227])
-        by mx0a-000f0801.pphosted.com with ESMTP id 25chk1enve-20
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-SHA384 bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 16 Sep 2016 05:48:44 -0700
+Received: from bart.luffy.cx ([78.47.78.131]:44097 "EHLO bart.luffy.cx"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1757429AbcIPMzp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 16 Sep 2016 08:55:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Disabling forwarding per interface via sysctl continues to allow
-forwarding. This is contrary to the sysctl documentation stating that
-the forwarding sysctl is per interface, whereas currently it is only
-the sysctl for all interfaces that has an effect on forwarding. The
-solution is to drop any received packets instead of forwarding them
-if the ingress device has a per-device forwarding sysctl that is unset.
+Commit 8c14586fc320 ("net: ipv6: Use passed in table for nexthop
+lookups") introduced a regression: insertion of an IPv6 route in a table
+not containing the appropriate connected route for the gateway but which
+contained a non-connected route (like a default gateway) fails while it
+was previously working:
 
-Signed-off-by: Mike Manning <mmanning@brocade.com>
+    $ ip link add eth0 type dummy
+    $ ip link set up dev eth0
+    $ ip addr add 2001:db8::1/64 dev eth0
+    $ ip route add ::/0 via 2001:db8::5 dev eth0 table 20
+    $ ip route add 2001:db8:cafe::1/128 via 2001:db8::6 dev eth0 table 20
+    RTNETLINK answers: No route to host
+    $ ip -6 route show table 20
+    default via 2001:db8::5 dev eth0  metric 1024  pref medium
+
+After this patch, we get:
+
+    $ ip route add 2001:db8:cafe::1/128 via 2001:db8::6 dev eth0 table 20
+    $ ip -6 route show table 20
+    2001:db8:cafe::1 via 2001:db8::6 dev eth0  metric 1024  pref medium
+    default via 2001:db8::5 dev eth0  metric 1024  pref medium
+
+Signed-off-by: Vincent Bernat <vincent@bernat.im>
 ---
- net/ipv6/ip6_output.c |    4 ++++
- 1 file changed, 4 insertions(+)
+ net/ipv6/route.c | 48 +++++++++++++++++++++++++++---------------------
+ 1 file changed, 27 insertions(+), 21 deletions(-)
 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 1dfc402..37cd1d0 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -380,11 +380,15 @@ int ip6_forward(struct sk_buff *skb)
- 	struct ipv6hdr *hdr = ipv6_hdr(skb);
- 	struct inet6_skb_parm *opt = IP6CB(skb);
- 	struct net *net = dev_net(dst->dev);
-+	struct inet6_dev *idev = __in6_dev_get(skb->dev);
- 	u32 mtu;
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index ad4a7ff301fc..c2aaddcfed9e 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1808,6 +1808,30 @@ static struct rt6_info *ip6_nh_lookup_table(struct net *net,
+ 	return rt;
+ }
  
- 	if (net->ipv6.devconf_all->forwarding == 0)
- 		goto error;
- 
-+	if (idev && !idev->cnf.forwarding)
-+		goto error;
++static int ip6_nh_valid(struct rt6_info *grt,
++			struct net_device **dev, struct inet6_dev **idev) {
++	int ret = 0;
 +
- 	if (skb->pkt_type != PACKET_HOST)
- 		goto drop;
++	if (!grt)
++		goto out;
++	if (grt->rt6i_flags & RTF_GATEWAY)
++		goto out;
++	if (*dev) {
++		if (*dev != grt->dst.dev)
++			goto out;
++	} else {
++		*dev = grt->dst.dev;
++		*idev = grt->rt6i_idev;
++		dev_hold(*dev);
++		in6_dev_hold(*idev);
++	}
++	ret = 1;
++out:
++	if (grt)
++		ip6_rt_put(grt);
++	return ret;
++}
++
+ static struct rt6_info *ip6_route_info_create(struct fib6_config *cfg)
+ {
+ 	struct net *net = cfg->fc_nlinfo.nl_net;
+@@ -1991,33 +2015,15 @@ static struct rt6_info *ip6_route_info_create(struct fib6_config *cfg)
+ 			if (!(gwa_type & IPV6_ADDR_UNICAST))
+ 				goto out;
  
++			err = -EHOSTUNREACH;
+ 			if (cfg->fc_table)
+ 				grt = ip6_nh_lookup_table(net, cfg, gw_addr);
+-
+-			if (!grt)
++			if (!ip6_nh_valid(grt, &dev, &idev)) {
+ 				grt = rt6_lookup(net, gw_addr, NULL,
+ 						 cfg->fc_ifindex, 1);
+-
+-			err = -EHOSTUNREACH;
+-			if (!grt)
+-				goto out;
+-			if (dev) {
+-				if (dev != grt->dst.dev) {
+-					ip6_rt_put(grt);
++				if (!ip6_nh_valid(grt, &dev, &idev))
+ 					goto out;
+-				}
+-			} else {
+-				dev = grt->dst.dev;
+-				idev = grt->rt6i_idev;
+-				dev_hold(dev);
+-				in6_dev_hold(grt->rt6i_idev);
+ 			}
+-			if (!(grt->rt6i_flags & RTF_GATEWAY))
+-				err = 0;
+-			ip6_rt_put(grt);
+-
+-			if (err)
+-				goto out;
+ 		}
+ 		err = -EINVAL;
+ 		if (!dev || (dev->flags & IFF_LOOPBACK))
 -- 
-1.7.10.4
+2.9.3
