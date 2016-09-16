@@ -1,44 +1,61 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net PATCH] mlx4: fix XDP_TX is acting like XDP_PASS on TX ring full
-Date: Fri, 16 Sep 2016 21:47:05 +0200
-Message-ID: <20160916194645.13201.70408.stgit@firesoul>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH v3] net: ip, diag -- Add diag interface for raw sockets
+Date: Fri, 16 Sep 2016 13:47:57 -0600
+Message-ID: <d943c6b7-0f06-3823-58d2-6f79f17c3d59@cumulusnetworks.com>
+References: <20160913171950.GC32643@uranus>
+ <8260ff1f-6907-aed8-caae-68d63a4ad529@cumulusnetworks.com>
+ <20160915202219.GB1867@uranus.lan>
+ <f482796f-185e-a3b7-248c-20f1f39cb459@cumulusnetworks.com>
+ <20160915210126.GC1867@uranus.lan>
+ <1473979691.22679.55.camel@edumazet-glaptop3.roam.corp.google.com>
+ <999f0ddb-82e4-ea07-b52a-59d08bc7816d@cumulusnetworks.com>
+ <20160916070623.GD1867@uranus.lan> <20160916190000.GA18116@uranus.lan>
+ <59e12627-7043-fd20-0d68-899ab43b0e71@cumulusnetworks.com>
+ <20160916193927.GB18116@uranus.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, bblanco@plumgrid.com, rana.shahot@gmail.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Jesper Dangaard Brouer <brouer@redhat.com>
-To: netdev@vger.kernel.org, tariqt@mellanox.com
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, avagin@openvz.org, stephen@networkplumber.org
+To: Cyrill Gorcunov <gorcunov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36920 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S964829AbcIPTrI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 16 Sep 2016 15:47:08 -0400
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:33399 "EHLO
+        mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755005AbcIPTsy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 15:48:54 -0400
+Received: by mail-pa0-f51.google.com with SMTP id cm16so28820198pac.0
+        for <netdev@vger.kernel.org>; Fri, 16 Sep 2016 12:47:59 -0700 (PDT)
+In-Reply-To: <20160916193927.GB18116@uranus.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The XDP_TX action can fail transmitting the frame in case the TX ring
-is full or port is down.  In case of TX failure it should drop the
-frame, and not as now call 'break' which is the same as XDP_PASS.
+On 9/16/16 1:39 PM, Cyrill Gorcunov wrote:
+> On Fri, Sep 16, 2016 at 01:30:28PM -0600, David Ahern wrote:
+>>> [root@pcs7 iproute2]# misc/ss -A raw
+>>> State      Recv-Q Send-Q                                Local Address:Port                                                 Peer Address:Port                
+>>> ESTAB      0      0                                         127.0.0.1:ipproto-255                                            127.0.0.10:ipproto-9090         
+>>> UNCONN     0      0                                        127.0.0.10:ipproto-255                                                     *:*                    
+>>> UNCONN     0      0                                                :::ipv6-icmp                                                      :::*                    
+>>> UNCONN     0      0                                                :::ipv6-icmp                                                      :::*                    
+>>> ESTAB      0      0                                               ::1:ipproto-255                                                   ::1:ipproto-9091         
+>>>
+>>> so it get zapped out. Is there some other way to test it?
+>>>
+>>
+>> I'm guessing you passed IPPROTO_RAW (255) as the protocol to socket(). If you pass something
+>> else (IPPROTO_ICMP for example) it won't work.
+> 
+> True. To support IPPROTO_ICMP it need enhancement. I thought start with
+> plain _RAW first and then extend to support _ICMP.
 
-Fixes: 9ecc2d86171a ("net/mlx4_en: add xdp forwarding and data write support")
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+I thought raw in this case was SOCK_RAW as in the socket type.
 
----
-Note, this fix have nothing to do with the page-refcnt bug I just reported.
+Since the display is showing sockets in addition to IPPROTO_RAW:
 
- drivers/net/ethernet/mellanox/mlx4/en_rx.c |    1 +
- 1 file changed, 1 insertion(+)
+$ ss -A raw
+State      Recv-Q Send-Q        Local Address:Port                         Peer Address:Port
+UNCONN     0      0                    *%eth0:icmp                                    *:*
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 2040dad8611d..d414c67dfd12 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -906,6 +906,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 							length, tx_index,
- 							&doorbell_pending))
- 					goto consumed;
-+				goto next;
- 				break;
- 			default:
- 				bpf_warn_invalid_xdp_action(act);
+It is going to be confusing if only ipproto-255 sockets can be killed.
