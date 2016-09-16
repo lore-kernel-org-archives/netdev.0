@@ -1,108 +1,187 @@
-From: Michael Ma <make0818@gmail.com>
-Subject: Re: Modification to skb->queue_mapping affecting performance
-Date: Fri, 16 Sep 2016 15:00:01 -0700
-Message-ID: <CAAmHdhwZUeKd_GKj8JdbXtdAZxn8sfbaGx+1Mjzn08rT3yf=+g@mail.gmail.com>
-References: <CAAmHdhxyrwJXHysUU6KoXeTaRHK8Mxr5PH9j4drR_87T+Wnypg@mail.gmail.com>
- <1473808021.18970.246.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAAmHdhw6JXYtYNjcJchieW-KcwRkNnFmXTRTXrLQS_Kh+rfP2w@mail.gmail.com>
- <1473811749.18970.259.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAAmHdhy_=GJKBE9=YD2n8MZOaBzD_JJrk4i8Rq43ob2HbWqbCA@mail.gmail.com>
- <1473815917.18970.266.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAAmHdhxGBBOCebkvq43pwsaZ8HcULZmXnikQAtc2uLBMWZgXjA@mail.gmail.com>
- <1473830571.22679.4.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAAmHdhzKyZ0M_L6OSxaOoLwf4u-T+yFOvBckaiq9OpVJA7Ca0A@mail.gmail.com>
- <CAAmHdhyhywBPhHgB5ySXwhvvSAnxUwkCNQrhnLY9WxoMbAYqoQ@mail.gmail.com>
- <CAAmHdhx7uvg_q49oz_u8q6NYmv=okxmKg1Tc5ny6oRCvaxbnww@mail.gmail.com> <1474055639.22679.74.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCHv5 net-next 06/15] bpf: enable non-core use of the verfier
+Date: Sat, 17 Sep 2016 00:31:27 +0200
+Message-ID: <57DC72BF.3010207@iogearbox.net>
+References: <1474018622-10653-1-git-send-email-jakub.kicinski@netronome.com> <1474018622-10653-7-git-send-email-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ast@kernel.org
+To: Jakub Kicinski <jakub.kicinski@netronome.com>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f182.google.com ([209.85.223.182]:35888 "EHLO
-        mail-io0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755503AbcIPWAC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 18:00:02 -0400
-Received: by mail-io0-f182.google.com with SMTP id m79so39837748ioo.3
-        for <netdev@vger.kernel.org>; Fri, 16 Sep 2016 15:00:02 -0700 (PDT)
-In-Reply-To: <1474055639.22679.74.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from www62.your-server.de ([213.133.104.62]:47502 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755647AbcIPWbc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 18:31:32 -0400
+In-Reply-To: <1474018622-10653-7-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2016-09-16 12:53 GMT-07:00 Eric Dumazet <eric.dumazet@gmail.com>:
-> On Fri, 2016-09-16 at 10:57 -0700, Michael Ma wrote:
+On 09/16/2016 11:36 AM, Jakub Kicinski wrote:
+> Advanced JIT compilers and translators may want to use
+> eBPF verifier as a base for parsers or to perform custom
+> checks and validations.
 >
->> This is actually the problem - if flows from different RX queues are
->> switched to the same RX queue in IFB, they'll use different processor
->> context with the same tasklet, and the processor context of different
->> tasklets might be the same. So multiple tasklets in IFB competes for
->> the same core when queue is switched.
->>
->> The following simple fix proved this - with this change even switching
->> the queue won't affect small packet bandwidth/latency anymore:
->>
->> in ifb.c:
->>
->> -       struct ifb_q_private *txp = dp->tx_private + skb_get_queue_mapping(skb);
->> +       struct ifb_q_private *txp = dp->tx_private +
->> (smp_processor_id() % dev->num_tx_queues);
->>
->> This should be more efficient since we're not sending the task to a
->> different processor, instead we try to queue the packet to an
->> appropriate tasklet based on the processor ID. Will this cause any
->> packet out-of-order problem? If packets from the same flow are queued
->> to the same RX queue due to RSS, and processor affinity is set for RX
->> queues, I assume packets from the same flow will end up in the same
->> core when tasklet is scheduled. But I might have missed some uncommon
->> cases here... Would appreciate if anyone can provide more insights.
+> Add ability for external users to invoke the verifier
+> and provide callbacks to be invoked for every intruction
+> checked.  For now only add most basic callback for
+> per-instruction pre-interpretation checks is added.  More
+> advanced users may also like to have per-instruction post
+> callback and state comparison callback.
 >
-> Wait, don't you have proper smp affinity for the RX queues on your NIC ?
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
+> ---
+> v4:
+>   - separate from the header split patch.
+> ---
+>   include/linux/bpf_verifier.h | 11 +++++++
+>   kernel/bpf/verifier.c        | 68 ++++++++++++++++++++++++++++++++++++++++++++
+>   2 files changed, 79 insertions(+)
 >
-> ( Documentation/networking/scaling.txt RSS IRQ Configuration )
+> diff --git a/include/linux/bpf_verifier.h b/include/linux/bpf_verifier.h
+> index 9056117b4a81..925359e1d9a1 100644
+> --- a/include/linux/bpf_verifier.h
+> +++ b/include/linux/bpf_verifier.h
+> @@ -59,6 +59,12 @@ struct bpf_insn_aux_data {
 >
-Yes - what I was trying to say is that this change will be more
-efficient than using smp_call_function_single() to schedule the
-tasklet to a different processor.
+>   #define MAX_USED_MAPS 64 /* max number of maps accessed by one eBPF program */
+>
+> +struct bpf_verifier_env;
+> +struct bpf_ext_analyzer_ops {
+> +	int (*insn_hook)(struct bpf_verifier_env *env,
+> +			 int insn_idx, int prev_insn_idx);
+> +};
+> +
+>   /* single container for all structs
+>    * one verifier_env per bpf_check() call
+>    */
+> @@ -68,6 +74,8 @@ struct bpf_verifier_env {
+>   	int stack_size;			/* number of states to be processed */
+>   	struct bpf_verifier_state cur_state; /* current verifier state */
+>   	struct bpf_verifier_state_list **explored_states; /* search pruning optimization */
+> +	const struct bpf_ext_analyzer_ops *analyzer_ops; /* external analyzer ops */
+> +	void *analyzer_priv; /* pointer to external analyzer's private data */
+>   	struct bpf_map *used_maps[MAX_USED_MAPS]; /* array of map's used by eBPF program */
+>   	u32 used_map_cnt;		/* number of used maps */
+>   	u32 id_gen;			/* used to generate unique reg IDs */
+> @@ -75,4 +83,7 @@ struct bpf_verifier_env {
+>   	struct bpf_insn_aux_data *insn_aux_data; /* array of per-insn state */
+>   };
+>
+> +int bpf_analyzer(struct bpf_prog *prog, const struct bpf_ext_analyzer_ops *ops,
+> +		 void *priv);
+> +
+>   #endif /* _LINUX_BPF_VERIFIER_H */
+> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+> index 6e126a417290..d93e78331b90 100644
+> --- a/kernel/bpf/verifier.c
+> +++ b/kernel/bpf/verifier.c
+> @@ -624,6 +624,10 @@ static int check_packet_access(struct bpf_verifier_env *env, u32 regno, int off,
+>   static int check_ctx_access(struct bpf_verifier_env *env, int off, int size,
+>   			    enum bpf_access_type t, enum bpf_reg_type *reg_type)
+>   {
+> +	/* for analyzer ctx accesses are already validated and converted */
+> +	if (env->analyzer_ops)
+> +		return 0;
+> +
+>   	if (env->prog->aux->ops->is_valid_access &&
+>   	    env->prog->aux->ops->is_valid_access(off, size, t, reg_type)) {
+>   		/* remember the offset of last byte accessed in ctx */
+> @@ -2222,6 +2226,15 @@ static int is_state_visited(struct bpf_verifier_env *env, int insn_idx)
+>   	return 0;
+>   }
+>
+> +static int ext_analyzer_insn_hook(struct bpf_verifier_env *env,
+> +				  int insn_idx, int prev_insn_idx)
+> +{
+> +	if (!env->analyzer_ops || !env->analyzer_ops->insn_hook)
+> +		return 0;
+> +
+> +	return env->analyzer_ops->insn_hook(env, insn_idx, prev_insn_idx);
+> +}
+> +
+>   static int do_check(struct bpf_verifier_env *env)
+>   {
+>   	struct bpf_verifier_state *state = &env->cur_state;
+> @@ -2280,6 +2293,10 @@ static int do_check(struct bpf_verifier_env *env)
+>   			print_bpf_insn(insn);
+>   		}
+>
+> +		err = ext_analyzer_insn_hook(env, insn_idx, prev_insn_idx);
+> +		if (err)
+> +			return err;
+> +
 
-RSS IRQ should be set properly already. The issue here is that I'll
-need to switch the queue mapping for NIC RX to a different TXQ on IFB,
-which allows me to classify the flows at the IFB TXQ layer and avoid
-qdisc lock contention.
+Looking at this and the nfp code translator (patch 8/15): Did you check this
+also with JIT hardening enabled? Presumably nfp sees this after it got JITed
+through the normal load via syscall. Then, when this gets rewritten using the
+BPF_REG_AX helper before the image gets locked, and you later on push this
+through bpf_analyzer() again, where the hook is called before re-verification
+of insns, it's still assumed to be MAX_BPF_REG in your hook callbacks, right?
+So, I was wondering wrt out of bounds in nfp_verify_insn() -> nfp_bpf_check_ctx_ptr()
+for things like BPF_STX? If that's the case, it would make sense to just reject
+any prog with reg that is BPF_REG_AX in nfp_verify_insn() upfront. Alternative
+would be to use MAX_BPF_JIT_REG in nfp and let bpf_analyzer() fail this via
+check_reg_arg() test.
 
-When that switch happens, ideally processor core shouldn't be switched
-because all the thread context isn't changed. The work in tasklet
-should be scheduled to the same processor as well. That's why I tried
-this change. Also conceptually IFB is a software device which should
-be able to schedule its workload independent from how NIC is
-configured for the interrupt handling.
-
-> A driver ndo_start_xmit() MUST use skb_get_queue_mapping(skb), because
-> the driver queue is locked before ndo_start_xmit())  (for non
-> NETIF_F_LLTX drivers at least)
->
-
-Thanks a lot for pointing out this! I was expecting this kind of
-guidance... Then the options would be:
-
-1. Use smp_call_function_single() to schedule the tasklet to a core
-statically mapped to the IFB TXQ, which is very similar to how TX/RX
-IRQ is configured.
-2. As you suggested below add some additional action to do the
-rescheduling before entering IFB - for example when receiving the
-packet we could just use RSS to redirect to the desired RXQ, however
-this doesn't seem to be easy, especially compared with the way how
-mqprio chooses the queue. The challenge here is that IFB queue
-selection is based on queue_mapping when skb arrives at IFB and core
-selection is based on RXQ on NIC and so it's also based on
-queue_mapping when skb arrives at NIC. Then these two queue_mappings
-must be the same so that there is no core conflict of processing two
-TXQs of IFB. Then this essentially means we have to change queue
-mapping of the NIC on the receiver side which can't be achieved using
-TC.
-
-> In case of ifb, __skb_queue_tail(&txp->rq, skb); could corrupt the skb
-> list.
->
-> In any case, you could have an action to do this before reaching IFB.
->
->
+>   		if (class == BPF_ALU || class == BPF_ALU64) {
+>   			err = check_alu_op(env, insn);
+>   			if (err)
+> @@ -2829,3 +2846,54 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr)
+>   	kfree(env);
+>   	return ret;
+>   }
+> +
+> +int bpf_analyzer(struct bpf_prog *prog, const struct bpf_ext_analyzer_ops *ops,
+> +		 void *priv)
+> +{
+> +	struct bpf_verifier_env *env;
+> +	int ret;
+> +
+> +	env = kzalloc(sizeof(struct bpf_verifier_env), GFP_KERNEL);
+> +	if (!env)
+> +		return -ENOMEM;
+> +
+> +	env->insn_aux_data = vzalloc(sizeof(struct bpf_insn_aux_data) *
+> +				     prog->len);
+> +	ret = -ENOMEM;
+> +	if (!env->insn_aux_data)
+> +		goto err_free_env;
+> +	env->prog = prog;
+> +	env->analyzer_ops = ops;
+> +	env->analyzer_priv = priv;
+> +
+> +	/* grab the mutex to protect few globals used by verifier */
+> +	mutex_lock(&bpf_verifier_lock);
+> +
+> +	log_level = 0;
+> +
+> +	env->explored_states = kcalloc(env->prog->len,
+> +				       sizeof(struct bpf_verifier_state_list *),
+> +				       GFP_KERNEL);
+> +	ret = -ENOMEM;
+> +	if (!env->explored_states)
+> +		goto skip_full_check;
+> +
+> +	ret = check_cfg(env);
+> +	if (ret < 0)
+> +		goto skip_full_check;
+> +
+> +	env->allow_ptr_leaks = capable(CAP_SYS_ADMIN);
+> +
+> +	ret = do_check(env);
+> +
+> +skip_full_check:
+> +	while (pop_stack(env, NULL) >= 0);
+> +	free_states(env);
+> +
+> +	mutex_unlock(&bpf_verifier_lock);
+> +	vfree(env->insn_aux_data);
+> +err_free_env:
+> +	kfree(env);
+> +	return ret;
+> +}
+> +EXPORT_SYMBOL_GPL(bpf_analyzer);
 >
