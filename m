@@ -1,51 +1,103 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: XDP_TX bug report on mlx4
-Date: Fri, 16 Sep 2016 21:03:40 +0200
-Message-ID: <20160916210340.4a7cdef8@redhat.com>
+From: Vincent Bernat <vincent@bernat.im>
+Subject: Re: [PATCH] net: ipv6: fallback to full lookup if table lookup is unsuitable
+Date: Fri, 16 Sep 2016 21:15:14 +0200
+Message-ID: <m3twdfk665.fsf@neo.luffy.cx>
+References: <20160916125531.3486-1-vincent@bernat.im>
+        <adff2e07-75e1-d44c-4799-0920ffcd2622@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Rana Shahout <rana.shahot@gmail.com>,
-        Eran Ben Elisha <eranbe@mellanox.com>
-To: Brenden Blanco <bblanco@plumgrid.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57398 "EHLO mx1.redhat.com"
+Received: from bart.luffy.cx ([78.47.78.131]:46035 "EHLO bart.luffy.cx"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753513AbcIPTDq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 16 Sep 2016 15:03:46 -0400
+        id S1756501AbcIPTPT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 16 Sep 2016 15:15:19 -0400
+In-Reply-To: <adff2e07-75e1-d44c-4799-0920ffcd2622@cumulusnetworks.com> (David
+        Ahern's message of "Fri, 16 Sep 2016 12:36:04 -0600")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Brenden,
+ =E2=9D=A6 16 septembre 2016 20:36 CEST, David Ahern <dsa@cumulusnetworks.c=
+om>=C2=A0:
 
-I've discovered a bug with XDP_TX recycling of pages in the mlx4 driver.
+>> contained a non-connected route (like a default gateway) fails while it
+>> was previously working:
+>>=20
+>>     $ ip link add eth0 type dummy
+>>     $ ip link set up dev eth0
+>>     $ ip addr add 2001:db8::1/64 dev eth0
+>>     $ ip route add ::/0 via 2001:db8::5 dev eth0 table 20
+>>     $ ip route add 2001:db8:cafe::1/128 via 2001:db8::6 dev eth0 table 20
+>>     RTNETLINK answers: No route to host
+>>     $ ip -6 route show table 20
+>>     default via 2001:db8::5 dev eth0  metric 1024  pref medium
+>
+> so your table 20 is not complete in that it lacks a connected route to
+> resolve 2001:db8::6 as a nexthop, so you are relying on a fallback to
+> other tables (main in this case).
 
-If I increase the number of RX and TX queues/channels via ethtool cmd:
- ethtool -L mlx4p1 rx 10 tx 10
+Yes.
 
-Then when running the xdp2 program, which does XDP_TX, the kernel will
-crash with page errors, because the page refcnt goes to zero or even
-minus.  I've noticed pages delivered to mlx4_en_rx_recycle() can have
-a page refcnt of zero, which is wrong, they should always have 1 (for
-XDP).
+>> @@ -1991,33 +2015,15 @@ static struct rt6_info *ip6_route_info_create(st=
+ruct fib6_config *cfg)
+>>  			if (!(gwa_type & IPV6_ADDR_UNICAST))
+>>  				goto out;
+>>=20=20
+>> +			err =3D -EHOSTUNREACH;
+>>  			if (cfg->fc_table)
+>>  				grt =3D ip6_nh_lookup_table(net, cfg, gw_addr);
+>
+> -----8<-----
+>
+>> -			if (!(grt->rt6i_flags & RTF_GATEWAY))
+>> -				err =3D 0;
+>
+> This is the check that is failing for your use
+> case. ip6_nh_lookup_table is returning the default route and nexthops
+> can not rely on a gateway. Given that a simpler and more direct change
+> is (whitespace mangled on paste):
+>
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index ad4a7ff301fc..48bae2ee2e18 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -1991,9 +1991,19 @@ static struct rt6_info *ip6_route_info_create(stru=
+ct fib6_config *cfg)
+>                         if (!(gwa_type & IPV6_ADDR_UNICAST))
+>                                 goto out;
+>
+> -                       if (cfg->fc_table)
+> +                       if (cfg->fc_table) {
+>                                 grt =3D ip6_nh_lookup_table(net, cfg, gw_=
+addr);
+>
+> +                               /* a nexthop lookup can not go through a =
+gw.
+> +                                * if this happens on a table based lookup
+> +                                * then fallback to a full lookup
+> +                                */
+> +                               if (grt && grt->rt6i_flags & RTF_GATEWAY)=
+ {
+> +                                       ip6_rt_put(grt);
+> +                                       grt =3D NULL;
+> +                               }
+> +                       }
+> +
+>                         if (!grt)
+>                                 grt =3D rt6_lookup(net, gw_addr, NULL,
+>                                                  cfg->fc_ifindex, 1);
 
-Debugging it further, I find that this can happen when mlx4_en_rx_recycle()
-is called from mlx4_en_recycle_tx_desc().  This is the TX cleanup function,
-associated with TX ring queues used for XDP_TX only. No others than the
-XDP_TX action should be able to place packets into these TX rings
-which call mlx4_en_recycle_tx_desc().
-
-Do you have any idea of what could be going wrong in this case?
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+OK. Should the dev check be dismissed or do we add "dev && dev !=3D
+grt->dst.dev" just as a safety net (this would be a convulated setup,
+but the correct direct route could be in an ip rule with higher priority
+while the one in this table is incorrect)?
+--=20
+"... an experienced, industrious, ambitious, and often quite often
+picturesque liar."
+		-- Mark Twain
