@@ -1,83 +1,64 @@
-From: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: cdc_ncm driver padding problem (WAS: Question about
- CDC_NCM_FLAG_NDP_TO_END)
-Date: Fri, 16 Sep 2016 01:46:25 +0200 (CEST)
-Message-ID: <alpine.LNX.2.20.1609160141270.19559@localhost.localdomain>
-References: <57D41536.2090102@gmail.com> <57D437E4.2000708@gmail.com> <alpine.LNX.2.20.1609111517350.30036@localhost.localdomain> <15569aad-22e2-aa4d-e7f1-832063c6490a@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Bjron Mork <bjorn-yOkvZcmFvRU@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Marek Brudka <mbrudka-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <15569aad-22e2-aa4d-e7f1-832063c6490a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Mahesh Bandewar <mahesh@bandewar.net>
+Subject: [PATCHv3 next 0/3] IPvlan introduce l3s mode
+Date: Thu, 15 Sep 2016 17:13:20 -0700
+Message-ID: <1473984800-32020-1-git-send-email-mahesh@bandewar.net>
+Cc: Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>,
+        Mahesh Bandewar <maheshb@google.com>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:36576 "EHLO
+        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757295AbcIPANh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 20:13:37 -0400
+Received: by mail-pa0-f66.google.com with SMTP id p2so2710281pap.3
+        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 17:13:36 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello guys.
-Some very good people managed to detect there is a problem with some Huawei firmwares and NCM padding. I actually don't think I have the hardware to test btw.
+From: Mahesh Bandewar <maheshb@google.com>
 
-On Wed, 14 Sep 2016, Marek Brudka wrote:
-Sorry Marek - I forwarded this message without asking for your consent. Let me know anyway if this is a problem. thank you all guys for everything,
-Enrico
+Same old problem with new approach especially from suggestions from
+earlier patch-series.
 
-==Date: Wed, 14 Sep 2016 19:31:50
-==From: Marek Brudka <mbrudka-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-==To: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-==Subject: Re: Question about CDC_NCM_FLAG_NDP_TO_END
-==
-==Hello Enrico,
-==
-==As nobody at openwrt forum replied to my request on the way how to get
-==the exact
-==recompilation of OpenWrt 15.05.1 I decided to switch to the developement
-==version
-==(12/09/2016), which already contains your patch.
-==
-==The nice thing is that I got my modem (E3372 HiLink reflashed to E398)
-==working
-==in ncm mode!
-==
-==The bad thing is DHCP. It seems, that cdc_ncm driver somehow consumes DHCP
-==replies. I had to manually setup wwan0 interface as well as routing
-==using the result
-==of Hayes command
-==
-==AT^DHCP?
-==^DHCP:
-==EC684764,F8FFFFFF,E9684764,E9684764,356002D4,366002D4,43200000,43200000
-==OK
-==
-==Certainly, I will modify connect scripts
-==   
-==https://github.com/zabbius/smarthome/tree/master/openwrt/huawei-ncm/files/usr/sbin
-==for me to parse this response. However it seems, that the problem is on
-==driver level and
-==is related with padding. Do you know this issue which is nicely
-==described in the thread
-==    https://forum.openwrt.org/viewtopic.php?pid=273099
-==of OpenWrt forum?
-==
-==Thank you
-==Marek Brudka
-==
-==
-==W dniu 11.09.2016 o 15:19, Enrico Mioso pisze:
-==> Hello Marek.
-==>
-==> First of all, thank you for your interest in this driver, and for writing.
-==>
-==> Unfortunately, I don't know the exact procedure to do that: you might be confortable putting those patches in generic-patches-kernel_version if I am not wrong, but I may well be wrong or imprecise, and recompile the whole Openwrt thing?
-==> don't know. But yes, that message should appear in the dmesg.
-==> NDPs need to be at end of NCM frames. Oh, I don't remember well what NDP stands for... ufh. Sorry.
-==>
-==> Anyway, let me know if I can do something for you.
-==> Enrico
-==>
-==
-==
-==
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+First thing is that this is introduced as a new mode rather than
+modifying the old (L3) mode. So the behavior of the existing modes is
+preserved as it is and the new L3s mode obeys iptables so that intended
+conn-tracking can work. 
+
+To do this, the code uses newly added l3mdev_rcv() handler and an
+Iptables hook. l3mdev_rcv() to perform an inbound route lookup with the
+correct (IPvlan slave) interface and then IPtable-hook at LOCAL_INPUT
+to change the input device from master to the slave to complete the
+formality.
+
+Supporting stack changes are trivial changes to export symbol to get
+IPv4 equivalent code exported for IPv6 and to allow netfilter hook
+registration code to allow caller to hold RTNL. Please look into
+individual patches for details.
+
+Mahesh Bandewar (3):
+  ipv6: Export p6_route_input_lookup symbol
+  net: Add _nf_(un)register_hooks symbols
+  ipvlan: Introduce l3s mode
+
+ Documentation/networking/ipvlan.txt |  7 ++-
+ drivers/net/Kconfig                 |  1 +
+ drivers/net/ipvlan/ipvlan.h         |  7 +++
+ drivers/net/ipvlan/ipvlan_core.c    | 94 +++++++++++++++++++++++++++++++++++++
+ drivers/net/ipvlan/ipvlan_main.c    | 92 +++++++++++++++++++++++++++++++++---
+ include/linux/netfilter.h           |  2 +
+ include/net/ip6_route.h             |  3 ++
+ include/uapi/linux/if_link.h        |  1 +
+ net/ipv6/route.c                    |  7 +--
+ net/netfilter/core.c                | 51 ++++++++++++++++++--
+ 10 files changed, 249 insertions(+), 16 deletions(-)
+
+v1: Initial post
+v2: Text correction and config changed from "select" to "depends on"
+v3: separated nf_hook registration logic and made it independent of port
+    as nf_hook registration is independant of how many IPvlan ports are
+    present in the system.
+
+-- 
+2.8.0.rc3.226.g39d4020
