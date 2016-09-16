@@ -1,60 +1,47 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net] sctp: fix SSN comparision
-Date: Fri, 16 Sep 2016 09:13:53 -0400
-Message-ID: <20160916131353.GA13122@hmsreliant.think-freely.org>
-References: <9f22e4725d836feda1b2c2483303adb30838216f.1473962178.git.marcelo.leitner@gmail.com>
+From: Anton Aksola <aakso@iki.fi>
+Subject: Re: [PATCH v2] iproute2: build nsid-name cache only for commands
+ that need it
+Date: Fri, 16 Sep 2016 13:18:05 +0000
+Message-ID: <20160916131804.GA19216@toys.tundra.dog-lvm.novalocal>
+References: <20160916072225.GA10536@toys.tundra.dog-lvm.novalocal>
+ <1cced3be-a4d4-ef04-6079-e65755d9975b@6wind.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        Vlad Yasevich <vyasevich@gmail.com>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:33860 "EHLO
-        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756624AbcIPNOJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 09:14:09 -0400
+Received: from smtp-78.nebula.fi ([83.145.220.78]:58830 "EHLO smtp.nebula.fi"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1756422AbcIPNSE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 16 Sep 2016 09:18:04 -0400
 Content-Disposition: inline
-In-Reply-To: <9f22e4725d836feda1b2c2483303adb30838216f.1473962178.git.marcelo.leitner@gmail.com>
+In-Reply-To: <1cced3be-a4d4-ef04-6079-e65755d9975b@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 15, 2016 at 03:02:38PM -0300, Marcelo Ricardo Leitner wrote:
-> This function actually operates on u32 yet its paramteres were declared
-> as u16, causing integer truncation upon calling.
-> 
-> Note in patch context that ADDIP_SERIAL_SIGN_BIT is already 32 bits.
-> 
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> ---
-> 
-> This issue exists since before git import, so I can't put a Fixes tag.
-> Also, that said, probably not worth queueing it to stable.
-> Thanks
-> 
->  include/net/sctp/sm.h | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/include/net/sctp/sm.h b/include/net/sctp/sm.h
-> index efc01743b9d641bf6b16a37780ee0df34b4ec698..bafe2a0ab9085f24e17038516c55c00cfddd02f4 100644
-> --- a/include/net/sctp/sm.h
-> +++ b/include/net/sctp/sm.h
-> @@ -382,7 +382,7 @@ enum {
->  	ADDIP_SERIAL_SIGN_BIT = (1<<31)
->  };
->  
-> -static inline int ADDIP_SERIAL_gte(__u16 s, __u16 t)
-> +static inline int ADDIP_SERIAL_gte(__u32 s, __u32 t)
->  {
->  	return ((s) == (t)) || (((t) - (s)) & ADDIP_SERIAL_SIGN_BIT);
->  }
-> -- 
-> 2.7.4
-> 
+On Fri, Sep 16, 2016 at 11:13:11AM +0200, Nicolas Dichtel wrote:
+> There is still some differences:
+> $ cat test.batch
+> netns add foo
+> netns set foo 1234
+> netns list-id
+>
+> Before your patch:
+> $ ip -b test.batch
+> nsid 1234 (iproute2 netns name: foo)
+>
+> After your patch:
+> $ ip -b test.batch
+> nsid 1234
 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+Nicolas,
+This seems to be caused by netns_add calling unshare(CLONE_NEWNET).
+If we initialize the socket for nsid after that it doesn't seem to work.
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Unfortunately I'm not an expert in these details. Should we separate the
+socket and cache initialization to different functions and call the
+socket init in the beginning of do_netns() as before? What do you think?
+I made a quick patch and it seems to work in batch mode now.
+
+BR,
+Anton
