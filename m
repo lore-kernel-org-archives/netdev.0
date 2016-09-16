@@ -1,44 +1,40 @@
 From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH net-next 03/14] net_sched: sch_fq: add low_rate_threshold parameter
-Date: Fri, 16 Sep 2016 14:48:52 -0400
-Message-ID: <1474051743-13311-4-git-send-email-ncardwell@google.com>
+Subject: [PATCH net-next 04/14] tcp: count packets marked lost for a TCP connection
+Date: Fri, 16 Sep 2016 14:48:53 -0400
+Message-ID: <1474051743-13311-5-git-send-email-ncardwell@google.com>
 References: <1474051743-13311-1-git-send-email-ncardwell@google.com>
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
         Van Jacobson <vanj@google.com>,
-        Neal Cardwell <ncardwell@google.com>,
         Yuchung Cheng <ycheng@google.com>,
         Nandita Dukkipati <nanditad@google.com>,
+        Eric Dumazet <edumazet@google.com>,
         Soheil Hassas Yeganeh <soheil@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f177.google.com ([209.85.220.177]:33660 "EHLO
-        mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1762014AbcIPStr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 14:49:47 -0400
-Received: by mail-qk0-f177.google.com with SMTP id w204so95956552qka.0
-        for <netdev@vger.kernel.org>; Fri, 16 Sep 2016 11:49:47 -0700 (PDT)
+Received: from mail-qt0-f171.google.com ([209.85.216.171]:35412 "EHLO
+        mail-qt0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1762137AbcIPStu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 14:49:50 -0400
+Received: by mail-qt0-f171.google.com with SMTP id 93so47226370qtg.2
+        for <netdev@vger.kernel.org>; Fri, 16 Sep 2016 11:49:49 -0700 (PDT)
 In-Reply-To: <1474051743-13311-1-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Count the number of packets that a TCP connection marks lost.
 
-This commit adds to the fq module a low_rate_threshold parameter to
-insert a delay after all packets if the socket requests a pacing rate
-below the threshold.
+Congestion control modules can use this loss rate information for more
+intelligent decisions about how fast to send.
 
-This helps achieve more precise control of the sending rate with
-low-rate paths, especially policers. The basic issue is that if a
-congestion control module detects a policer at a certain rate, it may
-want fq to be able to shape to that policed rate. That way the sender
-can avoid policer drops by having the packets arrive at the policer at
-or just under the policed rate.
+Specifically, this is used in TCP BBR policer detection. BBR uses a
+high packet loss rate as one signal in its policer detection and
+policer bandwidth estimation algorithm.
 
-The default threshold of 550Kbps was chosen analytically so that for
-policers or links at 500Kbps or 512Kbps fq would very likely invoke
-this mechanism, even if the pacing rate was briefly slightly above the
-available bandwidth. This value was then empirically validated with
-two years of production testing on YouTube video servers.
+The BBR policer detection algorithm cannot simply track retransmits,
+because a retransmit can be (and often is) an indicator of packets
+lost long, long ago. This is particularly true in a long CA_Loss
+period that repairs the initial massive losses when a policer kicks
+in.
 
 Signed-off-by: Van Jacobson <vanj@google.com>
 Signed-off-by: Neal Cardwell <ncardwell@google.com>
@@ -47,105 +43,85 @@ Signed-off-by: Nandita Dukkipati <nanditad@google.com>
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
 ---
- include/uapi/linux/pkt_sched.h |  2 ++
- net/sched/sch_fq.c             | 22 +++++++++++++++++++---
- 2 files changed, 21 insertions(+), 3 deletions(-)
+ include/linux/tcp.h  |  1 +
+ net/ipv4/tcp_input.c | 25 ++++++++++++++++++++++++-
+ 2 files changed, 25 insertions(+), 1 deletion(-)
 
-diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
-index 2382eed..f8e39db 100644
---- a/include/uapi/linux/pkt_sched.h
-+++ b/include/uapi/linux/pkt_sched.h
-@@ -792,6 +792,8 @@ enum {
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index 6433cc8..38590fb 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -267,6 +267,7 @@ struct tcp_sock {
+ 				 * receiver in Recovery. */
+ 	u32	prr_out;	/* Total number of pkts sent during Recovery. */
+ 	u32	delivered;	/* Total data packets delivered incl. rexmits */
++	u32	lost;		/* Total data packets lost incl. rexmits */
  
- 	TCA_FQ_ORPHAN_MASK,	/* mask applied to orphaned skb hashes */
+  	u32	rcv_wnd;	/* Current receiver window		*/
+ 	u32	write_seq;	/* Tail(+1) of data held in tcp send buffer */
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index ac5b38f..024b579 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -899,12 +899,29 @@ static void tcp_verify_retransmit_hint(struct tcp_sock *tp, struct sk_buff *skb)
+ 		tp->retransmit_high = TCP_SKB_CB(skb)->end_seq;
+ }
  
-+	TCA_FQ_LOW_RATE_THRESHOLD, /* per packet delay under this rate */
++/* Sum the number of packets on the wire we have marked as lost.
++ * There are two cases we care about here:
++ * a) Packet hasn't been marked lost (nor retransmitted),
++ *    and this is the first loss.
++ * b) Packet has been marked both lost and retransmitted,
++ *    and this means we think it was lost again.
++ */
++static void tcp_sum_lost(struct tcp_sock *tp, struct sk_buff *skb)
++{
++	__u8 sacked = TCP_SKB_CB(skb)->sacked;
 +
- 	__TCA_FQ_MAX
- };
++	if (!(sacked & TCPCB_LOST) ||
++	    ((sacked & TCPCB_LOST) && (sacked & TCPCB_SACKED_RETRANS)))
++		tp->lost += tcp_skb_pcount(skb);
++}
++
+ static void tcp_skb_mark_lost(struct tcp_sock *tp, struct sk_buff *skb)
+ {
+ 	if (!(TCP_SKB_CB(skb)->sacked & (TCPCB_LOST|TCPCB_SACKED_ACKED))) {
+ 		tcp_verify_retransmit_hint(tp, skb);
  
-diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
-index e5458b9..40ad4fc 100644
---- a/net/sched/sch_fq.c
-+++ b/net/sched/sch_fq.c
-@@ -94,6 +94,7 @@ struct fq_sched_data {
- 	u32		flow_max_rate;	/* optional max rate per flow */
- 	u32		flow_plimit;	/* max packets per flow */
- 	u32		orphan_mask;	/* mask for orphaned skb */
-+	u32		low_rate_threshold;
- 	struct rb_root	*fq_root;
- 	u8		rate_enable;
- 	u8		fq_trees_log;
-@@ -433,7 +434,7 @@ static struct sk_buff *fq_dequeue(struct Qdisc *sch)
- 	struct fq_flow_head *head;
+ 		tp->lost_out += tcp_skb_pcount(skb);
++		tcp_sum_lost(tp, skb);
+ 		TCP_SKB_CB(skb)->sacked |= TCPCB_LOST;
+ 	}
+ }
+@@ -913,6 +930,7 @@ void tcp_skb_mark_lost_uncond_verify(struct tcp_sock *tp, struct sk_buff *skb)
+ {
+ 	tcp_verify_retransmit_hint(tp, skb);
+ 
++	tcp_sum_lost(tp, skb);
+ 	if (!(TCP_SKB_CB(skb)->sacked & (TCPCB_LOST|TCPCB_SACKED_ACKED))) {
+ 		tp->lost_out += tcp_skb_pcount(skb);
+ 		TCP_SKB_CB(skb)->sacked |= TCPCB_LOST;
+@@ -1890,6 +1908,7 @@ void tcp_enter_loss(struct sock *sk)
  	struct sk_buff *skb;
- 	struct fq_flow *f;
--	u32 rate;
-+	u32 rate, plen;
+ 	bool new_recovery = icsk->icsk_ca_state < TCP_CA_Recovery;
+ 	bool is_reneg;			/* is receiver reneging on SACKs? */
++	bool mark_lost;
  
- 	skb = fq_dequeue_head(sch, &q->internal);
- 	if (skb)
-@@ -482,7 +483,7 @@ begin:
- 	prefetch(&skb->end);
- 	f->credit -= qdisc_pkt_len(skb);
+ 	/* Reduce ssthresh if it has not yet been made inside this window. */
+ 	if (icsk->icsk_ca_state <= TCP_CA_Disorder ||
+@@ -1923,8 +1942,12 @@ void tcp_enter_loss(struct sock *sk)
+ 		if (skb == tcp_send_head(sk))
+ 			break;
  
--	if (f->credit > 0 || !q->rate_enable)
-+	if (!q->rate_enable)
- 		goto out;
- 
- 	/* Do not pace locally generated ack packets */
-@@ -493,8 +494,15 @@ begin:
- 	if (skb->sk)
- 		rate = min(skb->sk->sk_pacing_rate, rate);
- 
-+	if (rate <= q->low_rate_threshold) {
-+		f->credit = 0;
-+		plen = qdisc_pkt_len(skb);
-+	} else {
-+		plen = max(qdisc_pkt_len(skb), q->quantum);
-+		if (f->credit > 0)
-+			goto out;
-+	}
- 	if (rate != ~0U) {
--		u32 plen = max(qdisc_pkt_len(skb), q->quantum);
- 		u64 len = (u64)plen * NSEC_PER_SEC;
- 
- 		if (likely(rate))
-@@ -662,6 +670,7 @@ static const struct nla_policy fq_policy[TCA_FQ_MAX + 1] = {
- 	[TCA_FQ_FLOW_MAX_RATE]		= { .type = NLA_U32 },
- 	[TCA_FQ_BUCKETS_LOG]		= { .type = NLA_U32 },
- 	[TCA_FQ_FLOW_REFILL_DELAY]	= { .type = NLA_U32 },
-+	[TCA_FQ_LOW_RATE_THRESHOLD]	= { .type = NLA_U32 },
- };
- 
- static int fq_change(struct Qdisc *sch, struct nlattr *opt)
-@@ -716,6 +725,10 @@ static int fq_change(struct Qdisc *sch, struct nlattr *opt)
- 	if (tb[TCA_FQ_FLOW_MAX_RATE])
- 		q->flow_max_rate = nla_get_u32(tb[TCA_FQ_FLOW_MAX_RATE]);
- 
-+	if (tb[TCA_FQ_LOW_RATE_THRESHOLD])
-+		q->low_rate_threshold =
-+			nla_get_u32(tb[TCA_FQ_LOW_RATE_THRESHOLD]);
-+
- 	if (tb[TCA_FQ_RATE_ENABLE]) {
- 		u32 enable = nla_get_u32(tb[TCA_FQ_RATE_ENABLE]);
- 
-@@ -781,6 +794,7 @@ static int fq_init(struct Qdisc *sch, struct nlattr *opt)
- 	q->fq_root		= NULL;
- 	q->fq_trees_log		= ilog2(1024);
- 	q->orphan_mask		= 1024 - 1;
-+	q->low_rate_threshold	= 550000 / 8;
- 	qdisc_watchdog_init(&q->watchdog, sch);
- 
- 	if (opt)
-@@ -811,6 +825,8 @@ static int fq_dump(struct Qdisc *sch, struct sk_buff *skb)
- 	    nla_put_u32(skb, TCA_FQ_FLOW_REFILL_DELAY,
- 			jiffies_to_usecs(q->flow_refill_delay)) ||
- 	    nla_put_u32(skb, TCA_FQ_ORPHAN_MASK, q->orphan_mask) ||
-+	    nla_put_u32(skb, TCA_FQ_LOW_RATE_THRESHOLD,
-+			q->low_rate_threshold) ||
- 	    nla_put_u32(skb, TCA_FQ_BUCKETS_LOG, q->fq_trees_log))
- 		goto nla_put_failure;
- 
++		mark_lost = (!(TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED) ||
++			     is_reneg);
++		if (mark_lost)
++			tcp_sum_lost(tp, skb);
+ 		TCP_SKB_CB(skb)->sacked &= (~TCPCB_TAGBITS)|TCPCB_SACKED_ACKED;
+-		if (!(TCP_SKB_CB(skb)->sacked&TCPCB_SACKED_ACKED) || is_reneg) {
++		if (mark_lost) {
+ 			TCP_SKB_CB(skb)->sacked &= ~TCPCB_SACKED_ACKED;
+ 			TCP_SKB_CB(skb)->sacked |= TCPCB_LOST;
+ 			tp->lost_out += tcp_skb_pcount(skb);
 -- 
 2.8.0.rc3.226.g39d4020
