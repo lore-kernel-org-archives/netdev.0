@@ -1,34 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] nfp: fix error return code in nfp_net_netdev_open()
-Date: Fri, 16 Sep 2016 04:27:25 -0400 (EDT)
-Message-ID: <20160916.042725.2082784130004932416.davem@davemloft.net>
-References: <1473911107-8427-1-git-send-email-weiyj.lk@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jakub.kicinski@netronome.com, rolf.neugebauer@netronome.com,
-        dinan.gunawardena@netronome.com, simon.horman@netronome.com,
-        weiyongjun1@huawei.com, oss-drivers@netronome.com,
-        netdev@vger.kernel.org
-To: weiyj.lk@gmail.com
+From: Davide Caratti <dcaratti@redhat.com>
+Subject: [iproute PATCH] tc: don't accept qdisc 'handle' greater than ffff
+Date: Fri, 16 Sep 2016 10:30:00 +0200
+Message-ID: <bdc0d8e58be9344b44fcd64a56b5b62004c108a1.1473930575.git.dcaratti@redhat.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        Phil Sutter <phil@nwl.cc>, Hangbin Liu <liuhangbin@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38532 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752001AbcIPI13 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 04:27:29 -0400
-In-Reply-To: <1473911107-8427-1-git-send-email-weiyj.lk@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:37570 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752001AbcIPIaT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 16 Sep 2016 04:30:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Date: Thu, 15 Sep 2016 03:45:07 +0000
+since get_qdisc_handle() truncates the input value to 16 bit, return an
+error and prompt "invalid qdisc ID" in case input 'handle' parameter needs
+more than 16 bit to be stored.
 
-> From: Wei Yongjun <weiyongjun1@huawei.com>
-> 
-> Fix to return a negative error code from the error handling
-> case instead of 0, as done elsewhere in this function.
-> 
-> Fixes: 73725d9dfd99 ("nfp: allocate ring SW structs dynamically")
-> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+Signed-off-by: Davide Caratti <dcaratti@redhat.com>
+---
+ tc/tc_util.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Applied.
+diff --git a/tc/tc_util.c b/tc/tc_util.c
+index 15e49b7..24ca1f1 100644
+--- a/tc/tc_util.c
++++ b/tc/tc_util.c
+@@ -82,7 +82,7 @@ int get_qdisc_handle(__u32 *h, const char *str)
+ 	if (strcmp(str, "none") == 0)
+ 		goto ok;
+ 	maj = strtoul(str, &p, 16);
+-	if (p == str)
++	if (p == str || maj >= (1 << 16))
+ 		return -1;
+ 	maj <<= 16;
+ 	if (*p != ':' && *p != 0)
+-- 
+2.5.5
