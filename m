@@ -1,35 +1,35 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 0/2] pull request for net: batman-adv
-	2016-09-14
-Date: Fri, 16 Sep 2016 04:18:53 -0400 (EDT)
-Message-ID: <20160916.041853.1865127341625101358.davem@davemloft.net>
-References: <20160914123735.9411-1-sw@simonwunderlich.de>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net: ethernet: mediatek: fix module loading
+ automatically based on MODULE_DEVICE_TABLE
+Date: Fri, 16 Sep 2016 04:20:45 -0400 (EDT)
+Message-ID: <20160916.042045.2235738935632187131.davem@davemloft.net>
+References: <1473859774-6327-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20160914123735.9411-1-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: john@phrozen.org, nbd@openwrt.org, netdev@vger.kernel.org,
+        linux-mediatek@lists.infradead.org, keyhaede@gmail.com,
+        objelf@gmail.com
+To: sean.wang@mediatek.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:38372 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753519AbcIPIUt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 04:20:49 -0400
+In-Reply-To: <1473859774-6327-1-git-send-email-sean.wang@mediatek.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Date: Wed, 14 Sep 2016 14:37:33 +0200
+From: <sean.wang@mediatek.com>
+Date: Wed, 14 Sep 2016 21:29:34 +0800
 
-> here are some more bugfix patches which we would like to have integrated
-> into net.
+> From: Sean Wang <sean.wang@mediatek.com>
 > 
-> Please pull or let me know of any problem!
+> The device table is required to load modules based on
+> modaliases. After adding MODULE_DEVICE_TABLE, below entries
+> for example will be added to modules.alias:
+> alias of:N*T*Cmediatek,mt7623-ethC* mtk_eth_soc
+> 
+> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
 
-Pulled, thanks.
+Applied.
