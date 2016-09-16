@@ -1,7 +1,7 @@
 From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH net-next 08/14] tcp: allow congestion control module to request TSO skb segment count
-Date: Fri, 16 Sep 2016 14:48:57 -0400
-Message-ID: <1474051743-13311-9-git-send-email-ncardwell@google.com>
+Subject: [PATCH net-next 10/14] tcp: export tcp_mss_to_mtu() for congestion control modules
+Date: Fri, 16 Sep 2016 14:48:59 -0400
+Message-ID: <1474051743-13311-11-git-send-email-ncardwell@google.com>
 References: <1474051743-13311-1-git-send-email-ncardwell@google.com>
 Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
         Van Jacobson <vanj@google.com>,
@@ -11,26 +11,18 @@ Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
         Soheil Hassas Yeganeh <soheil@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f174.google.com ([209.85.220.174]:35361 "EHLO
-        mail-qk0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1765093AbcIPSt7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 14:49:59 -0400
-Received: by mail-qk0-f174.google.com with SMTP id t7so97131072qkh.2
-        for <netdev@vger.kernel.org>; Fri, 16 Sep 2016 11:49:58 -0700 (PDT)
+Received: from mail-qk0-f177.google.com ([209.85.220.177]:35395 "EHLO
+        mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933606AbcIPSuD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 14:50:03 -0400
+Received: by mail-qk0-f177.google.com with SMTP id t7so97132767qkh.2
+        for <netdev@vger.kernel.org>; Fri, 16 Sep 2016 11:50:03 -0700 (PDT)
 In-Reply-To: <1474051743-13311-1-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add the tso_segs_goal() function in tcp_congestion_ops to allow the
-congestion control module to specify the number of segments that
-should be in a TSO skb sent by tcp_write_xmit() and
-tcp_xmit_retransmit_queue(). The congestion control module can either
-request a particular number of segments in TSO skb that we transmit,
-or return 0 if it doesn't care.
-
-This allows the upcoming BBR congestion control module to select small
-TSO skb sizes if the module detects that the bottleneck bandwidth is
-very low, or that the connection is policed to a low rate.
+Export tcp_mss_to_mtu(), so that congestion control modules can use
+this to help calculate a pacing rate.
 
 Signed-off-by: Van Jacobson <vanj@google.com>
 Signed-off-by: Neal Cardwell <ncardwell@google.com>
@@ -39,62 +31,20 @@ Signed-off-by: Nandita Dukkipati <nanditad@google.com>
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
 ---
- include/net/tcp.h     |  2 ++
- net/ipv4/tcp_output.c | 15 +++++++++++++--
- 2 files changed, 15 insertions(+), 2 deletions(-)
+ net/ipv4/tcp_output.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 9829aa7..4d85cd7 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -913,6 +913,8 @@ struct tcp_congestion_ops {
- 	u32  (*undo_cwnd)(struct sock *sk);
- 	/* hook for packet ack accounting (optional) */
- 	void (*pkts_acked)(struct sock *sk, const struct ack_sample *sample);
-+	/* suggest number of segments for each skb to transmit (optional) */
-+	u32 (*tso_segs_goal)(struct sock *sk);
- 	/* get info for inet_diag (optional) */
- 	size_t (*get_info)(struct sock *sk, u32 ext, int *attr,
- 			   union tcp_cc_info *info);
 diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index e02c8eb..0137956 100644
+index 0bf3d48..7d025a7 100644
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
-@@ -1566,6 +1566,17 @@ static u32 tcp_tso_autosize(const struct sock *sk, unsigned int mss_now)
- 	return min_t(u32, segs, sk->sk_gso_max_segs);
+@@ -1362,6 +1362,7 @@ int tcp_mss_to_mtu(struct sock *sk, int mss)
+ 	}
+ 	return mtu;
  }
++EXPORT_SYMBOL(tcp_mss_to_mtu);
  
-+/* Return the number of segments we want in the skb we are transmitting.
-+ * See if congestion control module wants to decide; otherwise, autosize.
-+ */
-+static u32 tcp_tso_segs(struct sock *sk, unsigned int mss_now)
-+{
-+	const struct tcp_congestion_ops *ca_ops = inet_csk(sk)->icsk_ca_ops;
-+	u32 tso_segs = ca_ops->tso_segs_goal ? ca_ops->tso_segs_goal(sk) : 0;
-+
-+	return tso_segs ? : tcp_tso_autosize(sk, mss_now);
-+}
-+
- /* Returns the portion of skb which can be sent right away */
- static unsigned int tcp_mss_split_point(const struct sock *sk,
- 					const struct sk_buff *skb,
-@@ -2061,7 +2072,7 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
- 		}
- 	}
- 
--	max_segs = tcp_tso_autosize(sk, mss_now);
-+	max_segs = tcp_tso_segs(sk, mss_now);
- 	while ((skb = tcp_send_head(sk))) {
- 		unsigned int limit;
- 
-@@ -2778,7 +2789,7 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
- 		last_lost = tp->snd_una;
- 	}
- 
--	max_segs = tcp_tso_autosize(sk, tcp_current_mss(sk));
-+	max_segs = tcp_tso_segs(sk, tcp_current_mss(sk));
- 	tcp_for_write_queue_from(skb, sk) {
- 		__u8 sacked;
- 		int segs;
+ /* MTU probing init per socket */
+ void tcp_mtup_init(struct sock *sk)
 -- 
 2.8.0.rc3.226.g39d4020
