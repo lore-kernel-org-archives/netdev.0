@@ -1,69 +1,45 @@
-From: Vincent Bernat <vincent@bernat.im>
-Subject: [v2] net: ipv6: fallback to full lookup if table lookup is unsuitable
-Date: Fri, 16 Sep 2016 22:33:49 +0200
-Message-ID: <20160916203349.31201-1-vincent@bernat.im>
-References: <0e4071d6-a3cc-37a7-6a32-2169e0e3b305@cumulusnetworks.com>
-Cc: Vincent Bernat <vincent@bernat.im>
-To: David Ahern <dsa@cumulusnetworks.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [net PATCH] mlx4: fix XDP_TX is acting like XDP_PASS on TX ring full
+Date: Fri, 16 Sep 2016 22:36:12 +0200
+Message-ID: <20160916203535.20016.45146.stgit@firesoul>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, tom@herbertland.com,
+        bblanco@plumgrid.com, Jesper Dangaard Brouer <brouer@redhat.com>,
+        rana.shahot@gmail.com, "David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org, tariqt@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bart.luffy.cx ([78.47.78.131]:46358 "EHLO bart.luffy.cx"
+Received: from mx1.redhat.com ([209.132.183.28]:56038 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S965082AbcIPUeT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 16 Sep 2016 16:34:19 -0400
-In-Reply-To: <0e4071d6-a3cc-37a7-6a32-2169e0e3b305@cumulusnetworks.com>
+        id S965465AbcIPUgP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 16 Sep 2016 16:36:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 8c14586fc320 ("net: ipv6: Use passed in table for nexthop
-lookups") introduced a regression: insertion of an IPv6 route in a table
-not containing the appropriate connected route for the gateway but which
-contained a non-connected route (like a default gateway) fails while it
-was previously working:
+The XDP_TX action can fail transmitting the frame in case the TX ring
+is full or port is down.  In case of TX failure it should drop the
+frame, and not as now call 'break' which is the same as XDP_PASS.
 
-    $ ip link add eth0 type dummy
-    $ ip link set up dev eth0
-    $ ip addr add 2001:db8::1/64 dev eth0
-    $ ip route add ::/0 via 2001:db8::5 dev eth0 table 20
-    $ ip route add 2001:db8:cafe::1/128 via 2001:db8::6 dev eth0 table 20
-    RTNETLINK answers: No route to host
-    $ ip -6 route show table 20
-    default via 2001:db8::5 dev eth0  metric 1024  pref medium
+Fixes: 9ecc2d86171a ("net/mlx4_en: add xdp forwarding and data write support")
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 
-After this patch, we get:
-
-    $ ip route add 2001:db8:cafe::1/128 via 2001:db8::6 dev eth0 table 20
-    $ ip -6 route show table 20
-    2001:db8:cafe::1 via 2001:db8::6 dev eth0  metric 1024  pref medium
-    default via 2001:db8::5 dev eth0  metric 1024  pref medium
-
-Signed-off-by: Vincent Bernat <vincent@bernat.im>
 ---
- net/ipv6/route.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
+Note, this fix have nothing to do with the page-refcnt bug I just reported.
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index ad4a7ff301fc..2c6c7257ff75 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1994,6 +1994,14 @@ static struct rt6_info *ip6_route_info_create(struct fib6_config *cfg)
- 			if (cfg->fc_table)
- 				grt = ip6_nh_lookup_table(net, cfg, gw_addr);
- 
-+			if (grt) {
-+				if (grt->rt6i_flags & RTF_GATEWAY ||
-+				    (dev && dev != grt->dst.dev)) {
-+					ip6_rt_put(grt);
-+					grt = NULL;
-+				}
-+			}
-+
- 			if (!grt)
- 				grt = rt6_lookup(net, gw_addr, NULL,
- 						 cfg->fc_ifindex, 1);
--- 
-2.9.3
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index 2040dad8611d..adcd55c655db 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -906,7 +906,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 							length, tx_index,
+ 							&doorbell_pending))
+ 					goto consumed;
+-				break;
++				goto next; /* Drop on xmit failure */
+ 			default:
+ 				bpf_warn_invalid_xdp_action(act);
+ 			case XDP_ABORTED:
