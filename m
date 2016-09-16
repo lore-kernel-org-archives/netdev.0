@@ -1,45 +1,69 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net-next 07/14] tcp: export data delivery rate
-Date: Fri, 16 Sep 2016 16:03:56 -0400
-Message-ID: <CADVnQymVmhX86St6aeTh7asW68cC8d3qOZEBrV-ajp1okbx6Zw@mail.gmail.com>
-References: <1474051743-13311-8-git-send-email-ncardwell@google.com> <201609171104.7NaqQo41%fengguang.wu@intel.com>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: [PATCH v3] net: ip, diag -- Add diag interface for raw sockets
+Date: Fri, 16 Sep 2016 23:07:22 +0300
+Message-ID: <20160916200722.GA26044@uranus.lan>
+References: <20160915210126.GC1867@uranus.lan>
+ <1473979691.22679.55.camel@edumazet-glaptop3.roam.corp.google.com>
+ <999f0ddb-82e4-ea07-b52a-59d08bc7816d@cumulusnetworks.com>
+ <20160916070623.GD1867@uranus.lan>
+ <20160916190000.GA18116@uranus.lan>
+ <59e12627-7043-fd20-0d68-899ab43b0e71@cumulusnetworks.com>
+ <20160916193927.GB18116@uranus.lan>
+ <d943c6b7-0f06-3823-58d2-6f79f17c3d59@cumulusnetworks.com>
+ <20160916195252.GC18116@uranus.lan>
+ <6464ac16-a15b-384e-ffb1-3ee84cdce313@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: kbuild-all@01.org, David Miller <davem@davemloft.net>,
-        Netdev <netdev@vger.kernel.org>,
-        Yuchung Cheng <ycheng@google.com>,
-        Van Jacobson <vanj@google.com>,
-        Nandita Dukkipati <nanditad@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Soheil Hassas Yeganeh <soheil@google.com>
-To: kbuild test robot <lkp@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, avagin@openvz.org, stephen@networkplumber.org
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f41.google.com ([209.85.218.41]:32887 "EHLO
-        mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935021AbcIPUFD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 16:05:03 -0400
-Received: by mail-oi0-f41.google.com with SMTP id r126so124750244oib.0
-        for <netdev@vger.kernel.org>; Fri, 16 Sep 2016 13:04:27 -0700 (PDT)
-In-Reply-To: <201609171104.7NaqQo41%fengguang.wu@intel.com>
+Received: from mail-lf0-f67.google.com ([209.85.215.67]:35935 "EHLO
+        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965528AbcIPUH1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 16:07:27 -0400
+Content-Disposition: inline
+In-Reply-To: <6464ac16-a15b-384e-ffb1-3ee84cdce313@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 16, 2016 at 11:56 PM, kbuild test robot <lkp@intel.com> wrote:
->
->>> net/ipv4/tcp.c:2794:3: note: in expansion of macro 'do_div'
->       do_div(rate, intv);
->       ^~~~~~
->    In file included from arch/arm/include/asm/div64.h:126:0,
->                     from include/linux/kernel.h:142,
->                     from include/linux/crypto.h:21,
->                     from include/crypto/hash.h:16,
->                     from net/ipv4/tcp.c:250:
->>> include/asm-generic/div64.h:224:22: error: passing argument 1 of '__div64_32' from incompatible pointer type [-Werror=incompatible-pointer-types]
->       __rem = __div64_32(&(n), __base); \
-...
-> > 2794                  do_div(rate, intv);
+On Fri, Sep 16, 2016 at 01:55:42PM -0600, David Ahern wrote:
+> >> Since the display is showing sockets in addition to IPPROTO_RAW:
+> >>
+> >> $ ss -A raw
+> >> State      Recv-Q Send-Q        Local Address:Port                         Peer Address:Port
+> >> UNCONN     0      0                    *%eth0:icmp                                    *:*
+> >>
+> >> It is going to be confusing if only ipproto-255 sockets can be killed.
+> > 
+> > OK, gimme some time to implement it. Hopefully on the weekend or monday.
+> > Thanks a huge for feedback!
+> > 
+> 
+> It may well be a ss bug / problem. As I mentioned I am always seeing 255 for the protocol which
 
-Looks like 'rate' should be 'rate64'. I will include this fix in the
-next version of the patch series.
+It is rather not addressed in ss. I mean, look, when we send out a diag packet
+the kernel look ups for a handler, which for raw protocol we register as
 
-neal
+static const struct inet_diag_handler raw_diag_handler = {
+	.dump= raw_diag_dump,
+	.dump_one= raw_diag_dump_one,
+	.idiag_get_info= raw_diag_get_info,
+	.idiag_type= IPPROTO_RAW,
+	.idiag_info_size= 0,
+#ifdef CONFIG_INET_DIAG_DESTROY
+	.destroy= raw_diag_destroy,
+#endif
+};
+
+so if we patch ss and ask for IPPROTO_ICMP in netlink packet the
+kernel simply won't find anything. Thus I think we need (well, I need)
+to extend the patch and register IPPROTO_ICMP diag type, then
+extend ss as well. (If only I didn't miss somethin obvious).
+
+> is odd since ss does a dump and takes the matches and invokes the kill. Thanks for taking
+> the time to do the kill piece.
+
+Sure!
