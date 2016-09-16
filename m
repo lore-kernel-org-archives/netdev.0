@@ -1,39 +1,78 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [PATCH v3] net: ip, diag -- Add diag interface for raw sockets
-Date: Fri, 16 Sep 2016 10:06:23 +0300
-Message-ID: <20160916070623.GD1867@uranus.lan>
-References: <20160913171950.GC32643@uranus>
- <8260ff1f-6907-aed8-caae-68d63a4ad529@cumulusnetworks.com>
- <20160915202219.GB1867@uranus.lan>
- <f482796f-185e-a3b7-248c-20f1f39cb459@cumulusnetworks.com>
- <20160915210126.GC1867@uranus.lan>
- <1473979691.22679.55.camel@edumazet-glaptop3.roam.corp.google.com>
- <999f0ddb-82e4-ea07-b52a-59d08bc7816d@cumulusnetworks.com>
+From: Anton Aksola <aakso@iki.fi>
+Subject: [PATCH v2] iproute2: build nsid-name cache only for commands that
+ need it
+Date: Fri, 16 Sep 2016 07:22:29 +0000
+Message-ID: <20160916072225.GA10536@toys.tundra.dog-lvm.novalocal>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-        avagin@openvz.org, stephen@networkplumber.org
-To: David Ahern <dsa@cumulusnetworks.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
+Cc: nicolas.dichtel@6wind.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f51.google.com ([209.85.215.51]:36201 "EHLO
-        mail-lf0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752097AbcIPHG1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 03:06:27 -0400
+Received: from smtp-78.nebula.fi ([83.145.220.78]:41768 "EHLO smtp.nebula.fi"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753955AbcIPHW3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 16 Sep 2016 03:22:29 -0400
 Content-Disposition: inline
-In-Reply-To: <999f0ddb-82e4-ea07-b52a-59d08bc7816d@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 15, 2016 at 05:45:02PM -0600, David Ahern wrote:
-> > 
-> > Try to be selective in the -K , do not kill tcp sockets ?
-> 
-> I am running
->    ss -aKw 'dev == red'
-> 
-> to kill raw sockets bound to device named 'red'.
+The calling of netns_map_init() before command parsing introduced
+a performance issue with large number of namespaces.
 
-Thanks David, Eric! I'll play with this option today and report the results.
+As commands such as add, del and exec do not need to iterate through
+/var/run/netns it would be good not no build the cache before executing
+these commands.
+
+Example:
+unpatched:
+time seq 1 1000 | xargs -n 1 ip netns add
+
+real    0m16.832s
+user    0m1.350s
+sys    0m15.029s
+
+patched:
+time seq 1 1000 | xargs -n 1 ip netns add
+
+real    0m3.859s
+user    0m0.132s
+sys    0m3.205s
+
+Signed-off-by: Anton Aksola <aakso@iki.fi>
+---
+ ip/ipnetns.c | 14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
+
+diff --git a/ip/ipnetns.c b/ip/ipnetns.c
+index af87065..564d034 100644
+--- a/ip/ipnetns.c
++++ b/ip/ipnetns.c
+@@ -775,17 +775,21 @@ static int netns_monitor(int argc, char **argv)
+ 
+ int do_netns(int argc, char **argv)
+ {
+-	netns_map_init();
+-
+-	if (argc < 1)
++	if (argc < 1) {
++		netns_map_init();
+ 		return netns_list(0, NULL);
++	}
+ 
+ 	if ((matches(*argv, "list") == 0) || (matches(*argv, "show") == 0) ||
+-	    (matches(*argv, "lst") == 0))
++	    (matches(*argv, "lst") == 0)) {
++		netns_map_init();
+ 		return netns_list(argc-1, argv+1);
++	}
+ 
+-	if ((matches(*argv, "list-id") == 0))
++	if ((matches(*argv, "list-id") == 0)) {
++		netns_map_init();
+ 		return netns_list_id(argc-1, argv+1);
++	}
+ 
+ 	if (matches(*argv, "help") == 0)
+ 		return usage();
+-- 
+1.8.3.1
