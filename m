@@ -1,91 +1,48 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [PATCH v4 net 1/1] net sched actions: fix GETing actions
-Date: Fri, 16 Sep 2016 16:27:04 -0400
-Message-ID: <1474057624-17914-1-git-send-email-jhs@emojatatu.com>
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: davem@davemloft.net
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net PATCH] mlx4: fix XDP_TX is acting like XDP_PASS on TX ring
+ full
+Date: Fri, 16 Sep 2016 22:29:43 +0200
+Message-ID: <20160916222943.6a2ea073@redhat.com>
+References: <20160916194645.13201.70408.stgit@firesoul>
+        <1474056050.22679.75.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, tariqt@mellanox.com, tom@herbertland.com,
+        bblanco@plumgrid.com, rana.shahot@gmail.com,
+        "David S. Miller\" <davem@davemloft.net>, brouer@redhat.com"@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f68.google.com ([209.85.214.68]:33538 "EHLO
-        mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965370AbcIPU1S (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 16:27:18 -0400
-Received: by mail-it0-f68.google.com with SMTP id x192so1505125itb.0
-        for <netdev@vger.kernel.org>; Fri, 16 Sep 2016 13:27:18 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:55982 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S965082AbcIPU3t (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 16 Sep 2016 16:29:49 -0400
+In-Reply-To: <1474056050.22679.75.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
+On Fri, 16 Sep 2016 13:00:50 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-With the batch changes that translated transient actions into
-a temporary list lost in the translation was the fact that
-tcf_action_destroy() will eventually delete the action from
-the permanent location if the refcount is zero.
+> > diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> > index 2040dad8611d..d414c67dfd12 100644
+> > --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> > +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> > @@ -906,6 +906,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+> >  							length, tx_index,
+> >  							&doorbell_pending))
+> >  					goto consumed;
+> > +				goto next;
+> >  				break;  
+> 
+> Why keeping this break; then ? ;)
 
-Example of what broke:
-...add a gact action to drop
-sudo $TC actions add action drop index 10
-...now retrieve it, looks good
-sudo $TC actions get action gact index 10
-...retrieve it again and find it is gone!
-sudo $TC actions get action gact index 10
+I'll send a V2
 
-Fixes:
-commit 22dc13c837c3 ("net_sched: convert tcf_exts from list to pointer array"),
-commit 824a7e8863b3 ("net_sched: remove an unnecessary list_del()")
-commit f07fed82ad79 ("net_sched: remove the leftover cleanup_a()")
 
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
-Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/sched/act_api.c | 19 +++++++++++++++++++
- 1 file changed, 19 insertions(+)
-
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index d09d068..e1c0ce1 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -592,6 +592,16 @@ err_out:
- 	return ERR_PTR(err);
- }
- 
-+static void cleanup_a(struct list_head *actions, int ovr)
-+{
-+	struct tc_action *a;
-+
-+	list_for_each_entry(a, actions, list) {
-+		if (ovr)
-+			a->tcfa_refcnt--;
-+	}
-+}
-+
- int tcf_action_init(struct net *net, struct nlattr *nla,
- 				  struct nlattr *est, char *name, int ovr,
- 				  int bind, struct list_head *actions)
-@@ -612,8 +622,15 @@ int tcf_action_init(struct net *net, struct nlattr *nla,
- 			goto err;
- 		}
- 		act->order = i;
-+		if (ovr)
-+			act->tcfa_refcnt++;
- 		list_add_tail(&act->list, actions);
- 	}
-+
-+	/* Remove the temp refcnt which was necessary to protect against
-+	 * destroying an existing action which was being replaced
-+	 */
-+	cleanup_a(actions, ovr);
- 	return 0;
- 
- err:
-@@ -883,6 +900,8 @@ tca_action_gd(struct net *net, struct nlattr *nla, struct nlmsghdr *n,
- 			goto err;
- 		}
- 		act->order = i;
-+		if (event == RTM_GETACTION)
-+			act->tcfa_refcnt++;
- 		list_add_tail(&act->list, &actions);
- 	}
- 
 -- 
-1.9.1
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
