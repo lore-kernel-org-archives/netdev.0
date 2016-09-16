@@ -1,67 +1,51 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [PATCH v3] net: ip, diag -- Add diag interface for raw sockets
-Date: Fri, 16 Sep 2016 22:00:00 +0300
-Message-ID: <20160916190000.GA18116@uranus.lan>
-References: <20160913171950.GC32643@uranus>
- <8260ff1f-6907-aed8-caae-68d63a4ad529@cumulusnetworks.com>
- <20160915202219.GB1867@uranus.lan>
- <f482796f-185e-a3b7-248c-20f1f39cb459@cumulusnetworks.com>
- <20160915210126.GC1867@uranus.lan>
- <1473979691.22679.55.camel@edumazet-glaptop3.roam.corp.google.com>
- <999f0ddb-82e4-ea07-b52a-59d08bc7816d@cumulusnetworks.com>
- <20160916070623.GD1867@uranus.lan>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: XDP_TX bug report on mlx4
+Date: Fri, 16 Sep 2016 21:03:40 +0200
+Message-ID: <20160916210340.4a7cdef8@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-        avagin@openvz.org, stephen@networkplumber.org
-To: David Ahern <dsa@cumulusnetworks.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Rana Shahout <rana.shahot@gmail.com>,
+        Eran Ben Elisha <eranbe@mellanox.com>
+To: Brenden Blanco <bblanco@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f67.google.com ([209.85.215.67]:33829 "EHLO
-        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752035AbcIPTAD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 15:00:03 -0400
-Content-Disposition: inline
-In-Reply-To: <20160916070623.GD1867@uranus.lan>
+Received: from mx1.redhat.com ([209.132.183.28]:57398 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753513AbcIPTDq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 16 Sep 2016 15:03:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 16, 2016 at 10:06:23AM +0300, Cyrill Gorcunov wrote:
-> On Thu, Sep 15, 2016 at 05:45:02PM -0600, David Ahern wrote:
-> > > 
-> > > Try to be selective in the -K , do not kill tcp sockets ?
-> > 
-> > I am running
-> >    ss -aKw 'dev == red'
-> > 
-> > to kill raw sockets bound to device named 'red'.
-> 
-> Thanks David, Eric! I'll play with this option today and report the results.
+Hi Brenden,
 
-I created veth pair and bound raw socket into it.
+I've discovered a bug with XDP_TX recycling of pages in the mlx4 driver.
 
-[root@pcs7 iproute2]# misc/ss -A raw
-State      Recv-Q Send-Q                                Local Address:Port                                                 Peer Address:Port                
-ESTAB      0      0                                         127.0.0.1:ipproto-255                                            127.0.0.10:ipproto-9090         
-UNCONN     0      0                                        127.0.0.10:ipproto-255                                                     *:*                    
-UNCONN     0      0                                                :::ipv6-icmp                                                      :::*                    
-UNCONN     0      0                                                :::ipv6-icmp                                                      :::*                    
-ESTAB      0      0                                               ::1:ipproto-255                                                   ::1:ipproto-9091         
-UNCONN     0      0                                           ::1%vm1:ipproto-255                                                    :::*                    
-[root@pcs7 iproute2]# 
+If I increase the number of RX and TX queues/channels via ethtool cmd:
+ ethtool -L mlx4p1 rx 10 tx 10
 
-[root@pcs7 iproute2]# misc/ss -aKw 'dev == vm1'
-State      Recv-Q Send-Q                                Local Address:Port                                                 Peer Address:Port                
-UNCONN     0      0                                           ::1%vm1:ipproto-255                                                    :::*                    
+Then when running the xdp2 program, which does XDP_TX, the kernel will
+crash with page errors, because the page refcnt goes to zero or even
+minus.  I've noticed pages delivered to mlx4_en_rx_recycle() can have
+a page refcnt of zero, which is wrong, they should always have 1 (for
+XDP).
 
-[root@pcs7 iproute2]# misc/ss -A raw
-State      Recv-Q Send-Q                                Local Address:Port                                                 Peer Address:Port                
-ESTAB      0      0                                         127.0.0.1:ipproto-255                                            127.0.0.10:ipproto-9090         
-UNCONN     0      0                                        127.0.0.10:ipproto-255                                                     *:*                    
-UNCONN     0      0                                                :::ipv6-icmp                                                      :::*                    
-UNCONN     0      0                                                :::ipv6-icmp                                                      :::*                    
-ESTAB      0      0                                               ::1:ipproto-255                                                   ::1:ipproto-9091         
+Debugging it further, I find that this can happen when mlx4_en_rx_recycle()
+is called from mlx4_en_recycle_tx_desc().  This is the TX cleanup function,
+associated with TX ring queues used for XDP_TX only. No others than the
+XDP_TX action should be able to place packets into these TX rings
+which call mlx4_en_recycle_tx_desc().
 
-so it get zapped out. Is there some other way to test it?
+Do you have any idea of what could be going wrong in this case?
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
