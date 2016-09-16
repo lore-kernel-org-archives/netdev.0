@@ -1,51 +1,69 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [PATCH v3] net: ip, diag -- Add diag interface for raw sockets
-Date: Fri, 16 Sep 2016 22:52:52 +0300
-Message-ID: <20160916195252.GC18116@uranus.lan>
-References: <20160915202219.GB1867@uranus.lan>
- <f482796f-185e-a3b7-248c-20f1f39cb459@cumulusnetworks.com>
- <20160915210126.GC1867@uranus.lan>
- <1473979691.22679.55.camel@edumazet-glaptop3.roam.corp.google.com>
- <999f0ddb-82e4-ea07-b52a-59d08bc7816d@cumulusnetworks.com>
- <20160916070623.GD1867@uranus.lan>
- <20160916190000.GA18116@uranus.lan>
- <59e12627-7043-fd20-0d68-899ab43b0e71@cumulusnetworks.com>
- <20160916193927.GB18116@uranus.lan>
- <d943c6b7-0f06-3823-58d2-6f79f17c3d59@cumulusnetworks.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Modification to skb->queue_mapping affecting performance
+Date: Fri, 16 Sep 2016 12:53:59 -0700
+Message-ID: <1474055639.22679.74.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CAAmHdhxyrwJXHysUU6KoXeTaRHK8Mxr5PH9j4drR_87T+Wnypg@mail.gmail.com>
+         <1473808021.18970.246.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAAmHdhw6JXYtYNjcJchieW-KcwRkNnFmXTRTXrLQS_Kh+rfP2w@mail.gmail.com>
+         <1473811749.18970.259.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAAmHdhy_=GJKBE9=YD2n8MZOaBzD_JJrk4i8Rq43ob2HbWqbCA@mail.gmail.com>
+         <1473815917.18970.266.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAAmHdhxGBBOCebkvq43pwsaZ8HcULZmXnikQAtc2uLBMWZgXjA@mail.gmail.com>
+         <1473830571.22679.4.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAAmHdhzKyZ0M_L6OSxaOoLwf4u-T+yFOvBckaiq9OpVJA7Ca0A@mail.gmail.com>
+         <CAAmHdhyhywBPhHgB5ySXwhvvSAnxUwkCNQrhnLY9WxoMbAYqoQ@mail.gmail.com>
+         <CAAmHdhx7uvg_q49oz_u8q6NYmv=okxmKg1Tc5ny6oRCvaxbnww@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, avagin@openvz.org, stephen@networkplumber.org
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Michael Ma <make0818@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f41.google.com ([209.85.215.41]:36320 "EHLO
-        mail-lf0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753480AbcIPTw4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 15:52:56 -0400
-Content-Disposition: inline
-In-Reply-To: <d943c6b7-0f06-3823-58d2-6f79f17c3d59@cumulusnetworks.com>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:33074 "EHLO
+        mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933663AbcIPTyC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 15:54:02 -0400
+Received: by mail-pa0-f44.google.com with SMTP id cm16so28856907pac.0
+        for <netdev@vger.kernel.org>; Fri, 16 Sep 2016 12:54:02 -0700 (PDT)
+In-Reply-To: <CAAmHdhx7uvg_q49oz_u8q6NYmv=okxmKg1Tc5ny6oRCvaxbnww@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 16, 2016 at 01:47:57PM -0600, David Ahern wrote:
-> >>
-> >> I'm guessing you passed IPPROTO_RAW (255) as the protocol to socket(). If you pass something
-> >> else (IPPROTO_ICMP for example) it won't work.
-> > 
-> > True. To support IPPROTO_ICMP it need enhancement. I thought start with
-> > plain _RAW first and then extend to support _ICMP.
-> 
-> I thought raw in this case was SOCK_RAW as in the socket type.
-> 
-> Since the display is showing sockets in addition to IPPROTO_RAW:
-> 
-> $ ss -A raw
-> State      Recv-Q Send-Q        Local Address:Port                         Peer Address:Port
-> UNCONN     0      0                    *%eth0:icmp                                    *:*
-> 
-> It is going to be confusing if only ipproto-255 sockets can be killed.
+On Fri, 2016-09-16 at 10:57 -0700, Michael Ma wrote:
 
-OK, gimme some time to implement it. Hopefully on the weekend or monday.
-Thanks a huge for feedback!
+> This is actually the problem - if flows from different RX queues are
+> switched to the same RX queue in IFB, they'll use different processor
+> context with the same tasklet, and the processor context of different
+> tasklets might be the same. So multiple tasklets in IFB competes for
+> the same core when queue is switched.
+> 
+> The following simple fix proved this - with this change even switching
+> the queue won't affect small packet bandwidth/latency anymore:
+> 
+> in ifb.c:
+> 
+> -       struct ifb_q_private *txp = dp->tx_private + skb_get_queue_mapping(skb);
+> +       struct ifb_q_private *txp = dp->tx_private +
+> (smp_processor_id() % dev->num_tx_queues);
+> 
+> This should be more efficient since we're not sending the task to a
+> different processor, instead we try to queue the packet to an
+> appropriate tasklet based on the processor ID. Will this cause any
+> packet out-of-order problem? If packets from the same flow are queued
+> to the same RX queue due to RSS, and processor affinity is set for RX
+> queues, I assume packets from the same flow will end up in the same
+> core when tasklet is scheduled. But I might have missed some uncommon
+> cases here... Would appreciate if anyone can provide more insights.
+
+Wait, don't you have proper smp affinity for the RX queues on your NIC ?
+
+( Documentation/networking/scaling.txt RSS IRQ Configuration )
+
+A driver ndo_start_xmit() MUST use skb_get_queue_mapping(skb), because
+the driver queue is locked before ndo_start_xmit())  (for non
+NETIF_F_LLTX drivers at least)
+
+In case of ifb, __skb_queue_tail(&txp->rq, skb); could corrupt the skb
+list.
+
+In any case, you could have an action to do this before reaching IFB.
