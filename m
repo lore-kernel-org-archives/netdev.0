@@ -1,131 +1,47 @@
-From: Trond Myklebust <trondmy-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
-Subject: Re: [PATCHv1] sunrpc: fix write space race causing stalls
-Date: Fri, 16 Sep 2016 17:06:39 +0000
-Message-ID: <4BCBEAB3-1AD4-455E-9C0B-CCD3172C2C17@primarydata.com>
-References: <1474028902-19838-1-git-send-email-david.vrabel@citrix.com>
- <DCD6291A-CE72-4888-AD77-37BB259CD026@primarydata.com>
- <57DC20C8.5000306@citrix.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [netfilter-core] [lkp] [netfilter] 68263ddb47: WARNING: CPU: 0
+ PID: 1225 at net/netfilter/nf_conntrack_seqadj.c:232
+ nf_ct_seq_offset+0x7a/0x9a
+Date: Fri, 16 Sep 2016 19:18:27 +0200
+Message-ID: <20160916171827.GE5204@breakpoint.cc>
+References: <1472780905-13094-1-git-send-email-fgao@ikuai8.com>
+ <20160916140449.GB7764@yexl-desktop>
+ <CA+6hz4o_Jub=zUcnXjy=oXS_5uZkxxw2Jv7p2FvdMqHV0pg+hw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=WINDOWS-1252
-Content-Transfer-Encoding: quoted-printable
-Cc: List Linux NFS Mailing <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Schumaker Anna <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-        List Linux Network Devel Mailing <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: David Vrabel <david.vrabel-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <57DC20C8.5000306-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-Content-Language: en-US
-Content-ID: <AD297FE6603AA248BDC19037EABE9BFC-Hry67jCOGbCcE4WynfumptQqCkab/8FMAL8bYrjMMd8@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: kernel test robot <xiaolong.ye@intel.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        coreteam@netfilter.org,
+        Netfilter Developer Mailing List
+        <netfilter-devel@vger.kernel.org>, lkp@01.org
+To: Gao Feng <fgao@ikuai8.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:49028 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1758479AbcIPRSw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 13:18:52 -0400
+Content-Disposition: inline
+In-Reply-To: <CA+6hz4o_Jub=zUcnXjy=oXS_5uZkxxw2Jv7p2FvdMqHV0pg+hw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Gao Feng <fgao@ikuai8.com> wrote:
+> > [   23.465616] ------------[ cut here ]------------
+> > [   23.466477] WARNING: CPU: 0 PID: 1225 at net/netfilter/nf_conntrack_seqadj.c:232
+> > nf_ct_seq_offset+0x7a/0x9a
+> > [   23.468458] Missing nfct_seqadj_ext_add() setup call
+> >
+> 
+> It should be that nf_ct_add_synproxy failed and the seqadj extentision is
+> not added.
 
-> On Sep 16, 2016, at 12:41, David Vrabel <david.vrabel-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org> wrote:
->=20
-> On 16/09/16 17:01, Trond Myklebust wrote:
->>=20
->>> On Sep 16, 2016, at 08:28, David Vrabel <david.vrabel-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org> wrote=
-:
->>>=20
->>> Write space becoming available may race with putting the task to sleep
->>> in xprt_wait_for_buffer_space().  The existing mechanism to avoid the
->>> race does not work.
->>>=20
->>> This (edited) partial trace illustrates the problem:
->>>=20
->>>  [1] rpc_task_run_action: task:43546@5 ... action=3Dcall_transmit
->>>  [2] xs_write_space <-xs_tcp_write_space
->>>  [3] xprt_write_space <-xs_write_space
->>>  [4] rpc_task_sleep: task:43546@5 ...
->>>  [5] xs_write_space <-xs_tcp_write_space
->>>=20
->>> [1] Task 43546 runs but is out of write space.
->>>=20
->>> [2] Space becomes available, xs_write_space() clears the
->>>   SOCKWQ_ASYNC_NOSPACE bit.
->>>=20
->>> [3] xprt_write_space() attemts to wake xprt->snd_task (=3D=3D 43546), b=
-ut
->>>   this has not yet been queued and the wake up is lost.
->>>=20
->>> [4] xs_nospace() is called which calls xprt_wait_for_buffer_space()
->>>   which queues task 43546.
->>>=20
->>> [5] The call to sk->sk_write_space() at the end of xs_nospace() (which
->>>   is supposed to handle the above race) does not call
->>>   xprt_write_space() as the SOCKWQ_ASYNC_NOSPACE bit is clear and
->>>   thus the task is not woken.
->>>=20
->>> Fix the race by have xprt_wait_for_buffer_space() check for write
->>> space after putting the task to sleep.
->>>=20
->>> Signed-off-by: David Vrabel <david.vrabel-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
->>> ---
->>> include/linux/sunrpc/xprt.h |  1 +
->>> net/sunrpc/xprt.c           |  4 ++++
->>> net/sunrpc/xprtsock.c       | 21 +++++++++++++++++++--
->>> 3 files changed, 24 insertions(+), 2 deletions(-)
->>>=20
->>> diff --git a/include/linux/sunrpc/xprt.h b/include/linux/sunrpc/xprt.h
->>> index a16070d..621e74b 100644
->>> --- a/include/linux/sunrpc/xprt.h
->>> +++ b/include/linux/sunrpc/xprt.h
->>> @@ -129,6 +129,7 @@ struct rpc_xprt_ops {
->>> =09void=09=09(*connect)(struct rpc_xprt *xprt, struct rpc_task *task);
->>> =09void *=09=09(*buf_alloc)(struct rpc_task *task, size_t size);
->>> =09void=09=09(*buf_free)(void *buffer);
->>> +=09bool            (*have_write_space)(struct rpc_xprt *task);
->>> =09int=09=09(*send_request)(struct rpc_task *task);
->>> =09void=09=09(*set_retrans_timeout)(struct rpc_task *task);
->>> =09void=09=09(*timer)(struct rpc_xprt *xprt, struct rpc_task *task);
->>> diff --git a/net/sunrpc/xprt.c b/net/sunrpc/xprt.c
->>> index ea244b2..d3c1b1e 100644
->>> --- a/net/sunrpc/xprt.c
->>> +++ b/net/sunrpc/xprt.c
->>> @@ -502,6 +502,10 @@ void xprt_wait_for_buffer_space(struct rpc_task *t=
-ask, rpc_action action)
->>>=20
->>> =09task->tk_timeout =3D RPC_IS_SOFT(task) ? req->rq_timeout : 0;
->>> =09rpc_sleep_on(&xprt->pending, task, action);
->>> +
->>> +=09/* Write space notification may race with putting task to sleep. */
->>> +=09if (xprt->ops->have_write_space(xprt))
->>> +=09=09rpc_wake_up_queued_task(&xprt->pending, task);
->>> }
->>> EXPORT_SYMBOL_GPL(xprt_wait_for_buffer_space);
->>>=20
->>> diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
->>> index bf16883..211de5b 100644
->>> --- a/net/sunrpc/xprtsock.c
->>> +++ b/net/sunrpc/xprtsock.c
->>> @@ -472,8 +472,6 @@ static int xs_nospace(struct rpc_task *task)
->>>=20
->>> =09spin_unlock_bh(&xprt->transport_lock);
->>>=20
->>> -=09/* Race breaker in case memory is freed before above code is called=
- */
->>> -=09sk->sk_write_space(sk);
->>> =09return ret;
->>> }
->>=20
->> Instead of these callbacks, why not just add a call to
->> sk_set_bit(SOCKWQ_ASYNC_WAITDATA, sk) after queueing the task in
->> xs_nospace()? Won=92t that fix the existing race breaker?
->=20
-> I don't see how that would help.  If sk->sk_write_space was already
-> called, SOCKWQ_ASYNC_NOSPACE will still be clear and the next call to
-> sk->sk_write_space will still be a nop.
+Note that nfct_synproxy_ext_add always returns NULL if
+CONFIG_NETFILTER_SYNPROXY=n
 
-Sorry. Copy+paste error. I meant SOCKWQ_ASYNC_NOSPACE.
+The warning should also be removed.
 
->=20
-> Or did you mean SOCKWQ_ASYNC_NOSPACE here?  It doesn't seem right to set
-> this bit when we don't know if there's space or not.
+> When nf_ct_add_synproxy fails, the init_conntrack fails too and return
+> ERR_PTR(-ENOMEM). In this case, the packet should be dropped directly, and
+> should not be processed by the latter codes.
 
-Why not?
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This means the commit breaks conntrack if SYNPROXY=n
