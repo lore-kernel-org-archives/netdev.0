@@ -1,52 +1,42 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: [net-next:master 58/374] drivers/net/ethernet/amazon/ena/ena_netdev.c:3026:1-11:
- Use setup_timer function for function on line 3028.
-Date: Fri, 16 Sep 2016 15:39:09 +0200 (CEST)
-Message-ID: <alpine.DEB.2.10.1609161537560.3049@hadrien>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: ipv6: Disable forwarding per interface via sysctl
+Date: Fri, 16 Sep 2016 06:39:52 -0700
+Message-ID: <1474033192.22679.67.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1474030076-24809-1-git-send-email-mmanning@brocade.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, kbuild-all@01.org
-To: Netanel Belgazal <netanel@annapurnalabs.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Mike Manning <mmanning@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3-relais-sop.national.inria.fr ([192.134.164.104]:48604
-        "EHLO mail3-relais-sop.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1757260AbcIPNjN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 09:39:13 -0400
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:33059 "EHLO
+        mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755773AbcIPNjz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 09:39:55 -0400
+Received: by mail-pa0-f68.google.com with SMTP id oz2so3496801pac.0
+        for <netdev@vger.kernel.org>; Fri, 16 Sep 2016 06:39:55 -0700 (PDT)
+In-Reply-To: <1474030076-24809-1-git-send-email-mmanning@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Setup_timer could be used instead of the cvall to init_timer and the
-initializations of the function and data fields.
+On Fri, 2016-09-16 at 13:47 +0100, Mike Manning wrote:
+> Disabling forwarding per interface via sysctl continues to allow
+> forwarding. This is contrary to the sysctl documentation stating that
+> the forwarding sysctl is per interface, whereas currently it is only
+> the sysctl for all interfaces that has an effect on forwarding. The
+> solution is to drop any received packets instead of forwarding them
+> if the ingress device has a per-device forwarding sysctl that is unset.
 
-julia
+Some archaeological research might be needed because
+Documentation/networking/ip-sysctl.txt states :
 
+IPv4 and IPv6 work differently here; e.g. netfilter must be used
+to control which interfaces may forward packets and which not.
 
-tree:   https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
-head:   84ce3da1bfd6fd12fce3cd06691e405a36f72cde
-commit: 1738cd3ed342294360d6a74d4e58800004bff854 [58/374] net: ena: Add a driver for Amazon Elastic Network Adapters (ENA)
-:::::: branch date: 5 hours ago
-:::::: commit date: 5 weeks ago
+If this netfilter requirement is obsolete, then your patch would need to
+change the doc as well.
 
->> drivers/net/ethernet/amazon/ena/ena_netdev.c:3026:1-11: Use setup_timer function for function on line 3028.
+Hannes can probably comment on this ?
 
-git remote add net-next https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
-git remote update net-next
-git checkout 1738cd3ed342294360d6a74d4e58800004bff854
-vim +3026 drivers/net/ethernet/amazon/ena/ena_netdev.c
-
-1738cd3e Netanel Belgazal 2016-08-10  3020  	INIT_WORK(&adapter->suspend_io_task, ena_device_io_suspend);
-1738cd3e Netanel Belgazal 2016-08-10  3021  	INIT_WORK(&adapter->resume_io_task, ena_device_io_resume);
-1738cd3e Netanel Belgazal 2016-08-10  3022  	INIT_WORK(&adapter->reset_task, ena_fw_reset_device);
-1738cd3e Netanel Belgazal 2016-08-10  3023
-1738cd3e Netanel Belgazal 2016-08-10  3024  	adapter->last_keep_alive_jiffies = jiffies;
-1738cd3e Netanel Belgazal 2016-08-10  3025
-1738cd3e Netanel Belgazal 2016-08-10 @3026  	init_timer(&adapter->timer_service);
-1738cd3e Netanel Belgazal 2016-08-10  3027  	adapter->timer_service.expires = round_jiffies(jiffies + HZ);
-1738cd3e Netanel Belgazal 2016-08-10 @3028  	adapter->timer_service.function = ena_timer_service;
-1738cd3e Netanel Belgazal 2016-08-10  3029  	adapter->timer_service.data = (unsigned long)adapter;
-1738cd3e Netanel Belgazal 2016-08-10  3030
-1738cd3e Netanel Belgazal 2016-08-10  3031  	add_timer(&adapter->timer_service);
-
----
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+Thanks.
