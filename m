@@ -1,50 +1,56 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: pull-request: mac80211 2016-09-16
-Date: Fri, 16 Sep 2016 14:47:22 +0200
-Message-ID: <1474030043-16094-1-git-send-email-johannes@sipsolutions.net>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Mike Manning <mmanning@brocade.com>
+Subject: [PATCH] net: ipv6: Disable forwarding per interface via sysctl
+Date: Fri, 16 Sep 2016 13:47:56 +0100
+Message-ID: <1474030076-24809-1-git-send-email-mmanning@brocade.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:37829 "EHLO
+        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S932698AbcIPMsp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 08:48:45 -0400
+Received: from pps.filterd (m0000542.ppops.net [127.0.0.1])
+        by mx0a-000f0801.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8GCmi3V016109
+        for <netdev@vger.kernel.org>; Fri, 16 Sep 2016 05:48:44 -0700
+Received: from brmwp-exmb12.corp.brocade.com ([208.47.132.227])
+        by mx0a-000f0801.pphosted.com with ESMTP id 25chk1enve-20
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-SHA384 bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Fri, 16 Sep 2016 05:48:44 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+Disabling forwarding per interface via sysctl continues to allow
+forwarding. This is contrary to the sysctl documentation stating that
+the forwarding sysctl is per interface, whereas currently it is only
+the sysctl for all interfaces that has an effect on forwarding. The
+solution is to drop any received packets instead of forwarding them
+if the ingress device has a per-device forwarding sysctl that is unset.
 
-Sorry - I know you only just pulled my tree for the previous fixes,
-but we found two more problems in the last few days; it'd be great
-to get those fixes in as well.
+Signed-off-by: Mike Manning <mmanning@brocade.com>
+---
+ net/ipv6/ip6_output.c |    4 ++++
+ 1 file changed, 4 insertions(+)
 
-Let me know if there's any problem.
-
-Thanks,
-johannes
-
-
-
-The following changes since commit ad5987b47e96a0fb6d13fea250e936aed000093c:
-
-  nl80211: validate number of probe response CSA counters (2016-09-13 20:19:27 +0200)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2016-09-16
-
-for you to fetch changes up to 85d5313ed717ad60769491c7c072d23bc0a68e7a:
-
-  mac80211: reject TSPEC TIDs (TSIDs) for aggregation (2016-09-15 10:08:52 +0200)
-
-----------------------------------------------------------------
-Two more fixes:
- * reject aggregation sessions for TSID/TID 8-16 that we
-   can never use anyway and which could confuse drivers
- * check return value of skb_linearize()
-
-----------------------------------------------------------------
-Johannes Berg (2):
-      mac80211: check skb_linearize() return value
-      mac80211: reject TSPEC TIDs (TSIDs) for aggregation
-
- net/mac80211/agg-rx.c | 8 +++++++-
- net/mac80211/agg-tx.c | 3 +++
- net/mac80211/tx.c     | 8 ++++++--
- 3 files changed, 16 insertions(+), 3 deletions(-)
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 1dfc402..37cd1d0 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -380,11 +380,15 @@ int ip6_forward(struct sk_buff *skb)
+ 	struct ipv6hdr *hdr = ipv6_hdr(skb);
+ 	struct inet6_skb_parm *opt = IP6CB(skb);
+ 	struct net *net = dev_net(dst->dev);
++	struct inet6_dev *idev = __in6_dev_get(skb->dev);
+ 	u32 mtu;
+ 
+ 	if (net->ipv6.devconf_all->forwarding == 0)
+ 		goto error;
+ 
++	if (idev && !idev->cnf.forwarding)
++		goto error;
++
+ 	if (skb->pkt_type != PACKET_HOST)
+ 		goto drop;
+ 
+-- 
+1.7.10.4
