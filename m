@@ -1,150 +1,31 @@
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Subject: [PATCHv3 next 2/3] net: Add _nf_(un)register_hooks symbols
-Date: Thu, 15 Sep 2016 17:13:54 -0700
-Message-ID: <1473984835-32173-1-git-send-email-mahesh@bandewar.net>
-Cc: Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>,
-        Mahesh Bandewar <maheshb@google.com>,
-        Pablo Neira Ayuso <pablo@netfilter.org>
-To: netdev <netdev@vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] alx: fix error handling in __alx_open
+Date: Thu, 15 Sep 2016 20:15:56 -0400 (EDT)
+Message-ID: <20160915.201556.927784623808264747.davem@davemloft.net>
+References: <1473761217-18905-1-git-send-email-tobias.regnery@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jcliburn@gmail.com, chris.snook@gmail.com
+To: tobias.regnery@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:34219 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755521AbcIPAOH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 20:14:07 -0400
-Received: by mail-pf0-f196.google.com with SMTP id 21so1405912pfy.1
-        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 17:14:07 -0700 (PDT)
+Received: from shards.monkeyblade.net ([184.105.139.130]:59324 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755521AbcIPAQ5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 20:16:57 -0400
+In-Reply-To: <1473761217-18905-1-git-send-email-tobias.regnery@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mahesh Bandewar <maheshb@google.com>
+From: Tobias Regnery <tobias.regnery@gmail.com>
+Date: Tue, 13 Sep 2016 12:06:57 +0200
 
-Add _nf_register_hooks() and _nf_unregister_hooks() calls which allow
-caller to hold RTNL mutex.
+> In commit 9ee7b683ea63 we moved the enablement of msi interrupts earlier in
+> alx_init_intr. If there is an error in alx_alloc_rings, __alx_open returns
+> with an error but msi (or msi-x) interrupts stays enabled. Add a new error
+> label to disable msi (or msi-x) interrupts.
+> 
+> Fixes: 9ee7b683ea63 ("alx: refactor msi enablement and disablement")
+> Signed-off-by: Tobias Regnery <tobias.regnery@gmail.com>
 
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-CC: Pablo Neira Ayuso <pablo@netfilter.org>
----
- include/linux/netfilter.h |  2 ++
- net/netfilter/core.c      | 51 ++++++++++++++++++++++++++++++++++++++++++-----
- 2 files changed, 48 insertions(+), 5 deletions(-)
-
-diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
-index 9230f9aee896..e82b76781bf6 100644
---- a/include/linux/netfilter.h
-+++ b/include/linux/netfilter.h
-@@ -133,6 +133,8 @@ int nf_register_hook(struct nf_hook_ops *reg);
- void nf_unregister_hook(struct nf_hook_ops *reg);
- int nf_register_hooks(struct nf_hook_ops *reg, unsigned int n);
- void nf_unregister_hooks(struct nf_hook_ops *reg, unsigned int n);
-+int _nf_register_hooks(struct nf_hook_ops *reg, unsigned int n);
-+void _nf_unregister_hooks(struct nf_hook_ops *reg, unsigned int n);
- 
- /* Functions to register get/setsockopt ranges (non-inclusive).  You
-    need to check permissions yourself! */
-diff --git a/net/netfilter/core.c b/net/netfilter/core.c
-index f39276d1c2d7..2c5327e43a88 100644
---- a/net/netfilter/core.c
-+++ b/net/netfilter/core.c
-@@ -188,19 +188,17 @@ EXPORT_SYMBOL(nf_unregister_net_hooks);
- 
- static LIST_HEAD(nf_hook_list);
- 
--int nf_register_hook(struct nf_hook_ops *reg)
-+static int _nf_register_hook(struct nf_hook_ops *reg)
- {
- 	struct net *net, *last;
- 	int ret;
- 
--	rtnl_lock();
- 	for_each_net(net) {
- 		ret = nf_register_net_hook(net, reg);
- 		if (ret && ret != -ENOENT)
- 			goto rollback;
- 	}
- 	list_add_tail(&reg->list, &nf_hook_list);
--	rtnl_unlock();
- 
- 	return 0;
- rollback:
-@@ -210,19 +208,34 @@ rollback:
- 			break;
- 		nf_unregister_net_hook(net, reg);
- 	}
-+	return ret;
-+}
-+
-+int nf_register_hook(struct nf_hook_ops *reg)
-+{
-+	int ret;
-+
-+	rtnl_lock();
-+	ret = _nf_register_hook(reg);
- 	rtnl_unlock();
-+
- 	return ret;
- }
- EXPORT_SYMBOL(nf_register_hook);
- 
--void nf_unregister_hook(struct nf_hook_ops *reg)
-+static void _nf_unregister_hook(struct nf_hook_ops *reg)
- {
- 	struct net *net;
- 
--	rtnl_lock();
- 	list_del(&reg->list);
- 	for_each_net(net)
- 		nf_unregister_net_hook(net, reg);
-+}
-+
-+void nf_unregister_hook(struct nf_hook_ops *reg)
-+{
-+	rtnl_lock();
-+	_nf_unregister_hook(reg);
- 	rtnl_unlock();
- }
- EXPORT_SYMBOL(nf_unregister_hook);
-@@ -246,6 +259,26 @@ err:
- }
- EXPORT_SYMBOL(nf_register_hooks);
- 
-+/* Caller MUST take rtnl_lock() */
-+int _nf_register_hooks(struct nf_hook_ops *reg, unsigned int n)
-+{
-+	unsigned int i;
-+	int err = 0;
-+
-+	for (i = 0; i < n; i++) {
-+		err = _nf_register_hook(&reg[i]);
-+		if (err)
-+			goto err;
-+	}
-+	return err;
-+
-+err:
-+	if (i > 0)
-+		_nf_unregister_hooks(reg, i);
-+	return err;
-+}
-+EXPORT_SYMBOL(_nf_register_hooks);
-+
- void nf_unregister_hooks(struct nf_hook_ops *reg, unsigned int n)
- {
- 	while (n-- > 0)
-@@ -253,6 +286,14 @@ void nf_unregister_hooks(struct nf_hook_ops *reg, unsigned int n)
- }
- EXPORT_SYMBOL(nf_unregister_hooks);
- 
-+/* Caller MUST take rtnl_lock */
-+void _nf_unregister_hooks(struct nf_hook_ops *reg, unsigned int n)
-+{
-+	while (n-- > 0)
-+		_nf_unregister_hook(&reg[n]);
-+}
-+EXPORT_SYMBOL(_nf_unregister_hooks);
-+
- unsigned int nf_iterate(struct list_head *head,
- 			struct sk_buff *skb,
- 			struct nf_hook_state *state,
--- 
-2.8.0.rc3.226.g39d4020
+Applied.
