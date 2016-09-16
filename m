@@ -1,57 +1,42 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net PATCH] mlx4: fix XDP_TX is acting like XDP_PASS on TX ring
- full
-Date: Fri, 16 Sep 2016 13:00:50 -0700
-Message-ID: <1474056050.22679.75.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160916194645.13201.70408.stgit@firesoul>
+Subject: Re: [PATCH net-next 07/14] tcp: export data delivery rate
+Date: Fri, 16 Sep 2016 13:04:15 -0700
+Message-ID: <1474056255.22679.76.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <201609171104.7NaqQo41%fengguang.wu@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tariqt@mellanox.com, tom@herbertland.com,
-        bblanco@plumgrid.com, rana.shahot@gmail.com,
-        "David S. Miller" <davem@davemloft.net>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Cc: Neal Cardwell <ncardwell@google.com>, kbuild-all@01.org,
+        David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        Yuchung Cheng <ycheng@google.com>,
+        Van Jacobson <vanj@google.com>,
+        Nandita Dukkipati <nanditad@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Soheil Hassas Yeganeh <soheil@google.com>
+To: kbuild test robot <lkp@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:34932 "EHLO
-        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935021AbcIPUAw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 16:00:52 -0400
-Received: by mail-pa0-f66.google.com with SMTP id pp5so3822323pac.2
-        for <netdev@vger.kernel.org>; Fri, 16 Sep 2016 13:00:52 -0700 (PDT)
-In-Reply-To: <20160916194645.13201.70408.stgit@firesoul>
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:33403 "EHLO
+        mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965448AbcIPUER (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 16:04:17 -0400
+Received: by mail-pa0-f68.google.com with SMTP id oz2so3814813pac.0
+        for <netdev@vger.kernel.org>; Fri, 16 Sep 2016 13:04:17 -0700 (PDT)
+In-Reply-To: <201609171104.7NaqQo41%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-09-16 at 21:47 +0200, Jesper Dangaard Brouer wrote:
-> The XDP_TX action can fail transmitting the frame in case the TX ring
-> is full or port is down.  In case of TX failure it should drop the
-> frame, and not as now call 'break' which is the same as XDP_PASS.
+On Sat, 2016-09-17 at 11:56 +0800, kbuild test robot wrote:
+> Hi Yuchung,
 > 
-> Fixes: 9ecc2d86171a ("net/mlx4_en: add xdp forwarding and data write support")
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> [auto build test ERROR on net-next/master]
 > 
-> ---
-> Note, this fix have nothing to do with the page-refcnt bug I just reported.
+> url:    https://github.com/0day-ci/linux/commits/Neal-Cardwell/tcp-BBR-congestion-control-algorithm/20160917-025323
+> config: arm-nhk8815_defconfig (attached as .config)
+> compiler: arm-linux-gnueabi-gcc (Debian 6.1.1-9) 6.1.1 20160705
+> reproduce:
+>         wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
+>         chmod +x ~/bin/make.cross
+>         # save the attached .config to linux build tree
+>         make.cross ARCH=arm 
 
-Yeah, the e1000 driver proposal patch had the same issue.
-
-> 
->  drivers/net/ethernet/mellanox/mlx4/en_rx.c |    1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> index 2040dad8611d..d414c67dfd12 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> @@ -906,6 +906,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
->  							length, tx_index,
->  							&doorbell_pending))
->  					goto consumed;
-> +				goto next;
->  				break;
-
-Why keeping this break; then ? ;)
-
->  			default:
->  				bpf_warn_invalid_xdp_action(act);
-> 
+Right, we need to include <asm/div64.h>  for some arches.
