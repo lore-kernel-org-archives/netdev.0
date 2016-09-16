@@ -1,39 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 2/5] cxgb4: add common api support for
- configuring filters
-Date: Thu, 15 Sep 2016 20:18:04 -0400 (EDT)
-Message-ID: <20160915.201804.1457345843475987771.davem@davemloft.net>
-References: <cover.1473759872.git.rahul.lakkireddy@chelsio.com>
-        <cover.1473759872.git.rahul.lakkireddy@chelsio.com>
-        <09f7d2b95eaf850004b45a5dab48446ed6f7257f.1473759872.git.rahul.lakkireddy@chelsio.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next] openvswitch: avoid deferred
+ execution of recirc actions
+Date: Thu, 15 Sep 2016 20:36:41 -0400 (EDT)
+Message-ID: <20160915.203641.1119711290622563008.davem@davemloft.net>
+References: <1473775734-27382-1-git-send-email-lrichard@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hariprasad@chelsio.com, leedom@chelsio.com,
-        nirranjan@chelsio.com, indranil@chelsio.com
-To: rahul.lakkireddy@chelsio.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59366 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756272AbcIPASK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 20:18:10 -0400
-In-Reply-To: <09f7d2b95eaf850004b45a5dab48446ed6f7257f.1473759872.git.rahul.lakkireddy@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sramamur-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
+To: lrichard-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1473775734-27382-1-git-send-email-lrichard-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
-Date: Tue, 13 Sep 2016 17:12:26 +0530
-
-> +/* Fill up default masks for set match fields. */
-> +static void fill_default_mask(struct ch_filter_specification *fs)
-> +{
-> +	unsigned int i;
-> +	unsigned int lip = 0, lip_mask = 0;
-> +	unsigned int fip = 0, fip_mask = 0;
-
-Always order local variable declarations from longest to shortest
-line.
-
-Please audit your entire submission for this issue.
-
-Thanks.
+RnJvbTogTGFuY2UgUmljaGFyZHNvbiA8bHJpY2hhcmRAcmVkaGF0LmNvbT4KRGF0ZTogVHVlLCAx
+MyBTZXAgMjAxNiAxMDowODo1NCAtMDQwMAoKPiBUaGUgb3ZzIGtlcm5lbCBkYXRhIHBhdGggY3Vy
+cmVudGx5IGRlZmVycyB0aGUgZXhlY3V0aW9uIG9mIGFsbAo+IHJlY2lyYyBhY3Rpb25zIHVudGls
+IHN0YWNrIHV0aWxpemF0aW9uIGlzIGF0IGEgbWluaW11bS4KPiBUaGlzIGlzIHRvbyBsaW1pdGlu
+ZyBmb3Igc29tZSBwYWNrZXQgZm9yd2FyZGluZyBzY2VuYXJpb3MgZHVlIHRvCj4gdGhlIHNtYWxs
+IHNpemUgb2YgdGhlIGRlZmVycmVkIGFjdGlvbiBGSUZPICgxMCBlbnRyaWVzKS4gRm9yCj4gZXhh
+bXBsZSwgYnJvYWRjYXN0IHRyYWZmaWMgc2VudCBvdXQgbW9yZSB0aGFuIDEwIHBvcnRzIHdpdGgK
+PiByZWNpcmN1bGF0aW9uIHJlc3VsdHMgaW4gcGFja2V0IGRyb3BzIHdoZW4gdGhlIGRlZmVycmVk
+IGFjdGlvbgo+IEZJRk8gYmVjb21lcyBmdWxsLCBhcyByZXBvcnRlZCBoZXJlOgo+IAo+ICAgICAg
+aHR0cDovL29wZW52c3dpdGNoLm9yZy9waXBlcm1haWwvZGV2LzIwMTYtTWFyY2gvMDY3NjcyLmh0
+bWwKPiAKPiBTaW5jZSB0aGUgY3VycmVudCByZWN1cnNpb24gZGVwdGggaXMgYXZhaWxhYmxlIChp
+dCBpcyBhbHJlYWR5IHRyYWNrZWQKPiBieSB0aGUgZXhlY19hY3Rpb25zX2xldmVsIHBjcHUgdmFy
+aWFibGUpLCB3ZSBjYW4gdXNlIGl0IHRvIGRldGVybWluZQo+IHdoZXRoZXIgdG8gZXhlY3V0ZSBy
+ZWNpcmN1bGF0aW9uIGFjdGlvbnMgaW1tZWRpYXRlbHkgKHNhZmUgd2hlbgo+IHJlY3Vyc2lvbiBk
+ZXB0aCBpcyBsb3cpIG9yIGRlZmVyIGV4ZWN1dGlvbiB1bnRpbCBtb3JlIHN0YWNrIHNwYWNlIGlz
+Cj4gYXZhaWxhYmxlLgo+IAo+IFdpdGggdGhpcyBjaGFuZ2UsIHRoZSBkZWZlcnJlZCBhY3Rpb24g
+ZmlmbyBzaXplIGJlY29tZXMgYSBub24taXNzdWUKPiBmb3IgY3VycmVudGx5IGZhaWxpbmcgc2Nl
+bmFyaW9zIGJlY2F1c2UgaXQgaXMgbm8gbG9uZ2VyIHVzZWQgd2hlbgo+IHRoZXJlIGFyZSB0aHJl
+ZSBvciBmZXdlciByZWN1cnNpb25zIHRocm91Z2ggb3ZzX2V4ZWN1dGVfYWN0aW9ucygpLgo+IAo+
+IFN1Z2dlc3RlZC1ieTogUHJhdmluIFNoZWxhciA8cHNoZWxhckBvdm4ub3JnPgo+IFNpZ25lZC1v
+ZmYtYnk6IExhbmNlIFJpY2hhcmRzb24gPGxyaWNoYXJkQHJlZGhhdC5jb20+CgpBcHBsaWVkLgpf
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGlu
+ZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFu
+L2xpc3RpbmZvL2Rldgo=
