@@ -1,62 +1,54 @@
-From: Mike Manning <mmanning@brocade.com>
-Subject: Re: [PATCH] net: ipv6: Disable forwarding per interface via sysctl
-Date: Fri, 16 Sep 2016 17:25:38 +0100
-Message-ID: <c4d02e08-12e9-dd0b-5ab2-70857b898e11@brocade.com>
-References: <1474030076-24809-1-git-send-email-mmanning@brocade.com>
- <1474033192.22679.67.camel@edumazet-glaptop3.roam.corp.google.com>
- <188dbf56-c09c-259b-4e10-0e331c4be880@stressinduktion.org>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [PATCH v4 00/16] Add Paravirtual RDMA Driver
+Date: Fri, 16 Sep 2016 10:32:01 -0600
+Message-ID: <20160916163201.GC13911@obsidianresearch.com>
+References: <1473655766-31628-1-git-send-email-aditr@vmware.com>
+ <20160912180251.GH5843@obsidianresearch.com>
+ <BLUPR0501MB836ED564F2AE7AB9221AC25C5FF0@BLUPR0501MB836.namprd05.prod.outlook.com>
+ <20160914173636.GA10309@obsidianresearch.com>
+ <DM2PR0501MB844473AE0FCAD0FD748D43DC5F10@DM2PR0501MB844.namprd05.prod.outlook.com>
+ <9C6B67F36DCAFC479B1CF6A967258A8C7DE14CE8@ORSMSX115.amr.corp.intel.com>
+ <9C6B67F36DCAFC479B1CF6A967258A8C7DE14D3E@ORSMSX115.amr.corp.intel.com>
+ <20160914225910.GB3567@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Adit Ranadive <aditr@vmware.com>,
+        "dledford@redhat.com" <dledford@redhat.com>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        pv-drivers <pv-drivers@vmware.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+        "Jorgen S. Hansen" <jhansen@vmware.com>,
+        Aditya Sarwade <asarwade@vmware.com>,
+        George Zhang <georgezhang@vmware.com>,
+        Bryan Tan <bryantan@vmware.com>
+To: "Woodruff, Robert J" <robert.j.woodruff@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:41729 "EHLO
-        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S935745AbcIPQ0v (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 12:26:51 -0400
-In-Reply-To: <188dbf56-c09c-259b-4e10-0e331c4be880@stressinduktion.org>
+Received: from quartz.orcorp.ca ([184.70.90.242]:39614 "EHLO quartz.orcorp.ca"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S935781AbcIPQcH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 16 Sep 2016 12:32:07 -0400
+Content-Disposition: inline
+In-Reply-To: <20160914225910.GB3567@obsidianresearch.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/16/2016 04:46 PM, Hannes Frederic Sowa wrote:
-> On 16.09.2016 15:39, Eric Dumazet wrote:
->> On Fri, 2016-09-16 at 13:47 +0100, Mike Manning wrote:
->>> Disabling forwarding per interface via sysctl continues to allow
->>> forwarding. This is contrary to the sysctl documentation stating that
->>> the forwarding sysctl is per interface, whereas currently it is only
->>> the sysctl for all interfaces that has an effect on forwarding. The
->>> solution is to drop any received packets instead of forwarding them
->>> if the ingress device has a per-device forwarding sysctl that is unset.
->>
->> Some archaeological research might be needed because
->> Documentation/networking/ip-sysctl.txt states :
->>
->> IPv4 and IPv6 work differently here; e.g. netfilter must be used
->> to control which interfaces may forward packets and which not.
->>
->> If this netfilter requirement is obsolete, then your patch would need to
->> change the doc as well.
->>
->> Hannes can probably comment on this ?
+On Wed, Sep 14, 2016 at 04:59:10PM -0600, Jason Gunthorpe wrote:
+
+> > package follows that licensing model for accepting any new code into
+> > that combined repo ?
 > 
-> Yep, thanks.
+> As with the kernel we'd discourage 're-licensing' existing files.
 > 
-> This commit breaks a very common setup: people globally enabled
-> forwarding but disabled the forwarding knob on one special interface to
-> allow this interface to participate in auto configuration from their
-> provider while still forwarding packets over this interface.
-> 
-> I fear this is so common that this would be a uapi violation.
-> 
-> Thanks,
-> Hannes
-> 
-> 
-Thanks for the use-case, I request to withdraw this patch then.
-So configuring an interface on a router to be in host mode is not actually
-disabling forwarding in the kernel, it is merely to allow SLAAC. Using ip6tables
-for the purpose of disabling forwarding on an interface if one wants an interface
-in host mode seems a heavyweight solution to work around this. If anyone has
-any better suggestions, please let me know. 
+> However, since this is not a OFA project, I, personally, would not
+> turn away a GPLv2 compatible contribution, but I am proposing that the
+> 'default' license for the project be OFA compatible.
+
+I should be clearer here. I am *strongly* opposed to anything that
+changes the license of the existing 4 core libraries away from the
+GPLv2 or OpenIB.org situation we have today. (that includes to other
+varients of the BSD license)
+
+I just checked and we appear to be completely OK on this point today.
+
+Jason
