@@ -1,43 +1,87 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH next] sctp: make use of WORD_TRUNC macro
-Date: Fri, 16 Sep 2016 09:51:56 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB00FF62C@AcuExch.aculab.com>
-References: <b40b1bd4adff2d389588d9a4710af0399ce68d1e.1473963064.git.marcelo.leitner@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>
-To: 'Marcelo Ricardo Leitner' <marcelo.leitner@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.184]:54483 "EHLO
-        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751948AbcIPJyQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 05:54:16 -0400
-In-Reply-To: <b40b1bd4adff2d389588d9a4710af0399ce68d1e.1473963064.git.marcelo.leitner@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Subject: [PATCH net-next RESEND] xen-netfront: avoid packet loss when ethernet header crosses page boundary
+Date: Fri, 16 Sep 2016 12:59:14 +0200
+Message-ID: <1474023554-24520-1-git-send-email-vkuznets@redhat.com>
+Cc: linux-kernel@vger.kernel.org,
+        Patrick Talbert <ptalbert@redhat.com>,
+        Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+        David Vrabel <david.vrabel@citrix.com>,
+        Juergen Gross <jgross@suse.com>, xen-devel@lists.xenproject.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Marcelo Ricardo Leitner
-> Sent: 15 September 2016 19:13
-> No functional change. Just to avoid the usage of '&~3'.
-...
-> -	max_data = (asoc->pathmtu -
-> -		sctp_sk(asoc->base.sk)->pf->af->net_header_len -
-> -		sizeof(struct sctphdr) - sizeof(struct sctp_data_chunk)) & ~3;
-> +	max_data = asoc->pathmtu -
-> +		   sctp_sk(asoc->base.sk)->pf->af->net_header_len -
-> +		   sizeof(struct sctphdr) - sizeof(struct sctp_data_chunk);
-> +	max_data = WORD_TRUNC(max_data);
+Small packet loss is reported on complex multi host network configurations
+including tunnels, NAT, ... My investigation led me to the following check
+in netback which drops packets:
 
-Hmmm....
-Am I the only person who understands immediately what & ~3 does
-but would have to grovel through the headers to find exactly what
-WORD_TRUNC() does.
+        if (unlikely(txreq.size < ETH_HLEN)) {
+                netdev_err(queue->vif->dev,
+                           "Bad packet size: %d\n", txreq.size);
+                xenvif_tx_err(queue, &txreq, extra_count, idx);
+                break;
+        }
 
-How big is a 'WORD' anyway??
+But this check itself is legitimate. SKBs consist of a linear part (which
+has to have the ethernet header) and (optionally) a number of frags.
+Netfront transmits the head of the linear part up to the page boundary
+as the first request and all the rest becomes frags so when we're
+reconstructing the SKB in netback we can't distinguish between original
+frags and the 'tail' of the linear part. The first SKB needs to be at
+least ETH_HLEN size. So in case we have an SKB with its linear part
+starting too close to the page boundary the packet is lost.
 
-	David
+I see two ways to fix the issue:
+- Change the 'wire' protocol between netfront and netback to start keeping
+  the original SKB structure. We'll have to add a flag indicating the fact
+  that the particular request is a part of the original linear part and not
+  a frag. We'll need to know the length of the linear part to pre-allocate
+  memory.
+- Avoid transmitting SKBs with linear parts starting too close to the page
+  boundary. That seems preferable short-term and shouldn't bring
+  significant performance degradation as such packets are rare. That's what
+  this patch is trying to achieve with skb_copy().
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Acked-by: David Vrabel <david.vrabel@citrix.com>
+---
+- This is just a RESEND with David's ACK added.
+---
+ drivers/net/xen-netfront.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index 96ccd4e..28c4a66 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -565,6 +565,7 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	struct netfront_queue *queue = NULL;
+ 	unsigned int num_queues = dev->real_num_tx_queues;
+ 	u16 queue_index;
++	struct sk_buff *nskb;
+ 
+ 	/* Drop the packet if no queues are set up */
+ 	if (num_queues < 1)
+@@ -595,6 +596,19 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	offset = offset_in_page(skb->data);
+ 	len = skb_headlen(skb);
+ 
++	/* The first req should be at least ETH_HLEN size or the packet will be
++	 * dropped by netback.
++	 */
++	if (unlikely(PAGE_SIZE - offset < ETH_HLEN)) {
++		nskb = skb_copy(skb, GFP_ATOMIC);
++		if (!nskb)
++			goto drop;
++		dev_kfree_skb_any(skb);
++		skb = nskb;
++		page = virt_to_page(skb->data);
++		offset = offset_in_page(skb->data);
++	}
++
+ 	spin_lock_irqsave(&queue->tx_lock, flags);
+ 
+ 	if (unlikely(!netif_carrier_ok(dev) ||
+-- 
+2.7.4
