@@ -1,50 +1,36 @@
 From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH net-next 12/14] tcp: new CC hook to set sending rate with rate_sample in any CA state
-Date: Fri, 16 Sep 2016 14:49:01 -0400
-Message-ID: <1474051743-13311-13-git-send-email-ncardwell@google.com>
+Subject: [PATCH net-next 08/14] tcp: allow congestion control module to request TSO skb segment count
+Date: Fri, 16 Sep 2016 14:48:57 -0400
+Message-ID: <1474051743-13311-9-git-send-email-ncardwell@google.com>
 References: <1474051743-13311-1-git-send-email-ncardwell@google.com>
-Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
+Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
         Van Jacobson <vanj@google.com>,
-        Neal Cardwell <ncardwell@google.com>,
+        Yuchung Cheng <ycheng@google.com>,
         Nandita Dukkipati <nanditad@google.com>,
         Eric Dumazet <edumazet@google.com>,
         Soheil Hassas Yeganeh <soheil@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f179.google.com ([209.85.220.179]:34106 "EHLO
-        mail-qk0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933916AbcIPSuH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 14:50:07 -0400
-Received: by mail-qk0-f179.google.com with SMTP id h8so91528076qka.1
-        for <netdev@vger.kernel.org>; Fri, 16 Sep 2016 11:50:07 -0700 (PDT)
+Received: from mail-qk0-f174.google.com ([209.85.220.174]:35361 "EHLO
+        mail-qk0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1765093AbcIPSt7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 14:49:59 -0400
+Received: by mail-qk0-f174.google.com with SMTP id t7so97131072qkh.2
+        for <netdev@vger.kernel.org>; Fri, 16 Sep 2016 11:49:58 -0700 (PDT)
 In-Reply-To: <1474051743-13311-1-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuchung Cheng <ycheng@google.com>
+Add the tso_segs_goal() function in tcp_congestion_ops to allow the
+congestion control module to specify the number of segments that
+should be in a TSO skb sent by tcp_write_xmit() and
+tcp_xmit_retransmit_queue(). The congestion control module can either
+request a particular number of segments in TSO skb that we transmit,
+or return 0 if it doesn't care.
 
-This commit introduces an optional new "omnipotent" hook,
-cong_control(), for congestion control modules. The cong_control()
-function is called at the end of processing an ACK (i.e., after
-updating sequence numbers, the SACK scoreboard, and loss
-detection). At that moment we have precise delivery rate information
-the congestion control module can use to control the sending behavior
-(using cwnd, TSO skb size, and pacing rate) in any CA state.
-
-This function can also be used by a congestion control that prefers
-not to use the default cwnd reduction approach (i.e., the PRR
-algorithm) during CA_Recovery to control the cwnd and sending rate
-during loss recovery.
-
-We take advantage of the fact that recent changes defer the
-retransmission or transmission of new data (e.g. by F-RTO) in recovery
-until the new tcp_cong_control() function is run.
-
-With this commit, we only run tcp_update_pacing_rate() if the
-congestion control is not using this new API. New congestion controls
-which use the new API do not want the TCP stack to run the default
-pacing rate calculation and overwrite whatever pacing rate they have
-chosen at initialization time.
+This allows the upcoming BBR congestion control module to select small
+TSO skb sizes if the module detects that the bottleneck bandwidth is
+very low, or that the connection is policed to a low rate.
 
 Signed-off-by: Van Jacobson <vanj@google.com>
 Signed-off-by: Neal Cardwell <ncardwell@google.com>
@@ -53,88 +39,62 @@ Signed-off-by: Nandita Dukkipati <nanditad@google.com>
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
 ---
- include/net/tcp.h    |  4 ++++
- net/ipv4/tcp_cong.c  |  2 +-
- net/ipv4/tcp_input.c | 17 ++++++++++++++---
- 3 files changed, 19 insertions(+), 4 deletions(-)
+ include/net/tcp.h     |  2 ++
+ net/ipv4/tcp_output.c | 15 +++++++++++++--
+ 2 files changed, 15 insertions(+), 2 deletions(-)
 
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index c4d2e46..35ec286 100644
+index 9829aa7..4d85cd7 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -919,6 +919,10 @@ struct tcp_congestion_ops {
- 	u32 (*tso_segs_goal)(struct sock *sk);
- 	/* returns the multiplier used in tcp_sndbuf_expand (optional) */
- 	u32 (*sndbuf_expand)(struct sock *sk);
-+	/* call when packets are delivered to update cwnd and pacing rate,
-+	 * after all the ca_state processing. (optional)
-+	 */
-+	void (*cong_control)(struct sock *sk, const struct rate_sample *rs);
+@@ -913,6 +913,8 @@ struct tcp_congestion_ops {
+ 	u32  (*undo_cwnd)(struct sock *sk);
+ 	/* hook for packet ack accounting (optional) */
+ 	void (*pkts_acked)(struct sock *sk, const struct ack_sample *sample);
++	/* suggest number of segments for each skb to transmit (optional) */
++	u32 (*tso_segs_goal)(struct sock *sk);
  	/* get info for inet_diag (optional) */
  	size_t (*get_info)(struct sock *sk, u32 ext, int *attr,
  			   union tcp_cc_info *info);
-diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
-index 882caa4..1294af4 100644
---- a/net/ipv4/tcp_cong.c
-+++ b/net/ipv4/tcp_cong.c
-@@ -69,7 +69,7 @@ int tcp_register_congestion_control(struct tcp_congestion_ops *ca)
- 	int ret = 0;
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index e02c8eb..0137956 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1566,6 +1566,17 @@ static u32 tcp_tso_autosize(const struct sock *sk, unsigned int mss_now)
+ 	return min_t(u32, segs, sk->sk_gso_max_segs);
+ }
  
- 	/* all algorithms must implement ssthresh and cong_avoid ops */
--	if (!ca->ssthresh || !ca->cong_avoid) {
-+	if (!ca->ssthresh || !(ca->cong_avoid || ca->cong_control)) {
- 		pr_err("%s does not implement required ops\n", ca->name);
- 		return -EINVAL;
++/* Return the number of segments we want in the skb we are transmitting.
++ * See if congestion control module wants to decide; otherwise, autosize.
++ */
++static u32 tcp_tso_segs(struct sock *sk, unsigned int mss_now)
++{
++	const struct tcp_congestion_ops *ca_ops = inet_csk(sk)->icsk_ca_ops;
++	u32 tso_segs = ca_ops->tso_segs_goal ? ca_ops->tso_segs_goal(sk) : 0;
++
++	return tso_segs ? : tcp_tso_autosize(sk, mss_now);
++}
++
+ /* Returns the portion of skb which can be sent right away */
+ static unsigned int tcp_mss_split_point(const struct sock *sk,
+ 					const struct sk_buff *skb,
+@@ -2061,7 +2072,7 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
+ 		}
  	}
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index a134e66..931fe32 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -2536,6 +2536,9 @@ static inline void tcp_end_cwnd_reduction(struct sock *sk)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
  
-+	if (inet_csk(sk)->icsk_ca_ops->cong_control)
-+		return;
-+
- 	/* Reset cwnd to ssthresh in CWR or Recovery (unless it's undone) */
- 	if (inet_csk(sk)->icsk_ca_state == TCP_CA_CWR ||
- 	    (tp->undo_marker && tp->snd_ssthresh < TCP_INFINITE_SSTHRESH)) {
-@@ -3312,8 +3315,15 @@ static inline bool tcp_may_raise_cwnd(const struct sock *sk, const int flag)
-  * information. All transmission or retransmission are delayed afterwards.
-  */
- static void tcp_cong_control(struct sock *sk, u32 ack, u32 acked_sacked,
--			     int flag)
-+			     int flag, const struct rate_sample *rs)
- {
-+	const struct inet_connection_sock *icsk = inet_csk(sk);
-+
-+	if (icsk->icsk_ca_ops->cong_control) {
-+		icsk->icsk_ca_ops->cong_control(sk, rs);
-+		return;
-+	}
-+
- 	if (tcp_in_cwnd_reduction(sk)) {
- 		/* Reduce cwnd if state mandates */
- 		tcp_cwnd_reduction(sk, acked_sacked, flag);
-@@ -3683,7 +3693,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
- 	delivered = tp->delivered - delivered;	/* freshly ACKed or SACKed */
- 	lost = tp->lost - lost;			/* freshly marked lost */
- 	tcp_rate_gen(sk, delivered, lost, &now, &rs);
--	tcp_cong_control(sk, ack, delivered, flag);
-+	tcp_cong_control(sk, ack, delivered, flag, &rs);
- 	tcp_xmit_recovery(sk, rexmit);
- 	return 1;
+-	max_segs = tcp_tso_autosize(sk, mss_now);
++	max_segs = tcp_tso_segs(sk, mss_now);
+ 	while ((skb = tcp_send_head(sk))) {
+ 		unsigned int limit;
  
-@@ -5981,7 +5991,8 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb)
- 		} else
- 			tcp_init_metrics(sk);
+@@ -2778,7 +2789,7 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
+ 		last_lost = tp->snd_una;
+ 	}
  
--		tcp_update_pacing_rate(sk);
-+		if (!inet_csk(sk)->icsk_ca_ops->cong_control)
-+			tcp_update_pacing_rate(sk);
- 
- 		/* Prevent spurious tcp_cwnd_restart() on first data packet */
- 		tp->lsndtime = tcp_time_stamp;
+-	max_segs = tcp_tso_autosize(sk, tcp_current_mss(sk));
++	max_segs = tcp_tso_segs(sk, tcp_current_mss(sk));
+ 	tcp_for_write_queue_from(skb, sk) {
+ 		__u8 sacked;
+ 		int segs;
 -- 
 2.8.0.rc3.226.g39d4020
