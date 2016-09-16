@@ -1,158 +1,86 @@
-From: Trond Myklebust <trondmy@primarydata.com>
-Subject: Re: [PATCHv1] sunrpc: fix write space race causing stalls
-Date: Fri, 16 Sep 2016 18:04:25 +0000
-Message-ID: <44AD1332-26A4-4C15-99A2-595B292BD6E6@primarydata.com>
-References: <1474028902-19838-1-git-send-email-david.vrabel@citrix.com>
- <DCD6291A-CE72-4888-AD77-37BB259CD026@primarydata.com>
- <57DC20C8.5000306@citrix.com>
- <4BCBEAB3-1AD4-455E-9C0B-CCD3172C2C17@primarydata.com>
- <57DC2BFE.7040507@citrix.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH] net: ipv6: fallback to full lookup if table lookup is
+ unsuitable
+Date: Fri, 16 Sep 2016 12:36:04 -0600
+Message-ID: <adff2e07-75e1-d44c-4799-0920ffcd2622@cumulusnetworks.com>
+References: <20160916125531.3486-1-vincent@bernat.im>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=WINDOWS-1252
-Content-Transfer-Encoding: quoted-printable
-Cc: List Linux NFS Mailing <linux-nfs@vger.kernel.org>,
-        Schumaker Anna <anna.schumaker@netapp.com>,
-        List Linux Network Devel Mailing <netdev@vger.kernel.org>
-To: David Vrabel <david.vrabel@citrix.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+To: Vincent Bernat <vincent@bernat.im>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from us-smtp-delivery-194.mimecast.com ([216.205.24.194]:20063 "EHLO
-        us-smtp-delivery-194.mimecast.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750871AbcIPSEg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 14:04:36 -0400
-In-Reply-To: <57DC2BFE.7040507@citrix.com>
-Content-Language: en-US
-Content-ID: <1455A2BC6B09FD4E9C0A139F8190DB38@namprd11.prod.outlook.com>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:34037 "EHLO
+        mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752496AbcIPSgH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 14:36:07 -0400
+Received: by mail-pa0-f50.google.com with SMTP id wk8so28300934pab.1
+        for <netdev@vger.kernel.org>; Fri, 16 Sep 2016 11:36:06 -0700 (PDT)
+In-Reply-To: <20160916125531.3486-1-vincent@bernat.im>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 9/16/16 6:55 AM, Vincent Bernat wrote:
+> Commit 8c14586fc320 ("net: ipv6: Use passed in table for nexthop
+> lookups") introduced a regression: insertion of an IPv6 route in a table
+> not containing the appropriate connected route for the gateway but which
+> contained a non-connected route (like a default gateway) fails while it
+> was previously working:
+> 
+>     $ ip link add eth0 type dummy
+>     $ ip link set up dev eth0
+>     $ ip addr add 2001:db8::1/64 dev eth0
+>     $ ip route add ::/0 via 2001:db8::5 dev eth0 table 20
+>     $ ip route add 2001:db8:cafe::1/128 via 2001:db8::6 dev eth0 table 20
+>     RTNETLINK answers: No route to host
+>     $ ip -6 route show table 20
+>     default via 2001:db8::5 dev eth0  metric 1024  pref medium
 
-> On Sep 16, 2016, at 13:29, David Vrabel <david.vrabel@citrix.com> wrote:
->=20
-> On 16/09/16 18:06, Trond Myklebust wrote:
->>=20
->>> On Sep 16, 2016, at 12:41, David Vrabel <david.vrabel@citrix.com> wrote=
-:
->>>=20
->>> On 16/09/16 17:01, Trond Myklebust wrote:
->>>>=20
->>>>> On Sep 16, 2016, at 08:28, David Vrabel <david.vrabel@citrix.com> wro=
-te:
->>>>>=20
->>>>> Write space becoming available may race with putting the task to slee=
-p
->>>>> in xprt_wait_for_buffer_space().  The existing mechanism to avoid the
->>>>> race does not work.
->>>>>=20
->>>>> This (edited) partial trace illustrates the problem:
->>>>>=20
->>>>> [1] rpc_task_run_action: task:43546@5 ... action=3Dcall_transmit
->>>>> [2] xs_write_space <-xs_tcp_write_space
->>>>> [3] xprt_write_space <-xs_write_space
->>>>> [4] rpc_task_sleep: task:43546@5 ...
->>>>> [5] xs_write_space <-xs_tcp_write_space
->>>>>=20
->>>>> [1] Task 43546 runs but is out of write space.
->>>>>=20
->>>>> [2] Space becomes available, xs_write_space() clears the
->>>>>  SOCKWQ_ASYNC_NOSPACE bit.
->>>>>=20
->>>>> [3] xprt_write_space() attemts to wake xprt->snd_task (=3D=3D 43546),=
- but
->>>>>  this has not yet been queued and the wake up is lost.
->>>>>=20
->>>>> [4] xs_nospace() is called which calls xprt_wait_for_buffer_space()
->>>>>  which queues task 43546.
->>>>>=20
->>>>> [5] The call to sk->sk_write_space() at the end of xs_nospace() (whic=
-h
->>>>>  is supposed to handle the above race) does not call
->>>>>  xprt_write_space() as the SOCKWQ_ASYNC_NOSPACE bit is clear and
->>>>>  thus the task is not woken.
->>>>>=20
->>>>> Fix the race by have xprt_wait_for_buffer_space() check for write
->>>>> space after putting the task to sleep.
->>>>>=20
->>>>> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
->>>>> ---
->>>>> include/linux/sunrpc/xprt.h |  1 +
->>>>> net/sunrpc/xprt.c           |  4 ++++
->>>>> net/sunrpc/xprtsock.c       | 21 +++++++++++++++++++--
->>>>> 3 files changed, 24 insertions(+), 2 deletions(-)
->>>>>=20
->>>>> diff --git a/include/linux/sunrpc/xprt.h b/include/linux/sunrpc/xprt.=
-h
->>>>> index a16070d..621e74b 100644
->>>>> --- a/include/linux/sunrpc/xprt.h
->>>>> +++ b/include/linux/sunrpc/xprt.h
->>>>> @@ -129,6 +129,7 @@ struct rpc_xprt_ops {
->>>>> =09void=09=09(*connect)(struct rpc_xprt *xprt, struct rpc_task *task)=
-;
->>>>> =09void *=09=09(*buf_alloc)(struct rpc_task *task, size_t size);
->>>>> =09void=09=09(*buf_free)(void *buffer);
->>>>> +=09bool            (*have_write_space)(struct rpc_xprt *task);
->>>>> =09int=09=09(*send_request)(struct rpc_task *task);
->>>>> =09void=09=09(*set_retrans_timeout)(struct rpc_task *task);
->>>>> =09void=09=09(*timer)(struct rpc_xprt *xprt, struct rpc_task *task);
->>>>> diff --git a/net/sunrpc/xprt.c b/net/sunrpc/xprt.c
->>>>> index ea244b2..d3c1b1e 100644
->>>>> --- a/net/sunrpc/xprt.c
->>>>> +++ b/net/sunrpc/xprt.c
->>>>> @@ -502,6 +502,10 @@ void xprt_wait_for_buffer_space(struct rpc_task =
-*task, rpc_action action)
->>>>>=20
->>>>> =09task->tk_timeout =3D RPC_IS_SOFT(task) ? req->rq_timeout : 0;
->>>>> =09rpc_sleep_on(&xprt->pending, task, action);
->>>>> +
->>>>> +=09/* Write space notification may race with putting task to sleep. =
-*/
->>>>> +=09if (xprt->ops->have_write_space(xprt))
->>>>> +=09=09rpc_wake_up_queued_task(&xprt->pending, task);
->>>>> }
->>>>> EXPORT_SYMBOL_GPL(xprt_wait_for_buffer_space);
->>>>>=20
->>>>> diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
->>>>> index bf16883..211de5b 100644
->>>>> --- a/net/sunrpc/xprtsock.c
->>>>> +++ b/net/sunrpc/xprtsock.c
->>>>> @@ -472,8 +472,6 @@ static int xs_nospace(struct rpc_task *task)
->>>>>=20
->>>>> =09spin_unlock_bh(&xprt->transport_lock);
->>>>>=20
->>>>> -=09/* Race breaker in case memory is freed before above code is call=
-ed */
->>>>> -=09sk->sk_write_space(sk);
->>>>> =09return ret;
->>>>> }
->>>>=20
->>>> Instead of these callbacks, why not just add a call to
->>>> sk_set_bit(SOCKWQ_ASYNC_WAITDATA, sk) after queueing the task in
->>>> xs_nospace()? Won=92t that fix the existing race breaker?
->>>=20
->>> I don't see how that would help.  If sk->sk_write_space was already
->>> called, SOCKWQ_ASYNC_NOSPACE will still be clear and the next call to
->>> sk->sk_write_space will still be a nop.
->>=20
->> Sorry. Copy+paste error. I meant SOCKWQ_ASYNC_NOSPACE.
->>=20
->>>=20
->>> Or did you mean SOCKWQ_ASYNC_NOSPACE here?  It doesn't seem right to se=
-t
->>> this bit when we don't know if there's space or not.
->>=20
->> Why not?
->=20
-> I prefer my solution because:
->=20
-> a) It obviously fixes the race (games with bits are less understandable).
->=20
-> b) It requires fewer atomic ops.
->=20
-> c) It doesn't require me to understand what the behaviour of the
-> socket-internal SOCKWQ_ASYNC_NOSPACE bit is or should be.
->=20
-> d) I'm not sure I understand the objection to the additional
-> have_write_space method -- it has simple, clear behaviour.
->=20
+so your table 20 is not complete in that it lacks a connected route to resolve 2001:db8::6 as a nexthop, so you are relying on a fallback to other tables (main in this case).
 
-I don=92t see the point of adding 24 lines of code over 3 different files i=
-f the problem can be solved with 1 line of code.
+-----8<-----
+
+> @@ -1991,33 +2015,15 @@ static struct rt6_info *ip6_route_info_create(struct fib6_config *cfg)
+>  			if (!(gwa_type & IPV6_ADDR_UNICAST))
+>  				goto out;
+>  
+> +			err = -EHOSTUNREACH;
+>  			if (cfg->fc_table)
+>  				grt = ip6_nh_lookup_table(net, cfg, gw_addr);
+
+-----8<-----
+
+> -			if (!(grt->rt6i_flags & RTF_GATEWAY))
+> -				err = 0;
+
+This is the check that is failing for your use case. ip6_nh_lookup_table is returning the default route and nexthops can not rely on a gateway. Given that a simpler and more direct change is (whitespace mangled on paste):
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index ad4a7ff301fc..48bae2ee2e18 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1991,9 +1991,19 @@ static struct rt6_info *ip6_route_info_create(struct fib6_config *cfg)
+                        if (!(gwa_type & IPV6_ADDR_UNICAST))
+                                goto out;
+
+-                       if (cfg->fc_table)
++                       if (cfg->fc_table) {
+                                grt = ip6_nh_lookup_table(net, cfg, gw_addr);
+
++                               /* a nexthop lookup can not go through a gw.
++                                * if this happens on a table based lookup
++                                * then fallback to a full lookup
++                                */
++                               if (grt && grt->rt6i_flags & RTF_GATEWAY) {
++                                       ip6_rt_put(grt);
++                                       grt = NULL;
++                               }
++                       }
++
+                        if (!grt)
+                                grt = rt6_lookup(net, gw_addr, NULL,
+                                                 cfg->fc_ifindex, 1);
