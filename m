@@ -1,64 +1,40 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCHv3 next 3/3] ipvlan: Introduce l3s mode
-Date: Thu, 15 Sep 2016 19:49:16 -0600
-Message-ID: <037780fb-984c-cc69-969e-2c98bc406dc9@cumulusnetworks.com>
-References: <1473984847-32243-1-git-send-email-mahesh@bandewar.net>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [PATCH] mwifiex: fix null pointer deference when adapter is null
+Date: Fri, 16 Sep 2016 06:56:39 +0300
+Message-ID: <87r38ka45k.fsf@kamboji.qca.qualcomm.com>
+References: <201609160029.fRGnTGuA%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>,
-        Mahesh Bandewar <maheshb@google.com>
-To: Mahesh Bandewar <mahesh@bandewar.net>,
-        netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:34212 "EHLO
-        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753174AbcIPBtT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 21:49:19 -0400
-Received: by mail-pf0-f169.google.com with SMTP id p64so22216537pfb.1
-        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 18:49:18 -0700 (PDT)
-In-Reply-To: <1473984847-32243-1-git-send-email-mahesh@bandewar.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Colin King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>, kbuild-all-JC7UmRfGjtg@public.gmane.org,
+        Amitkumar Karwar <akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        Nishant Sarmukadam <nishants-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: kbuild test robot <lkp-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <201609160029.fRGnTGuA%fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> (kbuild test
+        robot's message of "Fri, 16 Sep 2016 00:29:25 +0800")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 9/15/16 6:14 PM, Mahesh Bandewar wrote:
-> diff --git a/drivers/net/ipvlan/ipvlan.h b/drivers/net/ipvlan/ipvlan.h
-> index 695a5dc9ace3..371f4548c42d 100644
-> --- a/drivers/net/ipvlan/ipvlan.h
-> +++ b/drivers/net/ipvlan/ipvlan.h
-> @@ -23,11 +23,13 @@
->  #include <linux/if_vlan.h>
->  #include <linux/ip.h>
->  #include <linux/inetdevice.h>
-> +#include <linux/netfilter.h>
->  #include <net/ip.h>
->  #include <net/ip6_route.h>
->  #include <net/rtnetlink.h>
->  #include <net/route.h>
->  #include <net/addrconf.h>
-> +#include <net/l3mdev.h>
->  
->  #define IPVLAN_DRV	"ipvlan"
->  #define IPV_DRV_VER	"0.1"
-> @@ -96,6 +98,7 @@ struct ipvl_port {
->  	struct work_struct	wq;
->  	struct sk_buff_head	backlog;
->  	int			count;
-> +	bool			hooks_attached;
+kbuild test robot <lkp-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> writes:
 
-With a refcnt on the hook registration you don't need this bool and removing simplifies the set_mode logic.
+> url:    https://github.com/0day-ci/linux/commits/Colin-King/mwifiex-fix-null-pointer-deference-when-adapter-is-null/20160915-231625
+> base:   https://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers-next.git master
+> config: x86_64-randconfig-x013-201637 (attached as .config)
+> compiler: gcc-6 (Debian 6.1.1-9) 6.1.1 20160705
+> reproduce:
+>         # save the attached .config to linux build tree
+>         make ARCH=x86_64 
+>
+> All warnings (new ones prefixed by >>):
+>
+>    drivers/net/wireless/marvell/mwifiex/main.c: In function 'mwifiex_shutdown_sw':
+>>> drivers/net/wireless/marvell/mwifiex/main.c:1433:1: warning: label 'exit_remove' defined but not used [-Wunused-label]
+>     exit_remove:
+>     ^~~~~~~~~~~
 
+Looks like a valid warning to me, so please resend.
 
-> diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-> index 18b4e8c7f68a..aca690f41559 100644
-> --- a/drivers/net/ipvlan/ipvlan_main.c
-> +++ b/drivers/net/ipvlan/ipvlan_main.c
-
-....
-
-> +static void ipvlan_unregister_nf_hook(void)
-> +{
-> +	BUG_ON(!ipvl_nf_hook_refcnt);
-
-not a panic() worthy issue. just a pr_warn or WARN_ON_ONCE should be ok.
+-- 
+Kalle Valo
