@@ -1,64 +1,69 @@
 From: Mahesh Bandewar <mahesh@bandewar.net>
-Subject: [PATCHv3 next 0/3] IPvlan introduce l3s mode
-Date: Thu, 15 Sep 2016 17:13:20 -0700
-Message-ID: <1473984800-32020-1-git-send-email-mahesh@bandewar.net>
+Subject: [PATCHv3 next 1/3] ipv6: Export p6_route_input_lookup symbol
+Date: Thu, 15 Sep 2016 17:13:36 -0700
+Message-ID: <1473984816-32102-1-git-send-email-mahesh@bandewar.net>
 Cc: Eric Dumazet <edumazet@google.com>,
         David Miller <davem@davemloft.net>,
         Mahesh Bandewar <maheshb@google.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:36576 "EHLO
-        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757295AbcIPANh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 20:13:37 -0400
-Received: by mail-pa0-f66.google.com with SMTP id p2so2710281pap.3
-        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 17:13:36 -0700 (PDT)
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:33038 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757295AbcIPANz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2016 20:13:55 -0400
+Received: by mail-pf0-f194.google.com with SMTP id q2so185016pfj.0
+        for <netdev@vger.kernel.org>; Thu, 15 Sep 2016 17:13:55 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mahesh Bandewar <maheshb@google.com>
 
-Same old problem with new approach especially from suggestions from
-earlier patch-series.
+Make ip6_route_input_lookup available outside of ipv6 the module
+similar to ip_route_input_noref in the IPv4 world.
 
-First thing is that this is introduced as a new mode rather than
-modifying the old (L3) mode. So the behavior of the existing modes is
-preserved as it is and the new L3s mode obeys iptables so that intended
-conn-tracking can work. 
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+---
+ include/net/ip6_route.h | 3 +++
+ net/ipv6/route.c        | 7 ++++---
+ 2 files changed, 7 insertions(+), 3 deletions(-)
 
-To do this, the code uses newly added l3mdev_rcv() handler and an
-Iptables hook. l3mdev_rcv() to perform an inbound route lookup with the
-correct (IPvlan slave) interface and then IPtable-hook at LOCAL_INPUT
-to change the input device from master to the slave to complete the
-formality.
-
-Supporting stack changes are trivial changes to export symbol to get
-IPv4 equivalent code exported for IPv6 and to allow netfilter hook
-registration code to allow caller to hold RTNL. Please look into
-individual patches for details.
-
-Mahesh Bandewar (3):
-  ipv6: Export p6_route_input_lookup symbol
-  net: Add _nf_(un)register_hooks symbols
-  ipvlan: Introduce l3s mode
-
- Documentation/networking/ipvlan.txt |  7 ++-
- drivers/net/Kconfig                 |  1 +
- drivers/net/ipvlan/ipvlan.h         |  7 +++
- drivers/net/ipvlan/ipvlan_core.c    | 94 +++++++++++++++++++++++++++++++++++++
- drivers/net/ipvlan/ipvlan_main.c    | 92 +++++++++++++++++++++++++++++++++---
- include/linux/netfilter.h           |  2 +
- include/net/ip6_route.h             |  3 ++
- include/uapi/linux/if_link.h        |  1 +
- net/ipv6/route.c                    |  7 +--
- net/netfilter/core.c                | 51 ++++++++++++++++++--
- 10 files changed, 249 insertions(+), 16 deletions(-)
-
-v1: Initial post
-v2: Text correction and config changed from "select" to "depends on"
-v3: separated nf_hook registration logic and made it independent of port
-    as nf_hook registration is independant of how many IPvlan ports are
-    present in the system.
-
+diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+index d97305d0e71f..e0cd318d5103 100644
+--- a/include/net/ip6_route.h
++++ b/include/net/ip6_route.h
+@@ -64,6 +64,9 @@ static inline bool rt6_need_strict(const struct in6_addr *daddr)
+ }
+ 
+ void ip6_route_input(struct sk_buff *skb);
++struct dst_entry *ip6_route_input_lookup(struct net *net,
++					 struct net_device *dev,
++					 struct flowi6 *fl6, int flags);
+ 
+ struct dst_entry *ip6_route_output_flags(struct net *net, const struct sock *sk,
+ 					 struct flowi6 *fl6, int flags);
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index ad4a7ff301fc..4dab585f7642 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1147,15 +1147,16 @@ static struct rt6_info *ip6_pol_route_input(struct net *net, struct fib6_table *
+ 	return ip6_pol_route(net, table, fl6->flowi6_iif, fl6, flags);
+ }
+ 
+-static struct dst_entry *ip6_route_input_lookup(struct net *net,
+-						struct net_device *dev,
+-						struct flowi6 *fl6, int flags)
++struct dst_entry *ip6_route_input_lookup(struct net *net,
++					 struct net_device *dev,
++					 struct flowi6 *fl6, int flags)
+ {
+ 	if (rt6_need_strict(&fl6->daddr) && dev->type != ARPHRD_PIMREG)
+ 		flags |= RT6_LOOKUP_F_IFACE;
+ 
+ 	return fib6_rule_lookup(net, fl6, flags, ip6_pol_route_input);
+ }
++EXPORT_SYMBOL_GPL(ip6_route_input_lookup);
+ 
+ void ip6_route_input(struct sk_buff *skb)
+ {
 -- 
 2.8.0.rc3.226.g39d4020
