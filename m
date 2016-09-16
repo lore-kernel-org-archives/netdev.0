@@ -1,7 +1,7 @@
 From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH net-next 07/14] tcp: export data delivery rate
-Date: Fri, 16 Sep 2016 14:48:56 -0400
-Message-ID: <1474051743-13311-8-git-send-email-ncardwell@google.com>
+Subject: [PATCH net-next 12/14] tcp: new CC hook to set sending rate with rate_sample in any CA state
+Date: Fri, 16 Sep 2016 14:49:01 -0400
+Message-ID: <1474051743-13311-13-git-send-email-ncardwell@google.com>
 References: <1474051743-13311-1-git-send-email-ncardwell@google.com>
 Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
         Van Jacobson <vanj@google.com>,
@@ -11,34 +11,40 @@ Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
         Soheil Hassas Yeganeh <soheil@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f176.google.com ([209.85.220.176]:36621 "EHLO
-        mail-qk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1762137AbcIPSt5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 14:49:57 -0400
-Received: by mail-qk0-f176.google.com with SMTP id z190so96922085qkc.3
-        for <netdev@vger.kernel.org>; Fri, 16 Sep 2016 11:49:56 -0700 (PDT)
+Received: from mail-qk0-f179.google.com ([209.85.220.179]:34106 "EHLO
+        mail-qk0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933916AbcIPSuH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 14:50:07 -0400
+Received: by mail-qk0-f179.google.com with SMTP id h8so91528076qka.1
+        for <netdev@vger.kernel.org>; Fri, 16 Sep 2016 11:50:07 -0700 (PDT)
 In-Reply-To: <1474051743-13311-1-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yuchung Cheng <ycheng@google.com>
 
-This commit export two new fields in struct tcp_info:
+This commit introduces an optional new "omnipotent" hook,
+cong_control(), for congestion control modules. The cong_control()
+function is called at the end of processing an ACK (i.e., after
+updating sequence numbers, the SACK scoreboard, and loss
+detection). At that moment we have precise delivery rate information
+the congestion control module can use to control the sending behavior
+(using cwnd, TSO skb size, and pacing rate) in any CA state.
 
-  tcpi_delivery_rate: The most recent goodput, as measured by
-    tcp_rate_gen(). If the socket is limited by the sending
-    application (e.g., no data to send), it reports the highest
-    measurement instead of the most recent. The unit is bytes per
-    second (like other rate fields in tcp_info).
+This function can also be used by a congestion control that prefers
+not to use the default cwnd reduction approach (i.e., the PRR
+algorithm) during CA_Recovery to control the cwnd and sending rate
+during loss recovery.
 
-  tcpi_delivery_rate_app_limited: A boolean indicating if the goodput
-    was measured when the socket's throughput was limited by the
-    sending application.
+We take advantage of the fact that recent changes defer the
+retransmission or transmission of new data (e.g. by F-RTO) in recovery
+until the new tcp_cong_control() function is run.
 
-This delivery rate information can be useful for applications that
-want to know the current throughput the TCP connection is seeing,
-e.g. adaptive bitrate video streaming. It can also be very useful for
-debugging or troubleshooting.
+With this commit, we only run tcp_update_pacing_rate() if the
+congestion control is not using this new API. New congestion controls
+which use the new API do not want the TCP stack to run the default
+pacing rate calculation and overwrite whatever pacing rate they have
+chosen at initialization time.
 
 Signed-off-by: Van Jacobson <vanj@google.com>
 Signed-off-by: Neal Cardwell <ncardwell@google.com>
@@ -47,112 +53,88 @@ Signed-off-by: Nandita Dukkipati <nanditad@google.com>
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
 ---
- include/linux/tcp.h      |  5 ++++-
- include/uapi/linux/tcp.h |  3 +++
- net/ipv4/tcp.c           | 11 ++++++++++-
- net/ipv4/tcp_rate.c      | 12 +++++++++++-
- 4 files changed, 28 insertions(+), 3 deletions(-)
+ include/net/tcp.h    |  4 ++++
+ net/ipv4/tcp_cong.c  |  2 +-
+ net/ipv4/tcp_input.c | 17 ++++++++++++++---
+ 3 files changed, 19 insertions(+), 4 deletions(-)
 
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index fdcd00f..a17ae7b 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -213,7 +213,8 @@ struct tcp_sock {
- 		u8 reord;    /* reordering detected */
- 	} rack;
- 	u16	advmss;		/* Advertised MSS			*/
--	u8	unused;
-+	u8	rate_app_limited:1,  /* rate_{delivered,interval_us} limited? */
-+		unused:7;
- 	u8	nonagle     : 4,/* Disable Nagle algorithm?             */
- 		thin_lto    : 1,/* Use linear timeouts for thin streams */
- 		thin_dupack : 1,/* Fast retransmit on first dupack      */
-@@ -271,6 +272,8 @@ struct tcp_sock {
- 	u32	app_limited;	/* limited until "delivered" reaches this val */
- 	struct skb_mstamp first_tx_mstamp;  /* start of window send phase */
- 	struct skb_mstamp delivered_mstamp; /* time we reached "delivered" */
-+	u32	rate_delivered;    /* saved rate sample: packets delivered */
-+	u32	rate_interval_us;  /* saved rate sample: time elapsed */
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index c4d2e46..35ec286 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -919,6 +919,10 @@ struct tcp_congestion_ops {
+ 	u32 (*tso_segs_goal)(struct sock *sk);
+ 	/* returns the multiplier used in tcp_sndbuf_expand (optional) */
+ 	u32 (*sndbuf_expand)(struct sock *sk);
++	/* call when packets are delivered to update cwnd and pacing rate,
++	 * after all the ca_state processing. (optional)
++	 */
++	void (*cong_control)(struct sock *sk, const struct rate_sample *rs);
+ 	/* get info for inet_diag (optional) */
+ 	size_t (*get_info)(struct sock *sk, u32 ext, int *attr,
+ 			   union tcp_cc_info *info);
+diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
+index 882caa4..1294af4 100644
+--- a/net/ipv4/tcp_cong.c
++++ b/net/ipv4/tcp_cong.c
+@@ -69,7 +69,7 @@ int tcp_register_congestion_control(struct tcp_congestion_ops *ca)
+ 	int ret = 0;
  
-  	u32	rcv_wnd;	/* Current receiver window		*/
- 	u32	write_seq;	/* Tail(+1) of data held in tcp send buffer */
-diff --git a/include/uapi/linux/tcp.h b/include/uapi/linux/tcp.h
-index 482898f..73ac0db 100644
---- a/include/uapi/linux/tcp.h
-+++ b/include/uapi/linux/tcp.h
-@@ -167,6 +167,7 @@ struct tcp_info {
- 	__u8	tcpi_backoff;
- 	__u8	tcpi_options;
- 	__u8	tcpi_snd_wscale : 4, tcpi_rcv_wscale : 4;
-+	__u8	tcpi_delivery_rate_app_limited:1;
- 
- 	__u32	tcpi_rto;
- 	__u32	tcpi_ato;
-@@ -211,6 +212,8 @@ struct tcp_info {
- 	__u32	tcpi_min_rtt;
- 	__u32	tcpi_data_segs_in;	/* RFC4898 tcpEStatsDataSegsIn */
- 	__u32	tcpi_data_segs_out;	/* RFC4898 tcpEStatsDataSegsOut */
-+
-+	__u64   tcpi_delivery_rate;
- };
- 
- /* for TCP_MD5SIG socket option */
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 6c7a6fc..7358101 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2695,7 +2695,7 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
+ 	/* all algorithms must implement ssthresh and cong_avoid ops */
+-	if (!ca->ssthresh || !ca->cong_avoid) {
++	if (!ca->ssthresh || !(ca->cong_avoid || ca->cong_control)) {
+ 		pr_err("%s does not implement required ops\n", ca->name);
+ 		return -EINVAL;
+ 	}
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index a134e66..931fe32 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2536,6 +2536,9 @@ static inline void tcp_end_cwnd_reduction(struct sock *sk)
  {
- 	const struct tcp_sock *tp = tcp_sk(sk); /* iff sk_type == SOCK_STREAM */
- 	const struct inet_connection_sock *icsk = inet_csk(sk);
--	u32 now = tcp_time_stamp;
-+	u32 now = tcp_time_stamp, intv;
- 	unsigned int start;
- 	int notsent_bytes;
- 	u64 rate64;
-@@ -2785,6 +2785,15 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
- 	info->tcpi_min_rtt = tcp_min_rtt(tp);
- 	info->tcpi_data_segs_in = tp->data_segs_in;
- 	info->tcpi_data_segs_out = tp->data_segs_out;
-+
-+	info->tcpi_delivery_rate_app_limited = tp->rate_app_limited ? 1 : 0;
-+	rate = READ_ONCE(tp->rate_delivered);
-+	intv = READ_ONCE(tp->rate_interval_us);
-+	if (rate && intv) {
-+		rate = rate * tp->mss_cache * USEC_PER_SEC;
-+		do_div(rate, intv);
-+		put_unaligned(rate, &info->tcpi_delivery_rate);
-+	}
- }
- EXPORT_SYMBOL_GPL(tcp_get_info);
+ 	struct tcp_sock *tp = tcp_sk(sk);
  
-diff --git a/net/ipv4/tcp_rate.c b/net/ipv4/tcp_rate.c
-index 52ff84b..9be1581 100644
---- a/net/ipv4/tcp_rate.c
-+++ b/net/ipv4/tcp_rate.c
-@@ -149,12 +149,22 @@ void tcp_rate_gen(struct sock *sk, u32 delivered, u32 lost,
- 	 * for connections suffer heavy or prolonged losses.
- 	 */
- 	if (unlikely(rs->interval_us < tcp_min_rtt(tp))) {
--		rs->interval_us = -1;
- 		if (!rs->is_retrans)
- 			pr_debug("tcp rate: %ld %d %u %u %u\n",
- 				 rs->interval_us, rs->delivered,
- 				 inet_csk(sk)->icsk_ca_state,
- 				 tp->rx_opt.sack_ok, tcp_min_rtt(tp));
-+		rs->interval_us = -1;
++	if (inet_csk(sk)->icsk_ca_ops->cong_control)
++		return;
++
+ 	/* Reset cwnd to ssthresh in CWR or Recovery (unless it's undone) */
+ 	if (inet_csk(sk)->icsk_ca_state == TCP_CA_CWR ||
+ 	    (tp->undo_marker && tp->snd_ssthresh < TCP_INFINITE_SSTHRESH)) {
+@@ -3312,8 +3315,15 @@ static inline bool tcp_may_raise_cwnd(const struct sock *sk, const int flag)
+  * information. All transmission or retransmission are delayed afterwards.
+  */
+ static void tcp_cong_control(struct sock *sk, u32 ack, u32 acked_sacked,
+-			     int flag)
++			     int flag, const struct rate_sample *rs)
+ {
++	const struct inet_connection_sock *icsk = inet_csk(sk);
++
++	if (icsk->icsk_ca_ops->cong_control) {
++		icsk->icsk_ca_ops->cong_control(sk, rs);
 +		return;
 +	}
 +
-+	/* Record the last non-app-limited or the highest app-limited bw */
-+	if (!rs->is_app_limited ||
-+	    ((u64)rs->delivered * tp->rate_interval_us >=
-+	     (u64)tp->rate_delivered * rs->interval_us)) {
-+		tp->rate_delivered = rs->delivered;
-+		tp->rate_interval_us = rs->interval_us;
-+		tp->rate_app_limited = rs->is_app_limited;
- 	}
- }
+ 	if (tcp_in_cwnd_reduction(sk)) {
+ 		/* Reduce cwnd if state mandates */
+ 		tcp_cwnd_reduction(sk, acked_sacked, flag);
+@@ -3683,7 +3693,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+ 	delivered = tp->delivered - delivered;	/* freshly ACKed or SACKed */
+ 	lost = tp->lost - lost;			/* freshly marked lost */
+ 	tcp_rate_gen(sk, delivered, lost, &now, &rs);
+-	tcp_cong_control(sk, ack, delivered, flag);
++	tcp_cong_control(sk, ack, delivered, flag, &rs);
+ 	tcp_xmit_recovery(sk, rexmit);
+ 	return 1;
  
+@@ -5981,7 +5991,8 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb)
+ 		} else
+ 			tcp_init_metrics(sk);
+ 
+-		tcp_update_pacing_rate(sk);
++		if (!inet_csk(sk)->icsk_ca_ops->cong_control)
++			tcp_update_pacing_rate(sk);
+ 
+ 		/* Prevent spurious tcp_cwnd_restart() on first data packet */
+ 		tp->lsndtime = tcp_time_stamp;
 -- 
 2.8.0.rc3.226.g39d4020
