@@ -1,42 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: ipv6: Disable forwarding per interface via sysctl
-Date: Fri, 16 Sep 2016 06:39:52 -0700
-Message-ID: <1474033192.22679.67.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1474030076-24809-1-git-send-email-mmanning@brocade.com>
+From: Michal Soltys <soltys@ziu.info>
+Subject: drr scheduler [mis]configuration question
+Date: Fri, 16 Sep 2016 15:51:38 +0200
+Message-ID: <ea42bcea-2982-e34c-268e-41a2eb7a1e37@ziu.info>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Mike Manning <mmanning@brocade.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:33059 "EHLO
-        mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755773AbcIPNjz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 09:39:55 -0400
-Received: by mail-pa0-f68.google.com with SMTP id oz2so3496801pac.0
-        for <netdev@vger.kernel.org>; Fri, 16 Sep 2016 06:39:55 -0700 (PDT)
-In-Reply-To: <1474030076-24809-1-git-send-email-mmanning@brocade.com>
+Received: from drutsystem.com ([84.10.39.251]:46012 "EHLO drutsystem.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1756213AbcIPNwJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 16 Sep 2016 09:52:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-09-16 at 13:47 +0100, Mike Manning wrote:
-> Disabling forwarding per interface via sysctl continues to allow
-> forwarding. This is contrary to the sysctl documentation stating that
-> the forwarding sysctl is per interface, whereas currently it is only
-> the sysctl for all interfaces that has an effect on forwarding. The
-> solution is to drop any received packets instead of forwarding them
-> if the ingress device has a per-device forwarding sysctl that is unset.
+Hi,
 
-Some archaeological research might be needed because
-Documentation/networking/ip-sysctl.txt states :
+I have hit some weird (probably missing some detail) issue with drr.
+Originally it was tested between two machines, then I quickly double
+checked between namespaces (same behaviour) - the configuration follows:
 
-IPv4 and IPv6 work differently here; e.g. netfilter must be used
-to control which interfaces may forward packets and which not.
+# setup namespace
 
-If this netfilter requirement is obsolete, then your patch would need to
-change the doc as well.
+ip netns add drrtest
+ip li add name left type veth peer name right
+ip li set right netns drrtest
 
-Hannes can probably comment on this ?
+# setup 'left' interface with drr
 
-Thanks.
+tc qdisc add dev left handle 1:0 root drr
+for x in {1..16}; do tc class add dev left classid 1:$x parent 1:0 drr; done
+for x in {1..16}; do tc qdisc add dev left handle $((256+x)):0 parent 1:$x pfifo_fast; done
+tc filter add dev left proto all pref 1 parent 1:0 handle 1 flow map key dst divisor 16 baseclass 1:1
+ip add add 10.15.0.255/16 dev left
+ip li set left up
+
+The above creates simple drr setup with 16 classes, counted from 1:1 to 1:16
+The flow filter should simply distribute it across those classes,
+relevant piece of code would suggest everything is ok:
+
+                if (f->divisor)
+                        classid %= f->divisor;
+
+                res->class   = 0;
+                res->classid = TC_H_MAKE(f->baseclass, f->baseclass + classid);
+
+So 'classid' should 0-15 and after TC_H_MAKE() 1:1-1:16
+
+# setup 'right' interface
+
+ip netns exec drrtest bash
+
+ip add add 10.15.1.249/16 dev right
+ip li set right up
+
+
+But with this setup, any transfer from 'left' to 'right' is blackholed.
+If I change ip address of 'right' to 10.15.1.248/16, everything works
+again - which would suggest some issue with proper classification.
+
+At this point I'm a bit lost what I'm doing wrong.
