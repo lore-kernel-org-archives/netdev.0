@@ -1,71 +1,46 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH] net: ipv6: fallback to full lookup if table lookup is
- unsuitable
-Date: Fri, 16 Sep 2016 13:38:46 -0600
-Message-ID: <0e4071d6-a3cc-37a7-6a32-2169e0e3b305@cumulusnetworks.com>
-References: <20160916125531.3486-1-vincent@bernat.im>
- <adff2e07-75e1-d44c-4799-0920ffcd2622@cumulusnetworks.com>
- <m3twdfk665.fsf@neo.luffy.cx>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: [PATCH v3] net: ip, diag -- Add diag interface for raw sockets
+Date: Fri, 16 Sep 2016 22:39:27 +0300
+Message-ID: <20160916193927.GB18116@uranus.lan>
+References: <20160913171950.GC32643@uranus>
+ <8260ff1f-6907-aed8-caae-68d63a4ad529@cumulusnetworks.com>
+ <20160915202219.GB1867@uranus.lan>
+ <f482796f-185e-a3b7-248c-20f1f39cb459@cumulusnetworks.com>
+ <20160915210126.GC1867@uranus.lan>
+ <1473979691.22679.55.camel@edumazet-glaptop3.roam.corp.google.com>
+ <999f0ddb-82e4-ea07-b52a-59d08bc7816d@cumulusnetworks.com>
+ <20160916070623.GD1867@uranus.lan>
+ <20160916190000.GA18116@uranus.lan>
+ <59e12627-7043-fd20-0d68-899ab43b0e71@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Vincent Bernat <vincent@bernat.im>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:34172 "EHLO
-        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934583AbcIPTit (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 15:38:49 -0400
-Received: by mail-pf0-f178.google.com with SMTP id p64so30160418pfb.1
-        for <netdev@vger.kernel.org>; Fri, 16 Sep 2016 12:38:49 -0700 (PDT)
-In-Reply-To: <m3twdfk665.fsf@neo.luffy.cx>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, avagin@openvz.org, stephen@networkplumber.org
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <59e12627-7043-fd20-0d68-899ab43b0e71@cumulusnetworks.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 9/16/16 1:15 PM, Vincent Bernat wrote:
->> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
->> index ad4a7ff301fc..48bae2ee2e18 100644
->> --- a/net/ipv6/route.c
->> +++ b/net/ipv6/route.c
->> @@ -1991,9 +1991,19 @@ static struct rt6_info *ip6_route_info_create(struct fib6_config *cfg)
->>                         if (!(gwa_type & IPV6_ADDR_UNICAST))
->>                                 goto out;
->>
->> -                       if (cfg->fc_table)
->> +                       if (cfg->fc_table) {
->>                                 grt = ip6_nh_lookup_table(net, cfg, gw_addr);
->>
->> +                               /* a nexthop lookup can not go through a gw.
->> +                                * if this happens on a table based lookup
->> +                                * then fallback to a full lookup
->> +                                */
->> +                               if (grt && grt->rt6i_flags & RTF_GATEWAY) {
->> +                                       ip6_rt_put(grt);
->> +                                       grt = NULL;
->> +                               }
->> +                       }
->> +
->>                         if (!grt)
->>                                 grt = rt6_lookup(net, gw_addr, NULL,
->>                                                  cfg->fc_ifindex, 1);
+On Fri, Sep 16, 2016 at 01:30:28PM -0600, David Ahern wrote:
+> > [root@pcs7 iproute2]# misc/ss -A raw
+> > State      Recv-Q Send-Q                                Local Address:Port                                                 Peer Address:Port                
+> > ESTAB      0      0                                         127.0.0.1:ipproto-255                                            127.0.0.10:ipproto-9090         
+> > UNCONN     0      0                                        127.0.0.10:ipproto-255                                                     *:*                    
+> > UNCONN     0      0                                                :::ipv6-icmp                                                      :::*                    
+> > UNCONN     0      0                                                :::ipv6-icmp                                                      :::*                    
+> > ESTAB      0      0                                               ::1:ipproto-255                                                   ::1:ipproto-9091         
+> > 
+> > so it get zapped out. Is there some other way to test it?
+> > 
 > 
-> OK. Should the dev check be dismissed or do we add "dev && dev !=
-> grt->dst.dev" just as a safety net (this would be a convulated setup,
-> but the correct direct route could be in an ip rule with higher priority
-> while the one in this table is incorrect)?
-> 
+> I'm guessing you passed IPPROTO_RAW (255) as the protocol to socket(). If you pass something
+> else (IPPROTO_ICMP for example) it won't work.
 
-yes. So the validity check becomes:
+True. To support IPPROTO_ICMP it need enhancement. I thought start with
+plain _RAW first and then extend to support _ICMP.
 
-	grt = ip6_nh_lookup_table(net, cfg, gw_addr);
-	if (grt) {
-		if (grt->rt6i_flags & RTF_GATEWAY ||
-		    dev && dev != grt->dst.dev) {
-			ip6_rt_put(grt);
-			grt = NULL;            <---- causes the full rt6_lookup
-		}
-	}
+	Cyrill
