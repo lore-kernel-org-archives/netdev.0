@@ -1,40 +1,74 @@
 From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH net-next 04/14] tcp: count packets marked lost for a TCP connection
-Date: Fri, 16 Sep 2016 14:48:53 -0400
-Message-ID: <1474051743-13311-5-git-send-email-ncardwell@google.com>
+Subject: [PATCH net-next 06/14] tcp: track application-limited rate samples
+Date: Fri, 16 Sep 2016 14:48:55 -0400
+Message-ID: <1474051743-13311-7-git-send-email-ncardwell@google.com>
 References: <1474051743-13311-1-git-send-email-ncardwell@google.com>
-Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
+Cc: netdev@vger.kernel.org, Soheil Hassas Yeganeh <soheil@google.com>,
         Van Jacobson <vanj@google.com>,
+        Neal Cardwell <ncardwell@google.com>,
         Yuchung Cheng <ycheng@google.com>,
         Nandita Dukkipati <nanditad@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Soheil Hassas Yeganeh <soheil@google.com>
+        Eric Dumazet <edumazet@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f171.google.com ([209.85.216.171]:35412 "EHLO
-        mail-qt0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1762137AbcIPStu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 14:49:50 -0400
-Received: by mail-qt0-f171.google.com with SMTP id 93so47226370qtg.2
-        for <netdev@vger.kernel.org>; Fri, 16 Sep 2016 11:49:49 -0700 (PDT)
+Received: from mail-qt0-f182.google.com ([209.85.216.182]:34196 "EHLO
+        mail-qt0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1764214AbcIPStz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 14:49:55 -0400
+Received: by mail-qt0-f182.google.com with SMTP id 38so47319585qte.1
+        for <netdev@vger.kernel.org>; Fri, 16 Sep 2016 11:49:55 -0700 (PDT)
 In-Reply-To: <1474051743-13311-1-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Count the number of packets that a TCP connection marks lost.
+From: Soheil Hassas Yeganeh <soheil@google.com>
 
-Congestion control modules can use this loss rate information for more
-intelligent decisions about how fast to send.
+This commit adds code to track whether the delivery rate represented
+by each rate_sample was limited by the application.
 
-Specifically, this is used in TCP BBR policer detection. BBR uses a
-high packet loss rate as one signal in its policer detection and
-policer bandwidth estimation algorithm.
+Upon each transmit, we store in the is_app_limited field in the skb a
+boolean bit indicating whether there is a known "bubble in the pipe":
+a point in the rate sample interval where the sender was
+application-limited, and did not transmit even though the cwnd and
+pacing rate allowed it.
 
-The BBR policer detection algorithm cannot simply track retransmits,
-because a retransmit can be (and often is) an indicator of packets
-lost long, long ago. This is particularly true in a long CA_Loss
-period that repairs the initial massive losses when a policer kicks
-in.
+This logic marks the flow app-limited on a write if *all* of the
+following are true:
+
+  1) There is less than 1 MSS of unsent data in the write queue
+     available to transmit.
+
+  2) There is no packet in the sender's queues (e.g. in fq or the NIC
+     tx queue).
+
+  3) The connection is not limited by cwnd.
+
+  4) There are no lost packets to retransmit.
+
+The tcp_rate_check_app_limited() code in tcp_rate.c determines whether
+the connection is application-limited at the moment. If the flow is
+application-limited, it sets the tp->app_limited field. If the flow is
+application-limited then that means there is effectively a "bubble" of
+silence in the pipe now, and this silence will be reflected in a lower
+bandwidth sample for any rate samples from now until we get an ACK
+indicating this bubble has exited the pipe: specifically, until we get
+an ACK for the next packet we transmit.
+
+When we send every skb we record in scb->tx.is_app_limited whether the
+resulting rate sample will be application-limited.
+
+The code in tcp_rate_gen() checks to see when it is safe to mark all
+known application-limited bubbles of silence as having exited the
+pipe. It does this by checking to see when the delivered count moves
+past the tp->app_limited marker. At this point it zeroes the
+tp->app_limited marker, as all known bubbles are out of the pipe.
+
+We make room for the tx.is_app_limited bit in the skb by borrowing a
+bit from the in_flight field used by NV to record the number of bytes
+in flight. The receive window in the TCP header is 16 bits, and the
+max receive window scaling shift factor is 14 (RFC 1323). So the max
+receive window offered by the TCP protocol is 2^(16+14) = 2^30. So we
+only need 30 bits for the tx.in_flight used by NV.
 
 Signed-off-by: Van Jacobson <vanj@google.com>
 Signed-off-by: Neal Cardwell <ncardwell@google.com>
@@ -43,85 +77,169 @@ Signed-off-by: Nandita Dukkipati <nanditad@google.com>
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
 ---
- include/linux/tcp.h  |  1 +
- net/ipv4/tcp_input.c | 25 ++++++++++++++++++++++++-
- 2 files changed, 25 insertions(+), 1 deletion(-)
+ include/linux/tcp.h      |  1 +
+ include/net/tcp.h        |  6 +++++-
+ net/ipv4/tcp.c           |  8 ++++++++
+ net/ipv4/tcp_minisocks.c |  3 +++
+ net/ipv4/tcp_rate.c      | 29 ++++++++++++++++++++++++++++-
+ 5 files changed, 45 insertions(+), 2 deletions(-)
 
 diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 6433cc8..38590fb 100644
+index c50e6ae..fdcd00f 100644
 --- a/include/linux/tcp.h
 +++ b/include/linux/tcp.h
-@@ -267,6 +267,7 @@ struct tcp_sock {
- 				 * receiver in Recovery. */
+@@ -268,6 +268,7 @@ struct tcp_sock {
  	u32	prr_out;	/* Total number of pkts sent during Recovery. */
  	u32	delivered;	/* Total data packets delivered incl. rexmits */
-+	u32	lost;		/* Total data packets lost incl. rexmits */
+ 	u32	lost;		/* Total data packets lost incl. rexmits */
++	u32	app_limited;	/* limited until "delivered" reaches this val */
+ 	struct skb_mstamp first_tx_mstamp;  /* start of window send phase */
+ 	struct skb_mstamp delivered_mstamp; /* time we reached "delivered" */
  
-  	u32	rcv_wnd;	/* Current receiver window		*/
- 	u32	write_seq;	/* Tail(+1) of data held in tcp send buffer */
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index ac5b38f..024b579 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -899,12 +899,29 @@ static void tcp_verify_retransmit_hint(struct tcp_sock *tp, struct sk_buff *skb)
- 		tp->retransmit_high = TCP_SKB_CB(skb)->end_seq;
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 4a94f64..9829aa7 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -764,7 +764,9 @@ struct tcp_skb_cb {
+ 	union {
+ 		struct {
+ 			/* There is space for up to 24 bytes */
+-			__u32 in_flight;/* Bytes in flight when packet sent */
++			__u32 in_flight:30,/* Bytes in flight at transmit */
++			      is_app_limited:1, /* cwnd not fully used? */
++			      unused:1;
+ 			/* start of send pipeline phase */
+ 			struct skb_mstamp first_tx_mstamp __packed;
+ 			/* when we reached the "delivered" count */
+@@ -883,6 +885,7 @@ struct rate_sample {
+ 	int  losses;		/* number of packets marked lost upon ACK */
+ 	u32  acked_sacked;	/* number of packets newly (S)ACKed upon ACK */
+ 	u32  prior_in_flight;	/* in flight before this ACK */
++	bool is_app_limited;	/* is sample from packet with bubble in pipe? */
+ 	bool is_retrans;	/* is sample from retransmission? */
+ };
+ 
+@@ -978,6 +981,7 @@ void tcp_rate_skb_delivered(struct sock *sk, struct sk_buff *skb,
+ 			    struct rate_sample *rs);
+ void tcp_rate_gen(struct sock *sk, u32 delivered, u32 lost,
+ 		  struct skb_mstamp *now, struct rate_sample *rs);
++void tcp_rate_check_app_limited(struct sock *sk);
+ 
+ /* These functions determine how the current flow behaves in respect of SACK
+  * handling. SACK is negotiated with the peer, and therefore it can vary
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 578c7c1..6c7a6fc 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -396,6 +396,9 @@ void tcp_init_sock(struct sock *sk)
+ 	 */
+ 	tp->snd_cwnd = TCP_INIT_CWND;
+ 
++	/* There's a bubble in the pipe until at least the first ACK. */
++	tp->app_limited = ~0U;
++
+ 	/* See draft-stevens-tcpca-spec-01 for discussion of the
+ 	 * initialization of these values.
+ 	 */
+@@ -1014,6 +1017,9 @@ int tcp_sendpage(struct sock *sk, struct page *page, int offset,
+ 					flags);
+ 
+ 	lock_sock(sk);
++
++	tcp_rate_check_app_limited(sk);  /* is sending application-limited? */
++
+ 	res = do_tcp_sendpages(sk, page, offset, size, flags);
+ 	release_sock(sk);
+ 	return res;
+@@ -1101,6 +1107,8 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
+ 
+ 	timeo = sock_sndtimeo(sk, flags & MSG_DONTWAIT);
+ 
++	tcp_rate_check_app_limited(sk);  /* is sending application-limited? */
++
+ 	/* Wait for a connection to finish. One exception is TCP Fast Open
+ 	 * (passive side) where data is allowed to be sent before a connection
+ 	 * is fully established.
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index 5689471..6234eba 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -487,6 +487,9 @@ struct sock *tcp_create_openreq_child(const struct sock *sk,
+ 		newtp->snd_cwnd = TCP_INIT_CWND;
+ 		newtp->snd_cwnd_cnt = 0;
+ 
++		/* There's a bubble in the pipe until at least the first ACK. */
++		newtp->app_limited = ~0U;
++
+ 		tcp_init_xmit_timers(newsk);
+ 		newtp->write_seq = newtp->pushed_seq = treq->snt_isn + 1;
+ 
+diff --git a/net/ipv4/tcp_rate.c b/net/ipv4/tcp_rate.c
+index 1daed6a..52ff84b 100644
+--- a/net/ipv4/tcp_rate.c
++++ b/net/ipv4/tcp_rate.c
+@@ -26,9 +26,13 @@
+  * other factors like applications or receiver window limits.  The estimator
+  * deliberately avoids using the inter-packet spacing approach because that
+  * approach requires a large number of samples and sophisticated filtering.
++ *
++ * TCP flows can often be application-limited in request/response workloads.
++ * The estimator marks a bandwidth sample as application-limited if there
++ * was some moment during the sampled window of packets when there was no data
++ * ready to send in the write queue.
+  */
+ 
+-
+ /* Snapshot the current delivery information in the skb, to generate
+  * a rate sample later when the skb is (s)acked in tcp_rate_skb_delivered().
+  */
+@@ -58,6 +62,7 @@ void tcp_rate_skb_sent(struct sock *sk, struct sk_buff *skb)
+ 	TCP_SKB_CB(skb)->tx.first_tx_mstamp	= tp->first_tx_mstamp;
+ 	TCP_SKB_CB(skb)->tx.delivered_mstamp	= tp->delivered_mstamp;
+ 	TCP_SKB_CB(skb)->tx.delivered		= tp->delivered;
++	TCP_SKB_CB(skb)->tx.is_app_limited	= tp->app_limited ? 1 : 0;
  }
  
-+/* Sum the number of packets on the wire we have marked as lost.
-+ * There are two cases we care about here:
-+ * a) Packet hasn't been marked lost (nor retransmitted),
-+ *    and this is the first loss.
-+ * b) Packet has been marked both lost and retransmitted,
-+ *    and this means we think it was lost again.
-+ */
-+static void tcp_sum_lost(struct tcp_sock *tp, struct sk_buff *skb)
-+{
-+	__u8 sacked = TCP_SKB_CB(skb)->sacked;
-+
-+	if (!(sacked & TCPCB_LOST) ||
-+	    ((sacked & TCPCB_LOST) && (sacked & TCPCB_SACKED_RETRANS)))
-+		tp->lost += tcp_skb_pcount(skb);
-+}
-+
- static void tcp_skb_mark_lost(struct tcp_sock *tp, struct sk_buff *skb)
- {
- 	if (!(TCP_SKB_CB(skb)->sacked & (TCPCB_LOST|TCPCB_SACKED_ACKED))) {
- 		tcp_verify_retransmit_hint(tp, skb);
+ /* When an skb is sacked or acked, we fill in the rate sample with the (prior)
+@@ -80,6 +85,7 @@ void tcp_rate_skb_delivered(struct sock *sk, struct sk_buff *skb,
+ 	    after(scb->tx.delivered, rs->prior_delivered)) {
+ 		rs->prior_delivered  = scb->tx.delivered;
+ 		rs->prior_mstamp     = scb->tx.delivered_mstamp;
++		rs->is_app_limited   = scb->tx.is_app_limited;
+ 		rs->is_retrans	     = scb->sacked & TCPCB_RETRANS;
  
- 		tp->lost_out += tcp_skb_pcount(skb);
-+		tcp_sum_lost(tp, skb);
- 		TCP_SKB_CB(skb)->sacked |= TCPCB_LOST;
+ 		/* Find the duration of the "send phase" of this window: */
+@@ -105,6 +111,10 @@ void tcp_rate_gen(struct sock *sk, u32 delivered, u32 lost,
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	u32 snd_us, ack_us;
+ 
++	/* Clear app limited if bubble is acked and gone. */
++	if (tp->app_limited && after(tp->delivered, tp->app_limited))
++		tp->app_limited = 0;
++
+ 	/* TODO: there are multiple places throughout tcp_ack() to get
+ 	 * current time. Refactor the code using a new "tcp_acktag_state"
+ 	 * to carry current time, flags, stats like "tcp_sacktag_state".
+@@ -147,3 +157,20 @@ void tcp_rate_gen(struct sock *sk, u32 delivered, u32 lost,
+ 				 tp->rx_opt.sack_ok, tcp_min_rtt(tp));
  	}
  }
-@@ -913,6 +930,7 @@ void tcp_skb_mark_lost_uncond_verify(struct tcp_sock *tp, struct sk_buff *skb)
- {
- 	tcp_verify_retransmit_hint(tp, skb);
- 
-+	tcp_sum_lost(tp, skb);
- 	if (!(TCP_SKB_CB(skb)->sacked & (TCPCB_LOST|TCPCB_SACKED_ACKED))) {
- 		tp->lost_out += tcp_skb_pcount(skb);
- 		TCP_SKB_CB(skb)->sacked |= TCPCB_LOST;
-@@ -1890,6 +1908,7 @@ void tcp_enter_loss(struct sock *sk)
- 	struct sk_buff *skb;
- 	bool new_recovery = icsk->icsk_ca_state < TCP_CA_Recovery;
- 	bool is_reneg;			/* is receiver reneging on SACKs? */
-+	bool mark_lost;
- 
- 	/* Reduce ssthresh if it has not yet been made inside this window. */
- 	if (icsk->icsk_ca_state <= TCP_CA_Disorder ||
-@@ -1923,8 +1942,12 @@ void tcp_enter_loss(struct sock *sk)
- 		if (skb == tcp_send_head(sk))
- 			break;
- 
-+		mark_lost = (!(TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED) ||
-+			     is_reneg);
-+		if (mark_lost)
-+			tcp_sum_lost(tp, skb);
- 		TCP_SKB_CB(skb)->sacked &= (~TCPCB_TAGBITS)|TCPCB_SACKED_ACKED;
--		if (!(TCP_SKB_CB(skb)->sacked&TCPCB_SACKED_ACKED) || is_reneg) {
-+		if (mark_lost) {
- 			TCP_SKB_CB(skb)->sacked &= ~TCPCB_SACKED_ACKED;
- 			TCP_SKB_CB(skb)->sacked |= TCPCB_LOST;
- 			tp->lost_out += tcp_skb_pcount(skb);
++
++/* If a gap is detected between sends, mark the socket application-limited. */
++void tcp_rate_check_app_limited(struct sock *sk)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++
++	if (/* We have less than one packet to send. */
++	    tp->write_seq - tp->snd_nxt < tp->mss_cache &&
++	    /* Nothing in sending host's qdisc queues or NIC tx queue. */
++	    sk_wmem_alloc_get(sk) < SKB_TRUESIZE(1) &&
++	    /* We are not limited by CWND. */
++	    tcp_packets_in_flight(tp) < tp->snd_cwnd &&
++	    /* All lost packets have been retransmitted. */
++	    tp->lost_out <= tp->retrans_out)
++		tp->app_limited =
++			(tp->delivered + tcp_packets_in_flight(tp)) ? : 1;
++}
 -- 
 2.8.0.rc3.226.g39d4020
