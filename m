@@ -1,39 +1,26 @@
-From: Davide Caratti <dcaratti@redhat.com>
-Subject: [iproute PATCH] tc: don't accept qdisc 'handle' greater than ffff
-Date: Fri, 16 Sep 2016 10:30:00 +0200
-Message-ID: <bdc0d8e58be9344b44fcd64a56b5b62004c108a1.1473930575.git.dcaratti@redhat.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        Phil Sutter <phil@nwl.cc>, Hangbin Liu <liuhangbin@gmail.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 0/7] 390: qeth patches
+Date: Fri, 16 Sep 2016 04:31:15 -0400 (EDT)
+Message-ID: <20160916.043115.585673141580438265.davem@davemloft.net>
+References: <20160915123927.86579-1-ubraun@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+        schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com
+To: ubraun@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37570 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752001AbcIPIaT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 16 Sep 2016 04:30:19 -0400
+Received: from shards.monkeyblade.net ([184.105.139.130]:38588 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757867AbcIPIbS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 04:31:18 -0400
+In-Reply-To: <20160915123927.86579-1-ubraun@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-since get_qdisc_handle() truncates the input value to 16 bit, return an
-error and prompt "invalid qdisc ID" in case input 'handle' parameter needs
-more than 16 bit to be stored.
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Date: Thu, 15 Sep 2016 14:39:20 +0200
 
-Signed-off-by: Davide Caratti <dcaratti@redhat.com>
----
- tc/tc_util.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> here are several fixes for the s390 qeth driver, built for net.
 
-diff --git a/tc/tc_util.c b/tc/tc_util.c
-index 15e49b7..24ca1f1 100644
---- a/tc/tc_util.c
-+++ b/tc/tc_util.c
-@@ -82,7 +82,7 @@ int get_qdisc_handle(__u32 *h, const char *str)
- 	if (strcmp(str, "none") == 0)
- 		goto ok;
- 	maj = strtoul(str, &p, 16);
--	if (p == str)
-+	if (p == str || maj >= (1 << 16))
- 		return -1;
- 	maj <<= 16;
- 	if (*p != ':' && *p != 0)
--- 
-2.5.5
+Series applied.
