@@ -1,66 +1,47 @@
-From: John Crispin <john@phrozen.org>
-Subject: Re: MDB offloading of local ipv4 multicast groups
-Date: Fri, 16 Sep 2016 08:22:51 +0200
-Message-ID: <59895da9-341d-d428-af9a-5805aba26ba1@phrozen.org>
-References: <ebb1092f-4fab-c490-0553-b108feb5e8d4@phrozen.org>
- <20160915204218.GA21035@splinter>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next v2 0/7] add enhancement into the existing
+ reset flow
+Date: Fri, 16 Sep 2016 02:23:25 -0400 (EDT)
+Message-ID: <20160916.022325.1284944952505020198.davem@davemloft.net>
+References: <1473866001-9805-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Elad Raz <eladr@mellanox.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Ido Schimmel <idosch@mellanox.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-        "David S. Miller" <davem@davemloft.net>
-To: Ido Schimmel <idosch@idosch.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbd.name ([46.4.11.11]:35930 "EHLO nbd.name"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751414AbcIPGXB (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 16 Sep 2016 02:23:01 -0400
-In-Reply-To: <20160915204218.GA21035@splinter>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, objelf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org
+Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1473866001-9805-1-git-send-email-sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
+List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+From: <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+Date: Wed, 14 Sep 2016 23:13:14 +0800
 
+> From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+> 
+> Current driver only resets DMA used by descriptor rings which
+> can't guarantee it can recover all various kinds of fatal
+> errors, so the patch
+> 1) tries to reset the underlying hardware resource from scratch on
+> Mediatek SoC required for ethernet running.
+> 2) refactors code in order to the reusability of existing code.
+> 3) considers handling for race condition between the reset flow and
+> callbacks registered into core driver called about hardware accessing.
+> 4) introduces power domain usage to hardware setup which leads to have
+> cleanly and completely restore to the state as the initial.
+> 
+> Changes since v1:
+> - fix the build error with module built causing undefined symbol for
+>   pinctrl_bind_pins, so using pinctrl_select_state instead accomplishes
+>   the pin mux setup during the reset process.
 
-On 15/09/2016 22:42, Ido Schimmel wrote:
-> On Thu, Sep 15, 2016 at 08:58:50PM +0200, John Crispin wrote:
->> Hi,
->>
->> While adding MDB support to the qca8k dsa driver I found that ipv4 mcast
->> groups don't always get propagated to the dsa driver. In my setup there
->> are 2 clients connected to the switch, both running a mdns client. The
->> .port_mdb_add() callback is properly called for 33:33:00:00:00:FB but
->> 01:00:5E:00:00:FB never got propagated to the dsa driver.
->>
->> The reason is that the call to ipv4_is_local_multicast() here [1] will
->> return true and the notifier is never called. Is this intentional or is
->> there something missing in the code ?
-> 
-> I believe this is based on RFC 4541:
-> 
-> "Packets with a destination IP (DIP) address in the 224.0.0.X range
-> which are not IGMP must be forwarded on all ports."
-> https://tools.ietf.org/html/rfc4541
-> 
-> But, we are missing the offloading of router ports, which is needed for
-> the device to correctly flood unregistered multicast packets. That's
-> also according to the mentioned RFC:
-> 
-> "If a switch receives an unregistered packet, it must forward that
-> packet on all ports to which an IGMP router is attached."
-> 
-> Implemented at br_flood_multicast()
-> 
-> However, the marking is done per-port and not per-{port, VID}. We need
-> that in case vlan filtering is enabled. I think Nik is working on that,
-> but he can correct me if I'm wrong :). The switchdev bits can be added
-> soon after.
-> 
-
-thanks for the explanation. i was not aware the the local groups should
-always be flooded to all ports.
-
-	John
+Series applied, thanks.
