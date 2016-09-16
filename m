@@ -1,48 +1,37 @@
-From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-Subject: [PATCH resend] sctp: Remove some redundant code
-Date: Fri, 16 Sep 2016 23:05:35 +0200
-Message-ID: <1474059935-17343-1-git-send-email-christophe.jaillet@wanadoo.fr>
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-        Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-To: marcelo.leitner@gmail.com, vyasevich@gmail.com,
-        nhorman@tuxdriver.com, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCHv5 net-next 04/15] bpf: don't (ab)use instructions to store
+ state
+Date: Fri, 16 Sep 2016 23:22:00 +0200
+Message-ID: <57DC6278.8090604@iogearbox.net>
+References: <1474018622-10653-1-git-send-email-jakub.kicinski@netronome.com> <1474018622-10653-5-git-send-email-jakub.kicinski@netronome.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ast@kernel.org
+To: Jakub Kicinski <jakub.kicinski@netronome.com>,
+        netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:40593 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754074AbcIPVWD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 17:22:03 -0400
+In-Reply-To: <1474018622-10653-5-git-send-email-jakub.kicinski@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In commit 311b21774f13 ("sctp: simplify sk_receive_queue locking"), a call
-to 'skb_queue_splice_tail_init()' has been made explicit. Previously it was
-hidden in 'sctp_skb_list_tail()'
+On 09/16/2016 11:36 AM, Jakub Kicinski wrote:
+> Storing state in reserved fields of instructions makes
+> it impossible to run verifier on programs already
+> marked as read-only. Allocate and use an array of
+> per-instruction state instead.
+>
+> While touching the error path rename and move existing
+> jump target.
+>
+> Suggested-by: Alexei Starovoitov <ast@kernel.org>
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
 
-Now, the code around it looks redundant. The '_init()' part of
-'skb_queue_splice_tail_init()' should already do the same.
+LGMT
 
-Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
----
-Resent because netdev@ was not in copy
-Acked-by tags added
----
- net/sctp/ulpqueue.c | 3 ---
- 1 file changed, 3 deletions(-)
-
-diff --git a/net/sctp/ulpqueue.c b/net/sctp/ulpqueue.c
-index 877e55066f89..84d0fdaf7de9 100644
---- a/net/sctp/ulpqueue.c
-+++ b/net/sctp/ulpqueue.c
-@@ -140,11 +140,8 @@ int sctp_clear_pd(struct sock *sk, struct sctp_association *asoc)
- 		 * we can go ahead and clear out the lobby in one shot
- 		 */
- 		if (!skb_queue_empty(&sp->pd_lobby)) {
--			struct list_head *list;
- 			skb_queue_splice_tail_init(&sp->pd_lobby,
- 						   &sk->sk_receive_queue);
--			list = (struct list_head *)&sctp_sk(sk)->pd_lobby;
--			INIT_LIST_HEAD(list);
- 			return 1;
- 		}
- 	} else {
--- 
-2.7.4
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
