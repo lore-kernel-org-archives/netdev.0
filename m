@@ -1,87 +1,53 @@
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: [PATCH net-next RESEND] xen-netfront: avoid packet loss when ethernet header crosses page boundary
-Date: Fri, 16 Sep 2016 12:59:14 +0200
-Message-ID: <1474023554-24520-1-git-send-email-vkuznets@redhat.com>
-Cc: linux-kernel@vger.kernel.org,
-        Patrick Talbert <ptalbert@redhat.com>,
-        Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-        David Vrabel <david.vrabel@citrix.com>,
-        Juergen Gross <jgross@suse.com>, xen-devel@lists.xenproject.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: [PATCH v2] iproute2: build nsid-name cache only for commands that
+ need it
+Date: Fri, 16 Sep 2016 14:25:40 +0300
+Message-ID: <CAMw6YJJbx1HvkiPALfzVarRgeUyWjZ4K_Mrzz2VDH7yfoAg+7w@mail.gmail.com>
+References: <20160916072225.GA10536@toys.tundra.dog-lvm.novalocal>
+ <1cced3be-a4d4-ef04-6079-e65755d9975b@6wind.com> <CAMw6YJJuoA+Z_DQx8iSEkrurB4ZZN9MePtHEeW=q7t5aDvmSAA@mail.gmail.com>
+ <905de9c1-1322-5468-5770-58f788cb972c@6wind.com> <CAAL2ahKKFWcxhA=k+=3Td8sb-upnRUFs373EOhkHDaxvcgYjOw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Anton Aksola <aakso@iki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33436 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933839AbcIPLZm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 07:25:42 -0400
+Received: by mail-wm0-f67.google.com with SMTP id b187so3257755wme.0
+        for <netdev@vger.kernel.org>; Fri, 16 Sep 2016 04:25:42 -0700 (PDT)
+In-Reply-To: <CAAL2ahKKFWcxhA=k+=3Td8sb-upnRUFs373EOhkHDaxvcgYjOw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Small packet loss is reported on complex multi host network configurations
-including tunnels, NAT, ... My investigation led me to the following check
-in netback which drops packets:
+On Fri, Sep 16, 2016 at 2:21 PM, Anton Aksola <aakso@iki.fi> wrote:
+> Ok, I will post a new patch version. Should tests be posted in a separate
+> patch?
+>
+> 2016-09-16 12:44 GMT+03:00 Nicolas Dichtel <nicolas.dichtel@6wind.com>:
+>>
+>> Le 16/09/2016 =C3=A0 11:23, Vadim Kochan a =C3=A9crit :
+>> [snip]
+>> > Would it be useful to add test for this case into testsuite/ ?
+>> Yes, it's a good idea.
+>>
+>> Regards,
+>> Nicolas
+>
+>
 
-        if (unlikely(txreq.size < ETH_HLEN)) {
-                netdev_err(queue->vif->dev,
-                           "Bad packet size: %d\n", txreq.size);
-                xenvif_tx_err(queue, &txreq, extra_count, idx);
-                break;
-        }
+Anton, I just looked into tests after when I did post here. I am not
+sure it will be trivial,
+currently tests are running within separated network namespace by
+default (which I did) via
+'unshare' tool, and now I see that it is better to call it explicitly
+from the each test case. So
+I am not sure netns related  tests might be valid if they will be ran
+after 'unshare -n', if yes - then there is no problem, otherwise
+it needs to be fixed somehow - I will try to do this.
 
-But this check itself is legitimate. SKBs consist of a linear part (which
-has to have the ethernet header) and (optionally) a number of frags.
-Netfront transmits the head of the linear part up to the page boundary
-as the first request and all the rest becomes frags so when we're
-reconstructing the SKB in netback we can't distinguish between original
-frags and the 'tail' of the linear part. The first SKB needs to be at
-least ETH_HLEN size. So in case we have an SKB with its linear part
-starting too close to the page boundary the packet is lost.
-
-I see two ways to fix the issue:
-- Change the 'wire' protocol between netfront and netback to start keeping
-  the original SKB structure. We'll have to add a flag indicating the fact
-  that the particular request is a part of the original linear part and not
-  a frag. We'll need to know the length of the linear part to pre-allocate
-  memory.
-- Avoid transmitting SKBs with linear parts starting too close to the page
-  boundary. That seems preferable short-term and shouldn't bring
-  significant performance degradation as such packets are rare. That's what
-  this patch is trying to achieve with skb_copy().
-
-Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
-Acked-by: David Vrabel <david.vrabel@citrix.com>
----
-- This is just a RESEND with David's ACK added.
----
- drivers/net/xen-netfront.c | 14 ++++++++++++++
- 1 file changed, 14 insertions(+)
-
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index 96ccd4e..28c4a66 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -565,6 +565,7 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	struct netfront_queue *queue = NULL;
- 	unsigned int num_queues = dev->real_num_tx_queues;
- 	u16 queue_index;
-+	struct sk_buff *nskb;
- 
- 	/* Drop the packet if no queues are set up */
- 	if (num_queues < 1)
-@@ -595,6 +596,19 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	offset = offset_in_page(skb->data);
- 	len = skb_headlen(skb);
- 
-+	/* The first req should be at least ETH_HLEN size or the packet will be
-+	 * dropped by netback.
-+	 */
-+	if (unlikely(PAGE_SIZE - offset < ETH_HLEN)) {
-+		nskb = skb_copy(skb, GFP_ATOMIC);
-+		if (!nskb)
-+			goto drop;
-+		dev_kfree_skb_any(skb);
-+		skb = nskb;
-+		page = virt_to_page(skb->data);
-+		offset = offset_in_page(skb->data);
-+	}
-+
- 	spin_lock_irqsave(&queue->tx_lock, flags);
- 
- 	if (unlikely(!netif_carrier_ok(dev) ||
--- 
-2.7.4
+Regards,
+Vadim Kochan
