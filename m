@@ -1,38 +1,48 @@
-From: Brenden Blanco <bblanco@plumgrid.com>
-Subject: Re: [net PATCH] mlx4: fix XDP_TX is acting like XDP_PASS on TX ring
- full
-Date: Fri, 16 Sep 2016 13:43:50 -0700
-Message-ID: <20160916204350.GA20076@gmail.com>
-References: <20160916203535.20016.45146.stgit@firesoul>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, tariqt@mellanox.com,
-        Eric Dumazet <eric.dumazet@gmail.com>, tom@herbertland.com,
-        rana.shahot@gmail.com, "David S. Miller" <davem@davemloft.net>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:35321 "EHLO
-        mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965379AbcIPUnx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 16:43:53 -0400
-Received: by mail-pa0-f54.google.com with SMTP id oz2so24574234pac.2
-        for <netdev@vger.kernel.org>; Fri, 16 Sep 2016 13:43:52 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160916203535.20016.45146.stgit@firesoul>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Subject: [PATCH resend] sctp: Remove some redundant code
+Date: Fri, 16 Sep 2016 23:05:35 +0200
+Message-ID: <1474059935-17343-1-git-send-email-christophe.jaillet@wanadoo.fr>
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+        Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+To: marcelo.leitner@gmail.com, vyasevich@gmail.com,
+        nhorman@tuxdriver.com, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 16, 2016 at 10:36:12PM +0200, Jesper Dangaard Brouer wrote:
-> The XDP_TX action can fail transmitting the frame in case the TX ring
-> is full or port is down.  In case of TX failure it should drop the
-> frame, and not as now call 'break' which is the same as XDP_PASS.
-> 
-> Fixes: 9ecc2d86171a ("net/mlx4_en: add xdp forwarding and data write support")
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+In commit 311b21774f13 ("sctp: simplify sk_receive_queue locking"), a call
+to 'skb_queue_splice_tail_init()' has been made explicit. Previously it was
+hidden in 'sctp_skb_list_tail()'
 
-You could in theory have also tried to recycle the page instead of
-dropping it, but that's probably not worth optimizing when tx is backed
-up, as you'll only save a handful of page_put's. The code to do so
-wouldn't have been pretty.
+Now, the code around it looks redundant. The '_init()' part of
+'skb_queue_splice_tail_init()' should already do the same.
 
-Reviewed-by: Brenden Blanco <bblanco@plumgrid.com>
+Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
+---
+Resent because netdev@ was not in copy
+Acked-by tags added
+---
+ net/sctp/ulpqueue.c | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/net/sctp/ulpqueue.c b/net/sctp/ulpqueue.c
+index 877e55066f89..84d0fdaf7de9 100644
+--- a/net/sctp/ulpqueue.c
++++ b/net/sctp/ulpqueue.c
+@@ -140,11 +140,8 @@ int sctp_clear_pd(struct sock *sk, struct sctp_association *asoc)
+ 		 * we can go ahead and clear out the lobby in one shot
+ 		 */
+ 		if (!skb_queue_empty(&sp->pd_lobby)) {
+-			struct list_head *list;
+ 			skb_queue_splice_tail_init(&sp->pd_lobby,
+ 						   &sk->sk_receive_queue);
+-			list = (struct list_head *)&sctp_sk(sk)->pd_lobby;
+-			INIT_LIST_HEAD(list);
+ 			return 1;
+ 		}
+ 	} else {
+-- 
+2.7.4
