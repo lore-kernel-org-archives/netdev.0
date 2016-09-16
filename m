@@ -1,45 +1,52 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH v2] iproute2: build nsid-name cache only for commands that
- need it
-Date: Fri, 16 Sep 2016 17:43:05 +0200
-Message-ID: <e7c6471e-66ea-aaac-40e8-6dd54792ad91@6wind.com>
-References: <20160916072225.GA10536@toys.tundra.dog-lvm.novalocal>
- <1cced3be-a4d4-ef04-6079-e65755d9975b@6wind.com>
- <20160916131804.GA19216@toys.tundra.dog-lvm.novalocal>
-Reply-To: nicolas.dichtel@6wind.com
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] net: ipv6: Disable forwarding per interface via sysctl
+Date: Fri, 16 Sep 2016 17:46:16 +0200
+Message-ID: <188dbf56-c09c-259b-4e10-0e331c4be880@stressinduktion.org>
+References: <1474030076-24809-1-git-send-email-mmanning@brocade.com>
+ <1474033192.22679.67.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Anton Aksola <aakso@iki.fi>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        Mike Manning <mmanning@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:36939 "EHLO
-        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757736AbcIPPnJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 11:43:09 -0400
-Received: by mail-wm0-f44.google.com with SMTP id k186so48823571wmd.0
-        for <netdev@vger.kernel.org>; Fri, 16 Sep 2016 08:43:08 -0700 (PDT)
-In-Reply-To: <20160916131804.GA19216@toys.tundra.dog-lvm.novalocal>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:48074 "EHLO
+        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1755855AbcIPPqS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2016 11:46:18 -0400
+In-Reply-To: <1474033192.22679.67.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 16/09/2016 à 15:18, Anton Aksola a écrit :
-[snip]
-> Nicolas,
-> This seems to be caused by netns_add calling unshare(CLONE_NEWNET).
-> If we initialize the socket for nsid after that it doesn't seem to work.
+On 16.09.2016 15:39, Eric Dumazet wrote:
+> On Fri, 2016-09-16 at 13:47 +0100, Mike Manning wrote:
+>> Disabling forwarding per interface via sysctl continues to allow
+>> forwarding. This is contrary to the sysctl documentation stating that
+>> the forwarding sysctl is per interface, whereas currently it is only
+>> the sysctl for all interfaces that has an effect on forwarding. The
+>> solution is to drop any received packets instead of forwarding them
+>> if the ingress device has a per-device forwarding sysctl that is unset.
 > 
-> Unfortunately I'm not an expert in these details. Should we separate the
-> socket and cache initialization to different functions and call the
-> socket init in the beginning of do_netns() as before? What do you think?
-Seems good.
+> Some archaeological research might be needed because
+> Documentation/networking/ip-sysctl.txt states :
+> 
+> IPv4 and IPv6 work differently here; e.g. netfilter must be used
+> to control which interfaces may forward packets and which not.
+> 
+> If this netfilter requirement is obsolete, then your patch would need to
+> change the doc as well.
+> 
+> Hannes can probably comment on this ?
 
-> I made a quick patch and it seems to work in batch mode now.
-What is the result of that sequence?
+Yep, thanks.
 
-$ ip netns add bar
-$ ip netns set bar 5678
-$ ip -b test.batch
-nsid 1234 (iproute2 netns name: foo)
-nsid 5678 (iproute2 netns name: bar)
-$
+This commit breaks a very common setup: people globally enabled
+forwarding but disabled the forwarding knob on one special interface to
+allow this interface to participate in auto configuration from their
+provider while still forwarding packets over this interface.
+
+I fear this is so common that this would be a uapi violation.
+
+Thanks,
+Hannes
