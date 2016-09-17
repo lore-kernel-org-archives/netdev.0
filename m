@@ -1,28 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] ip_tunnel: add collect_md mode to
- IPv4/IPv6 tunnels
-Date: Sat, 17 Sep 2016 10:13:45 -0400 (EDT)
-Message-ID: <20160917.101345.1214078550421374975.davem@davemloft.net>
-References: <1473969632-2408261-1-git-send-email-ast@fb.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net PATCH] mlx4: fix XDP_TX is acting like XDP_PASS on TX ring
+ full
+Date: Sat, 17 Sep 2016 16:46:50 +0200
+Message-ID: <20160917164650.53e68314@redhat.com>
+References: <20160916203535.20016.45146.stgit@firesoul>
+        <20160916204350.GA20076@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, tgraf@suug.ch, netdev@vger.kernel.org,
-        kernel-team@fb.com
-To: ast@fb.com
+Cc: brouer@redhat.com, netdev@vger.kernel.org, tariqt@mellanox.com,
+        Eric Dumazet <eric.dumazet@gmail.com>, tom@herbertland.com,
+        rana.shahot@gmail.com, "David S. Miller" <davem@davemloft.net>
+To: Brenden Blanco <bblanco@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60252 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751258AbcIQONs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2016 10:13:48 -0400
-In-Reply-To: <1473969632-2408261-1-git-send-email-ast@fb.com>
+Received: from mx1.redhat.com ([209.132.183.28]:55108 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751401AbcIQOq4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 17 Sep 2016 10:46:56 -0400
+In-Reply-To: <20160916204350.GA20076@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@fb.com>
-Date: Thu, 15 Sep 2016 13:00:28 -0700
+On Fri, 16 Sep 2016 13:43:50 -0700
+Brenden Blanco <bblanco@plumgrid.com> wrote:
 
-> Similar to geneve, vxlan, gre tunnels implement 'collect metadata' mode
-> in ipip, ipip6, ip6ip6 tunnels.
+> On Fri, Sep 16, 2016 at 10:36:12PM +0200, Jesper Dangaard Brouer wrote:
+> > The XDP_TX action can fail transmitting the frame in case the TX ring
+> > is full or port is down.  In case of TX failure it should drop the
+> > frame, and not as now call 'break' which is the same as XDP_PASS.
+> > 
+> > Fixes: 9ecc2d86171a ("net/mlx4_en: add xdp forwarding and data write support")
+> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>  
+> 
+> You could in theory have also tried to recycle the page instead of
+> dropping it, but that's probably not worth optimizing when tx is backed
+> up, as you'll only save a handful of page_put's. The code to do so
+> wouldn't have been pretty.
 
-Series applied, thanks.
+Yes, we could (and perhaps should) recycle the page instead. But as you
+also mention it would not look pretty. I'll send a V3, as XDPs primary
+concern is performance.
+
+> Reviewed-by: Brenden Blanco <bblanco@plumgrid.com>
+
+
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
