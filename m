@@ -1,50 +1,46 @@
 From: Nelson Chang <nelson.chang@mediatek.com>
-Subject: RE: [PATCH net-next v2 0/3] net: ethernet: mediatek: add HW LRO
- functions
-Date: Sat, 17 Sep 2016 23:50:06 +0800
-Message-ID: <1474127406.12937.3.camel@mtksdaap41>
+Subject: [PATCH net-next v2 0/3] net: ethernet: mediatek: add HW LRO functions
+Date: Sat, 17 Sep 2016 23:50:54 +0800
+Message-ID: <1474127457-13143-1-git-send-email-nelson.chang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: <john@phrozen.org>, <f.fainelli@gmail.com>, <nbd@openwrt.org>,
-        <netdev@vger.kernel.org>, <linux-mediatek@lists.infradead.org>,
-        <nelsonch.tw@gmail.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
+        <linux-mediatek@lists.infradead.org>, <nelsonch.tw@gmail.com>,
+        Nelson Chang <nelson.chang@mediatek.com>
+To: <john@phrozen.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw02.mediatek.com ([210.61.82.184]:46635 "EHLO
-        mailgw02.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752389AbcIQPuN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2016 11:50:13 -0400
+Received: from mailgw01.mediatek.com ([210.61.82.183]:25296 "EHLO
+        mailgw01.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1752257AbcIQPvG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2016 11:51:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks David!
-I'll respin the patch and submit the newer version.
+The series add the large receive offload (LRO) functions by hardware and
+the ethtool functions to configure RX flows of HW LRO.
 
------Original Message-----
-From: David Miller [mailto:davem@davemloft.net] 
-Sent: Saturday, September 17, 2016 9:46 PM
-To: Nelson Chang (張家祥)
-Cc: john@phrozen.org; f.fainelli@gmail.com; nbd@openwrt.org;
-netdev@vger.kernel.org; linux-mediatek@lists.infradead.org;
-nelsonch.tw@gmail.com
-Subject: Re: [PATCH net-next v2 0/3] net: ethernet: mediatek: add HW LRO
-functions
+changes since v3:
+- Respin the patch by the newer driver
+- Move the dts description of hwlro to optional properties
 
-From: Nelson Chang <nelson.chang@mediatek.com>
-Date: Wed, 14 Sep 2016 13:58:56 +0800
+changes since v2:
+- Add ndo_fix_features to prevent NETIF_F_LRO off while RX flow is programmed
+- Rephrase the dts property is a capability if the hardware supports LRO
 
-> The series add the large receive offload (LRO) functions by hardware 
-> and the ethtool functions to configure RX flows of HW LRO.
-> 
-> changes since v2:
-> - Add ndo_fix_features to prevent NETIF_F_LRO off while RX flow is 
-> programmed
-> - Rephrase the dts property is a capability if the hardware supports 
-> LRO
-> 
-> changes since v1:
-> - Add HW LRO support
-> - Add ethtool hooks to set LRO RX flows
+changes since v1:
+- Add HW LRO support
+- Add ethtool hooks to set LRO RX flows
 
-This doesn't apply cleanly to net-next.
+Nelson Chang (3):
+  net: ethernet: mediatek: add HW LRO functions of PDMA RX rings
+  net: ethernet: mediatek: add ethtool functions to configure RX flows
+    of HW LRO
+  net: ethernet: mediatek: add dts configuration to enable HW LRO
+
+ .../devicetree/bindings/net/mediatek-net.txt       |   2 +
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c        | 433 +++++++++++++++++++--
+ drivers/net/ethernet/mediatek/mtk_eth_soc.h        |  75 +++-
+ 3 files changed, 485 insertions(+), 25 deletions(-)
+
+-- 
+1.9.1
