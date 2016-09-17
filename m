@@ -1,34 +1,38 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull-request: wireless-drivers-next 2016-09-15
-Date: Sat, 17 Sep 2016 09:54:27 -0400 (EDT)
-Message-ID: <20160917.095427.639883783043129882.davem@davemloft.net>
-References: <87zin99p3y.fsf@kamboji.qca.qualcomm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] xen-netback: fix error handling on netback_probe()
+Date: Sat, 17 Sep 2016 09:56:31 -0400 (EDT)
+Message-ID: <20160917.095631.1210055450319054136.davem@davemloft.net>
+References: <1473952246-27037-1-git-send-email-filipe.manco@neclab.eu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87zin99p3y.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, wei.liu2@citrix.com,
+        xen-devel@lists.xenproject.org
+To: filipe.manco@neclab.eu
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60032 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751544AbcIQN4e (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2016 09:56:34 -0400
+In-Reply-To: <1473952246-27037-1-git-send-email-filipe.manco@neclab.eu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Date: Thu, 15 Sep 2016 18:09:21 +0300
+From: Filipe Manco <filipe.manco@neclab.eu>
+Date: Thu, 15 Sep 2016 17:10:46 +0200
 
-> here's the first pull request for 4.9. The ones I want to point out are
-> the FIELD_PREP() and FIELD_GET() macros added to bitfield.h, which are
-> reviewed by Linus, and make it possible to remove util.h from mt7601u.
+> In case of error during netback_probe() (e.g. an entry missing on the
+> xenstore) netback_remove() is called on the new device, which will set
+> the device backend state to XenbusStateClosed by calling
+> set_backend_state(). However, the backend state wasn't initialized by
+> netback_probe() at this point, which will cause and invalid transaction
+> and set_backend_state() to BUG().
 > 
-> Also we have new HW support to various drivers and other smaller
-> features, the signed tag below contains more information. And I pulled
-> my ath-current (uses older net tree as the baseline) branch to fix a
-> conflict in ath10k.
+> Initialize the backend state at the beginning of netback_probe() to
+> XenbusStateInitialising, and create two new valid state transitions on
+> set_backend_state(), from XenbusStateInitialising to XenbusStateClosed,
+> and from XenbusStateInitialising to XenbusStateInitWait.
 > 
-> Once again the diffstat from git request-pull was wrong. I fixed it by
-> manually copying the diffstat from a test pull against net-next, so
-> everything should be ok. But please let me know if there are any
-> problems.
+> Signed-off-by: Filipe Manco <filipe.manco@neclab.eu>
 
-Pulled, thanks Kalle.
+Applied, thanks.
