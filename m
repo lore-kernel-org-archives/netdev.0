@@ -1,46 +1,90 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next 0/5] sched: convert queues to single-linked list
-Date: Sun, 18 Sep 2016 00:57:29 +0200
-Message-ID: <1474153054-9059-1-git-send-email-fw@strlen.de>
+Subject: [PATCH net-next 2/5] sched: don't use skb queue helpers
+Date: Sun, 18 Sep 2016 00:57:31 +0200
+Message-ID: <1474153054-9059-3-git-send-email-fw@strlen.de>
+References: <1474153054-9059-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:51380 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:51386 "EHLO
         Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1754719AbcIQW5Z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2016 18:57:25 -0400
+        by vger.kernel.org with ESMTP id S1755014AbcIQW5c (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2016 18:57:32 -0400
+In-Reply-To: <1474153054-9059-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-During Netfilter Workshop 2016 Eric Dumazet pointed out that qdisc
-schedulers use doubly-linked lists, even though single-linked list
-would be enough.
+A followup change will replace the sk_buff_head in the qdisc
+struct with a slightly different list.
 
-The double-linked skb lists incur one extra write on enqueue/dequeue
-operations (to change ->prev pointer of next list elem).
+Use of the sk_buff_head helpers will thus cause compiler
+warnings.
 
-This series converts qdiscs to single-linked version, listhead
-maintains pointers to first (for dequeue) and last skb (for enqueue).
+Open-code these accesses in an extra change to ease review.
 
-Most qdiscs don't queue at all and instead use a leaf qdisc (typically
-pfifo_fast) so only a few schedulers needed changes.
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ net/sched/sch_fifo.c    | 4 ++--
+ net/sched/sch_generic.c | 2 +-
+ net/sched/sch_netem.c   | 4 ++--
+ 3 files changed, 5 insertions(+), 5 deletions(-)
 
-I briefly tested netem and htb and they seemed fine.
-
-UDP_STREAM netperf with 64 byte packets via veth+pfifo_fast shows
-a small (~2%) improvement.
-
-Florian Westphal (5):
-      pie: use qdisc_dequeue_head wrapper
-      sched: don't use skb queue helpers
-      sched: remove qdisc arg from __qdisc_dequeue_head
-      sched: replace __skb_dequeue with __qdisc_dequeue_head
-      sched: add and use qdisc_skb_head helpers
-
- include/net/sch_generic.h |   72 +++++++++++++++++++++++++++++++++++-----------
- net/sched/sch_codel.c     |    4 +-
- net/sched/sch_fifo.c      |    4 +-
- net/sched/sch_generic.c   |   30 +++++++++++--------
- net/sched/sch_htb.c       |   24 ++++++++++++---
- net/sched/sch_netem.c     |   20 +++++++++---
- net/sched/sch_pie.c       |    4 +-
- 7 files changed, 115 insertions(+), 43 deletions(-)
+diff --git a/net/sched/sch_fifo.c b/net/sched/sch_fifo.c
+index baeed6a..1e37247 100644
+--- a/net/sched/sch_fifo.c
++++ b/net/sched/sch_fifo.c
+@@ -31,7 +31,7 @@ static int bfifo_enqueue(struct sk_buff *skb, struct Qdisc *sch,
+ static int pfifo_enqueue(struct sk_buff *skb, struct Qdisc *sch,
+ 			 struct sk_buff **to_free)
+ {
+-	if (likely(skb_queue_len(&sch->q) < sch->limit))
++	if (likely(sch->q.qlen < sch->limit))
+ 		return qdisc_enqueue_tail(skb, sch);
+ 
+ 	return qdisc_drop(skb, sch, to_free);
+@@ -42,7 +42,7 @@ static int pfifo_tail_enqueue(struct sk_buff *skb, struct Qdisc *sch,
+ {
+ 	unsigned int prev_backlog;
+ 
+-	if (likely(skb_queue_len(&sch->q) < sch->limit))
++	if (likely(sch->q.qlen < sch->limit))
+ 		return qdisc_enqueue_tail(skb, sch);
+ 
+ 	prev_backlog = sch->qstats.backlog;
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 0d21b56..5e63bf6 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -486,7 +486,7 @@ static inline struct sk_buff_head *band2list(struct pfifo_fast_priv *priv,
+ static int pfifo_fast_enqueue(struct sk_buff *skb, struct Qdisc *qdisc,
+ 			      struct sk_buff **to_free)
+ {
+-	if (skb_queue_len(&qdisc->q) < qdisc_dev(qdisc)->tx_queue_len) {
++	if (qdisc->q.qlen < qdisc_dev(qdisc)->tx_queue_len) {
+ 		int band = prio2band[skb->priority & TC_PRIO_MAX];
+ 		struct pfifo_fast_priv *priv = qdisc_priv(qdisc);
+ 		struct sk_buff_head *list = band2list(priv, band);
+diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+index aaaf021..1832d77 100644
+--- a/net/sched/sch_netem.c
++++ b/net/sched/sch_netem.c
+@@ -502,7 +502,7 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch,
+ 			1<<(prandom_u32() % 8);
+ 	}
+ 
+-	if (unlikely(skb_queue_len(&sch->q) >= sch->limit))
++	if (unlikely(sch->q.qlen >= sch->limit))
+ 		return qdisc_drop(skb, sch, to_free);
+ 
+ 	qdisc_qstats_backlog_inc(sch, skb);
+@@ -522,7 +522,7 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch,
+ 		if (q->rate) {
+ 			struct sk_buff *last;
+ 
+-			if (!skb_queue_empty(&sch->q))
++			if (sch->q.qlen)
+ 				last = skb_peek_tail(&sch->q);
+ 			else
+ 				last = netem_rb_to_skb(rb_last(&q->t_root));
+-- 
+2.7.3
