@@ -1,7 +1,7 @@
 From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH v2 net-next 06/16] tcp: count packets marked lost for a TCP connection
-Date: Sat, 17 Sep 2016 13:35:39 -0400
-Message-ID: <1474133749-12895-7-git-send-email-ncardwell@google.com>
+Subject: [PATCH v2 net-next 03/16] tcp: use windowed min filter library for TCP min_rtt estimation
+Date: Sat, 17 Sep 2016 13:35:36 -0400
+Message-ID: <1474133749-12895-4-git-send-email-ncardwell@google.com>
 References: <1474133749-12895-1-git-send-email-ncardwell@google.com>
 Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
         Van Jacobson <vanj@google.com>,
@@ -11,30 +11,23 @@ Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
         Soheil Hassas Yeganeh <soheil@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f170.google.com ([209.85.216.170]:34720 "EHLO
-        mail-qt0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754116AbcIQRgS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2016 13:36:18 -0400
-Received: by mail-qt0-f170.google.com with SMTP id 38so56304152qte.1
-        for <netdev@vger.kernel.org>; Sat, 17 Sep 2016 10:36:17 -0700 (PDT)
+Received: from mail-qk0-f171.google.com ([209.85.220.171]:35965 "EHLO
+        mail-qk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753781AbcIQRgN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2016 13:36:13 -0400
+Received: by mail-qk0-f171.google.com with SMTP id z190so115064121qkc.3
+        for <netdev@vger.kernel.org>; Sat, 17 Sep 2016 10:36:13 -0700 (PDT)
 In-Reply-To: <1474133749-12895-1-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Count the number of packets that a TCP connection marks lost.
+Refactor the TCP min_rtt code to reuse the new win_minmax library in
+lib/win_minmax.c to simplify the TCP code.
 
-Congestion control modules can use this loss rate information for more
-intelligent decisions about how fast to send.
-
-Specifically, this is used in TCP BBR policer detection. BBR uses a
-high packet loss rate as one signal in its policer detection and
-policer bandwidth estimation algorithm.
-
-The BBR policer detection algorithm cannot simply track retransmits,
-because a retransmit can be (and often is) an indicator of packets
-lost long, long ago. This is particularly true in a long CA_Loss
-period that repairs the initial massive losses when a policer kicks
-in.
+This is a pure refactor: the functionality is exactly the same. We
+just moved the windowed min code to make TCP easier to read and
+maintain, and to allow other parts of the kernel to use the windowed
+min/max filter code.
 
 Signed-off-by: Van Jacobson <vanj@google.com>
 Signed-off-by: Neal Cardwell <ncardwell@google.com>
@@ -43,85 +36,151 @@ Signed-off-by: Nandita Dukkipati <nanditad@google.com>
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
 ---
- include/linux/tcp.h  |  1 +
- net/ipv4/tcp_input.c | 25 ++++++++++++++++++++++++-
- 2 files changed, 25 insertions(+), 1 deletion(-)
+ include/linux/tcp.h      |  5 ++--
+ include/net/tcp.h        |  2 +-
+ net/ipv4/tcp.c           |  2 +-
+ net/ipv4/tcp_input.c     | 64 ++++--------------------------------------------
+ net/ipv4/tcp_minisocks.c |  2 +-
+ 5 files changed, 10 insertions(+), 65 deletions(-)
 
 diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 6433cc8..38590fb 100644
+index c723a46..6433cc8 100644
 --- a/include/linux/tcp.h
 +++ b/include/linux/tcp.h
-@@ -267,6 +267,7 @@ struct tcp_sock {
- 				 * receiver in Recovery. */
- 	u32	prr_out;	/* Total number of pkts sent during Recovery. */
- 	u32	delivered;	/* Total data packets delivered incl. rexmits */
-+	u32	lost;		/* Total data packets lost incl. rexmits */
+@@ -19,6 +19,7 @@
  
-  	u32	rcv_wnd;	/* Current receiver window		*/
- 	u32	write_seq;	/* Tail(+1) of data held in tcp send buffer */
+ 
+ #include <linux/skbuff.h>
++#include <linux/win_minmax.h>
+ #include <net/sock.h>
+ #include <net/inet_connection_sock.h>
+ #include <net/inet_timewait_sock.h>
+@@ -234,9 +235,7 @@ struct tcp_sock {
+ 	u32	mdev_max_us;	/* maximal mdev for the last rtt period	*/
+ 	u32	rttvar_us;	/* smoothed mdev_max			*/
+ 	u32	rtt_seq;	/* sequence number to update rttvar	*/
+-	struct rtt_meas {
+-		u32 rtt, ts;	/* RTT in usec and sampling time in jiffies. */
+-	} rtt_min[3];
++	struct  minmax rtt_min;
+ 
+ 	u32	packets_out;	/* Packets which are "in flight"	*/
+ 	u32	retrans_out;	/* Retransmitted packets out		*/
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index fdfbedd..2f1648a 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -671,7 +671,7 @@ static inline bool tcp_ca_dst_locked(const struct dst_entry *dst)
+ /* Minimum RTT in usec. ~0 means not available. */
+ static inline u32 tcp_min_rtt(const struct tcp_sock *tp)
+ {
+-	return tp->rtt_min[0].rtt;
++	return minmax_get(&tp->rtt_min);
+ }
+ 
+ /* Compute the actual receive window we are currently advertising.
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index a13fcb3..5b0b49c 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -387,7 +387,7 @@ void tcp_init_sock(struct sock *sk)
+ 
+ 	icsk->icsk_rto = TCP_TIMEOUT_INIT;
+ 	tp->mdev_us = jiffies_to_usecs(TCP_TIMEOUT_INIT);
+-	tp->rtt_min[0].rtt = ~0U;
++	minmax_reset(&tp->rtt_min, tcp_time_stamp, ~0U);
+ 
+ 	/* So many TCP implementations out there (incorrectly) count the
+ 	 * initial SYN frame in their delayed-ACK and congestion control
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index ac5b38f..024b579 100644
+index 70b892d..ac5b38f 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -899,12 +899,29 @@ static void tcp_verify_retransmit_hint(struct tcp_sock *tp, struct sk_buff *skb)
- 		tp->retransmit_high = TCP_SKB_CB(skb)->end_seq;
+@@ -2879,67 +2879,13 @@ static void tcp_fastretrans_alert(struct sock *sk, const int acked,
+ 	*rexmit = REXMIT_LOST;
  }
  
-+/* Sum the number of packets on the wire we have marked as lost.
-+ * There are two cases we care about here:
-+ * a) Packet hasn't been marked lost (nor retransmitted),
-+ *    and this is the first loss.
-+ * b) Packet has been marked both lost and retransmitted,
-+ *    and this means we think it was lost again.
-+ */
-+static void tcp_sum_lost(struct tcp_sock *tp, struct sk_buff *skb)
-+{
-+	__u8 sacked = TCP_SKB_CB(skb)->sacked;
-+
-+	if (!(sacked & TCPCB_LOST) ||
-+	    ((sacked & TCPCB_LOST) && (sacked & TCPCB_SACKED_RETRANS)))
-+		tp->lost += tcp_skb_pcount(skb);
-+}
-+
- static void tcp_skb_mark_lost(struct tcp_sock *tp, struct sk_buff *skb)
+-/* Kathleen Nichols' algorithm for tracking the minimum value of
+- * a data stream over some fixed time interval. (E.g., the minimum
+- * RTT over the past five minutes.) It uses constant space and constant
+- * time per update yet almost always delivers the same minimum as an
+- * implementation that has to keep all the data in the window.
+- *
+- * The algorithm keeps track of the best, 2nd best & 3rd best min
+- * values, maintaining an invariant that the measurement time of the
+- * n'th best >= n-1'th best. It also makes sure that the three values
+- * are widely separated in the time window since that bounds the worse
+- * case error when that data is monotonically increasing over the window.
+- *
+- * Upon getting a new min, we can forget everything earlier because it
+- * has no value - the new min is <= everything else in the window by
+- * definition and it's the most recent. So we restart fresh on every new min
+- * and overwrites 2nd & 3rd choices. The same property holds for 2nd & 3rd
+- * best.
+- */
+ static void tcp_update_rtt_min(struct sock *sk, u32 rtt_us)
  {
- 	if (!(TCP_SKB_CB(skb)->sacked & (TCPCB_LOST|TCPCB_SACKED_ACKED))) {
- 		tcp_verify_retransmit_hint(tp, skb);
- 
- 		tp->lost_out += tcp_skb_pcount(skb);
-+		tcp_sum_lost(tp, skb);
- 		TCP_SKB_CB(skb)->sacked |= TCPCB_LOST;
- 	}
+-	const u32 now = tcp_time_stamp, wlen = sysctl_tcp_min_rtt_wlen * HZ;
+-	struct rtt_meas *m = tcp_sk(sk)->rtt_min;
+-	struct rtt_meas rttm = {
+-		.rtt = likely(rtt_us) ? rtt_us : jiffies_to_usecs(1),
+-		.ts = now,
+-	};
+-	u32 elapsed;
+-
+-	/* Check if the new measurement updates the 1st, 2nd, or 3rd choices */
+-	if (unlikely(rttm.rtt <= m[0].rtt))
+-		m[0] = m[1] = m[2] = rttm;
+-	else if (rttm.rtt <= m[1].rtt)
+-		m[1] = m[2] = rttm;
+-	else if (rttm.rtt <= m[2].rtt)
+-		m[2] = rttm;
+-
+-	elapsed = now - m[0].ts;
+-	if (unlikely(elapsed > wlen)) {
+-		/* Passed entire window without a new min so make 2nd choice
+-		 * the new min & 3rd choice the new 2nd. So forth and so on.
+-		 */
+-		m[0] = m[1];
+-		m[1] = m[2];
+-		m[2] = rttm;
+-		if (now - m[0].ts > wlen) {
+-			m[0] = m[1];
+-			m[1] = rttm;
+-			if (now - m[0].ts > wlen)
+-				m[0] = rttm;
+-		}
+-	} else if (m[1].ts == m[0].ts && elapsed > wlen / 4) {
+-		/* Passed a quarter of the window without a new min so
+-		 * take 2nd choice from the 2nd quarter of the window.
+-		 */
+-		m[2] = m[1] = rttm;
+-	} else if (m[2].ts == m[1].ts && elapsed > wlen / 2) {
+-		/* Passed half the window without a new min so take the 3rd
+-		 * choice from the last half of the window.
+-		 */
+-		m[2] = rttm;
+-	}
++	struct tcp_sock *tp = tcp_sk(sk);
++	u32 wlen = sysctl_tcp_min_rtt_wlen * HZ;
++
++	minmax_running_min(&tp->rtt_min, wlen, tcp_time_stamp,
++			   rtt_us ? : jiffies_to_usecs(1));
  }
-@@ -913,6 +930,7 @@ void tcp_skb_mark_lost_uncond_verify(struct tcp_sock *tp, struct sk_buff *skb)
- {
- 	tcp_verify_retransmit_hint(tp, skb);
  
-+	tcp_sum_lost(tp, skb);
- 	if (!(TCP_SKB_CB(skb)->sacked & (TCPCB_LOST|TCPCB_SACKED_ACKED))) {
- 		tp->lost_out += tcp_skb_pcount(skb);
- 		TCP_SKB_CB(skb)->sacked |= TCPCB_LOST;
-@@ -1890,6 +1908,7 @@ void tcp_enter_loss(struct sock *sk)
- 	struct sk_buff *skb;
- 	bool new_recovery = icsk->icsk_ca_state < TCP_CA_Recovery;
- 	bool is_reneg;			/* is receiver reneging on SACKs? */
-+	bool mark_lost;
+ static inline bool tcp_ack_update_rtt(struct sock *sk, const int flag,
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index f63c73d..5689471 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -464,7 +464,7 @@ struct sock *tcp_create_openreq_child(const struct sock *sk,
  
- 	/* Reduce ssthresh if it has not yet been made inside this window. */
- 	if (icsk->icsk_ca_state <= TCP_CA_Disorder ||
-@@ -1923,8 +1942,12 @@ void tcp_enter_loss(struct sock *sk)
- 		if (skb == tcp_send_head(sk))
- 			break;
+ 		newtp->srtt_us = 0;
+ 		newtp->mdev_us = jiffies_to_usecs(TCP_TIMEOUT_INIT);
+-		newtp->rtt_min[0].rtt = ~0U;
++		minmax_reset(&newtp->rtt_min, tcp_time_stamp, ~0U);
+ 		newicsk->icsk_rto = TCP_TIMEOUT_INIT;
  
-+		mark_lost = (!(TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED) ||
-+			     is_reneg);
-+		if (mark_lost)
-+			tcp_sum_lost(tp, skb);
- 		TCP_SKB_CB(skb)->sacked &= (~TCPCB_TAGBITS)|TCPCB_SACKED_ACKED;
--		if (!(TCP_SKB_CB(skb)->sacked&TCPCB_SACKED_ACKED) || is_reneg) {
-+		if (mark_lost) {
- 			TCP_SKB_CB(skb)->sacked &= ~TCPCB_SACKED_ACKED;
- 			TCP_SKB_CB(skb)->sacked |= TCPCB_LOST;
- 			tp->lost_out += tcp_skb_pcount(skb);
+ 		newtp->packets_out = 0;
 -- 
 2.8.0.rc3.226.g39d4020
