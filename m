@@ -1,54 +1,50 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net PATCH V3] mlx4: fix XDP_TX is acting like XDP_PASS on TX ring
- full
-Date: Sat, 17 Sep 2016 17:48:00 +0200
-Message-ID: <20160917154753.3130.16986.stgit@firesoul>
-References: <20160917164650.53e68314@redhat.com>
+From: Nelson Chang <nelson.chang@mediatek.com>
+Subject: RE: [PATCH net-next v2 0/3] net: ethernet: mediatek: add HW LRO
+ functions
+Date: Sat, 17 Sep 2016 23:50:06 +0800
+Message-ID: <1474127406.12937.3.camel@mtksdaap41>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, bblanco@plumgrid.com, rana.shahot@gmail.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Jesper Dangaard Brouer <brouer@redhat.com>
-To: netdev@vger.kernel.org, tariqt@mellanox.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: <john@phrozen.org>, <f.fainelli@gmail.com>, <nbd@openwrt.org>,
+        <netdev@vger.kernel.org>, <linux-mediatek@lists.infradead.org>,
+        <nelsonch.tw@gmail.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34500 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752257AbcIQPsD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 17 Sep 2016 11:48:03 -0400
-In-Reply-To: <20160917164650.53e68314@redhat.com>
+Received: from mailgw02.mediatek.com ([210.61.82.184]:46635 "EHLO
+        mailgw02.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1752389AbcIQPuN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2016 11:50:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The XDP_TX action can fail transmitting the frame in case the TX ring
-is full or port is down.  In case of TX failure it should drop the
-frame, and not as now call 'break' which is the same as XDP_PASS.
+Thanks David!
+I'll respin the patch and submit the newer version.
 
-Fixes: 9ecc2d86171a ("net/mlx4_en: add xdp forwarding and data write support")
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+-----Original Message-----
+From: David Miller [mailto:davem@davemloft.net] 
+Sent: Saturday, September 17, 2016 9:46 PM
+To: Nelson Chang (張家祥)
+Cc: john@phrozen.org; f.fainelli@gmail.com; nbd@openwrt.org;
+netdev@vger.kernel.org; linux-mediatek@lists.infradead.org;
+nelsonch.tw@gmail.com
+Subject: Re: [PATCH net-next v2 0/3] net: ethernet: mediatek: add HW LRO
+functions
 
----
-Is this goto lable inside a switch case too ugly?
-Note, this fix have nothing to do with the page-refcnt bug I reported.
+From: Nelson Chang <nelson.chang@mediatek.com>
+Date: Wed, 14 Sep 2016 13:58:56 +0800
 
- drivers/net/ethernet/mellanox/mlx4/en_rx.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+> The series add the large receive offload (LRO) functions by hardware 
+> and the ethtool functions to configure RX flows of HW LRO.
+> 
+> changes since v2:
+> - Add ndo_fix_features to prevent NETIF_F_LRO off while RX flow is 
+> programmed
+> - Rephrase the dts property is a capability if the hardware supports 
+> LRO
+> 
+> changes since v1:
+> - Add HW LRO support
+> - Add ethtool hooks to set LRO RX flows
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 2040dad8611d..9eadda431965 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -906,11 +906,12 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 							length, tx_index,
- 							&doorbell_pending))
- 					goto consumed;
--				break;
-+				goto xdp_drop; /* Drop on xmit failure */
- 			default:
- 				bpf_warn_invalid_xdp_action(act);
- 			case XDP_ABORTED:
- 			case XDP_DROP:
-+			xdp_drop:
- 				if (mlx4_en_rx_recycle(ring, frags))
- 					goto consumed;
- 				goto next;
+This doesn't apply cleanly to net-next.
