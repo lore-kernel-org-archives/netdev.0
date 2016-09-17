@@ -1,8 +1,7 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 13/14] rxrpc: Be consistent about switch value in
- rxrpc_send_call_packet()
-Date: Sun, 18 Sep 2016 00:19:14 +0100
-Message-ID: <147415435469.17897.12442015852819757874.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 11/14] rxrpc: Fix retransmission algorithm
+Date: Sun, 18 Sep 2016 00:19:00 +0100
+Message-ID: <147415434067.17897.11639501706857055164.stgit@warthog.procyon.org.uk>
 References: <147415426459.17897.13899206413543061473.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,34 +10,71 @@ Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
         linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50714 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:53146 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755372AbcIQXTQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 17 Sep 2016 19:19:16 -0400
+        id S936187AbcIQXTD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 17 Sep 2016 19:19:03 -0400
 In-Reply-To: <147415426459.17897.13899206413543061473.stgit@warthog.procyon.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-rxrpc_send_call_packet() should use type in both its switch-statements
-rather than using pkt->whdr.type.  This might give the compiler an easier
-job of uninitialised variable checking.
+Make the retransmission algorithm use for-loops instead of do-loops and
+move the counter increments into the for-statement increment slots.
+
+Though the do-loops are slighly more efficient since there will be at least
+one pass through the each loop, the counter increments are harder to get
+right as the continue-statements skip them.
+
+Without this, if there are any positive acks within the loop, the do-loop
+will cycle forever because the counter increment is never done.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/output.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/rxrpc/call_event.c |   12 ++++--------
+ 1 file changed, 4 insertions(+), 8 deletions(-)
 
-diff --git a/net/rxrpc/output.c b/net/rxrpc/output.c
-index aa0507214b31..0b21ed859de7 100644
---- a/net/rxrpc/output.c
-+++ b/net/rxrpc/output.c
-@@ -182,7 +182,7 @@ int rxrpc_send_call_packet(struct rxrpc_call *call, u8 type)
- 			     &msg, iov, ioc, len);
+diff --git a/net/rxrpc/call_event.c b/net/rxrpc/call_event.c
+index 9367c3be31eb..f0cabc48a1b7 100644
+--- a/net/rxrpc/call_event.c
++++ b/net/rxrpc/call_event.c
+@@ -163,8 +163,7 @@ static void rxrpc_resend(struct rxrpc_call *call)
+ 	 */
+ 	now = jiffies;
+ 	resend_at = now + rxrpc_resend_timeout;
+-	seq = cursor + 1;
+-	do {
++	for (seq = cursor + 1; before_eq(seq, top); seq++) {
+ 		ix = seq & RXRPC_RXTX_BUFF_MASK;
+ 		annotation = call->rxtx_annotations[ix];
+ 		if (annotation == RXRPC_TX_ANNO_ACK)
+@@ -184,8 +183,7 @@ static void rxrpc_resend(struct rxrpc_call *call)
  
- 	if (ret < 0 && call->state < RXRPC_CALL_COMPLETE) {
--		switch (pkt->whdr.type) {
-+		switch (type) {
- 		case RXRPC_PACKET_TYPE_ACK:
- 			rxrpc_propose_ACK(call, pkt->ack.reason,
- 					  ntohs(pkt->ack.maxSkew),
+ 		/* Okay, we need to retransmit a packet. */
+ 		call->rxtx_annotations[ix] = RXRPC_TX_ANNO_RETRANS;
+-		seq++;
+-	} while (before_eq(seq, top));
++	}
+ 
+ 	call->resend_at = resend_at;
+ 
+@@ -194,8 +192,7 @@ static void rxrpc_resend(struct rxrpc_call *call)
+ 	 * lock is dropped, it may clear some of the retransmission markers for
+ 	 * packets that it soft-ACKs.
+ 	 */
+-	seq = cursor + 1;
+-	do {
++	for (seq = cursor + 1; before_eq(seq, top); seq++) {
+ 		ix = seq & RXRPC_RXTX_BUFF_MASK;
+ 		annotation = call->rxtx_annotations[ix];
+ 		if (annotation != RXRPC_TX_ANNO_RETRANS)
+@@ -237,8 +234,7 @@ static void rxrpc_resend(struct rxrpc_call *call)
+ 
+ 		if (after(call->tx_hard_ack, seq))
+ 			seq = call->tx_hard_ack;
+-		seq++;
+-	} while (before_eq(seq, top));
++	}
+ 
+ out_unlock:
+ 	spin_unlock_bh(&call->lock);
