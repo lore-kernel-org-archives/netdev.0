@@ -1,91 +1,71 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 07/14] rxrpc: Fix the putting of client connections
-Date: Sun, 18 Sep 2016 00:18:33 +0100
-Message-ID: <147415431330.17897.9485510346492293460.stgit@warthog.procyon.org.uk>
-References: <147415426459.17897.13899206413543061473.stgit@warthog.procyon.org.uk>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net] MAINTAINERS: Gary Zambrano's email is bouncing
+Date: Sat, 17 Sep 2016 16:17:39 -0700
+Message-ID: <CAGVrzcaswHEjEvBygXbDcgUPaAmP=t9RHY8mVv4tVOgK7N9ARw@mail.gmail.com>
+References: <1474151235-16558-1-git-send-email-f.fainelli@gmail.com> <1474152709.1954.8.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Michael Chan <michael.chan@broadcom.com>,
+        bcm-kernel-feedback-list <bcm-kernel-feedback-list@broadcom.com>,
+        =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
+        Hauke Mehrtens <hauke@hauke-m.de>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53116 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S935781AbcIQXSf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 17 Sep 2016 19:18:35 -0400
-In-Reply-To: <147415426459.17897.13899206413543061473.stgit@warthog.procyon.org.uk>
+Received: from mail-io0-f196.google.com ([209.85.223.196]:36765 "EHLO
+        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935318AbcIQXSU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2016 19:18:20 -0400
+Received: by mail-io0-f196.google.com with SMTP id z135so3271378ioe.3
+        for <netdev@vger.kernel.org>; Sat, 17 Sep 2016 16:18:20 -0700 (PDT)
+In-Reply-To: <1474152709.1954.8.camel@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In rxrpc_put_one_client_conn(), if a connection has RXRPC_CONN_COUNTED set
-on it, then it's accounted for in rxrpc_nr_client_conns and may be on
-various lists - and this is cleaned up correctly.
+2016-09-17 15:51 GMT-07:00 Joe Perches <joe@perches.com>:
+> On Sat, 2016-09-17 at 15:27 -0700, Florian Fainelli wrote:
+>> Gary has not been with Broadcom for some time now, replace his address
+>> with the internal mailing-list used for other entries.
+>>
+>> > Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+>> ---
+>> Michael,
+>>
+>> Since this is an old driver, not sure who could step up as a maintainer
+>> for b44?
+> []
+>> diff --git a/MAINTAINERS b/MAINTAINERS
+> []
+>> @@ -2500,8 +2500,8 @@ S:      Supported
+>
+>> F:    kernel/bpf/
+>>
+>>  BROADCOM B44 10/100 ETHERNET DRIVER
+>> -M:   Gary Zambrano <zambrano@broadcom.com>
+>>  L:   netdev@vger.kernel.org
+>> +M:   bcm-kernel-feedback-list@broadcom.com
+>>  S:   Supported
+>>  F:   drivers/net/ethernet/broadcom/b44.*
+>
+> Without an actual maintainer, this should really be
+> orphan and not supported.
 
-However, if the connection doesn't have RXRPC_CONN_COUNTED set on it, then
-the put routine returns rather than just skipping the extra bit of cleanup.
+I would like to hear from Michael before concluding that
 
-Fix this by making the extra bit of clean up conditional instead and always
-killing off the connection.
+>
+> And the M: bcm-kernel-feedback-list@ should be L:
 
-This manifests itself as connections with a zero usage count hanging around
-in /proc/net/rxrpc_conns because the connection allocated, but discarded,
-due to a race with another process that set up a parallel connection, which
-was then shared instead.
+The list does not accept public subscribers, so this is the correct
+entry to use.
 
-Signed-off-by: David Howells <dhowells@redhat.com>
----
+>
+> BCM4401 NICs are essentially from 2002.
+>
+> Does anyone really use these any longer with a
+> current distribution or kernel version?
 
- net/rxrpc/conn_client.c |   28 +++++++++++++---------------
- 1 file changed, 13 insertions(+), 15 deletions(-)
-
-diff --git a/net/rxrpc/conn_client.c b/net/rxrpc/conn_client.c
-index 9344a8416ceb..5a675c43cace 100644
---- a/net/rxrpc/conn_client.c
-+++ b/net/rxrpc/conn_client.c
-@@ -818,7 +818,7 @@ idle_connection:
- static struct rxrpc_connection *
- rxrpc_put_one_client_conn(struct rxrpc_connection *conn)
- {
--	struct rxrpc_connection *next;
-+	struct rxrpc_connection *next = NULL;
- 	struct rxrpc_local *local = conn->params.local;
- 	unsigned int nr_conns;
- 
-@@ -834,24 +834,22 @@ rxrpc_put_one_client_conn(struct rxrpc_connection *conn)
- 
- 	ASSERTCMP(conn->cache_state, ==, RXRPC_CONN_CLIENT_INACTIVE);
- 
--	if (!test_bit(RXRPC_CONN_COUNTED, &conn->flags))
--		return NULL;
--
--	spin_lock(&rxrpc_client_conn_cache_lock);
--	nr_conns = --rxrpc_nr_client_conns;
-+	if (test_bit(RXRPC_CONN_COUNTED, &conn->flags)) {
-+		spin_lock(&rxrpc_client_conn_cache_lock);
-+		nr_conns = --rxrpc_nr_client_conns;
-+
-+		if (nr_conns < rxrpc_max_client_connections &&
-+		    !list_empty(&rxrpc_waiting_client_conns)) {
-+			next = list_entry(rxrpc_waiting_client_conns.next,
-+					  struct rxrpc_connection, cache_link);
-+			rxrpc_get_connection(next);
-+			rxrpc_activate_conn(next);
-+		}
- 
--	next = NULL;
--	if (nr_conns < rxrpc_max_client_connections &&
--	    !list_empty(&rxrpc_waiting_client_conns)) {
--		next = list_entry(rxrpc_waiting_client_conns.next,
--				  struct rxrpc_connection, cache_link);
--		rxrpc_get_connection(next);
--		rxrpc_activate_conn(next);
-+		spin_unlock(&rxrpc_client_conn_cache_lock);
- 	}
- 
--	spin_unlock(&rxrpc_client_conn_cache_lock);
- 	rxrpc_kill_connection(conn);
--
- 	if (next)
- 		rxrpc_activate_channels(next);
- 
+This NIC is also embedded inside BCM47xx/BCM53xx which is still
+getting active support from Rafal and Hauke.
+-- 
+Florian
