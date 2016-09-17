@@ -1,8 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 14/14] rxrpc: Fix the basic transmit DATA packet
- content size at 1412 bytes
-Date: Sun, 18 Sep 2016 00:19:21 +0100
-Message-ID: <147415436152.17897.3271866591335873648.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 13/14] rxrpc: Be consistent about switch value in
+ rxrpc_send_call_packet()
+Date: Sun, 18 Sep 2016 00:19:14 +0100
+Message-ID: <147415435469.17897.12442015852819757874.stgit@warthog.procyon.org.uk>
 References: <147415426459.17897.13899206413543061473.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,35 +10,35 @@ Content-Transfer-Encoding: 7bit
 Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
         linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:50714 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755372AbcIQXTQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 17 Sep 2016 19:19:16 -0400
 In-Reply-To: <147415426459.17897.13899206413543061473.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix the basic transmit DATA packet content size at 1412 bytes so that they
-can be arbitrarily assembled into jumbo packets.
-
-In the future, I'm thinking of moving to keeping a jumbo packet header at
-the beginning of each packet in the Tx queue and creating the packet header
-on the spot when kernel_sendmsg() is invoked.  That way, jumbo packets can
-be assembled on the spur of the moment for (re-)transmission.
+rxrpc_send_call_packet() should use type in both its switch-statements
+rather than using pkt->whdr.type.  This might give the compiler an easier
+job of uninitialised variable checking.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/sendmsg.c |    2 +-
+ net/rxrpc/output.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/rxrpc/sendmsg.c b/net/rxrpc/sendmsg.c
-index cba236575073..8bfddf4e338c 100644
---- a/net/rxrpc/sendmsg.c
-+++ b/net/rxrpc/sendmsg.c
-@@ -214,7 +214,7 @@ static int rxrpc_send_data(struct rxrpc_sock *rx,
- 					goto maybe_error;
- 			}
+diff --git a/net/rxrpc/output.c b/net/rxrpc/output.c
+index aa0507214b31..0b21ed859de7 100644
+--- a/net/rxrpc/output.c
++++ b/net/rxrpc/output.c
+@@ -182,7 +182,7 @@ int rxrpc_send_call_packet(struct rxrpc_call *call, u8 type)
+ 			     &msg, iov, ioc, len);
  
--			max = call->conn->params.peer->maxdata;
-+			max = RXRPC_JUMBO_DATALEN;
- 			max -= call->conn->security_size;
- 			max &= ~(call->conn->size_align - 1UL);
- 
+ 	if (ret < 0 && call->state < RXRPC_CALL_COMPLETE) {
+-		switch (pkt->whdr.type) {
++		switch (type) {
+ 		case RXRPC_PACKET_TYPE_ACK:
+ 			rxrpc_propose_ACK(call, pkt->ack.reason,
+ 					  ntohs(pkt->ack.maxSkew),
