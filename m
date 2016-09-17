@@ -1,50 +1,44 @@
-From: Nelson Chang <nelson.chang@mediatek.com>
-Subject: [PATCH net-next v3 3/3] net: ethernet: mediatek: add the dts property to set if the HW supports LRO
-Date: Sat, 17 Sep 2016 23:50:57 +0800
-Message-ID: <1474127457-13143-4-git-send-email-nelson.chang@mediatek.com>
-References: <1474127457-13143-1-git-send-email-nelson.chang@mediatek.com>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH -next] cxgb4: Fix return value check in cfg_queues_uld()
+Date: Sat, 17 Sep 2016 15:52:17 +0000
+Message-ID: <1474127537-14230-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
-        <linux-mediatek@lists.infradead.org>, <nelsonch.tw@gmail.com>,
-        Nelson Chang <nelson.chang@mediatek.com>
-To: <john@phrozen.org>, <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org
+To: Hariprasad S <hariprasad@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw02.mediatek.com ([210.61.82.184]:19162 "EHLO
-        mailgw02.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752389AbcIQPvK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2016 11:51:10 -0400
-In-Reply-To: <1474127457-13143-1-git-send-email-nelson.chang@mediatek.com>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:34103 "EHLO
+        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752346AbcIQPw0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2016 11:52:26 -0400
+Received: by mail-pa0-f66.google.com with SMTP id vz6so4773829pab.1
+        for <netdev@vger.kernel.org>; Sat, 17 Sep 2016 08:52:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add the dts property for the capability if the hardware supports LRO.
+From: Wei Yongjun <weiyongjun1@huawei.com>
 
-Signed-off-by: Nelson Chang <nelson.chang@mediatek.com>
+Fix the retrn value check which testing the wrong variable
+in cfg_queues_uld().
+
+Fixes: 94cdb8bb993a ("cxgb4: Add support for dynamic allocation of
+resources for ULD")
+Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
 ---
- Documentation/devicetree/bindings/net/mediatek-net.txt | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/Documentation/devicetree/bindings/net/mediatek-net.txt b/Documentation/devicetree/bindings/net/mediatek-net.txt
-index 32eaaca..6103e55 100644
---- a/Documentation/devicetree/bindings/net/mediatek-net.txt
-+++ b/Documentation/devicetree/bindings/net/mediatek-net.txt
-@@ -24,7 +24,7 @@ Required properties:
- Optional properties:
- - interrupt-parent: Should be the phandle for the interrupt controller
-   that services interrupts for this device
--
-+- mediatek,hwlro: the capability if the hardware supports LRO functions
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
+index 5d402ba..4d1de62 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
+@@ -245,7 +245,7 @@ int cfg_queues_uld(struct adapter *adap, unsigned int uld_type,
+ 	}
  
- * Ethernet MAC node
- 
-@@ -51,6 +51,7 @@ eth: ethernet@1b100000 {
- 	reset-names = "eth";
- 	mediatek,ethsys = <&ethsys>;
- 	mediatek,pctl = <&syscfg_pctl_a>;
-+	mediatek,hwlro;
- 	#address-cells = <1>;
- 	#size-cells = <0>;
- 
--- 
-1.9.1
+ 	rxq_info->rspq_id = kcalloc(nrxq, sizeof(unsigned short), GFP_KERNEL);
+-	if (!rxq_info->uldrxq) {
++	if (!rxq_info->rspq_id) {
+ 		kfree(rxq_info->uldrxq);
+ 		kfree(rxq_info);
+ 		return -ENOMEM;
