@@ -1,8 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 07/11] rxrpc: Add a tracepoint to follow packets in
- the Rx buffer
-Date: Sun, 18 Sep 2016 00:22:18 +0100
-Message-ID: <147415453889.18436.14620909095224470936.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 08/11] rxrpc: Add a tracepoint to follow what
+ recvmsg does
+Date: Sun, 18 Sep 2016 00:22:25 +0100
+Message-ID: <147415454588.18436.997800436433958676.stgit@warthog.procyon.org.uk>
 References: <147415448967.18436.14900942726390485534.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,183 +15,236 @@ In-Reply-To: <147415448967.18436.14900942726390485534.stgit@warthog.procyon.org.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add a tracepoint to follow the life of packets that get added to a call's
-receive buffer.
+Add a tracepoint to follow what recvmsg does within AF_RXRPC.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- include/trace/events/rxrpc.h |   33 +++++++++++++++++++++++++++++++++
- net/rxrpc/ar-internal.h      |   12 ++++++++++++
- net/rxrpc/call_accept.c      |    3 +++
- net/rxrpc/input.c            |    6 +++++-
- net/rxrpc/misc.c             |    9 +++++++++
- net/rxrpc/recvmsg.c          |   11 +++++++++++
- 6 files changed, 73 insertions(+), 1 deletion(-)
+ include/trace/events/rxrpc.h |   34 ++++++++++++++++++++++++++++++++++
+ net/rxrpc/ar-internal.h      |   17 +++++++++++++++++
+ net/rxrpc/misc.c             |   14 ++++++++++++++
+ net/rxrpc/recvmsg.c          |   34 ++++++++++++++++++++++++++--------
+ 4 files changed, 91 insertions(+), 8 deletions(-)
 
 diff --git a/include/trace/events/rxrpc.h b/include/trace/events/rxrpc.h
-index d545d692ae22..7dd5f0188681 100644
+index 7dd5f0188681..58732202e9f0 100644
 --- a/include/trace/events/rxrpc.h
 +++ b/include/trace/events/rxrpc.h
-@@ -290,6 +290,39 @@ TRACE_EVENT(rxrpc_tx_ack,
- 		      __entry->n_acks)
+@@ -323,6 +323,40 @@ TRACE_EVENT(rxrpc_receive,
+ 		      __entry->top)
  	    );
  
-+TRACE_EVENT(rxrpc_receive,
-+	    TP_PROTO(struct rxrpc_call *call, enum rxrpc_receive_trace why,
-+		     rxrpc_serial_t serial, rxrpc_seq_t seq),
++TRACE_EVENT(rxrpc_recvmsg,
++	    TP_PROTO(struct rxrpc_call *call, enum rxrpc_recvmsg_trace why,
++		     rxrpc_seq_t seq, unsigned int offset, unsigned int len,
++		     int ret),
 +
-+	    TP_ARGS(call, why, serial, seq),
++	    TP_ARGS(call, why, seq, offset, len, ret),
 +
 +	    TP_STRUCT__entry(
 +		    __field(struct rxrpc_call *,	call		)
-+		    __field(enum rxrpc_receive_trace,	why		)
-+		    __field(rxrpc_serial_t,		serial		)
++		    __field(enum rxrpc_recvmsg_trace,	why		)
 +		    __field(rxrpc_seq_t,		seq		)
-+		    __field(rxrpc_seq_t,		hard_ack	)
-+		    __field(rxrpc_seq_t,		top		)
++		    __field(unsigned int,		offset		)
++		    __field(unsigned int,		len		)
++		    __field(int,			ret		)
 +			     ),
 +
 +	    TP_fast_assign(
 +		    __entry->call = call;
 +		    __entry->why = why;
-+		    __entry->serial = serial;
 +		    __entry->seq = seq;
-+		    __entry->hard_ack = call->rx_hard_ack;
-+		    __entry->top = call->rx_top;
++		    __entry->offset = offset;
++		    __entry->len = len;
++		    __entry->ret = ret;
 +			   ),
 +
-+	    TP_printk("c=%p %s r=%08x q=%08x w=%08x-%08x",
++	    TP_printk("c=%p %s q=%08x o=%u l=%u ret=%d",
 +		      __entry->call,
-+		      rxrpc_receive_traces[__entry->why],
-+		      __entry->serial,
++		      rxrpc_recvmsg_traces[__entry->why],
 +		      __entry->seq,
-+		      __entry->hard_ack,
-+		      __entry->top)
++		      __entry->offset,
++		      __entry->len,
++		      __entry->ret)
 +	    );
 +
  #endif /* _TRACE_RXRPC_H */
  
  /* This part must be outside protection */
 diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index afa5dcc05fe0..e5d2f2fb8e41 100644
+index e5d2f2fb8e41..a17341d2df3d 100644
 --- a/net/rxrpc/ar-internal.h
 +++ b/net/rxrpc/ar-internal.h
-@@ -605,6 +605,18 @@ enum rxrpc_transmit_trace {
+@@ -617,6 +617,23 @@ enum rxrpc_receive_trace {
  
- extern const char rxrpc_transmit_traces[rxrpc_transmit__nr_trace][4];
+ extern const char rxrpc_receive_traces[rxrpc_receive__nr_trace][4];
  
-+enum rxrpc_receive_trace {
-+	rxrpc_receive_incoming,
-+	rxrpc_receive_queue,
-+	rxrpc_receive_queue_last,
-+	rxrpc_receive_front,
-+	rxrpc_receive_rotate,
-+	rxrpc_receive_end,
-+	rxrpc_receive__nr_trace
++enum rxrpc_recvmsg_trace {
++	rxrpc_recvmsg_enter,
++	rxrpc_recvmsg_wait,
++	rxrpc_recvmsg_dequeue,
++	rxrpc_recvmsg_hole,
++	rxrpc_recvmsg_next,
++	rxrpc_recvmsg_cont,
++	rxrpc_recvmsg_full,
++	rxrpc_recvmsg_data_return,
++	rxrpc_recvmsg_terminal,
++	rxrpc_recvmsg_to_be_accepted,
++	rxrpc_recvmsg_return,
++	rxrpc_recvmsg__nr_trace
 +};
 +
-+extern const char rxrpc_receive_traces[rxrpc_receive__nr_trace][4];
++extern const char rxrpc_recvmsg_traces[rxrpc_recvmsg__nr_trace][5];
 +
  extern const char *const rxrpc_pkts[];
  extern const char *rxrpc_acks(u8 reason);
  
-diff --git a/net/rxrpc/call_accept.c b/net/rxrpc/call_accept.c
-index 3e474508ba75..a8d39d7cf42c 100644
---- a/net/rxrpc/call_accept.c
-+++ b/net/rxrpc/call_accept.c
-@@ -367,6 +367,9 @@ found_service:
- 		goto out;
- 	}
- 
-+	trace_rxrpc_receive(call, rxrpc_receive_incoming,
-+			    sp->hdr.serial, sp->hdr.seq);
-+
- 	/* Make the call live. */
- 	rxrpc_incoming_call(rx, call, skb);
- 	conn = call->conn;
-diff --git a/net/rxrpc/input.c b/net/rxrpc/input.c
-index 7b18ca124978..b690220533c6 100644
---- a/net/rxrpc/input.c
-+++ b/net/rxrpc/input.c
-@@ -284,8 +284,12 @@ next_subpacket:
- 	call->rxtx_buffer[ix] = skb;
- 	if (after(seq, call->rx_top))
- 		smp_store_release(&call->rx_top, seq);
--	if (flags & RXRPC_LAST_PACKET)
-+	if (flags & RXRPC_LAST_PACKET) {
- 		set_bit(RXRPC_CALL_RX_LAST, &call->flags);
-+		trace_rxrpc_receive(call, rxrpc_receive_queue_last, serial, seq);
-+	} else {
-+		trace_rxrpc_receive(call, rxrpc_receive_queue, serial, seq);
-+	}
- 	queued = true;
- 
- 	if (after_eq(seq, call->rx_expect_next)) {
 diff --git a/net/rxrpc/misc.c b/net/rxrpc/misc.c
-index dca89995f03e..db5f1d54fc90 100644
+index db5f1d54fc90..c7065d893d1e 100644
 --- a/net/rxrpc/misc.c
 +++ b/net/rxrpc/misc.c
-@@ -141,3 +141,12 @@ const char rxrpc_transmit_traces[rxrpc_transmit__nr_trace][4] = {
- 	[rxrpc_transmit_rotate]		= "ROT",
- 	[rxrpc_transmit_end]		= "END",
+@@ -150,3 +150,17 @@ const char rxrpc_receive_traces[rxrpc_receive__nr_trace][4] = {
+ 	[rxrpc_receive_rotate]		= "ROT",
+ 	[rxrpc_receive_end]		= "END",
  };
 +
-+const char rxrpc_receive_traces[rxrpc_receive__nr_trace][4] = {
-+	[rxrpc_receive_incoming]	= "INC",
-+	[rxrpc_receive_queue]		= "QUE",
-+	[rxrpc_receive_queue_last]	= "QLS",
-+	[rxrpc_receive_front]		= "FRN",
-+	[rxrpc_receive_rotate]		= "ROT",
-+	[rxrpc_receive_end]		= "END",
++const char rxrpc_recvmsg_traces[rxrpc_recvmsg__nr_trace][5] = {
++	[rxrpc_recvmsg_enter]		= "ENTR",
++	[rxrpc_recvmsg_wait]		= "WAIT",
++	[rxrpc_recvmsg_dequeue]		= "DEQU",
++	[rxrpc_recvmsg_hole]		= "HOLE",
++	[rxrpc_recvmsg_next]		= "NEXT",
++	[rxrpc_recvmsg_cont]		= "CONT",
++	[rxrpc_recvmsg_full]		= "FULL",
++	[rxrpc_recvmsg_data_return]	= "DATA",
++	[rxrpc_recvmsg_terminal]	= "TERM",
++	[rxrpc_recvmsg_to_be_accepted]	= "TBAC",
++	[rxrpc_recvmsg_return]		= "RETN",
 +};
 diff --git a/net/rxrpc/recvmsg.c b/net/rxrpc/recvmsg.c
-index 8b8d7e14f800..22d51087c580 100644
+index 22d51087c580..b62a08151895 100644
 --- a/net/rxrpc/recvmsg.c
 +++ b/net/rxrpc/recvmsg.c
-@@ -134,6 +134,7 @@ static void rxrpc_end_rx_phase(struct rxrpc_call *call)
- {
- 	_enter("%d,%s", call->debug_id, rxrpc_call_states[call->state]);
+@@ -94,6 +94,8 @@ static int rxrpc_recvmsg_term(struct rxrpc_call *call, struct msghdr *msg)
+ 		break;
+ 	}
  
-+	trace_rxrpc_receive(call, rxrpc_receive_end, 0, call->rx_top);
- 	ASSERTCMP(call->rx_hard_ack, ==, call->rx_top);
- 
- 	if (call->state == RXRPC_CALL_CLIENT_RECV_REPLY) {
-@@ -167,6 +168,7 @@ static void rxrpc_rotate_rx_window(struct rxrpc_call *call)
- {
- 	struct rxrpc_skb_priv *sp;
- 	struct sk_buff *skb;
-+	rxrpc_serial_t serial;
- 	rxrpc_seq_t hard_ack, top;
- 	u8 flags;
- 	int ix;
-@@ -183,6 +185,10 @@ static void rxrpc_rotate_rx_window(struct rxrpc_call *call)
- 	rxrpc_see_skb(skb);
- 	sp = rxrpc_skb(skb);
- 	flags = sp->hdr.flags;
-+	serial = sp->hdr.serial;
-+	if (call->rxtx_annotations[ix] & RXRPC_RX_ANNO_JUMBO)
-+		serial += (call->rxtx_annotations[ix] & RXRPC_RX_ANNO_JUMBO) - 1;
-+
- 	call->rxtx_buffer[ix] = NULL;
- 	call->rxtx_annotations[ix] = 0;
- 	/* Barrier against rxrpc_input_data(). */
-@@ -191,6 +197,7 @@ static void rxrpc_rotate_rx_window(struct rxrpc_call *call)
- 	rxrpc_free_skb(skb);
- 
- 	_debug("%u,%u,%02x", hard_ack, top, flags);
-+	trace_rxrpc_receive(call, rxrpc_receive_rotate, serial, hard_ack);
- 	if (flags & RXRPC_LAST_PACKET)
- 		rxrpc_end_rx_phase(call);
++	trace_rxrpc_recvmsg(call, rxrpc_recvmsg_terminal, call->rx_hard_ack,
++			    call->rx_pkt_offset, call->rx_pkt_len, ret);
+ 	return ret;
  }
-@@ -309,6 +316,10 @@ static int rxrpc_recvmsg_data(struct socket *sock, struct rxrpc_call *call,
+ 
+@@ -124,6 +126,7 @@ static int rxrpc_recvmsg_new_call(struct rxrpc_sock *rx,
+ 		write_unlock(&rx->call_lock);
+ 	}
+ 
++	trace_rxrpc_recvmsg(call, rxrpc_recvmsg_to_be_accepted, 1, 0, 0, ret);
+ 	return ret;
+ }
+ 
+@@ -310,8 +313,11 @@ static int rxrpc_recvmsg_data(struct socket *sock, struct rxrpc_call *call,
+ 	for (seq = hard_ack + 1; before_eq(seq, top); seq++) {
+ 		ix = seq & RXRPC_RXTX_BUFF_MASK;
+ 		skb = call->rxtx_buffer[ix];
+-		if (!skb)
++		if (!skb) {
++			trace_rxrpc_recvmsg(call, rxrpc_recvmsg_hole, seq,
++					    rx_pkt_offset, rx_pkt_len, 0);
+ 			break;
++		}
+ 		smp_rmb();
  		rxrpc_see_skb(skb);
  		sp = rxrpc_skb(skb);
+@@ -327,10 +333,15 @@ static int rxrpc_recvmsg_data(struct socket *sock, struct rxrpc_call *call,
+ 			ret2 = rxrpc_locate_data(call, skb,
+ 						 &call->rxtx_annotations[ix],
+ 						 &rx_pkt_offset, &rx_pkt_len);
++			trace_rxrpc_recvmsg(call, rxrpc_recvmsg_next, seq,
++					    rx_pkt_offset, rx_pkt_len, ret2);
+ 			if (ret2 < 0) {
+ 				ret = ret2;
+ 				goto out;
+ 			}
++		} else {
++			trace_rxrpc_recvmsg(call, rxrpc_recvmsg_cont, seq,
++					    rx_pkt_offset, rx_pkt_len, 0);
+ 		}
+ 		_debug("recvmsg %x DATA #%u { %d, %d }",
+ 		       sp->hdr.callNumber, seq, rx_pkt_offset, rx_pkt_len);
+@@ -357,6 +368,8 @@ static int rxrpc_recvmsg_data(struct socket *sock, struct rxrpc_call *call,
+ 		}
  
-+		if (!(flags & MSG_PEEK))
-+			trace_rxrpc_receive(call, rxrpc_receive_front,
-+					    sp->hdr.serial, seq);
-+
- 		if (msg)
- 			sock_recv_timestamp(msg, sock->sk, skb);
+ 		if (rx_pkt_len > 0) {
++			trace_rxrpc_recvmsg(call, rxrpc_recvmsg_full, seq,
++					    rx_pkt_offset, rx_pkt_len, 0);
+ 			_debug("buffer full");
+ 			ASSERTCMP(*_offset, ==, len);
+ 			ret = 0;
+@@ -383,6 +396,8 @@ out:
+ 		call->rx_pkt_len = rx_pkt_len;
+ 	}
+ done:
++	trace_rxrpc_recvmsg(call, rxrpc_recvmsg_data_return, seq,
++			    rx_pkt_offset, rx_pkt_len, ret);
+ 	_leave(" = %d [%u/%u]", ret, seq, top);
+ 	return ret;
+ }
+@@ -404,7 +419,7 @@ int rxrpc_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
  
+ 	DEFINE_WAIT(wait);
+ 
+-	_enter(",,,%zu,%d", len, flags);
++	trace_rxrpc_recvmsg(NULL, rxrpc_recvmsg_enter, 0, 0, 0, 0);
+ 
+ 	if (flags & (MSG_OOB | MSG_TRUNC))
+ 		return -EOPNOTSUPP;
+@@ -424,8 +439,10 @@ try_again:
+ 
+ 	if (list_empty(&rx->recvmsg_q)) {
+ 		ret = -EWOULDBLOCK;
+-		if (timeo == 0)
++		if (timeo == 0) {
++			call = NULL;
+ 			goto error_no_call;
++		}
+ 
+ 		release_sock(&rx->sk);
+ 
+@@ -439,6 +456,8 @@ try_again:
+ 		if (list_empty(&rx->recvmsg_q)) {
+ 			if (signal_pending(current))
+ 				goto wait_interrupted;
++			trace_rxrpc_recvmsg(NULL, rxrpc_recvmsg_wait,
++					    0, 0, 0, 0);
+ 			timeo = schedule_timeout(timeo);
+ 		}
+ 		finish_wait(sk_sleep(&rx->sk), &wait);
+@@ -457,7 +476,7 @@ try_again:
+ 		rxrpc_get_call(call, rxrpc_call_got);
+ 	write_unlock_bh(&rx->recvmsg_lock);
+ 
+-	_debug("recvmsg call %p", call);
++	trace_rxrpc_recvmsg(call, rxrpc_recvmsg_dequeue, 0, 0, 0, 0);
+ 
+ 	if (test_bit(RXRPC_CALL_RELEASED, &call->flags))
+ 		BUG();
+@@ -527,16 +546,15 @@ error:
+ 	rxrpc_put_call(call, rxrpc_call_put);
+ error_no_call:
+ 	release_sock(&rx->sk);
+-	_leave(" = %d", ret);
++	trace_rxrpc_recvmsg(call, rxrpc_recvmsg_return, 0, 0, 0, ret);
+ 	return ret;
+ 
+ wait_interrupted:
+ 	ret = sock_intr_errno(timeo);
+ wait_error:
+ 	finish_wait(sk_sleep(&rx->sk), &wait);
+-	release_sock(&rx->sk);
+-	_leave(" = %d [wait]", ret);
+-	return ret;
++	call = NULL;
++	goto error_no_call;
+ }
+ 
+ /**
