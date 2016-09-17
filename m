@@ -1,319 +1,124 @@
-From: =?UTF-8?B?QW5kcsOp?= Roth <neolynx@gmail.com>
-Subject: Re: stmmac/RTL8211F/Meson GXBB: TX throughput problems
-Date: Sat, 17 Sep 2016 23:23:12 +0200
-Message-ID: <20160917232312.1e30d425@gmail.com>
-References: <CAFBinCALSL_-izJ2tEsAjevAw90kGNTrQ3na3D1YV8f1dS1=Xg@mail.gmail.com>
-        <ff6f3501-fbd5-3e79-dcc1-549406a5144b@st.com>
-        <CAFBinCD42A_SqQz8GM-H+A32dMELknAytHuJ5T2YgZ3BrMKA3A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="MP_/YE=DnQudQF5EpaP+BAHH8sZ"
-Cc: Alexandre Torgue <alexandre.torgue@st.com>,
-        Johnson Leung <r58129@freescale.com>, netdev@vger.kernel.org,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        linux-amlogic@lists.infradead.org
-To: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:32859 "EHLO
-        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754209AbcIQVXR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2016 17:23:17 -0400
-Received: by mail-wm0-f48.google.com with SMTP id d66so2497753wmf.0
-        for <netdev@vger.kernel.org>; Sat, 17 Sep 2016 14:23:16 -0700 (PDT)
-In-Reply-To: <CAFBinCD42A_SqQz8GM-H+A32dMELknAytHuJ5T2YgZ3BrMKA3A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH 1/2] net: ethernet: broadcom: b44: use phydev from struct net_device
+Date: Sun, 18 Sep 2016 00:11:34 +0200
+Message-ID: <1474150295-24622-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: zambrano@broadcom.com, davem@davemloft.net, f.fainelli@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---MP_/YE=DnQudQF5EpaP+BAHH8sZ
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+The private structure contain a pointer to phydev, but the structure
+net_device already contain such pointer. So we can remove the pointer
+phydev in the private structure, and update the driver to use the
+one contained in struct net_device.
 
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/ethernet/broadcom/b44.c |   22 +++++++++++-----------
+ drivers/net/ethernet/broadcom/b44.h |    1 -
+ 2 files changed, 11 insertions(+), 12 deletions(-)
 
-Hi all,
-
-I have an odroid c2 board which shows this issue. No data is
-transmitted or received after a moment of intense tx traffic. Copying a
-1GB file per scp from the board triggers it repeatedly.=20
-
-The board has a stmmac - user ID: 0x11, Synopsys ID: 0x37.
-
-When switching the network to 100Mb/s the copying does
-not seam to trigger the issue.
-
-I've attached the ethtool statistics before and after the problem.
-
-Thanks for your help,=20
-
- Andr=C3=A9
-
-
-
-> Hi Alexandre,
->=20
-> On Mon, Sep 12, 2016 at 6:37 PM, Alexandre Torgue
-> <alexandre.torgue@st.com> wrote:
-> > Which Synopsys IP version do you use ? =20
-> found this in a dmesg log:
-> [    1.504784] stmmac - user ID: 0x11, Synopsys ID: 0x37
-> [    1.509785]  Ring mode enabled
-> [    1.512796]  DMA HW capability register supported
-> [    1.517286]  Normal descriptors
-> [    1.520565]  RX Checksum Offload Engine supported
-> [    1.525219]  COE Type 2
-> [    1.527638]  TX Checksum insertion supported
-> [    1.531862]  Wake-Up On Lan supported
-> [    1.535483]  Enable RX Mitigation via HW Watchdog Timer
-> [    1.543851] libphy: stmmac: probed
-> [    1.544025] eth0: PHY ID 001cc916 at 0 IRQ POLL (stmmac-0:00)
-> active [    1.550321] eth0: PHY ID 001cc916 at 7 IRQ POLL
-> (stmmac-0:07)
->=20
-> >> Gbit ethernet on my device is provided by a Realtek RTL8211F RGMII
-> >> PHY. Similar issues were reported in #linux-amlogic by a user with
-> >> an Odroid C2 board (=3D similar hardware).
-> >>
-> >> The symptoms are:
-> >> Receiving data is plenty fast (I can max out my internet connection
-> >> easily, and with iperf3 I get ~900Mbit/s).
-> >> Transmitting data from the device is unfortunately very slow,
-> >> traffic sometimes even stalls completely.
-> >>
-> >> I have attached the iperf results and the output of
-> >> /sys/kernel/debug/stmmaceth/eth0/descriptors_status.
-> >> Below you can find the ifconfig, netstat and stmmac dma_cap info
-> >> (*after* I ran all tests).
-> >>
-> >> The "involved parties" are:
-> >> - Meson GXBB specific network configuration registers (I have have
-> >> double-checked them with the reference drivers: everything seems
-> >> fine here)
-> >> - stmmac: it seems that nobody else has reported these kind of
-> >> issues so far, however I'd still like to hear where I should
-> >> enable some debugging bits to rule out any stmmac bug =20
-> >
-> >
-> > On my side, I just tested on the same "kind" of system:
-> > -SYNOPSYS GMAC 3.7
-> > -RTL8211EG as PHY
-> >
-> > With I perf, I reach:
-> >         -RX: 932 Mbps
-> >         -TX: 820Mbps
-> >
-> > Can you check ethtool -S eth0 (most precisely "MMC"counter and
-> > errors) ? Which kernel version do you use ? =20
-> I am using a 4.8.0-rc4 kernel, based on Kevin's "integration" branch:
-> [0] Unfortunately I don't have access to my device in the next few
-> days, but I'll keep you updated once I have the ethtool output.
->=20
->=20
-> Thanks for your time
-> Regards,
-> Martin
->=20
->=20
-> [0]
-> https://git.kernel.org/cgit/linux/kernel/git/khilman/linux-amlogic.git/lo=
-g/?h=3Dv4.8/integ
->=20
-> _______________________________________________
-> linux-amlogic mailing list
-> linux-amlogic@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/linux-amlogic
->=20
-
-
---MP_/YE=DnQudQF5EpaP+BAHH8sZ
-Content-Type: application/octet-stream; name=ethstats.after
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename=ethstats.after
-
-TklDIHN0YXRpc3RpY3M6CiAgICAgbW1jX3R4X29jdGV0Y291bnRfZ2I6IDAKICAgICBtbWNfdHhf
-ZnJhbWVjb3VudF9nYjogMAogICAgIG1tY190eF9icm9hZGNhc3RmcmFtZV9nOiAwCiAgICAgbW1j
-X3R4X211bHRpY2FzdGZyYW1lX2c6IDAKICAgICBtbWNfdHhfNjRfb2N0ZXRzX2diOiAwCiAgICAg
-bW1jX3R4XzY1X3RvXzEyN19vY3RldHNfZ2I6IDAKICAgICBtbWNfdHhfMTI4X3RvXzI1NV9vY3Rl
-dHNfZ2I6IDAKICAgICBtbWNfdHhfMjU2X3RvXzUxMV9vY3RldHNfZ2I6IDAKICAgICBtbWNfdHhf
-NTEyX3RvXzEwMjNfb2N0ZXRzX2diOiAwCiAgICAgbW1jX3R4XzEwMjRfdG9fbWF4X29jdGV0c19n
-YjogMAogICAgIG1tY190eF91bmljYXN0X2diOiAwCiAgICAgbW1jX3R4X211bHRpY2FzdF9nYjog
-MAogICAgIG1tY190eF9icm9hZGNhc3RfZ2I6IDAKICAgICBtbWNfdHhfdW5kZXJmbG93X2Vycm9y
-OiAwCiAgICAgbW1jX3R4X3NpbmdsZWNvbF9nOiAwCiAgICAgbW1jX3R4X211bHRpY29sX2c6IDAK
-ICAgICBtbWNfdHhfZGVmZXJyZWQ6IDAKICAgICBtbWNfdHhfbGF0ZWNvbDogMAogICAgIG1tY190
-eF9leGVzc2NvbDogMAogICAgIG1tY190eF9jYXJyaWVyX2Vycm9yOiAwCiAgICAgbW1jX3R4X29j
-dGV0Y291bnRfZzogMAogICAgIG1tY190eF9mcmFtZWNvdW50X2c6IDAKICAgICBtbWNfdHhfZXhj
-ZXNzZGVmOiAwCiAgICAgbW1jX3R4X3BhdXNlX2ZyYW1lOiAwCiAgICAgbW1jX3R4X3ZsYW5fZnJh
-bWVfZzogMAogICAgIG1tY19yeF9mcmFtZWNvdW50X2diOiAzMTcyMwogICAgIG1tY19yeF9vY3Rl
-dGNvdW50X2diOiAyMzYwNTc5CiAgICAgbW1jX3J4X29jdGV0Y291bnRfZzogMjM2MDU3OQogICAg
-IG1tY19yeF9icm9hZGNhc3RmcmFtZV9nOiAwCiAgICAgbW1jX3J4X211bHRpY2FzdGZyYW1lX2c6
-IDAKICAgICBtbWNfcnhfY3JjX2Vycm9yOiAwCiAgICAgbW1jX3J4X2FsaWduX2Vycm9yOiAwCiAg
-ICAgbW1jX3J4X3J1bl9lcnJvcjogMAogICAgIG1tY19yeF9qYWJiZXJfZXJyb3I6IDAKICAgICBt
-bWNfcnhfdW5kZXJzaXplX2c6IDAKICAgICBtbWNfcnhfb3ZlcnNpemVfZzogMAogICAgIG1tY19y
-eF82NF9vY3RldHNfZ2I6IDQKICAgICBtbWNfcnhfNjVfdG9fMTI3X29jdGV0c19nYjogMzE3MDAK
-ICAgICBtbWNfcnhfMTI4X3RvXzI1NV9vY3RldHNfZ2I6IDExCiAgICAgbW1jX3J4XzI1Nl90b181
-MTFfb2N0ZXRzX2diOiAyCiAgICAgbW1jX3J4XzUxMl90b18xMDIzX29jdGV0c19nYjogNQogICAg
-IG1tY19yeF8xMDI0X3RvX21heF9vY3RldHNfZ2I6IDEKICAgICBtbWNfcnhfdW5pY2FzdF9nOiAz
-MTcyMwogICAgIG1tY19yeF9sZW5ndGhfZXJyb3I6IDAKICAgICBtbWNfcnhfYXV0b2ZyYW5nZXR5
-cGU6IDAKICAgICBtbWNfcnhfcGF1c2VfZnJhbWVzOiAwCiAgICAgbW1jX3J4X2ZpZm9fb3ZlcmZs
-b3c6IDAKICAgICBtbWNfcnhfdmxhbl9mcmFtZXNfZ2I6IDAKICAgICBtbWNfcnhfd2F0Y2hkb2df
-ZXJyb3I6IDAKICAgICBtbWNfcnhfaXBjX2ludHJfbWFzazogMjE0NzM4NTM0MgogICAgIG1tY19y
-eF9pcGNfaW50cjogMAogICAgIG1tY19yeF9pcHY0X2dkOiAzMTcxOQogICAgIG1tY19yeF9pcHY0
-X2hkZXJyOiAwCiAgICAgbW1jX3J4X2lwdjRfbm9wYXk6IDAKICAgICBtbWNfcnhfaXB2NF9mcmFn
-OiAwCiAgICAgbW1jX3J4X2lwdjRfdWRzYmw6IDAKICAgICBtbWNfcnhfaXB2NF9nZF9vY3RldHM6
-IDE3ODkzODEKICAgICBtbWNfcnhfaXB2NF9oZGVycl9vY3RldHM6IDAKICAgICBtbWNfcnhfaXB2
-NF9ub3BheV9vY3RldHM6IDAKICAgICBtbWNfcnhfaXB2NF9mcmFnX29jdGV0czogMAogICAgIG1t
-Y19yeF9pcHY0X3Vkc2JsX29jdGV0czogMAogICAgIG1tY19yeF9pcHY2X2dkX29jdGV0czogMAog
-ICAgIG1tY19yeF9pcHY2X2hkZXJyX29jdGV0czogMAogICAgIG1tY19yeF9pcHY2X25vcGF5X29j
-dGV0czogMAogICAgIG1tY19yeF9pcHY2X2dkOiAwCiAgICAgbW1jX3J4X2lwdjZfaGRlcnI6IDAK
-ICAgICBtbWNfcnhfaXB2Nl9ub3BheTogMAogICAgIG1tY19yeF91ZHBfZ2Q6IDI3CiAgICAgbW1j
-X3J4X3VkcF9lcnI6IDAKICAgICBtbWNfcnhfdGNwX2dkOiAzMTY5MgogICAgIG1tY19yeF90Y3Bf
-ZXJyOiAwCiAgICAgbW1jX3J4X2ljbXBfZ2Q6IDAKICAgICBtbWNfcnhfaWNtcF9lcnI6IDAKICAg
-ICBtbWNfcnhfdWRwX2dkX29jdGV0czogMzg1NgogICAgIG1tY19yeF91ZHBfZXJyX29jdGV0czog
-MAogICAgIG1tY19yeF90Y3BfZ2Rfb2N0ZXRzOiAxMTUxMTQ1CiAgICAgbW1jX3J4X3RjcF9lcnJf
-b2N0ZXRzOiAwCiAgICAgbW1jX3J4X2ljbXBfZ2Rfb2N0ZXRzOiAwCiAgICAgbW1jX3J4X2ljbXBf
-ZXJyX29jdGV0czogMAogICAgIHR4X3VuZGVyZmxvdzogMAogICAgIHR4X2NhcnJpZXI6IDAKICAg
-ICB0eF9sb3NzY2FycmllcjogMAogICAgIHZsYW5fdGFnOiAwCiAgICAgdHhfZGVmZXJyZWQ6IDAK
-ICAgICB0eF92bGFuOiAwCiAgICAgdHhfamFiYmVyOiAwCiAgICAgdHhfZnJhbWVfZmx1c2hlZDog
-MAogICAgIHR4X3BheWxvYWRfZXJyb3I6IDAKICAgICB0eF9pcF9oZWFkZXJfZXJyb3I6IDAKICAg
-ICByeF9kZXNjOiAwCiAgICAgc2FfZmlsdGVyX2ZhaWw6IDAKICAgICBvdmVyZmxvd19lcnJvcjog
-MAogICAgIGlwY19jc3VtX2Vycm9yOiAwCiAgICAgcnhfY29sbGlzaW9uOiAwCiAgICAgcnhfY3Jj
-OiAwCiAgICAgZHJpYmJsaW5nX2JpdDogMAogICAgIHJ4X2xlbmd0aDogMAogICAgIHJ4X21paTog
-MAogICAgIHJ4X211bHRpY2FzdDogMAogICAgIHJ4X2dtYWNfb3ZlcmZsb3c6IDAKICAgICByeF93
-YXRjaGRvZzogMAogICAgIGRhX3J4X2ZpbHRlcl9mYWlsOiAwCiAgICAgc2FfcnhfZmlsdGVyX2Zh
-aWw6IDAKICAgICByeF9taXNzZWRfY250cjogMAogICAgIHJ4X292ZXJmbG93X2NudHI6IDAKICAg
-ICByeF92bGFuOiAwCiAgICAgdHhfdW5kZWZsb3dfaXJxOiAwCiAgICAgdHhfcHJvY2Vzc19zdG9w
-cGVkX2lycTogMAogICAgIHR4X2phYmJlcl9pcnE6IDAKICAgICByeF9vdmVyZmxvd19pcnE6IDAK
-ICAgICByeF9idWZfdW5hdl9pcnE6IDAKICAgICByeF9wcm9jZXNzX3N0b3BwZWRfaXJxOiAwCiAg
-ICAgcnhfd2F0Y2hkb2dfaXJxOiAwCiAgICAgdHhfZWFybHlfaXJxOiAwCiAgICAgZmF0YWxfYnVz
-X2Vycm9yX2lycTogMAogICAgIHJ4X2Vhcmx5X2lycTogMjkzMQogICAgIHRocmVzaG9sZDogMQog
-ICAgIHR4X3BrdF9uOiAzMDc0MzYKICAgICByeF9wa3RfbjogMzE3MDYKICAgICBub3JtYWxfaXJx
-X246IDI0MzUyCiAgICAgcnhfbm9ybWFsX2lycV9uOiAxNTIzOQogICAgIG5hcGlfcG9sbDogMjQz
-NDYKICAgICB0eF9ub3JtYWxfaXJxX246IDkxNjEKICAgICB0eF9jbGVhbjogMjQ0NjMKICAgICB0
-eF9zZXRfaWNfYml0OiA5MzY2CiAgICAgaXJxX3JlY2VpdmVfcG10X2lycV9uOiAwCiAgICAgbW1j
-X3R4X2lycV9uOiAwCiAgICAgbW1jX3J4X2lycV9uOiAwCiAgICAgbW1jX3J4X2NzdW1fb2ZmbG9h
-ZF9pcnFfbjogMAogICAgIGlycV90eF9wYXRoX2luX2xwaV9tb2RlX246IDEyNzIzCiAgICAgaXJx
-X3R4X3BhdGhfZXhpdF9scGlfbW9kZV9uOiAxMjcyMgogICAgIGlycV9yeF9wYXRoX2luX2xwaV9t
-b2RlX246IDAKICAgICBpcnFfcnhfcGF0aF9leGl0X2xwaV9tb2RlX246IDAKICAgICBwaHlfZWVl
-X3dha2V1cF9lcnJvcl9uOiAwCiAgICAgaXBfaGRyX2VycjogMAogICAgIGlwX3BheWxvYWRfZXJy
-OiAwCiAgICAgaXBfY3N1bV9ieXBhc3NlZDogMAogICAgIGlwdjRfcGt0X3JjdmQ6IDAKICAgICBp
-cHY2X3BrdF9yY3ZkOiAwCiAgICAgcnhfbXNnX3R5cGVfZXh0X25vX3B0cDogMAogICAgIHJ4X21z
-Z190eXBlX3N5bmM6IDAKICAgICByeF9tc2dfdHlwZV9mb2xsb3dfdXA6IDAKICAgICByeF9tc2df
-dHlwZV9kZWxheV9yZXE6IDAKICAgICByeF9tc2dfdHlwZV9kZWxheV9yZXNwOiAwCiAgICAgcnhf
-bXNnX3R5cGVfcGRlbGF5X3JlcTogMAogICAgIHJ4X21zZ190eXBlX3BkZWxheV9yZXNwOiAwCiAg
-ICAgcnhfbXNnX3R5cGVfcGRlbGF5X2ZvbGxvd191cDogMAogICAgIHB0cF9mcmFtZV90eXBlOiAw
-CiAgICAgcHRwX3ZlcjogMAogICAgIHRpbWVzdGFtcF9kcm9wcGVkOiAwCiAgICAgYXZfcGt0X3Jj
-dmQ6IDAKICAgICBhdl90YWdnZWRfcGt0X3JjdmQ6IDAKICAgICB2bGFuX3RhZ19wcmlvcml0eV92
-YWw6IDAKICAgICBsM19maWx0ZXJfbWF0Y2g6IDAKICAgICBsNF9maWx0ZXJfbWF0Y2g6IDAKICAg
-ICBsM19sNF9maWx0ZXJfbm9fbWF0Y2g6IDAKICAgICBpcnFfcGNzX2FuZV9uOiAwCiAgICAgaXJx
-X3Bjc19saW5rX246IDAKICAgICBpcnFfcmdtaWlfbjogMQogICAgIG10bF90eF9zdGF0dXNfZmlm
-b19mdWxsOiAwCiAgICAgbXRsX3R4X2ZpZm9fbm90X2VtcHR5OiAwCiAgICAgbW10bF9maWZvX2N0
-cmw6IDAKICAgICBtdGxfdHhfZmlmb19yZWFkX2N0cmxfd3JpdGU6IDAKICAgICBtdGxfdHhfZmlm
-b19yZWFkX2N0cmxfd2FpdDogMAogICAgIG10bF90eF9maWZvX3JlYWRfY3RybF9yZWFkOiAwCiAg
-ICAgbXRsX3R4X2ZpZm9fcmVhZF9jdHJsX2lkbGU6IDAKICAgICBtYWNfdHhfaW5fcGF1c2U6IDAK
-ICAgICBtYWNfdHhfZnJhbWVfY3RybF94ZmVyOiAwCiAgICAgbWFjX3R4X2ZyYW1lX2N0cmxfaWRs
-ZTogMAogICAgIG1hY190eF9mcmFtZV9jdHJsX3dhaXQ6IDAKICAgICBtYWNfdHhfZnJhbWVfY3Ry
-bF9wYXVzZTogMAogICAgIG1hY19nbWlpX3R4X3Byb3RvX2VuZ2luZTogMAogICAgIG10bF9yeF9m
-aWZvX2ZpbGxfbGV2ZWxfZnVsbDogMAogICAgIG10bF9yeF9maWZvX2ZpbGxfYWJvdmVfdGhyZXNo
-OiAwCiAgICAgbXRsX3J4X2ZpZm9fZmlsbF9iZWxvd190aHJlc2g6IDAKICAgICBtdGxfcnhfZmlm
-b19maWxsX2xldmVsX2VtcHR5OiAwCiAgICAgbXRsX3J4X2ZpZm9fcmVhZF9jdHJsX2ZsdXNoOiAw
-CiAgICAgbXRsX3J4X2ZpZm9fcmVhZF9jdHJsX3JlYWRfZGF0YTogMAogICAgIG10bF9yeF9maWZv
-X3JlYWRfY3RybF9zdGF0dXM6IDAKICAgICBtdGxfcnhfZmlmb19yZWFkX2N0cmxfaWRsZTogMAog
-ICAgIG10bF9yeF9maWZvX2N0cmxfYWN0aXZlOiAwCiAgICAgbWFjX3J4X2ZyYW1lX2N0cmxfZmlm
-bzogMAogICAgIG1hY19nbWlpX3J4X3Byb3RvX2VuZ2luZTogMAogICAgIHR4X3Rzb19mcmFtZXM6
-IDAKICAgICB0eF90c29fbmZyYWdzOiAwCg==
-
---MP_/YE=DnQudQF5EpaP+BAHH8sZ
-Content-Type: application/octet-stream; name=ethstats.before
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename=ethstats.before
-
-TklDIHN0YXRpc3RpY3M6CiAgICAgbW1jX3R4X29jdGV0Y291bnRfZ2I6IDAKICAgICBtbWNfdHhf
-ZnJhbWVjb3VudF9nYjogMAogICAgIG1tY190eF9icm9hZGNhc3RmcmFtZV9nOiAwCiAgICAgbW1j
-X3R4X211bHRpY2FzdGZyYW1lX2c6IDAKICAgICBtbWNfdHhfNjRfb2N0ZXRzX2diOiAwCiAgICAg
-bW1jX3R4XzY1X3RvXzEyN19vY3RldHNfZ2I6IDAKICAgICBtbWNfdHhfMTI4X3RvXzI1NV9vY3Rl
-dHNfZ2I6IDAKICAgICBtbWNfdHhfMjU2X3RvXzUxMV9vY3RldHNfZ2I6IDAKICAgICBtbWNfdHhf
-NTEyX3RvXzEwMjNfb2N0ZXRzX2diOiAwCiAgICAgbW1jX3R4XzEwMjRfdG9fbWF4X29jdGV0c19n
-YjogMAogICAgIG1tY190eF91bmljYXN0X2diOiAwCiAgICAgbW1jX3R4X211bHRpY2FzdF9nYjog
-MAogICAgIG1tY190eF9icm9hZGNhc3RfZ2I6IDAKICAgICBtbWNfdHhfdW5kZXJmbG93X2Vycm9y
-OiAwCiAgICAgbW1jX3R4X3NpbmdsZWNvbF9nOiAwCiAgICAgbW1jX3R4X211bHRpY29sX2c6IDAK
-ICAgICBtbWNfdHhfZGVmZXJyZWQ6IDAKICAgICBtbWNfdHhfbGF0ZWNvbDogMAogICAgIG1tY190
-eF9leGVzc2NvbDogMAogICAgIG1tY190eF9jYXJyaWVyX2Vycm9yOiAwCiAgICAgbW1jX3R4X29j
-dGV0Y291bnRfZzogMAogICAgIG1tY190eF9mcmFtZWNvdW50X2c6IDAKICAgICBtbWNfdHhfZXhj
-ZXNzZGVmOiAwCiAgICAgbW1jX3R4X3BhdXNlX2ZyYW1lOiAwCiAgICAgbW1jX3R4X3ZsYW5fZnJh
-bWVfZzogMAogICAgIG1tY19yeF9mcmFtZWNvdW50X2diOiAzMAogICAgIG1tY19yeF9vY3RldGNv
-dW50X2diOiA1MDQ5CiAgICAgbW1jX3J4X29jdGV0Y291bnRfZzogNTA0OQogICAgIG1tY19yeF9i
-cm9hZGNhc3RmcmFtZV9nOiAwCiAgICAgbW1jX3J4X211bHRpY2FzdGZyYW1lX2c6IDAKICAgICBt
-bWNfcnhfY3JjX2Vycm9yOiAwCiAgICAgbW1jX3J4X2FsaWduX2Vycm9yOiAwCiAgICAgbW1jX3J4
-X3J1bl9lcnJvcjogMAogICAgIG1tY19yeF9qYWJiZXJfZXJyb3I6IDAKICAgICBtbWNfcnhfdW5k
-ZXJzaXplX2c6IDAKICAgICBtbWNfcnhfb3ZlcnNpemVfZzogMAogICAgIG1tY19yeF82NF9vY3Rl
-dHNfZ2I6IDQKICAgICBtbWNfcnhfNjVfdG9fMTI3X29jdGV0c19nYjogMTMKICAgICBtbWNfcnhf
-MTI4X3RvXzI1NV9vY3RldHNfZ2I6IDgKICAgICBtbWNfcnhfMjU2X3RvXzUxMV9vY3RldHNfZ2I6
-IDEKICAgICBtbWNfcnhfNTEyX3RvXzEwMjNfb2N0ZXRzX2diOiA0CiAgICAgbW1jX3J4XzEwMjRf
-dG9fbWF4X29jdGV0c19nYjogMAogICAgIG1tY19yeF91bmljYXN0X2c6IDMwCiAgICAgbW1jX3J4
-X2xlbmd0aF9lcnJvcjogMAogICAgIG1tY19yeF9hdXRvZnJhbmdldHlwZTogMAogICAgIG1tY19y
-eF9wYXVzZV9mcmFtZXM6IDAKICAgICBtbWNfcnhfZmlmb19vdmVyZmxvdzogMAogICAgIG1tY19y
-eF92bGFuX2ZyYW1lc19nYjogMAogICAgIG1tY19yeF93YXRjaGRvZ19lcnJvcjogMAogICAgIG1t
-Y19yeF9pcGNfaW50cl9tYXNrOiAxMDczNjkyNjcxCiAgICAgbW1jX3J4X2lwY19pbnRyOiAwCiAg
-ICAgbW1jX3J4X2lwdjRfZ2Q6IDI2CiAgICAgbW1jX3J4X2lwdjRfaGRlcnI6IDAKICAgICBtbWNf
-cnhfaXB2NF9ub3BheTogMAogICAgIG1tY19yeF9pcHY0X2ZyYWc6IDAKICAgICBtbWNfcnhfaXB2
-NF91ZHNibDogMAogICAgIG1tY19yeF9pcHY0X2dkX29jdGV0czogNDMyNQogICAgIG1tY19yeF9p
-cHY0X2hkZXJyX29jdGV0czogMAogICAgIG1tY19yeF9pcHY0X25vcGF5X29jdGV0czogMAogICAg
-IG1tY19yeF9pcHY0X2ZyYWdfb2N0ZXRzOiAwCiAgICAgbW1jX3J4X2lwdjRfdWRzYmxfb2N0ZXRz
-OiAwCiAgICAgbW1jX3J4X2lwdjZfZ2Rfb2N0ZXRzOiAwCiAgICAgbW1jX3J4X2lwdjZfaGRlcnJf
-b2N0ZXRzOiAwCiAgICAgbW1jX3J4X2lwdjZfbm9wYXlfb2N0ZXRzOiAwCiAgICAgbW1jX3J4X2lw
-djZfZ2Q6IDAKICAgICBtbWNfcnhfaXB2Nl9oZGVycjogMAogICAgIG1tY19yeF9pcHY2X25vcGF5
-OiAwCiAgICAgbW1jX3J4X3VkcF9nZDogMjYKICAgICBtbWNfcnhfdWRwX2VycjogMAogICAgIG1t
-Y19yeF90Y3BfZ2Q6IDAKICAgICBtbWNfcnhfdGNwX2VycjogMAogICAgIG1tY19yeF9pY21wX2dk
-OiAwCiAgICAgbW1jX3J4X2ljbXBfZXJyOiAwCiAgICAgbW1jX3J4X3VkcF9nZF9vY3RldHM6IDM4
-MDUKICAgICBtbWNfcnhfdWRwX2Vycl9vY3RldHM6IDAKICAgICBtbWNfcnhfdGNwX2dkX29jdGV0
-czogMAogICAgIG1tY19yeF90Y3BfZXJyX29jdGV0czogMAogICAgIG1tY19yeF9pY21wX2dkX29j
-dGV0czogMAogICAgIG1tY19yeF9pY21wX2Vycl9vY3RldHM6IDAKICAgICB0eF91bmRlcmZsb3c6
-IDAKICAgICB0eF9jYXJyaWVyOiAwCiAgICAgdHhfbG9zc2NhcnJpZXI6IDAKICAgICB2bGFuX3Rh
-ZzogMAogICAgIHR4X2RlZmVycmVkOiAwCiAgICAgdHhfdmxhbjogMAogICAgIHR4X2phYmJlcjog
-MAogICAgIHR4X2ZyYW1lX2ZsdXNoZWQ6IDAKICAgICB0eF9wYXlsb2FkX2Vycm9yOiAwCiAgICAg
-dHhfaXBfaGVhZGVyX2Vycm9yOiAwCiAgICAgcnhfZGVzYzogMAogICAgIHNhX2ZpbHRlcl9mYWls
-OiAwCiAgICAgb3ZlcmZsb3dfZXJyb3I6IDAKICAgICBpcGNfY3N1bV9lcnJvcjogMAogICAgIHJ4
-X2NvbGxpc2lvbjogMAogICAgIHJ4X2NyYzogMAogICAgIGRyaWJibGluZ19iaXQ6IDAKICAgICBy
-eF9sZW5ndGg6IDAKICAgICByeF9taWk6IDAKICAgICByeF9tdWx0aWNhc3Q6IDAKICAgICByeF9n
-bWFjX292ZXJmbG93OiAwCiAgICAgcnhfd2F0Y2hkb2c6IDAKICAgICBkYV9yeF9maWx0ZXJfZmFp
-bDogMAogICAgIHNhX3J4X2ZpbHRlcl9mYWlsOiAwCiAgICAgcnhfbWlzc2VkX2NudHI6IDAKICAg
-ICByeF9vdmVyZmxvd19jbnRyOiAwCiAgICAgcnhfdmxhbjogMAogICAgIHR4X3VuZGVmbG93X2ly
-cTogMAogICAgIHR4X3Byb2Nlc3Nfc3RvcHBlZF9pcnE6IDAKICAgICB0eF9qYWJiZXJfaXJxOiAw
-CiAgICAgcnhfb3ZlcmZsb3dfaXJxOiAwCiAgICAgcnhfYnVmX3VuYXZfaXJxOiAwCiAgICAgcnhf
-cHJvY2Vzc19zdG9wcGVkX2lycTogMAogICAgIHJ4X3dhdGNoZG9nX2lycTogMAogICAgIHR4X2Vh
-cmx5X2lycTogMAogICAgIGZhdGFsX2J1c19lcnJvcl9pcnE6IDAKICAgICByeF9lYXJseV9pcnE6
-IDAKICAgICB0aHJlc2hvbGQ6IDEKICAgICB0eF9wa3RfbjogMTYyCiAgICAgcnhfcGt0X246IDMw
-CiAgICAgbm9ybWFsX2lycV9uOiAzMQogICAgIHJ4X25vcm1hbF9pcnFfbjogMjkKICAgICBuYXBp
-X3BvbGw6IDMxCiAgICAgdHhfbm9ybWFsX2lycV9uOiAyCiAgICAgdHhfY2xlYW46IDEzOAogICAg
-IHR4X3NldF9pY19iaXQ6IDIKICAgICBpcnFfcmVjZWl2ZV9wbXRfaXJxX246IDAKICAgICBtbWNf
-dHhfaXJxX246IDAKICAgICBtbWNfcnhfaXJxX246IDAKICAgICBtbWNfcnhfY3N1bV9vZmZsb2Fk
-X2lycV9uOiAwCiAgICAgaXJxX3R4X3BhdGhfaW5fbHBpX21vZGVfbjogMTI0CiAgICAgaXJxX3R4
-X3BhdGhfZXhpdF9scGlfbW9kZV9uOiAxMjMKICAgICBpcnFfcnhfcGF0aF9pbl9scGlfbW9kZV9u
-OiAwCiAgICAgaXJxX3J4X3BhdGhfZXhpdF9scGlfbW9kZV9uOiAwCiAgICAgcGh5X2VlZV93YWtl
-dXBfZXJyb3JfbjogMAogICAgIGlwX2hkcl9lcnI6IDAKICAgICBpcF9wYXlsb2FkX2VycjogMAog
-ICAgIGlwX2NzdW1fYnlwYXNzZWQ6IDAKICAgICBpcHY0X3BrdF9yY3ZkOiAwCiAgICAgaXB2Nl9w
-a3RfcmN2ZDogMAogICAgIHJ4X21zZ190eXBlX2V4dF9ub19wdHA6IDAKICAgICByeF9tc2dfdHlw
-ZV9zeW5jOiAwCiAgICAgcnhfbXNnX3R5cGVfZm9sbG93X3VwOiAwCiAgICAgcnhfbXNnX3R5cGVf
-ZGVsYXlfcmVxOiAwCiAgICAgcnhfbXNnX3R5cGVfZGVsYXlfcmVzcDogMAogICAgIHJ4X21zZ190
-eXBlX3BkZWxheV9yZXE6IDAKICAgICByeF9tc2dfdHlwZV9wZGVsYXlfcmVzcDogMAogICAgIHJ4
-X21zZ190eXBlX3BkZWxheV9mb2xsb3dfdXA6IDAKICAgICBwdHBfZnJhbWVfdHlwZTogMAogICAg
-IHB0cF92ZXI6IDAKICAgICB0aW1lc3RhbXBfZHJvcHBlZDogMAogICAgIGF2X3BrdF9yY3ZkOiAw
-CiAgICAgYXZfdGFnZ2VkX3BrdF9yY3ZkOiAwCiAgICAgdmxhbl90YWdfcHJpb3JpdHlfdmFsOiAw
-CiAgICAgbDNfZmlsdGVyX21hdGNoOiAwCiAgICAgbDRfZmlsdGVyX21hdGNoOiAwCiAgICAgbDNf
-bDRfZmlsdGVyX25vX21hdGNoOiAwCiAgICAgaXJxX3Bjc19hbmVfbjogMAogICAgIGlycV9wY3Nf
-bGlua19uOiAwCiAgICAgaXJxX3JnbWlpX246IDEKICAgICBtdGxfdHhfc3RhdHVzX2ZpZm9fZnVs
-bDogMAogICAgIG10bF90eF9maWZvX25vdF9lbXB0eTogMAogICAgIG1tdGxfZmlmb19jdHJsOiAw
-CiAgICAgbXRsX3R4X2ZpZm9fcmVhZF9jdHJsX3dyaXRlOiAwCiAgICAgbXRsX3R4X2ZpZm9fcmVh
-ZF9jdHJsX3dhaXQ6IDAKICAgICBtdGxfdHhfZmlmb19yZWFkX2N0cmxfcmVhZDogMAogICAgIG10
-bF90eF9maWZvX3JlYWRfY3RybF9pZGxlOiAwCiAgICAgbWFjX3R4X2luX3BhdXNlOiAwCiAgICAg
-bWFjX3R4X2ZyYW1lX2N0cmxfeGZlcjogMAogICAgIG1hY190eF9mcmFtZV9jdHJsX2lkbGU6IDAK
-ICAgICBtYWNfdHhfZnJhbWVfY3RybF93YWl0OiAwCiAgICAgbWFjX3R4X2ZyYW1lX2N0cmxfcGF1
-c2U6IDAKICAgICBtYWNfZ21paV90eF9wcm90b19lbmdpbmU6IDAKICAgICBtdGxfcnhfZmlmb19m
-aWxsX2xldmVsX2Z1bGw6IDAKICAgICBtdGxfcnhfZmlmb19maWxsX2Fib3ZlX3RocmVzaDogMAog
-ICAgIG10bF9yeF9maWZvX2ZpbGxfYmVsb3dfdGhyZXNoOiAwCiAgICAgbXRsX3J4X2ZpZm9fZmls
-bF9sZXZlbF9lbXB0eTogMAogICAgIG10bF9yeF9maWZvX3JlYWRfY3RybF9mbHVzaDogMAogICAg
-IG10bF9yeF9maWZvX3JlYWRfY3RybF9yZWFkX2RhdGE6IDAKICAgICBtdGxfcnhfZmlmb19yZWFk
-X2N0cmxfc3RhdHVzOiAwCiAgICAgbXRsX3J4X2ZpZm9fcmVhZF9jdHJsX2lkbGU6IDAKICAgICBt
-dGxfcnhfZmlmb19jdHJsX2FjdGl2ZTogMAogICAgIG1hY19yeF9mcmFtZV9jdHJsX2ZpZm86IDAK
-ICAgICBtYWNfZ21paV9yeF9wcm90b19lbmdpbmU6IDAKICAgICB0eF90c29fZnJhbWVzOiAwCiAg
-ICAgdHhfdHNvX25mcmFnczogMAo=
-
---MP_/YE=DnQudQF5EpaP+BAHH8sZ--
+diff --git a/drivers/net/ethernet/broadcom/b44.c b/drivers/net/ethernet/broadcom/b44.c
+index 74f0a37..936f06f 100644
+--- a/drivers/net/ethernet/broadcom/b44.c
++++ b/drivers/net/ethernet/broadcom/b44.c
+@@ -1486,7 +1486,7 @@ static int b44_open(struct net_device *dev)
+ 	b44_enable_ints(bp);
+ 
+ 	if (bp->flags & B44_FLAG_EXTERNAL_PHY)
+-		phy_start(bp->phydev);
++		phy_start(dev->phydev);
+ 
+ 	netif_start_queue(dev);
+ out:
+@@ -1651,7 +1651,7 @@ static int b44_close(struct net_device *dev)
+ 	netif_stop_queue(dev);
+ 
+ 	if (bp->flags & B44_FLAG_EXTERNAL_PHY)
+-		phy_stop(bp->phydev);
++		phy_stop(dev->phydev);
+ 
+ 	napi_disable(&bp->napi);
+ 
+@@ -1837,8 +1837,8 @@ static int b44_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 	struct b44 *bp = netdev_priv(dev);
+ 
+ 	if (bp->flags & B44_FLAG_EXTERNAL_PHY) {
+-		BUG_ON(!bp->phydev);
+-		return phy_ethtool_gset(bp->phydev, cmd);
++		BUG_ON(!dev->phydev);
++		return phy_ethtool_gset(dev->phydev, cmd);
+ 	}
+ 
+ 	cmd->supported = (SUPPORTED_Autoneg);
+@@ -1886,12 +1886,12 @@ static int b44_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 	int ret;
+ 
+ 	if (bp->flags & B44_FLAG_EXTERNAL_PHY) {
+-		BUG_ON(!bp->phydev);
++		BUG_ON(!dev->phydev);
+ 		spin_lock_irq(&bp->lock);
+ 		if (netif_running(dev))
+ 			b44_setup_phy(bp);
+ 
+-		ret = phy_ethtool_sset(bp->phydev, cmd);
++		ret = phy_ethtool_sset(dev->phydev, cmd);
+ 
+ 		spin_unlock_irq(&bp->lock);
+ 
+@@ -2137,8 +2137,8 @@ static int b44_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 
+ 	spin_lock_irq(&bp->lock);
+ 	if (bp->flags & B44_FLAG_EXTERNAL_PHY) {
+-		BUG_ON(!bp->phydev);
+-		err = phy_mii_ioctl(bp->phydev, ifr, cmd);
++		BUG_ON(!dev->phydev);
++		err = phy_mii_ioctl(dev->phydev, ifr, cmd);
+ 	} else {
+ 		err = generic_mii_ioctl(&bp->mii_if, if_mii(ifr), cmd, NULL);
+ 	}
+@@ -2206,7 +2206,7 @@ static const struct net_device_ops b44_netdev_ops = {
+ static void b44_adjust_link(struct net_device *dev)
+ {
+ 	struct b44 *bp = netdev_priv(dev);
+-	struct phy_device *phydev = bp->phydev;
++	struct phy_device *phydev = dev->phydev;
+ 	bool status_changed = 0;
+ 
+ 	BUG_ON(!phydev);
+@@ -2303,7 +2303,6 @@ static int b44_register_phy_one(struct b44 *bp)
+ 			      SUPPORTED_MII);
+ 	phydev->advertising = phydev->supported;
+ 
+-	bp->phydev = phydev;
+ 	bp->old_link = 0;
+ 	bp->phy_addr = phydev->mdio.addr;
+ 
+@@ -2323,9 +2322,10 @@ err_out:
+ 
+ static void b44_unregister_phy_one(struct b44 *bp)
+ {
++	struct net_device *dev = bp->dev;
+ 	struct mii_bus *mii_bus = bp->mii_bus;
+ 
+-	phy_disconnect(bp->phydev);
++	phy_disconnect(dev->phydev);
+ 	mdiobus_unregister(mii_bus);
+ 	mdiobus_free(mii_bus);
+ }
+diff --git a/drivers/net/ethernet/broadcom/b44.h b/drivers/net/ethernet/broadcom/b44.h
+index 65d88d7..89d2cf3 100644
+--- a/drivers/net/ethernet/broadcom/b44.h
++++ b/drivers/net/ethernet/broadcom/b44.h
+@@ -404,7 +404,6 @@ struct b44 {
+ 	u32			tx_pending;
+ 	u8			phy_addr;
+ 	u8			force_copybreak;
+-	struct phy_device	*phydev;
+ 	struct mii_bus		*mii_bus;
+ 	int			old_link;
+ 	struct mii_if_info	mii_if;
+-- 
+1.7.4.4
