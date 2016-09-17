@@ -1,44 +1,46 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH -next] cxgb4: Fix return value check in cfg_queues_uld()
-Date: Sat, 17 Sep 2016 15:52:17 +0000
-Message-ID: <1474127537-14230-1-git-send-email-weiyj.lk@gmail.com>
+From: Nelson Chang <nelson.chang@mediatek.com>
+Subject: [PATCH net-next v3 0/3] net: ethernet: mediatek: add HW LRO functions
+Date: Sat, 17 Sep 2016 23:54:07 +0800
+Message-ID: <1474127650-20271-1-git-send-email-nelson.chang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org
-To: Hariprasad S <hariprasad@chelsio.com>
+Content-Type: text/plain
+Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
+        <linux-mediatek@lists.infradead.org>, <nelsonch.tw@gmail.com>,
+        Nelson Chang <nelson.chang@mediatek.com>
+To: <john@phrozen.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:34103 "EHLO
-        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752346AbcIQPw0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2016 11:52:26 -0400
-Received: by mail-pa0-f66.google.com with SMTP id vz6so4773829pab.1
-        for <netdev@vger.kernel.org>; Sat, 17 Sep 2016 08:52:26 -0700 (PDT)
+Received: from mailgw02.mediatek.com ([210.61.82.184]:57883 "EHLO
+        mailgw02.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1752257AbcIQPy0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2016 11:54:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <weiyongjun1@huawei.com>
+The series add the large receive offload (LRO) functions by hardware and
+the ethtool functions to configure RX flows of HW LRO.
 
-Fix the retrn value check which testing the wrong variable
-in cfg_queues_uld().
+changes since v3:
+- Respin the patch by the newer driver
+- Move the dts description of hwlro to optional properties
 
-Fixes: 94cdb8bb993a ("cxgb4: Add support for dynamic allocation of
-resources for ULD")
-Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+changes since v2:
+- Add ndo_fix_features to prevent NETIF_F_LRO off while RX flow is programmed
+- Rephrase the dts property is a capability if the hardware supports LRO
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
-index 5d402ba..4d1de62 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
-@@ -245,7 +245,7 @@ int cfg_queues_uld(struct adapter *adap, unsigned int uld_type,
- 	}
- 
- 	rxq_info->rspq_id = kcalloc(nrxq, sizeof(unsigned short), GFP_KERNEL);
--	if (!rxq_info->uldrxq) {
-+	if (!rxq_info->rspq_id) {
- 		kfree(rxq_info->uldrxq);
- 		kfree(rxq_info);
- 		return -ENOMEM;
+changes since v1:
+- Add HW LRO support
+- Add ethtool hooks to set LRO RX flows
+
+Nelson Chang (3):
+  net: ethernet: mediatek: add HW LRO functions of PDMA RX rings
+  net: ethernet: mediatek: add ethtool functions to configure RX flows
+    of HW LRO
+  net: ethernet: mediatek: add dts configuration to enable HW LRO
+
+ .../devicetree/bindings/net/mediatek-net.txt       |   2 +
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c        | 433 +++++++++++++++++++--
+ drivers/net/ethernet/mediatek/mtk_eth_soc.h        |  75 +++-
+ 3 files changed, 485 insertions(+), 25 deletions(-)
+
+-- 
+1.9.1
