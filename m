@@ -1,9 +1,9 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 01/11] rxrpc: Print the packet type name in the Rx
- packet trace
-Date: Sun, 18 Sep 2016 00:21:36 +0100
-Message-ID: <147415449680.18436.117429481882450572.stgit@warthog.procyon.org.uk>
-References: <147415448967.18436.14900942726390485534.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 02/14] rxrpc: Move the check of rx_pkt_offset from
+ rxrpc_locate_data() to caller
+Date: Sun, 18 Sep 2016 00:17:58 +0100
+Message-ID: <147415427878.17897.14191866969662813684.stgit@warthog.procyon.org.uk>
+References: <147415426459.17897.13899206413543061473.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,66 +11,47 @@ Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
         linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44278 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:49850 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754787AbcIQXVi (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 17 Sep 2016 19:21:38 -0400
-In-Reply-To: <147415448967.18436.14900942726390485534.stgit@warthog.procyon.org.uk>
+        id S933017AbcIQXSA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 17 Sep 2016 19:18:00 -0400
+In-Reply-To: <147415426459.17897.13899206413543061473.stgit@warthog.procyon.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Print a symbolic packet type name for each valid received packet in the
-trace output, not just a number.
+Move the check of rx_pkt_offset from rxrpc_locate_data() to the caller,
+rxrpc_recvmsg_data(), so that it's more clear what's going on there.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- include/trace/events/rxrpc.h |    5 +++--
- net/rxrpc/ar-internal.h      |    6 +++---
- 2 files changed, 6 insertions(+), 5 deletions(-)
+ net/rxrpc/recvmsg.c |    9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
-diff --git a/include/trace/events/rxrpc.h b/include/trace/events/rxrpc.h
-index ea3b10ed91a8..0a30c673509c 100644
---- a/include/trace/events/rxrpc.h
-+++ b/include/trace/events/rxrpc.h
-@@ -93,11 +93,12 @@ TRACE_EVENT(rxrpc_rx_packet,
- 		    memcpy(&__entry->hdr, &sp->hdr, sizeof(__entry->hdr));
- 			   ),
+diff --git a/net/rxrpc/recvmsg.c b/net/rxrpc/recvmsg.c
+index a284205b8ecf..0d085f5cf1bf 100644
+--- a/net/rxrpc/recvmsg.c
++++ b/net/rxrpc/recvmsg.c
+@@ -240,9 +240,6 @@ static int rxrpc_locate_data(struct rxrpc_call *call, struct sk_buff *skb,
+ 	int ret;
+ 	u8 annotation = *_annotation;
  
--	    TP_printk("%08x:%08x:%08x:%04x %08x %08x %02x %02x",
-+	    TP_printk("%08x:%08x:%08x:%04x %08x %08x %02x %02x %s",
- 		      __entry->hdr.epoch, __entry->hdr.cid,
- 		      __entry->hdr.callNumber, __entry->hdr.serviceId,
- 		      __entry->hdr.serial, __entry->hdr.seq,
--		      __entry->hdr.type, __entry->hdr.flags)
-+		      __entry->hdr.type, __entry->hdr.flags,
-+		      __entry->hdr.type <= 15 ? rxrpc_pkts[__entry->hdr.type] : "?UNK")
- 	    );
- 
- TRACE_EVENT(rxrpc_rx_done,
-diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index e78c40b37db5..0f6fafa2c271 100644
---- a/net/rxrpc/ar-internal.h
-+++ b/net/rxrpc/ar-internal.h
-@@ -551,6 +551,9 @@ enum rxrpc_call_trace {
- 
- extern const char rxrpc_call_traces[rxrpc_call__nr_trace][4];
- 
-+extern const char *const rxrpc_pkts[];
-+extern const char *rxrpc_acks(u8 reason);
-+
- #include <trace/events/rxrpc.h>
- 
- /*
-@@ -851,11 +854,8 @@ extern unsigned int rxrpc_rx_mtu;
- extern unsigned int rxrpc_rx_jumbo_max;
- extern unsigned int rxrpc_resend_timeout;
- 
--extern const char *const rxrpc_pkts[];
- extern const s8 rxrpc_ack_priority[];
- 
--extern const char *rxrpc_acks(u8 reason);
+-	if (offset > 0)
+-		return 0;
 -
- /*
-  * output.c
-  */
+ 	/* Locate the subpacket */
+ 	offset = sp->offset;
+ 	len = skb->len - sp->offset;
+@@ -303,8 +300,10 @@ static int rxrpc_recvmsg_data(struct socket *sock, struct rxrpc_call *call,
+ 		if (msg)
+ 			sock_recv_timestamp(msg, sock->sk, skb);
+ 
+-		ret = rxrpc_locate_data(call, skb, &call->rxtx_annotations[ix],
+-					&rx_pkt_offset, &rx_pkt_len);
++		if (rx_pkt_offset == 0)
++			ret = rxrpc_locate_data(call, skb,
++						&call->rxtx_annotations[ix],
++						&rx_pkt_offset, &rx_pkt_len);
+ 		_debug("recvmsg %x DATA #%u { %d, %d }",
+ 		       sp->hdr.callNumber, seq, rx_pkt_offset, rx_pkt_len);
+ 
