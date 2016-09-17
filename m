@@ -1,90 +1,86 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next 2/5] sched: don't use skb queue helpers
-Date: Sun, 18 Sep 2016 00:57:31 +0200
-Message-ID: <1474153054-9059-3-git-send-email-fw@strlen.de>
+Subject: [PATCH net-next 3/5] sched: remove qdisc arg from __qdisc_dequeue_head
+Date: Sun, 18 Sep 2016 00:57:32 +0200
+Message-ID: <1474153054-9059-4-git-send-email-fw@strlen.de>
 References: <1474153054-9059-1-git-send-email-fw@strlen.de>
 Cc: Florian Westphal <fw@strlen.de>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:51386 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:51388 "EHLO
         Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1755014AbcIQW5c (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2016 18:57:32 -0400
+        by vger.kernel.org with ESMTP id S1755055AbcIQW5e (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2016 18:57:34 -0400
 In-Reply-To: <1474153054-9059-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A followup change will replace the sk_buff_head in the qdisc
-struct with a slightly different list.
+Moves qdisc stat accouting to qdisc_dequeue_head.
 
-Use of the sk_buff_head helpers will thus cause compiler
-warnings.
+The only direct caller of the __qdisc_dequeue_head version open-codes
+this now.
 
-Open-code these accesses in an extra change to ease review.
+This allows us to later use __qdisc_dequeue_head as a replacement
+of __skb_dequeue() (which operates on sk_buff_head list).
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- net/sched/sch_fifo.c    | 4 ++--
- net/sched/sch_generic.c | 2 +-
- net/sched/sch_netem.c   | 4 ++--
- 3 files changed, 5 insertions(+), 5 deletions(-)
+ include/net/sch_generic.h | 15 ++++++++-------
+ net/sched/sch_generic.c   |  7 ++++++-
+ 2 files changed, 14 insertions(+), 8 deletions(-)
 
-diff --git a/net/sched/sch_fifo.c b/net/sched/sch_fifo.c
-index baeed6a..1e37247 100644
---- a/net/sched/sch_fifo.c
-+++ b/net/sched/sch_fifo.c
-@@ -31,7 +31,7 @@ static int bfifo_enqueue(struct sk_buff *skb, struct Qdisc *sch,
- static int pfifo_enqueue(struct sk_buff *skb, struct Qdisc *sch,
- 			 struct sk_buff **to_free)
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 52a2015..0741ed4 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -614,11 +614,17 @@ static inline int qdisc_enqueue_tail(struct sk_buff *skb, struct Qdisc *sch)
+ 	return __qdisc_enqueue_tail(skb, sch, &sch->q);
+ }
+ 
+-static inline struct sk_buff *__qdisc_dequeue_head(struct Qdisc *sch,
+-						   struct sk_buff_head *list)
++static inline struct sk_buff *__qdisc_dequeue_head(struct sk_buff_head *list)
  {
--	if (likely(skb_queue_len(&sch->q) < sch->limit))
-+	if (likely(sch->q.qlen < sch->limit))
- 		return qdisc_enqueue_tail(skb, sch);
+ 	struct sk_buff *skb = __skb_dequeue(list);
  
- 	return qdisc_drop(skb, sch, to_free);
-@@ -42,7 +42,7 @@ static int pfifo_tail_enqueue(struct sk_buff *skb, struct Qdisc *sch,
- {
- 	unsigned int prev_backlog;
++	return skb;
++}
++
++static inline struct sk_buff *qdisc_dequeue_head(struct Qdisc *sch)
++{
++	struct sk_buff *skb = __qdisc_dequeue_head(&sch->q);
++
+ 	if (likely(skb != NULL)) {
+ 		qdisc_qstats_backlog_dec(sch, skb);
+ 		qdisc_bstats_update(sch, skb);
+@@ -627,11 +633,6 @@ static inline struct sk_buff *__qdisc_dequeue_head(struct Qdisc *sch,
+ 	return skb;
+ }
  
--	if (likely(skb_queue_len(&sch->q) < sch->limit))
-+	if (likely(sch->q.qlen < sch->limit))
- 		return qdisc_enqueue_tail(skb, sch);
- 
- 	prev_backlog = sch->qstats.backlog;
+-static inline struct sk_buff *qdisc_dequeue_head(struct Qdisc *sch)
+-{
+-	return __qdisc_dequeue_head(sch, &sch->q);
+-}
+-
+ /* Instead of calling kfree_skb() while root qdisc lock is held,
+  * queue the skb for future freeing at end of __dev_xmit_skb()
+  */
 diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 0d21b56..5e63bf6 100644
+index 5e63bf6..73877d9 100644
 --- a/net/sched/sch_generic.c
 +++ b/net/sched/sch_generic.c
-@@ -486,7 +486,7 @@ static inline struct sk_buff_head *band2list(struct pfifo_fast_priv *priv,
- static int pfifo_fast_enqueue(struct sk_buff *skb, struct Qdisc *qdisc,
- 			      struct sk_buff **to_free)
- {
--	if (skb_queue_len(&qdisc->q) < qdisc_dev(qdisc)->tx_queue_len) {
-+	if (qdisc->q.qlen < qdisc_dev(qdisc)->tx_queue_len) {
- 		int band = prio2band[skb->priority & TC_PRIO_MAX];
- 		struct pfifo_fast_priv *priv = qdisc_priv(qdisc);
+@@ -506,7 +506,12 @@ static struct sk_buff *pfifo_fast_dequeue(struct Qdisc *qdisc)
+ 
+ 	if (likely(band >= 0)) {
  		struct sk_buff_head *list = band2list(priv, band);
-diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index aaaf021..1832d77 100644
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -502,7 +502,7 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch,
- 			1<<(prandom_u32() % 8);
- 	}
+-		struct sk_buff *skb = __qdisc_dequeue_head(qdisc, list);
++		struct sk_buff *skb = __qdisc_dequeue_head(list);
++
++		if (likely(skb != NULL)) {
++			qdisc_qstats_backlog_dec(qdisc, skb);
++			qdisc_bstats_update(qdisc, skb);
++		}
  
--	if (unlikely(skb_queue_len(&sch->q) >= sch->limit))
-+	if (unlikely(sch->q.qlen >= sch->limit))
- 		return qdisc_drop(skb, sch, to_free);
- 
- 	qdisc_qstats_backlog_inc(sch, skb);
-@@ -522,7 +522,7 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch,
- 		if (q->rate) {
- 			struct sk_buff *last;
- 
--			if (!skb_queue_empty(&sch->q))
-+			if (sch->q.qlen)
- 				last = skb_peek_tail(&sch->q);
- 			else
- 				last = netem_rb_to_skb(rb_last(&q->t_root));
+ 		qdisc->q.qlen--;
+ 		if (skb_queue_empty(list))
 -- 
 2.7.3
