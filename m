@@ -1,71 +1,50 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net] MAINTAINERS: Gary Zambrano's email is bouncing
-Date: Sat, 17 Sep 2016 16:17:39 -0700
-Message-ID: <CAGVrzcaswHEjEvBygXbDcgUPaAmP=t9RHY8mVv4tVOgK7N9ARw@mail.gmail.com>
-References: <1474151235-16558-1-git-send-email-f.fainelli@gmail.com> <1474152709.1954.8.camel@perches.com>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH net-next 06/14] rxrpc: Purge the to_be_accepted queue on
+ socket release
+Date: Sun, 18 Sep 2016 00:18:26 +0100
+Message-ID: <147415430646.17897.4833203211143872574.stgit@warthog.procyon.org.uk>
+References: <147415426459.17897.13899206413543061473.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Michael Chan <michael.chan@broadcom.com>,
-        bcm-kernel-feedback-list <bcm-kernel-feedback-list@broadcom.com>,
-        =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
-        Hauke Mehrtens <hauke@hauke-m.de>
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:36765 "EHLO
-        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935318AbcIQXSU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2016 19:18:20 -0400
-Received: by mail-io0-f196.google.com with SMTP id z135so3271378ioe.3
-        for <netdev@vger.kernel.org>; Sat, 17 Sep 2016 16:18:20 -0700 (PDT)
-In-Reply-To: <1474152709.1954.8.camel@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <147415426459.17897.13899206413543061473.stgit@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2016-09-17 15:51 GMT-07:00 Joe Perches <joe@perches.com>:
-> On Sat, 2016-09-17 at 15:27 -0700, Florian Fainelli wrote:
->> Gary has not been with Broadcom for some time now, replace his address
->> with the internal mailing-list used for other entries.
->>
->> > Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
->> ---
->> Michael,
->>
->> Since this is an old driver, not sure who could step up as a maintainer
->> for b44?
-> []
->> diff --git a/MAINTAINERS b/MAINTAINERS
-> []
->> @@ -2500,8 +2500,8 @@ S:      Supported
->
->> F:    kernel/bpf/
->>
->>  BROADCOM B44 10/100 ETHERNET DRIVER
->> -M:   Gary Zambrano <zambrano@broadcom.com>
->>  L:   netdev@vger.kernel.org
->> +M:   bcm-kernel-feedback-list@broadcom.com
->>  S:   Supported
->>  F:   drivers/net/ethernet/broadcom/b44.*
->
-> Without an actual maintainer, this should really be
-> orphan and not supported.
+Purge the queue of to_be_accepted calls on socket release.  Note that
+purging sock_calls doesn't release the ref owned by to_be_accepted.
 
-I would like to hear from Michael before concluding that
+Probably the sock_calls list is redundant given a purges of the recvmsg_q,
+the to_be_accepted queue and the calls tree.
 
->
-> And the M: bcm-kernel-feedback-list@ should be L:
+Signed-off-by: David Howells <dhowells@redhat.com>
+---
 
-The list does not accept public subscribers, so this is the correct
-entry to use.
+ net/rxrpc/call_object.c |   10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
->
-> BCM4401 NICs are essentially from 2002.
->
-> Does anyone really use these any longer with a
-> current distribution or kernel version?
-
-This NIC is also embedded inside BCM47xx/BCM53xx which is still
-getting active support from Rafal and Hauke.
--- 
-Florian
+diff --git a/net/rxrpc/call_object.c b/net/rxrpc/call_object.c
+index 22f9b0d1a138..b0ffbd9664e6 100644
+--- a/net/rxrpc/call_object.c
++++ b/net/rxrpc/call_object.c
+@@ -476,6 +476,16 @@ void rxrpc_release_calls_on_socket(struct rxrpc_sock *rx)
+ 
+ 	_enter("%p", rx);
+ 
++	while (!list_empty(&rx->to_be_accepted)) {
++		call = list_entry(rx->to_be_accepted.next,
++				  struct rxrpc_call, accept_link);
++		list_del(&call->accept_link);
++		rxrpc_abort_call("SKR", call, 0, RX_CALL_DEAD, ECONNRESET);
++		rxrpc_send_call_packet(call, RXRPC_PACKET_TYPE_ABORT);
++		rxrpc_release_call(rx, call);
++		rxrpc_put_call(call, rxrpc_call_put);
++	}
++
+ 	while (!list_empty(&rx->sock_calls)) {
+ 		call = list_entry(rx->sock_calls.next,
+ 				  struct rxrpc_call, sock_link);
