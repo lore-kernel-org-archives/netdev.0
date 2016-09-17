@@ -1,38 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] xen-netback: fix error handling on netback_probe()
-Date: Sat, 17 Sep 2016 09:56:31 -0400 (EDT)
-Message-ID: <20160917.095631.1210055450319054136.davem@davemloft.net>
-References: <1473952246-27037-1-git-send-email-filipe.manco@neclab.eu>
+Subject: Re: [PATCH net] tcp: fix overflow in __tcp_retransmit_skb()
+Date: Sat, 17 Sep 2016 10:00:24 -0400 (EDT)
+Message-ID: <20160917.100024.377016575232308074.davem@davemloft.net>
+References: <1473952353.22679.25.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, wei.liu2@citrix.com,
-        xen-devel@lists.xenproject.org
-To: filipe.manco@neclab.eu
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60032 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:60098 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751544AbcIQN4e (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2016 09:56:34 -0400
-In-Reply-To: <1473952246-27037-1-git-send-email-filipe.manco@neclab.eu>
+        with ESMTP id S1751269AbcIQOA0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2016 10:00:26 -0400
+In-Reply-To: <1473952353.22679.25.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Filipe Manco <filipe.manco@neclab.eu>
-Date: Thu, 15 Sep 2016 17:10:46 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 15 Sep 2016 08:12:33 -0700
 
-> In case of error during netback_probe() (e.g. an entry missing on the
-> xenstore) netback_remove() is called on the new device, which will set
-> the device backend state to XenbusStateClosed by calling
-> set_backend_state(). However, the backend state wasn't initialized by
-> netback_probe() at this point, which will cause and invalid transaction
-> and set_backend_state() to BUG().
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Initialize the backend state at the beginning of netback_probe() to
-> XenbusStateInitialising, and create two new valid state transitions on
-> set_backend_state(), from XenbusStateInitialising to XenbusStateClosed,
-> and from XenbusStateInitialising to XenbusStateInitWait.
+> If a TCP socket gets a large write queue, an overflow can happen
+> in a test in __tcp_retransmit_skb() preventing all retransmits.
 > 
-> Signed-off-by: Filipe Manco <filipe.manco@neclab.eu>
+> The flow then stalls and resets after timeouts.
+> 
+> Tested:
+> 
+> sysctl -w net.core.wmem_max=1000000000
+> netperf -H dest -- -s 1000000000
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied, thanks.
+Applied.
