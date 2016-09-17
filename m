@@ -1,124 +1,220 @@
 From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH 1/2] net: ethernet: broadcom: b44: use phydev from struct net_device
-Date: Sun, 18 Sep 2016 00:11:34 +0200
-Message-ID: <1474150295-24622-1-git-send-email-tremyfr@gmail.com>
+Subject: [PATCH 2/2] net: ethernet: broadcom: b44: use new api ethtool_{get|set}_link_ksettings
+Date: Sun, 18 Sep 2016 00:11:35 +0200
+Message-ID: <1474150295-24622-2-git-send-email-tremyfr@gmail.com>
+References: <1474150295-24622-1-git-send-email-tremyfr@gmail.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         Philippe Reynes <tremyfr@gmail.com>
 To: zambrano@broadcom.com, davem@davemloft.net, f.fainelli@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35468 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754693AbcIQWLu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2016 18:11:50 -0400
+In-Reply-To: <1474150295-24622-1-git-send-email-tremyfr@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The private structure contain a pointer to phydev, but the structure
-net_device already contain such pointer. So we can remove the pointer
-phydev in the private structure, and update the driver to use the
-one contained in struct net_device.
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
 Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- drivers/net/ethernet/broadcom/b44.c |   22 +++++++++++-----------
- drivers/net/ethernet/broadcom/b44.h |    1 -
- 2 files changed, 11 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/broadcom/b44.c |   98 +++++++++++++++++++----------------
+ 1 files changed, 54 insertions(+), 44 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/b44.c b/drivers/net/ethernet/broadcom/b44.c
-index 74f0a37..936f06f 100644
+index 936f06f..17aa33c 100644
 --- a/drivers/net/ethernet/broadcom/b44.c
 +++ b/drivers/net/ethernet/broadcom/b44.c
-@@ -1486,7 +1486,7 @@ static int b44_open(struct net_device *dev)
- 	b44_enable_ints(bp);
+@@ -1832,58 +1832,65 @@ static int b44_nway_reset(struct net_device *dev)
+ 	return r;
+ }
  
- 	if (bp->flags & B44_FLAG_EXTERNAL_PHY)
--		phy_start(bp->phydev);
-+		phy_start(dev->phydev);
- 
- 	netif_start_queue(dev);
- out:
-@@ -1651,7 +1651,7 @@ static int b44_close(struct net_device *dev)
- 	netif_stop_queue(dev);
- 
- 	if (bp->flags & B44_FLAG_EXTERNAL_PHY)
--		phy_stop(bp->phydev);
-+		phy_stop(dev->phydev);
- 
- 	napi_disable(&bp->napi);
- 
-@@ -1837,8 +1837,8 @@ static int b44_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+-static int b44_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++static int b44_get_link_ksettings(struct net_device *dev,
++				  struct ethtool_link_ksettings *cmd)
+ {
  	struct b44 *bp = netdev_priv(dev);
++	u32 supported, advertising;
  
  	if (bp->flags & B44_FLAG_EXTERNAL_PHY) {
--		BUG_ON(!bp->phydev);
--		return phy_ethtool_gset(bp->phydev, cmd);
-+		BUG_ON(!dev->phydev);
-+		return phy_ethtool_gset(dev->phydev, cmd);
+ 		BUG_ON(!dev->phydev);
+-		return phy_ethtool_gset(dev->phydev, cmd);
++		return phy_ethtool_ksettings_get(dev->phydev, cmd);
  	}
  
- 	cmd->supported = (SUPPORTED_Autoneg);
-@@ -1886,12 +1886,12 @@ static int b44_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+-	cmd->supported = (SUPPORTED_Autoneg);
+-	cmd->supported |= (SUPPORTED_100baseT_Half |
+-			  SUPPORTED_100baseT_Full |
+-			  SUPPORTED_10baseT_Half |
+-			  SUPPORTED_10baseT_Full |
+-			  SUPPORTED_MII);
++	supported = (SUPPORTED_Autoneg);
++	supported |= (SUPPORTED_100baseT_Half |
++		      SUPPORTED_100baseT_Full |
++		      SUPPORTED_10baseT_Half |
++		      SUPPORTED_10baseT_Full |
++		      SUPPORTED_MII);
+ 
+-	cmd->advertising = 0;
++	advertising = 0;
+ 	if (bp->flags & B44_FLAG_ADV_10HALF)
+-		cmd->advertising |= ADVERTISED_10baseT_Half;
++		advertising |= ADVERTISED_10baseT_Half;
+ 	if (bp->flags & B44_FLAG_ADV_10FULL)
+-		cmd->advertising |= ADVERTISED_10baseT_Full;
++		advertising |= ADVERTISED_10baseT_Full;
+ 	if (bp->flags & B44_FLAG_ADV_100HALF)
+-		cmd->advertising |= ADVERTISED_100baseT_Half;
++		advertising |= ADVERTISED_100baseT_Half;
+ 	if (bp->flags & B44_FLAG_ADV_100FULL)
+-		cmd->advertising |= ADVERTISED_100baseT_Full;
+-	cmd->advertising |= ADVERTISED_Pause | ADVERTISED_Asym_Pause;
+-	ethtool_cmd_speed_set(cmd, ((bp->flags & B44_FLAG_100_BASE_T) ?
+-				    SPEED_100 : SPEED_10));
+-	cmd->duplex = (bp->flags & B44_FLAG_FULL_DUPLEX) ?
++		advertising |= ADVERTISED_100baseT_Full;
++	advertising |= ADVERTISED_Pause | ADVERTISED_Asym_Pause;
++	cmd->base.speed = (bp->flags & B44_FLAG_100_BASE_T) ?
++		SPEED_100 : SPEED_10;
++	cmd->base.duplex = (bp->flags & B44_FLAG_FULL_DUPLEX) ?
+ 		DUPLEX_FULL : DUPLEX_HALF;
+-	cmd->port = 0;
+-	cmd->phy_address = bp->phy_addr;
+-	cmd->transceiver = (bp->flags & B44_FLAG_EXTERNAL_PHY) ?
+-		XCVR_EXTERNAL : XCVR_INTERNAL;
+-	cmd->autoneg = (bp->flags & B44_FLAG_FORCE_LINK) ?
++	cmd->base.port = 0;
++	cmd->base.phy_address = bp->phy_addr;
++	cmd->base.autoneg = (bp->flags & B44_FLAG_FORCE_LINK) ?
+ 		AUTONEG_DISABLE : AUTONEG_ENABLE;
+-	if (cmd->autoneg == AUTONEG_ENABLE)
+-		cmd->advertising |= ADVERTISED_Autoneg;
++	if (cmd->base.autoneg == AUTONEG_ENABLE)
++		advertising |= ADVERTISED_Autoneg;
++
++	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
++						supported);
++	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising,
++						advertising);
++
+ 	if (!netif_running(dev)){
+-		ethtool_cmd_speed_set(cmd, 0);
+-		cmd->duplex = 0xff;
++		cmd->base.speed = 0;
++		cmd->base.duplex = 0xff;
+ 	}
+-	cmd->maxtxpkt = 0;
+-	cmd->maxrxpkt = 0;
++
+ 	return 0;
+ }
+ 
+-static int b44_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++static int b44_set_link_ksettings(struct net_device *dev,
++				  const struct ethtool_link_ksettings *cmd)
+ {
+ 	struct b44 *bp = netdev_priv(dev);
+ 	u32 speed;
  	int ret;
++	u32 advertising;
  
  	if (bp->flags & B44_FLAG_EXTERNAL_PHY) {
--		BUG_ON(!bp->phydev);
-+		BUG_ON(!dev->phydev);
- 		spin_lock_irq(&bp->lock);
+ 		BUG_ON(!dev->phydev);
+@@ -1891,31 +1898,34 @@ static int b44_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
  		if (netif_running(dev))
  			b44_setup_phy(bp);
  
--		ret = phy_ethtool_sset(bp->phydev, cmd);
-+		ret = phy_ethtool_sset(dev->phydev, cmd);
+-		ret = phy_ethtool_sset(dev->phydev, cmd);
++		ret = phy_ethtool_ksettings_set(dev->phydev, cmd);
  
  		spin_unlock_irq(&bp->lock);
  
-@@ -2137,8 +2137,8 @@ static int b44_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 		return ret;
+ 	}
+ 
+-	speed = ethtool_cmd_speed(cmd);
++	speed = cmd->base.speed;
++
++	ethtool_convert_link_mode_to_legacy_u32(&advertising,
++						cmd->link_modes.advertising);
+ 
+ 	/* We do not support gigabit. */
+-	if (cmd->autoneg == AUTONEG_ENABLE) {
+-		if (cmd->advertising &
++	if (cmd->base.autoneg == AUTONEG_ENABLE) {
++		if (advertising &
+ 		    (ADVERTISED_1000baseT_Half |
+ 		     ADVERTISED_1000baseT_Full))
+ 			return -EINVAL;
+ 	} else if ((speed != SPEED_100 &&
+ 		    speed != SPEED_10) ||
+-		   (cmd->duplex != DUPLEX_HALF &&
+-		    cmd->duplex != DUPLEX_FULL)) {
++		   (cmd->base.duplex != DUPLEX_HALF &&
++		    cmd->base.duplex != DUPLEX_FULL)) {
+ 			return -EINVAL;
+ 	}
  
  	spin_lock_irq(&bp->lock);
- 	if (bp->flags & B44_FLAG_EXTERNAL_PHY) {
--		BUG_ON(!bp->phydev);
--		err = phy_mii_ioctl(bp->phydev, ifr, cmd);
-+		BUG_ON(!dev->phydev);
-+		err = phy_mii_ioctl(dev->phydev, ifr, cmd);
+ 
+-	if (cmd->autoneg == AUTONEG_ENABLE) {
++	if (cmd->base.autoneg == AUTONEG_ENABLE) {
+ 		bp->flags &= ~(B44_FLAG_FORCE_LINK |
+ 			       B44_FLAG_100_BASE_T |
+ 			       B44_FLAG_FULL_DUPLEX |
+@@ -1923,19 +1933,19 @@ static int b44_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 			       B44_FLAG_ADV_10FULL |
+ 			       B44_FLAG_ADV_100HALF |
+ 			       B44_FLAG_ADV_100FULL);
+-		if (cmd->advertising == 0) {
++		if (advertising == 0) {
+ 			bp->flags |= (B44_FLAG_ADV_10HALF |
+ 				      B44_FLAG_ADV_10FULL |
+ 				      B44_FLAG_ADV_100HALF |
+ 				      B44_FLAG_ADV_100FULL);
+ 		} else {
+-			if (cmd->advertising & ADVERTISED_10baseT_Half)
++			if (advertising & ADVERTISED_10baseT_Half)
+ 				bp->flags |= B44_FLAG_ADV_10HALF;
+-			if (cmd->advertising & ADVERTISED_10baseT_Full)
++			if (advertising & ADVERTISED_10baseT_Full)
+ 				bp->flags |= B44_FLAG_ADV_10FULL;
+-			if (cmd->advertising & ADVERTISED_100baseT_Half)
++			if (advertising & ADVERTISED_100baseT_Half)
+ 				bp->flags |= B44_FLAG_ADV_100HALF;
+-			if (cmd->advertising & ADVERTISED_100baseT_Full)
++			if (advertising & ADVERTISED_100baseT_Full)
+ 				bp->flags |= B44_FLAG_ADV_100FULL;
+ 		}
  	} else {
- 		err = generic_mii_ioctl(&bp->mii_if, if_mii(ifr), cmd, NULL);
+@@ -1943,7 +1953,7 @@ static int b44_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 		bp->flags &= ~(B44_FLAG_100_BASE_T | B44_FLAG_FULL_DUPLEX);
+ 		if (speed == SPEED_100)
+ 			bp->flags |= B44_FLAG_100_BASE_T;
+-		if (cmd->duplex == DUPLEX_FULL)
++		if (cmd->base.duplex == DUPLEX_FULL)
+ 			bp->flags |= B44_FLAG_FULL_DUPLEX;
  	}
-@@ -2206,7 +2206,7 @@ static const struct net_device_ops b44_netdev_ops = {
- static void b44_adjust_link(struct net_device *dev)
- {
- 	struct b44 *bp = netdev_priv(dev);
--	struct phy_device *phydev = bp->phydev;
-+	struct phy_device *phydev = dev->phydev;
- 	bool status_changed = 0;
  
- 	BUG_ON(!phydev);
-@@ -2303,7 +2303,6 @@ static int b44_register_phy_one(struct b44 *bp)
- 			      SUPPORTED_MII);
- 	phydev->advertising = phydev->supported;
+@@ -2110,8 +2120,6 @@ static int b44_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
  
--	bp->phydev = phydev;
- 	bp->old_link = 0;
- 	bp->phy_addr = phydev->mdio.addr;
+ static const struct ethtool_ops b44_ethtool_ops = {
+ 	.get_drvinfo		= b44_get_drvinfo,
+-	.get_settings		= b44_get_settings,
+-	.set_settings		= b44_set_settings,
+ 	.nway_reset		= b44_nway_reset,
+ 	.get_link		= ethtool_op_get_link,
+ 	.get_wol		= b44_get_wol,
+@@ -2125,6 +2133,8 @@ static const struct ethtool_ops b44_ethtool_ops = {
+ 	.get_strings		= b44_get_strings,
+ 	.get_sset_count		= b44_get_sset_count,
+ 	.get_ethtool_stats	= b44_get_ethtool_stats,
++	.get_link_ksettings	= b44_get_link_ksettings,
++	.set_link_ksettings	= b44_set_link_ksettings,
+ };
  
-@@ -2323,9 +2322,10 @@ err_out:
- 
- static void b44_unregister_phy_one(struct b44 *bp)
- {
-+	struct net_device *dev = bp->dev;
- 	struct mii_bus *mii_bus = bp->mii_bus;
- 
--	phy_disconnect(bp->phydev);
-+	phy_disconnect(dev->phydev);
- 	mdiobus_unregister(mii_bus);
- 	mdiobus_free(mii_bus);
- }
-diff --git a/drivers/net/ethernet/broadcom/b44.h b/drivers/net/ethernet/broadcom/b44.h
-index 65d88d7..89d2cf3 100644
---- a/drivers/net/ethernet/broadcom/b44.h
-+++ b/drivers/net/ethernet/broadcom/b44.h
-@@ -404,7 +404,6 @@ struct b44 {
- 	u32			tx_pending;
- 	u8			phy_addr;
- 	u8			force_copybreak;
--	struct phy_device	*phydev;
- 	struct mii_bus		*mii_bus;
- 	int			old_link;
- 	struct mii_if_info	mii_if;
+ static int b44_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 -- 
 1.7.4.4
