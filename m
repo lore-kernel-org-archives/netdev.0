@@ -1,173 +1,71 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCHv6 net-next 15/15] nfp: bpf: add offload of TC direct action mode
-Date: Sun, 18 Sep 2016 16:09:25 +0100
-Message-ID: <1474211365-20088-16-git-send-email-jakub.kicinski@netronome.com>
+Subject: [PATCHv6 net-next 10/15] net: cls_bpf: allow offloaded filters to update stats
+Date: Sun, 18 Sep 2016 16:09:20 +0100
+Message-ID: <1474211365-20088-11-git-send-email-jakub.kicinski@netronome.com>
 References: <1474211365-20088-1-git-send-email-jakub.kicinski@netronome.com>
 Cc: ast@kernel.org, daniel@iogearbox.net,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:35184 "EHLO
-        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932338AbcIRPKB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 11:10:01 -0400
-Received: by mail-wm0-f43.google.com with SMTP id l132so112200156wmf.0
-        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 08:10:00 -0700 (PDT)
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:35840 "EHLO
+        mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933848AbcIRPJ4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 11:09:56 -0400
+Received: by mail-wm0-f42.google.com with SMTP id w84so37326601wmg.1
+        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 08:09:56 -0700 (PDT)
 In-Reply-To: <1474211365-20088-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add offload of TC in direct action mode.  We just need
-to provide appropriate checks in the verifier and
-a new outro block to translate the exit codes to what
-data path expects
+Call into offloaded filters to update stats.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_bpf.h       |  1 +
- drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c   | 66 ++++++++++++++++++++++
- .../net/ethernet/netronome/nfp/nfp_bpf_verifier.c  | 11 +++-
- .../net/ethernet/netronome/nfp/nfp_net_offload.c   |  6 +-
- 4 files changed, 82 insertions(+), 2 deletions(-)
+ include/net/pkt_cls.h |  1 +
+ net/sched/cls_bpf.c   | 11 +++++++++++
+ 2 files changed, 12 insertions(+)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_bpf.h b/drivers/net/ethernet/netronome/nfp/nfp_bpf.h
-index adbe0235d98e..fc220cd04115 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_bpf.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_bpf.h
-@@ -61,6 +61,7 @@ enum static_regs {
- enum nfp_bpf_action_type {
- 	NN_ACT_TC_DROP,
- 	NN_ACT_TC_REDIR,
-+	NN_ACT_DIRECT,
+diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+index 57af9f3032ff..5ccaa4be7d96 100644
+--- a/include/net/pkt_cls.h
++++ b/include/net/pkt_cls.h
+@@ -490,6 +490,7 @@ enum tc_clsbpf_command {
+ 	TC_CLSBPF_ADD,
+ 	TC_CLSBPF_REPLACE,
+ 	TC_CLSBPF_DESTROY,
++	TC_CLSBPF_STATS,
  };
  
- /* Software register representation, hardware encoding in asm.h */
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c b/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
-index 434bef975c58..3de819acd68c 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
-@@ -321,6 +321,16 @@ __emit_br(struct nfp_prog *nfp_prog, enum br_mask mask, enum br_ev_pip ev_pip,
- 	nfp_prog_push(nfp_prog, insn);
+ struct tc_cls_bpf_offload {
+diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
+index 18f9869cd4da..9b29e0673346 100644
+--- a/net/sched/cls_bpf.c
++++ b/net/sched/cls_bpf.c
+@@ -220,6 +220,15 @@ static void cls_bpf_stop_offload(struct tcf_proto *tp,
+ 	prog->offloaded = false;
  }
  
-+static void emit_br_def(struct nfp_prog *nfp_prog, u16 addr, u8 defer)
++static void cls_bpf_offload_update_stats(struct tcf_proto *tp,
++					 struct cls_bpf_prog *prog)
 +{
-+	if (defer > 2) {
-+		pr_err("BUG: branch defer out of bounds %d\n", defer);
-+		nfp_prog->error = -EFAULT;
++	if (!prog->offloaded)
 +		return;
-+	}
-+	__emit_br(nfp_prog, BR_UNC, BR_EV_PIP_UNCOND, BR_CSS_NONE, addr, defer);
++
++	cls_bpf_offload_cmd(tp, prog, TC_CLSBPF_STATS);
 +}
 +
- static void
- emit_br(struct nfp_prog *nfp_prog, enum br_mask mask, u16 addr, u8 defer)
+ static int cls_bpf_init(struct tcf_proto *tp)
  {
-@@ -1465,9 +1475,65 @@ static void nfp_outro_tc_legacy(struct nfp_prog *nfp_prog)
- 		      SHF_SC_L_SHF, 16);
- }
+ 	struct cls_bpf_head *head;
+@@ -575,6 +584,8 @@ static int cls_bpf_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
  
-+static void nfp_outro_tc_da(struct nfp_prog *nfp_prog)
-+{
-+	/* TC direct-action mode:
-+	 *   0,1   ok        NOT SUPPORTED[1]
-+	 *   2   drop  0x22 -> drop,  count as stat1
-+	 *   4,5 nuke  0x02 -> drop
-+	 *   7  redir  0x44 -> redir, count as stat2
-+	 *   * unspec  0x11 -> pass,  count as stat0
-+	 *
-+	 * [1] We can't support OK and RECLASSIFY because we can't tell TC
-+	 *     the exact decision made.  We are forced to support UNSPEC
-+	 *     to handle aborts so that's the only one we handle for passing
-+	 *     packets up the stack.
-+	 */
-+	/* Target for aborts */
-+	nfp_prog->tgt_abort = nfp_prog_current_offset(nfp_prog);
-+
-+	emit_br_def(nfp_prog, nfp_prog->tgt_done, 2);
-+
-+	emit_alu(nfp_prog, reg_a(0),
-+		 reg_none(), ALU_OP_NONE, NFP_BPF_ABI_FLAGS);
-+	emit_ld_field(nfp_prog, reg_a(0), 0xc, reg_imm(0x11), SHF_SC_L_SHF, 16);
-+
-+	/* Target for normal exits */
-+	nfp_prog->tgt_out = nfp_prog_current_offset(nfp_prog);
-+
-+	/* if R0 > 7 jump to abort */
-+	emit_alu(nfp_prog, reg_none(), reg_imm(7), ALU_OP_SUB, reg_b(0));
-+	emit_br(nfp_prog, BR_BLO, nfp_prog->tgt_abort, 0);
-+	emit_alu(nfp_prog, reg_a(0),
-+		 reg_none(), ALU_OP_NONE, NFP_BPF_ABI_FLAGS);
-+
-+	wrp_immed(nfp_prog, reg_b(2), 0x41221211);
-+	wrp_immed(nfp_prog, reg_b(3), 0x41001211);
-+
-+	emit_shf(nfp_prog, reg_a(1),
-+		 reg_none(), SHF_OP_NONE, reg_b(0), SHF_SC_L_SHF, 2);
-+
-+	emit_alu(nfp_prog, reg_none(), reg_a(1), ALU_OP_OR, reg_imm(0));
-+	emit_shf(nfp_prog, reg_a(2),
-+		 reg_imm(0xf), SHF_OP_AND, reg_b(2), SHF_SC_R_SHF, 0);
-+
-+	emit_alu(nfp_prog, reg_none(), reg_a(1), ALU_OP_OR, reg_imm(0));
-+	emit_shf(nfp_prog, reg_b(2),
-+		 reg_imm(0xf), SHF_OP_AND, reg_b(3), SHF_SC_R_SHF, 0);
-+
-+	emit_br_def(nfp_prog, nfp_prog->tgt_done, 2);
-+
-+	emit_shf(nfp_prog, reg_b(2),
-+		 reg_a(2), SHF_OP_OR, reg_b(2), SHF_SC_L_SHF, 4);
-+	emit_ld_field(nfp_prog, reg_a(0), 0xc, reg_b(2), SHF_SC_L_SHF, 16);
-+}
-+
- static void nfp_outro(struct nfp_prog *nfp_prog)
- {
- 	switch (nfp_prog->act) {
-+	case NN_ACT_DIRECT:
-+		nfp_outro_tc_da(nfp_prog);
-+		break;
- 	case NN_ACT_TC_DROP:
- 	case NN_ACT_TC_REDIR:
- 		nfp_outro_tc_legacy(nfp_prog);
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_bpf_verifier.c b/drivers/net/ethernet/netronome/nfp/nfp_bpf_verifier.c
-index ef6775b54168..144cae87f63a 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_bpf_verifier.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_bpf_verifier.c
-@@ -86,7 +86,16 @@ nfp_bpf_check_exit(struct nfp_prog *nfp_prog,
- 		return -EINVAL;
- 	}
+ 	tm->tcm_handle = prog->handle;
  
--	if (reg0->imm != 0 && (reg0->imm & ~0U) != ~0U) {
-+	if (nfp_prog->act != NN_ACT_DIRECT &&
-+	    reg0->imm != 0 && (reg0->imm & ~0U) != ~0U) {
-+		pr_info("unsupported exit state: %d, imm: %llx\n",
-+			reg0->type, reg0->imm);
-+		return -EINVAL;
-+	}
++	cls_bpf_offload_update_stats(tp, prog);
 +
-+	if (nfp_prog->act == NN_ACT_DIRECT && reg0->imm <= TC_ACT_REDIRECT &&
-+	    reg0->imm != TC_ACT_SHOT && reg0->imm != TC_ACT_STOLEN &&
-+	    reg0->imm != TC_ACT_QUEUED) {
- 		pr_info("unsupported exit state: %d, imm: %llx\n",
- 			reg0->type, reg0->imm);
- 		return -EINVAL;
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_offload.c b/drivers/net/ethernet/netronome/nfp/nfp_net_offload.c
-index 1ec8e5b74651..43f42f842eda 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_offload.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_offload.c
-@@ -112,8 +112,12 @@ nfp_net_bpf_get_act(struct nfp_net *nn, struct tc_cls_bpf_offload *cls_bpf)
- 	LIST_HEAD(actions);
- 
- 	/* TC direct action */
--	if (cls_bpf->exts_integrated)
-+	if (cls_bpf->exts_integrated) {
-+		if (tc_no_actions(cls_bpf->exts))
-+			return NN_ACT_DIRECT;
-+
- 		return -ENOTSUPP;
-+	}
- 
- 	/* TC legacy mode */
- 	if (!tc_single_action(cls_bpf->exts))
+ 	nest = nla_nest_start(skb, TCA_OPTIONS);
+ 	if (nest == NULL)
+ 		goto nla_put_failure;
 -- 
 1.9.1
