@@ -1,49 +1,39 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net] MAINTAINERS: Gary Zambrano's email is bouncing
-Date: Sat, 17 Sep 2016 16:57:10 -0700
-Message-ID: <1474156630.1954.12.camel@perches.com>
-References: <1474151235-16558-1-git-send-email-f.fainelli@gmail.com>
-         <1474152709.1954.8.camel@perches.com>
-         <CAGVrzcaswHEjEvBygXbDcgUPaAmP=t9RHY8mVv4tVOgK7N9ARw@mail.gmail.com>
-         <1474154637.1954.10.camel@perches.com>
-         <d9aaaf17-4d82-a8f0-d257-aba1e78704e8@gmail.com>
+From: pravin shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
+Subject: Re: [PATCH v2 1/2] openvswitch: fix flow stats accounting
+ when node 0 is not possible
+Date: Sat, 17 Sep 2016 19:06:27 -0700
+Message-ID: <CAOrHB_D8rgEMi_yZc5wRXUiHeHqLHV89HVX29OfFd9xjDzRQuQ@mail.gmail.com>
+References: <1473977513-7617-1-git-send-email-cascardo@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Michael Chan <michael.chan@broadcom.com>,
-        bcm-kernel-feedback-list <bcm-kernel-feedback-list@broadcom.com>,
-        =?UTF-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5@gmail.com>,
-        Hauke Mehrtens <hauke@hauke-m.de>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0051.hostedemail.com ([216.40.44.51]:34384 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1754335AbcIQX5P (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2016 19:57:15 -0400
-In-Reply-To: <d9aaaf17-4d82-a8f0-d257-aba1e78704e8@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Thadeu Lima de Souza Cascardo <cascardo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1473977513-7617-1-git-send-email-cascardo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2016-09-17 at 16:38 -0700, Florian Fainelli wrote:
-> 2016-09-17 16:23 GMT-07:00 Joe Perches <joe@perches.com>:
-> > On Sat, 2016-09-17 at 16:17 -0700, Florian Fainelli wrote:
-> > > The list does not accept public subscribers, so this is the correct
-> > > entry to use.
-> > Then M: is definitely _not_ the correct entry for this
-> > and it should be:
-> > L: bcm-kernel-feedback-list@broadcom.com (subscribers-only)
-
-> Olof indicated otherwise, so who is right here?https://www.spinics.net/lists/arm-kernel/msg512572.html
-
-> prompting to this patch series:
-> http://linux-arm-kernel.infradead.narkive.com/CRyvGOKd/patch-maintainers-change-l-to-
-
-This hasn't been applied to -next, and I looked at the 
-existing L: entries.
-
-No worries here either if it's an exploder and not a mailing list.
-
-Pity it's not called something like bcm-linux-drivers@broadcom.com
-if it's really an exploder.
+T24gVGh1LCBTZXAgMTUsIDIwMTYgYXQgMzoxMSBQTSwgVGhhZGV1IExpbWEgZGUgU291emEgQ2Fz
+Y2FyZG8KPGNhc2NhcmRvQHJlZGhhdC5jb20+IHdyb3RlOgo+IE9uIGEgc3lzdGVtIHdpdGggb25s
+eSBub2RlIDEgYXMgcG9zc2libGUsIGFsbCBzdGF0aXN0aWNzIGlzIGdvaW5nIHRvIGJlCj4gYWNj
+b3VudGVkIG9uIG5vZGUgMCBhcyBpdCB3aWxsIGhhdmUgYSBzaW5nbGUgd3JpdGVyLgo+Cj4gSG93
+ZXZlciwgd2hlbiBnZXR0aW5nIGFuZCBjbGVhcmluZyB0aGUgc3RhdGlzdGljcywgbm9kZSAwIGlz
+IG5vdCBnb2luZwo+IHRvIGJlIGNvbnNpZGVyZWQsIGFzIGl0J3Mgbm90IGEgcG9zc2libGUgbm9k
+ZS4KPgo+IFRlc3RlZCB0aGF0IHN0YXRpc3RpY3MgYXJlIG5vdCB6ZXJvIG9uIGEgc3lzdGVtIHdp
+dGggb25seSBub2RlIDEKPiBwb3NzaWJsZS4gQWxzbyBjb21waWxlLXRlc3RlZCB3aXRoIENPTkZJ
+R19OVU1BIG9mZi4KPgo+IFNpZ25lZC1vZmYtYnk6IFRoYWRldSBMaW1hIGRlIFNvdXphIENhc2Nh
+cmRvIDxjYXNjYXJkb0ByZWRoYXQuY29tPgoKQWNrZWQtYnk6IFByYXZpbiBCIFNoZWxhciA8cHNo
+ZWxhckBvdm4ub3JnPgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dp
+dGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
