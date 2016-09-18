@@ -1,99 +1,64 @@
-From: <salome.khum@vision-france.net>
-Subject: 60139 netdev
-Date: Sun, 18 Sep 2016 16:33:51 -0000
-Message-ID: <147421643125.25026.17659710229103230912@etb.net.co>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCHv4 next 3/3] ipvlan: Introduce l3s mode
+Date: Sun, 18 Sep 2016 10:57:35 -0600
+Message-ID: <b8002d08-ff4a-b53e-6dff-2cf969db3189@cumulusnetworks.com>
+References: <1474055959-12565-1-git-send-email-mahesh@bandewar.net>
 Mime-Version: 1.0
-Content-Type: application/zip; name="INFO_796252996155807_netdev.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>,
+        Mahesh Bandewar <maheshb@google.com>
+To: Mahesh Bandewar <mahesh@bandewar.net>,
+        netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-190-24-207-54.static.etb.net.co ([190.24.207.54]:47919
-        "HELO etb.net.co" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with SMTP id S1753117AbcIRQd7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 12:33:59 -0400
-Content-Disposition: attachment
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:36074 "EHLO
+        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754653AbcIRQ6V (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 12:58:21 -0400
+Received: by mail-pf0-f174.google.com with SMTP id q2so22608136pfj.3
+        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 09:57:37 -0700 (PDT)
+In-Reply-To: <1474055959-12565-1-git-send-email-mahesh@bandewar.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
+On 9/16/16 1:59 PM, Mahesh Bandewar wrote:
+> From: Mahesh Bandewar <maheshb@google.com>
+> 
+> In a typical IPvlan L3 setup where master is in default-ns and
+> each slave is into different (slave) ns. In this setup egress
+> packet processing for traffic originating from slave-ns will
+> hit all NF_HOOKs in slave-ns as well as default-ns. However same
+> is not true for ingress processing. All these NF_HOOKs are
+> hit only in the slave-ns skipping them in the default-ns.
+> IPvlan in L3 mode is restrictive and if admins want to deploy
+> iptables rules in default-ns, this asymmetric data path makes it
+> impossible to do so.
+> 
+> This patch makes use of the l3_rcv() (added as part of l3mdev
+> enhancements) to perform input route lookup on RX packets without
+> changing the skb->dev and then uses nf_hook at NF_INET_LOCAL_IN
+> to change the skb->dev just before handing over skb to L4.
+
+Today's l3 mode only allows netfilter Rx rules on ipvlan devices in slave-ns since skb->dev is changed to ipvlan device and the namespace crossing happens in rx-handler.
+
+This new l3s mode only allows Rx rules on the parent devices (eg., eth1) in the default-ns since skb->dev stays as parent device until the NF_HOOK is run. Specifically, you can't put rules on eth1 and ipvl0 since the packet never goes through L3 with the ipvlan device set?
+
+So the 'symmetric' is wrt to the parent device in the default-ns.
+
+Also, there is no longer an explicit namespace crossing; that happens via the route lookup and setting dst on the skb. I guess for this use case it is ok.
+
+> 
+> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+> CC: David Ahern <dsa@cumulusnetworks.com>
+> ---
+>  Documentation/networking/ipvlan.txt |  7 ++-
+>  drivers/net/Kconfig                 |  1 +
+>  drivers/net/ipvlan/ipvlan.h         |  6 +++
+>  drivers/net/ipvlan/ipvlan_core.c    | 94 +++++++++++++++++++++++++++++++++++++
+>  drivers/net/ipvlan/ipvlan_main.c    | 87 +++++++++++++++++++++++++++++++---
+>  include/uapi/linux/if_link.h        |  1 +
+>  6 files changed, 188 insertions(+), 8 deletions(-)
+
+
+Reviewed-by: David Ahern <dsa@cumulusnetworks.com>
