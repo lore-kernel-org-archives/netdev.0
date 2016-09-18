@@ -1,58 +1,148 @@
-From: kbuild test robot <fengguang.wu@intel.com>
-Subject: [net-next:master 136/385] net/sched/cls_route.c:565:22-26: ERROR: f
- is NULL but dereferenced.
-Date: Sun, 18 Sep 2016 22:57:44 +0800
-Message-ID: <201609182242.pYJ4QbRR%fengguang.wu@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all@01.org, netdev@vger.kernel.org
-To: WANG Cong <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:5983 "EHLO mga01.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754634AbcIRO5w (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 18 Sep 2016 10:57:52 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH 1/2] net: ethernet: broadcom: bcm63xx: use phydev from struct net_device
+Date: Sun, 18 Sep 2016 16:59:06 +0200
+Message-ID: <1474210747-19627-1-git-send-email-tremyfr@gmail.com>
+Cc: bcm-kernel-feedback-list@broadcom.com, netdev@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: f.fainelli@gmail.com, davem@davemloft.net, andrew@lunn.ch,
+        treding@nvidia.com, ivecera@redhat.com, xypron.glpk@gmx.de,
+        simon@fire.lp0.eu
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-tree:   https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
-head:   fd9527f404d51e50f40dac0d9a69f2eff3dac33e
-commit: b9a24bb76bf611a5268ceffe04219e6ad264559b [136/385] net_sched: properly handle failure case of tcf_exts_init()
+The private structure contain a pointer to phydev, but the structure
+net_device already contain such pointer. So we can remove the pointer
+phydev in the private structure, and update the driver to use the
+one contained in struct net_device.
 
-
-coccinelle warnings: (new ones prefixed by >>)
-
->> net/sched/cls_route.c:565:22-26: ERROR: f is NULL but dereferenced.
-
-vim +565 net/sched/cls_route.c
-
-   549						*fp = f->next;
-   550						break;
-   551					}
-   552				}
-   553			}
-   554		}
-   555	
-   556		route4_reset_fastmap(head);
-   557		*arg = (unsigned long)f;
-   558		if (fold) {
-   559			tcf_unbind_filter(tp, &fold->res);
-   560			call_rcu(&fold->rcu, route4_delete_filter);
-   561		}
-   562		return 0;
-   563	
-   564	errout:
- > 565		tcf_exts_destroy(&f->exts);
-   566		kfree(f);
-   567		return err;
-   568	}
-   569	
-   570	static void route4_walk(struct tcf_proto *tp, struct tcf_walker *arg)
-   571	{
-   572		struct route4_head *head = rtnl_dereference(tp->root);
-   573		unsigned int h, h1;
-
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+ drivers/net/ethernet/broadcom/bcm63xx_enet.c |   31 +++++++++++--------------
+ drivers/net/ethernet/broadcom/bcm63xx_enet.h |    1 -
+ 2 files changed, 14 insertions(+), 18 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+index 6c8bc5f..082f3f0 100644
+--- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
++++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+@@ -791,7 +791,7 @@ static void bcm_enet_adjust_phy_link(struct net_device *dev)
+ 	int status_changed;
+ 
+ 	priv = netdev_priv(dev);
+-	phydev = priv->phydev;
++	phydev = dev->phydev;
+ 	status_changed = 0;
+ 
+ 	if (priv->old_link != phydev->link) {
+@@ -913,7 +913,6 @@ static int bcm_enet_open(struct net_device *dev)
+ 		priv->old_link = 0;
+ 		priv->old_duplex = -1;
+ 		priv->old_pause = -1;
+-		priv->phydev = phydev;
+ 	}
+ 
+ 	/* mask all interrupts and request them */
+@@ -1085,7 +1084,7 @@ static int bcm_enet_open(struct net_device *dev)
+ 			 ENETDMAC_IRMASK, priv->tx_chan);
+ 
+ 	if (priv->has_phy)
+-		phy_start(priv->phydev);
++		phy_start(phydev);
+ 	else
+ 		bcm_enet_adjust_link(dev);
+ 
+@@ -1127,7 +1126,7 @@ out_freeirq:
+ 	free_irq(dev->irq, dev);
+ 
+ out_phy_disconnect:
+-	phy_disconnect(priv->phydev);
++	phy_disconnect(phydev);
+ 
+ 	return ret;
+ }
+@@ -1190,7 +1189,7 @@ static int bcm_enet_stop(struct net_device *dev)
+ 	netif_stop_queue(dev);
+ 	napi_disable(&priv->napi);
+ 	if (priv->has_phy)
+-		phy_stop(priv->phydev);
++		phy_stop(dev->phydev);
+ 	del_timer_sync(&priv->rx_timeout);
+ 
+ 	/* mask all interrupts */
+@@ -1234,10 +1233,8 @@ static int bcm_enet_stop(struct net_device *dev)
+ 	free_irq(dev->irq, dev);
+ 
+ 	/* release phy */
+-	if (priv->has_phy) {
+-		phy_disconnect(priv->phydev);
+-		priv->phydev = NULL;
+-	}
++	if (priv->has_phy)
++		phy_disconnect(dev->phydev);
+ 
+ 	return 0;
+ }
+@@ -1437,9 +1434,9 @@ static int bcm_enet_nway_reset(struct net_device *dev)
+ 
+ 	priv = netdev_priv(dev);
+ 	if (priv->has_phy) {
+-		if (!priv->phydev)
++		if (!dev->phydev)
+ 			return -ENODEV;
+-		return genphy_restart_aneg(priv->phydev);
++		return genphy_restart_aneg(dev->phydev);
+ 	}
+ 
+ 	return -EOPNOTSUPP;
+@@ -1456,9 +1453,9 @@ static int bcm_enet_get_settings(struct net_device *dev,
+ 	cmd->maxtxpkt = 0;
+ 
+ 	if (priv->has_phy) {
+-		if (!priv->phydev)
++		if (!dev->phydev)
+ 			return -ENODEV;
+-		return phy_ethtool_gset(priv->phydev, cmd);
++		return phy_ethtool_gset(dev->phydev, cmd);
+ 	} else {
+ 		cmd->autoneg = 0;
+ 		ethtool_cmd_speed_set(cmd, ((priv->force_speed_100)
+@@ -1483,9 +1480,9 @@ static int bcm_enet_set_settings(struct net_device *dev,
+ 
+ 	priv = netdev_priv(dev);
+ 	if (priv->has_phy) {
+-		if (!priv->phydev)
++		if (!dev->phydev)
+ 			return -ENODEV;
+-		return phy_ethtool_sset(priv->phydev, cmd);
++		return phy_ethtool_sset(dev->phydev, cmd);
+ 	} else {
+ 
+ 		if (cmd->autoneg ||
+@@ -1604,9 +1601,9 @@ static int bcm_enet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 
+ 	priv = netdev_priv(dev);
+ 	if (priv->has_phy) {
+-		if (!priv->phydev)
++		if (!dev->phydev)
+ 			return -ENODEV;
+-		return phy_mii_ioctl(priv->phydev, rq, cmd);
++		return phy_mii_ioctl(dev->phydev, rq, cmd);
+ 	} else {
+ 		struct mii_if_info mii;
+ 
+diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.h b/drivers/net/ethernet/broadcom/bcm63xx_enet.h
+index f55af43..0a1b7b2 100644
+--- a/drivers/net/ethernet/broadcom/bcm63xx_enet.h
++++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.h
+@@ -290,7 +290,6 @@ struct bcm_enet_priv {
+ 
+ 	/* used when a phy is connected (phylib used) */
+ 	struct mii_bus *mii_bus;
+-	struct phy_device *phydev;
+ 	int old_link;
+ 	int old_duplex;
+ 	int old_pause;
+-- 
+1.7.4.4
