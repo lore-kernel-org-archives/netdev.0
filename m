@@ -1,46 +1,481 @@
 From: Baoyou Xie <baoyou.xie@linaro.org>
-Subject: [PATCH] igb: mark igb_rxnfc_write_vlan_prio_filter() static
-Date: Sun, 18 Sep 2016 16:50:28 +0800
-Message-ID: <1474188628-420-1-git-send-email-baoyou.xie@linaro.org>
+Subject: [PATCH] net: hns: mark symbols static where possible
+Date: Sun, 18 Sep 2016 17:07:25 +0800
+Message-ID: <1474189645-6165-1-git-send-email-baoyou.xie@linaro.org>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        arnd@arndb.de, baoyou.xie@linaro.org, xie.baoyou@zte.com.cn
-To: jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org
+        baoyou.xie@linaro.org, xie.baoyou@zte.com.cn
+To: yisen.zhuang@huawei.com, salil.mehta@huawei.com,
+        davem@davemloft.net, yankejian@huawei.com,
+        huangdaode@hisilicon.com, lisheng011@huawei.com, fabf@skynet.be,
+        xieqianqian@huawei.com, lipeng321@huawei.com,
+        weiyongjun1@huawei.com, liguozhu@huawei.com, arnd@arndb.de,
+        andrew@lunn.ch, chenny.xu@huawei.com, xypron.glpk@gmx.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:36608 "EHLO
-        mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754494AbcIRIul (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 04:50:41 -0400
-Received: by mail-pa0-f54.google.com with SMTP id id6so38915163pad.3
-        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 01:50:40 -0700 (PDT)
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:33856 "EHLO
+        mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753830AbcIRJIr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 05:08:47 -0400
+Received: by mail-pa0-f45.google.com with SMTP id wk8so38977312pab.1
+        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 02:08:47 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We get 1 warning when building kernel with W=1:
-drivers/net/ethernet/intel/igb/igb_ethtool.c:2707:5: warning: no previous prototype for 'igb_rxnfc_write_vlan_prio_filter' [-Wmissing-prototypes]
+We get a few warnings when building kernel with W=1:
+drivers/net/ethernet/hisilicon/hisi_femac.c:943:5: warning: no previous prototype for 'hisi_femac_drv_suspend' [-Wmissing-prototypes]
+drivers/net/ethernet/hisilicon/hisi_femac.c:960:5: warning: no previous prototype for 'hisi_femac_drv_resume' [-Wmissing-prototypes]
+drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:76:21: warning: no previous prototype for 'hns_ae_get_handle' [-Wmissing-prototypes]
+....
 
-In fact, this function is only used in the file in which it is
+In fact, these functions are only used in the file in which they are
 declared and don't need a declaration, but can be made static.
-so this patch marks this function with 'static'.
+so this patch marks these functions with 'static'.
 
 Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
 ---
- drivers/net/ethernet/intel/igb/igb_ethtool.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/hisilicon/hisi_femac.c        |  6 ++---
+ drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c  | 30 +++++++++++-----------
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c |  2 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  |  8 +++---
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c |  7 ++---
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c |  6 ++---
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c  |  7 ++---
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c  |  4 +--
+ .../net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c    |  2 +-
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c      | 12 ++++-----
+ drivers/net/ethernet/hisilicon/hns/hns_ethtool.c   | 24 +++++++++--------
+ 11 files changed, 57 insertions(+), 51 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-index 0c33eca..737b664 100644
---- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-@@ -2704,8 +2704,8 @@ static int igb_rxnfc_write_etype_filter(struct igb_adapter *adapter,
+diff --git a/drivers/net/ethernet/hisilicon/hisi_femac.c b/drivers/net/ethernet/hisilicon/hisi_femac.c
+index ca68e22..ced1859 100644
+--- a/drivers/net/ethernet/hisilicon/hisi_femac.c
++++ b/drivers/net/ethernet/hisilicon/hisi_femac.c
+@@ -940,8 +940,8 @@ static int hisi_femac_drv_remove(struct platform_device *pdev)
+ }
+ 
+ #ifdef CONFIG_PM
+-int hisi_femac_drv_suspend(struct platform_device *pdev,
+-			   pm_message_t state)
++static int hisi_femac_drv_suspend(struct platform_device *pdev,
++				  pm_message_t state)
+ {
+ 	struct net_device *ndev = platform_get_drvdata(pdev);
+ 	struct hisi_femac_priv *priv = netdev_priv(ndev);
+@@ -957,7 +957,7 @@ int hisi_femac_drv_suspend(struct platform_device *pdev,
  	return 0;
  }
  
--int igb_rxnfc_write_vlan_prio_filter(struct igb_adapter *adapter,
--				     struct igb_nfc_filter *input)
-+static int igb_rxnfc_write_vlan_prio_filter(struct igb_adapter *adapter,
-+					    struct igb_nfc_filter *input)
+-int hisi_femac_drv_resume(struct platform_device *pdev)
++static int hisi_femac_drv_resume(struct platform_device *pdev)
  {
- 	struct e1000_hw *hw = &adapter->hw;
- 	u8 vlan_priority;
+ 	struct net_device *ndev = platform_get_drvdata(pdev);
+ 	struct hisi_femac_priv *priv = netdev_priv(ndev);
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
+index e28d960..a1150e9 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
+@@ -73,8 +73,8 @@ static struct ring_pair_cb *hns_ae_get_ring_pair(struct hnae_queue *q)
+ 	return container_of(q, struct ring_pair_cb, q);
+ }
+ 
+-struct hnae_handle *hns_ae_get_handle(struct hnae_ae_dev *dev,
+-				      u32 port_id)
++static struct hnae_handle *hns_ae_get_handle(struct hnae_ae_dev *dev,
++					     u32 port_id)
+ {
+ 	int vfnum_per_port;
+ 	int qnum_per_vf;
+@@ -271,7 +271,7 @@ static int hns_ae_start(struct hnae_handle *handle)
+ 	return 0;
+ }
+ 
+-void hns_ae_stop(struct hnae_handle *handle)
++static void hns_ae_stop(struct hnae_handle *handle)
+ {
+ 	struct hns_mac_cb *mac_cb = hns_get_mac_cb(handle);
+ 
+@@ -299,7 +299,7 @@ static void hns_ae_reset(struct hnae_handle *handle)
+ 	}
+ }
+ 
+-void hns_ae_toggle_ring_irq(struct hnae_ring *ring, u32 mask)
++static void hns_ae_toggle_ring_irq(struct hnae_ring *ring, u32 mask)
+ {
+ 	u32 flag;
+ 
+@@ -487,8 +487,8 @@ static void hns_ae_get_coalesce_range(struct hnae_handle *handle,
+ 	*rx_usecs_high  = HNS_RCB_MAX_COALESCED_USECS;
+ }
+ 
+-void hns_ae_update_stats(struct hnae_handle *handle,
+-			 struct net_device_stats *net_stats)
++static void hns_ae_update_stats(struct hnae_handle *handle,
++				struct net_device_stats *net_stats)
+ {
+ 	int port;
+ 	int idx;
+@@ -570,7 +570,7 @@ void hns_ae_update_stats(struct hnae_handle *handle,
+ 	net_stats->multicast = mac_cb->hw_stats.rx_mc_pkts;
+ }
+ 
+-void hns_ae_get_stats(struct hnae_handle *handle, u64 *data)
++static void hns_ae_get_stats(struct hnae_handle *handle, u64 *data)
+ {
+ 	int idx;
+ 	struct hns_mac_cb *mac_cb;
+@@ -602,8 +602,8 @@ void hns_ae_get_stats(struct hnae_handle *handle, u64 *data)
+ 		hns_dsaf_get_stats(vf_cb->dsaf_dev, p, vf_cb->port_index);
+ }
+ 
+-void hns_ae_get_strings(struct hnae_handle *handle,
+-			u32 stringset, u8 *data)
++static void hns_ae_get_strings(struct hnae_handle *handle,
++			       u32 stringset, u8 *data)
+ {
+ 	int port;
+ 	int idx;
+@@ -635,7 +635,7 @@ void hns_ae_get_strings(struct hnae_handle *handle,
+ 		hns_dsaf_get_strings(stringset, p, port, dsaf_dev);
+ }
+ 
+-int hns_ae_get_sset_count(struct hnae_handle *handle, int stringset)
++static int hns_ae_get_sset_count(struct hnae_handle *handle, int stringset)
+ {
+ 	u32 sset_count = 0;
+ 	struct hns_mac_cb *mac_cb;
+@@ -684,7 +684,7 @@ static int hns_ae_config_loopback(struct hnae_handle *handle,
+ 	return ret;
+ }
+ 
+-void hns_ae_update_led_status(struct hnae_handle *handle)
++static void hns_ae_update_led_status(struct hnae_handle *handle)
+ {
+ 	struct hns_mac_cb *mac_cb;
+ 
+@@ -695,8 +695,8 @@ void hns_ae_update_led_status(struct hnae_handle *handle)
+ 	hns_set_led_opt(mac_cb);
+ }
+ 
+-int hns_ae_cpld_set_led_id(struct hnae_handle *handle,
+-			   enum hnae_led_state status)
++static int hns_ae_cpld_set_led_id(struct hnae_handle *handle,
++				  enum hnae_led_state status)
+ {
+ 	struct hns_mac_cb *mac_cb;
+ 
+@@ -707,7 +707,7 @@ int hns_ae_cpld_set_led_id(struct hnae_handle *handle,
+ 	return hns_cpld_led_set_id(mac_cb, status);
+ }
+ 
+-void hns_ae_get_regs(struct hnae_handle *handle, void *data)
++static void hns_ae_get_regs(struct hnae_handle *handle, void *data)
+ {
+ 	u32 *p = data;
+ 	int i;
+@@ -732,7 +732,7 @@ void hns_ae_get_regs(struct hnae_handle *handle, void *data)
+ 		hns_dsaf_get_regs(vf_cb->dsaf_dev, vf_cb->port_index, p);
+ }
+ 
+-int hns_ae_get_regs_len(struct hnae_handle *handle)
++static int hns_ae_get_regs_len(struct hnae_handle *handle)
+ {
+ 	u32 total_num;
+ 	struct hnae_vf_cb *vf_cb = hns_ae_get_vf_cb(handle);
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
+index 1e1eb92..f0c63c8 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
+@@ -327,7 +327,7 @@ static void hns_gmac_init(void *mac_drv)
+ 		hns_gmac_set_uc_match(mac_drv, 0);
+ }
+ 
+-void hns_gmac_update_stats(void *mac_drv)
++static void hns_gmac_update_stats(void *mac_drv)
+ {
+ 	struct mac_hw_stats *hw_stats = NULL;
+ 	struct mac_driver *drv = (struct mac_driver *)mac_drv;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
+index a68eef0..291a1ae 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
+@@ -882,8 +882,9 @@ static int hns_mac_get_mode(phy_interface_t phy_if)
+ 	}
+ }
+ 
+-u8 __iomem *hns_mac_get_vaddr(struct dsaf_device *dsaf_dev,
+-			      struct hns_mac_cb *mac_cb, u32 mac_mode_idx)
++static u8 __iomem *
++hns_mac_get_vaddr(struct dsaf_device *dsaf_dev,
++		  struct hns_mac_cb *mac_cb, u32 mac_mode_idx)
+ {
+ 	u8 __iomem *base = dsaf_dev->io_base;
+ 	int mac_id = mac_cb->mac_id;
+@@ -901,7 +902,8 @@ u8 __iomem *hns_mac_get_vaddr(struct dsaf_device *dsaf_dev,
+  * @mac_cb: mac control block
+  * return 0 - success , negative --fail
+  */
+-int hns_mac_get_cfg(struct dsaf_device *dsaf_dev, struct hns_mac_cb *mac_cb)
++static int
++hns_mac_get_cfg(struct dsaf_device *dsaf_dev, struct hns_mac_cb *mac_cb)
+ {
+ 	int ret;
+ 	u32 mac_mode_idx;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+index 8e5b3f5..0090927 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+@@ -42,7 +42,7 @@ static const struct acpi_device_id hns_dsaf_acpi_match[] = {
+ };
+ MODULE_DEVICE_TABLE(acpi, hns_dsaf_acpi_match);
+ 
+-int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
++static int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
+ {
+ 	int ret, i;
+ 	u32 desc_num;
+@@ -2085,8 +2085,9 @@ static void hns_dsaf_pfc_unit_cnt(struct dsaf_device *dsaf_dev, int  mac_id,
+  * @dsaf_id: dsa fabric id
+  * @xge_ge_work_mode
+  */
+-void hns_dsaf_port_work_rate_cfg(struct dsaf_device *dsaf_dev, int mac_id,
+-				 enum dsaf_port_rate_mode rate_mode)
++static void
++hns_dsaf_port_work_rate_cfg(struct dsaf_device *dsaf_dev, int mac_id,
++			    enum dsaf_port_rate_mode rate_mode)
+ {
+ 	u32 port_work_mode;
+ 
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
+index 67accce..d452d39 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
+@@ -265,7 +265,7 @@ void hns_dsaf_srst_chns(struct dsaf_device *dsaf_dev, u32 msk, bool dereset)
+  * bit18-19 for com/dfx
+  * @enable: false - request reset , true - drop reset
+  */
+-void
++static void
+ hns_dsaf_srst_chns_acpi(struct dsaf_device *dsaf_dev, u32 msk, bool dereset)
+ {
+ 	hns_dsaf_acpi_srst_by_port(dsaf_dev, HNS_OP_RESET_FUNC,
+@@ -287,7 +287,7 @@ void hns_dsaf_roce_srst(struct dsaf_device *dsaf_dev, bool dereset)
+ 	}
+ }
+ 
+-void hns_dsaf_roce_srst_acpi(struct dsaf_device *dsaf_dev, bool dereset)
++static void hns_dsaf_roce_srst_acpi(struct dsaf_device *dsaf_dev, bool dereset)
+ {
+ 	hns_dsaf_acpi_srst_by_port(dsaf_dev, HNS_OP_RESET_FUNC,
+ 				   HNS_ROCE_RESET_FUNC, 0, dereset);
+@@ -479,7 +479,7 @@ static phy_interface_t hns_mac_get_phy_if_acpi(struct hns_mac_cb *mac_cb)
+ 	return phy_if;
+ }
+ 
+-int hns_mac_get_sfp_prsnt(struct hns_mac_cb *mac_cb, int *sfp_prsnt)
++static int hns_mac_get_sfp_prsnt(struct hns_mac_cb *mac_cb, int *sfp_prsnt)
+ {
+ 	if (!mac_cb->cpld_ctrl)
+ 		return -ENODEV;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
+index 6ea8722..04e674c 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
+@@ -73,7 +73,7 @@ hns_ppe_common_get_ioaddr(struct ppe_common_cb *ppe_common)
+  * comm_index: common index
+  * retuen 0 - success , negative --fail
+  */
+-int hns_ppe_common_get_cfg(struct dsaf_device *dsaf_dev, int comm_index)
++static int hns_ppe_common_get_cfg(struct dsaf_device *dsaf_dev, int comm_index)
+ {
+ 	struct ppe_common_cb *ppe_common;
+ 	int ppe_num;
+@@ -104,7 +104,8 @@ int hns_ppe_common_get_cfg(struct dsaf_device *dsaf_dev, int comm_index)
+ 	return 0;
+ }
+ 
+-void hns_ppe_common_free_cfg(struct dsaf_device *dsaf_dev, u32 comm_index)
++static void
++hns_ppe_common_free_cfg(struct dsaf_device *dsaf_dev, u32 comm_index)
+ {
+ 	dsaf_dev->ppe_common[comm_index] = NULL;
+ }
+@@ -337,7 +338,7 @@ static void hns_ppe_uninit_hw(struct hns_ppe_cb *ppe_cb)
+ 	}
+ }
+ 
+-void hns_ppe_uninit_ex(struct ppe_common_cb *ppe_common)
++static void hns_ppe_uninit_ex(struct ppe_common_cb *ppe_common)
+ {
+ 	u32 i;
+ 
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
+index ef11077..ded4506 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
+@@ -612,7 +612,7 @@ void hns_rcb_get_queue_mode(enum dsaf_mode dsaf_mode, u16 *max_vfn,
+ 	}
+ }
+ 
+-int hns_rcb_get_ring_num(struct dsaf_device *dsaf_dev)
++static int hns_rcb_get_ring_num(struct dsaf_device *dsaf_dev)
+ {
+ 	switch (dsaf_dev->dsaf_mode) {
+ 	case DSAF_MODE_ENABLE_FIX:
+@@ -648,7 +648,7 @@ int hns_rcb_get_ring_num(struct dsaf_device *dsaf_dev)
+ 	}
+ }
+ 
+-void __iomem *hns_rcb_common_get_vaddr(struct rcb_common_cb *rcb_common)
++static void __iomem *hns_rcb_common_get_vaddr(struct rcb_common_cb *rcb_common)
+ {
+ 	struct dsaf_device *dsaf_dev = rcb_common->dsaf_dev;
+ 
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c
+index 8f4f0e8..3198890 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_xgmac.c
+@@ -306,7 +306,7 @@ static void hns_xgmac_config_max_frame_length(void *mac_drv, u16 newval)
+ 	dsaf_write_dev(drv, XGMAC_MAC_MAX_PKT_SIZE_REG, newval);
+ }
+ 
+-void hns_xgmac_update_stats(void *mac_drv)
++static void hns_xgmac_update_stats(void *mac_drv)
+ {
+ 	struct mac_driver *drv = (struct mac_driver *)mac_drv;
+ 	struct mac_hw_stats *hw_stats = &drv->mac_cb->hw_stats;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+index d7e1f8c..cbb0161 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+@@ -1085,7 +1085,7 @@ static int hns_nic_net_set_mac_address(struct net_device *ndev, void *p)
+ 	return 0;
+ }
+ 
+-void hns_nic_update_stats(struct net_device *netdev)
++static void hns_nic_update_stats(struct net_device *netdev)
+ {
+ 	struct hns_nic_priv *priv = netdev_priv(netdev);
+ 	struct hnae_handle *h = priv->ae_handle;
+@@ -1373,7 +1373,7 @@ static int hns_nic_do_ioctl(struct net_device *netdev, struct ifreq *ifr,
+ 
+ /* use only for netconsole to poll with the device without interrupt */
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+-void hns_nic_poll_controller(struct net_device *ndev)
++static void hns_nic_poll_controller(struct net_device *ndev)
+ {
+ 	struct hns_nic_priv *priv = netdev_priv(ndev);
+ 	unsigned long flags;
+@@ -1486,7 +1486,7 @@ static netdev_features_t hns_nic_fix_features(
+  *
+  * return void
+  */
+-void hns_set_multicast_list(struct net_device *ndev)
++static void hns_set_multicast_list(struct net_device *ndev)
+ {
+ 	struct hns_nic_priv *priv = netdev_priv(ndev);
+ 	struct hnae_handle *h = priv->ae_handle;
+@@ -1504,7 +1504,7 @@ void hns_set_multicast_list(struct net_device *ndev)
+ 	}
+ }
+ 
+-void hns_nic_set_rx_mode(struct net_device *ndev)
++static void hns_nic_set_rx_mode(struct net_device *ndev)
+ {
+ 	struct hns_nic_priv *priv = netdev_priv(ndev);
+ 	struct hnae_handle *h = priv->ae_handle;
+@@ -1519,8 +1519,8 @@ void hns_nic_set_rx_mode(struct net_device *ndev)
+ 	hns_set_multicast_list(ndev);
+ }
+ 
+-struct rtnl_link_stats64 *hns_nic_get_stats64(struct net_device *ndev,
+-					      struct rtnl_link_stats64 *stats)
++static struct rtnl_link_stats64 *
++hns_nic_get_stats64(struct net_device *ndev, struct rtnl_link_stats64 *stats)
+ {
+ 	int idx = 0;
+ 	u64 tx_bytes = 0;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+index 5eb3245..76ff959 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+@@ -666,8 +666,8 @@ static void hns_nic_get_drvinfo(struct net_device *net_dev,
+  * @dev: net device
+  * @param: ethtool parameter
+  */
+-void hns_get_ringparam(struct net_device *net_dev,
+-		       struct ethtool_ringparam *param)
++static void hns_get_ringparam(struct net_device *net_dev,
++			      struct ethtool_ringparam *param)
+ {
+ 	struct hns_nic_priv *priv = netdev_priv(net_dev);
+ 	struct hnae_ae_ops *ops;
+@@ -815,7 +815,8 @@ static int hns_set_coalesce(struct net_device *net_dev,
+  * @dev: net device
+  * @ch: channel info.
+  */
+-void hns_get_channels(struct net_device *net_dev, struct ethtool_channels *ch)
++static void
++hns_get_channels(struct net_device *net_dev, struct ethtool_channels *ch)
+ {
+ 	struct hns_nic_priv *priv = netdev_priv(net_dev);
+ 
+@@ -832,8 +833,8 @@ void hns_get_channels(struct net_device *net_dev, struct ethtool_channels *ch)
+  * @stats: statistics info.
+  * @data: statistics data.
+  */
+-void hns_get_ethtool_stats(struct net_device *netdev,
+-			   struct ethtool_stats *stats, u64 *data)
++static void hns_get_ethtool_stats(struct net_device *netdev,
++				  struct ethtool_stats *stats, u64 *data)
+ {
+ 	u64 *p = data;
+ 	struct hns_nic_priv *priv = netdev_priv(netdev);
+@@ -890,7 +891,7 @@ void hns_get_ethtool_stats(struct net_device *netdev,
+  * @stats: string set ID.
+  * @data: objects data.
+  */
+-void hns_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
++static void hns_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
+ {
+ 	struct hns_nic_priv *priv = netdev_priv(netdev);
+ 	struct hnae_handle *h = priv->ae_handle;
+@@ -980,7 +981,7 @@ void hns_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
+  *
+  * Return string set count.
+  */
+-int hns_get_sset_count(struct net_device *netdev, int stringset)
++static int hns_get_sset_count(struct net_device *netdev, int stringset)
+ {
+ 	struct hns_nic_priv *priv = netdev_priv(netdev);
+ 	struct hnae_handle *h = priv->ae_handle;
+@@ -1012,7 +1013,7 @@ int hns_get_sset_count(struct net_device *netdev, int stringset)
+  *
+  * Return 0 on success, negative on failure.
+  */
+-int hns_phy_led_set(struct net_device *netdev, int value)
++static int hns_phy_led_set(struct net_device *netdev, int value)
+ {
+ 	int retval;
+ 	struct hns_nic_priv *priv = netdev_priv(netdev);
+@@ -1035,7 +1036,8 @@ int hns_phy_led_set(struct net_device *netdev, int value)
+  *
+  * Return 0 on success, negative on failure.
+  */
+-int hns_set_phys_id(struct net_device *netdev, enum ethtool_phys_id_state state)
++static int
++hns_set_phys_id(struct net_device *netdev, enum ethtool_phys_id_state state)
+ {
+ 	struct hns_nic_priv *priv = netdev_priv(netdev);
+ 	struct hnae_handle *h = priv->ae_handle;
+@@ -1109,8 +1111,8 @@ int hns_set_phys_id(struct net_device *netdev, enum ethtool_phys_id_state state)
+  * @cmd: ethtool cmd
+  * @date: register data
+  */
+-void hns_get_regs(struct net_device *net_dev, struct ethtool_regs *cmd,
+-		  void *data)
++static void hns_get_regs(struct net_device *net_dev, struct ethtool_regs *cmd,
++			 void *data)
+ {
+ 	struct hns_nic_priv *priv = netdev_priv(net_dev);
+ 	struct hnae_ae_ops *ops;
 -- 
 2.7.4
