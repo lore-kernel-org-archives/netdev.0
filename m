@@ -1,96 +1,77 @@
-From: Tariq Toukan <ttoukan.linux@gmail.com>
-Subject: Re: [net PATCH V3] mlx4: fix XDP_TX is acting like XDP_PASS on TX
- ring full
-Date: Sun, 18 Sep 2016 11:30:52 +0300
-Message-ID: <aa4e2527-8e67-fe10-bb10-d96969181e9c@gmail.com>
-References: <20160917164650.53e68314@redhat.com>
- <20160917154753.3130.16986.stgit@firesoul>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, bblanco@plumgrid.com, rana.shahot@gmail.com,
-        "David S. Miller" <davem@davemloft.net>
-To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
-        tariqt@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36293 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750849AbcIRIa4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 04:30:56 -0400
-Received: by mail-wm0-f65.google.com with SMTP id b184so10116930wma.3
-        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 01:30:55 -0700 (PDT)
-In-Reply-To: <20160917154753.3130.16986.stgit@firesoul>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Baoyou Xie <baoyou.xie@linaro.org>
+Subject: [PATCH] be2net: mark symbols static where possible
+Date: Sun, 18 Sep 2016 16:35:29 +0800
+Message-ID: <1474187729-25326-1-git-send-email-baoyou.xie@linaro.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        arnd@arndb.de, baoyou.xie@linaro.org, xie.baoyou@zte.com.cn
+To: sathya.perla@broadcom.com, ajit.khaparde@broadcom.com,
+        sriharsha.basavapatna@broadcom.com, somnath.kotur@broadcom.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+We get 4 warnings when building kernel with W=1:
+drivers/net/ethernet/emulex/benet/be_main.c:4368:6: warning: no previous prototype for 'be_calculate_pf_pool_rss_tables' [-Wmissing-prototypes]
+drivers/net/ethernet/emulex/benet/be_cmds.c:4385:5: warning: no previous prototype for 'be_get_nic_pf_num_list' [-Wmissing-prototypes]
+drivers/net/ethernet/emulex/benet/be_cmds.c:4537:6: warning: no previous prototype for 'be_reset_nic_desc' [-Wmissing-prototypes]
+drivers/net/ethernet/emulex/benet/be_cmds.c:4910:5: warning: no previous prototype for '__be_cmd_set_logical_link_config' [-Wmissing-prototypes]
 
-On 17/09/2016 6:48 PM, Jesper Dangaard Brouer wrote:
-> The XDP_TX action can fail transmitting the frame in case the TX ring
-> is full or port is down.  In case of TX failure it should drop the
-> frame, and not as now call 'break' which is the same as XDP_PASS.
->
-> Fixes: 9ecc2d86171a ("net/mlx4_en: add xdp forwarding and data write support")
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
->
-> ---
-> Is this goto lable inside a switch case too ugly?
-I thought about getting "shared code" outside of the switch case, but I 
-don't think it will look any better.
+In fact, these functions are only used in the file in which they are
+declared and don't need a declaration, but can be made static.
+so this patch marks these functions with 'static'.
 
-Given this label, we can change the goto position by re-ordering the 
-cases, swapping between XDP_TX and default so that the XDP_TX is 
-immediately followed by XDP_ABORTED and XDP_DROP, and won't need a goto 
-operation.
-Instead, it will be used in default case, which should not be reached 
-anyway. This saves a jump for actual (error) cases.
+Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
+---
+ drivers/net/ethernet/emulex/benet/be_cmds.c | 9 +++++----
+ drivers/net/ethernet/emulex/benet/be_main.c | 2 +-
+ 2 files changed, 6 insertions(+), 5 deletions(-)
 
-Something like this:
-
-act = bpf_prog_run_xdp(xdp_prog, &xdp);
-switch (act) {
-case XDP_PASS:
-         break;
-default:
-         bpf_warn_invalid_xdp_action(act);
-         goto xdp_drop;
-case XDP_TX:
-         if (!mlx4_en_xmit_frame(frags, dev,
-                                 length, tx_index,
-                                 &doorbell_pending))
-                 goto consumed;
-case XDP_ABORTED:
-case XDP_DROP:
-xdp_drop:
-         if (mlx4_en_rx_recycle(ring, frags))
-                 goto consumed;
-         goto next;
-}
-
-> Note, this fix have nothing to do with the page-refcnt bug I reported.
->
->   drivers/net/ethernet/mellanox/mlx4/en_rx.c |    3 ++-
->   1 file changed, 2 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> index 2040dad8611d..9eadda431965 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> @@ -906,11 +906,12 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
->   							length, tx_index,
->   							&doorbell_pending))
->   					goto consumed;
-> -				break;
-> +				goto xdp_drop; /* Drop on xmit failure */
->   			default:
->   				bpf_warn_invalid_xdp_action(act);
->   			case XDP_ABORTED:
->   			case XDP_DROP:
-> +			xdp_drop:
->   				if (mlx4_en_rx_recycle(ring, frags))
->   					goto consumed;
->   				goto next;
->
-But also this way is fine by me.
-
-Regards,
-Tariq
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index 15d02da..9cffe48 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -4382,7 +4382,7 @@ err:
+ }
+ 
+ /* This routine returns a list of all the NIC PF_nums in the adapter */
+-u16 be_get_nic_pf_num_list(u8 *buf, u32 desc_count, u16 *nic_pf_nums)
++static u16 be_get_nic_pf_num_list(u8 *buf, u32 desc_count, u16 *nic_pf_nums)
+ {
+ 	struct be_res_desc_hdr *hdr = (struct be_res_desc_hdr *)buf;
+ 	struct be_pcie_res_desc *pcie = NULL;
+@@ -4534,7 +4534,7 @@ static int be_cmd_set_profile_config(struct be_adapter *adapter, void *desc,
+ }
+ 
+ /* Mark all fields invalid */
+-void be_reset_nic_desc(struct be_nic_res_desc *nic)
++static void be_reset_nic_desc(struct be_nic_res_desc *nic)
+ {
+ 	memset(nic, 0, sizeof(*nic));
+ 	nic->unicast_mac_count = 0xFFFF;
+@@ -4907,8 +4907,9 @@ err:
+ 	return status;
+ }
+ 
+-int __be_cmd_set_logical_link_config(struct be_adapter *adapter,
+-				     int link_state, int version, u8 domain)
++static int
++__be_cmd_set_logical_link_config(struct be_adapter *adapter,
++				 int link_state, int version, u8 domain)
+ {
+ 	struct be_mcc_wrb *wrb;
+ 	struct be_cmd_req_set_ll_link *req;
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 34f63ef..9a94840 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -4365,7 +4365,7 @@ static void be_setup_init(struct be_adapter *adapter)
+  * for distribution between the VFs. This self-imposed limit will determine the
+  * no: of VFs for which RSS can be enabled.
+  */
+-void be_calculate_pf_pool_rss_tables(struct be_adapter *adapter)
++static void be_calculate_pf_pool_rss_tables(struct be_adapter *adapter)
+ {
+ 	struct be_port_resources port_res = {0};
+ 	u8 rss_tables_on_port;
+-- 
+2.7.4
