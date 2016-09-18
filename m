@@ -1,63 +1,46 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] net: mvneta: mark symbols static where possible
-Date: Sun, 18 Sep 2016 15:05:12 +0300
-Message-ID: <8cba4a0e-cbf6-ca67-a117-4c558d2c36f1@cogentembedded.com>
-References: <1474190445-5887-1-git-send-email-baoyou.xie@linaro.org>
+From: Eric Leblond <eric@regit.org>
+Subject: eBPF: how to check the flow table
+Date: Sun, 18 Sep 2016 14:02:15 +0200
+Message-ID: <1474200135.19872.12.camel@regit.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        arnd@arndb.de, xie.baoyou@zte.com.cn
-To: Baoyou Xie <baoyou.xie@linaro.org>,
-        thomas.petazzoni@free-electrons.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        daniel@iogearbox.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f48.google.com ([209.85.215.48]:36755 "EHLO
-        mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755585AbcIRMFQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 08:05:16 -0400
-Received: by mail-lf0-f48.google.com with SMTP id g62so88891557lfe.3
-        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 05:05:15 -0700 (PDT)
-In-Reply-To: <1474190445-5887-1-git-send-email-baoyou.xie@linaro.org>
+Received: from home.regit.org ([37.187.126.138]:41856 "EHLO home.regit.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754166AbcIRM26 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 18 Sep 2016 08:28:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Hello,
 
-On 9/18/2016 12:20 PM, Baoyou Xie wrote:
+I'm currently testing a code implementing AF_PACKET bypass for
+Suricata. The idea is that Suricata is updating a hash table containing
+a list of flows it does not want to see anymore.
 
-> We get 2 warnings when building kernel with W=1:
-> drivers/net/ethernet/marvell/mvneta.c:639:27: warning: no previous prototype for 'mvneta_get_stats64' [-Wmissing-prototypes]
-> drivers/net/ethernet/marvell/mvneta.c:3529:5: warning: no previous prototype for 'mvneta_ethtool_set_link_ksettings' [-Wmissing-prototypes]
->
-> In fact, these functions are only used in the file in which they are
-> declared and don't need a declaration, but can be made static.
-> so this patch marks these functions with 'static'.
->
-> Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
-> ---
->  drivers/net/ethernet/marvell/mvneta.c | 10 ++++++----
->  1 file changed, 6 insertions(+), 4 deletions(-)
->
-> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-> index 32f0cc4..03be592 100644
-> --- a/drivers/net/ethernet/marvell/mvneta.c
-> +++ b/drivers/net/ethernet/marvell/mvneta.c
-> @@ -636,8 +636,9 @@ static void mvneta_mib_counters_clear(struct mvneta_port *pp)
->  }
->
->  /* Get System Network Statistics */
-> -struct rtnl_link_stats64 *mvneta_get_stats64(struct net_device *dev,
-> -					     struct rtnl_link_stats64 *stats)
-> +static struct
-> +rtnl_link_stats64 *mvneta_get_stats64(struct net_device *dev,
+I want to check flow timeout from the userspace, so my current
+algorithm is doing:
 
-    I'd break the line after * heren not where you did it. This way the 
-function type would remain all in one line.
+    while (bpf_get_next_key(mapfd, &key, &next_key) == 0) {
+        bpf_lookup_elem(mapfd, &next_key, &value);
+        FlowCallback(mapfd, &next_key, &value, data);
+        key = next_key;
+    }
 
-> +				      struct rtnl_link_stats64 *stats)
->  {
->  	struct mvneta_port *pp = netdev_priv(dev);
->  	unsigned int start;
-[...]
+In the FlowCallback, I check the timing in the flow entry and I remove
+the key if the flow is timeout.
 
-MBR, Sergei
+This is currently working well when there is only a few flows but on a
+real system with log of insertion in the table, the loop is never
+returning because we dequeue slower than we enqueue.
+
+Is there a better algorithm or an other way to do it ? 
+
+BR,
+-- 
+Eric Leblond <eric@regit.org>
+Blog: https://home.regit.org/
