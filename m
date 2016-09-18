@@ -1,119 +1,182 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCHv6 net-next 00/15] BPF hardware offload (cls_bpf for now)
-Date: Sun, 18 Sep 2016 16:09:10 +0100
-Message-ID: <1474211365-20088-1-git-send-email-jakub.kicinski@netronome.com>
+Subject: [PATCHv6 net-next 04/15] bpf: don't (ab)use instructions to store state
+Date: Sun, 18 Sep 2016 16:09:14 +0100
+Message-ID: <1474211365-20088-5-git-send-email-jakub.kicinski@netronome.com>
+References: <1474211365-20088-1-git-send-email-jakub.kicinski@netronome.com>
 Cc: ast@kernel.org, daniel@iogearbox.net,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:37977 "EHLO
-        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752323AbcIRPJr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 11:09:47 -0400
-Received: by mail-wm0-f43.google.com with SMTP id 1so117958362wmz.1
-        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 08:09:46 -0700 (PDT)
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:36869 "EHLO
+        mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752803AbcIRPJv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 11:09:51 -0400
+Received: by mail-wm0-f49.google.com with SMTP id b130so23087557wmc.0
+        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 08:09:50 -0700 (PDT)
+In-Reply-To: <1474211365-20088-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+Storing state in reserved fields of instructions makes
+it impossible to run verifier on programs already
+marked as read-only. Allocate and use an array of
+per-instruction state instead.
 
-As spotted by Daniel JIT might have accessed indexes past the end
-of verifier's reg_state array.
+While touching the error path rename and move existing
+jump target.
 
-v6 (patch 8 only):
- - explicitly check for registers >= MAX_BPF_REG;
- - fix leaky error path.
-v5:
- - fix names of guard defines in bpf_verfier.h.
-v4:
- - rename parser -> analyzer;
- - reorganize the analyzer patches a bit;
- - use bitfield.h directly.
+Suggested-by: Alexei Starovoitov <ast@kernel.org>
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+v3:
+ - new patch.
+---
+ kernel/bpf/verifier.c | 51 ++++++++++++++++++++++++++++++++-------------------
+ 1 file changed, 32 insertions(+), 19 deletions(-)
 
---- merge blurb:
-In the last year a lot of progress have been made on offloading
-simpler TC classifiers.  There is also growing interest in using
-BPF for generic high-speed packet processing in the kernel.
-It seems beneficial to tie those two trends together and think
-about hardware offloads of BPF programs.  This patch set presents
-such offload to Netronome smart NICs.  cls_bpf is extended with
-hardware offload capabilities and NFP driver gets a JIT translator
-which in presence of capable firmware can be used to offload
-the BPF program onto the card.
-
-BPF JIT implementation is not 100% complete (e.g. missing instructions)
-but it is functional.  Encouragingly it should be possible to
-offload most (if not all) advanced BPF features onto the NIC - 
-including packet modification, maps, tunnel encap/decap etc.
-
-Example of basic tests I used:
-  __section_cls_entry
-  int cls_entry(struct __sk_buff *skb)
-  {
-	if (load_byte(skb, 0) != 0x0)
-		return 0;
-
-	if (load_byte(skb, 4) != 0x1)
-		return 0;
-
-	skb->mark = 0xcafe;
-
-	if (load_byte(skb, 50) != 0xff)
-		return 0;
-
-	return ~0U;
-  }
-
-Above code can be compiled with Clang and loaded like this:
-# ethtool -K p1p1 hw-tc-offload on
-# tc qdisc add dev p1p1 ingress
-# tc filter add dev p1p1 parent ffff:  bpf obj prog.o action drop
-
-This set implements the basic transparent offload, the skip_{sw,hw}
-flags and reporting statistics for cls_bpf.
-
-Jakub Kicinski (15):
-  net: cls_bpf: add hardware offload
-  net: cls_bpf: limit hardware offload by software-only flag
-  net: cls_bpf: add support for marking filters as hardware-only
-  bpf: don't (ab)use instructions to store state
-  bpf: expose internal verfier structures
-  bpf: enable non-core use of the verfier
-  bpf: recognize 64bit immediate loads as consts
-  nfp: add BPF to NFP code translator
-  nfp: bpf: add hardware bpf offload
-  net: cls_bpf: allow offloaded filters to update stats
-  nfp: bpf: allow offloaded filters to update stats
-  nfp: bpf: add packet marking support
-  net: act_mirred: allow statistic updates from offloaded actions
-  nfp: bpf: add support for legacy redirect action
-  nfp: bpf: add offload of TC direct action mode
-
- drivers/net/ethernet/netronome/nfp/Makefile        |    7 +
- drivers/net/ethernet/netronome/nfp/nfp_asm.h       |  233 +++
- drivers/net/ethernet/netronome/nfp/nfp_bpf.h       |  212 +++
- drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c   | 1811 ++++++++++++++++++++
- .../net/ethernet/netronome/nfp/nfp_bpf_verifier.c  |  171 ++
- drivers/net/ethernet/netronome/nfp/nfp_net.h       |   47 +-
- .../net/ethernet/netronome/nfp/nfp_net_common.c    |  134 +-
- drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h  |   51 +-
- .../net/ethernet/netronome/nfp/nfp_net_ethtool.c   |   12 +
- .../net/ethernet/netronome/nfp/nfp_net_offload.c   |  291 ++++
- .../net/ethernet/netronome/nfp/nfp_netvf_main.c    |    2 +-
- include/linux/bpf_verifier.h                       |   89 +
- include/linux/netdevice.h                          |    2 +
- include/net/pkt_cls.h                              |   16 +
- include/uapi/linux/pkt_cls.h                       |    1 +
- kernel/bpf/verifier.c                              |  384 +++--
- net/sched/act_mirred.c                             |    8 +
- net/sched/cls_bpf.c                                |  117 +-
- 18 files changed, 3382 insertions(+), 206 deletions(-)
- create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_asm.h
- create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_bpf.h
- create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
- create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_bpf_verifier.c
- create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_net_offload.c
- create mode 100644 include/linux/bpf_verifier.h
-
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 90493a66dddd..f5c1a4571331 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -181,6 +181,10 @@ struct verifier_stack_elem {
+ 	struct verifier_stack_elem *next;
+ };
+ 
++struct bpf_insn_aux_data {
++	enum bpf_reg_type ptr_type;	/* pointer type for load/store insns */
++};
++
+ #define MAX_USED_MAPS 64 /* max number of maps accessed by one eBPF program */
+ 
+ /* single container for all structs
+@@ -196,6 +200,7 @@ struct verifier_env {
+ 	u32 used_map_cnt;		/* number of used maps */
+ 	u32 id_gen;			/* used to generate unique reg IDs */
+ 	bool allow_ptr_leaks;
++	struct bpf_insn_aux_data *insn_aux_data; /* array of per-insn state */
+ };
+ 
+ #define BPF_COMPLEXITY_LIMIT_INSNS	65536
+@@ -2334,7 +2339,7 @@ static int do_check(struct verifier_env *env)
+ 				return err;
+ 
+ 		} else if (class == BPF_LDX) {
+-			enum bpf_reg_type src_reg_type;
++			enum bpf_reg_type *prev_src_type, src_reg_type;
+ 
+ 			/* check for reserved fields is already done */
+ 
+@@ -2364,16 +2369,18 @@ static int do_check(struct verifier_env *env)
+ 				continue;
+ 			}
+ 
+-			if (insn->imm == 0) {
++			prev_src_type = &env->insn_aux_data[insn_idx].ptr_type;
++
++			if (*prev_src_type == NOT_INIT) {
+ 				/* saw a valid insn
+ 				 * dst_reg = *(u32 *)(src_reg + off)
+-				 * use reserved 'imm' field to mark this insn
++				 * save type to validate intersecting paths
+ 				 */
+-				insn->imm = src_reg_type;
++				*prev_src_type = src_reg_type;
+ 
+-			} else if (src_reg_type != insn->imm &&
++			} else if (src_reg_type != *prev_src_type &&
+ 				   (src_reg_type == PTR_TO_CTX ||
+-				    insn->imm == PTR_TO_CTX)) {
++				    *prev_src_type == PTR_TO_CTX)) {
+ 				/* ABuser program is trying to use the same insn
+ 				 * dst_reg = *(u32*) (src_reg + off)
+ 				 * with different pointer types:
+@@ -2386,7 +2393,7 @@ static int do_check(struct verifier_env *env)
+ 			}
+ 
+ 		} else if (class == BPF_STX) {
+-			enum bpf_reg_type dst_reg_type;
++			enum bpf_reg_type *prev_dst_type, dst_reg_type;
+ 
+ 			if (BPF_MODE(insn->code) == BPF_XADD) {
+ 				err = check_xadd(env, insn);
+@@ -2414,11 +2421,13 @@ static int do_check(struct verifier_env *env)
+ 			if (err)
+ 				return err;
+ 
+-			if (insn->imm == 0) {
+-				insn->imm = dst_reg_type;
+-			} else if (dst_reg_type != insn->imm &&
++			prev_dst_type = &env->insn_aux_data[insn_idx].ptr_type;
++
++			if (*prev_dst_type == NOT_INIT) {
++				*prev_dst_type = dst_reg_type;
++			} else if (dst_reg_type != *prev_dst_type &&
+ 				   (dst_reg_type == PTR_TO_CTX ||
+-				    insn->imm == PTR_TO_CTX)) {
++				    *prev_dst_type == PTR_TO_CTX)) {
+ 				verbose("same insn cannot be used with different pointers\n");
+ 				return -EINVAL;
+ 			}
+@@ -2697,11 +2706,8 @@ static int convert_ctx_accesses(struct verifier_env *env)
+ 		else
+ 			continue;
+ 
+-		if (insn->imm != PTR_TO_CTX) {
+-			/* clear internal mark */
+-			insn->imm = 0;
++		if (env->insn_aux_data[i].ptr_type != PTR_TO_CTX)
+ 			continue;
+-		}
+ 
+ 		cnt = env->prog->aux->ops->
+ 			convert_ctx_access(type, insn->dst_reg, insn->src_reg,
+@@ -2766,6 +2772,11 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr)
+ 	if (!env)
+ 		return -ENOMEM;
+ 
++	env->insn_aux_data = vzalloc(sizeof(struct bpf_insn_aux_data) *
++				     (*prog)->len);
++	ret = -ENOMEM;
++	if (!env->insn_aux_data)
++		goto err_free_env;
+ 	env->prog = *prog;
+ 
+ 	/* grab the mutex to protect few globals used by verifier */
+@@ -2784,12 +2795,12 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr)
+ 		/* log_* values have to be sane */
+ 		if (log_size < 128 || log_size > UINT_MAX >> 8 ||
+ 		    log_level == 0 || log_ubuf == NULL)
+-			goto free_env;
++			goto err_unlock;
+ 
+ 		ret = -ENOMEM;
+ 		log_buf = vmalloc(log_size);
+ 		if (!log_buf)
+-			goto free_env;
++			goto err_unlock;
+ 	} else {
+ 		log_level = 0;
+ 	}
+@@ -2858,14 +2869,16 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr)
+ free_log_buf:
+ 	if (log_level)
+ 		vfree(log_buf);
+-free_env:
+ 	if (!env->prog->aux->used_maps)
+ 		/* if we didn't copy map pointers into bpf_prog_info, release
+ 		 * them now. Otherwise free_bpf_prog_info() will release them.
+ 		 */
+ 		release_maps(env);
+ 	*prog = env->prog;
+-	kfree(env);
++err_unlock:
+ 	mutex_unlock(&bpf_verifier_lock);
++	vfree(env->insn_aux_data);
++err_free_env:
++	kfree(env);
+ 	return ret;
+ }
 -- 
 1.9.1
