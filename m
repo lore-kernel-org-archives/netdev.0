@@ -1,7 +1,7 @@
 From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH v3 net-next 03/16] tcp: use windowed min filter library for TCP min_rtt estimation
-Date: Sun, 18 Sep 2016 18:03:40 -0400
-Message-ID: <1474236233-28511-4-git-send-email-ncardwell@google.com>
+Subject: [PATCH v3 net-next 02/16] lib/win_minmax: windowed min or max estimator
+Date: Sun, 18 Sep 2016 18:03:39 -0400
+Message-ID: <1474236233-28511-3-git-send-email-ncardwell@google.com>
 References: <1474236233-28511-1-git-send-email-ncardwell@google.com>
 Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
         Van Jacobson <vanj@google.com>,
@@ -11,23 +11,34 @@ Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
         Soheil Hassas Yeganeh <soheil@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f175.google.com ([209.85.216.175]:32963 "EHLO
-        mail-qt0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933234AbcIRWEJ (ORCPT
+Received: from mail-qt0-f177.google.com ([209.85.216.177]:32961 "EHLO
+        mail-qt0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932595AbcIRWEJ (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 18:04:09 -0400
-Received: by mail-qt0-f175.google.com with SMTP id 11so64694286qtc.0
-        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 15:04:09 -0700 (PDT)
+Received: by mail-qt0-f177.google.com with SMTP id 11so64694168qtc.0
+        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 15:04:08 -0700 (PDT)
 In-Reply-To: <1474236233-28511-1-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Refactor the TCP min_rtt code to reuse the new win_minmax library in
-lib/win_minmax.c to simplify the TCP code.
+This commit introduces a generic library to estimate either the min or
+max value of a time-varying variable over a recent time window. This
+is code originally from Kathleen Nichols. The current form of the code
+is from Van Jacobson.
 
-This is a pure refactor: the functionality is exactly the same. We
-just moved the windowed min code to make TCP easier to read and
-maintain, and to allow other parts of the kernel to use the windowed
-min/max filter code.
+A single struct minmax_sample will track the estimated windowed-max
+value of the series if you call minmax_running_max() or the estimated
+windowed-min value of the series if you call minmax_running_min().
+
+Nearly equivalent code is already in place for minimum RTT estimation
+in the TCP stack. This commit extracts that code and generalizes it to
+handle both min and max. Moving the code here reduces the footprint
+and complexity of the TCP code base and makes the filter generally
+available for other parts of the codebase, including an upcoming TCP
+congestion control module.
+
+This library works well for time series where the measurements are
+smoothly increasing or decreasing.
 
 Signed-off-by: Van Jacobson <vanj@google.com>
 Signed-off-by: Neal Cardwell <ncardwell@google.com>
@@ -36,151 +47,172 @@ Signed-off-by: Nandita Dukkipati <nanditad@google.com>
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
 ---
- include/linux/tcp.h      |  5 ++--
- include/net/tcp.h        |  2 +-
- net/ipv4/tcp.c           |  2 +-
- net/ipv4/tcp_input.c     | 64 ++++--------------------------------------------
- net/ipv4/tcp_minisocks.c |  2 +-
- 5 files changed, 10 insertions(+), 65 deletions(-)
+ include/linux/win_minmax.h | 37 +++++++++++++++++
+ lib/Makefile               |  2 +-
+ lib/win_minmax.c           | 98 ++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 136 insertions(+), 1 deletion(-)
+ create mode 100644 include/linux/win_minmax.h
+ create mode 100644 lib/win_minmax.c
 
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index c723a46..6433cc8 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -19,6 +19,7 @@
- 
- 
- #include <linux/skbuff.h>
-+#include <linux/win_minmax.h>
- #include <net/sock.h>
- #include <net/inet_connection_sock.h>
- #include <net/inet_timewait_sock.h>
-@@ -234,9 +235,7 @@ struct tcp_sock {
- 	u32	mdev_max_us;	/* maximal mdev for the last rtt period	*/
- 	u32	rttvar_us;	/* smoothed mdev_max			*/
- 	u32	rtt_seq;	/* sequence number to update rttvar	*/
--	struct rtt_meas {
--		u32 rtt, ts;	/* RTT in usec and sampling time in jiffies. */
--	} rtt_min[3];
-+	struct  minmax rtt_min;
- 
- 	u32	packets_out;	/* Packets which are "in flight"	*/
- 	u32	retrans_out;	/* Retransmitted packets out		*/
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index fdfbedd..2f1648a 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -671,7 +671,7 @@ static inline bool tcp_ca_dst_locked(const struct dst_entry *dst)
- /* Minimum RTT in usec. ~0 means not available. */
- static inline u32 tcp_min_rtt(const struct tcp_sock *tp)
- {
--	return tp->rtt_min[0].rtt;
-+	return minmax_get(&tp->rtt_min);
- }
- 
- /* Compute the actual receive window we are currently advertising.
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index a13fcb3..5b0b49c 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -387,7 +387,7 @@ void tcp_init_sock(struct sock *sk)
- 
- 	icsk->icsk_rto = TCP_TIMEOUT_INIT;
- 	tp->mdev_us = jiffies_to_usecs(TCP_TIMEOUT_INIT);
--	tp->rtt_min[0].rtt = ~0U;
-+	minmax_reset(&tp->rtt_min, tcp_time_stamp, ~0U);
- 
- 	/* So many TCP implementations out there (incorrectly) count the
- 	 * initial SYN frame in their delayed-ACK and congestion control
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 70b892d..ac5b38f 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -2879,67 +2879,13 @@ static void tcp_fastretrans_alert(struct sock *sk, const int acked,
- 	*rexmit = REXMIT_LOST;
- }
- 
--/* Kathleen Nichols' algorithm for tracking the minimum value of
-- * a data stream over some fixed time interval. (E.g., the minimum
-- * RTT over the past five minutes.) It uses constant space and constant
-- * time per update yet almost always delivers the same minimum as an
-- * implementation that has to keep all the data in the window.
-- *
-- * The algorithm keeps track of the best, 2nd best & 3rd best min
-- * values, maintaining an invariant that the measurement time of the
-- * n'th best >= n-1'th best. It also makes sure that the three values
-- * are widely separated in the time window since that bounds the worse
-- * case error when that data is monotonically increasing over the window.
-- *
-- * Upon getting a new min, we can forget everything earlier because it
-- * has no value - the new min is <= everything else in the window by
-- * definition and it's the most recent. So we restart fresh on every new min
-- * and overwrites 2nd & 3rd choices. The same property holds for 2nd & 3rd
-- * best.
-- */
- static void tcp_update_rtt_min(struct sock *sk, u32 rtt_us)
- {
--	const u32 now = tcp_time_stamp, wlen = sysctl_tcp_min_rtt_wlen * HZ;
--	struct rtt_meas *m = tcp_sk(sk)->rtt_min;
--	struct rtt_meas rttm = {
--		.rtt = likely(rtt_us) ? rtt_us : jiffies_to_usecs(1),
--		.ts = now,
--	};
--	u32 elapsed;
--
--	/* Check if the new measurement updates the 1st, 2nd, or 3rd choices */
--	if (unlikely(rttm.rtt <= m[0].rtt))
--		m[0] = m[1] = m[2] = rttm;
--	else if (rttm.rtt <= m[1].rtt)
--		m[1] = m[2] = rttm;
--	else if (rttm.rtt <= m[2].rtt)
--		m[2] = rttm;
--
--	elapsed = now - m[0].ts;
--	if (unlikely(elapsed > wlen)) {
--		/* Passed entire window without a new min so make 2nd choice
--		 * the new min & 3rd choice the new 2nd. So forth and so on.
--		 */
--		m[0] = m[1];
--		m[1] = m[2];
--		m[2] = rttm;
--		if (now - m[0].ts > wlen) {
--			m[0] = m[1];
--			m[1] = rttm;
--			if (now - m[0].ts > wlen)
--				m[0] = rttm;
--		}
--	} else if (m[1].ts == m[0].ts && elapsed > wlen / 4) {
--		/* Passed a quarter of the window without a new min so
--		 * take 2nd choice from the 2nd quarter of the window.
--		 */
--		m[2] = m[1] = rttm;
--	} else if (m[2].ts == m[1].ts && elapsed > wlen / 2) {
--		/* Passed half the window without a new min so take the 3rd
--		 * choice from the last half of the window.
--		 */
--		m[2] = rttm;
--	}
-+	struct tcp_sock *tp = tcp_sk(sk);
-+	u32 wlen = sysctl_tcp_min_rtt_wlen * HZ;
+diff --git a/include/linux/win_minmax.h b/include/linux/win_minmax.h
+new file mode 100644
+index 0000000..5656960
+--- /dev/null
++++ b/include/linux/win_minmax.h
+@@ -0,0 +1,37 @@
++/**
++ * lib/minmax.c: windowed min/max tracker by Kathleen Nichols.
++ *
++ */
++#ifndef MINMAX_H
++#define MINMAX_H
 +
-+	minmax_running_min(&tp->rtt_min, wlen, tcp_time_stamp,
-+			   rtt_us ? : jiffies_to_usecs(1));
- }
++#include <linux/types.h>
++
++/* A single data point for our parameterized min-max tracker */
++struct minmax_sample {
++	u32	t;	/* time measurement was taken */
++	u32	v;	/* value measured */
++};
++
++/* State for the parameterized min-max tracker */
++struct minmax {
++	struct minmax_sample s[3];
++};
++
++static inline u32 minmax_get(const struct minmax *m)
++{
++	return m->s[0].v;
++}
++
++static inline u32 minmax_reset(struct minmax *m, u32 t, u32 meas)
++{
++	struct minmax_sample val = { .t = t, .v = meas };
++
++	m->s[2] = m->s[1] = m->s[0] = val;
++	return m->s[0].v;
++}
++
++u32 minmax_running_max(struct minmax *m, u32 win, u32 t, u32 meas);
++u32 minmax_running_min(struct minmax *m, u32 win, u32 t, u32 meas);
++
++#endif
+diff --git a/lib/Makefile b/lib/Makefile
+index 5dc77a8..df747e5 100644
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -22,7 +22,7 @@ lib-y := ctype.o string.o vsprintf.o cmdline.o \
+ 	 sha1.o chacha20.o md5.o irq_regs.o argv_split.o \
+ 	 flex_proportions.o ratelimit.o show_mem.o \
+ 	 is_single_threaded.o plist.o decompress.o kobject_uevent.o \
+-	 earlycpio.o seq_buf.o nmi_backtrace.o nodemask.o
++	 earlycpio.o seq_buf.o nmi_backtrace.o nodemask.o win_minmax.o
  
- static inline bool tcp_ack_update_rtt(struct sock *sk, const int flag,
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index f63c73d..5689471 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -464,7 +464,7 @@ struct sock *tcp_create_openreq_child(const struct sock *sk,
- 
- 		newtp->srtt_us = 0;
- 		newtp->mdev_us = jiffies_to_usecs(TCP_TIMEOUT_INIT);
--		newtp->rtt_min[0].rtt = ~0U;
-+		minmax_reset(&newtp->rtt_min, tcp_time_stamp, ~0U);
- 		newicsk->icsk_rto = TCP_TIMEOUT_INIT;
- 
- 		newtp->packets_out = 0;
+ lib-$(CONFIG_MMU) += ioremap.o
+ lib-$(CONFIG_SMP) += cpumask.o
+diff --git a/lib/win_minmax.c b/lib/win_minmax.c
+new file mode 100644
+index 0000000..c8420d4
+--- /dev/null
++++ b/lib/win_minmax.c
+@@ -0,0 +1,98 @@
++/**
++ * lib/minmax.c: windowed min/max tracker
++ *
++ * Kathleen Nichols' algorithm for tracking the minimum (or maximum)
++ * value of a data stream over some fixed time interval.  (E.g.,
++ * the minimum RTT over the past five minutes.) It uses constant
++ * space and constant time per update yet almost always delivers
++ * the same minimum as an implementation that has to keep all the
++ * data in the window.
++ *
++ * The algorithm keeps track of the best, 2nd best & 3rd best min
++ * values, maintaining an invariant that the measurement time of
++ * the n'th best >= n-1'th best. It also makes sure that the three
++ * values are widely separated in the time window since that bounds
++ * the worse case error when that data is monotonically increasing
++ * over the window.
++ *
++ * Upon getting a new min, we can forget everything earlier because
++ * it has no value - the new min is <= everything else in the window
++ * by definition and it's the most recent. So we restart fresh on
++ * every new min and overwrites 2nd & 3rd choices. The same property
++ * holds for 2nd & 3rd best.
++ */
++#include <linux/module.h>
++#include <linux/win_minmax.h>
++
++/* As time advances, update the 1st, 2nd, and 3rd choices. */
++static u32 minmax_subwin_update(struct minmax *m, u32 win,
++				const struct minmax_sample *val)
++{
++	u32 dt = val->t - m->s[0].t;
++
++	if (unlikely(dt > win)) {
++		/*
++		 * Passed entire window without a new val so make 2nd
++		 * choice the new val & 3rd choice the new 2nd choice.
++		 * we may have to iterate this since our 2nd choice
++		 * may also be outside the window (we checked on entry
++		 * that the third choice was in the window).
++		 */
++		m->s[0] = m->s[1];
++		m->s[1] = m->s[2];
++		m->s[2] = *val;
++		if (unlikely(val->t - m->s[0].t > win)) {
++			m->s[0] = m->s[1];
++			m->s[1] = m->s[2];
++			m->s[2] = *val;
++		}
++	} else if (unlikely(m->s[1].t == m->s[0].t) && dt > win/4) {
++		/*
++		 * We've passed a quarter of the window without a new val
++		 * so take a 2nd choice from the 2nd quarter of the window.
++		 */
++		m->s[2] = m->s[1] = *val;
++	} else if (unlikely(m->s[2].t == m->s[1].t) && dt > win/2) {
++		/*
++		 * We've passed half the window without finding a new val
++		 * so take a 3rd choice from the last half of the window
++		 */
++		m->s[2] = *val;
++	}
++	return m->s[0].v;
++}
++
++/* Check if new measurement updates the 1st, 2nd or 3rd choice max. */
++u32 minmax_running_max(struct minmax *m, u32 win, u32 t, u32 meas)
++{
++	struct minmax_sample val = { .t = t, .v = meas };
++
++	if (unlikely(val.v >= m->s[0].v) ||	  /* found new max? */
++	    unlikely(val.t - m->s[2].t > win))	  /* nothing left in window? */
++		return minmax_reset(m, t, meas);  /* forget earlier samples */
++
++	if (unlikely(val.v >= m->s[1].v))
++		m->s[2] = m->s[1] = val;
++	else if (unlikely(val.v >= m->s[2].v))
++		m->s[2] = val;
++
++	return minmax_subwin_update(m, win, &val);
++}
++EXPORT_SYMBOL(minmax_running_max);
++
++/* Check if new measurement updates the 1st, 2nd or 3rd choice min. */
++u32 minmax_running_min(struct minmax *m, u32 win, u32 t, u32 meas)
++{
++	struct minmax_sample val = { .t = t, .v = meas };
++
++	if (unlikely(val.v <= m->s[0].v) ||	  /* found new min? */
++	    unlikely(val.t - m->s[2].t > win))	  /* nothing left in window? */
++		return minmax_reset(m, t, meas);  /* forget earlier samples */
++
++	if (unlikely(val.v <= m->s[1].v))
++		m->s[2] = m->s[1] = val;
++	else if (unlikely(val.v <= m->s[2].v))
++		m->s[2] = val;
++
++	return minmax_subwin_update(m, win, &val);
++}
 -- 
 2.8.0.rc3.226.g39d4020
