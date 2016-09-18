@@ -1,75 +1,37 @@
-From: Vincent Bernat <vincent@bernat.im>
-Subject: [v3] net: ipv6: fallback to full lookup if table lookup is unsuitable
-Date: Sun, 18 Sep 2016 17:46:07 +0200
-Message-ID: <20160918154607.5474-1-vincent@bernat.im>
-References: <8bce7180-e4c2-808c-20e0-0bd9634b8fc2@cumulusnetworks.com>
-Cc: Vincent Bernat <vincent@bernat.im>
-To: David Ahern <dsa@cumulusnetworks.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCHv6 net-next 08/15] nfp: add BPF to NFP code translator
+Date: Sun, 18 Sep 2016 17:44:56 +0200
+Message-ID: <57DEB678.3040705@iogearbox.net>
+References: <1474211365-20088-1-git-send-email-jakub.kicinski@netronome.com> <1474211365-20088-9-git-send-email-jakub.kicinski@netronome.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ast@kernel.org
+To: Jakub Kicinski <jakub.kicinski@netronome.com>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bart.luffy.cx ([78.47.78.131]:60623 "EHLO bart.luffy.cx"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750999AbcIRPqR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 18 Sep 2016 11:46:17 -0400
-In-Reply-To: <8bce7180-e4c2-808c-20e0-0bd9634b8fc2@cumulusnetworks.com>
+Received: from www62.your-server.de ([213.133.104.62]:50416 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751476AbcIRPpE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 11:45:04 -0400
+In-Reply-To: <1474211365-20088-9-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 8c14586fc320 ("net: ipv6: Use passed in table for nexthop
-lookups") introduced a regression: insertion of an IPv6 route in a table
-not containing the appropriate connected route for the gateway but which
-contained a non-connected route (like a default gateway) fails while it
-was previously working:
+On 09/18/2016 05:09 PM, Jakub Kicinski wrote:
+> Add translator for JITing eBPF to operations which
+> can be executed on NFP's programmable engines.
+>
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> ---
+> v6:
+>   - explicitly check for registers >= MAX_BPF_REG;
+>   - fix mem leak.
 
-    $ ip link add eth0 type dummy
-    $ ip link set up dev eth0
-    $ ip addr add 2001:db8::1/64 dev eth0
-    $ ip route add ::/0 via 2001:db8::5 dev eth0 table 20
-    $ ip route add 2001:db8:cafe::1/128 via 2001:db8::6 dev eth0 table 20
-    RTNETLINK answers: No route to host
-    $ ip -6 route show table 20
-    default via 2001:db8::5 dev eth0  metric 1024  pref medium
+Set looks good to me now, thanks a lot Jakub!
 
-After this patch, we get:
-
-    $ ip route add 2001:db8:cafe::1/128 via 2001:db8::6 dev eth0 table 20
-    $ ip -6 route show table 20
-    2001:db8:cafe::1 via 2001:db8::6 dev eth0  metric 1024  pref medium
-    default via 2001:db8::5 dev eth0  metric 1024  pref medium
-
-Fixes: 8c14586fc320 ("net: ipv6: Use passed in table for nexthop lookups")
-Signed-off-by: Vincent Bernat <vincent@bernat.im>
----
- net/ipv6/route.c | 11 ++++++++++-
- 1 file changed, 10 insertions(+), 1 deletion(-)
-
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index ad4a7ff301fc..ec33c6d7eed5 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1991,9 +1991,18 @@ static struct rt6_info *ip6_route_info_create(struct fib6_config *cfg)
- 			if (!(gwa_type & IPV6_ADDR_UNICAST))
- 				goto out;
- 
--			if (cfg->fc_table)
-+			if (cfg->fc_table) {
- 				grt = ip6_nh_lookup_table(net, cfg, gw_addr);
- 
-+				if (grt) {
-+					if (grt->rt6i_flags & RTF_GATEWAY ||
-+					    (dev && dev != grt->dst.dev)) {
-+						ip6_rt_put(grt);
-+						grt = NULL;
-+					}
-+				}
-+			}
-+
- 			if (!grt)
- 				grt = rt6_lookup(net, gw_addr, NULL,
- 						 cfg->fc_ifindex, 1);
--- 
-2.9.3
+> v4:
+>   - use bitfield.h directly.
+> v3:
+>   - don't clone the program for the verifier (no longer needed);
+>   - temporarily add a local copy of macros from bitfield.h.
