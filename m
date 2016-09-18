@@ -1,115 +1,119 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCHv6 net-next 03/15] net: cls_bpf: add support for marking filters as hardware-only
-Date: Sun, 18 Sep 2016 16:09:13 +0100
-Message-ID: <1474211365-20088-4-git-send-email-jakub.kicinski@netronome.com>
-References: <1474211365-20088-1-git-send-email-jakub.kicinski@netronome.com>
+Subject: [PATCHv6 net-next 00/15] BPF hardware offload (cls_bpf for now)
+Date: Sun, 18 Sep 2016 16:09:10 +0100
+Message-ID: <1474211365-20088-1-git-send-email-jakub.kicinski@netronome.com>
 Cc: ast@kernel.org, daniel@iogearbox.net,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f42.google.com ([74.125.82.42]:37995 "EHLO
-        mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932338AbcIRPJu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 11:09:50 -0400
-Received: by mail-wm0-f42.google.com with SMTP id 1so117959484wmz.1
-        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 08:09:49 -0700 (PDT)
-In-Reply-To: <1474211365-20088-1-git-send-email-jakub.kicinski@netronome.com>
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:37977 "EHLO
+        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752323AbcIRPJr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 11:09:47 -0400
+Received: by mail-wm0-f43.google.com with SMTP id 1so117958362wmz.1
+        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 08:09:46 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add cls_bpf support for the TCA_CLS_FLAGS_SKIP_SW flag.
+Hi!
 
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
----
- net/sched/cls_bpf.c | 34 +++++++++++++++++++++++++---------
- 1 file changed, 25 insertions(+), 9 deletions(-)
+As spotted by Daniel JIT might have accessed indexes past the end
+of verifier's reg_state array.
 
-diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
-index 46af423a8a8f..18f9869cd4da 100644
---- a/net/sched/cls_bpf.c
-+++ b/net/sched/cls_bpf.c
-@@ -28,7 +28,7 @@ MODULE_DESCRIPTION("TC BPF based classifier");
- 
- #define CLS_BPF_NAME_LEN	256
- #define CLS_BPF_SUPPORTED_GEN_FLAGS		\
--	TCA_CLS_FLAGS_SKIP_HW
-+	(TCA_CLS_FLAGS_SKIP_HW | TCA_CLS_FLAGS_SKIP_SW)
- 
- struct cls_bpf_head {
- 	struct list_head plist;
-@@ -95,7 +95,9 @@ static int cls_bpf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 
- 		qdisc_skb_cb(skb)->tc_classid = prog->res.classid;
- 
--		if (at_ingress) {
-+		if (tc_skip_sw(prog->gen_flags)) {
-+			filter_res = prog->exts_integrated ? TC_ACT_UNSPEC : 0;
-+		} else if (at_ingress) {
- 			/* It is safe to push/pull even if skb_shared() */
- 			__skb_push(skb, skb->mac_len);
- 			bpf_compute_data_end(skb);
-@@ -163,32 +165,42 @@ static int cls_bpf_offload_cmd(struct tcf_proto *tp, struct cls_bpf_prog *prog,
- 					     tp->protocol, &offload);
- }
- 
--static void cls_bpf_offload(struct tcf_proto *tp, struct cls_bpf_prog *prog,
--			    struct cls_bpf_prog *oldprog)
-+static int cls_bpf_offload(struct tcf_proto *tp, struct cls_bpf_prog *prog,
-+			   struct cls_bpf_prog *oldprog)
- {
- 	struct net_device *dev = tp->q->dev_queue->dev;
- 	struct cls_bpf_prog *obj = prog;
- 	enum tc_clsbpf_command cmd;
-+	bool skip_sw;
-+	int ret;
-+
-+	skip_sw = tc_skip_sw(prog->gen_flags) ||
-+		(oldprog && tc_skip_sw(oldprog->gen_flags));
- 
- 	if (oldprog && oldprog->offloaded) {
- 		if (tc_should_offload(dev, tp, prog->gen_flags)) {
- 			cmd = TC_CLSBPF_REPLACE;
--		} else {
-+		} else if (!tc_skip_sw(prog->gen_flags)) {
- 			obj = oldprog;
- 			cmd = TC_CLSBPF_DESTROY;
-+		} else {
-+			return -EINVAL;
- 		}
- 	} else {
- 		if (!tc_should_offload(dev, tp, prog->gen_flags))
--			return;
-+			return skip_sw ? -EINVAL : 0;
- 		cmd = TC_CLSBPF_ADD;
- 	}
- 
--	if (cls_bpf_offload_cmd(tp, obj, cmd))
--		return;
-+	ret = cls_bpf_offload_cmd(tp, obj, cmd);
-+	if (ret)
-+		return skip_sw ? ret : 0;
- 
- 	obj->offloaded = true;
- 	if (oldprog)
- 		oldprog->offloaded = false;
-+
-+	return 0;
- }
- 
- static void cls_bpf_stop_offload(struct tcf_proto *tp,
-@@ -496,7 +508,11 @@ static int cls_bpf_change(struct net *net, struct sk_buff *in_skb,
- 	if (ret < 0)
- 		goto errout;
- 
--	cls_bpf_offload(tp, prog, oldprog);
-+	ret = cls_bpf_offload(tp, prog, oldprog);
-+	if (ret) {
-+		cls_bpf_delete_prog(tp, prog);
-+		return ret;
-+	}
- 
- 	if (oldprog) {
- 		list_replace_rcu(&oldprog->link, &prog->link);
+v6 (patch 8 only):
+ - explicitly check for registers >= MAX_BPF_REG;
+ - fix leaky error path.
+v5:
+ - fix names of guard defines in bpf_verfier.h.
+v4:
+ - rename parser -> analyzer;
+ - reorganize the analyzer patches a bit;
+ - use bitfield.h directly.
+
+--- merge blurb:
+In the last year a lot of progress have been made on offloading
+simpler TC classifiers.  There is also growing interest in using
+BPF for generic high-speed packet processing in the kernel.
+It seems beneficial to tie those two trends together and think
+about hardware offloads of BPF programs.  This patch set presents
+such offload to Netronome smart NICs.  cls_bpf is extended with
+hardware offload capabilities and NFP driver gets a JIT translator
+which in presence of capable firmware can be used to offload
+the BPF program onto the card.
+
+BPF JIT implementation is not 100% complete (e.g. missing instructions)
+but it is functional.  Encouragingly it should be possible to
+offload most (if not all) advanced BPF features onto the NIC - 
+including packet modification, maps, tunnel encap/decap etc.
+
+Example of basic tests I used:
+  __section_cls_entry
+  int cls_entry(struct __sk_buff *skb)
+  {
+	if (load_byte(skb, 0) != 0x0)
+		return 0;
+
+	if (load_byte(skb, 4) != 0x1)
+		return 0;
+
+	skb->mark = 0xcafe;
+
+	if (load_byte(skb, 50) != 0xff)
+		return 0;
+
+	return ~0U;
+  }
+
+Above code can be compiled with Clang and loaded like this:
+# ethtool -K p1p1 hw-tc-offload on
+# tc qdisc add dev p1p1 ingress
+# tc filter add dev p1p1 parent ffff:  bpf obj prog.o action drop
+
+This set implements the basic transparent offload, the skip_{sw,hw}
+flags and reporting statistics for cls_bpf.
+
+Jakub Kicinski (15):
+  net: cls_bpf: add hardware offload
+  net: cls_bpf: limit hardware offload by software-only flag
+  net: cls_bpf: add support for marking filters as hardware-only
+  bpf: don't (ab)use instructions to store state
+  bpf: expose internal verfier structures
+  bpf: enable non-core use of the verfier
+  bpf: recognize 64bit immediate loads as consts
+  nfp: add BPF to NFP code translator
+  nfp: bpf: add hardware bpf offload
+  net: cls_bpf: allow offloaded filters to update stats
+  nfp: bpf: allow offloaded filters to update stats
+  nfp: bpf: add packet marking support
+  net: act_mirred: allow statistic updates from offloaded actions
+  nfp: bpf: add support for legacy redirect action
+  nfp: bpf: add offload of TC direct action mode
+
+ drivers/net/ethernet/netronome/nfp/Makefile        |    7 +
+ drivers/net/ethernet/netronome/nfp/nfp_asm.h       |  233 +++
+ drivers/net/ethernet/netronome/nfp/nfp_bpf.h       |  212 +++
+ drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c   | 1811 ++++++++++++++++++++
+ .../net/ethernet/netronome/nfp/nfp_bpf_verifier.c  |  171 ++
+ drivers/net/ethernet/netronome/nfp/nfp_net.h       |   47 +-
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    |  134 +-
+ drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h  |   51 +-
+ .../net/ethernet/netronome/nfp/nfp_net_ethtool.c   |   12 +
+ .../net/ethernet/netronome/nfp/nfp_net_offload.c   |  291 ++++
+ .../net/ethernet/netronome/nfp/nfp_netvf_main.c    |    2 +-
+ include/linux/bpf_verifier.h                       |   89 +
+ include/linux/netdevice.h                          |    2 +
+ include/net/pkt_cls.h                              |   16 +
+ include/uapi/linux/pkt_cls.h                       |    1 +
+ kernel/bpf/verifier.c                              |  384 +++--
+ net/sched/act_mirred.c                             |    8 +
+ net/sched/cls_bpf.c                                |  117 +-
+ 18 files changed, 3382 insertions(+), 206 deletions(-)
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_asm.h
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_bpf.h
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_bpf_verifier.c
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_net_offload.c
+ create mode 100644 include/linux/bpf_verifier.h
+
 -- 
 1.9.1
