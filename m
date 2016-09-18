@@ -1,82 +1,43 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: ethernet: broadcom: bcmgenet: use new api ethtool_{get|set}_link_ksettings
-Date: Sun, 18 Sep 2016 17:16:45 +0200
-Message-ID: <1474211805-5703-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: f.fainelli@gmail.com, davem@davemloft.net
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net 2/3] net/mlx5: E-Switch, Fix error flow in the SRIOV e-switch init code
+Date: Sun, 18 Sep 2016 18:20:28 +0300
+Message-ID: <1474212029-1052-3-git-send-email-ogerlitz@mellanox.com>
+References: <1474212029-1052-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Tariq Toukan <tariqt@mellanox.com>,
+        Hadar Har-Zion <hadarh@mellanox.com>,
+        Amir Vadai <amirva@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36741 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932796AbcIRPQy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 11:16:54 -0400
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:56225 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S932796AbcIRPUl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 11:20:41 -0400
+In-Reply-To: <1474212029-1052-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+When enablement of the SRIOV e-switch in certain mode (switchdev or legacy)
+fails, we must set the mode to none. Otherwise, we'll run into double free
+based crashes when further attempting to deal with the e-switch (such
+as when disabling sriov or unloading the driver).
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/broadcom/genet/bcmgenet.c |   16 ++++++++--------
- 1 files changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index 46f9043..2013474 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -450,8 +450,8 @@ static inline void bcmgenet_rdma_ring_writel(struct bcmgenet_priv *priv,
- 			genet_dma_ring_regs[r]);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+index 8b78f15..b247949 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+@@ -1554,6 +1554,7 @@ int mlx5_eswitch_enable_sriov(struct mlx5_eswitch *esw, int nvfs, int mode)
+ 
+ abort:
+ 	esw_enable_vport(esw, 0, UC_ADDR_CHANGE);
++	esw->mode = SRIOV_NONE;
+ 	return err;
  }
  
--static int bcmgenet_get_settings(struct net_device *dev,
--				 struct ethtool_cmd *cmd)
-+static int bcmgenet_get_link_ksettings(struct net_device *dev,
-+				       struct ethtool_link_ksettings *cmd)
- {
- 	if (!netif_running(dev))
- 		return -EINVAL;
-@@ -459,11 +459,11 @@ static int bcmgenet_get_settings(struct net_device *dev,
- 	if (!dev->phydev)
- 		return -ENODEV;
- 
--	return phy_ethtool_gset(dev->phydev, cmd);
-+	return phy_ethtool_ksettings_get(dev->phydev, cmd);
- }
- 
--static int bcmgenet_set_settings(struct net_device *dev,
--				 struct ethtool_cmd *cmd)
-+static int bcmgenet_set_link_ksettings(struct net_device *dev,
-+				       const struct ethtool_link_ksettings *cmd)
- {
- 	if (!netif_running(dev))
- 		return -EINVAL;
-@@ -471,7 +471,7 @@ static int bcmgenet_set_settings(struct net_device *dev,
- 	if (!dev->phydev)
- 		return -ENODEV;
- 
--	return phy_ethtool_sset(dev->phydev, cmd);
-+	return phy_ethtool_ksettings_set(dev->phydev, cmd);
- }
- 
- static int bcmgenet_set_rx_csum(struct net_device *dev,
-@@ -977,8 +977,6 @@ static const struct ethtool_ops bcmgenet_ethtool_ops = {
- 	.get_strings		= bcmgenet_get_strings,
- 	.get_sset_count		= bcmgenet_get_sset_count,
- 	.get_ethtool_stats	= bcmgenet_get_ethtool_stats,
--	.get_settings		= bcmgenet_get_settings,
--	.set_settings		= bcmgenet_set_settings,
- 	.get_drvinfo		= bcmgenet_get_drvinfo,
- 	.get_link		= ethtool_op_get_link,
- 	.get_msglevel		= bcmgenet_get_msglevel,
-@@ -990,6 +988,8 @@ static const struct ethtool_ops bcmgenet_ethtool_ops = {
- 	.nway_reset		= bcmgenet_nway_reset,
- 	.get_coalesce		= bcmgenet_get_coalesce,
- 	.set_coalesce		= bcmgenet_set_coalesce,
-+	.get_link_ksettings	= bcmgenet_get_link_ksettings,
-+	.set_link_ksettings	= bcmgenet_set_link_ksettings,
- };
- 
- /* Power down the unimac, based on mode. */
 -- 
-1.7.4.4
+2.3.7
