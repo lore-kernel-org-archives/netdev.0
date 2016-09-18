@@ -1,7 +1,7 @@
 From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH v3 net-next 02/16] lib/win_minmax: windowed min or max estimator
-Date: Sun, 18 Sep 2016 18:03:39 -0400
-Message-ID: <1474236233-28511-3-git-send-email-ncardwell@google.com>
+Subject: [PATCH v3 net-next 06/16] tcp: count packets marked lost for a TCP connection
+Date: Sun, 18 Sep 2016 18:03:43 -0400
+Message-ID: <1474236233-28511-7-git-send-email-ncardwell@google.com>
 References: <1474236233-28511-1-git-send-email-ncardwell@google.com>
 Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
         Van Jacobson <vanj@google.com>,
@@ -11,34 +11,30 @@ Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
         Soheil Hassas Yeganeh <soheil@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f177.google.com ([209.85.216.177]:32961 "EHLO
-        mail-qt0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932595AbcIRWEJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 18:04:09 -0400
-Received: by mail-qt0-f177.google.com with SMTP id 11so64694168qtc.0
-        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 15:04:08 -0700 (PDT)
+Received: from mail-qt0-f172.google.com ([209.85.216.172]:35958 "EHLO
+        mail-qt0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934785AbcIRWEO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 18:04:14 -0400
+Received: by mail-qt0-f172.google.com with SMTP id l91so64342107qte.3
+        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 15:04:13 -0700 (PDT)
 In-Reply-To: <1474236233-28511-1-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This commit introduces a generic library to estimate either the min or
-max value of a time-varying variable over a recent time window. This
-is code originally from Kathleen Nichols. The current form of the code
-is from Van Jacobson.
+Count the number of packets that a TCP connection marks lost.
 
-A single struct minmax_sample will track the estimated windowed-max
-value of the series if you call minmax_running_max() or the estimated
-windowed-min value of the series if you call minmax_running_min().
+Congestion control modules can use this loss rate information for more
+intelligent decisions about how fast to send.
 
-Nearly equivalent code is already in place for minimum RTT estimation
-in the TCP stack. This commit extracts that code and generalizes it to
-handle both min and max. Moving the code here reduces the footprint
-and complexity of the TCP code base and makes the filter generally
-available for other parts of the codebase, including an upcoming TCP
-congestion control module.
+Specifically, this is used in TCP BBR policer detection. BBR uses a
+high packet loss rate as one signal in its policer detection and
+policer bandwidth estimation algorithm.
 
-This library works well for time series where the measurements are
-smoothly increasing or decreasing.
+The BBR policer detection algorithm cannot simply track retransmits,
+because a retransmit can be (and often is) an indicator of packets
+lost long, long ago. This is particularly true in a long CA_Loss
+period that repairs the initial massive losses when a policer kicks
+in.
 
 Signed-off-by: Van Jacobson <vanj@google.com>
 Signed-off-by: Neal Cardwell <ncardwell@google.com>
@@ -47,172 +43,85 @@ Signed-off-by: Nandita Dukkipati <nanditad@google.com>
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
 ---
- include/linux/win_minmax.h | 37 +++++++++++++++++
- lib/Makefile               |  2 +-
- lib/win_minmax.c           | 98 ++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 136 insertions(+), 1 deletion(-)
- create mode 100644 include/linux/win_minmax.h
- create mode 100644 lib/win_minmax.c
+ include/linux/tcp.h  |  1 +
+ net/ipv4/tcp_input.c | 25 ++++++++++++++++++++++++-
+ 2 files changed, 25 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/win_minmax.h b/include/linux/win_minmax.h
-new file mode 100644
-index 0000000..5656960
---- /dev/null
-+++ b/include/linux/win_minmax.h
-@@ -0,0 +1,37 @@
-+/**
-+ * lib/minmax.c: windowed min/max tracker by Kathleen Nichols.
-+ *
-+ */
-+#ifndef MINMAX_H
-+#define MINMAX_H
-+
-+#include <linux/types.h>
-+
-+/* A single data point for our parameterized min-max tracker */
-+struct minmax_sample {
-+	u32	t;	/* time measurement was taken */
-+	u32	v;	/* value measured */
-+};
-+
-+/* State for the parameterized min-max tracker */
-+struct minmax {
-+	struct minmax_sample s[3];
-+};
-+
-+static inline u32 minmax_get(const struct minmax *m)
-+{
-+	return m->s[0].v;
-+}
-+
-+static inline u32 minmax_reset(struct minmax *m, u32 t, u32 meas)
-+{
-+	struct minmax_sample val = { .t = t, .v = meas };
-+
-+	m->s[2] = m->s[1] = m->s[0] = val;
-+	return m->s[0].v;
-+}
-+
-+u32 minmax_running_max(struct minmax *m, u32 win, u32 t, u32 meas);
-+u32 minmax_running_min(struct minmax *m, u32 win, u32 t, u32 meas);
-+
-+#endif
-diff --git a/lib/Makefile b/lib/Makefile
-index 5dc77a8..df747e5 100644
---- a/lib/Makefile
-+++ b/lib/Makefile
-@@ -22,7 +22,7 @@ lib-y := ctype.o string.o vsprintf.o cmdline.o \
- 	 sha1.o chacha20.o md5.o irq_regs.o argv_split.o \
- 	 flex_proportions.o ratelimit.o show_mem.o \
- 	 is_single_threaded.o plist.o decompress.o kobject_uevent.o \
--	 earlycpio.o seq_buf.o nmi_backtrace.o nodemask.o
-+	 earlycpio.o seq_buf.o nmi_backtrace.o nodemask.o win_minmax.o
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index 6433cc8..38590fb 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -267,6 +267,7 @@ struct tcp_sock {
+ 				 * receiver in Recovery. */
+ 	u32	prr_out;	/* Total number of pkts sent during Recovery. */
+ 	u32	delivered;	/* Total data packets delivered incl. rexmits */
++	u32	lost;		/* Total data packets lost incl. rexmits */
  
- lib-$(CONFIG_MMU) += ioremap.o
- lib-$(CONFIG_SMP) += cpumask.o
-diff --git a/lib/win_minmax.c b/lib/win_minmax.c
-new file mode 100644
-index 0000000..c8420d4
---- /dev/null
-+++ b/lib/win_minmax.c
-@@ -0,0 +1,98 @@
-+/**
-+ * lib/minmax.c: windowed min/max tracker
-+ *
-+ * Kathleen Nichols' algorithm for tracking the minimum (or maximum)
-+ * value of a data stream over some fixed time interval.  (E.g.,
-+ * the minimum RTT over the past five minutes.) It uses constant
-+ * space and constant time per update yet almost always delivers
-+ * the same minimum as an implementation that has to keep all the
-+ * data in the window.
-+ *
-+ * The algorithm keeps track of the best, 2nd best & 3rd best min
-+ * values, maintaining an invariant that the measurement time of
-+ * the n'th best >= n-1'th best. It also makes sure that the three
-+ * values are widely separated in the time window since that bounds
-+ * the worse case error when that data is monotonically increasing
-+ * over the window.
-+ *
-+ * Upon getting a new min, we can forget everything earlier because
-+ * it has no value - the new min is <= everything else in the window
-+ * by definition and it's the most recent. So we restart fresh on
-+ * every new min and overwrites 2nd & 3rd choices. The same property
-+ * holds for 2nd & 3rd best.
+  	u32	rcv_wnd;	/* Current receiver window		*/
+ 	u32	write_seq;	/* Tail(+1) of data held in tcp send buffer */
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index ac5b38f..024b579 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -899,12 +899,29 @@ static void tcp_verify_retransmit_hint(struct tcp_sock *tp, struct sk_buff *skb)
+ 		tp->retransmit_high = TCP_SKB_CB(skb)->end_seq;
+ }
+ 
++/* Sum the number of packets on the wire we have marked as lost.
++ * There are two cases we care about here:
++ * a) Packet hasn't been marked lost (nor retransmitted),
++ *    and this is the first loss.
++ * b) Packet has been marked both lost and retransmitted,
++ *    and this means we think it was lost again.
 + */
-+#include <linux/module.h>
-+#include <linux/win_minmax.h>
-+
-+/* As time advances, update the 1st, 2nd, and 3rd choices. */
-+static u32 minmax_subwin_update(struct minmax *m, u32 win,
-+				const struct minmax_sample *val)
++static void tcp_sum_lost(struct tcp_sock *tp, struct sk_buff *skb)
 +{
-+	u32 dt = val->t - m->s[0].t;
++	__u8 sacked = TCP_SKB_CB(skb)->sacked;
 +
-+	if (unlikely(dt > win)) {
-+		/*
-+		 * Passed entire window without a new val so make 2nd
-+		 * choice the new val & 3rd choice the new 2nd choice.
-+		 * we may have to iterate this since our 2nd choice
-+		 * may also be outside the window (we checked on entry
-+		 * that the third choice was in the window).
-+		 */
-+		m->s[0] = m->s[1];
-+		m->s[1] = m->s[2];
-+		m->s[2] = *val;
-+		if (unlikely(val->t - m->s[0].t > win)) {
-+			m->s[0] = m->s[1];
-+			m->s[1] = m->s[2];
-+			m->s[2] = *val;
-+		}
-+	} else if (unlikely(m->s[1].t == m->s[0].t) && dt > win/4) {
-+		/*
-+		 * We've passed a quarter of the window without a new val
-+		 * so take a 2nd choice from the 2nd quarter of the window.
-+		 */
-+		m->s[2] = m->s[1] = *val;
-+	} else if (unlikely(m->s[2].t == m->s[1].t) && dt > win/2) {
-+		/*
-+		 * We've passed half the window without finding a new val
-+		 * so take a 3rd choice from the last half of the window
-+		 */
-+		m->s[2] = *val;
-+	}
-+	return m->s[0].v;
++	if (!(sacked & TCPCB_LOST) ||
++	    ((sacked & TCPCB_LOST) && (sacked & TCPCB_SACKED_RETRANS)))
++		tp->lost += tcp_skb_pcount(skb);
 +}
 +
-+/* Check if new measurement updates the 1st, 2nd or 3rd choice max. */
-+u32 minmax_running_max(struct minmax *m, u32 win, u32 t, u32 meas)
-+{
-+	struct minmax_sample val = { .t = t, .v = meas };
-+
-+	if (unlikely(val.v >= m->s[0].v) ||	  /* found new max? */
-+	    unlikely(val.t - m->s[2].t > win))	  /* nothing left in window? */
-+		return minmax_reset(m, t, meas);  /* forget earlier samples */
-+
-+	if (unlikely(val.v >= m->s[1].v))
-+		m->s[2] = m->s[1] = val;
-+	else if (unlikely(val.v >= m->s[2].v))
-+		m->s[2] = val;
-+
-+	return minmax_subwin_update(m, win, &val);
-+}
-+EXPORT_SYMBOL(minmax_running_max);
-+
-+/* Check if new measurement updates the 1st, 2nd or 3rd choice min. */
-+u32 minmax_running_min(struct minmax *m, u32 win, u32 t, u32 meas)
-+{
-+	struct minmax_sample val = { .t = t, .v = meas };
-+
-+	if (unlikely(val.v <= m->s[0].v) ||	  /* found new min? */
-+	    unlikely(val.t - m->s[2].t > win))	  /* nothing left in window? */
-+		return minmax_reset(m, t, meas);  /* forget earlier samples */
-+
-+	if (unlikely(val.v <= m->s[1].v))
-+		m->s[2] = m->s[1] = val;
-+	else if (unlikely(val.v <= m->s[2].v))
-+		m->s[2] = val;
-+
-+	return minmax_subwin_update(m, win, &val);
-+}
+ static void tcp_skb_mark_lost(struct tcp_sock *tp, struct sk_buff *skb)
+ {
+ 	if (!(TCP_SKB_CB(skb)->sacked & (TCPCB_LOST|TCPCB_SACKED_ACKED))) {
+ 		tcp_verify_retransmit_hint(tp, skb);
+ 
+ 		tp->lost_out += tcp_skb_pcount(skb);
++		tcp_sum_lost(tp, skb);
+ 		TCP_SKB_CB(skb)->sacked |= TCPCB_LOST;
+ 	}
+ }
+@@ -913,6 +930,7 @@ void tcp_skb_mark_lost_uncond_verify(struct tcp_sock *tp, struct sk_buff *skb)
+ {
+ 	tcp_verify_retransmit_hint(tp, skb);
+ 
++	tcp_sum_lost(tp, skb);
+ 	if (!(TCP_SKB_CB(skb)->sacked & (TCPCB_LOST|TCPCB_SACKED_ACKED))) {
+ 		tp->lost_out += tcp_skb_pcount(skb);
+ 		TCP_SKB_CB(skb)->sacked |= TCPCB_LOST;
+@@ -1890,6 +1908,7 @@ void tcp_enter_loss(struct sock *sk)
+ 	struct sk_buff *skb;
+ 	bool new_recovery = icsk->icsk_ca_state < TCP_CA_Recovery;
+ 	bool is_reneg;			/* is receiver reneging on SACKs? */
++	bool mark_lost;
+ 
+ 	/* Reduce ssthresh if it has not yet been made inside this window. */
+ 	if (icsk->icsk_ca_state <= TCP_CA_Disorder ||
+@@ -1923,8 +1942,12 @@ void tcp_enter_loss(struct sock *sk)
+ 		if (skb == tcp_send_head(sk))
+ 			break;
+ 
++		mark_lost = (!(TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED) ||
++			     is_reneg);
++		if (mark_lost)
++			tcp_sum_lost(tp, skb);
+ 		TCP_SKB_CB(skb)->sacked &= (~TCPCB_TAGBITS)|TCPCB_SACKED_ACKED;
+-		if (!(TCP_SKB_CB(skb)->sacked&TCPCB_SACKED_ACKED) || is_reneg) {
++		if (mark_lost) {
+ 			TCP_SKB_CB(skb)->sacked &= ~TCPCB_SACKED_ACKED;
+ 			TCP_SKB_CB(skb)->sacked |= TCPCB_LOST;
+ 			tp->lost_out += tcp_skb_pcount(skb);
 -- 
 2.8.0.rc3.226.g39d4020
