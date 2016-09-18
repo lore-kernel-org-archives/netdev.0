@@ -1,84 +1,82 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [v2] net: ipv6: fallback to full lookup if table lookup is
- unsuitable
-Date: Sun, 18 Sep 2016 09:12:38 -0600
-Message-ID: <8bce7180-e4c2-808c-20e0-0bd9634b8fc2@cumulusnetworks.com>
-References: <0e4071d6-a3cc-37a7-6a32-2169e0e3b305@cumulusnetworks.com>
- <20160916203349.31201-1-vincent@bernat.im>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-To: Vincent Bernat <vincent@bernat.im>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: ethernet: broadcom: bcmgenet: use new api ethtool_{get|set}_link_ksettings
+Date: Sun, 18 Sep 2016 17:16:45 +0200
+Message-ID: <1474211805-5703-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: f.fainelli@gmail.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:34573 "EHLO
-        mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933912AbcIRPMz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 11:12:55 -0400
-Received: by mail-pa0-f44.google.com with SMTP id wk8so40323941pab.1
-        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 08:12:54 -0700 (PDT)
-In-Reply-To: <20160916203349.31201-1-vincent@bernat.im>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:36741 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932796AbcIRPQy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 11:16:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/16/16 2:33 PM, Vincent Bernat wrote:
-> Commit 8c14586fc320 ("net: ipv6: Use passed in table for nexthop
-> lookups") introduced a regression: insertion of an IPv6 route in a table
-> not containing the appropriate connected route for the gateway but which
-> contained a non-connected route (like a default gateway) fails while it
-> was previously working:
-> 
->     $ ip link add eth0 type dummy
->     $ ip link set up dev eth0
->     $ ip addr add 2001:db8::1/64 dev eth0
->     $ ip route add ::/0 via 2001:db8::5 dev eth0 table 20
->     $ ip route add 2001:db8:cafe::1/128 via 2001:db8::6 dev eth0 table 20
->     RTNETLINK answers: No route to host
->     $ ip -6 route show table 20
->     default via 2001:db8::5 dev eth0  metric 1024  pref medium
-> 
-> After this patch, we get:
-> 
->     $ ip route add 2001:db8:cafe::1/128 via 2001:db8::6 dev eth0 table 20
->     $ ip -6 route show table 20
->     2001:db8:cafe::1 via 2001:db8::6 dev eth0  metric 1024  pref medium
->     default via 2001:db8::5 dev eth0  metric 1024  pref medium
-> 
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
-need an explicit Fixes tag here:
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c |   16 ++++++++--------
+ 1 files changed, 8 insertions(+), 8 deletions(-)
 
-Fixes: 8c14586fc320 ("net: ipv6: Use passed in table for nexthop lookups")
-
-> Signed-off-by: Vincent Bernat <vincent@bernat.im>
-> ---
->  net/ipv6/route.c | 8 ++++++++
->  1 file changed, 8 insertions(+)
-> 
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index ad4a7ff301fc..2c6c7257ff75 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -1994,6 +1994,14 @@ static struct rt6_info *ip6_route_info_create(struct fib6_config *cfg)
->  			if (cfg->fc_table)
->  				grt = ip6_nh_lookup_table(net, cfg, gw_addr);
->  
-> +			if (grt) {
-> +				if (grt->rt6i_flags & RTF_GATEWAY ||
-> +				    (dev && dev != grt->dst.dev)) {
-> +					ip6_rt_put(grt);
-> +					grt = NULL;
-> +				}
-> +			}
-> +
-
-The if grt check needs to be under the 'if (cfg->fc_table)'
-
-
->  			if (!grt)
->  				grt = rt6_lookup(net, gw_addr, NULL,
->  						 cfg->fc_ifindex, 1);
-> 
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index 46f9043..2013474 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -450,8 +450,8 @@ static inline void bcmgenet_rdma_ring_writel(struct bcmgenet_priv *priv,
+ 			genet_dma_ring_regs[r]);
+ }
+ 
+-static int bcmgenet_get_settings(struct net_device *dev,
+-				 struct ethtool_cmd *cmd)
++static int bcmgenet_get_link_ksettings(struct net_device *dev,
++				       struct ethtool_link_ksettings *cmd)
+ {
+ 	if (!netif_running(dev))
+ 		return -EINVAL;
+@@ -459,11 +459,11 @@ static int bcmgenet_get_settings(struct net_device *dev,
+ 	if (!dev->phydev)
+ 		return -ENODEV;
+ 
+-	return phy_ethtool_gset(dev->phydev, cmd);
++	return phy_ethtool_ksettings_get(dev->phydev, cmd);
+ }
+ 
+-static int bcmgenet_set_settings(struct net_device *dev,
+-				 struct ethtool_cmd *cmd)
++static int bcmgenet_set_link_ksettings(struct net_device *dev,
++				       const struct ethtool_link_ksettings *cmd)
+ {
+ 	if (!netif_running(dev))
+ 		return -EINVAL;
+@@ -471,7 +471,7 @@ static int bcmgenet_set_settings(struct net_device *dev,
+ 	if (!dev->phydev)
+ 		return -ENODEV;
+ 
+-	return phy_ethtool_sset(dev->phydev, cmd);
++	return phy_ethtool_ksettings_set(dev->phydev, cmd);
+ }
+ 
+ static int bcmgenet_set_rx_csum(struct net_device *dev,
+@@ -977,8 +977,6 @@ static const struct ethtool_ops bcmgenet_ethtool_ops = {
+ 	.get_strings		= bcmgenet_get_strings,
+ 	.get_sset_count		= bcmgenet_get_sset_count,
+ 	.get_ethtool_stats	= bcmgenet_get_ethtool_stats,
+-	.get_settings		= bcmgenet_get_settings,
+-	.set_settings		= bcmgenet_set_settings,
+ 	.get_drvinfo		= bcmgenet_get_drvinfo,
+ 	.get_link		= ethtool_op_get_link,
+ 	.get_msglevel		= bcmgenet_get_msglevel,
+@@ -990,6 +988,8 @@ static const struct ethtool_ops bcmgenet_ethtool_ops = {
+ 	.nway_reset		= bcmgenet_nway_reset,
+ 	.get_coalesce		= bcmgenet_get_coalesce,
+ 	.set_coalesce		= bcmgenet_set_coalesce,
++	.get_link_ksettings	= bcmgenet_get_link_ksettings,
++	.set_link_ksettings	= bcmgenet_set_link_ksettings,
+ };
+ 
+ /* Power down the unimac, based on mode. */
+-- 
+1.7.4.4
