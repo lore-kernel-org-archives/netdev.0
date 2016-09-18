@@ -1,89 +1,31 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [PATCH v2 net-next 1/2] net sched ife action: add 16 bit helpers
-Date: Sun, 18 Sep 2016 07:21:15 -0400
-Message-ID: <1474197676-10512-1-git-send-email-jhs@emojatatu.com>
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/14] rxrpc: Fixes & miscellany
+Date: Sun, 18 Sep 2016 07:22:42 -0400 (EDT)
+Message-ID: <20160918.072242.1287682101839792057.davem@davemloft.net>
+References: <147415426459.17897.13899206413543061473.stgit@warthog.procyon.org.uk>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: dhowells@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:34329 "EHLO
-        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754009AbcIRLVZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 07:21:25 -0400
-Received: by mail-io0-f195.google.com with SMTP id y139so3721306ioy.1
-        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 04:21:24 -0700 (PDT)
+Received: from shards.monkeyblade.net ([184.105.139.130]:44238 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754693AbcIRLWs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 07:22:48 -0400
+In-Reply-To: <147415426459.17897.13899206413543061473.stgit@warthog.procyon.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-encoder and checker for 16 bits metadata
+David, could you please stop submitting two sets of series at
+the same time?
 
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
----
- include/net/tc_act/tc_ife.h |  2 ++
- net/sched/act_ife.c         | 26 ++++++++++++++++++++++++++
- 2 files changed, 28 insertions(+)
+I want people to have a single, reasonably sized, patch series
+in flight at one time for a given subsystem/driver/whatever.
 
-diff --git a/include/net/tc_act/tc_ife.h b/include/net/tc_act/tc_ife.h
-index 5164bd7..9fd2bea0 100644
---- a/include/net/tc_act/tc_ife.h
-+++ b/include/net/tc_act/tc_ife.h
-@@ -50,9 +50,11 @@ int ife_tlv_meta_encode(void *skbdata, u16 attrtype, u16 dlen,
- int ife_alloc_meta_u32(struct tcf_meta_info *mi, void *metaval, gfp_t gfp);
- int ife_alloc_meta_u16(struct tcf_meta_info *mi, void *metaval, gfp_t gfp);
- int ife_check_meta_u32(u32 metaval, struct tcf_meta_info *mi);
-+int ife_check_meta_u16(u16 metaval, struct tcf_meta_info *mi);
- int ife_encode_meta_u32(u32 metaval, void *skbdata, struct tcf_meta_info *mi);
- int ife_validate_meta_u32(void *val, int len);
- int ife_validate_meta_u16(void *val, int len);
-+int ife_encode_meta_u16(u16 metaval, void *skbdata, struct tcf_meta_info *mi);
- void ife_release_meta_gen(struct tcf_meta_info *mi);
- int register_ife_op(struct tcf_meta_ops *mops);
- int unregister_ife_op(struct tcf_meta_ops *mops);
-diff --git a/net/sched/act_ife.c b/net/sched/act_ife.c
-index e87cd81..ccf7b4b 100644
---- a/net/sched/act_ife.c
-+++ b/net/sched/act_ife.c
-@@ -63,6 +63,23 @@ int ife_tlv_meta_encode(void *skbdata, u16 attrtype, u16 dlen, const void *dval)
- }
- EXPORT_SYMBOL_GPL(ife_tlv_meta_encode);
- 
-+int ife_encode_meta_u16(u16 metaval, void *skbdata, struct tcf_meta_info *mi)
-+{
-+	u16 edata = 0;
-+
-+	if (mi->metaval)
-+		edata = *(u16 *)mi->metaval;
-+	else if (metaval)
-+		edata = metaval;
-+
-+	if (!edata) /* will not encode */
-+		return 0;
-+
-+	edata = htons(edata);
-+	return ife_tlv_meta_encode(skbdata, mi->metaid, 2, &edata);
-+}
-+EXPORT_SYMBOL_GPL(ife_encode_meta_u16);
-+
- int ife_get_meta_u32(struct sk_buff *skb, struct tcf_meta_info *mi)
- {
- 	if (mi->metaval)
-@@ -81,6 +98,15 @@ int ife_check_meta_u32(u32 metaval, struct tcf_meta_info *mi)
- }
- EXPORT_SYMBOL_GPL(ife_check_meta_u32);
- 
-+int ife_check_meta_u16(u16 metaval, struct tcf_meta_info *mi)
-+{
-+	if (metaval || mi->metaval)
-+		return 8; /* T+L+(V) == 2+2+(2+2bytepad) */
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(ife_check_meta_u16);
-+
- int ife_encode_meta_u32(u32 metaval, void *skbdata, struct tcf_meta_info *mi)
- {
- 	u32 edata = metaval;
--- 
-1.9.1
+But if you send both an 14 and an 11 patch series at the same
+time, that defeats this entirely.
+
+Thank you.
