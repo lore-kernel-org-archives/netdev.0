@@ -1,134 +1,115 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH 2/2] net: ethernet: broadcom: bcm63xx: use new api ethtool_{get|set}_link_ksettings
-Date: Sun, 18 Sep 2016 16:59:07 +0200
-Message-ID: <1474210747-19627-2-git-send-email-tremyfr@gmail.com>
-References: <1474210747-19627-1-git-send-email-tremyfr@gmail.com>
-Cc: bcm-kernel-feedback-list@broadcom.com, netdev@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: f.fainelli@gmail.com, davem@davemloft.net, andrew@lunn.ch,
-        treding@nvidia.com, ivecera@redhat.com, xypron.glpk@gmx.de,
-        simon@fire.lp0.eu
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCHv6 net-next 03/15] net: cls_bpf: add support for marking filters as hardware-only
+Date: Sun, 18 Sep 2016 16:09:13 +0100
+Message-ID: <1474211365-20088-4-git-send-email-jakub.kicinski@netronome.com>
+References: <1474211365-20088-1-git-send-email-jakub.kicinski@netronome.com>
+Cc: ast@kernel.org, daniel@iogearbox.net,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:32853 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753982AbcIRO7V (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 10:59:21 -0400
-In-Reply-To: <1474210747-19627-1-git-send-email-tremyfr@gmail.com>
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:37995 "EHLO
+        mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932338AbcIRPJu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 11:09:50 -0400
+Received: by mail-wm0-f42.google.com with SMTP id 1so117959484wmz.1
+        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 08:09:49 -0700 (PDT)
+In-Reply-To: <1474211365-20088-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+Add cls_bpf support for the TCA_CLS_FLAGS_SKIP_SW flag.
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- drivers/net/ethernet/broadcom/bcm63xx_enet.c |   52 ++++++++++++++------------
- 1 files changed, 28 insertions(+), 24 deletions(-)
+ net/sched/cls_bpf.c | 34 +++++++++++++++++++++++++---------
+ 1 file changed, 25 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-index 082f3f0..ae364c7 100644
---- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-+++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-@@ -1442,39 +1442,40 @@ static int bcm_enet_nway_reset(struct net_device *dev)
- 	return -EOPNOTSUPP;
+diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
+index 46af423a8a8f..18f9869cd4da 100644
+--- a/net/sched/cls_bpf.c
++++ b/net/sched/cls_bpf.c
+@@ -28,7 +28,7 @@ MODULE_DESCRIPTION("TC BPF based classifier");
+ 
+ #define CLS_BPF_NAME_LEN	256
+ #define CLS_BPF_SUPPORTED_GEN_FLAGS		\
+-	TCA_CLS_FLAGS_SKIP_HW
++	(TCA_CLS_FLAGS_SKIP_HW | TCA_CLS_FLAGS_SKIP_SW)
+ 
+ struct cls_bpf_head {
+ 	struct list_head plist;
+@@ -95,7 +95,9 @@ static int cls_bpf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ 
+ 		qdisc_skb_cb(skb)->tc_classid = prog->res.classid;
+ 
+-		if (at_ingress) {
++		if (tc_skip_sw(prog->gen_flags)) {
++			filter_res = prog->exts_integrated ? TC_ACT_UNSPEC : 0;
++		} else if (at_ingress) {
+ 			/* It is safe to push/pull even if skb_shared() */
+ 			__skb_push(skb, skb->mac_len);
+ 			bpf_compute_data_end(skb);
+@@ -163,32 +165,42 @@ static int cls_bpf_offload_cmd(struct tcf_proto *tp, struct cls_bpf_prog *prog,
+ 					     tp->protocol, &offload);
  }
  
--static int bcm_enet_get_settings(struct net_device *dev,
--				 struct ethtool_cmd *cmd)
-+static int bcm_enet_get_link_ksettings(struct net_device *dev,
-+				       struct ethtool_link_ksettings *cmd)
+-static void cls_bpf_offload(struct tcf_proto *tp, struct cls_bpf_prog *prog,
+-			    struct cls_bpf_prog *oldprog)
++static int cls_bpf_offload(struct tcf_proto *tp, struct cls_bpf_prog *prog,
++			   struct cls_bpf_prog *oldprog)
  {
- 	struct bcm_enet_priv *priv;
-+	u32 supported, advertising;
+ 	struct net_device *dev = tp->q->dev_queue->dev;
+ 	struct cls_bpf_prog *obj = prog;
+ 	enum tc_clsbpf_command cmd;
++	bool skip_sw;
++	int ret;
++
++	skip_sw = tc_skip_sw(prog->gen_flags) ||
++		(oldprog && tc_skip_sw(oldprog->gen_flags));
  
- 	priv = netdev_priv(dev);
- 
--	cmd->maxrxpkt = 0;
--	cmd->maxtxpkt = 0;
--
- 	if (priv->has_phy) {
- 		if (!dev->phydev)
- 			return -ENODEV;
--		return phy_ethtool_gset(dev->phydev, cmd);
-+		return phy_ethtool_ksettings_get(dev->phydev, cmd);
+ 	if (oldprog && oldprog->offloaded) {
+ 		if (tc_should_offload(dev, tp, prog->gen_flags)) {
+ 			cmd = TC_CLSBPF_REPLACE;
+-		} else {
++		} else if (!tc_skip_sw(prog->gen_flags)) {
+ 			obj = oldprog;
+ 			cmd = TC_CLSBPF_DESTROY;
++		} else {
++			return -EINVAL;
+ 		}
  	} else {
--		cmd->autoneg = 0;
--		ethtool_cmd_speed_set(cmd, ((priv->force_speed_100)
--					    ? SPEED_100 : SPEED_10));
--		cmd->duplex = (priv->force_duplex_full) ?
-+		cmd->base.autoneg = 0;
-+		cmd->base.speed = (priv->force_speed_100) ?
-+			SPEED_100 : SPEED_10;
-+		cmd->base.duplex = (priv->force_duplex_full) ?
- 			DUPLEX_FULL : DUPLEX_HALF;
--		cmd->supported = ADVERTISED_10baseT_Half  |
-+		supported = ADVERTISED_10baseT_Half |
- 			ADVERTISED_10baseT_Full |
- 			ADVERTISED_100baseT_Half |
- 			ADVERTISED_100baseT_Full;
--		cmd->advertising = 0;
--		cmd->port = PORT_MII;
--		cmd->transceiver = XCVR_EXTERNAL;
-+		advertising = 0;
-+		ethtool_convert_legacy_u32_to_link_mode(
-+			cmd->link_modes.supported, supported);
-+		ethtool_convert_legacy_u32_to_link_mode(
-+			cmd->link_modes.advertising, advertising);
-+		cmd->base.port = PORT_MII;
+ 		if (!tc_should_offload(dev, tp, prog->gen_flags))
+-			return;
++			return skip_sw ? -EINVAL : 0;
+ 		cmd = TC_CLSBPF_ADD;
  	}
- 	return 0;
+ 
+-	if (cls_bpf_offload_cmd(tp, obj, cmd))
+-		return;
++	ret = cls_bpf_offload_cmd(tp, obj, cmd);
++	if (ret)
++		return skip_sw ? ret : 0;
+ 
+ 	obj->offloaded = true;
+ 	if (oldprog)
+ 		oldprog->offloaded = false;
++
++	return 0;
  }
  
--static int bcm_enet_set_settings(struct net_device *dev,
--				 struct ethtool_cmd *cmd)
-+static int bcm_enet_set_link_ksettings(struct net_device *dev,
-+				       const struct ethtool_link_ksettings *cmd)
- {
- 	struct bcm_enet_priv *priv;
+ static void cls_bpf_stop_offload(struct tcf_proto *tp,
+@@ -496,7 +508,11 @@ static int cls_bpf_change(struct net *net, struct sk_buff *in_skb,
+ 	if (ret < 0)
+ 		goto errout;
  
-@@ -1482,16 +1483,19 @@ static int bcm_enet_set_settings(struct net_device *dev,
- 	if (priv->has_phy) {
- 		if (!dev->phydev)
- 			return -ENODEV;
--		return phy_ethtool_sset(dev->phydev, cmd);
-+		return phy_ethtool_ksettings_set(dev->phydev, cmd);
- 	} else {
+-	cls_bpf_offload(tp, prog, oldprog);
++	ret = cls_bpf_offload(tp, prog, oldprog);
++	if (ret) {
++		cls_bpf_delete_prog(tp, prog);
++		return ret;
++	}
  
--		if (cmd->autoneg ||
--		    (cmd->speed != SPEED_100 && cmd->speed != SPEED_10) ||
--		    cmd->port != PORT_MII)
-+		if (cmd->base.autoneg ||
-+		    (cmd->base.speed != SPEED_100 &&
-+		     cmd->base.speed != SPEED_10) ||
-+		    cmd->base.port != PORT_MII)
- 			return -EINVAL;
- 
--		priv->force_speed_100 = (cmd->speed == SPEED_100) ? 1 : 0;
--		priv->force_duplex_full = (cmd->duplex == DUPLEX_FULL) ? 1 : 0;
-+		priv->force_speed_100 =
-+			(cmd->base.speed == SPEED_100) ? 1 : 0;
-+		priv->force_duplex_full =
-+			(cmd->base.duplex == DUPLEX_FULL) ? 1 : 0;
- 
- 		if (netif_running(dev))
- 			bcm_enet_adjust_link(dev);
-@@ -1585,14 +1589,14 @@ static const struct ethtool_ops bcm_enet_ethtool_ops = {
- 	.get_sset_count		= bcm_enet_get_sset_count,
- 	.get_ethtool_stats      = bcm_enet_get_ethtool_stats,
- 	.nway_reset		= bcm_enet_nway_reset,
--	.get_settings		= bcm_enet_get_settings,
--	.set_settings		= bcm_enet_set_settings,
- 	.get_drvinfo		= bcm_enet_get_drvinfo,
- 	.get_link		= ethtool_op_get_link,
- 	.get_ringparam		= bcm_enet_get_ringparam,
- 	.set_ringparam		= bcm_enet_set_ringparam,
- 	.get_pauseparam		= bcm_enet_get_pauseparam,
- 	.set_pauseparam		= bcm_enet_set_pauseparam,
-+	.get_link_ksettings	= bcm_enet_get_link_ksettings,
-+	.set_link_ksettings	= bcm_enet_set_link_ksettings,
- };
- 
- static int bcm_enet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 	if (oldprog) {
+ 		list_replace_rcu(&oldprog->link, &prog->link);
 -- 
-1.7.4.4
+1.9.1
