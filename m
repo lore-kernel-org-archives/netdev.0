@@ -1,64 +1,48 @@
-From: Baoyou Xie <baoyou.xie-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH] net/mlx5: clean function declarations in eswitch.c up
-Date: Sun, 18 Sep 2016 16:44:22 +0800
-Message-ID: <1474188262-9929-1-git-send-email-baoyou.xie@linaro.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org, baoyou.xie-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
-        xie.baoyou-Th6q7B73Y6EnDS1+zs4M5A@public.gmane.org
-To: matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Baoyou Xie <baoyou.xie@linaro.org>
+Subject: [PATCH] ixgbe: mark symbols static where possible
+Date: Sun, 18 Sep 2016 16:47:34 +0800
+Message-ID: <1474188454-8872-1-git-send-email-baoyou.xie@linaro.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        arnd@arndb.de, baoyou.xie@linaro.org, xie.baoyou@zte.com.cn
+To: jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 We get 2 warnings when building kernel with W=1:
-drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c:463:5: warning: no previous prototype for 'esw_offloads_init' [-Wmissing-prototypes]
-drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c:521:6: warning: no previous prototype for 'esw_offloads_cleanup' [-Wmissing-prototypes]
+drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c:2128:5: warning: no previous prototype for 'ixgbe_led_on_t_x550em' [-Wmissing-prototypes]
+drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c:2150:5: warning: no previous prototype for 'ixgbe_led_off_t_x550em' [-Wmissing-prototypes]
 
-In fact, both functions are declared in
-drivers/net/ethernet/mellanox/mlx5/core/eswitch.c,but should be
-declared in a header file, thus can be recognized in other file.
+In fact, these functions are only used in the file in which they are
+declared and don't need a declaration, but can be made static.
+so this patch marks these functions with 'static'.
 
-So this patch moves the declarations into
-drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-
-Signed-off-by: Baoyou Xie <baoyou.xie-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.c | 3 ---
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.h | 3 +++
- 2 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-index 1014305..b453cb6 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-@@ -81,9 +81,6 @@ enum {
- 			    MC_ADDR_CHANGE | \
- 			    PROMISC_CHANGE)
- 
--int esw_offloads_init(struct mlx5_eswitch *esw, int nvports);
--void esw_offloads_cleanup(struct mlx5_eswitch *esw, int nvports);
--
- static int arm_vport_context_events_cmd(struct mlx5_core_dev *dev, u16 vport,
- 					u32 events_mask)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+index e092a89..dec8b11 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+@@ -2125,7 +2125,7 @@ static s32 ixgbe_reset_phy_t_X550em(struct ixgbe_hw *hw)
+  *  @hw: pointer to hardware structure
+  *  @led_idx: led number to turn on
+  **/
+-s32 ixgbe_led_on_t_x550em(struct ixgbe_hw *hw, u32 led_idx)
++static s32 ixgbe_led_on_t_x550em(struct ixgbe_hw *hw, u32 led_idx)
  {
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-index a961409..3bc5336 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-@@ -201,6 +201,9 @@ struct mlx5_eswitch {
- 	int                     mode;
- };
+ 	u16 phy_data;
  
-+void esw_offloads_cleanup(struct mlx5_eswitch *esw, int nvports);
-+int esw_offloads_init(struct mlx5_eswitch *esw, int nvports);
-+
- /* E-Switch API */
- int mlx5_eswitch_init(struct mlx5_core_dev *dev);
- void mlx5_eswitch_cleanup(struct mlx5_eswitch *esw);
+@@ -2147,7 +2147,7 @@ s32 ixgbe_led_on_t_x550em(struct ixgbe_hw *hw, u32 led_idx)
+  *  @hw: pointer to hardware structure
+  *  @led_idx: led number to turn off
+  **/
+-s32 ixgbe_led_off_t_x550em(struct ixgbe_hw *hw, u32 led_idx)
++static s32 ixgbe_led_off_t_x550em(struct ixgbe_hw *hw, u32 led_idx)
+ {
+ 	u16 phy_data;
+ 
 -- 
 2.7.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
