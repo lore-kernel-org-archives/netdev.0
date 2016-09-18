@@ -1,60 +1,70 @@
-From: Baoyou Xie <baoyou.xie@linaro.org>
-Subject: [PATCH] net: mvneta: mark symbols static where possible
-Date: Sun, 18 Sep 2016 17:20:45 +0800
-Message-ID: <1474190445-5887-1-git-send-email-baoyou.xie@linaro.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        arnd@arndb.de, baoyou.xie@linaro.org, xie.baoyou@zte.com.cn
-To: thomas.petazzoni@free-electrons.com
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: [PATCH] net: skbuff: Fix length validation in skb_vlan_pop()
+Date: Sun, 18 Sep 2016 13:09:18 +0300
+Message-ID: <1474193358-20133-1-git-send-email-shmulik.ladkani@gmail.com>
+Cc: netdev@vger.kernel.org, Shmulik Ladkani <shmulik.ladkani@gmail.com>
+To: Jiri Pirko <jiri@mellanox.com>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:36391 "EHLO
-        mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755076AbcIRJU6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 05:20:58 -0400
-Received: by mail-pa0-f47.google.com with SMTP id id6so39029208pad.3
-        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 02:20:57 -0700 (PDT)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:33507 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755670AbcIRKJi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 06:09:38 -0400
+Received: by mail-wm0-f68.google.com with SMTP id w84so3202272wmg.0
+        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 03:09:37 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We get 2 warnings when building kernel with W=1:
-drivers/net/ethernet/marvell/mvneta.c:639:27: warning: no previous prototype for 'mvneta_get_stats64' [-Wmissing-prototypes]
-drivers/net/ethernet/marvell/mvneta.c:3529:5: warning: no previous prototype for 'mvneta_ethtool_set_link_ksettings' [-Wmissing-prototypes]
+In 93515d53b1
+  "net: move vlan pop/push functions into common code"
+skb_vlan_pop was moved from its private location in openvswitch to
+skbuff common code.
 
-In fact, these functions are only used in the file in which they are
-declared and don't need a declaration, but can be made static.
-so this patch marks these functions with 'static'.
+In case !vlan_tx_tag_present, the original 'pop_vlan()' assured
+that skb->len is sufficient for the existence of a vlan_ethhdr
+(if skb->len < VLAN_ETH_HLEN then pop was a no-op).
 
-Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
+This validation was moved as is into the new common 'skb_vlan_pop'.
+
+Alas, in its original location (openvswitch), there's a guarantee that
+'data' points to the mac_header, therefore the 'skb->len < VLAN_ETH_HLEN'
+condition made sense.
+However there's no such guarantee in the generic 'skb_vlan_pop'.
+
+For short packets received in rx path going through 'skb_vlan_pop',
+this causes 'skb_vlan_pop' to fail pop-ing a valid vlan hdr (in case tag
+is in payload), or to fail moving next tag into hw-accel tag.
+
+Instead, verify that 'skb->mac_len' is sufficient.
+
+Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 ---
- drivers/net/ethernet/marvell/mvneta.c | 10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
+ Spotted by code review while doing work augmenting tc act vlan.
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 32f0cc4..03be592 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -636,8 +636,9 @@ static void mvneta_mib_counters_clear(struct mvneta_port *pp)
- }
+ net/core/skbuff.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 1e329d4112..cc2c004838 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -4537,7 +4537,7 @@ int skb_vlan_pop(struct sk_buff *skb)
+ 	} else {
+ 		if (unlikely((skb->protocol != htons(ETH_P_8021Q) &&
+ 			      skb->protocol != htons(ETH_P_8021AD)) ||
+-			     skb->len < VLAN_ETH_HLEN))
++			     skb->mac_len < VLAN_ETH_HLEN))
+ 			return 0;
  
- /* Get System Network Statistics */
--struct rtnl_link_stats64 *mvneta_get_stats64(struct net_device *dev,
--					     struct rtnl_link_stats64 *stats)
-+static struct
-+rtnl_link_stats64 *mvneta_get_stats64(struct net_device *dev,
-+				      struct rtnl_link_stats64 *stats)
- {
- 	struct mvneta_port *pp = netdev_priv(dev);
- 	unsigned int start;
-@@ -3526,8 +3527,9 @@ static int mvneta_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- /* Ethtool methods */
+ 		err = __skb_vlan_pop(skb, &vlan_tci);
+@@ -4547,7 +4547,7 @@ int skb_vlan_pop(struct sk_buff *skb)
+ 	/* move next vlan tag to hw accel tag */
+ 	if (likely((skb->protocol != htons(ETH_P_8021Q) &&
+ 		    skb->protocol != htons(ETH_P_8021AD)) ||
+-		   skb->len < VLAN_ETH_HLEN))
++		   skb->mac_len < VLAN_ETH_HLEN))
+ 		return 0;
  
- /* Set link ksettings (phy address, speed) for ethtools */
--int mvneta_ethtool_set_link_ksettings(struct net_device *ndev,
--				      const struct ethtool_link_ksettings *cmd)
-+static int
-+mvneta_ethtool_set_link_ksettings(struct net_device *ndev,
-+				  const struct ethtool_link_ksettings *cmd)
- {
- 	struct mvneta_port *pp = netdev_priv(ndev);
- 	struct phy_device *phydev = ndev->phydev;
+ 	vlan_proto = skb->protocol;
 -- 
 2.7.4
