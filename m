@@ -1,44 +1,123 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: skb_splice_bits() and large chunks in pipe (was Re:
- xfs_file_splice_read: possible circular locking dependency detected
-Date: Sun, 18 Sep 2016 20:31:12 +0100
-Message-ID: <20160918193112.GF2356@ZenIV.linux.org.uk>
-References: <CA+55aFxrqCng2Qxasc9pyMrKUGFjo==fEaFT1vkH9Lncte3RgQ@mail.gmail.com>
- <20160909023452.GO2356@ZenIV.linux.org.uk>
- <CA+55aFwHQMjO4-vtfB9-ytc=o+DRo-HXVGckvXLboUxgpwb7_g@mail.gmail.com>
- <20160909221945.GQ2356@ZenIV.linux.org.uk>
- <CA+55aFzTOOB6oEVaaGD0N7Uznk-W9+ULPwzsxS_L_oZqGVSeLA@mail.gmail.com>
- <20160914031648.GB2356@ZenIV.linux.org.uk>
- <CA+55aFznQaOWoSMNphgGJJWZ=8-odrc0DAUMzfGPQe+_N4UgNA@mail.gmail.com>
- <20160914042559.GC2356@ZenIV.linux.org.uk>
- <20160917082007.GA6489@ZenIV.linux.org.uk>
- <20160917190023.GA8039@ZenIV.linux.org.uk>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next 2/2] net/sched: act_vlan: Introduce
+ TCA_VLAN_ACT_MODIFY vlan action
+Date: Sun, 18 Sep 2016 15:41:27 -0400
+Message-ID: <a38624b9-80cf-a465-7758-51baac9e5faa@mojatatu.com>
+References: <1474209225-23665-1-git-send-email-shmulik.ladkani@gmail.com>
+ <1474209225-23665-3-git-send-email-shmulik.ladkani@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jens Axboe <axboe@kernel.dk>, Nick Piggin <npiggin@gmail.com>,
-        linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
-        Eric Dumazet <edumazet@google.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jiri@mellanox.com>, netdev@vger.kernel.org
+To: Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:57372 "EHLO
-        ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755785AbcIRTbQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 15:31:16 -0400
-Content-Disposition: inline
-In-Reply-To: <20160917190023.GA8039@ZenIV.linux.org.uk>
+Received: from mail-it0-f66.google.com ([209.85.214.66]:33863 "EHLO
+        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753428AbcIRTlh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 15:41:37 -0400
+Received: by mail-it0-f66.google.com with SMTP id 186so3315499itf.1
+        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 12:41:36 -0700 (PDT)
+In-Reply-To: <1474209225-23665-3-git-send-email-shmulik.ladkani@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-FWIW, I'm not sure if skb_splice_bits() can't land us in trouble; fragments
-might come from compound pages and I'm not entirely convinced that we won't
-end up with coalesced fragments putting more than PAGE_SIZE into a single
-pipe_buffer.  And that could badly confuse a bunch of code.
+On 16-09-18 10:33 AM, Shmulik Ladkani wrote:
+> TCA_VLAN_ACT_MODIFY allows one to change an existing tag.
+>
+> It accepts same attributes as TCA_VLAN_ACT_PUSH (protocol, id,
+> priority).
+> If packet is vlan tagged, then the tag gets overwritten according to
+> user specified attributes.
+>
+> For example, this allows user to replace a tag's vid while preserving
+> its priority bits (as opposed to "action vlan pop pipe action vlan push").
+>
+> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+> ---
+>  include/uapi/linux/tc_act/tc_vlan.h |  1 +
+>  net/sched/act_vlan.c                | 29 ++++++++++++++++++++++++++++-
+>  2 files changed, 29 insertions(+), 1 deletion(-)
+>
+> diff --git a/include/uapi/linux/tc_act/tc_vlan.h b/include/uapi/linux/tc_act/tc_vlan.h
+> index be72b6e384..bddb272b84 100644
+> --- a/include/uapi/linux/tc_act/tc_vlan.h
+> +++ b/include/uapi/linux/tc_act/tc_vlan.h
+> @@ -16,6 +16,7 @@
+>
+>  #define TCA_VLAN_ACT_POP	1
+>  #define TCA_VLAN_ACT_PUSH	2
+> +#define TCA_VLAN_ACT_MODIFY	3
+>
+>  struct tc_vlan {
+>  	tc_gen;
+> diff --git a/net/sched/act_vlan.c b/net/sched/act_vlan.c
+> index 59a8d3150a..e5eeaa7a01 100644
+> --- a/net/sched/act_vlan.c
+> +++ b/net/sched/act_vlan.c
+> @@ -30,6 +30,7 @@ static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
+>  	struct tcf_vlan *v = to_vlan(a);
+>  	int action;
+>  	int err;
+> +	u16 tci;
+>
+>  	spin_lock(&v->tcf_lock);
+>  	tcf_lastuse_update(&v->tcf_tm);
+> @@ -48,6 +49,30 @@ static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
+>  		if (err)
+>  			goto drop;
+>  		break;
+> +	case TCA_VLAN_ACT_MODIFY:
+> +		if (!skb_vlan_tagged(skb))
+> +			goto unlock;
+> +		/* extract existing tag (and guarantee no hwaccel tag) */
+> +		if (skb_vlan_tag_present(skb)) {
+> +			tci = skb_vlan_tag_get(skb);
+> +			skb->vlan_tci = 0;
+> +		} else {
+> +			if (skb->mac_len < VLAN_ETH_HLEN)
+> +				goto unlock;
+> +			err = __skb_vlan_pop(skb, &tci);
+> +			if (err)
+> +				goto drop;
+> +		}
+> +		/* replace the vid */
+> +		tci = (tci & ~VLAN_VID_MASK) | v->tcfv_push_vid;
+> +		/* replace prio bits, if tcfv_push_prio specified */
+> +		if (v->tcfv_push_prio) {
+> +			tci &= ~VLAN_PRIO_MASK;
+> +			tci |= v->tcfv_push_prio << VLAN_PRIO_SHIFT;
+> +		}
+> +		/* put updated tci as hwaccel tag */
+> +		__vlan_hwaccel_put_tag(skb, v->tcfv_push_proto, tci);
+> +		break;
+>  	default:
+>  		BUG();
+>  	}
+> @@ -102,6 +127,7 @@ static int tcf_vlan_init(struct net *net, struct nlattr *nla,
+>  	case TCA_VLAN_ACT_POP:
+>  		break;
+>  	case TCA_VLAN_ACT_PUSH:
+> +	case TCA_VLAN_ACT_MODIFY:
+>  		if (!tb[TCA_VLAN_PUSH_VLAN_ID]) {
+>  			if (exists)
+>  				tcf_hash_release(*a, bind);
+> @@ -185,7 +211,8 @@ static int tcf_vlan_dump(struct sk_buff *skb, struct tc_action *a,
+>  	if (nla_put(skb, TCA_VLAN_PARMS, sizeof(opt), &opt))
+>  		goto nla_put_failure;
+>
+> -	if (v->tcfv_action == TCA_VLAN_ACT_PUSH &&
+> +	if ((v->tcfv_action == TCA_VLAN_ACT_PUSH ||
+> +	     v->tcfv_action == TCA_VLAN_ACT_MODIFY) &&
+>  	    (nla_put_u16(skb, TCA_VLAN_PUSH_VLAN_ID, v->tcfv_push_vid) ||
+>  	     nla_put_be16(skb, TCA_VLAN_PUSH_VLAN_PROTOCOL,
+>  			  v->tcfv_push_proto) ||
+>
 
-Can that legitimately happen?  If so, we'll need to audit quite a few
-->splice_write()-related codepaths; FUSE, in particular, is very likely
-to be unhappy with that kind of stuff, and it's not the only place where
-we might count upon never seeing e.g. longer than PAGE_SIZE chunks in
-bio_vec.  It shouldn't be all that hard to fix, but if the whole thing
-is simply impossible, I would rather avoid that round of RTFS at the moment...
 
-Comments?
+Nice. If you didnt do it I would have ;->
+
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+
+cheers,
+jamal
