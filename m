@@ -1,78 +1,111 @@
-From: Leon Romanovsky <leonro@leon.nu>
-Subject: Re: [PATCH 2/2] iw_cxgb4: add fast-path for small REG_MR operations
-Date: Sun, 18 Sep 2016 17:22:42 +0300
-Message-ID: <20160918142242.GJ2923@leon.nu>
-References: <cover.1474037695.git.swise@opengridcomputing.com>
- <3153440ff068cc56a517af2ba6be2b0de0f4dd99.1474037695.git.swise@opengridcomputing.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="hl1kWnBARzJiTscN"
-Cc: dledford@redhat.com, davem@davemloft.net, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org
-To: Steve Wise <swise@opengridcomputing.com>
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: [PATCH net-next 2/2] net/sched: act_vlan: Introduce TCA_VLAN_ACT_MODIFY vlan action
+Date: Sun, 18 Sep 2016 17:33:45 +0300
+Message-ID: <1474209225-23665-3-git-send-email-shmulik.ladkani@gmail.com>
+References: <1474209225-23665-1-git-send-email-shmulik.ladkani@gmail.com>
+Cc: Jiri Pirko <jiri@mellanox.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org,
+        Shmulik Ladkani <shmulik.ladkani@gmail.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:60610 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755675AbcIROWr (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 18 Sep 2016 10:22:47 -0400
-Content-Disposition: inline
-In-Reply-To: <3153440ff068cc56a517af2ba6be2b0de0f4dd99.1474037695.git.swise@opengridcomputing.com>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:33551 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934380AbcIROeE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 10:34:04 -0400
+Received: by mail-wm0-f65.google.com with SMTP id w84so3851798wmg.0
+        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 07:34:03 -0700 (PDT)
+In-Reply-To: <1474209225-23665-1-git-send-email-shmulik.ladkani@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+TCA_VLAN_ACT_MODIFY allows one to change an existing tag.
 
---hl1kWnBARzJiTscN
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+It accepts same attributes as TCA_VLAN_ACT_PUSH (protocol, id,
+priority).
+If packet is vlan tagged, then the tag gets overwritten according to
+user specified attributes.
 
-On Fri, Sep 16, 2016 at 07:54:52AM -0700, Steve Wise wrote:
-> When processing a REG_MR work request, if fw supports the
-> FW_RI_NSMR_TPTE_WR work request, and if the page list for this
-> registration is <= 2 pages, and the current state of the mr is INVALID,
-> then use FW_RI_NSMR_TPTE_WR to pass down a fully populated TPTE for FW
-> to write.  This avoids FW having to do an async read of the TPTE blocking
-> the SQ until the read completes.
->
-> To know if the current MR state is INVALID or not, iw_cxgb4 must track the
-> state of each fastreg MR.  The c4iw_mr struct state is updated as REG_MR
-> and LOCAL_INV WRs are posted and completed, when a reg_mr is destroyed,
-> and when RECV completions are processed that include a local invalidation.
->
-> This optimization increases small IO IOPS for both iSER and NVMF.
->
-> Signed-off-by: Steve Wise <swise@opengridcomputing.com>
-> ---
+For example, this allows user to replace a tag's vid while preserving
+its priority bits (as opposed to "action vlan pop pipe action vlan push").
 
-<...>
+Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+---
+ include/uapi/linux/tc_act/tc_vlan.h |  1 +
+ net/sched/act_vlan.c                | 29 ++++++++++++++++++++++++++++-
+ 2 files changed, 29 insertions(+), 1 deletion(-)
 
-> +			      struct ib_reg_wr *wr, struct c4iw_mr *mhp,
-> +			      u8 *len16)
-> +{
-> +	__be64 *p = (__be64 *)fr->pbl;
-> +
-> +	fr->r2 = cpu_to_be32(0);
-
-Is there any difference between the line above and "fr->r2 = 0"?
-
---hl1kWnBARzJiTscN
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJX3qMxAAoJEORje4g2clinH4IQAICs1KcWkf6ez3uvghOp2cLo
-wuyfYJpLh2QCP38X7EWYaMC9Go6NqsqiBSHu9ht6cGO1h2E7HGUi7lTVpDXheh2i
-0dq1nbhho8UwrJ46bksdlNcny+1EABXfDiVDa8IVrnhCtUNEzRlrxM/TfQz8O5PY
-lw1anGZAf9OaxbugS5sKDnvOqrEF6Fjz/rxmq4DS+/WywbGgo4mUDAB3ZT5K06+I
-i1yFswgk5WqGysIIHyny2dewlm84lEPqFHyA/xAvQKzqIsiYaOwVTY7iwRhp2WCj
-6aokURqm70MFSKvk5KjgYKLSBD0mRbUpj6GOdNTDRdhorWGB66i272W5BVXKarTm
-TmrMxpfqmSQWnIMCW6+1gqxok9JsF+KoHBWjUhk/WOnUO8z1JJ9NS51G7cCPs9Bn
-tPSFutoWcA/BMMl3QvMMyzk3JiOFDfg8HNMM//NGDgF1NSYtcyhm6hdkH/jt5thJ
-V18LR5AZtNEbQ6GeforcSCKd/E2kBvK3Obbb2MiZatPu7Ih2HjQEEEBVBozCIDDM
-o7rYrIO/M9U/xcXCf46WsL+IcEzQ3Kou4WBVLW7xAV+MzQ+3DtKi/Xyu1IYa9Dg8
-BR7JsoFoWD/JIWFaPLlRnr4crQm2cm0qOfk2SnHjzfQfeUdPjquYL7G1DfK0Q1dC
-876eYWwedMMBHD2KgLA/
-=8vdJ
------END PGP SIGNATURE-----
-
---hl1kWnBARzJiTscN--
+diff --git a/include/uapi/linux/tc_act/tc_vlan.h b/include/uapi/linux/tc_act/tc_vlan.h
+index be72b6e384..bddb272b84 100644
+--- a/include/uapi/linux/tc_act/tc_vlan.h
++++ b/include/uapi/linux/tc_act/tc_vlan.h
+@@ -16,6 +16,7 @@
+ 
+ #define TCA_VLAN_ACT_POP	1
+ #define TCA_VLAN_ACT_PUSH	2
++#define TCA_VLAN_ACT_MODIFY	3
+ 
+ struct tc_vlan {
+ 	tc_gen;
+diff --git a/net/sched/act_vlan.c b/net/sched/act_vlan.c
+index 59a8d3150a..e5eeaa7a01 100644
+--- a/net/sched/act_vlan.c
++++ b/net/sched/act_vlan.c
+@@ -30,6 +30,7 @@ static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
+ 	struct tcf_vlan *v = to_vlan(a);
+ 	int action;
+ 	int err;
++	u16 tci;
+ 
+ 	spin_lock(&v->tcf_lock);
+ 	tcf_lastuse_update(&v->tcf_tm);
+@@ -48,6 +49,30 @@ static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
+ 		if (err)
+ 			goto drop;
+ 		break;
++	case TCA_VLAN_ACT_MODIFY:
++		if (!skb_vlan_tagged(skb))
++			goto unlock;
++		/* extract existing tag (and guarantee no hwaccel tag) */
++		if (skb_vlan_tag_present(skb)) {
++			tci = skb_vlan_tag_get(skb);
++			skb->vlan_tci = 0;
++		} else {
++			if (skb->mac_len < VLAN_ETH_HLEN)
++				goto unlock;
++			err = __skb_vlan_pop(skb, &tci);
++			if (err)
++				goto drop;
++		}
++		/* replace the vid */
++		tci = (tci & ~VLAN_VID_MASK) | v->tcfv_push_vid;
++		/* replace prio bits, if tcfv_push_prio specified */
++		if (v->tcfv_push_prio) {
++			tci &= ~VLAN_PRIO_MASK;
++			tci |= v->tcfv_push_prio << VLAN_PRIO_SHIFT;
++		}
++		/* put updated tci as hwaccel tag */
++		__vlan_hwaccel_put_tag(skb, v->tcfv_push_proto, tci);
++		break;
+ 	default:
+ 		BUG();
+ 	}
+@@ -102,6 +127,7 @@ static int tcf_vlan_init(struct net *net, struct nlattr *nla,
+ 	case TCA_VLAN_ACT_POP:
+ 		break;
+ 	case TCA_VLAN_ACT_PUSH:
++	case TCA_VLAN_ACT_MODIFY:
+ 		if (!tb[TCA_VLAN_PUSH_VLAN_ID]) {
+ 			if (exists)
+ 				tcf_hash_release(*a, bind);
+@@ -185,7 +211,8 @@ static int tcf_vlan_dump(struct sk_buff *skb, struct tc_action *a,
+ 	if (nla_put(skb, TCA_VLAN_PARMS, sizeof(opt), &opt))
+ 		goto nla_put_failure;
+ 
+-	if (v->tcfv_action == TCA_VLAN_ACT_PUSH &&
++	if ((v->tcfv_action == TCA_VLAN_ACT_PUSH ||
++	     v->tcfv_action == TCA_VLAN_ACT_MODIFY) &&
+ 	    (nla_put_u16(skb, TCA_VLAN_PUSH_VLAN_ID, v->tcfv_push_vid) ||
+ 	     nla_put_be16(skb, TCA_VLAN_PUSH_VLAN_PROTOCOL,
+ 			  v->tcfv_push_proto) ||
+-- 
+2.7.4
