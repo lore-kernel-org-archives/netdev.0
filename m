@@ -1,70 +1,58 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: [PATCH] net: skbuff: Fix length validation in skb_vlan_pop()
-Date: Sun, 18 Sep 2016 13:09:18 +0300
-Message-ID: <1474193358-20133-1-git-send-email-shmulik.ladkani@gmail.com>
-Cc: netdev@vger.kernel.org, Shmulik Ladkani <shmulik.ladkani@gmail.com>
-To: Jiri Pirko <jiri@mellanox.com>,
-        "David S . Miller" <davem@davemloft.net>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: RE: [PATCH net-next 2/2] bnx2x: allocate mac filtering pending list
+ in PAGE_SIZE increments
+Date: Sun, 18 Sep 2016 10:25:05 +0000
+Message-ID: <BL2PR07MB2306CEA6AD75D9D4EB77FB1F8DF50@BL2PR07MB2306.namprd07.prod.outlook.com>
+References: <cover.1474060371.git.jbaron@akamai.com>
+ <d46b4fa36c32affff20fcc92148e33ee6176f899.1474060371.git.jbaron@akamai.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Ariel.Elior@qlogic.com" <Ariel.Elior@qlogic.com>
+To: Jason Baron <jbaron@akamai.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33507 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755670AbcIRKJi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 06:09:38 -0400
-Received: by mail-wm0-f68.google.com with SMTP id w84so3202272wmg.0
-        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 03:09:37 -0700 (PDT)
+Received: from mail-bl2nam02on0055.outbound.protection.outlook.com ([104.47.38.55]:3536
+        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1754739AbcIRKZH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 18 Sep 2016 06:25:07 -0400
+In-Reply-To: <d46b4fa36c32affff20fcc92148e33ee6176f899.1474060371.git.jbaron@akamai.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In 93515d53b1
-  "net: move vlan pop/push functions into common code"
-skb_vlan_pop was moved from its private location in openvswitch to
-skbuff common code.
+> Currently, we can have high order page allocations that specify
+> GFP_ATOMIC when configuring multicast MAC address filters.
+>=20
+> For example, we have seen order 2 page allocation failures with
+> ~500 multicast addresses configured.
+>=20
+> Convert the allocation for the pending list to be done in PAGE_SIZE
+> increments.
+>=20
+> Signed-off-by: Jason Baron <jbaron@akamai.com>
 
-In case !vlan_tx_tag_present, the original 'pop_vlan()' assured
-that skb->len is sufficient for the existence of a vlan_ethhdr
-(if skb->len < VLAN_ETH_HLEN then pop was a no-op).
+While I appreciate the effort, I wonder whether it's worth it:
 
-This validation was moved as is into the new common 'skb_vlan_pop'.
+- The hardware [even in its newer generation] provides an approximate
+based classification [I.e., hashed] with 256 bins.
+When configuring 500 multicast addresses, one can argue the
+difference between multicast-promisc mode and actual configuration
+is insignificant.
+Perhaps the easier-to-maintain alternative would simply be to
+determine the maximal number of multicast addresses that can be
+configured using a single PAGE, and if in need of more than that
+simply move into multicast-promisc.
 
-Alas, in its original location (openvswitch), there's a guarantee that
-'data' points to the mac_header, therefore the 'skb->len < VLAN_ETH_HLEN'
-condition made sense.
-However there's no such guarantee in the generic 'skb_vlan_pop'.
+ - While GFP_ATOMIC is required in this flow due to the fact it's being
+called from sleepless context, I do believe this is mostly a remnant -
+it's possible that by slightly changing the locking scheme we can have
+the configuration done from sleepless context and simply switch to
+GFP_KERNEL instead.
 
-For short packets received in rx path going through 'skb_vlan_pop',
-this causes 'skb_vlan_pop' to fail pop-ing a valid vlan hdr (in case tag
-is in payload), or to fail moving next tag into hw-accel tag.
-
-Instead, verify that 'skb->mac_len' is sufficient.
-
-Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
----
- Spotted by code review while doing work augmenting tc act vlan.
-
- net/core/skbuff.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 1e329d4112..cc2c004838 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -4537,7 +4537,7 @@ int skb_vlan_pop(struct sk_buff *skb)
- 	} else {
- 		if (unlikely((skb->protocol != htons(ETH_P_8021Q) &&
- 			      skb->protocol != htons(ETH_P_8021AD)) ||
--			     skb->len < VLAN_ETH_HLEN))
-+			     skb->mac_len < VLAN_ETH_HLEN))
- 			return 0;
- 
- 		err = __skb_vlan_pop(skb, &vlan_tci);
-@@ -4547,7 +4547,7 @@ int skb_vlan_pop(struct sk_buff *skb)
- 	/* move next vlan tag to hw accel tag */
- 	if (likely((skb->protocol != htons(ETH_P_8021Q) &&
- 		    skb->protocol != htons(ETH_P_8021AD)) ||
--		   skb->len < VLAN_ETH_HLEN))
-+		   skb->mac_len < VLAN_ETH_HLEN))
- 		return 0;
- 
- 	vlan_proto = skb->protocol;
--- 
-2.7.4
+Regarding the patch itself, only comment I have:
+> +			elem_group =3D (struct bnx2x_mcast_elem_group *)
+> +				     elem_group->mcast_group_link.next;
+Let's use list_next_entry() instead.
