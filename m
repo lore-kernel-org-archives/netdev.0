@@ -1,121 +1,99 @@
-From: Adit Ranadive <aditr@vmware.com>
-Subject: RE: [PATCH v4 09/16] IB/pvrdma: Add support for Completion Queues
-Date: Sun, 18 Sep 2016 20:36:55 +0000
-Message-ID: <BLUPR0501MB83604E10410486A3F068950C5F50@BLUPR0501MB836.namprd05.prod.outlook.com>
-References: <1473655766-31628-1-git-send-email-aditr@vmware.com>
- <1473655766-31628-10-git-send-email-aditr@vmware.com>
- <20160914124321.GE15800@yuval-lap.uk.oracle.com>
- <BLUPR0501MB836640F5ECEAB3A99CD82BFC5F00@BLUPR0501MB836.namprd05.prod.outlook.com>
- <20160915073611.GA3851@yuval-lap.uk.oracle.com>
- <20160918170707.GL2923@leon.nu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "dledford@redhat.com" <dledford@redhat.com>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        pv-drivers <pv-drivers@vmware.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-        "Jorgen S. Hansen" <jhansen@vmware.com>,
-        Aditya Sarwade <asarwade@vmware.com>,
-        George Zhang <georgezhang@vmware.com>,
-        Bryan Tan <bryantan@vmware.com>
-To: Leon Romanovsky <leonro@leon.nu>,
-        Yuval Shaia <yuval.shaia@oracle.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20160918170707.GL2923@leon.nu>
-Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Neal Cardwell <ncardwell@google.com>
+Subject: [PATCH v3 net-next 00/16] tcp: BBR congestion control algorithm
+Date: Sun, 18 Sep 2016 18:03:37 -0400
+Message-ID: <1474236233-28511-1-git-send-email-ncardwell@google.com>
+Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f171.google.com ([209.85.216.171]:35274 "EHLO
+        mail-qt0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753274AbcIRWEA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 18:04:00 -0400
+Received: by mail-qt0-f171.google.com with SMTP id 93so64645948qtg.2
+        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 15:03:59 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Sep 18, 2016 at 10:07:18 -0700, Leon Romanovsky wrote:=20
-> On Thu, Sep 15, 2016 at 10:36:12AM +0300, Yuval Shaia wrote:
-> > Hi Adit,
-> > Please see my comments inline.
-> >
-> > Besides that I have no more comment for this patch.
-> >
-> > Reviewed-by: Yuval Shaia <yuval.shaia@oracle.com>
-> >
-> > Yuval
-> >
-> > On Thu, Sep 15, 2016 at 12:07:29AM +0000, Adit Ranadive wrote:
-> > > On Wed, Sep 14, 2016 at 05:43:37 -0700, Yuval Shaia wrote:
-> > > > On Sun, Sep 11, 2016 at 09:49:19PM -0700, Adit Ranadive wrote:
-> > > > > +
-> > > > > +static int pvrdma_poll_one(struct pvrdma_cq *cq, struct pvrdma_q=
-p
-> > > > **cur_qp,
-> > > > > +			   struct ib_wc *wc)
-> > > > > +{
-> > > > > +	struct pvrdma_dev *dev =3D to_vdev(cq->ibcq.device);
-> > > > > +	int has_data;
-> > > > > +	unsigned int head;
-> > > > > +	bool tried =3D false;
-> > > > > +	struct pvrdma_cqe *cqe;
-> > > > > +
-> > > > > +retry:
-> > > > > +	has_data =3D pvrdma_idx_ring_has_data(&cq->ring_state->rx,
-> > > > > +					    cq->ibcq.cqe, &head);
-> > > > > +	if (has_data =3D=3D 0) {
-> > > > > +		if (tried)
-> > > > > +			return -EAGAIN;
-> > > > > +
-> > > > > +		/* Pass down POLL to give physical HCA a chance to poll. */
-> > > > > +		pvrdma_write_uar_cq(dev, cq->cq_handle |
-> > > > PVRDMA_UAR_CQ_POLL);
-> > > > > +
-> > > > > +		tried =3D true;
-> > > > > +		goto retry;
-> > > > > +	} else if (has_data =3D=3D PVRDMA_INVALID_IDX) {
-> > > >
-> > > > I didn't went throw the entire life cycle of RX-ring's head and tai=
-l but you
-> > > > need to make sure that PVRDMA_INVALID_IDX error is recoverable one,=
- i.e
-> > > > there is probability that in the next call to pvrdma_poll_one it wi=
-ll be fine.
-> > > > Otherwise it is an endless loop.
-> > >
-> > > We have never run into this issue internally but I don't think we can=
- recover here
-> >
-> > I briefly reviewed the life cycle of RX-ring's head and tail and didn't
-> > caught any suspicious place that might corrupt it.
-> > So glad to see that you never encountered this case.
-> >
-> > > in the driver. The only way to recover would be to destroy and recrea=
-te the CQ
-> > > which we shouldn't do since it could be used by multiple QPs.
-> >
-> > Agree.
-> > But don't they hit the same problem too?
-> >
-> > > We don't have a way yet to recover in the device. Once we add that th=
-is check
-> > > should go away.
-> >
-> > To be honest i have no idea how to do that - i was expecting driver's v=
-endors
-> > to come up with an ideas :)
-> > I once came up with an idea to force restart of the driver but it was
-> > rejected.
-> >
-> > >
-> > > The reason I returned an error value from poll_cq in v3 was to break =
-the possible
-> > > loop so that it might give clients a chance to recover. But since pol=
-l_cq is not expected
-> > > to fail I just log the device error here. I can revert to that versio=
-n if you want to break
-> > > the possible loop.
-> >
-> > Clients (ULPs) cannot recover from this case. They even do not check th=
-e
-> > reason of the error and treats any error as -EAGAIN.
->=20
-> It is because poll_one is not expected to fall.
+tcp: BBR congestion control algorithm
 
-Poll_one is an internal function in our driver. ULPs should still be okay I=
- think as long as poll_cq
-does not fail, no?
+This patch series implements a new TCP congestion control algorithm:
+BBR (Bottleneck Bandwidth and RTT). A paper with a detailed
+description of BBR will be published in ACM Queue, September-October
+2016, as "BBR: Congestion-Based Congestion Control". BBR is widely
+deployed in production at Google.
+
+The patch series starts with a set of supporting infrastructure
+changes, including a few that extend the congestion control
+framework. The last patch adds BBR as a TCP congestion control
+module. Please see individual patches for the details.
+
+- v2 -> v3: fix another issue caught by build bots:
+ - adjust rate_sample struct initialization syntax to allow gcc-4.4 to compile
+   the "tcp: track data delivery rate for a TCP connection" patch; also
+   adjusted some similar syntax in "tcp_bbr: add BBR congestion control"
+
+- v1 -> v2: fix issues caught by build bots:
+ - fix "tcp: export data delivery rate" to use rate64 instead of rate,
+   so there is a 64-bit numerator for the do_div call
+ - fix conflicting definitions for minmax caused by
+   "tcp: use windowed min filter library for TCP min_rtt estimation"
+   with a new commit:
+   tcp: cdg: rename struct minmax in tcp_cdg.c to avoid a naming conflict
+ - fix warning about the use of __packed in
+   "tcp: track data delivery rate for a TCP connection",
+   which involves the addition of a new commit:
+   tcp: switch back to proper tcp_skb_cb size check in tcp_init()  
+
+Eric Dumazet (2):
+  net_sched: sch_fq: add low_rate_threshold parameter
+  tcp: switch back to proper tcp_skb_cb size check in tcp_init()
+
+Neal Cardwell (8):
+  lib/win_minmax: windowed min or max estimator
+  tcp: use windowed min filter library for TCP min_rtt estimation
+  tcp: count packets marked lost for a TCP connection
+  tcp: allow congestion control module to request TSO skb segment count
+  tcp: export tcp_tso_autosize() and parameterize minimum number of TSO
+    segments
+  tcp: export tcp_mss_to_mtu() for congestion control modules
+  tcp: increase ICSK_CA_PRIV_SIZE from 64 bytes to 88
+  tcp_bbr: add BBR congestion control
+
+Soheil Hassas Yeganeh (2):
+  tcp: cdg: rename struct minmax in tcp_cdg.c to avoid a naming conflict
+  tcp: track application-limited rate samples
+
+Yuchung Cheng (4):
+  tcp: track data delivery rate for a TCP connection
+  tcp: export data delivery rate
+  tcp: allow congestion control to expand send buffer differently
+  tcp: new CC hook to set sending rate with rate_sample in any CA state
+
+ include/linux/tcp.h                |  14 +-
+ include/linux/win_minmax.h         |  37 ++
+ include/net/inet_connection_sock.h |   4 +-
+ include/net/tcp.h                  |  53 ++-
+ include/uapi/linux/inet_diag.h     |  13 +
+ include/uapi/linux/pkt_sched.h     |   2 +
+ include/uapi/linux/tcp.h           |   3 +
+ lib/Makefile                       |   2 +-
+ lib/win_minmax.c                   |  98 +++++
+ net/ipv4/Kconfig                   |  18 +
+ net/ipv4/Makefile                  |   3 +-
+ net/ipv4/tcp.c                     |  26 +-
+ net/ipv4/tcp_bbr.c                 | 875 +++++++++++++++++++++++++++++++++++++
+ net/ipv4/tcp_cdg.c                 |  12 +-
+ net/ipv4/tcp_cong.c                |   2 +-
+ net/ipv4/tcp_input.c               | 154 +++----
+ net/ipv4/tcp_minisocks.c           |   5 +-
+ net/ipv4/tcp_output.c              |  27 +-
+ net/ipv4/tcp_rate.c                | 186 ++++++++
+ net/sched/sch_fq.c                 |  22 +-
+ 20 files changed, 1449 insertions(+), 107 deletions(-)
+ create mode 100644 include/linux/win_minmax.h
+ create mode 100644 lib/win_minmax.c
+ create mode 100644 net/ipv4/tcp_bbr.c
+ create mode 100644 net/ipv4/tcp_rate.c
+
+-- 
+2.8.0.rc3.226.g39d4020
