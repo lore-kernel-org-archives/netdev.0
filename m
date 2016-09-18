@@ -1,37 +1,58 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCHv6 net-next 08/15] nfp: add BPF to NFP code translator
-Date: Sun, 18 Sep 2016 17:44:56 +0200
-Message-ID: <57DEB678.3040705@iogearbox.net>
-References: <1474211365-20088-1-git-send-email-jakub.kicinski@netronome.com> <1474211365-20088-9-git-send-email-jakub.kicinski@netronome.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [v3] net: ipv6: fallback to full lookup if table lookup is
+ unsuitable
+Date: Sun, 18 Sep 2016 09:47:59 -0600
+Message-ID: <d4d7cc30-8b87-d29d-1df4-657fe192ace2@cumulusnetworks.com>
+References: <8bce7180-e4c2-808c-20e0-0bd9634b8fc2@cumulusnetworks.com>
+ <20160918154607.5474-1-vincent@bernat.im>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: ast@kernel.org
-To: Jakub Kicinski <jakub.kicinski@netronome.com>,
-        netdev@vger.kernel.org
+To: Vincent Bernat <vincent@bernat.im>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:50416 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751476AbcIRPpE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 11:45:04 -0400
-In-Reply-To: <1474211365-20088-9-git-send-email-jakub.kicinski@netronome.com>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:33681 "EHLO
+        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751317AbcIRPsC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 11:48:02 -0400
+Received: by mail-pf0-f172.google.com with SMTP id 21so31701677pfy.0
+        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 08:48:02 -0700 (PDT)
+In-Reply-To: <20160918154607.5474-1-vincent@bernat.im>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/18/2016 05:09 PM, Jakub Kicinski wrote:
-> Add translator for JITing eBPF to operations which
-> can be executed on NFP's programmable engines.
->
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+On 9/18/16 9:46 AM, Vincent Bernat wrote:
+> Commit 8c14586fc320 ("net: ipv6: Use passed in table for nexthop
+> lookups") introduced a regression: insertion of an IPv6 route in a table
+> not containing the appropriate connected route for the gateway but which
+> contained a non-connected route (like a default gateway) fails while it
+> was previously working:
+> 
+>     $ ip link add eth0 type dummy
+>     $ ip link set up dev eth0
+>     $ ip addr add 2001:db8::1/64 dev eth0
+>     $ ip route add ::/0 via 2001:db8::5 dev eth0 table 20
+>     $ ip route add 2001:db8:cafe::1/128 via 2001:db8::6 dev eth0 table 20
+>     RTNETLINK answers: No route to host
+>     $ ip -6 route show table 20
+>     default via 2001:db8::5 dev eth0  metric 1024  pref medium
+> 
+> After this patch, we get:
+> 
+>     $ ip route add 2001:db8:cafe::1/128 via 2001:db8::6 dev eth0 table 20
+>     $ ip -6 route show table 20
+>     2001:db8:cafe::1 via 2001:db8::6 dev eth0  metric 1024  pref medium
+>     default via 2001:db8::5 dev eth0  metric 1024  pref medium
+> 
+> Fixes: 8c14586fc320 ("net: ipv6: Use passed in table for nexthop lookups")
+> Signed-off-by: Vincent Bernat <vincent@bernat.im>
 > ---
-> v6:
->   - explicitly check for registers >= MAX_BPF_REG;
->   - fix mem leak.
+>  net/ipv6/route.c | 11 ++++++++++-
+>  1 file changed, 10 insertions(+), 1 deletion(-)
 
-Set looks good to me now, thanks a lot Jakub!
-
-> v4:
->   - use bitfield.h directly.
-> v3:
->   - don't clone the program for the verifier (no longer needed);
->   - temporarily add a local copy of macros from bitfield.h.
+Acked-by: David Ahern <dsa@cumulusnetworks.com>
+Tested-by: David Ahern <dsa@cumulusnetworks.com>
