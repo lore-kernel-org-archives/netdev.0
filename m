@@ -1,183 +1,39 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [PATCH v3 net-next 2/2] net sched ife action: Introduce skb tcindex metadata encap decap
-Date: Sun, 18 Sep 2016 07:31:43 -0400
-Message-ID: <1474198303-10645-2-git-send-email-jhs@emojatatu.com>
-References: <1474198303-10645-1-git-send-email-jhs@emojatatu.com>
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: davem@davemloft.net
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCH] net: mvneta: mark symbols static where possible
+Date: Sun, 18 Sep 2016 13:33:32 +0200
+Message-ID: <20160918133332.37f239f2@free-electrons.com>
+References: <1474190445-5887-1-git-send-email-baoyou.xie@linaro.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        arnd@arndb.de, xie.baoyou@zte.com.cn
+To: Baoyou Xie <baoyou.xie@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f68.google.com ([209.85.214.68]:34253 "EHLO
-        mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932485AbcIRLb4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 07:31:56 -0400
-Received: by mail-it0-f68.google.com with SMTP id 186so2965334itf.1
-        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 04:31:56 -0700 (PDT)
-In-Reply-To: <1474198303-10645-1-git-send-email-jhs@emojatatu.com>
+Received: from down.free-electrons.com ([37.187.137.238]:37146 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S932253AbcIRLdk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 07:33:40 -0400
+In-Reply-To: <1474190445-5887-1-git-send-email-baoyou.xie@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
+Hello,
 
-Sample use case of how this is encoded:
-user space via tuntap (or a connected VM/Machine/container)
-encodes the tcindex TLV.
+On Sun, 18 Sep 2016 17:20:45 +0800, Baoyou Xie wrote:
+> We get 2 warnings when building kernel with W=1:
+> drivers/net/ethernet/marvell/mvneta.c:639:27: warning: no previous prototype for 'mvneta_get_stats64' [-Wmissing-prototypes]
+> drivers/net/ethernet/marvell/mvneta.c:3529:5: warning: no previous prototype for 'mvneta_ethtool_set_link_ksettings' [-Wmissing-prototypes]
+> 
+> In fact, these functions are only used in the file in which they are
+> declared and don't need a declaration, but can be made static.
+> so this patch marks these functions with 'static'.
+> 
+> Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
 
-Sample use case of decoding:
-IFE action decodes it and the skb->tc_index is then used to classify.
-So something like this for encoded ICMP packets:
+Acked-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 
-.. first decode then reclassify... skb->tcindex will be set
-sudo $TC filter add dev $ETH parent ffff: prio 2 protocol 0xbeef \
-u32 match u32 0 0 flowid 1:1 \
-action ife decode reclassify
-
-...next match the decode icmp packet...
-sudo $TC filter add dev $ETH parent ffff: prio 4 protocol ip \
-u32 match ip protocol 1 0xff flowid 1:1 \
-action continue
-
-... last classify it using the tcindex classifier and do someaction..
-sudo $TC filter add dev $ETH parent ffff: prio 5 protocol ip \
-handle 0x11 tcindex classid 1:1 \
-action blah..
-
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
----
- include/uapi/linux/tc_act/tc_ife.h |  3 +-
- net/sched/Kconfig                  |  5 +++
- net/sched/Makefile                 |  1 +
- net/sched/act_meta_skbtcindex.c    | 79 ++++++++++++++++++++++++++++++++++++++
- 4 files changed, 87 insertions(+), 1 deletion(-)
- create mode 100644 net/sched/act_meta_skbtcindex.c
-
-diff --git a/include/uapi/linux/tc_act/tc_ife.h b/include/uapi/linux/tc_act/tc_ife.h
-index 4ece02a..cd18360 100644
---- a/include/uapi/linux/tc_act/tc_ife.h
-+++ b/include/uapi/linux/tc_act/tc_ife.h
-@@ -32,8 +32,9 @@ enum {
- #define IFE_META_HASHID 2
- #define	IFE_META_PRIO 3
- #define	IFE_META_QMAP 4
-+#define	IFE_META_TCINDEX 5
- /*Can be overridden at runtime by module option*/
--#define	__IFE_META_MAX 5
-+#define	__IFE_META_MAX 6
- #define IFE_META_MAX (__IFE_META_MAX - 1)
- 
- #endif
-diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index 7795d5a..87956a7 100644
---- a/net/sched/Kconfig
-+++ b/net/sched/Kconfig
-@@ -793,6 +793,11 @@ config NET_IFE_SKBPRIO
-         depends on NET_ACT_IFE
-         ---help---
- 
-+config NET_IFE_SKBTCINDEX
-+        tristate "Support to encoding decoding skb tcindex on IFE action"
-+        depends on NET_ACT_IFE
-+        ---help---
-+
- config NET_CLS_IND
- 	bool "Incoming device classification"
- 	depends on NET_CLS_U32 || NET_CLS_FW
-diff --git a/net/sched/Makefile b/net/sched/Makefile
-index 148ae0d..4bdda36 100644
---- a/net/sched/Makefile
-+++ b/net/sched/Makefile
-@@ -23,6 +23,7 @@ obj-$(CONFIG_NET_ACT_SKBMOD)	+= act_skbmod.o
- obj-$(CONFIG_NET_ACT_IFE)	+= act_ife.o
- obj-$(CONFIG_NET_IFE_SKBMARK)	+= act_meta_mark.o
- obj-$(CONFIG_NET_IFE_SKBPRIO)	+= act_meta_skbprio.o
-+obj-$(CONFIG_NET_IFE_SKBTCINDEX)	+= act_meta_skbtcindex.o
- obj-$(CONFIG_NET_ACT_TUNNEL_KEY)+= act_tunnel_key.o
- obj-$(CONFIG_NET_SCH_FIFO)	+= sch_fifo.o
- obj-$(CONFIG_NET_SCH_CBQ)	+= sch_cbq.o
-diff --git a/net/sched/act_meta_skbtcindex.c b/net/sched/act_meta_skbtcindex.c
-new file mode 100644
-index 0000000..3b35774
---- /dev/null
-+++ b/net/sched/act_meta_skbtcindex.c
-@@ -0,0 +1,79 @@
-+/*
-+ * net/sched/act_meta_tc_index.c IFE skb->tc_index metadata module
-+ *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * copyright Jamal Hadi Salim (2016)
-+ *
-+*/
-+
-+#include <linux/types.h>
-+#include <linux/kernel.h>
-+#include <linux/string.h>
-+#include <linux/errno.h>
-+#include <linux/skbuff.h>
-+#include <linux/rtnetlink.h>
-+#include <linux/module.h>
-+#include <linux/init.h>
-+#include <net/netlink.h>
-+#include <net/pkt_sched.h>
-+#include <uapi/linux/tc_act/tc_ife.h>
-+#include <net/tc_act/tc_ife.h>
-+#include <linux/rtnetlink.h>
-+
-+static int skbtcindex_encode(struct sk_buff *skb, void *skbdata,
-+			     struct tcf_meta_info *e)
-+{
-+	u32 ifetc_index = skb->tc_index;
-+
-+	return ife_encode_meta_u16(ifetc_index, skbdata, e);
-+}
-+
-+static int skbtcindex_decode(struct sk_buff *skb, void *data, u16 len)
-+{
-+	u16 ifetc_index = *(u16 *)data;
-+
-+	skb->tc_index = ntohs(ifetc_index);
-+	return 0;
-+}
-+
-+static int skbtcindex_check(struct sk_buff *skb, struct tcf_meta_info *e)
-+{
-+	return ife_check_meta_u16(skb->tc_index, e);
-+}
-+
-+static struct tcf_meta_ops ife_skbtcindex_ops = {
-+	.metaid = IFE_META_TCINDEX,
-+	.metatype = NLA_U16,
-+	.name = "tc_index",
-+	.synopsis = "skb tc_index 16 bit metadata",
-+	.check_presence = skbtcindex_check,
-+	.encode = skbtcindex_encode,
-+	.decode = skbtcindex_decode,
-+	.get = ife_get_meta_u16,
-+	.alloc = ife_alloc_meta_u16,
-+	.release = ife_release_meta_gen,
-+	.validate = ife_validate_meta_u16,
-+	.owner = THIS_MODULE,
-+};
-+
-+static int __init ifetc_index_init_module(void)
-+{
-+	return register_ife_op(&ife_skbtcindex_ops);
-+}
-+
-+static void __exit ifetc_index_cleanup_module(void)
-+{
-+	unregister_ife_op(&ife_skbtcindex_ops);
-+}
-+
-+module_init(ifetc_index_init_module);
-+module_exit(ifetc_index_cleanup_module);
-+
-+MODULE_AUTHOR("Jamal Hadi Salim(2016)");
-+MODULE_DESCRIPTION("Inter-FE skb tc_index metadata module");
-+MODULE_LICENSE("GPL");
-+MODULE_ALIAS_IFE_META(IFE_META_SKBTCINDEX);
 -- 
-1.9.1
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
