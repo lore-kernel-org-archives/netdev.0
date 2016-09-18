@@ -1,36 +1,42 @@
 From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH v3 net-next 11/16] tcp: export tcp_tso_autosize() and parameterize minimum number of TSO segments
-Date: Sun, 18 Sep 2016 18:03:48 -0400
-Message-ID: <1474236233-28511-12-git-send-email-ncardwell@google.com>
+Subject: [PATCH v3 net-next 13/16] tcp: allow congestion control to expand send buffer differently
+Date: Sun, 18 Sep 2016 18:03:50 -0400
+Message-ID: <1474236233-28511-14-git-send-email-ncardwell@google.com>
 References: <1474236233-28511-1-git-send-email-ncardwell@google.com>
-Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
+Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
         Van Jacobson <vanj@google.com>,
-        Yuchung Cheng <ycheng@google.com>,
+        Neal Cardwell <ncardwell@google.com>,
         Nandita Dukkipati <nanditad@google.com>,
         Eric Dumazet <edumazet@google.com>,
         Soheil Hassas Yeganeh <soheil@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f178.google.com ([209.85.216.178]:35969 "EHLO
-        mail-qt0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936308AbcIRWEV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 18:04:21 -0400
-Received: by mail-qt0-f178.google.com with SMTP id l91so64342767qte.3
-        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 15:04:21 -0700 (PDT)
+Received: from mail-qt0-f173.google.com ([209.85.216.173]:32983 "EHLO
+        mail-qt0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932119AbcIRWEX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 18:04:23 -0400
+Received: by mail-qt0-f173.google.com with SMTP id 11so64695463qtc.0
+        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 15:04:22 -0700 (PDT)
 In-Reply-To: <1474236233-28511-1-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-To allow congestion control modules to use the default TSO auto-sizing
-algorithm as one of the ingredients in their own decision about TSO sizing:
+From: Yuchung Cheng <ycheng@google.com>
 
-1) Export tcp_tso_autosize() so that CC modules can use it.
+Currently the TCP send buffer expands to twice cwnd, in order to allow
+limited transmits in the CA_Recovery state. This assumes that cwnd
+does not increase in the CA_Recovery.
 
-2) Change tcp_tso_autosize() to allow callers to specify a minimum
-   number of segments per TSO skb, in case the congestion control
-   module has a different notion of the best floor for TSO skbs for
-   the connection right now. For very low-rate paths or policed
-   connections it can be appropriate to use smaller TSO skbs.
+For some congestion control algorithms, like the upcoming BBR module,
+if the losses in recovery do not indicate congestion then we may
+continue to raise cwnd multiplicatively in recovery. In such cases the
+current multiplier will falsely limit the sending rate, much as if it
+were limited by the application.
+
+This commit adds an optional congestion control callback to use a
+different multiplier to expand the TCP send buffer. For congestion
+control modules that do not specificy this callback, TCP continues to
+use the previous default of 2.
 
 Signed-off-by: Van Jacobson <vanj@google.com>
 Signed-off-by: Neal Cardwell <ncardwell@google.com>
@@ -39,59 +45,44 @@ Signed-off-by: Nandita Dukkipati <nanditad@google.com>
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
 ---
- include/net/tcp.h     | 2 ++
- net/ipv4/tcp_output.c | 9 ++++++---
- 2 files changed, 8 insertions(+), 3 deletions(-)
+ include/net/tcp.h    | 2 ++
+ net/ipv4/tcp_input.c | 4 +++-
+ 2 files changed, 5 insertions(+), 1 deletion(-)
 
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index f8f581f..3492041 100644
+index 3492041..1aa9628 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -533,6 +533,8 @@ __u32 cookie_v6_init_sequence(const struct sk_buff *skb, __u16 *mss);
- #endif
- /* tcp_output.c */
- 
-+u32 tcp_tso_autosize(const struct sock *sk, unsigned int mss_now,
-+		     int min_tso_segs);
- void __tcp_push_pending_frames(struct sock *sk, unsigned int cur_mss,
- 			       int nonagle);
- bool tcp_may_send_now(struct sock *sk);
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 0137956..0bf3d48 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1549,7 +1549,8 @@ static bool tcp_nagle_check(bool partial, const struct tcp_sock *tp,
- /* Return how many segs we'd like on a TSO packet,
-  * to send one TSO packet per ms
-  */
--static u32 tcp_tso_autosize(const struct sock *sk, unsigned int mss_now)
-+u32 tcp_tso_autosize(const struct sock *sk, unsigned int mss_now,
-+		     int min_tso_segs)
+@@ -917,6 +917,8 @@ struct tcp_congestion_ops {
+ 	void (*pkts_acked)(struct sock *sk, const struct ack_sample *sample);
+ 	/* suggest number of segments for each skb to transmit (optional) */
+ 	u32 (*tso_segs_goal)(struct sock *sk);
++	/* returns the multiplier used in tcp_sndbuf_expand (optional) */
++	u32 (*sndbuf_expand)(struct sock *sk);
+ 	/* get info for inet_diag (optional) */
+ 	size_t (*get_info)(struct sock *sk, u32 ext, int *attr,
+ 			   union tcp_cc_info *info);
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 17de77d..5af0bf3 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -289,6 +289,7 @@ static bool tcp_ecn_rcv_ecn_echo(const struct tcp_sock *tp, const struct tcphdr
+ static void tcp_sndbuf_expand(struct sock *sk)
  {
- 	u32 bytes, segs;
+ 	const struct tcp_sock *tp = tcp_sk(sk);
++	const struct tcp_congestion_ops *ca_ops = inet_csk(sk)->icsk_ca_ops;
+ 	int sndmem, per_mss;
+ 	u32 nr_segs;
  
-@@ -1561,10 +1562,11 @@ static u32 tcp_tso_autosize(const struct sock *sk, unsigned int mss_now)
- 	 * This preserves ACK clocking and is consistent
- 	 * with tcp_tso_should_defer() heuristic.
+@@ -309,7 +310,8 @@ static void tcp_sndbuf_expand(struct sock *sk)
+ 	 * Cubic needs 1.7 factor, rounded to 2 to include
+ 	 * extra cushion (application might react slowly to POLLOUT)
  	 */
--	segs = max_t(u32, bytes / mss_now, sysctl_tcp_min_tso_segs);
-+	segs = max_t(u32, bytes / mss_now, min_tso_segs);
+-	sndmem = 2 * nr_segs * per_mss;
++	sndmem = ca_ops->sndbuf_expand ? ca_ops->sndbuf_expand(sk) : 2;
++	sndmem *= nr_segs * per_mss;
  
- 	return min_t(u32, segs, sk->sk_gso_max_segs);
- }
-+EXPORT_SYMBOL(tcp_tso_autosize);
- 
- /* Return the number of segments we want in the skb we are transmitting.
-  * See if congestion control module wants to decide; otherwise, autosize.
-@@ -1574,7 +1576,8 @@ static u32 tcp_tso_segs(struct sock *sk, unsigned int mss_now)
- 	const struct tcp_congestion_ops *ca_ops = inet_csk(sk)->icsk_ca_ops;
- 	u32 tso_segs = ca_ops->tso_segs_goal ? ca_ops->tso_segs_goal(sk) : 0;
- 
--	return tso_segs ? : tcp_tso_autosize(sk, mss_now);
-+	return tso_segs ? :
-+		tcp_tso_autosize(sk, mss_now, sysctl_tcp_min_tso_segs);
- }
- 
- /* Returns the portion of skb which can be sent right away */
+ 	if (sk->sk_sndbuf < sndmem)
+ 		sk->sk_sndbuf = min(sndmem, sysctl_tcp_wmem[2]);
 -- 
 2.8.0.rc3.226.g39d4020
