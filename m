@@ -1,158 +1,167 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH v3 net-next 09/16] tcp: export data delivery rate
-Date: Sun, 18 Sep 2016 18:03:46 -0400
-Message-ID: <1474236233-28511-10-git-send-email-ncardwell@google.com>
-References: <1474236233-28511-1-git-send-email-ncardwell@google.com>
-Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
-        Van Jacobson <vanj@google.com>,
-        Neal Cardwell <ncardwell@google.com>,
-        Nandita Dukkipati <nanditad@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Soheil Hassas Yeganeh <soheil@google.com>
-To: David Miller <davem@davemloft.net>
+From: "Paul Tsang" <haochenghk1987@163.com>
+Subject: =?utf-8?B?UXVvdGF0aW9u77yb5p2x6I6eL+a3seWcsy/lu6Plt54v5Lit?=
+        =?utf-8?B?5bGxL+mmmea4r+eJqea1gQ==?=
+Date: Mon, 19 Sep 2016 06:17:01 +0800
+Message-ID: <20160919061713724528@yun151.com>
+Reply-To: <haochenghk1987@163.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+        charset="utf-8"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f173.google.com ([209.85.220.173]:34512 "EHLO
-        mail-qk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933234AbcIRWES (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 18:04:18 -0400
-Received: by mail-qk0-f173.google.com with SMTP id h8so126786388qka.1
-        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 15:04:17 -0700 (PDT)
-In-Reply-To: <1474236233-28511-1-git-send-email-ncardwell@google.com>
+Received: from [61.176.221.2] ([61.176.221.2]:2933 "EHLO mail.yun151.com"
+        rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+        id S932338AbcIRWUr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 18 Sep 2016 18:20:47 -0400
+Received: from localhost by mail.yun151.com (MDaemon PRO v10.1.1)
+        with ESMTP id md50136352278.msg
+        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 06:20:26 +0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuchung Cheng <ycheng@google.com>
-
-This commit export two new fields in struct tcp_info:
-
-  tcpi_delivery_rate: The most recent goodput, as measured by
-    tcp_rate_gen(). If the socket is limited by the sending
-    application (e.g., no data to send), it reports the highest
-    measurement instead of the most recent. The unit is bytes per
-    second (like other rate fields in tcp_info).
-
-  tcpi_delivery_rate_app_limited: A boolean indicating if the goodput
-    was measured when the socket's throughput was limited by the
-    sending application.
-
-This delivery rate information can be useful for applications that
-want to know the current throughput the TCP connection is seeing,
-e.g. adaptive bitrate video streaming. It can also be very useful for
-debugging or troubleshooting.
-
-Signed-off-by: Van Jacobson <vanj@google.com>
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
-Signed-off-by: Yuchung Cheng <ycheng@google.com>
-Signed-off-by: Nandita Dukkipati <nanditad@google.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
----
- include/linux/tcp.h      |  5 ++++-
- include/uapi/linux/tcp.h |  3 +++
- net/ipv4/tcp.c           | 11 ++++++++++-
- net/ipv4/tcp_rate.c      | 12 +++++++++++-
- 4 files changed, 28 insertions(+), 3 deletions(-)
-
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index fdcd00f..a17ae7b 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -213,7 +213,8 @@ struct tcp_sock {
- 		u8 reord;    /* reordering detected */
- 	} rack;
- 	u16	advmss;		/* Advertised MSS			*/
--	u8	unused;
-+	u8	rate_app_limited:1,  /* rate_{delivered,interval_us} limited? */
-+		unused:7;
- 	u8	nonagle     : 4,/* Disable Nagle algorithm?             */
- 		thin_lto    : 1,/* Use linear timeouts for thin streams */
- 		thin_dupack : 1,/* Fast retransmit on first dupack      */
-@@ -271,6 +272,8 @@ struct tcp_sock {
- 	u32	app_limited;	/* limited until "delivered" reaches this val */
- 	struct skb_mstamp first_tx_mstamp;  /* start of window send phase */
- 	struct skb_mstamp delivered_mstamp; /* time we reached "delivered" */
-+	u32	rate_delivered;    /* saved rate sample: packets delivered */
-+	u32	rate_interval_us;  /* saved rate sample: time elapsed */
- 
-  	u32	rcv_wnd;	/* Current receiver window		*/
- 	u32	write_seq;	/* Tail(+1) of data held in tcp send buffer */
-diff --git a/include/uapi/linux/tcp.h b/include/uapi/linux/tcp.h
-index 482898f..73ac0db 100644
---- a/include/uapi/linux/tcp.h
-+++ b/include/uapi/linux/tcp.h
-@@ -167,6 +167,7 @@ struct tcp_info {
- 	__u8	tcpi_backoff;
- 	__u8	tcpi_options;
- 	__u8	tcpi_snd_wscale : 4, tcpi_rcv_wscale : 4;
-+	__u8	tcpi_delivery_rate_app_limited:1;
- 
- 	__u32	tcpi_rto;
- 	__u32	tcpi_ato;
-@@ -211,6 +212,8 @@ struct tcp_info {
- 	__u32	tcpi_min_rtt;
- 	__u32	tcpi_data_segs_in;	/* RFC4898 tcpEStatsDataSegsIn */
- 	__u32	tcpi_data_segs_out;	/* RFC4898 tcpEStatsDataSegsOut */
-+
-+	__u64   tcpi_delivery_rate;
- };
- 
- /* for TCP_MD5SIG socket option */
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 0327a44..46b05b2 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2695,7 +2695,7 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
- {
- 	const struct tcp_sock *tp = tcp_sk(sk); /* iff sk_type == SOCK_STREAM */
- 	const struct inet_connection_sock *icsk = inet_csk(sk);
--	u32 now = tcp_time_stamp;
-+	u32 now = tcp_time_stamp, intv;
- 	unsigned int start;
- 	int notsent_bytes;
- 	u64 rate64;
-@@ -2785,6 +2785,15 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
- 	info->tcpi_min_rtt = tcp_min_rtt(tp);
- 	info->tcpi_data_segs_in = tp->data_segs_in;
- 	info->tcpi_data_segs_out = tp->data_segs_out;
-+
-+	info->tcpi_delivery_rate_app_limited = tp->rate_app_limited ? 1 : 0;
-+	rate = READ_ONCE(tp->rate_delivered);
-+	intv = READ_ONCE(tp->rate_interval_us);
-+	if (rate && intv) {
-+		rate64 = (u64)rate * tp->mss_cache * USEC_PER_SEC;
-+		do_div(rate64, intv);
-+		put_unaligned(rate64, &info->tcpi_delivery_rate);
-+	}
- }
- EXPORT_SYMBOL_GPL(tcp_get_info);
- 
-diff --git a/net/ipv4/tcp_rate.c b/net/ipv4/tcp_rate.c
-index 52ff84b..9be1581 100644
---- a/net/ipv4/tcp_rate.c
-+++ b/net/ipv4/tcp_rate.c
-@@ -149,12 +149,22 @@ void tcp_rate_gen(struct sock *sk, u32 delivered, u32 lost,
- 	 * for connections suffer heavy or prolonged losses.
- 	 */
- 	if (unlikely(rs->interval_us < tcp_min_rtt(tp))) {
--		rs->interval_us = -1;
- 		if (!rs->is_retrans)
- 			pr_debug("tcp rate: %ld %d %u %u %u\n",
- 				 rs->interval_us, rs->delivered,
- 				 inet_csk(sk)->icsk_ca_state,
- 				 tp->rx_opt.sack_ok, tcp_min_rtt(tp));
-+		rs->interval_us = -1;
-+		return;
-+	}
-+
-+	/* Record the last non-app-limited or the highest app-limited bw */
-+	if (!rs->is_app_limited ||
-+	    ((u64)rs->delivered * tp->rate_interval_us >=
-+	     (u64)tp->rate_delivered * rs->interval_us)) {
-+		tp->rate_delivered = rs->delivered;
-+		tp->rate_interval_us = rs->interval_us;
-+		tp->rate_app_limited = rs->is_app_limited;
- 	}
- }
- 
--- 
-2.8.0.rc3.226.g39d4020
+RGVhciBTaXIvTWlzcw0KVGhpcyBpcyB0aGUgZS1tYWlsIGZyb20gUGF1bCBvZiBIQU9DSElORyBJ
+TlQnTCBMT0dJU1RJQ1MgTFREIGluIENoaW5hLiBPdXIgY29tcGFueSBpcyBhIHdlbGwtc3RhZmZl
+ZCBmcmVpZ2h0IGZvcndhcmRpbmcgYW5kIGxvZ2lzdGljcyBzZXJ2aWNlIGNvbXBhbnkgbG9jYXRl
+ZCBpbiBTaGVuemhlbi9Eb25nZ3Vhbi9HdWFuZ3pob3UvSHVpWmhvdS9aaG9uZ3NoYW4gR3VhbmdE
+b25nIFByb3ZpbmNlIGNoaW5h77yMYW5kIHByb3ZpZGUgc2FmZXR5LCBjb252ZW5pZW50IGFuZCBz
+cGVlZHkgbG9naXN0aWMgc2VydmljZS4gQXMgYSB5b3VuZyBhbmQgdmlicmFudCBjb21wYW55ICx3
+ZSBhcmUgYWxsIGZ1bGwgb2YgZW50aHVzaWFzbSBhbmQgcG93ZXIuU3VyZWx5LGl0IGlzIGd1YXJh
+bnRlZWQgd2Ugd2lsbCBwcm92aWRlIHRoZSBiZXN0IHNlcnZpY2UgZm9yIGltcG9ydCBhbmQgZXhw
+b3J0IGJvdGggb2Ygb2NlYW4gYW5kIGFpciBmcmVpZ2h0IC5UbyBtZW50aW9uIHdpdGggLFdlJ3Zl
+IGdvdCBub3Qgb25seSBhIGdyZWF0IGFkdmFudGFnZSBpbiB0aGUgc3BlY2lhbCBjb250YWluZXIg
+dHJhbnNwb3J0YXRpb24gaW4gYWxsIGxpbmVzIG92ZXIgdGhlIHdvcmxkLGJ1dCB3ZSBhbHNvIGhh
+dmUgcXVpdGUgYSBmZXcgc2hpcHBpbmcgbGluZXMgICBpbmNsdWRpbmc6WklNLENTQ0wsRU1DLFdI
+TCxPT0NMLEtNVEMsWU1MLEFOTCxITU0gYW5kIHNvIG9uIC4NClNwZWNpZmljYXRpb25zDQoxLklt
+cG9ydCBhbmQgZXhwb3J0IHNlcnZpY2UNCjIuV2FyZWhvdXNpbmcgYW5kIGxvZ2lzdGljcw0KMy5P
+dmVyIDEwIHllYXJzIG9mIGV4cGVyaWVuY2UNCjQudGhlIHN0cm9uZ2VzdCBhYmlsaXR5IG9mIEN1
+c3RvbXMgQ2xlYXJhbmNlDQo1LkRvb3IgdG8gRG9vciBkZWxpdmVyeSAoZnJvbSBob25na29uZyB0
+byBjaGluYW1haW5sYW5kKS8oZnJvbSBjaGluYW1haW5sYW5kIHRvIGhvbmdrb25nICkNCjYuIHBy
+b2Zlc3Npb25hbCBpbXBvcnQgbG9naXN0aWNzDQo3LiBDb2xsZWN0aW5nLXBheWluZyBzZXJ2aWNl
+Ow0KV2Ugb2ZmZXI6DQoxLkN1c3RvbXMgY2xlYXJhbmNlDQoyLkNvbW1vZGl0eSBjb25zb2xpZGF0
+aW9uDQozLkRvbWVzdGljIHRyYW5zcG9ydGF0aW9uDQo0LkNvbmNlYWwgaWRlbnRpdHkgb2YgdHJ1
+ZSBzaGlwcGVyIG9yIHJlYWwgY29uc2lnbmVlDQo1LkV4cG9ydCBMaWNlbmNlDQo2LkZyZWlnaHQg
+Y29sbGVjdA0KSWYgeW91IGhhdmUgYW55IHJlcXVpcmVtZW50IHdlIGNhbiBkbyBmb3IgeW91LCBz
+ZW50IGUtbWFpbCAoIEhBT0NIRU5HSEtAWUFIT08uQ09NLkhLKSBhcyBzb29uIGFzIHBvc3NpYmxl
+LiBIb3Bpbmcgd2UgY2FuIGVzdGFibGlzaCB0aGUgd2lu4oCVd2luIGNvb3BlcmF0aW9uIGxhdGVy
+IGZvciBhIGxvbmcgdGltZS4gVGhhbmsgZm9yIHJlYWRpbmcgbXkgZS1tYWlsLg0K5Lul5LiL5aCx
+5YO554K65bi46KaL6L+Q6L6T5Lqk6LKo5aCx5YO577yM5aaC5pyJ6ZyA6KaB77yM5q2h6L+O5L6G
+6Zu76Kmi5YO5DQox77yJMjDlsLrmn5wvNDDlsLrmn5zosqjmtbfpgYvppqzkvobopb/kup7loLHl
+g7kNCuS4gOOAgU9jZWFuIGZyZWlnaHTmtbfpgYvosrvvvJpSTUI4MDANCuS6jOOAgVRIQ+eggeWk
+tOijheWNuOi0ue+8mlJNQjEzMDANCuS4ieOAgURPQyDmlofku7botLnvvJpSTUI1MDAv56WoDQrl
+m5vjgIFTRUFMIOWwgeadoei0uTpSTUI1NS/npagNCuS6lOOAgUVCUyDntKfmgKXnh4PmsrnpmYTl
+iqDotLnvvJpSTUIyMTAv56WoDQrms6jvvJvkuIDjgIHku6XkuIrov5DotLnljIXlip7kuK3lm73l
+h7rlj6PkuIDliIfmiYvnu63mlLbotKfjgIHoo4Xmn5zjgIHlh7rlj6PjgIHmiqXlhbPnrYnosrvn
+lKjvvIwNCiAgICDkuozjgIHlj5HotKfkurrlj6rpnIDopoHmj5DkvpvotKfnianmuIXljZXkuI7m
+lLblj5Hkurrkv6Hmga/ljbPlj6/vvIjllYbkuJrmiJbkuKrkurrnianlk4Hpg73lj6/vvInvvJsN
+CiAgICDkuInjgIHmr4/lkajlj5HoiLnkuInmrKHvvIjlkajkuIDjgIHlkajkuInjgIHlkajkupTm
+iKrlhbPoo4Xmn5zvvIks5Yiw5riv5pe25pWI5b+rKOiHquijheafnOi1tzctMTTlpKnlt6blj7Pl
+iLDmuK8p77yb5Y+R44CB5pS26LSn5Lq65Y+q6ZyA5pSv5LuY6L+Q6LS55Y2z5Y+v77yM5LiN6ZyA
+5Y+m5Lqk5YW25LuW5Lu75L2V6LS555So77ybDQogICAg5Zub44CB5LiN5om/6L+Q55qE6LSn54mp
+77ya5rG96L2m77yI5pW05Y+w77yJ77yM54Of6Iqx54iG56u577yM5piT54iG5piT54eD5ZOB77yM
+5omT54Gr5py677yM5omL5py677yM5omL5o+Q55S16ISR77yM6YeR6ZO26aaW6aWwLg0KICAgIOS6
+lOOAgei/m+WPo+WFs+eojj1b6LSn54mp5Lu35YC8K+a1t+i/kOi0uSvkv53pmanvvIjmsqHotK3k
+ubDkv53pmak9MO+8iSvlhbPnqI5dKjEwJQ0KICAgICAgICDlhbPnqI4956iO546H77yINSUtMTAl
+77yM5LiA6Iis5pmu6YCa5ZWG5ZOB6YO95pivNSXvvIkq6LSn54mp5Lu35YC8DQoy77yJ5pWj5p2C
+6LKo5rW36YGL5p2x5Y2X5Lqe77yM5r6z5aSn5Yip5Lqe5aCx5YO5DQrkuIDjgIFPY2VhbiBmcmVp
+Z2h05rW36YGL6LK777yaUk1CODAwDQrkuozjgIFET0Mg5paH5Lu26LS577yaUk1CMjAwL+elqA0K
+5LiJ44CBRUJTIOe0p+aApeeHg+ayuemZhOWKoOi0ue+8mlJNQjIxMC/npagNCuazqO+8m+S4gOOA
+geS7peS4iui/kOi0ueWMheWKnuS4reWbveWHuuWPo+S4gOWIh+aJi+e7reaUtui0p+OAgeijheaf
+nOOAgeWHuuWPo+OAgeaKpeWFs+etieiyu+eUqO+8jA0KICAgIOS6jOOAgeWPkei0p+S6uuWPqumc
+gOimgeaPkOS+m+i0p+eJqea4heWNleS4juaUtuWPkeS6uuS/oeaBr+WNs+WPr++8iOWVhuS4muaI
+luS4quS6uueJqeWTgemDveWPr++8ie+8mw0KICAgIOS4ieOAgeavj+WRqOWPkeiIueS4ieasoe+8
+iOWRqOS4gOOAgeWRqOS4ieOAgeWRqOS6lOaIquWFs+ijheafnO+8iSzliLDmuK/ml7bmlYjlv6so
+6Ieq6KOF5p+c6LW3Ny0xNOWkqeW3puWPs+WIsOa4rynvvJvlj5HjgIHmlLbotKfkurrlj6rpnIDm
+lK/ku5jov5DotLnljbPlj6/vvIzkuI3pnIDlj6bkuqTlhbbku5bku7vkvZXotLnnlKjvvJsNCiAg
+ICDlm5vjgIHkuI3mib/ov5DnmoTotKfnianvvJrmsb3ovabvvIjmlbTlj7DvvInvvIzng5/oirHn
+iIbnq7nvvIzmmJPniIbmmJPnh4Plk4HvvIzmiZPngavmnLrvvIzmiYvmnLrvvIzmiYvmj5DnlLXo
+hJHvvIzph5Hpk7bpppbppbAuDQogICAg5LqU44CB6L+b5Y+j5YWz56iOPVvotKfnianku7flgLwr
+5rW36L+Q6LS5K+S/nemZqe+8iOayoei0reS5sOS/nemZqT0w77yJK+WFs+eojl0qMTAlDQogICAg
+ICAgIOWFs+eojj3nqI7njofvvIg1JS0xMCXvvIzkuIDoiKzmma7pgJrllYblk4Hpg73mmK81Je+8
+iSrotKfnianku7flgLwNCjPvvInmlaPmnYLosqjkuIDoiKzosr/mmJPpgIDnqIXloLHpl5zvvIhF
+REnpm7vlrZDloLHpl5zvvInlh7rlj6PpppnmuK/loLHlg7nvvJsNCu+8iOS4gO+8ieS4rea4r+iH
+quaPkOaUtui0ue+8miBSTUIwLjYva2fvvIjmnIDkvY7mlLZSTUIxNTAv5Zau77yJDQrvvIjkuozv
+vInloLHpl5zotLnvvJpSTUIyNTDvvIjml6DmiqXlhbPliJnml6DmraTotLnnlKjvvIkNCu+8iOS4
+ie+8ieajgOeWq+i0ueWPiuWFtuadgui0ueWHreelqOaNruWunuaKpeWunumUgOOAgu+8iOaXoOWV
+huajgOWImeaXoOatpOi0ueeUqO+8iQ0K77yI5Zub77yJ5ZWG5qOA5o2i6K+B5Yet5p2h6LS555So
+77yaUk1CMTAwICDvvIjml6DllYbmo4DliJnml6DmraTotLnnlKjvvIkNCu+8iOS6lO+8iemmmea4
+r+a0vumAgVJNQjIwMOWQq+mmlumHjTUwMEtH5oiW6aaW5pa5M+aWue+8jOe7remHjVJNQjAuMy9L
+R+aIlue7reaWuVJNQjUwL0NCTe+8iOadgui0ueWunuaKpeWunumUgO+8iQ0K77yI5YWt77yJ6aaZ
+5riv5YWl5LuTUk1CMzEw5ZCr6aaW6YeNNTAwS0fmiJbpppbmlrkz5pa577yM57ut6YeNUk1CMC4z
+L0tH5oiW57ut5pa5Uk1CNTAvQ0JN77yI55m76K6w6LS544CB5YGc6L2m6LS5562J5p2C6LS55a6e
+5oql5a6e6ZSA77yJDQo077yJ5pWj6LKo6YCf6YGe6aaZ5riv5aCx5YO5DQrkuIDjgIHlub/kuJzm
+sZ/pl6gv5L2b5bGxL+S4reWxseaVo+i0p++8iOiyt+WWru+8iemAn+mAkummmea4r+iHquaPkOWD
+ue+8m1JNQjAuOS9LR+aIllJNQjIwMC9DQk3vvIjph4/lpKfku7fmm7TkvY7vvIkNCiAgICDlub/k
+uJzmuIXov5wv5rKz5rqQL+aDoOW3nuaVo+i0p++8iOiyt+WWru+8iemAn+mAkummmea4r+iHquaP
+kOWDue+8m1JNQjAuOS9LR+aIllJNQjIwMC9DQk3vvIjph4/lpKfku7fmm7TkvY7vvIkNCiAgICDl
+ub/kuJzmsZXlpLTmlaPotKfvvIjosrfllq7vvInpgJ/pgJLpppnmuK/oh6rmj5Dlg7nvvJtSTUIx
+L0tH5oiWUk1CMjEwL0NCTe+8iOmHj+Wkp+S7t+abtOS9ju+8iQ0KICAgIOa1meaxny/msZ/oi48v
+5LiK5rW3L+emj+W7uuaVo+i0p++8iOiyt+WWru+8iemAn+mAkummmea4r+iHquaPkOWDue+8m1JN
+QjEuNS9LR+aIllJNQjI1MC9DQk3vvIjph4/lpKfku7fmm7TkvY7vvIkNCuS6jOOAgemmmea4r+a0
+vumAgVJNQjIwMOWQq+mmlumHjTUwMEtH5oiW6aaW5pa5M+aWue+8jOe7remHjVJNQjAuMy9LR+aI
+lue7reaWuVJNQjUwL0NCTe+8iOadgui0ueWunuaKpeWunumUgO+8iQ0K5LiJ44CB6aaZ5riv5YWl
+5LuTUk1CMzEw5ZCr6aaW6YeNNTAwS0fmiJbpppbmlrkz5pa577yM57ut6YeNUk1CMC4zL0tH5oiW
+57ut5pa5Uk1CNTAvQ0JN77yI55m76K6w6LS544CB5YGc6L2m6LS5562J5p2C6LS55a6e5oql5a6e
+6ZSA77yJDQrms6jvvJvku6XkuIrloLHlg7nljIXloLHpl5zosrvjgIHmuIXpl5zosrvjgIHmtL7p
+gIHosrvjgIHlhaXlgInosrsu5oiR5Y+45YyF5omA5Lul5oql5YWz5Y2V6K+B5paH5Lu2DQo177yJ
+5pWj6LKo6YCf6YGe5r6z6Zeo5aCx5YO5DQrkuIDjgIHmnIDkvY7mtojotLnvvJpSTUIyNTAv5Zau
+DQogICAg5Lit5r6z6Ieq5o+Q5Lu377yaUk1CMi41L0tHIOaIllJNQjI1MC9DQk3vvIjph4/lpKfk
+u7fmm7TkvY7vvIkNCuS6jOOAgea+s+mXqOa0vumAgVJNQjIwMOWQq+mmlumHjTUwMEtH5oiW6aaW
+5pa5M+aWue+8jOe7remHjVJNQjAuMy9LR+aIlue7reaWuVJNQjUwL0NCTe+8iOadgui0ueWunuaK
+peWunumUgO+8iQ0K5rOo77yb5Lul5LiK5aCx5YO55YyF5aCx6Zec6LK744CB5riF6Zec6LK744CB
+5rS+6YCB6LK744CB5YWl5YCJ6LK7LuWPiuaJgOS7peaKpeWFs+WNleivgeaWh+S7tg0KNu+8ieaV
+o++8iOadgu+8ieiyqOS6pOa3seWcs+ebkOeUsOa4r+WAieOAgeS4reWklumBi++8jOWFq+i+vuS7
+k+OAgemHkei/kOi+vuetieWklumBi+WAieWgseWDue+8m+acgOS9jua2iOiyu++8m1JNQjgwMC/l
+lq4g77yI55m76K6w6LS544CB5oql5YWz6LS5562J5LuT5bqT5p2C6LS55a6e5oql5a6e6ZSA77yJ
+DQo377yJ5Zu95YaF6L+Q6L6T5oql5Lu377ybDQrnj6DkuInop5Lov5DovpPmiqXku7fvvJpSTUI3
+MC9DQk3miJZSTUIwLjQvS0cr6YCB6LSn5LiK6Zeo6LS555SoUk1CMjAwDQrmt7HlnLMv5Lic6I6e
+5Yiw56aP5bu65oql5Lu3OlJNQjEyMC9DQk3miJZSTUIwLjYvS0cr6YCB6LSn5LiK6Zeo6LS555So
+Uk1CMjAwDQrmt7HlnLMv5Lic6I6e5Yiw5rWZ5rGf5oql5Lu3OlJNQjE2MC9DQk3miJZSTUIwLjcv
+S0cr6YCB6LSn5LiK6Zeo6LS555SoUk1CMjAwDQrmt7HlnLMv5Lic6I6e5Yiw5rGf6IuP5oql5Lu3
+OlJNQjE3MC9DQk3miJZSTUIwLjgvS0cr6YCB6LSn5LiK6Zeo6LS555SoUk1CMjAwDQrmt7HlnLMv
+5Lic6I6e5Yiw5LiK5rW35oql5Lu3OlJNQjE3MC9DQk3miJZSTUIwLjgvS0cr6YCB6LSn5LiK6Zeo
+6LS555SoUk1CMjAwDQrmt7HlnLMv5Lic6I6e5Yiw5Lqs5rSl57+85oql5Lu3OlJNQjE4MC9DQk3m
+iJZSTUIwLjkvS0cr6YCB6LSn5LiK6Zeo6LS555SoUk1CMjAwDQo477yJ6aaZ5riv5pmu6LKo77yM
+5Lit5qqU6LKo5Yiw5YWn5Zyw5ZCE55yB5biC5aCx5YO577yb5pyA5L2O5pS2Uk1CODAwL+WWrg0K
+5b+r5Lu25YyF56iF5aCx6Zec5YWl5Y+j54m56bue5aaC5LiLDQpBLuaJi+e6jOewoeWWrizmtbfp
+l5znm6PnrqHmop3ku7bnsKHllq4s5LiN55So5Zau6K2J5LiN55So5om55paHLOS4gOS6m+mbu+Wt
+kOioreWCmeWPr+S7peS4jemcgDND6K2J5piO5Lmf5Y+v5YWl5Y+jLiANCkIu6YCf5bqm5b+rLOas
+oeaXpeWIsOiyqCzpgILlkIjnt4rmgKXosqjnianpgJrpl5wuDQpDLuWmguaenOiyqOmHj+i8g+Wk
+pyzlj6/ku6Xph4fnlKjmr4/lpKnliIbmibnloLHpl5zmlrnlvI8uIA0KRC7lv6vku7bljIXnqIXl
+oLHpl5zkuI3mj5DkvpvnqIXnpags5rKS5rOV6YCy6KGM56iF56Wo5oq15omjLg0KQSDnsbsNCuaq
+lO+8jOeZvee6uO+8jOe6uOiii++8jOe6uOeuse+8jOe6uOebku+8jOWQjeeJh++8jOaXpeWOhu+8
+jOiJsuWNoe+8jOWQiueJjO+8jOivtOaYjuS5pu+8jOebruW9le+8jOagh+i0tO+8jOa1t+aKpe+8
+jOiDtue6uO+8jOi0tOe6uO+8jOiDtuadoeetiQ0K77+lOS9rZw0KQiDnsbsNCuWhkeaWmeaOpeWk
+tO+8jOmTgeiKr++8jOmTgemSiO+8jOejgemTge+8jOW8ueewp++8jOmUoee6v++8jOmSoue6v++8
+jOW4g+aWme+8jOe6see6v++8jOe6v+eQg++8jOiKsei+ue+8jOmlsOaJo++8jOaLiemTvu+8jOiD
+tuW4g++8jOa1t+e7teetiQ0K77+lMTEva2cNCkMg57G7DQrljaTova7vvIzmu5rova7vvIzmu5Ho
+va7vvIznlLXnur/vvIzpvJPnurjvvIznoILova7vvIznn7PmnZDvvIznga/lo7PvvIznga/nvanv
+vIzlj5HppbDlk4HvvIwgUFZDIOearu+8jOejqOefs++8jOiVvuS4ne+8jOejqOi9ru+8jOa8huWM
+hee6v+etiQ0K77+lMTMva2cNCkQg57G7DQrniZvnmq7vvIznvornmq7vvIzmv4DlhYnnurjvvIzn
+mq7lhYnnurjvvIzng6vph5HnurjvvIzovbTlv4PvvIzoibLnsonvvIzpopzmlpnvvIzog7bmsLTv
+vIzmloflhbfvvIznu5Lmr5vnjqnlhbfvvIzog4zljIXvvIzlsLzpvpnooovnrYkNCu+/pTE1L2tn
+DQpFIOexuw0K5L2O5Lu35YC86L+Q5Yqo55So5ZOB77yM55S1562S77yM5L2O5Lu35YC854Gv6aWw
+77yM6KGj5pyN77yM6Z6L5qC377yM5qih5YW377yM54Gv5YW377yM5Zyw5q+v77yM6K6h566X5py6
+5o6l57q/77yM5ruk6JWK77yM54Gv566x77yM5ram5ruR5rK5562JDQrvv6UxNi9rZw0KRiDnsbsN
+CuWKoOeDreajku+8jOS9juWAvOWPmOWOi+WZqO+8jOeUteihqO+8jOiAs+etku+8jOiAs+acuumF
+jeS7tu+8jOawlOWOi+mFjeS7tu+8jOazte+8jOepuuWOi+ihqO+8jOa0u+WhnueOr++8jOeUteeD
+reeuoe+8jOS4neW3vu+8jOmihuW4puetiQ0K77+lMjEva2cNCkcg57G7DQrkuozmnoHnrqHvvIzk
+uInmnoHnrqHvvIznlLXlrrnvvIznlLXpmLvvvIznlLXliqjotbflrZDvvIzmuKnluqborqEg77yM
+6aOO5omH77yM56Kz57KJ77yM5bmy5omL5py677yM6ICz5ZKq57q/77yM5oqV5biB5Zmo6YWN5Lu2
+77yM5ri45oiP5py65o6n5Yi25p2G562JDQrvv6UzNi9rZw0KSCDnsbsNCuS9juWAvOa2suaZtuaY
+vuekuueJh++8jOa4qeaOp+WZqO+8jOeDn+mbvuaEn+W6lOWZqO+8jOmfs+euse+8jOWumuaXtuWZ
+qO+8jOS9juWAvOe8nee6q+acuu+8jOWKqeWQrOWZqO+8jOaOouWktO+8jOaEn+W6lOWZqO+8jOWP
+mOmikeWZqO+8jOWPmOmAn+WZqOetiQ0K77+lNDEva2cNCkkg57G7DQrmiZPljbDmnLrvvIzmiavn
+noTku6rvvIzorqHnrpfmnLrmnLrnrrHvvIzmmL7npLrlmajvvIzot6/nlLHlmajvvIzpm4bnur/l
+majvvIzmjqXnur/nm5LvvIzovazmjaLlmajvvIzpgaXmjqflmajvvIzkvKDnnJ/mnLrvvIzpkq7m
+iaPnlLXmsaDvvIzoj7LnkLPnrYkNCu+/pTUzLTgzL2tnDQrms6jvvJvku6XkuIrloLHlg7nmnIDk
+vY7mlLZSTUI4MDAv5Zau77yM5Zau5Lu26LKo5YC85LiN6KaB6LaF6YGOUk1CNTAwMC7lpoLmnpzl
+rqLmiLborIrloLHos4fmlpnlh7rnj77llY/poYzvvIznlLHlrqLmiLboh6rooYzmib/mk5Tosqzk
+u7suDQo577yJ5Lqn5Zyw6K+B5paH5Lu277ybUk1CMjAwL+WNlQ0K5LiA6Iis5Y6f5Lqn5Zyw6K+B
+Q08NCuaZruaDoOWItuS6p+WcsOivgUZvcm1BDQrkuJznm5/ljp/kuqflnLDor4FGb3JtRQ0K5pm6
+5Yip5Lqn5Zyw6K+BRm9ybUYNCuS4reenmOS6p+WcsOivgUZvcm1SDQrkuK3nkZ7kuqflnLDor4FG
+b3JtUw0K5Lqa5aSq5Lqn5Zyw6K+BRm9ybU0NCuS4reW3tOWOn+S6p+WcsOivgUZUQQ0K5Lit5ZOl
+5Lqn5Zyw6K+BRk9STUwNCkJFU1QgUkVHQVJEUw0K5pu+55SfICANCkhBT0NISU5HIElOVCdMIExP
+R0lTVElDUyBMVEQNCihNLlApODYtMTM0MzA4NzMxMTcNCihURUwpODUyLTMxNzYzODkxDQoo5b6u
+5L+hKTEzNDMwODczMTE3DQooUVEpMjU0MDMxMzg5MQ0KKFNLWVBFKUhBT0NIRU5HSEsxOTg3DQoo
+RS1NQUlMKUhBT0NIRU5HSEsxOTg3QDE2My5DT00NCg==
