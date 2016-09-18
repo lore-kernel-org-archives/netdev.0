@@ -1,49 +1,43 @@
-From: Ilan Tayari <ilant@mellanox.com>
-Subject: [PATCH net] xfrm: Fix memory leak of aead algorithm name
-Date: Sun, 18 Sep 2016 07:42:53 +0000
-Message-ID: <AM4PR0501MB19404B000E4D3A2CF3CB80DEDBF50@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH v3 2/3] e1000: add initial XDP support
+Date: Sun, 18 Sep 2016 19:25:14 +0200
+Message-ID: <20160918192514.510d4702@redhat.com>
+References: <20160912220312.5610.77528.stgit@john-Precision-Tower-5810>
+        <20160912221351.5610.29043.stgit@john-Precision-Tower-5810>
+        <1473720399.18970.91.camel@edumazet-glaptop3.roam.corp.google.com>
+        <20160912230745.GA24171@ast-mbp.thefacebook.com>
+        <1473723968.18970.111.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        bblanco@plumgrid.com, jeffrey.t.kirsher@intel.com,
+        davem@davemloft.net, xiyou.wangcong@gmail.com,
+        intel-wired-lan@lists.osuosl.org, u9012063@gmail.com,
+        netdev@vger.kernel.org, brouer@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0043.outbound.protection.outlook.com ([104.47.2.43]:36678
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751581AbcIRRRg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 18 Sep 2016 13:17:36 -0400
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:56860 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751581AbcIRRZV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 18 Sep 2016 13:25:21 -0400
+In-Reply-To: <1473723968.18970.111.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 1a6509d99122 ("[IPSEC]: Add support for combined mode algorithms")
-introduced aead. The function attach_aead kmemdup()s the algorithm
-name during xfrm_state_construct().
-However this memory is never freed.
-Implementation has since been slightly modified in
-commit ee5c23176fcc ("xfrm: Clone states properly on migration")
-without resolving this leak.
-This patch adds a kfree() call for the aead algorithm name.
+On Mon, 12 Sep 2016 16:46:08 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-Fixes: 1a6509d99122 ("[IPSEC]: Add support for combined mode algorithms")
-Signed-off-by: Ilan Tayari <ilant@mellanox.com>
----
- net/xfrm/xfrm_state.c | 1 +
- 1 file changed, 1 insertion(+)
+> This XDP_TX thing was one of the XDP marketing stuff, but there is
+> absolutely no documentation on it, warning users about possible
+> limitations/outcomes.
 
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 9895a8c..a30f898d 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -332,6 +332,7 @@ static void xfrm_state_gc_destroy(struct xfrm_state *x)
- {
- 	tasklet_hrtimer_cancel(&x->mtimer);
- 	del_timer_sync(&x->rtimer);
-+	kfree(x->aead);
- 	kfree(x->aalg);
- 	kfree(x->ealg);
- 	kfree(x->calg);
---=20
-1.8.3.1
+I will take care of documentation for the XDP project.
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
