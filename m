@@ -1,57 +1,55 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [patch net-next RFC 0/2] fib4 offload: notifier to let hw to be
- aware of all prefixes
-Date: Sun, 18 Sep 2016 13:00:44 -0700
-Message-ID: <fc177125-a9b8-fcce-281b-5fdc25639944@gmail.com>
-References: <1473163300-2045-1-git-send-email-jiri@resnulli.us>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: skb_splice_bits() and large chunks in pipe (was Re:
+ xfs_file_splice_read: possible circular locking dependency detected
+Date: Sun, 18 Sep 2016 13:12:21 -0700
+Message-ID: <CA+55aFx5Y=Rddw3ObnOm-XSUkJezfxzNGuTckD2ChVmJRNsD2g@mail.gmail.com>
+References: <CA+55aFxrqCng2Qxasc9pyMrKUGFjo==fEaFT1vkH9Lncte3RgQ@mail.gmail.com>
+ <20160909023452.GO2356@ZenIV.linux.org.uk> <CA+55aFwHQMjO4-vtfB9-ytc=o+DRo-HXVGckvXLboUxgpwb7_g@mail.gmail.com>
+ <20160909221945.GQ2356@ZenIV.linux.org.uk> <CA+55aFzTOOB6oEVaaGD0N7Uznk-W9+ULPwzsxS_L_oZqGVSeLA@mail.gmail.com>
+ <20160914031648.GB2356@ZenIV.linux.org.uk> <CA+55aFznQaOWoSMNphgGJJWZ=8-odrc0DAUMzfGPQe+_N4UgNA@mail.gmail.com>
+ <20160914042559.GC2356@ZenIV.linux.org.uk> <20160917082007.GA6489@ZenIV.linux.org.uk>
+ <20160917190023.GA8039@ZenIV.linux.org.uk> <20160918193112.GF2356@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
-        roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-        linville@tuxdriver.com, tgraf@suug.ch, gospo@cumulusnetworks.com,
-        sfeldma@gmail.com, ast@plumgrid.com, edumazet@google.com,
-        hannes@stressinduktion.org, dsa@cumulusnetworks.com,
-        jhs@mojatatu.com, vivien.didelot@savoirfairelinux.com,
-        john.fastabend@intel.com, andrew@lunn.ch, ivecera@redhat.com
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Jens Axboe <axboe@kernel.dk>, Nick Piggin <npiggin@gmail.com>,
+        linux-fsdevel <linux-fsdevel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>
+To: Al Viro <viro@zeniv.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f65.google.com ([209.85.218.65]:34280 "EHLO
-        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753428AbcIRUAt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 16:00:49 -0400
-Received: by mail-oi0-f65.google.com with SMTP id v62so7012868oig.1
-        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 13:00:48 -0700 (PDT)
-In-Reply-To: <1473163300-2045-1-git-send-email-jiri@resnulli.us>
+Received: from mail-oi0-f48.google.com ([209.85.218.48]:36292 "EHLO
+        mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753428AbcIRUMW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 16:12:22 -0400
+In-Reply-To: <20160918193112.GF2356@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 06/09/2016 à 05:01, Jiri Pirko a écrit :
-> From: Jiri Pirko <jiri@mellanox.com>
-> 
-> This is RFC, unfinished. I came across some issues in the process so I would
-> like to share those and restart the fib offload discussion in order to make it
-> really usable.
-> 
-> So the goal of this patchset is to allow driver to propagate all prefixes
-> configured in kernel down HW. This is necessary for routing to work
-> as expected. If we don't do that HW might forward prefixes known to kernel
-> incorrectly. Take an example when default route is set in switch HW and there
-> is an IP address set on a management (non-switch) port.
-> 
-> Currently, only fibs related to the switch port netdev are offloaded using
-> switchdev ops. This model is not extendable so the first patch introduces
-> a replacement: notifier to propagate fib additions and removals to whoever
-> interested. The second patch makes mlxsw to adopt this new way, registering
-> one notifier block for each mlxsw (asic) instance.
+On Sun, Sep 18, 2016 at 12:31 PM, Al Viro <viro@zeniv.linux.org.uk> wrote:
+> FWIW, I'm not sure if skb_splice_bits() can't land us in trouble; fragments
+> might come from compound pages and I'm not entirely convinced that we won't
+> end up with coalesced fragments putting more than PAGE_SIZE into a single
+> pipe_buffer.  And that could badly confuse a bunch of code.
 
-Instead of introducing another specialization of a notifier_block
-implementation, could we somehow have a kernel-based netlink listener
-which receives the same kind of event information from rtmsg_fib()?
+The pipe buffer code is actually *supposed* to handle any size
+allocations at all. They should *not* be limited by pages, exactly
+because the data can come from huge-pages or just multi-page
+allocations. It's definitely possible with networking, and networking
+is one of the *primary* targets of splice in many ways.
 
-The reason is that having such a facility would hook directly onto
-existing rtmsg_* calls that exist throughout the stack, and that seems
-to scale better.
--- 
-Florian
+So if the splice code ends up being confused by "this is not just
+inside a single page", then the splice code is buggy, I think.
+
+Why would splice_write() cases be confused anyway? A filesystem needs
+to be able to handle the case of "this needs to be split" regardless,
+since even if the source buffer were to fit in a page, the offset
+might obviously mean that the target won't fit in a page.
+
+Now, if you decide that you want to make the iterator always split
+those possibly big cases and never have big iovec entries, I guess
+that would potentially be ok. But my initial reaction is that they are
+perfectly normal and should be handled normally, and any code that
+depends on a splice buffer fitting in one page is just buggy and
+should be fixed.
+
+                 Linus
