@@ -1,43 +1,51 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: Re: [PATCH net-next 05/10] bnxt_en: Fix ethtool -l|-L inconsistent
- channel counts.
-Date: Mon, 19 Sep 2016 01:57:55 -0700
-Message-ID: <CACKFLikfTZYpmULGD5FvzixFRiCjqvQZxUKKquaaQ5qe9-PxuA@mail.gmail.com>
-References: <1474271889-8229-1-git-send-email-michael.chan@broadcom.com>
- <1474271889-8229-6-git-send-email-michael.chan@broadcom.com> <BL2PR07MB23060109CAF0760E41A8BB288DF40@BL2PR07MB2306.namprd07.prod.outlook.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 0/2] rhashtable: rhashtable with duplicate objects
+Date: Mon, 19 Sep 2016 10:58:55 +0200
+Message-ID: <1474275535.4469.14.camel@sipsolutions.net>
+References: <20160804071846.GA773@gondor.apana.org.au>
+         <20160804074546.GA996@gondor.apana.org.au>
+         <1470377813.2977.14.camel@sipsolutions.net>
+         <20160805104858.GA9297@gondor.apana.org.au>
+         <1470394233.2977.37.camel@sipsolutions.net>
+         <20160918135030.GA7062@gondor.apana.org.au>
+         <1474273219.4469.7.camel@sipsolutions.net>
+         <1474273518.4469.8.camel@sipsolutions.net>
+         <20160919083518.GA11821@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-wireless@vger.kernel.org, Thomas Graf <tgraf@suug.ch>,
+        tom@herbertland.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f54.google.com ([209.85.218.54]:34352 "EHLO
-        mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752597AbcISI55 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 04:57:57 -0400
-Received: by mail-oi0-f54.google.com with SMTP id a62so54192961oib.1
-        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 01:57:56 -0700 (PDT)
-In-Reply-To: <BL2PR07MB23060109CAF0760E41A8BB288DF40@BL2PR07MB2306.namprd07.prod.outlook.com>
+Received: from s3.sipsolutions.net ([5.9.151.49]:49892 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751129AbcISI7C (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 19 Sep 2016 04:59:02 -0400
+In-Reply-To: <20160919083518.GA11821@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 19, 2016 at 1:33 AM, Mintz, Yuval <Yuval.Mintz@cavium.com> wrote:
->> The existing code is inconsistent in reporting and accepting the combined
->> channel count.  bnxt_get_channels() reports maximum combined as the
->> maximum rx count.  bnxt_set_channels() accepts combined count that cannot be
->> bigger than max rx or max tx.
->>
->> For example, if max rx = 2 and max tx = 1, we report max supported combined to
->> be 2.  But if the user tries to set combined to 2, it will fail because 2 is bigger
->> than max tx which is 1.
->>
->> Fix the code to be consistent.  Max allowed combined = max(max_rx, max_tx).
->> We will accept a combined channel count <= max(max_rx, max_tx).
->
-> Don't you mean the 'max allowed combined = min(max_rx, max_tx)'.
-> How does using 'max' change the faulty scenario you've described?
 
-I'm fixing the inconsistency described in the first 2 paragraphs.  The
-driver logic allows a combined ring to be rx or tx only.  In the above
-example, we allow combined to be set to 2.  The 2nd combined ring
-supports rx only.
+> > I take that back. I think it's leaking memory - my tests never used
+> > to run out of memory, but now they eventually do.
+> 
+> > I'll try to figure out more.
+> 
+> Interesting.  The kernel test robot found a bug in the insertion
+> slowpath where we end up inserting without taking the inner spinlock
+> in case of a nested table.  Not sure whether that's the same issue
+> as you're seeing but I'll do a v2 posting.
+
+Increasing the memory for the VMs from 384MB to 512MB didn't avoid the
+issue, so there's a definite leak somewhere, although this time fewer
+VMs crashed :)
+
+Reverting the patches and running with 384MB then works, so it's not
+something else added in the meantime (I ran last a few days ago, but
+don't think I merged anything interesting in the meantime).
+
+I'll test your new patches in a minute.
+
+johannes
