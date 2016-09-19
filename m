@@ -1,62 +1,172 @@
 From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net-next 0/8] mlx5e XDP support
-Date: Mon, 19 Sep 2016 16:58:51 +0300
-Message-ID: <1474293539-2595-1-git-send-email-tariqt@mellanox.com>
+Subject: [PATCH net-next 4/8] net/mlx5e: Dynamic RQ type infrastructure
+Date: Mon, 19 Sep 2016 16:58:55 +0300
+Message-ID: <1474293539-2595-5-git-send-email-tariqt@mellanox.com>
+References: <1474293539-2595-1-git-send-email-tariqt@mellanox.com>
 Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>,
         Rana Shahout <ranas@mellanox.com>,
         Tariq Toukan <tariqt@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:47351 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:47588 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S938751AbcISN7b (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 09:59:31 -0400
+        with ESMTP id S938997AbcISOAP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 10:00:15 -0400
+In-Reply-To: <1474293539-2595-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series adds XDP support in mlx5e driver.
-This includes the use cases: XDP_DROP, XDP_PASS, and XDP_TX.
+From: Saeed Mahameed <saeedm@mellanox.com>
 
-Single stream performance tests show 16.5 Mpps for XDP_DROP,
-and 12.4 Mpps for XDP_TX, with nice scalability for multiple streams/rings.
+Add two helper functions to allow dynamic changes of RQ type.
 
-This rate of XDP_DROP is lower than the 32 Mpps we got in previous
-implementation, when Striding RQ was used.
+mlx5e_set_rq_priv_params and mlx5e_set_rq_type_params will be
+used on netdev creation to determine the default RQ type.
 
-We moved to non-Striding RQ, as some XDP_TX requirements (like headroom,
-packet-per-page) cannot be satisfied with the current Striding RQ HW,
-and we decided to fully support both DROP/TX.
+This will be needed later for downstream patches of XDP support.
+When enabling XDP we will dynamically move from striding RQ to
+linked list RQ type.
 
-Few directions are considered in order to enable the faster rate for XDP_DROP,
-e.g a possibility for users to enable Striding RQ so they choose optimized
-XDP_DROP on the price of partial XDP_TX functionality, or some HW changes.
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 92 ++++++++++++-----------
+ 1 file changed, 50 insertions(+), 42 deletions(-)
 
-Series generated against net-next commit:
-22da73492541 'net: r6040: add in missing white space in error message text'
-
-Thanks,
-Tariq
-
-Rana Shahout (1):
-  net/mlx5e: XDP fast RX drop bpf programs support
-
-Saeed Mahameed (7):
-  net/mlx5e: Build RX SKB on demand
-  net/mlx5e: Union RQ RX info per RQ type
-  net/mlx5e: Slightly reduce hardware LRO size
-  net/mlx5e: Dynamic RQ type infrastructure
-  net/mlx5e: Have a clear separation between different SQ types
-  net/mlx5e: XDP TX forwarding support
-  net/mlx5e: XDP TX xmit more
-
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |  77 +++-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 462 ++++++++++++++++-----
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    | 381 +++++++++++------
- drivers/net/ethernet/mellanox/mlx5/core/en_stats.h |  12 +
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    |  63 ++-
- drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c  |  65 ++-
- 6 files changed, 784 insertions(+), 276 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 8734240865e1..ff520ad27f5e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -69,6 +69,47 @@ struct mlx5e_channel_param {
+ 	struct mlx5e_cq_param      icosq_cq;
+ };
+ 
++static bool mlx5e_check_fragmented_striding_rq_cap(struct mlx5_core_dev *mdev)
++{
++	return MLX5_CAP_GEN(mdev, striding_rq) &&
++		MLX5_CAP_GEN(mdev, umr_ptr_rlky) &&
++		MLX5_CAP_ETH(mdev, reg_umr_sq);
++}
++
++static void mlx5e_set_rq_type_params(struct mlx5e_priv *priv, u8 rq_type)
++{
++	priv->params.rq_wq_type = rq_type;
++	switch (priv->params.rq_wq_type) {
++	case MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ:
++		priv->params.log_rq_size = MLX5E_PARAMS_DEFAULT_LOG_RQ_SIZE_MPW;
++		priv->params.mpwqe_log_stride_sz = priv->params.rx_cqe_compress ?
++			MLX5_MPWRQ_LOG_STRIDE_SIZE_CQE_COMPRESS :
++			MLX5_MPWRQ_LOG_STRIDE_SIZE;
++		priv->params.mpwqe_log_num_strides = MLX5_MPWRQ_LOG_WQE_SZ -
++			priv->params.mpwqe_log_stride_sz;
++		break;
++	default: /* MLX5_WQ_TYPE_LINKED_LIST */
++		priv->params.log_rq_size = MLX5E_PARAMS_DEFAULT_LOG_RQ_SIZE;
++	}
++	priv->params.min_rx_wqes = mlx5_min_rx_wqes(priv->params.rq_wq_type,
++					       BIT(priv->params.log_rq_size));
++
++	mlx5_core_info(priv->mdev,
++		       "MLX5E: StrdRq(%d) RqSz(%ld) StrdSz(%ld) RxCqeCmprss(%d)\n",
++		       priv->params.rq_wq_type == MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ,
++		       BIT(priv->params.log_rq_size),
++		       BIT(priv->params.mpwqe_log_stride_sz),
++		       priv->params.rx_cqe_compress_admin);
++}
++
++static void mlx5e_set_rq_priv_params(struct mlx5e_priv *priv)
++{
++	u8 rq_type = mlx5e_check_fragmented_striding_rq_cap(priv->mdev) ?
++		    MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ :
++		    MLX5_WQ_TYPE_LINKED_LIST;
++	mlx5e_set_rq_type_params(priv, rq_type);
++}
++
+ static void mlx5e_update_carrier(struct mlx5e_priv *priv)
+ {
+ 	struct mlx5_core_dev *mdev = priv->mdev;
+@@ -3038,13 +3079,6 @@ void mlx5e_build_default_indir_rqt(struct mlx5_core_dev *mdev,
+ 		indirection_rqt[i] = i % num_channels;
+ }
+ 
+-static bool mlx5e_check_fragmented_striding_rq_cap(struct mlx5_core_dev *mdev)
+-{
+-	return MLX5_CAP_GEN(mdev, striding_rq) &&
+-		MLX5_CAP_GEN(mdev, umr_ptr_rlky) &&
+-		MLX5_CAP_ETH(mdev, reg_umr_sq);
+-}
+-
+ static int mlx5e_get_pci_bw(struct mlx5_core_dev *mdev, u32 *pci_bw)
+ {
+ 	enum pcie_link_width width;
+@@ -3124,11 +3158,13 @@ static void mlx5e_build_nic_netdev_priv(struct mlx5_core_dev *mdev,
+ 					 MLX5_CQ_PERIOD_MODE_START_FROM_CQE :
+ 					 MLX5_CQ_PERIOD_MODE_START_FROM_EQE;
+ 
+-	priv->params.log_sq_size           =
+-		MLX5E_PARAMS_DEFAULT_LOG_SQ_SIZE;
+-	priv->params.rq_wq_type = mlx5e_check_fragmented_striding_rq_cap(mdev) ?
+-		MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ :
+-		MLX5_WQ_TYPE_LINKED_LIST;
++	priv->mdev                         = mdev;
++	priv->netdev                       = netdev;
++	priv->params.num_channels          = profile->max_nch(mdev);
++	priv->profile                      = profile;
++	priv->ppriv                        = ppriv;
++
++	priv->params.log_sq_size = MLX5E_PARAMS_DEFAULT_LOG_SQ_SIZE;
+ 
+ 	/* set CQE compression */
+ 	priv->params.rx_cqe_compress_admin = false;
+@@ -3141,33 +3177,11 @@ static void mlx5e_build_nic_netdev_priv(struct mlx5_core_dev *mdev,
+ 		priv->params.rx_cqe_compress_admin =
+ 			cqe_compress_heuristic(link_speed, pci_bw);
+ 	}
+-
+ 	priv->params.rx_cqe_compress = priv->params.rx_cqe_compress_admin;
+ 
+-	switch (priv->params.rq_wq_type) {
+-	case MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ:
+-		priv->params.log_rq_size = MLX5E_PARAMS_DEFAULT_LOG_RQ_SIZE_MPW;
+-		priv->params.mpwqe_log_stride_sz =
+-			priv->params.rx_cqe_compress ?
+-			MLX5_MPWRQ_LOG_STRIDE_SIZE_CQE_COMPRESS :
+-			MLX5_MPWRQ_LOG_STRIDE_SIZE;
+-		priv->params.mpwqe_log_num_strides = MLX5_MPWRQ_LOG_WQE_SZ -
+-			priv->params.mpwqe_log_stride_sz;
++	mlx5e_set_rq_priv_params(priv);
++	if (priv->params.rq_wq_type == MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ)
+ 		priv->params.lro_en = true;
+-		break;
+-	default: /* MLX5_WQ_TYPE_LINKED_LIST */
+-		priv->params.log_rq_size = MLX5E_PARAMS_DEFAULT_LOG_RQ_SIZE;
+-	}
+-
+-	mlx5_core_info(mdev,
+-		       "MLX5E: StrdRq(%d) RqSz(%ld) StrdSz(%ld) RxCqeCmprss(%d)\n",
+-		       priv->params.rq_wq_type == MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ,
+-		       BIT(priv->params.log_rq_size),
+-		       BIT(priv->params.mpwqe_log_stride_sz),
+-		       priv->params.rx_cqe_compress_admin);
+-
+-	priv->params.min_rx_wqes = mlx5_min_rx_wqes(priv->params.rq_wq_type,
+-					    BIT(priv->params.log_rq_size));
+ 
+ 	priv->params.rx_am_enabled = MLX5_CAP_GEN(mdev, cq_moderation);
+ 	mlx5e_set_rx_cq_mode_params(&priv->params, cq_period_mode);
+@@ -3197,12 +3211,6 @@ static void mlx5e_build_nic_netdev_priv(struct mlx5_core_dev *mdev,
+ 	MLX5E_SET_PRIV_FLAG(priv, MLX5E_PFLAG_RX_CQE_BASED_MODER,
+ 			    priv->params.rx_cq_period_mode == MLX5_CQ_PERIOD_MODE_START_FROM_CQE);
+ 
+-	priv->mdev                         = mdev;
+-	priv->netdev                       = netdev;
+-	priv->params.num_channels          = profile->max_nch(mdev);
+-	priv->profile                      = profile;
+-	priv->ppriv                        = ppriv;
+-
+ #ifdef CONFIG_MLX5_CORE_EN_DCB
+ 	mlx5e_ets_init(priv);
+ #endif
 -- 
 1.8.3.1
