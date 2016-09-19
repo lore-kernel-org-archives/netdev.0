@@ -1,40 +1,84 @@
-From: Nicolas Pitre <nicolas.pitre@linaro.org>
-Subject: Re: [PATCH 1/2] ptp_clock: allow for it to be optional
-Date: Mon, 19 Sep 2016 14:09:39 -0400 (EDT)
-Message-ID: <alpine.LFD.2.20.1609191403210.9311@knanqh.ubzr>
-References: <1474257070-4255-1-git-send-email-nicolas.pitre@linaro.org> <1474257070-4255-2-git-send-email-nicolas.pitre@linaro.org> <20160919142553.3fb682ba@griffin> <alpine.LFD.2.20.1609190942230.9311@knanqh.ubzr> <20160919190415.26bd9343@griffin>
- <20160919173112.tpexkd44ggorg7ww@x>
+From: Jason Baron <jbaron@akamai.com>
+Subject: Re: [PATCH net-next 2/2] bnx2x: allocate mac filtering pending list
+ in PAGE_SIZE increments
+Date: Mon, 19 Sep 2016 14:33:38 -0400
+Message-ID: <57E02F82.9060903@akamai.com>
+References: <cover.1474060371.git.jbaron@akamai.com>
+ <d46b4fa36c32affff20fcc92148e33ee6176f899.1474060371.git.jbaron@akamai.com>
+ <BL2PR07MB2306CEA6AD75D9D4EB77FB1F8DF50@BL2PR07MB2306.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Jiri Benc <jbenc@redhat.com>, John Stultz <john.stultz@linaro.org>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Richard Cochran <richardcochran@gmail.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-kbuild@vger.kernel.org
-To: Josh Triplett <josh@joshtriplett.org>
-Return-path: <linux-kbuild-owner@vger.kernel.org>
-In-Reply-To: <20160919173112.tpexkd44ggorg7ww@x>
-Sender: linux-kbuild-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Ariel.Elior@qlogic.com" <Ariel.Elior@qlogic.com>
+To: "Mintz, Yuval" <Yuval.Mintz@cavium.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from prod-mail-xrelay07.akamai.com ([23.79.238.175]:14196 "EHLO
+        prod-mail-xrelay07.akamai.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S932237AbcISSdl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 14:33:41 -0400
+In-Reply-To: <BL2PR07MB2306CEA6AD75D9D4EB77FB1F8DF50@BL2PR07MB2306.namprd07.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 19 Sep 2016, Josh Triplett wrote:
+On 09/18/2016 06:25 AM, Mintz, Yuval wrote:
+>> Currently, we can have high order page allocations that specify
+>> GFP_ATOMIC when configuring multicast MAC address filters.
+>>
+>> For example, we have seen order 2 page allocation failures with
+>> ~500 multicast addresses configured.
+>>
+>> Convert the allocation for the pending list to be done in PAGE_SIZE
+>> increments.
+>>
+>> Signed-off-by: Jason Baron <jbaron@akamai.com>
+>
+> While I appreciate the effort, I wonder whether it's worth it:
+>
+> - The hardware [even in its newer generation] provides an approximate
+> based classification [I.e., hashed] with 256 bins.
+> When configuring 500 multicast addresses, one can argue the
+> difference between multicast-promisc mode and actual configuration
+> is insignificant.
 
-> But it does seem unfortunate that this can't happen at build time via
-> Kconfig.  CCing linux-kbuild in case someone has an idea for how to fix
-> this.
+With 256 bins, I think it takes close to: 256*lg(256) or 2,048
+multicast addresses to expect to have all bins have at least one hash, 
+assuming a uniform distribution of the hashes.
 
-I hoped something like this could work:
+> Perhaps the easier-to-maintain alternative would simply be to
+> determine the maximal number of multicast addresses that can be
+> configured using a single PAGE, and if in need of more than that
+> simply move into multicast-promisc.
+>
 
-config FOO
-	prompt "Blah-blah"
-	tristate if (BAR != y)
-	bool if (BAR = y)
-	default BAR
+sizeof(struct bnx2x_mcast_list_elem) = 24. So there are 170 per
+page on x86. So if we want to fit 2,048 elements, we need 12 pages.
 
-This way FOO could be y, m or n when BAR is m or n, otherwise FOO could 
-be y or n only.
+>   - While GFP_ATOMIC is required in this flow due to the fact it's being
+> called from sleepless context, I do believe this is mostly a remnant -
+> it's possible that by slightly changing the locking scheme we can have
+> the configuration done from sleepless context and simply switch to
+> GFP_KERNEL instead.
+>
 
-But that didn't work.
+Ok if its GFP_KERNEL, I think its still undesirable to do large page 
+order allocations (unless of course its converted to a single page, but
+I'm not sure this makes sense as mentioned).
 
+> Regarding the patch itself, only comment I have:
+>> +			elem_group = (struct bnx2x_mcast_elem_group *)
+>> +				     elem_group->mcast_group_link.next;
+> Let's use list_next_entry() instead.
+>
+>
 
-Nicolas
+Yes, agreed.
+
+I think it would be easy to add a check to bnx2x_set_rx_mode_inner() to
+enforce some maximum number of elements (perhaps 2,048 based on the
+above math) for the !CHIP_IS_E1() case on top of what I already posted.
+
+Thanks,
+
+-Jason
