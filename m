@@ -1,146 +1,94 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v4 09/16] IB/pvrdma: Add support for Completion Queues
-Date: Mon, 19 Sep 2016 06:24:45 +0300
-Message-ID: <20160919032445.GA3273@leon.nu>
-References: <1473655766-31628-1-git-send-email-aditr@vmware.com>
- <1473655766-31628-10-git-send-email-aditr@vmware.com>
- <20160914124321.GE15800@yuval-lap.uk.oracle.com>
- <BLUPR0501MB836640F5ECEAB3A99CD82BFC5F00@BLUPR0501MB836.namprd05.prod.outlook.com>
- <20160915073611.GA3851@yuval-lap.uk.oracle.com>
- <20160918170707.GL2923@leon.nu>
- <BLUPR0501MB83604E10410486A3F068950C5F50@BLUPR0501MB836.namprd05.prod.outlook.com>
+From: Leon Romanovsky <leonro@leon.nu>
+Subject: Re: [PATCH 2/2] iw_cxgb4: add fast-path for small REG_MR operations
+Date: Mon, 19 Sep 2016 06:28:44 +0300
+Message-ID: <20160919032844.GB3273@leon.nu>
+References: <cover.1474037695.git.swise@opengridcomputing.com>
+ <3153440ff068cc56a517af2ba6be2b0de0f4dd99.1474037695.git.swise@opengridcomputing.com>
+ <20160918142242.GJ2923@leon.nu>
+ <0bd501d2120e$6bf5aaf0$43e100d0$@opengridcomputing.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="17pEHd4RhPHOinZp"
-Cc: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-        "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        pv-drivers <pv-drivers-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "Jorgen S. Hansen" <jhansen-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
-        Aditya Sarwade <asarwade-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
-        George Zhang <georgezhang-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
-        Bryan Tan <bryantan-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-To: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+        protocol="application/pgp-signature"; boundary="K8nIJk4ghYZn606h"
+Cc: dledford@redhat.com, davem@davemloft.net, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org
+To: Steve Wise <swise@opengridcomputing.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.136]:51618 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S936454AbcISD2u (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 18 Sep 2016 23:28:50 -0400
 Content-Disposition: inline
-In-Reply-To: <BLUPR0501MB83604E10410486A3F068950C5F50-84Rf5TRaNBMVDhIuTCx1aJLWcSx1hRipwIZJ9u9yWa8oOQlpcoRfSA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <0bd501d2120e$6bf5aaf0$43e100d0$@opengridcomputing.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---17pEHd4RhPHOinZp
+--K8nIJk4ghYZn606h
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-On Sun, Sep 18, 2016 at 08:36:55PM +0000, Adit Ranadive wrote:
-> On Sun, Sep 18, 2016 at 10:07:18 -0700, Leon Romanovsky wrote:
-> > On Thu, Sep 15, 2016 at 10:36:12AM +0300, Yuval Shaia wrote:
-> > > Hi Adit,
-> > > Please see my comments inline.
+On Sun, Sep 18, 2016 at 07:40:29PM -0500, Steve Wise wrote:
+> > On Fri, Sep 16, 2016 at 07:54:52AM -0700, Steve Wise wrote:
+> > > When processing a REG_MR work request, if fw supports the
+> > > FW_RI_NSMR_TPTE_WR work request, and if the page list for this
+> > > registration is <= 2 pages, and the current state of the mr is INVALID,
+> > > then use FW_RI_NSMR_TPTE_WR to pass down a fully populated TPTE for
+> > FW
+> > > to write.  This avoids FW having to do an async read of the TPTE
+> blocking
+> > > the SQ until the read completes.
 > > >
-> > > Besides that I have no more comment for this patch.
+> > > To know if the current MR state is INVALID or not, iw_cxgb4 must track
+> the
+> > > state of each fastreg MR.  The c4iw_mr struct state is updated as REG_MR
+> > > and LOCAL_INV WRs are posted and completed, when a reg_mr is
+> > destroyed,
+> > > and when RECV completions are processed that include a local
+> invalidation.
 > > >
-> > > Reviewed-by: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> > > This optimization increases small IO IOPS for both iSER and NVMF.
 > > >
-> > > Yuval
-> > >
-> > > On Thu, Sep 15, 2016 at 12:07:29AM +0000, Adit Ranadive wrote:
-> > > > On Wed, Sep 14, 2016 at 05:43:37 -0700, Yuval Shaia wrote:
-> > > > > On Sun, Sep 11, 2016 at 09:49:19PM -0700, Adit Ranadive wrote:
-> > > > > > +
-> > > > > > +static int pvrdma_poll_one(struct pvrdma_cq *cq, struct pvrdma_qp
-> > > > > **cur_qp,
-> > > > > > +			   struct ib_wc *wc)
-> > > > > > +{
-> > > > > > +	struct pvrdma_dev *dev = to_vdev(cq->ibcq.device);
-> > > > > > +	int has_data;
-> > > > > > +	unsigned int head;
-> > > > > > +	bool tried = false;
-> > > > > > +	struct pvrdma_cqe *cqe;
-> > > > > > +
-> > > > > > +retry:
-> > > > > > +	has_data = pvrdma_idx_ring_has_data(&cq->ring_state->rx,
-> > > > > > +					    cq->ibcq.cqe, &head);
-> > > > > > +	if (has_data == 0) {
-> > > > > > +		if (tried)
-> > > > > > +			return -EAGAIN;
-> > > > > > +
-> > > > > > +		/* Pass down POLL to give physical HCA a chance to poll. */
-> > > > > > +		pvrdma_write_uar_cq(dev, cq->cq_handle |
-> > > > > PVRDMA_UAR_CQ_POLL);
-> > > > > > +
-> > > > > > +		tried = true;
-> > > > > > +		goto retry;
-> > > > > > +	} else if (has_data == PVRDMA_INVALID_IDX) {
-> > > > >
-> > > > > I didn't went throw the entire life cycle of RX-ring's head and tail but you
-> > > > > need to make sure that PVRDMA_INVALID_IDX error is recoverable one, i.e
-> > > > > there is probability that in the next call to pvrdma_poll_one it will be fine.
-> > > > > Otherwise it is an endless loop.
-> > > >
-> > > > We have never run into this issue internally but I don't think we can recover here
-> > >
-> > > I briefly reviewed the life cycle of RX-ring's head and tail and didn't
-> > > caught any suspicious place that might corrupt it.
-> > > So glad to see that you never encountered this case.
-> > >
-> > > > in the driver. The only way to recover would be to destroy and recreate the CQ
-> > > > which we shouldn't do since it could be used by multiple QPs.
-> > >
-> > > Agree.
-> > > But don't they hit the same problem too?
-> > >
-> > > > We don't have a way yet to recover in the device. Once we add that this check
-> > > > should go away.
-> > >
-> > > To be honest i have no idea how to do that - i was expecting driver's vendors
-> > > to come up with an ideas :)
-> > > I once came up with an idea to force restart of the driver but it was
-> > > rejected.
-> > >
-> > > >
-> > > > The reason I returned an error value from poll_cq in v3 was to break the possible
-> > > > loop so that it might give clients a chance to recover. But since poll_cq is not expected
-> > > > to fail I just log the device error here. I can revert to that version if you want to break
-> > > > the possible loop.
-> > >
-> > > Clients (ULPs) cannot recover from this case. They even do not check the
-> > > reason of the error and treats any error as -EAGAIN.
+> > > Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+> > > ---
 > >
-> > It is because poll_one is not expected to fall.
+> > <...>
+> >
+> > > +			      struct ib_reg_wr *wr, struct c4iw_mr *mhp,
+> > > +			      u8 *len16)
+> > > +{
+> > > +	__be64 *p = (__be64 *)fr->pbl;
+> > > +
+> > > +	fr->r2 = cpu_to_be32(0);
+> >
+> > Is there any difference between the line above and "fr->r2 = 0"?
 >
-> Poll_one is an internal function in our driver. ULPs should still be okay I think as long as poll_cq
-> does not fail, no?
+> It makes sparse happy, IIRC...
 
-Yes, I think so.
+Strange, but ok :)
 
-Thanks
+>
+>
+>
 
---17pEHd4RhPHOinZp
+--K8nIJk4ghYZn606h
 Content-Type: application/pgp-signature; name="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIcBAEBAgAGBQJX31p9AAoJEORje4g2clineF0P/RYFr3Zksnc8Tmwqj+pFULl6
-/dq0l5OPVnLSfxd2h7W7vsQyRwqyqfYg7EVRnYO2D3L1Tz6/rjP7IYKshBQgHvz5
-eSmHgUc3TkdOVfhW9Wm7QQr1ZdCpT8lauRC9j/JTrnV1zwlaj+lEuT2Izy6xM2la
-Bf3Rc9nWCGrz9lO7eYI8NAcf/iiiXRqbJQ+/gv3ijEw8rT4UtaPbgyHo7+DT05NU
-p+81G2suPDEfFiFKrfMGSJPv6/xYDtV8TzFDEjWClpk4O4fmmeQGapHpv8gg25K9
-I4U9pE0mXEWRuA2pcQPJsm6hZdKGrZPTlBPHBCcbktpBKmTpSsjBDXWPGdWAXU6y
-umMo49r1Z5sh2tzjbnFwhTcU92ooXaxwDJbWCmdTr+nFnbYUk+FnQjnt3cHF80vi
-gHgPyXvdG9tPBPObO8u/KhML4u/QjoDV5udHsU/UGuLb90mybDyNrxNr7jNmoTbe
-8PMi+ztjIQv8YgKF0begECrtzNWGnm+591LK7zHOT+vv136pkxD5R+VtblfQrF4Y
-e4CwCcFJuJa/HYazIstx1y2ztfguq0e/6NoFP/i9PwRvBo8rVcANAM0vgZSSKVm9
-qTkvrxvtAB87hjBlsXT6kWd+HuwJnQ3OOna+2cHmv6HPX5amPI3qo7sDxLKtBqAw
-EflknUpfzpSJU4i337UD
-=NQH7
+iQIcBAEBAgAGBQJX31tsAAoJEORje4g2clinBWkP/3z5/CP0yzxktMYhmO8LIOXW
+N1YCt9dqNY0jovXzQgcRau4aMAbymwiCw6S4p+s70kKKkcx8l2xmNWBUqoBb22r3
+F5r6sB4A6CCWoBAp0//uSEtsLQemjA6Ykmdpeqe3mbzq4+7HO0ncp6OsHxgqQd8U
+s21Cb30pSNP4KrDpAeCQ7E+YCqpuL8H9woXBOxn2ily6NTjx6Sz7eDkZdj9K4Q9w
+HqhEWGP/5OizHRf0D6yWIYrvU5yFNdmzyP76rnseMz5vjWbDIvDovyH2/GRZRwIr
+1N4mUSu5dM/yny/R8mlOSKXpX21xoofZzxpb7MH4jLSOWxHfuhj/2f2Mc+NlkFk7
+LLx+DgfB/nzylXeqMaltSns59TCP41lQG8c7TKGmklyoVqK6wIH5M5anTDRFmdSj
+bjdljZpr0P00ZBPuxBooC+M8TJlrexCK7j9RI7TzKh+KkV2AGMmNNmHCXhVhQwel
+FzRHw6MauNf1pI2RseY5Yt7DcH3o22rrKK4jwsIVBTqo/q+qlKJoBJuW9UVzl+RG
+UxYShK1M2yLrFC1E+7/+lu9YJAq3Qb257E/vVxGedFnZu1yruIZyLD7ZvILtjzB9
+F9XKsSY2LOjDheVzuM0qPPC2ScGu0ealblsEs+iDBEW71dLaCYazFF87NcCptJC6
+WXsK0/iz2A3ysA/7yGLF
+=im+3
 -----END PGP SIGNATURE-----
 
---17pEHd4RhPHOinZp--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--K8nIJk4ghYZn606h--
