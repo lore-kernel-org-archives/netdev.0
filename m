@@ -1,78 +1,84 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: [PATCH] net: skbuff: Fix length validation in skb_vlan_pop()
-Date: Mon, 19 Sep 2016 16:05:17 +0300
-Message-ID: <20160919160517.6ee28bde@pixies>
-References: <1474193358-20133-1-git-send-email-shmulik.ladkani@gmail.com>
-        <CAOrHB_D2ytTK9WjfCPL87E1QomeXg+2GfAvo8N8xCcJULhAC=w@mail.gmail.com>
-        <20160919091538.56defd2b@pixies>
-        <57DFD8A1.1090103@iogearbox.net>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH] net: phy: Ensure the state machine is called when phy is
+ UP
+Date: Mon, 19 Sep 2016 15:15:38 +0200
+Message-ID: <19a526d3-f798-bbb8-328d-9eff18d17eb0@atmel.com>
+References: <1460750172-7796-1-git-send-email-alexandre.belloni@free-electrons.com>
+ <57114AA4.5080803@gmail.com> <20160415205613.GE25196@piout.net>
+ <20160415220508.GC26665@lunn.ch> <20160415221711.GG25196@piout.net>
+ <20160415223026.GD26665@lunn.ch> <20160415224559.GH25196@piout.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: pravin shelar <pshelar@ovn.org>, Jiri Pirko <jiri@mellanox.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 8bit
+Cc: "David S . Miller" <davem@davemloft.net>,
+        <linux-kernel@vger.kernel.org>
+To: Alexandre Belloni <alexandre.belloni@free-electrons.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:35949 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755172AbcISNFc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 09:05:32 -0400
-Received: by mail-wm0-f68.google.com with SMTP id b184so14904781wma.3
-        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 06:05:31 -0700 (PDT)
-In-Reply-To: <57DFD8A1.1090103@iogearbox.net>
+Received: from eusmtp01.atmel.com ([212.144.249.242]:54203 "EHLO
+        eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965355AbcISNPk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 09:15:40 -0400
+In-Reply-To: <20160415224559.GH25196@piout.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 19 Sep 2016 14:22:57 +0200, daniel@iogearbox.net wrote:
-> On 09/19/2016 08:15 AM, Shmulik Ladkani wrote:
-> > On Sun, 18 Sep 2016 13:26:30 -0700, pshelar@ovn.org wrote:
-> >> On Sun, Sep 18, 2016 at 3:09 AM, Shmulik Ladkani
-> >> <shmulik.ladkani@gmail.com> wrote:
-> >>> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> >>> index 1e329d4112..cc2c004838 100644
-> >>> --- a/net/core/skbuff.c
-> >>> +++ b/net/core/skbuff.c
-> >>> @@ -4537,7 +4537,7 @@ int skb_vlan_pop(struct sk_buff *skb)
-> >>>          } else {
-> >>>                  if (unlikely((skb->protocol != htons(ETH_P_8021Q) &&
-> >>>                                skb->protocol != htons(ETH_P_8021AD)) ||
-> >>> -                            skb->len < VLAN_ETH_HLEN))
-> >>> +                            skb->mac_len < VLAN_ETH_HLEN))
-> >>
-> >> There is already check in __skb_vlan_pop() to validate skb for a vlan
-> >> header. So it is safe to drop this check entirely.
-> >
-> > Seems validation in '__skb_vlan_pop' has slightly different semantics:
-> >
-> > 	unsigned int offset = skb->data - skb_mac_header(skb);
-> >
-> > 	__skb_push(skb, offset);
-> > 	err = skb_ensure_writable(skb, VLAN_ETH_HLEN);
-> >
-> > this pushes 'data' back to mac_header, then makes sure there's sufficient
-> > place in skb to _store_ VLAN_ETH_HLEN bytes (by pulling into linear part
-> > if needed, or erroring if skb is too small).
+Hi all,
+
+I come back to this thread to re-start the conversation as I still have
+the issue...
+
+
+Le 16/04/2016 à 00:45, Alexandre Belloni a écrit :
+> On 16/04/2016 at 00:30:26 +0200, Andrew Lunn wrote :
+>> On Sat, Apr 16, 2016 at 12:17:11AM +0200, Alexandre Belloni wrote:
+>>> On 16/04/2016 at 00:05:08 +0200, Andrew Lunn wrote :
+>>>>> Trace without my patch:
+>>>>> libphy: MACB_mii_bus: probed
+>>>>> macb f8020000.ethernet eth0: Cadence GEM rev 0x00020120 at 0xf8020000 irq 27 (fc:c2:3d:0c:6e:05)
+>>>>> Micrel KSZ8081 or KSZ8091 f8020000.etherne:01: attached PHY driver [Micrel KSZ8081 or KSZ8091] (mii_bus:phy_addr=f8020000.etherne:01, irq=171)
+>>>>> Micrel KSZ8081 or KSZ8091 f8020000.etherne:01: PHY state change READY -> READY
+>>>>> [...]
+>>>>> Micrel KSZ8081 or KSZ8091 f8020000.etherne:01: PHY state change READY -> READY
+>>>>
+>>>> Are there some state changes before this? How is it getting to state
+>>>> READY? It would expect it to start in DOWN, from when the phy device
+>>>> was created in phy_device_create().
+>>>>
+>>>
+>>> No other changes. I forgot to mention that this is when booting with a
+>>> cable plugged in. Unplugging and replugging the cable makes the link
+>>> detection work fine even without the patch.
+>>
+>> Are you tftpbooting? I.e. has the boot loader already done an auto
+>> negotiation?
+>>
 > 
-> Yes, but this skb_ensure_writable() is needed for doing the memmove anyway.
+> Yes.
 
-Had no intention dropping the skb_ensure_writable from __skb_vlan_pop :)
+Yes indeed: this is my use-case: load the kernel from U-Boot using tftp
+and having the rootfs in NAND flash so, no NFS rootfs for me.
 
-> > There's no guarantee the original mac header was sized VLAN_ETH_HLEN.
+>> I've looked at the code and i still don't see how it gets to READY.
+>> What i do see is that when you connect the phy to the MAC, the
+>> interrupt handler is installed. So maybe there are some PHY interrupts
+>> before the interface is opened? Could you put a print in
+>> phy_interrupt().
+>>
 > 
-> I'm wondering, what happens when you'd call this on tx path, when you'd
-> change that to suggested skb->mac_len? Isn't that 0 in such case, thus
-> such setups could fail then?
+> That is indeed the case, and I'm not sure why because
+> 99f81afc139c6edd14d77a91ee91685a414a1c66 is trying to disable AN at
+> boot.
 
-Thanks, I think you're right.
+I don't know what happens to the phy, but this patch does fix the issue
+for me:
+Tested-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 
-Seems __dev_queue_xmit needs a 'skb_reset_mac_len' right after call to
-'skb_reset_mac_header' (or maybe call 'skb_reset_mac_len' from within
-skb_reset_mac_header?).
+The other alternative that I'm considering seriously as I'm still
+struggled with this is to simply remove the phy IRQ from my board DT.
 
-Also, I'm okay with removing the excess 'skb->mac_len < VLAN_ETH_HLEN'
-condition if it is agreed that the "tag exists but insufficient to pop"
-semantic is no longer wanted.
-
-Regards,
-Shmulik
+Best regards,
+-- 
+Nicolas Ferre
