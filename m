@@ -1,30 +1,39 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: Re: [PATCH net-next 04/10] bnxt_en: Added support for Secure Firmware Update
-Date: Mon, 19 Sep 2016 02:03:09 -0700
-Message-ID: <CACKFLikYmnWM9WWzAW_9Nqr7FUexMu1H_ObQ0OOVHmvBb14LTQ@mail.gmail.com>
-References: <1474271889-8229-1-git-send-email-michael.chan@broadcom.com>
- <1474271889-8229-5-git-send-email-michael.chan@broadcom.com> <BL2PR07MB23067271DDD44A0E3D31B99A8DF40@BL2PR07MB2306.namprd07.prod.outlook.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [v2 PATCH 0/2] rhashtable: rhashtable with duplicate objects
+Date: Mon, 19 Sep 2016 11:15:30 +0200
+Message-ID: <1474276530.4469.16.camel@sipsolutions.net>
+References: <20160804071846.GA773@gondor.apana.org.au>
+         <20160804074546.GA996@gondor.apana.org.au>
+         <1470377813.2977.14.camel@sipsolutions.net>
+         <20160805104858.GA9297@gondor.apana.org.au>
+         <1470394233.2977.37.camel@sipsolutions.net>
+         <20160918135030.GA7062@gondor.apana.org.au>
+         <20160919084056.GA11875@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-wireless@vger.kernel.org, Thomas Graf <tgraf@suug.ch>,
+        tom@herbertland.com, Ben Greear <greearb@candelatech.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f41.google.com ([209.85.218.41]:35683 "EHLO
-        mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751129AbcISJDK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 05:03:10 -0400
-Received: by mail-oi0-f41.google.com with SMTP id w11so187850564oia.2
-        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 02:03:10 -0700 (PDT)
-In-Reply-To: <BL2PR07MB23067271DDD44A0E3D31B99A8DF40@BL2PR07MB2306.namprd07.prod.outlook.com>
+Received: from s3.sipsolutions.net ([5.9.151.49]:49999 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753127AbcISJPi (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 19 Sep 2016 05:15:38 -0400
+In-Reply-To: <20160919084056.GA11875@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 19, 2016 at 1:16 AM, Mintz, Yuval <Yuval.Mintz@cavium.com> wrote:
->> +     if (bp->hwrm_spec_code < 0x10400)
->> +             return -EOPNOTSUPP;
-> Don't you use defines for these kind of version values?
+On Mon, 2016-09-19 at 16:40 +0800, Herbert Xu wrote:
 
-No we don't.  In this case, firmware spec version 1.4.0 has added this
-new feature.  So we use this feature if the firmware spec is 1.4.0 or
-above.
+> I've tested the rhlist code with test_rhashtable but I haven't
+> tested the mac80211 conversion.  So please give it a go and see
+> if it still works.
+
+This is still running out of memory on my test suite.
+
+Somehow I don't see kmemleak kicking in, so I'll have to find the bug
+manually :)
+
+johannes
