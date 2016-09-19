@@ -1,93 +1,114 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: Requesting guidance on how to expose (new/exotic) PHY features
- to user-space
-Date: Mon, 19 Sep 2016 16:20:58 +0200
-Message-ID: <20160919142058.GC8651@lunn.ch>
-References: <66E0C71AC771CF4297D4A99D55E55AB84EA675CA@avsrvexchmbx2.microsemi.net>
+From: Allan Nielsen <Allan.Nielsen@microsemi.com>
+Subject: Requesting guidance on how to expose (new/exotic) PHY features to
+ user-space
+Date: Mon, 19 Sep 2016 08:46:16 +0000
+Message-ID: <66E0C71AC771CF4297D4A99D55E55AB84EA675CA@avsrvexchmbx2.microsemi.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
         Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-To: Allan Nielsen <Allan.Nielsen@microsemi.com>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:52129 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752303AbcISOVB (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 19 Sep 2016 10:21:01 -0400
-Content-Disposition: inline
-In-Reply-To: <66E0C71AC771CF4297D4A99D55E55AB84EA675CA@avsrvexchmbx2.microsemi.net>
+Received: from mail-sn1nam01on0051.outbound.protection.outlook.com ([104.47.32.51]:57365
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752502AbcISOV7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 19 Sep 2016 10:21:59 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> In the current SW model, most SW runs in user-space and is proprietary. But we
-> are working more and more in the direction of Open Sourcing certain part of the
-> SW, and the company is becoming more and more aware of the advantage of doing
-> open-source SW and getting it accepted upstream. In recent events we have
-> released the API (driver layer) for the user-space application under the MIT
-> license (covering a large range of PHYs and Switches).
-
-Great it is open source. However, as a general rule of thumb, user
-space drivers will not be accepted. You need to push this into the
-kernel. DSA or switchdev for the switches, and phylib for the PHYs.
-
-> The project Raju is working on is about getting support for some of
-> the PHYs accepted upstream.
-
-Which is great, and we are here to help.
- 
-> But we also have a hand-full of features that is hard to fit in, and we are
-> seeking some advice on how to handle those.
-
-Good that you are asking. It should stop you going off in the wrong
-direction. Often it is "show us the code", but if you have little
-experience with the linux architecture and how things are doing,
-getting guidance early will be useful.
-
-> It typically boils down to finding a good way of exposing such a
-> feature to a given user-space application.
-
-We need to be precises here. You need to expose an API to control the
-feature or report on the result. The driver code is in the kernel.
-
-> A good example of this could be a feature that internally is being
-> called VeriPHY. The idea of this is that the PHY can run some
-> diagnostic and figure out if there is a damage to the cable, and it
-> can estimate where the damage is.
-
-O.K, nothing unique or exotic. Marvell and Intel PHYs also have these
-sort of features, and i'm sure others do too. They have just not yet
-been exposed in a sensible way.
-
-> What is the preferred way of exposing such a feature??
-
-You need to define an API for exposing the results of the cable test
-to userspace. This API needs to work for all vendors. i.e, you
-probably want to get hold of some Marvell and Intel datasheets, look
-at the Marvell DSDT, the in kernel Intel code. Work out what is
-similar and different. Look around at the current
-infrastructure. Could ethtool --test be extended? Something similar
-added but for the PHY level?
-
-This is going to be made harder in that there is a call to stop adding
-new features to ethtool. It should be re-written using netlink. So you
-might want to follow that discussion, get involved in it, see if
-others think netlink is the right way to go, and what will the
-replacement for ethtool look like?
-
-Just to repeat again, the cable test code itself goes in the kernel,
-in the phy driver. The user space code should work for all PHY
-vendors.
-
-I've interest in seeing the Marvell PHYs support these features, so
-you can expect me to implement the Marvell version.
-
-This is another part of being in the community. You cannot focus
-purely on your own chips, when it comes to features others have. You
-need to work on the shared infrastructure. It can be hard for
-Management to get this, if they are new to open source. Why should i
-help my competitor by implementing something they can use. Yet it
-probably was your competitors which implemented the basic PHY
-infrastructure, and you are benefiting from that. So it is your turn
-to help, for the benefit of all.
-
-	   Andrew
+Hi Andrew,=0A=
+=0A=
+I'm working with Raju to create Open Source driver (and to get them accepte=
+d=0A=
+upstream) for Microsemi PHYs.=0A=
+=0A=
+First of all, thanks a lot for all the comments and all the help you (and=
+=0A=
+others) are providing. It is hard to see such a community working without p=
+eople=0A=
+like you - you are doing a great job :-D=0A=
+=0A=
+Both Raju and I are used to hacking the Linux kernel, but it we are not use=
+d to=0A=
+getting drivers accepted upstream - so as you can see, we are learning...=
+=0A=
+=0A=
+I think that a bit general guidance could help us producing better patches,=
+ and=0A=
+thereby also save some of your time.=0A=
+=0A=
+Before jumping to the questions, I like to explain the context we are comin=
+g=0A=
+from. MSCC is (among many other things) designing PHY's and Switch fabrics.=
+ We=0A=
+are creating and supporting both drivers and "turn-key like" SW both for th=
+e=0A=
+PHYs and switches. We have mainly been using eCos for a long time, but ~1 y=
+ear=0A=
+ago we replaced eCos with Linux.=0A=
+=0A=
+In the current SW model, most SW runs in user-space and is proprietary. But=
+ we=0A=
+are working more and more in the direction of Open Sourcing certain part of=
+ the=0A=
+SW, and the company is becoming more and more aware of the advantage of doi=
+ng=0A=
+open-source SW and getting it accepted upstream. In recent events we have=
+=0A=
+released the API (driver layer) for the user-space application under the MI=
+T=0A=
+license (covering a large range of PHYs and Switches).=0A=
+=0A=
+The project Raju is working on is about getting support for some of the PHY=
+s=0A=
+accepted upstream.=0A=
+=0A=
+One of the challenges that Raju (and I) is facing is that the ambitions is =
+to=0A=
+implement the same set of features in the upstream Linux driver as we=0A=
+currently support in the MIT and proprietary version.=0A=
+=0A=
+Features that already exists in some of the drivers should be okay. In thes=
+e=0A=
+cases it is just about adjusting our implementation to use the existing=0A=
+configuration channels (IOCTL, various structs in phy.h, device-tree etc).=
+=0A=
+=0A=
+But we also have a hand-full of features that is hard to fit in, and we are=
+=0A=
+seeking some advice on how to handle those.=0A=
+=0A=
+It typically boils down to finding a good way of exposing such a feature to=
+ a=0A=
+given user-space application.=0A=
+=0A=
+A good example of this could be a feature that internally is being called=
+=0A=
+VeriPHY. The idea of this is that the PHY can run some diagnostic and figur=
+e out=0A=
+if there is a damage to the cable, and it can estimate where the damage is.=
+=0A=
+=0A=
+What is the preferred way of exposing such a feature??=0A=
+=0A=
+Here are some of the options we have considered:=0A=
+=0A=
+- Keeping such "exotic" features in user-space. This will require register=
+=0A=
+  access to the PHY from user-space. And as this feature is using "non-stan=
+dard"=0A=
+  pages we need something similar to SIOCGMIIREG/SIOCSMIIREG, but which sup=
+ports=0A=
+  registers in different pages.=0A=
+- Adding new IOCTL's for exposing this feature.=0A=
+- Add a netlink interface=0A=
+- Add a sysfs interface=0A=
+=0A=
+Please let me know what you think...=0A=
+=0A=
+Best regards=0A=
+Allan W. Nielsen=0A=
+=0A=
