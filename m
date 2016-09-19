@@ -1,48 +1,45 @@
 From: "Amrani, Ram" <Ram.Amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Subject: RE: [RFC 06/11] Add support for QP verbs
-Date: Mon, 19 Sep 2016 09:00:26 +0000
-Message-ID: <SN1PR07MB220747A2D035F7284901951CF8F40@SN1PR07MB2207.namprd07.prod.outlook.com>
+Subject: RE: [RFC 03/11] Add support for RoCE HW init
+Date: Mon, 19 Sep 2016 08:45:50 +0000
+Message-ID: <SN1PR07MB220779C6959D793C5D1B7223F8F40@SN1PR07MB2207.namprd07.prod.outlook.com>
 References: <1473696465-27986-1-git-send-email-Ram.Amrani@qlogic.com>
- <1473696465-27986-7-git-send-email-Ram.Amrani@qlogic.com>
- <20160915130556.GA26069@leon.nu>
+ <1473696465-27986-4-git-send-email-Ram.Amrani@qlogic.com>
+ <29e0d88d-63f2-2b30-2856-a0e94cf31f8e@grimberg.me>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: quoted-printable
-Cc: "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        "Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org" <Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+Cc: "Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org" <Yuval.Mintz-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
         "Ariel.Elior-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org" <Ariel.Elior-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
         "Michal.Kalderon-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org" <Michal.Kalderon-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
         "rajesh.borundia-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org" <rajesh.borundia-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
         "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Sagi Grimberg <sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org>
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160915130556.GA26069-2ukJVAZIZ/Y@public.gmane.org>
 Content-Language: en-US
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> > +
-> > +	rc =3D ib_get_cached_gid(ibqp->device, attr->ah_attr.port_num,
-> > +			       attr->ah_attr.grh.sgid_index, &gid, &gid_attr);
-> > +	if (!rc && !memcmp(&gid, &zgid, sizeof(gid)))
-> > +		rc =3D -ENOENT;
-> > +
-> > +	if (!rc && gid_attr.ndev) {
+> > > +	dev->max_sge =3D min_t(u32, RDMA_MAX_SGE_PER_SQ_WQE,
+> > > +			     RDMA_MAX_SGE_PER_RQ_WQE);
+> >
+> > Our kernel target mode consumers sort of rely on max_sge_rd, you need
+> > to make sure to set it too.
+> Good catch. Thanks!
+
+Actually, as I come to code this, I just realized that max_sge_rd is alread=
+y set in the  query verb itself:
+
++int qedr_query_device(struct ib_device *ibdev,
++                     struct ib_device_attr *attr, struct ib_udata *udata)
++{
 
 <snip>
 
-> > +		}
-> > +	}
-> > +	if (rc)
-> > +		return -EINVAL;
->=20
-> I think it is better to check "rc" right after call to ib_get_cached_gid(=
-).
-
-Somehow this e-mail slipped.
-Thanks, will update.
++       attr->max_sge =3D qattr->max_sge;
++       attr->max_sge_rd =3D qattr->max_sge;
 
 --
 To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
