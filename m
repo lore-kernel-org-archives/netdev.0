@@ -1,112 +1,81 @@
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Subject: [PATCH] ip: (ipvlan) introduce L3s mode
-Date: Mon, 19 Sep 2016 14:39:40 -0700
-Message-ID: <1474321180-31717-1-git-send-email-mahesh@bandewar.net>
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        Mahesh Bandewar <maheshb@google.com>
-To: netdev <netdev@vger.kernel.org>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCHv6 net-next 04/15] bpf: don't (ab)use instructions to store
+ state
+Date: Mon, 19 Sep 2016 23:44:50 +0200
+Message-ID: <57E05C52.4060208@iogearbox.net>
+References: <1474211365-20088-1-git-send-email-jakub.kicinski@netronome.com>    <1474211365-20088-5-git-send-email-jakub.kicinski@netronome.com>        <57E05295.4010904@iogearbox.net> <20160919223621.363c8ac5@jkicinski-Precision-T1700>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ast@kernel.org, kubakici@wp.pl
+To: Jakub Kicinski <jakub.kicinski@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:36387 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932199AbcISVjy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 17:39:54 -0400
-Received: by mail-pf0-f193.google.com with SMTP id n24so7755410pfb.3
-        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 14:39:49 -0700 (PDT)
+Received: from www62.your-server.de ([213.133.104.62]:45936 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932354AbcISVox (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 17:44:53 -0400
+In-Reply-To: <20160919223621.363c8ac5@jkicinski-Precision-T1700>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mahesh Bandewar <maheshb@google.com>
+On 09/19/2016 11:36 PM, Jakub Kicinski wrote:
+> On Mon, 19 Sep 2016 23:03:17 +0200, Daniel Borkmann wrote:
+>> On 09/18/2016 05:09 PM, Jakub Kicinski wrote:
+>>> Storing state in reserved fields of instructions makes
+>>> it impossible to run verifier on programs already
+>>> marked as read-only. Allocate and use an array of
+>>> per-instruction state instead.
+>>>
+>>> While touching the error path rename and move existing
+>>> jump target.
+>>>
+>>> Suggested-by: Alexei Starovoitov <ast@kernel.org>
+>>> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+>>> Acked-by: Alexei Starovoitov <ast@kernel.org>
+>>> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+>>
+>> I believe there's still an issue here. Could you please double check
+>> and confirm?
+>>
+>> I rebased my locally pending stuff on top of your set and suddenly my
+>> test case breaks. So I did a bisect and it pointed me to this commit
+>> eventually.
+>>
+>> [...]
+>>> @@ -2697,11 +2706,8 @@ static int convert_ctx_accesses(struct verifier_env *env)
+>>>    		else
+>>>    			continue;
+>>>
+>>> -		if (insn->imm != PTR_TO_CTX) {
+>>> -			/* clear internal mark */
+>>> -			insn->imm = 0;
+>>> +		if (env->insn_aux_data[i].ptr_type != PTR_TO_CTX)
+>>>    			continue;
+>>> -		}
+>>>
+>>>    		cnt = env->prog->aux->ops->
+>>>    			convert_ctx_access(type, insn->dst_reg, insn->src_reg,
+>>
+>> Looking at the code, I believe the issue is in above snippet. In the
+>> convert_ctx_accesses() rewrite loop, each time we bpf_patch_insn_single()
+>> a program, the program can grow in size (due to __sk_buff access rewrite,
+>> for example). After rewrite, we do 'i += insn_delta' for adjustment to
+>> process next insn.
+>>
+>> However, env->insn_aux_data is alloced under the assumption that the
+>> very initial, pre-verification prog->len doesn't change, right? So in
+>> the above conversion access to env->insn_aux_data[i].ptr_type is off,
+>> since after rewrites, corresponding mappings to ptr_type might not be
+>> related anymore.
+>>
+>> I noticed this with direct packet access where suddenly the data vs
+>> data_end test failed and contained some "semi-random" value always
+>> bailing out for me.
+>
+> You are correct.  Should I respin or would you like to post your set? :)
 
-The new mode 'l3s' can be set like -
+Heh, if you don't mind I would go ahead tonight, the conflict at two spots
+when exposing verifier is really minor turns out. Are you okay with this?
 
-  ip link add link <master> dev <IPvlan-slave> type ipvlan mode l3s
-
-  e.g. ip link add link eth0 dev ipvl0 type ipvlan mode l3s
-
-Also did some trivial code restructuring.
-
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
----
- include/linux/if_link.h |  1 +
- ip/iplink_ipvlan.c      | 32 +++++++++++++-------------------
- 2 files changed, 14 insertions(+), 19 deletions(-)
-
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index 1feb708902ac..78ef2c6ae04e 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -461,6 +461,7 @@ enum {
- enum ipvlan_mode {
- 	IPVLAN_MODE_L2 = 0,
- 	IPVLAN_MODE_L3,
-+	IPVLAN_MODE_L3S,
- 	IPVLAN_MODE_MAX
- };
- 
-diff --git a/ip/iplink_ipvlan.c b/ip/iplink_ipvlan.c
-index a6273be88a2a..f7735f3a13ef 100644
---- a/ip/iplink_ipvlan.c
-+++ b/ip/iplink_ipvlan.c
-@@ -20,18 +20,7 @@
- 
- static void ipvlan_explain(FILE *f)
- {
--	fprintf(f, "Usage: ... ipvlan [ mode { l2 | l3 } ]\n");
--}
--
--static void explain(void)
--{
--	ipvlan_explain(stderr);
--}
--
--static int mode_arg(void)
--{
--	fprintf(stderr, "Error: argument of \"mode\" must be either \"l2\", or \"l3\"\n");
--	return -1;
-+	fprintf(f, "Usage: ... ipvlan [ mode { l2 | l3  | l3s } ]\n");
- }
- 
- static int ipvlan_parse_opt(struct link_util *lu, int argc, char **argv,
-@@ -47,20 +36,24 @@ static int ipvlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 				mode = IPVLAN_MODE_L2;
- 			else if (strcmp(*argv, "l3") == 0)
- 				mode = IPVLAN_MODE_L3;
--			else
--				return mode_arg();
--
-+			else if (strcmp(*argv, "l3s") == 0)
-+				mode = IPVLAN_MODE_L3S;
-+			else {
-+				fprintf(stderr, "Error: argument of \"mode\" must be either \"l2\", \"l3\" or \"l3s\"\n");
-+				return -1;
-+			}
- 			addattr16(n, 1024, IFLA_IPVLAN_MODE, mode);
- 		} else if (matches(*argv, "help") == 0) {
--			explain();
-+			ipvlan_explain(stderr);
- 			return -1;
- 		} else {
- 			fprintf(stderr, "ipvlan: unknown option \"%s\"?\n",
- 				*argv);
--			explain();
-+			ipvlan_explain(stderr);
- 			return -1;
- 		}
--		argc--, argv++;
-+		argc--;
-+		argv++;
- 	}
- 
- 	return 0;
-@@ -78,7 +71,8 @@ static void ipvlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 
- 			fprintf(f, " mode %s ",
- 				mode == IPVLAN_MODE_L2 ? "l2" :
--				mode == IPVLAN_MODE_L3 ? "l3" : "unknown");
-+				mode == IPVLAN_MODE_L3 ? "l3" :
-+				mode == IPVLAN_MODE_L3S ? "l3s" : "unknown");
- 		}
- 	}
- }
--- 
-2.8.0.rc3.226.g39d4020
+What's the plan wrt env->insn_aux_data? Realloc plus rewrite of the array,
+or do you see a more straight forward solution?
