@@ -1,49 +1,48 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [RFC V3 PATCH 00/26] Kernel NET policy
-Date: Mon, 19 Sep 2016 13:39:25 -0700
-Message-ID: <20160919133925.0f0b31b7@xeon-e3>
-References: <1473692159-4017-1-git-send-email-kan.liang@intel.com>
-        <1473695534.18970.75.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH v6 5/6] net: ipv4, ipv6: run cgroup eBPF egress programs
+Date: Mon, 19 Sep 2016 22:39:45 +0200
+Message-ID: <20160919203945.GB888@salvia>
+References: <1474303441-3745-1-git-send-email-daniel@zonque.org>
+ <1474303441-3745-6-git-send-email-daniel@zonque.org>
+ <20160919191910.GA984@salvia>
+ <20160919201322.GA84770@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: kan.liang@intel.com, davem@davemloft.net,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        jeffrey.t.kirsher@intel.com, mingo@redhat.com,
-        peterz@infradead.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        yoshfuji@linux-ipv6.org, kaber@trash.net,
-        akpm@linux-foundation.org, keescook@chromium.org,
-        viro@zeniv.linux.org.uk, gorcunov@openvz.org,
-        john.stultz@linaro.org, aduyck@mirantis.com, ben@decadent.org.uk,
-        decot@googlers.com, fw@strlen.de, alexander.duyck@gmail.com,
-        daniel@iogearbox.net, tom@herbertland.com, rdunlap@infradead.org,
-        xiyou.wangcong@gmail.com, hannes@stressinduktion.org,
-        alexei.starovoitov@gmail.com, jesse.brandeburg@intel.com,
-        andi@firstfloor.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1473695534.18970.75.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Mack <daniel@zonque.org>, htejun@fb.com,
+        daniel@iogearbox.net, ast@fb.com, davem@davemloft.net,
+        kafai@fb.com, fw@strlen.de, harald@redhat.com,
+        netdev@vger.kernel.org, sargun@sargun.me, cgroups@vger.kernel.org
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:35966 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753090AbcISUju (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 19 Sep 2016 16:39:50 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 83FDFA7E34
+        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 22:39:48 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 6DC1EDA84C
+        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 22:39:48 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 4B6DBDA850
+        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 22:39:46 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <20160919201322.GA84770@ast-mbp.thefacebook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 12 Sep 2016 08:52:14 -0700
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Mon, Sep 19, 2016 at 01:13:27PM -0700, Alexei Starovoitov wrote:
+> On Mon, Sep 19, 2016 at 09:19:10PM +0200, Pablo Neira Ayuso wrote:
+[...]
+> > 2) This will turn the stack into a nightmare to debug I predict. If
+> >    any process with CAP_NET_ADMIN can potentially attach bpf blobs
+> >    via these hooks, we will have to include in the network stack
+> 
+> a process without CAP_NET_ADMIN can attach bpf blobs to
+> system calls via seccomp. bpf is already used for security and policing.
 
-> On Mon, 2016-09-12 at 07:55 -0700, kan.liang@intel.com wrote:
-> > From: Kan Liang <kan.liang@intel.com>
-> >   
-> 
-> > 
-> >  Documentation/networking/netpolicy.txt |  157 ++++  
-> 
-> 
-> I find this patch series very suspect, as
-> Documentation/networking/scaling.txt is untouched.
-> 
-> I highly recommend you present your ideas at next netdev conference.
-> 
-> I really doubt the mailing lists are the best place to present your
-> work, given the huge amount of code/layers you want to add in linux
-> kernel.
+That is a local mechanism, it applies to parent process and child
+processes, just like SO_ATTACH_FILTER.
 
-Agreed.
+The usecase that we're discussing here enforces a global policy.
