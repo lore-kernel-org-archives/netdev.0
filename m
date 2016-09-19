@@ -1,81 +1,78 @@
-From: David Vrabel <david.vrabel-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCHv2] sunrpc: fix write space race causing stalls
-Date: Mon, 19 Sep 2016 13:58:30 +0100
-Message-ID: <1474289910-3891-1-git-send-email-david.vrabel@citrix.com>
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: Re: [PATCH] net: skbuff: Fix length validation in skb_vlan_pop()
+Date: Mon, 19 Sep 2016 16:05:17 +0300
+Message-ID: <20160919160517.6ee28bde@pixies>
+References: <1474193358-20133-1-git-send-email-shmulik.ladkani@gmail.com>
+        <CAOrHB_D2ytTK9WjfCPL87E1QomeXg+2GfAvo8N8xCcJULhAC=w@mail.gmail.com>
+        <20160919091538.56defd2b@pixies>
+        <57DFD8A1.1090103@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Vrabel <david.vrabel-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>,
-        Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-        Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-        <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: pravin shelar <pshelar@ovn.org>, Jiri Pirko <jiri@mellanox.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:35949 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755172AbcISNFc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 09:05:32 -0400
+Received: by mail-wm0-f68.google.com with SMTP id b184so14904781wma.3
+        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 06:05:31 -0700 (PDT)
+In-Reply-To: <57DFD8A1.1090103@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Write space becoming available may race with putting the task to sleep
-in xprt_wait_for_buffer_space().  The existing mechanism to avoid the
-race does not work.
+On Mon, 19 Sep 2016 14:22:57 +0200, daniel@iogearbox.net wrote:
+> On 09/19/2016 08:15 AM, Shmulik Ladkani wrote:
+> > On Sun, 18 Sep 2016 13:26:30 -0700, pshelar@ovn.org wrote:
+> >> On Sun, Sep 18, 2016 at 3:09 AM, Shmulik Ladkani
+> >> <shmulik.ladkani@gmail.com> wrote:
+> >>> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> >>> index 1e329d4112..cc2c004838 100644
+> >>> --- a/net/core/skbuff.c
+> >>> +++ b/net/core/skbuff.c
+> >>> @@ -4537,7 +4537,7 @@ int skb_vlan_pop(struct sk_buff *skb)
+> >>>          } else {
+> >>>                  if (unlikely((skb->protocol != htons(ETH_P_8021Q) &&
+> >>>                                skb->protocol != htons(ETH_P_8021AD)) ||
+> >>> -                            skb->len < VLAN_ETH_HLEN))
+> >>> +                            skb->mac_len < VLAN_ETH_HLEN))
+> >>
+> >> There is already check in __skb_vlan_pop() to validate skb for a vlan
+> >> header. So it is safe to drop this check entirely.
+> >
+> > Seems validation in '__skb_vlan_pop' has slightly different semantics:
+> >
+> > 	unsigned int offset = skb->data - skb_mac_header(skb);
+> >
+> > 	__skb_push(skb, offset);
+> > 	err = skb_ensure_writable(skb, VLAN_ETH_HLEN);
+> >
+> > this pushes 'data' back to mac_header, then makes sure there's sufficient
+> > place in skb to _store_ VLAN_ETH_HLEN bytes (by pulling into linear part
+> > if needed, or erroring if skb is too small).
+> 
+> Yes, but this skb_ensure_writable() is needed for doing the memmove anyway.
 
-This (edited) partial trace illustrates the problem:
+Had no intention dropping the skb_ensure_writable from __skb_vlan_pop :)
 
-   [1] rpc_task_run_action: task:43546@5 ... action=call_transmit
-   [2] xs_write_space <-xs_tcp_write_space
-   [3] xprt_write_space <-xs_write_space
-   [4] rpc_task_sleep: task:43546@5 ...
-   [5] xs_write_space <-xs_tcp_write_space
+> > There's no guarantee the original mac header was sized VLAN_ETH_HLEN.
+> 
+> I'm wondering, what happens when you'd call this on tx path, when you'd
+> change that to suggested skb->mac_len? Isn't that 0 in such case, thus
+> such setups could fail then?
 
-[1] Task 43546 runs but is out of write space.
+Thanks, I think you're right.
 
-[2] Space becomes available, xs_write_space() clears the
-    SOCKWQ_ASYNC_NOSPACE bit.
+Seems __dev_queue_xmit needs a 'skb_reset_mac_len' right after call to
+'skb_reset_mac_header' (or maybe call 'skb_reset_mac_len' from within
+skb_reset_mac_header?).
 
-[3] xprt_write_space() attemts to wake xprt->snd_task (== 43546), but
-    this has not yet been queued and the wake up is lost.
+Also, I'm okay with removing the excess 'skb->mac_len < VLAN_ETH_HLEN'
+condition if it is agreed that the "tag exists but insufficient to pop"
+semantic is no longer wanted.
 
-[4] xs_nospace() is called which calls xprt_wait_for_buffer_space()
-    which queues task 43546.
-
-[5] The call to sk->sk_write_space() at the end of xs_nospace() (which
-    is supposed to handle the above race) does not call
-    xprt_write_space() as the SOCKWQ_ASYNC_NOSPACE bit is clear and
-    thus the task is not woken.
-
-Fix the race by resetting the SOCKWQ_ASYNC_NOSPACE bit in xs_nospace()
-so the second call to sk->sk_write_space() calls xprt_write_space().
-
-Suggested-by: Trond Myklebust <trondmy-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
-Signed-off-by: David Vrabel <david.vrabel-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
----
- net/sunrpc/xprtsock.c | 11 ++++++++++-
- 1 file changed, 10 insertions(+), 1 deletion(-)
-
-diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-index bf16883..e72581d 100644
---- a/net/sunrpc/xprtsock.c
-+++ b/net/sunrpc/xprtsock.c
-@@ -473,7 +473,16 @@ static int xs_nospace(struct rpc_task *task)
- 	spin_unlock_bh(&xprt->transport_lock);
- 
- 	/* Race breaker in case memory is freed before above code is called */
--	sk->sk_write_space(sk);
-+	if (ret == -EAGAIN) {
-+		struct socket_wq *wq;
-+
-+		rcu_read_lock();
-+		wq = rcu_dereference(sk->sk_wq);
-+		set_bit(SOCKWQ_ASYNC_NOSPACE, &wq->flags);
-+		rcu_read_unlock();
-+
-+		sk->sk_write_space(sk);
-+	}
- 	return ret;
- }
- 
--- 
-2.1.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Regards,
+Shmulik
