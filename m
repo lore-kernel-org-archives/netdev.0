@@ -1,69 +1,138 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 1/3] bpf, verifier: enforce larger zero range for pkt on overloading stack buffs
-Date: Tue, 20 Sep 2016 00:26:12 +0200
-Message-ID: <38d9d2062be58c2fbc4407c8c2a3f2842fd49bc4.1474323281.git.daniel@iogearbox.net>
-References: <cover.1474323281.git.daniel@iogearbox.net>
-Cc: alexei.starovoitov@gmail.com, tgraf@suug.ch,
-        jakub.kicinski@netronome.com, netdev@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 1/2] net: dsa: mv88e6xxx: Add helper for accessing port registers
+Date: Mon, 19 Sep 2016 18:53:12 -0400
+Message-ID: <874m5bbixz.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
+References: <1474323521-5088-1-git-send-email-andrew@lunn.ch> <1474323521-5088-2-git-send-email-andrew@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:49347 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752504AbcISW01 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 18:26:27 -0400
-In-Reply-To: <cover.1474323281.git.daniel@iogearbox.net>
-In-Reply-To: <cover.1474323281.git.daniel@iogearbox.net>
-References: <cover.1474323281.git.daniel@iogearbox.net>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:36707 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751169AbcISWxR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 18:53:17 -0400
+In-Reply-To: <1474323521-5088-2-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Current contract for the following two helper argument types is:
+Hi Andrew,
 
-  * ARG_CONST_STACK_SIZE: passed argument pair must be (ptr, >0).
-  * ARG_CONST_STACK_SIZE_OR_ZERO: passed argument pair can be either
-    (NULL, 0) or (ptr, >0).
+Andrew Lunn <andrew@lunn.ch> writes:
 
-With 6841de8b0d03 ("bpf: allow helpers access the packet directly"), we can
-pass also raw packet data to helpers, so depending on the argument type
-being PTR_TO_PACKET, we now either assert memory via check_packet_access()
-or check_stack_boundary(). As a result, the tests in check_packet_access()
-currently allow more than intended with regards to reg->imm.
+> @@ -41,6 +41,11 @@ static void assert_reg_lock(struct mv88e6xxx_chip *chip)
+>  	}
+>  }
+>  
+> +static int mv88e6xxx_reg_port(struct mv88e6xxx_chip *chip, int port)
+> +{
+> +	return chip->info->port_base_addr + port;
+> +}
+> +
 
-Back in 969bf05eb3ce ("bpf: direct packet access"), check_packet_access()
-was fine to ignore size argument since in check_mem_access() size was
-bpf_size_to_bytes() derived and prior to the call to check_packet_access()
-guaranteed to be larger than zero.
+If we really want such helper, can you call it mv88e6xxx_port_addr()
+instead, so that we respect an implicit mv88e6xxx_port_ namespace, and
+use the correct "addr" term instead of erroneous "reg" one.
 
-However, for the above two argument types, it currently means, we can have
-a <= 0 size and thus breaking current guarantees for helpers. Enforce a
-check for size <= 0 and bail out if so.
+>  /* The switch ADDR[4:1] configuration pins define the chip SMI device address
+>   * (ADDR[0] is always zero, thus only even SMI addresses can be strapped).
+>   *
+> @@ -216,6 +221,42 @@ int mv88e6xxx_write(struct mv88e6xxx_chip *chip, int addr, int reg, u16 val)
+>  	return 0;
+>  }
+>  
+> +int mv88e6xxx_port_read(struct mv88e6xxx_chip *chip, int port, int reg,
+> +			u16 *val)
+> +{
+> +	int addr = mv88e6xxx_reg_port(chip, port);
+> +	int err;
+> +
+> +	assert_reg_lock(chip);
+> +
+> +	err = mv88e6xxx_smi_read(chip, addr, reg, val);
+> +	if (err)
+> +		return err;
+> +
+> +	dev_dbg(chip->dev, "<- port: 0x%.2x reg: 0x%.2x val: 0x%.4x\n",
+> +		port, reg, *val);
+> +
+> +	return 0;
+> +}
+> +
+> +int mv88e6xxx_port_write(struct mv88e6xxx_chip *chip, int port, int reg,
+> +			 u16 val)
+> +{
+> +	int addr = mv88e6xxx_reg_port(chip, port);
+> +	int err;
+> +
+> +	assert_reg_lock(chip);
+> +
+> +	err = mv88e6xxx_smi_write(chip, addr, reg, val);
+> +	if (err)
+> +		return err;
+> +
+> +	dev_dbg(chip->dev, "-> port: 0x%.2x reg: 0x%.2x val: 0x%.4x\n",
+> +		port, reg, val);
+> +
+> +	return 0;
+> +}
+> +
 
-check_stack_boundary() doesn't have such an issue since it already tests
-for access_size <= 0 and bails out, resp. access_size == 0 in case of NULL
-pointer passed when allowed.
+mv88e6xxx_{read,write} are already doing this (wrapping the assert, smi
+op and debug message). Plus, we could access the port registers through
+a different interface, like remote management frames.
 
-Fixes: 6841de8b0d03 ("bpf: allow helpers access the packet directly")
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
----
- Affected commit sits in net-next only.
+So please don't duplicate and use the following, as the previous
+mv88e6xxx_port_read() function was doing:
 
- kernel/bpf/verifier.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+    static int mv88e6xxx_port_read(struct mv88e6xxx_chip *chip,
+                                   int port, int reg, u16 *val)
+    {
+            int addr = chip->info->port_base_addr + port;
 
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 90493a6..bc138f3 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -671,7 +671,7 @@ static int check_packet_access(struct verifier_env *env, u32 regno, int off,
- 	struct reg_state *reg = &regs[regno];
- 
- 	off += reg->off;
--	if (off < 0 || off + size > reg->range) {
-+	if (off < 0 || size <= 0 || off + size > reg->range) {
- 		verbose("invalid access to packet, off=%d size=%d, R%d(id=%d,off=%d,r=%d)\n",
- 			off, size, regno, reg->id, reg->off, reg->range);
- 		return -EACCES;
--- 
-1.9.3
+            return mv88e6xxx_read(chip, addr, reg, val);
+    }
+
+    static int mv88e6xxx_port_write(struct mv88e6xxx_chip *chip,
+                                    int port, int reg, u16 val)
+    {
+            int addr = chip->info->port_base_addr + port;
+
+            return mv88e6xxx_write(chip, addr, reg, val);
+    }
+
+Note: I don't really see a need for the mv88e6xxx_port_addr helper in
+fact, the above code is quite clear. I'd suggest to drop it unless we
+need a port address somewhere else than in mv88e6xxx_port_{read,write}.
+
+>  static int mv88e6xxx_phy_read(struct mv88e6xxx_chip *chip, int phy,
+>  			      int reg, u16 *val)
+>  {
+> @@ -585,19 +626,19 @@ static void mv88e6xxx_adjust_link(struct dsa_switch *ds, int port,
+>  				  struct phy_device *phydev)
+>  {
+>  	struct mv88e6xxx_chip *chip = ds->priv;
+> -	u32 reg;
+> -	int ret;
+> +	u16 reg;
+> +	int err;
+>  
+>  	if (!phy_is_pseudo_fixed_link(phydev))
+>  		return;
+>  
+>  	mutex_lock(&chip->reg_lock);
+>  
+> -	ret = _mv88e6xxx_reg_read(chip, REG_PORT(port), PORT_PCS_CTRL);
+> -	if (ret < 0)
+> +	err = mv88e6xxx_port_read(chip, port, PORT_PCS_CTRL, &reg);
+> +	if (err < 0)
+>  		goto out;
+
+Can you please get rid of the < 0 condition at the same time, if (err)
+is enough.
+
+(same for the rest of this patch).
+
+Thanks,
+
+        Vivien
