@@ -1,74 +1,48 @@
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: Re: [PATCH net-next RESEND] xen-netfront: avoid packet loss when ethernet header crosses page boundary
-Date: Mon, 19 Sep 2016 12:36:55 +0200
-Message-ID: <87intsxjjs.fsf@vitty.brq.redhat.com>
-References: <1474023554-24520-1-git-send-email-vkuznets@redhat.com>
-        <20160918.222607.1930094684278444086.davem@davemloft.net>
-        <87mvj4xk8i.fsf@vitty.brq.redhat.com> <57DFBCB9.1090500@citrix.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [v2 PATCH 0/2] rhashtable: rhashtable with duplicate objects
+Date: Mon, 19 Sep 2016 18:48:01 +0800
+Message-ID: <20160919104801.GA12774@gondor.apana.org.au>
+References: <20160919084056.GA11875@gondor.apana.org.au>
+ <1474276530.4469.16.camel@sipsolutions.net>
+ <20160919091721.GA12235@gondor.apana.org.au>
+ <1474277244.4469.21.camel@sipsolutions.net>
+ <20160919093434.GA12378@gondor.apana.org.au>
+ <1474278634.4469.25.camel@sipsolutions.net>
+ <1474278896.4469.26.camel@sipsolutions.net>
+ <1474279330.4469.28.camel@sipsolutions.net>
+ <1474279492.4469.29.camel@sipsolutions.net>
+ <1474279827.4469.30.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <ptalbert@redhat.com>,
-        <boris.ostrovsky@oracle.com>, <jgross@suse.com>,
-        <xen-devel@lists.xenproject.org>
-To: David Vrabel <david.vrabel@citrix.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-wireless@vger.kernel.org, Thomas Graf <tgraf@suug.ch>,
+        tom@herbertland.com, Ben Greear <greearb@candelatech.com>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33728 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750745AbcISKg6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 19 Sep 2016 06:36:58 -0400
-In-Reply-To: <57DFBCB9.1090500@citrix.com> (David Vrabel's message of "Mon, 19
-        Sep 2016 11:23:53 +0100")
+Received: from helcar.hengli.com.au ([209.40.204.226]:54020 "EHLO
+        helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754766AbcISKsN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 06:48:13 -0400
+Content-Disposition: inline
+In-Reply-To: <1474279827.4469.30.camel@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Vrabel <david.vrabel@citrix.com> writes:
+On Mon, Sep 19, 2016 at 12:10:27PM +0200, Johannes Berg wrote:
+> Btw, for debug I put
+> 
+> BUG_ON(atomic_read(&ht->nelems) < 0);
+> 
+> after the atomic_dec() in __rhashtable_remove_fast_one(). That makes
+> the kernel crash instantly on the buggy code, and I just have to run a
+> single test ("wpas_ctrl_interface_add_many") to get there.
 
-> On 19/09/16 11:22, Vitaly Kuznetsov wrote:
->> David Miller <davem@davemloft.net> writes:
->> 
->>> From: Vitaly Kuznetsov <vkuznets@redhat.com>
->>> Date: Fri, 16 Sep 2016 12:59:14 +0200
->>>
->>>> @@ -595,6 +596,19 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
->>>>  	offset = offset_in_page(skb->data);
->>>>  	len = skb_headlen(skb);
->>>>  
->>>> +	/* The first req should be at least ETH_HLEN size or the packet will be
->>>> +	 * dropped by netback.
->>>> +	 */
->>>> +	if (unlikely(PAGE_SIZE - offset < ETH_HLEN)) {
->>>> +		nskb = skb_copy(skb, GFP_ATOMIC);
->>>> +		if (!nskb)
->>>> +			goto drop;
->>>> +		dev_kfree_skb_any(skb);
->>>> +		skb = nskb;
->>>> +		page = virt_to_page(skb->data);
->>>> +		offset = offset_in_page(skb->data);
->>>> +	}
->>>> +
->>>>  	spin_lock_irqsave(&queue->tx_lock, flags);
->>>
->>> I think you also have to recalculate 'len' in this case too, as
->>> skb_headlen() will definitely be different for nskb.
->>>
->>> In fact, I can't see how this code can work properly without that fix.
->> 
->> Thank you for your feedback David,
->> 
->> in my testing (even when I tried doing skb_copy() for all skbs
->> unconditionally) skb_headlen(nskb) always equals 'len' so I was under an
->> impression that both 'skb->len' and 'skb->data_len' remain the same when
->> we do skb_copy(). However, in case you think there are cases when
->> headlen changes, I see no problem with re-calculating 'len' as it won't
->> bring any significant performace penalty compared to the already added
->> skb_copy().
->
-> I think you can move the len = skb_headlen(skb) after the if, no need to
-> recalculate it.
+Aha I see the problem now.  The nelems logic on remove is broken.
+I'll send out a v3.
 
-Sorry, I was too fast with sending 'v2' and did the other way
-around. I'll do v3.
-
+Thanks!
 -- 
-  Vitaly
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
