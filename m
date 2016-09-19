@@ -1,40 +1,35 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 0/2] rhashtable: rhashtable with duplicate objects
-Date: Mon, 19 Sep 2016 10:25:18 +0200
-Message-ID: <1474273518.4469.8.camel@sipsolutions.net>
-References: <20160804071846.GA773@gondor.apana.org.au>
-         <20160804074546.GA996@gondor.apana.org.au>
-         <1470377813.2977.14.camel@sipsolutions.net>
-         <20160805104858.GA9297@gondor.apana.org.au>
-         <1470394233.2977.37.camel@sipsolutions.net>
-         <20160918135030.GA7062@gondor.apana.org.au>
-         <1474273219.4469.7.camel@sipsolutions.net>
-         (sfid-20160919_102334_213492_CF017D1F)
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: RE: [PATCH net-next 09/10] bnxt_en: Support for "ethtool -r" command
+Date: Mon, 19 Sep 2016 08:27:38 +0000
+Message-ID: <BL2PR07MB23060AC65DF1DD370DD086DF8DF40@BL2PR07MB2306.namprd07.prod.outlook.com>
+References: <1474271889-8229-1-git-send-email-michael.chan@broadcom.com>
+ <1474271889-8229-10-git-send-email-michael.chan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-wireless@vger.kernel.org, Thomas Graf <tgraf@suug.ch>,
-        tom@herbertland.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Michael Chan <michael.chan@broadcom.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:49744 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1759746AbcISIZY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 19 Sep 2016 04:25:24 -0400
-In-Reply-To: <1474273219.4469.7.camel@sipsolutions.net> (sfid-20160919_102334_213492_CF017D1F)
+Received: from mail-sn1nam02on0073.outbound.protection.outlook.com ([104.47.36.73]:32230
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1755250AbcISI1l (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 19 Sep 2016 04:27:41 -0400
+In-Reply-To: <1474271889-8229-10-git-send-email-michael.chan@broadcom.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> Restart autoneg if autoneg is enabled.
 
-> Yes, it's passing all the wpa_supplicant tests, so
-> 
-> Acked-by: Johannes Berg <johannes@sipsolutions.net>
-> 
+> +	if (!(link_info->autoneg & BNXT_AUTONEG_SPEED))
+> +		return -EINVAL;
 
-I take that back. I think it's leaking memory - my tests never used to
-run out of memory, but now they eventually do.
+Looks like a lot of the of implementations of this ethtool
+are unconditionally doing the reset.
+Perhaps the right thing to do is check for autoneg availability
+at the ethtool core itself?
 
-I'll try to figure out more.
-
-johannes
+[Not an objection to this patch in any way as there are tens
+of implementations doing the same; Simply noting this]
