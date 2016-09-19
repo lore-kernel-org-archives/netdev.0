@@ -1,175 +1,43 @@
-From: Daniel Mack <daniel@zonque.org>
-Subject: [PATCH v6 3/6] bpf: add BPF_PROG_ATTACH and BPF_PROG_DETACH commands
-Date: Mon, 19 Sep 2016 18:43:58 +0200
-Message-ID: <1474303441-3745-4-git-send-email-daniel@zonque.org>
-References: <1474303441-3745-1-git-send-email-daniel@zonque.org>
-Cc: davem@davemloft.net, kafai@fb.com, fw@strlen.de,
-        pablo@netfilter.org, harald@redhat.com, netdev@vger.kernel.org,
-        sargun@sargun.me, cgroups@vger.kernel.org,
-        Daniel Mack <daniel@zonque.org>
-To: htejun@fb.com, daniel@iogearbox.net, ast@fb.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:33553 "EHLO mail.zonque.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752126AbcISQoL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 19 Sep 2016 12:44:11 -0400
-In-Reply-To: <1474303441-3745-1-git-send-email-daniel@zonque.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: [PATCH] ixgbe: mark symbols static where possible
+Date: Mon, 19 Sep 2016 16:57:37 +0000
+Message-ID: <87618083B2453E4A8714035B62D67992506E6E36@FMSMSX105.amr.corp.intel.com>
+References: <1474188454-8872-1-git-send-email-baoyou.xie@linaro.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "arnd@arndb.de" <arnd@arndb.de>,
+        "xie.baoyou@zte.com.cn" <xie.baoyou@zte.com.cn>
+To: Baoyou Xie <baoyou.xie@linaro.org>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1474188454-8872-1-git-send-email-baoyou.xie@linaro.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Extend the bpf(2) syscall by two new commands, BPF_PROG_ATTACH and
-BPF_PROG_DETACH which allow attaching and detaching eBPF programs
-to a target.
 
-On the API level, the target could be anything that has an fd in
-userspace, hence the name of the field in union bpf_attr is called
-'target_fd'.
+>-----Original Message-----
+>From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
+>Behalf Of Baoyou Xie
+>Sent: Sunday, September 18, 2016 1:48 AM
+>To: Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>; intel-wired-
+>lan@lists.osuosl.org
+>Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org; arnd@arndb.de;
+>baoyou.xie@linaro.org; xie.baoyou@zte.com.cn
+>Subject: [PATCH] ixgbe: mark symbols static where possible
+>
+>We get 2 warnings when building kernel with W=1:
+>drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c:2128:5: warning: no previous
+>prototype for 'ixgbe_led_on_t_x550em' [-Wmissing-prototypes]
+>drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c:2150:5: warning: no previous
+>prototype for 'ixgbe_led_off_t_x550em' [-Wmissing-prototypes]
 
-When called with BPF_ATTACH_TYPE_CGROUP_INET_{E,IN}GRESS, the target is
-expected to be a valid file descriptor of a cgroup v2 directory which
-has the bpf controller enabled. These are the only use-cases
-implemented by this patch at this point, but more can be added.
+Already taken care of:
+http://patchwork.ozlabs.org/patch/661647/
 
-If a program of the given type already exists in the given cgroup,
-the program is swapped automically, so userspace does not have to drop
-an existing program first before installing a new one, which would
-otherwise leave a gap in which no program is attached.
-
-For more information on the propagation logic to subcgroups, please
-refer to the bpf cgroup controller implementation.
-
-The API is guarded by CAP_NET_ADMIN.
-
-Signed-off-by: Daniel Mack <daniel@zonque.org>
----
- include/uapi/linux/bpf.h |  8 +++++
- kernel/bpf/syscall.c     | 81 ++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 89 insertions(+)
-
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 55f815e..7cd3616 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -73,6 +73,8 @@ enum bpf_cmd {
- 	BPF_PROG_LOAD,
- 	BPF_OBJ_PIN,
- 	BPF_OBJ_GET,
-+	BPF_PROG_ATTACH,
-+	BPF_PROG_DETACH,
- };
- 
- enum bpf_map_type {
-@@ -150,6 +152,12 @@ union bpf_attr {
- 		__aligned_u64	pathname;
- 		__u32		bpf_fd;
- 	};
-+
-+	struct { /* anonymous struct used by BPF_PROG_ATTACH/DETACH commands */
-+		__u32		target_fd;	/* container object to attach to */
-+		__u32		attach_bpf_fd;	/* eBPF program to attach */
-+		__u32		attach_type;
-+	};
- } __attribute__((aligned(8)));
- 
- /* integer value in 'imm' field of BPF_CALL instruction selects which helper
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 228f962..1a8592a 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -822,6 +822,77 @@ static int bpf_obj_get(const union bpf_attr *attr)
- 	return bpf_obj_get_user(u64_to_ptr(attr->pathname));
- }
- 
-+#ifdef CONFIG_CGROUP_BPF
-+
-+#define BPF_PROG_ATTACH_LAST_FIELD attach_type
-+
-+static int bpf_prog_attach(const union bpf_attr *attr)
-+{
-+	struct bpf_prog *prog;
-+	struct cgroup *cgrp;
-+
-+	if (!capable(CAP_NET_ADMIN))
-+		return -EPERM;
-+
-+	if (CHECK_ATTR(BPF_PROG_ATTACH))
-+		return -EINVAL;
-+
-+	switch (attr->attach_type) {
-+	case BPF_CGROUP_INET_INGRESS:
-+	case BPF_CGROUP_INET_EGRESS:
-+		prog = bpf_prog_get_type(attr->attach_bpf_fd,
-+					 BPF_PROG_TYPE_CGROUP_SOCKET);
-+		if (IS_ERR(prog))
-+			return PTR_ERR(prog);
-+
-+		cgrp = cgroup_get_from_fd(attr->target_fd);
-+		if (IS_ERR(cgrp)) {
-+			bpf_prog_put(prog);
-+			return PTR_ERR(cgrp);
-+		}
-+
-+		cgroup_bpf_update(cgrp, prog, attr->attach_type);
-+		cgroup_put(cgrp);
-+		break;
-+
-+	default:
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
-+#define BPF_PROG_DETACH_LAST_FIELD attach_type
-+
-+static int bpf_prog_detach(const union bpf_attr *attr)
-+{
-+	struct cgroup *cgrp;
-+
-+	if (!capable(CAP_NET_ADMIN))
-+		return -EPERM;
-+
-+	if (CHECK_ATTR(BPF_PROG_DETACH))
-+		return -EINVAL;
-+
-+	switch (attr->attach_type) {
-+	case BPF_CGROUP_INET_INGRESS:
-+	case BPF_CGROUP_INET_EGRESS:
-+		cgrp = cgroup_get_from_fd(attr->target_fd);
-+		if (IS_ERR(cgrp))
-+			return PTR_ERR(cgrp);
-+
-+		cgroup_bpf_update(cgrp, NULL, attr->attach_type);
-+		cgroup_put(cgrp);
-+		break;
-+
-+	default:
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+#endif /* CONFIG_CGROUP_BPF */
-+
- SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, size)
- {
- 	union bpf_attr attr = {};
-@@ -888,6 +959,16 @@ SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, siz
- 	case BPF_OBJ_GET:
- 		err = bpf_obj_get(&attr);
- 		break;
-+
-+#ifdef CONFIG_CGROUP_BPF
-+	case BPF_PROG_ATTACH:
-+		err = bpf_prog_attach(&attr);
-+		break;
-+	case BPF_PROG_DETACH:
-+		err = bpf_prog_detach(&attr);
-+		break;
-+#endif
-+
- 	default:
- 		err = -EINVAL;
- 		break;
--- 
-2.5.5
+Thanks,
+Emil
