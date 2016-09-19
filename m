@@ -1,84 +1,101 @@
-From: Jason Baron <jbaron@akamai.com>
-Subject: Re: [PATCH net-next 2/2] bnx2x: allocate mac filtering pending list
- in PAGE_SIZE increments
-Date: Mon, 19 Sep 2016 14:33:38 -0400
-Message-ID: <57E02F82.9060903@akamai.com>
-References: <cover.1474060371.git.jbaron@akamai.com>
- <d46b4fa36c32affff20fcc92148e33ee6176f899.1474060371.git.jbaron@akamai.com>
- <BL2PR07MB2306CEA6AD75D9D4EB77FB1F8DF50@BL2PR07MB2306.namprd07.prod.outlook.com>
+From: Alan <alan@linux.intel.com>
+Subject: [PATCH] 6pack: fix buffer length mishandling
+Date: Mon, 19 Sep 2016 20:15:24 +0100
+Message-ID: <147431251411.53012.5151201638797223106.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "Ariel.Elior@qlogic.com" <Ariel.Elior@qlogic.com>
-To: "Mintz, Yuval" <Yuval.Mintz@cavium.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay07.akamai.com ([23.79.238.175]:14196 "EHLO
-        prod-mail-xrelay07.akamai.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S932237AbcISSdl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 14:33:41 -0400
-In-Reply-To: <BL2PR07MB2306CEA6AD75D9D4EB77FB1F8DF50@BL2PR07MB2306.namprd07.prod.outlook.com>
+Received: from lxorguk.ukuu.org.uk ([81.2.110.251]:45876 "EHLO
+        lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750730AbcISTPc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 15:15:32 -0400
+Received: from localhost.localdomain (proxy [81.2.110.250])
+        by lxorguk.ukuu.org.uk (8.15.2/8.14.1) with ESMTP id u8JK4gQI029879
+        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 21:04:48 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/18/2016 06:25 AM, Mintz, Yuval wrote:
->> Currently, we can have high order page allocations that specify
->> GFP_ATOMIC when configuring multicast MAC address filters.
->>
->> For example, we have seen order 2 page allocation failures with
->> ~500 multicast addresses configured.
->>
->> Convert the allocation for the pending list to be done in PAGE_SIZE
->> increments.
->>
->> Signed-off-by: Jason Baron <jbaron@akamai.com>
+Dmitry Vyukov wrote:
+> different runs). Looking at code, the following looks suspicious -- we
+> limit copy by 512 bytes, but use the original count which can be
+> larger than 512:
 >
-> While I appreciate the effort, I wonder whether it's worth it:
->
-> - The hardware [even in its newer generation] provides an approximate
-> based classification [I.e., hashed] with 256 bins.
-> When configuring 500 multicast addresses, one can argue the
-> difference between multicast-promisc mode and actual configuration
-> is insignificant.
+> static void sixpack_receive_buf(struct tty_struct *tty,
+>     const unsigned char *cp, char *fp, int count)
+> {
+>     unsigned char buf[512];
+>     ....
+>     memcpy(buf, cp, count < sizeof(buf) ? count : sizeof(buf));
+>     ....
+>     sixpack_decode(sp, buf, count1);
 
-With 256 bins, I think it takes close to: 256*lg(256) or 2,048
-multicast addresses to expect to have all bins have at least one hash, 
-assuming a uniform distribution of the hashes.
+With the sane tty locking we now have I believe the following is safe as
+we consume the bytes and move them into the decoded buffer before
+returning.
 
-> Perhaps the easier-to-maintain alternative would simply be to
-> determine the maximal number of multicast addresses that can be
-> configured using a single PAGE, and if in need of more than that
-> simply move into multicast-promisc.
->
+Signed-off-by: Alan Cox <alan@linux.intel.com>
+---
+ drivers/net/hamradio/6pack.c |   12 ++++--------
+ 1 file changed, 4 insertions(+), 8 deletions(-)
 
-sizeof(struct bnx2x_mcast_list_elem) = 24. So there are 170 per
-page on x86. So if we want to fit 2,048 elements, we need 12 pages.
-
->   - While GFP_ATOMIC is required in this flow due to the fact it's being
-> called from sleepless context, I do believe this is mostly a remnant -
-> it's possible that by slightly changing the locking scheme we can have
-> the configuration done from sleepless context and simply switch to
-> GFP_KERNEL instead.
->
-
-Ok if its GFP_KERNEL, I think its still undesirable to do large page 
-order allocations (unless of course its converted to a single page, but
-I'm not sure this makes sense as mentioned).
-
-> Regarding the patch itself, only comment I have:
->> +			elem_group = (struct bnx2x_mcast_elem_group *)
->> +				     elem_group->mcast_group_link.next;
-> Let's use list_next_entry() instead.
->
->
-
-Yes, agreed.
-
-I think it would be easy to add a check to bnx2x_set_rx_mode_inner() to
-enforce some maximum number of elements (perhaps 2,048 based on the
-above math) for the !CHIP_IS_E1() case on top of what I already posted.
-
-Thanks,
-
--Jason
+diff --git a/drivers/net/hamradio/6pack.c b/drivers/net/hamradio/6pack.c
+index 5a1e985..470b3dc 100644
+--- a/drivers/net/hamradio/6pack.c
++++ b/drivers/net/hamradio/6pack.c
+@@ -127,7 +127,7 @@ struct sixpack {
+ 
+ #define AX25_6PACK_HEADER_LEN 0
+ 
+-static void sixpack_decode(struct sixpack *, unsigned char[], int);
++static void sixpack_decode(struct sixpack *, const unsigned char[], int);
+ static int encode_sixpack(unsigned char *, unsigned char *, int, unsigned char);
+ 
+ /*
+@@ -428,7 +428,7 @@ static void sixpack_write_wakeup(struct tty_struct *tty)
+ 
+ /*
+  * Handle the 'receiver data ready' interrupt.
+- * This function is called by the 'tty_io' module in the kernel when
++ * This function is called by the tty module in the kernel when
+  * a block of 6pack data has been received, which can now be decapsulated
+  * and sent on to some IP layer for further processing.
+  */
+@@ -436,7 +436,6 @@ static void sixpack_receive_buf(struct tty_struct *tty,
+ 	const unsigned char *cp, char *fp, int count)
+ {
+ 	struct sixpack *sp;
+-	unsigned char buf[512];
+ 	int count1;
+ 
+ 	if (!count)
+@@ -446,10 +445,7 @@ static void sixpack_receive_buf(struct tty_struct *tty,
+ 	if (!sp)
+ 		return;
+ 
+-	memcpy(buf, cp, count < sizeof(buf) ? count : sizeof(buf));
+-
+ 	/* Read the characters out of the buffer */
+-
+ 	count1 = count;
+ 	while (count) {
+ 		count--;
+@@ -459,7 +455,7 @@ static void sixpack_receive_buf(struct tty_struct *tty,
+ 			continue;
+ 		}
+ 	}
+-	sixpack_decode(sp, buf, count1);
++	sixpack_decode(sp, cp, count1);
+ 
+ 	sp_put(sp);
+ 	tty_unthrottle(tty);
+@@ -992,7 +988,7 @@ static void decode_std_command(struct sixpack *sp, unsigned char cmd)
+ /* decode a 6pack packet */
+ 
+ static void
+-sixpack_decode(struct sixpack *sp, unsigned char *pre_rbuff, int count)
++sixpack_decode(struct sixpack *sp, const unsigned char *pre_rbuff, int count)
+ {
+ 	unsigned char inbyte;
+ 	int count1;
