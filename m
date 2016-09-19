@@ -1,122 +1,84 @@
-From: Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH v6 5/6] net: ipv4, ipv6: run cgroup eBPF egress programs
-Date: Mon, 19 Sep 2016 18:44:00 +0200
-Message-ID: <1474303441-3745-6-git-send-email-daniel@zonque.org>
-References: <1474303441-3745-1-git-send-email-daniel@zonque.org>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, kafai-b10kYP2dOMg@public.gmane.org, fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org,
-        pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, harald-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>
-To: htejun-b10kYP2dOMg@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, ast-b10kYP2dOMg@public.gmane.org
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1474303441-3745-1-git-send-email-daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [patch net-next RFC 0/2] fib4 offload: notifier to let hw to be
+ aware of all prefixes
+Date: Mon, 19 Sep 2016 09:44:07 -0700
+Message-ID: <da14a1ab-5acf-fa04-c321-38b346a0abe7@gmail.com>
+References: <1473163300-2045-1-git-send-email-jiri@resnulli.us>
+ <fc177125-a9b8-fcce-281b-5fdc25639944@gmail.com>
+ <20160919060854.GB1846@nanopsycho.orion>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
+        eladr@mellanox.com, yotamg@mellanox.com, nogahf@mellanox.com,
+        ogerlitz@mellanox.com, roopa@cumulusnetworks.com,
+        nikolay@cumulusnetworks.com, linville@tuxdriver.com, tgraf@suug.ch,
+        gospo@cumulusnetworks.com, sfeldma@gmail.com, ast@plumgrid.com,
+        edumazet@google.com, hannes@stressinduktion.org,
+        dsa@cumulusnetworks.com, jhs@mojatatu.com,
+        vivien.didelot@savoirfairelinux.com, john.fastabend@intel.com,
+        andrew@lunn.ch, ivecera@redhat.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33940 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751866AbcISQoK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 12:44:10 -0400
+Received: by mail-pf0-f193.google.com with SMTP id 21so6074573pfy.1
+        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 09:44:09 -0700 (PDT)
+In-Reply-To: <20160919060854.GB1846@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If the cgroup associated with the receiving socket has an eBPF
-programs installed, run them from ip_output(), ip6_output() and
-ip_mc_output().
+On 09/18/2016 11:08 PM, Jiri Pirko wrote:
+> Sun, Sep 18, 2016 at 10:00:44PM CEST, f.fainelli@gmail.com wrote:
+>> Le 06/09/2016 à 05:01, Jiri Pirko a écrit :
+>>> From: Jiri Pirko <jiri@mellanox.com>
+>>>
+>>> This is RFC, unfinished. I came across some issues in the process so I would
+>>> like to share those and restart the fib offload discussion in order to make it
+>>> really usable.
+>>>
+>>> So the goal of this patchset is to allow driver to propagate all prefixes
+>>> configured in kernel down HW. This is necessary for routing to work
+>>> as expected. If we don't do that HW might forward prefixes known to kernel
+>>> incorrectly. Take an example when default route is set in switch HW and there
+>>> is an IP address set on a management (non-switch) port.
+>>>
+>>> Currently, only fibs related to the switch port netdev are offloaded using
+>>> switchdev ops. This model is not extendable so the first patch introduces
+>>> a replacement: notifier to propagate fib additions and removals to whoever
+>>> interested. The second patch makes mlxsw to adopt this new way, registering
+>>> one notifier block for each mlxsw (asic) instance.
+>>
+>> Instead of introducing another specialization of a notifier_block
+>> implementation, could we somehow have a kernel-based netlink listener
+>> which receives the same kind of event information from rtmsg_fib()?
+> 
+> rtmsg_fib destination is userspace. The message format is netlink. I
+> don't think it is wise to pass netlink messages inside kernel when we
+> can pass nice structures.
 
-eBPF programs used in this context are expected to either return 1 to
-let the packet pass, or != 1 to drop them. The programs have access to
-the skb through bpf_skb_load_bytes(), and the payload starts at the
-network headers (L3).
+True, which does not mean you cannot have a small piece of kernel code
+that listens for netlink events and unmarshalls what you want to have
+your drivers operate on a structure-based message. The point I am
+getting it is that rtmsg_* exists all over the place, and with close to
+zero modification in the networking stack you can get the notification
+you want if you hook a netlink listener in kernel space. Just like the
+notifier you are proposing, the interface drivers could work with can be
+structure (and not netlink message) based. An argument could be made
+that with the notifier approach and hooking where necessary you have
+finer control of message delivery, especially for managing overhead and
+potential subscribers to these messages (it is easier to compile out the
+notifier code for what you are interested in).
 
-Note that cgroup_bpf_run_filter() is stubbed out as static inline nop
-for !CONFIG_CGROUP_BPF, and is otherwise guarded by a static key if
-the feature is unused.
 
-Signed-off-by: Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>
----
- net/ipv4/ip_output.c  | 15 +++++++++++++++
- net/ipv6/ip6_output.c |  8 ++++++++
- 2 files changed, 23 insertions(+)
+> Lower overhead. This is how it is done in the
+> rest of kernel. Not sure how your comment is related specifically to
+> this patch.
 
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 05d1058..3ca3d7a 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -74,6 +74,7 @@
- #include <net/checksum.h>
- #include <net/inetpeer.h>
- #include <net/lwtunnel.h>
-+#include <linux/bpf-cgroup.h>
- #include <linux/igmp.h>
- #include <linux/netfilter_ipv4.h>
- #include <linux/netfilter_bridge.h>
-@@ -303,6 +304,7 @@ int ip_mc_output(struct net *net, struct sock *sk, struct sk_buff *skb)
- {
- 	struct rtable *rt = skb_rtable(skb);
- 	struct net_device *dev = rt->dst.dev;
-+	int ret;
- 
- 	/*
- 	 *	If the indicated interface is up and running, send the packet.
-@@ -312,6 +314,12 @@ int ip_mc_output(struct net *net, struct sock *sk, struct sk_buff *skb)
- 	skb->dev = dev;
- 	skb->protocol = htons(ETH_P_IP);
- 
-+	ret = cgroup_bpf_run_filter(sk, skb, BPF_CGROUP_INET_EGRESS);
-+	if (ret) {
-+		kfree_skb(skb);
-+		return ret;
-+	}
-+
- 	/*
- 	 *	Multicasts are looped back for other local users
- 	 */
-@@ -364,12 +372,19 @@ int ip_mc_output(struct net *net, struct sock *sk, struct sk_buff *skb)
- int ip_output(struct net *net, struct sock *sk, struct sk_buff *skb)
- {
- 	struct net_device *dev = skb_dst(skb)->dev;
-+	int ret;
- 
- 	IP_UPD_PO_STATS(net, IPSTATS_MIB_OUT, skb->len);
- 
- 	skb->dev = dev;
- 	skb->protocol = htons(ETH_P_IP);
- 
-+	ret = cgroup_bpf_run_filter(sk, skb, BPF_CGROUP_INET_EGRESS);
-+	if (ret) {
-+		kfree_skb(skb);
-+		return ret;
-+	}
-+
- 	return NF_HOOK_COND(NFPROTO_IPV4, NF_INET_POST_ROUTING,
- 			    net, sk, skb, NULL, dev,
- 			    ip_finish_output,
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 6001e78..5dc90aa 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -39,6 +39,7 @@
- #include <linux/module.h>
- #include <linux/slab.h>
- 
-+#include <linux/bpf-cgroup.h>
- #include <linux/netfilter.h>
- #include <linux/netfilter_ipv6.h>
- 
-@@ -143,6 +144,7 @@ int ip6_output(struct net *net, struct sock *sk, struct sk_buff *skb)
- {
- 	struct net_device *dev = skb_dst(skb)->dev;
- 	struct inet6_dev *idev = ip6_dst_idev(skb_dst(skb));
-+	int ret;
- 
- 	if (unlikely(idev->cnf.disable_ipv6)) {
- 		IP6_INC_STATS(net, idev, IPSTATS_MIB_OUTDISCARDS);
-@@ -150,6 +152,12 @@ int ip6_output(struct net *net, struct sock *sk, struct sk_buff *skb)
- 		return 0;
- 	}
- 
-+	ret = cgroup_bpf_run_filter(sk, skb, BPF_CGROUP_INET_EGRESS);
-+	if (ret) {
-+		kfree_skb(skb);
-+		return ret;
-+	}
-+
- 	return NF_HOOK_COND(NFPROTO_IPV6, NF_INET_POST_ROUTING,
- 			    net, sk, skb, NULL, dev,
- 			    ip6_finish_output,
+This is not directly related to your patch, it just made me think about
+it as I was considering adding a notifier for other purposes (turns out
+we may be able to do differently, without one).
 -- 
-2.5.5
+Florian
