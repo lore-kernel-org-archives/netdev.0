@@ -1,49 +1,45 @@
-From: Rick Jones <rick.jones2@hpe.com>
+From: Eric Dumazet <edumazet@google.com>
 Subject: Re: [PATCH v3 net-next 16/16] tcp_bbr: add BBR congestion control
-Date: Mon, 19 Sep 2016 14:17:31 -0700
-Message-ID: <9d2f75e6-0161-aa25-e362-ad7267ee2251@hpe.com>
+Date: Mon, 19 Sep 2016 14:23:14 -0700
+Message-ID: <CANn89iJXLkmLG8rjWA3rsC88-E1Q-hQRbXc2pgtuDK6eOoiz7g@mail.gmail.com>
 References: <1474236233-28511-1-git-send-email-ncardwell@google.com>
- <1474236233-28511-17-git-send-email-ncardwell@google.com>
- <20160919135734.04ab5172@xeon-e3>
- <CANn89i+MpNPYn=ewi_LioNctNePCuity_UXw5ieU7HFfoZTsGA@mail.gmail.com>
+ <1474236233-28511-17-git-send-email-ncardwell@google.com> <20160919135734.04ab5172@xeon-e3>
+ <CANn89i+MpNPYn=ewi_LioNctNePCuity_UXw5ieU7HFfoZTsGA@mail.gmail.com> <9d2f75e6-0161-aa25-e362-ad7267ee2251@hpe.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Neal Cardwell <ncardwell@google.com>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        Neal Cardwell <ncardwell@google.com>,
         David Miller <davem@davemloft.net>,
         netdev <netdev@vger.kernel.org>, Van Jacobson <vanj@google.com>,
         Yuchung Cheng <ycheng@google.com>,
         Nandita Dukkipati <nanditad@google.com>,
         Soheil Hassas Yeganeh <soheil@google.com>
-To: Eric Dumazet <edumazet@google.com>,
-        Stephen Hemminger <stephen@networkplumber.org>
+To: Rick Jones <rick.jones2@hpe.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g9t5008.houston.hpe.com ([15.241.48.72]:51931 "EHLO
-        g9t5008.houston.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932124AbcISVRd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 17:17:33 -0400
-In-Reply-To: <CANn89i+MpNPYn=ewi_LioNctNePCuity_UXw5ieU7HFfoZTsGA@mail.gmail.com>
+Received: from mail-yw0-f176.google.com ([209.85.161.176]:34073 "EHLO
+        mail-yw0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932329AbcISVXV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 17:23:21 -0400
+Received: by mail-yw0-f176.google.com with SMTP id g192so164124588ywh.1
+        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 14:23:21 -0700 (PDT)
+In-Reply-To: <9d2f75e6-0161-aa25-e362-ad7267ee2251@hpe.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/19/2016 02:10 PM, Eric Dumazet wrote:
-> On Mon, Sep 19, 2016 at 1:57 PM, Stephen Hemminger
-> <stephen@networkplumber.org> wrote:
->
->> Looks good, but could I suggest a simple optimization.
->> All these parameters are immutable in the version of BBR you are submitting.
->> Why not make the values const? And eliminate the always true long-term bw estimate
->> variable?
->>
->
-> We could do that.
->
-> We used to have variables (aka module params) while BBR was cooking in
-> our kernels ;)
+On Mon, Sep 19, 2016 at 2:17 PM, Rick Jones <rick.jones2@hpe.com> wrote:
 
-Are there better than epsilon odds of someone perhaps wanting to poke 
-those values as it gets exposure beyond Google?
+>
+> Are there better than epsilon odds of someone perhaps wanting to poke those
+> values as it gets exposure beyond Google?
+>
 
-happy benchmarking,
+This does not matter.
 
-rick jones
+A change would require patching net/ipv4/tcp_bbr.c , and the 'const'
+attribute being there or not does not prevent the change.
+
+I was simply asking to Stephen if the compiler would actually emit a
+very different code, worth doing a last minute change.
+
+The main BBR costs are divides and some multiplies , and they are
+using per socket fields.
