@@ -1,35 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] chcr/cxgb4i/cxgbit/RDMA/cxgb4: Allocate
- resources dynamically for all cxgb4 ULD's
-Date: Mon, 19 Sep 2016 01:38:06 -0400 (EDT)
-Message-ID: <20160919.013806.1060448921542204830.davem@davemloft.net>
-References: <1474080159-14980-1-git-send-email-hariprasad@chelsio.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: stmmac/RTL8211F/Meson GXBB: TX throughput problems
+Date: Mon, 19 Sep 2016 07:38:18 +0200
+Message-ID: <22bfe293-02b0-e7f6-b11f-9d7a51d23a79@st.com>
+References: <CAFBinCALSL_-izJ2tEsAjevAw90kGNTrQ3na3D1YV8f1dS1=Xg@mail.gmail.com>
+ <ce15ad26-2d07-655d-b813-947ad86696ac@st.com>
+ <20160918224240.0bf5a9ed@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-        target-devel@vger.kernel.org, linux-rdma@vger.kernel.org,
-        linux-crypto@vger.kernel.org, nab@linux-iscsi.org,
-        jejb@linux.vnet.ibm.com, martin.petersen@oracle.com,
-        dledford@redhat.com, herbert@gondor.apana.org.au,
-        varun@chelsio.com, nirranjan@chelsio.com,
-        swise@opengridcomputing.com, atul.gupta@chelsio.com,
-        rahul.lakkireddy@chelsio.com
-To: hariprasad@chelsio.com
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <1474080159-14980-1-git-send-email-hariprasad@chelsio.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
+        <netdev@vger.kernel.org>, <linux-amlogic@lists.infradead.org>,
+        Alexandre Torgue <alexandre.torgue@st.com>
+To: =?UTF-8?Q?Andr=c3=a9_Roth?= <neolynx@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:50762 "EHLO
+        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1755785AbcISFiv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 01:38:51 -0400
+In-Reply-To: <20160918224240.0bf5a9ed@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Date: Sat, 17 Sep 2016 08:12:39 +0530
+Hello André
 
-> Allocate resources dynamically to cxgb4's Upper layer driver's(ULD) like
-> cxgbit, iw_cxgb4 and cxgb4i. Allocate resources when they register with
-> cxgb4 driver and free them while unregistering. All the queues and the
-> interrupts for them will be allocated during ULD probe only and freed
-> during remove.
-> 
-> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+On 9/18/2016 10:42 PM, André Roth wrote:
+>
+> Hello,
+>
+>> For example, you could try disabling the scatter-gather or tx-cum
+>> via ethtool and seeing if there is some benefit; so we could image
+>> some problem on your HW or SYNP MAC integration for checksumming
+>> on tx side.
+>
+> disabling the following:
+>   ethtool -K eth0 sg off
+> or:
+>   ethtool -K eth0 tx off
+> does not prevent the network communication going down..
+>
+>> Also you could check the AXI tuning and PBL value. To be honest
+>> (thinking about your problem) I can actually suspect some related
+>> problem on bus setup. So I suggest you to play with these value
+>> (better if you ask for having values from HW validation on your side).
+>> Otherwise the stmmac uses a default that cannot be good for your
+>> platform. For example, sometime I have seen that PBL is better if
+>> reduced to 8 instead of 32 and w/o 4xPBL...
+>
+> how can I set those values ?
+>
+> thanks for your time,
 
-Applied.
+welcome
+
+take a look at Documentation/devicetree/bindings/net/stmmac.txt
+
+peppe
+
+>
+>  andre
+>
+>
