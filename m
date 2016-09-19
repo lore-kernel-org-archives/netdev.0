@@ -1,33 +1,71 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2 net-next] MAINTAINERS: Add an entry for the core
- network DSA code
-Date: Mon, 19 Sep 2016 12:54:01 -0700
-Message-ID: <f9dcbe85-d797-3e23-d26f-e88595367f5a@gmail.com>
-References: <1474226240-8083-1-git-send-email-andrew@lunn.ch>
+Subject: Re: [PATCH net] MAINTAINERS: Gary Zambrano's email is bouncing
+Date: Mon, 19 Sep 2016 12:54:55 -0700
+Message-ID: <ceeadf96-6ec8-1931-e43c-1d992ce03b86@gmail.com>
+References: <1474151235-16558-1-git-send-email-f.fainelli@gmail.com>
+ <1474152709.1954.8.camel@perches.com>
+ <CAGVrzcaswHEjEvBygXbDcgUPaAmP=t9RHY8mVv4tVOgK7N9ARw@mail.gmail.com>
+ <CACKFLi=io5VjP+L+RVVef3FwmFt77aVFrJ+v8-4FyupNL_752w@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
+Cc: Joe Perches <joe@perches.com>, netdev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        bcm-kernel-feedback-list <bcm-kernel-feedback-list@broadcom.com>,
+        =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
+        Hauke Mehrtens <hauke@hauke-m.de>
+To: Michael Chan <michael.chan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:36461 "EHLO
-        mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932109AbcISTyE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 15:54:04 -0400
-Received: by mail-pa0-f65.google.com with SMTP id my20so4381387pab.3
-        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 12:54:04 -0700 (PDT)
-In-Reply-To: <1474226240-8083-1-git-send-email-andrew@lunn.ch>
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:33037 "EHLO
+        mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932525AbcISTy7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 15:54:59 -0400
+Received: by mail-pa0-f67.google.com with SMTP id oz2so7363705pac.0
+        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 12:54:59 -0700 (PDT)
+In-Reply-To: <CACKFLi=io5VjP+L+RVVef3FwmFt77aVFrJ+v8-4FyupNL_752w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/18/2016 12:17 PM, Andrew Lunn wrote:
-> The core distributed switch architecture code currently does not have
-> a MAINTAINERS entry, which results in some contributions not landing
-> in the right peoples inbox.
+On 09/17/2016 04:39 PM, Michael Chan wrote:
+> On Sat, Sep 17, 2016 at 4:17 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+>> 2016-09-17 15:51 GMT-07:00 Joe Perches <joe@perches.com>:
+>>> On Sat, 2016-09-17 at 15:27 -0700, Florian Fainelli wrote:
+>>>> Gary has not been with Broadcom for some time now, replace his address
+>>>> with the internal mailing-list used for other entries.
+>>>>
+>>>>> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+>>>> ---
+>>>> Michael,
+>>>>
+>>>> Since this is an old driver, not sure who could step up as a maintainer
+>>>> for b44?
+>>> []
+>>>> diff --git a/MAINTAINERS b/MAINTAINERS
+>>> []
+>>>> @@ -2500,8 +2500,8 @@ S:      Supported
+>>>
+>>>> F:    kernel/bpf/
+>>>>
+>>>>  BROADCOM B44 10/100 ETHERNET DRIVER
+>>>> -M:   Gary Zambrano <zambrano@broadcom.com>
+>>>>  L:   netdev@vger.kernel.org
+>>>> +M:   bcm-kernel-feedback-list@broadcom.com
+>>>>  S:   Supported
+>>>>  F:   drivers/net/ethernet/broadcom/b44.*
+>>>
+>>> Without an actual maintainer, this should really be
+>>> orphan and not supported.
+>>
+>> I would like to hear from Michael before concluding that
+>>
 > 
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> I have worked on this NIC more than 10 years ago.  Last time I
+> checked, I don't have this NIC anymore after moving offices several
+> times.
+> 
+> I don't mind being the maintainer, if no one else more suitable and
+> have access to hardware wants to do it.
 
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+Should I resubmit with your name as a maintainer or do you want to do it?
 -- 
 Florian
