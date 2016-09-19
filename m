@@ -1,62 +1,50 @@
-From: Tariq Toukan <ttoukan.linux@gmail.com>
-Subject: Re: [net-next PATCH] mlx4: add missed recycle opportunity for XDP_TX
- on TX failure
-Date: Mon, 19 Sep 2016 13:54:16 +0300
-Message-ID: <f4534665-cf8a-eba1-55b6-4344bd6a7d0b@gmail.com>
-References: <20160919.013925.1660395475687226712.davem@davemloft.net>
- <20160919073957.32059.59156.stgit@firesoul>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [v2 PATCH 0/2] rhashtable: rhashtable with duplicate objects
+Date: Mon, 19 Sep 2016 12:58:37 +0200
+Message-ID: <1474282717.4469.33.camel@sipsolutions.net>
+References: <20160919084056.GA11875@gondor.apana.org.au>
+         <1474276530.4469.16.camel@sipsolutions.net>
+         <20160919091721.GA12235@gondor.apana.org.au>
+         <1474277244.4469.21.camel@sipsolutions.net>
+         <20160919093434.GA12378@gondor.apana.org.au>
+         <1474278634.4469.25.camel@sipsolutions.net>
+         <1474278896.4469.26.camel@sipsolutions.net>
+         <1474279330.4469.28.camel@sipsolutions.net>
+         <1474279492.4469.29.camel@sipsolutions.net>
+         <1474279827.4469.30.camel@sipsolutions.net>
+         <20160919104801.GA12774@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, bblanco@plumgrid.com, rana.shahot@gmail.com,
-        "David S. Miller" <davem@davemloft.net>
-To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
-        tariqt@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33019 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751694AbcISKyU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 06:54:20 -0400
-Received: by mail-wm0-f67.google.com with SMTP id w84so7112450wmg.0
-        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 03:54:19 -0700 (PDT)
-In-Reply-To: <20160919073957.32059.59156.stgit@firesoul>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>,
+        tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org, Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160919104801.GA12774-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Mon, 2016-09-19 at 18:48 +0800, Herbert Xu wrote:
+> On Mon, Sep 19, 2016 at 12:10:27PM +0200, Johannes Berg wrote:
+> > 
+> > Btw, for debug I put
+> > 
+> > BUG_ON(atomic_read(&ht->nelems) < 0);
+> > 
+> > after the atomic_dec() in __rhashtable_remove_fast_one(). That
+> > makes
+> > the kernel crash instantly on the buggy code, and I just have to
+> > run a
+> > single test ("wpas_ctrl_interface_add_many") to get there.
+> 
+> Aha I see the problem now.  The nelems logic on remove is broken.
 
-On 19/09/2016 10:40 AM, Jesper Dangaard Brouer wrote:
-> Correct drop handling for XDP_TX on TX failure, were recently added in
-> commit 95357907ae73 ("mlx4: fix XDP_TX is acting like XDP_PASS on TX
-> ring full").
->
-> The change missed an opportunity for recycling the RX page, instead of
-> going through the page allocator, like the regular XDP_DROP action does.
-> This patch cease the opportunity, by going through the XDP_DROP case.
->
-> Fixes: 95357907ae73 ("mlx4: fix XDP_TX is acting like XDP_PASS on TX ring full")
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> ---
->   drivers/net/ethernet/mellanox/mlx4/en_rx.c |    3 ++-
->   1 file changed, 2 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> index c80073e4947f..919f0604d04a 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> @@ -906,11 +906,12 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
->   							length, tx_index,
->   							&doorbell_pending))
->   					goto consumed;
-> -				goto next; /* Drop on xmit failure */
-> +				goto xdp_drop; /* Drop on xmit failure */
->   			default:
->   				bpf_warn_invalid_xdp_action(act);
->   			case XDP_ABORTED:
->   			case XDP_DROP:
-> +			xdp_drop:
->   				if (mlx4_en_rx_recycle(ring, frags))
->   					goto consumed;
->   				goto next;
->
-Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
-Thanks.
+I looked at it for a long time, but didn't see it :) But yeah, I've
+come to the same conclusion by adding debugging of the chains etc.
+
+> I'll send out a v3.
+
+I'll test it when I have it :)
+
+johannes
