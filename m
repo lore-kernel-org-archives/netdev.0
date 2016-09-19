@@ -1,83 +1,128 @@
 From: Pravin B Shelar <pshelar@ovn.org>
-Subject: [PATCH net-next 1/2] openvswitch: Fix Frame-size larger than 1024 bytes warning.
-Date: Mon, 19 Sep 2016 13:50:59 -0700
-Message-ID: <1474318260-16988-1-git-send-email-pshelar@ovn.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Subject: [PATCH net-next 2/2] openvswitch: avoid resetting flow key while installing new flow.
+Date: Mon, 19 Sep 2016 13:51:00 -0700
+Message-ID: <1474318260-16988-2-git-send-email-pshelar@ovn.org>
+References: <1474318260-16988-1-git-send-email-pshelar@ovn.org>
 Cc: Pravin B Shelar <pshelar@ovn.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay4-d.mail.gandi.net ([217.70.183.196]:42293 "EHLO
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:33639 "EHLO
         relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750997AbcISUvN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 16:51:13 -0400
+        with ESMTP id S1750997AbcISUvX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 16:51:23 -0400
+In-Reply-To: <1474318260-16988-1-git-send-email-pshelar@ovn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is no need to declare separate key on stack,
-we can just use sw_flow->key to store the key directly.
-
-This commit fixes following warning:
-
-net/openvswitch/datapath.c: In function ‘ovs_flow_cmd_new’:
-net/openvswitch/datapath.c:1080:1: warning: the frame size of 1040 bytes
-is larger than 1024 bytes [-Wframe-larger-than=]
+since commit commit db74a3335e0f6 ("openvswitch: use percpu
+flow stats") flow alloc resets flow-key. So there is no need
+to reset the flow-key again if OVS is using newly allocated
+flow-key.
 
 Signed-off-by: Pravin B Shelar <pshelar@ovn.org>
 ---
- net/openvswitch/datapath.c | 15 +++++++++------
- 1 file changed, 9 insertions(+), 6 deletions(-)
+ net/openvswitch/datapath.c     | 8 ++++----
+ net/openvswitch/flow.c         | 2 --
+ net/openvswitch/flow_netlink.c | 6 ++++--
+ net/openvswitch/flow_netlink.h | 3 ++-
+ 4 files changed, 10 insertions(+), 9 deletions(-)
 
 diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 0536ab3..474e7a6 100644
+index 474e7a6..4d67ea8 100644
 --- a/net/openvswitch/datapath.c
 +++ b/net/openvswitch/datapath.c
-@@ -928,7 +928,6 @@ static int ovs_flow_cmd_new(struct sk_buff *skb, struct genl_info *info)
- 	struct sw_flow_mask mask;
- 	struct sk_buff *reply;
- 	struct datapath *dp;
--	struct sw_flow_key key;
- 	struct sw_flow_actions *acts;
- 	struct sw_flow_match match;
- 	u32 ufid_flags = ovs_nla_get_ufid_flags(a[OVS_FLOW_ATTR_UFID_FLAGS]);
-@@ -956,20 +955,24 @@ static int ovs_flow_cmd_new(struct sk_buff *skb, struct genl_info *info)
+@@ -955,7 +955,7 @@ static int ovs_flow_cmd_new(struct sk_buff *skb, struct genl_info *info)
  	}
  
  	/* Extract key. */
--	ovs_match_init(&match, &key, &mask);
-+	ovs_match_init(&match, &new_flow->key, &mask);
+-	ovs_match_init(&match, &new_flow->key, &mask);
++	ovs_match_init(&match, &new_flow->key, false, &mask);
  	error = ovs_nla_get_match(net, &match, a[OVS_FLOW_ATTR_KEY],
  				  a[OVS_FLOW_ATTR_MASK], log);
  	if (error)
- 		goto err_kfree_flow;
+@@ -1124,7 +1124,7 @@ static int ovs_flow_cmd_set(struct sk_buff *skb, struct genl_info *info)
  
--	ovs_flow_mask_key(&new_flow->key, &key, true, &mask);
+ 	ufid_present = ovs_nla_get_ufid(&sfid, a[OVS_FLOW_ATTR_UFID], log);
+ 	if (a[OVS_FLOW_ATTR_KEY]) {
+-		ovs_match_init(&match, &key, &mask);
++		ovs_match_init(&match, &key, true, &mask);
+ 		error = ovs_nla_get_match(net, &match, a[OVS_FLOW_ATTR_KEY],
+ 					  a[OVS_FLOW_ATTR_MASK], log);
+ 	} else if (!ufid_present) {
+@@ -1241,7 +1241,7 @@ static int ovs_flow_cmd_get(struct sk_buff *skb, struct genl_info *info)
+ 
+ 	ufid_present = ovs_nla_get_ufid(&ufid, a[OVS_FLOW_ATTR_UFID], log);
+ 	if (a[OVS_FLOW_ATTR_KEY]) {
+-		ovs_match_init(&match, &key, NULL);
++		ovs_match_init(&match, &key, true, NULL);
+ 		err = ovs_nla_get_match(net, &match, a[OVS_FLOW_ATTR_KEY], NULL,
+ 					log);
+ 	} else if (!ufid_present) {
+@@ -1300,7 +1300,7 @@ static int ovs_flow_cmd_del(struct sk_buff *skb, struct genl_info *info)
+ 
+ 	ufid_present = ovs_nla_get_ufid(&ufid, a[OVS_FLOW_ATTR_UFID], log);
+ 	if (a[OVS_FLOW_ATTR_KEY]) {
+-		ovs_match_init(&match, &key, NULL);
++		ovs_match_init(&match, &key, true, NULL);
+ 		err = ovs_nla_get_match(net, &match, a[OVS_FLOW_ATTR_KEY],
+ 					NULL, log);
+ 		if (unlikely(err))
+diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+index 0fa45439..634cc10 100644
+--- a/net/openvswitch/flow.c
++++ b/net/openvswitch/flow.c
+@@ -767,8 +767,6 @@ int ovs_flow_key_extract_userspace(struct net *net, const struct nlattr *attr,
+ {
+ 	int err;
+ 
+-	memset(key, 0, OVS_SW_FLOW_KEY_METADATA_SIZE);
 -
- 	/* Extract flow identifier. */
- 	error = ovs_nla_get_identifier(&new_flow->id, a[OVS_FLOW_ATTR_UFID],
--				       &key, log);
-+				       &new_flow->key, log);
- 	if (error)
- 		goto err_kfree_flow;
+ 	/* Extract metadata from netlink attributes. */
+ 	err = ovs_nla_get_flow_metadata(net, attr, key, log);
+ 	if (err)
+diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+index 8efa718..ae25ded 100644
+--- a/net/openvswitch/flow_netlink.c
++++ b/net/openvswitch/flow_netlink.c
+@@ -1996,13 +1996,15 @@ static int validate_and_copy_sample(struct net *net, const struct nlattr *attr,
  
-+	/* unmasked key is needed to match when ufid is not used. */
-+	if (ovs_identifier_is_key(&new_flow->id))
-+		match.key = new_flow->id.unmasked_key;
-+
-+	ovs_flow_mask_key(&new_flow->key, &new_flow->key, true, &mask);
-+
- 	/* Validate actions. */
- 	error = ovs_nla_copy_actions(net, a[OVS_FLOW_ATTR_ACTIONS],
- 				     &new_flow->key, &acts, log);
-@@ -996,7 +999,7 @@ static int ovs_flow_cmd_new(struct sk_buff *skb, struct genl_info *info)
- 	if (ovs_identifier_is_ufid(&new_flow->id))
- 		flow = ovs_flow_tbl_lookup_ufid(&dp->table, &new_flow->id);
- 	if (!flow)
--		flow = ovs_flow_tbl_lookup(&dp->table, &key);
-+		flow = ovs_flow_tbl_lookup(&dp->table, &new_flow->key);
- 	if (likely(!flow)) {
- 		rcu_assign_pointer(new_flow->sf_acts, acts);
+ void ovs_match_init(struct sw_flow_match *match,
+ 		    struct sw_flow_key *key,
++		    bool reset_key,
+ 		    struct sw_flow_mask *mask)
+ {
+ 	memset(match, 0, sizeof(*match));
+ 	match->key = key;
+ 	match->mask = mask;
  
+-	memset(key, 0, sizeof(*key));
++	if (reset_key)
++		memset(key, 0, sizeof(*key));
+ 
+ 	if (mask) {
+ 		memset(&mask->key, 0, sizeof(mask->key));
+@@ -2049,7 +2051,7 @@ static int validate_and_copy_set_tun(const struct nlattr *attr,
+ 	struct nlattr *a;
+ 	int err = 0, start, opts_type;
+ 
+-	ovs_match_init(&match, &key, NULL);
++	ovs_match_init(&match, &key, true, NULL);
+ 	opts_type = ip_tun_from_nlattr(nla_data(attr), &match, false, log);
+ 	if (opts_type < 0)
+ 		return opts_type;
+diff --git a/net/openvswitch/flow_netlink.h b/net/openvswitch/flow_netlink.h
+index 47dd142..45f9769 100644
+--- a/net/openvswitch/flow_netlink.h
++++ b/net/openvswitch/flow_netlink.h
+@@ -41,7 +41,8 @@ size_t ovs_tun_key_attr_size(void);
+ size_t ovs_key_attr_size(void);
+ 
+ void ovs_match_init(struct sw_flow_match *match,
+-		    struct sw_flow_key *key, struct sw_flow_mask *mask);
++		    struct sw_flow_key *key, bool reset_key,
++		    struct sw_flow_mask *mask);
+ 
+ int ovs_nla_put_key(const struct sw_flow_key *, const struct sw_flow_key *,
+ 		    int attr, bool is_mask, struct sk_buff *);
 -- 
 1.9.1
