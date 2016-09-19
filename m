@@ -1,56 +1,54 @@
-From: Eric Leblond <eric@regit.org>
-Subject: Re: eBPF: how to check the flow table
-Date: Mon, 19 Sep 2016 08:56:55 +0200
-Message-ID: <1474268215.32028.1.camel@regit.org>
-References: <1474200135.19872.12.camel@regit.org>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [net-next PATCH] mlx4: add missed recycle opportunity for XDP_TX on
+ TX failure
+Date: Mon, 19 Sep 2016 09:40:25 +0200
+Message-ID: <20160919073957.32059.59156.stgit@firesoul>
+References: <20160919.013925.1660395475687226712.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-15"
-Content-Transfer-Encoding: 8bit
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        daniel@iogearbox.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: tom@herbertland.com, bblanco@plumgrid.com, rana.shahot@gmail.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Jesper Dangaard Brouer <brouer@redhat.com>
+To: netdev@vger.kernel.org, tariqt@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from home.regit.org ([37.187.126.138]:49484 "EHLO home.regit.org"
+Received: from mx1.redhat.com ([209.132.183.28]:37324 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751414AbcISG5A (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 19 Sep 2016 02:57:00 -0400
-In-Reply-To: <1474200135.19872.12.camel@regit.org>
+        id S1752592AbcISHkd (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 19 Sep 2016 03:40:33 -0400
+In-Reply-To: <20160919.013925.1660395475687226712.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Correct drop handling for XDP_TX on TX failure, were recently added in
+commit 95357907ae73 ("mlx4: fix XDP_TX is acting like XDP_PASS on TX
+ring full").
 
-On Sun, 2016-09-18 at 14:02 +0200, Eric Leblond wrote:
-> Hello,
-> 
-> I'm currently testing a code implementing AF_PACKET bypass for
-> Suricata. The idea is that Suricata is updating a hash table
-> containing
-> a list of flows it does not want to see anymore.
-> 
-> I want to check flow timeout from the userspace, so my current
-> algorithm is doing:
-> 
->     while (bpf_get_next_key(mapfd, &key, &next_key) == 0) {
->         bpf_lookup_elem(mapfd, &next_key, &value);
->         FlowCallback(mapfd, &next_key, &value, data);
->         key = next_key;
->     }
-> 
-> In the FlowCallback, I check the timing in the flow entry and I
-> remove
-> the key if the flow is timeout.
-> 
-> This is currently working well when there is only a few flows but on
-> a
-> real system with log of insertion in the table, the loop is never
-> returning because we dequeue slower than we enqueue.
-> 
-> Is there a better algorithm or an other way to do it ? 
+The change missed an opportunity for recycling the RX page, instead of
+going through the page allocator, like the regular XDP_DROP action does.
+This patch cease the opportunity, by going through the XDP_DROP case.
 
-It seems I missed an obvious race condition in my existing code. I'll
-continue to test and relive this thread if necessary.
+Fixes: 95357907ae73 ("mlx4: fix XDP_TX is acting like XDP_PASS on TX ring full")
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-BR,
--- 
-Eric Leblond <eric@regit.org>
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index c80073e4947f..919f0604d04a 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -906,11 +906,12 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 							length, tx_index,
+ 							&doorbell_pending))
+ 					goto consumed;
+-				goto next; /* Drop on xmit failure */
++				goto xdp_drop; /* Drop on xmit failure */
+ 			default:
+ 				bpf_warn_invalid_xdp_action(act);
+ 			case XDP_ABORTED:
+ 			case XDP_DROP:
++			xdp_drop:
+ 				if (mlx4_en_rx_recycle(ring, frags))
+ 					goto consumed;
+ 				goto next;
