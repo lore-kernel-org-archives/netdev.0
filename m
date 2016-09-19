@@ -1,54 +1,39 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: [PATCH v2 2/2] net: skbuff: Coding: Use eth_type_vlan() instead of open coding it
-Date: Mon, 19 Sep 2016 18:53:20 +0300
-Message-ID: <1474300400-32362-2-git-send-email-shmulik.ladkani@gmail.com>
-References: <1474300400-32362-1-git-send-email-shmulik.ladkani@gmail.com>
-Cc: Jiri Pirko <jiri@mellanox.com>,
-        Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-        Shmulik Ladkani <shmulik.ladkani@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH] mlx4: add missed recycle opportunity for
+ XDP_TX on TX failure
+Date: Mon, 19 Sep 2016 17:57:20 +0200
+Message-ID: <20160919175720.59c33fca@redhat.com>
+References: <20160919.013925.1660395475687226712.davem@davemloft.net>
+        <20160919073957.32059.59156.stgit@firesoul>
+        <1474295315.22679.85.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, tariqt@mellanox.com, tom@herbertland.com,
+        bblanco@plumgrid.com, rana.shahot@gmail.com,
+        "David S. Miller\" <davem@davemloft.net>, brouer@redhat.com"@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:35273 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751414AbcISPx6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 11:53:58 -0400
-Received: by mail-wm0-f66.google.com with SMTP id 133so15710086wmq.2
-        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 08:53:58 -0700 (PDT)
-In-Reply-To: <1474300400-32362-1-git-send-email-shmulik.ladkani@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:33558 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752225AbcISP5Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 19 Sep 2016 11:57:25 -0400
+In-Reply-To: <1474295315.22679.85.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix 'skb_vlan_pop' to use eth_type_vlan instead of directly comparing
-skb->protocol to ETH_P_8021Q or ETH_P_8021AD.
+On Mon, 19 Sep 2016 07:28:35 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
----
- net/core/skbuff.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+> > +			xdp_drop:  
+> 
+> A label should start at the beginning of the line (ie : not indented)
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 4dbaedb745..1369faa182 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -4535,8 +4535,7 @@ int skb_vlan_pop(struct sk_buff *skb)
- 	if (likely(skb_vlan_tag_present(skb))) {
- 		skb->vlan_tci = 0;
- 	} else {
--		if (unlikely(skb->protocol != htons(ETH_P_8021Q) &&
--			     skb->protocol != htons(ETH_P_8021AD)))
-+		if (unlikely(!eth_type_vlan(skb->protocol)))
- 			return 0;
- 
- 		err = __skb_vlan_pop(skb, &vlan_tci);
-@@ -4544,8 +4543,7 @@ int skb_vlan_pop(struct sk_buff *skb)
- 			return err;
- 	}
- 	/* move next vlan tag to hw accel tag */
--	if (likely(skb->protocol != htons(ETH_P_8021Q) &&
--		   skb->protocol != htons(ETH_P_8021AD)))
-+	if (likely(!eth_type_vlan(skb->protocol)))
- 		return 0;
- 
- 	vlan_proto = skb->protocol;
+Understood, send a V2
+
 -- 
-2.7.4
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
