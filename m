@@ -1,107 +1,756 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next 2/2] net: dsa: mv88e6xxx: Convert flag bits to unsigned long long
-Date: Tue, 20 Sep 2016 00:18:41 +0200
-Message-ID: <1474323521-5088-3-git-send-email-andrew@lunn.ch>
+Subject: [PATCH net-next 1/2] net: dsa: mv88e6xxx: Add helper for accessing port registers
+Date: Tue, 20 Sep 2016 00:18:40 +0200
+Message-ID: <1474323521-5088-2-git-send-email-andrew@lunn.ch>
 References: <1474323521-5088-1-git-send-email-andrew@lunn.ch>
 Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
         netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:52649 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:52653 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933010AbcISWTH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 19 Sep 2016 18:19:07 -0400
+        id S1753237AbcISWTX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 19 Sep 2016 18:19:23 -0400
 In-Reply-To: <1474323521-5088-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We are soon going to run out of flag bits on 32bit systems. Convert to
-unsigned long long.
+There is a device coming soon which places its port registers
+somewhere different to all other Marvell switches supported so far.
+Add helper functions for reading/writing port registers, making it
+easier to handle this new device.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 62 +++++++++++++++++------------------
- 1 file changed, 31 insertions(+), 31 deletions(-)
+ drivers/net/dsa/mv88e6xxx/chip.c      | 394 ++++++++++++++++++----------------
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |   1 -
+ 2 files changed, 206 insertions(+), 189 deletions(-)
 
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index 70a812d159c9..58b8b94d278e 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -41,6 +41,11 @@ static void assert_reg_lock(struct mv88e6xxx_chip *chip)
+ 	}
+ }
+ 
++static int mv88e6xxx_reg_port(struct mv88e6xxx_chip *chip, int port)
++{
++	return chip->info->port_base_addr + port;
++}
++
+ /* The switch ADDR[4:1] configuration pins define the chip SMI device address
+  * (ADDR[0] is always zero, thus only even SMI addresses can be strapped).
+  *
+@@ -216,6 +221,42 @@ int mv88e6xxx_write(struct mv88e6xxx_chip *chip, int addr, int reg, u16 val)
+ 	return 0;
+ }
+ 
++int mv88e6xxx_port_read(struct mv88e6xxx_chip *chip, int port, int reg,
++			u16 *val)
++{
++	int addr = mv88e6xxx_reg_port(chip, port);
++	int err;
++
++	assert_reg_lock(chip);
++
++	err = mv88e6xxx_smi_read(chip, addr, reg, val);
++	if (err)
++		return err;
++
++	dev_dbg(chip->dev, "<- port: 0x%.2x reg: 0x%.2x val: 0x%.4x\n",
++		port, reg, *val);
++
++	return 0;
++}
++
++int mv88e6xxx_port_write(struct mv88e6xxx_chip *chip, int port, int reg,
++			 u16 val)
++{
++	int addr = mv88e6xxx_reg_port(chip, port);
++	int err;
++
++	assert_reg_lock(chip);
++
++	err = mv88e6xxx_smi_write(chip, addr, reg, val);
++	if (err)
++		return err;
++
++	dev_dbg(chip->dev, "-> port: 0x%.2x reg: 0x%.2x val: 0x%.4x\n",
++		port, reg, val);
++
++	return 0;
++}
++
+ static int mv88e6xxx_phy_read(struct mv88e6xxx_chip *chip, int phy,
+ 			      int reg, u16 *val)
+ {
+@@ -585,19 +626,19 @@ static void mv88e6xxx_adjust_link(struct dsa_switch *ds, int port,
+ 				  struct phy_device *phydev)
+ {
+ 	struct mv88e6xxx_chip *chip = ds->priv;
+-	u32 reg;
+-	int ret;
++	u16 reg;
++	int err;
+ 
+ 	if (!phy_is_pseudo_fixed_link(phydev))
+ 		return;
+ 
+ 	mutex_lock(&chip->reg_lock);
+ 
+-	ret = _mv88e6xxx_reg_read(chip, REG_PORT(port), PORT_PCS_CTRL);
+-	if (ret < 0)
++	err = mv88e6xxx_port_read(chip, port, PORT_PCS_CTRL, &reg);
++	if (err < 0)
+ 		goto out;
+ 
+-	reg = ret & ~(PORT_PCS_CTRL_LINK_UP |
++	reg = reg & ~(PORT_PCS_CTRL_LINK_UP |
+ 		      PORT_PCS_CTRL_FORCE_LINK |
+ 		      PORT_PCS_CTRL_DUPLEX_FULL |
+ 		      PORT_PCS_CTRL_FORCE_DUPLEX |
+@@ -639,7 +680,7 @@ static void mv88e6xxx_adjust_link(struct dsa_switch *ds, int port,
+ 			reg |= (PORT_PCS_CTRL_RGMII_DELAY_RXCLK |
+ 				PORT_PCS_CTRL_RGMII_DELAY_TXCLK);
+ 	}
+-	_mv88e6xxx_reg_write(chip, REG_PORT(port), PORT_PCS_CTRL, reg);
++	mv88e6xxx_port_write(chip, port, PORT_PCS_CTRL, reg);
+ 
+ out:
+ 	mutex_unlock(&chip->reg_lock);
+@@ -799,22 +840,22 @@ static uint64_t _mv88e6xxx_get_ethtool_stat(struct mv88e6xxx_chip *chip,
+ {
+ 	u32 low;
+ 	u32 high = 0;
+-	int ret;
++	int err;
++	u16 reg;
+ 	u64 value;
+ 
+ 	switch (s->type) {
+ 	case PORT:
+-		ret = _mv88e6xxx_reg_read(chip, REG_PORT(port), s->reg);
+-		if (ret < 0)
++		err = mv88e6xxx_port_read(chip, port, s->reg, &reg);
++		if (err < 0)
+ 			return UINT64_MAX;
+ 
+-		low = ret;
++		low = reg;
+ 		if (s->sizeof_stat == 4) {
+-			ret = _mv88e6xxx_reg_read(chip, REG_PORT(port),
+-						  s->reg + 1);
+-			if (ret < 0)
++			err = mv88e6xxx_port_read(chip, port, s->reg + 1, &reg);
++			if (err < 0)
+ 				return UINT64_MAX;
+-			high = ret;
++			high = reg;
+ 		}
+ 		break;
+ 	case BANK0:
+@@ -893,6 +934,8 @@ static void mv88e6xxx_get_regs(struct dsa_switch *ds, int port,
+ 			       struct ethtool_regs *regs, void *_p)
+ {
+ 	struct mv88e6xxx_chip *chip = ds->priv;
++	int err;
++	u16 reg;
+ 	u16 *p = _p;
+ 	int i;
+ 
+@@ -903,11 +946,10 @@ static void mv88e6xxx_get_regs(struct dsa_switch *ds, int port,
+ 	mutex_lock(&chip->reg_lock);
+ 
+ 	for (i = 0; i < 32; i++) {
+-		int ret;
+ 
+-		ret = _mv88e6xxx_reg_read(chip, REG_PORT(port), i);
+-		if (ret >= 0)
+-			p[i] = ret;
++		err = mv88e6xxx_port_read(chip, port, i, &reg);
++		if (!err)
++			p[i] = reg;
+ 	}
+ 
+ 	mutex_unlock(&chip->reg_lock);
+@@ -938,7 +980,7 @@ static int mv88e6xxx_get_eee(struct dsa_switch *ds, int port,
+ 	e->eee_enabled = !!(reg & 0x0200);
+ 	e->tx_lpi_enabled = !!(reg & 0x0100);
+ 
+-	err = mv88e6xxx_read(chip, REG_PORT(port), PORT_STATUS, &reg);
++	err = mv88e6xxx_port_read(chip, port, PORT_STATUS, &reg);
+ 	if (err)
+ 		goto out;
+ 
+@@ -1106,12 +1148,13 @@ static int _mv88e6xxx_port_state(struct mv88e6xxx_chip *chip, int port,
+ 				 u8 state)
+ {
+ 	struct dsa_switch *ds = chip->ds;
+-	int reg, ret = 0;
++	u16 reg;
++	int err;
+ 	u8 oldstate;
+ 
+-	reg = _mv88e6xxx_reg_read(chip, REG_PORT(port), PORT_CONTROL);
+-	if (reg < 0)
+-		return reg;
++	err = mv88e6xxx_port_read(chip, port, PORT_CONTROL, &reg);
++	if (err < 0)
++		return err;
+ 
+ 	oldstate = reg & PORT_CONTROL_STATE_MASK;
+ 
+@@ -1124,23 +1167,22 @@ static int _mv88e6xxx_port_state(struct mv88e6xxx_chip *chip, int port,
+ 		     oldstate == PORT_CONTROL_STATE_FORWARDING) &&
+ 		    (state == PORT_CONTROL_STATE_DISABLED ||
+ 		     state == PORT_CONTROL_STATE_BLOCKING)) {
+-			ret = _mv88e6xxx_atu_remove(chip, 0, port, false);
+-			if (ret)
+-				return ret;
++			err = _mv88e6xxx_atu_remove(chip, 0, port, false);
++			if (err)
++				return err;
+ 		}
+ 
+ 		reg = (reg & ~PORT_CONTROL_STATE_MASK) | state;
+-		ret = _mv88e6xxx_reg_write(chip, REG_PORT(port), PORT_CONTROL,
+-					   reg);
+-		if (ret)
+-			return ret;
++		err = mv88e6xxx_port_write(chip, port, PORT_CONTROL, reg);
++		if (err)
++			return err;
+ 
+ 		netdev_dbg(ds->ports[port].netdev, "PortState %s (was %s)\n",
+ 			   mv88e6xxx_port_state_names[state],
+ 			   mv88e6xxx_port_state_names[oldstate]);
+ 	}
+ 
+-	return ret;
++	return err;
+ }
+ 
+ static int _mv88e6xxx_port_based_vlan_map(struct mv88e6xxx_chip *chip, int port)
+@@ -1149,7 +1191,8 @@ static int _mv88e6xxx_port_based_vlan_map(struct mv88e6xxx_chip *chip, int port)
+ 	const u16 mask = (1 << chip->info->num_ports) - 1;
+ 	struct dsa_switch *ds = chip->ds;
+ 	u16 output_ports = 0;
+-	int reg;
++	u16 reg;
++	int err;
+ 	int i;
+ 
+ 	/* allow CPU port or DSA link(s) to send frames to every port */
+@@ -1170,14 +1213,14 @@ static int _mv88e6xxx_port_based_vlan_map(struct mv88e6xxx_chip *chip, int port)
+ 	/* prevent frames from going back out of the port they came in on */
+ 	output_ports &= ~BIT(port);
+ 
+-	reg = _mv88e6xxx_reg_read(chip, REG_PORT(port), PORT_BASE_VLAN);
+-	if (reg < 0)
+-		return reg;
++	err = mv88e6xxx_port_read(chip, port, PORT_BASE_VLAN, &reg);
++	if (err < 0)
++		return err;
+ 
+ 	reg &= ~mask;
+ 	reg |= output_ports & mask;
+ 
+-	return _mv88e6xxx_reg_write(chip, REG_PORT(port), PORT_BASE_VLAN, reg);
++	return mv88e6xxx_port_write(chip, port, PORT_BASE_VLAN, reg);
+ }
+ 
+ static void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port,
+@@ -1218,23 +1261,22 @@ static int _mv88e6xxx_port_pvid(struct mv88e6xxx_chip *chip, int port,
+ 				u16 *new, u16 *old)
+ {
+ 	struct dsa_switch *ds = chip->ds;
+-	u16 pvid;
+-	int ret;
++	u16 pvid, reg;
++	int err;
+ 
+-	ret = _mv88e6xxx_reg_read(chip, REG_PORT(port), PORT_DEFAULT_VLAN);
+-	if (ret < 0)
+-		return ret;
++	err = mv88e6xxx_port_read(chip, port, PORT_DEFAULT_VLAN, &reg);
++	if (err < 0)
++		return err;
+ 
+-	pvid = ret & PORT_DEFAULT_VLAN_MASK;
++	pvid = reg & PORT_DEFAULT_VLAN_MASK;
+ 
+ 	if (new) {
+-		ret &= ~PORT_DEFAULT_VLAN_MASK;
+-		ret |= *new & PORT_DEFAULT_VLAN_MASK;
++		reg &= ~PORT_DEFAULT_VLAN_MASK;
++		reg |= *new & PORT_DEFAULT_VLAN_MASK;
+ 
+-		ret = _mv88e6xxx_reg_write(chip, REG_PORT(port),
+-					   PORT_DEFAULT_VLAN, ret);
+-		if (ret < 0)
+-			return ret;
++		err = mv88e6xxx_port_write(chip, port, PORT_DEFAULT_VLAN, reg);
++		if (err < 0)
++			return err;
+ 
+ 		netdev_dbg(ds->ports[port].netdev,
+ 			   "DefaultVID %d (was %d)\n", *new, pvid);
+@@ -1613,7 +1655,8 @@ static int _mv88e6xxx_port_fid(struct mv88e6xxx_chip *chip, int port,
+ 	struct dsa_switch *ds = chip->ds;
+ 	u16 upper_mask;
+ 	u16 fid;
+-	int ret;
++	u16 reg;
++	int err;
+ 
+ 	if (mv88e6xxx_num_databases(chip) == 4096)
+ 		upper_mask = 0xff;
+@@ -1623,37 +1666,35 @@ static int _mv88e6xxx_port_fid(struct mv88e6xxx_chip *chip, int port,
+ 		return -EOPNOTSUPP;
+ 
+ 	/* Port's default FID bits 3:0 are located in reg 0x06, offset 12 */
+-	ret = _mv88e6xxx_reg_read(chip, REG_PORT(port), PORT_BASE_VLAN);
+-	if (ret < 0)
+-		return ret;
++	err = mv88e6xxx_port_read(chip, port, PORT_BASE_VLAN, &reg);
++	if (err < 0)
++		return err;
+ 
+-	fid = (ret & PORT_BASE_VLAN_FID_3_0_MASK) >> 12;
++	fid = (reg & PORT_BASE_VLAN_FID_3_0_MASK) >> 12;
+ 
+ 	if (new) {
+-		ret &= ~PORT_BASE_VLAN_FID_3_0_MASK;
+-		ret |= (*new << 12) & PORT_BASE_VLAN_FID_3_0_MASK;
++		reg &= ~PORT_BASE_VLAN_FID_3_0_MASK;
++		reg |= (*new << 12) & PORT_BASE_VLAN_FID_3_0_MASK;
+ 
+-		ret = _mv88e6xxx_reg_write(chip, REG_PORT(port), PORT_BASE_VLAN,
+-					   ret);
+-		if (ret < 0)
+-			return ret;
++		err = mv88e6xxx_port_write(chip, port, PORT_BASE_VLAN, reg);
++		if (err < 0)
++			return err;
+ 	}
+ 
+ 	/* Port's default FID bits 11:4 are located in reg 0x05, offset 0 */
+-	ret = _mv88e6xxx_reg_read(chip, REG_PORT(port), PORT_CONTROL_1);
+-	if (ret < 0)
+-		return ret;
++	err = mv88e6xxx_port_read(chip, port, PORT_CONTROL_1, &reg);
++	if (err < 0)
++		return err;
+ 
+-	fid |= (ret & upper_mask) << 4;
++	fid |= (reg & upper_mask) << 4;
+ 
+ 	if (new) {
+-		ret &= ~upper_mask;
+-		ret |= (*new >> 4) & upper_mask;
++		reg &= ~upper_mask;
++		reg |= (*new >> 4) & upper_mask;
+ 
+-		ret = _mv88e6xxx_reg_write(chip, REG_PORT(port), PORT_CONTROL_1,
+-					   ret);
+-		if (ret < 0)
+-			return ret;
++		err = mv88e6xxx_port_write(chip, port, PORT_CONTROL_1, reg);
++		if (err < 0)
++			return err;
+ 
+ 		netdev_dbg(ds->ports[port].netdev,
+ 			   "FID %d (was %d)\n", *new, fid);
+@@ -1865,26 +1906,26 @@ static int mv88e6xxx_port_vlan_filtering(struct dsa_switch *ds, int port,
+ 	struct mv88e6xxx_chip *chip = ds->priv;
+ 	u16 old, new = vlan_filtering ? PORT_CONTROL_2_8021Q_SECURE :
+ 		PORT_CONTROL_2_8021Q_DISABLED;
+-	int ret;
++	u16 reg;
++	int err;
+ 
+ 	if (!mv88e6xxx_has(chip, MV88E6XXX_FLAG_VTU))
+ 		return -EOPNOTSUPP;
+ 
+ 	mutex_lock(&chip->reg_lock);
+ 
+-	ret = _mv88e6xxx_reg_read(chip, REG_PORT(port), PORT_CONTROL_2);
+-	if (ret < 0)
++	err = mv88e6xxx_port_read(chip, port, PORT_CONTROL_2, &reg);
++	if (err < 0)
+ 		goto unlock;
+ 
+-	old = ret & PORT_CONTROL_2_8021Q_MASK;
++	old = reg & PORT_CONTROL_2_8021Q_MASK;
+ 
+ 	if (new != old) {
+-		ret &= ~PORT_CONTROL_2_8021Q_MASK;
+-		ret |= new & PORT_CONTROL_2_8021Q_MASK;
++		reg &= ~PORT_CONTROL_2_8021Q_MASK;
++		reg |= new & PORT_CONTROL_2_8021Q_MASK;
+ 
+-		ret = _mv88e6xxx_reg_write(chip, REG_PORT(port), PORT_CONTROL_2,
+-					   ret);
+-		if (ret < 0)
++		err = mv88e6xxx_port_write(chip, port, PORT_CONTROL_2, reg);
++		if (err < 0)
+ 			goto unlock;
+ 
+ 		netdev_dbg(ds->ports[port].netdev, "802.1Q Mode %s (was %s)\n",
+@@ -1892,11 +1933,11 @@ static int mv88e6xxx_port_vlan_filtering(struct dsa_switch *ds, int port,
+ 			   mv88e6xxx_port_8021q_mode_names[old]);
+ 	}
+ 
+-	ret = 0;
++	err = 0;
+ unlock:
+ 	mutex_unlock(&chip->reg_lock);
+ 
+-	return ret;
++	return err;
+ }
+ 
+ static int
+@@ -2364,19 +2405,19 @@ static int mv88e6xxx_switch_reset(struct mv88e6xxx_chip *chip)
+ 	u16 is_reset = (ppu_active ? 0x8800 : 0xc800);
+ 	struct gpio_desc *gpiod = chip->reset;
+ 	unsigned long timeout;
+-	int ret;
++	u16 reg;
++	int err;
+ 	int i;
+ 
+ 	/* Set all ports to the disabled state. */
+ 	for (i = 0; i < chip->info->num_ports; i++) {
+-		ret = _mv88e6xxx_reg_read(chip, REG_PORT(i), PORT_CONTROL);
+-		if (ret < 0)
+-			return ret;
++		err = mv88e6xxx_port_read(chip, i, PORT_CONTROL, &reg);
++		if (err < 0)
++			return err;
+ 
+-		ret = _mv88e6xxx_reg_write(chip, REG_PORT(i), PORT_CONTROL,
+-					   ret & 0xfffc);
+-		if (ret)
+-			return ret;
++		err = mv88e6xxx_port_write(chip, i, PORT_CONTROL, reg & 0xfffc);
++		if (err)
++			return err;
+ 	}
+ 
+ 	/* Wait for transmit queues to drain. */
+@@ -2395,29 +2436,29 @@ static int mv88e6xxx_switch_reset(struct mv88e6xxx_chip *chip)
+ 	 * through global registers 0x18 and 0x19.
+ 	 */
+ 	if (ppu_active)
+-		ret = _mv88e6xxx_reg_write(chip, REG_GLOBAL, 0x04, 0xc000);
++		err = _mv88e6xxx_reg_write(chip, REG_GLOBAL, 0x04, 0xc000);
+ 	else
+-		ret = _mv88e6xxx_reg_write(chip, REG_GLOBAL, 0x04, 0xc400);
+-	if (ret)
+-		return ret;
++		err = _mv88e6xxx_reg_write(chip, REG_GLOBAL, 0x04, 0xc400);
++	if (err)
++		return err;
+ 
+ 	/* Wait up to one second for reset to complete. */
+ 	timeout = jiffies + 1 * HZ;
+ 	while (time_before(jiffies, timeout)) {
+-		ret = _mv88e6xxx_reg_read(chip, REG_GLOBAL, 0x00);
+-		if (ret < 0)
+-			return ret;
++		err = _mv88e6xxx_reg_read(chip, REG_GLOBAL, 0x00);
++		if (err < 0)
++			return err;
+ 
+-		if ((ret & is_reset) == is_reset)
++		if ((err & is_reset) == is_reset)
+ 			break;
+ 		usleep_range(1000, 2000);
+ 	}
+ 	if (time_after(jiffies, timeout))
+-		ret = -ETIMEDOUT;
++		err = -ETIMEDOUT;
+ 	else
+-		ret = 0;
++		err = 0;
+ 
+-	return ret;
++	return err;
+ }
+ 
+ static int mv88e6xxx_serdes_power_on(struct mv88e6xxx_chip *chip)
+@@ -2438,21 +2479,10 @@ static int mv88e6xxx_serdes_power_on(struct mv88e6xxx_chip *chip)
+ 	return err;
+ }
+ 
+-static int mv88e6xxx_port_read(struct mv88e6xxx_chip *chip, int port,
+-			       int reg, u16 *val)
+-{
+-	int addr = chip->info->port_base_addr + port;
+-
+-	if (port >= chip->info->num_ports)
+-		return -EINVAL;
+-
+-	return mv88e6xxx_read(chip, addr, reg, val);
+-}
+-
+ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
+ {
+ 	struct dsa_switch *ds = chip->ds;
+-	int ret;
++	int err;
+ 	u16 reg;
+ 
+ 	if (mv88e6xxx_6352_family(chip) || mv88e6xxx_6351_family(chip) ||
+@@ -2465,7 +2495,7 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
+ 		 * and all DSA ports to their maximum bandwidth and
+ 		 * full duplex.
+ 		 */
+-		reg = _mv88e6xxx_reg_read(chip, REG_PORT(port), PORT_PCS_CTRL);
++		err = mv88e6xxx_port_read(chip, port, PORT_PCS_CTRL, &reg);
+ 		if (dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)) {
+ 			reg &= ~PORT_PCS_CTRL_UNFORCED;
+ 			reg |= PORT_PCS_CTRL_FORCE_LINK |
+@@ -2480,10 +2510,9 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
+ 			reg |= PORT_PCS_CTRL_UNFORCED;
+ 		}
+ 
+-		ret = _mv88e6xxx_reg_write(chip, REG_PORT(port),
+-					   PORT_PCS_CTRL, reg);
+-		if (ret)
+-			return ret;
++		err = mv88e6xxx_port_write(chip, port, PORT_PCS_CTRL, reg);
++		if (err)
++			return err;
+ 	}
+ 
+ 	/* Port Control: disable Drop-on-Unlock, disable Drop-on-Lock,
+@@ -2534,26 +2563,25 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
+ 				PORT_CONTROL_FORWARD_UNKNOWN_MC;
+ 	}
+ 	if (reg) {
+-		ret = _mv88e6xxx_reg_write(chip, REG_PORT(port),
+-					   PORT_CONTROL, reg);
+-		if (ret)
+-			return ret;
++		err = mv88e6xxx_port_write(chip, port, PORT_CONTROL, reg);
++		if (err)
++			return err;
+ 	}
+ 
+ 	/* If this port is connected to a SerDes, make sure the SerDes is not
+ 	 * powered down.
+ 	 */
+ 	if (mv88e6xxx_has(chip, MV88E6XXX_FLAGS_SERDES)) {
+-		ret = _mv88e6xxx_reg_read(chip, REG_PORT(port), PORT_STATUS);
+-		if (ret < 0)
+-			return ret;
+-		ret &= PORT_STATUS_CMODE_MASK;
+-		if ((ret == PORT_STATUS_CMODE_100BASE_X) ||
+-		    (ret == PORT_STATUS_CMODE_1000BASE_X) ||
+-		    (ret == PORT_STATUS_CMODE_SGMII)) {
+-			ret = mv88e6xxx_serdes_power_on(chip);
+-			if (ret < 0)
+-				return ret;
++		err = mv88e6xxx_port_read(chip, port, PORT_STATUS, &reg);
++		if (err < 0)
++			return err;
++		reg &= PORT_STATUS_CMODE_MASK;
++		if ((reg == PORT_STATUS_CMODE_100BASE_X) ||
++		    (reg == PORT_STATUS_CMODE_1000BASE_X) ||
++		    (reg == PORT_STATUS_CMODE_SGMII)) {
++			err = mv88e6xxx_serdes_power_on(chip);
++			if (err < 0)
++				return err;
+ 		}
+ 	}
+ 
+@@ -2587,10 +2615,9 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
+ 	reg |= PORT_CONTROL_2_8021Q_DISABLED;
+ 
+ 	if (reg) {
+-		ret = _mv88e6xxx_reg_write(chip, REG_PORT(port),
+-					   PORT_CONTROL_2, reg);
+-		if (ret)
+-			return ret;
++		err = mv88e6xxx_port_write(chip, port, PORT_CONTROL_2, reg);
++		if (err)
++			return err;
+ 	}
+ 
+ 	/* Port Association Vector: when learning source addresses
+@@ -2603,16 +2630,14 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
+ 	if (dsa_is_cpu_port(ds, port))
+ 		reg = 0;
+ 
+-	ret = _mv88e6xxx_reg_write(chip, REG_PORT(port), PORT_ASSOC_VECTOR,
+-				   reg);
+-	if (ret)
+-		return ret;
++	err = mv88e6xxx_port_write(chip, port, PORT_ASSOC_VECTOR, reg);
++	if (err)
++		return err;
+ 
+ 	/* Egress rate control 2: disable egress rate control. */
+-	ret = _mv88e6xxx_reg_write(chip, REG_PORT(port), PORT_RATE_CONTROL_2,
+-				   0x0000);
+-	if (ret)
+-		return ret;
++	err = mv88e6xxx_port_write(chip, port, PORT_RATE_CONTROL_2, 0x0000);
++	if (err)
++		return err;
+ 
+ 	if (mv88e6xxx_6352_family(chip) || mv88e6xxx_6351_family(chip) ||
+ 	    mv88e6xxx_6165_family(chip) || mv88e6xxx_6097_family(chip) ||
+@@ -2621,96 +2646,89 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
+ 		 * be paused for by the remote end or the period of
+ 		 * time that this port can pause the remote end.
+ 		 */
+-		ret = _mv88e6xxx_reg_write(chip, REG_PORT(port),
+-					   PORT_PAUSE_CTRL, 0x0000);
+-		if (ret)
+-			return ret;
++		err = mv88e6xxx_port_write(chip, port, PORT_PAUSE_CTRL, 0x0000);
++		if (err)
++			return err;
+ 
+ 		/* Port ATU control: disable limiting the number of
+ 		 * address database entries that this port is allowed
+ 		 * to use.
+ 		 */
+-		ret = _mv88e6xxx_reg_write(chip, REG_PORT(port),
+-					   PORT_ATU_CONTROL, 0x0000);
++		err = mv88e6xxx_port_write(chip, port, PORT_ATU_CONTROL,
++					   0x0000);
+ 		/* Priority Override: disable DA, SA and VTU priority
+ 		 * override.
+ 		 */
+-		ret = _mv88e6xxx_reg_write(chip, REG_PORT(port),
+-					   PORT_PRI_OVERRIDE, 0x0000);
+-		if (ret)
+-			return ret;
++		err = mv88e6xxx_port_write(chip, port, PORT_PRI_OVERRIDE,
++					   0x0000);
++		if (err)
++			return err;
+ 
+ 		/* Port Ethertype: use the Ethertype DSA Ethertype
+ 		 * value.
+ 		 */
+ 		if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_EDSA)) {
+-			ret = _mv88e6xxx_reg_write(chip, REG_PORT(port),
+-						   PORT_ETH_TYPE, ETH_P_EDSA);
+-			if (ret)
+-				return ret;
++			err = mv88e6xxx_port_write(chip, port, PORT_ETH_TYPE,
++						   ETH_P_EDSA);
++			if (err)
++				return err;
+ 		}
+ 
+ 		/* Tag Remap: use an identity 802.1p prio -> switch
+ 		 * prio mapping.
+ 		 */
+-		ret = _mv88e6xxx_reg_write(chip, REG_PORT(port),
+-					   PORT_TAG_REGMAP_0123, 0x3210);
+-		if (ret)
+-			return ret;
++		err = mv88e6xxx_port_write(chip, port, PORT_TAG_REGMAP_0123,
++					   0x3210);
++		if (err)
++			return err;
+ 
+ 		/* Tag Remap 2: use an identity 802.1p prio -> switch
+ 		 * prio mapping.
+ 		 */
+-		ret = _mv88e6xxx_reg_write(chip, REG_PORT(port),
+-					   PORT_TAG_REGMAP_4567, 0x7654);
+-		if (ret)
+-			return ret;
++		err = mv88e6xxx_port_write(chip, port, PORT_TAG_REGMAP_4567,
++					   0x7654);
++		if (err)
++			return err;
+ 	}
+ 
+ 	/* Rate Control: disable ingress rate limiting. */
+ 	if (mv88e6xxx_6352_family(chip) || mv88e6xxx_6351_family(chip) ||
+ 	    mv88e6xxx_6165_family(chip) || mv88e6xxx_6097_family(chip) ||
+ 	    mv88e6xxx_6320_family(chip)) {
+-		ret = _mv88e6xxx_reg_write(chip, REG_PORT(port),
+-					   PORT_RATE_CONTROL, 0x0001);
+-		if (ret)
+-			return ret;
++		err = mv88e6xxx_port_write(chip, port, PORT_RATE_CONTROL,
++					   0x0001);
++		if (err)
++			return err;
+ 	} else if (mv88e6xxx_6185_family(chip) || mv88e6xxx_6095_family(chip)) {
+-		ret = _mv88e6xxx_reg_write(chip, REG_PORT(port),
+-					   PORT_RATE_CONTROL, 0x0000);
+-		if (ret)
+-			return ret;
++		err = mv88e6xxx_port_write(chip, port, PORT_RATE_CONTROL,
++					   0x0000);
++		if (err)
++			return err;
+ 	}
+ 
+ 	/* Port Control 1: disable trunking, disable sending
+ 	 * learning messages to this port.
+ 	 */
+-	ret = _mv88e6xxx_reg_write(chip, REG_PORT(port), PORT_CONTROL_1,
+-				   0x0000);
+-	if (ret)
+-		return ret;
++	err = mv88e6xxx_port_write(chip, port, PORT_CONTROL_1, 0x0000);
++	if (err)
++		return err;
+ 
+ 	/* Port based VLAN map: give each port the same default address
+ 	 * database, and allow bidirectional communication between the
+ 	 * CPU and DSA port(s), and the other ports.
+ 	 */
+-	ret = _mv88e6xxx_port_fid_set(chip, port, 0);
+-	if (ret)
+-		return ret;
++	err = _mv88e6xxx_port_fid_set(chip, port, 0);
++	if (err)
++		return err;
+ 
+-	ret = _mv88e6xxx_port_based_vlan_map(chip, port);
+-	if (ret)
+-		return ret;
++	err = _mv88e6xxx_port_based_vlan_map(chip, port);
++	if (err)
++		return err;
+ 
+ 	/* Default VLAN ID and priority: don't set a default VLAN
+ 	 * ID, and set the default packet priority to zero.
+ 	 */
+-	ret = _mv88e6xxx_reg_write(chip, REG_PORT(port), PORT_DEFAULT_VLAN,
+-				   0x0000);
+-	if (ret)
+-		return ret;
+-
+-	return 0;
++	return mv88e6xxx_port_write(chip, port, PORT_DEFAULT_VLAN, 0x0000);
+ }
+ 
+ static int mv88e6xxx_g1_set_switch_mac(struct mv88e6xxx_chip *chip, u8 *addr)
 diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-index e349d0d64645..827988397fd8 100644
+index 52f3f5231f51..e349d0d64645 100644
 --- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
 +++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-@@ -452,36 +452,36 @@ enum mv88e6xxx_cap {
- };
+@@ -37,7 +37,6 @@
+ #define ADDR_SERDES		0x0f
+ #define SERDES_PAGE_FIBER	0x01
  
- /* Bitmask of capabilities */
--#define MV88E6XXX_FLAG_EDSA		BIT(MV88E6XXX_CAP_EDSA)
--#define MV88E6XXX_FLAG_EEE		BIT(MV88E6XXX_CAP_EEE)
--
--#define MV88E6XXX_FLAG_SMI_CMD		BIT(MV88E6XXX_CAP_SMI_CMD)
--#define MV88E6XXX_FLAG_SMI_DATA		BIT(MV88E6XXX_CAP_SMI_DATA)
--
--#define MV88E6XXX_FLAG_PHY_PAGE		BIT(MV88E6XXX_CAP_PHY_PAGE)
--
--#define MV88E6XXX_FLAG_SERDES		BIT(MV88E6XXX_CAP_SERDES)
--
--#define MV88E6XXX_FLAG_GLOBAL2		BIT(MV88E6XXX_CAP_GLOBAL2)
--#define MV88E6XXX_FLAG_G2_MGMT_EN_2X	BIT(MV88E6XXX_CAP_G2_MGMT_EN_2X)
--#define MV88E6XXX_FLAG_G2_MGMT_EN_0X	BIT(MV88E6XXX_CAP_G2_MGMT_EN_0X)
--#define MV88E6XXX_FLAG_G2_IRL_CMD	BIT(MV88E6XXX_CAP_G2_IRL_CMD)
--#define MV88E6XXX_FLAG_G2_IRL_DATA	BIT(MV88E6XXX_CAP_G2_IRL_DATA)
--#define MV88E6XXX_FLAG_G2_PVT_ADDR	BIT(MV88E6XXX_CAP_G2_PVT_ADDR)
--#define MV88E6XXX_FLAG_G2_PVT_DATA	BIT(MV88E6XXX_CAP_G2_PVT_DATA)
--#define MV88E6XXX_FLAG_G2_SWITCH_MAC	BIT(MV88E6XXX_CAP_G2_SWITCH_MAC)
--#define MV88E6XXX_FLAG_G2_POT		BIT(MV88E6XXX_CAP_G2_POT)
--#define MV88E6XXX_FLAG_G2_EEPROM_CMD	BIT(MV88E6XXX_CAP_G2_EEPROM_CMD)
--#define MV88E6XXX_FLAG_G2_EEPROM_DATA	BIT(MV88E6XXX_CAP_G2_EEPROM_DATA)
--#define MV88E6XXX_FLAG_G2_SMI_PHY_CMD	BIT(MV88E6XXX_CAP_G2_SMI_PHY_CMD)
--#define MV88E6XXX_FLAG_G2_SMI_PHY_DATA	BIT(MV88E6XXX_CAP_G2_SMI_PHY_DATA)
--
--#define MV88E6XXX_FLAG_PPU		BIT(MV88E6XXX_CAP_PPU)
--#define MV88E6XXX_FLAG_PPU_ACTIVE	BIT(MV88E6XXX_CAP_PPU_ACTIVE)
--#define MV88E6XXX_FLAG_STU		BIT(MV88E6XXX_CAP_STU)
--#define MV88E6XXX_FLAG_TEMP		BIT(MV88E6XXX_CAP_TEMP)
--#define MV88E6XXX_FLAG_TEMP_LIMIT	BIT(MV88E6XXX_CAP_TEMP_LIMIT)
--#define MV88E6XXX_FLAG_VTU		BIT(MV88E6XXX_CAP_VTU)
-+#define MV88E6XXX_FLAG_EDSA		BIT_ULL(MV88E6XXX_CAP_EDSA)
-+#define MV88E6XXX_FLAG_EEE		BIT_ULL(MV88E6XXX_CAP_EEE)
-+
-+#define MV88E6XXX_FLAG_SMI_CMD		BIT_ULL(MV88E6XXX_CAP_SMI_CMD)
-+#define MV88E6XXX_FLAG_SMI_DATA		BIT_ULL(MV88E6XXX_CAP_SMI_DATA)
-+
-+#define MV88E6XXX_FLAG_PHY_PAGE		BIT_ULL(MV88E6XXX_CAP_PHY_PAGE)
-+
-+#define MV88E6XXX_FLAG_SERDES		BIT_ULL(MV88E6XXX_CAP_SERDES)
-+
-+#define MV88E6XXX_FLAG_GLOBAL2		BIT_ULL(MV88E6XXX_CAP_GLOBAL2)
-+#define MV88E6XXX_FLAG_G2_MGMT_EN_2X	BIT_ULL(MV88E6XXX_CAP_G2_MGMT_EN_2X)
-+#define MV88E6XXX_FLAG_G2_MGMT_EN_0X	BIT_ULL(MV88E6XXX_CAP_G2_MGMT_EN_0X)
-+#define MV88E6XXX_FLAG_G2_IRL_CMD	BIT_ULL(MV88E6XXX_CAP_G2_IRL_CMD)
-+#define MV88E6XXX_FLAG_G2_IRL_DATA	BIT_ULL(MV88E6XXX_CAP_G2_IRL_DATA)
-+#define MV88E6XXX_FLAG_G2_PVT_ADDR	BIT_ULL(MV88E6XXX_CAP_G2_PVT_ADDR)
-+#define MV88E6XXX_FLAG_G2_PVT_DATA	BIT_ULL(MV88E6XXX_CAP_G2_PVT_DATA)
-+#define MV88E6XXX_FLAG_G2_SWITCH_MAC	BIT_ULL(MV88E6XXX_CAP_G2_SWITCH_MAC)
-+#define MV88E6XXX_FLAG_G2_POT		BIT_ULL(MV88E6XXX_CAP_G2_POT)
-+#define MV88E6XXX_FLAG_G2_EEPROM_CMD	BIT_ULL(MV88E6XXX_CAP_G2_EEPROM_CMD)
-+#define MV88E6XXX_FLAG_G2_EEPROM_DATA	BIT_ULL(MV88E6XXX_CAP_G2_EEPROM_DATA)
-+#define MV88E6XXX_FLAG_G2_SMI_PHY_CMD	BIT_ULL(MV88E6XXX_CAP_G2_SMI_PHY_CMD)
-+#define MV88E6XXX_FLAG_G2_SMI_PHY_DATA	BIT_ULL(MV88E6XXX_CAP_G2_SMI_PHY_DATA)
-+
-+#define MV88E6XXX_FLAG_PPU		BIT_ULL(MV88E6XXX_CAP_PPU)
-+#define MV88E6XXX_FLAG_PPU_ACTIVE	BIT_ULL(MV88E6XXX_CAP_PPU_ACTIVE)
-+#define MV88E6XXX_FLAG_STU		BIT_ULL(MV88E6XXX_CAP_STU)
-+#define MV88E6XXX_FLAG_TEMP		BIT_ULL(MV88E6XXX_CAP_TEMP)
-+#define MV88E6XXX_FLAG_TEMP_LIMIT	BIT_ULL(MV88E6XXX_CAP_TEMP_LIMIT)
-+#define MV88E6XXX_FLAG_VTU		BIT_ULL(MV88E6XXX_CAP_VTU)
- 
- /* EEPROM Programming via Global2 with 16-bit data */
- #define MV88E6XXX_FLAGS_EEPROM16	\
-@@ -614,7 +614,7 @@ struct mv88e6xxx_info {
- 	unsigned int num_ports;
- 	unsigned int port_base_addr;
- 	unsigned int age_time_coeff;
--	unsigned long flags;
-+	unsigned long long flags;
- };
- 
- struct mv88e6xxx_atu_entry {
+-#define REG_PORT(p)		(0x10 + (p))
+ #define PORT_STATUS		0x00
+ #define PORT_STATUS_PAUSE_EN	BIT(15)
+ #define PORT_STATUS_MY_PAUSE	BIT(14)
 -- 
 2.9.3
