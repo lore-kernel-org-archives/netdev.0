@@ -1,34 +1,43 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH net] xfrm: Fix memory leak of aead algorithm name
-Date: Mon, 19 Sep 2016 13:07:49 +0200
-Message-ID: <20160919110749.GH31137@gauss.secunet.com>
-References: <AM4PR0501MB19404B000E4D3A2CF3CB80DEDBF50@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [v3 PATCH 0/2] rhashtable: rhashtable with duplicate objects
+Date: Mon, 19 Sep 2016 13:32:12 +0200
+Message-ID: <1474284732.6544.2.camel@sipsolutions.net>
+References: <20160804071846.GA773@gondor.apana.org.au>
+         <20160804074546.GA996@gondor.apana.org.au>
+         <1470377813.2977.14.camel@sipsolutions.net>
+         <20160805104858.GA9297@gondor.apana.org.au>
+         <1470394233.2977.37.camel@sipsolutions.net>
+         <20160918135030.GA7062@gondor.apana.org.au>
+         <20160919084056.GA11875@gondor.apana.org.au>
+         <20160919105854.GA12892@gondor.apana.org.au>
+         <1474283023.6544.0.camel@sipsolutions.net>
+         (sfid-20160919_130358_323693_DD4A01BF)
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ilan Tayari <ilant@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:50137 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750825AbcISLHy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 19 Sep 2016 07:07:54 -0400
-Content-Disposition: inline
-In-Reply-To: <AM4PR0501MB19404B000E4D3A2CF3CB80DEDBF50@AM4PR0501MB1940.eurprd05.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>,
+        tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org, Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1474283023.6544.0.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> (sfid-20160919_130358_323693_DD4A01BF)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Sep 18, 2016 at 07:42:53AM +0000, Ilan Tayari wrote:
-> commit 1a6509d99122 ("[IPSEC]: Add support for combined mode algorithms")
-> introduced aead. The function attach_aead kmemdup()s the algorithm
-> name during xfrm_state_construct().
-> However this memory is never freed.
-> Implementation has since been slightly modified in
-> commit ee5c23176fcc ("xfrm: Clone states properly on migration")
-> without resolving this leak.
-> This patch adds a kfree() call for the aead algorithm name.
+On Mon, 2016-09-19 at 13:03 +0200, Johannes Berg wrote:
+> On Mon, 2016-09-19 at 18:58 +0800, Herbert Xu wrote:
+> > 
+> > v3 fixes a bug in the remove path that causes the element count
+> > to decrease when it shouldn't, leading to a gigantic hash table
+> > when it underflows.
+> > 
+> Ok, with the BUG_ON() thrown in, this works in the test that was
+> failing before. I'll run the entire suite again over lunch.
 > 
-> Fixes: 1a6509d99122 ("[IPSEC]: Add support for combined mode algorithms")
-> Signed-off-by: Ilan Tayari <ilant@mellanox.com>
 
-Applied to the ipsec tree, thanks Ilan!
+Ok, the entire test suite passed (with the BUG_ON, but hey).
+
+Dave, let me know what you want to do (or have done, as it may be).
+
+Thanks,
+johannes
