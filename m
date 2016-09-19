@@ -1,84 +1,71 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH] net: phy: Ensure the state machine is called when phy is
- UP
-Date: Mon, 19 Sep 2016 15:15:38 +0200
-Message-ID: <19a526d3-f798-bbb8-328d-9eff18d17eb0@atmel.com>
-References: <1460750172-7796-1-git-send-email-alexandre.belloni@free-electrons.com>
- <57114AA4.5080803@gmail.com> <20160415205613.GE25196@piout.net>
- <20160415220508.GC26665@lunn.ch> <20160415221711.GG25196@piout.net>
- <20160415223026.GD26665@lunn.ch> <20160415224559.GH25196@piout.net>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net] qed: Fix stack corruption on probe
+Date: Mon, 19 Sep 2016 13:19:10 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB01034F3@AcuExch.aculab.com>
+References: <1474186483-30831-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 8bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        <linux-kernel@vger.kernel.org>
-To: Alexandre Belloni <alexandre.belloni@free-electrons.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
+To: 'Yuval Mintz' <Yuval.Mintz@qlogic.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eusmtp01.atmel.com ([212.144.249.242]:54203 "EHLO
-        eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965355AbcISNPk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 09:15:40 -0400
-In-Reply-To: <20160415224559.GH25196@piout.net>
+Received: from smtp-out4.electric.net ([192.162.216.186]:61888 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S938920AbcISNVt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 09:21:49 -0400
+In-Reply-To: <1474186483-30831-1-git-send-email-Yuval.Mintz@qlogic.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
-
-I come back to this thread to re-start the conversation as I still have
-the issue...
-
-
-Le 16/04/2016 à 00:45, Alexandre Belloni a écrit :
-> On 16/04/2016 at 00:30:26 +0200, Andrew Lunn wrote :
->> On Sat, Apr 16, 2016 at 12:17:11AM +0200, Alexandre Belloni wrote:
->>> On 16/04/2016 at 00:05:08 +0200, Andrew Lunn wrote :
->>>>> Trace without my patch:
->>>>> libphy: MACB_mii_bus: probed
->>>>> macb f8020000.ethernet eth0: Cadence GEM rev 0x00020120 at 0xf8020000 irq 27 (fc:c2:3d:0c:6e:05)
->>>>> Micrel KSZ8081 or KSZ8091 f8020000.etherne:01: attached PHY driver [Micrel KSZ8081 or KSZ8091] (mii_bus:phy_addr=f8020000.etherne:01, irq=171)
->>>>> Micrel KSZ8081 or KSZ8091 f8020000.etherne:01: PHY state change READY -> READY
->>>>> [...]
->>>>> Micrel KSZ8081 or KSZ8091 f8020000.etherne:01: PHY state change READY -> READY
->>>>
->>>> Are there some state changes before this? How is it getting to state
->>>> READY? It would expect it to start in DOWN, from when the phy device
->>>> was created in phy_device_create().
->>>>
->>>
->>> No other changes. I forgot to mention that this is when booting with a
->>> cable plugged in. Unplugging and replugging the cable makes the link
->>> detection work fine even without the patch.
->>
->> Are you tftpbooting? I.e. has the boot loader already done an auto
->> negotiation?
->>
+From: Yuval Mintz
+> Sent: 18 September 2016 09:15
+> Commit fe56b9e6a8d95 ("qed: Add module with basic common support")
+> has introduced a stack corruption during probe, where filling a
+> local struct with data to be sent to management firmware is incorrectly
+> filled; The data is written outside of the struct and corrupts
+> the stack.
 > 
-> Yes.
-
-Yes indeed: this is my use-case: load the kernel from U-Boot using tftp
-and having the rootfs in NAND flash so, no NFS rootfs for me.
-
->> I've looked at the code and i still don't see how it gets to READY.
->> What i do see is that when you connect the phy to the MAC, the
->> interrupt handler is installed. So maybe there are some PHY interrupts
->> before the interface is opened? Could you put a print in
->> phy_interrupt().
->>
+> Fixes: fe56b9e6a8d95 ("qed: Add module with basic common support")
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
+> ---
+> Hi Dave,
 > 
-> That is indeed the case, and I'm not sure why because
-> 99f81afc139c6edd14d77a91ee91685a414a1c66 is trying to disable AN at
-> boot.
+> In case it isn't obvious at first glance, the corruption is due
+> to the next line in the for-loop, which isn't changed by the patch.
+> 
+> Please consider applying this to `net'.
+> 
+> Thanks,
+> Yuval
+> ---
+>  drivers/net/ethernet/qlogic/qed/qed_mcp.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.c b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
+> index a240f26..69f5b04 100644
+> --- a/drivers/net/ethernet/qlogic/qed/qed_mcp.c
+> +++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
+> @@ -1153,8 +1153,8 @@ qed_mcp_send_drv_version(struct qed_hwfn *p_hwfn,
+>  	p_drv_version = &union_data.drv_version;
+>  	p_drv_version->version = p_ver->version;
+> 
+> -	for (i = 0; i < MCP_DRV_VER_STR_SIZE - 1; i += 4) {
+> -		val = cpu_to_be32(p_ver->name[i]);
+> +	for (i = 0; i < (MCP_DRV_VER_STR_SIZE - 4) / sizeof(u32); i++) {
+> +		val = cpu_to_be32(p_ver->name[i * sizeof(u32)]);
+>  		*(__be32 *)&p_drv_version->name[i * sizeof(u32)] = val;
+>  	}
 
-I don't know what happens to the phy, but this patch does fix the issue
-for me:
-Tested-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+That change fails the 'sanity' test.
+It looks like it is copying a string that might by byteswapped into host order.
+I'm guessing that the target p_drv_version->name[] is char [].
+The cpu_to_be32() call is only correct if p_ver->name[] is 32bit.
+But you are (now) indexing it with the character offset.
+So the data copied cannot be right.
 
-The other alternative that I'm considering seriously as I'm still
-struggled with this is to simply remove the phy IRQ from my board DT.
+I also suspect it should be be32_to_cpu().
 
-Best regards,
--- 
-Nicolas Ferre
+	David
