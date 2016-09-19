@@ -1,91 +1,61 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCHv6 net-next 04/15] bpf: don't (ab)use instructions to store
- state
-Date: Mon, 19 Sep 2016 23:55:49 +0200
-Message-ID: <57E05EE5.9050607@iogearbox.net>
-References: <1474211365-20088-1-git-send-email-jakub.kicinski@netronome.com>        <1474211365-20088-5-git-send-email-jakub.kicinski@netronome.com>        <57E05295.4010904@iogearbox.net>        <20160919223621.363c8ac5@jkicinski-Precision-T1700>        <57E05C52.4060208@iogearbox.net> <20160919224812.7a4b90b8@jkicinski-Precision-T1700>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] igb: mark igb_rxnfc_write_vlan_prio_filter() static
+Date: Mon, 19 Sep 2016 15:16:08 -0700
+Message-ID: <1474323368.28223.49.camel@intel.com>
+References: <1474188628-420-1-git-send-email-baoyou.xie@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: multipart/signed; micalg="pgp-sha512";
+        protocol="application/pgp-signature"; boundary="=-OhqwHPJ9GQu93tEzU3nn"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        arnd@arndb.de, xie.baoyou@zte.com.cn
+To: Baoyou Xie <baoyou.xie@linaro.org>,
+        intel-wired-lan@lists.osuosl.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1474188628-420-1-git-send-email-baoyou.xie@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+
+--=-OhqwHPJ9GQu93tEzU3nn
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Sun, 2016-09-18 at 16:50 +0800, Baoyou Xie wrote:
+> We get 1 warning when building kernel with W=3D1:
+> drivers/net/ethernet/intel/igb/igb_ethtool.c:2707:5: warning: no previous
+> prototype for 'igb_rxnfc_write_vlan_prio_filter' [-Wmissing-prototypes]
+>=20
+> In fact, this function is only used in the file in which it is
+> declared and don't need a declaration, but can be made static.
+> so this patch marks this function with 'static'.
+>=20
+> Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
+> ---
+> =C2=A0drivers/net/ethernet/intel/igb/igb_ethtool.c | 4 ++--
+> =C2=A01 file changed, 2 insertions(+), 2 deletions(-)
+
+Already fixed, see=C2=A0http://patchwork.ozlabs.org/patch/661904/
+--=-OhqwHPJ9GQu93tEzU3nn
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ast@kernel.org, kubakici@wp.pl
-To: Jakub Kicinski <jakub.kicinski@netronome.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:46763 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752105AbcISVzw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 17:55:52 -0400
-In-Reply-To: <20160919224812.7a4b90b8@jkicinski-Precision-T1700>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-On 09/19/2016 11:48 PM, Jakub Kicinski wrote:
-> On Mon, 19 Sep 2016 23:44:50 +0200, Daniel Borkmann wrote:
->> On 09/19/2016 11:36 PM, Jakub Kicinski wrote:
->>> On Mon, 19 Sep 2016 23:03:17 +0200, Daniel Borkmann wrote:
->>>> On 09/18/2016 05:09 PM, Jakub Kicinski wrote:
->>>>> Storing state in reserved fields of instructions makes
->>>>> it impossible to run verifier on programs already
->>>>> marked as read-only. Allocate and use an array of
->>>>> per-instruction state instead.
->>>>>
->>>>> While touching the error path rename and move existing
->>>>> jump target.
->>>>>
->>>>> Suggested-by: Alexei Starovoitov <ast@kernel.org>
->>>>> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
->>>>> Acked-by: Alexei Starovoitov <ast@kernel.org>
->>>>> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
->>>>
->>>> I believe there's still an issue here. Could you please double check
->>>> and confirm?
->>>>
->>>> I rebased my locally pending stuff on top of your set and suddenly my
->>>> test case breaks. So I did a bisect and it pointed me to this commit
->>>> eventually.
->>>>
->>>> [...]
->>>>> @@ -2697,11 +2706,8 @@ static int convert_ctx_accesses(struct verifier_env *env)
->>>>>     		else
->>>>>     			continue;
->>>>>
->>>>> -		if (insn->imm != PTR_TO_CTX) {
->>>>> -			/* clear internal mark */
->>>>> -			insn->imm = 0;
->>>>> +		if (env->insn_aux_data[i].ptr_type != PTR_TO_CTX)
->>>>>     			continue;
->>>>> -		}
->>>>>
->>>>>     		cnt = env->prog->aux->ops->
->>>>>     			convert_ctx_access(type, insn->dst_reg, insn->src_reg,
->>>>
->>>> Looking at the code, I believe the issue is in above snippet. In the
->>>> convert_ctx_accesses() rewrite loop, each time we bpf_patch_insn_single()
->>>> a program, the program can grow in size (due to __sk_buff access rewrite,
->>>> for example). After rewrite, we do 'i += insn_delta' for adjustment to
->>>> process next insn.
->>>>
->>>> However, env->insn_aux_data is alloced under the assumption that the
->>>> very initial, pre-verification prog->len doesn't change, right? So in
->>>> the above conversion access to env->insn_aux_data[i].ptr_type is off,
->>>> since after rewrites, corresponding mappings to ptr_type might not be
->>>> related anymore.
->>>>
->>>> I noticed this with direct packet access where suddenly the data vs
->>>> data_end test failed and contained some "semi-random" value always
->>>> bailing out for me.
->>>
->>> You are correct.  Should I respin or would you like to post your set? :)
->>
->> Heh, if you don't mind I would go ahead tonight, the conflict at two spots
->> when exposing verifier is really minor turns out. Are you okay with this?
->
-> Yes, please go ahead :)
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-Ok, thanks!
+iQIcBAABCgAGBQJX4GOoAAoJEOVv75VaS+3OEoAP/AuryXUu9nGf4XK8kkjQt6hB
+/CxNWClaxiZJ0gnYUjcGy86ivs5muP+8aMrgaPyCcbrLzPE2XGTF2mmye2pGzf9X
+nWYbEKcInWk5vLtuwVVAS4unHw2naWWOpEnope5109792Wm+pTWfXwJMirOOMSD6
+plsTMlLjFyJQxA1GQEi4YIjaLdqmdNetdIPJl0hpHP6C0+DVQFt1umn5URO0Lxzv
+j12Nj5MUjse07S0ZyOlKs9cCBido5orFh8uPU98sAZJEAiJ0ftUsrAzuPtxi672j
+Hlg8NMVQrs9QNpwow4P8ru9SCj9LO38DieBn5pd7Yqp9MYNShVozCzjK6QY9JVsr
+RLL5rP0j+m8ZwWYEspiVdespz72JyDOzwu6VIyUJ6Zfh4j5OU7a6G7ZYa3NOwIus
+WltBc0ekNW/HLK+vY4kAKamC/z02+wMcJwMbIMNcwqFDE71dg3e8zTVu6Gx3Gzrc
+ArgLxbbvIm04ZDqLpZhRn20fK7p2/JP3AT7bVCFXrR93EJbC4zqmQ8HIWWbsm6JV
+cNtEkpL0PqVAdLa85MsGBEVTm7qnHqnKkXpj0pnBxxIn09mNIdKAkUXtkQlE1Rbd
+LwUaD/OTSMQrL3Zu5eFgGo4nkeoLMbTfiGF/5+yiz/om5CvtzffQooNrFg893iHR
+Fl9tLEODMcteYYnP89VF
+=Bblu
+-----END PGP SIGNATURE-----
 
->> What's the plan wrt env->insn_aux_data? Realloc plus rewrite of the array,
->> or do you see a more straight forward solution?
->
-> I was thinking about something like this: (untested)
-
-Yep, much better. :)
+--=-OhqwHPJ9GQu93tEzU3nn--
