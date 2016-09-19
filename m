@@ -1,52 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 net 1/1] net sched actions: fix GETing actions
-Date: Mon, 19 Sep 2016 01:30:27 -0400 (EDT)
-Message-ID: <20160919.013027.1888284719644827986.davem@davemloft.net>
-References: <1474057624-17914-1-git-send-email-jhs@emojatatu.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH net-next 0/5] mlx4 misc fixes and improvements
+Date: Mon, 19 Sep 2016 08:32:49 +0300
+Message-ID: <CAJ3xEMi-4nNxDf3pBrDwenN50BTFtTT0+cMF62BMHYPK9WvZrg@mail.gmail.com>
+References: <1473686416-11779-1-git-send-email-tariqt@mellanox.com>
+ <20160915.192106.739428651744920778.davem@davemloft.net> <80a8e8c5-689e-a2b1-e2d4-817dc0649385@gmail.com>
+ <20160918.220046.1374771296032853447.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com
-To: jhs@mojatatu.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Tariq Toukan <ttoukan.linux@gmail.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Eran Ben Elisha <eranbe@mellanox.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:53224 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755785AbcISFaa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 01:30:30 -0400
-In-Reply-To: <1474057624-17914-1-git-send-email-jhs@emojatatu.com>
+Received: from mail-oi0-f65.google.com ([209.85.218.65]:34342 "EHLO
+        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755785AbcISFcu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 01:32:50 -0400
+Received: by mail-oi0-f65.google.com with SMTP id a62so337074oib.1
+        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 22:32:50 -0700 (PDT)
+In-Reply-To: <20160918.220046.1374771296032853447.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Date: Fri, 16 Sep 2016 16:27:04 -0400
+On Mon, Sep 19, 2016 at 5:00 AM, David Miller <davem@davemloft.net> wrote:
+> From: Tariq Toukan <ttoukan.linux@gmail.com>
+> Date: Sun, 18 Sep 2016 10:27:23 +0300
+>
+>> Hi Dave,
+>>
+>> On 16/09/2016 2:21 AM, David Miller wrote:
+>>> From: Tariq Toukan <tariqt@mellanox.com>
+>>> Date: Mon, 12 Sep 2016 16:20:11 +0300
+>>>
+>>>> This patchset contains some bug fixes, a cleanup, and small
+>>>> improvements
+>>>> from the team to the mlx4 Eth and core drivers.
+>>>>
+>>>> Series generated against net-next commit:
+>>>> 02154927c115 "net: dsa: bcm_sf2: Get VLAN_PORT_MASK from b53_device"
+>>>>
+>>>> Please push the following patch to -stable  >= 4.6 as well:
+>>>> "net/mlx4_core: Fix to clean devlink resources"
+>>> Again, coding style fixes and optimizations like branch prediction
+>>> hints are not bug fixes and therefore not appropriate for 'net'.
+>> Yes, I know. Please notice that it was submitted to net-next this
+>> time.
+>
+> This is completely incompatible with a request for one of the changes
+> to go into -stable.
+>
+> If the change is not in 'net', it can't go to -stable.
 
-> Fixes:
-> commit 22dc13c837c3 ("net_sched: convert tcf_exts from list to pointer array"),
-> commit 824a7e8863b3 ("net_sched: remove an unnecessary list_del()")
-> commit f07fed82ad79 ("net_sched: remove the leftover cleanup_a()")
+Dave,
 
-Please use multiple "Fixes: " lines to reference multiple commits, like so:
+So when we're pretty late in the 4.8-rc cycle, a fix for a problem
+which was not introduced in 4.8-rc1 was targeted to net-next (4.9) and
+not net.
 
+This indeed creates a small mess when the fix needs to go to -stable as well.
 
-Fixes: 22dc13c837c3 ("net_sched: convert tcf_exts from list to pointer array"),
-Fixes: 824a7e8863b3 ("net_sched: remove an unnecessary list_del()")
-Fixes: f07fed82ad79 ("net_sched: remove the leftover cleanup_a()")
+I guess the correct thing to do next time, would be to either send to
+net and ask you to take it to stable as part of picking the patch --
+or send to net-next, and later send you a request to put it to stable
+-- or, wait a bit and send it to net of the next kernel along with
+stable request... we will pick one of these three way of doings next
+(...) time.
 
-> +static void cleanup_a(struct list_head *actions, int ovr)
-> +{
-> +	struct tc_action *a;
-> +
-> +	list_for_each_entry(a, actions, list) {
-> +		if (ovr)
-> +			a->tcfa_refcnt--;
-> +	}
-> +}
+So, at this point, I think it would be just correct to take the series
+to net-next, and on a future point we'll issue a request to push the
+patch into stable.
 
-Please move the invariant test outside of the loop, like so:
+Or.
 
-	if (!ovr)
-		return;
-	list_for_each_entry(a, actions, list)
-		a->tcfa_refcnt--;
-
-Thanks.
+Or.
