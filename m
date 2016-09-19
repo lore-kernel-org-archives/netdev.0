@@ -1,40 +1,512 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 0/3] BPF direct packet access improvements
-Date: Tue, 20 Sep 2016 00:26:11 +0200
-Message-ID: <cover.1474323281.git.daniel@iogearbox.net>
+Subject: [PATCH net-next 3/3] bpf: add test cases for direct packet access
+Date: Tue, 20 Sep 2016 00:26:14 +0200
+Message-ID: <3d315cd4be330470dd64bf315ebcc6549db6749d.1474323281.git.daniel@iogearbox.net>
+References: <cover.1474323281.git.daniel@iogearbox.net>
 Cc: alexei.starovoitov@gmail.com, tgraf@suug.ch,
         jakub.kicinski@netronome.com, netdev@vger.kernel.org,
         Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:49349 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:49354 "EHLO
         www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751229AbcISW01 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 18:26:27 -0400
+        with ESMTP id S1752330AbcISW02 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 18:26:28 -0400
+In-Reply-To: <cover.1474323281.git.daniel@iogearbox.net>
+In-Reply-To: <cover.1474323281.git.daniel@iogearbox.net>
+References: <cover.1474323281.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This set adds write support to the currently available read support
-for {cls,act}_bpf programs. First one is a fix for affected commit
-sitting in net-next and prerequisite for the second one, last patch
-adds a number of test cases against the verifier. For details, please
-see individual patches.
+Add couple of test cases for direct write and the negative size issue, and
+also adjust the direct packet access test4 since it asserts that writes are
+not possible, but since we've just added support for writes, we need to
+invert the verdict to ACCEPT, of course. Summary: 133 PASSED, 0 FAILED.
 
-Thanks!
-
-Daniel Borkmann (3):
-  bpf, verifier: enforce larger zero range for pkt on overloading stack buffs
-  bpf: direct packet write and access for helpers for clsact progs
-  bpf: add test cases for direct packet access
-
- include/linux/bpf.h         |   4 +-
- include/linux/skbuff.h      |  14 +-
- include/uapi/linux/bpf.h    |  21 +++
- kernel/bpf/helpers.c        |   3 +
- kernel/bpf/verifier.c       |  56 ++++--
- net/core/filter.c           | 134 ++++++++++++--
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+---
  samples/bpf/test_verifier.c | 433 +++++++++++++++++++++++++++++++++++++++++++-
- 7 files changed, 627 insertions(+), 38 deletions(-)
+ 1 file changed, 430 insertions(+), 3 deletions(-)
 
+diff --git a/samples/bpf/test_verifier.c b/samples/bpf/test_verifier.c
+index 1f6cc9b..ac590d4 100644
+--- a/samples/bpf/test_verifier.c
++++ b/samples/bpf/test_verifier.c
+@@ -291,6 +291,29 @@ static struct bpf_test tests[] = {
+ 		.result = REJECT,
+ 	},
+ 	{
++		"invalid argument register",
++		.insns = {
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_get_cgroup_classid),
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_get_cgroup_classid),
++			BPF_EXIT_INSN(),
++		},
++		.errstr = "R1 !read_ok",
++		.result = REJECT,
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++	},
++	{
++		"non-invalid argument register",
++		.insns = {
++			BPF_ALU64_REG(BPF_MOV, BPF_REG_6, BPF_REG_1),
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_get_cgroup_classid),
++			BPF_ALU64_REG(BPF_MOV, BPF_REG_1, BPF_REG_6),
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_get_cgroup_classid),
++			BPF_EXIT_INSN(),
++		},
++		.result = ACCEPT,
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++	},
++	{
+ 		"check valid spill/fill",
+ 		.insns = {
+ 			/* spill R1(ctx) into stack */
+@@ -1210,6 +1233,54 @@ static struct bpf_test tests[] = {
+ 		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
+ 	},
+ 	{
++		"raw_stack: skb_load_bytes, negative len",
++		.insns = {
++			BPF_MOV64_IMM(BPF_REG_2, 4),
++			BPF_ALU64_REG(BPF_MOV, BPF_REG_6, BPF_REG_10),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_6, -8),
++			BPF_MOV64_REG(BPF_REG_3, BPF_REG_6),
++			BPF_MOV64_IMM(BPF_REG_4, -8),
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_skb_load_bytes),
++			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_6, 0),
++			BPF_EXIT_INSN(),
++		},
++		.result = REJECT,
++		.errstr = "invalid stack type R3",
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++	},
++	{
++		"raw_stack: skb_load_bytes, negative len 2",
++		.insns = {
++			BPF_MOV64_IMM(BPF_REG_2, 4),
++			BPF_ALU64_REG(BPF_MOV, BPF_REG_6, BPF_REG_10),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_6, -8),
++			BPF_MOV64_REG(BPF_REG_3, BPF_REG_6),
++			BPF_MOV64_IMM(BPF_REG_4, ~0),
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_skb_load_bytes),
++			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_6, 0),
++			BPF_EXIT_INSN(),
++		},
++		.result = REJECT,
++		.errstr = "invalid stack type R3",
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++	},
++	{
++		"raw_stack: skb_load_bytes, zero len",
++		.insns = {
++			BPF_MOV64_IMM(BPF_REG_2, 4),
++			BPF_ALU64_REG(BPF_MOV, BPF_REG_6, BPF_REG_10),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_6, -8),
++			BPF_MOV64_REG(BPF_REG_3, BPF_REG_6),
++			BPF_MOV64_IMM(BPF_REG_4, 0),
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_skb_load_bytes),
++			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_6, 0),
++			BPF_EXIT_INSN(),
++		},
++		.result = REJECT,
++		.errstr = "invalid stack type R3",
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++	},
++	{
+ 		"raw_stack: skb_load_bytes, no init",
+ 		.insns = {
+ 			BPF_MOV64_IMM(BPF_REG_2, 4),
+@@ -1511,7 +1582,7 @@ static struct bpf_test tests[] = {
+ 		.prog_type = BPF_PROG_TYPE_SOCKET_FILTER,
+ 	},
+ 	{
+-		"direct packet access: test4",
++		"direct packet access: test4 (write)",
+ 		.insns = {
+ 			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
+ 				    offsetof(struct __sk_buff, data)),
+@@ -1524,8 +1595,7 @@ static struct bpf_test tests[] = {
+ 			BPF_MOV64_IMM(BPF_REG_0, 0),
+ 			BPF_EXIT_INSN(),
+ 		},
+-		.errstr = "cannot write",
+-		.result = REJECT,
++		.result = ACCEPT,
+ 		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
+ 	},
+ 	{
+@@ -1631,6 +1701,26 @@ static struct bpf_test tests[] = {
+ 		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
+ 	},
+ 	{
++		"direct packet access: test10 (write invalid)",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct __sk_buff, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct __sk_buff, data_end)),
++			BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_0, BPF_REG_3, 2),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++			BPF_STX_MEM(BPF_B, BPF_REG_2, BPF_REG_2, 0),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.errstr = "invalid access to packet",
++		.result = REJECT,
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++	},
++	{
+ 		"helper access to packet: test1, valid packet_ptr range",
+ 		.insns = {
+ 			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
+@@ -1736,6 +1826,343 @@ static struct bpf_test tests[] = {
+ 		.errstr = "invalid access to packet",
+ 		.prog_type = BPF_PROG_TYPE_XDP,
+ 	},
++	{
++		"helper access to packet: test6, cls valid packet_ptr range",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct __sk_buff, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct __sk_buff, data_end)),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_1, BPF_REG_3, 5),
++			BPF_LD_MAP_FD(BPF_REG_1, 0),
++			BPF_MOV64_REG(BPF_REG_3, BPF_REG_2),
++			BPF_MOV64_IMM(BPF_REG_4, 0),
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_update_elem),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.fixup = {5},
++		.result = ACCEPT,
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++	},
++	{
++		"helper access to packet: test7, cls unchecked packet_ptr",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct __sk_buff, data)),
++			BPF_LD_MAP_FD(BPF_REG_1, 0),
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.fixup = {1},
++		.result = REJECT,
++		.errstr = "invalid access to packet",
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++	},
++	{
++		"helper access to packet: test8, cls variable add",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++					offsetof(struct __sk_buff, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++					offsetof(struct __sk_buff, data_end)),
++			BPF_MOV64_REG(BPF_REG_4, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, 8),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_4, BPF_REG_3, 10),
++			BPF_LDX_MEM(BPF_B, BPF_REG_5, BPF_REG_2, 0),
++			BPF_MOV64_REG(BPF_REG_4, BPF_REG_2),
++			BPF_ALU64_REG(BPF_ADD, BPF_REG_4, BPF_REG_5),
++			BPF_MOV64_REG(BPF_REG_5, BPF_REG_4),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_5, 8),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_5, BPF_REG_3, 4),
++			BPF_LD_MAP_FD(BPF_REG_1, 0),
++			BPF_MOV64_REG(BPF_REG_2, BPF_REG_4),
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.fixup = {11},
++		.result = ACCEPT,
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++	},
++	{
++		"helper access to packet: test9, cls packet_ptr with bad range",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct __sk_buff, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct __sk_buff, data_end)),
++			BPF_MOV64_REG(BPF_REG_4, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, 4),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_4, BPF_REG_3, 2),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++			BPF_LD_MAP_FD(BPF_REG_1, 0),
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.fixup = {7},
++		.result = REJECT,
++		.errstr = "invalid access to packet",
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++	},
++	{
++		"helper access to packet: test10, cls packet_ptr with too short range",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct __sk_buff, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct __sk_buff, data_end)),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, 1),
++			BPF_MOV64_REG(BPF_REG_4, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, 7),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_4, BPF_REG_3, 3),
++			BPF_LD_MAP_FD(BPF_REG_1, 0),
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.fixup = {6},
++		.result = REJECT,
++		.errstr = "invalid access to packet",
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++	},
++	{
++		"helper access to packet: test11, cls unsuitable helper 1",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_6, BPF_REG_1,
++				    offsetof(struct __sk_buff, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_7, BPF_REG_1,
++				    offsetof(struct __sk_buff, data_end)),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_6, 1),
++			BPF_MOV64_REG(BPF_REG_3, BPF_REG_6),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, 7),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_3, BPF_REG_7, 4),
++			BPF_MOV64_IMM(BPF_REG_2, 0),
++			BPF_MOV64_IMM(BPF_REG_4, 42),
++			BPF_MOV64_IMM(BPF_REG_5, 0),
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_skb_store_bytes),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.result = REJECT,
++		.errstr = "helper access to the packet",
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++	},
++	{
++		"helper access to packet: test12, cls unsuitable helper 2",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_6, BPF_REG_1,
++				    offsetof(struct __sk_buff, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_7, BPF_REG_1,
++				    offsetof(struct __sk_buff, data_end)),
++			BPF_MOV64_REG(BPF_REG_3, BPF_REG_6),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_6, 8),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_6, BPF_REG_7, 3),
++			BPF_MOV64_IMM(BPF_REG_2, 0),
++			BPF_MOV64_IMM(BPF_REG_4, 4),
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_skb_load_bytes),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.result = REJECT,
++		.errstr = "helper access to the packet",
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++	},
++	{
++		"helper access to packet: test13, cls helper ok",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_6, BPF_REG_1,
++				    offsetof(struct __sk_buff, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_7, BPF_REG_1,
++				    offsetof(struct __sk_buff, data_end)),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_6, 1),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_6),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 7),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_1, BPF_REG_7, 6),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_6),
++			BPF_MOV64_IMM(BPF_REG_2, 4),
++			BPF_MOV64_IMM(BPF_REG_3, 0),
++			BPF_MOV64_IMM(BPF_REG_4, 0),
++			BPF_MOV64_IMM(BPF_REG_5, 0),
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_csum_diff),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.result = ACCEPT,
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++	},
++	{
++		"helper access to packet: test14, cls helper fail sub",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_6, BPF_REG_1,
++				    offsetof(struct __sk_buff, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_7, BPF_REG_1,
++				    offsetof(struct __sk_buff, data_end)),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_6, 1),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_6),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 7),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_1, BPF_REG_7, 6),
++			BPF_ALU64_IMM(BPF_SUB, BPF_REG_1, 4),
++			BPF_MOV64_IMM(BPF_REG_2, 4),
++			BPF_MOV64_IMM(BPF_REG_3, 0),
++			BPF_MOV64_IMM(BPF_REG_4, 0),
++			BPF_MOV64_IMM(BPF_REG_5, 0),
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_csum_diff),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.result = REJECT,
++		.errstr = "type=inv expected=fp",
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++	},
++	{
++		"helper access to packet: test15, cls helper fail range 1",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_6, BPF_REG_1,
++				    offsetof(struct __sk_buff, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_7, BPF_REG_1,
++				    offsetof(struct __sk_buff, data_end)),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_6, 1),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_6),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 7),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_1, BPF_REG_7, 6),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_6),
++			BPF_MOV64_IMM(BPF_REG_2, 8),
++			BPF_MOV64_IMM(BPF_REG_3, 0),
++			BPF_MOV64_IMM(BPF_REG_4, 0),
++			BPF_MOV64_IMM(BPF_REG_5, 0),
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_csum_diff),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.result = REJECT,
++		.errstr = "invalid access to packet",
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++	},
++	{
++		"helper access to packet: test16, cls helper fail range 2",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_6, BPF_REG_1,
++				    offsetof(struct __sk_buff, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_7, BPF_REG_1,
++				    offsetof(struct __sk_buff, data_end)),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_6, 1),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_6),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 7),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_1, BPF_REG_7, 6),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_6),
++			BPF_MOV64_IMM(BPF_REG_2, -9),
++			BPF_MOV64_IMM(BPF_REG_3, 0),
++			BPF_MOV64_IMM(BPF_REG_4, 0),
++			BPF_MOV64_IMM(BPF_REG_5, 0),
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_csum_diff),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.result = REJECT,
++		.errstr = "invalid access to packet",
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++	},
++	{
++		"helper access to packet: test17, cls helper fail range 3",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_6, BPF_REG_1,
++				    offsetof(struct __sk_buff, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_7, BPF_REG_1,
++				    offsetof(struct __sk_buff, data_end)),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_6, 1),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_6),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 7),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_1, BPF_REG_7, 6),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_6),
++			BPF_MOV64_IMM(BPF_REG_2, ~0),
++			BPF_MOV64_IMM(BPF_REG_3, 0),
++			BPF_MOV64_IMM(BPF_REG_4, 0),
++			BPF_MOV64_IMM(BPF_REG_5, 0),
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_csum_diff),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.result = REJECT,
++		.errstr = "invalid access to packet",
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++	},
++	{
++		"helper access to packet: test18, cls helper fail range zero",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_6, BPF_REG_1,
++				    offsetof(struct __sk_buff, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_7, BPF_REG_1,
++				    offsetof(struct __sk_buff, data_end)),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_6, 1),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_6),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 7),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_1, BPF_REG_7, 6),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_6),
++			BPF_MOV64_IMM(BPF_REG_2, 0),
++			BPF_MOV64_IMM(BPF_REG_3, 0),
++			BPF_MOV64_IMM(BPF_REG_4, 0),
++			BPF_MOV64_IMM(BPF_REG_5, 0),
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_csum_diff),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.result = REJECT,
++		.errstr = "invalid access to packet",
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++	},
++	{
++		"helper access to packet: test19, pkt end as input",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_6, BPF_REG_1,
++				    offsetof(struct __sk_buff, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_7, BPF_REG_1,
++				    offsetof(struct __sk_buff, data_end)),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_6, 1),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_6),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 7),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_1, BPF_REG_7, 6),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_7),
++			BPF_MOV64_IMM(BPF_REG_2, 4),
++			BPF_MOV64_IMM(BPF_REG_3, 0),
++			BPF_MOV64_IMM(BPF_REG_4, 0),
++			BPF_MOV64_IMM(BPF_REG_5, 0),
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_csum_diff),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.result = REJECT,
++		.errstr = "R1 type=pkt_end expected=fp",
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++	},
++	{
++		"helper access to packet: test20, wrong reg",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_6, BPF_REG_1,
++				    offsetof(struct __sk_buff, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_7, BPF_REG_1,
++				    offsetof(struct __sk_buff, data_end)),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_6, 1),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_6),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 7),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_1, BPF_REG_7, 6),
++			BPF_MOV64_IMM(BPF_REG_2, 4),
++			BPF_MOV64_IMM(BPF_REG_3, 0),
++			BPF_MOV64_IMM(BPF_REG_4, 0),
++			BPF_MOV64_IMM(BPF_REG_5, 0),
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_csum_diff),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.result = REJECT,
++		.errstr = "invalid access to packet",
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++	},
+ };
+ 
+ static int probe_filter_length(struct bpf_insn *fp)
 -- 
 1.9.3
