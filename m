@@ -1,33 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][V2] net: r6040: add in missing white space in error
- message text
-Date: Sun, 18 Sep 2016 22:22:41 -0400 (EDT)
-Message-ID: <20160918.222241.2023931565916978660.davem@davemloft.net>
-References: <20160916094338.23698-1-colin.king@canonical.com>
+Subject: Re: [PATCH net-next RESEND] xen-netfront: avoid packet loss when
+ ethernet header crosses page boundary
+Date: Sun, 18 Sep 2016 22:26:07 -0400 (EDT)
+Message-ID: <20160918.222607.1930094684278444086.davem@davemloft.net>
+References: <1474023554-24520-1-git-send-email-vkuznets@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51876 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751488AbcISCWo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 22:22:44 -0400
-In-Reply-To: <20160916094338.23698-1-colin.king@canonical.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        ptalbert@redhat.com, boris.ostrovsky@oracle.com,
+        david.vrabel@citrix.com, jgross@suse.com,
+        xen-devel@lists.xenproject.org
+To: vkuznets@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1474023554-24520-1-git-send-email-vkuznets@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Colin King <colin.king@canonical.com>
-Date: Fri, 16 Sep 2016 10:43:38 +0100
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Fri, 16 Sep 2016 12:59:14 +0200
 
-> From: Colin Ian King <colin.king@canonical.com>
-> 
-> A couple of dev_err messages span two lines and the literal
-> string is missing a white space between words. Add the white
-> space and join the two lines into one.
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> @@ -595,6 +596,19 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	offset = offset_in_page(skb->data);
+>  	len = skb_headlen(skb);
+>  
+> +	/* The first req should be at least ETH_HLEN size or the packet will be
+> +	 * dropped by netback.
+> +	 */
+> +	if (unlikely(PAGE_SIZE - offset < ETH_HLEN)) {
+> +		nskb = skb_copy(skb, GFP_ATOMIC);
+> +		if (!nskb)
+> +			goto drop;
+> +		dev_kfree_skb_any(skb);
+> +		skb = nskb;
+> +		page = virt_to_page(skb->data);
+> +		offset = offset_in_page(skb->data);
+> +	}
+> +
+>  	spin_lock_irqsave(&queue->tx_lock, flags);
 
-Applied to net-next, thanks.
+I think you also have to recalculate 'len' in this case too, as
+skb_headlen() will definitely be different for nskb.
+
+In fact, I can't see how this code can work properly without that fix.
