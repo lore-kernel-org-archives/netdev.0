@@ -1,48 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] mlx4 misc fixes and improvements
-Date: Sun, 18 Sep 2016 22:00:46 -0400 (EDT)
-Message-ID: <20160918.220046.1374771296032853447.davem@davemloft.net>
-References: <1473686416-11779-1-git-send-email-tariqt@mellanox.com>
-        <20160915.192106.739428651744920778.davem@davemloft.net>
-        <80a8e8c5-689e-a2b1-e2d4-817dc0649385@gmail.com>
+Subject: Re: [PATCHv2 net 0/6] sctp: fix the transmit err process
+Date: Sun, 18 Sep 2016 22:03:08 -0400 (EDT)
+Message-ID: <20160918.220308.1356173755824789782.davem@davemloft.net>
+References: <cover.1473789537.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tariqt@mellanox.com, netdev@vger.kernel.org, eranbe@mellanox.com
-To: ttoukan.linux@gmail.com
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        marcelo.leitner@gmail.com, vyasevich@gmail.com,
+        daniel@iogearbox.net
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51496 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:51650 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936368AbcISCAx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 22:00:53 -0400
-In-Reply-To: <80a8e8c5-689e-a2b1-e2d4-817dc0649385@gmail.com>
+        with ESMTP id S1751488AbcISCDM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 22:03:12 -0400
+In-Reply-To: <cover.1473789537.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tariq Toukan <ttoukan.linux@gmail.com>
-Date: Sun, 18 Sep 2016 10:27:23 +0300
+From: Xin Long <lucien.xin@gmail.com>
+Date: Wed, 14 Sep 2016 02:04:17 +0800
 
-> Hi Dave,
+> This patchset is to improve the transmit err process and also fix some
+> issues.
 > 
-> On 16/09/2016 2:21 AM, David Miller wrote:
->> From: Tariq Toukan <tariqt@mellanox.com>
->> Date: Mon, 12 Sep 2016 16:20:11 +0300
->>
->>> This patchset contains some bug fixes, a cleanup, and small
->>> improvements
->>> from the team to the mlx4 Eth and core drivers.
->>>
->>> Series generated against net-next commit:
->>> 02154927c115 "net: dsa: bcm_sf2: Get VLAN_PORT_MASK from b53_device"
->>>
->>> Please push the following patch to -stable  >= 4.6 as well:
->>> "net/mlx4_core: Fix to clean devlink resources"
->> Again, coding style fixes and optimizations like branch prediction
->> hints are not bug fixes and therefore not appropriate for 'net'.
-> Yes, I know. Please notice that it was submitted to net-next this
-> time.
+> After this patchset, once the chunks are enqueued successfully, even
+> if the chunks fail to send out, no matter because of nodst or nomem,
+> no err retruns back to users any more. Instead, they are taken care
+> of by retransmit.
+> 
+> v1->v2:
+>   - add more details to the changelog in patch 1/6
+>   - add Fixes: tag in patch 2/6, 3/6
+>   - also revert 69b5777f2e57 in patch 3/6
 
-This is completely incompatible with a request for one of the changes
-to go into -stable.
-
-If the change is not in 'net', it can't go to -stable.
+Since SCTP's behavior has been like this for a long time I've applied
+this series to net-next, thanks.
