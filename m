@@ -1,65 +1,47 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: [PATCH 1/1] ixgbe: replace defined with IS_ENABLED
-Date: Mon, 19 Sep 2016 17:00:02 +0000
-Message-ID: <87618083B2453E4A8714035B62D67992506E6E4B@FMSMSX105.amr.corp.intel.com>
-References: <1473866814-21374-1-git-send-email-zyjzyj2000@gmail.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH 1/2] ptp_clock: allow for it to be optional
+Date: Mon, 19 Sep 2016 19:04:15 +0200
+Message-ID: <20160919190415.26bd9343@griffin>
+References: <1474257070-4255-1-git-send-email-nicolas.pitre@linaro.org>
+        <1474257070-4255-2-git-send-email-nicolas.pitre@linaro.org>
+        <20160919142553.3fb682ba@griffin>
+        <alpine.LFD.2.20.1609190942230.9311@knanqh.ubzr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "zyjzyj2000@gmail.com" <zyjzyj2000@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-        "e1000-devel@lists.sourceforge.net"
-        <e1000-devel@lists.sourceforge.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:31168 "EHLO mga04.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750922AbcISRAE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 19 Sep 2016 13:00:04 -0400
-In-Reply-To: <1473866814-21374-1-git-send-email-zyjzyj2000@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: John Stultz <john.stultz@linaro.org>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Josh Triplett <josh@joshtriplett.org>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Nicolas Pitre <nicolas.pitre@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.20.1609190942230.9311@knanqh.ubzr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->-----Original Message-----
->From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
->Behalf Of zyjzyj2000@gmail.com
->Sent: Wednesday, September 14, 2016 8:27 AM
->To: netdev@vger.kernel.org; intel-wired-lan@lists.osuosl.org; Kirsher,
->Jeffrey T <jeffrey.t.kirsher@intel.com>; zyjzyj2000@gmail.com; e1000-
->devel@lists.sourceforge.net
->Subject: [PATCH 1/1] ixgbe: replace defined with IS_ENABLED
->
->From: Zhu Yanjun <zyjzyj2000@gmail.com>
->
->Replace defined macro with IS_ENABLED in ixgbe.h file
->
->Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
->---
-> drivers/net/ethernet/intel/ixgbe/ixgbe.h | 2 +-
-> 1 file changed, 1 insertion(+), 1 deletion(-)
->
->diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
->b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
->index 9475ff9..f8bc1d0 100644
->--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
->+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
->@@ -45,7 +45,7 @@
-> #include "ixgbe_type.h"
-> #include "ixgbe_common.h"
-> #include "ixgbe_dcb.h"
->-#if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
->+#if IS_ENABLED(CONFIG_FCOE)
-> #define IXGBE_FCOE
-> #include "ixgbe_fcoe.h"
-> #endif /* CONFIG_FCOE or CONFIG_FCOE_MODULE */
->--
->2.7.4
+On Mon, 19 Sep 2016 10:10:21 -0400 (EDT), Nicolas Pitre wrote:
+> --- a/include/linux/ptp_clock_kernel.h
+> +++ b/include/linux/ptp_clock_kernel.h
+> @@ -207,7 +207,16 @@ int ptp_find_pin(struct ptp_clock *ptp,
+>  #else
+>  static inline struct ptp_clock *ptp_clock_register(struct ptp_clock_info *info,
+>  						   struct device *parent)
+> -{ return NULL; }
+> +{
+> +	if (IS_MODULE(CONFIG_PTP_1588_CLOCK)) {
+> +		pr_warn("%s is built-in while PTP clock subsystem is modular, "
+> +			"PTP clock ignored\n", KBUILD_MODNAME);
+> +	} else {
+> +		pr_warn("ignoring PTP clock from %s as PTP clock subsystem "
+> +			"is configured out\n", KBUILD_MODNAME);
+> +	}
+> +	return NULL;
+> +}
 
-Already taken care of by the following patch:
-http://patchwork.ozlabs.org/patch/668894/
+I think the else part is not needed. If PTP is disabled, it is
+disabled, nobody should be surprised by that. Looks good otherwise.
 
 Thanks,
-Emil
- 
+
+ Jiri
