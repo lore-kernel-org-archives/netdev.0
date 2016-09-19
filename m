@@ -1,47 +1,63 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [v2 PATCH 0/2] rhashtable: rhashtable with duplicate objects
-Date: Mon, 19 Sep 2016 11:50:34 +0200
-Message-ID: <1474278634.4469.25.camel@sipsolutions.net>
-References: <20160804071846.GA773@gondor.apana.org.au>
-         <20160804074546.GA996@gondor.apana.org.au>
-         <1470377813.2977.14.camel@sipsolutions.net>
-         <20160805104858.GA9297@gondor.apana.org.au>
-         <1470394233.2977.37.camel@sipsolutions.net>
-         <20160918135030.GA7062@gondor.apana.org.au>
-         <20160919084056.GA11875@gondor.apana.org.au>
-         <1474276530.4469.16.camel@sipsolutions.net>
-         <20160919091721.GA12235@gondor.apana.org.au>
-         <1474277244.4469.21.camel@sipsolutions.net>
-         <20160919093434.GA12378@gondor.apana.org.au>
-         (sfid-20160919_113440_719977_971CE718)
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: RE: [PATCH net-next 05/10] bnxt_en: Fix ethtool -l|-L inconsistent
+ channel counts.
+Date: Mon, 19 Sep 2016 09:51:12 +0000
+Message-ID: <BL2PR07MB2306246BCB25E3C323A3F3A88DF40@BL2PR07MB2306.namprd07.prod.outlook.com>
+References: <1474271889-8229-1-git-send-email-michael.chan@broadcom.com>
+ <1474271889-8229-6-git-send-email-michael.chan@broadcom.com>
+ <BL2PR07MB23060109CAF0760E41A8BB288DF40@BL2PR07MB2306.namprd07.prod.outlook.com>
+ <CACKFLikfTZYpmULGD5FvzixFRiCjqvQZxUKKquaaQ5qe9-PxuA@mail.gmail.com>
+ <BL2PR07MB23063DF1E02AA72ABE37DB4B8DF40@BL2PR07MB2306.namprd07.prod.outlook.com>
+ <CACKFLi=H2dnv4hVi4hGCZC4LJabr4SK3f=z5+JzJE7y9jEMvMw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-wireless@vger.kernel.org, Thomas Graf <tgraf@suug.ch>,
-        tom@herbertland.com, Ben Greear <greearb@candelatech.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Michael Chan <michael.chan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:50196 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751414AbcISJuk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 19 Sep 2016 05:50:40 -0400
-In-Reply-To: <20160919093434.GA12378@gondor.apana.org.au> (sfid-20160919_113440_719977_971CE718)
+Received: from mail-sn1nam02on0054.outbound.protection.outlook.com ([104.47.36.54]:43944
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752771AbcISJvP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 19 Sep 2016 05:51:15 -0400
+In-Reply-To: <CACKFLi=H2dnv4hVi4hGCZC4LJabr4SK3f=z5+JzJE7y9jEMvMw@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-09-19 at 17:34 +0800, Herbert Xu wrote:
-> On Mon, Sep 19, 2016 at 11:27:24AM +0200, Johannes Berg wrote:
-> > 
-> > 
-> > I have a feeling there's a bug with ht->nelems, since the crash is
-> > always in the grow worker, but I haven't quite put my finger on it
-> > yet.
-> 
-> Can you show me a stack trace?
-> 
-The stack trace is useless, but my other annotation showed that the
-table's nelems *underflowed* to -1, so now the worker will continue to
-try to grow it forever.
-
-johannes
+PiA+PiA+PiBUaGUgZXhpc3RpbmcgY29kZSBpcyBpbmNvbnNpc3RlbnQgaW4gcmVwb3J0aW5nIGFu
+ZCBhY2NlcHRpbmcgdGhlDQo+ID4+ID4+IGNvbWJpbmVkIGNoYW5uZWwgY291bnQuICBibnh0X2dl
+dF9jaGFubmVscygpIHJlcG9ydHMgbWF4aW11bQ0KPiA+PiA+PiBjb21iaW5lZCBhcyB0aGUgbWF4
+aW11bSByeCBjb3VudC4gIGJueHRfc2V0X2NoYW5uZWxzKCkgYWNjZXB0cw0KPiA+PiA+PiBjb21i
+aW5lZCBjb3VudCB0aGF0IGNhbm5vdCBiZSBiaWdnZXIgdGhhbiBtYXggcnggb3IgbWF4IHR4Lg0K
+PiA+PiA+Pg0KPiA+PiA+PiBGb3IgZXhhbXBsZSwgaWYgbWF4IHJ4ID0gMiBhbmQgbWF4IHR4ID0g
+MSwgd2UgcmVwb3J0IG1heCBzdXBwb3J0ZWQNCj4gPj4gPj4gY29tYmluZWQgdG8gYmUgMi4gIEJ1
+dCBpZiB0aGUgdXNlciB0cmllcyB0byBzZXQgY29tYmluZWQgdG8gMiwgaXQNCj4gPj4gPj4gd2ls
+bCBmYWlsIGJlY2F1c2UgMiBpcyBiaWdnZXIgdGhhbiBtYXggdHggd2hpY2ggaXMgMS4NCj4gPj4g
+Pj4NCj4gPj4gPj4gRml4IHRoZSBjb2RlIHRvIGJlIGNvbnNpc3RlbnQuICBNYXggYWxsb3dlZCBj
+b21iaW5lZCA9IG1heChtYXhfcngsDQo+ID4+IG1heF90eCkuDQo+ID4+ID4+IFdlIHdpbGwgYWNj
+ZXB0IGEgY29tYmluZWQgY2hhbm5lbCBjb3VudCA8PSBtYXgobWF4X3J4LCBtYXhfdHgpLg0KPiA+
+PiA+DQo+ID4+ID4gRG9uJ3QgeW91IG1lYW4gdGhlICdtYXggYWxsb3dlZCBjb21iaW5lZCA9IG1p
+bihtYXhfcngsIG1heF90eCknLg0KPiA+PiA+IEhvdyBkb2VzIHVzaW5nICdtYXgnIGNoYW5nZSB0
+aGUgZmF1bHR5IHNjZW5hcmlvIHlvdSd2ZSBkZXNjcmliZWQ/DQo+ID4+DQo+ID4+IEknbSBmaXhp
+bmcgdGhlIGluY29uc2lzdGVuY3kgZGVzY3JpYmVkIGluIHRoZSBmaXJzdCAyIHBhcmFncmFwaHMu
+DQo+ID4+IFRoZSBkcml2ZXIgbG9naWMgYWxsb3dzIGEgY29tYmluZWQgcmluZyB0byBiZSByeCBv
+ciB0eCBvbmx5LiAgSW4gdGhlDQo+ID4+IGFib3ZlIGV4YW1wbGUsIHdlIGFsbG93IGNvbWJpbmVk
+IHRvIGJlIHNldCB0byAyLiAgVGhlIDJuZCBjb21iaW5lZCByaW5nDQo+IHN1cHBvcnRzIHJ4IG9u
+bHkuDQo+ID4NCj4gPiBUaGVuIHdoYXQgbWFrZXMgaXQgYSBjb21iaW5lZCBjaGFubmVsPw0KPiA+
+IFNvdW5kcyB0byBtZSBsaWtlIGluIHRoZSBhYm92ZSBzY2VuYXJpbyB5b3Ugc2hvdWxkIGhhdmUg
+Y2xhaW1lZCBzdXBwb3J0IGZvcjoNCj4gPiAgIC0gbWF4IHJ4ID09IDINCj4gPiAgIC0gbWF4IHR4
+ID09IDENCj4gPiAgIC0gbWF4IGNvbWJpbmVkID09IDENCj4gDQo+IE91ciBpbXBsZW1lbnRhdGlv
+biB3aWxsIHJlcG9ydDoNCj4gDQo+IG1heCByeCAyDQo+IG1heCB0eCAxDQo+IG1heCBjb21iaW5l
+ZCAyDQo+IA0KPiBJZiB0aGUgdXNlciBjaG9vc2VzIDIgcnggYW5kIDEgdHgsIGhlIHdpbGwgdXNl
+IDMgbXNpeCB2ZWN0b3JzICgzIGNvbXBsZXRpb24gcmluZ3MsDQo+IGV0YykuICBJZiB0aGUgdXNl
+ciBjaG9vc2VzIDIgY29tYmluZWQgKDEgd2l0aCByeC90eCwNCj4gMSB3aXRoIHJ4IG9ubHkpLCBo
+ZSB3aWxsIHVzZSAyIG1zaXggdmVjdG9ycyAoMiBjb21wbGV0aW9uIHJpbmdzLCBldGMpLg0KPiBX
+aXRoIGEgbGFyZ2UgbnVtYmVyIG9mIE5QQVIgZnVuY3Rpb25zIGFuZCBTUklPViBmdW5jdGlvbnMs
+IHRoZSBudW1iZXIgb2YNCj4gcmluZ3MgYXZhaWxhYmxlIHBlciBmdW5jdGlvbiBtYXkgbm90IGJl
+IHN5bW1ldHJpY2FsLiAgV2UganVzdCB3YW50IG1heGltdW0NCj4gZmxleGliaWxpdHkgdG8gbWFr
+ZSB1c2Ugb2YgYWxsIGF2YWlsYWJsZSByZXNvdXJjZXMgaW4gMiBkaWZmZXJlbnQgbW9kZXMgKG9u
+ZSB0aGF0DQo+IHVzZXMgbW9yZSByZXNvdXJjZXMgYW5kIG9uZSB0aGF0IHVzZXMgbGVzcykuDQoN
+ClNvdW5kcyBsaWtlIHRoZSB1c2VyIHNob3VsZCBjaG9zZSAxIGNvbWJpbmVkIGluIDEgcnggaW4g
+dGhpcyBzY2VuYXJpby4NCg==
