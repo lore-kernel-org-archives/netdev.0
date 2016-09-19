@@ -1,39 +1,47 @@
-From: Vladimir Davydov <vdavydov.dev@gmail.com>
-Subject: Re: [PATCH 2/3] cgroup: duplicate cgroup reference when cloning
- sockets
-Date: Mon, 19 Sep 2016 18:43:21 +0300
-Message-ID: <20160919154321.GG1989@esperanza>
-References: <20160914194846.11153-1-hannes@cmpxchg.org>
- <20160914194846.11153-2-hannes@cmpxchg.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v3 net-next] net: phy: Add MAC-IF driver for Microsemi
+ PHYs.
+Date: Mon, 19 Sep 2016 17:46:33 +0200
+Message-ID: <20160919154633.GF8651@lunn.ch>
+References: <1474279434-14583-1-git-send-email-Raju.Lakkaraju@microsemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>, Tejun Heo <tj@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Michal Hocko <mhocko@suse.cz>, linux-mm@kvack.org,
-	cgroups@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-team@fb.com
-To: Johannes Weiner <hannes@cmpxchg.org>
-Return-path: <owner-linux-mm@kvack.org>
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
+        Allan.Nielsen@microsemi.com
+To: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:52239 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751092AbcISPqg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 19 Sep 2016 11:46:36 -0400
 Content-Disposition: inline
-In-Reply-To: <20160914194846.11153-2-hannes@cmpxchg.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1474279434-14583-1-git-send-email-Raju.Lakkaraju@microsemi.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 14, 2016 at 03:48:45PM -0400, Johannes Weiner wrote:
-> From: Johannes Weiner <jweiner@fb.com>
+On Mon, Sep 19, 2016 at 03:33:54PM +0530, Raju Lakkaraju wrote:
+> From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 > 
-> When a socket is cloned, the associated sock_cgroup_data is duplicated
-> but not its reference on the cgroup. As a result, the cgroup reference
-> count will underflow when both sockets are destroyed later on.
+> All the review comments updated and resending for review.
+
+Hi Raju
+
+Please put comments like the above below the --- line. They then don't
+get placed into the commit log in git.
+
+Also, please include a brief summary of what changed for each version
+of a patch. That makes it easier for the reviewer. Again, this should
+be below the ---.
+
 > 
-> Fixes: bd1060a1d671 ("sock, cgroup: add sock->sk_cgroup")
-> Cc: <stable@vger.kernel.org> # 4.5+
-> Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
+> This is MAC interface feature.
+> Microsemi PHY can support RGMII, RMII or GMII/MII interface between MAC and PHY.
+> MAC-IF function program the right value based on Device tree configuration.
+> 
+> Tested on Beaglebone Black with VSC 8531 PHY.
+> 
+> Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 
-Reviewed-by: Vladimir Davydov <vdavydov.dev@gmail.com>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+    Andrew
