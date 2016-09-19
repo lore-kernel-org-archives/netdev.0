@@ -1,86 +1,88 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [patch net-next RFC 0/2] fib4 offload: notifier to let hw to
- be aware of all prefixes
-Date: Mon, 19 Sep 2016 07:59:22 -0700
-Message-ID: <57DFFD4A.6070403@cumulusnetworks.com>
-References: <1473163300-2045-1-git-send-email-jiri@resnulli.us> <fc177125-a9b8-fcce-281b-5fdc25639944@gmail.com> <57DF2041.3040509@cumulusnetworks.com> <20160919061454.GC1846@nanopsycho.orion>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next RFC 1/2] fib: introduce fib notification
+ infrastructure
+Date: Mon, 19 Sep 2016 17:08:32 +0200
+Message-ID: <20160919150832.GD1846@nanopsycho.orion>
+References: <1473163300-2045-1-git-send-email-jiri@resnulli.us>
+ <1473163300-2045-2-git-send-email-jiri@resnulli.us>
+ <57DF2203.4000903@cumulusnetworks.com>
+ <20160919060610.GA1846@nanopsycho.orion>
+ <57DFFBD3.9040906@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
-        davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
-        nikolay@cumulusnetworks.com, linville@tuxdriver.com, tgraf@suug.ch,
-        gospo@cumulusnetworks.com, sfeldma@gmail.com, ast@plumgrid.com,
-        edumazet@google.com, hannes@stressinduktion.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
+        eladr@mellanox.com, yotamg@mellanox.com, nogahf@mellanox.com,
+        ogerlitz@mellanox.com, nikolay@cumulusnetworks.com,
+        linville@tuxdriver.com, tgraf@suug.ch, gospo@cumulusnetworks.com,
+        sfeldma@gmail.com, ast@plumgrid.com, edumazet@google.com,
+        hannes@stressinduktion.org, f.fainelli@gmail.com,
         dsa@cumulusnetworks.com, jhs@mojatatu.com,
         vivien.didelot@savoirfairelinux.com, john.fastabend@intel.com,
         andrew@lunn.ch, ivecera@redhat.com
-To: Jiri Pirko <jiri@resnulli.us>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:35520 "EHLO
-        mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750750AbcISO70 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 10:59:26 -0400
-Received: by mail-pa0-f53.google.com with SMTP id oz2so44903877pac.2
-        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 07:59:25 -0700 (PDT)
-In-Reply-To: <20160919061454.GC1846@nanopsycho.orion>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:34524 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751148AbcISPIg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 11:08:36 -0400
+Received: by mail-wm0-f66.google.com with SMTP id l132so14291034wmf.1
+        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 08:08:35 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <57DFFBD3.9040906@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/18/16, 11:14 PM, Jiri Pirko wrote:
-> Mon, Sep 19, 2016 at 01:16:17AM CEST, roopa@cumulusnetworks.com wrote:
->> On 9/18/16, 1:00 PM, Florian Fainelli wrote:
->>> Le 06/09/2016 à 05:01, Jiri Pirko a écrit :
+Mon, Sep 19, 2016 at 04:53:07PM CEST, roopa@cumulusnetworks.com wrote:
+>On 9/18/16, 11:06 PM, Jiri Pirko wrote:
+>> Mon, Sep 19, 2016 at 01:23:47AM CEST, roopa@cumulusnetworks.com wrote:
+>>> On 9/6/16, 5:01 AM, Jiri Pirko wrote:
 >>>> From: Jiri Pirko <jiri@mellanox.com>
 >>>>
->>>> This is RFC, unfinished. I came across some issues in the process so I would
->>>> like to share those and restart the fib offload discussion in order to make it
->>>> really usable.
+>>>> This allows to pass information about added/deleted fib entries to
+>>>> whoever is interested. This is done in a very similar way as devinet
+>>>> notifies address additions/removals.
 >>>>
->>>> So the goal of this patchset is to allow driver to propagate all prefixes
->>>> configured in kernel down HW. This is necessary for routing to work
->>>> as expected. If we don't do that HW might forward prefixes known to kernel
->>>> incorrectly. Take an example when default route is set in switch HW and there
->>>> is an IP address set on a management (non-switch) port.
->>>>
->>>> Currently, only fibs related to the switch port netdev are offloaded using
->>>> switchdev ops. This model is not extendable so the first patch introduces
->>>> a replacement: notifier to propagate fib additions and removals to whoever
->>>> interested. The second patch makes mlxsw to adopt this new way, registering
->>>> one notifier block for each mlxsw (asic) instance.
->>> Instead of introducing another specialization of a notifier_block
->>> implementation, could we somehow have a kernel-based netlink listener
->>> which receives the same kind of event information from rtmsg_fib()?
+>>>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>>>> ---
+>
+>[snip]
+>>>>  
+>>>>  #define KEYLENGTH	(8*sizeof(t_key))
+>>>> @@ -1190,6 +1221,10 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
+>>>>  			fib_release_info(fi_drop);
+>>>>  			if (state & FA_S_ACCESSED)
+>>>>  				rt_cache_flush(cfg->fc_nlinfo.nl_net);
+>>>> +
+>>>> +			call_fib_notifiers(FIB_EVENT_TYPE_ADD, key, plen, fi,
+>>>> +					   new_fa->fa_tos, cfg->fc_type,
+>>>> +					   tb->tb_id, cfg->fc_nlflags);
+>>>>  			rtmsg_fib(RTM_NEWROUTE, htonl(key), new_fa, plen,
+>>>>  				tb->tb_id, &cfg->fc_nlinfo, NLM_F_REPLACE);
+>>>>  
+>>>> @@ -1241,6 +1276,8 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
+>>>>  		tb->tb_num_default++;
+>>>>  
+>>>>  	rt_cache_flush(cfg->fc_nlinfo.nl_net);
+>>>> +	call_fib_notifiers(FIB_EVENT_TYPE_ADD, key, plen, fi, tos,
+>>>> +			   cfg->fc_type, tb->tb_id, cfg->fc_nlflags);
 >>>
->>> The reason is that having such a facility would hook directly onto
->>> existing rtmsg_* calls that exist throughout the stack, and that seems
->>> to scale better.
->> I was thinking along the same lines. Instead of proliferating notifier blocks
->> through-out the stack for switchdev offload, putting existing events to use would be nice.
->>
->> But the problem though is drivers having to parse the netlink msg again. also, the intent
->> here is to do the offload first ..before the route is added to the kernel (though i don't see that in
->> the current series). existing netlink rmsg_fib events are generated after the route is added to the kernel.
+>>> It appears that this is in addition to the existing switchdev_fib_ipv4_add call right above this.
+>>> Is the intent to do both ?. i don't see a need to do both.
+>> I already have patchset improved that it removes the switchdev fib code.
+>> Have to do some more testing, will send it soon.
+>
+>ok, ack.
 >>
 >>
->> Jiri, instead of the notifier, do you see a problem with always calling the existing switchdev
->> offload api for every route  for every asic instance ?. the first device where the route fits wins.
-> There is not list of asic instances. Therefore the notifier fits much better here.
+>>> and switchdev_fib_ipv4_add  offloads before the route is added to the kernel.
+>>> But the notifier seems to fire after the route is added to the kernel.
+>> Yeah, I wanted to align it with rtmsg_fib calls. Also I think it makes
+>> sense to have slowpath ready before offload.
+>>
 >
->
->
->> it seems similar to driver registering for notifier and looking at every route ...
->> am i missing something ?
->> and the policies you mention could help around selecting the asic instance (FCFS or mirror).
->> you will need to abstract out the asic instance for switchdev api to call on, but I thought you
->> already have that in some form in your devlink infrastructure.
-> switchdev asic instances and devlink instances are orthogonal.
+>ok, ..but..that changes existing behavior though. and if the hw route add fails...,
+>you may have inconsistent state between hw and sw.
 
-maybe it is not today...but the requirement for devlink was to provide a way to communicate
-to the switch driver
-- global switch attributes or
-- things that cannot go via switch ports (exactly the problem you are trying to solve for routes here)
-
-so,  maybe an instance of switch asic modeled via devlink will help here and possibly all/other switchdev
-offload hooks ?
+If the hw route add fails, driver will be responsible for abort,
+cleanining up hw and set appropriate traps to get packets to cpu
+processing.
