@@ -1,74 +1,83 @@
-From: pravin shelar <pshelar@ovn.org>
-Subject: Re: [PATCH] net: skbuff: Fix length validation in skb_vlan_pop()
-Date: Mon, 19 Sep 2016 13:46:10 -0700
-Message-ID: <CAOrHB_Dy3osOea19e+iTxHFpCgJOYe1fUJJnaN-PB-hOq0-rmA@mail.gmail.com>
-References: <1474193358-20133-1-git-send-email-shmulik.ladkani@gmail.com>
- <CAOrHB_D2ytTK9WjfCPL87E1QomeXg+2GfAvo8N8xCcJULhAC=w@mail.gmail.com> <20160919230454.08e58116@halley>
+From: Pravin B Shelar <pshelar@ovn.org>
+Subject: [PATCH net-next 1/2] openvswitch: Fix Frame-size larger than 1024 bytes warning.
+Date: Mon, 19 Sep 2016 13:50:59 -0700
+Message-ID: <1474318260-16988-1-git-send-email-pshelar@ovn.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Jiri Pirko <jiri@mellanox.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Content-Transfer-Encoding: 8bit
+Cc: Pravin B Shelar <pshelar@ovn.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay5-d.mail.gandi.net ([217.70.183.197]:38142 "EHLO
-        relay5-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751579AbcISUqq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 16:46:46 -0400
-Received: from mfilter14-d.gandi.net (mfilter14-d.gandi.net [217.70.178.142])
-        by relay5-d.mail.gandi.net (Postfix) with ESMTP id 9505F41C08A
-        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 22:46:43 +0200 (CEST)
-Received: from relay5-d.mail.gandi.net ([IPv6:::ffff:217.70.183.197])
-        by mfilter14-d.gandi.net (mfilter14-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id axDXZvAvpPYC for <netdev@vger.kernel.org>;
-        Mon, 19 Sep 2016 22:46:12 +0200 (CEST)
-Received: from mail-it0-f42.google.com (mail-it0-f42.google.com [209.85.214.42])
-        (Authenticated sender: pshelar@ovn.org)
-        by relay5-d.mail.gandi.net (Postfix) with ESMTPSA id 12F9141C087
-        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 22:46:11 +0200 (CEST)
-Received: by mail-it0-f42.google.com with SMTP id 186so163530itf.0
-        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 13:46:11 -0700 (PDT)
-In-Reply-To: <20160919230454.08e58116@halley>
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:42293 "EHLO
+        relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750997AbcISUvN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 16:51:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 19, 2016 at 1:04 PM, Shmulik Ladkani
-<shmulik.ladkani@gmail.com> wrote:
-> Hi Pravin,
->
-> On Sun, 18 Sep 2016 13:26:30 -0700 pravin shelar <pshelar@ovn.org> wrote:
->> > +++ b/net/core/skbuff.c
->> > @@ -4537,7 +4537,7 @@ int skb_vlan_pop(struct sk_buff *skb)
->> >         } else {
->> >                 if (unlikely((skb->protocol != htons(ETH_P_8021Q) &&
->> >                               skb->protocol != htons(ETH_P_8021AD)) ||
->> > -                            skb->len < VLAN_ETH_HLEN))
->> > +                            skb->mac_len < VLAN_ETH_HLEN))
->>
->> There is already check in __skb_vlan_pop() to validate skb for a vlan
->> header. So it is safe to drop this check entirely.
->
-> Yep, I submitted a v2 with your suggestion, however I withdrew it, as
-> there is a slight behavior difference noticable by 'skb_vlan_pop' callers.
->
-> Suppose the rare case where skb->len is too small.
->
-> pre:
->   skb_vlan_pop returns 0 (at least for the correct tx path).
->   Meaning, callers do not see it as a failure.
-> post:
->   skb_ensure_writable fails (!pskb_may_pull), therefore -ENOMEM returned
->   to the callers of 'skb_vlan_pop'.
->
-> For ovs, it means do_execute_actions's loop is terminated, no further
-> actions are executed, and skb gets freed.
->
-> For tc act vlan, it means skb gets dropped.
->
-> This actually makes sense, but do we want to present this change?
->
-I think this is correct behavior over existing code. And under memory
-pressure chances of packet drop are higher even without the change
-anyways.
+There is no need to declare separate key on stack,
+we can just use sw_flow->key to store the key directly.
+
+This commit fixes following warning:
+
+net/openvswitch/datapath.c: In function ‘ovs_flow_cmd_new’:
+net/openvswitch/datapath.c:1080:1: warning: the frame size of 1040 bytes
+is larger than 1024 bytes [-Wframe-larger-than=]
+
+Signed-off-by: Pravin B Shelar <pshelar@ovn.org>
+---
+ net/openvswitch/datapath.c | 15 +++++++++------
+ 1 file changed, 9 insertions(+), 6 deletions(-)
+
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 0536ab3..474e7a6 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -928,7 +928,6 @@ static int ovs_flow_cmd_new(struct sk_buff *skb, struct genl_info *info)
+ 	struct sw_flow_mask mask;
+ 	struct sk_buff *reply;
+ 	struct datapath *dp;
+-	struct sw_flow_key key;
+ 	struct sw_flow_actions *acts;
+ 	struct sw_flow_match match;
+ 	u32 ufid_flags = ovs_nla_get_ufid_flags(a[OVS_FLOW_ATTR_UFID_FLAGS]);
+@@ -956,20 +955,24 @@ static int ovs_flow_cmd_new(struct sk_buff *skb, struct genl_info *info)
+ 	}
+ 
+ 	/* Extract key. */
+-	ovs_match_init(&match, &key, &mask);
++	ovs_match_init(&match, &new_flow->key, &mask);
+ 	error = ovs_nla_get_match(net, &match, a[OVS_FLOW_ATTR_KEY],
+ 				  a[OVS_FLOW_ATTR_MASK], log);
+ 	if (error)
+ 		goto err_kfree_flow;
+ 
+-	ovs_flow_mask_key(&new_flow->key, &key, true, &mask);
+-
+ 	/* Extract flow identifier. */
+ 	error = ovs_nla_get_identifier(&new_flow->id, a[OVS_FLOW_ATTR_UFID],
+-				       &key, log);
++				       &new_flow->key, log);
+ 	if (error)
+ 		goto err_kfree_flow;
+ 
++	/* unmasked key is needed to match when ufid is not used. */
++	if (ovs_identifier_is_key(&new_flow->id))
++		match.key = new_flow->id.unmasked_key;
++
++	ovs_flow_mask_key(&new_flow->key, &new_flow->key, true, &mask);
++
+ 	/* Validate actions. */
+ 	error = ovs_nla_copy_actions(net, a[OVS_FLOW_ATTR_ACTIONS],
+ 				     &new_flow->key, &acts, log);
+@@ -996,7 +999,7 @@ static int ovs_flow_cmd_new(struct sk_buff *skb, struct genl_info *info)
+ 	if (ovs_identifier_is_ufid(&new_flow->id))
+ 		flow = ovs_flow_tbl_lookup_ufid(&dp->table, &new_flow->id);
+ 	if (!flow)
+-		flow = ovs_flow_tbl_lookup(&dp->table, &key);
++		flow = ovs_flow_tbl_lookup(&dp->table, &new_flow->key);
+ 	if (likely(!flow)) {
+ 		rcu_assign_pointer(new_flow->sf_acts, acts);
+ 
+-- 
+1.9.1
