@@ -1,58 +1,111 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [v2 PATCH 0/2] rhashtable: rhashtable with duplicate objects
-Date: Mon, 19 Sep 2016 12:02:10 +0200
-Message-ID: <1474279330.4469.28.camel@sipsolutions.net>
-References: <20160804071846.GA773@gondor.apana.org.au>
-         <20160804074546.GA996@gondor.apana.org.au>
-         <1470377813.2977.14.camel@sipsolutions.net>
-         <20160805104858.GA9297@gondor.apana.org.au>
-         <1470394233.2977.37.camel@sipsolutions.net>
-         <20160918135030.GA7062@gondor.apana.org.au>
-         <20160919084056.GA11875@gondor.apana.org.au>
-         <1474276530.4469.16.camel@sipsolutions.net>
-         <20160919091721.GA12235@gondor.apana.org.au>
-         <1474277244.4469.21.camel@sipsolutions.net>
-         <20160919093434.GA12378@gondor.apana.org.au>
-         (sfid-20160919_113440_719977_971CE718) <1474278634.4469.25.camel@sipsolutions.net>
-         (sfid-20160919_115045_089605_A254E125) <1474278896.4469.26.camel@sipsolutions.net>
-         (sfid-20160919_115508_261438_39410159)
+From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Subject: [PATCH v3 net-next] net: phy: Add MAC-IF driver for Microsemi PHYs.
+Date: Mon, 19 Sep 2016 15:33:54 +0530
+Message-ID: <1474279434-14583-1-git-send-email-Raju.Lakkaraju@microsemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>,
-        tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org, Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1474278896.4469.26.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> (sfid-20160919_115508_261438_39410159)
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <f.fainelli@gmail.com>, <Allan.Nielsen@microsemi.com>,
+        <andrew@lunn.ch>, Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-cys01nam02on0079.outbound.protection.outlook.com ([104.47.37.79]:43424
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1754687AbcISKEQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 19 Sep 2016 06:04:16 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-09-19 at 11:54 +0200, Johannes Berg wrote:
-> > 
-> > The stack trace is useless, but my other annotation showed that the
-> > table's nelems *underflowed* to -1, so now the worker will continue
-> > to try to grow it forever.
-> > 
-> 
-> And this *was* actually a case of duplication, afaict, since it was
-> multiple virtual interfaces on the same device all connecting to the
-> same AP.
+From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 
-It seems that __rhashtable_remove_fast_one() should return 0 even in
-the case of err==1 for the "skip all the maintenance due to list
-deletion"?
+All the review comments updated and resending for review.
 
---- a/include/linux/rhashtable.h
-+++ b/include/linux/rhashtable.h
-@@ -1009,7 +1009,7 @@ static inline int __rhashtable_remove_fast_one(
-                err = 0;
-        }
- 
--       return err;
-+       return err < 0 ? err : 0;
- }
+This is MAC interface feature.
+Microsemi PHY can support RGMII, RMII or GMII/MII interface between MAC and PHY.
+MAC-IF function program the right value based on Device tree configuration.
 
-But that in itself doesn't help.
+Tested on Beaglebone Black with VSC 8531 PHY.
 
-johannes
+Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+---
+ drivers/net/phy/mscc.c | 51 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 51 insertions(+)
+
+diff --git a/drivers/net/phy/mscc.c b/drivers/net/phy/mscc.c
+index c09cc4a..d350deb 100644
+--- a/drivers/net/phy/mscc.c
++++ b/drivers/net/phy/mscc.c
+@@ -23,6 +23,16 @@ enum rgmii_rx_clock_delay {
+ 	RGMII_RX_CLK_DELAY_3_4_NS = 7
+ };
+ 
++/* Microsemi VSC85xx PHY registers */
++/* IEEE 802. Std Registers */
++#define MSCC_PHY_EXT_PHY_CNTL_1           23
++#define MAC_IF_SELECTION_MASK             0x1800
++#define MAC_IF_SELECTION_GMII             0
++#define MAC_IF_SELECTION_RMII             1
++#define MAC_IF_SELECTION_RGMII            2
++#define MAC_IF_SELECTION_POS              11
++#define FAR_END_LOOPBACK_MODE_MASK        0x0008
++
+ #define MII_VSC85XX_INT_MASK		  25
+ #define MII_VSC85XX_INT_MASK_MASK	  0xa000
+ #define MII_VSC85XX_INT_STATUS		  26
+@@ -48,6 +58,42 @@ static int vsc85xx_phy_page_set(struct phy_device *phydev, u8 page)
+ 	return rc;
+ }
+ 
++static int vsc85xx_mac_if_set(struct phy_device *phydev,
++			      phy_interface_t interface)
++{
++	int rc;
++	u16 reg_val;
++
++	mutex_lock(&phydev->lock);
++	reg_val = phy_read(phydev, MSCC_PHY_EXT_PHY_CNTL_1);
++	reg_val &= ~(MAC_IF_SELECTION_MASK);
++	switch (interface) {
++	case PHY_INTERFACE_MODE_RGMII:
++		reg_val |= (MAC_IF_SELECTION_RGMII << MAC_IF_SELECTION_POS);
++		break;
++	case PHY_INTERFACE_MODE_RMII:
++		reg_val |= (MAC_IF_SELECTION_RMII << MAC_IF_SELECTION_POS);
++		break;
++	case PHY_INTERFACE_MODE_MII:
++	case PHY_INTERFACE_MODE_GMII:
++		reg_val |= (MAC_IF_SELECTION_GMII << MAC_IF_SELECTION_POS);
++		break;
++	default:
++		rc = -EINVAL;
++		goto out_unlock;
++	}
++	rc = phy_write(phydev, MSCC_PHY_EXT_PHY_CNTL_1, reg_val);
++	if (rc != 0)
++		goto out_unlock;
++
++	rc = genphy_soft_reset(phydev);
++
++out_unlock:
++	mutex_unlock(&phydev->lock);
++
++	return rc;
++}
++
+ static int vsc85xx_default_config(struct phy_device *phydev)
+ {
+ 	int rc;
+@@ -77,6 +123,11 @@ static int vsc85xx_config_init(struct phy_device *phydev)
+ 	rc = vsc85xx_default_config(phydev);
+ 	if (rc)
+ 		return rc;
++
++	rc = vsc85xx_mac_if_set(phydev, phydev->interface);
++	if (rc)
++		return rc;
++
+ 	rc = genphy_config_init(phydev);
+ 
+ 	return rc;
+-- 
+2.7.4
