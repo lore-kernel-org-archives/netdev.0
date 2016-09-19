@@ -1,43 +1,58 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH v3 net-next 16/16] tcp_bbr: add BBR congestion control
-Date: Sun, 18 Sep 2016 22:43:15 -0400
-Message-ID: <CADVnQymXFoHHWkxKCxMabHFE6NetNO0hvdcqya0y75eyj9wKtg@mail.gmail.com>
-References: <1474236233-28511-1-git-send-email-ncardwell@google.com>
- <1474236233-28511-17-git-send-email-ncardwell@google.com> <CA++eYdtWkMqT1zk_D00H1TciYb_4+aQ6-96YzG1n_h4LLk663g@mail.gmail.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH next] sctp: make use of WORD_TRUNC macro
+Date: Mon, 19 Sep 2016 00:05:54 -0300
+Message-ID: <b14bab91-cd8b-221b-a3de-75c97bba67f7@gmail.com>
+References: <b40b1bd4adff2d389588d9a4710af0399ce68d1e.1473963064.git.marcelo.leitner@gmail.com>
+ <20160918.220629.1190601768509139321.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Netdev <netdev@vger.kernel.org>, Van Jacobson <vanj@google.com>,
-        Yuchung Cheng <ycheng@google.com>,
-        Nandita Dukkipati <nanditad@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Soheil Hassas Yeganeh <soheil@google.com>
-To: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        nhorman@tuxdriver.com, vyasevich@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f48.google.com ([209.85.218.48]:33594 "EHLO
-        mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755551AbcISCo3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 22:44:29 -0400
-Received: by mail-oi0-f48.google.com with SMTP id r126so179298445oib.0
-        for <netdev@vger.kernel.org>; Sun, 18 Sep 2016 19:43:45 -0700 (PDT)
-In-Reply-To: <CA++eYdtWkMqT1zk_D00H1TciYb_4+aQ6-96YzG1n_h4LLk663g@mail.gmail.com>
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:36742 "EHLO
+        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S937573AbcISDG6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 23:06:58 -0400
+In-Reply-To: <20160918.220629.1190601768509139321.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Sep 18, 2016 at 9:18 PM, Kenneth Klette Jonassen
-<kennetkl@ifi.uio.no> wrote:
->> +static u64 bbr_rate_kbps(struct sock *sk, u64 rate)
->> +{
->> +       return bbr_rate_bytes_per_sec(sk, rate, BBR_UNIT) * 8 / 1000;
+Em 18-09-2016 23:06, David Miller escreveu:
+> From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> Date: Thu, 15 Sep 2016 15:12:30 -0300
 >
+>> No functional change. Just to avoid the usage of '&~3'.
+>> Also break the line to make it easier to read.
 >
-> Consider div_u64() here to keep all builds happy. :-) This adds __udivdi3()
-> with the nxp powerpc toolchains I'm using.
+> You're reply later in this thread:
 >
-> (Or have the one caller use bbr_rate_bytes_per_sec() instead.)
+> 	"to make sure it is correctly adapted to some arch if
+> 	necessary. (even though it's not necessary in this case)"
+>
+> is inconsistent with your commit log message.
+>
+> If you think that the word size might possibly be different
+> on a given arch, then this is in fact a functional change.
+>
 
-Thanks, Kenneth. We will fix this in the next revision (we like your
-suggested approach of just using bbr_rate_bytes_per_sec()).
+Alright, that was badly worded, sorry. I meant not about the macro in 
+specific but in a more general way, as in to not use magic hardcoded 
+values, just that.
 
-cheers,
-neal
+> This patch just adds ambiguity.  Whereas the existing code is explicit
+> about "multiple of 4" and there can be no confusion.
+>
+
+On the other hand, it brings the code closer to a standard. This is the 
+one but last occurrence of '~3' throughout sctp code. There is only one 
+other spot left. All of them are using WORD_ROUND or WORD_TRUNC macros 
+already.
+
+We can rename the macros, I agree they sound confusing. Proposing 
+SCTP_ALIGN4 and SCTP_TRUNC4. Does that sound better? Then I'll send a 
+patchset renaming and updating all remaining places.
+
+> I'm not applying this, sorry.
+>
