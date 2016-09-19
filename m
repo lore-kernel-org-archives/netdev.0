@@ -1,61 +1,107 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] igb: mark igb_rxnfc_write_vlan_prio_filter() static
-Date: Mon, 19 Sep 2016 15:16:08 -0700
-Message-ID: <1474323368.28223.49.camel@intel.com>
-References: <1474188628-420-1-git-send-email-baoyou.xie@linaro.org>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-        protocol="application/pgp-signature"; boundary="=-OhqwHPJ9GQu93tEzU3nn"
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        arnd@arndb.de, xie.baoyou@zte.com.cn
-To: Baoyou Xie <baoyou.xie@linaro.org>,
-        intel-wired-lan@lists.osuosl.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1474188628-420-1-git-send-email-baoyou.xie@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH net-next 2/2] net: dsa: mv88e6xxx: Convert flag bits to unsigned long long
+Date: Tue, 20 Sep 2016 00:18:41 +0200
+Message-ID: <1474323521-5088-3-git-send-email-andrew@lunn.ch>
+References: <1474323521-5088-1-git-send-email-andrew@lunn.ch>
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:52649 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933010AbcISWTH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 19 Sep 2016 18:19:07 -0400
+In-Reply-To: <1474323521-5088-1-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+We are soon going to run out of flag bits on 32bit systems. Convert to
+unsigned long long.
 
---=-OhqwHPJ9GQu93tEzU3nn
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+---
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 62 +++++++++++++++++------------------
+ 1 file changed, 31 insertions(+), 31 deletions(-)
 
-On Sun, 2016-09-18 at 16:50 +0800, Baoyou Xie wrote:
-> We get 1 warning when building kernel with W=3D1:
-> drivers/net/ethernet/intel/igb/igb_ethtool.c:2707:5: warning: no previous
-> prototype for 'igb_rxnfc_write_vlan_prio_filter' [-Wmissing-prototypes]
->=20
-> In fact, this function is only used in the file in which it is
-> declared and don't need a declaration, but can be made static.
-> so this patch marks this function with 'static'.
->=20
-> Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
-> ---
-> =C2=A0drivers/net/ethernet/intel/igb/igb_ethtool.c | 4 ++--
-> =C2=A01 file changed, 2 insertions(+), 2 deletions(-)
-
-Already fixed, see=C2=A0http://patchwork.ozlabs.org/patch/661904/
---=-OhqwHPJ9GQu93tEzU3nn
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJX4GOoAAoJEOVv75VaS+3OEoAP/AuryXUu9nGf4XK8kkjQt6hB
-/CxNWClaxiZJ0gnYUjcGy86ivs5muP+8aMrgaPyCcbrLzPE2XGTF2mmye2pGzf9X
-nWYbEKcInWk5vLtuwVVAS4unHw2naWWOpEnope5109792Wm+pTWfXwJMirOOMSD6
-plsTMlLjFyJQxA1GQEi4YIjaLdqmdNetdIPJl0hpHP6C0+DVQFt1umn5URO0Lxzv
-j12Nj5MUjse07S0ZyOlKs9cCBido5orFh8uPU98sAZJEAiJ0ftUsrAzuPtxi672j
-Hlg8NMVQrs9QNpwow4P8ru9SCj9LO38DieBn5pd7Yqp9MYNShVozCzjK6QY9JVsr
-RLL5rP0j+m8ZwWYEspiVdespz72JyDOzwu6VIyUJ6Zfh4j5OU7a6G7ZYa3NOwIus
-WltBc0ekNW/HLK+vY4kAKamC/z02+wMcJwMbIMNcwqFDE71dg3e8zTVu6Gx3Gzrc
-ArgLxbbvIm04ZDqLpZhRn20fK7p2/JP3AT7bVCFXrR93EJbC4zqmQ8HIWWbsm6JV
-cNtEkpL0PqVAdLa85MsGBEVTm7qnHqnKkXpj0pnBxxIn09mNIdKAkUXtkQlE1Rbd
-LwUaD/OTSMQrL3Zu5eFgGo4nkeoLMbTfiGF/5+yiz/om5CvtzffQooNrFg893iHR
-Fl9tLEODMcteYYnP89VF
-=Bblu
------END PGP SIGNATURE-----
-
---=-OhqwHPJ9GQu93tEzU3nn--
+diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+index e349d0d64645..827988397fd8 100644
+--- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+@@ -452,36 +452,36 @@ enum mv88e6xxx_cap {
+ };
+ 
+ /* Bitmask of capabilities */
+-#define MV88E6XXX_FLAG_EDSA		BIT(MV88E6XXX_CAP_EDSA)
+-#define MV88E6XXX_FLAG_EEE		BIT(MV88E6XXX_CAP_EEE)
+-
+-#define MV88E6XXX_FLAG_SMI_CMD		BIT(MV88E6XXX_CAP_SMI_CMD)
+-#define MV88E6XXX_FLAG_SMI_DATA		BIT(MV88E6XXX_CAP_SMI_DATA)
+-
+-#define MV88E6XXX_FLAG_PHY_PAGE		BIT(MV88E6XXX_CAP_PHY_PAGE)
+-
+-#define MV88E6XXX_FLAG_SERDES		BIT(MV88E6XXX_CAP_SERDES)
+-
+-#define MV88E6XXX_FLAG_GLOBAL2		BIT(MV88E6XXX_CAP_GLOBAL2)
+-#define MV88E6XXX_FLAG_G2_MGMT_EN_2X	BIT(MV88E6XXX_CAP_G2_MGMT_EN_2X)
+-#define MV88E6XXX_FLAG_G2_MGMT_EN_0X	BIT(MV88E6XXX_CAP_G2_MGMT_EN_0X)
+-#define MV88E6XXX_FLAG_G2_IRL_CMD	BIT(MV88E6XXX_CAP_G2_IRL_CMD)
+-#define MV88E6XXX_FLAG_G2_IRL_DATA	BIT(MV88E6XXX_CAP_G2_IRL_DATA)
+-#define MV88E6XXX_FLAG_G2_PVT_ADDR	BIT(MV88E6XXX_CAP_G2_PVT_ADDR)
+-#define MV88E6XXX_FLAG_G2_PVT_DATA	BIT(MV88E6XXX_CAP_G2_PVT_DATA)
+-#define MV88E6XXX_FLAG_G2_SWITCH_MAC	BIT(MV88E6XXX_CAP_G2_SWITCH_MAC)
+-#define MV88E6XXX_FLAG_G2_POT		BIT(MV88E6XXX_CAP_G2_POT)
+-#define MV88E6XXX_FLAG_G2_EEPROM_CMD	BIT(MV88E6XXX_CAP_G2_EEPROM_CMD)
+-#define MV88E6XXX_FLAG_G2_EEPROM_DATA	BIT(MV88E6XXX_CAP_G2_EEPROM_DATA)
+-#define MV88E6XXX_FLAG_G2_SMI_PHY_CMD	BIT(MV88E6XXX_CAP_G2_SMI_PHY_CMD)
+-#define MV88E6XXX_FLAG_G2_SMI_PHY_DATA	BIT(MV88E6XXX_CAP_G2_SMI_PHY_DATA)
+-
+-#define MV88E6XXX_FLAG_PPU		BIT(MV88E6XXX_CAP_PPU)
+-#define MV88E6XXX_FLAG_PPU_ACTIVE	BIT(MV88E6XXX_CAP_PPU_ACTIVE)
+-#define MV88E6XXX_FLAG_STU		BIT(MV88E6XXX_CAP_STU)
+-#define MV88E6XXX_FLAG_TEMP		BIT(MV88E6XXX_CAP_TEMP)
+-#define MV88E6XXX_FLAG_TEMP_LIMIT	BIT(MV88E6XXX_CAP_TEMP_LIMIT)
+-#define MV88E6XXX_FLAG_VTU		BIT(MV88E6XXX_CAP_VTU)
++#define MV88E6XXX_FLAG_EDSA		BIT_ULL(MV88E6XXX_CAP_EDSA)
++#define MV88E6XXX_FLAG_EEE		BIT_ULL(MV88E6XXX_CAP_EEE)
++
++#define MV88E6XXX_FLAG_SMI_CMD		BIT_ULL(MV88E6XXX_CAP_SMI_CMD)
++#define MV88E6XXX_FLAG_SMI_DATA		BIT_ULL(MV88E6XXX_CAP_SMI_DATA)
++
++#define MV88E6XXX_FLAG_PHY_PAGE		BIT_ULL(MV88E6XXX_CAP_PHY_PAGE)
++
++#define MV88E6XXX_FLAG_SERDES		BIT_ULL(MV88E6XXX_CAP_SERDES)
++
++#define MV88E6XXX_FLAG_GLOBAL2		BIT_ULL(MV88E6XXX_CAP_GLOBAL2)
++#define MV88E6XXX_FLAG_G2_MGMT_EN_2X	BIT_ULL(MV88E6XXX_CAP_G2_MGMT_EN_2X)
++#define MV88E6XXX_FLAG_G2_MGMT_EN_0X	BIT_ULL(MV88E6XXX_CAP_G2_MGMT_EN_0X)
++#define MV88E6XXX_FLAG_G2_IRL_CMD	BIT_ULL(MV88E6XXX_CAP_G2_IRL_CMD)
++#define MV88E6XXX_FLAG_G2_IRL_DATA	BIT_ULL(MV88E6XXX_CAP_G2_IRL_DATA)
++#define MV88E6XXX_FLAG_G2_PVT_ADDR	BIT_ULL(MV88E6XXX_CAP_G2_PVT_ADDR)
++#define MV88E6XXX_FLAG_G2_PVT_DATA	BIT_ULL(MV88E6XXX_CAP_G2_PVT_DATA)
++#define MV88E6XXX_FLAG_G2_SWITCH_MAC	BIT_ULL(MV88E6XXX_CAP_G2_SWITCH_MAC)
++#define MV88E6XXX_FLAG_G2_POT		BIT_ULL(MV88E6XXX_CAP_G2_POT)
++#define MV88E6XXX_FLAG_G2_EEPROM_CMD	BIT_ULL(MV88E6XXX_CAP_G2_EEPROM_CMD)
++#define MV88E6XXX_FLAG_G2_EEPROM_DATA	BIT_ULL(MV88E6XXX_CAP_G2_EEPROM_DATA)
++#define MV88E6XXX_FLAG_G2_SMI_PHY_CMD	BIT_ULL(MV88E6XXX_CAP_G2_SMI_PHY_CMD)
++#define MV88E6XXX_FLAG_G2_SMI_PHY_DATA	BIT_ULL(MV88E6XXX_CAP_G2_SMI_PHY_DATA)
++
++#define MV88E6XXX_FLAG_PPU		BIT_ULL(MV88E6XXX_CAP_PPU)
++#define MV88E6XXX_FLAG_PPU_ACTIVE	BIT_ULL(MV88E6XXX_CAP_PPU_ACTIVE)
++#define MV88E6XXX_FLAG_STU		BIT_ULL(MV88E6XXX_CAP_STU)
++#define MV88E6XXX_FLAG_TEMP		BIT_ULL(MV88E6XXX_CAP_TEMP)
++#define MV88E6XXX_FLAG_TEMP_LIMIT	BIT_ULL(MV88E6XXX_CAP_TEMP_LIMIT)
++#define MV88E6XXX_FLAG_VTU		BIT_ULL(MV88E6XXX_CAP_VTU)
+ 
+ /* EEPROM Programming via Global2 with 16-bit data */
+ #define MV88E6XXX_FLAGS_EEPROM16	\
+@@ -614,7 +614,7 @@ struct mv88e6xxx_info {
+ 	unsigned int num_ports;
+ 	unsigned int port_base_addr;
+ 	unsigned int age_time_coeff;
+-	unsigned long flags;
++	unsigned long long flags;
+ };
+ 
+ struct mv88e6xxx_atu_entry {
+-- 
+2.9.3
