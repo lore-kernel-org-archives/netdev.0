@@ -1,32 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH (net.git)] stmmac: fix PWRDWN into the PMT register for
- global unicast.
-Date: Sun, 18 Sep 2016 22:21:32 -0400 (EDT)
-Message-ID: <20160918.222132.2281635475128921557.davem@davemloft.net>
-References: <1474015813-5400-1-git-send-email-peppe.cavallaro@st.com>
+Subject: Re: [PATCH][V2] net: r6040: add in missing white space in error
+ message text
+Date: Sun, 18 Sep 2016 22:22:41 -0400 (EDT)
+Message-ID: <20160918.222241.2023931565916978660.davem@davemloft.net>
+References: <20160916094338.23698-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexandre.torgue@st.com
-To: peppe.cavallaro@st.com
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51856 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:51876 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936428AbcISCVf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 22:21:35 -0400
-In-Reply-To: <1474015813-5400-1-git-send-email-peppe.cavallaro@st.com>
+        with ESMTP id S1751488AbcISCWo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2016 22:22:44 -0400
+In-Reply-To: <20160916094338.23698-1-colin.king@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Date: Fri, 16 Sep 2016 10:50:13 +0200
+From: Colin King <colin.king@canonical.com>
+Date: Fri, 16 Sep 2016 10:43:38 +0100
 
-> MAC devices use the RWKPKTEN and MGKPKTEN bits of the PMT Control/Status
-> register to generate power management events.
-> So this patch is to properly set the RWKPKTEN [BIT(2)] inside the
-> PMT register (needed in case of global unicast).
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> Reported-by: Aditi SHARMA <aditi-hed.sharma@st.com>
-> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> A couple of dev_err messages span two lines and the literal
+> string is missing a white space between words. Add the white
+> space and join the two lines into one.
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Applied.
+Applied to net-next, thanks.
