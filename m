@@ -1,35 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net PATCH] mlx4: fix XDP_TX is acting like XDP_PASS on TX
- ring full
-Date: Mon, 19 Sep 2016 01:32:56 -0400 (EDT)
-Message-ID: <20160919.013256.1146128345827495736.davem@davemloft.net>
-References: <20160916203535.20016.45146.stgit@firesoul>
+Subject: Re: [PATCH resend] sctp: Remove some redundant code
+Date: Mon, 19 Sep 2016 01:34:34 -0400 (EDT)
+Message-ID: <20160919.013434.1910609314182367829.davem@davemloft.net>
+References: <1474059935-17343-1-git-send-email-christophe.jaillet@wanadoo.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tariqt@mellanox.com,
-        eric.dumazet@gmail.com, tom@herbertland.com, bblanco@plumgrid.com,
-        rana.shahot@gmail.com
-To: brouer@redhat.com
+Cc: marcelo.leitner@gmail.com, vyasevich@gmail.com,
+        nhorman@tuxdriver.com, linux-sctp@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: christophe.jaillet@wanadoo.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:53248 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:53262 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935439AbcISFdA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 01:33:00 -0400
-In-Reply-To: <20160916203535.20016.45146.stgit@firesoul>
+        with ESMTP id S1755785AbcISFej (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 01:34:39 -0400
+In-Reply-To: <1474059935-17343-1-git-send-email-christophe.jaillet@wanadoo.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Date: Fri, 16 Sep 2016 22:36:12 +0200
+From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Date: Fri, 16 Sep 2016 23:05:35 +0200
 
-> The XDP_TX action can fail transmitting the frame in case the TX ring
-> is full or port is down.  In case of TX failure it should drop the
-> frame, and not as now call 'break' which is the same as XDP_PASS.
+> In commit 311b21774f13 ("sctp: simplify sk_receive_queue locking"), a call
+> to 'skb_queue_splice_tail_init()' has been made explicit. Previously it was
+> hidden in 'sctp_skb_list_tail()'
 > 
-> Fixes: 9ecc2d86171a ("net/mlx4_en: add xdp forwarding and data write support")
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> Now, the code around it looks redundant. The '_init()' part of
+> 'skb_queue_splice_tail_init()' should already do the same.
+> 
+> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+> Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> Acked-by: Neil Horman <nhorman@tuxdriver.com>
 
-This patch is for net-next, please be explicit about that in the future.
-
-Applied, thanks.
+Applied to net-next.
