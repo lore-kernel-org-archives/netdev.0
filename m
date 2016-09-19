@@ -1,81 +1,49 @@
-From: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
-Subject: Re: [PATCH v6 5/6] net: ipv4, ipv6: run cgroup eBPF egress programs
-Date: Mon, 19 Sep 2016 22:35:33 +0200
-Message-ID: <20160919203533.GA888@salvia>
-References: <1474303441-3745-1-git-send-email-daniel@zonque.org>
- <1474303441-3745-6-git-send-email-daniel@zonque.org>
- <20160919191910.GA984@salvia>
- <ac88bb4c-ab7c-1f74-c7fd-79e523b50ae4@zonque.org>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [RFC V3 PATCH 00/26] Kernel NET policy
+Date: Mon, 19 Sep 2016 13:39:25 -0700
+Message-ID: <20160919133925.0f0b31b7@xeon-e3>
+References: <1473692159-4017-1-git-send-email-kan.liang@intel.com>
+        <1473695534.18970.75.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: htejun-b10kYP2dOMg@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, ast-b10kYP2dOMg@public.gmane.org,
-        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, kafai-b10kYP2dOMg@public.gmane.org, fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org, harald-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <ac88bb4c-ab7c-1f74-c7fd-79e523b50ae4-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: kan.liang@intel.com, davem@davemloft.net,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        jeffrey.t.kirsher@intel.com, mingo@redhat.com,
+        peterz@infradead.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+        yoshfuji@linux-ipv6.org, kaber@trash.net,
+        akpm@linux-foundation.org, keescook@chromium.org,
+        viro@zeniv.linux.org.uk, gorcunov@openvz.org,
+        john.stultz@linaro.org, aduyck@mirantis.com, ben@decadent.org.uk,
+        decot@googlers.com, fw@strlen.de, alexander.duyck@gmail.com,
+        daniel@iogearbox.net, tom@herbertland.com, rdunlap@infradead.org,
+        xiyou.wangcong@gmail.com, hannes@stressinduktion.org,
+        alexei.starovoitov@gmail.com, jesse.brandeburg@intel.com,
+        andi@firstfloor.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1473695534.18970.75.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 19, 2016 at 09:30:02PM +0200, Daniel Mack wrote:
-> On 09/19/2016 09:19 PM, Pablo Neira Ayuso wrote:
-> > On Mon, Sep 19, 2016 at 06:44:00PM +0200, Daniel Mack wrote:
-> >> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-> >> index 6001e78..5dc90aa 100644
-> >> --- a/net/ipv6/ip6_output.c
-> >> +++ b/net/ipv6/ip6_output.c
-> >> @@ -39,6 +39,7 @@
-> >>  #include <linux/module.h>
-> >>  #include <linux/slab.h>
-> >>  
-> >> +#include <linux/bpf-cgroup.h>
-> >>  #include <linux/netfilter.h>
-> >>  #include <linux/netfilter_ipv6.h>
-> >>  
-> >> @@ -143,6 +144,7 @@ int ip6_output(struct net *net, struct sock *sk, struct sk_buff *skb)
-> >>  {
-> >>  	struct net_device *dev = skb_dst(skb)->dev;
-> >>  	struct inet6_dev *idev = ip6_dst_idev(skb_dst(skb));
-> >> +	int ret;
-> >>  
-> >>  	if (unlikely(idev->cnf.disable_ipv6)) {
-> >>  		IP6_INC_STATS(net, idev, IPSTATS_MIB_OUTDISCARDS);
-> >> @@ -150,6 +152,12 @@ int ip6_output(struct net *net, struct sock *sk, struct sk_buff *skb)
-> >>  		return 0;
-> >>  	}
-> >>  
-> >> +	ret = cgroup_bpf_run_filter(sk, skb, BPF_CGROUP_INET_EGRESS);
-> >> +	if (ret) {
-> >> +		kfree_skb(skb);
-> >> +		return ret;
-> >> +	}
-> > 
-> > 1) If your goal is to filter packets, why so late? The sooner you
-> >    enforce your policy, the less cycles you waste.
-> > 
-> > Actually, did you look at Google's approach to this problem?  They
-> > want to control this at socket level, so you restrict what the process
-> > can actually bind. That is enforcing the policy way before you even
-> > send packets. On top of that, what they submitted is infrastructured
-> > so any process with CAP_NET_ADMIN can access that policy that is being
-> > applied and fetch a readable policy through kernel interface.
+On Mon, 12 Sep 2016 08:52:14 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+
+> On Mon, 2016-09-12 at 07:55 -0700, kan.liang@intel.com wrote:
+> > From: Kan Liang <kan.liang@intel.com>
+> >   
 > 
-> Yes, I've seen what they propose, but I want this approach to support
-> accounting, and so the code has to look at each and every packet in
-> order to count bytes and packets. Do you know of any better place to put
-> the hook then?
+> > 
+> >  Documentation/networking/netpolicy.txt |  157 ++++  
+> 
+> 
+> I find this patch series very suspect, as
+> Documentation/networking/scaling.txt is untouched.
+> 
+> I highly recommend you present your ideas at next netdev conference.
+> 
+> I really doubt the mailing lists are the best place to present your
+> work, given the huge amount of code/layers you want to add in linux
+> kernel.
 
-Accounting is part of the usecase that fits into the "network
-introspection" idea that has been mentioned here, so you can achieve
-this by adding a hook that returns no verdict, so this becomes similar
-to the tracing infrastructure.
-
-> That said, I can well imagine more hooks types that also operate at port
-> bind time. That would be easy to add on top.
-
-Filtering packets with cgroups is braindead.
-
-You have the means to ensure that processes send no packets via
-restricting port binding, there is no reason to do this any later for
-locally generated traffic.
+Agreed.
