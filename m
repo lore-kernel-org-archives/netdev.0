@@ -1,124 +1,82 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net] vti6: fix input path
-Date: Mon, 19 Sep 2016 16:17:57 +0200
-Message-ID: <1474294677-1232-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org,
-        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-        Alexey Kodanev <alexey.kodanev@oracle.com>
-To: davem@davemloft.net, steffen.klassert@secunet.com
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: [PATCH] can: flexcan: fix resume function
+Date: Mon, 19 Sep 2016 16:19:49 +0200
+Message-ID: <20160919141949.5826-2-mkl@pengutronix.de>
+References: <20160919141949.5826-1-mkl@pengutronix.de>
+Cc: davem@davemloft.net, linux-can@vger.kernel.org,
+        kernel@pengutronix.de, Fabio Estevam <fabio.estevam@nxp.com>,
+        linux-stable <stable@vger.kernel.org>,
+        Marc Kleine-Budde <mkl@pengutronix.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:46418 "EHLO
-        proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750747AbcISOSO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 10:18:14 -0400
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:59814 "EHLO
+        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751579AbcISOTy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 10:19:54 -0400
+In-Reply-To: <20160919141949.5826-1-mkl@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since commit 1625f4529957, vti6 is broken, all input packets are dropped
-(LINUX_MIB_XFRMINNOSTATES is incremented).
+From: Fabio Estevam <fabio.estevam@nxp.com>
 
-XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip6 is set by vti6_rcv() before calling
-xfrm6_rcv()/xfrm6_rcv_spi(), thus we cannot set to NULL that value in
-xfrm6_rcv_spi().
+On a imx6ul-pico board the following error is seen during system suspend:
 
-A new function xfrm6_rcv_tnl() that enables to pass a value to
-xfrm6_rcv_spi() is added, so that xfrm6_rcv() is not touched (this function
-is used in several handlers).
+dpm_run_callback(): platform_pm_resume+0x0/0x54 returns -110
+PM: Device 2090000.flexcan failed to resume: error -110
 
-CC: Alexey Kodanev <alexey.kodanev@oracle.com>
-Fixes: 1625f4529957 ("net/xfrm_input: fix possible NULL deref of tunnel.ip6->parms.i_key")
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+The reason for this suspend error is because when the CAN interface is not
+active the clocks are disabled and then flexcan_chip_enable() will
+always fail due to a timeout error.
+
+In order to fix this issue, only call flexcan_chip_enable/disable()
+when the CAN interface is active.
+
+Based on a patch from Dong Aisheng in the NXP kernel.
+
+Signed-off-by: Fabio Estevam <fabio.estevam@nxp.com>
+Cc: linux-stable <stable@vger.kernel.org>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- include/net/xfrm.h      |  4 +++-
- net/ipv6/ip6_vti.c      |  4 +---
- net/ipv6/xfrm6_input.c  | 16 +++++++++++-----
- net/ipv6/xfrm6_tunnel.c |  2 +-
- 4 files changed, 16 insertions(+), 10 deletions(-)
+ drivers/net/can/flexcan.c | 13 ++++++++-----
+ 1 file changed, 8 insertions(+), 5 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index adfebd6f243c..17934312eecb 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -1540,8 +1540,10 @@ int xfrm4_tunnel_deregister(struct xfrm_tunnel *handler, unsigned short family);
- void xfrm4_local_error(struct sk_buff *skb, u32 mtu);
- int xfrm6_extract_header(struct sk_buff *skb);
- int xfrm6_extract_input(struct xfrm_state *x, struct sk_buff *skb);
--int xfrm6_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi);
-+int xfrm6_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi,
-+		  struct ip6_tnl *t);
- int xfrm6_transport_finish(struct sk_buff *skb, int async);
-+int xfrm6_rcv_tnl(struct sk_buff *skb, struct ip6_tnl *t);
- int xfrm6_rcv(struct sk_buff *skb);
- int xfrm6_input_addr(struct sk_buff *skb, xfrm_address_t *daddr,
- 		     xfrm_address_t *saddr, u8 proto);
-diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
-index d90a11f14040..9dfb676c08af 100644
---- a/net/ipv6/ip6_vti.c
-+++ b/net/ipv6/ip6_vti.c
-@@ -321,11 +321,9 @@ static int vti6_rcv(struct sk_buff *skb)
- 			goto discard;
- 		}
+diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
+index 41c0fc9f3b14..16f7cadda5c3 100644
+--- a/drivers/net/can/flexcan.c
++++ b/drivers/net/can/flexcan.c
+@@ -1268,11 +1268,10 @@ static int __maybe_unused flexcan_suspend(struct device *device)
+ 	struct flexcan_priv *priv = netdev_priv(dev);
+ 	int err;
  
--		XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip6 = t;
+-	err = flexcan_chip_disable(priv);
+-	if (err)
+-		return err;
 -
- 		rcu_read_unlock();
- 
--		return xfrm6_rcv(skb);
-+		return xfrm6_rcv_tnl(skb, t);
+ 	if (netif_running(dev)) {
++		err = flexcan_chip_disable(priv);
++		if (err)
++			return err;
+ 		netif_stop_queue(dev);
+ 		netif_device_detach(dev);
  	}
- 	rcu_read_unlock();
- 	return -EINVAL;
-diff --git a/net/ipv6/xfrm6_input.c b/net/ipv6/xfrm6_input.c
-index 00a2d40677d6..b5789562aded 100644
---- a/net/ipv6/xfrm6_input.c
-+++ b/net/ipv6/xfrm6_input.c
-@@ -21,9 +21,10 @@ int xfrm6_extract_input(struct xfrm_state *x, struct sk_buff *skb)
- 	return xfrm6_extract_header(skb);
- }
- 
--int xfrm6_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi)
-+int xfrm6_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi,
-+		  struct ip6_tnl *t)
+@@ -1285,13 +1284,17 @@ static int __maybe_unused flexcan_resume(struct device *device)
  {
--	XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip6 = NULL;
-+	XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip6 = t;
- 	XFRM_SPI_SKB_CB(skb)->family = AF_INET6;
- 	XFRM_SPI_SKB_CB(skb)->daddroff = offsetof(struct ipv6hdr, daddr);
- 	return xfrm_input(skb, nexthdr, spi, 0);
-@@ -49,13 +50,18 @@ int xfrm6_transport_finish(struct sk_buff *skb, int async)
- 	return -1;
+ 	struct net_device *dev = dev_get_drvdata(device);
+ 	struct flexcan_priv *priv = netdev_priv(dev);
++	int err;
+ 
+ 	priv->can.state = CAN_STATE_ERROR_ACTIVE;
+ 	if (netif_running(dev)) {
+ 		netif_device_attach(dev);
+ 		netif_start_queue(dev);
++		err = flexcan_chip_enable(priv);
++		if (err)
++			return err;
+ 	}
+-	return flexcan_chip_enable(priv);
++	return 0;
  }
  
--int xfrm6_rcv(struct sk_buff *skb)
-+int xfrm6_rcv_tnl(struct sk_buff *skb, struct ip6_tnl *t)
- {
- 	return xfrm6_rcv_spi(skb, skb_network_header(skb)[IP6CB(skb)->nhoff],
--			     0);
-+			     0, t);
- }
--EXPORT_SYMBOL(xfrm6_rcv);
-+EXPORT_SYMBOL(xfrm6_rcv_tnl);
- 
-+int xfrm6_rcv(struct sk_buff *skb)
-+{
-+	return xfrm6_rcv_tnl(skb, NULL);
-+}
-+EXPORT_SYMBOL(xfrm6_rcv);
- int xfrm6_input_addr(struct sk_buff *skb, xfrm_address_t *daddr,
- 		     xfrm_address_t *saddr, u8 proto)
- {
-diff --git a/net/ipv6/xfrm6_tunnel.c b/net/ipv6/xfrm6_tunnel.c
-index 5743044cd660..e1c0bbe7996c 100644
---- a/net/ipv6/xfrm6_tunnel.c
-+++ b/net/ipv6/xfrm6_tunnel.c
-@@ -236,7 +236,7 @@ static int xfrm6_tunnel_rcv(struct sk_buff *skb)
- 	__be32 spi;
- 
- 	spi = xfrm6_tunnel_spi_lookup(net, (const xfrm_address_t *)&iph->saddr);
--	return xfrm6_rcv_spi(skb, IPPROTO_IPV6, spi);
-+	return xfrm6_rcv_spi(skb, IPPROTO_IPV6, spi, NULL);
- }
- 
- static int xfrm6_tunnel_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ static SIMPLE_DEV_PM_OPS(flexcan_pm_ops, flexcan_suspend, flexcan_resume);
 -- 
-2.8.1
+2.9.3
