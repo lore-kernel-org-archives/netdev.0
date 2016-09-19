@@ -1,37 +1,124 @@
-From: "Steve Wise" <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
-Subject: RE: [PATCH 0/2] cxgb4 FR_NSMR_TPTE_WR support
-Date: Mon, 19 Sep 2016 09:17:01 -0500
-Message-ID: <007f01d21280$7d1556b0$77400410$@opengridcomputing.com>
-References: <cover.1474037695.git.swise@opengridcomputing.com> <20160919.011633.1357649774235825501.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain;
-        charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "'David Miller'" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160919.011633.1357649774235825501.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Content-Language: en-us
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net] vti6: fix input path
+Date: Mon, 19 Sep 2016 16:17:57 +0200
+Message-ID: <1474294677-1232-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org,
+        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+        Alexey Kodanev <alexey.kodanev@oracle.com>
+To: davem@davemloft.net, steffen.klassert@secunet.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:46418 "EHLO
+        proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750747AbcISOSO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 10:18:14 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Since commit 1625f4529957, vti6 is broken, all input packets are dropped
+(LINUX_MIB_XFRMINNOSTATES is incremented).
 
-> 
-> From: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
-> Date: Fri, 16 Sep 2016 07:54:55 -0700
-> 
-> > This series enables a new work request to optimize small REG_MR
-> > operations.  This is intended for 4.9.  If everyone agrees, I suggest
-> > Doug take both the cxgb4 and iw_cxgb4 patches through his tree.
-> 
-> I'm assuming this mean that I do _not_ apply these to my tree.
+XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip6 is set by vti6_rcv() before calling
+xfrm6_rcv()/xfrm6_rcv_spi(), thus we cannot set to NULL that value in
+xfrm6_rcv_spi().
 
-Yes, if you're ok with that. 
+A new function xfrm6_rcv_tnl() that enables to pass a value to
+xfrm6_rcv_spi() is added, so that xfrm6_rcv() is not touched (this function
+is used in several handlers).
 
-Steve.
+CC: Alexey Kodanev <alexey.kodanev@oracle.com>
+Fixes: 1625f4529957 ("net/xfrm_input: fix possible NULL deref of tunnel.ip6->parms.i_key")
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ include/net/xfrm.h      |  4 +++-
+ net/ipv6/ip6_vti.c      |  4 +---
+ net/ipv6/xfrm6_input.c  | 16 +++++++++++-----
+ net/ipv6/xfrm6_tunnel.c |  2 +-
+ 4 files changed, 16 insertions(+), 10 deletions(-)
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index adfebd6f243c..17934312eecb 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -1540,8 +1540,10 @@ int xfrm4_tunnel_deregister(struct xfrm_tunnel *handler, unsigned short family);
+ void xfrm4_local_error(struct sk_buff *skb, u32 mtu);
+ int xfrm6_extract_header(struct sk_buff *skb);
+ int xfrm6_extract_input(struct xfrm_state *x, struct sk_buff *skb);
+-int xfrm6_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi);
++int xfrm6_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi,
++		  struct ip6_tnl *t);
+ int xfrm6_transport_finish(struct sk_buff *skb, int async);
++int xfrm6_rcv_tnl(struct sk_buff *skb, struct ip6_tnl *t);
+ int xfrm6_rcv(struct sk_buff *skb);
+ int xfrm6_input_addr(struct sk_buff *skb, xfrm_address_t *daddr,
+ 		     xfrm_address_t *saddr, u8 proto);
+diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
+index d90a11f14040..9dfb676c08af 100644
+--- a/net/ipv6/ip6_vti.c
++++ b/net/ipv6/ip6_vti.c
+@@ -321,11 +321,9 @@ static int vti6_rcv(struct sk_buff *skb)
+ 			goto discard;
+ 		}
+ 
+-		XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip6 = t;
+-
+ 		rcu_read_unlock();
+ 
+-		return xfrm6_rcv(skb);
++		return xfrm6_rcv_tnl(skb, t);
+ 	}
+ 	rcu_read_unlock();
+ 	return -EINVAL;
+diff --git a/net/ipv6/xfrm6_input.c b/net/ipv6/xfrm6_input.c
+index 00a2d40677d6..b5789562aded 100644
+--- a/net/ipv6/xfrm6_input.c
++++ b/net/ipv6/xfrm6_input.c
+@@ -21,9 +21,10 @@ int xfrm6_extract_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	return xfrm6_extract_header(skb);
+ }
+ 
+-int xfrm6_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi)
++int xfrm6_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi,
++		  struct ip6_tnl *t)
+ {
+-	XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip6 = NULL;
++	XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip6 = t;
+ 	XFRM_SPI_SKB_CB(skb)->family = AF_INET6;
+ 	XFRM_SPI_SKB_CB(skb)->daddroff = offsetof(struct ipv6hdr, daddr);
+ 	return xfrm_input(skb, nexthdr, spi, 0);
+@@ -49,13 +50,18 @@ int xfrm6_transport_finish(struct sk_buff *skb, int async)
+ 	return -1;
+ }
+ 
+-int xfrm6_rcv(struct sk_buff *skb)
++int xfrm6_rcv_tnl(struct sk_buff *skb, struct ip6_tnl *t)
+ {
+ 	return xfrm6_rcv_spi(skb, skb_network_header(skb)[IP6CB(skb)->nhoff],
+-			     0);
++			     0, t);
+ }
+-EXPORT_SYMBOL(xfrm6_rcv);
++EXPORT_SYMBOL(xfrm6_rcv_tnl);
+ 
++int xfrm6_rcv(struct sk_buff *skb)
++{
++	return xfrm6_rcv_tnl(skb, NULL);
++}
++EXPORT_SYMBOL(xfrm6_rcv);
+ int xfrm6_input_addr(struct sk_buff *skb, xfrm_address_t *daddr,
+ 		     xfrm_address_t *saddr, u8 proto)
+ {
+diff --git a/net/ipv6/xfrm6_tunnel.c b/net/ipv6/xfrm6_tunnel.c
+index 5743044cd660..e1c0bbe7996c 100644
+--- a/net/ipv6/xfrm6_tunnel.c
++++ b/net/ipv6/xfrm6_tunnel.c
+@@ -236,7 +236,7 @@ static int xfrm6_tunnel_rcv(struct sk_buff *skb)
+ 	__be32 spi;
+ 
+ 	spi = xfrm6_tunnel_spi_lookup(net, (const xfrm_address_t *)&iph->saddr);
+-	return xfrm6_rcv_spi(skb, IPPROTO_IPV6, spi);
++	return xfrm6_rcv_spi(skb, IPPROTO_IPV6, spi, NULL);
+ }
+ 
+ static int xfrm6_tunnel_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+-- 
+2.8.1
