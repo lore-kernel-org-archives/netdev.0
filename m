@@ -1,49 +1,69 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net PATCH V3] mlx4: fix XDP_TX is acting like XDP_PASS on TX
- ring full
-Date: Mon, 19 Sep 2016 09:42:19 +0200
-Message-ID: <20160919094219.5b0d11cd@redhat.com>
-References: <20160917164650.53e68314@redhat.com>
-        <20160917154753.3130.16986.stgit@firesoul>
-        <20160919.013925.1660395475687226712.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tariqt@mellanox.com, tom@herbertland.com,
-        bblanco@plumgrid.com, rana.shahot@gmail.com, brouer@redhat.com
-To: David Miller <davem@davemloft.net>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net] cxgb4/cxgb4vf: Allocate more queues for 100G adapter
+Date: Mon, 19 Sep 2016 13:32:46 +0530
+Message-ID: <1474272166-30147-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
+        Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36214 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1760428AbcISHmZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 19 Sep 2016 03:42:25 -0400
-In-Reply-To: <20160919.013925.1660395475687226712.davem@davemloft.net>
+Received: from stargate.chelsio.com ([12.32.117.8]:63334 "EHLO
+        stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751914AbcISH5a (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 03:57:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 19 Sep 2016 01:39:25 -0400 (EDT)
-David Miller <davem@davemloft.net> wrote:
+We were missing check for 100G while checking port speed, which lead to
+less number of queues getting allocated for 100G and leading to low
+throughput. Adding the missing check for both NIC and vNIC driver.
 
-> From: Jesper Dangaard Brouer <brouer@redhat.com>
-> Date: Sat, 17 Sep 2016 17:48:00 +0200
-> 
-> > The XDP_TX action can fail transmitting the frame in case the TX ring
-> > is full or port is down.  In case of TX failure it should drop the
-> > frame, and not as now call 'break' which is the same as XDP_PASS.
-> > 
-> > Fixes: 9ecc2d86171a ("net/mlx4_en: add xdp forwarding and data write support")
-> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>  
-> 
-> Oops, I applied v2 of this patch.  Please send me any necessary
-> relative fixups, thanks.
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    | 3 ++-
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         | 2 +-
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h | 3 ++-
+ 3 files changed, 5 insertions(+), 3 deletions(-)
 
-Okay, I just send the needed fix up in/with:
-
-Subj: [net-next PATCH] mlx4: add missed recycle opportunity for XDP_TX on TX failure
-
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index c762a8c8c954..a8e4580f0440 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -4308,7 +4308,8 @@ static const struct pci_error_handlers cxgb4_eeh = {
+ static inline bool is_x_10g_port(const struct link_config *lc)
+ {
+ 	return (lc->supported & FW_PORT_CAP_SPEED_10G) != 0 ||
+-	       (lc->supported & FW_PORT_CAP_SPEED_40G) != 0;
++	       (lc->supported & FW_PORT_CAP_SPEED_40G) != 0 ||
++	       (lc->supported & FW_PORT_CAP_SPEED_100G) != 0;
+ }
+ 
+ static inline void init_rspq(struct adapter *adap, struct sge_rspq *q,
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index dc92c80a75f4..37885223347d 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -3628,7 +3628,7 @@ void t4_ulprx_read_la(struct adapter *adap, u32 *la_buf)
+ 
+ #define ADVERT_MASK (FW_PORT_CAP_SPEED_100M | FW_PORT_CAP_SPEED_1G |\
+ 		     FW_PORT_CAP_SPEED_10G | FW_PORT_CAP_SPEED_40G | \
+-		     FW_PORT_CAP_ANEG)
++		     FW_PORT_CAP_SPEED_100G | FW_PORT_CAP_ANEG)
+ 
+ /**
+  *	t4_link_l1cfg - apply link configuration to MAC/PHY
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h
+index 8ee541431e8b..903c0584c6c4 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h
+@@ -274,7 +274,8 @@ static inline bool is_10g_port(const struct link_config *lc)
+ static inline bool is_x_10g_port(const struct link_config *lc)
+ {
+ 	return (lc->supported & FW_PORT_CAP_SPEED_10G) != 0 ||
+-		(lc->supported & FW_PORT_CAP_SPEED_40G) != 0;
++		(lc->supported & FW_PORT_CAP_SPEED_40G) != 0 ||
++		(lc->supported & FW_PORT_CAP_SPEED_100G) != 0;
+ }
+ 
+ static inline unsigned int core_ticks_per_usec(const struct adapter *adapter)
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+2.3.4
