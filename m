@@ -1,29 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net: ethernet: broadcom: bcm63xx: use new api
- ethtool_{get|set}_link_ksettings
-Date: Mon, 19 Sep 2016 21:40:24 -0400 (EDT)
-Message-ID: <20160919.214024.1975753880541871897.davem@davemloft.net>
-References: <1474210747-19627-1-git-send-email-tremyfr@gmail.com>
-        <1474210747-19627-2-git-send-email-tremyfr@gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH RFC 2/6] rhashtable: Call library function
+ alloc_bucket_locks
+Date: Tue, 20 Sep 2016 09:49:37 +0800
+Message-ID: <20160920014937.GA18287@gondor.apana.org.au>
+References: <1473463197-3076903-3-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, andrew@lunn.ch, treding@nvidia.com,
-        ivecera@redhat.com, xypron.glpk@gmx.de, simon@fire.lp0.eu,
-        bcm-kernel-feedback-list@broadcom.com, netdev@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: tremyfr@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1474210747-19627-2-git-send-email-tremyfr@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, kernel-team@fb.com,
+        tgraf@suug.ch
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.hengli.com.au ([209.40.204.226]:41041 "EHLO
+        helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752263AbcITBtu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 21:49:50 -0400
+Content-Disposition: inline
+In-Reply-To: <1473463197-3076903-3-git-send-email-tom@herbertland.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Philippe Reynes <tremyfr@gmail.com>
-Date: Sun, 18 Sep 2016 16:59:07 +0200
-
-> The ethtool api {get|set}_settings is deprecated.
-> We move this driver to new api {get|set}_link_ksettings.
+Tom Herbert <tom@herbertland.com> wrote:
+> To allocate the array of bucket locks for the hash table we now
+> call library function alloc_bucket_spinlocks. This function is
+> based on the old alloc_bucket_locks in rhashtable and should
+> produce the same effect.
 > 
-> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+> Signed-off-by: Tom Herbert <tom@herbertland.com>
 
-Applied.
+This conflicts with the work I'm doing to fix the resize ENOMEM
+issue.  I'll be making the hashtable as well as the spinlock table
+nested, in which case you must not directly dereference it as an
+array.
+
+If you're just trying to share the spinlocks for another purpose,
+what we can do is provide a helper function to return the right
+lock for a given key/object.
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
