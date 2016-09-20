@@ -1,64 +1,52 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next] net/vxlan: Avoid unaligned access in
- vxlan_build_skb()
-Date: Tue, 20 Sep 2016 18:11:14 +0200
-Message-ID: <20160920181114.0ac7cfa0@griffin>
-References: <20160920142700.GJ8920@oracle.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 7/8] net/mlx5e: XDP TX forwarding support
+Date: Tue, 20 Sep 2016 09:13:56 -0700
+Message-ID: <1474388036.23058.26.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1474293539-2595-1-git-send-email-tariqt@mellanox.com>
+         <1474293539-2595-8-git-send-email-tariqt@mellanox.com>
+         <20160920102943.24732097@brouer.com> <20160920133300.144037fd@redhat.com>
+         <96b40925-0e8e-0230-0701-96c11d6921a1@gmail.com>
+         <20160920154036.GA98644@ast-mbp.thefacebook.com>
+         <CALx6S34YBsmSJr7z2wGsu1VvLkjoqTN+Q8JJ0j-H_DehMJzQ5g@mail.gmail.com>
+         <1474387110.23058.24.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20160920180609.148874b5@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        hannes@stressinduktion.org, aduyck@mirantis.com,
-        daniel@iogearbox.net, pabeni@redhat.com
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Cc: Tom Herbert <tom@herbertland.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Tariq Toukan <ttoukan.linux@gmail.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Eran Ben Elisha <eranbe@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Rana Shahout <ranas@mellanox.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59012 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932692AbcITQLS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 20 Sep 2016 12:11:18 -0400
-In-Reply-To: <20160920142700.GJ8920@oracle.com>
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:33267 "EHLO
+        mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933100AbcITQN6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 12:13:58 -0400
+Received: by mail-pa0-f68.google.com with SMTP id oz2so1109375pac.0
+        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 09:13:58 -0700 (PDT)
+In-Reply-To: <20160920180609.148874b5@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 20 Sep 2016 10:27:00 -0400, Sowmini Varadhan wrote:
-> The vxlan header is at offset (14 + 20 + 8) into the packet,
-> so the vxh is not aligned in vxlan_build_skb. Use [get/put]_unaligned
-> functions to modify flags and vni field in the vxh.
+On Tue, 2016-09-20 at 18:06 +0200, Jesper Dangaard Brouer wrote:
+> On Tue, 20 Sep 2016 08:58:30 -0700
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-How did you calculate that? IP header should be aligned to 4 bytes, UDP
-header is 8 bytes, thus VXLAN header is also aligned to 4 bytes.
+> > Same for XDP_TX if/when packet is dropped because output ring is full.
+> 
+> For the XDP_TX case a counter is already incremented[1] but it is a
+> local ring counter (ring->tx_dropped++).
+> 
+> Do you think we should maintain separate counters for XDP? (to have a
+> more consistent interface across drivers...)
 
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index e7d1668..f903fa4 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -1751,15 +1751,17 @@ static int vxlan_build_skb(struct sk_buff *skb, struct dst_entry *dst,
->  		goto out_free;
->  
->  	vxh = (struct vxlanhdr *) __skb_push(skb, sizeof(*vxh));
-> -	vxh->vx_flags = VXLAN_HF_VNI;
-> -	vxh->vx_vni = vxlan_vni_field(vni);
-> +	put_unaligned(VXLAN_HF_VNI, &vxh->vx_flags);
-> +	put_unaligned(vxlan_vni_field(vni), &vxh->vx_vni);
->  
->  	if (type & SKB_GSO_TUNNEL_REMCSUM) {
->  		unsigned int start;
-> +		__be32 tmpvni = get_unaligned(&vxh->vx_vni);
->  
->  		start = skb_checksum_start_offset(skb) - sizeof(struct vxlanhdr);
-> -		vxh->vx_vni |= vxlan_compute_rco(start, skb->csum_offset);
-> -		vxh->vx_flags |= VXLAN_HF_RCO;
-> +		tmpvni |= vxlan_compute_rco(start, skb->csum_offset);
-> +		put_unaligned(tmpvni, &vxh->vx_vni);
-> +		put_unaligned(VXLAN_HF_VNI | VXLAN_HF_RCO, &vxh->vx_flags);
+No, as long as the admin can learn drops are occurring.
 
-If you went this way, it would be better to make two local variables
-for vx_flags and vx_vni, store to them and do a single put_unaligned
-after the condition. That way, you would have two less put_unaligned and
-no get_unaligned in the remote csum case. And the code would be
-cleaner. And you're missing vx_flags being accessed in
-vxlan_build_gbp_hdr.
-
-But I think this is not needed at all, see above.
-
- Jiri
+"perf ... -e skb:kfree_skb ..." or drop monitor wont work,
+unfortunately.
