@@ -1,40 +1,65 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH RFC 1/3] xdp: Infrastructure to generalize XDP
-Date: Wed, 21 Sep 2016 00:44:16 +0200
-Message-ID: <20160920224416.GF3291@pox.localdomain>
-References: <1474408824-418864-1-git-send-email-tom@herbertland.com>
- <1474408824-418864-2-git-send-email-tom@herbertland.com>
+From: Nicolas Pitre <nicolas.pitre@linaro.org>
+Subject: Re: [PATCH v2 0/2] make POSIX timers optional
+Date: Tue, 20 Sep 2016 18:47:02 -0400 (EDT)
+Message-ID: <alpine.LFD.2.20.1609201833010.9311@knanqh.ubzr>
+References: <1474401400-18491-1-git-send-email-nicolas.pitre@linaro.org> <20160920202556.GA6713@localhost.localdomain> <20160920204556.GA7555@localhost.localdomain> <alpine.LFD.2.20.1609201655200.9311@knanqh.ubzr> <alpine.DEB.2.20.1609202300140.5476@nanos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, kernel-team@fb.com,
-        tariqt@mellanox.com, bblanco@plumgrid.com,
-        alexei.starovoitov@gmail.com, eric.dumazet@gmail.com,
-        brouer@redhat.com
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:37833 "EHLO
-        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751783AbcITWoT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 18:44:19 -0400
-Received: by mail-wm0-f51.google.com with SMTP id b130so60245055wmc.0
-        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 15:44:18 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1474408824-418864-2-git-send-email-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: Richard Cochran <richardcochran@gmail.com>,
+        John Stultz <john.stultz@linaro.org>,
+        Josh Triplett <josh@joshtriplett.org>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.20.1609202300140.5476@nanos>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/20/16 at 03:00pm, Tom Herbert wrote:
-> +static inline int __xdp_hook_run(struct list_head *list_head,
-> +				 struct xdp_buff *xdp)
-> +{
-> +	struct xdp_hook_ops *elem;
-> +	int ret = XDP_PASS;
-> +
-> +	list_for_each_entry(elem, list_head, list) {
-> +		ret = elem->hook(elem->priv, xdp);
-> +		if (ret != XDP_PASS)
-> +			break;
-> +	}
+On Tue, 20 Sep 2016, Thomas Gleixner wrote:
 
-Walking over a linear list? Really? :-) I thought this was supposed
-to be fast, no compromises made.
+> I think the whole approach is wrong because it makes the PTP split at the
+> wrong level.
+> 
+> Currently we have:
+> 
+> 	  DRIVER_X
+> 	  tristate "Driver X"
+> 	  select PTP
+> 
+> In order to make POSIX_CLOCK configurable we should have
+> 
+>        	  PTP
+> 	  tristate "PTP"
+> 	  select POSIX_CLOCK
+> 
+> Now if you want to distangle PTP from a driver then you split it at the
+> driver level and not at the PTP level:
+> 
+>       	  DRIVER_X
+> 	  tristate "Driver X"
+> 
+> 	  DRIVER_X_PTP
+> 	  bool "Enable PTP support"
+> 	  default y if !MAKE_IT_TINY
+> 	  depends on DRIVER_X
+> 	  select PTP
+> 
+> We have already drivers following that scheme. That way you make the PTP
+> support in the driver conditional on DRIVER_X_PTP and have no hassle with
+> modules and dependencies.
+
+I beg to disagree.
+
+There are way more drivers than subsystems and if you had to go around 
+unselecting all NIC drivers for CONFIG_ETHERNET to be turned off, and 
+with CONFIG_ETHERNET=n you'd finally be able to turn networking off, 
+then this would be a nightmare.
+
+IMHO it is much nicer for the poor user configuring the kernel to have a 
+single configuration prompt for PTP support, and then have whatever 
+driver that can provide a PTP clock just do it (or omit it) based on 
+that single prompt.  Prompting for PTP support for each individual 
+ethernet driver is silly.
+
+
+Nicolas
