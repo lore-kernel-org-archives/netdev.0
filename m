@@ -1,73 +1,61 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next] net/vxlan: Avoid unaligned access in vxlan_build_skb()
-Date: Tue, 20 Sep 2016 08:31:10 -0700
-Message-ID: <CALx6S34c=Ftn1PfQ+YRDvbbWUmFW0R1zGC2jgkY0G7Fcx_SM7g@mail.gmail.com>
-References: <20160920142700.GJ8920@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Jiri Benc <jbenc@redhat.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Paolo Abeni <pabeni@redhat.com>
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f194.google.com ([209.85.220.194]:35339 "EHLO
-        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754599AbcITPbM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 11:31:12 -0400
-Received: by mail-qk0-f194.google.com with SMTP id w204so1283503qka.2
-        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 08:31:11 -0700 (PDT)
-In-Reply-To: <20160920142700.GJ8920@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH net-next 8/8] net: qualcomm: add QCA7000 UART driver
+Date: Tue, 20 Sep 2016 17:32:36 +0200
+Message-ID: <2EE064FD-FCC1-4559-819D-471BD000F5AF@holtmann.org>
+References: <1474376544-20515-1-git-send-email-stefan.wahren@i2se.com> <1474376544-20515-9-git-send-email-stefan.wahren@i2se.com>
+Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Jiri Slaby <jslaby@suse.com>,
+        Network Development <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Rob Herring <robh@kernel.org>
+To: Stefan Wahren <stefan.wahren@i2se.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1474376544-20515-9-git-send-email-stefan.wahren@i2se.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 20, 2016 at 7:27 AM, Sowmini Varadhan
-<sowmini.varadhan@oracle.com> wrote:
-> The vxlan header is at offset (14 + 20 + 8) into the packet,
-> so the vxh is not aligned in vxlan_build_skb. Use [get/put]_unaligned
-> functions to modify flags and vni field in the vxh.
->
-I'm wondering if VXLAN is just the tip of the iceberg. Wouldn't this
-is also be a problem in GRE and Geneve when they encapsulate Ethernet?
-What about the outer IP header, wouldn't that potentially have
-unaligned accesses also when creating it?
+Hi Stefan,
 
-Tom
-
-> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+> This patch adds the Ethernet over UART driver for the
+> Qualcomm QCA7000 HomePlug GreenPHY.
+> 
+> Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
 > ---
->  drivers/net/vxlan.c |   10 ++++++----
->  1 files changed, 6 insertions(+), 4 deletions(-)
->
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index e7d1668..f903fa4 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -1751,15 +1751,17 @@ static int vxlan_build_skb(struct sk_buff *skb, struct dst_entry *dst,
->                 goto out_free;
->
->         vxh = (struct vxlanhdr *) __skb_push(skb, sizeof(*vxh));
-> -       vxh->vx_flags = VXLAN_HF_VNI;
-> -       vxh->vx_vni = vxlan_vni_field(vni);
-> +       put_unaligned(VXLAN_HF_VNI, &vxh->vx_flags);
-> +       put_unaligned(vxlan_vni_field(vni), &vxh->vx_vni);
->
->         if (type & SKB_GSO_TUNNEL_REMCSUM) {
->                 unsigned int start;
-> +               __be32 tmpvni = get_unaligned(&vxh->vx_vni);
->
->                 start = skb_checksum_start_offset(skb) - sizeof(struct vxlanhdr);
-> -               vxh->vx_vni |= vxlan_compute_rco(start, skb->csum_offset);
-> -               vxh->vx_flags |= VXLAN_HF_RCO;
-> +               tmpvni |= vxlan_compute_rco(start, skb->csum_offset);
-> +               put_unaligned(tmpvni, &vxh->vx_vni);
-> +               put_unaligned(VXLAN_HF_VNI | VXLAN_HF_RCO, &vxh->vx_flags);
->
->                 if (!skb_is_gso(skb)) {
->                         skb->ip_summed = CHECKSUM_NONE;
-> --
-> 1.7.1
->
+> drivers/net/ethernet/qualcomm/Kconfig      |  12 +
+> drivers/net/ethernet/qualcomm/Makefile     |   2 +
+> drivers/net/ethernet/qualcomm/qca_common.h |   6 +
+> drivers/net/ethernet/qualcomm/qca_uart.c   | 447 +++++++++++++++++++++++++++++
+> include/uapi/linux/tty.h                   |   1 +
+> 5 files changed, 468 insertions(+)
+> create mode 100644 drivers/net/ethernet/qualcomm/qca_uart.c
+> 
+> diff --git a/drivers/net/ethernet/qualcomm/Kconfig b/drivers/net/ethernet/qualcomm/Kconfig
+> index 0d33728..0ede46e 100644
+> --- a/drivers/net/ethernet/qualcomm/Kconfig
+> +++ b/drivers/net/ethernet/qualcomm/Kconfig
+> @@ -30,6 +30,18 @@ config QCA7000_SPI
+> 	  To compile this driver as a module, choose M here. The module
+> 	  will be called qcaspi.
+> 
+> +config QCA7000_UART
+> +	tristate "Qualcomm Atheros QCA7000 UART support"
+> +	select QCA7000
+> +	depends on TTY
+> +	---help---
+> +	  This UART protocol driver supports the Qualcomm Atheros QCA7000.
+> +	  The driver implements the tty line discipline N_QCA7K and supports
+> +	  only one netdevice.
+> +
+> +	  To compile this driver as a module, choose M here. The module
+> +	  will be called qcauart.
+> +
+
+this seems to be another candidate for having a proper UART or serial bus. Instead of adding one line discipline after another, I think we need to get quickly to having an enumerable bus here.
+
+Regards
+
+Marcel
