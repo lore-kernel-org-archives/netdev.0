@@ -1,123 +1,127 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: DSA: Suspicious RCU usage (via rtnl_bridge_getlink)
-Date: Tue, 20 Sep 2016 11:26:12 +0100
-Message-ID: <20160920102611.GO1041@n2100.armlinux.org.uk>
+From: Ram Amrani <Ram.Amrani@cavium.com>
+Subject: [RFC v2 00/11] QLogic RDMA Driver (qedr) RFC
+Date: Tue, 20 Sep 2016 13:35:52 +0300
+Message-ID: <1474367764-9555-1-git-send-email-Ram.Amrani@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain
+Cc: <Ariel.Elior@cavium.com>, <Michal.Kalderon@cavium.com>,
+        <Yuval.Mintz@cavium.com>, <rajesh.borundia@cavium.com>,
+        <linux-rdma@vger.kernel.org>, <netdev@vger.kernel.org>,
+        Ram amrani <Ram.Amrani@cavium.com>
+To: <davem@davemloft.net>, <dledford@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:43593 "EHLO
-        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752295AbcITK0W (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 06:26:22 -0400
-Content-Disposition: inline
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:32897 "EHLO
+        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S932281AbcITKga (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 06:36:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Issuing "bridge vlan show" on clearfog provokes a "suspicious RCU usage"
-warning from the kernel (see below).
+From: Ram amrani <Ram.Amrani@cavium.com>
 
-As it's illegal to schedule while holding the RCU read lock, there's the
-possibility for this happening much earlier in the call sequence -
-mv88e6xxx_port_vlan_dump() takes a mutex, and if that mutex were already
-held, we'd schedule at that point.  The RCU read lock was taken by
-rtnl_bridge_getlink().
+This series introduces RoCE RDMA driver for the 579xx RDMA products by Qlogic.
+The RDMA support is added as an additional loadable module (qedr) over the
+Ethernet qede driver.
+The qedr module will support both RoCE and iWarp, although this series only
+adds RoCE support.
+The qed and qede drivers are enhanced with functionality required for RDMA
+support.
 
-It looks horrible to fix - mvmdio.c as well as DSA locking are involved.
+Based on net-next 4c73195edbe3a5d7e14ea549bb261cf35c29f0cc.
 
-I'm wondering why might_sleep() doesn't detect this illegal RCU state,
-rather than detecting it when we actually schedule - Paul?
+The series adds on top of RFC v1:
+* a check for all drivers that IB_ACCESS_MW_BIND isn't set for ib_get_dma_mr
+* relocation of qedr user API to include/rdma/uapi/providers/
+* removal of qedr_devlist_local
+* fixed error handling in qedr_alloc_resources()
+* configuration of PBL in ib_map_mr_sg() driver implementation,
+  rather than post_send's IB_WR_REG_MR
+* misc.: placed code in proper patch, fixed a few comments,
+  removed extra parentheses
 
-===============================
-[ INFO: suspicious RCU usage. ]
-4.7.0+ #98 Not tainted
--------------------------------
-include/linux/rcupdate.h:554 Illegal context switch in RCU read-side critical section!
-other info that might help us debug this:
+Thanks for everyone which pointed out problems in the driver.
 
-rcu_scheduler_active = 1, debug_locks = 0
-5 locks held by bridge/31769:
- #0:  (rtnl_mutex){+.+.+.}, at: [<c058f508>] netlink_dump+0x20/0x268
- #1:  (rcu_read_lock){......}, at: [<c0571674>] rtnl_bridge_getlink+0x4c/0x25c
- #2:  (&ps->smi_mutex){+.+.+.}, at: [<c042ee58>] mv88e6xxx_port_vlan_dump+0x50/0x13c
- #3:  (&bus->mdio_lock/2){+.+...}, at: [<c042a6c4>] mdiobus_read_nested+0x4c/0x78
- #4:  (&dev->lock){+.+...}, at: [<c043a064>] orion_mdio_read+0x28/0xa4
-stack backtrace:
-CPU: 0 PID: 31769 Comm: bridge Not tainted 4.7.0+ #98
-Hardware name: Marvell Armada 380/385 (Device Tree)
-Backtrace:
-[<c0013488>] (dump_backtrace) from [<c00137d0>] (show_stack+0x18/0x1c)
- r6:60070013 r5:ffffffff r4:00000000 r3:dc8ba500
-[<c00137b8>] (show_stack) from [<c02c7b00>] (dump_stack+0xa4/0xdc)
-[<c02c7a5c>] (dump_stack) from [<c0076864>] (lockdep_rcu_suspicious+0xbc/0x11c)
- r6:0000022a r5:c0822fec r4:ecd78c80 r3:ecd78c80
-[<c00767a8>] (lockdep_rcu_suspicious) from [<c06bc4c0>] (__schedule+0x348/0x698)
- r7:00000000 r6:e9cc38e8 r5:c0981976 r4:ecd78c80
-[<c06bc178>] (__schedule) from [<c06bc940>] (schedule+0x3c/0xa0)
- r10:c093d4c8 r9:00000000 r8:00002710 r7:00000000 r6:0000d6d8 r5:00000000
- r4:0000afc8
-[<c06bc904>] (schedule) from [<c06c1130>] (schedule_hrtimeout_range_clock+0xe8/0x168)
-[<c06c1048>] (schedule_hrtimeout_range_clock) from [<c06c11d4>] (schedule_hrtimeout_range+0x24/0x2c)
- r10:c093d100 r9:00000000 r8:00000000 r7:e9cc3a30 r6:00000001 r5:ee860c30
- r4:ee860be0
-[<c06c11b0>] (schedule_hrtimeout_range) from [<c06c0b58>] (usleep_range+0x54/0x5c)
-[<c06c0b04>] (usleep_range) from [<c0439f9c>] (orion_mdio_wait_ready+0x114/0x14c)
-[<c0439e88>] (orion_mdio_wait_ready) from [<c043a098>] (orion_mdio_read+0x5c/0xa4)
- r10:00000000 r9:00000000 r8:04040000 r7:04040000 r6:00000000 r5:ee860800
- r4:ee860be0
-[<c043a03c>] (orion_mdio_read) from [<c042a6d8>] (mdiobus_read_nested+0x60/0x78)
- r8:edc53810 r7:00000000 r6:00000004 r5:ee86082c r4:ee860800 r3:c043a03c
-[<c042a678>] (mdiobus_read_nested) from [<c042d1cc>] (mv88e6xxx_reg_wait_ready+0x28/0x50)
- r7:00000007 r6:ee860800 r5:00000004 r4:00000010
-[<c042d1a4>] (mv88e6xxx_reg_wait_ready) from [<c042d688>] (__mv88e6xxx_reg_read+0x24/0x98)
- r6:00000010 r5:ee860800 r4:00000004 r3:00000007
-[<c042d664>] (__mv88e6xxx_reg_read) from [<c042d850>] (_mv88e6xxx_reg_read+0x38/0x60)
- r7:00000000 r6:e9cc3b38 r5:00000010 r4:edc53810
-[<c042d818>] (_mv88e6xxx_reg_read) from [<c042e240>] (_mv88e6xxx_port_pvid+0x28/0x8c)
- r5:00000010 r4:edc53810
-[<c042e218>] (_mv88e6xxx_port_pvid) from [<c042ee6c>] (mv88e6xxx_port_vlan_dump+0x64/0x13c)
- r8:c06b48e8 r7:edc5381c r6:e9cc3bc4 r5:c093d4c8 r4:edc53810 r3:e9cc3b38
-[<c042ee08>] (mv88e6xxx_port_vlan_dump) from [<c0685ab4>] (dsa_slave_port_obj_dump+0x54/0x70)
- r10:00007c19 r9:00000000 r8:00000002 r7:e9cc3bc4 r6:c06b48e8 r5:c07237e0
- r4:e9cc3bc4
-[<c0685a60>] (dsa_slave_port_obj_dump) from [<c06b50b8>] (switchdev_port_obj_dump+0x50/0xa8)
- r4:ef0e0800 r3:c0685a60
-[<c06b5068>] (switchdev_port_obj_dump) from [<c06b51f4>] (switchdev_port_vlan_fill+0x6c/0x98)
- r7:ea96c0cc r6:eaa7a180 r5:ea96c074 r4:00000002
-[<c06b5188>] (switchdev_port_vlan_fill) from [<c0573f80>] (ndo_dflt_bridge_getlink+0x28c/0x484)
- r4:ef0e0800
-[<c0573cf4>] (ndo_dflt_bridge_getlink) from [<c06b4c64>] (switchdev_port_bridge_getlink+0xc8/0xec)
- r10:57e108bb r9:edefbb18 r8:eaa7a180 r7:00007c19 r6:57e108bb r5:c093d4c8
- r4:ef0e0800
-[<c06b4b9c>] (switchdev_port_bridge_getlink) from [<c0571744>] (rtnl_bridge_getlink+0x11c/0x25c)
- r8:eaa7a180 r7:c09770f0 r6:c07236e4 r5:ef0e0800 r4:00000001
-[<c0571628>] (rtnl_bridge_getlink) from [<c058f5d8>] (netlink_dump+0xf0/0x268)
- r10:c0571628 r9:00000000 r8:00004000 r7:edefbb18 r6:00000f40 r5:eaa7a180
- r4:edefb800
-[<c058f4e8>] (netlink_dump) from [<c05904ec>] (__netlink_dump_start+0x13c/0x198)
- r8:edefbb18 r7:edc7c200 r6:e9cc3d90 r5:eaa7a300 r4:edefb800
-[<c05903b0>] (__netlink_dump_start) from [<c0575b74>] (rtnetlink_rcv_msg+0x118/0x1f8)
- r8:c0977000 r7:00000007 r6:eaa7a300 r5:00000818 r4:edc7c200 r3:e9cc3d90
-[<c0575a5c>] (rtnetlink_rcv_msg) from [<c0592ad8>] (netlink_rcv_skb+0xb4/0xc8)
- r10:00000000 r8:e9cc3e0c r7:eaa7a300 r6:c0575a5c r5:eaa7a300 r4:edc7c200
-[<c0592a24>] (netlink_rcv_skb) from [<c0573c08>] (rtnetlink_rcv+0x24/0x2c)
- r6:00000028 r5:edefb800 r4:eaa7a300 r3:000041de
-[<c0573be4>] (rtnetlink_rcv) from [<c0592484>] (netlink_unicast+0x1a0/0x204)
- r4:ef120800 r3:c0573be4
-[<c05922e4>] (netlink_unicast) from [<c05928dc>] (netlink_sendmsg+0x348/0x364)
- r10:eaa7a300 r8:00000000 r7:00000000 r6:00000028 r5:edefb800 r4:e9cc3eb8
-[<c0592594>] (netlink_sendmsg) from [<c053deb0>] (sock_sendmsg+0x1c/0x2c)
- r10:00000000 r9:e9cc2000 r8:00000000 r7:00000000 r6:c093d4c8 r5:eed4efc0
- r4:00000000
-[<c053de94>] (sock_sendmsg) from [<c053f2f4>] (SyS_sendto+0xc4/0x108)
-[<c053f230>] (SyS_sendto) from [<c053f358>] (SyS_send+0x20/0x28)
- r10:00000000 r8:c0010004 r7:00000121 r6:00000008 r5:57e108bb r4:00000000
-[<c053f338>] (SyS_send) from [<c000fe60>] (ret_fast_syscall+0x0/0x1c)
+Any review/comment is appreciated.
+
+Yuval Mintz (1):
+  qed: Add LL2
+
+Rajesh Borundia (10):
+  qedr: Add RoCE driver framework
+  qedr: Add support for RoCE HW init
+  qedr: Add support for user context verbs
+  qedr: Add support for PD,PKEY and CQ verbs
+  qedr: Add support for QP verbs
+  qedr: Add support for memory registeration verbs
+  qedr: Add support for data path
+  qedr: Add LL2 RoCE interface
+  qedr: Add GSI support
+  qedr: Add events support and register IB device
+
+Ram Amrani (1):
+  IB/core: add a protection to ib_get_dma_mr
+
+ drivers/infiniband/Kconfig                     |    2 +
+ drivers/infiniband/core/verbs.c                |    3 +
+ drivers/infiniband/hw/Makefile                 |    1 +
+ drivers/infiniband/hw/qedr/Kconfig             |    7 +
+ drivers/infiniband/hw/qedr/Makefile            |    3 +
+ drivers/infiniband/hw/qedr/main.c              |  893 ++++++
+ drivers/infiniband/hw/qedr/qedr.h              |  494 ++++
+ drivers/infiniband/hw/qedr/qedr_cm.c           |  626 +++++
+ drivers/infiniband/hw/qedr/qedr_cm.h           |   61 +
+ drivers/infiniband/hw/qedr/qedr_hsi.h          |   56 +
+ drivers/infiniband/hw/qedr/qedr_hsi_rdma.h     |  748 +++++
+ drivers/infiniband/hw/qedr/verbs.c             | 3523 ++++++++++++++++++++++++
+ drivers/infiniband/hw/qedr/verbs.h             |   75 +
+ drivers/net/ethernet/qlogic/Kconfig            |    8 +
+ drivers/net/ethernet/qlogic/qed/Makefile       |    2 +
+ drivers/net/ethernet/qlogic/qed/qed.h          |   38 +-
+ drivers/net/ethernet/qlogic/qed/qed_cxt.c      |    8 +
+ drivers/net/ethernet/qlogic/qed/qed_cxt.h      |    7 +
+ drivers/net/ethernet/qlogic/qed/qed_dev.c      |  276 +-
+ drivers/net/ethernet/qlogic/qed/qed_dev_api.h  |   20 +
+ drivers/net/ethernet/qlogic/qed/qed_hsi.h      |    3 +
+ drivers/net/ethernet/qlogic/qed/qed_ll2.c      | 1790 ++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_ll2.h      |  316 +++
+ drivers/net/ethernet/qlogic/qed/qed_main.c     |   67 +-
+ drivers/net/ethernet/qlogic/qed/qed_reg_addr.h |   30 +-
+ drivers/net/ethernet/qlogic/qed/qed_roce.c     | 2975 ++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_roce.h     |  210 ++
+ drivers/net/ethernet/qlogic/qed/qed_sp.h       |    5 +
+ drivers/net/ethernet/qlogic/qed/qed_spq.c      |    8 +
+ drivers/net/ethernet/qlogic/qede/Makefile      |    1 +
+ drivers/net/ethernet/qlogic/qede/qede.h        |    9 +
+ drivers/net/ethernet/qlogic/qede/qede_main.c   |   35 +-
+ drivers/net/ethernet/qlogic/qede/qede_roce.c   |  309 +++
+ include/linux/qed/common_hsi.h                 |    1 +
+ include/linux/qed/qed_if.h                     |    9 +-
+ include/linux/qed/qed_ll2_if.h                 |  140 +
+ include/linux/qed/qed_roce_if.h                |  604 ++++
+ include/linux/qed/qede_roce.h                  |   88 +
+ include/linux/qed/rdma_common.h                |    1 +
+ include/uapi/linux/pci_regs.h                  |    3 +
+ include/uapi/rdma/providers/qedr-abi.h         |   81 +
+ 41 files changed, 13516 insertions(+), 20 deletions(-)
+ create mode 100644 drivers/infiniband/hw/qedr/Kconfig
+ create mode 100644 drivers/infiniband/hw/qedr/Makefile
+ create mode 100644 drivers/infiniband/hw/qedr/main.c
+ create mode 100644 drivers/infiniband/hw/qedr/qedr.h
+ create mode 100644 drivers/infiniband/hw/qedr/qedr_cm.c
+ create mode 100644 drivers/infiniband/hw/qedr/qedr_cm.h
+ create mode 100644 drivers/infiniband/hw/qedr/qedr_hsi.h
+ create mode 100644 drivers/infiniband/hw/qedr/qedr_hsi_rdma.h
+ create mode 100644 drivers/infiniband/hw/qedr/verbs.c
+ create mode 100644 drivers/infiniband/hw/qedr/verbs.h
+ create mode 100644 drivers/net/ethernet/qlogic/qed/qed_ll2.c
+ create mode 100644 drivers/net/ethernet/qlogic/qed/qed_ll2.h
+ create mode 100644 drivers/net/ethernet/qlogic/qed/qed_roce.c
+ create mode 100644 drivers/net/ethernet/qlogic/qed/qed_roce.h
+ create mode 100644 drivers/net/ethernet/qlogic/qede/qede_roce.c
+ create mode 100644 include/linux/qed/qed_ll2_if.h
+ create mode 100644 include/linux/qed/qed_roce_if.h
+ create mode 100644 include/linux/qed/qede_roce.h
+ create mode 100644 include/uapi/rdma/providers/qedr-abi.h
 
 -- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+1.8.3.1
