@@ -1,140 +1,64 @@
 From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH v4 net-next 14/16] tcp: new CC hook to set sending rate with rate_sample in any CA state
-Date: Mon, 19 Sep 2016 23:39:21 -0400
-Message-ID: <1474342763-16715-15-git-send-email-ncardwell@google.com>
+Subject: [PATCH v4 net-next 05/16] tcp: switch back to proper tcp_skb_cb size check in tcp_init()
+Date: Mon, 19 Sep 2016 23:39:12 -0400
+Message-ID: <1474342763-16715-6-git-send-email-ncardwell@google.com>
 References: <1474342763-16715-1-git-send-email-ncardwell@google.com>
-Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
-        Van Jacobson <vanj@google.com>,
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+        Soheil Hassas Yeganeh <soheil@google.com>,
         Neal Cardwell <ncardwell@google.com>,
-        Nandita Dukkipati <nanditad@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Soheil Hassas Yeganeh <soheil@google.com>
+        Yuchung Cheng <ycheng@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f174.google.com ([209.85.220.174]:33614 "EHLO
-        mail-qk0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754158AbcITDju (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 23:39:50 -0400
-Received: by mail-qk0-f174.google.com with SMTP id w204so4364601qka.0
-        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 20:39:49 -0700 (PDT)
+Received: from mail-qk0-f175.google.com ([209.85.220.175]:36103 "EHLO
+        mail-qk0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753200AbcITDjg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 23:39:36 -0400
+Received: by mail-qk0-f175.google.com with SMTP id z190so4286568qkc.3
+        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 20:39:35 -0700 (PDT)
 In-Reply-To: <1474342763-16715-1-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuchung Cheng <ycheng@google.com>
+From: Eric Dumazet <edumazet@google.com>
 
-This commit introduces an optional new "omnipotent" hook,
-cong_control(), for congestion control modules. The cong_control()
-function is called at the end of processing an ACK (i.e., after
-updating sequence numbers, the SACK scoreboard, and loss
-detection). At that moment we have precise delivery rate information
-the congestion control module can use to control the sending behavior
-(using cwnd, TSO skb size, and pacing rate) in any CA state.
+Revert to the tcp_skb_cb size check that tcp_init() had before commit
+b4772ef879a8 ("net: use common macro for assering skb->cb[] available
+size in protocol families"). As related commit 744d5a3e9fe2 ("net:
+move skb->dropcount to skb->cb[]") explains, the
+sock_skb_cb_check_size() mechanism was added to ensure that there is
+space for dropcount, "for protocol families using it". But TCP is not
+a protocol using dropcount, so tcp_init() doesn't need to provision
+space for dropcount in the skb->cb[], and thus we can revert to the
+older form of the tcp_skb_cb size check. Doing so allows TCP to use 4
+more bytes of the skb->cb[] space.
 
-This function can also be used by a congestion control that prefers
-not to use the default cwnd reduction approach (i.e., the PRR
-algorithm) during CA_Recovery to control the cwnd and sending rate
-during loss recovery.
-
-We take advantage of the fact that recent changes defer the
-retransmission or transmission of new data (e.g. by F-RTO) in recovery
-until the new tcp_cong_control() function is run.
-
-With this commit, we only run tcp_update_pacing_rate() if the
-congestion control is not using this new API. New congestion controls
-which use the new API do not want the TCP stack to run the default
-pacing rate calculation and overwrite whatever pacing rate they have
-chosen at initialization time.
-
-Signed-off-by: Van Jacobson <vanj@google.com>
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
-Signed-off-by: Yuchung Cheng <ycheng@google.com>
-Signed-off-by: Nandita Dukkipati <nanditad@google.com>
+Fixes: b4772ef879a8 ("net: use common macro for assering skb->cb[] available size in protocol families")
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
 ---
- include/net/tcp.h    |  4 ++++
- net/ipv4/tcp_cong.c  |  2 +-
- net/ipv4/tcp_input.c | 17 ++++++++++++++---
- 3 files changed, 19 insertions(+), 4 deletions(-)
+ net/ipv4/tcp.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 1aa9628..f83b7f2 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -919,6 +919,10 @@ struct tcp_congestion_ops {
- 	u32 (*tso_segs_goal)(struct sock *sk);
- 	/* returns the multiplier used in tcp_sndbuf_expand (optional) */
- 	u32 (*sndbuf_expand)(struct sock *sk);
-+	/* call when packets are delivered to update cwnd and pacing rate,
-+	 * after all the ca_state processing. (optional)
-+	 */
-+	void (*cong_control)(struct sock *sk, const struct rate_sample *rs);
- 	/* get info for inet_diag (optional) */
- 	size_t (*get_info)(struct sock *sk, u32 ext, int *attr,
- 			   union tcp_cc_info *info);
-diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
-index 882caa4..1294af4 100644
---- a/net/ipv4/tcp_cong.c
-+++ b/net/ipv4/tcp_cong.c
-@@ -69,7 +69,7 @@ int tcp_register_congestion_control(struct tcp_congestion_ops *ca)
- 	int ret = 0;
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 5b0b49c..9d1ae18 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -3244,11 +3244,12 @@ static void __init tcp_init_mem(void)
  
- 	/* all algorithms must implement ssthresh and cong_avoid ops */
--	if (!ca->ssthresh || !ca->cong_avoid) {
-+	if (!ca->ssthresh || !(ca->cong_avoid || ca->cong_control)) {
- 		pr_err("%s does not implement required ops\n", ca->name);
- 		return -EINVAL;
- 	}
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 5af0bf3..28cfe99 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -2536,6 +2536,9 @@ static inline void tcp_end_cwnd_reduction(struct sock *sk)
+ void __init tcp_init(void)
  {
- 	struct tcp_sock *tp = tcp_sk(sk);
+-	unsigned long limit;
+ 	int max_rshare, max_wshare, cnt;
++	unsigned long limit;
+ 	unsigned int i;
  
-+	if (inet_csk(sk)->icsk_ca_ops->cong_control)
-+		return;
-+
- 	/* Reset cwnd to ssthresh in CWR or Recovery (unless it's undone) */
- 	if (inet_csk(sk)->icsk_ca_state == TCP_CA_CWR ||
- 	    (tp->undo_marker && tp->snd_ssthresh < TCP_INFINITE_SSTHRESH)) {
-@@ -3312,8 +3315,15 @@ static inline bool tcp_may_raise_cwnd(const struct sock *sk, const int flag)
-  * information. All transmission or retransmission are delayed afterwards.
-  */
- static void tcp_cong_control(struct sock *sk, u32 ack, u32 acked_sacked,
--			     int flag)
-+			     int flag, const struct rate_sample *rs)
- {
-+	const struct inet_connection_sock *icsk = inet_csk(sk);
-+
-+	if (icsk->icsk_ca_ops->cong_control) {
-+		icsk->icsk_ca_ops->cong_control(sk, rs);
-+		return;
-+	}
-+
- 	if (tcp_in_cwnd_reduction(sk)) {
- 		/* Reduce cwnd if state mandates */
- 		tcp_cwnd_reduction(sk, acked_sacked, flag);
-@@ -3683,7 +3693,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
- 	delivered = tp->delivered - delivered;	/* freshly ACKed or SACKed */
- 	lost = tp->lost - lost;			/* freshly marked lost */
- 	tcp_rate_gen(sk, delivered, lost, &now, &rs);
--	tcp_cong_control(sk, ack, delivered, flag);
-+	tcp_cong_control(sk, ack, delivered, flag, &rs);
- 	tcp_xmit_recovery(sk, rexmit);
- 	return 1;
+-	sock_skb_cb_check_size(sizeof(struct tcp_skb_cb));
++	BUILD_BUG_ON(sizeof(struct tcp_skb_cb) >
++		     FIELD_SIZEOF(struct sk_buff, cb));
  
-@@ -5981,7 +5991,8 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb)
- 		} else
- 			tcp_init_metrics(sk);
- 
--		tcp_update_pacing_rate(sk);
-+		if (!inet_csk(sk)->icsk_ca_ops->cong_control)
-+			tcp_update_pacing_rate(sk);
- 
- 		/* Prevent spurious tcp_cwnd_restart() on first data packet */
- 		tp->lsndtime = tcp_time_stamp;
+ 	percpu_counter_init(&tcp_sockets_allocated, 0, GFP_KERNEL);
+ 	percpu_counter_init(&tcp_orphan_count, 0, GFP_KERNEL);
 -- 
 2.8.0.rc3.226.g39d4020
