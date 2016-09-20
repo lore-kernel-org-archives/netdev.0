@@ -1,196 +1,43 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCHv2 net] cxgb4/cxgb4vf: Allocate more queues for 25G and 100G adapter
-Date: Tue, 20 Sep 2016 12:00:52 +0530
-Message-ID: <1474353052-19370-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
-        Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:37023 "EHLO
-        stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751539AbcITGZi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 02:25:38 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joel Stanley <joel@jms.id.au>
+Subject: [PATCH net-next 0/7] ftgmac100 support for ast2500
+Date: Tue, 20 Sep 2016 16:00:00 +0930
+Message-ID: <20160920063007.24291-1-joel@jms.id.au>
+Cc: gwshan@linux.vnet.ibm.com, andrew@lunn.ch, andrew@aj.id.au,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We were missing check for 25G and 100G while checking port speed,
-which lead to less number of queues getting allocated for 25G & 100G
-adapters and leading to low throughput. Adding the missing check for
-both NIC and vNIC driver.
+Hello Dave,
 
-Also fixes port advertisement for 25G and 100G in ethtool output.
+This series adds support to the ftgmac100 driver for the Aspeed ast2400 and
+ast2500 SoCs. In particular, they ensure the driver works correctly on the
+ast2500 where the MAC block has seen some changes in register layout.
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
-V2: Missed 25G in the first one
+They have been tested on ast2400 and ast2500 systems with the NCSI stack and
+with a directly attached PHY.
 
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |  4 ++--
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    | 15 +++++++++++++--
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         |  7 ++++++-
- drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h      |  6 ++++++
- drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h | 15 +++++++++++----
- drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c     |  9 +++++++--
- 6 files changed, 45 insertions(+), 11 deletions(-)
+Cheers,
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 2e2aa9fec9bb..edd23386b47d 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -419,8 +419,8 @@ struct link_config {
- 	unsigned short supported;        /* link capabilities */
- 	unsigned short advertising;      /* advertised capabilities */
- 	unsigned short lp_advertising;   /* peer advertised capabilities */
--	unsigned short requested_speed;  /* speed user has requested */
--	unsigned short speed;            /* actual link speed */
-+	unsigned int   requested_speed;  /* speed user has requested */
-+	unsigned int   speed;            /* actual link speed */
- 	unsigned char  requested_fc;     /* flow control user has requested */
- 	unsigned char  fc;               /* actual link flow control */
- 	unsigned char  autoneg;          /* autonegotiating? */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index c762a8c8c954..3ceafb55d6da 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -4305,10 +4305,17 @@ static const struct pci_error_handlers cxgb4_eeh = {
- 	.resume         = eeh_resume,
- };
- 
-+/* Return true if the Link Configuration supports "High Speeds" (those greater
-+ * than 1Gb/s).
-+ */
- static inline bool is_x_10g_port(const struct link_config *lc)
- {
--	return (lc->supported & FW_PORT_CAP_SPEED_10G) != 0 ||
--	       (lc->supported & FW_PORT_CAP_SPEED_40G) != 0;
-+	unsigned int speeds, high_speeds;
-+
-+	speeds = FW_PORT_CAP_SPEED_V(FW_PORT_CAP_SPEED_G(lc->supported));
-+	high_speeds = speeds & ~(FW_PORT_CAP_SPEED_100M | FW_PORT_CAP_SPEED_1G);
-+
-+	return high_speeds != 0;
- }
- 
- static inline void init_rspq(struct adapter *adap, struct sge_rspq *q,
-@@ -4756,8 +4763,12 @@ static void print_port_info(const struct net_device *dev)
- 		bufp += sprintf(bufp, "1000/");
- 	if (pi->link_cfg.supported & FW_PORT_CAP_SPEED_10G)
- 		bufp += sprintf(bufp, "10G/");
-+	if (pi->link_cfg.supported & FW_PORT_CAP_SPEED_25G)
-+		bufp += sprintf(bufp, "25G/");
- 	if (pi->link_cfg.supported & FW_PORT_CAP_SPEED_40G)
- 		bufp += sprintf(bufp, "40G/");
-+	if (pi->link_cfg.supported & FW_PORT_CAP_SPEED_100G)
-+		bufp += sprintf(bufp, "100G/");
- 	if (bufp != buf)
- 		--bufp;
- 	sprintf(bufp, "BASE-%s", t4_get_port_type_description(pi->port_type));
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index dc92c80a75f4..660204bff726 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -3627,7 +3627,8 @@ void t4_ulprx_read_la(struct adapter *adap, u32 *la_buf)
- }
- 
- #define ADVERT_MASK (FW_PORT_CAP_SPEED_100M | FW_PORT_CAP_SPEED_1G |\
--		     FW_PORT_CAP_SPEED_10G | FW_PORT_CAP_SPEED_40G | \
-+		     FW_PORT_CAP_SPEED_10G | FW_PORT_CAP_SPEED_25G | \
-+		     FW_PORT_CAP_SPEED_40G | FW_PORT_CAP_SPEED_100G | \
- 		     FW_PORT_CAP_ANEG)
- 
- /**
-@@ -7196,8 +7197,12 @@ void t4_handle_get_port_info(struct port_info *pi, const __be64 *rpl)
- 		speed = 1000;
- 	else if (stat & FW_PORT_CMD_LSPEED_V(FW_PORT_CAP_SPEED_10G))
- 		speed = 10000;
-+	else if (stat & FW_PORT_CMD_LSPEED_V(FW_PORT_CAP_SPEED_25G))
-+		speed = 25000;
- 	else if (stat & FW_PORT_CMD_LSPEED_V(FW_PORT_CAP_SPEED_40G))
- 		speed = 40000;
-+	else if (stat & FW_PORT_CMD_LSPEED_V(FW_PORT_CAP_SPEED_100G))
-+		speed = 100000;
- 
- 	lc = &pi->link_cfg;
- 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-index a89b30720e38..30507d44422c 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-@@ -2265,6 +2265,12 @@ enum fw_port_cap {
- 	FW_PORT_CAP_802_3_ASM_DIR	= 0x8000,
- };
- 
-+#define FW_PORT_CAP_SPEED_S     0
-+#define FW_PORT_CAP_SPEED_M     0x3f
-+#define FW_PORT_CAP_SPEED_V(x)  ((x) << FW_PORT_CAP_SPEED_S)
-+#define FW_PORT_CAP_SPEED_G(x) \
-+	(((x) >> FW_PORT_CAP_SPEED_S) & FW_PORT_CAP_SPEED_M)
-+
- enum fw_port_mdi {
- 	FW_PORT_CAP_MDI_UNCHANGED,
- 	FW_PORT_CAP_MDI_AUTO,
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h
-index 8ee541431e8b..17a2bbcf93f0 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h
-@@ -108,8 +108,8 @@ struct link_config {
- 	unsigned int   supported;        /* link capabilities */
- 	unsigned int   advertising;      /* advertised capabilities */
- 	unsigned short lp_advertising;   /* peer advertised capabilities */
--	unsigned short requested_speed;  /* speed user has requested */
--	unsigned short speed;            /* actual link speed */
-+	unsigned int   requested_speed;  /* speed user has requested */
-+	unsigned int   speed;            /* actual link speed */
- 	unsigned char  requested_fc;     /* flow control user has requested */
- 	unsigned char  fc;               /* actual link flow control */
- 	unsigned char  autoneg;          /* autonegotiating? */
-@@ -271,10 +271,17 @@ static inline bool is_10g_port(const struct link_config *lc)
- 	return (lc->supported & FW_PORT_CAP_SPEED_10G) != 0;
- }
- 
-+/* Return true if the Link Configuration supports "High Speeds" (those greater
-+ * than 1Gb/s).
-+ */
- static inline bool is_x_10g_port(const struct link_config *lc)
- {
--	return (lc->supported & FW_PORT_CAP_SPEED_10G) != 0 ||
--		(lc->supported & FW_PORT_CAP_SPEED_40G) != 0;
-+	unsigned int speeds, high_speeds;
-+
-+	speeds = FW_PORT_CAP_SPEED_V(FW_PORT_CAP_SPEED_G(lc->supported));
-+	high_speeds = speeds & ~(FW_PORT_CAP_SPEED_100M | FW_PORT_CAP_SPEED_1G);
-+
-+	return high_speeds != 0;
- }
- 
- static inline unsigned int core_ticks_per_usec(const struct adapter *adapter)
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
-index 427bfa71388b..b5622b1689e9 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
-@@ -314,8 +314,9 @@ int t4vf_wr_mbox_core(struct adapter *adapter, const void *cmd, int size,
- }
- 
- #define ADVERT_MASK (FW_PORT_CAP_SPEED_100M | FW_PORT_CAP_SPEED_1G |\
--		     FW_PORT_CAP_SPEED_10G | FW_PORT_CAP_SPEED_40G | \
--		     FW_PORT_CAP_SPEED_100G | FW_PORT_CAP_ANEG)
-+		     FW_PORT_CAP_SPEED_10G | FW_PORT_CAP_SPEED_25G | \
-+		     FW_PORT_CAP_SPEED_40G | FW_PORT_CAP_SPEED_100G | \
-+		     FW_PORT_CAP_ANEG)
- 
- /**
-  *	init_link_config - initialize a link's SW state
-@@ -1712,8 +1713,12 @@ int t4vf_handle_fw_rpl(struct adapter *adapter, const __be64 *rpl)
- 			speed = 1000;
- 		else if (stat & FW_PORT_CMD_LSPEED_V(FW_PORT_CAP_SPEED_10G))
- 			speed = 10000;
-+		else if (stat & FW_PORT_CMD_LSPEED_V(FW_PORT_CAP_SPEED_25G))
-+			speed = 25000;
- 		else if (stat & FW_PORT_CMD_LSPEED_V(FW_PORT_CAP_SPEED_40G))
- 			speed = 40000;
-+		else if (stat & FW_PORT_CMD_LSPEED_V(FW_PORT_CAP_SPEED_100G))
-+			speed = 100000;
- 
- 		/*
- 		 * Scan all of our "ports" (Virtual Interfaces) looking for
+Joel
+
+Andrew Jeffery (2):
+  net/ftgmac100: Separate rx page storage from rxdesc
+  net/ftgmac100: Make EDO{R,T}R bits configurable
+
+Gavin Shan (2):
+  net/faraday: Avoid PHYSTS_CHG interrupt
+  net/faraday: Clear stale interrupts
+
+Joel Stanley (3):
+  net/ftgmac100: Adapt for Aspeed SoCs
+  net/faraday: Fix phy link irq on Aspeed G5 SoCs
+  net/faraday: Configure old MDIO interface on Aspeed SoCs
+
+ drivers/net/ethernet/faraday/ftgmac100.c | 92 ++++++++++++++++++++++++--------
+ drivers/net/ethernet/faraday/ftgmac100.h |  8 ++-
+ 2 files changed, 77 insertions(+), 23 deletions(-)
+
 -- 
-2.3.4
+2.9.3
