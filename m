@@ -1,32 +1,46 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCHv2 iproute2] ip route: check ftell, fseek return value
-Date: Tue, 20 Sep 2016 09:53:22 -0700
-Message-ID: <20160920095322.19a75d24@xeon-e3>
-References: <1473301617-9123-1-git-send-email-liuhangbin@gmail.com>
+From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Subject: Re: [PATCH v6 5/6] net: ipv4, ipv6: run cgroup eBPF egress programs
+Date: Tue, 20 Sep 2016 18:53:29 +0200
+Message-ID: <20160920165329.GB3291@pox.localdomain>
+References: <1474303441-3745-1-git-send-email-daniel@zonque.org>
+ <1474303441-3745-6-git-send-email-daniel@zonque.org>
+ <20160919191910.GA984@salvia>
+ <ac88bb4c-ab7c-1f74-c7fd-79e523b50ae4@zonque.org>
+ <20160919203533.GA888@salvia>
+ <83afdc54-1bbe-3530-e5fd-b74fefe9a042@zonque.org>
+ <20160920142931.GA31438@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Laight <David.Laight@ACULAB.COM>,
-        Phil Sutter <phil@nwl.cc>
-To: Hangbin Liu <liuhangbin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:36268 "EHLO
-        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932368AbcITQxM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 12:53:12 -0400
-Received: by mail-pf0-f176.google.com with SMTP id q2so9169821pfj.3
-        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 09:53:12 -0700 (PDT)
-In-Reply-To: <1473301617-9123-1-git-send-email-liuhangbin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>, htejun-b10kYP2dOMg@public.gmane.org,
+        daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, ast-b10kYP2dOMg@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+        kafai-b10kYP2dOMg@public.gmane.org, fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org, harald-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20160920142931.GA31438@salvia>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu,  8 Sep 2016 10:26:57 +0800
-Hangbin Liu <liuhangbin@gmail.com> wrote:
-
-> ftell() may return -1 in error case, which is not handled and therefore pass a
-> negative offset to fseek(). The return code of fseek() is also not checked.
+On 09/20/16 at 04:29pm, Pablo Neira Ayuso wrote:
+> On Mon, Sep 19, 2016 at 10:56:14PM +0200, Daniel Mack wrote:
+> [...]
+> > Why would we artificially limit the use-cases of this implementation if
+> > the way it stands, both filtering and introspection are possible?
 > 
-> Reported-by: Phil Sutter <phil@nwl.cc>
-> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+> Why should we place infrastructure in the kernel to filter packets so
+> late, and why at postrouting btw, when we can do this way earlier
+> before any packet is actually sent? No performance impact, no need for
+> skbuff allocation and *no cycles wasted to evaluate if every packet is
+> wanted or not*.
 
-Applied
+I won't argue against filtering at socket level, it is very valuable.
+A difference is transparency of enforcement. Dropping at networking
+level is accounted for in the usual counters and well understood by
+admins. "Dropping" at bind socket level would either involve returning
+an error to the application (which may change behaviour of the application)
+or require a new form of accounting.
+
+I also want to see packet size, selected source address, outgoing device,
+and attach tunnel key metadata to the skb based on the cgroup. All of
+which are not available at socket level.
