@@ -1,10 +1,10 @@
 From: Joel Stanley <joel@jms.id.au>
-Subject: [PATCH net-next 1/7] net/faraday: Separate rx page storage from rxdesc
-Date: Tue, 20 Sep 2016 16:00:01 +0930
-Message-ID: <20160920063007.24291-2-joel@jms.id.au>
+Subject: [PATCH net-next 4/7] net/faraday: Avoid PHYSTS_CHG interrupt
+Date: Tue, 20 Sep 2016 16:00:04 +0930
+Message-ID: <20160920063007.24291-5-joel@jms.id.au>
 References: <20160920063007.24291-1-joel@jms.id.au>
-Cc: Andrew Jeffery <andrew@aj.id.au>, gwshan@linux.vnet.ibm.com,
-        andrew@lunn.ch, netdev@vger.kernel.org,
+Cc: Gavin Shan <gwshan@linux.vnet.ibm.com>, andrew@lunn.ch,
+        andrew@aj.id.au, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org, benh@kernel.crashing.org
 To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -12,90 +12,46 @@ In-Reply-To: <20160920063007.24291-1-joel@jms.id.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andrew Jeffery <andrew@aj.id.au>
+From: Gavin Shan <gwshan@linux.vnet.ibm.com>
 
-The ftgmac100 hardware revision in e.g. the Aspeed AST2500 no longer
-reserves all bits in RXDES#2 but instead uses the bottom 16 bits to
-store MAC frame metadata. Avoid corruption by shifting struct page
-pointers out to their own member in struct ftgmac100.
+Bit#11 in MACCR (0x50) designates the signal level for PHY link
+status change. It's cleared, meaning high level enabled, by default.
+However, we can see continuous interrupt (bit#6) in ISR (0x0) for it
+and it's obviously a false alarm. The side effect is CPU cycles wasted
+to process the false alarm.
 
-Signed-off-by: Andrew Jeffery <andrew@aj.id.au>
+This sets bit#11 in MACCR (0x50) to avoid the bogus interrupt.
+
+Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
 Signed-off-by: Joel Stanley <joel@jms.id.au>
 ---
- drivers/net/ethernet/faraday/ftgmac100.c | 25 ++++++++++++++++++-------
- 1 file changed, 18 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/faraday/ftgmac100.c | 1 +
+ drivers/net/ethernet/faraday/ftgmac100.h | 1 +
+ 2 files changed, 2 insertions(+)
 
 diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index 36361f8bf894..40622567159a 100644
+index 47f512224b57..f2ea6c2f1fbd 100644
 --- a/drivers/net/ethernet/faraday/ftgmac100.c
 +++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -60,6 +60,8 @@ struct ftgmac100 {
- 	struct ftgmac100_descs *descs;
- 	dma_addr_t descs_dma_addr;
+@@ -215,6 +215,7 @@ static void ftgmac100_init_hw(struct ftgmac100 *priv)
+ 				 FTGMAC100_MACCR_RXMAC_EN	| \
+ 				 FTGMAC100_MACCR_FULLDUP	| \
+ 				 FTGMAC100_MACCR_CRC_APD	| \
++				 FTGMAC100_MACCR_PHY_LINK_LEVEL | \
+ 				 FTGMAC100_MACCR_RX_RUNT	| \
+ 				 FTGMAC100_MACCR_RX_BROADPKT)
  
-+	struct page *rx_pages[RX_QUEUE_ENTRIES];
-+
- 	unsigned int rx_pointer;
- 	unsigned int tx_clean_pointer;
- 	unsigned int tx_pointer;
-@@ -341,18 +343,27 @@ static bool ftgmac100_rxdes_ipcs_err(struct ftgmac100_rxdes *rxdes)
- 	return rxdes->rxdes1 & cpu_to_le32(FTGMAC100_RXDES1_IP_CHKSUM_ERR);
- }
- 
-+static inline struct page **ftgmac100_rxdes_page_slot(struct ftgmac100 *priv,
-+						      struct ftgmac100_rxdes *rxdes)
-+{
-+	return &priv->rx_pages[rxdes - priv->descs->rxdes];
-+}
-+
- /*
-  * rxdes2 is not used by hardware. We use it to keep track of page.
-  * Since hardware does not touch it, we can skip cpu_to_le32()/le32_to_cpu().
-  */
--static void ftgmac100_rxdes_set_page(struct ftgmac100_rxdes *rxdes, struct page *page)
-+static void ftgmac100_rxdes_set_page(struct ftgmac100 *priv,
-+				     struct ftgmac100_rxdes *rxdes,
-+				     struct page *page)
- {
--	rxdes->rxdes2 = (unsigned int)page;
-+	*ftgmac100_rxdes_page_slot(priv, rxdes) = page;
- }
- 
--static struct page *ftgmac100_rxdes_get_page(struct ftgmac100_rxdes *rxdes)
-+static struct page *ftgmac100_rxdes_get_page(struct ftgmac100 *priv,
-+					     struct ftgmac100_rxdes *rxdes)
- {
--	return (struct page *)rxdes->rxdes2;
-+	return *ftgmac100_rxdes_page_slot(priv, rxdes);
- }
- 
- /******************************************************************************
-@@ -501,7 +512,7 @@ static bool ftgmac100_rx_packet(struct ftgmac100 *priv, int *processed)
- 
- 	do {
- 		dma_addr_t map = ftgmac100_rxdes_get_dma_addr(rxdes);
--		struct page *page = ftgmac100_rxdes_get_page(rxdes);
-+		struct page *page = ftgmac100_rxdes_get_page(priv, rxdes);
- 		unsigned int size;
- 
- 		dma_unmap_page(priv->dev, map, RX_BUF_SIZE, DMA_FROM_DEVICE);
-@@ -779,7 +790,7 @@ static int ftgmac100_alloc_rx_page(struct ftgmac100 *priv,
- 		return -ENOMEM;
- 	}
- 
--	ftgmac100_rxdes_set_page(rxdes, page);
-+	ftgmac100_rxdes_set_page(priv, rxdes, page);
- 	ftgmac100_rxdes_set_dma_addr(rxdes, map);
- 	ftgmac100_rxdes_set_dma_own(rxdes);
- 	return 0;
-@@ -791,7 +802,7 @@ static void ftgmac100_free_buffers(struct ftgmac100 *priv)
- 
- 	for (i = 0; i < RX_QUEUE_ENTRIES; i++) {
- 		struct ftgmac100_rxdes *rxdes = &priv->descs->rxdes[i];
--		struct page *page = ftgmac100_rxdes_get_page(rxdes);
-+		struct page *page = ftgmac100_rxdes_get_page(priv, rxdes);
- 		dma_addr_t map = ftgmac100_rxdes_get_dma_addr(rxdes);
- 
- 		if (!page)
+diff --git a/drivers/net/ethernet/faraday/ftgmac100.h b/drivers/net/ethernet/faraday/ftgmac100.h
+index c258586ce4a4..d07b6ea5d1b5 100644
+--- a/drivers/net/ethernet/faraday/ftgmac100.h
++++ b/drivers/net/ethernet/faraday/ftgmac100.h
+@@ -152,6 +152,7 @@
+ #define FTGMAC100_MACCR_FULLDUP		(1 << 8)
+ #define FTGMAC100_MACCR_GIGA_MODE	(1 << 9)
+ #define FTGMAC100_MACCR_CRC_APD		(1 << 10)
++#define FTGMAC100_MACCR_PHY_LINK_LEVEL	(1 << 11)
+ #define FTGMAC100_MACCR_RX_RUNT		(1 << 12)
+ #define FTGMAC100_MACCR_JUMBO_LF	(1 << 13)
+ #define FTGMAC100_MACCR_RX_ALL		(1 << 14)
 -- 
 2.9.3
