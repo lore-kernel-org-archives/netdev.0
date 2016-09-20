@@ -1,74 +1,33 @@
 From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH v4 net-next 08/16] tcp: track application-limited rate samples
-Date: Mon, 19 Sep 2016 23:39:15 -0400
-Message-ID: <1474342763-16715-9-git-send-email-ncardwell@google.com>
+Subject: [PATCH v4 net-next 03/16] tcp: use windowed min filter library for TCP min_rtt estimation
+Date: Mon, 19 Sep 2016 23:39:10 -0400
+Message-ID: <1474342763-16715-4-git-send-email-ncardwell@google.com>
 References: <1474342763-16715-1-git-send-email-ncardwell@google.com>
-Cc: netdev@vger.kernel.org, Soheil Hassas Yeganeh <soheil@google.com>,
+Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
         Van Jacobson <vanj@google.com>,
-        Neal Cardwell <ncardwell@google.com>,
         Yuchung Cheng <ycheng@google.com>,
         Nandita Dukkipati <nanditad@google.com>,
-        Eric Dumazet <edumazet@google.com>
+        Eric Dumazet <edumazet@google.com>,
+        Soheil Hassas Yeganeh <soheil@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f172.google.com ([209.85.220.172]:33580 "EHLO
+Received: from mail-qk0-f172.google.com ([209.85.220.172]:35193 "EHLO
         mail-qk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753200AbcITDjk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 23:39:40 -0400
-Received: by mail-qk0-f172.google.com with SMTP id w204so4362688qka.0
-        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 20:39:40 -0700 (PDT)
+        with ESMTP id S1753870AbcITDjd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 23:39:33 -0400
+Received: by mail-qk0-f172.google.com with SMTP id t7so4309804qkh.2
+        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 20:39:32 -0700 (PDT)
 In-Reply-To: <1474342763-16715-1-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Soheil Hassas Yeganeh <soheil@google.com>
+Refactor the TCP min_rtt code to reuse the new win_minmax library in
+lib/win_minmax.c to simplify the TCP code.
 
-This commit adds code to track whether the delivery rate represented
-by each rate_sample was limited by the application.
-
-Upon each transmit, we store in the is_app_limited field in the skb a
-boolean bit indicating whether there is a known "bubble in the pipe":
-a point in the rate sample interval where the sender was
-application-limited, and did not transmit even though the cwnd and
-pacing rate allowed it.
-
-This logic marks the flow app-limited on a write if *all* of the
-following are true:
-
-  1) There is less than 1 MSS of unsent data in the write queue
-     available to transmit.
-
-  2) There is no packet in the sender's queues (e.g. in fq or the NIC
-     tx queue).
-
-  3) The connection is not limited by cwnd.
-
-  4) There are no lost packets to retransmit.
-
-The tcp_rate_check_app_limited() code in tcp_rate.c determines whether
-the connection is application-limited at the moment. If the flow is
-application-limited, it sets the tp->app_limited field. If the flow is
-application-limited then that means there is effectively a "bubble" of
-silence in the pipe now, and this silence will be reflected in a lower
-bandwidth sample for any rate samples from now until we get an ACK
-indicating this bubble has exited the pipe: specifically, until we get
-an ACK for the next packet we transmit.
-
-When we send every skb we record in scb->tx.is_app_limited whether the
-resulting rate sample will be application-limited.
-
-The code in tcp_rate_gen() checks to see when it is safe to mark all
-known application-limited bubbles of silence as having exited the
-pipe. It does this by checking to see when the delivered count moves
-past the tp->app_limited marker. At this point it zeroes the
-tp->app_limited marker, as all known bubbles are out of the pipe.
-
-We make room for the tx.is_app_limited bit in the skb by borrowing a
-bit from the in_flight field used by NV to record the number of bytes
-in flight. The receive window in the TCP header is 16 bits, and the
-max receive window scaling shift factor is 14 (RFC 1323). So the max
-receive window offered by the TCP protocol is 2^(16+14) = 2^30. So we
-only need 30 bits for the tx.in_flight used by NV.
+This is a pure refactor: the functionality is exactly the same. We
+just moved the windowed min code to make TCP easier to read and
+maintain, and to allow other parts of the kernel to use the windowed
+min/max filter code.
 
 Signed-off-by: Van Jacobson <vanj@google.com>
 Signed-off-by: Neal Cardwell <ncardwell@google.com>
@@ -77,169 +36,151 @@ Signed-off-by: Nandita Dukkipati <nanditad@google.com>
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
 ---
- include/linux/tcp.h      |  1 +
- include/net/tcp.h        |  6 +++++-
- net/ipv4/tcp.c           |  8 ++++++++
- net/ipv4/tcp_minisocks.c |  3 +++
- net/ipv4/tcp_rate.c      | 29 ++++++++++++++++++++++++++++-
- 5 files changed, 45 insertions(+), 2 deletions(-)
+ include/linux/tcp.h      |  5 ++--
+ include/net/tcp.h        |  2 +-
+ net/ipv4/tcp.c           |  2 +-
+ net/ipv4/tcp_input.c     | 64 ++++--------------------------------------------
+ net/ipv4/tcp_minisocks.c |  2 +-
+ 5 files changed, 10 insertions(+), 65 deletions(-)
 
 diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index c50e6ae..fdcd00f 100644
+index c723a46..6433cc8 100644
 --- a/include/linux/tcp.h
 +++ b/include/linux/tcp.h
-@@ -268,6 +268,7 @@ struct tcp_sock {
- 	u32	prr_out;	/* Total number of pkts sent during Recovery. */
- 	u32	delivered;	/* Total data packets delivered incl. rexmits */
- 	u32	lost;		/* Total data packets lost incl. rexmits */
-+	u32	app_limited;	/* limited until "delivered" reaches this val */
- 	struct skb_mstamp first_tx_mstamp;  /* start of window send phase */
- 	struct skb_mstamp delivered_mstamp; /* time we reached "delivered" */
+@@ -19,6 +19,7 @@
  
+ 
+ #include <linux/skbuff.h>
++#include <linux/win_minmax.h>
+ #include <net/sock.h>
+ #include <net/inet_connection_sock.h>
+ #include <net/inet_timewait_sock.h>
+@@ -234,9 +235,7 @@ struct tcp_sock {
+ 	u32	mdev_max_us;	/* maximal mdev for the last rtt period	*/
+ 	u32	rttvar_us;	/* smoothed mdev_max			*/
+ 	u32	rtt_seq;	/* sequence number to update rttvar	*/
+-	struct rtt_meas {
+-		u32 rtt, ts;	/* RTT in usec and sampling time in jiffies. */
+-	} rtt_min[3];
++	struct  minmax rtt_min;
+ 
+ 	u32	packets_out;	/* Packets which are "in flight"	*/
+ 	u32	retrans_out;	/* Retransmitted packets out		*/
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index b261c89..a69ed7f 100644
+index fdfbedd..2f1648a 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -764,7 +764,9 @@ struct tcp_skb_cb {
- 	union {
- 		struct {
- 			/* There is space for up to 24 bytes */
--			__u32 in_flight;/* Bytes in flight when packet sent */
-+			__u32 in_flight:30,/* Bytes in flight at transmit */
-+			      is_app_limited:1, /* cwnd not fully used? */
-+			      unused:1;
- 			/* pkts S/ACKed so far upon tx of skb, incl retrans: */
- 			__u32 delivered;
- 			/* start of send pipeline phase */
-@@ -883,6 +885,7 @@ struct rate_sample {
- 	int  losses;		/* number of packets marked lost upon ACK */
- 	u32  acked_sacked;	/* number of packets newly (S)ACKed upon ACK */
- 	u32  prior_in_flight;	/* in flight before this ACK */
-+	bool is_app_limited;	/* is sample from packet with bubble in pipe? */
- 	bool is_retrans;	/* is sample from retransmission? */
- };
+@@ -671,7 +671,7 @@ static inline bool tcp_ca_dst_locked(const struct dst_entry *dst)
+ /* Minimum RTT in usec. ~0 means not available. */
+ static inline u32 tcp_min_rtt(const struct tcp_sock *tp)
+ {
+-	return tp->rtt_min[0].rtt;
++	return minmax_get(&tp->rtt_min);
+ }
  
-@@ -978,6 +981,7 @@ void tcp_rate_skb_delivered(struct sock *sk, struct sk_buff *skb,
- 			    struct rate_sample *rs);
- void tcp_rate_gen(struct sock *sk, u32 delivered, u32 lost,
- 		  struct skb_mstamp *now, struct rate_sample *rs);
-+void tcp_rate_check_app_limited(struct sock *sk);
- 
- /* These functions determine how the current flow behaves in respect of SACK
-  * handling. SACK is negotiated with the peer, and therefore it can vary
+ /* Compute the actual receive window we are currently advertising.
 diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 9d1ae18..c187552 100644
+index a13fcb3..5b0b49c 100644
 --- a/net/ipv4/tcp.c
 +++ b/net/ipv4/tcp.c
-@@ -396,6 +396,9 @@ void tcp_init_sock(struct sock *sk)
- 	 */
- 	tp->snd_cwnd = TCP_INIT_CWND;
+@@ -387,7 +387,7 @@ void tcp_init_sock(struct sock *sk)
  
-+	/* There's a bubble in the pipe until at least the first ACK. */
-+	tp->app_limited = ~0U;
-+
- 	/* See draft-stevens-tcpca-spec-01 for discussion of the
- 	 * initialization of these values.
- 	 */
-@@ -1014,6 +1017,9 @@ int tcp_sendpage(struct sock *sk, struct page *page, int offset,
- 					flags);
+ 	icsk->icsk_rto = TCP_TIMEOUT_INIT;
+ 	tp->mdev_us = jiffies_to_usecs(TCP_TIMEOUT_INIT);
+-	tp->rtt_min[0].rtt = ~0U;
++	minmax_reset(&tp->rtt_min, tcp_time_stamp, ~0U);
  
- 	lock_sock(sk);
-+
-+	tcp_rate_check_app_limited(sk);  /* is sending application-limited? */
-+
- 	res = do_tcp_sendpages(sk, page, offset, size, flags);
- 	release_sock(sk);
- 	return res;
-@@ -1101,6 +1107,8 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
+ 	/* So many TCP implementations out there (incorrectly) count the
+ 	 * initial SYN frame in their delayed-ACK and congestion control
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 70b892d..ac5b38f 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2879,67 +2879,13 @@ static void tcp_fastretrans_alert(struct sock *sk, const int acked,
+ 	*rexmit = REXMIT_LOST;
+ }
  
- 	timeo = sock_sndtimeo(sk, flags & MSG_DONTWAIT);
- 
-+	tcp_rate_check_app_limited(sk);  /* is sending application-limited? */
+-/* Kathleen Nichols' algorithm for tracking the minimum value of
+- * a data stream over some fixed time interval. (E.g., the minimum
+- * RTT over the past five minutes.) It uses constant space and constant
+- * time per update yet almost always delivers the same minimum as an
+- * implementation that has to keep all the data in the window.
+- *
+- * The algorithm keeps track of the best, 2nd best & 3rd best min
+- * values, maintaining an invariant that the measurement time of the
+- * n'th best >= n-1'th best. It also makes sure that the three values
+- * are widely separated in the time window since that bounds the worse
+- * case error when that data is monotonically increasing over the window.
+- *
+- * Upon getting a new min, we can forget everything earlier because it
+- * has no value - the new min is <= everything else in the window by
+- * definition and it's the most recent. So we restart fresh on every new min
+- * and overwrites 2nd & 3rd choices. The same property holds for 2nd & 3rd
+- * best.
+- */
+ static void tcp_update_rtt_min(struct sock *sk, u32 rtt_us)
+ {
+-	const u32 now = tcp_time_stamp, wlen = sysctl_tcp_min_rtt_wlen * HZ;
+-	struct rtt_meas *m = tcp_sk(sk)->rtt_min;
+-	struct rtt_meas rttm = {
+-		.rtt = likely(rtt_us) ? rtt_us : jiffies_to_usecs(1),
+-		.ts = now,
+-	};
+-	u32 elapsed;
+-
+-	/* Check if the new measurement updates the 1st, 2nd, or 3rd choices */
+-	if (unlikely(rttm.rtt <= m[0].rtt))
+-		m[0] = m[1] = m[2] = rttm;
+-	else if (rttm.rtt <= m[1].rtt)
+-		m[1] = m[2] = rttm;
+-	else if (rttm.rtt <= m[2].rtt)
+-		m[2] = rttm;
+-
+-	elapsed = now - m[0].ts;
+-	if (unlikely(elapsed > wlen)) {
+-		/* Passed entire window without a new min so make 2nd choice
+-		 * the new min & 3rd choice the new 2nd. So forth and so on.
+-		 */
+-		m[0] = m[1];
+-		m[1] = m[2];
+-		m[2] = rttm;
+-		if (now - m[0].ts > wlen) {
+-			m[0] = m[1];
+-			m[1] = rttm;
+-			if (now - m[0].ts > wlen)
+-				m[0] = rttm;
+-		}
+-	} else if (m[1].ts == m[0].ts && elapsed > wlen / 4) {
+-		/* Passed a quarter of the window without a new min so
+-		 * take 2nd choice from the 2nd quarter of the window.
+-		 */
+-		m[2] = m[1] = rttm;
+-	} else if (m[2].ts == m[1].ts && elapsed > wlen / 2) {
+-		/* Passed half the window without a new min so take the 3rd
+-		 * choice from the last half of the window.
+-		 */
+-		m[2] = rttm;
+-	}
++	struct tcp_sock *tp = tcp_sk(sk);
++	u32 wlen = sysctl_tcp_min_rtt_wlen * HZ;
 +
- 	/* Wait for a connection to finish. One exception is TCP Fast Open
- 	 * (passive side) where data is allowed to be sent before a connection
- 	 * is fully established.
++	minmax_running_min(&tp->rtt_min, wlen, tcp_time_stamp,
++			   rtt_us ? : jiffies_to_usecs(1));
+ }
+ 
+ static inline bool tcp_ack_update_rtt(struct sock *sk, const int flag,
 diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index 5689471..6234eba 100644
+index f63c73d..5689471 100644
 --- a/net/ipv4/tcp_minisocks.c
 +++ b/net/ipv4/tcp_minisocks.c
-@@ -487,6 +487,9 @@ struct sock *tcp_create_openreq_child(const struct sock *sk,
- 		newtp->snd_cwnd = TCP_INIT_CWND;
- 		newtp->snd_cwnd_cnt = 0;
+@@ -464,7 +464,7 @@ struct sock *tcp_create_openreq_child(const struct sock *sk,
  
-+		/* There's a bubble in the pipe until at least the first ACK. */
-+		newtp->app_limited = ~0U;
-+
- 		tcp_init_xmit_timers(newsk);
- 		newtp->write_seq = newtp->pushed_seq = treq->snt_isn + 1;
+ 		newtp->srtt_us = 0;
+ 		newtp->mdev_us = jiffies_to_usecs(TCP_TIMEOUT_INIT);
+-		newtp->rtt_min[0].rtt = ~0U;
++		minmax_reset(&newtp->rtt_min, tcp_time_stamp, ~0U);
+ 		newicsk->icsk_rto = TCP_TIMEOUT_INIT;
  
-diff --git a/net/ipv4/tcp_rate.c b/net/ipv4/tcp_rate.c
-index 1daed6a..52ff84b 100644
---- a/net/ipv4/tcp_rate.c
-+++ b/net/ipv4/tcp_rate.c
-@@ -26,9 +26,13 @@
-  * other factors like applications or receiver window limits.  The estimator
-  * deliberately avoids using the inter-packet spacing approach because that
-  * approach requires a large number of samples and sophisticated filtering.
-+ *
-+ * TCP flows can often be application-limited in request/response workloads.
-+ * The estimator marks a bandwidth sample as application-limited if there
-+ * was some moment during the sampled window of packets when there was no data
-+ * ready to send in the write queue.
-  */
- 
--
- /* Snapshot the current delivery information in the skb, to generate
-  * a rate sample later when the skb is (s)acked in tcp_rate_skb_delivered().
-  */
-@@ -58,6 +62,7 @@ void tcp_rate_skb_sent(struct sock *sk, struct sk_buff *skb)
- 	TCP_SKB_CB(skb)->tx.first_tx_mstamp	= tp->first_tx_mstamp;
- 	TCP_SKB_CB(skb)->tx.delivered_mstamp	= tp->delivered_mstamp;
- 	TCP_SKB_CB(skb)->tx.delivered		= tp->delivered;
-+	TCP_SKB_CB(skb)->tx.is_app_limited	= tp->app_limited ? 1 : 0;
- }
- 
- /* When an skb is sacked or acked, we fill in the rate sample with the (prior)
-@@ -80,6 +85,7 @@ void tcp_rate_skb_delivered(struct sock *sk, struct sk_buff *skb,
- 	    after(scb->tx.delivered, rs->prior_delivered)) {
- 		rs->prior_delivered  = scb->tx.delivered;
- 		rs->prior_mstamp     = scb->tx.delivered_mstamp;
-+		rs->is_app_limited   = scb->tx.is_app_limited;
- 		rs->is_retrans	     = scb->sacked & TCPCB_RETRANS;
- 
- 		/* Find the duration of the "send phase" of this window: */
-@@ -105,6 +111,10 @@ void tcp_rate_gen(struct sock *sk, u32 delivered, u32 lost,
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	u32 snd_us, ack_us;
- 
-+	/* Clear app limited if bubble is acked and gone. */
-+	if (tp->app_limited && after(tp->delivered, tp->app_limited))
-+		tp->app_limited = 0;
-+
- 	/* TODO: there are multiple places throughout tcp_ack() to get
- 	 * current time. Refactor the code using a new "tcp_acktag_state"
- 	 * to carry current time, flags, stats like "tcp_sacktag_state".
-@@ -147,3 +157,20 @@ void tcp_rate_gen(struct sock *sk, u32 delivered, u32 lost,
- 				 tp->rx_opt.sack_ok, tcp_min_rtt(tp));
- 	}
- }
-+
-+/* If a gap is detected between sends, mark the socket application-limited. */
-+void tcp_rate_check_app_limited(struct sock *sk)
-+{
-+	struct tcp_sock *tp = tcp_sk(sk);
-+
-+	if (/* We have less than one packet to send. */
-+	    tp->write_seq - tp->snd_nxt < tp->mss_cache &&
-+	    /* Nothing in sending host's qdisc queues or NIC tx queue. */
-+	    sk_wmem_alloc_get(sk) < SKB_TRUESIZE(1) &&
-+	    /* We are not limited by CWND. */
-+	    tcp_packets_in_flight(tp) < tp->snd_cwnd &&
-+	    /* All lost packets have been retransmitted. */
-+	    tp->lost_out <= tp->retrans_out)
-+		tp->app_limited =
-+			(tp->delivered + tcp_packets_in_flight(tp)) ? : 1;
-+}
+ 		newtp->packets_out = 0;
 -- 
 2.8.0.rc3.226.g39d4020
