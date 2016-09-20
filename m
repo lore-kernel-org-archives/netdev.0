@@ -1,45 +1,46 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 net-next v1 0/7] tipc: updates for neighbour
- monitor
-Date: Tue, 20 Sep 2016 09:39:17 -0700
-Message-ID: <20160920093917.7881af31@xeon-e3>
-References: <1473693441-14254-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+From: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+Subject: Re: [PATCH v4 net-next 01/16] tcp: cdg: rename struct minmax in
+ tcp_cdg.c to avoid a naming conflict
+Date: Tue, 20 Sep 2016 18:40:01 +0200
+Message-ID: <CA++eYdvqpUkJWi6O_Kr4YG+WPMPJYUzBOyFKogRQSKQ5UpOMWw@mail.gmail.com>
+References: <1474342763-16715-1-git-send-email-ncardwell@google.com> <1474342763-16715-2-git-send-email-ncardwell@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>,
-        <jon.maloy@ericsson.com>, <maloy@donjonn.com>
-To: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Soheil Hassas Yeganeh <soheil@google.com>,
+        Yuchung Cheng <ycheng@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+To: Neal Cardwell <ncardwell@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:35736 "EHLO
-        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755170AbcITQjI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 12:39:08 -0400
-Received: by mail-pf0-f181.google.com with SMTP id z123so9107088pfz.2
-        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 09:39:07 -0700 (PDT)
-In-Reply-To: <1473693441-14254-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35517 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755170AbcITQkD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 12:40:03 -0400
+Received: by mail-wm0-f67.google.com with SMTP id 133so4337953wmq.2
+        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 09:40:03 -0700 (PDT)
+In-Reply-To: <1474342763-16715-2-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 12 Sep 2016 17:17:14 +0200
-Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com> wrote:
+On Tue, Sep 20, 2016 at 5:39 AM, Neal Cardwell <ncardwell@google.com> wrote:
+>
+> From: Soheil Hassas Yeganeh <soheil@google.com>
+>
+> The upcoming change "lib/win_minmax: windowed min or max estimator"
+> introduces a struct called minmax, which is then included in
+> include/linux/tcp.h in the upcoming change "tcp: use windowed min
+> filter library for TCP min_rtt estimation". This would create a
+> compilation error for tcp_cdg.c, which defines its own minmax
+> struct. To avoid this naming conflict (and potentially others in the
+> future), this commit renames the version used in tcp_cdg.c to
+> cdg_minmax.
+>
+> Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
 
-> We add configuration support for the new link monitoring attributes.
-> 
-> Parthasarathy Bhuvaragan (7):
->   tipc: remove dead code
->   tipc: add link monitor set threshold
->   tipc: add link monitor get threshold
->   tipc: add link monitor summary
->   tipc: refractor bearer to facilitate link monitor
->   tipc: add link monitor list
->   tipc: update man page for link monitor
-> 
->  man/man8/tipc-link.8 | 104 +++++++++++++
->  tipc/bearer.c        |  75 ++++++----
->  tipc/bearer.h        |   4 +
->  tipc/link.c          | 408 ++++++++++++++++++++++++++++++++++++++++++++++++++-
->  4 files changed, 556 insertions(+), 35 deletions(-)
-> 
-
-Applied, then I did a style scrub on tipc/link.c
+Acked-by: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
