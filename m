@@ -1,52 +1,92 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 7/8] net/mlx5e: XDP TX forwarding support
-Date: Tue, 20 Sep 2016 09:13:56 -0700
-Message-ID: <1474388036.23058.26.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1474293539-2595-1-git-send-email-tariqt@mellanox.com>
-         <1474293539-2595-8-git-send-email-tariqt@mellanox.com>
-         <20160920102943.24732097@brouer.com> <20160920133300.144037fd@redhat.com>
-         <96b40925-0e8e-0230-0701-96c11d6921a1@gmail.com>
-         <20160920154036.GA98644@ast-mbp.thefacebook.com>
-         <CALx6S34YBsmSJr7z2wGsu1VvLkjoqTN+Q8JJ0j-H_DehMJzQ5g@mail.gmail.com>
-         <1474387110.23058.24.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20160920180609.148874b5@redhat.com>
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [RFC v2 00/11] QLogic RDMA Driver (qedr) RFC
+Date: Tue, 20 Sep 2016 19:23:06 +0300
+Message-ID: <20160920162306.GP26673@leon.nu>
+References: <1474367764-9555-1-git-send-email-Ram.Amrani@cavium.com>
+ <20160920121151.GK26673@leon.nu>
+ <CY1PR0701MB133773B2CB71FA6362CADCFF90F70@CY1PR0701MB1337.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom@herbertland.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Tariq Toukan <ttoukan.linux@gmail.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Eran Ben Elisha <eranbe@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Rana Shahout <ranas@mellanox.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:33267 "EHLO
-        mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933100AbcITQN6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 12:13:58 -0400
-Received: by mail-pa0-f68.google.com with SMTP id oz2so1109375pac.0
-        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 09:13:58 -0700 (PDT)
-In-Reply-To: <20160920180609.148874b5@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="ssZxAlvqSOvXAj81"
+Cc: "Amrani, Ram" <Ram.Amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        "Kalderon, Michal" <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        "Mintz, Yuval" <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        "Borundia, Rajesh" <Rajesh.Borundia-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Elior, Ariel" <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CY1PR0701MB133773B2CB71FA6362CADCFF90F70-UpKza+2NMNLi6bjPjkn3FE5OhdzP3rhOnBOFsp37pqbUKgpGm//BTAC/G2K4zDHf@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-09-20 at 18:06 +0200, Jesper Dangaard Brouer wrote:
-> On Tue, 20 Sep 2016 08:58:30 -0700
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-> > Same for XDP_TX if/when packet is dropped because output ring is full.
-> 
-> For the XDP_TX case a counter is already incremented[1] but it is a
-> local ring counter (ring->tx_dropped++).
-> 
-> Do you think we should maintain separate counters for XDP? (to have a
-> more consistent interface across drivers...)
+--ssZxAlvqSOvXAj81
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-No, as long as the admin can learn drops are occurring.
+On Tue, Sep 20, 2016 at 01:33:25PM +0000, Elior, Ariel wrote:
+> > On Tue, Sep 20, 2016 at 01:35:52PM +0300, Ram Amrani wrote:
+> ...
+> > > The series adds on top of RFC v1:
+> > > * a check for all drivers that IB_ACCESS_MW_BIND isn't set for ib_get_dma_mr
+> > > * relocation of qedr user API to include/rdma/uapi/providers/
+> > > * removal of qedr_devlist_local
+> > > * fixed error handling in qedr_alloc_resources()
+> > > * configuration of PBL in ib_map_mr_sg() driver implementation,
+> > >   rather than post_send's IB_WR_REG_MR
+> > > * misc.: placed code in proper patch, fixed a few comments,
+> > >   removed extra parentheses
+> > >
+> > > Thanks for everyone which pointed out problems in the driver.
+> > >
+> > > Any review/comment is appreciated.
+> >
+> > Very nice,
+> > Any reason why didn't you drop debug module parameter and decided to
+> > mimic already available kernel core functionality?
+> >
+> > You got technical explanations why it is bad idea to use it. If you need additional
+> > voices
+> > to support my claims, you will find them in thread about VERBOSE flag and responses
+> > from
+> > Doug, and Dennis.
+> >
+> > Thanks
+> Hi Leon,
+> The RFC cover letter lists what has been addressed. Debug printouts are not addressed in V2 as the discussion on that topic is not concluded (more thoughts from us on debug printouts incoming on the thread). There were many comments to V1 which are not relevant to debug printouts which are addressed by V2. We are requesting further comment, hence RFC V2. Rest assured, if it is the final opinion in the relevant discussion that pr_debug is the way to go, that's what we'll do.
 
-"perf ... -e skb:kfree_skb ..." or drop monitor wont work,
-unfortunately.
+The module parameters is no-go.
+
+> Thanks,
+> Ariel
+
+--ssZxAlvqSOvXAj81
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJX4WJqAAoJEORje4g2clinrYQP/2C1Dvqnvy9stcXYuHaz/XzZ
+pqi5d3Tijv7byl0M+9dt5Aw6Oz9Khu4tIcZkPgdIIrlacmZX8lZk4LmYD0oX+sdn
+dIo5SG4YOpviq5hCDTpTJWcEnhSziFPln5DJ5siZeg/Mj8J6luD1wBg3AC4+JoT2
+77Mo+WB0M2oXbSDCHQHulj3MfNDyoVA4aja7+K6S7jwuLp6fODtQrMXLPq6mzHtY
+4/D8S79UolA46B2LNYx2BmeysuA/Emb4UgZNsfAiu79+0vRHkJiRPs8iUgBTM1zm
+MkzhhiJdlUyZAtyL3LXBUslApsQJyyNsGPwqS38mcuy0SK7iDGw9IgPsf+gCjnxO
+kcc1oxkGbJuJIfVZ0Smpo/Sn7kjohyeinFe9EoB+OJzhNuRw5scFN+9wT9VGgrUl
+06G6eRjnRyjfWf/puCbFEHhi/nGK6DVMyfOsRRpQHY9yjgAZ/+uinJm2TwQu4eoa
+8x9Y3hPAGEH/AdODo782bkoo/AhQbeMIddGTVfqrAHqEaIAe4mTELPe4+b+ogGV/
+l/+rE2X7woAlUo9W2ZvmkvebA/VKv3SYHoaQJDYNMdycs5y4ca0aaiB99+EsStxG
+wjBZvaY9RpCP9Wte8UpscrH2RrSD+a4WoPnnFaAkIquopzW3mVxXmXA4clXYus5v
+UUUaeUS2vlj7XflOrA9k
+=QGOX
+-----END PGP SIGNATURE-----
+
+--ssZxAlvqSOvXAj81--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
