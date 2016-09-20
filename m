@@ -1,112 +1,105 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [RFC] PCI: Allow sysfs control over totalvfs
-Date: Tue, 20 Sep 2016 14:36:17 -0700
-Message-ID: <CAKgT0UepRC7=EZAj_jpcjWZXp1qMRPVDguhbpBrCjkNHuDec+w@mail.gmail.com>
-References: <1474386588-16337-1-git-send-email-Yuval.Mintz@qlogic.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH RFC 0/3] xdp: Generalize XDP
+Date: Tue, 20 Sep 2016 15:00:21 -0700
+Message-ID: <1474408824-418864-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-        Netdev <netdev@vger.kernel.org>,
-        derek.chickles@caviumnetworks.com,
-        Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>, <tariqt@mellanox.com>,
+        <bblanco@plumgrid.com>, <alexei.starovoitov@gmail.com>,
+        <eric.dumazet@gmail.com>, <brouer@redhat.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:36733 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752931AbcITVgT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 17:36:19 -0400
-In-Reply-To: <1474386588-16337-1-git-send-email-Yuval.Mintz@qlogic.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:39905 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1754509AbcITWAd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 18:00:33 -0400
+Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8KLxmcl020233
+        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 15:00:32 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0a-00082601.pphosted.com with ESMTP id 25kbkegxrv-1
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 15:00:32 -0700
+Received: from facebook.com (2401:db00:21:6030:face:0:92:0)     by
+ mx-out.facebook.com (10.103.99.99) with ESMTP  id
+ a629ac587f7d11e6aa9b0002c9dfb610-183fda50 for <netdev@vger.kernel.org>;        Tue,
+ 20 Sep 2016 15:00:31 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 20, 2016 at 8:49 AM, Yuval Mintz <Yuval.Mintz@qlogic.com> wrote:
-> [Sorry in advance if this was already discussed in the past]
->
-> Some of the HW capable of SRIOV has resource limitations, where the
-> PF and VFs resources are drawn from a common pool.
-> In some cases, these limitations have to be considered early during
-> chip initialization and can only be changed by tearing down the
-> configuration and re-initializing.
-> As a result, drivers for such HWs sometimes have to make unfavorable
-> compromises where they reserve sufficient resources to accomadate
-> the maximal number of VFs that can be created - at the expanse of
-> resources that could have been used by the PF.
->
-> If users were able to provide 'hints' regarding the required number
-> of VFs *prior* to driver attachment, then such compromises could be
-> avoided. As we already have sysfs nodes that can be queried for the
-> number of totalvfs, it makes sense to let the user reduce the number
-> of said totalvfs using same infrastrucure.
-> Then, we can have drivers supporting SRIOV take that value into account
-> when deciding how much resources to reserve, allowing the PF to benefit
-> from the difference between the configuration space value and the actual
-> number needed by user.
->
-> Signed-off-by: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
-> ---
->  drivers/pci/pci-sysfs.c | 28 +++++++++++++++++++++++++++-
->  1 file changed, 27 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/pci/pci-sysfs.c b/drivers/pci/pci-sysfs.c
-> index bcd10c7..c1546f8 100644
-> --- a/drivers/pci/pci-sysfs.c
-> +++ b/drivers/pci/pci-sysfs.c
-> @@ -449,6 +449,30 @@ static ssize_t sriov_totalvfs_show(struct device *dev,
->         return sprintf(buf, "%u\n", pci_sriov_get_totalvfs(pdev));
->  }
->
-> +static ssize_t sriov_totalvfs_store(struct device *dev,
-> +                                   struct device_attribute *attr,
-> +                                   const char *buf, size_t count)
-> +{
-> +       struct pci_dev *pdev = to_pci_dev(dev);
-> +       u16 max_vfs;
-> +       int ret;
-> +
-> +       ret = kstrtou16(buf, 0, &max_vfs);
-> +       if (ret < 0)
-> +               return ret;
-> +
-> +       if (pdev->driver) {
-> +               dev_info(&pdev->dev,
-> +                        "Can't change totalvfs while driver is attached\n");
-> +               return -EUSERS;
-> +       }
-> +
-> +       ret = pci_sriov_set_totalvfs(pdev, max_vfs);
-> +       if (ret)
-> +               return ret;
-> +
-> +       return count;
-> +}
->
->  static ssize_t sriov_numvfs_show(struct device *dev,
->                                  struct device_attribute *attr,
-> @@ -516,7 +540,9 @@ static ssize_t sriov_numvfs_store(struct device *dev,
->         return count;
->  }
->
-> -static struct device_attribute sriov_totalvfs_attr = __ATTR_RO(sriov_totalvfs);
-> +static struct device_attribute sriov_totalvfs_attr =
-> +               __ATTR(sriov_totalvfs, (S_IRUGO|S_IWUSR|S_IWGRP),
-> +                      sriov_totalvfs_show, sriov_totalvfs_store);
->  static struct device_attribute sriov_numvfs_attr =
->                 __ATTR(sriov_numvfs, (S_IRUGO|S_IWUSR|S_IWGRP),
->                        sriov_numvfs_show, sriov_numvfs_store);
+This patch set generalizes XDP by make the hooks in drivers to be
+generic in the same manner of nfhooks. This has a number of
+advantages:
 
-It would be useful to have an interface where you could increase the
-number after you have decreased it.  With the interface as you have it
-written that isn't an option since pci_sriov_set_totalvfs is really
-only meant to strip VFs if they cannot be support by something such as
-a bus limitation due to ARI not being supported.
+  - Allows alternative users of the XDP hooks other than the original
+    BPF
+  - Allows a means to pipeline XDP programs together
+  - Reduces the amount of code and complexity needed in drivers to
+    manage XDP
+  - Provides a more structured environment that is extensible to new
+    features while being mostly transparent to the drivers 
 
-I really think that if you need something like this you might be
-better off using something like dev-link or just to figure out a way
-to make your driver flexible enough to allow you to move resources
-into and/or out of your PF interface if VFs are added or removed.  I
-know in the case of the Intel parts we have to bounce the link when
-SR-IOV is enabled because we actually go through and tear out the
-queues and interrupts from the PF and then reassign all of them
-between the PF and VFs before we bring the PF back up.
+The generic XDP infrastructure is based on how nfhooks works. The new
+xdp_hook_ops structure contains callback functions and private data
+structure that can be populated by the user of XDP. The hook ops are
+registered either on a netdev or a napi (both maintain a list of XDP
+hook ops). Allow per netdev ops makes management of XDP a lot simpler
+when the intent is for the hook to apply to the whole driver (as is the
+case with XDP_BPF so far). The downside is that we may need per napi
+data (such as counters of returned actions).
 
-- Alex
+The xdp_hook_ops contains three fields of interest. The "hook" field is
+the function that is run for the hook. This takes a private data field
+and the xdp_buff as arguments. "priv" is private data and "put_priv"
+is a function called when XDP is done with the private data. In XDP_BPF
+terminology the hook field is bpf_prog_run_xdp, "priv" is the xdp_prog,
+and "put_priv" is bpf_prog_put.
+
+The meaning of ndo_xdp is also changed. There are two commands for this
+nod: XDP_DEV_INIT and XDP_DEV_FINISH. XDP_DEV_INIT is called the first
+time an XDP hook is set on a device, this is primarily intended to
+allow the device to initialize XDP (allocated the XDP TX queues for
+instance). XDP_DEV_FINISH is called when the last XDP hook is
+removed from a driver so that the driver can cleanup when XDP is done.
+
+A new net feature is added NETIF_F_XDP so that a driver indicates
+that is supports XDP.
+
+The primary modification to a driver to support XDP is that it call
+xdp_hook_run in the receive path (equivalent to bpf_prog_run in
+previous XDP-BPF). The driver must deal with the four XDP return
+actions XDP_PASS, XDP_DROP, XDP_TX, and XDP_ABORT.
+
+xdp.h contains the interface to register and manage XDP hooks.
+
+Tested:
+
+Created a simple hook that does XDP_PASS and saw it works. A lot more
+testing is needed for this.
+
+Tom Herbert (3):
+  xdp: Infrastructure to generalize XDP
+  mlx4: Change XDP/BPF to use generic XDP infrastructure
+  netdevice: Remove obsolete xdp_netdev_command
+
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |  64 ++------
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c     |  25 ++-
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |   1 -
+ include/linux/filter.h                         |  19 +--
+ include/linux/netdev_features.h                |   3 +-
+ include/linux/netdevice.h                      |  24 ++-
+ include/net/xdp.h                              | 218 +++++++++++++++++++++++++
+ include/uapi/linux/bpf.h                       |  20 ---
+ include/uapi/linux/xdp.h                       |  24 +++
+ net/core/Makefile                              |   2 +-
+ net/core/dev.c                                 |  44 ++++-
+ net/core/filter.c                              |   7 +-
+ net/core/rtnetlink.c                           |  16 +-
+ net/core/xdp.c                                 | 211 ++++++++++++++++++++++++
+ 14 files changed, 534 insertions(+), 144 deletions(-)
+ create mode 100644 include/net/xdp.h
+ create mode 100644 include/uapi/linux/xdp.h
+ create mode 100644 net/core/xdp.c
+
+-- 
+2.8.0.rc2
