@@ -1,42 +1,42 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: handle multiple ports in
- ATU
-Date: Tue, 20 Sep 2016 02:41:29 +0200
-Message-ID: <20160920004129.GA8026@lunn.ch>
-References: <20160919235611.31975-1-vivien.didelot@savoirfairelinux.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v6] gso: Support partial splitting at the
+ frag_list pointer
+Date: Mon, 19 Sep 2016 20:59:51 -0400 (EDT)
+Message-ID: <20160919.205951.1324308918494038915.davem@davemloft.net>
+References: <20160919105847.GG31137@gauss.secunet.com>
+        <CAKgT0UchF4mJNcsRNQ80j3wJ4LNQTA4WrNNgOTJ4m2k1_WjYfA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160919235611.31975-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org,
+        alexander.h.duyck@intel.com, eric.dumazet@gmail.com,
+        marcelo.leitner@gmail.com
+To: alexander.duyck@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:39862 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752293AbcITBAB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 21:00:01 -0400
+In-Reply-To: <CAKgT0UchF4mJNcsRNQ80j3wJ4LNQTA4WrNNgOTJ4m2k1_WjYfA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 19, 2016 at 07:56:11PM -0400, Vivien Didelot wrote:
-> An address can be loaded in the ATU with multiple ports, for instance
-> when adding multiple ports to a Multicast group with "bridge mdb".
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Date: Mon, 19 Sep 2016 08:12:15 -0700
+
+> On Mon, Sep 19, 2016 at 3:58 AM, Steffen Klassert
+> <steffen.klassert@secunet.com> wrote:
+>> Since commit 8a29111c7 ("net: gro: allow to build full sized skb")
+>> gro may build buffers with a frag_list. This can hurt forwarding
+>> because most NICs can't offload such packets, they need to be
+>> segmented in software. This patch splits buffers with a frag_list
+>> at the frag_list pointer into buffers that can be TSO offloaded.
+>>
+>> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+ ...
 > 
-> The current code doesn't allow that. Add an helper to get a single entry
-> from the ATU, then set or clear the requested port, before loading the
-> entry back in the ATU.
+> Looks good.
 > 
-> Note that the required _mv88e6xxx_atu_getnext function is defined below
-> mv88e6xxx_port_db_load_purge, so forward-declare it for the moment. The
-> ATU code will be isolated in future patches.
-> 
-> Fixes: 83dabd1fa84c ("net: dsa: mv88e6xxx: make switchdev DB ops generic")
+> Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Is this a real fixes? You don't make it clear what goes wrong. I
-assume adding the same MAC address for a second time but for a
-different port removes the first entry for the old port?
-
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-
-    Andrew
+Applied, thanks everyone.
