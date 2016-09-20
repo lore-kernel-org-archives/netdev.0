@@ -1,79 +1,69 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCH v2 0/2] make POSIX timers optional
-Date: Tue, 20 Sep 2016 23:09:52 +0200 (CEST)
-Message-ID: <alpine.DEB.2.20.1609202300140.5476@nanos>
-References: <1474401400-18491-1-git-send-email-nicolas.pitre@linaro.org> <20160920202556.GA6713@localhost.localdomain> <20160920204556.GA7555@localhost.localdomain> <alpine.LFD.2.20.1609201655200.9311@knanqh.ubzr>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: [PATCH v3] net: ip, diag -- Add diag interface for raw sockets
+Date: Wed, 21 Sep 2016 00:13:43 +0300
+Message-ID: <20160920211343.GI26044@uranus.lan>
+References: <1473979691.22679.55.camel@edumazet-glaptop3.roam.corp.google.com>
+ <999f0ddb-82e4-ea07-b52a-59d08bc7816d@cumulusnetworks.com>
+ <20160916070623.GD1867@uranus.lan>
+ <20160916190000.GA18116@uranus.lan>
+ <59e12627-7043-fd20-0d68-899ab43b0e71@cumulusnetworks.com>
+ <20160916193927.GB18116@uranus.lan>
+ <d943c6b7-0f06-3823-58d2-6f79f17c3d59@cumulusnetworks.com>
+ <20160916195252.GC18116@uranus.lan>
+ <6464ac16-a15b-384e-ffb1-3ee84cdce313@cumulusnetworks.com>
+ <20160916200722.GA26044@uranus.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Richard Cochran <richardcochran@gmail.com>,
-        John Stultz <john.stultz@linaro.org>,
-        Josh Triplett <josh@joshtriplett.org>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Nicolas Pitre <nicolas.pitre@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.20.1609201655200.9311@knanqh.ubzr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+        avagin@openvz.org, stephen@networkplumber.org
+To: David Ahern <dsa@cumulusnetworks.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f54.google.com ([209.85.215.54]:32817 "EHLO
+        mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752931AbcITVNr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 17:13:47 -0400
+Content-Disposition: inline
+In-Reply-To: <20160916200722.GA26044@uranus.lan>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 20 Sep 2016, Nicolas Pitre wrote:
-> On Tue, 20 Sep 2016, Richard Cochran wrote:
+On Fri, Sep 16, 2016 at 11:07:22PM +0300, Cyrill Gorcunov wrote:
+> > It may well be a ss bug / problem. As I mentioned I am always seeing 255 for the protocol which
 > 
-> > On Tue, Sep 20, 2016 at 10:25:56PM +0200, Richard Cochran wrote:
-> > > After this series, if I don't pay enough attention to dmesg, then I
-> > > have lost functionality that I had in step #1.  That sucks, and it has
-> > > nothing to do with the tinification option at all.  It will bite even
-> > > if I have no knowledge of it.  That isn't acceptable to me.
-> > 
-> > Can't you leave all the "select PTP_1588_CLOCK" alone and simply add
-> > 
-> > #ifdef CONFIG_POSIX_TIMERS
-> > 	// global declarations
-> > #else
-> > 	// static inlines
-> > #endif
-
-Eew. No! That's an even more blantant layering violation.
- 
-> > to ptp_clock_kernel.h, and then sandwich ptp_clock.c in
-> > #ifdef CONFIG_POSIX_TIMERS ... #endif ?
+> It is rather not addressed in ss. I mean, look, when we send out a diag packet
+> the kernel look ups for a handler, which for raw protocol we register as
 > 
-> Sure I could... but I'm sure I'll be flamed by others for making things 
-> even more obscure and hackish than they are right now.
+> static const struct inet_diag_handler raw_diag_handler = {
+> 	.dump= raw_diag_dump,
+> 	.dump_one= raw_diag_dump_one,
+> 	.idiag_get_info= raw_diag_get_info,
+> 	.idiag_type= IPPROTO_RAW,
+> 	.idiag_info_size= 0,
+> #ifdef CONFIG_INET_DIAG_DESTROY
+> 	.destroy= raw_diag_destroy,
+> #endif
+> };
+> 
+> so if we patch ss and ask for IPPROTO_ICMP in netlink packet the
+> kernel simply won't find anything. Thus I think we need (well, I need)
+> to extend the patch and register IPPROTO_ICMP diag type, then
+> extend ss as well. (If only I didn't miss somethin obvious).
+> 
+> > is odd since ss does a dump and takes the matches and invokes the kill.
+> > Thanks for taking the time to do the kill piece.
 
-I think the whole approach is wrong because it makes the PTP split at the
-wrong level.
+Sorry for delay in reply (I got flu unexpectedly). You know, it eventually
+become uneasy to implement handling for sock-raw because they are special.
+They described as ipproto-ip in net/ipv4/af_inet.c, so it matches any
+protocol specified with the socket call. In turn inet-diag module handled
+predefined protocols only, in particular IPPROTO_RAW in our case. Thus
+to fecth some real protocol sitting in raw sockets hashes we need some
+kind of additional argument passed in the request. I guess we may
+use @idiag_ext field for this sake? Or require @idiag_ext to have
+INET_DIAG_PROTOCOL bit set and then fetch real protocol from
+additional attribute? Sounds ok?
 
-Currently we have:
-
-	  DRIVER_X
-	  tristate "Driver X"
-	  select PTP
-
-In order to make POSIX_CLOCK configurable we should have
-
-       	  PTP
-	  tristate "PTP"
-	  select POSIX_CLOCK
-
-Now if you want to distangle PTP from a driver then you split it at the
-driver level and not at the PTP level:
-
-      	  DRIVER_X
-	  tristate "Driver X"
-
-	  DRIVER_X_PTP
-	  bool "Enable PTP support"
-	  default y if !MAKE_IT_TINY
-	  depends on DRIVER_X
-	  select PTP
-
-We have already drivers following that scheme. That way you make the PTP
-support in the driver conditional on DRIVER_X_PTP and have no hassle with
-modules and dependencies.
-
-Your tiny config can simply disable all the PTP extra bits and then you can
-disable PTP and finally POSIX_TIMERS.
-
-Thanks,
-
-	tglx
+	Cyrill
