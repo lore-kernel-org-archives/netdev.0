@@ -1,59 +1,63 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next] mlxsw: spectrum: Make offloads stats functions static
-Date: Tue, 20 Sep 2016 08:14:08 +0300
-Message-ID: <1474348448-13724-1-git-send-email-ogerlitz@mellanox.com>
-Cc: Jiri Pirko <jiri@mellanox.com>,
-        Nogah Frankel <nogahf@mellanox.com>, netdev@vger.kernel.org,
-        Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:42959 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751040AbcITFOV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 01:14:21 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v2 4/6] net: ethernet: bgmac: convert to feature flags
+Date: Tue, 20 Sep 2016 07:19:19 +0200
+Message-ID: <CACna6rymVcKV1h_PEvRuCQrtOd4rsqV34bMWzVOof15fdc8KEA@mail.gmail.com>
+References: <1467932938-21819-1-git-send-email-jon.mason@broadcom.com>
+ <1467932938-21819-5-git-send-email-jon.mason@broadcom.com> <CACna6rw1j3myPEkbn+YR71W7CF7Of_yahn9eDT7t3hKWGmWUmg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Hauke Mehrtens <hauke-5/S+JYg5SzeELgA04lAiVw@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+        Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, Ray Jui <rjui-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Scott Branden <sbranden-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        bcm-kernel-feedback-list <bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+To: Jon Mason <jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CACna6rw1j3myPEkbn+YR71W7CF7Of_yahn9eDT7t3hKWGmWUmg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The offloads stats functions are local to this file, make them static.
+On 17 August 2016 at 13:34, Rafa=C5=82 Mi=C5=82ecki <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrot=
+e:
+> On 8 July 2016 at 01:08, Jon Mason <jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org> wrote:
+>>         mode =3D (bgmac_read(bgmac, BGMAC_DEV_STATUS) & BGMAC_DS_MM_MASK=
+) >>
+>>                 BGMAC_DS_MM_SHIFT;
+>> -       if (ci->id !=3D BCMA_CHIP_ID_BCM47162 || mode !=3D 0)
+>> +       if (bgmac->feature_flags & BGMAC_FEAT_CLKCTLST || mode !=3D 0)
+>>                 bgmac_set(bgmac, BCMA_CLKCTLST, BCMA_CLKCTLST_FORCEHT);
+>> -       if (ci->id =3D=3D BCMA_CHIP_ID_BCM47162 && mode =3D=3D 2)
+>> +       if (bgmac->feature_flags & BGMAC_FEAT_CLKCTLST && mode =3D=3D 2)
+>>                 bcma_chipco_chipctl_maskset(&bgmac->core->bus->drv_cc, 1=
+, ~0,
+>>                                             BGMAC_CHIPCTL_1_RXC_DLL_BYPA=
+SS);
+>
+> Jon, it looks to me you translated two following conditions:
+> ci->id !=3D BCMA_CHIP_ID_BCM47162
+> and
+> ci->id =3D=3D BCMA_CHIP_ID_BCM47162
+> into the same flag check:
+> bgmac->feature_flags & BGMAC_FEAT_CLKCTLST
+>
+> I don't think it's intentional, is it? Do you have a moment to fix this?
 
-Fixes: fc1bbb0f1831 ('mlxsw: spectrum: Implement offload stats ndo [..]')
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+Ping
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 171f8dd..efac909 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -819,7 +819,7 @@ err_span_port_mtu_update:
- 	return err;
- }
- 
--int
-+static int
- mlxsw_sp_port_get_sw_stats64(const struct net_device *dev,
- 			     struct rtnl_link_stats64 *stats)
- {
-@@ -851,7 +851,7 @@ mlxsw_sp_port_get_sw_stats64(const struct net_device *dev,
- 	return 0;
- }
- 
--bool mlxsw_sp_port_has_offload_stats(int attr_id)
-+static bool mlxsw_sp_port_has_offload_stats(int attr_id)
- {
- 	switch (attr_id) {
- 	case IFLA_OFFLOAD_XSTATS_CPU_HIT:
-@@ -861,8 +861,8 @@ bool mlxsw_sp_port_has_offload_stats(int attr_id)
- 	return false;
- }
- 
--int mlxsw_sp_port_get_offload_stats(int attr_id, const struct net_device *dev,
--				    void *sp)
-+static int mlxsw_sp_port_get_offload_stats(int attr_id, const struct net_device *dev,
-+					   void *sp)
- {
- 	switch (attr_id) {
- 	case IFLA_OFFLOAD_XSTATS_CPU_HIT:
--- 
-2.3.7
+--=20
+Rafa=C5=82
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
