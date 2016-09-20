@@ -1,90 +1,132 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next 7/8] net/mlx5e: XDP TX forwarding support
-Date: Tue, 20 Sep 2016 09:45:28 -0700
-Message-ID: <20160920164526.GB99429@ast-mbp.thefacebook.com>
-References: <1474293539-2595-8-git-send-email-tariqt@mellanox.com>
- <20160920102943.24732097@brouer.com>
- <20160920133300.144037fd@redhat.com>
- <96b40925-0e8e-0230-0701-96c11d6921a1@gmail.com>
- <20160920154036.GA98644@ast-mbp.thefacebook.com>
- <CALx6S34YBsmSJr7z2wGsu1VvLkjoqTN+Q8JJ0j-H_DehMJzQ5g@mail.gmail.com>
- <1474387110.23058.24.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160920180609.148874b5@redhat.com>
- <1474388036.23058.26.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160920182717.2de9541e@redhat.com>
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [RFC v2 04/12] qedr: Add support for user context verbs
+Date: Tue, 20 Sep 2016 19:45:56 +0300
+Message-ID: <20160920164556.GS26673@leon.nu>
+References: <1474367764-9555-1-git-send-email-Ram.Amrani@cavium.com>
+ <1474367764-9555-5-git-send-email-Ram.Amrani@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Tariq Toukan <ttoukan.linux@gmail.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Eran Ben Elisha <eranbe@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Rana Shahout <ranas@mellanox.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:32911 "EHLO
-        mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755134AbcITQpf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 12:45:35 -0400
-Received: by mail-pa0-f46.google.com with SMTP id hm5so8760033pac.0
-        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 09:45:34 -0700 (PDT)
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="uX7BrQs69PbBafpd"
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org,
+        Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org, Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org,
+        rajesh.borundia-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ram Amrani <Ram.Amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20160920182717.2de9541e@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1474367764-9555-5-git-send-email-Ram.Amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 20, 2016 at 06:27:17PM +0200, Jesper Dangaard Brouer wrote:
-> On Tue, 20 Sep 2016 09:13:56 -0700
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> 
-> > On Tue, 2016-09-20 at 18:06 +0200, Jesper Dangaard Brouer wrote:
-> > > On Tue, 20 Sep 2016 08:58:30 -0700
-> > > Eric Dumazet <eric.dumazet@gmail.com> wrote:  
-> > 
-> > > > Same for XDP_TX if/when packet is dropped because output ring is full.  
-> > > 
-> > > For the XDP_TX case a counter is already incremented[1] but it is a
-> > > local ring counter (ring->tx_dropped++).
-> > > 
-> > > Do you think we should maintain separate counters for XDP? (to have a
-> > > more consistent interface across drivers...)  
-> > 
-> > No, as long as the admin can learn drops are occurring.
-> 
-> Okay, so recording these drops is important for an admin, agreed.  Now
-> that we have the chance to define the API, wouldn't is be nice if the
-> admin across drive drivers knew what counter to look for???
-> 
-> > "perf ... -e skb:kfree_skb ..." or drop monitor wont work,
-> > unfortunately.
-> 
-> That is actually a good idea... why not add a trace point for these
-> rare drop cases, which is a hassle to debug for an admin?
-> Let's actually take advantage of all the nice infrastructure the kernel
-> provides(?)
 
-that's a great idea. Instead of adding aborted, ring_full, blahblah counters
-everywhere that cost performance, let's add tracepoints that are nops
-when not in use.
-And if all drivers call the same tracepoints it will be even better.
-Monitoring trace_xdp_aborted tracepoint would be generic way to debug
-'divide by zero'.
+--uX7BrQs69PbBafpd
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-To your other question:
-> Please explain why a eBPF program error (div by zero) must be a silent drop?
+On Tue, Sep 20, 2016 at 01:35:56PM +0300, Ram Amrani wrote:
+> From: Ram amrani <Ram.Amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+>
+> Add support for ucontext, query port, add and del gid verbs.
+>
+> Signed-off-by: Rajesh Borundia <rajesh.borundia-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Ram Amrani <Ram.Amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+> ---
 
-because 'div by zero' is an abnormal situation that shouldn't be exploited.
-Meaning if xdp program is doing DoS prevention and it has a bug that
-attacker can now exploit by sending a crafted packet that causes
-'div by zero' and kernel will warn then attack got successful.
-Therefore it has to be silent drop.
-tracpoint in such case is great, since the user can do debugging with it
-and even monitoring 24/7 and if suddenly the control plan sees a lot
-of such trace_xdp_abotred events, it can disable that tracepoint to avoid
-spam and adjust the program or act on attack some other way.
-Hardcoded warnings and counters are not generic enough for all
-the use cases people want to throw at XDP.
-The tracepoints idea is awesome, in a sense that it's optional.
+<...>
+
+> +++ b/drivers/infiniband/hw/qedr/verbs.c
+> @@ -0,0 +1,417 @@
+> +/* QLogic qed NIC Driver
+> + * Copyright (c) 2015 QLogic Corporation
+> + *
+> + * This software is available under the terms of the GNU General Public License
+> + * (GPL) Version 2, available from the file COPYING in the main directory of
+> + * this source tree.
+> + */
+
+<...>
+
+> --- /dev/null
+> +++ b/drivers/infiniband/hw/qedr/verbs.h
+> @@ -0,0 +1,26 @@
+> +/* QLogic qed NIC Driver
+> + * Copyright (c) 2015 QLogic Corporation
+> + *
+> + * This software is available under the terms of the GNU General Public License
+> + * (GPL) Version 2, available from the file COPYING in the main directory of
+> + * this source tree.
+> + */
+
+<...>
+
+> +++ b/include/uapi/rdma/providers/qedr-abi.h
+> @@ -0,0 +1,27 @@
+> +/* QLogic qed NIC Driver
+> + * Copyright (c) 2015 QLogic Corporation
+> + *
+> + * This software is available under the terms of the GNU General Public License
+> + * (GPL) Version 2, available from the file COPYING in the main directory of
+> + * this source tree.
+> + */
+
+Are you sure that you want GPL-only license?
+
+
+> +#ifndef __QEDR_USER_H__
+> +#define __QEDR_USER_H__
+> +
+> +#define QEDR_ABI_VERSION		(6)
+
+Is it possible to start new file with new driver from ABI version 1 and
+not 6?
+
+> +
+> +/* user kernel communication data structures. */
+> +
+> +struct qedr_alloc_ucontext_resp {
+> +	u64 db_pa;
+> +	u32 db_size;
+> +
+> +	u32 max_send_wr;
+> +	u32 max_recv_wr;
+> +	u32 max_srq_wr;
+> +	u32 sges_per_send_wr;
+> +	u32 sges_per_recv_wr;
+> +	u32 sges_per_srq_wr;
+> +	int max_cqes;
+> +};
+> +#endif /* __QEDR_USER_H__ */
+> --
+> 1.8.3.1
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+--uX7BrQs69PbBafpd
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJX4WfEAAoJEORje4g2clinjHgP/1ylaW22qLIrxlaoy135YAiL
+7Fjl1KAJcanawwoH0p/suq4AHeibSC8peFMCoUmxApbqmnk7VPlLOONsEZ/9s1yd
+HyOhg9nKO6kld/gHxWpoJhp0GIuHu4h4j9nC9Tel7HVzos3jPjDpv6DIPryK1ki0
+fFSn+ukVMciHDVb6bX3w4HTpA/wp8myl+kh4lJUAkFmgLql7ZmOkxjiYwfdLMcxY
+YALyj9JDaEf3eNs0NNN43lCu1fINxobJTn8cG4emNZQarrMnwzy126NEVOy3qiXV
+UTRw0yoeLQJ/KPdhnnO9gwB0LZcY3vB97sKI73qVopjNoTc+xj7xzTIqKJUgpMg3
+mgEAcSNKm6f0e9Yt489CjI5cVkM4/0f+Kv1Z6lRBbOsLq3rd+70kCNaDDAp3+S9d
+S0c/pZQ7oNbrEV56LEkLFGegSy4mM7gVeptIGXFfcRBftvuw34W116LtLM4+FUWr
+I7FKNiKN1BbAZDUFHKQo5Aqv2YLcCZ/DExCfzqYnVy8pyTwxZKk5BAq4Z2NFm8ak
+EOyeaKF7aFZNkN4GgfLZQJZKykvc4HxShUSs1o4U3ilVGSFrP8NvyNL32Z0mmYGW
+xoErjQskquGUS7ukIN5I/lbpCYT0m4ZZqdnyas0oUvsHHS8XkZR3RdMYlYKWfiGX
+X7qt6Us+qxShhQ64mtEq
+=07u7
+-----END PGP SIGNATURE-----
+
+--uX7BrQs69PbBafpd--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
