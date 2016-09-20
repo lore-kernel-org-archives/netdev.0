@@ -1,37 +1,29 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [v3 PATCH 1/2] rhashtable: Add rhlist interface
-Date: Tue, 20 Sep 2016 09:52:44 +0800
-Message-ID: <20160920015244.GA18318@gondor.apana.org.au>
-References: <20160919105854.GA12892@gondor.apana.org.au>
- <E1blwIz-0003Mz-HD@gondolin.me.apana.org.au>
- <20160919211621.GA20951@pox.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] phy: mark lan88xx_suspend() static
+Date: Mon, 19 Sep 2016 21:55:51 -0400 (EDT)
+Message-ID: <20160919.215551.2302635477525145919.davem@davemloft.net>
+References: <1474187194-21322-1-git-send-email-baoyou.xie@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-wireless@vger.kernel.org, tom@herbertland.com,
-        Ben Greear <greearb@candelatech.com>
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:47170 "EHLO
-        helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752654AbcITBwy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 21:52:54 -0400
-Content-Disposition: inline
-In-Reply-To: <20160919211621.GA20951@pox.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, arnd@arndb.de, xie.baoyou@zte.com.cn
+To: baoyou.xie@linaro.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1474187194-21322-1-git-send-email-baoyou.xie@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 19, 2016 at 11:16:21PM +0200, Thomas Graf wrote:
->
-> Nice, I like how this simplifies users! Is this suitable for
-> ILA as well?
+From: Baoyou Xie <baoyou.xie@linaro.org>
+Date: Sun, 18 Sep 2016 16:26:34 +0800
 
-Does it have duplicate objects and use inelastic_security? If so
-then yes it should switch over to rhlist.
+> We get 1 warning when building kernel with W=1:
+> drivers/net/phy/microchip.c:58:5: warning: no previous prototype for 'lan88xx_suspend' [-Wmissing-prototypes]
+> 
+> In fact, this function is only used in the file in which it is
+> declared and don't need a declaration, but can be made static.
+> so this patch marks this function with 'static'.
+> 
+> Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Applied.
