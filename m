@@ -1,74 +1,68 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH net-next 7/8] net/mlx5e: XDP TX forwarding support
-Date: Tue, 20 Sep 2016 18:06:09 +0200
-Message-ID: <20160920180609.148874b5@redhat.com>
-References: <1474293539-2595-1-git-send-email-tariqt@mellanox.com>
-        <1474293539-2595-8-git-send-email-tariqt@mellanox.com>
-        <20160920102943.24732097@brouer.com>
-        <20160920133300.144037fd@redhat.com>
-        <96b40925-0e8e-0230-0701-96c11d6921a1@gmail.com>
-        <20160920154036.GA98644@ast-mbp.thefacebook.com>
-        <CALx6S34YBsmSJr7z2wGsu1VvLkjoqTN+Q8JJ0j-H_DehMJzQ5g@mail.gmail.com>
-        <1474387110.23058.24.camel@edumazet-glaptop3.roam.corp.google.com>
+From: "Elior, Ariel" <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Subject: RE: [RFC v2 00/11] QLogic RDMA Driver (qedr) RFC
+Date: Tue, 20 Sep 2016 13:33:25 +0000
+Message-ID: <CY1PR0701MB133773B2CB71FA6362CADCFF90F70@CY1PR0701MB1337.namprd07.prod.outlook.com>
+References: <1474367764-9555-1-git-send-email-Ram.Amrani@cavium.com>
+ <20160920121151.GK26673@leon.nu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom@herbertland.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Tariq Toukan <ttoukan.linux@gmail.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Eran Ben Elisha <eranbe@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Rana Shahout <ranas@mellanox.com>, brouer@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48680 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754132AbcITQGP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 20 Sep 2016 12:06:15 -0400
-In-Reply-To: <1474387110.23058.24.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        "Kalderon, Michal" <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        "Mintz, Yuval" <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        "Borundia, Rajesh" <Rajesh.Borundia-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        "Amrani, Ram" <Ram.Amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160920121151.GK26673-2ukJVAZIZ/Y@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 20 Sep 2016 08:58:30 -0700
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-
-> On Tue, 2016-09-20 at 08:51 -0700, Tom Herbert wrote:
-> > On Tue, Sep 20, 2016 at 8:40 AM, Alexei Starovoitov
-> > <alexei.starovoitov@gmail.com> wrote:  
-> > > On Tue, Sep 20, 2016 at 03:53:10PM +0300, Tariq Toukan wrote:  
-> > >> >>>+  case XDP_ABORTED:  
-> > >> >>It is not clearly defined, but I believe XDP_ABORTED should also result
-> > >> >>in a warning (calling bpf_warn_invalid_xdp_action(act)).  
-> > >> I'll add this.  
-> > >
-> > > Certainly NOT.
-> > > XDP_ABORTED is an exception case when program does divide by zero.
-> > > It should NOT do bpf_warn. It must drop the packet.
-> > > We discussed it several months ago.
-> > > See mlx4/en_rx.c for canonical implementation.
-> > >  
-> > It should at least bump a counter so that the user knows that aborts
-> > are happening.  
-
-I agree.
-
-> Same for XDP_TX if/when packet is dropped because output ring is full.
-
-For the XDP_TX case a counter is already incremented[1] but it is a
-local ring counter (ring->tx_dropped++).
-
-Do you think we should maintain separate counters for XDP? (to have a
-more consistent interface across drivers...)
-
-
-[1] https://github.com/torvalds/linux/blob/master/drivers/net/ethernet/mellanox/mlx4/en_tx.c#L1181
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+> On Tue, Sep 20, 2016 at 01:35:52PM +0300, Ram Amrani wrote:
+...
+> > The series adds on top of RFC v1:
+> > * a check for all drivers that IB_ACCESS_MW_BIND isn't set for ib_get_d=
+ma_mr
+> > * relocation of qedr user API to include/rdma/uapi/providers/
+> > * removal of qedr_devlist_local
+> > * fixed error handling in qedr_alloc_resources()
+> > * configuration of PBL in ib_map_mr_sg() driver implementation,
+> >   rather than post_send's IB_WR_REG_MR
+> > * misc.: placed code in proper patch, fixed a few comments,
+> >   removed extra parentheses
+> >
+> > Thanks for everyone which pointed out problems in the driver.
+> >
+> > Any review/comment is appreciated.
+>=20
+> Very nice,
+> Any reason why didn't you drop debug module parameter and decided to
+> mimic already available kernel core functionality?
+>=20
+> You got technical explanations why it is bad idea to use it. If you need =
+additional
+> voices
+> to support my claims, you will find them in thread about VERBOSE flag and=
+ responses
+> from
+> Doug, and Dennis.
+>=20
+> Thanks
+Hi Leon,
+The RFC cover letter lists what has been addressed. Debug printouts are not=
+ addressed in V2 as the discussion on that topic is not concluded (more tho=
+ughts from us on debug printouts incoming on the thread). There were many c=
+omments to V1 which are not relevant to debug printouts which are addressed=
+ by V2. We are requesting further comment, hence RFC V2. Rest assured, if i=
+t is the final opinion in the relevant discussion that pr_debug is the way =
+to go, that's what we'll do.
+Thanks,
+Ariel
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
