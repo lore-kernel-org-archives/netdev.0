@@ -1,36 +1,64 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH 3/6] ip xfrm state: add save/restore
-Date: Tue, 20 Sep 2016 09:43:31 -0700
-Message-ID: <20160920094331.4a3c08de@xeon-e3>
-References: <1472806946-16575-1-git-send-email-ptikhomirov@virtuozzo.com>
-        <1472806946-16575-4-git-send-email-ptikhomirov@virtuozzo.com>
+From: Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v6 5/6] net: ipv4, ipv6: run cgroup eBPF egress programs
+Date: Tue, 20 Sep 2016 18:43:35 +0200
+Message-ID: <6584b975-fa3e-8d98-f0c7-a2c6b194b2b6@zonque.org>
+References: <1474303441-3745-1-git-send-email-daniel@zonque.org>
+ <1474303441-3745-6-git-send-email-daniel@zonque.org>
+ <20160919191910.GA984@salvia>
+ <ac88bb4c-ab7c-1f74-c7fd-79e523b50ae4@zonque.org>
+ <20160919203533.GA888@salvia>
+ <83afdc54-1bbe-3530-e5fd-b74fefe9a042@zonque.org>
+ <20160920142931.GA31438@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-        Konstantin Khorenko <khorenko@virtuozzo.com>,
-        crml <criu@openvz.org>
-To: Pavel Tikhomirov <ptikhomirov@virtuozzo.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:34177 "EHLO
-        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932124AbcITQnV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 12:43:21 -0400
-Received: by mail-pf0-f170.google.com with SMTP id p64so9121742pfb.1
-        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 09:43:21 -0700 (PDT)
-In-Reply-To: <1472806946-16575-4-git-send-email-ptikhomirov@virtuozzo.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: htejun-b10kYP2dOMg@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, ast-b10kYP2dOMg@public.gmane.org,
+        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, kafai-b10kYP2dOMg@public.gmane.org, fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org, harald-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160920142931.GA31438@salvia>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri,  2 Sep 2016 12:02:23 +0300
-Pavel Tikhomirov <ptikhomirov@virtuozzo.com> wrote:
+Hi Pablo,
 
-> +static __u32 state_dump_magic = 0x71706987;
-> +
-> +static int xfrm_state_list_deleteall_or_save(int argc, char **argv, int deleteall, int save)
+On 09/20/2016 04:29 PM, Pablo Neira Ayuso wrote:
+> On Mon, Sep 19, 2016 at 10:56:14PM +0200, Daniel Mack wrote:
+> [...]
+>> Why would we artificially limit the use-cases of this implementation if
+>> the way it stands, both filtering and introspection are possible?
+> 
+> Why should we place infrastructure in the kernel to filter packets so
+> late, and why at postrouting btw, when we can do this way earlier
+> before any packet is actually sent?
 
-I have no problem with the overall functionality of this patch set, but this
-function_name_is_too_long_for_rational_humans.
+The point is that from an application's perspective, restricting the
+ability to bind a port and dropping packets that are being sent is a
+very different thing. Applications will start to behave differently if
+they can't bind to a port, and that's something we do not want to happen.
 
-Please make the function names (especially the local static ones) shorter and more reasonable
-and resubmit
+Looking at packets and making a verdict on them is the only way to
+implement what we have in mind. Given that's in line with what netfilter
+does, it can't be all that wrong, can it?
+
+> No performance impact, no need for
+> skbuff allocation and *no cycles wasted to evaluate if every packet is
+> wanted or not*.
+
+Hmm, not sure why this keeps coming up. As I said - for accounting,
+there is no other option than to look at every packet and its size.
+
+Regarding the performance concerns, are you saying a netfilter based
+implementation that uses counters for that purpose would be more
+efficient? Because in my tests, just loading the netfilter modules with
+no rules in place at all has more impact than running the code from 6/6
+on every packet.
+
+As stated before, I see no reason why we shouldn't have a netfilter
+based implementation that can achieve the same, function-wise. And I
+would also like to compare their throughput.
+
+
+Thanks,
+Daniel
