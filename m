@@ -1,57 +1,90 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH net-next] net/vxlan: Avoid unaligned access in
- vxlan_build_skb()
-Date: Tue, 20 Sep 2016 12:31:08 -0400
-Message-ID: <20160920163108.GP8920@oracle.com>
-References: <20160920142700.GJ8920@oracle.com>
- <20160920181114.0ac7cfa0@griffin>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH bug-fix] iproute: fix documentation for ip rule scan
+ order
+Date: Tue, 20 Sep 2016 09:38:15 -0700
+Message-ID: <20160920093815.2408f8b3@xeon-e3>
+References: <CAN04xNR8SH4D57mfY0nVDSNWvZfaaOLci2yB0-8nKg=Hv9SEbw@mail.gmail.com>
+ <20160901090454.657f0b73@xeon-e3>
+ <20160908095955.GA10034@unicorn.suse.cz>
+ <20160908103303.GG5252@orbyte.nwl.cc>
+ <20160908114808.GB10034@unicorn.suse.cz>
+ <20160908124317.GK5252@orbyte.nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        hannes@stressinduktion.org, aduyck@mirantis.com,
-        daniel@iogearbox.net, pabeni@redhat.com
-To: Jiri Benc <jbenc@redhat.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Michal Kubecek <mkubecek@suse.cz>, Iskren Chernev <iskren@imo.im>,
+        netdev@vger.kernel.org
+To: Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:26156 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754586AbcITQbb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 12:31:31 -0400
-Content-Disposition: inline
-In-Reply-To: <20160920181114.0ac7cfa0@griffin>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:33726 "EHLO
+        mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754132AbcITQiG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 12:38:06 -0400
+Received: by mail-pa0-f47.google.com with SMTP id hm5so8702769pac.0
+        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 09:38:05 -0700 (PDT)
+In-Reply-To: <20160908124317.GK5252@orbyte.nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On (09/20/16 18:11), Jiri Benc wrote:
-> > The vxlan header is at offset (14 + 20 + 8) into the packet,
-> > so the vxh is not aligned in vxlan_build_skb. Use [get/put]_unaligned
-> > functions to modify flags and vni field in the vxh.
+On Thu, 8 Sep 2016 14:43:17 +0200
+Phil Sutter <phil@nwl.cc> wrote:
+
+> On Thu, Sep 08, 2016 at 01:48:08PM +0200, Michal Kubecek wrote:
+> > On Thu, Sep 08, 2016 at 12:33:03PM +0200, Phil Sutter wrote:  
+> > > On Thu, Sep 08, 2016 at 11:59:55AM +0200, Michal Kubecek wrote:  
+> > > > 
+> > > > I'm sorry I didn't notice before but this just reverts the change done
+> > > > by commit 49572501664d ("iproute2: clarification of various man8 pages").
+> > > > IMHO the problem is that both versions are equally confusing as the word
+> > > > "priority" can be understood in two different senses.
+> > > > 
+> > > > How about more explicit formulation, e.g.
+> > > > 
+> > > >   ... in order of decreasing logical priority (i.e. increasing numeric
+> > > >   values).
+> > > > 
+> > > > Would that be better?  
+> > > 
+> > > Looks like the real issue is missing definition of priority. What about
+> > > this:
+> > > 
+> > > diff --git a/man/man8/ip-rule.8 b/man/man8/ip-rule.8
+> > > index 3508d8090fd2c..13fe9f7f892ee 100644
+> > > --- a/man/man8/ip-rule.8
+> > > +++ b/man/man8/ip-rule.8
+> > > @@ -93,7 +93,7 @@ Each policy routing rule consists of a
+> > >  .B selector
+> > >  and an
+> > >  .B action predicate.
+> > > -The RPDB is scanned in order of increasing priority. The selector
+> > > +The RPDB is scanned in order of decreasing priority. The selector
+> > >  of each rule is applied to {source address, destination address, incoming
+> > >  interface, tos, fwmark} and, if the selector matches the packet,
+> > >  the action is performed. The action predicate may return with success.
+> > > @@ -221,8 +221,10 @@ value to match.
+> > >  
+> > >  .TP
+> > >  .BI priority " PREFERENCE"
+> > > -the priority of this rule. Each rule should have an explicitly
+> > > -set
+> > > +the priority of this rule.
+> > > +.I PREFERENCE
+> > > +is an unsigned integer value, higher number means lower priority.  Each rule
+> > > +should have an explicitly set
+> > >  .I unique
+> > >  priority value.
+> > >  The options preference and order are synonyms with priority.  
+> > 
+> > Formally, this would be certainly sufficient. But for clarity (and
+> > inattentive readers), I would still prefer to be more explicit in the
+> > first hunk, e.g.
+> > 
+> >   ... in order of decreasing priority (increasing PREFERENCE values).  
 > 
-> How did you calculate that? IP header should be aligned to 4 bytes, UDP
-> header is 8 bytes, thus VXLAN header is also aligned to 4 bytes.
-
-The vxlan header is after the ethernet header (14 bytes),
-IP header (20 bytes, assuming no options) and udp header (8 bytes).
-Post the skb_reserve adjustments (see computations in in mld_newpack(),
-for example), this triggers an unaligned access on sparc.
-
-> If you went this way, it would be better to make two local variables
-> for vx_flags and vx_vni, store to them and do a single put_unaligned
-> after the condition. That way, you would have two less put_unaligned and
-> no get_unaligned in the remote csum case.
-
-Ok, that is certainly possible.
-
-> And the code would be
-> cleaner. And you're missing vx_flags being accessed in
-> vxlan_build_gbp_hdr.
-
-Sure, and there's also potential unaligned access in vxlan_build_gpe_hdr.
-
-But as I was telling Tom, this problem is much deeper than this fix, and 
-I dont have the facility, at the moment, to test out every one of these
-code paths. We would have to fix these, one at a time, in subsequent
-patches. This one just fixes the top-level basic code paths.
-
-> But I think this is not needed at all, see above.
+> I'm fine with that, though fear mentioning PREFERENCE here might confuse
+> readers. I'd go with "i.e. increasing numeric values" instead. But after
+> all this is quite a discussion for such a tiny bit of documentation. :)
 > 
->  Jiri
+> Cheers, Phil
+
+I put in the documentation change, if you want to modify send another patch.
