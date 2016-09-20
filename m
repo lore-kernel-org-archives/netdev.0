@@ -1,33 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bnxt_en: Fix build error for kernesl without
- RTC-LIB
-Date: Tue, 20 Sep 2016 03:54:30 -0400 (EDT)
-Message-ID: <20160920.035430.1975866470788831568.davem@davemloft.net>
-References: <1474356993-5857-1-git-send-email-michael.chan@broadcom.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next] mlxsw: spectrum: Make offloads stats functions
+ static
+Date: Tue, 20 Sep 2016 09:55:44 +0200
+Message-ID: <20160920075544.GF1843@nanopsycho.orion>
+References: <1474348448-13724-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: michael.chan@broadcom.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Nogah Frankel <nogahf@mellanox.com>, netdev@vger.kernel.org
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44600 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752830AbcITHy4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 03:54:56 -0400
-In-Reply-To: <1474356993-5857-1-git-send-email-michael.chan@broadcom.com>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34033 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751297AbcITHzs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 03:55:48 -0400
+Received: by mail-wm0-f68.google.com with SMTP id l132so1911701wmf.1
+        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 00:55:47 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1474348448-13724-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Chan <michael.chan@broadcom.com>
-Date: Tue, 20 Sep 2016 03:36:33 -0400
+Tue, Sep 20, 2016 at 07:14:08AM CEST, ogerlitz@mellanox.com wrote:
+>The offloads stats functions are local to this file, make them static.
+>
+>Fixes: fc1bbb0f1831 ('mlxsw: spectrum: Implement offload stats ndo [..]')
+>Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 
-> From: Rob Swindell <swindell@broadcom.com>
-> 
-> bnxt_hwrm_fw_set_time() now returns -EOPNOTSUPP when built for kernel
-> without RTC_LIB.  Setting the firmware time is not critical to the
-> successful completion of the firmware update process.
-> 
-> Signed-off-by: Rob Swindell <Rob.Swindell@broadcom.com>
-> Signed-off-by: Michael Chan <michael.chan@broadcom.com>
-
-Applied.
+Acked-by: Jiri Pirko <jiri@mellanox.com>
