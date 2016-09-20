@@ -1,87 +1,40 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [RFC v2 00/11] QLogic RDMA Driver (qedr) RFC
-Date: Tue, 20 Sep 2016 15:11:51 +0300
-Message-ID: <20160920121151.GK26673@leon.nu>
-References: <1474367764-9555-1-git-send-email-Ram.Amrani@cavium.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH net-next 6/7] net/faraday: Fix phy link irq on Aspeed G5
+ SoCs
+Date: Tue, 20 Sep 2016 22:13:14 +1000
+Message-ID: <1474373594.2857.62.camel@kernel.crashing.org>
+References: <20160920063007.24291-1-joel@jms.id.au>
+         <20160920063007.24291-7-joel@jms.id.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="SCOJXUq1iwCn05li"
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org,
-        Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org, Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org,
-        rajesh.borundia-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Ram Amrani <Ram.Amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1474367764-9555-1-git-send-email-Ram.Amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: gwshan@linux.vnet.ibm.com, andrew@lunn.ch, andrew@aj.id.au,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Joel Stanley <joel@jms.id.au>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate.crashing.org ([63.228.1.57]:36349 "EHLO gate.crashing.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751257AbcITMNj (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 20 Sep 2016 08:13:39 -0400
+In-Reply-To: <20160920063007.24291-7-joel@jms.id.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, 2016-09-20 at 16:00 +0930, Joel Stanley wrote:
+> On Aspeed SoC with a direct PHY connection (non-NSCI), we receive
+> continual PHYSTS interrupts:
+> 
+>  [   20.280000] ftgmac100 1e660000.ethernet eth0: [ISR] = 0x200: PHYSTS_CHG
+>  [   20.280000] ftgmac100 1e660000.ethernet eth0: [ISR] = 0x200: PHYSTS_CHG
+>  [   20.280000] ftgmac100 1e660000.ethernet eth0: [ISR] = 0x200: PHYSTS_CHG
+>  [   20.300000] ftgmac100 1e660000.ethernet eth0: [ISR] = 0x200: PHYSTS_CHG
+> 
+> This is because the driver was enabling low-level sensitive interrupt
+> generation where the systems are wired for high-level. All CPU cycles
+> are spent servicing this interrupt.
 
---SCOJXUq1iwCn05li
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+If this is a system wiring issue, should it be represented by a DT
+property ?
 
-On Tue, Sep 20, 2016 at 01:35:52PM +0300, Ram Amrani wrote:
-> From: Ram amrani <Ram.Amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
->
-> This series introduces RoCE RDMA driver for the 579xx RDMA products by Qlogic.
-> The RDMA support is added as an additional loadable module (qedr) over the
-> Ethernet qede driver.
-> The qedr module will support both RoCE and iWarp, although this series only
-> adds RoCE support.
-> The qed and qede drivers are enhanced with functionality required for RDMA
-> support.
->
-> Based on net-next 4c73195edbe3a5d7e14ea549bb261cf35c29f0cc.
->
-> The series adds on top of RFC v1:
-> * a check for all drivers that IB_ACCESS_MW_BIND isn't set for ib_get_dma_mr
-> * relocation of qedr user API to include/rdma/uapi/providers/
-> * removal of qedr_devlist_local
-> * fixed error handling in qedr_alloc_resources()
-> * configuration of PBL in ib_map_mr_sg() driver implementation,
->   rather than post_send's IB_WR_REG_MR
-> * misc.: placed code in proper patch, fixed a few comments,
->   removed extra parentheses
->
-> Thanks for everyone which pointed out problems in the driver.
->
-> Any review/comment is appreciated.
-
-Very nice,
-Any reason why didn't you drop debug module parameter and decided to
-mimic already available kernel core functionality?
-
-You got technical explanations why it is bad idea to use it. If you need additional voices
-to support my claims, you will find them in thread about VERBOSE flag and responses from
-Doug, and Dennis.
-
-Thanks
-
---SCOJXUq1iwCn05li
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJX4SeHAAoJEORje4g2clin/5sP/AkNvEkCHcr6RNO3CveSdh1s
-iNoen5fvmjBtIJufws58BSeM4txW50YcXggdsD9dgVDR9f994qeW2XP2pesqCOvX
-SsCpjnsR4z25373rq0I2/iT5evCV+UGIrlxACivyNIOzFvVZSXE1wPKfQu2GuntN
-5Pdzf9xZ1LkpwGAj9GaDTs74gJ/kmesbuIONcc3Qtujtnjnw660a3eLeiKb1p1Su
-pcfOwityDVfKDdam4dojvQ8ecPTsfWKOIndx5AJjOejF9d6K4xwTEPreMpYVU/KH
-sWL6mINjgt2h8k+KUa8XQanYttRYw//zs+r0wgyrLT4cuwwk0QeGukSLzDusBIT1
-3eXc3Mz+MSe+S9aBDFA1tn7aS9t6IGgxmzDXJFKC6FLFZbtIaUO1TMj/6iYO7VrK
-TlQW4iYov2TlHKrvrlgAdc9MPwRuXd0QS31jLqg/Yf7fCHwUIs84IJJ8XLV//qJZ
-fhbDh/MApLRw+ZrK28WYeMQtS/tmACdopjVKM3F1Zodrz6pJtqTm2Q8eXFjW8pxG
-UEd/SD7+iCaBwcM0brRYLUHS04tm4E6s7n43gor+DrzXF2Nwte1Gb/jSmZpMEkE4
-0i87vk3ZwTSFBmU1kXr4/1Q4grmnNbhsOu/UGKLhx1Y+O3MPp780hFR7lsq51rZN
-9LhJVq/+gMsjgKXizWSM
-=bDJt
------END PGP SIGNATURE-----
-
---SCOJXUq1iwCn05li--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Cheers,
+Ben.
