@@ -1,30 +1,60 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] mlxsw: spectrum: Fix sparse warnings
-Date: Tue, 20 Sep 2016 04:33:36 -0400 (EDT)
-Message-ID: <20160920.043336.1522140098625913962.davem@davemloft.net>
-References: <1474266566-5780-1-git-send-email-jiri@resnulli.us>
+Subject: Re: [PATCH net-next v3] xen-netfront: avoid packet loss
+ when ethernet header crosses page boundary
+Date: Tue, 20 Sep 2016 04:41:19 -0400 (EDT)
+Message-ID: <20160920.044119.403211498498787643.davem@davemloft.net>
+References: <1474282420-9723-1-git-send-email-vkuznets@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45098 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751691AbcITIdj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 04:33:39 -0400
-In-Reply-To: <1474266566-5780-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: jgross@suse.com, ptalbert@redhat.com, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, david.vrabel@citrix.com,
+ xen-devel@lists.xenproject.org, boris.ostrovsky@oracle.com
+To: vkuznets@redhat.com
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <1474282420-9723-1-git-send-email-vkuznets@redhat.com>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Mon, 19 Sep 2016 08:29:26 +0200
-
-> From: Ido Schimmel <idosch@mellanox.com>
-> 
- ...
-> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-
-Applied.
+RnJvbTogVml0YWx5IEt1em5ldHNvdiA8dmt1em5ldHNAcmVkaGF0LmNvbT4KRGF0ZTogTW9uLCAx
+OSBTZXAgMjAxNiAxMjo1Mzo0MCArMDIwMAoKPiBTbWFsbCBwYWNrZXQgbG9zcyBpcyByZXBvcnRl
+ZCBvbiBjb21wbGV4IG11bHRpIGhvc3QgbmV0d29yayBjb25maWd1cmF0aW9ucwo+IGluY2x1ZGlu
+ZyB0dW5uZWxzLCBOQVQsIC4uLiBNeSBpbnZlc3RpZ2F0aW9uIGxlZCBtZSB0byB0aGUgZm9sbG93
+aW5nIGNoZWNrCj4gaW4gbmV0YmFjayB3aGljaCBkcm9wcyBwYWNrZXRzOgo+IAo+ICAgICAgICAg
+aWYgKHVubGlrZWx5KHR4cmVxLnNpemUgPCBFVEhfSExFTikpIHsKPiAgICAgICAgICAgICAgICAg
+bmV0ZGV2X2VycihxdWV1ZS0+dmlmLT5kZXYsCj4gICAgICAgICAgICAgICAgICAgICAgICAgICAg
+IkJhZCBwYWNrZXQgc2l6ZTogJWRcbiIsIHR4cmVxLnNpemUpOwo+ICAgICAgICAgICAgICAgICB4
+ZW52aWZfdHhfZXJyKHF1ZXVlLCAmdHhyZXEsIGV4dHJhX2NvdW50LCBpZHgpOwo+ICAgICAgICAg
+ICAgICAgICBicmVhazsKPiAgICAgICAgIH0KPiAKPiBCdXQgdGhpcyBjaGVjayBpdHNlbGYgaXMg
+bGVnaXRpbWF0ZS4gU0tCcyBjb25zaXN0IG9mIGEgbGluZWFyIHBhcnQgKHdoaWNoCj4gaGFzIHRv
+IGhhdmUgdGhlIGV0aGVybmV0IGhlYWRlcikgYW5kIChvcHRpb25hbGx5KSBhIG51bWJlciBvZiBm
+cmFncy4KPiBOZXRmcm9udCB0cmFuc21pdHMgdGhlIGhlYWQgb2YgdGhlIGxpbmVhciBwYXJ0IHVw
+IHRvIHRoZSBwYWdlIGJvdW5kYXJ5Cj4gYXMgdGhlIGZpcnN0IHJlcXVlc3QgYW5kIGFsbCB0aGUg
+cmVzdCBiZWNvbWVzIGZyYWdzIHNvIHdoZW4gd2UncmUKPiByZWNvbnN0cnVjdGluZyB0aGUgU0tC
+IGluIG5ldGJhY2sgd2UgY2FuJ3QgZGlzdGluZ3Vpc2ggYmV0d2VlbiBvcmlnaW5hbAo+IGZyYWdz
+IGFuZCB0aGUgJ3RhaWwnIG9mIHRoZSBsaW5lYXIgcGFydC4gVGhlIGZpcnN0IFNLQiBuZWVkcyB0
+byBiZSBhdAo+IGxlYXN0IEVUSF9ITEVOIHNpemUuIFNvIGluIGNhc2Ugd2UgaGF2ZSBhbiBTS0Ig
+d2l0aCBpdHMgbGluZWFyIHBhcnQKPiBzdGFydGluZyB0b28gY2xvc2UgdG8gdGhlIHBhZ2UgYm91
+bmRhcnkgdGhlIHBhY2tldCBpcyBsb3N0Lgo+IAo+IEkgc2VlIHR3byB3YXlzIHRvIGZpeCB0aGUg
+aXNzdWU6Cj4gLSBDaGFuZ2UgdGhlICd3aXJlJyBwcm90b2NvbCBiZXR3ZWVuIG5ldGZyb250IGFu
+ZCBuZXRiYWNrIHRvIHN0YXJ0IGtlZXBpbmcKPiAgIHRoZSBvcmlnaW5hbCBTS0Igc3RydWN0dXJl
+LiBXZSdsbCBoYXZlIHRvIGFkZCBhIGZsYWcgaW5kaWNhdGluZyB0aGUgZmFjdAo+ICAgdGhhdCB0
+aGUgcGFydGljdWxhciByZXF1ZXN0IGlzIGEgcGFydCBvZiB0aGUgb3JpZ2luYWwgbGluZWFyIHBh
+cnQgYW5kIG5vdAo+ICAgYSBmcmFnLiBXZSdsbCBuZWVkIHRvIGtub3cgdGhlIGxlbmd0aCBvZiB0
+aGUgbGluZWFyIHBhcnQgdG8gcHJlLWFsbG9jYXRlCj4gICBtZW1vcnkuCj4gLSBBdm9pZCB0cmFu
+c21pdHRpbmcgU0tCcyB3aXRoIGxpbmVhciBwYXJ0cyBzdGFydGluZyB0b28gY2xvc2UgdG8gdGhl
+IHBhZ2UKPiAgIGJvdW5kYXJ5LiBUaGF0IHNlZW1zIHByZWZlcmFibGUgc2hvcnQtdGVybSBhbmQg
+c2hvdWxkbid0IGJyaW5nCj4gICBzaWduaWZpY2FudCBwZXJmb3JtYW5jZSBkZWdyYWRhdGlvbiBh
+cyBzdWNoIHBhY2tldHMgYXJlIHJhcmUuIFRoYXQncyB3aGF0Cj4gICB0aGlzIHBhdGNoIGlzIHRy
+eWluZyB0byBhY2hpZXZlIHdpdGggc2tiX2NvcHkoKS4KPiAKPiBTaWduZWQtb2ZmLWJ5OiBWaXRh
+bHkgS3V6bmV0c292IDx2a3V6bmV0c0ByZWRoYXQuY29tPgo+IEFja2VkLWJ5OiBEYXZpZCBWcmFi
+ZWwgPGRhdmlkLnZyYWJlbEBjaXRyaXguY29tPgoKQXBwbGllZC4KCl9fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClhlbi1kZXZlbCBtYWlsaW5nIGxpc3QKWGVu
+LWRldmVsQGxpc3RzLnhlbi5vcmcKaHR0cHM6Ly9saXN0cy54ZW4ub3JnL3hlbi1kZXZlbAo=
