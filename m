@@ -1,56 +1,38 @@
-From: Shmulik Ladkani <shmulik.ladkani@ravellosystems.com>
-Subject: [PATCH v3 net-next 2/2] net: skbuff: Coding: Use eth_type_vlan() instead of open coding it
-Date: Tue, 20 Sep 2016 12:48:37 +0300
-Message-ID: <1474364917-31710-2-git-send-email-shmulik.ladkani@gmail.com>
-References: <1474364917-31710-1-git-send-email-shmulik.ladkani@gmail.com>
-Cc: Jiri Pirko <jiri@mellanox.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Pravin Shelar <pshelar@ovn.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-        Shmulik Ladkani <shmulik.ladkani@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:38281 "EHLO
-        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932616AbcITJti (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 05:49:38 -0400
-Received: by mail-wm0-f50.google.com with SMTP id l132so25061166wmf.1
-        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 02:49:32 -0700 (PDT)
-In-Reply-To: <1474364917-31710-1-git-send-email-shmulik.ladkani@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: skb_splice_bits() and large chunks in pipe (was Re:
+ xfs_file_splice_read: possible circular locking dependency detected
+Date: Tue, 20 Sep 2016 17:51:02 +0800
+Message-ID: <20160920095102.GA21088@gondor.apana.org.au>
+References: <20160919002258.GJ2356@ZenIV.linux.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: torvalds@linux-foundation.org, axboe@kernel.dk, npiggin@gmail.com,
+        linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
+        edumazet@google.com
+To: Al Viro <viro@ZenIV.linux.org.uk>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160919002258.GJ2356@ZenIV.linux.org.uk>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fix 'skb_vlan_pop' to use eth_type_vlan instead of directly comparing
-skb->protocol to ETH_P_8021Q or ETH_P_8021AD.
+Al Viro <viro@zeniv.linux.org.uk> wrote:
+>
+>        * shoved into scatterlist, which gets fed into crypto/*.c machinery.
+> No way for a pipe_buffer stuff to get there, fortunately, because I would
+> be very surprised if it works correctly with compound pages and large
+> ranges in those.
 
-Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
----
- net/core/skbuff.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+FWIW the crypto API has always been supposed to handle SG entries
+that cross page boundaries.  There were a couple of bugs in this
+area but AFAIK they've all been fixed.
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 93d6c5c..d6d0da5 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -4564,8 +4564,7 @@ int skb_vlan_pop(struct sk_buff *skb)
- 	if (likely(skb_vlan_tag_present(skb))) {
- 		skb->vlan_tci = 0;
- 	} else {
--		if (unlikely(skb->protocol != htons(ETH_P_8021Q) &&
--			     skb->protocol != htons(ETH_P_8021AD)))
-+		if (unlikely(!eth_type_vlan(skb->protocol)))
- 			return 0;
- 
- 		err = __skb_vlan_pop(skb, &vlan_tci);
-@@ -4573,8 +4572,7 @@ int skb_vlan_pop(struct sk_buff *skb)
- 			return err;
- 	}
- 	/* move next vlan tag to hw accel tag */
--	if (likely(skb->protocol != htons(ETH_P_8021Q) &&
--		   skb->protocol != htons(ETH_P_8021AD)))
-+	if (likely(!eth_type_vlan(skb->protocol)))
- 		return 0;
- 
- 	vlan_proto = skb->protocol;
+Of course I cannot guarantee that every crypto driver also handles
+it correctly, but at least we have a few test vectors which test
+the page-crossing case specifically.
+
+Cheers,
 -- 
-1.9.1
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
