@@ -1,86 +1,87 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: UBSAN reports issue in ip_idents_reserve
-Date: Tue, 20 Sep 2016 14:00:00 +0200
-Message-ID: <20160920120000.GI1843@nanopsycho.orion>
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [RFC v2 00/11] QLogic RDMA Driver (qedr) RFC
+Date: Tue, 20 Sep 2016 15:11:51 +0300
+Message-ID: <20160920121151.GK26673@leon.nu>
+References: <1474367764-9555-1-git-send-email-Ram.Amrani@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org, eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f42.google.com ([74.125.82.42]:37339 "EHLO
-        mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751563AbcITMAE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 08:00:04 -0400
-Received: by mail-wm0-f42.google.com with SMTP id b130so31178617wmc.0
-        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 05:00:03 -0700 (PDT)
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="SCOJXUq1iwCn05li"
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org,
+        Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org, Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org,
+        rajesh.borundia-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ram Amrani <Ram.Amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1474367764-9555-1-git-send-email-Ram.Amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi.
 
-I'm consistently getting following UBSAN warning on every bootup:
+--SCOJXUq1iwCn05li
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-[   47.545820] ================================================================================
-[   47.554340] UBSAN: Undefined behaviour in ./arch/x86/include/asm/atomic.h:156:11
-[   47.561808] signed integer overflow:
-[   47.565420] -2117905507 + -695755206 cannot be represented in type 'int'
-[   47.572226] CPU: 0 PID: 389 Comm: ntpd Not tainted 4.8.0-rc6jiri+ #1
-[   47.578636] Hardware name: Mellanox Technologies Ltd. Mellanox switch/Mellanox switch, BIOS 4.6.5 05/21/2015
-[   47.588586]  ffffffff847bf8c0 00000000987b8f47 ffff8803829af5a8 ffffffff818354e3
-[   47.596165]  0000000041b58ab3 ffffffff8277e711 ffffffff81835431 ffff8803829af5d0
-[   47.603722]  ffff8803829af580 ffffffffd6879e3a 1ffffffff08f8214 ffffed0070535e6c
-[   47.611298] Call Trace:
-[   47.613795]  [<ffffffff818354e3>] dump_stack+0xb2/0x10f
-[   47.619077]  [<ffffffff81835431>] ? _atomic_dec_and_lock+0xa1/0xa1
-[   47.625327]  [<ffffffff818a884f>] ubsan_epilogue+0xd/0x4e
-[   47.630811]  [<ffffffff818a9821>] handle_overflow+0x190/0x1de
-[   47.636627]  [<ffffffff818a9691>] ? __ubsan_handle_negate_overflow+0x140/0x140
-[   47.643914]  [<ffffffff81863130>] ? iov_iter_copy_from_user_atomic+0x6e0/0x6e0
-[   47.651219]  [<ffffffff811e6f79>] ? __lock_acquire.isra.17+0xb79/0xe50
-[   47.657832]  [<ffffffff81e581f2>] ? ip_generic_getfrag+0xd2/0x190
-[   47.664011]  [<ffffffff81e58120>] ? ip_setup_cork+0x320/0x320
-[   47.669827]  [<ffffffff818a987d>] __ubsan_handle_add_overflow+0xe/0x10
-[   47.676444]  [<ffffffff81e41d52>] ip_idents_reserve+0xb2/0xe0
-[   47.682254]  [<ffffffff81e443e9>] __ip_select_ident+0x159/0x1b0
-[   47.688248]  [<ffffffff81e44290>] ? update_or_create_fnhe+0x850/0x850
-[   47.694782]  [<ffffffff81e58120>] ? ip_setup_cork+0x320/0x320
-[   47.700624]  [<ffffffff81e5ef40>] __ip_make_skb+0x8a0/0xab0
-[   47.706259]  [<ffffffff81e5f3fd>] ip_make_skb+0x17d/0x1d0
-[   47.711717]  [<ffffffff81e58120>] ? ip_setup_cork+0x320/0x320
-[   47.717526]  [<ffffffff81e5f280>] ? ip_flush_pending_frames+0x20/0x20
-[   47.724032]  [<ffffffff81e46ef0>] ? ip_rt_update_pmtu+0x4f0/0x4f0
-[   47.730231]  [<ffffffff81f35291>] ? xfrm_lookup_route+0x21/0xe0
-[   47.736216]  [<ffffffff81ec0cdb>] udp_sendmsg+0x9db/0xf60
-[   47.741668]  [<ffffffff81e58120>] ? ip_setup_cork+0x320/0x320
-[   47.747472]  [<ffffffff81ec0300>] ? udp_abort+0x70/0x70
-[   47.752763]  [<ffffffff81ede3d8>] inet_sendmsg+0x198/0x220
-[   47.758324]  [<ffffffff81ede292>] ? inet_sendmsg+0x52/0x220
-[   47.763982]  [<ffffffff81ede240>] ? inet_recvmsg+0x300/0x300
-[   47.769728]  [<ffffffff81d6fd25>] sock_sendmsg+0xa5/0xd0
-[   47.775100]  [<ffffffff81d72f70>] SYSC_sendto+0x1d0/0x280
-[   47.780551]  [<ffffffff81d72da0>] ? SYSC_connect+0x200/0x200
-[   47.786283]  [<ffffffff814f66df>] ? poll_select_copy_remaining+0x2af/0x310
-[   47.793265]  [<ffffffff814f6430>] ? set_fd_set+0x60/0x60
-[   47.798665]  [<ffffffff811ee360>] ? do_raw_spin_trylock+0x90/0x90
-[   47.804853]  [<ffffffff814f80e3>] ? SyS_select+0x1a3/0x200
-[   47.810399]  [<ffffffff814f7f40>] ? core_sys_select+0x570/0x570
-[   47.816415]  [<ffffffff8100467c>] ? exit_to_usermode_loop+0xec/0x110
-[   47.822842]  [<ffffffff811e8abd>] ? lockdep_sys_exit+0x2d/0xb0
-[   47.828769]  [<ffffffff81004016>] ? lockdep_sys_exit_thunk+0x16/0x30
-[   47.835199]  [<ffffffff81d7433e>] SyS_sendto+0xe/0x10
-[   47.840321]  [<ffffffff820381f2>] entry_SYSCALL_64_fastpath+0x1a/0xa9
-[   47.846826] ================================================================================
+On Tue, Sep 20, 2016 at 01:35:52PM +0300, Ram Amrani wrote:
+> From: Ram amrani <Ram.Amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+>
+> This series introduces RoCE RDMA driver for the 579xx RDMA products by Qlogic.
+> The RDMA support is added as an additional loadable module (qedr) over the
+> Ethernet qede driver.
+> The qedr module will support both RoCE and iWarp, although this series only
+> adds RoCE support.
+> The qed and qede drivers are enhanced with functionality required for RDMA
+> support.
+>
+> Based on net-next 4c73195edbe3a5d7e14ea549bb261cf35c29f0cc.
+>
+> The series adds on top of RFC v1:
+> * a check for all drivers that IB_ACCESS_MW_BIND isn't set for ib_get_dma_mr
+> * relocation of qedr user API to include/rdma/uapi/providers/
+> * removal of qedr_devlist_local
+> * fixed error handling in qedr_alloc_resources()
+> * configuration of PBL in ib_map_mr_sg() driver implementation,
+>   rather than post_send's IB_WR_REG_MR
+> * misc.: placed code in proper patch, fixed a few comments,
+>   removed extra parentheses
+>
+> Thanks for everyone which pointed out problems in the driver.
+>
+> Any review/comment is appreciated.
 
-Looks like this might be result of following commit:
+Very nice,
+Any reason why didn't you drop debug module parameter and decided to
+mimic already available kernel core functionality?
 
-commit 04ca6973f7c1a0d8537f2d9906a0cf8e69886d75
-Author: Eric Dumazet <edumazet@google.com>
-Date:   Sat Jul 26 08:58:10 2014 +0200
+You got technical explanations why it is bad idea to use it. If you need additional voices
+to support my claims, you will find them in thread about VERBOSE flag and responses from
+Doug, and Dennis.
 
-    ip: make IP identifiers less predictable
+Thanks
 
-Eric, could you please take look at that?
+--SCOJXUq1iwCn05li
+Content-Type: application/pgp-signature; name="signature.asc"
 
-Thanks.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
-Jiri
+iQIcBAEBAgAGBQJX4SeHAAoJEORje4g2clin/5sP/AkNvEkCHcr6RNO3CveSdh1s
+iNoen5fvmjBtIJufws58BSeM4txW50YcXggdsD9dgVDR9f994qeW2XP2pesqCOvX
+SsCpjnsR4z25373rq0I2/iT5evCV+UGIrlxACivyNIOzFvVZSXE1wPKfQu2GuntN
+5Pdzf9xZ1LkpwGAj9GaDTs74gJ/kmesbuIONcc3Qtujtnjnw660a3eLeiKb1p1Su
+pcfOwityDVfKDdam4dojvQ8ecPTsfWKOIndx5AJjOejF9d6K4xwTEPreMpYVU/KH
+sWL6mINjgt2h8k+KUa8XQanYttRYw//zs+r0wgyrLT4cuwwk0QeGukSLzDusBIT1
+3eXc3Mz+MSe+S9aBDFA1tn7aS9t6IGgxmzDXJFKC6FLFZbtIaUO1TMj/6iYO7VrK
+TlQW4iYov2TlHKrvrlgAdc9MPwRuXd0QS31jLqg/Yf7fCHwUIs84IJJ8XLV//qJZ
+fhbDh/MApLRw+ZrK28WYeMQtS/tmACdopjVKM3F1Zodrz6pJtqTm2Q8eXFjW8pxG
+UEd/SD7+iCaBwcM0brRYLUHS04tm4E6s7n43gor+DrzXF2Nwte1Gb/jSmZpMEkE4
+0i87vk3ZwTSFBmU1kXr4/1Q4grmnNbhsOu/UGKLhx1Y+O3MPp780hFR7lsq51rZN
+9LhJVq/+gMsjgKXizWSM
+=bDJt
+-----END PGP SIGNATURE-----
+
+--SCOJXUq1iwCn05li--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
