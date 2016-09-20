@@ -1,64 +1,56 @@
-From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH net 5/5] r8152: disable ALDPS and EEE before setting PHY
-Date: Tue, 20 Sep 2016 16:22:09 +0800
-Message-ID: <1394712342-15778-224-Taiwan-albertk@realtek.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net 4/5] r8152: remove r8153_enable_eee
+Date: Tue, 20 Sep 2016 16:22:08 +0800
+Message-ID: <1394712342-15778-223-Taiwan-albertk@realtek.com>
 References: <1394712342-15778-219-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1394712342-15778-219-Taiwan-albertk-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+        <linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rtits2.realtek.com ([211.75.126.72]:51149 "EHLO
+        rtits2.realtek.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752636AbcITIXl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 04:23:41 -0400
+In-Reply-To: <1394712342-15778-219-Taiwan-albertk@realtek.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Disable ALDPS and EEE to avoid the possible failure when setting the PHY.
+Remove r8153_enable_eee().
 
-Signed-off-by: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/usb/r8152.c | 10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
+ drivers/net/usb/r8152.c | 10 +++-------
+ 1 file changed, 3 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index e7a05dd..3c3cdb4 100644
+index 9ce5bd5..e7a05dd 100644
 --- a/drivers/net/usb/r8152.c
 +++ b/drivers/net/usb/r8152.c
-@@ -32,7 +32,7 @@
- #define NETNEXT_VERSION		"08"
+@@ -2803,12 +2803,6 @@ static void r8153_eee_en(struct r8152 *tp, bool enable)
+ 	ocp_reg_write(tp, OCP_EEE_CFG, config);
+ }
  
- /* Information for net */
--#define NET_VERSION		"5"
-+#define NET_VERSION		"6"
- 
- #define DRIVER_VERSION		"v1." NETNEXT_VERSION "." NET_VERSION
- #define DRIVER_AUTHOR "Realtek linux nic maintainers <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>"
-@@ -2808,6 +2808,13 @@ static void r8153_hw_phy_cfg(struct r8152 *tp)
+-static void r8153_enable_eee(struct r8152 *tp)
+-{
+-	r8153_eee_en(tp, true);
+-	ocp_reg_write(tp, OCP_EEE_ADV, MDIO_EEE_1000T | MDIO_EEE_100TX);
+-}
+-
+ static void r8153_hw_phy_cfg(struct r8152 *tp)
+ {
  	u32 ocp_data;
- 	u16 data;
+@@ -2843,7 +2837,9 @@ static void r8153_hw_phy_cfg(struct r8152 *tp)
+ 	sram_write(tp, SRAM_10M_AMP1, 0x00af);
+ 	sram_write(tp, SRAM_10M_AMP2, 0x0208);
  
-+	/* disable ALDPS before updating the PHY parameters */
-+	r8153_aldps_en(tp, false);
+-	r8153_enable_eee(tp);
++	r8153_eee_en(tp, true);
++	ocp_reg_write(tp, OCP_EEE_ADV, MDIO_EEE_1000T | MDIO_EEE_100TX);
 +
-+	/* disable EEE before updating the PHY parameters */
-+	r8153_eee_en(tp, false);
-+	ocp_reg_write(tp, OCP_EEE_ADV, 0);
-+
- 	if (tp->version == RTL_VER_03) {
- 		data = ocp_reg_read(tp, OCP_EEE_CFG);
- 		data &= ~CTAP_SHORT_EN;
-@@ -3390,7 +3397,6 @@ static void r8153_init(struct r8152 *tp)
- 	if (test_bit(RTL8152_UNPLUG, &tp->flags))
- 		return;
+ 	r8153_aldps_en(tp, true);
+ 	r8152b_enable_fc(tp);
  
--	r8153_aldps_en(tp, false);
- 	r8153_u1u2en(tp, false);
- 
- 	for (i = 0; i < 500; i++) {
 -- 
 2.7.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
