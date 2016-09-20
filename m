@@ -1,71 +1,148 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH net-next 7/8] net/mlx5e: XDP TX forwarding support
-Date: Tue, 20 Sep 2016 18:27:17 +0200
-Message-ID: <20160920182717.2de9541e@redhat.com>
-References: <1474293539-2595-1-git-send-email-tariqt@mellanox.com>
-        <1474293539-2595-8-git-send-email-tariqt@mellanox.com>
-        <20160920102943.24732097@brouer.com>
-        <20160920133300.144037fd@redhat.com>
-        <96b40925-0e8e-0230-0701-96c11d6921a1@gmail.com>
-        <20160920154036.GA98644@ast-mbp.thefacebook.com>
-        <CALx6S34YBsmSJr7z2wGsu1VvLkjoqTN+Q8JJ0j-H_DehMJzQ5g@mail.gmail.com>
-        <1474387110.23058.24.camel@edumazet-glaptop3.roam.corp.google.com>
-        <20160920180609.148874b5@redhat.com>
-        <1474388036.23058.26.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [RFC v2 06/12] qedr: Add support for QP verbs
+Date: Tue, 20 Sep 2016 19:30:48 +0300
+Message-ID: <20160920163048.GQ26673@leon.nu>
+References: <1474367764-9555-1-git-send-email-Ram.Amrani@cavium.com>
+ <1474367764-9555-7-git-send-email-Ram.Amrani@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom@herbertland.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Tariq Toukan <ttoukan.linux@gmail.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Eran Ben Elisha <eranbe@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Rana Shahout <ranas@mellanox.com>, brouer@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52186 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754743AbcITQ1X (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 20 Sep 2016 12:27:23 -0400
-In-Reply-To: <1474388036.23058.26.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="nWEzmRaGLXxZdI3i"
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org,
+        Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org, Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org,
+        rajesh.borundia-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ram Amrani <Ram.Amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1474367764-9555-7-git-send-email-Ram.Amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 20 Sep 2016 09:13:56 -0700
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-> On Tue, 2016-09-20 at 18:06 +0200, Jesper Dangaard Brouer wrote:
-> > On Tue, 20 Sep 2016 08:58:30 -0700
-> > Eric Dumazet <eric.dumazet@gmail.com> wrote:  
-> 
-> > > Same for XDP_TX if/when packet is dropped because output ring is full.  
-> > 
-> > For the XDP_TX case a counter is already incremented[1] but it is a
-> > local ring counter (ring->tx_dropped++).
-> > 
-> > Do you think we should maintain separate counters for XDP? (to have a
-> > more consistent interface across drivers...)  
-> 
-> No, as long as the admin can learn drops are occurring.
+--nWEzmRaGLXxZdI3i
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Okay, so recording these drops is important for an admin, agreed.  Now
-that we have the chance to define the API, wouldn't is be nice if the
-admin across drive drivers knew what counter to look for???
+On Tue, Sep 20, 2016 at 01:35:58PM +0300, Ram Amrani wrote:
+> From: Ram amrani <Ram.Amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+>
+> Add support for Queue Pair verbs which adds, deletes,
+> modifies and queries Queue Pairs.
+>
+> Signed-off-by: Rajesh Borundia <rajesh.borundia-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Ram Amrani <Ram.Amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+> ---
+>  drivers/infiniband/hw/qedr/main.c          |   15 +-
+>  drivers/infiniband/hw/qedr/qedr.h          |  126 +++
+>  drivers/infiniband/hw/qedr/qedr_cm.h       |   40 +
+>  drivers/infiniband/hw/qedr/qedr_hsi_rdma.h |   11 +
+>  drivers/infiniband/hw/qedr/verbs.c         | 1095 ++++++++++++++++++++++++-
+>  drivers/infiniband/hw/qedr/verbs.h         |    7 +
+>  drivers/net/ethernet/qlogic/qed/qed_cxt.h  |    1 +
+>  drivers/net/ethernet/qlogic/qed/qed_roce.c | 1211 ++++++++++++++++++++++++++++
+>  drivers/net/ethernet/qlogic/qed/qed_roce.h |   71 ++
+>  include/linux/qed/qed_roce_if.h            |  144 ++++
+>  include/uapi/rdma/providers/qedr-abi.h     |   35 +
 
-> "perf ... -e skb:kfree_skb ..." or drop monitor wont work,
-> unfortunately.
+Please be aware that the last version for ABI header files doesn't have
+"provider" name in directory path (include/uapi/rdma/qedr-abi.h)
 
-That is actually a good idea... why not add a trace point for these
-rare drop cases, which is a hassle to debug for an admin?
-Let's actually take advantage of all the nice infrastructure the kernel
-provides(?)
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+>  11 files changed, 2753 insertions(+), 3 deletions(-)
+>  create mode 100644 drivers/infiniband/hw/qedr/qedr_cm.h
+>
+> diff --git a/drivers/infiniband/hw/qedr/main.c b/drivers/infiniband/hw/qedr/main.c
+> index c99dd6a..10ad9ed 100644
+> --- a/drivers/infiniband/hw/qedr/main.c
+> +++ b/drivers/infiniband/hw/qedr/main.c
+> @@ -52,7 +52,7 @@ uint debug;
+>  module_param(debug, uint, 0);
+>  MODULE_PARM_DESC(debug, "Default debug msglevel");
+>
+> -static LIST_HEAD(qedr_dev_list);
+
+You are removing code which was added in previous patches, why do you do
+it?
+
+> +#define QEDR_WQ_MULTIPLIER_DFT	(3)
+>
+>  void qedr_ib_dispatch_event(struct qedr_dev *dev, u8 port_num,
+>  			    enum ib_event_type type)
+> @@ -99,7 +99,11 @@ static int qedr_register_device(struct qedr_dev *dev)
+>  				     QEDR_UVERBS(CREATE_CQ) |
+>  				     QEDR_UVERBS(RESIZE_CQ) |
+>  				     QEDR_UVERBS(DESTROY_CQ) |
+> -				     QEDR_UVERBS(REQ_NOTIFY_CQ);
+> +				     QEDR_UVERBS(REQ_NOTIFY_CQ) |
+> +				     QEDR_UVERBS(CREATE_QP) |
+> +				     QEDR_UVERBS(MODIFY_QP) |
+> +				     QEDR_UVERBS(QUERY_QP) |
+> +				     QEDR_UVERBS(DESTROY_QP);
+>
+>  	dev->ibdev.phys_port_cnt = 1;
+>  	dev->ibdev.num_comp_vectors = dev->num_cnq;
+> @@ -124,6 +128,11 @@ static int qedr_register_device(struct qedr_dev *dev)
+>  	dev->ibdev.resize_cq = qedr_resize_cq;
+>  	dev->ibdev.req_notify_cq = qedr_arm_cq;
+>
+> +	dev->ibdev.create_qp = qedr_create_qp;
+> +	dev->ibdev.modify_qp = qedr_modify_qp;
+> +	dev->ibdev.query_qp = qedr_query_qp;
+> +	dev->ibdev.destroy_qp = qedr_destroy_qp;
+> +
+>  	dev->ibdev.query_pkey = qedr_query_pkey;
+>
+>  	dev->ibdev.dma_device = &dev->pdev->dev;
+> @@ -619,6 +628,8 @@ static struct qedr_dev *qedr_add(struct qed_dev *cdev, struct pci_dev *pdev,
+>  		goto init_err;
+>  	}
+>
+> +	dev->wq_multiplier = QEDR_WQ_MULTIPLIER_DFT;
+> +
+>  	qedr_pci_set_atomic(dev, pdev);
+>
+>  	rc = qedr_alloc_resources(dev);
+> diff --git a/drivers/infiniband/hw/qedr/qedr.h b/drivers/infiniband/hw/qedr/qedr.h
+> index dd974d5..05017be 100644
+> --- a/drivers/infiniband/hw/qedr/qedr.h
+> +++ b/drivers/infiniband/hw/qedr/qedr.h
+> @@ -49,6 +49,9 @@
+>  enum DP_QEDR_MODULE {
+>  	QEDR_MSG_INIT = 0x10000,
+
+We prefer shift notation (1 << 16) instead of 0x10000.
+
+>  	QEDR_MSG_CQ = 0x20000,
+> +	QEDR_MSG_RQ = 0x40000,
+> +	QEDR_MSG_SQ = 0x80000,
+> +	QEDR_MSG_QP = (QEDR_MSG_SQ | QEDR_MSG_RQ),
+>  	QEDR_MSG_MR = 0x100000,
+>  	QEDR_MSG_MISC = 0x400000,
+>  };
+
+--nWEzmRaGLXxZdI3i
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJX4WQ4AAoJEORje4g2clind6UP/jeGfgIoum6baf+kwQQajJhq
+cyjhnajrj0xu+hskjHac9uREIxVXLhEemsLl7mqq9IDrNFpqa9Gh8sFBlm7fyJEb
+ozJ6ig4catjqjU1grLuFPWlbnShP2mF3B26viiWHl40S4+A+tj4IsO8SHFQTlr2Z
+O06H7fJE6SWyJVMnOixSqsoWPeL/Jgb4GD+7EviNo5d6eiSr4jsgLdcgslzAlPYS
+fXhq4OLSgF+eQmAkPEPdd5i/+GY4HJBAGUeLjz1LDY0+cJsmbRSu8QQDMa0Yi7Tw
+lcUIxj+PAFgLnq4lMUN1+ewdn7izV5HB6CuxMMjfTz082sKl/CLdwPK8JVhPBC5Z
+TvF5+JCakmFbNMQPo93XpTZ/NNUpRS32u0tBrnc8ectEwxw/51hi+92RShrK8UYj
+KBvf+LjdHHqmgladqcMQWabZoj1D8i1m2yCjmq7bPhDqJwI4NC/VxaFTafEFoZ2c
+W17+rzGP13XB7RJUu5MbvqFvt7K5DTkHuDGjwr9fPX4iwQoc68KkwjttU2hGltV6
+qO+euciDkbHIxKfNfRAlTdbvDLDK4QJO1+INE3zlZTyAqoNIhRMr+WtxUVSmphPS
+9sCHI+GhvP5953pChNodQpZDYHj/JaTFsnQdBkiJUepR0pnPKF2T988kimlBcWTD
+mzzMB3aCIBE+3wdhNRgJ
+=ikMp
+-----END PGP SIGNATURE-----
+
+--nWEzmRaGLXxZdI3i--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
