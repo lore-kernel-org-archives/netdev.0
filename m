@@ -1,43 +1,40 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH ipsec-next] xfrm: state lookup can be lockless
-Date: Tue, 20 Sep 2016 15:45:26 +0200
-Message-ID: <1474379126-32550-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: <netdev@vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: UBSAN reports issue in ip_idents_reserve
+Date: Tue, 20 Sep 2016 06:45:18 -0700
+Message-ID: <1474379118.23058.5.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20160920120000.GI1843@nanopsycho.orion>
+         <1474378115.23058.2.camel@edumazet-glaptop3.roam.corp.google.com>
+         <063D6719AE5E284EB5DD2968C1650D6DB01049DD@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jiri@resnulli.us>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:32962 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752364AbcITNpN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 09:45:13 -0400
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:35076 "EHLO
+        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754920AbcITNpU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 09:45:20 -0400
+Received: by mail-pf0-f175.google.com with SMTP id z123so7693950pfz.2
+        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 06:45:20 -0700 (PDT)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB01049DD@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is called from the packet input path, we get lock contention
-if many cpus handle ipsec in parallel.
+On Tue, 2016-09-20 at 13:36 +0000, David Laight wrote:
+> From: Eric Dumazet
+> > Sent: 20 September 2016 14:29
+> ...
+> > > [   47.565420] -2117905507 + -695755206 cannot be represented in type 'int'
+> ...
+> > I do not think we have to worry here.
+> >
+> > These is best effort, and unfortunately atomic_t are int.
+> 
+> Not until we compile on a cpu where int arithmetic doesn't wrap.
 
-After recent rcu conversion it is safe to call __xfrm_state_lookup
-without the spinlock.
+Then I guess the guy adding this kind of arches in the kernel will have
+to add all the core kernel infra.
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- net/xfrm/xfrm_state.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index ba8bf51..a38fdea 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -1431,9 +1431,9 @@ xfrm_state_lookup(struct net *net, u32 mark, const xfrm_address_t *daddr, __be32
- {
- 	struct xfrm_state *x;
- 
--	spin_lock_bh(&net->xfrm.xfrm_state_lock);
-+	rcu_read_lock();
- 	x = __xfrm_state_lookup(net, mark, daddr, spi, proto, family);
--	spin_unlock_bh(&net->xfrm.xfrm_state_lock);
-+	rcu_read_unlock();
- 	return x;
- }
- EXPORT_SYMBOL(xfrm_state_lookup);
--- 
-2.7.3
+If you have an idea, I will happily review a patch.
