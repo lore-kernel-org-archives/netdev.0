@@ -1,51 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [v3] net: ipv6: fallback to full lookup if table lookup is
- unsuitable
-Date: Tue, 20 Sep 2016 03:29:10 -0400 (EDT)
-Message-ID: <20160920.032910.512829220195292472.davem@davemloft.net>
-References: <8bce7180-e4c2-808c-20e0-0bd9634b8fc2@cumulusnetworks.com>
-        <20160918154607.5474-1-vincent@bernat.im>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dsa@cumulusnetworks.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org
-To: vincent@bernat.im
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: [PATCH net-next] bnxt_en: Fix build error for kernesl without RTC-LIB
+Date: Tue, 20 Sep 2016 03:36:33 -0400
+Message-ID: <1474356993-5857-1-git-send-email-michael.chan@broadcom.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44276 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751297AbcITH3N (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 03:29:13 -0400
-In-Reply-To: <20160918154607.5474-1-vincent@bernat.im>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:36258 "EHLO
+        mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751297AbcITHgo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 03:36:44 -0400
+Received: by mail-pa0-f47.google.com with SMTP id id6so4324745pad.3
+        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 00:36:43 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vincent Bernat <vincent@bernat.im>
-Date: Sun, 18 Sep 2016 17:46:07 +0200
+From: Rob Swindell <swindell@broadcom.com>
 
-> Commit 8c14586fc320 ("net: ipv6: Use passed in table for nexthop
-> lookups") introduced a regression: insertion of an IPv6 route in a table
-> not containing the appropriate connected route for the gateway but which
-> contained a non-connected route (like a default gateway) fails while it
-> was previously working:
-> 
->     $ ip link add eth0 type dummy
->     $ ip link set up dev eth0
->     $ ip addr add 2001:db8::1/64 dev eth0
->     $ ip route add ::/0 via 2001:db8::5 dev eth0 table 20
->     $ ip route add 2001:db8:cafe::1/128 via 2001:db8::6 dev eth0 table 20
->     RTNETLINK answers: No route to host
->     $ ip -6 route show table 20
->     default via 2001:db8::5 dev eth0  metric 1024  pref medium
-> 
-> After this patch, we get:
-> 
->     $ ip route add 2001:db8:cafe::1/128 via 2001:db8::6 dev eth0 table 20
->     $ ip -6 route show table 20
->     2001:db8:cafe::1 via 2001:db8::6 dev eth0  metric 1024  pref medium
->     default via 2001:db8::5 dev eth0  metric 1024  pref medium
-> 
-> Fixes: 8c14586fc320 ("net: ipv6: Use passed in table for nexthop lookups")
-> Signed-off-by: Vincent Bernat <vincent@bernat.im>
+bnxt_hwrm_fw_set_time() now returns -EOPNOTSUPP when built for kernel
+without RTC_LIB.  Setting the firmware time is not critical to the
+successful completion of the firmware update process.
 
-Applied and queued up for -stable, thanks.
+Signed-off-by: Rob Swindell <Rob.Swindell@broadcom.com>
+Signed-off-by: Michael Chan <michael.chan@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index cbc0b8a..a9f9f37 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -4323,6 +4323,7 @@ hwrm_ver_get_exit:
+ 
+ int bnxt_hwrm_fw_set_time(struct bnxt *bp)
+ {
++#if IS_ENABLED(CONFIG_RTC_LIB)
+ 	struct hwrm_fw_set_time_input req = {0};
+ 	struct rtc_time tm;
+ 	struct timeval tv;
+@@ -4340,6 +4341,9 @@ int bnxt_hwrm_fw_set_time(struct bnxt *bp)
+ 	req.minute = tm.tm_min;
+ 	req.second = tm.tm_sec;
+ 	return hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
++#else
++	return -EOPNOTSUPP;
++#endif
+ }
+ 
+ static int bnxt_hwrm_port_qstats(struct bnxt *bp)
+-- 
+1.8.3.1
