@@ -1,75 +1,44 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH net-next 7/8] net/mlx5e: XDP TX forwarding support
-Date: Tue, 20 Sep 2016 22:47:47 +0200
-Message-ID: <20160920224747.23b7a33b@redhat.com>
-References: <1474293539-2595-8-git-send-email-tariqt@mellanox.com>
-        <20160920102943.24732097@brouer.com>
-        <20160920133300.144037fd@redhat.com>
-        <96b40925-0e8e-0230-0701-96c11d6921a1@gmail.com>
-        <20160920154036.GA98644@ast-mbp.thefacebook.com>
-        <CALx6S34YBsmSJr7z2wGsu1VvLkjoqTN+Q8JJ0j-H_DehMJzQ5g@mail.gmail.com>
-        <1474387110.23058.24.camel@edumazet-glaptop3.roam.corp.google.com>
-        <20160920180609.148874b5@redhat.com>
-        <1474388036.23058.26.camel@edumazet-glaptop3.roam.corp.google.com>
-        <20160920182717.2de9541e@redhat.com>
-        <20160920164526.GB99429@ast-mbp.thefacebook.com>
-        <1474393160.23058.39.camel@edumazet-glaptop3.roam.corp.google.com>
-        <20160920205939.6a4522df@redhat.com>
+From: Nicolas Pitre <nicolas.pitre@linaro.org>
+Subject: Re: [PATCH v2 0/2] make POSIX timers optional
+Date: Tue, 20 Sep 2016 16:52:44 -0400 (EDT)
+Message-ID: <alpine.LFD.2.20.1609201634550.9311@knanqh.ubzr>
+References: <1474401400-18491-1-git-send-email-nicolas.pitre@linaro.org> <20160920202556.GA6713@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Tariq Toukan <ttoukan.linux@gmail.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Eran Ben Elisha <eranbe@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Rana Shahout <ranas@mellanox.com>, brouer@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49428 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751783AbcITUry (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 20 Sep 2016 16:47:54 -0400
-In-Reply-To: <20160920205939.6a4522df@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: John Stultz <john.stultz@linaro.org>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Josh Triplett <josh@joshtriplett.org>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160920202556.GA6713@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, 20 Sep 2016, Richard Cochran wrote:
 
-On Tue, 20 Sep 2016 20:59:39 +0200 Jesper Dangaard Brouer <brouer@redhat.com> wrote:
-> On Tue, 20 Sep 2016 10:39:20 -0700  Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, Sep 20, 2016 at 03:56:38PM -0400, Nicolas Pitre wrote:
+> > - Add a warning for the case where PTP clock subsystem is modular and a
+> >   driver providing a clock is built-in rather than silently ignoring it.
+> >   Suggested by Jiri Benc.
 > 
-[...]
+> So I am really not happy with this.  Here is a common embedded
+> workflow, at least for me:
 > 
-> > Many existing supervision infrastructures collect device snmp
-> > counters, and run as unprivileged programs.   
+> 1. take some given Kconfig and get it running on the target.
 > 
-> A supervision infrastructures is a valid use-case. It again indicate
-> that such XDP stats need to structured, not just a random driver
-> specific ethtool counter, to make it easy for such collection daemons.
+> 2. for the given HW, change the modules into built-ins, and forget
+>    module loading
 > 
-> 
-> > tracepoints might not fit the need here, compared to a mere
-> > tx_ring->tx_drops++  
-> 
-> I do see your point.  I really liked the tracepoint idea, but now I'm
-> uncertain again...
+> After this series, if I don't pay enough attention to dmesg, then I
+> have lost functionality that I had in step #1.
 
-I've document the need for Troubleshooting and Monitoring, so we don't
-forget about it. See:
+Would that given config from #1 typically have CONFIG_EXPERT actually 
+set?
 
-Commit:
- https://github.com/netoptimizer/prototype-kernel/commit/3925249089ae4
-
-Online doc:
- https://prototype-kernel.readthedocs.io/en/latest/networking/XDP/implementation/userspace_api.html#troubleshooting-and-monitoring
+Ultimately, do you know a way to restrict a tristate to y or n? A 
+tristate can be limited to m or n with "depends on m" but it doesn't 
+appear to be possible to exclude m with a promotion to y.
 
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+Nicolas
