@@ -1,15 +1,13 @@
 From: Colin King <colin.king@canonical.com>
 Subject: [PATCH] cxgb4: fix signed wrap around when decrementing index idx
-Date: Tue, 20 Sep 2016 15:48:46 +0100
-Message-ID: <20160920144846.21765-2-colin.king@canonical.com>
-References: <20160920144846.21765-1-colin.king@canonical.com>
+Date: Tue, 20 Sep 2016 15:48:45 +0100
+Message-ID: <20160920144846.21765-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8bit
 Cc: linux-kernel@vger.kernel.org
 To: Hariprasad S <hariprasad@chelsio.com>, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160920144846.21765-1-colin.king@canonical.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
