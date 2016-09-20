@@ -1,100 +1,116 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next 7/8] net/mlx5e: XDP TX forwarding support
-Date: Tue, 20 Sep 2016 12:21:54 -0700
-Message-ID: <CALx6S36gKan4kzpFRNUvUn5YD0=s02ncdyNVocgNEqjUtWaRBw@mail.gmail.com>
-References: <1474293539-2595-8-git-send-email-tariqt@mellanox.com>
- <20160920102943.24732097@brouer.com> <20160920133300.144037fd@redhat.com>
- <96b40925-0e8e-0230-0701-96c11d6921a1@gmail.com> <20160920154036.GA98644@ast-mbp.thefacebook.com>
- <CALx6S34YBsmSJr7z2wGsu1VvLkjoqTN+Q8JJ0j-H_DehMJzQ5g@mail.gmail.com>
- <1474387110.23058.24.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160920180609.148874b5@redhat.com> <1474388036.23058.26.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160920182717.2de9541e@redhat.com> <20160920164526.GB99429@ast-mbp.thefacebook.com>
- <1474393160.23058.39.camel@edumazet-glaptop3.roam.corp.google.com> <20160920205939.6a4522df@redhat.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [RFC] PCI: Allow sysfs control over totalvfs
+Date: Tue, 20 Sep 2016 21:36:45 +0200
+Message-ID: <20160920193645.GA12677@nanopsycho.orion>
+References: <1474386588-16337-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Tariq Toukan <ttoukan.linux@gmail.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Eran Ben Elisha <eranbe@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Rana Shahout <ranas@mellanox.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-pci@vger.kernel.org, netdev@vger.kernel.org,
+        derek.chickles@caviumnetworks.com,
+        Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f171.google.com ([209.85.216.171]:32939 "EHLO
-        mail-qt0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751797AbcITTV4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 15:21:56 -0400
-Received: by mail-qt0-f171.google.com with SMTP id 11so12493319qtc.0
-        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 12:21:55 -0700 (PDT)
-In-Reply-To: <20160920205939.6a4522df@redhat.com>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:36453 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752504AbcITTgs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 15:36:48 -0400
+Received: by mail-wm0-f66.google.com with SMTP id b184so5043400wma.3
+        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 12:36:48 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1474386588-16337-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 20, 2016 at 11:59 AM, Jesper Dangaard Brouer
-<brouer@redhat.com> wrote:
-> On Tue, 20 Sep 2016 10:39:20 -0700
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+Tue, Sep 20, 2016 at 05:49:48PM CEST, Yuval.Mintz@qlogic.com wrote:
+>[Sorry in advance if this was already discussed in the past]
 >
->> On Tue, 2016-09-20 at 09:45 -0700, Alexei Starovoitov wrote:
->>
->> > because 'div by zero' is an abnormal situation that shouldn't be exploited.
->> > Meaning if xdp program is doing DoS prevention and it has a bug that
->> > attacker can now exploit by sending a crafted packet that causes
->> > 'div by zero' and kernel will warn then attack got successful.
->> > Therefore it has to be silent drop.
->>
->> A silent drop means a genuine error in a BPF program might be never
->> caught, since a tracepoint might never be enabled.
+>Some of the HW capable of SRIOV has resource limitations, where the
+>PF and VFs resources are drawn from a common pool.
+>In some cases, these limitations have to be considered early during
+>chip initialization and can only be changed by tearing down the
+>configuration and re-initializing.
+>As a result, drivers for such HWs sometimes have to make unfavorable
+>compromises where they reserve sufficient resources to accomadate
+>the maximal number of VFs that can be created - at the expanse of
+>resources that could have been used by the PF.
 >
-> I do see your point. But we can document our way out of it.
->
->> > tracpoint in such case is great, since the user can do debugging with it
->> > and even monitoring 24/7 and if suddenly the control plan sees a lot
->> > of such trace_xdp_abotred events, it can disable that tracepoint to avoid
->> > spam and adjust the program or act on attack some other way.
->> > Hardcoded warnings and counters are not generic enough for all
->> > the use cases people want to throw at XDP.
->> > The tracepoints idea is awesome, in a sense that it's optional.
->>
->>
->> Note that tracepoints are optional in a kernel.
->
-> Well, that is a good thing, as it can be compiled out (as that provides
-> an option for zero cost).
->
->
->> Many existing supervision infrastructures collect device snmp
->> counters, and run as unprivileged programs.
->
-> A supervision infrastructures is a valid use-case. It again indicate
-> that such XDP stats need to structured, not just a random driver
-> specific ethtool counter, to make it easy for such collection daemons.
->
-I am currently adding a structure to define an XDP hook (plan to post
-patches shortly). Counters can be added to that in a uniform fashion
-that doesn't need code in every driver.
+>If users were able to provide 'hints' regarding the required number
+>of VFs *prior* to driver attachment, then such compromises could be
+>avoided. As we already have sysfs nodes that can be queried for the
+>number of totalvfs, it makes sense to let the user reduce the number
+>of said totalvfs using same infrastrucure.
+>Then, we can have drivers supporting SRIOV take that value into account
+>when deciding how much resources to reserve, allowing the PF to benefit
+>from the difference between the configuration space value and the actual
+>number needed by user.
 
-Tom
+One of the motivations for introducing devlink interface was to allow
+user to pass some kind of well defined option parameters or as you call
+it hints to driver module. That would allow to replace module options
+and introduce similar possibility to pre-configure hardware on probe time.
+We plan to use devlink to allow user to change resource allocation for
+mlxsw devices.
+
+The plan is to allow to pre-create devlink instance before driver module
+is loaded. Then the user will use this placeholder to do the options
+setting. Once the driver module is loaded, it will fetch the options
+from devlink core and process it accordingly.
+
+I believe this is exactly what you need.
+
 
 >
->> tracepoints might not fit the need here, compared to a mere
->> tx_ring->tx_drops++
+>Signed-off-by: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
+>---
+> drivers/pci/pci-sysfs.c | 28 +++++++++++++++++++++++++++-
+> 1 file changed, 27 insertions(+), 1 deletion(-)
 >
-> I do see your point.  I really liked the tracepoint idea, but now I'm
-> uncertain again...
+>diff --git a/drivers/pci/pci-sysfs.c b/drivers/pci/pci-sysfs.c
+>index bcd10c7..c1546f8 100644
+>--- a/drivers/pci/pci-sysfs.c
+>+++ b/drivers/pci/pci-sysfs.c
+>@@ -449,6 +449,30 @@ static ssize_t sriov_totalvfs_show(struct device *dev,
+> 	return sprintf(buf, "%u\n", pci_sriov_get_totalvfs(pdev));
+> }
+> 
+>+static ssize_t sriov_totalvfs_store(struct device *dev,
+>+				    struct device_attribute *attr,
+>+				    const char *buf, size_t count)
+>+{
+>+	struct pci_dev *pdev = to_pci_dev(dev);
+>+	u16 max_vfs;
+>+	int ret;
+>+
+>+	ret = kstrtou16(buf, 0, &max_vfs);
+>+	if (ret < 0)
+>+		return ret;
+>+
+>+	if (pdev->driver) {
+>+		dev_info(&pdev->dev,
+>+			 "Can't change totalvfs while driver is attached\n");
+>+		return -EUSERS;
+>+	}
+>+
+>+	ret = pci_sriov_set_totalvfs(pdev, max_vfs);
+>+	if (ret)
+>+		return ret;
+>+
+>+	return count;
+>+}
+> 
+> static ssize_t sriov_numvfs_show(struct device *dev,
+> 				 struct device_attribute *attr,
+>@@ -516,7 +540,9 @@ static ssize_t sriov_numvfs_store(struct device *dev,
+> 	return count;
+> }
+> 
+>-static struct device_attribute sriov_totalvfs_attr = __ATTR_RO(sriov_totalvfs);
+>+static struct device_attribute sriov_totalvfs_attr =
+>+		__ATTR(sriov_totalvfs, (S_IRUGO|S_IWUSR|S_IWGRP),
+>+		       sriov_totalvfs_show, sriov_totalvfs_store);
+> static struct device_attribute sriov_numvfs_attr =
+> 		__ATTR(sriov_numvfs, (S_IRUGO|S_IWUSR|S_IWGRP),
+> 		       sriov_numvfs_show, sriov_numvfs_store);
+>-- 
+>1.9.3
 >
->
-> I do have a use-case where I want to use the NIC HW-RX-ingress-overflow
-> and TX-overflow drop indicators, but I don't want to tie it into this
-> discussion.  The abort and error indicators a not relevant for that
-> use-case.
->
-> --
-> Best regards,
->   Jesper Dangaard Brouer
->   MSc.CS, Principal Kernel Engineer at Red Hat
->   Author of http://www.iptv-analyzer.org
->   LinkedIn: http://www.linkedin.com/in/brouer
