@@ -1,39 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH V2] mlx4: add missed recycle opportunity for
- XDP_TX on TX failure
-Date: Tue, 20 Sep 2016 04:58:43 -0400 (EDT)
-Message-ID: <20160920.045843.1654100968407894492.davem@davemloft.net>
-References: <1474295315.22679.85.camel@edumazet-glaptop3.roam.corp.google.com>
-        <20160919154556.10965.75722.stgit@firesoul>
+Subject: Re: [PATCH net-next 0/5] mlx4 misc fixes and improvements
+Date: Tue, 20 Sep 2016 05:02:17 -0400 (EDT)
+Message-ID: <20160920.050217.1968385859186341217.davem@davemloft.net>
+References: <20160918.220046.1374771296032853447.davem@davemloft.net>
+        <CAJ3xEMi-4nNxDf3pBrDwenN50BTFtTT0+cMF62BMHYPK9WvZrg@mail.gmail.com>
+        <6bcc5e49-2204-242a-c939-2352d0646f87@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tariqt@mellanox.com,
-        eric.dumazet@gmail.com, tom@herbertland.com, bblanco@plumgrid.com,
-        rana.shahot@gmail.com
-To: brouer@redhat.com
+Cc: gerlitz.or@gmail.com, netdev@vger.kernel.org, eranbe@mellanox.com
+To: tariqt@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45426 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:45492 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932282AbcITI6q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 04:58:46 -0400
-In-Reply-To: <20160919154556.10965.75722.stgit@firesoul>
+        with ESMTP id S932165AbcITJCU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 05:02:20 -0400
+In-Reply-To: <6bcc5e49-2204-242a-c939-2352d0646f87@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Date: Mon, 19 Sep 2016 17:46:38 +0200
+From: Tariq Toukan <tariqt@mellanox.com>
+Date: Tue, 20 Sep 2016 11:50:17 +0300
 
-> Correct drop handling for XDP_TX on TX failure, were recently added in
-> commit 95357907ae73 ("mlx4: fix XDP_TX is acting like XDP_PASS on TX
-> ring full").
-> 
-> The change missed an opportunity for recycling the RX page, instead of
-> going through the page allocator, like the regular XDP_DROP action does.
-> This patch cease the opportunity, by going through the XDP_DROP case.
-> 
-> Fixes: 95357907ae73 ("mlx4: fix XDP_TX is acting like XDP_PASS on TX ring full")
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
+>> So when we're pretty late in the 4.8-rc cycle, a fix for a problem
+>> which was not introduced in 4.8-rc1 was targeted to net-next (4.9) and
+>> not net.
+>>
+>> This indeed creates a small mess when the fix needs to go to -stable
+>> as well.
+ ...
+> I see that the series status is 'Changes requested'.
+> I agree with Or. If possible, please take the series, and we will
+> issue a request to push into -stable in the future.
+> Anyway, I can also do a re-submission if you prefer. Just let me know.
 
-Applied, thanks.
+Either the bug exists in pre-net trees and needs to go to -stable, or
+it does not.
+
+If it does, you submit the change targetting 'net'.
+
+This whole mess occurred because you tried to combine changes
+inappropriate for 'net' with the bug fix.
+
+Instead of fixing the issue properly, by removing the cleanups
+and inappropriate changes, you tried to target 'net-next' instead.
+
+That's why this mess exists.
+
+Please send the change properly, targetting 'net', and not
+alongside changes which are inappropriate to 'net'.
+
+There is no other acceptable way to resolve this problem.
+
+Thank you.
