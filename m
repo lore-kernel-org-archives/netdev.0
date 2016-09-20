@@ -1,52 +1,40 @@
-From: Tom Herbert <tom@herbertland.com>
+From: Thomas Graf <tgraf@suug.ch>
 Subject: Re: [PATCH RFC 1/3] xdp: Infrastructure to generalize XDP
-Date: Tue, 20 Sep 2016 15:40:33 -0700
-Message-ID: <CALx6S36kHiu+kNguKhQAqHo2q_j5zQeLgA7TiJx9BBEP9AmhdQ@mail.gmail.com>
+Date: Wed, 21 Sep 2016 00:44:16 +0200
+Message-ID: <20160920224416.GF3291@pox.localdomain>
 References: <1474408824-418864-1-git-send-email-tom@herbertland.com>
- <1474408824-418864-2-git-send-email-tom@herbertland.com> <1474411051.23058.42.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1474408824-418864-2-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Kernel Team <kernel-team@fb.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, kernel-team@fb.com,
+        tariqt@mellanox.com, bblanco@plumgrid.com,
+        alexei.starovoitov@gmail.com, eric.dumazet@gmail.com,
+        brouer@redhat.com
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:33590 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752961AbcITWke (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 18:40:34 -0400
-Received: by mail-qt0-f193.google.com with SMTP id p47so1005830qtc.0
-        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 15:40:34 -0700 (PDT)
-In-Reply-To: <1474411051.23058.42.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:37833 "EHLO
+        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751783AbcITWoT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 18:44:19 -0400
+Received: by mail-wm0-f51.google.com with SMTP id b130so60245055wmc.0
+        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 15:44:18 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1474408824-418864-2-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 20, 2016 at 3:37 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2016-09-20 at 15:00 -0700, Tom Herbert wrote:
->
->> diff --git a/net/core/xdp.c b/net/core/xdp.c
->> new file mode 100644
->> index 0000000..815ead8
->> --- /dev/null
->> +++ b/net/core/xdp.c
->> @@ -0,0 +1,211 @@
->> +/*
->> + * Kernel Connection Multiplexor
->> + *
->> + * Copyright (c) 2016 Tom Herbert <tom@herbertland.com>
->> + *
->> + * This program is free software; you can redistribute it and/or modify
->> + * it under the terms of the GNU General Public License version 2
->> + * as published by the Free Software Foundation.
->> + */
->
->
-> Too much copy/paste Tom :)
->
-If this is you're only complaint Eric I'll be quite impressed ;-)
+On 09/20/16 at 03:00pm, Tom Herbert wrote:
+> +static inline int __xdp_hook_run(struct list_head *list_head,
+> +				 struct xdp_buff *xdp)
+> +{
+> +	struct xdp_hook_ops *elem;
+> +	int ret = XDP_PASS;
+> +
+> +	list_for_each_entry(elem, list_head, list) {
+> +		ret = elem->hook(elem->priv, xdp);
+> +		if (ret != XDP_PASS)
+> +			break;
+> +	}
 
->
+Walking over a linear list? Really? :-) I thought this was supposed
+to be fast, no compromises made.
