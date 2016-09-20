@@ -1,54 +1,48 @@
 From: Joel Stanley <joel@jms.id.au>
-Subject: [PATCH net-next 5/7] net/faraday: Clear stale interrupts
-Date: Tue, 20 Sep 2016 16:00:05 +0930
-Message-ID: <20160920063007.24291-6-joel@jms.id.au>
+Subject: [PATCH net-next 6/7] net/faraday: Fix phy link irq on Aspeed G5 SoCs
+Date: Tue, 20 Sep 2016 16:00:06 +0930
+Message-ID: <20160920063007.24291-7-joel@jms.id.au>
 References: <20160920063007.24291-1-joel@jms.id.au>
-Cc: Gavin Shan <gwshan@linux.vnet.ibm.com>, andrew@lunn.ch,
-        andrew@aj.id.au, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, benh@kernel.crashing.org
+Cc: gwshan@linux.vnet.ibm.com, andrew@lunn.ch, andrew@aj.id.au,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        benh@kernel.crashing.org
 To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20160920063007.24291-1-joel@jms.id.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Gavin Shan <gwshan@linux.vnet.ibm.com>
+On Aspeed SoC with a direct PHY connection (non-NSCI), we receive
+continual PHYSTS interrupts:
 
-There is stale interrupt (PHYSTS_CHG in ISR, bit#6 in 0x0) from
-the bootloader (uboot) when enabling the MAC. The stale interrupts
-aren't part of kernel and should be cleared.
+ [   20.280000] ftgmac100 1e660000.ethernet eth0: [ISR] = 0x200: PHYSTS_CHG
+ [   20.280000] ftgmac100 1e660000.ethernet eth0: [ISR] = 0x200: PHYSTS_CHG
+ [   20.280000] ftgmac100 1e660000.ethernet eth0: [ISR] = 0x200: PHYSTS_CHG
+ [   20.300000] ftgmac100 1e660000.ethernet eth0: [ISR] = 0x200: PHYSTS_CHG
 
-This clears the stale interrupts in ISR (0x0) when enabling the MAC.
+This is because the driver was enabling low-level sensitive interrupt
+generation where the systems are wired for high-level. All CPU cycles
+are spent servicing this interrupt.
 
-Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
 Signed-off-by: Joel Stanley <joel@jms.id.au>
 ---
- drivers/net/ethernet/faraday/ftgmac100.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/net/ethernet/faraday/ftgmac100.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
 diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index f2ea6c2f1fbd..7ba0f2d58a8b 100644
+index 7ba0f2d58a8b..5466df028381 100644
 --- a/drivers/net/ethernet/faraday/ftgmac100.c
 +++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -1113,6 +1113,7 @@ static int ftgmac100_poll(struct napi_struct *napi, int budget)
- static int ftgmac100_open(struct net_device *netdev)
+@@ -223,6 +223,10 @@ static void ftgmac100_start_hw(struct ftgmac100 *priv, int speed)
  {
- 	struct ftgmac100 *priv = netdev_priv(netdev);
-+	unsigned int status;
- 	int err;
+ 	int maccr = MACCR_ENABLE_ALL;
  
- 	err = ftgmac100_alloc_buffers(priv);
-@@ -1138,6 +1139,11 @@ static int ftgmac100_open(struct net_device *netdev)
- 
- 	ftgmac100_init_hw(priv);
- 	ftgmac100_start_hw(priv, priv->use_ncsi ? 100 : 10);
++	if (of_machine_is_compatible("aspeed,ast2500")) {
++		maccr &= ~FTGMAC100_MACCR_PHY_LINK_LEVEL;
++	}
 +
-+	/* Clear stale interrupts */
-+	status = ioread32(priv->base + FTGMAC100_OFFSET_ISR);
-+	iowrite32(status, priv->base + FTGMAC100_OFFSET_ISR);
-+
- 	if (netdev->phydev)
- 		phy_start(netdev->phydev);
- 	else if (priv->use_ncsi)
+ 	switch (speed) {
+ 	default:
+ 	case 10:
 -- 
 2.9.3
