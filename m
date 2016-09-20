@@ -1,57 +1,41 @@
-From: Bjorn Helgaas <helgaas-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v4 01/16] vmxnet3: Move PCI Id to pci_ids.h
-Date: Tue, 20 Sep 2016 08:37:41 -0500
-Message-ID: <20160920133741.GC13855@localhost>
-References: <1473655766-31628-1-git-send-email-aditr@vmware.com>
- <1473655766-31628-2-git-send-email-aditr@vmware.com>
- <20160914110854.GA15800@yuval-lap.uk.oracle.com>
- <DM2PR0501MB844852987661859C6654E40C5F10@DM2PR0501MB844.namprd05.prod.outlook.com>
- <20160914162452.GA3216@yuval-lap.Home>
- <DM2PR0501MB84422A1029EE72FC727F960C5F10@DM2PR0501MB844.namprd05.prod.outlook.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: DSA: Suspicious RCU usage (via rtnl_bridge_getlink)
+Date: Tue, 20 Sep 2016 15:38:33 +0200
+Message-ID: <20160920133833.GD20638@lunn.ch>
+References: <20160920102611.GO1041@n2100.armlinux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-        "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        pv-drivers <pv-drivers-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "Jorgen S. Hansen" <jhansen-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
-        Aditya Sarwade <asarwade-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
-        George Zhang <georgezhang-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
-        Bryan Tan <bryantan-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-To: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: netdev@vger.kernel.org,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Russell King - ARM Linux <linux@armlinux.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:53329 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754694AbcITNih (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 20 Sep 2016 09:38:37 -0400
 Content-Disposition: inline
-In-Reply-To: <DM2PR0501MB84422A1029EE72FC727F960C5F10-SXUgMXdxDSdudfUQJyYm35LWcSx1hRipwIZJ9u9yWa8oOQlpcoRfSA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20160920102611.GO1041@n2100.armlinux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 14, 2016 at 07:36:34PM +0000, Adit Ranadive wrote:
-> On Wed, Sep 14, 2016 at 09:25:18 -0700, Yuval Shaia wrote:
-> > On Wed, Sep 14, 2016 at 04:00:25PM +0000, Adit Ranadive wrote:
-> > > On Wed, Sep 14, 2016 at 04:09:12 -0700, Yuval Shaia wrote:
-> > > > Please update vmxnet3_drv.c accordingly.
-> > >
-> > > Any reason why? I don't think we need to. Vmxnet3 should just pick up
-> > > the moved PCI device id from pci_ids.h file.
-> > 
-> > So now you need to include it from vmxnet3_drv.c.
-> > Same with pvrdma_main.c
+On Tue, Sep 20, 2016 at 11:26:12AM +0100, Russell King - ARM Linux wrote:
+> Issuing "bridge vlan show" on clearfog provokes a "suspicious RCU usage"
+> warning from the kernel (see below).
 > 
-> If you're asking me to include pci_ids.h in our drivers we already do that
-> by including pci.h in both the drivers. 
-> pci.h already includes pci_ids.h - 
-> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/include/linux/pci.h#n35
+> As it's illegal to schedule while holding the RCU read lock, there's the
+> possibility for this happening much earlier in the call sequence -
+> mv88e6xxx_port_vlan_dump() takes a mutex, and if that mutex were already
+> held, we'd schedule at that point.  The RCU read lock was taken by
+> rtnl_bridge_getlink().
 > 
-> If that's going to change maybe someone from the PCI group can comment on.
+> It looks horrible to fix - mvmdio.c as well as DSA locking are involved.
 
-I don't contemplate a change there.  It's fine to get pci_ids.h via pci.h.
-Almost all drivers do that today.  If we do change it someday, we can
-change this driver along with all the rest.
+Hi Russell
 
-Bjorn
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I would say this needs fixing higher up, in the bridge code. DSA has
+to be able to sleep, since the switch can be on any arbitrary bus,
+MDIO, SPI, etc. This will affect pure switchdev devices as well, since
+they often need to send a request to the switch and wait for a reply.
+
+     Andrew
