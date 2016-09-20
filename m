@@ -1,31 +1,47 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next] mlxsw: spectrum: Make offloads stats functions
- static
-Date: Tue, 20 Sep 2016 09:55:44 +0200
-Message-ID: <20160920075544.GF1843@nanopsycho.orion>
-References: <1474348448-13724-1-git-send-email-ogerlitz@mellanox.com>
+From: <sean.wang@mediatek.com>
+Subject: [PATCH net-next 3/3] net: ethernet: mediatek: add the dts property to set if TRGMII supported on GMAC0
+Date: Tue, 20 Sep 2016 15:59:20 +0800
+Message-ID: <1474358360-29901-4-git-send-email-sean.wang@mediatek.com>
+References: <1474358360-29901-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Nogah Frankel <nogahf@mellanox.com>, netdev@vger.kernel.org
-To: Or Gerlitz <ogerlitz@mellanox.com>
+Content-Type: text/plain
+Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
+        <linux-mediatek@lists.infradead.org>, <keyhaede@gmail.com>,
+        <objelf@gmail.com>, Sean Wang <sean.wang@mediatek.com>
+To: <john@phrozen.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34033 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751297AbcITHzs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 03:55:48 -0400
-Received: by mail-wm0-f68.google.com with SMTP id l132so1911701wmf.1
-        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 00:55:47 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1474348448-13724-1-git-send-email-ogerlitz@mellanox.com>
+Received: from mailgw01.mediatek.com ([210.61.82.183]:1281 "EHLO
+        mailgw01.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S932277AbcITH7h (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 03:59:37 -0400
+In-Reply-To: <1474358360-29901-1-git-send-email-sean.wang@mediatek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Sep 20, 2016 at 07:14:08AM CEST, ogerlitz@mellanox.com wrote:
->The offloads stats functions are local to this file, make them static.
->
->Fixes: fc1bbb0f1831 ('mlxsw: spectrum: Implement offload stats ndo [..]')
->Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+From: Sean Wang <sean.wang@mediatek.com>
 
-Acked-by: Jiri Pirko <jiri@mellanox.com>
+Add the dts property for the capability if TRGMII supported on GAMC0
+
+Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+---
+ Documentation/devicetree/bindings/net/mediatek-net.txt | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/Documentation/devicetree/bindings/net/mediatek-net.txt b/Documentation/devicetree/bindings/net/mediatek-net.txt
+index 6103e55..32f79d8 100644
+--- a/Documentation/devicetree/bindings/net/mediatek-net.txt
++++ b/Documentation/devicetree/bindings/net/mediatek-net.txt
+@@ -31,7 +31,10 @@ Optional properties:
+ Required properties:
+ - compatible: Should be "mediatek,eth-mac"
+ - reg: The number of the MAC
+-- phy-handle: see ethernet.txt file in the same directory.
++- phy-handle: see ethernet.txt file in the same directory and
++	the additional phy-mode "tgrmii" is provided in order to connect
++	with the internal switch MT7530 which is only applicable when reg
++	is equal to 0.
+ 
+ Example:
+ 
+-- 
+1.9.1
