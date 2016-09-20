@@ -1,41 +1,48 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next 7/8] net/mlx5e: XDP TX forwarding support
-Date: Tue, 20 Sep 2016 08:40:37 -0700
-Message-ID: <20160920154036.GA98644@ast-mbp.thefacebook.com>
-References: <1474293539-2595-1-git-send-email-tariqt@mellanox.com>
- <1474293539-2595-8-git-send-email-tariqt@mellanox.com>
- <20160920102943.24732097@brouer.com>
- <20160920133300.144037fd@redhat.com>
- <96b40925-0e8e-0230-0701-96c11d6921a1@gmail.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH net-next] net/vxlan: Avoid unaligned access in
+ vxlan_build_skb()
+Date: Tue, 20 Sep 2016 11:49:05 -0400
+Message-ID: <20160920154905.GN8920@oracle.com>
+References: <20160920142700.GJ8920@oracle.com>
+ <CALx6S34c=Ftn1PfQ+YRDvbbWUmFW0R1zGC2jgkY0G7Fcx_SM7g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Eran Ben Elisha <eranbe@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Rana Shahout <ranas@mellanox.com>
-To: Tariq Toukan <ttoukan.linux@gmail.com>
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Jiri Benc <jbenc@redhat.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Alexander Duyck <aduyck@mirantis.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Paolo Abeni <pabeni@redhat.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:35627 "EHLO
-        mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751643AbcITPkk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 11:40:40 -0400
-Received: by mail-pa0-f47.google.com with SMTP id oz2so8237665pac.2
-        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 08:40:40 -0700 (PDT)
+Received: from userp1040.oracle.com ([156.151.31.81]:25788 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754001AbcITPtb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 11:49:31 -0400
 Content-Disposition: inline
-In-Reply-To: <96b40925-0e8e-0230-0701-96c11d6921a1@gmail.com>
+In-Reply-To: <CALx6S34c=Ftn1PfQ+YRDvbbWUmFW0R1zGC2jgkY0G7Fcx_SM7g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 20, 2016 at 03:53:10PM +0300, Tariq Toukan wrote:
-> >>>+	case XDP_ABORTED:
-> >>It is not clearly defined, but I believe XDP_ABORTED should also result
-> >>in a warning (calling bpf_warn_invalid_xdp_action(act)).
-> I'll add this.
+On (09/20/16 08:31), Tom Herbert wrote:
+> 
+> On Tue, Sep 20, 2016 at 7:27 AM, Sowmini Varadhan
+> <sowmini.varadhan@oracle.com> wrote:
+> > The vxlan header is at offset (14 + 20 + 8) into the packet,
+> > so the vxh is not aligned in vxlan_build_skb. Use [get/put]_unaligned
+> > functions to modify flags and vni field in the vxh.
+> >
+> I'm wondering if VXLAN is just the tip of the iceberg. Wouldn't this
+> is also be a problem in GRE and Geneve when they encapsulate Ethernet?
+> What about the outer IP header, wouldn't that potentially have
+> unaligned accesses also when creating it?
 
-Certainly NOT.
-XDP_ABORTED is an exception case when program does divide by zero.
-It should NOT do bpf_warn. It must drop the packet.
-We discussed it several months ago.
-See mlx4/en_rx.c for canonical implementation.
+Indeed. All of the above are true, and we have to conquer
+each unaligned access, one at a time.
+
+There's also the over-arching problem of arbitrary encapsulations
+introducing intervening headers that throw off alignment. 
+That would be a design discussion to be had with the ietf.
+
+--Sowmini
