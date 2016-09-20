@@ -1,45 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: UBSAN reports issue in ip_idents_reserve
-Date: Tue, 20 Sep 2016 08:25:16 -0700
-Message-ID: <1474385116.23058.23.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160920120000.GI1843@nanopsycho.orion>
-         <1474378115.23058.2.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20160920133915.GJ1843@nanopsycho.orion>
-         <1474380711.23058.8.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [RFC v2 04/12] qedr: Add support for user context verbs
+Date: Tue, 20 Sep 2016 09:27:29 -0600
+Message-ID: <20160920152729.GC32020@obsidianresearch.com>
+References: <1474367764-9555-1-git-send-email-Ram.Amrani@cavium.com>
+ <1474367764-9555-5-git-send-email-Ram.Amrani@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, dledford@redhat.com, Ariel.Elior@cavium.com,
+        Michal.Kalderon@cavium.com, Yuval.Mintz@cavium.com,
+        rajesh.borundia@cavium.com, linux-rdma@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Ram Amrani <Ram.Amrani@cavium.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:34134 "EHLO
-        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754246AbcITPZT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 11:25:19 -0400
-Received: by mail-pf0-f177.google.com with SMTP id p64so8483425pfb.1
-        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 08:25:18 -0700 (PDT)
-In-Reply-To: <1474380711.23058.8.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from quartz.orcorp.ca ([184.70.90.242]:45595 "EHLO quartz.orcorp.ca"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752844AbcITP1e (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 20 Sep 2016 11:27:34 -0400
+Content-Disposition: inline
+In-Reply-To: <1474367764-9555-5-git-send-email-Ram.Amrani@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-09-20 at 07:11 -0700, Eric Dumazet wrote:
-> On Tue, 2016-09-20 at 15:39 +0200, Jiri Pirko wrote:
-> 
-> > I see. So how to silent the warning?
-> > 
-> 
-> We can replace the atomic_add_return() and use a loop around
-> atomic_read() and atomic_cmpxhg()
-> 
-> This would change the nice property of x86 xadd into a loop.
-> 
-> Or we also could fallback to random generation if the atomic_cmpxchg()
-> fails.
-> 
-> I'll provide a patch, thanks.
-> 
+On Tue, Sep 20, 2016 at 01:35:56PM +0300, Ram Amrani wrote:
+> +++ b/include/uapi/rdma/providers/qedr-abi.h
+> @@ -0,0 +1,27 @@
+> +/* QLogic qed NIC Driver
+> + * Copyright (c) 2015 QLogic Corporation
+> + *
+> + * This software is available under the terms of the GNU General Public License
+> + * (GPL) Version 2, available from the file COPYING in the main directory of
+> + * this source tree.
+> + */
+> +#ifndef __QEDR_USER_H__
+> +#define __QEDR_USER_H__
+> +
+> +#define QEDR_ABI_VERSION		(6)
+> +
+> +/* user kernel communication data structures. */
+> +
+> +struct qedr_alloc_ucontext_resp {
+> +	u64 db_pa;
+> +	u32 db_size;
+> +
+> +	u32 max_send_wr;
+> +	u32 max_recv_wr;
+> +	u32 max_srq_wr;
+> +	u32 sges_per_send_wr;
+> +	u32 sges_per_recv_wr;
+> +	u32 sges_per_srq_wr;
 
-I looks at other places, I am surprised you do not see other UBSAN
-issues in networking :)
+uapi headers need the __ varients and the #include <linux/types.h>
 
-netdev_refcnt_read() can potentially gives errors as well.
+Follow what Leon has done.
+
+> +	int max_cqes;
+
+Do not use int here.
+
+Is there really only 1 struct? Your driver never uses udata for
+anything else?
+
+Jason
