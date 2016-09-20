@@ -1,83 +1,192 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [net-next PATCH] net: netlink messages for HW addr programming
-Date: Tue, 20 Sep 2016 07:49:59 +0200
-Message-ID: <20160920054959.GB1843@nanopsycho.orion>
-References: <1473958082-30982-1-git-send-email-pruddy@brocade.com>
- <57DEA9E2.3000703@cumulusnetworks.com>
- <1474296378.31262.59.camel@brocade.com>
- <57E0C9AF.4090406@cumulusnetworks.com>
+From: Anton Aksola <aakso@iki.fi>
+Subject: [PATCH v3] iproute2: build nsid-name cache only for commands that
+ need it
+Date: Tue, 20 Sep 2016 06:01:27 +0000
+Message-ID: <20160920060123.GA17211@toys.tundra.dog-lvm.novalocal>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Patrick Ruddy <pruddy@Brocade.com>,
-        "stephen@networkplumber.org" <stephen@networkplumber.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        Luca Boccassi <lboccass@Brocade.com>,
-        "alexander.h.duyck@intel.com" <alexander.h.duyck@intel.com>,
-        Sven-Thorsten Dietrich <sven@brocade.com>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Cc: nicolas.dichtel@6wind.com, vadim4j@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36634 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753800AbcITFuC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 01:50:02 -0400
-Received: by mail-wm0-f65.google.com with SMTP id b184so1420409wma.3
-        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 22:50:01 -0700 (PDT)
+Received: from smtp-78.nebula.fi ([83.145.220.78]:47461 "EHLO smtp.nebula.fi"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753959AbcITGBZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 20 Sep 2016 02:01:25 -0400
 Content-Disposition: inline
-In-Reply-To: <57E0C9AF.4090406@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Sep 20, 2016 at 07:31:27AM CEST, roopa@cumulusnetworks.com wrote:
->On 9/19/16, 7:46 AM, Patrick Ruddy wrote:
->> On Sun, 2016-09-18 at 07:51 -0700, Roopa Prabhu wrote:
->>> On 9/15/16, 9:48 AM, Patrick Ruddy wrote:
->>>> Add RTM_NEWADDR and RTM_DELADDR netlink messages with family
->>>> AF_UNSPEC to indicate interest in specific unicast and multicast
->>>> hardware addresses. These messages are sent when addresses are
->>>> added or deleted from the appropriate interface driver.
->>>> Added AF_UNSPEC GETADDR function to allow the netlink notifications
->>>> to be replayed to avoid loss of state due to application start
->>>> ordering or restart.
->>>>
->>>> Signed-off-by: Patrick Ruddy <pruddy@brocade.com>
->>>> ---
->>> RTM_NEWADDR and RTM_DELADDR are not used to add these entries to the kernel.
->>> so, it seems a bit wrong to use RTM_NEWADDR and RTM_DELADDR to notify them to
->>> userspace and also to request a special dump of these addresses.
->>>
->>> This could just be a new nested netlink attribute in the existing link dump ?
->> Hi Roopa
->>
->> Thanks for the review. I did initially code this using NEW/DEL/GET_LINK
->> messages but was asked to change to to ADDR messages by Stephen
->> Hemminger (cc'd). 
->>
->> However I agree that these addresses fall between the LINK and ADDR
->> areas so I'm happy to change this if we can reach some consensus on the
->> format.
->>
->ok, thanks for the history. yes, they do lie in a weird spot.
+The calling of netns_map_init() before command parsing introduced
+a performance issue with large number of namespaces.
 
-They are l2 addresses, they should be threated accordingly. Am I missing
-something?
+As commands such as add, del and exec do not need to iterate through
+/var/run/netns it would be good not no build the cache before executing
+these commands.
 
+Example:
+unpatched:
+time seq 1 1000 | xargs -n 1 ip netns add
 
->the general convention for other rtnl registrations seems to be
->AF_UNSPEC family means include all supported families. thats where this seems a bit odd.
->
->On the other hand, one reason I see where using RTM_*ADDR will be useful for this is if we wanted
->to provide a way to add these uc and mc address via ip addr add in the future.
->ip addr add <lladdr> dev eth0
->
->Does this patch allow that in the future ?
+real    0m16.832s
+user    0m1.350s
+sys    0m15.029s
 
-This shoul go under ip link I believe. "ip addr" is for l3.
+patched:
+time seq 1 1000 | xargs -n 1 ip netns add
 
+real    0m3.859s
+user    0m0.132s
+sys    0m3.205s
 
->
->also, will these l2 addresses now show up in 'ip addr show' output ?.
->
->thanks,
->Roopa
->
+Signed-off-by: Anton Aksola <aakso@iki.fi>
+---
+ ip/ip_common.h                            |  1 +
+ ip/ipmonitor.c                            |  1 +
+ ip/ipnetns.c                              | 31 ++++++++++++++++++++++---------
+ testsuite/tests/ip/netns/set_nsid.t       | 22 ++++++++++++++++++++++
+ testsuite/tests/ip/netns/set_nsid_batch.t | 18 ++++++++++++++++++
+ 5 files changed, 64 insertions(+), 9 deletions(-)
+ create mode 100755 testsuite/tests/ip/netns/set_nsid.t
+ create mode 100755 testsuite/tests/ip/netns/set_nsid_batch.t
+
+diff --git a/ip/ip_common.h b/ip/ip_common.h
+index 93ff5bc..fabc4b5 100644
+--- a/ip/ip_common.h
++++ b/ip/ip_common.h
+@@ -31,6 +31,7 @@ int print_netconf(const struct sockaddr_nl *who,
+ 		  struct rtnl_ctrl_data *ctrl,
+ 		  struct nlmsghdr *n, void *arg);
+ void netns_map_init(void);
++void netns_nsid_socket_init(void);
+ int print_nsid(const struct sockaddr_nl *who,
+ 	       struct nlmsghdr *n, void *arg);
+ int do_ipaddr(int argc, char **argv);
+diff --git a/ip/ipmonitor.c b/ip/ipmonitor.c
+index 2090a45..c892b8f 100644
+--- a/ip/ipmonitor.c
++++ b/ip/ipmonitor.c
+@@ -301,6 +301,7 @@ int do_ipmonitor(int argc, char **argv)
+ 		exit(1);
+ 
+ 	ll_init_map(&rth);
++	netns_nsid_socket_init();
+ 	netns_map_init();
+ 
+ 	if (rtnl_listen(&rth, accept_msg, stdout) < 0)
+diff --git a/ip/ipnetns.c b/ip/ipnetns.c
+index af87065..6b42751 100644
+--- a/ip/ipnetns.c
++++ b/ip/ipnetns.c
+@@ -194,6 +194,18 @@ static void netns_map_del(struct nsid_cache *c)
+ 	free(c);
+ }
+ 
++void netns_nsid_socket_init(void)
++{
++	if (rtnsh.fd > -1 || !ipnetns_have_nsid())
++		return;
++
++	if (rtnl_open(&rtnsh, 0) < 0) {
++		fprintf(stderr, "Cannot open rtnetlink\n");
++		exit(1);
++	}
++
++}
++
+ void netns_map_init(void)
+ {
+ 	static int initialized;
+@@ -204,11 +216,6 @@ void netns_map_init(void)
+ 	if (initialized || !ipnetns_have_nsid())
+ 		return;
+ 
+-	if (rtnl_open(&rtnsh, 0) < 0) {
+-		fprintf(stderr, "Cannot open rtnetlink\n");
+-		exit(1);
+-	}
+-
+ 	dir = opendir(NETNS_RUN_DIR);
+ 	if (!dir)
+ 		return;
+@@ -775,17 +782,23 @@ static int netns_monitor(int argc, char **argv)
+ 
+ int do_netns(int argc, char **argv)
+ {
+-	netns_map_init();
++	netns_nsid_socket_init();
+ 
+-	if (argc < 1)
++	if (argc < 1) {
++		netns_map_init();
+ 		return netns_list(0, NULL);
++	}
+ 
+ 	if ((matches(*argv, "list") == 0) || (matches(*argv, "show") == 0) ||
+-	    (matches(*argv, "lst") == 0))
++	    (matches(*argv, "lst") == 0)) {
++		netns_map_init();
+ 		return netns_list(argc-1, argv+1);
++	}
+ 
+-	if ((matches(*argv, "list-id") == 0))
++	if ((matches(*argv, "list-id") == 0)) {
++		netns_map_init();
+ 		return netns_list_id(argc-1, argv+1);
++	}
+ 
+ 	if (matches(*argv, "help") == 0)
+ 		return usage();
+diff --git a/testsuite/tests/ip/netns/set_nsid.t b/testsuite/tests/ip/netns/set_nsid.t
+new file mode 100755
+index 0000000..606d45a
+--- /dev/null
++++ b/testsuite/tests/ip/netns/set_nsid.t
+@@ -0,0 +1,22 @@
++#!/bin/sh
++
++source lib/generic.sh
++
++ts_log "[Testing netns nsid]"
++
++NS=testnsid
++NSID=99
++
++ts_ip "$0" "Add new netns $NS" netns add $NS
++ts_ip "$0" "Set $NS nsid to $NSID" netns set $NS $NSID
++
++ts_ip "$0" "List netns" netns list
++test_on "$NS \(id: $NSID\)"
++
++ts_ip "$0" "List netns without explicit list or show" netns
++test_on "$NS \(id: $NSID\)"
++
++ts_ip "$0" "List nsid" netns list-id
++test_on "$NSID \(iproute2 netns name: $NS\)"
++
++ts_ip "$0" "Delete netns $NS" netns del $NS
+diff --git a/testsuite/tests/ip/netns/set_nsid_batch.t b/testsuite/tests/ip/netns/set_nsid_batch.t
+new file mode 100755
+index 0000000..abb3f1b
+--- /dev/null
++++ b/testsuite/tests/ip/netns/set_nsid_batch.t
+@@ -0,0 +1,18 @@
++#!/bin/sh
++
++source lib/generic.sh
++
++ts_log "[Testing netns nsid in batch mode]"
++
++NS=testnsid
++NSID=99
++BATCHFILE=`mktemp`
++
++echo "netns add $NS" >> $BATCHFILE
++echo "netns set $NS $NSID" >> $BATCHFILE
++echo "netns list-id" >> $BATCHFILE
++ts_ip "$0" "Add ns, set nsid and list in batch mode" -b $BATCHFILE
++test_on "nsid $NSID \(iproute2 netns name: $NS\)"
++rm -f $BATCHFILE
++
++ts_ip "$0" "Delete netns $NS" netns del $NS
+-- 
+1.8.3.1
