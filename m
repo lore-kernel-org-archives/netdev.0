@@ -1,71 +1,181 @@
 From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH next 1/2] sctp: fix the handling of SACK Gap Ack blocks
-Date: Tue, 20 Sep 2016 18:19:13 -0300
-Message-ID: <18f5ac1b303b60a4363cff8e002e8fea66666a08.1474405559.git.marcelo.leitner@gmail.com>
+Subject: [PATCH next 2/2] sctp: improve how SSN, TSN and ASCONF serial are compared
+Date: Tue, 20 Sep 2016 18:19:14 -0300
+Message-ID: <d0edc340057c3f9fa84b622c26c2d42a8309245e.1474405559.git.marcelo.leitner@gmail.com>
 References: <cover.1474405559.git.marcelo.leitner@gmail.com>
 Cc: linux-sctp@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
         Vlad Yasevich <vyasevich@gmail.com>,
         David Laight <David.Laight@ACULAB.COM>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42304 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:60600 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753632AbcITVTX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 20 Sep 2016 17:19:23 -0400
+        id S1753632AbcITVTZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 20 Sep 2016 17:19:25 -0400
 In-Reply-To: <cover.1474405559.git.marcelo.leitner@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sctp_acked() is using 32bit arithmetics on 16bits vars, via TSN_lte()
-macros, which is weird and confusing.
+Make it similar to time_before() macros:
+- easier to understand
+- make use of typecheck() to avoid working on unexpected variable types
+  (made the issue on previous patch visible)
+- for _[lg]te versions, slighly faster, as the compiler used to generate
+  a sequence of cmp/je/cmp/js instructions and now it's sub/test/jle
+  (for _lte):
 
-Once the offset to ctsn is calculated, all wrapping is already handled
-and thus to verify the Gap Ack blocks we can just use pure
-less/big-or-equal than checks.
+Before, for sctp_outq_sack:
+	if (primary->cacc.changeover_active) {
+    1f01:	80 b9 84 02 00 00 00 	cmpb   $0x0,0x284(%rcx)
+    1f08:	74 6e                	je     1f78 <sctp_outq_sack+0xe8>
+		u8 clear_cycling = 0;
 
-Also, rename gap variable to tsn_offset, so it's more meaningful, as
-it doesn't point to any gap at all.
+		if (TSN_lte(primary->cacc.next_tsn_at_change, sack_ctsn)) {
+    1f0a:	8b 81 80 02 00 00    	mov    0x280(%rcx),%eax
+	return ((s) - (t)) & TSN_SIGN_BIT;
+}
 
-Even so, I don't think this discrepancy resulted in any practical bug.
+static inline int TSN_lte(__u32 s, __u32 t)
+{
+	return ((s) == (t)) || (((s) - (t)) & TSN_SIGN_BIT);
+    1f10:	8b 7d bc             	mov    -0x44(%rbp),%edi
+    1f13:	39 c7                	cmp    %eax,%edi
+    1f15:	74 25                	je     1f3c <sctp_outq_sack+0xac>
+    1f17:	39 f8                	cmp    %edi,%eax
+    1f19:	78 21                	js     1f3c <sctp_outq_sack+0xac>
+			primary->cacc.changeover_active = 0;
 
-This patch is a preparation for the next one, which will introduce
-typecheck() for TSN_lte() macros and would cause a compile error here.
+After:
+	if (primary->cacc.changeover_active) {
+    1ee7:	80 b9 84 02 00 00 00 	cmpb   $0x0,0x284(%rcx)
+    1eee:	74 73                	je     1f63 <sctp_outq_sack+0xf3>
+		u8 clear_cycling = 0;
 
-Suggested-by: David Laight <David.Laight@ACULAB.COM>
-Reported-by: David Laight <David.Laight@ACULAB.COM>
+		if (TSN_lte(primary->cacc.next_tsn_at_change, sack_ctsn)) {
+    1ef0:	8b 81 80 02 00 00    	mov    0x280(%rcx),%eax
+    1ef6:	2b 45 b4             	sub    -0x4c(%rbp),%eax
+    1ef9:	85 c0                	test   %eax,%eax
+    1efb:	7e 26                	jle    1f23 <sctp_outq_sack+0xb3>
+			primary->cacc.changeover_active = 0;
+
+*_lt() generated pretty much the same code.
+Tested with gcc (GCC) 6.1.1 20160621.
+
+This patch also removes SSN_lte as it is not used and cleanups some
+comments.
+
 Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 ---
- net/sctp/outqueue.c | 11 ++++++-----
- 1 file changed, 6 insertions(+), 5 deletions(-)
+ include/net/sctp/sm.h | 94 ++++++++++-----------------------------------------
+ 1 file changed, 18 insertions(+), 76 deletions(-)
 
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index 8c3f446d965c030376d0cfafd2c64b9a946d2cc1..3ec6da8bbb5360187007935838717885c97f9e91 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -1719,7 +1719,7 @@ static int sctp_acked(struct sctp_sackhdr *sack, __u32 tsn)
- {
- 	int i;
- 	sctp_sack_variable_t *frags;
--	__u16 gap;
-+	__u16 tsn_offset, blocks;
- 	__u32 ctsn = ntohl(sack->cum_tsn_ack);
+diff --git a/include/net/sctp/sm.h b/include/net/sctp/sm.h
+index bafe2a0ab9085f24e17038516c55c00cfddd02f4..ca6c971dd74aede829d4512ddf71006520c78f47 100644
+--- a/include/net/sctp/sm.h
++++ b/include/net/sctp/sm.h
+@@ -307,85 +307,27 @@ static inline __u16 sctp_data_size(struct sctp_chunk *chunk)
+ }
  
- 	if (TSN_lte(tsn, ctsn))
-@@ -1738,10 +1738,11 @@ static int sctp_acked(struct sctp_sackhdr *sack, __u32 tsn)
- 	 */
+ /* Compare two TSNs */
++#define TSN_lt(a,b)	\
++	(typecheck(__u32, a) && \
++	 typecheck(__u32, b) && \
++	 ((__s32)((a) - (b)) < 0))
  
- 	frags = sack->variable;
--	gap = tsn - ctsn;
--	for (i = 0; i < ntohs(sack->num_gap_ack_blocks); ++i) {
--		if (TSN_lte(ntohs(frags[i].gab.start), gap) &&
--		    TSN_lte(gap, ntohs(frags[i].gab.end)))
-+	blocks = ntohs(sack->num_gap_ack_blocks);
-+	tsn_offset = tsn - ctsn;
-+	for (i = 0; i < blocks; ++i) {
-+		if (tsn_offset >= ntohs(frags[i].gab.start) &&
-+		    tsn_offset <= ntohs(frags[i].gab.end))
- 			goto pass;
- 	}
+-/* RFC 1982 - Serial Number Arithmetic
+- *
+- * 2. Comparison
+- *  Then, s1 is said to be equal to s2 if and only if i1 is equal to i2,
+- *  in all other cases, s1 is not equal to s2.
+- *
+- * s1 is said to be less than s2 if, and only if, s1 is not equal to s2,
+- * and
+- *
+- *      (i1 < i2 and i2 - i1 < 2^(SERIAL_BITS - 1)) or
+- *      (i1 > i2 and i1 - i2 > 2^(SERIAL_BITS - 1))
+- *
+- * s1 is said to be greater than s2 if, and only if, s1 is not equal to
+- * s2, and
+- *
+- *      (i1 < i2 and i2 - i1 > 2^(SERIAL_BITS - 1)) or
+- *      (i1 > i2 and i1 - i2 < 2^(SERIAL_BITS - 1))
+- */
+-
+-/*
+- * RFC 2960
+- *  1.6 Serial Number Arithmetic
+- *
+- * Comparisons and arithmetic on TSNs in this document SHOULD use Serial
+- * Number Arithmetic as defined in [RFC1982] where SERIAL_BITS = 32.
+- */
+-
+-enum {
+-	TSN_SIGN_BIT = (1<<31)
+-};
+-
+-static inline int TSN_lt(__u32 s, __u32 t)
+-{
+-	return ((s) - (t)) & TSN_SIGN_BIT;
+-}
+-
+-static inline int TSN_lte(__u32 s, __u32 t)
+-{
+-	return ((s) == (t)) || (((s) - (t)) & TSN_SIGN_BIT);
+-}
++#define TSN_lte(a,b)	\
++	(typecheck(__u32, a) && \
++	 typecheck(__u32, b) && \
++	 ((__s32)((a) - (b)) <= 0))
  
+ /* Compare two SSNs */
+-
+-/*
+- * RFC 2960
+- *  1.6 Serial Number Arithmetic
+- *
+- * Comparisons and arithmetic on Stream Sequence Numbers in this document
+- * SHOULD use Serial Number Arithmetic as defined in [RFC1982] where
+- * SERIAL_BITS = 16.
+- */
+-enum {
+-	SSN_SIGN_BIT = (1<<15)
+-};
+-
+-static inline int SSN_lt(__u16 s, __u16 t)
+-{
+-	return ((s) - (t)) & SSN_SIGN_BIT;
+-}
+-
+-static inline int SSN_lte(__u16 s, __u16 t)
+-{
+-	return ((s) == (t)) || (((s) - (t)) & SSN_SIGN_BIT);
+-}
+-
+-/*
+- * ADDIP 3.1.1
+- * The valid range of Serial Number is from 0 to 4294967295 (2**32 - 1). Serial
+- * Numbers wrap back to 0 after reaching 4294967295.
+- */
+-enum {
+-	ADDIP_SERIAL_SIGN_BIT = (1<<31)
+-};
+-
+-static inline int ADDIP_SERIAL_gte(__u32 s, __u32 t)
+-{
+-	return ((s) == (t)) || (((t) - (s)) & ADDIP_SERIAL_SIGN_BIT);
+-}
++#define SSN_lt(a,b)		\
++	(typecheck(__u16, a) && \
++	 typecheck(__u16, b) && \
++	 ((__s16)((a) - (b)) < 0))
++
++/* ADDIP 3.1.1 */
++#define ADDIP_SERIAL_gte(a,b)	\
++	(typecheck(__u32, a) && \
++	 typecheck(__u32, b) && \
++	 ((__s32)((b) - (a)) <= 0))
+ 
+ /* Check VTAG of the packet matches the sender's own tag. */
+ static inline int
 -- 
 2.7.4
