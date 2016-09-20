@@ -1,40 +1,44 @@
 From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH v4 net-next 06/16] tcp: count packets marked lost for a TCP connection
-Date: Mon, 19 Sep 2016 23:39:13 -0400
-Message-ID: <1474342763-16715-7-git-send-email-ncardwell@google.com>
+Subject: [PATCH v4 net-next 09/16] tcp: export data delivery rate
+Date: Mon, 19 Sep 2016 23:39:16 -0400
+Message-ID: <1474342763-16715-10-git-send-email-ncardwell@google.com>
 References: <1474342763-16715-1-git-send-email-ncardwell@google.com>
-Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
+Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
         Van Jacobson <vanj@google.com>,
-        Yuchung Cheng <ycheng@google.com>,
+        Neal Cardwell <ncardwell@google.com>,
         Nandita Dukkipati <nanditad@google.com>,
         Eric Dumazet <edumazet@google.com>,
         Soheil Hassas Yeganeh <soheil@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f182.google.com ([209.85.220.182]:35209 "EHLO
-        mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753870AbcITDjh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 23:39:37 -0400
-Received: by mail-qk0-f182.google.com with SMTP id t7so4310713qkh.2
-        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 20:39:37 -0700 (PDT)
+Received: from mail-qk0-f171.google.com ([209.85.220.171]:35228 "EHLO
+        mail-qk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753214AbcITDjl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 23:39:41 -0400
+Received: by mail-qk0-f171.google.com with SMTP id t7so4311665qkh.2
+        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 20:39:41 -0700 (PDT)
 In-Reply-To: <1474342763-16715-1-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Count the number of packets that a TCP connection marks lost.
+From: Yuchung Cheng <ycheng@google.com>
 
-Congestion control modules can use this loss rate information for more
-intelligent decisions about how fast to send.
+This commit export two new fields in struct tcp_info:
 
-Specifically, this is used in TCP BBR policer detection. BBR uses a
-high packet loss rate as one signal in its policer detection and
-policer bandwidth estimation algorithm.
+  tcpi_delivery_rate: The most recent goodput, as measured by
+    tcp_rate_gen(). If the socket is limited by the sending
+    application (e.g., no data to send), it reports the highest
+    measurement instead of the most recent. The unit is bytes per
+    second (like other rate fields in tcp_info).
 
-The BBR policer detection algorithm cannot simply track retransmits,
-because a retransmit can be (and often is) an indicator of packets
-lost long, long ago. This is particularly true in a long CA_Loss
-period that repairs the initial massive losses when a policer kicks
-in.
+  tcpi_delivery_rate_app_limited: A boolean indicating if the goodput
+    was measured when the socket's throughput was limited by the
+    sending application.
+
+This delivery rate information can be useful for applications that
+want to know the current throughput the TCP connection is seeing,
+e.g. adaptive bitrate video streaming. It can also be very useful for
+debugging or troubleshooting.
 
 Signed-off-by: Van Jacobson <vanj@google.com>
 Signed-off-by: Neal Cardwell <ncardwell@google.com>
@@ -43,85 +47,112 @@ Signed-off-by: Nandita Dukkipati <nanditad@google.com>
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
 ---
- include/linux/tcp.h  |  1 +
- net/ipv4/tcp_input.c | 25 ++++++++++++++++++++++++-
- 2 files changed, 25 insertions(+), 1 deletion(-)
+ include/linux/tcp.h      |  5 ++++-
+ include/uapi/linux/tcp.h |  3 +++
+ net/ipv4/tcp.c           | 11 ++++++++++-
+ net/ipv4/tcp_rate.c      | 12 +++++++++++-
+ 4 files changed, 28 insertions(+), 3 deletions(-)
 
 diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 6433cc8..38590fb 100644
+index fdcd00f..a17ae7b 100644
 --- a/include/linux/tcp.h
 +++ b/include/linux/tcp.h
-@@ -267,6 +267,7 @@ struct tcp_sock {
- 				 * receiver in Recovery. */
- 	u32	prr_out;	/* Total number of pkts sent during Recovery. */
- 	u32	delivered;	/* Total data packets delivered incl. rexmits */
-+	u32	lost;		/* Total data packets lost incl. rexmits */
+@@ -213,7 +213,8 @@ struct tcp_sock {
+ 		u8 reord;    /* reordering detected */
+ 	} rack;
+ 	u16	advmss;		/* Advertised MSS			*/
+-	u8	unused;
++	u8	rate_app_limited:1,  /* rate_{delivered,interval_us} limited? */
++		unused:7;
+ 	u8	nonagle     : 4,/* Disable Nagle algorithm?             */
+ 		thin_lto    : 1,/* Use linear timeouts for thin streams */
+ 		thin_dupack : 1,/* Fast retransmit on first dupack      */
+@@ -271,6 +272,8 @@ struct tcp_sock {
+ 	u32	app_limited;	/* limited until "delivered" reaches this val */
+ 	struct skb_mstamp first_tx_mstamp;  /* start of window send phase */
+ 	struct skb_mstamp delivered_mstamp; /* time we reached "delivered" */
++	u32	rate_delivered;    /* saved rate sample: packets delivered */
++	u32	rate_interval_us;  /* saved rate sample: time elapsed */
  
   	u32	rcv_wnd;	/* Current receiver window		*/
  	u32	write_seq;	/* Tail(+1) of data held in tcp send buffer */
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index ac5b38f..024b579 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -899,12 +899,29 @@ static void tcp_verify_retransmit_hint(struct tcp_sock *tp, struct sk_buff *skb)
- 		tp->retransmit_high = TCP_SKB_CB(skb)->end_seq;
- }
+diff --git a/include/uapi/linux/tcp.h b/include/uapi/linux/tcp.h
+index 482898f..73ac0db 100644
+--- a/include/uapi/linux/tcp.h
++++ b/include/uapi/linux/tcp.h
+@@ -167,6 +167,7 @@ struct tcp_info {
+ 	__u8	tcpi_backoff;
+ 	__u8	tcpi_options;
+ 	__u8	tcpi_snd_wscale : 4, tcpi_rcv_wscale : 4;
++	__u8	tcpi_delivery_rate_app_limited:1;
  
-+/* Sum the number of packets on the wire we have marked as lost.
-+ * There are two cases we care about here:
-+ * a) Packet hasn't been marked lost (nor retransmitted),
-+ *    and this is the first loss.
-+ * b) Packet has been marked both lost and retransmitted,
-+ *    and this means we think it was lost again.
-+ */
-+static void tcp_sum_lost(struct tcp_sock *tp, struct sk_buff *skb)
-+{
-+	__u8 sacked = TCP_SKB_CB(skb)->sacked;
+ 	__u32	tcpi_rto;
+ 	__u32	tcpi_ato;
+@@ -211,6 +212,8 @@ struct tcp_info {
+ 	__u32	tcpi_min_rtt;
+ 	__u32	tcpi_data_segs_in;	/* RFC4898 tcpEStatsDataSegsIn */
+ 	__u32	tcpi_data_segs_out;	/* RFC4898 tcpEStatsDataSegsOut */
 +
-+	if (!(sacked & TCPCB_LOST) ||
-+	    ((sacked & TCPCB_LOST) && (sacked & TCPCB_SACKED_RETRANS)))
-+		tp->lost += tcp_skb_pcount(skb);
-+}
-+
- static void tcp_skb_mark_lost(struct tcp_sock *tp, struct sk_buff *skb)
++	__u64   tcpi_delivery_rate;
+ };
+ 
+ /* for TCP_MD5SIG socket option */
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index c187552..cece376 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2695,7 +2695,7 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
  {
- 	if (!(TCP_SKB_CB(skb)->sacked & (TCPCB_LOST|TCPCB_SACKED_ACKED))) {
- 		tcp_verify_retransmit_hint(tp, skb);
+ 	const struct tcp_sock *tp = tcp_sk(sk); /* iff sk_type == SOCK_STREAM */
+ 	const struct inet_connection_sock *icsk = inet_csk(sk);
+-	u32 now = tcp_time_stamp;
++	u32 now = tcp_time_stamp, intv;
+ 	unsigned int start;
+ 	int notsent_bytes;
+ 	u64 rate64;
+@@ -2785,6 +2785,15 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
+ 	info->tcpi_min_rtt = tcp_min_rtt(tp);
+ 	info->tcpi_data_segs_in = tp->data_segs_in;
+ 	info->tcpi_data_segs_out = tp->data_segs_out;
++
++	info->tcpi_delivery_rate_app_limited = tp->rate_app_limited ? 1 : 0;
++	rate = READ_ONCE(tp->rate_delivered);
++	intv = READ_ONCE(tp->rate_interval_us);
++	if (rate && intv) {
++		rate64 = (u64)rate * tp->mss_cache * USEC_PER_SEC;
++		do_div(rate64, intv);
++		put_unaligned(rate64, &info->tcpi_delivery_rate);
++	}
+ }
+ EXPORT_SYMBOL_GPL(tcp_get_info);
  
- 		tp->lost_out += tcp_skb_pcount(skb);
-+		tcp_sum_lost(tp, skb);
- 		TCP_SKB_CB(skb)->sacked |= TCPCB_LOST;
+diff --git a/net/ipv4/tcp_rate.c b/net/ipv4/tcp_rate.c
+index 52ff84b..9be1581 100644
+--- a/net/ipv4/tcp_rate.c
++++ b/net/ipv4/tcp_rate.c
+@@ -149,12 +149,22 @@ void tcp_rate_gen(struct sock *sk, u32 delivered, u32 lost,
+ 	 * for connections suffer heavy or prolonged losses.
+ 	 */
+ 	if (unlikely(rs->interval_us < tcp_min_rtt(tp))) {
+-		rs->interval_us = -1;
+ 		if (!rs->is_retrans)
+ 			pr_debug("tcp rate: %ld %d %u %u %u\n",
+ 				 rs->interval_us, rs->delivered,
+ 				 inet_csk(sk)->icsk_ca_state,
+ 				 tp->rx_opt.sack_ok, tcp_min_rtt(tp));
++		rs->interval_us = -1;
++		return;
++	}
++
++	/* Record the last non-app-limited or the highest app-limited bw */
++	if (!rs->is_app_limited ||
++	    ((u64)rs->delivered * tp->rate_interval_us >=
++	     (u64)tp->rate_delivered * rs->interval_us)) {
++		tp->rate_delivered = rs->delivered;
++		tp->rate_interval_us = rs->interval_us;
++		tp->rate_app_limited = rs->is_app_limited;
  	}
  }
-@@ -913,6 +930,7 @@ void tcp_skb_mark_lost_uncond_verify(struct tcp_sock *tp, struct sk_buff *skb)
- {
- 	tcp_verify_retransmit_hint(tp, skb);
  
-+	tcp_sum_lost(tp, skb);
- 	if (!(TCP_SKB_CB(skb)->sacked & (TCPCB_LOST|TCPCB_SACKED_ACKED))) {
- 		tp->lost_out += tcp_skb_pcount(skb);
- 		TCP_SKB_CB(skb)->sacked |= TCPCB_LOST;
-@@ -1890,6 +1908,7 @@ void tcp_enter_loss(struct sock *sk)
- 	struct sk_buff *skb;
- 	bool new_recovery = icsk->icsk_ca_state < TCP_CA_Recovery;
- 	bool is_reneg;			/* is receiver reneging on SACKs? */
-+	bool mark_lost;
- 
- 	/* Reduce ssthresh if it has not yet been made inside this window. */
- 	if (icsk->icsk_ca_state <= TCP_CA_Disorder ||
-@@ -1923,8 +1942,12 @@ void tcp_enter_loss(struct sock *sk)
- 		if (skb == tcp_send_head(sk))
- 			break;
- 
-+		mark_lost = (!(TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED) ||
-+			     is_reneg);
-+		if (mark_lost)
-+			tcp_sum_lost(tp, skb);
- 		TCP_SKB_CB(skb)->sacked &= (~TCPCB_TAGBITS)|TCPCB_SACKED_ACKED;
--		if (!(TCP_SKB_CB(skb)->sacked&TCPCB_SACKED_ACKED) || is_reneg) {
-+		if (mark_lost) {
- 			TCP_SKB_CB(skb)->sacked &= ~TCPCB_SACKED_ACKED;
- 			TCP_SKB_CB(skb)->sacked |= TCPCB_LOST;
- 			tp->lost_out += tcp_skb_pcount(skb);
 -- 
 2.8.0.rc3.226.g39d4020
