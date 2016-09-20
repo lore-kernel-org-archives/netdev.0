@@ -1,44 +1,74 @@
 From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH v4 net-next 04/16] net_sched: sch_fq: add low_rate_threshold parameter
-Date: Mon, 19 Sep 2016 23:39:11 -0400
-Message-ID: <1474342763-16715-5-git-send-email-ncardwell@google.com>
+Subject: [PATCH v4 net-next 08/16] tcp: track application-limited rate samples
+Date: Mon, 19 Sep 2016 23:39:15 -0400
+Message-ID: <1474342763-16715-9-git-send-email-ncardwell@google.com>
 References: <1474342763-16715-1-git-send-email-ncardwell@google.com>
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+Cc: netdev@vger.kernel.org, Soheil Hassas Yeganeh <soheil@google.com>,
         Van Jacobson <vanj@google.com>,
         Neal Cardwell <ncardwell@google.com>,
         Yuchung Cheng <ycheng@google.com>,
         Nandita Dukkipati <nanditad@google.com>,
-        Soheil Hassas Yeganeh <soheil@google.com>
+        Eric Dumazet <edumazet@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f182.google.com ([209.85.220.182]:35199 "EHLO
-        mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753214AbcITDjf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 23:39:35 -0400
-Received: by mail-qk0-f182.google.com with SMTP id t7so4310236qkh.2
-        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 20:39:34 -0700 (PDT)
+Received: from mail-qk0-f172.google.com ([209.85.220.172]:33580 "EHLO
+        mail-qk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753200AbcITDjk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 23:39:40 -0400
+Received: by mail-qk0-f172.google.com with SMTP id w204so4362688qka.0
+        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 20:39:40 -0700 (PDT)
 In-Reply-To: <1474342763-16715-1-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Soheil Hassas Yeganeh <soheil@google.com>
 
-This commit adds to the fq module a low_rate_threshold parameter to
-insert a delay after all packets if the socket requests a pacing rate
-below the threshold.
+This commit adds code to track whether the delivery rate represented
+by each rate_sample was limited by the application.
 
-This helps achieve more precise control of the sending rate with
-low-rate paths, especially policers. The basic issue is that if a
-congestion control module detects a policer at a certain rate, it may
-want fq to be able to shape to that policed rate. That way the sender
-can avoid policer drops by having the packets arrive at the policer at
-or just under the policed rate.
+Upon each transmit, we store in the is_app_limited field in the skb a
+boolean bit indicating whether there is a known "bubble in the pipe":
+a point in the rate sample interval where the sender was
+application-limited, and did not transmit even though the cwnd and
+pacing rate allowed it.
 
-The default threshold of 550Kbps was chosen analytically so that for
-policers or links at 500Kbps or 512Kbps fq would very likely invoke
-this mechanism, even if the pacing rate was briefly slightly above the
-available bandwidth. This value was then empirically validated with
-two years of production testing on YouTube video servers.
+This logic marks the flow app-limited on a write if *all* of the
+following are true:
+
+  1) There is less than 1 MSS of unsent data in the write queue
+     available to transmit.
+
+  2) There is no packet in the sender's queues (e.g. in fq or the NIC
+     tx queue).
+
+  3) The connection is not limited by cwnd.
+
+  4) There are no lost packets to retransmit.
+
+The tcp_rate_check_app_limited() code in tcp_rate.c determines whether
+the connection is application-limited at the moment. If the flow is
+application-limited, it sets the tp->app_limited field. If the flow is
+application-limited then that means there is effectively a "bubble" of
+silence in the pipe now, and this silence will be reflected in a lower
+bandwidth sample for any rate samples from now until we get an ACK
+indicating this bubble has exited the pipe: specifically, until we get
+an ACK for the next packet we transmit.
+
+When we send every skb we record in scb->tx.is_app_limited whether the
+resulting rate sample will be application-limited.
+
+The code in tcp_rate_gen() checks to see when it is safe to mark all
+known application-limited bubbles of silence as having exited the
+pipe. It does this by checking to see when the delivered count moves
+past the tp->app_limited marker. At this point it zeroes the
+tp->app_limited marker, as all known bubbles are out of the pipe.
+
+We make room for the tx.is_app_limited bit in the skb by borrowing a
+bit from the in_flight field used by NV to record the number of bytes
+in flight. The receive window in the TCP header is 16 bits, and the
+max receive window scaling shift factor is 14 (RFC 1323). So the max
+receive window offered by the TCP protocol is 2^(16+14) = 2^30. So we
+only need 30 bits for the tx.in_flight used by NV.
 
 Signed-off-by: Van Jacobson <vanj@google.com>
 Signed-off-by: Neal Cardwell <ncardwell@google.com>
@@ -47,105 +77,169 @@ Signed-off-by: Nandita Dukkipati <nanditad@google.com>
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
 ---
- include/uapi/linux/pkt_sched.h |  2 ++
- net/sched/sch_fq.c             | 22 +++++++++++++++++++---
- 2 files changed, 21 insertions(+), 3 deletions(-)
+ include/linux/tcp.h      |  1 +
+ include/net/tcp.h        |  6 +++++-
+ net/ipv4/tcp.c           |  8 ++++++++
+ net/ipv4/tcp_minisocks.c |  3 +++
+ net/ipv4/tcp_rate.c      | 29 ++++++++++++++++++++++++++++-
+ 5 files changed, 45 insertions(+), 2 deletions(-)
 
-diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
-index 2382eed..f8e39db 100644
---- a/include/uapi/linux/pkt_sched.h
-+++ b/include/uapi/linux/pkt_sched.h
-@@ -792,6 +792,8 @@ enum {
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index c50e6ae..fdcd00f 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -268,6 +268,7 @@ struct tcp_sock {
+ 	u32	prr_out;	/* Total number of pkts sent during Recovery. */
+ 	u32	delivered;	/* Total data packets delivered incl. rexmits */
+ 	u32	lost;		/* Total data packets lost incl. rexmits */
++	u32	app_limited;	/* limited until "delivered" reaches this val */
+ 	struct skb_mstamp first_tx_mstamp;  /* start of window send phase */
+ 	struct skb_mstamp delivered_mstamp; /* time we reached "delivered" */
  
- 	TCA_FQ_ORPHAN_MASK,	/* mask applied to orphaned skb hashes */
- 
-+	TCA_FQ_LOW_RATE_THRESHOLD, /* per packet delay under this rate */
-+
- 	__TCA_FQ_MAX
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index b261c89..a69ed7f 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -764,7 +764,9 @@ struct tcp_skb_cb {
+ 	union {
+ 		struct {
+ 			/* There is space for up to 24 bytes */
+-			__u32 in_flight;/* Bytes in flight when packet sent */
++			__u32 in_flight:30,/* Bytes in flight at transmit */
++			      is_app_limited:1, /* cwnd not fully used? */
++			      unused:1;
+ 			/* pkts S/ACKed so far upon tx of skb, incl retrans: */
+ 			__u32 delivered;
+ 			/* start of send pipeline phase */
+@@ -883,6 +885,7 @@ struct rate_sample {
+ 	int  losses;		/* number of packets marked lost upon ACK */
+ 	u32  acked_sacked;	/* number of packets newly (S)ACKed upon ACK */
+ 	u32  prior_in_flight;	/* in flight before this ACK */
++	bool is_app_limited;	/* is sample from packet with bubble in pipe? */
+ 	bool is_retrans;	/* is sample from retransmission? */
  };
  
-diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
-index e5458b9..40ad4fc 100644
---- a/net/sched/sch_fq.c
-+++ b/net/sched/sch_fq.c
-@@ -94,6 +94,7 @@ struct fq_sched_data {
- 	u32		flow_max_rate;	/* optional max rate per flow */
- 	u32		flow_plimit;	/* max packets per flow */
- 	u32		orphan_mask;	/* mask for orphaned skb */
-+	u32		low_rate_threshold;
- 	struct rb_root	*fq_root;
- 	u8		rate_enable;
- 	u8		fq_trees_log;
-@@ -433,7 +434,7 @@ static struct sk_buff *fq_dequeue(struct Qdisc *sch)
- 	struct fq_flow_head *head;
- 	struct sk_buff *skb;
- 	struct fq_flow *f;
--	u32 rate;
-+	u32 rate, plen;
+@@ -978,6 +981,7 @@ void tcp_rate_skb_delivered(struct sock *sk, struct sk_buff *skb,
+ 			    struct rate_sample *rs);
+ void tcp_rate_gen(struct sock *sk, u32 delivered, u32 lost,
+ 		  struct skb_mstamp *now, struct rate_sample *rs);
++void tcp_rate_check_app_limited(struct sock *sk);
  
- 	skb = fq_dequeue_head(sch, &q->internal);
- 	if (skb)
-@@ -482,7 +483,7 @@ begin:
- 	prefetch(&skb->end);
- 	f->credit -= qdisc_pkt_len(skb);
+ /* These functions determine how the current flow behaves in respect of SACK
+  * handling. SACK is negotiated with the peer, and therefore it can vary
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 9d1ae18..c187552 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -396,6 +396,9 @@ void tcp_init_sock(struct sock *sk)
+ 	 */
+ 	tp->snd_cwnd = TCP_INIT_CWND;
  
--	if (f->credit > 0 || !q->rate_enable)
-+	if (!q->rate_enable)
- 		goto out;
- 
- 	/* Do not pace locally generated ack packets */
-@@ -493,8 +494,15 @@ begin:
- 	if (skb->sk)
- 		rate = min(skb->sk->sk_pacing_rate, rate);
- 
-+	if (rate <= q->low_rate_threshold) {
-+		f->credit = 0;
-+		plen = qdisc_pkt_len(skb);
-+	} else {
-+		plen = max(qdisc_pkt_len(skb), q->quantum);
-+		if (f->credit > 0)
-+			goto out;
-+	}
- 	if (rate != ~0U) {
--		u32 plen = max(qdisc_pkt_len(skb), q->quantum);
- 		u64 len = (u64)plen * NSEC_PER_SEC;
- 
- 		if (likely(rate))
-@@ -662,6 +670,7 @@ static const struct nla_policy fq_policy[TCA_FQ_MAX + 1] = {
- 	[TCA_FQ_FLOW_MAX_RATE]		= { .type = NLA_U32 },
- 	[TCA_FQ_BUCKETS_LOG]		= { .type = NLA_U32 },
- 	[TCA_FQ_FLOW_REFILL_DELAY]	= { .type = NLA_U32 },
-+	[TCA_FQ_LOW_RATE_THRESHOLD]	= { .type = NLA_U32 },
- };
- 
- static int fq_change(struct Qdisc *sch, struct nlattr *opt)
-@@ -716,6 +725,10 @@ static int fq_change(struct Qdisc *sch, struct nlattr *opt)
- 	if (tb[TCA_FQ_FLOW_MAX_RATE])
- 		q->flow_max_rate = nla_get_u32(tb[TCA_FQ_FLOW_MAX_RATE]);
- 
-+	if (tb[TCA_FQ_LOW_RATE_THRESHOLD])
-+		q->low_rate_threshold =
-+			nla_get_u32(tb[TCA_FQ_LOW_RATE_THRESHOLD]);
++	/* There's a bubble in the pipe until at least the first ACK. */
++	tp->app_limited = ~0U;
 +
- 	if (tb[TCA_FQ_RATE_ENABLE]) {
- 		u32 enable = nla_get_u32(tb[TCA_FQ_RATE_ENABLE]);
+ 	/* See draft-stevens-tcpca-spec-01 for discussion of the
+ 	 * initialization of these values.
+ 	 */
+@@ -1014,6 +1017,9 @@ int tcp_sendpage(struct sock *sk, struct page *page, int offset,
+ 					flags);
  
-@@ -781,6 +794,7 @@ static int fq_init(struct Qdisc *sch, struct nlattr *opt)
- 	q->fq_root		= NULL;
- 	q->fq_trees_log		= ilog2(1024);
- 	q->orphan_mask		= 1024 - 1;
-+	q->low_rate_threshold	= 550000 / 8;
- 	qdisc_watchdog_init(&q->watchdog, sch);
+ 	lock_sock(sk);
++
++	tcp_rate_check_app_limited(sk);  /* is sending application-limited? */
++
+ 	res = do_tcp_sendpages(sk, page, offset, size, flags);
+ 	release_sock(sk);
+ 	return res;
+@@ -1101,6 +1107,8 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
  
- 	if (opt)
-@@ -811,6 +825,8 @@ static int fq_dump(struct Qdisc *sch, struct sk_buff *skb)
- 	    nla_put_u32(skb, TCA_FQ_FLOW_REFILL_DELAY,
- 			jiffies_to_usecs(q->flow_refill_delay)) ||
- 	    nla_put_u32(skb, TCA_FQ_ORPHAN_MASK, q->orphan_mask) ||
-+	    nla_put_u32(skb, TCA_FQ_LOW_RATE_THRESHOLD,
-+			q->low_rate_threshold) ||
- 	    nla_put_u32(skb, TCA_FQ_BUCKETS_LOG, q->fq_trees_log))
- 		goto nla_put_failure;
+ 	timeo = sock_sndtimeo(sk, flags & MSG_DONTWAIT);
  
++	tcp_rate_check_app_limited(sk);  /* is sending application-limited? */
++
+ 	/* Wait for a connection to finish. One exception is TCP Fast Open
+ 	 * (passive side) where data is allowed to be sent before a connection
+ 	 * is fully established.
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index 5689471..6234eba 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -487,6 +487,9 @@ struct sock *tcp_create_openreq_child(const struct sock *sk,
+ 		newtp->snd_cwnd = TCP_INIT_CWND;
+ 		newtp->snd_cwnd_cnt = 0;
+ 
++		/* There's a bubble in the pipe until at least the first ACK. */
++		newtp->app_limited = ~0U;
++
+ 		tcp_init_xmit_timers(newsk);
+ 		newtp->write_seq = newtp->pushed_seq = treq->snt_isn + 1;
+ 
+diff --git a/net/ipv4/tcp_rate.c b/net/ipv4/tcp_rate.c
+index 1daed6a..52ff84b 100644
+--- a/net/ipv4/tcp_rate.c
++++ b/net/ipv4/tcp_rate.c
+@@ -26,9 +26,13 @@
+  * other factors like applications or receiver window limits.  The estimator
+  * deliberately avoids using the inter-packet spacing approach because that
+  * approach requires a large number of samples and sophisticated filtering.
++ *
++ * TCP flows can often be application-limited in request/response workloads.
++ * The estimator marks a bandwidth sample as application-limited if there
++ * was some moment during the sampled window of packets when there was no data
++ * ready to send in the write queue.
+  */
+ 
+-
+ /* Snapshot the current delivery information in the skb, to generate
+  * a rate sample later when the skb is (s)acked in tcp_rate_skb_delivered().
+  */
+@@ -58,6 +62,7 @@ void tcp_rate_skb_sent(struct sock *sk, struct sk_buff *skb)
+ 	TCP_SKB_CB(skb)->tx.first_tx_mstamp	= tp->first_tx_mstamp;
+ 	TCP_SKB_CB(skb)->tx.delivered_mstamp	= tp->delivered_mstamp;
+ 	TCP_SKB_CB(skb)->tx.delivered		= tp->delivered;
++	TCP_SKB_CB(skb)->tx.is_app_limited	= tp->app_limited ? 1 : 0;
+ }
+ 
+ /* When an skb is sacked or acked, we fill in the rate sample with the (prior)
+@@ -80,6 +85,7 @@ void tcp_rate_skb_delivered(struct sock *sk, struct sk_buff *skb,
+ 	    after(scb->tx.delivered, rs->prior_delivered)) {
+ 		rs->prior_delivered  = scb->tx.delivered;
+ 		rs->prior_mstamp     = scb->tx.delivered_mstamp;
++		rs->is_app_limited   = scb->tx.is_app_limited;
+ 		rs->is_retrans	     = scb->sacked & TCPCB_RETRANS;
+ 
+ 		/* Find the duration of the "send phase" of this window: */
+@@ -105,6 +111,10 @@ void tcp_rate_gen(struct sock *sk, u32 delivered, u32 lost,
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	u32 snd_us, ack_us;
+ 
++	/* Clear app limited if bubble is acked and gone. */
++	if (tp->app_limited && after(tp->delivered, tp->app_limited))
++		tp->app_limited = 0;
++
+ 	/* TODO: there are multiple places throughout tcp_ack() to get
+ 	 * current time. Refactor the code using a new "tcp_acktag_state"
+ 	 * to carry current time, flags, stats like "tcp_sacktag_state".
+@@ -147,3 +157,20 @@ void tcp_rate_gen(struct sock *sk, u32 delivered, u32 lost,
+ 				 tp->rx_opt.sack_ok, tcp_min_rtt(tp));
+ 	}
+ }
++
++/* If a gap is detected between sends, mark the socket application-limited. */
++void tcp_rate_check_app_limited(struct sock *sk)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++
++	if (/* We have less than one packet to send. */
++	    tp->write_seq - tp->snd_nxt < tp->mss_cache &&
++	    /* Nothing in sending host's qdisc queues or NIC tx queue. */
++	    sk_wmem_alloc_get(sk) < SKB_TRUESIZE(1) &&
++	    /* We are not limited by CWND. */
++	    tcp_packets_in_flight(tp) < tp->snd_cwnd &&
++	    /* All lost packets have been retransmitted. */
++	    tp->lost_out <= tp->retrans_out)
++		tp->app_limited =
++			(tp->delivered + tcp_packets_in_flight(tp)) ? : 1;
++}
 -- 
 2.8.0.rc3.226.g39d4020
