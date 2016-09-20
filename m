@@ -1,43 +1,59 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] cxgb4: fix signed wrap around when decrementing index idx
-Date: Tue, 20 Sep 2016 15:48:45 +0100
-Message-ID: <20160920144846.21765-1-colin.king@canonical.com>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: Re: [PATCH net-next v2 05/10] bnxt_en: Fix ethtool -l|-L
+ inconsistent channel counts.
+Date: Tue, 20 Sep 2016 15:52:14 +0100
+Message-ID: <20160920155214.3ea1e280@jkicinski-Precision-T1700>
+References: <1474354228-3221-1-git-send-email-michael.chan@broadcom.com>
+        <1474354228-3221-6-git-send-email-michael.chan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: Hariprasad S <hariprasad@chelsio.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+To: Michael Chan <michael.chan@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f45.google.com ([209.85.215.45]:32780 "EHLO
+        mail-lf0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751297AbcITOwV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 10:52:21 -0400
+Received: by mail-lf0-f45.google.com with SMTP id h127so17179852lfh.0
+        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 07:52:20 -0700 (PDT)
+In-Reply-To: <1474354228-3221-6-git-send-email-michael.chan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+Hi!
 
-Change predecrement compare to post decrement compare to avoid an
-unsigned integer wrap-around comparison when decrementing idx in
-the while loop.
+On Tue, 20 Sep 2016 02:50:23 -0400, Michael Chan wrote:
+> The existing code is inconsistent in reporting and accepting the combined
+> channel count.  bnxt_get_channels() reports maximum combined as the
+> maximum rx count.  bnxt_set_channels() accepts combined count that
+> cannot be bigger than max rx or max tx.
+> 
+> For example, if max rx = 2 and max tx = 1, we report max supported
+> combined to be 2.  But if the user tries to set combined to 2, it will
+> fail because 2 is bigger than max tx which is 1.
+> 
+> Fix the code to be consistent.  Max allowed combined = max(max_rx, max_tx).
+> We will accept a combined channel count <= max(max_rx, max_tx).
+> 
+> Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 
-For example, when idx is zero, the current situation will
-predecrement idx in the while loop, wrapping idx to the maximum
-signed integer and cause out of bounds reads on rxq_info->msix_tbl[idx].
+Sorry I wasn't able to respond in time but I'm with Yuval on this one.
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+The canonical meaning for the parameters is set by man page for ethtool:
+>        rx N   Changes the number of channels with only receive queues.
+> 
+>        tx N   Changes the number of channels with only transmit queues.
+> 
+>        other N
+>               Changes the number of channels used only for other purposes e.g.
+>               link interrupts or SR-IOV co-ordination.
+> 
+>        combined N
+>               Changes the number of multi-purpose channels.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
-index d12a73e..42a9c8d 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
-@@ -367,7 +367,7 @@ int request_msix_queue_irqs_uld(struct adapter *adap, unsigned int uld_type)
- 	}
- 	return 0;
- unwind:
--	while (--idx >= 0) {
-+	while (idx-- > 0) {
- 		bmap_idx = rxq_info->msix_tbl[idx];
- 		free_msix_idx_in_bmap(adap, bmap_idx);
- 		free_irq(adap->msix_info_ulds[bmap_idx].vec,
--- 
-2.9.3
+Could we please agree that combined means having both RX and TX and the
+others mean having only the specified one?  See for example:
+
+e261768e9e39 ("be2net: support asymmetric rx/tx queue counts")
