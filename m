@@ -1,59 +1,32 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: Possible code defects: macros and precedence
-Date: Tue, 20 Sep 2016 11:03:44 -0700
-Message-ID: <1474394624.1954.45.camel@perches.com>
-References: <1472927739.5018.13.camel@perches.com>
-         <alpine.DEB.2.10.1609041809260.3178@hadrien>
-         <1473001581.5018.37.camel@perches.com>
-         <alpine.DEB.2.10.1609172221110.3124@hadrien>
-         <1474147658.1954.1.camel@perches.com>
-         <alpine.DEB.2.10.1609180702060.3361@hadrien>
-         <1474191110.1954.16.camel@perches.com>
-         <alpine.DEB.2.10.1609201503260.2914@hadrien>
-         <1474391253.1954.39.camel@perches.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: UBSAN reports issue in ip_idents_reserve
+Date: Tue, 20 Sep 2016 11:42:31 -0700
+Message-ID: <1474396951.23058.41.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20160920120000.GI1843@nanopsycho.orion>
+         <1474378115.23058.2.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20160920133915.GJ1843@nanopsycho.orion>
+         <1474380711.23058.8.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1474381092.23058.10.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20160920174649.GN1843@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: Dan Carpenter <error27@gmail.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        netdev <netdev@vger.kernel.org>
-To: Julia Lawall <julia.lawall@lip6.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1474391253.1954.39.camel@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:33998 "EHLO
+        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751797AbcITSmd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 14:42:33 -0400
+Received: by mail-pf0-f170.google.com with SMTP id p64so10072215pfb.1
+        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 11:42:33 -0700 (PDT)
+In-Reply-To: <20160920174649.GN1843@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-09-20 at 10:07 -0700, Joe Perches wrote:
-> On Tue, 2016-09-20 at 15:14 +0200, Julia Lawall wrote:
-> > The semantic patch below finds a binary operator in a macro and a binary
-> > operator in the use of the macro, and checks if the priority of the
-> > operator in the macro is higher (lower number) than the priority of the
-> > operator in the use.  If this is the case, it adds parentheses in the use,
-> > which is not what one wants, but serves to show where the problem is
+On Tue, 2016-09-20 at 19:46 +0200, Jiri Pirko wrote:
 
-> Thanks, this works on the trivial example I suggested
-> without an #include
 > 
-> I've tried it on trivial files with --recursive-includes
-> and it seems to work there too.
+> This patch makes ubsan silent.
 
-I tried it on drivers/net with --recursive-includes and got
-just 1 hit on an old and probably relatively untested driver.
-
-No hardware, can't test.  It may be correct now.  Who knows...
----
-diff --urN a/drivers/net/ethernet/smsc/smc911x.h b/drivers/net/ethernet/smsc/smc911x.h
---- a/drivers/net/ethernet/smsc/smc911x.h
-+++ b/drivers/net/ethernet/smsc/smc911x.h
-@@ -700,8 +700,8 @@ static const struct chip_id chip_ids[] =
-  * capabilities.  Please use those and not the in/out primitives.
-  */
- /* FIFO read/write macros */
--#define SMC_PUSH_DATA(lp, p, l)	SMC_outsl( lp, TX_DATA_FIFO, p, (l) >> 2 )
--#define SMC_PULL_DATA(lp, p, l)	SMC_insl ( lp, RX_DATA_FIFO, p, (l) >> 2 )
-+#define SMC_PUSH_DATA(lp, p, l)	SMC_outsl( lp, TX_DATA_FIFO, p, ((l) >> 2) )
-+#define SMC_PULL_DATA(lp, p, l)	SMC_insl ( lp, RX_DATA_FIFO, p, ((l) >> 2) )
- #define SMC_SET_TX_FIFO(lp, x) 	SMC_outl( x, lp, TX_DATA_FIFO )
- #define SMC_GET_RX_FIFO(lp)	SMC_inl( lp, RX_DATA_FIFO )
- 
+Thanks Jiri, I will post an official patch then ;)
