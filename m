@@ -1,46 +1,49 @@
-From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Subject: Re: [PATCH v6 5/6] net: ipv4, ipv6: run cgroup eBPF egress programs
-Date: Tue, 20 Sep 2016 18:53:29 +0200
-Message-ID: <20160920165329.GB3291@pox.localdomain>
-References: <1474303441-3745-1-git-send-email-daniel@zonque.org>
- <1474303441-3745-6-git-send-email-daniel@zonque.org>
- <20160919191910.GA984@salvia>
- <ac88bb4c-ab7c-1f74-c7fd-79e523b50ae4@zonque.org>
- <20160919203533.GA888@salvia>
- <83afdc54-1bbe-3530-e5fd-b74fefe9a042@zonque.org>
- <20160920142931.GA31438@salvia>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next 7/8] net/mlx5e: XDP TX forwarding support
+Date: Tue, 20 Sep 2016 18:58:51 +0200
+Message-ID: <20160920165851.GC3291@pox.localdomain>
+References: <20160920102943.24732097@brouer.com>
+ <20160920133300.144037fd@redhat.com>
+ <96b40925-0e8e-0230-0701-96c11d6921a1@gmail.com>
+ <20160920154036.GA98644@ast-mbp.thefacebook.com>
+ <CALx6S34YBsmSJr7z2wGsu1VvLkjoqTN+Q8JJ0j-H_DehMJzQ5g@mail.gmail.com>
+ <1474387110.23058.24.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160920180609.148874b5@redhat.com>
+ <1474388036.23058.26.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160920182717.2de9541e@redhat.com>
+ <20160920164526.GB99429@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>, htejun-b10kYP2dOMg@public.gmane.org,
-        daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, ast-b10kYP2dOMg@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-        kafai-b10kYP2dOMg@public.gmane.org, fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org, harald-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Tariq Toukan <ttoukan.linux@gmail.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Eran Ben Elisha <eranbe@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Rana Shahout <ranas@mellanox.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:35179 "EHLO
+        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933063AbcITQ6y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 12:58:54 -0400
+Received: by mail-wm0-f51.google.com with SMTP id l132so220111901wmf.0
+        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 09:58:54 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20160920142931.GA31438@salvia>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20160920164526.GB99429@ast-mbp.thefacebook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/20/16 at 04:29pm, Pablo Neira Ayuso wrote:
-> On Mon, Sep 19, 2016 at 10:56:14PM +0200, Daniel Mack wrote:
-> [...]
-> > Why would we artificially limit the use-cases of this implementation if
-> > the way it stands, both filtering and introspection are possible?
-> 
-> Why should we place infrastructure in the kernel to filter packets so
-> late, and why at postrouting btw, when we can do this way earlier
-> before any packet is actually sent? No performance impact, no need for
-> skbuff allocation and *no cycles wasted to evaluate if every packet is
-> wanted or not*.
+On 09/20/16 at 09:45am, Alexei Starovoitov wrote:
+> that's a great idea. Instead of adding aborted, ring_full, blahblah counters
+> everywhere that cost performance, let's add tracepoints that are nops
+> when not in use.
+> And if all drivers call the same tracepoints it will be even better.
+> Monitoring trace_xdp_aborted tracepoint would be generic way to debug
+> 'divide by zero'.
 
-I won't argue against filtering at socket level, it is very valuable.
-A difference is transparency of enforcement. Dropping at networking
-level is accounted for in the usual counters and well understood by
-admins. "Dropping" at bind socket level would either involve returning
-an error to the application (which may change behaviour of the application)
-or require a new form of accounting.
-
-I also want to see packet size, selected source address, outgoing device,
-and attach tunnel key metadata to the skb based on the cgroup. All of
-which are not available at socket level.
+Not opposed but I still need an indication to start tracing ;-) A
+single counter would be enough though.
