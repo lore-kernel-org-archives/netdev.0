@@ -1,80 +1,40 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: handle multiple ports in
- ATU
-Date: Wed, 21 Sep 2016 01:42:27 +0200
-Message-ID: <20160920234227.GA1730@lunn.ch>
-References: <20160919235611.31975-1-vivien.didelot@savoirfairelinux.com>
- <20160920004129.GA8026@lunn.ch>
- <87wpi7idkr.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH v4 net-next 16/16] tcp_bbr: add BBR congestion control
+Date: Tue, 20 Sep 2016 19:42:00 -0400
+Message-ID: <CADVnQymgWrzxLSE8r9pE_fOcXLbg+QTMco7grZnmPH2EVre=pw@mail.gmail.com>
+References: <1474342763-16715-1-git-send-email-ncardwell@google.com>
+ <1474342763-16715-17-git-send-email-ncardwell@google.com> <20160920163906.7c6d69fe@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <87wpi7idkr.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Netdev <netdev@vger.kernel.org>, Van Jacobson <vanj@google.com>,
+        Yuchung Cheng <ycheng@google.com>,
+        Nandita Dukkipati <nanditad@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Soheil Hassas Yeganeh <soheil@google.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f52.google.com ([209.85.218.52]:35261 "EHLO
+        mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754679AbcITXmc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 19:42:32 -0400
+Received: by mail-oi0-f52.google.com with SMTP id w11so41327778oia.2
+        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 16:42:32 -0700 (PDT)
+In-Reply-To: <20160920163906.7c6d69fe@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 19, 2016 at 09:07:16PM -0400, Vivien Didelot wrote:
-> Hi Andrew,
-> 
-> Andrew Lunn <andrew@lunn.ch> writes:
-> 
-> > On Mon, Sep 19, 2016 at 07:56:11PM -0400, Vivien Didelot wrote:
-> >> An address can be loaded in the ATU with multiple ports, for instance
-> >> when adding multiple ports to a Multicast group with "bridge mdb".
-> >>
-> >> The current code doesn't allow that. Add an helper to get a single entry
-> >> from the ATU, then set or clear the requested port, before loading the
-> >> entry back in the ATU.
-> >>
-> >> Note that the required _mv88e6xxx_atu_getnext function is defined below
-> >> mv88e6xxx_port_db_load_purge, so forward-declare it for the moment. The
-> >> ATU code will be isolated in future patches.
-> >>
-> >> Fixes: 83dabd1fa84c ("net: dsa: mv88e6xxx: make switchdev DB ops generic")
-> >
-> > Is this a real fixes? You don't make it clear what goes wrong. I
-> > assume adding the same MAC address for a second time but for a
-> > different port removes the first entry for the old port?
-> 
-> Yes, this is what happens, sorry for the bad message. Below is an
-> example with the relevant hardware bits.
-> 
-> Here's the current behavior, without this patch:
-> 
->     # bridge mdb add dev br0 port lan0 grp 238.39.20.86
-> 
->     FID  MAC Addr                  State         Trunk?  DPV/Trunk ID
->     0    01:00:5e:27:14:56         MC_STATIC       n     0 - - - - - -
-> 
->     # bridge mdb add dev br0 port lan2 grp 238.39.20.86
-> 
->     FID  MAC Addr                  State         Trunk?  DPV/Trunk ID
->     0    01:00:5e:27:14:56         MC_STATIC       n     - - 2 - - - - 
-> 
-> Here's the new behavior, with this patch:
-> 
->     # bridge mdb add dev br0 port lan0 grp 238.39.20.86
-> 
->     FID  MAC Addr                  State         Trunk?  DPV/Trunk ID
->     0    01:00:5e:27:14:56         MC_STATIC       n     0 - - - - - -
-> 
->     # bridge mdb add dev br0 port lan2 grp 238.39.20.86
-> 
->     FID  MAC Addr                  State         Trunk?  DPV/Trunk ID
->     0    01:00:5e:27:14:56         MC_STATIC       n     0 - 2 - - - -
+On Tue, Sep 20, 2016 at 7:39 PM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+>
+>> NOTE: BBR *must* be used with the fq qdisc ("man tc-fq") with pacing
+>> enabled, since pacing is integral to the BBR design and
+>> implementation. BBR without pacing would not function properly, and
+>> may incur unnecessary high packet loss rates.
+>
+> Does it work with fq_codel?
 
-Hi Vivien
+Good question. Since fq_codel does not (currently) implement pacing,
+it would not be sufficient to get the required behavior.
 
-it would be nice to update the commit message with this text. 
-
-Otherwise
-
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-
-    Andrew
+neal
