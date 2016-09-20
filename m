@@ -1,42 +1,59 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next 5/7] rhashtable: abstract out function to get
- hash
-Date: Tue, 20 Sep 2016 19:58:03 +0200
-Message-ID: <20160920175803.GE3291@pox.localdomain>
-References: <1473895376-347096-6-git-send-email-tom@herbertland.com>
- <20160920093659.GA20975@gondor.apana.org.au>
+From: Joe Perches <joe@perches.com>
+Subject: Re: Possible code defects: macros and precedence
+Date: Tue, 20 Sep 2016 11:03:44 -0700
+Message-ID: <1474394624.1954.45.camel@perches.com>
+References: <1472927739.5018.13.camel@perches.com>
+         <alpine.DEB.2.10.1609041809260.3178@hadrien>
+         <1473001581.5018.37.camel@perches.com>
+         <alpine.DEB.2.10.1609172221110.3124@hadrien>
+         <1474147658.1954.1.camel@perches.com>
+         <alpine.DEB.2.10.1609180702060.3361@hadrien>
+         <1474191110.1954.16.camel@perches.com>
+         <alpine.DEB.2.10.1609201503260.2914@hadrien>
+         <1474391253.1954.39.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
-        netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-        kernel-team@fb.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:38658 "EHLO
-        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754694AbcITR6H (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 13:58:07 -0400
-Received: by mail-wm0-f51.google.com with SMTP id l132so48283294wmf.1
-        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 10:58:06 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160920093659.GA20975@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: Dan Carpenter <error27@gmail.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        netdev <netdev@vger.kernel.org>
+To: Julia Lawall <julia.lawall@lip6.fr>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1474391253.1954.39.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/20/16 at 05:36pm, Herbert Xu wrote:
-> Tom Herbert <tom@herbertland.com> wrote:
-> > Split out most of rht_key_hashfn which is calculating the hash into
-> > its own function. This way the hash function can be called separately to
-> > get the hash value.
-> > 
-> > Acked-by: Thomas Graf <tgraf@suug.ch>
-> > Signed-off-by: Tom Herbert <tom@herbertland.com>
+On Tue, 2016-09-20 at 10:07 -0700, Joe Perches wrote:
+> On Tue, 2016-09-20 at 15:14 +0200, Julia Lawall wrote:
+> > The semantic patch below finds a binary operator in a macro and a binary
+> > operator in the use of the macro, and checks if the priority of the
+> > operator in the macro is higher (lower number) than the priority of the
+> > operator in the use.  If this is the case, it adds parentheses in the use,
+> > which is not what one wants, but serves to show where the problem is
+
+> Thanks, this works on the trivial example I suggested
+> without an #include
 > 
-> I don't get this one.  You're just using jhash, right? Why not
-> call jhash directly instead of rht_get_key_hashfn?
+> I've tried it on trivial files with --recursive-includes
+> and it seems to work there too.
 
-FYI, there is a v2 of this series, just so you don't have to do the
-work twice.
+I tried it on drivers/net with --recursive-includes and got
+just 1 hit on an old and probably relatively untested driver.
 
-I understand this particular patch as an effort not to duplicate
-hash function selection such as jhash vs jhash2 based on key_len.
+No hardware, can't test.  It may be correct now.  Who knows...
+---
+diff --urN a/drivers/net/ethernet/smsc/smc911x.h b/drivers/net/ethernet/smsc/smc911x.h
+--- a/drivers/net/ethernet/smsc/smc911x.h
++++ b/drivers/net/ethernet/smsc/smc911x.h
+@@ -700,8 +700,8 @@ static const struct chip_id chip_ids[] =
+  * capabilities.  Please use those and not the in/out primitives.
+  */
+ /* FIFO read/write macros */
+-#define SMC_PUSH_DATA(lp, p, l)	SMC_outsl( lp, TX_DATA_FIFO, p, (l) >> 2 )
+-#define SMC_PULL_DATA(lp, p, l)	SMC_insl ( lp, RX_DATA_FIFO, p, (l) >> 2 )
++#define SMC_PUSH_DATA(lp, p, l)	SMC_outsl( lp, TX_DATA_FIFO, p, ((l) >> 2) )
++#define SMC_PULL_DATA(lp, p, l)	SMC_insl ( lp, RX_DATA_FIFO, p, ((l) >> 2) )
+ #define SMC_SET_TX_FIFO(lp, x) 	SMC_outl( x, lp, TX_DATA_FIFO )
+ #define SMC_GET_RX_FIFO(lp)	SMC_inl( lp, RX_DATA_FIFO )
+ 
