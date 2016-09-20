@@ -1,96 +1,42 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v4 net-next 13/16] tcp: allow congestion control to
- expand send buffer differently
-Date: Tue, 20 Sep 2016 10:48:01 -0700
-Message-ID: <20160920104801.67082004@xeon-e3>
-References: <1474342763-16715-1-git-send-email-ncardwell@google.com>
-        <1474342763-16715-14-git-send-email-ncardwell@google.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next 5/7] rhashtable: abstract out function to get
+ hash
+Date: Tue, 20 Sep 2016 19:58:03 +0200
+Message-ID: <20160920175803.GE3291@pox.localdomain>
+References: <1473895376-347096-6-git-send-email-tom@herbertland.com>
+ <20160920093659.GA20975@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        Yuchung Cheng <ycheng@google.com>,
-        Van Jacobson <vanj@google.com>,
-        Nandita Dukkipati <nanditad@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Soheil Hassas Yeganeh <soheil@google.com>
-To: Neal Cardwell <ncardwell@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
+        netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+        kernel-team@fb.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:33887 "EHLO
-        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755610AbcITRrv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 13:47:51 -0400
-Received: by mail-pf0-f176.google.com with SMTP id p64so9640057pfb.1
-        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 10:47:50 -0700 (PDT)
-In-Reply-To: <1474342763-16715-14-git-send-email-ncardwell@google.com>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:38658 "EHLO
+        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754694AbcITR6H (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 13:58:07 -0400
+Received: by mail-wm0-f51.google.com with SMTP id l132so48283294wmf.1
+        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 10:58:06 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20160920093659.GA20975@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 19 Sep 2016 23:39:20 -0400
-Neal Cardwell <ncardwell@google.com> wrote:
+On 09/20/16 at 05:36pm, Herbert Xu wrote:
+> Tom Herbert <tom@herbertland.com> wrote:
+> > Split out most of rht_key_hashfn which is calculating the hash into
+> > its own function. This way the hash function can be called separately to
+> > get the hash value.
+> > 
+> > Acked-by: Thomas Graf <tgraf@suug.ch>
+> > Signed-off-by: Tom Herbert <tom@herbertland.com>
+> 
+> I don't get this one.  You're just using jhash, right? Why not
+> call jhash directly instead of rht_get_key_hashfn?
 
-> From: Yuchung Cheng <ycheng@google.com>
-> 
-> Currently the TCP send buffer expands to twice cwnd, in order to allow
-> limited transmits in the CA_Recovery state. This assumes that cwnd
-> does not increase in the CA_Recovery.
-> 
-> For some congestion control algorithms, like the upcoming BBR module,
-> if the losses in recovery do not indicate congestion then we may
-> continue to raise cwnd multiplicatively in recovery. In such cases the
-> current multiplier will falsely limit the sending rate, much as if it
-> were limited by the application.
-> 
-> This commit adds an optional congestion control callback to use a
-> different multiplier to expand the TCP send buffer. For congestion
-> control modules that do not specificy this callback, TCP continues to
-> use the previous default of 2.
-> 
-> Signed-off-by: Van Jacobson <vanj@google.com>
-> Signed-off-by: Neal Cardwell <ncardwell@google.com>
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
-> Signed-off-by: Nandita Dukkipati <nanditad@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
-> ---
->  include/net/tcp.h    | 2 ++
->  net/ipv4/tcp_input.c | 4 +++-
->  2 files changed, 5 insertions(+), 1 deletion(-)
-> 
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index 3492041..1aa9628 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -917,6 +917,8 @@ struct tcp_congestion_ops {
->  	void (*pkts_acked)(struct sock *sk, const struct ack_sample *sample);
->  	/* suggest number of segments for each skb to transmit (optional) */
->  	u32 (*tso_segs_goal)(struct sock *sk);
-> +	/* returns the multiplier used in tcp_sndbuf_expand (optional) */
-> +	u32 (*sndbuf_expand)(struct sock *sk);
->  	/* get info for inet_diag (optional) */
->  	size_t (*get_info)(struct sock *sk, u32 ext, int *attr,
->  			   union tcp_cc_info *info);
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index 17de77d..5af0bf3 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -289,6 +289,7 @@ static bool tcp_ecn_rcv_ecn_echo(const struct tcp_sock *tp, const struct tcphdr
->  static void tcp_sndbuf_expand(struct sock *sk)
->  {
->  	const struct tcp_sock *tp = tcp_sk(sk);
-> +	const struct tcp_congestion_ops *ca_ops = inet_csk(sk)->icsk_ca_ops;
->  	int sndmem, per_mss;
->  	u32 nr_segs;
->  
-> @@ -309,7 +310,8 @@ static void tcp_sndbuf_expand(struct sock *sk)
->  	 * Cubic needs 1.7 factor, rounded to 2 to include
->  	 * extra cushion (application might react slowly to POLLOUT)
->  	 */
-> -	sndmem = 2 * nr_segs * per_mss;
-> +	sndmem = ca_ops->sndbuf_expand ? ca_ops->sndbuf_expand(sk) : 2;
+FYI, there is a v2 of this series, just so you don't have to do the
+work twice.
 
-You could avoid the conditional (if it mattered) by inheriting a default value
-that would mean changing all existing congestion control modules.
-So doing it this way makes life easier.
-
-Acked-by: Stephen Hemminger <stephen@networkplumber.org>
+I understand this particular patch as an effort not to duplicate
+hash function selection such as jhash vs jhash2 based on key_len.
