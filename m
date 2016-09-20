@@ -1,46 +1,36 @@
-From: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
-Subject: Re: [PATCH v4 net-next 01/16] tcp: cdg: rename struct minmax in
- tcp_cdg.c to avoid a naming conflict
-Date: Tue, 20 Sep 2016 18:40:01 +0200
-Message-ID: <CA++eYdvqpUkJWi6O_Kr4YG+WPMPJYUzBOyFKogRQSKQ5UpOMWw@mail.gmail.com>
-References: <1474342763-16715-1-git-send-email-ncardwell@google.com> <1474342763-16715-2-git-send-email-ncardwell@google.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH 3/6] ip xfrm state: add save/restore
+Date: Tue, 20 Sep 2016 09:43:31 -0700
+Message-ID: <20160920094331.4a3c08de@xeon-e3>
+References: <1472806946-16575-1-git-send-email-ptikhomirov@virtuozzo.com>
+        <1472806946-16575-4-git-send-email-ptikhomirov@virtuozzo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Soheil Hassas Yeganeh <soheil@google.com>,
-        Yuchung Cheng <ycheng@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
-To: Neal Cardwell <ncardwell@google.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+        Konstantin Khorenko <khorenko@virtuozzo.com>,
+        crml <criu@openvz.org>
+To: Pavel Tikhomirov <ptikhomirov@virtuozzo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35517 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755170AbcITQkD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 12:40:03 -0400
-Received: by mail-wm0-f67.google.com with SMTP id 133so4337953wmq.2
-        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 09:40:03 -0700 (PDT)
-In-Reply-To: <1474342763-16715-2-git-send-email-ncardwell@google.com>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:34177 "EHLO
+        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932124AbcITQnV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 12:43:21 -0400
+Received: by mail-pf0-f170.google.com with SMTP id p64so9121742pfb.1
+        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 09:43:21 -0700 (PDT)
+In-Reply-To: <1472806946-16575-4-git-send-email-ptikhomirov@virtuozzo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 20, 2016 at 5:39 AM, Neal Cardwell <ncardwell@google.com> wrote:
->
-> From: Soheil Hassas Yeganeh <soheil@google.com>
->
-> The upcoming change "lib/win_minmax: windowed min or max estimator"
-> introduces a struct called minmax, which is then included in
-> include/linux/tcp.h in the upcoming change "tcp: use windowed min
-> filter library for TCP min_rtt estimation". This would create a
-> compilation error for tcp_cdg.c, which defines its own minmax
-> struct. To avoid this naming conflict (and potentially others in the
-> future), this commit renames the version used in tcp_cdg.c to
-> cdg_minmax.
->
-> Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
-> Signed-off-by: Neal Cardwell <ncardwell@google.com>
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+On Fri,  2 Sep 2016 12:02:23 +0300
+Pavel Tikhomirov <ptikhomirov@virtuozzo.com> wrote:
 
-Acked-by: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+> +static __u32 state_dump_magic = 0x71706987;
+> +
+> +static int xfrm_state_list_deleteall_or_save(int argc, char **argv, int deleteall, int save)
+
+I have no problem with the overall functionality of this patch set, but this
+function_name_is_too_long_for_rational_humans.
+
+Please make the function names (especially the local static ones) shorter and more reasonable
+and resubmit
