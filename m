@@ -1,41 +1,30 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: DSA: Suspicious RCU usage (via rtnl_bridge_getlink)
-Date: Tue, 20 Sep 2016 15:38:33 +0200
-Message-ID: <20160920133833.GD20638@lunn.ch>
-References: <20160920102611.GO1041@n2100.armlinux.org.uk>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: UBSAN reports issue in ip_idents_reserve
+Date: Tue, 20 Sep 2016 13:36:19 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB01049DD@AcuExch.aculab.com>
+References: <20160920120000.GI1843@nanopsycho.orion>
+ <1474378115.23058.2.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Russell King - ARM Linux <linux@armlinux.org.uk>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Eric Dumazet' <eric.dumazet@gmail.com>,
+        Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:53329 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754694AbcITNih (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 20 Sep 2016 09:38:37 -0400
-Content-Disposition: inline
-In-Reply-To: <20160920102611.GO1041@n2100.armlinux.org.uk>
+Received: from smtp-out4.electric.net ([192.162.216.195]:58182 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752927AbcITNiy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 09:38:54 -0400
+In-Reply-To: <1474378115.23058.2.camel@edumazet-glaptop3.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 20, 2016 at 11:26:12AM +0100, Russell King - ARM Linux wrote:
-> Issuing "bridge vlan show" on clearfog provokes a "suspicious RCU usage"
-> warning from the kernel (see below).
-> 
-> As it's illegal to schedule while holding the RCU read lock, there's the
-> possibility for this happening much earlier in the call sequence -
-> mv88e6xxx_port_vlan_dump() takes a mutex, and if that mutex were already
-> held, we'd schedule at that point.  The RCU read lock was taken by
-> rtnl_bridge_getlink().
-> 
-> It looks horrible to fix - mvmdio.c as well as DSA locking are involved.
-
-Hi Russell
-
-I would say this needs fixing higher up, in the bridge code. DSA has
-to be able to sleep, since the switch can be on any arbitrary bus,
-MDIO, SPI, etc. This will affect pure switchdev devices as well, since
-they often need to send a request to the switch and wait for a reply.
-
-     Andrew
+RnJvbTogRXJpYyBEdW1hemV0DQo+IFNlbnQ6IDIwIFNlcHRlbWJlciAyMDE2IDE0OjI5DQouLi4N
+Cj4gPiBbICAgNDcuNTY1NDIwXSAtMjExNzkwNTUwNyArIC02OTU3NTUyMDYgY2Fubm90IGJlIHJl
+cHJlc2VudGVkIGluIHR5cGUgJ2ludCcNCi4uLg0KPiBJIGRvIG5vdCB0aGluayB3ZSBoYXZlIHRv
+IHdvcnJ5IGhlcmUuDQo+DQo+IFRoZXNlIGlzIGJlc3QgZWZmb3J0LCBhbmQgdW5mb3J0dW5hdGVs
+eSBhdG9taWNfdCBhcmUgaW50Lg0KDQpOb3QgdW50aWwgd2UgY29tcGlsZSBvbiBhIGNwdSB3aGVy
+ZSBpbnQgYXJpdGhtZXRpYyBkb2Vzbid0IHdyYXAuDQoNCldoaWxlIEkgZXhwZWN0IHRoYXQgdmFy
+aW91cyBvdGhlciBwYXJ0cyBvZiB0aGUga2VybmVsIChhbmQgdXNlcnNwYWNlKQ0Kd291bGRuJ3Qg
+bGlrZSBzdWNoIGNwdSwgdGhleSBkbyBleGlzdC4NCg0KCURhdmlkDQoNCg==
