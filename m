@@ -1,64 +1,54 @@
 From: Joel Stanley <joel@jms.id.au>
-Subject: [PATCH net-next 3/7] net/faraday: Adapt for Aspeed SoCs
-Date: Tue, 20 Sep 2016 16:00:03 +0930
-Message-ID: <20160920063007.24291-4-joel@jms.id.au>
+Subject: [PATCH net-next 5/7] net/faraday: Clear stale interrupts
+Date: Tue, 20 Sep 2016 16:00:05 +0930
+Message-ID: <20160920063007.24291-6-joel@jms.id.au>
 References: <20160920063007.24291-1-joel@jms.id.au>
-Cc: gwshan@linux.vnet.ibm.com, andrew@lunn.ch, andrew@aj.id.au,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        benh@kernel.crashing.org
+Cc: Gavin Shan <gwshan@linux.vnet.ibm.com>, andrew@lunn.ch,
+        andrew@aj.id.au, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, benh@kernel.crashing.org
 To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20160920063007.24291-1-joel@jms.id.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The RXDES and TXDES registers bits in the ftgmac100 indicates EDO{R,T}R
-at bit position 15 for the Faraday Tech IP. However, the version of this
-IP present in the Aspeed SoCs has these bits at position 30 in the
-registers.
+From: Gavin Shan <gwshan@linux.vnet.ibm.com>
 
-It appers that ast2400 SoCs support both positions, with the 15th bit
-marked as reserved but still functional. In the ast2500 this bit is
-reused for another function, so we need a work around.
+There is stale interrupt (PHYSTS_CHG in ISR, bit#6 in 0x0) from
+the bootloader (uboot) when enabling the MAC. The stale interrupts
+aren't part of kernel and should be cleared.
 
-This was confirmed with engineers from Aspeed that using bit 30 is
-correct for both the ast2400 and ast2500 SoCs.
+This clears the stale interrupts in ISR (0x0) when enabling the MAC.
 
+Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
 Signed-off-by: Joel Stanley <joel@jms.id.au>
 ---
- drivers/net/ethernet/faraday/ftgmac100.c | 13 ++++++++++---
- 1 file changed, 10 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/faraday/ftgmac100.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
 diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index 62a88d1a1f99..47f512224b57 100644
+index f2ea6c2f1fbd..7ba0f2d58a8b 100644
 --- a/drivers/net/ethernet/faraday/ftgmac100.c
 +++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -1345,9 +1345,6 @@ static int ftgmac100_probe(struct platform_device *pdev)
- 	priv->netdev = netdev;
- 	priv->dev = &pdev->dev;
+@@ -1113,6 +1113,7 @@ static int ftgmac100_poll(struct napi_struct *napi, int budget)
+ static int ftgmac100_open(struct net_device *netdev)
+ {
+ 	struct ftgmac100 *priv = netdev_priv(netdev);
++	unsigned int status;
+ 	int err;
  
--	priv->rxdes0_edorr_mask = BIT(15);
--	priv->txdes0_edotr_mask = BIT(15);
--
- 	spin_lock_init(&priv->tx_lock);
+ 	err = ftgmac100_alloc_buffers(priv);
+@@ -1138,6 +1139,11 @@ static int ftgmac100_open(struct net_device *netdev)
  
- 	/* initialize NAPI */
-@@ -1381,6 +1378,16 @@ static int ftgmac100_probe(struct platform_device *pdev)
- 			      FTGMAC100_INT_PHYSTS_CHG |
- 			      FTGMAC100_INT_RPKT_BUF |
- 			      FTGMAC100_INT_NO_RXBUF);
+ 	ftgmac100_init_hw(priv);
+ 	ftgmac100_start_hw(priv, priv->use_ncsi ? 100 : 10);
 +
-+	if (of_machine_is_compatible("aspeed,ast2400") ||
-+	    of_machine_is_compatible("aspeed,ast2500")) {
-+		priv->rxdes0_edorr_mask = BIT(30);
-+		priv->txdes0_edotr_mask = BIT(30);
-+	} else {
-+		priv->rxdes0_edorr_mask = BIT(15);
-+		priv->txdes0_edotr_mask = BIT(15);
-+	}
++	/* Clear stale interrupts */
++	status = ioread32(priv->base + FTGMAC100_OFFSET_ISR);
++	iowrite32(status, priv->base + FTGMAC100_OFFSET_ISR);
 +
- 	if (pdev->dev.of_node &&
- 	    of_get_property(pdev->dev.of_node, "use-ncsi", NULL)) {
- 		if (!IS_ENABLED(CONFIG_NET_NCSI)) {
+ 	if (netdev->phydev)
+ 		phy_start(netdev->phydev);
+ 	else if (priv->use_ncsi)
 -- 
 2.9.3
