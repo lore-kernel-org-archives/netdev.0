@@ -1,57 +1,67 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next v2 07/10] bnxt_en: Call firmware to approve the random VF MAC address.
-Date: Tue, 20 Sep 2016 02:50:25 -0400
-Message-ID: <1474354228-3221-8-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next v2 09/10] bnxt_en: Support for "ethtool -r" command
+Date: Tue, 20 Sep 2016 02:50:27 -0400
+Message-ID: <1474354228-3221-10-git-send-email-michael.chan@broadcom.com>
 References: <1474354228-3221-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+        Deepak Khungar <deepak.khungar@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:34692 "EHLO
-        mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752504AbcITGuo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 02:50:44 -0400
-Received: by mail-pa0-f42.google.com with SMTP id wk8so3912347pab.1
-        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 23:50:43 -0700 (PDT)
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:33332 "EHLO
+        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753048AbcITGup (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 02:50:45 -0400
+Received: by mail-pf0-f179.google.com with SMTP id 21so4111832pfy.0
+        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 23:50:45 -0700 (PDT)
 In-Reply-To: <1474354228-3221-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After generating the random MAC address for VF, call the firmware to
-approve it.  This step serves 2 purposes.  Some hypervisor (e.g. ESX)
-wants to approve the MAC address.  2nd, the call will setup the
-proper forwarding database in the internal switch.
+From: Deepak Khungar <deepak.khungar@broadcom.com>
 
-We need to unlock the hwrm_cmd_lock mutex before calling bnxt_approve_mac().
-We can do that because we are at the end of the function and all the
-previous firmware response data has been copied.
+Restart autoneg if autoneg is enabled.
 
+Signed-off-by: Deepak Khungar <deepak.khungar@broadcom.com>
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index dc2559a..a9f9f37 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -4210,11 +4210,16 @@ int bnxt_hwrm_func_qcaps(struct bnxt *bp)
- 		vf->max_stat_ctxs = le16_to_cpu(resp->max_stat_ctx);
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+index de893c9..0ee4d7b 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+@@ -1849,6 +1849,25 @@ static int bnxt_get_module_eeprom(struct net_device *dev,
+ 	return rc;
+ }
  
- 		memcpy(vf->mac_addr, resp->mac_address, ETH_ALEN);
--		if (is_valid_ether_addr(vf->mac_addr))
-+		mutex_unlock(&bp->hwrm_cmd_lock);
++static int bnxt_nway_reset(struct net_device *dev)
++{
++	int rc = 0;
 +
-+		if (is_valid_ether_addr(vf->mac_addr)) {
- 			/* overwrite netdev dev_adr with admin VF MAC */
- 			memcpy(bp->dev->dev_addr, vf->mac_addr, ETH_ALEN);
--		else
-+		} else {
- 			random_ether_addr(bp->dev->dev_addr);
-+			rc = bnxt_approve_mac(bp, bp->dev->dev_addr);
-+		}
-+		return rc;
- #endif
- 	}
- 
++	struct bnxt *bp = netdev_priv(dev);
++	struct bnxt_link_info *link_info = &bp->link_info;
++
++	if (!BNXT_SINGLE_PF(bp))
++		return -EOPNOTSUPP;
++
++	if (!(link_info->autoneg & BNXT_AUTONEG_SPEED))
++		return -EINVAL;
++
++	if (netif_running(dev))
++		rc = bnxt_hwrm_set_link_setting(bp, true, false);
++
++	return rc;
++}
++
+ const struct ethtool_ops bnxt_ethtool_ops = {
+ 	.get_link_ksettings	= bnxt_get_link_ksettings,
+ 	.set_link_ksettings	= bnxt_set_link_ksettings,
+@@ -1881,4 +1900,5 @@ const struct ethtool_ops bnxt_ethtool_ops = {
+ 	.set_eee		= bnxt_set_eee,
+ 	.get_module_info	= bnxt_get_module_info,
+ 	.get_module_eeprom	= bnxt_get_module_eeprom,
++	.nway_reset		= bnxt_nway_reset
+ };
 -- 
 1.8.3.1
