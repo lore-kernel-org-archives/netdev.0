@@ -1,63 +1,51 @@
-From: Jesper Dangaard Brouer via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: XDP (eXpress Data Path) documentation
-Date: Tue, 20 Sep 2016 11:08:44 +0200
-Message-ID: <20160920110844.661965be@redhat.com>
-Reply-To: Jesper Dangaard Brouer <brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jonathan Corbet <corbet-T1hC0tSOHrs@public.gmane.org>, Nathan Willis <nate-T1hC0tSOHrs@public.gmane.org>,
-	Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>,
-	Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>, linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org" <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Liping Zhang <zlpnobody@gmail.com>
+Subject: [PATCH iproute2] ipmonitor: fix ip monitor can't work when NET_NS is not enabled
+Date: Tue, 20 Sep 2016 02:09:02 -0700
+Message-ID: <1474362542-5506-1-git-send-email-zlpnobody@gmail.com>
+Cc: netdev@vger.kernel.org, nicolas.dichtel@6wind.com,
+        Liping Zhang <liping.zhang@spreadtrum.com>
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:33700 "EHLO
+        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752089AbcITJJV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 05:09:21 -0400
+Received: by mail-pa0-f66.google.com with SMTP id oz2so668433pac.0
+        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 02:09:20 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+From: Liping Zhang <liping.zhang@spreadtrum.com>
 
-As promised, I've started documenting the XDP eXpress Data Path):
+In ip monitor, netns_map_init will check getnsid is supported or not.
+But when /proc/self/ns/net does not exist, we just print out error
+messages and exit. So user cannot use ip monitor anymore when
+CONFIG_NET_NS is disabled:
+  # ip monitor
+  open("/proc/self/ns/net"): No such file or directory
 
- [1] https://prototype-kernel.readthedocs.io/en/latest/networking/XDP/index.html
+If open "/proc/self/ns/net" failed, set have_rtnl_getnsid to false.
 
-IMHO the documentation have reached a stage where it is useful for the
-XDP project, BUT I request collaboration on improving the documentation
-from all. (Native English speakers are encouraged to send grammar fixes ;-))
+Fixes: d652ccbf8195 ("netns: allow to dump and monitor nsid")
+Signed-off-by: Liping Zhang <liping.zhang@spreadtrum.com>
+---
+ ip/ipnetns.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-You wouldn't believe it: But this pretty looking documentation actually
-follows the new Kernel documentation format.  It is actually just
-".rst" text files stored in my github repository under kernel/Documentation [2]
-
- [2] https://github.com/netoptimizer/prototype-kernel/tree/master/kernel/Documentation
-
-Thus, just git clone my repository and started editing and send me
-patches (or github pull requests). Like:
-
- $ git clone https://github.com/netoptimizer/prototype-kernel
- $ cd prototype-kernel/kernel/Documentation/
- $ make html
- $ firefox _build/html/index.html &
-
-This new documentation format combines the best of two worlds, pretty
-online browser documentation with almost plain text files, and changes
-being tracked via git commits [3] (and auto git hooks to generate the
-readthedocs.org page). You got to love it! :-)
-
+diff --git a/ip/ipnetns.c b/ip/ipnetns.c
+index af87065..ccc652c 100644
+--- a/ip/ipnetns.c
++++ b/ip/ipnetns.c
+@@ -72,8 +72,8 @@ static int ipnetns_have_nsid(void)
+ 	if (have_rtnl_getnsid < 0) {
+ 		fd = open("/proc/self/ns/net", O_RDONLY);
+ 		if (fd < 0) {
+-			perror("open(\"/proc/self/ns/net\")");
+-			exit(1);
++			have_rtnl_getnsid = 0;
++			return 0;
+ 		}
+ 
+ 		addattr32(&req.n, 1024, NETNSA_FD, fd);
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
-
-[3] https://github.com/netoptimizer/prototype-kernel/commits/master
+1.9.1
