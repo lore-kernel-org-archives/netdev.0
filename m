@@ -1,63 +1,69 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v2 4/6] net: ethernet: bgmac: convert to feature flags
-Date: Tue, 20 Sep 2016 07:19:19 +0200
-Message-ID: <CACna6rymVcKV1h_PEvRuCQrtOd4rsqV34bMWzVOof15fdc8KEA@mail.gmail.com>
-References: <1467932938-21819-1-git-send-email-jon.mason@broadcom.com>
- <1467932938-21819-5-git-send-email-jon.mason@broadcom.com> <CACna6rw1j3myPEkbn+YR71W7CF7Of_yahn9eDT7t3hKWGmWUmg@mail.gmail.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [net-next PATCH] net: netlink messages for HW addr programming
+Date: Mon, 19 Sep 2016 22:31:27 -0700
+Message-ID: <57E0C9AF.4090406@cumulusnetworks.com>
+References: <1473958082-30982-1-git-send-email-pruddy@brocade.com>  <57DEA9E2.3000703@cumulusnetworks.com> <1474296378.31262.59.camel@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Hauke Mehrtens <hauke-5/S+JYg5SzeELgA04lAiVw@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
-        Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, Ray Jui <rjui-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Scott Branden <sbranden-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        bcm-kernel-feedback-list <bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-To: Jon Mason <jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CACna6rw1j3myPEkbn+YR71W7CF7Of_yahn9eDT7t3hKWGmWUmg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: "stephen@networkplumber.org" <stephen@networkplumber.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        Luca Boccassi <lboccass@Brocade.com>,
+        "alexander.h.duyck@intel.com" <alexander.h.duyck@intel.com>,
+        "jiri@resnulli.us" <jiri@resnulli.us>,
+        Sven-Thorsten Dietrich <sven@brocade.com>
+To: Patrick Ruddy <pruddy@Brocade.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:34608 "EHLO
+        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751261AbcITFba (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 01:31:30 -0400
+Received: by mail-pf0-f176.google.com with SMTP id p64so3311727pfb.1
+        for <netdev@vger.kernel.org>; Mon, 19 Sep 2016 22:31:30 -0700 (PDT)
+In-Reply-To: <1474296378.31262.59.camel@brocade.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 17 August 2016 at 13:34, Rafa=C5=82 Mi=C5=82ecki <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrot=
-e:
-> On 8 July 2016 at 01:08, Jon Mason <jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org> wrote:
->>         mode =3D (bgmac_read(bgmac, BGMAC_DEV_STATUS) & BGMAC_DS_MM_MASK=
-) >>
->>                 BGMAC_DS_MM_SHIFT;
->> -       if (ci->id !=3D BCMA_CHIP_ID_BCM47162 || mode !=3D 0)
->> +       if (bgmac->feature_flags & BGMAC_FEAT_CLKCTLST || mode !=3D 0)
->>                 bgmac_set(bgmac, BCMA_CLKCTLST, BCMA_CLKCTLST_FORCEHT);
->> -       if (ci->id =3D=3D BCMA_CHIP_ID_BCM47162 && mode =3D=3D 2)
->> +       if (bgmac->feature_flags & BGMAC_FEAT_CLKCTLST && mode =3D=3D 2)
->>                 bcma_chipco_chipctl_maskset(&bgmac->core->bus->drv_cc, 1=
-, ~0,
->>                                             BGMAC_CHIPCTL_1_RXC_DLL_BYPA=
-SS);
+On 9/19/16, 7:46 AM, Patrick Ruddy wrote:
+> On Sun, 2016-09-18 at 07:51 -0700, Roopa Prabhu wrote:
+>> On 9/15/16, 9:48 AM, Patrick Ruddy wrote:
+>>> Add RTM_NEWADDR and RTM_DELADDR netlink messages with family
+>>> AF_UNSPEC to indicate interest in specific unicast and multicast
+>>> hardware addresses. These messages are sent when addresses are
+>>> added or deleted from the appropriate interface driver.
+>>> Added AF_UNSPEC GETADDR function to allow the netlink notifications
+>>> to be replayed to avoid loss of state due to application start
+>>> ordering or restart.
+>>>
+>>> Signed-off-by: Patrick Ruddy <pruddy@brocade.com>
+>>> ---
+>> RTM_NEWADDR and RTM_DELADDR are not used to add these entries to the kernel.
+>> so, it seems a bit wrong to use RTM_NEWADDR and RTM_DELADDR to notify them to
+>> userspace and also to request a special dump of these addresses.
+>>
+>> This could just be a new nested netlink attribute in the existing link dump ?
+> Hi Roopa
 >
-> Jon, it looks to me you translated two following conditions:
-> ci->id !=3D BCMA_CHIP_ID_BCM47162
-> and
-> ci->id =3D=3D BCMA_CHIP_ID_BCM47162
-> into the same flag check:
-> bgmac->feature_flags & BGMAC_FEAT_CLKCTLST
+> Thanks for the review. I did initially code this using NEW/DEL/GET_LINK
+> messages but was asked to change to to ADDR messages by Stephen
+> Hemminger (cc'd). 
 >
-> I don't think it's intentional, is it? Do you have a moment to fix this?
+> However I agree that these addresses fall between the LINK and ADDR
+> areas so I'm happy to change this if we can reach some consensus on the
+> format.
+>
+ok, thanks for the history. yes, they do lie in a weird spot.
+the general convention for other rtnl registrations seems to be
+AF_UNSPEC family means include all supported families. thats where this seems a bit odd.
 
-Ping
+On the other hand, one reason I see where using RTM_*ADDR will be useful for this is if we wanted
+to provide a way to add these uc and mc address via ip addr add in the future.
+ip addr add <lladdr> dev eth0
 
---=20
-Rafa=C5=82
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Does this patch allow that in the future ?
+
+also, will these l2 addresses now show up in 'ip addr show' output ?.
+
+thanks,
+Roopa
