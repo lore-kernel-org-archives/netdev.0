@@ -1,31 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] cxgb4: mark symbols static where possible
-Date: Mon, 19 Sep 2016 21:56:53 -0400 (EDT)
-Message-ID: <20160919.215653.605851568652094576.davem@davemloft.net>
-References: <1474190303-14976-1-git-send-email-baoyou.xie@linaro.org>
+Subject: Re: [PATCH v3 net-next 1/2] net sched ife action: add 16 bit
+ helpers
+Date: Mon, 19 Sep 2016 21:57:08 -0400 (EDT)
+Message-ID: <20160919.215708.1370770999666232121.davem@davemloft.net>
+References: <1474198303-10645-1-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hariprasad@chelsio.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, arnd@arndb.de, xie.baoyou@zte.com.cn
-To: baoyou.xie@linaro.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1474190303-14976-1-git-send-email-baoyou.xie@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com
+To: jhs@mojatatu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:40752 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932327AbcITB5K (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 21:57:10 -0400
+In-Reply-To: <1474198303-10645-1-git-send-email-jhs@emojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Baoyou Xie <baoyou.xie@linaro.org>
-Date: Sun, 18 Sep 2016 17:18:23 +0800
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Date: Sun, 18 Sep 2016 07:31:42 -0400
 
-> We get a few warnings when building kernel with W=1:
-> drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c:178:5: warning: no previous prototype for 'setup_sge_queues_uld' [-Wmissing-prototypes]
-> drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c:205:6: warning: no previous prototype for 'free_sge_queues_uld' [-Wmissing-prototypes]
-> ....
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
 > 
-> In fact, these functions are only used in the file in which they are
-> declared and don't need a declaration, but can be made static.
-> so this patch marks these functions with 'static'.
+> encoder and checker for 16 bits metadata
 > 
-> Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Does not apply cleanly to net-next, please respin.
+Applied.
