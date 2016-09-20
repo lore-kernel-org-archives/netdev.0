@@ -1,55 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] mlx4 misc fixes and improvements
-Date: Tue, 20 Sep 2016 05:02:17 -0400 (EDT)
-Message-ID: <20160920.050217.1968385859186341217.davem@davemloft.net>
-References: <20160918.220046.1374771296032853447.davem@davemloft.net>
-        <CAJ3xEMi-4nNxDf3pBrDwenN50BTFtTT0+cMF62BMHYPK9WvZrg@mail.gmail.com>
-        <6bcc5e49-2204-242a-c939-2352d0646f87@mellanox.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: gerlitz.or@gmail.com, netdev@vger.kernel.org, eranbe@mellanox.com
-To: tariqt@mellanox.com
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: [PATCH net] ipmr, ip6mr: return lastuse relative to now
+Date: Tue, 20 Sep 2016 11:06:17 +0200
+Message-ID: <1474362377-22627-1-git-send-email-nikolay@cumulusnetworks.com>
+Cc: roopa@cumulusnetworks.com, sashok@cumulusnetworks.com,
+        davem@davemloft.net,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45492 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932165AbcITJCU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 05:02:20 -0400
-In-Reply-To: <6bcc5e49-2204-242a-c939-2352d0646f87@mellanox.com>
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:38337 "EHLO
+        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752045AbcITJIE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 05:08:04 -0400
+Received: by mail-wm0-f45.google.com with SMTP id l132so23178187wmf.1
+        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 02:08:04 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tariq Toukan <tariqt@mellanox.com>
-Date: Tue, 20 Sep 2016 11:50:17 +0300
+When I introduced the lastuse member I made a subtle error because it was
+returned as an absolute value but that is meaningless to user-space as it
+doesn't allow to see how old exactly an entry is. Let's make it similar to
+how the bridge returns such values and make it relative to "now" (jiffies).
+This allows us to show the actual age of the entries and is much more
+useful (e.g. user-space daemons can age out entries, iproute2 can display
+the lastuse properly).
 
->> So when we're pretty late in the 4.8-rc cycle, a fix for a problem
->> which was not introduced in 4.8-rc1 was targeted to net-next (4.9) and
->> not net.
->>
->> This indeed creates a small mess when the fix needs to go to -stable
->> as well.
- ...
-> I see that the series status is 'Changes requested'.
-> I agree with Or. If possible, please take the series, and we will
-> issue a request to push into -stable in the future.
-> Anyway, I can also do a re-submission if you prefer. Just let me know.
+Fixes: 43b9e1274060 ("net: ipmr/ip6mr: add support for keeping an entry age")
+Reported-by: Satish Ashok <sashok@cumulusnetworks.com>
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+I realize that this changes the way it is exported, but since it hasn't
+been in a release yet and we're most probably the only users, I think it is
+worth fixing. This change allows user-space daemons to age out entries and
+also for the lastuse value to be shown properly via iproute2.
 
-Either the bug exists in pre-net trees and needs to go to -stable, or
-it does not.
+ net/ipv4/ipmr.c  | 3 ++-
+ net/ipv6/ip6mr.c | 3 ++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
-If it does, you submit the change targetting 'net'.
-
-This whole mess occurred because you tried to combine changes
-inappropriate for 'net' with the bug fix.
-
-Instead of fixing the issue properly, by removing the cleanups
-and inappropriate changes, you tried to target 'net-next' instead.
-
-That's why this mess exists.
-
-Please send the change properly, targetting 'net', and not
-alongside changes which are inappropriate to 'net'.
-
-There is no other acceptable way to resolve this problem.
-
-Thank you.
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 26253328d227..1505a0e37f44 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -2110,7 +2110,8 @@ static int __ipmr_fill_mroute(struct mr_table *mrt, struct sk_buff *skb,
+ 	mfcs.mfcs_wrong_if = c->mfc_un.res.wrong_if;
+ 	if (nla_put_64bit(skb, RTA_MFC_STATS, sizeof(mfcs), &mfcs, RTA_PAD) ||
+ 	    nla_put_u64_64bit(skb, RTA_EXPIRES,
+-			      jiffies_to_clock_t(c->mfc_un.res.lastuse),
++			      jiffies_to_clock_t(jiffies -
++						 c->mfc_un.res.lastuse),
+ 			      RTA_PAD))
+ 		return -EMSGSIZE;
+ 
+diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+index 6122f9c5cc49..c35d56c5ecc9 100644
+--- a/net/ipv6/ip6mr.c
++++ b/net/ipv6/ip6mr.c
+@@ -2274,7 +2274,8 @@ static int __ip6mr_fill_mroute(struct mr6_table *mrt, struct sk_buff *skb,
+ 	mfcs.mfcs_wrong_if = c->mfc_un.res.wrong_if;
+ 	if (nla_put_64bit(skb, RTA_MFC_STATS, sizeof(mfcs), &mfcs, RTA_PAD) ||
+ 	    nla_put_u64_64bit(skb, RTA_EXPIRES,
+-			      jiffies_to_clock_t(c->mfc_un.res.lastuse),
++			      jiffies_to_clock_t(jiffies -
++						 c->mfc_un.res.lastuse),
+ 			      RTA_PAD))
+ 		return -EMSGSIZE;
+ 
+-- 
+2.1.4
