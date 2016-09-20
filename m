@@ -1,69 +1,75 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: handle multiple ports in ATU
-Date: Mon, 19 Sep 2016 21:07:16 -0400
-Message-ID: <87wpi7idkr.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20160919235611.31975-1-vivien.didelot@savoirfairelinux.com> <20160920004129.GA8026@lunn.ch>
+From: Sargun Dhillon <sargun@sargun.me>
+Subject: Re: lsm naming dilemma. Re: [RFC v3 07/22] landlock: Handle file comparisons
+Date: Mon, 19 Sep 2016 18:10:52 -0700
+Message-ID: <CAMp4zn8_GhvL5gGLrkADVSTP9Z4VO78bXtX8wbzFSa1P7j-yfA@mail.gmail.com>
+References: <20160914072415.26021-1-mic@digikod.net> <20160914072415.26021-8-mic@digikod.net>
+ <20160914210649.GA57174@ast-mbp.thefacebook.com> <57D9D6FE.4090708@digikod.net>
+ <20160914232418.GD60248@ast-mbp.thefacebook.com> <57DB11B6.7090500@digikod.net>
+ <20160920001215.GA91808@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic@digikod.net>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Andy Lutomirski <luto@amacapital.net>,
+        Arnd Bergmann <arnd@arndb.de>,
+        Casey Schaufler <casey@schaufler-ca.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Daniel Mack <daniel@zonque.org>,
+        David Drysdale <drysdale@google.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Elena Reshetova <elena.reshetova@intel.com>,
+        "Eric W . Biederman" <ebiederm@xmission.com>,
+        James Morris <james.l.morris@oracle.com>,
+        Kees Cook <keescook@chromium.org>,
+        Paul Moore <pmoore@redhat.com>,
+        "Serge E . Hallyn" <serge@hallyn.com>, Tejun Heo <tj@kernel.org>,
+        Will Drewry <wad@chromium.org>,
+        kernel-hardening@lists.openwall.com, linux-api@vger.kernel.org,
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160920004129.GA8026@lunn.ch>
+In-Reply-To: <20160920001215.GA91808@ast-mbp.thefacebook.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
+I'm fine giving up the Checmate name. Landlock seems easy enough to
+Google. I haven't gotten a chance to look through the entire patchset
+yet, but it does seem like they are somewhat similar.
 
-Andrew Lunn <andrew@lunn.ch> writes:
-
-> On Mon, Sep 19, 2016 at 07:56:11PM -0400, Vivien Didelot wrote:
->> An address can be loaded in the ATU with multiple ports, for instance
->> when adding multiple ports to a Multicast group with "bridge mdb".
+On Mon, Sep 19, 2016 at 5:12 PM, Alexei Starovoitov
+<alexei.starovoitov@gmail.com> wrote:
+> On Thu, Sep 15, 2016 at 11:25:10PM +0200, Micka=C3=ABl Sala=C3=BCn wrote:
+>> >> Agreed. With this RFC, the Checmate features (i.e. network helpers)
+>> >> should be able to sit on top of Landlock.
+>> >
+>> > I think neither of them should be called fancy names for no technical =
+reason.
+>> > We will have only one bpf based lsm. That's it and it doesn't
+>> > need an obscure name. Directory name can be security/bpf/..stuff.c
 >>
->> The current code doesn't allow that. Add an helper to get a single entry
->> from the ATU, then set or clear the requested port, before loading the
->> entry back in the ATU.
->>
->> Note that the required _mv88e6xxx_atu_getnext function is defined below
->> mv88e6xxx_port_db_load_purge, so forward-declare it for the moment. The
->> ATU code will be isolated in future patches.
->>
->> Fixes: 83dabd1fa84c ("net: dsa: mv88e6xxx: make switchdev DB ops generic")
+>> I disagree on an LSM named "BPF". I first started with the "seccomp LSM"
+>> name (first RFC) but I later realized that it is confusing because
+>> seccomp is associated to its syscall and the underlying features. Same
+>> thing goes for BPF. It is also artificially hard to grep on a name too
+>> used in the kernel source tree.
+>> Making an association between the generic eBPF mechanism and a security
+>> centric approach (i.e. LSM) seems a bit reductive (for BPF). Moreover,
+>> the seccomp interface [1] can still be used.
 >
-> Is this a real fixes? You don't make it clear what goes wrong. I
-> assume adding the same MAC address for a second time but for a
-> different port removes the first entry for the old port?
-
-Yes, this is what happens, sorry for the bad message. Below is an
-example with the relevant hardware bits.
-
-Here's the current behavior, without this patch:
-
-    # bridge mdb add dev br0 port lan0 grp 238.39.20.86
-
-    FID  MAC Addr                  State         Trunk?  DPV/Trunk ID
-    0    01:00:5e:27:14:56         MC_STATIC       n     0 - - - - - -
-
-    # bridge mdb add dev br0 port lan2 grp 238.39.20.86
-
-    FID  MAC Addr                  State         Trunk?  DPV/Trunk ID
-    0    01:00:5e:27:14:56         MC_STATIC       n     - - 2 - - - - 
-
-Here's the new behavior, with this patch:
-
-    # bridge mdb add dev br0 port lan0 grp 238.39.20.86
-
-    FID  MAC Addr                  State         Trunk?  DPV/Trunk ID
-    0    01:00:5e:27:14:56         MC_STATIC       n     0 - - - - - -
-
-    # bridge mdb add dev br0 port lan2 grp 238.39.20.86
-
-    FID  MAC Addr                  State         Trunk?  DPV/Trunk ID
-    0    01:00:5e:27:14:56         MC_STATIC       n     0 - 2 - - - -
-
-Thanks!
-
-        Vivien
+> agree with above.
+>
+>> Landlock is a nice name to depict a sandbox as an enclave (i.e. a
+>> landlocked country/state). I want to keep this name, which is simple,
+>> express the goal of Landlock nicely and is comparable to other sandbox
+>> mechanisms as Seatbelt or Pledge.
+>> Landlock should not be confused with the underlying eBPF implementation.
+>> Landlock could use more than only eBPF in the future and eBPF could be
+>> used in other LSM as well.
+>
+> there will not be two bpf based LSMs.
+> Therefore unless you can convince Sargun to give up his 'checmate' name,
+> nothing goes in.
+> The features you both need are 90% the same, so they must be done
+> as part of single LSM whatever you both agree to call it.
+>
