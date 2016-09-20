@@ -1,40 +1,34 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH RFC 2/6] rhashtable: Call library function
- alloc_bucket_locks
-Date: Tue, 20 Sep 2016 09:49:37 +0800
-Message-ID: <20160920014937.GA18287@gondor.apana.org.au>
-References: <1473463197-3076903-3-git-send-email-tom@herbertland.com>
+Subject: Re: [v3 PATCH 1/2] rhashtable: Add rhlist interface
+Date: Tue, 20 Sep 2016 09:52:44 +0800
+Message-ID: <20160920015244.GA18318@gondor.apana.org.au>
+References: <20160919105854.GA12892@gondor.apana.org.au>
+ <E1blwIz-0003Mz-HD@gondolin.me.apana.org.au>
+ <20160919211621.GA20951@pox.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, kernel-team@fb.com,
-        tgraf@suug.ch
-To: Tom Herbert <tom@herbertland.com>
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-wireless@vger.kernel.org, tom@herbertland.com,
+        Ben Greear <greearb@candelatech.com>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:41041 "EHLO
+Received: from helcar.hengli.com.au ([209.40.204.226]:47170 "EHLO
         helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752263AbcITBtu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 21:49:50 -0400
+        with ESMTP id S1752654AbcITBwy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2016 21:52:54 -0400
 Content-Disposition: inline
-In-Reply-To: <1473463197-3076903-3-git-send-email-tom@herbertland.com>
+In-Reply-To: <20160919211621.GA20951@pox.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tom Herbert <tom@herbertland.com> wrote:
-> To allocate the array of bucket locks for the hash table we now
-> call library function alloc_bucket_spinlocks. This function is
-> based on the old alloc_bucket_locks in rhashtable and should
-> produce the same effect.
-> 
-> Signed-off-by: Tom Herbert <tom@herbertland.com>
+On Mon, Sep 19, 2016 at 11:16:21PM +0200, Thomas Graf wrote:
+>
+> Nice, I like how this simplifies users! Is this suitable for
+> ILA as well?
 
-This conflicts with the work I'm doing to fix the resize ENOMEM
-issue.  I'll be making the hashtable as well as the spinlock table
-nested, in which case you must not directly dereference it as an
-array.
-
-If you're just trying to share the spinlocks for another purpose,
-what we can do is provide a helper function to return the right
-lock for a given key/object.
+Does it have duplicate objects and use inelastic_security? If so
+then yes it should switch over to rhlist.
 
 Cheers,
 -- 
