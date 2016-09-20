@@ -1,67 +1,109 @@
 From: Stefan Wahren <stefan.wahren@i2se.com>
-Subject: [PATCH net-next 0/8] net: qualcomm: add QCA7000 UART driver
-Date: Tue, 20 Sep 2016 15:02:16 +0200
-Message-ID: <1474376544-20515-1-git-send-email-stefan.wahren@i2se.com>
+Subject: [PATCH net-next 7/8] net: qualcomm: make qca_common a separate kernel module
+Date: Tue, 20 Sep 2016 15:02:23 +0200
+Message-ID: <1474376544-20515-8-git-send-email-stefan.wahren@i2se.com>
+References: <1474376544-20515-1-git-send-email-stefan.wahren@i2se.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         Stefan Wahren <stefan.wahren@i2se.com>
 To: "David S. Miller" <davem@davemloft.net>,
         Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
         Jiri Slaby <jslaby@suse.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1474376544-20515-1-git-send-email-stefan.wahren@i2se.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The Qualcomm QCA7000 HomePlug GreenPHY supports two interfaces:
-UART and SPI. This patch series adds the missing support for UART.
+In order to share common functions between QCA7000 SPI and UART protocol
+driver the qca_common needs to be a separate kernel module.
 
-This driver based on the Qualcomm code [1], but contains some changes:
-* use random MAC address per default
-* use net_device_stats from device
-* share frame decoding between SPI and UART driver
-* improve error handling
-* reimplement tty_wakeup with work queue (based on slcan)
+Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
+---
+ drivers/net/ethernet/qualcomm/Kconfig      |  8 +++++++-
+ drivers/net/ethernet/qualcomm/Makefile     |  5 +++--
+ drivers/net/ethernet/qualcomm/qca_common.c | 11 +++++++++++
+ 3 files changed, 21 insertions(+), 3 deletions(-)
 
-The patches 1 - 3 are just for clean up and are not related to
-the UART support. Patches 4 - 7 prepare the existing QCA7000
-code for UART support. The last patch contains the new driver.
-
-In order to test the driver a modified slattach in userspace is also
-required. A prepared busybox (includes slattach) can be found here [2].
-
-The code itself has been tested on a Freescale i.MX28 board.
-
-[1] - https://github.com/IoE/qca7000
-[2] - https://github.com/lategoodbye/busybox/commits/qca7k_support_1_24
-
-Stefan Wahren (8):
-  net: qualcomm: remove unnecessary includes
-  net: qca_debug: use net_device_ops instead of direct call
-  net: qualcomm: move qcaspi_tx_cmd to qca_spi.c
-  net: qualcomm: rename qca_framing.c to qca_common.c
-  net: qualcomm: move MTU handling to qca_common
-  net: qualcomm: prepare frame decoding for UART driver
-  net: qualcomm: make qca_common a separate kernel module
-  net: qualcomm: add QCA7000 UART driver
-
- drivers/net/ethernet/qualcomm/Kconfig       |  20 +-
- drivers/net/ethernet/qualcomm/Makefile      |   7 +-
- drivers/net/ethernet/qualcomm/qca_7k.c      |  28 --
- drivers/net/ethernet/qualcomm/qca_7k.h      |   1 -
- drivers/net/ethernet/qualcomm/qca_common.c  | 178 +++++++++++
- drivers/net/ethernet/qualcomm/qca_common.h  | 147 +++++++++
- drivers/net/ethernet/qualcomm/qca_debug.c   |   5 +-
- drivers/net/ethernet/qualcomm/qca_framing.c | 156 ----------
- drivers/net/ethernet/qualcomm/qca_framing.h | 134 ---------
- drivers/net/ethernet/qualcomm/qca_spi.c     |  41 ++-
- drivers/net/ethernet/qualcomm/qca_spi.h     |   5 +-
- drivers/net/ethernet/qualcomm/qca_uart.c    | 447 ++++++++++++++++++++++++++++
- include/uapi/linux/tty.h                    |   1 +
- 13 files changed, 828 insertions(+), 342 deletions(-)
- create mode 100644 drivers/net/ethernet/qualcomm/qca_common.c
- create mode 100644 drivers/net/ethernet/qualcomm/qca_common.h
- delete mode 100644 drivers/net/ethernet/qualcomm/qca_framing.c
- delete mode 100644 drivers/net/ethernet/qualcomm/qca_framing.h
- create mode 100644 drivers/net/ethernet/qualcomm/qca_uart.c
-
+diff --git a/drivers/net/ethernet/qualcomm/Kconfig b/drivers/net/ethernet/qualcomm/Kconfig
+index 9ba568d..0d33728 100644
+--- a/drivers/net/ethernet/qualcomm/Kconfig
++++ b/drivers/net/ethernet/qualcomm/Kconfig
+@@ -16,7 +16,13 @@ config NET_VENDOR_QUALCOMM
+ if NET_VENDOR_QUALCOMM
+ 
+ config QCA7000
+-	tristate "Qualcomm Atheros QCA7000 support"
++	tristate
++	help
++	  This enables support for the Qualcomm Atheros QCA7000.
++
++config QCA7000_SPI
++	tristate "Qualcomm Atheros QCA7000 SPI support"
++	select QCA7000
+ 	depends on SPI_MASTER && OF
+ 	---help---
+ 	  This SPI protocol driver supports the Qualcomm Atheros QCA7000.
+diff --git a/drivers/net/ethernet/qualcomm/Makefile b/drivers/net/ethernet/qualcomm/Makefile
+index 8080570..00d8729 100644
+--- a/drivers/net/ethernet/qualcomm/Makefile
++++ b/drivers/net/ethernet/qualcomm/Makefile
+@@ -2,7 +2,8 @@
+ # Makefile for the Qualcomm network device drivers.
+ #
+ 
+-obj-$(CONFIG_QCA7000) += qcaspi.o
+-qcaspi-objs := qca_spi.o qca_common.o qca_7k.o qca_debug.o
++obj-$(CONFIG_QCA7000) += qca_common.o
++obj-$(CONFIG_QCA7000_SPI) += qcaspi.o
++qcaspi-objs := qca_7k.o qca_debug.o qca_spi.o
+ 
+ obj-y += emac/
+diff --git a/drivers/net/ethernet/qualcomm/qca_common.c b/drivers/net/ethernet/qualcomm/qca_common.c
+index 7eefdad..2fa8c18 100644
+--- a/drivers/net/ethernet/qualcomm/qca_common.c
++++ b/drivers/net/ethernet/qualcomm/qca_common.c
+@@ -21,7 +21,9 @@
+  *   by an atheros frame while transmitted over a serial channel;
+  */
+ 
++#include <linux/init.h>
+ #include <linux/kernel.h>
++#include <linux/module.h>
+ 
+ #include "qca_common.h"
+ 
+@@ -46,6 +48,7 @@ qcafrm_create_header(u8 *buf, u16 length)
+ 
+ 	return QCAFRM_HEADER_LEN;
+ }
++EXPORT_SYMBOL_GPL(qcafrm_create_header);
+ 
+ u16
+ qcafrm_create_footer(u8 *buf)
+@@ -57,6 +60,7 @@ qcafrm_create_footer(u8 *buf)
+ 	buf[1] = 0x55;
+ 	return QCAFRM_FOOTER_LEN;
+ }
++EXPORT_SYMBOL_GPL(qcafrm_create_footer);
+ 
+ /*   Gather received bytes and try to extract a full ethernet frame by
+  *   following a simple state machine.
+@@ -154,6 +158,7 @@ qcafrm_fsm_decode(struct qcafrm_handle *handle, u8 *buf, u16 buf_len, u8 recv_by
+ 
+ 	return ret;
+ }
++EXPORT_SYMBOL_GPL(qcafrm_fsm_decode);
+ 
+ int
+ qcacmn_netdev_change_mtu(struct net_device *dev, int new_mtu)
+@@ -165,3 +170,9 @@ qcacmn_netdev_change_mtu(struct net_device *dev, int new_mtu)
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL_GPL(qcacmn_netdev_change_mtu);
++
++MODULE_DESCRIPTION("Qualcomm Atheros Common");
++MODULE_AUTHOR("Qualcomm Atheros Communications");
++MODULE_AUTHOR("Stefan Wahren <stefan.wahren@i2se.com>");
++MODULE_LICENSE("Dual BSD/GPL");
 -- 
 2.1.4
