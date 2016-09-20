@@ -1,60 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3] xen-netfront: avoid packet loss
- when ethernet header crosses page boundary
-Date: Tue, 20 Sep 2016 04:41:19 -0400 (EDT)
-Message-ID: <20160920.044119.403211498498787643.davem@davemloft.net>
-References: <1474282420-9723-1-git-send-email-vkuznets@redhat.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [v3 PATCH 0/2] rhashtable: rhashtable with duplicate objects
+Date: Tue, 20 Sep 2016 04:44:19 -0400 (EDT)
+Message-ID: <20160920.044419.79616518616678600.davem@davemloft.net>
+References: <20160919105854.GA12892@gondor.apana.org.au>
+        <1474283023.6544.0.camel@sipsolutions.net>
+        <1474284732.6544.2.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: jgross@suse.com, ptalbert@redhat.com, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, david.vrabel@citrix.com,
- xen-devel@lists.xenproject.org, boris.ostrovsky@oracle.com
-To: vkuznets@redhat.com
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <1474282420-9723-1-git-send-email-vkuznets@redhat.com>
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, tgraf-G/eBtMaohhA@public.gmane.org, tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org,
+        greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org
+To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1474284732.6544.2.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogVml0YWx5IEt1em5ldHNvdiA8dmt1em5ldHNAcmVkaGF0LmNvbT4KRGF0ZTogTW9uLCAx
-OSBTZXAgMjAxNiAxMjo1Mzo0MCArMDIwMAoKPiBTbWFsbCBwYWNrZXQgbG9zcyBpcyByZXBvcnRl
-ZCBvbiBjb21wbGV4IG11bHRpIGhvc3QgbmV0d29yayBjb25maWd1cmF0aW9ucwo+IGluY2x1ZGlu
-ZyB0dW5uZWxzLCBOQVQsIC4uLiBNeSBpbnZlc3RpZ2F0aW9uIGxlZCBtZSB0byB0aGUgZm9sbG93
-aW5nIGNoZWNrCj4gaW4gbmV0YmFjayB3aGljaCBkcm9wcyBwYWNrZXRzOgo+IAo+ICAgICAgICAg
-aWYgKHVubGlrZWx5KHR4cmVxLnNpemUgPCBFVEhfSExFTikpIHsKPiAgICAgICAgICAgICAgICAg
-bmV0ZGV2X2VycihxdWV1ZS0+dmlmLT5kZXYsCj4gICAgICAgICAgICAgICAgICAgICAgICAgICAg
-IkJhZCBwYWNrZXQgc2l6ZTogJWRcbiIsIHR4cmVxLnNpemUpOwo+ICAgICAgICAgICAgICAgICB4
-ZW52aWZfdHhfZXJyKHF1ZXVlLCAmdHhyZXEsIGV4dHJhX2NvdW50LCBpZHgpOwo+ICAgICAgICAg
-ICAgICAgICBicmVhazsKPiAgICAgICAgIH0KPiAKPiBCdXQgdGhpcyBjaGVjayBpdHNlbGYgaXMg
-bGVnaXRpbWF0ZS4gU0tCcyBjb25zaXN0IG9mIGEgbGluZWFyIHBhcnQgKHdoaWNoCj4gaGFzIHRv
-IGhhdmUgdGhlIGV0aGVybmV0IGhlYWRlcikgYW5kIChvcHRpb25hbGx5KSBhIG51bWJlciBvZiBm
-cmFncy4KPiBOZXRmcm9udCB0cmFuc21pdHMgdGhlIGhlYWQgb2YgdGhlIGxpbmVhciBwYXJ0IHVw
-IHRvIHRoZSBwYWdlIGJvdW5kYXJ5Cj4gYXMgdGhlIGZpcnN0IHJlcXVlc3QgYW5kIGFsbCB0aGUg
-cmVzdCBiZWNvbWVzIGZyYWdzIHNvIHdoZW4gd2UncmUKPiByZWNvbnN0cnVjdGluZyB0aGUgU0tC
-IGluIG5ldGJhY2sgd2UgY2FuJ3QgZGlzdGluZ3Vpc2ggYmV0d2VlbiBvcmlnaW5hbAo+IGZyYWdz
-IGFuZCB0aGUgJ3RhaWwnIG9mIHRoZSBsaW5lYXIgcGFydC4gVGhlIGZpcnN0IFNLQiBuZWVkcyB0
-byBiZSBhdAo+IGxlYXN0IEVUSF9ITEVOIHNpemUuIFNvIGluIGNhc2Ugd2UgaGF2ZSBhbiBTS0Ig
-d2l0aCBpdHMgbGluZWFyIHBhcnQKPiBzdGFydGluZyB0b28gY2xvc2UgdG8gdGhlIHBhZ2UgYm91
-bmRhcnkgdGhlIHBhY2tldCBpcyBsb3N0Lgo+IAo+IEkgc2VlIHR3byB3YXlzIHRvIGZpeCB0aGUg
-aXNzdWU6Cj4gLSBDaGFuZ2UgdGhlICd3aXJlJyBwcm90b2NvbCBiZXR3ZWVuIG5ldGZyb250IGFu
-ZCBuZXRiYWNrIHRvIHN0YXJ0IGtlZXBpbmcKPiAgIHRoZSBvcmlnaW5hbCBTS0Igc3RydWN0dXJl
-LiBXZSdsbCBoYXZlIHRvIGFkZCBhIGZsYWcgaW5kaWNhdGluZyB0aGUgZmFjdAo+ICAgdGhhdCB0
-aGUgcGFydGljdWxhciByZXF1ZXN0IGlzIGEgcGFydCBvZiB0aGUgb3JpZ2luYWwgbGluZWFyIHBh
-cnQgYW5kIG5vdAo+ICAgYSBmcmFnLiBXZSdsbCBuZWVkIHRvIGtub3cgdGhlIGxlbmd0aCBvZiB0
-aGUgbGluZWFyIHBhcnQgdG8gcHJlLWFsbG9jYXRlCj4gICBtZW1vcnkuCj4gLSBBdm9pZCB0cmFu
-c21pdHRpbmcgU0tCcyB3aXRoIGxpbmVhciBwYXJ0cyBzdGFydGluZyB0b28gY2xvc2UgdG8gdGhl
-IHBhZ2UKPiAgIGJvdW5kYXJ5LiBUaGF0IHNlZW1zIHByZWZlcmFibGUgc2hvcnQtdGVybSBhbmQg
-c2hvdWxkbid0IGJyaW5nCj4gICBzaWduaWZpY2FudCBwZXJmb3JtYW5jZSBkZWdyYWRhdGlvbiBh
-cyBzdWNoIHBhY2tldHMgYXJlIHJhcmUuIFRoYXQncyB3aGF0Cj4gICB0aGlzIHBhdGNoIGlzIHRy
-eWluZyB0byBhY2hpZXZlIHdpdGggc2tiX2NvcHkoKS4KPiAKPiBTaWduZWQtb2ZmLWJ5OiBWaXRh
-bHkgS3V6bmV0c292IDx2a3V6bmV0c0ByZWRoYXQuY29tPgo+IEFja2VkLWJ5OiBEYXZpZCBWcmFi
-ZWwgPGRhdmlkLnZyYWJlbEBjaXRyaXguY29tPgoKQXBwbGllZC4KCl9fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClhlbi1kZXZlbCBtYWlsaW5nIGxpc3QKWGVu
-LWRldmVsQGxpc3RzLnhlbi5vcmcKaHR0cHM6Ly9saXN0cy54ZW4ub3JnL3hlbi1kZXZlbAo=
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Date: Mon, 19 Sep 2016 13:32:12 +0200
+
+> On Mon, 2016-09-19 at 13:03 +0200, Johannes Berg wrote:
+>> On Mon, 2016-09-19 at 18:58 +0800, Herbert Xu wrote:
+>> > 
+>> > v3 fixes a bug in the remove path that causes the element count
+>> > to decrease when it shouldn't, leading to a gigantic hash table
+>> > when it underflows.
+>> > 
+>> Ok, with the BUG_ON() thrown in, this works in the test that was
+>> failing before. I'll run the entire suite again over lunch.
+>> 
+> 
+> Ok, the entire test suite passed (with the BUG_ON, but hey).
+> 
+> Dave, let me know what you want to do (or have done, as it may be).
+
+I'll apply this directly to net-next and push it out after some
+build testing.
+
+Thanks guys.
