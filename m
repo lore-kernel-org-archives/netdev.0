@@ -1,726 +1,320 @@
 From: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
-Subject: [PATCH net-next v3 1/5] cxgb4: move common filter code to separate file
-Date: Tue, 20 Sep 2016 17:13:06 +0530
-Message-ID: <44ddaf374b0b82861c27678f2681c3458f26dd99.1474029677.git.rahul.lakkireddy@chelsio.com>
+Subject: [PATCH net-next v3 3/5] cxgb4: add parser to translate u32 filters to internal spec
+Date: Tue, 20 Sep 2016 17:13:08 +0530
+Message-ID: <daf2299ddc5a0bb1fc5864ae4da1bcf5ad235fc4.1474029678.git.rahul.lakkireddy@chelsio.com>
 References: <cover.1474029677.git.rahul.lakkireddy@chelsio.com>
 Cc: davem@davemloft.net, hariprasad@chelsio.com, leedom@chelsio.com,
         nirranjan@chelsio.com, indranil@chelsio.com,
         Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:30055 "EHLO
+Received: from stargate.chelsio.com ([12.32.117.8]:45009 "EHLO
         stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S932340AbcITLpH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 07:45:07 -0400
+        by vger.kernel.org with ESMTP id S1751563AbcITLql (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 07:46:41 -0400
 In-Reply-To: <cover.1474029677.git.rahul.lakkireddy@chelsio.com>
 In-Reply-To: <cover.1474029677.git.rahul.lakkireddy@chelsio.com>
 References: <cover.1474029677.git.rahul.lakkireddy@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move common filter code to separate files.  Also fix the following
-checkpatch checks.
-
-CHECK: Comparison to NULL could be written "!f->l2t"
-+               if (f->l2t == NULL) {
-
-CHECK: spaces preferred around that '/' (ctx:VxV)
-+       fwr->len16_pkd = htonl(FW_WR_LEN16_V(sizeof(*fwr)/16));
+Parse information sent by u32 into internal filter specification.
+Add support for parsing several fields in IPv4, IPv6, TCP, and UDP.
 
 Signed-off-by: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/Makefile       |   2 +-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h        |  23 ++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c | 274 ++++++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.h |  47 ++++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c   | 264 +--------------------
- 5 files changed, 346 insertions(+), 264 deletions(-)
- create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
- create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.h
+ .../ethernet/chelsio/cxgb4/cxgb4_tc_u32_parse.h    | 282 +++++++++++++++++++++
+ 1 file changed, 282 insertions(+)
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32_parse.h
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/Makefile b/drivers/net/ethernet/chelsio/cxgb4/Makefile
-index 2461296..da88981 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/Makefile
-+++ b/drivers/net/ethernet/chelsio/cxgb4/Makefile
-@@ -4,7 +4,7 @@
- 
- obj-$(CONFIG_CHELSIO_T4) += cxgb4.o
- 
--cxgb4-objs := cxgb4_main.o l2t.o t4_hw.o sge.o clip_tbl.o cxgb4_ethtool.o cxgb4_uld.o sched.o
-+cxgb4-objs := cxgb4_main.o l2t.o t4_hw.o sge.o clip_tbl.o cxgb4_ethtool.o cxgb4_uld.o sched.o cxgb4_filter.o
- cxgb4-$(CONFIG_CHELSIO_T4_DCB) +=  cxgb4_dcb.o
- cxgb4-$(CONFIG_CHELSIO_T4_FCOE) +=  cxgb4_fcoe.o
- cxgb4-$(CONFIG_DEBUG_FS) += cxgb4_debugfs.o
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 4595569..275c4f0 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -1041,6 +1041,29 @@ enum {
- 	VLAN_REWRITE
- };
- 
-+/* Host shadow copy of ingress filter entry.  This is in host native format
-+ * and doesn't match the ordering or bit order, etc. of the hardware of the
-+ * firmware command.  The use of bit-field structure elements is purely to
-+ * remind ourselves of the field size limitations and save memory in the case
-+ * where the filter table is large.
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32_parse.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32_parse.h
+new file mode 100644
+index 0000000..65c20ca
+--- /dev/null
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32_parse.h
+@@ -0,0 +1,282 @@
++/*
++ * This file is part of the Chelsio T4 Ethernet driver for Linux.
++ *
++ * Copyright (c) 2016 Chelsio Communications, Inc. All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
 + */
-+struct filter_entry {
-+	/* Administrative fields for filter. */
-+	u32 valid:1;            /* filter allocated and valid */
-+	u32 locked:1;           /* filter is administratively locked */
 +
-+	u32 pending:1;          /* filter action is pending firmware reply */
-+	u32 smtidx:8;           /* Source MAC Table index for smac */
-+	struct l2t_entry *l2t;  /* Layer Two Table entry for dmac */
++#ifndef __CXGB4_TC_U32_PARSE_H
++#define __CXGB4_TC_U32_PARSE_H
 +
-+	/* The filter itself.  Most of this is a straight copy of information
-+	 * provided by the extended ioctl().  Some fields are translated to
-+	 * internal forms -- for instance the Ingress Queue ID passed in from
-+	 * the ioctl() is translated into the Absolute Ingress Queue ID.
-+	 */
-+	struct ch_filter_specification fs;
++struct cxgb4_match_field {
++	int off; /* Offset from the beginning of the header to match */
++	/* Fill the value/mask pair in the spec if matched */
++	int (*val)(struct ch_filter_specification *f, u32 val, u32 mask);
 +};
 +
- static inline int is_offload(const struct adapter *adap)
- {
- 	return adap->params.offload;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
-new file mode 100644
-index 0000000..8a26a54
---- /dev/null
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
-@@ -0,0 +1,274 @@
-+/*
-+ * This file is part of the Chelsio T4 Ethernet driver for Linux.
-+ *
-+ * Copyright (c) 2003-2016 Chelsio Communications, Inc. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#include "cxgb4.h"
-+#include "l2t.h"
-+#include "t4fw_api.h"
-+#include "cxgb4_filter.h"
-+
-+/* Delete the filter at a specified index. */
-+static int del_filter_wr(struct adapter *adapter, int fidx)
++/* IPv4 match fields */
++static inline int cxgb4_fill_ipv4_tos(struct ch_filter_specification *f,
++				      u32 val, u32 mask)
 +{
-+	struct filter_entry *f = &adapter->tids.ftid_tab[fidx];
-+	struct fw_filter_wr *fwr;
-+	unsigned int len, ftid;
-+	struct sk_buff *skb;
-+
-+	len = sizeof(*fwr);
-+	ftid = adapter->tids.ftid_base + fidx;
-+
-+	skb = alloc_skb(len, GFP_KERNEL);
-+	if (!skb)
-+		return -ENOMEM;
-+
-+	fwr = (struct fw_filter_wr *)__skb_put(skb, len);
-+	t4_mk_filtdelwr(ftid, fwr, adapter->sge.fw_evtq.abs_id);
-+
-+	/* Mark the filter as "pending" and ship off the Filter Work Request.
-+	 * When we get the Work Request Reply we'll clear the pending status.
-+	 */
-+	f->pending = 1;
-+	t4_mgmt_tx(adapter, skb);
-+	return 0;
-+}
-+
-+/* Send a Work Request to write the filter at a specified index.  We construct
-+ * a Firmware Filter Work Request to have the work done and put the indicated
-+ * filter into "pending" mode which will prevent any further actions against
-+ * it till we get a reply from the firmware on the completion status of the
-+ * request.
-+ */
-+int set_filter_wr(struct adapter *adapter, int fidx)
-+{
-+	struct filter_entry *f = &adapter->tids.ftid_tab[fidx];
-+	struct fw_filter_wr *fwr;
-+	struct sk_buff *skb;
-+	unsigned int ftid;
-+
-+	skb = alloc_skb(sizeof(*fwr), GFP_KERNEL);
-+	if (!skb)
-+		return -ENOMEM;
-+
-+	/* If the new filter requires loopback Destination MAC and/or VLAN
-+	 * rewriting then we need to allocate a Layer 2 Table (L2T) entry for
-+	 * the filter.
-+	 */
-+	if (f->fs.newdmac || f->fs.newvlan) {
-+		/* allocate L2T entry for new filter */
-+		f->l2t = t4_l2t_alloc_switching(adapter, f->fs.vlan,
-+						f->fs.eport, f->fs.dmac);
-+		if (!f->l2t) {
-+			kfree_skb(skb);
-+			return -ENOMEM;
-+		}
-+	}
-+
-+	ftid = adapter->tids.ftid_base + fidx;
-+
-+	fwr = (struct fw_filter_wr *)__skb_put(skb, sizeof(*fwr));
-+	memset(fwr, 0, sizeof(*fwr));
-+
-+	/* It would be nice to put most of the following in t4_hw.c but most
-+	 * of the work is translating the cxgbtool ch_filter_specification
-+	 * into the Work Request and the definition of that structure is
-+	 * currently in cxgbtool.h which isn't appropriate to pull into the
-+	 * common code.  We may eventually try to come up with a more neutral
-+	 * filter specification structure but for now it's easiest to simply
-+	 * put this fairly direct code in line ...
-+	 */
-+	fwr->op_pkd = htonl(FW_WR_OP_V(FW_FILTER_WR));
-+	fwr->len16_pkd = htonl(FW_WR_LEN16_V(sizeof(*fwr) / 16));
-+	fwr->tid_to_iq =
-+		htonl(FW_FILTER_WR_TID_V(ftid) |
-+		      FW_FILTER_WR_RQTYPE_V(f->fs.type) |
-+		      FW_FILTER_WR_NOREPLY_V(0) |
-+		      FW_FILTER_WR_IQ_V(f->fs.iq));
-+	fwr->del_filter_to_l2tix =
-+		htonl(FW_FILTER_WR_RPTTID_V(f->fs.rpttid) |
-+		      FW_FILTER_WR_DROP_V(f->fs.action == FILTER_DROP) |
-+		      FW_FILTER_WR_DIRSTEER_V(f->fs.dirsteer) |
-+		      FW_FILTER_WR_MASKHASH_V(f->fs.maskhash) |
-+		      FW_FILTER_WR_DIRSTEERHASH_V(f->fs.dirsteerhash) |
-+		      FW_FILTER_WR_LPBK_V(f->fs.action == FILTER_SWITCH) |
-+		      FW_FILTER_WR_DMAC_V(f->fs.newdmac) |
-+		      FW_FILTER_WR_SMAC_V(f->fs.newsmac) |
-+		      FW_FILTER_WR_INSVLAN_V(f->fs.newvlan == VLAN_INSERT ||
-+					     f->fs.newvlan == VLAN_REWRITE) |
-+		      FW_FILTER_WR_RMVLAN_V(f->fs.newvlan == VLAN_REMOVE ||
-+					    f->fs.newvlan == VLAN_REWRITE) |
-+		      FW_FILTER_WR_HITCNTS_V(f->fs.hitcnts) |
-+		      FW_FILTER_WR_TXCHAN_V(f->fs.eport) |
-+		      FW_FILTER_WR_PRIO_V(f->fs.prio) |
-+		      FW_FILTER_WR_L2TIX_V(f->l2t ? f->l2t->idx : 0));
-+	fwr->ethtype = htons(f->fs.val.ethtype);
-+	fwr->ethtypem = htons(f->fs.mask.ethtype);
-+	fwr->frag_to_ovlan_vldm =
-+		(FW_FILTER_WR_FRAG_V(f->fs.val.frag) |
-+		 FW_FILTER_WR_FRAGM_V(f->fs.mask.frag) |
-+		 FW_FILTER_WR_IVLAN_VLD_V(f->fs.val.ivlan_vld) |
-+		 FW_FILTER_WR_OVLAN_VLD_V(f->fs.val.ovlan_vld) |
-+		 FW_FILTER_WR_IVLAN_VLDM_V(f->fs.mask.ivlan_vld) |
-+		 FW_FILTER_WR_OVLAN_VLDM_V(f->fs.mask.ovlan_vld));
-+	fwr->smac_sel = 0;
-+	fwr->rx_chan_rx_rpl_iq =
-+		htons(FW_FILTER_WR_RX_CHAN_V(0) |
-+		      FW_FILTER_WR_RX_RPL_IQ_V(adapter->sge.fw_evtq.abs_id));
-+	fwr->maci_to_matchtypem =
-+		htonl(FW_FILTER_WR_MACI_V(f->fs.val.macidx) |
-+		      FW_FILTER_WR_MACIM_V(f->fs.mask.macidx) |
-+		      FW_FILTER_WR_FCOE_V(f->fs.val.fcoe) |
-+		      FW_FILTER_WR_FCOEM_V(f->fs.mask.fcoe) |
-+		      FW_FILTER_WR_PORT_V(f->fs.val.iport) |
-+		      FW_FILTER_WR_PORTM_V(f->fs.mask.iport) |
-+		      FW_FILTER_WR_MATCHTYPE_V(f->fs.val.matchtype) |
-+		      FW_FILTER_WR_MATCHTYPEM_V(f->fs.mask.matchtype));
-+	fwr->ptcl = f->fs.val.proto;
-+	fwr->ptclm = f->fs.mask.proto;
-+	fwr->ttyp = f->fs.val.tos;
-+	fwr->ttypm = f->fs.mask.tos;
-+	fwr->ivlan = htons(f->fs.val.ivlan);
-+	fwr->ivlanm = htons(f->fs.mask.ivlan);
-+	fwr->ovlan = htons(f->fs.val.ovlan);
-+	fwr->ovlanm = htons(f->fs.mask.ovlan);
-+	memcpy(fwr->lip, f->fs.val.lip, sizeof(fwr->lip));
-+	memcpy(fwr->lipm, f->fs.mask.lip, sizeof(fwr->lipm));
-+	memcpy(fwr->fip, f->fs.val.fip, sizeof(fwr->fip));
-+	memcpy(fwr->fipm, f->fs.mask.fip, sizeof(fwr->fipm));
-+	fwr->lp = htons(f->fs.val.lport);
-+	fwr->lpm = htons(f->fs.mask.lport);
-+	fwr->fp = htons(f->fs.val.fport);
-+	fwr->fpm = htons(f->fs.mask.fport);
-+	if (f->fs.newsmac)
-+		memcpy(fwr->sma, f->fs.smac, sizeof(fwr->sma));
-+
-+	/* Mark the filter as "pending" and ship off the Filter Work Request.
-+	 * When we get the Work Request Reply we'll clear the pending status.
-+	 */
-+	f->pending = 1;
-+	set_wr_txq(skb, CPL_PRIORITY_CONTROL, f->fs.val.iport & 0x3);
-+	t4_ofld_send(adapter, skb);
-+	return 0;
-+}
-+
-+/* Return an error number if the indicated filter isn't writable ... */
-+int writable_filter(struct filter_entry *f)
-+{
-+	if (f->locked)
-+		return -EPERM;
-+	if (f->pending)
-+		return -EBUSY;
++	f->val.tos  = (ntohl(val)  >> 16) & 0x000000FF;
++	f->mask.tos = (ntohl(mask) >> 16) & 0x000000FF;
 +
 +	return 0;
 +}
 +
-+/* Delete the filter at the specified index (if valid).  The checks for all
-+ * the common problems with doing this like the filter being locked, currently
-+ * pending in another operation, etc.
-+ */
-+int delete_filter(struct adapter *adapter, unsigned int fidx)
++static inline int cxgb4_fill_ipv4_frag(struct ch_filter_specification *f,
++				       u32 val, u32 mask)
 +{
-+	struct filter_entry *f;
-+	int ret;
++	u32 mask_val;
++	u8 frag_val;
 +
-+	if (fidx >= adapter->tids.nftids + adapter->tids.nsftids)
++	frag_val = (ntohl(val) >> 13) & 0x00000007;
++	mask_val = ntohl(mask) & 0x0000FFFF;
++
++	if (frag_val == 0x1 && mask_val != 0x3FFF) { /* MF set */
++		f->val.frag = 1;
++		f->mask.frag = 1;
++	} else if (frag_val == 0x2 && mask_val != 0x3FFF) { /* DF set */
++		f->val.frag = 0;
++		f->mask.frag = 1;
++	} else {
 +		return -EINVAL;
-+
-+	f = &adapter->tids.ftid_tab[fidx];
-+	ret = writable_filter(f);
-+	if (ret)
-+		return ret;
-+	if (f->valid)
-+		return del_filter_wr(adapter, fidx);
++	}
 +
 +	return 0;
 +}
 +
-+/* Clear a filter and release any of its resources that we own.  This also
-+ * clears the filter's "pending" status.
-+ */
-+void clear_filter(struct adapter *adap, struct filter_entry *f)
++static inline int cxgb4_fill_ipv4_proto(struct ch_filter_specification *f,
++					u32 val, u32 mask)
 +{
-+	/* If the new or old filter have loopback rewriteing rules then we'll
-+	 * need to free any existing Layer Two Table (L2T) entries of the old
-+	 * filter rule.  The firmware will handle freeing up any Source MAC
-+	 * Table (SMT) entries used for rewriting Source MAC Addresses in
-+	 * loopback rules.
-+	 */
-+	if (f->l2t)
-+		cxgb4_l2t_release(f->l2t);
++	f->val.proto  = (ntohl(val)  >> 16) & 0x000000FF;
++	f->mask.proto = (ntohl(mask) >> 16) & 0x000000FF;
 +
-+	/* The zeroing of the filter rule below clears the filter valid,
-+	 * pending, locked flags, l2t pointer, etc. so it's all we need for
-+	 * this operation.
-+	 */
-+	memset(f, 0, sizeof(*f));
++	return 0;
 +}
 +
-+/* Handle a filter write/deletion reply. */
-+void filter_rpl(struct adapter *adap, const struct cpl_set_tcb_rpl *rpl)
++static inline int cxgb4_fill_ipv4_src_ip(struct ch_filter_specification *f,
++					 u32 val, u32 mask)
 +{
-+	unsigned int idx = GET_TID(rpl);
-+	unsigned int nidx = idx - adap->tids.ftid_base;
-+	struct filter_entry *f;
-+	unsigned int ret;
++	memcpy(&f->val.fip[0],  &val,  sizeof(u32));
++	memcpy(&f->mask.fip[0], &mask, sizeof(u32));
 +
-+	if (idx >= adap->tids.ftid_base && nidx <
-+	   (adap->tids.nftids + adap->tids.nsftids)) {
-+		idx = nidx;
-+		ret = TCB_COOKIE_G(rpl->cookie);
-+		f = &adap->tids.ftid_tab[idx];
-+
-+		if (ret == FW_FILTER_WR_FLT_DELETED) {
-+			/* Clear the filter when we get confirmation from the
-+			 * hardware that the filter has been deleted.
-+			 */
-+			clear_filter(adap, f);
-+		} else if (ret == FW_FILTER_WR_SMT_TBL_FULL) {
-+			dev_err(adap->pdev_dev, "filter %u setup failed due to full SMT\n",
-+				idx);
-+			clear_filter(adap, f);
-+		} else if (ret == FW_FILTER_WR_FLT_ADDED) {
-+			f->smtidx = (be64_to_cpu(rpl->oldval) >> 24) & 0xff;
-+			f->pending = 0;  /* asynchronous setup completed */
-+			f->valid = 1;
-+		} else {
-+			/* Something went wrong.  Issue a warning about the
-+			 * problem and clear everything out.
-+			 */
-+			dev_err(adap->pdev_dev, "filter %u setup failed with error %u\n",
-+				idx, ret);
-+			clear_filter(adap, f);
-+		}
-+	}
++	return 0;
 +}
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.h
-new file mode 100644
-index 0000000..f6bd0bf
---- /dev/null
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.h
-@@ -0,0 +1,47 @@
-+/*
-+ * This file is part of the Chelsio T4 Ethernet driver for Linux.
-+ *
-+ * Copyright (c) 2003-2016 Chelsio Communications, Inc. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
++
++static inline int cxgb4_fill_ipv4_dst_ip(struct ch_filter_specification *f,
++					 u32 val, u32 mask)
++{
++	memcpy(&f->val.lip[0],  &val,  sizeof(u32));
++	memcpy(&f->mask.lip[0], &mask, sizeof(u32));
++
++	return 0;
++}
++
++static const struct cxgb4_match_field cxgb4_ipv4_fields[] = {
++	{ .off = 0,  .val = cxgb4_fill_ipv4_tos },
++	{ .off = 4,  .val = cxgb4_fill_ipv4_frag },
++	{ .off = 8,  .val = cxgb4_fill_ipv4_proto },
++	{ .off = 12, .val = cxgb4_fill_ipv4_src_ip },
++	{ .off = 16, .val = cxgb4_fill_ipv4_dst_ip },
++	{ .val = NULL }
++};
++
++/* IPv6 match fields */
++static inline int cxgb4_fill_ipv6_tos(struct ch_filter_specification *f,
++				      u32 val, u32 mask)
++{
++	f->val.tos  = (ntohl(val)  >> 20) & 0x000000FF;
++	f->mask.tos = (ntohl(mask) >> 20) & 0x000000FF;
++
++	return 0;
++}
++
++static inline int cxgb4_fill_ipv6_proto(struct ch_filter_specification *f,
++					u32 val, u32 mask)
++{
++	f->val.proto  = (ntohl(val)  >> 8) & 0x000000FF;
++	f->mask.proto = (ntohl(mask) >> 8) & 0x000000FF;
++
++	return 0;
++}
++
++static inline int cxgb4_fill_ipv6_src_ip0(struct ch_filter_specification *f,
++					  u32 val, u32 mask)
++{
++	memcpy(&f->val.fip[0],  &val,  sizeof(u32));
++	memcpy(&f->mask.fip[0], &mask, sizeof(u32));
++
++	return 0;
++}
++
++static inline int cxgb4_fill_ipv6_src_ip1(struct ch_filter_specification *f,
++					  u32 val, u32 mask)
++{
++	memcpy(&f->val.fip[4],  &val,  sizeof(u32));
++	memcpy(&f->mask.fip[4], &mask, sizeof(u32));
++
++	return 0;
++}
++
++static inline int cxgb4_fill_ipv6_src_ip2(struct ch_filter_specification *f,
++					  u32 val, u32 mask)
++{
++	memcpy(&f->val.fip[8],  &val,  sizeof(u32));
++	memcpy(&f->mask.fip[8], &mask, sizeof(u32));
++
++	return 0;
++}
++
++static inline int cxgb4_fill_ipv6_src_ip3(struct ch_filter_specification *f,
++					  u32 val, u32 mask)
++{
++	memcpy(&f->val.fip[12],  &val,  sizeof(u32));
++	memcpy(&f->mask.fip[12], &mask, sizeof(u32));
++
++	return 0;
++}
++
++static inline int cxgb4_fill_ipv6_dst_ip0(struct ch_filter_specification *f,
++					  u32 val, u32 mask)
++{
++	memcpy(&f->val.lip[0],  &val,  sizeof(u32));
++	memcpy(&f->mask.lip[0], &mask, sizeof(u32));
++
++	return 0;
++}
++
++static inline int cxgb4_fill_ipv6_dst_ip1(struct ch_filter_specification *f,
++					  u32 val, u32 mask)
++{
++	memcpy(&f->val.lip[4],  &val,  sizeof(u32));
++	memcpy(&f->mask.lip[4], &mask, sizeof(u32));
++
++	return 0;
++}
++
++static inline int cxgb4_fill_ipv6_dst_ip2(struct ch_filter_specification *f,
++					  u32 val, u32 mask)
++{
++	memcpy(&f->val.lip[8],  &val,  sizeof(u32));
++	memcpy(&f->mask.lip[8], &mask, sizeof(u32));
++
++	return 0;
++}
++
++static inline int cxgb4_fill_ipv6_dst_ip3(struct ch_filter_specification *f,
++					  u32 val, u32 mask)
++{
++	memcpy(&f->val.lip[12],  &val,  sizeof(u32));
++	memcpy(&f->mask.lip[12], &mask, sizeof(u32));
++
++	return 0;
++}
++
++static const struct cxgb4_match_field cxgb4_ipv6_fields[] = {
++	{ .off = 0,  .val = cxgb4_fill_ipv6_tos },
++	{ .off = 4,  .val = cxgb4_fill_ipv6_proto },
++	{ .off = 8,  .val = cxgb4_fill_ipv6_src_ip0 },
++	{ .off = 12, .val = cxgb4_fill_ipv6_src_ip1 },
++	{ .off = 16, .val = cxgb4_fill_ipv6_src_ip2 },
++	{ .off = 20, .val = cxgb4_fill_ipv6_src_ip3 },
++	{ .off = 24, .val = cxgb4_fill_ipv6_dst_ip0 },
++	{ .off = 28, .val = cxgb4_fill_ipv6_dst_ip1 },
++	{ .off = 32, .val = cxgb4_fill_ipv6_dst_ip2 },
++	{ .off = 36, .val = cxgb4_fill_ipv6_dst_ip3 },
++	{ .val = NULL }
++};
++
++/* TCP/UDP match */
++static inline int cxgb4_fill_l4_ports(struct ch_filter_specification *f,
++				      u32 val, u32 mask)
++{
++	f->val.fport  = ntohl(val)  >> 16;
++	f->mask.fport = ntohl(mask) >> 16;
++	f->val.lport  = ntohl(val)  & 0x0000FFFF;
++	f->mask.lport = ntohl(mask) & 0x0000FFFF;
++
++	return 0;
++};
++
++static const struct cxgb4_match_field cxgb4_tcp_fields[] = {
++	{ .off = 0, .val = cxgb4_fill_l4_ports },
++	{ .val = NULL }
++};
++
++static const struct cxgb4_match_field cxgb4_udp_fields[] = {
++	{ .off = 0, .val = cxgb4_fill_l4_ports },
++	{ .val = NULL }
++};
++
++struct cxgb4_next_header {
++	unsigned int offset; /* Offset to next header */
++	/* offset, shift, and mask added to offset above
++	 * to get to next header.  Useful when using a header
++	 * field's value to jump to next header such as IHL field
++	 * in IPv4 header.
++	 */
++	unsigned int offoff;
++	u32 shift;
++	u32 mask;
++	/* match criteria to make this jump */
++	unsigned int match_off;
++	u32 match_val;
++	u32 match_mask;
++	/* location of jump to make */
++	const struct cxgb4_match_field *jump;
++};
++
++/* Accept a rule with a jump to transport layer header based on IHL field in
++ * IPv4 header.
 + */
++static const struct cxgb4_next_header cxgb4_ipv4_jumps[] = {
++	{ .offset = 0, .offoff = 0, .shift = 6, .mask = 0xF,
++	  .match_off = 8, .match_val = 0x600, .match_mask = 0xFF00,
++	  .jump = cxgb4_tcp_fields },
++	{ .offset = 0, .offoff = 0, .shift = 6, .mask = 0xF,
++	  .match_off = 8, .match_val = 0x1100, .match_mask = 0xFF00,
++	  .jump = cxgb4_udp_fields },
++	{ .jump = NULL }
++};
 +
-+#ifndef __CXGB4_FILTER_H
-+#define __CXGB4_FILTER_H
-+
-+#include "t4_msg.h"
-+
-+void filter_rpl(struct adapter *adap, const struct cpl_set_tcb_rpl *rpl);
-+void clear_filter(struct adapter *adap, struct filter_entry *f);
-+
-+int set_filter_wr(struct adapter *adapter, int fidx);
-+int delete_filter(struct adapter *adapter, unsigned int fidx);
-+
-+int writable_filter(struct filter_entry *f);
-+#endif /* __CXGB4_FILTER_H */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 44cc976..00f4d7f 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -67,6 +67,7 @@
- #include <linux/crash_dump.h>
- 
- #include "cxgb4.h"
-+#include "cxgb4_filter.h"
- #include "t4_regs.h"
- #include "t4_values.h"
- #include "t4_msg.h"
-@@ -87,30 +88,6 @@ char cxgb4_driver_name[] = KBUILD_MODNAME;
- const char cxgb4_driver_version[] = DRV_VERSION;
- #define DRV_DESC "Chelsio T4/T5/T6 Network Driver"
- 
--/* Host shadow copy of ingress filter entry.  This is in host native format
-- * and doesn't match the ordering or bit order, etc. of the hardware of the
-- * firmware command.  The use of bit-field structure elements is purely to
-- * remind ourselves of the field size limitations and save memory in the case
-- * where the filter table is large.
-- */
--struct filter_entry {
--	/* Administrative fields for filter.
--	 */
--	u32 valid:1;            /* filter allocated and valid */
--	u32 locked:1;           /* filter is administratively locked */
--
--	u32 pending:1;          /* filter action is pending firmware reply */
--	u32 smtidx:8;           /* Source MAC Table index for smac */
--	struct l2t_entry *l2t;  /* Layer Two Table entry for dmac */
--
--	/* The filter itself.  Most of this is a straight copy of information
--	 * provided by the extended ioctl().  Some fields are translated to
--	 * internal forms -- for instance the Ingress Queue ID passed in from
--	 * the ioctl() is translated into the Absolute Ingress Queue ID.
--	 */
--	struct ch_filter_specification fs;
--};
--
- #define DFLT_MSG_ENABLE (NETIF_MSG_DRV | NETIF_MSG_PROBE | NETIF_MSG_LINK | \
- 			 NETIF_MSG_TIMER | NETIF_MSG_IFDOWN | NETIF_MSG_IFUP |\
- 			 NETIF_MSG_RX_ERR | NETIF_MSG_TX_ERR)
-@@ -532,66 +509,6 @@ static void dcb_rpl(struct adapter *adap, const struct fw_port_cmd *pcmd)
- }
- #endif /* CONFIG_CHELSIO_T4_DCB */
- 
--/* Clear a filter and release any of its resources that we own.  This also
-- * clears the filter's "pending" status.
-- */
--static void clear_filter(struct adapter *adap, struct filter_entry *f)
--{
--	/* If the new or old filter have loopback rewriteing rules then we'll
--	 * need to free any existing Layer Two Table (L2T) entries of the old
--	 * filter rule.  The firmware will handle freeing up any Source MAC
--	 * Table (SMT) entries used for rewriting Source MAC Addresses in
--	 * loopback rules.
--	 */
--	if (f->l2t)
--		cxgb4_l2t_release(f->l2t);
--
--	/* The zeroing of the filter rule below clears the filter valid,
--	 * pending, locked flags, l2t pointer, etc. so it's all we need for
--	 * this operation.
--	 */
--	memset(f, 0, sizeof(*f));
--}
--
--/* Handle a filter write/deletion reply.
-- */
--static void filter_rpl(struct adapter *adap, const struct cpl_set_tcb_rpl *rpl)
--{
--	unsigned int idx = GET_TID(rpl);
--	unsigned int nidx = idx - adap->tids.ftid_base;
--	unsigned int ret;
--	struct filter_entry *f;
--
--	if (idx >= adap->tids.ftid_base && nidx <
--	   (adap->tids.nftids + adap->tids.nsftids)) {
--		idx = nidx;
--		ret = TCB_COOKIE_G(rpl->cookie);
--		f = &adap->tids.ftid_tab[idx];
--
--		if (ret == FW_FILTER_WR_FLT_DELETED) {
--			/* Clear the filter when we get confirmation from the
--			 * hardware that the filter has been deleted.
--			 */
--			clear_filter(adap, f);
--		} else if (ret == FW_FILTER_WR_SMT_TBL_FULL) {
--			dev_err(adap->pdev_dev, "filter %u setup failed due to full SMT\n",
--				idx);
--			clear_filter(adap, f);
--		} else if (ret == FW_FILTER_WR_FLT_ADDED) {
--			f->smtidx = (be64_to_cpu(rpl->oldval) >> 24) & 0xff;
--			f->pending = 0;  /* asynchronous setup completed */
--			f->valid = 1;
--		} else {
--			/* Something went wrong.  Issue a warning about the
--			 * problem and clear everything out.
--			 */
--			dev_err(adap->pdev_dev, "filter %u setup failed with error %u\n",
--				idx, ret);
--			clear_filter(adap, f);
--		}
--	}
--}
--
- /* Response queue handler for the FW event queue.
-  */
- static int fwevtq_handler(struct sge_rspq *q, const __be64 *rsp,
-@@ -1198,151 +1115,6 @@ void t4_free_mem(void *addr)
- 	kvfree(addr);
- }
- 
--/* Send a Work Request to write the filter at a specified index.  We construct
-- * a Firmware Filter Work Request to have the work done and put the indicated
-- * filter into "pending" mode which will prevent any further actions against
-- * it till we get a reply from the firmware on the completion status of the
-- * request.
-- */
--static int set_filter_wr(struct adapter *adapter, int fidx)
--{
--	struct filter_entry *f = &adapter->tids.ftid_tab[fidx];
--	struct sk_buff *skb;
--	struct fw_filter_wr *fwr;
--	unsigned int ftid;
--
--	skb = alloc_skb(sizeof(*fwr), GFP_KERNEL);
--	if (!skb)
--		return -ENOMEM;
--
--	/* If the new filter requires loopback Destination MAC and/or VLAN
--	 * rewriting then we need to allocate a Layer 2 Table (L2T) entry for
--	 * the filter.
--	 */
--	if (f->fs.newdmac || f->fs.newvlan) {
--		/* allocate L2T entry for new filter */
--		f->l2t = t4_l2t_alloc_switching(adapter, f->fs.vlan,
--						f->fs.eport, f->fs.dmac);
--		if (f->l2t == NULL) {
--			kfree_skb(skb);
--			return -ENOMEM;
--		}
--	}
--
--	ftid = adapter->tids.ftid_base + fidx;
--
--	fwr = (struct fw_filter_wr *)__skb_put(skb, sizeof(*fwr));
--	memset(fwr, 0, sizeof(*fwr));
--
--	/* It would be nice to put most of the following in t4_hw.c but most
--	 * of the work is translating the cxgbtool ch_filter_specification
--	 * into the Work Request and the definition of that structure is
--	 * currently in cxgbtool.h which isn't appropriate to pull into the
--	 * common code.  We may eventually try to come up with a more neutral
--	 * filter specification structure but for now it's easiest to simply
--	 * put this fairly direct code in line ...
--	 */
--	fwr->op_pkd = htonl(FW_WR_OP_V(FW_FILTER_WR));
--	fwr->len16_pkd = htonl(FW_WR_LEN16_V(sizeof(*fwr)/16));
--	fwr->tid_to_iq =
--		htonl(FW_FILTER_WR_TID_V(ftid) |
--		      FW_FILTER_WR_RQTYPE_V(f->fs.type) |
--		      FW_FILTER_WR_NOREPLY_V(0) |
--		      FW_FILTER_WR_IQ_V(f->fs.iq));
--	fwr->del_filter_to_l2tix =
--		htonl(FW_FILTER_WR_RPTTID_V(f->fs.rpttid) |
--		      FW_FILTER_WR_DROP_V(f->fs.action == FILTER_DROP) |
--		      FW_FILTER_WR_DIRSTEER_V(f->fs.dirsteer) |
--		      FW_FILTER_WR_MASKHASH_V(f->fs.maskhash) |
--		      FW_FILTER_WR_DIRSTEERHASH_V(f->fs.dirsteerhash) |
--		      FW_FILTER_WR_LPBK_V(f->fs.action == FILTER_SWITCH) |
--		      FW_FILTER_WR_DMAC_V(f->fs.newdmac) |
--		      FW_FILTER_WR_SMAC_V(f->fs.newsmac) |
--		      FW_FILTER_WR_INSVLAN_V(f->fs.newvlan == VLAN_INSERT ||
--					     f->fs.newvlan == VLAN_REWRITE) |
--		      FW_FILTER_WR_RMVLAN_V(f->fs.newvlan == VLAN_REMOVE ||
--					    f->fs.newvlan == VLAN_REWRITE) |
--		      FW_FILTER_WR_HITCNTS_V(f->fs.hitcnts) |
--		      FW_FILTER_WR_TXCHAN_V(f->fs.eport) |
--		      FW_FILTER_WR_PRIO_V(f->fs.prio) |
--		      FW_FILTER_WR_L2TIX_V(f->l2t ? f->l2t->idx : 0));
--	fwr->ethtype = htons(f->fs.val.ethtype);
--	fwr->ethtypem = htons(f->fs.mask.ethtype);
--	fwr->frag_to_ovlan_vldm =
--		(FW_FILTER_WR_FRAG_V(f->fs.val.frag) |
--		 FW_FILTER_WR_FRAGM_V(f->fs.mask.frag) |
--		 FW_FILTER_WR_IVLAN_VLD_V(f->fs.val.ivlan_vld) |
--		 FW_FILTER_WR_OVLAN_VLD_V(f->fs.val.ovlan_vld) |
--		 FW_FILTER_WR_IVLAN_VLDM_V(f->fs.mask.ivlan_vld) |
--		 FW_FILTER_WR_OVLAN_VLDM_V(f->fs.mask.ovlan_vld));
--	fwr->smac_sel = 0;
--	fwr->rx_chan_rx_rpl_iq =
--		htons(FW_FILTER_WR_RX_CHAN_V(0) |
--		      FW_FILTER_WR_RX_RPL_IQ_V(adapter->sge.fw_evtq.abs_id));
--	fwr->maci_to_matchtypem =
--		htonl(FW_FILTER_WR_MACI_V(f->fs.val.macidx) |
--		      FW_FILTER_WR_MACIM_V(f->fs.mask.macidx) |
--		      FW_FILTER_WR_FCOE_V(f->fs.val.fcoe) |
--		      FW_FILTER_WR_FCOEM_V(f->fs.mask.fcoe) |
--		      FW_FILTER_WR_PORT_V(f->fs.val.iport) |
--		      FW_FILTER_WR_PORTM_V(f->fs.mask.iport) |
--		      FW_FILTER_WR_MATCHTYPE_V(f->fs.val.matchtype) |
--		      FW_FILTER_WR_MATCHTYPEM_V(f->fs.mask.matchtype));
--	fwr->ptcl = f->fs.val.proto;
--	fwr->ptclm = f->fs.mask.proto;
--	fwr->ttyp = f->fs.val.tos;
--	fwr->ttypm = f->fs.mask.tos;
--	fwr->ivlan = htons(f->fs.val.ivlan);
--	fwr->ivlanm = htons(f->fs.mask.ivlan);
--	fwr->ovlan = htons(f->fs.val.ovlan);
--	fwr->ovlanm = htons(f->fs.mask.ovlan);
--	memcpy(fwr->lip, f->fs.val.lip, sizeof(fwr->lip));
--	memcpy(fwr->lipm, f->fs.mask.lip, sizeof(fwr->lipm));
--	memcpy(fwr->fip, f->fs.val.fip, sizeof(fwr->fip));
--	memcpy(fwr->fipm, f->fs.mask.fip, sizeof(fwr->fipm));
--	fwr->lp = htons(f->fs.val.lport);
--	fwr->lpm = htons(f->fs.mask.lport);
--	fwr->fp = htons(f->fs.val.fport);
--	fwr->fpm = htons(f->fs.mask.fport);
--	if (f->fs.newsmac)
--		memcpy(fwr->sma, f->fs.smac, sizeof(fwr->sma));
--
--	/* Mark the filter as "pending" and ship off the Filter Work Request.
--	 * When we get the Work Request Reply we'll clear the pending status.
--	 */
--	f->pending = 1;
--	set_wr_txq(skb, CPL_PRIORITY_CONTROL, f->fs.val.iport & 0x3);
--	t4_ofld_send(adapter, skb);
--	return 0;
--}
--
--/* Delete the filter at a specified index.
-- */
--static int del_filter_wr(struct adapter *adapter, int fidx)
--{
--	struct filter_entry *f = &adapter->tids.ftid_tab[fidx];
--	struct sk_buff *skb;
--	struct fw_filter_wr *fwr;
--	unsigned int len, ftid;
--
--	len = sizeof(*fwr);
--	ftid = adapter->tids.ftid_base + fidx;
--
--	skb = alloc_skb(len, GFP_KERNEL);
--	if (!skb)
--		return -ENOMEM;
--
--	fwr = (struct fw_filter_wr *)__skb_put(skb, len);
--	t4_mk_filtdelwr(ftid, fwr, adapter->sge.fw_evtq.abs_id);
--
--	/* Mark the filter as "pending" and ship off the Filter Work Request.
--	 * When we get the Work Request Reply we'll clear the pending status.
--	 */
--	f->pending = 1;
--	t4_mgmt_tx(adapter, skb);
--	return 0;
--}
--
- static u16 cxgb_select_queue(struct net_device *dev, struct sk_buff *skb,
- 			     void *accel_priv, select_queue_fallback_t fallback)
- {
-@@ -2830,40 +2602,6 @@ static int cxgb_close(struct net_device *dev)
- 	return t4_enable_vi(adapter, adapter->pf, pi->viid, false, false);
- }
- 
--/* Return an error number if the indicated filter isn't writable ...
-- */
--static int writable_filter(struct filter_entry *f)
--{
--	if (f->locked)
--		return -EPERM;
--	if (f->pending)
--		return -EBUSY;
--
--	return 0;
--}
--
--/* Delete the filter at the specified index (if valid).  The checks for all
-- * the common problems with doing this like the filter being locked, currently
-- * pending in another operation, etc.
-- */
--static int delete_filter(struct adapter *adapter, unsigned int fidx)
--{
--	struct filter_entry *f;
--	int ret;
--
--	if (fidx >= adapter->tids.nftids + adapter->tids.nsftids)
--		return -EINVAL;
--
--	f = &adapter->tids.ftid_tab[fidx];
--	ret = writable_filter(f);
--	if (ret)
--		return ret;
--	if (f->valid)
--		return del_filter_wr(adapter, fidx);
--
--	return 0;
--}
--
- int cxgb4_create_server_filter(const struct net_device *dev, unsigned int stid,
- 		__be32 sip, __be16 sport, __be16 vlan,
- 		unsigned int queue, unsigned char port, unsigned char mask)
++/* Accept a rule with a jump directly past the 40 Bytes of IPv6 fixed header
++ * to get to transport layer header.
++ */
++static const struct cxgb4_next_header cxgb4_ipv6_jumps[] = {
++	{ .offset = 0x28, .offoff = 0, .shift = 0, .mask = 0,
++	  .match_off = 4, .match_val = 0x60000, .match_mask = 0xFF0000,
++	  .jump = cxgb4_tcp_fields },
++	{ .offset = 0x28, .offoff = 0, .shift = 0, .mask = 0,
++	  .match_off = 4, .match_val = 0x110000, .match_mask = 0xFF0000,
++	  .jump = cxgb4_udp_fields },
++	{ .jump = NULL }
++};
++#endif /* __CXGB4_TC_U32_PARSE_H */
 -- 
 2.5.3
