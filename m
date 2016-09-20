@@ -1,38 +1,75 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH v2 0/2] make POSIX timers optional
-Date: Tue, 20 Sep 2016 22:45:56 +0200
-Message-ID: <20160920204556.GA7555@localhost.localdomain>
-References: <1474401400-18491-1-git-send-email-nicolas.pitre@linaro.org>
- <20160920202556.GA6713@localhost.localdomain>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH net-next 7/8] net/mlx5e: XDP TX forwarding support
+Date: Tue, 20 Sep 2016 22:47:47 +0200
+Message-ID: <20160920224747.23b7a33b@redhat.com>
+References: <1474293539-2595-8-git-send-email-tariqt@mellanox.com>
+        <20160920102943.24732097@brouer.com>
+        <20160920133300.144037fd@redhat.com>
+        <96b40925-0e8e-0230-0701-96c11d6921a1@gmail.com>
+        <20160920154036.GA98644@ast-mbp.thefacebook.com>
+        <CALx6S34YBsmSJr7z2wGsu1VvLkjoqTN+Q8JJ0j-H_DehMJzQ5g@mail.gmail.com>
+        <1474387110.23058.24.camel@edumazet-glaptop3.roam.corp.google.com>
+        <20160920180609.148874b5@redhat.com>
+        <1474388036.23058.26.camel@edumazet-glaptop3.roam.corp.google.com>
+        <20160920182717.2de9541e@redhat.com>
+        <20160920164526.GB99429@ast-mbp.thefacebook.com>
+        <1474393160.23058.39.camel@edumazet-glaptop3.roam.corp.google.com>
+        <20160920205939.6a4522df@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Stultz <john.stultz@linaro.org>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Josh Triplett <josh@joshtriplett.org>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Nicolas Pitre <nicolas.pitre@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160920202556.GA6713@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Tariq Toukan <ttoukan.linux@gmail.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Eran Ben Elisha <eranbe@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Rana Shahout <ranas@mellanox.com>, brouer@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:49428 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751783AbcITUry (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 20 Sep 2016 16:47:54 -0400
+In-Reply-To: <20160920205939.6a4522df@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 20, 2016 at 10:25:56PM +0200, Richard Cochran wrote:
-> After this series, if I don't pay enough attention to dmesg, then I
-> have lost functionality that I had in step #1.  That sucks, and it has
-> nothing to do with the tinification option at all.  It will bite even
-> if I have no knowledge of it.  That isn't acceptable to me.
 
-Can't you leave all the "select PTP_1588_CLOCK" alone and simply add
+On Tue, 20 Sep 2016 20:59:39 +0200 Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+> On Tue, 20 Sep 2016 10:39:20 -0700  Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> 
+[...]
+> 
+> > Many existing supervision infrastructures collect device snmp
+> > counters, and run as unprivileged programs.   
+> 
+> A supervision infrastructures is a valid use-case. It again indicate
+> that such XDP stats need to structured, not just a random driver
+> specific ethtool counter, to make it easy for such collection daemons.
+> 
+> 
+> > tracepoints might not fit the need here, compared to a mere
+> > tx_ring->tx_drops++  
+> 
+> I do see your point.  I really liked the tracepoint idea, but now I'm
+> uncertain again...
 
-#ifdef CONFIG_POSIX_TIMERS
-	// global declarations
-#else
-	// static inlines
-#endif
+I've document the need for Troubleshooting and Monitoring, so we don't
+forget about it. See:
 
-to ptp_clock_kernel.h, and then sandwich ptp_clock.c in
-#ifdef CONFIG_POSIX_TIMERS ... #endif ?
+Commit:
+ https://github.com/netoptimizer/prototype-kernel/commit/3925249089ae4
 
-Thanks,
-Richard
+Online doc:
+ https://prototype-kernel.readthedocs.io/en/latest/networking/XDP/implementation/userspace_api.html#troubleshooting-and-monitoring
+
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
