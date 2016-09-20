@@ -1,56 +1,86 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net] net/mlx4_core: Fix to clean devlink resources
-Date: Tue, 20 Sep 2016 14:55:31 +0300
-Message-ID: <1474372531-27120-1-git-send-email-tariqt@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Kamal Heib <kamalh@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: UBSAN reports issue in ip_idents_reserve
+Date: Tue, 20 Sep 2016 14:00:00 +0200
+Message-ID: <20160920120000.GI1843@nanopsycho.orion>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:40479 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752793AbcITL4b (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 07:56:31 -0400
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:37339 "EHLO
+        mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751563AbcITMAE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 08:00:04 -0400
+Received: by mail-wm0-f42.google.com with SMTP id b130so31178617wmc.0
+        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 05:00:03 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kamal Heib <kamalh@mellanox.com>
+Hi.
 
-This patch cleans devlink resources by calling devlink_port_unregister()
-to avoid the following issues:
+I'm consistently getting following UBSAN warning on every bootup:
 
-- Kernel panic when triggering reset flow.
-- Memory leak due to unfreed resources in mlx4_init_port_info().
+[   47.545820] ================================================================================
+[   47.554340] UBSAN: Undefined behaviour in ./arch/x86/include/asm/atomic.h:156:11
+[   47.561808] signed integer overflow:
+[   47.565420] -2117905507 + -695755206 cannot be represented in type 'int'
+[   47.572226] CPU: 0 PID: 389 Comm: ntpd Not tainted 4.8.0-rc6jiri+ #1
+[   47.578636] Hardware name: Mellanox Technologies Ltd. Mellanox switch/Mellanox switch, BIOS 4.6.5 05/21/2015
+[   47.588586]  ffffffff847bf8c0 00000000987b8f47 ffff8803829af5a8 ffffffff818354e3
+[   47.596165]  0000000041b58ab3 ffffffff8277e711 ffffffff81835431 ffff8803829af5d0
+[   47.603722]  ffff8803829af580 ffffffffd6879e3a 1ffffffff08f8214 ffffed0070535e6c
+[   47.611298] Call Trace:
+[   47.613795]  [<ffffffff818354e3>] dump_stack+0xb2/0x10f
+[   47.619077]  [<ffffffff81835431>] ? _atomic_dec_and_lock+0xa1/0xa1
+[   47.625327]  [<ffffffff818a884f>] ubsan_epilogue+0xd/0x4e
+[   47.630811]  [<ffffffff818a9821>] handle_overflow+0x190/0x1de
+[   47.636627]  [<ffffffff818a9691>] ? __ubsan_handle_negate_overflow+0x140/0x140
+[   47.643914]  [<ffffffff81863130>] ? iov_iter_copy_from_user_atomic+0x6e0/0x6e0
+[   47.651219]  [<ffffffff811e6f79>] ? __lock_acquire.isra.17+0xb79/0xe50
+[   47.657832]  [<ffffffff81e581f2>] ? ip_generic_getfrag+0xd2/0x190
+[   47.664011]  [<ffffffff81e58120>] ? ip_setup_cork+0x320/0x320
+[   47.669827]  [<ffffffff818a987d>] __ubsan_handle_add_overflow+0xe/0x10
+[   47.676444]  [<ffffffff81e41d52>] ip_idents_reserve+0xb2/0xe0
+[   47.682254]  [<ffffffff81e443e9>] __ip_select_ident+0x159/0x1b0
+[   47.688248]  [<ffffffff81e44290>] ? update_or_create_fnhe+0x850/0x850
+[   47.694782]  [<ffffffff81e58120>] ? ip_setup_cork+0x320/0x320
+[   47.700624]  [<ffffffff81e5ef40>] __ip_make_skb+0x8a0/0xab0
+[   47.706259]  [<ffffffff81e5f3fd>] ip_make_skb+0x17d/0x1d0
+[   47.711717]  [<ffffffff81e58120>] ? ip_setup_cork+0x320/0x320
+[   47.717526]  [<ffffffff81e5f280>] ? ip_flush_pending_frames+0x20/0x20
+[   47.724032]  [<ffffffff81e46ef0>] ? ip_rt_update_pmtu+0x4f0/0x4f0
+[   47.730231]  [<ffffffff81f35291>] ? xfrm_lookup_route+0x21/0xe0
+[   47.736216]  [<ffffffff81ec0cdb>] udp_sendmsg+0x9db/0xf60
+[   47.741668]  [<ffffffff81e58120>] ? ip_setup_cork+0x320/0x320
+[   47.747472]  [<ffffffff81ec0300>] ? udp_abort+0x70/0x70
+[   47.752763]  [<ffffffff81ede3d8>] inet_sendmsg+0x198/0x220
+[   47.758324]  [<ffffffff81ede292>] ? inet_sendmsg+0x52/0x220
+[   47.763982]  [<ffffffff81ede240>] ? inet_recvmsg+0x300/0x300
+[   47.769728]  [<ffffffff81d6fd25>] sock_sendmsg+0xa5/0xd0
+[   47.775100]  [<ffffffff81d72f70>] SYSC_sendto+0x1d0/0x280
+[   47.780551]  [<ffffffff81d72da0>] ? SYSC_connect+0x200/0x200
+[   47.786283]  [<ffffffff814f66df>] ? poll_select_copy_remaining+0x2af/0x310
+[   47.793265]  [<ffffffff814f6430>] ? set_fd_set+0x60/0x60
+[   47.798665]  [<ffffffff811ee360>] ? do_raw_spin_trylock+0x90/0x90
+[   47.804853]  [<ffffffff814f80e3>] ? SyS_select+0x1a3/0x200
+[   47.810399]  [<ffffffff814f7f40>] ? core_sys_select+0x570/0x570
+[   47.816415]  [<ffffffff8100467c>] ? exit_to_usermode_loop+0xec/0x110
+[   47.822842]  [<ffffffff811e8abd>] ? lockdep_sys_exit+0x2d/0xb0
+[   47.828769]  [<ffffffff81004016>] ? lockdep_sys_exit_thunk+0x16/0x30
+[   47.835199]  [<ffffffff81d7433e>] SyS_sendto+0xe/0x10
+[   47.840321]  [<ffffffff820381f2>] entry_SYSCALL_64_fastpath+0x1a/0xa9
+[   47.846826] ================================================================================
 
-Fixes: 09d4d087cd48 ("mlx4: Implement devlink interface")
-Signed-off-by: Kamal Heib <kamalh@mellanox.com>
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
----
-Please push it to -stable  >= 4.6 as well. Thanks.
+Looks like this might be result of following commit:
 
- drivers/net/ethernet/mellanox/mlx4/main.c | 3 +++
- 1 file changed, 3 insertions(+)
+commit 04ca6973f7c1a0d8537f2d9906a0cf8e69886d75
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Sat Jul 26 08:58:10 2014 +0200
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index 75dd2e3d3059..7183ac4135d2 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -2970,6 +2970,7 @@ static int mlx4_init_port_info(struct mlx4_dev *dev, int port)
- 		mlx4_err(dev, "Failed to create mtu file for port %d\n", port);
- 		device_remove_file(&info->dev->persist->pdev->dev,
- 				   &info->port_attr);
-+		devlink_port_unregister(&info->devlink_port);
- 		info->port = -1;
- 	}
- 
-@@ -2984,6 +2985,8 @@ static void mlx4_cleanup_port_info(struct mlx4_port_info *info)
- 	device_remove_file(&info->dev->persist->pdev->dev, &info->port_attr);
- 	device_remove_file(&info->dev->persist->pdev->dev,
- 			   &info->port_mtu_attr);
-+	devlink_port_unregister(&info->devlink_port);
-+
- #ifdef CONFIG_RFS_ACCEL
- 	free_irq_cpu_rmap(info->rmap);
- 	info->rmap = NULL;
--- 
-1.8.3.1
+    ip: make IP identifiers less predictable
+
+Eric, could you please take look at that?
+
+Thanks.
+
+Jiri
