@@ -1,96 +1,82 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [RFC PATCH] net: Require socket to allow XPS to set queue mapping
-Date: Wed, 21 Sep 2016 11:07:30 -0400
-Message-ID: <CAF=yD-+UsUxM+iUicQLATd6B_6JmRovo3KGQrhQToQiXQ-2hQw@mail.gmail.com>
-References: <147215300812.3936.8031402062962283044.stgit@ahduyck-desk.amr.corp.intel.com>
- <1472154564.14381.160.camel@edumazet-glaptop3.roam.corp.google.com>
- <3fd7a334-c660-6e31-1466-27b08a2c983f@hpe.com> <1472159297.14381.162.camel@edumazet-glaptop3.roam.corp.google.com>
- <3a1d23f2-d2c6-8d28-96cc-1b25b61b948c@hpe.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH RFC 1/3] xdp: Infrastructure to generalize XDP
+Date: Wed, 21 Sep 2016 08:08:34 -0700
+Message-ID: <CALx6S36ZCdh5iOp6CPfztVKOEkDFgUo1RyqWMJVxhakOYNx8iw@mail.gmail.com>
+References: <1474408824-418864-1-git-send-email-tom@herbertland.com>
+ <1474408824-418864-2-git-send-email-tom@herbertland.com> <20160920224416.GF3291@pox.localdomain>
+ <CALx6S36FVU7bNu3JudZuET-VdFND2ZO7n9A7k--qsZVyxTvcpQ@mail.gmail.com>
+ <20160920230927.GG3291@pox.localdomain> <CALx6S37oniKp1JOeiygzr0RiQojj651ONqBgyvcJvqHj5-aT5g@mail.gmail.com>
+ <20160920234347.GH3291@pox.localdomain> <CALx6S35LmUtwRA85Kg6s7OR=e5Pj9ssqmWLsjtmXfZTXeG02zQ@mail.gmail.com>
+ <20160921115545.GA12789@pox.localdomain> <CALx6S35Xctd-aA8DF1_vypMDejiGXcud6=UO33dqgvO60W0DZQ@mail.gmail.com>
+ <20160921144800.GB13991@pox.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        Alexander Duyck <alexander.h.duyck@intel.com>,
-        Network Development <netdev@vger.kernel.org>
-To: Rick Jones <rick.jones2@hpe.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Kernel Team <kernel-team@fb.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f195.google.com ([209.85.161.195]:32930 "EHLO
-        mail-yw0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754998AbcIUPIL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2016 11:08:11 -0400
-Received: by mail-yw0-f195.google.com with SMTP id g192so3010041ywh.0
-        for <netdev@vger.kernel.org>; Wed, 21 Sep 2016 08:08:11 -0700 (PDT)
-In-Reply-To: <3a1d23f2-d2c6-8d28-96cc-1b25b61b948c@hpe.com>
+Received: from mail-qk0-f171.google.com ([209.85.220.171]:36040 "EHLO
+        mail-qk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756660AbcIUPIg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2016 11:08:36 -0400
+Received: by mail-qk0-f171.google.com with SMTP id z190so48348554qkc.3
+        for <netdev@vger.kernel.org>; Wed, 21 Sep 2016 08:08:35 -0700 (PDT)
+In-Reply-To: <20160921144800.GB13991@pox.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 25, 2016 at 5:28 PM, Rick Jones <rick.jones2@hpe.com> wrote:
-> On 08/25/2016 02:08 PM, Eric Dumazet wrote:
->>
->> When XPS was submitted, it was _not_ enabled by default and 'magic'
->>
->> Some NIC vendors decided it was a good thing, you should complain to
->> them ;)
+On Wed, Sep 21, 2016 at 7:48 AM, Thomas Graf <tgraf@suug.ch> wrote:
+> On 09/21/16 at 07:19am, Tom Herbert wrote:
+>> certain design that because of constraints on one kernel interface. As
+>> a kernel developer I want flexibility on how we design and implement
+>> things!
+>
+> Perfectly valid argument. I reviewed your ILA changes and did not
+> object to them.
 >
 >
-> I kindasorta am with the emails I've been sending to netdev :)  And also
-> hopefully precluding others going down that path.
+>> I think there are two questions that this patch set poses for the
+>> community wrt XDP:
+>>
+>> #1: Should we allow alternate code to run in XDP other than BPF?
+>> #2: If #1 is true what is the best way to implement that?
+>>
+>> If the answer to #1 is "no" then the answer to #2 is irrelevant. So
+>> with this RFC I'm hoping we can come the agreement on questions #1.
+>
+> I'm not opposed to running non-BPF code at XDP. I'm against adding
+> a linked list of hook consumers.
+>
+> Would anyone require to run XDP-BPF in combination ILA? Or XDP-BPF
+> in combination with a potential XDP-nftables? We don't know yet I
+> guess.
+>
+Right. Admittedly, I feel like we owe a bit of reciprocity to
+nftables. For ILA we are using the NF_INET_PRE_ROUTING hook with our
+own code (looks like ipvlan set nfhooks as well). This works really
+well and saves the value of early demux in ILA. Had we not had the
+ability to use nfhooks in this fashion it's likely we would have had
+to create another hook (we did try putting translation in nftables
+rules but that was too inefficient for ILA).
 
-I recently came across another effect of configuring devices at
-ndo_open. The behavior of `ip link set dev ${dev} down && ip link set
-dev ${dev} up` is no longer consistent across devices. Drivers that
-call netif_set_xps_queue overwrite a user supplied xps configuration,
-others leave it in place.
+> Maybe exclusive access to the hook for one consumer as selected by
+> the user is good enough.
+>
+> If that is not good enough: BPF (and potentially nftables in the
+> future) could provide means to perform a selection process where a
+> helper call can run another XDP prog or return a verdict to trigger
+> another XDP prog. Definitely more flexible and faster than a linear
+> list doing  if, else if, else if, else if, ...
 
-This is easily demonstrated by adding this snippet to the loopback driver:
+It seems reasonable that the the output of one program may be an
+indication of another program. We've already talked about something
+like that in regards to splitting BPF programs into device independent
+program and device dependent program.
 
-+static int loopback_dev_open(struct net_device *dev)
-+{
-+       cpumask_t mask;
-+
-+       cpumask_clear(&mask);
-+       cpumask_set_cpu(0, &mask);
-+
-+       return netif_set_xps_queue(dev, &mask, 0);
-+}
-+
- static void loopback_dev_free(struct net_device *dev)
- {
-        free_percpu(dev->lstats);
-@@ -158,6 +168,7 @@ static void loopback_dev_free(struct net_device *dev)
-
- static const struct net_device_ops loopback_ops = {
-        .ndo_init      = loopback_dev_init,
-+       .ndo_open       = loopback_dev_open,
-
-
-and running
-
-fp=/sys/class/net/lo/queues/tx-0/xps_cpus
-
-cat ${fp}
-echo 8 > ${fp}
-cat ${fp}
-ip link set dev lo down
-ip link set dev lo up
-cat ${fp}
-
-On a vanilla kernel, the output is {0, 8, 8} : the user-supplied xps
-setting persists
-With the patch, it is {1, 8, 1} : the driver sets, and resets, xps
-
-A third patch that adds netif_set_xps_queue to loopback_dev_init gives
-{1, 8, 8}. That is arguably the preferred behavior (sidestepping the
-issue of whether device driver initialization is a good thing in
-itself): init with a sane default, but do not override user
-preference.
-
-The fm10k and i40e drivers makes the call conditional on
-test_and_set_bit(__FM10K_TX_XPS_INIT_DONE), so probably already
-implement those semantics. In which case other drivers should probably
-be updated to do the same. If all drivers are essentially trying to
-set the same basic load balancing policy, this could also be lifted
-out of drivers into __dev_open for consistency and code deduplication.
-
-I'm pointing this out less for changing this xps feature, than as a
-subtle effect to be aware of with any subsequent device driver policy
-patches.
+Tom
