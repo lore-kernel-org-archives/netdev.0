@@ -1,71 +1,63 @@
-From: Stefan Wahren <stefan.wahren@i2se.com>
-Subject: Re: [PATCH net-next 8/8] net: qualcomm: add QCA7000 UART driver
-Date: Wed, 21 Sep 2016 09:49:16 +0200
-Message-ID: <6516862d-9703-5a61-16f5-e363c8e370cb@i2se.com>
-References: <1474376544-20515-1-git-send-email-stefan.wahren@i2se.com>
- <1474376544-20515-9-git-send-email-stefan.wahren@i2se.com>
- <2EE064FD-FCC1-4559-819D-471BD000F5AF@holtmann.org>
+From: =?UTF-8?B?QWxleGFuZGVyIFNoaXlhbg==?= <shc_work@mail.ru>
+Subject: =?UTF-8?B?UmU6IFt2MTIsIDcvOF0gYmFzZTogc29jOiBpbnRyb2R1Y2Ugc29jX2Rldmlj?=
+ =?UTF-8?B?ZV9tYXRjaCgpIGludGVyZmFjZQ==?=
+Date: Wed, 21 Sep 2016 10:56:14 +0300
+Message-ID: <1474444574.270880035@f136.i.mail.ru>
+References: <1474441040-11946-1-git-send-email-yangbo.lu@nxp.com>
+ <1474441040-11946-8-git-send-email-yangbo.lu@nxp.com>
+Reply-To: =?UTF-8?B?QWxleGFuZGVyIFNoaXlhbg==?= <shc_work@mail.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Jiri Slaby <jslaby@suse.com>,
-        Network Development <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Rob Herring <robh@kernel.org>
-To: Marcel Holtmann <marcel@holtmann.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2EE064FD-FCC1-4559-819D-471BD000F5AF@holtmann.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: =?UTF-8?B?TWFyayBSdXRsYW5k?= <mark.rutland@arm.com>, ulf.hansson@linaro.org,
+ =?UTF-8?B?WGlhb2JvIFhpZQ==?= <xiaobo.xie@nxp.com>,
+ =?UTF-8?B?TWluZ2h1YW4gTGlhbg==?= <minghuan.lian@nxp.com>,
+ linux-i2c@vger.kernel.org, linux-clk@vger.kernel.org,
+ =?UTF-8?B?UWlhbmcgWmhhbw==?= <qiang.zhao@nxp.com>,
+ =?UTF-8?B?UnVzc2VsbCBLaW5n?= <linux@arm.linux.org.uk>,
+ =?UTF-8?B?Qmh1cGVzaCBTaGFybWE=?= <bhupesh.sharma@freescale.com>,
+ =?UTF-8?B?Sm9lcmcgUm9lZGVs?= <joro@8bytes.org>,
+ =?UTF-8?B?Sm9jaGVuIEZyaWVkcmljaA==?= <jochen@scram.de>,
+ =?UTF-8?B?Q2xhdWRpdSBNYW5vaWw=?= <claudiu.manoil@freescale.com>,
+ devicetree@vger.kernel.org, =?UTF-8?B?QXJuZCBCZXJnbWFubg==?= <arnd@arndb.de>,
+ =?UTF-8?B?U2NvdHQgV29vZA==?= <oss@buserror.net>,
+ =?UTF-8?B?Um9iIEhlcnJpbmc=?= <robh+dt@kernel.org>,
+ =?UTF-8?B?U2FudG9zaCBTaGlsaW1rYXI=?= <ssantosh@kernel.org>,
+ linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+ l
+To: =?UTF-8?B?WWFuZ2JvIEx1?= <yangbo.lu@nxp.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1474441040-11946-8-git-send-email-yangbo.lu@nxp.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Hi Marcel,
-
-Am 20.09.2016 um 17:32 schrieb Marcel Holtmann:
-> Hi Stefan,
->
->> This patch adds the Ethernet over UART driver for the
->> Qualcomm QCA7000 HomePlug GreenPHY.
->>
->> Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
->> ---
->> drivers/net/ethernet/qualcomm/Kconfig      |  12 +
->> drivers/net/ethernet/qualcomm/Makefile     |   2 +
->> drivers/net/ethernet/qualcomm/qca_common.h |   6 +
->> drivers/net/ethernet/qualcomm/qca_uart.c   | 447 +++++++++++++++++++++++++++++
->> include/uapi/linux/tty.h                   |   1 +
->> 5 files changed, 468 insertions(+)
->> create mode 100644 drivers/net/ethernet/qualcomm/qca_uart.c
->>
->> diff --git a/drivers/net/ethernet/qualcomm/Kconfig b/drivers/net/ethernet/qualcomm/Kconfig
->> index 0d33728..0ede46e 100644
->> --- a/drivers/net/ethernet/qualcomm/Kconfig
->> +++ b/drivers/net/ethernet/qualcomm/Kconfig
->> @@ -30,6 +30,18 @@ config QCA7000_SPI
->> 	  To compile this driver as a module, choose M here. The module
->> 	  will be called qcaspi.
->>
->> +config QCA7000_UART
->> +	tristate "Qualcomm Atheros QCA7000 UART support"
->> +	select QCA7000
->> +	depends on TTY
->> +	---help---
->> +	  This UART protocol driver supports the Qualcomm Atheros QCA7000.
->> +	  The driver implements the tty line discipline N_QCA7K and supports
->> +	  only one netdevice.
->> +
->> +	  To compile this driver as a module, choose M here. The module
->> +	  will be called qcauart.
->> +
-> this seems to be another candidate for having a proper UART or serial bus. Instead of adding one line discipline after another, I think we need to get quickly to having an enumerable bus here.
-
-i noticed Rob's thread about the UART slave device bus and i like the idea.
-
-Stefan
-
->
-> Regards
->
-> Marcel
->
+PtCh0YDQtdC00LAsIDIxINGB0LXQvdGC0Y/QsdGA0Y8gMjAxNiwgOTo1NyArMDM6MDAg0L7RgiBZ
+YW5nYm8gTHUgPHlhbmdiby5sdUBueHAuY29tPjoKPgo+RnJvbTogQXJuZCBCZXJnbWFubiA8IGFy
+bmRAYXJuZGIuZGUgPgo+Cj5XZSBrZWVwIHJ1bm5pbmcgaW50byBjYXNlcyB3aGVyZSBkZXZpY2Ug
+ZHJpdmVycyB3YW50IHRvIGtub3cgdGhlIGV4YWN0Cj52ZXJzaW9uIG9mIHRoZSBhIFNvQyB0aGV5
+IGFyZSBjdXJyZW50bHkgcnVubmluZyBvbi4gSW4gdGhlIHBhc3QsIHRoaXMgaGFzCj51c3VhbGx5
+IGJlZW4gZG9uZSB0aHJvdWdoIGEgdmVuZG9yIHNwZWNpZmljIEFQSSB0aGF0IGNhbiBiZSBjYWxs
+ZWQgYnkgYQo+ZHJpdmVyLCBvciBieSBkaXJlY3RseSBhY2Nlc3Npbmcgc29tZSBraW5kIG9mIHZl
+cnNpb24gcmVnaXN0ZXIgdGhhdCBpcwo+bm90IHBhcnQgb2YgdGhlIGRldmljZSBpdHNlbGYgYnV0
+IHRoYXQgYmVsb25ncyB0byBhIGdsb2JhbCByZWdpc3RlciBhcmVhCj5vZiB0aGUgY2hpcC4KLi4u
+Cj4rY29uc3Qgc3RydWN0IHNvY19kZXZpY2VfYXR0cmlidXRlICpzb2NfZGV2aWNlX21hdGNoKAo+
+K2NvbnN0IHN0cnVjdCBzb2NfZGV2aWNlX2F0dHJpYnV0ZSAqbWF0Y2hlcykKPit7Cj4raW50IHJl
+dCA9IDA7Cj4rCj4raWYgKCFtYXRjaGVzKQo+K3JldHVybiBOVUxMOwo+Kwo+K3doaWxlICghcmV0
+KSB7Cj4raWYgKCEobWF0Y2hlcy0+bWFjaGluZSB8fCBtYXRjaGVzLT5mYW1pbHkgfHwKPisgICAg
+ICBtYXRjaGVzLT5yZXZpc2lvbiB8fCBtYXRjaGVzLT5zb2NfaWQpKQo+K2JyZWFrOwo+K3JldCA9
+IGJ1c19mb3JfZWFjaF9kZXYoJnNvY19idXNfdHlwZSwgTlVMTCwgKHZvaWQgKiltYXRjaGVzLAo+
+KyAgICAgICBzb2NfZGV2aWNlX21hdGNoX29uZSk7Cj4raWYgKCFyZXQpCj4rbWF0Y2hlcysrOwoK
+U28sIHdoYXQgaGFwcGVuIGlmIG5leHQgIm1hdGNoZXMiIChhZnRlciBpbmNyZW1lbnQpIHdpbGwg
+YmUgTlVMTD8KCkkgdGhpbmsgeW91IHNob3VsZCB1c2Ugd2hpbGUobWF0Y2hlcykgYXQgdGhlIHN0
+YXJ0IG9mIHRoaXMgcHJvY2VkdXJlLgoKLS0tCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fXwpsaW51eC1hcm0ta2VybmVsIG1haWxpbmcgbGlzdApsaW51eC1h
+cm0ta2VybmVsQGxpc3RzLmluZnJhZGVhZC5vcmcKaHR0cDovL2xpc3RzLmluZnJhZGVhZC5vcmcv
+bWFpbG1hbi9saXN0aW5mby9saW51eC1hcm0ta2VybmVsCg==
