@@ -1,80 +1,66 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH net-next 7/8] net/mlx5e: XDP TX forwarding support
-Date: Wed, 21 Sep 2016 10:16:49 +0200
-Message-ID: <20160921101649.44894f5b@redhat.com>
-References: <1474293539-2595-1-git-send-email-tariqt@mellanox.com>
-        <1474293539-2595-8-git-send-email-tariqt@mellanox.com>
-        <20160920102943.24732097@brouer.com>
-        <20160920133300.144037fd@redhat.com>
-        <96b40925-0e8e-0230-0701-96c11d6921a1@gmail.com>
-        <20160920154036.GA98644@ast-mbp.thefacebook.com>
-        <84150f05-7eb3-d35c-32fd-4b9853f6f114@gmail.com>
+From: Peter Rosin <peda@axentia.se>
+Subject: Re: [v12, 7/8] base: soc: introduce soc_device_match() interface
+Date: Wed, 21 Sep 2016 10:25:08 +0200
+Message-ID: <aa53da4f-205d-cfa1-c85c-00e82e928bbc@axentia.se>
+References: <1474441040-11946-1-git-send-email-yangbo.lu@nxp.com>
+ <1474441040-11946-8-git-send-email-yangbo.lu@nxp.com>
+ <1474444574.270880035@f136.i.mail.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Eran Ben Elisha <eranbe@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Rana Shahout <ranas@mellanox.com>, brouer@redhat.com
-To: Tariq Toukan <ttoukan.linux@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37188 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752502AbcIUIQy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 21 Sep 2016 04:16:54 -0400
-In-Reply-To: <84150f05-7eb3-d35c-32fd-4b9853f6f114@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Mark Rutland <mark.rutland@arm.com>, ulf.hansson@linaro.org,
+ Xiaobo Xie <xiaobo.xie@nxp.com>, Minghuan Lian <minghuan.lian@nxp.com>,
+ linux-i2c@vger.kernel.org, linux-clk@vger.kernel.org,
+ Qiang Zhao <qiang.zhao@nxp.com>, Russell King <linux@arm.linux.org.uk>,
+ Bhupesh Sharma <bhupesh.sharma@freescale.com>, Joerg Roedel <joro@8bytes.org>,
+ Jochen Friedrich <jochen@scram.de>,
+ Claudiu Manoil <claudiu.manoil@freescale.com>, devicetree@vger.kernel.org,
+ Arnd Bergmann <arnd@arndb.de>, Scott Wood <oss@buserror.net>,
+ Rob Herring <robh+dt@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>,
+ linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+ linux-mmc@vger.kernel.org, linux-kernel@vger.kernel.org,
+ Leo Li <leoyang.li@nxp.com>, iommu@lists.linux-foundation.org,
+ Kumar Gala <galak@codeaurora.org>, linuxppc-dev@lists.ozlabs.org
+To: Alexander Shiyan <shc_work@mail.ru>, Yangbo Lu <yangbo.lu@nxp.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1474444574.270880035@f136.i.mail.ru>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 21 Sep 2016 10:57:34 +0300
-Tariq Toukan <ttoukan.linux@gmail.com> wrote:
-
-> On 20/09/2016 6:40 PM, Alexei Starovoitov wrote:
-> > On Tue, Sep 20, 2016 at 03:53:10PM +0300, Tariq Toukan wrote:  
-> >>>>> +	case XDP_ABORTED:  
-> >>>> It is not clearly defined, but I believe XDP_ABORTED should also result
-> >>>> in a warning (calling bpf_warn_invalid_xdp_action(act)).  
-> >> I'll add this.  
-> > Certainly NOT.
-> > XDP_ABORTED is an exception case when program does divide by zero.
-> > It should NOT do bpf_warn. It must drop the packet.
-> > We discussed it several months ago.
-> > See mlx4/en_rx.c for canonical implementation.
-> >  
-> This is also the example given here:
-> https://prototype-kernel.readthedocs.io/en/latest/networking/XDP/implementation/xdp_actions.html#code-example
-> 
-
-Nice, the documentation is already useful :-)))
-
-I actually adjusted the code example after this feedback. Which I also
-wrote in this email thread about updating the documentation.  I already
-pointed to this commit, but here is a more specific link:
-
-https://github.com/netoptimizer/prototype-kernel/commit/3925249089ae4#diff-c9b8ab4ded3eed2e92f8d898111d8e9bL74
-
-
-> I prefer to align with the documentation (and with current mlx4 driver 
-> code), which means keeping the XDP_ABORTED w/o a warning.
-> Anyway, I don't think this should block the coming V2. If you decide to 
-> change documentation/specification, we will simply adjust our drivers 
-> accordingly.
-
-This is not blocking your V2, please resend so we can all start working
-on a common code base for mlx5 (I'm currently running mlx5 with my own
-one-page-per-packet patch... and my page_pool on-top)
-
-As discussed in this thread, the outcome will likely be a new interface
-for Troubleshooting and Monitoring, as documented and summarized here
-so we don't forget:
-
-https://prototype-kernel.readthedocs.io/en/latest/networking/XDP/implementation/userspace_api.html#troubleshooting-and-monitoring
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+T24gMjAxNi0wOS0yMSAwOTo1NiwgQWxleGFuZGVyIFNoaXlhbiB3cm90ZToKPj4g0KHRgNC10LTQ
+sCwgMjEg0YHQtdC90YLRj9Cx0YDRjyAyMDE2LCA5OjU3ICswMzowMCDQvtGCIFlhbmdibyBMdSA8
+eWFuZ2JvLmx1QG54cC5jb20+Ogo+Pgo+PiBGcm9tOiBBcm5kIEJlcmdtYW5uIDwgYXJuZEBhcm5k
+Yi5kZSA+Cj4+Cj4+IFdlIGtlZXAgcnVubmluZyBpbnRvIGNhc2VzIHdoZXJlIGRldmljZSBkcml2
+ZXJzIHdhbnQgdG8ga25vdyB0aGUgZXhhY3QKPj4gdmVyc2lvbiBvZiB0aGUgYSBTb0MgdGhleSBh
+cmUgY3VycmVudGx5IHJ1bm5pbmcgb24uIEluIHRoZSBwYXN0LCB0aGlzIGhhcwo+PiB1c3VhbGx5
+IGJlZW4gZG9uZSB0aHJvdWdoIGEgdmVuZG9yIHNwZWNpZmljIEFQSSB0aGF0IGNhbiBiZSBjYWxs
+ZWQgYnkgYQo+PiBkcml2ZXIsIG9yIGJ5IGRpcmVjdGx5IGFjY2Vzc2luZyBzb21lIGtpbmQgb2Yg
+dmVyc2lvbiByZWdpc3RlciB0aGF0IGlzCj4+IG5vdCBwYXJ0IG9mIHRoZSBkZXZpY2UgaXRzZWxm
+IGJ1dCB0aGF0IGJlbG9uZ3MgdG8gYSBnbG9iYWwgcmVnaXN0ZXIgYXJlYQo+PiBvZiB0aGUgY2hp
+cC4KPiAuLi4KPj4gK2NvbnN0IHN0cnVjdCBzb2NfZGV2aWNlX2F0dHJpYnV0ZSAqc29jX2Rldmlj
+ZV9tYXRjaCgKPj4gK2NvbnN0IHN0cnVjdCBzb2NfZGV2aWNlX2F0dHJpYnV0ZSAqbWF0Y2hlcykK
+Pj4gK3sKPj4gK2ludCByZXQgPSAwOwo+PiArCj4+ICtpZiAoIW1hdGNoZXMpCj4+ICtyZXR1cm4g
+TlVMTDsKPj4gKwo+PiArd2hpbGUgKCFyZXQpIHsKPj4gK2lmICghKG1hdGNoZXMtPm1hY2hpbmUg
+fHwgbWF0Y2hlcy0+ZmFtaWx5IHx8Cj4+ICsgICAgICBtYXRjaGVzLT5yZXZpc2lvbiB8fCBtYXRj
+aGVzLT5zb2NfaWQpKQo+PiArYnJlYWs7Cj4+ICtyZXQgPSBidXNfZm9yX2VhY2hfZGV2KCZzb2Nf
+YnVzX3R5cGUsIE5VTEwsICh2b2lkICopbWF0Y2hlcywKPj4gKyAgICAgICBzb2NfZGV2aWNlX21h
+dGNoX29uZSk7Cj4+ICtpZiAoIXJldCkKPj4gK21hdGNoZXMrKzsKPiAKPiBTbywgd2hhdCBoYXBw
+ZW4gaWYgbmV4dCAibWF0Y2hlcyIgKGFmdGVyIGluY3JlbWVudCkgd2lsbCBiZSBOVUxMPwoKQSBj
+cmFzaD8KCj4gSSB0aGluayB5b3Ugc2hvdWxkIHVzZSB3aGlsZShtYXRjaGVzKSBhdCB0aGUgc3Rh
+cnQgb2YgdGhpcyBwcm9jZWR1cmUuCgoqYXJyZ2gqCgoqSWYqIG1hdGNoZXMgd3JhcCwgeW91IGlu
+ZGVlZCBoYXZlICpiaWcqIHByb2JsZW1zLiAqRWxzZXdoZXJlKgoKSGludDogUGxlYXNlIHJlYWQg
+dGhlIHJldmlldyBjb21tZW50cyBvbiB0aGUgcHJldmlvdXMgdmVyc2lvbiBvZiB0aGlzCnNlcmll
+cyBbMV0gYmVmb3JlIGNvbW1lbnRpbmcgZnVydGhlci4KCkNoZWVycywKUGV0ZXIKClsxXSBodHRw
+czovL3d3dy5tYWlsLWFyY2hpdmUuY29tL25ldGRldkB2Z2VyLmtlcm5lbC5vcmcvbXNnMTI2NjE3
+Lmh0bWwKCgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18K
+bGludXgtYXJtLWtlcm5lbCBtYWlsaW5nIGxpc3QKbGludXgtYXJtLWtlcm5lbEBsaXN0cy5pbmZy
+YWRlYWQub3JnCmh0dHA6Ly9saXN0cy5pbmZyYWRlYWQub3JnL21haWxtYW4vbGlzdGluZm8vbGlu
+dXgtYXJtLWtlcm5lbAo=
