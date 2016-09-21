@@ -1,54 +1,58 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/15] i40e: Fix for extra byte swap in tunnel setup
-Date: Tue, 20 Sep 2016 20:43:45 -0700
-Message-ID: <1474429432-102772-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/15] i40e: avoid potential null pointer dereference when assigning len
+Date: Tue, 20 Sep 2016 20:43:46 -0700
+Message-ID: <1474429432-102772-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1474429432-102772-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, guru.anbalagane@oracle.com,
+Cc: Colin Ian King <colin.king@canonical.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:33017 "EHLO mga06.intel.com"
+Received: from mga06.intel.com ([134.134.136.31]:43488 "EHLO mga06.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754843AbcIUDn5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 20 Sep 2016 23:43:57 -0400
+        id S1754783AbcIUDn6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 20 Sep 2016 23:43:58 -0400
 In-Reply-To: <1474429432-102772-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+From: Colin Ian King <colin.king@canonical.com>
 
-This patch fixes an issue where we were byte swapping the port
-parameter, then byte swapping it again in function execution.
-Obviously, that's unnecessary, so take it out of the function calls.
-Without this patch, the udp based tunnel configuration would
-not be correct.
+There is a sanitcy check for desc being null in the first line of
+function i40evf_debug_aq.  However, before that, aq_desc is cast from
+desc, and aq_desc is being dereferenced on the assignment of len, so
+this could be a potential null pointer deference.  Fix this by moving
+the initialization of len to the code block where len is being used
+and hence at this point we know it is OK to dereference aq_desc.
 
-Change-ID: I788d83c5bd5732170f1a81dbfa0b1ac3ca8ea5b7
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40e_common.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 45b9c67..3fdaf36 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -7154,9 +7154,9 @@ static void i40e_sync_udp_filters_subtask(struct i40e_pf *pf)
- 			pf->pending_udp_bitmap &= ~BIT_ULL(i);
- 			port = pf->udp_ports[i].index;
- 			if (port)
--				ret = i40e_aq_add_udp_tunnel(hw, ntohs(port),
--						     pf->udp_ports[i].type,
--						     NULL, NULL);
-+				ret = i40e_aq_add_udp_tunnel(hw, port,
-+							pf->udp_ports[i].type,
-+							NULL, NULL);
- 			else
- 				ret = i40e_aq_del_udp_tunnel(hw, i, NULL);
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_common.c b/drivers/net/ethernet/intel/i40evf/i40e_common.c
+index 4db0c03..7953c13 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_common.c
+@@ -302,7 +302,6 @@ void i40evf_debug_aq(struct i40e_hw *hw, enum i40e_debug_mask mask, void *desc,
+ 		   void *buffer, u16 buf_len)
+ {
+ 	struct i40e_aq_desc *aq_desc = (struct i40e_aq_desc *)desc;
+-	u16 len = le16_to_cpu(aq_desc->datalen);
+ 	u8 *buf = (u8 *)buffer;
+ 	u16 i = 0;
  
+@@ -326,6 +325,8 @@ void i40evf_debug_aq(struct i40e_hw *hw, enum i40e_debug_mask mask, void *desc,
+ 		   le32_to_cpu(aq_desc->params.external.addr_low));
+ 
+ 	if ((buffer != NULL) && (aq_desc->datalen != 0)) {
++		u16 len = le16_to_cpu(aq_desc->datalen);
++
+ 		i40e_debug(hw, mask, "AQ CMD Buffer:\n");
+ 		if (buf_len < len)
+ 			len = buf_len;
 -- 
 2.7.4
