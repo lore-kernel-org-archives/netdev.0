@@ -1,35 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: handle multiple ports in
- ATU
-Date: Wed, 21 Sep 2016 00:05:10 -0400 (EDT)
-Message-ID: <20160921.000510.608510333412427143.davem@davemloft.net>
-References: <20160919235611.31975-1-vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next] net: ethernet: mediatek: enhance with
+ avoiding superfluous assignment inside mtk_get_ethtool_stats
+Date: Wed, 21 Sep 2016 00:07:32 -0400 (EDT)
+Message-ID: <20160921.000732.1476178907311873337.davem@davemloft.net>
+References: <1474342008-22496-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160919235611.31975-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: john@phrozen.org, nbd@openwrt.org, netdev@vger.kernel.org,
+        linux-mediatek@lists.infradead.org, keyhaede@gmail.com,
+        objelf@gmail.com
+To: sean.wang@mediatek.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:33122 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752415AbcIUEHf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2016 00:07:35 -0400
+In-Reply-To: <1474342008-22496-1-git-send-email-sean.wang@mediatek.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Mon, 19 Sep 2016 19:56:11 -0400
+From: <sean.wang@mediatek.com>
+Date: Tue, 20 Sep 2016 11:26:48 +0800
 
-> An address can be loaded in the ATU with multiple ports, for instance
-> when adding multiple ports to a Multicast group with "bridge mdb".
+> From: Sean Wang <sean.wang@mediatek.com>
 > 
-> The current code doesn't allow that. Add an helper to get a single entry
-> from the ATU, then set or clear the requested port, before loading the
-> entry back in the ATU.
+> data_src is unchanged inside the loop, so this patch moves
+> the assignment to outside the loop to avoid unnecessarily
+> assignment
 > 
-> Note that the required _mv88e6xxx_atu_getnext function is defined below
-> mv88e6xxx_port_db_load_purge, so forward-declare it for the moment. The
-> ATU code will be isolated in future patches.
-> 
-> Fixes: 83dabd1fa84c ("net: dsa: mv88e6xxx: make switchdev DB ops generic")
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
 
 Applied.
