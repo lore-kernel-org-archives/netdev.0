@@ -1,10 +1,10 @@
 From: Joel Stanley <joel@jms.id.au>
-Subject: [PATCH net-next v2 4/6] net/faraday: Clear stale interrupts
-Date: Thu, 22 Sep 2016 08:35:01 +0930
-Message-ID: <20160921230503.23309-5-joel@jms.id.au>
+Subject: [PATCH net-next v2 5/6] net/faraday: Configure old MDIO interface on Aspeed SoCs
+Date: Thu, 22 Sep 2016 08:35:02 +0930
+Message-ID: <20160921230503.23309-6-joel@jms.id.au>
 References: <20160921230503.23309-1-joel@jms.id.au>
-Cc: clg@kaod.org, Gavin Shan <gwshan@linux.vnet.ibm.com>,
-        andrew@lunn.ch, andrew@aj.id.au, netdev@vger.kernel.org,
+Cc: clg@kaod.org, gwshan@linux.vnet.ibm.com, andrew@lunn.ch,
+        andrew@aj.id.au, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org, benh@kernel.crashing.org
 To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -12,43 +12,57 @@ In-Reply-To: <20160921230503.23309-1-joel@jms.id.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Gavin Shan <gwshan@linux.vnet.ibm.com>
+The Aspeed SoCs have a new MDIO interface as an option in the G4 and G5
+SoCs. The old one is still available, so select it in order to remain
+compatible with the ftgmac100 driver.
 
-There is stale interrupt (PHYSTS_CHG in ISR, bit#6 in 0x0) from
-the bootloader (uboot) when enabling the MAC. The stale interrupts
-aren't part of kernel and should be cleared.
-
-This clears the stale interrupts in ISR (0x0) when enabling the MAC.
-
-Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
 Signed-off-by: Joel Stanley <joel@jms.id.au>
 ---
- drivers/net/ethernet/faraday/ftgmac100.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/net/ethernet/faraday/ftgmac100.c | 9 +++++++++
+ drivers/net/ethernet/faraday/ftgmac100.h | 5 +++++
+ 2 files changed, 14 insertions(+)
 
 diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index 47f512224b57..189373743ddf 100644
+index 189373743ddf..e3653b14008a 100644
 --- a/drivers/net/ethernet/faraday/ftgmac100.c
 +++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -1112,6 +1112,7 @@ static int ftgmac100_poll(struct napi_struct *napi, int budget)
- static int ftgmac100_open(struct net_device *netdev)
- {
+@@ -1252,12 +1252,21 @@ static int ftgmac100_setup_mdio(struct net_device *netdev)
  	struct ftgmac100 *priv = netdev_priv(netdev);
-+	unsigned int status;
- 	int err;
+ 	struct platform_device *pdev = to_platform_device(priv->dev);
+ 	int i, err = 0;
++	u32 reg;
  
- 	err = ftgmac100_alloc_buffers(priv);
-@@ -1137,6 +1138,11 @@ static int ftgmac100_open(struct net_device *netdev)
+ 	/* initialize mdio bus */
+ 	priv->mii_bus = mdiobus_alloc();
+ 	if (!priv->mii_bus)
+ 		return -EIO;
  
- 	ftgmac100_init_hw(priv);
- 	ftgmac100_start_hw(priv, priv->use_ncsi ? 100 : 10);
++	if (of_machine_is_compatible("aspeed,ast2400") ||
++	    of_machine_is_compatible("aspeed,ast2500")) {
++		/* This driver supports the old MDIO interface */
++		reg = ioread32(priv->base + FTGMAC100_OFFSET_REVR);
++		reg &= ~FTGMAC100_REVR_NEW_MDIO_INTERFACE;
++		iowrite32(reg, priv->base + FTGMAC100_OFFSET_REVR);
++	};
 +
-+	/* Clear stale interrupts */
-+	status = ioread32(priv->base + FTGMAC100_OFFSET_ISR);
-+	iowrite32(status, priv->base + FTGMAC100_OFFSET_ISR);
+ 	priv->mii_bus->name = "ftgmac100_mdio";
+ 	snprintf(priv->mii_bus->id, MII_BUS_ID_SIZE, "%s-%d",
+ 		 pdev->name, pdev->id);
+diff --git a/drivers/net/ethernet/faraday/ftgmac100.h b/drivers/net/ethernet/faraday/ftgmac100.h
+index c258586ce4a4..8a377ab1d127 100644
+--- a/drivers/net/ethernet/faraday/ftgmac100.h
++++ b/drivers/net/ethernet/faraday/ftgmac100.h
+@@ -134,6 +134,11 @@
+ #define FTGMAC100_DMAFIFOS_TXDMA_REQ		(1 << 31)
+ 
+ /*
++ * Feature Register
++ */
++#define FTGMAC100_REVR_NEW_MDIO_INTERFACE	BIT(31)
 +
- 	if (netdev->phydev)
- 		phy_start(netdev->phydev);
- 	else if (priv->use_ncsi)
++/*
+  * Receive buffer size register
+  */
+ #define FTGMAC100_RBSR_SIZE(x)		((x) & 0x3fff)
 -- 
 2.9.3
