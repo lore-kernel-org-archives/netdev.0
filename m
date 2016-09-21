@@ -1,11 +1,10 @@
 From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [net-next 02/15] i40e: Enable VF specific ethtool statistics via
- VF Port representor netdevs
-Date: Wed, 21 Sep 2016 09:54:43 +0300
-Message-ID: <CAJ3xEMiKDZ5uAi_JS7U=A7e81khMtXPWWiGGiozAC-=R=b6fOA@mail.gmail.com>
+Subject: Re: [net-next 01/15] i40e: Introduce VF port representor/control netdevs
+Date: Wed, 21 Sep 2016 10:04:28 +0300
+Message-ID: <CAJ3xEMgMkz1FZ-QObMvc28JQT0Osrf-k7_RfanUYkYP=F8jZGQ@mail.gmail.com>
 References: <1474429432-102772-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1474429432-102772-3-git-send-email-jeffrey.t.kirsher@intel.com>
- <CAJ3xEMhM63HxyQxv3YyN7Lb3uCOWsA3aqfkhnuzdJqtNRty8Zw@mail.gmail.com> <57E221B3.2000004@intel.com>
+ <1474429432-102772-2-git-send-email-jeffrey.t.kirsher@intel.com>
+ <CAJ3xEMhtyrS_jKrZ8UYWDi-UjK4RuxbwUSs8H=nFqWrTgzDVdw@mail.gmail.com> <57E21E74.5090707@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
@@ -14,35 +13,76 @@ Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
         "nhorman@redhat.com" <nhorman@redhat.com>,
         "sassmann@redhat.com" <sassmann@redhat.com>,
         "jogreene@redhat.com" <jogreene@redhat.com>,
-        guru.anbalagane@oracle.com
+        guru.anbalagane@oracle.com, Ilya Lesokhin <ilyal@mellanox.com>,
+        Andy Gospodarek <andy@greyhouse.net>,
+        John Fastabend <john.r.fastabend@intel.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Rony Efraim <ronye@mellanox.com>
 To: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f44.google.com ([209.85.218.44]:32936 "EHLO
-        mail-oi0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753367AbcIUGyt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2016 02:54:49 -0400
-Received: by mail-oi0-f44.google.com with SMTP id r126so49567281oib.0
-        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 23:54:44 -0700 (PDT)
-In-Reply-To: <57E221B3.2000004@intel.com>
+Received: from mail-oi0-f65.google.com ([209.85.218.65]:35565 "EHLO
+        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752733AbcIUHEa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2016 03:04:30 -0400
+Received: by mail-oi0-f65.google.com with SMTP id n202so3124124oig.2
+        for <netdev@vger.kernel.org>; Wed, 21 Sep 2016 00:04:29 -0700 (PDT)
+In-Reply-To: <57E21E74.5090707@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 21, 2016 at 8:59 AM, Samudrala, Sridhar
+On Wed, Sep 21, 2016 at 8:45 AM, Samudrala, Sridhar
 <sridhar.samudrala@intel.com> wrote:
-> On 9/20/2016 9:26 PM, Or Gerlitz wrote:
+> On 9/20/2016 9:22 PM, Or Gerlitz wrote:
+>> On Wed, Sep 21, 2016 at 6:43 AM, Jeff Kirsher
+>> <jeffrey.t.kirsher@intel.com> wrote:
+>>>
+>>> From: Sridhar Samudrala <sridhar.samudrala@intel.com>
+>>> This patch enables creation of a VF Port representor/Control netdev
+>>> associated with each VF. These netdevs can be used to control and
+>>> configure
+>>> VFs from PFs namespace. They enable exposing VF statistics, configuring
+>>> link state, mtu, fdb/vlan entries etc.
+>>
+>> What happens if someone does a xmit on the VF representor, does the
+>> packet show up @ the VF?
+>> and what happens of the VF xmits and there's no HW steering rule that
+>> matches this, does
+>> the frame show up @ the VF rep on the host?
 
->> Now, when the SW stats are finally upstream for 4.9 in net-next, the
->> correct approach
->> for the VF reps counters is to follow the architecture presented there
->> [1] -- and this is
->> for the netlink based standard counters. Once you do that, there's no
->> need to expose
->> the VF HW counters through  ethtool of the VF rep.
+> TX/RX are not yet supported via VFPR netdevs in this patch series.
+> Will be submitting this support in the next patchset.
 
-> Sure. Will look into it.  However, i think we can keep ethtool support also
-> as VFPR represents the switch port corresponding to the VF.
+Okay, good.
 
-Exactly b/c the VFPR represented the VF switch port, their "normal" stats
-is what you are exposing here through ethtool, you can just drop this and
-move to the strategy introduced in Nogah's work. Once you support TX/RX
-on the VFPRs you can also add the SW stats she added too.
+>> In other words, can these VF reps serve for setting up host SW based
+>> switching which you
+>> can later offload (through TC, bridge, netfilter, etc)?
+
+> Yes. These offloads will be possible  via VFPRs.
+
+cool
+
+>> I am posing these questions because in downstream patch you are adding
+>> devlink support
+>> for set/get the e-switch mode and you declare the default mode to be switchdev.
+
+>> When the switchdev mode was introduced in 4.8 these RX/TX
+>> characteristics were defined
+>> to be an essential (== requirement) part for a driver to support that mode.
+
+> The current patchset introduces the basic VFPR support starting with
+> exposing VF stats and syncing link state between VFs and VFPRs.
+> We decided to declare the default mode to be switchdev so that the new code
+> paths will get exercised by default during normal testing.
+
+so what happens after this patchset is applied and before the future
+work is submitted?
+RX/TX slow path through the VFPRs isn't supported and what about fast
+path? in other words
+what happens when someone loads the driver, sets SRIOV (--> the driver
+set itself to switchdev mode
+and VFPRs are created) and then a VF sends a packet? do you still put
+into the HW the legacy DMAC
+based switching rules? I am not following...
+
+Or.
