@@ -1,146 +1,65 @@
-From: Sean Wang <sean.wang@mediatek.com>
-Subject: Re: [PATCH net-next 3/3] net: ethernet: mediatek: add the dts property to set if TRGMII supported on GMAC0
-Date: Wed, 21 Sep 2016 14:16:30 +0800
-Message-ID: <1474438590-6855-1-git-send-email-sean.wang@mediatek.com>
-References: <1474358360-29901-4-git-send-email-sean.wang@mediatek.com>
+From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
+Subject: [PATCH] brcmfmac: fix memory leak in brcmf_fill_bss_param
+Date: Wed, 21 Sep 2016 08:23:24 +0200
+Message-ID: <20160921062327.28729-1-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <john@phrozen.org>, <davem@davemloft.net>, <nbd@openwrt.org>,
-        <netdev@vger.kernel.org>, <linux-mediatek@lists.infradead.org>,
-        <keyhaede@gmail.com>
-To: <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw02.mediatek.com ([210.61.82.184]:25776 "EHLO
-        mailgw02.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752852AbcIUGQg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2016 02:16:36 -0400
-In-Reply-To: <1474358360-29901-4-git-send-email-sean.wang@mediatek.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal@milecki.pl>,
+        Arend van Spriel <arend.vanspriel@broadcom.com>,
+        Franky Lin <franky.lin@broadcom.com>,
+        Hante Meuleman <hante.meuleman@broadcom.com>,
+        Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
+        "Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+        linux-wireless@vger.kernel.org (open list:BROADCOM BRCM80211
+        IEEE802.11n WIRELESS DRIVER),
+        brcm80211-dev-list.pdl@broadcom.com (open list:BROADCOM BRCM80211
+        IEEE802.11n WIRELESS DRIVER),
+        netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
+        linux-kernel@vger.kernel.org (open list)
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Date: Tue, 20 Sep 2016 21:37:58 +0200, Andrew Lunn <andrew@lunn.ch> wrote:
->On Tue, Sep 20, 2016 at 03:59:20PM +0800, sean.wang@mediatek.com wrote:
->> From: Sean Wang <sean.wang@mediatek.com>
->>
->> Add the dts property for the capability if TRGMII supported on GAMC0
->>
->> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
->> ---
->>  Documentation/devicetree/bindings/net/mediatek-net.txt | 5 ++++-
->>  1 file changed, 4 insertions(+), 1 deletion(-)
->>
->> diff --git a/Documentation/devicetree/bindings/net/mediatek-net.txt b/Documentation/devicetree/bindings/net/mediatek-net.txt
->> index 6103e55..32f79d8 100644
->> --- a/Documentation/devicetree/bindings/net/mediatek-net.txt
->> +++ b/Documentation/devicetree/bindings/net/mediatek-net.txt
->> @@ -31,7 +31,10 @@ Optional properties:
->>  Required properties:
->>  - compatible: Should be "mediatek,eth-mac"
->>  - reg: The number of the MAC
->> -- phy-handle: see ethernet.txt file in the same directory.
->> +- phy-handle: see ethernet.txt file in the same directory and
->> +     the additional phy-mode "tgrmii" is provided in order to connect
->> +     with the internal switch MT7530 which is only applicable when reg
->> +     is equal to 0.
->
->Humm. How is the switch connected? Is it on the MDIO bus?
+From: Rafał Miłecki <rafal@milecki.pl>
 
-the switch is connected to MDIO bus
+This function is called from get_station callback which means that every
+time user space was getting/dumping station(s) we were leaking 2 KiB.
 
->If it is on the mdio bus, the binding is going to look something like:
->
->eth: ethernet@1b100000 {
->        compatible = "mediatek,mt7623-eth";
->        reg = <0 0x1b100000 0 0x20000>;
->        clocks = <&topckgen CLK_TOP_ETHIF_SEL>,
->                 <&ethsys CLK_ETHSYS_ESW>,
->                 <&ethsys CLK_ETHSYS_GP2>,
->                 <&ethsys CLK_ETHSYS_GP1>;
->        clock-names = "ethif", "esw", "gp2", "gp1";
->        interrupts = <GIC_SPI 200 IRQ_TYPE_LEVEL_LOW
->                      GIC_SPI 199 IRQ_TYPE_LEVEL_LOW
->                      GIC_SPI 198 IRQ_TYPE_LEVEL_LOW>;
->        power-domains = <&scpsys MT2701_POWER_DOMAIN_ETH>;
->        resets = <&ethsys MT2701_ETHSYS_ETH_RST>;
->        reset-names = "eth";
->        mediatek,ethsys = <&ethsys>;
->        mediatek,pctl = <&syscfg_pctl_a>;
->        #address-cells = <1>;
->        #size-cells = <0>;
->
->        gmac1: mac@0 {
->                compatible = "mediatek,eth-mac";
->                reg = <0>;
->        };
->
->        gmac2: mac@1 {
->                compatible = "mediatek,eth-mac";
->                reg = <1>;
->        };
->
->        mdio-bus {
->               reg = <1>;
->               #address-cells = <1>;
->               #size-cells = <0>;
->
->               switch0: switch0@0 {
->                       compatible = "marvell,mv88e6085";
->                       #address-cells = <1>;
->                       #size-cells = <0>;
->                       reg = <0>;
->                       dsa,member = <0 0>;
->
->                       ports {
->                               #address-cells = <1>;
->                               #size-cells = <0>;
->                               port@0 {
->                                       reg = <0>;
->                                       label = "lan0";
->...
->...
->In this case the switch is an MDIO device, not an PHY. It will not
->have an phy-mode. It cannot have a phy mode, it is not a PHY.
->
->Or am i missing something here?
->
->Thanks
->
+Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
+Fixes: 1f0dc59a6de ("brcmfmac: rework .get_station() callback")
+Cc: stable@vger.kernel.org # 4.2+
+---
+Kalle, ideally this should go as 4.8 fix, but I'm aware it's quite late.
+If you are not planning to send another pull request, just get it for
+the next release and let's let stable guys backport it.
+---
+ drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-1)
-
-The switch driver is not supported for DSA so far yet 
-but DSA is good thing and I will try make it happen
-in the near future.
-
-And another question about DSA, that is
-if I use DSA for switch, how to know the relationship
-between MAC and DSA ? such like I could know relationship 
-between MAC and PHY by phy-handle.
-
-The cause I ask is becasue I think it's good if the topology
-about MAC/PHYs/Switch is known just by dts files.
-
-2)
-
-The phy-mode I mention is for fixed-link. For current MAC driver, 
-it just uses fixed phy to adapt into the part of switch, so the 
-device tree looks something like the below. 
-
-&eth {
-        status = "okay";
-        gmac0: mac@0 {
-                compatible = "mediatek,eth-mac";
-                reg = <0>;
-                phy-mode = "trgmii";
-                fixed-link {
-                        speed = <1000>;
-                        full-duplex;
-                        pause;
-                };
-        };
-
-        gmac1: mac@1 {
-                compatible = "mediatek,eth-mac";
-                reg = <1>;
-                phy-handle = <&phy5>;
-        };
+diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
+index b8aec5e5..62a7675 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
++++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
+@@ -2533,7 +2533,7 @@ static void brcmf_fill_bss_param(struct brcmf_if *ifp, struct station_info *si)
+ 				     WL_BSS_INFO_MAX);
+ 	if (err) {
+ 		brcmf_err("Failed to get bss info (%d)\n", err);
+-		return;
++		goto out_kfree;
+ 	}
+ 	si->filled |= BIT(NL80211_STA_INFO_BSS_PARAM);
+ 	si->bss_param.beacon_interval = le16_to_cpu(buf->bss_le.beacon_period);
+@@ -2545,6 +2545,9 @@ static void brcmf_fill_bss_param(struct brcmf_if *ifp, struct station_info *si)
+ 		si->bss_param.flags |= BSS_PARAM_FLAGS_SHORT_PREAMBLE;
+ 	if (capability & WLAN_CAPABILITY_SHORT_SLOT_TIME)
+ 		si->bss_param.flags |= BSS_PARAM_FLAGS_SHORT_SLOT_TIME;
++
++out_kfree:
++	kfree(buf);
+ }
+ 
+ static s32
+-- 
+2.9.3
