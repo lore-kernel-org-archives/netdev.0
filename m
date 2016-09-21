@@ -1,48 +1,39 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next 5/7] rhashtable: abstract out function to get hash
-Date: Tue, 20 Sep 2016 20:17:43 -0700
-Message-ID: <CALx6S35K5BcMeVtgVZXJNYT51Lho7ZT4xY5ZU5mhYVC9vUwzfQ@mail.gmail.com>
-References: <1473895376-347096-6-git-send-email-tom@herbertland.com>
- <20160920093659.GA20975@gondor.apana.org.au> <20160920175803.GE3291@pox.localdomain>
- <20160921024613.GA27473@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Thomas Graf <tgraf@suug.ch>,
-        "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>,
-        Kernel Team <kernel-team@fb.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: [PATCH net-next] MAINTAINERS: Update b44 maintainer.
+Date: Tue, 20 Sep 2016 23:33:15 -0400
+Message-ID: <1474428795-25095-1-git-send-email-michael.chan@broadcom.com>
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:33974 "EHLO
-        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753528AbcIUDRo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 23:17:44 -0400
-Received: by mail-qk0-f196.google.com with SMTP id b204so2328697qkc.1
-        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 20:17:43 -0700 (PDT)
-In-Reply-To: <20160921024613.GA27473@gondor.apana.org.au>
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:34029 "EHLO
+        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753797AbcIUDdZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 23:33:25 -0400
+Received: by mail-pf0-f179.google.com with SMTP id p64so14129855pfb.1
+        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 20:33:25 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 20, 2016 at 7:46 PM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> On Tue, Sep 20, 2016 at 07:58:03PM +0200, Thomas Graf wrote:
->>
->> I understand this particular patch as an effort not to duplicate
->> hash function selection such as jhash vs jhash2 based on key_len.
->
-> If the rhashtable params stay non-const as is then this is going
-> to produce some monstrous code which will be worse than using
-> jhash unconditionally.
->
-I will look at keep params constant.
+Taking over as maintainer since Gary Zambrano is no longer working
+for Broadcom.
 
-Tom
+Signed-off-by: Michael Chan <michael.chan@broadcom.com>
+---
+ MAINTAINERS | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> If the rhashtable params are made const then you'll already know
-> whether jhash or jhash2 is used.
->
-> Cheers,
-> --
-> Email: Herbert Xu <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+diff --git a/MAINTAINERS b/MAINTAINERS
+index ce80b36..7626f7836 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -2509,7 +2509,7 @@ S:	Supported
+ F:	kernel/bpf/
+ 
+ BROADCOM B44 10/100 ETHERNET DRIVER
+-M:	Gary Zambrano <zambrano@broadcom.com>
++M:	Michael Chan <michael.chan@broadcom.com>
+ L:	netdev@vger.kernel.org
+ S:	Supported
+ F:	drivers/net/ethernet/broadcom/b44.*
+-- 
+1.8.3.1
