@@ -1,45 +1,61 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH v2 0/2] make POSIX timers optional
-Date: Wed, 21 Sep 2016 10:38:52 +0200
-Message-ID: <20160921083851.GA27145@localhost.localdomain>
-References: <1474401400-18491-1-git-send-email-nicolas.pitre@linaro.org>
- <20160920202556.GA6713@localhost.localdomain>
- <20160920204556.GA7555@localhost.localdomain>
- <alpine.LFD.2.20.1609201655200.9311@knanqh.ubzr>
- <alpine.DEB.2.20.1609202300140.5476@nanos>
- <alpine.LFD.2.20.1609201833010.9311@knanqh.ubzr>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH RFC 1/3] xdp: Infrastructure to generalize XDP
+Date: Wed, 21 Sep 2016 10:42:34 +0200
+Message-ID: <57E247FA.3020501@iogearbox.net>
+References: <1474408824-418864-1-git-send-email-tom@herbertland.com>        <1474408824-418864-2-git-send-email-tom@herbertland.com>        <57E1CDE3.5030404@fb.com> <20160921083955.7cdba944@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-        John Stultz <john.stultz@linaro.org>,
-        Josh Triplett <josh@joshtriplett.org>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Nicolas Pitre <nicolas.pitre@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.20.1609201833010.9311@knanqh.ubzr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
+        netdev@vger.kernel.org, kernel-team@fb.com, tariqt@mellanox.com,
+        bblanco@plumgrid.com, alexei.starovoitov@gmail.com,
+        eric.dumazet@gmail.com
+To: Jesper Dangaard Brouer <brouer@redhat.com>,
+        Alexei Starovoitov <ast@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:48070 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751266AbcIUImn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2016 04:42:43 -0400
+In-Reply-To: <20160921083955.7cdba944@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 20, 2016 at 06:47:02PM -0400, Nicolas Pitre wrote:
-> IMHO it is much nicer for the poor user configuring the kernel to have a 
-> single configuration prompt for PTP support, and then have whatever 
-> driver that can provide a PTP clock just do it (or omit it) based on 
-> that single prompt.  Prompting for PTP support for each individual 
-> ethernet driver is silly.
+On 09/21/2016 08:39 AM, Jesper Dangaard Brouer wrote:
+> On Tue, 20 Sep 2016 17:01:39 -0700 Alexei Starovoitov <ast@fb.com> wrote:
+>
+>>   >  - Provides a more structured environment that is extensible to new
+>>   >    features while being mostly transparent to the drivers
+>>
+>> don't see that in these patches either.
+>> Things like packet size change (that we're working on) still
+>> has to be implemented for every driver.
+>> Existing XDP_TX, XDP_DROP have to be implemented per driver as well.
+>>
+>> Also introduction of xdp.h breaks existing UAPI.
+>> That's not acceptable either.
+>
+> This response piss me off!@@#$
+>
+> We are the early stages of XDP development. Users cannot consider XDP a
+> stable UAPI yet.  I added a big fat warning to the docs here[1].
+>
+> If you already consider this a stable API, then I will suggest that we
+> disable XDP or rip the hole thing out again!!! Create a separate tree
+> where we can cooperate on getting this right, before forcing this
+> upstream.  I have raise concern about this several times upstream, but
+> the patches got applied anyway, because you Alexei, promised this was
+> super extendable and we could still change the APIs later. Maybe you
+> tricked me?! I've started to look at the details, and I'm not happy with
+> the extensibility.
 
-Embedded people like to optimize their systems.  One pattern I have
-more than once is that a multihomed design designates a special PTP
-interface, often with a different HW than the other ports.  PTP
-support adds extra code into the hot path, and for that reason people
-want to turn it off on interfaces that don't need it.
-
-So Thomas' idea is a better solution.  It reduces the tinification in
-this area to a careful kernel configuration.  Yes, that is more work
-to configure than having one "big red button" to push.  The burden is
-on the tinification user to get this right, and that is the right way,
-IMHO.  After all, this can be scripted, and such users have to
-configure very carefully in any case.
-
-Thanks,
-Richard
+I don't quite follow you here, Jesper. If you're talking about uapi-related
+extensibility wrt struct xdp_md, then it's done the same way as done for tc
+with 'shadow' struct __sk_buff. The concept of having this internal BPF insn
+rewriter is working quite well for this, and it is extendable with new meta
+data. Wrt return codes we're flexible to add new ones once agreed upon. The
+whole XDP config is done via netlink, nested in IFLA_XDP container, so it can
+be extended in future with other attrs, flags, etc, for setup and dumping.
+The 'breakage' that was mentioned here was related to moving things into xdp.h.
+It can be done and we did it similarly in the past with bpf_common.h, but
+then really also bpf.h needs to include the new xdp.h header.
