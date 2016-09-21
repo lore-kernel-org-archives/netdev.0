@@ -1,68 +1,88 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 1/3] net: ethernet: mediatek: add extension of
- phy-mode for TRGMII
-Date: Wed, 21 Sep 2016 09:59:26 -0700
-Message-ID: <b9d6deab-8763-a324-fa7b-15a9e3358ff4@gmail.com>
-References: <064d43fb-2942-efd2-6dc7-09f47a256691@gmail.com>
- <1474443189-8836-1-git-send-email-sean.wang@mediatek.com>
+From: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
+Subject: Re: [net-next 01/15] i40e: Introduce VF port representor/control
+ netdevs
+Date: Wed, 21 Sep 2016 09:59:32 -0700
+Message-ID: <57E2BC74.5040905@intel.com>
+References: <1474429432-102772-1-git-send-email-jeffrey.t.kirsher@intel.com> <1474429432-102772-2-git-send-email-jeffrey.t.kirsher@intel.com> <CAJ3xEMhtyrS_jKrZ8UYWDi-UjK4RuxbwUSs8H=nFqWrTgzDVdw@mail.gmail.com> <57E21E74.5090707@intel.com> <CAJ3xEMgMkz1FZ-QObMvc28JQT0Osrf-k7_RfanUYkYP=F8jZGQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: john@phrozen.org, davem@davemloft.net, nbd@openwrt.org,
-        netdev@vger.kernel.org, linux-mediatek@lists.infradead.org,
-        keyhaede@gmail.com
-To: Sean Wang <sean.wang@mediatek.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        David Miller <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        "nhorman@redhat.com" <nhorman@redhat.com>,
+        "sassmann@redhat.com" <sassmann@redhat.com>,
+        "jogreene@redhat.com" <jogreene@redhat.com>,
+        guru.anbalagane@oracle.com, Ilya Lesokhin <ilyal@mellanox.com>,
+        Andy Gospodarek <andy@greyhouse.net>,
+        John Fastabend <john.r.fastabend@intel.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Rony Efraim <ronye@mellanox.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:34398 "EHLO
-        mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933504AbcIUQ73 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2016 12:59:29 -0400
-Received: by mail-pa0-f54.google.com with SMTP id wk8so20144804pab.1
-        for <netdev@vger.kernel.org>; Wed, 21 Sep 2016 09:59:28 -0700 (PDT)
-In-Reply-To: <1474443189-8836-1-git-send-email-sean.wang@mediatek.com>
+Received: from mga05.intel.com ([192.55.52.43]:16201 "EHLO mga05.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933504AbcIUQ7e (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 21 Sep 2016 12:59:34 -0400
+In-Reply-To: <CAJ3xEMgMkz1FZ-QObMvc28JQT0Osrf-k7_RfanUYkYP=F8jZGQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/21/2016 12:33 AM, Sean Wang wrote:
-> Date: Tue, 20 Sep 2016 14:23:24 -0700, Florian Fainelli <f.fainelli@gmail.com> wrote:
->> On 09/20/2016 12:59 AM, sean.wang@mediatek.com wrote:
->>> From: Sean Wang <sean.wang@mediatek.com>
->>>
->>> adds PHY-mode "trgmii" as an extension for the operation
->>> mode of the PHY interface, TRGMII can be compatible with
->>> RGMII, so the extended mode doesn't really have effects on
->>> the target MAC and PHY, is used as the indication if the
->>> current MAC is connected to an internal switch or external
->>> PHY respectively by the given configuration on the board and
->>> then to perform the corresponding setup on TRGMII hardware
->>> module.
->>
->> Based on my googling, it seems like Turbo RGMII is a Mediatek-specific
->> thing for now, but this could become standard and used by other vendors
->> at some point, so I would be inclined to just extend the phy-mode
->> property to support trgmii as another interface type.
->>
->> If you do so, do you also mind proposing an update to the Device Tree
->> specification:
->>
->> https://www.devicetree.org/specifications/
->>
->> Thanks!
-> 
-> I am willing to do the these thing
-> 
-> 1)
-> in the next version, I will extend rgmii mode as
-> another interface type as PHY_INTERFACE_MODE_TRGMII
-> defined in linux/phy.h instead of extension only inside
-> the current driver. This change also helps to save some code.
-> 
-> 2)
-> I send another separate patch for updating the Device Tree
-> specification about TRGMII adding description
-> 
-> are these all okay for you?
 
-Absolutely, thanks a lot!
--- 
-Florian
+
+On 9/21/2016 12:04 AM, Or Gerlitz wrote:
+> On Wed, Sep 21, 2016 at 8:45 AM, Samudrala, Sridhar
+> <sridhar.samudrala@intel.com> wrote:
+>> On 9/20/2016 9:22 PM, Or Gerlitz wrote:
+>>> On Wed, Sep 21, 2016 at 6:43 AM, Jeff Kirsher
+>>> <jeffrey.t.kirsher@intel.com> wrote:
+>>>> From: Sridhar Samudrala <sridhar.samudrala@intel.com>
+>>>> This patch enables creation of a VF Port representor/Control netdev
+>>>> associated with each VF. These netdevs can be used to control and
+>>>> configure
+>>>> VFs from PFs namespace. They enable exposing VF statistics, configuring
+>>>> link state, mtu, fdb/vlan entries etc.
+>>> What happens if someone does a xmit on the VF representor, does the
+>>> packet show up @ the VF?
+>>> and what happens of the VF xmits and there's no HW steering rule that
+>>> matches this, does
+>>> the frame show up @ the VF rep on the host?
+>> TX/RX are not yet supported via VFPR netdevs in this patch series.
+>> Will be submitting this support in the next patchset.
+> Okay, good.
+>
+>>> In other words, can these VF reps serve for setting up host SW based
+>>> switching which you
+>>> can later offload (through TC, bridge, netfilter, etc)?
+>> Yes. These offloads will be possible  via VFPRs.
+> cool
+>
+>>> I am posing these questions because in downstream patch you are adding
+>>> devlink support
+>>> for set/get the e-switch mode and you declare the default mode to be switchdev.
+>>> When the switchdev mode was introduced in 4.8 these RX/TX
+>>> characteristics were defined
+>>> to be an essential (== requirement) part for a driver to support that mode.
+>> The current patchset introduces the basic VFPR support starting with
+>> exposing VF stats and syncing link state between VFs and VFPRs.
+>> We decided to declare the default mode to be switchdev so that the new code
+>> paths will get exercised by default during normal testing.
+> so what happens after this patchset is applied and before the future
+> work is submitted?
+> RX/TX slow path through the VFPRs isn't supported and what about fast
+> path? in other words
+> what happens when someone loads the driver, sets SRIOV (--> the driver
+> set itself to switchdev mode
+> and VFPRs are created) and then a VF sends a packet? do you still put
+> into the HW the legacy DMAC
+> based switching rules? I am not following...
+
+The VF driver requests adding the dmac based filter rules via mailbox 
+messages to PF and that is
+not changed in this patchset.
+Once we have VFPR TX/RX support, we will not allow the VF driver to add 
+these rules, Instead a host based
+program will be able to add these rules to enable the fast path.
+
+Thanks
+Sridhar
