@@ -1,70 +1,43 @@
-From: "Amrani, Ram" <Ram.Amrani@cavium.com>
-Subject: RE: [RFC v2 06/12] qedr: Add support for QP verbs
-Date: Wed, 21 Sep 2016 14:15:39 +0000
-Message-ID: <SN1PR07MB2207C1EC2C5C86C607D0255AF8F60@SN1PR07MB2207.namprd07.prod.outlook.com>
+From: "Amrani, Ram" <Ram.Amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Subject: RE: [RFC v2 04/12] qedr: Add support for user context verbs
+Date: Wed, 21 Sep 2016 14:18:15 +0000
+Message-ID: <SN1PR07MB220715F456E275EDA7BDB3CDF8F60@SN1PR07MB2207.namprd07.prod.outlook.com>
 References: <1474367764-9555-1-git-send-email-Ram.Amrani@cavium.com>
- <1474367764-9555-7-git-send-email-Ram.Amrani@cavium.com>
- <20160920163048.GQ26673@leon.nu>
+ <1474367764-9555-5-git-send-email-Ram.Amrani@cavium.com>
+ <20160920164556.GS26673@leon.nu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: quoted-printable
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "dledford@redhat.com" <dledford@redhat.com>,
-        "Elior, Ariel" <Ariel.Elior@cavium.com>,
-        "Kalderon, Michal" <Michal.Kalderon@cavium.com>,
-        "Mintz, Yuval" <Yuval.Mintz@cavium.com>,
-        "Borundia, Rajesh" <Rajesh.Borundia@cavium.com>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Leon Romanovsky <leon@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0050.outbound.protection.outlook.com ([104.47.42.50]:23808
-        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S934344AbcIUObK (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 21 Sep 2016 10:31:10 -0400
-In-Reply-To: <20160920163048.GQ26673@leon.nu>
+Cc: "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        "Elior, Ariel" <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        "Kalderon, Michal" <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        "Mintz, Yuval" <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        "Borundia, Rajesh" <Rajesh.Borundia-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160920164556.GS26673-2ukJVAZIZ/Y@public.gmane.org>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> >  include/uapi/rdma/providers/qedr-abi.h     |   35 +
+> Are you sure that you want GPL-only license?
+
+Thanks for pointing this out. This is something we will obviously fix.
+
+=20
+> > +#define QEDR_ABI_VERSION		(6)
 >=20
-> Please be aware that the last version for ABI header files doesn't have "=
-provider"
-> name in directory path (include/uapi/rdma/qedr-abi.h)
+> Is it possible to start new file with new driver from ABI version 1 and n=
+ot 6?
 
-OK. Note that I was using https://www.spinics.net/lists/linux-rdma/msg40414=
-.html that dates to 7 days ago and it contains the "providers" folder.
-Can you point to the most recent patch?
+This is something that we cannot do since we already have a few libraries o=
+ut there and we wouldn't like a user to use mismatch a library and a driver=
+...
 
-> > diff --git a/drivers/infiniband/hw/qedr/main.c
-> > b/drivers/infiniband/hw/qedr/main.c
-> > index c99dd6a..10ad9ed 100644
-> > --- a/drivers/infiniband/hw/qedr/main.c
-> > +++ b/drivers/infiniband/hw/qedr/main.c
-> > @@ -52,7 +52,7 @@ uint debug;
-> >  module_param(debug, uint, 0);
-> >  MODULE_PARM_DESC(debug, "Default debug msglevel");
-> >
-> > -static LIST_HEAD(qedr_dev_list);
->=20
-> You are removing code which was added in previous patches, why do you do =
-it?
->=20
-
-Sure. Will fix. Thanks.
-
-> > diff --git a/drivers/infiniband/hw/qedr/qedr.h
-> > b/drivers/infiniband/hw/qedr/qedr.h
-> > index dd974d5..05017be 100644
-> > --- a/drivers/infiniband/hw/qedr/qedr.h
-> > +++ b/drivers/infiniband/hw/qedr/qedr.h
-> > @@ -49,6 +49,9 @@
-> >  enum DP_QEDR_MODULE {
-> >  	QEDR_MSG_INIT =3D 0x10000,
->=20
-> We prefer shift notation (1 << 16) instead of 0x10000.
->=20
-
-OK, I'll convert accordingly.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
