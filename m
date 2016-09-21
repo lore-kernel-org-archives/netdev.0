@@ -1,49 +1,35 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/15] i40e: return correct opcode to VF
-Date: Tue, 20 Sep 2016 20:43:43 -0700
-Message-ID: <1474429432-102772-7-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1474429432-102772-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, guru.anbalagane@oracle.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:33017 "EHLO mga06.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753090AbcIUDn5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 20 Sep 2016 23:43:57 -0400
-In-Reply-To: <1474429432-102772-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: handle multiple ports in
+ ATU
+Date: Wed, 21 Sep 2016 00:05:10 -0400 (EDT)
+Message-ID: <20160921.000510.608510333412427143.davem@davemloft.net>
+References: <20160919235611.31975-1-vivien.didelot@savoirfairelinux.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
+To: vivien.didelot@savoirfairelinux.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160919235611.31975-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Mon, 19 Sep 2016 19:56:11 -0400
 
-This conditional is backward, so the driver responds back to the VF with
-the wrong opcode. Do the old switcheroo to fix this.
+> An address can be loaded in the ATU with multiple ports, for instance
+> when adding multiple ports to a Multicast group with "bridge mdb".
+> 
+> The current code doesn't allow that. Add an helper to get a single entry
+> from the ATU, then set or clear the requested port, before loading the
+> entry back in the ATU.
+> 
+> Note that the required _mv88e6xxx_atu_getnext function is defined below
+> mv88e6xxx_port_db_load_purge, so forward-declare it for the moment. The
+> ATU code will be isolated in future patches.
+> 
+> Fixes: 83dabd1fa84c ("net: dsa: mv88e6xxx: make switchdev DB ops generic")
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-Change-ID: I384035b0fef8a3881c176de4b4672009b3400b25
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index f98aa84..9ecf8f8 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -2308,8 +2308,8 @@ static int i40e_vc_iwarp_qvmap_msg(struct i40e_vf *vf, u8 *msg, u16 msglen,
- error_param:
- 	/* send the response to the VF */
- 	return i40e_vc_send_resp_to_vf(vf,
--			       config ? I40E_VIRTCHNL_OP_RELEASE_IWARP_IRQ_MAP :
--			       I40E_VIRTCHNL_OP_CONFIG_IWARP_IRQ_MAP,
-+			       config ? I40E_VIRTCHNL_OP_CONFIG_IWARP_IRQ_MAP :
-+			       I40E_VIRTCHNL_OP_RELEASE_IWARP_IRQ_MAP,
- 			       aq_ret);
- }
- 
--- 
-2.7.4
+Applied.
