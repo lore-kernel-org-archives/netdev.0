@@ -1,79 +1,242 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCHv7 net-next 14/15] nfp: bpf: add support for legacy redirect action
-Date: Wed, 21 Sep 2016 11:44:06 +0100
-Message-ID: <1474454647-20137-15-git-send-email-jakub.kicinski@netronome.com>
+Subject: [PATCHv7 net-next 04/15] bpf: don't (ab)use instructions to store state
+Date: Wed, 21 Sep 2016 11:43:56 +0100
+Message-ID: <1474454647-20137-5-git-send-email-jakub.kicinski@netronome.com>
 References: <1474454647-20137-1-git-send-email-jakub.kicinski@netronome.com>
 Cc: ast@kernel.org, daniel@iogearbox.net,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:37767 "EHLO
-        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755960AbcIUKoz (ORCPT
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:38264 "EHLO
+        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754588AbcIUKoz (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2016 06:44:55 -0400
-Received: by mail-wm0-f46.google.com with SMTP id b130so84113705wmc.0
-        for <netdev@vger.kernel.org>; Wed, 21 Sep 2016 03:44:48 -0700 (PDT)
+Received: by mail-wm0-f53.google.com with SMTP id l132so83902774wmf.1
+        for <netdev@vger.kernel.org>; Wed, 21 Sep 2016 03:44:37 -0700 (PDT)
 In-Reply-To: <1474454647-20137-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Data path has redirect support so expressing redirect
-to the port frame came from is a trivial matter of
-setting the right result code.
+Storing state in reserved fields of instructions makes
+it impossible to run verifier on programs already
+marked as read-only. Allocate and use an array of
+per-instruction state instead.
 
+While touching the error path rename and move existing
+jump target.
+
+Suggested-by: Alexei Starovoitov <ast@kernel.org>
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_bpf.h         | 1 +
- drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c     | 2 ++
- drivers/net/ethernet/netronome/nfp/nfp_net_offload.c | 4 ++++
- 3 files changed, 7 insertions(+)
+v7:
+ - fix insn offsets when patching is happening in
+   convert_ctx_accesses().
+v3:
+ - new patch.
+---
+ kernel/bpf/verifier.c | 70 +++++++++++++++++++++++++++++----------------------
+ 1 file changed, 40 insertions(+), 30 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_bpf.h b/drivers/net/ethernet/netronome/nfp/nfp_bpf.h
-index 2adb1d80c7b7..adbe0235d98e 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_bpf.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_bpf.h
-@@ -60,6 +60,7 @@ enum static_regs {
- 
- enum nfp_bpf_action_type {
- 	NN_ACT_TC_DROP,
-+	NN_ACT_TC_REDIR,
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 3a75ee3bdcd1..a9542d89f293 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -181,6 +181,10 @@ struct verifier_stack_elem {
+ 	struct verifier_stack_elem *next;
  };
  
- /* Software register representation, hardware encoding in asm.h */
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c b/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
-index 368381f0357f..434bef975c58 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
-@@ -1440,6 +1440,7 @@ static void nfp_outro_tc_legacy(struct nfp_prog *nfp_prog)
- {
- 	const u8 act2code[] = {
- 		[NN_ACT_TC_DROP]  = 0x22,
-+		[NN_ACT_TC_REDIR] = 0x24
- 	};
- 	/* Target for aborts */
- 	nfp_prog->tgt_abort = nfp_prog_current_offset(nfp_prog);
-@@ -1468,6 +1469,7 @@ static void nfp_outro(struct nfp_prog *nfp_prog)
- {
- 	switch (nfp_prog->act) {
- 	case NN_ACT_TC_DROP:
-+	case NN_ACT_TC_REDIR:
- 		nfp_outro_tc_legacy(nfp_prog);
- 		break;
- 	}
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_offload.c b/drivers/net/ethernet/netronome/nfp/nfp_net_offload.c
-index 0537a53e2174..1ec8e5b74651 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_offload.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_offload.c
-@@ -123,6 +123,10 @@ nfp_net_bpf_get_act(struct nfp_net *nn, struct tc_cls_bpf_offload *cls_bpf)
- 	list_for_each_entry(a, &actions, list) {
- 		if (is_tcf_gact_shot(a))
- 			return NN_ACT_TC_DROP;
++struct bpf_insn_aux_data {
++	enum bpf_reg_type ptr_type;	/* pointer type for load/store insns */
++};
 +
-+		if (is_tcf_mirred_redirect(a) &&
-+		    tcf_mirred_ifindex(a) == nn->netdev->ifindex)
-+			return NN_ACT_TC_REDIR;
+ #define MAX_USED_MAPS 64 /* max number of maps accessed by one eBPF program */
+ 
+ /* single container for all structs
+@@ -197,6 +201,7 @@ struct verifier_env {
+ 	u32 id_gen;			/* used to generate unique reg IDs */
+ 	bool allow_ptr_leaks;
+ 	bool seen_direct_write;
++	struct bpf_insn_aux_data *insn_aux_data; /* array of per-insn state */
+ };
+ 
+ #define BPF_COMPLEXITY_LIMIT_INSNS	65536
+@@ -2344,7 +2349,7 @@ static int do_check(struct verifier_env *env)
+ 				return err;
+ 
+ 		} else if (class == BPF_LDX) {
+-			enum bpf_reg_type src_reg_type;
++			enum bpf_reg_type *prev_src_type, src_reg_type;
+ 
+ 			/* check for reserved fields is already done */
+ 
+@@ -2374,16 +2379,18 @@ static int do_check(struct verifier_env *env)
+ 				continue;
+ 			}
+ 
+-			if (insn->imm == 0) {
++			prev_src_type = &env->insn_aux_data[insn_idx].ptr_type;
++
++			if (*prev_src_type == NOT_INIT) {
+ 				/* saw a valid insn
+ 				 * dst_reg = *(u32 *)(src_reg + off)
+-				 * use reserved 'imm' field to mark this insn
++				 * save type to validate intersecting paths
+ 				 */
+-				insn->imm = src_reg_type;
++				*prev_src_type = src_reg_type;
+ 
+-			} else if (src_reg_type != insn->imm &&
++			} else if (src_reg_type != *prev_src_type &&
+ 				   (src_reg_type == PTR_TO_CTX ||
+-				    insn->imm == PTR_TO_CTX)) {
++				    *prev_src_type == PTR_TO_CTX)) {
+ 				/* ABuser program is trying to use the same insn
+ 				 * dst_reg = *(u32*) (src_reg + off)
+ 				 * with different pointer types:
+@@ -2396,7 +2403,7 @@ static int do_check(struct verifier_env *env)
+ 			}
+ 
+ 		} else if (class == BPF_STX) {
+-			enum bpf_reg_type dst_reg_type;
++			enum bpf_reg_type *prev_dst_type, dst_reg_type;
+ 
+ 			if (BPF_MODE(insn->code) == BPF_XADD) {
+ 				err = check_xadd(env, insn);
+@@ -2424,11 +2431,13 @@ static int do_check(struct verifier_env *env)
+ 			if (err)
+ 				return err;
+ 
+-			if (insn->imm == 0) {
+-				insn->imm = dst_reg_type;
+-			} else if (dst_reg_type != insn->imm &&
++			prev_dst_type = &env->insn_aux_data[insn_idx].ptr_type;
++
++			if (*prev_dst_type == NOT_INIT) {
++				*prev_dst_type = dst_reg_type;
++			} else if (dst_reg_type != *prev_dst_type &&
+ 				   (dst_reg_type == PTR_TO_CTX ||
+-				    insn->imm == PTR_TO_CTX)) {
++				    *prev_dst_type == PTR_TO_CTX)) {
+ 				verbose("same insn cannot be used with different pointers\n");
+ 				return -EINVAL;
+ 			}
+@@ -2686,10 +2695,11 @@ static void convert_pseudo_ld_imm64(struct verifier_env *env)
+ static int convert_ctx_accesses(struct verifier_env *env)
+ {
+ 	const struct bpf_verifier_ops *ops = env->prog->aux->ops;
++	const int insn_cnt = env->prog->len;
+ 	struct bpf_insn insn_buf[16], *insn;
+ 	struct bpf_prog *new_prog;
+ 	enum bpf_access_type type;
+-	int i, insn_cnt, cnt;
++	int i, cnt, delta = 0;
+ 
+ 	if (ops->gen_prologue) {
+ 		cnt = ops->gen_prologue(insn_buf, env->seen_direct_write,
+@@ -2703,18 +2713,16 @@ static int convert_ctx_accesses(struct verifier_env *env)
+ 			if (!new_prog)
+ 				return -ENOMEM;
+ 			env->prog = new_prog;
++			delta += cnt - 1;
+ 		}
  	}
  
- 	return -ENOTSUPP;
+ 	if (!ops->convert_ctx_access)
+ 		return 0;
+ 
+-	insn_cnt = env->prog->len;
+-	insn = env->prog->insnsi;
++	insn = env->prog->insnsi + delta;
+ 
+ 	for (i = 0; i < insn_cnt; i++, insn++) {
+-		u32 insn_delta;
+-
+ 		if (insn->code == (BPF_LDX | BPF_MEM | BPF_W) ||
+ 		    insn->code == (BPF_LDX | BPF_MEM | BPF_DW))
+ 			type = BPF_READ;
+@@ -2724,11 +2732,8 @@ static int convert_ctx_accesses(struct verifier_env *env)
+ 		else
+ 			continue;
+ 
+-		if (insn->imm != PTR_TO_CTX) {
+-			/* clear internal mark */
+-			insn->imm = 0;
++		if (env->insn_aux_data[i].ptr_type != PTR_TO_CTX)
+ 			continue;
+-		}
+ 
+ 		cnt = ops->convert_ctx_access(type, insn->dst_reg, insn->src_reg,
+ 					      insn->off, insn_buf, env->prog);
+@@ -2737,18 +2742,16 @@ static int convert_ctx_accesses(struct verifier_env *env)
+ 			return -EINVAL;
+ 		}
+ 
+-		new_prog = bpf_patch_insn_single(env->prog, i, insn_buf, cnt);
++		new_prog = bpf_patch_insn_single(env->prog, i + delta, insn_buf,
++						 cnt);
+ 		if (!new_prog)
+ 			return -ENOMEM;
+ 
+-		insn_delta = cnt - 1;
++		delta += cnt - 1;
+ 
+ 		/* keep walking new program and skip insns we just inserted */
+ 		env->prog = new_prog;
+-		insn      = new_prog->insnsi + i + insn_delta;
+-
+-		insn_cnt += insn_delta;
+-		i        += insn_delta;
++		insn      = new_prog->insnsi + i + delta;
+ 	}
+ 
+ 	return 0;
+@@ -2792,6 +2795,11 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr)
+ 	if (!env)
+ 		return -ENOMEM;
+ 
++	env->insn_aux_data = vzalloc(sizeof(struct bpf_insn_aux_data) *
++				     (*prog)->len);
++	ret = -ENOMEM;
++	if (!env->insn_aux_data)
++		goto err_free_env;
+ 	env->prog = *prog;
+ 
+ 	/* grab the mutex to protect few globals used by verifier */
+@@ -2810,12 +2818,12 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr)
+ 		/* log_* values have to be sane */
+ 		if (log_size < 128 || log_size > UINT_MAX >> 8 ||
+ 		    log_level == 0 || log_ubuf == NULL)
+-			goto free_env;
++			goto err_unlock;
+ 
+ 		ret = -ENOMEM;
+ 		log_buf = vmalloc(log_size);
+ 		if (!log_buf)
+-			goto free_env;
++			goto err_unlock;
+ 	} else {
+ 		log_level = 0;
+ 	}
+@@ -2884,14 +2892,16 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr)
+ free_log_buf:
+ 	if (log_level)
+ 		vfree(log_buf);
+-free_env:
+ 	if (!env->prog->aux->used_maps)
+ 		/* if we didn't copy map pointers into bpf_prog_info, release
+ 		 * them now. Otherwise free_bpf_prog_info() will release them.
+ 		 */
+ 		release_maps(env);
+ 	*prog = env->prog;
+-	kfree(env);
++err_unlock:
+ 	mutex_unlock(&bpf_verifier_lock);
++	vfree(env->insn_aux_data);
++err_free_env:
++	kfree(env);
+ 	return ret;
+ }
 -- 
 1.9.1
