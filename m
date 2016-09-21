@@ -1,36 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/3] net: ethernet: mediatek: add support for
- GMAC0 connecting with external PHY through TRGMII
-Date: Wed, 21 Sep 2016 00:50:36 -0400 (EDT)
-Message-ID: <20160921.005036.970962076834416813.davem@davemloft.net>
-References: <1474358360-29901-1-git-send-email-sean.wang@mediatek.com>
-        <1474358360-29901-3-git-send-email-sean.wang@mediatek.com>
+Subject: Re: [PATCH net 0/5] r8152: correct the flow of PHY
+Date: Wed, 21 Sep 2016 00:56:50 -0400 (EDT)
+Message-ID: <20160921.005650.1495949763882776373.davem@davemloft.net>
+References: <1394712342-15778-219-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: john@phrozen.org, nbd@openwrt.org, netdev@vger.kernel.org,
-        linux-mediatek@lists.infradead.org, keyhaede@gmail.com,
-        objelf@gmail.com
-To: sean.wang@mediatek.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33756 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750738AbcIUEuj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2016 00:50:39 -0400
-In-Reply-To: <1474358360-29901-3-git-send-email-sean.wang@mediatek.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+        linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
+To: hayeswang@realtek.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394712342-15778-219-Taiwan-albertk@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: <sean.wang@mediatek.com>
-Date: Tue, 20 Sep 2016 15:59:19 +0800
+From: Hayes Wang <hayeswang@realtek.com>
+Date: Tue, 20 Sep 2016 16:22:04 +0800
 
-> +/*TRGMII RXC control register*/
- ...
-> +/*TRGMII RXC control register*/
- ...
-> +/*TRGMII Interface mode register*/
+> First, to enable the PHY as early as possible. Some settings may fail if the
+> PHY is power down.
+> 
+> Move the other PHY settings to hw_phy_cfg() to make sure the order is correct.
+> 
+> Finally, disable ALDPS and EEE before updating the PHY for RTL8153.
 
-
-Please put a space at the beginning and end of comment lines like this.
-
-Thanks.
+Series applied, thanks.
