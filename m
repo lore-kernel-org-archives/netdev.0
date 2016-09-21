@@ -1,140 +1,38 @@
-From: hejianet <hejianet@gmail.com>
-Subject: Re: [RFC PATCH v3 2/7] proc: Reduce cache miss in
- {snmp,netstat}_seq_show
-Date: Thu, 22 Sep 2016 00:18:46 +0800
-Message-ID: <84aae301-0d00-d953-e6f6-d2d163d1136a@gmail.com>
-References: <1473402842-1987-1-git-send-email-hejianet@gmail.com>
- <1473402842-1987-3-git-send-email-hejianet@gmail.com>
- <20160912185752.GB17689@localhost.localdomain>
- <22d87ec3-608f-fe41-5eb7-fe1104f133dd@gmail.com>
- <20160914115543.GF17689@localhost.localdomain>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next V2] net/vxlan: Avoid unaligned access in
+ vxlan_build_skb()
+Date: Wed, 21 Sep 2016 10:12:24 -0700
+Message-ID: <20160921171222.GA18327@ast-mbp.thefacebook.com>
+References: <20160920185737.GU8920@oracle.com>
+ <4617aca3-8d44-e99a-cc5a-1088b30ae327@stressinduktion.org>
+ <20160921161457.GA17116@ast-mbp.thefacebook.com>
+ <1474476811.23058.78.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        linux-kernel@vger.kernel.org, davem@davemloft.net,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>
-To: Marcelo <marcelo.leitner@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160914115543.GF17689@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+        netdev@vger.kernel.org, jbenc@redhat.com, davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:34374 "EHLO
+        mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752320AbcIURM3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2016 13:12:29 -0400
+Received: by mail-pa0-f50.google.com with SMTP id wk8so20242451pab.1
+        for <netdev@vger.kernel.org>; Wed, 21 Sep 2016 10:12:28 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1474476811.23058.78.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Marcelo
+On Wed, Sep 21, 2016 at 09:53:31AM -0700, Eric Dumazet wrote:
+> On Wed, 2016-09-21 at 09:14 -0700, Alexei Starovoitov wrote:
+> 
+> > 
+> > I think it's the opposite. Even on x86 compiler will use byte loads.
+> 
+> Unless you tweaked gcc, it should still use word loads on x86.
 
-sorry for the late, just came back from a vacation.
+> checked that on x86-64 actually. Also clearly visible here:
 
-On 9/14/16 7:55 PM, Marcelo wrote:
-> Hi Jia,
->
-> On Wed, Sep 14, 2016 at 01:58:42PM +0800, hejianet wrote:
->> Hi Marcelo
->>
->>
->> On 9/13/16 2:57 AM, Marcelo wrote:
->>> On Fri, Sep 09, 2016 at 02:33:57PM +0800, Jia He wrote:
->>>> This is to use the generic interface snmp_get_cpu_field{,64}_batch to
->>>> aggregate the data by going through all the items of each cpu sequentially.
->>>> Then snmp_seq_show and netstat_seq_show are split into 2 parts to avoid build
->>>> warning "the frame size" larger than 1024 on s390.
->>> Yeah about that, did you test it with stack overflow detection?
->>> These arrays can be quite large.
->>>
->>> One more below..
->> Do you think it is acceptable if the stack usage is a little larger than 1024?
->> e.g. 1120
->> I can't find any other way to reduce the stack usage except use "static" before
->> unsigned long buff[TCP_MIB_MAX]
->>
->> PS. sizeof buff is about TCP_MIB_MAX(116)*8=928
->> B.R.
-> That's pretty much the question. Linux has the option on some archs to
-> run with 4Kb (4KSTACKS option), so this function alone would be using
-> 25% of it in this last case. While on x86_64, it uses 16Kb (6538b8ea886e
-> ("x86_64: expand kernel stack to 16K")).
->
-> Adding static to it is not an option as it actually makes the variable
-> shared amongst the CPUs (and then you have concurrency issues), plus the
-> fact that it's always allocated, even while not in use.
->
-> Others here certainly know better than me if it's okay to make such
-> usage of the stach.
-What about this patch instead?
-It is a trade-off. I split the aggregation process into 2 parts, it will
-increase the cache miss a little bit, but it can reduce the stack usage.
-After this, stack usage is 672bytes
-objdump -d vmlinux | ./scripts/checkstack.pl ppc64 | grep seq_show
-0xc0000000007f7cc0 netstat_seq_show_tcpext.isra.3 [vmlinux]:672
-
-diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
-index c6ee8a2..cc41590 100644
---- a/net/ipv4/proc.c
-+++ b/net/ipv4/proc.c
-@@ -486,22 +486,37 @@ static const struct file_operations snmp_seq_fops = {
-   */
-  static int netstat_seq_show_tcpext(struct seq_file *seq, void *v)
-  {
--       int i;
--       unsigned long buff[LINUX_MIB_MAX];
-+       int i, c;
-+       unsigned long buff[LINUX_MIB_MAX/2 + 1];
-         struct net *net = seq->private;
-
--       memset(buff, 0, sizeof(unsigned long) * LINUX_MIB_MAX);
-+       memset(buff, 0, sizeof(unsigned long) * (LINUX_MIB_MAX/2 + 1));
-
-         seq_puts(seq, "TcpExt:");
-         for (i = 0; snmp4_net_list[i].name; i++)
-                 seq_printf(seq, " %s", snmp4_net_list[i].name);
-
-         seq_puts(seq, "\nTcpExt:");
--       snmp_get_cpu_field_batch(buff, snmp4_net_list,
--                                net->mib.net_statistics);
--       for (i = 0; snmp4_net_list[i].name; i++)
-+       for_each_possible_cpu(c) {
-+               for (i = 0; i < LINUX_MIB_MAX/2; i++)
-+                       buff[i] += snmp_get_cpu_field(
-+ net->mib.net_statistics,
-+                                               c, snmp4_net_list[i].entry);
-+       }
-+       for (i = 0; i < LINUX_MIB_MAX/2; i++)
-                 seq_printf(seq, " %lu", buff[i]);
-
-+       memset(buff, 0, sizeof(unsigned long) * (LINUX_MIB_MAX/2 + 1));
-+       for_each_possible_cpu(c) {
-+               for (i = LINUX_MIB_MAX/2; snmp4_net_list[i].name; i++)
-+                       buff[i - LINUX_MIB_MAX/2] += snmp_get_cpu_field(
-+                               net->mib.net_statistics,
-+                               c,
-+                               snmp4_net_list[i].entry);
-+       }
-+        for (i = LINUX_MIB_MAX/2; snmp4_net_list[i].name; i++)
-+                seq_printf(seq, " %lu", buff[i - LINUX_MIB_MAX/2]);
-+
-         return 0;
-  }
-
->>>> +static int netstat_seq_show_ipext(struct seq_file *seq, void *v)
->>>> +{
->>>> +	int i;
->>>> +	u64 buff64[IPSTATS_MIB_MAX];
->>>> +	struct net *net = seq->private;
->>>>    	seq_puts(seq, "\nIpExt:");
->>>>    	for (i = 0; snmp4_ipextstats_list[i].name != NULL; i++)
->>>>    		seq_printf(seq, " %s", snmp4_ipextstats_list[i].name);
->>>>    	seq_puts(seq, "\nIpExt:");
->>> You're missing a memset() call here.
-> Not sure if you missed this one or not..
-indeed, thanks
-B.R.
-Jia
-> Thanks,
-> Marcelo
->
+ahh. ok. good to know. thanks guys!
