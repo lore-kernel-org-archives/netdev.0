@@ -1,88 +1,91 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [net-next 01/15] i40e: Introduce VF port representor/control netdevs
-Date: Wed, 21 Sep 2016 10:04:28 +0300
-Message-ID: <CAJ3xEMgMkz1FZ-QObMvc28JQT0Osrf-k7_RfanUYkYP=F8jZGQ@mail.gmail.com>
-References: <1474429432-102772-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1474429432-102772-2-git-send-email-jeffrey.t.kirsher@intel.com>
- <CAJ3xEMhtyrS_jKrZ8UYWDi-UjK4RuxbwUSs8H=nFqWrTgzDVdw@mail.gmail.com> <57E21E74.5090707@intel.com>
+From: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+Subject: [v12, 0/8] Fix eSDHC host version register bug
+Date: Wed, 21 Sep 2016 14:57:12 +0800
+Message-ID: <1474441040-11946-1-git-send-email-yangbo.lu@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        David Miller <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        "nhorman@redhat.com" <nhorman@redhat.com>,
-        "sassmann@redhat.com" <sassmann@redhat.com>,
-        "jogreene@redhat.com" <jogreene@redhat.com>,
-        guru.anbalagane@oracle.com, Ilya Lesokhin <ilyal@mellanox.com>,
-        Andy Gospodarek <andy@greyhouse.net>,
-        John Fastabend <john.r.fastabend@intel.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Rony Efraim <ronye@mellanox.com>
-To: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f65.google.com ([209.85.218.65]:35565 "EHLO
-        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752733AbcIUHEa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2016 03:04:30 -0400
-Received: by mail-oi0-f65.google.com with SMTP id n202so3124124oig.2
-        for <netdev@vger.kernel.org>; Wed, 21 Sep 2016 00:04:29 -0700 (PDT)
-In-Reply-To: <57E21E74.5090707@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, Xiaobo Xie <xiaobo.xie-3arQi8VN3Tc@public.gmane.org>,
+	Minghuan Lian <minghuan.lian-3arQi8VN3Tc@public.gmane.org>, linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Qiang Zhao <qiang.zhao-3arQi8VN3Tc@public.gmane.org>,
+	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>, Bhupesh
+	Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>, Jochen Friedrich <jochen-NIgtFMG+Po8@public.gmane.org>,
+	Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Leo Li <leoyang.li-3arQi8VN3Tc@public.gmane.org>,
+	iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>,
+	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+To: <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, Scott Wood
+	<oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
+List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 21, 2016 at 8:45 AM, Samudrala, Sridhar
-<sridhar.samudrala@intel.com> wrote:
-> On 9/20/2016 9:22 PM, Or Gerlitz wrote:
->> On Wed, Sep 21, 2016 at 6:43 AM, Jeff Kirsher
->> <jeffrey.t.kirsher@intel.com> wrote:
->>>
->>> From: Sridhar Samudrala <sridhar.samudrala@intel.com>
->>> This patch enables creation of a VF Port representor/Control netdev
->>> associated with each VF. These netdevs can be used to control and
->>> configure
->>> VFs from PFs namespace. They enable exposing VF statistics, configuring
->>> link state, mtu, fdb/vlan entries etc.
->>
->> What happens if someone does a xmit on the VF representor, does the
->> packet show up @ the VF?
->> and what happens of the VF xmits and there's no HW steering rule that
->> matches this, does
->> the frame show up @ the VF rep on the host?
+This patchset is used to fix a host version register bug in the T4240-R1.0-R2.0
+eSDHC controller. To match the SoC version and revision, 10 previous version
+patchsets had tried many methods but all of them were rejected by reviewers.
+Such as
+	- dts compatible method
+	- syscon method
+	- ifdef PPC method
+	- GUTS driver getting SVR method
+Anrd suggested a soc_device_match method in v10, and this is the only available
+method left now. This v11 patchset introduces the soc_device_match interface in
+soc driver.
 
-> TX/RX are not yet supported via VFPR netdevs in this patch series.
-> Will be submitting this support in the next patchset.
+The first six patches of Yangbo are to add the GUTS driver. This is used to
+register a soc device which contain soc version and revision information.
+The other two patches introduce the soc_device_match method in soc driver
+and apply it on esdhc driver to fix this bug.
 
-Okay, good.
+Arnd Bergmann (1):
+  base: soc: introduce soc_device_match() interface
 
->> In other words, can these VF reps serve for setting up host SW based
->> switching which you
->> can later offload (through TC, bridge, netfilter, etc)?
+Yangbo Lu (7):
+  dt: bindings: update Freescale DCFG compatible
+  ARM64: dts: ls2080a: add device configuration node
+  dt: bindings: move guts devicetree doc out of powerpc directory
+  powerpc/fsl: move mpc85xx.h to include/linux/fsl
+  soc: fsl: add GUTS driver for QorIQ platforms
+  MAINTAINERS: add entry for Freescale SoC drivers
+  mmc: sdhci-of-esdhc: fix host version for T4240-R1.0-R2.0
 
-> Yes. These offloads will be possible  via VFPRs.
+ Documentation/devicetree/bindings/arm/fsl.txt      |   6 +-
+ .../bindings/{powerpc => soc}/fsl/guts.txt         |   3 +
+ MAINTAINERS                                        |  11 +-
+ arch/arm64/boot/dts/freescale/fsl-ls2080a.dtsi     |   6 +
+ arch/powerpc/kernel/cpu_setup_fsl_booke.S          |   2 +-
+ arch/powerpc/sysdev/fsl_pci.c                      |   2 +-
+ drivers/base/Kconfig                               |   1 +
+ drivers/base/soc.c                                 |  66 ++++++
+ drivers/clk/clk-qoriq.c                            |   3 +-
+ drivers/i2c/busses/i2c-mpc.c                       |   2 +-
+ drivers/iommu/fsl_pamu.c                           |   3 +-
+ drivers/mmc/host/Kconfig                           |   1 +
+ drivers/mmc/host/sdhci-of-esdhc.c                  |  20 ++
+ drivers/net/ethernet/freescale/gianfar.c           |   2 +-
+ drivers/soc/Kconfig                                |   2 +-
+ drivers/soc/fsl/Kconfig                            |  19 ++
+ drivers/soc/fsl/Makefile                           |   1 +
+ drivers/soc/fsl/guts.c                             | 257 +++++++++++++++++++++
+ include/linux/fsl/guts.h                           | 125 ++++++----
+ .../asm/mpc85xx.h => include/linux/fsl/svr.h       |   4 +-
+ include/linux/sys_soc.h                            |   3 +
+ 21 files changed, 478 insertions(+), 61 deletions(-)
+ rename Documentation/devicetree/bindings/{powerpc => soc}/fsl/guts.txt (91%)
+ create mode 100644 drivers/soc/fsl/Kconfig
+ create mode 100644 drivers/soc/fsl/guts.c
+ rename arch/powerpc/include/asm/mpc85xx.h => include/linux/fsl/svr.h (97%)
 
-cool
-
->> I am posing these questions because in downstream patch you are adding
->> devlink support
->> for set/get the e-switch mode and you declare the default mode to be switchdev.
-
->> When the switchdev mode was introduced in 4.8 these RX/TX
->> characteristics were defined
->> to be an essential (== requirement) part for a driver to support that mode.
-
-> The current patchset introduces the basic VFPR support starting with
-> exposing VF stats and syncing link state between VFs and VFPRs.
-> We decided to declare the default mode to be switchdev so that the new code
-> paths will get exercised by default during normal testing.
-
-so what happens after this patchset is applied and before the future
-work is submitted?
-RX/TX slow path through the VFPRs isn't supported and what about fast
-path? in other words
-what happens when someone loads the driver, sets SRIOV (--> the driver
-set itself to switchdev mode
-and VFPRs are created) and then a VF sends a packet? do you still put
-into the HW the legacy DMAC
-based switching rules? I am not following...
-
-Or.
+-- 
+2.1.0.27.g96db324
