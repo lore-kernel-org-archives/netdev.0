@@ -1,61 +1,48 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH RFC 1/3] xdp: Infrastructure to generalize XDP
-Date: Wed, 21 Sep 2016 10:42:34 +0200
-Message-ID: <57E247FA.3020501@iogearbox.net>
-References: <1474408824-418864-1-git-send-email-tom@herbertland.com>        <1474408824-418864-2-git-send-email-tom@herbertland.com>        <57E1CDE3.5030404@fb.com> <20160921083955.7cdba944@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
-        netdev@vger.kernel.org, kernel-team@fb.com, tariqt@mellanox.com,
-        bblanco@plumgrid.com, alexei.starovoitov@gmail.com,
-        eric.dumazet@gmail.com
-To: Jesper Dangaard Brouer <brouer@redhat.com>,
-        Alexei Starovoitov <ast@fb.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can 2016-09-21
+Date: Wed, 21 Sep 2016 10:43:54 +0200
+Message-ID: <20160921084355.20972-1-mkl@pengutronix.de>
+Cc: davem@davemloft.net, linux-can@vger.kernel.org,
+        kernel@pengutronix.de
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:48070 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751266AbcIUImn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2016 04:42:43 -0400
-In-Reply-To: <20160921083955.7cdba944@redhat.com>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:52874 "EHLO
+        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751360AbcIUIn7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2016 04:43:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/21/2016 08:39 AM, Jesper Dangaard Brouer wrote:
-> On Tue, 20 Sep 2016 17:01:39 -0700 Alexei Starovoitov <ast@fb.com> wrote:
->
->>   >  - Provides a more structured environment that is extensible to new
->>   >    features while being mostly transparent to the drivers
->>
->> don't see that in these patches either.
->> Things like packet size change (that we're working on) still
->> has to be implemented for every driver.
->> Existing XDP_TX, XDP_DROP have to be implemented per driver as well.
->>
->> Also introduction of xdp.h breaks existing UAPI.
->> That's not acceptable either.
->
-> This response piss me off!@@#$
->
-> We are the early stages of XDP development. Users cannot consider XDP a
-> stable UAPI yet.  I added a big fat warning to the docs here[1].
->
-> If you already consider this a stable API, then I will suggest that we
-> disable XDP or rip the hole thing out again!!! Create a separate tree
-> where we can cooperate on getting this right, before forcing this
-> upstream.  I have raise concern about this several times upstream, but
-> the patches got applied anyway, because you Alexei, promised this was
-> super extendable and we could still change the APIs later. Maybe you
-> tricked me?! I've started to look at the details, and I'm not happy with
-> the extensibility.
+Hello David,
 
-I don't quite follow you here, Jesper. If you're talking about uapi-related
-extensibility wrt struct xdp_md, then it's done the same way as done for tc
-with 'shadow' struct __sk_buff. The concept of having this internal BPF insn
-rewriter is working quite well for this, and it is extendable with new meta
-data. Wrt return codes we're flexible to add new ones once agreed upon. The
-whole XDP config is done via netlink, nested in IFLA_XDP container, so it can
-be extended in future with other attrs, flags, etc, for setup and dumping.
-The 'breakage' that was mentioned here was related to moving things into xdp.h.
-It can be done and we did it similarly in the past with bpf_common.h, but
-then really also bpf.h needs to include the new xdp.h header.
+this is another pull request of one patch for the upcoming linux-4.8 release.
+
+Marek Vasut fixes the CAN-FD bit rate switch in the ifi driver by configuring
+the transmitter delay.
+
+regards,
+Marc
+
+---
+
+The following changes since commit b5036cd4ed3173ab8cdbc85e2ba74acf46bafb51:
+
+  ipmr, ip6mr: return lastuse relative to now (2016-09-21 00:58:23 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can.git tags/linux-can-fixes-for-4.8-20160921
+
+for you to fetch changes up to 8d58790b832e13d6006d842037732304af357c3c:
+
+  net: can: ifi: Configure transmitter delay (2016-09-21 10:32:24 +0200)
+
+----------------------------------------------------------------
+linux-can-fixes-for-4.8-20160921
+
+----------------------------------------------------------------
+Marek Vasut (1):
+      net: can: ifi: Configure transmitter delay
+
+ drivers/net/can/ifi_canfd/ifi_canfd.c | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
