@@ -1,72 +1,53 @@
-From: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
-Subject: Re: [net-next 02/15] i40e: Enable VF specific ethtool statistics
- via VF Port representor netdevs
-Date: Tue, 20 Sep 2016 22:59:15 -0700
-Message-ID: <57E221B3.2000004@intel.com>
-References: <1474429432-102772-1-git-send-email-jeffrey.t.kirsher@intel.com> <1474429432-102772-3-git-send-email-jeffrey.t.kirsher@intel.com> <CAJ3xEMhM63HxyQxv3YyN7Lb3uCOWsA3aqfkhnuzdJqtNRty8Zw@mail.gmail.com>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: Re: [RFC] PCI: Allow sysfs control over totalvfs
+Date: Wed, 21 Sep 2016 06:00:28 +0000
+Message-ID: <BL2PR07MB230605ED6D5A34B6C83D29EE8DF60@BL2PR07MB2306.namprd07.prod.outlook.com>
+References: <1474386588-16337-1-git-send-email-Yuval.Mintz@qlogic.com>
+ <20160920193645.GA12677@nanopsycho.orion>
+ <BL2PR07MB23061E60A3ABC771F05764C98DF70@BL2PR07MB2306.namprd07.prod.outlook.com>,<20160921055527.GB2078@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        "nhorman@redhat.com" <nhorman@redhat.com>,
-        "sassmann@redhat.com" <sassmann@redhat.com>,
-        "jogreene@redhat.com" <jogreene@redhat.com>,
-        guru.anbalagane@oracle.com
-To: Or Gerlitz <gerlitz.or@gmail.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:44045 "EHLO mga03.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750752AbcIUF7R (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 21 Sep 2016 01:59:17 -0400
-In-Reply-To: <CAJ3xEMhM63HxyQxv3YyN7Lb3uCOWsA3aqfkhnuzdJqtNRty8Zw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>,
+        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Chickles, Derek" <Derek.Chickles@cavium.com>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20160921055527.GB2078@nanopsycho.orion>
+Content-Language: en-US
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+> >> One of the motivations for introducing devlink interface was to allow
+> >> user to pass some kind of well defined option parameters or as you cal=
+l
+> >> it hints to driver module. That would allow to replace module options
+> >> and introduce similar possibility to pre-configure hardware on probe t=
+ime.
+> >> We plan to use devlink to allow user to change resource allocation for
+> >> mlxsw devices.
+> > >
+> >Is IOV configuration something you're going to explore in the near
+> >future for mlxsw devices? Or are you merely pointing out that
 
-On 9/20/2016 9:26 PM, Or Gerlitz wrote:
-> On Wed, Sep 21, 2016 at 6:43 AM, Jeff Kirsher
-> <jeffrey.t.kirsher@intel.com> wrote:
->> From: Sridhar Samudrala <sridhar.samudrala@intel.com>
->>
->> Sample script that shows ethtool stats on VF representor netdev
->> PF: enp5s0f0, VF0: enp5s2  VF_REP0: enp5s0f0-vf0
->>
->>     # echo 2 > /sys/class/net/enp5s0f0/device/sriov_numvfs
->>     # ip link set enp5s2 up
->>     # ethtool -S enp5s0f0-vf0
->>     NIC statistics:
->>       tx_bytes: 0
->>       tx_unicast: 0
->>       tx_multicast: 0
->>       tx_broadcast: 0
->>       tx_discards: 0
->>       tx_errors: 0
->>       rx_bytes: 140
->>       rx_unicast: 0
->>       rx_multicast: 2
->>       rx_broadcast: 0
->>       rx_discards: 0
->>       rx_unknown_protocol: 0
-> Now, when the SW stats are finally upstream for 4.9 in net-next, the
-> correct approach
-> for the VF reps counters is to follow the architecture presented there
-> [1] -- and this is
-> for the netlink based standard counters. Once you do that, there's no
-> need to expose
-> the VF HW counters through  ethtool of the VF rep.
-Sure. Will look into it.  However, i think we can keep ethtool support 
-also as VFPR
-represents the switch port corresponding to the VF.
+> No, not sriov related directly.
 
->
-> Or.
->
->
-> [1] offloaded stats commits
-> a5ea31f Merge branch 'net-offloaded-stats'
-> fc1bbb0 mlxsw: spectrum: Implement offload stats ndo and expose HW
-> stats by default
-> 69ae6ad net: core: Add offload stats to if_stats_msg
-> 2c9d85d netdevice: Add offload statistics ndo
+> >devlink could provide a superior configuration infrastrucutre and
+> >should be investigated as a better alternative?
+
+> Exactly. It is a general problem of how to pre-configure driver modules.
+
+> >> The plan is to allow to pre-create devlink instance before driver modu=
+le
+> >> is loaded. Then the user will use this placeholder to do the options
+> >> setting. Once the driver module is loaded, it will fetch the options
+> >> from devlink core and process it accordingly.
+> >
+> >> I believe this is exactly what you need.
+
+> Adding devlink support is trivial in most cases, I bet you can do it in
+> couple of minutes for your driver.
+
+I'll go and educate myself, then.
+Thanks.=
