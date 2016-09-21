@@ -1,107 +1,86 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 2/4] vti: use right inner_mode for inbound inter address family policy checks
-Date: Wed, 21 Sep 2016 13:05:44 +0200
-Message-ID: <1474455946-674-3-git-send-email-steffen.klassert@secunet.com>
-References: <1474455946-674-1-git-send-email-steffen.klassert@secunet.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: [ANNOUNCE] ndiv: line-rate network traffic processing
+Date: Wed, 21 Sep 2016 13:28:52 +0200
+Message-ID: <20160921112852.GA991@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:38346 "EHLO a.mx.secunet.com"
+Received: from wtarreau.pck.nerim.net ([62.212.114.60]:9816 "EHLO 1wt.eu"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756990AbcIULF5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 21 Sep 2016 07:05:57 -0400
-In-Reply-To: <1474455946-674-1-git-send-email-steffen.klassert@secunet.com>
+        id S1751124AbcIUL2z (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 21 Sep 2016 07:28:55 -0400
+Received: (from willy@localhost)
+        by pcw.home.local (8.15.2/8.15.2/Submit) id u8LBSq3K001226
+        for netdev@vger.kernel.org; Wed, 21 Sep 2016 13:28:52 +0200
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "thomas.zeitlhofer+lkml@ze-it.at" <thomas.zeitlhofer+lkml@ze-it.at>
+Hi,
 
-In case of inter address family tunneling (IPv6 over vti4 or IPv4 over
-vti6), the inbound policy checks in vti_rcv_cb() and vti6_rcv_cb() are
-using the wrong address family. As a result, all inbound inter address
-family traffic is dropped.
+Over the last 3 years I've been working a bit on high traffic processing
+for various reasons. It started with the wish to capture line-rate GigE
+traffic on very small fanless ARM machines and the framework has evolved
+to be used at my company as a basis for our anti-DDoS engine capable of
+dealing with multiple 10G links saturated with floods.
 
-Use the xfrm_ip2inner_mode() helper, as done in xfrm_input() (i.e., also
-increment LINUX_MIB_XFRMINSTATEMODEERROR in case of error), to select the
-inner_mode that contains the right address family for the inbound policy
-checks.
+I know it comes a bit late now that there is XDP, but it's my first
+vacation since then and I needed to have a bit of calm time to collect
+the patches from the various branches and put them together. Anyway I'm
+sending this here in case it can be of interest to anyone, for use or
+just to study it.
 
-Signed-off-by: Thomas Zeitlhofer <thomas.zeitlhofer+lkml@ze-it.at>
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/ipv4/ip_vti.c  | 15 ++++++++++++++-
- net/ipv6/ip6_vti.c | 15 ++++++++++++++-
- 2 files changed, 28 insertions(+), 2 deletions(-)
+I presented it in 2014 at kernel recipes :
+  http://kernel-recipes.org/en/2014/ndiv-a-low-overhead-network-traffic-diverter/
 
-diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
-index cc701fa..5d7944f 100644
---- a/net/ipv4/ip_vti.c
-+++ b/net/ipv4/ip_vti.c
-@@ -88,6 +88,7 @@ static int vti_rcv_cb(struct sk_buff *skb, int err)
- 	struct net_device *dev;
- 	struct pcpu_sw_netstats *tstats;
- 	struct xfrm_state *x;
-+	struct xfrm_mode *inner_mode;
- 	struct ip_tunnel *tunnel = XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip4;
- 	u32 orig_mark = skb->mark;
- 	int ret;
-@@ -105,7 +106,19 @@ static int vti_rcv_cb(struct sk_buff *skb, int err)
- 	}
- 
- 	x = xfrm_input_state(skb);
--	family = x->inner_mode->afinfo->family;
-+
-+	inner_mode = x->inner_mode;
-+
-+	if (x->sel.family == AF_UNSPEC) {
-+		inner_mode = xfrm_ip2inner_mode(x, XFRM_MODE_SKB_CB(skb)->protocol);
-+		if (inner_mode == NULL) {
-+			XFRM_INC_STATS(dev_net(skb->dev),
-+				       LINUX_MIB_XFRMINSTATEMODEERROR);
-+			return -EINVAL;
-+		}
-+	}
-+
-+	family = inner_mode->afinfo->family;
- 
- 	skb->mark = be32_to_cpu(tunnel->parms.i_key);
- 	ret = xfrm_policy_check(NULL, XFRM_POLICY_IN, skb, family);
-diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
-index d90a11f..52a2f73 100644
---- a/net/ipv6/ip6_vti.c
-+++ b/net/ipv6/ip6_vti.c
-@@ -340,6 +340,7 @@ static int vti6_rcv_cb(struct sk_buff *skb, int err)
- 	struct net_device *dev;
- 	struct pcpu_sw_netstats *tstats;
- 	struct xfrm_state *x;
-+	struct xfrm_mode *inner_mode;
- 	struct ip6_tnl *t = XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip6;
- 	u32 orig_mark = skb->mark;
- 	int ret;
-@@ -357,7 +358,19 @@ static int vti6_rcv_cb(struct sk_buff *skb, int err)
- 	}
- 
- 	x = xfrm_input_state(skb);
--	family = x->inner_mode->afinfo->family;
-+
-+	inner_mode = x->inner_mode;
-+
-+	if (x->sel.family == AF_UNSPEC) {
-+		inner_mode = xfrm_ip2inner_mode(x, XFRM_MODE_SKB_CB(skb)->protocol);
-+		if (inner_mode == NULL) {
-+			XFRM_INC_STATS(dev_net(skb->dev),
-+				       LINUX_MIB_XFRMINSTATEMODEERROR);
-+			return -EINVAL;
-+		}
-+	}
-+
-+	family = inner_mode->afinfo->family;
- 
- 	skb->mark = be32_to_cpu(t->parms.i_key);
- 	ret = xfrm_policy_check(NULL, XFRM_POLICY_IN, skb, family);
--- 
-1.9.1
+It now supports drivers mvneta, ixgbe, e1000e, e1000 and igb. It is
+very light, and retrieves the packets in the NIC's driver before they
+are converted to an skb, then submits them to a registered RX handler
+running in softirq context so we have the best of all worlds by
+benefitting from CPU scalability, delayed processing, and not paying
+the cost of switching to userland. Also an rx_done() function allows
+handlers to batch their processing. The RX handler returns an action
+among accepting the packet as-is, accepting it modified (eg: vlan or
+tunnel decapsulation), dropping it, postponing the processing
+(equivalent to EAGAIN), or building a new packet to send back.
+
+This last function is the one requiring the most changes in existing
+drivers, but offers the widest range of possibilities. We use it to
+send SYN cookies, but I have also implemented a stateless HTTP server
+supporting keep-alive using it, achieving line-rate traffic processing
+on a single CPU core when the NIC supports it. It's very convenient to
+test various stateful TCP components as it's easy to sustain millions
+of connections per second on it.
+
+It does not support forwarding between NICs. It was my first goal
+because I wanted to implement a TAP with it, bridging the traffic
+between two ports, but figured it was adding some complexity to the
+system back then. However since then we've implemented traffic
+capture in our product, exploiting this framework to capture without
+losses at 14 Mpps. I may find some time to try to extract it later.
+It uses the /sys API so that you can simply plug tcpdump -r on a
+file there, though there's also an mmap version which uses less CPU
+(that's important at 10G).
+
+In its current form since the initial code's intent was to limit
+core changes, it happens not to modify anything in the kernel by
+default and to reuse the net_device's ax25_ptr to attach devices
+(idea borrowed from netmap), so it can be used on an existing
+kernel just by loading the patched network drivers (yes, I know
+it's not a valid solution for the long term).
+
+The current code is available here :
+
+  http://git.kernel.org/cgit/linux/kernel/git/wtarreau/ndiv.git/
+
+Please let me know if there could be some interest in rebasing it
+on more recent versions (currently 3.10, 3.14 and 4.4 are supported).
+I don't have much time to assign to it since it works fine as-is,
+but will be glad to do so if that can be useful.
+
+Also the stateless HTTP server provided in it definitely is a nice
+use case for testing such a framework.
+
+Regards,
+Willy
