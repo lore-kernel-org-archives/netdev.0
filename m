@@ -1,94 +1,123 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH RFC 1/3] xdp: Infrastructure to generalize XDP
-Date: Wed, 21 Sep 2016 21:56:58 +0200
-Message-ID: <20160921215658.2c61ed5e@redhat.com>
-References: <1474408824-418864-1-git-send-email-tom@herbertland.com>
-        <1474408824-418864-2-git-send-email-tom@herbertland.com>
-        <20160920224416.GF3291@pox.localdomain>
-        <CALx6S36FVU7bNu3JudZuET-VdFND2ZO7n9A7k--qsZVyxTvcpQ@mail.gmail.com>
-        <20160920230927.GG3291@pox.localdomain>
-        <CALx6S37oniKp1JOeiygzr0RiQojj651ONqBgyvcJvqHj5-aT5g@mail.gmail.com>
-        <20160920234347.GH3291@pox.localdomain>
-        <CALx6S35LmUtwRA85Kg6s7OR=e5Pj9ssqmWLsjtmXfZTXeG02zQ@mail.gmail.com>
-        <20160921115545.GA12789@pox.localdomain>
-        <CALx6S35Xctd-aA8DF1_vypMDejiGXcud6=UO33dqgvO60W0DZQ@mail.gmail.com>
-        <20160921144800.GB13991@pox.localdomain>
-        <CALx6S36ZCdh5iOp6CPfztVKOEkDFgUo1RyqWMJVxhakOYNx8iw@mail.gmail.com>
+From: "R. Parameswaran" <parameswaran.r7@gmail.com>
+Subject: [PATCH] L2TP:Adjust intf MTU, add underlay L3, overlay L2
+Date: Wed, 21 Sep 2016 14:11:04 -0700
+Message-ID: <ee265b42-893f-39b7-c740-b3e23b5058a2@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>,
-        "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Kernel Team <kernel-team@fb.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>, brouer@redhat.com
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60312 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755582AbcIUT5F (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 21 Sep 2016 15:57:05 -0400
-In-Reply-To: <CALx6S36ZCdh5iOp6CPfztVKOEkDFgUo1RyqWMJVxhakOYNx8iw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@redhat.com, linux-kernel@vger.kernel.org,
+        nprachan@brocade.com, rshearma@brocade.com, dfawcus@brocade.com,
+        stephen@networkplumber.org
+To: kleptog@svana.org, jchapman@katalix.com, mostrows@speakeasy.net,
+        acme@xconectiva.com.br, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-On Wed, 21 Sep 2016 08:08:34 -0700 Tom Herbert <tom@herbertland.com> wrote:
+Take into account all of the tunnel encapsulation headers when setting
+up the MTU on the L2TP logical interface device. Otherwise, packets
+created by the applications on top of the L2TP layer are larger
+than they ought to be, relative to the underlay MTU, leading to
+needless fragmentation once the outer IP encap is added.
 
-> On Wed, Sep 21, 2016 at 7:48 AM, Thomas Graf <tgraf@suug.ch> wrote:
-> > On 09/21/16 at 07:19am, Tom Herbert wrote:  
-> >> certain design that because of constraints on one kernel interface. As
-> >> a kernel developer I want flexibility on how we design and implement
-> >> things!  
-> >
-> > Perfectly valid argument. I reviewed your ILA changes and did not
-> > object to them.
-> >
-> >  
-> >> I think there are two questions that this patch set poses for the
-> >> community wrt XDP:
-> >>
-> >> #1: Should we allow alternate code to run in XDP other than BPF?
-> >> #2: If #1 is true what is the best way to implement that?
-> >>
-> >> If the answer to #1 is "no" then the answer to #2 is irrelevant. So
-> >> with this RFC I'm hoping we can come the agreement on questions #1.  
+Specifically, take into account the (outer, underlay) IP header
+imposed on the encapsulated L2TP packet, and the Layer 2 header
+imposed on the inner IP packet prior to L2TP encapsulation.
 
-I vote yes to #1.
+Do not assume an Ethernet (non-jumbo) underlay. Use the PMTU mechanism
+and the dst entry in the L2TP tunnel socket to directly pull up
+the underlay MTU (as the baseline number on top of which the
+encapsulation headers are factored in).  Fall back to Ethernet MTU
+if this fails.
 
-> > I'm not opposed to running non-BPF code at XDP. I'm against adding
-> > a linked list of hook consumers.
+Signed-off-by: Ramkumar Parameswaran <rparames@brocade.com>
 
-I also worry about the performance impact of a linked list.  We should
-simple benchmark it instead of discussing it! ;-)
+Reviewed-by: N. Prachanda <nprachan@brocade.com>,
+              R. Shearman  <rshearma@brocade.com>,
+              D. Fawcus    <dfawcus@brocade.com>
 
 
-> > Would anyone require to run XDP-BPF in combination ILA? Or XDP-BPF
-> > in combination with a potential XDP-nftables? We don't know yet I
-> > guess.
-> >  
-> Right. Admittedly, I feel like we owe a bit of reciprocity to
-> nftables. For ILA we are using the NF_INET_PRE_ROUTING hook with our
-> own code (looks like ipvlan set nfhooks as well). This works really
-> well and saves the value of early demux in ILA. Had we not had the
-> ability to use nfhooks in this fashion it's likely we would have had
-> to create another hook (we did try putting translation in nftables
-> rules but that was too inefficient for ILA).
+---
+  net/l2tp/l2tp_eth.c | 48 ++++++++++++++++++++++++++++++++++++++++++++----
+  1 file changed, 44 insertions(+), 4 deletions(-)
 
-Thinking about it, I actually think Tom is proposing a very valid user
-of the XDP hook, which is the kernel itself.  And Tom even have a real
-first user ILA.  The way I read the ILA-RFC-draft[1], the XDP hook
-would benefit the NVE (Network Virtualization Edge) component, which
-can run separately or run on the Tenant System, where the latter case
-could use XDP_PASS.
+diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
+index 57fc5a4..dbcd6bd 100644
+--- a/net/l2tp/l2tp_eth.c
++++ b/net/l2tp/l2tp_eth.c
+@@ -30,6 +30,9 @@
+  #include <net/xfrm.h>
+  #include <net/net_namespace.h>
+  #include <net/netns/generic.h>
++#include <linux/ip.h>
++#include <linux/ipv6.h>
++#include <linux/udp.h>
 
-[1] https://www.ietf.org/archive/id/draft-herbert-nvo3-ila-02.txt
+  #include "l2tp_core.h"
+
+@@ -206,6 +209,46 @@ static void l2tp_eth_show(struct seq_file *m, void 
+*arg)
+  }
+  #endif
+
++static void l2tp_eth_adjust_mtu(struct l2tp_tunnel *tunnel,
++				struct l2tp_session *session,
++				struct net_device *dev)
++{
++	unsigned int overhead = 0;
++	struct dst_entry *dst;
++
++	if (session->mtu != 0) {
++		dev->mtu = session->mtu;
++		dev->needed_headroom += session->hdr_len;
++		if (tunnel->encap == L2TP_ENCAPTYPE_UDP)
++			dev->needed_headroom += sizeof(struct udphdr);
++		return;
++	}
++	overhead = session->hdr_len;
++	/* Adjust MTU, factor overhead - underlay L3 hdr, overlay L2 hdr*/
++	if (tunnel->sock->sk_family == AF_INET)
++		overhead += (ETH_HLEN + sizeof(struct iphdr));
++	else if (tunnel->sock->sk_family == AF_INET6)
++		overhead += (ETH_HLEN + sizeof(struct ipv6hdr));
++	/* Additionally, if the encap is UDP, account for UDP header size */
++	if (tunnel->encap == L2TP_ENCAPTYPE_UDP)
++		overhead += sizeof(struct udphdr);
++	/* If PMTU discovery was enabled, use discovered MTU on L2TP device */
++	dst = sk_dst_get(tunnel->sock);
++	if (dst) {
++		u32 pmtu = dst_mtu(dst);
++
++		if (pmtu != 0)
++			dev->mtu = pmtu;
++		dst_release(dst);
++	}
++	/* else (no PMTUD) L2TP dev MTU defaulted to Ethernet MTU in caller */
++	session->mtu = dev->mtu - overhead;
++	dev->mtu = session->mtu;
++	dev->needed_headroom += session->hdr_len;
++	if (tunnel->encap == L2TP_ENCAPTYPE_UDP)
++		dev->needed_headroom += sizeof(struct udphdr);
++}
++
+  static int l2tp_eth_create(struct net *net, u32 tunnel_id, u32 
+session_id, u32 peer_session_id, struct l2tp_session_cfg *cfg)
+  {
+  	struct net_device *dev;
+@@ -255,11 +298,8 @@ static int l2tp_eth_create(struct net *net, u32 
+tunnel_id, u32 session_id, u32 p
+  	}
+
+  	dev_net_set(dev, net);
+-	if (session->mtu == 0)
+-		session->mtu = dev->mtu - session->hdr_len;
+-	dev->mtu = session->mtu;
+-	dev->needed_headroom += session->hdr_len;
+
++	l2tp_eth_adjust_mtu(tunnel, session, dev);
+  	priv = netdev_priv(dev);
+  	priv->dev = dev;
+  	priv->session = session;
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+2.1.4
