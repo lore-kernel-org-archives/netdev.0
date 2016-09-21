@@ -1,108 +1,63 @@
-From: Jesper Dangaard Brouer via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: XDP user interface confusions
-Date: Wed, 21 Sep 2016 09:18:58 +0200
-Message-ID: <20160921091858.4e44f5e5@redhat.com>
-References: <20160915201402.15b65136@redhat.com>
-	<20160915185835.GA4418@gmail.com>
-Reply-To: Jesper Dangaard Brouer <brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH net-next 1/3] net: ethernet: mediatek: add extension of
+ phy-mode for TRGMII
+Date: Wed, 21 Sep 2016 15:33:09 +0800
+Message-ID: <1474443189-8836-1-git-send-email-sean.wang@mediatek.com>
+References: <064d43fb-2942-efd2-6dc7-09f47a256691@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
-	"iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org" <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Daniel Borkmann <borkmann-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-To: Brenden Blanco <bblanco-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <20160915185835.GA4418-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Cc: nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <064d43fb-2942-efd2-6dc7-09f47a256691-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
+List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 15 Sep 2016 11:58:35 -0700
-Brenden Blanco <bblanco-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+Date: Tue, 20 Sep 2016 14:23:24 -0700, Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>On 09/20/2016 12:59 AM, sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org wrote:
+>> From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+>> 
+>> adds PHY-mode "trgmii" as an extension for the operation
+>> mode of the PHY interface, TRGMII can be compatible with
+>> RGMII, so the extended mode doesn't really have effects on
+>> the target MAC and PHY, is used as the indication if the
+>> current MAC is connected to an internal switch or external
+>> PHY respectively by the given configuration on the board and
+>> then to perform the corresponding setup on TRGMII hardware
+>> module.
+>
+>Based on my googling, it seems like Turbo RGMII is a Mediatek-specific
+>thing for now, but this could become standard and used by other vendors
+>at some point, so I would be inclined to just extend the phy-mode
+>property to support trgmii as another interface type.
+>
+>If you do so, do you also mind proposing an update to the Device Tree
+>specification:
+>
+>https://www.devicetree.org/specifications/
+>
+>Thanks!
 
-> On Thu, Sep 15, 2016 at 08:14:02PM +0200, Jesper Dangaard Brouer wrote:
-> > Hi Brenden,
-> > 
-> > I don't quite understand the semantics of the XDP userspace interface.
-> > 
-> > We allow XDP programs to be (unconditionally) exchanged by another
-> > program, this avoids taking the link down+up and avoids reallocating
-> > RX ring resources (which is great).
-> > 
-> > We have two XDP samples programs in samples/bpf/ xdp1 and xdp2.  Now I
-> > want to first load xdp1 and then to avoid the linkdown I load xdp2,
-> > and then afterwards remove/stop program xdp1.
-> > 
-> > This does NOT work, because (in samples/bpf/xdp1_user.c) when xdp1
-> > exits it unconditionally removes the running XDP program (loaded by xdp2)
-> > via set_link_xdp_fd(ifindex, -1).  The xdp2 user program is still
-> > running, and is unaware of its xdp/bpf program have been unloaded.
-> > 
-> > I find this userspace interface confusing. What this your intention?
-> > Perhaps you can explain what the intended semantics or specification is?  
-> 
-> In practice, we've used a single agent process to manage bpf programs on
-> behalf of the user applications. This agent process uses common linux
-> functionalities to add semantics, while not really relying on the bpf
-> handles themselves to take care of that. For instance, the process may
-> put some lockfiles and what-not in /var/run/$PID, and maybe returns the
-> list of running programs through a http: or unix: interface.
-> 
-> So, from a user<->kernel API, the requirements are minimal...the agent
-> process just overwrites the loaded bpf program when the application
-> changes, or a new application comes online. There is nobody to 'notify'
-> when a handle changes.
-> 
-> When translating this into the kernel api that you see now, none of this
-> exists, because IMHO the kernel api should be unopinionated and generic.
-> The result is something that appears very "fire-and-forget", which
-> results in something simple yet safe at the same time; the refcounting
-> is done transparently by the kernel.
-> 
-> So, in practice, there is no xdp1 or xdp2, just xdp-agent at different
-> points in time. Or, better yet, no agent, just the programs running in
-> the kernel, with the handles of the programs residing solely in the
-> device, which are perhaps pinned to /sys/fs/bpf for semantic management
-> purposes. I didn't feel like it was appropriate to conflate different
-> bpf features in the kernel samples, so we don't see (and probably never
-> will) a sample which combines these features into a whole. That is best
-> left to userspace tools. It so happens that this is one of the projects
-> I am currently active on at $DAYJOB, and we fully intend to share the
-> details of that when it's in a suitable state.
+I am willing to do the these thing
 
-For the record, I'm not happy with this response.
+1)
+in the next version, I will extend rgmii mode as
+another interface type as PHY_INTERFACE_MODE_TRGMII
+defined in linux/phy.h instead of extension only inside
+the current driver. This change also helps to save some code.
 
-IHMO the XDP userspace API should have been thought more through. Where
-is the specification and documentation for this interface?
+2)
+I send another separate patch for updating the Device Tree
+specification about TRGMII adding description
 
-There is no official XDP userspace daemon, thus your proposed file-lock
-scheme falls apart.  We can easily imagine, several different
-open-source projects using XDP, they will not coordinate what /var/run
-lock-file to use.  An admin installs several of these to evaluate
-them.  Later he gets really confused, because both of them run by
-mistake (and it is random who "wins" due to systemd parallel boot).
-
-The programs themselves have no-way to catch this error situation, and
-report it.  This is the main mistake of this API approach.  The admin
-also have a hard time debugging this, as our query interface is a bool,
-so he just see that some XDP program _is_ running.
-
-Sorry, but we have to do better than this.  We have to maintain these
-APIs for the next +10 years.
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+are these all okay for you?
