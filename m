@@ -1,38 +1,57 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH net-next 6/7] net/faraday: Fix phy link irq on Aspeed G5
- SoCs
-Date: Wed, 21 Sep 2016 19:03:53 +1000
-Message-ID: <1474448633.2857.119.camel@kernel.crashing.org>
-References: <20160920063007.24291-1-joel@jms.id.au>
-         <20160920063007.24291-7-joel@jms.id.au>
-         <1474373594.2857.62.camel@kernel.crashing.org>
-         <20160920152940.GI22292@lunn.ch>
-         <CACPK8Xde3COqQ8euhj3Ww5pPiAn4iXvMqJVpjKu3eGa1Pm=1GA@mail.gmail.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [PATCH v2 0/2] make POSIX timers optional
+Date: Wed, 21 Sep 2016 11:09:37 +0200 (CEST)
+Message-ID: <alpine.DEB.2.20.1609211038200.5573@nanos>
+References: <1474401400-18491-1-git-send-email-nicolas.pitre@linaro.org> <20160920202556.GA6713@localhost.localdomain> <20160920204556.GA7555@localhost.localdomain> <alpine.LFD.2.20.1609201655200.9311@knanqh.ubzr> <alpine.DEB.2.20.1609202300140.5476@nanos>
+ <alpine.LFD.2.20.1609201833010.9311@knanqh.ubzr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Gavin Shan <gwshan@linux.vnet.ibm.com>,
-        Andrew Jeffery <andrew@aj.id.au>, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=US-ASCII
+Cc: Richard Cochran <richardcochran@gmail.com>,
+        John Stultz <john.stultz@linaro.org>,
+        Josh Triplett <josh@joshtriplett.org>, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
-To: Joel Stanley <joel@jms.id.au>, Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACPK8Xde3COqQ8euhj3Ww5pPiAn4iXvMqJVpjKu3eGa1Pm=1GA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Nicolas Pitre <nicolas.pitre@linaro.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Galois.linutronix.de ([146.0.238.70]:33780 "EHLO
+        Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751167AbcIUJMD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2016 05:12:03 -0400
+In-Reply-To: <alpine.LFD.2.20.1609201833010.9311@knanqh.ubzr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-09-21 at 11:32 +0930, Joel Stanley wrote:
-> I had a look at the eval board schematic and it appears that the line
-> has pull down resistors on it, explaining why the IRQ fires when it's
-> configured to active low. Other machines re-use the pin pin as a GPIO.
-> So yes, I will change this to a dt property in v2. That will mean
-> dropping 4/7 "net/faraday: Avoid PHYSTS_CHG interrupt" as well.
+On Tue, 20 Sep 2016, Nicolas Pitre wrote:
+> There are way more drivers than subsystems and if you had to go around 
+> unselecting all NIC drivers for CONFIG_ETHERNET to be turned off, and 
+> with CONFIG_ETHERNET=n you'd finally be able to turn networking off, 
+> then this would be a nightmare.
 
-What line is it out of the PHY ? The PHY IRQ ? If yes then it's meant
-to be telling you to go look at the PHY registers for a link status
-change, but only works if the PHY has also been configured
-appropriately...
+It's also a nightmare to try to enable something which depends on a chain
+of config dependencies. You search A and see that it depends on B. Now you
+try to enable B and find out it depends on C. The deepest chain I found so
+far was 5 levels deep. That's horrible.
 
-Mostly we ignore those things in Linux and just poll the PHY.
+> IMHO it is much nicer for the poor user configuring the kernel to have a 
+> single configuration prompt for PTP support, and then have whatever 
+> driver that can provide a PTP clock just do it (or omit it) based on 
+> that single prompt.  Prompting for PTP support for each individual 
+> ethernet driver is silly.
 
-Cheers,
-Ben.
+No, it's not. PTP support in a NIC can require a substantial amount of code
+and adds overhead in the hotpath. So if you have two NICs on your system
+and only use PTP on one of them then configuring out PTP for the other is
+desired.
+
+And talking about nightmares. With your patch I can now end up with the
+following configuration:
+
+    CONFIG_NETWORK_DRIVER=y
+    CONFIG_PTP_1588_CLOCK=m
+
+which makes the network driver to use the stub functions due to
+IS_REACHABLE(). That's going to be an utter nightmare for the poor user to
+figure out why PTP suddenly does not work anymore. That's simply crap.
+
+Thanks,
+
+	tglx
