@@ -1,64 +1,99 @@
 From: Joel Stanley <joel@jms.id.au>
-Subject: [PATCH net-next v2 3/6] net/faraday: Adapt for Aspeed SoCs
-Date: Thu, 22 Sep 2016 08:35:00 +0930
-Message-ID: <20160921230503.23309-4-joel@jms.id.au>
+Subject: [PATCH net-next v2 6/6] net/faraday: Mask out PHYSTS_CHG interrupt
+Date: Thu, 22 Sep 2016 08:35:03 +0930
+Message-ID: <20160921230503.23309-7-joel@jms.id.au>
 References: <20160921230503.23309-1-joel@jms.id.au>
 Cc: clg@kaod.org, gwshan@linux.vnet.ibm.com, andrew@lunn.ch,
         andrew@aj.id.au, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org, benh@kernel.crashing.org
 To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:34984 "EHLO
+        mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934062AbcIUXGM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2016 19:06:12 -0400
 In-Reply-To: <20160921230503.23309-1-joel@jms.id.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The RXDES and TXDES registers bits in the ftgmac100 indicates EDO{R,T}R
-at bit position 15 for the Faraday Tech IP. However, the version of this
-IP present in the Aspeed SoCs has these bits at position 30 in the
-registers.
+The PHYSTS_CHG (the ftgmac100's PHY IRQ) is telling the system to go
+look at the PHY registers for a link status change.
 
-It appers that ast2400 SoCs support both positions, with the 15th bit
-marked as reserved but still functional. In the ast2500 this bit is
-reused for another function, so we need a work around.
+The interrupt was causing issues on Aspeed SoC where some board designs
+had an active high configuration, some active low, and in some cases
+repurposed for other functions. When misconfigured Linux would chew 100%
+of CPU cycles servicing interrupts:
 
-This was confirmed with engineers from Aspeed that using bit 30 is
-correct for both the ast2400 and ast2500 SoCs.
+ [   20.280000] ftgmac100 1e660000.ethernet eth0: [ISR] = 0x200: PHYSTS_CHG
+ [   20.280000] ftgmac100 1e660000.ethernet eth0: [ISR] = 0x200: PHYSTS_CHG
+ [   20.280000] ftgmac100 1e660000.ethernet eth0: [ISR] = 0x200: PHYSTS_CHG
+ [   20.300000] ftgmac100 1e660000.ethernet eth0: [ISR] = 0x200: PHYSTS_CHG
+
+While in the ftgmac100 IP can be configured for high, low and edge
+sensitivity the current driver always polls the PHY, so we chose to mask
+out the interrupt.
+
+See https://patchwork.ozlabs.org/patch/672099/ for more discussion.
 
 Signed-off-by: Joel Stanley <joel@jms.id.au>
 ---
- drivers/net/ethernet/faraday/ftgmac100.c | 13 ++++++++++---
- 1 file changed, 10 insertions(+), 3 deletions(-)
+v2:
+ - Reworked to mask out PHYSTS_CHG instead of trying to determine the IRQ line
+   level
+
+ drivers/net/ethernet/faraday/ftgmac100.c | 10 +++-------
+ drivers/net/ethernet/faraday/ftgmac100.h |  1 +
+ 2 files changed, 4 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index 62a88d1a1f99..47f512224b57 100644
+index e3653b14008a..90f9c5481290 100644
 --- a/drivers/net/ethernet/faraday/ftgmac100.c
 +++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -1345,9 +1345,6 @@ static int ftgmac100_probe(struct platform_device *pdev)
- 	priv->netdev = netdev;
- 	priv->dev = &pdev->dev;
+@@ -1075,14 +1075,12 @@ static int ftgmac100_poll(struct napi_struct *napi, int budget)
+ 	}
  
--	priv->rxdes0_edorr_mask = BIT(15);
--	priv->txdes0_edotr_mask = BIT(15);
--
- 	spin_lock_init(&priv->tx_lock);
+ 	if (status & priv->int_mask_all & (FTGMAC100_INT_NO_RXBUF |
+-			FTGMAC100_INT_RPKT_LOST | FTGMAC100_INT_AHB_ERR |
+-			FTGMAC100_INT_PHYSTS_CHG)) {
++			FTGMAC100_INT_RPKT_LOST | FTGMAC100_INT_AHB_ERR)) {
+ 		if (net_ratelimit())
+-			netdev_info(netdev, "[ISR] = 0x%x: %s%s%s%s\n", status,
++			netdev_info(netdev, "[ISR] = 0x%x: %s%s%s\n", status,
+ 				    status & FTGMAC100_INT_NO_RXBUF ? "NO_RXBUF " : "",
+ 				    status & FTGMAC100_INT_RPKT_LOST ? "RPKT_LOST " : "",
+-				    status & FTGMAC100_INT_AHB_ERR ? "AHB_ERR " : "",
+-				    status & FTGMAC100_INT_PHYSTS_CHG ? "PHYSTS_CHG" : "");
++				    status & FTGMAC100_INT_AHB_ERR ? "AHB_ERR " : "");
  
- 	/* initialize NAPI */
-@@ -1381,6 +1378,16 @@ static int ftgmac100_probe(struct platform_device *pdev)
- 			      FTGMAC100_INT_PHYSTS_CHG |
+ 		if (status & FTGMAC100_INT_NO_RXBUF) {
+ 			/* RX buffer unavailable */
+@@ -1390,7 +1388,6 @@ static int ftgmac100_probe(struct platform_device *pdev)
+ 			      FTGMAC100_INT_XPKT_ETH |
+ 			      FTGMAC100_INT_XPKT_LOST |
+ 			      FTGMAC100_INT_AHB_ERR |
+-			      FTGMAC100_INT_PHYSTS_CHG |
  			      FTGMAC100_INT_RPKT_BUF |
  			      FTGMAC100_INT_NO_RXBUF);
-+
-+	if (of_machine_is_compatible("aspeed,ast2400") ||
-+	    of_machine_is_compatible("aspeed,ast2500")) {
-+		priv->rxdes0_edorr_mask = BIT(30);
-+		priv->txdes0_edotr_mask = BIT(30);
-+	} else {
-+		priv->rxdes0_edorr_mask = BIT(15);
-+		priv->txdes0_edotr_mask = BIT(15);
-+	}
-+
- 	if (pdev->dev.of_node &&
- 	    of_get_property(pdev->dev.of_node, "use-ncsi", NULL)) {
- 		if (!IS_ENABLED(CONFIG_NET_NCSI)) {
+ 
+@@ -1412,7 +1409,6 @@ static int ftgmac100_probe(struct platform_device *pdev)
+ 
+ 		dev_info(&pdev->dev, "Using NCSI interface\n");
+ 		priv->use_ncsi = true;
+-		priv->int_mask_all &= ~FTGMAC100_INT_PHYSTS_CHG;
+ 		priv->ndev = ncsi_register_dev(netdev, ftgmac100_ncsi_handler);
+ 		if (!priv->ndev)
+ 			goto err_ncsi_dev;
+diff --git a/drivers/net/ethernet/faraday/ftgmac100.h b/drivers/net/ethernet/faraday/ftgmac100.h
+index 8a377ab1d127..a7ce0ac8858a 100644
+--- a/drivers/net/ethernet/faraday/ftgmac100.h
++++ b/drivers/net/ethernet/faraday/ftgmac100.h
+@@ -157,6 +157,7 @@
+ #define FTGMAC100_MACCR_FULLDUP		(1 << 8)
+ #define FTGMAC100_MACCR_GIGA_MODE	(1 << 9)
+ #define FTGMAC100_MACCR_CRC_APD		(1 << 10)
++#define FTGMAC100_MACCR_PHY_LINK_LEVEL	(1 << 11)
+ #define FTGMAC100_MACCR_RX_RUNT		(1 << 12)
+ #define FTGMAC100_MACCR_JUMBO_LF	(1 << 13)
+ #define FTGMAC100_MACCR_RX_ALL		(1 << 14)
 -- 
 2.9.3
