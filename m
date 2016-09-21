@@ -1,152 +1,44 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [ANNOUNCE] ndiv: line-rate network traffic processing
-Date: Wed, 21 Sep 2016 18:26:39 +0200
-Message-ID: <20160921182639.2fce960a@redhat.com>
-References: <20160921112852.GA991@1wt.eu>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next V2] net/vxlan: Avoid unaligned access in
+ vxlan_build_skb()
+Date: Wed, 21 Sep 2016 18:49:18 +0200
+Message-ID: <f0ae4d21-8e72-079a-dfd3-c315f24f0e7c@stressinduktion.org>
+References: <20160920185737.GU8920@oracle.com>
+ <4617aca3-8d44-e99a-cc5a-1088b30ae327@stressinduktion.org>
+ <20160921161457.GA17116@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, netdev@vger.kernel.org,
-        Tom Herbert <tom@herbertland.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: Willy Tarreau <w@1wt.eu>
+Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+        netdev@vger.kernel.org, jbenc@redhat.com, davem@davemloft.net
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52260 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933227AbcIUQ0o (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 21 Sep 2016 12:26:44 -0400
-In-Reply-To: <20160921112852.GA991@1wt.eu>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:46002 "EHLO
+        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S934834AbcIUQtV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2016 12:49:21 -0400
+In-Reply-To: <20160921161457.GA17116@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On Wed, 21 Sep 2016 13:28:52 +0200 Willy Tarreau <w@1wt.eu> wrote:
-
-> Over the last 3 years I've been working a bit on high traffic processing
-> for various reasons. It started with the wish to capture line-rate GigE
-> traffic on very small fanless ARM machines and the framework has evolved
-> to be used at my company as a basis for our anti-DDoS engine capable of
-> dealing with multiple 10G links saturated with floods.
+On 21.09.2016 18:14, Alexei Starovoitov wrote:
+> On Wed, Sep 21, 2016 at 12:10:55PM +0200, Hannes Frederic Sowa wrote:
+>> On 20.09.2016 20:57, Sowmini Varadhan wrote:
+>>> The vxlan header may not be aligned to 4 bytes in
+>>> vxlan_build_skb (e.g., for MLD packets). This patch
+>>> avoids unaligned access traps from vxlan_build_skb
+>>> (in platforms like sparc) by making struct vxlanhdr __packed.
+>>>
+>>> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+>>
+>> Performance wise this should only affect code generation for archs where
+>> it matters anyway.
 > 
-> I know it comes a bit late now that there is XDP, but it's my first
-> vacation since then and I needed to have a bit of calm time to collect
-> the patches from the various branches and put them together. Anyway I'm
-> sending this here in case it can be of interest to anyone, for use or
-> just to study it.
+> I think it's the opposite. Even on x86 compiler will use byte loads.
 
-I definitely want to study it!
+I checked that on x86-64 actually. Also clearly visible here:
 
-You mention XDP.  If you didn't notice, I've created some documentation
-on XDP (it is very "live" documentation at this point and it will
-hopefully "materialized" later in the process).  But it should be a good
-starting point for understanding XDP:
+https://godbolt.org/g/xsW2P1
 
- https://prototype-kernel.readthedocs.io/en/latest/networking/XDP/index.html
-
-
-> I presented it in 2014 at kernel recipes :
->   http://kernel-recipes.org/en/2014/ndiv-a-low-overhead-network-traffic-diverter/
-
-Cool, and it even have a video!
- 
-> It now supports drivers mvneta, ixgbe, e1000e, e1000 and igb. It is
-> very light, and retrieves the packets in the NIC's driver before they
-> are converted to an skb, then submits them to a registered RX handler
-> running in softirq context so we have the best of all worlds by
-> benefitting from CPU scalability, delayed processing, and not paying
-> the cost of switching to userland. Also an rx_done() function allows
-> handlers to batch their processing. 
-
-Wow - it does sound a lot like XDP!  I would say that is sort of
-validate the current direction of XDP, and that there are real
-use-cases for this stuff.
-
-> The RX handler returns an action
-> among accepting the packet as-is, accepting it modified (eg: vlan or
-> tunnel decapsulation), dropping it, postponing the processing
-> (equivalent to EAGAIN), or building a new packet to send back.
-
-I'll be very interested in studying in-details how you implemented and
-choose what actions to implement.
-
-What was the need for postponing the processing (EAGAIN)?
-
- 
-> This last function is the one requiring the most changes in existing
-> drivers, but offers the widest range of possibilities. We use it to
-> send SYN cookies, but I have also implemented a stateless HTTP server
-> supporting keep-alive using it, achieving line-rate traffic processing
-> on a single CPU core when the NIC supports it. It's very convenient to
-> test various stateful TCP components as it's easy to sustain millions
-> of connections per second on it.
-
-Interesting, and controversial use-case.  One controversial use-case
-for XDP, that I imagine was implementing a DNS accelerator, what
-answers simple and frequent requests.  You took it a step further with
-a HTTP server!
-
-
-> It does not support forwarding between NICs. It was my first goal
-> because I wanted to implement a TAP with it, bridging the traffic
-> between two ports, but figured it was adding some complexity to the
-> system back then. 
-
-With all the XDP features at the moment, we have avoided going through
-the page allocator, by relying on different page recycling tricks.
-
-When doing forwarding between NICs is it harder to do these page
-recycling tricks.  I've measured that page allocators fast-path
-("recycling" same page) cost approx 270 cycles, and the 14Mpps cycle
-count on this 4GHz CPU is 268 cycles.  Thus, it is a non-starter...
-
-Did you have to modify the page allocator?
-Or implement some kind of recycling?
-
-> However since then we've implemented traffic
-> capture in our product, exploiting this framework to capture without
-> losses at 14 Mpps. I may find some time to try to extract it later.
-> It uses the /sys API so that you can simply plug tcpdump -r on a
-> file there, though there's also an mmap version which uses less CPU
-> (that's important at 10G).
-
-Interesting.  I do see a XDP use-case for RAW packet capture, but I've
-postponed that work until later.  I would interested in how you solved
-it?  E.g. Do you support zero-copy?
-
-
-> In its current form since the initial code's intent was to limit
-> core changes, it happens not to modify anything in the kernel by
-> default and to reuse the net_device's ax25_ptr to attach devices
-> (idea borrowed from netmap), so it can be used on an existing
-> kernel just by loading the patched network drivers (yes, I know
-> it's not a valid solution for the long term).
-> 
-> The current code is available here :
-> 
->   http://git.kernel.org/cgit/linux/kernel/git/wtarreau/ndiv.git/
-
-I was just about to complain that the link was broken... but it fixed
-itself while writing this email ;-)
-
-Can you instead explain what branch to look at?
-
-> 
-> Please let me know if there could be some interest in rebasing it
-> on more recent versions (currently 3.10, 3.14 and 4.4 are supported).
-
-What, no support for 2.4 ;-)
-
-> I don't have much time to assign to it since it works fine as-is,
-> but will be glad to do so if that can be useful.
-> 
-> Also the stateless HTTP server provided in it definitely is a nice
-> use case for testing such a framework.
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+Bye,
+Hannes
