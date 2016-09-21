@@ -1,187 +1,117 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/15] i40e: Add support for switchdev API for Switch ID
-Date: Tue, 20 Sep 2016 20:43:47 -0700
-Message-ID: <1474429432-102772-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/15] i40e: fix setting user defined RSS hash key
+Date: Tue, 20 Sep 2016 20:43:41 -0700
+Message-ID: <1474429432-102772-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1474429432-102772-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Amritha Nambiar <amritha.nambiar@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, guru.anbalagane@oracle.com,
+Cc: Alan Brady <alan.brady@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:8873 "EHLO mga06.intel.com"
+Received: from mga06.intel.com ([134.134.136.31]:43488 "EHLO mga06.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754846AbcIUDn6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 20 Sep 2016 23:43:58 -0400
+        id S1754793AbcIUDn4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 20 Sep 2016 23:43:56 -0400
 In-Reply-To: <1474429432-102772-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amritha Nambiar <amritha.nambiar@intel.com>
+From: Alan Brady <alan.brady@intel.com>
 
-This patch adds support for switchdev ops on the VF Port representors
-and the PF uplink, the only operation implemented is the port attribute
-API to get the port parent ID or the switch ID. The switch ID is used
-to identify the net_devices attached to the same HW switch.
+Previously, when using ethtool to change the RSS hash key, ethtool would
+report back saying the old key was still being used and no error was
+reported.  It was unclear whether it was being reported incorrectly or
+being set incorrectly.  Debugging revealed 'i40e_set_rxfh()' returned
+zero immediately instead of setting the key because a user defined
+indirection table is not supplied when changing the hash key.
 
-The switch ID returned for the VF Port representors and the PF uplink
-is the phys_port_id.
+This fix instead changes it such that if an indirection table is not
+supplied, then a default one is created and the hash key is now
+correctly set.
 
-102: enp9s0f0: <BROADCAST,MULTICAST> mtu 1500 qdisc mq state DOWN group default qlen 1000
-    link/ether 68:05:ca:35:77:50 brd ff:ff:ff:ff:ff:ff promiscuity 0 numtxqueues 64 numrxqueues 64 portid 6805ca357750 switchid 6805ca357750
-    vf 0 MAC 00:00:00:00:00:00, spoof checking on, link-state auto
-    vf 1 MAC 00:00:00:00:00:00, spoof checking on, link-state auto
-103: enp9s0f1: <BROADCAST,MULTICAST> mtu 1500 qdisc mq state DOWN group default qlen 1000
-    link/ether 68:05:ca:35:77:51 brd ff:ff:ff:ff:ff:ff promiscuity 0 numtxqueues 64 numrxqueues 64 portid 6805ca357751 switchid 6805ca357751
-104: enp9s0f0-vf0: <BROADCAST,MULTICAST> mtu 1500 qdisc fq_codel state DOWN group default qlen 1000
-    link/ether 00:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff promiscuity 0 numtxqueues 1 numrxqueues 1 switchid 6805ca357750
-105: enp9s0f0-vf1: <BROADCAST,MULTICAST> mtu 1500 qdisc fq_codel state DOWN group default qlen 1000
-    link/ether 00:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff promiscuity 0 numtxqueues 1 numrxqueues 1 switchid 6805ca357750
-    inet6 fe80::200:ff:fe00:0/64 scope link tentative
-       valid_lft forever preferred_lft forever
-
-Signed-off-by: Amritha Nambiar <amritha.nambiar@intel.com>
+Change-ID: Iddb621897ecf208650272b7ee46702cad7b69a71
+Signed-off-by: Alan Brady <alan.brady@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h             |  1 +
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 17 +++++++
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 57 ++++++++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |  2 +
- 4 files changed, 77 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e.h         |  2 ++
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 12 +++++++-----
+ drivers/net/ethernet/intel/i40e/i40e_main.c    |  6 ++----
+ 3 files changed, 11 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index f531f91..22657ea 100644
+index 6e211f2..f531f91 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e.h
 +++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -54,6 +54,7 @@
- #include <linux/net_tstamp.h>
- #include <linux/ptp_clock_kernel.h>
- #include <net/devlink.h>
-+#include <net/switchdev.h>
+@@ -704,6 +704,8 @@ void i40e_do_reset_safe(struct i40e_pf *pf, u32 reset_flags);
+ void i40e_do_reset(struct i40e_pf *pf, u32 reset_flags);
+ int i40e_config_rss(struct i40e_vsi *vsi, u8 *seed, u8 *lut, u16 lut_size);
+ int i40e_get_rss(struct i40e_vsi *vsi, u8 *seed, u8 *lut, u16 lut_size);
++void i40e_fill_rss_lut(struct i40e_pf *pf, u8 *lut,
++		       u16 rss_table_size, u16 rss_size);
+ struct i40e_vsi *i40e_find_vsi_from_id(struct i40e_pf *pf, u16 id);
+ void i40e_update_stats(struct i40e_vsi *vsi);
+ void i40e_update_eth_stats(struct i40e_vsi *vsi);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 1f3bbb05..2b2b55e 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -2922,15 +2922,13 @@ static int i40e_set_rxfh(struct net_device *netdev, const u32 *indir,
+ {
+ 	struct i40e_netdev_priv *np = netdev_priv(netdev);
+ 	struct i40e_vsi *vsi = np->vsi;
++	struct i40e_pf *pf = vsi->back;
+ 	u8 *seed = NULL;
+ 	u16 i;
  
- #include "i40e_type.h"
- #include "i40e_prototype.h"
+ 	if (hfunc != ETH_RSS_HASH_NO_CHANGE && hfunc != ETH_RSS_HASH_TOP)
+ 		return -EOPNOTSUPP;
+ 
+-	if (!indir)
+-		return 0;
+-
+ 	if (key) {
+ 		if (!vsi->rss_hkey_user) {
+ 			vsi->rss_hkey_user = kzalloc(I40E_HKEY_ARRAY_SIZE,
+@@ -2948,8 +2946,12 @@ static int i40e_set_rxfh(struct net_device *netdev, const u32 *indir,
+ 	}
+ 
+ 	/* Each 32 bits pointed by 'indir' is stored with a lut entry */
+-	for (i = 0; i < I40E_HLUT_ARRAY_SIZE; i++)
+-		vsi->rss_lut_user[i] = (u8)(indir[i]);
++	if (indir)
++		for (i = 0; i < I40E_HLUT_ARRAY_SIZE; i++)
++			vsi->rss_lut_user[i] = (u8)(indir[i]);
++	else
++		i40e_fill_rss_lut(pf, vsi->rss_lut_user, I40E_HLUT_ARRAY_SIZE,
++				  vsi->rss_size);
+ 
+ 	return i40e_config_rss(vsi, seed, vsi->rss_lut_user,
+ 			       I40E_HLUT_ARRAY_SIZE);
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 3fdaf36..3bbf07f 100644
+index b3e9ce4..45b9c67 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -9102,6 +9102,20 @@ static const struct net_device_ops i40e_netdev_ops = {
- 	.ndo_bridge_setlink	= i40e_ndo_bridge_setlink,
- };
+@@ -57,8 +57,6 @@ static int i40e_setup_pf_switch(struct i40e_pf *pf, bool reinit);
+ static int i40e_setup_misc_vector(struct i40e_pf *pf);
+ static void i40e_determine_queue_usage(struct i40e_pf *pf);
+ static int i40e_setup_pf_filter_control(struct i40e_pf *pf);
+-static void i40e_fill_rss_lut(struct i40e_pf *pf, u8 *lut,
+-			      u16 rss_table_size, u16 rss_size);
+ static void i40e_fdir_sb_setup(struct i40e_pf *pf);
+ static int i40e_veb_get_bw_info(struct i40e_veb *veb);
  
-+static int i40e_sw_attr_get(struct net_device *dev, struct switchdev_attr *attr)
-+{
-+	struct i40e_netdev_priv *np = netdev_priv(dev);
-+	struct i40e_pf *pf = np->vsi->back;
-+	int err = 0;
-+
-+	err = __i40e_sw_attr_get(pf, attr);
-+	return err;
-+}
-+
-+static const struct switchdev_ops i40e_switchdev_ops = {
-+	.switchdev_port_attr_get	= i40e_sw_attr_get,
-+};
-+
- /**
-  * i40e_config_netdev - Setup the netdev flags
-  * @vsi: the VSI being configured
-@@ -9199,6 +9213,9 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
- 	netdev->netdev_ops = &i40e_netdev_ops;
- 	netdev->watchdog_timeo = 5 * HZ;
- 	i40e_set_ethtool_ops(netdev);
-+#ifdef CONFIG_NET_SWITCHDEV
-+	netdev->switchdev_ops = &i40e_switchdev_ops;
-+#endif
- #ifdef I40E_FCOE
- 	i40e_fcoe_config_netdev(netdev, vsi);
- #endif
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index da68b00..b90abd3 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -1027,6 +1027,60 @@ static const struct net_device_ops i40e_vf_netdev_ops = {
- };
+@@ -8244,8 +8242,8 @@ int i40e_get_rss(struct i40e_vsi *vsi, u8 *seed, u8 *lut, u16 lut_size)
+  * @rss_table_size: Lookup table size
+  * @rss_size: Range of queue number for hashing
+  */
+-static void i40e_fill_rss_lut(struct i40e_pf *pf, u8 *lut,
+-			      u16 rss_table_size, u16 rss_size)
++void i40e_fill_rss_lut(struct i40e_pf *pf, u8 *lut,
++		       u16 rss_table_size, u16 rss_size)
+ {
+ 	u16 i;
  
- /**
-+ * __i40e_sw_attr_get
-+ * @pf: pointer to the PF structure
-+ * @attr: pointer to switchdev_attr structure
-+ *
-+ * Get switchdev port attributes
-+ **/
-+int __i40e_sw_attr_get(struct i40e_pf *pf, struct switchdev_attr *attr)
-+{
-+	struct i40e_hw *hw = &pf->hw;
-+
-+	if (!(pf->flags & I40E_FLAG_SRIOV_ENABLED))
-+		return -EOPNOTSUPP;
-+
-+	switch (attr->id) {
-+	case SWITCHDEV_ATTR_ID_PORT_PARENT_ID:
-+		if (!(pf->flags & I40E_FLAG_PORT_ID_VALID))
-+			return -EOPNOTSUPP;
-+
-+		attr->u.ppid.id_len = min_t(int, sizeof(hw->mac.port_addr),
-+					    sizeof(attr->u.ppid.id));
-+		memcpy(&attr->u.ppid.id, hw->mac.port_addr,
-+		       attr->u.ppid.id_len);
-+		break;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+
-+	return 0;
-+}
-+
-+/**
-+ * i40e_vf_netdev_sw_attr_get
-+ * @dev: target device
-+ * @attr: pointer to switchdev_attr structure
-+ *
-+ * Handler for switchdev API to get port attributes for VF Port Representor
-+ **/
-+static int i40e_vf_netdev_sw_attr_get(struct net_device *dev,
-+				      struct switchdev_attr *attr)
-+{
-+	struct i40e_vf_netdev_priv *priv = netdev_priv(dev);
-+	struct i40e_vf *vf = priv->vf;
-+	struct i40e_pf *pf = vf->pf;
-+	int err = 0;
-+
-+	err = __i40e_sw_attr_get(pf, attr);
-+	return err;
-+}
-+
-+static const struct switchdev_ops i40e_vf_netdev_switchdev_ops = {
-+	.switchdev_port_attr_get	= i40e_vf_netdev_sw_attr_get,
-+};
-+
-+/**
-  * i40e_alloc_vf_netdev
-  * @vf: pointer to the VF structure
-  * @vf_num: VF number
-@@ -1058,6 +1112,9 @@ int i40e_alloc_vf_netdev(struct i40e_vf *vf, u16 vf_num)
- 
- 	netdev->netdev_ops = &i40e_vf_netdev_ops;
- 	i40e_set_vf_netdev_ethtool_ops(netdev);
-+#ifdef CONFIG_NET_SWITCHDEV
-+	netdev->switchdev_ops = &i40e_vf_netdev_switchdev_ops;
-+#endif
- 
- 	netif_carrier_off(netdev);
- 	netif_tx_disable(netdev);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
-index 1d54b95..049ae59 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
-@@ -156,4 +156,6 @@ void i40e_vc_notify_reset(struct i40e_pf *pf);
- int i40e_alloc_vf_netdev(struct i40e_vf *vf, u16 vf_num);
- void i40e_free_vf_netdev(struct i40e_vf *vf);
- 
-+int __i40e_sw_attr_get(struct i40e_pf *pf, struct switchdev_attr *attr);
-+
- #endif /* _I40E_VIRTCHNL_PF_H_ */
 -- 
 2.7.4
