@@ -1,7 +1,7 @@
 From: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
-Subject: [v12, 7/8] base: soc: introduce soc_device_match() interface
-Date: Wed, 21 Sep 2016 14:57:19 +0800
-Message-ID: <1474441040-11946-8-git-send-email-yangbo.lu@nxp.com>
+Subject: [v12, 8/8] mmc: sdhci-of-esdhc: fix host version for T4240-R1.0-R2.0
+Date: Wed, 21 Sep 2016 14:57:20 +0800
+Message-ID: <1474441040-11946-9-git-send-email-yangbo.lu@nxp.com>
 References: <1474441040-11946-1-git-send-email-yangbo.lu@nxp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -33,165 +33,121 @@ Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.o
 Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+The eSDHC of T4240-R1.0-R2.0 has incorrect vender version and spec version.
+Acturally the right version numbers should be VVN=0x13 and SVN = 0x1.
+This patch adds the GUTS driver support for eSDHC driver to match SoC.
+And fix host version to avoid that incorrect version numbers break down
+the ADMA data transfer.
 
-We keep running into cases where device drivers want to know the exact
-version of the a SoC they are currently running on. In the past, this has
-usually been done through a vendor specific API that can be called by a
-driver, or by directly accessing some kind of version register that is
-not part of the device itself but that belongs to a global register area
-of the chip.
-
-Common reasons for doing this include:
-
-- A machine is not using devicetree or similar for passing data about
-  on-chip devices, but just announces their presence using boot-time
-  platform devices, and the machine code itself does not care about the
-  revision.
-
-- There is existing firmware or boot loaders with existing DT binaries
-  with generic compatible strings that do not identify the particular
-  revision of each device, but the driver knows which SoC revisions
-  include which part.
-
-- A prerelease version of a chip has some quirks and we are using the same
-  version of the bootloader and the DT blob on both the prerelease and the
-  final version. An update of the DT binding seems inappropriate because
-  that would involve maintaining multiple copies of the dts and/or
-  bootloader.
-
-This patch introduces the soc_device_match() interface that is meant to
-work like of_match_node() but instead of identifying the version of a
-device, it identifies the SoC itself using a vendor-agnostic interface.
-
-Unlike of_match_node(), we do not do an exact string compare but instead
-use glob_match() to allow wildcards in strings.
-
-Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
 Signed-off-by: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+Acked-by: Ulf Hansson <ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Acked-by: Scott Wood <oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>
 ---
+Changes for v2:
+	- Got SVR through iomap instead of dts
+Changes for v3:
+	- Managed GUTS through syscon instead of iomap in eSDHC driver
+Changes for v4:
+	- Got SVR by GUTS driver instead of SYSCON
+Changes for v5:
+	- Changed to get SVR through API fsl_guts_get_svr()
+	- Combined patch 4, patch 5 and patch 6 into one
+Changes for v6:
+	- Added 'Acked-by: Ulf Hansson'
+Changes for v7:
+	- None
+Changes for v8:
+	- Added 'Acked-by: Scott Wood'
+Changes for v9:
+	- None
+Changes for v10:
+	- None
 Changes for v11:
-	- Added this patch for soc match
+	- Changed to use soc_device_match
 Changes for v12:
-	- Corrected the author
-	- Rewrited soc_device_match with while loop
+	- Matched soc through .family field instead of .soc_id
 ---
- drivers/base/Kconfig    |  1 +
- drivers/base/soc.c      | 66 +++++++++++++++++++++++++++++++++++++++++++++++++
- include/linux/sys_soc.h |  3 +++
- 3 files changed, 70 insertions(+)
+ drivers/mmc/host/Kconfig          |  1 +
+ drivers/mmc/host/sdhci-of-esdhc.c | 20 ++++++++++++++++++++
+ 2 files changed, 21 insertions(+)
 
-diff --git a/drivers/base/Kconfig b/drivers/base/Kconfig
-index 98504ec..f1591ad2 100644
---- a/drivers/base/Kconfig
-+++ b/drivers/base/Kconfig
-@@ -225,6 +225,7 @@ config GENERIC_CPU_AUTOPROBE
+diff --git a/drivers/mmc/host/Kconfig b/drivers/mmc/host/Kconfig
+index 5274f50..a1135a9 100644
+--- a/drivers/mmc/host/Kconfig
++++ b/drivers/mmc/host/Kconfig
+@@ -144,6 +144,7 @@ config MMC_SDHCI_OF_ESDHC
+ 	depends on MMC_SDHCI_PLTFM
+ 	depends on PPC || ARCH_MXC || ARCH_LAYERSCAPE
+ 	select MMC_SDHCI_IO_ACCESSORS
++	select FSL_GUTS
+ 	help
+ 	  This selects the Freescale eSDHC controller support.
  
- config SOC_BUS
- 	bool
-+	select GLOB
- 
- source "drivers/base/regmap/Kconfig"
- 
-diff --git a/drivers/base/soc.c b/drivers/base/soc.c
-index 75b98aa..d2fd1ad 100644
---- a/drivers/base/soc.c
-+++ b/drivers/base/soc.c
-@@ -14,6 +14,7 @@
- #include <linux/spinlock.h>
- #include <linux/sys_soc.h>
- #include <linux/err.h>
-+#include <linux/glob.h>
- 
- static DEFINE_IDA(soc_ida);
- 
-@@ -168,3 +169,68 @@ static void __exit soc_bus_unregister(void)
- 	bus_unregister(&soc_bus_type);
- }
- module_exit(soc_bus_unregister);
-+
-+static int soc_device_match_one(struct device *dev, void *arg)
-+{
-+	struct soc_device *soc_dev = container_of(dev, struct soc_device, dev);
-+	const struct soc_device_attribute *match = arg;
-+
-+	if (match->machine &&
-+	    !glob_match(match->machine, soc_dev->attr->machine))
-+		return 0;
-+
-+	if (match->family &&
-+	    !glob_match(match->family, soc_dev->attr->family))
-+		return 0;
-+
-+	if (match->revision &&
-+	    !glob_match(match->revision, soc_dev->attr->revision))
-+		return 0;
-+
-+	if (match->soc_id &&
-+	    !glob_match(match->soc_id, soc_dev->attr->soc_id))
-+		return 0;
-+
-+	return 1;
-+}
-+
-+/*
-+ * soc_device_match - identify the SoC in the machine
-+ * @matches: zero-terminated array of possible matches
-+ *
-+ * returns the first matching entry of the argument array, or NULL
-+ * if none of them match.
-+ *
-+ * This function is meant as a helper in place of of_match_node()
-+ * in cases where either no device tree is available or the information
-+ * in a device node is insufficient to identify a particular variant
-+ * by its compatible strings or other properties. For new devices,
-+ * the DT binding should always provide unique compatible strings
-+ * that allow the use of of_match_node() instead.
-+ *
-+ * The calling function can use the .data entry of the
-+ * soc_device_attribute to pass a structure or function pointer for
-+ * each entry.
-+ */
-+const struct soc_device_attribute *soc_device_match(
-+	const struct soc_device_attribute *matches)
-+{
-+	int ret = 0;
-+
-+	if (!matches)
-+		return NULL;
-+
-+	while (!ret) {
-+		if (!(matches->machine || matches->family ||
-+		      matches->revision || matches->soc_id))
-+			break;
-+		ret = bus_for_each_dev(&soc_bus_type, NULL, (void *)matches,
-+				       soc_device_match_one);
-+		if (!ret)
-+			matches++;
-+		else
-+			return matches;
-+	}
-+	return NULL;
-+}
-+EXPORT_SYMBOL_GPL(soc_device_match);
-diff --git a/include/linux/sys_soc.h b/include/linux/sys_soc.h
-index 2739ccb..9f5eb06 100644
---- a/include/linux/sys_soc.h
-+++ b/include/linux/sys_soc.h
-@@ -13,6 +13,7 @@ struct soc_device_attribute {
- 	const char *family;
- 	const char *revision;
- 	const char *soc_id;
-+	const void *data;
+diff --git a/drivers/mmc/host/sdhci-of-esdhc.c b/drivers/mmc/host/sdhci-of-esdhc.c
+index fb71c86..57bdb9e 100644
+--- a/drivers/mmc/host/sdhci-of-esdhc.c
++++ b/drivers/mmc/host/sdhci-of-esdhc.c
+@@ -18,6 +18,7 @@
+ #include <linux/of.h>
+ #include <linux/delay.h>
+ #include <linux/module.h>
++#include <linux/sys_soc.h>
+ #include <linux/mmc/host.h>
+ #include "sdhci-pltfm.h"
+ #include "sdhci-esdhc.h"
+@@ -28,6 +29,7 @@
+ struct sdhci_esdhc {
+ 	u8 vendor_ver;
+ 	u8 spec_ver;
++	bool quirk_incorrect_hostver;
  };
  
  /**
-@@ -34,4 +35,6 @@ void soc_device_unregister(struct soc_device *soc_dev);
-  */
- struct device *soc_device_to_device(struct soc_device *soc);
+@@ -73,6 +75,8 @@ static u32 esdhc_readl_fixup(struct sdhci_host *host,
+ static u16 esdhc_readw_fixup(struct sdhci_host *host,
+ 				     int spec_reg, u32 value)
+ {
++	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
++	struct sdhci_esdhc *esdhc = sdhci_pltfm_priv(pltfm_host);
+ 	u16 ret;
+ 	int shift = (spec_reg & 0x2) * 8;
  
-+const struct soc_device_attribute *soc_device_match(
-+	const struct soc_device_attribute *matches);
- #endif /* __SOC_BUS_H */
+@@ -80,6 +84,12 @@ static u16 esdhc_readw_fixup(struct sdhci_host *host,
+ 		ret = value & 0xffff;
+ 	else
+ 		ret = (value >> shift) & 0xffff;
++	/* Workaround for T4240-R1.0-R2.0 eSDHC which has incorrect
++	 * vendor version and spec version information.
++	 */
++	if ((spec_reg == SDHCI_HOST_VERSION) &&
++	    (esdhc->quirk_incorrect_hostver))
++		ret = (VENDOR_V_23 << SDHCI_VENDOR_VER_SHIFT) | SDHCI_SPEC_200;
+ 	return ret;
+ }
+ 
+@@ -558,6 +568,12 @@ static const struct sdhci_pltfm_data sdhci_esdhc_le_pdata = {
+ 	.ops = &sdhci_esdhc_le_ops,
+ };
+ 
++static struct soc_device_attribute soc_incorrect_hostver[] = {
++	{ .family = "QorIQ T4240", .revision = "1.0", },
++	{ .family = "QorIQ T4240", .revision = "2.0", },
++	{ },
++};
++
+ static void esdhc_init(struct platform_device *pdev, struct sdhci_host *host)
+ {
+ 	struct sdhci_pltfm_host *pltfm_host;
+@@ -571,6 +587,10 @@ static void esdhc_init(struct platform_device *pdev, struct sdhci_host *host)
+ 	esdhc->vendor_ver = (host_ver & SDHCI_VENDOR_VER_MASK) >>
+ 			     SDHCI_VENDOR_VER_SHIFT;
+ 	esdhc->spec_ver = host_ver & SDHCI_SPEC_VER_MASK;
++	if (soc_device_match(soc_incorrect_hostver))
++		esdhc->quirk_incorrect_hostver = true;
++	else
++		esdhc->quirk_incorrect_hostver = false;
+ }
+ 
+ static int sdhci_esdhc_probe(struct platform_device *pdev)
 -- 
 2.1.0.27.g96db324
