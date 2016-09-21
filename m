@@ -1,29 +1,39 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 net-next] iptnl: add support for collect_md
- flag in IPv4 and IPv6 tunnels
-Date: Wed, 21 Sep 2016 16:37:40 -0700
-Message-ID: <20160921163740.696b197e@xeon-e3>
-References: <1474329794-639615-1-git-send-email-ast@fb.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv7 net-next 00/15] BPF hardware offload (cls_bpf for now)
+Date: Wed, 21 Sep 2016 19:56:00 -0400 (EDT)
+Message-ID: <20160921.195600.1809838520295604067.davem@davemloft.net>
+References: <1474454647-20137-1-git-send-email-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        William Tu <u9012063@gmail.com>, <netdev@vger.kernel.org>
-To: Alexei Starovoitov <ast@fb.com>
+Cc: netdev@vger.kernel.org, ast@kernel.org, daniel@iogearbox.net
+To: jakub.kicinski@netronome.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:35968 "EHLO
-        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932640AbcIUXha (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2016 19:37:30 -0400
-Received: by mail-pf0-f178.google.com with SMTP id q2so23853808pfj.3
-        for <netdev@vger.kernel.org>; Wed, 21 Sep 2016 16:37:29 -0700 (PDT)
-In-Reply-To: <1474329794-639615-1-git-send-email-ast@fb.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:50300 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752679AbcIUX4J (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2016 19:56:09 -0400
+In-Reply-To: <1474454647-20137-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 19 Sep 2016 17:03:14 -0700
-Alexei Starovoitov <ast@fb.com> wrote:
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Date: Wed, 21 Sep 2016 11:43:52 +0100
 
-> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+> In the last year a lot of progress have been made on offloading
+> simpler TC classifiers.  There is also growing interest in using
+> BPF for generic high-speed packet processing in the kernel.
+> It seems beneficial to tie those two trends together and think
+> about hardware offloads of BPF programs.  This patch set presents
+> such offload to Netronome smart NICs.  cls_bpf is extended with
+> hardware offload capabilities and NFP driver gets a JIT translator
+> which in presence of capable firmware can be used to offload
+> the BPF program onto the card.
+> 
+> BPF JIT implementation is not 100% complete (e.g. missing instructions)
+> but it is functional.  Encouragingly it should be possible to
+> offload most (if not all) advanced BPF features onto the NIC - 
+> including packet modification, maps, tunnel encap/decap etc.
+ ...
 
-Applied, please send update to man page as well.
+Series applied, thanks.
