@@ -1,36 +1,37 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next V2] net/vxlan: Avoid unaligned access in
- vxlan_build_skb()
-Date: Wed, 21 Sep 2016 12:10:55 +0200
-Message-ID: <4617aca3-8d44-e99a-cc5a-1088b30ae327@stressinduktion.org>
-References: <20160920185737.GU8920@oracle.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH net] vti6: fix input path
+Date: Wed, 21 Sep 2016 12:19:43 +0200
+Message-ID: <20160921101943.GJ31137@gauss.secunet.com>
+References: <1474294677-1232-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: jbenc@redhat.com, davem@davemloft.net
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-        netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        Alexey Kodanev <alexey.kodanev@oracle.com>
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:51567 "EHLO
-        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753859AbcIUKK6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2016 06:10:58 -0400
-In-Reply-To: <20160920185737.GU8920@oracle.com>
+Received: from a.mx.secunet.com ([62.96.220.36]:37475 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754035AbcIUKTs (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 21 Sep 2016 06:19:48 -0400
+Content-Disposition: inline
+In-Reply-To: <1474294677-1232-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 20.09.2016 20:57, Sowmini Varadhan wrote:
-> The vxlan header may not be aligned to 4 bytes in
-> vxlan_build_skb (e.g., for MLD packets). This patch
-> avoids unaligned access traps from vxlan_build_skb
-> (in platforms like sparc) by making struct vxlanhdr __packed.
+On Mon, Sep 19, 2016 at 04:17:57PM +0200, Nicolas Dichtel wrote:
+> Since commit 1625f4529957, vti6 is broken, all input packets are dropped
+> (LINUX_MIB_XFRMINNOSTATES is incremented).
 > 
-> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+> XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip6 is set by vti6_rcv() before calling
+> xfrm6_rcv()/xfrm6_rcv_spi(), thus we cannot set to NULL that value in
+> xfrm6_rcv_spi().
+> 
+> A new function xfrm6_rcv_tnl() that enables to pass a value to
+> xfrm6_rcv_spi() is added, so that xfrm6_rcv() is not touched (this function
+> is used in several handlers).
+> 
+> CC: Alexey Kodanev <alexey.kodanev@oracle.com>
+> Fixes: 1625f4529957 ("net/xfrm_input: fix possible NULL deref of tunnel.ip6->parms.i_key")
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-Performance wise this should only affect code generation for archs where
-it matters anyway.
-
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-
-Thanks,
-Hannes
+Applied to the ipsec tree, thanks Nicolas!
