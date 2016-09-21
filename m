@@ -1,156 +1,114 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/15] i40e: Sync link state between VFs and VF Port representors(VFPR)
-Date: Tue, 20 Sep 2016 20:43:49 -0700
-Message-ID: <1474429432-102772-13-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1474429432-102772-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Sridhar Samudrala <sridhar.samudrala@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, guru.anbalagane@oracle.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/15][pull request] 40GbE Intel Wired LAN Driver Updates 2016-09-20
+Date: Tue, 20 Sep 2016 20:43:37 -0700
+Message-ID: <1474429432-102772-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        guru.anbalagane@oracle.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:43488 "EHLO mga06.intel.com"
+Received: from mga06.intel.com ([134.134.136.31]:33017 "EHLO mga06.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754855AbcIUDn7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 20 Sep 2016 23:43:59 -0400
-In-Reply-To: <1474429432-102772-1-git-send-email-jeffrey.t.kirsher@intel.com>
+        id S1753010AbcIUDny (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 20 Sep 2016 23:43:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sridhar Samudrala <sridhar.samudrala@intel.com>
+This series contains updates to i40e and i40evf only.
 
-This patch enables
-- reflecting the link state of VFPR based on VF admin state & link state
-  of VF based on admin state of VFPR.
-- bringing up/down the VFPR sends a notification to update VF link state.
-- bringing up/down the VF will cause the link state update of VFPR.
-- enable/disable VF link state via ndo_set_vf_link_state will update the
-  admin state of associated VFPR.
+Sridhar enables creation of a VF port Representor/Control netdev
+associated with each VF, which allows control and configuring VFs from
+Pfs namespace.  Then enables the VF specific ethtool statistics via the
+VF port Representor.  Adds initial devlink support to set/get the mode
+of a SRIOV switch.  Fixes link state event handling by updating the
+carrier and starts/stops the Tx queues based on the link state
+notification from PF.
 
-    PF: enp5s0f0, VFs: enp5s2,enp5s2f1 VFPRs:enp5s0f0-vf0, enp5s0f0-vf1
-    # modprobe i40e
-    # echo 2 > /sys/class/net/enp5s0f0/device/sriov_numvfs
+Brady fixes an issue where a user defined RSS hash key was not being
+set because a user defined indirection table is not supplied when changing
+the hash key, so if an indirection table is not supplied now, then a
+default one is created and the hash key is correctly set.  Also fixed
+an issue where when NPAR was enabled, we were still using pf->mac_seid
+to perform the dump port query. Instead, go through the VSI to determine
+the correct ID to use in either case.
 
-    # ip link set enp5s2 up
-    # ip link set enp5s0f0-vf0 up
-    # ip link set enp5s0f0-vf1 up
+Mitch provides one fix where a conditional return code was reversed, so
+he does a "switheroo" to fix the issue.
 
-    # ip link show enp5s0f0-vf0
-215: enp5s0f0-vf0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP mode DEFAULT group default qlen 1000
-    link/ether 00:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff
+Carolyn has two fixes, first fixes an issue in the virt channel code,
+where a return code was not checked for NULL when applicable.  Second,
+fixes an issue where we were byte swapping the port parameter, then
+byte swapping it again in function execution.
 
-    /* enp5s0f0-vf0 UP -> enp5s2 CARRIER ON */
-    # ip link show enp5s2
-218: enp5s2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000
-    link/ether ea:4d:60:bc:6f:85 brd ff:ff:ff:ff:ff:ff
+Colin Ian King fixes a potential NULL pointer dereference.
 
-    /* enp5s2f1 DOWN -> enp5s0f0-vf1 NO-CARRIER */
-    # ip link show enp5s0f0-vf1
-216: enp5s0f0-vf1: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc fq_codel state DOWN mode DEFAULT group default qlen 1000
-    link/ether 00:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff
+Amritha adds support for switchdev ops on the VF port representors and
+the PF uplink.
 
-    # ip link set enp5s0f0-vf0 down
-    # ip link set enp5s2f1 up
+Bimmy changes up i40evf_up_complete() to be void since it always returns
+success anyways, which allows cleaning up of code which checked the
+return code from this function.
 
-    /* enp5s2 UP -> enp5s0f0-vf1 CARRIER ON */
-    # ip link show enp5s0f0-vf1
-216: enp5s0f0-vf1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP mode DEFAULT group default qlen 1000
-    link/ether 00:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff
+Alex fixed an issue where the driver was incorrectly assuming that we
+would always be pulling no more than 1 descriptor from each fragment.
+So to correct this, we just need to make certain to test all the way to
+the end of the fragments as it is possible for us to span 2 descriptors
+in the block before us so we need to guarantee that even the last 6
+descriptors have enough data to fill a full frame.
 
-    /* enp5s0-vf0 DOWN -> enp5s2 NO_CARRIER */
-    # ip link show enp5s2
-218: enp5s2: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc mq state DOWN mode DEFAULT group default qlen 1000
-    link/ether ea:4d:60:bc:6f:85 brd ff:ff:ff:ff:ff:ff
+The following are changes since commit 5737f6c92681939e417579b421f81f035e57c582:
+  mlx4: add missed recycle opportunity for XDP_TX on TX failure
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
 
-    # ip -d link show enp5s0f0
-213: enp5s0f0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop portid 6805ca2e7268 state DOWN mode DEFAULT group default qlen 1000
-    link/ether 68:05:ca:2e:72:68 brd ff:ff:ff:ff:ff:ff promiscuity 0 addrgenmode eui64
-    vf 0 MAC 00:00:00:00:00:00, spoof checking on, link-state disable
-    vf 1 MAC 00:00:00:00:00:00, spoof checking on, link-state enable
+Alan Brady (2):
+  i40e: fix setting user defined RSS hash key
+  i40e: fix "dump port" command when NPAR enabled
 
-Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 33 ++++++++++++++++++++++
- 1 file changed, 33 insertions(+)
+Alexander Duyck (1):
+  i40e: Limit TX descriptor count in cases where frag size is greater
+    than 16K
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index b90abd3..795a294 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -1013,11 +1013,25 @@ complete_reset:
- 
- static int i40e_vf_netdev_open(struct net_device *dev)
- {
-+	struct i40e_vf_netdev_priv *priv = netdev_priv(dev);
-+	struct i40e_vf *vf = priv->vf;
-+
-+	vf->link_forced = true;
-+	vf->link_up = true;
-+	i40e_vc_notify_vf_link_state(vf);
-+
- 	return 0;
- }
- 
- static int i40e_vf_netdev_stop(struct net_device *dev)
- {
-+	struct i40e_vf_netdev_priv *priv = netdev_priv(dev);
-+	struct i40e_vf *vf = priv->vf;
-+
-+	vf->link_forced = true;
-+	vf->link_up = false;
-+	i40e_vc_notify_vf_link_state(vf);
-+
- 	return 0;
- }
- 
-@@ -1907,6 +1921,10 @@ static int i40e_vc_enable_queues_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
- 
- 	if (i40e_vsi_control_rings(pf->vsi[vf->lan_vsi_idx], true))
- 		aq_ret = I40E_ERR_TIMEOUT;
-+
-+	if ((0 == aq_ret) && vf->ctrl_netdev)
-+		netif_carrier_on(vf->ctrl_netdev);
-+
- error_param:
- 	/* send the response to the VF */
- 	return i40e_vc_send_resp_to_vf(vf, I40E_VIRTCHNL_OP_ENABLE_QUEUES,
-@@ -1947,6 +1965,9 @@ static int i40e_vc_disable_queues_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
- 	if (i40e_vsi_control_rings(pf->vsi[vf->lan_vsi_idx], false))
- 		aq_ret = I40E_ERR_TIMEOUT;
- 
-+	if ((0 == aq_ret) && vf->ctrl_netdev)
-+		netif_carrier_off(vf->ctrl_netdev);
-+
- error_param:
- 	/* send the response to the VF */
- 	return i40e_vc_send_resp_to_vf(vf, I40E_VIRTCHNL_OP_DISABLE_QUEUES,
-@@ -3179,6 +3200,7 @@ int i40e_ndo_set_vf_link_state(struct net_device *netdev, int vf_id, int link)
- 	struct i40e_virtchnl_pf_event pfe;
- 	struct i40e_hw *hw = &pf->hw;
- 	struct i40e_vf *vf;
-+	struct net_device *vf_netdev;
- 	int abs_vf_id;
- 	int ret = 0;
- 
-@@ -3219,6 +3241,17 @@ int i40e_ndo_set_vf_link_state(struct net_device *netdev, int vf_id, int link)
- 		ret = -EINVAL;
- 		goto error_out;
- 	}
-+
-+	vf_netdev = vf->ctrl_netdev;
-+	if (vf_netdev) {
-+		unsigned int flags = vf_netdev->flags;
-+
-+		if (vf->link_up)
-+			dev_change_flags(vf_netdev, flags | IFF_UP);
-+		else
-+			dev_change_flags(vf_netdev, flags & ~IFF_UP);
-+	}
-+
- 	/* Notify the VF of its new link state */
- 	i40e_aq_send_msg_to_vf(hw, abs_vf_id, I40E_VIRTCHNL_OP_EVENT,
- 			       0, (u8 *)&pfe, sizeof(pfe), NULL);
+Amritha Nambiar (1):
+  i40e: Add support for switchdev API for Switch ID
+
+Bimmy Pujari (1):
+  i40evf: remove unnecessary error checking against i40evf_up_complete
+
+Carolyn Wyborny (2):
+  i40e: Fix to check for NULL
+  i40e: Fix for extra byte swap in tunnel setup
+
+Colin Ian King (1):
+  i40e: avoid potential null pointer dereference when assigning len
+
+Lihong Yang (1):
+  i40evf: remove unnecessary error checking against i40e_shutdown_adminq
+
+Mitch Williams (1):
+  i40e: return correct opcode to VF
+
+Sridhar Samudrala (5):
+  i40e: Introduce VF port representor/control netdevs
+  i40e: Enable VF specific ethtool statistics via VF Port representor
+    netdevs
+  i40e: Introduce devlink interface
+  i40evf: Fix link state event handling
+  i40e: Sync link state between VFs and VF Port representors(VFPR)
+
+ drivers/net/ethernet/intel/Kconfig                 |   1 +
+ drivers/net/ethernet/intel/i40e/i40e.h             |   7 +
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |   7 +-
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  84 ++++++++-
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 120 +++++++++++--
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        |   7 +-
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 196 ++++++++++++++++++++-
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |  16 ++
+ drivers/net/ethernet/intel/i40evf/i40e_common.c    |   3 +-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |   7 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  18 +-
+ .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |  10 +-
+ 12 files changed, 428 insertions(+), 48 deletions(-)
+
 -- 
 2.7.4
