@@ -1,37 +1,53 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH net] vti6: fix input path
-Date: Wed, 21 Sep 2016 12:19:43 +0200
-Message-ID: <20160921101943.GJ31137@gauss.secunet.com>
-References: <1474294677-1232-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH v2 0/2] make POSIX timers optional
+Date: Wed, 21 Sep 2016 12:20:30 +0200
+Message-ID: <20160921122030.408c97f1@griffin>
+References: <1474401400-18491-1-git-send-email-nicolas.pitre@linaro.org>
+        <20160920202556.GA6713@localhost.localdomain>
+        <20160920204556.GA7555@localhost.localdomain>
+        <alpine.LFD.2.20.1609201655200.9311@knanqh.ubzr>
+        <alpine.DEB.2.20.1609202300140.5476@nanos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        Alexey Kodanev <alexey.kodanev@oracle.com>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:37475 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754035AbcIUKTs (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 21 Sep 2016 06:19:48 -0400
-Content-Disposition: inline
-In-Reply-To: <1474294677-1232-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Nicolas Pitre <nicolas.pitre@linaro.org>,
+        Richard Cochran <richardcochran@gmail.com>,
+        John Stultz <john.stultz@linaro.org>,
+        Josh Triplett <josh@joshtriplett.org>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.20.1609202300140.5476@nanos>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 19, 2016 at 04:17:57PM +0200, Nicolas Dichtel wrote:
-> Since commit 1625f4529957, vti6 is broken, all input packets are dropped
-> (LINUX_MIB_XFRMINNOSTATES is incremented).
+On Tue, 20 Sep 2016 23:09:52 +0200 (CEST), Thomas Gleixner wrote:
+> Now if you want to distangle PTP from a driver then you split it at the
+> driver level and not at the PTP level:
 > 
-> XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip6 is set by vti6_rcv() before calling
-> xfrm6_rcv()/xfrm6_rcv_spi(), thus we cannot set to NULL that value in
-> xfrm6_rcv_spi().
+>       	  DRIVER_X
+> 	  tristate "Driver X"
 > 
-> A new function xfrm6_rcv_tnl() that enables to pass a value to
-> xfrm6_rcv_spi() is added, so that xfrm6_rcv() is not touched (this function
-> is used in several handlers).
-> 
-> CC: Alexey Kodanev <alexey.kodanev@oracle.com>
-> Fixes: 1625f4529957 ("net/xfrm_input: fix possible NULL deref of tunnel.ip6->parms.i_key")
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> 	  DRIVER_X_PTP
+> 	  bool "Enable PTP support"
+> 	  default y if !MAKE_IT_TINY
+> 	  depends on DRIVER_X
+> 	  select PTP
 
-Applied to the ipsec tree, thanks Nicolas!
+Ouch. So, after the hassle to remove the VXLAN and GENEVE configs from
+tons of drivers, we'll add another one instead? That's just silly. If
+we did this for every thing we support in NICs, we would end up with
+something completely unmanageable.
+
+PTP should be really configured by a single switch.
+
+Btw., your suggestion does not work, select is not recursive.
+
+> We have already drivers following that scheme. That way you make the PTP
+> support in the driver conditional on DRIVER_X_PTP and have no hassle with
+> modules and dependencies.
+
+We've recently got rid of some of those, thankfully. Caused more harm
+than good.
+
+ Jiri
