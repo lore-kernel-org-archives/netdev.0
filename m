@@ -1,59 +1,48 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH v4 net-next 16/16] tcp_bbr: add BBR congestion control
-Date: Tue, 20 Sep 2016 22:57:42 -0400
-Message-ID: <CADVnQynTjLK6r2NyRiZzGbem-v_OPL9zih6Oz9V_cBEiVdW-1g@mail.gmail.com>
-References: <1474342763-16715-1-git-send-email-ncardwell@google.com>
- <1474342763-16715-17-git-send-email-ncardwell@google.com> <20160920114814.04f0f394@xeon-e3>
- <CADVnQym2JZk9naoygkwbMP5og7ZP+q5GgjxpWc8A3uMZzTwsaQ@mail.gmail.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next 5/7] rhashtable: abstract out function to get hash
+Date: Tue, 20 Sep 2016 20:17:43 -0700
+Message-ID: <CALx6S35K5BcMeVtgVZXJNYT51Lho7ZT4xY5ZU5mhYVC9vUwzfQ@mail.gmail.com>
+References: <1473895376-347096-6-git-send-email-tom@herbertland.com>
+ <20160920093659.GA20975@gondor.apana.org.au> <20160920175803.GE3291@pox.localdomain>
+ <20160921024613.GA27473@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Netdev <netdev@vger.kernel.org>, Van Jacobson <vanj@google.com>,
-        Yuchung Cheng <ycheng@google.com>,
-        Nandita Dukkipati <nanditad@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Soheil Hassas Yeganeh <soheil@google.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: Thomas Graf <tgraf@suug.ch>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>,
+        Kernel Team <kernel-team@fb.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f50.google.com ([209.85.218.50]:36233 "EHLO
-        mail-oi0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755445AbcIUC6O (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 22:58:14 -0400
-Received: by mail-oi0-f50.google.com with SMTP id t83so45135607oie.3
-        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 19:58:13 -0700 (PDT)
-In-Reply-To: <CADVnQym2JZk9naoygkwbMP5og7ZP+q5GgjxpWc8A3uMZzTwsaQ@mail.gmail.com>
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:33974 "EHLO
+        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753528AbcIUDRo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 23:17:44 -0400
+Received: by mail-qk0-f196.google.com with SMTP id b204so2328697qkc.1
+        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 20:17:43 -0700 (PDT)
+In-Reply-To: <20160921024613.GA27473@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 20, 2016 at 2:50 PM, Neal Cardwell <ncardwell@google.com> wrote:
-> On Tue, Sep 20, 2016 at 2:48 PM, Stephen Hemminger
-> <stephen@networkplumber.org> wrote:
+On Tue, Sep 20, 2016 at 7:46 PM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> On Tue, Sep 20, 2016 at 07:58:03PM +0200, Thomas Graf wrote:
 >>
->> On Mon, 19 Sep 2016 23:39:23 -0400
->> Neal Cardwell <ncardwell@google.com> wrote:
->>
->> > +/* INET_DIAG_BBRINFO */
->> > +
->> > +struct tcp_bbr_info {
->> > +     /* u64 bw: max-filtered BW (app throughput) estimate in Byte per sec: */
->> > +     __u32   bbr_bw_lo;              /* lower 32 bits of bw */
->> > +     __u32   bbr_bw_hi;              /* upper 32 bits of bw */
->> > +     __u32   bbr_min_rtt;            /* min-filtered RTT in uSec */
->> > +     __u32   bbr_pacing_gain;        /* pacing gain shifted left 8 bits */
->> > +     __u32   bbr_cwnd_gain;          /* cwnd gain shifted left 8 bits */
->> > +};
->> > +
->>
->> I assume there is a change to iproute (ss) to dump this info?
+>> I understand this particular patch as an effort not to duplicate
+>> hash function selection such as jhash vs jhash2 based on key_len.
 >
-> Yes, we have a patch for iproute2 (inet_diag.h and ss.c), which we've
-> been using. We'll send that out ASAP.
+> If the rhashtable params stay non-const as is then this is going
+> to produce some monstrous code which will be worse than using
+> jhash unconditionally.
+>
+I will look at keep params constant.
 
-Here are the patches with proposed iproute2 support to dump this info:
+Tom
 
-http://patchwork.ozlabs.org/patch/672538/
-http://patchwork.ozlabs.org/patch/672539/
-http://patchwork.ozlabs.org/patch/672540/
-
-thanks,
-neal
+> If the rhashtable params are made const then you'll already know
+> whether jhash or jhash2 is used.
+>
+> Cheers,
+> --
+> Email: Herbert Xu <herbert@gondor.apana.org.au>
+> Home Page: http://gondor.apana.org.au/~herbert/
+> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
