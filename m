@@ -1,69 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] net: get rid of an signed integer overflow in
- ip_idents_reserve()
-Date: Tue, 20 Sep 2016 18:06:17 -0700
-Message-ID: <1474419977.23058.53.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160920120000.GI1843@nanopsycho.orion>
-         <1474378115.23058.2.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Joel Stanley <joel@jms.id.au>
+Subject: Re: [PATCH net-next 6/7] net/faraday: Fix phy link irq on Aspeed G5 SoCs
+Date: Wed, 21 Sep 2016 11:32:18 +0930
+Message-ID: <CACPK8Xde3COqQ8euhj3Ww5pPiAn4iXvMqJVpjKu3eGa1Pm=1GA@mail.gmail.com>
+References: <20160920063007.24291-1-joel@jms.id.au> <20160920063007.24291-7-joel@jms.id.au>
+ <1474373594.2857.62.camel@kernel.crashing.org> <20160920152940.GI22292@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jiri Pirko <jiri@resnulli.us>, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:35455 "EHLO
-        mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754049AbcIUBGU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2016 21:06:20 -0400
-Received: by mail-pa0-f65.google.com with SMTP id hi10so1541362pac.2
-        for <netdev@vger.kernel.org>; Tue, 20 Sep 2016 18:06:20 -0700 (PDT)
-In-Reply-To: <1474378115.23058.2.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+        davem@davemloft.net, Gavin Shan <gwshan@linux.vnet.ibm.com>,
+        Andrew Jeffery <andrew@aj.id.au>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160920152940.GI22292@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Wed, Sep 21, 2016 at 12:59 AM, Andrew Lunn <andrew@lunn.ch> wrote:
+> On Tue, Sep 20, 2016 at 10:13:14PM +1000, Benjamin Herrenschmidt wrote:
+>> On Tue, 2016-09-20 at 16:00 +0930, Joel Stanley wrote:
+>> > On Aspeed SoC with a direct PHY connection (non-NSCI), we receive
+>> > continual PHYSTS interrupts:
+>> >
+>> >  [   20.280000] ftgmac100 1e660000.ethernet eth0: [ISR] = 0x200: PHYSTS_CHG
+>> >  [   20.280000] ftgmac100 1e660000.ethernet eth0: [ISR] = 0x200: PHYSTS_CHG
+>> >  [   20.280000] ftgmac100 1e660000.ethernet eth0: [ISR] = 0x200: PHYSTS_CHG
+>> >  [   20.300000] ftgmac100 1e660000.ethernet eth0: [ISR] = 0x200: PHYSTS_CHG
+>> >
+>> > This is because the driver was enabling low-level sensitive interrupt
+>> > generation where the systems are wired for high-level. All CPU cycles
+>> > are spent servicing this interrupt.
+>>
+>> If this is a system wiring issue, should it be represented by a DT
+>> property ?
+>
+> Is there a device tree binding document somewhere?
+>
+> Is it possible just to put ACTIVE_HIGH in the right place in the
+> binding?
 
-Jiri Pirko reported an UBSAN warning happening in ip_idents_reserve()
+I wrote "wired for high level" wrt the SoC internals. To be honest I
+wondered the same thing but it's hard with only one (non-NSCI) system
+to test on.
 
-[] UBSAN: Undefined behaviour in ./arch/x86/include/asm/atomic.h:156:11
-[] signed integer overflow:
-[] -2117905507 + -695755206 cannot be represented in type 'int'
+I had a look at the eval board schematic and it appears that the line
+has pull down resistors on it, explaining why the IRQ fires when it's
+configured to active low. Other machines re-use the pin pin as a GPIO.
+So yes, I will change this to a dt property in v2. That will mean
+dropping 4/7 "net/faraday: Avoid PHYSTS_CHG interrupt" as well.
 
-Since we do not have uatomic_add_return() yet, use atomic_cmpxchg()
-so that the arithmetics can be done using unsigned int.
+Cheers,
 
-Fixes: 04ca6973f7c1 ("ip: make IP identifiers less predictable")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Jiri Pirko <jiri@resnulli.us>
----
-David, Jiri, I removed the prandom_u32() stuff in favor of a traditional
-loop to meet stable requirements. Thanks !
-
- net/ipv4/route.c |   10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index b52496fd51075821c39435f50ac62f813967aecc..654a9af201366887652a4e19a6f1261e5e747056 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -476,12 +476,18 @@ u32 ip_idents_reserve(u32 hash, int segs)
- 	atomic_t *p_id = ip_idents + hash % IP_IDENTS_SZ;
- 	u32 old = ACCESS_ONCE(*p_tstamp);
- 	u32 now = (u32)jiffies;
--	u32 delta = 0;
-+	u32 new, delta = 0;
- 
- 	if (old != now && cmpxchg(p_tstamp, old, now) == old)
- 		delta = prandom_u32_max(now - old);
- 
--	return atomic_add_return(segs + delta, p_id) - segs;
-+	/* Do not use atomic_add_return() as it makes UBSAN unhappy */
-+	do {
-+		old = (u32)atomic_read(p_id);
-+		new = old + delta + segs;
-+	} while (atomic_cmpxchg(p_id, old, new) != old);
-+
-+	return new - segs;
- }
- EXPORT_SYMBOL(ip_idents_reserve);
- 
+Joel
