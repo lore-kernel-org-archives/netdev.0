@@ -1,63 +1,71 @@
-From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH net-next 1/3] net: ethernet: mediatek: add extension of
- phy-mode for TRGMII
-Date: Wed, 21 Sep 2016 15:33:09 +0800
-Message-ID: <1474443189-8836-1-git-send-email-sean.wang@mediatek.com>
-References: <064d43fb-2942-efd2-6dc7-09f47a256691@gmail.com>
+From: Stefan Wahren <stefan.wahren@i2se.com>
+Subject: Re: [PATCH net-next 8/8] net: qualcomm: add QCA7000 UART driver
+Date: Wed, 21 Sep 2016 09:49:16 +0200
+Message-ID: <6516862d-9703-5a61-16f5-e363c8e370cb@i2se.com>
+References: <1474376544-20515-1-git-send-email-stefan.wahren@i2se.com>
+ <1474376544-20515-9-git-send-email-stefan.wahren@i2se.com>
+ <2EE064FD-FCC1-4559-819D-471BD000F5AF@holtmann.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <064d43fb-2942-efd2-6dc7-09f47a256691-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
-List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Jiri Slaby <jslaby@suse.com>,
+        Network Development <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Rob Herring <robh@kernel.org>
+To: Marcel Holtmann <marcel@holtmann.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <2EE064FD-FCC1-4559-819D-471BD000F5AF@holtmann.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Date: Tue, 20 Sep 2016 14:23:24 -0700, Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->On 09/20/2016 12:59 AM, sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org wrote:
->> From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
->> 
->> adds PHY-mode "trgmii" as an extension for the operation
->> mode of the PHY interface, TRGMII can be compatible with
->> RGMII, so the extended mode doesn't really have effects on
->> the target MAC and PHY, is used as the indication if the
->> current MAC is connected to an internal switch or external
->> PHY respectively by the given configuration on the board and
->> then to perform the corresponding setup on TRGMII hardware
->> module.
->
->Based on my googling, it seems like Turbo RGMII is a Mediatek-specific
->thing for now, but this could become standard and used by other vendors
->at some point, so I would be inclined to just extend the phy-mode
->property to support trgmii as another interface type.
->
->If you do so, do you also mind proposing an update to the Device Tree
->specification:
->
->https://www.devicetree.org/specifications/
->
->Thanks!
+Hi Marcel,
 
-I am willing to do the these thing
+Am 20.09.2016 um 17:32 schrieb Marcel Holtmann:
+> Hi Stefan,
+>
+>> This patch adds the Ethernet over UART driver for the
+>> Qualcomm QCA7000 HomePlug GreenPHY.
+>>
+>> Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
+>> ---
+>> drivers/net/ethernet/qualcomm/Kconfig      |  12 +
+>> drivers/net/ethernet/qualcomm/Makefile     |   2 +
+>> drivers/net/ethernet/qualcomm/qca_common.h |   6 +
+>> drivers/net/ethernet/qualcomm/qca_uart.c   | 447 +++++++++++++++++++++++++++++
+>> include/uapi/linux/tty.h                   |   1 +
+>> 5 files changed, 468 insertions(+)
+>> create mode 100644 drivers/net/ethernet/qualcomm/qca_uart.c
+>>
+>> diff --git a/drivers/net/ethernet/qualcomm/Kconfig b/drivers/net/ethernet/qualcomm/Kconfig
+>> index 0d33728..0ede46e 100644
+>> --- a/drivers/net/ethernet/qualcomm/Kconfig
+>> +++ b/drivers/net/ethernet/qualcomm/Kconfig
+>> @@ -30,6 +30,18 @@ config QCA7000_SPI
+>> 	  To compile this driver as a module, choose M here. The module
+>> 	  will be called qcaspi.
+>>
+>> +config QCA7000_UART
+>> +	tristate "Qualcomm Atheros QCA7000 UART support"
+>> +	select QCA7000
+>> +	depends on TTY
+>> +	---help---
+>> +	  This UART protocol driver supports the Qualcomm Atheros QCA7000.
+>> +	  The driver implements the tty line discipline N_QCA7K and supports
+>> +	  only one netdevice.
+>> +
+>> +	  To compile this driver as a module, choose M here. The module
+>> +	  will be called qcauart.
+>> +
+> this seems to be another candidate for having a proper UART or serial bus. Instead of adding one line discipline after another, I think we need to get quickly to having an enumerable bus here.
 
-1)
-in the next version, I will extend rgmii mode as
-another interface type as PHY_INTERFACE_MODE_TRGMII
-defined in linux/phy.h instead of extension only inside
-the current driver. This change also helps to save some code.
+i noticed Rob's thread about the UART slave device bus and i like the idea.
 
-2)
-I send another separate patch for updating the Device Tree
-specification about TRGMII adding description
+Stefan
 
-are these all okay for you?
+>
+> Regards
+>
+> Marcel
+>
