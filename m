@@ -1,53 +1,44 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH next 1/2] sctp: fix the handling of SACK Gap Ack blocks
-Date: Wed, 21 Sep 2016 10:21:43 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0105BBB@AcuExch.aculab.com>
-References: <cover.1474405559.git.marcelo.leitner@gmail.com>
- <18f5ac1b303b60a4363cff8e002e8fea66666a08.1474405559.git.marcelo.leitner@gmail.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH v2 0/2] make POSIX timers optional
+Date: Wed, 21 Sep 2016 12:27:16 +0200
+Message-ID: <20160921122716.0f609423@griffin>
+References: <1474401400-18491-1-git-send-email-nicolas.pitre@linaro.org>
+        <20160920202556.GA6713@localhost.localdomain>
+        <20160920204556.GA7555@localhost.localdomain>
+        <alpine.LFD.2.20.1609201655200.9311@knanqh.ubzr>
+        <alpine.DEB.2.20.1609202300140.5476@nanos>
+        <alpine.LFD.2.20.1609201833010.9311@knanqh.ubzr>
+        <20160921083851.GA27145@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>
-To: 'Marcelo Ricardo Leitner' <marcelo.leitner@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.194]:52375 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756459AbcIUKYW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2016 06:24:22 -0400
-In-Reply-To: <18f5ac1b303b60a4363cff8e002e8fea66666a08.1474405559.git.marcelo.leitner@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Nicolas Pitre <nicolas.pitre@linaro.org>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        John Stultz <john.stultz@linaro.org>,
+        Josh Triplett <josh@joshtriplett.org>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160921083851.GA27145@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Marcelo Ricardo Leitner
-> Sent: 20 September 2016 22:19
-> sctp_acked() is using 32bit arithmetics on 16bits vars, via TSN_lte()
-> macros, which is weird and confusing.
-> 
-> Once the offset to ctsn is calculated, all wrapping is already handled
-> and thus to verify the Gap Ack blocks we can just use pure
-> less/big-or-equal than checks.
-> 
-> Also, rename gap variable to tsn_offset, so it's more meaningful, as
-> it doesn't point to any gap at all.
-> 
-> Even so, I don't think this discrepancy resulted in any practical bug.
+On Wed, 21 Sep 2016 10:38:52 +0200, Richard Cochran wrote:
+> Embedded people like to optimize their systems.  One pattern I have
+> more than once is that a multihomed design designates a special PTP
+> interface, often with a different HW than the other ports.  PTP
+> support adds extra code into the hot path, and for that reason people
+> want to turn it off on interfaces that don't need it.
 
-I think it might if gab.start/end are greater than 32767
+We really need to find some middle way. It's impossible to support
+every little corner case. As is not reasonable to have a single
+configuration only kernel.
 
-...
-> -	gap = tsn - ctsn;
-> -	for (i = 0; i < ntohs(sack->num_gap_ack_blocks); ++i) {
-> -		if (TSN_lte(ntohs(frags[i].gab.start), gap) &&
-> -		    TSN_lte(gap, ntohs(frags[i].gab.end)))
-> +	blocks = ntohs(sack->num_gap_ack_blocks);
-> +	tsn_offset = tsn - ctsn;
-> +	for (i = 0; i < blocks; ++i) {
-> +		if (tsn_offset >= ntohs(frags[i].gab.start) &&
-> +		    tsn_offset <= ntohs(frags[i].gab.end))
-...
+I think this scenario falls into the little corner case. If you need
+PTP, you just enable it. The PTP core will be much larger than the
+added code in the individual drivers anyway.
 
-	David
+And if there's run time impact on the fast path with time stamping
+switched off on an interface, it's a bug that has to be fixed.
+
+ Jiri
