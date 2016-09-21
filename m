@@ -1,88 +1,140 @@
-From: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
-Subject: Re: [net-next 01/15] i40e: Introduce VF port representor/control
- netdevs
-Date: Wed, 21 Sep 2016 09:59:32 -0700
-Message-ID: <57E2BC74.5040905@intel.com>
-References: <1474429432-102772-1-git-send-email-jeffrey.t.kirsher@intel.com> <1474429432-102772-2-git-send-email-jeffrey.t.kirsher@intel.com> <CAJ3xEMhtyrS_jKrZ8UYWDi-UjK4RuxbwUSs8H=nFqWrTgzDVdw@mail.gmail.com> <57E21E74.5090707@intel.com> <CAJ3xEMgMkz1FZ-QObMvc28JQT0Osrf-k7_RfanUYkYP=F8jZGQ@mail.gmail.com>
+From: hejianet <hejianet@gmail.com>
+Subject: Re: [RFC PATCH v3 2/7] proc: Reduce cache miss in
+ {snmp,netstat}_seq_show
+Date: Thu, 22 Sep 2016 00:18:46 +0800
+Message-ID: <84aae301-0d00-d953-e6f6-d2d163d1136a@gmail.com>
+References: <1473402842-1987-1-git-send-email-hejianet@gmail.com>
+ <1473402842-1987-3-git-send-email-hejianet@gmail.com>
+ <20160912185752.GB17689@localhost.localdomain>
+ <22d87ec3-608f-fe41-5eb7-fe1104f133dd@gmail.com>
+ <20160914115543.GF17689@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        David Miller <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        "nhorman@redhat.com" <nhorman@redhat.com>,
-        "sassmann@redhat.com" <sassmann@redhat.com>,
-        "jogreene@redhat.com" <jogreene@redhat.com>,
-        guru.anbalagane@oracle.com, Ilya Lesokhin <ilyal@mellanox.com>,
-        Andy Gospodarek <andy@greyhouse.net>,
-        John Fastabend <john.r.fastabend@intel.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Rony Efraim <ronye@mellanox.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:16201 "EHLO mga05.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933504AbcIUQ7e (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 21 Sep 2016 12:59:34 -0400
-In-Reply-To: <CAJ3xEMgMkz1FZ-QObMvc28JQT0Osrf-k7_RfanUYkYP=F8jZGQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        linux-kernel@vger.kernel.org, davem@davemloft.net,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>
+To: Marcelo <marcelo.leitner@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160914115543.GF17689@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hi Marcelo
 
+sorry for the late, just came back from a vacation.
 
-On 9/21/2016 12:04 AM, Or Gerlitz wrote:
-> On Wed, Sep 21, 2016 at 8:45 AM, Samudrala, Sridhar
-> <sridhar.samudrala@intel.com> wrote:
->> On 9/20/2016 9:22 PM, Or Gerlitz wrote:
->>> On Wed, Sep 21, 2016 at 6:43 AM, Jeff Kirsher
->>> <jeffrey.t.kirsher@intel.com> wrote:
->>>> From: Sridhar Samudrala <sridhar.samudrala@intel.com>
->>>> This patch enables creation of a VF Port representor/Control netdev
->>>> associated with each VF. These netdevs can be used to control and
->>>> configure
->>>> VFs from PFs namespace. They enable exposing VF statistics, configuring
->>>> link state, mtu, fdb/vlan entries etc.
->>> What happens if someone does a xmit on the VF representor, does the
->>> packet show up @ the VF?
->>> and what happens of the VF xmits and there's no HW steering rule that
->>> matches this, does
->>> the frame show up @ the VF rep on the host?
->> TX/RX are not yet supported via VFPR netdevs in this patch series.
->> Will be submitting this support in the next patchset.
-> Okay, good.
+On 9/14/16 7:55 PM, Marcelo wrote:
+> Hi Jia,
 >
->>> In other words, can these VF reps serve for setting up host SW based
->>> switching which you
->>> can later offload (through TC, bridge, netfilter, etc)?
->> Yes. These offloads will be possible  via VFPRs.
-> cool
+> On Wed, Sep 14, 2016 at 01:58:42PM +0800, hejianet wrote:
+>> Hi Marcelo
+>>
+>>
+>> On 9/13/16 2:57 AM, Marcelo wrote:
+>>> On Fri, Sep 09, 2016 at 02:33:57PM +0800, Jia He wrote:
+>>>> This is to use the generic interface snmp_get_cpu_field{,64}_batch to
+>>>> aggregate the data by going through all the items of each cpu sequentially.
+>>>> Then snmp_seq_show and netstat_seq_show are split into 2 parts to avoid build
+>>>> warning "the frame size" larger than 1024 on s390.
+>>> Yeah about that, did you test it with stack overflow detection?
+>>> These arrays can be quite large.
+>>>
+>>> One more below..
+>> Do you think it is acceptable if the stack usage is a little larger than 1024?
+>> e.g. 1120
+>> I can't find any other way to reduce the stack usage except use "static" before
+>> unsigned long buff[TCP_MIB_MAX]
+>>
+>> PS. sizeof buff is about TCP_MIB_MAX(116)*8=928
+>> B.R.
+> That's pretty much the question. Linux has the option on some archs to
+> run with 4Kb (4KSTACKS option), so this function alone would be using
+> 25% of it in this last case. While on x86_64, it uses 16Kb (6538b8ea886e
+> ("x86_64: expand kernel stack to 16K")).
 >
->>> I am posing these questions because in downstream patch you are adding
->>> devlink support
->>> for set/get the e-switch mode and you declare the default mode to be switchdev.
->>> When the switchdev mode was introduced in 4.8 these RX/TX
->>> characteristics were defined
->>> to be an essential (== requirement) part for a driver to support that mode.
->> The current patchset introduces the basic VFPR support starting with
->> exposing VF stats and syncing link state between VFs and VFPRs.
->> We decided to declare the default mode to be switchdev so that the new code
->> paths will get exercised by default during normal testing.
-> so what happens after this patchset is applied and before the future
-> work is submitted?
-> RX/TX slow path through the VFPRs isn't supported and what about fast
-> path? in other words
-> what happens when someone loads the driver, sets SRIOV (--> the driver
-> set itself to switchdev mode
-> and VFPRs are created) and then a VF sends a packet? do you still put
-> into the HW the legacy DMAC
-> based switching rules? I am not following...
+> Adding static to it is not an option as it actually makes the variable
+> shared amongst the CPUs (and then you have concurrency issues), plus the
+> fact that it's always allocated, even while not in use.
+>
+> Others here certainly know better than me if it's okay to make such
+> usage of the stach.
+What about this patch instead?
+It is a trade-off. I split the aggregation process into 2 parts, it will
+increase the cache miss a little bit, but it can reduce the stack usage.
+After this, stack usage is 672bytes
+objdump -d vmlinux | ./scripts/checkstack.pl ppc64 | grep seq_show
+0xc0000000007f7cc0 netstat_seq_show_tcpext.isra.3 [vmlinux]:672
 
-The VF driver requests adding the dmac based filter rules via mailbox 
-messages to PF and that is
-not changed in this patchset.
-Once we have VFPR TX/RX support, we will not allow the VF driver to add 
-these rules, Instead a host based
-program will be able to add these rules to enable the fast path.
+diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
+index c6ee8a2..cc41590 100644
+--- a/net/ipv4/proc.c
++++ b/net/ipv4/proc.c
+@@ -486,22 +486,37 @@ static const struct file_operations snmp_seq_fops = {
+   */
+  static int netstat_seq_show_tcpext(struct seq_file *seq, void *v)
+  {
+-       int i;
+-       unsigned long buff[LINUX_MIB_MAX];
++       int i, c;
++       unsigned long buff[LINUX_MIB_MAX/2 + 1];
+         struct net *net = seq->private;
 
-Thanks
-Sridhar
+-       memset(buff, 0, sizeof(unsigned long) * LINUX_MIB_MAX);
++       memset(buff, 0, sizeof(unsigned long) * (LINUX_MIB_MAX/2 + 1));
+
+         seq_puts(seq, "TcpExt:");
+         for (i = 0; snmp4_net_list[i].name; i++)
+                 seq_printf(seq, " %s", snmp4_net_list[i].name);
+
+         seq_puts(seq, "\nTcpExt:");
+-       snmp_get_cpu_field_batch(buff, snmp4_net_list,
+-                                net->mib.net_statistics);
+-       for (i = 0; snmp4_net_list[i].name; i++)
++       for_each_possible_cpu(c) {
++               for (i = 0; i < LINUX_MIB_MAX/2; i++)
++                       buff[i] += snmp_get_cpu_field(
++ net->mib.net_statistics,
++                                               c, snmp4_net_list[i].entry);
++       }
++       for (i = 0; i < LINUX_MIB_MAX/2; i++)
+                 seq_printf(seq, " %lu", buff[i]);
+
++       memset(buff, 0, sizeof(unsigned long) * (LINUX_MIB_MAX/2 + 1));
++       for_each_possible_cpu(c) {
++               for (i = LINUX_MIB_MAX/2; snmp4_net_list[i].name; i++)
++                       buff[i - LINUX_MIB_MAX/2] += snmp_get_cpu_field(
++                               net->mib.net_statistics,
++                               c,
++                               snmp4_net_list[i].entry);
++       }
++        for (i = LINUX_MIB_MAX/2; snmp4_net_list[i].name; i++)
++                seq_printf(seq, " %lu", buff[i - LINUX_MIB_MAX/2]);
++
+         return 0;
+  }
+
+>>>> +static int netstat_seq_show_ipext(struct seq_file *seq, void *v)
+>>>> +{
+>>>> +	int i;
+>>>> +	u64 buff64[IPSTATS_MIB_MAX];
+>>>> +	struct net *net = seq->private;
+>>>>    	seq_puts(seq, "\nIpExt:");
+>>>>    	for (i = 0; snmp4_ipextstats_list[i].name != NULL; i++)
+>>>>    		seq_printf(seq, " %s", snmp4_ipextstats_list[i].name);
+>>>>    	seq_puts(seq, "\nIpExt:");
+>>> You're missing a memset() call here.
+> Not sure if you missed this one or not..
+indeed, thanks
+B.R.
+Jia
+> Thanks,
+> Marcelo
+>
