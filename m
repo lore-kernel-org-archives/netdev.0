@@ -1,123 +1,107 @@
-From: "R. Parameswaran" <parameswaran.r7@gmail.com>
-Subject: [PATCH] L2TP:Adjust intf MTU, add underlay L3, overlay L2
-Date: Wed, 21 Sep 2016 14:11:04 -0700
-Message-ID: <ee265b42-893f-39b7-c740-b3e23b5058a2@gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next 01/15] i40e: Introduce VF port representor/control
+ netdevs
+Date: Wed, 21 Sep 2016 14:23:28 -0700
+Message-ID: <1474493008.3936.72.camel@intel.com>
+References: <1474429432-102772-1-git-send-email-jeffrey.t.kirsher@intel.com>
+         <1474429432-102772-2-git-send-email-jeffrey.t.kirsher@intel.com>
+         <CAJ3xEMhtyrS_jKrZ8UYWDi-UjK4RuxbwUSs8H=nFqWrTgzDVdw@mail.gmail.com>
+         <57E21E74.5090707@intel.com>
+         <CAJ3xEMgMkz1FZ-QObMvc28JQT0Osrf-k7_RfanUYkYP=F8jZGQ@mail.gmail.com>
+         <57E2BC74.5040905@intel.com>
+         <CAJ3xEMj-teLmjg+Nzn0pHsnz8P=EY6uF4VzDJsxVEOTihStrLw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: multipart/signed; micalg="pgp-sha512";
+        protocol="application/pgp-signature"; boundary="=-WPRrTYrX3/dUr88Kcal2"
+Cc: David Miller <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        "nhorman@redhat.com" <nhorman@redhat.com>,
+        "sassmann@redhat.com" <sassmann@redhat.com>,
+        "jogreene@redhat.com" <jogreene@redhat.com>,
+        guru.anbalagane@oracle.com, Ilya Lesokhin <ilyal@mellanox.com>,
+        Andy Gospodarek <andy@greyhouse.net>,
+        John Fastabend <john.r.fastabend@intel.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Rony Efraim <ronye@mellanox.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>,
+        "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:31563 "EHLO mga09.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1757145AbcIUVXa (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 21 Sep 2016 17:23:30 -0400
+In-Reply-To: <CAJ3xEMj-teLmjg+Nzn0pHsnz8P=EY6uF4VzDJsxVEOTihStrLw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+
+--=-WPRrTYrX3/dUr88Kcal2
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Wed, 2016-09-21 at 22:21 +0300, Or Gerlitz wrote:
+> On Wed, Sep 21, 2016 at 7:59 PM, Samudrala, Sridhar
+> <sridhar.samudrala@intel.com> wrote:
+> > On 9/21/2016 12:04 AM, Or Gerlitz wrote:
+>=20
+>=20
+> >> so what happens after this patchset is applied and before the future
+> work is
+> >> submitted? RX/TX slow path through the VFPRs isn't supported and what
+> >> about fast path? in other words what happens when someone
+> >> loads the driver, sets SRIOV (--> the driver set itself to switchdev
+> mode
+> >> and VFPRs are created) and then a VF sends a packet? do you still put
+> >> into the HW the legacy DMAC based switching rules? I am not
+> following...
+>=20
+> > The VF driver requests adding the dmac based filter rules via mailbox
+> > messages to PF and that is not changed in this patchset.
+> > Once we have VFPR TX/RX support, we will not allow the VF driver to add
+> > these rules, Instead a host based
+> > program will be able to add these rules to enable the fast path.
+>=20
+> I see, this means that when this patch set is applied your driver
+> reports through devlink that they are in switchdev mode, but the
+> operational state of the VFs and VFPRs isn't such - as the VFs dictate
+> the steering and the VFPRs don't support slow path TX/RX --- in an
+> earlier comment you made on this thread you said that you will be
+> submitting RX/TX support in the next patchset. Maybe it would be best
+> if you can take the VFPRs patches out of this series and roll a follow
+> up series with all what's needed? unless you need more time and gonna
+> miss 4.9 as of that... if the patches are ready, I say lets have them
+> all in one series, if not, I wonder what other people think on the
+> matter. I am basically half+ good to have also the half baked code
+> base merged
+>=20
+> Anyway, there's no point to report through ethtool something (VF vport
+> HW stats) you can report in the standard and convenient manner, so
+> this one please do address regardless of the prev comment.
+
+I will drop Sridhar's changes from this series for now, so that he can do
+the re-work AND provide the additional patches he referred to earlier at a
+later date.
+--=-WPRrTYrX3/dUr88Kcal2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, linux-kernel@vger.kernel.org,
-        nprachan@brocade.com, rshearma@brocade.com, dfawcus@brocade.com,
-        stephen@networkplumber.org
-To: kleptog@svana.org, jchapman@katalix.com, mostrows@speakeasy.net,
-        acme@xconectiva.com.br, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-Take into account all of the tunnel encapsulation headers when setting
-up the MTU on the L2TP logical interface device. Otherwise, packets
-created by the applications on top of the L2TP layer are larger
-than they ought to be, relative to the underlay MTU, leading to
-needless fragmentation once the outer IP encap is added.
+iQIcBAABCgAGBQJX4vpRAAoJEOVv75VaS+3OCRkQAJi2Y/ygKnZ4n0U3Y2b4xdNL
+DWV8Hh14erb/V//HiUWpo/ZTh8PekXng29OlnmHMux4ojMsUvL8aJ9U5uCk77QOx
+2Lb8Kw45U899Kf/A/U2lvnN8emGfUx0/OJ2JH2xZLRfJ6c3/cokKCpsSI55JpYuV
+37cvaLNbbqn9+lmpitw/1N8eYi8AtziBwhhGFitxEo2/9mSmO0lh1EXLCW0Bvl35
++zo+Sb04Jzxe+SfaYVkvE78bLq7juSM0cV4F8rEy7VYeQ909HUsy0XOhkevnmYX6
+a3QtPxQHfh8NG20A7MUJ2UXjdsxj2XbYl+xbHemmqzJzDw7md0ocICqB7njFya3F
+EoBFqQUHlQcacVFbI/qZNcAwlOuAwIuEI7MEmTnPTIW/7/6WmayFQ9lzsGkRivIR
+1sCkF1KhP4rxYKC9XnVZPK/3uxHeQCwoW/55aEGgagwofc5Q+jizIYOkJJBIsIMH
+7B9GgldtZXui1Q5iWQeNHl2cnkIfUm2eWsZNZKPAEdjVhFGUFOJ/9Wje0AXAttIg
+eOot74DKxxsf4w9wZLI8dWI6+jNQuYLvUrQCNTAT7S5iEBtS7ueEbjSu8zhFT2o6
+2hqO5RRfuFGUyQS6r2rrSlQOF+YsuYLboQpDelIe7iZgX3NvPF1pDdOfcHqpeYxV
+8Cu7WgVd3K8bf0dPn2M8
+=0FvE
+-----END PGP SIGNATURE-----
 
-Specifically, take into account the (outer, underlay) IP header
-imposed on the encapsulated L2TP packet, and the Layer 2 header
-imposed on the inner IP packet prior to L2TP encapsulation.
-
-Do not assume an Ethernet (non-jumbo) underlay. Use the PMTU mechanism
-and the dst entry in the L2TP tunnel socket to directly pull up
-the underlay MTU (as the baseline number on top of which the
-encapsulation headers are factored in).  Fall back to Ethernet MTU
-if this fails.
-
-Signed-off-by: Ramkumar Parameswaran <rparames@brocade.com>
-
-Reviewed-by: N. Prachanda <nprachan@brocade.com>,
-              R. Shearman  <rshearma@brocade.com>,
-              D. Fawcus    <dfawcus@brocade.com>
-
-
----
-  net/l2tp/l2tp_eth.c | 48 ++++++++++++++++++++++++++++++++++++++++++++----
-  1 file changed, 44 insertions(+), 4 deletions(-)
-
-diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
-index 57fc5a4..dbcd6bd 100644
---- a/net/l2tp/l2tp_eth.c
-+++ b/net/l2tp/l2tp_eth.c
-@@ -30,6 +30,9 @@
-  #include <net/xfrm.h>
-  #include <net/net_namespace.h>
-  #include <net/netns/generic.h>
-+#include <linux/ip.h>
-+#include <linux/ipv6.h>
-+#include <linux/udp.h>
-
-  #include "l2tp_core.h"
-
-@@ -206,6 +209,46 @@ static void l2tp_eth_show(struct seq_file *m, void 
-*arg)
-  }
-  #endif
-
-+static void l2tp_eth_adjust_mtu(struct l2tp_tunnel *tunnel,
-+				struct l2tp_session *session,
-+				struct net_device *dev)
-+{
-+	unsigned int overhead = 0;
-+	struct dst_entry *dst;
-+
-+	if (session->mtu != 0) {
-+		dev->mtu = session->mtu;
-+		dev->needed_headroom += session->hdr_len;
-+		if (tunnel->encap == L2TP_ENCAPTYPE_UDP)
-+			dev->needed_headroom += sizeof(struct udphdr);
-+		return;
-+	}
-+	overhead = session->hdr_len;
-+	/* Adjust MTU, factor overhead - underlay L3 hdr, overlay L2 hdr*/
-+	if (tunnel->sock->sk_family == AF_INET)
-+		overhead += (ETH_HLEN + sizeof(struct iphdr));
-+	else if (tunnel->sock->sk_family == AF_INET6)
-+		overhead += (ETH_HLEN + sizeof(struct ipv6hdr));
-+	/* Additionally, if the encap is UDP, account for UDP header size */
-+	if (tunnel->encap == L2TP_ENCAPTYPE_UDP)
-+		overhead += sizeof(struct udphdr);
-+	/* If PMTU discovery was enabled, use discovered MTU on L2TP device */
-+	dst = sk_dst_get(tunnel->sock);
-+	if (dst) {
-+		u32 pmtu = dst_mtu(dst);
-+
-+		if (pmtu != 0)
-+			dev->mtu = pmtu;
-+		dst_release(dst);
-+	}
-+	/* else (no PMTUD) L2TP dev MTU defaulted to Ethernet MTU in caller */
-+	session->mtu = dev->mtu - overhead;
-+	dev->mtu = session->mtu;
-+	dev->needed_headroom += session->hdr_len;
-+	if (tunnel->encap == L2TP_ENCAPTYPE_UDP)
-+		dev->needed_headroom += sizeof(struct udphdr);
-+}
-+
-  static int l2tp_eth_create(struct net *net, u32 tunnel_id, u32 
-session_id, u32 peer_session_id, struct l2tp_session_cfg *cfg)
-  {
-  	struct net_device *dev;
-@@ -255,11 +298,8 @@ static int l2tp_eth_create(struct net *net, u32 
-tunnel_id, u32 session_id, u32 p
-  	}
-
-  	dev_net_set(dev, net);
--	if (session->mtu == 0)
--		session->mtu = dev->mtu - session->hdr_len;
--	dev->mtu = session->mtu;
--	dev->needed_headroom += session->hdr_len;
-
-+	l2tp_eth_adjust_mtu(tunnel, session, dev);
-  	priv = netdev_priv(dev);
-  	priv->dev = dev;
-  	priv->session = session;
--- 
-2.1.4
+--=-WPRrTYrX3/dUr88Kcal2--
