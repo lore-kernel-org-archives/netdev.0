@@ -1,141 +1,152 @@
-From: Yotam Gigi <yotamg@mellanox.com>
-Subject: [PATCH net] act_ife: Add support for machines with hard_header_len != mac_len
-Date: Wed, 21 Sep 2016 15:54:13 +0300
-Message-ID: <1474462453-37668-1-git-send-email-yotamg@mellanox.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [ANNOUNCE] ndiv: line-rate network traffic processing
+Date: Wed, 21 Sep 2016 18:26:39 +0200
+Message-ID: <20160921182639.2fce960a@redhat.com>
+References: <20160921112852.GA991@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Yotam Gigi <yotamg@mellanox.com>
-To: <jhs@mojatatu.com>, <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com, netdev@vger.kernel.org,
+        Tom Herbert <tom@herbertland.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0068.outbound.protection.outlook.com ([104.47.2.68]:45568
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752360AbcIUQZG (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 21 Sep 2016 12:25:06 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:52260 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933227AbcIUQ0o (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 21 Sep 2016 12:26:44 -0400
+In-Reply-To: <20160921112852.GA991@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Without that fix, the following could occur:
- - On encode ingress, the total amount of skb_pushes (in lines 751 and
-   753) was more than specified in cow.
- - On machines with hard_header_len > mac_len, the packet format was not
-   according to the ife specifications, as the place reserved at the
-   beginning of the packet is for hard_header_len, but only mac_len bytes
-   get initialized in it. Acting upon simple ping packet, The following
-   tc commands:
 
-   tc qdisc add dev sw1p5 handle 1: root prio
-   tc filter add dev sw1p5 parent 1: protocol ip \
-		matchall skip_hw \
-		action ife encode type 0xdead use mark 0x12
+On Wed, 21 Sep 2016 13:28:52 +0200 Willy Tarreau <w@1wt.eu> wrote:
 
-   when netdev sw1p5 has hard_header_len of 30, created the following
-   packet:
+> Over the last 3 years I've been working a bit on high traffic processing
+> for various reasons. It started with the wish to capture line-rate GigE
+> traffic on very small fanless ARM machines and the framework has evolved
+> to be used at my company as a basis for our anti-DDoS engine capable of
+> dealing with multiple 10G links saturated with floods.
+> 
+> I know it comes a bit late now that there is XDP, but it's my first
+> vacation since then and I needed to have a bit of calm time to collect
+> the patches from the various branches and put them together. Anyway I'm
+> sending this here in case it can be of interest to anyone, for use or
+> just to study it.
 
-   0x0000:  e41d 2da5 f1d3 e41d 2d46 ffb5 dead 0000  ..-.....-F......
-   0x0010:  0000 0000 0000 0000 0000 0000 0000 000a  ................
-   0x0020:  0001 0004 0000 0012 e41d 2da5 f1d3 e41d  ..........-.....
-   0x0031:  2d46 ffb5 0800 4500 0054 55e9 4000 4001  -F....E..TU.@.@.
-   0x0040:  ceba 0b00 0005 0b00 0001 0800 d2ea 63b7  ..............c.
-   0x0050:  0002 a360 e257 0000 0000 7ad0 0200 0000  ...`.W....z.....
-   0x0060:  0000 1011 1213 1415 1617 1819 1a1b 1c1d  ................
-   0x0070:  1e1f 2021 2223 2425 2627 2829 2a2b 2c2d  ...!"#$%&'()*+,-
-   0x0080:  2e2f 3031 3233 3435 3637                 ./01234567
+I definitely want to study it!
 
-   and it can be seen that bytes 0x0e to 0x01e are not initialized and
-   contain random memory data, where bytes 0x01e to 0x028 contain the ife
-   header.
+You mention XDP.  If you didn't notice, I've created some documentation
+on XDP (it is very "live" documentation at this point and it will
+hopefully "materialized" later in the process).  But it should be a good
+starting point for understanding XDP:
 
-To fix those problems, add the total_push and reserve variables, which
-indicates the exact amount of pushes needed and the exact amount of
-headroom the packet should have. Thus, it is possible to take care of the
-cases:
- - on ingress, the mac header must be pushed back as the ingress parser
-   already parses the mac header and pulls it
- - on egress, the code should reserve hard_header_len space extra in
-   headroom for driver to put the rest of the headers
+ https://prototype-kernel.readthedocs.io/en/latest/networking/XDP/index.html
 
-Fixes: ef6980b6becb ("net sched: introduce IFE action")
-Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
----
- net/sched/act_ife.c | 34 +++++++++++++++++++++++++---------
- 1 file changed, 25 insertions(+), 9 deletions(-)
 
-diff --git a/net/sched/act_ife.c b/net/sched/act_ife.c
-index e87cd81..27b19ca 100644
---- a/net/sched/act_ife.c
-+++ b/net/sched/act_ife.c
-@@ -708,11 +708,13 @@ static int tcf_ife_encode(struct sk_buff *skb, const struct tc_action *a,
- 	   where ORIGDATA = original ethernet header ...
- 	 */
- 	u16 metalen = ife_get_sz(skb, ife);
--	int hdrm = metalen + skb->dev->hard_header_len + IFE_METAHDRLEN;
--	unsigned int skboff = skb->dev->hard_header_len;
- 	u32 at = G_TC_AT(skb->tc_verd);
--	int new_len = skb->len + hdrm;
- 	bool exceed_mtu = false;
-+	unsigned int skboff;
-+	int total_push;
-+	int reserve;
-+	int new_len;
-+	int hdrm;
- 	int err;
+> I presented it in 2014 at kernel recipes :
+>   http://kernel-recipes.org/en/2014/ndiv-a-low-overhead-network-traffic-diverter/
+
+Cool, and it even have a video!
  
- 	if (at & AT_EGRESS) {
-@@ -724,6 +726,22 @@ static int tcf_ife_encode(struct sk_buff *skb, const struct tc_action *a,
- 	bstats_update(&ife->tcf_bstats, skb);
- 	tcf_lastuse_update(&ife->tcf_tm);
+> It now supports drivers mvneta, ixgbe, e1000e, e1000 and igb. It is
+> very light, and retrieves the packets in the NIC's driver before they
+> are converted to an skb, then submits them to a registered RX handler
+> running in softirq context so we have the best of all worlds by
+> benefitting from CPU scalability, delayed processing, and not paying
+> the cost of switching to userland. Also an rx_done() function allows
+> handlers to batch their processing. 
+
+Wow - it does sound a lot like XDP!  I would say that is sort of
+validate the current direction of XDP, and that there are real
+use-cases for this stuff.
+
+> The RX handler returns an action
+> among accepting the packet as-is, accepting it modified (eg: vlan or
+> tunnel decapsulation), dropping it, postponing the processing
+> (equivalent to EAGAIN), or building a new packet to send back.
+
+I'll be very interested in studying in-details how you implemented and
+choose what actions to implement.
+
+What was the need for postponing the processing (EAGAIN)?
+
  
-+	if (at & AT_EGRESS) {
-+		/* on egress, reserve space for hard_header_len instead of
-+		 * mac_len
-+		 */
-+		skb_reset_mac_len(skb);
-+		hdrm = metalen + skb->mac_len + IFE_METAHDRLEN;
-+		total_push = hdrm;
-+		reserve = metalen + skb->dev->hard_header_len + IFE_METAHDRLEN;
-+	} else {
-+		/* on ingress, push mac_len as it already get parsed from tc */
-+		hdrm = metalen + skb->mac_len + IFE_METAHDRLEN;
-+		total_push = hdrm + skb->mac_len;
-+		reserve = total_push;
-+	}
-+	new_len =  skb->len + hdrm;
-+
- 	if (!metalen) {		/* no metadata to send */
- 		/* abuse overlimits to count when we allow packet
- 		 * with no metadata
-@@ -742,19 +760,17 @@ static int tcf_ife_encode(struct sk_buff *skb, const struct tc_action *a,
- 
- 	iethh = eth_hdr(skb);
- 
--	err = skb_cow_head(skb, hdrm);
-+	err = skb_cow_head(skb, reserve);
- 	if (unlikely(err)) {
- 		ife->tcf_qstats.drops++;
- 		spin_unlock(&ife->tcf_lock);
- 		return TC_ACT_SHOT;
- 	}
- 
--	if (!(at & AT_EGRESS))
--		skb_push(skb, skb->dev->hard_header_len);
--
--	__skb_push(skb, hdrm);
-+	__skb_push(skb, total_push);
- 	memcpy(skb->data, iethh, skb->mac_len);
- 	skb_reset_mac_header(skb);
-+	skboff += skb->mac_len;
- 	oethh = eth_hdr(skb);
- 
- 	/*total metadata length */
-@@ -792,7 +808,7 @@ static int tcf_ife_encode(struct sk_buff *skb, const struct tc_action *a,
- 	oethh->h_proto = htons(ife->eth_type);
- 
- 	if (!(at & AT_EGRESS))
--		skb_pull(skb, skb->dev->hard_header_len);
-+		skb_pull(skb, skb->mac_len);
- 
- 	spin_unlock(&ife->tcf_lock);
- 
+> This last function is the one requiring the most changes in existing
+> drivers, but offers the widest range of possibilities. We use it to
+> send SYN cookies, but I have also implemented a stateless HTTP server
+> supporting keep-alive using it, achieving line-rate traffic processing
+> on a single CPU core when the NIC supports it. It's very convenient to
+> test various stateful TCP components as it's easy to sustain millions
+> of connections per second on it.
+
+Interesting, and controversial use-case.  One controversial use-case
+for XDP, that I imagine was implementing a DNS accelerator, what
+answers simple and frequent requests.  You took it a step further with
+a HTTP server!
+
+
+> It does not support forwarding between NICs. It was my first goal
+> because I wanted to implement a TAP with it, bridging the traffic
+> between two ports, but figured it was adding some complexity to the
+> system back then. 
+
+With all the XDP features at the moment, we have avoided going through
+the page allocator, by relying on different page recycling tricks.
+
+When doing forwarding between NICs is it harder to do these page
+recycling tricks.  I've measured that page allocators fast-path
+("recycling" same page) cost approx 270 cycles, and the 14Mpps cycle
+count on this 4GHz CPU is 268 cycles.  Thus, it is a non-starter...
+
+Did you have to modify the page allocator?
+Or implement some kind of recycling?
+
+> However since then we've implemented traffic
+> capture in our product, exploiting this framework to capture without
+> losses at 14 Mpps. I may find some time to try to extract it later.
+> It uses the /sys API so that you can simply plug tcpdump -r on a
+> file there, though there's also an mmap version which uses less CPU
+> (that's important at 10G).
+
+Interesting.  I do see a XDP use-case for RAW packet capture, but I've
+postponed that work until later.  I would interested in how you solved
+it?  E.g. Do you support zero-copy?
+
+
+> In its current form since the initial code's intent was to limit
+> core changes, it happens not to modify anything in the kernel by
+> default and to reuse the net_device's ax25_ptr to attach devices
+> (idea borrowed from netmap), so it can be used on an existing
+> kernel just by loading the patched network drivers (yes, I know
+> it's not a valid solution for the long term).
+> 
+> The current code is available here :
+> 
+>   http://git.kernel.org/cgit/linux/kernel/git/wtarreau/ndiv.git/
+
+I was just about to complain that the link was broken... but it fixed
+itself while writing this email ;-)
+
+Can you instead explain what branch to look at?
+
+> 
+> Please let me know if there could be some interest in rebasing it
+> on more recent versions (currently 3.10, 3.14 and 4.4 are supported).
+
+What, no support for 2.4 ;-)
+
+> I don't have much time to assign to it since it works fine as-is,
+> but will be glad to do so if that can be useful.
+> 
+> Also the stateless HTTP server provided in it definitely is a nice
+> use case for testing such a framework.
+
 -- 
-2.4.11
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
