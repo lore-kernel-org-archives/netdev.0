@@ -1,43 +1,30 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v4 net-next 13/16] tcp: allow congestion control to
- expand send buffer differently
-Date: Wed, 21 Sep 2016 09:25:47 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0105B1D@AcuExch.aculab.com>
-References: <1474342763-16715-1-git-send-email-ncardwell@google.com>
-        <1474342763-16715-14-git-send-email-ncardwell@google.com>
- <20160920104801.67082004@xeon-e3>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next V2] net/vxlan: Avoid unaligned access in
+ vxlan_build_skb()
+Date: Wed, 21 Sep 2016 11:43:13 +0200
+Message-ID: <20160921114313.07a43f14@griffin>
+References: <20160920185737.GU8920@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Yuchung Cheng <ycheng@google.com>,
-        Van Jacobson <vanj@google.com>,
-        Nandita Dukkipati <nanditad@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Soheil Hassas Yeganeh <soheil@google.com>
-To: 'Stephen Hemminger' <stephen@networkplumber.org>,
-        Neal Cardwell <ncardwell@google.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        hannes@stressinduktion.org
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.189]:56221 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932283AbcIUJ2Z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2016 05:28:25 -0400
-In-Reply-To: <20160920104801.67082004@xeon-e3>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:35710 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933169AbcIUJnR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 21 Sep 2016 05:43:17 -0400
+In-Reply-To: <20160920185737.GU8920@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger
-> Sent: 20 September 2016 18:48
-...
-> > -	sndmem = 2 * nr_segs * per_mss;
-> > +	sndmem = ca_ops->sndbuf_expand ? ca_ops->sndbuf_expand(sk) : 2;
+On Tue, 20 Sep 2016 14:57:37 -0400, Sowmini Varadhan wrote:
+> The vxlan header may not be aligned to 4 bytes in
+> vxlan_build_skb (e.g., for MLD packets). This patch
+> avoids unaligned access traps from vxlan_build_skb
+> (in platforms like sparc) by making struct vxlanhdr __packed.
 > 
-> You could avoid the conditional (if it mattered) by inheriting a default value
-> that would mean changing all existing congestion control modules.
-> So doing it this way makes life easier.
+> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 
-The indirect call is probably worse than the conditional.
-
-	David
+Acked-by: Jiri Benc <jbenc@redhat.com>
