@@ -1,68 +1,93 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/15] i40e: Fix to check for NULL
-Date: Tue, 20 Sep 2016 20:43:44 -0700
-Message-ID: <1474429432-102772-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 14/15] i40e: Limit TX descriptor count in cases where frag size is greater than 16K
+Date: Tue, 20 Sep 2016 20:43:51 -0700
+Message-ID: <1474429432-102772-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1474429432-102772-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
         netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
         jogreene@redhat.com, guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:43488 "EHLO mga06.intel.com"
+Received: from mga06.intel.com ([134.134.136.31]:33017 "EHLO mga06.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754803AbcIUDn5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 20 Sep 2016 23:43:57 -0400
+        id S1754750AbcIUDn7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 20 Sep 2016 23:43:59 -0400
 In-Reply-To: <1474429432-102772-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch fixes an issue in the virt channel code, where a return
-from i40e_find_vsi_from_id was not checked for NULL when applicable.
-Without this patch, there is a risk for panic and static analysis
-tools complain. This patch fixes the problem by adding the check
-and adding an additional input check for similar reasons.
+The i40e driver was incorrectly assuming that we would always be pulling
+no more than 1 descriptor from each fragment.  It is in fact possible for
+us to end up with the case where 2 descriptors worth of data may be pulled
+when a frame is larger than one of the pieces generated when aligning the
+payload to either 4K or pieces smaller than 16K.
 
-Change-ID: I7e9be88eb7a3addb50eadc451c8336d9e06f5394
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+To adjust for this we just need to make certain to test all the way to the
+end of the fragments as it is possible for us to span 2 descriptors in the
+block before us so we need to guarantee that even the last 6 descriptors
+have enough data to fill a full frame.
+
+Change-ID: Ic2ecb4d6b745f447d334e66c14002152f50e2f99
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 11 ++++++++++-
- 1 file changed, 10 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 7 ++-----
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 7 ++-----
+ 2 files changed, 4 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 9ecf8f8..da68b00 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -502,8 +502,16 @@ static int i40e_config_vsi_tx_queue(struct i40e_vf *vf, u16 vsi_id,
- 	u32 qtx_ctl;
- 	int ret = 0;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index f8d6623..bf7bb7c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -2621,9 +2621,7 @@ bool __i40e_chk_linearize(struct sk_buff *skb)
+ 		return false;
  
-+	if (!i40e_vc_isvalid_vsi_id(vf, info->vsi_id)) {
-+		ret = -ENOENT;
-+		goto error_context;
-+	}
- 	pf_queue_id = i40e_vc_get_pf_queue_id(vf, vsi_id, vsi_queue_id);
- 	vsi = i40e_find_vsi_from_id(pf, vsi_id);
-+	if (!vsi) {
-+		ret = -ENOENT;
-+		goto error_context;
-+	}
+ 	/* We need to walk through the list and validate that each group
+-	 * of 6 fragments totals at least gso_size.  However we don't need
+-	 * to perform such validation on the last 6 since the last 6 cannot
+-	 * inherit any data from a descriptor after them.
++	 * of 6 fragments totals at least gso_size.
+ 	 */
+ 	nr_frags -= I40E_MAX_BUFFER_TXD - 2;
+ 	frag = &skb_shinfo(skb)->frags[0];
+@@ -2654,8 +2652,7 @@ bool __i40e_chk_linearize(struct sk_buff *skb)
+ 		if (sum < 0)
+ 			return true;
  
- 	/* clear the context structure first */
- 	memset(&tx_ctx, 0, sizeof(struct i40e_hmc_obj_txq));
-@@ -1567,7 +1575,8 @@ static int i40e_vc_config_promiscuous_mode_msg(struct i40e_vf *vf,
+-		/* use pre-decrement to avoid processing last fragment */
+-		if (!--nr_frags)
++		if (!nr_frags--)
+ 			break;
  
- 	vsi = i40e_find_vsi_from_id(pf, info->vsi_id);
- 	if (!test_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states) ||
--	    !i40e_vc_isvalid_vsi_id(vf, info->vsi_id)) {
-+	    !i40e_vc_isvalid_vsi_id(vf, info->vsi_id) ||
-+	    !vsi) {
- 		aq_ret = I40E_ERR_PARAM;
- 		goto error_param;
- 	}
+ 		sum -= skb_frag_size(stale++);
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index 0130458..e3427eb 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -1832,9 +1832,7 @@ bool __i40evf_chk_linearize(struct sk_buff *skb)
+ 		return false;
+ 
+ 	/* We need to walk through the list and validate that each group
+-	 * of 6 fragments totals at least gso_size.  However we don't need
+-	 * to perform such validation on the last 6 since the last 6 cannot
+-	 * inherit any data from a descriptor after them.
++	 * of 6 fragments totals at least gso_size.
+ 	 */
+ 	nr_frags -= I40E_MAX_BUFFER_TXD - 2;
+ 	frag = &skb_shinfo(skb)->frags[0];
+@@ -1865,8 +1863,7 @@ bool __i40evf_chk_linearize(struct sk_buff *skb)
+ 		if (sum < 0)
+ 			return true;
+ 
+-		/* use pre-decrement to avoid processing last fragment */
+-		if (!--nr_frags)
++		if (!nr_frags--)
+ 			break;
+ 
+ 		sum -= skb_frag_size(stale++);
 -- 
 2.7.4
