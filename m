@@ -1,64 +1,59 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: Re: [PATCH RFC 1/3] xdp: Infrastructure to generalize XDP
-Date: Wed, 21 Sep 2016 19:45:48 +0100
-Message-ID: <20160921194548.33b85cb3@jkicinski-Precision-T1700>
-References: <1474408824-418864-1-git-send-email-tom@herbertland.com>
-        <1474408824-418864-2-git-send-email-tom@herbertland.com>
-        <57E1CDE3.5030404@fb.com>
-        <20160921182657.67681e67@jkicinski-Precision-T1700>
-        <CALx6S37CkP44ZSNZM3UNBMv_ECFS6tf5T_37VSMyBCjm9ejiDw@mail.gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH v6 5/6] net: ipv4, ipv6: run cgroup eBPF egress programs
+Date: Wed, 21 Sep 2016 20:48:27 +0200
+Message-ID: <20160921184827.GA15732@pox.localdomain>
+References: <1474303441-3745-1-git-send-email-daniel@zonque.org>
+ <1474303441-3745-6-git-send-email-daniel@zonque.org>
+ <20160919191910.GA984@salvia>
+ <ac88bb4c-ab7c-1f74-c7fd-79e523b50ae4@zonque.org>
+ <20160919203533.GA888@salvia>
+ <83afdc54-1bbe-3530-e5fd-b74fefe9a042@zonque.org>
+ <20160920142931.GA31438@salvia>
+ <6584b975-fa3e-8d98-f0c7-a2c6b194b2b6@zonque.org>
+ <20160921154533.GA13656@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@fb.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Kernel Team <kernel-team@fb.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Mack <daniel@zonque.org>, htejun@fb.com,
+        daniel@iogearbox.net, ast@fb.com, davem@davemloft.net,
+        kafai@fb.com, fw@strlen.de, harald@redhat.com,
+        netdev@vger.kernel.org, sargun@sargun.me, cgroups@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4.wp.pl ([212.77.101.12]:56529 "EHLO mx4.wp.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932941AbcIUSqJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 21 Sep 2016 14:46:09 -0400
-In-Reply-To: <CALx6S37CkP44ZSNZM3UNBMv_ECFS6tf5T_37VSMyBCjm9ejiDw@mail.gmail.com>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:37886 "EHLO
+        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S964849AbcIUSsa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2016 14:48:30 -0400
+Received: by mail-wm0-f41.google.com with SMTP id b130so107514048wmc.0
+        for <netdev@vger.kernel.org>; Wed, 21 Sep 2016 11:48:30 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20160921154533.GA13656@salvia>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 21 Sep 2016 10:39:40 -0700, Tom Herbert wrote:
-> On Wed, Sep 21, 2016 at 10:26 AM, Jakub Kicinski <kubakici@wp.pl> wrote:
-> > On Tue, 20 Sep 2016 17:01:39 -0700, Alexei Starovoitov wrote:  
-> >>  >  - Reduces the amount of code and complexity needed in drivers to
-> >>  >    manage XDP  
-> >>
-> >> hmm:
-> >> 534 insertions(+), 144 deletions(-)
-> >> looks like increase in complexity instead.  
-> >
-> > and more to come to tie this with HW offloads.  
+On 09/21/16 at 05:45pm, Pablo Neira Ayuso wrote:
+> On Tue, Sep 20, 2016 at 06:43:35PM +0200, Daniel Mack wrote:
+> > The point is that from an application's perspective, restricting the
+> > ability to bind a port and dropping packets that are being sent is a
+> > very different thing. Applications will start to behave differently if
+> > they can't bind to a port, and that's something we do not want to happen.
 > 
-> The amount of driver code did decrease with these patches:
-> 
-> drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 64 ++++----------------------
-> drivers/net/ethernet/mellanox/mlx4/en_rx.c     | 25 ++++------
-> drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |  1 -
-> 
-> Minimizing complexity being added to drivers for XDP is critical since
-> we basically asking every driver to replicate the function. This
-> property also should also apply to HW offloads, the more complexity we
-> can abstract out drivers into a common backend infrastructure the
-> better for supporting across different drivers.
+> What is exactly the problem? Applications are not checking for return
+> value from bind? They should be fixed. If you want to collect
+> statistics, I see no reason why you couldn't collect them for every
+> EACCESS on each bind() call.
 
-I'm in the middle of writing/testing XDP support for the Netronome's
-driver and generic infra is very much appreciated ;)  In my experience
-the 50 lines of code which are required for assigning the programs and
-freeing them aren't really a big deal, though.
+It's not about applications not checking the return value of bind().
+Unfortunately, many applications (or the respective libraries they use)
+retry on connect() failure but handle bind() errors as a hard failure
+and exit. Yes, it's an application or library bug but these
+applications have very specific exceptions how something fails.
+Sometimes even going from drop to RST will break applications.
 
-Let's also separate putting xdp_prog in netdevice/napi_struct from the
-generic hook infra.  All the simplifications to the driver AFAICS come
-from the former.  If everyone is fine with growing napi_struct we can do
-that but IMHO this is not an argument for the generic infra :)
+Paranoia speaking: by returning errors where no error was returned
+before, undefined behaviour occurs. In Murphy speak: things break.
+
+This is given and we can't fix it from the kernel side. Returning at
+system call level has many benefits but it's not always an option.
+
+Adding the late hook does not prevent filtering at socket layer to
+also be added. I think we need both.
