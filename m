@@ -1,99 +1,121 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 4/4] net: dsa: mv88e6xxx: implement DSA port fast ageing
-Date: Thu, 22 Sep 2016 16:49:24 -0400
-Message-ID: <20160922204924.16229-5-vivien.didelot@savoirfairelinux.com>
-References: <20160922204924.16229-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>, John Crispin <john@phrozen.org>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
+From: "R. Parameswaran" <parameswaran.r7@gmail.com>
+Subject: [PATCH net v2] L2TP:Adjust intf MTU,factor underlay L3,overlay L2
+Date: Thu, 22 Sep 2016 13:52:43 -0700 (PDT)
+Message-ID: <alpine.DEB.2.11.1609221341500.6975@duvvury30.eng.vyatta.net>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: davem@redhat.com, linux-kernel@vger.kernel.org,
+        nprachan@brocade.com, rshearma@brocade.com, dfawcus@brocade.com,
+        stephen@networkplumber.org, acme@redhat.com, lboccass@brocade.com,
+        parameswaran.r7@gmail.com
+To: kleptog@svana.org, jchapman@katalix.com, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160922204924.16229-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Now that the DSA layer handles port fast ageing on correct STP change,
-simplify _mv88e6xxx_port_state and implement mv88e6xxx_port_fast_age.
+>From ed585bdd6d3d2b3dec58d414f514cd764d89159d Mon Sep 17 00:00:00 2001
+From: "R. Parameswaran" <rparames@brocade.com>
+Date: Thu, 22 Sep 2016 13:19:25 -0700
+Subject: [PATCH] L2TP:Adjust intf MTU,factor underlay L3,overlay L2
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Take into account all of the tunnel encapsulation headers when setting
+up the MTU on the L2TP logical interface device. Otherwise, packets
+created by the applications on top of the L2TP layer are larger
+than they ought to be, relative to the underlay MTU, leading to
+needless fragmentation once the outer IP encap is added.
+
+Specifically, take into account the (outer, underlay) IP header
+imposed on the encapsulated L2TP packet, and the Layer 2 header
+imposed on the inner IP packet prior to L2TP encapsulation.
+
+Do not assume an Ethernet (non-jumbo) underlay. Use the PMTU mechanism
+and the dst entry in the L2TP tunnel socket to directly pull up
+the underlay MTU (as the baseline number on top of which the
+encapsulation headers are factored in).  Fall back to Ethernet MTU
+if this fails.
+
+Signed-off-by: R. Parameswaran <rparames@brocade.com>
+
+Reviewed-by: "N. Prachanda" <nprachan@brocade.com>,
+Reviewed-by: "R. Shearman" <rshearma@brocade.com>,
+Reviewed-by: "D. Fawcus" <dfawcus@brocade.com>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c | 45 ++++++++++++++++++++--------------------
- 1 file changed, 23 insertions(+), 22 deletions(-)
+ net/l2tp/l2tp_eth.c | 48 ++++++++++++++++++++++++++++++++++++++++++++----
+ 1 file changed, 44 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 25bd3fa..122876c 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -1133,31 +1133,18 @@ static int _mv88e6xxx_port_state(struct mv88e6xxx_chip *chip, int port,
+diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
+index 57fc5a4..dbcd6bd 100644
+--- a/net/l2tp/l2tp_eth.c
++++ b/net/l2tp/l2tp_eth.c
+@@ -30,6 +30,9 @@
+ #include <net/xfrm.h>
+ #include <net/net_namespace.h>
+ #include <net/netns/generic.h>
++#include <linux/ip.h>
++#include <linux/ipv6.h>
++#include <linux/udp.h>
  
- 	oldstate = reg & PORT_CONTROL_STATE_MASK;
+ #include "l2tp_core.h"
  
--	if (oldstate != state) {
--		/* Flush forwarding database if we're moving a port
--		 * from Learning or Forwarding state to Disabled or
--		 * Blocking or Listening state.
--		 */
--		if ((oldstate == PORT_CONTROL_STATE_LEARNING ||
--		     oldstate == PORT_CONTROL_STATE_FORWARDING) &&
--		    (state == PORT_CONTROL_STATE_DISABLED ||
--		     state == PORT_CONTROL_STATE_BLOCKING)) {
--			err = _mv88e6xxx_atu_remove(chip, 0, port, false);
--			if (err)
--				return err;
--		}
-+	reg &= ~PORT_CONTROL_STATE_MASK;
-+	reg |= state;
- 
--		reg = (reg & ~PORT_CONTROL_STATE_MASK) | state;
--		err = mv88e6xxx_port_write(chip, port, PORT_CONTROL, reg);
--		if (err)
--			return err;
-+	err = mv88e6xxx_port_write(chip, port, PORT_CONTROL, reg);
-+	if (err)
-+		return err;
- 
--		netdev_dbg(ds->ports[port].netdev, "PortState %s (was %s)\n",
--			   mv88e6xxx_port_state_names[state],
--			   mv88e6xxx_port_state_names[oldstate]);
--	}
-+	netdev_dbg(ds->ports[port].netdev, "PortState %s (was %s)\n",
-+		   mv88e6xxx_port_state_names[state],
-+		   mv88e6xxx_port_state_names[oldstate]);
- 
--	return err;
-+	return 0;
+@@ -206,6 +209,46 @@ static void l2tp_eth_show(struct seq_file *m, void *arg)
  }
+ #endif
  
- static int _mv88e6xxx_port_based_vlan_map(struct mv88e6xxx_chip *chip, int port)
-@@ -1232,6 +1219,19 @@ static void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port,
- 			   mv88e6xxx_port_state_names[stp_state]);
- }
- 
-+static void mv88e6xxx_port_fast_age(struct dsa_switch *ds, int port)
++static void l2tp_eth_adjust_mtu(struct l2tp_tunnel *tunnel,
++				struct l2tp_session *session,
++				struct net_device *dev)
 +{
-+	struct mv88e6xxx_chip *chip = ds->priv;
-+	int err;
++	unsigned int overhead = 0;
++	struct dst_entry *dst;
 +
-+	mutex_lock(&chip->reg_lock);
-+	err = _mv88e6xxx_atu_remove(chip, 0, port, false);
-+	mutex_unlock(&chip->reg_lock);
++	if (session->mtu != 0) {
++		dev->mtu = session->mtu;
++		dev->needed_headroom += session->hdr_len;
++		if (tunnel->encap == L2TP_ENCAPTYPE_UDP)
++			dev->needed_headroom += sizeof(struct udphdr);
++		return;
++	}
++	overhead = session->hdr_len;
++	/* Adjust MTU, factor overhead - underlay L3 hdr, overlay L2 hdr*/
++	if (tunnel->sock->sk_family == AF_INET)
++		overhead += (ETH_HLEN + sizeof(struct iphdr));
++	else if (tunnel->sock->sk_family == AF_INET6)
++		overhead += (ETH_HLEN + sizeof(struct ipv6hdr));
++	/* Additionally, if the encap is UDP, account for UDP header size */
++	if (tunnel->encap == L2TP_ENCAPTYPE_UDP)
++		overhead += sizeof(struct udphdr);
++	/* If PMTU discovery was enabled, use discovered MTU on L2TP device */
++	dst = sk_dst_get(tunnel->sock);
++	if (dst) {
++		u32 pmtu = dst_mtu(dst);
 +
-+	if (err)
-+		netdev_err(ds->ports[port].netdev, "failed to flush ATU\n");
++		if (pmtu != 0)
++			dev->mtu = pmtu;
++		dst_release(dst);
++	}
++	/* else (no PMTUD) L2TP dev MTU defaulted to Ethernet MTU in caller */
++	session->mtu = dev->mtu - overhead;
++	dev->mtu = session->mtu;
++	dev->needed_headroom += session->hdr_len;
++	if (tunnel->encap == L2TP_ENCAPTYPE_UDP)
++		dev->needed_headroom += sizeof(struct udphdr);
 +}
 +
- static int _mv88e6xxx_port_pvid(struct mv88e6xxx_chip *chip, int port,
- 				u16 *new, u16 *old)
+ static int l2tp_eth_create(struct net *net, u32 tunnel_id, u32 session_id, u32 peer_session_id, struct l2tp_session_cfg *cfg)
  {
-@@ -3684,6 +3684,7 @@ static struct dsa_switch_ops mv88e6xxx_switch_ops = {
- 	.port_bridge_join	= mv88e6xxx_port_bridge_join,
- 	.port_bridge_leave	= mv88e6xxx_port_bridge_leave,
- 	.port_stp_state_set	= mv88e6xxx_port_stp_state_set,
-+	.port_fast_age		= mv88e6xxx_port_fast_age,
- 	.port_vlan_filtering	= mv88e6xxx_port_vlan_filtering,
- 	.port_vlan_prepare	= mv88e6xxx_port_vlan_prepare,
- 	.port_vlan_add		= mv88e6xxx_port_vlan_add,
+ 	struct net_device *dev;
+@@ -255,11 +298,8 @@ static int l2tp_eth_create(struct net *net, u32 tunnel_id, u32 session_id, u32 p
+ 	}
+ 
+ 	dev_net_set(dev, net);
+-	if (session->mtu == 0)
+-		session->mtu = dev->mtu - session->hdr_len;
+-	dev->mtu = session->mtu;
+-	dev->needed_headroom += session->hdr_len;
+ 
++	l2tp_eth_adjust_mtu(tunnel, session, dev);
+ 	priv = netdev_priv(dev);
+ 	priv->dev = dev;
+ 	priv->session = session;
 -- 
-2.10.0
+2.1.4
