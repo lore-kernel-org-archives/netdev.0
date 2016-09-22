@@ -1,28 +1,132 @@
 From: sunil.kovvuri@gmail.com
-Subject: [PATCH 0/2] BQL support and fix for a regression issue
-Date: Thu, 22 Sep 2016 14:35:19 +0530
-Message-ID: <1474535121-13958-1-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH 2/2] net: thunderx: Support for byte queue limits
+Date: Thu, 22 Sep 2016 14:35:21 +0530
+Message-ID: <1474535121-13958-3-git-send-email-sunil.kovvuri@gmail.com>
+References: <1474535121-13958-1-git-send-email-sunil.kovvuri@gmail.com>
 Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
         Sunil Goutham <sgoutham@cavium.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1474535121-13958-1-git-send-email-sunil.kovvuri@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Sunil Goutham <sgoutham@cavium.com>
 
-These patches add byte queue limit support and also fixes a regression
-issue introduced by commit
-'net: thunderx: Use netdev's name for naming VF's interrupts'
+This patch adds support for byte queue limits
 
-Sunil Goutham (2):
-  net: thunderx: Fix issue with IRQ namimg
-  net: thunderx: Support for byte queue limits
-
- drivers/net/ethernet/cavium/thunder/nic.h          |  2 +-
+Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
+---
  drivers/net/ethernet/cavium/thunder/nicvf_main.c   | 11 ++++++--
  drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 30 ++++++++++++++--------
- 3 files changed, 30 insertions(+), 13 deletions(-)
+ 2 files changed, 29 insertions(+), 12 deletions(-)
 
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+index 7d00162..453e3a0 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+@@ -516,7 +516,8 @@ static int nicvf_init_resources(struct nicvf *nic)
+ static void nicvf_snd_pkt_handler(struct net_device *netdev,
+ 				  struct cmp_queue *cq,
+ 				  struct cqe_send_t *cqe_tx,
+-				  int cqe_type, int budget)
++				  int cqe_type, int budget,
++				  unsigned int *tx_pkts, unsigned int *tx_bytes)
+ {
+ 	struct sk_buff *skb = NULL;
+ 	struct nicvf *nic = netdev_priv(netdev);
+@@ -547,6 +548,8 @@ static void nicvf_snd_pkt_handler(struct net_device *netdev,
+ 		}
+ 		nicvf_put_sq_desc(sq, hdr->subdesc_cnt + 1);
+ 		prefetch(skb);
++		(*tx_pkts)++;
++		*tx_bytes += skb->len;
+ 		napi_consume_skb(skb, budget);
+ 		sq->skbuff[cqe_tx->sqe_ptr] = (u64)NULL;
+ 	} else {
+@@ -662,6 +665,7 @@ static int nicvf_cq_intr_handler(struct net_device *netdev, u8 cq_idx,
+ 	struct cmp_queue *cq = &qs->cq[cq_idx];
+ 	struct cqe_rx_t *cq_desc;
+ 	struct netdev_queue *txq;
++	unsigned int tx_pkts = 0, tx_bytes = 0;
+ 
+ 	spin_lock_bh(&cq->lock);
+ loop:
+@@ -701,7 +705,7 @@ loop:
+ 		case CQE_TYPE_SEND:
+ 			nicvf_snd_pkt_handler(netdev, cq,
+ 					      (void *)cq_desc, CQE_TYPE_SEND,
+-					      budget);
++					      budget, &tx_pkts, &tx_bytes);
+ 			tx_done++;
+ 		break;
+ 		case CQE_TYPE_INVALID:
+@@ -730,6 +734,9 @@ done:
+ 		netdev = nic->pnicvf->netdev;
+ 		txq = netdev_get_tx_queue(netdev,
+ 					  nicvf_netdev_qidx(nic, cq_idx));
++		if (tx_pkts)
++			netdev_tx_completed_queue(txq, tx_pkts, tx_bytes);
++
+ 		nic = nic->pnicvf;
+ 		if (netif_tx_queue_stopped(txq) && netif_carrier_ok(netdev)) {
+ 			netif_tx_start_queue(txq);
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+index 178c5c7..a4fc501 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+@@ -1082,6 +1082,24 @@ static inline void nicvf_sq_add_cqe_subdesc(struct snd_queue *sq, int qentry,
+ 	imm->len = 1;
+ }
+ 
++static inline void nicvf_sq_doorbell(struct nicvf *nic, struct sk_buff *skb,
++				     int sq_num, int desc_cnt)
++{
++	struct netdev_queue *txq;
++
++	txq = netdev_get_tx_queue(nic->pnicvf->netdev,
++				  skb_get_queue_mapping(skb));
++
++	netdev_tx_sent_queue(txq, skb->len);
++
++	/* make sure all memory stores are done before ringing doorbell */
++	smp_wmb();
++
++	/* Inform HW to xmit all TSO segments */
++	nicvf_queue_reg_write(nic, NIC_QSET_SQ_0_7_DOOR,
++			      sq_num, desc_cnt);
++}
++
+ /* Segment a TSO packet into 'gso_size' segments and append
+  * them to SQ for transfer
+  */
+@@ -1141,12 +1159,8 @@ static int nicvf_sq_append_tso(struct nicvf *nic, struct snd_queue *sq,
+ 	/* Save SKB in the last segment for freeing */
+ 	sq->skbuff[hdr_qentry] = (u64)skb;
+ 
+-	/* make sure all memory stores are done before ringing doorbell */
+-	smp_wmb();
++	nicvf_sq_doorbell(nic, skb, sq_num, desc_cnt);
+ 
+-	/* Inform HW to xmit all TSO segments */
+-	nicvf_queue_reg_write(nic, NIC_QSET_SQ_0_7_DOOR,
+-			      sq_num, desc_cnt);
+ 	nic->drv_stats.tx_tso++;
+ 	return 1;
+ }
+@@ -1219,12 +1233,8 @@ doorbell:
+ 		nicvf_sq_add_cqe_subdesc(sq, qentry, tso_sqe, skb);
+ 	}
+ 
+-	/* make sure all memory stores are done before ringing doorbell */
+-	smp_wmb();
++	nicvf_sq_doorbell(nic, skb, sq_num, subdesc_cnt);
+ 
+-	/* Inform HW to xmit new packet */
+-	nicvf_queue_reg_write(nic, NIC_QSET_SQ_0_7_DOOR,
+-			      sq_num, subdesc_cnt);
+ 	return 1;
+ 
+ append_fail:
 -- 
 2.7.4
