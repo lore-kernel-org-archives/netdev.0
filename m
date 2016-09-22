@@ -1,86 +1,88 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: [PATCH net-next 2/3] udp: implement memory accounting helpers
-Date: Thu, 22 Sep 2016 16:21:00 +0100
-Message-ID: <589839b3-5930-2527-b0a3-315be254a175@solarflare.com>
-References: <cover.1474477902.git.pabeni@redhat.com>
- <93ccb49b7f037461ef436a50b907185744b093d8.1474477902.git.pabeni@redhat.com>
- <1474500682.23058.88.camel@edumazet-glaptop3.roam.corp.google.com>
- <1474540415.4845.69.camel@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
-        "James Morris" <jmorris@namei.org>,
-        Trond Myklebust <trond.myklebust@primarydata.com>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        <linux-nfs@vger.kernel.org>
-To: Paolo Abeni <pabeni@redhat.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:7433 "EHLO
-        nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S933952AbcIVPVQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 11:21:16 -0400
-In-Reply-To: <1474540415.4845.69.camel@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vlastimil Babka <vbabka@suse.cz>
+Subject: [PATCH] fs/select: add vmalloc fallback for select(2)
+Date: Thu, 22 Sep 2016 17:28:31 +0200
+Message-ID: <20160922152831.24165-1-vbabka@suse.cz>
+Cc: linux-fsdevel@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	linux-mm@kvack.org,
+	Michal Hocko <mhocko@kernel.org>,
+	netdev@vger.kernel.org,
+	Vlastimil Babka <vbabka@suse.cz>
+To: Alexander Viro <viro@zeniv.linux.org.uk>
+Return-path: <owner-linux-mm@kvack.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On 22/09/16 11:33, Paolo Abeni wrote:
-> Hi Eric,
->
-> On Wed, 2016-09-21 at 16:31 -0700, Eric Dumazet wrote:
->> Also does inet_diag properly give the forward_alloc to user ?
->>
->> $ ss -mua
->> State      Recv-Q Send-Q Local Address:Port                 Peer Addres
->> s:Port
->> UNCONN     51584  0          *:52460      *:*                    
->> 	 skmem:(r51584,rb327680,t0,tb327680,f1664,w0,o0,bl0,d575)
-> Thank you very much for reviewing this! 
->
-> My bad, there is still a race which leads to temporary negative values
-> of fwd. I feel the fix is trivial but it needs some investigation.
->
->> Couldn't we instead use an union of an atomic_t and int for
->> sk->sk_forward_alloc ?
-> That was our first attempt, but we had some issue on mem scheduling; if
-> we use:
->
->    if (atomic_sub_return(size, &sk->sk_forward_alloc_atomic) < 0) {
->         // fwd alloc
->    }
->
-> that leads to inescapable, temporary, negative value for
-> sk->sk_forward_alloc.
->
-> Another option would be:
->
-> again:
->         fwd = atomic_read(&sk->sk_forward_alloc_atomic);
->         if (fwd > size) {
-> 		if (atomic_cmpxchg(&sk->sk_forward_alloc_atomic, fwd, fwd - size) != fwd)
-> 			goto again;
->         } else 
->             // fwd alloc
->
-> which would be bad under high contention.
-Apologies if I'm misunderstanding the problem, but couldn't you have two
-atomic_t fields, 'internal' and 'external' forward_alloc.  Then
-    if (atomic_sub_return(size, &sk->sk_forward_alloc_internal) < 0) {
-        atomic_sub(size, &sk->sk_forward_alloc);
-        // fwd alloc
-    } else {
-        atomic_add(size, &sk->sk_forward_alloc_internal);
-    }
-or something like that.  Then sk->sk_forward_alloc never sees a negative
-value, and is always >= sk->sk_forward_alloc_internal.  Of course places
-that go the other way would have to add to sk->sk_forward_alloc first,
-before adding to sk->sk_forward_alloc_internal, to maintain that invariant.
+The select(2) syscall performs a kmalloc(size, GFP_KERNEL) where size grows
+with the number of fds passed. We had a customer report page allocation
+failures of order-4 for this allocation. This is a costly order, so it might
+easily fail, as the VM expects such allocation to have a lower-order fallback.
 
-Would that help matters at all?
+Such trivial fallback is vmalloc(), as the memory doesn't have to be
+physically contiguous. Also the allocation is temporary for the duration of the
+syscall, so it's unlikely to stress vmalloc too much.
 
--Ed
+Note that the poll(2) syscall seems to use a linked list of order-0 pages, so
+it doesn't need this kind of fallback.
+
+Signed-off-by: Vlastimil Babka <vbabka@suse.cz>
+---
+ fs/select.c | 15 +++++++++++----
+ 1 file changed, 11 insertions(+), 4 deletions(-)
+
+diff --git a/fs/select.c b/fs/select.c
+index 8ed9da50896a..8fe5bddbe99b 100644
+--- a/fs/select.c
++++ b/fs/select.c
+@@ -29,6 +29,7 @@
+ #include <linux/sched/rt.h>
+ #include <linux/freezer.h>
+ #include <net/busy_poll.h>
++#include <linux/vmalloc.h>
+ 
+ #include <asm/uaccess.h>
+ 
+@@ -558,6 +559,7 @@ int core_sys_select(int n, fd_set __user *inp, fd_set __user *outp,
+ 	struct fdtable *fdt;
+ 	/* Allocate small arguments on the stack to save memory and be faster */
+ 	long stack_fds[SELECT_STACK_ALLOC/sizeof(long)];
++	unsigned long alloc_size;
+ 
+ 	ret = -EINVAL;
+ 	if (n < 0)
+@@ -580,10 +582,15 @@ int core_sys_select(int n, fd_set __user *inp, fd_set __user *outp,
+ 	bits = stack_fds;
+ 	if (size > sizeof(stack_fds) / 6) {
+ 		/* Not enough space in on-stack array; must use kmalloc */
++		alloc_size = 6 * size;
+ 		ret = -ENOMEM;
+-		bits = kmalloc(6 * size, GFP_KERNEL);
+-		if (!bits)
+-			goto out_nofds;
++		bits = kmalloc(alloc_size, GFP_KERNEL|__GFP_NOWARN);
++		if (!bits && alloc_size > PAGE_SIZE) {
++			bits = vmalloc(alloc_size);
++
++			if (!bits)
++				goto out_nofds;
++		}
+ 	}
+ 	fds.in      = bits;
+ 	fds.out     = bits +   size;
+@@ -618,7 +625,7 @@ int core_sys_select(int n, fd_set __user *inp, fd_set __user *outp,
+ 
+ out:
+ 	if (bits != stack_fds)
+-		kfree(bits);
++		kvfree(bits);
+ out_nofds:
+ 	return ret;
+ }
+-- 
+2.10.0
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
