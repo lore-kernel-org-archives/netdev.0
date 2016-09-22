@@ -1,47 +1,52 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH][V2] cxgb4: fix signed wrap around when decrementing index idx
-Date: Thu, 22 Sep 2016 18:48:58 +0100
-Message-ID: <20160922174858.31922-1-colin.king@canonical.com>
+From: Jesper Dangaard Brouer via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: XDP (eXpress Data Path) documentation
+Date: Thu, 22 Sep 2016 20:16:08 +0200
+Message-ID: <20160922201608.36755504@redhat.com>
+References: <20160920110844.661965be@redhat.com>
+Reply-To: Jesper Dangaard Brouer <brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: Hariprasad S <hariprasad@chelsio.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:56425 "EHLO
-        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1030559AbcIVRtB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 13:49:01 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Nathan Willis <nate-T1hC0tSOHrs@public.gmane.org>, Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>,
+	Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
+	Jonathan Corbet <corbet-T1hC0tSOHrs@public.gmane.org>, linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+To: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org" <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <20160920110844.661965be-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
 
-Change predecrement compare to post decrement compare to avoid an
-unsigned integer wrap-around comparison when decrementing idx in
-the while loop.
+On Tue, 20 Sep 2016 11:08:44 +0200 Jesper Dangaard Brouer <brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
 
-For example, when idx is zero, the current situation will
-predecrement idx in the while loop, wrapping idx to the maximum
-signed integer and cause out of bounds reads on rxq_info->msix_tbl[idx].
+> As promised, I've started documenting the XDP eXpress Data Path):
+> 
+>  [1] https://prototype-kernel.readthedocs.io/en/latest/networking/XDP/index.html
+> 
+> IMHO the documentation have reached a stage where it is useful for the
+> XDP project, BUT I request collaboration on improving the documentation
+> from all. (Native English speakers are encouraged to send grammar fixes ;-))
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+I want to publicly thanks Edward Cree for being the first contributor
+to the XDP documentation with formulation and grammar fixes.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
-index d12a73e..42a9c8d 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
-@@ -367,7 +367,7 @@ int request_msix_queue_irqs_uld(struct adapter *adap, unsigned int uld_type)
- 	}
- 	return 0;
- unwind:
--	while (--idx >= 0) {
-+	while (idx-- > 0) {
- 		bmap_idx = rxq_info->msix_tbl[idx];
- 		free_msix_idx_in_bmap(adap, bmap_idx);
- 		free_irq(adap->msix_info_ulds[bmap_idx].vec,
+Pulled and pushed:
+ https://github.com/netoptimizer/prototype-kernel/commit/fb6a3de95
+
+Thanks!
 -- 
-2.9.3
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
