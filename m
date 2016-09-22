@@ -1,34 +1,43 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next] Documentation: devicetree: revise ethernet
- device-tree binding about TRGMII
-Date: Thu, 22 Sep 2016 19:48:47 +0300
-Message-ID: <0582f22e-6e6f-1564-fcdd-1bcfc3562cf3@cogentembedded.com>
-References: <1474560996-20863-1-git-send-email-sean.wang@mediatek.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] fs/select: add vmalloc fallback for select(2)
+Date: Thu, 22 Sep 2016 09:49:42 -0700
+Message-ID: <1474562982.23058.140.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20160922164359.9035-1-vbabka@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: nbd@openwrt.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-mediatek@lists.infradead.org,
-        devicetree@vger.kernel.org, keyhaede@gmail.com, objelf@gmail.com
-To: sean.wang@mediatek.com, davem@davemloft.net, john@phrozen.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1474560996-20863-1-git-send-email-sean.wang@mediatek.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Alexander Viro <viro@zeniv.linux.org.uk>, Andrew Morton
+ <akpm@linux-foundation.org>, linux-fsdevel@vger.kernel.org,
+ linux-kernel@vger.kernel.org, linux-mm@kvack.org, Michal Hocko
+ <mhocko@kernel.org>,  netdev@vger.kernel.org
+To: Vlastimil Babka <vbabka@suse.cz>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20160922164359.9035-1-vbabka@suse.cz>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On 09/22/2016 07:16 PM, sean.wang@mediatek.com wrote:
+On Thu, 2016-09-22 at 18:43 +0200, Vlastimil Babka wrote:
+> The select(2) syscall performs a kmalloc(size, GFP_KERNEL) where size grows
+> with the number of fds passed. We had a customer report page allocation
+> failures of order-4 for this allocation. This is a costly order, so it might
+> easily fail, as the VM expects such allocation to have a lower-order fallback.
+> 
+> Such trivial fallback is vmalloc(), as the memory doesn't have to be
+> physically contiguous. Also the allocation is temporary for the duration of the
+> syscall, so it's unlikely to stress vmalloc too much.
 
-> From: Sean Wang <sean.wang@mediatek.com>
->
-> fix typo in mediatek-net.txt and add phy-mode "trgmii" to ethernet.txt
+vmalloc() uses a vmap_area_lock spinlock, and TLB flushes.
 
-    These changes are unrelated to each other, so there should be 2 separate 
-patches. And have the patches I reviewed been merged already, why are you 
-sending an incremental patch?
+So I guess allowing vmalloc() being called from an innocent application
+doing a select() might be dangerous, especially if this select() happens
+thousands of time per second.
 
-> Cc: devicetree@vger.kernel.org
-> Reported-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
-[...]
 
-MBR, Sergei
+
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
