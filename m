@@ -1,49 +1,111 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [Xen-devel] [PATCH resend] xen-netback: switch to threaded irq
- for control ring
-Date: Thu, 22 Sep 2016 10:31:00 +0000
-Message-ID: <78418d2acd0446e8bbbd634377b9e263@AMSPEX02CL03.citrite.net>
-References: <1474534964-15621-1-git-send-email-jgross@suse.com>
- <37d32749052f4ff887c5637671085389@AMSPEX02CL03.citrite.net>
- <2f3c7f1b-6a36-8aaa-e10a-41a1d2cf37d8@suse.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH net-next 2/3] udp: implement memory accounting helpers
+Date: Thu, 22 Sep 2016 12:33:35 +0200
+Message-ID: <1474540415.4845.69.camel@redhat.com>
+References: <cover.1474477902.git.pabeni@redhat.com>
+         <93ccb49b7f037461ef436a50b907185744b093d8.1474477902.git.pabeni@redhat.com>
+         <1474500682.23058.88.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Wei Liu <wei.liu2@citrix.com>
-To: Juergen Gross <jgross@suse.com>,
-        "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-        "netdev@vger.kernel.orga" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2f3c7f1b-6a36-8aaa-e10a-41a1d2cf37d8@suse.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        James Morris <jmorris@namei.org>,
+        Trond Myklebust <trond.myklebust@primarydata.com>,
+        Alexander Duyck <aduyck@mirantis.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        linux-nfs@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:53490 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751187AbcIVKdk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 22 Sep 2016 06:33:40 -0400
+In-Reply-To: <1474500682.23058.88.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBKdWVyZ2VuIEdyb3NzIFttYWls
-dG86amdyb3NzQHN1c2UuY29tXQ0KPiBTZW50OiAyMiBTZXB0ZW1iZXIgMjAxNiAxMToxNw0KPiBU
-bzogUGF1bCBEdXJyYW50IDxQYXVsLkR1cnJhbnRAY2l0cml4LmNvbT47IHhlbi1kZXZlbEBsaXN0
-cy54ZW5wcm9qZWN0Lm9yZzsNCj4gbmV0ZGV2QHZnZXIua2VybmVsLm9yZ2EgPG5ldGRldkB2Z2Vy
-Lmtlcm5lbC5vcmc+OyBsaW51eC0NCj4ga2VybmVsQHZnZXIua2VybmVsLm9yZw0KPiBDYzogV2Vp
-IExpdSA8d2VpLmxpdTJAY2l0cml4LmNvbT4NCj4gU3ViamVjdDogUmU6IFtYZW4tZGV2ZWxdIFtQ
-QVRDSCByZXNlbmRdIHhlbi1uZXRiYWNrOiBzd2l0Y2ggdG8gdGhyZWFkZWQgaXJxDQo+IGZvciBj
-b250cm9sIHJpbmcNCj4gDQo+IE9uIDIyLzA5LzE2IDExOjA5LCBQYXVsIER1cnJhbnQgd3JvdGU6
-DQo+ID4+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4+IEZyb206IFhlbi1kZXZlbCBb
-bWFpbHRvOnhlbi1kZXZlbC1ib3VuY2VzQGxpc3RzLnhlbi5vcmddIE9uIEJlaGFsZiBPZg0KPiA+
-PiBKdWVyZ2VuIEdyb3NzDQo+ID4+IFNlbnQ6IDIyIFNlcHRlbWJlciAyMDE2IDEwOjAzDQo+ID4+
-IFRvOiB4ZW4tZGV2ZWxAbGlzdHMueGVucHJvamVjdC5vcmc7IG5ldGRldkB2Z2VyLmtlcm5lbC5v
-cmdhOyBsaW51eC0NCj4gPj4ga2VybmVsQHZnZXIua2VybmVsLm9yZw0KPiA+PiBDYzogSnVlcmdl
-biBHcm9zcyA8amdyb3NzQHN1c2UuY29tPjsgV2VpIExpdSA8d2VpLmxpdTJAY2l0cml4LmNvbT4N
-Cj4gPj4gU3ViamVjdDogW1hlbi1kZXZlbF0gW1BBVENIIHJlc2VuZF0geGVuLW5ldGJhY2s6IHN3
-aXRjaCB0byB0aHJlYWRlZA0KPiA+PiBpcnEgZm9yIGNvbnRyb2wgcmluZw0KPiA+Pg0KPiA+PiBJ
-bnN0ZWFkIG9mIG9wZW4gY29kaW5nIGl0IHVzZSB0aGUgdGhyZWFkZWQgaXJxIG1lY2hhbmlzbSBp
-biB4ZW4tbmV0YmFjay4NCj4gPj4NCj4gPj4gU2lnbmVkLW9mZi1ieTogSnVlcmdlbiBHcm9zcyA8
-amdyb3NzQHN1c2UuY29tPg0KPiA+DQo+ID4gSG93IGhhdmUgeW91IHRlc3RlZCB0aGlzIGNoYW5n
-ZT8NCj4gDQo+IE9ubHkgY29tcGlsZS10ZXN0ZWQgYW5kIGxvYWRlZCB0aGUgbW9kdWxlLiBBcyB0
-aGlzIGZlYXR1cmUgaXNuJ3QgYmVpbmcgdXNlZA0KPiBpbiBsaW51eCBuZXRmcm9udCBBRkFJSyBp
-dCBpcyBub3QgZWFzaWx5IHRlc3RhYmxlLiBPVE9IIHRoZSBjb2RlIG1vZGlmaWNhdGlvbiBpcw0K
-PiByYXRoZXIgbGltaXRlZCBhbmQgSSd2ZSB1c2VkIHRoZSB0aHJlYWRlZCBpcnEgaW4gdGhlIFhl
-biBzY3NpYmFjayBkcml2ZXINCj4gbXlzZWxmLCBzbyBJJ20gcmF0aGVyIGNvbmZpZGVudCBpdCB3
-aWxsIHdvcmsuDQo+IA0KDQpPSy4gSG93IGFib3V0IGRvaW5nIHRoZSByeCBpbnRlcnJ1cHQvdGFz
-ayB0b28gc28gdGhhdCBpdCBjYW4gYmUgZWFzaWx5IHRlc3RlZCB3aXRoIGEgbGludXggbmV0ZnJv
-bnQ/DQoNCiAgUGF1bA0KDQo+IA0KPiBKdWVyZ2VuDQoNCg==
+Hi Eric,
+
+On Wed, 2016-09-21 at 16:31 -0700, Eric Dumazet wrote:
+> Also does inet_diag properly give the forward_alloc to user ?
+> 
+> $ ss -mua
+> State      Recv-Q Send-Q Local Address:Port                 Peer Addres
+> s:Port
+> UNCONN     51584  0          *:52460      *:*                    
+> 	 skmem:(r51584,rb327680,t0,tb327680,f1664,w0,o0,bl0,d575)
+
+Thank you very much for reviewing this! 
+
+My bad, there is still a race which leads to temporary negative values
+of fwd. I feel the fix is trivial but it needs some investigation.
+
+> Couldn't we instead use an union of an atomic_t and int for
+> sk->sk_forward_alloc ?
+
+That was our first attempt, but we had some issue on mem scheduling; if
+we use:
+
+   if (atomic_sub_return(size, &sk->sk_forward_alloc_atomic) < 0) {
+        // fwd alloc
+   }
+
+that leads to inescapable, temporary, negative value for
+sk->sk_forward_alloc.
+
+Another option would be:
+
+again:
+        fwd = atomic_read(&sk->sk_forward_alloc_atomic);
+        if (fwd > size) {
+		if (atomic_cmpxchg(&sk->sk_forward_alloc_atomic, fwd, fwd - size) != fwd)
+			goto again;
+        } else 
+            // fwd alloc
+
+which would be bad under high contention.
+
+I think that using a single atomic to track both scheduling and reclaim
+requires a similar loop to resolve reclaim contention. They should be
+very rare, especially if we can avoid reclaiming on dequeue, but still
+will complicate the code.
+
+Finally, pahole shows that the number of cacheline used by an udp socket
+on x86_64 does not change adding the two new atomic fields.
+
+> All udp queues/dequeues would manipulate the atomic_t using regular
+> atomic ops and use a special skb destructor (instead of sock_rfree())
+
+I tried the special skb destructor and discarded it, but thinking again,
+now I feel it can simplify the code, regardless of the used schema.
+
+We will still need to replace the current in-kernel
+skb_free_datagram_locked() for udp with something else, so a bit of
+noise in the sunrpc subsystem will remain.
+
+> Also I would not bother 'reclaiming' forward_alloc at dequeue, unless
+> udp is under memory pressure.
+
+We discarded that option because it would change significantly the
+system behavior, but if there is agreement on it, I think that it would
+make a really relevant (positive) difference!
+
+> Please share your performance numbers, thanks !
+
+Tested using pktgen with random src port, 64 bytes packet, wire-speed on
+an 10G link as sender and udp_sink by Jesper
+(https://github.com/netoptimizer/network-testing/blob/master/src/udp_sink.c) as receiver, using l4 tuple rxhash to stress the contention, and one or more udp_sink instance with reuseport. 
+
+nr readers	Kpps (vanilla)	Kpps (patched)
+1		241		600
+3		1800		2200
+6		3450		3950
+9		5100		5400
+12		6400		6650
+
+Thank you for the very nice suggestions!
+
+Paolo
