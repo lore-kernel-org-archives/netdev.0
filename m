@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 6/9] net/mlx5e: Refactor retrival of skb from rx completion element (cqe)
-Date: Thu, 22 Sep 2016 20:01:46 +0300
-Message-ID: <1474563709-17943-7-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 9/9] net/mlx5e: Add TC vlan match parsing
+Date: Thu, 22 Sep 2016 20:01:49 +0300
+Message-ID: <1474563709-17943-10-git-send-email-saeedm@mellanox.com>
 References: <1474563709-17943-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
         Hadar Hen-Zion <hadarh@mellanox.com>,
@@ -13,9 +13,9 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:48996 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:49011 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S964998AbcIVRCQ (ORCPT
+        with ESMTP id S964977AbcIVRCQ (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 13:02:16 -0400
 In-Reply-To: <1474563709-17943-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -23,121 +23,50 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Or Gerlitz <ogerlitz@mellanox.com>
 
-Factor the relevant code into a static inline helper (skb_from_cqe)
-doing that.
-
-Move the call to napi_gro_receive to be carried out just
-after mlx5e_complete_rx_cqe returns.
-
-Both changes are to be used for the VF representor as well
-in the next commit.
-
-This patch doesn't change any functionality.
+Enhance the parsing of offloaded TC rules matches to handle vlans.
 
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c | 41 +++++++++++++++++--------
- 1 file changed, 28 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index 0a81bd3..e836e47 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -629,7 +629,6 @@ static inline void mlx5e_complete_rx_cqe(struct mlx5e_rq *rq,
- 	rq->stats.packets++;
- 	rq->stats.bytes += cqe_bcnt;
- 	mlx5e_build_rx_skb(cqe, cqe_bcnt, rq, skb);
--	napi_gro_receive(rq->cq.napi, skb);
- }
- 
- static inline void mlx5e_xmit_xdp_doorbell(struct mlx5e_sq *sq)
-@@ -733,20 +732,15 @@ static inline bool mlx5e_xdp_handle(struct mlx5e_rq *rq,
- 	}
- }
- 
--void mlx5e_handle_rx_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
-+static inline
-+struct sk_buff *skb_from_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe,
-+			     u16 wqe_counter, u32 cqe_bcnt)
- {
- 	struct bpf_prog *xdp_prog = READ_ONCE(rq->xdp_prog);
- 	struct mlx5e_dma_info *di;
--	struct mlx5e_rx_wqe *wqe;
--	__be16 wqe_counter_be;
- 	struct sk_buff *skb;
--	u16 wqe_counter;
- 	void *va, *data;
--	u32 cqe_bcnt;
- 
--	wqe_counter_be = cqe->wqe_counter;
--	wqe_counter    = be16_to_cpu(wqe_counter_be);
--	wqe            = mlx5_wq_ll_get_wqe(&rq->wq, wqe_counter);
- 	di             = &rq->dma_info[wqe_counter];
- 	va             = page_address(di->page);
- 	data           = va + MLX5_RX_HEADROOM;
-@@ -757,22 +751,21 @@ void mlx5e_handle_rx_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
- 				      rq->buff.wqe_sz,
- 				      DMA_FROM_DEVICE);
- 	prefetch(data);
--	cqe_bcnt = be32_to_cpu(cqe->byte_cnt);
- 
- 	if (unlikely((cqe->op_own >> 4) != MLX5_CQE_RESP_SEND)) {
- 		rq->stats.wqe_err++;
- 		mlx5e_page_release(rq, di, true);
--		goto wq_ll_pop;
-+		return NULL;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index e61bd52..a350b71 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -164,6 +164,7 @@ static int parse_cls_flower(struct mlx5e_priv *priv, struct mlx5_flow_spec *spec
+ 	    ~(BIT(FLOW_DISSECTOR_KEY_CONTROL) |
+ 	      BIT(FLOW_DISSECTOR_KEY_BASIC) |
+ 	      BIT(FLOW_DISSECTOR_KEY_ETH_ADDRS) |
++	      BIT(FLOW_DISSECTOR_KEY_VLAN) |
+ 	      BIT(FLOW_DISSECTOR_KEY_IPV4_ADDRS) |
+ 	      BIT(FLOW_DISSECTOR_KEY_IPV6_ADDRS) |
+ 	      BIT(FLOW_DISSECTOR_KEY_PORTS))) {
+@@ -227,6 +228,24 @@ static int parse_cls_flower(struct mlx5e_priv *priv, struct mlx5_flow_spec *spec
+ 				key->src);
  	}
  
- 	if (mlx5e_xdp_handle(rq, xdp_prog, di, data, cqe_bcnt))
--		goto wq_ll_pop; /* page/packet was consumed by XDP */
-+		return NULL; /* page/packet was consumed by XDP */
- 
- 	skb = build_skb(va, RQ_PAGE_SIZE(rq));
- 	if (unlikely(!skb)) {
- 		rq->stats.buff_alloc_err++;
- 		mlx5e_page_release(rq, di, true);
--		goto wq_ll_pop;
-+		return NULL;
- 	}
- 
- 	/* queue up for recycling ..*/
-@@ -782,7 +775,28 @@ void mlx5e_handle_rx_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
- 	skb_reserve(skb, MLX5_RX_HEADROOM);
- 	skb_put(skb, cqe_bcnt);
- 
-+	return skb;
-+}
++	if (dissector_uses_key(f->dissector, FLOW_DISSECTOR_KEY_VLAN)) {
++		struct flow_dissector_key_vlan *key =
++			skb_flow_dissector_target(f->dissector,
++						  FLOW_DISSECTOR_KEY_VLAN,
++						  f->key);
++		struct flow_dissector_key_vlan *mask =
++			skb_flow_dissector_target(f->dissector,
++						  FLOW_DISSECTOR_KEY_VLAN,
++						  f->mask);
++		if (mask->vlan_id) {
++			MLX5_SET(fte_match_set_lyr_2_4, headers_c, vlan_tag, 1);
++			MLX5_SET(fte_match_set_lyr_2_4, headers_v, vlan_tag, 1);
 +
-+void mlx5e_handle_rx_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
-+{
-+	struct mlx5e_rx_wqe *wqe;
-+	__be16 wqe_counter_be;
-+	struct sk_buff *skb;
-+	u16 wqe_counter;
-+	u32 cqe_bcnt;
++			MLX5_SET(fte_match_set_lyr_2_4, headers_c, first_vid, mask->vlan_id);
++			MLX5_SET(fte_match_set_lyr_2_4, headers_v, first_vid, key->vlan_id);
++		}
++	}
 +
-+	wqe_counter_be = cqe->wqe_counter;
-+	wqe_counter    = be16_to_cpu(wqe_counter_be);
-+	wqe            = mlx5_wq_ll_get_wqe(&rq->wq, wqe_counter);
-+	cqe_bcnt       = be32_to_cpu(cqe->byte_cnt);
-+
-+	skb = skb_from_cqe(rq, cqe, wqe_counter, cqe_bcnt);
-+	if (!skb)
-+		goto wq_ll_pop;
-+
- 	mlx5e_complete_rx_cqe(rq, cqe, cqe_bcnt, skb);
-+	napi_gro_receive(rq->cq.napi, skb);
- 
- wq_ll_pop:
- 	mlx5_wq_ll_pop(&rq->wq, wqe_counter_be,
-@@ -861,6 +875,7 @@ void mlx5e_handle_rx_cqe_mpwrq(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
- 
- 	mlx5e_mpwqe_fill_rx_skb(rq, cqe, wi, cqe_bcnt, skb);
- 	mlx5e_complete_rx_cqe(rq, cqe, cqe_bcnt, skb);
-+	napi_gro_receive(rq->cq.napi, skb);
- 
- mpwrq_cqe_out:
- 	if (likely(wi->consumed_strides < rq->mpwqe_num_strides))
+ 	if (addr_type == FLOW_DISSECTOR_KEY_IPV4_ADDRS) {
+ 		struct flow_dissector_key_ipv4_addrs *key =
+ 			skb_flow_dissector_target(f->dissector,
 -- 
 2.7.4
