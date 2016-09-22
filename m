@@ -1,51 +1,44 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v2 0/3] add support for RGMII on GMAC0 through
- TRGMII hardware module
-Date: Wed, 21 Sep 2016 20:17:00 -0700
-Message-ID: <c7918b08-f641-c55b-eb1f-2b7e09d7a853@gmail.com>
-References: <1474511636-11644-1-git-send-email-sean.wang@mediatek.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: nbd@openwrt.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-mediatek@lists.infradead.org,
-        andrew@lunn.ch, keyhaede@gmail.com, objelf@gmail.com
-To: sean.wang@mediatek.com, john@phrozen.org, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1474511636-11644-1-git-send-email-sean.wang@mediatek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Mark Tomlinson <mark.tomlinson@alliedtelesis.co.nz>
+Subject: [PATCH] net: VRF: Fix receiving multicast traffic
+Date: Thu, 22 Sep 2016 16:13:08 +1200
+Message-ID: <20160922041308.30848-1-mark.tomlinson@alliedtelesis.co.nz>
+Cc: Mark Tomlinson <mark.tomlinson@alliedtelesis.co.nz>
+To: netdev@vger.kernel.org, dsa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:47427 "EHLO
+        gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750847AbcIVENp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 00:13:45 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 21/09/2016 à 19:33, sean.wang@mediatek.com a écrit :
-> From: Sean Wang <sean.wang@mediatek.com>
-> 
-> By default, GMAC0 is connected to built-in switch called
-> MT7530 through the proprietary interface called Turbo RGMII
-> (TRGMII). TRGMII also supports well for RGMII as generic external
-> PHY uses but requires some slight changes to the setup of TRGMII 
-> and doesn't have well support on current driver.
-> 
-> So this patchset
-> 1) provides the slight changes of the setup for RGMII can work
->    through TRGMII
-> 2) adds additional setting "trgmii" as PHY_INTERFACE_MODE_TRGMII 
->    about phy-mode on device tree to make GMAC0 distinguish which
->    mode it runs
-> 3) changes dynamically source clock, TX/RX delay and interface
->    mode on TRGMII for adapting various link
-> 
-> Changes since v1:
-> - fixed the style of comment which doesn't have a space at 
->    the beginning and end of comment lines
-> - add support for phy-mode "trgmii" as PHY_INTERFACE_MODE_TRGMII 
->    into linux/phy.h
-> - enhance the Documentation about device tree binding for trgmii
->   which is applicable only for GMAC0 which uses fixed-link
+The previous patch to ensure that the original iif was used when
+checking for forwarding also meant that this same interface was used to
+determine whether multicast packets should be received or not. This was
+incorrect, and would cause multicast packets to be dropped.
 
-Looks good to me:
+The fix here is to use skb->dev when checking multicast addresses.
+skb->dev has been set to the l3mdev by this point, so the check will be
+against that, rather than the ingress interface.
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Fixes: "net:VRF: Pass original iif to ip_route_input()"
+Signed-off-by: Mark Tomlinson <mark.tomlinson@alliedtelesis.co.nz>
+---
+ net/ipv4/route.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Thanks Sean!
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index a1f2830..75e1de6 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1971,7 +1971,7 @@ int ip_route_input_noref(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 	   route cache entry is created eventually.
+ 	 */
+ 	if (ipv4_is_multicast(daddr)) {
+-		struct in_device *in_dev = __in_dev_get_rcu(dev);
++		struct in_device *in_dev = __in_dev_get_rcu(skb->dev);
+ 
+ 		if (in_dev) {
+ 			int our = ip_check_mc_rcu(in_dev, daddr, saddr,
 -- 
-Florian
+2.9.3
