@@ -1,44 +1,95 @@
 From: Shmulik Ladkani <shmulik.ladkani@ravellosystems.com>
-Subject: [PATCH net-next 0/4] act_mirred: Ingress actions support
-Date: Thu, 22 Sep 2016 16:21:48 +0300
-Message-ID: <1474550512-7552-1-git-send-email-shmulik.ladkani@gmail.com>
+Subject: [PATCH net-next 1/4] net/sched: act_mirred: Rename tcfm_ok_push to tcfm_mac_header_xmit
+Date: Thu, 22 Sep 2016 16:21:49 +0300
+Message-ID: <1474550512-7552-2-git-send-email-shmulik.ladkani@gmail.com>
+References: <1474550512-7552-1-git-send-email-shmulik.ladkani@gmail.com>
 Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
         WANG Cong <xiyou.wangcong@gmail.com>,
         Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
         Shmulik Ladkani <shmulik.ladkani@gmail.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:37173 "EHLO
-        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933341AbcIVNWc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 09:22:32 -0400
-Received: by mail-wm0-f45.google.com with SMTP id b130so148547582wmc.0
-        for <netdev@vger.kernel.org>; Thu, 22 Sep 2016 06:22:31 -0700 (PDT)
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:37781 "EHLO
+        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932383AbcIVNXF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 09:23:05 -0400
+Received: by mail-wm0-f51.google.com with SMTP id b130so148574986wmc.0
+        for <netdev@vger.kernel.org>; Thu, 22 Sep 2016 06:23:05 -0700 (PDT)
+In-Reply-To: <1474550512-7552-1-git-send-email-shmulik.ladkani@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series implements action mirred 'ingress' actions
-TCA_INGRESS_REDIR and TCA_INGRESS_MIRROR.
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 
-This allows attaching filters whose target is to hand matching skbs into
-the rx processing of a specified device.
+'tcfm_ok_push' specifies whether a mac_len sized push is needed upon
+egress to the target device (if action is performed at ingress).
 
-Shmulik Ladkani (4):
-  net/sched: act_mirred: Rename tcfm_ok_push to tcfm_mac_header_xmit
-  net/sched: act_mirred: Refactor detection whether dev needs xmit at
-    mac header
-  net/sched: tc_mirred: Rename public predicates
-    'is_tcf_mirred_redirect' and 'is_tcf_mirred_mirror'
-  net/sched: act_mirred: Implement ingress actions
+Rename it to 'tcfm_mac_header_xmit' as this is actually an attribute of
+the target device.
+This allows to decouple the attribute from the action to be taken.
 
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c  |  2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |  2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c    |  2 +-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |  4 +-
- .../net/ethernet/netronome/nfp/nfp_net_offload.c   |  2 +-
- include/net/tc_act/tc_mirred.h                     |  6 +-
- net/sched/act_mirred.c                             | 80 ++++++++++++++++------
- 7 files changed, 69 insertions(+), 29 deletions(-)
+Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+---
+ include/net/tc_act/tc_mirred.h |  2 +-
+ net/sched/act_mirred.c         | 10 +++++-----
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
+diff --git a/include/net/tc_act/tc_mirred.h b/include/net/tc_act/tc_mirred.h
+index 62770ad..5275158 100644
+--- a/include/net/tc_act/tc_mirred.h
++++ b/include/net/tc_act/tc_mirred.h
+@@ -8,7 +8,7 @@ struct tcf_mirred {
+ 	struct tc_action	common;
+ 	int			tcfm_eaction;
+ 	int			tcfm_ifindex;
+-	int			tcfm_ok_push;
++	int			tcfm_mac_header_xmit;
+ 	struct net_device __rcu	*tcfm_dev;
+ 	struct list_head	tcfm_list;
+ };
+diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
+index 667dc38..7b03b13 100644
+--- a/net/sched/act_mirred.c
++++ b/net/sched/act_mirred.c
+@@ -63,7 +63,7 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
+ 	struct tc_mirred *parm;
+ 	struct tcf_mirred *m;
+ 	struct net_device *dev;
+-	int ret, ok_push = 0;
++	int ret, mac_header_xmit = 0;
+ 	bool exists = false;
+ 
+ 	if (nla == NULL)
+@@ -102,10 +102,10 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
+ 		case ARPHRD_IPGRE:
+ 		case ARPHRD_VOID:
+ 		case ARPHRD_NONE:
+-			ok_push = 0;
++			mac_header_xmit = 0;
+ 			break;
+ 		default:
+-			ok_push = 1;
++			mac_header_xmit = 1;
+ 			break;
+ 		}
+ 	} else {
+@@ -136,7 +136,7 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
+ 			dev_put(rcu_dereference_protected(m->tcfm_dev, 1));
+ 		dev_hold(dev);
+ 		rcu_assign_pointer(m->tcfm_dev, dev);
+-		m->tcfm_ok_push = ok_push;
++		m->tcfm_mac_header_xmit = mac_header_xmit;
+ 	}
+ 
+ 	if (ret == ACT_P_CREATED) {
+@@ -181,7 +181,7 @@ static int tcf_mirred(struct sk_buff *skb, const struct tc_action *a,
+ 		goto out;
+ 
+ 	if (!(at & AT_EGRESS)) {
+-		if (m->tcfm_ok_push)
++		if (m->tcfm_mac_header_xmit)
+ 			skb_push_rcsum(skb2, skb->mac_len);
+ 	}
+ 
 -- 
 1.9.1
