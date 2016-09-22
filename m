@@ -1,56 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net/vxlan: Avoid unaligned access in
- vxlan_build_skb()
-Date: Thu, 22 Sep 2016 01:52:42 -0400 (EDT)
-Message-ID: <20160922.015242.735026657310158125.davem@davemloft.net>
-References: <20160920163108.GP8920@oracle.com>
-        <20160920184333.17444823@griffin>
-        <20160920190929.57ddaeb0@griffin>
+Subject: Re: [PATCH net-next] net: ethernet: mediatek: fix missing changes
+ merged for conflicts overlapping commits
+Date: Thu, 22 Sep 2016 02:05:26 -0400 (EDT)
+Message-ID: <20160922.020526.1971593537856081147.davem@davemloft.net>
+References: <1474386804-11728-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sowmini.varadhan@oracle.com, netdev@vger.kernel.org,
-        hannes@stressinduktion.org, aduyck@mirantis.com,
-        daniel@iogearbox.net, pabeni@redhat.com
-To: jbenc@redhat.com
+Cc: john@phrozen.org, nbd@openwrt.org, netdev@vger.kernel.org,
+        linux-mediatek@lists.infradead.org, keyhaede@gmail.com,
+        objelf@gmail.com
+To: sean.wang@mediatek.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54922 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:55024 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932966AbcIVFwq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 01:52:46 -0400
-In-Reply-To: <20160920190929.57ddaeb0@griffin>
+        with ESMTP id S1752101AbcIVGFa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 02:05:30 -0400
+In-Reply-To: <1474386804-11728-1-git-send-email-sean.wang@mediatek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Benc <jbenc@redhat.com>
-Date: Tue, 20 Sep 2016 19:09:29 +0200
+From: <sean.wang@mediatek.com>
+Date: Tue, 20 Sep 2016 23:53:24 +0800
 
-> But the point stands, we have much greater problems here than VXLAN.
-> And I don't think that wrapping all IP address accesses into
-> get/put_unaligned all around the stack is the solution.
+> From: Sean Wang <sean.wang@mediatek.com>
+> 
+> add the missing commits about
+> 1)
+> Commit d3bd1ce4db8e843dce421e2f8f123e5251a9c7d3
+> ("remove redundant free_irq for devm_request_ir allocated irq")
+> 2)
+> Commit 7c6b0d76fa02213393815e3b6d5e4a415bf3f0e2
+> ("fix logic unbalance between probe and remove")
+> 
+> during merge for conflicts overlapping commits by
+> Commit b20b378d49926b82c0a131492fa8842156e0e8a9
+> ("Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net")
+> 
+> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
 
-Right, and I don't like marking things as packed either.
-
-We need something that really solves the problem.  We can't
-change the existing protocols, but we can perhaps change the
-geometry of the SKB when we deal with such protocols.
-
-For example, we can memmove() to align the headers at skb->data and
-then for the skb->data portion past the headers we insert a frag
-pointing to it at the front of the frag list.
-
-So we "memmove" down, creating a gap, and then past the gap
-is the post-header area which gets inserted into the head of
-the SKB's fraglist.
-
-That will align all of the subsequent headers and avoid the
-unaligned accesses after the vxlan header.
-
-Alternatively we can do Alexander Duyck's trick, by pushing
-the headers into the frag list, forcing a pull and realignment
-by the next protocol layer.
-
-This is so much better than the little hacks sprinkled all
-over the problem and tackles the fundamental issue.
-
-Thanks.
+Applied, thanks for fixing this up for me.
