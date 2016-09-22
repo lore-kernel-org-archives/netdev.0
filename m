@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 8/9] net/mlx5e: Add TC vlan action for SRIOV offloads
-Date: Thu, 22 Sep 2016 20:01:48 +0300
-Message-ID: <1474563709-17943-9-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 4/9] net/mlx5: E-Switch, Allow fine tuning of eswitch vport push/pop vlan
+Date: Thu, 22 Sep 2016 20:01:44 +0300
+Message-ID: <1474563709-17943-5-git-send-email-saeedm@mellanox.com>
 References: <1474563709-17943-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
         Hadar Hen-Zion <hadarh@mellanox.com>,
@@ -13,9 +13,9 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:49019 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:49007 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S964995AbcIVRCQ (ORCPT
+        with ESMTP id S964969AbcIVRCQ (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 13:02:16 -0400
 In-Reply-To: <1474563709-17943-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -23,132 +23,115 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Or Gerlitz <ogerlitz@mellanox.com>
 
-Parse TC vlan actions and set the required elements to allow offloading.
+The HW can be programmed to push vlan, pop vlan or both.
+
+A factorization step towards using the push/pop capabilties in the
+eswitch offloads mode. This patch doesn't add new functionality.
 
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 43 ++++++++++++++++++-------
- 1 file changed, 32 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c | 33 +++++++++++++++--------
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h |  5 ++++
+ 2 files changed, 27 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-index 3eb319b..e61bd52 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-@@ -119,17 +119,27 @@ static struct mlx5_flow_rule *mlx5e_tc_add_fdb_flow(struct mlx5e_priv *priv,
- 						    struct mlx5_esw_flow_attr *attr)
- {
- 	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
-+	int err;
-+
-+	err = mlx5_eswitch_add_vlan_action(esw, attr);
-+	if (err)
-+		return ERR_PTR(err);
- 
- 	return mlx5_eswitch_add_offloaded_rule(esw, spec, attr);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+index 4927494..6605453 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+@@ -127,7 +127,7 @@ static int modify_esw_vport_context_cmd(struct mlx5_core_dev *dev, u16 vport,
  }
  
- static void mlx5e_tc_del_flow(struct mlx5e_priv *priv,
--			      struct mlx5_flow_rule *rule)
-+			      struct mlx5_flow_rule *rule,
-+			      struct mlx5_esw_flow_attr *attr)
+ static int modify_esw_vport_cvlan(struct mlx5_core_dev *dev, u32 vport,
+-				  u16 vlan, u8 qos, bool set)
++				  u16 vlan, u8 qos, u8 set_flags)
  {
-+	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
- 	struct mlx5_fc *counter = NULL;
+ 	u32 in[MLX5_ST_SZ_DW(modify_esw_vport_context_in)] = {0};
  
- 	counter = mlx5_flow_rule_counter(rule);
+@@ -135,14 +135,18 @@ static int modify_esw_vport_cvlan(struct mlx5_core_dev *dev, u32 vport,
+ 	    !MLX5_CAP_ESW(dev, vport_cvlan_insert_if_not_exist))
+ 		return -ENOTSUPP;
  
-+	if (esw && esw->mode == SRIOV_OFFLOADS)
-+		mlx5_eswitch_del_vlan_action(esw, attr);
+-	esw_debug(dev, "Set Vport[%d] VLAN %d qos %d set=%d\n",
+-		  vport, vlan, qos, set);
+-	if (set) {
++	esw_debug(dev, "Set Vport[%d] VLAN %d qos %d set=%x\n",
++		  vport, vlan, qos, set_flags);
 +
- 	mlx5_del_flow_rule(rule);
- 
- 	mlx5_fc_destroy(priv->mdev, counter);
-@@ -369,13 +379,9 @@ static int parse_tc_fdb_actions(struct mlx5e_priv *priv, struct tcf_exts *exts,
- 
- 	tcf_exts_to_list(exts, &actions);
- 	list_for_each_entry(a, &actions, list) {
--		/* Only support a single action per rule */
--		if (attr->action)
--			return -EINVAL;
--
- 		if (is_tcf_gact_shot(a)) {
--			attr->action = MLX5_FLOW_CONTEXT_ACTION_DROP |
--				       MLX5_FLOW_CONTEXT_ACTION_COUNT;
-+			attr->action |= MLX5_FLOW_CONTEXT_ACTION_DROP |
-+					MLX5_FLOW_CONTEXT_ACTION_COUNT;
- 			continue;
- 		}
- 
-@@ -392,12 +398,25 @@ static int parse_tc_fdb_actions(struct mlx5e_priv *priv, struct tcf_exts *exts,
- 				return -EINVAL;
- 			}
- 
--			attr->action = MLX5_FLOW_CONTEXT_ACTION_FWD_DEST;
-+			attr->action |= MLX5_FLOW_CONTEXT_ACTION_FWD_DEST;
- 			out_priv = netdev_priv(out_dev);
- 			attr->out_rep = out_priv->ppriv;
- 			continue;
- 		}
- 
-+		if (is_tcf_vlan(a)) {
-+			if (tcf_vlan_action(a) == VLAN_F_POP) {
-+				attr->action |= MLX5_FLOW_CONTEXT_ACTION_VLAN_POP;
-+			} else if (tcf_vlan_action(a) == VLAN_F_PUSH) {
-+				if (tcf_vlan_push_proto(a) != htons(ETH_P_8021Q))
-+					return -EOPNOTSUPP;
++	if (set_flags & SET_VLAN_STRIP)
+ 		MLX5_SET(modify_esw_vport_context_in, in,
+ 			 esw_vport_context.vport_cvlan_strip, 1);
 +
-+				attr->action |= MLX5_FLOW_CONTEXT_ACTION_VLAN_PUSH;
-+				attr->vlan = tcf_vlan_push_vid(a);
-+			}
-+			continue;
-+		}
++	if (set_flags & SET_VLAN_INSERT) {
+ 		/* insert only if no vlan in packet */
+ 		MLX5_SET(modify_esw_vport_context_in, in,
+ 			 esw_vport_context.vport_cvlan_insert, 1);
 +
- 		return -EINVAL;
- 	}
+ 		MLX5_SET(modify_esw_vport_context_in, in,
+ 			 esw_vport_context.cvlan_pcp, qos);
+ 		MLX5_SET(modify_esw_vport_context_in, in,
+@@ -1777,25 +1781,21 @@ int mlx5_eswitch_get_vport_config(struct mlx5_eswitch *esw,
  	return 0;
-@@ -413,6 +432,7 @@ int mlx5e_configure_flower(struct mlx5e_priv *priv, __be16 protocol,
- 	struct mlx5e_tc_flow *flow;
- 	struct mlx5_flow_spec *spec;
- 	struct mlx5_flow_rule *old = NULL;
-+	struct mlx5_esw_flow_attr *old_attr;
- 	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
- 
- 	if (esw && esw->mode == SRIOV_OFFLOADS)
-@@ -422,6 +442,7 @@ int mlx5e_configure_flower(struct mlx5e_priv *priv, __be16 protocol,
- 				      tc->ht_params);
- 	if (flow) {
- 		old = flow->rule;
-+		old_attr = flow->attr;
- 	} else {
- 		if (fdb_flow)
- 			flow = kzalloc(sizeof(*flow) + sizeof(struct mlx5_esw_flow_attr),
-@@ -466,7 +487,7 @@ int mlx5e_configure_flower(struct mlx5e_priv *priv, __be16 protocol,
- 		goto err_del_rule;
- 
- 	if (old)
--		mlx5e_tc_del_flow(priv, old);
-+		mlx5e_tc_del_flow(priv, old, old_attr);
- 
- 	goto out;
- 
-@@ -494,7 +515,7 @@ int mlx5e_delete_flower(struct mlx5e_priv *priv,
- 
- 	rhashtable_remove_fast(&tc->ht, &flow->node, tc->ht_params);
- 
--	mlx5e_tc_del_flow(priv, flow->rule);
-+	mlx5e_tc_del_flow(priv, flow->rule, flow->attr);
- 
- 	kfree(flow);
- 
-@@ -551,7 +572,7 @@ static void _mlx5e_tc_del_flow(void *ptr, void *arg)
- 	struct mlx5e_tc_flow *flow = ptr;
- 	struct mlx5e_priv *priv = arg;
- 
--	mlx5e_tc_del_flow(priv, flow->rule);
-+	mlx5e_tc_del_flow(priv, flow->rule, flow->attr);
- 	kfree(flow);
  }
  
+-int mlx5_eswitch_set_vport_vlan(struct mlx5_eswitch *esw,
+-				int vport, u16 vlan, u8 qos)
++int __mlx5_eswitch_set_vport_vlan(struct mlx5_eswitch *esw,
++				  int vport, u16 vlan, u8 qos, u8 set_flags)
+ {
+ 	struct mlx5_vport *evport;
+ 	int err = 0;
+-	int set = 0;
+ 
+ 	if (!ESW_ALLOWED(esw))
+ 		return -EPERM;
+ 	if (!LEGAL_VPORT(esw, vport) || (vlan > 4095) || (qos > 7))
+ 		return -EINVAL;
+ 
+-	if (vlan || qos)
+-		set = 1;
+-
+ 	mutex_lock(&esw->state_lock);
+ 	evport = &esw->vports[vport];
+ 
+-	err = modify_esw_vport_cvlan(esw->dev, vport, vlan, qos, set);
++	err = modify_esw_vport_cvlan(esw->dev, vport, vlan, qos, set_flags);
+ 	if (err)
+ 		goto unlock;
+ 
+@@ -1813,6 +1813,17 @@ unlock:
+ 	return err;
+ }
+ 
++int mlx5_eswitch_set_vport_vlan(struct mlx5_eswitch *esw,
++				int vport, u16 vlan, u8 qos)
++{
++	u8 set_flags = 0;
++
++	if (vlan || qos)
++		set_flags = SET_VLAN_STRIP | SET_VLAN_INSERT;
++
++	return __mlx5_eswitch_set_vport_vlan(esw, vport, vlan, qos, set_flags);
++}
++
+ int mlx5_eswitch_set_vport_spoofchk(struct mlx5_eswitch *esw,
+ 				    int vport, bool spoofchk)
+ {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+index ebfcde0..4f5391a 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+@@ -246,6 +246,11 @@ mlx5_eswitch_add_offloaded_rule(struct mlx5_eswitch *esw,
+ struct mlx5_flow_rule *
+ mlx5_eswitch_create_vport_rx_rule(struct mlx5_eswitch *esw, int vport, u32 tirn);
+ 
++enum {
++	SET_VLAN_STRIP	= BIT(0),
++	SET_VLAN_INSERT	= BIT(1)
++};
++
+ int mlx5_eswitch_sqs2vport_start(struct mlx5_eswitch *esw,
+ 				 struct mlx5_eswitch_rep *rep,
+ 				 u16 *sqns_array, int sqns_num);
 -- 
 2.7.4
