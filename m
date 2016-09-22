@@ -1,37 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net/mlx4_core: Fix to clean devlink resources
-Date: Thu, 22 Sep 2016 01:41:43 -0400 (EDT)
-Message-ID: <20160922.014143.604703967863844795.davem@davemloft.net>
-References: <1474372531-27120-1-git-send-email-tariqt@mellanox.com>
+Subject: Re: [PATCH] cxgb4: fix signed wrap around when decrementing index
+ idx
+Date: Thu, 22 Sep 2016 01:49:20 -0400 (EDT)
+Message-ID: <20160922.014920.1225574247564649882.davem@davemloft.net>
+References: <20160920144846.21765-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eranbe@mellanox.com, kamalh@mellanox.com
-To: tariqt@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54736 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751495AbcIVFlq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 01:41:46 -0400
-In-Reply-To: <1474372531-27120-1-git-send-email-tariqt@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: hariprasad@chelsio.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160920144846.21765-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tariq Toukan <tariqt@mellanox.com>
-Date: Tue, 20 Sep 2016 14:55:31 +0300
+From: Colin King <colin.king@canonical.com>
+Date: Tue, 20 Sep 2016 15:48:45 +0100
 
-> From: Kamal Heib <kamalh@mellanox.com>
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> This patch cleans devlink resources by calling devlink_port_unregister()
-> to avoid the following issues:
+> Change predecrement compare to post decrement compare to avoid an
+> unsigned integer wrap-around comparison when decrementing idx in
+> the while loop.
 > 
-> - Kernel panic when triggering reset flow.
-> - Memory leak due to unfreed resources in mlx4_init_port_info().
+> For example, when idx is zero, the current situation will
+> predecrement idx in the while loop, wrapping idx to the maximum
+> signed integer and cause out of bounds reads on rxq_info->msix_tbl[idx].
 > 
-> Fixes: 09d4d087cd48 ("mlx4: Implement devlink interface")
-> Signed-off-by: Kamal Heib <kamalh@mellanox.com>
-> Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
-> ---
-> Please push it to -stable  >= 4.6 as well. Thanks.
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Applied and queued up for -stable, thanks.
+This doesn't apply cleanly to the 'net' tree, please respin.
