@@ -1,121 +1,82 @@
-From: "R. Parameswaran" <parameswaran.r7@gmail.com>
-Subject: [PATCH net v2] L2TP:Adjust intf MTU,factor underlay L3,overlay L2
-Date: Thu, 22 Sep 2016 13:52:43 -0700 (PDT)
-Message-ID: <alpine.DEB.2.11.1609221341500.6975@duvvury30.eng.vyatta.net>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: davem@redhat.com, linux-kernel@vger.kernel.org,
-        nprachan@brocade.com, rshearma@brocade.com, dfawcus@brocade.com,
-        stephen@networkplumber.org, acme@redhat.com, lboccass@brocade.com,
-        parameswaran.r7@gmail.com
-To: kleptog@svana.org, jchapman@katalix.com, netdev@vger.kernel.org
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 1/4] net: dsa: add port STP state helper
+Date: Thu, 22 Sep 2016 16:49:21 -0400
+Message-ID: <20160922204924.16229-2-vivien.didelot@savoirfairelinux.com>
+References: <20160922204924.16229-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>, John Crispin <john@phrozen.org>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160922204924.16229-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->From ed585bdd6d3d2b3dec58d414f514cd764d89159d Mon Sep 17 00:00:00 2001
-From: "R. Parameswaran" <rparames@brocade.com>
-Date: Thu, 22 Sep 2016 13:19:25 -0700
-Subject: [PATCH] L2TP:Adjust intf MTU,factor underlay L3,overlay L2
+Add a void helper to set the STP state of a port, checking first if the
+required routine is provided by the driver.
 
-Take into account all of the tunnel encapsulation headers when setting
-up the MTU on the L2TP logical interface device. Otherwise, packets
-created by the applications on top of the L2TP layer are larger
-than they ought to be, relative to the underlay MTU, leading to
-needless fragmentation once the outer IP encap is added.
-
-Specifically, take into account the (outer, underlay) IP header
-imposed on the encapsulated L2TP packet, and the Layer 2 header
-imposed on the inner IP packet prior to L2TP encapsulation.
-
-Do not assume an Ethernet (non-jumbo) underlay. Use the PMTU mechanism
-and the dst entry in the L2TP tunnel socket to directly pull up
-the underlay MTU (as the baseline number on top of which the
-encapsulation headers are factored in).  Fall back to Ethernet MTU
-if this fails.
-
-Signed-off-by: R. Parameswaran <rparames@brocade.com>
-
-Reviewed-by: "N. Prachanda" <nprachan@brocade.com>,
-Reviewed-by: "R. Shearman" <rshearma@brocade.com>,
-Reviewed-by: "D. Fawcus" <dfawcus@brocade.com>
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- net/l2tp/l2tp_eth.c | 48 ++++++++++++++++++++++++++++++++++++++++++++----
- 1 file changed, 44 insertions(+), 4 deletions(-)
+ net/dsa/slave.c | 17 ++++++++++-------
+ 1 file changed, 10 insertions(+), 7 deletions(-)
 
-diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
-index 57fc5a4..dbcd6bd 100644
---- a/net/l2tp/l2tp_eth.c
-+++ b/net/l2tp/l2tp_eth.c
-@@ -30,6 +30,9 @@
- #include <net/xfrm.h>
- #include <net/net_namespace.h>
- #include <net/netns/generic.h>
-+#include <linux/ip.h>
-+#include <linux/ipv6.h>
-+#include <linux/udp.h>
- 
- #include "l2tp_core.h"
- 
-@@ -206,6 +209,46 @@ static void l2tp_eth_show(struct seq_file *m, void *arg)
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 9ecbe78..fd78d4c 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -69,6 +69,12 @@ static inline bool dsa_port_is_bridged(struct dsa_slave_priv *p)
+ 	return !!p->bridge_dev;
  }
- #endif
  
-+static void l2tp_eth_adjust_mtu(struct l2tp_tunnel *tunnel,
-+				struct l2tp_session *session,
-+				struct net_device *dev)
++static void dsa_port_set_stp_state(struct dsa_switch *ds, int port, u8 state)
 +{
-+	unsigned int overhead = 0;
-+	struct dst_entry *dst;
-+
-+	if (session->mtu != 0) {
-+		dev->mtu = session->mtu;
-+		dev->needed_headroom += session->hdr_len;
-+		if (tunnel->encap == L2TP_ENCAPTYPE_UDP)
-+			dev->needed_headroom += sizeof(struct udphdr);
-+		return;
-+	}
-+	overhead = session->hdr_len;
-+	/* Adjust MTU, factor overhead - underlay L3 hdr, overlay L2 hdr*/
-+	if (tunnel->sock->sk_family == AF_INET)
-+		overhead += (ETH_HLEN + sizeof(struct iphdr));
-+	else if (tunnel->sock->sk_family == AF_INET6)
-+		overhead += (ETH_HLEN + sizeof(struct ipv6hdr));
-+	/* Additionally, if the encap is UDP, account for UDP header size */
-+	if (tunnel->encap == L2TP_ENCAPTYPE_UDP)
-+		overhead += sizeof(struct udphdr);
-+	/* If PMTU discovery was enabled, use discovered MTU on L2TP device */
-+	dst = sk_dst_get(tunnel->sock);
-+	if (dst) {
-+		u32 pmtu = dst_mtu(dst);
-+
-+		if (pmtu != 0)
-+			dev->mtu = pmtu;
-+		dst_release(dst);
-+	}
-+	/* else (no PMTUD) L2TP dev MTU defaulted to Ethernet MTU in caller */
-+	session->mtu = dev->mtu - overhead;
-+	dev->mtu = session->mtu;
-+	dev->needed_headroom += session->hdr_len;
-+	if (tunnel->encap == L2TP_ENCAPTYPE_UDP)
-+		dev->needed_headroom += sizeof(struct udphdr);
++	if (ds->ops->port_stp_state_set)
++		ds->ops->port_stp_state_set(ds, port, state);
 +}
 +
- static int l2tp_eth_create(struct net *net, u32 tunnel_id, u32 session_id, u32 peer_session_id, struct l2tp_session_cfg *cfg)
+ static int dsa_slave_open(struct net_device *dev)
  {
- 	struct net_device *dev;
-@@ -255,11 +298,8 @@ static int l2tp_eth_create(struct net *net, u32 tunnel_id, u32 session_id, u32 p
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+@@ -104,8 +110,7 @@ static int dsa_slave_open(struct net_device *dev)
+ 			goto clear_promisc;
  	}
  
- 	dev_net_set(dev, net);
--	if (session->mtu == 0)
--		session->mtu = dev->mtu - session->hdr_len;
--	dev->mtu = session->mtu;
--	dev->needed_headroom += session->hdr_len;
+-	if (ds->ops->port_stp_state_set)
+-		ds->ops->port_stp_state_set(ds, p->port, stp_state);
++	dsa_port_set_stp_state(ds, p->port, stp_state);
  
-+	l2tp_eth_adjust_mtu(tunnel, session, dev);
- 	priv = netdev_priv(dev);
- 	priv->dev = dev;
- 	priv->session = session;
+ 	if (p->phy)
+ 		phy_start(p->phy);
+@@ -147,8 +152,7 @@ static int dsa_slave_close(struct net_device *dev)
+ 	if (ds->ops->port_disable)
+ 		ds->ops->port_disable(ds, p->port, p->phy);
+ 
+-	if (ds->ops->port_stp_state_set)
+-		ds->ops->port_stp_state_set(ds, p->port, BR_STATE_DISABLED);
++	dsa_port_set_stp_state(ds, p->port, BR_STATE_DISABLED);
+ 
+ 	return 0;
+ }
+@@ -354,7 +358,7 @@ static int dsa_slave_stp_state_set(struct net_device *dev,
+ 	if (switchdev_trans_ph_prepare(trans))
+ 		return ds->ops->port_stp_state_set ? 0 : -EOPNOTSUPP;
+ 
+-	ds->ops->port_stp_state_set(ds, p->port, attr->u.stp_state);
++	dsa_port_set_stp_state(ds, p->port, attr->u.stp_state);
+ 
+ 	return 0;
+ }
+@@ -556,8 +560,7 @@ static void dsa_slave_bridge_port_leave(struct net_device *dev)
+ 	/* Port left the bridge, put in BR_STATE_DISABLED by the bridge layer,
+ 	 * so allow it to be in BR_STATE_FORWARDING to be kept functional
+ 	 */
+-	if (ds->ops->port_stp_state_set)
+-		ds->ops->port_stp_state_set(ds, p->port, BR_STATE_FORWARDING);
++	dsa_port_set_stp_state(ds, p->port, BR_STATE_FORWARDING);
+ }
+ 
+ static int dsa_slave_port_attr_get(struct net_device *dev,
 -- 
-2.1.4
+2.10.0
