@@ -1,71 +1,65 @@
-From: Leon Romanovsky <leon@kernel.org>
-Subject: Re: [RFC v2 06/12] qedr: Add support for QP verbs
-Date: Thu, 22 Sep 2016 16:32:18 +0300
-Message-ID: <20160922133218.GF4088@leon.nu>
-References: <1474367764-9555-1-git-send-email-Ram.Amrani@cavium.com>
- <1474367764-9555-7-git-send-email-Ram.Amrani@cavium.com>
- <20160920163048.GQ26673@leon.nu>
- <SN1PR07MB2207C1EC2C5C86C607D0255AF8F60@SN1PR07MB2207.namprd07.prod.outlook.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net] net: rtnl_register in net_ns_init need rtnl_lock
+Date: Thu, 22 Sep 2016 15:41:23 +0200
+Message-ID: <4c1b9aba-e6e8-babc-1bbe-aef2bc0bca53@stressinduktion.org>
+References: <1474542209-28409-1-git-send-email-hannes@stressinduktion.org>
+ <1474549384.23058.94.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="/aVve/J9H4Wl5yVO"
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "dledford@redhat.com" <dledford@redhat.com>,
-        "Elior, Ariel" <Ariel.Elior@cavium.com>,
-        "Kalderon, Michal" <Michal.Kalderon@cavium.com>,
-        "Mintz, Yuval" <Yuval.Mintz@cavium.com>,
-        "Borundia, Rajesh" <Rajesh.Borundia@cavium.com>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Amrani, Ram" <Ram.Amrani@cavium.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:36046 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752275AbcIVNc2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 22 Sep 2016 09:32:28 -0400
-Content-Disposition: inline
-In-Reply-To: <SN1PR07MB2207C1EC2C5C86C607D0255AF8F60@SN1PR07MB2207.namprd07.prod.outlook.com>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:47046 "EHLO
+        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S933216AbcIVNlZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 09:41:25 -0400
+In-Reply-To: <1474549384.23058.94.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 22.09.2016 15:03, Eric Dumazet wrote:
+> On Thu, 2016-09-22 at 13:03 +0200, Hannes Frederic Sowa wrote:
+>> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>> ---
+>>  net/core/net_namespace.c | 2 ++
+>>  1 file changed, 2 insertions(+)
+>>
+>> diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+>> index 2c2eb1b629b11d..a2ace299f28355 100644
+>> --- a/net/core/net_namespace.c
+>> +++ b/net/core/net_namespace.c
+>> @@ -758,9 +758,11 @@ static int __init net_ns_init(void)
+>>  
+>>  	register_pernet_subsys(&net_ns_ops);
+>>  
+>> +	rtnl_lock();
+>>  	rtnl_register(PF_UNSPEC, RTM_NEWNSID, rtnl_net_newid, NULL, NULL);
+>>  	rtnl_register(PF_UNSPEC, RTM_GETNSID, rtnl_net_getid, rtnl_net_dumpid,
+>>  		      NULL);
+>> +	rtnl_unlock();
+>>  
+>>  	return 0;
+>>  }
+> 
+> Hi Hannes
+> 
+> Why is this needed here, and not in other places ?
 
---/aVve/J9H4Wl5yVO
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+I found this during working on the file and actually saw no live issues
+(belonged to another series which I just split up).
 
-On Wed, Sep 21, 2016 at 02:15:39PM +0000, Amrani, Ram wrote:
-> > >  include/uapi/rdma/providers/qedr-abi.h     |   35 +
-> >
-> > Please be aware that the last version for ABI header files doesn't have "provider"
-> > name in directory path (include/uapi/rdma/qedr-abi.h)
->
-> OK. Note that I was using https://www.spinics.net/lists/linux-rdma/msg40414.html that dates to 7 days ago and it contains the "providers" folder.
-> Can you point to the most recent patch?
+I don't think it is a big issue but wanted the writes to the
+rtnl_msg_handlers array to be strictly serialized. I was working on
+adding this to other places, too. Maybe better for net-next even?
 
-http://marc.info/?l=linux-rdma&m=147419583317034&w=2
+Theoretically we would need to add a memory barriers to make sure we
+don't publish uninitialized memory into the array if concurrent readers
+of the array want to find their function pointers.
 
-I'll post new version soon. It will add mthca driver to the list of
-moved drivers.
+> Hint : A changelog always help reviewers and future bug hunting.
 
---/aVve/J9H4Wl5yVO
-Content-Type: application/pgp-signature; name="signature.asc"
+I will add that to v2.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJX491iAAoJEORje4g2clinPfYP/RBg6gjMwZ9xwvsi9fpK/HlQ
-OycSDuFXhOXxkKE8bJAI3xKiydUiiwXG4qIkOgrPT4FPxQRxIxpG8K3Gu3fYuo3U
-GYmPW1x6iy5mnbd6oS30Xex/lLdar5B0YgKstRo+LhFjXtb3xYo1smKsHuHb0pXg
-KOUbZ7UyCESuxAoH9W5UjEkWxma9Hdk6tbkwIOkcMTSLn5TuTqn1o7Iym4vAD6zb
-FRobZ3iqw+g8sWEFVEQq03H3nqkY6w5G2KQfB2ZLvq/t6EttMdfGvHnPyj2z3M0X
-2h0t7uNmyDcqQ9mFj7yIvYLa3iY6OopGG1r4Cyt3FiyxoSuV9zTOETM9VG5TP6rX
-90y6kGZNzdDn4/M+rAw4zFiWv4Nca6++9GYuhBXZM2LSJxfW5kc/dZExjZNAdQhc
-6KwxeJAViI2xRUj8ps1PwxZXKhRAi9AgghZCc6933no8eyY83mJGOEwAL6XSn8IB
-4I8ncjxyX040XCqTVX1/WwfmXYw9OfAifHPKN4a0Re1hS4lmV03xZRGUdjMzs+uj
-5djzieh1cBcGGD7q0rXvUN1blDvu7tNjRCC1OSmBISXGcE17PCG3A0IxpSkVDee5
-HQfCoo+pnD1UM51faJSdeiPFjHXBay4fzP//sY/MKeQjquixjEM1/PVm3xhMjg/Z
-j6c1cql0mfGLicjN1rYD
-=xUkQ
------END PGP SIGNATURE-----
-
---/aVve/J9H4Wl5yVO--
+Thanks,
+Hannes
