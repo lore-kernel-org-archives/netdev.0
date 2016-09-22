@@ -1,41 +1,51 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] ipvlan: fix building without netfilter
-Date: Thu, 22 Sep 2016 14:58:24 +0200
-Message-ID: <2147423.Poz9bNzMml@wuerfel>
-References: <20160922094130.2154824-1-arnd@arndb.de> <20160922.083205.2034005377472668654.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] net: rtnl_register in net_ns_init need rtnl_lock
+Date: Thu, 22 Sep 2016 06:03:04 -0700
+Message-ID: <1474549384.23058.94.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1474542209-28409-1-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: maheshb@google.com, dsa@cumulusnetworks.com, edumazet@google.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160922.083205.2034005377472668654.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:36859 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751263AbcIVNDG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 09:03:06 -0400
+Received: by mail-pf0-f194.google.com with SMTP id n24so3810084pfb.3
+        for <netdev@vger.kernel.org>; Thu, 22 Sep 2016 06:03:06 -0700 (PDT)
+In-Reply-To: <1474542209-28409-1-git-send-email-hannes@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday, September 22, 2016 8:32:05 AM CEST David Miller wrote:
-> From: Arnd Bergmann <arnd@arndb.de>
-> Date: Thu, 22 Sep 2016 11:40:52 +0200
+On Thu, 2016-09-22 at 13:03 +0200, Hannes Frederic Sowa wrote:
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
+>  net/core/net_namespace.c | 2 ++
+>  1 file changed, 2 insertions(+)
 > 
-> > The new l3s mode in ipvlan relies on netfilter interfaces, but
-> > the ipvlan driver can be configured when CONFIG_NETFILTER is disabled,
-> > leading to a build error:
-> > 
-> > drivers/net/ipvlan/ipvlan.h:132:22: error: 'struct nf_hook_state' declared inside parameter list will not be visible outside of this definition or declaration [-Werror]
-> > drivers/net/ipvlan/ipvlan_main.c:14:27: error: array type has incomplete element type 'struct nf_hook_ops'
-> > ...
-> > 
-> > This adds a forward declaration for struct nf_hook_state, and hides
-> > the newly added l3s code in an #ifdef.
-> > 
-> > Fixes: 4fbae7d83c98 ("ipvlan: Introduce l3s mode")
-> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> 
-> I'm pretty sure I applied a Kconfig patch that added the
-> necessary dependency.
+> diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+> index 2c2eb1b629b11d..a2ace299f28355 100644
+> --- a/net/core/net_namespace.c
+> +++ b/net/core/net_namespace.c
+> @@ -758,9 +758,11 @@ static int __init net_ns_init(void)
+>  
+>  	register_pernet_subsys(&net_ns_ops);
+>  
+> +	rtnl_lock();
+>  	rtnl_register(PF_UNSPEC, RTM_NEWNSID, rtnl_net_newid, NULL, NULL);
+>  	rtnl_register(PF_UNSPEC, RTM_GETNSID, rtnl_net_getid, rtnl_net_dumpid,
+>  		      NULL);
+> +	rtnl_unlock();
+>  
+>  	return 0;
+>  }
 
-Yes, I see the fix cf714ac147e0 ("ipvlan: Fix dependency issue") now, and
-can confirm that today's linux-next works without my patch, thanks!
+Hi Hannes
 
-	Arnd
+Why is this needed here, and not in other places ?
+
+Hint : A changelog always help reviewers and future bug hunting.
+
+Thanks.
