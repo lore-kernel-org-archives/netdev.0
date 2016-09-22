@@ -1,34 +1,54 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH] net: VRF: Fix receiving multicast traffic
-Date: Thu, 22 Sep 2016 09:14:49 -0600
-Message-ID: <aac5b560-d757-3281-8e69-7953e7c4b418@cumulusnetworks.com>
-References: <20160922041308.30848-1-mark.tomlinson@alliedtelesis.co.nz>
+From: Sean Wang <sean.wang@mediatek.com>
+Subject: Re: [PATCH net-next v2 3/3] net: ethernet: mediatek: add the dts property to set if TRGMII supported on GMAC0
+Date: Thu, 22 Sep 2016 23:21:44 +0800
+Message-ID: <1474557704-19011-1-git-send-email-sean.wang@mediatek.com>
+References: <b04e14ff-15db-9cc8-9490-204da8c5837d@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-To: Mark Tomlinson <mark.tomlinson@alliedtelesis.co.nz>,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:34626 "EHLO
-        mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933216AbcIVPOt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 11:14:49 -0400
-Received: by mail-pa0-f46.google.com with SMTP id wk8so30211797pab.1
-        for <netdev@vger.kernel.org>; Thu, 22 Sep 2016 08:14:49 -0700 (PDT)
-In-Reply-To: <20160922041308.30848-1-mark.tomlinson@alliedtelesis.co.nz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <john@phrozen.org>, <davem@davemloft.net>, <nbd@openwrt.org>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <linux-mediatek@lists.infradead.org>, <keyhaede@gmail.com>
+To: <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <b04e14ff-15db-9cc8-9490-204da8c5837d@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 9/21/16 10:13 PM, Mark Tomlinson wrote:
-> The previous patch to ensure that the original iif was used when
-> checking for forwarding also meant that this same interface was used to
-> determine whether multicast packets should be received or not. This was
-> incorrect, and would cause multicast packets to be dropped.
-> 
-> The fix here is to use skb->dev when checking multicast addresses.
-> skb->dev has been set to the l3mdev by this point, so the check will be
-> against that, rather than the ingress interface.
+Date: Thu, 22 Sep 2016 14:28:36 +0300, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> wrote:
+>Hello.
+>
+>On 9/22/2016 5:33 AM, sean.wang@mediatek.com wrote:
+>
+>> From: Sean Wang <sean.wang@mediatek.com>
+>>
+>> Add the dts property for the capability if TRGMII supported on GAMC0
+>>
+>> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+>> ---
+>>  Documentation/devicetree/bindings/net/mediatek-net.txt | 5 ++++-
+>>  1 file changed, 4 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/Documentation/devicetree/bindings/net/mediatek-net.txt b/Documentation/devicetree/bindings/net/mediatek-net.txt
+>> index 6103e55..7111278 100644
+>> --- a/Documentation/devicetree/bindings/net/mediatek-net.txt
+>> +++ b/Documentation/devicetree/bindings/net/mediatek-net.txt
+>> @@ -31,7 +31,10 @@ Optional properties:
+>>  Required properties:
+>>  - compatible: Should be "mediatek,eth-mac"
+>>  - reg: The number of the MAC
+>> -- phy-handle: see ethernet.txt file in the same directory.
+>> +- phy-handle: see ethernet.txt file in the same directory and
+>> +	the phy-mode "trgmii" required being provided when reg
+>
+>   Since you've modified the generic parser of the "phy-mode" to add your 
+>"trgmii", you also need to update ethernet.txt...
+>
 
-l3mdev devices do not support IPv4 multicast so checking mcast against that device should not be working at all. For that reason I was fine with the change in the previous patch. ie., you want the real ingress device there not the vrf device.
+>> +	is equal to 0 and the MAC uses fixed-link to connect
+>> +	with inernal switch such as MT7530.
+>
+>   Internal.
+>
 
-What test are you running that says your previous patch broke something?
+thank you for taking time and effort to review this
+I will fix it up
