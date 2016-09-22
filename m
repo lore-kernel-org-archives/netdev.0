@@ -1,95 +1,63 @@
-From: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next 2/3] udp: implement memory accounting helpers
-Date: Thu, 22 Sep 2016 18:14:24 +0200
-Message-ID: <1474560864.4845.78.camel@redhat.com>
-References: <cover.1474477902.git.pabeni@redhat.com>
-         <93ccb49b7f037461ef436a50b907185744b093d8.1474477902.git.pabeni@redhat.com>
-         <1474500682.23058.88.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1474540415.4845.69.camel@redhat.com>
-         <589839b3-5930-2527-b0a3-315be254a175@solarflare.com>
+From: <sean.wang@mediatek.com>
+Subject: [PATCH net-next] Documentation: devicetree: revise ethernet device-tree binding about TRGMII
+Date: Fri, 23 Sep 2016 00:16:36 +0800
+Message-ID: <1474560996-20863-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
-        Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-        Alexander Duyck <aduyck-nYU0QVwCCFFWk0Htik3J/w@public.gmane.org>,
-        Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
-        Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
-        linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <589839b3-5930-2527-b0a3-315be254a175-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>,
+        <linux-mediatek@lists.infradead.org>, <devicetree@vger.kernel.org>,
+        <keyhaede@gmail.com>, <objelf@gmail.com>,
+        Sean Wang <sean.wang@mediatek.com>
+To: <davem@davemloft.net>, <sergei.shtylyov@cogentembedded.com>,
+        <john@phrozen.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailgw02.mediatek.com ([210.61.82.184]:63411 "EHLO
+        mailgw02.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1756411AbcIVQQo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 12:16:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-09-22 at 16:21 +0100, Edward Cree wrote:
-> On 22/09/16 11:33, Paolo Abeni wrote:
-> > Hi Eric,
-> >
-> > On Wed, 2016-09-21 at 16:31 -0700, Eric Dumazet wrote:
-> >> Also does inet_diag properly give the forward_alloc to user ?
-> >>
-> >> $ ss -mua
-> >> State      Recv-Q Send-Q Local Address:Port                 Peer Addres
-> >> s:Port
-> >> UNCONN     51584  0          *:52460      *:*                    
-> >> 	 skmem:(r51584,rb327680,t0,tb327680,f1664,w0,o0,bl0,d575)
-> > Thank you very much for reviewing this! 
-> >
-> > My bad, there is still a race which leads to temporary negative values
-> > of fwd. I feel the fix is trivial but it needs some investigation.
-> >
-> >> Couldn't we instead use an union of an atomic_t and int for
-> >> sk->sk_forward_alloc ?
-> > That was our first attempt, but we had some issue on mem scheduling; if
-> > we use:
-> >
-> >    if (atomic_sub_return(size, &sk->sk_forward_alloc_atomic) < 0) {
-> >         // fwd alloc
-> >    }
-> >
-> > that leads to inescapable, temporary, negative value for
-> > sk->sk_forward_alloc.
-> >
-> > Another option would be:
-> >
-> > again:
-> >         fwd = atomic_read(&sk->sk_forward_alloc_atomic);
-> >         if (fwd > size) {
-> > 		if (atomic_cmpxchg(&sk->sk_forward_alloc_atomic, fwd, fwd - size) != fwd)
-> > 			goto again;
-> >         } else 
-> >             // fwd alloc
-> >
-> > which would be bad under high contention.
-> Apologies if I'm misunderstanding the problem, but couldn't you have two
-> atomic_t fields, 'internal' and 'external' forward_alloc.  Then
->     if (atomic_sub_return(size, &sk->sk_forward_alloc_internal) < 0) {
->         atomic_sub(size, &sk->sk_forward_alloc);
->         // fwd alloc
->     } else {
->         atomic_add(size, &sk->sk_forward_alloc_internal);
->     }
-> or something like that.  Then sk->sk_forward_alloc never sees a negative
-> value, and is always >= sk->sk_forward_alloc_internal.  Of course places
-> that go the other way would have to add to sk->sk_forward_alloc first,
-> before adding to sk->sk_forward_alloc_internal, to maintain that invariant.
+From: Sean Wang <sean.wang@mediatek.com>
 
-I think that the idea behind using atomic ops directly on
-sk_forward_alloc is to avoid adding other fields to the udp_socket. 
+fix typo in mediatek-net.txt and add phy-mode "trgmii" to ethernet.txt
 
-If we can add some fields to the udp_sock structure, the schema proposed
-in this patch should fit better (modulo bugs ;-), always requiring a
-single atomic operation at memory reclaiming time and at memory
-allocation time.
+Cc: devicetree@vger.kernel.org
+Reported-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+---
+ Documentation/devicetree/bindings/net/ethernet.txt     | 4 ++--
+ Documentation/devicetree/bindings/net/mediatek-net.txt | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-Paolo
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/Documentation/devicetree/bindings/net/ethernet.txt b/Documentation/devicetree/bindings/net/ethernet.txt
+index 5d88f37..e1d7681 100644
+--- a/Documentation/devicetree/bindings/net/ethernet.txt
++++ b/Documentation/devicetree/bindings/net/ethernet.txt
+@@ -11,8 +11,8 @@ The following properties are common to the Ethernet controllers:
+   the maximum frame size (there's contradiction in ePAPR).
+ - phy-mode: string, operation mode of the PHY interface; supported values are
+   "mii", "gmii", "sgmii", "qsgmii", "tbi", "rev-mii", "rmii", "rgmii", "rgmii-id",
+-  "rgmii-rxid", "rgmii-txid", "rtbi", "smii", "xgmii"; this is now a de-facto
+-  standard property;
++  "rgmii-rxid", "rgmii-txid", "rtbi", "smii", "xgmii", "trgmii"; this is now a
++  de-facto standard property;
+ - phy-connection-type: the same as "phy-mode" property but described in ePAPR;
+ - phy-handle: phandle, specifies a reference to a node representing a PHY
+   device; this property is described in ePAPR and so preferred;
+diff --git a/Documentation/devicetree/bindings/net/mediatek-net.txt b/Documentation/devicetree/bindings/net/mediatek-net.txt
+index bae848e..da05f8b 100644
+--- a/Documentation/devicetree/bindings/net/mediatek-net.txt
++++ b/Documentation/devicetree/bindings/net/mediatek-net.txt
+@@ -34,7 +34,7 @@ Required properties:
+ - phy-handle: see ethernet.txt file in the same directory and
+ 	the phy-mode "trgmii" required being provided when reg
+ 	is equal to 0 and the MAC uses fixed-link to connect
+-	with inernal switch such as MT7530.
++	with internal switch such as MT7530.
+ 
+ Example:
+ 
+-- 
+1.9.1
