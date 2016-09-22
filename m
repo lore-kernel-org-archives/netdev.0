@@ -1,50 +1,119 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net-next] tcp: add tcp_add_backlog()
-Date: Thu, 22 Sep 2016 19:34:11 -0300
-Message-ID: <20160922223411.GA17222@localhost.localdomain>
-References: <1472308674.14381.226.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net] act_ife: Add support for machines with
+ hard_header_len != mac_len
+Date: Thu, 22 Sep 2016 18:39:33 -0400
+Message-ID: <9850b403-34b2-4a4a-7d50-8e935f3f35a2@mojatatu.com>
+References: <1474462453-37668-1-git-send-email-yotamg@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Neal Cardwell <ncardwell@google.com>,
-        Yuchung Cheng <ycheng@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Yotam Gigi <yotamg@mellanox.com>, davem@davemloft.net,
+        netdev@vger.kernel.org, Roman Mashak <mrv@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55026 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1757905AbcIVWe3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 22 Sep 2016 18:34:29 -0400
-Content-Disposition: inline
-In-Reply-To: <1472308674.14381.226.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-it0-f68.google.com ([209.85.214.68]:36037 "EHLO
+        mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758192AbcIVWjf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 18:39:35 -0400
+Received: by mail-it0-f68.google.com with SMTP id n143so5773224ita.3
+        for <netdev@vger.kernel.org>; Thu, 22 Sep 2016 15:39:35 -0700 (PDT)
+In-Reply-To: <1474462453-37668-1-git-send-email-yotamg@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 27, 2016 at 07:37:54AM -0700, Eric Dumazet wrote:
-> +bool tcp_add_backlog(struct sock *sk, struct sk_buff *skb)
-> +{
-> +	u32 limit = sk->sk_rcvbuf + sk->sk_sndbuf;
-                                 ^^^
-...
-> +	if (!skb->data_len)
-> +		skb->truesize = SKB_TRUESIZE(skb_end_offset(skb));
+On 16-09-21 08:54 AM, Yotam Gigi wrote:
+> Without that fix, the following could occur:
+>  - On encode ingress, the total amount of skb_pushes (in lines 751 and
+>    753) was more than specified in cow.
+>  - On machines with hard_header_len > mac_len, the packet format was not
+
+Just curious: What hardware would this be?
+
+
+> Fixes: ef6980b6becb ("net sched: introduce IFE action")
+> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+> ---
+>  net/sched/act_ife.c | 34 +++++++++++++++++++++++++---------
+>  1 file changed, 25 insertions(+), 9 deletions(-)
+>
+> diff --git a/net/sched/act_ife.c b/net/sched/act_ife.c
+> index e87cd81..27b19ca 100644
+> --- a/net/sched/act_ife.c
+> +++ b/net/sched/act_ife.c
+> @@ -708,11 +708,13 @@ static int tcf_ife_encode(struct sk_buff *skb, const struct tc_action *a,
+>  	   where ORIGDATA = original ethernet header ...
+>  	 */
+>  	u16 metalen = ife_get_sz(skb, ife);
+> -	int hdrm = metalen + skb->dev->hard_header_len + IFE_METAHDRLEN;
+> -	unsigned int skboff = skb->dev->hard_header_len;
+>  	u32 at = G_TC_AT(skb->tc_verd);
+> -	int new_len = skb->len + hdrm;
+>  	bool exceed_mtu = false;
+> +	unsigned int skboff;
+> +	int total_push;
+> +	int reserve;
+> +	int new_len;
+> +	int hdrm;
+>  	int err;
+>
+>  	if (at & AT_EGRESS) {
+> @@ -724,6 +726,22 @@ static int tcf_ife_encode(struct sk_buff *skb, const struct tc_action *a,
+>  	bstats_update(&ife->tcf_bstats, skb);
+>  	tcf_lastuse_update(&ife->tcf_tm);
+>
+> +	if (at & AT_EGRESS) {
+> +		/* on egress, reserve space for hard_header_len instead of
+> +		 * mac_len
+> +		 */
+> +		skb_reset_mac_len(skb);
+
+The skb_reset_mac_len() above is unneeded.
+
+> +		hdrm = metalen + skb->mac_len + IFE_METAHDRLEN;
+
+Can you move this line outside of the if? It appears on the else
+so factoring it out is useful.
+
+> +		total_push = hdrm;
+> +		reserve = metalen + skb->dev->hard_header_len + IFE_METAHDRLEN;
+> +	} else {
+> +		/* on ingress, push mac_len as it already get parsed from tc */
+> +		hdrm = metalen + skb->mac_len + IFE_METAHDRLEN;
+> +		total_push = hdrm + skb->mac_len;
+> +		reserve = total_push;
+> +	}
+> +	new_len =  skb->len + hdrm;
 > +
-> +	if (unlikely(sk_add_backlog(sk, skb, limit))) {
-...
-> -	} else if (unlikely(sk_add_backlog(sk, skb,
-> -					   sk->sk_rcvbuf + sk->sk_sndbuf))) {
-	                                                 ^---- [1]
-> -		bh_unlock_sock(sk);
-> -		__NET_INC_STATS(net, LINUX_MIB_TCPBACKLOGDROP);
-> +	} else if (tcp_add_backlog(sk, skb)) {
+>  	if (!metalen) {		/* no metadata to send */
+>  		/* abuse overlimits to count when we allow packet
+>  		 * with no metadata
+> @@ -742,19 +760,17 @@ static int tcf_ife_encode(struct sk_buff *skb, const struct tc_action *a,
+>
+>  	iethh = eth_hdr(skb);
+>
+> -	err = skb_cow_head(skb, hdrm);
+> +	err = skb_cow_head(skb, reserve);
+>  	if (unlikely(err)) {
+>  		ife->tcf_qstats.drops++;
+>  		spin_unlock(&ife->tcf_lock);
+>  		return TC_ACT_SHOT;
+>  	}
+>
+> -	if (!(at & AT_EGRESS))
+> -		skb_push(skb, skb->dev->hard_header_len);
+> -
+> -	__skb_push(skb, hdrm);
+> +	__skb_push(skb, total_push);
+>  	memcpy(skb->data, iethh, skb->mac_len);
+>  	skb_reset_mac_header(skb);
+> +	skboff += skb->mac_len;
 
-Hi Eric, after this patch, do you think we still need to add sk_sndbuf
-as a stretching factor to the backlog here?
+Above looks dangerous. Did the compiler not warn?
+Maybe init skboff to skb->mac_len at the top.
 
-It was added by [1] and it was justified that the (s)ack packets were
-just too big for the rx buf size. Maybe this new patch alone is enough
-already, as such packets will have a very small truesize then.
+Otherwise the ingress bits look good. Thanks!
 
-  Marcelo
+Please fix above and resend with:
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-[1] da882c1f2eca ("tcp: sk_add_backlog() is too agressive for TCP")
+cheers,
+jamal
