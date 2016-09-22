@@ -1,46 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 4/4] net/sched: act_mirred: Implement ingress
- actions
-Date: Thu, 22 Sep 2016 11:42:08 -0700
-Message-ID: <1474569728.23058.146.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1474550512-7552-1-git-send-email-shmulik.ladkani@gmail.com>
-         <1474550512-7552-5-git-send-email-shmulik.ladkani@gmail.com>
-         <1474556053.23058.111.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20160922212745.789734c5@halley>
+From: Douglas Caetano dos Santos <douglascs@taghos.com.br>
+Subject: [PATCH v3] tcp: fix wrong checksum calculation on MTU probing
+Date: Thu, 22 Sep 2016 15:52:04 -0300
+Message-ID: <f920ce68-c4e9-7772-809c-01f7319fa78e@taghos.com.br>
+References: <15e3bab9-f21e-9a55-a87e-e389f633f755@taghos.com.br>
+ <20160920.225729.1715125475365382873.davem@davemloft.net>
+ <2923a9bc-c433-7546-cd4a-9f834bd43181@taghos.com.br>
+ <5ffc1020-a36f-75b4-ff25-4f58c243f803@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        WANG Cong <xiyou.wangcong@gmail.com>,
-        Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
-To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Cc: <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
+        <yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
+        <netdev@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:36381 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936373AbcIVSmK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 14:42:10 -0400
-Received: by mail-pf0-f193.google.com with SMTP id n24so4126938pfb.3
-        for <netdev@vger.kernel.org>; Thu, 22 Sep 2016 11:42:10 -0700 (PDT)
-In-Reply-To: <20160922212745.789734c5@halley>
+Received: from smtp815.redehostenvio.com.br ([187.84.239.29]:58209 "EHLO
+        smtp815.redehostenvio.com.br" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S941142AbcIVSyA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 14:54:00 -0400
+Received: by smtp788.redehostenvio.com.br id hsgkl227hus8 for <netdev@vger.kernel.org>; Thu, 22 Sep 2016 15:56:09 -0300 (envelope-from <douglascs@taghos.com.br>)
+In-Reply-To: <5ffc1020-a36f-75b4-ff25-4f58c243f803@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-09-22 at 21:27 +0300, Shmulik Ladkani wrote:
-> On Thu, 22 Sep 2016 07:54:13 -0700 Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > Hmm... we probably need to apply the full rcu protection before this
-> > patch.
-> > 
-> > https://patchwork.ozlabs.org/patch/667680/
-> 
-> Are you referring to order of application into net-next?
-> 
-> This patch seems to present no new tcf_mirred_params members nor
-> need-to-be-protected code regions (please, correct me if wrong).
-> So it does not _depend_ on the 'full rcu fixes', does it?
+With TCP MTU probing enabled and offload TX checksumming disabled,
+tcp_mtu_probe() calculated the wrong checksum when a fragment being copied
+into the probe's SKB had an odd length. This was caused by the direct use
+of skb_copy_and_csum_bits() to calculate the checksum, as it pads the
+fragment being copied, if needed. When this fragment was not the last, a
+subsequent call used the previous checksum without considering this
+padding.
 
-No, simply a reminder that we run lockless there, so you might need to
-read some control variables once, and in a consistent way.
+The effect was a stale connection in one way, as even retransmissions
+wouldn't solve the problem, because the checksum was never recalculated for
+the full SKB length.
 
-(Or a concurrent writer could change params in the middle of the
-function)
+Signed-off-by: Douglas Caetano dos Santos <douglascs@taghos.com.br>
+---
+ net/ipv4/tcp_output.c | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index f53d0cc..2d32952 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1966,12 +1966,14 @@ static int tcp_mtu_probe(struct sock *sk)
+ 	len = 0;
+ 	tcp_for_write_queue_from_safe(skb, next, sk) {
+ 		copy = min_t(int, skb->len, probe_size - len);
+-		if (nskb->ip_summed)
++		if (nskb->ip_summed) {
+ 			skb_copy_bits(skb, 0, skb_put(nskb, copy), copy);
+-		else
+-			nskb->csum = skb_copy_and_csum_bits(skb, 0,
+-							    skb_put(nskb, copy),
+-							    copy, nskb->csum);
++		} else {
++			__wsum csum = skb_copy_and_csum_bits(skb, 0,
++							     skb_put(nskb, copy),
++							     copy, 0);
++			nskb->csum = csum_block_add(nskb->csum, csum, len);
++		}
+
+ 		if (skb->len <= copy) {
+ 			/* We've eaten all the data from this skb.
+-- 
+2.5.0
