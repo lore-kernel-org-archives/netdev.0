@@ -1,7 +1,7 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] net: explicitly whitelist sysctls for unpriv namespaces
-Date: Thu, 22 Sep 2016 01:30:37 -0400 (EDT)
-Message-ID: <20160922.013037.1974473377908826519.davem@davemloft.net>
+Date: Thu, 22 Sep 2016 01:31:18 -0400 (EDT)
+Message-ID: <20160922.013118.694533431543433612.davem@davemloft.net>
 References: <1474232300-8423-1-git-send-email-jann@thejh.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
@@ -10,10 +10,10 @@ Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
         kaber@trash.net, netdev@vger.kernel.org
 To: jann@thejh.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54550 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:54574 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752147AbcIVFat (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 01:30:49 -0400
+        with ESMTP id S1754574AbcIVFbW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 01:31:22 -0400
 In-Reply-To: <1474232300-8423-1-git-send-email-jann@thejh.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -45,8 +45,7 @@ Date: Sun, 18 Sep 2016 22:58:20 +0200
 > 
 > Signed-off-by: Jann Horn <jann@thejh.net>
 
-I think this is fine for net-next and will apply it there.
-
-But for 'net' and 'stable', please also submit the simpler fix.
+And actually this patch dosn't apply cleanly to net-next, please
+respin.
 
 Thanks.
