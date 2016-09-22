@@ -1,39 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv7 net-next 00/15] BPF hardware offload (cls_bpf for now)
-Date: Wed, 21 Sep 2016 19:56:00 -0400 (EDT)
-Message-ID: <20160921.195600.1809838520295604067.davem@davemloft.net>
-References: <1474454647-20137-1-git-send-email-jakub.kicinski@netronome.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: XDP (eXpress Data Path) documentation
+Date: Wed, 21 Sep 2016 17:03:24 -0700
+Message-ID: <CALx6S37W2qfceOUDnPvFM5PuGp4G3cWjgrQP5_W9Veosic61pw@mail.gmail.com>
+References: <20160920110844.661965be@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ast@kernel.org, daniel@iogearbox.net
-To: jakub.kicinski@netronome.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50300 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752679AbcIUX4J (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2016 19:56:09 -0400
-In-Reply-To: <1474454647-20137-1-git-send-email-jakub.kicinski@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "iovisor-dev@lists.iovisor.org" <iovisor-dev@lists.iovisor.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Rana Shahout <rana.shahot@gmail.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Alexei Starovoitov <ast@fb.com>,
+        Jonathan Corbet <corbet@lwn.net>, Nathan Willis <nate@lwn.net>,
+        linux-doc@vger.kernel.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <20160920110844.661965be@redhat.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Date: Wed, 21 Sep 2016 11:43:52 +0100
+On Tue, Sep 20, 2016 at 2:08 AM, Jesper Dangaard Brouer
+<brouer@redhat.com> wrote:
+> Hi all,
+>
+> As promised, I've started documenting the XDP eXpress Data Path):
+>
+>  [1] https://prototype-kernel.readthedocs.io/en/latest/networking/XDP/index.html
+>
+> IMHO the documentation have reached a stage where it is useful for the
+> XDP project, BUT I request collaboration on improving the documentation
+> from all. (Native English speakers are encouraged to send grammar fixes ;-))
+>
+Hi Jesper,
 
-> In the last year a lot of progress have been made on offloading
-> simpler TC classifiers.  There is also growing interest in using
-> BPF for generic high-speed packet processing in the kernel.
-> It seems beneficial to tie those two trends together and think
-> about hardware offloads of BPF programs.  This patch set presents
-> such offload to Netronome smart NICs.  cls_bpf is extended with
-> hardware offload capabilities and NFP driver gets a JIT translator
-> which in presence of capable firmware can be used to offload
-> the BPF program onto the card.
-> 
-> BPF JIT implementation is not 100% complete (e.g. missing instructions)
-> but it is functional.  Encouragingly it should be possible to
-> offload most (if not all) advanced BPF features onto the NIC - 
-> including packet modification, maps, tunnel encap/decap etc.
- ...
+Thanks for taking the initiative on the this, The document reads more
+like a design doc than description right now, that's probably okay
+since we could use a design doc.
 
-Series applied, thanks.
+Under "Important to understand" there are some disclaimers that XDP
+does not implement qdiscs or BQL and fairness otherwise. This is true
+for it's own traffic, but it does not (or at least should not) affect
+these mechanisms or normal stack traffic running simultaneously. I
+think we've made assumptions about fairness between XDP and non-XDP
+queues, we probably want to clarify fairness (and also validate
+whatever assumptions we've made with testing).
+
+Thanks,
+Tom
+
+> You wouldn't believe it: But this pretty looking documentation actually
+> follows the new Kernel documentation format.  It is actually just
+> ".rst" text files stored in my github repository under kernel/Documentation [2]
+>
+>  [2] https://github.com/netoptimizer/prototype-kernel/tree/master/kernel/Documentation
+>
+> Thus, just git clone my repository and started editing and send me
+> patches (or github pull requests). Like:
+>
+>  $ git clone https://github.com/netoptimizer/prototype-kernel
+>  $ cd prototype-kernel/kernel/Documentation/
+>  $ make html
+>  $ firefox _build/html/index.html &
+>
+> This new documentation format combines the best of two worlds, pretty
+> online browser documentation with almost plain text files, and changes
+> being tracked via git commits [3] (and auto git hooks to generate the
+> readthedocs.org page). You got to love it! :-)
+>
+> --
+> Best regards,
+>   Jesper Dangaard Brouer
+>   MSc.CS, Principal Kernel Engineer at Red Hat
+>   Author of http://www.iptv-analyzer.org
+>   LinkedIn: http://www.linkedin.com/in/brouer
+>
+> [3] https://github.com/netoptimizer/prototype-kernel/commits/master
