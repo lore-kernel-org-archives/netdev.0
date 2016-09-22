@@ -1,41 +1,46 @@
-From: Vishwanath Pai <vpai@akamai.com>
-Subject: Re: [PATCH v3 2/2] netfilter: Create revision 2 of xt_hashlimit to
- support higher pps rates
-Date: Thu, 22 Sep 2016 14:39:45 -0400
-Message-ID: <57E42571.1060502@akamai.com>
-References: <20160922164344.GB20423@akamai.com>
- <alpine.LSU.2.20.1609221850530.27197@nerf40.vanv.qr>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 4/4] net/sched: act_mirred: Implement ingress
+ actions
+Date: Thu, 22 Sep 2016 11:42:08 -0700
+Message-ID: <1474569728.23058.146.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1474550512-7552-1-git-send-email-shmulik.ladkani@gmail.com>
+         <1474550512-7552-5-git-send-email-shmulik.ladkani@gmail.com>
+         <1474556053.23058.111.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20160922212745.789734c5@halley>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, kadlec@blackhole.kfki.hu, johunt@akamai.com,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, pai.vishwain@gmail.com
-To: Jan Engelhardt <jengelh@inai.de>, pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LSU.2.20.1609221850530.27197@nerf40.vanv.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        WANG Cong <xiyou.wangcong@gmail.com>,
+        Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
+To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:36381 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S936373AbcIVSmK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 14:42:10 -0400
+Received: by mail-pf0-f193.google.com with SMTP id n24so4126938pfb.3
+        for <netdev@vger.kernel.org>; Thu, 22 Sep 2016 11:42:10 -0700 (PDT)
+In-Reply-To: <20160922212745.789734c5@halley>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thanks for pointing this out, I will reorder the fields to:
-
-struct hashlimit_cfg2 {
-	__u64 avg;    /* Average secs between packets * scale */
-	__u64 burst;
-	__u32 mode; /* bitmask of XT_HASHLIMIT_HASH_* */
-
-This should fix the hole and avoid padding.
-
--Vishwanath
-
-On 09/22/2016 12:53 PM, Jan Engelhardt wrote:
-> On Thursday 2016-09-22 18:43, Vishwanath Pai wrote:
->> >+struct hashlimit_cfg2 {
->> >+	__u32 mode;	  /* bitmask of XT_HASHLIMIT_HASH_* */
->> >+	__u64 avg;    /* Average secs between packets * scale */
->> >+	__u64 burst;  /* Period multiplier for upper limit. */
-> This would have different sizes between i386 and x86_64,
-> necessiting additional compat functions. It should be padded
-> or reordered instead.
+On Thu, 2016-09-22 at 21:27 +0300, Shmulik Ladkani wrote:
+> On Thu, 22 Sep 2016 07:54:13 -0700 Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > Hmm... we probably need to apply the full rcu protection before this
+> > patch.
+> > 
+> > https://patchwork.ozlabs.org/patch/667680/
 > 
+> Are you referring to order of application into net-next?
+> 
+> This patch seems to present no new tcf_mirred_params members nor
+> need-to-be-protected code regions (please, correct me if wrong).
+> So it does not _depend_ on the 'full rcu fixes', does it?
 
+No, simply a reminder that we run lockless there, so you might need to
+read some control variables once, and in a consistent way.
+
+(Or a concurrent writer could change params in the middle of the
+function)
