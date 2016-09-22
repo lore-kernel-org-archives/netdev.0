@@ -1,74 +1,71 @@
-From: Juergen Gross <jgross@suse.com>
-Subject: Re: [Xen-devel] [PATCH resend] xen-netback: switch to threaded irq
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [Xen-devel] [PATCH resend] xen-netback: switch to threaded irq
  for control ring
-Date: Thu, 22 Sep 2016 12:39:24 +0200
-Message-ID: <a6111109-2f9f-d804-8040-bde575d2a769@suse.com>
+Date: Thu, 22 Sep 2016 10:41:36 +0000
+Message-ID: <5520beb1718b40f599a957418c2100e3@AMSPEX02CL03.citrite.net>
 References: <1474534964-15621-1-git-send-email-jgross@suse.com>
  <37d32749052f4ff887c5637671085389@AMSPEX02CL03.citrite.net>
  <2f3c7f1b-6a36-8aaa-e10a-41a1d2cf37d8@suse.com>
  <78418d2acd0446e8bbbd634377b9e263@AMSPEX02CL03.citrite.net>
+ <a6111109-2f9f-d804-8040-bde575d2a769@suse.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: Wei Liu <wei.liu2@citrix.com>
-To: Paul Durrant <Paul.Durrant@citrix.com>,
+To: Juergen Gross <jgross@suse.com>,
         "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
         "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:37178 "EHLO mx2.suse.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753122AbcIVKj1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 22 Sep 2016 06:39:27 -0400
-In-Reply-To: <78418d2acd0446e8bbbd634377b9e263@AMSPEX02CL03.citrite.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <a6111109-2f9f-d804-8040-bde575d2a769@suse.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 22/09/16 12:31, Paul Durrant wrote:
->> -----Original Message-----
->> From: Juergen Gross [mailto:jgross@suse.com]
->> Sent: 22 September 2016 11:17
->> To: Paul Durrant <Paul.Durrant@citrix.com>; xen-devel@lists.xenproject.org;
->> netdev@vger.kernel.orga <netdev@vger.kernel.org>; linux-
->> kernel@vger.kernel.org
->> Cc: Wei Liu <wei.liu2@citrix.com>
->> Subject: Re: [Xen-devel] [PATCH resend] xen-netback: switch to threaded irq
->> for control ring
->>
->> On 22/09/16 11:09, Paul Durrant wrote:
->>>> -----Original Message-----
->>>> From: Xen-devel [mailto:xen-devel-bounces@lists.xen.org] On Behalf Of
->>>> Juergen Gross
->>>> Sent: 22 September 2016 10:03
->>>> To: xen-devel@lists.xenproject.org; netdev@vger.kernel.orga; linux-
->>>> kernel@vger.kernel.org
->>>> Cc: Juergen Gross <jgross@suse.com>; Wei Liu <wei.liu2@citrix.com>
->>>> Subject: [Xen-devel] [PATCH resend] xen-netback: switch to threaded
->>>> irq for control ring
->>>>
->>>> Instead of open coding it use the threaded irq mechanism in xen-netback.
->>>>
->>>> Signed-off-by: Juergen Gross <jgross@suse.com>
->>>
->>> How have you tested this change?
->>
->> Only compile-tested and loaded the module. As this feature isn't being used
->> in linux netfront AFAIK it is not easily testable. OTOH the code modification is
->> rather limited and I've used the threaded irq in the Xen scsiback driver
->> myself, so I'm rather confident it will work.
->>
-> 
-> OK. How about doing the rx interrupt/task too so that it can be easily tested with a linux netfront?
-
-I'd like to, but this would require some more work. The rx kthread isn't
-activated by an event only, but by a timer, too. This isn't easy to map
-to the threaded irq framework. If, however, you are confident the timer
-isn't really necessary I'd be happy to provide a patch switching the
-rx task to the threaded irq, too.
-
-And to be honest: this wouldn't verify that the control ring related
-patch is really working. The mechanism itself _is_ working as it is
-already in use in xen-scsiback in a very similar environment.
-
-
-Juergen
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBKdWVyZ2VuIEdyb3NzIFttYWls
+dG86amdyb3NzQHN1c2UuY29tXQ0KPiBTZW50OiAyMiBTZXB0ZW1iZXIgMjAxNiAxMTozOQ0KPiBU
+bzogUGF1bCBEdXJyYW50IDxQYXVsLkR1cnJhbnRAY2l0cml4LmNvbT47IHhlbi1kZXZlbEBsaXN0
+cy54ZW5wcm9qZWN0Lm9yZzsNCj4gbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgta2VybmVs
+QHZnZXIua2VybmVsLm9yZw0KPiBDYzogV2VpIExpdSA8d2VpLmxpdTJAY2l0cml4LmNvbT4NCj4g
+U3ViamVjdDogUmU6IFtYZW4tZGV2ZWxdIFtQQVRDSCByZXNlbmRdIHhlbi1uZXRiYWNrOiBzd2l0
+Y2ggdG8gdGhyZWFkZWQgaXJxDQo+IGZvciBjb250cm9sIHJpbmcNCj4gDQo+IE9uIDIyLzA5LzE2
+IDEyOjMxLCBQYXVsIER1cnJhbnQgd3JvdGU6DQo+ID4+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0t
+LS0tDQo+ID4+IEZyb206IEp1ZXJnZW4gR3Jvc3MgW21haWx0bzpqZ3Jvc3NAc3VzZS5jb21dDQo+
+ID4+IFNlbnQ6IDIyIFNlcHRlbWJlciAyMDE2IDExOjE3DQo+ID4+IFRvOiBQYXVsIER1cnJhbnQg
+PFBhdWwuRHVycmFudEBjaXRyaXguY29tPjsNCj4gPj4geGVuLWRldmVsQGxpc3RzLnhlbnByb2pl
+Y3Qub3JnOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnYQ0KPiA+PiA8bmV0ZGV2QHZnZXIua2VybmVs
+Lm9yZz47IGxpbnV4LSBrZXJuZWxAdmdlci5rZXJuZWwub3JnDQo+ID4+IENjOiBXZWkgTGl1IDx3
+ZWkubGl1MkBjaXRyaXguY29tPg0KPiA+PiBTdWJqZWN0OiBSZTogW1hlbi1kZXZlbF0gW1BBVENI
+IHJlc2VuZF0geGVuLW5ldGJhY2s6IHN3aXRjaCB0bw0KPiA+PiB0aHJlYWRlZCBpcnEgZm9yIGNv
+bnRyb2wgcmluZw0KPiA+Pg0KPiA+PiBPbiAyMi8wOS8xNiAxMTowOSwgUGF1bCBEdXJyYW50IHdy
+b3RlOg0KPiA+Pj4+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4+Pj4gRnJvbTogWGVu
+LWRldmVsIFttYWlsdG86eGVuLWRldmVsLWJvdW5jZXNAbGlzdHMueGVuLm9yZ10gT24gQmVoYWxm
+DQo+ID4+Pj4gT2YgSnVlcmdlbiBHcm9zcw0KPiA+Pj4+IFNlbnQ6IDIyIFNlcHRlbWJlciAyMDE2
+IDEwOjAzDQo+ID4+Pj4gVG86IHhlbi1kZXZlbEBsaXN0cy54ZW5wcm9qZWN0Lm9yZzsgbmV0ZGV2
+QHZnZXIua2VybmVsLm9yZ2E7IGxpbnV4LQ0KPiA+Pj4+IGtlcm5lbEB2Z2VyLmtlcm5lbC5vcmcN
+Cj4gPj4+PiBDYzogSnVlcmdlbiBHcm9zcyA8amdyb3NzQHN1c2UuY29tPjsgV2VpIExpdSA8d2Vp
+LmxpdTJAY2l0cml4LmNvbT4NCj4gPj4+PiBTdWJqZWN0OiBbWGVuLWRldmVsXSBbUEFUQ0ggcmVz
+ZW5kXSB4ZW4tbmV0YmFjazogc3dpdGNoIHRvIHRocmVhZGVkDQo+ID4+Pj4gaXJxIGZvciBjb250
+cm9sIHJpbmcNCj4gPj4+Pg0KPiA+Pj4+IEluc3RlYWQgb2Ygb3BlbiBjb2RpbmcgaXQgdXNlIHRo
+ZSB0aHJlYWRlZCBpcnEgbWVjaGFuaXNtIGluIHhlbi0NCj4gbmV0YmFjay4NCj4gPj4+Pg0KPiA+
+Pj4+IFNpZ25lZC1vZmYtYnk6IEp1ZXJnZW4gR3Jvc3MgPGpncm9zc0BzdXNlLmNvbT4NCj4gPj4+
+DQo+ID4+PiBIb3cgaGF2ZSB5b3UgdGVzdGVkIHRoaXMgY2hhbmdlPw0KPiA+Pg0KPiA+PiBPbmx5
+IGNvbXBpbGUtdGVzdGVkIGFuZCBsb2FkZWQgdGhlIG1vZHVsZS4gQXMgdGhpcyBmZWF0dXJlIGlz
+bid0DQo+ID4+IGJlaW5nIHVzZWQgaW4gbGludXggbmV0ZnJvbnQgQUZBSUsgaXQgaXMgbm90IGVh
+c2lseSB0ZXN0YWJsZS4gT1RPSA0KPiA+PiB0aGUgY29kZSBtb2RpZmljYXRpb24gaXMgcmF0aGVy
+IGxpbWl0ZWQgYW5kIEkndmUgdXNlZCB0aGUgdGhyZWFkZWQNCj4gPj4gaXJxIGluIHRoZSBYZW4g
+c2NzaWJhY2sgZHJpdmVyIG15c2VsZiwgc28gSSdtIHJhdGhlciBjb25maWRlbnQgaXQgd2lsbCB3
+b3JrLg0KPiA+Pg0KPiA+DQo+ID4gT0suIEhvdyBhYm91dCBkb2luZyB0aGUgcnggaW50ZXJydXB0
+L3Rhc2sgdG9vIHNvIHRoYXQgaXQgY2FuIGJlIGVhc2lseQ0KPiB0ZXN0ZWQgd2l0aCBhIGxpbnV4
+IG5ldGZyb250Pw0KPiANCj4gSSdkIGxpa2UgdG8sIGJ1dCB0aGlzIHdvdWxkIHJlcXVpcmUgc29t
+ZSBtb3JlIHdvcmsuIFRoZSByeCBrdGhyZWFkIGlzbid0DQo+IGFjdGl2YXRlZCBieSBhbiBldmVu
+dCBvbmx5LCBidXQgYnkgYSB0aW1lciwgdG9vLiBUaGlzIGlzbid0IGVhc3kgdG8gbWFwIHRvIHRo
+ZQ0KPiB0aHJlYWRlZCBpcnEgZnJhbWV3b3JrLiBJZiwgaG93ZXZlciwgeW91IGFyZSBjb25maWRl
+bnQgdGhlIHRpbWVyIGlzbid0IHJlYWxseQ0KPiBuZWNlc3NhcnkgSSdkIGJlIGhhcHB5IHRvIHBy
+b3ZpZGUgYSBwYXRjaCBzd2l0Y2hpbmcgdGhlIHJ4IHRhc2sgdG8gdGhlDQo+IHRocmVhZGVkIGly
+cSwgdG9vLg0KPiANCj4gQW5kIHRvIGJlIGhvbmVzdDogdGhpcyB3b3VsZG4ndCB2ZXJpZnkgdGhh
+dCB0aGUgY29udHJvbCByaW5nIHJlbGF0ZWQgcGF0Y2ggaXMNCj4gcmVhbGx5IHdvcmtpbmcuIFRo
+ZSBtZWNoYW5pc20gaXRzZWxmIF9pc18gd29ya2luZyBhcyBpdCBpcyBhbHJlYWR5IGluIHVzZSBp
+bg0KPiB4ZW4tc2NzaWJhY2sgaW4gYSB2ZXJ5IHNpbWlsYXIgZW52aXJvbm1lbnQuDQo+IA0KDQpP
+ay4gSWYgeW91IGhhdmUgY29uZmlkZW5jZSB0aGVuLi4uDQoNClJldmlld2VkLWJ5OiBQYXVsIER1
+cnJhbnQgPHBhdWwuZHVycmFudEBjaXRyaXguY29tPg0KDQo+IA0KPiBKdWVyZ2VuDQo=
