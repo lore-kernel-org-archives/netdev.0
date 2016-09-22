@@ -1,35 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipvlan: fix building without netfilter
-Date: Thu, 22 Sep 2016 08:32:05 -0400 (EDT)
-Message-ID: <20160922.083205.2034005377472668654.davem@davemloft.net>
-References: <20160922094130.2154824-1-arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: maheshb@google.com, dsa@cumulusnetworks.com, edumazet@google.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160922094130.2154824-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can 2016-09-22
+Date: Thu, 22 Sep 2016 14:42:21 +0200
+Message-ID: <20160922124222.31598-1-mkl@pengutronix.de>
+Cc: davem@davemloft.net, linux-can@vger.kernel.org,
+        kernel@pengutronix.de
+To: netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Thu, 22 Sep 2016 11:40:52 +0200
+Hello David,
 
-> The new l3s mode in ipvlan relies on netfilter interfaces, but
-> the ipvlan driver can be configured when CONFIG_NETFILTER is disabled,
-> leading to a build error:
-> 
-> drivers/net/ipvlan/ipvlan.h:132:22: error: 'struct nf_hook_state' declared inside parameter list will not be visible outside of this definition or declaration [-Werror]
-> drivers/net/ipvlan/ipvlan_main.c:14:27: error: array type has incomplete element type 'struct nf_hook_ops'
-> ...
-> 
-> This adds a forward declaration for struct nf_hook_state, and hides
-> the newly added l3s code in an #ifdef.
-> 
-> Fixes: 4fbae7d83c98 ("ipvlan: Introduce l3s mode")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+this is a pull request of one patch for the upcoming linux-4.8 release.
 
-I'm pretty sure I applied a Kconfig patch that added the
-necessary dependency.
+The patch by Sergei Miroshnichenko fixes a potential deadlock in the generic
+CAN device code that cann occour after a bus-off.
+
+regards,
+Marc
+
+---
+
+The following changes since commit 7e32b44361abc77fbc01f2b97b045c405b2583e5:
+
+  tcp: properly account Fast Open SYN-ACK retrans (2016-09-22 03:33:01 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can.git tags/linux-can-fixes-for-4.8-20160922
+
+for you to fetch changes up to 9abefcb1aaa58b9d5aa40a8bb12c87d02415e4c8:
+
+  can: dev: fix deadlock reported after bus-off (2016-09-22 10:01:21 +0200)
+
+----------------------------------------------------------------
+linux-can-fixes-for-4.8-20160922
+
+----------------------------------------------------------------
+Sergei Miroshnichenko (1):
+      can: dev: fix deadlock reported after bus-off
+
+ drivers/net/can/dev.c   | 27 +++++++++++++++++----------
+ include/linux/can/dev.h |  3 ++-
+ 2 files changed, 19 insertions(+), 11 deletions(-)
+
