@@ -1,56 +1,42 @@
-From: <sean.wang@mediatek.com>
-Subject: [PATCH net-next] net: ethernet: mediatek: get out of potential invalid pointer access
-Date: Thu, 22 Sep 2016 16:44:16 +0800
-Message-ID: <1474533856-22753-1-git-send-email-sean.wang@mediatek.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [PATCH iproute2 2/2] ip rule: add selector support
+Date: Thu, 22 Sep 2016 10:45:53 +0200
+Message-ID: <20160922084553.GA22100@orbyte.nwl.cc>
+References: <1474525729-2845-1-git-send-email-liuhangbin@gmail.com>
+ <1474525729-2845-3-git-send-email-liuhangbin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>,
-        <linux-mediatek@lists.infradead.org>, <keyhaede@gmail.com>,
-        <objelf@gmail.com>, Sean Wang <sean.wang@mediatek.com>
-To: <john@phrozen.org>, <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+        Stephen Hemminger <stephen@networkplumber.org>
+To: Hangbin Liu <liuhangbin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw01.mediatek.com ([210.61.82.183]:15606 "EHLO
-        mailgw01.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752591AbcIVIoW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 04:44:22 -0400
+Received: from orbyte.nwl.cc ([151.80.46.58]:46146 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933083AbcIVIpz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 22 Sep 2016 04:45:55 -0400
+Content-Disposition: inline
+In-Reply-To: <1474525729-2845-3-git-send-email-liuhangbin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sean Wang <sean.wang@mediatek.com>
+On Thu, Sep 22, 2016 at 02:28:49PM +0800, Hangbin Liu wrote:
+[...]
+> diff --git a/man/man8/ip-rule.8 b/man/man8/ip-rule.8
+> index 3508d80..ec0e31d 100644
+> --- a/man/man8/ip-rule.8
+> +++ b/man/man8/ip-rule.8
+> @@ -15,7 +15,8 @@ ip-rule \- routing policy database management
+>  
+>  .ti -8
+>  .B  ip rule
+> -.RB "[ " list " ]"
+> +.RB "[ " list
+> +.I "[ " SELECTOR " ]]"
 
-Potential dangerous invalid pointer might be accessed if
-the error happens when couple phy_device to net_device so
-cleanup the error path.
+This makes the brackets cursive, too. Better use this instead:
 
-Signed-off-by: Sean Wang <sean.wang@mediatek.com>
----
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+| .RI "[ " SELECTOR " ]]"
 
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index a65801a..3d7e0cb 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -296,7 +296,9 @@ static int mtk_phy_connect(struct net_device *dev)
- 	regmap_write(eth->ethsys, ETHSYS_SYSCFG0, val);
- 
- 	/* couple phydev to net_device */
--	mtk_phy_connect_node(eth, mac, np);
-+	if (mtk_phy_connect_node(eth, mac, np))
-+		goto err_phy;
-+
- 	dev->phydev->autoneg = AUTONEG_ENABLE;
- 	dev->phydev->speed = 0;
- 	dev->phydev->duplex = 0;
-@@ -317,7 +319,7 @@ static int mtk_phy_connect(struct net_device *dev)
- 
- err_phy:
- 	of_node_put(np);
--	dev_err(eth->dev, "invalid phy_mode\n");
-+	dev_err(eth->dev, "%s: invalid phy\n", __func__);
- 	return -EINVAL;
- }
- 
--- 
-1.9.1
+Apart from that, LGTM!
+
+Thanks, Phil
