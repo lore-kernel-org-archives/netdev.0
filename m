@@ -1,63 +1,96 @@
-From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: [PATCH iproute2] misc/ss: tcp cwnd should be unsigned
-Date: Thu, 22 Sep 2016 16:40:28 +0800
-Message-ID: <1474533628-5784-1-git-send-email-liuhangbin@gmail.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        Phil Sutter <phil@nwl.cc>, Hangbin Liu <liuhangbin@gmail.com>
-To: netdev@vger.kernel.org
+From: <sean.wang@mediatek.com>
+Subject: [PATCH net-next] net: ethernet: mediatek: use [get|set]_link_ksettings
+Date: Thu, 22 Sep 2016 16:42:03 +0800
+Message-ID: <1474533723-22629-1-git-send-email-sean.wang@mediatek.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>,
+        <linux-mediatek@lists.infradead.org>, <keyhaede@gmail.com>,
+        <objelf@gmail.com>, Sean Wang <sean.wang@mediatek.com>
+To: <john@phrozen.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33909 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751468AbcIVIkt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 04:40:49 -0400
-Received: by mail-pf0-f195.google.com with SMTP id 21so3517119pfy.1
-        for <netdev@vger.kernel.org>; Thu, 22 Sep 2016 01:40:49 -0700 (PDT)
+Received: from mailgw01.mediatek.com ([210.61.82.183]:13405 "EHLO
+        mailgw01.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1754117AbcIVImK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 04:42:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tcp->snd_cwd is a u32, but ss treats it like a signed int. This may
-results in negative bandwidth calculations.
+From: Sean Wang <sean.wang@mediatek.com>
 
-Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+1) use new api [get|set]_link_ksettings instead
+of [get|set]_settings old ones.
+
+2) dev->phydev is sure being ready before calling
+these callbacks, so removing all the sanity check
+if it is existing.
+
+Signed-off-by: Sean Wang <sean.wang@mediatek.com>
 ---
- misc/ss.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 33 +++++++++++------------------
+ 1 file changed, 12 insertions(+), 21 deletions(-)
 
-diff --git a/misc/ss.c b/misc/ss.c
-index 3b268d9..f67557a 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -754,11 +754,12 @@ struct tcpstat {
- 	int		    probes;
- 	char		    cong_alg[16];
- 	double		    rto, ato, rtt, rttvar;
--	int		    qack, cwnd, ssthresh, backoff;
-+	int		    qack, ssthresh, backoff;
- 	double		    send_bps;
- 	int		    snd_wscale;
- 	int		    rcv_wscale;
- 	int		    mss;
-+	unsigned int	    cwnd;
- 	unsigned int	    lastsnd;
- 	unsigned int	    lastrcv;
- 	unsigned int	    lastack;
-@@ -1756,7 +1757,7 @@ static void tcp_stats_print(struct tcpstat *s)
- 	if (s->mss)
- 		printf(" mss:%d", s->mss);
- 	if (s->cwnd)
--		printf(" cwnd:%d", s->cwnd);
-+		printf(" cwnd:%u", s->cwnd);
- 	if (s->ssthresh)
- 		printf(" ssthresh:%d", s->ssthresh);
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+index 1918c39..a65801a 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -2034,35 +2034,26 @@ static int mtk_cleanup(struct mtk_eth *eth)
+ 	return 0;
+ }
  
-@@ -1856,7 +1857,7 @@ static int tcp_show_line(char *line, const struct filter *f, int family)
- 		return 0;
+-static int mtk_get_settings(struct net_device *dev,
+-			    struct ethtool_cmd *cmd)
++int mtk_get_link_ksettings(struct net_device *ndev,
++			   struct ethtool_link_ksettings *cmd)
+ {
+-	struct mtk_mac *mac = netdev_priv(dev);
+-	int err;
++	struct mtk_mac *mac = netdev_priv(ndev);
  
- 	opt[0] = 0;
--	n = sscanf(data, "%x %x:%x %x:%x %x %d %d %u %d %llx %d %d %d %d %d %[^\n]\n",
-+	n = sscanf(data, "%x %x:%x %x:%x %x %d %d %u %d %llx %d %d %d %u %d %[^\n]\n",
- 		   &s.ss.state, &s.ss.wq, &s.ss.rq,
- 		   &s.timer, &s.timeout, &s.retrans, &s.ss.uid, &s.probes,
- 		   &s.ss.ino, &s.ss.refcnt, &s.ss.sk, &rto, &ato, &s.qack, &s.cwnd,
+ 	if (unlikely(test_bit(MTK_RESETTING, &mac->hw->state)))
+ 		return -EBUSY;
+ 
+-	err = phy_read_status(dev->phydev);
+-	if (err)
+-		return -ENODEV;
+-
+-	return phy_ethtool_gset(dev->phydev, cmd);
++	return phy_ethtool_ksettings_get(ndev->phydev, cmd);
+ }
+ 
+-static int mtk_set_settings(struct net_device *dev,
+-			    struct ethtool_cmd *cmd)
++int mtk_set_link_ksettings(struct net_device *ndev,
++			   const struct ethtool_link_ksettings *cmd)
+ {
+-	struct mtk_mac *mac = netdev_priv(dev);
++	struct mtk_mac *mac = netdev_priv(ndev);
+ 
+-	if (cmd->phy_address != dev->phydev->mdio.addr) {
+-		dev->phydev = mdiobus_get_phy(mac->hw->mii_bus,
+-					       cmd->phy_address);
+-		if (!dev->phydev)
+-			return -ENODEV;
+-	}
++	if (unlikely(test_bit(MTK_RESETTING, &mac->hw->state)))
++		return -EBUSY;
+ 
+-	return phy_ethtool_sset(dev->phydev, cmd);
++	return phy_ethtool_ksettings_set(ndev->phydev, cmd);
+ }
+ 
+ static void mtk_get_drvinfo(struct net_device *dev,
+@@ -2225,8 +2216,8 @@ static int mtk_set_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd)
+ }
+ 
+ static const struct ethtool_ops mtk_ethtool_ops = {
+-	.get_settings		= mtk_get_settings,
+-	.set_settings		= mtk_set_settings,
++	.get_link_ksettings	= mtk_get_link_ksettings,
++	.set_link_ksettings	= mtk_set_link_ksettings,
+ 	.get_drvinfo		= mtk_get_drvinfo,
+ 	.get_msglevel		= mtk_get_msglevel,
+ 	.set_msglevel		= mtk_set_msglevel,
 -- 
-2.5.5
+1.9.1
