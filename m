@@ -1,56 +1,37 @@
-From: "R. Parameswaran" <parameswaran.r7@gmail.com>
-Subject: Re: [PATCH] L2TP:Adjust intf MTU, add underlay L3, overlay L2
-Date: Thu, 22 Sep 2016 14:19:13 -0700 (PDT)
-Message-ID: <alpine.DEB.2.11.1609221416340.7768@duvvury30.eng.vyatta.net>
-References: <ee265b42-893f-39b7-c740-b3e23b5058a2@gmail.com> <20160922085316.GA11264@dfawcus.brocade.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH net-next] net/vxlan: Avoid unaligned access in
+ vxlan_build_skb()
+Date: Thu, 22 Sep 2016 17:30:10 -0400
+Message-ID: <20160922213010.GA32052@oracle.com>
+References: <20160920163108.GP8920@oracle.com>
+ <20160920184333.17444823@griffin>
+ <20160920190929.57ddaeb0@griffin>
+ <20160922.015242.735026657310158125.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: "R. Parameswaran" <parameswaran.r7@gmail.com>, kleptog@svana.org,
-        jchapman@katalix.com, mostrows@speakeasy.net,
-        acme@xconectiva.com.br, netdev@vger.kernel.org, davem@redhat.com,
-        linux-kernel@vger.kernel.org, nprachan@brocade.com,
-        rshearma@brocade.com, stephen@networkplumber.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160922085316.GA11264@dfawcus.brocade.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jbenc@redhat.com, netdev@vger.kernel.org,
+        hannes@stressinduktion.org, aduyck@mirantis.com,
+        daniel@iogearbox.net, pabeni@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:20065 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933339AbcIVVaj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 17:30:39 -0400
+Content-Disposition: inline
+In-Reply-To: <20160922.015242.735026657310158125.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On (09/22/16 01:52), David Miller wrote:
+> Alternatively we can do Alexander Duyck's trick, by pushing
+> the headers into the frag list, forcing a pull and realignment
+> by the next protocol layer.
 
+What is the "Alexander Duyck trick" (hints about module or commit id,
+where this can be found, please)?
 
-On Thu, 22 Sep 2016, Derek Fawcus wrote:
+Is this basically about, e.g., putting the vxlanhdr in its own
+skb_frag_t, or something else?
 
-> On Wed, Sep 21, 2016 at 02:11:04pm -0700, R. Parameswaran wrote:
-> > 
-> [snip]
-> 
-> > @@ -206,6 +209,46 @@ static void l2tp_eth_show(struct seq_file *m, void
-> > *arg)
-> >  }
-> >  #endif
-> [snip]
-> 
-> > +
-> >  static int l2tp_eth_create(struct net *net, u32 tunnel_id, u32 session_id,
-> > u32 peer_session_id, struct l2tp_session_cfg *cfg)
-> >  {
-> >  	struct net_device *dev;
-> > @@ -255,11 +298,8 @@ static int l2tp_eth_create(struct net *net, u32
-> > tunnel_id, u32 session_id, u32 p
-> >  	}
-> > 
-> 
-> Your diff has whitespace errors,  probably where your MUA has decided to do
-> 'intelligent' line wrapping.
-> You should (re)send from a proper MUA which does not suffer from this issue.
-> 
-> DF
-> 
-
-Reposted the patch fixing this, and after rebasing the patch to the 
-dmiller 'net' tree, verified that 'git am -c' applies the reposted patch 
-successfully (after email header is removed) - thanks for identifying 
-this.
-
-regards,
-
-Ramkumar
+--Sowmini
