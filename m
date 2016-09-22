@@ -1,62 +1,53 @@
-From: Joe Perches <joe@perches.com>
-Subject: rfc: Are any of the seq_pad() uses really necessary?
-Date: Thu, 22 Sep 2016 14:52:08 -0700
-Message-ID: <1474581128.8253.35.camel@perches.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
-        LKML <linux-kernel@vger.kernel.org>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: sthemmin@exchange.microsoft.com
+Subject: [PATCH 1/7] hv_netvsc: use consume_skb
+Date: Thu, 22 Sep 2016 16:56:29 -0700
+Message-ID: <1474588595-16054-2-git-send-email-sthemmin@exchange.microsoft.com>
+References: <1474588595-16054-1-git-send-email-sthemmin@exchange.microsoft.com>
+Reply-To: sthemmin@microsoft.com
+Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
+To: "K. Y. Srinivasan" <kys@microsoft.com>,
+        Haiyang Zhang <haiyangz@microsoft.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from p3plsmtps2ded02.prod.phx3.secureserver.net ([208.109.80.59]:36100
+        "EHLO p3plsmtps2ded02.prod.phx3.secureserver.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1757850AbcIVWGH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 22 Sep 2016 18:06:07 -0400
+In-Reply-To: <1474588595-16054-1-git-send-email-sthemmin@exchange.microsoft.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-$ git grep -w seq_pad net
-net/ipv4/fib_trie.c:            seq_pad(seq, '\n');
-net/ipv4/ping.c:        seq_pad(seq, '\n');
-net/ipv4/tcp_ipv4.c:    seq_pad(seq, '\n');
-net/ipv4/udp.c: seq_pad(seq, '\n');
-net/phonet/socket.c:    seq_pad(seq, '\n');
-net/phonet/socket.c:    seq_pad(seq, '\n');
-net/sctp/objcnt.c:      seq_pad(seq, '\n');
+From: Stephen Hemminger <sthemmin@microsoft.com>
 
-what these uses do is add trailing blanks to a particular
-preset block width and then append a newline.
+Packets that are transmitted in normal path should use consume_skb
+instead of kfree_skb. This allows for better tracing of packet drops.
 
-None of these trailing pad bytes seem useful to me.
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-Are there really tools that expect specific line widths
-when reading from things like /proc/<pid>/net/<file>
-
-For instance:
-
-$ cat /proc/<pid>/net/udp
-  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode ref pointer drops             
-  484: 00000000:14E9 00000000:0000 07 00000000:00000000 00:00000000 00000000   111        0 16961 2 0000000000000000 0         
-  486: 00000000:14EB 00000000:0000 07 00000000:00000000 00:00000000 00000000   102        0 2022599 2 0000000000000000 0       
-  788: 00000000:A619 00000000:0000 07 00000000:00000000 00:00000000 00000000  1000        0 4390482 2 0000000000000000 0       
- 3081: 00000000:8F0E 00000000:0000 07 00000000:00000000 00:00000000 00000000   111        0 16963 2 0000000000000000 0         
- 3376: 3500007F:0035 00000000:0000 07 00000000:00000000 00:00000000 00000000   102        0 2022601 2 0000000000000000 0       
- 3391: 00000000:0044 00000000:0000 07 00000000:00000000 00:00000000 00000000     0        0 4546167 2 0000000000000000 0       
-
-These seq_pad uses were modified by:
-
->From 652586df95e5d76b37d07a11839126dcfede1621 Mon Sep 17 00:00:00 2001
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Date: Thu, 14 Nov 2013 14:31:57 -0800
-Subject: [PATCH] seq_file: remove "%n" usage from seq_file users
-
-All seq_printf() users are using "%n" for calculating padding size,
-convert them to use seq_setwidth() / seq_pad() pair.
-
-Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Signed-off-by: Kees Cook <keescook@chromium.org>
-Cc: Joe Perches <joe@perches.com>
-Cc: David Miller <davem@davemloft.net>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
-
-If these are really necessary, then maybe the seq_pad function
-could be optimized using a memset instead of
-	seq_printf(, "%*s", len, "");
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index ff05b9b..720b5fa 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -635,7 +635,7 @@ static void netvsc_send_tx_complete(struct netvsc_device *net_device,
+ 		q_idx = nvsc_packet->q_idx;
+ 		channel = incoming_channel;
+ 
+-		dev_kfree_skb_any(skb);
++		dev_consume_skb_any(skb);
+ 	}
+ 
+ 	num_outstanding_sends =
+@@ -944,7 +944,7 @@ int netvsc_send(struct hv_device *device,
+ 		}
+ 
+ 		if (msdp->skb)
+-			dev_kfree_skb_any(msdp->skb);
++			dev_consume_skb_any(msdp->skb);
+ 
+ 		if (xmit_more && !packet->cp_partial) {
+ 			msdp->skb = skb;
+-- 
+1.7.4.1
