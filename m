@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/2] make POSIX timers optional
-Date: Thu, 22 Sep 2016 02:09:41 -0400 (EDT)
-Message-ID: <20160922.020941.60363145556877289.davem@davemloft.net>
-References: <1474401400-18491-1-git-send-email-nicolas.pitre@linaro.org>
+Subject: Re: [PATCH 1/2] net: ethernet: hisilicon: hns: use phydev from
+ struct net_device
+Date: Thu, 22 Sep 2016 02:12:02 -0400 (EDT)
+Message-ID: <20160922.021202.1167465769111094114.davem@davemloft.net>
+References: <1474403412-18748-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: john.stultz@linaro.org, tglx@linutronix.de,
-        richardcochran@gmail.com, josh@joshtriplett.org,
+Cc: yisen.zhuang@huawei.com, salil.mehta@huawei.com,
+        yankejian@huawei.com, huangdaode@hisilicon.com,
+        lisheng011@huawei.com, xieqianqian@huawei.com, arnd@arndb.de,
+        lipeng321@huawei.com, andrew@lunn.ch, chenny.xu@huawei.com,
         netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: nicolas.pitre@linaro.org
+To: tremyfr@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1474401400-18491-1-git-send-email-nicolas.pitre@linaro.org>
+In-Reply-To: <1474403412-18748-1-git-send-email-tremyfr@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Nicolas Pitre <nicolas.pitre@linaro.org>
-Date: Tue, 20 Sep 2016 15:56:38 -0400
+From: Philippe Reynes <tremyfr@gmail.com>
+Date: Tue, 20 Sep 2016 22:30:11 +0200
 
-> Many embedded systems don't need the full POSIX timer support.
-> Configuring them out provides a nice kernel image size reduction.
+> The private structure contain a pointer to phydev, but the structure
+> net_device already contain such pointer. So we can remove the pointer
+> phydev in the private structure, and update the driver to use the
+> one contained in struct net_device.
 > 
-> When POSIX timers are configured out, the PTP clock subsystem should be
-> left out as well. However a bunch of ethernet drivers currently *select*
-> it in their Kconfig entries. Therefore some more tweaks were needed to
-> break that hard dependency for those drivers to still be configured in
-> if desired.
-> 
-> It was agreed that the best path upstream for those patches is via
-> John Stultz's timer tree.
+> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 
-Acked-by: David S. Miller <davem@davemloft.net>
+Applied.
