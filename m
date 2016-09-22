@@ -1,27 +1,44 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCH iproute2] misc/ss: tcp cwnd should be unsigned
-Date: Thu, 22 Sep 2016 10:48:20 +0200
-Message-ID: <20160922084820.GB22100@orbyte.nwl.cc>
-References: <1474533628-5784-1-git-send-email-liuhangbin@gmail.com>
+From: Derek Fawcus <dfawcus@brocade.com>
+Subject: Re: [PATCH] L2TP:Adjust intf MTU, add underlay L3, overlay L2
+Date: Thu, 22 Sep 2016 09:53:16 +0100
+Message-ID: <20160922085316.GA11264@dfawcus.brocade.com>
+References: <ee265b42-893f-39b7-c740-b3e23b5058a2@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: Hangbin Liu <liuhangbin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:42114 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756117AbcIVIsW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 22 Sep 2016 04:48:22 -0400
+Content-Type: text/plain; charset="us-ascii"
+Cc: <kleptog@svana.org>, <jchapman@katalix.com>,
+        <mostrows@speakeasy.net>, <acme@xconectiva.com.br>,
+        <netdev@vger.kernel.org>, <davem@redhat.com>,
+        <linux-kernel@vger.kernel.org>, <nprachan@brocade.com>,
+        <rshearma@brocade.com>, <stephen@networkplumber.org>
+To: "R. Parameswaran" <parameswaran.r7@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1474533628-5784-1-git-send-email-liuhangbin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <ee265b42-893f-39b7-c740-b3e23b5058a2@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 22, 2016 at 04:40:28PM +0800, Hangbin Liu wrote:
-> tcp->snd_cwd is a u32, but ss treats it like a signed int. This may
-> results in negative bandwidth calculations.
+On Wed, Sep 21, 2016 at 02:11:04pm -0700, R. Parameswaran wrote:
 > 
-> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+[snip]
 
-Acked-by: Phil Sutter <phil@nwl.cc>
+> @@ -206,6 +209,46 @@ static void l2tp_eth_show(struct seq_file *m, void
+> *arg)
+>  }
+>  #endif
+[snip]
+
+> +
+>  static int l2tp_eth_create(struct net *net, u32 tunnel_id, u32 session_id,
+> u32 peer_session_id, struct l2tp_session_cfg *cfg)
+>  {
+>  	struct net_device *dev;
+> @@ -255,11 +298,8 @@ static int l2tp_eth_create(struct net *net, u32
+> tunnel_id, u32 session_id, u32 p
+>  	}
+> 
+
+Your diff has whitespace errors,  probably where your MUA has decided to do
+'intelligent' line wrapping.
+You should (re)send from a proper MUA which does not suffer from this issue.
+
+DF
