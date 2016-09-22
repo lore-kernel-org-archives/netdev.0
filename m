@@ -1,160 +1,87 @@
-From: Juergen Gross <jgross@suse.com>
-Subject: [PATCH resend 2] xen-netback: switch to threaded irq for control ring
-Date: Thu, 22 Sep 2016 11:06:25 +0200
-Message-ID: <1474535185-15734-1-git-send-email-jgross@suse.com>
-Cc: wei.liu2@citrix.com, Juergen Gross <jgross@suse.com>
-To: xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: [PATCH net-next V3 1/5] net/mlx4_core: Fix QUERY FUNC CAP flags
+Date: Thu, 22 Sep 2016 12:11:12 +0300
+Message-ID: <1474535476-10662-2-git-send-email-tariqt@mellanox.com>
+References: <1474535476-10662-1-git-send-email-tariqt@mellanox.com>
+Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+        Moshe Shemesh <moshe@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Ariel Elior <ariel.elior@qlogic.com>,
+        Sathya Perla <sathya.perla@broadcom.com>,
+        Ajit Khaparde <ajit.khaparde@broadcom.com>,
+        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>,
+        Somnath Kotur <somnath.kotur@broadcom.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Yuval Mintz <Yuval.Mintz@qlogic.com>,
+        Ariel Elior <Ariel.Elior@qlogic.com>,
+        Dept-GELinuxNICDev@qlogic.com,
+        Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+        Edward Cree <ecree@solarflare.com>,
+        Bert Kenward <bkenward@solarflare.com>,
+        Tariq Toukan <tariqt@mel
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:43279 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1755979AbcIVJME (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 05:12:04 -0400
+In-Reply-To: <1474535476-10662-1-git-send-email-tariqt@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Instead of open coding it use the threaded irq mechanism in
-xen-netback.
+From: Moshe Shemesh <moshe@mellanox.com>
 
-Signed-off-by: Juergen Gross <jgross@suse.com>
+Separate QUERY_FUNC_CAP flags0 from QUERY_FUNC_CAP flags, as 'flags' is
+already used for another set of flags in FUNC CAP, while phv bit should be
+part of a different set of flags.
+Remove QUERY_FUNC_CAP port_flags field, as it is not in use.
+
+Fixes: 77fc29c4bbbb ('net/mlx4_core: Preparations for 802.1ad VLAN support')
+Fixes: 5cc914f10851 ('mlx4_core: Added FW commands and their wrappers for supporting SRIOV')
+Signed-off-by: Moshe Shemesh <moshe@mellanox.com>
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 ---
-resend due to missing netdev list in first attempt and wrong address in second.
----
- drivers/net/xen-netback/common.h    |  4 +---
- drivers/net/xen-netback/interface.c | 38 ++++++-------------------------------
- drivers/net/xen-netback/netback.c   | 18 ++++--------------
- 3 files changed, 11 insertions(+), 49 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/fw.c | 5 ++---
+ drivers/net/ethernet/mellanox/mlx4/fw.h | 2 +-
+ 2 files changed, 3 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index 84d6cbd..b38fb2c 100644
---- a/drivers/net/xen-netback/common.h
-+++ b/drivers/net/xen-netback/common.h
-@@ -292,8 +292,6 @@ struct xenvif {
- #endif
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
+index d728704d0c7b..c7523307b41a 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
+@@ -612,8 +612,7 @@ int mlx4_QUERY_FUNC_CAP(struct mlx4_dev *dev, u8 gen_or_port,
+ 		MLX4_GET(func_cap->phys_port_id, outbox,
+ 			 QUERY_FUNC_CAP_PHYS_PORT_ID);
  
- 	struct xen_netif_ctrl_back_ring ctrl;
--	struct task_struct *ctrl_task;
--	wait_queue_head_t ctrl_wq;
- 	unsigned int ctrl_irq;
+-	MLX4_GET(field, outbox, QUERY_FUNC_CAP_FLAGS0_OFFSET);
+-	func_cap->flags |= (field & QUERY_FUNC_CAP_PHV_BIT);
++	MLX4_GET(func_cap->flags0, outbox, QUERY_FUNC_CAP_FLAGS0_OFFSET);
  
- 	/* Miscellaneous private stuff. */
-@@ -359,7 +357,7 @@ void xenvif_kick_thread(struct xenvif_queue *queue);
- 
- int xenvif_dealloc_kthread(void *data);
- 
--int xenvif_ctrl_kthread(void *data);
-+irqreturn_t xenvif_ctrl_irq_fn(int irq, void *data);
- 
- void xenvif_rx_queue_tail(struct xenvif_queue *queue, struct sk_buff *skb);
- 
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index 83deeeb..fb50c6d 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -128,15 +128,6 @@ irqreturn_t xenvif_interrupt(int irq, void *dev_id)
- 	return IRQ_HANDLED;
+ 	/* All other resources are allocated by the master, but we still report
+ 	 * 'num' and 'reserved' capabilities as follows:
+@@ -2914,7 +2913,7 @@ int get_phv_bit(struct mlx4_dev *dev, u8 port, int *phv)
+ 	memset(&func_cap, 0, sizeof(func_cap));
+ 	err = mlx4_QUERY_FUNC_CAP(dev, port, &func_cap);
+ 	if (!err)
+-		*phv = func_cap.flags & QUERY_FUNC_CAP_PHV_BIT;
++		*phv = func_cap.flags0 & QUERY_FUNC_CAP_PHV_BIT;
+ 	return err;
  }
- 
--irqreturn_t xenvif_ctrl_interrupt(int irq, void *dev_id)
--{
--	struct xenvif *vif = dev_id;
--
--	wake_up(&vif->ctrl_wq);
--
--	return IRQ_HANDLED;
--}
--
- int xenvif_queue_stopped(struct xenvif_queue *queue)
- {
- 	struct net_device *dev = queue->vif->dev;
-@@ -570,8 +561,7 @@ int xenvif_connect_ctrl(struct xenvif *vif, grant_ref_t ring_ref,
- 	struct net_device *dev = vif->dev;
- 	void *addr;
- 	struct xen_netif_ctrl_sring *shared;
--	struct task_struct *task;
--	int err = -ENOMEM;
-+	int err;
- 
- 	err = xenbus_map_ring_valloc(xenvif_to_xenbus_device(vif),
- 				     &ring_ref, 1, &addr);
-@@ -581,11 +571,7 @@ int xenvif_connect_ctrl(struct xenvif *vif, grant_ref_t ring_ref,
- 	shared = (struct xen_netif_ctrl_sring *)addr;
- 	BACK_RING_INIT(&vif->ctrl, shared, XEN_PAGE_SIZE);
- 
--	init_waitqueue_head(&vif->ctrl_wq);
--
--	err = bind_interdomain_evtchn_to_irqhandler(vif->domid, evtchn,
--						    xenvif_ctrl_interrupt,
--						    0, dev->name, vif);
-+	err = bind_interdomain_evtchn_to_irq(vif->domid, evtchn);
- 	if (err < 0)
- 		goto err_unmap;
- 
-@@ -593,19 +579,13 @@ int xenvif_connect_ctrl(struct xenvif *vif, grant_ref_t ring_ref,
- 
- 	xenvif_init_hash(vif);
- 
--	task = kthread_create(xenvif_ctrl_kthread, (void *)vif,
--			      "%s-control", dev->name);
--	if (IS_ERR(task)) {
--		pr_warn("Could not allocate kthread for %s\n", dev->name);
--		err = PTR_ERR(task);
-+	err = request_threaded_irq(vif->ctrl_irq, NULL, xenvif_ctrl_irq_fn,
-+				   IRQF_ONESHOT, "xen-netback-ctrl", vif);
-+	if (err) {
-+		pr_warn("Could not setup irq handler for %s\n", dev->name);
- 		goto err_deinit;
- 	}
- 
--	get_task_struct(task);
--	vif->ctrl_task = task;
--
--	wake_up_process(vif->ctrl_task);
--
- 	return 0;
- 
- err_deinit:
-@@ -774,12 +754,6 @@ void xenvif_disconnect_data(struct xenvif *vif)
- 
- void xenvif_disconnect_ctrl(struct xenvif *vif)
- {
--	if (vif->ctrl_task) {
--		kthread_stop(vif->ctrl_task);
--		put_task_struct(vif->ctrl_task);
--		vif->ctrl_task = NULL;
--	}
--
- 	if (vif->ctrl_irq) {
- 		xenvif_deinit_hash(vif);
- 		unbind_from_irqhandler(vif->ctrl_irq, vif);
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index edbae0b..3d0c989 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -2359,24 +2359,14 @@ static bool xenvif_ctrl_work_todo(struct xenvif *vif)
- 	return 0;
- }
- 
--int xenvif_ctrl_kthread(void *data)
-+irqreturn_t xenvif_ctrl_irq_fn(int irq, void *data)
- {
- 	struct xenvif *vif = data;
- 
--	for (;;) {
--		wait_event_interruptible(vif->ctrl_wq,
--					 xenvif_ctrl_work_todo(vif) ||
--					 kthread_should_stop());
--		if (kthread_should_stop())
--			break;
-+	while (xenvif_ctrl_work_todo(vif))
-+		xenvif_ctrl_action(vif);
- 
--		while (xenvif_ctrl_work_todo(vif))
--			xenvif_ctrl_action(vif);
--
--		cond_resched();
--	}
--
--	return 0;
-+	return IRQ_HANDLED;
- }
- 
- static int __init netback_init(void)
+ EXPORT_SYMBOL(get_phv_bit);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.h b/drivers/net/ethernet/mellanox/mlx4/fw.h
+index cdbd76f10ced..f11614f12517 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.h
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.h
+@@ -152,7 +152,7 @@ struct mlx4_func_cap {
+ 	u32	qp1_proxy_qpn;
+ 	u32	reserved_lkey;
+ 	u8	physical_port;
+-	u8	port_flags;
++	u8	flags0;
+ 	u8	flags1;
+ 	u64	phys_port_id;
+ 	u32	extra_flags;
 -- 
-2.6.6
+1.8.3.1
