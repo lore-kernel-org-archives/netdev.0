@@ -1,277 +1,143 @@
-From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: [PATCH iproute2 2/2] ip rule: add selector support
-Date: Thu, 22 Sep 2016 14:28:49 +0800
-Message-ID: <1474525729-2845-3-git-send-email-liuhangbin@gmail.com>
-References: <1474525729-2845-1-git-send-email-liuhangbin@gmail.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        Phil Sutter <phil@nwl.cc>, Hangbin Liu <liuhangbin@gmail.com>
-To: netdev@vger.kernel.org
+From: fgao@ikuai8.com
+Subject: [PATCH nf v4] netfilter: seqadj: Fix the wrong ack adjust for the RST packet without ack
+Date: Thu, 22 Sep 2016 14:29:55 +0800
+Message-ID: <1474525795-25446-1-git-send-email-fgao@ikuai8.com>
+Cc: gfree.wind@gmail.com, Gao Feng <fgao@ikuai8.com>
+To: pablo@netfilter.org, kaber@trash.net,
+        netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:34172 "EHLO
-        mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753311AbcIVG30 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 02:29:26 -0400
-Received: by mail-pa0-f65.google.com with SMTP id i5so75072pad.1
-        for <netdev@vger.kernel.org>; Wed, 21 Sep 2016 23:29:26 -0700 (PDT)
-In-Reply-To: <1474525729-2845-1-git-send-email-liuhangbin@gmail.com>
+Received: from smtpbg292.qq.com ([113.108.11.231]:52372 "EHLO smtpbg292.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753070AbcIVGbd (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 22 Sep 2016 02:31:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
----
- ip/iprule.c        | 180 +++++++++++++++++++++++++++++++++++++++++++++++++++--
- man/man8/ip-rule.8 |   6 +-
- 2 files changed, 180 insertions(+), 6 deletions(-)
+From: Gao Feng <fgao@ikuai8.com>
 
-diff --git a/ip/iprule.c b/ip/iprule.c
-index e18505f..42fb6af 100644
---- a/ip/iprule.c
-+++ b/ip/iprule.c
-@@ -20,6 +20,7 @@
- #include <netinet/ip.h>
- #include <arpa/inet.h>
- #include <string.h>
-+#include <linux/if.h>
- #include <linux/fib_rules.h>
- #include <errno.h>
+It is valid that the TCP RST packet which does not set ack flag, and bytes
+of ack number are zero. But current seqadj codes would adjust the "0" ack
+to invalid ack number. Actually seqadj need to check the ack flag before
+adjust it for these RST packets.
+
+The following is my test case
+
+client is 10.26.98.245, and add one iptable rule:
+iptables  -I INPUT -p tcp --sport 12345 -m connbytes --connbytes 2:
+--connbytes-dir reply --connbytes-mode packets -j REJECT --reject-with
+tcp-reset
+This iptables rule could generate on TCP RST without ack flag.
+
+server:10.172.135.55
+Enable the synproxy with seqadjust by the following iptables rules
+iptables -t raw -A PREROUTING -i eth0 -p tcp -d 10.172.135.55 --dport 12345
+-m tcp --syn -j CT --notrack
+
+iptables -A INPUT -i eth0 -p tcp -d 10.172.135.55 --dport 12345 -m conntrack
+--ctstate INVALID,UNTRACKED -j SYNPROXY --sack-perm --timestamp --wscale 7
+--mss 1460
+iptables -A OUTPUT -o eth0 -p tcp -s 10.172.135.55 --sport 12345 -m conntrack
+--ctstate INVALID,UNTRACKED -m tcp --tcp-flags SYN,RST,ACK SYN,ACK -j ACCEPT
+
+The following is my test result.
+
+1. packet trace on client
+root@routers:/tmp# tcpdump -i eth0 tcp port 12345 -n
+tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+listening on eth0, link-type EN10MB (Ethernet), capture size 65535 bytes
+IP 10.26.98.245.45154 > 10.172.135.55.12345: Flags [S], seq 3695959829,
+win 29200, options [mss 1460,sackOK,TS val 452367884 ecr 0,nop,wscale 7],
+length 0
+IP 10.172.135.55.12345 > 10.26.98.245.45154: Flags [S.], seq 546723266,
+ack 3695959830, win 0, options [mss 1460,sackOK,TS val 15643479 ecr 452367884,
+nop,wscale 7], length 0
+IP 10.26.98.245.45154 > 10.172.135.55.12345: Flags [.], ack 1, win 229,
+options [nop,nop,TS val 452367885 ecr 15643479], length 0
+IP 10.172.135.55.12345 > 10.26.98.245.45154: Flags [.], ack 1, win 226,
+options [nop,nop,TS val 15643479 ecr 452367885], length 0
+IP 10.26.98.245.45154 > 10.172.135.55.12345: Flags [R], seq 3695959830,
+win 0, length 0
+
+2. seqadj log on server
+[62873.867319] Adjusting sequence number from 602341895->546723267,
+ack from 3695959830->3695959830
+[62873.867644] Adjusting sequence number from 602341895->546723267,
+ack from 3695959830->3695959830
+[62873.869040] Adjusting sequence number from 3695959830->3695959830,
+ack from 0->55618628
+
+To summarize, it is clear that the seqadj codes adjust the 0 ack when receive
+one TCP RST packet without ack.
+
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
+---
+ v4: Don't invoke nf_ct_sack_adjust when no ack flag
+ v3: Add the reproduce steps and packet trace
+ v2: Regenerate because the first patch is removed
+ v1: Initial patch
+
+ net/netfilter/nf_conntrack_seqadj.c | 37 ++++++++++++++++++++-----------------
+ 1 file changed, 20 insertions(+), 17 deletions(-)
+
+diff --git a/net/netfilter/nf_conntrack_seqadj.c b/net/netfilter/nf_conntrack_seqadj.c
+index dff0f0c..80ab429 100644
+--- a/net/netfilter/nf_conntrack_seqadj.c
++++ b/net/netfilter/nf_conntrack_seqadj.c
+@@ -169,7 +169,7 @@ int nf_ct_seq_adjust(struct sk_buff *skb,
+ 	s32 seqoff, ackoff;
+ 	struct nf_conn_seqadj *seqadj = nfct_seqadj(ct);
+ 	struct nf_ct_seqadj *this_way, *other_way;
+-	int res;
++	int res = 1;
  
-@@ -41,7 +42,7 @@ static void usage(void)
- {
- 	fprintf(stderr, "Usage: ip rule { add | del } SELECTOR ACTION\n");
- 	fprintf(stderr, "       ip rule { flush | save | restore }\n");
--	fprintf(stderr, "       ip rule [ list ]\n");
-+	fprintf(stderr, "       ip rule [ list [ SELECTOR ]]\n");
- 	fprintf(stderr, "SELECTOR := [ not ] [ from PREFIX ] [ to PREFIX ] [ tos TOS ] [ fwmark FWMARK[/MASK] ]\n");
- 	fprintf(stderr, "            [ iif STRING ] [ oif STRING ] [ pref NUMBER ] [ l3mdev ]\n");
- 	fprintf(stderr, "ACTION := [ table TABLE_ID ]\n");
-@@ -55,6 +56,105 @@ static void usage(void)
- 	exit(-1);
- }
+ 	this_way  = &seqadj->seq[dir];
+ 	other_way = &seqadj->seq[!dir];
+@@ -184,27 +184,30 @@ int nf_ct_seq_adjust(struct sk_buff *skb,
+ 	else
+ 		seqoff = this_way->offset_before;
  
-+static struct
-+{
-+	int not;
-+	int l3mdev;
-+	int iifmask, oifmask;
-+	unsigned int tb;
-+	unsigned int tos, tosmask;
-+	unsigned int pref, prefmask;
-+	unsigned int fwmark, fwmask;
-+	char iif[IFNAMSIZ];
-+	char oif[IFNAMSIZ];
-+	inet_prefix src;
-+	inet_prefix dst;
-+} filter;
+-	if (after(ntohl(tcph->ack_seq) - other_way->offset_before,
+-		  other_way->correction_pos))
+-		ackoff = other_way->offset_after;
+-	else
+-		ackoff = other_way->offset_before;
+-
+ 	newseq = htonl(ntohl(tcph->seq) + seqoff);
+-	newack = htonl(ntohl(tcph->ack_seq) - ackoff);
+-
+ 	inet_proto_csum_replace4(&tcph->check, skb, tcph->seq, newseq, false);
+-	inet_proto_csum_replace4(&tcph->check, skb, tcph->ack_seq, newack,
+-				 false);
++	pr_debug("Adjusting sequence number from %u->%u\n",
++		 ntohl(tcph->seq), ntohl(newseq));
++	tcph->seq = newseq;
+ 
+-	pr_debug("Adjusting sequence number from %u->%u, ack from %u->%u\n",
+-		 ntohl(tcph->seq), ntohl(newseq), ntohl(tcph->ack_seq),
+-		 ntohl(newack));
++	if (likely(tcph->ack)) {
++		if (after(ntohl(tcph->ack_seq) - other_way->offset_before,
++			  other_way->correction_pos))
++			ackoff = other_way->offset_after;
++		else
++			ackoff = other_way->offset_before;
+ 
+-	tcph->seq = newseq;
+-	tcph->ack_seq = newack;
++		newack = htonl(ntohl(tcph->ack_seq) - ackoff);
++		inet_proto_csum_replace4(&tcph->check, skb, tcph->ack_seq,
++					 newack, false);
++		pr_debug("Adjusting ack number from %u->%u, ack from %u->%u\n",
++			 ntohl(tcph->seq), ntohl(newseq), ntohl(tcph->ack_seq),
++			 ntohl(newack));
++		tcph->ack_seq = newack;
 +
-+static bool filter_nlmsg(struct nlmsghdr *n, struct rtattr **tb, int host_len)
-+{
-+	struct rtmsg *r = NLMSG_DATA(n);
-+	inet_prefix src = { .family = r->rtm_family };
-+	inet_prefix dst = { .family = r->rtm_family };
-+	__u32 table;
-+
-+	if (preferred_family != AF_UNSPEC && r->rtm_family != preferred_family)
-+		return false;
-+
-+	if (filter.prefmask &&
-+	    filter.pref ^ (tb[FRA_PRIORITY] ? rta_getattr_u32(tb[FRA_PRIORITY]) : 0))
-+		return false;
-+	if (filter.not && !(r->rtm_flags & FIB_RULE_INVERT))
-+		return false;
-+
-+	if (filter.src.family) {
-+		if (tb[FRA_SRC]) {
-+			memcpy(&src.data, RTA_DATA(tb[FRA_SRC]),
-+			       (r->rtm_src_len + 7) / 8);
-+		}
-+		if (filter.src.family != r->rtm_family ||
-+		    filter.src.bitlen > r->rtm_src_len ||
-+		    inet_addr_match(&src, &filter.src, filter.src.bitlen))
-+			return false;
++		res = nf_ct_sack_adjust(skb, protoff, tcph, ct, ctinfo);
 +	}
-+
-+	if (filter.dst.family) {
-+		if (tb[FRA_DST]) {
-+			memcpy(&dst.data, RTA_DATA(tb[FRA_DST]),
-+			       (r->rtm_dst_len + 7) / 8);
-+		}
-+		if (filter.dst.family != r->rtm_family ||
-+		    filter.dst.bitlen > r->rtm_dst_len ||
-+		    inet_addr_match(&dst, &filter.dst, filter.dst.bitlen))
-+			return false;
-+	}
-+
-+	if (filter.tosmask && filter.tos ^ r->rtm_tos)
-+		return false;
-+
-+	if (filter.fwmark) {
-+		__u32 mark = 0;
-+		if (tb[FRA_FWMARK])
-+			mark = rta_getattr_u32(tb[FRA_FWMARK]);
-+		if (filter.fwmark ^ mark)
-+			return false;
-+	}
-+	if (filter.fwmask) {
-+		__u32 mask = 0;
-+		if (tb[FRA_FWMASK])
-+			mask = rta_getattr_u32(tb[FRA_FWMASK]);
-+		if (filter.fwmask ^ mask)
-+			return false;
-+	}
-+
-+	if (filter.iifmask) {
-+		if (tb[FRA_IFNAME]) {
-+			if (strcmp(filter.iif, rta_getattr_str(tb[FRA_IFNAME])) != 0)
-+				return false;
-+		} else {
-+			return false;
-+		}
-+	}
-+
-+	if (filter.oifmask) {
-+		if (tb[FRA_OIFNAME]) {
-+			if (strcmp(filter.oif, rta_getattr_str(tb[FRA_OIFNAME])) != 0)
-+				return false;
-+		} else {
-+			return false;
-+		}
-+	}
-+
-+	if (filter.l3mdev && !(tb[FRA_L3MDEV] && rta_getattr_u8(tb[FRA_L3MDEV])))
-+		return false;
-+
-+	table = rtm_get_table(r, tb);
-+	if (filter.tb > 0 && filter.tb ^ table)
-+		return false;
-+
-+	return true;
-+}
-+
- int print_rule(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- {
- 	FILE *fp = (FILE *)arg;
-@@ -77,6 +177,9 @@ int print_rule(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
  
- 	host_len = af_bit_len(r->rtm_family);
+-	res = nf_ct_sack_adjust(skb, protoff, tcph, ct, ctinfo);
+ 	spin_unlock_bh(&ct->lock);
  
-+	if(!filter_nlmsg(n, tb, host_len))
-+		return 0;
-+
- 	if (n->nlmsg_type == RTM_DELRULE)
- 		fprintf(fp, "Deleted ");
- 
-@@ -287,9 +390,9 @@ static int iprule_list_flush_or_save(int argc, char **argv, int action)
- 	if (af == AF_UNSPEC)
- 		af = AF_INET;
- 
--	if (argc > 0) {
--		fprintf(stderr,
--			"\"ip rule list/flush/save\" does not take any arguments\n");
-+	if (action != IPRULE_LIST && argc > 0) {
-+		fprintf(stderr, "\"ip rule %s\" does not take any arguments.\n",
-+				action == IPRULE_SAVE ? "save" : "flush");
- 		return -1;
- 	}
- 
-@@ -306,6 +409,75 @@ static int iprule_list_flush_or_save(int argc, char **argv, int action)
- 		filter_fn = print_rule;
- 	}
- 
-+	memset(&filter, 0, sizeof(filter));
-+
-+	while (argc > 0) {
-+		if (matches(*argv, "preference") == 0 ||
-+		    matches(*argv, "order") == 0 ||
-+		    matches(*argv, "priority") == 0) {
-+			__u32 pref;
-+			NEXT_ARG();
-+			if (get_u32(&pref, *argv, 0))
-+				invarg("preference value is invalid\n", *argv);
-+			filter.pref = pref;
-+			filter.prefmask = 1;
-+		} else if (strcmp(*argv, "not") == 0) {
-+			filter.not = 1;
-+		} else if (strcmp(*argv, "tos") == 0) {
-+			__u32 tos;
-+			NEXT_ARG();
-+			if (rtnl_dsfield_a2n(&tos, *argv))
-+				invarg("TOS value is invalid\n", *argv);
-+			filter.tos = tos;
-+			filter.tosmask = 1;
-+		} else if (strcmp(*argv, "fwmark") == 0) {
-+			char *slash;
-+			__u32 fwmark, fwmask;
-+			NEXT_ARG();
-+			slash = strchr(*argv, '/');
-+			if (slash != NULL)
-+				*slash = '\0';
-+			if (get_u32(&fwmark, *argv, 0))
-+				invarg("fwmark value is invalid\n", *argv);
-+			filter.fwmark = fwmark;
-+			if (slash) {
-+				if (get_u32(&fwmask, slash+1, 0))
-+					invarg("fwmask value is invalid\n",
-+					       slash+1);
-+				filter.fwmask = fwmask;
-+			}
-+		} else if (strcmp(*argv, "dev") == 0 ||
-+			   strcmp(*argv, "iif") == 0) {
-+			NEXT_ARG();
-+			strncpy(filter.iif, *argv, IFNAMSIZ);
-+			filter.iifmask = 1;
-+		} else if (strcmp(*argv, "oif") == 0) {
-+			NEXT_ARG();
-+			strncpy(filter.oif, *argv, IFNAMSIZ);
-+			filter.oifmask = 1;
-+		} else if (strcmp(*argv, "l3mdev") == 0) {
-+			filter.l3mdev = 1;
-+		} else if (matches(*argv, "lookup") == 0 ||
-+			   matches(*argv, "table") == 0 ) {
-+			__u32 tid;
-+			NEXT_ARG();
-+			if (rtnl_rttable_a2n(&tid, *argv))
-+				invarg("table id value is invalid\n", *argv);
-+			filter.tb = tid;
-+		} else if (matches(*argv, "from") == 0 ||
-+			   matches(*argv, "src") == 0) {
-+			NEXT_ARG();
-+			get_prefix(&filter.src, *argv, af);
-+		} else {
-+			if (matches(*argv, "dst") == 0 ||
-+			    matches(*argv, "to") == 0) {
-+				NEXT_ARG();
-+			}
-+			get_prefix(&filter.dst, *argv, af);
-+		}
-+		argc--; argv++;
-+	}
-+
- 	if (rtnl_wilddump_request(&rth, af, RTM_GETRULE) < 0) {
- 		perror("Cannot send dump request");
- 		return 1;
-diff --git a/man/man8/ip-rule.8 b/man/man8/ip-rule.8
-index 3508d80..ec0e31d 100644
---- a/man/man8/ip-rule.8
-+++ b/man/man8/ip-rule.8
-@@ -15,7 +15,8 @@ ip-rule \- routing policy database management
- 
- .ti -8
- .B  ip rule
--.RB "[ " list " ]"
-+.RB "[ " list
-+.I "[ " SELECTOR " ]]"
- 
- .ti -8
- .B  ip rule
-@@ -42,7 +43,8 @@ ip-rule \- routing policy database management
- .B  oif
- .IR STRING " ] [ "
- .B  pref
--.IR NUMBER " ]"
-+.IR NUMBER " ] [ "
-+.BR l3mdev " ]"
- 
- .ti -8
- .IR ACTION " := [ "
+ 	return res;
 -- 
-2.5.5
+1.9.1
