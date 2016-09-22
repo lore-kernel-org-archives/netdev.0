@@ -1,63 +1,139 @@
-From: Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v6 5/6] net: ipv4, ipv6: run cgroup eBPF egress programs
-Date: Thu, 22 Sep 2016 17:53:58 +0200
-Message-ID: <ec6b6344-f548-8605-fcad-846d9e48b1f0@zonque.org>
-References: <20160919191910.GA984@salvia>
- <ac88bb4c-ab7c-1f74-c7fd-79e523b50ae4@zonque.org>
- <20160919203533.GA888@salvia>
- <83afdc54-1bbe-3530-e5fd-b74fefe9a042@zonque.org>
- <20160920142931.GA31438@salvia>
- <6584b975-fa3e-8d98-f0c7-a2c6b194b2b6@zonque.org>
- <20160921154533.GA13656@salvia> <20160921184827.GA15732@pox.localdomain>
- <20160922092138.GA12108@salvia> <20160922095411.GA5654@pox.localdomain>
- <20160922120554.GA1738@salvia> <57E3F4F9.70300@iogearbox.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net_sched: sch_fq: account for schedule/timers
+ drifts
+Date: Thu, 22 Sep 2016 08:58:55 -0700
+Message-ID: <1474559935.23058.123.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: htejun-b10kYP2dOMg@public.gmane.org, ast-b10kYP2dOMg@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, kafai-b10kYP2dOMg@public.gmane.org,
-        fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org, harald-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-        Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>,
-        Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <57E3F4F9.70300-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f65.google.com ([209.85.220.65]:34956 "EHLO
+        mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751123AbcIVP66 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 11:58:58 -0400
+Received: by mail-pa0-f65.google.com with SMTP id hi10so3826528pac.2
+        for <netdev@vger.kernel.org>; Thu, 22 Sep 2016 08:58:57 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/22/2016 05:12 PM, Daniel Borkmann wrote:
-> On 09/22/2016 02:05 PM, Pablo Neira Ayuso wrote:
+From: Eric Dumazet <edumazet@google.com>
 
->> Benefits are, rewording previous email:
->>
->> * You get access to all of the existing netfilter hooks in one go
->>    to run bpf programs. No need for specific redundant hooks. This
->>    provides raw access to the netfilter hook, you define the little
->>    code that your hook runs before you bpf run invocation. So there
->>    is *no need to bloat the stack with more hooks, we use what we
->>    have.*
-> 
-> But also this doesn't really address the fundamental underlying problem
-> that is discussed here. nft doesn't even have cgroups v2 support, only
-> xt_cgroups has it so far, but even if it would have it, then it's still
-> a scalability issue that this model has over what is being proposed by
-> Daniel, since you still need to test linearly wrt cgroups v2 membership,
-> whereas in the set that is proposed it's integral part of cgroups and can
-> be extended further, also for non-networking users to use this facility.
-> Or would the idea be that the current netfilter hooks would be redone in
-> a way that they are generic enough so that any other user could make use
-> of it independent of netfilter?
+It looks like the following patch can make FQ very precise, even in VM
+or stressed hosts. It matters at high pacing rates.
 
-Yes, that part I don't understand either.
+We take into account the difference between the time that was programmed
+when last packet was sent, and current time (a drift of tens of usecs is
+often observed)
 
-Pablo, could you outline in more detail (in terms of syscalls, commands,
-resulting nftables layout etc) how your proposed model would support
-having per-cgroup byte and packet counters for both ingress and egress,
-and filtering at least for ingress?
+Add an EWMA of the unthrottle latency to help diagnostics.
 
-And how would that mitigate the race gaps you have been worried about,
-between cgroup creation and filters taking effect for a task?
+This latency is the difference between current time and oldest packet in
+delayed RB-tree. This accounts for the high resolution timer latency,
+but can be different under stress, as fq_check_throttled() can be
+opportunistically be called from a dequeue() called after an enqueue()
+for a different flow. 
 
 
-Thanks,
-Daniel
+Tested:
+// Start a 10Gbit flow
+$ netperf --google-pacing-rate 1250000000 -H lpaa24 -l 10000 -- -K bbr &
+
+Before patch :
+$ sar -n DEV 10 5 | grep eth0 | grep Average
+Average:         eth0  17106.04 756876.84   1102.75 1119049.02      0.00      0.00      0.52
+
+After patch :
+$ sar -n DEV 10 5 | grep eth0 | grep Average
+Average:         eth0  17867.00 800245.90   1151.77 1183172.12      0.00      0.00      0.52
+
+A new iproute2 tc can output the 'unthrottle latency' :
+
+$ tc -s qd sh dev eth0 | grep latency
+  0 gc, 0 highprio, 32490767 throttled, 2382 ns latency
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/uapi/linux/pkt_sched.h |    2 +-
+ net/sched/sch_fq.c             |   21 ++++++++++++++++++---
+ 2 files changed, 19 insertions(+), 4 deletions(-)
+
+diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
+index f8e39dbaa781..df7451d35131 100644
+--- a/include/uapi/linux/pkt_sched.h
++++ b/include/uapi/linux/pkt_sched.h
+@@ -811,7 +811,7 @@ struct tc_fq_qd_stats {
+ 	__u32	flows;
+ 	__u32	inactive_flows;
+ 	__u32	throttled_flows;
+-	__u32	pad;
++	__u32	unthrottle_latency_ns;
+ };
+ 
+ /* Heavy-Hitter Filter */
+diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
+index 5dd929cc1423..18e752439f6f 100644
+--- a/net/sched/sch_fq.c
++++ b/net/sched/sch_fq.c
+@@ -86,6 +86,7 @@ struct fq_sched_data {
+ 
+ 	struct rb_root	delayed;	/* for rate limited flows */
+ 	u64		time_next_delayed_flow;
++	unsigned long	unthrottle_latency_ns;
+ 
+ 	struct fq_flow	internal;	/* for non classified or high prio packets */
+ 	u32		quantum;
+@@ -408,11 +409,19 @@ static int fq_enqueue(struct sk_buff *skb, struct Qdisc *sch,
+ 
+ static void fq_check_throttled(struct fq_sched_data *q, u64 now)
+ {
++	unsigned long sample;
+ 	struct rb_node *p;
+ 
+ 	if (q->time_next_delayed_flow > now)
+ 		return;
+ 
++	/* Update unthrottle latency EWMA.
++	 * This is cheap and can help diagnosing timer/latency problems.
++	 */
++	sample = (unsigned long)(now - q->time_next_delayed_flow);
++	q->unthrottle_latency_ns -= q->unthrottle_latency_ns >> 3;
++	q->unthrottle_latency_ns += sample >> 3;
++
+ 	q->time_next_delayed_flow = ~0ULL;
+ 	while ((p = rb_first(&q->delayed)) != NULL) {
+ 		struct fq_flow *f = container_of(p, struct fq_flow, rate_node);
+@@ -515,7 +524,12 @@ begin:
+ 			len = NSEC_PER_SEC;
+ 			q->stat_pkts_too_long++;
+ 		}
+-
++		/* Account for schedule/timers drifts.
++		 * f->time_next_packet was set when prior packet was sent,
++		 * and current time (@now) can be too late by tens of us.
++		 */
++		if (f->time_next_packet)
++			len -= min(len/2, now - f->time_next_packet);
+ 		f->time_next_packet = now + len;
+ 	}
+ out:
+@@ -787,6 +801,7 @@ static int fq_init(struct Qdisc *sch, struct nlattr *opt)
+ 	q->initial_quantum	= 10 * psched_mtu(qdisc_dev(sch));
+ 	q->flow_refill_delay	= msecs_to_jiffies(40);
+ 	q->flow_max_rate	= ~0U;
++	q->time_next_delayed_flow = ~0ULL;
+ 	q->rate_enable		= 1;
+ 	q->new_flows.first	= NULL;
+ 	q->old_flows.first	= NULL;
+@@ -854,8 +869,8 @@ static int fq_dump_stats(struct Qdisc *sch, struct gnet_dump *d)
+ 	st.flows		  = q->flows;
+ 	st.inactive_flows	  = q->inactive_flows;
+ 	st.throttled_flows	  = q->throttled_flows;
+-	st.pad			  = 0;
+-
++	st.unthrottle_latency_ns  = min_t(unsigned long,
++					  q->unthrottle_latency_ns, ~0U);
+ 	sch_tree_unlock(sch);
+ 
+ 	return gnet_stats_copy_app(d, &st, sizeof(st));
