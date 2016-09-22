@@ -1,43 +1,49 @@
-From: Bert Kenward <bkenward@solarflare.com>
-Subject: [PATCH net-next] sfc: check async completer is !NULL before calling
-Date: Thu, 22 Sep 2016 15:47:45 +0100
-Message-ID: <71860880-060a-008c-30f5-61ead379a62c@solarflare.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 4/4] net/sched: act_mirred: Implement ingress
+ actions
+Date: Thu, 22 Sep 2016 07:54:13 -0700
+Message-ID: <1474556053.23058.111.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1474550512-7552-1-git-send-email-shmulik.ladkani@gmail.com>
+         <1474550512-7552-5-git-send-email-shmulik.ladkani@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-        Solarflare Linux Maintainers <linux-net-drivers@solarflare.com>
-To: Dave Miller <davem@davemloft.net>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        WANG Cong <xiyou.wangcong@gmail.com>,
+        Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+        Shmulik Ladkani <shmulik.ladkani@gmail.com>
+To: Shmulik Ladkani <shmulik.ladkani@ravellosystems.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:46247 "EHLO
-        nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1757337AbcIVOw7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 10:52:59 -0400
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:34028 "EHLO
+        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756871AbcIVOyP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 10:54:15 -0400
+Received: by mail-pa0-f66.google.com with SMTP id i5so618684pad.1
+        for <netdev@vger.kernel.org>; Thu, 22 Sep 2016 07:54:15 -0700 (PDT)
+In-Reply-To: <1474550512-7552-5-git-send-email-shmulik.ladkani@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a NULL check before calling asynchronous MCDI completion functions
-during device removal.
+On Thu, 2016-09-22 at 16:21 +0300, Shmulik Ladkani wrote:
+> From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+> 
+> Up until now, 'action mirred' supported only egress actions (either
+> TCA_EGRESS_REDIR or TCA_EGRESS_MIRROR).
+> 
+> This patch implements the corresponding ingress actions
+> TCA_INGRESS_REDIR and TCA_INGRESS_MIRROR.
+> 
+> This allows attaching filters whose target is to hand matching skbs into
+> the rx processing of a specified device.
+> 
+> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> ---
+>  Was wondering, whether netif_receive_skb or dev_forward_skb should be
+>  used for the rx bouncing. Used netif_receive_skb as in ifb device.
 
-Fixes: 7014d7f6 ("sfc: allow asynchronous MCDI without completion function")
-Signed-off-by: Bert Kenward <bkenward@solarflare.com>
----
- drivers/net/ethernet/sfc/mcdi.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Hmm... we probably need to apply the full rcu protection before this
+patch.
 
-diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
-index 9fbc12a..2415209 100644
---- a/drivers/net/ethernet/sfc/mcdi.c
-+++ b/drivers/net/ethernet/sfc/mcdi.c
-@@ -1156,7 +1156,8 @@ void efx_mcdi_flush_async(struct efx_nic *efx)
- 	 * acquired locks in the wrong order.
- 	 */
- 	list_for_each_entry_safe(async, next, &mcdi->async_list, list) {
--		async->complete(efx, async->cookie, -ENETDOWN, NULL, 0);
-+		if (async->complete)
-+			async->complete(efx, async->cookie, -ENETDOWN, NULL, 0);
- 		list_del(&async->list);
- 		kfree(async);
- 	}
--- 
-2.7.4
+https://patchwork.ozlabs.org/patch/667680/
