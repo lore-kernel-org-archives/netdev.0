@@ -1,54 +1,86 @@
-From: Sean Wang <sean.wang@mediatek.com>
-Subject: Re: [PATCH net-next v2 3/3] net: ethernet: mediatek: add the dts property to set if TRGMII supported on GMAC0
-Date: Thu, 22 Sep 2016 23:21:44 +0800
-Message-ID: <1474557704-19011-1-git-send-email-sean.wang@mediatek.com>
-References: <b04e14ff-15db-9cc8-9490-204da8c5837d@cogentembedded.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: [PATCH net-next 2/3] udp: implement memory accounting helpers
+Date: Thu, 22 Sep 2016 16:21:00 +0100
+Message-ID: <589839b3-5930-2527-b0a3-315be254a175@solarflare.com>
+References: <cover.1474477902.git.pabeni@redhat.com>
+ <93ccb49b7f037461ef436a50b907185744b093d8.1474477902.git.pabeni@redhat.com>
+ <1474500682.23058.88.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1474540415.4845.69.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <john@phrozen.org>, <davem@davemloft.net>, <nbd@openwrt.org>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <linux-mediatek@lists.infradead.org>, <keyhaede@gmail.com>
-To: <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <b04e14ff-15db-9cc8-9490-204da8c5837d@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
+        "James Morris" <jmorris@namei.org>,
+        Trond Myklebust <trond.myklebust@primarydata.com>,
+        Alexander Duyck <aduyck@mirantis.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        <linux-nfs@vger.kernel.org>
+To: Paolo Abeni <pabeni@redhat.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:7433 "EHLO
+        nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S933952AbcIVPVQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 11:21:16 -0400
+In-Reply-To: <1474540415.4845.69.camel@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Date: Thu, 22 Sep 2016 14:28:36 +0300, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> wrote:
->Hello.
+On 22/09/16 11:33, Paolo Abeni wrote:
+> Hi Eric,
 >
->On 9/22/2016 5:33 AM, sean.wang@mediatek.com wrote:
->
->> From: Sean Wang <sean.wang@mediatek.com>
+> On Wed, 2016-09-21 at 16:31 -0700, Eric Dumazet wrote:
+>> Also does inet_diag properly give the forward_alloc to user ?
 >>
->> Add the dts property for the capability if TRGMII supported on GAMC0
->>
->> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
->> ---
->>  Documentation/devicetree/bindings/net/mediatek-net.txt | 5 ++++-
->>  1 file changed, 4 insertions(+), 1 deletion(-)
->>
->> diff --git a/Documentation/devicetree/bindings/net/mediatek-net.txt b/Documentation/devicetree/bindings/net/mediatek-net.txt
->> index 6103e55..7111278 100644
->> --- a/Documentation/devicetree/bindings/net/mediatek-net.txt
->> +++ b/Documentation/devicetree/bindings/net/mediatek-net.txt
->> @@ -31,7 +31,10 @@ Optional properties:
->>  Required properties:
->>  - compatible: Should be "mediatek,eth-mac"
->>  - reg: The number of the MAC
->> -- phy-handle: see ethernet.txt file in the same directory.
->> +- phy-handle: see ethernet.txt file in the same directory and
->> +	the phy-mode "trgmii" required being provided when reg
+>> $ ss -mua
+>> State      Recv-Q Send-Q Local Address:Port                 Peer Addres
+>> s:Port
+>> UNCONN     51584  0          *:52460      *:*                    
+>> 	 skmem:(r51584,rb327680,t0,tb327680,f1664,w0,o0,bl0,d575)
+> Thank you very much for reviewing this! 
 >
->   Since you've modified the generic parser of the "phy-mode" to add your 
->"trgmii", you also need to update ethernet.txt...
+> My bad, there is still a race which leads to temporary negative values
+> of fwd. I feel the fix is trivial but it needs some investigation.
 >
+>> Couldn't we instead use an union of an atomic_t and int for
+>> sk->sk_forward_alloc ?
+> That was our first attempt, but we had some issue on mem scheduling; if
+> we use:
+>
+>    if (atomic_sub_return(size, &sk->sk_forward_alloc_atomic) < 0) {
+>         // fwd alloc
+>    }
+>
+> that leads to inescapable, temporary, negative value for
+> sk->sk_forward_alloc.
+>
+> Another option would be:
+>
+> again:
+>         fwd = atomic_read(&sk->sk_forward_alloc_atomic);
+>         if (fwd > size) {
+> 		if (atomic_cmpxchg(&sk->sk_forward_alloc_atomic, fwd, fwd - size) != fwd)
+> 			goto again;
+>         } else 
+>             // fwd alloc
+>
+> which would be bad under high contention.
+Apologies if I'm misunderstanding the problem, but couldn't you have two
+atomic_t fields, 'internal' and 'external' forward_alloc.  Then
+    if (atomic_sub_return(size, &sk->sk_forward_alloc_internal) < 0) {
+        atomic_sub(size, &sk->sk_forward_alloc);
+        // fwd alloc
+    } else {
+        atomic_add(size, &sk->sk_forward_alloc_internal);
+    }
+or something like that.  Then sk->sk_forward_alloc never sees a negative
+value, and is always >= sk->sk_forward_alloc_internal.  Of course places
+that go the other way would have to add to sk->sk_forward_alloc first,
+before adding to sk->sk_forward_alloc_internal, to maintain that invariant.
 
->> +	is equal to 0 and the MAC uses fixed-link to connect
->> +	with inernal switch such as MT7530.
->
->   Internal.
->
+Would that help matters at all?
 
-thank you for taking time and effort to review this
-I will fix it up
+-Ed
