@@ -1,111 +1,304 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Fwd: Re: nfs broken on Fedora-24, 32-bit?
-Date: Thu, 22 Sep 2016 10:35:53 -0700
-Message-ID: <0c0194b3-43ff-4b74-355c-eec1443fd2bb@candelatech.com>
-References: <08ad07ee-72e2-b478-d70d-87b08c24452f@candelatech.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [RFC] net: store port/representative id in metadata_dst
+Date: Thu, 22 Sep 2016 20:26:57 +0100
+Message-ID: <1474572417-15907-1-git-send-email-jakub.kicinski@netronome.com>
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
+        Jiri Pirko <jiri@resnulli.us>, ogerlitz@mellanox.com,
+        John Fastabend <john.fastabend@gmail.com>,
+        sridhar.samudrala@intel.com, ast@kernel.org, daniel@iogearbox.net,
+        simon.horman@netronome.com, Paolo Abeni <pabeni@redhat.com>,
+        Pravin B Shelar <pshelar@nicira.com>,
+        Jiri Benc <jbenc@redhat.com>, hannes@stressinduktion.org,
+        kubakici@wp.pl, Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:33990 "EHLO
-        mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965584AbcIVRfy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 13:35:54 -0400
-Received: from [192.168.100.149] (firewall.candelatech.com [50.251.239.81])
-        (using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
-        (No client certificate requested)
-        by mail2.candelatech.com (Postfix) with ESMTPSA id D508240AC0B
-        for <netdev@vger.kernel.org>; Thu, 22 Sep 2016 10:35:53 -0700 (PDT)
-In-Reply-To: <08ad07ee-72e2-b478-d70d-87b08c24452f@candelatech.com>
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:36383 "EHLO
+        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965350AbcIVT1M (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 15:27:12 -0400
+Received: by mail-wm0-f46.google.com with SMTP id w84so271754903wmg.1
+        for <netdev@vger.kernel.org>; Thu, 22 Sep 2016 12:27:11 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Switches and modern SR-IOV enabled NICs may multiplex traffic from
+representators and control messages over single set of hardware queues.
+Control messages and muxed traffic may need ordered delivery.
 
-This is probably not an NFS specific issue, though I guess possibly it is.
+Those requirements make it hard to comfortably use TC infrastructure
+today unless we have a way of attaching metadata to skbs at the upper
+device.  Because single set of queues is used for many netdevs stopping
+TC/sched queues of all of them reliably is impossible and lower
+device has to retreat to returning NETDEV_TX_BUSY and usually
+has to take extra locks on the fastpath.
 
-Forwarding to netdev in case someone wants to take a look at it.
+This patch attempts to enable port/representative devs to attach metadata
+to skbs which carry port id.  This way representatives can be queueless
+and all queuing can be performed at the lower netdev in the usual way.
 
-Thanks,
-Ben
+Traffic arriving on the port/representative interfaces will be have 
+metadata attached and will subsequently be queued to the lower device
+for transmission.  The lower device should recognize the metadata and
+translate it to HW specific format which is most likely either a special
+header inserted before the network headers or descriptor/metadata fields.
+
+Metadata is associated with the lower device by storing the netdev pointer
+along with port id so that if TC decides to redirect or mirror the new 
+netdev will not try to interpret it.
+
+This is mostly for SR-IOV devices since switches don't have lower
+netdevs today.
+
+Since I don't have any real user in the tree at this point please
+allow me to present a trivial example use here:
+
+void upper_init(struct upper *upper, struct lower *lower, unsigned int id)
+{
+	upper->lower_dev = lower;
+
+	upper->dst_meta = metadata_dst_alloc(0, METADATA_HW_PORT_MUX,
+					     GFP_KERNEL);
+	upper->dst_meta.u.lower_dev = lower->netdev;
+	upper->dst_meta.u.port_info.port_id = id;
+}
+
+int upper_tx(struct sk_buff *skb, struct net_device *netdev)
+{
+	struct upper *upper = netdev_priv(netdev);
+
+	skb_dst_drop(skb);
+	skb_dst_set_noref(skb, upper->dst_meta);
+
+	return dev_queue_xmit(upper->lower_dev, skb);
+}
+
+int lower_tx(struct sk_buff *skb, struct net_device *netdev)
+{
+	struct metadata_dst *md = skb_metadata_dst(skb);
+	struct lower *lower = netdev_priv(netdev);
+
+	if (md->type == METADATA_HW_PORT_MUX &&
+	    md->u.lower_dev == netdev) {
+		/* use md->u.port_id to set port in
+		 * descriptor/metadata/do encap
+		 */
+	}
+	...
+}
+
+Other approaches considered but found inferior:
+ - in-data tags - inserting tags into data will be confusing
+   to classifiers which start parsing from mac headers, also
+   in-band data is less perfect and allows sufficiently privileged
+   user to inject control messages from userspace (this is DSA model
+   - note that in SR-IOV switchdev mode I control both upper and lower
+   device which differs from DSA where lower device can be any MAC);
+ - per-VFR HW queues - requiring a queue per VF is a little wasteful and
+   less scalable, muxing allows us to use all PF queues to transmit
+   and receive with full RSS (this is model of existing SR-IOV switchdev
+   mode implementations);
+ - per-VFR TC queue - we could use per-VFR queue in the lower device,
+   tag traffic and TX on smaller set of HW queues but again scaling
+   would suffer, we would need to lock an extra queue and we have no
+   way to stop all queues when HW queues fill up reliably (this model
+   would piggy back on dev_queue_xmit_accel() to select queue).
 
 
--------- Forwarded Message --------
-Subject: Re: nfs broken on Fedora-24, 32-bit?
-Date: Fri, 16 Sep 2016 16:31:51 -0700
-From: Ben Greear <greearb@candelatech.com>
-Organization: Candela Technologies
-To: Trond Myklebust <trondmy@primarydata.com>
-CC: List Linux NFS Mailing <linux-nfs@vger.kernel.org>
+Any comments, reactions would be much appreciated!
 
-On 09/15/2016 04:06 PM, Ben Greear wrote:
-> On 09/15/2016 04:00 PM, Trond Myklebust wrote:
->> Hi Ben,
->>
->>> On Sep 15, 2016, at 18:32, Ben Greear <greearb@candelatech.com> wrote:
->>>
->>> I have a Fedora-24 machine mounting an NFS server running Fedora-13 (kernel 2.6.34.9-69.fc13.x86_64).
->>>
->>> F24 machine has this in /etc/fstab:
->>>
->>> 192.168.100.3:/mnt/d2 /mnt/d2                   nfs     nfsvers=3       0 0
->>>
->>> When I copy a file from f24-32 to the F-13 machine, the file size is the same,
->>> but the file is corrupted on the file server.  I see a different md5sum each time.
->>>
->>> Various other systems (F21, F19, etc) can all copy to the F13 machine fine.
->>>
->>> And, F24-64 machine can copy to the F13 machine fine.
->>>
->>> Anyone seen something similar?
->>
->> Do you know if the corruption is happening on the read()s or on the write()s? Do you, for instance get the same corruption if you copy from a local file on
->> the F-24 client to the server? ..or if you copy from a file on the server to a local directory on the F-24 client?
->>
->> Cheers
->>   Trond
->>
->
-> Seems to be a write issue:
->
-> # This is the nfs server:
->
-> [greearb@fs3 candela_cdrom.5.3.5]$ md5sum gua-f21-32
-> ad4073fa8b806bb82b85a645e21f5e67  gua-f21-32
-> [greearb@fs3 candela_cdrom.5.3.5]$ md5sum ../greearb/tmp/gua-f21-32
-> 582bfea0cc8cc52aa38dc0f5048d0156  ../greearb/tmp/gua-f21-32
-> [greearb@fs3 candela_cdrom.5.3.5]$
->
->
-> # This is the v-f24-32 client:
->
-> greearb@v-f24-32 ~]$ cp /mnt/d2/pub/candela_cdrom.5.3.5/gua-f21-32 ./
-> [greearb@v-f24-32 ~]$ md5sum gua-f21-32
-> ad4073fa8b806bb82b85a645e21f5e67  gua-f21-32
-> [greearb@v-f24-32 ~]$ cp gua-f21-32 /mnt/d2/pub/greearb/tmp/
-> [greearb@v-f24-32 ~]$ md5sum /mnt/d2/pub/greearb/tmp/gua-f21-32
-> ad4073fa8b806bb82b85a645e21f5e67  /mnt/d2/pub/greearb/tmp/gua-f21-32
->
->
-> Interesting that the client reads back the file it copied over as if it were correct, but
-> it shows up wrong on the nfs server.  Maybe it is just reading a local cache?
->
-> Thanks,
-> Ben
->
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+---
+ include/net/dst_metadata.h     | 35 ++++++++++++++++++++++++++++-------
+ net/core/dst.c                 | 14 +++++++++-----
+ net/core/filter.c              |  1 +
+ net/ipv4/ip_tunnel_core.c      |  5 +++--
+ net/openvswitch/flow_netlink.c |  3 ++-
+ 5 files changed, 43 insertions(+), 15 deletions(-)
 
-Here is some more info on this:
-
-We can only reproduce this on virtual machines using the KVM infrastructure, and only
-when we use the rtl8139 virtual hardware (in bridge mode).  With the e1000 virtual hardware
-we cannot reproduce the problem.
-
-Also, multiple different nfs servers (including much newer kernels) all show the same
-behaviour with this broken nfs client.
-
-Thanks,
-Ben
-
+diff --git a/include/net/dst_metadata.h b/include/net/dst_metadata.h
+index 6965c8f68ade..6d7e1e4f3acd 100644
+--- a/include/net/dst_metadata.h
++++ b/include/net/dst_metadata.h
+@@ -5,10 +5,22 @@
+ #include <net/ip_tunnels.h>
+ #include <net/dst.h>
+ 
++enum metadata_type {
++	METADATA_IP_TUNNEL,
++	METADATA_HW_PORT_MUX,
++};
++
++struct hw_port_info {
++	struct netdevice *lower_dev;
++	u32 port_id;
++};
++
+ struct metadata_dst {
+ 	struct dst_entry		dst;
++	enum metadata_type		type;
+ 	union {
+ 		struct ip_tunnel_info	tun_info;
++		struct hw_port_info	port_info;
+ 	} u;
+ };
+ 
+@@ -27,7 +39,7 @@ static inline struct ip_tunnel_info *skb_tunnel_info(struct sk_buff *skb)
+ 	struct metadata_dst *md_dst = skb_metadata_dst(skb);
+ 	struct dst_entry *dst;
+ 
+-	if (md_dst)
++	if (md_dst && md_dst->type == METADATA_IP_TUNNEL)
+ 		return &md_dst->u.tun_info;
+ 
+ 	dst = skb_dst(skb);
+@@ -55,7 +67,14 @@ static inline int skb_metadata_dst_cmp(const struct sk_buff *skb_a,
+ 	a = (const struct metadata_dst *) skb_dst(skb_a);
+ 	b = (const struct metadata_dst *) skb_dst(skb_b);
+ 
+-	if (!a != !b || a->u.tun_info.options_len != b->u.tun_info.options_len)
++	if (!a != !b || a->type != b->type)
++		return 1;
++
++	if (a->type == METADATA_HW_PORT_MUX)
++		return memcmp(&a->u.port_info, &b->u.port_info,
++			      sizeof(a->u.port_info));
++
++	if (a->u.tun_info.options_len != b->u.tun_info.options_len)
+ 		return 1;
+ 
+ 	return memcmp(&a->u.tun_info, &b->u.tun_info,
+@@ -63,14 +82,16 @@ static inline int skb_metadata_dst_cmp(const struct sk_buff *skb_a,
+ }
+ 
+ void metadata_dst_free(struct metadata_dst *);
+-struct metadata_dst *metadata_dst_alloc(u8 optslen, gfp_t flags);
+-struct metadata_dst __percpu *metadata_dst_alloc_percpu(u8 optslen, gfp_t flags);
++struct metadata_dst *metadata_dst_alloc(u8 optslen, enum metadata_type type,
++					gfp_t flags);
++struct metadata_dst __percpu *
++metadata_dst_alloc_percpu(u8 optslen, enum metadata_type type, gfp_t flags);
+ 
+ static inline struct metadata_dst *tun_rx_dst(int md_size)
+ {
+ 	struct metadata_dst *tun_dst;
+ 
+-	tun_dst = metadata_dst_alloc(md_size, GFP_ATOMIC);
++	tun_dst = metadata_dst_alloc(md_size, METADATA_IP_TUNNEL, GFP_ATOMIC);
+ 	if (!tun_dst)
+ 		return NULL;
+ 
+@@ -85,11 +106,11 @@ static inline struct metadata_dst *tun_dst_unclone(struct sk_buff *skb)
+ 	int md_size;
+ 	struct metadata_dst *new_md;
+ 
+-	if (!md_dst)
++	if (!md_dst || md_dst->type != METADATA_IP_TUNNEL)
+ 		return ERR_PTR(-EINVAL);
+ 
+ 	md_size = md_dst->u.tun_info.options_len;
+-	new_md = metadata_dst_alloc(md_size, GFP_ATOMIC);
++	new_md = metadata_dst_alloc(md_size, METADATA_IP_TUNNEL, GFP_ATOMIC);
+ 	if (!new_md)
+ 		return ERR_PTR(-ENOMEM);
+ 
+diff --git a/net/core/dst.c b/net/core/dst.c
+index b5cbbe07f786..dc8c0c0b197b 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -367,7 +367,8 @@ static int dst_md_discard(struct sk_buff *skb)
+ 	return 0;
+ }
+ 
+-static void __metadata_dst_init(struct metadata_dst *md_dst, u8 optslen)
++static void __metadata_dst_init(struct metadata_dst *md_dst,
++				enum metadata_type type, u8 optslen)
+ {
+ 	struct dst_entry *dst;
+ 
+@@ -379,9 +380,11 @@ static void __metadata_dst_init(struct metadata_dst *md_dst, u8 optslen)
+ 	dst->output = dst_md_discard_out;
+ 
+ 	memset(dst + 1, 0, sizeof(*md_dst) + optslen - sizeof(*dst));
++	md_dst->type = type;
+ }
+ 
+-struct metadata_dst *metadata_dst_alloc(u8 optslen, gfp_t flags)
++struct metadata_dst *metadata_dst_alloc(u8 optslen, enum metadata_type type,
++					gfp_t flags)
+ {
+ 	struct metadata_dst *md_dst;
+ 
+@@ -389,7 +392,7 @@ struct metadata_dst *metadata_dst_alloc(u8 optslen, gfp_t flags)
+ 	if (!md_dst)
+ 		return NULL;
+ 
+-	__metadata_dst_init(md_dst, optslen);
++	__metadata_dst_init(md_dst, type, optslen);
+ 
+ 	return md_dst;
+ }
+@@ -403,7 +406,8 @@ void metadata_dst_free(struct metadata_dst *md_dst)
+ 	kfree(md_dst);
+ }
+ 
+-struct metadata_dst __percpu *metadata_dst_alloc_percpu(u8 optslen, gfp_t flags)
++struct metadata_dst __percpu *
++metadata_dst_alloc_percpu(u8 optslen, enum metadata_type type, gfp_t flags)
+ {
+ 	int cpu;
+ 	struct metadata_dst __percpu *md_dst;
+@@ -414,7 +418,7 @@ struct metadata_dst __percpu *metadata_dst_alloc_percpu(u8 optslen, gfp_t flags)
+ 		return NULL;
+ 
+ 	for_each_possible_cpu(cpu)
+-		__metadata_dst_init(per_cpu_ptr(md_dst, cpu), optslen);
++		__metadata_dst_init(per_cpu_ptr(md_dst, cpu), type, optslen);
+ 
+ 	return md_dst;
+ }
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 0920c2ac1d00..61536a7e932e 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -2386,6 +2386,7 @@ bpf_get_skb_set_tunnel_proto(enum bpf_func_id which)
+ 		 * that is holding verifier mutex.
+ 		 */
+ 		md_dst = metadata_dst_alloc_percpu(IP_TUNNEL_OPTS_MAX,
++						   METADATA_IP_TUNNEL,
+ 						   GFP_KERNEL);
+ 		if (!md_dst)
+ 			return NULL;
+diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
+index 777bc1883870..12ffbc4a4daa 100644
+--- a/net/ipv4/ip_tunnel_core.c
++++ b/net/ipv4/ip_tunnel_core.c
+@@ -145,10 +145,11 @@ struct metadata_dst *iptunnel_metadata_reply(struct metadata_dst *md,
+ 	struct metadata_dst *res;
+ 	struct ip_tunnel_info *dst, *src;
+ 
+-	if (!md || md->u.tun_info.mode & IP_TUNNEL_INFO_TX)
++	if (!md || md->type != METADATA_IP_TUNNEL ||
++	    md->u.tun_info.mode & IP_TUNNEL_INFO_TX)
+ 		return NULL;
+ 
+-	res = metadata_dst_alloc(0, flags);
++	res = metadata_dst_alloc(0, METADATA_IP_TUNNEL, flags);
+ 	if (!res)
+ 		return NULL;
+ 
+diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+index ae25ded82b3b..c9971701d0af 100644
+--- a/net/openvswitch/flow_netlink.c
++++ b/net/openvswitch/flow_netlink.c
+@@ -2072,7 +2072,8 @@ static int validate_and_copy_set_tun(const struct nlattr *attr,
+ 	if (start < 0)
+ 		return start;
+ 
+-	tun_dst = metadata_dst_alloc(key.tun_opts_len, GFP_KERNEL);
++	tun_dst = metadata_dst_alloc(key.tun_opts_len, METADATA_IP_TUNNEL,
++				     GFP_KERNEL);
+ 	if (!tun_dst)
+ 		return -ENOMEM;
+ 
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+1.9.1
