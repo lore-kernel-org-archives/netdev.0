@@ -1,53 +1,63 @@
-From: <sean.wang@mediatek.com>
-Subject: [PATCH net-next] net: ethernet: mediatek: remove superfluous local variable for phy address
-Date: Thu, 22 Sep 2016 16:36:15 +0800
-Message-ID: <1474533375-22423-1-git-send-email-sean.wang@mediatek.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>,
-        <linux-mediatek@lists.infradead.org>, <keyhaede@gmail.com>,
-        <objelf@gmail.com>, Sean Wang <sean.wang@mediatek.com>
-To: <john@phrozen.org>, <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hangbin Liu <liuhangbin@gmail.com>
+Subject: [PATCH iproute2] misc/ss: tcp cwnd should be unsigned
+Date: Thu, 22 Sep 2016 16:40:28 +0800
+Message-ID: <1474533628-5784-1-git-send-email-liuhangbin@gmail.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        Phil Sutter <phil@nwl.cc>, Hangbin Liu <liuhangbin@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33909 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751468AbcIVIkt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 04:40:49 -0400
+Received: by mail-pf0-f195.google.com with SMTP id 21so3517119pfy.1
+        for <netdev@vger.kernel.org>; Thu, 22 Sep 2016 01:40:49 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sean Wang <sean.wang@mediatek.com>
+tcp->snd_cwd is a u32, but ss treats it like a signed int. This may
+results in negative bandwidth calculations.
 
-remove the unused variable for parsing PHY address
-and the related logic for sanity test which would
-be all already handled done when of_mdiobus_register
-was called
-
-Reported-by: Nelson Chang <nelson.chang@mediatek.com>
-Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 10 +---------
- 1 file changed, 1 insertion(+), 9 deletions(-)
+ misc/ss.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 6b7acf4..1918c39 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -226,17 +226,9 @@ static void mtk_phy_link_adjust(struct net_device *dev)
- static int mtk_phy_connect_node(struct mtk_eth *eth, struct mtk_mac *mac,
- 				struct device_node *phy_node)
- {
--	const __be32 *_addr = NULL;
- 	struct phy_device *phydev;
--	int phy_mode, addr;
-+	int phy_mode;
+diff --git a/misc/ss.c b/misc/ss.c
+index 3b268d9..f67557a 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -754,11 +754,12 @@ struct tcpstat {
+ 	int		    probes;
+ 	char		    cong_alg[16];
+ 	double		    rto, ato, rtt, rttvar;
+-	int		    qack, cwnd, ssthresh, backoff;
++	int		    qack, ssthresh, backoff;
+ 	double		    send_bps;
+ 	int		    snd_wscale;
+ 	int		    rcv_wscale;
+ 	int		    mss;
++	unsigned int	    cwnd;
+ 	unsigned int	    lastsnd;
+ 	unsigned int	    lastrcv;
+ 	unsigned int	    lastack;
+@@ -1756,7 +1757,7 @@ static void tcp_stats_print(struct tcpstat *s)
+ 	if (s->mss)
+ 		printf(" mss:%d", s->mss);
+ 	if (s->cwnd)
+-		printf(" cwnd:%d", s->cwnd);
++		printf(" cwnd:%u", s->cwnd);
+ 	if (s->ssthresh)
+ 		printf(" ssthresh:%d", s->ssthresh);
  
--	_addr = of_get_property(phy_node, "reg", NULL);
--
--	if (!_addr || (be32_to_cpu(*_addr) >= 0x20)) {
--		pr_err("%s: invalid phy address\n", phy_node->name);
--		return -EINVAL;
--	}
--	addr = be32_to_cpu(*_addr);
- 	phy_mode = of_get_phy_mode(phy_node);
- 	if (phy_mode < 0) {
- 		dev_err(eth->dev, "incorrect phy-mode %d\n", phy_mode);
+@@ -1856,7 +1857,7 @@ static int tcp_show_line(char *line, const struct filter *f, int family)
+ 		return 0;
+ 
+ 	opt[0] = 0;
+-	n = sscanf(data, "%x %x:%x %x:%x %x %d %d %u %d %llx %d %d %d %d %d %[^\n]\n",
++	n = sscanf(data, "%x %x:%x %x:%x %x %d %d %u %d %llx %d %d %d %u %d %[^\n]\n",
+ 		   &s.ss.state, &s.ss.wq, &s.ss.rq,
+ 		   &s.timer, &s.timeout, &s.retrans, &s.ss.uid, &s.probes,
+ 		   &s.ss.ino, &s.ss.refcnt, &s.ss.sk, &rto, &ato, &s.qack, &s.cwnd,
 -- 
-1.9.1
+2.5.5
