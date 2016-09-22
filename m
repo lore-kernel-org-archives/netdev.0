@@ -1,34 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net: ethernet: hisilicon: hns: use new api
- ethtool_{get|set}_link_ksettings
-Date: Thu, 22 Sep 2016 02:12:08 -0400 (EDT)
-Message-ID: <20160922.021208.47200652860650198.davem@davemloft.net>
-References: <1474403412-18748-1-git-send-email-tremyfr@gmail.com>
-        <1474403412-18748-2-git-send-email-tremyfr@gmail.com>
+Subject: Re: [PATCHv3 net-next 0/2] Preparation for mv88e6390
+Date: Thu, 22 Sep 2016 02:20:37 -0400 (EDT)
+Message-ID: <20160922.022037.2027131263572505991.davem@davemloft.net>
+References: <1474414832-1638-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yisen.zhuang@huawei.com, salil.mehta@huawei.com,
-        yankejian@huawei.com, huangdaode@hisilicon.com,
-        lisheng011@huawei.com, xieqianqian@huawei.com, arnd@arndb.de,
-        lipeng321@huawei.com, andrew@lunn.ch, chenny.xu@huawei.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: tremyfr@gmail.com
+Cc: vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org
+To: andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55130 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:55218 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755134AbcIVGMM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 02:12:12 -0400
-In-Reply-To: <1474403412-18748-2-git-send-email-tremyfr@gmail.com>
+        with ESMTP id S932749AbcIVGUk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 02:20:40 -0400
+In-Reply-To: <1474414832-1638-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Philippe Reynes <tremyfr@gmail.com>
-Date: Tue, 20 Sep 2016 22:30:12 +0200
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Wed, 21 Sep 2016 01:40:30 +0200
 
-> The ethtool api {get|set}_settings is deprecated.
-> We move this driver to new api {get|set}_link_ksettings.
+> These two patches are a couple of preparation steps for supporting the
+> the MV88E6390 family of chips. This is a new generation from Marvell,
+> and will need more feature flags than are currently available in an
+> unsigned long. Expand to an unsigned long long. The MV88E6390 also
+> places its port registers somewhere else, so add a wrapper around port
+> register access.
 > 
-> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+> v2:
+>  Rework wrappers to use mv88e6xxx_{read|write}
+>  Simpliy some (err < ) to (err)
+> Add Reviewed by tag.
+> 
+> v3::
+>  reg = reg & foo -> reg &= foo
+>  Fix over zealous s/ret/err
 
-Applied.
+Series applied, thanks.
