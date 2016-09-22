@@ -1,38 +1,185 @@
 From: sthemmin@exchange.microsoft.com
-Subject: [PATCH net-next 0/7] hv_netvsc changes
-Date: Thu, 22 Sep 2016 16:56:28 -0700
-Message-ID: <1474588595-16054-1-git-send-email-sthemmin@exchange.microsoft.com>
+Subject: [PATCH 6/7] hv_netvsc: remove VF in flight counters
+Date: Thu, 22 Sep 2016 16:56:34 -0700
+Message-ID: <1474588595-16054-7-git-send-email-sthemmin@exchange.microsoft.com>
+References: <1474588595-16054-1-git-send-email-sthemmin@exchange.microsoft.com>
 Reply-To: sthemmin@microsoft.com
 Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
 To: "K. Y. Srinivasan" <kys@microsoft.com>,
         Haiyang Zhang <haiyangz@microsoft.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from p3plsmtps2ded03.prod.phx3.secureserver.net ([208.109.80.60]:59852
-        "EHLO p3plsmtps2ded03.prod.phx3.secureserver.net"
+Received: from p3plsmtps2ded04.prod.phx3.secureserver.net ([208.109.80.198]:54160
+        "EHLO p3plsmtps2ded04.prod.phx3.secureserver.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1757860AbcIVWGI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 22 Sep 2016 18:06:08 -0400
+        id S1757853AbcIVWGH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 22 Sep 2016 18:06:07 -0400
+In-Reply-To: <1474588595-16054-1-git-send-email-sthemmin@exchange.microsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Stephen Hemminger <sthemmin@microsoft.com>
 
-These are mostly about improving the handling of interaction between
-the virtual network device (netvsc) and the SR-IOV VF network device.
+Since VF reference is now protected by RCU, no longer need the VF usage
+counter and can use device flags to see whether to inject or not.
 
-Stephen Hemminger (7):
-  hv_netvsc: use consume_skb
-  hv_netvsc: dev hold/put reference to VF
-  hv_netvsc: simplify callback event code
-  hv_netvsc: improve VF device matching
-  hv_netvsc: use RCU to protect vf_netdev
-  hv_netvsc: remove VF in flight counters
-  hv_netvsc: count multicast packets received
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h |    3 +-
+ drivers/net/hyperv/netvsc_drv.c |   81 ++++++++++-----------------------------
+ 2 files changed, 21 insertions(+), 63 deletions(-)
 
- drivers/net/hyperv/hyperv_net.h |    7 +-
- drivers/net/hyperv/netvsc.c     |    4 +-
- drivers/net/hyperv/netvsc_drv.c |  188 +++++++++++++++++---------------------
- 3 files changed, 90 insertions(+), 109 deletions(-)
-
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 6b79487..1d49740 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -696,8 +696,7 @@ struct net_device_context {
+ 
+ 	/* State to manage the associated VF interface. */
+ 	struct net_device __rcu *vf_netdev;
+-	bool vf_inject;
+-	atomic_t vf_use_cnt;
++
+ 	/* 1: allocated, serial number is valid. 0: not allocated */
+ 	u32 vf_alloc;
+ 	/* Serial number of the VF to team with */
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index dde17c0..9375d82 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -670,50 +670,20 @@ int netvsc_recv_callback(struct hv_device *device_obj,
+ 	struct net_device *vf_netdev;
+ 	struct sk_buff *skb;
+ 	struct netvsc_stats *rx_stats;
+-	u32 bytes_recvd = packet->total_data_buflen;
+-	int ret = 0;
+ 
+-	if (!net || net->reg_state != NETREG_REGISTERED)
++	if (net->reg_state != NETREG_REGISTERED)
+ 		return NVSP_STAT_FAIL;
+ 
++	/*
++	 * If necessary, inject this packet into the VF interface.
++	 * On Hyper-V, multicast and brodcast packets are only delivered
++	 * to the synthetic interface (after subjecting these to
++	 * policy filters on the host). Deliver these via the VF
++	 * interface in the guest.
++	 */
+ 	vf_netdev = rcu_dereference(net_device_ctx->vf_netdev);
+-	if (vf_netdev) {
+-		struct sk_buff *vf_skb;
+-
+-		atomic_inc(&net_device_ctx->vf_use_cnt);
+-		if (!net_device_ctx->vf_inject) {
+-			/*
+-			 * We raced; just move on.
+-			 */
+-			atomic_dec(&net_device_ctx->vf_use_cnt);
+-			goto vf_injection_done;
+-		}
+-
+-		/*
+-		 * Inject this packet into the VF inerface.
+-		 * On Hyper-V, multicast and brodcast packets
+-		 * are only delivered on the synthetic interface
+-		 * (after subjecting these to policy filters on
+-		 * the host). Deliver these via the VF interface
+-		 * in the guest.
+-		 */
+-		vf_skb = netvsc_alloc_recv_skb(vf_netdev,
+-					       packet, csum_info, *data,
+-					       vlan_tci);
+-		if (vf_skb != NULL) {
+-			++vf_netdev->stats.rx_packets;
+-			vf_netdev->stats.rx_bytes += bytes_recvd;
+-			netif_receive_skb(vf_skb);
+-		} else {
+-			++net->stats.rx_dropped;
+-			ret = NVSP_STAT_FAIL;
+-		}
+-		atomic_dec(&net_device_ctx->vf_use_cnt);
+-		return ret;
+-	}
+-
+-vf_injection_done:
+-	rx_stats = this_cpu_ptr(net_device_ctx->rx_stats);
++	if (vf_netdev && (vf_netdev->flags & IFF_UP))
++		net = vf_netdev;
+ 
+ 	/* Allocate a skb - TODO direct I/O to pages? */
+ 	skb = netvsc_alloc_recv_skb(net, packet, csum_info, *data, vlan_tci);
+@@ -721,9 +691,17 @@ vf_injection_done:
+ 		++net->stats.rx_dropped;
+ 		return NVSP_STAT_FAIL;
+ 	}
+-	skb_record_rx_queue(skb, channel->
+-			    offermsg.offer.sub_channel_index);
+ 
++	if (net != vf_netdev)
++		skb_record_rx_queue(skb,
++				    channel->offermsg.offer.sub_channel_index);
++
++	/*
++	 * Even if injecting the packet, record the statistics
++	 * on the synthetic device because modifying the VF device
++	 * statistics will not work correctly.
++	 */
++	rx_stats = this_cpu_ptr(net_device_ctx->rx_stats);
+ 	u64_stats_update_begin(&rx_stats->syncp);
+ 	rx_stats->packets++;
+ 	rx_stats->bytes += packet->total_data_buflen;
+@@ -1291,20 +1269,6 @@ static int netvsc_register_vf(struct net_device *vf_netdev)
+ 	return NOTIFY_OK;
+ }
+ 
+-static void netvsc_inject_enable(struct net_device_context *net_device_ctx)
+-{
+-	net_device_ctx->vf_inject = true;
+-}
+-
+-static void netvsc_inject_disable(struct net_device_context *net_device_ctx)
+-{
+-	net_device_ctx->vf_inject = false;
+-
+-	/* Wait for currently active users to drain out. */
+-	while (atomic_read(&net_device_ctx->vf_use_cnt) != 0)
+-		udelay(50);
+-}
+-
+ static int netvsc_vf_up(struct net_device *vf_netdev)
+ {
+ 	struct net_device *ndev;
+@@ -1319,7 +1283,6 @@ static int netvsc_vf_up(struct net_device *vf_netdev)
+ 	netvsc_dev = net_device_ctx->nvdev;
+ 
+ 	netdev_info(ndev, "VF up: %s\n", vf_netdev->name);
+-	netvsc_inject_enable(net_device_ctx);
+ 
+ 	/*
+ 	 * Open the device before switching data path.
+@@ -1354,7 +1317,6 @@ static int netvsc_vf_down(struct net_device *vf_netdev)
+ 	netvsc_dev = net_device_ctx->nvdev;
+ 
+ 	netdev_info(ndev, "VF down: %s\n", vf_netdev->name);
+-	netvsc_inject_disable(net_device_ctx);
+ 	netvsc_switch_datapath(ndev, false);
+ 	netdev_info(ndev, "Data path switched from VF: %s\n", vf_netdev->name);
+ 	rndis_filter_close(netvsc_dev);
+@@ -1380,7 +1342,6 @@ static int netvsc_unregister_vf(struct net_device *vf_netdev)
+ 	netvsc_dev = net_device_ctx->nvdev;
+ 
+ 	netdev_info(ndev, "VF unregistering: %s\n", vf_netdev->name);
+-	netvsc_inject_disable(net_device_ctx);
+ 
+ 	RCU_INIT_POINTER(net_device_ctx->vf_netdev, NULL);
+ 	dev_put(vf_netdev);
+@@ -1435,8 +1396,6 @@ static int netvsc_probe(struct hv_device *dev,
+ 	spin_lock_init(&net_device_ctx->lock);
+ 	INIT_LIST_HEAD(&net_device_ctx->reconfig_events);
+ 
+-	atomic_set(&net_device_ctx->vf_use_cnt, 0);
+-
+ 	net->netdev_ops = &device_ops;
+ 
+ 	net->hw_features = NETVSC_HW_FEATURES;
 -- 
 1.7.4.1
