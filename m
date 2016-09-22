@@ -1,16 +1,16 @@
 From: Jason Baron <jbaron@akamai.com>
-Subject: [PATCH v2 net-next 1/2] bnx2x: allocate mac filtering 'mcast_list' in PAGE_SIZE increments
-Date: Thu, 22 Sep 2016 17:12:25 -0400
-Message-ID: <a332c760662a70c15ab326fccdb3878bcd919b5a.1474577624.git.jbaron@akamai.com>
+Subject: [PATCH v2 net-next 2/2] bnx2x: allocate mac filtering pending list in PAGE_SIZE increments
+Date: Thu, 22 Sep 2016 17:12:26 -0400
+Message-ID: <99fc6a1f17dc200a1de23e1c57d1f6dfb4cfcd96.1474577624.git.jbaron@akamai.com>
 References: <cover.1474577624.git.jbaron@akamai.com>
 Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com,
         Yuval.Mintz@qlogic.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay05.akamai.com ([23.79.238.179]:61535 "EHLO
+Received: from prod-mail-xrelay05.akamai.com ([23.79.238.179]:61569 "EHLO
         prod-mail-xrelay05.akamai.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753874AbcIVVM5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 17:12:57 -0400
+        by vger.kernel.org with ESMTP id S1754122AbcIVVNC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 17:13:02 -0400
 In-Reply-To: <cover.1474577624.git.jbaron@akamai.com>
 In-Reply-To: <cover.1474577624.git.jbaron@akamai.com>
 References: <cover.1474577624.git.jbaron@akamai.com>
@@ -25,160 +25,227 @@ GFP_ATOMIC when configuring multicast MAC address filters.
 For example, we have seen order 2 page allocation failures with
 ~500 multicast addresses configured.
 
-Convert the allocation for 'mcast_list' to be done in PAGE_SIZE
+Convert the allocation for the pending list to be done in PAGE_SIZE
 increments.
 
 Signed-off-by: Jason Baron <jbaron@akamai.com>
 Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Cc: Ariel Elior <Ariel.Elior@qlogic.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 79 +++++++++++++++---------
- 1 file changed, 51 insertions(+), 28 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c | 123 +++++++++++++++++--------
+ 1 file changed, 86 insertions(+), 37 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index dab61a81a3ba..20fe6a8c35c1 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -12563,43 +12563,64 @@ static int bnx2x_close(struct net_device *dev)
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+index d468380c2a23..4947a9cbf0c1 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+@@ -2606,8 +2606,23 @@ struct bnx2x_mcast_bin_elem {
+ 	int type; /* BNX2X_MCAST_CMD_SET_{ADD, DEL} */
+ };
+ 
++union bnx2x_mcast_elem {
++	struct bnx2x_mcast_bin_elem bin_elem;
++	struct bnx2x_mcast_mac_elem mac_elem;
++};
++
++struct bnx2x_mcast_elem_group {
++	struct list_head mcast_group_link;
++	union bnx2x_mcast_elem mcast_elems[];
++};
++
++#define MCAST_MAC_ELEMS_PER_PG \
++	((PAGE_SIZE - sizeof(struct bnx2x_mcast_elem_group)) / \
++	sizeof(union bnx2x_mcast_elem))
++
+ struct bnx2x_pending_mcast_cmd {
+ 	struct list_head link;
++	struct list_head group_head;
+ 	int type; /* BNX2X_MCAST_CMD_X */
+ 	union {
+ 		struct list_head macs_head;
+@@ -2638,16 +2653,29 @@ static int bnx2x_mcast_wait(struct bnx2x *bp,
  	return 0;
  }
  
--static int bnx2x_init_mcast_macs_list(struct bnx2x *bp,
--				      struct bnx2x_mcast_ramrod_params *p)
-+struct bnx2x_mcast_list_elem_group
- {
--	int mc_count = netdev_mc_count(bp->dev);
--	struct bnx2x_mcast_list_elem *mc_mac =
--		kcalloc(mc_count, sizeof(*mc_mac), GFP_ATOMIC);
--	struct netdev_hw_addr *ha;
-+	struct list_head mcast_group_link;
-+	struct bnx2x_mcast_list_elem mcast_elems[];
-+};
- 
--	if (!mc_mac) {
--		BNX2X_ERR("Failed to allocate mc MAC list\n");
--		return -ENOMEM;
-+#define MCAST_ELEMS_PER_PG \
-+	((PAGE_SIZE - sizeof(struct bnx2x_mcast_list_elem_group)) / \
-+	sizeof(struct bnx2x_mcast_list_elem))
-+
-+static void bnx2x_free_mcast_macs_list(struct list_head *mcast_group_list)
++static void bnx2x_free_groups(struct list_head *mcast_group_list)
 +{
-+	struct bnx2x_mcast_list_elem_group *current_mcast_group;
++	struct bnx2x_mcast_elem_group *current_mcast_group;
 +
 +	while (!list_empty(mcast_group_list)) {
 +		current_mcast_group = list_first_entry(mcast_group_list,
-+				      struct bnx2x_mcast_list_elem_group,
++				      struct bnx2x_mcast_elem_group,
 +				      mcast_group_link);
 +		list_del(&current_mcast_group->mcast_group_link);
 +		free_page((unsigned long)current_mcast_group);
- 	}
++	}
 +}
++
+ static int bnx2x_mcast_enqueue_cmd(struct bnx2x *bp,
+ 				   struct bnx2x_mcast_obj *o,
+ 				   struct bnx2x_mcast_ramrod_params *p,
+ 				   enum bnx2x_mcast_cmd cmd)
+ {
+-	int total_sz;
+ 	struct bnx2x_pending_mcast_cmd *new_cmd;
+-	struct bnx2x_mcast_mac_elem *cur_mac = NULL;
+ 	struct bnx2x_mcast_list_elem *pos;
+-	int macs_list_len = 0, macs_list_len_size;
++	struct bnx2x_mcast_elem_group *elem_group;
++	struct bnx2x_mcast_mac_elem *mac_elem;
++	int total_elems = 0, macs_list_len = 0, offset = 0;
  
--	INIT_LIST_HEAD(&p->mcast_list);
-+static int bnx2x_init_mcast_macs_list(struct bnx2x *bp,
-+				      struct bnx2x_mcast_ramrod_params *p,
-+				      struct list_head *mcast_group_list)
-+{
-+	struct bnx2x_mcast_list_elem *mc_mac;
-+	struct netdev_hw_addr *ha;
-+	struct bnx2x_mcast_list_elem_group *current_mcast_group = NULL;
-+	int mc_count = netdev_mc_count(bp->dev);
-+	int offset = 0;
+ 	/* When adding MACs we'll need to store their values */
+ 	if (cmd == BNX2X_MCAST_CMD_ADD || cmd == BNX2X_MCAST_CMD_SET)
+@@ -2657,50 +2685,61 @@ static int bnx2x_mcast_enqueue_cmd(struct bnx2x *bp,
+ 	if (!p->mcast_list_len)
+ 		return 0;
  
-+	INIT_LIST_HEAD(&p->mcast_list);
- 	netdev_for_each_mc_addr(ha, bp->dev) {
-+		if (!offset) {
-+			current_mcast_group =
-+				(struct bnx2x_mcast_list_elem_group *)
-+				__get_free_page(GFP_ATOMIC);
-+			if (!current_mcast_group) {
-+				bnx2x_free_mcast_macs_list(mcast_group_list);
-+				BNX2X_ERR("Failed to allocate mc MAC list\n");
+-	/* For a set command, we need to allocate sufficient memory for all
+-	 * the bins, since we can't analyze at this point how much memory would
+-	 * be required.
+-	 */
+-	macs_list_len_size = macs_list_len *
+-			     sizeof(struct bnx2x_mcast_mac_elem);
+-	if (cmd == BNX2X_MCAST_CMD_SET) {
+-		int bin_size = BNX2X_MCAST_BINS_NUM *
+-			       sizeof(struct bnx2x_mcast_bin_elem);
+-
+-		if (bin_size > macs_list_len_size)
+-			macs_list_len_size = bin_size;
+-	}
+-	total_sz = sizeof(*new_cmd) + macs_list_len_size;
+-
+ 	/* Add mcast is called under spin_lock, thus calling with GFP_ATOMIC */
+-	new_cmd = kzalloc(total_sz, GFP_ATOMIC);
+-
++	new_cmd = kzalloc(sizeof(*new_cmd), GFP_ATOMIC);
+ 	if (!new_cmd)
+ 		return -ENOMEM;
+ 
+-	DP(BNX2X_MSG_SP, "About to enqueue a new %d command. macs_list_len=%d\n",
+-	   cmd, macs_list_len);
+-
+ 	INIT_LIST_HEAD(&new_cmd->data.macs_head);
+-
++	INIT_LIST_HEAD(&new_cmd->group_head);
+ 	new_cmd->type = cmd;
+ 	new_cmd->done = false;
+ 
++	DP(BNX2X_MSG_SP, "About to enqueue a new %d command. macs_list_len=%d\n",
++	   cmd, macs_list_len);
++
+ 	switch (cmd) {
+ 	case BNX2X_MCAST_CMD_ADD:
+ 	case BNX2X_MCAST_CMD_SET:
+-		cur_mac = (struct bnx2x_mcast_mac_elem *)
+-			  ((u8 *)new_cmd + sizeof(*new_cmd));
+-
+-		/* Push the MACs of the current command into the pending command
+-		 * MACs list: FIFO
++		/* For a set command, we need to allocate sufficient memory for
++		 * all the bins, since we can't analyze at this point how much
++		 * memory would be required.
+ 		 */
++		total_elems = macs_list_len;
++		if (cmd == BNX2X_MCAST_CMD_SET) {
++			if (total_elems < BNX2X_MCAST_BINS_NUM)
++				total_elems = BNX2X_MCAST_BINS_NUM;
++		}
++		while (total_elems > 0) {
++			elem_group = (struct bnx2x_mcast_elem_group *)
++				     __get_free_page(GFP_ATOMIC | __GFP_ZERO);
++			if (!elem_group) {
++				kfree(new_cmd);
++				bnx2x_free_groups(&new_cmd->group_head);
 +				return -ENOMEM;
 +			}
-+			list_add(&current_mcast_group->mcast_group_link,
-+				 mcast_group_list);
++			total_elems -= MCAST_MAC_ELEMS_PER_PG;
++			list_add_tail(&elem_group->mcast_group_link,
++				      &new_cmd->group_head);
 +		}
-+		mc_mac = &current_mcast_group->mcast_elems[offset];
- 		mc_mac->mac = bnx2x_mc_addr(ha);
- 		list_add_tail(&mc_mac->link, &p->mcast_list);
--		mc_mac++;
++		elem_group = list_first_entry(&new_cmd->group_head,
++					      struct bnx2x_mcast_elem_group,
++					      mcast_group_link);
+ 		list_for_each_entry(pos, &p->mcast_list, link) {
+-			memcpy(cur_mac->mac, pos->mac, ETH_ALEN);
+-			list_add_tail(&cur_mac->link, &new_cmd->data.macs_head);
+-			cur_mac++;
++			mac_elem = &elem_group->mcast_elems[offset].mac_elem;
++			memcpy(mac_elem->mac, pos->mac, ETH_ALEN);
++			/* Push the MACs of the current command into the pending
++			 * command MACs list: FIFO
++			 */
++			list_add_tail(&mac_elem->link,
++				      &new_cmd->data.macs_head);
++			offset++;
++			if (offset == MCAST_MAC_ELEMS_PER_PG) {
++				offset = 0;
++				elem_group = list_next_entry(elem_group,
++							     mcast_group_link);
++			}
+ 		}
+-
+ 		break;
+ 
+ 	case BNX2X_MCAST_CMD_DEL:
+@@ -2978,7 +3017,8 @@ bnx2x_mcast_hdl_pending_set_e2_convert(struct bnx2x *bp,
+ 	u64 cur[BNX2X_MCAST_VEC_SZ], req[BNX2X_MCAST_VEC_SZ];
+ 	struct bnx2x_mcast_mac_elem *pmac_pos, *pmac_pos_n;
+ 	struct bnx2x_mcast_bin_elem *p_item;
+-	int i, cnt = 0, mac_cnt = 0;
++	struct bnx2x_mcast_elem_group *elem_group;
++	int cnt = 0, mac_cnt = 0, offset = 0, i;
+ 
+ 	memset(req, 0, sizeof(u64) * BNX2X_MCAST_VEC_SZ);
+ 	memcpy(cur, o->registry.aprox_match.vec,
+@@ -3001,9 +3041,10 @@ bnx2x_mcast_hdl_pending_set_e2_convert(struct bnx2x *bp,
+ 	 * a list that will be used to configure bins.
+ 	 */
+ 	cmd_pos->set_convert = true;
+-	p_item = (struct bnx2x_mcast_bin_elem *)(cmd_pos + 1);
+ 	INIT_LIST_HEAD(&cmd_pos->data.macs_head);
+-
++	elem_group = list_first_entry(&cmd_pos->group_head,
++				      struct bnx2x_mcast_elem_group,
++				      mcast_group_link);
+ 	for (i = 0; i < BNX2X_MCAST_BINS_NUM; i++) {
+ 		bool b_current = !!BIT_VEC64_TEST_BIT(cur, i);
+ 		bool b_required = !!BIT_VEC64_TEST_BIT(req, i);
+@@ -3011,12 +3052,18 @@ bnx2x_mcast_hdl_pending_set_e2_convert(struct bnx2x *bp,
+ 		if (b_current == b_required)
+ 			continue;
+ 
++		p_item = &elem_group->mcast_elems[offset].bin_elem;
+ 		p_item->bin = i;
+ 		p_item->type = b_required ? BNX2X_MCAST_CMD_SET_ADD
+ 					  : BNX2X_MCAST_CMD_SET_DEL;
+ 		list_add_tail(&p_item->link , &cmd_pos->data.macs_head);
+-		p_item++;
+ 		cnt++;
 +		offset++;
-+		if (offset == MCAST_ELEMS_PER_PG)
++		if (offset == MCAST_MAC_ELEMS_PER_PG) {
 +			offset = 0;
- 	}
--
- 	p->mcast_list_len = mc_count;
--
- 	return 0;
- }
- 
--static void bnx2x_free_mcast_macs_list(
--	struct bnx2x_mcast_ramrod_params *p)
--{
--	struct bnx2x_mcast_list_elem *mc_mac =
--		list_first_entry(&p->mcast_list, struct bnx2x_mcast_list_elem,
--				 link);
--
--	WARN_ON(!mc_mac);
--	kfree(mc_mac);
--}
--
- /**
-  * bnx2x_set_uc_list - configure a new unicast MACs list.
-  *
-@@ -12647,6 +12668,7 @@ static int bnx2x_set_uc_list(struct bnx2x *bp)
- 
- static int bnx2x_set_mc_list_e1x(struct bnx2x *bp)
- {
-+	LIST_HEAD(mcast_group_list);
- 	struct net_device *dev = bp->dev;
- 	struct bnx2x_mcast_ramrod_params rparam = {NULL};
- 	int rc = 0;
-@@ -12662,7 +12684,7 @@ static int bnx2x_set_mc_list_e1x(struct bnx2x *bp)
- 
- 	/* then, configure a new MACs list */
- 	if (netdev_mc_count(dev)) {
--		rc = bnx2x_init_mcast_macs_list(bp, &rparam);
-+		rc = bnx2x_init_mcast_macs_list(bp, &rparam, &mcast_group_list);
- 		if (rc)
- 			return rc;
- 
-@@ -12673,7 +12695,7 @@ static int bnx2x_set_mc_list_e1x(struct bnx2x *bp)
- 			BNX2X_ERR("Failed to set a new multicast configuration: %d\n",
- 				  rc);
- 
--		bnx2x_free_mcast_macs_list(&rparam);
-+		bnx2x_free_mcast_macs_list(&mcast_group_list);
++			elem_group = list_next_entry(elem_group,
++						     mcast_group_link);
++		}
  	}
  
- 	return rc;
-@@ -12681,6 +12703,7 @@ static int bnx2x_set_mc_list_e1x(struct bnx2x *bp)
+ 	/* We now definitely know how many commands are hiding here.
+@@ -3103,6 +3150,7 @@ static inline int bnx2x_mcast_handle_pending_cmds_e2(struct bnx2x *bp,
+ 		 */
+ 		if (cmd_pos->done) {
+ 			list_del(&cmd_pos->link);
++			bnx2x_free_groups(&cmd_pos->group_head);
+ 			kfree(cmd_pos);
+ 		}
  
- static int bnx2x_set_mc_list(struct bnx2x *bp)
- {
-+	LIST_HEAD(mcast_group_list);
- 	struct bnx2x_mcast_ramrod_params rparam = {NULL};
- 	struct net_device *dev = bp->dev;
- 	int rc = 0;
-@@ -12692,7 +12715,7 @@ static int bnx2x_set_mc_list(struct bnx2x *bp)
- 	rparam.mcast_obj = &bp->mcast_obj;
+@@ -3741,6 +3789,7 @@ static inline int bnx2x_mcast_handle_pending_cmds_e1(
+ 	}
  
- 	if (netdev_mc_count(dev)) {
--		rc = bnx2x_init_mcast_macs_list(bp, &rparam);
-+		rc = bnx2x_init_mcast_macs_list(bp, &rparam, &mcast_group_list);
- 		if (rc)
- 			return rc;
+ 	list_del(&cmd_pos->link);
++	bnx2x_free_groups(&cmd_pos->group_head);
+ 	kfree(cmd_pos);
  
-@@ -12703,7 +12726,7 @@ static int bnx2x_set_mc_list(struct bnx2x *bp)
- 			BNX2X_ERR("Failed to set a new multicast configuration: %d\n",
- 				  rc);
- 
--		bnx2x_free_mcast_macs_list(&rparam);
-+		bnx2x_free_mcast_macs_list(&mcast_group_list);
- 	} else {
- 		/* If no mc addresses are required, flush the configuration */
- 		rc = bnx2x_config_mcast(bp, &rparam, BNX2X_MCAST_CMD_DEL);
+ 	return cnt;
 -- 
 2.6.1
