@@ -1,44 +1,49 @@
-From: Juergen Gross <jgross@suse.com>
-Subject: Re: [Xen-devel] [PATCH resend] xen-netback: switch to threaded irq
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [Xen-devel] [PATCH resend] xen-netback: switch to threaded irq
  for control ring
-Date: Thu, 22 Sep 2016 12:16:59 +0200
-Message-ID: <2f3c7f1b-6a36-8aaa-e10a-41a1d2cf37d8@suse.com>
+Date: Thu, 22 Sep 2016 10:31:00 +0000
+Message-ID: <78418d2acd0446e8bbbd634377b9e263@AMSPEX02CL03.citrite.net>
 References: <1474534964-15621-1-git-send-email-jgross@suse.com>
  <37d32749052f4ff887c5637671085389@AMSPEX02CL03.citrite.net>
+ <2f3c7f1b-6a36-8aaa-e10a-41a1d2cf37d8@suse.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: Wei Liu <wei.liu2@citrix.com>
-To: Paul Durrant <Paul.Durrant@citrix.com>,
+To: Juergen Gross <jgross@suse.com>,
         "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
         "netdev@vger.kernel.orga" <netdev@vger.kernel.org>,
         "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <37d32749052f4ff887c5637671085389@AMSPEX02CL03.citrite.net>
+In-Reply-To: <2f3c7f1b-6a36-8aaa-e10a-41a1d2cf37d8@suse.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 22/09/16 11:09, Paul Durrant wrote:
->> -----Original Message-----
->> From: Xen-devel [mailto:xen-devel-bounces@lists.xen.org] On Behalf Of
->> Juergen Gross
->> Sent: 22 September 2016 10:03
->> To: xen-devel@lists.xenproject.org; netdev@vger.kernel.orga; linux-
->> kernel@vger.kernel.org
->> Cc: Juergen Gross <jgross@suse.com>; Wei Liu <wei.liu2@citrix.com>
->> Subject: [Xen-devel] [PATCH resend] xen-netback: switch to threaded irq for
->> control ring
->>
->> Instead of open coding it use the threaded irq mechanism in xen-netback.
->>
->> Signed-off-by: Juergen Gross <jgross@suse.com>
-> 
-> How have you tested this change?
-
-Only compile-tested and loaded the module. As this feature isn't being
-used in linux netfront AFAIK it is not easily testable. OTOH the code
-modification is rather limited and I've used the threaded irq in the
-Xen scsiback driver myself, so I'm rather confident it will work.
-
-
-Juergen
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBKdWVyZ2VuIEdyb3NzIFttYWls
+dG86amdyb3NzQHN1c2UuY29tXQ0KPiBTZW50OiAyMiBTZXB0ZW1iZXIgMjAxNiAxMToxNw0KPiBU
+bzogUGF1bCBEdXJyYW50IDxQYXVsLkR1cnJhbnRAY2l0cml4LmNvbT47IHhlbi1kZXZlbEBsaXN0
+cy54ZW5wcm9qZWN0Lm9yZzsNCj4gbmV0ZGV2QHZnZXIua2VybmVsLm9yZ2EgPG5ldGRldkB2Z2Vy
+Lmtlcm5lbC5vcmc+OyBsaW51eC0NCj4ga2VybmVsQHZnZXIua2VybmVsLm9yZw0KPiBDYzogV2Vp
+IExpdSA8d2VpLmxpdTJAY2l0cml4LmNvbT4NCj4gU3ViamVjdDogUmU6IFtYZW4tZGV2ZWxdIFtQ
+QVRDSCByZXNlbmRdIHhlbi1uZXRiYWNrOiBzd2l0Y2ggdG8gdGhyZWFkZWQgaXJxDQo+IGZvciBj
+b250cm9sIHJpbmcNCj4gDQo+IE9uIDIyLzA5LzE2IDExOjA5LCBQYXVsIER1cnJhbnQgd3JvdGU6
+DQo+ID4+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4+IEZyb206IFhlbi1kZXZlbCBb
+bWFpbHRvOnhlbi1kZXZlbC1ib3VuY2VzQGxpc3RzLnhlbi5vcmddIE9uIEJlaGFsZiBPZg0KPiA+
+PiBKdWVyZ2VuIEdyb3NzDQo+ID4+IFNlbnQ6IDIyIFNlcHRlbWJlciAyMDE2IDEwOjAzDQo+ID4+
+IFRvOiB4ZW4tZGV2ZWxAbGlzdHMueGVucHJvamVjdC5vcmc7IG5ldGRldkB2Z2VyLmtlcm5lbC5v
+cmdhOyBsaW51eC0NCj4gPj4ga2VybmVsQHZnZXIua2VybmVsLm9yZw0KPiA+PiBDYzogSnVlcmdl
+biBHcm9zcyA8amdyb3NzQHN1c2UuY29tPjsgV2VpIExpdSA8d2VpLmxpdTJAY2l0cml4LmNvbT4N
+Cj4gPj4gU3ViamVjdDogW1hlbi1kZXZlbF0gW1BBVENIIHJlc2VuZF0geGVuLW5ldGJhY2s6IHN3
+aXRjaCB0byB0aHJlYWRlZA0KPiA+PiBpcnEgZm9yIGNvbnRyb2wgcmluZw0KPiA+Pg0KPiA+PiBJ
+bnN0ZWFkIG9mIG9wZW4gY29kaW5nIGl0IHVzZSB0aGUgdGhyZWFkZWQgaXJxIG1lY2hhbmlzbSBp
+biB4ZW4tbmV0YmFjay4NCj4gPj4NCj4gPj4gU2lnbmVkLW9mZi1ieTogSnVlcmdlbiBHcm9zcyA8
+amdyb3NzQHN1c2UuY29tPg0KPiA+DQo+ID4gSG93IGhhdmUgeW91IHRlc3RlZCB0aGlzIGNoYW5n
+ZT8NCj4gDQo+IE9ubHkgY29tcGlsZS10ZXN0ZWQgYW5kIGxvYWRlZCB0aGUgbW9kdWxlLiBBcyB0
+aGlzIGZlYXR1cmUgaXNuJ3QgYmVpbmcgdXNlZA0KPiBpbiBsaW51eCBuZXRmcm9udCBBRkFJSyBp
+dCBpcyBub3QgZWFzaWx5IHRlc3RhYmxlLiBPVE9IIHRoZSBjb2RlIG1vZGlmaWNhdGlvbiBpcw0K
+PiByYXRoZXIgbGltaXRlZCBhbmQgSSd2ZSB1c2VkIHRoZSB0aHJlYWRlZCBpcnEgaW4gdGhlIFhl
+biBzY3NpYmFjayBkcml2ZXINCj4gbXlzZWxmLCBzbyBJJ20gcmF0aGVyIGNvbmZpZGVudCBpdCB3
+aWxsIHdvcmsuDQo+IA0KDQpPSy4gSG93IGFib3V0IGRvaW5nIHRoZSByeCBpbnRlcnJ1cHQvdGFz
+ayB0b28gc28gdGhhdCBpdCBjYW4gYmUgZWFzaWx5IHRlc3RlZCB3aXRoIGEgbGludXggbmV0ZnJv
+bnQ/DQoNCiAgUGF1bA0KDQo+IA0KPiBKdWVyZ2VuDQoNCg==
