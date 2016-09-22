@@ -1,43 +1,62 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: [PATCH iproute2 net-next] tc: m_vlan: Add vlan modify action
-Date: Thu, 22 Sep 2016 20:44:46 +0300
-Message-ID: <20160922204446.14a0c23b@halley>
-References: <1474536670-2495-1-git-send-email-shmulik.ladkani@gmail.com>
-        <20160922090504.3eaa5266@xeon-e3>
+From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
+Subject: [PATCH v1] bpf: Set register type according to is_valid_access()
+Date: Thu, 22 Sep 2016 20:35:12 +0200
+Message-ID: <20160922183512.13576-1-mic@digikod.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jiri Pirko <jiri@resnulli.us>,
-        Shmulik Ladkani <shmulik.ladkani@gmail.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:35276 "EHLO
-        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S966233AbcIVRo6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 13:44:58 -0400
-Received: by mail-wm0-f46.google.com with SMTP id l132so341461263wmf.0
-        for <netdev@vger.kernel.org>; Thu, 22 Sep 2016 10:44:57 -0700 (PDT)
-In-Reply-To: <20160922090504.3eaa5266@xeon-e3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Andy Lutomirski <luto@amacapital.net>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Kees Cook <keescook@chromium.org>,
+        Sargun Dhillon <sargun@sargun.me>, Tejun Heo <tj@kernel.org>,
+        netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 22 Sep 2016 09:05:04 -0700 Stephen Hemminger <stephen@networkplumber.org> wrote:
-> On Thu, 22 Sep 2016 12:31:10 +0300
-> Shmulik Ladkani <shmulik.ladkani@ravellosystems.com> wrote:
-> 
-> > +
-> > +static const char *action_name(int action)
-> > +{
-> > +	static const char * const names[] = {
-> > +		[TCA_VLAN_ACT_POP] = "pop",
-> > +		[TCA_VLAN_ACT_PUSH] = "push",
-> > +		[TCA_VLAN_ACT_MODIFY] = "modify",
-> > +	};
-> > +	return names[action];
-> > +}
-> > +  
-> 
-> Why are you wrapping a simple array lookup in a function?
+This fix a pointer leak when an unprivileged eBPF program read a pointer
+value from the context. Even if is_valid_access() returns a pointer
+type, the eBPF verifier replace it with UNKNOWN_VALUE. The register
+value containing an address is then allowed to leak. Moreover, this
+prevented unprivileged eBPF programs to use functions with (legitimate)
+pointer arguments.
 
-No reason in particular, was probably code evolution, will amend, thanks.
+This bug is not an issue for now because the only unprivileged eBPF
+program allowed is of type BPF_PROG_TYPE_SOCKET_FILTER and all the types
+from its context are UNKNOWN_VALUE. However, this fix is important for
+future unprivileged eBPF program types which could use pointers in their
+context.
+
+Signed-off-by: Mickaël Salaün <mic@digikod.net>
+Fixes: 969bf05eb3ce ("bpf: direct packet access")
+Cc: Alexei Starovoitov <ast@kernel.org>
+Cc: Andy Lutomirski <luto@amacapital.net>
+Cc: Daniel Borkmann <daniel@iogearbox.net>
+Cc: Kees Cook <keescook@chromium.org>
+Acked-by: Sargun Dhillon <sargun@sargun.me>
+---
+ kernel/bpf/verifier.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index daea765d72e6..0698ccd67715 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -794,10 +794,8 @@ static int check_mem_access(struct verifier_env *env, u32 regno, int off,
+ 		}
+ 		err = check_ctx_access(env, off, size, t, &reg_type);
+ 		if (!err && t == BPF_READ && value_regno >= 0) {
+-			mark_reg_unknown_value(state->regs, value_regno);
+-			if (env->allow_ptr_leaks)
+-				/* note that reg.[id|off|range] == 0 */
+-				state->regs[value_regno].type = reg_type;
++			/* note that reg.[id|off|range] == 0 */
++			state->regs[value_regno].type = reg_type;
+ 		}
+ 
+ 	} else if (reg->type == FRAME_PTR || reg->type == PTR_TO_STACK) {
+-- 
+2.9.3
