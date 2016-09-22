@@ -1,185 +1,41 @@
-From: sthemmin@exchange.microsoft.com
-Subject: [PATCH 6/7] hv_netvsc: remove VF in flight counters
-Date: Thu, 22 Sep 2016 16:56:34 -0700
-Message-ID: <1474588595-16054-7-git-send-email-sthemmin@exchange.microsoft.com>
-References: <1474588595-16054-1-git-send-email-sthemmin@exchange.microsoft.com>
-Reply-To: sthemmin@microsoft.com
-Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
-To: "K. Y. Srinivasan" <kys@microsoft.com>,
-        Haiyang Zhang <haiyangz@microsoft.com>, davem@davemloft.net
+From: Mark Tomlinson <Mark.Tomlinson@alliedtelesis.co.nz>
+Subject: Re: [PATCH] net: VRF: Fix receiving multicast traffic
+Date: Thu, 22 Sep 2016 22:10:36 +0000
+Message-ID: <ee8de997-007c-4035-5f65-a8b389a138ac@alliedtelesis.co.nz>
+References: <20160922041308.30848-1-mark.tomlinson@alliedtelesis.co.nz>
+ <aac5b560-d757-3281-8e69-7953e7c4b418@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: quoted-printable
+To: David Ahern <dsa@cumulusnetworks.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from p3plsmtps2ded04.prod.phx3.secureserver.net ([208.109.80.198]:54160
-        "EHLO p3plsmtps2ded04.prod.phx3.secureserver.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1757853AbcIVWGH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 22 Sep 2016 18:06:07 -0400
-In-Reply-To: <1474588595-16054-1-git-send-email-sthemmin@exchange.microsoft.com>
+Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:48849 "EHLO
+        gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933738AbcIVWKk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 18:10:40 -0400
+Received: from mmarshal3.atlnz.lc (mmarshal3.atlnz.lc [10.32.18.43])
+        (using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+        (Client did not present a certificate)
+        by gate2.alliedtelesis.co.nz (Postfix) with ESMTPS id 18D5386053
+        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 10:10:38 +1200 (NZST)
+In-Reply-To: <aac5b560-d757-3281-8e69-7953e7c4b418@cumulusnetworks.com>
+Content-Language: en-US
+Content-ID: <B32AA5B016A73241B7439B0A3F6D9FD3@atlnz.lc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <sthemmin@microsoft.com>
 
-Since VF reference is now protected by RCU, no longer need the VF usage
-counter and can use device flags to see whether to inject or not.
-
-Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
----
- drivers/net/hyperv/hyperv_net.h |    3 +-
- drivers/net/hyperv/netvsc_drv.c |   81 ++++++++++-----------------------------
- 2 files changed, 21 insertions(+), 63 deletions(-)
-
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 6b79487..1d49740 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -696,8 +696,7 @@ struct net_device_context {
- 
- 	/* State to manage the associated VF interface. */
- 	struct net_device __rcu *vf_netdev;
--	bool vf_inject;
--	atomic_t vf_use_cnt;
-+
- 	/* 1: allocated, serial number is valid. 0: not allocated */
- 	u32 vf_alloc;
- 	/* Serial number of the VF to team with */
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index dde17c0..9375d82 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -670,50 +670,20 @@ int netvsc_recv_callback(struct hv_device *device_obj,
- 	struct net_device *vf_netdev;
- 	struct sk_buff *skb;
- 	struct netvsc_stats *rx_stats;
--	u32 bytes_recvd = packet->total_data_buflen;
--	int ret = 0;
- 
--	if (!net || net->reg_state != NETREG_REGISTERED)
-+	if (net->reg_state != NETREG_REGISTERED)
- 		return NVSP_STAT_FAIL;
- 
-+	/*
-+	 * If necessary, inject this packet into the VF interface.
-+	 * On Hyper-V, multicast and brodcast packets are only delivered
-+	 * to the synthetic interface (after subjecting these to
-+	 * policy filters on the host). Deliver these via the VF
-+	 * interface in the guest.
-+	 */
- 	vf_netdev = rcu_dereference(net_device_ctx->vf_netdev);
--	if (vf_netdev) {
--		struct sk_buff *vf_skb;
--
--		atomic_inc(&net_device_ctx->vf_use_cnt);
--		if (!net_device_ctx->vf_inject) {
--			/*
--			 * We raced; just move on.
--			 */
--			atomic_dec(&net_device_ctx->vf_use_cnt);
--			goto vf_injection_done;
--		}
--
--		/*
--		 * Inject this packet into the VF inerface.
--		 * On Hyper-V, multicast and brodcast packets
--		 * are only delivered on the synthetic interface
--		 * (after subjecting these to policy filters on
--		 * the host). Deliver these via the VF interface
--		 * in the guest.
--		 */
--		vf_skb = netvsc_alloc_recv_skb(vf_netdev,
--					       packet, csum_info, *data,
--					       vlan_tci);
--		if (vf_skb != NULL) {
--			++vf_netdev->stats.rx_packets;
--			vf_netdev->stats.rx_bytes += bytes_recvd;
--			netif_receive_skb(vf_skb);
--		} else {
--			++net->stats.rx_dropped;
--			ret = NVSP_STAT_FAIL;
--		}
--		atomic_dec(&net_device_ctx->vf_use_cnt);
--		return ret;
--	}
--
--vf_injection_done:
--	rx_stats = this_cpu_ptr(net_device_ctx->rx_stats);
-+	if (vf_netdev && (vf_netdev->flags & IFF_UP))
-+		net = vf_netdev;
- 
- 	/* Allocate a skb - TODO direct I/O to pages? */
- 	skb = netvsc_alloc_recv_skb(net, packet, csum_info, *data, vlan_tci);
-@@ -721,9 +691,17 @@ vf_injection_done:
- 		++net->stats.rx_dropped;
- 		return NVSP_STAT_FAIL;
- 	}
--	skb_record_rx_queue(skb, channel->
--			    offermsg.offer.sub_channel_index);
- 
-+	if (net != vf_netdev)
-+		skb_record_rx_queue(skb,
-+				    channel->offermsg.offer.sub_channel_index);
-+
-+	/*
-+	 * Even if injecting the packet, record the statistics
-+	 * on the synthetic device because modifying the VF device
-+	 * statistics will not work correctly.
-+	 */
-+	rx_stats = this_cpu_ptr(net_device_ctx->rx_stats);
- 	u64_stats_update_begin(&rx_stats->syncp);
- 	rx_stats->packets++;
- 	rx_stats->bytes += packet->total_data_buflen;
-@@ -1291,20 +1269,6 @@ static int netvsc_register_vf(struct net_device *vf_netdev)
- 	return NOTIFY_OK;
- }
- 
--static void netvsc_inject_enable(struct net_device_context *net_device_ctx)
--{
--	net_device_ctx->vf_inject = true;
--}
--
--static void netvsc_inject_disable(struct net_device_context *net_device_ctx)
--{
--	net_device_ctx->vf_inject = false;
--
--	/* Wait for currently active users to drain out. */
--	while (atomic_read(&net_device_ctx->vf_use_cnt) != 0)
--		udelay(50);
--}
--
- static int netvsc_vf_up(struct net_device *vf_netdev)
- {
- 	struct net_device *ndev;
-@@ -1319,7 +1283,6 @@ static int netvsc_vf_up(struct net_device *vf_netdev)
- 	netvsc_dev = net_device_ctx->nvdev;
- 
- 	netdev_info(ndev, "VF up: %s\n", vf_netdev->name);
--	netvsc_inject_enable(net_device_ctx);
- 
- 	/*
- 	 * Open the device before switching data path.
-@@ -1354,7 +1317,6 @@ static int netvsc_vf_down(struct net_device *vf_netdev)
- 	netvsc_dev = net_device_ctx->nvdev;
- 
- 	netdev_info(ndev, "VF down: %s\n", vf_netdev->name);
--	netvsc_inject_disable(net_device_ctx);
- 	netvsc_switch_datapath(ndev, false);
- 	netdev_info(ndev, "Data path switched from VF: %s\n", vf_netdev->name);
- 	rndis_filter_close(netvsc_dev);
-@@ -1380,7 +1342,6 @@ static int netvsc_unregister_vf(struct net_device *vf_netdev)
- 	netvsc_dev = net_device_ctx->nvdev;
- 
- 	netdev_info(ndev, "VF unregistering: %s\n", vf_netdev->name);
--	netvsc_inject_disable(net_device_ctx);
- 
- 	RCU_INIT_POINTER(net_device_ctx->vf_netdev, NULL);
- 	dev_put(vf_netdev);
-@@ -1435,8 +1396,6 @@ static int netvsc_probe(struct hv_device *dev,
- 	spin_lock_init(&net_device_ctx->lock);
- 	INIT_LIST_HEAD(&net_device_ctx->reconfig_events);
- 
--	atomic_set(&net_device_ctx->vf_use_cnt, 0);
--
- 	net->netdev_ops = &device_ops;
- 
- 	net->hw_features = NETVSC_HW_FEATURES;
--- 
-1.7.4.1
+On 09/23/2016 03:14 AM, David Ahern wrote:
+>
+> l3mdev devices do not support IPv4 multicast so checking mcast against th=
+at device should not be working at all. For that reason I was fine with the=
+ change in the previous patch. ie., you want the real ingress device there =
+not the vrf device.
+>
+> What test are you running that says your previous patch broke something?
+Although we do not expect any multicast routing to work in an l3mdev,=20
+(IGMP snooping or PIM), we still want to have multicast packets=20
+delivered for protocols such as RIP. This was working before my previous=20
+patch, but these multicast packets are now dropped. This current patch=20
+fixes that again, hopefully still with the benefits of my first patch.
