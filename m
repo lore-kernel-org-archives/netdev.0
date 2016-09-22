@@ -1,56 +1,54 @@
-From: <sean.wang@mediatek.com>
-Subject: [PATCH net-next v2 0/3] add support for RGMII on GMAC0 through TRGMII hardware module
-Date: Thu, 22 Sep 2016 10:33:53 +0800
-Message-ID: <1474511636-11644-1-git-send-email-sean.wang@mediatek.com>
+From: <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH net-next v2 3/3] net: ethernet: mediatek: add the dts property
+ to set if TRGMII supported on GMAC0
+Date: Thu, 22 Sep 2016 10:33:56 +0800
+Message-ID: <1474511636-11644-4-git-send-email-sean.wang@mediatek.com>
+References: <1474511636-11644-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>,
-        <linux-mediatek@lists.infradead.org>, <andrew@lunn.ch>,
-        <f.fainelli@gmail.com>, <keyhaede@gmail.com>, <objelf@gmail.com>,
-        Sean Wang <sean.wang@mediatek.com>
-To: <john@phrozen.org>, <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: andrew-g2DYL2Zd6BY@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ objelf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1474511636-11644-1-git-send-email-sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
+List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Sean Wang <sean.wang@mediatek.com>
+From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
 
-By default, GMAC0 is connected to built-in switch called
-MT7530 through the proprietary interface called Turbo RGMII
-(TRGMII). TRGMII also supports well for RGMII as generic external
-PHY uses but requires some slight changes to the setup of TRGMII 
-and doesn't have well support on current driver.
+Add the dts property for the capability if TRGMII supported on GAMC0
 
-So this patchset
-1) provides the slight changes of the setup for RGMII can work
-   through TRGMII
-2) adds additional setting "trgmii" as PHY_INTERFACE_MODE_TRGMII 
-   about phy-mode on device tree to make GMAC0 distinguish which
-   mode it runs
-3) changes dynamically source clock, TX/RX delay and interface
-   mode on TRGMII for adapting various link
+Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+---
+ Documentation/devicetree/bindings/net/mediatek-net.txt | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-Changes since v1:
-- fixed the style of comment which doesn't have a space at 
-   the beginning and end of comment lines
-- add support for phy-mode "trgmii" as PHY_INTERFACE_MODE_TRGMII 
-   into linux/phy.h
-- enhance the Documentation about device tree binding for trgmii
-  which is applicable only for GMAC0 which uses fixed-link
-
-Sean Wang (3):
-  net: ethernet: mediatek: add extension of phy-mode for TRGMII
-  net: ethernet: mediatek: add support for GMAC0 connecting with
-    external PHY through TRGMII
-  net: ethernet: mediatek: add the dts property to set if TRGMII
-    supported on GMAC0
-
- .../devicetree/bindings/net/mediatek-net.txt       |  5 +++-
- drivers/net/ethernet/mediatek/mtk_eth_soc.c        | 34 +++++++++++++++++++++-
- drivers/net/ethernet/mediatek/mtk_eth_soc.h        | 34 +++++++++++++++++++++-
- include/linux/phy.h                                |  3 ++
- 4 files changed, 73 insertions(+), 3 deletions(-)
-
+diff --git a/Documentation/devicetree/bindings/net/mediatek-net.txt b/Documentation/devicetree/bindings/net/mediatek-net.txt
+index 6103e55..7111278 100644
+--- a/Documentation/devicetree/bindings/net/mediatek-net.txt
++++ b/Documentation/devicetree/bindings/net/mediatek-net.txt
+@@ -31,7 +31,10 @@ Optional properties:
+ Required properties:
+ - compatible: Should be "mediatek,eth-mac"
+ - reg: The number of the MAC
+-- phy-handle: see ethernet.txt file in the same directory.
++- phy-handle: see ethernet.txt file in the same directory and
++	the phy-mode "trgmii" required being provided when reg
++	is equal to 0 and the MAC uses fixed-link to connect
++	with inernal switch such as MT7530.
+ 
+ Example:
+ 
 -- 
 1.9.1
