@@ -1,85 +1,164 @@
 From: sthemmin@exchange.microsoft.com
-Subject: [PATCH 7/7] hv_netvsc: count multicast packets received
-Date: Thu, 22 Sep 2016 16:56:35 -0700
-Message-ID: <1474588595-16054-8-git-send-email-sthemmin@exchange.microsoft.com>
+Subject: [PATCH 4/7] hv_netvsc: improve VF device matching
+Date: Thu, 22 Sep 2016 16:56:32 -0700
+Message-ID: <1474588595-16054-5-git-send-email-sthemmin@exchange.microsoft.com>
 References: <1474588595-16054-1-git-send-email-sthemmin@exchange.microsoft.com>
 Reply-To: sthemmin@microsoft.com
 Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
 To: "K. Y. Srinivasan" <kys@microsoft.com>,
         Haiyang Zhang <haiyangz@microsoft.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from p3plsmtps2ded04.prod.phx3.secureserver.net ([208.109.80.198]:54168
+Received: from p3plsmtps2ded04.prod.phx3.secureserver.net ([208.109.80.198]:54162
         "EHLO p3plsmtps2ded04.prod.phx3.secureserver.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1757865AbcIVWGI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 22 Sep 2016 18:06:08 -0400
+        id S1757855AbcIVWGH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 22 Sep 2016 18:06:07 -0400
 In-Reply-To: <1474588595-16054-1-git-send-email-sthemmin@exchange.microsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Stephen Hemminger <sthemmin@microsoft.com>
 
-Useful for debugging issues with multicast and SR-IOV to keep track
-of number of received multicast packets.
+The code to associate netvsc and VF devices can be made less error prone
+by using a better matching algorithms.
+
+On registration, use the permanent address which avoids any possible
+issues caused by device MAC address being changed. For all other callbacks,
+search by the netdevice pointer value to ensure getting the correct
+network device.
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
- drivers/net/hyperv/hyperv_net.h |    2 ++
- drivers/net/hyperv/netvsc_drv.c |    9 ++++++++-
- 2 files changed, 10 insertions(+), 1 deletions(-)
+ drivers/net/hyperv/netvsc_drv.c |   60 +++++++++++++++++++++++++-------------
+ 1 files changed, 39 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 1d49740..7130bf9 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -649,6 +649,8 @@ struct multi_recv_comp {
- struct netvsc_stats {
- 	u64 packets;
- 	u64 bytes;
-+	u64 broadcast;
-+	u64 multicast;
- 	struct u64_stats_sync syncp;
- };
- 
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 9375d82..52eeb2f 100644
+index 849b566..8768219 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -705,6 +705,11 @@ int netvsc_recv_callback(struct hv_device *device_obj,
- 	u64_stats_update_begin(&rx_stats->syncp);
- 	rx_stats->packets++;
- 	rx_stats->bytes += packet->total_data_buflen;
+@@ -1215,22 +1215,44 @@ static void netvsc_free_netdev(struct net_device *netdev)
+ 	free_netdev(netdev);
+ }
+ 
+-static struct net_device *get_netvsc_net_device(char *mac)
++static struct net_device *get_netvsc_bymac(const u8 *mac)
+ {
+-	struct net_device *dev, *found = NULL;
++	struct net_device *dev;
+ 
+ 	ASSERT_RTNL();
+ 
+ 	for_each_netdev(&init_net, dev) {
+-		if (memcmp(dev->dev_addr, mac, ETH_ALEN) == 0) {
+-			if (dev->netdev_ops != &device_ops)
+-				continue;
+-			found = dev;
+-			break;
+-		}
++		if (dev->netdev_ops != &device_ops)
++			continue;	/* not a netvsc device */
 +
-+	if (skb->pkt_type == PACKET_BROADCAST)
-+		++rx_stats->broadcast;
-+	else if (skb->pkt_type == PACKET_MULTICAST)
-+		++rx_stats->multicast;
- 	u64_stats_update_end(&rx_stats->syncp);
- 
- 	/*
-@@ -947,7 +952,7 @@ static struct rtnl_link_stats64 *netvsc_get_stats64(struct net_device *net,
- 							    cpu);
- 		struct netvsc_stats *rx_stats = per_cpu_ptr(ndev_ctx->rx_stats,
- 							    cpu);
--		u64 tx_packets, tx_bytes, rx_packets, rx_bytes;
-+		u64 tx_packets, tx_bytes, rx_packets, rx_bytes, rx_multicast;
- 		unsigned int start;
- 
- 		do {
-@@ -960,12 +965,14 @@ static struct rtnl_link_stats64 *netvsc_get_stats64(struct net_device *net,
- 			start = u64_stats_fetch_begin_irq(&rx_stats->syncp);
- 			rx_packets = rx_stats->packets;
- 			rx_bytes = rx_stats->bytes;
-+			rx_multicast = rx_stats->multicast + rx_stats->broadcast;
- 		} while (u64_stats_fetch_retry_irq(&rx_stats->syncp, start));
- 
- 		t->tx_bytes	+= tx_bytes;
- 		t->tx_packets	+= tx_packets;
- 		t->rx_bytes	+= rx_bytes;
- 		t->rx_packets	+= rx_packets;
-+		t->multicast	+= rx_multicast;
++		if (ether_addr_equal(mac, dev->perm_addr))
++			return dev;
++	}
++
++	return NULL;
++}
++
++static struct net_device *get_netvsc_byref(const struct net_device *vf_netdev)
++{
++	struct net_device *dev;
++
++	ASSERT_RTNL();
++
++	for_each_netdev(&init_net, dev) {
++		struct net_device_context *net_device_ctx;
++
++		if (dev->netdev_ops != &device_ops)
++			continue;	/* not a netvsc device */
++
++		net_device_ctx = netdev_priv(dev);
++		if (net_device_ctx->nvdev == NULL)
++			continue;	/* device is removed */
++
++		if (net_device_ctx->vf_netdev == vf_netdev)
++			return dev;	/* a match */
  	}
  
- 	t->tx_dropped	= net->stats.tx_dropped;
+-	return found;
++	return NULL;
+ }
+ 
+ static int netvsc_register_vf(struct net_device *vf_netdev)
+@@ -1239,12 +1261,15 @@ static int netvsc_register_vf(struct net_device *vf_netdev)
+ 	struct net_device_context *net_device_ctx;
+ 	struct netvsc_device *netvsc_dev;
+ 
++	if (vf_netdev->addr_len != ETH_ALEN)
++		return NOTIFY_DONE;
++
+ 	/*
+ 	 * We will use the MAC address to locate the synthetic interface to
+ 	 * associate with the VF interface. If we don't find a matching
+ 	 * synthetic interface, move on.
+ 	 */
+-	ndev = get_netvsc_net_device(vf_netdev->dev_addr);
++	ndev = get_netvsc_bymac(vf_netdev->perm_addr);
+ 	if (!ndev)
+ 		return NOTIFY_DONE;
+ 
+@@ -1284,16 +1309,13 @@ static int netvsc_vf_up(struct net_device *vf_netdev)
+ 	struct netvsc_device *netvsc_dev;
+ 	struct net_device_context *net_device_ctx;
+ 
+-	ndev = get_netvsc_net_device(vf_netdev->dev_addr);
++	ndev = get_netvsc_byref(vf_netdev);
+ 	if (!ndev)
+ 		return NOTIFY_DONE;
+ 
+ 	net_device_ctx = netdev_priv(ndev);
+ 	netvsc_dev = net_device_ctx->nvdev;
+ 
+-	if (!netvsc_dev || !net_device_ctx->vf_netdev)
+-		return NOTIFY_DONE;
+-
+ 	netdev_info(ndev, "VF up: %s\n", vf_netdev->name);
+ 	netvsc_inject_enable(net_device_ctx);
+ 
+@@ -1322,16 +1344,13 @@ static int netvsc_vf_down(struct net_device *vf_netdev)
+ 	struct netvsc_device *netvsc_dev;
+ 	struct net_device_context *net_device_ctx;
+ 
+-	ndev = get_netvsc_net_device(vf_netdev->dev_addr);
++	ndev = get_netvsc_byref(vf_netdev);
+ 	if (!ndev)
+ 		return NOTIFY_DONE;
+ 
+ 	net_device_ctx = netdev_priv(ndev);
+ 	netvsc_dev = net_device_ctx->nvdev;
+ 
+-	if (!netvsc_dev || !net_device_ctx->vf_netdev)
+-		return NOTIFY_DONE;
+-
+ 	netdev_info(ndev, "VF down: %s\n", vf_netdev->name);
+ 	netvsc_inject_disable(net_device_ctx);
+ 	netvsc_switch_datapath(ndev, false);
+@@ -1351,14 +1370,13 @@ static int netvsc_unregister_vf(struct net_device *vf_netdev)
+ 	struct netvsc_device *netvsc_dev;
+ 	struct net_device_context *net_device_ctx;
+ 
+-	ndev = get_netvsc_net_device(vf_netdev->dev_addr);
++	ndev = get_netvsc_byref(vf_netdev);
+ 	if (!ndev)
+ 		return NOTIFY_DONE;
+ 
+ 	net_device_ctx = netdev_priv(ndev);
+ 	netvsc_dev = net_device_ctx->nvdev;
+-	if (!netvsc_dev || !net_device_ctx->vf_netdev)
+-		return NOTIFY_DONE;
++
+ 	netdev_info(ndev, "VF unregistering: %s\n", vf_netdev->name);
+ 	netvsc_inject_disable(net_device_ctx);
+ 	net_device_ctx->vf_netdev = NULL;
 -- 
 1.7.4.1
