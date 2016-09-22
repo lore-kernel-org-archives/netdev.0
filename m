@@ -1,25 +1,29 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull-request: wireless-drivers 2016-09-20
-Date: Wed, 21 Sep 2016 21:45:58 -0400 (EDT)
-Message-ID: <20160921.214558.1816458813817917881.davem@davemloft.net>
-References: <87vaxq3m9t.fsf@kamboji.qca.qualcomm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next V2 0/4] mlx4 misc cleanups and improvements
+Date: Wed, 21 Sep 2016 21:53:14 -0400 (EDT)
+Message-ID: <20160921.215314.866405319909824780.davem@davemloft.net>
+References: <1474371582-998-1-git-send-email-tariqt@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87vaxq3m9t.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, eranbe@mellanox.com
+To: tariqt@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:52158 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753632AbcIVBxU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2016 21:53:20 -0400
+In-Reply-To: <1474371582-998-1-git-send-email-tariqt@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Date: Tue, 20 Sep 2016 13:20:46 +0300
+From: Tariq Toukan <tariqt@mellanox.com>
+Date: Tue, 20 Sep 2016 14:39:38 +0300
 
-> last pull request for 4.8, unless something really drastic comes up. And
-> a small one even, just a small fix to iwlwifi to avoid a firmware crash.
+> This patchset contains some cleanups and improvements from the team
+> to the mlx4 Eth and core drivers.
 > 
-> Please let me know if there are any problems.
+> Series generated against net-next commit:
+> 5a7a5555a362 'net sched: stylistic cleanups'
 
-Pulled, thanks.
+Series applied, thanks.
