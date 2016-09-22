@@ -1,36 +1,133 @@
-From: "Amrani, Ram" <Ram.Amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Subject: RE: [RFC v2 06/12] qedr: Add support for QP verbs
-Date: Thu, 22 Sep 2016 06:51:49 +0000
-Message-ID: <SN1PR07MB2207E4653CB73F5D9D86F1E9F8C90@SN1PR07MB2207.namprd07.prod.outlook.com>
-References: <1474367764-9555-1-git-send-email-Ram.Amrani@cavium.com>
- <1474367764-9555-7-git-send-email-Ram.Amrani@cavium.com>
- <20160920152849.GD32020@obsidianresearch.com>
- <SN1PR07MB2207B94372F7A910C0E6AF0AF8F60@SN1PR07MB2207.namprd07.prod.outlook.com>
- <20160921155509.GC1510@obsidianresearch.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "Elior, Ariel" <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-        "Kalderon, Michal" <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-        "Mintz, Yuval" <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-        "Borundia, Rajesh" <Rajesh.Borundia-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160921155509.GC1510-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: fgao@ikuai8.com
+Subject: [PATCH nf v5] netfilter: seqadj: Fix the wrong ack adjust for the RST packet without ack
+Date: Thu, 22 Sep 2016 14:53:53 +0800
+Message-ID: <1474527233-21988-1-git-send-email-fgao@ikuai8.com>
+Cc: gfree.wind@gmail.com, Gao Feng <fgao@ikuai8.com>
+To: pablo@netfilter.org, kaber@trash.net,
+        netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->=20
-> Do you have a git tree?
->=20
-We don't have a publicly accessible git tree.
+From: Gao Feng <fgao@ikuai8.com>
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+It is valid that the TCP RST packet which does not set ack flag, and bytes
+of ack number are zero. But current seqadj codes would adjust the "0" ack
+to invalid ack number. Actually seqadj need to check the ack flag before
+adjust it for these RST packets.
+
+The following is my test case
+
+client is 10.26.98.245, and add one iptable rule:
+iptables  -I INPUT -p tcp --sport 12345 -m connbytes --connbytes 2:
+--connbytes-dir reply --connbytes-mode packets -j REJECT --reject-with
+tcp-reset
+This iptables rule could generate on TCP RST without ack flag.
+
+server:10.172.135.55
+Enable the synproxy with seqadjust by the following iptables rules
+iptables -t raw -A PREROUTING -i eth0 -p tcp -d 10.172.135.55 --dport 12345
+-m tcp --syn -j CT --notrack
+
+iptables -A INPUT -i eth0 -p tcp -d 10.172.135.55 --dport 12345 -m conntrack
+--ctstate INVALID,UNTRACKED -j SYNPROXY --sack-perm --timestamp --wscale 7
+--mss 1460
+iptables -A OUTPUT -o eth0 -p tcp -s 10.172.135.55 --sport 12345 -m conntrack
+--ctstate INVALID,UNTRACKED -m tcp --tcp-flags SYN,RST,ACK SYN,ACK -j ACCEPT
+
+The following is my test result.
+
+1. packet trace on client
+root@routers:/tmp# tcpdump -i eth0 tcp port 12345 -n
+tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+listening on eth0, link-type EN10MB (Ethernet), capture size 65535 bytes
+IP 10.26.98.245.45154 > 10.172.135.55.12345: Flags [S], seq 3695959829,
+win 29200, options [mss 1460,sackOK,TS val 452367884 ecr 0,nop,wscale 7],
+length 0
+IP 10.172.135.55.12345 > 10.26.98.245.45154: Flags [S.], seq 546723266,
+ack 3695959830, win 0, options [mss 1460,sackOK,TS val 15643479 ecr 452367884,
+nop,wscale 7], length 0
+IP 10.26.98.245.45154 > 10.172.135.55.12345: Flags [.], ack 1, win 229,
+options [nop,nop,TS val 452367885 ecr 15643479], length 0
+IP 10.172.135.55.12345 > 10.26.98.245.45154: Flags [.], ack 1, win 226,
+options [nop,nop,TS val 15643479 ecr 452367885], length 0
+IP 10.26.98.245.45154 > 10.172.135.55.12345: Flags [R], seq 3695959830,
+win 0, length 0
+
+2. seqadj log on server
+[62873.867319] Adjusting sequence number from 602341895->546723267,
+ack from 3695959830->3695959830
+[62873.867644] Adjusting sequence number from 602341895->546723267,
+ack from 3695959830->3695959830
+[62873.869040] Adjusting sequence number from 3695959830->3695959830,
+ack from 0->55618628
+
+To summarize, it is clear that the seqadj codes adjust the 0 ack when receive
+one TCP RST packet without ack.
+
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
+---
+ v5: Use goto to decrease the patch size
+ v4: Don't invoke nf_ct_sack_adjust when no ack flag
+ v3: Add the reproduce steps and packet trace
+ v2: Regenerate because the first patch is removed
+ v1: Initial patch
+
+ net/netfilter/nf_conntrack_seqadj.c | 20 ++++++++++++--------
+ 1 file changed, 12 insertions(+), 8 deletions(-)
+
+diff --git a/net/netfilter/nf_conntrack_seqadj.c b/net/netfilter/nf_conntrack_seqadj.c
+index dff0f0c..08d0640 100644
+--- a/net/netfilter/nf_conntrack_seqadj.c
++++ b/net/netfilter/nf_conntrack_seqadj.c
+@@ -169,7 +169,7 @@ int nf_ct_seq_adjust(struct sk_buff *skb,
+ 	s32 seqoff, ackoff;
+ 	struct nf_conn_seqadj *seqadj = nfct_seqadj(ct);
+ 	struct nf_ct_seqadj *this_way, *other_way;
+-	int res;
++	int res = 1;
+ 
+ 	this_way  = &seqadj->seq[dir];
+ 	other_way = &seqadj->seq[!dir];
+@@ -184,27 +184,31 @@ int nf_ct_seq_adjust(struct sk_buff *skb,
+ 	else
+ 		seqoff = this_way->offset_before;
+ 
++	newseq = htonl(ntohl(tcph->seq) + seqoff);
++	inet_proto_csum_replace4(&tcph->check, skb, tcph->seq, newseq, false);
++	pr_debug("Adjusting sequence number from %u->%u\n",
++		 ntohl(tcph->seq), ntohl(newseq));
++	tcph->seq = newseq;
++
++	if (unlikely(!tcph->ack))
++		goto out;
++
+ 	if (after(ntohl(tcph->ack_seq) - other_way->offset_before,
+ 		  other_way->correction_pos))
+ 		ackoff = other_way->offset_after;
+ 	else
+ 		ackoff = other_way->offset_before;
+ 
+-	newseq = htonl(ntohl(tcph->seq) + seqoff);
+ 	newack = htonl(ntohl(tcph->ack_seq) - ackoff);
+-
+-	inet_proto_csum_replace4(&tcph->check, skb, tcph->seq, newseq, false);
+ 	inet_proto_csum_replace4(&tcph->check, skb, tcph->ack_seq, newack,
+ 				 false);
+-
+-	pr_debug("Adjusting sequence number from %u->%u, ack from %u->%u\n",
++	pr_debug("Adjusting ack number from %u->%u, ack from %u->%u\n",
+ 		 ntohl(tcph->seq), ntohl(newseq), ntohl(tcph->ack_seq),
+ 		 ntohl(newack));
+-
+-	tcph->seq = newseq;
+ 	tcph->ack_seq = newack;
+ 
+ 	res = nf_ct_sack_adjust(skb, protoff, tcph, ct, ctinfo);
++out:
+ 	spin_unlock_bh(&ct->lock);
+ 
+ 	return res;
+-- 
+1.9.1
+
