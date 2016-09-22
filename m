@@ -1,38 +1,76 @@
-From: Vlastimil Babka <vbabka@suse.cz>
-Subject: Re: [PATCH v2] fs/select: add vmalloc fallback for select(2)
-Date: Thu, 22 Sep 2016 18:56:48 +0200
-Message-ID: <12efc491-a0e7-1012-5a8b-6d3533c720db@suse.cz>
-References: <20160922164359.9035-1-vbabka@suse.cz>
- <1474562982.23058.140.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Viro <viro@zeniv.linux.org.uk>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-mm@kvack.org, Michal Hocko <mhocko@kernel.org>,
-        netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1474562982.23058.140.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net-next 1/9] net_sched: act_vlan: add helper inlines to access tcf_vlan info
+Date: Thu, 22 Sep 2016 20:01:41 +0300
+Message-ID: <1474563709-17943-2-git-send-email-saeedm@mellanox.com>
+References: <1474563709-17943-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+        Hadar Hen-Zion <hadarh@mellanox.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Andy Gospodarek <gospo@cumulusnetworks.com>,
+        Jesse Brandeburg <jesse.brandeburg@intel.com>,
+        John Fastabend <john.r.fastabend@intel.com>,
+        Amir Vadai <amirv@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:48995 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S964976AbcIVRCQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 13:02:16 -0400
+In-Reply-To: <1474563709-17943-1-git-send-email-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/22/2016 06:49 PM, Eric Dumazet wrote:
-> On Thu, 2016-09-22 at 18:43 +0200, Vlastimil Babka wrote:
->> The select(2) syscall performs a kmalloc(size, GFP_KERNEL) where size grows
->> with the number of fds passed. We had a customer report page allocation
->> failures of order-4 for this allocation. This is a costly order, so it might
->> easily fail, as the VM expects such allocation to have a lower-order fallback.
->>
->> Such trivial fallback is vmalloc(), as the memory doesn't have to be
->> physically contiguous. Also the allocation is temporary for the duration of the
->> syscall, so it's unlikely to stress vmalloc too much.
->
-> vmalloc() uses a vmap_area_lock spinlock, and TLB flushes.
->
-> So I guess allowing vmalloc() being called from an innocent application
-> doing a select() might be dangerous, especially if this select() happens
-> thousands of time per second.
+From: Or Gerlitz <ogerlitz@mellanox.com>
 
-Isn't seq_buf_alloc() similarly exposed? And ipc_alloc()?
+Needed e.g for offloading drivers to pick the relevant attributes.
+
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ include/net/tc_act/tc_vlan.h | 25 +++++++++++++++++++++++++
+ 1 file changed, 25 insertions(+)
+
+diff --git a/include/net/tc_act/tc_vlan.h b/include/net/tc_act/tc_vlan.h
+index 6b83588..48cca32 100644
+--- a/include/net/tc_act/tc_vlan.h
++++ b/include/net/tc_act/tc_vlan.h
+@@ -11,6 +11,7 @@
+ #define __NET_TC_VLAN_H
+ 
+ #include <net/act_api.h>
++#include <linux/tc_act/tc_vlan.h>
+ 
+ #define VLAN_F_POP		0x1
+ #define VLAN_F_PUSH		0x2
+@@ -24,4 +25,28 @@ struct tcf_vlan {
+ };
+ #define to_vlan(a) ((struct tcf_vlan *)a)
+ 
++static inline bool is_tcf_vlan(const struct tc_action *a)
++{
++#ifdef CONFIG_NET_CLS_ACT
++	if (a->ops && a->ops->type == TCA_ACT_VLAN)
++		return true;
++#endif
++	return false;
++}
++
++static inline u32 tcf_vlan_action(const struct tc_action *a)
++{
++	return to_vlan(a)->tcfv_action;
++}
++
++static inline u16 tcf_vlan_push_vid(const struct tc_action *a)
++{
++	return to_vlan(a)->tcfv_push_vid;
++}
++
++static inline __be16 tcf_vlan_push_proto(const struct tc_action *a)
++{
++	return to_vlan(a)->tcfv_push_proto;
++}
++
+ #endif /* __NET_TC_VLAN_H */
+-- 
+2.7.4
