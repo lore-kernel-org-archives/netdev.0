@@ -1,40 +1,308 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH] net: VRF: Fix receiving multicast traffic
-Date: Thu, 22 Sep 2016 16:41:00 -0600
-Message-ID: <319068be-b1b9-c245-55d6-5e012e57487b@cumulusnetworks.com>
-References: <20160922041308.30848-1-mark.tomlinson@alliedtelesis.co.nz>
- <aac5b560-d757-3281-8e69-7953e7c4b418@cumulusnetworks.com>
- <ee8de997-007c-4035-5f65-a8b389a138ac@alliedtelesis.co.nz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-To: Mark Tomlinson <Mark.Tomlinson@alliedtelesis.co.nz>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: [PATCH net-next] drivers: net: xgene: Fix MSS programming
+Date: Thu, 22 Sep 2016 15:47:33 -0700
+Message-ID: <1474584453-9071-1-git-send-email-isubramanian@apm.com>
+Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
+        Iyappan Subramanian <isubramanian@apm.com>,
+        Toan Le <toanle@apm.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:33175 "EHLO
-        mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758193AbcIVWlD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 18:41:03 -0400
-Received: by mail-pa0-f45.google.com with SMTP id hm5so33433755pac.0
-        for <netdev@vger.kernel.org>; Thu, 22 Sep 2016 15:41:03 -0700 (PDT)
-In-Reply-To: <ee8de997-007c-4035-5f65-a8b389a138ac@alliedtelesis.co.nz>
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:35928 "EHLO
+        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934145AbcIVWpH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 18:45:07 -0400
+Received: by mail-pf0-f174.google.com with SMTP id q2so34853471pfj.3
+        for <netdev@vger.kernel.org>; Thu, 22 Sep 2016 15:45:07 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/22/16 4:10 PM, Mark Tomlinson wrote:
-> 
-> On 09/23/2016 03:14 AM, David Ahern wrote:
->>
->> l3mdev devices do not support IPv4 multicast so checking mcast against that device should not be working at all. For that reason I was fine with the change in the previous patch. ie., you want the real ingress device there not the vrf device.
->>
->> What test are you running that says your previous patch broke something?
-> Although we do not expect any multicast routing to work in an l3mdev, 
-> (IGMP snooping or PIM), we still want to have multicast packets 
-> delivered for protocols such as RIP. This was working before my previous 
-> patch, but these multicast packets are now dropped. This current patch 
-> fixes that again, hopefully still with the benefits of my first patch.
-> 
+Current driver programs static value of MSS in hardware register for TSO
+offload engine to segment the TCP payload regardless the MSS value
+provided by network stack.
 
-can you discern which check is making that happen?
+This patch fixes this by programming hardware registers with the
+stack provided MSS value.
 
-It does not make sense to look at the in_device of a vrf device for mcast addresses. For IPv6 linklocal and mcast is specifically blocked. IPv4 should do the same. So, how is RIP getting the packet at all?
+Since the hardware has the limitation of having only 4 MSS registers,
+this patch uses reference count of mss values being used.
+
+Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+Signed-off-by: Toan Le <toanle@apm.com>
+---
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.h    |  7 ++
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c  | 90 ++++++++++++++++++-----
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.h  |  8 +-
+ drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c | 18 ++++-
+ 4 files changed, 100 insertions(+), 23 deletions(-)
+
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
+index 8a8d055..8456337 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
+@@ -237,6 +237,8 @@ enum xgene_enet_rm {
+ #define TCPHDR_LEN			6
+ #define IPHDR_POS			6
+ #define IPHDR_LEN			6
++#define MSS_POS				20
++#define MSS_LEN				2
+ #define EC_POS				22	/* Enable checksum */
+ #define EC_LEN				1
+ #define ET_POS				23	/* Enable TSO */
+@@ -253,6 +255,11 @@ enum xgene_enet_rm {
+ 
+ #define LAST_BUFFER			(0x7800ULL << BUFDATALEN_POS)
+ 
++#define TSO_MSS0_POS			0
++#define TSO_MSS0_LEN			14
++#define TSO_MSS1_POS			16
++#define TSO_MSS1_LEN			14
++
+ struct xgene_enet_raw_desc {
+ 	__le64 m0;
+ 	__le64 m1;
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+index 522ba92..429f18f 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+@@ -137,6 +137,7 @@ static irqreturn_t xgene_enet_rx_irq(const int irq, void *data)
+ static int xgene_enet_tx_completion(struct xgene_enet_desc_ring *cp_ring,
+ 				    struct xgene_enet_raw_desc *raw_desc)
+ {
++	struct xgene_enet_pdata *pdata = netdev_priv(cp_ring->ndev);
+ 	struct sk_buff *skb;
+ 	struct device *dev;
+ 	skb_frag_t *frag;
+@@ -144,6 +145,7 @@ static int xgene_enet_tx_completion(struct xgene_enet_desc_ring *cp_ring,
+ 	u16 skb_index;
+ 	u8 status;
+ 	int i, ret = 0;
++	u8 mss_index;
+ 
+ 	skb_index = GET_VAL(USERINFO, le64_to_cpu(raw_desc->m0));
+ 	skb = cp_ring->cp_skb[skb_index];
+@@ -160,6 +162,13 @@ static int xgene_enet_tx_completion(struct xgene_enet_desc_ring *cp_ring,
+ 			       DMA_TO_DEVICE);
+ 	}
+ 
++	if (GET_BIT(ET, le64_to_cpu(raw_desc->m3))) {
++		mss_index = GET_VAL(MSS, le64_to_cpu(raw_desc->m3));
++		spin_lock(&pdata->mss_lock);
++		pdata->mss_refcnt[mss_index]--;
++		spin_unlock(&pdata->mss_lock);
++	}
++
+ 	/* Checking for error */
+ 	status = GET_VAL(LERR, le64_to_cpu(raw_desc->m0));
+ 	if (unlikely(status > 2)) {
+@@ -178,15 +187,53 @@ static int xgene_enet_tx_completion(struct xgene_enet_desc_ring *cp_ring,
+ 	return ret;
+ }
+ 
+-static u64 xgene_enet_work_msg(struct sk_buff *skb)
++static int xgene_enet_setup_mss(struct net_device *ndev, u32 mss)
++{
++	struct xgene_enet_pdata *pdata = netdev_priv(ndev);
++	bool mss_index_found = false;
++	int mss_index;
++	int i;
++
++	spin_lock(&pdata->mss_lock);
++
++	/* Reuse the slot if MSS matches */
++	for (i = 0; !mss_index_found && i < NUM_MSS_REG; i++) {
++		if (pdata->mss[i] == mss) {
++			pdata->mss_refcnt[i]++;
++			mss_index = i;
++			mss_index_found = true;
++		}
++	}
++
++	/* Overwrite the slot with ref_count = 0 */
++	for (i = 0; !mss_index_found && i < NUM_MSS_REG; i++) {
++		if (!pdata->mss_refcnt[i]) {
++			pdata->mss_refcnt[i]++;
++			pdata->mac_ops->set_mss(pdata, mss, i);
++			pdata->mss[i] = mss;
++			mss_index = i;
++			mss_index_found = true;
++		}
++	}
++
++	spin_unlock(&pdata->mss_lock);
++
++	/* No slots with ref_count = 0 available, return busy */
++	if (!mss_index_found)
++		return -EBUSY;
++
++	return mss_index;
++}
++
++static int xgene_enet_work_msg(struct sk_buff *skb, u64 *hopinfo)
+ {
+ 	struct net_device *ndev = skb->dev;
+ 	struct iphdr *iph;
+ 	u8 l3hlen = 0, l4hlen = 0;
+ 	u8 ethhdr, proto = 0, csum_enable = 0;
+-	u64 hopinfo = 0;
+ 	u32 hdr_len, mss = 0;
+ 	u32 i, len, nr_frags;
++	int mss_index;
+ 
+ 	ethhdr = xgene_enet_hdr_len(skb->data);
+ 
+@@ -226,7 +273,11 @@ static u64 xgene_enet_work_msg(struct sk_buff *skb)
+ 			if (!mss || ((skb->len - hdr_len) <= mss))
+ 				goto out;
+ 
+-			hopinfo |= SET_BIT(ET);
++			mss_index = xgene_enet_setup_mss(ndev, mss);
++			if (unlikely(mss_index < 0))
++				return -EBUSY;
++
++			*hopinfo |= SET_BIT(ET) | SET_VAL(MSS, mss_index);
+ 		}
+ 	} else if (iph->protocol == IPPROTO_UDP) {
+ 		l4hlen = UDP_HDR_SIZE;
+@@ -234,15 +285,15 @@ static u64 xgene_enet_work_msg(struct sk_buff *skb)
+ 	}
+ out:
+ 	l3hlen = ip_hdrlen(skb) >> 2;
+-	hopinfo |= SET_VAL(TCPHDR, l4hlen) |
+-		  SET_VAL(IPHDR, l3hlen) |
+-		  SET_VAL(ETHHDR, ethhdr) |
+-		  SET_VAL(EC, csum_enable) |
+-		  SET_VAL(IS, proto) |
+-		  SET_BIT(IC) |
+-		  SET_BIT(TYPE_ETH_WORK_MESSAGE);
+-
+-	return hopinfo;
++	*hopinfo |= SET_VAL(TCPHDR, l4hlen) |
++		    SET_VAL(IPHDR, l3hlen) |
++		    SET_VAL(ETHHDR, ethhdr) |
++		    SET_VAL(EC, csum_enable) |
++		    SET_VAL(IS, proto) |
++		    SET_BIT(IC) |
++		    SET_BIT(TYPE_ETH_WORK_MESSAGE);
++
++	return 0;
+ }
+ 
+ static u16 xgene_enet_encode_len(u16 len)
+@@ -282,20 +333,22 @@ static int xgene_enet_setup_tx_desc(struct xgene_enet_desc_ring *tx_ring,
+ 	dma_addr_t dma_addr, pbuf_addr, *frag_dma_addr;
+ 	skb_frag_t *frag;
+ 	u16 tail = tx_ring->tail;
+-	u64 hopinfo;
++	u64 hopinfo = 0;
+ 	u32 len, hw_len;
+ 	u8 ll = 0, nv = 0, idx = 0;
+ 	bool split = false;
+ 	u32 size, offset, ell_bytes = 0;
+ 	u32 i, fidx, nr_frags, count = 1;
++	int ret;
+ 
+ 	raw_desc = &tx_ring->raw_desc[tail];
+ 	tail = (tail + 1) & (tx_ring->slots - 1);
+ 	memset(raw_desc, 0, sizeof(struct xgene_enet_raw_desc));
+ 
+-	hopinfo = xgene_enet_work_msg(skb);
+-	if (!hopinfo)
+-		return -EINVAL;
++	ret = xgene_enet_work_msg(skb, &hopinfo);
++	if (ret)
++		return ret;
++
+ 	raw_desc->m3 = cpu_to_le64(SET_VAL(HENQNUM, tx_ring->dst_ring_num) |
+ 				   hopinfo);
+ 
+@@ -435,6 +488,9 @@ static netdev_tx_t xgene_enet_start_xmit(struct sk_buff *skb,
+ 		return NETDEV_TX_OK;
+ 
+ 	count = xgene_enet_setup_tx_desc(tx_ring, skb);
++	if (count == -EBUSY)
++		return NETDEV_TX_BUSY;
++
+ 	if (count <= 0) {
+ 		dev_kfree_skb_any(skb);
+ 		return NETDEV_TX_OK;
+@@ -1669,7 +1725,7 @@ static int xgene_enet_probe(struct platform_device *pdev)
+ 
+ 	if (pdata->phy_mode == PHY_INTERFACE_MODE_XGMII) {
+ 		ndev->features |= NETIF_F_TSO;
+-		pdata->mss = XGENE_ENET_MSS;
++		spin_lock_init(&pdata->mss_lock);
+ 	}
+ 	ndev->hw_features = ndev->features;
+ 
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
+index 7735371..0cda58f 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
+@@ -47,7 +47,7 @@
+ #define NUM_PKT_BUF	64
+ #define NUM_BUFPOOL	32
+ #define MAX_EXP_BUFFS	256
+-#define XGENE_ENET_MSS	1448
++#define NUM_MSS_REG	4
+ #define XGENE_MIN_ENET_FRAME_SIZE	60
+ 
+ #define XGENE_MAX_ENET_IRQ	16
+@@ -143,7 +143,7 @@ struct xgene_mac_ops {
+ 	void (*rx_disable)(struct xgene_enet_pdata *pdata);
+ 	void (*set_speed)(struct xgene_enet_pdata *pdata);
+ 	void (*set_mac_addr)(struct xgene_enet_pdata *pdata);
+-	void (*set_mss)(struct xgene_enet_pdata *pdata);
++	void (*set_mss)(struct xgene_enet_pdata *pdata, u16 mss, u8 index);
+ 	void (*link_state)(struct work_struct *work);
+ };
+ 
+@@ -212,7 +212,9 @@ struct xgene_enet_pdata {
+ 	u8 eth_bufnum;
+ 	u8 bp_bufnum;
+ 	u16 ring_num;
+-	u32 mss;
++	u32 mss[NUM_MSS_REG];
++	u32 mss_refcnt[NUM_MSS_REG];
++	spinlock_t mss_lock;  /* mss lock */
+ 	u8 tx_delay;
+ 	u8 rx_delay;
+ 	bool mdio_driver;
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c b/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
+index 279ee27..6475f38 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
+@@ -232,9 +232,22 @@ static void xgene_xgmac_set_mac_addr(struct xgene_enet_pdata *pdata)
+ 	xgene_enet_wr_mac(pdata, HSTMACADR_MSW_ADDR, addr1);
+ }
+ 
+-static void xgene_xgmac_set_mss(struct xgene_enet_pdata *pdata)
++static void xgene_xgmac_set_mss(struct xgene_enet_pdata *pdata,
++				u16 mss, u8 index)
+ {
+-	xgene_enet_wr_csr(pdata, XG_TSIF_MSS_REG0_ADDR, pdata->mss);
++	u8 offset;
++	u32 data;
++
++	offset = (index < 2) ? 0 : 4;
++	xgene_enet_rd_csr(pdata, XG_TSIF_MSS_REG0_ADDR + offset, &data);
++
++	if (!(index & 0x1))
++		data = SET_VAL(TSO_MSS1, data >> TSO_MSS1_POS) |
++			SET_VAL(TSO_MSS0, mss);
++	else
++		data = SET_VAL(TSO_MSS1, mss) | SET_VAL(TSO_MSS0, data);
++
++	xgene_enet_wr_csr(pdata, XG_TSIF_MSS_REG0_ADDR + offset, data);
+ }
+ 
+ static u32 xgene_enet_link_status(struct xgene_enet_pdata *pdata)
+@@ -258,7 +271,6 @@ static void xgene_xgmac_init(struct xgene_enet_pdata *pdata)
+ 	xgene_enet_wr_mac(pdata, AXGMAC_CONFIG_1, data);
+ 
+ 	xgene_xgmac_set_mac_addr(pdata);
+-	xgene_xgmac_set_mss(pdata);
+ 
+ 	xgene_enet_rd_csr(pdata, XG_RSIF_CONFIG_REG_ADDR, &data);
+ 	data |= CFG_RSIF_FPBUFF_TIMEOUT_EN;
+-- 
+1.9.1
