@@ -1,82 +1,210 @@
-From: Vlastimil Babka <vbabka@suse.cz>
-Subject: Re: [PATCH v2] fs/select: add vmalloc fallback for select(2)
-Date: Thu, 22 Sep 2016 19:55:09 +0200
-Message-ID: <a212f313-1f34-7c83-3aab-b45374875493@suse.cz>
-References: <20160922164359.9035-1-vbabka@suse.cz>
- <1474562982.23058.140.camel@edumazet-glaptop3.roam.corp.google.com>
- <12efc491-a0e7-1012-5a8b-6d3533c720db@suse.cz>
- <1474564068.23058.144.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Viro <viro@zeniv.linux.org.uk>,
- Andrew Morton <akpm@linux-foundation.org>, linux-fsdevel@vger.kernel.org,
- linux-kernel@vger.kernel.org, linux-mm@kvack.org,
- Michal Hocko <mhocko@kernel.org>, netdev@vger.kernel.org,
- Linux API <linux-api@vger.kernel.org>, linux-man@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1474564068.23058.144.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: [PATCH v2 iproute2 net-next] tc: m_vlan: Add vlan modify action
+Date: Thu, 22 Sep 2016 21:01:05 +0300
+Message-ID: <1474567265-3397-1-git-send-email-shmulik.ladkani@gmail.com>
+Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
+        Jiri Pirko <jiri@resnulli.us>,
+        Shmulik Ladkani <shmulik.ladkani@gmail.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35368 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965265AbcIVSBt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 14:01:49 -0400
+Received: by mail-wm0-f65.google.com with SMTP id 133so15359149wmq.2
+        for <netdev@vger.kernel.org>; Thu, 22 Sep 2016 11:01:48 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/22/2016 07:07 PM, Eric Dumazet wrote:
-> On Thu, 2016-09-22 at 18:56 +0200, Vlastimil Babka wrote:
->> On 09/22/2016 06:49 PM, Eric Dumazet wrote:
->> > On Thu, 2016-09-22 at 18:43 +0200, Vlastimil Babka wrote:
->> >> The select(2) syscall performs a kmalloc(size, GFP_KERNEL) where size grows
->> >> with the number of fds passed. We had a customer report page allocation
->> >> failures of order-4 for this allocation. This is a costly order, so it might
->> >> easily fail, as the VM expects such allocation to have a lower-order fallback.
->> >>
->> >> Such trivial fallback is vmalloc(), as the memory doesn't have to be
->> >> physically contiguous. Also the allocation is temporary for the duration of the
->> >> syscall, so it's unlikely to stress vmalloc too much.
->> >
->> > vmalloc() uses a vmap_area_lock spinlock, and TLB flushes.
->> >
->> > So I guess allowing vmalloc() being called from an innocent application
->> > doing a select() might be dangerous, especially if this select() happens
->> > thousands of time per second.
->>
->> Isn't seq_buf_alloc() similarly exposed? And ipc_alloc()?
->
-> Possibly.
->
-> We don't have a library function (attempting kmalloc(), fallback to
-> vmalloc() presumably to avoid abuses, but I guess some patches were
-> accepted without thinking about this.
+The 'vlan modify' action allows to replace an existing 802.1q tag
+according to user provided settings.
+It accepts same arguments as the 'vlan push' action.
 
-So in the case of select() it seems like the memory we need 6 bits per file 
-descriptor, multiplied by the highest possible file descriptor (nfds) as passed 
-to the syscall. According to the man page of select:
+For example, this replaces vid 6 with vid 5:
 
-        EINVAL nfds is negative or exceeds the RLIMIT_NOFILE resource limit (see 
-getrlimit(2)).
+ # tc filter add dev veth0 parent ffff: pref 1 protocol 802.1q \
+      basic match 'meta(vlan mask 0xfff eq 6)' \
+      action vlan modify id 5 continue
 
-The code actually seems to silently cap the value instead of returning EINVAL 
-though? (IIUC):
+Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+---
+ v2: Coding. No need to encapsule action_names[] access into a function
 
-        /* max_fds can increase, so grab it once to avoid race */
-         rcu_read_lock();
-         fdt = files_fdtable(current->files);
-         max_fds = fdt->max_fds;
-         rcu_read_unlock();
-         if (n > max_fds)
-                 n = max_fds;
+ include/linux/tc_act/tc_vlan.h |  1 +
+ man/man8/tc-vlan.8             | 25 +++++++++++++++++++------
+ tc/m_vlan.c                    | 40 +++++++++++++++++++++++++++++++---------
+ 3 files changed, 51 insertions(+), 15 deletions(-)
 
-The default for this cap seems to be 1024 where I checked (again, IIUC, it's 
-what ulimit -n returns?). I wasn't able to change it to more than 2048, which 
-makes the bitmaps still below PAGE_SIZE.
-
-So if I get that right, the system admin would have to allow really large 
-RLIMIT_NOFILE to even make vmalloc() possible here. So I don't see it as a large 
-concern?
-
-Vlastimil
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/include/linux/tc_act/tc_vlan.h b/include/linux/tc_act/tc_vlan.h
+index be72b6e384..bddb272b84 100644
+--- a/include/linux/tc_act/tc_vlan.h
++++ b/include/linux/tc_act/tc_vlan.h
+@@ -16,6 +16,7 @@
+ 
+ #define TCA_VLAN_ACT_POP	1
+ #define TCA_VLAN_ACT_PUSH	2
++#define TCA_VLAN_ACT_MODIFY	3
+ 
+ struct tc_vlan {
+ 	tc_gen;
+diff --git a/man/man8/tc-vlan.8 b/man/man8/tc-vlan.8
+index 4d0c5c8a15..af3de1c54e 100644
+--- a/man/man8/tc-vlan.8
++++ b/man/man8/tc-vlan.8
+@@ -6,7 +6,7 @@ vlan - vlan manipulation module
+ .in +8
+ .ti -8
+ .BR tc " ... " "action vlan" " { " pop " |"
+-.IR PUSH " } [ " CONTROL " ]"
++.IR PUSH " | " MODIFY " } [ " CONTROL " ]"
+ 
+ .ti -8
+ .IR PUSH " := "
+@@ -17,22 +17,30 @@ vlan - vlan manipulation module
+ .BI id " VLANID"
+ 
+ .ti -8
++.IR MODIFY " := "
++.BR modify " [ " protocol
++.IR VLANPROTO " ]"
++.BR " [ " priority
++.IR VLANPRIO " ] "
++.BI id " VLANID"
++
++.ti -8
+ .IR CONTROL " := { "
+ .BR reclassify " | " pipe " | " drop " | " continue " | " pass " }"
+ .SH DESCRIPTION
+ The
+ .B vlan
+ action allows to perform 802.1Q en- or decapsulation on a packet, reflected by
+-the two operation modes
+-.IR POP " and " PUSH .
++the operation modes
++.IR POP ", " PUSH " and " MODIFY .
+ The
+ .I POP
+ mode is simple, as no further information is required to just drop the
+ outer-most VLAN encapsulation. The
+-.I PUSH
+-mode on the other hand requires at least a
++.IR PUSH " and " MODIFY
++modes require at least a
+ .I VLANID
+-and allows to optionally choose the
++and allow to optionally choose the
+ .I VLANPROTO
+ to use.
+ .SH OPTIONS
+@@ -45,6 +53,11 @@ Encapsulation mode. Requires at least
+ .B id
+ option.
+ .TP
++.B modify
++Replace mode. Existing 802.1Q tag is replaced. Requires at least
++.B id
++option.
++.TP
+ .BI id " VLANID"
+ Specify the VLAN ID to encapsulate into.
+ .I VLANID
+diff --git a/tc/m_vlan.c b/tc/m_vlan.c
+index 05a63b48f1..b32f746015 100644
+--- a/tc/m_vlan.c
++++ b/tc/m_vlan.c
+@@ -19,10 +19,17 @@
+ #include "tc_util.h"
+ #include <linux/tc_act/tc_vlan.h>
+ 
++static const char * const action_names[] = {
++	[TCA_VLAN_ACT_POP] = "pop",
++	[TCA_VLAN_ACT_PUSH] = "push",
++	[TCA_VLAN_ACT_MODIFY] = "modify",
++};
++
+ static void explain(void)
+ {
+ 	fprintf(stderr, "Usage: vlan pop\n");
+ 	fprintf(stderr, "       vlan push [ protocol VLANPROTO ] id VLANID [ priority VLANPRIO ] [CONTROL]\n");
++	fprintf(stderr, "       vlan modify [ protocol VLANPROTO ] id VLANID [ priority VLANPRIO ] [CONTROL]\n");
+ 	fprintf(stderr, "       VLANPROTO is one of 802.1Q or 802.1AD\n");
+ 	fprintf(stderr, "            with default: 802.1Q\n");
+ 	fprintf(stderr, "       CONTROL := reclassify | pipe | drop | continue | pass\n");
+@@ -34,6 +41,11 @@ static void usage(void)
+ 	exit(-1);
+ }
+ 
++static bool has_push_attribs(int action)
++{
++	return action == TCA_VLAN_ACT_PUSH || action == TCA_VLAN_ACT_MODIFY;
++}
++
+ static int parse_vlan(struct action_util *a, int *argc_p, char ***argv_p,
+ 		      int tca_id, struct nlmsghdr *n)
+ {
+@@ -71,9 +83,17 @@ static int parse_vlan(struct action_util *a, int *argc_p, char ***argv_p,
+ 				return -1;
+ 			}
+ 			action = TCA_VLAN_ACT_PUSH;
++		} else if (matches(*argv, "modify") == 0) {
++			if (action) {
++				fprintf(stderr, "unexpected \"%s\" - action already specified\n",
++					*argv);
++				explain();
++				return -1;
++			}
++			action = TCA_VLAN_ACT_MODIFY;
+ 		} else if (matches(*argv, "id") == 0) {
+-			if (action != TCA_VLAN_ACT_PUSH) {
+-				fprintf(stderr, "\"%s\" is only valid for push\n",
++			if (!has_push_attribs(action)) {
++				fprintf(stderr, "\"%s\" is only valid for push/modify\n",
+ 					*argv);
+ 				explain();
+ 				return -1;
+@@ -83,8 +103,8 @@ static int parse_vlan(struct action_util *a, int *argc_p, char ***argv_p,
+ 				invarg("id is invalid", *argv);
+ 			id_set = 1;
+ 		} else if (matches(*argv, "protocol") == 0) {
+-			if (action != TCA_VLAN_ACT_PUSH) {
+-				fprintf(stderr, "\"%s\" is only valid for push\n",
++			if (!has_push_attribs(action)) {
++				fprintf(stderr, "\"%s\" is only valid for push/modify\n",
+ 					*argv);
+ 				explain();
+ 				return -1;
+@@ -94,8 +114,8 @@ static int parse_vlan(struct action_util *a, int *argc_p, char ***argv_p,
+ 				invarg("protocol is invalid", *argv);
+ 			proto_set = 1;
+ 		} else if (matches(*argv, "priority") == 0) {
+-			if (action != TCA_VLAN_ACT_PUSH) {
+-				fprintf(stderr, "\"%s\" is only valid for push\n",
++			if (!has_push_attribs(action)) {
++				fprintf(stderr, "\"%s\" is only valid for push/modify\n",
+ 					*argv);
+ 				explain();
+ 				return -1;
+@@ -129,8 +149,9 @@ static int parse_vlan(struct action_util *a, int *argc_p, char ***argv_p,
+ 		}
+ 	}
+ 
+-	if (action == TCA_VLAN_ACT_PUSH && !id_set) {
+-		fprintf(stderr, "id needs to be set for push\n");
++	if (has_push_attribs(action) && !id_set) {
++		fprintf(stderr, "id needs to be set for %s\n",
++			action_names[action]);
+ 		explain();
+ 		return -1;
+ 	}
+@@ -186,7 +207,8 @@ static int print_vlan(struct action_util *au, FILE *f, struct rtattr *arg)
+ 		fprintf(f, " pop");
+ 		break;
+ 	case TCA_VLAN_ACT_PUSH:
+-		fprintf(f, " push");
++	case TCA_VLAN_ACT_MODIFY:
++		fprintf(f, " %s", action_names[parm->v_action]);
+ 		if (tb[TCA_VLAN_PUSH_VLAN_ID]) {
+ 			val = rta_getattr_u16(tb[TCA_VLAN_PUSH_VLAN_ID]);
+ 			fprintf(f, " id %u", val);
+-- 
+2.7.4
