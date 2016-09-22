@@ -1,65 +1,70 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] net: rtnl_register in net_ns_init need rtnl_lock
-Date: Thu, 22 Sep 2016 15:41:23 +0200
-Message-ID: <4c1b9aba-e6e8-babc-1bbe-aef2bc0bca53@stressinduktion.org>
-References: <1474542209-28409-1-git-send-email-hannes@stressinduktion.org>
- <1474549384.23058.94.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH RFC 1/3] xdp: Infrastructure to generalize XDP
+Date: Thu, 22 Sep 2016 07:46:23 -0700
+Message-ID: <1474555583.23058.107.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1474408824-418864-1-git-send-email-tom@herbertland.com>
+         <1474408824-418864-2-git-send-email-tom@herbertland.com>
+         <20160920224416.GF3291@pox.localdomain>
+         <CALx6S36FVU7bNu3JudZuET-VdFND2ZO7n9A7k--qsZVyxTvcpQ@mail.gmail.com>
+         <20160920230927.GG3291@pox.localdomain>
+         <CALx6S37oniKp1JOeiygzr0RiQojj651ONqBgyvcJvqHj5-aT5g@mail.gmail.com>
+         <20160920234347.GH3291@pox.localdomain>
+         <CALx6S35LmUtwRA85Kg6s7OR=e5Pj9ssqmWLsjtmXfZTXeG02zQ@mail.gmail.com>
+         <20160921115545.GA12789@pox.localdomain>
+         <CALx6S35Xctd-aA8DF1_vypMDejiGXcud6=UO33dqgvO60W0DZQ@mail.gmail.com>
+         <20160921144800.GB13991@pox.localdomain>
+         <CALx6S36ZCdh5iOp6CPfztVKOEkDFgUo1RyqWMJVxhakOYNx8iw@mail.gmail.com>
+         <20160921215658.2c61ed5e@redhat.com> <20160922151403.24648381@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Tom Herbert <tom@herbertland.com>, Thomas Graf <tgraf@suug.ch>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Kernel Team <kernel-team@fb.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:47046 "EHLO
-        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S933216AbcIVNlZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 09:41:25 -0400
-In-Reply-To: <1474549384.23058.94.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:35846 "EHLO
+        mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757385AbcIVOq0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 10:46:26 -0400
+Received: by mail-pa0-f46.google.com with SMTP id qn7so12574868pac.3
+        for <netdev@vger.kernel.org>; Thu, 22 Sep 2016 07:46:25 -0700 (PDT)
+In-Reply-To: <20160922151403.24648381@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 22.09.2016 15:03, Eric Dumazet wrote:
-> On Thu, 2016-09-22 at 13:03 +0200, Hannes Frederic Sowa wrote:
->> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
->> ---
->>  net/core/net_namespace.c | 2 ++
->>  1 file changed, 2 insertions(+)
->>
->> diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
->> index 2c2eb1b629b11d..a2ace299f28355 100644
->> --- a/net/core/net_namespace.c
->> +++ b/net/core/net_namespace.c
->> @@ -758,9 +758,11 @@ static int __init net_ns_init(void)
->>  
->>  	register_pernet_subsys(&net_ns_ops);
->>  
->> +	rtnl_lock();
->>  	rtnl_register(PF_UNSPEC, RTM_NEWNSID, rtnl_net_newid, NULL, NULL);
->>  	rtnl_register(PF_UNSPEC, RTM_GETNSID, rtnl_net_getid, rtnl_net_dumpid,
->>  		      NULL);
->> +	rtnl_unlock();
->>  
->>  	return 0;
->>  }
+On Thu, 2016-09-22 at 15:14 +0200, Jesper Dangaard Brouer wrote:
+> On Wed, 21 Sep 2016 21:56:58 +0200
+> Jesper Dangaard Brouer <brouer@redhat.com> wrote:
 > 
-> Hi Hannes
+> > > > I'm not opposed to running non-BPF code at XDP. I'm against adding
+> > > > a linked list of hook consumers.  
+> > 
+> > I also worry about the performance impact of a linked list.  We should
+> > simple benchmark it instead of discussing it! ;-)
 > 
-> Why is this needed here, and not in other places ?
+> (Note, there are some stability issue with this RFC patchset, when
+> removing the xdp program, that I had to workaround/patch)
+> 
+> 
+> I've started benchmarking this and I only see added cost of 2.89ns from
+> these patches, at these crazy speeds it does correspond to -485Kpps.
 
-I found this during working on the file and actually saw no live issues
-(belonged to another series which I just split up).
+I claim the methodology is too biased.
 
-I don't think it is a big issue but wanted the writes to the
-rtnl_msg_handlers array to be strictly serialized. I was working on
-adding this to other places, too. Maybe better for net-next even?
+At full speed, all the extra code is hot in caches, and your core has
+full access to memory bus anyway. Even branch predictor has fresh
+information.
 
-Theoretically we would need to add a memory barriers to make sure we
-don't publish uninitialized memory into the array if concurrent readers
-of the array want to find their function pointers.
+Now, in a mixed workload, where all cores compete to access L2/L3 and
+RAM, things might be very different.
 
-> Hint : A changelog always help reviewers and future bug hunting.
+Testing icache/dcache pressure is not a matter of measuring how many
+Kpps you add or remove on a hot path.
 
-I will add that to v2.
-
-Thanks,
-Hannes
+A latency test, when other cpus are busy reading/writing all over
+memory, and your caches are cold, would be useful.
