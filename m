@@ -1,57 +1,48 @@
-From: Yotam Gigi <yotamg@mellanox.com>
-Subject: [PATCH net 1/2] act_ife: Fix external mac header on encode
-Date: Thu, 22 Sep 2016 15:55:25 +0300
-Message-ID: <1474548926-22815-2-git-send-email-yotamg@mellanox.com>
-References: <1474548926-22815-1-git-send-email-yotamg@mellanox.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 0/2] BQL support and fix for a regression issue
+Date: Thu, 22 Sep 2016 06:12:16 -0700
+Message-ID: <1474549936.23058.98.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1474535121-13958-1-git-send-email-sunil.kovvuri@gmail.com>
+         <20160922.082540.992436214283504080.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Yotam Gigi <yotamg@mellanox.com>
-To: <jhs@mojatatu.com>, <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: sunil.kovvuri@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        sgoutham@cavium.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0079.outbound.protection.outlook.com ([104.47.2.79]:35424
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752165AbcIVNIv (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 22 Sep 2016 09:08:51 -0400
-In-Reply-To: <1474548926-22815-1-git-send-email-yotamg@mellanox.com>
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:35190 "EHLO
+        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752016AbcIVNMT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 09:12:19 -0400
+In-Reply-To: <20160922.082540.992436214283504080.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On ife encode side, external mac header is copied from the original packet
-and may be overridden if the user requests. Before, the mac header copy
-was done from memory region that might not be accessible anymore, as
-skb_cow_head might free it and copy the packet. This led to random values
-in the external mac header once the values were not set by user.
+On Thu, 2016-09-22 at 08:25 -0400, David Miller wrote:
+> From: sunil.kovvuri@gmail.com
+> Date: Thu, 22 Sep 2016 14:35:19 +0530
+> 
+> > From: Sunil Goutham <sgoutham@cavium.com>
+> > 
+> > These patches add byte queue limit support and also fixes a regression
+> > issue introduced by commit
+> > 'net: thunderx: Use netdev's name for naming VF's interrupts'
+> 
+> The correct way to refer to commits when you fix a bug is
+> to use the "Fixes: " tag right before the signoffs and ACKs.
+> 
+> The correct form is:
+> 
+> Fixes: $SHA1_ID ("Commit header line.")
+> 
+> You'll see this in many other netdev commits.
 
-This fix takes the internal mac header from the packet, after the call to
-skb_cow_head.
+Thanks a lot David for this enforcement, it really helps bug tracking
+and backports
 
-Fixes: ef6980b6becb ("net sched: introduce IFE action")
-Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
----
- net/sched/act_ife.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+Note that the $SHA1_ID should be truncated to 12 first chars.
 
-diff --git a/net/sched/act_ife.c b/net/sched/act_ife.c
-index 27b19ca..7f71a3d 100644
---- a/net/sched/act_ife.c
-+++ b/net/sched/act_ife.c
-@@ -758,8 +758,6 @@ static int tcf_ife_encode(struct sk_buff *skb, const struct tc_action *a,
- 		return TC_ACT_SHOT;
- 	}
- 
--	iethh = eth_hdr(skb);
--
- 	err = skb_cow_head(skb, reserve);
- 	if (unlikely(err)) {
- 		ife->tcf_qstats.drops++;
-@@ -768,6 +766,7 @@ static int tcf_ife_encode(struct sk_buff *skb, const struct tc_action *a,
- 	}
- 
- 	__skb_push(skb, total_push);
-+	iethh = (struct ethhdr *)(skb->data + hdrm);
- 	memcpy(skb->data, iethh, skb->mac_len);
- 	skb_reset_mac_header(skb);
- 	skboff += skb->mac_len;
--- 
-2.4.11
+Refer to Documentation/SubmittingPatches around line 191 for more
+details.
