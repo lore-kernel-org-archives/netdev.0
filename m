@@ -1,49 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 4/4] net/sched: act_mirred: Implement ingress
- actions
-Date: Thu, 22 Sep 2016 07:54:13 -0700
-Message-ID: <1474556053.23058.111.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1474550512-7552-1-git-send-email-shmulik.ladkani@gmail.com>
-         <1474550512-7552-5-git-send-email-shmulik.ladkani@gmail.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [patch net-next 3/6] mlxsw: spectrum_router: Use FIB
+ notifications instead of switchdev calls
+Date: Thu, 22 Sep 2016 08:58:20 -0600
+Message-ID: <5206ebd6-89c1-ec44-8b98-c5109ebe6140@cumulusnetworks.com>
+References: <1474458794-5512-1-git-send-email-jiri@resnulli.us>
+ <1474458794-5512-4-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        WANG Cong <xiyou.wangcong@gmail.com>,
-        Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
-        Shmulik Ladkani <shmulik.ladkani@gmail.com>
-To: Shmulik Ladkani <shmulik.ladkani@ravellosystems.com>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
+        roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+        linville@tuxdriver.com, andy@greyhouse.net, f.fainelli@gmail.com,
+        jhs@mojatatu.com, vivien.didelot@savoirfairelinux.com,
+        andrew@lunn.ch, ivecera@redhat.com, kaber@trash.net,
+        john@phrozen.org
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:34028 "EHLO
-        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756871AbcIVOyP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 10:54:15 -0400
-Received: by mail-pa0-f66.google.com with SMTP id i5so618684pad.1
-        for <netdev@vger.kernel.org>; Thu, 22 Sep 2016 07:54:15 -0700 (PDT)
-In-Reply-To: <1474550512-7552-5-git-send-email-shmulik.ladkani@gmail.com>
+Received: from mail-pf0-f173.google.com ([209.85.192.173]:35508 "EHLO
+        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757521AbcIVO6Z (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 10:58:25 -0400
+Received: by mail-pf0-f173.google.com with SMTP id z123so31504636pfz.2
+        for <netdev@vger.kernel.org>; Thu, 22 Sep 2016 07:58:25 -0700 (PDT)
+In-Reply-To: <1474458794-5512-4-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-09-22 at 16:21 +0300, Shmulik Ladkani wrote:
-> From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+On 9/21/16 5:53 AM, Jiri Pirko wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
 > 
-> Up until now, 'action mirred' supported only egress actions (either
-> TCA_EGRESS_REDIR or TCA_EGRESS_MIRROR).
+> Until now, in order to offload a FIB entry to HW we use switchdev op.
+> However that has limits. Mainly in case we need to make the HW aware of
+> all route prefixes configured in kernel. HW needs to know those in order
+> to properly trap appropriate packets and pass the to kernel to do
+> the forwarding. Abort mechanism is now handled within the mlxsw driver.
 > 
-> This patch implements the corresponding ingress actions
-> TCA_INGRESS_REDIR and TCA_INGRESS_MIRROR.
-> 
-> This allows attaching filters whose target is to hand matching skbs into
-> the rx processing of a specified device.
-> 
-> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 > ---
->  Was wondering, whether netif_receive_skb or dev_forward_skb should be
->  used for the rx bouncing. Used netif_receive_skb as in ifb device.
+>  drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |   9 +-
+>  .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 386 ++++++++++++---------
+>  .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   |   9 -
+>  3 files changed, 216 insertions(+), 188 deletions(-)
+> 
+> 
 
-Hmm... we probably need to apply the full rcu protection before this
-patch.
 
-https://patchwork.ozlabs.org/patch/667680/
+Make the move to fib notifiers and the removal of switchdev code separate patches. It will make the fib notifier change easier to follow.
