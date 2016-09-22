@@ -1,36 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/6] ftgmac100 support for ast2500
-Date: Thu, 22 Sep 2016 03:31:42 -0400 (EDT)
-Message-ID: <20160922.033142.971884829340682493.davem@davemloft.net>
-References: <20160921230503.23309-1-joel@jms.id.au>
+Subject: Re: [PATCH net] tcp: fix under-accounting retransmit SNMP counters
+Date: Thu, 22 Sep 2016 03:33:26 -0400 (EDT)
+Message-ID: <20160922.033326.1817667802370775778.davem@davemloft.net>
+References: <1474499775-26436-1-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: clg@kaod.org, gwshan@linux.vnet.ibm.com, andrew@lunn.ch,
-        andrew@aj.id.au, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, benh@kernel.crashing.org
-To: joel@jms.id.au
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160921230503.23309-1-joel@jms.id.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: ycheng@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56300 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750881AbcIVHd3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 03:33:29 -0400
+In-Reply-To: <1474499775-26436-1-git-send-email-ycheng@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joel Stanley <joel@jms.id.au>
-Date: Thu, 22 Sep 2016 08:34:57 +0930
+From: Yuchung Cheng <ycheng@google.com>
+Date: Wed, 21 Sep 2016 16:16:14 -0700
 
-> Hello Dave,
+> This patch fixes these under-accounting SNMP rtx stats
+> LINUX_MIB_TCPFORWARDRETRANS
+> LINUX_MIB_TCPFASTRETRANS
+> LINUX_MIB_TCPSLOWSTARTRETRANS
+> when retransmitting TSO packets
 > 
-> This series adds support to the ftgmac100 driver for the Aspeed ast2400 and
-> ast2500 SoCs. In particular, they ensure the driver works correctly on the
-> ast2500 where the MAC block has seen some changes in register layout.
-> 
-> They have been tested on ast2400 and ast2500 systems with the NCSI stack and
-> with a directly attached PHY.
-> 
-> V2 reworks the two patches relating to PHYSTS_CHG into the one patch that
-> disables the interrupt instead of playing with interrupt sensitivity. I kept
-> patch 4 'net/faraday: Clear stale interrupts' which was first introduced to
-> clear the stale PHYSTS_CHG interrupt, as it helps keep us safe from unhygienic
-> (vendor) bootloaders.
+> Fixes: 10d3be569243 ("tcp-tso: do not split TSO packets at retransmit time")
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
 
-Series applied, thanks.
+Applied.
