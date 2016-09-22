@@ -1,8 +1,7 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 1/9] rxrpc: Don't store the rxrpc header in the Tx
- queue sk_buffs [ver #2]
-Date: Thu, 22 Sep 2016 09:22:07 +0100
-Message-ID: <147453252695.14579.3467624230234073677.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 3/9] rxrpc: Add per-peer RTT tracker [ver #2]
+Date: Thu, 22 Sep 2016 09:22:21 +0100
+Message-ID: <147453254117.14579.16789254330787350439.stgit@warthog.procyon.org.uk>
 References: <147453251987.14579.17230566511204847506.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,377 +9,218 @@ Content-Transfer-Encoding: 7bit
 Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
         linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:44506 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754520AbcIVIWX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 22 Sep 2016 04:22:23 -0400
 In-Reply-To: <147453251987.14579.17230566511204847506.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Don't store the rxrpc protocol header in sk_buffs on the transmit queue,
-but rather generate it on the fly and pass it to kernel_sendmsg() as a
-separate iov.  This reduces the amount of storage required.
+Add a function to track the average RTT for a peer.  Sources of RTT data
+will be added in subsequent patches.
 
-Note that the security header is still stored in the sk_buff as it may get
-encrypted along with the data (and doesn't change with each transmission).
+The RTT data will be useful in the future for determining resend timeouts
+and for handling the slow-start part of the Rx protocol.
+
+Also add a pair of tracepoints, one to log transmissions to elicit a
+response for RTT purposes and one to log responses that contribute RTT
+data.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/ar-internal.h |    5 +--
- net/rxrpc/call_event.c  |   11 +-----
- net/rxrpc/conn_object.c |    1 -
- net/rxrpc/output.c      |   83 ++++++++++++++++++++++++++++++++---------------
- net/rxrpc/rxkad.c       |    8 ++---
- net/rxrpc/sendmsg.c     |   51 +++++------------------------
- 6 files changed, 71 insertions(+), 88 deletions(-)
+ include/trace/events/rxrpc.h |   61 ++++++++++++++++++++++++++++++++++++++++++
+ net/rxrpc/ar-internal.h      |   25 ++++++++++++++---
+ net/rxrpc/misc.c             |    8 ++++++
+ net/rxrpc/peer_event.c       |   41 ++++++++++++++++++++++++++++
+ 4 files changed, 131 insertions(+), 4 deletions(-)
 
+diff --git a/include/trace/events/rxrpc.h b/include/trace/events/rxrpc.h
+index 75a5d8bf50e1..e8f2afbbe0bf 100644
+--- a/include/trace/events/rxrpc.h
++++ b/include/trace/events/rxrpc.h
+@@ -353,6 +353,67 @@ TRACE_EVENT(rxrpc_recvmsg,
+ 		      __entry->ret)
+ 	    );
+ 
++TRACE_EVENT(rxrpc_rtt_tx,
++	    TP_PROTO(struct rxrpc_call *call, enum rxrpc_rtt_tx_trace why,
++		     rxrpc_serial_t send_serial),
++
++	    TP_ARGS(call, why, send_serial),
++
++	    TP_STRUCT__entry(
++		    __field(struct rxrpc_call *,	call		)
++		    __field(enum rxrpc_rtt_tx_trace,	why		)
++		    __field(rxrpc_serial_t,		send_serial	)
++			     ),
++
++	    TP_fast_assign(
++		    __entry->call = call;
++		    __entry->why = why;
++		    __entry->send_serial = send_serial;
++			   ),
++
++	    TP_printk("c=%p %s sr=%08x",
++		      __entry->call,
++		      rxrpc_rtt_tx_traces[__entry->why],
++		      __entry->send_serial)
++	    );
++
++TRACE_EVENT(rxrpc_rtt_rx,
++	    TP_PROTO(struct rxrpc_call *call, enum rxrpc_rtt_rx_trace why,
++		     rxrpc_serial_t send_serial, rxrpc_serial_t resp_serial,
++		     s64 rtt, u8 nr, s64 avg),
++
++	    TP_ARGS(call, why, send_serial, resp_serial, rtt, nr, avg),
++
++	    TP_STRUCT__entry(
++		    __field(struct rxrpc_call *,	call		)
++		    __field(enum rxrpc_rtt_rx_trace,	why		)
++		    __field(u8,				nr		)
++		    __field(rxrpc_serial_t,		send_serial	)
++		    __field(rxrpc_serial_t,		resp_serial	)
++		    __field(s64,			rtt		)
++		    __field(u64,			avg		)
++			     ),
++
++	    TP_fast_assign(
++		    __entry->call = call;
++		    __entry->why = why;
++		    __entry->send_serial = send_serial;
++		    __entry->resp_serial = resp_serial;
++		    __entry->rtt = rtt;
++		    __entry->nr = nr;
++		    __entry->avg = avg;
++			   ),
++
++	    TP_printk("c=%p %s sr=%08x rr=%08x rtt=%lld nr=%u avg=%lld",
++		      __entry->call,
++		      rxrpc_rtt_rx_traces[__entry->why],
++		      __entry->send_serial,
++		      __entry->resp_serial,
++		      __entry->rtt,
++		      __entry->nr,
++		      __entry->avg)
++	    );
++
+ #endif /* _TRACE_RXRPC_H */
+ 
+ /* This part must be outside protection */
 diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index 034f525f2235..f021df4a6a22 100644
+index dcf54e3fb478..79c671e552c3 100644
 --- a/net/rxrpc/ar-internal.h
 +++ b/net/rxrpc/ar-internal.h
-@@ -385,10 +385,9 @@ struct rxrpc_connection {
- 	int			debug_id;	/* debug ID for printks */
- 	atomic_t		serial;		/* packet serial number counter */
- 	unsigned int		hi_serial;	/* highest serial number received */
-+	u32			security_nonce;	/* response re-use preventer */
- 	u8			size_align;	/* data size alignment (for security) */
--	u8			header_size;	/* rxrpc + security header size */
- 	u8			security_size;	/* security header size */
--	u32			security_nonce;	/* response re-use preventer */
- 	u8			security_ix;	/* security type */
- 	u8			out_clientflag;	/* RXRPC_CLIENT_INITIATED if we are client */
+@@ -258,10 +258,11 @@ struct rxrpc_peer {
+ 
+ 	/* calculated RTT cache */
+ #define RXRPC_RTT_CACHE_SIZE 32
+-	suseconds_t		rtt;		/* current RTT estimate (in uS) */
+-	unsigned int		rtt_point;	/* next entry at which to insert */
+-	unsigned int		rtt_usage;	/* amount of cache actually used */
+-	suseconds_t		rtt_cache[RXRPC_RTT_CACHE_SIZE]; /* calculated RTT cache */
++	u64			rtt;		/* Current RTT estimate (in nS) */
++	u64			rtt_sum;	/* Sum of cache contents */
++	u64			rtt_cache[RXRPC_RTT_CACHE_SIZE]; /* Determined RTT cache */
++	u8			rtt_cursor;	/* next entry at which to insert */
++	u8			rtt_usage;	/* amount of cache actually used */
  };
-@@ -946,7 +945,7 @@ extern const s8 rxrpc_ack_priority[];
-  * output.c
-  */
- int rxrpc_send_call_packet(struct rxrpc_call *, u8);
--int rxrpc_send_data_packet(struct rxrpc_connection *, struct sk_buff *);
-+int rxrpc_send_data_packet(struct rxrpc_call *, struct sk_buff *);
- void rxrpc_reject_packets(struct rxrpc_local *);
  
  /*
-diff --git a/net/rxrpc/call_event.c b/net/rxrpc/call_event.c
-index 7d1b99824ed9..6247ce25eb21 100644
---- a/net/rxrpc/call_event.c
-+++ b/net/rxrpc/call_event.c
-@@ -139,7 +139,6 @@ void rxrpc_propose_ACK(struct rxrpc_call *call, u8 ack_reason,
+@@ -657,6 +658,20 @@ enum rxrpc_recvmsg_trace {
+ 
+ extern const char rxrpc_recvmsg_traces[rxrpc_recvmsg__nr_trace][5];
+ 
++enum rxrpc_rtt_tx_trace {
++	rxrpc_rtt_tx_ping,
++	rxrpc_rtt_tx__nr_trace
++};
++
++extern const char rxrpc_rtt_tx_traces[rxrpc_rtt_tx__nr_trace][5];
++
++enum rxrpc_rtt_rx_trace {
++	rxrpc_rtt_rx_ping_response,
++	rxrpc_rtt_rx__nr_trace
++};
++
++extern const char rxrpc_rtt_rx_traces[rxrpc_rtt_rx__nr_trace][5];
++
+ extern const char *const rxrpc_pkts[];
+ extern const char *rxrpc_acks(u8 reason);
+ 
+@@ -955,6 +970,8 @@ void rxrpc_reject_packets(struct rxrpc_local *);
   */
- static void rxrpc_resend(struct rxrpc_call *call)
- {
--	struct rxrpc_wire_header *whdr;
- 	struct rxrpc_skb_priv *sp;
- 	struct sk_buff *skb;
- 	rxrpc_seq_t cursor, seq, top;
-@@ -201,15 +200,8 @@ static void rxrpc_resend(struct rxrpc_call *call)
- 		skb = call->rxtx_buffer[ix];
- 		rxrpc_get_skb(skb, rxrpc_skb_tx_got);
- 		spin_unlock_bh(&call->lock);
--		sp = rxrpc_skb(skb);
--
--		/* Each Tx packet needs a new serial number */
--		sp->hdr.serial = atomic_inc_return(&call->conn->serial);
+ void rxrpc_error_report(struct sock *);
+ void rxrpc_peer_error_distributor(struct work_struct *);
++void rxrpc_peer_add_rtt(struct rxrpc_call *, enum rxrpc_rtt_rx_trace,
++			rxrpc_serial_t, rxrpc_serial_t, ktime_t, ktime_t);
  
--		whdr = (struct rxrpc_wire_header *)skb->head;
--		whdr->serial = htonl(sp->hdr.serial);
--
--		if (rxrpc_send_data_packet(call->conn, skb) < 0) {
-+		if (rxrpc_send_data_packet(call, skb) < 0) {
- 			call->resend_at = now + 2;
- 			rxrpc_free_skb(skb, rxrpc_skb_tx_freed);
- 			return;
-@@ -217,6 +209,7 @@ static void rxrpc_resend(struct rxrpc_call *call)
- 
- 		if (rxrpc_is_client_call(call))
- 			rxrpc_expose_client_call(call);
-+		sp = rxrpc_skb(skb);
- 		sp->resend_at = now + rxrpc_resend_timeout;
- 
- 		rxrpc_free_skb(skb, rxrpc_skb_tx_freed);
-diff --git a/net/rxrpc/conn_object.c b/net/rxrpc/conn_object.c
-index 3b55aee0c436..e1e83af47866 100644
---- a/net/rxrpc/conn_object.c
-+++ b/net/rxrpc/conn_object.c
-@@ -53,7 +53,6 @@ struct rxrpc_connection *rxrpc_alloc_connection(gfp_t gfp)
- 		spin_lock_init(&conn->state_lock);
- 		conn->debug_id = atomic_inc_return(&rxrpc_debug_id);
- 		conn->size_align = 4;
--		conn->header_size = sizeof(struct rxrpc_wire_header);
- 		conn->idle_timestamp = jiffies;
- 	}
- 
-diff --git a/net/rxrpc/output.c b/net/rxrpc/output.c
-index 16e18a94ffa6..817fb0e82d6a 100644
---- a/net/rxrpc/output.c
-+++ b/net/rxrpc/output.c
-@@ -208,19 +208,42 @@ out:
  /*
-  * send a packet through the transport endpoint
-  */
--int rxrpc_send_data_packet(struct rxrpc_connection *conn, struct sk_buff *skb)
-+int rxrpc_send_data_packet(struct rxrpc_call *call, struct sk_buff *skb)
- {
--	struct kvec iov[1];
-+	struct rxrpc_connection *conn = call->conn;
-+	struct rxrpc_wire_header whdr;
-+	struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
- 	struct msghdr msg;
-+	struct kvec iov[2];
-+	rxrpc_serial_t serial;
-+	size_t len;
- 	int ret, opt;
- 
- 	_enter(",{%d}", skb->len);
- 
--	iov[0].iov_base = skb->head;
--	iov[0].iov_len = skb->len;
-+	/* Each transmission of a Tx packet needs a new serial number */
-+	serial = atomic_inc_return(&conn->serial);
+  * peer_object.c
+diff --git a/net/rxrpc/misc.c b/net/rxrpc/misc.c
+index 026e1f2e83ff..6321c23f9a6e 100644
+--- a/net/rxrpc/misc.c
++++ b/net/rxrpc/misc.c
+@@ -182,3 +182,11 @@ const char rxrpc_recvmsg_traces[rxrpc_recvmsg__nr_trace][5] = {
+ 	[rxrpc_recvmsg_to_be_accepted]	= "TBAC",
+ 	[rxrpc_recvmsg_return]		= "RETN",
+ };
 +
-+	whdr.epoch	= htonl(conn->proto.epoch);
-+	whdr.cid	= htonl(call->cid);
-+	whdr.callNumber	= htonl(call->call_id);
-+	whdr.seq	= htonl(sp->hdr.seq);
-+	whdr.serial	= htonl(serial);
-+	whdr.type	= RXRPC_PACKET_TYPE_DATA;
-+	whdr.flags	= sp->hdr.flags;
-+	whdr.userStatus	= 0;
-+	whdr.securityIndex = call->security_ix;
-+	whdr._rsvd	= htons(sp->hdr._rsvd);
-+	whdr.serviceId	= htons(call->service_id);
++const char rxrpc_rtt_tx_traces[rxrpc_rtt_tx__nr_trace][5] = {
++	[rxrpc_rtt_tx_ping]		= "PING",
++};
 +
-+	iov[0].iov_base = &whdr;
-+	iov[0].iov_len = sizeof(whdr);
-+	iov[1].iov_base = skb->head;
-+	iov[1].iov_len = skb->len;
-+	len = iov[0].iov_len + iov[1].iov_len;
- 
--	msg.msg_name = &conn->params.peer->srx.transport;
--	msg.msg_namelen = conn->params.peer->srx.transport_len;
-+	msg.msg_name = &call->peer->srx.transport;
-+	msg.msg_namelen = call->peer->srx.transport_len;
- 	msg.msg_control = NULL;
- 	msg.msg_controllen = 0;
- 	msg.msg_flags = 0;
-@@ -234,26 +257,33 @@ int rxrpc_send_data_packet(struct rxrpc_connection *conn, struct sk_buff *skb)
- 		}
- 	}
- 
-+	_proto("Tx DATA %%%u { #%u }", serial, sp->hdr.seq);
-+
- 	/* send the packet with the don't fragment bit set if we currently
- 	 * think it's small enough */
--	if (skb->len - sizeof(struct rxrpc_wire_header) < conn->params.peer->maxdata) {
--		down_read(&conn->params.local->defrag_sem);
--		/* send the packet by UDP
--		 * - returns -EMSGSIZE if UDP would have to fragment the packet
--		 *   to go out of the interface
--		 *   - in which case, we'll have processed the ICMP error
--		 *     message and update the peer record
--		 */
--		ret = kernel_sendmsg(conn->params.local->socket, &msg, iov, 1,
--				     iov[0].iov_len);
--
--		up_read(&conn->params.local->defrag_sem);
--		if (ret == -EMSGSIZE)
--			goto send_fragmentable;
--
--		_leave(" = %d [%u]", ret, conn->params.peer->maxdata);
--		return ret;
-+	if (iov[1].iov_len >= call->peer->maxdata)
-+		goto send_fragmentable;
-+
-+	down_read(&conn->params.local->defrag_sem);
-+	/* send the packet by UDP
-+	 * - returns -EMSGSIZE if UDP would have to fragment the packet
-+	 *   to go out of the interface
-+	 *   - in which case, we'll have processed the ICMP error
-+	 *     message and update the peer record
-+	 */
-+	ret = kernel_sendmsg(conn->params.local->socket, &msg, iov, 2, len);
-+
-+	up_read(&conn->params.local->defrag_sem);
-+	if (ret == -EMSGSIZE)
-+		goto send_fragmentable;
-+
-+done:
-+	if (ret == 0) {
-+		sp->resend_at = jiffies + rxrpc_resend_timeout;
-+		sp->hdr.serial = serial;
- 	}
-+	_leave(" = %d [%u]", ret, call->peer->maxdata);
-+	return ret;
- 
- send_fragmentable:
- 	/* attempt to send this message with fragmentation enabled */
-@@ -268,8 +298,8 @@ send_fragmentable:
- 					SOL_IP, IP_MTU_DISCOVER,
- 					(char *)&opt, sizeof(opt));
- 		if (ret == 0) {
--			ret = kernel_sendmsg(conn->params.local->socket, &msg, iov, 1,
--					     iov[0].iov_len);
-+			ret = kernel_sendmsg(conn->params.local->socket, &msg,
-+					     iov, 2, len);
- 
- 			opt = IP_PMTUDISC_DO;
- 			kernel_setsockopt(conn->params.local->socket, SOL_IP,
-@@ -298,8 +328,7 @@ send_fragmentable:
- 	}
- 
- 	up_write(&conn->params.local->defrag_sem);
--	_leave(" = %d [frag %u]", ret, conn->params.peer->maxdata);
--	return ret;
-+	goto done;
++const char rxrpc_rtt_rx_traces[rxrpc_rtt_rx__nr_trace][5] = {
++	[rxrpc_rtt_rx_ping_response]	= "PONG",
++};
+diff --git a/net/rxrpc/peer_event.c b/net/rxrpc/peer_event.c
+index 18276e7cb9e0..bf13b8470c9a 100644
+--- a/net/rxrpc/peer_event.c
++++ b/net/rxrpc/peer_event.c
+@@ -305,3 +305,44 @@ void rxrpc_peer_error_distributor(struct work_struct *work)
+ 	rxrpc_put_peer(peer);
+ 	_leave("");
  }
- 
- /*
-diff --git a/net/rxrpc/rxkad.c b/net/rxrpc/rxkad.c
-index ae392558829d..88d080a1a3de 100644
---- a/net/rxrpc/rxkad.c
-+++ b/net/rxrpc/rxkad.c
-@@ -80,12 +80,10 @@ static int rxkad_init_connection_security(struct rxrpc_connection *conn)
- 	case RXRPC_SECURITY_AUTH:
- 		conn->size_align = 8;
- 		conn->security_size = sizeof(struct rxkad_level1_hdr);
--		conn->header_size += sizeof(struct rxkad_level1_hdr);
- 		break;
- 	case RXRPC_SECURITY_ENCRYPT:
- 		conn->size_align = 8;
- 		conn->security_size = sizeof(struct rxkad_level2_hdr);
--		conn->header_size += sizeof(struct rxkad_level2_hdr);
- 		break;
- 	default:
- 		ret = -EKEYREJECTED;
-@@ -161,7 +159,7 @@ static int rxkad_secure_packet_auth(const struct rxrpc_call *call,
- 
- 	_enter("");
- 
--	check = sp->hdr.seq ^ sp->hdr.callNumber;
-+	check = sp->hdr.seq ^ call->call_id;
- 	data_size |= (u32)check << 16;
- 
- 	hdr.data_size = htonl(data_size);
-@@ -205,7 +203,7 @@ static int rxkad_secure_packet_encrypt(const struct rxrpc_call *call,
- 
- 	_enter("");
- 
--	check = sp->hdr.seq ^ sp->hdr.callNumber;
-+	check = sp->hdr.seq ^ call->call_id;
- 
- 	rxkhdr.data_size = htonl(data_size | (u32)check << 16);
- 	rxkhdr.checksum = 0;
-@@ -277,7 +275,7 @@ static int rxkad_secure_packet(struct rxrpc_call *call,
- 	/* calculate the security checksum */
- 	x = (call->cid & RXRPC_CHANNELMASK) << (32 - RXRPC_CIDSHIFT);
- 	x |= sp->hdr.seq & 0x3fffffff;
--	call->crypto_buf[0] = htonl(sp->hdr.callNumber);
-+	call->crypto_buf[0] = htonl(call->call_id);
- 	call->crypto_buf[1] = htonl(x);
- 
- 	sg_init_one(&sg, call->crypto_buf, 8);
-diff --git a/net/rxrpc/sendmsg.c b/net/rxrpc/sendmsg.c
-index 6a39ee97a0b7..814b17f23971 100644
---- a/net/rxrpc/sendmsg.c
-+++ b/net/rxrpc/sendmsg.c
-@@ -134,13 +134,11 @@ static void rxrpc_queue_packet(struct rxrpc_call *call, struct sk_buff *skb,
- 		write_unlock_bh(&call->state_lock);
- 	}
- 
--	_proto("Tx DATA %%%u { #%u }", sp->hdr.serial, sp->hdr.seq);
--
- 	if (seq == 1 && rxrpc_is_client_call(call))
- 		rxrpc_expose_client_call(call);
- 
- 	sp->resend_at = jiffies + rxrpc_resend_timeout;
--	ret = rxrpc_send_data_packet(call->conn, skb);
-+	ret = rxrpc_send_data_packet(call, skb);
- 	if (ret < 0) {
- 		_debug("need instant resend %d", ret);
- 		rxrpc_instant_resend(call, ix);
-@@ -151,29 +149,6 @@ static void rxrpc_queue_packet(struct rxrpc_call *call, struct sk_buff *skb,
- }
- 
- /*
-- * Convert a host-endian header into a network-endian header.
-- */
--static void rxrpc_insert_header(struct sk_buff *skb)
--{
--	struct rxrpc_wire_header whdr;
--	struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
--
--	whdr.epoch	= htonl(sp->hdr.epoch);
--	whdr.cid	= htonl(sp->hdr.cid);
--	whdr.callNumber	= htonl(sp->hdr.callNumber);
--	whdr.seq	= htonl(sp->hdr.seq);
--	whdr.serial	= htonl(sp->hdr.serial);
--	whdr.type	= sp->hdr.type;
--	whdr.flags	= sp->hdr.flags;
--	whdr.userStatus	= sp->hdr.userStatus;
--	whdr.securityIndex = sp->hdr.securityIndex;
--	whdr._rsvd	= htons(sp->hdr._rsvd);
--	whdr.serviceId	= htons(sp->hdr.serviceId);
--
--	memcpy(skb->head, &whdr, sizeof(whdr));
--}
--
--/*
-  * send data through a socket
-  * - must be called in process context
-  * - caller holds the socket locked
-@@ -232,7 +207,7 @@ static int rxrpc_send_data(struct rxrpc_sock *rx,
- 			space = chunk + call->conn->size_align;
- 			space &= ~(call->conn->size_align - 1UL);
- 
--			size = space + call->conn->header_size;
-+			size = space + call->conn->security_size;
- 
- 			_debug("SIZE: %zu/%zu/%zu", chunk, space, size);
- 
-@@ -248,9 +223,9 @@ static int rxrpc_send_data(struct rxrpc_sock *rx,
- 
- 			ASSERTCMP(skb->mark, ==, 0);
- 
--			_debug("HS: %u", call->conn->header_size);
--			skb_reserve(skb, call->conn->header_size);
--			skb->len += call->conn->header_size;
-+			_debug("HS: %u", call->conn->security_size);
-+			skb_reserve(skb, call->conn->security_size);
-+			skb->len += call->conn->security_size;
- 
- 			sp = rxrpc_skb(skb);
- 			sp->remain = chunk;
-@@ -312,33 +287,23 @@ static int rxrpc_send_data(struct rxrpc_sock *rx,
- 
- 			seq = call->tx_top + 1;
- 
--			sp->hdr.epoch	= conn->proto.epoch;
--			sp->hdr.cid	= call->cid;
--			sp->hdr.callNumber = call->call_id;
- 			sp->hdr.seq	= seq;
--			sp->hdr.serial	= atomic_inc_return(&conn->serial);
--			sp->hdr.type	= RXRPC_PACKET_TYPE_DATA;
--			sp->hdr.userStatus = 0;
--			sp->hdr.securityIndex = call->security_ix;
- 			sp->hdr._rsvd	= 0;
--			sp->hdr.serviceId = call->service_id;
-+			sp->hdr.flags	= conn->out_clientflag;
- 
--			sp->hdr.flags = conn->out_clientflag;
- 			if (msg_data_left(msg) == 0 && !more)
- 				sp->hdr.flags |= RXRPC_LAST_PACKET;
- 			else if (call->tx_top - call->tx_hard_ack <
- 				 call->tx_winsize)
- 				sp->hdr.flags |= RXRPC_MORE_PACKETS;
--			if (more && seq & 1)
-+			if (seq & 1)
- 				sp->hdr.flags |= RXRPC_REQUEST_ACK;
- 
- 			ret = conn->security->secure_packet(
--				call, skb, skb->mark,
--				skb->head + sizeof(struct rxrpc_wire_header));
-+				call, skb, skb->mark, skb->head);
- 			if (ret < 0)
- 				goto out;
- 
--			rxrpc_insert_header(skb);
- 			rxrpc_queue_packet(call, skb, !msg_data_left(msg) && !more);
- 			skb = NULL;
- 		}
++
++/*
++ * Add RTT information to cache.  This is called in softirq mode and has
++ * exclusive access to the peer RTT data.
++ */
++void rxrpc_peer_add_rtt(struct rxrpc_call *call, enum rxrpc_rtt_rx_trace why,
++			rxrpc_serial_t send_serial, rxrpc_serial_t resp_serial,
++			ktime_t send_time, ktime_t resp_time)
++{
++	struct rxrpc_peer *peer = call->peer;
++	s64 rtt;
++	u64 sum = peer->rtt_sum, avg;
++	u8 cursor = peer->rtt_cursor, usage = peer->rtt_usage;
++
++	rtt = ktime_to_ns(ktime_sub(resp_time, send_time));
++	if (rtt < 0)
++		return;
++
++	/* Replace the oldest datum in the RTT buffer */
++	sum -= peer->rtt_cache[cursor];
++	sum += rtt;
++	peer->rtt_cache[cursor] = rtt;
++	peer->rtt_cursor = (cursor + 1) & (RXRPC_RTT_CACHE_SIZE - 1);
++	peer->rtt_sum = sum;
++	if (usage < RXRPC_RTT_CACHE_SIZE) {
++		usage++;
++		peer->rtt_usage = usage;
++	}
++
++	/* Now recalculate the average */
++	if (usage == RXRPC_RTT_CACHE_SIZE) {
++		avg = sum / RXRPC_RTT_CACHE_SIZE;
++	} else {
++		avg = sum;
++		do_div(avg, usage);
++	}
++
++	peer->rtt = avg;
++	trace_rxrpc_rtt_rx(call, why, send_serial, resp_serial, rtt,
++			   usage, avg);
++}
