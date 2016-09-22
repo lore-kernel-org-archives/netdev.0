@@ -1,52 +1,42 @@
-From: Jesper Dangaard Brouer via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: XDP (eXpress Data Path) documentation
-Date: Thu, 22 Sep 2016 20:16:08 +0200
-Message-ID: <20160922201608.36755504@redhat.com>
-References: <20160920110844.661965be@redhat.com>
-Reply-To: Jesper Dangaard Brouer <brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: Re: [PATCH net-next 4/4] net/sched: act_mirred: Implement ingress
+ actions
+Date: Thu, 22 Sep 2016 21:27:45 +0300
+Message-ID: <20160922212745.789734c5@halley>
+References: <1474550512-7552-1-git-send-email-shmulik.ladkani@gmail.com>
+        <1474550512-7552-5-git-send-email-shmulik.ladkani@gmail.com>
+        <1474556053.23058.111.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Nathan Willis <nate-T1hC0tSOHrs@public.gmane.org>, Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>,
-	Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
-	Jonathan Corbet <corbet-T1hC0tSOHrs@public.gmane.org>, linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-To: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org" <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <20160920110844.661965be-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        WANG Cong <xiyou.wangcong@gmail.com>,
+        Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+        Shmulik Ladkani <shmulik.ladkani@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35775 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965944AbcIVS1v (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 14:27:51 -0400
+Received: by mail-wm0-f65.google.com with SMTP id 133so15467449wmq.2
+        for <netdev@vger.kernel.org>; Thu, 22 Sep 2016 11:27:51 -0700 (PDT)
+In-Reply-To: <1474556053.23058.111.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-On Tue, 20 Sep 2016 11:08:44 +0200 Jesper Dangaard Brouer <brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-
-> As promised, I've started documenting the XDP eXpress Data Path):
+On Thu, 22 Sep 2016 07:54:13 -0700 Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> Hmm... we probably need to apply the full rcu protection before this
+> patch.
 > 
->  [1] https://prototype-kernel.readthedocs.io/en/latest/networking/XDP/index.html
-> 
-> IMHO the documentation have reached a stage where it is useful for the
-> XDP project, BUT I request collaboration on improving the documentation
-> from all. (Native English speakers are encouraged to send grammar fixes ;-))
+> https://patchwork.ozlabs.org/patch/667680/
 
-I want to publicly thanks Edward Cree for being the first contributor
-to the XDP documentation with formulation and grammar fixes.
+Are you referring to order of application into net-next?
 
-Pulled and pushed:
- https://github.com/netoptimizer/prototype-kernel/commit/fb6a3de95
+This patch seems to present no new tcf_mirred_params members nor
+need-to-be-protected code regions (please, correct me if wrong).
+So it does not _depend_ on the 'full rcu fixes', does it?
 
-Thanks!
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+Thanks,
+Shmulik
