@@ -1,70 +1,99 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/3] udp: implement memory accounting helpers
-Date: Thu, 22 Sep 2016 13:37:21 -0700
-Message-ID: <1474576641.28155.8.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <cover.1474477902.git.pabeni@redhat.com>
-         <93ccb49b7f037461ef436a50b907185744b093d8.1474477902.git.pabeni@redhat.com>
-         <1474500682.23058.88.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1474540415.4845.69.camel@redhat.com>
-         <589839b3-5930-2527-b0a3-315be254a175@solarflare.com>
-         <1474560864.4845.78.camel@redhat.com>
-         <1474561848.23058.133.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1474576020.7120.1.camel@redhat.com>
-         <1474576448.28155.7.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Edward Cree <ecree@solarflare.com>, netdev@vger.kernel.org,
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 4/4] net: dsa: mv88e6xxx: implement DSA port fast ageing
+Date: Thu, 22 Sep 2016 16:49:24 -0400
+Message-ID: <20160922204924.16229-5-vivien.didelot@savoirfairelinux.com>
+References: <20160922204924.16229-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
-        James Morris <jmorris@namei.org>,
-        Trond Myklebust <trond.myklebust@primarydata.com>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        linux-nfs@vger.kernel.org
-To: Paolo Abeni <pabeni@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:35178 "EHLO
-        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754140AbcIVUhX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 16:37:23 -0400
-In-Reply-To: <1474576448.28155.7.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>, John Crispin <john@phrozen.org>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160922204924.16229-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-09-22 at 13:34 -0700, Eric Dumazet wrote:
-> On Thu, 2016-09-22 at 22:27 +0200, Paolo Abeni wrote:
-> > On Thu, 2016-09-22 at 09:30 -0700, Eric Dumazet wrote:
-> > > On Thu, 2016-09-22 at 18:14 +0200, Paolo Abeni wrote:
-> > > 
-> > > > I think that the idea behind using atomic ops directly on
-> > > > sk_forward_alloc is to avoid adding other fields to the udp_socket. 
-> > > > 
-> > > > If we can add some fields to the udp_sock structure, the schema proposed
-> > > > in this patch should fit better (modulo bugs ;-), always requiring a
-> > > > single atomic operation at memory reclaiming time and at memory
-> > > > allocation time.
-> > > 
-> > > But do we want any additional atomic to begin with ?
-> > > 
-> > > Given typical number of UDP sockets on a host, we could reserve/forward
-> > > alloc at socket creation time, and when SO_RCVBUF is changed.
-> > 
-> > That would be very efficient and would probably work on most scenario,
-> > but if/when the system will reach udp memory pressure things will be
-> > very bad: forward allocation on open() will fail and nobody will be able
-> > to create any new udp socket, right ?
-> > 
-> 
-> No, we could allow one page per socket (udp_mem[0]) and applications
-> would still work.
+Now that the DSA layer handles port fast ageing on correct STP change,
+simplify _mv88e6xxx_port_state and implement mv88e6xxx_port_fast_age.
 
-I meant udp_rmem_min, not udp_mem[0]
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6xxx/chip.c | 45 ++++++++++++++++++++--------------------
+ 1 file changed, 23 insertions(+), 22 deletions(-)
 
-udp_rmem_min - INTEGER
-        Minimal size of receive buffer used by UDP sockets in moderation.
-        Each UDP socket is able to use the size for receiving data, even if
-        total pages of UDP sockets exceed udp_mem pressure. The unit is byte.
-        Default: 1 page
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index 25bd3fa..122876c 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -1133,31 +1133,18 @@ static int _mv88e6xxx_port_state(struct mv88e6xxx_chip *chip, int port,
+ 
+ 	oldstate = reg & PORT_CONTROL_STATE_MASK;
+ 
+-	if (oldstate != state) {
+-		/* Flush forwarding database if we're moving a port
+-		 * from Learning or Forwarding state to Disabled or
+-		 * Blocking or Listening state.
+-		 */
+-		if ((oldstate == PORT_CONTROL_STATE_LEARNING ||
+-		     oldstate == PORT_CONTROL_STATE_FORWARDING) &&
+-		    (state == PORT_CONTROL_STATE_DISABLED ||
+-		     state == PORT_CONTROL_STATE_BLOCKING)) {
+-			err = _mv88e6xxx_atu_remove(chip, 0, port, false);
+-			if (err)
+-				return err;
+-		}
++	reg &= ~PORT_CONTROL_STATE_MASK;
++	reg |= state;
+ 
+-		reg = (reg & ~PORT_CONTROL_STATE_MASK) | state;
+-		err = mv88e6xxx_port_write(chip, port, PORT_CONTROL, reg);
+-		if (err)
+-			return err;
++	err = mv88e6xxx_port_write(chip, port, PORT_CONTROL, reg);
++	if (err)
++		return err;
+ 
+-		netdev_dbg(ds->ports[port].netdev, "PortState %s (was %s)\n",
+-			   mv88e6xxx_port_state_names[state],
+-			   mv88e6xxx_port_state_names[oldstate]);
+-	}
++	netdev_dbg(ds->ports[port].netdev, "PortState %s (was %s)\n",
++		   mv88e6xxx_port_state_names[state],
++		   mv88e6xxx_port_state_names[oldstate]);
+ 
+-	return err;
++	return 0;
+ }
+ 
+ static int _mv88e6xxx_port_based_vlan_map(struct mv88e6xxx_chip *chip, int port)
+@@ -1232,6 +1219,19 @@ static void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port,
+ 			   mv88e6xxx_port_state_names[stp_state]);
+ }
+ 
++static void mv88e6xxx_port_fast_age(struct dsa_switch *ds, int port)
++{
++	struct mv88e6xxx_chip *chip = ds->priv;
++	int err;
++
++	mutex_lock(&chip->reg_lock);
++	err = _mv88e6xxx_atu_remove(chip, 0, port, false);
++	mutex_unlock(&chip->reg_lock);
++
++	if (err)
++		netdev_err(ds->ports[port].netdev, "failed to flush ATU\n");
++}
++
+ static int _mv88e6xxx_port_pvid(struct mv88e6xxx_chip *chip, int port,
+ 				u16 *new, u16 *old)
+ {
+@@ -3684,6 +3684,7 @@ static struct dsa_switch_ops mv88e6xxx_switch_ops = {
+ 	.port_bridge_join	= mv88e6xxx_port_bridge_join,
+ 	.port_bridge_leave	= mv88e6xxx_port_bridge_leave,
+ 	.port_stp_state_set	= mv88e6xxx_port_stp_state_set,
++	.port_fast_age		= mv88e6xxx_port_fast_age,
+ 	.port_vlan_filtering	= mv88e6xxx_port_vlan_filtering,
+ 	.port_vlan_prepare	= mv88e6xxx_port_vlan_prepare,
+ 	.port_vlan_add		= mv88e6xxx_port_vlan_add,
+-- 
+2.10.0
