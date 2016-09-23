@@ -1,77 +1,111 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: Re: [RFC] net: store port/representative id in metadata_dst
-Date: Fri, 23 Sep 2016 21:45:44 +0100
-Message-ID: <20160923214544.6a3cd0ff@laptop>
-References: <1474572417-15907-1-git-send-email-jakub.kicinski@netronome.com>
-        <20160923063429.GA1821@nanopsycho.orion>
-        <20160923110609.2f221f99@griffin>
-        <20160923135512.64e5d5e9@jkicinski-Precision-T1700>
-        <57E53ADE.10806@gmail.com>
-        <20160923162907.7fd5314e@jkicinski-Precision-T1700>
-        <57E564F3.5010107@intel.com>
-        <20160923211728.4c2f05ab@jkicinski-Precision-T1700>
-        <57E58FA6.3050001@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+From: Jaedon Shin <jaedon.shin@gmail.com>
+Subject: Re: [PATCH] net: bcmgenet: Fix EPHY reset in power up
+Date: Sat, 24 Sep 2016 05:55:35 +0900
+Message-ID: <73230229-A16D-4692-8D34-ED45C29842F6@gmail.com>
+References: <20160923132004.5734-1-jaedon.shin@gmail.com>
+ <20160923140609.GA22965@lunn.ch>
+ <5A71930B-ED19-4690-942D-779F1454C77A@gmail.com>
+ <f68f0b8c-df49-1326-c05f-ddd7f95e4209@gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 10.1 \(3243\))
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Jakub Kicinski <jakub.kicinski@netronome.com>,
-        "Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
-        Jiri Benc <jbenc@redhat.com>, Jiri Pirko <jiri@resnulli.us>,
-        netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>,
-        ogerlitz@mellanox.com, ast@kernel.org, daniel@iogearbox.net,
-        simon.horman@netronome.com, Paolo Abeni <pabeni@redhat.com>,
-        Pravin B Shelar <pshelar@nicira.com>,
-        hannes@stressinduktion.org
-To: John Fastabend <john.fastabend@gmail.com>
+Cc: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>,
+        Philippe Reynes <tremyfr@gmail.com>, netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4.wp.pl ([212.77.101.11]:27977 "EHLO mx4.wp.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1759053AbcIWUpu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 23 Sep 2016 16:45:50 -0400
-In-Reply-To: <57E58FA6.3050001@gmail.com>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:33669 "EHLO
+        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1760834AbcIWUzj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 16:55:39 -0400
+Received: by mail-pf0-f176.google.com with SMTP id 21so45414072pfy.0
+        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 13:55:39 -0700 (PDT)
+In-Reply-To: <f68f0b8c-df49-1326-c05f-ddd7f95e4209@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 23 Sep 2016 13:25:10 -0700, John Fastabend wrote:
-> On 16-09-23 01:17 PM, Jakub Kicinski wrote:
-> > On Fri, 23 Sep 2016 10:22:59 -0700, Samudrala, Sridhar wrote:  
-> >> On 9/23/2016 8:29 AM, Jakub Kicinski wrote:  
->  [...]  
->  [...]  
-> >>
-> >> The 'accel' parameter in dev_queue_xmit_accel() is currently only passed
-> >> to ndo_select_queue() via netdev_pick_tx() and is used to select the tx 
-> >> queue.
-> >> Also, it is not passed all the way to the driver specific xmit routine.  
-> >> Doesn't it require
-> >> changing all the driver xmit routines if we want to pass this parameter?
-> >>  
->  [...]  
-> >>
-> >> Yes.  The VFPR netdevs don't have any HW queues associated with them and 
-> >> we would like
-> >> to use the PF queues for the xmit.
-> >> I was also looking into some way of passing the port id via skb 
-> >> parameter to the
-> >> dev_queue_xmit() call so that the PF xmit routine can do a directed 
-> >> transmit to a specifc VF.
-> >> Is skb->cb an option to pass this info?
-> >> dst_metadata approach would work  too if it is acceptable.  
-> > 
-> > I don't think we can trust skb->cb to be set to anything meaningful
-> > when the skb is received by the lower device. 
-> 
-> Agreed. I wouldn't recommend using skb->cb. How about passing it through
-> dev_queue_xmit_accel() through to the driver?
-> 
-> If you pass the metadata through the dev_queue_xmit_accel() handle tx
-> queue  selection would work using normal mechanisms (xps, select_queue,
-> cls  hook, etc.). If you wanted to pick some specific queue based on
-> policy the policy could be loaded into one of those hooks.
+Hi Florian,
 
-Do you mean without extending how accel is handled by
-dev_queue_xmit_accel() today?  If my goal is to not have extra HW
-queues then I don't see how I could mux in the lower dev without extra
-locking (as I tried to explain two emails ago).  Sorry for being slow
-here :(
+> On 24 Sep 2016, at 1:54 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> 
+> On 09/23/2016 08:04 AM, Jaedon Shin wrote:
+>> Hi Andrew,
+>> 
+>> On 23 Sep 2016, at 11:06 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+>>> 
+>>> On Fri, Sep 23, 2016 at 10:20:04PM +0900, Jaedon Shin wrote:
+>>>> The bcmgenet_mii_reset() is always not running in power up sequence
+>>>> after 'commit 62469c76007e ("net: ethernet: bcmgenet: use phydev from
+>>>> struct net_device")'. This'll show extremely high latency and duplicate
+>>>> packets while interface down and up repeatedly.
+>>>> 
+>>>> For now, adds again a private phydev for mii reset when runs power up to
+>>>> open interface.
+>>> 
+>>> Hi Jaedon
+>>> 
+>>> How does this fix the issue? It sounds like you are papering over the
+>>> crack, not truly fixing it.
+>>> 
+>>>      Andrew
+>> 
+>> Yes, It feel like a workaround, but I think it must need v4.8 stable
+>> version. If we find better way that fixes internal PHY to initialize
+>> after re-open interface, this patch will be dropped.
+> 
+> I can observe the faulting behavior with 4.8-rc7 that the link below
+> fixed initially:
+> 
+> # ping fainelli-linux
+> PING fainelli-linux (10.112.156.244): 56 data bytes
+> 64 bytes from 10.112.156.244: seq=1 ttl=61 time=1.352 ms
+> 64 bytes from 10.112.156.244: seq=1 ttl=61 time=1.472 ms (DUP!)
+> 64 bytes from 10.112.156.244: seq=1 ttl=61 time=1.496 ms (DUP!)
+> 64 bytes from 10.112.156.244: seq=1 ttl=61 time=1.517 ms (DUP!)
+> 64 bytes from 10.112.156.244: seq=1 ttl=61 time=1.536 ms (DUP!)
+> 64 bytes from 10.112.156.244: seq=1 ttl=61 time=1.557 ms (DUP!)
+> 64 bytes from 10.112.156.244: seq=1 ttl=61 time=752.448 ms (DUP!)
+> 64 bytes from 10.112.156.244: seq=2 ttl=61 time=1.291 ms
+> 64 bytes from 10.112.156.244: seq=2 ttl=61 time=1.421 ms (DUP!)
+> 64 bytes from 10.112.156.244: seq=2 ttl=61 time=1.444 ms (DUP!)
+> 64 bytes from 10.112.156.244: seq=2 ttl=61 time=1.464 ms (DUP!)
+> 64 bytes from 10.112.156.244: seq=2 ttl=61 time=1.483 ms (DUP!)
+> 64 bytes from 10.112.156.244: seq=2 ttl=61 time=1.505 ms (DUP!)
+> 64 bytes from 10.112.156.244: seq=2 ttl=61 time=24.964 ms (DUP!)
+> 
+> If we revert this patch, we indeed get the normal and expected behavior
+> back:
+> 
+> # ping fainelli-linux
+> PING fainelli-linux (10.112.156.244): 56 data bytes
+> 64 bytes from 10.112.156.244: seq=0 ttl=61 time=0.417 ms
+> 64 bytes from 10.112.156.244: seq=1 ttl=61 time=0.415 ms
+> 64 bytes from 10.112.156.244: seq=2 ttl=61 time=0.424 ms
+> 
+> Actually, the key thing is this:
+> 
+> - without Philippe's patch we call twice bcmgenet_mii_reset, and that is
+> intended:
+> 	- first time from bcmgenet_power_up() to make sure the PHY is
+> initialized *before* we get to initialize the UniMAC, this is critical
+> 	- second time from bcmgenet_mii_probe(), through the normal phy_init_hw()
+> 
+> - with Philippe's patch, we only get to call bcmgenet_mii_reset once, in
+> bcmgenet_mii_probe() because the first time in bcmgenet_power_up(),
+> dev->phydev is NULL, because of a prior call to phy_disconnect() in
+> bcmgenet_close(), unfortunately, there has been MAC activity, so the PHY
+> gets in a bad state
+> 
+> Jaedon, feel free to use the explanation above, and send a plain revert
+> of commit 62469c76007e11428e2ee3c6de90cbe74b588d44.
+> 
+
+Will send revert patch.
+
+Thanks,
+Jaedon
+
+> Thanks!
+> 
+> Thanks!
+> -- 
+> Florian
