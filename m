@@ -1,37 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] drivers: net: xgene: Fix MSS programming
-Date: Fri, 23 Sep 2016 08:21:32 -0400 (EDT)
-Message-ID: <20160923.082132.1550198525968986550.davem@davemloft.net>
-References: <1474584453-9071-1-git-send-email-isubramanian@apm.com>
+Subject: Re: [PATCH net-next 0/3] Few minor BPF helper improvements
+Date: Fri, 23 Sep 2016 08:24:41 -0400 (EDT)
+Message-ID: <20160923.082441.2127459080504481064.davem@davemloft.net>
+References: <cover.1474586162.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        patches@apm.com, toanle@apm.com
-To: isubramanian@apm.com
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51974 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:52072 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757912AbcIWMVf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 08:21:35 -0400
-In-Reply-To: <1474584453-9071-1-git-send-email-isubramanian@apm.com>
+        with ESMTP id S1752772AbcIWMYo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 08:24:44 -0400
+In-Reply-To: <cover.1474586162.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Iyappan Subramanian <isubramanian@apm.com>
-Date: Thu, 22 Sep 2016 15:47:33 -0700
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Fri, 23 Sep 2016 01:28:34 +0200
 
-> Current driver programs static value of MSS in hardware register for TSO
-> offload engine to segment the TCP payload regardless the MSS value
-> provided by network stack.
-> 
-> This patch fixes this by programming hardware registers with the
-> stack provided MSS value.
-> 
-> Since the hardware has the limitation of having only 4 MSS registers,
-> this patch uses reference count of mss values being used.
-> 
-> Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
-> Signed-off-by: Toan Le <toanle@apm.com>
+> Just a few minor improvements around BPF helpers, first one is a
+> fix but given this late stage and that it's not really a critical
+> one, I think net-next is just fine. For details please see the
+> individual patches.
 
-Applied.
+Series applied, thanks.
