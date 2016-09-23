@@ -1,26 +1,26 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH] mlxsw: spectrum: remove redundant check if err is zero
-Date: Fri, 23 Sep 2016 14:14:27 +0200
-Message-ID: <20160923121426.GA1789@nanopsycho>
-References: <20160923110245.18977-1-colin.king@canonical.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/7] hv_netvsc changes
+Date: Fri, 23 Sep 2016 08:21:18 -0400 (EDT)
+Message-ID: <20160923.082118.2118149484229919841.davem@davemloft.net>
+References: <1474588595-16054-1-git-send-email-sthemmin@exchange.microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@mellanox.com>, Ido Schimmel <idosch@mellanox.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160923110245.18977-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kys@microsoft.com, haiyangz@microsoft.com, netdev@vger.kernel.org
+To: sthemmin@microsoft.com, sthemmin@exchange.microsoft.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:51960 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752772AbcIWMVZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 08:21:25 -0400
+In-Reply-To: <1474588595-16054-1-git-send-email-sthemmin@exchange.microsoft.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fri, Sep 23, 2016 at 01:02:45PM CEST, colin.king@canonical.com wrote:
->From: Colin Ian King <colin.king@canonical.com>
->
->There is an earlier check and return if err is non-zero, so
->the check to see if it is zero is redundant in every iteration
->of the loop and hence the check can be removed.
->
->Signed-off-by: Colin Ian King <colin.king@canonical.com>
+From: sthemmin@exchange.microsoft.com
+Date: Thu, 22 Sep 2016 16:56:28 -0700
 
-Acked-by: Jiri Pirko <jiri@mellanox.com>
+> These are mostly about improving the handling of interaction between
+> the virtual network device (netvsc) and the SR-IOV VF network device.
+
+Series applied, thanks Stephen.
