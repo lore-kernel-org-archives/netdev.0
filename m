@@ -1,37 +1,41 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH] softirq: let ksoftirqd do its job
-Date: Fri, 23 Sep 2016 13:53:33 +0200
-Message-ID: <20160923115333.GJ5008@twins.programming.kicks-ass.net>
-References: <20160831164216.2901190c@redhat.com>
- <1472661956.14381.335.camel@edumazet-glaptop3.roam.corp.google.com>
- <1472665349.14381.356.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160901.233913.237544263411665891.davem@davemloft.net>
- <57E5139F.5040708@iogearbox.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3] tcp: fix wrong checksum calculation on MTU probing
+Date: Fri, 23 Sep 2016 07:58:39 -0400 (EDT)
+Message-ID: <20160923.075839.1436905982520228085.davem@davemloft.net>
+References: <2923a9bc-c433-7546-cd4a-9f834bd43181@taghos.com.br>
+        <5ffc1020-a36f-75b4-ff25-4f58c243f803@cogentembedded.com>
+        <f920ce68-c4e9-7772-809c-01f7319fa78e@taghos.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-        riel@redhat.com, pabeni@redhat.com, hannes@redhat.com,
-        jbrouer@redhat.com, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org, corbet@lwn.net,
-        Ingo Molnar <mingo@kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sergei.shtylyov@cogentembedded.com, kuznet@ms2.inr.ac.ru,
+        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+        netdev@vger.kernel.org
+To: douglascs@taghos.com.br
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:48960 "EHLO
-        merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965339AbcIWLxp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 07:53:45 -0400
-Content-Disposition: inline
-In-Reply-To: <57E5139F.5040708@iogearbox.net>
+Received: from shards.monkeyblade.net ([184.105.139.130]:51662 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S964954AbcIWL6t (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 07:58:49 -0400
+In-Reply-To: <f920ce68-c4e9-7772-809c-01f7319fa78e@taghos.com.br>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 23, 2016 at 01:35:59PM +0200, Daniel Borkmann wrote:
-> On 09/02/2016 08:39 AM, David Miller wrote:
-> >
-> >I'm just kind of assuming this won't go through my tree, but I can take
-> >it if that's what everyone agrees to.
-> 
-> Was this actually picked up somewhere in the mean time?
+From: Douglas Caetano dos Santos <douglascs@taghos.com.br>
+Date: Thu, 22 Sep 2016 15:52:04 -0300
 
-I can queue it for tip. In fact, I've just done so to avoid loosing it.
-If anybody else wants it holler.
+> With TCP MTU probing enabled and offload TX checksumming disabled,
+> tcp_mtu_probe() calculated the wrong checksum when a fragment being copied
+> into the probe's SKB had an odd length. This was caused by the direct use
+> of skb_copy_and_csum_bits() to calculate the checksum, as it pads the
+> fragment being copied, if needed. When this fragment was not the last, a
+> subsequent call used the previous checksum without considering this
+> padding.
+> 
+> The effect was a stale connection in one way, as even retransmissions
+> wouldn't solve the problem, because the checksum was never recalculated for
+> the full SKB length.
+> 
+> Signed-off-by: Douglas Caetano dos Santos <douglascs@taghos.com.br>
+
+Applied and queued up for -stable, thanks.
