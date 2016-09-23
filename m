@@ -1,7 +1,8 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: pull request (net-next): ipsec-next 2016-09-23
-Date: Fri, 23 Sep 2016 09:14:40 +0200
-Message-ID: <1474614882-25253-1-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 2/2] xfrm: state lookup can be lockless
+Date: Fri, 23 Sep 2016 09:14:42 +0200
+Message-ID: <1474614882-25253-3-git-send-email-steffen.klassert@secunet.com>
+References: <1474614882-25253-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Herbert Xu <herbert@gondor.apana.org.au>,
@@ -9,45 +10,43 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
         <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:45176 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:45165 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1757328AbcIWHOw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1756603AbcIWHOw (ORCPT <rfc822;netdev@vger.kernel.org>);
         Fri, 23 Sep 2016 03:14:52 -0400
+In-Reply-To: <1474614882-25253-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Only two patches this time:
+From: Florian Westphal <fw@strlen.de>
 
-1) Fix a comment reference to struct xfrm_replay_state_esn.
-   From Richard Guy Briggs.
+This is called from the packet input path, we get lock contention
+if many cpus handle ipsec in parallel.
 
-2) Convert xfrm_state_lookup to rcu, we don't need the
-   xfrm_state_lock anymore in the input path.
-   From Florian Westphal.
+After recent rcu conversion it is safe to call __xfrm_state_lookup
+without the spinlock.
 
-Please pull or let me know if there are problems.
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/xfrm/xfrm_state.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Thanks!
-
-The following changes since commit 2d2be8cab26ed918e94d2deae89580003242a123:
-
-  bpf: fix range propagation on direct packet access (2016-09-08 17:28:37 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec-next.git master
-
-for you to fetch changes up to c2f672fc94642bae96821a393f342edcfa9794a6:
-
-  xfrm: state lookup can be lockless (2016-09-21 12:37:29 +0200)
-
-----------------------------------------------------------------
-Florian Westphal (1):
-      xfrm: state lookup can be lockless
-
-Richard Guy Briggs (1):
-      xfrm: fix header file comment reference to struct xfrm_replay_state_esn
-
- include/uapi/linux/xfrm.h | 2 +-
- net/xfrm/xfrm_state.c     | 4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index ba8bf51..a38fdea 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -1431,9 +1431,9 @@ xfrm_state_lookup(struct net *net, u32 mark, const xfrm_address_t *daddr, __be32
+ {
+ 	struct xfrm_state *x;
+ 
+-	spin_lock_bh(&net->xfrm.xfrm_state_lock);
++	rcu_read_lock();
+ 	x = __xfrm_state_lookup(net, mark, daddr, spi, proto, family);
+-	spin_unlock_bh(&net->xfrm.xfrm_state_lock);
++	rcu_read_unlock();
+ 	return x;
+ }
+ EXPORT_SYMBOL(xfrm_state_lookup);
+-- 
+1.9.1
