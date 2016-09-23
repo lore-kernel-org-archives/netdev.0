@@ -1,83 +1,73 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 08/15] rxrpc: Fix call timer
-Date: Fri, 23 Sep 2016 21:04:31 +0300
-Message-ID: <9efafc3e-5f19-598c-ee0c-def748eeb78a@cogentembedded.com>
-References: <147464371753.5090.1634919599283321856.stgit@warthog.procyon.org.uk>
- <147464377267.5090.12222734463447533990.stgit@warthog.procyon.org.uk>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH RFC 0/2] ila: ilarouter bpf code for tc and xdp
+Date: Fri, 23 Sep 2016 20:06:52 +0200
+Message-ID: <20160923200652.5a8d5dff@redhat.com>
+References: <1474650995-2031928-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
-To: David Howells <dhowells@redhat.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <147464377267.5090.12222734463447533990.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Tom Herbert <tom@herbertland.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Thomas Graf <tgraf@suug.ch>, <netdev@vger.kernel.org>,
+        brouer@redhat.com
+To: Alexei Starovoitov <ast@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:42502 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S964828AbcIWSG5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 23 Sep 2016 14:06:57 -0400
+In-Reply-To: <1474650995-2031928-1-git-send-email-ast@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/23/2016 06:16 PM, David Howells wrote:
 
-> Fix the call timer in the following ways:
->
->  (1) If call->resend_at or call->ack_at are before or equal to the current
->      time, then ignore that timeout.
->
->  (2) If call->expire_at is before or equal to the current time, then don't
->      set the timer at all (possibly we should queue the call).
->
->  (3) Don't skip modifying the timer if timer_pending() is true.  This
->      indicates that the timer is working, not that it has expired and is
->      running/waiting to run its expiry handler.
->
-> Also call rxrpc_set_timer() to start the call timer going rather than
-> calling add_timer().
->
-> Signed-off-by: David Howells <dhowells@redhat.com>
-> ---
->
->  net/rxrpc/call_event.c  |   25 ++++++++++++++-----------
->  net/rxrpc/call_object.c |    4 ++--
->  2 files changed, 16 insertions(+), 13 deletions(-)
->
-> diff --git a/net/rxrpc/call_event.c b/net/rxrpc/call_event.c
-> index 3a7f90a2659c..8bc5c8e37ab4 100644
-> --- a/net/rxrpc/call_event.c
-> +++ b/net/rxrpc/call_event.c
-> @@ -28,24 +28,27 @@ void rxrpc_set_timer(struct rxrpc_call *call)
->  {
->  	unsigned long t, now = jiffies;
->
-> -	_enter("{%ld,%ld,%ld:%ld}",
-> -	       call->ack_at - now, call->resend_at - now, call->expire_at - now,
-> -	       call->timer.expires - now);
-> -
->  	read_lock_bh(&call->state_lock);
->
->  	if (call->state < RXRPC_CALL_COMPLETE) {
-> -		t = call->ack_at;
-> -		if (time_before(call->resend_at, t))
-> +		t = call->expire_at;
-> +		if (time_before_eq(t, now))
-> +			goto out;
-> +
-> +		if (time_after(call->resend_at, now) &&
-> +		    time_before(call->resend_at, t))
->  			t = call->resend_at;
-> -		if (time_before(call->expire_at, t))
-> -			t = call->expire_at;
-> -		if (!timer_pending(&call->timer) ||
-> -		    time_before(t, call->timer.expires)) {
-> -			_debug("set timer %ld", t - now);
-> +
-> +		if (time_after(call->ack_at, now) &&
-> +		    time_before(call->ack_at, t))
-> +			t = call->ack_at;
-> +
-> +		if (call->timer.expires != t || !timer_pending(&call->timer)) {
->  			mod_timer(&call->timer, t);
->  		}
+On Fri, 23 Sep 2016 10:16:33 -0700 Alexei Starovoitov <ast@fb.com> wrote:
 
-    CodingStyle: {} not needed now.
+> From: Aaron Yue <haoxuany@andrew.cmu.edu>
+> 
+> Jesper,
+> 
+> here is old email and cover letter that didn't make it to the list
+> due to vger outage (I guess).
+> The verifier patch that Aaron is talking about has landed long ago.
+> 
+> The dataplane of ILA router is very short and simple.
 
-[...]
+Yes, looks very simple indeed! Cool! :-)
 
-MBR, Sergei
+
+> Control plane is very different matter. It's not ready for prime time yet.
+> 
+> ----------
+> 
+> This patch contains the tc and xdp implementation of kernelspace bpf code.
+> It requires userspace to insert to the ILA bpf maps, in tc's case, the 
+> precomputed ILA mappings, and in xdp's case, both the precomputed ILA
+> mappings and the MAC address.
+> 
+> The xdp bpf code also requires a verifier patch to allow direct map access
+> from the packet (will be patched in by Alexei).
+> 
+> Aaron Yue (2):
+>   samples/bpf: ilarouter for tc
+>   samples/bpf: ilarouter for xdp
+> 
+>  samples/bpf/Makefile        |   2 +
+>  samples/bpf/ila.h           |  80 ++++++++++++++++++++++++++++
+>  samples/bpf/ilarouter_tc.c  | 124 ++++++++++++++++++++++++++++++++++++++++++++
+>  samples/bpf/ilarouter_xdp.c |  88 +++++++++++++++++++++++++++++++
+>  samples/bpf/inet_helper.h   |  38 ++++++++++++++
+>  5 files changed, 332 insertions(+)
+>  create mode 100644 samples/bpf/ila.h
+>  create mode 100644 samples/bpf/ilarouter_tc.c
+>  create mode 100644 samples/bpf/ilarouter_xdp.c
+>  create mode 100644 samples/bpf/inet_helper.h
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
