@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH RFC 2/2] samples/bpf: ilarouter for xdp
-Date: Fri, 23 Sep 2016 10:16:35 -0700
-Message-ID: <1474650995-2031928-3-git-send-email-ast@fb.com>
+Subject: [PATCH RFC 1/2] samples/bpf: ilarouter for tc
+Date: Fri, 23 Sep 2016 10:16:34 -0700
+Message-ID: <1474650995-2031928-2-git-send-email-ast@fb.com>
 References: <1474650995-2031928-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,20 +12,20 @@ Cc: Daniel Borkmann <daniel@iogearbox.net>,
         Thomas Graf <tgraf@suug.ch>, <netdev@vger.kernel.org>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:44069 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1755989AbcIWRQ4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 13:16:56 -0400
-Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8NHF816032318
-        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 10:16:55 -0700
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:49416 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1754951AbcIWRTU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 13:19:20 -0400
+Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
+        by m0001303.ppops.net (8.16.0.17/8.16.0.17) with SMTP id u8NHHJM1013690
+        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 10:19:19 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 25n74bgj0n-20
+        by m0001303.ppops.net with ESMTP id 25mqaxs0t5-4
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 10:16:55 -0700
+        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 10:19:19 -0700
 Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)     by
- mx-out.facebook.com (10.102.107.97) with ESMTP id
- 7b258ee281b111e6af6e0002c99331b0-f35e6a50 for <netdev@vger.kernel.org>;        Fri,
+ mx-out.facebook.com (10.103.99.99) with ESMTP  id
+ 7b24a94681b111e68cd80002c9dfb610-3c7fba50 for <netdev@vger.kernel.org>;        Fri,
  23 Sep 2016 10:16:35 -0700
 In-Reply-To: <1474650995-2031928-1-git-send-email-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
@@ -35,36 +35,124 @@ From: Aaron Yue <haoxuany@andrew.cmu.edu>
 
 From: Aaron Yue <haoxuany@fb.com>
 
-Requires a userspace program to insert ila mappings and mac addresses to
-the ila map. Needs a verifier patch to directly allow access to the pkt
-from the bpf map.
+Requires a userspace program to insert ila mappings to the ila map.
 
 Signed-off-by: Aaron Yue <haoxuany@fb.com>
 Signed-off-by: Aaron Yue <haoxuany@andrew.cmu.edu>
 ---
- samples/bpf/Makefile        |  1 +
- samples/bpf/ilarouter_xdp.c | 88 +++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 89 insertions(+)
- create mode 100644 samples/bpf/ilarouter_xdp.c
+ samples/bpf/Makefile       |   1 +
+ samples/bpf/ila.h          |  80 +++++++++++++++++++++++++++++
+ samples/bpf/ilarouter_tc.c | 124 +++++++++++++++++++++++++++++++++++++++++++++
+ samples/bpf/inet_helper.h  |  38 ++++++++++++++
+ 4 files changed, 243 insertions(+)
+ create mode 100644 samples/bpf/ila.h
+ create mode 100644 samples/bpf/ilarouter_tc.c
+ create mode 100644 samples/bpf/inet_helper.h
 
 diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index 15e19bb..827e6e8 100644
+index 90ebf7d..15e19bb 100644
 --- a/samples/bpf/Makefile
 +++ b/samples/bpf/Makefile
-@@ -75,6 +75,7 @@ always += test_cgrp2_tc_kern.o
+@@ -74,6 +74,7 @@ always += parse_varlen.o parse_simple.o parse_ldabs.o
+ always += test_cgrp2_tc_kern.o
  always += xdp1_kern.o
  always += xdp2_kern.o
- always += ilarouter_tc.o
-+always += ilarouter_xdp.o
++always += ilarouter_tc.o
  
  HOSTCFLAGS += -I$(objtree)/usr/include
  
-diff --git a/samples/bpf/ilarouter_xdp.c b/samples/bpf/ilarouter_xdp.c
+diff --git a/samples/bpf/ila.h b/samples/bpf/ila.h
 new file mode 100644
-index 0000000..24749c4
+index 0000000..39a11f8
 --- /dev/null
-+++ b/samples/bpf/ilarouter_xdp.c
-@@ -0,0 +1,88 @@
++++ b/samples/bpf/ila.h
+@@ -0,0 +1,80 @@
++#ifndef _SIR_H
++#define _SIR_H
++
++#include <linux/types.h>
++#include <linux/in6.h>
++#include <asm/byteorder.h>
++
++#define SIR_T_LOCAL 0x1
++#define SIR_T_VIRTUAL 0x3
++
++struct in6_addr_sir {
++	__be64 prefix;
++	__be64 identifier_c_type;
++} __packed;
++
++struct in6_addr_ila {
++	__be64 locator;
++#if defined(__LITTLE_ENDIAN_BITFIELD)
++	__u8 identifier:4,
++	     c:1,
++	     type:3;
++	__u8  identifier2;
++	__be16 identifier3;
++	__be16 identifier4;
++#elif defined(__BIG_ENDIAN_BITFIELD)
++	__be32 type:3,
++	       c:1,
++	       identifier:28;
++	__be16 identifier2;
++#else
++#error "Fix asm/byteorder.h"
++#endif
++	__be16 checksum;
++} __packed;
++
++struct sirhdr {
++#if defined(__LITTLE_ENDIAN_BITFIELD)
++	__u16 traffic_class:4,
++	version:4,
++	flow_label:4,
++	traffic_class2:4;
++	__be16 flow_label2;
++#elif defined(__BIG_ENDIAN_BITFIELD)
++	__u32 version:4,
++	      traffic_class:8,
++	      flow_label:20;
++#else
++#error "Fix asm/byteorder.h"
++#endif
++	__be16 payload_length;
++	__u8   next_header;
++	__u8   hop_limit;
++
++	struct in6_addr source_address;
++	struct in6_addr_sir destination_address;
++} __packed;
++
++struct ilahdr {
++#if defined(__LITTLE_ENDIAN_BITFIELD)
++	__u16 traffic_class:4,
++	version:4,
++	flow_label:4,
++	traffic_class2:4;
++	__be16 flow_label2;
++#elif defined(__BIG_ENDIAN_BITFIELD)
++	__u32 version:4,
++	      traffic_class:8,
++	      flow_label:20;
++#else
++#error "Fix asm/byteorder.h"
++#endif
++	__be16 payload_length;
++	__u8   next_header;
++	__u8   hop_limit;
++
++	struct in6_addr source_address;
++	struct in6_addr_ila destination_address;
++} __packed;
++
++#endif
+diff --git a/samples/bpf/ilarouter_tc.c b/samples/bpf/ilarouter_tc.c
+new file mode 100644
+index 0000000..277322e
+--- /dev/null
++++ b/samples/bpf/ilarouter_tc.c
+@@ -0,0 +1,124 @@
 +/* Copyright (c) 2016 Facebook
 + *
 + * This program is free software; you can redistribute it and/or
@@ -75,83 +163,163 @@ index 0000000..24749c4
 +#define MAP_SIZE (1 << 20)
 +
 +#define KBUILD_MODNAME "ilarouter"
-+#include <uapi/linux/if_ether.h>
-+#include <uapi/linux/ipv6.h>
++#include <linux/if_ether.h>
++#include <linux/ipv6.h>
 +#include <uapi/linux/bpf.h>
++#include "ila.h"
++#include "inet_helper.h"
 +#include "bpf_helpers.h"
-+
-+struct ila_addr {
-+	u64 addr_hi;
-+	u64 addr_lo;
-+} __packed;
-+
-+struct ila_info {
-+	struct ila_addr addr;
-+	u16 mac[3];
-+} __packed;
 +
 +char _license[] SEC("license") = "GPL";
 +unsigned int version SEC("version") = 1;
 +
-+struct bpf_map_def SEC("map_ila_lookup_map") ila_lookup_map = {
++struct bpf_map_def SEC("maps") ila_lookup_map = {
 +	.type = BPF_MAP_TYPE_HASH,
 +	.key_size = sizeof(struct in6_addr),
-+	.value_size = sizeof(struct ila_info),
++	.value_size = sizeof(struct in6_addr),
 +	.max_entries = MAP_SIZE,
 +};
 +
-+SEC("xdp_ila_lookup")
-+int ila_lookup(struct xdp_md *ctx)
++#define IPV6_DEST_OFF (ETH_HLEN + offsetof(struct ipv6hdr, daddr))
++
++struct addr {
++	__u64 addr_hi;
++	__u64 addr_lo;
++} __packed;
++
++SEC("classifier")
++int ila_lookup(struct __sk_buff *skb)
 +{
-+	unsigned long dataptr = (unsigned long)ctx->data;
++	unsigned long dataptr = (unsigned long)skb->data;
 +	struct ethhdr *eth;
 +	struct ipv6hdr *sir;
-+	struct ila_addr *pkt_addr;
-+	struct ila_info *reply;
-+	u16 *dst_mac;
++	struct addr *pkt_addr;
++	struct addr stack_addr;
++	struct addr *reply;
++#ifdef DEBUG
++	char lookup_request[] = "Lookup request for sir: %llx, iden: %llx\n";
++	char lookup_fail[] = "Lookup failed\n";
++	char lookup_success[] = "Lookup success. hi: %llx, lo: %llx\n";
++#endif
 +
 +	/* Invalid packet: length too short
-+	 * compiler optimization/verifier bypass:
-+	 * this way it won't assume that we copied over a pkt_ptr,
++	 * compiler optimization/verifier bypass: this way it won't assume
++	 * that we copied over a pkt_ptr,
 +	 * which has register range of 0 (from (r1 + 0))
 +	 */
-+	if (dataptr + sizeof(struct ethhdr) + sizeof(struct ipv6hdr) >
-+	    (unsigned long)ctx->data_end)
-+		return XDP_PASS;
++	if (dataptr + sizeof(struct ethhdr) +
++	    sizeof(struct ipv6hdr) > skb->data_end)
++		goto redirect;
 +
 +	/* Ethernet header */
 +	eth = (struct ethhdr *)dataptr;
 +
 +	/* Irrelevant packet: not IPv6 */
 +	if (eth->h_proto != htons(ETH_P_IPV6))
-+		return XDP_PASS;
++		goto redirect;
 +
-+	/* Sir Address header */
++	/* SIR Address header */
 +	sir = (struct ipv6hdr *)(dataptr + sizeof(struct ethhdr));
++#ifdef DEBUG
++	{
++		/* ILA Address header */
++		struct ilahdr *ila = (struct ilahdr *)sir;
 +
-+	/* We don't have to check for C bit or Type, since
-+	 * userspace mapping inserts guarantees that only valid values
-+	 * will be inserted into the map in network byte-order.
-+	 * Hence, a lookup fail implies either C bit/Type is invalid,
-+	 * or mapping does not exist, in both cases we pass the packet without
-+	 * modifications.
-+	 */
-+	pkt_addr = (struct ila_addr *)&(sir->daddr);
-+	reply = bpf_map_lookup_elem(&ila_lookup_map, pkt_addr);
++		/* For debugging purposes,
++		 * we don't care about non-SIR/ILA addresses
++		 */
++		if (ila->destination_address.c)
++			goto redirect;
 +
-+	if (!reply)
-+		return XDP_PASS;
++		switch (ila->destination_address.type) {
++		case SIR_T_LOCAL:
++		case SIR_T_VIRTUAL:
++			break;
++		default:
++			goto redirect;
++		}
++	}
++#endif
 +
-+	pkt_addr->addr_hi = reply->addr.addr_hi;
-+	pkt_addr->addr_lo = reply->addr.addr_lo;
++	pkt_addr = (struct addr *)&(sir->daddr);
 +
-+	dst_mac = (u16 *)eth;
-+	dst_mac[0] = reply->mac[0];
-+	dst_mac[1] = reply->mac[1];
-+	dst_mac[2] = reply->mac[2];
++	stack_addr.addr_hi = pkt_addr->addr_hi;
++	stack_addr.addr_lo = pkt_addr->addr_lo;
 +
-+	return XDP_TX;
++	reply = bpf_map_lookup_elem(&ila_lookup_map, &stack_addr);
++	if (!reply) {
++#ifdef DEBUG
++		/* Comment out if too noisy */
++		bpf_trace_printk(lookup_request, sizeof(lookup_request),
++				 _ntohll(pkt_addr->addr_hi),
++				 _ntohll(pkt_addr->addr_lo));
++
++		bpf_trace_printk(lookup_fail, sizeof(lookup_fail));
++#endif
++		goto redirect;
++	}
++
++#ifdef DEBUG
++	bpf_trace_printk(lookup_request, sizeof(lookup_request),
++			 _ntohll(pkt_addr->addr_hi),
++			 _ntohll(pkt_addr->addr_lo));
++
++	bpf_trace_printk(lookup_success, sizeof(lookup_success),
++			 _ntohll(reply->addr_hi), _ntohll(reply->addr_lo));
++#endif
++
++	stack_addr.addr_hi = reply->addr_hi;
++	stack_addr.addr_lo = reply->addr_lo;
++
++	bpf_skb_store_bytes(skb, IPV6_DEST_OFF, &stack_addr,
++			    sizeof(struct in6_addr), 0);
++
++redirect:
++	return bpf_redirect(skb->ifindex, 1);
 +}
+diff --git a/samples/bpf/inet_helper.h b/samples/bpf/inet_helper.h
+new file mode 100644
+index 0000000..d5fc281
+--- /dev/null
++++ b/samples/bpf/inet_helper.h
+@@ -0,0 +1,38 @@
++#ifndef __INET_HELPER_H
++#define __INET_HELPER_H
 +
++#include <linux/inet.h>
++
++#if defined(__LITTLE_ENDIAN_BITFIELD)
++#define _htonl(A) __builtin_bswap32(A)
++#elif defined(__BIG_ENDIAN_BITFIELD)
++#define _htonl(A) (A)
++#else
++#error "Fix asm/byteorder.h"
++#endif
++
++#if defined(__LITTLE_ENDIAN_BITFIELD)
++#define _ntohl(A) __builtin_bswap32(A)
++#elif defined(__BIG_ENDIAN_BITFIELD)
++#define _ntohl(A) (A)
++#else
++#error "Fix asm/byteorder.h"
++#endif
++
++#if defined(__LITTLE_ENDIAN_BITFIELD)
++#define _htonll(A) __builtin_bswap64(A)
++#elif defined(__BIG_ENDIAN_BITFIELD)
++#define _htonll(A) (A)
++#else
++#error "Fix asm/byteorder.h"
++#endif
++
++#if defined(__LITTLE_ENDIAN_BITFIELD)
++#define _ntohll(A) __builtin_bswap64(A)
++#elif defined(__BIG_ENDIAN_BITFIELD)
++#define _ntohll(A) (A)
++#else
++#error "Fix asm/byteorder.h"
++#endif
++
++#endif
 -- 
 2.8.0.rc2
