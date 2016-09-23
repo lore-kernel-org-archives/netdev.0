@@ -1,67 +1,44 @@
-From: sthemmin@exchange.microsoft.com
-Subject: [PATCH] hv_netvsc: fix comments
-Date: Fri, 23 Sep 2016 17:08:17 -0700
-Message-ID: <1474675697-22805-1-git-send-email-sthemmin@exchange.microsoft.com>
-Reply-To: sthemmin@microsoft.com
-Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
-To: "K. Y. Srinivasan" <kys@microsoft.com>,
-        Haiyang Zhang <haiyangz@microsoft.com>, davem@davemloft.net
+From: Jann Horn <jann@thejh.net>
+Subject: [PATCH] netfilter: don't permit unprivileged writes to global state via sysctls
+Date: Sat, 24 Sep 2016 00:21:04 +0200
+Message-ID: <1474669264-3283-1-git-send-email-jann@thejh.net>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from p3plsmtps2ded01.prod.phx3.secureserver.net ([208.109.80.58]:35682
-        "EHLO p3plsmtps2ded01.prod.phx3.secureserver.net"
+Received: from thejh.net ([37.221.195.125]:48332 "EHLO thejh.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1759852AbcIWWRq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 23 Sep 2016 18:17:46 -0400
+        id S1759816AbcIWWVI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 23 Sep 2016 18:21:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <sthemmin@microsoft.com>
+This prevents the modification of nf_conntrack_max in unprivileged network
+namespaces. For unprivileged network namespaces, ip_conntrack_max is kept
+as a readonly sysctl in order to minimize potential compatibility issues.
 
-Typo's and spelling errors. Also remove old comment from staging era.
+This patch should apply cleanly to the net tree.
 
-Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: Jann Horn <jann@thejh.net>
 ---
- drivers/net/hyperv/hyperv_net.h |    7 +++----
- 1 files changed, 3 insertions(+), 4 deletions(-)
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 284b97b..d7c1cc6 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -433,7 +433,7 @@ struct nvsp_1_message_revoke_send_buffer {
-  */
- struct nvsp_1_message_send_rndis_packet {
- 	/*
--	 * This field is specified by RNIDS. They assume there's two different
-+	 * This field is specified by RNDIS. They assume there's two different
- 	 * channels of communication. However, the Network VSP only has one.
- 	 * Therefore, the channel travels with the RNDIS packet.
- 	 */
-@@ -578,7 +578,7 @@ struct nvsp_5_send_indirect_table {
- 	/* The number of entries in the send indirection table */
- 	u32 count;
+diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+index ae1a71a..a639e94 100644
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+@@ -358,6 +358,9 @@ static int ipv4_init_net(struct net *net)
+ 	if (!in->ctl_table)
+ 		return -ENOMEM;
  
--	/* The offset of the send indireciton table from top of this struct.
-+	/* The offset of the send indirection table from top of this struct.
- 	 * The send indirection table tells which channel to put the send
- 	 * traffic on. Each entry is a channel number.
- 	 */
-@@ -733,7 +733,6 @@ struct netvsc_device {
- 	struct nvsp_message channel_init_pkt;
- 
- 	struct nvsp_message revoke_packet;
--	/* unsigned char HwMacAddr[HW_MACADDR_LEN]; */
- 
- 	struct vmbus_channel *chn_table[VRSS_CHANNEL_MAX];
- 	u32 send_table[VRSS_SEND_TAB_SIZE];
-@@ -1238,7 +1237,7 @@ struct rndis_message {
- 	u32 ndis_msg_type;
- 
- 	/* Total length of this message, from the beginning */
--	/* of the sruct rndis_message, in bytes. */
-+	/* of the struct rndis_message, in bytes. */
- 	u32 msg_len;
- 
- 	/* Actual message */
++	if (net->user_ns != &init_user_ns)
++		in->ctl_table[0].mode = 0444;
++
+ 	in->ctl_table[0].data = &nf_conntrack_max;
+ 	in->ctl_table[1].data = &net->ct.count;
+ 	in->ctl_table[2].data = &nf_conntrack_htable_size;
 -- 
-1.7.4.1
+2.1.4
