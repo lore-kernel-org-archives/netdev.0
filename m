@@ -1,85 +1,37 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net-next 5/5] PCI: disable FLR for 82579 device
-Date: Fri, 23 Sep 2016 14:52:48 +0300
-Message-ID: <50623a1c-085d-73c3-1afe-3d48edd2cc43@cogentembedded.com>
-References: <1474612741-75681-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1474612741-75681-6-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH] softirq: let ksoftirqd do its job
+Date: Fri, 23 Sep 2016 13:53:33 +0200
+Message-ID: <20160923115333.GJ5008@twins.programming.kicks-ass.net>
+References: <20160831164216.2901190c@redhat.com>
+ <1472661956.14381.335.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1472665349.14381.356.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160901.233913.237544263411665891.davem@davemloft.net>
+ <57E5139F.5040708@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Sasha Neftin <sasha.neftin@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        guru.anbalagane@oracle.com, linux-pci@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
-        bhelgaas@google.com
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1474612741-75681-6-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+        riel@redhat.com, pabeni@redhat.com, hannes@redhat.com,
+        jbrouer@redhat.com, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org, corbet@lwn.net,
+        Ingo Molnar <mingo@kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from merlin.infradead.org ([205.233.59.134]:48960 "EHLO
+        merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965339AbcIWLxp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 07:53:45 -0400
+Content-Disposition: inline
+In-Reply-To: <57E5139F.5040708@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Fri, Sep 23, 2016 at 01:35:59PM +0200, Daniel Borkmann wrote:
+> On 09/02/2016 08:39 AM, David Miller wrote:
+> >
+> >I'm just kind of assuming this won't go through my tree, but I can take
+> >it if that's what everyone agrees to.
+> 
+> Was this actually picked up somewhere in the mean time?
 
-On 9/23/2016 9:39 AM, Jeff Kirsher wrote:
-
-> From: Sasha Neftin <sasha.neftin@intel.com>
->
-> 82579 has a problem reattaching itself after the device is detached.
-> The bug was reported by Redhat. The suggested fix is to disable
-> FLR capability in PCIe configuration space.
->
-> Reproduction:
-> Attach the device to a VM, then detach and try to attach again.
->
-> Fix:
-> Disable FLR capability to prevent the 82579 from hanging.
->
-> Signed-off-by: Sasha Neftin <sasha.neftin@intel.com>
-> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  drivers/pci/quirks.c | 21 +++++++++++++++++++++
->  1 file changed, 21 insertions(+)
->
-> diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-> index 44e0ff3..59fba6e 100644
-> --- a/drivers/pci/quirks.c
-> +++ b/drivers/pci/quirks.c
-> @@ -4431,3 +4431,24 @@ static void quirk_intel_qat_vf_cap(struct pci_dev *pdev)
->  	}
->  }
->  DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x443, quirk_intel_qat_vf_cap);
-> +/*
-> + * Workaround FLR issues for 82579
-> + * This code disables the FLR (Function Level Reset) via PCIe, in order
-> + * to workaround a bug found while using device passthrough, where the
-> + * interface would become non-responsive.
-> + * NOTE: the FLR bit is Read/Write Once (RWO) in config space, so if
-> + * the BIOS or kernel writes this register * then this workaround will
-                                               ^
-    That asterisk shouldn't be there.
-
-> + * not work.
-> + */
-> +static void quirk_intel_flr_cap_dis(struct pci_dev *dev)
-> +{
-> +	int pos = pci_find_capability(dev, PCI_CAP_ID_AF);
-
-    Should be an empty line here...
-
-> +	if (pos) {
-> +		u8 cap;
-
-    And here...
-
-> +		pci_read_config_byte(dev, pos + PCI_AF_CAP, &cap);
-> +		cap = cap & (~PCI_AF_CAP_FLR);
-
-    () not needed.
-
-> +		pci_write_config_byte(dev, pos + PCI_AF_CAP, cap);
-> +	}
-> +}
-> +DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x1502, quirk_intel_flr_cap_dis);
-> +DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x1503, quirk_intel_flr_cap_dis);
-
-MBR, Sergei
+I can queue it for tip. In fact, I've just done so to avoid loosing it.
+If anybody else wants it holler.
