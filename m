@@ -1,77 +1,47 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH RFC 05/11] skbuff: Extend gso_type to unsigned int.
-Date: Fri, 23 Sep 2016 08:15:18 -0700
-Message-ID: <CAKgT0UdBswycmfpomorMWXneh6=yDbfBbwqrYc9Qtk8zFcVtgw@mail.gmail.com>
-References: <1474617228-26103-1-git-send-email-steffen.klassert@secunet.com>
- <1474617228-26103-6-git-send-email-steffen.klassert@secunet.com> <063D6719AE5E284EB5DD2968C1650D6DB0107FC2@AcuExch.aculab.com>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH net-next 01/15] rxrpc: Preset timestamp on Tx sk_buffs
+Date: Fri, 23 Sep 2016 16:15:24 +0100
+Message-ID: <147464372471.5090.15595625502675969668.stgit@warthog.procyon.org.uk>
+References: <147464371753.5090.1634919599283321856.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-        Ilan Tayari <ilant@mellanox.com>,
-        Boris Pismenny <borisp@mellanox.com>,
-        Ariel Levkovich <lariel@mellanox.com>,
-        "Hay, Joshua A" <joshua.a.hay@intel.com>
-To: David Laight <David.Laight@aculab.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:36081 "EHLO
-        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965332AbcIWPPU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 11:15:20 -0400
-Received: by mail-io0-f196.google.com with SMTP id z135so7336767ioe.3
-        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 08:15:19 -0700 (PDT)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB0107FC2@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <147464371753.5090.1634919599283321856.stgit@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 23, 2016 at 6:19 AM, David Laight <David.Laight@aculab.com> wrote:
-> From: Steffen Klassert
->> Sent: 23 September 2016 08:54
->> All available gso_type flags are currently in use,
->> so extend gso_type to be able to add further flags.
->>
->> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
->> ---
->>  include/linux/skbuff.h | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
->> index f21da42..c1fd854 100644
->> --- a/include/linux/skbuff.h
->> +++ b/include/linux/skbuff.h
->> @@ -417,7 +417,7 @@ struct skb_shared_info {
->>       unsigned short  gso_size;
->>       /* Warning: this field is not always filled in (UFO)! */
->>       unsigned short  gso_segs;
->> -     unsigned short  gso_type;
->> +     unsigned int    gso_type;
->>       struct sk_buff  *frag_list;
->>       struct skb_shared_hwtstamps hwtstamps;
->>       u32             tskey;
->
-> That add a lot of padding.
-> I'm not even sure DM will like this structure being extended.
-> If ktime_t is 64 bit I think there is already some padding later on.
+Set the timestamp on sk_buffs holding packets to be transmitted before
+queueing them because the moment the packet is on the queue it can be seen
+by the retransmission algorithm - which may see a completely random
+timestamp.
 
-+1.  Just increasing the size is a bad idea as it will add a 6 byte
-hole and push frag 0 outside the first cache line.
+If the retransmission algorithm sees such a timestamp, it may retransmit
+the packet and, in future, tell the congestion management algorithm that
+the retransmit timer expired.
 
-You may want to take a look at rearranging the structure a bit.  That
-way you could eat into the 4 byte hole that is available on x86_64 so
-that instead of shifting everything up by 8 bytes they can mostly stay
-put with only a bit of rearranging.  This is one of those times a tool
-like pahole comes in handy.
+Signed-off-by: David Howells <dhowells@redhat.com>
+---
 
-Also it occurs to me that one other thing you could look at is if you
-were to move gso_type into the slot after dataref we might be able to
-make use of the hole while also saving us some initialization time as
-the change in size would push us from 32 to 36 which would likely
-impact the memset operation by at least a 1 cycle increase.  If we
-could make it so that we don't have to initialize the memory for
-gso_type unless we are planning to set gso_size we can avoid the extra
-overhead for that.  It would just be a matter of validating that
-nothing reads gso_type unless gso_size is set and that gso_type is
-always written to prior to setting gso_size to a non-zero value.
+ net/rxrpc/sendmsg.c |    5 +++++
+ 1 file changed, 5 insertions(+)
 
-- Alex
+diff --git a/net/rxrpc/sendmsg.c b/net/rxrpc/sendmsg.c
+index ca7c3be60ad2..ca3811bfbd17 100644
+--- a/net/rxrpc/sendmsg.c
++++ b/net/rxrpc/sendmsg.c
+@@ -99,6 +99,11 @@ static void rxrpc_queue_packet(struct rxrpc_call *call, struct sk_buff *skb,
+ 
+ 	ASSERTCMP(seq, ==, call->tx_top + 1);
+ 
++	/* We have to set the timestamp before queueing as the retransmit
++	 * algorithm can see the packet as soon as we queue it.
++	 */
++	skb->tstamp = ktime_get_real();
++
+ 	ix = seq & RXRPC_RXTX_BUFF_MASK;
+ 	rxrpc_get_skb(skb, rxrpc_skb_tx_got);
+ 	call->rxtx_annotations[ix] = RXRPC_TX_ANNO_UNACK;
