@@ -1,39 +1,33 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: Alignment issues with freescale FEC driver
-Date: Fri, 23 Sep 2016 20:13:01 +0200
-Message-ID: <20160923181301.GD22965@lunn.ch>
-References: <troy.kisky@boundarydevices.com>
- <02afb707-65de-5101-a79b-355929c4e00b@nelint.com>
- <CANn89iLb+QJu+MYh859oAAjcLCsKRpBbzVf43yOdq+HJVtZDpQ@mail.gmail.com>
- <5ee28ee0-cf0c-bdab-1271-f17755365c13@nelint.com>
- <0fe7a310-2d2f-4fca-d698-85d66122d91c@nelint.com>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [PATCH net-next 07/15] rxrpc: Fix accidental cancellation of scheduled resend by ACK parser
+Date: Fri, 23 Sep 2016 19:20:31 +0100
+Message-ID: <5989.1474654831@warthog.procyon.org.uk>
+References: <c868ca22-fed0-67f7-7471-165b3e5a9edd@cogentembedded.com> <147464371753.5090.1634919599283321856.stgit@warthog.procyon.org.uk> <147464376586.5090.14901936645927156006.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <edumazet@google.com>,
-        Fugang Duan <fugang.duan@nxp.com>,
-        Otavio Salvador <otavio@ossystems.com.br>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Troy Kisky <troy.kisky@boundarydevices.com>,
-        rmk+kernel@arm.linux.org.uk, Simone <cjb.sw.nospam@gmail.com>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>
-To: Eric Nelson <eric@nelint.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: dhowells@redhat.com, netdev@vger.kernel.org,
+        linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:60651 "EHLO vps0.lunn.ch"
+Received: from mx1.redhat.com ([209.132.183.28]:59000 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1034492AbcIWSNF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 23 Sep 2016 14:13:05 -0400
-Content-Disposition: inline
-In-Reply-To: <0fe7a310-2d2f-4fca-d698-85d66122d91c@nelint.com>
+        id S1035173AbcIWSUe (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 23 Sep 2016 14:20:34 -0400
+In-Reply-To: <c868ca22-fed0-67f7-7471-165b3e5a9edd@cogentembedded.com>
+Content-ID: <5988.1474654831.1@warthog.procyon.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Since the hardware requires longword alignment for its' DMA transfers,
-> aligning the IP header will require a memcpy, right?
+Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> wrote:
 
-The vf610 FEC has an SHIFT16 bit in register ENETx_TACC, which inserts
-two padding bits on transmit. ENETx_RACC has the same.
+> >  		case RXRPC_ACK_TYPE_NACK:
+> >  			if (anno_type == RXRPC_TX_ANNO_NAK)
+> >  				continue;
+> > +			if (anno_type == RXRPC_TX_ANNO_RETRANS)
+> > +				continue;
+> 
+>    Why not fold the above 2 *if*s together? Or use *else if* at least?
 
-What about your hardware?
+I have a pending patch that adds something between them.
 
-     Andrew
+David
