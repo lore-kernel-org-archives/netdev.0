@@ -1,101 +1,70 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next 4/4] net/sched: act_mirred: Implement ingress
- actions
-Date: Fri, 23 Sep 2016 08:48:33 -0400
-Message-ID: <0037729a-a3fc-c1c9-a620-905c73e0b9d4@mojatatu.com>
-References: <1474550512-7552-1-git-send-email-shmulik.ladkani@gmail.com>
- <1474550512-7552-5-git-send-email-shmulik.ladkani@gmail.com>
- <4387324a-de66-aa1b-86f0-1a9a2f8294f5@mojatatu.com>
- <20160923081106.73fb48df@halley>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: Re: [RFC] net: store port/representative id in metadata_dst
+Date: Fri, 23 Sep 2016 13:55:12 +0100
+Message-ID: <20160923135512.64e5d5e9@jkicinski-Precision-T1700>
+References: <1474572417-15907-1-git-send-email-jakub.kicinski@netronome.com>
+        <20160923063429.GA1821@nanopsycho.orion>
+        <20160923110609.2f221f99@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        WANG Cong <xiyou.wangcong@gmail.com>,
-        Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
-To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Cc: netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>,
+        ogerlitz@mellanox.com, John Fastabend <john.fastabend@gmail.com>,
+        sridhar.samudrala@intel.com, ast@kernel.org, daniel@iogearbox.net,
+        simon.horman@netronome.com, Paolo Abeni <pabeni@redhat.com>,
+        Pravin B Shelar <pshelar@nicira.com>,
+        hannes@stressinduktion.org, kubakici@wp.pl
+To: Jiri Benc <jbenc@redhat.com>, Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f66.google.com ([209.85.214.66]:36429 "EHLO
-        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755454AbcIWMta (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 08:49:30 -0400
-Received: by mail-it0-f66.google.com with SMTP id n143so952228ita.3
-        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 05:48:35 -0700 (PDT)
-In-Reply-To: <20160923081106.73fb48df@halley>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:38703 "EHLO
+        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757746AbcIWMzT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 08:55:19 -0400
+Received: by mail-wm0-f51.google.com with SMTP id l132so28595590wmf.1
+        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 05:55:18 -0700 (PDT)
+In-Reply-To: <20160923110609.2f221f99@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-09-23 01:11 AM, Shmulik Ladkani wrote:
-> Hi,
->
-> On Thu, 22 Sep 2016 19:40:15 -0400 Jamal Hadi Salim <jhs@mojatatu.com> wrote:
->> On 16-09-22 09:21 AM, Shmulik Ladkani wrote:
->>> From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
->>>
->>> Up until now, 'action mirred' supported only egress actions (either
->>> TCA_EGRESS_REDIR or TCA_EGRESS_MIRROR).
->>>
->>> This patch implements the corresponding ingress actions
->>> TCA_INGRESS_REDIR and TCA_INGRESS_MIRROR.
->>>
->>> This allows attaching filters whose target is to hand matching skbs into
->>> the rx processing of a specified device.
->>
->> Thank you for doing this. There was something that made me remove
->> initial support for this feature - I am blanking out right now but
->> will find my notes and give more details.
->
-> Thanks Jamal, appreciate any details.
->
-> Was wondering why it's missing, googled a bit with no meaningful
-> results, so speculated the following:
->
-> Some time long ago, initial 'mirred' purpose was to facilitate ifb.
-> Therefore 'egress redirect' was implemented. Jamal probably left the
-> 'ingress' support for a later time :)
->
+On Fri, 23 Sep 2016 11:06:09 +0200, Jiri Benc wrote:
+> On Fri, 23 Sep 2016 08:34:29 +0200, Jiri Pirko wrote:
+> > So if I understand that correctly, this would need some "shared netdev"
+> > which would effectively serve only as a sink for all port netdevices to
+> > tx packets to. On RX, this would be completely avoided. This lower
+> > device looks like half zombie to me.  
+> 
+> Looks more like a quarter zombie. Even tx would not be allowed unless
+> going through one of the ports, as all skbs without
+> METADATA_HW_PORT_MUX metadata_dst would be dropped. But it would be
+> possible to attach qdisc to the "lower" netdevice and it would actually
+> have an effect. On rx this netdevice would be ignored completely. This
+> is very weird behavior.
+> 
+> > I don't like it :( I wonder if the
+> > solution would not be possible without this lower netdev.  
+> 
+> I agree. This approach doesn't sound correct. The skbs should not be
+> requeued.
 
-History is mirror/redirect were first introduced to do just those
-plain vanilla-free features. IFB came later. Up until recently there
-were still some bits to support the ingress features that were removed
-by Florian W. to save some skb bits.
+Thanks for the responses!
 
+I think SR-IOV NICs are coming at this problem from a different angle,
+we already have a big, feature-full per-port netdevs and now we want to
+spawn representators for VFs to handle fallback traffic.  This patch
+would help us mux VFR traffic on all the queues of the physical port
+netdevs (the ones which were already present in legacy mode, that's the
+lower device).
 
-> One interesting usecase for 'ingress redirect' is creating "rx bouncing"
-> construct (like macvlan/macvtap/ipvlan) but applied according to custom
-> logic.
->
+I read the mlxsw code when I was thinking about this and I wasn't
+100% comfortable with returning NETDEV_TX_BUSY, I thought this
+behaviour should be generally avoided.  (BTW a very lame question - does
+mlxsw ever stop the queues?  AFAICS it only returns BUSY, isn't that
+confusing to the stack?)
 
-I thought that was the motivation as well.
-
->> It may be around preventing loops maybe.
->
-> Could be, but personally, I treat these constructs as (powerful)
-> building blocks, and "with great power comes great responsibility".
->
-
-Amen.
-I am a believer in let-the-user-shoot-their-big-toe-if-they-want.
-
-
-> Even today, one may create loops using existing 'egress redirect',
-> e.g. this rediculously errorneous construct:
->
->  # ip l add v0 type veth peer name v0p
->  # tc filter add dev v0p parent ffff: basic \
->     action mirred egress redirect dev v0
->
-
-I think we actually recover from this one by eventually
-dropping (theres a ttl field). We should at least not lock
-the kernel forever.
-The other question is what to set skb->dev and skb->iif?
-Some information will be lost if you move around netdevs a
-bit.
-
-BTW: You have motivated me to start looking again at redirect
-to socket that was also left out. I am getting tired of redirecting
-to tuntap with all its bells and whistles.
-
-cheers,
-jamal
+FWIW the switchdev SR-IOV model we have now seems to be to treat the
+existing netdevs as "MAC ports" and spawn representatives for VFs but
+not represent PFs in any way.  This makes it impossible to install
+VF-PF flow rules.  I worry this can bite us later but that's slightly
+different discussion :)  For the purpose of this patch please assume
+the lower dev is the MAC/physical/external port.
