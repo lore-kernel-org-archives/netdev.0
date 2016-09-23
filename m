@@ -1,48 +1,70 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net v2] ip6_gre: fix flowi6_proto value in
- ip6gre_xmit_other()
-Date: Fri, 23 Sep 2016 23:01:15 +0300
-Message-ID: <53fca902-c7e6-c216-6366-ba3f483854a0@cogentembedded.com>
-References: <1474660229-5665-1-git-send-email-lrichard@redhat.com>
+From: Calvin Owens <calvinowens@fb.com>
+Subject: [PATCH] mlx5: Add ndo_poll_controller() implementation
+Date: Fri, 23 Sep 2016 13:13:23 -0700
+Message-ID: <a1f1b99a1f13786722f9d30636173ad1a5b5b5ad.1474661274.git.calvinowens@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: shmulik.ladkani@gmail.com, jbenc@redhat.com
-To: Lance Richardson <lrichard@redhat.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f47.google.com ([209.85.215.47]:36190 "EHLO
-        mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753315AbcIWUBV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 16:01:21 -0400
-Received: by mail-lf0-f47.google.com with SMTP id g62so100758354lfe.3
-        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 13:01:20 -0700 (PDT)
-In-Reply-To: <1474660229-5665-1-git-send-email-lrichard@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <kernel-team@fb.com>, Calvin Owens <calvinowens@fb.com>
+To: Saeed Mahameed <saeedm@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        Leon Romanovsky <leonro@mellanox.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+This implements ndo_poll_controller in net_device_ops for mlx5, which is
+necessary to use netconsole with this driver.
 
-On 09/23/2016 10:50 PM, Lance Richardson wrote:
+Signed-off-by: Calvin Owens <calvinowens@fb.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
 
-> Similar to commit 3be07244b733 ("ip6_gre: fix flowi6_proto value in
-> xmit path"), set flowi6_proto to IPPROTO_GRE for output route lookup.
->
-> Up until now, ip6gre_xmit_other() has set flowi6_proto to a bogus value.
-> This affected output route lookup for packets sent on an ip6gretap device
-> in cases where routing was dependent on the value of flowi6_proto.
->
-> Since the correct proto is already set in the tunnel flowi6 template via
-> commit 252f3f5a1189 ("ip6_gre: Set flowi6_proto as IPPROTO_GRE in xmit
-> path."), simply delete the line setting the incorrect flowi6_proto value.
->
-> Suggested-by: Jiri Benc <jbenc@redhat.com>
-> Fixes: commit c12b395a4664 ("gre: Support GRE over IPv6")
-
-    That "commit" isn't needed here, this tag has a standardized format. 
-Hopefully, can be fixed while applying...
-
-> Reviewed-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-> Signed-off-by: Lance Richardson <lrichard@redhat.com>
-[...]
-
-MBR, Sergei
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 2459c7f..439476f 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -2786,6 +2786,20 @@ static void mlx5e_tx_timeout(struct net_device *dev)
+ 		schedule_work(&priv->tx_timeout_work);
+ }
+ 
++#ifdef CONFIG_NET_POLL_CONTROLLER
++/* Fake "interrupt" called by netpoll (eg netconsole) to send skbs without
++ * reenabling interrupts.
++ */
++static void mlx5e_netpoll(struct net_device *dev)
++{
++	struct mlx5e_priv *priv = netdev_priv(dev);
++	int i, nr_sq = priv->params.num_channels * priv->params.num_tc;
++
++	for (i = 0; i < nr_sq; i++)
++		napi_schedule(priv->txq_to_sq_map[i]->cq.napi);
++}
++#endif
++
+ static const struct net_device_ops mlx5e_netdev_ops_basic = {
+ 	.ndo_open                = mlx5e_open,
+ 	.ndo_stop                = mlx5e_close,
+@@ -2805,6 +2819,9 @@ static const struct net_device_ops mlx5e_netdev_ops_basic = {
+ 	.ndo_rx_flow_steer	 = mlx5e_rx_flow_steer,
+ #endif
+ 	.ndo_tx_timeout          = mlx5e_tx_timeout,
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	.ndo_poll_controller     = mlx5e_netpoll,
++#endif
+ };
+ 
+ static const struct net_device_ops mlx5e_netdev_ops_sriov = {
+@@ -2836,6 +2853,9 @@ static const struct net_device_ops mlx5e_netdev_ops_sriov = {
+ 	.ndo_set_vf_link_state   = mlx5e_set_vf_link_state,
+ 	.ndo_get_vf_stats        = mlx5e_get_vf_stats,
+ 	.ndo_tx_timeout          = mlx5e_tx_timeout,
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	.ndo_poll_controller     = mlx5e_netpoll,
++#endif
+ };
+ 
+ static int mlx5e_check_required_hca_cap(struct mlx5_core_dev *mdev)
+-- 
+2.9.3
