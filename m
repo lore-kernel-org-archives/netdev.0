@@ -1,41 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] tcp: fix wrong checksum calculation on MTU probing
-Date: Fri, 23 Sep 2016 07:58:39 -0400 (EDT)
-Message-ID: <20160923.075839.1436905982520228085.davem@davemloft.net>
-References: <2923a9bc-c433-7546-cd4a-9f834bd43181@taghos.com.br>
-        <5ffc1020-a36f-75b4-ff25-4f58c243f803@cogentembedded.com>
-        <f920ce68-c4e9-7772-809c-01f7319fa78e@taghos.com.br>
+Subject: Re: [PATCH net-next 0/4] net: dsa: add port fast ageing
+Date: Fri, 23 Sep 2016 08:01:50 -0400 (EDT)
+Message-ID: <20160923.080150.847812923363318699.davem@davemloft.net>
+References: <20160922204924.16229-1-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com, kuznet@ms2.inr.ac.ru,
-        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-        netdev@vger.kernel.org
-To: douglascs@taghos.com.br
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch,
+        john@phrozen.org
+To: vivien.didelot@savoirfairelinux.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51662 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:51732 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S964954AbcIWL6t (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 07:58:49 -0400
-In-Reply-To: <f920ce68-c4e9-7772-809c-01f7319fa78e@taghos.com.br>
+        with ESMTP id S1034027AbcIWMBy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 08:01:54 -0400
+In-Reply-To: <20160922204924.16229-1-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Douglas Caetano dos Santos <douglascs@taghos.com.br>
-Date: Thu, 22 Sep 2016 15:52:04 -0300
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Thu, 22 Sep 2016 16:49:20 -0400
 
-> With TCP MTU probing enabled and offload TX checksumming disabled,
-> tcp_mtu_probe() calculated the wrong checksum when a fragment being copied
-> into the probe's SKB had an odd length. This was caused by the direct use
-> of skb_copy_and_csum_bits() to calculate the checksum, as it pads the
-> fragment being copied, if needed. When this fragment was not the last, a
-> subsequent call used the previous checksum without considering this
-> padding.
+> Today the DSA drivers are in charge of flushing the MAC addresses
+> associated to a port when its STP state changes from Learning or
+> Forwarding, to Disabled or Blocking or Listening.
 > 
-> The effect was a stale connection in one way, as even retransmissions
-> wouldn't solve the problem, because the checksum was never recalculated for
-> the full SKB length.
+> This makes the drivers more complex and hides this generic switch logic.
 > 
-> Signed-off-by: Douglas Caetano dos Santos <douglascs@taghos.com.br>
+> This patchset introduces a new optional port_fast_age operation to
+> dsa_switch_ops, to move this logic to the DSA layer and keep drivers
+> simple. b53 and mv88e6xxx are updated accordingly.
 
-Applied and queued up for -stable, thanks.
+Series applied, thanks.
