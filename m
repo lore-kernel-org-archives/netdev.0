@@ -1,116 +1,86 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [RFC] net: store port/representative id in metadata_dst
-Date: Fri, 23 Sep 2016 14:20:40 -0700
-Message-ID: <57E59CA8.30007@gmail.com>
-References: <1474572417-15907-1-git-send-email-jakub.kicinski@netronome.com>
- <20160923063429.GA1821@nanopsycho.orion> <20160923110609.2f221f99@griffin>
- <20160923135512.64e5d5e9@jkicinski-Precision-T1700>
- <57E53ADE.10806@gmail.com>
- <20160923162907.7fd5314e@jkicinski-Precision-T1700>
- <57E564F3.5010107@intel.com>
- <20160923211728.4c2f05ab@jkicinski-Precision-T1700>
- <57E58FA6.3050001@gmail.com> <20160923214544.6a3cd0ff@laptop>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net] i40e: fix call of ndo_dflt_bridge_getlink()
+Date: Fri, 23 Sep 2016 14:37:18 -0700
+Message-ID: <1474666638.2389.18.camel@intel.com>
+References: <1474301694-13477-1-git-send-email-nicolas.dichtel@6wind.com>
+         <60c90efd-fab3-84cd-f6e1-f6bc710c5ab7@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Jakub Kicinski <jakub.kicinski@netronome.com>,
-        "Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
-        Jiri Benc <jbenc@redhat.com>, Jiri Pirko <jiri@resnulli.us>,
-        netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>,
-        ogerlitz@mellanox.com, ast@kernel.org, daniel@iogearbox.net,
-        simon.horman@netronome.com, Paolo Abeni <pabeni@redhat.com>,
-        Pravin B Shelar <pshelar@nicira.com>,
-        hannes@stressinduktion.org
-To: Jakub Kicinski <kubakici@wp.pl>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+        protocol="application/pgp-signature"; boundary="=-Yj4hPzqoQUUU97g57zPE"
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        Huaibin Wang <huaibin.wang@6wind.com>,
+        Scott Feldman <sfeldma@gmail.com>,
+        Carolyn Wyborny <carolyn.wyborny@intel.com>,
+        Catherine Sullivan <catherine.sullivan@intel.com>
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:34170 "EHLO
-        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965005AbcIWVVA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 17:21:00 -0400
-Received: by mail-pa0-f66.google.com with SMTP id i5so2372154pad.1
-        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 14:21:00 -0700 (PDT)
-In-Reply-To: <20160923214544.6a3cd0ff@laptop>
+Received: from mga06.intel.com ([134.134.136.31]:38796 "EHLO mga06.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1758358AbcIWVhT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 23 Sep 2016 17:37:19 -0400
+In-Reply-To: <60c90efd-fab3-84cd-f6e1-f6bc710c5ab7@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-09-23 01:45 PM, Jakub Kicinski wrote:
-> On Fri, 23 Sep 2016 13:25:10 -0700, John Fastabend wrote:
->> On 16-09-23 01:17 PM, Jakub Kicinski wrote:
->>> On Fri, 23 Sep 2016 10:22:59 -0700, Samudrala, Sridhar wrote:  
->>>> On 9/23/2016 8:29 AM, Jakub Kicinski wrote:  
->>  [...]  
->>  [...]  
->>>>
->>>> The 'accel' parameter in dev_queue_xmit_accel() is currently only passed
->>>> to ndo_select_queue() via netdev_pick_tx() and is used to select the tx 
->>>> queue.
->>>> Also, it is not passed all the way to the driver specific xmit routine.  
->>>> Doesn't it require
->>>> changing all the driver xmit routines if we want to pass this parameter?
->>>>  
->>  [...]  
->>>>
->>>> Yes.  The VFPR netdevs don't have any HW queues associated with them and 
->>>> we would like
->>>> to use the PF queues for the xmit.
->>>> I was also looking into some way of passing the port id via skb 
->>>> parameter to the
->>>> dev_queue_xmit() call so that the PF xmit routine can do a directed 
->>>> transmit to a specifc VF.
->>>> Is skb->cb an option to pass this info?
->>>> dst_metadata approach would work  too if it is acceptable.  
->>>
->>> I don't think we can trust skb->cb to be set to anything meaningful
->>> when the skb is received by the lower device. 
->>
->> Agreed. I wouldn't recommend using skb->cb. How about passing it through
->> dev_queue_xmit_accel() through to the driver?
->>
->> If you pass the metadata through the dev_queue_xmit_accel() handle tx
->> queue  selection would work using normal mechanisms (xps, select_queue,
->> cls  hook, etc.). If you wanted to pick some specific queue based on
->> policy the policy could be loaded into one of those hooks.
-> 
-> Do you mean without extending how accel is handled by
-> dev_queue_xmit_accel() today?  If my goal is to not have extra HW
-> queues then I don't see how I could mux in the lower dev without extra
-> locking (as I tried to explain two emails ago).  Sorry for being slow
-> here :(
-> 
 
-Not slow here I think I was overly optimistic...
+--=-Yj4hPzqoQUUU97g57zPE
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Yeh let me try this, roughly the current flow is,
+On Fri, 2016-09-23 at 11:12 +0200, Nicolas Dichtel wrote:
+> Le 19/09/2016 =C3=A0 18:14, Nicolas Dichtel a =C3=A9crit :
+> > From: Huaibin Wang <huaibin.wang@6wind.com>
+> >=C2=A0
+> > Order of arguments is wrong.
+> > The wrong code has been introduced by commit 7d4f8d871ab1, but is
+> compiled
+> > only since commit 9df70b66418e.
+> >=C2=A0
+> > Note that this may break netlink dumps.
+> >=C2=A0
+> > Fixes: 9df70b66418e ("i40e: Remove incorrect #ifdef's")
+> > Fixes: 7d4f8d871ab1 ("switchdev; add VLAN support for port's
+> bridge_getlink")
+> > CC: Scott Feldman <sfeldma@gmail.com>
+> > CC: Carolyn Wyborny <carolyn.wyborny@intel.com>
+> > CC: Catherine Sullivan <catherine.sullivan@intel.com>
+> > Signed-off-by: Huaibin Wang <huaibin.wang@6wind.com>
+> > Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Hi Jeff,
+>=20
+> any news about this patch? David has marked it "awaiting upstream" on the
+> patchwork, so I understand it should go to your tree.
 
-   dev_queue_xmit_accel(struct sk_buff *skb, void *accel_priv);
-   __dev_queue_xmit(skb, accel_priv);
-   netdev_pick_tx(dev, skb, accel_priv);
-	ndo_select_queue(dev, skb, accel_priv, ...);
-   [...]
-   q->enqueue();
-   [...]
-   dev_hard_start_xmit();
-   [...]
-    <driver code here>
+Yes, it needs to go through my tree. =C2=A0 Please send it to intel-wired-l=
+an@li
+sts.osuosl.org=C2=A0mailing list, that way I can track it through our patch=
+work
+projects. =C2=A0Also you can trim Scott Feldman and Catherine Sullivan from=
+ the
+CC list.
 
-So in this flow the VFR netdev driver handles its xmit routine by
-calling dev_queue_xmit_accel after setting skb->dev to the physical
-device and passing a cookie via accel that the select_queue() routine
-can use to pick a tx queue. The rest of the stack q->enqueue() and
-friends will ensure that locking and qdisc is handled correctly.
+http://patchwork.ozlabs.org/project/intel-wired-lan/list/
+--=-Yj4hPzqoQUUU97g57zPE
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-But accel_priv was lost at queue selection and so its not being passed
-down to the driver so no way to set your descriptor bits or whatever
-needed to push to the VF. I was sort of thinking we could map it from
-the select_queue routine but I can't figure out how to do that either.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-The metadata idea doesn't seem that bad now that I've spent some more
-time going through it. Either that or hijack some field in the skb but
-I think that might be worse than the proposal here.
+iQIcBAABCgAGBQJX5aCOAAoJEOVv75VaS+3OHGsP/1lYOQCtACne89jLlk3LHeMw
+CtQCwfQ3DCprSlTu+90YA0imheBOS2CydmxRQpJUj5gSeN4VTUrMIZ4wuZgPrxmI
+rS8XLXOLi3irj7Ryvb7UJHlQHI6RExV8N7uWf+NL6lDmSIEsfp86/reKLorw2cit
+dz/v2BXGITgyLJK1deDzccOLnEU1xEOX0HO+70E591/fzeGWe+jGv1MFAKLY7MNR
++PtO1i8kdZ94Fc6vr0uFR2j3FYYUZc4G/2MCsJ/0cI0I57Mzh8uq++SUU5mQzYNW
+cC0sXcaobkzxVpM/doiP/Vd0LmGQKUhIZAswtOURyTUR19kMcrjrm3wJw1cHX35W
+R/xmjOMR0pP4IvpdVLzo5QFqq9c4YIiEoBik5UhSCMxuh4VwZbhnQ1YjSL42QzXM
+mDVrwTtLclm9iRANdQLEUhgIc+1x3uCWfI7KeREFsLojswmkgstQyEJikDT2FJYE
+uqE4KS0FthEky1mgHJBzeMK9dZ2VHKKWeoj75oeQAw37bqo8kkwgTPkIntFF89nf
+U/8phnx+M9bn4MfFczfSgIyRVqfJENAIXYr2ZVsjVs27HdQA03yFlszJ+RMfzTWO
+xKLrQsCs1TIHnzGatzBSFygc40PwbAm8LGzUkRqxtYRqJcWiILDV0zXp6nwyVuAl
+SVS1baiKhLwla5GnaMJw
+=DslD
+-----END PGP SIGNATURE-----
 
-I'm trying to think up some other alternative now and will let you know
-if I think of anything clever but got nothing at the moment.
-
-.John
-	
+--=-Yj4hPzqoQUUU97g57zPE--
