@@ -1,103 +1,53 @@
-From: "Hillf Danton" <hillf.zj@alibaba-inc.com>
-Subject: Re: [PATCH] fs/select: add vmalloc fallback for select(2)
-Date: Fri, 23 Sep 2016 14:42:53 +0800
-Message-ID: <006101d21565$b60a8a70$221f9f50$@alibaba-inc.com>
-References: <20160922152831.24165-1-vbabka@suse.cz>
-Reply-To: "Hillf Danton" <hillf.zj@alibaba-inc.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: pull request (net-next): ipsec-next 2016-09-23
+Date: Fri, 23 Sep 2016 09:14:40 +0200
+Message-ID: <1474614882-25253-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-fsdevel@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	<linux-mm@kvack.org>,
-	"'Michal Hocko'" <mhocko@kernel.org>,
-	<netdev@vger.kernel.org>
-To: "'Vlastimil Babka'" <vbabka@suse.cz>,
-	"'Alexander Viro'" <viro@zeniv.linux.org.uk>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20160922152831.24165-1-vbabka@suse.cz>
-Content-Language: zh-cn
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([62.96.220.36]:45176 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1757328AbcIWHOw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 23 Sep 2016 03:14:52 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> 
-> The select(2) syscall performs a kmalloc(size, GFP_KERNEL) where size grows
-> with the number of fds passed. We had a customer report page allocation
-> failures of order-4 for this allocation. This is a costly order, so it might
-> easily fail, as the VM expects such allocation to have a lower-order fallback.
-> 
-> Such trivial fallback is vmalloc(), as the memory doesn't have to be
-> physically contiguous. Also the allocation is temporary for the duration of the
-> syscall, so it's unlikely to stress vmalloc too much.
-> 
-> Note that the poll(2) syscall seems to use a linked list of order-0 pages, so
-> it doesn't need this kind of fallback.
-> 
-> Signed-off-by: Vlastimil Babka <vbabka@suse.cz>
-> ---
->  fs/select.c | 15 +++++++++++----
->  1 file changed, 11 insertions(+), 4 deletions(-)
-> 
-> diff --git a/fs/select.c b/fs/select.c
-> index 8ed9da50896a..8fe5bddbe99b 100644
-> --- a/fs/select.c
-> +++ b/fs/select.c
-> @@ -29,6 +29,7 @@
->  #include <linux/sched/rt.h>
->  #include <linux/freezer.h>
->  #include <net/busy_poll.h>
-> +#include <linux/vmalloc.h>
-> 
->  #include <asm/uaccess.h>
-> 
-> @@ -558,6 +559,7 @@ int core_sys_select(int n, fd_set __user *inp, fd_set __user *outp,
->  	struct fdtable *fdt;
->  	/* Allocate small arguments on the stack to save memory and be faster */
->  	long stack_fds[SELECT_STACK_ALLOC/sizeof(long)];
-> +	unsigned long alloc_size;
-> 
->  	ret = -EINVAL;
->  	if (n < 0)
-> @@ -580,10 +582,15 @@ int core_sys_select(int n, fd_set __user *inp, fd_set __user *outp,
->  	bits = stack_fds;
->  	if (size > sizeof(stack_fds) / 6) {
->  		/* Not enough space in on-stack array; must use kmalloc */
-> +		alloc_size = 6 * size;
->  		ret = -ENOMEM;
-> -		bits = kmalloc(6 * size, GFP_KERNEL);
-> -		if (!bits)
-> -			goto out_nofds;
-> +		bits = kmalloc(alloc_size, GFP_KERNEL|__GFP_NOWARN);
-> +		if (!bits && alloc_size > PAGE_SIZE) {
-> +			bits = vmalloc(alloc_size);
-> +
-> +			if (!bits)
-> +				goto out_nofds;
-> +		}
+Only two patches this time:
 
-Looks like we also have to bail out if kmalloc fails with 
-alloc_size less than PAGE_SIZE.
+1) Fix a comment reference to struct xfrm_replay_state_esn.
+   From Richard Guy Briggs.
 
-thanks
-Hillf
->  	}
->  	fds.in      = bits;
->  	fds.out     = bits +   size;
-> @@ -618,7 +625,7 @@ int core_sys_select(int n, fd_set __user *inp, fd_set __user *outp,
-> 
->  out:
->  	if (bits != stack_fds)
-> -		kfree(bits);
-> +		kvfree(bits);
->  out_nofds:
->  	return ret;
->  }
-> --
-> 2.10.0
+2) Convert xfrm_state_lookup to rcu, we don't need the
+   xfrm_state_lock anymore in the input path.
+   From Florian Westphal.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Please pull or let me know if there are problems.
+
+Thanks!
+
+The following changes since commit 2d2be8cab26ed918e94d2deae89580003242a123:
+
+  bpf: fix range propagation on direct packet access (2016-09-08 17:28:37 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec-next.git master
+
+for you to fetch changes up to c2f672fc94642bae96821a393f342edcfa9794a6:
+
+  xfrm: state lookup can be lockless (2016-09-21 12:37:29 +0200)
+
+----------------------------------------------------------------
+Florian Westphal (1):
+      xfrm: state lookup can be lockless
+
+Richard Guy Briggs (1):
+      xfrm: fix header file comment reference to struct xfrm_replay_state_esn
+
+ include/uapi/linux/xfrm.h | 2 +-
+ net/xfrm/xfrm_state.c     | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
