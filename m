@@ -1,37 +1,60 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: [PATCH net] ip6_gre: fix flowi6_proto value in
- ip6gre_xmit_other()
-Date: Fri, 23 Sep 2016 22:57:42 +0300
-Message-ID: <20160923225742.049c0703@halley>
-References: <1474649699-31069-1-git-send-email-lrichard@redhat.com>
-        <20160923220036.55d469b0@halley>
-        <745948754.3473250.1474660344493.JavaMail.zimbra@redhat.com>
+From: =?UTF-8?q?Toke=20H=C3=B8iland-J=C3=B8rgensen?= <toke-LJ9M9ZcSy1A@public.gmane.org>
+Subject: [PATCH 2/3] mac80211: Export fq memory limit information in debugfs
+Date: Fri, 23 Sep 2016 21:59:10 +0200
+Message-ID: <20160923195911.4572-3-toke@toke.dk>
+References: <20160923195911.4572-1-toke@toke.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Lance Richardson <lrichard@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:34875 "EHLO
-        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757894AbcIWT5t (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 15:57:49 -0400
-Received: by mail-wm0-f43.google.com with SMTP id l132so50914204wmf.0
-        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 12:57:48 -0700 (PDT)
-In-Reply-To: <745948754.3473250.1474660344493.JavaMail.zimbra@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: =?UTF-8?q?Toke=20H=C3=B8iland-J=C3=B8rgensen?= <toke-LJ9M9ZcSy1A@public.gmane.org>
+To: make-wifi-fast-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160923195911.4572-1-toke-LJ9M9ZcSy1A@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 23 Sep 2016 15:52:24 -0400 (EDT) Lance Richardson <lrichard@redhat.com> wrote:
-> > From: "Shmulik Ladkani" <shmulik.ladkani@gmail.com>
-> > Suggesting to add:
-> > 
-> > Up until now, 'ip6gre_xmit_other' has set flowi6_proto to a bogus value.
-> > This affects output route lookup upon xmit of non ipv4/ipv6 packets on a
-> > ip6gretap device, in cases where routing depends on flowi6_proto.
-> >   
-> 
-> Added in v2, taking some editorial license (please let me know if I mangled it
-> too badly).
+Add memory limit, usage and overlimit counter to per-PHY 'aqm' debugfs
+file.
 
-Thanks Lance, looks good.
+Signed-off-by: Toke H=C3=B8iland-J=C3=B8rgensen <toke-LJ9M9ZcSy1A@public.gmane.org>
+---
+ net/mac80211/debugfs.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/net/mac80211/debugfs.c b/net/mac80211/debugfs.c
+index 8ca62b6..f56e2f4 100644
+--- a/net/mac80211/debugfs.c
++++ b/net/mac80211/debugfs.c
+@@ -89,13 +89,19 @@ static ssize_t aqm_read(struct file *file,
+ 			"R fq_flows_cnt %u\n"
+ 			"R fq_backlog %u\n"
+ 			"R fq_overlimit %u\n"
++			"R fq_overmemory %u\n"
+ 			"R fq_collisions %u\n"
++			"R fq_memory_usage %u\n"
++			"RW fq_memory_limit %u\n"
+ 			"RW fq_limit %u\n"
+ 			"RW fq_quantum %u\n",
+ 			fq->flows_cnt,
+ 			fq->backlog,
++			fq->overmemory,
+ 			fq->overlimit,
+ 			fq->collisions,
++			fq->memory_usage,
++			fq->memory_limit,
+ 			fq->limit,
+ 			fq->quantum);
+=20
+@@ -128,6 +134,8 @@ static ssize_t aqm_write(struct file *file,
+=20
+ 	if (sscanf(buf, "fq_limit %u", &local->fq.limit) =3D=3D 1)
+ 		return count;
++	else if (sscanf(buf, "fq_memory_limit %u", &local->fq.memory_limit) =3D=
+=3D 1)
++		return count;
+ 	else if (sscanf(buf, "fq_quantum %u", &local->fq.quantum) =3D=3D 1)
+ 		return count;
+=20
+--=20
+2.9.3
