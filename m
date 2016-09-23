@@ -1,84 +1,113 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net-next] net/vxlan: Avoid unaligned access in vxlan_build_skb()
-Date: Fri, 23 Sep 2016 10:38:05 -0700
-Message-ID: <CAKgT0UeB5n3g4f1v_2nenjcayAi=eOPFSC7132ihXTZOztHRkw@mail.gmail.com>
-References: <20160920190929.57ddaeb0@griffin> <20160922.015242.735026657310158125.davem@davemloft.net>
- <20160922213010.GA32052@oracle.com> <20160923.080618.678103827885223586.davem@davemloft.net>
- <CAKgT0UcoDb5T9xwfAq83cNwU=XAKZxf0TmPiJZQyHFPr82zggg@mail.gmail.com> <20160923172059.GB2484@oracle.com>
+From: Russell King - ARM Linux <linux@armlinux.org.uk>
+Subject: Re: Alignment issues with freescale FEC driver
+Date: Fri, 23 Sep 2016 18:37:52 +0100
+Message-ID: <20160923173751.GA1041@n2100.armlinux.org.uk>
+References: <troy.kisky@boundarydevices.com>
+ <02afb707-65de-5101-a79b-355929c4e00b@nelint.com>
+ <CANn89iLb+QJu+MYh859oAAjcLCsKRpBbzVf43yOdq+HJVtZDpQ@mail.gmail.com>
+ <5ee28ee0-cf0c-bdab-1271-f17755365c13@nelint.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, Jiri Benc <jbenc@redhat.com>,
-        Netdev <netdev@vger.kernel.org>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Paolo Abeni <pabeni@redhat.com>
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <edumazet@google.com>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Fugang Duan <fugang.duan@nxp.com>,
+        Troy Kisky <troy.kisky@boundarydevices.com>,
+        Otavio Salvador <otavio@ossystems.com.br>,
+        Simone <cjb.sw.nospam@gmail.com>
+To: Eric Nelson <eric@nelint.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f170.google.com ([209.85.223.170]:33073 "EHLO
-        mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758853AbcIWRiH (ORCPT
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:52622 "EHLO
+        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758793AbcIWRiH (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 13:38:07 -0400
-Received: by mail-io0-f170.google.com with SMTP id r145so125458004ior.0
-        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 10:38:06 -0700 (PDT)
-In-Reply-To: <20160923172059.GB2484@oracle.com>
+Content-Disposition: inline
+In-Reply-To: <5ee28ee0-cf0c-bdab-1271-f17755365c13@nelint.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 23, 2016 at 10:20 AM, Sowmini Varadhan
-<sowmini.varadhan@oracle.com> wrote:
-> On (09/23/16 07:17), Alexander Duyck wrote:
->> >> Is this basically about, e.g., putting the vxlanhdr in its own
->> >> skb_frag_t, or something else?
->> >
->> > Yes, and this way skb_header_pointer() is forced to do a memcpy.
->   :
->> For Tx it all becomes a bit trickier since it would likely require us
->> to shift the frags up by 1 when we go from outer headers to inner
->> headers.
->
-> here's how I thought through this so far, based on what I'm seeing for
-> mld_newpack/vxlan (not sure if this can be extended for all the
-> other tunnelling cases as well)..
->
-> today the skb is set up so that we reserve LL_RESERVED_SPACE
-> in the headroom, and vxlan sets up needed headroom for
-> (outer_ether + ip + udp + vxlan + inner_ether). Insterad, if it
-> set up the needed_headroom for just (outer_ether, ip, udp) and
-> we had something like a "needed_fragroom" in the net_device,
-> maybe we could set up the skb so that we dont have to shift the frags
-> by 1.
->
-> Drawbacks: this ends up with every skb going through vxlan etc being
-> non-linear, so it is a lot of churn for several functions (e.g.,
-> even mld_newpack() cannot just skb_put() things around). Also
-> this probably gets quickly messy if we are dealing with multiple
-> encaapsulations (even in the simple vxlan case we have
-> vxlan + inner mac/ip/etc)
->
-> BTW, I wonder if there is a small vxlan bug here- are we
-> accounting for the outer_ether twice in LL_RESERVED_SPACE: once in
-> ->hard_header_len, and once in ->needed_headroom?
->
->> One thought I had on that is that we could possibly avoid
->> having to do any allocation and could just take a reference on the
->> head_frag if that is what we are using.  Then we just add a 2 byte pad
->> and resume writing headers in place and the pointer offsets for the
->> inner headers would remain valid, though they would be past the point
->> of skb->tail.
->
-> I am not sure I follow, can you elaborate? Doesnt this also assume
-> that every skb is necessarily non-linear?
+On Fri, Sep 23, 2016 at 10:19:50AM -0700, Eric Nelson wrote:
+> Oddly, it does prevent the vast majority (90%+) of the alignment errors.
+> 
+> I believe this is because the compiler is generating an ldm instruction
+> when the ntohl() call is used, but I'm stumped about why these aren't
+> generating faults:
 
-So basically what I was thinking is we do something like reserving
-NET_IP_ALIGN and continue writing headers to skb->data, but we force
-the tracking for the inner headers into frag[0] so that we can keep
-the inner headers aligned without messing up the alignment for outer
-headers.  In theory the inner offset and all that would still be
-functional but might need a few tweaks.  You could probably even use
-the skb->encapsulation bit to indicate you are doing this.  You could
-almost think of it as us doing something like the inverse of
-pskb_pull_tail.  The general idea here is we want to actually leave
-the data in skb->data, but just reference it from frag[0] so that we
-don't accidentally pull in the 2 byte padding for alignment when
-transmitting the frame.
+ldm generates alignment faults when the address is not aligned to a
+32-bit boundary.  ldr on ARMv6+ does not.
+
+> I don't think that's the case.
+> 
+> # CONFIG_IPV6_GRE is not set
+> 
+> Hmm... Instrumenting the kernel, it seems that iphdr **is** aligned on
+> a 4-byte boundary.
+> 
+> Does the ldm instruction require 8-byte alignment?
+> 
+> There's definitely a compiler-version dependency involved here,
+> since using gcc 4.9 also reduced the number of faults dramatically.
+
+Well, I don't think it's that gcc related:
+
+User:           0
+System:         312855 (ip6_route_input+0x6c/0x1e0)
+Skipped:        0
+Half:           0
+Word:           0
+DWord:          2
+Multi:          312853
+
+c06d8998 <ip6_route_input>:
+c06d89ac:       e1a04000        mov     r4, r0
+c06d89b0:       e1d489b4        ldrh    r8, [r4, #148]  ; 0x94
+c06d89b8:       e594a0a0        ldr     sl, [r4, #160]  ; 0xa0
+c06d89cc:       e08ac008        add     ip, sl, r8
+c06d89d4:       e28c3018        add     r3, ip, #24
+c06d89dc:       e28c7008        add     r7, ip, #8
+c06d89e4:       e893000f        ldm     r3, {r0, r1, r2, r3}
+c06d89ec:       e24be044        sub     lr, fp, #68     ; 0x44
+c06d89f4:       e24b5054        sub     r5, fp, #84     ; 0x54
+c06d89fc:       e885000f        stm     r5, {r0, r1, r2, r3}
+c06d8a04:       e897000f        ldm     r7, {r0, r1, r2, r3}
+c06d8a10:       e88e000f        stm     lr, {r0, r1, r2, r3}
+
+This is from:
+
+        struct flowi6 fl6 = {
+                .flowi6_iif = l3mdev_fib_oif(skb->dev),
+                .daddr = iph->daddr,
+                .saddr = iph->saddr,
+                .flowlabel = ip6_flowinfo(iph),
+                .flowi6_mark = skb->mark,
+                .flowi6_proto = iph->nexthdr,
+        };
+
+specifically, I suspect, the saddr and daddr initialisations.
+
+There's not much to get away from this - the FEC on iMX requires a
+16-byte alignment for DMA addresses, which violates the network
+stack's requirement for the ethernet packet to be received with a
+two byte offset.  So the IP header (and IPv6 headers) will always
+be mis-aligned in memory, which leads to a huge number of alignment
+faults.
+
+There's not much getting away from this - the problem is not in the
+networking stack, but the FEC hardware/network driver.  See:
+
+        struct  fec_enet_private *fep = netdev_priv(ndev);
+        int off;
+
+        off = ((unsigned long)skb->data) & fep->rx_align;
+        if (off)
+                skb_reserve(skb, fep->rx_align + 1 - off);
+
+        bdp->cbd_bufaddr = cpu_to_fec32(dma_map_single(&fep->pdev->dev, skb->data, FEC_ENET_RX_FRSIZE - fep->rx_align, DMA_FROM_DEVICE));
+
+in fec_enet_new_rxbdp().
+
+-- 
+RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
