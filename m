@@ -1,111 +1,139 @@
-From: Jaedon Shin <jaedon.shin@gmail.com>
-Subject: Re: [PATCH] net: bcmgenet: Fix EPHY reset in power up
-Date: Sat, 24 Sep 2016 05:55:35 +0900
-Message-ID: <73230229-A16D-4692-8D34-ED45C29842F6@gmail.com>
-References: <20160923132004.5734-1-jaedon.shin@gmail.com>
- <20160923140609.GA22965@lunn.ch>
- <5A71930B-ED19-4690-942D-779F1454C77A@gmail.com>
- <f68f0b8c-df49-1326-c05f-ddd7f95e4209@gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 10.1 \(3243\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>,
-        Philippe Reynes <tremyfr@gmail.com>, netdev@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next 5/5] PCI: disable FLR for 82579 device
+Date: Fri, 23 Sep 2016 14:05:26 -0700
+Message-ID: <1474664726.2389.7.camel@intel.com>
+References: <1474612741-75681-1-git-send-email-jeffrey.t.kirsher@intel.com>
+         <1474612741-75681-6-git-send-email-jeffrey.t.kirsher@intel.com>
+         <20160923140136.GC1514@localhost>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+        protocol="application/pgp-signature"; boundary="=-6rZG+nE6UJJ23m524nQR"
+Cc: davem@davemloft.net, bhelgaas@google.com,
+        Sasha Neftin <sasha.neftin@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        guru.anbalagane@oracle.com, linux-pci@vger.kernel.org
+To: Bjorn Helgaas <helgaas@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:33669 "EHLO
-        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1760834AbcIWUzj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 16:55:39 -0400
-Received: by mail-pf0-f176.google.com with SMTP id 21so45414072pfy.0
-        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 13:55:39 -0700 (PDT)
-In-Reply-To: <f68f0b8c-df49-1326-c05f-ddd7f95e4209@gmail.com>
+Received: from mga02.intel.com ([134.134.136.20]:31818 "EHLO mga02.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753235AbcIWVFc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 23 Sep 2016 17:05:32 -0400
+In-Reply-To: <20160923140136.GC1514@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
 
-> On 24 Sep 2016, at 1:54 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> 
-> On 09/23/2016 08:04 AM, Jaedon Shin wrote:
->> Hi Andrew,
->> 
->> On 23 Sep 2016, at 11:06 PM, Andrew Lunn <andrew@lunn.ch> wrote:
->>> 
->>> On Fri, Sep 23, 2016 at 10:20:04PM +0900, Jaedon Shin wrote:
->>>> The bcmgenet_mii_reset() is always not running in power up sequence
->>>> after 'commit 62469c76007e ("net: ethernet: bcmgenet: use phydev from
->>>> struct net_device")'. This'll show extremely high latency and duplicate
->>>> packets while interface down and up repeatedly.
->>>> 
->>>> For now, adds again a private phydev for mii reset when runs power up to
->>>> open interface.
->>> 
->>> Hi Jaedon
->>> 
->>> How does this fix the issue? It sounds like you are papering over the
->>> crack, not truly fixing it.
->>> 
->>>      Andrew
->> 
->> Yes, It feel like a workaround, but I think it must need v4.8 stable
->> version. If we find better way that fixes internal PHY to initialize
->> after re-open interface, this patch will be dropped.
-> 
-> I can observe the faulting behavior with 4.8-rc7 that the link below
-> fixed initially:
-> 
-> # ping fainelli-linux
-> PING fainelli-linux (10.112.156.244): 56 data bytes
-> 64 bytes from 10.112.156.244: seq=1 ttl=61 time=1.352 ms
-> 64 bytes from 10.112.156.244: seq=1 ttl=61 time=1.472 ms (DUP!)
-> 64 bytes from 10.112.156.244: seq=1 ttl=61 time=1.496 ms (DUP!)
-> 64 bytes from 10.112.156.244: seq=1 ttl=61 time=1.517 ms (DUP!)
-> 64 bytes from 10.112.156.244: seq=1 ttl=61 time=1.536 ms (DUP!)
-> 64 bytes from 10.112.156.244: seq=1 ttl=61 time=1.557 ms (DUP!)
-> 64 bytes from 10.112.156.244: seq=1 ttl=61 time=752.448 ms (DUP!)
-> 64 bytes from 10.112.156.244: seq=2 ttl=61 time=1.291 ms
-> 64 bytes from 10.112.156.244: seq=2 ttl=61 time=1.421 ms (DUP!)
-> 64 bytes from 10.112.156.244: seq=2 ttl=61 time=1.444 ms (DUP!)
-> 64 bytes from 10.112.156.244: seq=2 ttl=61 time=1.464 ms (DUP!)
-> 64 bytes from 10.112.156.244: seq=2 ttl=61 time=1.483 ms (DUP!)
-> 64 bytes from 10.112.156.244: seq=2 ttl=61 time=1.505 ms (DUP!)
-> 64 bytes from 10.112.156.244: seq=2 ttl=61 time=24.964 ms (DUP!)
-> 
-> If we revert this patch, we indeed get the normal and expected behavior
-> back:
-> 
-> # ping fainelli-linux
-> PING fainelli-linux (10.112.156.244): 56 data bytes
-> 64 bytes from 10.112.156.244: seq=0 ttl=61 time=0.417 ms
-> 64 bytes from 10.112.156.244: seq=1 ttl=61 time=0.415 ms
-> 64 bytes from 10.112.156.244: seq=2 ttl=61 time=0.424 ms
-> 
-> Actually, the key thing is this:
-> 
-> - without Philippe's patch we call twice bcmgenet_mii_reset, and that is
-> intended:
-> 	- first time from bcmgenet_power_up() to make sure the PHY is
-> initialized *before* we get to initialize the UniMAC, this is critical
-> 	- second time from bcmgenet_mii_probe(), through the normal phy_init_hw()
-> 
-> - with Philippe's patch, we only get to call bcmgenet_mii_reset once, in
-> bcmgenet_mii_probe() because the first time in bcmgenet_power_up(),
-> dev->phydev is NULL, because of a prior call to phy_disconnect() in
-> bcmgenet_close(), unfortunately, there has been MAC activity, so the PHY
-> gets in a bad state
-> 
-> Jaedon, feel free to use the explanation above, and send a plain revert
-> of commit 62469c76007e11428e2ee3c6de90cbe74b588d44.
-> 
+--=-6rZG+nE6UJJ23m524nQR
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Will send revert patch.
+On Fri, 2016-09-23 at 09:01 -0500, Bjorn Helgaas wrote:
+> On Thu, Sep 22, 2016 at 11:39:01PM -0700, Jeff Kirsher wrote:
+> >=20
+> > From: Sasha Neftin <sasha.neftin@intel.com>
+> >=20
+> > 82579 has a problem reattaching itself after the device is detached.
+> > The bug was reported by Redhat. The suggested fix is to disable
+> > FLR capability in PCIe configuration space.
+> >=20
+> > Reproduction:
+> > Attach the device to a VM, then detach and try to attach again.
+> >=20
+> > Fix:
+> > Disable FLR capability to prevent the 82579 from hanging.
+>=20
+> Is there a bugzilla or other reference URL to include here?=C2=A0=C2=A0Sh=
+ould
+> this be marked for stable?
 
-Thanks,
-Jaedon
+So the author is in Israel, meaning it is their weekend now. =C2=A0I do not
+believe Sasha monitors email over the weekend, so a response to your
+questions won't happen for a few days.
 
-> Thanks!
-> 
-> Thanks!
-> -- 
-> Florian
+I tried searching my archives for more information, but had no luck finding
+any additional information.
+
+> > Signed-off-by: Sasha Neftin <sasha.neftin@intel.com>
+> > Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > ---
+> > =C2=A0drivers/pci/quirks.c | 21 +++++++++++++++++++++
+> > =C2=A01 file changed, 21 insertions(+)
+> >=20
+> > diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+> > index 44e0ff3..59fba6e 100644
+> > --- a/drivers/pci/quirks.c
+> > +++ b/drivers/pci/quirks.c
+> > @@ -4431,3 +4431,24 @@ static void quirk_intel_qat_vf_cap(struct
+> > pci_dev *pdev)
+> > =C2=A0	}
+> > =C2=A0}
+> > =C2=A0DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x443,
+> > quirk_intel_qat_vf_cap);
+> > +/*
+> > + * Workaround FLR issues for 82579
+> > + * This code disables the FLR (Function Level Reset) via PCIe, in
+> > order
+> > + * to workaround a bug found while using device passthrough, where the
+> > + * interface would become non-responsive.
+> > + * NOTE: the FLR bit is Read/Write Once (RWO) in config space, so if
+> > + * the BIOS or kernel writes this register * then this workaround will
+> > + * not work.
+>=20
+> This doesn't sound like a root cause.=C2=A0=C2=A0Is the issue a hardware
+> erratum?=C2=A0=C2=A0Linux PCI core bug?=C2=A0=C2=A0VFIO bug?=C2=A0=C2=A0D=
+evice firmware bug?
+>=20
+> The changelog suggests that the problem only affects passthrough,
+> which suggests some sort of kernel bug related to how passthrough is
+> implemented.
+>=20
+> >=20
+> > + */
+> > +static void quirk_intel_flr_cap_dis(struct pci_dev *dev)
+> > +{
+> > +	int pos =3D pci_find_capability(dev, PCI_CAP_ID_AF);
+> > +	if (pos) {
+> > +		u8 cap;
+> > +		pci_read_config_byte(dev, pos + PCI_AF_CAP, &cap);
+> > +		cap =3D cap & (~PCI_AF_CAP_FLR);
+> > +		pci_write_config_byte(dev, pos + PCI_AF_CAP, cap);
+> > +	}
+> > +}
+> > +DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x1502,
+> > quirk_intel_flr_cap_dis);
+> > +DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x1503,
+> > quirk_intel_flr_cap_dis);
+> > --=C2=A0
+> > 2.7.4
+> >=20
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe linux-pci" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at=C2=A0=C2=A0http://vger.kernel.org/majordomo-info=
+.html
+
+--=-6rZG+nE6UJJ23m524nQR
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJX5ZkWAAoJEOVv75VaS+3OBWcQAJLEgTVx2fAXP30EyNtL9y0p
+Da7A33HKyJr3RzKnZCj9wFPnmOO6nuZVcRdDNfd/CBAIw0pNv8/2bpfHKMbGyLMy
+vzEiPrNxps1s6CwjqXByduDsLBU94j/iYYLRYuN7QR7EIm1oeWmwTIfod6k68aQt
+eJFc5dQoGF5VDRi1SEvz0UBM5hFw1+6rtT7ezcHgBNbnT6R7HX1jvb5AbD8bnH5c
+5QjRDMXbsjB9C8mVbdR3SCa7w7m7Iw/Q/29dSiEJ0o9fsI4xrMm0J/yojeO/dxjX
+et3QlqHnaW9xSNWCB64HdHcb2xGOD9B8WLv8QzQDJFskNbXCVtyrCmy1nFgBmhLH
+jOeZ5QsKJAOEHWulh/rgNd7W2vpqymSrcbgO1tyr0ShLGN+Ry+RrGZeoN5bEJ5Xj
+3SAJkuUdD0f/tDmHwdgOPLeonfOKHGSy1vS8byaWjxjfMdommvDuPL8fB6b3sIdy
+faNhUabbcNu5O/k75pxLgRuzpt/2SofyeGt3ceKvbWRHmf+y+befWwhMSgrM8KT8
++oT2PnaI6CsKHirS8kMsqdvCvCmhjbW8z9sGf7SvBfAC87a05U5/Cr2pgvkJx4Z6
+uPXKQFnnDz7p4+UJvSOWsfmeARAAQ0E5YoeAvUqoym0W1WLYOCtoHotec4i6wh5/
+NqMbJn4KKXah6SJwQUIc
+=0NCx
+-----END PGP SIGNATURE-----
+
+--=-6rZG+nE6UJJ23m524nQR--
