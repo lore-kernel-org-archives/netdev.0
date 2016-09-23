@@ -1,45 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] tcp: add tcp_add_backlog()
-Date: Fri, 23 Sep 2016 06:42:51 -0700
-Message-ID: <1474638171.28155.18.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1472308674.14381.226.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20160922223411.GA17222@localhost.localdomain>
-         <1474586490.28155.10.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20160923124517.GB17222@localhost.localdomain>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] cxgb4: fix -ve error check on a signed iq
+Date: Fri, 23 Sep 2016 14:45:13 +0100
+Message-ID: <20160923134513.21345-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Neal Cardwell <ncardwell@google.com>,
-        Yuchung Cheng <ycheng@google.com>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:34515 "EHLO
-        mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1030236AbcIWNmx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 09:42:53 -0400
-Received: by mail-pa0-f65.google.com with SMTP id i5so1972733pad.1
-        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 06:42:53 -0700 (PDT)
-In-Reply-To: <20160923124517.GB17222@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: Hariprasad S <hariprasad@chelsio.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2016-09-23 at 09:45 -0300, Marcelo Ricardo Leitner wrote:
+From: Colin Ian King <colin.king@canonical.com>
 
-> Aye. In that case, what about using tail instead of end?
+iq is unsigned, so the error check for iq < 0 has no effect so errors
+can slip past this check.  Fix this by making iq signed and also
+get_filter_steerq return a signed int so a -ve error can be returned.
 
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-What do you mean exactly ?
-
->  Because
-> accounting for something that we have to tweak the limits to accept is
-> like adding a constant to both sides of the equation.
-> But perhaps that would cut out too much of the fat which could be used
-> later by the stack.
-
-Are you facing a particular problem with current code ?
-
-I am working to reduce the SACK at their source (the receiver), instead
-of trying to filter them when they had to travel all the way back to TCP
-sender.
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
+index 2a61617..9c3644d 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
+@@ -117,11 +117,11 @@ static int validate_filter(struct net_device *dev,
+ 	return 0;
+ }
+ 
+-static unsigned int get_filter_steerq(struct net_device *dev,
++static int get_filter_steerq(struct net_device *dev,
+ 				      struct ch_filter_specification *fs)
+ {
+ 	struct adapter *adapter = netdev2adap(dev);
+-	unsigned int iq;
++	int iq;
+ 
+ 	/* If the user has requested steering matching Ingress Packets
+ 	 * to a specific Queue Set, we need to make sure it's in range
+@@ -443,10 +443,10 @@ int __cxgb4_set_filter(struct net_device *dev, int filter_id,
+ 		       struct filter_ctx *ctx)
+ {
+ 	struct adapter *adapter = netdev2adap(dev);
+-	unsigned int max_fidx, fidx, iq;
++	unsigned int max_fidx, fidx;
+ 	struct filter_entry *f;
+ 	u32 iconf;
+-	int ret;
++	int iq, ret;
+ 
+ 	max_fidx = adapter->tids.nftids;
+ 	if (filter_id != (max_fidx + adapter->tids.nsftids - 1) &&
+-- 
+2.9.3
