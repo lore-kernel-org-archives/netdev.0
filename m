@@ -1,89 +1,106 @@
-From: Vlastimil Babka <vbabka-AlSwsSmVLrQ@public.gmane.org>
-Subject: Re: [PATCH v2] fs/select: add vmalloc fallback for select(2)
-Date: Fri, 23 Sep 2016 11:58:34 +0200
-Message-ID: <3bbcc269-ec8b-12dd-e0ae-190c18bc3f47@suse.cz>
-References: <20160922164359.9035-1-vbabka@suse.cz>
- <1474562982.23058.140.camel@edumazet-glaptop3.roam.corp.google.com>
- <12efc491-a0e7-1012-5a8b-6d3533c720db@suse.cz>
- <1474564068.23058.144.camel@edumazet-glaptop3.roam.corp.google.com>
- <a212f313-1f34-7c83-3aab-b45374875493@suse.cz>
- <063D6719AE5E284EB5DD2968C1650D6DB0107DC8@AcuExch.aculab.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next v2 1/3] net: ethernet: mediatek: add extension of
+ phy-mode for TRGMII
+Date: Fri, 23 Sep 2016 13:19:51 +0300
+Message-ID: <b8791155-c1c0-6dc8-13d1-7940cc34f689@cogentembedded.com>
+References: <9e375cf6-8283-b6fb-f21f-5d013c3172fa@cogentembedded.com>
+ <1474601571-9647-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Alexander Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
-        Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-        "linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org" <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>,
-        Michal Hocko <mhocko-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>,
-        Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB0107DC8-VkEWCZq2GCInGFn1LkZF6NBPR1lH4CV8@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: john@phrozen.org, davem@davemloft.net, nbd@openwrt.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-mediatek@lists.infradead.org, keyhaede@gmail.com,
+        objelf@gmail.com
+To: Sean Wang <sean.wang@mediatek.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f46.google.com ([209.85.215.46]:35615 "EHLO
+        mail-lf0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752747AbcIWKT4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 06:19:56 -0400
+Received: by mail-lf0-f46.google.com with SMTP id l131so89224673lfl.2
+        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 03:19:55 -0700 (PDT)
+In-Reply-To: <1474601571-9647-1-git-send-email-sean.wang@mediatek.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/23/2016 11:42 AM, David Laight wrote:
-> From: Vlastimil Babka
->> Sent: 22 September 2016 18:55
-> ...
->> So in the case of select() it seems like the memory we need 6 bits per file
->> descriptor, multiplied by the highest possible file descriptor (nfds) as passed
->> to the syscall. According to the man page of select:
+Hello.
+
+On 9/23/2016 6:32 AM, Sean Wang wrote:
+
+>>> From: Sean Wang <sean.wang@mediatek.com>
+>>>
+>>> adds PHY-mode "trgmii" as an extension for the operation mode of the
+>>> PHY interface for PHY_INTERFACE_MODE_TRGMII.
+>
+> .. deleted
+
+    What? Why?
+
+>>>  	switch (of_get_phy_mode(np)) {
+>>> +	case PHY_INTERFACE_MODE_TRGMII:
+>>> +		mac->trgmii = true;
+>>>  	case PHY_INTERFACE_MODE_RGMII_TXID:
+>>>  	case PHY_INTERFACE_MODE_RGMII_RXID:
+>>>  	case PHY_INTERFACE_MODE_RGMII_ID:
+>>> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+>>> b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+>>> index 7c5e534..e3b9525 100644
+>>> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+>>> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+>>> @@ -529,6 +529,8 @@ struct mtk_eth {
+>>>   * @hw:			Backpointer to our main datastruture
+>>>   * @hw_stats:		Packet statistics counter
+>>>   * @phy_dev:		The attached PHY if available
+>>> + * @trgmii		Indicate if the MAC uses TRGMII connected to internal
+>>> +			switch
+>>>   */
+>>>  struct mtk_mac {
+>>>  	int				id;
+>>> @@ -539,6 +541,7 @@ struct mtk_mac {
+>>>  	struct phy_device		*phy_dev;
+>>>  	__be32				hwlro_ip[MTK_MAX_LRO_IP_CNT];
+>>>  	int				hwlro_ip_cnt;
+>>> +	bool				trgmii;
 >>
->>         EINVAL nfds is negative or exceeds the RLIMIT_NOFILE resource limit (see
->> getrlimit(2)).
-> 
-> That second clause is relatively recent.
+>>     I don't see where this is used.
+>
+> I set trgmii as below
+>   	switch (of_get_phy_mode(np)) {
+> 	case PHY_INTERFACE_MODE_TRGMII:
+> 		mac->trgmii = true;
+>   	case PHY_INTERFACE_MODE_RGMII_TXID:
 
-Interesting... so it was added without actually being true in the kernel
-code?
+    You only set it in this patch but don't check it, so this is essentially a 
+NOP. It only gets checked in another patch...
 
->> The code actually seems to silently cap the value instead of returning EINVAL
->> though? (IIUC):
+>> [...]
+>>> diff --git a/include/linux/phy.h b/include/linux/phy.h index
+>>> 2d24b28..e25f183 100644
+>>> --- a/include/linux/phy.h
+>>> +++ b/include/linux/phy.h
+>>> @@ -80,6 +80,7 @@ typedef enum {
+>>>  	PHY_INTERFACE_MODE_XGMII,
+>>>  	PHY_INTERFACE_MODE_MOCA,
+>>>  	PHY_INTERFACE_MODE_QSGMII,
+>>> +	PHY_INTERFACE_MODE_TRGMII,
+>>>  	PHY_INTERFACE_MODE_MAX,
+>>>  } phy_interface_t;
+>>>
+>>> @@ -123,6 +124,8 @@ static inline const char *phy_modes(phy_interface_t interface)
+>>>  		return "moca";
+>>>  	case PHY_INTERFACE_MODE_QSGMII:
+>>>  		return "qsgmii";
+>>> +	case PHY_INTERFACE_MODE_TRGMII:
+>>> +		return "trgmii";
+>>>  	default:
+>>>  		return "unknown";
+>>>  	}
 >>
->>         /* max_fds can increase, so grab it once to avoid race */
->>          rcu_read_lock();
->>          fdt = files_fdtable(current->files);
->>          max_fds = fdt->max_fds;
->>          rcu_read_unlock();
->>          if (n > max_fds)
->>                  n = max_fds;
->>
->> The default for this cap seems to be 1024 where I checked (again, IIUC, it's
->> what ulimit -n returns?). I wasn't able to change it to more than 2048, which
->> makes the bitmaps still below PAGE_SIZE.
->>
->> So if I get that right, the system admin would have to allow really large
->> RLIMIT_NOFILE to even make vmalloc() possible here. So I don't see it as a large
->> concern?
-> 
-> 4k open files isn't that many.
-> Especially for programs that are using pipes to emulate windows events.
+>>    I think this should be done in a separate phylib patch.
+>
+> this patch is applied, so I am so little confused how to do this.
 
-Sure but IIUC we need 6 bits per file. That means up to almost 42k
-files, we should fit into order-3 allocation, which effectively cannot
-fail right now.
+    Right, it's too late now.
 
-> I suspect that fdt->max_fds is an upper bound for the highest fd the
-> process has open - not the RLIMIT_NOFILE value.
-
-I gathered that the highest fd effectively limits the number of files,
-so it's the same. I might be wrong.
-
-> select() shouldn't be silently ignoring large values of 'n' unless
-> the fd_set bits are zero.
-
-Yeah that doesn't seem to conform to the manpage.
-
-> Of course, select does scale well for high numbered fds
-> and neither poll nor select scale well for large numbers of fds.
-
-True.
-
-> 	David
-> 
+MBR, Sergei
