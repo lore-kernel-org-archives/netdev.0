@@ -1,8 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 02/15] rxrpc: Don't send an ACK at the end of
- service call response transmission
-Date: Fri, 23 Sep 2016 16:15:31 +0100
-Message-ID: <147464373148.5090.3988082503120309276.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 03/15] rxrpc: Make sure sendmsg() is woken on call
+ completion
+Date: Fri, 23 Sep 2016 16:15:38 +0100
+Message-ID: <147464373831.5090.12790080187704224411.stgit@warthog.procyon.org.uk>
 References: <147464371753.5090.1634919599283321856.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,26 +15,24 @@ In-Reply-To: <147464371753.5090.1634919599283321856.stgit@warthog.procyon.org.uk
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Don't send an IDLE ACK at the end of the transmission of the response to a
-service call.  The service end resends DATA packets until the client sends an
-ACK that hard-acks all the send data.  At that point, the call is complete.
+Make sure that sendmsg() gets woken up if the call it is waiting for
+completes abnormally.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/recvmsg.c |    2 --
- 1 file changed, 2 deletions(-)
+ net/rxrpc/ar-internal.h |    1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/net/rxrpc/recvmsg.c b/net/rxrpc/recvmsg.c
-index 6ba4af5a8d95..99e4c0ae30f1 100644
---- a/net/rxrpc/recvmsg.c
-+++ b/net/rxrpc/recvmsg.c
-@@ -143,8 +143,6 @@ static void rxrpc_end_rx_phase(struct rxrpc_call *call)
- 	if (call->state == RXRPC_CALL_CLIENT_RECV_REPLY) {
- 		rxrpc_propose_ACK(call, RXRPC_ACK_IDLE, 0, 0, true, false);
- 		rxrpc_send_call_packet(call, RXRPC_PACKET_TYPE_ACK);
--	} else {
--		rxrpc_propose_ACK(call, RXRPC_ACK_IDLE, 0, 0, false, false);
+diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
+index b13754a6dd7a..808ab750dc6b 100644
+--- a/net/rxrpc/ar-internal.h
++++ b/net/rxrpc/ar-internal.h
+@@ -758,6 +758,7 @@ static inline bool __rxrpc_set_call_completion(struct rxrpc_call *call,
+ 		call->error = error;
+ 		call->completion = compl,
+ 		call->state = RXRPC_CALL_COMPLETE;
++		wake_up(&call->waitq);
+ 		return true;
  	}
- 
- 	write_lock_bh(&call->state_lock);
+ 	return false;
