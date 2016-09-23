@@ -1,93 +1,65 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 09/10] i40e: Limit TX descriptor count in cases where frag size is greater than 16K
-Date: Thu, 22 Sep 2016 22:45:41 -0700
-Message-ID: <1474609542-121940-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 02/10] i40e: fix "dump port" command when NPAR enabled
+Date: Thu, 22 Sep 2016 22:45:34 -0700
+Message-ID: <1474609542-121940-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1474609542-121940-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, guru.anbalagane@oracle.com,
+Cc: Alan Brady <alan.brady@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:8619 "EHLO mga05.intel.com"
+Received: from mga05.intel.com ([192.55.52.43]:40400 "EHLO mga05.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1758253AbcIWFps (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 23 Sep 2016 01:45:48 -0400
+        id S1754378AbcIWFpq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 23 Sep 2016 01:45:46 -0400
 In-Reply-To: <1474609542-121940-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Alan Brady <alan.brady@intel.com>
 
-The i40e driver was incorrectly assuming that we would always be pulling
-no more than 1 descriptor from each fragment.  It is in fact possible for
-us to end up with the case where 2 descriptors worth of data may be pulled
-when a frame is larger than one of the pieces generated when aligning the
-payload to either 4K or pieces smaller than 16K.
+When using the debugfs to issue the "dump port" command
+with NPAR enabled, the firmware reports back with invalid argument.
 
-To adjust for this we just need to make certain to test all the way to the
-end of the fragments as it is possible for us to span 2 descriptors in the
-block before us so we need to guarantee that even the last 6 descriptors
-have enough data to fill a full frame.
+The issue occurs because the pf->mac_seid was used to perform the query.
+This is fine when NPAR is disabled because the switch ID == pf->mac_seid,
+however this is not the case when NPAR is enabled.  This fix instead
+goes through the VSI to determine the correct ID to use in either case.
 
-Change-ID: Ic2ecb4d6b745f447d334e66c14002152f50e2f99
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Change-ID: I0cd67913a7f2c4a2962e06d39e32e7447cc55b6a
+Signed-off-by: Alan Brady <alan.brady@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 7 ++-----
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 7 ++-----
- 2 files changed, 4 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index f8d6623..bf7bb7c 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -2621,9 +2621,7 @@ bool __i40e_chk_linearize(struct sk_buff *skb)
- 		return false;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+index 05cf9a7..8555f04 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+@@ -1054,6 +1054,7 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
+ 			struct i40e_dcbx_config *r_cfg =
+ 						&pf->hw.remote_dcbx_config;
+ 			int i, ret;
++			u32 switch_id;
  
- 	/* We need to walk through the list and validate that each group
--	 * of 6 fragments totals at least gso_size.  However we don't need
--	 * to perform such validation on the last 6 since the last 6 cannot
--	 * inherit any data from a descriptor after them.
-+	 * of 6 fragments totals at least gso_size.
- 	 */
- 	nr_frags -= I40E_MAX_BUFFER_TXD - 2;
- 	frag = &skb_shinfo(skb)->frags[0];
-@@ -2654,8 +2652,7 @@ bool __i40e_chk_linearize(struct sk_buff *skb)
- 		if (sum < 0)
- 			return true;
+ 			bw_data = kzalloc(sizeof(
+ 				    struct i40e_aqc_query_port_ets_config_resp),
+@@ -1063,8 +1064,12 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
+ 				goto command_write_done;
+ 			}
  
--		/* use pre-decrement to avoid processing last fragment */
--		if (!--nr_frags)
-+		if (!nr_frags--)
- 			break;
- 
- 		sum -= skb_frag_size(stale++);
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index 0130458..e3427eb 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -1832,9 +1832,7 @@ bool __i40evf_chk_linearize(struct sk_buff *skb)
- 		return false;
- 
- 	/* We need to walk through the list and validate that each group
--	 * of 6 fragments totals at least gso_size.  However we don't need
--	 * to perform such validation on the last 6 since the last 6 cannot
--	 * inherit any data from a descriptor after them.
-+	 * of 6 fragments totals at least gso_size.
- 	 */
- 	nr_frags -= I40E_MAX_BUFFER_TXD - 2;
- 	frag = &skb_shinfo(skb)->frags[0];
-@@ -1865,8 +1863,7 @@ bool __i40evf_chk_linearize(struct sk_buff *skb)
- 		if (sum < 0)
- 			return true;
- 
--		/* use pre-decrement to avoid processing last fragment */
--		if (!--nr_frags)
-+		if (!nr_frags--)
- 			break;
- 
- 		sum -= skb_frag_size(stale++);
++			vsi = pf->vsi[pf->lan_vsi];
++			switch_id =
++				vsi->info.switch_id & I40E_AQ_VSI_SW_ID_MASK;
++
+ 			ret = i40e_aq_query_port_ets_config(&pf->hw,
+-							    pf->mac_seid,
++							    switch_id,
+ 							    bw_data, NULL);
+ 			if (ret) {
+ 				dev_info(&pf->pdev->dev,
 -- 
 2.7.4
