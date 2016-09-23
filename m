@@ -1,93 +1,131 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH RFC 1/3] xdp: Infrastructure to generalize XDP
-Date: Fri, 23 Sep 2016 15:00:40 +0200
-Message-ID: <20160923150040.0e3dc7d5@redhat.com>
-References: <1474408824-418864-1-git-send-email-tom@herbertland.com>
-        <1474408824-418864-2-git-send-email-tom@herbertland.com>
-        <06280af8-5451-c423-d295-a5f3f51e63cf@mojatatu.com>
+From: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
+Subject: Re: [PATCH v6 5/6] net: ipv4, ipv6: run cgroup ebpf egress programs
+Date: Fri, 23 Sep 2016 15:17:39 +0200
+Message-ID: <20160923131739.GA15828@salvia>
+References: <20160919203533.GA888@salvia>
+ <83afdc54-1bbe-3530-e5fd-b74fefe9a042@zonque.org>
+ <20160920142931.GA31438@salvia>
+ <6584b975-fa3e-8d98-f0c7-a2c6b194b2b6@zonque.org>
+ <20160921154533.GA13656@salvia>
+ <20160921184827.GA15732@pox.localdomain>
+ <20160922092138.GA12108@salvia>
+ <20160922095411.GA5654@pox.localdomain>
+ <20160922120554.GA1738@salvia>
+ <57E3F4F9.70300@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
-        netdev@vger.kernel.org, kernel-team@fb.com, tariqt@mellanox.com,
-        bblanco@plumgrid.com, alexei.starovoitov@gmail.com,
-        eric.dumazet@gmail.com, brouer@redhat.com,
-        Thomas Graf <tgraf@suug.ch>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43428 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1759830AbcIWNAr (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 23 Sep 2016 09:00:47 -0400
-In-Reply-To: <06280af8-5451-c423-d295-a5f3f51e63cf@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>, Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>,
+        htejun-b10kYP2dOMg@public.gmane.org, ast-b10kYP2dOMg@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, kafai-b10kYP2dOMg@public.gmane.org,
+        fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org, harald-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <57E3F4F9.70300-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 23 Sep 2016 07:13:30 -0400
-Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-
-> On 16-09-20 06:00 PM, Tom Herbert wrote:
-> > This patch creates an infrastructure for registering and running code at
-> > XDP hooks in drivers. This is based on the orignal XDP?BPF and borrows
-> > heavily from the techniques used by netfilter to make generic nfhooks.
+On Thu, Sep 22, 2016 at 05:12:57PM +0200, Daniel Borkmann wrote:
+> On 09/22/2016 02:05 PM, Pablo Neira Ayuso wrote:
+[...]
+> >Have a look at net/ipv4/netfilter/nft_chain_route_ipv4.c for instance.
+> >In your case, you have to add a new chain type:
 > >
-> > An XDP hook is defined by the  xdp_hook_ops. This structure contains the
-> > ops of an XDP hook. A pointer to this structure is passed into the XDP
-> > register function to set up a hook. The XDP register function mallocs
-> > its own xdp_hook_ops structure and copies the values from the
-> > xdp_hook_ops passed in. The register function also stores the pointer
-> > value of the xdp_hook_ops argument; this pointer is used in subsequently
-> > calls to XDP to identify the registered hook.
+> >static const struct nf_chain_type nft_chain_bpf = {
+> >         .name           = "bpf",
+> >         .type           = NFT_CHAIN_T_bpf,
+> >         ...
+> >         .hooks          = {
+> >                 [NF_INET_LOCAL_IN]      = nft_do_bpf,
+> >                 [NF_INET_LOCAL_OUT]     = nft_do_bpf,
+> >                 [NF_INET_FORWARD]       = nft_do_bpf,
+> >                 [NF_INET_PRE_ROUTING]   = nft_do_bpf,
+> >                 [NF_INET_POST_ROUTING]  = nft_do_bpf,
+> >         },
+> >};
 > >
-> > The interface is defined in net/xdp.h. This includes the definition of
-> > xdp_hook_ops, functions to register and unregister hook ops on a device
-> > or individual instances of napi, and xdp_hook_run that is called by
-> > drivers to run the hooks.
-> >  
+> >nft_do_bpf() is the raw netfilter hook that you register, this hook
+> >will just execute to iterate over the list of bpf filters and run
+> >them.
+> >
+> >This new chain is created on demand, so no overhead if not needed, eg.
+> >
+> >nft add table bpf
+> >nft add chain bpf input { type bpf hook output priority 0\; }
+> >
+> >Then, you add a rule for each bpf program you want to run, just like
+> >tc+bpf.
 > 
-> Tom,
-> perused the thread and it seems you are serious ;->
-> Are we heading towards Frankenstein Avenue?
-> The whole point behind letting in XDP is so that _small programs_
-> can be written to do some quick thing. eBPF 4K program limit was
-> touted as the check and bound. eBPF sounded fine.
-> This sounds like a huge contradiction.
+> But from a high-level point of view, this sounds like a huge hack to me,
+> in the sense that nft as a bytecode engine (from whole architecture I
+> mean) calls into another bytecode engine such as bpf as an extension.
+
+nft is not only bytecode engine, it provides a netlink socket
+interface to register hooks (from user perspective, these are called
+basechain). It is providing the infrastructure that you're lacking
+indeed and addressing the concerns I mentioned about the visibility of
+the global policy that you want to apply on the packet path.
+
+As I explained you can potentially add any basechain type with
+specific semantics. Proposed semantics for this bpf chain would be:
+
+1) You can use any of the existing netfilter hooks.
+2) You can only run bpf program from there. No chance for the user
+   can mix nftables with bpf VM.
+
+> And bpf code from there isn't using any of the features from nft
+> besides being invoked from the hook
+
+I think there's a misunderstading here.
+
+You will not run nft_do_chain(), you don't waste cycles to run what is
+specific to nftables. You will just run nft_do_bpf() which will just
+do what you want to run for each packet. Thus, you have control on
+what nft_do_bpf() does and decide on what that function spend cycles
+on.
+
+> [...] I was hoping that nft would try to avoid some of those exotic
+> modules we have from xt, I would consider xt_bpf (no offense ;))
+
+This has nothing to do with it. In xt_bpf you waste cycles running
+code that is specific to iptables, what I propose would not, just the
+generic hook code and then your code.
+
+[...]
+> >Benefits are, rewording previous email:
+> >
+> >* You get access to all of the existing netfilter hooks in one go
+> >   to run bpf programs. No need for specific redundant hooks. This
+> >   provides raw access to the netfilter hook, you define the little
+> >   code that your hook runs before you bpf run invocation. So there
+> >   is *no need to bloat the stack with more hooks, we use what we
+> >   have.*
 > 
-> cheers,
-> jamal
+> But also this doesn't really address the fundamental underlying problem
+> that is discussed here. nft doesn't even have cgroups v2 support.
 
-Hi Jamal,
+You don't need native cgroups v2 support in nft, you just run bpf
+programs from the native bpf basechain type. So whatever bpf supports,
+you can do it.
 
-I don't understand why you think this is so controversial. The way I
-see it (after reading the thread): This is about allowing kernel
-components to _also_ use the XDP hook.
+Instead, if you take this approach, you will get access to all of the
+existing hooks to run bpf programs, this includes arp, bridge and
+potentially run filters for both ip and ip6 through our inet family.
 
-I believe Tom have a valid use-case in ILA. The NVE (Network
-Virtualization Edge) component very naturally fits in the XDP hook, as
-it only need to look at the IPv6 address and do a table lookup (in a
-ILA specific data structure) to see if this packet is for local stack
-delivery or forward.  For forward it does not need take the performance
-hit of allocating SKBs etc.
+[...]
+> Or would the idea be that the current netfilter hooks would be redone in
+> a way that they are generic enough so that any other user could make use
+> of it independent of netfilter?
 
-You can see it as a way to accelerate the NVE component. I can imagine
-it could be done in approx 10-20 lines of code, as it would use the
-existing ILA lookup function calls.
+Redone? Why? What do you need, a rename?
 
-AFAIK Thomas Graf also see XDP as an acceleration for bpf_cls, but he
-is lucky because his code is already eBFP based.
+Dependencies are very few: CONFIG_NETFILTER for the hooks,
+CONFIG_NF_TABLES to obtain the netlink interface to load the bpf
+programs and CONFIG_NF_TABLES_BPF to define the bpf basechain type
+semantics to run bpf programs from there. It's actually very little
+boilerplate code.
 
-To support Tom's case, with eBPF, I think we would have to implement
-specific eBPF helper functions that can do the ILA table lookups.  And
-then need a userspace component to load the eBPF program.  Why add all
-this, when we could contain all this in the kernel, and simply call
-this as native C-code via the XDP hook?
-
-Notice, this is not about throwing eBPF out.  Using eBPF is _very_
-essential for XDP.
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+Other than that, I can predict where you're going: You will end up
+adding a hook just before/after every of the existing netfilter hooks,
+and that is really nonsense to me. Why bloat the stack with more
+hooks? Use what it is already available.
