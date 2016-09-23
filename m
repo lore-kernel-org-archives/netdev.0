@@ -1,139 +1,337 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next 5/5] PCI: disable FLR for 82579 device
-Date: Fri, 23 Sep 2016 14:05:26 -0700
-Message-ID: <1474664726.2389.7.camel@intel.com>
-References: <1474612741-75681-1-git-send-email-jeffrey.t.kirsher@intel.com>
-         <1474612741-75681-6-git-send-email-jeffrey.t.kirsher@intel.com>
-         <20160923140136.GC1514@localhost>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-        protocol="application/pgp-signature"; boundary="=-6rZG+nE6UJJ23m524nQR"
-Cc: davem@davemloft.net, bhelgaas@google.com,
-        Sasha Neftin <sasha.neftin@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        guru.anbalagane@oracle.com, linux-pci@vger.kernel.org
-To: Bjorn Helgaas <helgaas@kernel.org>
+From: Jaedon Shin <jaedon.shin@gmail.com>
+Subject: [PATCH] Revert "net: ethernet: bcmgenet: use phydev from struct net_device"
+Date: Sat, 24 Sep 2016 06:08:19 +0900
+Message-ID: <20160923210819.5753-1-jaedon.shin@gmail.com>
+Cc: Philippe Reynes <tremyfr@gmail.com>, Andrew Lunn <andrew@lunn.ch>,
+        netdev@vger.kernel.org, Jaedon Shin <jaedon.shin@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:31818 "EHLO mga02.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753235AbcIWVFc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 23 Sep 2016 17:05:32 -0400
-In-Reply-To: <20160923140136.GC1514@localhost>
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:33312 "EHLO
+        mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934181AbcIWVIn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 17:08:43 -0400
+Received: by mail-pa0-f67.google.com with SMTP id oz2so5513980pac.0
+        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 14:08:43 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This reverts commit 62469c76007e ("net: ethernet: bcmgenet: use phydev
+from struct net_device")
 
---=-6rZG+nE6UJJ23m524nQR
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+without this patch, we call twice bcmgenet_mii_reset, and that is intended:
+- first time from bcmgenet_power_up() to make sure the PHY is initialized
+  *before* we get to initialize the UniMAC, this is critical
+- second time from bcmgenet_mii_probe(), through the normal phy_init_hw()
 
-On Fri, 2016-09-23 at 09:01 -0500, Bjorn Helgaas wrote:
-> On Thu, Sep 22, 2016 at 11:39:01PM -0700, Jeff Kirsher wrote:
-> >=20
-> > From: Sasha Neftin <sasha.neftin@intel.com>
-> >=20
-> > 82579 has a problem reattaching itself after the device is detached.
-> > The bug was reported by Redhat. The suggested fix is to disable
-> > FLR capability in PCIe configuration space.
-> >=20
-> > Reproduction:
-> > Attach the device to a VM, then detach and try to attach again.
-> >=20
-> > Fix:
-> > Disable FLR capability to prevent the 82579 from hanging.
->=20
-> Is there a bugzilla or other reference URL to include here?=C2=A0=C2=A0Sh=
-ould
-> this be marked for stable?
+with this patch, we only get to call bcmgenet_mii_reset once, in
+bcmgenet_mii_probe() because the first time in bcmgenet_power_up(),
+dev->phydev is NULL, because of a prior call to phy_disconnect() in
+bcmgenet_close(), unfortunately, there has been MAC activity, so the PHY
+gets in a bad state
 
-So the author is in Israel, meaning it is their weekend now. =C2=A0I do not
-believe Sasha monitors email over the weekend, so a response to your
-questions won't happen for a few days.
+Signed-off-by: Jaedon Shin <jaedon.shin@gmail.com>
+---
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 45 ++++++++++++++------------
+ drivers/net/ethernet/broadcom/genet/bcmgenet.h |  1 +
+ drivers/net/ethernet/broadcom/genet/bcmmii.c   | 24 +++++++-------
+ 3 files changed, 39 insertions(+), 31 deletions(-)
 
-I tried searching my archives for more information, but had no luck finding
-any additional information.
-
-> > Signed-off-by: Sasha Neftin <sasha.neftin@intel.com>
-> > Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > ---
-> > =C2=A0drivers/pci/quirks.c | 21 +++++++++++++++++++++
-> > =C2=A01 file changed, 21 insertions(+)
-> >=20
-> > diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-> > index 44e0ff3..59fba6e 100644
-> > --- a/drivers/pci/quirks.c
-> > +++ b/drivers/pci/quirks.c
-> > @@ -4431,3 +4431,24 @@ static void quirk_intel_qat_vf_cap(struct
-> > pci_dev *pdev)
-> > =C2=A0	}
-> > =C2=A0}
-> > =C2=A0DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x443,
-> > quirk_intel_qat_vf_cap);
-> > +/*
-> > + * Workaround FLR issues for 82579
-> > + * This code disables the FLR (Function Level Reset) via PCIe, in
-> > order
-> > + * to workaround a bug found while using device passthrough, where the
-> > + * interface would become non-responsive.
-> > + * NOTE: the FLR bit is Read/Write Once (RWO) in config space, so if
-> > + * the BIOS or kernel writes this register * then this workaround will
-> > + * not work.
->=20
-> This doesn't sound like a root cause.=C2=A0=C2=A0Is the issue a hardware
-> erratum?=C2=A0=C2=A0Linux PCI core bug?=C2=A0=C2=A0VFIO bug?=C2=A0=C2=A0D=
-evice firmware bug?
->=20
-> The changelog suggests that the problem only affects passthrough,
-> which suggests some sort of kernel bug related to how passthrough is
-> implemented.
->=20
-> >=20
-> > + */
-> > +static void quirk_intel_flr_cap_dis(struct pci_dev *dev)
-> > +{
-> > +	int pos =3D pci_find_capability(dev, PCI_CAP_ID_AF);
-> > +	if (pos) {
-> > +		u8 cap;
-> > +		pci_read_config_byte(dev, pos + PCI_AF_CAP, &cap);
-> > +		cap =3D cap & (~PCI_AF_CAP_FLR);
-> > +		pci_write_config_byte(dev, pos + PCI_AF_CAP, cap);
-> > +	}
-> > +}
-> > +DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x1502,
-> > quirk_intel_flr_cap_dis);
-> > +DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x1503,
-> > quirk_intel_flr_cap_dis);
-> > --=C2=A0
-> > 2.7.4
-> >=20
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe linux-pci" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at=C2=A0=C2=A0http://vger.kernel.org/majordomo-info=
-.html
-
---=-6rZG+nE6UJJ23m524nQR
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJX5ZkWAAoJEOVv75VaS+3OBWcQAJLEgTVx2fAXP30EyNtL9y0p
-Da7A33HKyJr3RzKnZCj9wFPnmOO6nuZVcRdDNfd/CBAIw0pNv8/2bpfHKMbGyLMy
-vzEiPrNxps1s6CwjqXByduDsLBU94j/iYYLRYuN7QR7EIm1oeWmwTIfod6k68aQt
-eJFc5dQoGF5VDRi1SEvz0UBM5hFw1+6rtT7ezcHgBNbnT6R7HX1jvb5AbD8bnH5c
-5QjRDMXbsjB9C8mVbdR3SCa7w7m7Iw/Q/29dSiEJ0o9fsI4xrMm0J/yojeO/dxjX
-et3QlqHnaW9xSNWCB64HdHcb2xGOD9B8WLv8QzQDJFskNbXCVtyrCmy1nFgBmhLH
-jOeZ5QsKJAOEHWulh/rgNd7W2vpqymSrcbgO1tyr0ShLGN+Ry+RrGZeoN5bEJ5Xj
-3SAJkuUdD0f/tDmHwdgOPLeonfOKHGSy1vS8byaWjxjfMdommvDuPL8fB6b3sIdy
-faNhUabbcNu5O/k75pxLgRuzpt/2SofyeGt3ceKvbWRHmf+y+befWwhMSgrM8KT8
-+oT2PnaI6CsKHirS8kMsqdvCvCmhjbW8z9sGf7SvBfAC87a05U5/Cr2pgvkJx4Z6
-uPXKQFnnDz7p4+UJvSOWsfmeARAAQ0E5YoeAvUqoym0W1WLYOCtoHotec4i6wh5/
-NqMbJn4KKXah6SJwQUIc
-=0NCx
------END PGP SIGNATURE-----
-
---=-6rZG+nE6UJJ23m524nQR--
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index 8d4f8495dbb3..541456398dfb 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -453,25 +453,29 @@ static inline void bcmgenet_rdma_ring_writel(struct bcmgenet_priv *priv,
+ static int bcmgenet_get_settings(struct net_device *dev,
+ 				 struct ethtool_cmd *cmd)
+ {
++	struct bcmgenet_priv *priv = netdev_priv(dev);
++
+ 	if (!netif_running(dev))
+ 		return -EINVAL;
+ 
+-	if (!dev->phydev)
++	if (!priv->phydev)
+ 		return -ENODEV;
+ 
+-	return phy_ethtool_gset(dev->phydev, cmd);
++	return phy_ethtool_gset(priv->phydev, cmd);
+ }
+ 
+ static int bcmgenet_set_settings(struct net_device *dev,
+ 				 struct ethtool_cmd *cmd)
+ {
++	struct bcmgenet_priv *priv = netdev_priv(dev);
++
+ 	if (!netif_running(dev))
+ 		return -EINVAL;
+ 
+-	if (!dev->phydev)
++	if (!priv->phydev)
+ 		return -ENODEV;
+ 
+-	return phy_ethtool_sset(dev->phydev, cmd);
++	return phy_ethtool_sset(priv->phydev, cmd);
+ }
+ 
+ static int bcmgenet_set_rx_csum(struct net_device *dev,
+@@ -937,7 +941,7 @@ static int bcmgenet_get_eee(struct net_device *dev, struct ethtool_eee *e)
+ 	e->eee_active = p->eee_active;
+ 	e->tx_lpi_timer = bcmgenet_umac_readl(priv, UMAC_EEE_LPI_TIMER);
+ 
+-	return phy_ethtool_get_eee(dev->phydev, e);
++	return phy_ethtool_get_eee(priv->phydev, e);
+ }
+ 
+ static int bcmgenet_set_eee(struct net_device *dev, struct ethtool_eee *e)
+@@ -954,7 +958,7 @@ static int bcmgenet_set_eee(struct net_device *dev, struct ethtool_eee *e)
+ 	if (!p->eee_enabled) {
+ 		bcmgenet_eee_enable_set(dev, false);
+ 	} else {
+-		ret = phy_init_eee(dev->phydev, 0);
++		ret = phy_init_eee(priv->phydev, 0);
+ 		if (ret) {
+ 			netif_err(priv, hw, dev, "EEE initialization failed\n");
+ 			return ret;
+@@ -964,12 +968,14 @@ static int bcmgenet_set_eee(struct net_device *dev, struct ethtool_eee *e)
+ 		bcmgenet_eee_enable_set(dev, true);
+ 	}
+ 
+-	return phy_ethtool_set_eee(dev->phydev, e);
++	return phy_ethtool_set_eee(priv->phydev, e);
+ }
+ 
+ static int bcmgenet_nway_reset(struct net_device *dev)
+ {
+-	return genphy_restart_aneg(dev->phydev);
++	struct bcmgenet_priv *priv = netdev_priv(dev);
++
++	return genphy_restart_aneg(priv->phydev);
+ }
+ 
+ /* standard ethtool support functions. */
+@@ -996,13 +1002,12 @@ static struct ethtool_ops bcmgenet_ethtool_ops = {
+ static int bcmgenet_power_down(struct bcmgenet_priv *priv,
+ 				enum bcmgenet_power_mode mode)
+ {
+-	struct net_device *ndev = priv->dev;
+ 	int ret = 0;
+ 	u32 reg;
+ 
+ 	switch (mode) {
+ 	case GENET_POWER_CABLE_SENSE:
+-		phy_detach(ndev->phydev);
++		phy_detach(priv->phydev);
+ 		break;
+ 
+ 	case GENET_POWER_WOL_MAGIC:
+@@ -1063,6 +1068,7 @@ static void bcmgenet_power_up(struct bcmgenet_priv *priv,
+ /* ioctl handle special commands that are not present in ethtool. */
+ static int bcmgenet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
++	struct bcmgenet_priv *priv = netdev_priv(dev);
+ 	int val = 0;
+ 
+ 	if (!netif_running(dev))
+@@ -1072,10 +1078,10 @@ static int bcmgenet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 	case SIOCGMIIPHY:
+ 	case SIOCGMIIREG:
+ 	case SIOCSMIIREG:
+-		if (!dev->phydev)
++		if (!priv->phydev)
+ 			val = -ENODEV;
+ 		else
+-			val = phy_mii_ioctl(dev->phydev, rq, cmd);
++			val = phy_mii_ioctl(priv->phydev, rq, cmd);
+ 		break;
+ 
+ 	default:
+@@ -2458,7 +2464,6 @@ static void bcmgenet_irq_task(struct work_struct *work)
+ {
+ 	struct bcmgenet_priv *priv = container_of(
+ 			work, struct bcmgenet_priv, bcmgenet_irq_work);
+-	struct net_device *ndev = priv->dev;
+ 
+ 	netif_dbg(priv, intr, priv->dev, "%s\n", __func__);
+ 
+@@ -2471,7 +2476,7 @@ static void bcmgenet_irq_task(struct work_struct *work)
+ 
+ 	/* Link UP/DOWN event */
+ 	if (priv->irq0_stat & UMAC_IRQ_LINK_EVENT) {
+-		phy_mac_interrupt(ndev->phydev,
++		phy_mac_interrupt(priv->phydev,
+ 				  !!(priv->irq0_stat & UMAC_IRQ_LINK_UP));
+ 		priv->irq0_stat &= ~UMAC_IRQ_LINK_EVENT;
+ 	}
+@@ -2833,7 +2838,7 @@ static void bcmgenet_netif_start(struct net_device *dev)
+ 	/* Monitor link interrupts now */
+ 	bcmgenet_link_intr_enable(priv);
+ 
+-	phy_start(dev->phydev);
++	phy_start(priv->phydev);
+ }
+ 
+ static int bcmgenet_open(struct net_device *dev)
+@@ -2932,7 +2937,7 @@ static void bcmgenet_netif_stop(struct net_device *dev)
+ 	struct bcmgenet_priv *priv = netdev_priv(dev);
+ 
+ 	netif_tx_stop_all_queues(dev);
+-	phy_stop(dev->phydev);
++	phy_stop(priv->phydev);
+ 	bcmgenet_intr_disable(priv);
+ 	bcmgenet_disable_rx_napi(priv);
+ 	bcmgenet_disable_tx_napi(priv);
+@@ -2958,7 +2963,7 @@ static int bcmgenet_close(struct net_device *dev)
+ 	bcmgenet_netif_stop(dev);
+ 
+ 	/* Really kill the PHY state machine and disconnect from it */
+-	phy_disconnect(dev->phydev);
++	phy_disconnect(priv->phydev);
+ 
+ 	/* Disable MAC receive */
+ 	umac_enable_set(priv, CMD_RX_EN, false);
+@@ -3517,7 +3522,7 @@ static int bcmgenet_suspend(struct device *d)
+ 
+ 	bcmgenet_netif_stop(dev);
+ 
+-	phy_suspend(dev->phydev);
++	phy_suspend(priv->phydev);
+ 
+ 	netif_device_detach(dev);
+ 
+@@ -3581,7 +3586,7 @@ static int bcmgenet_resume(struct device *d)
+ 	if (priv->wolopts)
+ 		clk_disable_unprepare(priv->clk_wol);
+ 
+-	phy_init_hw(dev->phydev);
++	phy_init_hw(priv->phydev);
+ 	/* Speed settings must be restored */
+ 	bcmgenet_mii_config(priv->dev);
+ 
+@@ -3614,7 +3619,7 @@ static int bcmgenet_resume(struct device *d)
+ 
+ 	netif_device_attach(dev);
+ 
+-	phy_resume(dev->phydev);
++	phy_resume(priv->phydev);
+ 
+ 	if (priv->eee.eee_enabled)
+ 		bcmgenet_eee_enable_set(dev, true);
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.h b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+index 0f0868c56f05..1e2dc34d331a 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.h
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+@@ -597,6 +597,7 @@ struct bcmgenet_priv {
+ 
+ 	/* MDIO bus variables */
+ 	wait_queue_head_t wq;
++	struct phy_device *phydev;
+ 	bool internal_phy;
+ 	struct device_node *phy_dn;
+ 	struct device_node *mdio_dn;
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmmii.c b/drivers/net/ethernet/broadcom/genet/bcmmii.c
+index e907acd81da9..457c3bc8cfff 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmmii.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmmii.c
+@@ -86,7 +86,7 @@ static int bcmgenet_mii_write(struct mii_bus *bus, int phy_id,
+ void bcmgenet_mii_setup(struct net_device *dev)
+ {
+ 	struct bcmgenet_priv *priv = netdev_priv(dev);
+-	struct phy_device *phydev = dev->phydev;
++	struct phy_device *phydev = priv->phydev;
+ 	u32 reg, cmd_bits = 0;
+ 	bool status_changed = false;
+ 
+@@ -183,9 +183,9 @@ void bcmgenet_mii_reset(struct net_device *dev)
+ 	if (GENET_IS_V4(priv))
+ 		return;
+ 
+-	if (dev->phydev) {
+-		phy_init_hw(dev->phydev);
+-		phy_start_aneg(dev->phydev);
++	if (priv->phydev) {
++		phy_init_hw(priv->phydev);
++		phy_start_aneg(priv->phydev);
+ 	}
+ }
+ 
+@@ -236,7 +236,6 @@ static void bcmgenet_internal_phy_setup(struct net_device *dev)
+ 
+ static void bcmgenet_moca_phy_setup(struct bcmgenet_priv *priv)
+ {
+-	struct net_device *ndev = priv->dev;
+ 	u32 reg;
+ 
+ 	/* Speed settings are set in bcmgenet_mii_setup() */
+@@ -245,14 +244,14 @@ static void bcmgenet_moca_phy_setup(struct bcmgenet_priv *priv)
+ 	bcmgenet_sys_writel(priv, reg, SYS_PORT_CTRL);
+ 
+ 	if (priv->hw_params->flags & GENET_HAS_MOCA_LINK_DET)
+-		fixed_phy_set_link_update(ndev->phydev,
++		fixed_phy_set_link_update(priv->phydev,
+ 					  bcmgenet_fixed_phy_link_update);
+ }
+ 
+ int bcmgenet_mii_config(struct net_device *dev)
+ {
+ 	struct bcmgenet_priv *priv = netdev_priv(dev);
+-	struct phy_device *phydev = dev->phydev;
++	struct phy_device *phydev = priv->phydev;
+ 	struct device *kdev = &priv->pdev->dev;
+ 	const char *phy_name = NULL;
+ 	u32 id_mode_dis = 0;
+@@ -303,7 +302,7 @@ int bcmgenet_mii_config(struct net_device *dev)
+ 		 * capabilities, use that knowledge to also configure the
+ 		 * Reverse MII interface correctly.
+ 		 */
+-		if ((phydev->supported & PHY_BASIC_FEATURES) ==
++		if ((priv->phydev->supported & PHY_BASIC_FEATURES) ==
+ 				PHY_BASIC_FEATURES)
+ 			port_ctrl = PORT_MODE_EXT_RVMII_25;
+ 		else
+@@ -372,7 +371,7 @@ int bcmgenet_mii_probe(struct net_device *dev)
+ 			return -ENODEV;
+ 		}
+ 	} else {
+-		phydev = dev->phydev;
++		phydev = priv->phydev;
+ 		phydev->dev_flags = phy_flags;
+ 
+ 		ret = phy_connect_direct(dev, phydev, bcmgenet_mii_setup,
+@@ -383,6 +382,8 @@ int bcmgenet_mii_probe(struct net_device *dev)
+ 		}
+ 	}
+ 
++	priv->phydev = phydev;
++
+ 	/* Configure port multiplexer based on what the probed PHY device since
+ 	 * reading the 'max-speed' property determines the maximum supported
+ 	 * PHY speed which is needed for bcmgenet_mii_config() to configure
+@@ -390,7 +391,7 @@ int bcmgenet_mii_probe(struct net_device *dev)
+ 	 */
+ 	ret = bcmgenet_mii_config(dev);
+ 	if (ret) {
+-		phy_disconnect(phydev);
++		phy_disconnect(priv->phydev);
+ 		return ret;
+ 	}
+ 
+@@ -400,7 +401,7 @@ int bcmgenet_mii_probe(struct net_device *dev)
+ 	 * Ethernet MAC ISRs
+ 	 */
+ 	if (priv->internal_phy)
+-		phydev->irq = PHY_IGNORE_INTERRUPT;
++		priv->phydev->irq = PHY_IGNORE_INTERRUPT;
+ 
+ 	return 0;
+ }
+@@ -605,6 +606,7 @@ static int bcmgenet_mii_pd_init(struct bcmgenet_priv *priv)
+ 
+ 	}
+ 
++	priv->phydev = phydev;
+ 	priv->phy_interface = pd->phy_interface;
+ 
+ 	return 0;
+-- 
+2.10.0
