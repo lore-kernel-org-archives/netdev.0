@@ -1,131 +1,79 @@
-From: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
-Subject: Re: [PATCH v6 5/6] net: ipv4, ipv6: run cgroup ebpf egress programs
-Date: Fri, 23 Sep 2016 15:17:39 +0200
-Message-ID: <20160923131739.GA15828@salvia>
-References: <20160919203533.GA888@salvia>
- <83afdc54-1bbe-3530-e5fd-b74fefe9a042@zonque.org>
- <20160920142931.GA31438@salvia>
- <6584b975-fa3e-8d98-f0c7-a2c6b194b2b6@zonque.org>
- <20160921154533.GA13656@salvia>
- <20160921184827.GA15732@pox.localdomain>
- <20160922092138.GA12108@salvia>
- <20160922095411.GA5654@pox.localdomain>
- <20160922120554.GA1738@salvia>
- <57E3F4F9.70300@iogearbox.net>
+From: Alex Williamson <alex.williamson@redhat.com>
+Subject: Re: [net-next 5/5] PCI: disable FLR for 82579 device
+Date: Fri, 23 Sep 2016 07:19:59 -0600
+Message-ID: <20160923071959.55dd9745@t450s.home>
+References: <1474612741-75681-1-git-send-email-jeffrey.t.kirsher@intel.com>
+        <1474612741-75681-6-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>, Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>,
-        htejun-b10kYP2dOMg@public.gmane.org, ast-b10kYP2dOMg@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, kafai-b10kYP2dOMg@public.gmane.org,
-        fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org, harald-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <57E3F4F9.70300-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, bhelgaas@google.com,
+        Sasha Neftin <sasha.neftin@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        guru.anbalagane@oracle.com, linux-pci@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1474612741-75681-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 22, 2016 at 05:12:57PM +0200, Daniel Borkmann wrote:
-> On 09/22/2016 02:05 PM, Pablo Neira Ayuso wrote:
-[...]
-> >Have a look at net/ipv4/netfilter/nft_chain_route_ipv4.c for instance.
-> >In your case, you have to add a new chain type:
-> >
-> >static const struct nf_chain_type nft_chain_bpf = {
-> >         .name           = "bpf",
-> >         .type           = NFT_CHAIN_T_bpf,
-> >         ...
-> >         .hooks          = {
-> >                 [NF_INET_LOCAL_IN]      = nft_do_bpf,
-> >                 [NF_INET_LOCAL_OUT]     = nft_do_bpf,
-> >                 [NF_INET_FORWARD]       = nft_do_bpf,
-> >                 [NF_INET_PRE_ROUTING]   = nft_do_bpf,
-> >                 [NF_INET_POST_ROUTING]  = nft_do_bpf,
-> >         },
-> >};
-> >
-> >nft_do_bpf() is the raw netfilter hook that you register, this hook
-> >will just execute to iterate over the list of bpf filters and run
-> >them.
-> >
-> >This new chain is created on demand, so no overhead if not needed, eg.
-> >
-> >nft add table bpf
-> >nft add chain bpf input { type bpf hook output priority 0\; }
-> >
-> >Then, you add a rule for each bpf program you want to run, just like
-> >tc+bpf.
+On Thu, 22 Sep 2016 23:39:01 -0700
+Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
+
+> From: Sasha Neftin <sasha.neftin@intel.com>
 > 
-> But from a high-level point of view, this sounds like a huge hack to me,
-> in the sense that nft as a bytecode engine (from whole architecture I
-> mean) calls into another bytecode engine such as bpf as an extension.
-
-nft is not only bytecode engine, it provides a netlink socket
-interface to register hooks (from user perspective, these are called
-basechain). It is providing the infrastructure that you're lacking
-indeed and addressing the concerns I mentioned about the visibility of
-the global policy that you want to apply on the packet path.
-
-As I explained you can potentially add any basechain type with
-specific semantics. Proposed semantics for this bpf chain would be:
-
-1) You can use any of the existing netfilter hooks.
-2) You can only run bpf program from there. No chance for the user
-   can mix nftables with bpf VM.
-
-> And bpf code from there isn't using any of the features from nft
-> besides being invoked from the hook
-
-I think there's a misunderstading here.
-
-You will not run nft_do_chain(), you don't waste cycles to run what is
-specific to nftables. You will just run nft_do_bpf() which will just
-do what you want to run for each packet. Thus, you have control on
-what nft_do_bpf() does and decide on what that function spend cycles
-on.
-
-> [...] I was hoping that nft would try to avoid some of those exotic
-> modules we have from xt, I would consider xt_bpf (no offense ;))
-
-This has nothing to do with it. In xt_bpf you waste cycles running
-code that is specific to iptables, what I propose would not, just the
-generic hook code and then your code.
-
-[...]
-> >Benefits are, rewording previous email:
-> >
-> >* You get access to all of the existing netfilter hooks in one go
-> >   to run bpf programs. No need for specific redundant hooks. This
-> >   provides raw access to the netfilter hook, you define the little
-> >   code that your hook runs before you bpf run invocation. So there
-> >   is *no need to bloat the stack with more hooks, we use what we
-> >   have.*
+> 82579 has a problem reattaching itself after the device is detached.
+> The bug was reported by Redhat. The suggested fix is to disable
+> FLR capability in PCIe configuration space.
 > 
-> But also this doesn't really address the fundamental underlying problem
-> that is discussed here. nft doesn't even have cgroups v2 support.
+> Reproduction:
+> Attach the device to a VM, then detach and try to attach again.
+> 
+> Fix:
+> Disable FLR capability to prevent the 82579 from hanging.
+> 
+> Signed-off-by: Sasha Neftin <sasha.neftin@intel.com>
+> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>  drivers/pci/quirks.c | 21 +++++++++++++++++++++
+>  1 file changed, 21 insertions(+)
+> 
+> diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+> index 44e0ff3..59fba6e 100644
+> --- a/drivers/pci/quirks.c
+> +++ b/drivers/pci/quirks.c
+> @@ -4431,3 +4431,24 @@ static void quirk_intel_qat_vf_cap(struct pci_dev *pdev)
+>  	}
+>  }
+>  DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x443, quirk_intel_qat_vf_cap);
+> +/*
+> + * Workaround FLR issues for 82579
+> + * This code disables the FLR (Function Level Reset) via PCIe, in order
+> + * to workaround a bug found while using device passthrough, where the
+> + * interface would become non-responsive.
+> + * NOTE: the FLR bit is Read/Write Once (RWO) in config space, so if
+> + * the BIOS or kernel writes this register * then this workaround will
+> + * not work.
+> + */
+> +static void quirk_intel_flr_cap_dis(struct pci_dev *dev)
+> +{
+> +	int pos = pci_find_capability(dev, PCI_CAP_ID_AF);
+> +	if (pos) {
+> +		u8 cap;
+> +		pci_read_config_byte(dev, pos + PCI_AF_CAP, &cap);
+> +		cap = cap & (~PCI_AF_CAP_FLR);
+> +		pci_write_config_byte(dev, pos + PCI_AF_CAP, cap);
+> +	}
+> +}
+> +DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x1502, quirk_intel_flr_cap_dis);
+> +DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x1503, quirk_intel_flr_cap_dis);
 
-You don't need native cgroups v2 support in nft, you just run bpf
-programs from the native bpf basechain type. So whatever bpf supports,
-you can do it.
+This seems like a pretty fragile quirk since we're just hoping that the
+BIOS hasn't already written this byte.  Should we at least re-read and
+warn if the write didn't take?  What about using dev_flags or a device
+specific reset to make this less fragile?  A device specific reset
+could pick the best reset mechanism for the device, ignoring AF FLR.
+Thanks,
 
-Instead, if you take this approach, you will get access to all of the
-existing hooks to run bpf programs, this includes arp, bridge and
-potentially run filters for both ip and ip6 through our inet family.
-
-[...]
-> Or would the idea be that the current netfilter hooks would be redone in
-> a way that they are generic enough so that any other user could make use
-> of it independent of netfilter?
-
-Redone? Why? What do you need, a rename?
-
-Dependencies are very few: CONFIG_NETFILTER for the hooks,
-CONFIG_NF_TABLES to obtain the netlink interface to load the bpf
-programs and CONFIG_NF_TABLES_BPF to define the bpf basechain type
-semantics to run bpf programs from there. It's actually very little
-boilerplate code.
-
-Other than that, I can predict where you're going: You will end up
-adding a hook just before/after every of the existing netfilter hooks,
-and that is really nonsense to me. Why bloat the stack with more
-hooks? Use what it is already available.
+Alex
