@@ -1,35 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] net: dsa: add port fast ageing
-Date: Fri, 23 Sep 2016 08:01:50 -0400 (EDT)
-Message-ID: <20160923.080150.847812923363318699.davem@davemloft.net>
-References: <20160922204924.16229-1-vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next] net/vxlan: Avoid unaligned access in
+ vxlan_build_skb()
+Date: Fri, 23 Sep 2016 08:06:18 -0400 (EDT)
+Message-ID: <20160923.080618.678103827885223586.davem@davemloft.net>
+References: <20160920190929.57ddaeb0@griffin>
+        <20160922.015242.735026657310158125.davem@davemloft.net>
+        <20160922213010.GA32052@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch,
-        john@phrozen.org
-To: vivien.didelot@savoirfairelinux.com
+Cc: jbenc@redhat.com, netdev@vger.kernel.org,
+        hannes@stressinduktion.org, aduyck@mirantis.com,
+        daniel@iogearbox.net, pabeni@redhat.com
+To: sowmini.varadhan@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51732 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:51834 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1034027AbcIWMBy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 08:01:54 -0400
-In-Reply-To: <20160922204924.16229-1-vivien.didelot@savoirfairelinux.com>
+        with ESMTP id S1758744AbcIWMG1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 08:06:27 -0400
+In-Reply-To: <20160922213010.GA32052@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Thu, 22 Sep 2016 16:49:20 -0400
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Date: Thu, 22 Sep 2016 17:30:10 -0400
 
-> Today the DSA drivers are in charge of flushing the MAC addresses
-> associated to a port when its STP state changes from Learning or
-> Forwarding, to Disabled or Blocking or Listening.
+> On (09/22/16 01:52), David Miller wrote:
+>> Alternatively we can do Alexander Duyck's trick, by pushing
+>> the headers into the frag list, forcing a pull and realignment
+>> by the next protocol layer.
 > 
-> This makes the drivers more complex and hides this generic switch logic.
+> What is the "Alexander Duyck trick" (hints about module or commit id,
+> where this can be found, please)?
 > 
-> This patchset introduces a new optional port_fast_age operation to
-> dsa_switch_ops, to move this logic to the DSA layer and keep drivers
-> simple. b53 and mv88e6xxx are updated accordingly.
+> Is this basically about, e.g., putting the vxlanhdr in its own
+> skb_frag_t, or something else?
 
-Series applied, thanks.
+Yes, and this way skb_header_pointer() is forced to do a memcpy.
