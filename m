@@ -1,44 +1,81 @@
-From: Jann Horn <jann@thejh.net>
-Subject: [PATCH] netfilter: don't permit unprivileged writes to global state via sysctls
-Date: Sat, 24 Sep 2016 00:21:04 +0200
-Message-ID: <1474669264-3283-1-git-send-email-jann@thejh.net>
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from thejh.net ([37.221.195.125]:48332 "EHLO thejh.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1759816AbcIWWVI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 23 Sep 2016 18:21:08 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: <chris.roth-/KKvz3x1pcI@public.gmane.org>
+Subject: [PATCH] Net Driver: Add Cypress GX3 VID=04b4 PID=3610.
+Date: Fri, 23 Sep 2016 16:24:29 -0600
+Message-ID: <5452db0e823d44e788bd6318ec64e346@Mail06.usask.ca>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Chris Roth <chris.roth-/KKvz3x1pcI@public.gmane.org>, Allan Chou <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
+To: <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This prevents the modification of nf_conntrack_max in unprivileged network
-namespaces. For unprivileged network namespaces, ip_conntrack_max is kept
-as a readonly sysctl in order to minimize potential compatibility issues.
+From: Chris Roth <chris.roth-/KKvz3x1pcI@public.gmane.org>
 
-This patch should apply cleanly to the net tree.
+From: Allan Chou <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
 
-Signed-off-by: Jann Horn <jann@thejh.net>
+Add support for Cypress GX3 SuperSpeed to Gigabit Ethernet
+Bridge Controller (Vendor=04b4 ProdID=3610).
+
+Patch verified on x64 linux kernel 4.7.4 system with the
+Kensington SD4600P USB-C Universal Dock with Power, which uses the
+Cypress GX3 SuperSpeed to Gigabit Ethernet Bridge Controller.
+
+A similar patch was signed-off and tested-by Allan Chou
+<allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org> on 2015-12-01.
+
+Allan verified his similar patch on x86 Linux kernel 4.1.6 system
+with Cypress GX3 SuperSpeed to Gigabit Ethernet Bridge Controller.
+
+Tested-by: Allan Chou <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
+Tested-by: Chris Roth <chris.roth-/KKvz3x1pcI@public.gmane.org>
+
+Signed-off-by: Allan Chou <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
+Signed-off-by: Chris Roth <chris.roth-/KKvz3x1pcI@public.gmane.org>
 ---
- net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c | 3 +++
- 1 file changed, 3 insertions(+)
+ drivers/net/usb/ax88179_178a.c | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
 
-diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-index ae1a71a..a639e94 100644
---- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-+++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-@@ -358,6 +358,9 @@ static int ipv4_init_net(struct net *net)
- 	if (!in->ctl_table)
- 		return -ENOMEM;
+diff --git a/drivers/net/usb/ax88179_178a.c b/drivers/net/usb/ax88179_178a.c
+index e6338c1..8a6675d 100644
+--- a/drivers/net/usb/ax88179_178a.c
++++ b/drivers/net/usb/ax88179_178a.c
+@@ -1656,6 +1656,19 @@ static const struct driver_info ax88178a_info = {
+ 	.tx_fixup = ax88179_tx_fixup,
+ };
  
-+	if (net->user_ns != &init_user_ns)
-+		in->ctl_table[0].mode = 0444;
++static const struct driver_info cypress_GX3_info = {
++	.description = "Cypress GX3 SuperSpeed to Gigabit Ethernet Controller",
++	.bind = ax88179_bind,
++	.unbind = ax88179_unbind,
++	.status = ax88179_status,
++	.link_reset = ax88179_link_reset,
++	.reset = ax88179_reset,
++	.stop = ax88179_stop,
++	.flags = FLAG_ETHER | FLAG_FRAMING_AX,
++	.rx_fixup = ax88179_rx_fixup,
++	.tx_fixup = ax88179_tx_fixup,
++};
 +
- 	in->ctl_table[0].data = &nf_conntrack_max;
- 	in->ctl_table[1].data = &net->ct.count;
- 	in->ctl_table[2].data = &nf_conntrack_htable_size;
+ static const struct driver_info dlink_dub1312_info = {
+ 	.description = "D-Link DUB-1312 USB 3.0 to Gigabit Ethernet Adapter",
+ 	.bind = ax88179_bind,
+@@ -1718,6 +1731,10 @@ static const struct usb_device_id products[] = {
+ 	USB_DEVICE(0x0b95, 0x178a),
+ 	.driver_info = (unsigned long)&ax88178a_info,
+ }, {
++	/* Cypress GX3 SuperSpeed to Gigabit Ethernet Bridge Controller */
++	USB_DEVICE(0x04b4, 0x3610),
++	.driver_info = (unsigned long)&cypress_GX3_info,
++}, {
+ 	/* D-Link DUB-1312 USB 3.0 to Gigabit Ethernet Adapter */
+ 	USB_DEVICE(0x2001, 0x4a00),
+ 	.driver_info = (unsigned long)&dlink_dub1312_info,
 -- 
-2.1.4
+2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
