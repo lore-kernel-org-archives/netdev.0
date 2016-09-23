@@ -1,83 +1,89 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net-next 2/3] udp: implement memory accounting helpers
-Date: Fri, 23 Sep 2016 11:56:05 +0200
-Message-ID: <1474624565.9845.20.camel@redhat.com>
-References: <cover.1474477902.git.pabeni@redhat.com>
-         <93ccb49b7f037461ef436a50b907185744b093d8.1474477902.git.pabeni@redhat.com>
-         <1474500682.23058.88.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1474540415.4845.69.camel@redhat.com>
-         <589839b3-5930-2527-b0a3-315be254a175@solarflare.com>
-         <1474560864.4845.78.camel@redhat.com>
-         <1474561848.23058.133.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1474576020.7120.1.camel@redhat.com>
-         <1474576448.28155.7.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Vlastimil Babka <vbabka-AlSwsSmVLrQ@public.gmane.org>
+Subject: Re: [PATCH v2] fs/select: add vmalloc fallback for select(2)
+Date: Fri, 23 Sep 2016 11:58:34 +0200
+Message-ID: <3bbcc269-ec8b-12dd-e0ae-190c18bc3f47@suse.cz>
+References: <20160922164359.9035-1-vbabka@suse.cz>
+ <1474562982.23058.140.camel@edumazet-glaptop3.roam.corp.google.com>
+ <12efc491-a0e7-1012-5a8b-6d3533c720db@suse.cz>
+ <1474564068.23058.144.camel@edumazet-glaptop3.roam.corp.google.com>
+ <a212f313-1f34-7c83-3aab-b45374875493@suse.cz>
+ <063D6719AE5E284EB5DD2968C1650D6DB0107DC8@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Edward Cree <ecree@solarflare.com>, netdev@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>,
-        James Morris <jmorris@namei.org>,
-        Trond Myklebust <trond.myklebust@primarydata.com>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        linux-nfs@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50954 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1757333AbcIWJ4L (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 23 Sep 2016 05:56:11 -0400
-In-Reply-To: <1474576448.28155.7.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Alexander Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
+        Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+        "linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org" <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>,
+        Michal Hocko <mhocko-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>,
+        Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB0107DC8-VkEWCZq2GCInGFn1LkZF6NBPR1lH4CV8@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-09-22 at 13:34 -0700, Eric Dumazet wrote:
-> On Thu, 2016-09-22 at 22:27 +0200, Paolo Abeni wrote:
-> > On Thu, 2016-09-22 at 09:30 -0700, Eric Dumazet wrote:
-> > > On Thu, 2016-09-22 at 18:14 +0200, Paolo Abeni wrote:
-> > > 
-> > > > I think that the idea behind using atomic ops directly on
-> > > > sk_forward_alloc is to avoid adding other fields to the udp_socket. 
-> > > > 
-> > > > If we can add some fields to the udp_sock structure, the schema proposed
-> > > > in this patch should fit better (modulo bugs ;-), always requiring a
-> > > > single atomic operation at memory reclaiming time and at memory
-> > > > allocation time.
-> > > 
-> > > But do we want any additional atomic to begin with ?
-> > > 
-> > > Given typical number of UDP sockets on a host, we could reserve/forward
-> > > alloc at socket creation time, and when SO_RCVBUF is changed.
-> > 
-> > That would be very efficient and would probably work on most scenario,
-> > but if/when the system will reach udp memory pressure things will be
-> > very bad: forward allocation on open() will fail and nobody will be able
-> > to create any new udp socket, right ?
-> > 
+On 09/23/2016 11:42 AM, David Laight wrote:
+> From: Vlastimil Babka
+>> Sent: 22 September 2016 18:55
+> ...
+>> So in the case of select() it seems like the memory we need 6 bits per file
+>> descriptor, multiplied by the highest possible file descriptor (nfds) as passed
+>> to the syscall. According to the man page of select:
+>>
+>>         EINVAL nfds is negative or exceeds the RLIMIT_NOFILE resource limit (see
+>> getrlimit(2)).
 > 
-> No, we could allow one page per socket (udp_mem[0]) and applications
-> would still work.
+> That second clause is relatively recent.
+
+Interesting... so it was added without actually being true in the kernel
+code?
+
+>> The code actually seems to silently cap the value instead of returning EINVAL
+>> though? (IIUC):
+>>
+>>         /* max_fds can increase, so grab it once to avoid race */
+>>          rcu_read_lock();
+>>          fdt = files_fdtable(current->files);
+>>          max_fds = fdt->max_fds;
+>>          rcu_read_unlock();
+>>          if (n > max_fds)
+>>                  n = max_fds;
+>>
+>> The default for this cap seems to be 1024 where I checked (again, IIUC, it's
+>> what ulimit -n returns?). I wasn't able to change it to more than 2048, which
+>> makes the bitmaps still below PAGE_SIZE.
+>>
+>> So if I get that right, the system admin would have to allow really large
+>> RLIMIT_NOFILE to even make vmalloc() possible here. So I don't see it as a large
+>> concern?
 > 
-> TCP has the notion of memory pressure, and behaves roughly the same in
-> this case (one skb is allowed to be received)
+> 4k open files isn't that many.
+> Especially for programs that are using pipes to emulate windows events.
+
+Sure but IIUC we need 6 bits per file. That means up to almost 42k
+files, we should fit into order-3 allocation, which effectively cannot
+fail right now.
+
+> I suspect that fdt->max_fds is an upper bound for the highest fd the
+> process has open - not the RLIMIT_NOFILE value.
+
+I gathered that the highest fd effectively limits the number of files,
+so it's the same. I might be wrong.
+
+> select() shouldn't be silently ignoring large values of 'n' unless
+> the fd_set bits are zero.
+
+Yeah that doesn't seem to conform to the manpage.
+
+> Of course, select does scale well for high numbered fds
+> and neither poll nor select scale well for large numbers of fds.
+
+True.
+
+> 	David
 > 
-> The other (fat) sockets could notice udp_memory_pressure is set and
-> start reclaiming their forward allocations for other sockets.
-
-I agree, that would work. Anyway I think it will more invasive than the
-proposed code, after the currently ongoing rework. With the above, on
-memory pressure, reclaim will be needed on dequeue, and scheduling will
-still needed even on enqueue.
-
-The overall behavior of the two approach will be similar: lazy
-reclaiming under memory pressure or on sk closing, and rare memory
-scheduling. 
-
-> Anyway, just an idea.
-
-Any comments are always very appreciated!
-
-Paolo
