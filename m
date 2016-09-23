@@ -1,8 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 06/15] rxrpc: Need to start the resend timer on
- initial transmission
-Date: Fri, 23 Sep 2016 16:15:58 +0100
-Message-ID: <147464375879.5090.13289253812547192634.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 10/15] rxrpc: Don't call the tx_ack tracepoint if
+ don't generate an ACK
+Date: Fri, 23 Sep 2016 16:16:26 +0100
+Message-ID: <147464378666.5090.4944064082431252846.stgit@warthog.procyon.org.uk>
 References: <147464371753.5090.1634919599283321856.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,65 +10,99 @@ Content-Transfer-Encoding: 7bit
 Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
         linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:60736 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1035300AbcIWPQ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 23 Sep 2016 11:16:28 -0400
 In-Reply-To: <147464371753.5090.1634919599283321856.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When a DATA packet has its initial transmission, we may need to start or
-adjust the resend timer.  Without this we end up relying on being sent a
-NACK to initiate the resend.
+rxrpc_send_call_packet() is invoking the tx_ack tracepoint before it checks
+whether there's an ACK to transmit (another thread may jump in and transmit
+it).
+
+Fix this by only invoking the tracepoint if we get a valid ACK to transmit.
+
+Further, only allocate a serial number if we're going to actually transmit
+something.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/ar-internal.h |    1 +
- net/rxrpc/call_event.c  |    2 +-
- net/rxrpc/sendmsg.c     |    9 +++++++++
- 3 files changed, 11 insertions(+), 1 deletion(-)
+ net/rxrpc/output.c |   26 +++++++++++---------------
+ 1 file changed, 11 insertions(+), 15 deletions(-)
 
-diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index 808ab750dc6b..9e3ba4dc9578 100644
---- a/net/rxrpc/ar-internal.h
-+++ b/net/rxrpc/ar-internal.h
-@@ -704,6 +704,7 @@ int rxrpc_reject_call(struct rxrpc_sock *);
- /*
-  * call_event.c
-  */
-+void rxrpc_set_timer(struct rxrpc_call *);
- void rxrpc_propose_ACK(struct rxrpc_call *, u8, u16, u32, bool, bool);
- void rxrpc_process_call(struct work_struct *);
+diff --git a/net/rxrpc/output.c b/net/rxrpc/output.c
+index 282cb1e36d06..5c1e008a5323 100644
+--- a/net/rxrpc/output.c
++++ b/net/rxrpc/output.c
+@@ -80,9 +80,6 @@ static size_t rxrpc_fill_out_ack(struct rxrpc_call *call,
+ 	pkt->ackinfo.rwind	= htonl(call->rx_winsize);
+ 	pkt->ackinfo.jumbo_max	= htonl(jmax);
  
-diff --git a/net/rxrpc/call_event.c b/net/rxrpc/call_event.c
-index a2909da5d581..3a7f90a2659c 100644
---- a/net/rxrpc/call_event.c
-+++ b/net/rxrpc/call_event.c
-@@ -24,7 +24,7 @@
- /*
-  * Set the timer
-  */
--static void rxrpc_set_timer(struct rxrpc_call *call)
-+void rxrpc_set_timer(struct rxrpc_call *call)
- {
- 	unsigned long t, now = jiffies;
- 
-diff --git a/net/rxrpc/sendmsg.c b/net/rxrpc/sendmsg.c
-index ca3811bfbd17..7cb34b2dfba9 100644
---- a/net/rxrpc/sendmsg.c
-+++ b/net/rxrpc/sendmsg.c
-@@ -146,6 +146,15 @@ static void rxrpc_queue_packet(struct rxrpc_call *call, struct sk_buff *skb,
- 	if (ret < 0) {
- 		_debug("need instant resend %d", ret);
- 		rxrpc_instant_resend(call, ix);
-+	} else {
-+		unsigned long resend_at;
-+
-+		resend_at = jiffies + msecs_to_jiffies(rxrpc_resend_timeout);
-+
-+		if (time_before(resend_at, call->resend_at)) {
-+			call->resend_at = resend_at;
-+			rxrpc_set_timer(call);
-+		}
+-	trace_rxrpc_tx_ack(call, hard_ack + 1, serial, call->ackr_reason,
+-			   top - hard_ack);
+-
+ 	*ackp++ = 0;
+ 	*ackp++ = 0;
+ 	*ackp++ = 0;
+@@ -119,8 +116,6 @@ int rxrpc_send_call_packet(struct rxrpc_call *call, u8 type)
+ 		return -ENOMEM;
  	}
  
- 	rxrpc_free_skb(skb, rxrpc_skb_tx_freed);
+-	serial = atomic_inc_return(&conn->serial);
+-
+ 	msg.msg_name	= &call->peer->srx.transport;
+ 	msg.msg_namelen	= call->peer->srx.transport_len;
+ 	msg.msg_control	= NULL;
+@@ -131,7 +126,6 @@ int rxrpc_send_call_packet(struct rxrpc_call *call, u8 type)
+ 	pkt->whdr.cid		= htonl(call->cid);
+ 	pkt->whdr.callNumber	= htonl(call->call_id);
+ 	pkt->whdr.seq		= 0;
+-	pkt->whdr.serial	= htonl(serial);
+ 	pkt->whdr.type		= type;
+ 	pkt->whdr.flags		= conn->out_clientflag;
+ 	pkt->whdr.userStatus	= 0;
+@@ -157,14 +151,6 @@ int rxrpc_send_call_packet(struct rxrpc_call *call, u8 type)
+ 
+ 		spin_unlock_bh(&call->lock);
+ 
+-		_proto("Tx ACK %%%u { m=%hu f=#%u p=#%u s=%%%u r=%s n=%u }",
+-		       serial,
+-		       ntohs(pkt->ack.maxSkew),
+-		       ntohl(pkt->ack.firstPacket),
+-		       ntohl(pkt->ack.previousPacket),
+-		       ntohl(pkt->ack.serial),
+-		       rxrpc_acks(pkt->ack.reason),
+-		       pkt->ack.nAcks);
+ 
+ 		iov[0].iov_len += sizeof(pkt->ack) + n;
+ 		iov[1].iov_base = &pkt->ackinfo;
+@@ -176,7 +162,6 @@ int rxrpc_send_call_packet(struct rxrpc_call *call, u8 type)
+ 	case RXRPC_PACKET_TYPE_ABORT:
+ 		abort_code = call->abort_code;
+ 		pkt->abort_code = htonl(abort_code);
+-		_proto("Tx ABORT %%%u { %d }", serial, abort_code);
+ 		iov[0].iov_len += sizeof(pkt->abort_code);
+ 		len += sizeof(pkt->abort_code);
+ 		ioc = 1;
+@@ -188,6 +173,17 @@ int rxrpc_send_call_packet(struct rxrpc_call *call, u8 type)
+ 		goto out;
+ 	}
+ 
++	serial = atomic_inc_return(&conn->serial);
++	pkt->whdr.serial = htonl(serial);
++	switch (type) {
++	case RXRPC_PACKET_TYPE_ACK:
++		trace_rxrpc_tx_ack(call,
++				   ntohl(pkt->ack.firstPacket),
++				   ntohl(pkt->ack.serial),
++				   pkt->ack.reason, pkt->ack.nAcks);
++		break;
++	}
++
+ 	if (ping) {
+ 		call->ackr_ping = serial;
+ 		smp_wmb();
