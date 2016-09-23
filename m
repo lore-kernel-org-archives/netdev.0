@@ -1,99 +1,68 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: [PATCH net-next 4/4] net/sched: act_mirred: Implement ingress
- actions
-Date: Fri, 23 Sep 2016 18:40:30 +0300
-Message-ID: <20160923184030.75124289@halley>
-References: <1474550512-7552-1-git-send-email-shmulik.ladkani@gmail.com>
-        <1474550512-7552-5-git-send-email-shmulik.ladkani@gmail.com>
-        <4387324a-de66-aa1b-86f0-1a9a2f8294f5@mojatatu.com>
-        <20160923081106.73fb48df@halley>
-        <0037729a-a3fc-c1c9-a620-905c73e0b9d4@mojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        WANG Cong <xiyou.wangcong@gmail.com>,
-        Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36453 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965902AbcIWPkj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 11:40:39 -0400
-Received: by mail-wm0-f65.google.com with SMTP id b184so3401515wma.3
-        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 08:40:39 -0700 (PDT)
-In-Reply-To: <0037729a-a3fc-c1c9-a620-905c73e0b9d4@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] netns: move {inc,dec}_net_namespaces into #ifdef
+Date: Fri, 23 Sep 2016 18:06:12 +0200
+Message-ID: <20160923160650.3631870-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        "Eric W. Biederman" <ebiederm@xmission.com>,
+        WANG Cong <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 23 Sep 2016 08:48:33 -0400 Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> > Even today, one may create loops using existing 'egress redirect',
-> > e.g. this rediculously errorneous construct:
-> >
-> >  # ip l add v0 type veth peer name v0p
-> >  # tc filter add dev v0p parent ffff: basic \
-> >     action mirred egress redirect dev v0
-> 
-> I think we actually recover from this one by eventually
-> dropping (theres a ttl field).
+With the newly enforced limit on the number of namespaces,
+we get a build warning if CONFIG_NETNS is disabled:
 
-[off topic]
+net/core/net_namespace.c:273:13: error: 'dec_net_namespaces' defined but not used [-Werror=unused-function]
+net/core/net_namespace.c:268:24: error: 'inc_net_namespaces' defined but not used [-Werror=unused-function]
 
-Don't know about that :) cpu fan got very noisy, 3 of 4 cores at 100%,
-and after one second I got:
+This moves the two added functions inside the #ifdef that guards
+their callers.
 
-# ip -s l show type veth
-16: v0p@v0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000
-    link/ether a2:64:ff:10:dd:85 brd ff:ff:ff:ff:ff:ff
-    RX: bytes  packets  errors  dropped overrun mcast   
-    71660305923 469890864 0       0       0       0       
-    TX: bytes  packets  errors  dropped carrier collsns 
-    3509       24       0       0       0       0       
-17: v0@v0p: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000
-    link/ether 52:a2:34:f6:7c:ec brd ff:ff:ff:ff:ff:ff
-    RX: bytes  packets  errors  dropped overrun mcast   
-    3509       24       0       0       0       0       
-    TX: bytes  packets  errors  dropped carrier collsns 
-    71660713017 469893555 0       0       0       0
+Fixes: 703286608a22 ("netns: Add a limit on the number of net namespaces")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ net/core/net_namespace.c | 20 ++++++++++----------
+ 1 file changed, 10 insertions(+), 10 deletions(-)
 
-> The other question is what to set skb->dev and skb->iif?
-> Some information will be lost if you move around netdevs a
-> bit.
-
-[back to topic]
-
-Good point.
-
-Similarly to all constructs injecting skbs to device rx (bond/team,
-vlan, macvlan, tunnels, ifb, __dev_forward_skb callers, etc..), we are
-obligated to assign 'skb2->dev' as the new rx device.
-
-Regarding 'skb2->skb_iif', original act_mirred code already has:
-
- 	skb2->skb_iif = skb->dev->ifindex;   <--- THIS IS ORIG DEV IIF
- 	skb2->dev = dev;                     <--- THIS IS TARGET DEV
-	err = dev_queue_xmit(skb2);
-
-I'm preserving this; OTOH the suggested modification in the patch is
-
--	err = dev_queue_xmit(skb2);
-+	if (tcf_mirred_act_direction(m->tcfm_eaction) & AT_EGRESS)
-+		err = dev_queue_xmit(skb2);
-+	else
-+		netif_receive_skb(skb2);
-
-now, the call to 'netif_receive_skb' will eventually override skb_iif to
-the target RX dev's index, upon entry to __netif_receive_skb_core.
-
-I think this IS the expected behavior - as done by other "rx injection"
-constructs.
-
-My doubts were around whether we should call 'dev_forward_skb' instead
-of 'netif_receive_skb'.
-The former does some things I assumed we're not interested of, like
-testing 'is_skb_forwardable' and re-running 'eth_type_trans'.
-OTOH, it DOES scrub the skb.
-Maybe we should scrub it as well prior the netif_receive_skb call?
-
-Thanks,
-Shmulik
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index d0eb13d3226b..989434f36f96 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -265,16 +265,6 @@ struct net *get_net_ns_by_id(struct net *net, int id)
+ 	return peer;
+ }
+ 
+-static struct ucounts *inc_net_namespaces(struct user_namespace *ns)
+-{
+-	return inc_ucount(ns, current_euid(), UCOUNT_NET_NAMESPACES);
+-}
+-
+-static void dec_net_namespaces(struct ucounts *ucounts)
+-{
+-	dec_ucount(ucounts, UCOUNT_NET_NAMESPACES);
+-}
+-
+ /*
+  * setup_net runs the initializers for the network namespace object.
+  */
+@@ -319,6 +309,16 @@ static __net_init int setup_net(struct net *net, struct user_namespace *user_ns)
+ 
+ 
+ #ifdef CONFIG_NET_NS
++static struct ucounts *inc_net_namespaces(struct user_namespace *ns)
++{
++	return inc_ucount(ns, current_euid(), UCOUNT_NET_NAMESPACES);
++}
++
++static void dec_net_namespaces(struct ucounts *ucounts)
++{
++	dec_ucount(ucounts, UCOUNT_NET_NAMESPACES);
++}
++
+ static struct kmem_cache *net_cachep;
+ static struct workqueue_struct *netns_wq;
+ 
+-- 
+2.9.0
