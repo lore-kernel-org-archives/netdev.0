@@ -1,30 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH next 0/2] improvements to SSN and TSN handling
-Date: Fri, 23 Sep 2016 06:55:41 -0400 (EDT)
-Message-ID: <20160923.065541.716099111392174272.davem@davemloft.net>
-References: <cover.1474405559.git.marcelo.leitner@gmail.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] mlxsw: spectrum: remove redundant check if err is zero
+Date: Fri, 23 Sep 2016 12:02:45 +0100
+Message-ID: <20160923110245.18977-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        nhorman@tuxdriver.com, vyasevich@gmail.com, David.Laight@ACULAB.COM
-To: marcelo.leitner@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50846 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934472AbcIWKzw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 06:55:52 -0400
-In-Reply-To: <cover.1474405559.git.marcelo.leitner@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org
+To: Jiri Pirko <jiri@mellanox.com>, Ido Schimmel <idosch@mellanox.com>,
+        netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Date: Tue, 20 Sep 2016 18:19:12 -0300
+From: Colin Ian King <colin.king@canonical.com>
 
-> First patch fixes a potential issue made visible by the second one
-> noticed by David Laight and is a preparation for the next one.
-> 
-> The second patch changes how SSN, TSN and ASCONF serials are compared so
-> they can use typecheck() and are more like time_before() macro.
+There is an earlier check and return if err is non-zero, so
+the check to see if it is zero is redundant in every iteration
+of the loop and hence the check can be removed.
 
-Series applied, thanks.
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 80f27b5..fd74d10 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -1664,7 +1664,7 @@ static void __mlxsw_sp_port_get_stats(struct net_device *dev,
+ 		return;
+ 	mlxsw_sp_port_get_stats_raw(dev, grp, prio, ppcnt_pl);
+ 	for (i = 0; i < len; i++)
+-		data[data_index + i] = !err ? hw_stats[i].getter(ppcnt_pl) : 0;
++		data[data_index + i] = hw_stats[i].getter(ppcnt_pl);
+ }
+ 
+ static void mlxsw_sp_port_get_stats(struct net_device *dev,
+-- 
+2.9.3
