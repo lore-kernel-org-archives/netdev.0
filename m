@@ -1,54 +1,93 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 05/10] i40e: Fix for extra byte swap in tunnel setup
-Date: Thu, 22 Sep 2016 22:45:37 -0700
-Message-ID: <1474609542-121940-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 09/10] i40e: Limit TX descriptor count in cases where frag size is greater than 16K
+Date: Thu, 22 Sep 2016 22:45:41 -0700
+Message-ID: <1474609542-121940-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1474609542-121940-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
         netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
         jogreene@redhat.com, guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:58549 "EHLO mga05.intel.com"
+Received: from mga05.intel.com ([192.55.52.43]:8619 "EHLO mga05.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1758212AbcIWFps (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1758253AbcIWFps (ORCPT <rfc822;netdev@vger.kernel.org>);
         Fri, 23 Sep 2016 01:45:48 -0400
 In-Reply-To: <1474609542-121940-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch fixes an issue where we were byte swapping the port
-parameter, then byte swapping it again in function execution.
-Obviously, that's unnecessary, so take it out of the function calls.
-Without this patch, the udp based tunnel configuration would
-not be correct.
+The i40e driver was incorrectly assuming that we would always be pulling
+no more than 1 descriptor from each fragment.  It is in fact possible for
+us to end up with the case where 2 descriptors worth of data may be pulled
+when a frame is larger than one of the pieces generated when aligning the
+payload to either 4K or pieces smaller than 16K.
 
-Change-ID: I788d83c5bd5732170f1a81dbfa0b1ac3ca8ea5b7
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+To adjust for this we just need to make certain to test all the way to the
+end of the fragments as it is possible for us to span 2 descriptors in the
+block before us so we need to guarantee that even the last 6 descriptors
+have enough data to fill a full frame.
+
+Change-ID: Ic2ecb4d6b745f447d334e66c14002152f50e2f99
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 7 ++-----
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 7 ++-----
+ 2 files changed, 4 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 69b9e30..53cde5b 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -7154,9 +7154,9 @@ static void i40e_sync_udp_filters_subtask(struct i40e_pf *pf)
- 			pf->pending_udp_bitmap &= ~BIT_ULL(i);
- 			port = pf->udp_ports[i].index;
- 			if (port)
--				ret = i40e_aq_add_udp_tunnel(hw, ntohs(port),
--						     pf->udp_ports[i].type,
--						     NULL, NULL);
-+				ret = i40e_aq_add_udp_tunnel(hw, port,
-+							pf->udp_ports[i].type,
-+							NULL, NULL);
- 			else
- 				ret = i40e_aq_del_udp_tunnel(hw, i, NULL);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index f8d6623..bf7bb7c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -2621,9 +2621,7 @@ bool __i40e_chk_linearize(struct sk_buff *skb)
+ 		return false;
  
+ 	/* We need to walk through the list and validate that each group
+-	 * of 6 fragments totals at least gso_size.  However we don't need
+-	 * to perform such validation on the last 6 since the last 6 cannot
+-	 * inherit any data from a descriptor after them.
++	 * of 6 fragments totals at least gso_size.
+ 	 */
+ 	nr_frags -= I40E_MAX_BUFFER_TXD - 2;
+ 	frag = &skb_shinfo(skb)->frags[0];
+@@ -2654,8 +2652,7 @@ bool __i40e_chk_linearize(struct sk_buff *skb)
+ 		if (sum < 0)
+ 			return true;
+ 
+-		/* use pre-decrement to avoid processing last fragment */
+-		if (!--nr_frags)
++		if (!nr_frags--)
+ 			break;
+ 
+ 		sum -= skb_frag_size(stale++);
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index 0130458..e3427eb 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -1832,9 +1832,7 @@ bool __i40evf_chk_linearize(struct sk_buff *skb)
+ 		return false;
+ 
+ 	/* We need to walk through the list and validate that each group
+-	 * of 6 fragments totals at least gso_size.  However we don't need
+-	 * to perform such validation on the last 6 since the last 6 cannot
+-	 * inherit any data from a descriptor after them.
++	 * of 6 fragments totals at least gso_size.
+ 	 */
+ 	nr_frags -= I40E_MAX_BUFFER_TXD - 2;
+ 	frag = &skb_shinfo(skb)->frags[0];
+@@ -1865,8 +1863,7 @@ bool __i40evf_chk_linearize(struct sk_buff *skb)
+ 		if (sum < 0)
+ 			return true;
+ 
+-		/* use pre-decrement to avoid processing last fragment */
+-		if (!--nr_frags)
++		if (!nr_frags--)
+ 			break;
+ 
+ 		sum -= skb_frag_size(stale++);
 -- 
 2.7.4
