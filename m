@@ -1,32 +1,30 @@
-From: Joe Perches <joe@perches.com>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
 Subject: Re: [PATCH] realtek: Add switch variable to 'switch case not
  processed' messages
-Date: Fri, 23 Sep 2016 12:02:43 -0700
-Message-ID: <1474657363.1849.9.camel@perches.com>
+Date: Fri, 23 Sep 2016 14:07:38 -0500
+Message-ID: <596ad587-a0df-846c-598a-ca109dc717fe@lwfinger.net>
 References: <1474654333.1849.5.camel@perches.com>
-         <d091f73a6adf3bdaa09ab0399c22a9fdfe9b188c.1474654979.git.joe@perches.com>
-         <f98d2cf1-802a-93c1-b219-ec45aa417940@lwfinger.net>
+ <d091f73a6adf3bdaa09ab0399c22a9fdfe9b188c.1474654979.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>,
-        Jean Delvare <jdelvare@suse.de>,
-        Chaoming Li <chaoming_li@realsil.com.cn>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0167.hostedemail.com ([216.40.44.167]:55857 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1035257AbcIWTCr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 15:02:47 -0400
-In-Reply-To: <f98d2cf1-802a-93c1-b219-ec45aa417940@lwfinger.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>, Jean Delvare <jdelvare-l3A5Bk7waGM@public.gmane.org>,
+        Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <d091f73a6adf3bdaa09ab0399c22a9fdfe9b188c.1474654979.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2016-09-23 at 13:59 -0500, Larry Finger wrote:
-> I'm not familiar with the %#x format. What does it do?
+On 09/23/2016 01:27 PM, Joe Perches wrote:
+> Help along debugging by showing what switch/case variable is not
+> being processed in these messages.
+>
+> Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 
-Outputs SPECIAL prefix, it's the same as "0x%x"
+Acked-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
 
-lib/vsprintf.c:
-#define SPECIAL	64		/* prefix hex with "0x", octal with "0" */
+Thanks,
+
+Larry
