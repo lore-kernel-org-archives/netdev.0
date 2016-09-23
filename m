@@ -1,50 +1,58 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 0/4] net: dsa: add port fast ageing
-Date: Thu, 22 Sep 2016 22:36:01 -0700
-Message-ID: <3d45f509-371e-85f3-3ab2-fcb783ebb371@gmail.com>
-References: <20160922204924.16229-1-vivien.didelot@savoirfairelinux.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>, John Crispin <john@phrozen.org>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160922204924.16229-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 06/10] i40e: avoid potential null pointer dereference when assigning len
+Date: Thu, 22 Sep 2016 22:45:38 -0700
+Message-ID: <1474609542-121940-7-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1474609542-121940-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Colin Ian King <colin.king@canonical.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        guru.anbalagane@oracle.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga05.intel.com ([192.55.52.43]:8619 "EHLO mga05.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1756053AbcIWFps (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 23 Sep 2016 01:45:48 -0400
+In-Reply-To: <1474609542-121940-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Colin Ian King <colin.king@canonical.com>
 
+There is a sanitcy check for desc being null in the first line of
+function i40evf_debug_aq.  However, before that, aq_desc is cast from
+desc, and aq_desc is being dereferenced on the assignment of len, so
+this could be a potential null pointer deference.  Fix this by moving
+the initialization of len to the code block where len is being used
+and hence at this point we know it is OK to dereference aq_desc.
 
-On 09/22/2016 01:49 PM, Vivien Didelot wrote:
-> Today the DSA drivers are in charge of flushing the MAC addresses
-> associated to a port when its STP state changes from Learning or
-> Forwarding, to Disabled or Blocking or Listening.
-> 
-> This makes the drivers more complex and hides this generic switch logic.
-> 
-> This patchset introduces a new optional port_fast_age operation to
-> dsa_switch_ops, to move this logic to the DSA layer and keep drivers
-> simple. b53 and mv88e6xxx are updated accordingly.
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40evf/i40e_common.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-This looks good, just one minor thing, both the b53 and mv88e6xxx can
-actually return an error from fast ageing a port, should we account for
-that? Not that we would be doing something about it though...
-
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-
-> 
-> Vivien Didelot (4):
->   net: dsa: add port STP state helper
->   net: dsa: add port fast ageing
->   net: dsa: b53: implement DSA port fast ageing
->   net: dsa: mv88e6xxx: implement DSA port fast ageing
-> 
->  drivers/net/dsa/b53/b53_common.c | 31 ++++++++++-----------------
->  drivers/net/dsa/mv88e6xxx/chip.c | 45 ++++++++++++++++++++--------------------
->  include/net/dsa.h                |  2 ++
->  net/dsa/slave.c                  | 35 ++++++++++++++++++++++++-------
->  4 files changed, 64 insertions(+), 49 deletions(-)
-> 
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_common.c b/drivers/net/ethernet/intel/i40evf/i40e_common.c
+index 4db0c03..7953c13 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_common.c
+@@ -302,7 +302,6 @@ void i40evf_debug_aq(struct i40e_hw *hw, enum i40e_debug_mask mask, void *desc,
+ 		   void *buffer, u16 buf_len)
+ {
+ 	struct i40e_aq_desc *aq_desc = (struct i40e_aq_desc *)desc;
+-	u16 len = le16_to_cpu(aq_desc->datalen);
+ 	u8 *buf = (u8 *)buffer;
+ 	u16 i = 0;
+ 
+@@ -326,6 +325,8 @@ void i40evf_debug_aq(struct i40e_hw *hw, enum i40e_debug_mask mask, void *desc,
+ 		   le32_to_cpu(aq_desc->params.external.addr_low));
+ 
+ 	if ((buffer != NULL) && (aq_desc->datalen != 0)) {
++		u16 len = le16_to_cpu(aq_desc->datalen);
++
+ 		i40e_debug(hw, mask, "AQ CMD Buffer:\n");
+ 		if (buf_len < len)
+ 			len = buf_len;
+-- 
+2.7.4
