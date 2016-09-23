@@ -1,70 +1,93 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: Re: [RFC] net: store port/representative id in metadata_dst
-Date: Fri, 23 Sep 2016 13:55:12 +0100
-Message-ID: <20160923135512.64e5d5e9@jkicinski-Precision-T1700>
-References: <1474572417-15907-1-git-send-email-jakub.kicinski@netronome.com>
-        <20160923063429.GA1821@nanopsycho.orion>
-        <20160923110609.2f221f99@griffin>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH RFC 1/3] xdp: Infrastructure to generalize XDP
+Date: Fri, 23 Sep 2016 15:00:40 +0200
+Message-ID: <20160923150040.0e3dc7d5@redhat.com>
+References: <1474408824-418864-1-git-send-email-tom@herbertland.com>
+        <1474408824-418864-2-git-send-email-tom@herbertland.com>
+        <06280af8-5451-c423-d295-a5f3f51e63cf@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>,
-        ogerlitz@mellanox.com, John Fastabend <john.fastabend@gmail.com>,
-        sridhar.samudrala@intel.com, ast@kernel.org, daniel@iogearbox.net,
-        simon.horman@netronome.com, Paolo Abeni <pabeni@redhat.com>,
-        Pravin B Shelar <pshelar@nicira.com>,
-        hannes@stressinduktion.org, kubakici@wp.pl
-To: Jiri Benc <jbenc@redhat.com>, Jiri Pirko <jiri@resnulli.us>
+Cc: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
+        netdev@vger.kernel.org, kernel-team@fb.com, tariqt@mellanox.com,
+        bblanco@plumgrid.com, alexei.starovoitov@gmail.com,
+        eric.dumazet@gmail.com, brouer@redhat.com,
+        Thomas Graf <tgraf@suug.ch>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:38703 "EHLO
-        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757746AbcIWMzT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 08:55:19 -0400
-Received: by mail-wm0-f51.google.com with SMTP id l132so28595590wmf.1
-        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 05:55:18 -0700 (PDT)
-In-Reply-To: <20160923110609.2f221f99@griffin>
+Received: from mx1.redhat.com ([209.132.183.28]:43428 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1759830AbcIWNAr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 23 Sep 2016 09:00:47 -0400
+In-Reply-To: <06280af8-5451-c423-d295-a5f3f51e63cf@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 23 Sep 2016 11:06:09 +0200, Jiri Benc wrote:
-> On Fri, 23 Sep 2016 08:34:29 +0200, Jiri Pirko wrote:
-> > So if I understand that correctly, this would need some "shared netdev"
-> > which would effectively serve only as a sink for all port netdevices to
-> > tx packets to. On RX, this would be completely avoided. This lower
-> > device looks like half zombie to me.  
+On Fri, 23 Sep 2016 07:13:30 -0400
+Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+
+> On 16-09-20 06:00 PM, Tom Herbert wrote:
+> > This patch creates an infrastructure for registering and running code at
+> > XDP hooks in drivers. This is based on the orignal XDP?BPF and borrows
+> > heavily from the techniques used by netfilter to make generic nfhooks.
+> >
+> > An XDP hook is defined by the  xdp_hook_ops. This structure contains the
+> > ops of an XDP hook. A pointer to this structure is passed into the XDP
+> > register function to set up a hook. The XDP register function mallocs
+> > its own xdp_hook_ops structure and copies the values from the
+> > xdp_hook_ops passed in. The register function also stores the pointer
+> > value of the xdp_hook_ops argument; this pointer is used in subsequently
+> > calls to XDP to identify the registered hook.
+> >
+> > The interface is defined in net/xdp.h. This includes the definition of
+> > xdp_hook_ops, functions to register and unregister hook ops on a device
+> > or individual instances of napi, and xdp_hook_run that is called by
+> > drivers to run the hooks.
+> >  
 > 
-> Looks more like a quarter zombie. Even tx would not be allowed unless
-> going through one of the ports, as all skbs without
-> METADATA_HW_PORT_MUX metadata_dst would be dropped. But it would be
-> possible to attach qdisc to the "lower" netdevice and it would actually
-> have an effect. On rx this netdevice would be ignored completely. This
-> is very weird behavior.
+> Tom,
+> perused the thread and it seems you are serious ;->
+> Are we heading towards Frankenstein Avenue?
+> The whole point behind letting in XDP is so that _small programs_
+> can be written to do some quick thing. eBPF 4K program limit was
+> touted as the check and bound. eBPF sounded fine.
+> This sounds like a huge contradiction.
 > 
-> > I don't like it :( I wonder if the
-> > solution would not be possible without this lower netdev.  
-> 
-> I agree. This approach doesn't sound correct. The skbs should not be
-> requeued.
+> cheers,
+> jamal
 
-Thanks for the responses!
+Hi Jamal,
 
-I think SR-IOV NICs are coming at this problem from a different angle,
-we already have a big, feature-full per-port netdevs and now we want to
-spawn representators for VFs to handle fallback traffic.  This patch
-would help us mux VFR traffic on all the queues of the physical port
-netdevs (the ones which were already present in legacy mode, that's the
-lower device).
+I don't understand why you think this is so controversial. The way I
+see it (after reading the thread): This is about allowing kernel
+components to _also_ use the XDP hook.
 
-I read the mlxsw code when I was thinking about this and I wasn't
-100% comfortable with returning NETDEV_TX_BUSY, I thought this
-behaviour should be generally avoided.  (BTW a very lame question - does
-mlxsw ever stop the queues?  AFAICS it only returns BUSY, isn't that
-confusing to the stack?)
+I believe Tom have a valid use-case in ILA. The NVE (Network
+Virtualization Edge) component very naturally fits in the XDP hook, as
+it only need to look at the IPv6 address and do a table lookup (in a
+ILA specific data structure) to see if this packet is for local stack
+delivery or forward.  For forward it does not need take the performance
+hit of allocating SKBs etc.
 
-FWIW the switchdev SR-IOV model we have now seems to be to treat the
-existing netdevs as "MAC ports" and spawn representatives for VFs but
-not represent PFs in any way.  This makes it impossible to install
-VF-PF flow rules.  I worry this can bite us later but that's slightly
-different discussion :)  For the purpose of this patch please assume
-the lower dev is the MAC/physical/external port.
+You can see it as a way to accelerate the NVE component. I can imagine
+it could be done in approx 10-20 lines of code, as it would use the
+existing ILA lookup function calls.
+
+AFAIK Thomas Graf also see XDP as an acceleration for bpf_cls, but he
+is lucky because his code is already eBFP based.
+
+To support Tom's case, with eBPF, I think we would have to implement
+specific eBPF helper functions that can do the ILA table lookups.  And
+then need a userspace component to load the eBPF program.  Why add all
+this, when we could contain all this in the kernel, and simply call
+this as native C-code via the XDP hook?
+
+Notice, this is not about throwing eBPF out.  Using eBPF is _very_
+essential for XDP.
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
