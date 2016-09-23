@@ -1,104 +1,77 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 00/15] rxrpc: Bug fixes and tracepoints
-Date: Fri, 23 Sep 2016 16:15:17 +0100
-Message-ID: <147464371753.5090.1634919599283321856.stgit@warthog.procyon.org.uk>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH RFC 05/11] skbuff: Extend gso_type to unsigned int.
+Date: Fri, 23 Sep 2016 08:15:18 -0700
+Message-ID: <CAKgT0UdBswycmfpomorMWXneh6=yDbfBbwqrYc9Qtk8zFcVtgw@mail.gmail.com>
+References: <1474617228-26103-1-git-send-email-steffen.klassert@secunet.com>
+ <1474617228-26103-6-git-send-email-steffen.klassert@secunet.com> <063D6719AE5E284EB5DD2968C1650D6DB0107FC2@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+        Ilan Tayari <ilant@mellanox.com>,
+        Boris Pismenny <borisp@mellanox.com>,
+        Ariel Levkovich <lariel@mellanox.com>,
+        "Hay, Joshua A" <joshua.a.hay@intel.com>
+To: David Laight <David.Laight@aculab.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f196.google.com ([209.85.223.196]:36081 "EHLO
+        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965332AbcIWPPU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 11:15:20 -0400
+Received: by mail-io0-f196.google.com with SMTP id z135so7336767ioe.3
+        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 08:15:19 -0700 (PDT)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB0107FC2@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Fri, Sep 23, 2016 at 6:19 AM, David Laight <David.Laight@aculab.com> wrote:
+> From: Steffen Klassert
+>> Sent: 23 September 2016 08:54
+>> All available gso_type flags are currently in use,
+>> so extend gso_type to be able to add further flags.
+>>
+>> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+>> ---
+>>  include/linux/skbuff.h | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+>> index f21da42..c1fd854 100644
+>> --- a/include/linux/skbuff.h
+>> +++ b/include/linux/skbuff.h
+>> @@ -417,7 +417,7 @@ struct skb_shared_info {
+>>       unsigned short  gso_size;
+>>       /* Warning: this field is not always filled in (UFO)! */
+>>       unsigned short  gso_segs;
+>> -     unsigned short  gso_type;
+>> +     unsigned int    gso_type;
+>>       struct sk_buff  *frag_list;
+>>       struct skb_shared_hwtstamps hwtstamps;
+>>       u32             tskey;
+>
+> That add a lot of padding.
+> I'm not even sure DM will like this structure being extended.
+> If ktime_t is 64 bit I think there is already some padding later on.
 
-Here are a bunch of bug fixes:
++1.  Just increasing the size is a bad idea as it will add a 6 byte
+hole and push frag 0 outside the first cache line.
 
- (1) Need to set the timestamp on a Tx packet before queueing it to avoid
-     trouble with the retransmission function.
+You may want to take a look at rearranging the structure a bit.  That
+way you could eat into the 4 byte hole that is available on x86_64 so
+that instead of shifting everything up by 8 bytes they can mostly stay
+put with only a bit of rearranging.  This is one of those times a tool
+like pahole comes in handy.
 
- (2) Don't send an ACK at the end of the service reply transmission; it's
-     the responsibility of the client to send an ACK to close the call.
-     The service can resend the last DATA packet or send a PING ACK.
+Also it occurs to me that one other thing you could look at is if you
+were to move gso_type into the slot after dataref we might be able to
+make use of the hole while also saving us some initialization time as
+the change in size would push us from 32 to 36 which would likely
+impact the memset operation by at least a 1 cycle increase.  If we
+could make it so that we don't have to initialize the memory for
+gso_type unless we are planning to set gso_size we can avoid the extra
+overhead for that.  It would just be a matter of validating that
+nothing reads gso_type unless gso_size is set and that gso_type is
+always written to prior to setting gso_size to a non-zero value.
 
- (3) Wake sendmsg() on abnormal call termination.
-
- (4) Use ktime_add_ms() not ktime_add_ns() to add millisecond offsets.
-
- (5) Use before_eq() & co. to compare serial numbers (which may wrap).
-
- (6) Start the resend timer on DATA packet transmission.
-
- (7) Don't accidentally cancel a retransmission upon receiving a NACK.
-
- (8) Fix the call timer setting function to deal with timeouts that are now
-     or past.
-
- (9) Don't use a flag to communicate the presence of the last packet in the
-     Tx buffer from sendmsg to the input routines where ACK and DATA
-     reception is handled.  The problem is that there's a window between
-     queueing the last packet for transmission and setting the flag in
-     which ACKs or reply DATA packets can arrive, causing apparent state
-     machine violation issues.
-
-     Instead use the annotation buffer to mark the last packet and pick up
-     and set the flag in the input routines.
-
-(10) Don't call the tx_ack tracepoint and don't allocate a serial number if
-     someone else nicked the ACK we were about to transmit.
-
-There are also new tracepoints and one altered tracepoint used to track
-down the above bugs:
-
-(11) Call timer tracepoint.
-
-(12) Data Tx tracepoint (and adjustments to ACK tracepoint).
-
-(13) Injected Rx packet loss tracepoint.
-
-(14) Ack proposal tracepoint.
-
-(15) Retransmission selection tracepoint.
-
-The patches can be found here also:
-
-	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-rewrite
-
-Tagged thusly:
-
-	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
-	rxrpc-rewrite-20160923
-
-David
----
-David Howells (15):
-      rxrpc: Preset timestamp on Tx sk_buffs
-      rxrpc: Don't send an ACK at the end of service call response transmission
-      rxrpc: Make sure sendmsg() is woken on call completion
-      rxrpc: Should be using ktime_add_ms() not ktime_add_ns()
-      rxrpc: Use before_eq() and friends to compare serial numbers
-      rxrpc: Need to start the resend timer on initial transmission
-      rxrpc: Fix accidental cancellation of scheduled resend by ACK parser
-      rxrpc: Fix call timer
-      rxrpc: Pass the last Tx packet marker in the annotation buffer
-      rxrpc: Don't call the tx_ack tracepoint if don't generate an ACK
-      rxrpc: Add a tracepoint for the call timer
-      rxrpc: Add data Tx tracepoint and adjust Tx ACK tracepoint
-      rxrpc: Add a tracepoint to log injected Rx packet loss
-      rxrpc: Add tracepoint for ACK proposal
-      rxrpc: Add a tracepoint to log which packets will be retransmitted
-
-
- include/rxrpc/packet.h       |    1 
- include/trace/events/rxrpc.h |  174 ++++++++++++++++++++++++++++++++++++++++--
- net/rxrpc/ar-internal.h      |   45 ++++++++++-
- net/rxrpc/call_event.c       |   57 ++++++++------
- net/rxrpc/call_object.c      |    8 +-
- net/rxrpc/conn_event.c       |    5 -
- net/rxrpc/input.c            |  136 +++++++++++++++++++++------------
- net/rxrpc/misc.c             |   41 +++++++---
- net/rxrpc/output.c           |   32 ++++----
- net/rxrpc/recvmsg.c          |    5 -
- net/rxrpc/sendmsg.c          |   28 +++++--
- 11 files changed, 405 insertions(+), 127 deletions(-)
+- Alex
