@@ -1,105 +1,59 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/10] ixgbe: Support 4 queue RSS on VFs with 1 or 2 queue RSS on PF
-Date: Fri, 23 Sep 2016 00:51:42 -0700
-Message-ID: <1474617103-59530-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/10] ixgbe: reset before SRIOV init to avoid mailbox issues
+Date: Fri, 23 Sep 2016 00:51:43 -0700
+Message-ID: <1474617103-59530-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1474617103-59530-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, guru.anbalagane@oracle.com,
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:6929 "EHLO mga05.intel.com"
+Received: from mga05.intel.com ([192.55.52.43]:27953 "EHLO mga05.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1757761AbcIWHvs (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1757951AbcIWHvs (ORCPT <rfc822;netdev@vger.kernel.org>);
         Fri, 23 Sep 2016 03:51:48 -0400
 In-Reply-To: <1474617103-59530-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-Instead of limiting the VFs if we don't use 4 queues for RSS in the PF we
-can instead just limit the RSS queues used to a power of 2.  By doing this
-we can support use cases where VFs are using more queues than the PF is
-currently using and can support RSS if so desired.
+Enabling SRIOV while the ixgbevf driver is loaded will result in all
+mailbox requests from ixgbevf_open() being rejected by ixgbe because
+adapter->clear_to_send is set to false on reset.
 
-The only limitation on this is that we cannot support 3 queues of RSS in
-the PF or VF.  In either of these cases we should fall back to 2 queues in
-order to be able to use the power of 2 masking provided by the psrtype
-register.
+Call ixgbe_sriov_reinit() before pci_enable_sriov() to make sure that
+mailbox requests are handled from the time ixgbevf is loaded.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Reported-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c  |  7 ++++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 12 +++++++-----
- 2 files changed, 11 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-index bcdc884..15ab337 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-@@ -515,15 +515,16 @@ static bool ixgbe_set_sriov_queues(struct ixgbe_adapter *adapter)
- 	vmdq_i = min_t(u16, IXGBE_MAX_VMDQ_INDICES, vmdq_i);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index 8618599..343a182 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -329,13 +329,15 @@ static int ixgbe_pci_sriov_enable(struct pci_dev *dev, int num_vfs)
+ 	for (i = 0; i < adapter->num_vfs; i++)
+ 		ixgbe_vf_configuration(dev, (i | 0x10000000));
  
- 	/* 64 pool mode with 2 queues per pool */
--	if ((vmdq_i > 32) || (rss_i < 4) || (vmdq_i > 16 && pools)) {
-+	if ((vmdq_i > 32) || (vmdq_i > 16 && pools)) {
- 		vmdq_m = IXGBE_82599_VMDQ_2Q_MASK;
- 		rss_m = IXGBE_RSS_2Q_MASK;
- 		rss_i = min_t(u16, rss_i, 2);
--	/* 32 pool mode with 4 queues per pool */
-+	/* 32 pool mode with up to 4 queues per pool */
- 	} else {
- 		vmdq_m = IXGBE_82599_VMDQ_4Q_MASK;
- 		rss_m = IXGBE_RSS_4Q_MASK;
--		rss_i = 4;
-+		/* We can support 4, 2, or 1 queues */
-+		rss_i = (rss_i > 3) ? 4 : (rss_i > 1) ? 2 : 1;
++	/* reset before enabling SRIOV to avoid mailbox issues */
++	ixgbe_sriov_reinit(adapter);
++
+ 	err = pci_enable_sriov(dev, num_vfs);
+ 	if (err) {
+ 		e_dev_warn("Failed to enable PCI sriov: %d\n", err);
+ 		return err;
  	}
+ 	ixgbe_get_vfs(adapter);
+-	ixgbe_sriov_reinit(adapter);
  
- #ifdef IXGBE_FCOE
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 1c88858..a244d9a 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -3248,7 +3248,8 @@ static void ixgbe_setup_mtqc(struct ixgbe_adapter *adapter)
- 			mtqc |= IXGBE_MTQC_RT_ENA | IXGBE_MTQC_8TC_8TQ;
- 		else if (tcs > 1)
- 			mtqc |= IXGBE_MTQC_RT_ENA | IXGBE_MTQC_4TC_4TQ;
--		else if (adapter->ring_feature[RING_F_RSS].indices == 4)
-+		else if (adapter->ring_feature[RING_F_VMDQ].mask ==
-+			 IXGBE_82599_VMDQ_4Q_MASK)
- 			mtqc |= IXGBE_MTQC_32VF;
- 		else
- 			mtqc |= IXGBE_MTQC_64VF;
-@@ -3475,12 +3476,12 @@ static void ixgbe_setup_reta(struct ixgbe_adapter *adapter)
- 	u32 reta_entries = ixgbe_rss_indir_tbl_entries(adapter);
- 	u16 rss_i = adapter->ring_feature[RING_F_RSS].indices;
- 
--	/* Program table for at least 2 queues w/ SR-IOV so that VFs can
-+	/* Program table for at least 4 queues w/ SR-IOV so that VFs can
- 	 * make full use of any rings they may have.  We will use the
- 	 * PSRTYPE register to control how many rings we use within the PF.
- 	 */
--	if ((adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) && (rss_i < 2))
--		rss_i = 2;
-+	if ((adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) && (rss_i < 4))
-+		rss_i = 4;
- 
- 	/* Fill out hash function seeds */
- 	for (i = 0; i < 10; i++)
-@@ -3544,7 +3545,8 @@ static void ixgbe_setup_mrqc(struct ixgbe_adapter *adapter)
- 				mrqc = IXGBE_MRQC_VMDQRT8TCEN;	/* 8 TCs */
- 			else if (tcs > 1)
- 				mrqc = IXGBE_MRQC_VMDQRT4TCEN;	/* 4 TCs */
--			else if (adapter->ring_feature[RING_F_RSS].indices == 4)
-+			else if (adapter->ring_feature[RING_F_VMDQ].mask ==
-+				 IXGBE_82599_VMDQ_4Q_MASK)
- 				mrqc = IXGBE_MRQC_VMDQRSS32EN;
- 			else
- 				mrqc = IXGBE_MRQC_VMDQRSS64EN;
+ 	return num_vfs;
+ #else
 -- 
 2.7.4
