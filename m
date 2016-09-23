@@ -1,62 +1,90 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH] net: VRF: Fix receiving multicast traffic
-Date: Fri, 23 Sep 2016 07:49:34 -0600
-Message-ID: <1bb15beb-fbab-c365-2519-11cf9d13007c@cumulusnetworks.com>
-References: <20160922041308.30848-1-mark.tomlinson@alliedtelesis.co.nz>
- <aac5b560-d757-3281-8e69-7953e7c4b418@cumulusnetworks.com>
- <ee8de997-007c-4035-5f65-a8b389a138ac@alliedtelesis.co.nz>
- <319068be-b1b9-c245-55d6-5e012e57487b@cumulusnetworks.com>
- <f1ead8ba-5404-36f3-40a9-35105006017d@alliedtelesis.co.nz>
+From: Bjorn Helgaas <helgaas@kernel.org>
+Subject: Re: [net-next 5/5] PCI: disable FLR for 82579 device
+Date: Fri, 23 Sep 2016 09:01:36 -0500
+Message-ID: <20160923140136.GC1514@localhost>
+References: <1474612741-75681-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1474612741-75681-6-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-To: Mark Tomlinson <Mark.Tomlinson@alliedtelesis.co.nz>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, bhelgaas@google.com,
+        Sasha Neftin <sasha.neftin@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        guru.anbalagane@oracle.com, linux-pci@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f174.google.com ([209.85.223.174]:34268 "EHLO
-        mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1034532AbcIWNtp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 09:49:45 -0400
-Received: by mail-io0-f174.google.com with SMTP id e66so28937196iod.1
-        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 06:49:40 -0700 (PDT)
-In-Reply-To: <f1ead8ba-5404-36f3-40a9-35105006017d@alliedtelesis.co.nz>
+Received: from mail.kernel.org ([198.145.29.136]:56084 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1034358AbcIWOBm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 23 Sep 2016 10:01:42 -0400
+Content-Disposition: inline
+In-Reply-To: <1474612741-75681-6-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/22/16 9:06 PM, Mark Tomlinson wrote:
+On Thu, Sep 22, 2016 at 11:39:01PM -0700, Jeff Kirsher wrote:
+> From: Sasha Neftin <sasha.neftin@intel.com>
 > 
-> On 09/23/2016 10:41 AM, David Ahern wrote:
->> On 9/22/16 4:10 PM, Mark Tomlinson wrote:
->>> On 09/23/2016 03:14 AM, David Ahern wrote:
->>>> l3mdev devices do not support IPv4 multicast so checking mcast against that device should not be working at all. For that reason I was fine with the change in the previous patch. ie., you want the real ingress device there not the vrf device.
->>>>
->>>> What test are you running that says your previous patch broke something?
->>> Although we do not expect any multicast routing to work in an l3mdev,
->>> (IGMP snooping or PIM), we still want to have multicast packets
->>> delivered for protocols such as RIP. This was working before my previous
->>> patch, but these multicast packets are now dropped. This current patch
->>> fixes that again, hopefully still with the benefits of my first patch.
->>>
->> can you discern which check is making that happen?
->>
->> It does not make sense to look at the in_device of a vrf device for mcast addresses. For IPv6 linklocal and mcast is specifically blocked. IPv4 should do the same. So, how is RIP getting the packet at all?
-> This might be due to some other changes we've made for VRF and multicast 
-> but haven't sent upstream. In particular, a change to do_ip_setsockopt() 
-> and its handling of IP_MULTICAST_IF as well as IP_ADD/DROP_MEMBERSHIP. I 
-> am guessing that without these changes, we wouldn't be able to receive 
-> multicast packets in RIP. With our changes, the in_dev->mc_list does 
-> contain the RIP MC address (224.0.0.9) in the master interface, and so 
-> the function ip_check_mc_rcu() returns success with the master only.
+> 82579 has a problem reattaching itself after the device is detached.
+> The bug was reported by Redhat. The suggested fix is to disable
+> FLR capability in PCIe configuration space.
 > 
-> Our RIP daemon is VRF-aware. So it does use setsockopt(SO_BINDTODEVICE, 
-> "vrf-master") when running in a VRF. Without following it all the way 
-> down, I believe that it is this that allows the multicast lookup at the 
-> top of ip_check_mc_rcu() to succeed on the vrf-master, but not the 
-> ingress interface. That is, in_dev->mc_list does contain 224.0.0.9 only 
-> on the vrf-master. Provided the lookup in ip_check_mc_rcu() succeeds (im 
-> != NULL), this function can return success.
+> Reproduction:
+> Attach the device to a VM, then detach and try to attach again.
 > 
-> Are you interested in the other patches at the moment?
-> 
+> Fix:
+> Disable FLR capability to prevent the 82579 from hanging.
 
-Yes, but with the context of the bigger IPv4 multicast solution. I am on PTO today - about to get on a plane. How about we leave the upstream kernel as is - i.e., drop this patch. You can carry it locally with the others. We can take a look at the bigger mcast picture for 4.10. Agree?
+Is there a bugzilla or other reference URL to include here?  Should
+this be marked for stable?
+
+> Signed-off-by: Sasha Neftin <sasha.neftin@intel.com>
+> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>  drivers/pci/quirks.c | 21 +++++++++++++++++++++
+>  1 file changed, 21 insertions(+)
+> 
+> diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+> index 44e0ff3..59fba6e 100644
+> --- a/drivers/pci/quirks.c
+> +++ b/drivers/pci/quirks.c
+> @@ -4431,3 +4431,24 @@ static void quirk_intel_qat_vf_cap(struct pci_dev *pdev)
+>  	}
+>  }
+>  DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x443, quirk_intel_qat_vf_cap);
+> +/*
+> + * Workaround FLR issues for 82579
+> + * This code disables the FLR (Function Level Reset) via PCIe, in order
+> + * to workaround a bug found while using device passthrough, where the
+> + * interface would become non-responsive.
+> + * NOTE: the FLR bit is Read/Write Once (RWO) in config space, so if
+> + * the BIOS or kernel writes this register * then this workaround will
+> + * not work.
+
+This doesn't sound like a root cause.  Is the issue a hardware
+erratum?  Linux PCI core bug?  VFIO bug?  Device firmware bug?
+
+The changelog suggests that the problem only affects passthrough,
+which suggests some sort of kernel bug related to how passthrough is
+implemented.
+
+> + */
+> +static void quirk_intel_flr_cap_dis(struct pci_dev *dev)
+> +{
+> +	int pos = pci_find_capability(dev, PCI_CAP_ID_AF);
+> +	if (pos) {
+> +		u8 cap;
+> +		pci_read_config_byte(dev, pos + PCI_AF_CAP, &cap);
+> +		cap = cap & (~PCI_AF_CAP_FLR);
+> +		pci_write_config_byte(dev, pos + PCI_AF_CAP, cap);
+> +	}
+> +}
+> +DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x1502, quirk_intel_flr_cap_dis);
+> +DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x1503, quirk_intel_flr_cap_dis);
+> -- 
+> 2.7.4
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-pci" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
