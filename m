@@ -1,109 +1,100 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: Alignment issues with freescale FEC driver
-Date: Fri, 23 Sep 2016 09:54:38 -0700
-Message-ID: <CANn89iLb+QJu+MYh859oAAjcLCsKRpBbzVf43yOdq+HJVtZDpQ@mail.gmail.com>
-References: <troy.kisky@boundarydevices.com> <02afb707-65de-5101-a79b-355929c4e00b@nelint.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: bcmgenet: Fix EPHY reset in power up
+Date: Fri, 23 Sep 2016 09:54:35 -0700
+Message-ID: <f68f0b8c-df49-1326-c05f-ddd7f95e4209@gmail.com>
+References: <20160923132004.5734-1-jaedon.shin@gmail.com>
+ <20160923140609.GA22965@lunn.ch>
+ <5A71930B-ED19-4690-942D-779F1454C77A@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        rmk+kernel@arm.linux.org.uk, Fugang Duan <fugang.duan@nxp.com>,
-        Troy Kisky <troy.kisky@boundarydevices.com>,
-        Otavio Salvador <otavio@ossystems.com.br>,
-        Simone <cjb.sw.nospam@gmail.com>
-To: Eric Nelson <eric@nelint.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: David Miller <davem@davemloft.net>,
+        Philippe Reynes <tremyfr@gmail.com>, netdev@vger.kernel.org
+To: Jaedon Shin <jaedon.shin@gmail.com>, Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f169.google.com ([209.85.161.169]:35198 "EHLO
-        mail-yw0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1760412AbcIWQyk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 12:54:40 -0400
-Received: by mail-yw0-f169.google.com with SMTP id u82so117719791ywc.2
-        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 09:54:40 -0700 (PDT)
-In-Reply-To: <02afb707-65de-5101-a79b-355929c4e00b@nelint.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:36411 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751847AbcIWQyi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 12:54:38 -0400
+Received: by mail-pf0-f193.google.com with SMTP id n24so5513230pfb.3
+        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 09:54:37 -0700 (PDT)
+In-Reply-To: <5A71930B-ED19-4690-942D-779F1454C77A@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 23, 2016 at 9:43 AM, Eric Nelson <eric@nelint.com> wrote:
->
-> Hello all,
->
-> We're seeing alignment issues from the ethernet stack on an i.MX6UL board:
->
-> root@mx6ul:~# cat /proc/cpu/alignment
-> User: 0
-> System: 470010 (inet_gro_receive+0x104/0x278)
->
-> This seems to be related to the ip header alignment, and there
-> was much discussion in mailing list threads [1] and [2].
->
-> In particular, Russell referred to a patch here, but I haven't been
-> able to find it:
-> https://lists.linaro.org/pipermail/linaro-toolchain/2012-October/002844.html
->
-> Eric Dumazet also suggested a path toward fixing it, but I don't quite
-> understand the suggestion:
-> http://www.spinics.net/lists/netdev/msg213166.htm
->
-> The immediate problem is addressed by just reading the id and frag_offs
-> fields in the iphdr structure as shown in this patch:
->
-> commit 98810abc911b1286a7e4a2ebdfbad66f12fae19d
-> Author: Eric Nelson <eric@nelint.com>
-> Date: Fri Sep 23 08:26:03 2016 -0700
->
-> net: ipv4: af_inet: don't read multiple 16-bit iphdr fields as a 32-bit
-> value
->
-> Change-Id: Idc7122c22c13ca078be31907d30ab1c3148ba807
-> Signed-off-by: Eric Nelson <eric@nelint.com>
->
-> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-> index 0cc98b1..c17ef6e 100644
-> --- a/net/ipv4/af_inet.c
-> +++ b/net/ipv4/af_inet.c
-> @@ -1301,6 +1301,7 @@ static struct sk_buff **inet_gro_receive(struct
-> sk_buff **head,
-> unsigned int hlen;
-> unsigned int off;
-> unsigned int id;
-> + unsigned int frag;
-> int flush = 1;
-> int proto;
->
-> @@ -1326,9 +1327,9 @@ static struct sk_buff **inet_gro_receive(struct
-> sk_buff **head,
-> if (unlikely(ip_fast_csum((u8 *)iph, 5)))
-> goto out_unlock;
->
-> - id = ntohl(*(__be32 *)&iph->id);
-> - flush = (u16)((ntohl(*(__be32 *)iph) ^ skb_gro_len(skb)) | (id & ~IP_DF));
-> - id >>= 16;
-> + id = ntohs(*(__be16 *)&iph->id);
-> + frag = ntohs(*(__be16 *)&iph->frag_off);
-> + flush = (u16)((ntohl(*(__be32 *)iph) ^ skb_gro_len(skb)) | (frag &
-> ~IP_DF));
->
-> for (p = *head; p; p = p->next) {
-> struct iphdr *iph2;
->
+On 09/23/2016 08:04 AM, Jaedon Shin wrote:
+> Hi Andrew,
+> 
+> On 23 Sep 2016, at 11:06 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+>>
+>> On Fri, Sep 23, 2016 at 10:20:04PM +0900, Jaedon Shin wrote:
+>>> The bcmgenet_mii_reset() is always not running in power up sequence
+>>> after 'commit 62469c76007e ("net: ethernet: bcmgenet: use phydev from
+>>> struct net_device")'. This'll show extremely high latency and duplicate
+>>> packets while interface down and up repeatedly.
+>>>
+>>> For now, adds again a private phydev for mii reset when runs power up to
+>>> open interface.
+>>
+>> Hi Jaedon
+>>
+>> How does this fix the issue? It sounds like you are papering over the
+>> crack, not truly fixing it.
+>>
+>>       Andrew
+> 
+> Yes, It feel like a workaround, but I think it must need v4.8 stable
+> version. If we find better way that fixes internal PHY to initialize
+> after re-open interface, this patch will be dropped.
 
-This solves nothing, because a few lines after you'll have yet another
-unaligned access :
+I can observe the faulting behavior with 4.8-rc7 that the link below
+fixed initially:
 
+# ping fainelli-linux
+PING fainelli-linux (10.112.156.244): 56 data bytes
+64 bytes from 10.112.156.244: seq=1 ttl=61 time=1.352 ms
+64 bytes from 10.112.156.244: seq=1 ttl=61 time=1.472 ms (DUP!)
+64 bytes from 10.112.156.244: seq=1 ttl=61 time=1.496 ms (DUP!)
+64 bytes from 10.112.156.244: seq=1 ttl=61 time=1.517 ms (DUP!)
+64 bytes from 10.112.156.244: seq=1 ttl=61 time=1.536 ms (DUP!)
+64 bytes from 10.112.156.244: seq=1 ttl=61 time=1.557 ms (DUP!)
+64 bytes from 10.112.156.244: seq=1 ttl=61 time=752.448 ms (DUP!)
+64 bytes from 10.112.156.244: seq=2 ttl=61 time=1.291 ms
+64 bytes from 10.112.156.244: seq=2 ttl=61 time=1.421 ms (DUP!)
+64 bytes from 10.112.156.244: seq=2 ttl=61 time=1.444 ms (DUP!)
+64 bytes from 10.112.156.244: seq=2 ttl=61 time=1.464 ms (DUP!)
+64 bytes from 10.112.156.244: seq=2 ttl=61 time=1.483 ms (DUP!)
+64 bytes from 10.112.156.244: seq=2 ttl=61 time=1.505 ms (DUP!)
+64 bytes from 10.112.156.244: seq=2 ttl=61 time=24.964 ms (DUP!)
 
-((__force u32)iph->saddr ^ (__force u32)iph2->saddr) |
-((__force u32)iph->daddr ^ (__force u32)iph2->daddr)) {
+If we revert this patch, we indeed get the normal and expected behavior
+back:
 
-So you might have one less problematic access, out of hundreds of them
-all over the places.
+# ping fainelli-linux
+PING fainelli-linux (10.112.156.244): 56 data bytes
+64 bytes from 10.112.156.244: seq=0 ttl=61 time=0.417 ms
+64 bytes from 10.112.156.244: seq=1 ttl=61 time=0.415 ms
+64 bytes from 10.112.156.244: seq=2 ttl=61 time=0.424 ms
 
-Really the problem is that whole stack depends on the assumption that
-IP headers are aligned on arches that care
-(ie where NET_IP_ALIGN == 2)
+Actually, the key thing is this:
 
-If your build does have NET_IP_ALIGN = 2 and you get a fault here, it
-might be because of a buggy driver.
+- without Philippe's patch we call twice bcmgenet_mii_reset, and that is
+intended:
+	- first time from bcmgenet_power_up() to make sure the PHY is
+initialized *before* we get to initialize the UniMAC, this is critical
+	- second time from bcmgenet_mii_probe(), through the normal phy_init_hw()
 
-The other known case is some GRE encapsulations that break the
-assumption, and this is discussed somewhere else.
+- with Philippe's patch, we only get to call bcmgenet_mii_reset once, in
+bcmgenet_mii_probe() because the first time in bcmgenet_power_up(),
+dev->phydev is NULL, because of a prior call to phy_disconnect() in
+bcmgenet_close(), unfortunately, there has been MAC activity, so the PHY
+gets in a bad state
+
+Jaedon, feel free to use the explanation above, and send a plain revert
+of commit 62469c76007e11428e2ee3c6de90cbe74b588d44.
+
+Thanks!
+
+Thanks!
+-- 
+Florian
