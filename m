@@ -1,8 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 04/15] rxrpc: Should be using ktime_add_ms() not
- ktime_add_ns()
-Date: Fri, 23 Sep 2016 16:15:45 +0100
-Message-ID: <147464374515.5090.634182636044685050.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 05/15] rxrpc: Use before_eq() and friends to
+ compare serial numbers
+Date: Fri, 23 Sep 2016 16:15:52 +0100
+Message-ID: <147464375197.5090.5370130943475664508.stgit@warthog.procyon.org.uk>
 References: <147464371753.5090.1634919599283321856.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,25 +15,26 @@ In-Reply-To: <147464371753.5090.1634919599283321856.stgit@warthog.procyon.org.uk
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ktime_add_ms() should be used to add the resend time (in ms) rather than
-ktime_add_ns().
+before_eq() and friends should be used to compare serial numbers (when not
+checking for (non)equality) rather than casting to int, subtracting and
+checking the result.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/call_event.c |    2 +-
+ net/rxrpc/input.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/rxrpc/call_event.c b/net/rxrpc/call_event.c
-index 6e2ea8f4ae75..a2909da5d581 100644
---- a/net/rxrpc/call_event.c
-+++ b/net/rxrpc/call_event.c
-@@ -187,7 +187,7 @@ static void rxrpc_resend(struct rxrpc_call *call)
- 		call->rxtx_annotations[ix] = RXRPC_TX_ANNO_RETRANS | annotation;
+diff --git a/net/rxrpc/input.c b/net/rxrpc/input.c
+index cbb5d53f09d7..06027b6d9c19 100644
+--- a/net/rxrpc/input.c
++++ b/net/rxrpc/input.c
+@@ -578,7 +578,7 @@ static void rxrpc_input_ack(struct rxrpc_call *call, struct sk_buff *skb,
  	}
  
--	resend_at = ktime_sub(ktime_add_ns(oldest, rxrpc_resend_timeout), now);
-+	resend_at = ktime_sub(ktime_add_ms(oldest, rxrpc_resend_timeout), now);
- 	call->resend_at = jiffies + nsecs_to_jiffies(ktime_to_ns(resend_at));
- 
- 	/* Now go through the Tx window and perform the retransmissions.  We
+ 	/* Discard any out-of-order or duplicate ACKs. */
+-	if ((int)sp->hdr.serial - (int)call->acks_latest <= 0) {
++	if (before_eq(sp->hdr.serial, call->acks_latest)) {
+ 		_debug("discard ACK %d <= %d",
+ 		       sp->hdr.serial, call->acks_latest);
+ 		return;
