@@ -1,35 +1,47 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCHv2 iproute2 0/2] ip rule: merger iprule_flush and add
- selector support
-Date: Fri, 23 Sep 2016 08:05:32 +0200
-Message-ID: <20160923060532.GG31706@orbyte.nwl.cc>
-References: <1474601155-28171-1-git-send-email-liuhangbin@gmail.com>
+From: <sean.wang@mediatek.com>
+Subject: [PATCH net-next] Documentation: devicetree: fix typo in MediaTek ethernet device-tree binding
+Date: Fri, 23 Sep 2016 14:09:32 +0800
+Message-ID: <1474610972-14974-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: Hangbin Liu <liuhangbin@gmail.com>
+Content-Type: text/plain
+Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
+        <linux-mediatek@lists.infradead.org>, <john@phrozen.org>,
+        <keyhaede@gmail.com>, <objelf@gmail.com>,
+        Sean Wang <sean.wang@mediatek.com>
+To: <davem@davemloft.net>, <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:52596 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755979AbcIWGFf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 23 Sep 2016 02:05:35 -0400
-Content-Disposition: inline
-In-Reply-To: <1474601155-28171-1-git-send-email-liuhangbin@gmail.com>
+Received: from mailgw02.mediatek.com ([210.61.82.184]:42831 "EHLO
+        mailgw02.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1755932AbcIWGJq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 02:09:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 23, 2016 at 11:25:53AM +0800, Hangbin Liu wrote:
-> When merge iprule_flush() and iprule_list_or_save(). Renamed
-> rtnl_filter_t filter to filter_fn because we want to use global
-> variable 'filter' to filter nlmsg in the next patch.
-> 
-> Hangbin Liu (2):
->   ip rule: merge ip rule flush and list, save together
->   ip rule: add selector support
-> 
->  ip/iprule.c        | 295 +++++++++++++++++++++++++++++++++++++++++------------
->  man/man8/ip-rule.8 |   6 +-
->  2 files changed, 231 insertions(+), 70 deletions(-)
+From: Sean Wang <sean.wang@mediatek.com>
 
-Acked-by: Phil Sutter <phil@nwl.cc>
+fix typo in
+Documentation/devicetree/bindings/net/mediatek-net.txt
+
+Cc: devicetree@vger.kernel.org
+Reported-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+---
+ Documentation/devicetree/bindings/net/mediatek-net.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Documentation/devicetree/bindings/net/mediatek-net.txt b/Documentation/devicetree/bindings/net/mediatek-net.txt
+index 7111278..f095257 100644
+--- a/Documentation/devicetree/bindings/net/mediatek-net.txt
++++ b/Documentation/devicetree/bindings/net/mediatek-net.txt
+@@ -34,7 +34,7 @@ Required properties:
+ - phy-handle: see ethernet.txt file in the same directory and
+ 	the phy-mode "trgmii" required being provided when reg
+ 	is equal to 0 and the MAC uses fixed-link to connect
+-	with inernal switch such as MT7530.
++	with internal switch such as MT7530.
+ 
+ Example:
+ 
+-- 
+1.9.1
