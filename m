@@ -1,48 +1,69 @@
-From: Lance Richardson <lrichard@redhat.com>
-Subject: [PATCH net] ip6_gre: fix flowi6_proto value in ip6gre_xmit_other()
-Date: Fri, 23 Sep 2016 12:54:59 -0400
-Message-ID: <1474649699-31069-1-git-send-email-lrichard@redhat.com>
-To: netdev@vger.kernel.org
+From: Alexei Starovoitov <ast@fb.com>
+Subject: [PATCH RFC 0/2] ila: ilarouter bpf code for tc and xdp
+Date: Fri, 23 Sep 2016 10:16:33 -0700
+Message-ID: <1474650995-2031928-1-git-send-email-ast@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Thomas Graf <tgraf@suug.ch>, <netdev@vger.kernel.org>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47732 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1760693AbcIWQzA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 23 Sep 2016 12:55:00 -0400
-Received: from int-mx13.intmail.prod.int.phx2.redhat.com (int-mx13.intmail.prod.int.phx2.redhat.com [10.5.11.26])
-        (using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-        (No client certificate requested)
-        by mx1.redhat.com (Postfix) with ESMTPS id 2C40744831
-        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 16:55:00 +0000 (UTC)
-Received: from thinkcentre.nc.rr.com (vpn-54-84.rdu2.redhat.com [10.10.54.84])
-        by int-mx13.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id u8NGsxFd029385
-        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 12:54:59 -0400
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:36684 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1760508AbcIWRQi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 13:16:38 -0400
+Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
+        by m0089730.ppops.net (8.16.0.17/8.16.0.17) with SMTP id u8NHDun6027965
+        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 10:16:37 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by m0089730.ppops.net with ESMTP id 25mqbd0h4e-3
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 10:16:37 -0700
+Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)     by
+ mx-out.facebook.com (10.103.99.97) with ESMTP  id
+ 7b17724481b111e6ab460002c9931860-ebaf7a50 for <netdev@vger.kernel.org>;        Fri,
+ 23 Sep 2016 10:16:35 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Similar to commit 3be07244b733 ("ip6_gre: fix flowi6_proto value in
-xmit path"), set flowi6_proto to IPPROTO_GRE for output route lookup.
-Since the correct proto is already set in the tunnel flowi6 template via
-commit 252f3f5a1189 ("ip6_gre: Set flowi6_proto as IPPROTO_GRE in xmit
-path."), simply delete the line setting the incorrect flowi6_proto value.
+From: Aaron Yue <haoxuany@andrew.cmu.edu>
 
-Suggested-by: Jiri Benc <jbenc@redhat.com>
-Fixes: commit c12b395a4664 ("gre: Support GRE over IPv6")
-Signed-off-by: Lance Richardson <lrichard@redhat.com>
----
- net/ipv6/ip6_gre.c | 1 -
- 1 file changed, 1 deletion(-)
+Jesper,
 
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index 704274c..edc3daa 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -648,7 +648,6 @@ static int ip6gre_xmit_other(struct sk_buff *skb, struct net_device *dev)
- 		encap_limit = t->parms.encap_limit;
- 
- 	memcpy(&fl6, &t->fl.u.ip6, sizeof(fl6));
--	fl6.flowi6_proto = skb->protocol;
- 
- 	err = gre_handle_offloads(skb, !!(t->parms.o_flags & TUNNEL_CSUM));
- 	if (err)
+here is old email and cover letter that didn't make it to the list
+due to vger outage (I guess).
+The verifier patch that Aaron is talking about has landed long ago.
+
+The dataplane of ILA router is very short and simple.
+Control plane is very different matter. It's not ready for prime time yet.
+
+----------
+
+This patch contains the tc and xdp implementation of kernelspace bpf code.
+It requires userspace to insert to the ILA bpf maps, in tc's case, the 
+precomputed ILA mappings, and in xdp's case, both the precomputed ILA
+mappings and the MAC address.
+
+The xdp bpf code also requires a verifier patch to allow direct map access
+from the packet (will be patched in by Alexei).
+
+Aaron Yue (2):
+  samples/bpf: ilarouter for tc
+  samples/bpf: ilarouter for xdp
+
+ samples/bpf/Makefile        |   2 +
+ samples/bpf/ila.h           |  80 ++++++++++++++++++++++++++++
+ samples/bpf/ilarouter_tc.c  | 124 ++++++++++++++++++++++++++++++++++++++++++++
+ samples/bpf/ilarouter_xdp.c |  88 +++++++++++++++++++++++++++++++
+ samples/bpf/inet_helper.h   |  38 ++++++++++++++
+ 5 files changed, 332 insertions(+)
+ create mode 100644 samples/bpf/ila.h
+ create mode 100644 samples/bpf/ilarouter_tc.c
+ create mode 100644 samples/bpf/ilarouter_xdp.c
+ create mode 100644 samples/bpf/inet_helper.h
+
 -- 
-2.5.5
+2.8.0.rc2
