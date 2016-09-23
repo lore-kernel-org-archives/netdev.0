@@ -1,90 +1,61 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH RFC 1/3] xdp: Infrastructure to generalize XDP
-Date: Fri, 23 Sep 2016 07:14:57 -0700
-Message-ID: <CALx6S36rFUaaeFU4sE7gNaPn2Jxf-FaOESy_rrDpLKRx-SWkDA@mail.gmail.com>
-References: <1474408824-418864-1-git-send-email-tom@herbertland.com>
- <1474408824-418864-2-git-send-email-tom@herbertland.com> <06280af8-5451-c423-d295-a5f3f51e63cf@mojatatu.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH net-next] net/vxlan: Avoid unaligned access in vxlan_build_skb()
+Date: Fri, 23 Sep 2016 07:17:03 -0700
+Message-ID: <CAKgT0UcoDb5T9xwfAq83cNwU=XAKZxf0TmPiJZQyHFPr82zggg@mail.gmail.com>
+References: <20160920190929.57ddaeb0@griffin> <20160922.015242.735026657310158125.davem@davemloft.net>
+ <20160922213010.GA32052@oracle.com> <20160923.080618.678103827885223586.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Kernel Team <kernel-team@fb.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+        Jiri Benc <jbenc@redhat.com>, Netdev <netdev@vger.kernel.org>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Alexander Duyck <aduyck@mirantis.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Paolo Abeni <pabeni@redhat.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:34545 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1760048AbcIWOO7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 10:14:59 -0400
-Received: by mail-qt0-f195.google.com with SMTP id e5so3556811qtb.1
-        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 07:14:58 -0700 (PDT)
-In-Reply-To: <06280af8-5451-c423-d295-a5f3f51e63cf@mojatatu.com>
+Received: from mail-it0-f53.google.com ([209.85.214.53]:37403 "EHLO
+        mail-it0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1759964AbcIWORF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 10:17:05 -0400
+Received: by mail-it0-f53.google.com with SMTP id 186so16578174itf.0
+        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 07:17:04 -0700 (PDT)
+In-Reply-To: <20160923.080618.678103827885223586.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 23, 2016 at 4:13 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> On 16-09-20 06:00 PM, Tom Herbert wrote:
->>
->> This patch creates an infrastructure for registering and running code at
->> XDP hooks in drivers. This is based on the orignal XDP?BPF and borrows
->> heavily from the techniques used by netfilter to make generic nfhooks.
->>
->> An XDP hook is defined by the  xdp_hook_ops. This structure contains the
->> ops of an XDP hook. A pointer to this structure is passed into the XDP
->> register function to set up a hook. The XDP register function mallocs
->> its own xdp_hook_ops structure and copies the values from the
->> xdp_hook_ops passed in. The register function also stores the pointer
->> value of the xdp_hook_ops argument; this pointer is used in subsequently
->> calls to XDP to identify the registered hook.
->>
->> The interface is defined in net/xdp.h. This includes the definition of
->> xdp_hook_ops, functions to register and unregister hook ops on a device
->> or individual instances of napi, and xdp_hook_run that is called by
->> drivers to run the hooks.
->>
+On Fri, Sep 23, 2016 at 5:06 AM, David Miller <davem@davemloft.net> wrote:
+> From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+> Date: Thu, 22 Sep 2016 17:30:10 -0400
 >
-> Tom,
-> perused the thread and it seems you are serious ;->
-> Are we heading towards Frankenstein Avenue?
-
-I'm surprised. I thought you'd like democratizing an interface. :-)
-
-> The whole point behind letting in XDP is so that _small programs_
-> can be written to do some quick thing. eBPF 4K program limit was
-> touted as the check and bound. eBPF sounded fine.
-> This sounds like a huge contradiction.
-
-Jamal, thanks for the feedback.
-
-IMO, XDP != BPF. XDP is an interface in drivers that allow raw packet
-processing in the receive path,. This is akin to DPDK in the kernel.
-BPF is critical use case of the interface.
-
-As for the 4K limit that still allows for a lot of damage and abuse
-that the user can do with a loadable program and, yes, code in the
-kernel can do significant damage as well. However, unlike BPF programs
-being set from userspace, kernel code has a well established process
-for acceptance, any suggested code gets review, and if it's going
-"Frankenstein Avenue" I'd expect it to be rejected. I get a little
-worried that we are going to start artificially limiting what we can
-do in the kernel on the basis that we don't trust kernel programmers
-to be competent enough not to abuse kernel interfaces-- the fact that
-we are enabling userspace to arbitrarily program the kernel but
-purposely limiting what the kernel itself can do would be a huge irony
-to me.
-
-Thanks,
-Tom
-
-
-
-
+>> On (09/22/16 01:52), David Miller wrote:
+>>> Alternatively we can do Alexander Duyck's trick, by pushing
+>>> the headers into the frag list, forcing a pull and realignment
+>>> by the next protocol layer.
+>>
+>> What is the "Alexander Duyck trick" (hints about module or commit id,
+>> where this can be found, please)?
+>>
+>> Is this basically about, e.g., putting the vxlanhdr in its own
+>> skb_frag_t, or something else?
 >
-> cheers,
-> jamal
->
->
+> Yes, and this way skb_header_pointer() is forced to do a memcpy.
+
+It is something I had proposed on the Rx side of things back in
+February when the issue came up in relation to skb parsing.  On
+architectures that require NET_IP_ALIGN to be set I had proposed that
+we should only pull the outer headers from the page frag, and then
+when the time is right we drop the outer headers and pull the inner
+headers from the page frag.  That way we can keep all the headers
+aligned.
+
+For Tx it all becomes a bit trickier since it would likely require us
+to shift the frags up by 1 when we go from outer headers to inner
+headers.  One thought I had on that is that we could possibly avoid
+having to do any allocation and could just take a reference on the
+head_frag if that is what we are using.  Then we just add a 2 byte pad
+and resume writing headers in place and the pointer offsets for the
+inner headers would remain valid, though they would be past the point
+of skb->tail.
+
+- Alex
