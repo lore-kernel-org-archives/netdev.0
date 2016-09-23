@@ -1,101 +1,78 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 00/10][pull request] 40GbE Intel Wired LAN Driver Updates 2016-09-22
-Date: Thu, 22 Sep 2016 22:45:32 -0700
-Message-ID: <1474609542-121940-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+Subject: [net-next v2 08/10] i40evf: remove unnecessary error checking against i40evf_up_complete
+Date: Thu, 22 Sep 2016 22:45:40 -0700
+Message-ID: <1474609542-121940-9-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1474609542-121940-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Bimmy Pujari <bimmy.pujari@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        guru.anbalagane@oracle.com
+        guru.anbalagane@oracle.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:40400 "EHLO mga05.intel.com"
+Received: from mga05.intel.com ([192.55.52.43]:58549 "EHLO mga05.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754378AbcIWFpo (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 23 Sep 2016 01:45:44 -0400
+        id S1758246AbcIWFps (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 23 Sep 2016 01:45:48 -0400
+In-Reply-To: <1474609542-121940-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40evf only.
+From: Bimmy Pujari <bimmy.pujari@intel.com>
 
-Sridhar fixes link state event handling by updating the carrier and
-starts/stops the Tx queues based on the link state notification from PF.
+Function i40evf_up_complete() always returns success. Changed this to a
+void type and removed the code that checks the return status and prints
+an error message.
 
-Brady fixes an issue where a user defined RSS hash key was not being
-set because a user defined indirection table is not supplied when changing
-the hash key, so if an indirection table is not supplied now, then a
-default one is created and the hash key is correctly set.  Also fixed
-an issue where when NPAR was enabled, we were still using pf->mac_seid
-to perform the dump port query. Instead, go through the VSI to determine
-the correct ID to use in either case.
+Change-ID: I8c400f174786b9c855f679e470f35af292fb50ad
+Signed-off-by: Bimmy Pujari <bimmy.pujari@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 11 +++--------
+ 1 file changed, 3 insertions(+), 8 deletions(-)
 
-Mitch provides one fix where a conditional return code was reversed, so
-he does a "switheroo" to fix the issue.
-
-Carolyn has two fixes, first fixes an issue in the virt channel code,
-where a return code was not checked for NULL when applicable.  Second,
-fixes an issue where we were byte swapping the port parameter, then
-byte swapping it again in function execution.
-
-Colin Ian King fixes a potential NULL pointer dereference.
-
-Bimmy changes up i40evf_up_complete() to be void since it always returns
-success anyways, which allows cleaning up of code which checked the
-return code from this function.
-
-Alex fixed an issue where the driver was incorrectly assuming that we
-would always be pulling no more than 1 descriptor from each fragment.
-So to correct this, we just need to make certain to test all the way to
-the end of the fragments as it is possible for us to span 2 descriptors
-in the block before us so we need to guarantee that even the last 6
-descriptors have enough data to fill a full frame.
-
-v2: dropped patches 1-3, 10 and 12 from the original series since Or
-    Gerlitz pointed out several areas of improvement in the implementation
-    of the VF Port representor netdev.  Sridhar is re-working the series
-    for later submission.
-
-The following are changes since commit cdd0766d7da19085e88df86d1e5e21d9fe3d374f:
-  Merge branch 'ftgmac100-ast2500-support'
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
-
-Alan Brady (2):
-  i40e: fix setting user defined RSS hash key
-  i40e: fix "dump port" command when NPAR enabled
-
-Alexander Duyck (1):
-  i40e: Limit TX descriptor count in cases where frag size is greater
-    than 16K
-
-Bimmy Pujari (1):
-  i40evf: remove unnecessary error checking against i40evf_up_complete
-
-Carolyn Wyborny (2):
-  i40e: Fix to check for NULL
-  i40e: Fix for extra byte swap in tunnel setup
-
-Colin Ian King (1):
-  i40e: avoid potential null pointer dereference when assigning len
-
-Lihong Yang (1):
-  i40evf: remove unnecessary error checking against i40e_shutdown_adminq
-
-Mitch Williams (1):
-  i40e: return correct opcode to VF
-
-Sridhar Samudrala (1):
-  i40evf: Fix link state event handling
-
- drivers/net/ethernet/intel/i40e/i40e.h              |  2 ++
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c      |  7 ++++++-
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c      | 12 +++++++-----
- drivers/net/ethernet/intel/i40e/i40e_main.c         | 12 +++++-------
- drivers/net/ethernet/intel/i40e/i40e_txrx.c         |  7 ++-----
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c  | 15 ++++++++++++---
- drivers/net/ethernet/intel/i40evf/i40e_common.c     |  3 ++-
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c       |  7 ++-----
- drivers/net/ethernet/intel/i40evf/i40evf_main.c     | 18 ++++++++----------
- drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c | 10 +++++++---
- 10 files changed, 53 insertions(+), 40 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index e0a8cd8..9906775 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -1007,7 +1007,7 @@ static void i40evf_configure(struct i40evf_adapter *adapter)
+  * i40evf_up_complete - Finish the last steps of bringing up a connection
+  * @adapter: board private structure
+  **/
+-static int i40evf_up_complete(struct i40evf_adapter *adapter)
++static void i40evf_up_complete(struct i40evf_adapter *adapter)
+ {
+ 	adapter->state = __I40EVF_RUNNING;
+ 	clear_bit(__I40E_DOWN, &adapter->vsi.state);
+@@ -1016,7 +1016,6 @@ static int i40evf_up_complete(struct i40evf_adapter *adapter)
+ 
+ 	adapter->aq_required |= I40EVF_FLAG_AQ_ENABLE_QUEUES;
+ 	mod_timer_pending(&adapter->watchdog_timer, jiffies + 1);
+-	return 0;
+ }
+ 
+ /**
+@@ -1827,9 +1826,7 @@ continue_reset:
+ 
+ 		i40evf_configure(adapter);
+ 
+-		err = i40evf_up_complete(adapter);
+-		if (err)
+-			goto reset_err;
++		i40evf_up_complete(adapter);
+ 
+ 		i40evf_irq_enable(adapter, true);
+ 	} else {
+@@ -2059,9 +2056,7 @@ static int i40evf_open(struct net_device *netdev)
+ 	i40evf_add_filter(adapter, adapter->hw.mac.addr);
+ 	i40evf_configure(adapter);
+ 
+-	err = i40evf_up_complete(adapter);
+-	if (err)
+-		goto err_req_irq;
++	i40evf_up_complete(adapter);
+ 
+ 	i40evf_irq_enable(adapter, true);
+ 
 -- 
 2.7.4
