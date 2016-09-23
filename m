@@ -1,104 +1,112 @@
-From: Eric Nelson <eric@nelint.com>
-Subject: Alignment issues with freescale FEC driver
-Date: Fri, 23 Sep 2016 09:43:14 -0700
-Message-ID: <02afb707-65de-5101-a79b-355929c4e00b@nelint.com>
-References: <troy.kisky@boundarydevices.com>
+From: Jason Baron <jbaron@akamai.com>
+Subject: Re: [PATCH] fs/select: add vmalloc fallback for select(2)
+Date: Fri, 23 Sep 2016 12:47:55 -0400
+Message-ID: <57E55CBB.5060309@akamai.com>
+References: <20160922152831.24165-1-vbabka@suse.cz>
+ <006101d21565$b60a8a70$221f9f50$@alibaba-inc.com>
+ <20160923172434.7ad8f2e0@roar.ozlabs.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Otavio Salvador <otavio@ossystems.com.br>,
-        Simone <cjb.sw.nospam@gmail.com>
-To: "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        rmk+kernel@arm.linux.org.uk, edumazet@google.com,
-        Fugang Duan <fugang.duan@nxp.com>,
-        Troy Kisky <troy.kisky@boundarydevices.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:34323 "EHLO
-        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752017AbcIWQnR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 12:43:17 -0400
-Received: by mail-pf0-f181.google.com with SMTP id p64so43812385pfb.1
-        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 09:43:17 -0700 (PDT)
-In-Reply-To: Troy Kisky <troy.kisky@boundarydevices.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: 'Vlastimil Babka' <vbabka@suse.cz>, 'Alexander Viro'
+	<viro@zeniv.linux.org.uk>, <linux-fsdevel@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <linux-mm@kvack.org>, 'Michal Hocko'
+	<mhocko@kernel.org>, <netdev@vger.kernel.org>, Eric Dumazet
+	<eric.dumazet@gmail.com>
+To: Nicholas Piggin <npiggin@gmail.com>, Hillf Danton
+	<hillf.zj@alibaba-inc.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20160923172434.7ad8f2e0@roar.ozlabs.ibm.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Hello all,
+Hi,
 
-We're seeing alignment issues from the ethernet stack on an i.MX6UL board:
+On 09/23/2016 03:24 AM, Nicholas Piggin wrote:
+> On Fri, 23 Sep 2016 14:42:53 +0800
+> "Hillf Danton" <hillf.zj@alibaba-inc.com> wrote:
+>
+>>>
+>>> The select(2) syscall performs a kmalloc(size, GFP_KERNEL) where size grows
+>>> with the number of fds passed. We had a customer report page allocation
+>>> failures of order-4 for this allocation. This is a costly order, so it might
+>>> easily fail, as the VM expects such allocation to have a lower-order fallback.
+>>>
+>>> Such trivial fallback is vmalloc(), as the memory doesn't have to be
+>>> physically contiguous. Also the allocation is temporary for the duration of the
+>>> syscall, so it's unlikely to stress vmalloc too much.
+>>>
+>>> Note that the poll(2) syscall seems to use a linked list of order-0 pages, so
+>>> it doesn't need this kind of fallback.
+>
+> How about something like this? (untested)
+>
+> Eric isn't wrong about vmalloc sucking :)
+>
+> Thanks,
+> Nick
+>
+>
+> ---
+>   fs/select.c | 57 +++++++++++++++++++++++++++++++++++++++++++--------------
+>   1 file changed, 43 insertions(+), 14 deletions(-)
+>
+> diff --git a/fs/select.c b/fs/select.c
+> index 8ed9da5..3b4834c 100644
+> --- a/fs/select.c
+> +++ b/fs/select.c
+> @@ -555,6 +555,7 @@ int core_sys_select(int n, fd_set __user *inp, fd_set __user *outp,
+>   	void *bits;
+>   	int ret, max_fds;
+>   	unsigned int size;
+> +	size_t nr_bytes;
+>   	struct fdtable *fdt;
+>   	/* Allocate small arguments on the stack to save memory and be faster */
+>   	long stack_fds[SELECT_STACK_ALLOC/sizeof(long)];
+> @@ -576,21 +577,39 @@ int core_sys_select(int n, fd_set __user *inp, fd_set __user *outp,
+>   	 * since we used fdset we need to allocate memory in units of
+>   	 * long-words.
+>   	 */
+> -	size = FDS_BYTES(n);
+> +	ret = -ENOMEM;
+>   	bits = stack_fds;
+> -	if (size > sizeof(stack_fds) / 6) {
+> -		/* Not enough space in on-stack array; must use kmalloc */
+> +	size = FDS_BYTES(n);
+> +	nr_bytes = 6 * size;
+> +
+> +	if (unlikely(nr_bytes > PAGE_SIZE)) {
+> +		/* Avoid multi-page allocation if possible */
+>   		ret = -ENOMEM;
+> -		bits = kmalloc(6 * size, GFP_KERNEL);
+> -		if (!bits)
+> -			goto out_nofds;
+> +		fds.in = kmalloc(size, GFP_KERNEL);
+> +		fds.out = kmalloc(size, GFP_KERNEL);
+> +		fds.ex = kmalloc(size, GFP_KERNEL);
+> +		fds.res_in = kmalloc(size, GFP_KERNEL);
+> +		fds.res_out = kmalloc(size, GFP_KERNEL);
+> +		fds.res_ex = kmalloc(size, GFP_KERNEL);
+> +
+> +		if (!(fds.in && fds.out && fds.ex &&
+> +				fds.res_in && fds.res_out && fds.res_ex))
+> +			goto out;
+> +	} else {
+> +		if (nr_bytes > sizeof(stack_fds)) {
+> +			/* Not enough space in on-stack array */
+> +			if (nr_bytes > PAGE_SIZE * 2)
 
-root@mx6ul:~# cat /proc/cpu/alignment
-User: 0
-System: 470010 (inet_gro_receive+0x104/0x278)
+The 'if' looks extraneous?
 
-This seems to be related to the ip header alignment, and there
-was much discussion in mailing list threads [1] and [2].
+Also, I wonder if we can just avoid some allocations altogether by 
+checking by if the user fd_set pointers are NULL? That can avoid failures :)
 
-In particular, Russell referred to a patch here, but I haven't been
-able to find it:
-https://lists.linaro.org/pipermail/linaro-toolchain/2012-October/002844.html
+Thanks,
 
-Eric Dumazet also suggested a path toward fixing it, but I don't quite
-understand the suggestion:
-http://www.spinics.net/lists/netdev/msg213166.htm
+-Jason
 
-The immediate problem is addressed by just reading the id and frag_offs
-fields in the iphdr structure as shown in this patch:
-
-commit 98810abc911b1286a7e4a2ebdfbad66f12fae19d
-Author: Eric Nelson <eric@nelint.com>
-Date: Fri Sep 23 08:26:03 2016 -0700
-
-net: ipv4: af_inet: don't read multiple 16-bit iphdr fields as a 32-bit
-value
-
-Change-Id: Idc7122c22c13ca078be31907d30ab1c3148ba807
-Signed-off-by: Eric Nelson <eric@nelint.com>
-
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 0cc98b1..c17ef6e 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1301,6 +1301,7 @@ static struct sk_buff **inet_gro_receive(struct
-sk_buff **head,
-unsigned int hlen;
-unsigned int off;
-unsigned int id;
-+ unsigned int frag;
-int flush = 1;
-int proto;
-
-@@ -1326,9 +1327,9 @@ static struct sk_buff **inet_gro_receive(struct
-sk_buff **head,
-if (unlikely(ip_fast_csum((u8 *)iph, 5)))
-goto out_unlock;
-
-- id = ntohl(*(__be32 *)&iph->id);
-- flush = (u16)((ntohl(*(__be32 *)iph) ^ skb_gro_len(skb)) | (id & ~IP_DF));
-- id >>= 16;
-+ id = ntohs(*(__be16 *)&iph->id);
-+ frag = ntohs(*(__be16 *)&iph->frag_off);
-+ flush = (u16)((ntohl(*(__be32 *)iph) ^ skb_gro_len(skb)) | (frag &
-~IP_DF));
-
-for (p = *head; p; p = p->next) {
-struct iphdr *iph2;
-
-
-The reading of both fields in one "ntohl" seems obfuscated at best and
-certainly worthy of a comment about the optimization but I understand
-from other notes that the fundamental problem is that the IP header should
-be aligned on a 4-byte boundary and that's not possible without a memcpy.
-
-I'd like to hear suggestions about how we can address this.
-
-Regards,
-
-
-Eric
-
-[1] - http://www.spinics.net/lists/netdev/msg213114.html
-[2] -
-https://lists.linaro.org/pipermail/linaro-toolchain/2012-October/002828.html
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
