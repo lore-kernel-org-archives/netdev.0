@@ -1,40 +1,34 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] mlxsw: spectrum: remove redundant check if err is zero
-Date: Fri, 23 Sep 2016 12:02:45 +0100
-Message-ID: <20160923110245.18977-1-colin.king@canonical.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] act_ife: Add support for machines with
+ hard_header_len != mac_len
+Date: Fri, 23 Sep 2016 07:05:36 -0400 (EDT)
+Message-ID: <20160923.070536.1880911510074184857.davem@davemloft.net>
+References: <1474462453-37668-1-git-send-email-yotamg@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: Jiri Pirko <jiri@mellanox.com>, Ido Schimmel <idosch@mellanox.com>,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jhs@mojatatu.com, netdev@vger.kernel.org
+To: yotamg@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:51016 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S938722AbcIWLFj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 07:05:39 -0400
+In-Reply-To: <1474462453-37668-1-git-send-email-yotamg@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+From: Yotam Gigi <yotamg@mellanox.com>
+Date: Wed, 21 Sep 2016 15:54:13 +0300
 
-There is an earlier check and return if err is non-zero, so
-the check to see if it is zero is redundant in every iteration
-of the loop and hence the check can be removed.
+> Without that fix, the following could occur:
+ ...
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+I don't think what you are doing in mlxsw is valid.
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 80f27b5..fd74d10 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -1664,7 +1664,7 @@ static void __mlxsw_sp_port_get_stats(struct net_device *dev,
- 		return;
- 	mlxsw_sp_port_get_stats_raw(dev, grp, prio, ppcnt_pl);
- 	for (i = 0; i < len; i++)
--		data[data_index + i] = !err ? hw_stats[i].getter(ppcnt_pl) : 0;
-+		data[data_index + i] = hw_stats[i].getter(ppcnt_pl);
- }
- 
- static void mlxsw_sp_port_get_stats(struct net_device *dev,
--- 
-2.9.3
+You can't set hard_header_len arbitrarily, it's the MAC length.
+
+If you need to prepend special headers or whatever, set
+->needed_headroom which is designed for this purpose.
+
+Thanks.
