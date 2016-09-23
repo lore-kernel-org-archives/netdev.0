@@ -1,41 +1,117 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH RFC 1/3] xdp: Infrastructure to generalize XDP
-Date: Fri, 23 Sep 2016 07:26:41 -0700
-Message-ID: <57E53BA1.3060609@fb.com>
-References: <1474408824-418864-1-git-send-email-tom@herbertland.com>
- <1474408824-418864-2-git-send-email-tom@herbertland.com>
- <06280af8-5451-c423-d295-a5f3f51e63cf@mojatatu.com>
- <20160923150040.0e3dc7d5@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom@herbertland.com>, <davem@davemloft.net>,
-        <netdev@vger.kernel.org>, <kernel-team@fb.com>,
-        <tariqt@mellanox.com>, <bblanco@plumgrid.com>,
-        <alexei.starovoitov@gmail.com>, <eric.dumazet@gmail.com>,
-        Thomas Graf <tgraf@suug.ch>
-To: Jesper Dangaard Brouer <brouer@redhat.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: [PATCH 1/2] net: qcom/emac: do not use devm on internal phy pdev
+Date: Fri, 23 Sep 2016 09:27:33 -0500
+Message-ID: <1474640854-1698-1-git-send-email-timur@codeaurora.org>
+To: netdev@vger.kernel.org, linaro-acpi@lists.linaro.org,
+        linux-arm-kernel@lists.infradead.org, shankerd@codeaurora.org,
+        vikrams@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:53167 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1759994AbcIWO06 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 10:26:58 -0400
-In-Reply-To: <20160923150040.0e3dc7d5@redhat.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:57157 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965608AbcIWO1j (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 10:27:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/23/16 6:00 AM, Jesper Dangaard Brouer wrote:
-> To support Tom's case, with eBPF, I think we would have to implement
-> specific eBPF helper functions that can do the ILA table lookups.  And
-> then need a userspace component to load the eBPF program.  Why add all
-> this, when we could contain all this in the kernel, and simply call
-> this as native C-code via the XDP hook?
+The platform_device returned by of_find_device_by_node() is not
+automatically released when the driver unprobes.  Therefore,
+managed calls like devm_ioremap_resource() should not be used.
+Instead, we manually allocate the resources and then free them
+on driver release.
 
-well, ILA router was written in BPF already :) Once for tc+clsact
-and once for XDP. In both cases no extra bpf helpers were needed.
-Due to this use case we added an optimization to be able to do
-a map lookup with packet data directly (instead of copying packet
-bytes to stack and pointing map_lookup helper to stack).
-Looks like those ila router patches never made it to the list.
-I'll dig them out and forward.
+Signed-off-by: Timur Tabi <timur@codeaurora.org>
+---
+ drivers/net/ethernet/qualcomm/emac/emac-sgmii.c | 42 +++++++++++++++++++------
+ drivers/net/ethernet/qualcomm/emac/emac.c       |  4 +++
+ 2 files changed, 37 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c b/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c
+index 9a9a963..2a095fb 100644
+--- a/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c
++++ b/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c
+@@ -681,6 +681,7 @@ int emac_sgmii_config(struct platform_device *pdev, struct emac_adapter *adpt)
+ 	struct resource *res;
+ 	const struct of_device_id *match;
+ 	struct device_node *np;
++	int ret;
+ 
+ 	np = of_parse_phandle(pdev->dev.of_node, "internal-phy", 0);
+ 	if (!np) {
+@@ -697,26 +698,49 @@ int emac_sgmii_config(struct platform_device *pdev, struct emac_adapter *adpt)
+ 	match = of_match_device(emac_sgmii_dt_match, &sgmii_pdev->dev);
+ 	if (!match) {
+ 		dev_err(&pdev->dev, "unrecognized internal phy node\n");
+-		return -ENODEV;
++		ret = -ENODEV;
++		goto error_put_device;
+ 	}
+ 
+ 	phy->initialize = (emac_sgmii_initialize)match->data;
+ 
+ 	/* Base address is the first address */
+ 	res = platform_get_resource(sgmii_pdev, IORESOURCE_MEM, 0);
+-	phy->base = devm_ioremap_resource(&sgmii_pdev->dev, res);
+-	if (IS_ERR(phy->base))
+-		return PTR_ERR(phy->base);
++	phy->base = ioremap(res->start, resource_size(res));
++	if (IS_ERR(phy->base)) {
++		ret = PTR_ERR(phy->base);
++		goto error_put_device;
++	}
+ 
+ 	/* v2 SGMII has a per-lane digital digital, so parse it if it exists */
+ 	res = platform_get_resource(sgmii_pdev, IORESOURCE_MEM, 1);
+ 	if (res) {
+-		phy->digital = devm_ioremap_resource(&sgmii_pdev->dev, res);
+-		if (IS_ERR(phy->base))
+-			return PTR_ERR(phy->base);
+-
++		phy->digital = ioremap(res->start, resource_size(res));
++		if (IS_ERR(phy->digital)) {
++			ret = PTR_ERR(phy->digital);
++			goto error_unmap_base;
++		}
+ 	}
+ 
+-	return phy->initialize(adpt);
++	ret = phy->initialize(adpt);
++	if (ret)
++		goto error;
++
++	/* We've remapped the addresses, so we don't need the device any
++	 * more.  of_find_device_by_node() says we should release it.
++	 */
++	put_device(&sgmii_pdev->dev);
++
++	return 0;
++
++error:
++	if (phy->digital)
++		iounmap(phy->digital);
++error_unmap_base:
++	iounmap(phy->base);
++error_put_device:
++	put_device(&sgmii_pdev->dev);
++
++	return ret;
+ }
+ 
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac.c b/drivers/net/ethernet/qualcomm/emac/emac.c
+index e47d387..429b4cb 100644
+--- a/drivers/net/ethernet/qualcomm/emac/emac.c
++++ b/drivers/net/ethernet/qualcomm/emac/emac.c
+@@ -723,6 +723,10 @@ static int emac_remove(struct platform_device *pdev)
+ 	mdiobus_unregister(adpt->mii_bus);
+ 	free_netdev(netdev);
+ 
++	if (adpt->phy.digital)
++		iounmap(adpt->phy.digital);
++	iounmap(adpt->phy.base);
++
+ 	return 0;
+ }
+ 
+-- 
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
