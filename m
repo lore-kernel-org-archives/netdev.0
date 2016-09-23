@@ -1,42 +1,45 @@
-From: Sean Wang <sean.wang@mediatek.com>
-Subject: Re: [PATCH net-next] Documentation: devicetree: revise ethernet device-tree binding about TRGMII
-Date: Fri, 23 Sep 2016 10:52:40 +0800
-Message-ID: <1474599160-7958-1-git-send-email-sean.wang@mediatek.com>
-References: <0582f22e-6e6f-1564-fcdd-1bcfc3562cf3@cogentembedded.com>
+From: Hangbin Liu <liuhangbin@gmail.com>
+Subject: Re: [PATCH iproute2 2/2] ip rule: add selector support
+Date: Fri, 23 Sep 2016 11:06:24 +0800
+Message-ID: <CAPwn2JS9Fo41QeA8eBvz-tY_c7CFvtCyWsHTXwrfxhRa5vN_3Q@mail.gmail.com>
+References: <1474525729-2845-1-git-send-email-liuhangbin@gmail.com>
+ <1474525729-2845-3-git-send-email-liuhangbin@gmail.com> <20160922084553.GA22100@orbyte.nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <john@phrozen.org>, <davem@davemloft.net>, <nbd@openwrt.org>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <linux-mediatek@lists.infradead.org>, <keyhaede@gmail.com>,
-        <objelf@gmail.com>
-To: <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <0582f22e-6e6f-1564-fcdd-1bcfc3562cf3@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: Phil Sutter <phil@nwl.cc>, Hangbin Liu <liuhangbin@gmail.com>,
+        network dev <netdev@vger.kernel.org>,
+        Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f45.google.com ([209.85.218.45]:33690 "EHLO
+        mail-oi0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752365AbcIWDGZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 23:06:25 -0400
+Received: by mail-oi0-f45.google.com with SMTP id r126so120458396oib.0
+        for <netdev@vger.kernel.org>; Thu, 22 Sep 2016 20:06:25 -0700 (PDT)
+In-Reply-To: <20160922084553.GA22100@orbyte.nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Date: Thu, 22 Sep 2016 19:48:47 +0300, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> wrote:
->On 09/22/2016 07:16 PM, sean.wang@mediatek.com wrote:
->
->> From: Sean Wang <sean.wang@mediatek.com>
+2016-09-22 16:45 GMT+08:00 Phil Sutter <phil@nwl.cc>:
+> On Thu, Sep 22, 2016 at 02:28:49PM +0800, Hangbin Liu wrote:
+> [...]
+>> diff --git a/man/man8/ip-rule.8 b/man/man8/ip-rule.8
+>> index 3508d80..ec0e31d 100644
+>> --- a/man/man8/ip-rule.8
+>> +++ b/man/man8/ip-rule.8
+>> @@ -15,7 +15,8 @@ ip-rule \- routing policy database management
 >>
->> fix typo in mediatek-net.txt and add phy-mode "trgmii" to ethernet.txt
+>>  .ti -8
+>>  .B  ip rule
+>> -.RB "[ " list " ]"
+>> +.RB "[ " list
+>> +.I "[ " SELECTOR " ]]"
 >
->    These changes are unrelated to each other, so there should be 2 separate 
->patches. And have the patches I reviewed been merged already, why are you 
->sending an incremental patch?
+> This makes the brackets cursive, too. Better use this instead:
 >
+> | .RI "[ " SELECTOR " ]]"
 
-okay, I will make them into distinct patchs.
+Thanks Phil, I'm not familiar with man doc syntax :)
 
-I saw they had been applied so I created an incremental
-patch based on codebase after applied.
-
->> Cc: devicetree@vger.kernel.org
->> Reported-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
->[...]
->
->MBR, Sergei
->
->
+Cheers
+Hangbin
