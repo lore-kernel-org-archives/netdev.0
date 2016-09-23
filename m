@@ -1,60 +1,137 @@
-From: Lance Richardson <lrichard@redhat.com>
-Subject: Re: [PATCH net v2] ip6_gre: fix flowi6_proto value in
- ip6gre_xmit_other()
-Date: Fri, 23 Sep 2016 16:37:38 -0400 (EDT)
-Message-ID: <1901792360.3490653.1474663058137.JavaMail.zimbra@redhat.com>
-References: <1474660229-5665-1-git-send-email-lrichard@redhat.com> <53fca902-c7e6-c216-6366-ba3f483854a0@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-        shmulik ladkani <shmulik.ladkani@gmail.com>, jbenc@redhat.com
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4-phx2.redhat.com ([209.132.183.25]:56979 "EHLO
-        mx4-phx2.redhat.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1761323AbcIWUhk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 16:37:40 -0400
-In-Reply-To: <53fca902-c7e6-c216-6366-ba3f483854a0@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
+Subject: [PATCH 1/2] bpf samples: fix compiler errors with sockex2 and sockex3
+Date: Sat, 24 Sep 2016 02:10:04 +0530
+Message-ID: <7b29fba6073924dc4c9e7d639eefb0b15a98660d.1474661952.git.naveen.n.rao@linux.vnet.ibm.com>
+Cc: "Michael Ellerman" <mpe@ellerman.id.au>,
+        "Alexei Starovoitov" <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        "Ananth N Mavinakayanahalli" <ananth@in.ibm.com>
+To: linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+        netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> From: "Sergei Shtylyov" <sergei.shtylyov@cogentembedded.com>
-> To: "Lance Richardson" <lrichard@redhat.com>, netdev@vger.kernel.org
-> Cc: "shmulik ladkani" <shmulik.ladkani@gmail.com>, jbenc@redhat.com
-> Sent: Friday, September 23, 2016 4:01:15 PM
-> Subject: Re: [PATCH net v2] ip6_gre: fix flowi6_proto value in ip6gre_xmit_other()
-> 
-> Hello.
-> 
-> On 09/23/2016 10:50 PM, Lance Richardson wrote:
-> 
-> > Similar to commit 3be07244b733 ("ip6_gre: fix flowi6_proto value in
-> > xmit path"), set flowi6_proto to IPPROTO_GRE for output route lookup.
-> >
-> > Up until now, ip6gre_xmit_other() has set flowi6_proto to a bogus value.
-> > This affected output route lookup for packets sent on an ip6gretap device
-> > in cases where routing was dependent on the value of flowi6_proto.
-> >
-> > Since the correct proto is already set in the tunnel flowi6 template via
-> > commit 252f3f5a1189 ("ip6_gre: Set flowi6_proto as IPPROTO_GRE in xmit
-> > path."), simply delete the line setting the incorrect flowi6_proto value.
-> >
-> > Suggested-by: Jiri Benc <jbenc@redhat.com>
-> > Fixes: commit c12b395a4664 ("gre: Support GRE over IPv6")
-> 
->     That "commit" isn't needed here, this tag has a standardized format.
-> Hopefully, can be fixed while applying...
+These samples fail to compile as 'struct flow_keys' conflicts with
+definition in net/flow_dissector.h. Fix the same by renaming the
+structure used in the sample.
 
-Thanks for pointing that out, I mistakenly added that "commit" after
-checkpatch.pl complained about not having "commit" before the hashes
-in the log. Hoping it can be fixed when applying as well.
+Signed-off-by: Naveen N. Rao <naveen.n.rao@linux.vnet.ibm.com>
+---
+ samples/bpf/sockex2_kern.c | 10 +++++-----
+ samples/bpf/sockex3_kern.c |  8 ++++----
+ samples/bpf/sockex3_user.c |  4 ++--
+ 3 files changed, 11 insertions(+), 11 deletions(-)
 
-> 
-> > Reviewed-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-> > Signed-off-by: Lance Richardson <lrichard@redhat.com>
-> [...]
-> 
-> MBR, Sergei
-> 
-> 
+diff --git a/samples/bpf/sockex2_kern.c b/samples/bpf/sockex2_kern.c
+index ba0e177..44e5846 100644
+--- a/samples/bpf/sockex2_kern.c
++++ b/samples/bpf/sockex2_kern.c
+@@ -14,7 +14,7 @@ struct vlan_hdr {
+ 	__be16 h_vlan_encapsulated_proto;
+ };
+ 
+-struct flow_keys {
++struct bpf_flow_keys {
+ 	__be32 src;
+ 	__be32 dst;
+ 	union {
+@@ -59,7 +59,7 @@ static inline __u32 ipv6_addr_hash(struct __sk_buff *ctx, __u64 off)
+ }
+ 
+ static inline __u64 parse_ip(struct __sk_buff *skb, __u64 nhoff, __u64 *ip_proto,
+-			     struct flow_keys *flow)
++			     struct bpf_flow_keys *flow)
+ {
+ 	__u64 verlen;
+ 
+@@ -83,7 +83,7 @@ static inline __u64 parse_ip(struct __sk_buff *skb, __u64 nhoff, __u64 *ip_proto
+ }
+ 
+ static inline __u64 parse_ipv6(struct __sk_buff *skb, __u64 nhoff, __u64 *ip_proto,
+-			       struct flow_keys *flow)
++			       struct bpf_flow_keys *flow)
+ {
+ 	*ip_proto = load_byte(skb,
+ 			      nhoff + offsetof(struct ipv6hdr, nexthdr));
+@@ -96,7 +96,7 @@ static inline __u64 parse_ipv6(struct __sk_buff *skb, __u64 nhoff, __u64 *ip_pro
+ 	return nhoff;
+ }
+ 
+-static inline bool flow_dissector(struct __sk_buff *skb, struct flow_keys *flow)
++static inline bool flow_dissector(struct __sk_buff *skb, struct bpf_flow_keys *flow)
+ {
+ 	__u64 nhoff = ETH_HLEN;
+ 	__u64 ip_proto;
+@@ -198,7 +198,7 @@ struct bpf_map_def SEC("maps") hash_map = {
+ SEC("socket2")
+ int bpf_prog2(struct __sk_buff *skb)
+ {
+-	struct flow_keys flow;
++	struct bpf_flow_keys flow;
+ 	struct pair *value;
+ 	u32 key;
+ 
+diff --git a/samples/bpf/sockex3_kern.c b/samples/bpf/sockex3_kern.c
+index 41ae2fd..95907f8 100644
+--- a/samples/bpf/sockex3_kern.c
++++ b/samples/bpf/sockex3_kern.c
+@@ -61,7 +61,7 @@ struct vlan_hdr {
+ 	__be16 h_vlan_encapsulated_proto;
+ };
+ 
+-struct flow_keys {
++struct bpf_flow_keys {
+ 	__be32 src;
+ 	__be32 dst;
+ 	union {
+@@ -88,7 +88,7 @@ static inline __u32 ipv6_addr_hash(struct __sk_buff *ctx, __u64 off)
+ }
+ 
+ struct globals {
+-	struct flow_keys flow;
++	struct bpf_flow_keys flow;
+ };
+ 
+ struct bpf_map_def SEC("maps") percpu_map = {
+@@ -114,14 +114,14 @@ struct pair {
+ 
+ struct bpf_map_def SEC("maps") hash_map = {
+ 	.type = BPF_MAP_TYPE_HASH,
+-	.key_size = sizeof(struct flow_keys),
++	.key_size = sizeof(struct bpf_flow_keys),
+ 	.value_size = sizeof(struct pair),
+ 	.max_entries = 1024,
+ };
+ 
+ static void update_stats(struct __sk_buff *skb, struct globals *g)
+ {
+-	struct flow_keys key = g->flow;
++	struct bpf_flow_keys key = g->flow;
+ 	struct pair *value;
+ 
+ 	value = bpf_map_lookup_elem(&hash_map, &key);
+diff --git a/samples/bpf/sockex3_user.c b/samples/bpf/sockex3_user.c
+index d4184ab..3fcfd8c4 100644
+--- a/samples/bpf/sockex3_user.c
++++ b/samples/bpf/sockex3_user.c
+@@ -7,7 +7,7 @@
+ #include <arpa/inet.h>
+ #include <sys/resource.h>
+ 
+-struct flow_keys {
++struct bpf_flow_keys {
+ 	__be32 src;
+ 	__be32 dst;
+ 	union {
+@@ -49,7 +49,7 @@ int main(int argc, char **argv)
+ 	(void) f;
+ 
+ 	for (i = 0; i < 5; i++) {
+-		struct flow_keys key = {}, next_key;
++		struct bpf_flow_keys key = {}, next_key;
+ 		struct pair value;
+ 
+ 		sleep(1);
+-- 
+2.9.3
