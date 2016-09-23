@@ -1,69 +1,103 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 5/5] PCI: disable FLR for 82579 device
-Date: Thu, 22 Sep 2016 23:39:01 -0700
-Message-ID: <1474612741-75681-6-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1474612741-75681-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Sasha Neftin <sasha.neftin@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        guru.anbalagane@oracle.com, linux-pci@vger.kernel.org,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net, bhelgaas@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:24714 "EHLO mga01.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932636AbcIWGjG (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 23 Sep 2016 02:39:06 -0400
-In-Reply-To: <1474612741-75681-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Hillf Danton" <hillf.zj@alibaba-inc.com>
+Subject: Re: [PATCH] fs/select: add vmalloc fallback for select(2)
+Date: Fri, 23 Sep 2016 14:42:53 +0800
+Message-ID: <006101d21565$b60a8a70$221f9f50$@alibaba-inc.com>
+References: <20160922152831.24165-1-vbabka@suse.cz>
+Reply-To: "Hillf Danton" <hillf.zj@alibaba-inc.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-fsdevel@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>,
+	<linux-mm@kvack.org>,
+	"'Michal Hocko'" <mhocko@kernel.org>,
+	<netdev@vger.kernel.org>
+To: "'Vlastimil Babka'" <vbabka@suse.cz>,
+	"'Alexander Viro'" <viro@zeniv.linux.org.uk>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20160922152831.24165-1-vbabka@suse.cz>
+Content-Language: zh-cn
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Sasha Neftin <sasha.neftin@intel.com>
+> 
+> The select(2) syscall performs a kmalloc(size, GFP_KERNEL) where size grows
+> with the number of fds passed. We had a customer report page allocation
+> failures of order-4 for this allocation. This is a costly order, so it might
+> easily fail, as the VM expects such allocation to have a lower-order fallback.
+> 
+> Such trivial fallback is vmalloc(), as the memory doesn't have to be
+> physically contiguous. Also the allocation is temporary for the duration of the
+> syscall, so it's unlikely to stress vmalloc too much.
+> 
+> Note that the poll(2) syscall seems to use a linked list of order-0 pages, so
+> it doesn't need this kind of fallback.
+> 
+> Signed-off-by: Vlastimil Babka <vbabka@suse.cz>
+> ---
+>  fs/select.c | 15 +++++++++++----
+>  1 file changed, 11 insertions(+), 4 deletions(-)
+> 
+> diff --git a/fs/select.c b/fs/select.c
+> index 8ed9da50896a..8fe5bddbe99b 100644
+> --- a/fs/select.c
+> +++ b/fs/select.c
+> @@ -29,6 +29,7 @@
+>  #include <linux/sched/rt.h>
+>  #include <linux/freezer.h>
+>  #include <net/busy_poll.h>
+> +#include <linux/vmalloc.h>
+> 
+>  #include <asm/uaccess.h>
+> 
+> @@ -558,6 +559,7 @@ int core_sys_select(int n, fd_set __user *inp, fd_set __user *outp,
+>  	struct fdtable *fdt;
+>  	/* Allocate small arguments on the stack to save memory and be faster */
+>  	long stack_fds[SELECT_STACK_ALLOC/sizeof(long)];
+> +	unsigned long alloc_size;
+> 
+>  	ret = -EINVAL;
+>  	if (n < 0)
+> @@ -580,10 +582,15 @@ int core_sys_select(int n, fd_set __user *inp, fd_set __user *outp,
+>  	bits = stack_fds;
+>  	if (size > sizeof(stack_fds) / 6) {
+>  		/* Not enough space in on-stack array; must use kmalloc */
+> +		alloc_size = 6 * size;
+>  		ret = -ENOMEM;
+> -		bits = kmalloc(6 * size, GFP_KERNEL);
+> -		if (!bits)
+> -			goto out_nofds;
+> +		bits = kmalloc(alloc_size, GFP_KERNEL|__GFP_NOWARN);
+> +		if (!bits && alloc_size > PAGE_SIZE) {
+> +			bits = vmalloc(alloc_size);
+> +
+> +			if (!bits)
+> +				goto out_nofds;
+> +		}
 
-82579 has a problem reattaching itself after the device is detached.
-The bug was reported by Redhat. The suggested fix is to disable
-FLR capability in PCIe configuration space.
+Looks like we also have to bail out if kmalloc fails with 
+alloc_size less than PAGE_SIZE.
 
-Reproduction:
-Attach the device to a VM, then detach and try to attach again.
+thanks
+Hillf
+>  	}
+>  	fds.in      = bits;
+>  	fds.out     = bits +   size;
+> @@ -618,7 +625,7 @@ int core_sys_select(int n, fd_set __user *inp, fd_set __user *outp,
+> 
+>  out:
+>  	if (bits != stack_fds)
+> -		kfree(bits);
+> +		kvfree(bits);
+>  out_nofds:
+>  	return ret;
+>  }
+> --
+> 2.10.0
 
-Fix:
-Disable FLR capability to prevent the 82579 from hanging.
-
-Signed-off-by: Sasha Neftin <sasha.neftin@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/pci/quirks.c | 21 +++++++++++++++++++++
- 1 file changed, 21 insertions(+)
-
-diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-index 44e0ff3..59fba6e 100644
---- a/drivers/pci/quirks.c
-+++ b/drivers/pci/quirks.c
-@@ -4431,3 +4431,24 @@ static void quirk_intel_qat_vf_cap(struct pci_dev *pdev)
- 	}
- }
- DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x443, quirk_intel_qat_vf_cap);
-+/*
-+ * Workaround FLR issues for 82579
-+ * This code disables the FLR (Function Level Reset) via PCIe, in order
-+ * to workaround a bug found while using device passthrough, where the
-+ * interface would become non-responsive.
-+ * NOTE: the FLR bit is Read/Write Once (RWO) in config space, so if
-+ * the BIOS or kernel writes this register * then this workaround will
-+ * not work.
-+ */
-+static void quirk_intel_flr_cap_dis(struct pci_dev *dev)
-+{
-+	int pos = pci_find_capability(dev, PCI_CAP_ID_AF);
-+	if (pos) {
-+		u8 cap;
-+		pci_read_config_byte(dev, pos + PCI_AF_CAP, &cap);
-+		cap = cap & (~PCI_AF_CAP_FLR);
-+		pci_write_config_byte(dev, pos + PCI_AF_CAP, cap);
-+	}
-+}
-+DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x1502, quirk_intel_flr_cap_dis);
-+DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x1503, quirk_intel_flr_cap_dis);
--- 
-2.7.4
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
