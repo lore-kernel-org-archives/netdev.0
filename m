@@ -1,70 +1,60 @@
-From: <chris.roth@usask.ca>
-Subject: [PATCH] Net Driver: Add Cypress GX3 VID=04b4 PID=3610.
-Date: Fri, 23 Sep 2016 12:24:50 -0600
-Message-ID: <a6cbbf76a41946efa9f87dc15d4bba53@Mail07.usask.ca>
+From: Eric Nelson <eric@nelint.com>
+Subject: Re: Alignment issues with freescale FEC driver
+Date: Fri, 23 Sep 2016 11:39:41 -0700
+Message-ID: <e1db8ef7-a61a-e4a7-b551-51d42df6d065@nelint.com>
+References: <troy.kisky@boundarydevices.com>
+ <02afb707-65de-5101-a79b-355929c4e00b@nelint.com>
+ <CANn89iLb+QJu+MYh859oAAjcLCsKRpBbzVf43yOdq+HJVtZDpQ@mail.gmail.com>
+ <5ee28ee0-cf0c-bdab-1271-f17755365c13@nelint.com>
+ <0fe7a310-2d2f-4fca-d698-85d66122d91c@nelint.com>
+ <20160923181301.GD22965@lunn.ch>
+ <20160923183010.GB1041@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Chris Roth <chris.roth@usask.ca>
-To: <linux-usb@vger.kernel.org>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
+        Fugang Duan <fugang.duan@nxp.com>,
+        Otavio Salvador <otavio@ossystems.com.br>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Troy Kisky <troy.kisky@boundarydevices.com>,
+        Simone <cjb.sw.nospam@gmail.com>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>
+To: Russell King - ARM Linux <linux@armlinux.org.uk>,
+        Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:33674 "EHLO
+        mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1035411AbcIWSjs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 14:39:48 -0400
+Received: by mail-pa0-f49.google.com with SMTP id hm5so42640093pac.0
+        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 11:39:48 -0700 (PDT)
+In-Reply-To: <20160923183010.GB1041@n2100.armlinux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Chris Roth <chris.roth@usask.ca>
+Thanks Russell,
 
-Add support for Cypress GX3 SuperSpeed to Gigabit Ethernet
-Bridge Controller (Vendor=04b4 ProdID=3610).
+On 09/23/2016 11:30 AM, Russell King - ARM Linux wrote:
+> On Fri, Sep 23, 2016 at 08:13:01PM +0200, Andrew Lunn wrote:
+>>> Since the hardware requires longword alignment for its' DMA transfers,
+>>> aligning the IP header will require a memcpy, right?
+>>
+>> The vf610 FEC has an SHIFT16 bit in register ENETx_TACC, which inserts
+>> two padding bits on transmit. ENETx_RACC has the same.
+>>
+>> What about your hardware?
+> 
+> The iMX6 FEC also has that ability - as part of my FEC patch stack from
+> ages ago, I implemented support for it.
+> 
+>   "net:fec: implement almost zero-copy receive path"
+> 
+> in my public fec-testing branch.
+> 
+> That patch stack is sadly now totally dead and I've no interest in
+> reviving it myself.  There was some interest from others in taking my
+> patch stack over, but that went quiet.
+> 
 
-Patch verified on x64 linux kernel 4.7.4 system with the
-Kensington SD4600P USB-C Universal Dock with Power, which uses the
-Cypress GX3 SuperSpeed to Gigabit Ethernet Bridge Controller.
-
-A similar patch was signed-off and tested-by Allan Chou
-<allan@asix.com.tw> on 2015-12-01.
-
-Allan verified his similar patch on x86 Linux kernel 4.1.6 system
-with Cypress GX3 SuperSpeed to Gigabit Ethernet Bridge Controller.
-
-Signed-off-by: Chris Roth <chris.roth@usask.ca>
----
- drivers/net/usb/ax88179_178a.c | 17 +++++++++++++++++
- 1 file changed, 17 insertions(+)
-
-diff --git a/drivers/net/usb/ax88179_178a.c b/drivers/net/usb/ax88179_178a.c
-index e6338c1..8a6675d 100644
---- a/drivers/net/usb/ax88179_178a.c
-+++ b/drivers/net/usb/ax88179_178a.c
-@@ -1656,6 +1656,19 @@ static const struct driver_info ax88178a_info = {
- 	.tx_fixup = ax88179_tx_fixup,
- };
- 
-+static const struct driver_info cypress_GX3_info = {
-+	.description = "Cypress GX3 SuperSpeed to Gigabit Ethernet Controller",
-+	.bind = ax88179_bind,
-+	.unbind = ax88179_unbind,
-+	.status = ax88179_status,
-+	.link_reset = ax88179_link_reset,
-+	.reset = ax88179_reset,
-+	.stop = ax88179_stop,
-+	.flags = FLAG_ETHER | FLAG_FRAMING_AX,
-+	.rx_fixup = ax88179_rx_fixup,
-+	.tx_fixup = ax88179_tx_fixup,
-+};
-+
- static const struct driver_info dlink_dub1312_info = {
- 	.description = "D-Link DUB-1312 USB 3.0 to Gigabit Ethernet Adapter",
- 	.bind = ax88179_bind,
-@@ -1718,6 +1731,10 @@ static const struct usb_device_id products[] = {
- 	USB_DEVICE(0x0b95, 0x178a),
- 	.driver_info = (unsigned long)&ax88178a_info,
- }, {
-+	/* Cypress GX3 SuperSpeed to Gigabit Ethernet Bridge Controller */
-+	USB_DEVICE(0x04b4, 0x3610),
-+	.driver_info = (unsigned long)&cypress_GX3_info,
-+}, {
- 	/* D-Link DUB-1312 USB 3.0 to Gigabit Ethernet Adapter */
- 	USB_DEVICE(0x2001, 0x4a00),
- 	.driver_info = (unsigned long)&dlink_dub1312_info,
--- 
-2.7.4
+I'll take a look and hopefully revive at least part of the patch set.
