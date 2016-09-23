@@ -1,89 +1,38 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH 3/3] bpf powerpc: add support for bpf constant blinding
-Date: Fri, 23 Sep 2016 23:40:42 +0200
-Message-ID: <57E5A15A.7090001@iogearbox.net>
-References: <40b65ab2bb3a48837ab047a70887de3ccd70c56b.1474661927.git.naveen.n.rao@linux.vnet.ibm.com> <0ecead168c80b1c3d8a8101595e689ff7c7a735f.1474661927.git.naveen.n.rao@linux.vnet.ibm.com>
+From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH net-next v2] Documentation: devicetree: revise ethernet
+ device-tree binding about TRGMII
+Date: Fri, 23 Sep 2016 16:48:09 -0500
+Message-ID: <20160923214809.GA9464@rob-hp-laptop>
+References: <1474610649-18582-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@fb.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Ananth N Mavinakayanahalli <ananth@in.ibm.com>
-To: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>,
-        linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-        netdev@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <0ecead168c80b1c3d8a8101595e689ff7c7a735f.1474661927.git.naveen.n.rao@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org,
+        nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org,
+        keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, objelf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1474610649-18582-1-git-send-email-sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 09/23/2016 10:35 PM, Naveen N. Rao wrote:
-> In line with similar support for other architectures by Daniel Borkmann.
->
-> 'MOD Default X' from test_bpf without constant blinding:
-> 84 bytes emitted from JIT compiler (pass:3, flen:7)
-> d0000000058a4688 + <x>:
->     0:	nop
->     4:	nop
->     8:	std     r27,-40(r1)
->     c:	std     r28,-32(r1)
->    10:	xor     r8,r8,r8
->    14:	xor     r28,r28,r28
->    18:	mr      r27,r3
->    1c:	li      r8,66
->    20:	cmpwi   r28,0
->    24:	bne     0x0000000000000030
->    28:	li      r8,0
->    2c:	b       0x0000000000000044
->    30:	divwu   r9,r8,r28
->    34:	mullw   r9,r28,r9
->    38:	subf    r8,r9,r8
->    3c:	rotlwi  r8,r8,0
->    40:	li      r8,66
->    44:	ld      r27,-40(r1)
->    48:	ld      r28,-32(r1)
->    4c:	mr      r3,r8
->    50:	blr
->
-> ... and with constant blinding:
-> 140 bytes emitted from JIT compiler (pass:3, flen:11)
-> d00000000bd6ab24 + <x>:
->     0:	nop
->     4:	nop
->     8:	std     r27,-40(r1)
->     c:	std     r28,-32(r1)
->    10:	xor     r8,r8,r8
->    14:	xor     r28,r28,r28
->    18:	mr      r27,r3
->    1c:	lis     r2,-22834
->    20:	ori     r2,r2,36083
->    24:	rotlwi  r2,r2,0
->    28:	xori    r2,r2,36017
->    2c:	xoris   r2,r2,42702
->    30:	rotlwi  r2,r2,0
->    34:	mr      r8,r2
->    38:	rotlwi  r8,r8,0
->    3c:	cmpwi   r28,0
->    40:	bne     0x000000000000004c
->    44:	li      r8,0
->    48:	b       0x000000000000007c
->    4c:	divwu   r9,r8,r28
->    50:	mullw   r9,r28,r9
->    54:	subf    r8,r9,r8
->    58:	rotlwi  r8,r8,0
->    5c:	lis     r2,-17137
->    60:	ori     r2,r2,39065
->    64:	rotlwi  r2,r2,0
->    68:	xori    r2,r2,39131
->    6c:	xoris   r2,r2,48399
->    70:	rotlwi  r2,r2,0
->    74:	mr      r8,r2
->    78:	rotlwi  r8,r8,0
->    7c:	ld      r27,-40(r1)
->    80:	ld      r28,-32(r1)
->    84:	mr      r3,r8
->    88:	blr
->
-> Signed-off-by: Naveen N. Rao <naveen.n.rao@linux.vnet.ibm.com>
+On Fri, Sep 23, 2016 at 02:04:09PM +0800, sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org wrote:
+> From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+> 
+> add phy-mode "trgmii" to
+> Documentation/devicetree/bindings/net/ethernet.txt
+> 
+> Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Reported-by: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+> Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+> ---
+>  Documentation/devicetree/bindings/net/ethernet.txt | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
