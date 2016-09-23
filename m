@@ -1,117 +1,49 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 01/10] i40e: fix setting user defined RSS hash key
-Date: Thu, 22 Sep 2016 22:45:33 -0700
-Message-ID: <1474609542-121940-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 03/10] i40e: return correct opcode to VF
+Date: Thu, 22 Sep 2016 22:45:35 -0700
+Message-ID: <1474609542-121940-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1474609542-121940-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alan Brady <alan.brady@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        guru.anbalagane@oracle.com,
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:40400 "EHLO mga05.intel.com"
+Received: from mga05.intel.com ([192.55.52.43]:58549 "EHLO mga05.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756053AbcIWFpp (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 23 Sep 2016 01:45:45 -0400
+        id S1757999AbcIWFpr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 23 Sep 2016 01:45:47 -0400
 In-Reply-To: <1474609542-121940-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alan Brady <alan.brady@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Previously, when using ethtool to change the RSS hash key, ethtool would
-report back saying the old key was still being used and no error was
-reported.  It was unclear whether it was being reported incorrectly or
-being set incorrectly.  Debugging revealed 'i40e_set_rxfh()' returned
-zero immediately instead of setting the key because a user defined
-indirection table is not supplied when changing the hash key.
+This conditional is backward, so the driver responds back to the VF with
+the wrong opcode. Do the old switcheroo to fix this.
 
-This fix instead changes it such that if an indirection table is not
-supplied, then a default one is created and the hash key is now
-correctly set.
-
-Change-ID: Iddb621897ecf208650272b7ee46702cad7b69a71
-Signed-off-by: Alan Brady <alan.brady@intel.com>
+Change-ID: I384035b0fef8a3881c176de4b4672009b3400b25
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h         |  2 ++
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 12 +++++++-----
- drivers/net/ethernet/intel/i40e/i40e_main.c    |  6 ++----
- 3 files changed, 11 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 19103a6..30aaee4 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -701,6 +701,8 @@ void i40e_do_reset_safe(struct i40e_pf *pf, u32 reset_flags);
- void i40e_do_reset(struct i40e_pf *pf, u32 reset_flags);
- int i40e_config_rss(struct i40e_vsi *vsi, u8 *seed, u8 *lut, u16 lut_size);
- int i40e_get_rss(struct i40e_vsi *vsi, u8 *seed, u8 *lut, u16 lut_size);
-+void i40e_fill_rss_lut(struct i40e_pf *pf, u8 *lut,
-+		       u16 rss_table_size, u16 rss_size);
- struct i40e_vsi *i40e_find_vsi_from_id(struct i40e_pf *pf, u16 id);
- void i40e_update_stats(struct i40e_vsi *vsi);
- void i40e_update_eth_stats(struct i40e_vsi *vsi);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 1835186..af28a8c 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -2922,15 +2922,13 @@ static int i40e_set_rxfh(struct net_device *netdev, const u32 *indir,
- {
- 	struct i40e_netdev_priv *np = netdev_priv(netdev);
- 	struct i40e_vsi *vsi = np->vsi;
-+	struct i40e_pf *pf = vsi->back;
- 	u8 *seed = NULL;
- 	u16 i;
- 
- 	if (hfunc != ETH_RSS_HASH_NO_CHANGE && hfunc != ETH_RSS_HASH_TOP)
- 		return -EOPNOTSUPP;
- 
--	if (!indir)
--		return 0;
--
- 	if (key) {
- 		if (!vsi->rss_hkey_user) {
- 			vsi->rss_hkey_user = kzalloc(I40E_HKEY_ARRAY_SIZE,
-@@ -2948,8 +2946,12 @@ static int i40e_set_rxfh(struct net_device *netdev, const u32 *indir,
- 	}
- 
- 	/* Each 32 bits pointed by 'indir' is stored with a lut entry */
--	for (i = 0; i < I40E_HLUT_ARRAY_SIZE; i++)
--		vsi->rss_lut_user[i] = (u8)(indir[i]);
-+	if (indir)
-+		for (i = 0; i < I40E_HLUT_ARRAY_SIZE; i++)
-+			vsi->rss_lut_user[i] = (u8)(indir[i]);
-+	else
-+		i40e_fill_rss_lut(pf, vsi->rss_lut_user, I40E_HLUT_ARRAY_SIZE,
-+				  vsi->rss_size);
- 
- 	return i40e_config_rss(vsi, seed, vsi->rss_lut_user,
- 			       I40E_HLUT_ARRAY_SIZE);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 61b0fc4..69b9e30 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -57,8 +57,6 @@ static int i40e_setup_pf_switch(struct i40e_pf *pf, bool reinit);
- static int i40e_setup_misc_vector(struct i40e_pf *pf);
- static void i40e_determine_queue_usage(struct i40e_pf *pf);
- static int i40e_setup_pf_filter_control(struct i40e_pf *pf);
--static void i40e_fill_rss_lut(struct i40e_pf *pf, u8 *lut,
--			      u16 rss_table_size, u16 rss_size);
- static void i40e_fdir_sb_setup(struct i40e_pf *pf);
- static int i40e_veb_get_bw_info(struct i40e_veb *veb);
- 
-@@ -8244,8 +8242,8 @@ int i40e_get_rss(struct i40e_vsi *vsi, u8 *seed, u8 *lut, u16 lut_size)
-  * @rss_table_size: Lookup table size
-  * @rss_size: Range of queue number for hashing
-  */
--static void i40e_fill_rss_lut(struct i40e_pf *pf, u8 *lut,
--			      u16 rss_table_size, u16 rss_size)
-+void i40e_fill_rss_lut(struct i40e_pf *pf, u8 *lut,
-+		       u16 rss_table_size, u16 rss_size)
- {
- 	u16 i;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index da34235..611fc87 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -2217,8 +2217,8 @@ static int i40e_vc_iwarp_qvmap_msg(struct i40e_vf *vf, u8 *msg, u16 msglen,
+ error_param:
+ 	/* send the response to the VF */
+ 	return i40e_vc_send_resp_to_vf(vf,
+-			       config ? I40E_VIRTCHNL_OP_RELEASE_IWARP_IRQ_MAP :
+-			       I40E_VIRTCHNL_OP_CONFIG_IWARP_IRQ_MAP,
++			       config ? I40E_VIRTCHNL_OP_CONFIG_IWARP_IRQ_MAP :
++			       I40E_VIRTCHNL_OP_RELEASE_IWARP_IRQ_MAP,
+ 			       aq_ret);
+ }
  
 -- 
 2.7.4
