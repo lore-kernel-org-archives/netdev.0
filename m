@@ -1,9 +1,9 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 07/10] i40evf: Fix link state event handling
-Date: Thu, 22 Sep 2016 22:45:39 -0700
-Message-ID: <1474609542-121940-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 04/10] i40e: Fix to check for NULL
+Date: Thu, 22 Sep 2016 22:45:36 -0700
+Message-ID: <1474609542-121940-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1474609542-121940-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Sridhar Samudrala <sridhar.samudrala@intel.com>,
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
         netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
         jogreene@redhat.com, guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
@@ -11,110 +11,58 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga05.intel.com ([192.55.52.43]:40400 "EHLO mga05.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1758239AbcIWFps (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 23 Sep 2016 01:45:48 -0400
+        id S1758001AbcIWFpr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 23 Sep 2016 01:45:47 -0400
 In-Reply-To: <1474609542-121940-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sridhar Samudrala <sridhar.samudrala@intel.com>
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-Currently disabling the link state from PF via
-	ip link set enp5s0f0 vf 0 state disable
-doesn't disable the CARRIER on the VF.
+This patch fixes an issue in the virt channel code, where a return
+from i40e_find_vsi_from_id was not checked for NULL when applicable.
+Without this patch, there is a risk for panic and static analysis
+tools complain. This patch fixes the problem by adding the check
+and adding an additional input check for similar reasons.
 
-This patch updates the carrier and starts/stops the tx queues based on the
-link state notification from PF.
-
-  PF: enp5s0f0, VF: enp5s2
-  #modprobe i40e
-  #echo 2 > /sys/class/net/enp5s0f0/device/sriov_numvfs
-  #ip link set enp5s2 up
-  #ip -d link show enp5s2
-  175: enp5s2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000
-      link/ether ea:4d:60:bc:6f:85 brd ff:ff:ff:ff:ff:ff promiscuity 0 addrgenmode eui64
-  #ip link set enp5s0f0 vf 0 state disable
-  #ip -d link show enp5s0f0
-  171: enp5s0f0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
-      link/ether 68:05:ca:2e:72:68 brd ff:ff:ff:ff:ff:ff promiscuity 0 addrgenmode eui64 numtxqueues 72 numrxqueues 72 portid 6805ca2e7268
-      vf 0 MAC 00:00:00:00:00:00, spoof checking on, link-state disable, trust off
-      vf 1 MAC 00:00:00:00:00:00, spoof checking on, link-state auto, trust off
-  #ip -d link show enp5s2
-  175: enp5s2: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc mq state DOWN mode DEFAULT group default qlen 1000
-       link/ether ea:4d:60:bc:6f:85 brd ff:ff:ff:ff:ff:ff promiscuity 0 addrgenmode eui64 numtxqueues 16 numrxqueues 16
-
-Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
+Change-ID: I7e9be88eb7a3addb50eadc451c8336d9e06f5394
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf_main.c     |  4 ++++
- drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c | 10 +++++++---
- 2 files changed, 11 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index f751f7b..e0a8cd8 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -1037,6 +1037,7 @@ void i40evf_down(struct i40evf_adapter *adapter)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 611fc87..2ab5355 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -502,8 +502,16 @@ static int i40e_config_vsi_tx_queue(struct i40e_vf *vf, u16 vsi_id,
+ 	u32 qtx_ctl;
+ 	int ret = 0;
  
- 	netif_carrier_off(netdev);
- 	netif_tx_disable(netdev);
-+	adapter->link_up = false;
- 	i40evf_napi_disable_all(adapter);
- 	i40evf_irq_disable(adapter);
++	if (!i40e_vc_isvalid_vsi_id(vf, info->vsi_id)) {
++		ret = -ENOENT;
++		goto error_context;
++	}
+ 	pf_queue_id = i40e_vc_get_pf_queue_id(vf, vsi_id, vsi_queue_id);
+ 	vsi = i40e_find_vsi_from_id(pf, vsi_id);
++	if (!vsi) {
++		ret = -ENOENT;
++		goto error_context;
++	}
  
-@@ -1731,6 +1732,7 @@ static void i40evf_reset_task(struct work_struct *work)
- 			set_bit(__I40E_DOWN, &adapter->vsi.state);
- 			netif_carrier_off(netdev);
- 			netif_tx_disable(netdev);
-+			adapter->link_up = false;
- 			i40evf_napi_disable_all(adapter);
- 			i40evf_irq_disable(adapter);
- 			i40evf_free_traffic_irqs(adapter);
-@@ -1769,6 +1771,7 @@ continue_reset:
- 	if (netif_running(adapter->netdev)) {
- 		netif_carrier_off(netdev);
- 		netif_tx_stop_all_queues(netdev);
-+		adapter->link_up = false;
- 		i40evf_napi_disable_all(adapter);
+ 	/* clear the context structure first */
+ 	memset(&tx_ctx, 0, sizeof(struct i40e_hmc_obj_txq));
+@@ -1476,7 +1484,8 @@ static int i40e_vc_config_promiscuous_mode_msg(struct i40e_vf *vf,
+ 
+ 	vsi = i40e_find_vsi_from_id(pf, info->vsi_id);
+ 	if (!test_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states) ||
+-	    !i40e_vc_isvalid_vsi_id(vf, info->vsi_id)) {
++	    !i40e_vc_isvalid_vsi_id(vf, info->vsi_id) ||
++	    !vsi) {
+ 		aq_ret = I40E_ERR_PARAM;
+ 		goto error_param;
  	}
- 	i40evf_irq_disable(adapter);
-@@ -2457,6 +2460,7 @@ static void i40evf_init_task(struct work_struct *work)
- 		goto err_sw_init;
- 
- 	netif_carrier_off(netdev);
-+	adapter->link_up = false;
- 
- 	if (!adapter->netdev_registered) {
- 		err = register_netdev(netdev);
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-index cc6cb30..ddf478d 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-@@ -898,8 +898,14 @@ void i40evf_virtchnl_completion(struct i40evf_adapter *adapter,
- 			    vpe->event_data.link_event.link_status) {
- 				adapter->link_up =
- 					vpe->event_data.link_event.link_status;
-+				if (adapter->link_up) {
-+					netif_tx_start_all_queues(netdev);
-+					netif_carrier_on(netdev);
-+				} else {
-+					netif_tx_stop_all_queues(netdev);
-+					netif_carrier_off(netdev);
-+				}
- 				i40evf_print_link_message(adapter);
--				netif_tx_stop_all_queues(netdev);
- 			}
- 			break;
- 		case I40E_VIRTCHNL_EVENT_RESET_IMPENDING:
-@@ -974,8 +980,6 @@ void i40evf_virtchnl_completion(struct i40evf_adapter *adapter,
- 	case I40E_VIRTCHNL_OP_ENABLE_QUEUES:
- 		/* enable transmits */
- 		i40evf_irq_enable(adapter, true);
--		netif_tx_start_all_queues(adapter->netdev);
--		netif_carrier_on(adapter->netdev);
- 		break;
- 	case I40E_VIRTCHNL_OP_DISABLE_QUEUES:
- 		i40evf_free_all_tx_resources(adapter);
 -- 
 2.7.4
