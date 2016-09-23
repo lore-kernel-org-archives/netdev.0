@@ -1,45 +1,68 @@
-From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: Re: [PATCH iproute2 2/2] ip rule: add selector support
-Date: Fri, 23 Sep 2016 11:06:24 +0800
-Message-ID: <CAPwn2JS9Fo41QeA8eBvz-tY_c7CFvtCyWsHTXwrfxhRa5vN_3Q@mail.gmail.com>
-References: <1474525729-2845-1-git-send-email-liuhangbin@gmail.com>
- <1474525729-2845-3-git-send-email-liuhangbin@gmail.com> <20160922084553.GA22100@orbyte.nwl.cc>
+From: Mark Tomlinson <Mark.Tomlinson@alliedtelesis.co.nz>
+Subject: Re: [PATCH] net: VRF: Fix receiving multicast traffic
+Date: Fri, 23 Sep 2016 03:06:42 +0000
+Message-ID: <f1ead8ba-5404-36f3-40a9-35105006017d@alliedtelesis.co.nz>
+References: <20160922041308.30848-1-mark.tomlinson@alliedtelesis.co.nz>
+ <aac5b560-d757-3281-8e69-7953e7c4b418@cumulusnetworks.com>
+ <ee8de997-007c-4035-5f65-a8b389a138ac@alliedtelesis.co.nz>
+ <319068be-b1b9-c245-55d6-5e012e57487b@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: Phil Sutter <phil@nwl.cc>, Hangbin Liu <liuhangbin@gmail.com>,
-        network dev <netdev@vger.kernel.org>,
-        Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: quoted-printable
+To: David Ahern <dsa@cumulusnetworks.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f45.google.com ([209.85.218.45]:33690 "EHLO
-        mail-oi0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752365AbcIWDGZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 23:06:25 -0400
-Received: by mail-oi0-f45.google.com with SMTP id r126so120458396oib.0
-        for <netdev@vger.kernel.org>; Thu, 22 Sep 2016 20:06:25 -0700 (PDT)
-In-Reply-To: <20160922084553.GA22100@orbyte.nwl.cc>
+Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:49863 "EHLO
+        gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933666AbcIWDGs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 23:06:48 -0400
+Received: from mmarshal3.atlnz.lc (mmarshal3.atlnz.lc [10.32.18.43])
+        (using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+        (Client did not present a certificate)
+        by gate2.alliedtelesis.co.nz (Postfix) with ESMTPS id 75BD586053
+        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 15:06:44 +1200 (NZST)
+In-Reply-To: <319068be-b1b9-c245-55d6-5e012e57487b@cumulusnetworks.com>
+Content-Language: en-US
+Content-ID: <00A66208CD316F428A43514C66273479@atlnz.lc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2016-09-22 16:45 GMT+08:00 Phil Sutter <phil@nwl.cc>:
-> On Thu, Sep 22, 2016 at 02:28:49PM +0800, Hangbin Liu wrote:
-> [...]
->> diff --git a/man/man8/ip-rule.8 b/man/man8/ip-rule.8
->> index 3508d80..ec0e31d 100644
->> --- a/man/man8/ip-rule.8
->> +++ b/man/man8/ip-rule.8
->> @@ -15,7 +15,8 @@ ip-rule \- routing policy database management
+
+On 09/23/2016 10:41 AM, David Ahern wrote:
+> On 9/22/16 4:10 PM, Mark Tomlinson wrote:
+>> On 09/23/2016 03:14 AM, David Ahern wrote:
+>>> l3mdev devices do not support IPv4 multicast so checking mcast against =
+that device should not be working at all. For that reason I was fine with t=
+he change in the previous patch. ie., you want the real ingress device ther=
+e not the vrf device.
+>>>
+>>> What test are you running that says your previous patch broke something=
+?
+>> Although we do not expect any multicast routing to work in an l3mdev,
+>> (IGMP snooping or PIM), we still want to have multicast packets
+>> delivered for protocols such as RIP. This was working before my previous
+>> patch, but these multicast packets are now dropped. This current patch
+>> fixes that again, hopefully still with the benefits of my first patch.
 >>
->>  .ti -8
->>  .B  ip rule
->> -.RB "[ " list " ]"
->> +.RB "[ " list
->> +.I "[ " SELECTOR " ]]"
+> can you discern which check is making that happen?
 >
-> This makes the brackets cursive, too. Better use this instead:
->
-> | .RI "[ " SELECTOR " ]]"
+> It does not make sense to look at the in_device of a vrf device for mcast=
+ addresses. For IPv6 linklocal and mcast is specifically blocked. IPv4 shou=
+ld do the same. So, how is RIP getting the packet at all?
+This might be due to some other changes we've made for VRF and multicast=20
+but haven't sent upstream. In particular, a change to do_ip_setsockopt()=20
+and its handling of IP_MULTICAST_IF as well as IP_ADD/DROP_MEMBERSHIP. I=20
+am guessing that without these changes, we wouldn't be able to receive=20
+multicast packets in RIP. With our changes, the in_dev->mc_list does=20
+contain the RIP MC address (224.0.0.9) in the master interface, and so=20
+the function ip_check_mc_rcu() returns success with the master only.
 
-Thanks Phil, I'm not familiar with man doc syntax :)
+Our RIP daemon is VRF-aware. So it does use setsockopt(SO_BINDTODEVICE,=20
+"vrf-master") when running in a VRF. Without following it all the way=20
+down, I believe that it is this that allows the multicast lookup at the=20
+top of ip_check_mc_rcu() to succeed on the vrf-master, but not the=20
+ingress interface. That is, in_dev->mc_list does contain 224.0.0.9 only=20
+on the vrf-master. Provided the lookup in ip_check_mc_rcu() succeeds (im=20
+!=3D NULL), this function can return success.
 
-Cheers
-Hangbin
+Are you interested in the other patches at the moment?
