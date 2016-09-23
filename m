@@ -1,31 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tcp: fix a compile error in DBGUNDO()
-Date: Fri, 23 Sep 2016 08:27:15 -0400 (EDT)
-Message-ID: <20160923.082715.1450483434821240471.davem@davemloft.net>
-References: <1474592040.28155.15.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Yotam Gigi <yotamg@mellanox.com>
+Subject: RE: [PATCH net] act_ife: Add support for machines with
+ hard_header_len != mac_len
+Date: Fri, 23 Sep 2016 12:28:06 +0000
+Message-ID: <DB3PR05MB07646E4305A3AA9BB136CC7AACC80@DB3PR05MB0764.eurprd05.prod.outlook.com>
+References: <1474462453-37668-1-git-send-email-yotamg@mellanox.com>
+ <20160923.070536.1880911510074184857.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "jhs@mojatatu.com" <jhs@mojatatu.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        mlxsw <mlxsw@mellanox.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52082 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758823AbcIWM1S (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 08:27:18 -0400
-In-Reply-To: <1474592040.28155.15.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-db5eur01on0089.outbound.protection.outlook.com ([104.47.2.89]:29809
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S934340AbcIWMnx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 23 Sep 2016 08:43:53 -0400
+In-Reply-To: <20160923.070536.1880911510074184857.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 22 Sep 2016 17:54:00 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> If DBGUNDO() is enabled (FASTRETRANS_DEBUG > 1), a compile
-> error will happen, since inet6_sk(sk)->daddr became sk->sk_v6_daddr
-> 
-> Fixes: efe4208f47f9 ("ipv6: make lookups simpler and faster")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+>-----Original Message-----
+>From: David Miller [mailto:davem@davemloft.net]
+>Sent: Friday, September 23, 2016 2:06 PM
+>To: Yotam Gigi <yotamg@mellanox.com>
+>Cc: jhs@mojatatu.com; netdev@vger.kernel.org
+>Subject: Re: [PATCH net] act_ife: Add support for machines with hard_heade=
+r_len
+>!=3D mac_len
+>
+>From: Yotam Gigi <yotamg@mellanox.com>
+>Date: Wed, 21 Sep 2016 15:54:13 +0300
+>
+>> Without that fix, the following could occur:
+> ...
+>
+>I don't think what you are doing in mlxsw is valid.
+>
+>You can't set hard_header_len arbitrarily, it's the MAC length.
+>
+>If you need to prepend special headers or whatever, set
+>->needed_headroom which is designed for this purpose.
 
-Applied and queued up for -stable, thanks.
+Ok, we will fix that.
+
+Thanks for the comment!
+
+>
+>Thanks.
