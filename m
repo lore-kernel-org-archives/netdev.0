@@ -1,8 +1,7 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 07/15] rxrpc: Fix accidental cancellation of
- scheduled resend by ACK parser
-Date: Fri, 23 Sep 2016 16:16:05 +0100
-Message-ID: <147464376586.5090.14901936645927156006.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 08/15] rxrpc: Fix call timer
+Date: Fri, 23 Sep 2016 16:16:12 +0100
+Message-ID: <147464377267.5090.12222734463447533990.stgit@warthog.procyon.org.uk>
 References: <147464371753.5090.1634919599283321856.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,35 +14,83 @@ In-Reply-To: <147464371753.5090.1634919599283321856.stgit@warthog.procyon.org.uk
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When rxrpc_input_soft_acks() is parsing the soft-ACKs from an ACK packet,
-it updates the Tx packet annotations in the annotation buffer.  If a
-soft-ACK is an ACK, then we overwrite unack'd, nak'd or to-be-retransmitted
-states and that is fine; but if the soft-ACK is an NACK, we overwrite the
-to-be-retransmitted with a nak - which isn't.
+Fix the call timer in the following ways:
 
-Instead, we need to let any scheduled retransmission stand if the packet
-was NAK'd.
+ (1) If call->resend_at or call->ack_at are before or equal to the current
+     time, then ignore that timeout.
 
-Note that we don't reissue a resend if the annotation is in the
-to-be-retransmitted state because someone else must've scheduled the
-resend already.
+ (2) If call->expire_at is before or equal to the current time, then don't
+     set the timer at all (possibly we should queue the call).
+
+ (3) Don't skip modifying the timer if timer_pending() is true.  This
+     indicates that the timer is working, not that it has expired and is
+     running/waiting to run its expiry handler.
+
+Also call rxrpc_set_timer() to start the call timer going rather than
+calling add_timer().
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/input.c |    2 ++
- 1 file changed, 2 insertions(+)
+ net/rxrpc/call_event.c  |   25 ++++++++++++++-----------
+ net/rxrpc/call_object.c |    4 ++--
+ 2 files changed, 16 insertions(+), 13 deletions(-)
 
-diff --git a/net/rxrpc/input.c b/net/rxrpc/input.c
-index 06027b6d9c19..d3d69ab1f0a1 100644
---- a/net/rxrpc/input.c
-+++ b/net/rxrpc/input.c
-@@ -479,6 +479,8 @@ static void rxrpc_input_soft_acks(struct rxrpc_call *call, u8 *acks,
- 		case RXRPC_ACK_TYPE_NACK:
- 			if (anno_type == RXRPC_TX_ANNO_NAK)
- 				continue;
-+			if (anno_type == RXRPC_TX_ANNO_RETRANS)
-+				continue;
- 			call->rxtx_annotations[ix] =
- 				RXRPC_TX_ANNO_NAK | annotation;
- 			resend = true;
+diff --git a/net/rxrpc/call_event.c b/net/rxrpc/call_event.c
+index 3a7f90a2659c..8bc5c8e37ab4 100644
+--- a/net/rxrpc/call_event.c
++++ b/net/rxrpc/call_event.c
+@@ -28,24 +28,27 @@ void rxrpc_set_timer(struct rxrpc_call *call)
+ {
+ 	unsigned long t, now = jiffies;
+ 
+-	_enter("{%ld,%ld,%ld:%ld}",
+-	       call->ack_at - now, call->resend_at - now, call->expire_at - now,
+-	       call->timer.expires - now);
+-
+ 	read_lock_bh(&call->state_lock);
+ 
+ 	if (call->state < RXRPC_CALL_COMPLETE) {
+-		t = call->ack_at;
+-		if (time_before(call->resend_at, t))
++		t = call->expire_at;
++		if (time_before_eq(t, now))
++			goto out;
++
++		if (time_after(call->resend_at, now) &&
++		    time_before(call->resend_at, t))
+ 			t = call->resend_at;
+-		if (time_before(call->expire_at, t))
+-			t = call->expire_at;
+-		if (!timer_pending(&call->timer) ||
+-		    time_before(t, call->timer.expires)) {
+-			_debug("set timer %ld", t - now);
++
++		if (time_after(call->ack_at, now) &&
++		    time_before(call->ack_at, t))
++			t = call->ack_at;
++
++		if (call->timer.expires != t || !timer_pending(&call->timer)) {
+ 			mod_timer(&call->timer, t);
+ 		}
+ 	}
++
++out:
+ 	read_unlock_bh(&call->state_lock);
+ }
+ 
+diff --git a/net/rxrpc/call_object.c b/net/rxrpc/call_object.c
+index f50a6094e198..f2fadf667e19 100644
+--- a/net/rxrpc/call_object.c
++++ b/net/rxrpc/call_object.c
+@@ -199,8 +199,8 @@ static void rxrpc_start_call_timer(struct rxrpc_call *call)
+ 	call->expire_at = expire_at;
+ 	call->ack_at = expire_at;
+ 	call->resend_at = expire_at;
+-	call->timer.expires = expire_at;
+-	add_timer(&call->timer);
++	call->timer.expires = expire_at + 1;
++	rxrpc_set_timer(call);
+ }
+ 
+ /*
