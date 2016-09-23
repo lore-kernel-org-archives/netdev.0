@@ -1,200 +1,150 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 11/15] rxrpc: Add a tracepoint for the call timer
-Date: Fri, 23 Sep 2016 16:16:33 +0100
-Message-ID: <147464379347.5090.13751863428044452562.stgit@warthog.procyon.org.uk>
-References: <147464371753.5090.1634919599283321856.stgit@warthog.procyon.org.uk>
+From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH V3 1/3] Documentation: devicetree: add qca8k binding
+Date: Fri, 23 Sep 2016 10:23:24 -0500
+Message-ID: <20160923152324.GA15847@rob-hp-laptop>
+References: <1473949601-20674-1-git-send-email-john@phrozen.org>
+ <1473949601-20674-2-git-send-email-john@phrozen.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <147464371753.5090.1634919599283321856.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        qsdk-review-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1473949601-20674-2-git-send-email-john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Add a tracepoint to log call timer initiation, setting and expiry.
+On Thu, Sep 15, 2016 at 04:26:39PM +0200, John Crispin wrote:
+> Add device-tree binding for ar8xxx switch families.
+> 
+> Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Signed-off-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
+> ---
+> Changes in V2
+> * fixup example to include phy nodes and corresponding phandles
+> * add a note explaining why we need to phy nodes
+> 
+> Changes in V3
+> * add note stating that the cpu port is always 0
+> 
+>  .../devicetree/bindings/net/dsa/qca8k.txt          |   89 ++++++++++++++++++++
+>  1 file changed, 89 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/dsa/qca8k.txt
+> 
+> diff --git a/Documentation/devicetree/bindings/net/dsa/qca8k.txt b/Documentation/devicetree/bindings/net/dsa/qca8k.txt
+> new file mode 100644
+> index 0000000..9c67ee4
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/dsa/qca8k.txt
+> @@ -0,0 +1,89 @@
+> +* Qualcomm Atheros QCA8xxx switch family
+> +
+> +Required properties:
+> +
+> +- compatible: should be "qca,qca8337"
+> +- #size-cells: must be 0
+> +- #address-cells: must be 1
+> +
+> +Subnodes:
+> +
+> +The integrated switch subnode should be specified according to the binding
+> +described in dsa/dsa.txt. As the QCA8K switches do not have a N:N mapping of
+> +port and PHY id, each subnode describing a port needs to have a valid phandle
+> +referencing the internal PHY connected to it. The CPU port of this switch is
+> +always port 0.
+> +
+> +Example:
+> +
+> +
+> +	&mdio0 {
+> +		phy_port1: phy@0 {
+> +			reg = <0>;
+> +		};
+> +
+> +		phy_port2: phy@1 {
+> +			reg = <1>;
+> +		};
+> +
+> +		phy_port3: phy@2 {
+> +			reg = <2>;
+> +		};
+> +
+> +		phy_port4: phy@3 {
+> +			reg = <3>;
+> +		};
+> +
+> +		phy_port5: phy@4 {
+> +			reg = <4>;
+> +		};
+> +
+> +		switch0@0 {
 
-Signed-off-by: David Howells <dhowells@redhat.com>
----
+The unit address here is the mdio device address and should be unique. 
+You have 2 devices at 0.
 
- include/trace/events/rxrpc.h |   36 ++++++++++++++++++++++++++++++++++++
- net/rxrpc/ar-internal.h      |   13 ++++++++++++-
- net/rxrpc/call_event.c       |    7 ++++---
- net/rxrpc/call_object.c      |    6 ++++--
- net/rxrpc/misc.c             |    8 ++++++++
- net/rxrpc/sendmsg.c          |    2 +-
- 6 files changed, 65 insertions(+), 7 deletions(-)
+> +			compatible = "qca,qca8337";
+> +			#address-cells = <1>;
+> +			#size-cells = <0>;
+> +
+> +			reg = <0>;
 
-diff --git a/include/trace/events/rxrpc.h b/include/trace/events/rxrpc.h
-index e8f2afbbe0bf..57322897d745 100644
---- a/include/trace/events/rxrpc.h
-+++ b/include/trace/events/rxrpc.h
-@@ -414,6 +414,42 @@ TRACE_EVENT(rxrpc_rtt_rx,
- 		      __entry->avg)
- 	    );
- 
-+TRACE_EVENT(rxrpc_timer,
-+	    TP_PROTO(struct rxrpc_call *call, enum rxrpc_timer_trace why,
-+		     unsigned long now),
-+
-+	    TP_ARGS(call, why, now),
-+
-+	    TP_STRUCT__entry(
-+		    __field(struct rxrpc_call *,		call		)
-+		    __field(enum rxrpc_timer_trace,		why		)
-+		    __field(unsigned long,			now		)
-+		    __field(unsigned long,			expire_at	)
-+		    __field(unsigned long,			ack_at		)
-+		    __field(unsigned long,			resend_at	)
-+		    __field(unsigned long,			timer		)
-+			     ),
-+
-+	    TP_fast_assign(
-+		    __entry->call	= call;
-+		    __entry->why	= why;
-+		    __entry->now	= now;
-+		    __entry->expire_at	= call->expire_at;
-+		    __entry->ack_at	= call->ack_at;
-+		    __entry->resend_at	= call->resend_at;
-+		    __entry->timer	= call->timer.expires;
-+			   ),
-+
-+	    TP_printk("c=%p %s now=%lx x=%ld a=%ld r=%ld t=%ld",
-+		      __entry->call,
-+		      rxrpc_timer_traces[__entry->why],
-+		      __entry->now,
-+		      __entry->expire_at - __entry->now,
-+		      __entry->ack_at - __entry->now,
-+		      __entry->resend_at - __entry->now,
-+		      __entry->timer - __entry->now)
-+	    );
-+
- #endif /* _TRACE_RXRPC_H */
- 
- /* This part must be outside protection */
-diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index a494d56eb236..e564eca75985 100644
---- a/net/rxrpc/ar-internal.h
-+++ b/net/rxrpc/ar-internal.h
-@@ -678,6 +678,17 @@ enum rxrpc_rtt_rx_trace {
- 
- extern const char rxrpc_rtt_rx_traces[rxrpc_rtt_rx__nr_trace][5];
- 
-+enum rxrpc_timer_trace {
-+	rxrpc_timer_begin,
-+	rxrpc_timer_expired,
-+	rxrpc_timer_set_for_ack,
-+	rxrpc_timer_set_for_resend,
-+	rxrpc_timer_set_for_send,
-+	rxrpc_timer__nr_trace
-+};
-+
-+extern const char rxrpc_timer_traces[rxrpc_timer__nr_trace][8];
-+
- extern const char *const rxrpc_pkts[];
- extern const char *rxrpc_acks(u8 reason);
- 
-@@ -707,7 +718,7 @@ int rxrpc_reject_call(struct rxrpc_sock *);
- /*
-  * call_event.c
-  */
--void rxrpc_set_timer(struct rxrpc_call *);
-+void rxrpc_set_timer(struct rxrpc_call *, enum rxrpc_timer_trace);
- void rxrpc_propose_ACK(struct rxrpc_call *, u8, u16, u32, bool, bool);
- void rxrpc_process_call(struct work_struct *);
- 
-diff --git a/net/rxrpc/call_event.c b/net/rxrpc/call_event.c
-index 8bc5c8e37ab4..90e970ba048a 100644
---- a/net/rxrpc/call_event.c
-+++ b/net/rxrpc/call_event.c
-@@ -24,7 +24,7 @@
- /*
-  * Set the timer
-  */
--void rxrpc_set_timer(struct rxrpc_call *call)
-+void rxrpc_set_timer(struct rxrpc_call *call, enum rxrpc_timer_trace why)
- {
- 	unsigned long t, now = jiffies;
- 
-@@ -45,6 +45,7 @@ void rxrpc_set_timer(struct rxrpc_call *call)
- 
- 		if (call->timer.expires != t || !timer_pending(&call->timer)) {
- 			mod_timer(&call->timer, t);
-+			trace_rxrpc_timer(call, why, now);
- 		}
- 	}
- 
-@@ -120,7 +121,7 @@ static void __rxrpc_propose_ACK(struct rxrpc_call *call, u8 ack_reason,
- 		_debug("deferred ACK %ld < %ld", expiry, call->ack_at - now);
- 		if (time_before(ack_at, call->ack_at)) {
- 			call->ack_at = ack_at;
--			rxrpc_set_timer(call);
-+			rxrpc_set_timer(call, rxrpc_timer_set_for_ack);
- 		}
- 	}
- }
-@@ -293,7 +294,7 @@ recheck_state:
- 		goto recheck_state;
- 	}
- 
--	rxrpc_set_timer(call);
-+	rxrpc_set_timer(call, rxrpc_timer_set_for_resend);
- 
- 	/* other events may have been raised since we started checking */
- 	if (call->events && call->state < RXRPC_CALL_COMPLETE) {
-diff --git a/net/rxrpc/call_object.c b/net/rxrpc/call_object.c
-index f2fadf667e19..a53f4c2c0025 100644
---- a/net/rxrpc/call_object.c
-+++ b/net/rxrpc/call_object.c
-@@ -76,8 +76,10 @@ static void rxrpc_call_timer_expired(unsigned long _call)
- 
- 	_enter("%d", call->debug_id);
- 
--	if (call->state < RXRPC_CALL_COMPLETE)
-+	if (call->state < RXRPC_CALL_COMPLETE) {
-+		trace_rxrpc_timer(call, rxrpc_timer_expired, jiffies);
- 		rxrpc_queue_call(call);
-+	}
- }
- 
- /*
-@@ -200,7 +202,7 @@ static void rxrpc_start_call_timer(struct rxrpc_call *call)
- 	call->ack_at = expire_at;
- 	call->resend_at = expire_at;
- 	call->timer.expires = expire_at + 1;
--	rxrpc_set_timer(call);
-+	rxrpc_set_timer(call, rxrpc_timer_begin);
- }
- 
- /*
-diff --git a/net/rxrpc/misc.c b/net/rxrpc/misc.c
-index fe648711c2f7..fa9942fabdf2 100644
---- a/net/rxrpc/misc.c
-+++ b/net/rxrpc/misc.c
-@@ -194,3 +194,11 @@ const char rxrpc_rtt_rx_traces[rxrpc_rtt_rx__nr_trace][5] = {
- 	[rxrpc_rtt_rx_ping_response]	= "PONG",
- 	[rxrpc_rtt_rx_requested_ack]	= "RACK",
- };
-+
-+const char rxrpc_timer_traces[rxrpc_timer__nr_trace][8] = {
-+	[rxrpc_timer_begin]			= "Begin ",
-+	[rxrpc_timer_expired]			= "*EXPR*",
-+	[rxrpc_timer_set_for_ack]		= "SetAck",
-+	[rxrpc_timer_set_for_send]		= "SetTx ",
-+	[rxrpc_timer_set_for_resend]		= "SetRTx",
-+};
-diff --git a/net/rxrpc/sendmsg.c b/net/rxrpc/sendmsg.c
-index 93e6584cd751..99939372b5a4 100644
---- a/net/rxrpc/sendmsg.c
-+++ b/net/rxrpc/sendmsg.c
-@@ -153,7 +153,7 @@ static void rxrpc_queue_packet(struct rxrpc_call *call, struct sk_buff *skb,
- 
- 		if (time_before(resend_at, call->resend_at)) {
- 			call->resend_at = resend_at;
--			rxrpc_set_timer(call);
-+			rxrpc_set_timer(call, rxrpc_timer_set_for_send);
- 		}
- 	}
- 
+Not documented.
+
+> +
+> +			ports {
+> +				#address-cells = <1>;
+> +				#size-cells = <0>;
+> +				port@0 {
+> +					reg = <0>;
+> +					label = "cpu";
+> +					ethernet = <&gmac1>;
+> +					phy-mode = "rgmii";
+> +				};
+> +
+> +				port@1 {
+> +					reg = <1>;
+> +					label = "lan1";
+> +					phy-handle = <&phy_port1>;
+> +				};
+> +
+> +				port@2 {
+> +					reg = <2>;
+> +					label = "lan2";
+> +					phy-handle = <&phy_port2>;
+> +				};
+> +
+> +				port@3 {
+> +					reg = <3>;
+> +					label = "lan3";
+> +					phy-handle = <&phy_port3>;
+> +				};
+> +
+> +				port@4 {
+> +					reg = <4>;
+> +					label = "lan4";
+> +					phy-handle = <&phy_port4>;
+> +				};
+> +
+> +				port@5 {
+> +					reg = <5>;
+> +					label = "wan";
+> +					phy-handle = <&phy_port5>;
+> +				};
+> +			};
+> +		};
+> +	};
+> -- 
+> 1.7.10.4
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe devicetree" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
