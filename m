@@ -1,209 +1,99 @@
-From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: [PATCHv2 iproute2 1/2] ip rule: merge ip rule flush and list, save together
-Date: Fri, 23 Sep 2016 11:25:54 +0800
-Message-ID: <1474601155-28171-2-git-send-email-liuhangbin@gmail.com>
-References: <1474601155-28171-1-git-send-email-liuhangbin@gmail.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        Phil Sutter <phil@nwl.cc>, Hangbin Liu <liuhangbin@gmail.com>
-To: netdev@vger.kernel.org
+From: Sean Wang <sean.wang@mediatek.com>
+Subject: Re: [PATCH net-next v2 1/3] net: ethernet: mediatek: add extension of phy-mode for TRGMII
+Date: Fri, 23 Sep 2016 11:32:51 +0800
+Message-ID: <1474601571-9647-1-git-send-email-sean.wang@mediatek.com>
+References: <9e375cf6-8283-b6fb-f21f-5d013c3172fa@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <john@phrozen.org>, <davem@davemloft.net>, <nbd@openwrt.org>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <linux-mediatek@lists.infradead.org>, <keyhaede@gmail.com>,
+        <objelf@gmail.com>
+To: <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:35771 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932633AbcIWD0T (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 23:26:19 -0400
-Received: by mail-pf0-f194.google.com with SMTP id 6so4569866pfl.2
-        for <netdev@vger.kernel.org>; Thu, 22 Sep 2016 20:26:18 -0700 (PDT)
-In-Reply-To: <1474601155-28171-1-git-send-email-liuhangbin@gmail.com>
+Received: from mailgw02.mediatek.com ([210.61.82.184]:12914 "EHLO
+        mailgw02.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1754170AbcIWDc7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 23:32:59 -0400
+In-Reply-To: <9e375cf6-8283-b6fb-f21f-5d013c3172fa@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-iprule_flush() and iprule_list_or_save() both call function
-rtnl_wilddump_request() and rtnl_dump_filter(). So merge them
-together just like other files do.
+Date: Thu, 22 Sep 2016 14:30:53 +0300, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> wrote:
+>>Hello.
+>
+>On 9/22/2016 5:33 AM, sean.wang@mediatek.com wrote:
+>
+>> From: Sean Wang <sean.wang@mediatek.com>
+>>
+>> adds PHY-mode "trgmii" as an extension for the operation mode of the 
+>> PHY interface for PHY_INTERFACE_MODE_TRGMII.
 
-Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
----
- ip/iprule.c | 121 +++++++++++++++++++++++++++---------------------------------
- 1 file changed, 54 insertions(+), 67 deletions(-)
+.. deleted
 
-diff --git a/ip/iprule.c b/ip/iprule.c
-index 70562c5..e18505f 100644
---- a/ip/iprule.c
-+++ b/ip/iprule.c
-@@ -27,6 +27,12 @@
- #include "utils.h"
- #include "ip_common.h"
- 
-+enum list_action {
-+	IPRULE_LIST,
-+	IPRULE_FLUSH,
-+	IPRULE_SAVE,
-+};
-+
- extern struct rtnl_handle rth;
- 
- static void usage(void) __attribute__((noreturn));
-@@ -243,24 +249,61 @@ static int save_rule(const struct sockaddr_nl *who,
- 	return ret == n->nlmsg_len ? 0 : ret;
- }
- 
--static int iprule_list_or_save(int argc, char **argv, int save)
-+static int flush_rule(const struct sockaddr_nl *who, struct nlmsghdr *n,
-+		      void *arg)
-+{
-+	struct rtnl_handle rth2;
-+	struct rtmsg *r = NLMSG_DATA(n);
-+	int len = n->nlmsg_len;
-+	struct rtattr *tb[FRA_MAX+1];
-+
-+	len -= NLMSG_LENGTH(sizeof(*r));
-+	if (len < 0)
-+		return -1;
-+
-+	parse_rtattr(tb, FRA_MAX, RTM_RTA(r), len);
-+
-+	if (tb[FRA_PRIORITY]) {
-+		n->nlmsg_type = RTM_DELRULE;
-+		n->nlmsg_flags = NLM_F_REQUEST;
-+
-+		if (rtnl_open(&rth2, 0) < 0)
-+			return -1;
-+
-+		if (rtnl_talk(&rth2, n, NULL, 0) < 0)
-+			return -2;
-+
-+		rtnl_close(&rth2);
-+	}
-+
-+	return 0;
-+}
-+
-+static int iprule_list_flush_or_save(int argc, char **argv, int action)
- {
--	rtnl_filter_t filter = print_rule;
-+	rtnl_filter_t filter_fn;
- 	int af = preferred_family;
- 
- 	if (af == AF_UNSPEC)
- 		af = AF_INET;
- 
- 	if (argc > 0) {
--		fprintf(stderr, "\"ip rule %s\" does not take any arguments.\n",
--				save ? "save" : "show");
-+		fprintf(stderr,
-+			"\"ip rule list/flush/save\" does not take any arguments\n");
- 		return -1;
- 	}
- 
--	if (save) {
-+	switch (action) {
-+	case IPRULE_SAVE:
- 		if (save_rule_prep())
- 			return -1;
--		filter = save_rule;
-+		filter_fn = save_rule;
-+		break;
-+	case IPRULE_FLUSH:
-+		filter_fn = flush_rule;
-+		break;
-+	default:
-+		filter_fn = print_rule;
- 	}
- 
- 	if (rtnl_wilddump_request(&rth, af, RTM_GETRULE) < 0) {
-@@ -268,7 +311,7 @@ static int iprule_list_or_save(int argc, char **argv, int save)
- 		return 1;
- 	}
- 
--	if (rtnl_dump_filter(&rth, filter, stdout) < 0) {
-+	if (rtnl_dump_filter(&rth, filter_fn, stdout) < 0) {
- 		fprintf(stderr, "Dump terminated\n");
- 		return 1;
- 	}
-@@ -511,72 +554,16 @@ static int iprule_modify(int cmd, int argc, char **argv)
- 	return 0;
- }
- 
--
--static int flush_rule(const struct sockaddr_nl *who, struct nlmsghdr *n,
--		      void *arg)
--{
--	struct rtnl_handle rth2;
--	struct rtmsg *r = NLMSG_DATA(n);
--	int len = n->nlmsg_len;
--	struct rtattr *tb[FRA_MAX+1];
--
--	len -= NLMSG_LENGTH(sizeof(*r));
--	if (len < 0)
--		return -1;
--
--	parse_rtattr(tb, FRA_MAX, RTM_RTA(r), len);
--
--	if (tb[FRA_PRIORITY]) {
--		n->nlmsg_type = RTM_DELRULE;
--		n->nlmsg_flags = NLM_F_REQUEST;
--
--		if (rtnl_open(&rth2, 0) < 0)
--			return -1;
--
--		if (rtnl_talk(&rth2, n, NULL, 0) < 0)
--			return -2;
--
--		rtnl_close(&rth2);
--	}
--
--	return 0;
--}
--
--static int iprule_flush(int argc, char **argv)
--{
--	int af = preferred_family;
--
--	if (af == AF_UNSPEC)
--		af = AF_INET;
--
--	if (argc > 0) {
--		fprintf(stderr, "\"ip rule flush\" does not allow arguments\n");
--		return -1;
--	}
--
--	if (rtnl_wilddump_request(&rth, af, RTM_GETRULE) < 0) {
--		perror("Cannot send dump request");
--		return 1;
--	}
--
--	if (rtnl_dump_filter(&rth, flush_rule, NULL) < 0) {
--		fprintf(stderr, "Flush terminated\n");
--		return 1;
--	}
--
--	return 0;
--}
--
- int do_iprule(int argc, char **argv)
- {
- 	if (argc < 1) {
--		return iprule_list_or_save(0, NULL, 0);
-+		return iprule_list_flush_or_save(0, NULL, IPRULE_LIST);
- 	} else if (matches(argv[0], "list") == 0 ||
- 		   matches(argv[0], "lst") == 0 ||
- 		   matches(argv[0], "show") == 0) {
--		return iprule_list_or_save(argc-1, argv+1, 0);
-+		return iprule_list_flush_or_save(argc-1, argv+1, IPRULE_LIST);
- 	} else if (matches(argv[0], "save") == 0) {
--		return iprule_list_or_save(argc-1, argv+1, 1);
-+		return iprule_list_flush_or_save(argc-1, argv+1, IPRULE_SAVE);
- 	} else if (matches(argv[0], "restore") == 0) {
- 		return iprule_restore();
- 	} else if (matches(argv[0], "add") == 0) {
-@@ -584,7 +571,7 @@ int do_iprule(int argc, char **argv)
- 	} else if (matches(argv[0], "delete") == 0) {
- 		return iprule_modify(RTM_DELRULE, argc-1, argv+1);
- 	} else if (matches(argv[0], "flush") == 0) {
--		return iprule_flush(argc-1, argv+1);
-+		return iprule_list_flush_or_save(argc-1, argv+1, IPRULE_FLUSH);
- 	} else if (matches(argv[0], "help") == 0)
- 		usage();
- 
--- 
-2.5.5
+>>  	switch (of_get_phy_mode(np)) {
+>> +	case PHY_INTERFACE_MODE_TRGMII:
+>> +		mac->trgmii = true;
+>>  	case PHY_INTERFACE_MODE_RGMII_TXID:
+>>  	case PHY_INTERFACE_MODE_RGMII_RXID:
+>>  	case PHY_INTERFACE_MODE_RGMII_ID:
+>> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h 
+>> b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+>> index 7c5e534..e3b9525 100644
+>> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+>> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+>> @@ -529,6 +529,8 @@ struct mtk_eth {
+>>   * @hw:			Backpointer to our main datastruture
+>>   * @hw_stats:		Packet statistics counter
+>>   * @phy_dev:		The attached PHY if available
+>> + * @trgmii		Indicate if the MAC uses TRGMII connected to internal
+>> +			switch
+>>   */
+>>  struct mtk_mac {
+>>  	int				id;
+>> @@ -539,6 +541,7 @@ struct mtk_mac {
+>>  	struct phy_device		*phy_dev;
+>>  	__be32				hwlro_ip[MTK_MAX_LRO_IP_CNT];
+>>  	int				hwlro_ip_cnt;
+>> +	bool				trgmii;
+>
+>     I don't see where this is used.
+
+I set trgmii as below
+  	switch (of_get_phy_mode(np)) {
+	case PHY_INTERFACE_MODE_TRGMII:
+		mac->trgmii = true;
+  	case PHY_INTERFACE_MODE_RGMII_TXID:
+
+>[...]
+>> diff --git a/include/linux/phy.h b/include/linux/phy.h index 
+>> 2d24b28..e25f183 100644
+>> --- a/include/linux/phy.h
+>> +++ b/include/linux/phy.h
+>> @@ -80,6 +80,7 @@ typedef enum {
+>>  	PHY_INTERFACE_MODE_XGMII,
+>>  	PHY_INTERFACE_MODE_MOCA,
+>>  	PHY_INTERFACE_MODE_QSGMII,
+>> +	PHY_INTERFACE_MODE_TRGMII,
+>>  	PHY_INTERFACE_MODE_MAX,
+>>  } phy_interface_t;
+>>
+>> @@ -123,6 +124,8 @@ static inline const char *phy_modes(phy_interface_t interface)
+>>  		return "moca";
+>>  	case PHY_INTERFACE_MODE_QSGMII:
+>>  		return "qsgmii";
+>> +	case PHY_INTERFACE_MODE_TRGMII:
+>> +		return "trgmii";
+>>  	default:
+>>  		return "unknown";
+>>  	}
+>
+>    I think this should be done in a separate phylib patch.
+
+this patch is applied, so I am so little confused how to do this.
+next time I will note placing modification for generic layer
+into separate patch.
+
+>
+>MBR, Sergei
+>
