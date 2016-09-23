@@ -1,45 +1,35 @@
-From: <sean.wang@mediatek.com>
-Subject: [PATCH net-next v2] Documentation: devicetree: revise ethernet device-tree binding about TRGMII
-Date: Fri, 23 Sep 2016 14:04:09 +0800
-Message-ID: <1474610649-18582-1-git-send-email-sean.wang@mediatek.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [PATCHv2 iproute2 0/2] ip rule: merger iprule_flush and add
+ selector support
+Date: Fri, 23 Sep 2016 08:05:32 +0200
+Message-ID: <20160923060532.GG31706@orbyte.nwl.cc>
+References: <1474601155-28171-1-git-send-email-liuhangbin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
-        <linux-mediatek@lists.infradead.org>, <john@phrozen.org>,
-        <keyhaede@gmail.com>, <objelf@gmail.com>,
-        Sean Wang <sean.wang@mediatek.com>
-To: <davem@davemloft.net>, <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+        Stephen Hemminger <stephen@networkplumber.org>
+To: Hangbin Liu <liuhangbin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbyte.nwl.cc ([151.80.46.58]:52596 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755979AbcIWGFf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 23 Sep 2016 02:05:35 -0400
+Content-Disposition: inline
+In-Reply-To: <1474601155-28171-1-git-send-email-liuhangbin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sean Wang <sean.wang@mediatek.com>
+On Fri, Sep 23, 2016 at 11:25:53AM +0800, Hangbin Liu wrote:
+> When merge iprule_flush() and iprule_list_or_save(). Renamed
+> rtnl_filter_t filter to filter_fn because we want to use global
+> variable 'filter' to filter nlmsg in the next patch.
+> 
+> Hangbin Liu (2):
+>   ip rule: merge ip rule flush and list, save together
+>   ip rule: add selector support
+> 
+>  ip/iprule.c        | 295 +++++++++++++++++++++++++++++++++++++++++------------
+>  man/man8/ip-rule.8 |   6 +-
+>  2 files changed, 231 insertions(+), 70 deletions(-)
 
-add phy-mode "trgmii" to
-Documentation/devicetree/bindings/net/ethernet.txt
-
-Cc: devicetree@vger.kernel.org
-Reported-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Signed-off-by: Sean Wang <sean.wang@mediatek.com>
----
- Documentation/devicetree/bindings/net/ethernet.txt | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/Documentation/devicetree/bindings/net/ethernet.txt b/Documentation/devicetree/bindings/net/ethernet.txt
-index 5d88f37..e1d7681 100644
---- a/Documentation/devicetree/bindings/net/ethernet.txt
-+++ b/Documentation/devicetree/bindings/net/ethernet.txt
-@@ -11,8 +11,8 @@ The following properties are common to the Ethernet controllers:
-   the maximum frame size (there's contradiction in ePAPR).
- - phy-mode: string, operation mode of the PHY interface; supported values are
-   "mii", "gmii", "sgmii", "qsgmii", "tbi", "rev-mii", "rmii", "rgmii", "rgmii-id",
--  "rgmii-rxid", "rgmii-txid", "rtbi", "smii", "xgmii"; this is now a de-facto
--  standard property;
-+  "rgmii-rxid", "rgmii-txid", "rtbi", "smii", "xgmii", "trgmii"; this is now a
-+  de-facto standard property;
- - phy-connection-type: the same as "phy-mode" property but described in ePAPR;
- - phy-handle: phandle, specifies a reference to a node representing a PHY
-   device; this property is described in ePAPR and so preferred;
--- 
-1.9.1
+Acked-by: Phil Sutter <phil@nwl.cc>
