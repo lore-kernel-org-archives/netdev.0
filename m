@@ -1,65 +1,62 @@
-From: KOVACS Krisztian <hidden@balabit.com>
-Subject: [PATCH] netfilter: xt_socket: fix transparent match for IPv6 request sockets
-Date: Fri, 23 Sep 2016 11:27:42 +0200
-Message-ID: <20160923092742.88262-1-hidden@balabit.com>
-Cc: Alex Badics <alex.badics@balabit.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        KOVACS Krisztian <hidden@balabit.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-        netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v2] fs/select: add vmalloc fallback for select(2)
+Date: Fri, 23 Sep 2016 09:42:07 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0107DC8@AcuExch.aculab.com>
+References: <20160922164359.9035-1-vbabka@suse.cz>
+ <1474562982.23058.140.camel@edumazet-glaptop3.roam.corp.google.com>
+ <12efc491-a0e7-1012-5a8b-6d3533c720db@suse.cz>
+ <1474564068.23058.144.camel@edumazet-glaptop3.roam.corp.google.com>
+ <a212f313-1f34-7c83-3aab-b45374875493@suse.cz>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Alexander Viro <viro@zeniv.linux.org.uk>, Andrew Morton
+	<akpm@linux-foundation.org>, "linux-fsdevel@vger.kernel.org"
+	<linux-fsdevel@vger.kernel.org>, "linux-kernel@vger.kernel.org"
+	<linux-kernel@vger.kernel.org>, "linux-mm@kvack.org" <linux-mm@kvack.org>,
+	Michal Hocko <mhocko@kernel.org>, "netdev@vger.kernel.org"
+	<netdev@vger.kernel.org>, Linux API <linux-api@vger.kernel.org>,
+	"linux-man@vger.kernel.org" <linux-man@vger.kernel.org>
+To: 'Vlastimil Babka' <vbabka@suse.cz>, Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <a212f313-1f34-7c83-3aab-b45374875493@suse.cz>
+Content-Language: en-US
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-The introduction of TCP_NEW_SYN_RECV state, and the addition of request
-sockets to the ehash table seems to have broken the --transparent option
-of the socket match for IPv6 (around commit a9407000).
+RnJvbTogVmxhc3RpbWlsIEJhYmthDQo+IFNlbnQ6IDIyIFNlcHRlbWJlciAyMDE2IDE4OjU1DQou
+Li4NCj4gU28gaW4gdGhlIGNhc2Ugb2Ygc2VsZWN0KCkgaXQgc2VlbXMgbGlrZSB0aGUgbWVtb3J5
+IHdlIG5lZWQgNiBiaXRzIHBlciBmaWxlDQo+IGRlc2NyaXB0b3IsIG11bHRpcGxpZWQgYnkgdGhl
+IGhpZ2hlc3QgcG9zc2libGUgZmlsZSBkZXNjcmlwdG9yIChuZmRzKSBhcyBwYXNzZWQNCj4gdG8g
+dGhlIHN5c2NhbGwuIEFjY29yZGluZyB0byB0aGUgbWFuIHBhZ2Ugb2Ygc2VsZWN0Og0KPiANCj4g
+ICAgICAgICBFSU5WQUwgbmZkcyBpcyBuZWdhdGl2ZSBvciBleGNlZWRzIHRoZSBSTElNSVRfTk9G
+SUxFIHJlc291cmNlIGxpbWl0IChzZWUNCj4gZ2V0cmxpbWl0KDIpKS4NCg0KVGhhdCBzZWNvbmQg
+Y2xhdXNlIGlzIHJlbGF0aXZlbHkgcmVjZW50Lg0KDQo+IFRoZSBjb2RlIGFjdHVhbGx5IHNlZW1z
+IHRvIHNpbGVudGx5IGNhcCB0aGUgdmFsdWUgaW5zdGVhZCBvZiByZXR1cm5pbmcgRUlOVkFMDQo+
+IHRob3VnaD8gKElJVUMpOg0KPiANCj4gICAgICAgICAvKiBtYXhfZmRzIGNhbiBpbmNyZWFzZSwg
+c28gZ3JhYiBpdCBvbmNlIHRvIGF2b2lkIHJhY2UgKi8NCj4gICAgICAgICAgcmN1X3JlYWRfbG9j
+aygpOw0KPiAgICAgICAgICBmZHQgPSBmaWxlc19mZHRhYmxlKGN1cnJlbnQtPmZpbGVzKTsNCj4g
+ICAgICAgICAgbWF4X2ZkcyA9IGZkdC0+bWF4X2ZkczsNCj4gICAgICAgICAgcmN1X3JlYWRfdW5s
+b2NrKCk7DQo+ICAgICAgICAgIGlmIChuID4gbWF4X2ZkcykNCj4gICAgICAgICAgICAgICAgICBu
+ID0gbWF4X2ZkczsNCj4gDQo+IFRoZSBkZWZhdWx0IGZvciB0aGlzIGNhcCBzZWVtcyB0byBiZSAx
+MDI0IHdoZXJlIEkgY2hlY2tlZCAoYWdhaW4sIElJVUMsIGl0J3MNCj4gd2hhdCB1bGltaXQgLW4g
+cmV0dXJucz8pLiBJIHdhc24ndCBhYmxlIHRvIGNoYW5nZSBpdCB0byBtb3JlIHRoYW4gMjA0OCwg
+d2hpY2gNCj4gbWFrZXMgdGhlIGJpdG1hcHMgc3RpbGwgYmVsb3cgUEFHRV9TSVpFLg0KPiANCj4g
+U28gaWYgSSBnZXQgdGhhdCByaWdodCwgdGhlIHN5c3RlbSBhZG1pbiB3b3VsZCBoYXZlIHRvIGFs
+bG93IHJlYWxseSBsYXJnZQ0KPiBSTElNSVRfTk9GSUxFIHRvIGV2ZW4gbWFrZSB2bWFsbG9jKCkg
+cG9zc2libGUgaGVyZS4gU28gSSBkb24ndCBzZWUgaXQgYXMgYSBsYXJnZQ0KPiBjb25jZXJuPw0K
+DQo0ayBvcGVuIGZpbGVzIGlzbid0IHRoYXQgbWFueS4NCkVzcGVjaWFsbHkgZm9yIHByb2dyYW1z
+IHRoYXQgYXJlIHVzaW5nIHBpcGVzIHRvIGVtdWxhdGUgd2luZG93cyBldmVudHMuDQoNCkkgc3Vz
+cGVjdCB0aGF0IGZkdC0+bWF4X2ZkcyBpcyBhbiB1cHBlciBib3VuZCBmb3IgdGhlIGhpZ2hlc3Qg
+ZmQgdGhlDQpwcm9jZXNzIGhhcyBvcGVuIC0gbm90IHRoZSBSTElNSVRfTk9GSUxFIHZhbHVlLg0K
+c2VsZWN0KCkgc2hvdWxkbid0IGJlIHNpbGVudGx5IGlnbm9yaW5nIGxhcmdlIHZhbHVlcyBvZiAn
+bicgdW5sZXNzDQp0aGUgZmRfc2V0IGJpdHMgYXJlIHplcm8uDQoNCk9mIGNvdXJzZSwgc2VsZWN0
+IGRvZXMgc2NhbGUgd2VsbCBmb3IgaGlnaCBudW1iZXJlZCBmZHMNCmFuZCBuZWl0aGVyIHBvbGwg
+bm9yIHNlbGVjdCBzY2FsZSB3ZWxsIGZvciBsYXJnZSBudW1iZXJzIG9mIGZkcy4NCg0KCURhdmlk
+DQoNCg==
 
-Now that the socket lookup finds the TCP_NEW_SYN_RECV socket instead of the
-listener, the --transparent option tries to match on the no_srccheck flag
-of the request socket.
-
-Unfortunately, that flag was only set for IPv4 sockets in tcp_v4_init_req()
-by copying the transparent flag of the listener socket. This effectively
-causes '-m socket --transparent' not match on the ACK packet sent by the
-client in a TCP handshake.
-
-Based on the suggestion from Eric Dumazet, this change moves the code
-initializing no_srccheck to tcp_conn_request(), rendering the above
-scenario working again.
-
-Fixes: a940700003 ("netfilter: xt_socket: prepare for TCP_NEW_SYN_RECV support")
-Signed-off-by: Alex Badics <alex.badics@balabit.com>
-Signed-off-by: KOVACS Krisztian <hidden@balabit.com>
----
- net/ipv4/tcp_input.c | 1 +
- net/ipv4/tcp_ipv4.c  | 1 -
- 2 files changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 3ebf45b..1fb2e82 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -6260,6 +6260,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
- 
- 	tmp_opt.tstamp_ok = tmp_opt.saw_tstamp;
- 	tcp_openreq_init(req, &tmp_opt, skb, sk);
-+	inet_rsk(req)->no_srccheck = inet_sk(sk)->transparent;
- 
- 	/* Note: tcp_v6_init_req() might override ir_iif for link locals */
- 	inet_rsk(req)->ir_iif = inet_request_bound_dev_if(sk, skb);
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 7158d4f..b448eb9 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1195,7 +1195,6 @@ static void tcp_v4_init_req(struct request_sock *req,
- 
- 	sk_rcv_saddr_set(req_to_sk(req), ip_hdr(skb)->daddr);
- 	sk_daddr_set(req_to_sk(req), ip_hdr(skb)->saddr);
--	ireq->no_srccheck = inet_sk(sk_listener)->transparent;
- 	ireq->opt = tcp_v4_save_options(skb);
- }
- 
--- 
-2.10.0
-
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
