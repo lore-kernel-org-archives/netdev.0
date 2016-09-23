@@ -1,46 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] tcp: fix a compile error in DBGUNDO()
-Date: Thu, 22 Sep 2016 17:54:00 -0700
-Message-ID: <1474592040.28155.15.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Sean Wang <sean.wang@mediatek.com>
+Subject: Re: [PATCH net-next] Documentation: devicetree: revise ethernet device-tree binding about TRGMII
+Date: Fri, 23 Sep 2016 10:52:40 +0800
+Message-ID: <1474599160-7958-1-git-send-email-sean.wang@mediatek.com>
+References: <0582f22e-6e6f-1564-fcdd-1bcfc3562cf3@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:34237 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754131AbcIWAyC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2016 20:54:02 -0400
-Received: by mail-pf0-f195.google.com with SMTP id 21so4457726pfy.1
-        for <netdev@vger.kernel.org>; Thu, 22 Sep 2016 17:54:02 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <john@phrozen.org>, <davem@davemloft.net>, <nbd@openwrt.org>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <linux-mediatek@lists.infradead.org>, <keyhaede@gmail.com>,
+        <objelf@gmail.com>
+To: <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <0582f22e-6e6f-1564-fcdd-1bcfc3562cf3@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+Date: Thu, 22 Sep 2016 19:48:47 +0300, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> wrote:
+>On 09/22/2016 07:16 PM, sean.wang@mediatek.com wrote:
+>
+>> From: Sean Wang <sean.wang@mediatek.com>
+>>
+>> fix typo in mediatek-net.txt and add phy-mode "trgmii" to ethernet.txt
+>
+>    These changes are unrelated to each other, so there should be 2 separate 
+>patches. And have the patches I reviewed been merged already, why are you 
+>sending an incremental patch?
+>
 
-If DBGUNDO() is enabled (FASTRETRANS_DEBUG > 1), a compile
-error will happen, since inet6_sk(sk)->daddr became sk->sk_v6_daddr
+okay, I will make them into distinct patchs.
 
-Fixes: efe4208f47f9 ("ipv6: make lookups simpler and faster")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/tcp_input.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+I saw they had been applied so I created an incremental
+patch based on codebase after applied.
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 08323bd95f2a..a756b8749a26 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -2329,10 +2329,9 @@ static void DBGUNDO(struct sock *sk, const char *msg)
- 	}
- #if IS_ENABLED(CONFIG_IPV6)
- 	else if (sk->sk_family == AF_INET6) {
--		struct ipv6_pinfo *np = inet6_sk(sk);
- 		pr_debug("Undo %s %pI6/%u c%u l%u ss%u/%u p%u\n",
- 			 msg,
--			 &np->daddr, ntohs(inet->inet_dport),
-+			 &sk->sk_v6_daddr, ntohs(inet->inet_dport),
- 			 tp->snd_cwnd, tcp_left_out(tp),
- 			 tp->snd_ssthresh, tp->prior_ssthresh,
- 			 tp->packets_out);
+>> Cc: devicetree@vger.kernel.org
+>> Reported-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+>[...]
+>
+>MBR, Sergei
+>
+>
