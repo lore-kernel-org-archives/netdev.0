@@ -1,57 +1,105 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/10] ixgbe: make ixgbe_led_on/off_t_x550em static
-Date: Fri, 23 Sep 2016 00:51:35 -0700
-Message-ID: <1474617103-59530-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/10] ixgbe: Support 4 queue RSS on VFs with 1 or 2 queue RSS on PF
+Date: Fri, 23 Sep 2016 00:51:42 -0700
+Message-ID: <1474617103-59530-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1474617103-59530-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        guru.anbalagane@oracle.com,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:8864 "EHLO mga05.intel.com"
+Received: from mga05.intel.com ([192.55.52.43]:6929 "EHLO mga05.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754921AbcIWHvp (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 23 Sep 2016 03:51:45 -0400
+        id S1757761AbcIWHvs (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 23 Sep 2016 03:51:48 -0400
 In-Reply-To: <1474617103-59530-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-These functions are only used in ixgbe_x550.c.
+Instead of limiting the VFs if we don't use 4 queues for RSS in the PF we
+can instead just limit the RSS queues used to a power of 2.  By doing this
+we can support use cases where VFs are using more queues than the PF is
+currently using and can support RSS if so desired.
 
-Fixes a warning when compiling with -Wmissing-prototypes
+The only limitation on this is that we cannot support 3 queues of RSS in
+the PF or VF.  In either of these cases we should fall back to 2 queues in
+order to be able to use the power of 2 masking provided by the psrtype
+register.
 
-Reported-by: Krishneil Singh <krishneil.k.singh@intel.com>
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c  |  7 ++++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 12 +++++++-----
+ 2 files changed, 11 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index e092a89..dec8b11 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -2125,7 +2125,7 @@ static s32 ixgbe_reset_phy_t_X550em(struct ixgbe_hw *hw)
-  *  @hw: pointer to hardware structure
-  *  @led_idx: led number to turn on
-  **/
--s32 ixgbe_led_on_t_x550em(struct ixgbe_hw *hw, u32 led_idx)
-+static s32 ixgbe_led_on_t_x550em(struct ixgbe_hw *hw, u32 led_idx)
- {
- 	u16 phy_data;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+index bcdc884..15ab337 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+@@ -515,15 +515,16 @@ static bool ixgbe_set_sriov_queues(struct ixgbe_adapter *adapter)
+ 	vmdq_i = min_t(u16, IXGBE_MAX_VMDQ_INDICES, vmdq_i);
  
-@@ -2147,7 +2147,7 @@ s32 ixgbe_led_on_t_x550em(struct ixgbe_hw *hw, u32 led_idx)
-  *  @hw: pointer to hardware structure
-  *  @led_idx: led number to turn off
-  **/
--s32 ixgbe_led_off_t_x550em(struct ixgbe_hw *hw, u32 led_idx)
-+static s32 ixgbe_led_off_t_x550em(struct ixgbe_hw *hw, u32 led_idx)
- {
- 	u16 phy_data;
+ 	/* 64 pool mode with 2 queues per pool */
+-	if ((vmdq_i > 32) || (rss_i < 4) || (vmdq_i > 16 && pools)) {
++	if ((vmdq_i > 32) || (vmdq_i > 16 && pools)) {
+ 		vmdq_m = IXGBE_82599_VMDQ_2Q_MASK;
+ 		rss_m = IXGBE_RSS_2Q_MASK;
+ 		rss_i = min_t(u16, rss_i, 2);
+-	/* 32 pool mode with 4 queues per pool */
++	/* 32 pool mode with up to 4 queues per pool */
+ 	} else {
+ 		vmdq_m = IXGBE_82599_VMDQ_4Q_MASK;
+ 		rss_m = IXGBE_RSS_4Q_MASK;
+-		rss_i = 4;
++		/* We can support 4, 2, or 1 queues */
++		rss_i = (rss_i > 3) ? 4 : (rss_i > 1) ? 2 : 1;
+ 	}
  
+ #ifdef IXGBE_FCOE
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 1c88858..a244d9a 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -3248,7 +3248,8 @@ static void ixgbe_setup_mtqc(struct ixgbe_adapter *adapter)
+ 			mtqc |= IXGBE_MTQC_RT_ENA | IXGBE_MTQC_8TC_8TQ;
+ 		else if (tcs > 1)
+ 			mtqc |= IXGBE_MTQC_RT_ENA | IXGBE_MTQC_4TC_4TQ;
+-		else if (adapter->ring_feature[RING_F_RSS].indices == 4)
++		else if (adapter->ring_feature[RING_F_VMDQ].mask ==
++			 IXGBE_82599_VMDQ_4Q_MASK)
+ 			mtqc |= IXGBE_MTQC_32VF;
+ 		else
+ 			mtqc |= IXGBE_MTQC_64VF;
+@@ -3475,12 +3476,12 @@ static void ixgbe_setup_reta(struct ixgbe_adapter *adapter)
+ 	u32 reta_entries = ixgbe_rss_indir_tbl_entries(adapter);
+ 	u16 rss_i = adapter->ring_feature[RING_F_RSS].indices;
+ 
+-	/* Program table for at least 2 queues w/ SR-IOV so that VFs can
++	/* Program table for at least 4 queues w/ SR-IOV so that VFs can
+ 	 * make full use of any rings they may have.  We will use the
+ 	 * PSRTYPE register to control how many rings we use within the PF.
+ 	 */
+-	if ((adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) && (rss_i < 2))
+-		rss_i = 2;
++	if ((adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) && (rss_i < 4))
++		rss_i = 4;
+ 
+ 	/* Fill out hash function seeds */
+ 	for (i = 0; i < 10; i++)
+@@ -3544,7 +3545,8 @@ static void ixgbe_setup_mrqc(struct ixgbe_adapter *adapter)
+ 				mrqc = IXGBE_MRQC_VMDQRT8TCEN;	/* 8 TCs */
+ 			else if (tcs > 1)
+ 				mrqc = IXGBE_MRQC_VMDQRT4TCEN;	/* 4 TCs */
+-			else if (adapter->ring_feature[RING_F_RSS].indices == 4)
++			else if (adapter->ring_feature[RING_F_VMDQ].mask ==
++				 IXGBE_82599_VMDQ_4Q_MASK)
+ 				mrqc = IXGBE_MRQC_VMDQRSS32EN;
+ 			else
+ 				mrqc = IXGBE_MRQC_VMDQRSS64EN;
 -- 
 2.7.4
