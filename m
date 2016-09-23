@@ -1,95 +1,73 @@
-From: Eric Nelson <eric@nelint.com>
-Subject: Re: Alignment issues with freescale FEC driver
-Date: Fri, 23 Sep 2016 10:19:50 -0700
-Message-ID: <5ee28ee0-cf0c-bdab-1271-f17755365c13@nelint.com>
-References: <troy.kisky@boundarydevices.com>
- <02afb707-65de-5101-a79b-355929c4e00b@nelint.com>
- <CANn89iLb+QJu+MYh859oAAjcLCsKRpBbzVf43yOdq+HJVtZDpQ@mail.gmail.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH net-next] net/vxlan: Avoid unaligned access in
+ vxlan_build_skb()
+Date: Fri, 23 Sep 2016 13:20:59 -0400
+Message-ID: <20160923172059.GB2484@oracle.com>
+References: <20160920190929.57ddaeb0@griffin>
+ <20160922.015242.735026657310158125.davem@davemloft.net>
+ <20160922213010.GA32052@oracle.com>
+ <20160923.080618.678103827885223586.davem@davemloft.net>
+ <CAKgT0UcoDb5T9xwfAq83cNwU=XAKZxf0TmPiJZQyHFPr82zggg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        rmk+kernel@arm.linux.org.uk, Fugang Duan <fugang.duan@nxp.com>,
-        Troy Kisky <troy.kisky@boundarydevices.com>,
-        Otavio Salvador <otavio@ossystems.com.br>,
-        Simone <cjb.sw.nospam@gmail.com>
-To: Eric Dumazet <edumazet@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, Jiri Benc <jbenc@redhat.com>,
+        Netdev <netdev@vger.kernel.org>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Alexander Duyck <aduyck@mirantis.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Paolo Abeni <pabeni@redhat.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:34711 "EHLO
-        mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1761609AbcIWRTx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 13:19:53 -0400
-Received: by mail-pa0-f48.google.com with SMTP id wk8so42031726pab.1
-        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 10:19:52 -0700 (PDT)
-In-Reply-To: <CANn89iLb+QJu+MYh859oAAjcLCsKRpBbzVf43yOdq+HJVtZDpQ@mail.gmail.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:17237 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758967AbcIWRVX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 13:21:23 -0400
+Content-Disposition: inline
+In-Reply-To: <CAKgT0UcoDb5T9xwfAq83cNwU=XAKZxf0TmPiJZQyHFPr82zggg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks Eric,
+On (09/23/16 07:17), Alexander Duyck wrote:
+> >> Is this basically about, e.g., putting the vxlanhdr in its own
+> >> skb_frag_t, or something else?
+> >
+> > Yes, and this way skb_header_pointer() is forced to do a memcpy.
+  :
+> For Tx it all becomes a bit trickier since it would likely require us
+> to shift the frags up by 1 when we go from outer headers to inner
+> headers.  
 
-On 09/23/2016 09:54 AM, Eric Dumazet wrote:
-> On Fri, Sep 23, 2016 at 9:43 AM, Eric Nelson <eric@nelint.com> wrote:
->>
->> Hello all,
->>
->> We're seeing alignment issues from the ethernet stack on an i.MX6UL board:
->>
->>
+here's how I thought through this so far, based on what I'm seeing for 
+mld_newpack/vxlan (not sure if this can be extended for all the 
+other tunnelling cases as well)..
 
-<snip>
+today the skb is set up so that we reserve LL_RESERVED_SPACE
+in the headroom, and vxlan sets up needed headroom for 
+(outer_ether + ip + udp + vxlan + inner_ether). Insterad, if it
+set up the needed_headroom for just (outer_ether, ip, udp) and
+we had something like a "needed_fragroom" in the net_device, 
+maybe we could set up the skb so that we dont have to shift the frags
+by 1. 
 
->>
->> - id = ntohl(*(__be32 *)&iph->id);
->> - flush = (u16)((ntohl(*(__be32 *)iph) ^ skb_gro_len(skb)) | (id & ~IP_DF));
->> - id >>= 16;
->> + id = ntohs(*(__be16 *)&iph->id);
->> + frag = ntohs(*(__be16 *)&iph->frag_off);
->> + flush = (u16)((ntohl(*(__be32 *)iph) ^ skb_gro_len(skb)) | (frag &
->> ~IP_DF));
->>
->> for (p = *head; p; p = p->next) {
->> struct iphdr *iph2;
->>
-> 
-> This solves nothing, because a few lines after you'll have yet another
-> unaligned access :
-> 
+Drawbacks: this ends up with every skb going through vxlan etc being
+non-linear, so it is a lot of churn for several functions (e.g.,
+even mld_newpack() cannot just skb_put() things around). Also
+this probably gets quickly messy if we are dealing with multiple 
+encaapsulations (even in the simple vxlan case we have 
+vxlan + inner mac/ip/etc)
 
-Oddly, it does prevent the vast majority (90%+) of the alignment errors.
+BTW, I wonder if there is a small vxlan bug here- are we
+accounting for the outer_ether twice in LL_RESERVED_SPACE: once in 
+->hard_header_len, and once in ->needed_headroom?
 
-I believe this is because the compiler is generating an ldm instruction
-when the ntohl() call is used, but I'm stumped about why these aren't
-generating faults:
+> One thought I had on that is that we could possibly avoid
+> having to do any allocation and could just take a reference on the
+> head_frag if that is what we are using.  Then we just add a 2 byte pad
+> and resume writing headers in place and the pointer offsets for the
+> inner headers would remain valid, though they would be past the point
+> of skb->tail.
 
-> ((__force u32)iph->saddr ^ (__force u32)iph2->saddr) |
-> ((__force u32)iph->daddr ^ (__force u32)iph2->daddr)) {
-> 
-> So you might have one less problematic access, out of hundreds of them
-> all over the places.
-> 
-> Really the problem is that whole stack depends on the assumption that
-> IP headers are aligned on arches that care
-> (ie where NET_IP_ALIGN == 2)
-> 
-> If your build does have NET_IP_ALIGN = 2 and you get a fault here, it
-> might be because of a buggy driver.
-> 
+I am not sure I follow, can you elaborate? Doesnt this also assume
+that every skb is necessarily non-linear?
 
-NET_IP_ALIGN is set to 2.
-
-> The other known case is some GRE encapsulations that break the
-> assumption, and this is discussed somewhere else.
-> 
-I don't think that's the case.
-
-# CONFIG_IPV6_GRE is not set
-
-Hmm... Instrumenting the kernel, it seems that iphdr **is** aligned on
-a 4-byte boundary.
-
-Does the ldm instruction require 8-byte alignment?
-
-There's definitely a compiler-version dependency involved here,
-since using gcc 4.9 also reduced the number of faults dramatically.
+--Sowmini
