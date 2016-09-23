@@ -1,30 +1,49 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH] realtek: Add switch variable to 'switch case not
- processed' messages
-Date: Fri, 23 Sep 2016 14:07:38 -0500
-Message-ID: <596ad587-a0df-846c-598a-ca109dc717fe@lwfinger.net>
-References: <1474654333.1849.5.camel@perches.com>
- <d091f73a6adf3bdaa09ab0399c22a9fdfe9b188c.1474654979.git.joe@perches.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>, Jean Delvare <jdelvare-l3A5Bk7waGM@public.gmane.org>,
-        Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <d091f73a6adf3bdaa09ab0399c22a9fdfe9b188c.1474654979.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Lance Richardson <lrichard@redhat.com>
+Subject: [PATCH net v2] ip6_gre: fix flowi6_proto value in ip6gre_xmit_other()
+Date: Fri, 23 Sep 2016 15:50:29 -0400
+Message-ID: <1474660229-5665-1-git-send-email-lrichard@redhat.com>
+Cc: shmulik.ladkani@gmail.com, jbenc@redhat.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:39234 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1034816AbcIWTub (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 23 Sep 2016 15:50:31 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/23/2016 01:27 PM, Joe Perches wrote:
-> Help along debugging by showing what switch/case variable is not
-> being processed in these messages.
->
-> Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Similar to commit 3be07244b733 ("ip6_gre: fix flowi6_proto value in
+xmit path"), set flowi6_proto to IPPROTO_GRE for output route lookup.
 
-Acked-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Up until now, ip6gre_xmit_other() has set flowi6_proto to a bogus value.
+This affected output route lookup for packets sent on an ip6gretap device
+in cases where routing was dependent on the value of flowi6_proto.
 
-Thanks,
+Since the correct proto is already set in the tunnel flowi6 template via
+commit 252f3f5a1189 ("ip6_gre: Set flowi6_proto as IPPROTO_GRE in xmit
+path."), simply delete the line setting the incorrect flowi6_proto value.
 
-Larry
+Suggested-by: Jiri Benc <jbenc@redhat.com>
+Fixes: commit c12b395a4664 ("gre: Support GRE over IPv6")
+Reviewed-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Signed-off-by: Lance Richardson <lrichard@redhat.com>
+---
+v2: expanded commit description as suggested by Shmulik Ladkani.
+
+ net/ipv6/ip6_gre.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index 704274c..edc3daa 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -648,7 +648,6 @@ static int ip6gre_xmit_other(struct sk_buff *skb, struct net_device *dev)
+ 		encap_limit = t->parms.encap_limit;
+ 
+ 	memcpy(&fl6, &t->fl.u.ip6, sizeof(fl6));
+-	fl6.flowi6_proto = skb->protocol;
+ 
+ 	err = gre_handle_offloads(skb, !!(t->parms.o_flags & TUNNEL_CSUM));
+ 	if (err)
+-- 
+2.5.5
