@@ -1,42 +1,48 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] [PATCH v2 net-next 5/7] xen-netback: process guest rx
- packets in batches
-Date: Tue, 4 Oct 2016 15:51:04 +0100
-Message-ID: <f26482a6-5f6f-126e-ae72-6dfcbbafd58c@citrix.com>
-References: <1475573358-32414-1-git-send-email-paul.durrant@citrix.com>
- <1475573358-32414-6-git-send-email-paul.durrant@citrix.com>
- <20161004124744.GC30836@localhost.localdomain>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 6/6] mISDN: remove unused function
+Date: Sat, 24 Sep 2016 10:42:14 +0200
+Message-ID: <6975809.FmUs8oxeay@wuerfel>
+References: <1474694882-25427-1-git-send-email-baoyou.xie@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, Wei Liu <wei.liu2@citrix.com>,
-        David Vrabel <david.vrabel@citrix.com>,
-        <xen-devel@lists.xenproject.org>
-To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-        Paul Durrant <paul.durrant@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:16053 "EHLO SMTP.CITRIX.COM"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751527AbcJDOvk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 4 Oct 2016 10:51:40 -0400
-In-Reply-To: <20161004124744.GC30836@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: isdn@linux-pingi.de, davem@davemloft.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, xie.baoyou@zte.com.cn
+To: Baoyou Xie <baoyou.xie@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1474694882-25427-1-git-send-email-baoyou.xie@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/10/16 13:47, Konrad Rzeszutek Wilk wrote:
-> On Tue, Oct 04, 2016 at 10:29:16AM +0100, Paul Durrant wrote:
->> From: David Vrabel <david.vrabel@citrix.com>
->>
->> Instead of only placing one skb on the guest rx ring at a time, process
->> a batch of up-to 64.  This improves performance by ~10% in some tests.
+On Saturday, September 24, 2016 1:28:02 PM CEST Baoyou Xie wrote:
+> diff --git a/drivers/isdn/mISDN/layer2.c b/drivers/isdn/mISDN/layer2.c
+> index f6ab6027..2519510 100644
+> --- a/drivers/isdn/mISDN/layer2.c
+> +++ b/drivers/isdn/mISDN/layer2.c
+> @@ -459,15 +459,6 @@ IsDISC(u_char *data)
+>         return (data[0] & 0xef) == DISC;
+>  }
+>  
+> -inline int
+> -IsRR(u_char *data, struct layer2 *l2)
+> -{
+> -       if (test_bit(FLG_MOD128, &l2->flag))
+> -               return data[0] == RR;
+> -       else
+> -               return (data[0] & 0xf) == 1;
+> -}
+> -
+>  static inline int
+>  IsSFrame(u_char *data, struct layer2 *l2)
+>  {
+> -- 
 > 
-> And does it regress latency workloads?
 
-No. Because the loop outside of these batches is only checking for a
-fatal error condition or a disconnection.
+This is not wrong, but it might be nicer to just
+make this one as 'static inline' as well like the other
+ones for consistency.
 
-> What are those 'some tests' you speak off?
+Note that static inline functions don't cause a warning
+when they are unused.
 
-I think it was aggregate intrahost, but I don't remember exactly.
-
-David
+	Arnd
