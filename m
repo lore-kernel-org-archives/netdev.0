@@ -1,63 +1,32 @@
-From: Eric Nelson <eric@nelint.com>
-Subject: Re: Alignment issues with freescale FEC driver
-Date: Sat, 24 Sep 2016 05:27:15 -0700
-Message-ID: <78d1e5e1-30dd-e434-9656-2d2bab32956f@nelint.com>
-References: <CANn89iLb+QJu+MYh859oAAjcLCsKRpBbzVf43yOdq+HJVtZDpQ@mail.gmail.com>
- <5ee28ee0-cf0c-bdab-1271-f17755365c13@nelint.com>
- <0fe7a310-2d2f-4fca-d698-85d66122d91c@nelint.com>
- <20160923.224305.942077200829435690.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] mlxsw: spectrum: remove redundant check if err is zero
+Date: Sat, 24 Sep 2016 08:28:42 -0400 (EDT)
+Message-ID: <20160924.082842.382648996095761130.davem@davemloft.net>
+References: <20160923110245.18977-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, linux-arm-kernel@lists.infradead.org,
-        netdev@vger.kernel.org, rmk+kernel@arm.linux.org.uk,
-        fugang.duan@nxp.com, troy.kisky@boundarydevices.com,
-        otavio@ossystems.com.br, cjb.sw.nospam@gmail.com
-To: David Miller <davem@davemloft.net>
+Cc: jiri@mellanox.com, idosch@mellanox.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:32977 "EHLO
-        mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756266AbcIXM1R (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 24 Sep 2016 08:27:17 -0400
-Received: by mail-pa0-f41.google.com with SMTP id hm5so48383576pac.0
-        for <netdev@vger.kernel.org>; Sat, 24 Sep 2016 05:27:17 -0700 (PDT)
-In-Reply-To: <20160923.224305.942077200829435690.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36960 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752656AbcIXM2r (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 24 Sep 2016 08:28:47 -0400
+In-Reply-To: <20160923110245.18977-1-colin.king@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Colin King <colin.king@canonical.com>
+Date: Fri, 23 Sep 2016 12:02:45 +0100
 
-On 09/23/2016 07:43 PM, David Miller wrote:
-> From: Eric Nelson <eric@nelint.com>
-> Date: Fri, 23 Sep 2016 10:33:29 -0700
+> From: Colin Ian King <colin.king@canonical.com>
 > 
->> Since the hardware requires longword alignment for its' DMA transfers,
->> aligning the IP header will require a memcpy, right?
+> There is an earlier check and return if err is non-zero, so
+> the check to see if it is zero is redundant in every iteration
+> of the loop and hence the check can be removed.
 > 
-> I wish hardware designers didn't do this.
-> 
-> There is no conflict between DMA alignment and properly offseting
-> the packet data by two bytes.
-> 
-> All hardware designers have to do is allow 2 padding bytes to be
-> emitted by the chip before the actual packet data.
-> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Andrew Lunn pointed out that the hardware does support this,
-and I just pushed a patch for the vendor kernel to the meta-freescale
-mailing list:
-
-https://lists.yoctoproject.org/pipermail/meta-freescale/2016-September/019228.html
-
-> Then the longword or whatever DMA transfer alignment is met
-> whilst still giving the necessary flexibility for where the
-> packet data lands.
-> 
-
-Right. A relatively small change fixes things right up.
-
-Many thanks to Andrew for pointing this out and Russell for providing
-the basis for my patch.
-
-I'll re-work this for the up-stream kernel when I get out from
-under a couple of unrelated things.
+Applied to net-next.
