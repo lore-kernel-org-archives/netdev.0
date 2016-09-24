@@ -1,76 +1,54 @@
-From: Eric Nelson <eric@nelint.com>
-Subject: Re: [PATCH 0/3] net: fec: updates to align IP header
-Date: Sat, 24 Sep 2016 08:29:10 -0700
-Message-ID: <d4890f27-835f-f839-5225-366b3c87be07@nelint.com>
-References: <AM4PR0401MB22609D8151C2B63CA7768A1AFFCB0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
- <1474728139-9335-1-git-send-email-eric@nelint.com>
- <AM4PR0401MB2260BDF848F89A445B1D013BFFCB0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+From: Jean Delvare <jdelvare@suse.de>
+Subject: Re: [PATCH] realtek: Add switch variable to 'switch case not
+ processed' messages
+Date: Sat, 24 Sep 2016 17:55:55 +0200
+Message-ID: <20160924175555.01cae6dd@endymion>
+References: <1474654333.1849.5.camel@perches.com>
+        <d091f73a6adf3bdaa09ab0399c22a9fdfe9b188c.1474654979.git.joe@perches.com>
+        <f98d2cf1-802a-93c1-b219-ec45aa417940@lwfinger.net>
+        <1474657363.1849.9.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: "linux@arm.linux.org.uk" <linux@arm.linux.org.uk>,
-        "andrew@lunn.ch" <andrew@lunn.ch>,
-        "otavio@ossystems.com.br" <otavio@ossystems.com.br>,
-        "edumazet@google.com" <edumazet@google.com>,
-        "troy.kisky@boundarydevices.com" <troy.kisky@boundarydevices.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "u.kleine-koenig@pengutronix.de" <u.kleine-koenig@pengutronix.de>
-To: Andy Duan <fugang.duan@nxp.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+Cc: Larry Finger <Larry.Finger@lwfinger.net>,
+        Chaoming Li <chaoming_li@realsil.com.cn>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:33091 "EHLO
-        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750838AbcIXP3N (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 24 Sep 2016 11:29:13 -0400
-Received: by mail-pf0-f169.google.com with SMTP id 21so51340778pfy.0
-        for <netdev@vger.kernel.org>; Sat, 24 Sep 2016 08:29:12 -0700 (PDT)
-In-Reply-To: <AM4PR0401MB2260BDF848F89A445B1D013BFFCB0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+Received: from mx2.suse.de ([195.135.220.15]:36275 "EHLO mx2.suse.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754881AbcIXP4A (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 24 Sep 2016 11:56:00 -0400
+In-Reply-To: <1474657363.1849.9.camel@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/24/2016 08:09 AM, Andy Duan wrote:
-> From: Eric Nelson <eric@nelint.com> Sent: Saturday, September 24, 2016 10:42 PM
->> To: netdev@vger.kernel.org
->> Cc: linux@arm.linux.org.uk; andrew@lunn.ch; Andy Duan
->> <fugang.duan@nxp.com>; otavio@ossystems.com.br;
->> edumazet@google.com; troy.kisky@boundarydevices.com;
->> davem@davemloft.net; u.kleine-koenig@pengutronix.de; Eric Nelson
->> <eric@nelint.com>
->> Subject: [PATCH 0/3] net: fec: updates to align IP header
->>
->> This patch series is the outcome of investigation into very high numbers of
->> alignment faults on kernel 4.1.33 from the linux-fslc
->> tree:
->>     https://github.com/freescale/linux-fslc/tree/4.1-1.0.x-imx
->>
->> The first two patches remove support for the receive accelerator (RACC)
->> from the i.MX25 and i.MX27 SoCs which don't support the function.
->>
->> The third patch enables hardware alignment of the ethernet packet payload
->> (and especially the IP header) to prevent alignment faults in the IP stack.
->>
->> Testing on i.MX6UL on the 4.1.33 kernel showed that this patch removed on
->> the order of 70k alignment faults during a 100MiB transfer using wget.
->>
->> Testing on an i.MX6Q (SABRE Lite) board on net-next (4.8.0-rc7) showed a
->> much more modest improvement from 10's of faults, and it's not clear why
->> that's the case.
->>
->> Eric Nelson (3):
->>   net: fec: remove QUIRK_HAS_RACC from i.mx25
->>   net: fec: remove QUIRK_HAS_RACC from i.mx27
->>   net: fec: align IP header in hardware
->>
->>  drivers/net/ethernet/freescale/fec_main.c | 15 ++++++++++++---
->>  1 file changed, 12 insertions(+), 3 deletions(-)
->>
->> --
->> 2.7.4
-> I will investigate the diff between 4.1 and 4.8. Thanks.
-> 
+Hi Joe, Larry,
 
-Thanks. Note that I'm not sure if the difference is 4.1 vs. 4.8 or
-i.MX6UL vs. i.MX6Q.
-
-> Acked-by: Fugang Duan <fugang.duan@nxp.com>
+On Fri, 23 Sep 2016 12:02:43 -0700, Joe Perches wrote:
+> On Fri, 2016-09-23 at 13:59 -0500, Larry Finger wrote:
+> > I'm not familiar with the %#x format. What does it do?
 > 
+> Outputs SPECIAL prefix, it's the same as "0x%x"
+> 
+> lib/vsprintf.c:
+> #define SPECIAL	64		/* prefix hex with "0x", octal with "0" */
+
+Is hexadecimal actually the best way to display these values? I guess it
+depends how they are listed in the datasheets (if there's anything like
+that for these chips?)
+
+I found it a bit difficult to look up the meaning of the value.
+HAL_DEF_WOWLAN is an enum value, the number is not set and there's no
+comment. I had to count the line numbers, taking blank lines into
+account... I ended up pasting the whole enum to a random C file and
+printing the value of HAL_DEF_WOWLAN to make sure it was 92.
+
+Would it make sense to explicitly set the enum values, or add them as
+comments, to make such look-ups easier?
+
+-- 
+Jean Delvare
+SUSE L3 Support
