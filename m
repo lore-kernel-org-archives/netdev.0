@@ -1,66 +1,44 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] realtek: Add switch variable to 'switch case not
- processed' messages
-Date: Sat, 24 Sep 2016 10:32:38 -0700
-Message-ID: <1474738358.23838.11.camel@perches.com>
-References: <1474654333.1849.5.camel@perches.com>
-         <d091f73a6adf3bdaa09ab0399c22a9fdfe9b188c.1474654979.git.joe@perches.com>
-         <f98d2cf1-802a-93c1-b219-ec45aa417940@lwfinger.net>
-         <1474657363.1849.9.camel@perches.com> <20160924175555.01cae6dd@endymion>
-         <1474733754.23838.3.camel@perches.com>
-         <49094659-662d-a902-6740-ea3d1fea6660@lwfinger.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: Chaoming Li <chaoming_li@realsil.com.cn>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>,
-        Jean Delvare <jdelvare@suse.de>,
-        Jes Sorensen <Jes.Sorensen@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <49094659-662d-a902-6740-ea3d1fea6660@lwfinger.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Lance Richardson <lrichard@redhat.com>
+Subject: [PATCH net-next] gre: use nla_get_be32() to extract flowinfo
+Date: Sat, 24 Sep 2016 14:01:04 -0400
+Message-ID: <1474740064-13580-1-git-send-email-lrichard@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:39094 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755304AbcIXSBG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 24 Sep 2016 14:01:06 -0400
+Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
+        (using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+        (No client certificate requested)
+        by mx1.redhat.com (Postfix) with ESMTPS id 5075A66CA5
+        for <netdev@vger.kernel.org>; Sat, 24 Sep 2016 18:01:05 +0000 (UTC)
+Received: from thinkcentre.nc.rr.com (vpn-56-79.rdu2.redhat.com [10.10.56.79])
+        by int-mx09.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id u8OI14Lc003048
+        for <netdev@vger.kernel.org>; Sat, 24 Sep 2016 14:01:04 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-(adding Jes Sorensen to recipients)
+Eliminate a sparse endianness mismatch warning, use nla_get_be32() to
+extract a __be32 value instead of nla_get_u32().
 
-On Sat, 2016-09-24 at 11:35 -0500, Larry Finger wrote:
-> I have patches that makes HAL_DEF_WOWLAN be a no-op for the rest of the drivers, 
-> and one that sets the enum values for that particular statement to hex values. I 
-> also looked at the other large enums and decided that they never need the human 
-> lookup.
+Signed-off-by: Lance Richardson <lrichard@redhat.com>
+---
+ net/ipv6/ip6_gre.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Hey Larry.
-
-There are many somewhat common realtek wireless drivers.
-
-Not to step on your toes, but what do you think of
-rationalizing the switch/case statements of all the
-realtek drivers in a few steps:
-
-o Reindent all the switch/case blocks to a more normal
-  kernel style (git diff -w would show no changes here)
-
-o cast, spacing and parenthesis reductions
-  Lots of odd and somewhat unique styles in various
-  drivers, looks like too many individual authors without
-  a style guide / code enforcer using slightly different
-  personalized code.  Glancing at the code, it looks to be
-  similar logic, just written in different styles.
-
-o Logic changes like
-  from:
-    if (foo) func(..., bar, ...); else func(..., baz, ...);
-  to:
-    func(..., foo ? bar : baz, ...);
-  to make the case statement code blocks more consistent
-  and emit somewhat smaller object code.
-
-o Consolidation of equivalent function spanning drivers
-  With the style only changes minimized, where possible
-  make the drivers use common ops/callback functions.
-
-Is there any value in that or is Jes' work going to make
-doing any or all of this unnecessary and futile?
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index 397e1ed..4ce74f8 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -1239,7 +1239,7 @@ static void ip6gre_netlink_parms(struct nlattr *data[],
+ 		parms->encap_limit = nla_get_u8(data[IFLA_GRE_ENCAP_LIMIT]);
+ 
+ 	if (data[IFLA_GRE_FLOWINFO])
+-		parms->flowinfo = nla_get_u32(data[IFLA_GRE_FLOWINFO]);
++		parms->flowinfo = nla_get_be32(data[IFLA_GRE_FLOWINFO]);
+ 
+ 	if (data[IFLA_GRE_FLAGS])
+ 		parms->flags = nla_get_u32(data[IFLA_GRE_FLAGS]);
+-- 
+2.5.5
