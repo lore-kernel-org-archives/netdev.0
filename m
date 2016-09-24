@@ -1,8 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 4/8] rxrpc: Reinitialise the call ACK and timer
- state for client reply phase
-Date: Sun, 25 Sep 2016 00:25:24 +0100
-Message-ID: <147475952422.15231.8672647973718593549.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 5/8] rxrpc: Delay the resend timer to allow for
+ nsec->jiffies conv error
+Date: Sun, 25 Sep 2016 00:25:31 +0100
+Message-ID: <147475953101.15231.16234106806253063069.stgit@warthog.procyon.org.uk>
 References: <147475949656.15231.3434038490632820605.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,62 +15,48 @@ In-Reply-To: <147475949656.15231.3434038490632820605.stgit@warthog.procyon.org.u
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Clear the ACK reason, ACK timer and resend timer when entering the client
-reply phase when the first DATA packet is received.  New ACKs will be
-proposed once the data is queued.
+When determining the resend timer value, we have a value in nsec but the
+timer is in jiffies which may be a million or more times more coarse.
+nsecs_to_jiffies() rounds down - which means that the resend timeout
+expressed as jiffies is very likely earlier than the one expressed as
+nanoseconds from which it was derived.
 
-The resend timer is no longer relevant and we need to cancel ACKs scheduled
-to probe for a lost reply.
+The problem is that rxrpc_resend() gets triggered by the timer, but can't
+then find anything to resend yet.  It sets the timer again - but gets
+kicked off immediately again and again until the nanosecond-based expiry
+time is reached and we actually retransmit.
+
+Fix this by adding 1 to the jiffies-based resend_at value to counteract the
+rounding and make sure that the timer happens after the nanosecond-based
+expiry is passed.
+
+Alternatives would be to adjust the timestamp on the packets to align
+with the jiffie scale or to switch back to using jiffie-timestamps.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/ar-internal.h |    1 +
- net/rxrpc/input.c       |    9 +++++++++
- net/rxrpc/misc.c        |    1 +
- 3 files changed, 11 insertions(+)
+ net/rxrpc/call_event.c |   10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
 
-diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index e3bf9c0e3ad1..cdd35e2b40ba 100644
---- a/net/rxrpc/ar-internal.h
-+++ b/net/rxrpc/ar-internal.h
-@@ -682,6 +682,7 @@ extern const char rxrpc_rtt_rx_traces[rxrpc_rtt_rx__nr_trace][5];
+diff --git a/net/rxrpc/call_event.c b/net/rxrpc/call_event.c
+index a78a92fe5d77..d5bf9ce7ec6f 100644
+--- a/net/rxrpc/call_event.c
++++ b/net/rxrpc/call_event.c
+@@ -200,8 +200,14 @@ static void rxrpc_resend(struct rxrpc_call *call)
+ 				       ktime_to_ns(ktime_sub(skb->tstamp, max_age)));
+ 	}
  
- enum rxrpc_timer_trace {
- 	rxrpc_timer_begin,
-+	rxrpc_timer_init_for_reply,
- 	rxrpc_timer_expired,
- 	rxrpc_timer_set_for_ack,
- 	rxrpc_timer_set_for_resend,
-diff --git a/net/rxrpc/input.c b/net/rxrpc/input.c
-index 757c16f033a0..bda11eb2ab2a 100644
---- a/net/rxrpc/input.c
-+++ b/net/rxrpc/input.c
-@@ -149,6 +149,15 @@ static bool rxrpc_receiving_reply(struct rxrpc_call *call)
- {
- 	rxrpc_seq_t top = READ_ONCE(call->tx_top);
+-	resend_at = ktime_sub(ktime_add_ms(oldest, rxrpc_resend_timeout), now);
+-	call->resend_at = jiffies + nsecs_to_jiffies(ktime_to_ns(resend_at));
++	resend_at = ktime_add_ms(oldest, rxrpc_resend_timeout);
++	call->resend_at = jiffies +
++		nsecs_to_jiffies(ktime_to_ns(ktime_sub(resend_at, now))) +
++		1; /* We have to make sure that the calculated jiffies value
++		    * falls at or after the nsec value, or we shall loop
++		    * ceaselessly because the timer times out, but we haven't
++		    * reached the nsec timeout yet.
++		    */
  
-+	if (call->ackr_reason) {
-+		spin_lock_bh(&call->lock);
-+		call->ackr_reason = 0;
-+		call->resend_at = call->expire_at;
-+		call->ack_at = call->expire_at;
-+		spin_unlock_bh(&call->lock);
-+		rxrpc_set_timer(call, rxrpc_timer_init_for_reply);
-+	}
-+
- 	if (!test_bit(RXRPC_CALL_TX_LAST, &call->flags))
- 		rxrpc_rotate_tx_window(call, top);
- 	if (!test_bit(RXRPC_CALL_TX_LAST, &call->flags)) {
-diff --git a/net/rxrpc/misc.c b/net/rxrpc/misc.c
-index a473fd7dabaa..901c012a2700 100644
---- a/net/rxrpc/misc.c
-+++ b/net/rxrpc/misc.c
-@@ -191,6 +191,7 @@ const char rxrpc_rtt_rx_traces[rxrpc_rtt_rx__nr_trace][5] = {
- const char rxrpc_timer_traces[rxrpc_timer__nr_trace][8] = {
- 	[rxrpc_timer_begin]			= "Begin ",
- 	[rxrpc_timer_expired]			= "*EXPR*",
-+	[rxrpc_timer_init_for_reply]		= "IniRpl",
- 	[rxrpc_timer_set_for_ack]		= "SetAck",
- 	[rxrpc_timer_set_for_send]		= "SetTx ",
- 	[rxrpc_timer_set_for_resend]		= "SetRTx",
+ 	/* Now go through the Tx window and perform the retransmissions.  We
+ 	 * have to drop the lock for each send.  If an ACK comes in whilst the
