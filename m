@@ -1,34 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request (net-next): ipsec-next 2016-09-23
-Date: Sat, 24 Sep 2016 08:19:17 -0400 (EDT)
-Message-ID: <20160924.081917.1471603832129054329.davem@davemloft.net>
-References: <1474614882-25253-1-git-send-email-steffen.klassert@secunet.com>
+Subject: Re: [net-next 00/10][pull request] 10GbE Intel Wired LAN Driver
+ Updates 2016-09-23
+Date: Sat, 24 Sep 2016 08:22:12 -0400 (EDT)
+Message-ID: <20160924.082212.284654541589592977.davem@davemloft.net>
+References: <1474617103-59530-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, guru.anbalagane@oracle.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36782 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:36800 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752656AbcIXMTU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 24 Sep 2016 08:19:20 -0400
-In-Reply-To: <1474614882-25253-1-git-send-email-steffen.klassert@secunet.com>
+        with ESMTP id S1757622AbcIXMWQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 24 Sep 2016 08:22:16 -0400
+In-Reply-To: <1474617103-59530-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Fri, 23 Sep 2016 09:14:40 +0200
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri, 23 Sep 2016 00:51:33 -0700
 
-> Only two patches this time:
-> 
-> 1) Fix a comment reference to struct xfrm_replay_state_esn.
->    From Richard Guy Briggs.
-> 
-> 2) Convert xfrm_state_lookup to rcu, we don't need the
->    xfrm_state_lock anymore in the input path.
->    From Florian Westphal.
-> 
-> Please pull or let me know if there are problems.
+> This series contains updates to ixgbe and ixgbevf.
 
-Pulled, thanks Steffen.
+Pulled, thanks Jeff.
