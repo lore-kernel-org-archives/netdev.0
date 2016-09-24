@@ -1,32 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/2] BQL support and fix for a regression issue
-Date: Sat, 24 Sep 2016 08:47:40 -0400 (EDT)
-Message-ID: <20160924.084740.220729213459690389.davem@davemloft.net>
-References: <1474621948-9172-1-git-send-email-sunil.kovvuri@gmail.com>
+Subject: Re: [PATCH] hv_netvsc: fix comments
+Date: Sat, 24 Sep 2016 09:36:54 -0400 (EDT)
+Message-ID: <20160924.093654.1559571915520887671.davem@davemloft.net>
+References: <1474675697-22805-1-git-send-email-sthemmin@exchange.microsoft.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, sgoutham@cavium.com
-To: sunil.kovvuri@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1474621948-9172-1-git-send-email-sunil.kovvuri@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: kys@microsoft.com, haiyangz@microsoft.com, netdev@vger.kernel.org
+To: sthemmin@microsoft.com, sthemmin@exchange.microsoft.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37478 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751900AbcIXNhB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 24 Sep 2016 09:37:01 -0400
+In-Reply-To: <1474675697-22805-1-git-send-email-sthemmin@exchange.microsoft.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: sunil.kovvuri@gmail.com
-Date: Fri, 23 Sep 2016 14:42:26 +0530
+From: sthemmin@exchange.microsoft.com
+Date: Fri, 23 Sep 2016 17:08:17 -0700
 
-> From: Sunil Goutham <sgoutham@cavium.com>
+> From: Stephen Hemminger <sthemmin@microsoft.com>
 > 
-> These patches add byte queue limit support and also fixes a regression
-> issue introduced by commit
-> 'net: thunderx: Use netdev's name for naming VF's interrupts'
+> Typo's and spelling errors. Also remove old comment from staging era.
 > 
-> Changes from v1:
-> - As suggested added 'Fixes' tag with commit id of previous commit 
->   which cuased issue.
-> - Also fixed the missing netdev_tx_reset_queue() function call in 
->   byte queue limits support patch.
+> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 
-Series applied to net-next, thanks.
+Applied to net-next.
+
+Please properly specify "[PATCH net-next]" or "[PATCH net]" in your
+Subject lines in the future.  Don't make me guess.
+
+Thank you.
