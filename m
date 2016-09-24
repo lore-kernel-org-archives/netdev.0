@@ -1,50 +1,72 @@
-From: Eric Nelson <eric@nelint.com>
-Subject: [PATCH 2/3] net: fec: remove QUIRK_HAS_RACC from i.mx27
-Date: Sat, 24 Sep 2016 07:42:18 -0700
-Message-ID: <1474728139-9335-3-git-send-email-eric@nelint.com>
+From: Andy Duan <fugang.duan@nxp.com>
+Subject: RE: [PATCH 0/3] net: fec: updates to align IP header
+Date: Sat, 24 Sep 2016 15:09:14 +0000
+Message-ID: <AM4PR0401MB2260BDF848F89A445B1D013BFFCB0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
 References: <AM4PR0401MB22609D8151C2B63CA7768A1AFFCB0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
  <1474728139-9335-1-git-send-email-eric@nelint.com>
-Cc: linux@arm.linux.org.uk, andrew@lunn.ch, fugang.duan@nxp.com,
-        otavio@ossystems.com.br, edumazet@google.com,
-        troy.kisky@boundarydevices.com, davem@davemloft.net,
-        u.kleine-koenig@pengutronix.de, Eric Nelson <eric@nelint.com>
-To: netdev@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "linux@arm.linux.org.uk" <linux@arm.linux.org.uk>,
+        "andrew@lunn.ch" <andrew@lunn.ch>,
+        "otavio@ossystems.com.br" <otavio@ossystems.com.br>,
+        "edumazet@google.com" <edumazet@google.com>,
+        "troy.kisky@boundarydevices.com" <troy.kisky@boundarydevices.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "u.kleine-koenig@pengutronix.de" <u.kleine-koenig@pengutronix.de>
+To: Eric Nelson <eric@nelint.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fed1rmwml107.cox.net ([68.230.241.177]:57866 "EHLO
-        fed1rmwml107.cox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751693AbcIXO6M (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 24 Sep 2016 10:58:12 -0400
-Received: from fed1rmimpo306.cox.net ([68.230.241.174])
-          by fed1rmfepo102.cox.net
-          (InterMail vM.8.01.05.28 201-2260-151-171-20160122) with ESMTP
-          id <20160924144427.SJSC3846.fed1rmfepo102.cox.net@fed1rmimpo306.cox.net>
-          for <netdev@vger.kernel.org>; Sat, 24 Sep 2016 10:44:27 -0400
+Received: from mail-db5eur01on0087.outbound.protection.outlook.com ([104.47.2.87]:12615
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753315AbcIXPJR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 24 Sep 2016 11:09:17 -0400
 In-Reply-To: <1474728139-9335-1-git-send-email-eric@nelint.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-According to the i.MX27 reference manual, this SoC does not have support
-for the receive accelerator (RACC) register at offset 0x1C4.
+From: Eric Nelson <eric@nelint.com> Sent: Saturday, September 24, 2016 10:4=
+2 PM
+> To: netdev@vger.kernel.org
+> Cc: linux@arm.linux.org.uk; andrew@lunn.ch; Andy Duan
+> <fugang.duan@nxp.com>; otavio@ossystems.com.br;
+> edumazet@google.com; troy.kisky@boundarydevices.com;
+> davem@davemloft.net; u.kleine-koenig@pengutronix.de; Eric Nelson
+> <eric@nelint.com>
+> Subject: [PATCH 0/3] net: fec: updates to align IP header
+>=20
+> This patch series is the outcome of investigation into very high numbers =
+of
+> alignment faults on kernel 4.1.33 from the linux-fslc
+> tree:
+>     https://github.com/freescale/linux-fslc/tree/4.1-1.0.x-imx
+>=20
+> The first two patches remove support for the receive accelerator (RACC)
+> from the i.MX25 and i.MX27 SoCs which don't support the function.
+>=20
+> The third patch enables hardware alignment of the ethernet packet payload
+> (and especially the IP header) to prevent alignment faults in the IP stac=
+k.
+>=20
+> Testing on i.MX6UL on the 4.1.33 kernel showed that this patch removed on
+> the order of 70k alignment faults during a 100MiB transfer using wget.
+>=20
+> Testing on an i.MX6Q (SABRE Lite) board on net-next (4.8.0-rc7) showed a
+> much more modest improvement from 10's of faults, and it's not clear why
+> that's the case.
+>=20
+> Eric Nelson (3):
+>   net: fec: remove QUIRK_HAS_RACC from i.mx25
+>   net: fec: remove QUIRK_HAS_RACC from i.mx27
+>   net: fec: align IP header in hardware
+>=20
+>  drivers/net/ethernet/freescale/fec_main.c | 15 ++++++++++++---
+>  1 file changed, 12 insertions(+), 3 deletions(-)
+>=20
+> --
+> 2.7.4
+I will investigate the diff between 4.1 and 4.8. Thanks.
 
-	http://cache.nxp.com/files/32bit/doc/ref_manual/MCIMX27RM.pdf
-
-Signed-off-by: Eric Nelson <eric@nelint.com>
----
- drivers/net/ethernet/freescale/fec_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index d193406..0219e79 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -92,7 +92,7 @@ static struct platform_device_id fec_devtype[] = {
- 		.driver_data = FEC_QUIRK_USE_GASKET,
- 	}, {
- 		.name = "imx27-fec",
--		.driver_data = FEC_QUIRK_HAS_RACC,
-+		.driver_data = 0,
- 	}, {
- 		.name = "imx28-fec",
- 		.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_SWAP_FRAME |
--- 
-2.7.4
+Acked-by: Fugang Duan <fugang.duan@nxp.com>
