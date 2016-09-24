@@ -1,34 +1,67 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH net-next] Documentation: devicetree: fix typo in MediaTek
- ethernet device-tree binding
-Date: Fri, 23 Sep 2016 16:48:35 -0500
-Message-ID: <20160923214835.GA10065@rob-hp-laptop>
-References: <1474610972-14974-1-git-send-email-sean.wang@mediatek.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, sergei.shtylyov@cogentembedded.com,
-        nbd@openwrt.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
-        linux-mediatek@lists.infradead.org, john@phrozen.org,
-        keyhaede@gmail.com, objelf@gmail.com
-To: sean.wang@mediatek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1474610972-14974-1-git-send-email-sean.wang@mediatek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: sthemmin@exchange.microsoft.com
+Subject: [PATCH] hv_netvsc: fix comments
+Date: Fri, 23 Sep 2016 17:08:17 -0700
+Message-ID: <1474675697-22805-1-git-send-email-sthemmin@exchange.microsoft.com>
+Reply-To: sthemmin@microsoft.com
+Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
+To: "K. Y. Srinivasan" <kys@microsoft.com>,
+        Haiyang Zhang <haiyangz@microsoft.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from p3plsmtps2ded01.prod.phx3.secureserver.net ([208.109.80.58]:35682
+        "EHLO p3plsmtps2ded01.prod.phx3.secureserver.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1759852AbcIWWRq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 23 Sep 2016 18:17:46 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 23, 2016 at 02:09:32PM +0800, sean.wang@mediatek.com wrote:
-> From: Sean Wang <sean.wang@mediatek.com>
-> 
-> fix typo in
-> Documentation/devicetree/bindings/net/mediatek-net.txt
-> 
-> Cc: devicetree@vger.kernel.org
-> Reported-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
-> ---
->  Documentation/devicetree/bindings/net/mediatek-net.txt | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+From: Stephen Hemminger <sthemmin@microsoft.com>
 
-Acked-by: Rob Herring <robh@kernel.org>
+Typo's and spelling errors. Also remove old comment from staging era.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h |    7 +++----
+ 1 files changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 284b97b..d7c1cc6 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -433,7 +433,7 @@ struct nvsp_1_message_revoke_send_buffer {
+  */
+ struct nvsp_1_message_send_rndis_packet {
+ 	/*
+-	 * This field is specified by RNIDS. They assume there's two different
++	 * This field is specified by RNDIS. They assume there's two different
+ 	 * channels of communication. However, the Network VSP only has one.
+ 	 * Therefore, the channel travels with the RNDIS packet.
+ 	 */
+@@ -578,7 +578,7 @@ struct nvsp_5_send_indirect_table {
+ 	/* The number of entries in the send indirection table */
+ 	u32 count;
+ 
+-	/* The offset of the send indireciton table from top of this struct.
++	/* The offset of the send indirection table from top of this struct.
+ 	 * The send indirection table tells which channel to put the send
+ 	 * traffic on. Each entry is a channel number.
+ 	 */
+@@ -733,7 +733,6 @@ struct netvsc_device {
+ 	struct nvsp_message channel_init_pkt;
+ 
+ 	struct nvsp_message revoke_packet;
+-	/* unsigned char HwMacAddr[HW_MACADDR_LEN]; */
+ 
+ 	struct vmbus_channel *chn_table[VRSS_CHANNEL_MAX];
+ 	u32 send_table[VRSS_SEND_TAB_SIZE];
+@@ -1238,7 +1237,7 @@ struct rndis_message {
+ 	u32 ndis_msg_type;
+ 
+ 	/* Total length of this message, from the beginning */
+-	/* of the sruct rndis_message, in bytes. */
++	/* of the struct rndis_message, in bytes. */
+ 	u32 msg_len;
+ 
+ 	/* Actual message */
+-- 
+1.7.4.1
