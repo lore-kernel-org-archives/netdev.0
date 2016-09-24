@@ -1,79 +1,96 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [Intel-wired-lan] [PATCH net-next v2 2/2] i40e: fix setting debug
- parameter early
-Date: Fri, 23 Sep 2016 19:51:42 -0700
-Message-ID: <CAKgT0UfmZo0a7eQNw9BLk5qcgDsVK5j5G+_Ab7Zo7Mvcys=KDQ@mail.gmail.com>
-References: <1474637458-5255-1-git-send-email-sassmann@kpanic.de> <1474637458-5255-3-git-send-email-sassmann@kpanic.de>
+From: Andy Duan <fugang.duan@nxp.com>
+Subject: RE: Alignment issues with freescale FEC driver
+Date: Sat, 24 Sep 2016 05:13:45 +0000
+Message-ID: <AM4PR0401MB22609D8151C2B63CA7768A1AFFCB0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+References: <0fe7a310-2d2f-4fca-d698-85d66122d91c@nelint.com>
+        <20160923181301.GD22965@lunn.ch>
+        <bc19d934-f50b-50d6-0f4f-ecfcb8a2a1c9@nelint.com>
+ <20160923.224553.1824171056324385383.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        Netdev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>
-To: Stefan Assmann <sassmann@kpanic.de>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "andrew@lunn.ch" <andrew@lunn.ch>,
+        "edumazet@google.com" <edumazet@google.com>,
+        "otavio@ossystems.com.br" <otavio@ossystems.com.br>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "troy.kisky@boundarydevices.com" <troy.kisky@boundarydevices.com>,
+        "rmk+kernel@arm.linux.org.uk" <rmk+kernel@arm.linux.org.uk>,
+        "cjb.sw.nospam@gmail.com" <cjb.sw.nospam@gmail.com>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>
+To: David Miller <davem@davemloft.net>,
+        "eric@nelint.com" <eric@nelint.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f67.google.com ([209.85.214.67]:36362 "EHLO
-        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752427AbcIXCvo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 22:51:44 -0400
-Received: by mail-it0-f67.google.com with SMTP id n143so2000006ita.3
-        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 19:51:43 -0700 (PDT)
-In-Reply-To: <1474637458-5255-3-git-send-email-sassmann@kpanic.de>
+Received: from mail-db5eur01on0053.outbound.protection.outlook.com ([104.47.2.53]:34436
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1755548AbcIXFNu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 24 Sep 2016 01:13:50 -0400
+In-Reply-To: <20160923.224553.1824171056324385383.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 23, 2016 at 6:30 AM, Stefan Assmann <sassmann@kpanic.de> wrote:
-> pf->msg_enable is a bitmask, therefore assigning the value of the
-> "debug" parameter is wrong. It is initialized again later in
-> i40e_sw_init() so it didn't cause any problem, except that we missed
-> early debug messages. Moved the initialization and assigned
-> pf->hw.debug_mask the bitmask as that's what the driver actually uses
-> in i40e_debug(). Otherwise the debug parameter is just a noop.
->
-> Fixes: 5b5faa4 ("i40e: enable debug earlier")
->
-> Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
-> ---
->  drivers/net/ethernet/intel/i40e/i40e_main.c | 16 +++++++---------
->  1 file changed, 7 insertions(+), 9 deletions(-)
->
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> index 56369761..f972f0d 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> @@ -8498,11 +8498,6 @@ static int i40e_sw_init(struct i40e_pf *pf)
->         int err = 0;
->         int size;
->
-> -       pf->msg_enable = netif_msg_init(debug,
-> -                                       NETIF_MSG_DRV    |
-> -                                       NETIF_MSG_PROBE  |
-> -                                       NETIF_MSG_LINK);
-> -
->         /* Set default capability flags */
->         pf->flags = I40E_FLAG_RX_CSUM_ENABLED |
->                     I40E_FLAG_MSI_ENABLED     |
-> @@ -10812,10 +10807,13 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
->         mutex_init(&hw->aq.asq_mutex);
->         mutex_init(&hw->aq.arq_mutex);
->
-> -       if (debug != -1) {
-> -               pf->msg_enable = pf->hw.debug_mask;
-> -               pf->msg_enable = debug;
-> -       }
-> +       /* enable debug prints if requested */
-> +       pf->msg_enable = netif_msg_init(debug,
-> +                                       NETIF_MSG_DRV   |
-> +                                       NETIF_MSG_PROBE |
-> +                                       NETIF_MSG_LINK);
-> +       if (debug != -1)
-> +               pf->hw.debug_mask = pf->msg_enable;
->
->         /* do a special CORER for clearing PXE mode once at init */
->         if (hw->revision_id == 0 &&
+From: David Miller <davem@davemloft.net> Sent: Saturday, September 24, 2016=
+ 10:46 AM
+> To: eric@nelint.com
+> Cc: andrew@lunn.ch; edumazet@google.com; Andy Duan
+> <fugang.duan@nxp.com>; otavio@ossystems.com.br;
+> netdev@vger.kernel.org; troy.kisky@boundarydevices.com;
+> rmk+kernel@arm.linux.org.uk; cjb.sw.nospam@gmail.com; linux-arm-
+> kernel@lists.infradead.org
+> Subject: Re: Alignment issues with freescale FEC driver
+>=20
+> From: Eric Nelson <eric@nelint.com>
+> Date: Fri, 23 Sep 2016 11:35:17 -0700
+>=20
+> > From the i.MX6DQ reference manual, bit 7 of ENET_RACC says this:
+> >
+> > "RX FIFO Shift-16
+> >
+> > When this field is set, the actual frame data starts at bit 16 of the
+> > first word read from the RX FIFO aligning the Ethernet payload on a
+> > 32-bit boundary."
+> >
+> > Same for the i.MX6UL.
+> >
+> > I'm not sure what it will take to use this, but it seems to be exactly
+> > what we're looking for.
+>=20
+> +1
 
-The patch is broken, mainly because the code was already broken.  The
-flags in pf->hw.debug_mask are in no way related to pf->msg_enable.
-For now just use the default mask provided to populate
-pf->hw.debug_mask and then the msg_enable portion is fine.
+RACC[SHIFT16] just instructs the MAC to write two additional bytes in front=
+ of each frame received into the RX FIFO to align
+the Ethernet payload on a 32-bit boundary.
+Eric's patch "net: fec: support RRACC_SHIFT16 to align IP header" works fin=
+e.
 
-- Alex
+For the alignment issues, that is introduced by commit 1b7bde6d6 and c259c1=
+32a in net-next tree. Before these commits, no alignment issue.
+
+How to fix the issue:
+Solution1:  to enable HW RRACC_SHIFT16 feature (test pass):
+	Eric's patch  "net: fec: support RRACC_SHIFT16 to align IP header".
+Solution2: include the correct prefetch() header (test pass):
+	--- a/drivers/net/ethernet/freescale/fec_main.c
+	+++ b/drivers/net/ethernet/freescale/fec_main.c
+	@@ -59,7 +59,7 @@
+	 #include <linux/pinctrl/consumer.h>
+ 	#include <linux/pm_runtime.h>
+ 	#include <linux/busfreq-imx.h>
+	-#include <linux/prefetch.h>
+	+#include <asm/processor.h>
+Solution3: use __netdev_alloc_skb_ip_align() instead of netdev_alloc_skb().=
+=20
+	     Or: still use the previous method before commit 1b7bde6d6:
+		skb =3D netdev_alloc_skb(ndev, pkt_len - 4 + NET_IP_ALIGN);
+		skb_reserve(skb, NET_IP_ALIGN);
+
+Comparing these solutions:
+	From sw effort and performance, I think these are the similar.  Enable RRA=
+CC_SHIFT16 doesn't take extra advantage.
+
+Correct my if I am wrong. Thanks.
+
+Regards,
+Andy
