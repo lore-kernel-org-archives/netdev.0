@@ -1,27 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/10][pull request] 10GbE Intel Wired LAN Driver
- Updates 2016-09-23
-Date: Sat, 24 Sep 2016 08:22:12 -0400 (EDT)
-Message-ID: <20160924.082212.284654541589592977.davem@davemloft.net>
-References: <1474617103-59530-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next 00/15] rxrpc: Bug fixes and tracepoints
+Date: Sat, 24 Sep 2016 08:24:44 -0400 (EDT)
+Message-ID: <20160924.082444.1771810731016255486.davem@davemloft.net>
+References: <147464371753.5090.1634919599283321856.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, guru.anbalagane@oracle.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36800 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757622AbcIXMWQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 24 Sep 2016 08:22:16 -0400
-In-Reply-To: <1474617103-59530-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: dhowells@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <147464371753.5090.1634919599283321856.stgit@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 23 Sep 2016 00:51:33 -0700
+From: David Howells <dhowells@redhat.com>
+Date: Fri, 23 Sep 2016 16:15:17 +0100
 
-> This series contains updates to ixgbe and ixgbevf.
+> Here are a bunch of bug fixes:
+ ...
+> Tagged thusly:
+> 
+> 	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
+> 	rxrpc-rewrite-20160923
 
-Pulled, thanks Jeff.
+Pulled, thanks David.
