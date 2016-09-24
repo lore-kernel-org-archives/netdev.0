@@ -1,7 +1,8 @@
 From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-Subject: [PATCH 1/2] brcmfmac: initialize fws(ignal) for BCDC protocol only
-Date: Sat, 24 Sep 2016 22:44:18 +0200
-Message-ID: <20160924204419.10213-1-zajec5@gmail.com>
+Subject: [PATCH 2/2] brcmfmac: compile fws(ignal) code only with BCDC support enabled
+Date: Sat, 24 Sep 2016 22:44:19 +0200
+Message-ID: <20160924204419.10213-2-zajec5@gmail.com>
+References: <20160924204419.10213-1-zajec5@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -15,135 +16,123 @@ Cc: Arend van Spriel <arend.vanspriel@broadcom.com>,
         linux-kernel@vger.kernel.org,
         =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal@milecki.pl>
 To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f68.google.com ([209.85.215.68]:35426 "EHLO
+        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756783AbcIXUoj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 24 Sep 2016 16:44:39 -0400
+In-Reply-To: <20160924204419.10213-1-zajec5@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Rafał Miłecki <rafal@milecki.pl>
 
-There are two protocols used by Broadcom FullMAC devices: BCDC and
-msgbuf. They use different ways for (some part of) communication with
-the firmware. Firmware Signaling is required for the first one only
-(BCDC).
-
-So far we were always initializing fws and always calling it's skb
-processing function. It was fws that was passing skb processing to the
-protocol specific function. It was redundant for the msgbuf case.
-
-Simply taking few lines of code out of fws allows us to totally avoid
-using it. This simplifies code flow, saves some memory & will allow
-further optimizations like not compiling fwsignal.c.
+It's not needed by the other (msgbuf) protocol, so let's save some size
+and compile it conditionally.
 
 Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
 ---
- .../wireless/broadcom/brcm80211/brcmfmac/core.c    | 24 ++++++++++++++++------
- .../broadcom/brcm80211/brcmfmac/fwsignal.c         | 17 ++++++---------
- .../broadcom/brcm80211/brcmfmac/fwsignal.h         |  1 +
- 3 files changed, 25 insertions(+), 17 deletions(-)
+ .../wireless/broadcom/brcm80211/brcmfmac/Makefile  |  4 +-
+ .../broadcom/brcm80211/brcmfmac/fwsignal.h         | 59 ++++++++++++++++++++++
+ 2 files changed, 61 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
-index 27cd50a..bc3d8ab 100644
---- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
-+++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
-@@ -250,7 +250,17 @@ static netdev_tx_t brcmf_netdev_start_xmit(struct sk_buff *skb,
- 	if (eh->h_proto == htons(ETH_P_PAE))
- 		atomic_inc(&ifp->pend_8021x_cnt);
- 
--	ret = brcmf_fws_process_skb(ifp, skb);
-+	/* determine the priority */
-+	if (skb->priority == 0 || skb->priority > 7)
-+		skb->priority = cfg80211_classify8021d(skb, NULL);
-+
-+	if (drvr->fws && brcmf_fws_skbs_queueing(drvr->fws)) {
-+		ret = brcmf_fws_process_skb(ifp, skb);
-+	} else {
-+		ret = brcmf_proto_txdata(drvr, ifp->ifidx, 0, skb);
-+		if (ret < 0)
-+			brcmf_txfinalize(ifp, skb, false);
-+	}
- 
- done:
- 	if (ret) {
-@@ -405,7 +415,7 @@ void brcmf_txcomplete(struct device *dev, struct sk_buff *txp, bool success)
- 	struct brcmf_if *ifp;
- 
- 	/* await txstatus signal for firmware if active */
--	if (brcmf_fws_fc_active(drvr->fws)) {
-+	if (drvr->fws && brcmf_fws_fc_active(drvr->fws)) {
- 		if (!success)
- 			brcmf_fws_bustxfail(drvr->fws, txp);
- 	} else {
-@@ -1006,11 +1016,13 @@ int brcmf_bus_start(struct device *dev)
- 	}
- 	brcmf_feat_attach(drvr);
- 
--	ret = brcmf_fws_init(drvr);
--	if (ret < 0)
--		goto fail;
-+	if (bus_if->proto_type == BRCMF_PROTO_BCDC) {
-+		ret = brcmf_fws_init(drvr);
-+		if (ret < 0)
-+			goto fail;
- 
--	brcmf_fws_add_interface(ifp);
-+		brcmf_fws_add_interface(ifp);
-+	}
- 
- 	drvr->config = brcmf_cfg80211_attach(drvr, bus_if->dev,
- 					     drvr->settings->p2p_enable);
-diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/fwsignal.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/fwsignal.c
-index a190f53..495eaf8 100644
---- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/fwsignal.c
-+++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/fwsignal.c
-@@ -2100,16 +2100,6 @@ int brcmf_fws_process_skb(struct brcmf_if *ifp, struct sk_buff *skb)
- 	int rc = 0;
- 
- 	brcmf_dbg(DATA, "tx proto=0x%X\n", ntohs(eh->h_proto));
--	/* determine the priority */
--	if ((skb->priority == 0) || (skb->priority > 7))
--		skb->priority = cfg80211_classify8021d(skb, NULL);
--
--	if (fws->avoid_queueing) {
--		rc = brcmf_proto_txdata(drvr, ifp->ifidx, 0, skb);
--		if (rc < 0)
--			brcmf_txfinalize(ifp, skb, false);
--		return rc;
--	}
- 
- 	/* set control buffer information */
- 	skcb->if_flags = 0;
-@@ -2155,7 +2145,7 @@ void brcmf_fws_add_interface(struct brcmf_if *ifp)
- 	struct brcmf_fws_info *fws = ifp->drvr->fws;
- 	struct brcmf_fws_mac_descriptor *entry;
- 
--	if (!ifp->ndev)
-+	if (!fws || !ifp->ndev)
- 		return;
- 
- 	entry = &fws->desc.iface[ifp->ifidx];
-@@ -2442,6 +2432,11 @@ void brcmf_fws_deinit(struct brcmf_pub *drvr)
- 	kfree(fws);
- }
- 
-+bool brcmf_fws_skbs_queueing(struct brcmf_fws_info *fws)
-+{
-+	return !fws->avoid_queueing;
-+}
-+
- bool brcmf_fws_fc_active(struct brcmf_fws_info *fws)
- {
- 	if (!fws->creditmap_received)
+diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/Makefile b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/Makefile
+index 9e4b505..ad3b06e 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/Makefile
++++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/Makefile
+@@ -27,7 +27,6 @@ brcmfmac-objs += \
+ 		chip.o \
+ 		fwil.o \
+ 		fweh.o \
+-		fwsignal.o \
+ 		p2p.o \
+ 		proto.o \
+ 		common.o \
+@@ -37,7 +36,8 @@ brcmfmac-objs += \
+ 		btcoex.o \
+ 		vendor.o
+ brcmfmac-$(CONFIG_BRCMFMAC_PROTO_BCDC) += \
+-		bcdc.o
++		bcdc.o \
++		fwsignal.o
+ brcmfmac-$(CONFIG_BRCMFMAC_PROTO_MSGBUF) += \
+ 		commonring.o \
+ 		flowring.o \
 diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/fwsignal.h b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/fwsignal.h
-index ef0ad85..8f7c1d7 100644
+index 8f7c1d7..ba0c1bc 100644
 --- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/fwsignal.h
 +++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/fwsignal.h
-@@ -20,6 +20,7 @@
+@@ -18,6 +18,7 @@
+ #ifndef FWSIGNAL_H_
+ #define FWSIGNAL_H_
  
++#ifdef CONFIG_BRCMFMAC_PROTO_BCDC
  int brcmf_fws_init(struct brcmf_pub *drvr);
  void brcmf_fws_deinit(struct brcmf_pub *drvr);
-+bool brcmf_fws_skbs_queueing(struct brcmf_fws_info *fws);
- bool brcmf_fws_fc_active(struct brcmf_fws_info *fws);
- void brcmf_fws_hdrpull(struct brcmf_if *ifp, s16 siglen, struct sk_buff *skb);
- int brcmf_fws_process_skb(struct brcmf_if *ifp, struct sk_buff *skb);
+ bool brcmf_fws_skbs_queueing(struct brcmf_fws_info *fws);
+@@ -31,5 +32,63 @@ void brcmf_fws_del_interface(struct brcmf_if *ifp);
+ void brcmf_fws_bustxfail(struct brcmf_fws_info *fws, struct sk_buff *skb);
+ void brcmf_fws_bus_blocked(struct brcmf_pub *drvr, bool flow_blocked);
+ void brcmf_fws_rxreorder(struct brcmf_if *ifp, struct sk_buff *skb);
++#else
++static inline int brcmf_fws_init(struct brcmf_pub *drvr)
++{
++	return -ENOTSUPP;
++}
++
++static inline void brcmf_fws_deinit(struct brcmf_pub *drvr)
++{
++}
++
++static inline bool brcmf_fws_skbs_queueing(struct brcmf_fws_info *fws)
++{
++	return false;
++}
++
++static inline bool brcmf_fws_fc_active(struct brcmf_fws_info *fws)
++{
++	return false;
++}
++
++static inline void brcmf_fws_hdrpull(struct brcmf_if *ifp, s16 siglen,
++				     struct sk_buff *skb)
++{
++}
++
++static inline int brcmf_fws_process_skb(struct brcmf_if *ifp,
++					struct sk_buff *skb)
++{
++	return -ENOTSUPP;
++}
++
++static inline void brcmf_fws_reset_interface(struct brcmf_if *ifp)
++{
++}
++
++static inline void brcmf_fws_add_interface(struct brcmf_if *ifp)
++{
++}
++
++static inline void brcmf_fws_del_interface(struct brcmf_if *ifp)
++{
++}
++
++static inline void brcmf_fws_bustxfail(struct brcmf_fws_info *fws,
++				       struct sk_buff *skb)
++{
++}
++
++static inline void brcmf_fws_bus_blocked(struct brcmf_pub *drvr,
++					 bool flow_blocked)
++{
++}
++
++static inline void brcmf_fws_rxreorder(struct brcmf_if *ifp,
++				       struct sk_buff *skb)
++{
++}
++#endif
+ 
+ #endif /* FWSIGNAL_H_ */
 -- 
 2.9.3
