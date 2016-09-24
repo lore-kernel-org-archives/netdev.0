@@ -1,121 +1,76 @@
-From: Denys Vlasenko <vda.linux@googlemail.com>
-Subject: Huge static buffer in liquidio
-Date: Sat, 24 Sep 2016 22:02:40 +0200
-Message-ID: <CAK1hOcMSL0PvgfAygr54_X4tob5c4m8_AkOrF+whzf2ZEHRrdA@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] realtek: Add switch variable to 'switch case not
+ processed' messages
+Date: Sat, 24 Sep 2016 13:29:14 -0700
+Message-ID: <1474748954.23838.21.camel@perches.com>
+References: <1474654333.1849.5.camel@perches.com>
+         <d091f73a6adf3bdaa09ab0399c22a9fdfe9b188c.1474654979.git.joe@perches.com>
+         <f98d2cf1-802a-93c1-b219-ec45aa417940@lwfinger.net>
+         <1474657363.1849.9.camel@perches.com> <20160924175555.01cae6dd@endymion>
+         <1474733754.23838.3.camel@perches.com>
+         <49094659-662d-a902-6740-ea3d1fea6660@lwfinger.net>
+         <1474738358.23838.11.camel@perches.com>
+         <cef6d8da-c390-f435-7a5e-d294dfbebbfb@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Dave Miller <davem@davemloft.net>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>
-To: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
-        Satanand Burla <satananda.burla@caviumnetworks.com>,
-        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
-        Derek Chickles <derek.chickles@caviumnetworks.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Chaoming Li <chaoming_li@realsil.com.cn>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>,
+        Jean Delvare <jdelvare@suse.de>,
+        Jes Sorensen <Jes.Sorensen@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f178.google.com ([209.85.220.178]:35996 "EHLO
-        mail-qk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965331AbcIXUDC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 24 Sep 2016 16:03:02 -0400
+Received: from smtprelay0058.hostedemail.com ([216.40.44.58]:43490 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1759519AbcIXU3T (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 24 Sep 2016 16:29:19 -0400
+In-Reply-To: <cef6d8da-c390-f435-7a5e-d294dfbebbfb@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Sat, 2016-09-24 at 14:06 -0500, Larry Finger wrote:
+> On 09/24/2016 12:32 PM, Joe Perches wrote:
+[]
+> o Reindent all the switch/case blocks to a more normal
+>   kernel style (git diff -w would show no changes here)
+> That sounds like busy work to me, but if you want to do it, go ahead.
 
-I would like to discuss this commit:
+It's really just to make the comparison case block reductions
+easier to verify for later steps done
 
-commit d3d7e6c65f75de18ced10a98595a847f9f95f0ce
-Author: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Date:   Tue Jun 21 22:53:07 2016 -0700
+> > o cast, spacing and parenthesis reductions
+> >   Lots of odd and somewhat unique styles in various
+> >   drivers, looks like too many individual authors without
+> >   a style guide / code enforcer using slightly different
+> >   personalized code.  Glancing at the code, it looks to be
+> >   similar logic, just written in different styles.
+> Same comment.
 
-    liquidio: Firmware image download
+Same rationale
 
-    This patch has firmware image related changes for: firmware
-    release upon failure, support latest firmware version and
-    firmware download in 4MB chunks.
+> > o Logic changes like
+> >   from:
+> >     if (foo) func(..., bar, ...); else func(..., baz, ...);
+> >   to:
+> >     func(..., foo ? bar : baz, ...);
+> >   to make the case statement code blocks more consistent
+> >   and emit somewhat smaller object code.
+> I find if .. else constructs much easier to read than the cond ? xxxx : yyyy 
+> form. I would reject any such patches.
 
+<shrug> I think object code reduction generally a good thing
+but then again, I'm not a maintainer here.
 
-Here is a part of it:
+> > o Consolidation of equivalent function spanning drivers
+> >   With the style only changes minimized, where possible
+> >   make the drivers use common ops/callback functions.
+> The is no question that there are similar routines in different drivers. I would 
+> like to place as much as possible into common routines, but I never seem to find 
+> the time. There are too many bugs in other things I support to consider these 
+> niceties.
 
-
-+u8 fbuf[4 * 1024 * 1024];
-         ^^^^^^^^^^^^^^^ what?????????? [also, why it is not static?]
-+
- int octeon_download_firmware(struct octeon_device *oct, const u8 *data,
-                             size_t size)
- {
-        int ret = 0;
--       u8 *p;
--       u8 *buffer;
-+       u8 *p = fbuf;
-
-
-Don't you think that using 4 megabytes of static buffer
-*just for the firmware upload* is not a good practice?
-
-Further down the patch it's obvious that the buffer is not even
-needed, because the firmware is already in memory, the "data"
-and "size" parameters of this function point to it.
-
-The meat of the change of the FW download is this (deleted
-some debug messages code):
-
--       buffer = kmemdup(data, size, GFP_KERNEL);
--       if (!buffer)
--               return -ENOMEM;
--
--       p = buffer + sizeof(struct octeon_firmware_file_header);
-+       data += sizeof(struct octeon_firmware_file_header);
-
-        /* load all images */
-        for (i = 0; i < be32_to_cpu(h->num_images); i++) {
-                load_addr = be64_to_cpu(h->desc[i].addr);
-                image_len = be32_to_cpu(h->desc[i].len);
-
--               /* download the image */
--               octeon_pci_write_core_mem(oct, load_addr, p, image_len);
-+               /* Write in 4MB chunks*/
-+               rem = image_len;
-
--               p += image_len;
-+               while (rem) {
-+                       if (rem < (4 * 1024 * 1024))
-+                               size = rem;
-+                       else
-+                               size = 4 * 1024 * 1024;
-+
-+                       memcpy(p, data, size);
-+
-+                       /* download the image */
-+                       octeon_pci_write_core_mem(oct, load_addr, p, (u32)size);
-+
-+                       data += size;
-+                       rem -= (u32)size;
-+                       load_addr += size;
-+               }
-        }
-+       dev_info(&oct->pci_dev->dev, "Writing boot command: %s\n",
-+                h->bootcmd);
-
-        /* Invoke the bootcmd */
-        ret = octeon_console_send_cmd(oct, h->bootcmd, 50);
-
--done_downloading:
--       kfree(buffer);
-
-
-octeon_pci_write_core_mem() takes spinlock around copy op,
-I take this was the reason for this change: reduce
-IRQ-disabled time.
-
-Do you actually need an intermediate fbuf[] buffer here?
-(IOW: can't you just write data to PCI from memory area pointed
-by "data" ptr?)
-
-If there is indeed a reason for intermediate buffer,
-why did you drop the approach of having a temporary kmalloc'ed
-buffer and switches to a static (and *huge*) buffer?
-
-In my opinion, 4 Mbyte buffer is an overkill in any case.
-A buffer of ~4..16 Kbyte one would work just fine - it's not like
-you need to squeeze last 0.5% of speed when you upload firmware.
+Consolidation generally reduces defects and improves ease of
+updating.
+> 
