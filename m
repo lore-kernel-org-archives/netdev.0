@@ -1,26 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] cxgb4: fix -ve error check on a signed iq
-Date: Sat, 24 Sep 2016 08:31:49 -0400 (EDT)
-Message-ID: <20160924.083149.439186691430439270.davem@davemloft.net>
-References: <20160923134513.21345-1-colin.king@canonical.com>
+Subject: Re: [PATCH v2 0/2] BQL support and fix for a regression issue
+Date: Sat, 24 Sep 2016 08:47:40 -0400 (EDT)
+Message-ID: <20160924.084740.220729213459690389.davem@davemloft.net>
+References: <1474621948-9172-1-git-send-email-sunil.kovvuri@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hariprasad@chelsio.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, sgoutham@cavium.com
+To: sunil.kovvuri@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160923134513.21345-1-colin.king@canonical.com>
+In-Reply-To: <1474621948-9172-1-git-send-email-sunil.kovvuri@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin King <colin.king@canonical.com>
-Date: Fri, 23 Sep 2016 14:45:13 +0100
+From: sunil.kovvuri@gmail.com
+Date: Fri, 23 Sep 2016 14:42:26 +0530
 
-> -static unsigned int get_filter_steerq(struct net_device *dev,
-> +static int get_filter_steerq(struct net_device *dev,
->  				      struct ch_filter_specification *fs)
+> From: Sunil Goutham <sgoutham@cavium.com>
+> 
+> These patches add byte queue limit support and also fixes a regression
+> issue introduced by commit
+> 'net: thunderx: Use netdev's name for naming VF's interrupts'
+> 
+> Changes from v1:
+> - As suggested added 'Fixes' tag with commit id of previous commit 
+>   which cuased issue.
+> - Also fixed the missing netdev_tx_reset_queue() function call in 
+>   byte queue limits support patch.
 
-If you change the location of the openning parenthesis of the first
-line, you must reindent the second line so that the arguments are
-placed preciely at the column following that openning parenthesis.
+Series applied to net-next, thanks.
