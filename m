@@ -1,9 +1,10 @@
 From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH 1/2] bpf samples: fix compiler errors with sockex2 and
- sockex3
-Date: Sat, 24 Sep 2016 03:25:56 -0400
-Message-ID: <20160924072524.GA48029@ast-mbp>
+Subject: Re: [PATCH 2/2] bpf samples: update tracex5 sample to use
+ __seccomp_filter
+Date: Sat, 24 Sep 2016 03:27:18 -0400
+Message-ID: <20160924072716.GA48071@ast-mbp.thefacebook.com>
 References: <7b29fba6073924dc4c9e7d639eefb0b15a98660d.1474661952.git.naveen.n.rao@linux.vnet.ibm.com>
+ <8e5ab9853508240e901260b1af36243c4d744083.1474661952.git.naveen.n.rao@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
@@ -15,16 +16,14 @@ Cc: linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
 To: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <7b29fba6073924dc4c9e7d639eefb0b15a98660d.1474661952.git.naveen.n.rao@linux.vnet.ibm.com>
+In-Reply-To: <8e5ab9853508240e901260b1af36243c4d744083.1474661952.git.naveen.n.rao@linux.vnet.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Sep 24, 2016 at 02:10:04AM +0530, Naveen N. Rao wrote:
-> These samples fail to compile as 'struct flow_keys' conflicts with
-> definition in net/flow_dissector.h. Fix the same by renaming the
-> structure used in the sample.
+On Sat, Sep 24, 2016 at 02:10:05AM +0530, Naveen N. Rao wrote:
+> seccomp_phase1() does not exist anymore. Instead, update sample to use
+> __seccomp_filter(). While at it, set max locked memory to unlimited.
 > 
 > Signed-off-by: Naveen N. Rao <naveen.n.rao@linux.vnet.ibm.com>
 
-Thanks for the fix.
 Acked-by: Alexei Starovoitov <ast@kernel.org>
