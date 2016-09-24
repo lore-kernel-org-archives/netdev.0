@@ -1,32 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mlxsw: spectrum: remove redundant check if err is zero
-Date: Sat, 24 Sep 2016 08:28:42 -0400 (EDT)
-Message-ID: <20160924.082842.382648996095761130.davem@davemloft.net>
-References: <20160923110245.18977-1-colin.king@canonical.com>
+Subject: Re: [PATCH] cxgb4: fix -ve error check on a signed iq
+Date: Sat, 24 Sep 2016 08:31:49 -0400 (EDT)
+Message-ID: <20160924.083149.439186691430439270.davem@davemloft.net>
+References: <20160923134513.21345-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jiri@mellanox.com, idosch@mellanox.com, netdev@vger.kernel.org,
+Cc: hariprasad@chelsio.com, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
 To: colin.king@canonical.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36960 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752656AbcIXM2r (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 24 Sep 2016 08:28:47 -0400
-In-Reply-To: <20160923110245.18977-1-colin.king@canonical.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160923134513.21345-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Colin King <colin.king@canonical.com>
-Date: Fri, 23 Sep 2016 12:02:45 +0100
+Date: Fri, 23 Sep 2016 14:45:13 +0100
 
-> From: Colin Ian King <colin.king@canonical.com>
-> 
-> There is an earlier check and return if err is non-zero, so
-> the check to see if it is zero is redundant in every iteration
-> of the loop and hence the check can be removed.
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> -static unsigned int get_filter_steerq(struct net_device *dev,
+> +static int get_filter_steerq(struct net_device *dev,
+>  				      struct ch_filter_specification *fs)
 
-Applied to net-next.
+If you change the location of the openning parenthesis of the first
+line, you must reindent the second line so that the arguments are
+placed preciely at the column following that openning parenthesis.
