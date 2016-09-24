@@ -1,7 +1,7 @@
 From: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH v5 07/16] IB/pvrdma: Add helper functions
-Date: Sat, 24 Sep 2016 16:21:31 -0700
-Message-ID: <38f9f2f2cc2d49868d83cde6268697e4c4529d37.1474759181.git.aditr@vmware.com>
+Subject: [PATCH v5 10/16] IB/pvrdma: Add UAR support
+Date: Sat, 24 Sep 2016 16:21:34 -0700
+Message-ID: <e3c49fc64845acf0c95e48d1eaaff5c990570246.1474759181.git.aditr@vmware.com>
 References: <cover.1474759181.git.aditr@vmware.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,11 +16,9 @@ In-Reply-To: <cover.1474759181.git.aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds helper functions to store guest page addresses in a page
-directory structure. The page directory pointer is passed down to the
-backend which then maps the entire memory for the RDMA object by
-traversing the directory. We add some more helper functions for converting
-to/from RDMA stack address handles from/to PVRDMA ones.
+This patch adds the UAR support for the paravirtual RDMA device. The UAR
+pages are MMIO pages from the virtual PCI space. We define offsets within
+this page to provide the fast data-path operations.
 
 Reviewed-by: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 Reviewed-by: Jorgen Hansen <jhansen-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
@@ -29,23 +27,23 @@ Reviewed-by: Aditya Sarwade <asarwade-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
 Reviewed-by: Bryan Tan <bryantan-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
 ---
-Changes v4->v5:
- - Correct var type passed to dma_alloc_coherent.
-
 Changes v3->v4:
- - Updated conversion functions to func_name(dst, src) format.
- - Removed unneeded local variables.
----
- drivers/infiniband/hw/pvrdma/pvrdma_misc.c | 304 +++++++++++++++++++++++++++++
- 1 file changed, 304 insertions(+)
- create mode 100644 drivers/infiniband/hw/pvrdma/pvrdma_misc.c
+ - Removed an unnecessary comment.
 
-diff --git a/drivers/infiniband/hw/pvrdma/pvrdma_misc.c b/drivers/infiniband/hw/pvrdma/pvrdma_misc.c
+Changes v2->v3:
+ - Used is_power_of_2 function.
+ - Simplify pvrdma_uar_alloc function.
+---
+ drivers/infiniband/hw/pvrdma/pvrdma_doorbell.c | 127 +++++++++++++++++++++++++
+ 1 file changed, 127 insertions(+)
+ create mode 100644 drivers/infiniband/hw/pvrdma/pvrdma_doorbell.c
+
+diff --git a/drivers/infiniband/hw/pvrdma/pvrdma_doorbell.c b/drivers/infiniband/hw/pvrdma/pvrdma_doorbell.c
 new file mode 100644
-index 0000000..948b5cc
+index 0000000..bf51357
 --- /dev/null
-+++ b/drivers/infiniband/hw/pvrdma/pvrdma_misc.c
-@@ -0,0 +1,304 @@
++++ b/drivers/infiniband/hw/pvrdma/pvrdma_doorbell.c
+@@ -0,0 +1,127 @@
 +/*
 + * Copyright (c) 2012-2016 VMware, Inc.  All rights reserved.
 + *
@@ -91,264 +89,87 @@ index 0000000..948b5cc
 + * OF THE POSSIBILITY OF SUCH DAMAGE.
 + */
 +
++#include <linux/bitmap.h>
 +#include <linux/errno.h>
 +#include <linux/slab.h>
-+#include <linux/bitmap.h>
 +
 +#include "pvrdma.h"
 +
-+int pvrdma_page_dir_init(struct pvrdma_dev *dev, struct pvrdma_page_dir *pdir,
-+			 u64 npages, bool alloc_pages)
++int pvrdma_uar_table_init(struct pvrdma_dev *dev)
 +{
-+	u64 i;
++	u32 num = dev->dsr->caps.max_uar;
++	u32 mask = num - 1;
++	struct pvrdma_id_table *tbl = &dev->uar_table.tbl;
 +
-+	if (npages > PVRDMA_PAGE_DIR_MAX_PAGES)
++	if (!is_power_of_2(num))
 +		return -EINVAL;
 +
-+	memset(pdir, 0, sizeof(*pdir));
++	tbl->last = 0;
++	tbl->top = 0;
++	tbl->max = num;
++	tbl->mask = mask;
++	spin_lock_init(&tbl->lock);
++	tbl->table = kcalloc(BITS_TO_LONGS(num), sizeof(long), GFP_KERNEL);
++	if (!tbl->table)
++		return -ENOMEM;
 +
-+	pdir->dir = dma_alloc_coherent(&dev->pdev->dev, PAGE_SIZE,
-+				       &pdir->dir_dma, GFP_KERNEL);
-+	if (!pdir->dir)
-+		goto err;
-+
-+	pdir->ntables = PVRDMA_PAGE_DIR_TABLE(npages - 1) + 1;
-+	pdir->tables = kcalloc(pdir->ntables, sizeof(*pdir->tables),
-+			       GFP_KERNEL);
-+	if (!pdir->tables)
-+		goto err;
-+
-+	for (i = 0; i < pdir->ntables; i++) {
-+		pdir->tables[i] = dma_alloc_coherent(&dev->pdev->dev, PAGE_SIZE,
-+						(dma_addr_t *)&pdir->dir[i],
-+						GFP_KERNEL);
-+		if (!pdir->tables[i])
-+			goto err;
-+	}
-+
-+	pdir->npages = npages;
-+
-+	if (alloc_pages) {
-+		pdir->pages = kcalloc(npages, sizeof(*pdir->pages),
-+				      GFP_KERNEL);
-+		if (!pdir->pages)
-+			goto err;
-+
-+		for (i = 0; i < pdir->npages; i++) {
-+			dma_addr_t page_dma;
-+
-+			pdir->pages[i] = dma_alloc_coherent(&dev->pdev->dev,
-+							    PAGE_SIZE,
-+							    &page_dma,
-+							    GFP_KERNEL);
-+			if (!pdir->pages[i])
-+				goto err;
-+
-+			pvrdma_page_dir_insert_dma(pdir, i, page_dma);
-+		}
-+	}
-+
-+	return 0;
-+
-+err:
-+	pvrdma_page_dir_cleanup(dev, pdir);
-+
-+	return -ENOMEM;
-+}
-+
-+static u64 *pvrdma_page_dir_table(struct pvrdma_page_dir *pdir, u64 idx)
-+{
-+	return pdir->tables[PVRDMA_PAGE_DIR_TABLE(idx)];
-+}
-+
-+dma_addr_t pvrdma_page_dir_get_dma(struct pvrdma_page_dir *pdir, u64 idx)
-+{
-+	return pvrdma_page_dir_table(pdir, idx)[PVRDMA_PAGE_DIR_PAGE(idx)];
-+}
-+
-+static void pvrdma_page_dir_cleanup_pages(struct pvrdma_dev *dev,
-+					  struct pvrdma_page_dir *pdir)
-+{
-+	if (pdir->pages) {
-+		u64 i;
-+
-+		for (i = 0; i < pdir->npages && pdir->pages[i]; i++) {
-+			dma_addr_t page_dma = pvrdma_page_dir_get_dma(pdir, i);
-+
-+			dma_free_coherent(&dev->pdev->dev, PAGE_SIZE,
-+					  pdir->pages[i], page_dma);
-+		}
-+
-+		kfree(pdir->pages);
-+	}
-+}
-+
-+static void pvrdma_page_dir_cleanup_tables(struct pvrdma_dev *dev,
-+					   struct pvrdma_page_dir *pdir)
-+{
-+	if (pdir->tables) {
-+		int i;
-+
-+		pvrdma_page_dir_cleanup_pages(dev, pdir);
-+
-+		for (i = 0; i < pdir->ntables; i++) {
-+			u64 *table = pdir->tables[i];
-+
-+			if (table)
-+				dma_free_coherent(&dev->pdev->dev, PAGE_SIZE,
-+						  table, pdir->dir[i]);
-+		}
-+
-+		kfree(pdir->tables);
-+	}
-+}
-+
-+void pvrdma_page_dir_cleanup(struct pvrdma_dev *dev,
-+			     struct pvrdma_page_dir *pdir)
-+{
-+	if (pdir->dir) {
-+		pvrdma_page_dir_cleanup_tables(dev, pdir);
-+		dma_free_coherent(&dev->pdev->dev, PAGE_SIZE,
-+				  pdir->dir, pdir->dir_dma);
-+	}
-+}
-+
-+int pvrdma_page_dir_insert_dma(struct pvrdma_page_dir *pdir, u64 idx,
-+			       dma_addr_t daddr)
-+{
-+	u64 *table;
-+
-+	if (idx >= pdir->npages)
-+		return -EINVAL;
-+
-+	table = pvrdma_page_dir_table(pdir, idx);
-+	table[PVRDMA_PAGE_DIR_PAGE(idx)] = daddr;
++	/* 0th UAR is taken by the device. */
++	set_bit(0, tbl->table);
 +
 +	return 0;
 +}
 +
-+int pvrdma_page_dir_insert_umem(struct pvrdma_page_dir *pdir,
-+				struct ib_umem *umem, u64 offset)
++void pvrdma_uar_table_cleanup(struct pvrdma_dev *dev)
 +{
-+	u64 i = offset;
-+	int j, entry;
-+	int ret = 0, len = 0;
-+	struct scatterlist *sg;
++	struct pvrdma_id_table *tbl = &dev->uar_table.tbl;
 +
-+	if (offset >= pdir->npages)
-+		return -EINVAL;
-+
-+	for_each_sg(umem->sg_head.sgl, sg, umem->nmap, entry) {
-+		len = sg_dma_len(sg) >> PAGE_SHIFT;
-+		for (j = 0; j < len; j++) {
-+			dma_addr_t addr = sg_dma_address(sg) +
-+					  umem->page_size * j;
-+
-+			ret = pvrdma_page_dir_insert_dma(pdir, i, addr);
-+			if (ret)
-+				goto exit;
-+
-+			i++;
-+		}
-+	}
-+
-+exit:
-+	return ret;
++	kfree(tbl->table);
 +}
 +
-+int pvrdma_page_dir_insert_page_list(struct pvrdma_page_dir *pdir,
-+				     u64 *page_list,
-+				     int num_pages)
++int pvrdma_uar_alloc(struct pvrdma_dev *dev, struct pvrdma_uar_map *uar)
 +{
-+	int i;
-+	int ret;
++	struct pvrdma_id_table *tbl;
++	unsigned long flags;
++	u32 obj;
 +
-+	if (num_pages > pdir->npages)
-+		return -EINVAL;
++	tbl = &dev->uar_table.tbl;
 +
-+	for (i = 0; i < num_pages; i++) {
-+		ret = pvrdma_page_dir_insert_dma(pdir, i, page_list[i]);
-+		if (ret)
-+			return ret;
++	spin_lock_irqsave(&tbl->lock, flags);
++	obj = find_next_zero_bit(tbl->table, tbl->max, tbl->last);
++	if (obj >= tbl->max) {
++		tbl->top = (tbl->top + tbl->max) & tbl->mask;
++		obj = find_first_zero_bit(tbl->table, tbl->max);
 +	}
++
++	if (obj >= tbl->max) {
++		spin_unlock_irqrestore(&tbl->lock, flags);
++		return -ENOMEM;
++	}
++
++	set_bit(obj, tbl->table);
++	obj |= tbl->top;
++
++	spin_unlock_irqrestore(&tbl->lock, flags);
++
++	uar->index = obj;
++	uar->pfn = (pci_resource_start(dev->pdev, PVRDMA_PCI_RESOURCE_UAR) >>
++		    PAGE_SHIFT) + uar->index;
 +
 +	return 0;
 +}
 +
-+void pvrdma_qp_cap_to_ib(struct ib_qp_cap *dst, const struct pvrdma_qp_cap *src)
++void pvrdma_uar_free(struct pvrdma_dev *dev, struct pvrdma_uar_map *uar)
 +{
-+	dst->max_send_wr = src->max_send_wr;
-+	dst->max_recv_wr = src->max_recv_wr;
-+	dst->max_send_sge = src->max_send_sge;
-+	dst->max_recv_sge = src->max_recv_sge;
-+	dst->max_inline_data = src->max_inline_data;
-+}
++	struct pvrdma_id_table *tbl = &dev->uar_table.tbl;
++	unsigned long flags;
++	u32 obj;
 +
-+void ib_qp_cap_to_pvrdma(struct pvrdma_qp_cap *dst, const struct ib_qp_cap *src)
-+{
-+	dst->max_send_wr = src->max_send_wr;
-+	dst->max_recv_wr = src->max_recv_wr;
-+	dst->max_send_sge = src->max_send_sge;
-+	dst->max_recv_sge = src->max_recv_sge;
-+	dst->max_inline_data = src->max_inline_data;
-+}
-+
-+void pvrdma_gid_to_ib(union ib_gid *dst, const union pvrdma_gid *src)
-+{
-+	BUILD_BUG_ON(sizeof(union pvrdma_gid) != sizeof(union ib_gid));
-+	memcpy(dst, src, sizeof(*src));
-+}
-+
-+void ib_gid_to_pvrdma(union pvrdma_gid *dst, const union ib_gid *src)
-+{
-+	BUILD_BUG_ON(sizeof(union pvrdma_gid) != sizeof(union ib_gid));
-+	memcpy(dst, src, sizeof(*src));
-+}
-+
-+void pvrdma_global_route_to_ib(struct ib_global_route *dst,
-+			       const struct pvrdma_global_route *src)
-+{
-+	pvrdma_gid_to_ib(&dst->dgid, &src->dgid);
-+	dst->flow_label = src->flow_label;
-+	dst->sgid_index = src->sgid_index;
-+	dst->hop_limit = src->hop_limit;
-+	dst->traffic_class = src->traffic_class;
-+}
-+
-+void ib_global_route_to_pvrdma(struct pvrdma_global_route *dst,
-+			       const struct ib_global_route *src)
-+{
-+	ib_gid_to_pvrdma(&dst->dgid, &src->dgid);
-+	dst->flow_label = src->flow_label;
-+	dst->sgid_index = src->sgid_index;
-+	dst->hop_limit = src->hop_limit;
-+	dst->traffic_class = src->traffic_class;
-+}
-+
-+void pvrdma_ah_attr_to_ib(struct ib_ah_attr *dst,
-+			  const struct pvrdma_ah_attr *src)
-+{
-+	pvrdma_global_route_to_ib(&dst->grh, &src->grh);
-+	dst->dlid = src->dlid;
-+	dst->sl = src->sl;
-+	dst->src_path_bits = src->src_path_bits;
-+	dst->static_rate = src->static_rate;
-+	dst->ah_flags = src->ah_flags;
-+	dst->port_num = src->port_num;
-+	memcpy(&dst->dmac, &src->dmac, sizeof(dst->dmac));
-+}
-+
-+void ib_ah_attr_to_pvrdma(struct pvrdma_ah_attr *dst,
-+			  const struct ib_ah_attr *src)
-+{
-+	ib_global_route_to_pvrdma(&dst->grh, &src->grh);
-+	dst->dlid = src->dlid;
-+	dst->sl = src->sl;
-+	dst->src_path_bits = src->src_path_bits;
-+	dst->static_rate = src->static_rate;
-+	dst->ah_flags = src->ah_flags;
-+	dst->port_num = src->port_num;
-+	memcpy(&dst->dmac, &src->dmac, sizeof(dst->dmac));
++	obj = uar->index & (tbl->max - 1);
++	spin_lock_irqsave(&tbl->lock, flags);
++	clear_bit(obj, tbl->table);
++	tbl->last = min(tbl->last, obj);
++	tbl->top = (tbl->top + tbl->max) & tbl->mask;
++	spin_unlock_irqrestore(&tbl->lock, flags);
 +}
 -- 
 2.7.4
