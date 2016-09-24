@@ -1,59 +1,53 @@
-From: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH v5 09/16] IB/pvrdma: Add support for Completion Queues
-Date: Sat, 24 Sep 2016 16:21:33 -0700
-Message-ID: <4e4b66c188ce96b6435317f329b8dc7cc7d9a3b3.1474759181.git.aditr@vmware.com>
+From: Adit Ranadive <aditr@vmware.com>
+Subject: [PATCH v5 11/16] IB/pvrdma: Add support for memory regions
+Date: Sat, 24 Sep 2016 16:21:35 -0700
+Message-ID: <d719e952bf4b0295697621dcce06d7543e588a5b.1474759181.git.aditr@vmware.com>
 References: <cover.1474759181.git.aditr@vmware.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <jhansen-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
-        <asarwade-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>, <georgezhang-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
-        <bryantan-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-To: <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <pv-drivers-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <cover.1474759181.git.aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Adit Ranadive <aditr@vmware.com>, <netdev@vger.kernel.org>,
+        <linux-pci@vger.kernel.org>, <jhansen@vmware.com>,
+        <asarwade@vmware.com>, <georgezhang@vmware.com>,
+        <bryantan@vmware.com>
+To: <dledford@redhat.com>, <linux-rdma@vger.kernel.org>,
+        <pv-drivers@vmware.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <cover.1474759181.git.aditr@vmware.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds the support for creating and destroying completion queues
-on the paravirtual RDMA device.
+This patch adds support for creating and destroying memory regions. The
+PVRDMA device supports User MRs, DMA MRs (no Remote Read/Write support),
+Fast Register MRs.
 
-Reviewed-by: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Reviewed-by: Jorgen Hansen <jhansen-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-Reviewed-by: George Zhang <georgezhang-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-Reviewed-by: Aditya Sarwade <asarwade-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-Reviewed-by: Bryan Tan <bryantan-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+Reviewed-by: Yuval Shaia <yuval.shaia@oracle.com>
+Reviewed-by: Jorgen Hansen <jhansen@vmware.com>
+Reviewed-by: George Zhang <georgezhang@vmware.com>
+Reviewed-by: Aditya Sarwade <asarwade@vmware.com>
+Reviewed-by: Bryan Tan <bryantan@vmware.com>
+Signed-off-by: Adit Ranadive <aditr@vmware.com>
 ---
 Changes v4->v5:
- - Updated include for headers in UAPI folder.
- - Changed from EINVAL to ENOMEM if atomic add fails.
- - Added error code if destroy cq command failed.
- - Update to pvrdma_cmd_post for creating/destroying CQ.
+ - Check the access flags correctly for DMA MR.
+ - Update to pvrdma_cmd_post for creating/destroying MRs.
 
 Changes v3->v4:
- - Added a pvrdma_destroy_cq in the error path.
- - Renamed pvrdma_flush_cqe to _pvrdma_flush_cqe since we need a lock to
- be held while calling this.
- - Updated to use wrapper for UAR write for CQ.
- - Ensure that poll_cq does not return error values.
+ - Changed access flag check for DMA MR to using bit operation.
+ - Removed some local variables.
 
 Changes v2->v3:
- - Removed boolean from pvrdma_cmd_post.
- - Return -EAGAIN if qp retrieved from CQE is bogus.
- - Check for invalid index of ring.
+ - Removed boolean in pvrdma_cmd_post.
 ---
- drivers/infiniband/hw/pvrdma/pvrdma_cq.c | 426 +++++++++++++++++++++++++++++++
- 1 file changed, 426 insertions(+)
- create mode 100644 drivers/infiniband/hw/pvrdma/pvrdma_cq.c
+ drivers/infiniband/hw/pvrdma/pvrdma_mr.c | 334 +++++++++++++++++++++++++++++++
+ 1 file changed, 334 insertions(+)
+ create mode 100644 drivers/infiniband/hw/pvrdma/pvrdma_mr.c
 
-diff --git a/drivers/infiniband/hw/pvrdma/pvrdma_cq.c b/drivers/infiniband/hw/pvrdma/pvrdma_cq.c
+diff --git a/drivers/infiniband/hw/pvrdma/pvrdma_mr.c b/drivers/infiniband/hw/pvrdma/pvrdma_mr.c
 new file mode 100644
-index 0000000..f26d4bc
+index 0000000..8519f32
 --- /dev/null
-+++ b/drivers/infiniband/hw/pvrdma/pvrdma_cq.c
-@@ -0,0 +1,426 @@
++++ b/drivers/infiniband/hw/pvrdma/pvrdma_mr.c
+@@ -0,0 +1,334 @@
 +/*
 + * Copyright (c) 2012-2016 VMware, Inc.  All rights reserved.
 + *
@@ -99,391 +93,294 @@ index 0000000..f26d4bc
 + * OF THE POSSIBILITY OF SUCH DAMAGE.
 + */
 +
-+#include <asm/page.h>
-+#include <linux/io.h>
-+#include <linux/wait.h>
-+#include <rdma/ib_addr.h>
-+#include <rdma/ib_smi.h>
-+#include <rdma/ib_user_verbs.h>
-+#include <rdma/pvrdma-abi.h>
++#include <linux/list.h>
++#include <linux/slab.h>
 +
 +#include "pvrdma.h"
 +
 +/**
-+ * pvrdma_req_notify_cq - request notification for a completion queue
-+ * @ibcq: the completion queue
-+ * @notify_flags: notification flags
++ * pvrdma_get_dma_mr - get a DMA memory region
++ * @pd: protection domain
++ * @acc: access flags
 + *
-+ * @return: 0 for success.
++ * @return: ib_mr pointer on success, otherwise returns an errno.
 + */
-+int pvrdma_req_notify_cq(struct ib_cq *ibcq,
-+			 enum ib_cq_notify_flags notify_flags)
++struct ib_mr *pvrdma_get_dma_mr(struct ib_pd *pd, int acc)
 +{
-+	struct pvrdma_dev *dev = to_vdev(ibcq->device);
-+	struct pvrdma_cq *cq = to_vcq(ibcq);
-+	u32 val = cq->cq_handle;
++	struct pvrdma_dev *dev = to_vdev(pd->device);
++	struct pvrdma_user_mr *mr;
++	union pvrdma_cmd_req req;
++	union pvrdma_cmd_resp rsp;
++	struct pvrdma_cmd_create_mr *cmd = &req.create_mr;
++	struct pvrdma_cmd_create_mr_resp *resp = &rsp.create_mr_resp;
++	int ret;
 +
-+	val |= (notify_flags & IB_CQ_SOLICITED_MASK) == IB_CQ_SOLICITED ?
-+		PVRDMA_UAR_CQ_ARM_SOL : PVRDMA_UAR_CQ_ARM;
++	/* Support only LOCAL_WRITE flag for DMA MRs */
++	if (acc & ~IB_ACCESS_LOCAL_WRITE) {
++		dev_warn(&dev->pdev->dev,
++			 "unsupported dma mr access flags %#x\n", acc);
++		return ERR_PTR(-EOPNOTSUPP);
++	}
 +
-+	pvrdma_write_uar_cq(dev, val);
++	mr = kzalloc(sizeof(*mr), GFP_KERNEL);
++	if (!mr)
++		return ERR_PTR(-ENOMEM);
 +
-+	return 0;
++	memset(cmd, 0, sizeof(*cmd));
++	cmd->hdr.cmd = PVRDMA_CMD_CREATE_MR;
++	cmd->pd_handle = to_vpd(pd)->pd_handle;
++	cmd->access_flags = acc;
++	cmd->flags = PVRDMA_MR_FLAG_DMA;
++
++	ret = pvrdma_cmd_post(dev, &req, &rsp, PVRDMA_CMD_CREATE_MR_RESP);
++	if (ret < 0) {
++		dev_warn(&dev->pdev->dev,
++			 "could not get DMA mem region, error: %d\n", ret);
++		kfree(mr);
++		return ERR_PTR(ret);
++	}
++
++	mr->mmr.mr_handle = resp->mr_handle;
++	mr->ibmr.lkey = resp->lkey;
++	mr->ibmr.rkey = resp->rkey;
++
++	return &mr->ibmr;
 +}
 +
 +/**
-+ * pvrdma_create_cq - create completion queue
-+ * @ibdev: the device
-+ * @attr: completion queue attributes
-+ * @context: user context
++ * pvrdma_reg_user_mr - register a userspace memory region
++ * @pd: protection domain
++ * @start: starting address
++ * @length: length of region
++ * @virt_addr: I/O virtual address
++ * @access_flags: access flags for memory region
 + * @udata: user data
 + *
-+ * @return: ib_cq completion queue pointer on success,
-+ *          otherwise returns negative errno.
++ * @return: ib_mr pointer on success, otherwise returns an errno.
 + */
-+struct ib_cq *pvrdma_create_cq(struct ib_device *ibdev,
-+			       const struct ib_cq_init_attr *attr,
-+			       struct ib_ucontext *context,
-+			       struct ib_udata *udata)
++struct ib_mr *pvrdma_reg_user_mr(struct ib_pd *pd, u64 start, u64 length,
++				 u64 virt_addr, int access_flags,
++				 struct ib_udata *udata)
 +{
-+	int entries = attr->cqe;
-+	struct pvrdma_dev *dev = to_vdev(ibdev);
-+	struct pvrdma_cq *cq;
-+	int ret;
-+	int npages;
-+	unsigned long flags;
++	struct pvrdma_dev *dev = to_vdev(pd->device);
++	struct pvrdma_user_mr *mr = NULL;
++	struct ib_umem *umem;
 +	union pvrdma_cmd_req req;
 +	union pvrdma_cmd_resp rsp;
-+	struct pvrdma_cmd_create_cq *cmd = &req.create_cq;
-+	struct pvrdma_cmd_create_cq_resp *resp = &rsp.create_cq_resp;
-+	struct pvrdma_create_cq ucmd;
++	struct pvrdma_cmd_create_mr *cmd = &req.create_mr;
++	struct pvrdma_cmd_create_mr_resp *resp = &rsp.create_mr_resp;
++	int nchunks;
++	int ret;
++	int entry;
++	struct scatterlist *sg;
 +
-+	BUILD_BUG_ON(sizeof(struct pvrdma_cqe) != 64);
-+
-+	entries = roundup_pow_of_two(entries);
-+	if (entries < 1 || entries > dev->dsr->caps.max_cqe)
++	if (length == 0 || length > dev->dsr->caps.max_mr_size) {
++		dev_warn(&dev->pdev->dev, "invalid mem region length\n");
 +		return ERR_PTR(-EINVAL);
-+
-+	if (!atomic_add_unless(&dev->num_cqs, 1, dev->dsr->caps.max_cq))
-+		return ERR_PTR(-ENOMEM);
-+
-+	cq = kzalloc(sizeof(*cq), GFP_KERNEL);
-+	if (!cq) {
-+		atomic_dec(&dev->num_cqs);
-+		return ERR_PTR(-ENOMEM);
 +	}
 +
-+	cq->ibcq.cqe = entries;
-+
-+	if (context) {
-+		if (ib_copy_from_udata(&ucmd, udata, sizeof(ucmd))) {
-+			ret = -EFAULT;
-+			goto err_cq;
-+		}
-+
-+		cq->umem = ib_umem_get(context, ucmd.buf_addr, ucmd.buf_size,
-+				       IB_ACCESS_LOCAL_WRITE, 1);
-+		if (IS_ERR(cq->umem)) {
-+			ret = PTR_ERR(cq->umem);
-+			goto err_cq;
-+		}
-+
-+		npages = ib_umem_page_count(cq->umem);
-+	} else {
-+		cq->is_kernel = true;
-+
-+		/* One extra page for shared ring state */
-+		npages = 1 + (entries * sizeof(struct pvrdma_cqe) +
-+			      PAGE_SIZE - 1) / PAGE_SIZE;
-+
-+		/* Skip header page. */
-+		cq->offset = PAGE_SIZE;
-+	}
-+
-+	if (npages < 0 || npages > PVRDMA_PAGE_DIR_MAX_PAGES) {
++	umem = ib_umem_get(pd->uobject->context, start,
++			   length, access_flags, 0);
++	if (IS_ERR(umem)) {
 +		dev_warn(&dev->pdev->dev,
-+			 "overflow pages in completion queue\n");
++			 "could not get umem for mem region\n");
++		return ERR_CAST(umem);
++	}
++
++	nchunks = 0;
++	for_each_sg(umem->sg_head.sgl, sg, umem->nmap, entry)
++		nchunks += sg_dma_len(sg) >> PAGE_SHIFT;
++
++	if (nchunks < 0 || nchunks > PVRDMA_PAGE_DIR_MAX_PAGES) {
++		dev_warn(&dev->pdev->dev, "overflow %d pages in mem region\n",
++			 nchunks);
 +		ret = -EINVAL;
 +		goto err_umem;
 +	}
 +
-+	ret = pvrdma_page_dir_init(dev, &cq->pdir, npages, cq->is_kernel);
++	mr = kzalloc(sizeof(*mr), GFP_KERNEL);
++	if (!mr) {
++		ret = -ENOMEM;
++		goto err_umem;
++	}
++
++	mr->mmr.iova = virt_addr;
++	mr->mmr.size = length;
++	mr->umem = umem;
++
++	ret = pvrdma_page_dir_init(dev, &mr->pdir, nchunks, false);
 +	if (ret) {
 +		dev_warn(&dev->pdev->dev,
 +			 "could not allocate page directory\n");
 +		goto err_umem;
 +	}
 +
-+	/* Ring state is always the first page. Set in library for user cq. */
-+	if (cq->is_kernel)
-+		cq->ring_state = cq->pdir.pages[0];
-+	else
-+		pvrdma_page_dir_insert_umem(&cq->pdir, cq->umem, 0);
-+
-+	atomic_set(&cq->refcnt, 1);
-+	init_waitqueue_head(&cq->wait);
-+	spin_lock_init(&cq->cq_lock);
++	ret = pvrdma_page_dir_insert_umem(&mr->pdir, mr->umem, 0);
++	if (ret)
++		goto err_pdir;
 +
 +	memset(cmd, 0, sizeof(*cmd));
-+	cmd->hdr.cmd = PVRDMA_CMD_CREATE_CQ;
-+	cmd->nchunks = npages;
-+	cmd->ctx_handle = (context) ?
-+		(u64)to_vucontext(context)->ctx_handle : 0;
-+	cmd->cqe = entries;
-+	cmd->pdir_dma = cq->pdir.dir_dma;
-+	ret = pvrdma_cmd_post(dev, &req, &rsp, PVRDMA_CMD_CREATE_CQ_RESP);
++	cmd->hdr.cmd = PVRDMA_CMD_CREATE_MR;
++	cmd->start = start;
++	cmd->length = length;
++	cmd->pd_handle = to_vpd(pd)->pd_handle;
++	cmd->access_flags = access_flags;
++	cmd->nchunks = nchunks;
++	cmd->pdir_dma = mr->pdir.dir_dma;
++
++	ret = pvrdma_cmd_post(dev, &req, &rsp, PVRDMA_CMD_CREATE_MR_RESP);
 +	if (ret < 0) {
 +		dev_warn(&dev->pdev->dev,
-+			 "could not create completion queue, error: %d\n", ret);
-+		goto err_page_dir;
++			 "could not register mem region, error: %d\n", ret);
++		goto err_pdir;
 +	}
 +
-+	cq->ibcq.cqe = resp->cqe;
-+	cq->cq_handle = resp->cq_handle;
-+	spin_lock_irqsave(&dev->cq_tbl_lock, flags);
-+	dev->cq_tbl[cq->cq_handle % dev->dsr->caps.max_cq] = cq;
-+	spin_unlock_irqrestore(&dev->cq_tbl_lock, flags);
++	mr->mmr.mr_handle = resp->mr_handle;
++	mr->ibmr.lkey = resp->lkey;
++	mr->ibmr.rkey = resp->rkey;
 +
-+	if (context) {
-+		cq->uar = &(to_vucontext(context)->uar);
++	return &mr->ibmr;
 +
-+		/* Copy udata back. */
-+		if (ib_copy_to_udata(udata, &cq->cq_handle, sizeof(__u32))) {
-+			dev_warn(&dev->pdev->dev,
-+				 "failed to copy back udata\n");
-+			pvrdma_destroy_cq(&cq->ibcq);
-+			return ERR_PTR(-EINVAL);
-+		}
-+	}
-+
-+	return &cq->ibcq;
-+
-+err_page_dir:
-+	pvrdma_page_dir_cleanup(dev, &cq->pdir);
++err_pdir:
++	pvrdma_page_dir_cleanup(dev, &mr->pdir);
 +err_umem:
-+	if (context)
-+		ib_umem_release(cq->umem);
-+err_cq:
-+	atomic_dec(&dev->num_cqs);
-+	kfree(cq);
++	ib_umem_release(umem);
++	kfree(mr);
 +
 +	return ERR_PTR(ret);
 +}
 +
-+static void pvrdma_free_cq(struct pvrdma_dev *dev, struct pvrdma_cq *cq)
++/**
++ * pvrdma_alloc_mr - allocate a memory region
++ * @pd: protection domain
++ * @mr_type: type of memory region
++ * @max_num_sg: maximum number of pages
++ *
++ * @return: ib_mr pointer on success, otherwise returns an errno.
++ */
++struct ib_mr *pvrdma_alloc_mr(struct ib_pd *pd, enum ib_mr_type mr_type,
++			      u32 max_num_sg)
 +{
-+	atomic_dec(&cq->refcnt);
-+	wait_event(cq->wait, !atomic_read(&cq->refcnt));
++	struct pvrdma_dev *dev = to_vdev(pd->device);
++	struct pvrdma_user_mr *mr;
++	union pvrdma_cmd_req req;
++	union pvrdma_cmd_resp rsp;
++	struct pvrdma_cmd_create_mr *cmd = &req.create_mr;
++	struct pvrdma_cmd_create_mr_resp *resp = &rsp.create_mr_resp;
++	int size = max_num_sg * sizeof(u64);
++	int ret;
 +
-+	if (!cq->is_kernel)
-+		ib_umem_release(cq->umem);
++	if (mr_type != IB_MR_TYPE_MEM_REG ||
++	    max_num_sg > PVRDMA_MAX_FAST_REG_PAGES)
++		return ERR_PTR(-EINVAL);
 +
-+	pvrdma_page_dir_cleanup(dev, &cq->pdir);
-+	kfree(cq);
++	mr = kzalloc(sizeof(*mr), GFP_KERNEL);
++	if (!mr)
++		return ERR_PTR(-ENOMEM);
++
++	mr->pages = kzalloc(size, GFP_KERNEL);
++	if (!mr->pages) {
++		ret = -ENOMEM;
++		goto freemr;
++	}
++
++	ret = pvrdma_page_dir_init(dev, &mr->pdir, max_num_sg, false);
++	if (ret) {
++		dev_warn(&dev->pdev->dev,
++			 "failed to allocate page dir for mr\n");
++		ret = -ENOMEM;
++		goto freepages;
++	}
++
++	memset(cmd, 0, sizeof(*cmd));
++	cmd->hdr.cmd = PVRDMA_CMD_CREATE_MR;
++	cmd->pd_handle = to_vpd(pd)->pd_handle;
++	cmd->access_flags = 0;
++	cmd->flags = PVRDMA_MR_FLAG_FRMR;
++	cmd->nchunks = max_num_sg;
++
++	ret = pvrdma_cmd_post(dev, &req, &rsp, PVRDMA_CMD_CREATE_MR_RESP);
++	if (ret < 0) {
++		dev_warn(&dev->pdev->dev,
++			 "could not create FR mem region, error: %d\n", ret);
++		goto freepdir;
++	}
++
++	mr->max_pages = max_num_sg;
++	mr->mmr.mr_handle = resp->mr_handle;
++	mr->ibmr.lkey = resp->lkey;
++	mr->ibmr.rkey = resp->rkey;
++	mr->page_shift = PAGE_SHIFT;
++	mr->umem = NULL;
++
++	return &mr->ibmr;
++
++freepdir:
++	pvrdma_page_dir_cleanup(dev, &mr->pdir);
++freepages:
++	kfree(mr->pages);
++freemr:
++	kfree(mr);
++	return ERR_PTR(ret);
 +}
 +
 +/**
-+ * pvrdma_destroy_cq - destroy completion queue
-+ * @cq: the completion queue to destroy.
++ * pvrdma_dereg_mr - deregister a memory region
++ * @ibmr: memory region
 + *
-+ * @return: 0 for success.
++ * @return: 0 on success.
 + */
-+int pvrdma_destroy_cq(struct ib_cq *cq)
++int pvrdma_dereg_mr(struct ib_mr *ibmr)
 +{
-+	struct pvrdma_cq *vcq = to_vcq(cq);
++	struct pvrdma_user_mr *mr = to_vmr(ibmr);
++	struct pvrdma_dev *dev = to_vdev(ibmr->device);
 +	union pvrdma_cmd_req req;
-+	struct pvrdma_cmd_destroy_cq *cmd = &req.destroy_cq;
-+	struct pvrdma_dev *dev = to_vdev(cq->device);
-+	unsigned long flags;
++	struct pvrdma_cmd_destroy_mr *cmd = &req.destroy_mr;
 +	int ret;
 +
 +	memset(cmd, 0, sizeof(*cmd));
-+	cmd->hdr.cmd = PVRDMA_CMD_DESTROY_CQ;
-+	cmd->cq_handle = vcq->cq_handle;
-+
++	cmd->hdr.cmd = PVRDMA_CMD_DESTROY_MR;
++	cmd->mr_handle = mr->mmr.mr_handle;
 +	ret = pvrdma_cmd_post(dev, &req, NULL, 0);
 +	if (ret < 0)
 +		dev_warn(&dev->pdev->dev,
-+			 "could not destroy completion queue, error: %d\n",
-+			 ret);
++			 "could not deregister mem region, error: %d\n", ret);
 +
-+	/* free cq's resources */
-+	spin_lock_irqsave(&dev->cq_tbl_lock, flags);
-+	dev->cq_tbl[vcq->cq_handle] = NULL;
-+	spin_unlock_irqrestore(&dev->cq_tbl_lock, flags);
++	pvrdma_page_dir_cleanup(dev, &mr->pdir);
++	if (mr->umem)
++		ib_umem_release(mr->umem);
 +
-+	pvrdma_free_cq(dev, vcq);
-+	atomic_dec(&dev->num_cqs);
-+
-+	return ret;
-+}
-+
-+/**
-+ * pvrdma_modify_cq - modify the CQ moderation parameters
-+ * @ibcq: the CQ to modify
-+ * @cq_count: number of CQEs that will trigger an event
-+ * @cq_period: max period of time in usec before triggering an event
-+ *
-+ * @return: -EOPNOTSUPP as CQ resize is not supported.
-+ */
-+int pvrdma_modify_cq(struct ib_cq *cq, u16 cq_count, u16 cq_period)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
-+static inline struct pvrdma_cqe *get_cqe(struct pvrdma_cq *cq, int i)
-+{
-+	return (struct pvrdma_cqe *)pvrdma_page_dir_get_ptr(
-+					&cq->pdir,
-+					cq->offset +
-+					sizeof(struct pvrdma_cqe) * i);
-+}
-+
-+void _pvrdma_flush_cqe(struct pvrdma_qp *qp, struct pvrdma_cq *cq)
-+{
-+	int head;
-+	int has_data;
-+
-+	if (!cq->is_kernel)
-+		return;
-+
-+	/* Lock held */
-+	has_data = pvrdma_idx_ring_has_data(&cq->ring_state->rx,
-+					    cq->ibcq.cqe, &head);
-+	if (unlikely(has_data > 0)) {
-+		int items;
-+		int curr;
-+		int tail = pvrdma_idx(&cq->ring_state->rx.prod_tail,
-+				      cq->ibcq.cqe);
-+		struct pvrdma_cqe *cqe;
-+		struct pvrdma_cqe *curr_cqe;
-+
-+		items = (tail > head) ? (tail - head) :
-+			(cq->ibcq.cqe - head + tail);
-+		curr = --tail;
-+		while (items-- > 0) {
-+			if (curr < 0)
-+				curr = cq->ibcq.cqe - 1;
-+			if (tail < 0)
-+				tail = cq->ibcq.cqe - 1;
-+			curr_cqe = get_cqe(cq, curr);
-+			if ((curr_cqe->qp & 0xFFFF) != qp->qp_handle) {
-+				if (curr != tail) {
-+					cqe = get_cqe(cq, tail);
-+					*cqe = *curr_cqe;
-+				}
-+				tail--;
-+			} else {
-+				pvrdma_idx_ring_inc(
-+					&cq->ring_state->rx.cons_head,
-+					cq->ibcq.cqe);
-+			}
-+			curr--;
-+		}
-+	}
-+}
-+
-+static int pvrdma_poll_one(struct pvrdma_cq *cq, struct pvrdma_qp **cur_qp,
-+			   struct ib_wc *wc)
-+{
-+	struct pvrdma_dev *dev = to_vdev(cq->ibcq.device);
-+	int has_data;
-+	unsigned int head;
-+	bool tried = false;
-+	struct pvrdma_cqe *cqe;
-+
-+retry:
-+	has_data = pvrdma_idx_ring_has_data(&cq->ring_state->rx,
-+					    cq->ibcq.cqe, &head);
-+	if (has_data == 0) {
-+		if (tried)
-+			return -EAGAIN;
-+
-+		pvrdma_write_uar_cq(dev, cq->cq_handle | PVRDMA_UAR_CQ_POLL);
-+
-+		tried = true;
-+		goto retry;
-+	} else if (has_data == PVRDMA_INVALID_IDX) {
-+		dev_err(&dev->pdev->dev, "CQ ring state invalid\n");
-+		return -EAGAIN;
-+	}
-+
-+	cqe = get_cqe(cq, head);
-+
-+	/* Ensure cqe is valid. */
-+	rmb();
-+	if (dev->qp_tbl[cqe->qp & 0xffff])
-+		*cur_qp = (struct pvrdma_qp *)dev->qp_tbl[cqe->qp & 0xffff];
-+	else
-+		return -EAGAIN;
-+
-+	wc->opcode = pvrdma_wc_opcode_to_ib(cqe->opcode);
-+	wc->status = pvrdma_wc_status_to_ib(cqe->status);
-+	wc->wr_id = cqe->wr_id;
-+	wc->qp = &(*cur_qp)->ibqp;
-+	wc->byte_len = cqe->byte_len;
-+	wc->ex.imm_data = cqe->imm_data;
-+	wc->src_qp = cqe->src_qp;
-+	wc->wc_flags = pvrdma_wc_flags_to_ib(cqe->wc_flags);
-+	wc->pkey_index = cqe->pkey_index;
-+	wc->slid = cqe->slid;
-+	wc->sl = cqe->sl;
-+	wc->dlid_path_bits = cqe->dlid_path_bits;
-+	wc->port_num = cqe->port_num;
-+	wc->vendor_err = 0;
-+
-+	/* Update shared ring state */
-+	pvrdma_idx_ring_inc(&cq->ring_state->rx.cons_head, cq->ibcq.cqe);
++	kfree(mr->pages);
++	kfree(mr);
 +
 +	return 0;
 +}
 +
-+/**
-+ * pvrdma_poll_cq - poll for work completion queue entries
-+ * @ibcq: completion queue
-+ * @num_entries: the maximum number of entries
-+ * @entry: pointer to work completion array
-+ *
-+ * @return: number of polled completion entries
-+ */
-+int pvrdma_poll_cq(struct ib_cq *ibcq, int num_entries, struct ib_wc *wc)
++static int pvrdma_set_page(struct ib_mr *ibmr, u64 addr)
 +{
-+	struct pvrdma_cq *cq = to_vcq(ibcq);
-+	struct pvrdma_qp *cur_qp = NULL;
-+	unsigned long flags;
-+	int npolled;
++	struct pvrdma_user_mr *mr = to_vmr(ibmr);
 +
-+	if (num_entries < 1 || wc == NULL)
-+		return 0;
++	if (mr->npages == mr->max_pages)
++		return -ENOMEM;
 +
-+	spin_lock_irqsave(&cq->cq_lock, flags);
-+	for (npolled = 0; npolled < num_entries; ++npolled) {
-+		if (pvrdma_poll_one(cq, &cur_qp, wc + npolled))
-+			break;
-+	}
-+
-+	spin_unlock_irqrestore(&cq->cq_lock, flags);
-+
-+	/* Ensure we do not return errors from poll_cq */
-+	return npolled;
++	mr->pages[mr->npages++] = addr;
++	return 0;
 +}
 +
-+/**
-+ * pvrdma_resize_cq - resize CQ
-+ * @ibcq: the completion queue
-+ * @entries: CQ entries
-+ * @udata: user data
-+ *
-+ * @return: -EOPNOTSUPP as CQ resize is not supported.
-+ */
-+int pvrdma_resize_cq(struct ib_cq *ibcq, int entries, struct ib_udata *udata)
++int pvrdma_map_mr_sg(struct ib_mr *ibmr, struct scatterlist *sg, int sg_nents,
++		     unsigned int *sg_offset)
 +{
-+	return -EOPNOTSUPP;
++	struct pvrdma_user_mr *mr = to_vmr(ibmr);
++	struct pvrdma_dev *dev = to_vdev(ibmr->device);
++	int ret;
++
++	mr->npages = 0;
++
++	ret = ib_sg_to_pages(ibmr, sg, sg_nents, sg_offset, pvrdma_set_page);
++	if (ret < 0)
++		dev_warn(&dev->pdev->dev, "could not map sg to pages\n");
++
++	return ret;
 +}
 -- 
 2.7.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
