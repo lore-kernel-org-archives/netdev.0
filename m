@@ -1,8 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 6/8] rxrpc: Generate a summary of the ACK state for
- later use
-Date: Sun, 25 Sep 2016 00:25:37 +0100
-Message-ID: <147475953780.15231.8143746404313078034.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 4/8] rxrpc: Reinitialise the call ACK and timer
+ state for client reply phase
+Date: Sun, 25 Sep 2016 00:25:24 +0100
+Message-ID: <147475952422.15231.8672647973718593549.stgit@warthog.procyon.org.uk>
 References: <147475949656.15231.3434038490632820605.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,186 +15,62 @@ In-Reply-To: <147475949656.15231.3434038490632820605.stgit@warthog.procyon.org.u
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Generate a summary of the Tx buffer packet state when an ACK is received
-for use in a later patch that does congestion management.
+Clear the ACK reason, ACK timer and resend timer when entering the client
+reply phase when the first DATA packet is received.  New ACKs will be
+proposed once the data is queued.
+
+The resend timer is no longer relevant and we need to cancel ACKs scheduled
+to probe for a lost reply.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/ar-internal.h |   14 ++++++++++++++
- net/rxrpc/input.c       |   45 ++++++++++++++++++++++++++++++++++-----------
- 2 files changed, 48 insertions(+), 11 deletions(-)
+ net/rxrpc/ar-internal.h |    1 +
+ net/rxrpc/input.c       |    9 +++++++++
+ net/rxrpc/misc.c        |    1 +
+ 3 files changed, 11 insertions(+)
 
 diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index cdd35e2b40ba..1a700b6a998b 100644
+index e3bf9c0e3ad1..cdd35e2b40ba 100644
 --- a/net/rxrpc/ar-internal.h
 +++ b/net/rxrpc/ar-internal.h
-@@ -540,6 +540,20 @@ struct rxrpc_call {
+@@ -682,6 +682,7 @@ extern const char rxrpc_rtt_rx_traces[rxrpc_rtt_rx__nr_trace][5];
  
- 	/* transmission-phase ACK management */
- 	rxrpc_serial_t		acks_latest;	/* serial number of latest ACK received */
-+	rxrpc_seq_t		acks_lowest_nak; /* Lowest NACK in the buffer (or ==tx_hard_ack) */
-+};
-+
-+/*
-+ * Summary of a new ACK and the changes it made.
-+ */
-+struct rxrpc_ack_summary {
-+	u8			ack_reason;
-+	u8			nr_acks;		/* Number of ACKs in packet */
-+	u8			nr_nacks;		/* Number of NACKs in packet */
-+	u8			nr_new_acks;		/* Number of new ACKs in packet */
-+	u8			nr_new_nacks;		/* Number of new NACKs in packet */
-+	u8			nr_rot_new_acks;	/* Number of rotated new ACKs */
-+	bool			new_low_nack;		/* T if new low NACK found */
- };
- 
- enum rxrpc_skb_trace {
+ enum rxrpc_timer_trace {
+ 	rxrpc_timer_begin,
++	rxrpc_timer_init_for_reply,
+ 	rxrpc_timer_expired,
+ 	rxrpc_timer_set_for_ack,
+ 	rxrpc_timer_set_for_resend,
 diff --git a/net/rxrpc/input.c b/net/rxrpc/input.c
-index bda11eb2ab2a..dd699667eeef 100644
+index 757c16f033a0..bda11eb2ab2a 100644
 --- a/net/rxrpc/input.c
 +++ b/net/rxrpc/input.c
-@@ -56,12 +56,20 @@ static void rxrpc_send_ping(struct rxrpc_call *call, struct sk_buff *skb,
- /*
-  * Apply a hard ACK by advancing the Tx window.
-  */
--static void rxrpc_rotate_tx_window(struct rxrpc_call *call, rxrpc_seq_t to)
-+static void rxrpc_rotate_tx_window(struct rxrpc_call *call, rxrpc_seq_t to,
-+				   struct rxrpc_ack_summary *summary)
+@@ -149,6 +149,15 @@ static bool rxrpc_receiving_reply(struct rxrpc_call *call)
  {
- 	struct sk_buff *skb, *list = NULL;
- 	int ix;
- 	u8 annotation;
- 
-+	if (call->acks_lowest_nak == call->tx_hard_ack) {
-+		call->acks_lowest_nak = to;
-+	} else if (before_eq(call->acks_lowest_nak, to)) {
-+		summary->new_low_nack = true;
-+		call->acks_lowest_nak = to;
-+	}
-+
- 	spin_lock(&call->lock);
- 
- 	while (before(call->tx_hard_ack, to)) {
-@@ -77,6 +85,8 @@ static void rxrpc_rotate_tx_window(struct rxrpc_call *call, rxrpc_seq_t to)
- 
- 		if (annotation & RXRPC_TX_ANNO_LAST)
- 			set_bit(RXRPC_CALL_TX_LAST, &call->flags);
-+		if ((annotation & RXRPC_TX_ANNO_MASK) != RXRPC_TX_ANNO_ACK)
-+			summary->nr_rot_new_acks++;
- 	}
- 
- 	spin_unlock(&call->lock);
-@@ -147,6 +157,7 @@ bad_state:
-  */
- static bool rxrpc_receiving_reply(struct rxrpc_call *call)
- {
-+	struct rxrpc_ack_summary summary = { 0 };
  	rxrpc_seq_t top = READ_ONCE(call->tx_top);
  
- 	if (call->ackr_reason) {
-@@ -159,7 +170,7 @@ static bool rxrpc_receiving_reply(struct rxrpc_call *call)
- 	}
- 
++	if (call->ackr_reason) {
++		spin_lock_bh(&call->lock);
++		call->ackr_reason = 0;
++		call->resend_at = call->expire_at;
++		call->ack_at = call->expire_at;
++		spin_unlock_bh(&call->lock);
++		rxrpc_set_timer(call, rxrpc_timer_init_for_reply);
++	}
++
  	if (!test_bit(RXRPC_CALL_TX_LAST, &call->flags))
--		rxrpc_rotate_tx_window(call, top);
-+		rxrpc_rotate_tx_window(call, top, &summary);
+ 		rxrpc_rotate_tx_window(call, top);
  	if (!test_bit(RXRPC_CALL_TX_LAST, &call->flags)) {
- 		rxrpc_proto_abort("TXL", call, top);
- 		return false;
-@@ -508,7 +519,8 @@ static void rxrpc_input_ackinfo(struct rxrpc_call *call, struct sk_buff *skb,
-  * the time the ACK was sent.
-  */
- static void rxrpc_input_soft_acks(struct rxrpc_call *call, u8 *acks,
--				  rxrpc_seq_t seq, int nr_acks)
-+				  rxrpc_seq_t seq, int nr_acks,
-+				  struct rxrpc_ack_summary *summary)
- {
- 	bool resend = false;
- 	int ix;
-@@ -521,14 +533,23 @@ static void rxrpc_input_soft_acks(struct rxrpc_call *call, u8 *acks,
- 		annotation &= ~RXRPC_TX_ANNO_MASK;
- 		switch (*acks++) {
- 		case RXRPC_ACK_TYPE_ACK:
-+			summary->nr_acks++;
- 			if (anno_type == RXRPC_TX_ANNO_ACK)
- 				continue;
-+			summary->nr_new_acks++;
- 			call->rxtx_annotations[ix] =
- 				RXRPC_TX_ANNO_ACK | annotation;
- 			break;
- 		case RXRPC_ACK_TYPE_NACK:
-+			if (!summary->nr_nacks &&
-+			    call->acks_lowest_nak != seq) {
-+				call->acks_lowest_nak = seq;
-+				summary->new_low_nack = true;
-+			}
-+			summary->nr_nacks++;
- 			if (anno_type == RXRPC_TX_ANNO_NAK)
- 				continue;
-+			summary->nr_new_nacks++;
- 			if (anno_type == RXRPC_TX_ANNO_RETRANS)
- 				continue;
- 			call->rxtx_annotations[ix] =
-@@ -558,7 +579,7 @@ static void rxrpc_input_soft_acks(struct rxrpc_call *call, u8 *acks,
- static void rxrpc_input_ack(struct rxrpc_call *call, struct sk_buff *skb,
- 			    u16 skew)
- {
--	u8 ack_reason;
-+	struct rxrpc_ack_summary summary = { 0 };
- 	struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
- 	union {
- 		struct rxrpc_ackpacket ack;
-@@ -581,10 +602,10 @@ static void rxrpc_input_ack(struct rxrpc_call *call, struct sk_buff *skb,
- 	first_soft_ack = ntohl(buf.ack.firstPacket);
- 	hard_ack = first_soft_ack - 1;
- 	nr_acks = buf.ack.nAcks;
--	ack_reason = (buf.ack.reason < RXRPC_ACK__INVALID ?
--		      buf.ack.reason : RXRPC_ACK__INVALID);
-+	summary.ack_reason = (buf.ack.reason < RXRPC_ACK__INVALID ?
-+			      buf.ack.reason : RXRPC_ACK__INVALID);
- 
--	trace_rxrpc_rx_ack(call, first_soft_ack, ack_reason, nr_acks);
-+	trace_rxrpc_rx_ack(call, first_soft_ack, summary.ack_reason, nr_acks);
- 
- 	_proto("Rx ACK %%%u { m=%hu f=#%u p=#%u s=%%%u r=%s n=%u }",
- 	       sp->hdr.serial,
-@@ -592,7 +613,7 @@ static void rxrpc_input_ack(struct rxrpc_call *call, struct sk_buff *skb,
- 	       first_soft_ack,
- 	       ntohl(buf.ack.previousPacket),
- 	       acked_serial,
--	       rxrpc_ack_names[ack_reason],
-+	       rxrpc_ack_names[summary.ack_reason],
- 	       buf.ack.nAcks);
- 
- 	if (buf.ack.reason == RXRPC_ACK_PING_RESPONSE)
-@@ -649,12 +670,13 @@ static void rxrpc_input_ack(struct rxrpc_call *call, struct sk_buff *skb,
- 		return rxrpc_proto_abort("AKN", call, 0);
- 
- 	if (after(hard_ack, call->tx_hard_ack))
--		rxrpc_rotate_tx_window(call, hard_ack);
-+		rxrpc_rotate_tx_window(call, hard_ack, &summary);
- 
- 	if (nr_acks > 0) {
- 		if (skb_copy_bits(skb, sp->offset, buf.acks, nr_acks) < 0)
- 			return rxrpc_proto_abort("XSA", call, 0);
--		rxrpc_input_soft_acks(call, buf.acks, first_soft_ack, nr_acks);
-+		rxrpc_input_soft_acks(call, buf.acks, first_soft_ack, nr_acks,
-+				      &summary);
- 	}
- 
- 	if (test_bit(RXRPC_CALL_TX_LAST, &call->flags)) {
-@@ -669,11 +691,12 @@ static void rxrpc_input_ack(struct rxrpc_call *call, struct sk_buff *skb,
-  */
- static void rxrpc_input_ackall(struct rxrpc_call *call, struct sk_buff *skb)
- {
-+	struct rxrpc_ack_summary summary = { 0 };
- 	struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
- 
- 	_proto("Rx ACKALL %%%u", sp->hdr.serial);
- 
--	rxrpc_rotate_tx_window(call, call->tx_top);
-+	rxrpc_rotate_tx_window(call, call->tx_top, &summary);
- 	if (test_bit(RXRPC_CALL_TX_LAST, &call->flags))
- 		rxrpc_end_tx_phase(call, false, "ETL");
- }
+diff --git a/net/rxrpc/misc.c b/net/rxrpc/misc.c
+index a473fd7dabaa..901c012a2700 100644
+--- a/net/rxrpc/misc.c
++++ b/net/rxrpc/misc.c
+@@ -191,6 +191,7 @@ const char rxrpc_rtt_rx_traces[rxrpc_rtt_rx__nr_trace][5] = {
+ const char rxrpc_timer_traces[rxrpc_timer__nr_trace][8] = {
+ 	[rxrpc_timer_begin]			= "Begin ",
+ 	[rxrpc_timer_expired]			= "*EXPR*",
++	[rxrpc_timer_init_for_reply]		= "IniRpl",
+ 	[rxrpc_timer_set_for_ack]		= "SetAck",
+ 	[rxrpc_timer_set_for_send]		= "SetTx ",
+ 	[rxrpc_timer_set_for_resend]		= "SetRTx",
