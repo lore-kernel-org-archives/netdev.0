@@ -1,53 +1,36 @@
-From: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: [PATCH 7/7] ipv6 addrconf: change default MAX_RTR_SOLICITATIONS from 3 to -1 (unlimited)
-Date: Sat, 24 Sep 2016 09:05:09 -0700
-Message-ID: <1474733109-18355-7-git-send-email-zenczykowski@gmail.com>
-References: <CAHo-Oozocj2rzY8hTTr1f3roMy9iz50j6X=dBG5qmz4B_LFAFQ@mail.gmail.com>
- <1474733109-18355-1-git-send-email-zenczykowski@gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] realtek: Add switch variable to 'switch case not
+ processed' messages
+Date: Sat, 24 Sep 2016 09:15:54 -0700
+Message-ID: <1474733754.23838.3.camel@perches.com>
+References: <1474654333.1849.5.camel@perches.com>
+         <d091f73a6adf3bdaa09ab0399c22a9fdfe9b188c.1474654979.git.joe@perches.com>
+         <f98d2cf1-802a-93c1-b219-ec45aa417940@lwfinger.net>
+         <1474657363.1849.9.camel@perches.com> <20160924175555.01cae6dd@endymion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, Erik Kline <ek@google.com>,
-        Lorenzo Colitti <lorenzo@google.com>
-To: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
-        "David S . Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Larry Finger <Larry.Finger@lwfinger.net>,
+        Chaoming Li <chaoming_li@realsil.com.cn>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Jean Delvare <jdelvare@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35928 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758107AbcIXQGF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 24 Sep 2016 12:06:05 -0400
-Received: by mail-pf0-f195.google.com with SMTP id n24so6707130pfb.3
-        for <netdev@vger.kernel.org>; Sat, 24 Sep 2016 09:06:05 -0700 (PDT)
-In-Reply-To: <1474733109-18355-1-git-send-email-zenczykowski@gmail.com>
+Received: from smtprelay0174.hostedemail.com ([216.40.44.174]:48707 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1758012AbcIXQP6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 24 Sep 2016 12:15:58 -0400
+In-Reply-To: <20160924175555.01cae6dd@endymion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Maciej Żenczykowski <maze@google.com>
+On Sat, 2016-09-24 at 17:55 +0200, Jean Delvare wrote:
+> Would it make sense to explicitly set the enum values, or add them as
+> comments, to make such look-ups easier?
 
-This changes:
-  /proc/sys/net/ipv6/conf/all/router_solicitations
-  /proc/sys/net/ipv6/conf/default/router_solicitations
-from 3 to unlimited.
+If you want to create enum->#ENUM structs and
+"const char *" lookup functions, please be my guest.
 
-This is the https://tools.ietf.org/html/rfc7559 recommended default.
-
-Signed-off-by: Maciej Żenczykowski <maze@google.com>
----
- include/net/addrconf.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-index 8f3677269f9a..f2d072787947 100644
---- a/include/net/addrconf.h
-+++ b/include/net/addrconf.h
-@@ -1,7 +1,7 @@
- #ifndef _ADDRCONF_H
- #define _ADDRCONF_H
- 
--#define MAX_RTR_SOLICITATIONS		3
-+#define MAX_RTR_SOLICITATIONS		-1		/* unlimited */
- #define RTR_SOLICITATION_INTERVAL	(4*HZ)
- #define RTR_SOLICITATION_MAX_INTERVAL	(3600*HZ)	/* 1 hour */
- 
--- 
-2.8.0.rc3.226.g39d4020
+otherwise, hex is at least a consistent way to display
+what should be infrequent output.
