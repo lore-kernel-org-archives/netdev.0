@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: [PATCH 2/7] ipv6 addrconf: remove addrconf_sysctl_hop_limit()
-Date: Sat, 24 Sep 2016 09:05:04 -0700
-Message-ID: <1474733109-18355-2-git-send-email-zenczykowski@gmail.com>
+Subject: [PATCH 4/7] ipv6 addrconf: add new sysctl 'router_solicitation_max_interval'
+Date: Sat, 24 Sep 2016 09:05:06 -0700
+Message-ID: <1474733109-18355-4-git-send-email-zenczykowski@gmail.com>
 References: <CAHo-Oozocj2rzY8hTTr1f3roMy9iz50j6X=dBG5qmz4B_LFAFQ@mail.gmail.com>
  <1474733109-18355-1-git-send-email-zenczykowski@gmail.com>
 Mime-Version: 1.0
@@ -12,70 +12,109 @@ Cc: netdev@vger.kernel.org, Erik Kline <ek@google.com>,
 To: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
         "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:35916 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756082AbcIXQGC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 24 Sep 2016 12:06:02 -0400
-Received: by mail-pf0-f196.google.com with SMTP id n24so6707065pfb.3
-        for <netdev@vger.kernel.org>; Sat, 24 Sep 2016 09:06:02 -0700 (PDT)
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35921 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757775AbcIXQGE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 24 Sep 2016 12:06:04 -0400
+Received: by mail-pf0-f195.google.com with SMTP id n24so6707089pfb.3
+        for <netdev@vger.kernel.org>; Sat, 24 Sep 2016 09:06:03 -0700 (PDT)
 In-Reply-To: <1474733109-18355-1-git-send-email-zenczykowski@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Maciej Żenczykowski <maze@google.com>
 
-replace with extra1/2 magic
+Accessible via:
+  /proc/sys/net/ipv6/conf/*/router_solicitation_max_interval
+
+For now we default it to the same value as the normal interval.
 
 Signed-off-by: Maciej Żenczykowski <maze@google.com>
 ---
- net/ipv6/addrconf.c | 21 ++++++---------------
- 1 file changed, 6 insertions(+), 15 deletions(-)
+ include/linux/ipv6.h      |  1 +
+ include/net/addrconf.h    |  1 +
+ include/uapi/linux/ipv6.h |  1 +
+ net/ipv6/addrconf.c       | 11 +++++++++++
+ 4 files changed, 14 insertions(+)
 
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index c6dbcd84a2c7..7e9a789be5e0 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -18,6 +18,7 @@ struct ipv6_devconf {
+ 	__s32		dad_transmits;
+ 	__s32		rtr_solicits;
+ 	__s32		rtr_solicit_interval;
++	__s32		rtr_solicit_max_interval;
+ 	__s32		rtr_solicit_delay;
+ 	__s32		force_mld_version;
+ 	__s32		mldv1_unsolicited_report_interval;
+diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+index 9826d3a9464c..275e5af4c2f4 100644
+--- a/include/net/addrconf.h
++++ b/include/net/addrconf.h
+@@ -3,6 +3,7 @@
+ 
+ #define MAX_RTR_SOLICITATIONS		3
+ #define RTR_SOLICITATION_INTERVAL	(4*HZ)
++#define RTR_SOLICITATION_MAX_INTERVAL	(4*HZ)
+ 
+ #define MIN_VALID_LIFETIME		(2*3600)	/* 2 hours */
+ 
+diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
+index 395876060f50..8c2772340c3f 100644
+--- a/include/uapi/linux/ipv6.h
++++ b/include/uapi/linux/ipv6.h
+@@ -177,6 +177,7 @@ enum {
+ 	DEVCONF_DROP_UNICAST_IN_L2_MULTICAST,
+ 	DEVCONF_DROP_UNSOLICITED_NA,
+ 	DEVCONF_KEEP_ADDR_ON_DOWN,
++	DEVCONF_RTR_SOLICIT_MAX_INTERVAL,
+ 	DEVCONF_MAX
+ };
+ 
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 11fa1a5564d4..3a835495fb53 100644
+index 6c63bf06fbcf..255be34cdbce 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
-@@ -5467,20 +5467,6 @@ int addrconf_sysctl_forward(struct ctl_table *ctl, int write,
- }
- 
- static
--int addrconf_sysctl_hop_limit(struct ctl_table *ctl, int write,
--                              void __user *buffer, size_t *lenp, loff_t *ppos)
--{
--	struct ctl_table lctl;
--	int min_hl = 1, max_hl = 255;
--
--	lctl = *ctl;
--	lctl.extra1 = &min_hl;
--	lctl.extra2 = &max_hl;
--
--	return proc_dointvec_minmax(&lctl, write, buffer, lenp, ppos);
--}
--
--static
- int addrconf_sysctl_mtu(struct ctl_table *ctl, int write,
- 			void __user *buffer, size_t *lenp, loff_t *ppos)
- {
-@@ -5713,6 +5699,9 @@ int addrconf_sysctl_ignore_routes_with_linkdown(struct ctl_table *ctl,
- 	return ret;
- }
- 
-+static int one = 1;
-+static int two_five_five = 255;
-+
- static const struct ctl_table addrconf_sysctl[] = {
- 	{
- 		.procname	= "forwarding",
-@@ -5726,7 +5715,9 @@ static const struct ctl_table addrconf_sysctl[] = {
- 		.data		= &ipv6_devconf.hop_limit,
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
--		.proc_handler	= addrconf_sysctl_hop_limit,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &one,
-+		.extra2		= &two_five_five,
+@@ -187,6 +187,7 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
+ 	.dad_transmits		= 1,
+ 	.rtr_solicits		= MAX_RTR_SOLICITATIONS,
+ 	.rtr_solicit_interval	= RTR_SOLICITATION_INTERVAL,
++	.rtr_solicit_max_interval = RTR_SOLICITATION_MAX_INTERVAL,
+ 	.rtr_solicit_delay	= MAX_RTR_SOLICITATION_DELAY,
+ 	.use_tempaddr		= 0,
+ 	.temp_valid_lft		= TEMP_VALID_LIFETIME,
+@@ -232,6 +233,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+ 	.dad_transmits		= 1,
+ 	.rtr_solicits		= MAX_RTR_SOLICITATIONS,
+ 	.rtr_solicit_interval	= RTR_SOLICITATION_INTERVAL,
++	.rtr_solicit_max_interval = RTR_SOLICITATION_MAX_INTERVAL,
+ 	.rtr_solicit_delay	= MAX_RTR_SOLICITATION_DELAY,
+ 	.use_tempaddr		= 0,
+ 	.temp_valid_lft		= TEMP_VALID_LIFETIME,
+@@ -4891,6 +4893,8 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+ 	array[DEVCONF_RTR_SOLICITS] = cnf->rtr_solicits;
+ 	array[DEVCONF_RTR_SOLICIT_INTERVAL] =
+ 		jiffies_to_msecs(cnf->rtr_solicit_interval);
++	array[DEVCONF_RTR_SOLICIT_MAX_INTERVAL] =
++		jiffies_to_msecs(cnf->rtr_solicit_max_interval);
+ 	array[DEVCONF_RTR_SOLICIT_DELAY] =
+ 		jiffies_to_msecs(cnf->rtr_solicit_delay);
+ 	array[DEVCONF_FORCE_MLD_VERSION] = cnf->force_mld_version;
+@@ -5771,6 +5775,13 @@ static const struct ctl_table addrconf_sysctl[] = {
+ 		.proc_handler	= proc_dointvec_jiffies,
  	},
  	{
- 		.procname	= "mtu",
++		.procname	= "router_solicitation_max_interval",
++		.data		= &ipv6_devconf.rtr_solicit_max_interval,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec_jiffies,
++	},
++	{
+ 		.procname	= "router_solicitation_delay",
+ 		.data		= &ipv6_devconf.rtr_solicit_delay,
+ 		.maxlen		= sizeof(int),
 -- 
 2.8.0.rc3.226.g39d4020
