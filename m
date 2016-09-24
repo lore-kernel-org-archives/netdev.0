@@ -1,44 +1,31 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next 4/4] net/sched: act_mirred: Implement ingress actions
-Date: Sat, 24 Sep 2016 16:50:56 -0700
-Message-ID: <CAM_iQpX=CzjO+AeivaRUfvHruMQEmkXCuMt8S0Web3kNpmKAiQ@mail.gmail.com>
-References: <1474550512-7552-1-git-send-email-shmulik.ladkani@gmail.com> <1474550512-7552-5-git-send-email-shmulik.ladkani@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] Net Driver: Add Cypress GX3 VID=04b4 PID=3610.
+Date: Sat, 24 Sep 2016 19:57:19 -0400 (EDT)
+Message-ID: <20160924.195719.1258405346390131330.davem@davemloft.net>
+References: <5452db0e823d44e788bd6318ec64e346@Mail06.usask.ca>
+        <CAPZMiRa7mTJK5SOWm2eLbhuNZ5EZ7CCPzG40dPzzxsstP78VTQ@mail.gmail.com>
+        <CAPZMiRZLBhn93OXhHVNyPgWOTMreeN=BemCbGno=epD89cX3FA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Shmulik Ladkani <shmulik.ladkani@gmail.com>
-To: Shmulik Ladkani <shmulik.ladkani@ravellosystems.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f65.google.com ([209.85.214.65]:33746 "EHLO
-        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754493AbcIXXvS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 24 Sep 2016 19:51:18 -0400
-Received: by mail-it0-f65.google.com with SMTP id x192so3064015itb.0
-        for <netdev@vger.kernel.org>; Sat, 24 Sep 2016 16:51:17 -0700 (PDT)
-In-Reply-To: <1474550512-7552-5-git-send-email-shmulik.ladkani@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: chris.roth-/KKvz3x1pcI@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAPZMiRZLBhn93OXhHVNyPgWOTMreeN=BemCbGno=epD89cX3FA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 22, 2016 at 6:21 AM, Shmulik Ladkani
-<shmulik.ladkani@ravellosystems.com> wrote:
-> From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
->
-> Up until now, 'action mirred' supported only egress actions (either
-> TCA_EGRESS_REDIR or TCA_EGRESS_MIRROR).
->
-> This patch implements the corresponding ingress actions
-> TCA_INGRESS_REDIR and TCA_INGRESS_MIRROR.
->
-> This allows attaching filters whose target is to hand matching skbs into
-> the rx processing of a specified device.
+From: Chris Roth <chris.roth-/KKvz3x1pcI@public.gmane.org>
+Date: Sat, 24 Sep 2016 10:59:04 -0600
 
-I like this idea, this idea actually came to my mind when we
-tried to redirect packets from eth0 to veth device in containers.
-I remember I already brought this up to Jamal before (either personally
-or publicly), but I forgot why I stopped.
+> Due to my lack of familiarity with the how git send-email works, I've
+> unintentionally had my name listed as the first 'from' whereas I
+> intended Allan Chou to be listed as the first 'from' in the patch. If
+> anyone can correct this on my behalf, I would appreciate it.
 
-This would reduce some latency for our Mesos containers, we
-would just skip one veth TX in our scenario.
+Simply just submit a 'v2' of this patch with this issue fixed.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
