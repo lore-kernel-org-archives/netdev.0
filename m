@@ -1,56 +1,41 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net-next] net/vxlan: Avoid unaligned access in vxlan_build_skb()
-Date: Fri, 23 Sep 2016 17:43:41 -0700
-Message-ID: <CAKgT0Uenb+D44D4g2SieNDf3+P_wnv2WYSBZ+NU_87e011PRjA@mail.gmail.com>
-References: <20160920190929.57ddaeb0@griffin> <20160922.015242.735026657310158125.davem@davemloft.net>
- <20160922213010.GA32052@oracle.com> <20160923.080618.678103827885223586.davem@davemloft.net>
- <CAKgT0UcoDb5T9xwfAq83cNwU=XAKZxf0TmPiJZQyHFPr82zggg@mail.gmail.com>
- <20160923172059.GB2484@oracle.com> <CAKgT0UeB5n3g4f1v_2nenjcayAi=eOPFSC7132ihXTZOztHRkw@mail.gmail.com>
- <20160923234134.GA6397@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Alignment issues with freescale FEC driver
+Date: Fri, 23 Sep 2016 22:43:05 -0400 (EDT)
+Message-ID: <20160923.224305.942077200829435690.davem@davemloft.net>
+References: <CANn89iLb+QJu+MYh859oAAjcLCsKRpBbzVf43yOdq+HJVtZDpQ@mail.gmail.com>
+        <5ee28ee0-cf0c-bdab-1271-f17755365c13@nelint.com>
+        <0fe7a310-2d2f-4fca-d698-85d66122d91c@nelint.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, Jiri Benc <jbenc@redhat.com>,
-        Netdev <netdev@vger.kernel.org>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Paolo Abeni <pabeni@redhat.com>
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: edumazet@google.com, linux-arm-kernel@lists.infradead.org,
+        netdev@vger.kernel.org, rmk+kernel@arm.linux.org.uk,
+        fugang.duan@nxp.com, troy.kisky@boundarydevices.com,
+        otavio@ossystems.com.br, cjb.sw.nospam@gmail.com
+To: eric@nelint.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f170.google.com ([209.85.223.170]:33117 "EHLO
-        mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757829AbcIXAnm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 20:43:42 -0400
-Received: by mail-io0-f170.google.com with SMTP id r145so134392973ior.0
-        for <netdev@vger.kernel.org>; Fri, 23 Sep 2016 17:43:42 -0700 (PDT)
-In-Reply-To: <20160923234134.GA6397@oracle.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60712 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756175AbcIXCnV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2016 22:43:21 -0400
+In-Reply-To: <0fe7a310-2d2f-4fca-d698-85d66122d91c@nelint.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 23, 2016 at 4:41 PM, Sowmini Varadhan
-<sowmini.varadhan@oracle.com> wrote:
-> On (09/23/16 10:38), Alexander Duyck wrote:
->>
->> So basically what I was thinking is we do something like reserving
->> NET_IP_ALIGN and continue writing headers to skb->data, but we force
->> the tracking for the inner headers into frag[0] so that we can keep
->> the inner headers aligned without messing up the alignment for outer
->> headers.  In theory the inner offset and all that would still be
->> functional but might need a few tweaks.  You could probably even use
->> the skb->encapsulation bit to indicate you are doing this.  You could
->> almost think of it as us doing something like the inverse of
->> pskb_pull_tail.  The general idea here is we want to actually leave
->> the data in skb->data, but just reference it from frag[0] so that we
->> don't accidentally pull in the 2 byte padding for alignment when
->> transmitting the frame.
->
-> yes, I think something along this line could do the trick.. I tried
-> hacking it a bit today for vxlan, and it could be extended for all
-> these encaps protocols. Let me fix/test this more next week, maybe
-> we can discuss in Tokyo.
+From: Eric Nelson <eric@nelint.com>
+Date: Fri, 23 Sep 2016 10:33:29 -0700
 
-Agreed.  Keep in mind we only really need it for the architectures
-that need to set NET_IP_ALIGN so we may want to end up wrapping the
-code in ifndef checks for HAVE_EFFICIENT_UNALIGNED_ACCESS.
+> Since the hardware requires longword alignment for its' DMA transfers,
+> aligning the IP header will require a memcpy, right?
 
-- Alex
+I wish hardware designers didn't do this.
+
+There is no conflict between DMA alignment and properly offseting
+the packet data by two bytes.
+
+All hardware designers have to do is allow 2 padding bytes to be
+emitted by the chip before the actual packet data.
+
+Then the longword or whatever DMA transfer alignment is met
+whilst still giving the necessary flexibility for where the
+packet data lands.
