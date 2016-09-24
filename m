@@ -1,53 +1,51 @@
-From: Adit Ranadive <aditr@vmware.com>
-Subject: [PATCH v5 08/16] IB/pvrdma: Add device command support
-Date: Sat, 24 Sep 2016 16:21:32 -0700
-Message-ID: <47e16986707ddbe0ffa15795ef9ae60d15bdd728.1474759181.git.aditr@vmware.com>
+From: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH v5 07/16] IB/pvrdma: Add helper functions
+Date: Sat, 24 Sep 2016 16:21:31 -0700
+Message-ID: <38f9f2f2cc2d49868d83cde6268697e4c4529d37.1474759181.git.aditr@vmware.com>
 References: <cover.1474759181.git.aditr@vmware.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Adit Ranadive <aditr@vmware.com>, <netdev@vger.kernel.org>,
-        <linux-pci@vger.kernel.org>, <jhansen@vmware.com>,
-        <asarwade@vmware.com>, <georgezhang@vmware.com>,
-        <bryantan@vmware.com>
-To: <dledford@redhat.com>, <linux-rdma@vger.kernel.org>,
-        <pv-drivers@vmware.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <cover.1474759181.git.aditr@vmware.com>
-Sender: linux-pci-owner@vger.kernel.org
+Cc: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <jhansen-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
+        <asarwade-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>, <georgezhang-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
+        <bryantan-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+To: <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <pv-drivers-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <cover.1474759181.git.aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch enables posting Verb requests and receiving responses to/from
-the backend PVRDMA emulation layer.
+This patch adds helper functions to store guest page addresses in a page
+directory structure. The page directory pointer is passed down to the
+backend which then maps the entire memory for the RDMA object by
+traversing the directory. We add some more helper functions for converting
+to/from RDMA stack address handles from/to PVRDMA ones.
 
-Reviewed-by: Yuval Shaia <yuval.shaia@oracle.com>
-Reviewed-by: Jorgen Hansen <jhansen@vmware.com>
-Reviewed-by: George Zhang <georgezhang@vmware.com>
-Reviewed-by: Aditya Sarwade <asarwade@vmware.com>
-Reviewed-by: Bryan Tan <bryantan@vmware.com>
-Signed-off-by: Adit Ranadive <aditr@vmware.com>
+Reviewed-by: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Reviewed-by: Jorgen Hansen <jhansen-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+Reviewed-by: George Zhang <georgezhang-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+Reviewed-by: Aditya Sarwade <asarwade-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+Reviewed-by: Bryan Tan <bryantan-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
 ---
 Changes v4->v5:
- - Moved the timeout to pvrdma_cmd_recv.
- - Added additional response code parameter to pvrdma_cmd_post.
+ - Correct var type passed to dma_alloc_coherent.
 
 Changes v3->v4:
- - Removed the min check and added a BUILD_BUG_ON check for size.
-
-Changes v2->v3:
- - Converted pvrdma_cmd_recv to inline.
- - Added a min check in the memcpy to cmd_slot.
- - Removed the boolean from pvrdma_cmd_post.
+ - Updated conversion functions to func_name(dst, src) format.
+ - Removed unneeded local variables.
 ---
- drivers/infiniband/hw/pvrdma/pvrdma_cmd.c | 117 ++++++++++++++++++++++++++++++
- 1 file changed, 117 insertions(+)
- create mode 100644 drivers/infiniband/hw/pvrdma/pvrdma_cmd.c
+ drivers/infiniband/hw/pvrdma/pvrdma_misc.c | 304 +++++++++++++++++++++++++++++
+ 1 file changed, 304 insertions(+)
+ create mode 100644 drivers/infiniband/hw/pvrdma/pvrdma_misc.c
 
-diff --git a/drivers/infiniband/hw/pvrdma/pvrdma_cmd.c b/drivers/infiniband/hw/pvrdma/pvrdma_cmd.c
+diff --git a/drivers/infiniband/hw/pvrdma/pvrdma_misc.c b/drivers/infiniband/hw/pvrdma/pvrdma_misc.c
 new file mode 100644
-index 0000000..21f1af8
+index 0000000..948b5cc
 --- /dev/null
-+++ b/drivers/infiniband/hw/pvrdma/pvrdma_cmd.c
-@@ -0,0 +1,117 @@
++++ b/drivers/infiniband/hw/pvrdma/pvrdma_misc.c
+@@ -0,0 +1,304 @@
 +/*
 + * Copyright (c) 2012-2016 VMware, Inc.  All rights reserved.
 + *
@@ -93,77 +91,269 @@ index 0000000..21f1af8
 + * OF THE POSSIBILITY OF SUCH DAMAGE.
 + */
 +
-+#include <linux/list.h>
++#include <linux/errno.h>
++#include <linux/slab.h>
++#include <linux/bitmap.h>
 +
 +#include "pvrdma.h"
 +
-+#define PVRDMA_CMD_TIMEOUT	10000 /* ms */
-+
-+static inline int pvrdma_cmd_recv(struct pvrdma_dev *dev,
-+				  union pvrdma_cmd_resp *resp,
-+				  unsigned resp_code)
++int pvrdma_page_dir_init(struct pvrdma_dev *dev, struct pvrdma_page_dir *pdir,
++			 u64 npages, bool alloc_pages)
 +{
-+	int err;
++	u64 i;
 +
-+	dev_dbg(&dev->pdev->dev, "receive response from device\n");
++	if (npages > PVRDMA_PAGE_DIR_MAX_PAGES)
++		return -EINVAL;
 +
-+	err = wait_for_completion_interruptible_timeout(&dev->cmd_done,
-+			msecs_to_jiffies(PVRDMA_CMD_TIMEOUT));
-+	if (err == 0 || err == -ERESTARTSYS) {
-+		dev_warn(&dev->pdev->dev,
-+			 "completion timeout or interrupted\n");
-+		return -ETIMEDOUT;
++	memset(pdir, 0, sizeof(*pdir));
++
++	pdir->dir = dma_alloc_coherent(&dev->pdev->dev, PAGE_SIZE,
++				       &pdir->dir_dma, GFP_KERNEL);
++	if (!pdir->dir)
++		goto err;
++
++	pdir->ntables = PVRDMA_PAGE_DIR_TABLE(npages - 1) + 1;
++	pdir->tables = kcalloc(pdir->ntables, sizeof(*pdir->tables),
++			       GFP_KERNEL);
++	if (!pdir->tables)
++		goto err;
++
++	for (i = 0; i < pdir->ntables; i++) {
++		pdir->tables[i] = dma_alloc_coherent(&dev->pdev->dev, PAGE_SIZE,
++						(dma_addr_t *)&pdir->dir[i],
++						GFP_KERNEL);
++		if (!pdir->tables[i])
++			goto err;
 +	}
 +
-+	spin_lock(&dev->cmd_lock);
-+	memcpy(resp, dev->resp_slot, sizeof(*resp));
-+	spin_unlock(&dev->cmd_lock);
++	pdir->npages = npages;
 +
-+	if (resp->hdr.ack != resp_code) {
-+		dev_warn(&dev->pdev->dev,
-+			 "unknown response %#x expected %#x\n",
-+			 resp->hdr.ack, resp_code);
-+		return -EFAULT;
++	if (alloc_pages) {
++		pdir->pages = kcalloc(npages, sizeof(*pdir->pages),
++				      GFP_KERNEL);
++		if (!pdir->pages)
++			goto err;
++
++		for (i = 0; i < pdir->npages; i++) {
++			dma_addr_t page_dma;
++
++			pdir->pages[i] = dma_alloc_coherent(&dev->pdev->dev,
++							    PAGE_SIZE,
++							    &page_dma,
++							    GFP_KERNEL);
++			if (!pdir->pages[i])
++				goto err;
++
++			pvrdma_page_dir_insert_dma(pdir, i, page_dma);
++		}
++	}
++
++	return 0;
++
++err:
++	pvrdma_page_dir_cleanup(dev, pdir);
++
++	return -ENOMEM;
++}
++
++static u64 *pvrdma_page_dir_table(struct pvrdma_page_dir *pdir, u64 idx)
++{
++	return pdir->tables[PVRDMA_PAGE_DIR_TABLE(idx)];
++}
++
++dma_addr_t pvrdma_page_dir_get_dma(struct pvrdma_page_dir *pdir, u64 idx)
++{
++	return pvrdma_page_dir_table(pdir, idx)[PVRDMA_PAGE_DIR_PAGE(idx)];
++}
++
++static void pvrdma_page_dir_cleanup_pages(struct pvrdma_dev *dev,
++					  struct pvrdma_page_dir *pdir)
++{
++	if (pdir->pages) {
++		u64 i;
++
++		for (i = 0; i < pdir->npages && pdir->pages[i]; i++) {
++			dma_addr_t page_dma = pvrdma_page_dir_get_dma(pdir, i);
++
++			dma_free_coherent(&dev->pdev->dev, PAGE_SIZE,
++					  pdir->pages[i], page_dma);
++		}
++
++		kfree(pdir->pages);
++	}
++}
++
++static void pvrdma_page_dir_cleanup_tables(struct pvrdma_dev *dev,
++					   struct pvrdma_page_dir *pdir)
++{
++	if (pdir->tables) {
++		int i;
++
++		pvrdma_page_dir_cleanup_pages(dev, pdir);
++
++		for (i = 0; i < pdir->ntables; i++) {
++			u64 *table = pdir->tables[i];
++
++			if (table)
++				dma_free_coherent(&dev->pdev->dev, PAGE_SIZE,
++						  table, pdir->dir[i]);
++		}
++
++		kfree(pdir->tables);
++	}
++}
++
++void pvrdma_page_dir_cleanup(struct pvrdma_dev *dev,
++			     struct pvrdma_page_dir *pdir)
++{
++	if (pdir->dir) {
++		pvrdma_page_dir_cleanup_tables(dev, pdir);
++		dma_free_coherent(&dev->pdev->dev, PAGE_SIZE,
++				  pdir->dir, pdir->dir_dma);
++	}
++}
++
++int pvrdma_page_dir_insert_dma(struct pvrdma_page_dir *pdir, u64 idx,
++			       dma_addr_t daddr)
++{
++	u64 *table;
++
++	if (idx >= pdir->npages)
++		return -EINVAL;
++
++	table = pvrdma_page_dir_table(pdir, idx);
++	table[PVRDMA_PAGE_DIR_PAGE(idx)] = daddr;
++
++	return 0;
++}
++
++int pvrdma_page_dir_insert_umem(struct pvrdma_page_dir *pdir,
++				struct ib_umem *umem, u64 offset)
++{
++	u64 i = offset;
++	int j, entry;
++	int ret = 0, len = 0;
++	struct scatterlist *sg;
++
++	if (offset >= pdir->npages)
++		return -EINVAL;
++
++	for_each_sg(umem->sg_head.sgl, sg, umem->nmap, entry) {
++		len = sg_dma_len(sg) >> PAGE_SHIFT;
++		for (j = 0; j < len; j++) {
++			dma_addr_t addr = sg_dma_address(sg) +
++					  umem->page_size * j;
++
++			ret = pvrdma_page_dir_insert_dma(pdir, i, addr);
++			if (ret)
++				goto exit;
++
++			i++;
++		}
++	}
++
++exit:
++	return ret;
++}
++
++int pvrdma_page_dir_insert_page_list(struct pvrdma_page_dir *pdir,
++				     u64 *page_list,
++				     int num_pages)
++{
++	int i;
++	int ret;
++
++	if (num_pages > pdir->npages)
++		return -EINVAL;
++
++	for (i = 0; i < num_pages; i++) {
++		ret = pvrdma_page_dir_insert_dma(pdir, i, page_list[i]);
++		if (ret)
++			return ret;
 +	}
 +
 +	return 0;
 +}
 +
-+int
-+pvrdma_cmd_post(struct pvrdma_dev *dev, union pvrdma_cmd_req *req,
-+		union pvrdma_cmd_resp *resp, unsigned resp_code)
++void pvrdma_qp_cap_to_ib(struct ib_qp_cap *dst, const struct pvrdma_qp_cap *src)
 +{
-+	int err;
++	dst->max_send_wr = src->max_send_wr;
++	dst->max_recv_wr = src->max_recv_wr;
++	dst->max_send_sge = src->max_send_sge;
++	dst->max_recv_sge = src->max_recv_sge;
++	dst->max_inline_data = src->max_inline_data;
++}
 +
-+	dev_dbg(&dev->pdev->dev, "post request to device\n");
++void ib_qp_cap_to_pvrdma(struct pvrdma_qp_cap *dst, const struct ib_qp_cap *src)
++{
++	dst->max_send_wr = src->max_send_wr;
++	dst->max_recv_wr = src->max_recv_wr;
++	dst->max_send_sge = src->max_send_sge;
++	dst->max_recv_sge = src->max_recv_sge;
++	dst->max_inline_data = src->max_inline_data;
++}
 +
-+	/* Serializiation */
-+	down(&dev->cmd_sema);
++void pvrdma_gid_to_ib(union ib_gid *dst, const union pvrdma_gid *src)
++{
++	BUILD_BUG_ON(sizeof(union pvrdma_gid) != sizeof(union ib_gid));
++	memcpy(dst, src, sizeof(*src));
++}
 +
-+	BUILD_BUG_ON(sizeof(union pvrdma_cmd_req) !=
-+		     sizeof(struct pvrdma_cmd_modify_qp));
++void ib_gid_to_pvrdma(union pvrdma_gid *dst, const union ib_gid *src)
++{
++	BUILD_BUG_ON(sizeof(union pvrdma_gid) != sizeof(union ib_gid));
++	memcpy(dst, src, sizeof(*src));
++}
 +
-+	spin_lock(&dev->cmd_lock);
-+	memcpy(dev->cmd_slot, req, sizeof(*req));
-+	spin_unlock(&dev->cmd_lock);
++void pvrdma_global_route_to_ib(struct ib_global_route *dst,
++			       const struct pvrdma_global_route *src)
++{
++	pvrdma_gid_to_ib(&dst->dgid, &src->dgid);
++	dst->flow_label = src->flow_label;
++	dst->sgid_index = src->sgid_index;
++	dst->hop_limit = src->hop_limit;
++	dst->traffic_class = src->traffic_class;
++}
 +
-+	init_completion(&dev->cmd_done);
-+	pvrdma_write_reg(dev, PVRDMA_REG_REQUEST, 0);
++void ib_global_route_to_pvrdma(struct pvrdma_global_route *dst,
++			       const struct ib_global_route *src)
++{
++	ib_gid_to_pvrdma(&dst->dgid, &src->dgid);
++	dst->flow_label = src->flow_label;
++	dst->sgid_index = src->sgid_index;
++	dst->hop_limit = src->hop_limit;
++	dst->traffic_class = src->traffic_class;
++}
 +
-+	/* Make sure the request is written before reading status. */
-+	mb();
++void pvrdma_ah_attr_to_ib(struct ib_ah_attr *dst,
++			  const struct pvrdma_ah_attr *src)
++{
++	pvrdma_global_route_to_ib(&dst->grh, &src->grh);
++	dst->dlid = src->dlid;
++	dst->sl = src->sl;
++	dst->src_path_bits = src->src_path_bits;
++	dst->static_rate = src->static_rate;
++	dst->ah_flags = src->ah_flags;
++	dst->port_num = src->port_num;
++	memcpy(&dst->dmac, &src->dmac, sizeof(dst->dmac));
++}
 +
-+	err = pvrdma_read_reg(dev, PVRDMA_REG_ERR);
-+	if (err == 0) {
-+		if (resp != NULL)
-+			err = pvrdma_cmd_recv(dev, resp, resp_code);
-+	} else {
-+		dev_warn(&dev->pdev->dev, "failed to write request %d\n", err);
-+	}
-+
-+	up(&dev->cmd_sema);
-+
-+	return err;
++void ib_ah_attr_to_pvrdma(struct pvrdma_ah_attr *dst,
++			  const struct ib_ah_attr *src)
++{
++	ib_global_route_to_pvrdma(&dst->grh, &src->grh);
++	dst->dlid = src->dlid;
++	dst->sl = src->sl;
++	dst->src_path_bits = src->src_path_bits;
++	dst->static_rate = src->static_rate;
++	dst->ah_flags = src->ah_flags;
++	dst->port_num = src->port_num;
++	memcpy(&dst->dmac, &src->dmac, sizeof(dst->dmac));
 +}
 -- 
 2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
