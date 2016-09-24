@@ -1,50 +1,91 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH] brcmfmac: fix memory leak in brcmf_fill_bss_param
-Date: Sat, 24 Sep 2016 13:27:57 +0300
-Message-ID: <87shsp1tjm.fsf@kamboji.qca.qualcomm.com>
-References: <20160921062327.28729-1-zajec5@gmail.com>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH] mlx5: Add ndo_poll_controller() implementation
+Date: Sat, 24 Sep 2016 13:51:46 +0300
+Message-ID: <CALzJLG8o3dfPJR-2iaWb-s7r65r51HhgTs5Srf92-Tx0sZCSHw@mail.gmail.com>
+References: <a1f1b99a1f13786722f9d30636173ad1a5b5b5ad.1474661274.git.calvinowens@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: =?utf-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <rafal@milecki.pl>,
-        Arend van Spriel <arend.vanspriel@broadcom.com>,
-        Franky Lin <franky.lin@broadcom.com>,
-        Hante Meuleman <hante.meuleman@broadcom.com>,
-        Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
-        "Franky \(Zhenhui\) Lin" <frankyl@broadcom.com>,
-        linux-wireless@vger.kernel.org,
-        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: =?utf-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        Leon Romanovsky <leonro@mellanox.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        linux-kernel <linux-kernel@vger.kernel.org>, kernel-team@fb.com
+To: Calvin Owens <calvinowens@fb.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160921062327.28729-1-zajec5@gmail.com> (=?utf-8?Q?=22Rafa?=
- =?utf-8?Q?=C5=82_Mi=C5=82ecki=22's?=
-        message of "Wed, 21 Sep 2016 08:23:24 +0200")
+In-Reply-To: <a1f1b99a1f13786722f9d30636173ad1a5b5b5ad.1474661274.git.calvinowens@fb.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com> writes:
-
-> From: Rafa=C5=82 Mi=C5=82ecki <rafal@milecki.pl>
+On Fri, Sep 23, 2016 at 11:13 PM, Calvin Owens <calvinowens@fb.com> wrote:
+> This implements ndo_poll_controller in net_device_ops for mlx5, which is
+> necessary to use netconsole with this driver.
 >
-> This function is called from get_station callback which means that every
-> time user space was getting/dumping station(s) we were leaking 2 KiB.
->
-> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <rafal@milecki.pl>
-> Fixes: 1f0dc59a6de ("brcmfmac: rework .get_station() callback")
-> Cc: stable@vger.kernel.org # 4.2+
+> Signed-off-by: Calvin Owens <calvinowens@fb.com>
 > ---
-> Kalle, ideally this should go as 4.8 fix, but I'm aware it's quite late.
-> If you are not planning to send another pull request, just get it for
-> the next release and let's let stable guys backport it.
+>  drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 20 ++++++++++++++++++++
+>  1 file changed, 20 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+> index 2459c7f..439476f 100644
+> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+> @@ -2786,6 +2786,20 @@ static void mlx5e_tx_timeout(struct net_device *dev)
+>                 schedule_work(&priv->tx_timeout_work);
+>  }
+>
+> +#ifdef CONFIG_NET_POLL_CONTROLLER
+> +/* Fake "interrupt" called by netpoll (eg netconsole) to send skbs without
+> + * reenabling interrupts.
+> + */
+> +static void mlx5e_netpoll(struct net_device *dev)
+> +{
+> +       struct mlx5e_priv *priv = netdev_priv(dev);
+> +       int i, nr_sq = priv->params.num_channels * priv->params.num_tc;
+> +
+> +       for (i = 0; i < nr_sq; i++)
+> +               napi_schedule(priv->txq_to_sq_map[i]->cq.napi);
 
-An old memory leak is not severe enough for 4.8 at this stage, so I'll
-queue this to 4.9.
+Hi Calvin,
 
-BTW, either my Gnus or my SMTP server (I haven't bothered to check yet
-why exactly) don't like the names with style of "(open list:NETWORKING
-DRIVERS)" in the CC list, I have to edit them away everytime I reply.
-Does anyone have any ideas why that's happening just to me?
+Basically all CQs on the same channel are sharing the same napi, so
+here you will end up calling napi_schedule more than once for each
+napi (channel).
+iterating over the SQs map is irrelevant here, all you need to do is
+to iterate over the channels:
 
---=20
-Kalle Valo
+ for (i = 0; i < priv->params.num_channels; i++)
+        napi_schedule(priv->channel[i]->napi);
+
+
+Thanks,
+Saeed.
+
+> +}
+> +#endif
+> +
+>  static const struct net_device_ops mlx5e_netdev_ops_basic = {
+>         .ndo_open                = mlx5e_open,
+>         .ndo_stop                = mlx5e_close,
+> @@ -2805,6 +2819,9 @@ static const struct net_device_ops mlx5e_netdev_ops_basic = {
+>         .ndo_rx_flow_steer       = mlx5e_rx_flow_steer,
+>  #endif
+>         .ndo_tx_timeout          = mlx5e_tx_timeout,
+> +#ifdef CONFIG_NET_POLL_CONTROLLER
+> +       .ndo_poll_controller     = mlx5e_netpoll,
+> +#endif
+>  };
+>
+>  static const struct net_device_ops mlx5e_netdev_ops_sriov = {
+> @@ -2836,6 +2853,9 @@ static const struct net_device_ops mlx5e_netdev_ops_sriov = {
+>         .ndo_set_vf_link_state   = mlx5e_set_vf_link_state,
+>         .ndo_get_vf_stats        = mlx5e_get_vf_stats,
+>         .ndo_tx_timeout          = mlx5e_tx_timeout,
+> +#ifdef CONFIG_NET_POLL_CONTROLLER
+> +       .ndo_poll_controller     = mlx5e_netpoll,
+> +#endif
+>  };
+>
+>  static int mlx5e_check_required_hca_cap(struct mlx5_core_dev *mdev)
+> --
+> 2.9.3
+>
