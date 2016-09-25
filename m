@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/15] i40e: Split Flow Director descriptor config into separate function
-Date: Sat, 24 Sep 2016 23:42:46 -0700
-Message-ID: <1474785769-54665-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 13/15] i40e: Strip out debugfs hook for Flow Director filter programming
+Date: Sat, 24 Sep 2016 23:42:47 -0700
+Message-ID: <1474785769-54665-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1474785769-54665-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
         netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
@@ -9,9 +9,9 @@ Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([134.134.136.100]:18328 "EHLO mga07.intel.com"
+Received: from mga07.intel.com ([134.134.136.100]:8819 "EHLO mga07.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S965704AbcIYGmz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S965709AbcIYGmz (ORCPT <rfc822;netdev@vger.kernel.org>);
         Sun, 25 Sep 2016 02:42:55 -0400
 In-Reply-To: <1474785769-54665-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,163 +19,145 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-In an effort to improve code readability I am splitting the Flow Director
-filter configuration out into a separate function like we have done for the
-standard xmit path.  The general idea is to provide a single block of code
-that translates the flow specification into a proper Flow Director
-descriptor.
+This  interface was only ever meant for debug only. Since it is not
+supposed to be here we are removing it.
 
-Change-ID: Id355ad8030c4e6c72c57504fa09de60c976a8ffe
+Change-ID: Id771a1e5e7d3e2b4b7f56591b61fb48c921e1d04
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c | 115 ++++++++++++++++------------
- 1 file changed, 64 insertions(+), 51 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h         |  2 -
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 80 --------------------------
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c    |  5 +-
+ 3 files changed, 3 insertions(+), 84 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 6b22df6..2030d7c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -710,8 +710,6 @@ struct rtnl_link_stats64 *i40e_get_vsi_stats_struct(struct i40e_vsi *vsi);
+ int i40e_fetch_switch_configuration(struct i40e_pf *pf,
+ 				    bool printconfig);
+ 
+-int i40e_program_fdir_filter(struct i40e_fdir_filter *fdir_data, u8 *raw_packet,
+-			     struct i40e_pf *pf, bool add);
+ int i40e_add_del_fdir(struct i40e_vsi *vsi,
+ 		      struct i40e_fdir_filter *input, bool add);
+ void i40e_fdir_check_and_reenable(struct i40e_pf *pf);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+index 8555f04..0c1875b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+@@ -1430,84 +1430,6 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
+ 		buff = NULL;
+ 		kfree(desc);
+ 		desc = NULL;
+-	} else if ((strncmp(cmd_buf, "add fd_filter", 13) == 0) ||
+-		   (strncmp(cmd_buf, "rem fd_filter", 13) == 0)) {
+-		struct i40e_fdir_filter fd_data;
+-		u16 packet_len, i, j = 0;
+-		char *asc_packet;
+-		u8 *raw_packet;
+-		bool add = false;
+-		int ret;
+-
+-		if (!(pf->flags & I40E_FLAG_FD_SB_ENABLED))
+-			goto command_write_done;
+-
+-		if (strncmp(cmd_buf, "add", 3) == 0)
+-			add = true;
+-
+-		if (add && (pf->auto_disable_flags & I40E_FLAG_FD_SB_ENABLED))
+-			goto command_write_done;
+-
+-		asc_packet = kzalloc(I40E_FDIR_MAX_RAW_PACKET_SIZE,
+-				     GFP_KERNEL);
+-		if (!asc_packet)
+-			goto command_write_done;
+-
+-		raw_packet = kzalloc(I40E_FDIR_MAX_RAW_PACKET_SIZE,
+-				     GFP_KERNEL);
+-
+-		if (!raw_packet) {
+-			kfree(asc_packet);
+-			asc_packet = NULL;
+-			goto command_write_done;
+-		}
+-
+-		cnt = sscanf(&cmd_buf[13],
+-			     "%hx %2hhx %2hhx %hx %2hhx %2hhx %hx %x %hd %511s",
+-			     &fd_data.q_index,
+-			     &fd_data.flex_off, &fd_data.pctype,
+-			     &fd_data.dest_vsi, &fd_data.dest_ctl,
+-			     &fd_data.fd_status, &fd_data.cnt_index,
+-			     &fd_data.fd_id, &packet_len, asc_packet);
+-		if (cnt != 10) {
+-			dev_info(&pf->pdev->dev,
+-				 "program fd_filter: bad command string, cnt=%d\n",
+-				 cnt);
+-			kfree(asc_packet);
+-			asc_packet = NULL;
+-			kfree(raw_packet);
+-			goto command_write_done;
+-		}
+-
+-		/* fix packet length if user entered 0 */
+-		if (packet_len == 0)
+-			packet_len = I40E_FDIR_MAX_RAW_PACKET_SIZE;
+-
+-		/* make sure to check the max as well */
+-		packet_len = min_t(u16,
+-				   packet_len, I40E_FDIR_MAX_RAW_PACKET_SIZE);
+-
+-		for (i = 0; i < packet_len; i++) {
+-			cnt = sscanf(&asc_packet[j], "%2hhx ", &raw_packet[i]);
+-			if (!cnt)
+-				break;
+-			j += 3;
+-		}
+-		dev_info(&pf->pdev->dev, "FD raw packet dump\n");
+-		print_hex_dump(KERN_INFO, "FD raw packet: ",
+-			       DUMP_PREFIX_OFFSET, 16, 1,
+-			       raw_packet, packet_len, true);
+-		ret = i40e_program_fdir_filter(&fd_data, raw_packet, pf, add);
+-		if (!ret) {
+-			dev_info(&pf->pdev->dev, "Filter command send Status : Success\n");
+-		} else {
+-			dev_info(&pf->pdev->dev,
+-				 "Filter command send failed %d\n", ret);
+-		}
+-		kfree(raw_packet);
+-		raw_packet = NULL;
+-		kfree(asc_packet);
+-		asc_packet = NULL;
+ 	} else if (strncmp(cmd_buf, "fd current cnt", 14) == 0) {
+ 		dev_info(&pf->pdev->dev, "FD current total filter count for this interface: %d\n",
+ 			 i40e_get_current_fd_count(pf));
+@@ -1732,8 +1654,6 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
+ 		dev_info(&pf->pdev->dev, "  globr\n");
+ 		dev_info(&pf->pdev->dev, "  send aq_cmd <flags> <opcode> <datalen> <retval> <cookie_h> <cookie_l> <param0> <param1> <param2> <param3>\n");
+ 		dev_info(&pf->pdev->dev, "  send indirect aq_cmd <flags> <opcode> <datalen> <retval> <cookie_h> <cookie_l> <param0> <param1> <param2> <param3> <buffer_len>\n");
+-		dev_info(&pf->pdev->dev, "  add fd_filter <dest q_index> <flex_off> <pctype> <dest_vsi> <dest_ctl> <fd_status> <cnt_index> <fd_id> <packet_len> <packet>\n");
+-		dev_info(&pf->pdev->dev, "  rem fd_filter <dest q_index> <flex_off> <pctype> <dest_vsi> <dest_ctl> <fd_status> <cnt_index> <fd_id> <packet_len> <packet>\n");
+ 		dev_info(&pf->pdev->dev, "  fd current cnt");
+ 		dev_info(&pf->pdev->dev, "  lldp start\n");
+ 		dev_info(&pf->pdev->dev, "  lldp stop\n");
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 6e0a7ac..ef9b8d7 100644
+index ef9b8d7..5237c49 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -40,6 +40,69 @@ static inline __le64 build_ctob(u32 td_cmd, u32 td_offset, unsigned int size,
- }
- 
- #define I40E_TXD_CMD (I40E_TX_DESC_CMD_EOP | I40E_TX_DESC_CMD_RS)
-+/**
-+ * i40e_fdir - Generate a Flow Director descriptor based on fdata
-+ * @tx_ring: Tx ring to send buffer on
-+ * @fdata: Flow director filter data
-+ * @add: Indicate if we are adding a rule or deleting one
-+ *
-+ **/
-+static void i40e_fdir(struct i40e_ring *tx_ring,
-+		      struct i40e_fdir_filter *fdata, bool add)
-+{
-+	struct i40e_filter_program_desc *fdir_desc;
-+	struct i40e_pf *pf = tx_ring->vsi->back;
-+	u32 flex_ptype, dtype_cmd;
-+	u16 i;
-+
-+	/* grab the next descriptor */
-+	i = tx_ring->next_to_use;
-+	fdir_desc = I40E_TX_FDIRDESC(tx_ring, i);
-+
-+	i++;
-+	tx_ring->next_to_use = (i < tx_ring->count) ? i : 0;
-+
-+	flex_ptype = I40E_TXD_FLTR_QW0_QINDEX_MASK &
-+		     (fdata->q_index << I40E_TXD_FLTR_QW0_QINDEX_SHIFT);
-+
-+	flex_ptype |= I40E_TXD_FLTR_QW0_FLEXOFF_MASK &
-+		      (fdata->flex_off << I40E_TXD_FLTR_QW0_FLEXOFF_SHIFT);
-+
-+	flex_ptype |= I40E_TXD_FLTR_QW0_PCTYPE_MASK &
-+		      (fdata->pctype << I40E_TXD_FLTR_QW0_PCTYPE_SHIFT);
-+
-+	/* Use LAN VSI Id if not programmed by user */
-+	flex_ptype |= I40E_TXD_FLTR_QW0_DEST_VSI_MASK &
-+		      ((u32)(fdata->dest_vsi ? : pf->vsi[pf->lan_vsi]->id) <<
-+		       I40E_TXD_FLTR_QW0_DEST_VSI_SHIFT);
-+
-+	dtype_cmd = I40E_TX_DESC_DTYPE_FILTER_PROG;
-+
-+	dtype_cmd |= add ?
-+		     I40E_FILTER_PROGRAM_DESC_PCMD_ADD_UPDATE <<
-+		     I40E_TXD_FLTR_QW1_PCMD_SHIFT :
-+		     I40E_FILTER_PROGRAM_DESC_PCMD_REMOVE <<
-+		     I40E_TXD_FLTR_QW1_PCMD_SHIFT;
-+
-+	dtype_cmd |= I40E_TXD_FLTR_QW1_DEST_MASK &
-+		     (fdata->dest_ctl << I40E_TXD_FLTR_QW1_DEST_SHIFT);
-+
-+	dtype_cmd |= I40E_TXD_FLTR_QW1_FD_STATUS_MASK &
-+		     (fdata->fd_status << I40E_TXD_FLTR_QW1_FD_STATUS_SHIFT);
-+
-+	if (fdata->cnt_index) {
-+		dtype_cmd |= I40E_TXD_FLTR_QW1_CNT_ENA_MASK;
-+		dtype_cmd |= I40E_TXD_FLTR_QW1_CNTINDEX_MASK &
-+			     ((u32)fdata->cnt_index <<
-+			      I40E_TXD_FLTR_QW1_CNTINDEX_SHIFT);
-+	}
-+
-+	fdir_desc->qindex_flex_ptype_vsi = cpu_to_le32(flex_ptype);
-+	fdir_desc->rsvd = cpu_to_le32(0);
-+	fdir_desc->dtype_cmd_cntindex = cpu_to_le32(dtype_cmd);
-+	fdir_desc->fd_id = cpu_to_le32(fdata->fd_id);
-+}
-+
- #define I40E_FD_CLEAN_DELAY 10
- /**
-  * i40e_program_fdir_filter - Program a Flow Director filter
-@@ -51,11 +114,9 @@ static inline __le64 build_ctob(u32 td_cmd, u32 td_offset, unsigned int size,
- int i40e_program_fdir_filter(struct i40e_fdir_filter *fdir_data, u8 *raw_packet,
- 			     struct i40e_pf *pf, bool add)
+@@ -111,8 +111,9 @@ static void i40e_fdir(struct i40e_ring *tx_ring,
+  * @pf: The PF pointer
+  * @add: True for add/update, False for remove
+  **/
+-int i40e_program_fdir_filter(struct i40e_fdir_filter *fdir_data, u8 *raw_packet,
+-			     struct i40e_pf *pf, bool add)
++static int i40e_program_fdir_filter(struct i40e_fdir_filter *fdir_data,
++				    u8 *raw_packet, struct i40e_pf *pf,
++				    bool add)
  {
--	struct i40e_filter_program_desc *fdir_desc;
  	struct i40e_tx_buffer *tx_buf, *first;
  	struct i40e_tx_desc *tx_desc;
- 	struct i40e_ring *tx_ring;
--	unsigned int fpt, dcc;
- 	struct i40e_vsi *vsi;
- 	struct device *dev;
- 	dma_addr_t dma;
-@@ -92,56 +153,8 @@ int i40e_program_fdir_filter(struct i40e_fdir_filter *fdir_data, u8 *raw_packet,
- 
- 	/* grab the next descriptor */
- 	i = tx_ring->next_to_use;
--	fdir_desc = I40E_TX_FDIRDESC(tx_ring, i);
- 	first = &tx_ring->tx_bi[i];
--	memset(first, 0, sizeof(struct i40e_tx_buffer));
--
--	tx_ring->next_to_use = ((i + 1) < tx_ring->count) ? i + 1 : 0;
--
--	fpt = (fdir_data->q_index << I40E_TXD_FLTR_QW0_QINDEX_SHIFT) &
--	      I40E_TXD_FLTR_QW0_QINDEX_MASK;
--
--	fpt |= (fdir_data->flex_off << I40E_TXD_FLTR_QW0_FLEXOFF_SHIFT) &
--	       I40E_TXD_FLTR_QW0_FLEXOFF_MASK;
--
--	fpt |= (fdir_data->pctype << I40E_TXD_FLTR_QW0_PCTYPE_SHIFT) &
--	       I40E_TXD_FLTR_QW0_PCTYPE_MASK;
--
--	/* Use LAN VSI Id if not programmed by user */
--	if (fdir_data->dest_vsi == 0)
--		fpt |= (pf->vsi[pf->lan_vsi]->id) <<
--		       I40E_TXD_FLTR_QW0_DEST_VSI_SHIFT;
--	else
--		fpt |= ((u32)fdir_data->dest_vsi <<
--			I40E_TXD_FLTR_QW0_DEST_VSI_SHIFT) &
--		       I40E_TXD_FLTR_QW0_DEST_VSI_MASK;
--
--	dcc = I40E_TX_DESC_DTYPE_FILTER_PROG;
--
--	if (add)
--		dcc |= I40E_FILTER_PROGRAM_DESC_PCMD_ADD_UPDATE <<
--		       I40E_TXD_FLTR_QW1_PCMD_SHIFT;
--	else
--		dcc |= I40E_FILTER_PROGRAM_DESC_PCMD_REMOVE <<
--		       I40E_TXD_FLTR_QW1_PCMD_SHIFT;
--
--	dcc |= (fdir_data->dest_ctl << I40E_TXD_FLTR_QW1_DEST_SHIFT) &
--	       I40E_TXD_FLTR_QW1_DEST_MASK;
--
--	dcc |= (fdir_data->fd_status << I40E_TXD_FLTR_QW1_FD_STATUS_SHIFT) &
--	       I40E_TXD_FLTR_QW1_FD_STATUS_MASK;
--
--	if (fdir_data->cnt_index != 0) {
--		dcc |= I40E_TXD_FLTR_QW1_CNT_ENA_MASK;
--		dcc |= ((u32)fdir_data->cnt_index <<
--			I40E_TXD_FLTR_QW1_CNTINDEX_SHIFT) &
--			I40E_TXD_FLTR_QW1_CNTINDEX_MASK;
--	}
--
--	fdir_desc->qindex_flex_ptype_vsi = cpu_to_le32(fpt);
--	fdir_desc->rsvd = cpu_to_le32(0);
--	fdir_desc->dtype_cmd_cntindex = cpu_to_le32(dcc);
--	fdir_desc->fd_id = cpu_to_le32(fdir_data->fd_id);
-+	i40e_fdir(tx_ring, fdir_data, add);
- 
- 	/* Now program a dummy descriptor */
- 	i = tx_ring->next_to_use;
 -- 
 2.7.4
