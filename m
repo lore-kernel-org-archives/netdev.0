@@ -1,8 +1,9 @@
 From: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: (unknown)
-Date: Sun, 25 Sep 2016 03:52:22 -0700
-Message-ID: <1474800749-2306-1-git-send-email-zenczykowski@gmail.com>
+Subject: [PATCH v3 3/7] ipv6 addrconf: rtr_solicits == -1 means unlimited
+Date: Sun, 25 Sep 2016 03:52:25 -0700
+Message-ID: <1474800749-2306-4-git-send-email-zenczykowski@gmail.com>
 References: <20160925.060423.854801855957024790.davem@davemloft.net>
+ <1474800749-2306-1-git-send-email-zenczykowski@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -11,45 +12,74 @@ Cc: netdev@vger.kernel.org, Erik Kline <ek@google.com>,
 To: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
         "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:34374 "EHLO
-        mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936523AbcIYKwf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 25 Sep 2016 06:52:35 -0400
-Received: by mail-pa0-f54.google.com with SMTP id zl8so3264306pac.1
-        for <netdev@vger.kernel.org>; Sun, 25 Sep 2016 03:52:34 -0700 (PDT)
-Subject: 
-In-Reply-To: <20160925.060423.854801855957024790.davem@davemloft.net>
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:36034 "EHLO
+        mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S936523AbcIYKwh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 25 Sep 2016 06:52:37 -0400
+Received: by mail-pa0-f68.google.com with SMTP id my20so7314257pab.3
+        for <netdev@vger.kernel.org>; Sun, 25 Sep 2016 03:52:36 -0700 (PDT)
+In-Reply-To: <1474800749-2306-1-git-send-email-zenczykowski@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Maciej Żenczykowski <maze@google.com>
 
-This patch series implements RFC7559 style backoff of IPv6 router
-solicitation requests.
+This allows setting /proc/sys/net/ipv6/conf/*/router_solicitations
+to -1 meaning an unlimited number of retransmits.
 
-Patches 1 and 2 are minor cleanup and stand on their own.
+Signed-off-by: Maciej Żenczykowski <maze@google.com>
+---
+ net/ipv6/addrconf.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-Patch 3 allows a (potentially) infinite number of RS'es to be sent
-when the rtr_solicits sysctl is set to -1 (this depends on patch 1).
-
-Patch 4 is just boilerplate to add a new sysctl for the maximum
-backoff period.
-
-Patch 5 implements the backoff algorithm (and depends on the previous
-patches).
-
-Patches 6 and 7 switch the defaults over to enable this by default.
-
-[PATCH v3 1/7] ipv6 addrconf: enable use of proc_dointvec_minmax in
-[PATCH v3 2/7] ipv6 addrconf: remove addrconf_sysctl_hop_limit()
-[PATCH v3 3/7] ipv6 addrconf: rtr_solicits == -1 means unlimited
-[PATCH v3 4/7] ipv6 addrconf: add new sysctl
-[PATCH v3 5/7] ipv6 addrconf: implement RFC7559 router solicitation
-[PATCH v3 6/7] ipv6 addrconf: change default
-[PATCH v3 7/7] ipv6 addrconf: change default MAX_RTR_SOLICITATIONS
-
-Changes v2->v3:
-  none
-
-Changes v1->v2:
-  avoid 64-bit divisions to fix 32-bit build errors
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 3a835495fb53..6c63bf06fbcf 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -3687,7 +3687,7 @@ static void addrconf_rs_timer(unsigned long data)
+ 	if (idev->if_flags & IF_RA_RCVD)
+ 		goto out;
+ 
+-	if (idev->rs_probes++ < idev->cnf.rtr_solicits) {
++	if (idev->rs_probes++ < idev->cnf.rtr_solicits || idev->cnf.rtr_solicits == -1) {
+ 		write_unlock(&idev->lock);
+ 		if (!ipv6_get_lladdr(dev, &lladdr, IFA_F_TENTATIVE))
+ 			ndisc_send_rs(dev, &lladdr,
+@@ -3949,7 +3949,7 @@ static void addrconf_dad_completed(struct inet6_ifaddr *ifp)
+ 	send_mld = ifp->scope == IFA_LINK && ipv6_lonely_lladdr(ifp);
+ 	send_rs = send_mld &&
+ 		  ipv6_accept_ra(ifp->idev) &&
+-		  ifp->idev->cnf.rtr_solicits > 0 &&
++		  ifp->idev->cnf.rtr_solicits != 0 &&
+ 		  (dev->flags&IFF_LOOPBACK) == 0;
+ 	read_unlock_bh(&ifp->idev->lock);
+ 
+@@ -5099,7 +5099,7 @@ static int inet6_set_iftoken(struct inet6_dev *idev, struct in6_addr *token)
+ 		return -EINVAL;
+ 	if (!ipv6_accept_ra(idev))
+ 		return -EINVAL;
+-	if (idev->cnf.rtr_solicits <= 0)
++	if (idev->cnf.rtr_solicits == 0)
+ 		return -EINVAL;
+ 
+ 	write_lock_bh(&idev->lock);
+@@ -5699,6 +5699,7 @@ int addrconf_sysctl_ignore_routes_with_linkdown(struct ctl_table *ctl,
+ 	return ret;
+ }
+ 
++static int minus_one = -1;
+ static int one = 1;
+ static int two_five_five = 255;
+ 
+@@ -5759,7 +5760,8 @@ static const struct ctl_table addrconf_sysctl[] = {
+ 		.data		= &ipv6_devconf.rtr_solicits,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec,
++		.proc_handler	= proc_dointvec_minmax,
++		.extra1		= &minus_one,
+ 	},
+ 	{
+ 		.procname	= "router_solicitation_interval",
+-- 
+2.8.0.rc3.226.g39d4020
