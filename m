@@ -1,141 +1,198 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 14/53] netfilter: nft_dynset: allow to invert match criteria
-Date: Mon, 26 Sep 2016 01:06:24 +0200
-Message-ID: <1474844823-2026-15-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 15/53] netfilter: nf_tables: ensure proper initialization of nft_pktinfo fields
+Date: Mon, 26 Sep 2016 01:06:25 +0200
+Message-ID: <1474844823-2026-16-git-send-email-pablo@netfilter.org>
 References: <1474844823-2026-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:54574 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1034427AbcIYXHg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 25 Sep 2016 19:07:36 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id D7CDEC0B43
+        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:07:34 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id C47C7DA849
+        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:07:34 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 8C096DA816
+        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:07:32 +0200 (CEST)
 In-Reply-To: <1474844823-2026-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The dynset expression matches if we can fit a new entry into the set.
-If there is no room for it, then it breaks the rule evaluation.
+This patch introduces nft_set_pktinfo_unspec() that ensures proper
+initialization all of pktinfo fields for non-IP traffic. This is used
+by the bridge, netdev and arp families.
 
-This patch introduces the inversion flag so you can add rules to
-explicitly drop packets that don't fit into the set. For example:
+This new function relies on nft_set_pktinfo_proto_unspec() to set a new
+tprot_set field that indicates if transport protocol information is
+available. Remain fields are zeroed.
 
- # nft filter input flow table xyz size 4 { ip saddr timeout 120s counter } overflow drop
+The meta expression has been also updated to check to tprot_set in first
+place given that zero is a valid tprot value. Even a handcrafted packet
+may come with the IPPROTO_RAW (255) protocol number so we can't rely on
+this value as tprot unset.
 
-This is useful to provide a replacement for connlimit.
-
-For the rule above, every new entry uses the IPv4 address as key in the
-set, this entry gets a timeout of 120 seconds that gets refresh on every
-packet seen. If we get new flow and our set already contains 4 entries
-already, then this packet is dropped.
-
-You can already express this in positive logic, assuming default policy
-to drop:
-
- # nft filter input flow table xyz size 4 { ip saddr timeout 10s counter } accept
-
+Reported-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/uapi/linux/netfilter/nf_tables.h |  6 ++++++
- net/netfilter/nft_dynset.c               | 20 +++++++++++++++++++-
- 2 files changed, 25 insertions(+), 1 deletion(-)
+ include/net/netfilter/nf_tables.h       | 18 ++++++++++++++++++
+ include/net/netfilter/nf_tables_ipv4.h  |  1 +
+ include/net/netfilter/nf_tables_ipv6.h  |  1 +
+ net/bridge/netfilter/nf_tables_bridge.c |  6 +++---
+ net/ipv4/netfilter/nf_tables_arp.c      |  2 +-
+ net/netfilter/nf_tables_netdev.c        |  4 +++-
+ net/netfilter/nft_meta.c                |  2 ++
+ 7 files changed, 29 insertions(+), 5 deletions(-)
 
-diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
-index 8c653bbd1ead..bc0eb6a1066d 100644
---- a/include/uapi/linux/netfilter/nf_tables.h
-+++ b/include/uapi/linux/netfilter/nf_tables.h
-@@ -575,6 +575,10 @@ enum nft_dynset_ops {
- 	NFT_DYNSET_OP_UPDATE,
- };
- 
-+enum nft_dynset_flags {
-+	NFT_DYNSET_F_INV	= (1 << 0),
-+};
-+
- /**
-  * enum nft_dynset_attributes - dynset expression attributes
-  *
-@@ -585,6 +589,7 @@ enum nft_dynset_ops {
-  * @NFTA_DYNSET_SREG_DATA: source register of the data (NLA_U32)
-  * @NFTA_DYNSET_TIMEOUT: timeout value for the new element (NLA_U64)
-  * @NFTA_DYNSET_EXPR: expression (NLA_NESTED: nft_expr_attributes)
-+ * @NFTA_DYNSET_FLAGS: flags (NLA_U32)
-  */
- enum nft_dynset_attributes {
- 	NFTA_DYNSET_UNSPEC,
-@@ -596,6 +601,7 @@ enum nft_dynset_attributes {
- 	NFTA_DYNSET_TIMEOUT,
- 	NFTA_DYNSET_EXPR,
- 	NFTA_DYNSET_PAD,
-+	NFTA_DYNSET_FLAGS,
- 	__NFTA_DYNSET_MAX,
- };
- #define NFTA_DYNSET_MAX		(__NFTA_DYNSET_MAX - 1)
-diff --git a/net/netfilter/nft_dynset.c b/net/netfilter/nft_dynset.c
-index 0af26699bf04..e3b83c31da2e 100644
---- a/net/netfilter/nft_dynset.c
-+++ b/net/netfilter/nft_dynset.c
-@@ -22,6 +22,7 @@ struct nft_dynset {
- 	enum nft_dynset_ops		op:8;
- 	enum nft_registers		sreg_key:8;
- 	enum nft_registers		sreg_data:8;
-+	bool				invert;
- 	u64				timeout;
- 	struct nft_expr			*expr;
- 	struct nft_set_binding		binding;
-@@ -82,10 +83,14 @@ static void nft_dynset_eval(const struct nft_expr *expr,
- 
- 		if (sexpr != NULL)
- 			sexpr->ops->eval(sexpr, regs, pkt);
-+
-+		if (priv->invert)
-+			regs->verdict.code = NFT_BREAK;
- 		return;
- 	}
- out:
--	regs->verdict.code = NFT_BREAK;
-+	if (!priv->invert)
-+		regs->verdict.code = NFT_BREAK;
+diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
+index 8972468bc94b..a7a7cebc8d07 100644
+--- a/include/net/netfilter/nf_tables.h
++++ b/include/net/netfilter/nf_tables.h
+@@ -19,6 +19,7 @@ struct nft_pktinfo {
+ 	const struct net_device		*out;
+ 	u8				pf;
+ 	u8				hook;
++	bool				tprot_set;
+ 	u8				tprot;
+ 	/* for x_tables compatibility */
+ 	struct xt_action_param		xt;
+@@ -36,6 +37,23 @@ static inline void nft_set_pktinfo(struct nft_pktinfo *pkt,
+ 	pkt->pf = pkt->xt.family = state->pf;
  }
  
- static const struct nla_policy nft_dynset_policy[NFTA_DYNSET_MAX + 1] = {
-@@ -96,6 +101,7 @@ static const struct nla_policy nft_dynset_policy[NFTA_DYNSET_MAX + 1] = {
- 	[NFTA_DYNSET_SREG_DATA]	= { .type = NLA_U32 },
- 	[NFTA_DYNSET_TIMEOUT]	= { .type = NLA_U64 },
- 	[NFTA_DYNSET_EXPR]	= { .type = NLA_NESTED },
-+	[NFTA_DYNSET_FLAGS]	= { .type = NLA_U32 },
- };
- 
- static int nft_dynset_init(const struct nft_ctx *ctx,
-@@ -113,6 +119,15 @@ static int nft_dynset_init(const struct nft_ctx *ctx,
- 	    tb[NFTA_DYNSET_SREG_KEY] == NULL)
- 		return -EINVAL;
- 
-+	if (tb[NFTA_DYNSET_FLAGS]) {
-+		u32 flags = ntohl(nla_get_be32(tb[NFTA_DYNSET_FLAGS]));
++static inline void nft_set_pktinfo_proto_unspec(struct nft_pktinfo *pkt,
++						struct sk_buff *skb)
++{
++	pkt->tprot_set = false;
++	pkt->tprot = 0;
++	pkt->xt.thoff = 0;
++	pkt->xt.fragoff = 0;
++}
 +
-+		if (flags & ~NFT_DYNSET_F_INV)
-+			return -EINVAL;
-+		if (flags & NFT_DYNSET_F_INV)
-+			priv->invert = true;
-+	}
++static inline void nft_set_pktinfo_unspec(struct nft_pktinfo *pkt,
++					  struct sk_buff *skb,
++					  const struct nf_hook_state *state)
++{
++	nft_set_pktinfo(pkt, skb, state);
++	nft_set_pktinfo_proto_unspec(pkt, skb);
++}
 +
- 	set = nf_tables_set_lookup(ctx->table, tb[NFTA_DYNSET_SET_NAME],
- 				   genmask);
- 	if (IS_ERR(set)) {
-@@ -220,6 +235,7 @@ static void nft_dynset_destroy(const struct nft_ctx *ctx,
- static int nft_dynset_dump(struct sk_buff *skb, const struct nft_expr *expr)
+ /**
+  * 	struct nft_verdict - nf_tables verdict
+  *
+diff --git a/include/net/netfilter/nf_tables_ipv4.h b/include/net/netfilter/nf_tables_ipv4.h
+index ca6ef6bf775e..af952f7843ee 100644
+--- a/include/net/netfilter/nf_tables_ipv4.h
++++ b/include/net/netfilter/nf_tables_ipv4.h
+@@ -14,6 +14,7 @@ nft_set_pktinfo_ipv4(struct nft_pktinfo *pkt,
+ 	nft_set_pktinfo(pkt, skb, state);
+ 
+ 	ip = ip_hdr(pkt->skb);
++	pkt->tprot_set = true;
+ 	pkt->tprot = ip->protocol;
+ 	pkt->xt.thoff = ip_hdrlen(pkt->skb);
+ 	pkt->xt.fragoff = ntohs(ip->frag_off) & IP_OFFSET;
+diff --git a/include/net/netfilter/nf_tables_ipv6.h b/include/net/netfilter/nf_tables_ipv6.h
+index 8ad39a6a5fe1..6aeee47b1b5e 100644
+--- a/include/net/netfilter/nf_tables_ipv6.h
++++ b/include/net/netfilter/nf_tables_ipv6.h
+@@ -19,6 +19,7 @@ nft_set_pktinfo_ipv6(struct nft_pktinfo *pkt,
+ 	if (protohdr < 0)
+ 		return -1;
+ 
++	pkt->tprot_set = true;
+ 	pkt->tprot = protohdr;
+ 	pkt->xt.thoff = thoff;
+ 	pkt->xt.fragoff = frag_off;
+diff --git a/net/bridge/netfilter/nf_tables_bridge.c b/net/bridge/netfilter/nf_tables_bridge.c
+index a78c4e2826e5..29899887163e 100644
+--- a/net/bridge/netfilter/nf_tables_bridge.c
++++ b/net/bridge/netfilter/nf_tables_bridge.c
+@@ -71,7 +71,7 @@ static inline void nft_bridge_set_pktinfo_ipv4(struct nft_pktinfo *pkt,
+ 	if (nft_bridge_iphdr_validate(skb))
+ 		nft_set_pktinfo_ipv4(pkt, skb, state);
+ 	else
+-		nft_set_pktinfo(pkt, skb, state);
++		nft_set_pktinfo_unspec(pkt, skb, state);
+ }
+ 
+ static inline void nft_bridge_set_pktinfo_ipv6(struct nft_pktinfo *pkt,
+@@ -83,7 +83,7 @@ static inline void nft_bridge_set_pktinfo_ipv6(struct nft_pktinfo *pkt,
+ 	    nft_set_pktinfo_ipv6(pkt, skb, state) == 0)
+ 		return;
+ #endif
+-	nft_set_pktinfo(pkt, skb, state);
++	nft_set_pktinfo_unspec(pkt, skb, state);
+ }
+ 
+ static unsigned int
+@@ -101,7 +101,7 @@ nft_do_chain_bridge(void *priv,
+ 		nft_bridge_set_pktinfo_ipv6(&pkt, skb, state);
+ 		break;
+ 	default:
+-		nft_set_pktinfo(&pkt, skb, state);
++		nft_set_pktinfo_unspec(&pkt, skb, state);
+ 		break;
+ 	}
+ 
+diff --git a/net/ipv4/netfilter/nf_tables_arp.c b/net/ipv4/netfilter/nf_tables_arp.c
+index cd84d4295a20..058c034be376 100644
+--- a/net/ipv4/netfilter/nf_tables_arp.c
++++ b/net/ipv4/netfilter/nf_tables_arp.c
+@@ -21,7 +21,7 @@ nft_do_chain_arp(void *priv,
  {
- 	const struct nft_dynset *priv = nft_expr_priv(expr);
-+	u32 flags = priv->invert ? NFT_DYNSET_F_INV : 0;
+ 	struct nft_pktinfo pkt;
  
- 	if (nft_dump_register(skb, NFTA_DYNSET_SREG_KEY, priv->sreg_key))
- 		goto nla_put_failure;
-@@ -235,6 +251,8 @@ static int nft_dynset_dump(struct sk_buff *skb, const struct nft_expr *expr)
- 		goto nla_put_failure;
- 	if (priv->expr && nft_expr_dump(skb, NFTA_DYNSET_EXPR, priv->expr))
- 		goto nla_put_failure;
-+	if (nla_put_be32(skb, NFTA_DYNSET_FLAGS, htonl(flags)))
-+		goto nla_put_failure;
- 	return 0;
+-	nft_set_pktinfo(&pkt, skb, state);
++	nft_set_pktinfo_unspec(&pkt, skb, state);
  
- nla_put_failure:
+ 	return nft_do_chain(&pkt, priv);
+ }
+diff --git a/net/netfilter/nf_tables_netdev.c b/net/netfilter/nf_tables_netdev.c
+index 5eefe4a355c6..8de502b0c37b 100644
+--- a/net/netfilter/nf_tables_netdev.c
++++ b/net/netfilter/nf_tables_netdev.c
+@@ -41,6 +41,7 @@ nft_netdev_set_pktinfo_ipv4(struct nft_pktinfo *pkt,
+ 	else if (len < thoff)
+ 		return;
+ 
++	pkt->tprot_set = true;
+ 	pkt->tprot = iph->protocol;
+ 	pkt->xt.thoff = thoff;
+ 	pkt->xt.fragoff = ntohs(iph->frag_off) & IP_OFFSET;
+@@ -74,6 +75,7 @@ __nft_netdev_set_pktinfo_ipv6(struct nft_pktinfo *pkt,
+ 	if (protohdr < 0)
+                 return;
+ 
++	pkt->tprot_set = true;
+ 	pkt->tprot = protohdr;
+ 	pkt->xt.thoff = thoff;
+ 	pkt->xt.fragoff = frag_off;
+@@ -102,7 +104,7 @@ nft_do_chain_netdev(void *priv, struct sk_buff *skb,
+ 		nft_netdev_set_pktinfo_ipv6(&pkt, skb, state);
+ 		break;
+ 	default:
+-		nft_set_pktinfo(&pkt, skb, state);
++		nft_set_pktinfo_unspec(&pkt, skb, state);
+ 		break;
+ 	}
+ 
+diff --git a/net/netfilter/nft_meta.c b/net/netfilter/nft_meta.c
+index 2863f3493038..14264edf2d77 100644
+--- a/net/netfilter/nft_meta.c
++++ b/net/netfilter/nft_meta.c
+@@ -52,6 +52,8 @@ void nft_meta_get_eval(const struct nft_expr *expr,
+ 		*dest = pkt->pf;
+ 		break;
+ 	case NFT_META_L4PROTO:
++		if (!pkt->tprot_set)
++			goto err;
+ 		*dest = pkt->tprot;
+ 		break;
+ 	case NFT_META_PRIORITY:
 -- 
 2.1.4
-
