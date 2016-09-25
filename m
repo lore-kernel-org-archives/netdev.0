@@ -1,72 +1,97 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 23/53] netfilter: nf_queue: get rid of dependency on IP6_NF_IPTABLES
-Date: Mon, 26 Sep 2016 01:06:33 +0200
-Message-ID: <1474844823-2026-24-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 33/53] netfilter: Enhance the codes used to get random once
+Date: Mon, 26 Sep 2016 01:06:43 +0200
+Message-ID: <1474844823-2026-34-git-send-email-pablo@netfilter.org>
 References: <1474844823-2026-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:54688 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1034791AbcIYXHy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 25 Sep 2016 19:07:54 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 4E36FC1097
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:07:53 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 3FB6DDA848
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:07:53 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 96A11DA817
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:07:40 +0200 (CEST)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1474844823-2026-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Liping Zhang <liping.zhang@spreadtrum.com>
+From: Gao Feng <fgao@ikuai8.com>
 
-hash_v6 is used by both nftables and ip6tables, so depend on
-IP6_NF_IPTABLES is not properly.
+There are some codes which are used to get one random once in netfilter.
+We could use net_get_random_once to simplify these codes.
 
-Actually, it only parses ipv6hdr and computes a hash value, so
-even if IPV6 is disabled, there's no side effect too, remove it.
-
-Signed-off-by: Liping Zhang <liping.zhang@spreadtrum.com>
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_queue.h | 4 ----
- 1 file changed, 4 deletions(-)
+ net/netfilter/xt_RATEEST.c   | 6 +-----
+ net/netfilter/xt_connlimit.c | 8 +-------
+ net/netfilter/xt_recent.c    | 7 ++-----
+ 3 files changed, 4 insertions(+), 17 deletions(-)
 
-diff --git a/include/net/netfilter/nf_queue.h b/include/net/netfilter/nf_queue.h
-index 0dbce55437f2..cc8a11f7e306 100644
---- a/include/net/netfilter/nf_queue.h
-+++ b/include/net/netfilter/nf_queue.h
-@@ -54,7 +54,6 @@ static inline u32 hash_v4(const struct sk_buff *skb, u32 jhash_initval)
- 			(__force u32)iph->saddr, iph->protocol, jhash_initval);
- }
+diff --git a/net/netfilter/xt_RATEEST.c b/net/netfilter/xt_RATEEST.c
+index 515131f9e021..dbd6c4a12b97 100644
+--- a/net/netfilter/xt_RATEEST.c
++++ b/net/netfilter/xt_RATEEST.c
+@@ -24,7 +24,6 @@ static DEFINE_MUTEX(xt_rateest_mutex);
+ #define RATEEST_HSIZE	16
+ static struct hlist_head rateest_hash[RATEEST_HSIZE] __read_mostly;
+ static unsigned int jhash_rnd __read_mostly;
+-static bool rnd_inited __read_mostly;
  
--#if IS_ENABLED(CONFIG_IP6_NF_IPTABLES)
- static inline u32 hash_v6(const struct sk_buff *skb, u32 jhash_initval)
+ static unsigned int xt_rateest_hash(const char *name)
  {
- 	const struct ipv6hdr *ip6h = ipv6_hdr(skb);
-@@ -77,7 +76,6 @@ static inline u32 hash_v6(const struct sk_buff *skb, u32 jhash_initval)
+@@ -99,10 +98,7 @@ static int xt_rateest_tg_checkentry(const struct xt_tgchk_param *par)
+ 	} cfg;
+ 	int ret;
  
- 	return jhash_3words(a, b, c, jhash_initval);
- }
--#endif
+-	if (unlikely(!rnd_inited)) {
+-		get_random_bytes(&jhash_rnd, sizeof(jhash_rnd));
+-		rnd_inited = true;
+-	}
++	net_get_random_once(&jhash_rnd, sizeof(jhash_rnd));
  
- static inline u32
- nfqueue_hash(const struct sk_buff *skb, u16 queue, u16 queues_total, u8 family,
-@@ -85,10 +83,8 @@ nfqueue_hash(const struct sk_buff *skb, u16 queue, u16 queues_total, u8 family,
+ 	est = xt_rateest_lookup(info->name);
+ 	if (est) {
+diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
+index 99bbc829868d..b6dc322593a3 100644
+--- a/net/netfilter/xt_connlimit.c
++++ b/net/netfilter/xt_connlimit.c
+@@ -366,14 +366,8 @@ static int connlimit_mt_check(const struct xt_mtchk_param *par)
+ 	unsigned int i;
+ 	int ret;
+ 
+-	if (unlikely(!connlimit_rnd)) {
+-		u_int32_t rand;
++	net_get_random_once(&connlimit_rnd, sizeof(connlimit_rnd));
+ 
+-		do {
+-			get_random_bytes(&rand, sizeof(rand));
+-		} while (!rand);
+-		cmpxchg(&connlimit_rnd, 0, rand);
+-	}
+ 	ret = nf_ct_l3proto_try_module_get(par->family);
+ 	if (ret < 0) {
+ 		pr_info("cannot load conntrack support for "
+diff --git a/net/netfilter/xt_recent.c b/net/netfilter/xt_recent.c
+index d725a27743a1..e3b7a09b103e 100644
+--- a/net/netfilter/xt_recent.c
++++ b/net/netfilter/xt_recent.c
+@@ -110,7 +110,6 @@ static const struct file_operations recent_old_fops, recent_mt_fops;
+ #endif
+ 
+ static u_int32_t hash_rnd __read_mostly;
+-static bool hash_rnd_inited __read_mostly;
+ 
+ static inline unsigned int recent_entry_hash4(const union nf_inet_addr *addr)
  {
- 	if (family == NFPROTO_IPV4)
- 		queue += ((u64) hash_v4(skb, jhash_initval) * queues_total) >> 32;
--#if IS_ENABLED(CONFIG_IP6_NF_IPTABLES)
- 	else if (family == NFPROTO_IPV6)
- 		queue += ((u64) hash_v6(skb, jhash_initval) * queues_total) >> 32;
--#endif
+@@ -340,10 +339,8 @@ static int recent_mt_check(const struct xt_mtchk_param *par,
+ 	int ret = -EINVAL;
+ 	size_t sz;
  
- 	return queue;
- }
+-	if (unlikely(!hash_rnd_inited)) {
+-		get_random_bytes(&hash_rnd, sizeof(hash_rnd));
+-		hash_rnd_inited = true;
+-	}
++	net_get_random_once(&hash_rnd, sizeof(hash_rnd));
++
+ 	if (info->check_set & ~XT_RECENT_VALID_FLAGS) {
+ 		pr_info("Unsupported user space flags (%08x)\n",
+ 			info->check_set);
 -- 
 2.1.4
+
