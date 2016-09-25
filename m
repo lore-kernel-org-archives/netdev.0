@@ -1,39 +1,35 @@
-From: Baoyou Xie <baoyou.xie@linaro.org>
-Subject: [PATCH] rtl8xxxu: mark rtl8192eu_power_off() static
-Date: Sun, 25 Sep 2016 17:22:23 +0800
-Message-ID: <1474795343-25808-1-git-send-email-baoyou.xie@linaro.org>
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, arnd@arndb.de, baoyou.xie@linaro.org,
-        xie.baoyou@zte.com.cn, han.fei@zte.com.cn, tang.qiang007@zte.com.cn
-To: Jes.Sorensen@redhat.com, kvalo@codeaurora.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv6 addrconf: implement RFC7559 router solicitation
+ backoff
+Date: Sun, 25 Sep 2016 05:33:02 -0400 (EDT)
+Message-ID: <20160925.053302.1895311145903319224.davem@davemloft.net>
+References: <CAHo-OowM540xrLpQTcK5nZPO9OgALsJb4QVJpgH_DtGKmLugiw@mail.gmail.com>
+        <1474769695-2070-1-git-send-email-zenczykowski@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: maze@google.com, netdev@vger.kernel.org, ek@google.com,
+        lorenzo@google.com
+To: zenczykowski@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:46334 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S941043AbcIYJdK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 25 Sep 2016 05:33:10 -0400
+In-Reply-To: <1474769695-2070-1-git-send-email-zenczykowski@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We get 1 warning when building kernel with W=1:
-drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c:1557:6: warning: no previous prototype for 'rtl8192eu_power_off' [-Wmissing-prototypes]
 
-In fact, this function is only used in the file in which it is
-declared and don't need a declaration, but can be made static.
-so this patch marks this function with 'static'.
+Please do not do this.
 
-Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
----
- drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+When you need to repsin a patch in a patch series to fix
+or otherwise resolve something, you must make a fresh
+resubmission of the entire patch series.
 
-diff --git a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c
-index df54d27..7b5128a 100644
---- a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c
-+++ b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c
-@@ -1554,7 +1554,7 @@ static int rtl8192eu_power_on(struct rtl8xxxu_priv *priv)
- 	return ret;
- }
- 
--void rtl8192eu_power_off(struct rtl8xxxu_priv *priv)
-+static void rtl8192eu_power_off(struct rtl8xxxu_priv *priv)
- {
- 	u8 val8;
- 	u16 val16;
--- 
-2.7.4
+You also must properly mark the resubmission with a
+proper indication that this is a new version of the
+patch series by saying, for example, "[PATCH v2 ..."
+in the Subject lines.
+
+Thanks.
