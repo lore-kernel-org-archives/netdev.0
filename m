@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: [PATCH v3 1/7] ipv6 addrconf: enable use of proc_dointvec_minmax in addrconf_sysctl
-Date: Sun, 25 Sep 2016 03:52:23 -0700
-Message-ID: <1474800749-2306-2-git-send-email-zenczykowski@gmail.com>
+Subject: [PATCH v3 5/7] ipv6 addrconf: implement RFC7559 router solicitation backoff
+Date: Sun, 25 Sep 2016 03:52:27 -0700
+Message-ID: <1474800749-2306-6-git-send-email-zenczykowski@gmail.com>
 References: <20160925.060423.854801855957024790.davem@davemloft.net>
  <1474800749-2306-1-git-send-email-zenczykowski@gmail.com>
 Mime-Version: 1.0
@@ -12,43 +12,111 @@ Cc: netdev@vger.kernel.org, Erik Kline <ek@google.com>,
 To: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
         "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:33888 "EHLO
-        mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965529AbcIYKwf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 25 Sep 2016 06:52:35 -0400
-Received: by mail-pa0-f65.google.com with SMTP id hm5so223144pac.1
-        for <netdev@vger.kernel.org>; Sun, 25 Sep 2016 03:52:35 -0700 (PDT)
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:36037 "EHLO
+        mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965848AbcIYKwi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 25 Sep 2016 06:52:38 -0400
+Received: by mail-pa0-f68.google.com with SMTP id my20so7314284pab.3
+        for <netdev@vger.kernel.org>; Sun, 25 Sep 2016 03:52:38 -0700 (PDT)
 In-Reply-To: <1474800749-2306-1-git-send-email-zenczykowski@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Maciej Żenczykowski <maze@google.com>
 
+This implements:
+  https://tools.ietf.org/html/rfc7559
+
+Backoff is performed according to RFC3315 section 14:
+  https://tools.ietf.org/html/rfc3315#section-14
+
 Signed-off-by: Maciej Żenczykowski <maze@google.com>
 ---
- net/ipv6/addrconf.c | 10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
+ include/net/if_inet6.h |  1 +
+ net/ipv6/addrconf.c    | 31 +++++++++++++++++++++++++++----
+ 2 files changed, 28 insertions(+), 4 deletions(-)
 
+diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
+index 1c8b6820b694..515352c6280a 100644
+--- a/include/net/if_inet6.h
++++ b/include/net/if_inet6.h
+@@ -201,6 +201,7 @@ struct inet6_dev {
+ 	struct ipv6_devstat	stats;
+ 
+ 	struct timer_list	rs_timer;
++	__s32			rs_interval;	/* in jiffies */
+ 	__u8			rs_probes;
+ 
+ 	__u8			addr_gen_mode;
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 2f1f5d439788..11fa1a5564d4 100644
+index 255be34cdbce..6384a1cde056 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
-@@ -6044,8 +6044,14 @@ static int __addrconf_sysctl_register(struct net *net, char *dev_name,
+@@ -112,6 +112,24 @@ static inline u32 cstamp_delta(unsigned long cstamp)
+ 	return (cstamp - INITIAL_JIFFIES) * 100UL / HZ;
+ }
  
- 	for (i = 0; table[i].data; i++) {
- 		table[i].data += (char *)p - (char *)&ipv6_devconf;
--		table[i].extra1 = idev; /* embedded; no ref */
--		table[i].extra2 = net;
-+		/* If one of these is already set, then it is not safe to
-+		 * overwrite either of them: this makes proc_dointvec_minmax
-+		 * usable.
-+		 */
-+		if (!table[i].extra1 && !table[i].extra2) {
-+			table[i].extra1 = idev; /* embedded; no ref */
-+			table[i].extra2 = net;
-+		}
++static inline s32 rfc3315_s14_backoff_init(s32 initial)
++{
++	u32 r = (9 << 20) / 10 + (prandom_u32() % ((2 << 20) / 10 + 1));
++	s32 v = initial * (u64)r >> 20;       /* ~ multiply by 0.9 .. 1.1 */
++	return v;
++}
++
++static inline s32 rfc3315_s14_backoff_update(s32 cur, s32 ceiling)
++{
++	u32 r = (19 << 20) / 10 + (prandom_u32() % ((2 << 20) / 10 + 1));
++	s32 v = cur * (u64)r >> 20;           /* ~ multiply by 1.9 .. 2.1 */
++	if (v > ceiling) {
++		r -= 1 << 20;
++		v = ceiling * (u64)r >> 20;   /* ~ multiply by 0.9 .. 1.1 */
++	}
++	return v;
++}
++
+ #ifdef CONFIG_SYSCTL
+ static int addrconf_sysctl_register(struct inet6_dev *idev);
+ static void addrconf_sysctl_unregister(struct inet6_dev *idev);
+@@ -3698,11 +3716,13 @@ static void addrconf_rs_timer(unsigned long data)
+ 			goto put;
+ 
+ 		write_lock(&idev->lock);
++		idev->rs_interval = rfc3315_s14_backoff_update(
++			idev->rs_interval, idev->cnf.rtr_solicit_max_interval);
+ 		/* The wait after the last probe can be shorter */
+ 		addrconf_mod_rs_timer(idev, (idev->rs_probes ==
+ 					     idev->cnf.rtr_solicits) ?
+ 				      idev->cnf.rtr_solicit_delay :
+-				      idev->cnf.rtr_solicit_interval);
++				      idev->rs_interval);
+ 	} else {
+ 		/*
+ 		 * Note: we do not support deprecated "all on-link"
+@@ -3973,10 +3993,11 @@ static void addrconf_dad_completed(struct inet6_ifaddr *ifp)
+ 
+ 		write_lock_bh(&ifp->idev->lock);
+ 		spin_lock(&ifp->lock);
++		ifp->idev->rs_interval = rfc3315_s14_backoff_init(
++			ifp->idev->cnf.rtr_solicit_interval);
+ 		ifp->idev->rs_probes = 1;
+ 		ifp->idev->if_flags |= IF_RS_SENT;
+-		addrconf_mod_rs_timer(ifp->idev,
+-				      ifp->idev->cnf.rtr_solicit_interval);
++		addrconf_mod_rs_timer(ifp->idev, ifp->idev->rs_interval);
+ 		spin_unlock(&ifp->lock);
+ 		write_unlock_bh(&ifp->idev->lock);
+ 	}
+@@ -5132,8 +5153,10 @@ update_lft:
+ 
+ 	if (update_rs) {
+ 		idev->if_flags |= IF_RS_SENT;
++		idev->rs_interval = rfc3315_s14_backoff_init(
++			idev->cnf.rtr_solicit_interval);
+ 		idev->rs_probes = 1;
+-		addrconf_mod_rs_timer(idev, idev->cnf.rtr_solicit_interval);
++		addrconf_mod_rs_timer(idev, idev->rs_interval);
  	}
  
- 	snprintf(path, sizeof(path), "net/ipv6/conf/%s", dev_name);
+ 	/* Well, that's kinda nasty ... */
 -- 
 2.8.0.rc3.226.g39d4020
