@@ -1,30 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: (unknown)
-Date: Sun, 25 Sep 2016 08:51:33 -0400 (EDT)
-Message-ID: <20160925.085133.1803530927600018260.davem@davemloft.net>
-References: <20160925.060423.854801855957024790.davem@davemloft.net>
-        <1474800749-2306-1-git-send-email-zenczykowski@gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH v3 2/2] netfilter: Create revision 2 of xt_hashlimit to
+ support higher pps rates
+Date: Sun, 25 Sep 2016 14:58:45 +0200
+Message-ID: <20160925125845.GA11537@salvia>
+References: <20160922164344.GB20423@akamai.com>
+ <alpine.LSU.2.20.1609221850530.27197@nerf40.vanv.qr>
+ <57E42571.1060502@akamai.com>
+ <20160925113501.GD8331@salvia>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: maze@google.com, netdev@vger.kernel.org, ek@google.com,
-        lorenzo@google.com
-To: zenczykowski@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48264 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S966135AbcIYMvl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 25 Sep 2016 08:51:41 -0400
-In-Reply-To: <1474800749-2306-1-git-send-email-zenczykowski@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jan Engelhardt <jengelh@inai.de>, kaber@trash.net,
+        kadlec@blackhole.kfki.hu, johunt@akamai.com,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, pai.vishwain@gmail.com
+To: Vishwanath Pai <vpai@akamai.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160925113501.GD8331@salvia>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Sun, Sep 25, 2016 at 01:35:01PM +0200, Pablo Neira Ayuso wrote:
+> On Thu, Sep 22, 2016 at 02:39:45PM -0400, Vishwanath Pai wrote:
+> > Thanks for pointing this out, I will reorder the fields to:
+> > 
+> > struct hashlimit_cfg2 {
+> > 	__u64 avg;    /* Average secs between packets * scale */
+> > 	__u64 burst;
+> > 	__u32 mode; /* bitmask of XT_HASHLIMIT_HASH_* */
+> > 
+> > This should fix the hole and avoid padding.
+> 
+> I have manually mangled this here, and applied, to get this change in
+> this in merge window.
+> 
+> I also have to revert the rename of XT_HASHLIMIT_SCALE to
+> XT_HASHLIMIT_SCALE_v1. This is exposed through uapi, this change would
+> break userspace.
 
-This posting needs an actual Subject line, saying something like:
+This requires that you rebase and resubmit your userspace patches for
+iptables though.
 
-	[PATCH net-next v3 0/7] Add RFC7559 style ipv6 soliciation backoff support
-
-This text will go into the merge commit I create should I apply
-this patch series.
-
-In any event, using a blank Subject line is never appropriate.
+Thanks for your patience to get this in, btw.
