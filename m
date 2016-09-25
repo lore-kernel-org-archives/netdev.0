@@ -1,221 +1,173 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 18/53] netfilter: nf_tables_bridge: use nft_set_pktinfo_ipv{4, 6}_validate
-Date: Mon, 26 Sep 2016 01:06:28 +0200
-Message-ID: <1474844823-2026-19-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 27/53] netfilter: nft_numgen: add number generation offset
+Date: Mon, 26 Sep 2016 01:06:37 +0200
+Message-ID: <1474844823-2026-28-git-send-email-pablo@netfilter.org>
 References: <1474844823-2026-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:54542 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1034635AbcIYXHj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 25 Sep 2016 19:07:39 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id BD6C5C0B3D
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:07:37 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id A38A3DA81F
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:07:37 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 7CB41DA847
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:07:35 +0200 (CEST)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1474844823-2026-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Consolidate pktinfo setup and validation by using the new generic
-functions so we converge to the netdev family codebase.
+From: Laura Garcia Liebana <nevola@gmail.com>
 
-We only need a linear IPv4 and IPv6 header from the reject expression,
-so move nft_bridge_iphdr_validate() and nft_bridge_ip6hdr_validate()
-to net/bridge/netfilter/nft_reject_bridge.c.
+Add support of an offset value for incremental counter and random. With
+this option the sysadmin is able to start the counter to a certain value
+and then apply the generated number.
 
+Example:
+
+	meta mark set numgen inc mod 2 offset 100
+
+This will generate marks with the serie 100, 101, 100, 101, ...
+
+Suggested-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Signed-off-by: Laura Garcia Liebana <nevola@gmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_tables_bridge.h |  7 ----
- net/bridge/netfilter/nf_tables_bridge.c  | 72 +-------------------------------
- net/bridge/netfilter/nft_reject_bridge.c | 44 ++++++++++++++++++-
- 3 files changed, 45 insertions(+), 78 deletions(-)
- delete mode 100644 include/net/netfilter/nf_tables_bridge.h
+ include/uapi/linux/netfilter/nf_tables.h |  2 ++
+ net/netfilter/nft_numgen.c               | 32 ++++++++++++++++++++++++++------
+ 2 files changed, 28 insertions(+), 6 deletions(-)
 
-diff --git a/include/net/netfilter/nf_tables_bridge.h b/include/net/netfilter/nf_tables_bridge.h
-deleted file mode 100644
-index 511fb79f6dad..000000000000
---- a/include/net/netfilter/nf_tables_bridge.h
-+++ /dev/null
-@@ -1,7 +0,0 @@
--#ifndef _NET_NF_TABLES_BRIDGE_H
--#define _NET_NF_TABLES_BRIDGE_H
--
--int nft_bridge_iphdr_validate(struct sk_buff *skb);
--int nft_bridge_ip6hdr_validate(struct sk_buff *skb);
--
--#endif /* _NET_NF_TABLES_BRIDGE_H */
-diff --git a/net/bridge/netfilter/nf_tables_bridge.c b/net/bridge/netfilter/nf_tables_bridge.c
-index 29899887163e..06f0f81456a0 100644
---- a/net/bridge/netfilter/nf_tables_bridge.c
-+++ b/net/bridge/netfilter/nf_tables_bridge.c
-@@ -13,79 +13,11 @@
- #include <linux/module.h>
- #include <linux/netfilter_bridge.h>
- #include <net/netfilter/nf_tables.h>
--#include <net/netfilter/nf_tables_bridge.h>
- #include <linux/ip.h>
- #include <linux/ipv6.h>
- #include <net/netfilter/nf_tables_ipv4.h>
- #include <net/netfilter/nf_tables_ipv6.h>
- 
--int nft_bridge_iphdr_validate(struct sk_buff *skb)
--{
--	struct iphdr *iph;
--	u32 len;
--
--	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
--		return 0;
--
--	iph = ip_hdr(skb);
--	if (iph->ihl < 5 || iph->version != 4)
--		return 0;
--
--	len = ntohs(iph->tot_len);
--	if (skb->len < len)
--		return 0;
--	else if (len < (iph->ihl*4))
--		return 0;
--
--	if (!pskb_may_pull(skb, iph->ihl*4))
--		return 0;
--
--	return 1;
--}
--EXPORT_SYMBOL_GPL(nft_bridge_iphdr_validate);
--
--int nft_bridge_ip6hdr_validate(struct sk_buff *skb)
--{
--	struct ipv6hdr *hdr;
--	u32 pkt_len;
--
--	if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))
--		return 0;
--
--	hdr = ipv6_hdr(skb);
--	if (hdr->version != 6)
--		return 0;
--
--	pkt_len = ntohs(hdr->payload_len);
--	if (pkt_len + sizeof(struct ipv6hdr) > skb->len)
--		return 0;
--
--	return 1;
--}
--EXPORT_SYMBOL_GPL(nft_bridge_ip6hdr_validate);
--
--static inline void nft_bridge_set_pktinfo_ipv4(struct nft_pktinfo *pkt,
--					       struct sk_buff *skb,
--					       const struct nf_hook_state *state)
--{
--	if (nft_bridge_iphdr_validate(skb))
--		nft_set_pktinfo_ipv4(pkt, skb, state);
--	else
--		nft_set_pktinfo_unspec(pkt, skb, state);
--}
--
--static inline void nft_bridge_set_pktinfo_ipv6(struct nft_pktinfo *pkt,
--					       struct sk_buff *skb,
--					       const struct nf_hook_state *state)
--{
--#if IS_ENABLED(CONFIG_IPV6)
--	if (nft_bridge_ip6hdr_validate(skb) &&
--	    nft_set_pktinfo_ipv6(pkt, skb, state) == 0)
--		return;
--#endif
--	nft_set_pktinfo_unspec(pkt, skb, state);
--}
--
- static unsigned int
- nft_do_chain_bridge(void *priv,
- 		    struct sk_buff *skb,
-@@ -95,10 +27,10 @@ nft_do_chain_bridge(void *priv,
- 
- 	switch (eth_hdr(skb)->h_proto) {
- 	case htons(ETH_P_IP):
--		nft_bridge_set_pktinfo_ipv4(&pkt, skb, state);
-+		nft_set_pktinfo_ipv4_validate(&pkt, skb, state);
- 		break;
- 	case htons(ETH_P_IPV6):
--		nft_bridge_set_pktinfo_ipv6(&pkt, skb, state);
-+		nft_set_pktinfo_ipv6_validate(&pkt, skb, state);
- 		break;
- 	default:
- 		nft_set_pktinfo_unspec(&pkt, skb, state);
-diff --git a/net/bridge/netfilter/nft_reject_bridge.c b/net/bridge/netfilter/nft_reject_bridge.c
-index 0b77ffbc27d6..4b3df6b0e3b9 100644
---- a/net/bridge/netfilter/nft_reject_bridge.c
-+++ b/net/bridge/netfilter/nft_reject_bridge.c
-@@ -14,7 +14,6 @@
- #include <linux/netfilter/nf_tables.h>
- #include <net/netfilter/nf_tables.h>
- #include <net/netfilter/nft_reject.h>
--#include <net/netfilter/nf_tables_bridge.h>
- #include <net/netfilter/ipv4/nf_reject.h>
- #include <net/netfilter/ipv6/nf_reject.h>
- #include <linux/ip.h>
-@@ -37,6 +36,30 @@ static void nft_reject_br_push_etherhdr(struct sk_buff *oldskb,
- 	skb_pull(nskb, ETH_HLEN);
- }
- 
-+static int nft_bridge_iphdr_validate(struct sk_buff *skb)
-+{
-+	struct iphdr *iph;
-+	u32 len;
-+
-+	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
-+		return 0;
-+
-+	iph = ip_hdr(skb);
-+	if (iph->ihl < 5 || iph->version != 4)
-+		return 0;
-+
-+	len = ntohs(iph->tot_len);
-+	if (skb->len < len)
-+		return 0;
-+	else if (len < (iph->ihl*4))
-+		return 0;
-+
-+	if (!pskb_may_pull(skb, iph->ihl*4))
-+		return 0;
-+
-+	return 1;
-+}
-+
- /* We cannot use oldskb->dev, it can be either bridge device (NF_BRIDGE INPUT)
-  * or the bridge port (NF_BRIDGE PREROUTING).
+diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
+index bc0eb6a1066d..bcfb892ff148 100644
+--- a/include/uapi/linux/netfilter/nf_tables.h
++++ b/include/uapi/linux/netfilter/nf_tables.h
+@@ -1136,12 +1136,14 @@ enum nft_trace_types {
+  * @NFTA_NG_DREG: destination register (NLA_U32)
+  * @NFTA_NG_MODULUS: maximum counter value (NLA_U32)
+  * @NFTA_NG_TYPE: operation type (NLA_U32)
++ * @NFTA_NG_OFFSET: offset to be added to the counter (NLA_U32)
   */
-@@ -143,6 +166,25 @@ static void nft_reject_br_send_v4_unreach(struct net *net,
- 	br_forward(br_port_get_rcu(dev), nskb, false, true);
+ enum nft_ng_attributes {
+ 	NFTA_NG_UNSPEC,
+ 	NFTA_NG_DREG,
+ 	NFTA_NG_MODULUS,
+ 	NFTA_NG_TYPE,
++	NFTA_NG_OFFSET,
+ 	__NFTA_NG_MAX
+ };
+ #define NFTA_NG_MAX	(__NFTA_NG_MAX - 1)
+diff --git a/net/netfilter/nft_numgen.c b/net/netfilter/nft_numgen.c
+index f173ebec30a7..55bc5ab78d4a 100644
+--- a/net/netfilter/nft_numgen.c
++++ b/net/netfilter/nft_numgen.c
+@@ -23,6 +23,7 @@ struct nft_ng_inc {
+ 	enum nft_registers      dreg:8;
+ 	u32			modulus;
+ 	atomic_t		counter;
++	u32			offset;
+ };
+ 
+ static void nft_ng_inc_eval(const struct nft_expr *expr,
+@@ -37,13 +38,14 @@ static void nft_ng_inc_eval(const struct nft_expr *expr,
+ 		nval = (oval + 1 < priv->modulus) ? oval + 1 : 0;
+ 	} while (atomic_cmpxchg(&priv->counter, oval, nval) != oval);
+ 
+-	regs->data[priv->dreg] = nval;
++	regs->data[priv->dreg] = nval + priv->offset;
  }
  
-+static int nft_bridge_ip6hdr_validate(struct sk_buff *skb)
-+{
-+	struct ipv6hdr *hdr;
-+	u32 pkt_len;
+ static const struct nla_policy nft_ng_policy[NFTA_NG_MAX + 1] = {
+ 	[NFTA_NG_DREG]		= { .type = NLA_U32 },
+ 	[NFTA_NG_MODULUS]	= { .type = NLA_U32 },
+ 	[NFTA_NG_TYPE]		= { .type = NLA_U32 },
++	[NFTA_NG_OFFSET]	= { .type = NLA_U32 },
+ };
+ 
+ static int nft_ng_inc_init(const struct nft_ctx *ctx,
+@@ -52,10 +54,16 @@ static int nft_ng_inc_init(const struct nft_ctx *ctx,
+ {
+ 	struct nft_ng_inc *priv = nft_expr_priv(expr);
+ 
++	if (tb[NFTA_NG_OFFSET])
++		priv->offset = ntohl(nla_get_be32(tb[NFTA_NG_OFFSET]));
 +
-+	if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))
-+		return 0;
+ 	priv->modulus = ntohl(nla_get_be32(tb[NFTA_NG_MODULUS]));
+ 	if (priv->modulus == 0)
+ 		return -ERANGE;
+ 
++	if (priv->offset + priv->modulus - 1 < priv->offset)
++		return -EOVERFLOW;
 +
-+	hdr = ipv6_hdr(skb);
-+	if (hdr->version != 6)
-+		return 0;
+ 	priv->dreg = nft_parse_register(tb[NFTA_NG_DREG]);
+ 	atomic_set(&priv->counter, 0);
+ 
+@@ -64,7 +72,7 @@ static int nft_ng_inc_init(const struct nft_ctx *ctx,
+ }
+ 
+ static int nft_ng_dump(struct sk_buff *skb, enum nft_registers dreg,
+-		       u32 modulus, enum nft_ng_types type)
++		       u32 modulus, enum nft_ng_types type, u32 offset)
+ {
+ 	if (nft_dump_register(skb, NFTA_NG_DREG, dreg))
+ 		goto nla_put_failure;
+@@ -72,6 +80,8 @@ static int nft_ng_dump(struct sk_buff *skb, enum nft_registers dreg,
+ 		goto nla_put_failure;
+ 	if (nla_put_be32(skb, NFTA_NG_TYPE, htonl(type)))
+ 		goto nla_put_failure;
++	if (nla_put_be32(skb, NFTA_NG_OFFSET, htonl(offset)))
++		goto nla_put_failure;
+ 
+ 	return 0;
+ 
+@@ -83,12 +93,14 @@ static int nft_ng_inc_dump(struct sk_buff *skb, const struct nft_expr *expr)
+ {
+ 	const struct nft_ng_inc *priv = nft_expr_priv(expr);
+ 
+-	return nft_ng_dump(skb, priv->dreg, priv->modulus, NFT_NG_INCREMENTAL);
++	return nft_ng_dump(skb, priv->dreg, priv->modulus, NFT_NG_INCREMENTAL,
++			   priv->offset);
+ }
+ 
+ struct nft_ng_random {
+ 	enum nft_registers      dreg:8;
+ 	u32			modulus;
++	u32			offset;
+ };
+ 
+ static void nft_ng_random_eval(const struct nft_expr *expr,
+@@ -97,9 +109,10 @@ static void nft_ng_random_eval(const struct nft_expr *expr,
+ {
+ 	struct nft_ng_random *priv = nft_expr_priv(expr);
+ 	struct rnd_state *state = this_cpu_ptr(&nft_numgen_prandom_state);
++	u32 val;
+ 
+-	regs->data[priv->dreg] = reciprocal_scale(prandom_u32_state(state),
+-						  priv->modulus);
++	val = reciprocal_scale(prandom_u32_state(state), priv->modulus);
++	regs->data[priv->dreg] = val + priv->offset;
+ }
+ 
+ static int nft_ng_random_init(const struct nft_ctx *ctx,
+@@ -108,10 +121,16 @@ static int nft_ng_random_init(const struct nft_ctx *ctx,
+ {
+ 	struct nft_ng_random *priv = nft_expr_priv(expr);
+ 
++	if (tb[NFTA_NG_OFFSET])
++		priv->offset = ntohl(nla_get_be32(tb[NFTA_NG_OFFSET]));
 +
-+	pkt_len = ntohs(hdr->payload_len);
-+	if (pkt_len + sizeof(struct ipv6hdr) > skb->len)
-+		return 0;
+ 	priv->modulus = ntohl(nla_get_be32(tb[NFTA_NG_MODULUS]));
+ 	if (priv->modulus == 0)
+ 		return -ERANGE;
+ 
++	if (priv->offset + priv->modulus - 1 < priv->offset)
++		return -EOVERFLOW;
 +
-+	return 1;
-+}
-+
- static void nft_reject_br_send_v6_tcp_reset(struct net *net,
- 					    struct sk_buff *oldskb,
- 					    const struct net_device *dev,
+ 	prandom_init_once(&nft_numgen_prandom_state);
+ 
+ 	priv->dreg = nft_parse_register(tb[NFTA_NG_DREG]);
+@@ -124,7 +143,8 @@ static int nft_ng_random_dump(struct sk_buff *skb, const struct nft_expr *expr)
+ {
+ 	const struct nft_ng_random *priv = nft_expr_priv(expr);
+ 
+-	return nft_ng_dump(skb, priv->dreg, priv->modulus, NFT_NG_RANDOM);
++	return nft_ng_dump(skb, priv->dreg, priv->modulus, NFT_NG_RANDOM,
++			   priv->offset);
+ }
+ 
+ static struct nft_expr_type nft_ng_type;
 -- 
 2.1.4
+
