@@ -1,63 +1,51 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 05/53] netfilter: ftp: Remove the useless dlen==0 condition check in find_pattern
-Date: Mon, 26 Sep 2016 01:06:15 +0200
-Message-ID: <1474844823-2026-6-git-send-email-pablo@netfilter.org>
-References: <1474844823-2026-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:54542 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S941161AbcIYXHZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 25 Sep 2016 19:07:25 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 4D289B6C78
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:07:23 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 3964BDA815
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:07:23 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 30A1CDA847
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:07:21 +0200 (CEST)
-In-Reply-To: <1474844823-2026-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] igb: mark igb_rxnfc_write_vlan_prio_filter() static
+Date: Mon, 26 Sep 2016 01:14:09 +0200
+Message-ID: <201609260114.10052.arnd@arndb.de>
+References: <1474783558-7384-1-git-send-email-baoyou.xie@linaro.org> <1474842217.2751.6.camel@intel.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: Baoyou Xie <baoyou.xie@linaro.org>,
+        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, xie.baoyou@zte.com.cn
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1474842217.2751.6.camel@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Gao Feng <fgao@ikuai8.com>
+On Monday 26 September 2016, Jeff Kirsher wrote:
+> On Sun, 2016-09-25 at 14:05 +0800, Baoyou Xie wrote:
+> > We get 1 warning when building kernel with W=1:
+> > drivers/net/ethernet/intel/igb/igb_ethtool.c:2707:5: warning: no previous
+> > prototype for 'igb_rxnfc_write_vlan_prio_filter' [-Wmissing-prototypes]
+> > 
+> > In fact, this function is only used in the file in which it is
+> > declared and don't need a declaration, but can be made static.
+> > so this patch marks this function with 'static'.
+> > 
+> > Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
+> > ---
+> >  drivers/net/ethernet/intel/igb/igb_ethtool.c | 4 ++--
+> >  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> This has been fixed as well, and there is already a patch.
 
-The caller function "help" has already make sure the datalen could not be zero
-before invoke find_pattern as a parameter by the following codes
+Baoyou,
 
-        if (dataoff >= skb->len) {
-                pr_debug("ftp: dataoff(%u) >= skblen(%u)\n", dataoff,
-                         skb->len);
-                return NF_ACCEPT;
-        }
-        datalen = skb->len - dataoff;
+I've seen you do this on other patches as well, please make sure
+it doesn't happen again, and keep track of which patches you
+have already sent out.
 
-And the latter codes "ends_in_nl = (fb_ptr[datalen - 1] == '\n');" use datalen
-directly without checking if it is zero.
+It can sometimes happen that a patch gets dropped by accident,
+but none of the changes you sent so far are important enough
+to warrant resending for the same kernel release.  If a patch
+got posted multiple weeks before the merge window and still
+has not made it into linux-next by the time the following
+-rc2 release is out, you can resend it, but then it should
+be marked in the subject line, e.g. [PATCH RESEND], and
+an explanation below the '---' line why it got resent.
 
-So it is unneccessary to check it in find_pattern too.
-
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/nf_conntrack_ftp.c | 2 --
- 1 file changed, 2 deletions(-)
-
-diff --git a/net/netfilter/nf_conntrack_ftp.c b/net/netfilter/nf_conntrack_ftp.c
-index b6934b5edf7a..d49a2d410813 100644
---- a/net/netfilter/nf_conntrack_ftp.c
-+++ b/net/netfilter/nf_conntrack_ftp.c
-@@ -301,8 +301,6 @@ static int find_pattern(const char *data, size_t dlen,
- 	size_t i = plen;
- 
- 	pr_debug("find_pattern `%s': dlen = %Zu\n", pattern, dlen);
--	if (dlen == 0)
--		return 0;
- 
- 	if (dlen <= plen) {
- 		/* Short packet: try for partial? */
--- 
-2.1.4
+	Arnd
