@@ -1,60 +1,63 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH -next] net: dsa: mv88e6xxx: fix non static symbol warnings
-Date: Sun, 25 Sep 2016 15:43:02 +0000
-Message-ID: <1474818182-19097-1-git-send-email-weiyj.lk@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 0/3] ethernet: net: bcmgenet: only use new api
+ ethtool_{get|set}_link_ksettings
+Date: Sun, 25 Sep 2016 08:49:50 -0700
+Message-ID: <ec5bc7b8-43dc-7b33-50db-98eb7f4bc3e8@gmail.com>
+References: <1474817794-31791-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:34111 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1034226AbcIYPnK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 25 Sep 2016 11:43:10 -0400
-Received: by mail-pf0-f195.google.com with SMTP id 21so7875979pfy.1
-        for <netdev@vger.kernel.org>; Sun, 25 Sep 2016 08:43:10 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Philippe Reynes <tremyfr@gmail.com>, jaedon.shin@gmail.com,
+        davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1474817794-31791-1-git-send-email-tremyfr@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <weiyongjun1@huawei.com>
+Le 25/09/2016 à 08:36, Philippe Reynes a écrit :
+> Some times ago, a serie of patches were committed :
+> - commit 62469c76007e ("net: ethernet: bcmgenet: use phydev from struct net_device")
+> - commit 6b352ebccbcf ("net: ethernet: broadcom: bcmgenet: use new api ethtool_{get|set}_link_ksettings")
+> The first patch add a regression on this driver, so it should be reverted.
+> As the second patch depend on the former, it should be reverted too.
+> 
+> The first patch is buggy because there is a "trick" in this driver.
+> The structure phydev is kept in the private data when the interface
+> go down, and used when the interface go up to enable the phy before
+> the function phy_connect is called.
+> 
+> I don't have this hardware, neither the datasheet. So I won't
+> update the driver to avoid this trick.
+> 
+> But the real goal of the first serie was to move to the new api
+> ethtool_{get|set}_link_ksettings. So I provide a new version of
+> the patch without the "cleaning" of driver to use the phydev
+> store in the net_device structure.
+> 
+> Jaedon Shin (1):
+>   Revert "net: ethernet: bcmgenet: use phydev from struct net_device"
 
-Fixes the following sparse warnings:
+Please replace Jaedon's patch with mine which contains more background
+as to what the problem was and how it gets fixed.
 
-drivers/net/dsa/mv88e6xxx/chip.c:219:5: warning:
- symbol 'mv88e6xxx_port_read' was not declared. Should it be static?
-drivers/net/dsa/mv88e6xxx/chip.c:227:5: warning:
- symbol 'mv88e6xxx_port_write' was not declared. Should it be static?
+> 
+> Philippe Reynes (2):
+>   Revert "net: ethernet: bcmgenet: use new api
+>     ethtool_{get|set}_link_ksettings"
+>   net: ethernet: broadcom: bcmgenet: use new api
+>     ethtool_{get|set}_link_ksettings
 
-Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
----
- drivers/net/dsa/mv88e6xxx/chip.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+Can you be consistent in the subject and just use "net: bcmgenet: " as a
+prefix here?
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 25bd3fa..6f28f19 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -216,16 +216,16 @@ int mv88e6xxx_write(struct mv88e6xxx_chip *chip, int addr, int reg, u16 val)
- 	return 0;
- }
- 
--int mv88e6xxx_port_read(struct mv88e6xxx_chip *chip, int port, int reg,
--			u16 *val)
-+static int mv88e6xxx_port_read(struct mv88e6xxx_chip *chip, int port, int reg,
-+			       u16 *val)
- {
- 	int addr = chip->info->port_base_addr + port;
- 
- 	return mv88e6xxx_read(chip, addr, reg, val);
- }
- 
--int mv88e6xxx_port_write(struct mv88e6xxx_chip *chip, int port, int reg,
--			 u16 val)
-+static int mv88e6xxx_port_write(struct mv88e6xxx_chip *chip, int port, int reg,
-+				u16 val)
- {
- 	int addr = chip->info->port_base_addr + port;
- 
+> 
+>  drivers/net/ethernet/broadcom/genet/bcmgenet.c |   33 ++++++++++++-----------
+>  drivers/net/ethernet/broadcom/genet/bcmgenet.h |    1 +
+>  drivers/net/ethernet/broadcom/genet/bcmmii.c   |   24 +++++++++--------
+>  3 files changed, 31 insertions(+), 27 deletions(-)
+> 
+
+
+-- 
+Florian
