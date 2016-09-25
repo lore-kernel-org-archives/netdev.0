@@ -1,225 +1,55 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v2 3/6] mlxsw: spectrum_router: Use FIB
- notifications instead of switchdev calls
-Date: Sun, 25 Sep 2016 12:42:29 +0200
-Message-ID: <20160925104229.GA2057@nanopsycho.orion>
-References: <1474622535-4002-1-git-send-email-jiri@resnulli.us>
- <1474622535-4002-4-git-send-email-jiri@resnulli.us>
- <20160925102208.GA20792@splinter>
+From: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Subject: (unknown)
+Date: Sun, 25 Sep 2016 03:52:22 -0700
+Message-ID: <1474800749-2306-1-git-send-email-zenczykowski@gmail.com>
+References: <20160925.060423.854801855957024790.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
-        eladr@mellanox.com, yotamg@mellanox.com, nogahf@mellanox.com,
-        ogerlitz@mellanox.com, roopa@cumulusnetworks.com,
-        nikolay@cumulusnetworks.com, linville@tuxdriver.com,
-        andy@greyhouse.net, f.fainelli@gmail.com, dsa@cumulusnetworks.com,
-        jhs@mojatatu.com, vivien.didelot@savoirfairelinux.com,
-        andrew@lunn.ch, ivecera@redhat.com, kaber@trash.net,
-        john@phrozen.org
-To: Ido Schimmel <idosch@idosch.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, Erik Kline <ek@google.com>,
+        Lorenzo Colitti <lorenzo@google.com>
+To: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:36524 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750727AbcIYKmd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 25 Sep 2016 06:42:33 -0400
-Received: by mail-wm0-f68.google.com with SMTP id b184so9618127wma.3
-        for <netdev@vger.kernel.org>; Sun, 25 Sep 2016 03:42:33 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160925102208.GA20792@splinter>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:34374 "EHLO
+        mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S936523AbcIYKwf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 25 Sep 2016 06:52:35 -0400
+Received: by mail-pa0-f54.google.com with SMTP id zl8so3264306pac.1
+        for <netdev@vger.kernel.org>; Sun, 25 Sep 2016 03:52:34 -0700 (PDT)
+Subject: 
+In-Reply-To: <20160925.060423.854801855957024790.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sun, Sep 25, 2016 at 12:22:08PM CEST, idosch@idosch.org wrote:
->On Fri, Sep 23, 2016 at 11:22:12AM +0200, Jiri Pirko wrote:
->> From: Jiri Pirko <jiri@mellanox.com>
->> 
->> Until now, in order to offload a FIB entry to HW we use switchdev op.
->> However that has limits. Mainly in case we need to make the HW aware of
->> all route prefixes configured in kernel. HW needs to know those in order
->> to properly trap appropriate packets and pass the to kernel to do
->> the forwarding. Abort mechanism is now handled within the mlxsw driver.
->> 
->> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->
->[...]
->
->>  static int
->>  mlxsw_sp_router_fib4_entry_init(struct mlxsw_sp *mlxsw_sp,
->> -				const struct switchdev_obj_ipv4_fib *fib4,
->> +				const struct fib_entry_notifier_info *fen_info,
->>  				struct mlxsw_sp_fib_entry *fib_entry)
->>  {
->> -	struct fib_info *fi = fib4->fi;
->> +	struct fib_info *fi = fen_info->fi;
->> +	struct mlxsw_sp_rif *r;
->> +	int nhsel;
->>  
->> -	if (fib4->type == RTN_LOCAL || fib4->type == RTN_BROADCAST) {
->> +	if (fen_info->type == RTN_LOCAL || fen_info->type == RTN_BROADCAST) {
->>  		fib_entry->type = MLXSW_SP_FIB_ENTRY_TYPE_TRAP;
->>  		return 0;
->>  	}
->> -	if (fib4->type != RTN_UNICAST)
->> +	if (fen_info->type != RTN_UNICAST)
->>  		return -EINVAL;
->>  
->> -	if (fi->fib_scope != RT_SCOPE_UNIVERSE) {
->> -		struct mlxsw_sp_rif *r;
->> +	for (nhsel = 0; nhsel < fi->fib_nhs; nhsel++) {
->> +		const struct fib_nh *nh = &fi->fib_nh[nhsel];
->> +
->> +		if (!nh->nh_dev)
->> +			continue;
->> +		r = mlxsw_sp_rif_find_by_dev(mlxsw_sp, nh->nh_dev);
->> +		if (!r) {
->> +			/* In case router interface is not found for
->> +			 * at least one of the nexthops, that means
->> +			 * the nexthop points to some device unrelated
->> +			 * to us. Set trap and pass the packets for
->> +			 * this prefix to kernel.
->> +			 */
->> +			fib_entry->type = MLXSW_SP_FIB_ENTRY_TYPE_TRAP;
->> +			return 0;
->> +		}
->> +	}
->>  
->> +	if (fi->fib_scope != RT_SCOPE_UNIVERSE) {
->>  		fib_entry->type = MLXSW_SP_FIB_ENTRY_TYPE_LOCAL;
->> -		r = mlxsw_sp_rif_find_by_dev(mlxsw_sp, fi->fib_dev);
->> -		if (!r)
->> -			return -EINVAL;
->>  		fib_entry->rif = r->rif;
->>  		return 0;
->>  	}
->> +
->>  	fib_entry->type = MLXSW_SP_FIB_ENTRY_TYPE_REMOTE;
->>  	return mlxsw_sp_nexthop_group_get(mlxsw_sp, fib_entry, fi);
->>  }
->
->[...]
->
->> +static int mlxsw_sp_router_fib4_add(struct mlxsw_sp *mlxsw_sp,
->> +				    struct fib_entry_notifier_info *fen_info)
->>  {
->> -	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
->> -	struct mlxsw_sp_router_fib4_add_info *info;
->>  	struct mlxsw_sp_fib_entry *fib_entry;
->>  	struct mlxsw_sp_vr *vr;
->>  	int err;
->>  
->> -	info = switchdev_trans_item_dequeue(trans);
->> -	fib_entry = info->fib_entry;
->> -	kfree(info);
->> +	if (mlxsw_sp->router.aborted)
->> +		return 0;
->> +
->> +	fib_entry = mlxsw_sp_fib_entry_get(mlxsw_sp, fen_info);
->> +	if (IS_ERR(fib_entry)) {
->> +		dev_warn(mlxsw_sp->bus_info->dev, "Failed to get FIB4 entry being added.\n");
->> +		return PTR_ERR(fib_entry);
->> +	}
->>  
->>  	if (fib_entry->ref_count != 1)
->> -		return 0;
->> +		goto skip_add;
->>  
->>  	vr = fib_entry->vr;
->>  	err = mlxsw_sp_fib_entry_insert(vr->fib, fib_entry);
->> -	if (err)
->> +	if (err) {
->> +		dev_warn(mlxsw_sp->bus_info->dev, "Failed to insert FIB4 entry being added.\n");
->>  		goto err_fib_entry_insert;
->> -	err = mlxsw_sp_fib_entry_update(mlxsw_sp_port->mlxsw_sp, fib_entry);
->> +	}
->> +	err = mlxsw_sp_fib_entry_update(mlxsw_sp, fib_entry);
->>  	if (err)
->>  		goto err_fib_entry_add;
->> +
->> +skip_add:
->> +	fib_info_offload_inc(fen_info->fi);
->
->This is called for every FIB that is added on the system. Even those
->going via management ports, so all the routes are marked as offloaded.
->Tested to make sure I'm not talking nonsense ^^
->
->$ ip r s
->default via 10.209.0.1 dev eno1
->10.209.0.0/23 dev eno1  proto kernel  scope link  src 10.209.1.6
->169.254.0.0/16 dev eno1  scope link  metric 1002
->
->$ sudo ip r a 1.1.1.0/24 dev eno1
->$ ip r s
->default via 10.209.0.1 dev eno1
->1.1.1.0/24 dev eno1  scope link offload
->10.209.0.0/23 dev eno1  proto kernel  scope link  src 10.209.1.6
->169.254.0.0/16 dev eno1  scope link  metric 1002
->
->I think we should only call fib_info_offload_inc() in
->mlxsw_sp_router_fib4_entry_init() if fib_entry->type !=
->MLXSW_SP_FIB_ENTRY_TRAP. It'll also solve another problem (see below).
+Hi,
 
-Hmm, that makes sense. Will do that.
+This patch series implements RFC7559 style backoff of IPv6 router
+solicitation requests.
 
+Patches 1 and 2 are minor cleanup and stand on their own.
 
->
->>  	return 0;
->>  
->>  err_fib_entry_add:
->> @@ -1899,29 +1814,22 @@ err_fib_entry_insert:
->>  	return err;
->>  }
->
->[...]
->
->> +static void mlxsw_sp_router_fib4_abort(struct mlxsw_sp *mlxsw_sp)
->> +{
->> +	struct mlxsw_resources *resources;
->> +	struct mlxsw_sp_fib_entry *fib_entry;
->> +	struct mlxsw_sp_fib_entry *tmp;
->> +	struct mlxsw_sp_vr *vr;
->> +	int i;
->> +	int err;
->> +
->> +	resources = mlxsw_core_resources_get(mlxsw_sp->core);
->> +	for (i = 0; i < resources->max_virtual_routers; i++) {
->> +		vr = &mlxsw_sp->router.vrs[i];
->> +		if (!vr->used)
->> +			continue;
->> +
->> +		list_for_each_entry_safe(fib_entry, tmp,
->> +					 &vr->fib->entry_list, list) {
->> +			bool do_break = &tmp->list == &vr->fib->entry_list;
->> +
->> +			fib_info_offload_dec(fib_entry->fi);
->
->We call fib_info_offload_inc() multiple times for an already existing
->FIB entry, but in abort we only call fib_info_offload_dec() once per
->entry.
->
->If we inc / dec in fib4_entry_init/fini, then this counter is called
->once per entry (upon creation / destruction).
+Patch 3 allows a (potentially) infinite number of RS'es to be sent
+when the rtr_solicits sysctl is set to -1 (this depends on patch 1).
 
-Okay. Will do.
+Patch 4 is just boilerplate to add a new sysctl for the maximum
+backoff period.
 
+Patch 5 implements the backoff algorithm (and depends on the previous
+patches).
 
->
->> +			mlxsw_sp_fib_entry_del(mlxsw_sp, fib_entry);
->> +			mlxsw_sp_fib_entry_remove(fib_entry->vr->fib,
->> +						  fib_entry);
->> +			mlxsw_sp_fib_entry_put_all(mlxsw_sp, fib_entry);
->> +			if (do_break)
->> +				break;
->> +		}
->> +	}
->> +	mlxsw_sp->router.aborted = true;
->> +	err = mlxsw_sp_router_set_abort_trap(mlxsw_sp);
->> +	if (err)
->> +		dev_warn(mlxsw_sp->bus_info->dev, "Failed to set abort trap.\n");
->> +}
->
->Besides that the patch looks really good to me.
+Patches 6 and 7 switch the defaults over to enable this by default.
 
-Thanks for review.
+[PATCH v3 1/7] ipv6 addrconf: enable use of proc_dointvec_minmax in
+[PATCH v3 2/7] ipv6 addrconf: remove addrconf_sysctl_hop_limit()
+[PATCH v3 3/7] ipv6 addrconf: rtr_solicits == -1 means unlimited
+[PATCH v3 4/7] ipv6 addrconf: add new sysctl
+[PATCH v3 5/7] ipv6 addrconf: implement RFC7559 router solicitation
+[PATCH v3 6/7] ipv6 addrconf: change default
+[PATCH v3 7/7] ipv6 addrconf: change default MAX_RTR_SOLICITATIONS
 
->
->Thanks!
+Changes v2->v3:
+  none
+
+Changes v1->v2:
+  avoid 64-bit divisions to fix 32-bit build errors
