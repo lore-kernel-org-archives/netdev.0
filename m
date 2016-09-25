@@ -1,41 +1,133 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: Re: [PATCH] nfp: bpf: improve handling for disabled BPF syscall
-Date: Sun, 25 Sep 2016 16:52:00 +0100
-Message-ID: <20160925165200.41266650@jkicinski-Precision-T1700>
-References: <20160923202443.4130858-1-arnd@arndb.de>
+From: Yotam Gigi <yotamg@mellanox.com>
+Subject: RE: [PATCH net v2 0/2] Fix tc-ife bugs
+Date: Sun, 25 Sep 2016 15:55:49 +0000
+Message-ID: <DB3PR05MB07647722715384C174CC52D2ACCA0@DB3PR05MB0764.eurprd05.prod.outlook.com>
+References: <1474806711-64660-1-git-send-email-yotamg@mellanox.com>
+ <2b01c982-76b7-d380-807c-1fe1df62d285@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, oss-drivers@netronome.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160923202443.4130858-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: Jiri Pirko <jiri@mellanox.com>, Elad Raz <eladr@mellanox.com>,
+        mlxsw <mlxsw@mellanox.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>,
+        Yotam Gigi <yotam.gi@gmail.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db5eur01on0047.outbound.protection.outlook.com ([104.47.2.47]:24928
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1034247AbcIYPzx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 25 Sep 2016 11:55:53 -0400
+In-Reply-To: <2b01c982-76b7-d380-807c-1fe1df62d285@mojatatu.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 23 Sep 2016 22:23:59 +0200, Arnd Bergmann wrote:
-> I stumbled over a new warning during randconfig testing,
-> with CONFIG_BPF_SYSCALL disabled:
-> 
-> drivers/net/ethernet/netronome/nfp/nfp_net_offload.c: In function 'nfp_net_bpf_offload':
-> drivers/net/ethernet/netronome/nfp/nfp_net_offload.c:263:3: error: '*((void *)&res+4)' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> drivers/net/ethernet/netronome/nfp/nfp_net_offload.c:263:3: error: 'res.n_instr' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> 
-> As far as I can tell, this is a false positive caused by the compiler
-> getting confused about a function that is partially inlined, but it's
-> easy to avoid while improving the code:
-> 
-> The nfp_bpf_jit() stub helper for that configuration is unusual as it
-> is defined in a header file but not marked 'static inline'. By moving
-> the compile-time check into the caller using the IS_ENABLED() macro,
-> we can remove that stub and simplify the nfp_net_bpf_offload_prepare()
-> function enough to unconfuse the compiler.
-> 
-> Fixes: 7533fdc0f77f ("nfp: bpf: add hardware bpf offload")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+>-----Original Message-----
+>From: Jamal Hadi Salim [mailto:jhs@mojatatu.com]
+>Sent: Sunday, September 25, 2016 4:46 PM
+>To: Yotam Gigi <yotam.gi@gmail.com>; davem@davemloft.net;
+>netdev@vger.kernel.org; Yotam Gigi <yotamg@mellanox.com>
+>Subject: Re: [PATCH net v2 0/2] Fix tc-ife bugs
+>
+>On 16-09-25 08:31 AM, Yotam Gigi wrote:
+>> This patch-set contains two bugfixes in the tc-ife action, one fixing so=
+me
+>> random behaviour in encode side, and one fixing the decode side packet
+>> parsing logic.
+>>
+>> Yotam Gigi (2):
+>>   act_ife: Fix external mac header on encode
+>>   act_ife: Fix false parsing on decode side
+>>
+>>  net/sched/act_ife.c | 9 ++++-----
+>>  1 file changed, 4 insertions(+), 5 deletions(-)
+>>
+>
+>Yotam, did you run the test i proposed? I am worried about the TLV one.
+>Note:
+>Encoder includes the length of the TLV header length in the L part.
+>If you are reaching a conclusion that you need this in the decoding:
+>+              tlvdata +=3D alen + sizeof(struct meta_tlvhdr);
+>
+>then very likely whoever is sending that packet is not encoding
+>correctly.
 
-Thanks Arnd!  static inline definitely missing there but if we can
-depend on dead code elimination to remove the symbol that's even cooler!
+The one encoding the packets I get is the ife action. You can look at the c=
+ode:
 
-Acked-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+  int ife_tlv_meta_encode(void *skbdata, u16 attrtype, u16 dlen, const void=
+ *dval)
+  {
+        u32 *tlv =3D (u32 *)(skbdata);
+        u16 totlen =3D nla_total_size(dlen);      /*alignment + hdr */
+        char *dptr =3D (char *)tlv + NLA_HDRLEN;
+        u32 htlv =3D attrtype << 16 | dlen;
+
+        *tlv =3D htonl(htlv);
+        memset(dptr, 0, totlen - NLA_HDRLEN);
+        memcpy(dptr, dval, dlen);
+       =20
+        return totlen;
+  }
+
+As you can see, the data that is actually written into the packet is the ht=
+lv
+var, which has the 'dlen' in it, and not the totlen which corresponds the t=
+lv
+header size. You can see that in the following example:
+
+I ran the tc command you proposed:
+  $TC filter add dev $ETH parent 1: protocol ip prio 10 \
+        u32 match ip protocol 1 0xff flowid 1:2 \
+        action skbedit prio 33 \
+        action ife encode \
+        type 0xDEAD \
+        use mark 12 \
+        allow prio \
+        dst 02:15:15:15:15:15
+
+And this is the packet I got:
+  0x0000:  0215 1515 1515 da23 d209 8644 dead 0012
+  0x0010:  0001 0004 0000 000c 0003 0004 0000 0033
+  0x0020:  fa30 7418 593a da23 d209 8644 0800 4500
+  0x0030:  0054 da3c 4000 4001 486a 0c00 0001 0c00
+  0x0040:  0002 0800 9fa2 1562 0008 aeec e757 0000
+  0x0050:  0000 ecdb 0100 0000 0000 1011 1213 1415
+  0x0060:  1617 1819 1a1b 1c1d 1e1f 2021 2223 2425
+  0x0070:  2627 2829 2a2b 2c2d 2e2f 3031 3233 3435
+  0x0080:  3637
+
+You can see that there are two tlvs there, one for mark (with value 0xc=3D1=
+2) and
+one for prio (with value 0x33). In the packets, you can see the on offsets =
+0x12
+and 0x1a, that the size in the tlv is 4 which is the datalen and not 8 whic=
+h is
+the total tlv size.
+
+When I ran the decode without the fix, my kernel went into infinite loop wh=
+ich
+was caused by:
+ - The loop stopping condition was checking that an unsigned variable is gr=
+eater
+   than zero.
+ - The parsing assumes that in the tlv header, the size refers to the whole=
+ tlv
+   size, but it refers to the size of the data only.
+
+To fix those problems, I fixed the decode side to assume that the tlv->size
+refers to the data len and not the whole tlv, and changed the variable to b=
+e
+signed.
+
+Do you prefer that I will fix the encode side to encode the whole tlv heade=
+r
+size instead of fixing the decode side?
+
+Thanks :)
+
+>
+>cheers,
+>jamal
