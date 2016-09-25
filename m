@@ -1,39 +1,49 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH v3 2/2] netfilter: Create revision 2 of xt_hashlimit to
- support higher pps rates
-Date: Sun, 25 Sep 2016 13:35:01 +0200
-Message-ID: <20160925113501.GD8331@salvia>
-References: <20160922164344.GB20423@akamai.com>
- <alpine.LSU.2.20.1609221850530.27197@nerf40.vanv.qr>
- <57E42571.1060502@akamai.com>
+From: Yotam Gigi <yotamg@mellanox.com>
+Subject: RE: [PATCH net 0/2] Fix tc-ife bugs
+Date: Sun, 25 Sep 2016 11:41:20 +0000
+Message-ID: <DB3PR05MB07642C5019FDE949EF177DA0ACCA0@DB3PR05MB0764.eurprd05.prod.outlook.com>
+References: <1474548926-22815-1-git-send-email-yotamg@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jan Engelhardt <jengelh@inai.de>, kaber@trash.net,
-        kadlec@blackhole.kfki.hu, johunt@akamai.com,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, pai.vishwain@gmail.com
-To: Vishwanath Pai <vpai@akamai.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <57E42571.1060502@akamai.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+To: "jhs@mojatatu.com" <jhs@mojatatu.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db5eur01on0079.outbound.protection.outlook.com ([104.47.2.79]:35179
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S936523AbcIYLlY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 25 Sep 2016 07:41:24 -0400
+In-Reply-To: <1474548926-22815-1-git-send-email-yotamg@mellanox.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 22, 2016 at 02:39:45PM -0400, Vishwanath Pai wrote:
-> Thanks for pointing this out, I will reorder the fields to:
-> 
-> struct hashlimit_cfg2 {
-> 	__u64 avg;    /* Average secs between packets * scale */
-> 	__u64 burst;
-> 	__u32 mode; /* bitmask of XT_HASHLIMIT_HASH_* */
-> 
-> This should fix the hole and avoid padding.
 
-I have manually mangled this here, and applied, to get this change in
-this in merge window.
 
-I also have to revert the rename of XT_HASHLIMIT_SCALE to
-XT_HASHLIMIT_SCALE_v1. This is exposed through uapi, this change would
-break userspace.
+>-----Original Message-----
+>From: Yotam Gigi
+>Sent: Thursday, September 22, 2016 3:55 PM
+>To: jhs@mojatatu.com; davem@davemloft.net; netdev@vger.kernel.org
+>Cc: Yotam Gigi <yotamg@mellanox.com>
+>Subject: [PATCH net 0/2] Fix tc-ife bugs
+>
+>This patch-set contains two bugfixes in the tc-ife action, one fixing some
+>random behaviour in encode side, and one fixing the decode side packet
+>parsing logic.
 
-Please, follow up in case of any fallout, thanks.
+I have to rebase the patches. I will send v2 soon.
+
+Thanks!
+
+>
+>Yotam Gigi (2):
+>  act_ife: Fix external mac header on encode
+>  act_ife: Fix false parsing on decode side
+>
+> net/sched/act_ife.c | 9 ++++-----
+> 1 file changed, 4 insertions(+), 5 deletions(-)
+>
+>--
+>2.4.11
