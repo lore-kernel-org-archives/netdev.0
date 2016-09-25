@@ -1,173 +1,153 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 27/53] netfilter: nft_numgen: add number generation offset
-Date: Mon, 26 Sep 2016 01:06:37 +0200
-Message-ID: <1474844823-2026-28-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 22/53] netfilter: Add the missed return value check of nft_register_chain_type
+Date: Mon, 26 Sep 2016 01:06:32 +0200
+Message-ID: <1474844823-2026-23-git-send-email-pablo@netfilter.org>
 References: <1474844823-2026-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:54660 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1034726AbcIYXHq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 25 Sep 2016 19:07:46 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 9AD07C0B3F
+        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:07:44 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 88F98DA81B
+        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:07:44 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 9B492DA84C
+        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:07:39 +0200 (CEST)
 In-Reply-To: <1474844823-2026-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Laura Garcia Liebana <nevola@gmail.com>
+From: Gao Feng <fgao@ikuai8.com>
 
-Add support of an offset value for incremental counter and random. With
-this option the sysadmin is able to start the counter to a certain value
-and then apply the generated number.
+There are some codes of netfilter module which did not check the return
+value of nft_register_chain_type. Add the checks now.
 
-Example:
-
-	meta mark set numgen inc mod 2 offset 100
-
-This will generate marks with the serie 100, 101, 100, 101, ...
-
-Suggested-by: Pablo Neira Ayuso <pablo@netfilter.org>
-Signed-off-by: Laura Garcia Liebana <nevola@gmail.com>
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/uapi/linux/netfilter/nf_tables.h |  2 ++
- net/netfilter/nft_numgen.c               | 32 ++++++++++++++++++++++++++------
- 2 files changed, 28 insertions(+), 6 deletions(-)
+ net/bridge/netfilter/nf_tables_bridge.c | 18 +++++++++++++-----
+ net/ipv4/netfilter/nf_tables_arp.c      |  5 ++++-
+ net/ipv4/netfilter/nf_tables_ipv4.c     |  5 ++++-
+ net/ipv6/netfilter/nf_tables_ipv6.c     |  5 ++++-
+ net/netfilter/nf_tables_inet.c          |  5 ++++-
+ net/netfilter/nf_tables_netdev.c        |  5 ++++-
+ 6 files changed, 33 insertions(+), 10 deletions(-)
 
-diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
-index bc0eb6a1066d..bcfb892ff148 100644
---- a/include/uapi/linux/netfilter/nf_tables.h
-+++ b/include/uapi/linux/netfilter/nf_tables.h
-@@ -1136,12 +1136,14 @@ enum nft_trace_types {
-  * @NFTA_NG_DREG: destination register (NLA_U32)
-  * @NFTA_NG_MODULUS: maximum counter value (NLA_U32)
-  * @NFTA_NG_TYPE: operation type (NLA_U32)
-+ * @NFTA_NG_OFFSET: offset to be added to the counter (NLA_U32)
-  */
- enum nft_ng_attributes {
- 	NFTA_NG_UNSPEC,
- 	NFTA_NG_DREG,
- 	NFTA_NG_MODULUS,
- 	NFTA_NG_TYPE,
-+	NFTA_NG_OFFSET,
- 	__NFTA_NG_MAX
- };
- #define NFTA_NG_MAX	(__NFTA_NG_MAX - 1)
-diff --git a/net/netfilter/nft_numgen.c b/net/netfilter/nft_numgen.c
-index f173ebec30a7..55bc5ab78d4a 100644
---- a/net/netfilter/nft_numgen.c
-+++ b/net/netfilter/nft_numgen.c
-@@ -23,6 +23,7 @@ struct nft_ng_inc {
- 	enum nft_registers      dreg:8;
- 	u32			modulus;
- 	atomic_t		counter;
-+	u32			offset;
- };
+diff --git a/net/bridge/netfilter/nf_tables_bridge.c b/net/bridge/netfilter/nf_tables_bridge.c
+index 06f0f81456a0..97afdc0744e6 100644
+--- a/net/bridge/netfilter/nf_tables_bridge.c
++++ b/net/bridge/netfilter/nf_tables_bridge.c
+@@ -139,12 +139,20 @@ static int __init nf_tables_bridge_init(void)
+ 	int ret;
  
- static void nft_ng_inc_eval(const struct nft_expr *expr,
-@@ -37,13 +38,14 @@ static void nft_ng_inc_eval(const struct nft_expr *expr,
- 		nval = (oval + 1 < priv->modulus) ? oval + 1 : 0;
- 	} while (atomic_cmpxchg(&priv->counter, oval, nval) != oval);
- 
--	regs->data[priv->dreg] = nval;
-+	regs->data[priv->dreg] = nval + priv->offset;
- }
- 
- static const struct nla_policy nft_ng_policy[NFTA_NG_MAX + 1] = {
- 	[NFTA_NG_DREG]		= { .type = NLA_U32 },
- 	[NFTA_NG_MODULUS]	= { .type = NLA_U32 },
- 	[NFTA_NG_TYPE]		= { .type = NLA_U32 },
-+	[NFTA_NG_OFFSET]	= { .type = NLA_U32 },
- };
- 
- static int nft_ng_inc_init(const struct nft_ctx *ctx,
-@@ -52,10 +54,16 @@ static int nft_ng_inc_init(const struct nft_ctx *ctx,
- {
- 	struct nft_ng_inc *priv = nft_expr_priv(expr);
- 
-+	if (tb[NFTA_NG_OFFSET])
-+		priv->offset = ntohl(nla_get_be32(tb[NFTA_NG_OFFSET]));
+ 	nf_register_afinfo(&nf_br_afinfo);
+-	nft_register_chain_type(&filter_bridge);
++	ret = nft_register_chain_type(&filter_bridge);
++	if (ret < 0)
++		goto err1;
 +
- 	priv->modulus = ntohl(nla_get_be32(tb[NFTA_NG_MODULUS]));
- 	if (priv->modulus == 0)
- 		return -ERANGE;
- 
-+	if (priv->offset + priv->modulus - 1 < priv->offset)
-+		return -EOVERFLOW;
+ 	ret = register_pernet_subsys(&nf_tables_bridge_net_ops);
+-	if (ret < 0) {
+-		nft_unregister_chain_type(&filter_bridge);
+-		nf_unregister_afinfo(&nf_br_afinfo);
+-	}
++	if (ret < 0)
++		goto err2;
 +
- 	priv->dreg = nft_parse_register(tb[NFTA_NG_DREG]);
- 	atomic_set(&priv->counter, 0);
- 
-@@ -64,7 +72,7 @@ static int nft_ng_inc_init(const struct nft_ctx *ctx,
- }
- 
- static int nft_ng_dump(struct sk_buff *skb, enum nft_registers dreg,
--		       u32 modulus, enum nft_ng_types type)
-+		       u32 modulus, enum nft_ng_types type, u32 offset)
- {
- 	if (nft_dump_register(skb, NFTA_NG_DREG, dreg))
- 		goto nla_put_failure;
-@@ -72,6 +80,8 @@ static int nft_ng_dump(struct sk_buff *skb, enum nft_registers dreg,
- 		goto nla_put_failure;
- 	if (nla_put_be32(skb, NFTA_NG_TYPE, htonl(type)))
- 		goto nla_put_failure;
-+	if (nla_put_be32(skb, NFTA_NG_OFFSET, htonl(offset)))
-+		goto nla_put_failure;
- 
- 	return 0;
- 
-@@ -83,12 +93,14 @@ static int nft_ng_inc_dump(struct sk_buff *skb, const struct nft_expr *expr)
- {
- 	const struct nft_ng_inc *priv = nft_expr_priv(expr);
- 
--	return nft_ng_dump(skb, priv->dreg, priv->modulus, NFT_NG_INCREMENTAL);
-+	return nft_ng_dump(skb, priv->dreg, priv->modulus, NFT_NG_INCREMENTAL,
-+			   priv->offset);
- }
- 
- struct nft_ng_random {
- 	enum nft_registers      dreg:8;
- 	u32			modulus;
-+	u32			offset;
- };
- 
- static void nft_ng_random_eval(const struct nft_expr *expr,
-@@ -97,9 +109,10 @@ static void nft_ng_random_eval(const struct nft_expr *expr,
- {
- 	struct nft_ng_random *priv = nft_expr_priv(expr);
- 	struct rnd_state *state = this_cpu_ptr(&nft_numgen_prandom_state);
-+	u32 val;
- 
--	regs->data[priv->dreg] = reciprocal_scale(prandom_u32_state(state),
--						  priv->modulus);
-+	val = reciprocal_scale(prandom_u32_state(state), priv->modulus);
-+	regs->data[priv->dreg] = val + priv->offset;
- }
- 
- static int nft_ng_random_init(const struct nft_ctx *ctx,
-@@ -108,10 +121,16 @@ static int nft_ng_random_init(const struct nft_ctx *ctx,
- {
- 	struct nft_ng_random *priv = nft_expr_priv(expr);
- 
-+	if (tb[NFTA_NG_OFFSET])
-+		priv->offset = ntohl(nla_get_be32(tb[NFTA_NG_OFFSET]));
++	return ret;
 +
- 	priv->modulus = ntohl(nla_get_be32(tb[NFTA_NG_MODULUS]));
- 	if (priv->modulus == 0)
- 		return -ERANGE;
- 
-+	if (priv->offset + priv->modulus - 1 < priv->offset)
-+		return -EOVERFLOW;
-+
- 	prandom_init_once(&nft_numgen_prandom_state);
- 
- 	priv->dreg = nft_parse_register(tb[NFTA_NG_DREG]);
-@@ -124,7 +143,8 @@ static int nft_ng_random_dump(struct sk_buff *skb, const struct nft_expr *expr)
- {
- 	const struct nft_ng_random *priv = nft_expr_priv(expr);
- 
--	return nft_ng_dump(skb, priv->dreg, priv->modulus, NFT_NG_RANDOM);
-+	return nft_ng_dump(skb, priv->dreg, priv->modulus, NFT_NG_RANDOM,
-+			   priv->offset);
++err2:
++	nft_unregister_chain_type(&filter_bridge);
++err1:
++	nf_unregister_afinfo(&nf_br_afinfo);
+ 	return ret;
  }
  
- static struct nft_expr_type nft_ng_type;
+diff --git a/net/ipv4/netfilter/nf_tables_arp.c b/net/ipv4/netfilter/nf_tables_arp.c
+index 058c034be376..805c8ddfe860 100644
+--- a/net/ipv4/netfilter/nf_tables_arp.c
++++ b/net/ipv4/netfilter/nf_tables_arp.c
+@@ -80,7 +80,10 @@ static int __init nf_tables_arp_init(void)
+ {
+ 	int ret;
+ 
+-	nft_register_chain_type(&filter_arp);
++	ret = nft_register_chain_type(&filter_arp);
++	if (ret < 0)
++		return ret;
++
+ 	ret = register_pernet_subsys(&nf_tables_arp_net_ops);
+ 	if (ret < 0)
+ 		nft_unregister_chain_type(&filter_arp);
+diff --git a/net/ipv4/netfilter/nf_tables_ipv4.c b/net/ipv4/netfilter/nf_tables_ipv4.c
+index e44ba3b12fbb..2840a29b2e04 100644
+--- a/net/ipv4/netfilter/nf_tables_ipv4.c
++++ b/net/ipv4/netfilter/nf_tables_ipv4.c
+@@ -103,7 +103,10 @@ static int __init nf_tables_ipv4_init(void)
+ {
+ 	int ret;
+ 
+-	nft_register_chain_type(&filter_ipv4);
++	ret = nft_register_chain_type(&filter_ipv4);
++	if (ret < 0)
++		return ret;
++
+ 	ret = register_pernet_subsys(&nf_tables_ipv4_net_ops);
+ 	if (ret < 0)
+ 		nft_unregister_chain_type(&filter_ipv4);
+diff --git a/net/ipv6/netfilter/nf_tables_ipv6.c b/net/ipv6/netfilter/nf_tables_ipv6.c
+index 05d05926962a..d6e4ba5de916 100644
+--- a/net/ipv6/netfilter/nf_tables_ipv6.c
++++ b/net/ipv6/netfilter/nf_tables_ipv6.c
+@@ -100,7 +100,10 @@ static int __init nf_tables_ipv6_init(void)
+ {
+ 	int ret;
+ 
+-	nft_register_chain_type(&filter_ipv6);
++	ret = nft_register_chain_type(&filter_ipv6);
++	if (ret < 0)
++		return ret;
++
+ 	ret = register_pernet_subsys(&nf_tables_ipv6_net_ops);
+ 	if (ret < 0)
+ 		nft_unregister_chain_type(&filter_ipv6);
+diff --git a/net/netfilter/nf_tables_inet.c b/net/netfilter/nf_tables_inet.c
+index 6b5f76295d3d..f713cc205669 100644
+--- a/net/netfilter/nf_tables_inet.c
++++ b/net/netfilter/nf_tables_inet.c
+@@ -82,7 +82,10 @@ static int __init nf_tables_inet_init(void)
+ {
+ 	int ret;
+ 
+-	nft_register_chain_type(&filter_inet);
++	ret = nft_register_chain_type(&filter_inet);
++	if (ret < 0)
++		return ret;
++
+ 	ret = register_pernet_subsys(&nf_tables_inet_net_ops);
+ 	if (ret < 0)
+ 		nft_unregister_chain_type(&filter_inet);
+diff --git a/net/netfilter/nf_tables_netdev.c b/net/netfilter/nf_tables_netdev.c
+index 38a3e8385042..9e2ae424b640 100644
+--- a/net/netfilter/nf_tables_netdev.c
++++ b/net/netfilter/nf_tables_netdev.c
+@@ -149,7 +149,10 @@ static int __init nf_tables_netdev_init(void)
+ {
+ 	int ret;
+ 
+-	nft_register_chain_type(&nft_filter_chain_netdev);
++	ret = nft_register_chain_type(&nft_filter_chain_netdev);
++	if (ret)
++		return ret;
++
+ 	ret = register_pernet_subsys(&nf_tables_netdev_net_ops);
+ 	if (ret)
+ 		goto err1;
 -- 
 2.1.4
-
