@@ -1,138 +1,160 @@
 From: Baoyou Xie <baoyou.xie@linaro.org>
-Subject: [PATCH] cxgb4: mark symbols static where possible
-Date: Sun, 25 Sep 2016 14:10:09 +0800
-Message-ID: <1474783809-7615-1-git-send-email-baoyou.xie@linaro.org>
+Subject: [PATCH] net: bcmgenet: remove unused function in bcmgenet.c
+Date: Sun, 25 Sep 2016 14:23:15 +0800
+Message-ID: <1474784595-29779-1-git-send-email-baoyou.xie@linaro.org>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         arnd@arndb.de, baoyou.xie@linaro.org, xie.baoyou@zte.com.cn
-To: hariprasad@chelsio.com
+To: f.fainelli@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We get 10 warnings when building kernel with W=1:
-drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c:304:5: warning: no previous prototype for 'cxgb4_dcb_enabled' [-Wmissing-prototypes]
-drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c:194:5: warning: no previous prototype for 'setup_sge_queues_uld' [-Wmissing-prototypes]
-drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c:241:6: warning: no previous prototype for 'free_sge_queues_uld' [-Wmissing-prototypes]
-drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c:268:5: warning: no previous prototype for 'cfg_queues_uld' [-Wmissing-prototypes]
-drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c:344:6: warning: no previous prototype for 'free_queues_uld' [-Wmissing-prototypes]
-drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c:353:5: warning: no previous prototype for 'request_msix_queue_irqs_uld' [-Wmissing-prototypes]
-drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c:379:6: warning: no previous prototype for 'free_msix_queue_irqs_uld' [-Wmissing-prototypes]
-drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c:393:6: warning: no previous prototype for 'name_msix_vecs_uld' [-Wmissing-prototypes]
-drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c:433:6: warning: no previous prototype for 'enable_rx_uld' [-Wmissing-prototypes]
-drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c:442:6: warning: no previous prototype for 'quiesce_rx_uld' [-Wmissing-prototypes]
+We get 1 warning when building kernel with W=1:
+drivers/net/ethernet/broadcom/genet/bcmgenet.c:2763:5: warning: no previous prototype for 'bcmgenet_hfb_add_filter' [-Wmissing-prototypes]
 
-In fact, these functions are only used in the file in which they are
-declared and don't need a declaration, but can be made static.
-so this patch marks these functions with 'static'.
+In fact, this function is implemented in
+drivers/net/ethernet/broadcom/genet/bcmgenet.c, but be called
+by no one, thus can be removed.
+
+So this patch removes the unused functions.
 
 Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |  2 +-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c  | 23 +++++++++++++----------
- 2 files changed, 14 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 122 -------------------------
+ 1 file changed, 122 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index d1ebb84..fc434ee 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -301,7 +301,7 @@ static void dcb_tx_queue_prio_enable(struct net_device *dev, int enable)
- }
- #endif /* CONFIG_CHELSIO_T4_DCB */
- 
--int cxgb4_dcb_enabled(const struct net_device *dev)
-+static int cxgb4_dcb_enabled(const struct net_device *dev)
- {
- #ifdef CONFIG_CHELSIO_T4_DCB
- 	struct port_info *pi = netdev_priv(dev);
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
-index d12a73e..a460c7c 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
-@@ -191,7 +191,8 @@ static int alloc_uld_rxqs(struct adapter *adap,
- 	return err;
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index 2013474..7f47849 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -2664,128 +2664,6 @@ static void bcmgenet_enable_dma(struct bcmgenet_priv *priv, u32 dma_ctrl)
+ 	bcmgenet_tdma_writel(priv, reg, DMA_CTRL);
  }
  
--int setup_sge_queues_uld(struct adapter *adap, unsigned int uld_type, bool lro)
-+static int
-+setup_sge_queues_uld(struct adapter *adap, unsigned int uld_type, bool lro)
- {
- 	struct sge_uld_rxq_info *rxq_info = adap->sge.uld_rxq_info[uld_type];
- 	int i, ret = 0;
-@@ -238,7 +239,7 @@ static void t4_free_uld_rxqs(struct adapter *adap, int n,
- 	}
- }
- 
--void free_sge_queues_uld(struct adapter *adap, unsigned int uld_type)
-+static void free_sge_queues_uld(struct adapter *adap, unsigned int uld_type)
- {
- 	struct sge_uld_rxq_info *rxq_info = adap->sge.uld_rxq_info[uld_type];
- 
-@@ -265,8 +266,8 @@ void free_sge_queues_uld(struct adapter *adap, unsigned int uld_type)
- 		kfree(rxq_info->msix_tbl);
- }
- 
--int cfg_queues_uld(struct adapter *adap, unsigned int uld_type,
--		   const struct cxgb4_uld_info *uld_info)
-+static int cfg_queues_uld(struct adapter *adap, unsigned int uld_type,
-+			  const struct cxgb4_uld_info *uld_info)
- {
- 	struct sge *s = &adap->sge;
- 	struct sge_uld_rxq_info *rxq_info;
-@@ -341,7 +342,7 @@ int cfg_queues_uld(struct adapter *adap, unsigned int uld_type,
- 	return 0;
- }
- 
--void free_queues_uld(struct adapter *adap, unsigned int uld_type)
-+static void free_queues_uld(struct adapter *adap, unsigned int uld_type)
- {
- 	struct sge_uld_rxq_info *rxq_info = adap->sge.uld_rxq_info[uld_type];
- 
-@@ -350,7 +351,8 @@ void free_queues_uld(struct adapter *adap, unsigned int uld_type)
- 	kfree(rxq_info);
- }
- 
--int request_msix_queue_irqs_uld(struct adapter *adap, unsigned int uld_type)
-+static int
-+request_msix_queue_irqs_uld(struct adapter *adap, unsigned int uld_type)
- {
- 	struct sge_uld_rxq_info *rxq_info = adap->sge.uld_rxq_info[uld_type];
- 	int err = 0;
-@@ -376,7 +378,8 @@ int request_msix_queue_irqs_uld(struct adapter *adap, unsigned int uld_type)
- 	return err;
- }
- 
--void free_msix_queue_irqs_uld(struct adapter *adap, unsigned int uld_type)
-+static void
-+free_msix_queue_irqs_uld(struct adapter *adap, unsigned int uld_type)
- {
- 	struct sge_uld_rxq_info *rxq_info = adap->sge.uld_rxq_info[uld_type];
- 	unsigned int idx, bmap_idx;
-@@ -390,7 +393,7 @@ void free_msix_queue_irqs_uld(struct adapter *adap, unsigned int uld_type)
- 	}
- }
- 
--void name_msix_vecs_uld(struct adapter *adap, unsigned int uld_type)
-+static void name_msix_vecs_uld(struct adapter *adap, unsigned int uld_type)
- {
- 	struct sge_uld_rxq_info *rxq_info = adap->sge.uld_rxq_info[uld_type];
- 	int n = sizeof(adap->msix_info_ulds[0].desc);
-@@ -430,7 +433,7 @@ static void quiesce_rx(struct adapter *adap, struct sge_rspq *q)
- 	}
- }
- 
--void enable_rx_uld(struct adapter *adap, unsigned int uld_type)
-+static void enable_rx_uld(struct adapter *adap, unsigned int uld_type)
- {
- 	struct sge_uld_rxq_info *rxq_info = adap->sge.uld_rxq_info[uld_type];
- 	int idx;
-@@ -439,7 +442,7 @@ void enable_rx_uld(struct adapter *adap, unsigned int uld_type)
- 		enable_rx(adap, &rxq_info->uldrxq[idx].rspq);
- }
- 
--void quiesce_rx_uld(struct adapter *adap, unsigned int uld_type)
-+static void quiesce_rx_uld(struct adapter *adap, unsigned int uld_type)
- {
- 	struct sge_uld_rxq_info *rxq_info = adap->sge.uld_rxq_info[uld_type];
- 	int idx;
+-static bool bcmgenet_hfb_is_filter_enabled(struct bcmgenet_priv *priv,
+-					   u32 f_index)
+-{
+-	u32 offset;
+-	u32 reg;
+-
+-	offset = HFB_FLT_ENABLE_V3PLUS + (f_index < 32) * sizeof(u32);
+-	reg = bcmgenet_hfb_reg_readl(priv, offset);
+-	return !!(reg & (1 << (f_index % 32)));
+-}
+-
+-static void bcmgenet_hfb_enable_filter(struct bcmgenet_priv *priv, u32 f_index)
+-{
+-	u32 offset;
+-	u32 reg;
+-
+-	offset = HFB_FLT_ENABLE_V3PLUS + (f_index < 32) * sizeof(u32);
+-	reg = bcmgenet_hfb_reg_readl(priv, offset);
+-	reg |= (1 << (f_index % 32));
+-	bcmgenet_hfb_reg_writel(priv, reg, offset);
+-}
+-
+-static void bcmgenet_hfb_set_filter_rx_queue_mapping(struct bcmgenet_priv *priv,
+-						     u32 f_index, u32 rx_queue)
+-{
+-	u32 offset;
+-	u32 reg;
+-
+-	offset = f_index / 8;
+-	reg = bcmgenet_rdma_readl(priv, DMA_INDEX2RING_0 + offset);
+-	reg &= ~(0xF << (4 * (f_index % 8)));
+-	reg |= ((rx_queue & 0xF) << (4 * (f_index % 8)));
+-	bcmgenet_rdma_writel(priv, reg, DMA_INDEX2RING_0 + offset);
+-}
+-
+-static void bcmgenet_hfb_set_filter_length(struct bcmgenet_priv *priv,
+-					   u32 f_index, u32 f_length)
+-{
+-	u32 offset;
+-	u32 reg;
+-
+-	offset = HFB_FLT_LEN_V3PLUS +
+-		 ((priv->hw_params->hfb_filter_cnt - 1 - f_index) / 4) *
+-		 sizeof(u32);
+-	reg = bcmgenet_hfb_reg_readl(priv, offset);
+-	reg &= ~(0xFF << (8 * (f_index % 4)));
+-	reg |= ((f_length & 0xFF) << (8 * (f_index % 4)));
+-	bcmgenet_hfb_reg_writel(priv, reg, offset);
+-}
+-
+-static int bcmgenet_hfb_find_unused_filter(struct bcmgenet_priv *priv)
+-{
+-	u32 f_index;
+-
+-	for (f_index = 0; f_index < priv->hw_params->hfb_filter_cnt; f_index++)
+-		if (!bcmgenet_hfb_is_filter_enabled(priv, f_index))
+-			return f_index;
+-
+-	return -ENOMEM;
+-}
+-
+-/* bcmgenet_hfb_add_filter
+- *
+- * Add new filter to Hardware Filter Block to match and direct Rx traffic to
+- * desired Rx queue.
+- *
+- * f_data is an array of unsigned 32-bit integers where each 32-bit integer
+- * provides filter data for 2 bytes (4 nibbles) of Rx frame:
+- *
+- * bits 31:20 - unused
+- * bit  19    - nibble 0 match enable
+- * bit  18    - nibble 1 match enable
+- * bit  17    - nibble 2 match enable
+- * bit  16    - nibble 3 match enable
+- * bits 15:12 - nibble 0 data
+- * bits 11:8  - nibble 1 data
+- * bits 7:4   - nibble 2 data
+- * bits 3:0   - nibble 3 data
+- *
+- * Example:
+- * In order to match:
+- * - Ethernet frame type = 0x0800 (IP)
+- * - IP version field = 4
+- * - IP protocol field = 0x11 (UDP)
+- *
+- * The following filter is needed:
+- * u32 hfb_filter_ipv4_udp[] = {
+- *   Rx frame offset 0x00: 0x00000000, 0x00000000, 0x00000000, 0x00000000,
+- *   Rx frame offset 0x08: 0x00000000, 0x00000000, 0x000F0800, 0x00084000,
+- *   Rx frame offset 0x10: 0x00000000, 0x00000000, 0x00000000, 0x00030011,
+- * };
+- *
+- * To add the filter to HFB and direct the traffic to Rx queue 0, call:
+- * bcmgenet_hfb_add_filter(priv, hfb_filter_ipv4_udp,
+- *                         ARRAY_SIZE(hfb_filter_ipv4_udp), 0);
+- */
+-int bcmgenet_hfb_add_filter(struct bcmgenet_priv *priv, u32 *f_data,
+-			    u32 f_length, u32 rx_queue)
+-{
+-	int f_index;
+-	u32 i;
+-
+-	f_index = bcmgenet_hfb_find_unused_filter(priv);
+-	if (f_index < 0)
+-		return -ENOMEM;
+-
+-	if (f_length > priv->hw_params->hfb_filter_size)
+-		return -EINVAL;
+-
+-	for (i = 0; i < f_length; i++)
+-		bcmgenet_hfb_writel(priv, f_data[i],
+-			(f_index * priv->hw_params->hfb_filter_size + i) *
+-			sizeof(u32));
+-
+-	bcmgenet_hfb_set_filter_length(priv, f_index, 2 * f_length);
+-	bcmgenet_hfb_set_filter_rx_queue_mapping(priv, f_index, rx_queue);
+-	bcmgenet_hfb_enable_filter(priv, f_index);
+-	bcmgenet_hfb_reg_writel(priv, 0x1, HFB_CTRL);
+-
+-	return 0;
+-}
+-
+ /* bcmgenet_hfb_clear
+  *
+  * Clear Hardware Filter Block and disable all filtering.
 -- 
 2.7.4
