@@ -1,118 +1,173 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 21/53] netfilter: Add the missed return value check of register_netdevice_notifier
-Date: Mon, 26 Sep 2016 01:06:31 +0200
-Message-ID: <1474844823-2026-22-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 07/53] netfilter: nft_numgen: rename until attribute by modulus
+Date: Mon, 26 Sep 2016 01:06:17 +0200
+Message-ID: <1474844823-2026-8-git-send-email-pablo@netfilter.org>
 References: <1474844823-2026-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:54606 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:54532 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1034676AbcIYXHl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 25 Sep 2016 19:07:41 -0400
+        id S941183AbcIYXH1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 25 Sep 2016 19:07:27 -0400
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id BE33EC0B2A
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:07:40 +0200 (CEST)
+        by mail.us.es (Postfix) with ESMTP id CBED7C0B40
+        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:07:25 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id AD95FDA848
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:07:40 +0200 (CEST)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id BB449DA842
+        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:07:25 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 9A321DA849
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:07:38 +0200 (CEST)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 9D1ECDA818
+        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:07:23 +0200 (CEST)
 In-Reply-To: <1474844823-2026-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <fgao@ikuai8.com>
+From: Laura Garcia Liebana <nevola@gmail.com>
 
-There are some codes of netfilter module which did not check the return
-value of register_netdevice_notifier. Add the checks now.
+The _until_ attribute is renamed to _modulus_ as the behaviour is similar to
+other expresions with number limits (ex. nft_hash).
 
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
+Renaming is possible because there isn't a kernel release yet with these
+changes.
+
+Signed-off-by: Laura Garcia Liebana <nevola@gmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_tables_netdev.c | 18 +++++++++++++-----
- net/netfilter/nfnetlink_queue.c  |  9 ++++++++-
- net/netfilter/xt_TEE.c           |  8 +++++++-
- 3 files changed, 28 insertions(+), 7 deletions(-)
+ include/uapi/linux/netfilter/nf_tables.h |  4 ++--
+ net/netfilter/nft_numgen.c               | 30 +++++++++++++++---------------
+ 2 files changed, 17 insertions(+), 17 deletions(-)
 
-diff --git a/net/netfilter/nf_tables_netdev.c b/net/netfilter/nf_tables_netdev.c
-index 3e5475a833a5..38a3e8385042 100644
---- a/net/netfilter/nf_tables_netdev.c
-+++ b/net/netfilter/nf_tables_netdev.c
-@@ -151,12 +151,20 @@ static int __init nf_tables_netdev_init(void)
+diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
+index 28ce01d79707..24161e25576d 100644
+--- a/include/uapi/linux/netfilter/nf_tables.h
++++ b/include/uapi/linux/netfilter/nf_tables.h
+@@ -1126,13 +1126,13 @@ enum nft_trace_types {
+  * enum nft_ng_attributes - nf_tables number generator expression netlink attributes
+  *
+  * @NFTA_NG_DREG: destination register (NLA_U32)
+- * @NFTA_NG_UNTIL: source value to increment the counter until reset (NLA_U32)
++ * @NFTA_NG_MODULUS: maximum counter value (NLA_U32)
+  * @NFTA_NG_TYPE: operation type (NLA_U32)
+  */
+ enum nft_ng_attributes {
+ 	NFTA_NG_UNSPEC,
+ 	NFTA_NG_DREG,
+-	NFTA_NG_UNTIL,
++	NFTA_NG_MODULUS,
+ 	NFTA_NG_TYPE,
+ 	__NFTA_NG_MAX
+ };
+diff --git a/net/netfilter/nft_numgen.c b/net/netfilter/nft_numgen.c
+index 294745ecb0fc..f51a3ede3932 100644
+--- a/net/netfilter/nft_numgen.c
++++ b/net/netfilter/nft_numgen.c
+@@ -21,7 +21,7 @@ static DEFINE_PER_CPU(struct rnd_state, nft_numgen_prandom_state);
  
- 	nft_register_chain_type(&nft_filter_chain_netdev);
- 	ret = register_pernet_subsys(&nf_tables_netdev_net_ops);
--	if (ret < 0) {
--		nft_unregister_chain_type(&nft_filter_chain_netdev);
--		return ret;
--	}
--	register_netdevice_notifier(&nf_tables_netdev_notifier);
-+	if (ret)
-+		goto err1;
-+
-+	ret = register_netdevice_notifier(&nf_tables_netdev_notifier);
-+	if (ret)
-+		goto err2;
-+
- 	return 0;
-+
-+err2:
-+	unregister_pernet_subsys(&nf_tables_netdev_net_ops);
-+err1:
-+	nft_unregister_chain_type(&nft_filter_chain_netdev);
-+	return ret;
+ struct nft_ng_inc {
+ 	enum nft_registers      dreg:8;
+-	u32			until;
++	u32			modulus;
+ 	atomic_t		counter;
+ };
+ 
+@@ -34,7 +34,7 @@ static void nft_ng_inc_eval(const struct nft_expr *expr,
+ 
+ 	do {
+ 		oval = atomic_read(&priv->counter);
+-		nval = (oval + 1 < priv->until) ? oval + 1 : 0;
++		nval = (oval + 1 < priv->modulus) ? oval + 1 : 0;
+ 	} while (atomic_cmpxchg(&priv->counter, oval, nval) != oval);
+ 
+ 	memcpy(&regs->data[priv->dreg], &priv->counter, sizeof(u32));
+@@ -42,7 +42,7 @@ static void nft_ng_inc_eval(const struct nft_expr *expr,
+ 
+ static const struct nla_policy nft_ng_policy[NFTA_NG_MAX + 1] = {
+ 	[NFTA_NG_DREG]		= { .type = NLA_U32 },
+-	[NFTA_NG_UNTIL]		= { .type = NLA_U32 },
++	[NFTA_NG_MODULUS]	= { .type = NLA_U32 },
+ 	[NFTA_NG_TYPE]		= { .type = NLA_U32 },
+ };
+ 
+@@ -52,8 +52,8 @@ static int nft_ng_inc_init(const struct nft_ctx *ctx,
+ {
+ 	struct nft_ng_inc *priv = nft_expr_priv(expr);
+ 
+-	priv->until = ntohl(nla_get_be32(tb[NFTA_NG_UNTIL]));
+-	if (priv->until == 0)
++	priv->modulus = ntohl(nla_get_be32(tb[NFTA_NG_MODULUS]));
++	if (priv->modulus == 0)
+ 		return -ERANGE;
+ 
+ 	priv->dreg = nft_parse_register(tb[NFTA_NG_DREG]);
+@@ -64,11 +64,11 @@ static int nft_ng_inc_init(const struct nft_ctx *ctx,
  }
  
- static void __exit nf_tables_netdev_exit(void)
-diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
-index f49f45081acb..808da34f94cd 100644
---- a/net/netfilter/nfnetlink_queue.c
-+++ b/net/netfilter/nfnetlink_queue.c
-@@ -1522,9 +1522,16 @@ static int __init nfnetlink_queue_init(void)
- 		goto cleanup_netlink_notifier;
- 	}
+ static int nft_ng_dump(struct sk_buff *skb, enum nft_registers dreg,
+-		       u32 until, enum nft_ng_types type)
++		       u32 modulus, enum nft_ng_types type)
+ {
+ 	if (nft_dump_register(skb, NFTA_NG_DREG, dreg))
+ 		goto nla_put_failure;
+-	if (nla_put_be32(skb, NFTA_NG_UNTIL, htonl(until)))
++	if (nla_put_be32(skb, NFTA_NG_MODULUS, htonl(modulus)))
+ 		goto nla_put_failure;
+ 	if (nla_put_be32(skb, NFTA_NG_TYPE, htonl(type)))
+ 		goto nla_put_failure;
+@@ -83,12 +83,12 @@ static int nft_ng_inc_dump(struct sk_buff *skb, const struct nft_expr *expr)
+ {
+ 	const struct nft_ng_inc *priv = nft_expr_priv(expr);
  
--	register_netdevice_notifier(&nfqnl_dev_notifier);
-+	status = register_netdevice_notifier(&nfqnl_dev_notifier);
-+	if (status < 0) {
-+		pr_err("nf_queue: failed to register netdevice notifier\n");
-+		goto cleanup_netlink_subsys;
-+	}
-+
- 	return status;
+-	return nft_ng_dump(skb, priv->dreg, priv->until, NFT_NG_INCREMENTAL);
++	return nft_ng_dump(skb, priv->dreg, priv->modulus, NFT_NG_INCREMENTAL);
+ }
  
-+cleanup_netlink_subsys:
-+	nfnetlink_subsys_unregister(&nfqnl_subsys);
- cleanup_netlink_notifier:
- 	netlink_unregister_notifier(&nfqnl_rtnl_notifier);
- 	unregister_pernet_subsys(&nfnl_queue_net_ops);
-diff --git a/net/netfilter/xt_TEE.c b/net/netfilter/xt_TEE.c
-index 6e57a3966dc5..0471db4032c5 100644
---- a/net/netfilter/xt_TEE.c
-+++ b/net/netfilter/xt_TEE.c
-@@ -89,6 +89,8 @@ static int tee_tg_check(const struct xt_tgchk_param *par)
- 		return -EINVAL;
+ struct nft_ng_random {
+ 	enum nft_registers      dreg:8;
+-	u32			until;
++	u32			modulus;
+ };
  
- 	if (info->oif[0]) {
-+		int ret;
-+
- 		if (info->oif[sizeof(info->oif)-1] != '\0')
- 			return -EINVAL;
+ static void nft_ng_random_eval(const struct nft_expr *expr,
+@@ -99,7 +99,7 @@ static void nft_ng_random_eval(const struct nft_expr *expr,
+ 	struct rnd_state *state = this_cpu_ptr(&nft_numgen_prandom_state);
  
-@@ -101,7 +103,11 @@ static int tee_tg_check(const struct xt_tgchk_param *par)
- 		priv->notifier.notifier_call = tee_netdev_event;
- 		info->priv    = priv;
+ 	regs->data[priv->dreg] = reciprocal_scale(prandom_u32_state(state),
+-						  priv->until);
++						  priv->modulus);
+ }
  
--		register_netdevice_notifier(&priv->notifier);
-+		ret = register_netdevice_notifier(&priv->notifier);
-+		if (ret) {
-+			kfree(priv);
-+			return ret;
-+		}
- 	} else
- 		info->priv = NULL;
+ static int nft_ng_random_init(const struct nft_ctx *ctx,
+@@ -108,8 +108,8 @@ static int nft_ng_random_init(const struct nft_ctx *ctx,
+ {
+ 	struct nft_ng_random *priv = nft_expr_priv(expr);
+ 
+-	priv->until = ntohl(nla_get_be32(tb[NFTA_NG_UNTIL]));
+-	if (priv->until == 0)
++	priv->modulus = ntohl(nla_get_be32(tb[NFTA_NG_MODULUS]));
++	if (priv->modulus == 0)
+ 		return -ERANGE;
+ 
+ 	prandom_init_once(&nft_numgen_prandom_state);
+@@ -124,7 +124,7 @@ static int nft_ng_random_dump(struct sk_buff *skb, const struct nft_expr *expr)
+ {
+ 	const struct nft_ng_random *priv = nft_expr_priv(expr);
+ 
+-	return nft_ng_dump(skb, priv->dreg, priv->until, NFT_NG_RANDOM);
++	return nft_ng_dump(skb, priv->dreg, priv->modulus, NFT_NG_RANDOM);
+ }
+ 
+ static struct nft_expr_type nft_ng_type;
+@@ -149,8 +149,8 @@ nft_ng_select_ops(const struct nft_ctx *ctx, const struct nlattr * const tb[])
+ {
+ 	u32 type;
+ 
+-	if (!tb[NFTA_NG_DREG]	||
+-	    !tb[NFTA_NG_UNTIL]	||
++	if (!tb[NFTA_NG_DREG]	 ||
++	    !tb[NFTA_NG_MODULUS] ||
+ 	    !tb[NFTA_NG_TYPE])
+ 		return ERR_PTR(-EINVAL);
  
 -- 
 2.1.4
