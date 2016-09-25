@@ -1,49 +1,37 @@
-From: Yotam Gigi <yotamg@mellanox.com>
-Subject: RE: [PATCH net 0/2] Fix tc-ife bugs
-Date: Sun, 25 Sep 2016 11:41:20 +0000
-Message-ID: <DB3PR05MB07642C5019FDE949EF177DA0ACCA0@DB3PR05MB0764.eurprd05.prod.outlook.com>
-References: <1474548926-22815-1-git-send-email-yotamg@mellanox.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] netfilter: xt_socket: fix transparent match for IPv6
+ request sockets
+Date: Sun, 25 Sep 2016 13:47:29 +0200
+Message-ID: <20160925114729.GA8645@salvia>
+References: <20160923092742.88262-1-hidden@balabit.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-To: "jhs@mojatatu.com" <jhs@mojatatu.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0079.outbound.protection.outlook.com ([104.47.2.79]:35179
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S936523AbcIYLlY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 25 Sep 2016 07:41:24 -0400
-In-Reply-To: <1474548926-22815-1-git-send-email-yotamg@mellanox.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+        Alex Badics <alex.badics@balabit.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: KOVACS Krisztian <hidden@balabit.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160923092742.88262-1-hidden@balabit.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Fri, Sep 23, 2016 at 11:27:42AM +0200, KOVACS Krisztian wrote:
+> The introduction of TCP_NEW_SYN_RECV state, and the addition of request
+> sockets to the ehash table seems to have broken the --transparent option
+> of the socket match for IPv6 (around commit a9407000).
+> 
+> Now that the socket lookup finds the TCP_NEW_SYN_RECV socket instead of the
+> listener, the --transparent option tries to match on the no_srccheck flag
+> of the request socket.
+> 
+> Unfortunately, that flag was only set for IPv4 sockets in tcp_v4_init_req()
+> by copying the transparent flag of the listener socket. This effectively
+> causes '-m socket --transparent' not match on the ACK packet sent by the
+> client in a TCP handshake.
+> 
+> Based on the suggestion from Eric Dumazet, this change moves the code
+> initializing no_srccheck to tcp_conn_request(), rendering the above
+> scenario working again.
 
-
->-----Original Message-----
->From: Yotam Gigi
->Sent: Thursday, September 22, 2016 3:55 PM
->To: jhs@mojatatu.com; davem@davemloft.net; netdev@vger.kernel.org
->Cc: Yotam Gigi <yotamg@mellanox.com>
->Subject: [PATCH net 0/2] Fix tc-ife bugs
->
->This patch-set contains two bugfixes in the tc-ife action, one fixing some
->random behaviour in encode side, and one fixing the decode side packet
->parsing logic.
-
-I have to rebase the patches. I will send v2 soon.
-
-Thanks!
-
->
->Yotam Gigi (2):
->  act_ife: Fix external mac header on encode
->  act_ife: Fix false parsing on decode side
->
-> net/sched/act_ife.c | 9 ++++-----
-> 1 file changed, 4 insertions(+), 5 deletions(-)
->
->--
->2.4.11
+Applied, thanks Krisztian.
