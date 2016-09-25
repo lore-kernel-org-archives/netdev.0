@@ -1,238 +1,141 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 52/53] netfilter: nft_log: complete NFTA_LOG_FLAGS attr support
-Date: Mon, 26 Sep 2016 01:07:02 +0200
-Message-ID: <1474844823-2026-53-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 44/53] netfilter: seqadj: Fix the wrong ack adjust for the RST packet without ack
+Date: Mon, 26 Sep 2016 01:06:54 +0200
+Message-ID: <1474844823-2026-45-git-send-email-pablo@netfilter.org>
 References: <1474844823-2026-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:54696 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:54738 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1034928AbcIYXIO (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 25 Sep 2016 19:08:14 -0400
+        id S1034867AbcIYXIE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 25 Sep 2016 19:08:04 -0400
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id D621EE3A19
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:08:11 +0200 (CEST)
+        by mail.us.es (Postfix) with ESMTP id B7675CA6C7
+        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:08:03 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id C34A6DA815
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:08:11 +0200 (CEST)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id A2576DA841
+        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:08:03 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 51264DA816
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:08:09 +0200 (CEST)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 7CBC4DA815
+        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:08:01 +0200 (CEST)
 In-Reply-To: <1474844823-2026-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Liping Zhang <liping.zhang@spreadtrum.com>
+From: Gao Feng <fgao@ikuai8.com>
 
-NFTA_LOG_FLAGS attribute is already supported, but the related
-NF_LOG_XXX flags are not exposed to the userspace. So we cannot
-explicitly enable log flags to log uid, tcp sequence, ip options
-and so on, i.e. such rule "nft add rule filter output log uid"
-is not supported yet.
+It is valid that the TCP RST packet which does not set ack flag, and bytes
+of ack number are zero. But current seqadj codes would adjust the "0" ack
+to invalid ack number. Actually seqadj need to check the ack flag before
+adjust it for these RST packets.
 
-So move NF_LOG_XXX macro definitions to the uapi/../nf_log.h. In
-order to keep consistent with other modules, change NF_LOG_MASK to
-refer to all supported log flags. On the other hand, add a new
-NF_LOG_DEFAULT_MASK to refer to the original default log flags.
+The following is my test case
 
-Finally, if user specify the unsupported log flags or NFTA_LOG_GROUP
-and NFTA_LOG_FLAGS are set at the same time, report EINVAL to the
-userspace.
+client is 10.26.98.245, and add one iptable rule:
+iptables  -I INPUT -p tcp --sport 12345 -m connbytes --connbytes 2:
+--connbytes-dir reply --connbytes-mode packets -j REJECT --reject-with
+tcp-reset
+This iptables rule could generate on TCP RST without ack flag.
 
-Signed-off-by: Liping Zhang <liping.zhang@spreadtrum.com>
+server:10.172.135.55
+Enable the synproxy with seqadjust by the following iptables rules
+iptables -t raw -A PREROUTING -i eth0 -p tcp -d 10.172.135.55 --dport 12345
+-m tcp --syn -j CT --notrack
+
+iptables -A INPUT -i eth0 -p tcp -d 10.172.135.55 --dport 12345 -m conntrack
+--ctstate INVALID,UNTRACKED -j SYNPROXY --sack-perm --timestamp --wscale 7
+--mss 1460
+iptables -A OUTPUT -o eth0 -p tcp -s 10.172.135.55 --sport 12345 -m conntrack
+--ctstate INVALID,UNTRACKED -m tcp --tcp-flags SYN,RST,ACK SYN,ACK -j ACCEPT
+
+The following is my test result.
+
+1. packet trace on client
+root@routers:/tmp# tcpdump -i eth0 tcp port 12345 -n
+tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+listening on eth0, link-type EN10MB (Ethernet), capture size 65535 bytes
+IP 10.26.98.245.45154 > 10.172.135.55.12345: Flags [S], seq 3695959829,
+win 29200, options [mss 1460,sackOK,TS val 452367884 ecr 0,nop,wscale 7],
+length 0
+IP 10.172.135.55.12345 > 10.26.98.245.45154: Flags [S.], seq 546723266,
+ack 3695959830, win 0, options [mss 1460,sackOK,TS val 15643479 ecr 452367884,
+nop,wscale 7], length 0
+IP 10.26.98.245.45154 > 10.172.135.55.12345: Flags [.], ack 1, win 229,
+options [nop,nop,TS val 452367885 ecr 15643479], length 0
+IP 10.172.135.55.12345 > 10.26.98.245.45154: Flags [.], ack 1, win 226,
+options [nop,nop,TS val 15643479 ecr 452367885], length 0
+IP 10.26.98.245.45154 > 10.172.135.55.12345: Flags [R], seq 3695959830,
+win 0, length 0
+
+2. seqadj log on server
+[62873.867319] Adjusting sequence number from 602341895->546723267,
+ack from 3695959830->3695959830
+[62873.867644] Adjusting sequence number from 602341895->546723267,
+ack from 3695959830->3695959830
+[62873.869040] Adjusting sequence number from 3695959830->3695959830,
+ack from 0->55618628
+
+To summarize, it is clear that the seqadj codes adjust the 0 ack when receive
+one TCP RST packet without ack.
+
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_log.h        | 11 +++--------
- include/uapi/linux/netfilter/nf_log.h | 12 ++++++++++++
- net/bridge/netfilter/ebt_log.c        |  2 +-
- net/ipv4/netfilter/ip_tables.c        |  2 +-
- net/ipv4/netfilter/nf_log_arp.c       |  2 +-
- net/ipv4/netfilter/nf_log_ipv4.c      |  4 ++--
- net/ipv6/netfilter/ip6_tables.c       |  2 +-
- net/ipv6/netfilter/nf_log_ipv6.c      |  4 ++--
- net/netfilter/nf_tables_core.c        |  2 +-
- net/netfilter/nft_log.c               |  9 ++++++++-
- 10 files changed, 32 insertions(+), 18 deletions(-)
- create mode 100644 include/uapi/linux/netfilter/nf_log.h
+ net/netfilter/nf_conntrack_seqadj.c | 20 ++++++++++++--------
+ 1 file changed, 12 insertions(+), 8 deletions(-)
 
-diff --git a/include/net/netfilter/nf_log.h b/include/net/netfilter/nf_log.h
-index ee07dc8b0a7b..309cd267be4f 100644
---- a/include/net/netfilter/nf_log.h
-+++ b/include/net/netfilter/nf_log.h
-@@ -2,15 +2,10 @@
- #define _NF_LOG_H
+diff --git a/net/netfilter/nf_conntrack_seqadj.c b/net/netfilter/nf_conntrack_seqadj.c
+index dff0f0cc59e4..ef7063eced7c 100644
+--- a/net/netfilter/nf_conntrack_seqadj.c
++++ b/net/netfilter/nf_conntrack_seqadj.c
+@@ -169,7 +169,7 @@ int nf_ct_seq_adjust(struct sk_buff *skb,
+ 	s32 seqoff, ackoff;
+ 	struct nf_conn_seqadj *seqadj = nfct_seqadj(ct);
+ 	struct nf_ct_seqadj *this_way, *other_way;
+-	int res;
++	int res = 1;
  
- #include <linux/netfilter.h>
-+#include <linux/netfilter/nf_log.h>
+ 	this_way  = &seqadj->seq[dir];
+ 	other_way = &seqadj->seq[!dir];
+@@ -184,27 +184,31 @@ int nf_ct_seq_adjust(struct sk_buff *skb,
+ 	else
+ 		seqoff = this_way->offset_before;
  
--/* those NF_LOG_* defines and struct nf_loginfo are legacy definitios that will
-- * disappear once iptables is replaced with pkttables.  Please DO NOT use them
-- * for any new code! */
--#define NF_LOG_TCPSEQ		0x01	/* Log TCP sequence numbers */
--#define NF_LOG_TCPOPT		0x02	/* Log TCP options */
--#define NF_LOG_IPOPT		0x04	/* Log IP options */
--#define NF_LOG_UID		0x08	/* Log UID owning local socket */
--#define NF_LOG_MASK		0x0f
-+/* Log tcp sequence, tcp options, ip options and uid owning local socket */
-+#define NF_LOG_DEFAULT_MASK	0x0f
- 
- /* This flag indicates that copy_len field in nf_loginfo is set */
- #define NF_LOG_F_COPY_LEN	0x1
-diff --git a/include/uapi/linux/netfilter/nf_log.h b/include/uapi/linux/netfilter/nf_log.h
-new file mode 100644
-index 000000000000..8be21e02387d
---- /dev/null
-+++ b/include/uapi/linux/netfilter/nf_log.h
-@@ -0,0 +1,12 @@
-+#ifndef _NETFILTER_NF_LOG_H
-+#define _NETFILTER_NF_LOG_H
++	newseq = htonl(ntohl(tcph->seq) + seqoff);
++	inet_proto_csum_replace4(&tcph->check, skb, tcph->seq, newseq, false);
++	pr_debug("Adjusting sequence number from %u->%u\n",
++		 ntohl(tcph->seq), ntohl(newseq));
++	tcph->seq = newseq;
 +
-+#define NF_LOG_TCPSEQ		0x01	/* Log TCP sequence numbers */
-+#define NF_LOG_TCPOPT		0x02	/* Log TCP options */
-+#define NF_LOG_IPOPT		0x04	/* Log IP options */
-+#define NF_LOG_UID		0x08	/* Log UID owning local socket */
-+#define NF_LOG_NFLOG		0x10	/* Unsupported, don't reuse */
-+#define NF_LOG_MACDECODE	0x20	/* Decode MAC header */
-+#define NF_LOG_MASK		0x2f
++	if (!tcph->ack)
++		goto out;
 +
-+#endif /* _NETFILTER_NF_LOG_H */
-diff --git a/net/bridge/netfilter/ebt_log.c b/net/bridge/netfilter/ebt_log.c
-index 152300d164ac..9a11086ba6ff 100644
---- a/net/bridge/netfilter/ebt_log.c
-+++ b/net/bridge/netfilter/ebt_log.c
-@@ -91,7 +91,7 @@ ebt_log_packet(struct net *net, u_int8_t pf, unsigned int hooknum,
- 	if (loginfo->type == NF_LOG_TYPE_LOG)
- 		bitmask = loginfo->u.log.logflags;
+ 	if (after(ntohl(tcph->ack_seq) - other_way->offset_before,
+ 		  other_way->correction_pos))
+ 		ackoff = other_way->offset_after;
  	else
--		bitmask = NF_LOG_MASK;
-+		bitmask = NF_LOG_DEFAULT_MASK;
+ 		ackoff = other_way->offset_before;
  
- 	if ((bitmask & EBT_LOG_IP) && eth_hdr(skb)->h_proto ==
- 	   htons(ETH_P_IP)) {
-diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index f993545a3373..7c00ce90adb8 100644
---- a/net/ipv4/netfilter/ip_tables.c
-+++ b/net/ipv4/netfilter/ip_tables.c
-@@ -156,7 +156,7 @@ static struct nf_loginfo trace_loginfo = {
- 	.u = {
- 		.log = {
- 			.level = 4,
--			.logflags = NF_LOG_MASK,
-+			.logflags = NF_LOG_DEFAULT_MASK,
- 		},
- 	},
- };
-diff --git a/net/ipv4/netfilter/nf_log_arp.c b/net/ipv4/netfilter/nf_log_arp.c
-index 8945c2653814..b24795e2ee6d 100644
---- a/net/ipv4/netfilter/nf_log_arp.c
-+++ b/net/ipv4/netfilter/nf_log_arp.c
-@@ -30,7 +30,7 @@ static struct nf_loginfo default_loginfo = {
- 	.u = {
- 		.log = {
- 			.level	  = LOGLEVEL_NOTICE,
--			.logflags = NF_LOG_MASK,
-+			.logflags = NF_LOG_DEFAULT_MASK,
- 		},
- 	},
- };
-diff --git a/net/ipv4/netfilter/nf_log_ipv4.c b/net/ipv4/netfilter/nf_log_ipv4.c
-index 20f225593a8b..5b571e1b5f15 100644
---- a/net/ipv4/netfilter/nf_log_ipv4.c
-+++ b/net/ipv4/netfilter/nf_log_ipv4.c
-@@ -29,7 +29,7 @@ static struct nf_loginfo default_loginfo = {
- 	.u = {
- 		.log = {
- 			.level	  = LOGLEVEL_NOTICE,
--			.logflags = NF_LOG_MASK,
-+			.logflags = NF_LOG_DEFAULT_MASK,
- 		},
- 	},
- };
-@@ -46,7 +46,7 @@ static void dump_ipv4_packet(struct nf_log_buf *m,
- 	if (info->type == NF_LOG_TYPE_LOG)
- 		logflags = info->u.log.logflags;
- 	else
--		logflags = NF_LOG_MASK;
-+		logflags = NF_LOG_DEFAULT_MASK;
+-	newseq = htonl(ntohl(tcph->seq) + seqoff);
+ 	newack = htonl(ntohl(tcph->ack_seq) - ackoff);
+-
+-	inet_proto_csum_replace4(&tcph->check, skb, tcph->seq, newseq, false);
+ 	inet_proto_csum_replace4(&tcph->check, skb, tcph->ack_seq, newack,
+ 				 false);
+-
+-	pr_debug("Adjusting sequence number from %u->%u, ack from %u->%u\n",
++	pr_debug("Adjusting ack number from %u->%u, ack from %u->%u\n",
+ 		 ntohl(tcph->seq), ntohl(newseq), ntohl(tcph->ack_seq),
+ 		 ntohl(newack));
+-
+-	tcph->seq = newseq;
+ 	tcph->ack_seq = newack;
  
- 	ih = skb_header_pointer(skb, iphoff, sizeof(_iph), &_iph);
- 	if (ih == NULL) {
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index 552fac2f390a..55aacea24396 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -190,7 +190,7 @@ static struct nf_loginfo trace_loginfo = {
- 	.u = {
- 		.log = {
- 			.level = LOGLEVEL_WARNING,
--			.logflags = NF_LOG_MASK,
-+			.logflags = NF_LOG_DEFAULT_MASK,
- 		},
- 	},
- };
-diff --git a/net/ipv6/netfilter/nf_log_ipv6.c b/net/ipv6/netfilter/nf_log_ipv6.c
-index c1bcf699a23d..f6aee2895fee 100644
---- a/net/ipv6/netfilter/nf_log_ipv6.c
-+++ b/net/ipv6/netfilter/nf_log_ipv6.c
-@@ -30,7 +30,7 @@ static struct nf_loginfo default_loginfo = {
- 	.u = {
- 		.log = {
- 			.level	  = LOGLEVEL_NOTICE,
--			.logflags = NF_LOG_MASK,
-+			.logflags = NF_LOG_DEFAULT_MASK,
- 		},
- 	},
- };
-@@ -52,7 +52,7 @@ static void dump_ipv6_packet(struct nf_log_buf *m,
- 	if (info->type == NF_LOG_TYPE_LOG)
- 		logflags = info->u.log.logflags;
- 	else
--		logflags = NF_LOG_MASK;
-+		logflags = NF_LOG_DEFAULT_MASK;
+ 	res = nf_ct_sack_adjust(skb, protoff, tcph, ct, ctinfo);
++out:
+ 	spin_unlock_bh(&ct->lock);
  
- 	ih = skb_header_pointer(skb, ip6hoff, sizeof(_ip6h), &_ip6h);
- 	if (ih == NULL) {
-diff --git a/net/netfilter/nf_tables_core.c b/net/netfilter/nf_tables_core.c
-index 7c94ce0080d5..0dd5c695482f 100644
---- a/net/netfilter/nf_tables_core.c
-+++ b/net/netfilter/nf_tables_core.c
-@@ -34,7 +34,7 @@ static struct nf_loginfo trace_loginfo = {
- 	.u = {
- 		.log = {
- 			.level = LOGLEVEL_WARNING,
--			.logflags = NF_LOG_MASK,
-+			.logflags = NF_LOG_DEFAULT_MASK,
- 	        },
- 	},
- };
-diff --git a/net/netfilter/nft_log.c b/net/netfilter/nft_log.c
-index 24a73bb26e94..1b01404bb33f 100644
---- a/net/netfilter/nft_log.c
-+++ b/net/netfilter/nft_log.c
-@@ -58,8 +58,11 @@ static int nft_log_init(const struct nft_ctx *ctx,
- 	if (tb[NFTA_LOG_LEVEL] != NULL &&
- 	    tb[NFTA_LOG_GROUP] != NULL)
- 		return -EINVAL;
--	if (tb[NFTA_LOG_GROUP] != NULL)
-+	if (tb[NFTA_LOG_GROUP] != NULL) {
- 		li->type = NF_LOG_TYPE_ULOG;
-+		if (tb[NFTA_LOG_FLAGS] != NULL)
-+			return -EINVAL;
-+	}
- 
- 	nla = tb[NFTA_LOG_PREFIX];
- 	if (nla != NULL) {
-@@ -87,6 +90,10 @@ static int nft_log_init(const struct nft_ctx *ctx,
- 		if (tb[NFTA_LOG_FLAGS] != NULL) {
- 			li->u.log.logflags =
- 				ntohl(nla_get_be32(tb[NFTA_LOG_FLAGS]));
-+			if (li->u.log.logflags & ~NF_LOG_MASK) {
-+				err = -EINVAL;
-+				goto err1;
-+			}
- 		}
- 		break;
- 	case NF_LOG_TYPE_ULOG:
+ 	return res;
 -- 
 2.1.4
