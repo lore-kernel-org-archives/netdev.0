@@ -1,86 +1,58 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH 1/3] Revert "net: ethernet: bcmgenet: use new api ethtool_{get|set}_link_ksettings"
-Date: Sun, 25 Sep 2016 17:36:32 +0200
-Message-ID: <1474817794-31791-2-git-send-email-tremyfr@gmail.com>
-References: <1474817794-31791-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: f.fainelli@gmail.com, jaedon.shin@gmail.com, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1474817794-31791-1-git-send-email-tremyfr@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH -next] be2net: fix non static symbol warnings
+Date: Sun, 25 Sep 2016 15:40:36 +0000
+Message-ID: <1474818036-18872-1-git-send-email-weiyj.lk@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org
+To: Sathya Perla <sathya.perla@broadcom.com>,
+        Ajit Khaparde <ajit.khaparde@broadcom.com>,
+        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>,
+        Somnath Kotur <somnath.kotur@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:34978 "EHLO
+        mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S938905AbcIYPkp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 25 Sep 2016 11:40:45 -0400
+Received: by mail-pa0-f68.google.com with SMTP id zl8so901140pac.2
+        for <netdev@vger.kernel.org>; Sun, 25 Sep 2016 08:40:45 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This reverts commit 6b352ebccbcf ("net: ethernet: broadcom: bcmgenet:
-use new api ethtool_{get|set}_link_ksettings").
+From: Wei Yongjun <weiyongjun1@huawei.com>
 
-We needs to revert the commit 62469c76007e ("net: ethernet: bcmgenet:
-use phydev from struct net_device"), because this commit add a
-regression. As the commit 6b352ebccbcf ("net: ethernet: broadcom:
-bcmgenet: use new api ethtool_{get|set}_link_ksettings") depend
-on the first one, we also need to revert it first.
+Fixes the following sparse warnings:
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+drivers/net/ethernet/emulex/benet/be_main.c:47:25: warning:
+ symbol 'be_err_recovery_workq' was not declared. Should it be static?
+drivers/net/ethernet/emulex/benet/be_main.c:63:25: warning:
+ symbol 'be_wq' was not declared. Should it be static?
+
+Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
 ---
- drivers/net/ethernet/broadcom/genet/bcmgenet.c |   16 ++++++++--------
- 1 files changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index 2013474..46f9043 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -450,8 +450,8 @@ static inline void bcmgenet_rdma_ring_writel(struct bcmgenet_priv *priv,
- 			genet_dma_ring_regs[r]);
- }
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 9a94840..0d1ae3d 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -44,7 +44,7 @@ MODULE_PARM_DESC(rx_frag_size, "Size of a fragment that holds rcvd data.");
+ /* Per-module error detection/recovery workq shared across all functions.
+  * Each function schedules its own work request on this shared workq.
+  */
+-struct workqueue_struct *be_err_recovery_workq;
++static struct workqueue_struct *be_err_recovery_workq;
  
--static int bcmgenet_get_link_ksettings(struct net_device *dev,
--				       struct ethtool_link_ksettings *cmd)
-+static int bcmgenet_get_settings(struct net_device *dev,
-+				 struct ethtool_cmd *cmd)
- {
- 	if (!netif_running(dev))
- 		return -EINVAL;
-@@ -459,11 +459,11 @@ static int bcmgenet_get_link_ksettings(struct net_device *dev,
- 	if (!dev->phydev)
- 		return -ENODEV;
+ static const struct pci_device_id be_dev_ids[] = {
+ 	{ PCI_DEVICE(BE_VENDOR_ID, BE_DEVICE_ID1) },
+@@ -60,7 +60,7 @@ static const struct pci_device_id be_dev_ids[] = {
+ MODULE_DEVICE_TABLE(pci, be_dev_ids);
  
--	return phy_ethtool_ksettings_get(dev->phydev, cmd);
-+	return phy_ethtool_gset(dev->phydev, cmd);
- }
+ /* Workqueue used by all functions for defering cmd calls to the adapter */
+-struct workqueue_struct *be_wq;
++static struct workqueue_struct *be_wq;
  
--static int bcmgenet_set_link_ksettings(struct net_device *dev,
--				       const struct ethtool_link_ksettings *cmd)
-+static int bcmgenet_set_settings(struct net_device *dev,
-+				 struct ethtool_cmd *cmd)
- {
- 	if (!netif_running(dev))
- 		return -EINVAL;
-@@ -471,7 +471,7 @@ static int bcmgenet_set_link_ksettings(struct net_device *dev,
- 	if (!dev->phydev)
- 		return -ENODEV;
- 
--	return phy_ethtool_ksettings_set(dev->phydev, cmd);
-+	return phy_ethtool_sset(dev->phydev, cmd);
- }
- 
- static int bcmgenet_set_rx_csum(struct net_device *dev,
-@@ -977,6 +977,8 @@ static const struct ethtool_ops bcmgenet_ethtool_ops = {
- 	.get_strings		= bcmgenet_get_strings,
- 	.get_sset_count		= bcmgenet_get_sset_count,
- 	.get_ethtool_stats	= bcmgenet_get_ethtool_stats,
-+	.get_settings		= bcmgenet_get_settings,
-+	.set_settings		= bcmgenet_set_settings,
- 	.get_drvinfo		= bcmgenet_get_drvinfo,
- 	.get_link		= ethtool_op_get_link,
- 	.get_msglevel		= bcmgenet_get_msglevel,
-@@ -988,8 +990,6 @@ static const struct ethtool_ops bcmgenet_ethtool_ops = {
- 	.nway_reset		= bcmgenet_nway_reset,
- 	.get_coalesce		= bcmgenet_get_coalesce,
- 	.set_coalesce		= bcmgenet_set_coalesce,
--	.get_link_ksettings	= bcmgenet_get_link_ksettings,
--	.set_link_ksettings	= bcmgenet_set_link_ksettings,
- };
- 
- /* Power down the unimac, based on mode. */
--- 
-1.7.4.4
+ /* UE Status Low CSR */
+ static const char * const ue_status_low_desc[] = {
