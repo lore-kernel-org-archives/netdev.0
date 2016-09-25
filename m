@@ -1,45 +1,55 @@
 From: Baoyou Xie <baoyou.xie@linaro.org>
-Subject: [PATCH] net: hip04: mark tx_done() static
-Date: Sun, 25 Sep 2016 17:19:04 +0800
-Message-ID: <1474795144-15983-1-git-send-email-baoyou.xie@linaro.org>
+Subject: [PATCH] net: mvneta: mark symbols static where possible
+Date: Sun, 25 Sep 2016 17:20:41 +0800
+Message-ID: <1474795241-23365-1-git-send-email-baoyou.xie@linaro.org>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         arnd@arndb.de, baoyou.xie@linaro.org, xie.baoyou@zte.com.cn,
         han.fei@zte.com.cn, tang.qiang007@zte.com.cn
-To: yisen.zhuang@huawei.com, salil.mehta@huawei.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:33616 "EHLO
-        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965729AbcIYJTU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 25 Sep 2016 05:19:20 -0400
-Received: by mail-pf0-f176.google.com with SMTP id 21so55610941pfy.0
-        for <netdev@vger.kernel.org>; Sun, 25 Sep 2016 02:19:19 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: thomas.petazzoni@free-electrons.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We get 1 warning when building kernel with W=1:
-drivers/net/ethernet/hisilicon/hip04_eth.c:603:22: warning: no previous prototype for 'tx_done' [-Wmissing-prototypes]
+We get 2 warnings when building kernel with W=1:
+drivers/net/ethernet/marvell/mvneta.c:639:27: warning: no previous prototype for 'mvneta_get_stats64' [-Wmissing-prototypes]
+drivers/net/ethernet/marvell/mvneta.c:3529:5: warning: no previous prototype for 'mvneta_ethtool_set_link_ksettings' [-Wmissing-prototypes]
 
-In fact, this function is only used in the file in which it is
+In fact, these two functions are only used in the file in which they are
 declared and don't need a declaration, but can be made static.
-so this patch marks this function with 'static'.
+so this patch marks these functions with 'static'.
 
 Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
 ---
- drivers/net/ethernet/hisilicon/hip04_eth.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/marvell/mvneta.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hip04_eth.c b/drivers/net/ethernet/hisilicon/hip04_eth.c
-index 415ffa1..3977889 100644
---- a/drivers/net/ethernet/hisilicon/hip04_eth.c
-+++ b/drivers/net/ethernet/hisilicon/hip04_eth.c
-@@ -600,7 +600,7 @@ static irqreturn_t hip04_mac_interrupt(int irq, void *dev_id)
- 	return IRQ_HANDLED;
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 32f0cc4..5cb07c2 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -636,8 +636,9 @@ static void mvneta_mib_counters_clear(struct mvneta_port *pp)
  }
  
--enum hrtimer_restart tx_done(struct hrtimer *hrtimer)
-+static enum hrtimer_restart tx_done(struct hrtimer *hrtimer)
+ /* Get System Network Statistics */
+-struct rtnl_link_stats64 *mvneta_get_stats64(struct net_device *dev,
+-					     struct rtnl_link_stats64 *stats)
++static struct rtnl_link_stats64 *
++mvneta_get_stats64(struct net_device *dev,
++		   struct rtnl_link_stats64 *stats)
  {
- 	struct hip04_priv *priv;
+ 	struct mvneta_port *pp = netdev_priv(dev);
+ 	unsigned int start;
+@@ -3526,8 +3527,9 @@ static int mvneta_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ /* Ethtool methods */
  
+ /* Set link ksettings (phy address, speed) for ethtools */
+-int mvneta_ethtool_set_link_ksettings(struct net_device *ndev,
+-				      const struct ethtool_link_ksettings *cmd)
++static int
++mvneta_ethtool_set_link_ksettings(struct net_device *ndev,
++				  const struct ethtool_link_ksettings *cmd)
+ {
+ 	struct mvneta_port *pp = netdev_priv(ndev);
+ 	struct phy_device *phydev = ndev->phydev;
 -- 
 2.7.4
