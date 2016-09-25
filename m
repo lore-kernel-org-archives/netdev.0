@@ -1,173 +1,243 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 07/53] netfilter: nft_numgen: rename until attribute by modulus
-Date: Mon, 26 Sep 2016 01:06:17 +0200
-Message-ID: <1474844823-2026-8-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 17/53] netfilter: introduce nft_set_pktinfo_{ipv4, ipv6}_validate()
+Date: Mon, 26 Sep 2016 01:06:27 +0200
+Message-ID: <1474844823-2026-18-git-send-email-pablo@netfilter.org>
 References: <1474844823-2026-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:54532 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S941183AbcIYXH1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 25 Sep 2016 19:07:27 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id CBED7C0B40
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:07:25 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id BB449DA842
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:07:25 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 9D1ECDA818
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:07:23 +0200 (CEST)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1474844823-2026-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Laura Garcia Liebana <nevola@gmail.com>
+These functions are extracted from the netdev family, they initialize
+the pktinfo structure and validate that the IPv4 and IPv6 headers are
+well-formed given that these functions are called from a path where
+layer 3 sanitization did not happen yet.
 
-The _until_ attribute is renamed to _modulus_ as the behaviour is similar to
-other expresions with number limits (ex. nft_hash).
+These functions are placed in include/net/netfilter/nf_tables_ipv{4,6}.h
+so they can be reused by a follow up patch to use them from the bridge
+family too.
 
-Renaming is possible because there isn't a kernel release yet with these
-changes.
-
-Signed-off-by: Laura Garcia Liebana <nevola@gmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/uapi/linux/netfilter/nf_tables.h |  4 ++--
- net/netfilter/nft_numgen.c               | 30 +++++++++++++++---------------
- 2 files changed, 17 insertions(+), 17 deletions(-)
+ include/net/netfilter/nf_tables_ipv4.h | 42 ++++++++++++++++++
+ include/net/netfilter/nf_tables_ipv6.h | 49 +++++++++++++++++++++
+ net/netfilter/nf_tables_netdev.c       | 79 +---------------------------------
+ 3 files changed, 93 insertions(+), 77 deletions(-)
 
-diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
-index 28ce01d79707..24161e25576d 100644
---- a/include/uapi/linux/netfilter/nf_tables.h
-+++ b/include/uapi/linux/netfilter/nf_tables.h
-@@ -1126,13 +1126,13 @@ enum nft_trace_types {
-  * enum nft_ng_attributes - nf_tables number generator expression netlink attributes
-  *
-  * @NFTA_NG_DREG: destination register (NLA_U32)
-- * @NFTA_NG_UNTIL: source value to increment the counter until reset (NLA_U32)
-+ * @NFTA_NG_MODULUS: maximum counter value (NLA_U32)
-  * @NFTA_NG_TYPE: operation type (NLA_U32)
-  */
- enum nft_ng_attributes {
- 	NFTA_NG_UNSPEC,
- 	NFTA_NG_DREG,
--	NFTA_NG_UNTIL,
-+	NFTA_NG_MODULUS,
- 	NFTA_NG_TYPE,
- 	__NFTA_NG_MAX
- };
-diff --git a/net/netfilter/nft_numgen.c b/net/netfilter/nft_numgen.c
-index 294745ecb0fc..f51a3ede3932 100644
---- a/net/netfilter/nft_numgen.c
-+++ b/net/netfilter/nft_numgen.c
-@@ -21,7 +21,7 @@ static DEFINE_PER_CPU(struct rnd_state, nft_numgen_prandom_state);
- 
- struct nft_ng_inc {
- 	enum nft_registers      dreg:8;
--	u32			until;
-+	u32			modulus;
- 	atomic_t		counter;
- };
- 
-@@ -34,7 +34,7 @@ static void nft_ng_inc_eval(const struct nft_expr *expr,
- 
- 	do {
- 		oval = atomic_read(&priv->counter);
--		nval = (oval + 1 < priv->until) ? oval + 1 : 0;
-+		nval = (oval + 1 < priv->modulus) ? oval + 1 : 0;
- 	} while (atomic_cmpxchg(&priv->counter, oval, nval) != oval);
- 
- 	memcpy(&regs->data[priv->dreg], &priv->counter, sizeof(u32));
-@@ -42,7 +42,7 @@ static void nft_ng_inc_eval(const struct nft_expr *expr,
- 
- static const struct nla_policy nft_ng_policy[NFTA_NG_MAX + 1] = {
- 	[NFTA_NG_DREG]		= { .type = NLA_U32 },
--	[NFTA_NG_UNTIL]		= { .type = NLA_U32 },
-+	[NFTA_NG_MODULUS]	= { .type = NLA_U32 },
- 	[NFTA_NG_TYPE]		= { .type = NLA_U32 },
- };
- 
-@@ -52,8 +52,8 @@ static int nft_ng_inc_init(const struct nft_ctx *ctx,
- {
- 	struct nft_ng_inc *priv = nft_expr_priv(expr);
- 
--	priv->until = ntohl(nla_get_be32(tb[NFTA_NG_UNTIL]));
--	if (priv->until == 0)
-+	priv->modulus = ntohl(nla_get_be32(tb[NFTA_NG_MODULUS]));
-+	if (priv->modulus == 0)
- 		return -ERANGE;
- 
- 	priv->dreg = nft_parse_register(tb[NFTA_NG_DREG]);
-@@ -64,11 +64,11 @@ static int nft_ng_inc_init(const struct nft_ctx *ctx,
+diff --git a/include/net/netfilter/nf_tables_ipv4.h b/include/net/netfilter/nf_tables_ipv4.h
+index af952f7843ee..968f00b82fb5 100644
+--- a/include/net/netfilter/nf_tables_ipv4.h
++++ b/include/net/netfilter/nf_tables_ipv4.h
+@@ -20,6 +20,48 @@ nft_set_pktinfo_ipv4(struct nft_pktinfo *pkt,
+ 	pkt->xt.fragoff = ntohs(ip->frag_off) & IP_OFFSET;
  }
  
- static int nft_ng_dump(struct sk_buff *skb, enum nft_registers dreg,
--		       u32 until, enum nft_ng_types type)
-+		       u32 modulus, enum nft_ng_types type)
- {
- 	if (nft_dump_register(skb, NFTA_NG_DREG, dreg))
- 		goto nla_put_failure;
--	if (nla_put_be32(skb, NFTA_NG_UNTIL, htonl(until)))
-+	if (nla_put_be32(skb, NFTA_NG_MODULUS, htonl(modulus)))
- 		goto nla_put_failure;
- 	if (nla_put_be32(skb, NFTA_NG_TYPE, htonl(type)))
- 		goto nla_put_failure;
-@@ -83,12 +83,12 @@ static int nft_ng_inc_dump(struct sk_buff *skb, const struct nft_expr *expr)
- {
- 	const struct nft_ng_inc *priv = nft_expr_priv(expr);
++static inline int
++__nft_set_pktinfo_ipv4_validate(struct nft_pktinfo *pkt,
++				struct sk_buff *skb,
++				const struct nf_hook_state *state)
++{
++	struct iphdr *iph, _iph;
++	u32 len, thoff;
++
++	iph = skb_header_pointer(skb, skb_network_offset(skb), sizeof(*iph),
++				 &_iph);
++	if (!iph)
++		return -1;
++
++	iph = ip_hdr(skb);
++	if (iph->ihl < 5 || iph->version != 4)
++		return -1;
++
++	len = ntohs(iph->tot_len);
++	thoff = iph->ihl * 4;
++	if (skb->len < len)
++		return -1;
++	else if (len < thoff)
++		return -1;
++
++	pkt->tprot_set = true;
++	pkt->tprot = iph->protocol;
++	pkt->xt.thoff = thoff;
++	pkt->xt.fragoff = ntohs(iph->frag_off) & IP_OFFSET;
++
++	return 0;
++}
++
++static inline void
++nft_set_pktinfo_ipv4_validate(struct nft_pktinfo *pkt,
++			      struct sk_buff *skb,
++			      const struct nf_hook_state *state)
++{
++	nft_set_pktinfo(pkt, skb, state);
++	if (__nft_set_pktinfo_ipv4_validate(pkt, skb, state) < 0)
++		nft_set_pktinfo_proto_unspec(pkt, skb);
++}
++
+ extern struct nft_af_info nft_af_ipv4;
  
--	return nft_ng_dump(skb, priv->dreg, priv->until, NFT_NG_INCREMENTAL);
-+	return nft_ng_dump(skb, priv->dreg, priv->modulus, NFT_NG_INCREMENTAL);
+ #endif
+diff --git a/include/net/netfilter/nf_tables_ipv6.h b/include/net/netfilter/nf_tables_ipv6.h
+index 1e0ffd5aea47..39b7b717b540 100644
+--- a/include/net/netfilter/nf_tables_ipv6.h
++++ b/include/net/netfilter/nf_tables_ipv6.h
+@@ -28,6 +28,55 @@ nft_set_pktinfo_ipv6(struct nft_pktinfo *pkt,
+ 	return 0;
  }
  
- struct nft_ng_random {
- 	enum nft_registers      dreg:8;
--	u32			until;
-+	u32			modulus;
- };
++static inline int
++__nft_set_pktinfo_ipv6_validate(struct nft_pktinfo *pkt,
++				struct sk_buff *skb,
++				const struct nf_hook_state *state)
++{
++#if IS_ENABLED(CONFIG_IPV6)
++	struct ipv6hdr *ip6h, _ip6h;
++	unsigned int thoff = 0;
++	unsigned short frag_off;
++	int protohdr;
++	u32 pkt_len;
++
++	ip6h = skb_header_pointer(skb, skb_network_offset(skb), sizeof(*ip6h),
++				  &_ip6h);
++	if (!ip6h)
++		return -1;
++
++	if (ip6h->version != 6)
++		return -1;
++
++	pkt_len = ntohs(ip6h->payload_len);
++	if (pkt_len + sizeof(*ip6h) > skb->len)
++		return -1;
++
++	protohdr = ipv6_find_hdr(pkt->skb, &thoff, -1, &frag_off, NULL);
++	if (protohdr < 0)
++		return -1;
++
++	pkt->tprot_set = true;
++	pkt->tprot = protohdr;
++	pkt->xt.thoff = thoff;
++	pkt->xt.fragoff = frag_off;
++
++	return 0;
++#else
++	return -1;
++#endif
++}
++
++static inline void
++nft_set_pktinfo_ipv6_validate(struct nft_pktinfo *pkt,
++			      struct sk_buff *skb,
++			      const struct nf_hook_state *state)
++{
++	nft_set_pktinfo(pkt, skb, state);
++	if (__nft_set_pktinfo_ipv6_validate(pkt, skb, state) < 0)
++		nft_set_pktinfo_proto_unspec(pkt, skb);
++}
++
+ extern struct nft_af_info nft_af_ipv6;
  
- static void nft_ng_random_eval(const struct nft_expr *expr,
-@@ -99,7 +99,7 @@ static void nft_ng_random_eval(const struct nft_expr *expr,
- 	struct rnd_state *state = this_cpu_ptr(&nft_numgen_prandom_state);
+ #endif
+diff --git a/net/netfilter/nf_tables_netdev.c b/net/netfilter/nf_tables_netdev.c
+index 8de502b0c37b..3e5475a833a5 100644
+--- a/net/netfilter/nf_tables_netdev.c
++++ b/net/netfilter/nf_tables_netdev.c
+@@ -15,81 +15,6 @@
+ #include <net/netfilter/nf_tables_ipv4.h>
+ #include <net/netfilter/nf_tables_ipv6.h>
  
- 	regs->data[priv->dreg] = reciprocal_scale(prandom_u32_state(state),
--						  priv->until);
-+						  priv->modulus);
- }
+-static inline void
+-nft_netdev_set_pktinfo_ipv4(struct nft_pktinfo *pkt,
+-			    struct sk_buff *skb,
+-			    const struct nf_hook_state *state)
+-{
+-	struct iphdr *iph, _iph;
+-	u32 len, thoff;
+-
+-	nft_set_pktinfo(pkt, skb, state);
+-
+-	iph = skb_header_pointer(skb, skb_network_offset(skb), sizeof(*iph),
+-				 &_iph);
+-	if (!iph)
+-		return;
+-
+-	iph = ip_hdr(skb);
+-	if (iph->ihl < 5 || iph->version != 4)
+-		return;
+-
+-	len = ntohs(iph->tot_len);
+-	thoff = iph->ihl * 4;
+-	if (skb->len < len)
+-		return;
+-	else if (len < thoff)
+-		return;
+-
+-	pkt->tprot_set = true;
+-	pkt->tprot = iph->protocol;
+-	pkt->xt.thoff = thoff;
+-	pkt->xt.fragoff = ntohs(iph->frag_off) & IP_OFFSET;
+-}
+-
+-static inline void
+-__nft_netdev_set_pktinfo_ipv6(struct nft_pktinfo *pkt,
+-			      struct sk_buff *skb,
+-			      const struct nf_hook_state *state)
+-{
+-#if IS_ENABLED(CONFIG_IPV6)
+-	struct ipv6hdr *ip6h, _ip6h;
+-	unsigned int thoff = 0;
+-	unsigned short frag_off;
+-	int protohdr;
+-	u32 pkt_len;
+-
+-	ip6h = skb_header_pointer(skb, skb_network_offset(skb), sizeof(*ip6h),
+-				  &_ip6h);
+-	if (!ip6h)
+-		return;
+-
+-	if (ip6h->version != 6)
+-		return;
+-
+-	pkt_len = ntohs(ip6h->payload_len);
+-	if (pkt_len + sizeof(*ip6h) > skb->len)
+-		return;
+-
+-	protohdr = ipv6_find_hdr(pkt->skb, &thoff, -1, &frag_off, NULL);
+-	if (protohdr < 0)
+-                return;
+-
+-	pkt->tprot_set = true;
+-	pkt->tprot = protohdr;
+-	pkt->xt.thoff = thoff;
+-	pkt->xt.fragoff = frag_off;
+-#endif
+-}
+-
+-static inline void nft_netdev_set_pktinfo_ipv6(struct nft_pktinfo *pkt,
+-					       struct sk_buff *skb,
+-					       const struct nf_hook_state *state)
+-{
+-	nft_set_pktinfo(pkt, skb, state);
+-	__nft_netdev_set_pktinfo_ipv6(pkt, skb, state);
+-}
+-
+ static unsigned int
+ nft_do_chain_netdev(void *priv, struct sk_buff *skb,
+ 		    const struct nf_hook_state *state)
+@@ -98,10 +23,10 @@ nft_do_chain_netdev(void *priv, struct sk_buff *skb,
  
- static int nft_ng_random_init(const struct nft_ctx *ctx,
-@@ -108,8 +108,8 @@ static int nft_ng_random_init(const struct nft_ctx *ctx,
- {
- 	struct nft_ng_random *priv = nft_expr_priv(expr);
- 
--	priv->until = ntohl(nla_get_be32(tb[NFTA_NG_UNTIL]));
--	if (priv->until == 0)
-+	priv->modulus = ntohl(nla_get_be32(tb[NFTA_NG_MODULUS]));
-+	if (priv->modulus == 0)
- 		return -ERANGE;
- 
- 	prandom_init_once(&nft_numgen_prandom_state);
-@@ -124,7 +124,7 @@ static int nft_ng_random_dump(struct sk_buff *skb, const struct nft_expr *expr)
- {
- 	const struct nft_ng_random *priv = nft_expr_priv(expr);
- 
--	return nft_ng_dump(skb, priv->dreg, priv->until, NFT_NG_RANDOM);
-+	return nft_ng_dump(skb, priv->dreg, priv->modulus, NFT_NG_RANDOM);
- }
- 
- static struct nft_expr_type nft_ng_type;
-@@ -149,8 +149,8 @@ nft_ng_select_ops(const struct nft_ctx *ctx, const struct nlattr * const tb[])
- {
- 	u32 type;
- 
--	if (!tb[NFTA_NG_DREG]	||
--	    !tb[NFTA_NG_UNTIL]	||
-+	if (!tb[NFTA_NG_DREG]	 ||
-+	    !tb[NFTA_NG_MODULUS] ||
- 	    !tb[NFTA_NG_TYPE])
- 		return ERR_PTR(-EINVAL);
- 
+ 	switch (skb->protocol) {
+ 	case htons(ETH_P_IP):
+-		nft_netdev_set_pktinfo_ipv4(&pkt, skb, state);
++		nft_set_pktinfo_ipv4_validate(&pkt, skb, state);
+ 		break;
+ 	case htons(ETH_P_IPV6):
+-		nft_netdev_set_pktinfo_ipv6(&pkt, skb, state);
++		nft_set_pktinfo_ipv6_validate(&pkt, skb, state);
+ 		break;
+ 	default:
+ 		nft_set_pktinfo_unspec(&pkt, skb, state);
 -- 
 2.1.4
+
