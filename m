@@ -1,15 +1,15 @@
 From: Michael Braun <michael-dev@fami-braun.de>
-Subject: [PATCH v2] iproute2: macvlan: add "source" mode
-Date: Sun, 25 Sep 2016 21:07:06 +0200
-Message-ID: <1474830426-3942-1-git-send-email-michael-dev@fami-braun.de>
+Subject: [PATCH v3] iproute2: macvlan: add "source" mode
+Date: Sun, 25 Sep 2016 21:08:55 +0200
+Message-ID: <1474830535-12689-1-git-send-email-michael-dev@fami-braun.de>
 Cc: Michael Braun <michael-dev@fami-braun.de>,
         projekt-wlan@fem.tu-ilmenau.de, steweg@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.fem.tu-ilmenau.de ([141.24.220.54]:58595 "EHLO
+Received: from mail.fem.tu-ilmenau.de ([141.24.220.54]:58654 "EHLO
         mail.fem.tu-ilmenau.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756330AbcIYTHP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 25 Sep 2016 15:07:15 -0400
+        with ESMTP id S1758749AbcIYTI7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 25 Sep 2016 15:08:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -28,6 +28,8 @@ Based on previous work of Stefan Gula <steweg@gmail.com>
 Signed-off-by: Michael Braun <michael-dev@fami-braun.de>
 
 Cc: steweg@gmail.com
+--
+v3: fix coding style, sorry for the noise
 ---
  include/linux/if_link.h |   2 +
  ip/iplink_macvlan.c     | 103 ++++++++++++++++++++++++++++++++++++++++++++++--
@@ -48,7 +50,7 @@ index 1feb708..ec5e64e 100644
  /* VRF section */
  enum {
 diff --git a/ip/iplink_macvlan.c b/ip/iplink_macvlan.c
-index 53cd4f4..83a0522 100644
+index 53cd4f4..d0f2f3d 100644
 --- a/ip/iplink_macvlan.c
 +++ b/ip/iplink_macvlan.c
 @@ -15,6 +15,7 @@
@@ -162,7 +164,7 @@ index 53cd4f4..83a0522 100644
  	__u32 mode;
  	__u16 flags;
 +	__u32 count;
-+        unsigned char *addr;
++	unsigned char *addr;
 +	int len;
 +	struct rtattr *rta;
  
@@ -198,7 +200,7 @@ index 53cd4f4..83a0522 100644
 +	if (!tb[IFLA_MACVLAN_MACADDR_COUNT] ||
 +	    RTA_PAYLOAD(tb[IFLA_MACVLAN_MACADDR_COUNT]) < sizeof(__u32))
 +		return;
-+	
++
 +	count = rta_getattr_u32(tb[IFLA_MACVLAN_MACADDR_COUNT]);
 +	fprintf(f, " remotes (%d)", count);
 +
@@ -208,7 +210,7 @@ index 53cd4f4..83a0522 100644
 +	rta = RTA_DATA(tb[IFLA_MACVLAN_MACADDR_DATA]);
 +	len = RTA_PAYLOAD(tb[IFLA_MACVLAN_MACADDR_DATA]);
 +
-+	for (; RTA_OK(rta, len); rta = RTA_NEXT(rta,len)) {
++	for (; RTA_OK(rta, len); rta = RTA_NEXT(rta, len)) {
 +		if (rta->rta_type != IFLA_MACVLAN_MACADDR ||
 +		    RTA_PAYLOAD(rta) < 6)
 +			continue;
