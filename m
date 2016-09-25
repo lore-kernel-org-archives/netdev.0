@@ -1,55 +1,39 @@
 From: Baoyou Xie <baoyou.xie@linaro.org>
-Subject: [PATCH] net: mvneta: mark symbols static where possible
-Date: Sun, 25 Sep 2016 17:20:41 +0800
-Message-ID: <1474795241-23365-1-git-send-email-baoyou.xie@linaro.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        arnd@arndb.de, baoyou.xie@linaro.org, xie.baoyou@zte.com.cn,
-        han.fei@zte.com.cn, tang.qiang007@zte.com.cn
-To: thomas.petazzoni@free-electrons.com
+Subject: [PATCH] rtl8xxxu: mark rtl8192eu_power_off() static
+Date: Sun, 25 Sep 2016 17:22:23 +0800
+Message-ID: <1474795343-25808-1-git-send-email-baoyou.xie@linaro.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, arnd@arndb.de, baoyou.xie@linaro.org,
+        xie.baoyou@zte.com.cn, han.fei@zte.com.cn, tang.qiang007@zte.com.cn
+To: Jes.Sorensen@redhat.com, kvalo@codeaurora.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We get 2 warnings when building kernel with W=1:
-drivers/net/ethernet/marvell/mvneta.c:639:27: warning: no previous prototype for 'mvneta_get_stats64' [-Wmissing-prototypes]
-drivers/net/ethernet/marvell/mvneta.c:3529:5: warning: no previous prototype for 'mvneta_ethtool_set_link_ksettings' [-Wmissing-prototypes]
+We get 1 warning when building kernel with W=1:
+drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c:1557:6: warning: no previous prototype for 'rtl8192eu_power_off' [-Wmissing-prototypes]
 
-In fact, these two functions are only used in the file in which they are
+In fact, this function is only used in the file in which it is
 declared and don't need a declaration, but can be made static.
-so this patch marks these functions with 'static'.
+so this patch marks this function with 'static'.
 
 Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
 ---
- drivers/net/ethernet/marvell/mvneta.c | 10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
+ drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 32f0cc4..5cb07c2 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -636,8 +636,9 @@ static void mvneta_mib_counters_clear(struct mvneta_port *pp)
+diff --git a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c
+index df54d27..7b5128a 100644
+--- a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c
++++ b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c
+@@ -1554,7 +1554,7 @@ static int rtl8192eu_power_on(struct rtl8xxxu_priv *priv)
+ 	return ret;
  }
  
- /* Get System Network Statistics */
--struct rtnl_link_stats64 *mvneta_get_stats64(struct net_device *dev,
--					     struct rtnl_link_stats64 *stats)
-+static struct rtnl_link_stats64 *
-+mvneta_get_stats64(struct net_device *dev,
-+		   struct rtnl_link_stats64 *stats)
+-void rtl8192eu_power_off(struct rtl8xxxu_priv *priv)
++static void rtl8192eu_power_off(struct rtl8xxxu_priv *priv)
  {
- 	struct mvneta_port *pp = netdev_priv(dev);
- 	unsigned int start;
-@@ -3526,8 +3527,9 @@ static int mvneta_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- /* Ethtool methods */
- 
- /* Set link ksettings (phy address, speed) for ethtools */
--int mvneta_ethtool_set_link_ksettings(struct net_device *ndev,
--				      const struct ethtool_link_ksettings *cmd)
-+static int
-+mvneta_ethtool_set_link_ksettings(struct net_device *ndev,
-+				  const struct ethtool_link_ksettings *cmd)
- {
- 	struct mvneta_port *pp = netdev_priv(ndev);
- 	struct phy_device *phydev = ndev->phydev;
+ 	u8 val8;
+ 	u16 val16;
 -- 
 2.7.4
