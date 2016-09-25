@@ -1,66 +1,40 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next] net/sched: pkt_cls: change tc actions order to
- be as the user sets
-Date: Sun, 25 Sep 2016 10:39:03 -0400
-Message-ID: <19723e0f-50b0-77fa-2884-c5bb6e182df9@mojatatu.com>
-References: <1474812524-29089-1-git-send-email-hadarh@mellanox.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next] Revert "net: ethernet: bcmgenet: use phydev from
+ struct net_device"
+Date: Sun, 25 Sep 2016 08:30:34 -0700
+Message-ID: <369f299b-46ab-7d5e-14b4-8044649b41ed@gmail.com>
+References: <1474772772-5544-1-git-send-email-f.fainelli@gmail.com>
+ <20160925.053531.2196576594458792866.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Cong Wang <xiyou.wangcong@gmail.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>
-To: Hadar Hen Zion <hadarh@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, tremyfr@gmail.com, jaedon.shin@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f179.google.com ([209.85.223.179]:34112 "EHLO
-        mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1034180AbcIYOjG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 25 Sep 2016 10:39:06 -0400
-Received: by mail-io0-f179.google.com with SMTP id e66so70413468iod.1
-        for <netdev@vger.kernel.org>; Sun, 25 Sep 2016 07:39:06 -0700 (PDT)
-In-Reply-To: <1474812524-29089-1-git-send-email-hadarh@mellanox.com>
+Received: from mail-oi0-f65.google.com ([209.85.218.65]:33485 "EHLO
+        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S938905AbcIYPdA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 25 Sep 2016 11:33:00 -0400
+Received: by mail-oi0-f65.google.com with SMTP id w11so12085011oia.0
+        for <netdev@vger.kernel.org>; Sun, 25 Sep 2016 08:33:00 -0700 (PDT)
+In-Reply-To: <20160925.053531.2196576594458792866.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-09-25 10:08 AM, Hadar Hen Zion wrote:
-> Currently the created tc actions list is reversed against the order
-> set by the user.
-> Change the actions list order to be the same as was set by the user.
->
+Le 25/09/2016 à 02:35, David Miller a écrit :
+> From: Florian Fainelli <f.fainelli@gmail.com>
+> Date: Sat, 24 Sep 2016 20:06:12 -0700
+> 
+>> This reverts commit 62469c76007e ("net: ethernet: bcmgenet: use phydev
+>> from struct net_device") because it causes GENETv1/2/3 adapters to
+>> expose the following behavior after an ifconfig down/up sequence:
+> 
+> This breaks the conversion of this driver to ethtool ksettings.
 
+I must be missing something here, the proposed patch passes priv->phydev
+to the ethtool ksettings helpers, is there something else that needs to
+be taken care of?
 
-Did something break? It seems to matter most for dumping. But even that
-didnt breaking. Looking at the latest net tree, i tried:
-
-====
-sudo $TC filter add dev $ETH parent 1: protocol ip prio 10 u32 \
-match ip protocol 1 0xff flowid 1:2 \
-action skbedit prio 33 \
-action ife encode type 0xDEAD \
-use mark 12 allow prio dst 02:15:15:15:15:15
-
-Then I dump:
-=====
-jhs@jhs-foobar:~$ sudo $TC -s filter ls dev $ETH parent 1: protocol ip
-filter pref 10 u32
-filter pref 10 u32 fh 800: ht divisor 1
-filter pref 10 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid 1:2 
-(rule hit 12 success 2)
-   match 00010000/00ff0000 at 8 (success 2 )
-	action order 1:  skbedit priority :33
-	 index 2 ref 1 bind 1 installed 604 sec used first 589 sec last 583 sec
-  	Action statistics:
-	Sent 196 bytes 2 pkt (dropped 0, overlimits 0 requeues 0)
-	backlog 0b 0p requeues 0
-
-	action order 2: ife encode action pipe type 0xDEAD
-	 use mark 12 allow prio dst 02:15:15:15:15:15
-	 index 2 ref 1 bind 1 installed 604 sec used first 589 sec last 583 sec
-	Action statistics:
-	Sent 196 bytes 2 pkt (dropped 0, overlimits 0 requeues 0)
-	backlog 0b 0p requeues 0
-
------
-
-cheers,
-jamal
+Sorry for being slow to understand here...
+-- 
+Florian
