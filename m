@@ -1,48 +1,46 @@
 From: Baoyou Xie <baoyou.xie@linaro.org>
-Subject: [PATCH] ixgbe: mark symbols static where possible
-Date: Sun, 25 Sep 2016 14:03:58 +0800
-Message-ID: <1474783438-7278-1-git-send-email-baoyou.xie@linaro.org>
+Subject: [PATCH] igb: mark igb_rxnfc_write_vlan_prio_filter() static
+Date: Sun, 25 Sep 2016 14:05:58 +0800
+Message-ID: <1474783558-7384-1-git-send-email-baoyou.xie@linaro.org>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         arnd@arndb.de, baoyou.xie@linaro.org, xie.baoyou@zte.com.cn
 To: jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:34075 "EHLO
+        mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934317AbcIYGGJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 25 Sep 2016 02:06:09 -0400
+Received: by mail-pa0-f49.google.com with SMTP id zl8so2208704pac.1
+        for <netdev@vger.kernel.org>; Sat, 24 Sep 2016 23:06:09 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We get 2 warnings when building kernel with W=1:
-drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c:2128:5: warning: no previous prototype for 'ixgbe_led_on_t_x550em' [-Wmissing-prototypes]
-drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c:2150:5: warning: no previous prototype for 'ixgbe_led_off_t_x550em' [-Wmissing-prototypes]
+We get 1 warning when building kernel with W=1:
+drivers/net/ethernet/intel/igb/igb_ethtool.c:2707:5: warning: no previous prototype for 'igb_rxnfc_write_vlan_prio_filter' [-Wmissing-prototypes]
 
-In fact, these two functions are only used in the file in which they are
+In fact, this function is only used in the file in which it is
 declared and don't need a declaration, but can be made static.
-so this patch marks these functions with 'static'.
+so this patch marks this function with 'static'.
 
 Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 4 ++--
+ drivers/net/ethernet/intel/igb/igb_ethtool.c | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index e092a89..dec8b11 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -2125,7 +2125,7 @@ static s32 ixgbe_reset_phy_t_X550em(struct ixgbe_hw *hw)
-  *  @hw: pointer to hardware structure
-  *  @led_idx: led number to turn on
-  **/
--s32 ixgbe_led_on_t_x550em(struct ixgbe_hw *hw, u32 led_idx)
-+static s32 ixgbe_led_on_t_x550em(struct ixgbe_hw *hw, u32 led_idx)
- {
- 	u16 phy_data;
+diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+index 0c33eca..737b664 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
++++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+@@ -2704,8 +2704,8 @@ static int igb_rxnfc_write_etype_filter(struct igb_adapter *adapter,
+ 	return 0;
+ }
  
-@@ -2147,7 +2147,7 @@ s32 ixgbe_led_on_t_x550em(struct ixgbe_hw *hw, u32 led_idx)
-  *  @hw: pointer to hardware structure
-  *  @led_idx: led number to turn off
-  **/
--s32 ixgbe_led_off_t_x550em(struct ixgbe_hw *hw, u32 led_idx)
-+static s32 ixgbe_led_off_t_x550em(struct ixgbe_hw *hw, u32 led_idx)
+-int igb_rxnfc_write_vlan_prio_filter(struct igb_adapter *adapter,
+-				     struct igb_nfc_filter *input)
++static int igb_rxnfc_write_vlan_prio_filter(struct igb_adapter *adapter,
++					    struct igb_nfc_filter *input)
  {
- 	u16 phy_data;
- 
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	u8 vlan_priority;
 -- 
 2.7.4
