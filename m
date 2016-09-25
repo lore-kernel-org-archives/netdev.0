@@ -1,164 +1,113 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/15] i40e: cleanup ATR auto_disable_flags use
-Date: Sat, 24 Sep 2016 23:42:38 -0700
-Message-ID: <1474785769-54665-5-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1474785769-54665-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+From: "Neftin, Sasha" <sasha.neftin@intel.com>
+Subject: Re: [net-next 5/5] PCI: disable FLR for 82579 device
+Date: Sun, 25 Sep 2016 10:02:43 +0300
+Message-ID: <176f2366-e225-75fb-8cad-909a8f7e808c@intel.com>
+References: <1474612741-75681-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1474612741-75681-6-git-send-email-jeffrey.t.kirsher@intel.com>
+ <20160923140136.GC1514@localhost> <1474664726.2389.7.camel@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, bhelgaas@google.com, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        guru.anbalagane@oracle.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([134.134.136.100]:8819 "EHLO mga07.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752727AbcIYGmx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 25 Sep 2016 02:42:53 -0400
-In-Reply-To: <1474785769-54665-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        guru.anbalagane@oracle.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Bjorn Helgaas <helgaas@kernel.org>, linux-pci@vger.kernel.org
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1474664726.2389.7.camel@intel.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+On 9/24/2016 12:05 AM, Jeff Kirsher wrote:
+> On Fri, 2016-09-23 at 09:01 -0500, Bjorn Helgaas wrote:
+>> On Thu, Sep 22, 2016 at 11:39:01PM -0700, Jeff Kirsher wrote:
+>>> From: Sasha Neftin <sasha.neftin@intel.com>
+>>>
+>>> 82579 has a problem reattaching itself after the device is detached.
+>>> The bug was reported by Redhat. The suggested fix is to disable
+>>> FLR capability in PCIe configuration space.
+>>>
+>>> Reproduction:
+>>> Attach the device to a VM, then detach and try to attach again.
+>>>
+>>> Fix:
+>>> Disable FLR capability to prevent the 82579 from hanging.
+>> Is there a bugzilla or other reference URL to include here?  Should
+>> this be marked for stable?
+> So the author is in Israel, meaning it is their weekend now.  I do not
+> believe Sasha monitors email over the weekend, so a response to your
+> questions won't happen for a few days.
+>
+> I tried searching my archives for more information, but had no luck finding
+> any additional information.
+>
+>>> Signed-off-by: Sasha Neftin <sasha.neftin@intel.com>
+>>> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+>>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>>> ---
+>>>   drivers/pci/quirks.c | 21 +++++++++++++++++++++
+>>>   1 file changed, 21 insertions(+)
+>>>
+>>> diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+>>> index 44e0ff3..59fba6e 100644
+>>> --- a/drivers/pci/quirks.c
+>>> +++ b/drivers/pci/quirks.c
+>>> @@ -4431,3 +4431,24 @@ static void quirk_intel_qat_vf_cap(struct
+>>> pci_dev *pdev)
+>>>   	}
+>>>   }
+>>>   DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x443,
+>>> quirk_intel_qat_vf_cap);
+>>> +/*
+>>> + * Workaround FLR issues for 82579
+>>> + * This code disables the FLR (Function Level Reset) via PCIe, in
+>>> order
+>>> + * to workaround a bug found while using device passthrough, where the
+>>> + * interface would become non-responsive.
+>>> + * NOTE: the FLR bit is Read/Write Once (RWO) in config space, so if
+>>> + * the BIOS or kernel writes this register * then this workaround will
+>>> + * not work.
+>> This doesn't sound like a root cause.  Is the issue a hardware
+>> erratum?  Linux PCI core bug?  VFIO bug?  Device firmware bug?
+>>
+>> The changelog suggests that the problem only affects passthrough,
+>> which suggests some sort of kernel bug related to how passthrough is
+>> implemented.
+>>
+>>> + */
+>>> +static void quirk_intel_flr_cap_dis(struct pci_dev *dev)
+>>> +{
+>>> +	int pos = pci_find_capability(dev, PCI_CAP_ID_AF);
+>>> +	if (pos) {
+>>> +		u8 cap;
+>>> +		pci_read_config_byte(dev, pos + PCI_AF_CAP, &cap);
+>>> +		cap = cap & (~PCI_AF_CAP_FLR);
+>>> +		pci_write_config_byte(dev, pos + PCI_AF_CAP, cap);
+>>> +	}
+>>> +}
+>>> +DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x1502,
+>>> quirk_intel_flr_cap_dis);
+>>> +DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x1503,
+>>> quirk_intel_flr_cap_dis);
+>>> -- 
+>>> 2.7.4
+>>>
+>>> --
+>>> To unsubscribe from this list: send the line "unsubscribe linux-pci" in
+>>> the body of a message to majordomo@vger.kernel.org
+>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Some locations that disable ATR accidentally used the "full" disable by
-disabling the flag in the standard flags field. This incorrectly forces
-ATR off permanently instead of temporarily disabling it. In addition,
-some code locations accidentally set the ATR flag enabled when they only
-meant to clear the auto_disable_flags. This results in ignoring the
-user's ethtool private flag settings.
+Hello,
 
-Additionally, when disabling ATR via ethtool, we did not perform a flush
-of the FD table. This results in the previously assigned ATR rules still
-functioning which was not expected.
+Original bugzilla thread could be found here: 
+https://bugzilla.redhat.com/show_bug.cgi?format=multiple&id=966840
 
-Cleanup all these areas so that automatic disable uses only the
-auto_disable_flag. Fix the flush code so that we can trigger a flush
-even when we've disabled ATR and SB support, as otherwise the flush
-doesn't work. Fix ethtool setting to actually request a flush. Fix
-NETIF_F_NTUPLE flag to only clear the auto_disable setting and not
-enable the full feature.
+This is our HW bug, exist only in 82579 devices. More new devices have 
+no such problem. We have found root cause and suggested this solution. 
+This solution should work for a 95% of cases, so I do not think that 
+this is fragile. For another cases possible solution is get up working 
+system and manually disable FLR, before VM start use our adapter.
 
-Change-ID: Ib2486111f8031bd16943e9308757b276305c03b5
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c |  3 +++
- drivers/net/ethernet/intel/i40e/i40e_main.c    | 20 +++++++-------------
- drivers/net/ethernet/intel/i40e/i40e_txrx.c    | 14 +++++++-------
- 3 files changed, 17 insertions(+), 20 deletions(-)
+Thanks,
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index af28a8c..5cad80f 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -3021,6 +3021,9 @@ static int i40e_set_priv_flags(struct net_device *dev, u32 flags)
- 	} else {
- 		pf->flags &= ~I40E_FLAG_FD_ATR_ENABLED;
- 		pf->auto_disable_flags |= I40E_FLAG_FD_ATR_ENABLED;
-+
-+		/* flush current ATR settings */
-+		set_bit(__I40E_FD_FLUSH_REQUESTED, &pf->state);
- 	}
- 
- 	if ((flags & I40E_PRIV_FLAGS_VEB_STATS) &&
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 0841379..e1a2c9a 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5242,7 +5242,7 @@ static int i40e_up_complete(struct i40e_vsi *vsi)
- 		/* reset fd counters */
- 		pf->fd_add_err = pf->fd_atr_cnt = 0;
- 		if (pf->fd_tcp_rule > 0) {
--			pf->flags &= ~I40E_FLAG_FD_ATR_ENABLED;
-+			pf->auto_disable_flags |= I40E_FLAG_FD_ATR_ENABLED;
- 			if (I40E_DEBUG_FD & pf->hw.debug_mask)
- 				dev_info(&pf->pdev->dev, "Forcing ATR off, sideband rules for TCP/IPv4 exist\n");
- 			pf->fd_tcp_rule = 0;
-@@ -5976,9 +5976,6 @@ static void i40e_fdir_flush_and_replay(struct i40e_pf *pf)
- 	int fd_room;
- 	int reg;
- 
--	if (!(pf->flags & (I40E_FLAG_FD_SB_ENABLED | I40E_FLAG_FD_ATR_ENABLED)))
--		return;
--
- 	if (!time_after(jiffies, pf->fd_flush_timestamp +
- 				 (I40E_MIN_FD_FLUSH_INTERVAL * HZ)))
- 		return;
-@@ -5998,7 +5995,7 @@ static void i40e_fdir_flush_and_replay(struct i40e_pf *pf)
- 	}
- 
- 	pf->fd_flush_timestamp = jiffies;
--	pf->flags &= ~I40E_FLAG_FD_ATR_ENABLED;
-+	pf->auto_disable_flags |= I40E_FLAG_FD_ATR_ENABLED;
- 	/* flush all filters */
- 	wr32(&pf->hw, I40E_PFQF_CTL_1,
- 	     I40E_PFQF_CTL_1_CLEARFDTABLE_MASK);
-@@ -6018,7 +6015,7 @@ static void i40e_fdir_flush_and_replay(struct i40e_pf *pf)
- 		/* replay sideband filters */
- 		i40e_fdir_filter_restore(pf->vsi[pf->lan_vsi]);
- 		if (!disable_atr)
--			pf->flags |= I40E_FLAG_FD_ATR_ENABLED;
-+			pf->auto_disable_flags &= ~I40E_FLAG_FD_ATR_ENABLED;
- 		clear_bit(__I40E_FD_FLUSH_REQUESTED, &pf->state);
- 		if (I40E_DEBUG_FD & pf->hw.debug_mask)
- 			dev_info(&pf->pdev->dev, "FD Filter table flushed and FD-SB replayed.\n");
-@@ -6052,9 +6049,6 @@ static void i40e_fdir_reinit_subtask(struct i40e_pf *pf)
- 	if (test_bit(__I40E_DOWN, &pf->state))
- 		return;
- 
--	if (!(pf->flags & (I40E_FLAG_FD_SB_ENABLED | I40E_FLAG_FD_ATR_ENABLED)))
--		return;
--
- 	if (test_bit(__I40E_FD_FLUSH_REQUESTED, &pf->state))
- 		i40e_fdir_flush_and_replay(pf);
- 
-@@ -8682,13 +8676,13 @@ bool i40e_set_ntuple(struct i40e_pf *pf, netdev_features_t features)
- 		/* reset fd counters */
- 		pf->fd_add_err = pf->fd_atr_cnt = pf->fd_tcp_rule = 0;
- 		pf->fdir_pf_active_filters = 0;
--		pf->flags |= I40E_FLAG_FD_ATR_ENABLED;
--		if (I40E_DEBUG_FD & pf->hw.debug_mask)
--			dev_info(&pf->pdev->dev, "ATR re-enabled.\n");
- 		/* if ATR was auto disabled it can be re-enabled. */
- 		if ((pf->flags & I40E_FLAG_FD_ATR_ENABLED) &&
--		    (pf->auto_disable_flags & I40E_FLAG_FD_ATR_ENABLED))
-+		    (pf->auto_disable_flags & I40E_FLAG_FD_ATR_ENABLED)) {
- 			pf->auto_disable_flags &= ~I40E_FLAG_FD_ATR_ENABLED;
-+			if (I40E_DEBUG_FD & pf->hw.debug_mask)
-+				dev_info(&pf->pdev->dev, "ATR re-enabled.\n");
-+		}
- 	}
- 	return need_reset;
- }
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index bf7bb7c..7ada05e 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -282,18 +282,18 @@ static int i40e_add_del_fdir_tcpv4(struct i40e_vsi *vsi,
- 
- 	if (add) {
- 		pf->fd_tcp_rule++;
--		if (pf->flags & I40E_FLAG_FD_ATR_ENABLED) {
--			if (I40E_DEBUG_FD & pf->hw.debug_mask)
--				dev_info(&pf->pdev->dev, "Forcing ATR off, sideband rules for TCP/IPv4 flow being applied\n");
--			pf->flags &= ~I40E_FLAG_FD_ATR_ENABLED;
--		}
-+		if ((pf->flags & I40E_FLAG_FD_ATR_ENABLED) &&
-+		    I40E_DEBUG_FD & pf->hw.debug_mask)
-+			dev_info(&pf->pdev->dev, "Forcing ATR off, sideband rules for TCP/IPv4 flow being applied\n");
-+		pf->auto_disable_flags |= I40E_FLAG_FD_ATR_ENABLED;
- 	} else {
- 		pf->fd_tcp_rule = (pf->fd_tcp_rule > 0) ?
- 				  (pf->fd_tcp_rule - 1) : 0;
- 		if (pf->fd_tcp_rule == 0) {
--			pf->flags |= I40E_FLAG_FD_ATR_ENABLED;
--			if (I40E_DEBUG_FD & pf->hw.debug_mask)
-+			if ((pf->flags & I40E_FLAG_FD_ATR_ENABLED) &&
-+			    I40E_DEBUG_FD & pf->hw.debug_mask)
- 				dev_info(&pf->pdev->dev, "ATR re-enabled due to no sideband TCP/IPv4 rules\n");
-+			pf->auto_disable_flags &= ~I40E_FLAG_FD_ATR_ENABLED;
- 		}
- 	}
- 
--- 
-2.7.4
+Sasha
