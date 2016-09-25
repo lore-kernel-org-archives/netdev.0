@@ -1,59 +1,41 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 0/3] ethernet: net: bcmgenet: only use new api
- ethtool_{get|set}_link_ksettings
-Date: Sun, 25 Sep 2016 08:50:44 -0700
-Message-ID: <0f39868b-2f49-f234-fc58-dc42ed28d961@gmail.com>
-References: <1474817794-31791-1-git-send-email-tremyfr@gmail.com>
- <ec5bc7b8-43dc-7b33-50db-98eb7f4bc3e8@gmail.com>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: Re: [PATCH] nfp: bpf: improve handling for disabled BPF syscall
+Date: Sun, 25 Sep 2016 16:52:00 +0100
+Message-ID: <20160925165200.41266650@jkicinski-Precision-T1700>
+References: <20160923202443.4130858-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Philippe Reynes <tremyfr@gmail.com>, jaedon.shin@gmail.com,
-        davem@davemloft.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, oss-drivers@netronome.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <ec5bc7b8-43dc-7b33-50db-98eb7f4bc3e8@gmail.com>
+In-Reply-To: <20160923202443.4130858-1-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le 25/09/2016 à 08:49, Florian Fainelli a écrit :
-> Le 25/09/2016 à 08:36, Philippe Reynes a écrit :
->> Some times ago, a serie of patches were committed :
->> - commit 62469c76007e ("net: ethernet: bcmgenet: use phydev from struct net_device")
->> - commit 6b352ebccbcf ("net: ethernet: broadcom: bcmgenet: use new api ethtool_{get|set}_link_ksettings")
->> The first patch add a regression on this driver, so it should be reverted.
->> As the second patch depend on the former, it should be reverted too.
->>
->> The first patch is buggy because there is a "trick" in this driver.
->> The structure phydev is kept in the private data when the interface
->> go down, and used when the interface go up to enable the phy before
->> the function phy_connect is called.
->>
->> I don't have this hardware, neither the datasheet. So I won't
->> update the driver to avoid this trick.
->>
->> But the real goal of the first serie was to move to the new api
->> ethtool_{get|set}_link_ksettings. So I provide a new version of
->> the patch without the "cleaning" of driver to use the phydev
->> store in the net_device structure.
->>
->> Jaedon Shin (1):
->>   Revert "net: ethernet: bcmgenet: use phydev from struct net_device"
+On Fri, 23 Sep 2016 22:23:59 +0200, Arnd Bergmann wrote:
+> I stumbled over a new warning during randconfig testing,
+> with CONFIG_BPF_SYSCALL disabled:
 > 
-> Please replace Jaedon's patch with mine which contains more background
-> as to what the problem was and how it gets fixed.
+> drivers/net/ethernet/netronome/nfp/nfp_net_offload.c: In function 'nfp_net_bpf_offload':
+> drivers/net/ethernet/netronome/nfp/nfp_net_offload.c:263:3: error: '*((void *)&res+4)' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> drivers/net/ethernet/netronome/nfp/nfp_net_offload.c:263:3: error: 'res.n_instr' may be used uninitialized in this function [-Werror=maybe-uninitialized]
 > 
->>
->> Philippe Reynes (2):
->>   Revert "net: ethernet: bcmgenet: use new api
->>     ethtool_{get|set}_link_ksettings"
->>   net: ethernet: broadcom: bcmgenet: use new api
->>     ethtool_{get|set}_link_ksettings
+> As far as I can tell, this is a false positive caused by the compiler
+> getting confused about a function that is partially inlined, but it's
+> easy to avoid while improving the code:
 > 
-> Can you be consistent in the subject and just use "net: bcmgenet: " as a
-> prefix here?
+> The nfp_bpf_jit() stub helper for that configuration is unusual as it
+> is defined in a header file but not marked 'static inline'. By moving
+> the compile-time check into the caller using the IS_ENABLED() macro,
+> we can remove that stub and simplify the nfp_net_bpf_offload_prepare()
+> function enough to unconfuse the compiler.
+> 
+> Fixes: 7533fdc0f77f ("nfp: bpf: add hardware bpf offload")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-An finally, indicate in the subject which tree you are targeting,
-"net-next" or "net".
--- 
-Florian
+Thanks Arnd!  static inline definitely missing there but if we can
+depend on dead code elimination to remove the symbol that's even cooler!
+
+Acked-by: Jakub Kicinski <jakub.kicinski@netronome.com>
