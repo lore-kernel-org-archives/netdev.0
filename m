@@ -1,7 +1,7 @@
 From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH v2 net-next 3/3] net: bcmgenet: use new api ethtool_{get|set}_link_ksettings
-Date: Sun, 25 Sep 2016 18:29:27 +0200
-Message-ID: <1474820967-1130-4-git-send-email-tremyfr@gmail.com>
+Subject: [PATCH v2 net-next 2/3] Revert "net: ethernet: bcmgenet: use phydev from struct net_device"
+Date: Sun, 25 Sep 2016 18:29:26 +0200
+Message-ID: <1474820967-1130-3-git-send-email-tremyfr@gmail.com>
 References: <1474820967-1130-1-git-send-email-tremyfr@gmail.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         Philippe Reynes <tremyfr@gmail.com>
@@ -11,76 +11,356 @@ In-Reply-To: <1474820967-1130-1-git-send-email-tremyfr@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+From: Florian Fainelli <f.fainelli@gmail.com>
 
+This reverts commit 62469c76007e ("net: ethernet: bcmgenet: use phydev
+from struct net_device") because it causes GENETv1/2/3 adapters to
+expose the following behavior after an ifconfig down/up sequence:
+
+PING fainelli-linux (10.112.156.244): 56 data bytes
+64 bytes from 10.112.156.244: seq=1 ttl=61 time=1.352 ms
+64 bytes from 10.112.156.244: seq=1 ttl=61 time=1.472 ms (DUP!)
+64 bytes from 10.112.156.244: seq=1 ttl=61 time=1.496 ms (DUP!)
+64 bytes from 10.112.156.244: seq=1 ttl=61 time=1.517 ms (DUP!)
+64 bytes from 10.112.156.244: seq=1 ttl=61 time=1.536 ms (DUP!)
+64 bytes from 10.112.156.244: seq=1 ttl=61 time=1.557 ms (DUP!)
+64 bytes from 10.112.156.244: seq=1 ttl=61 time=752.448 ms (DUP!)
+
+This was previously fixed by commit 5dbebbb44a6a ("net: bcmgenet:
+Software reset EPHY after power on") but the commit we are reverting was
+essentially making this previous commit void, here is why.
+
+Without commit 62469c76007e we would have the following scenario after
+an ifconfig down then up sequence:
+
+- bcmgenet_open() calls bcmgenet_power_up() to make sure the PHY is
+  initialized *before* we get to initialize the UniMAC, this is
+  critical to ensure the PHY is in a correct state, priv->phydev is
+  valid, this code executes fine
+
+- second time from bcmgenet_mii_probe(), through the normal
+  phy_init_hw() call (which arguably could be optimized out)
+
+Everything is fine in that case. With commit 62469c76007e, we would have
+the following scenario to happen after an ifconfig down then up
+sequence:
+
+- bcmgenet_close() calls phy_disonnect() which makes dev->phydev become
+  NULL
+
+- when bcmgenet_open() executes again and calls bcmgenet_mii_reset() from
+  bcmgenet_power_up() to initialize the internal PHY, the NULL check
+  becomes true, so we do not reset the PHY, yet we keep going on and
+  initialize the UniMAC, causing MAC activity to occur
+
+- we call bcmgenet_mii_reset() from bcmgenet_mii_probe(), but this is
+  too late, the PHY is botched, and causes the above bogus pings/packets
+  transmission/reception to occur
+
+Reported-by: Jaedon Shin <jaedon.shin@gmail.com>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- drivers/net/ethernet/broadcom/genet/bcmgenet.c |   24 ++++++++++--------------
- 1 files changed, 10 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c |   45 +++++++++++++----------
+ drivers/net/ethernet/broadcom/genet/bcmgenet.h |    1 +
+ drivers/net/ethernet/broadcom/genet/bcmmii.c   |   24 +++++++------
+ 3 files changed, 39 insertions(+), 31 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index 47d0a2b..2c5d9d3 100644
+index 46f9043..47d0a2b 100644
 --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
 +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -450,32 +450,28 @@ static inline void bcmgenet_rdma_ring_writel(struct bcmgenet_priv *priv,
- 			genet_dma_ring_regs[r]);
- }
- 
--static int bcmgenet_get_settings(struct net_device *dev,
--				 struct ethtool_cmd *cmd)
-+static int bcmgenet_get_link_ksettings(struct net_device *dev,
-+				       struct ethtool_link_ksettings *cmd)
+@@ -453,25 +453,29 @@ static inline void bcmgenet_rdma_ring_writel(struct bcmgenet_priv *priv,
+ static int bcmgenet_get_settings(struct net_device *dev,
+ 				 struct ethtool_cmd *cmd)
  {
--	struct bcmgenet_priv *priv = netdev_priv(dev);
--
++	struct bcmgenet_priv *priv = netdev_priv(dev);
++
  	if (!netif_running(dev))
  		return -EINVAL;
  
--	if (!priv->phydev)
-+	if (!dev->phydev)
+-	if (!dev->phydev)
++	if (!priv->phydev)
  		return -ENODEV;
  
--	return phy_ethtool_gset(priv->phydev, cmd);
-+	return phy_ethtool_ksettings_get(dev->phydev, cmd);
+-	return phy_ethtool_gset(dev->phydev, cmd);
++	return phy_ethtool_gset(priv->phydev, cmd);
  }
  
--static int bcmgenet_set_settings(struct net_device *dev,
--				 struct ethtool_cmd *cmd)
-+static int bcmgenet_set_link_ksettings(struct net_device *dev,
-+				       const struct ethtool_link_ksettings *cmd)
+ static int bcmgenet_set_settings(struct net_device *dev,
+ 				 struct ethtool_cmd *cmd)
  {
--	struct bcmgenet_priv *priv = netdev_priv(dev);
--
++	struct bcmgenet_priv *priv = netdev_priv(dev);
++
  	if (!netif_running(dev))
  		return -EINVAL;
  
--	if (!priv->phydev)
-+	if (!dev->phydev)
+-	if (!dev->phydev)
++	if (!priv->phydev)
  		return -ENODEV;
  
--	return phy_ethtool_sset(priv->phydev, cmd);
-+	return phy_ethtool_ksettings_set(dev->phydev, cmd);
+-	return phy_ethtool_sset(dev->phydev, cmd);
++	return phy_ethtool_sset(priv->phydev, cmd);
  }
  
  static int bcmgenet_set_rx_csum(struct net_device *dev,
-@@ -983,8 +979,6 @@ static const struct ethtool_ops bcmgenet_ethtool_ops = {
- 	.get_strings		= bcmgenet_get_strings,
- 	.get_sset_count		= bcmgenet_get_sset_count,
- 	.get_ethtool_stats	= bcmgenet_get_ethtool_stats,
--	.get_settings		= bcmgenet_get_settings,
--	.set_settings		= bcmgenet_set_settings,
- 	.get_drvinfo		= bcmgenet_get_drvinfo,
- 	.get_link		= ethtool_op_get_link,
- 	.get_msglevel		= bcmgenet_get_msglevel,
-@@ -996,6 +990,8 @@ static const struct ethtool_ops bcmgenet_ethtool_ops = {
- 	.nway_reset		= bcmgenet_nway_reset,
- 	.get_coalesce		= bcmgenet_get_coalesce,
- 	.set_coalesce		= bcmgenet_set_coalesce,
-+	.get_link_ksettings	= bcmgenet_get_link_ksettings,
-+	.set_link_ksettings	= bcmgenet_set_link_ksettings,
- };
+@@ -937,7 +941,7 @@ static int bcmgenet_get_eee(struct net_device *dev, struct ethtool_eee *e)
+ 	e->eee_active = p->eee_active;
+ 	e->tx_lpi_timer = bcmgenet_umac_readl(priv, UMAC_EEE_LPI_TIMER);
  
- /* Power down the unimac, based on mode. */
+-	return phy_ethtool_get_eee(dev->phydev, e);
++	return phy_ethtool_get_eee(priv->phydev, e);
+ }
+ 
+ static int bcmgenet_set_eee(struct net_device *dev, struct ethtool_eee *e)
+@@ -954,7 +958,7 @@ static int bcmgenet_set_eee(struct net_device *dev, struct ethtool_eee *e)
+ 	if (!p->eee_enabled) {
+ 		bcmgenet_eee_enable_set(dev, false);
+ 	} else {
+-		ret = phy_init_eee(dev->phydev, 0);
++		ret = phy_init_eee(priv->phydev, 0);
+ 		if (ret) {
+ 			netif_err(priv, hw, dev, "EEE initialization failed\n");
+ 			return ret;
+@@ -964,12 +968,14 @@ static int bcmgenet_set_eee(struct net_device *dev, struct ethtool_eee *e)
+ 		bcmgenet_eee_enable_set(dev, true);
+ 	}
+ 
+-	return phy_ethtool_set_eee(dev->phydev, e);
++	return phy_ethtool_set_eee(priv->phydev, e);
+ }
+ 
+ static int bcmgenet_nway_reset(struct net_device *dev)
+ {
+-	return genphy_restart_aneg(dev->phydev);
++	struct bcmgenet_priv *priv = netdev_priv(dev);
++
++	return genphy_restart_aneg(priv->phydev);
+ }
+ 
+ /* standard ethtool support functions. */
+@@ -996,13 +1002,12 @@ static const struct ethtool_ops bcmgenet_ethtool_ops = {
+ static int bcmgenet_power_down(struct bcmgenet_priv *priv,
+ 				enum bcmgenet_power_mode mode)
+ {
+-	struct net_device *ndev = priv->dev;
+ 	int ret = 0;
+ 	u32 reg;
+ 
+ 	switch (mode) {
+ 	case GENET_POWER_CABLE_SENSE:
+-		phy_detach(ndev->phydev);
++		phy_detach(priv->phydev);
+ 		break;
+ 
+ 	case GENET_POWER_WOL_MAGIC:
+@@ -1063,6 +1068,7 @@ static void bcmgenet_power_up(struct bcmgenet_priv *priv,
+ /* ioctl handle special commands that are not present in ethtool. */
+ static int bcmgenet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
++	struct bcmgenet_priv *priv = netdev_priv(dev);
+ 	int val = 0;
+ 
+ 	if (!netif_running(dev))
+@@ -1072,10 +1078,10 @@ static int bcmgenet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 	case SIOCGMIIPHY:
+ 	case SIOCGMIIREG:
+ 	case SIOCSMIIREG:
+-		if (!dev->phydev)
++		if (!priv->phydev)
+ 			val = -ENODEV;
+ 		else
+-			val = phy_mii_ioctl(dev->phydev, rq, cmd);
++			val = phy_mii_ioctl(priv->phydev, rq, cmd);
+ 		break;
+ 
+ 	default:
+@@ -2458,7 +2464,6 @@ static void bcmgenet_irq_task(struct work_struct *work)
+ {
+ 	struct bcmgenet_priv *priv = container_of(
+ 			work, struct bcmgenet_priv, bcmgenet_irq_work);
+-	struct net_device *ndev = priv->dev;
+ 
+ 	netif_dbg(priv, intr, priv->dev, "%s\n", __func__);
+ 
+@@ -2471,7 +2476,7 @@ static void bcmgenet_irq_task(struct work_struct *work)
+ 
+ 	/* Link UP/DOWN event */
+ 	if (priv->irq0_stat & UMAC_IRQ_LINK_EVENT) {
+-		phy_mac_interrupt(ndev->phydev,
++		phy_mac_interrupt(priv->phydev,
+ 				  !!(priv->irq0_stat & UMAC_IRQ_LINK_UP));
+ 		priv->irq0_stat &= ~UMAC_IRQ_LINK_EVENT;
+ 	}
+@@ -2833,7 +2838,7 @@ static void bcmgenet_netif_start(struct net_device *dev)
+ 	/* Monitor link interrupts now */
+ 	bcmgenet_link_intr_enable(priv);
+ 
+-	phy_start(dev->phydev);
++	phy_start(priv->phydev);
+ }
+ 
+ static int bcmgenet_open(struct net_device *dev)
+@@ -2932,7 +2937,7 @@ static void bcmgenet_netif_stop(struct net_device *dev)
+ 	struct bcmgenet_priv *priv = netdev_priv(dev);
+ 
+ 	netif_tx_stop_all_queues(dev);
+-	phy_stop(dev->phydev);
++	phy_stop(priv->phydev);
+ 	bcmgenet_intr_disable(priv);
+ 	bcmgenet_disable_rx_napi(priv);
+ 	bcmgenet_disable_tx_napi(priv);
+@@ -2958,7 +2963,7 @@ static int bcmgenet_close(struct net_device *dev)
+ 	bcmgenet_netif_stop(dev);
+ 
+ 	/* Really kill the PHY state machine and disconnect from it */
+-	phy_disconnect(dev->phydev);
++	phy_disconnect(priv->phydev);
+ 
+ 	/* Disable MAC receive */
+ 	umac_enable_set(priv, CMD_RX_EN, false);
+@@ -3517,7 +3522,7 @@ static int bcmgenet_suspend(struct device *d)
+ 
+ 	bcmgenet_netif_stop(dev);
+ 
+-	phy_suspend(dev->phydev);
++	phy_suspend(priv->phydev);
+ 
+ 	netif_device_detach(dev);
+ 
+@@ -3581,7 +3586,7 @@ static int bcmgenet_resume(struct device *d)
+ 	if (priv->wolopts)
+ 		clk_disable_unprepare(priv->clk_wol);
+ 
+-	phy_init_hw(dev->phydev);
++	phy_init_hw(priv->phydev);
+ 	/* Speed settings must be restored */
+ 	bcmgenet_mii_config(priv->dev);
+ 
+@@ -3614,7 +3619,7 @@ static int bcmgenet_resume(struct device *d)
+ 
+ 	netif_device_attach(dev);
+ 
+-	phy_resume(dev->phydev);
++	phy_resume(priv->phydev);
+ 
+ 	if (priv->eee.eee_enabled)
+ 		bcmgenet_eee_enable_set(dev, true);
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.h b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+index 0f0868c..1e2dc34 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.h
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+@@ -597,6 +597,7 @@ struct bcmgenet_priv {
+ 
+ 	/* MDIO bus variables */
+ 	wait_queue_head_t wq;
++	struct phy_device *phydev;
+ 	bool internal_phy;
+ 	struct device_node *phy_dn;
+ 	struct device_node *mdio_dn;
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmmii.c b/drivers/net/ethernet/broadcom/genet/bcmmii.c
+index e907acd..457c3bc 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmmii.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmmii.c
+@@ -86,7 +86,7 @@ static int bcmgenet_mii_write(struct mii_bus *bus, int phy_id,
+ void bcmgenet_mii_setup(struct net_device *dev)
+ {
+ 	struct bcmgenet_priv *priv = netdev_priv(dev);
+-	struct phy_device *phydev = dev->phydev;
++	struct phy_device *phydev = priv->phydev;
+ 	u32 reg, cmd_bits = 0;
+ 	bool status_changed = false;
+ 
+@@ -183,9 +183,9 @@ void bcmgenet_mii_reset(struct net_device *dev)
+ 	if (GENET_IS_V4(priv))
+ 		return;
+ 
+-	if (dev->phydev) {
+-		phy_init_hw(dev->phydev);
+-		phy_start_aneg(dev->phydev);
++	if (priv->phydev) {
++		phy_init_hw(priv->phydev);
++		phy_start_aneg(priv->phydev);
+ 	}
+ }
+ 
+@@ -236,7 +236,6 @@ static void bcmgenet_internal_phy_setup(struct net_device *dev)
+ 
+ static void bcmgenet_moca_phy_setup(struct bcmgenet_priv *priv)
+ {
+-	struct net_device *ndev = priv->dev;
+ 	u32 reg;
+ 
+ 	/* Speed settings are set in bcmgenet_mii_setup() */
+@@ -245,14 +244,14 @@ static void bcmgenet_moca_phy_setup(struct bcmgenet_priv *priv)
+ 	bcmgenet_sys_writel(priv, reg, SYS_PORT_CTRL);
+ 
+ 	if (priv->hw_params->flags & GENET_HAS_MOCA_LINK_DET)
+-		fixed_phy_set_link_update(ndev->phydev,
++		fixed_phy_set_link_update(priv->phydev,
+ 					  bcmgenet_fixed_phy_link_update);
+ }
+ 
+ int bcmgenet_mii_config(struct net_device *dev)
+ {
+ 	struct bcmgenet_priv *priv = netdev_priv(dev);
+-	struct phy_device *phydev = dev->phydev;
++	struct phy_device *phydev = priv->phydev;
+ 	struct device *kdev = &priv->pdev->dev;
+ 	const char *phy_name = NULL;
+ 	u32 id_mode_dis = 0;
+@@ -303,7 +302,7 @@ int bcmgenet_mii_config(struct net_device *dev)
+ 		 * capabilities, use that knowledge to also configure the
+ 		 * Reverse MII interface correctly.
+ 		 */
+-		if ((phydev->supported & PHY_BASIC_FEATURES) ==
++		if ((priv->phydev->supported & PHY_BASIC_FEATURES) ==
+ 				PHY_BASIC_FEATURES)
+ 			port_ctrl = PORT_MODE_EXT_RVMII_25;
+ 		else
+@@ -372,7 +371,7 @@ int bcmgenet_mii_probe(struct net_device *dev)
+ 			return -ENODEV;
+ 		}
+ 	} else {
+-		phydev = dev->phydev;
++		phydev = priv->phydev;
+ 		phydev->dev_flags = phy_flags;
+ 
+ 		ret = phy_connect_direct(dev, phydev, bcmgenet_mii_setup,
+@@ -383,6 +382,8 @@ int bcmgenet_mii_probe(struct net_device *dev)
+ 		}
+ 	}
+ 
++	priv->phydev = phydev;
++
+ 	/* Configure port multiplexer based on what the probed PHY device since
+ 	 * reading the 'max-speed' property determines the maximum supported
+ 	 * PHY speed which is needed for bcmgenet_mii_config() to configure
+@@ -390,7 +391,7 @@ int bcmgenet_mii_probe(struct net_device *dev)
+ 	 */
+ 	ret = bcmgenet_mii_config(dev);
+ 	if (ret) {
+-		phy_disconnect(phydev);
++		phy_disconnect(priv->phydev);
+ 		return ret;
+ 	}
+ 
+@@ -400,7 +401,7 @@ int bcmgenet_mii_probe(struct net_device *dev)
+ 	 * Ethernet MAC ISRs
+ 	 */
+ 	if (priv->internal_phy)
+-		phydev->irq = PHY_IGNORE_INTERRUPT;
++		priv->phydev->irq = PHY_IGNORE_INTERRUPT;
+ 
+ 	return 0;
+ }
+@@ -605,6 +606,7 @@ static int bcmgenet_mii_pd_init(struct bcmgenet_priv *priv)
+ 
+ 	}
+ 
++	priv->phydev = phydev;
+ 	priv->phy_interface = pd->phy_interface;
+ 
+ 	return 0;
 -- 
 1.7.4.4
