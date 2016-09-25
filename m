@@ -1,133 +1,153 @@
-From: Yotam Gigi <yotamg@mellanox.com>
-Subject: RE: [PATCH net v2 0/2] Fix tc-ife bugs
-Date: Sun, 25 Sep 2016 15:55:49 +0000
-Message-ID: <DB3PR05MB07647722715384C174CC52D2ACCA0@DB3PR05MB0764.eurprd05.prod.outlook.com>
-References: <1474806711-64660-1-git-send-email-yotamg@mellanox.com>
- <2b01c982-76b7-d380-807c-1fe1df62d285@mojatatu.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 4/4] net/sched: act_mirred: Implement ingress
+ actions
+Date: Sun, 25 Sep 2016 18:26:47 +0200
+Message-ID: <57E7FAC7.6090904@iogearbox.net>
+References: <1474550512-7552-1-git-send-email-shmulik.ladkani@gmail.com> <1474550512-7552-5-git-send-email-shmulik.ladkani@gmail.com> <4387324a-de66-aa1b-86f0-1a9a2f8294f5@mojatatu.com> <20160923081106.73fb48df@halley> <0037729a-a3fc-c1c9-a620-905c73e0b9d4@mojatatu.com> <20160923184030.75124289@halley> <6d2bd45a-a8a0-846d-5934-5e246522cab8@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: Jiri Pirko <jiri@mellanox.com>, Elad Raz <eladr@mellanox.com>,
-        mlxsw <mlxsw@mellanox.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        WANG Cong <xiyou.wangcong@gmail.com>,
+        Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+        Florian Westphal <fw@strlen.de>
 To: Jamal Hadi Salim <jhs@mojatatu.com>,
-        Yotam Gigi <yotam.gi@gmail.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+        Shmulik Ladkani <shmulik.ladkani@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0047.outbound.protection.outlook.com ([104.47.2.47]:24928
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1034247AbcIYPzx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 25 Sep 2016 11:55:53 -0400
-In-Reply-To: <2b01c982-76b7-d380-807c-1fe1df62d285@mojatatu.com>
-Content-Language: en-US
+Received: from www62.your-server.de ([213.133.104.62]:50971 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S939795AbcIYQ0x (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 25 Sep 2016 12:26:53 -0400
+In-Reply-To: <6d2bd45a-a8a0-846d-5934-5e246522cab8@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: Jamal Hadi Salim [mailto:jhs@mojatatu.com]
->Sent: Sunday, September 25, 2016 4:46 PM
->To: Yotam Gigi <yotam.gi@gmail.com>; davem@davemloft.net;
->netdev@vger.kernel.org; Yotam Gigi <yotamg@mellanox.com>
->Subject: Re: [PATCH net v2 0/2] Fix tc-ife bugs
->
->On 16-09-25 08:31 AM, Yotam Gigi wrote:
->> This patch-set contains two bugfixes in the tc-ife action, one fixing so=
-me
->> random behaviour in encode side, and one fixing the decode side packet
->> parsing logic.
+On 09/25/2016 03:05 PM, Jamal Hadi Salim wrote:
+> On 16-09-23 11:40 AM, Shmulik Ladkani wrote:
+>> On Fri, 23 Sep 2016 08:48:33 -0400 Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+>>>> Even today, one may create loops using existing 'egress redirect',
+>>>> e.g. this rediculously errorneous construct:
+>>>>
+>>>>  # ip l add v0 type veth peer name v0p
+>>>>  # tc filter add dev v0p parent ffff: basic \
+>>>>     action mirred egress redirect dev v0
+>>>
+>>> I think we actually recover from this one by eventually
+>>> dropping (theres a ttl field).
 >>
->> Yotam Gigi (2):
->>   act_ife: Fix external mac header on encode
->>   act_ife: Fix false parsing on decode side
+>> [off topic]
 >>
->>  net/sched/act_ife.c | 9 ++++-----
->>  1 file changed, 4 insertions(+), 5 deletions(-)
+>> Don't know about that :) cpu fan got very noisy, 3 of 4 cores at 100%,
+>> and after one second I got:
+>>
+>> # ip -s l show type veth
+>> 16: v0p@v0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+>>     link/ether a2:64:ff:10:dd:85 brd ff:ff:ff:ff:ff:ff
+>>     RX: bytes  packets  errors  dropped overrun mcast
+>>     71660305923 469890864 0       0       0       0
+>>     TX: bytes  packets  errors  dropped carrier collsns
+>>     3509       24       0       0       0       0
+>> 17: v0@v0p: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+>>     link/ether 52:a2:34:f6:7c:ec brd ff:ff:ff:ff:ff:ff
+>>     RX: bytes  packets  errors  dropped overrun mcast
+>>     3509       24       0       0       0       0
+>>     TX: bytes  packets  errors  dropped carrier collsns
+>>     71660713017 469893555 0       0       0       0
 >>
 >
->Yotam, did you run the test i proposed? I am worried about the TLV one.
->Note:
->Encoder includes the length of the TLV header length in the L part.
->If you are reaching a conclusion that you need this in the decoding:
->+              tlvdata +=3D alen + sizeof(struct meta_tlvhdr);
+> I think this is still on topic!
 >
->then very likely whoever is sending that packet is not encoding
->correctly.
-
-The one encoding the packets I get is the ife action. You can look at the c=
-ode:
-
-  int ife_tlv_meta_encode(void *skbdata, u16 attrtype, u16 dlen, const void=
- *dval)
-  {
-        u32 *tlv =3D (u32 *)(skbdata);
-        u16 totlen =3D nla_total_size(dlen);      /*alignment + hdr */
-        char *dptr =3D (char *)tlv + NLA_HDRLEN;
-        u32 htlv =3D attrtype << 16 | dlen;
-
-        *tlv =3D htonl(htlv);
-        memset(dptr, 0, totlen - NLA_HDRLEN);
-        memcpy(dptr, dval, dlen);
-       =20
-        return totlen;
-  }
-
-As you can see, the data that is actually written into the packet is the ht=
-lv
-var, which has the 'dlen' in it, and not the totlen which corresponds the t=
-lv
-header size. You can see that in the following example:
-
-I ran the tc command you proposed:
-  $TC filter add dev $ETH parent 1: protocol ip prio 10 \
-        u32 match ip protocol 1 0xff flowid 1:2 \
-        action skbedit prio 33 \
-        action ife encode \
-        type 0xDEAD \
-        use mark 12 \
-        allow prio \
-        dst 02:15:15:15:15:15
-
-And this is the packet I got:
-  0x0000:  0215 1515 1515 da23 d209 8644 dead 0012
-  0x0010:  0001 0004 0000 000c 0003 0004 0000 0033
-  0x0020:  fa30 7418 593a da23 d209 8644 0800 4500
-  0x0030:  0054 da3c 4000 4001 486a 0c00 0001 0c00
-  0x0040:  0002 0800 9fa2 1562 0008 aeec e757 0000
-  0x0050:  0000 ecdb 0100 0000 0000 1011 1213 1415
-  0x0060:  1617 1819 1a1b 1c1d 1e1f 2021 2223 2425
-  0x0070:  2627 2829 2a2b 2c2d 2e2f 3031 3233 3435
-  0x0080:  3637
-
-You can see that there are two tlvs there, one for mark (with value 0xc=3D1=
-2) and
-one for prio (with value 0x33). In the packets, you can see the on offsets =
-0x12
-and 0x1a, that the size in the tlv is 4 which is the datalen and not 8 whic=
-h is
-the total tlv size.
-
-When I ran the decode without the fix, my kernel went into infinite loop wh=
-ich
-was caused by:
- - The loop stopping condition was checking that an unsigned variable is gr=
-eater
-   than zero.
- - The parsing assumes that in the tlv header, the size refers to the whole=
- tlv
-   size, but it refers to the size of the data only.
-
-To fix those problems, I fixed the decode side to assume that the tlv->size
-refers to the data len and not the whole tlv, and changed the variable to b=
-e
-signed.
-
-Do you prefer that I will fix the encode side to encode the whole tlv heade=
-r
-size instead of fixing the decode side?
-
-Thanks :)
-
+> Now I realize that code we took out around 4.2.x is still useful
+> for such a use case (I wasnt thinking about veth when Florian was
+> slimming the skb);
+> +Cc Florian W.
 >
->cheers,
->jamal
+> This snippet from 4.2:
+> -------------
+> 3525 static int ing_filter(struct sk_buff *skb, struct netdev_queue *rxq)
+> 3526 {
+> 3527         struct net_device *dev = skb->dev;
+> 3528         u32 ttl = G_TC_RTTL(skb->tc_verd);
+> 3529         int result = TC_ACT_OK;
+> 3530         struct Qdisc *q;
+> 3531
+> 3532         if (unlikely(MAX_RED_LOOP < ttl++)) {
+> 3533                 net_warn_ratelimited("Redir loop detected Dropping packet (%d->%d)\n",
+> 3534                                      skb->skb_iif, dev->ifindex);
+> 3535                 return TC_ACT_SHOT;
+> 3536         }
+> 3537
+> 3538         skb->tc_verd = SET_TC_RTTL(skb->tc_verd, ttl);
+> 3539         skb->tc_verd = SET_TC_AT(skb->tc_verd, AT_INGRESS);
+> 3540
+> 3541         q = rcu_dereference(rxq->qdisc);
+> 3542         if (q != &noop_qdisc) {
+> 3543                 spin_lock(qdisc_lock(q));
+> 3544                 if (likely(!test_bit(__QDISC_STATE_DEACTIVATED, &q->state)))
+> 3545                         result = qdisc_enqueue_root(skb, q);
+> 3546                 spin_unlock(qdisc_lock(q));
+> 3547         }
+> 3548
+> 3549         return result;
+> 3550 }
+> --------------------
+>
+> MAX_RED_LOOP (stands for "Maximum Redirect loop") still exists in
+> current code. The idea above was that we would increment the rttl
+> counter  once and if we saw it again upto MAX_RED_LOOP we would assume
+> a loop and drop the packet (at the time i didnt think it was wise to
+> let the actions be in charge of setting the RTTL; it had to be central
+> core code - but it may not be neccessary)
+>
+> Florian, when we discussed I said it was fine to reclaim those 3 bits
+> on tc verdict for RTTL at the time because i had taken out the
+> feature and never added it back. Your comment at the time was we can
+> add it back when someone shows up with the feature.
+> Shmulik is looking to add it.
+
+Why not just reuse xmit_recursion, which is what we did in tc cls_bpf
+programs f.e. see __bpf_tx_skb()? Would be a pity to waste 3 bits on
+this in the skb.
+
+>> Similarly to all constructs injecting skbs to device rx (bond/team,
+>> vlan, macvlan, tunnels, ifb, __dev_forward_skb callers, etc..), we are
+>> obligated to assign 'skb2->dev' as the new rx device.
+>>
+>> Regarding 'skb2->skb_iif', original act_mirred code already has:
+>>
+>>      skb2->skb_iif = skb->dev->ifindex;   <--- THIS IS ORIG DEV IIF
+>>      skb2->dev = dev;                     <--- THIS IS TARGET DEV
+>>     err = dev_queue_xmit(skb2);
+>>
+>> I'm preserving this; OTOH the suggested modification in the patch is
+>>
+>> -    err = dev_queue_xmit(skb2);
+>> +    if (tcf_mirred_act_direction(m->tcfm_eaction) & AT_EGRESS)
+>> +        err = dev_queue_xmit(skb2);
+>> +    else
+>> +        netif_receive_skb(skb2);
+>>
+>> now, the call to 'netif_receive_skb' will eventually override skb_iif to
+>> the target RX dev's index, upon entry to __netif_receive_skb_core.
+>>
+>> I think this IS the expected behavior - as done by other "rx injection"
+>> constructs.
+>
+> Sounds fine.
+> I am wondering if we can have a tracing feature to show the lifetime of
+> the packet as it is being cycled around the kernel? It would help
+> debugging if some policy misbehaves.
+>
+>> My doubts were around whether we should call 'dev_forward_skb' instead
+>> of 'netif_receive_skb'.
+>> The former does some things I assumed we're not interested of, like
+>> testing 'is_skb_forwardable' and re-running 'eth_type_trans'.
+>> OTOH, it DOES scrub the skb.
+>> Maybe we should scrub it as well prior the netif_receive_skb call?
+>
+> Scrubbing the skb could be a bad idea if it gets rid of global state
+> like the RTTL if you add it back.
+>
+> cheers,
+> jamal
+>
