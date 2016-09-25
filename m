@@ -1,79 +1,63 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 10/53] netfilter: nf_ct_sip: allow tab character in SIP headers
-Date: Mon, 26 Sep 2016 01:06:20 +0200
-Message-ID: <1474844823-2026-11-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 05/53] netfilter: ftp: Remove the useless dlen==0 condition check in find_pattern
+Date: Mon, 26 Sep 2016 01:06:15 +0200
+Message-ID: <1474844823-2026-6-git-send-email-pablo@netfilter.org>
 References: <1474844823-2026-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail.us.es ([193.147.175.20]:54542 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S941198AbcIYXHa (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 25 Sep 2016 19:07:30 -0400
+        id S941161AbcIYXHZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 25 Sep 2016 19:07:25 -0400
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 2E248C0B40
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:07:29 +0200 (CEST)
+        by mail.us.es (Postfix) with ESMTP id 4D289B6C78
+        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:07:23 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 1F742DA7E9
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:07:29 +0200 (CEST)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 3964BDA815
+        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:07:23 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 0F141DA7FA
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:07:27 +0200 (CEST)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 30A1CDA847
+        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 01:07:21 +0200 (CEST)
 In-Reply-To: <1474844823-2026-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marco Angaroni <marcoangaroni@gmail.com>
+From: Gao Feng <fgao@ikuai8.com>
 
-Current parsing methods for SIP headers do not allow the presence of
-tab characters between header name and header value. As a result Call-ID
-SIP headers like the following are discarded by IPVS SIP persistence
-engine:
+The caller function "help" has already make sure the datalen could not be zero
+before invoke find_pattern as a parameter by the following codes
 
-"Call-ID\t: mycallid@abcde"
-"Call-ID:\tmycallid@abcde"
+        if (dataoff >= skb->len) {
+                pr_debug("ftp: dataoff(%u) >= skblen(%u)\n", dataoff,
+                         skb->len);
+                return NF_ACCEPT;
+        }
+        datalen = skb->len - dataoff;
 
-In above examples Call-IDs are represented as strings in C language.
-Obviously in real message we have byte "09" before/after colon (":").
+And the latter codes "ends_in_nl = (fb_ptr[datalen - 1] == '\n');" use datalen
+directly without checking if it is zero.
 
-Proposed fix is in nf_conntrack_sip module.
-Function sip_skip_whitespace() should skip tabs in addition to spaces,
-since in SIP grammar whitespace (WSP) corresponds to space or tab.
+So it is unneccessary to check it in find_pattern too.
 
-Below is an extract of relevant SIP ABNF syntax.
-
-Call-ID  =  ( "Call-ID" / "i" ) HCOLON callid
-callid   =  word [ "@" word ]
-
-HCOLON  =  *( SP / HTAB ) ":" SWS
-SWS     =  [LWS] ; sep whitespace
-LWS     =  [*WSP CRLF] 1*WSP ; linear whitespace
-WSP     =  SP / HTAB
-word    =  1*(alphanum / "-" / "." / "!" / "%" / "*" /
-           "_" / "+" / "`" / "'" / "~" /
-           "(" / ")" / "<" / ">" /
-           ":" / "\" / DQUOTE /
-           "/" / "[" / "]" / "?" /
-           "{" / "}" )
-
-Signed-off-by: Marco Angaroni <marcoangaroni@gmail.com>
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_conntrack_sip.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/netfilter/nf_conntrack_ftp.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
-index d8035351aff5..621b81c7bddc 100644
---- a/net/netfilter/nf_conntrack_sip.c
-+++ b/net/netfilter/nf_conntrack_sip.c
-@@ -330,7 +330,7 @@ static const char *sip_follow_continuation(const char *dptr, const char *limit)
- static const char *sip_skip_whitespace(const char *dptr, const char *limit)
- {
- 	for (; dptr < limit; dptr++) {
--		if (*dptr == ' ')
-+		if (*dptr == ' ' || *dptr == '\t')
- 			continue;
- 		if (*dptr != '\r' && *dptr != '\n')
- 			break;
+diff --git a/net/netfilter/nf_conntrack_ftp.c b/net/netfilter/nf_conntrack_ftp.c
+index b6934b5edf7a..d49a2d410813 100644
+--- a/net/netfilter/nf_conntrack_ftp.c
++++ b/net/netfilter/nf_conntrack_ftp.c
+@@ -301,8 +301,6 @@ static int find_pattern(const char *data, size_t dlen,
+ 	size_t i = plen;
+ 
+ 	pr_debug("find_pattern `%s': dlen = %Zu\n", pattern, dlen);
+-	if (dlen == 0)
+-		return 0;
+ 
+ 	if (dlen <= plen) {
+ 		/* Short packet: try for partial? */
 -- 
 2.1.4
