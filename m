@@ -1,61 +1,76 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net v2 0/2] Fix tc-ife bugs
-Date: Mon, 26 Sep 2016 05:55:49 -0400
-Message-ID: <4131ab6a-5709-4f62-3cc6-138377361fec@mojatatu.com>
-References: <1474806711-64660-1-git-send-email-yotamg@mellanox.com>
- <2b01c982-76b7-d380-807c-1fe1df62d285@mojatatu.com>
- <DB3PR05MB07647722715384C174CC52D2ACCA0@DB3PR05MB0764.eurprd05.prod.outlook.com>
- <098a8df2-aa3e-04a5-143b-a6946c9ece59@mojatatu.com>
- <a57bf1d3-0b6b-91fa-a57d-5b4a17f91959@mojatatu.com>
- <DB3PR05MB07641B3E085814C60BC60D64ACCD0@DB3PR05MB0764.eurprd05.prod.outlook.com>
+From: Vlastimil Babka <vbabka@suse.cz>
+Subject: Re: [PATCH v2] fs/select: add vmalloc fallback for select(2)
+Date: Mon, 26 Sep 2016 12:01:32 +0200
+Message-ID: <5bb958c9-542e-e86b-779c-e3d93dc01632@suse.cz>
+References: <20160922164359.9035-1-vbabka@suse.cz>
+ <1474562982.23058.140.camel@edumazet-glaptop3.roam.corp.google.com>
+ <12efc491-a0e7-1012-5a8b-6d3533c720db@suse.cz>
+ <1474564068.23058.144.camel@edumazet-glaptop3.roam.corp.google.com>
+ <a212f313-1f34-7c83-3aab-b45374875493@suse.cz>
+ <063D6719AE5E284EB5DD2968C1650D6DB0107DC8@AcuExch.aculab.com>
+ <3bbcc269-ec8b-12dd-e0ae-190c18bc3f47@suse.cz>
+ <063D6719AE5E284EB5DD2968C1650D6DB0107FEB@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@mellanox.com>, Elad Raz <eladr@mellanox.com>,
-        mlxsw <mlxsw@mellanox.com>, Roman Mashak <mrv@mojatatu.com>
-To: Yotam Gigi <yotamg@mellanox.com>, Yotam Gigi <yotam.gi@gmail.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f41.google.com ([209.85.214.41]:33297 "EHLO
-        mail-it0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751493AbcIZJzv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 05:55:51 -0400
-Received: by mail-it0-f41.google.com with SMTP id x192so12683300itb.0
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 02:55:51 -0700 (PDT)
-In-Reply-To: <DB3PR05MB07641B3E085814C60BC60D64ACCD0@DB3PR05MB0764.eurprd05.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Alexander Viro <viro@zeniv.linux.org.uk>,
+ Andrew Morton <akpm@linux-foundation.org>,
+ "linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "linux-mm@kvack.org" <linux-mm@kvack.org>, Michal Hocko <mhocko@kernel.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ Linux API <linux-api@vger.kernel.org>,
+ "linux-man@vger.kernel.org" <linux-man@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>,
+ Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB0107FEB@AcuExch.aculab.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On 16-09-26 03:01 AM, Yotam Gigi wrote:
->
->
->> -----Original Message-----
->> From: Jamal Hadi Salim [mailto:jhs@mojatatu.com]
->> Sent: Monday, September 26, 2016 3:47 AM
->> To: Yotam Gigi <yotamg@mellanox.com>; Yotam Gigi <yotam.gi@gmail.com>;
-
-[..]
->>> Yes please - Add NLA_HDRLEN to the dlen on the encode you showed above.
->
-> OK. Did it and tested it. Everything seems functional.
->
-
-Thank you. Please resend with this change and add my ACK to both
-(I tested the first one)
-
->>>
+On 09/23/2016 03:35 PM, David Laight wrote:
+> From: Vlastimil Babka
+>> Sent: 23 September 2016 10:59
+> ...
+>> > I suspect that fdt->max_fds is an upper bound for the highest fd the
+>> > process has open - not the RLIMIT_NOFILE value.
 >>
->> And the correct commit it fixes is:
->> a823f93750e341bc0d6829a00019435b96830fd4
+>> I gathered that the highest fd effectively limits the number of files,
+>> so it's the same. I might be wrong.
 >
-> I can't find this commit. Where is it?
->
-> Don't you mean that commit: 28a10c426e81afc88514bca8e73affccf850fdf6
-> with title: "net sched: fix encoding to use real length"?
+> An application can reduce RLIMIT_NOFILE below that of an open file.
+
+OK, I did some more digging in the code, and my understanding is that:
+
+- fdt->max_fds is the current size of the fdtable, which isn't allocated upfront 
+to match the limit, but grows as needed. This means it's OK for 
+core_sys_select() to silently cap nfds, as it knows there are no fd's with 
+higher number in the fdtable, so it's a performance optimization. However, to 
+match what the manpage says, there should be another check against RLIMIT_NOFILE 
+to return -EINVAL, which there isn't, AFAICS.
+
+- fdtable is expanded (and fdt->max_fds bumped) by 
+expand_files()->expand_fdtable() which checks against fs.nr_open sysctl, which 
+seems to be 1048576 where I checked.
+
+- callers of expand_files(), such as dup(), check the rlimit(RLIMIT_NOFILE) to 
+limit the expansion.
+
+So yeah, application can reduce RLIMIT_NOFILE, but it has no effect on fdtable 
+and fdt->max_fds that is already above the limit. Select syscall would have to 
+check the rlimit to conform to the manpage. Or (rather?) we should fix the manpage.
+
+As for the original vmalloc() flood concern, I still think we're safe, as 
+ordinary users are limited by RLIMIT_NOFILE way below sizes that would need 
+vmalloc(), and root has many other options to DOS the system (or worse).
+
+Vlastimil
+
+> 	David
 >
 
-Sorry, yes that patch.
-
-cheers,
-jamal
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
