@@ -1,37 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] net: dsa: mv88e6xxx: fix non static symbol
- warnings
-Date: Sun, 25 Sep 2016 23:49:20 -0400 (EDT)
-Message-ID: <20160925.234920.1663284215502440491.davem@davemloft.net>
-References: <1474818182-19097-1-git-send-email-weiyj.lk@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: bluetooth-next 2016-09-25
+Date: Sun, 25 Sep 2016 23:53:44 -0400 (EDT)
+Message-ID: <20160925.235344.1988547418818225600.davem@davemloft.net>
+References: <20160925124238.GA19411@t440s.P-661HNU-F1>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, weiyongjun1@huawei.com,
-        netdev@vger.kernel.org
-To: weiyj.lk@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55276 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1034719AbcIZDtY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 25 Sep 2016 23:49:24 -0400
-In-Reply-To: <1474818182-19097-1-git-send-email-weiyj.lk@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160925124238.GA19411-ae+CCJ+dGXjCW7GOcxkI+ioyn5ZhHHrn@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Date: Sun, 25 Sep 2016 15:43:02 +0000
+From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Sun, 25 Sep 2016 15:42:38 +0300
 
-> From: Wei Yongjun <weiyongjun1@huawei.com>
+> Here are a few more Bluetooth & 802.15.4 patches for the 4.9 kernel that
+> have popped up during the past week:
 > 
-> Fixes the following sparse warnings:
+>  - New USB ID for QCA_ROME Bluetooth device
+>  - NULL pointer dereference fix for Bluetooth mgmt sockets
+>  - Fixes for BCSP driver
+>  - Fix for updating LE scan response
 > 
-> drivers/net/dsa/mv88e6xxx/chip.c:219:5: warning:
->  symbol 'mv88e6xxx_port_read' was not declared. Should it be static?
-> drivers/net/dsa/mv88e6xxx/chip.c:227:5: warning:
->  symbol 'mv88e6xxx_port_write' was not declared. Should it be static?
-> 
-> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+> Please let me know if there are any issues pulling. Thanks.
 
-Applied.
+Pulled, thanks Johan.
