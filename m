@@ -1,34 +1,39 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: [PATCH v2 3/7] ipv6 addrconf: rtr_solicits == -1 means unlimited
-Date: Tue, 27 Sep 2016 00:34:17 +0900
-Message-ID: <CAKD1Yr2MHqFMmJyf89pWzopcr07ziVcHqUB+oNWdphKx95nGDg@mail.gmail.com>
-References: <20160925.053302.1895311145903319224.davem@davemloft.net>
- <1474797596-13320-1-git-send-email-zenczykowski@gmail.com> <1474797596-13320-3-git-send-email-zenczykowski@gmail.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH 0/5] ISDN-Gigaset: Fine-tuning for three function
+ implementations
+Date: Mon, 26 Sep 2016 17:37:15 +0200
+Message-ID: <6d4bbb77-914f-19b8-a1a9-2731d1158612@users.sourceforge.net>
+References: <566ABCD9.1060404@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Erik Kline <ek@google.com>
-To: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f49.google.com ([209.85.214.49]:33957 "EHLO
-        mail-it0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750754AbcIZPej (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 11:34:39 -0400
-Received: by mail-it0-f49.google.com with SMTP id 15so14242735ita.1
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 08:34:39 -0700 (PDT)
-In-Reply-To: <1474797596-13320-3-git-send-email-zenczykowski@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org,
+        Julia Lawall <julia.lawall@lip6.fr>
+To: gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
+        Karsten Keil <isdn@linux-pingi.de>,
+        Paul Bolle <pebolle@tiscali.nl>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <566ABCD9.1060404@users.sourceforge.net>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Sep 25, 2016 at 6:59 PM, Maciej =C5=BBenczykowski
-<zenczykowski@gmail.com> wrote:
-> +                 ifp->idev->cnf.rtr_solicits !=3D 0 &&
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Mon, 26 Sep 2016 17:27:17 +0200
 
-Given that some of this patch checks for =3D=3D -1, and some of it checks
-for !=3D 0... is it possible that setting the value to something
-unexpected like -3 will cause any issues to the stack? (Other than
-just rendering IPv6 unusable on this interface, which seems like a
-given.)
+Some update suggestions were taken into account
+from static source code analysis.
+
+Markus Elfring (5):
+  Use kmalloc_array() in two functions
+  Improve another size determination in gigaset_initcs()
+  Delete an error message for a failed memory allocation
+  Release memory in gigaset_initcs() after an allocation failure
+  Enclose two expressions for the sizeof operator by parentheses
+
+ drivers/isdn/gigaset/common.c | 31 ++++++++++++++++---------------
+ 1 file changed, 16 insertions(+), 15 deletions(-)
+
+-- 
+2.10.0
+
