@@ -1,66 +1,48 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 5/5] ISDN-Gigaset: Enclose two expressions for the sizeof
- operator by parentheses
-Date: Mon, 26 Sep 2016 17:44:39 +0200
-Message-ID: <e97b38b6-8c02-6733-8b57-9786bfb911a6@users.sourceforge.net>
-References: <566ABCD9.1060404@users.sourceforge.net>
- <6d4bbb77-914f-19b8-a1a9-2731d1158612@users.sourceforge.net>
+From: "Amrani, Ram" <Ram.Amrani@cavium.com>
+Subject: RE: [RFC v3 00/11] QLogic RDMA Driver (qedr) RFC
+Date: Mon, 26 Sep 2016 15:45:56 +0000
+Message-ID: <SN1PR07MB22070DA963EE029137924C72F8CD0@SN1PR07MB2207.namprd07.prod.outlook.com>
+References: <1474899407-12635-1-git-send-email-Ram.Amrani@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org,
-        Julia Lawall <julia.lawall@lip6.fr>
-To: gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
-        Karsten Keil <isdn@linux-pingi.de>,
-        Paul Bolle <pebolle@tiscali.nl>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "Elior, Ariel" <Ariel.Elior@cavium.com>,
+        "Kalderon, Michal" <Michal.Kalderon@cavium.com>,
+        "Mintz, Yuval" <Yuval.Mintz@cavium.com>,
+        "Borundia, Rajesh" <Rajesh.Borundia@cavium.com>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "davem@davemloft.net" <davem@davemloft.net>,
+        "dledford@redhat.com" <dledford@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.web.de ([212.227.17.12]:51124 "EHLO mout.web.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934308AbcIZPpL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 26 Sep 2016 11:45:11 -0400
-In-Reply-To: <6d4bbb77-914f-19b8-a1a9-2731d1158612@users.sourceforge.net>
+Received: from mail-by2nam03on0085.outbound.protection.outlook.com ([104.47.42.85]:3232
+        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S965516AbcIZPp6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 26 Sep 2016 11:45:58 -0400
+In-Reply-To: <1474899407-12635-1-git-send-email-Ram.Amrani@cavium.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Mon, 26 Sep 2016 17:03:56 +0200
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+> The series adds on top of RFC v2:
+> * fix licensing header to dual license
+> * remove 'debug' module paramter and make use of pr_debug
+> * relocation of qedr user API to include/rdma/uapi/
+> * use the __u32/64 in uapi and include types.h
+> * advance ABI version (since shifting to __u32/64 changed the ABI)
+> * remove the check for all drivers that IB_ACCESS_MW_BIND isn't set
+>   in ib_get_dma_mr. It will be sent in a dedicated patch.
+> * misc.: fixed typos, removed redundant includes
+>=20
+> For RFC v2 visit http://marc.info/?l=3Dlinux-rdma&m=3D147436779328618&w=
+=3D2
 
-The script "checkpatch.pl" can point information out like the following.
+I see that the following e-mails were sent with "PATCH" in the subject rath=
+er than "RFC v3".
+This is a mistake. All e-mails are intended to be "RFC v3".
+I don't think it should matter much for reading and reviewing purposes, but=
+ don't hesitate if=20
+you would like me to re-send with fixed headers.
 
-WARNING: sizeof … should be sizeof(…)
-
-Thus fix the affected source code places.
-
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- drivers/isdn/gigaset/common.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/isdn/gigaset/common.c b/drivers/isdn/gigaset/common.c
-index 2e9382f..d901ed7 100644
---- a/drivers/isdn/gigaset/common.c
-+++ b/drivers/isdn/gigaset/common.c
-@@ -53,7 +53,7 @@ void gigaset_dbg_buffer(enum debuglevel level, const unsigned char *msg,
- {
- 	unsigned char outbuf[80];
- 	unsigned char c;
--	size_t space = sizeof outbuf - 1;
-+	size_t space = sizeof(outbuf - 1);
- 	unsigned char *out = outbuf;
- 	size_t numin = len;
- 
-@@ -1079,7 +1079,7 @@ struct gigaset_driver *gigaset_initdriver(unsigned minor, unsigned minors,
- 	unsigned long flags;
- 	unsigned i;
- 
--	drv = kmalloc(sizeof *drv, GFP_KERNEL);
-+	drv = kmalloc(sizeof(*drv), GFP_KERNEL);
- 	if (!drv)
- 		return NULL;
- 
--- 
-2.10.0
+Ram
