@@ -1,92 +1,67 @@
-From: Erik Kline <ek@google.com>
-Subject: Re: [PATCH v4 2/7] ipv6 addrconf: remove addrconf_sysctl_hop_limit()
-Date: Mon, 26 Sep 2016 18:14:51 +0900
-Message-ID: <CAAedzxoD6DiNDQUpuiV3tQV0zVmAb=J6968aU02Z+3521u0s3Q@mail.gmail.com>
-References: <20160925.060423.854801855957024790.davem@davemloft.net>
- <1474801390-6891-1-git-send-email-zenczykowski@gmail.com> <1474801390-6891-3-git-send-email-zenczykowski@gmail.com>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [PATCH 5/5] ISDN-CAPI: Delete unnecessary braces
+Date: Mon, 26 Sep 2016 11:20:42 +0200
+Message-ID: <1474881642.1846.14.camel@tiscali.nl>
+References: <be07f84d-fc84-e47d-207e-aedd8c960151@users.sourceforge.net>
+         <06e7637c-f682-bfa2-82b6-47d071bd58c4@users.sourceforge.net>
+         <52dd5000-2bda-a1b6-aa97-1868e1193d35@cogentembedded.com>
+         <727b14d4-7a3b-9de8-25d9-c3bf212f7c44@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Lorenzo Colitti <lorenzo@google.com>
-To: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, Karsten Keil <isdn@linux-pingi.de>,
+        LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org,
+        Julia Lawall <julia.lawall@lip6.fr>
+To: SF Markus Elfring <elfring@users.sourceforge.net>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:35517 "EHLO
-        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935526AbcIZJPN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 05:15:13 -0400
-Received: by mail-wm0-f48.google.com with SMTP id l132so140383571wmf.0
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 02:15:13 -0700 (PDT)
-In-Reply-To: <1474801390-6891-3-git-send-email-zenczykowski@gmail.com>
+Received: from lb3-smtp-cloud6.xs4all.net ([194.109.24.31]:40915 "EHLO
+        lb3-smtp-cloud6.xs4all.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S938822AbcIZJUt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 05:20:49 -0400
+In-Reply-To: <727b14d4-7a3b-9de8-25d9-c3bf212f7c44@users.sourceforge.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 25 September 2016 at 20:03, Maciej =C5=BBenczykowski
-<zenczykowski@gmail.com> wrote:
-> From: Maciej =C5=BBenczykowski <maze@google.com>
->
-> replace with extra1/2 magic
->
-> Signed-off-by: Maciej =C5=BBenczykowski <maze@google.com>
-> ---
->  net/ipv6/addrconf.c | 21 ++++++---------------
->  1 file changed, 6 insertions(+), 15 deletions(-)
->
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index 11fa1a5564d4..3a835495fb53 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -5467,20 +5467,6 @@ int addrconf_sysctl_forward(struct ctl_table *ctl,=
- int write,
->  }
->
->  static
-> -int addrconf_sysctl_hop_limit(struct ctl_table *ctl, int write,
-> -                              void __user *buffer, size_t *lenp, loff_t =
-*ppos)
-> -{
-> -       struct ctl_table lctl;
-> -       int min_hl =3D 1, max_hl =3D 255;
-> -
-> -       lctl =3D *ctl;
-> -       lctl.extra1 =3D &min_hl;
-> -       lctl.extra2 =3D &max_hl;
-> -
-> -       return proc_dointvec_minmax(&lctl, write, buffer, lenp, ppos);
-> -}
-> -
-> -static
->  int addrconf_sysctl_mtu(struct ctl_table *ctl, int write,
->                         void __user *buffer, size_t *lenp, loff_t *ppos)
->  {
-> @@ -5713,6 +5699,9 @@ int addrconf_sysctl_ignore_routes_with_linkdown(str=
-uct ctl_table *ctl,
->         return ret;
->  }
->
-> +static int one =3D 1;
-> +static int two_five_five =3D 255;
+On Sun, 2016-09-25 at 14:47 +0200, SF Markus Elfring wrote:
+> > > @@ -976,13 +974,12 @@ static void handle_controller(_cmsg *cmsg)
+> > >          if (debugmode)
+> > >              printk(KERN_DEBUG "capidrv-%d: listenconf Info=0x%4x
+> > > (%s) cipmask=0x%x\n",
+> > >                     card->contrnr, cmsg->Info,
+> > > capi_info2str(cmsg->Info), card->cipmask);
+> > > -        if (cmsg->Info) {
+> > > +        if (cmsg->Info)
+> > >              listen_change_state(card, EV_LISTEN_CONF_ERROR);
+> > > -        } else if (card->cipmask == 0) {
+> > > +        else if (card->cipmask == 0)
+> > >              listen_change_state(card, EV_LISTEN_CONF_EMPTY);
+> > > -        } else {
+> > > +             else
+> > 
+> >    Indented too much.
+> 
+> How do you think about an alignment of this "else"
+> with the corresponding if statement three lines above?
 
-Should these be const as well?
+Well, I think it looks silly. checkpatch apparently agrees:
+    WARNING: Statements should start on a tabstop
+    #51: FILE: drivers/isdn/capi/capidrv.c:981:
+    +		     else
+    
+    total: 0 errors, 1 warnings, 91 lines checked
+    
+    NOTE: For some of the reported defects, checkpatch may be able to
+          mechanically convert to the typical style using --fix or --fix-inplace.
+    
+    Your patch has style problems, please review.
+    
+    NOTE: If any of the errors are false positives, please report
+          them to the maintainer, see CHECKPATCH in MAINTAINERS.
 
-> +
->  static const struct ctl_table addrconf_sysctl[] =3D {
->         {
->                 .procname       =3D "forwarding",
-> @@ -5726,7 +5715,9 @@ static const struct ctl_table addrconf_sysctl[] =3D=
- {
->                 .data           =3D &ipv6_devconf.hop_limit,
->                 .maxlen         =3D sizeof(int),
->                 .mode           =3D 0644,
-> -               .proc_handler   =3D addrconf_sysctl_hop_limit,
-> +               .proc_handler   =3D proc_dointvec_minmax,
-> +               .extra1         =3D &one,
-> +               .extra2         =3D &two_five_five,
->         },
->         {
->                 .procname       =3D "mtu",
-> --
-> 2.8.0.rc3.226.g39d4020
->
+You use checkpatch a lot, don't you? Didn't you use it to, you know,
+check your patch?
+
+
+Paul Bolle
