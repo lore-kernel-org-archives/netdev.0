@@ -1,54 +1,42 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v3] bpf: Set register type according to is_valid_access()
-Date: Mon, 26 Sep 2016 10:58:28 -0700
-Message-ID: <20160926175827.GA54376@ast-mbp.thefacebook.com>
-References: <20160924180150.23620-1-mic@digikod.net>
- <57E9356D.70308@iogearbox.net>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: Re: ISDN-Gigaset: Enclose two expressions for the sizeof operator by
+ parentheses
+Date: Mon, 26 Sep 2016 20:00:11 +0200
+Message-ID: <eddce408-a4ee-7968-cd07-160497fa32ed@users.sourceforge.net>
+References: <566ABCD9.1060404@users.sourceforge.net>
+ <6d4bbb77-914f-19b8-a1a9-2731d1158612@users.sourceforge.net>
+ <e97b38b6-8c02-6733-8b57-9786bfb911a6@users.sourceforge.net>
+ <248e685c-4875-7acc-afaf-8b2ce00bb5f5@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>,
-        linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
-        Andy Lutomirski <luto@amacapital.net>,
-        Kees Cook <keescook@chromium.org>,
-        Sargun Dhillon <sargun@sargun.me>, Tejun Heo <tj@kernel.org>,
-        netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:33370 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751340AbcIZR6e (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 13:58:34 -0400
-Content-Disposition: inline
-In-Reply-To: <57E9356D.70308@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
+        Karsten Keil <isdn@linux-pingi.de>,
+        Paul Bolle <pebolle@tiscali.nl>,
+        LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org,
+        Julia Lawall <julia.lawall@lip6.fr>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <248e685c-4875-7acc-afaf-8b2ce00bb5f5@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 26, 2016 at 04:49:17PM +0200, Daniel Borkmann wrote:
-> On 09/24/2016 08:01 PM, Mickaël Salaün wrote:
-> >This prevent future potential pointer leaks when an unprivileged eBPF
-> >program will read a pointer value from its context. Even if
-> >is_valid_access() returns a pointer type, the eBPF verifier replace it
-> >with UNKNOWN_VALUE. The register value that contains a kernel address is
-> >then allowed to leak. Moreover, this fix allows unprivileged eBPF
-> >programs to use functions with (legitimate) pointer arguments.
-> >
-> >Not an issue currently since reg_type is only set for PTR_TO_PACKET or
-> >PTR_TO_PACKET_END in XDP and TC programs that can only be loaded as
-> >privileged. For now, the only unprivileged eBPF program allowed is for
-> >socket filtering and all the types from its context are UNKNOWN_VALUE.
-> >However, this fix is important for future unprivileged eBPF programs
-> >which could use pointers in their context.
-> >
-> >Signed-off-by: Mickaël Salaün <mic@digikod.net>
-> >Cc: Alexei Starovoitov <ast@kernel.org>
-> >Cc: Daniel Borkmann <daniel@iogearbox.net>
+>> @@ -53,7 +53,7 @@ void gigaset_dbg_buffer(enum debuglevel level, const unsigned char *msg,
+>>  {
+>>      unsigned char outbuf[80];
+>>      unsigned char c;
+>> -    size_t space = sizeof outbuf - 1;
+>> +    size_t space = sizeof(outbuf - 1);
 > 
-> Seems okay to me:
-> 
-> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+>    What?! Does that compile?
 
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+Yes, of course. - The calculated value will be lower than intended.
 
-Mickael, please mention [PATCH net-next] in subject next time.
-Thanks
+Unfortunately, I stumbled on one of my own programming mistakes once again.
+
+
+I sent a corrected update suggestion for further considerations a few minutes ago.
+
+Regards,
+Markus
