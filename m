@@ -1,37 +1,56 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: [PATCH 5/5] ISDN-CAPI: Delete unnecessary braces
-Date: Mon, 26 Sep 2016 21:55:42 +0200
-Message-ID: <1474919742.4539.11.camel@tiscali.nl>
-References: <be07f84d-fc84-e47d-207e-aedd8c960151@users.sourceforge.net>
-         <06e7637c-f682-bfa2-82b6-47d071bd58c4@users.sourceforge.net>
-         <52dd5000-2bda-a1b6-aa97-1868e1193d35@cogentembedded.com>
-         <727b14d4-7a3b-9de8-25d9-c3bf212f7c44@users.sourceforge.net>
-         <1474881642.1846.14.camel@tiscali.nl>
-         <e2f45ffb-9440-19c6-b7ce-0894dcd14879@users.sourceforge.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        netdev@vger.kernel.org, Karsten Keil <isdn@linux-pingi.de>,
-        LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org,
-        Julia Lawall <julia.lawall@lip6.fr>
-To: SF Markus Elfring <elfring@users.sourceforge.net>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH v3 net-next 0/3] net: bcmgenet: only use new api ethtool_{get|set}_link_ksettings
+Date: Mon, 26 Sep 2016 22:31:54 +0200
+Message-ID: <1474921917-4773-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: f.fainelli@gmail.com, jaedon.shin@gmail.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lb3-smtp-cloud2.xs4all.net ([194.109.24.29]:40615 "EHLO
-        lb3-smtp-cloud2.xs4all.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1034762AbcIZTzr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 15:55:47 -0400
-In-Reply-To: <e2f45ffb-9440-19c6-b7ce-0894dcd14879@users.sourceforge.net>
+Received: from mail-lf0-f68.google.com ([209.85.215.68]:33725 "EHLO
+        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1161226AbcIZUcO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 16:32:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-09-26 at 14:52 +0200, SF Markus Elfring wrote:
-> Would it eventually make sense to move this "if" (behind an "else")
-> to a separate line and increase the indentation for the corresponding
-> code one level then?
+Some times ago, a serie of patches were committed :
+- commit 62469c76007e ("net: ethernet: bcmgenet: use phydev from struct net_device")
+- commit 6b352ebccbcf ("net: ethernet: broadcom: bcmgenet: use new api ethtool_{get|set}_link_ksettings")
+The first patch add a regression on this driver, so it should be reverted.
+As the second patch depend on the former, it should be reverted too.
 
-No.
+The first patch is buggy because there is a "trick" in this driver.
+The structure phydev is kept in the private data when the interface
+go down, and used when the interface go up to enable the phy before
+the function phy_connect is called.
 
+I don't have this hardware, neither the datasheet. So I won't
+update the driver to avoid this trick.
 
-Paul Bolle
+But the real goal of the first serie was to move to the new api
+ethtool_{get|set}_link_ksettings. So I provide a new version of
+the patch without the "cleaning" of driver to use the phydev
+store in the net_device structure.
+
+Changelog:
+v3:
+- use priv instead of dev (so all the code use the same phydev)
+v2:
+- use Florian Fainelli patches for the revert instead of Jaedon Shin
+- simply use net: bcmgenet: for the prefix of the patch
+
+Florian Fainelli (1):
+  Revert "net: ethernet: bcmgenet: use phydev from struct net_device"
+
+Philippe Reynes (2):
+  Revert "net: ethernet: bcmgenet: use new api
+    ethtool_{get|set}_link_ksettings"
+  net: bcmgenet: use new api ethtool_{get|set}_link_ksettings
+
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c |   45 +++++++++++++----------
+ drivers/net/ethernet/broadcom/genet/bcmgenet.h |    1 +
+ drivers/net/ethernet/broadcom/genet/bcmmii.c   |   24 +++++++------
+ 3 files changed, 39 insertions(+), 31 deletions(-)
+
+-- 
+1.7.4.4
