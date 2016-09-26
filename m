@@ -1,8 +1,8 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: hisilicon: mark symbols static where possible
-Date: Mon, 26 Sep 2016 02:24:43 -0400 (EDT)
-Message-ID: <20160926.022443.2147767413776159997.davem@davemloft.net>
-References: <1474795004-8743-1-git-send-email-baoyou.xie@linaro.org>
+Subject: Re: [PATCH] net: hip04: mark tx_done() static
+Date: Mon, 26 Sep 2016 02:24:37 -0400 (EDT)
+Message-ID: <20160926.022437.239315766739111882.davem@davemloft.net>
+References: <1474795144-15983-1-git-send-email-baoyou.xie@linaro.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -12,20 +12,19 @@ Cc: yisen.zhuang@huawei.com, salil.mehta@huawei.com,
         tang.qiang007@zte.com.cn
 To: baoyou.xie@linaro.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1474795004-8743-1-git-send-email-baoyou.xie@linaro.org>
+In-Reply-To: <1474795144-15983-1-git-send-email-baoyou.xie@linaro.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Baoyou Xie <baoyou.xie@linaro.org>
-Date: Sun, 25 Sep 2016 17:16:44 +0800
+Date: Sun, 25 Sep 2016 17:19:04 +0800
 
-> We get 2 warnings when building kernel with W=1:
-> drivers/net/ethernet/hisilicon/hisi_femac.c:943:5: warning: no previous prototype for 'hisi_femac_drv_suspend' [-Wmissing-prototypes]
-> drivers/net/ethernet/hisilicon/hisi_femac.c:960:5: warning: no previous prototype for 'hisi_femac_drv_resume' [-Wmissing-prototypes]
+> We get 1 warning when building kernel with W=1:
+> drivers/net/ethernet/hisilicon/hip04_eth.c:603:22: warning: no previous prototype for 'tx_done' [-Wmissing-prototypes]
 > 
-> In fact, these two functions are only used in the file in which they are
+> In fact, this function is only used in the file in which it is
 > declared and don't need a declaration, but can be made static.
-> so this patch marks these functions with 'static'.
+> so this patch marks this function with 'static'.
 > 
 > Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
 
