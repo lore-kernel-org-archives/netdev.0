@@ -1,30 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: smc91x: take into account register shift
-Date: Sun, 25 Sep 2016 23:46:20 -0400 (EDT)
-Message-ID: <20160925.234620.1395322628916558014.davem@davemloft.net>
-References: <1474837245-32512-1-git-send-email-robert.jarzmik@free.fr>
+Subject: Re: [PATCH -next] be2net: fix non static symbol warnings
+Date: Sun, 25 Sep 2016 23:48:39 -0400 (EDT)
+Message-ID: <20160925.234839.1674233846679773897.davem@davemloft.net>
+References: <1474818036-18872-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nico@fluxnic.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: robert.jarzmik@free.fr
+Cc: sathya.perla@broadcom.com, ajit.khaparde@broadcom.com,
+        sriharsha.basavapatna@broadcom.com, somnath.kotur@broadcom.com,
+        weiyongjun1@huawei.com, netdev@vger.kernel.org
+To: weiyj.lk@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55210 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:55258 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S941394AbcIZDqY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 25 Sep 2016 23:46:24 -0400
-In-Reply-To: <1474837245-32512-1-git-send-email-robert.jarzmik@free.fr>
+        with ESMTP id S1034719AbcIZDtE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 25 Sep 2016 23:49:04 -0400
+In-Reply-To: <1474818036-18872-1-git-send-email-weiyj.lk@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Robert Jarzmik <robert.jarzmik@free.fr>
-Date: Sun, 25 Sep 2016 23:00:45 +0200
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Date: Sun, 25 Sep 2016 15:40:36 +0000
 
-> This aligns smc91x with its cousin, namely smc911x.c.
-> This also allows the driver to run also in a device-tree based lubbock
-> board build, on which it was tested.
+> From: Wei Yongjun <weiyongjun1@huawei.com>
 > 
-> Signed-off-by: Robert Jarzmik <robert.jarzmik@free.fr>
+> Fixes the following sparse warnings:
+> 
+> drivers/net/ethernet/emulex/benet/be_main.c:47:25: warning:
+>  symbol 'be_err_recovery_workq' was not declared. Should it be static?
+> drivers/net/ethernet/emulex/benet/be_main.c:63:25: warning:
+>  symbol 'be_wq' was not declared. Should it be static?
+> 
+> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
 
-Applied to net-next, thanks.
+Applied.
