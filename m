@@ -1,142 +1,361 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v5 13/16] IB/pvrdma: Add the main driver module for PVRDMA
-Date: Mon, 26 Sep 2016 09:03:42 +0300
-Message-ID: <20160926060342.GG4088@leon.nu>
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [PATCH v5 02/16] IB/pvrdma: Add user-level shared functions
+Date: Mon, 26 Sep 2016 09:13:38 +0300
+Message-ID: <20160926061338.GH4088@leon.nu>
 References: <cover.1474759181.git.aditr@vmware.com>
- <8db982c37a0a96b37df02826564474a216922f25.1474759181.git.aditr@vmware.com>
- <20160925075703.GX4088@leon.nu>
- <da4a09fc-bef1-60ea-f9af-7c505a9af6d6@vmware.com>
+ <b52db7f59d69089f7b1d53311574143c4da8252a.1474759181.git.aditr@vmware.com>
+ <20160925072624.GV4088@leon.nu>
+ <9c9f3668-ff2b-f421-2270-3193c0f62cc9@vmware.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="fqSO13Wp+IaiYtoI"
-Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        pv-drivers-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jhansen-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org, asarwade-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org,
-        georgezhang-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org, bryantan-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org
-To: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+        protocol="application/pgp-signature"; boundary="QFO1zB2dwAkGraMW"
+Cc: dledford@redhat.com, linux-rdma@vger.kernel.org,
+        pv-drivers@vmware.com, netdev@vger.kernel.org,
+        linux-pci@vger.kernel.org, jhansen@vmware.com, asarwade@vmware.com,
+        georgezhang@vmware.com, bryantan@vmware.com
+To: Adit Ranadive <aditr@vmware.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.136]:50646 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932244AbcIZGNr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 26 Sep 2016 02:13:47 -0400
 Content-Disposition: inline
-In-Reply-To: <da4a09fc-bef1-60ea-f9af-7c505a9af6d6-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <9c9f3668-ff2b-f421-2270-3193c0f62cc9@vmware.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---fqSO13Wp+IaiYtoI
+--QFO1zB2dwAkGraMW
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-On Sun, Sep 25, 2016 at 10:10:43PM -0700, Adit Ranadive wrote:
-> On sun, Sep 25 2016 at 10:57:03AM +0300, Leon Romanovsky wrote:
-> > On Sat, Sep 24, 2016 at 04:21:37PM -0700, Adit Ranadive wrote:
-> > > This patch adds the support to register a RDMA device with the kernel RDMA
-> > > stack as well as a kernel module. This also initializes the underlying
-> > > virtual PCI device.
+On Sun, Sep 25, 2016 at 09:22:11PM -0700, Adit Ranadive wrote:
+> On Sun, Sep 25 2016 at 10:26:24AM +0300, Leon Romanovsky wrote:
+> > > On Sat, Sep 24, 2016 at 04:21:26PM -0700, Adit Ranadive wrote:
+> > > We share some common structures with the user-level driver. This patch adds
+> > > those structures and shared functions to traverse the QP/CQ rings.
+>
+> <...>
+>
+> > > +
+> > > +#include <linux/types.h>
+> > > +
+> > > +#define PVRDMA_UVERBS_ABI_VERSION	3
+> > > +#define PVRDMA_BOARD_ID			1
+> > > +#define PVRDMA_REV_ID			1
 > > >
-> > > Reviewed-by: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> > > Reviewed-by: Jorgen Hansen <jhansen-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-> > > Reviewed-by: George Zhang <georgezhang-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-> > > Reviewed-by: Aditya Sarwade <asarwade-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-> > > Reviewed-by: Bryan Tan <bryantan-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-> > > Signed-off-by: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+> > > Please don't add defines which you are not using in the library and the
+> > > two above are not in use.
+> > >
+>
+> I'll move these to the pvrdma.h file.
+>
+> <...>
+>
+> > > diff --git a/include/uapi/rdma/pvrdma-uapi.h b/include/uapi/rdma/pvrdma-uapi.h
+> > > new file mode 100644
+> > > index 0000000..430d8a5
 >
 > <...>
 >
 > > > +
-> > > +#include <linux/errno.h>
-> > > +#include <linux/inetdevice.h>
-> > > +#include <linux/init.h>
-> > > +#include <linux/module.h>
-> > > +#include <linux/slab.h>
-> > > +#include <rdma/ib_addr.h>
-> > > +#include <rdma/ib_smi.h>
-> > > +#include <rdma/ib_user_verbs.h>
-> > > +#include <net/addrconf.h>
-> > > +#include <rdma/pvrdma-abi.h>
+> > > +#ifndef __PVRDMA_UAPI_H__
+> > > +#define __PVRDMA_UAPI_H__
 > > > +
-> > > +#include "pvrdma.h"
+> > > +#include <linux/types.h>
 > > > +
-> > > +#define DRV_NAME	"pvrdma"
-> > > +#define DRV_VERSION	"1.0"
-> > > +#define DRV_RELDATE	"January 1, 2013"
-> > > +
-> > > +static const char pvrdma_version[] =
-> > > +	DRV_NAME ": PVRDMA InfiniBand driver v"
-> > > +	DRV_VERSION " (" DRV_RELDATE ")\n";
-> >
-> > This is a good example why driver version and reldate are useless in
-> > kernel. We are in 2016 and not in 2013. All these data are forgotten to
-> > update right after the developer copied it from other pre-historic driver
-> > (very common practice in netdev). It is worth to stop to use this totally
-> > useless defines.
-> >
+> > > +#define PVRDMA_VERSION 17
+> > >
+> > > What do you plan to do with this VERSION?
+> > > How is it related to ABI?
+> > >
 >
-> Sorry, in our case it was the Mellanox mlx4 driver :). Yeah, I can remove
-> DRV_VERSION and DRV_RELDATE. I'll keep the MODULE_VERSION since we keep
-> track of our virtual driver versions that way. So when there are any changes
-> to our driver we typically bump up the version. Not sure if that's a netdev
-> or misc device practice and if thats followed here.
+> Not related. This is only for the driver to know which APIs to support.
+> For example, an older driver would still be able to work with a newer
+> device. I can move this to pvrdma.h as well.
+>
+> To be honest, I thought I can move this file into the uapi folder since
+> the structures here are shared with the user-level library. Based on
+> your comments in this thread and the other ones, I think it makes sense
+> to move this file back to the pvrdma driver folder and rename it
+> (pvrdma_wqe.h?) to avoid confusion. There might still be some duplicate
+> code (especially the UAR offsets and WQE structs) here and in our
+> user-level library.
+>
+> Let me know if that makes sense.
+>
+> > > +
+> > > +#define PVRDMA_UAR_HANDLE_MASK	0x00FFFFFF	/* Bottom 24 bits. */
+> > > +#define PVRDMA_UAR_QP_OFFSET	0		/* Offset of QP doorbell. */
+> > > +#define PVRDMA_UAR_QP_SEND	BIT(30)		/* Send bit. */
+> > > +#define PVRDMA_UAR_QP_RECV	BIT(31)		/* Recv bit. */
+> > > +#define PVRDMA_UAR_CQ_OFFSET	4		/* Offset of CQ doorbell. */
+> > > +#define PVRDMA_UAR_CQ_ARM_SOL	BIT(29)		/* Arm solicited bit. */
+> > > +#define PVRDMA_UAR_CQ_ARM	BIT(30)		/* Arm bit. */
+> > > +#define PVRDMA_UAR_CQ_POLL	BIT(31)		/* Poll bit. */
+> > > +#define PVRDMA_INVALID_IDX	-1		/* Invalid index. */
+> > >
+> > > +
+> > > +/* PVRDMA atomic compare and swap */
+> > > +struct pvrdma_exp_cmp_swap {
+> > >
+> > > _EXP_ looks very similar to MLNX_OFED naming convention.
+> > >
+>
+> Yes, the operation was based on that. Any concerns?
+> I can rename this and the one below.
 
-They always promise to do it, but after year or two they are stopping.
-The funny thing starts when they start debug customer issues in specific
-distro with mix of backported fixes/features from old and new kernels.
+Yes, please.
+The common practice in IB subsystem is to use _ex_ notation for such
+extended structures.
 
 >
-> <...>
+> > > +	__u64 swap_val;
+> > > +	__u64 compare_val;
+> > > +	__u64 swap_mask;
+> > > +	__u64 compare_mask;
+> > > +};
+> > > +
+> > > +/* PVRDMA atomic fetch and add */
+> > > +struct pvrdma_exp_fetch_add {
+> > >
+> > > The same as above.
+> > >
+> > > +	__u64 add_val;
+> > > +	__u64 field_boundary;
+> > > +};
+> > > +
+> > > +/* PVRDMA address vector. */
+> > > +struct pvrdma_av {
+> > > +	__u32 port_pd;
+> > > +	__u32 sl_tclass_flowlabel;
+> > > +	__u8 dgid[16];
+> > > +	__u8 src_path_bits;
+> > > +	__u8 gid_index;
+> > > +	__u8 stat_rate;
+> > > +	__u8 hop_limit;
+> > > +	__u8 dmac[6];
+> > > +	__u8 reserved[6];
+> > > +};
+> > > +
+> > > +/* PVRDMA scatter/gather entry */
+> > > +struct pvrdma_sge {
+> > > +	__u64   addr;
+> > > +	__u32   length;
+> > > +	__u32   lkey;
+> > > +};
+> > > +
+> > > +/* PVRDMA receive queue work request */
+> > > +struct pvrdma_rq_wqe_hdr {
+> > > +	__u64 wr_id;		/* wr id */
+> > > +	__u32 num_sge;		/* size of s/g array */
+> > > +	__u32 total_len;	/* reserved */
+> > > +};
+> > > +/* Use pvrdma_sge (ib_sge) for receive queue s/g array elements. */
+> > > +
+> > > +/* PVRDMA send queue work request */
+> > > +struct pvrdma_sq_wqe_hdr {
+> > > +	__u64 wr_id;		/* wr id */
+> > > +	__u32 num_sge;		/* size of s/g array */
+> > > +	__u32 total_len;	/* reserved */
+> > > +	__u32 opcode;		/* operation type */
+> > > +	__u32 send_flags;	/* wr flags */
+> > > +	union {
+> > > +		__u32 imm_data;
+> > > +		__u32 invalidate_rkey;
+> > > +	} ex;
+> > > +	__u32 reserved;
+> > > +	union {
+> > > +		struct {
+> > > +			__u64 remote_addr;
+> > > +			__u32 rkey;
+> > > +			__u8 reserved[4];
+> > > +		} rdma;
+> > > +		struct {
+> > > +			__u64 remote_addr;
+> > > +			__u64 compare_add;
+> > > +			__u64 swap;
+> > > +			__u32 rkey;
+> > > +			__u32 reserved;
+> > > +		} atomic;
+> > > +		struct {
+> > > +			__u64 remote_addr;
+> > > +			__u32 log_arg_sz;
+> > > +			__u32 rkey;
+> > > +			union {
+> > > +				struct pvrdma_exp_cmp_swap  cmp_swap;
+> > > +				struct pvrdma_exp_fetch_add fetch_add;
+> > > +			} wr_data;
+> > > +		} masked_atomics;
+> > > +		struct {
+> > > +			__u64 iova_start;
+> > > +			__u64 pl_pdir_dma;
+> > > +			__u32 page_shift;
+> > > +			__u32 page_list_len;
+> > > +			__u32 length;
+> > > +			__u32 access_flags;
+> > > +			__u32 rkey;
+> > > +		} fast_reg;
+> > > +		struct {
+> > > +			__u32 remote_qpn;
+> > > +			__u32 remote_qkey;
+> > > +			struct pvrdma_av av;
+> > > +		} ud;
+> > > +	} wr;
+> > > +};
+> > >
+> > > No, I have half-baked patch series which refactors this structure in kernel.
+> > > There is no need to put this structure in UAPI.
+> > >
 >
-> > > +static void pvrdma_get_fw_ver_str(struct ib_device *device, char *str,
-> > > +				  size_t str_len)
+> This is specific to our device.. We do need to enqueue the WQE in this format
+> for the device to recognize it. This is the same format that the user-level
+> library will put the WQE in. As I said above, we can move this to the main
+> pvrdma driver directory if you prefer.
+
+This is different implementations between kernel and user space.
+We don't want to bring user space limitations to kernel.
+Take a look here:
+http://lxr.free-electrons.com/source/include/rdma/ib_verbs.h#L1192
+
+>
+> > > +/* Use pvrdma_sge (ib_sge) for send queue s/g array elements. */
+> > > +
+> > > +/* Completion queue element. */
+> > > +struct pvrdma_cqe {
+> > > +	__u64 wr_id;
+> > > +	__u64 qp;
+> > > +	__u32 opcode;
+> > > +	__u32 status;
+> > > +	__u32 byte_len;
+> > > +	__u32 imm_data;
+> > > +	__u32 src_qp;
+> > > +	__u32 wc_flags;
+> > > +	__u32 vendor_err;
+> > > +	__u16 pkey_index;
+> > > +	__u16 slid;
+> > > +	__u8 sl;
+> > > +	__u8 dlid_path_bits;
+> > > +	__u8 port_num;
+> > > +	__u8 smac[6];
+> > > +	__u8 reserved2[7]; /* Pad to next power of 2 (64). */
+> > > +};
+> > > +
+> > > +struct pvrdma_ring {
+> > > +	atomic_t prod_tail;	/* Producer tail. */
+> > > +	atomic_t cons_head;	/* Consumer head. */
+> > > +};
+> > > +
+> > > +struct pvrdma_ring_state {
+> > > +	struct pvrdma_ring tx;	/* Tx ring. */
+> > > +	struct pvrdma_ring rx;	/* Rx ring. */
+> > > +};
+> > > +
+> > > +static inline int pvrdma_idx_valid(__u32 idx, __u32 max_elems)
 > > > +{
-> > > +	struct pvrdma_dev *dev =
-> > > +		container_of(device, struct pvrdma_dev, ib_dev);
-> > > +	snprintf(str, str_len, "%d.%d.%d\n",
-> > > +		 (int) (dev->dsr->caps.fw_ver >> 32),
-> > > +		 (int) (dev->dsr->caps.fw_ver >> 16) & 0xffff,
-> > > +		 (int) dev->dsr->caps.fw_ver & 0xffff);
+> > > +	/* Generates fewer instructions than a less-than. */
+> > > +	return (idx & ~((max_elems << 1) - 1)) == 0;
 > > > +}
-> >
-> > Yuval already pointed it to you.
-> > Thanks to Ira, we have general function in core to print FW version.
-> > Please use them.
-> >
+> > > +
+> > > +static inline __s32 pvrdma_idx(atomic_t *var, __u32 max_elems)
+> > > +{
+> > > +	const unsigned int idx = atomic_read(var);
+> > > +
+> > > +	if (pvrdma_idx_valid(idx, max_elems))
+> > > +		return idx & (max_elems - 1);
+> > > +	return PVRDMA_INVALID_IDX;
+> > > +}
+> > > +
+> > > +static inline void pvrdma_idx_ring_inc(atomic_t *var, __u32 max_elems)
+> > > +{
+> > > +	__u32 idx = atomic_read(var) + 1;	/* Increment. */
+> > >
+> > > It is definitely different atomic_read than you expect. From my grep
+> > > searches on my machine, linux kernel doesn't export in standard headers
+> > > the atomic_* functions and C has their implementation of that functions.
+> > >
 >
-> If you are referring to commit 5fa76c20458518ed6181adddef2e31c5afc0745c
-> then isnt this is exactly what Ira did for the other providers?
-> Here, the pvrdma_get_fw_ver_str function is registered as a callback for
-> the get_dev_fw_str API. Please our pvrdma_register_device function where
-> we register our callbacks with ib_core:
-> https://patchwork.kernel.org/patch/9349357/
+> This would probably change for the user-level library, so no need have this file
+> in UAPI.
 >
-> > > +	dev->ib_dev.get_dev_fw_str = pvrdma_get_fw_ver_str;
+> > > +
+> > > +	idx &= (max_elems << 1) - 1;		/* Modulo size, flip gen. */
+> > > +	atomic_set(var, idx);
+> > > +}
+> > > +
+> > > +static inline __s32 pvrdma_idx_ring_has_space(const struct pvrdma_ring *r,
+> > > +					      __u32 max_elems, __u32 *out_tail)
+> > > +{
+> > > +	const __u32 tail = atomic_read(&r->prod_tail);
+> > > +	const __u32 head = atomic_read(&r->cons_head);
+> > > +
+> > > +	if (pvrdma_idx_valid(tail, max_elems) &&
+> > > +	    pvrdma_idx_valid(head, max_elems)) {
+> > > +		*out_tail = tail & (max_elems - 1);
+> > > +		return tail != (head ^ max_elems);
+> > > +	}
+> > > +	return PVRDMA_INVALID_IDX;
+> > > +}
+> > > +
+> > > +static inline __s32 pvrdma_idx_ring_has_data(const struct pvrdma_ring *r,
+> > > +					     __u32 max_elems, __u32 *out_head)
+> > > +{
+> > > +	const __u32 tail = atomic_read(&r->prod_tail);
+> > > +	const __u32 head = atomic_read(&r->cons_head);
+> > > +
+> > > +	if (pvrdma_idx_valid(tail, max_elems) &&
+> > > +	    pvrdma_idx_valid(head, max_elems)) {
+> > > +		*out_head = head & (max_elems - 1);
+> > > +		return tail != head;
+> > > +	}
+> > > +	return PVRDMA_INVALID_IDX;
+> > > +}
+> > > +
+> > > +static inline bool pvrdma_idx_ring_is_valid_idx(const struct pvrdma_ring *r,
+> > > +						__u32 max_elems, __u32 *idx)
+> > > +{
+> > > +	const __u32 tail = atomic_read(&r->prod_tail);
+> > > +	const __u32 head = atomic_read(&r->cons_head);
+> > > +
+> > > +	if (pvrdma_idx_valid(tail, max_elems) &&
+> > > +	    pvrdma_idx_valid(head, max_elems) &&
+> > > +	    pvrdma_idx_valid(*idx, max_elems)) {
+> > > +		if (tail > head && (*idx < tail && *idx >= head))
+> > > +			return true;
+> > > +		else if (head > tail && (*idx >= head || *idx < tail))
+> > > +			return true;
+> > > +	}
+> > > +	return false;
+> > > +}
+> > > +
+> > > +#endif /* __PVRDMA_UAPI_H__ */
+> > >
+> > > I suggest completely remove this file from UAPI headers folder.
+> > >
+>
+> I can move this back to the pvrdma driver folder.
 
-You are right,
-Sorry for that.
+Yes, please.
 
->
->
-
---fqSO13Wp+IaiYtoI
+--QFO1zB2dwAkGraMW
 Content-Type: application/pgp-signature; name="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIcBAEBAgAGBQJX6Lo+AAoJEORje4g2clinvVEP/j1rYd32uSEJE8qHkcJeGgqg
-XnFwoMTm0Iy7aPETlCAWw688aVi1aaBWrxdnuJ7xf5W9nvmzamCfKSjvNprMgxVl
-jsReWSCnLzeXywIPbrd4kCfbsBlde0F0fBaeEWlChHa5z+m8lVjY5lPTQN2gSFP7
-/Rq9INhqtuIR/c3YUMoPsOMtEJZHYmOzOXCX21l72lgBBz/9KSHoQHoUBTpZsm+i
-obwtyD3N3tie0oq+/njleFL8EZiIcT4nFqOgEjnEfmAlGNWYrqHXEdKw9VtO+zMQ
-epf8WinFSuzPhP9xlbNKntOrXOkjEiwt/IDUkyONtm6A5BpMGL+ZoPZdf6F0J24R
-B8WGJrfY/DwfeQBJG/Vw4osH/fIxRdUzyHJLClkP+WdebCfkBA6mVRVcRf3zytcE
-mQdzs4SSZymeDxOM07qjEZdLsjwc1racD3sl/XxN6oUv0fndyu7xE4in4JCCrjq8
-ylbjSz1NG/+UljlJBECkvjrnTTO6LaTuuqipF6+zxFcJtb9pJFFAw23HMeqq9NxA
-cr9p5xdwrTNj52ONjq3EwH1d4buxIcvoGrsnW71kcPoBSrn1xfoZE73J3FIGlgEW
-E8OVdPn1Fp9/8MEdbih3p2Cf4ONMvvXnmj0L2CR22BmMWe/hTLwuCl1J4jin2+9k
-/YwNeayAJZlVwMQrpNXk
-=ApJE
+iQIcBAEBAgAGBQJX6LySAAoJEORje4g2clin6eAQALXWVWkwDPHBGDI/lojjl5Yd
+u0YIGb9KwShluM+dXVBT6FeCfZCn+oBgYPgGKKWVpF52YnGtb6CdLZ1tWlI1LDPg
+TkXPHPJx1oSOzom3RQhGO9aoFl1V8672hvk2n9xvdnVCKQndr3jxx+l6X2jIBRJR
+RMQJD09OAwugX0dsN9cv4sZW2jfpt6leCyJemQIKyGafpA2V+clLgJVrkDpHuo4q
+ISWNHBbIHeMuTU12H/j+wwmKSkQnQUhKwfTOrVwiyS9FWdFU9W3fKBHfuxt+YwQn
+iAZT5Xqyf0EsAEeq+xC21cbdhcposJ7EwmgwSXCGXvlXU1IWf2pmRrntM1A4KvXH
+sG6OJD3IwQea/pouTqFJIRl7m0QR6LKlTSgl3X1vxc1WIYyEBfQ+wDJIJMoVKB7m
+dNj0CY62R0ZK+9gyTH0CbzrGksBPHVjzNvg/2JKRx0uP56/NwUwXNAKd++qtpAs5
+cCiiIB07p6xRvXlOOTZCedz+OJEYoZ4VDjOwR0M3dYspddU9hJVwH3uK1culJJah
+ZHFn+Bi1lRkkknk1yuWd38FV9021bBpGOQk8/4EFtt5/Jx5z62lFcLDpl0AyRfws
+zYtWV/X0Gyqtrbzo3bub8yBUe95Kbz0Qlj0Wv3hZyFVFnOZ8XoIFNdbh82fT3C6W
+76WvG/mC0EDWm0rQ8EWx
+=lYv5
 -----END PGP SIGNATURE-----
 
---fqSO13Wp+IaiYtoI--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--QFO1zB2dwAkGraMW--
