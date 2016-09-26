@@ -1,56 +1,26 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 5/5] ISDN-Gigaset: Enclose two expressions for the
- sizeof operator by parentheses
-Date: Mon, 26 Sep 2016 09:23:23 -0700
-Message-ID: <1474907003.2238.13.camel@perches.com>
-References: <566ABCD9.1060404@users.sourceforge.net>
-         <6d4bbb77-914f-19b8-a1a9-2731d1158612@users.sourceforge.net>
-         <e97b38b6-8c02-6733-8b57-9786bfb911a6@users.sourceforge.net>
-         <063D6719AE5E284EB5DD2968C1650D6DB0109E63@AcuExch.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
-        Julia Lawall <julia.lawall@lip6.fr>
-To: David Laight <David.Laight@ACULAB.COM>,
-        'SF Markus Elfring' <elfring@users.sourceforge.net>,
-        "gigaset307x-common@lists.sourceforge.net"
-        <gigaset307x-common@lists.sourceforge.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Karsten Keil <isdn@linux-pingi.de>,
-        Paul Bolle <pebolle@tiscali.nl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB0109E63@AcuExch.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Aaron Conole <aconole@bytheb.org>
+Subject: [PATCH nf-next 0/2] fixes for recent nf_compact hooks
+Date: Mon, 26 Sep 2016 12:24:29 -0400
+Message-ID: <1474907071-13591-1-git-send-email-aconole@bytheb.org>
+Cc: Florian Westphal <fw@strlen.de>,
+        Pablo Neira Ayuso <pablo@netfilter.org>
+To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2016-09-26 at 16:00 +0000, David Laight wrote:
-> From: SF Markus Elfring Sent: 26 September 2016 16:45
-> > The script "checkpatch.pl" can point information out like the following.
-> > WARNING: sizeof … should be sizeof(…)
-> []
-> > diff --git a/drivers/isdn/gigaset/common.c b/drivers/isdn/gigaset/common.c
-[]
-> > @@ -53,7 +53,7 @@ void gigaset_dbg_buffer(enum debuglevel level, const unsigned char *msg,
-> >  {
-> >  	unsigned char outbuf[80];
-> >  	unsigned char c;
-> > -	size_t space = sizeof outbuf - 1;
-> > +	size_t space = sizeof(outbuf - 1);
+Two possible error conditions were caught during an extended testing
+session, and by a build robot.  These patches fix the two issues (a
+missing handler when config is changed, and a potential NULL
+dereference).
 
-> wrong ...
-> think that is 7 instead of 79.
+Aaron Conole (2):
+  netfilter: Fix potential null pointer dereference
+  nf_set_hooks_head: acommodate different kconfig
 
+ net/netfilter/core.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-Well, it's sizeof(pointer) so either 4 or 8, but still,
-what Markus proposes here is _wrong_.
+-- 
+2.5.5
 
-Markus, do you know the script probably has a lower
-style conversion defect introduction rate than you do
-when doing these mechanical things.
-
-Please use it to verify what you are doing before
-submitting more defective patches.
-
-Excuses and apologies aren't good enough at this point.
