@@ -1,75 +1,104 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: Re: [PATCH 5/5] ISDN-CAPI: Delete unnecessary braces
-Date: Mon, 26 Sep 2016 14:52:39 +0200
-Message-ID: <e2f45ffb-9440-19c6-b7ce-0894dcd14879@users.sourceforge.net>
-References: <be07f84d-fc84-e47d-207e-aedd8c960151@users.sourceforge.net>
- <06e7637c-f682-bfa2-82b6-47d071bd58c4@users.sourceforge.net>
- <52dd5000-2bda-a1b6-aa97-1868e1193d35@cogentembedded.com>
- <727b14d4-7a3b-9de8-25d9-c3bf212f7c44@users.sourceforge.net>
- <1474881642.1846.14.camel@tiscali.nl>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net 2/5] sctp: reuse sent_count to avoid retransmitted
+ chunks for RTT measurements
+Date: Mon, 26 Sep 2016 09:13:01 -0400
+Message-ID: <20160926131300.GA6812@hmsreliant.think-freely.org>
+References: <cover.1474883200.git.lucien.xin@gmail.com>
+ <e8146a7075544ccb2631117f507cfd51e20b4cde.1474883200.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        netdev@vger.kernel.org, Karsten Keil <isdn@linux-pingi.de>,
-        LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org,
-        Julia Lawall <julia.lawall@lip6.fr>
-To: Paul Bolle <pebolle@tiscali.nl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1474881642.1846.14.camel@tiscali.nl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        davem@davemloft.net,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
+To: Xin Long <lucien.xin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:43017 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1030317AbcIZNNR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 09:13:17 -0400
+Content-Disposition: inline
+In-Reply-To: <e8146a7075544ccb2631117f507cfd51e20b4cde.1474883200.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->>>> @@ -976,13 +974,12 @@ static void handle_controller(_cmsg *cmsg)
->>>>          if (debugmode)
->>>>              printk(KERN_DEBUG "capidrv-%d: listenconf Info=0x%4x
->>>> (%s) cipmask=0x%x\n",
->>>>                     card->contrnr, cmsg->Info,
->>>> capi_info2str(cmsg->Info), card->cipmask);
->>>> -        if (cmsg->Info) {
->>>> +        if (cmsg->Info)
->>>>              listen_change_state(card, EV_LISTEN_CONF_ERROR);
->>>> -        } else if (card->cipmask == 0) {
->>>> +        else if (card->cipmask == 0)
->>>>              listen_change_state(card, EV_LISTEN_CONF_EMPTY);
->>>> -        } else {
->>>> +             else
->>>
->>>    Indented too much.
->>
->> How do you think about an alignment of this "else"
->> with the corresponding if statement three lines above?
+On Mon, Sep 26, 2016 at 05:47:51PM +0800, Xin Long wrote:
+> Now sctp uses chunk->resent to record if a chunk is retransmitted, for
+> RTT measurements with retransmitted DATA chunks. chunk->sent_count was
+> introduced to record how many times one chunk has been sent for prsctp
+> RTX policy before. We actually can know if one chunk is retransmitted
+> by checking chunk->sent_count is greater than 1.
 > 
-> Well, I think it looks silly.
+> This patch is to remove resent from sctp_chunk and reuse sent_count
+> to avoid retransmitted chunks for RTT measurements.
+> 
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> ---
+>  include/net/sctp/structs.h | 1 -
+>  net/sctp/output.c          | 3 ++-
+>  net/sctp/outqueue.c        | 4 +---
+>  3 files changed, 3 insertions(+), 5 deletions(-)
+> 
+> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+> index 4f097f5..81a5faa 100644
+> --- a/include/net/sctp/structs.h
+> +++ b/include/net/sctp/structs.h
+> @@ -647,7 +647,6 @@ struct sctp_chunk {
+>  #define SCTP_NEED_FRTX 0x1
+>  #define SCTP_DONT_FRTX 0x2
+>  	__u16	rtt_in_progress:1,	/* This chunk used for RTT calc? */
+> -		resent:1,		/* Has this chunk ever been resent. */
+>  		has_tsn:1,		/* Does this chunk have a TSN yet? */
+>  		has_ssn:1,		/* Does this chunk have a SSN yet? */
+>  		singleton:1,		/* Only chunk in the packet? */
+> diff --git a/net/sctp/output.c b/net/sctp/output.c
+> index 31b7bc3..483d2ed 100644
+> --- a/net/sctp/output.c
+> +++ b/net/sctp/output.c
+> @@ -547,7 +547,8 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
+>  				 * for a given destination transport address.
+>  				 */
+>  
+> -				if (!chunk->resent && !tp->rto_pending) {
+> +				if (chunk->sent_count == 1 &&
+> +				    !tp->rto_pending) {
+>  					chunk->rtt_in_progress = 1;
+>  					tp->rto_pending = 1;
+>  				}
+> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+> index 72e54a4..2a629fa 100644
+> --- a/net/sctp/outqueue.c
+> +++ b/net/sctp/outqueue.c
+> @@ -536,8 +536,6 @@ void sctp_retransmit_mark(struct sctp_outq *q,
+>  				transport->rto_pending = 0;
+>  			}
+>  
+> -			chunk->resent = 1;
+> -
+>  			/* Move the chunk to the retransmit queue. The chunks
+>  			 * on the retransmit queue are always kept in order.
+>  			 */
+> @@ -1467,7 +1465,7 @@ static void sctp_check_transmitted(struct sctp_outq *q,
+>  				 * instance).
+>  				 */
+>  				if (!tchunk->tsn_gap_acked &&
+> -				    !tchunk->resent &&
+> +				    tchunk->sent_count == 1 &&
+>  				    tchunk->rtt_in_progress) {
+>  					tchunk->rtt_in_progress = 0;
+>  					rtt = jiffies - tchunk->sent_at;
+> -- 
+> 2.1.0
+> 
 
-Thanks for your feedback.
+Maybe wrap this in a macro?  i.e.:
+#define chunk_retransmitted(chunk) (chunk->sent_count > 1)
+
+For readability?
 
 
-> checkpatch apparently agrees:
->     WARNING: Statements should start on a tabstop
->     #51: FILE: drivers/isdn/capi/capidrv.c:981:
->     +		     else
->     
->     total: 0 errors, 1 warnings, 91 lines checked
-…
-> You use checkpatch a lot, don't you?
-
-It seems so when I am preparing hundreds of update steps.
-
-
-> Didn't you use it to, you know, check your patch?
-
-This Perl script showed me also the quoted information.
-
-I dared to present a deviation from this general advice
-because I got the mood to gather constructive comments on
-source code formatting also around an if statement like
-in my update suggestion.
-
-Would it eventually make sense to move this "if" (behind an "else")
-to a separate line and increase the indentation for the corresponding
-code one level then?
-
-Regards,
-Markus
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
