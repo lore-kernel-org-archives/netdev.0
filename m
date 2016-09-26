@@ -1,321 +1,124 @@
-From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Subject: [PATCH v3 net-next] net: phy: Add Edge-rate driver for Microsemi PHYs.
-Date: Mon, 26 Sep 2016 19:18:25 +0530
-Message-ID: <1474897705-30802-1-git-send-email-Raju.Lakkaraju@microsemi.com>
+From: Ram Amrani <Ram.Amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Subject: [RFC v3 00/11] QLogic RDMA Driver (qedr) RFC
+Date: Mon, 26 Sep 2016 17:16:36 +0300
+Message-ID: <1474899407-12635-1-git-send-email-Ram.Amrani@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <f.fainelli@gmail.com>, <Allan.Nielsen@microsemi.com>,
-        <andrew@lunn.ch>, Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-To: <netdev@vger.kernel.org>, <devicetree@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-cys01nam02on0068.outbound.protection.outlook.com ([104.47.37.68]:59586
-        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S965676AbcIZOEU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 26 Sep 2016 10:04:20 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>, <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>, <rajesh.borundia-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Ram Amrani <Ram.Amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+This series introduces RoCE RDMA driver for the 579xx RDMA products by Qlogic.
+The RDMA support is added as an additional loadable module (qedr) over the
+Ethernet qede driver.
+The qedr module will support both RoCE and iWarp, although this series only
+adds RoCE support.
+The qed and qede drivers are enhanced with functionality required for RDMA
+support.
 
-Thank you for review the code and valuable comments.
-Summary of changes:
-        V1: Initial version of Edge-rate driver add by using IOCTL.
-        V2: Changed edge-rate parameter to Device Tree with magic number.
-        V3: Added Device Tree documentatoin and edge-rate parameter table.
-            Added probe function initialize the vsc8531 private datastructure.
-Thanks,
-Raju.
+Based on net-next 4c73195edbe3a5d7e14ea549bb261cf35c29f0cc.
 
-From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+The series adds on top of RFC v2:
+* fix licensing header to dual license
+* remove 'debug' module paramter and make use of pr_debug
+* relocation of qedr user API to include/rdma/uapi/
+* use the __u32/64 in uapi and include types.h
+* advance ABI version (since shifting to __u32/64 changed the ABI)
+* remove the check for all drivers that IB_ACCESS_MW_BIND isn't set 
+  in ib_get_dma_mr. It will be sent in a dedicated patch.
+* misc.: fixed typos, removed redundant includes 
 
----
-All the review comments updated and resending for review.
+For RFC v2 visit http://marc.info/?l=linux-rdma&m=147436779328618&w=2
 
-Summary:
-        V1: Initial version of Edge-rate driver add by using IOCTL.
-        V2: Changed edge-rate parameter to Device Tree with magic number.
-        V3: Added Device Tree documentatoin and edge-rate parameter table.
-            Added probe function initialize the vsc8531 private datastructure.
+Thanks for everyone which pointed out problems in the driver.
 
-Edge-rate:
-As system and networking speeds increase, a signal's output transition,
-also know as the edge rate or slew rate (V/ns), takes on greater importance
-because high-speed signals come with a price. That price is an assortment of
-interference problems like ringing on the line, signal overshoot and
-undershoot, extended signal settling times, crosstalk noise, transmission
-line reflections, false signal detection by the receiving device and
-electromagnetic interference (EMI) -- all of which can negate the potential
-gains designers are seeking when they try to increase system speeds through
-the use of higher performance logic devices. The fact is, faster signaling
-edge rates can cause a higher level of electrical noise or other type of
-interference that can actually lead to slower line speeds and lower maximum
-system frequencies. This parameter allow the board designers to change the 
-driving strange, and thereby change the EMI behavioral.
+Any review/comment is appreciated.
 
-Edge-rate value get from Device Tree.
+Yuval Mintz (1):
+  IB/qed: Add LL2
 
-Tested on Beaglebone Black with VSC 8531 PHY.
+Rajesh Borundia (10):
+  IB/qedr: Add RoCE driver framework
+  IB/qedr: Add support for RoCE HW init
+  IB/qedr: Add support for user context verbs
+  IB/qedr: Add support for PD,PKEY and CQ verbs
+  IB/qedr: Add support for QP verbs
+  IB/qedr: Add support for memory registeration verbs
+  IB/qedr: Add support for data path
+  IB/qedr: Add LL2 RoCE interface
+  IB/qedr: Add GSI support
+  IB/qedr: Add events support and register IB device
 
-Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
----
- .../devicetree/bindings/net/mscc-phy-vsc8531.txt   | 61 ++++++++++++++++
- drivers/net/phy/mscc.c                             | 85 ++++++++++++++++++++++
- include/dt-bindings/net/mscc-phy-vsc8531.h         | 23 ++++++
- 3 files changed, 169 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
- create mode 100644 include/dt-bindings/net/mscc-phy-vsc8531.h
+ drivers/infiniband/Kconfig                     |    2 +
+ drivers/infiniband/hw/Makefile                 |    1 +
+ drivers/infiniband/hw/qedr/Kconfig             |    7 +
+ drivers/infiniband/hw/qedr/Makefile            |    3 +
+ drivers/infiniband/hw/qedr/main.c              |  888 ++++++
+ drivers/infiniband/hw/qedr/qedr.h              |  498 ++++
+ drivers/infiniband/hw/qedr/qedr_cm.c           |  636 +++++
+ drivers/infiniband/hw/qedr/qedr_cm.h           |   61 +
+ drivers/infiniband/hw/qedr/qedr_hsi.h          |   56 +
+ drivers/infiniband/hw/qedr/qedr_hsi_rdma.h     |  748 +++++
+ drivers/infiniband/hw/qedr/verbs.c             | 3561 ++++++++++++++++++++++++
+ drivers/infiniband/hw/qedr/verbs.h             |  101 +
+ drivers/net/ethernet/qlogic/Kconfig            |    8 +
+ drivers/net/ethernet/qlogic/qed/Makefile       |    2 +
+ drivers/net/ethernet/qlogic/qed/qed.h          |   38 +-
+ drivers/net/ethernet/qlogic/qed/qed_cxt.c      |    8 +
+ drivers/net/ethernet/qlogic/qed/qed_cxt.h      |    7 +
+ drivers/net/ethernet/qlogic/qed/qed_dev.c      |  276 +-
+ drivers/net/ethernet/qlogic/qed/qed_dev_api.h  |   20 +
+ drivers/net/ethernet/qlogic/qed/qed_hsi.h      |    3 +
+ drivers/net/ethernet/qlogic/qed/qed_ll2.c      | 1792 ++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_ll2.h      |  316 +++
+ drivers/net/ethernet/qlogic/qed/qed_main.c     |   67 +-
+ drivers/net/ethernet/qlogic/qed/qed_reg_addr.h |   30 +-
+ drivers/net/ethernet/qlogic/qed/qed_roce.c     | 2975 ++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_roce.h     |  210 ++
+ drivers/net/ethernet/qlogic/qed/qed_sp.h       |    5 +
+ drivers/net/ethernet/qlogic/qed/qed_spq.c      |    8 +
+ drivers/net/ethernet/qlogic/qede/Makefile      |    1 +
+ drivers/net/ethernet/qlogic/qede/qede.h        |    9 +
+ drivers/net/ethernet/qlogic/qede/qede_main.c   |   35 +-
+ drivers/net/ethernet/qlogic/qede/qede_roce.c   |  309 ++
+ include/linux/qed/common_hsi.h                 |    1 +
+ include/linux/qed/qed_if.h                     |    9 +-
+ include/linux/qed/qed_ll2_if.h                 |  139 +
+ include/linux/qed/qed_roce_if.h                |  604 ++++
+ include/linux/qed/qede_roce.h                  |   88 +
+ include/linux/qed/rdma_common.h                |    1 +
+ include/uapi/linux/pci_regs.h                  |    3 +
+ include/uapi/rdma/qedr-abi.h                   |  107 +
+ 41 files changed, 13616 insertions(+), 20 deletions(-)
+ create mode 100644 drivers/infiniband/hw/qedr/Kconfig
+ create mode 100644 drivers/infiniband/hw/qedr/Makefile
+ create mode 100644 drivers/infiniband/hw/qedr/main.c
+ create mode 100644 drivers/infiniband/hw/qedr/qedr.h
+ create mode 100644 drivers/infiniband/hw/qedr/qedr_cm.c
+ create mode 100644 drivers/infiniband/hw/qedr/qedr_cm.h
+ create mode 100644 drivers/infiniband/hw/qedr/qedr_hsi.h
+ create mode 100644 drivers/infiniband/hw/qedr/qedr_hsi_rdma.h
+ create mode 100644 drivers/infiniband/hw/qedr/verbs.c
+ create mode 100644 drivers/infiniband/hw/qedr/verbs.h
+ create mode 100644 drivers/net/ethernet/qlogic/qed/qed_ll2.c
+ create mode 100644 drivers/net/ethernet/qlogic/qed/qed_ll2.h
+ create mode 100644 drivers/net/ethernet/qlogic/qed/qed_roce.c
+ create mode 100644 drivers/net/ethernet/qlogic/qed/qed_roce.h
+ create mode 100644 drivers/net/ethernet/qlogic/qede/qede_roce.c
+ create mode 100644 include/linux/qed/qed_ll2_if.h
+ create mode 100644 include/linux/qed/qed_roce_if.h
+ create mode 100644 include/linux/qed/qede_roce.h
+ create mode 100644 include/uapi/rdma/qedr-abi.h
 
-diff --git a/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt b/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
-new file mode 100644
-index 0000000..7ba3855
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
-@@ -0,0 +1,61 @@
-+* Microsemi - vsc8531 Giga bit ethernet phy
-+
-+Required properties:
-+- compatible	: Should contain phy id as "ethernet-phy-idAAAA.BBBB"
-+		  If the phy's identifier is known then the list may contain an entry
-+		  of the form: "ethernet-phy-idAAAA.BBBB" where
-+		  AAAA - The value of the 16 bit Phy Identifier 1 register as
-+			 4 hex digits. This is the chip vendor OUI bits 3:18
-+		  BBBB - The value of the 16 bit Phy Identifier 2 register as
-+			 4 hex digits. This is the chip vendor OUI bits 19:24,
-+			 followed by 10 bits of a vendor specific ID.
-+- reg		: The ID number for the phy, usually a small integer
-+
-+Optional properties:
-+- vsc8531,edge-rate	: Edge rate sets the drive strength of the MAC
-+			  interface output signals.  Changing the drive
-+			  strength will affect the edge rate of the output
-+			  signal.  The goal of this setting is to help
-+			  reduce electrical emission (EMI) by being able
-+			  to reprogram drive strength and in effect slow
-+			  down the edge rate if desired.  Table 5 shows the
-+			  impact to the edge rate per VDDMAC supply for each
-+			  drive strength setting. Default edge rate is set as
-+			  Fastest edge rate (i.e. 7).
-+			  Ref: Table:1 - Edge rate change below.
-+
-+Note: see dt-bindings/net/mscc-vsc8531.h for applicable values
-+
-+Table: 1 - Edge rate change
-+-----------------------------------------------------------------------------|
-+|                             Edge Rate Change (VDDMAC)                      |
-+|									     |
-+| Reg Setting	3.3V		2.5V		1.8V		1.5V         |
-+|----------------------------------------------------------------------------|
-+| 111 		Default		Deafult		Default		Default      |
-+| (Fastest)					(recommended)	(recommended)|
-+|----------------------------------------------------------------------------|
-+| 110		-2%		-3%		-5%		-6%          |
-+|----------------------------------------------------------------------------|
-+| 101		-4%		-6%		-9%		-14%         |
-+|----------------------------------------------------------------------------|
-+| 100		-7%		-10%		-16%		-21%         |
-+|		(recommended)	(recommended)                                |
-+|----------------------------------------------------------------------------|
-+| 011		-10%		-14%		-23%		-29%         |
-+|----------------------------------------------------------------------------|
-+| 010		-17%		-23%		-35%		-42%         |
-+|----------------------------------------------------------------------------|
-+| 001		-29%		-37%		-52%		-58%         |
-+|----------------------------------------------------------------------------|
-+| 000		-53%		-63%		-76%		-77%         |
-+| (slowest)								     |
-+|----------------------------------------------------------------------------|
-+
-+Example:
-+
-+        vsc8531_0: ethernet-phy@0 {
-+                compatible = "ethernet-phy-id0007.0570";
-+                reg = <0>;
-+                vsc8531,edge-rate = /bits/ 8 <MSCC_EDGE_RATE_CNTL_FASTEST>;
-+        };
-diff --git a/drivers/net/phy/mscc.c b/drivers/net/phy/mscc.c
-index d350deb..de29354 100644
---- a/drivers/net/phy/mscc.c
-+++ b/drivers/net/phy/mscc.c
-@@ -11,6 +11,8 @@
- #include <linux/mdio.h>
- #include <linux/mii.h>
- #include <linux/phy.h>
-+#include <linux/of.h>
-+#include <dt-bindings/net/mscc-phy-vsc8531.h>
- 
- enum rgmii_rx_clock_delay {
- 	RGMII_RX_CLK_DELAY_0_2_NS = 0,
-@@ -37,6 +39,10 @@ enum rgmii_rx_clock_delay {
- #define MII_VSC85XX_INT_MASK_MASK	  0xa000
- #define MII_VSC85XX_INT_STATUS		  26
- 
-+#define MSCC_PHY_WOL_MAC_CONTROL          27
-+#define EDGE_RATE_CNTL_POS                5
-+#define EDGE_RATE_CNTL_MASK               0x00E0
-+
- #define MSCC_EXT_PAGE_ACCESS		  31
- #define MSCC_PHY_PAGE_STANDARD		  0x0000 /* Standard registers */
- #define MSCC_PHY_PAGE_EXTENDED_2	  0x0002 /* Extended reg - page 2 */
-@@ -50,6 +56,10 @@ enum rgmii_rx_clock_delay {
- #define PHY_ID_VSC8531			  0x00070570
- #define PHY_ID_VSC8541			  0x00070770
- 
-+struct vsc8531_private {
-+	u8 edge_rate;
-+};
-+
- static int vsc85xx_phy_page_set(struct phy_device *phydev, u8 page)
- {
- 	int rc;
-@@ -58,6 +68,30 @@ static int vsc85xx_phy_page_set(struct phy_device *phydev, u8 page)
- 	return rc;
- }
- 
-+static int vsc85xx_edge_rate_cntl_set(struct phy_device *phydev,
-+				      u8 edge_rate)
-+{
-+	int rc;
-+	u16 reg_val;
-+
-+	mutex_lock(&phydev->lock);
-+	rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_EXTENDED_2);
-+	if (rc != 0)
-+		goto out_unlock;
-+	reg_val = phy_read(phydev, MSCC_PHY_WOL_MAC_CONTROL);
-+	reg_val &= ~(EDGE_RATE_CNTL_MASK);
-+	reg_val |= (edge_rate << EDGE_RATE_CNTL_POS);
-+	rc = phy_write(phydev, MSCC_PHY_WOL_MAC_CONTROL, reg_val);
-+	if (rc != 0)
-+		goto out_unlock;
-+	rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_STANDARD);
-+
-+out_unlock:
-+	mutex_unlock(&phydev->lock);
-+
-+	return rc;
-+}
-+
- static int vsc85xx_mac_if_set(struct phy_device *phydev,
- 			      phy_interface_t interface)
- {
-@@ -116,9 +150,41 @@ out_unlock:
- 	return rc;
- }
- 
-+#ifdef CONFIG_OF_MDIO
-+static int vsc8531_of_init(struct phy_device *phydev)
-+{
-+	int rc;
-+	struct vsc8531_private *vsc8531 = phydev->priv;
-+	struct device *dev = &phydev->mdio.dev;
-+	struct device_node *of_node = dev->of_node;
-+
-+	if (!of_node)
-+		return -ENODEV;
-+
-+	rc = of_property_read_u8(of_node, "vsc8531,edge-rate",
-+				 &vsc8531->edge_rate);
-+	if (rc == -EINVAL) {
-+		vsc8531->edge_rate = MSCC_EDGE_RATE_CNTL_FASTEST;
-+		rc = 0;
-+	}
-+
-+	return rc;
-+}
-+#else
-+static int vsc8531_of_init(struct phy_device *phydev)
-+{
-+	return 0;
-+}
-+#endif /* CONFIG_OF_MDIO */
-+
- static int vsc85xx_config_init(struct phy_device *phydev)
- {
- 	int rc;
-+	struct vsc8531_private *vsc8531 = phydev->priv;
-+
-+	rc = vsc8531_of_init(phydev);
-+	if (rc)
-+		return rc;
- 
- 	rc = vsc85xx_default_config(phydev);
- 	if (rc)
-@@ -128,6 +194,10 @@ static int vsc85xx_config_init(struct phy_device *phydev)
- 	if (rc)
- 		return rc;
- 
-+	rc = vsc85xx_edge_rate_cntl_set(phydev, vsc8531->edge_rate);
-+	if (rc)
-+		return rc;
-+
- 	rc = genphy_config_init(phydev);
- 
- 	return rc;
-@@ -160,6 +230,19 @@ static int vsc85xx_config_intr(struct phy_device *phydev)
- 	return rc;
- }
- 
-+static int vsc85xx_probe(struct phy_device *phydev)
-+{
-+	struct vsc8531_private *vsc8531;
-+
-+	vsc8531 = devm_kzalloc(&phydev->mdio.dev, sizeof(*vsc8531), GFP_KERNEL);
-+	if (!vsc8531)
-+		return -ENOMEM;
-+
-+	phydev->priv = vsc8531;
-+
-+	return 0;
-+}
-+
- /* Microsemi VSC85xx PHYs */
- static struct phy_driver vsc85xx_driver[] = {
- {
-@@ -177,6 +260,7 @@ static struct phy_driver vsc85xx_driver[] = {
- 	.config_intr    = &vsc85xx_config_intr,
- 	.suspend	= &genphy_suspend,
- 	.resume		= &genphy_resume,
-+	.probe          = &vsc85xx_probe,
- },
- {
- 	.phy_id		= PHY_ID_VSC8541,
-@@ -193,6 +277,7 @@ static struct phy_driver vsc85xx_driver[] = {
- 	.config_intr    = &vsc85xx_config_intr,
- 	.suspend	= &genphy_suspend,
- 	.resume		= &genphy_resume,
-+	.probe          = &vsc85xx_probe,
- }
- 
- };
-diff --git a/include/dt-bindings/net/mscc-phy-vsc8531.h b/include/dt-bindings/net/mscc-phy-vsc8531.h
-new file mode 100644
-index 0000000..e245f40
---- /dev/null
-+++ b/include/dt-bindings/net/mscc-phy-vsc8531.h
-@@ -0,0 +1,23 @@
-+/*
-+ * Device Tree constants for Microsemi VSC8531 PHY
-+ *
-+ * Author: Nagaraju Lakkaraju
-+ *
-+ * License: Dual MIT/GPL
-+ * Copyright (c) 2016 Microsemi Corporation
-+ */
-+
-+#ifndef _DT_BINDINGS_MSCC_VSC8531_H
-+#define _DT_BINDINGS_MSCC_VSC8531_H
-+
-+/* MAC interface Edge rate control pad */
-+#define MSCC_EDGE_RATE_CNTL_SLOWEST      0
-+#define MSCC_EDGE_RATE_CNTL_PLUS_1       1
-+#define MSCC_EDGE_RATE_CNTL_PLUS_2       2
-+#define MSCC_EDGE_RATE_CNTL_PLUS_3       3
-+#define MSCC_EDGE_RATE_CNTL_PLUS_4       4
-+#define MSCC_EDGE_RATE_CNTL_PLUS_5       5
-+#define MSCC_EDGE_RATE_CNTL_PLUS_6       6
-+#define MSCC_EDGE_RATE_CNTL_FASTEST      7
-+
-+#endif
 -- 
-2.7.4
+1.8.3.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
