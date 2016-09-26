@@ -1,30 +1,36 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: Re: [PATCH v4 2/7] ipv6 addrconf: remove addrconf_sysctl_hop_limit()
-Date: Mon, 26 Sep 2016 18:37:37 +0900
-Message-ID: <CANP3RGdL_N_vV1iXoCVz+Gu-oTSm8y2Y=dkx1APmb+z6sJ8S=A@mail.gmail.com>
-References: <20160925.060423.854801855957024790.davem@davemloft.net>
- <1474801390-6891-1-git-send-email-zenczykowski@gmail.com> <1474801390-6891-3-git-send-email-zenczykowski@gmail.com>
- <CAAedzxoD6DiNDQUpuiV3tQV0zVmAb=J6968aU02Z+3521u0s3Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Lorenzo Colitti <lorenzo@google.com>
-To: Erik Kline <ek@google.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net 0/5] sctp: some fixes of prsctp polices
+Date: Mon, 26 Sep 2016 17:47:49 +0800
+Message-ID: <cover.1474883200.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yb0-f181.google.com ([209.85.213.181]:35202 "EHLO
-        mail-yb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1760834AbcIZJhj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 05:37:39 -0400
-Received: by mail-yb0-f181.google.com with SMTP id t5so9752896yba.2
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 02:37:38 -0700 (PDT)
-In-Reply-To: <CAAedzxoD6DiNDQUpuiV3tQV0zVmAb=J6968aU02Z+3521u0s3Q@mail.gmail.com>
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:34603 "EHLO
+        mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1030209AbcIZJr6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 05:47:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> +static int one = 1;
->> +static int two_five_five = 255;
->
-> Should these be const as well?
+This patchset is to improve some codes about prsctp polices, and also
+to fix some issues.
 
-It would be nice, but you actually get compile time warnings if you do that.
+Xin Long (5):
+  sctp: move sent_count to the memory hole in sctp_chunk
+  sctp: reuse sent_count to avoid retransmitted chunks for RTT
+    measurements
+  sctp: remove prsctp_param from sctp_chunk
+  sctp: change to check peer prsctp_capable when using prsctp polices
+  sctp: remove the old ttl expires policy
+
+ include/net/sctp/structs.h | 15 +++------------
+ net/sctp/chunk.c           | 31 ++++++++++---------------------
+ net/sctp/output.c          |  6 ++----
+ net/sctp/outqueue.c        | 16 +++++++---------
+ net/sctp/sm_make_chunk.c   | 15 ---------------
+ 5 files changed, 22 insertions(+), 61 deletions(-)
+
+-- 
+2.1.0
