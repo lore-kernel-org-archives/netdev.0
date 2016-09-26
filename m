@@ -1,55 +1,74 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] net: trivial: fix fsl fec_main mdio write return value
-Date: Tue, 27 Sep 2016 01:10:14 +0300
-Message-ID: <7f2ef23b-7354-2049-9747-cdaf4109b5a0@cogentembedded.com>
-References: <20160926191140.12107-1-albert.aribaud@3adev.fr>
+From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Subject: [PATCH resend] sh_eth: add R8A7743/5 support
+Date: Tue, 27 Sep 2016 01:23:26 +0300
+Message-ID: <1654835.SEcvPVx4OQ@wasted.cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Kosina <trivial@kernel.org>, Fugang Duan <fugang.duan@nxp.com>
-To: "Albert ARIBAUD (3ADEV)" <albert.aribaud@3adev.fr>,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f45.google.com ([209.85.215.45]:33469 "EHLO
-        mail-lf0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936146AbcIZWKX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 18:10:23 -0400
-Received: by mail-lf0-f45.google.com with SMTP id b71so135262130lfg.0
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 15:10:22 -0700 (PDT)
-In-Reply-To: <20160926191140.12107-1-albert.aribaud@3adev.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-renesas-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+Add support for the first two members of the Renesas RZ/G family, RZ/G1M/E
+(also known as  R8A7743/5). The Ether core is the same as in the R-Car gen2
+SoCs, so will share the code/data with them...
 
-On 09/26/2016 10:11 PM, Albert ARIBAUD (3ADEV) wrote:
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
 
-> If the MDIO enf-of-transfer wait loop does not time out,
-> 0 should be returned to the caller through ret, but ret
-> was not reset to 0 after receiving the return value of
-> pm_runtime_get_sync(). Reset ret when no time out occurred.
->
-> Signed-off-by: Albert ARIBAUD (3ADEV) <albert.aribaud@3adev.fr>
-> ---
->  drivers/net/ethernet/freescale/fec_main.c | 2 ++
->  1 file changed, 2 insertions(+)
->
-> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-> index 01f7e81..0413c05 100644
-> --- a/drivers/net/ethernet/freescale/fec_main.c
-> +++ b/drivers/net/ethernet/freescale/fec_main.c
-> @@ -1818,6 +1818,8 @@ static int fec_enet_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
->  		netdev_err(fep->netdev, "MDIO write timeout\n");
->  		ret  = -ETIMEDOUT;
->  	}
-> +	else
+---
+The patch is against the DaveM's 'net-next.git' repo.
 
-	} else {
+Re-sending with the DT maintainers/list included this time...
 
-> +		ret = 0;
+ Documentation/devicetree/bindings/net/sh_eth.txt |    2 ++
+ drivers/net/ethernet/renesas/Kconfig             |    2 +-
+ drivers/net/ethernet/renesas/sh_eth.c            |    2 ++
+ 3 files changed, 5 insertions(+), 1 deletion(-)
 
-	}
+Index: net-next/Documentation/devicetree/bindings/net/sh_eth.txt
+===================================================================
+--- net-next.orig/Documentation/devicetree/bindings/net/sh_eth.txt
++++ net-next/Documentation/devicetree/bindings/net/sh_eth.txt
+@@ -5,6 +5,8 @@ interface contains.
+ 
+ Required properties:
+ - compatible: "renesas,gether-r8a7740" if the device is a part of R8A7740 SoC.
++	      "renesas,ether-r8a7743"  if the device is a part of R8A7743 SoC.
++	      "renesas,ether-r8a7745"  if the device is a part of R8A7745 SoC.
+ 	      "renesas,ether-r8a7778"  if the device is a part of R8A7778 SoC.
+ 	      "renesas,ether-r8a7779"  if the device is a part of R8A7779 SoC.
+ 	      "renesas,ether-r8a7790"  if the device is a part of R8A7790 SoC.
+Index: net-next/drivers/net/ethernet/renesas/Kconfig
+===================================================================
+--- net-next.orig/drivers/net/ethernet/renesas/Kconfig
++++ net-next/drivers/net/ethernet/renesas/Kconfig
+@@ -27,7 +27,7 @@ config SH_ETH
+ 	  Renesas SuperH Ethernet device driver.
+ 	  This driver supporting CPUs are:
+ 		- SH7619, SH7710, SH7712, SH7724, SH7734, SH7763, SH7757,
+-		  R8A7740, R8A777x and R8A779x.
++		  R8A7740, R8A774x, R8A777x and R8A779x.
+ 
+ config RAVB
+ 	tristate "Renesas Ethernet AVB support"
+Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
+===================================================================
+--- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
++++ net-next/drivers/net/ethernet/renesas/sh_eth.c
+@@ -2959,6 +2959,8 @@ static struct sh_eth_plat_data *sh_eth_p
+ 
+ static const struct of_device_id sh_eth_match_table[] = {
+ 	{ .compatible = "renesas,gether-r8a7740", .data = &r8a7740_data },
++	{ .compatible = "renesas,ether-r8a7743", .data = &r8a779x_data },
++	{ .compatible = "renesas,ether-r8a7745", .data = &r8a779x_data },
+ 	{ .compatible = "renesas,ether-r8a7778", .data = &r8a777x_data },
+ 	{ .compatible = "renesas,ether-r8a7779", .data = &r8a777x_data },
+ 	{ .compatible = "renesas,ether-r8a7790", .data = &r8a779x_data },
 
-[...]
-
-MBR, Sergei
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
