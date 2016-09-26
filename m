@@ -1,53 +1,101 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next 4/4] net/sched: act_mirred: Implement ingress actions
-Date: Sun, 25 Sep 2016 21:56:51 -0700
-Message-ID: <CAM_iQpW5Kk9HUWqgqx7NG9qzYHc6YWpJfOai8zaXeuRzqPsVNA@mail.gmail.com>
-References: <1474550512-7552-1-git-send-email-shmulik.ladkani@gmail.com>
- <1474550512-7552-5-git-send-email-shmulik.ladkani@gmail.com>
- <4387324a-de66-aa1b-86f0-1a9a2f8294f5@mojatatu.com> <20160923081106.73fb48df@halley>
- <CAM_iQpU+7NDoGGPkkDHA=v5XW5z98GHQhstFg5H=WCyiBzA-eA@mail.gmail.com> <20160925205932.57b21e93@halley>
+From: Adit Ranadive <aditr@vmware.com>
+Subject: Re: [PATCH v5 13/16] IB/pvrdma: Add the main driver module for PVRDMA
+Date: Sun, 25 Sep 2016 22:10:43 -0700
+Message-ID: <da4a09fc-bef1-60ea-f9af-7c505a9af6d6@vmware.com>
+References: <cover.1474759181.git.aditr@vmware.com>
+ <8db982c37a0a96b37df02826564474a216922f25.1474759181.git.aditr@vmware.com>
+ <20160925075703.GX4088@leon.nu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <dledford@redhat.com>, <linux-rdma@vger.kernel.org>,
+        <pv-drivers@vmware.com>, <netdev@vger.kernel.org>,
+        <linux-pci@vger.kernel.org>, <jhansen@vmware.com>,
+        <asarwade@vmware.com>, <georgezhang@vmware.com>,
+        <bryantan@vmware.com>
+To: Leon Romanovsky <leon@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f66.google.com ([209.85.214.66]:36511 "EHLO
-        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752301AbcIZE5N (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 00:57:13 -0400
-Received: by mail-it0-f66.google.com with SMTP id n143so4296622ita.3
-        for <netdev@vger.kernel.org>; Sun, 25 Sep 2016 21:57:12 -0700 (PDT)
-In-Reply-To: <20160925205932.57b21e93@halley>
+Received: from ex13-edg-ou-002.vmware.com ([208.91.0.190]:44258 "EHLO
+        EX13-EDG-OU-002.vmware.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752301AbcIZFK6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 01:10:58 -0400
+In-Reply-To: <20160925075703.GX4088@leon.nu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Sep 25, 2016 at 10:59 AM, Shmulik Ladkani
-<shmulik.ladkani@gmail.com> wrote:
-> Hi,
->
-> On Sat, 24 Sep 2016 17:07:12 -0700 Cong Wang <xiyou.wangcong@gmail.com> wrote:
->> One problem to use your code for us is that, the RX side of veth
->> is inside containers, not visible to outside, perhaps we need some
->> more parameter to tell the netns before the device name/index?
->> Thoughts?
->
-> Well, this is way trickier...
->
-> tc_mirred doesn't cope with netns movement of the target device.
-> See 'mirred_device_event': upon NETDEV_UNREGISTER the 'tcfm_dev' gets
-> nullified.
->
-> (dev_change_net_namespace sequence includes NETDEV_UNREGISTER,
->  dev_net_set, NETDEV_REGISTER).
->
-> As upposed to veth, which keeps the peer netdev pointer (since veth peers
-> lifetime is coupled), here in act_mirred we can't easily distinguish a
-> "real" NETDEV_UNREGISTER vs a namespace change...
+On sun, Sep 25 2016 at 10:57:03AM +0300, Leon Romanovsky wrote:
+> On Sat, Sep 24, 2016 at 04:21:37PM -0700, Adit Ranadive wrote:
+> > This patch adds the support to register a RDMA device with the kernel RDMA
+> > stack as well as a kernel module. This also initializes the underlying
+> > virtual PCI device.
+> >
+> > Reviewed-by: Yuval Shaia <yuval.shaia@oracle.com>
+> > Reviewed-by: Jorgen Hansen <jhansen@vmware.com>
+> > Reviewed-by: George Zhang <georgezhang@vmware.com>
+> > Reviewed-by: Aditya Sarwade <asarwade@vmware.com>
+> > Reviewed-by: Bryan Tan <bryantan@vmware.com>
+> > Signed-off-by: Adit Ranadive <aditr@vmware.com>
 
-Yeah, isolation is a barrier for this, so we probably can't use
-this feature. But I still think it could be useful.
+<...>
 
-Thanks.
+> > +
+> > +#include <linux/errno.h>
+> > +#include <linux/inetdevice.h>
+> > +#include <linux/init.h>
+> > +#include <linux/module.h>
+> > +#include <linux/slab.h>
+> > +#include <rdma/ib_addr.h>
+> > +#include <rdma/ib_smi.h>
+> > +#include <rdma/ib_user_verbs.h>
+> > +#include <net/addrconf.h>
+> > +#include <rdma/pvrdma-abi.h>
+> > +
+> > +#include "pvrdma.h"
+> > +
+> > +#define DRV_NAME	"pvrdma"
+> > +#define DRV_VERSION	"1.0"
+> > +#define DRV_RELDATE	"January 1, 2013"
+> > +
+> > +static const char pvrdma_version[] =
+> > +	DRV_NAME ": PVRDMA InfiniBand driver v"
+> > +	DRV_VERSION " (" DRV_RELDATE ")\n";
+> 
+> This is a good example why driver version and reldate are useless in
+> kernel. We are in 2016 and not in 2013. All these data are forgotten to
+> update right after the developer copied it from other pre-historic driver
+> (very common practice in netdev). It is worth to stop to use this totally
+> useless defines.
+> 
+
+Sorry, in our case it was the Mellanox mlx4 driver :). Yeah, I can remove
+DRV_VERSION and DRV_RELDATE. I'll keep the MODULE_VERSION since we keep
+track of our virtual driver versions that way. So when there are any changes
+to our driver we typically bump up the version. Not sure if that's a netdev
+or misc device practice and if thats followed here.
+
+<...>
+
+> > +static void pvrdma_get_fw_ver_str(struct ib_device *device, char *str,
+> > +				  size_t str_len)
+> > +{
+> > +	struct pvrdma_dev *dev =
+> > +		container_of(device, struct pvrdma_dev, ib_dev);
+> > +	snprintf(str, str_len, "%d.%d.%d\n",
+> > +		 (int) (dev->dsr->caps.fw_ver >> 32),
+> > +		 (int) (dev->dsr->caps.fw_ver >> 16) & 0xffff,
+> > +		 (int) dev->dsr->caps.fw_ver & 0xffff);
+> > +}
+> 
+> Yuval already pointed it to you.
+> Thanks to Ira, we have general function in core to print FW version.
+> Please use them.
+> 
+
+If you are referring to commit 5fa76c20458518ed6181adddef2e31c5afc0745c
+then isnt this is exactly what Ira did for the other providers?
+Here, the pvrdma_get_fw_ver_str function is registered as a callback for
+the get_dev_fw_str API. Please our pvrdma_register_device function where
+we register our callbacks with ib_core:
+https://patchwork.kernel.org/patch/9349357/
+
+> > +	dev->ib_dev.get_dev_fw_str = pvrdma_get_fw_ver_str;
