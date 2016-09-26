@@ -1,96 +1,65 @@
-From: Anna Schumaker <Anna.Schumaker@netapp.com>
-Subject: =?UTF-8?Q?Re:_=e7=ad=94=e5=a4=8d:_[PATCH]_sunrpc:_queue_work_on_sys?=
- =?UTF-8?Q?tem=5fpower=5fefficient=5fwq?=
-Date: Mon, 26 Sep 2016 16:56:08 -0400
-Message-ID: <0828f346-2e30-afb4-6e90-cdefaf5df36f@Netapp.com>
-References: <1472715026-11397-1-git-send-email-zhang.lyra@gmail.com>
- <544e309c-9893-a0ed-ab8a-ccbf5d342dc6@Netapp.com>
- <d72ce63e4a054c8797c9ba92cdad3b5d@SHMBX03.spreadtrum.com>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: [PATCH] net: trivial: fix fsl fec_main mdio write return value
+Date: Mon, 26 Sep 2016 18:00:32 -0300
+Message-ID: <CAOMZO5BikGA9e6goMs0wqNVHvWW9Mf3SpykA=DWfD4Q2gBbkag@mail.gmail.com>
+References: <20160926191140.12107-1-albert.aribaud@3adev.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: "linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: =?UTF-8?B?S2UgV2FuZyAo546L56eRKQ==?= <Ke.Wang@spreadtrum.com>,
-        Chunyan Zhang <zhang.lyra@gmail.com>,
-        "trond.myklebust@primarydata.com" <trond.myklebust@primarydata.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <d72ce63e4a054c8797c9ba92cdad3b5d@SHMBX03.spreadtrum.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Jiri Kosina <trivial@kernel.org>,
+        Fugang Duan <fugang.duan@nxp.com>
+To: "Albert ARIBAUD (3ADEV)" <albert.aribaud@3adev.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vk0-f67.google.com ([209.85.213.67]:35417 "EHLO
+        mail-vk0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1034924AbcIZVAf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 17:00:35 -0400
+Received: by mail-vk0-f67.google.com with SMTP id 192so3452960vkl.2
+        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 14:00:33 -0700 (PDT)
+In-Reply-To: <20160926191140.12107-1-albert.aribaud@3adev.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hi Albert,
 
-I took a second look at the patch and it still looks okay to me.  It's in my git tree for 4.9.
+On Mon, Sep 26, 2016 at 4:11 PM, Albert ARIBAUD (3ADEV)
+<albert.aribaud@3adev.fr> wrote:
+> If the MDIO enf-of-transfer wait loop does not time out,
+> 0 should be returned to the caller through ret, but ret
+> was not reset to 0 after receiving the return value of
+> pm_runtime_get_sync(). Reset ret when no time out occurred.Is this really needed?
 
-Thanks,
-Anna
+Commit 42ea4457 ("net: fec: normalize return value of
+pm_runtime_get_sync() in MDIO write") does the following:
 
-On 09/19/2016 10:33 PM, Ke Wang (王科) wrote:
-> May I have any comments for this patch?
-> or
-> This patch can be merged directly into next release?
-> 
-> Thanks,
-> Ke
-> ________________________________________
-> 发件人: Anna Schumaker <Anna.Schumaker@netapp.com>
-> 发送时间: 2016年9月2日 2:46
-> 收件人: Chunyan Zhang; trond.myklebust@primarydata.com; anna.schumaker@netapp.com; davem@davemloft.net
-> 抄送: linux-nfs@vger.kernel.org; netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Ke Wang (王科)
-> 主题: Re: [PATCH] sunrpc: queue work on system_power_efficient_wq
-> 
-> On 09/01/2016 03:30 AM, Chunyan Zhang wrote:
->> From: Ke Wang <ke.wang@spreadtrum.com>
->>
->> sunrpc uses workqueue to clean cache regulary. There is no real dependency
->> of executing work on the cpu which queueing it.
->>
->> On a idle system, especially for a heterogeneous systems like big.LITTLE,
->> it is observed that the big idle cpu was woke up many times just to service
->> this work, which against the principle of power saving. It would be better
->> if we can schedule it on a cpu which the scheduler believes to be the most
->> appropriate one.
->>
->> After apply this patch, system_wq will be replaced by
->> system_power_efficient_wq for sunrpc. This functionality is enabled when
->> CONFIG_WQ_POWER_EFFICIENT is selected.
-> 
-> Makes sense to me, but I'm a little surprised that there isn't a "schedule_delayed_power_efficient_work()" function to match how the normal workqueue is used.
-> 
-> Thanks,
-> Anna
-> 
->>
->> Signed-off-by: Ke Wang <ke.wang@spreadtrum.com>
->> ---
->>  net/sunrpc/cache.c | 5 +++--
->>  1 file changed, 3 insertions(+), 2 deletions(-)
->>
->> diff --git a/net/sunrpc/cache.c b/net/sunrpc/cache.c
->> index 4d8e11f..8aabe12 100644
->> --- a/net/sunrpc/cache.c
->> +++ b/net/sunrpc/cache.c
->> @@ -353,7 +353,7 @@ void sunrpc_init_cache_detail(struct cache_detail *cd)
->>       spin_unlock(&cache_list_lock);
->>
->>       /* start the cleaning process */
->> -     schedule_delayed_work(&cache_cleaner, 0);
->> +     queue_delayed_work(system_power_efficient_wq, &cache_cleaner, 0);
->>  }
->>  EXPORT_SYMBOL_GPL(sunrpc_init_cache_detail);
->>
->> @@ -476,7 +476,8 @@ static void do_cache_clean(struct work_struct *work)
->>               delay = 0;
->>
->>       if (delay)
->> -             schedule_delayed_work(&cache_cleaner, delay);
->> +             queue_delayed_work(system_power_efficient_wq,
->> +                                &cache_cleaner, delay);
->>  }
->>
->>
->>
-> 
+diff --git a/drivers/net/ethernet/freescale/fec_main.c
+b/drivers/net/ethernet/freescale/fec_main.c
+index 91925e3..6cc3340 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -1816,11 +1816,13 @@ static int fec_enet_mdio_write(struct mii_bus
+*bus, int mii_id, int regnum,
+        struct fec_enet_private *fep = bus->priv;
+        struct device *dev = &fep->pdev->dev;
+        unsigned long time_left;
+-       int ret = 0;
++       int ret;
+
+        ret = pm_runtime_get_sync(dev);
+        if (ret < 0)
+                return ret;
++       else
++               ret = 0;
+
+> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+> index 01f7e81..0413c05 100644
+> --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -1818,6 +1818,8 @@ static int fec_enet_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
+>                 netdev_err(fep->netdev, "MDIO write timeout\n");
+>                 ret  = -ETIMEDOUT;
+>         }
+> +       else
+> +               ret = 0;
+
+, so is this really needed? ret should be 0 at this point.
