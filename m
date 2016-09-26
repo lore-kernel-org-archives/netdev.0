@@ -1,47 +1,43 @@
 From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 3/3] net: fec: align IP header in hardware
-Date: Mon, 26 Sep 2016 09:26:33 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0109865@AcuExch.aculab.com>
-References: <AM4PR0401MB22609D8151C2B63CA7768A1AFFCB0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
- <1474728139-9335-1-git-send-email-eric@nelint.com>
- <1474728139-9335-4-git-send-email-eric@nelint.com>
+Subject: RE: [PATCH] realtek: Add switch variable to 'switch case not
+ processed' messages
+Date: Mon, 26 Sep 2016 09:33:36 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB010988D@AcuExch.aculab.com>
+References: <1474654333.1849.5.camel@perches.com>
+         <d091f73a6adf3bdaa09ab0399c22a9fdfe9b188c.1474654979.git.joe@perches.com>
+         <f98d2cf1-802a-93c1-b219-ec45aa417940@lwfinger.net>
+         <1474657363.1849.9.camel@perches.com>
+ <20160924175555.01cae6dd@endymion> <1474733754.23838.3.camel@perches.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="Windows-1252"
 Content-Transfer-Encoding: 8BIT
-Cc: "linux@arm.linux.org.uk" <linux@arm.linux.org.uk>,
-        "andrew@lunn.ch" <andrew@lunn.ch>,
-        "fugang.duan@nxp.com" <fugang.duan@nxp.com>,
-        "otavio@ossystems.com.br" <otavio@ossystems.com.br>,
-        "edumazet@google.com" <edumazet@google.com>,
-        "troy.kisky@boundarydevices.com" <troy.kisky@boundarydevices.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "u.kleine-koenig@pengutronix.de" <u.kleine-koenig@pengutronix.de>
-To: 'Eric Nelson' <eric@nelint.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.186]:50200 "EHLO
-        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1761370AbcIZJ3g (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 05:29:36 -0400
-In-Reply-To: <1474728139-9335-4-git-send-email-eric@nelint.com>
+Cc: Larry Finger <Larry.Finger@lwfinger.net>,
+        Chaoming Li <chaoming_li@realsil.com.cn>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: 'Joe Perches' <joe@perches.com>, Jean Delvare <jdelvare@suse.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1474733754.23838.3.camel@perches.com>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Nelson
-> Sent: 24 September 2016 15:42
-> The FEC receive accelerator (RACC) supports shifting the data payload of
-> received packets by 16-bits, which aligns the payload (IP header) on a
-> 4-byte boundary, which is, if not required, at least strongly suggested
-> by the Linux networking layer.
-...
-> +		/* align IP header */
-> +		val |= FEC_RACC_SHIFT16;
+> If you want to create enum->#ENUM structs and
+> "const char *" lookup functions, please be my guest.
+> 
+> otherwise, hex is at least a consistent way to display
+> what should be infrequent output.
 
-I can't help feeling that there needs to be corresponding
-changes to increase the buffer size by 2 (maybe for large mtu)
-and to discard two bytes from the frame length.
+If I've typed it right:
 
-If probably ought to be predicated on NET_IP_ALIGN as well.
+#define tags(x) x(A) x(B) x(C)
+#define x(t) t,
+enum {tags(x) tag_count};
+#undef x
+#define x(t) ##t,
+static const char names[] = { tags(x) };
+#undef x
 
 	David
