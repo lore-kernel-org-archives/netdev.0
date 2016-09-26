@@ -1,62 +1,34 @@
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: Re: [PATCH v5] virtio-vsock: Add timer to handle OOM situations
-Date: Mon, 26 Sep 2016 14:19:45 +0100
-Message-ID: <20160926131945.GB14950@stefanha-x1.localdomain>
-References: <20160812140208.16772-1-ggarcia@deic.uab.cat>
- <f7998fa5-e0ed-d8f7-0443-a1e0f9058ad1@deic.uab.cat>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 0/2] bnx2x: page allocation failure
+Date: Mon, 26 Sep 2016 09:46:06 -0400 (EDT)
+Message-ID: <20160926.094606.142250516441125849.davem@davemloft.net>
+References: <cover.1474577624.git.jbaron@akamai.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="8GpibOaaTibBMecb"
-Cc: netdev@vger.kernel.org, Gerard Garcia <ggarcia@abra.uab.cat>
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com,
+        Yuval.Mintz@qlogic.com
+To: jbaron@akamai.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41442 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S965709AbcIZNTs (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 26 Sep 2016 09:19:48 -0400
-Content-Disposition: inline
-In-Reply-To: <f7998fa5-e0ed-d8f7-0443-a1e0f9058ad1@deic.uab.cat>
+Received: from shards.monkeyblade.net ([184.105.139.130]:33838 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935875AbcIZNqT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 09:46:19 -0400
+In-Reply-To: <cover.1474577624.git.jbaron@akamai.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jason Baron <jbaron@akamai.com>
+Date: Thu, 22 Sep 2016 17:12:24 -0400
 
---8GpibOaaTibBMecb
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> While configuring ~500 multicast addrs, we ran into high order
+> page allocation failures. They don't need to be high order, and
+> thus I'm proposing to split them into at most PAGE_SIZE allocations.
+> 
+> Below is a sample failure.
+ ...
+> v2:
+>  -make use of list_next_entry()
+>  -only use PAGE_SIZE allocations
 
-On Mon, Sep 05, 2016 at 12:30:29PM +0200, Gerard Garcia wrote:
-> On 08/12/2016 04:02 PM, ggarcia@deic.uab.cat wrote:
-> > From: Gerard Garcia <ggarcia@deic.uab.cat>
-> >=20
-> > Set up a rx timer to avoid packets being discarded when there is no
-> > available memory in the host.
-> >=20
-> > Signed-off-by: Gerard Garcia <ggarcia@deic.uab.cat>
-> > Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
-> >=20
->=20
-> Seems that this patch and [PATCH v3] virtio-vsock: Fix unbound rx buffer
-> weren't applied, is there something missing that needs to be fixed?
-
-Michael: Ping
-
-I have reviewed this patch.
-
-Stefan
-
---8GpibOaaTibBMecb
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBAgAGBQJX6SBxAAoJEJykq7OBq3PIKFUIAJnmUzpZ7/KaocRFQqWP7ul2
-5/hUZ7PqOrr3F66s4k9aqdvwsbo1M7bwogTg1Mtq9DfPCCHnwq93dCxDUlEaS7eW
-jNUGjiF+xT0x8RQC+UUWf8MFE/AZTSjU0BnUJW5WpwQMmvte7lSVsNg6QoP/j3Ev
-75av9i8h5DQzsD+4UBqiRhrmuknh/3eGNeNnR6j9wa+18idGfKFS0z4Re9P1PAEH
-ecmzGrHxONhWknpWImjeLeFfmC/+6wwZBeub4Xjz9ifNtQbXxwureYxQfwKHAUzw
-mVydUi9j3YiwgUl7AqsPQzBvVgYlO933c2f0YHZQKqR8kF3ACOpmkht7U9/blDc=
-=vbEH
------END PGP SIGNATURE-----
-
---8GpibOaaTibBMecb--
+Series applied, thanks Jason.
