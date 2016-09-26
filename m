@@ -1,66 +1,66 @@
-From: Yotam Gigi <yotamg@mellanox.com>
-Subject: RE: [PATCH net v2 0/2] Fix tc-ife bugs
-Date: Mon, 26 Sep 2016 07:01:02 +0000
-Message-ID: <DB3PR05MB07641B3E085814C60BC60D64ACCD0@DB3PR05MB0764.eurprd05.prod.outlook.com>
-References: <1474806711-64660-1-git-send-email-yotamg@mellanox.com>
- <2b01c982-76b7-d380-807c-1fe1df62d285@mojatatu.com>
- <DB3PR05MB07647722715384C174CC52D2ACCA0@DB3PR05MB0764.eurprd05.prod.outlook.com>
- <098a8df2-aa3e-04a5-143b-a6946c9ece59@mojatatu.com>
- <a57bf1d3-0b6b-91fa-a57d-5b4a17f91959@mojatatu.com>
+From: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
+Subject: Re: [PATCH 2/3] bpf powerpc: implement support for tail calls
+Date: Mon, 26 Sep 2016 14:26:22 +0530
+Message-ID: <20160926085622.GG15470@naverao1-tp.localdomain>
+References: <40b65ab2bb3a48837ab047a70887de3ccd70c56b.1474661927.git.naveen.n.rao@linux.vnet.ibm.com>
+ <c7c16b999694b2851705d79da939988e521bda3a.1474661927.git.naveen.n.rao@linux.vnet.ibm.com>
+ <57E5ADD2.7090308@iogearbox.net>
+ <20160924073025.GB48071@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: Jiri Pirko <jiri@mellanox.com>, Elad Raz <eladr@mellanox.com>,
-        mlxsw <mlxsw@mellanox.com>, Roman Mashak <mrv@mojatatu.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>,
-        Yotam Gigi <yotam.gi@gmail.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0049.outbound.protection.outlook.com ([104.47.2.49]:53472
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751059AbcIZIfG (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 26 Sep 2016 04:35:06 -0400
-In-Reply-To: <a57bf1d3-0b6b-91fa-a57d-5b4a17f91959@mojatatu.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Ananth N Mavinakayanahalli <ananth@in.ibm.com>,
+        Alexei Starovoitov <ast@fb.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+        "David S. Miller" <davem@davemloft.net>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160924073025.GB48071@ast-mbp.thefacebook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On 2016/09/24 03:30AM, Alexei Starovoitov wrote:
+> On Sat, Sep 24, 2016 at 12:33:54AM +0200, Daniel Borkmann wrote:
+> > On 09/23/2016 10:35 PM, Naveen N. Rao wrote:
+> > >Tail calls allow JIT'ed eBPF programs to call into other JIT'ed eBPF
+> > >programs. This can be achieved either by:
+> > >(1) retaining the stack setup by the first eBPF program and having all
+> > >subsequent eBPF programs re-using it, or,
+> > >(2) by unwinding/tearing down the stack and having each eBPF program
+> > >deal with its own stack as it sees fit.
+> > >
+> > >To ensure that this does not create loops, there is a limit to how many
+> > >tail calls can be done (currently 32). This requires the JIT'ed code to
+> > >maintain a count of the number of tail calls done so far.
+> > >
+> > >Approach (1) is simple, but requires every eBPF program to have (almost)
+> > >the same prologue/epilogue, regardless of whether they need it. This is
+> > >inefficient for small eBPF programs which may not sometimes need a
+> > >prologue at all. As such, to minimize impact of tail call
+> > >implementation, we use approach (2) here which needs each eBPF program
+> > >in the chain to use its own prologue/epilogue. This is not ideal when
+> > >many tail calls are involved and when all the eBPF programs in the chain
+> > >have similar prologue/epilogue. However, the impact is restricted to
+> > >programs that do tail calls. Individual eBPF programs are not affected.
+> > >
+> > >We maintain the tail call count in a fixed location on the stack and
+> > >updated tail call count values are passed in through this. The very
+> > >first eBPF program in a chain sets this up to 0 (the first 2
+> > >instructions). Subsequent tail calls skip the first two eBPF JIT
+> > >instructions to maintain the count. For programs that don't do tail
+> > >calls themselves, the first two instructions are NOPs.
+> > >
+> > >Signed-off-by: Naveen N. Rao <naveen.n.rao@linux.vnet.ibm.com>
+> > 
+> > Thanks for adding support, Naveen, that's really great! I think 2) seems
+> > fine as well in this context as prologue size can vary quite a bit here,
+> > and depending on program types likelihood of tail call usage as well (but
+> > I wouldn't expect deep nesting). Thanks a lot!
+> 
+> Great stuff. In this circumstances approach 2 makes sense to me as well.
 
+Alexie, Daniel,
+Thanks for the quick review!
 
->-----Original Message-----
->From: Jamal Hadi Salim [mailto:jhs@mojatatu.com]
->Sent: Monday, September 26, 2016 3:47 AM
->To: Yotam Gigi <yotamg@mellanox.com>; Yotam Gigi <yotam.gi@gmail.com>;
->davem@davemloft.net; netdev@vger.kernel.org
->Cc: Jiri Pirko <jiri@mellanox.com>; Elad Raz <eladr@mellanox.com>; mlxsw
-><mlxsw@mellanox.com>; Roman Mashak <mrv@mojatatu.com>
->Subject: Re: [PATCH net v2 0/2] Fix tc-ife bugs
->
->On 16-09-25 07:17 PM, Jamal Hadi Salim wrote:
->[..]
->>> Do you prefer that I will fix the encode side to encode the whole tlv
->>> header
->>> size instead of fixing the decode side?
->>
->> Yes please - Add NLA_HDRLEN to the dlen on the encode you showed above.
-
-OK. Did it and tested it. Everything seems functional.
-
->>
->
->And the correct commit it fixes is:
->a823f93750e341bc0d6829a00019435b96830fd4
-
-I can't find this commit. Where is it?=20
-
-Don't you mean that commit: 28a10c426e81afc88514bca8e73affccf850fdf6
-with title: "net sched: fix encoding to use real length"?
-
->
->I removed the padding but also the headerlen when i did
->that. Tested with tc_index which is a u16 was the mistake i made.
->
->cheers,
->jamal
+- Naveen
