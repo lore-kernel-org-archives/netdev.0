@@ -1,46 +1,54 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: brcmfmac: drop unused fields from struct brcmf_pub
-Date: Mon, 26 Sep 2016 17:51:25 +0000 (UTC)
-Message-ID: <20160926175125.C01A76159A@smtp.codeaurora.org>
-References: <20160923132759.21875-1-zajec5@gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v3] bpf: Set register type according to is_valid_access()
+Date: Mon, 26 Sep 2016 10:58:28 -0700
+Message-ID: <20160926175827.GA54376@ast-mbp.thefacebook.com>
+References: <20160924180150.23620-1-mic@digikod.net>
+ <57E9356D.70308@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: 8bit
-Cc: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal@milecki.pl>,
-        Arend van Spriel <arend.vanspriel@broadcom.com>,
-        Franky Lin <franky.lin@broadcom.com>,
-        Hante Meuleman <hante.meuleman@broadcom.com>,
-        Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
-        "Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-        Colin Ian King <colin.king@canonical.com>,
-        linux-wireless@vger.kernel.org (open list:BROADCOM BRCM80211
-        IEEE802.11n WIRELESS DRIVER),
-        brcm80211-dev-list.pdl@broadcom.com (open list:BROADCOM BRCM80211
-        IEEE802.11n WIRELESS DRIVER),
-        netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
-        linux-kernel@vger.kernel.org (open list)
-To: =?utf-8?b?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160923132759.21875-1-zajec5@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>,
+        linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
+        Andy Lutomirski <luto@amacapital.net>,
+        Kees Cook <keescook@chromium.org>,
+        Sargun Dhillon <sargun@sargun.me>, Tejun Heo <tj@kernel.org>,
+        netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:33370 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751340AbcIZR6e (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 13:58:34 -0400
+Content-Disposition: inline
+In-Reply-To: <57E9356D.70308@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Rafa≈Ç Mi≈Çecki wrote:
-> From: Rafa≈Ç Mi≈Çecki <rafal@milecki.pl>
+On Mon, Sep 26, 2016 at 04:49:17PM +0200, Daniel Borkmann wrote:
+> On 09/24/2016 08:01 PM, MickaÎl Sala¸n wrote:
+> >This prevent future potential pointer leaks when an unprivileged eBPF
+> >program will read a pointer value from its context. Even if
+> >is_valid_access() returns a pointer type, the eBPF verifier replace it
+> >with UNKNOWN_VALUE. The register value that contains a kernel address is
+> >then allowed to leak. Moreover, this fix allows unprivileged eBPF
+> >programs to use functions with (legitimate) pointer arguments.
+> >
+> >Not an issue currently since reg_type is only set for PTR_TO_PACKET or
+> >PTR_TO_PACKET_END in XDP and TC programs that can only be loaded as
+> >privileged. For now, the only unprivileged eBPF program allowed is for
+> >socket filtering and all the types from its context are UNKNOWN_VALUE.
+> >However, this fix is important for future unprivileged eBPF programs
+> >which could use pointers in their context.
+> >
+> >Signed-off-by: MickaÎl Sala¸n <mic@digikod.net>
+> >Cc: Alexei Starovoitov <ast@kernel.org>
+> >Cc: Daniel Borkmann <daniel@iogearbox.net>
 > 
-> They seem to be there from the first day. We calculate these values but
-> never use them.
+> Seems okay to me:
 > 
-> Signed-off-by: Rafa≈Ç Mi≈Çecki <rafal@milecki.pl>
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 
-Patch applied to wireless-drivers-next.git, thanks.
+Acked-by: Alexei Starovoitov <ast@kernel.org>
 
-2df86ad959c9 brcmfmac: drop unused fields from struct brcmf_pub
-
--- 
-https://patchwork.kernel.org/patch/9348103/
-
-Documentation about submitting wireless patches and checking status
-from patchwork:
-
-https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+Mickael, please mention [PATCH net-next] in subject next time.
+Thanks
