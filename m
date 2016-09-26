@@ -1,104 +1,62 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net 2/5] sctp: reuse sent_count to avoid retransmitted
- chunks for RTT measurements
-Date: Mon, 26 Sep 2016 09:13:01 -0400
-Message-ID: <20160926131300.GA6812@hmsreliant.think-freely.org>
-References: <cover.1474883200.git.lucien.xin@gmail.com>
- <e8146a7075544ccb2631117f507cfd51e20b4cde.1474883200.git.lucien.xin@gmail.com>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: Re: [PATCH v5] virtio-vsock: Add timer to handle OOM situations
+Date: Mon, 26 Sep 2016 14:19:45 +0100
+Message-ID: <20160926131945.GB14950@stefanha-x1.localdomain>
+References: <20160812140208.16772-1-ggarcia@deic.uab.cat>
+ <f7998fa5-e0ed-d8f7-0443-a1e0f9058ad1@deic.uab.cat>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        davem@davemloft.net,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
-To: Xin Long <lucien.xin@gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="8GpibOaaTibBMecb"
+Cc: netdev@vger.kernel.org, Gerard Garcia <ggarcia@abra.uab.cat>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:43017 "EHLO
-        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1030317AbcIZNNR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 09:13:17 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:41442 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S965709AbcIZNTs (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 26 Sep 2016 09:19:48 -0400
 Content-Disposition: inline
-In-Reply-To: <e8146a7075544ccb2631117f507cfd51e20b4cde.1474883200.git.lucien.xin@gmail.com>
+In-Reply-To: <f7998fa5-e0ed-d8f7-0443-a1e0f9058ad1@deic.uab.cat>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 26, 2016 at 05:47:51PM +0800, Xin Long wrote:
-> Now sctp uses chunk->resent to record if a chunk is retransmitted, for
-> RTT measurements with retransmitted DATA chunks. chunk->sent_count was
-> introduced to record how many times one chunk has been sent for prsctp
-> RTX policy before. We actually can know if one chunk is retransmitted
-> by checking chunk->sent_count is greater than 1.
-> 
-> This patch is to remove resent from sctp_chunk and reuse sent_count
-> to avoid retransmitted chunks for RTT measurements.
-> 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> ---
->  include/net/sctp/structs.h | 1 -
->  net/sctp/output.c          | 3 ++-
->  net/sctp/outqueue.c        | 4 +---
->  3 files changed, 3 insertions(+), 5 deletions(-)
-> 
-> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-> index 4f097f5..81a5faa 100644
-> --- a/include/net/sctp/structs.h
-> +++ b/include/net/sctp/structs.h
-> @@ -647,7 +647,6 @@ struct sctp_chunk {
->  #define SCTP_NEED_FRTX 0x1
->  #define SCTP_DONT_FRTX 0x2
->  	__u16	rtt_in_progress:1,	/* This chunk used for RTT calc? */
-> -		resent:1,		/* Has this chunk ever been resent. */
->  		has_tsn:1,		/* Does this chunk have a TSN yet? */
->  		has_ssn:1,		/* Does this chunk have a SSN yet? */
->  		singleton:1,		/* Only chunk in the packet? */
-> diff --git a/net/sctp/output.c b/net/sctp/output.c
-> index 31b7bc3..483d2ed 100644
-> --- a/net/sctp/output.c
-> +++ b/net/sctp/output.c
-> @@ -547,7 +547,8 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
->  				 * for a given destination transport address.
->  				 */
->  
-> -				if (!chunk->resent && !tp->rto_pending) {
-> +				if (chunk->sent_count == 1 &&
-> +				    !tp->rto_pending) {
->  					chunk->rtt_in_progress = 1;
->  					tp->rto_pending = 1;
->  				}
-> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-> index 72e54a4..2a629fa 100644
-> --- a/net/sctp/outqueue.c
-> +++ b/net/sctp/outqueue.c
-> @@ -536,8 +536,6 @@ void sctp_retransmit_mark(struct sctp_outq *q,
->  				transport->rto_pending = 0;
->  			}
->  
-> -			chunk->resent = 1;
-> -
->  			/* Move the chunk to the retransmit queue. The chunks
->  			 * on the retransmit queue are always kept in order.
->  			 */
-> @@ -1467,7 +1465,7 @@ static void sctp_check_transmitted(struct sctp_outq *q,
->  				 * instance).
->  				 */
->  				if (!tchunk->tsn_gap_acked &&
-> -				    !tchunk->resent &&
-> +				    tchunk->sent_count == 1 &&
->  				    tchunk->rtt_in_progress) {
->  					tchunk->rtt_in_progress = 0;
->  					rtt = jiffies - tchunk->sent_at;
-> -- 
-> 2.1.0
-> 
 
-Maybe wrap this in a macro?  i.e.:
-#define chunk_retransmitted(chunk) (chunk->sent_count > 1)
+--8GpibOaaTibBMecb
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-For readability?
+On Mon, Sep 05, 2016 at 12:30:29PM +0200, Gerard Garcia wrote:
+> On 08/12/2016 04:02 PM, ggarcia@deic.uab.cat wrote:
+> > From: Gerard Garcia <ggarcia@deic.uab.cat>
+> >=20
+> > Set up a rx timer to avoid packets being discarded when there is no
+> > available memory in the host.
+> >=20
+> > Signed-off-by: Gerard Garcia <ggarcia@deic.uab.cat>
+> > Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
+> >=20
+>=20
+> Seems that this patch and [PATCH v3] virtio-vsock: Fix unbound rx buffer
+> weren't applied, is there something missing that needs to be fixed?
 
+Michael: Ping
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+I have reviewed this patch.
+
+Stefan
+
+--8GpibOaaTibBMecb
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBAgAGBQJX6SBxAAoJEJykq7OBq3PIKFUIAJnmUzpZ7/KaocRFQqWP7ul2
+5/hUZ7PqOrr3F66s4k9aqdvwsbo1M7bwogTg1Mtq9DfPCCHnwq93dCxDUlEaS7eW
+jNUGjiF+xT0x8RQC+UUWf8MFE/AZTSjU0BnUJW5WpwQMmvte7lSVsNg6QoP/j3Ev
+75av9i8h5DQzsD+4UBqiRhrmuknh/3eGNeNnR6j9wa+18idGfKFS0z4Re9P1PAEH
+ecmzGrHxONhWknpWImjeLeFfmC/+6wwZBeub4Xjz9ifNtQbXxwureYxQfwKHAUzw
+mVydUi9j3YiwgUl7AqsPQzBvVgYlO933c2f0YHZQKqR8kF3ACOpmkht7U9/blDc=
+=vbEH
+-----END PGP SIGNATURE-----
+
+--8GpibOaaTibBMecb--
