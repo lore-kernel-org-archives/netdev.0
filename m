@@ -1,59 +1,60 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next 4/4] net/sched: act_mirred: Implement ingress
- actions
-Date: Sun, 25 Sep 2016 21:40:55 -0400
-Message-ID: <8a12cdce-aa06-4a5c-03c7-d832c30fe3f1@mojatatu.com>
-References: <1474550512-7552-1-git-send-email-shmulik.ladkani@gmail.com>
- <1474550512-7552-5-git-send-email-shmulik.ladkani@gmail.com>
- <4387324a-de66-aa1b-86f0-1a9a2f8294f5@mojatatu.com>
- <20160923081106.73fb48df@halley>
- <0037729a-a3fc-c1c9-a620-905c73e0b9d4@mojatatu.com>
- <20160923184030.75124289@halley>
- <6d2bd45a-a8a0-846d-5934-5e246522cab8@mojatatu.com>
- <20160925203309.633cf3d5@halley> <20160925183136.GA3307@breakpoint.cc>
- <54535aa0-cafd-86ec-1f6c-64c974a5eed6@mojatatu.com>
- <20160926013504.GA1959@breakpoint.cc>
+From: Randy Li <randy.li@rock-chips.com>
+Subject: About 1000Mbps capability for the GMAC of RK3288
+Date: Mon, 26 Sep 2016 10:34:47 +0800
+Message-ID: <59dce986-a86c-53d1-065f-ead93735e763@rock-chips.com>
+References: <3b81dc49-06ce-30d2-fc35-ee5a3a691e6a@rock-chips.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        WANG Cong <xiyou.wangcong@gmail.com>,
-        Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f68.google.com ([209.85.214.68]:33476 "EHLO
-        mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936362AbcIZBk6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 25 Sep 2016 21:40:58 -0400
-Received: by mail-it0-f68.google.com with SMTP id x192so4151812itb.0
-        for <netdev@vger.kernel.org>; Sun, 25 Sep 2016 18:40:57 -0700 (PDT)
-In-Reply-To: <20160926013504.GA1959@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        netdev@vger.kernel.org
+To: "linux-rockchip@lists.infradead.org"
+        <linux-rockchip@lists.infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <3b81dc49-06ce-30d2-fc35-ee5a3a691e6a@rock-chips.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16-09-25 09:35 PM, Florian Westphal wrote:
-> Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-
->>
->> Realize didnt respond to this. Seems very simple to fix:
->> if skb->dev->ifindex and m->tcfm_dev->ifindex are the
->> same, then you can drop the packet.
->
-> Yes, but I think we get same issue when we deal with stacked
-> interfaces, and redirect is to e.g. vlan on top of physical device.
->
-> And we have such loops even without tc, for instance when placing
-> both veth ends in same bridge :-(
+I have confirmed the 1000Mbps won't work with kernel 4.4, I have to 
+disable it in dts.
+The TRM shows that it may not support 1000Mbps, as the gmac_speed in 
+GRF_SOC_CON1 is just a bit length flag.
+Also I have test the performance at the firefly plus with upstream 
+kernel, it even looks bad at 100Mpbs mode, only 5~6 MBytes per second. I 
+wonder whether it is the hardware design problem or some problem in 
+driver, I would report if I got more information.
 
 
-For egress->egress the xmit recursion should help (maybe an
-audit needs to be done).
-For the case Shmulik is trying to achieve I am not sure that
-would help.
-In general, catching such a loop (or broadcast), if cheap should
-be attempted.
+-------- Forwarded Message --------
+Subject: About 1000Mbps with RK3288 and performance
+Date: Tue, 20 Sep 2016 09:31:57 +0800
+From: Randy Li <randy.li@rock-chips.com>
+Organization: Fuzhou Rockchip
+To: david.wu@rock-chips.com
+CC: roger.chen@rock-chips.com
 
-cheers,
-jamal
+Hello Wu
+    Have you guys confirmed the RK3288 EVB with 1000Mbps network? I meet 
+this issue in the weekend. The kernel is 4.4, when I connected the board 
+into a 1000Mbps switch(Dell PowerConnect Serial), the speed negatived 
+1000Mbps at both side(I checked with console in switch), but the network 
+can't work at all. I have downgrade the speed to 100Mbps or packages 
+loss is nearly 100%.
+    Also I have been reported with performance of ethernet in Upstream 
+kernel, it could barely 5-6MBytes in my test, do you have some idea 
+about this?
+    You could dial internal number 8308 to talk with me.
+							Yours Randy
+
+-- 
+Randy Li
+The third produce department
+===========================================================================
+This email message, including any attachments, is for the sole
+use of the intended recipient(s) and may contain confidential and
+privileged information. Any unauthorized review, use, disclosure or
+distribution is prohibited. If you are not the intended recipient, please
+contact the sender by reply e-mail and destroy all copies of the original
+message. [Fuzhou Rockchip Electronics, INC. China mainland]
+===========================================================================
