@@ -1,40 +1,48 @@
-From: Adit Ranadive <aditr@vmware.com>
-Subject: Re: [PATCH v5 13/16] IB/pvrdma: Add the main driver module for PVRDMA
-Date: Mon, 26 Sep 2016 11:15:28 -0700
-Message-ID: <651b18ee-55ca-0c72-af9c-c55c42b57fd1@vmware.com>
-References: <cover.1474759181.git.aditr@vmware.com>
- <8db982c37a0a96b37df02826564474a216922f25.1474759181.git.aditr@vmware.com>
- <20160926072739.GB6352@yuval-lap.Home>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [PATCH v2 5/5] ISDN-Gigaset: Enclose two expressions for the
+ sizeof operator by parentheses
+Date: Mon, 26 Sep 2016 20:31:57 +0200
+Message-ID: <1474914717.4539.8.camel@tiscali.nl>
+References: <566ABCD9.1060404@users.sourceforge.net>
+         <6d4bbb77-914f-19b8-a1a9-2731d1158612@users.sourceforge.net>
+         <e97b38b6-8c02-6733-8b57-9786bfb911a6@users.sourceforge.net>
+         <063D6719AE5E284EB5DD2968C1650D6DB0109E63@AcuExch.aculab.com>
+         <1474907003.2238.13.camel@perches.com>
+         <f9dd122f-b0ed-0398-2a13-4d31693356fa@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <dledford@redhat.com>, <linux-rdma@vger.kernel.org>,
-        <pv-drivers@vmware.com>, <netdev@vger.kernel.org>,
-        <linux-pci@vger.kernel.org>, <jhansen@vmware.com>,
-        <asarwade@vmware.com>, <georgezhang@vmware.com>,
-        <bryantan@vmware.com>
-To: Yuval Shaia <yuval.shaia@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ex13-edg-ou-001.vmware.com ([208.91.0.189]:12171 "EHLO
-        EX13-EDG-OU-001.vmware.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1161935AbcIZSSv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 14:18:51 -0400
-In-Reply-To: <20160926072739.GB6352@yuval-lap.Home>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+        Julia Lawall <julia.lawall@lip6.fr>
+To: SF Markus Elfring <elfring@users.sourceforge.net>,
+        Joe Perches <joe@perches.com>,
+        David Laight <David.Laight@ACULAB.COM>,
+        "gigaset307x-common@lists.sourceforge.net"
+        <gigaset307x-common@lists.sourceforge.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Karsten Keil <isdn@linux-pingi.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <f9dd122f-b0ed-0398-2a13-4d31693356fa@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 26, 2016 at 00:27:40AM -0700, Yuval Shaia wrote:
-> On Sat, Sep 24, 2016 at 04:21:37PM -0700, Adit Ranadive wrote:
-> > +
-> > +	/* Currently, the driver only supports RoCE mode. */
-> > +	if (dev->dsr->caps.mode != PVRDMA_DEVICE_MODE_ROCE) {
-> > +		dev_err(&pdev->dev, "unsupported transport %d\n",
-> > +			dev->dsr->caps.mode);
-> > +		ret = -EINVAL;
-> 
-> This is some fatal error with the device, not that something wrong with the
-> function's argument.
-> Suggesting to replace with -EFAULT.
-> 
+On Mon, 2016-09-26 at 19:44 +0200, SF Markus Elfring wrote:
+> v2: Position the desired closing parenthesis behind the variable name for
+>     a character buffer.
 
-Thanks, will fix this one and the others here.
+Please wait a reasonable amount of time (say a week or two) to collect
+all feedback on all patches of a series. If there's feedback you should
+resend the entire series (minus those patches that have been NAK-ed, of
+course) as an update (v2, v3, etc.).
+
+Don't resubmit one single patch of a series (within hours!) as you did
+here.
+
+I hope to have a look at your series within a few days. Show some
+patience.
+
+Thanks,
+
+
+Paul Bolle
