@@ -1,62 +1,50 @@
-From: Arend Van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH] brcmfmac: implement more accurate skb tracking
-Date: Mon, 26 Sep 2016 14:20:59 +0200
-Message-ID: <dd7ae3d7-fa6d-c27c-a19f-712d01c423d7@broadcom.com>
-References: <20160926102348.8695-1-zajec5@gmail.com>
- <09084e8b-829d-9a13-ae16-a493438216ac@broadcom.com>
- <CACna6rwnLb3sEPmdx6uhYMstVn04WbP2xzznsjnwgguEXn04=w@mail.gmail.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: Re: ISDN-CAPI: Adjust 17 function calls together with variable
+ assignments
+Date: Mon, 26 Sep 2016 14:28:58 +0200
+Message-ID: <16c50966-66f2-8a08-0ebc-936b04311f14@users.sourceforge.net>
+References: <be07f84d-fc84-e47d-207e-aedd8c960151@users.sourceforge.net>
+ <10355972-1c9b-1103-edf3-efde78237cdd@users.sourceforge.net>
+ <1474881174.1846.8.camel@tiscali.nl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-        Franky Lin <franky.lin-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Hante Meuleman <hante.meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Pieter-Paul Giesberts <pieter-paul.giesberts-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Franky Lin <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
-        <brcm80211-dev-list.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal-g1n6cQUeyibVItvQsEIGlw@public.gmane.org>
-To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CACna6rwnLb3sEPmdx6uhYMstVn04WbP2xzznsjnwgguEXn04=w@mail.gmail.com>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Karsten Keil <isdn@linux-pingi.de>,
+        LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org,
+        Julia Lawall <julia.lawall@lip6.fr>
+To: Paul Bolle <pebolle@tiscali.nl>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1474881174.1846.8.camel@tiscali.nl>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On 26-9-2016 14:13, Rafał Miłecki wrote:
-> On 26 September 2016 at 13:46, Arend Van Spriel
-> <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org> wrote:
->> On 26-9-2016 12:23, Rafał Miłecki wrote:
->>> From: Rafał Miłecki <rafal-g1n6cQUeyibVItvQsEIGlw@public.gmane.org>
->>>
->>> We need to track 802.1x packets to know if there are any pending ones
->>> for transmission. This is required for performing key update in the
->>> firmware.
->>
->> The problem we are trying to solve is a pretty old one. The problem is
->> that wpa_supplicant uses two separate code paths: EAPOL messaging
->> through data path and key configuration though nl80211.
+>> The script "checkpatch.pl" can point out that assignments should usually
+>> not be performed within condition checks.
+>> Thus move the assignment for a variable to a separate statement
+>> in four functions.
 > 
-> Can I find it described/reported somewhere?
+> Did you recycle this commit explanation?
 
-Not sure. It is something that I recall from working at Intersil so back
-in the prism days.
+Yes. - I am going to use similar commit messages for further changes
+in other software modules.
+
+
+> Because git diff tells me you actually touched about eight functions.
+
+You are right. - I'm sorry that I overlooked to update this number somehow.
+
+
+>     scripts/checkpatch.pl -f drivers/isdn/capi/capidrv.c | grep "assignment in if condition" | wc -l 
+> 
+> It tells me there are actually 18 instances of this "ERROR".
+> Why did you ignore one of it in this patch?
+
+Did I accidentally leave another update candidate over?
+
+* How do you think about to pick such a software update opportunity up?
+
+* Do you expect a resend for the steps 3 - 5 of this small patch series?
 
 Regards,
-Arend
-
->>> Unfortunately our old tracking code wasn't very accurate. It was
->>> treating skb as pending as soon as it was passed by the netif. Actual
->>> handling packet to the firmware was happening later as brcmfmac
->>> internally queues them and uses its own worker(s).
->>
->> That does not seem right. As soon as we get a 1x packet we need to wait
->> with key configuration regardless whether it is still in the driver or
->> handed over to firmware already.
-> 
-> OK, thanks.
-> 
+Markus
