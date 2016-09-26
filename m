@@ -1,43 +1,80 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [PATCH v5 00/16] Add Paravirtual RDMA Driver
-Date: Mon, 26 Sep 2016 15:07:24 -0600
-Message-ID: <20160926210724.GA16413@obsidianresearch.com>
-References: <cover.1474759181.git.aditr@vmware.com>
- <20160925070352.GU4088@leon.nu>
- <9f65ab5c-d8c2-e8e3-9334-5d1865a20dc9@vmware.com>
- <20160926165104.GA12011@obsidianresearch.com>
- <b4e0acd9-e1a2-f6ac-0afa-c0fd62dd62f0@vmware.com>
+From: Albert ARIBAUD <albert.aribaud@3adev.fr>
+Subject: Re: [PATCH] net: trivial: fix fsl fec_main mdio write return value
+Date: Mon, 26 Sep 2016 23:10:41 +0200
+Message-ID: <20160926231041.41091069.albert.aribaud@3adev.fr>
+References: <20160926191140.12107-1-albert.aribaud@3adev.fr>
+        <CAOMZO5BikGA9e6goMs0wqNVHvWW9Mf3SpykA=DWfD4Q2gBbkag@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, pv-drivers-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        jhansen-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org, asarwade-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org, georgezhang-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org,
-        bryantan-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org
-To: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <b4e0acd9-e1a2-f6ac-0afa-c0fd62dd62f0-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Jiri Kosina <trivial@kernel.org>,
+        Fugang Duan <fugang.duan@nxp.com>
+To: Fabio Estevam <festevam@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2-g21.free.fr ([212.27.42.2]:47496 "EHLO smtp2-g21.free.fr"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750977AbcIZVKw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 26 Sep 2016 17:10:52 -0400
+In-Reply-To: <CAOMZO5BikGA9e6goMs0wqNVHvWW9Mf3SpykA=DWfD4Q2gBbkag@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 26, 2016 at 01:40:10PM -0700, Adit Ranadive wrote:
+Hi Fabio,
 
-> Wouldnt they be some overlap between the user-space and kernel driver? Or is
-> it expected that the common structures (even device specific ones) be moved to
-> the ABI file?
+You are correct -- I'd rebased my patch as part of a series, and I did
+not notice that the fix was already there. Apologies and thanks for
+pointing it out.
 
-Yes, even device specific structures must be in the abi file. Anything
-that is used with copy_to_user/copy_from_user/etc.
+Le Mon, 26 Sep 2016 18:00:32 -0300, Fabio Estevam <festevam@gmail.com>
+a écrit :
 
-> For the mlx4 driver I see that the structures in include/linux/mlx4/qp.h
-> and in libmlx4/src/wqe.h are similar.
+> Hi Albert,
+> 
+> On Mon, Sep 26, 2016 at 4:11 PM, Albert ARIBAUD (3ADEV)
+> <albert.aribaud@3adev.fr> wrote:
+> > If the MDIO enf-of-transfer wait loop does not time out,
+> > 0 should be returned to the caller through ret, but ret
+> > was not reset to 0 after receiving the return value of
+> > pm_runtime_get_sync(). Reset ret when no time out occurred.Is this really needed?  
+> 
+> Commit 42ea4457 ("net: fec: normalize return value of
+> pm_runtime_get_sync() in MDIO write") does the following:
+> 
+> diff --git a/drivers/net/ethernet/freescale/fec_main.c
+> b/drivers/net/ethernet/freescale/fec_main.c
+> index 91925e3..6cc3340 100644
+> --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -1816,11 +1816,13 @@ static int fec_enet_mdio_write(struct mii_bus
+> *bus, int mii_id, int regnum,
+>         struct fec_enet_private *fep = bus->priv;
+>         struct device *dev = &fep->pdev->dev;
+>         unsigned long time_left;
+> -       int ret = 0;
+> +       int ret;
+> 
+>         ret = pm_runtime_get_sync(dev);
+>         if (ret < 0)
+>                 return ret;
+> +       else
+> +               ret = 0;
+> 
+> > diff --git a/drivers/net/ethernet/freescale/fec_main.c
+> > b/drivers/net/ethernet/freescale/fec_main.c index 01f7e81..0413c05
+> > 100644 --- a/drivers/net/ethernet/freescale/fec_main.c
+> > +++ b/drivers/net/ethernet/freescale/fec_main.c
+> > @@ -1818,6 +1818,8 @@ static int fec_enet_mdio_write(struct mii_bus
+> > *bus, int mii_id, int regnum, netdev_err(fep->netdev, "MDIO write
+> > timeout\n"); ret  = -ETIMEDOUT;
+> >         }
+> > +       else
+> > +               ret = 0;  
+> 
+> , so is this really needed? ret should be 0 at this point.
 
-We are trying to clean exactly that sort of stuff up, please try not
-to add more.
 
-Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+Cordialement,
+Albert ARIBAUD
+3ADEV
