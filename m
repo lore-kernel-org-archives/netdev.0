@@ -1,43 +1,30 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] realtek: Add switch variable to 'switch case not
- processed' messages
-Date: Mon, 26 Sep 2016 09:33:36 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB010988D@AcuExch.aculab.com>
-References: <1474654333.1849.5.camel@perches.com>
-         <d091f73a6adf3bdaa09ab0399c22a9fdfe9b188c.1474654979.git.joe@perches.com>
-         <f98d2cf1-802a-93c1-b219-ec45aa417940@lwfinger.net>
-         <1474657363.1849.9.camel@perches.com>
- <20160924175555.01cae6dd@endymion> <1474733754.23838.3.camel@perches.com>
+From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Subject: Re: [PATCH v4 2/7] ipv6 addrconf: remove addrconf_sysctl_hop_limit()
+Date: Mon, 26 Sep 2016 18:37:37 +0900
+Message-ID: <CANP3RGdL_N_vV1iXoCVz+Gu-oTSm8y2Y=dkx1APmb+z6sJ8S=A@mail.gmail.com>
+References: <20160925.060423.854801855957024790.davem@davemloft.net>
+ <1474801390-6891-1-git-send-email-zenczykowski@gmail.com> <1474801390-6891-3-git-send-email-zenczykowski@gmail.com>
+ <CAAedzxoD6DiNDQUpuiV3tQV0zVmAb=J6968aU02Z+3521u0s3Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-        Chaoming Li <chaoming_li@realsil.com.cn>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: 'Joe Perches' <joe@perches.com>, Jean Delvare <jdelvare@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1474733754.23838.3.camel@perches.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S . Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Lorenzo Colitti <lorenzo@google.com>
+To: Erik Kline <ek@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yb0-f181.google.com ([209.85.213.181]:35202 "EHLO
+        mail-yb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1760834AbcIZJhj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 05:37:39 -0400
+Received: by mail-yb0-f181.google.com with SMTP id t5so9752896yba.2
+        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 02:37:38 -0700 (PDT)
+In-Reply-To: <CAAedzxoD6DiNDQUpuiV3tQV0zVmAb=J6968aU02Z+3521u0s3Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> If you want to create enum->#ENUM structs and
-> "const char *" lookup functions, please be my guest.
-> 
-> otherwise, hex is at least a consistent way to display
-> what should be infrequent output.
+>> +static int one = 1;
+>> +static int two_five_five = 255;
+>
+> Should these be const as well?
 
-If I've typed it right:
-
-#define tags(x) x(A) x(B) x(C)
-#define x(t) t,
-enum {tags(x) tag_count};
-#undef x
-#define x(t) ##t,
-static const char names[] = { tags(x) };
-#undef x
-
-	David
+It would be nice, but you actually get compile time warnings if you do that.
