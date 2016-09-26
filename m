@@ -1,50 +1,47 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next] net/sched: pkt_cls: change tc actions order to
- be as the user sets
-Date: Mon, 26 Sep 2016 05:29:05 -0400
-Message-ID: <d922736e-268a-9017-c03a-c635bb4ebffe@mojatatu.com>
-References: <1474812524-29089-1-git-send-email-hadarh@mellanox.com>
- <19723e0f-50b0-77fa-2884-c5bb6e182df9@mojatatu.com>
- <CAM_iQpVBhckM4f43T0Lc2Bt28nVFBAjORHt5d=1_m9AfoPJtSg@mail.gmail.com>
- <CAJL1qvGnPsjbzp9Z_6GkXzJqrxAAgYY6uE_0mCWb=H-EhcB8-A@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 3/3] net: fec: align IP header in hardware
+Date: Mon, 26 Sep 2016 09:26:33 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0109865@AcuExch.aculab.com>
+References: <AM4PR0401MB22609D8151C2B63CA7768A1AFFCB0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+ <1474728139-9335-1-git-send-email-eric@nelint.com>
+ <1474728139-9335-4-git-send-email-eric@nelint.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Hadar Hen Zion <hadarh@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Or Gerlitz <ogerlitz@mellanox.com>
-To: Hadar Hen Zion <hadarh@dev.mellanox.co.il>,
-        Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux@arm.linux.org.uk" <linux@arm.linux.org.uk>,
+        "andrew@lunn.ch" <andrew@lunn.ch>,
+        "fugang.duan@nxp.com" <fugang.duan@nxp.com>,
+        "otavio@ossystems.com.br" <otavio@ossystems.com.br>,
+        "edumazet@google.com" <edumazet@google.com>,
+        "troy.kisky@boundarydevices.com" <troy.kisky@boundarydevices.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "u.kleine-koenig@pengutronix.de" <u.kleine-koenig@pengutronix.de>
+To: 'Eric Nelson' <eric@nelint.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f170.google.com ([209.85.223.170]:35128 "EHLO
-        mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1759791AbcIZJ3I (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 05:29:08 -0400
-Received: by mail-io0-f170.google.com with SMTP id m186so175757889ioa.2
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 02:29:07 -0700 (PDT)
-In-Reply-To: <CAJL1qvGnPsjbzp9Z_6GkXzJqrxAAgYY6uE_0mCWb=H-EhcB8-A@mail.gmail.com>
+Received: from smtp-out6.electric.net ([192.162.217.186]:50200 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1761370AbcIZJ3g (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 05:29:36 -0400
+In-Reply-To: <1474728139-9335-4-git-send-email-eric@nelint.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-09-26 02:02 AM, Hadar Hen Zion wrote:
-> On Mon, Sep 26, 2016 at 7:31 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+From: Eric Nelson
+> Sent: 24 September 2016 15:42
+> The FEC receive accelerator (RACC) supports shifting the data payload of
+> received packets by 16-bits, which aligns the payload (IP header) on a
+> 4-byte boundary, which is, if not required, at least strongly suggested
+> by the Linux networking layer.
+...
+> +		/* align IP header */
+> +		val |= FEC_RACC_SHIFT16;
 
->>
->> The reason is we use action->order as an nested attribute, so
->> the order in the list doesn't matter, only action->order itself matters.
->
-> The order in the list matters for offload drivers who use the
-> "tcf_exts_to_list" function and action->order parameter isn't usable
-> for them.
+I can't help feeling that there needs to be corresponding
+changes to increase the buffer size by 2 (maybe for large mtu)
+and to discard two bytes from the frame length.
 
-Ok, thanks for the explanation.
+If probably ought to be predicated on NET_IP_ALIGN as well.
 
-> Why not keeping the actions in the same order as the user? isn't it
-> more elegant?
->
-
-I dont think it was intentional. I will ACK the patch.
-
-cheers,
-jamal
+	David
