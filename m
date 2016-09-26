@@ -1,80 +1,125 @@
-From: Albert ARIBAUD <albert.aribaud@3adev.fr>
-Subject: Re: [PATCH] net: trivial: fix fsl fec_main mdio write return value
-Date: Mon, 26 Sep 2016 23:10:41 +0200
-Message-ID: <20160926231041.41091069.albert.aribaud@3adev.fr>
-References: <20160926191140.12107-1-albert.aribaud@3adev.fr>
-        <CAOMZO5BikGA9e6goMs0wqNVHvWW9Mf3SpykA=DWfD4Q2gBbkag@mail.gmail.com>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [PATCH 4/5] ISDN-Gigaset: Release memory in gigaset_initcs()
+ after an allocation failure
+Date: Mon, 26 Sep 2016 23:13:54 +0200
+Message-ID: <1474924434.8546.29.camel@tiscali.nl>
+References: <566ABCD9.1060404@users.sourceforge.net>
+         <6d4bbb77-914f-19b8-a1a9-2731d1158612@users.sourceforge.net>
+         <6409b3b0-3b7a-1139-f040-7b1a61611187@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Jiri Kosina <trivial@kernel.org>,
-        Fugang Duan <fugang.duan@nxp.com>
-To: Fabio Estevam <festevam@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2-g21.free.fr ([212.27.42.2]:47496 "EHLO smtp2-g21.free.fr"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750977AbcIZVKw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 26 Sep 2016 17:10:52 -0400
-In-Reply-To: <CAOMZO5BikGA9e6goMs0wqNVHvWW9Mf3SpykA=DWfD4Q2gBbkag@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
+        Karsten Keil <isdn@linux-pingi.de>,
+        LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org,
+        Julia Lawall <julia.lawall@lip6.fr>
+To: SF Markus Elfring <elfring@users.sourceforge.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <6409b3b0-3b7a-1139-f040-7b1a61611187@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Fabio,
+Markus,
 
-You are correct -- I'd rebased my patch as part of a series, and I did
-not notice that the fix was already there. Apologies and thanks for
-pointing it out.
+On Mon, 2016-09-26 at 17:43 +0200, SF Markus Elfring wrote:
+> Memory was not released (as it would be expected) when one call
+> of further resource reservations failed.
 
-Le Mon, 26 Sep 2016 18:00:32 -0300, Fabio Estevam <festevam@gmail.com>
-a écrit :
+This was the only thing in this series that triggered more than a, very
+uninspired, "meh" on first read.
 
-> Hi Albert,
+> * Split a condition check for memory allocation failures so that
+>   each pointer from these function calls will be checked immediately.
 > 
-> On Mon, Sep 26, 2016 at 4:11 PM, Albert ARIBAUD (3ADEV)
-> <albert.aribaud@3adev.fr> wrote:
-> > If the MDIO enf-of-transfer wait loop does not time out,
-> > 0 should be returned to the caller through ret, but ret
-> > was not reset to 0 after receiving the return value of
-> > pm_runtime_get_sync(). Reset ret when no time out occurred.Is this really needed?  
+>   See also background information:
+>   Topic "CWE-754: Improper check for unusual or exceptional conditions"
+>   Link: https://cwe.mitre.org/data/definitions/754.html
+
+A quick scan of that link suggests we can do without the above
+"background information" in the commit explanation.
+
+> * Adjust jump targets according to the Linux coding style convention.
+
+Another "meh".
+
+> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+> ---
+>  drivers/isdn/gigaset/common.c | 20 ++++++++++++--------
+>  1 file changed, 12 insertions(+), 8 deletions(-)
 > 
-> Commit 42ea4457 ("net: fec: normalize return value of
-> pm_runtime_get_sync() in MDIO write") does the following:
-> 
-> diff --git a/drivers/net/ethernet/freescale/fec_main.c
-> b/drivers/net/ethernet/freescale/fec_main.c
-> index 91925e3..6cc3340 100644
-> --- a/drivers/net/ethernet/freescale/fec_main.c
-> +++ b/drivers/net/ethernet/freescale/fec_main.c
-> @@ -1816,11 +1816,13 @@ static int fec_enet_mdio_write(struct mii_bus
-> *bus, int mii_id, int regnum,
->         struct fec_enet_private *fep = bus->priv;
->         struct device *dev = &fep->pdev->dev;
->         unsigned long time_left;
-> -       int ret = 0;
-> +       int ret;
-> 
->         ret = pm_runtime_get_sync(dev);
->         if (ret < 0)
->                 return ret;
-> +       else
-> +               ret = 0;
-> 
-> > diff --git a/drivers/net/ethernet/freescale/fec_main.c
-> > b/drivers/net/ethernet/freescale/fec_main.c index 01f7e81..0413c05
-> > 100644 --- a/drivers/net/ethernet/freescale/fec_main.c
-> > +++ b/drivers/net/ethernet/freescale/fec_main.c
-> > @@ -1818,6 +1818,8 @@ static int fec_enet_mdio_write(struct mii_bus
-> > *bus, int mii_id, int regnum, netdev_err(fep->netdev, "MDIO write
-> > timeout\n"); ret  = -ETIMEDOUT;
-> >         }
-> > +       else
-> > +               ret = 0;  
-> 
-> , so is this really needed? ret should be 0 at this point.
+> diff --git a/drivers/isdn/gigaset/common.c
+> b/drivers/isdn/gigaset/common.c
+> index c05a2a4..2e9382f 100644
+> --- a/drivers/isdn/gigaset/common.c
+> +++ b/drivers/isdn/gigaset/common.c
+> @@ -710,10 +710,13 @@ struct cardstate *gigaset_initcs(struct gigaset_driver *drv, int channels,
+>  	cs->mode = M_UNKNOWN;
+>  	cs->mstate = MS_UNINITIALIZED;
+>  	cs->bcs = kmalloc_array(channels, sizeof(*cs->bcs), GFP_KERNEL);
+> +	if (!cs->bcs)
+> +		goto report_failure;
+> +
+>  	cs->inbuf = kmalloc(sizeof(*cs->inbuf), GFP_KERNEL);
+> -	if (!cs->bcs || !cs->inbuf) {
+> -		goto error;
+> -	}
+> +	if (!cs->inbuf)
+> +		goto free_bcs;
+> +
+>  	++cs->cs_init;
+>  
+>  	gig_dbg(DEBUG_INIT, "setting up at_state");
+> @@ -737,14 +740,14 @@ struct cardstate *gigaset_initcs(struct gigaset_driver *drv, int channels,
+>  	gig_dbg(DEBUG_INIT, "setting up iif");
+>  	if (gigaset_isdn_regdev(cs, modulename) < 0) {
+>  		pr_err("error registering ISDN device\n");
+> -		goto error;
+> +		goto free_bcs;
+>  	}
+>  
+>  	make_valid(cs, VALID_ID);
+>  	++cs->cs_init;
+>  	gig_dbg(DEBUG_INIT, "setting up hw");
+>  	if (cs->ops->initcshw(cs) < 0)
+> -		goto error;
+> +		goto free_bcs;
+>  
+>  	++cs->cs_init;
+>  
+> @@ -759,7 +762,7 @@ struct cardstate *gigaset_initcs(struct gigaset_driver *drv, int channels,
+>  		gig_dbg(DEBUG_INIT, "setting up bcs[%d]", i);
+>  		if (gigaset_initbcs(cs->bcs + i, cs, i) < 0) {
+>  			pr_err("could not allocate channel %d data\n", i);
+> -			goto error;
+> +			goto free_bcs;
+>  		}
+>  	}
+>  
+> @@ -772,8 +775,9 @@ struct cardstate *gigaset_initcs(struct gigaset_driver *drv, int channels,
+>  
+>  	gig_dbg(DEBUG_INIT, "cs initialized");
+>  	return cs;
+> -
+> -error:
+> +free_bcs:
+> +	kfree(cs->bcs);
+> +report_failure:
+>  	gig_dbg(DEBUG_INIT, "failed");
+>  	gigaset_freecs(cs);
+
+gigaset_freecs() is not a function I look at for the fun of it. But
+still, in it we find:
+
+	case 0: /* error in basic setup */
+		[...]
+		kfree(cs->inbuf);
+		kfree(cs->bcs);
+
+As far as I can tell we will call those two kfree()'s if we jump to
+"error". So, contrary to your analysis, I don't think we leak cs->bcs.
+
+>  	return NULL;
 
 
-
-Cordialement,
-Albert ARIBAUD
-3ADEV
+Paul Bolle
