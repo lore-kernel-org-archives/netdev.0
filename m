@@ -1,59 +1,61 @@
-From: Aaron Conole <aconole@redhat.com>
-Subject: Re: [PATCH nf-next 2/2] nf_set_hooks_head: acommodate different kconfig
-Date: Mon, 26 Sep 2016 12:43:17 -0400
-Message-ID: <f7t4m52lihm.fsf@redhat.com>
-References: <1474907071-13591-1-git-send-email-aconole@bytheb.org>
-        <1474907071-13591-3-git-send-email-aconole@bytheb.org>
-        <20160926163920.GB17426@breakpoint.cc>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: Re: [PATCH 5/5] ISDN-Gigaset: Enclose two expressions for the sizeof
+ operator by parentheses
+Date: Mon, 26 Sep 2016 18:45:09 +0200
+Message-ID: <d325c0ab-9f1b-e00d-6b4c-30f39d939ab4@users.sourceforge.net>
+References: <566ABCD9.1060404@users.sourceforge.net>
+ <6d4bbb77-914f-19b8-a1a9-2731d1158612@users.sourceforge.net>
+ <e97b38b6-8c02-6733-8b57-9786bfb911a6@users.sourceforge.net>
+ <063D6719AE5E284EB5DD2968C1650D6DB0109E63@AcuExch.aculab.com>
+ <1474907003.2238.13.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-        Pablo Neira Ayuso <pablo@netfilter.org>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20160926163920.GB17426@breakpoint.cc> (Florian Westphal's
-        message of "Mon, 26 Sep 2016 18:39:20 +0200")
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+        Julia Lawall <julia.lawall@lip6.fr>
+To: Joe Perches <joe@perches.com>,
+        David Laight <David.Laight@ACULAB.COM>,
+        "gigaset307x-common@lists.sourceforge.net"
+        <gigaset307x-common@lists.sourceforge.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Karsten Keil <isdn@linux-pingi.de>,
+        Paul Bolle <pebolle@tiscali.nl>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1474907003.2238.13.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Florian Westphal <fw@strlen.de> writes:
+>>> @@ -53,7 +53,7 @@ void gigaset_dbg_buffer(enum debuglevel level, const unsigned char *msg,
+>>>  {
+>>>  	unsigned char outbuf[80];
+>>>  	unsigned char c;
+>>> -	size_t space = sizeof outbuf - 1;
+>>> +	size_t space = sizeof(outbuf - 1);
+> 
+>> wrong ...
+>> think that is 7 instead of 79.
+> 
+> 
+> Well, it's sizeof(pointer) so either 4 or 8, but still,
+> what Markus proposes here is _wrong_.
 
-> Aaron Conole <aconole@bytheb.org> wrote:
->> When CONFIG_NETFILTER_INGRESS is unset (or no), we need to handle
->> the request for registration properly by dropping the hook.  This
->> releases the entry during the set.
->> 
->> Signed-off-by: Aaron Conole <aconole@bytheb.org>
->> ---
->>  net/netfilter/core.c | 4 ++++
->>  1 file changed, 4 insertions(+)
->> 
->> diff --git a/net/netfilter/core.c b/net/netfilter/core.c
->> index e58e420..1d0a4c9 100644
->> --- a/net/netfilter/core.c
->> +++ b/net/netfilter/core.c
->> @@ -90,10 +90,14 @@ static void nf_set_hooks_head(struct net *net, const struct nf_hook_ops *reg,
->>  {
->>  	switch (reg->pf) {
->>  	case NFPROTO_NETDEV:
->> +#ifdef CONFIG_NETFILTER_INGRESS
->>  		/* We already checked in nf_register_net_hook() that this is
->>  		 * used from ingress.
->>  		 */
->>  		rcu_assign_pointer(reg->dev->nf_hooks_ingress, entry);
->> +#else
->> +		kfree(entry);
->> +#endif
->>  		break;
->
-> This looks dodgy (its correct though).
->
-> I'd propose to add a test to nf_register_net_hook()
-> to bail with -EOPNOSTUPP instead of this "#else kfree()" if we get
-> NFPROTO_NETDEV pf with CONFIG_NETFILTER_INGRESS=n build instead.
+You are right at this place.
 
-Okay, I'll spin a new version.
 
-Thanks for the review, Florian!
+> Markus, do you know the script probably has a lower
+> style conversion defect introduction rate than you do
+> when doing these mechanical things.
 
--Aaron
+Would it be nice if the script "checkpatch.pl" could avoid to point
+such a false positive out anyhow?
+
+
+> Please use it to verify what you are doing before
+> submitting more defective patches.
+
+Do you expect a resend for this update step so that an other statement
+in the function "gigaset_initdriver" would eventually be adjusted?
+
+Regards,
+Markus
