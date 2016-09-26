@@ -1,90 +1,66 @@
-From: Jia He <hejianet@gmail.com>
-Subject: [PATCH v4 3/7] proc: Reduce cache miss in snmp6_seq_show
-Date: Mon, 26 Sep 2016 16:09:11 +0800
-Message-ID: <1474877355-12920-4-git-send-email-hejianet@gmail.com>
-References: <1474877355-12920-1-git-send-email-hejianet@gmail.com>
-Cc: linux-sctp@vger.kernel.org, linux-kernel@vger.kernel.org,
-        davem@davemloft.net, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        marcelo.leitner@gmail.com, Jia He <hejianet@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1474877355-12920-1-git-send-email-hejianet@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Yotam Gigi <yotamg@mellanox.com>
+Subject: RE: [PATCH net v2 0/2] Fix tc-ife bugs
+Date: Mon, 26 Sep 2016 07:01:02 +0000
+Message-ID: <DB3PR05MB07641B3E085814C60BC60D64ACCD0@DB3PR05MB0764.eurprd05.prod.outlook.com>
+References: <1474806711-64660-1-git-send-email-yotamg@mellanox.com>
+ <2b01c982-76b7-d380-807c-1fe1df62d285@mojatatu.com>
+ <DB3PR05MB07647722715384C174CC52D2ACCA0@DB3PR05MB0764.eurprd05.prod.outlook.com>
+ <098a8df2-aa3e-04a5-143b-a6946c9ece59@mojatatu.com>
+ <a57bf1d3-0b6b-91fa-a57d-5b4a17f91959@mojatatu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: Jiri Pirko <jiri@mellanox.com>, Elad Raz <eladr@mellanox.com>,
+        mlxsw <mlxsw@mellanox.com>, Roman Mashak <mrv@mojatatu.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>,
+        Yotam Gigi <yotam.gi@gmail.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db5eur01on0049.outbound.protection.outlook.com ([104.47.2.49]:53472
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751059AbcIZIfG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 26 Sep 2016 04:35:06 -0400
+In-Reply-To: <a57bf1d3-0b6b-91fa-a57d-5b4a17f91959@mojatatu.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is to use the generic interface snmp_get_cpu_field{,64}_batch to
-aggregate the data by going through all the items of each cpu sequentially.
 
-Signed-off-by: Jia He <hejianet@gmail.com>
----
- net/ipv6/proc.c | 32 +++++++++++++++++++++++---------
- 1 file changed, 23 insertions(+), 9 deletions(-)
 
-diff --git a/net/ipv6/proc.c b/net/ipv6/proc.c
-index 679253d0..e047701 100644
---- a/net/ipv6/proc.c
-+++ b/net/ipv6/proc.c
-@@ -30,6 +30,11 @@
- #include <net/transp_v6.h>
- #include <net/ipv6.h>
- 
-+#define MAX4(a, b, c, d) \
-+	max_t(u32, max_t(u32, a, b), max_t(u32, c, d))
-+#define SNMP_MIB_MAX MAX4(UDP_MIB_MAX, TCP_MIB_MAX, \
-+			IPSTATS_MIB_MAX, ICMP_MIB_MAX)
-+
- static int sockstat6_seq_show(struct seq_file *seq, void *v)
- {
- 	struct net *net = seq->private;
-@@ -192,13 +197,19 @@ static void snmp6_seq_show_item(struct seq_file *seq, void __percpu *pcpumib,
- 				const struct snmp_mib *itemlist)
- {
- 	int i;
--	unsigned long val;
--
--	for (i = 0; itemlist[i].name; i++) {
--		val = pcpumib ?
--			snmp_fold_field(pcpumib, itemlist[i].entry) :
--			atomic_long_read(smib + itemlist[i].entry);
--		seq_printf(seq, "%-32s\t%lu\n", itemlist[i].name, val);
-+	unsigned long buff[SNMP_MIB_MAX];
-+
-+	if (pcpumib) {
-+		memset(buff, 0, sizeof(unsigned long) * SNMP_MIB_MAX);
-+
-+		snmp_get_cpu_field_batch(buff, itemlist, pcpumib);
-+		for (i = 0; itemlist[i].name; i++)
-+			seq_printf(seq, "%-32s\t%lu\n",
-+				   itemlist[i].name, buff[i]);
-+	} else {
-+		for (i = 0; itemlist[i].name; i++)
-+			seq_printf(seq, "%-32s\t%lu\n", itemlist[i].name,
-+				   atomic_long_read(smib + itemlist[i].entry));
- 	}
- }
- 
-@@ -206,10 +217,13 @@ static void snmp6_seq_show_item64(struct seq_file *seq, void __percpu *mib,
- 				  const struct snmp_mib *itemlist, size_t syncpoff)
- {
- 	int i;
-+	u64 buff64[SNMP_MIB_MAX];
-+
-+	memset(buff64, 0, sizeof(unsigned long) * SNMP_MIB_MAX);
- 
-+	snmp_get_cpu_field64_batch(buff64, itemlist, mib, syncpoff);
- 	for (i = 0; itemlist[i].name; i++)
--		seq_printf(seq, "%-32s\t%llu\n", itemlist[i].name,
--			   snmp_fold_field64(mib, itemlist[i].entry, syncpoff));
-+		seq_printf(seq, "%-32s\t%llu\n", itemlist[i].name, buff64[i]);
- }
- 
- static int snmp6_seq_show(struct seq_file *seq, void *v)
--- 
-2.5.5
+>-----Original Message-----
+>From: Jamal Hadi Salim [mailto:jhs@mojatatu.com]
+>Sent: Monday, September 26, 2016 3:47 AM
+>To: Yotam Gigi <yotamg@mellanox.com>; Yotam Gigi <yotam.gi@gmail.com>;
+>davem@davemloft.net; netdev@vger.kernel.org
+>Cc: Jiri Pirko <jiri@mellanox.com>; Elad Raz <eladr@mellanox.com>; mlxsw
+><mlxsw@mellanox.com>; Roman Mashak <mrv@mojatatu.com>
+>Subject: Re: [PATCH net v2 0/2] Fix tc-ife bugs
+>
+>On 16-09-25 07:17 PM, Jamal Hadi Salim wrote:
+>[..]
+>>> Do you prefer that I will fix the encode side to encode the whole tlv
+>>> header
+>>> size instead of fixing the decode side?
+>>
+>> Yes please - Add NLA_HDRLEN to the dlen on the encode you showed above.
+
+OK. Did it and tested it. Everything seems functional.
+
+>>
+>
+>And the correct commit it fixes is:
+>a823f93750e341bc0d6829a00019435b96830fd4
+
+I can't find this commit. Where is it?=20
+
+Don't you mean that commit: 28a10c426e81afc88514bca8e73affccf850fdf6
+with title: "net sched: fix encoding to use real length"?
+
+>
+>I removed the padding but also the headerlen when i did
+>that. Tested with tc_index which is a u16 was the mistake i made.
+>
+>cheers,
+>jamal
