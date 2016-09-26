@@ -1,7 +1,8 @@
 From: Nelson Chang <nelson.chang@mediatek.com>
-Subject: [PATCH net-next 0/2] net: ethernet: mediatek: some bug fixes for PDAM and HW LRO
-Date: Mon, 26 Sep 2016 14:33:48 +0800
-Message-ID: <1474871630-4134-1-git-send-email-nelson.chang@mediatek.com>
+Subject: [PATCH net-next 1/2] net: ethernet: mediatek: add to stop PDMA while stopping the frame engine
+Date: Mon, 26 Sep 2016 14:33:49 +0800
+Message-ID: <1474871630-4134-2-git-send-email-nelson.chang@mediatek.com>
+References: <1474871630-4134-1-git-send-email-nelson.chang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
@@ -9,27 +10,32 @@ Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
         Nelson Chang <nelson.chang@mediatek.com>
 To: <john@phrozen.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw01.mediatek.com ([210.61.82.183]:62519 "EHLO
-        mailgw01.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1761469AbcIZGd7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 02:33:59 -0400
+Received: from mailgw02.mediatek.com ([210.61.82.184]:28239 "EHLO
+        mailgw02.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1761378AbcIZGd6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 02:33:58 -0400
+In-Reply-To: <1474871630-4134-1-git-send-email-nelson.chang@mediatek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-1) Add to stop PDMA while stopping the frame engine
-2) Modify the register settings for LRO relinquishments
-3) Jump out from the waiting loop while LRO relinquishments are done
+Stop PDMA while the frame engine is going to stop.
 
-Nelson Chang (2):
-  net: ethernet: mediatek: add to stop PDMA while stopping the frame
-    engine
-  net: ethernet: mediatek: bug fix to disable HW LRO
+Signed-off-by: Nelson Chang <nelson.chang@mediatek.com>
+---
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 1 +
+ 1 file changed, 1 insertion(+)
 
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 2 ++
- drivers/net/ethernet/mediatek/mtk_eth_soc.h | 4 ++--
- 2 files changed, 4 insertions(+), 2 deletions(-)
- mode change 100644 => 100755 drivers/net/ethernet/mediatek/mtk_eth_soc.c
- mode change 100644 => 100755 drivers/net/ethernet/mediatek/mtk_eth_soc.h
-
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+index 4cc50c0..62de68d 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -1784,6 +1784,7 @@ static int mtk_stop(struct net_device *dev)
+ 	napi_disable(&eth->rx_napi);
+ 
+ 	mtk_stop_dma(eth, MTK_QDMA_GLO_CFG);
++	mtk_stop_dma(eth, MTK_PDMA_GLO_CFG);
+ 
+ 	mtk_dma_free(eth);
+ 
 -- 
 1.9.1
