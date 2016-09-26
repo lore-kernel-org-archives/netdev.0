@@ -1,50 +1,66 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: Re: ISDN-CAPI: Adjust 17 function calls together with variable
- assignments
-Date: Mon, 26 Sep 2016 14:28:58 +0200
-Message-ID: <16c50966-66f2-8a08-0ebc-936b04311f14@users.sourceforge.net>
-References: <be07f84d-fc84-e47d-207e-aedd8c960151@users.sourceforge.net>
- <10355972-1c9b-1103-edf3-efde78237cdd@users.sourceforge.net>
- <1474881174.1846.8.camel@tiscali.nl>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: [PATCH] brcmfmac: implement more accurate skb tracking
+Date: Mon, 26 Sep 2016 14:38:40 +0200
+Message-ID: <CACna6ryNLOqrwsa9KFueUdqStxjP7KoRyvsn6eynLc6Y7Ug_sw@mail.gmail.com>
+References: <20160926102348.8695-1-zajec5@gmail.com> <09084e8b-829d-9a13-ae16-a493438216ac@broadcom.com>
+ <CACna6rwnLb3sEPmdx6uhYMstVn04WbP2xzznsjnwgguEXn04=w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Karsten Keil <isdn@linux-pingi.de>,
-        LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org,
-        Julia Lawall <julia.lawall@lip6.fr>
-To: Paul Bolle <pebolle@tiscali.nl>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+        Franky Lin <franky.lin@broadcom.com>,
+        Hante Meuleman <hante.meuleman@broadcom.com>,
+        Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
+        Franky Lin <frankyl@broadcom.com>,
+        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+        "open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
+        <brcm80211-dev-list.pdl@broadcom.com>,
+        Network Development <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal@milecki.pl>
+To: Arend Van Spriel <arend.vanspriel@broadcom.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1474881174.1846.8.camel@tiscali.nl>
+In-Reply-To: <CACna6rwnLb3sEPmdx6uhYMstVn04WbP2xzznsjnwgguEXn04=w@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->> The script "checkpatch.pl" can point out that assignments should usually
->> not be performed within condition checks.
->> Thus move the assignment for a variable to a separate statement
->> in four functions.
-> 
-> Did you recycle this commit explanation?
+On 26 September 2016 at 14:13, Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com> w=
+rote:
+> On 26 September 2016 at 13:46, Arend Van Spriel
+> <arend.vanspriel@broadcom.com> wrote:
+>> On 26-9-2016 12:23, Rafa=C5=82 Mi=C5=82ecki wrote:
+>>> From: Rafa=C5=82 Mi=C5=82ecki <rafal@milecki.pl>
+>>>
+>>> We need to track 802.1x packets to know if there are any pending ones
+>>> for transmission. This is required for performing key update in the
+>>> firmware.
+>>
+>> The problem we are trying to solve is a pretty old one. The problem is
+>> that wpa_supplicant uses two separate code paths: EAPOL messaging
+>> through data path and key configuration though nl80211.
+>
+> Can I find it described/reported somewhere?
+>
+>
+>>> Unfortunately our old tracking code wasn't very accurate. It was
+>>> treating skb as pending as soon as it was passed by the netif. Actual
+>>> handling packet to the firmware was happening later as brcmfmac
+>>> internally queues them and uses its own worker(s).
+>>
+>> That does not seem right. As soon as we get a 1x packet we need to wait
+>> with key configuration regardless whether it is still in the driver or
+>> handed over to firmware already.
+>
+> OK, thanks.
 
-Yes. - I am going to use similar commit messages for further changes
-in other software modules.
+Actually, it's not OK. I was trying to report/describe/discuss this
+problem for over a week. I couldn't get much of answer from you.
 
+I had to come with a patch I worked on for quite some time. Only then
+you decided to react and reply with a reason for a nack. I see this
+patch may be wrong (but it's still hard to know what's going wrong
+without a proper hostapd bug report). I'd expect you to somehow work &
+communicate with open source community.
 
-> Because git diff tells me you actually touched about eight functions.
-
-You are right. - I'm sorry that I overlooked to update this number somehow.
-
-
->     scripts/checkpatch.pl -f drivers/isdn/capi/capidrv.c | grep "assignment in if condition" | wc -l 
-> 
-> It tells me there are actually 18 instances of this "ERROR".
-> Why did you ignore one of it in this patch?
-
-Did I accidentally leave another update candidate over?
-
-* How do you think about to pick such a software update opportunity up?
-
-* Do you expect a resend for the steps 3 - 5 of this small patch series?
-
-Regards,
-Markus
+--=20
+Rafa=C5=82
