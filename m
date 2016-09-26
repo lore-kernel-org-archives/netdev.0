@@ -1,63 +1,194 @@
-From: Nelson Chang <nelson.chang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH net-next 2/2] net: ethernet: mediatek: bug fix to disable HW
- LRO
-Date: Mon, 26 Sep 2016 14:33:50 +0800
-Message-ID: <1474871630-4134-3-git-send-email-nelson.chang@mediatek.com>
-References: <1474871630-4134-1-git-send-email-nelson.chang@mediatek.com>
+From: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v5 08/16] IB/pvrdma: Add device command support
+Date: Mon, 26 Sep 2016 10:16:01 +0300
+Message-ID: <20160926071601.GA6352@yuval-lap.Home>
+References: <cover.1474759181.git.aditr@vmware.com>
+ <47e16986707ddbe0ffa15795ef9ae60d15bdd728.1474759181.git.aditr@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- nelsonch.tw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Nelson Chang <nelson.chang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-To: <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1474871630-4134-1-git-send-email-nelson.chang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
-List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        pv-drivers-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jhansen-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org, asarwade-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org,
+        georgezhang-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org, bryantan-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org
+To: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <47e16986707ddbe0ffa15795ef9ae60d15bdd728.1474759181.git.aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-(1) Modify the register settings for LRO relinquishments
-(2) Jump out from the waiting loop while LRO relinquishments are done
+Minor question/suggestion inline.
+(sorry for missing it till now).
 
-Signed-off-by: Nelson Chang <nelson.chang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
----
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 1 +
- drivers/net/ethernet/mediatek/mtk_eth_soc.h | 4 ++--
- 2 files changed, 3 insertions(+), 2 deletions(-)
+Yuval
 
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 62de68d..ddf20a0 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -1374,6 +1374,7 @@ static void mtk_hwlro_rx_uninit(struct mtk_eth *eth)
- 			msleep(20);
- 			continue;
- 		}
-+		break;
- 	}
- 
- 	/* invalidate lro rings */
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-index 7e194f7..3003195 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-@@ -102,8 +102,8 @@
- #define MTK_LRO_EN			BIT(0)
- #define MTK_L3_CKS_UPD_EN		BIT(7)
- #define MTK_LRO_ALT_PKT_CNT_MODE	BIT(21)
--#define MTK_LRO_RING_RELINQUISH_REQ	(0x3 << 26)
--#define MTK_LRO_RING_RELINQUISH_DONE	(0x3 << 29)
-+#define MTK_LRO_RING_RELINQUISH_REQ	(0x7 << 26)
-+#define MTK_LRO_RING_RELINQUISH_DONE	(0x7 << 29)
- 
- #define MTK_PDMA_LRO_CTRL_DW1	0x984
- #define MTK_PDMA_LRO_CTRL_DW2	0x988
--- 
-1.9.1
+On Sat, Sep 24, 2016 at 04:21:32PM -0700, Adit Ranadive wrote:
+> This patch enables posting Verb requests and receiving responses to/from
+> the backend PVRDMA emulation layer.
+> 
+> Reviewed-by: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> Reviewed-by: Jorgen Hansen <jhansen-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+> Reviewed-by: George Zhang <georgezhang-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+> Reviewed-by: Aditya Sarwade <asarwade-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+> Reviewed-by: Bryan Tan <bryantan-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Adit Ranadive <aditr-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
+> ---
+> Changes v4->v5:
+>  - Moved the timeout to pvrdma_cmd_recv.
+>  - Added additional response code parameter to pvrdma_cmd_post.
+> 
+> Changes v3->v4:
+>  - Removed the min check and added a BUILD_BUG_ON check for size.
+> 
+> Changes v2->v3:
+>  - Converted pvrdma_cmd_recv to inline.
+>  - Added a min check in the memcpy to cmd_slot.
+>  - Removed the boolean from pvrdma_cmd_post.
+> ---
+>  drivers/infiniband/hw/pvrdma/pvrdma_cmd.c | 117 ++++++++++++++++++++++++++++++
+>  1 file changed, 117 insertions(+)
+>  create mode 100644 drivers/infiniband/hw/pvrdma/pvrdma_cmd.c
+> 
+> diff --git a/drivers/infiniband/hw/pvrdma/pvrdma_cmd.c b/drivers/infiniband/hw/pvrdma/pvrdma_cmd.c
+> new file mode 100644
+> index 0000000..21f1af8
+> --- /dev/null
+> +++ b/drivers/infiniband/hw/pvrdma/pvrdma_cmd.c
+> @@ -0,0 +1,117 @@
+> +/*
+> + * Copyright (c) 2012-2016 VMware, Inc.  All rights reserved.
+> + *
+> + * This program is free software; you can redistribute it and/or
+> + * modify it under the terms of EITHER the GNU General Public License
+> + * version 2 as published by the Free Software Foundation or the BSD
+> + * 2-Clause License. This program is distributed in the hope that it
+> + * will be useful, but WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED
+> + * WARRANTY OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
+> + * See the GNU General Public License version 2 for more details at
+> + * http://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html.
+> + *
+> + * You should have received a copy of the GNU General Public License
+> + * along with this program available in the file COPYING in the main
+> + * directory of this source tree.
+> + *
+> + * The BSD 2-Clause License
+> + *
+> + *     Redistribution and use in source and binary forms, with or
+> + *     without modification, are permitted provided that the following
+> + *     conditions are met:
+> + *
+> + *      - Redistributions of source code must retain the above
+> + *        copyright notice, this list of conditions and the following
+> + *        disclaimer.
+> + *
+> + *      - Redistributions in binary form must reproduce the above
+> + *        copyright notice, this list of conditions and the following
+> + *        disclaimer in the documentation and/or other materials
+> + *        provided with the distribution.
+> + *
+> + * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+> + * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+> + * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+> + * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+> + * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+> + * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+> + * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+> + * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+> + * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+> + * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+> + * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+> + * OF THE POSSIBILITY OF SUCH DAMAGE.
+> + */
+> +
+> +#include <linux/list.h>
+> +
+> +#include "pvrdma.h"
+> +
+> +#define PVRDMA_CMD_TIMEOUT	10000 /* ms */
+> +
+> +static inline int pvrdma_cmd_recv(struct pvrdma_dev *dev,
+> +				  union pvrdma_cmd_resp *resp,
+> +				  unsigned resp_code)
+> +{
+> +	int err;
+> +
+> +	dev_dbg(&dev->pdev->dev, "receive response from device\n");
+> +
+> +	err = wait_for_completion_interruptible_timeout(&dev->cmd_done,
+> +			msecs_to_jiffies(PVRDMA_CMD_TIMEOUT));
+> +	if (err == 0 || err == -ERESTARTSYS) {
+> +		dev_warn(&dev->pdev->dev,
+> +			 "completion timeout or interrupted\n");
+> +		return -ETIMEDOUT;
+> +	}
+> +
+> +	spin_lock(&dev->cmd_lock);
+> +	memcpy(resp, dev->resp_slot, sizeof(*resp));
+> +	spin_unlock(&dev->cmd_lock);
+> +
+> +	if (resp->hdr.ack != resp_code) {
+> +		dev_warn(&dev->pdev->dev,
+> +			 "unknown response %#x expected %#x\n",
+> +			 resp->hdr.ack, resp_code);
+> +		return -EFAULT;
+> +	}
+> +
+> +	return 0;
+> +}
+> +
+> +int
+> +pvrdma_cmd_post(struct pvrdma_dev *dev, union pvrdma_cmd_req *req,
+> +		union pvrdma_cmd_resp *resp, unsigned resp_code)
+> +{
+> +	int err;
+> +
+> +	dev_dbg(&dev->pdev->dev, "post request to device\n");
+> +
+> +	/* Serializiation */
+> +	down(&dev->cmd_sema);
+> +
+> +	BUILD_BUG_ON(sizeof(union pvrdma_cmd_req) !=
+> +		     sizeof(struct pvrdma_cmd_modify_qp));
+> +
+> +	spin_lock(&dev->cmd_lock);
+> +	memcpy(dev->cmd_slot, req, sizeof(*req));
+> +	spin_unlock(&dev->cmd_lock);
+> +
+> +	init_completion(&dev->cmd_done);
+> +	pvrdma_write_reg(dev, PVRDMA_REG_REQUEST, 0);
+> +
+> +	/* Make sure the request is written before reading status. */
+> +	mb();
+> +
+> +	err = pvrdma_read_reg(dev, PVRDMA_REG_ERR);
+> +	if (err == 0) {
+> +		if (resp != NULL)
+> +			err = pvrdma_cmd_recv(dev, resp, resp_code);
+> +	} else {
+> +		dev_warn(&dev->pdev->dev, "failed to write request %d\n", err);
+> +	}
+
+Please note that callers checks if err<0  while here err!=0 considered as
+error.
+Looking at similar code in pvrdma_pci_probe i can see that function
+"translates" this error to -EINVAL. Suggesting to do the same here
+(although -EINVAL is not a good choice, if device can be more friendly with
+the return code then we can propagate it up or just print a suitable error
+i.e. EAGAIN or ENOMEM otherwise EFAULT should be sufficient).
+
+> +
+> +	up(&dev->cmd_sema);
+> +
+> +	return err;
+> +}
+> -- 
+> 2.7.4
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
