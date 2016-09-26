@@ -1,29 +1,56 @@
-From: SF Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Subject: Re: hostap: Delete an unnecessary jump label in
- prism2_ioctl_priv_hostapd()
-Date: Mon, 26 Sep 2016 18:03:00 +0200
-Message-ID: <88d5023a-9a59-ab36-8c6c-a146cae803b5@users.sourceforge.net>
-References: <65ed528f-7ec5-a0f2-6219-3e63a78ca0ee@users.sourceforge.net>
- <20160926150656.213D961568@smtp.codeaurora.org>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 5/5] ISDN-Gigaset: Enclose two expressions for the
+ sizeof operator by parentheses
+Date: Mon, 26 Sep 2016 16:00:37 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0109E63@AcuExch.aculab.com>
+References: <566ABCD9.1060404@users.sourceforge.net>
+ <6d4bbb77-914f-19b8-a1a9-2731d1158612@users.sourceforge.net>
+ <e97b38b6-8c02-6733-8b57-9786bfb911a6@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Jouni Malinen <j@w1.fi>, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>
-To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160926150656.213D961568-4h6buKAYkuurB/BPivuO70B+6BGkLq7r@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+        Julia Lawall <julia.lawall@lip6.fr>
+To: 'SF Markus Elfring' <elfring@users.sourceforge.net>,
+        "gigaset307x-common@lists.sourceforge.net"
+        <gigaset307x-common@lists.sourceforge.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Karsten Keil <isdn@linux-pingi.de>,
+        Paul Bolle <pebolle@tiscali.nl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out6.electric.net ([192.162.217.185]:64479 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1034882AbcIZQDm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 12:03:42 -0400
+In-Reply-To: <e97b38b6-8c02-6733-8b57-9786bfb911a6@users.sourceforge.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> 9291771 [2/3] hostap: Delete an unnecessary jump label in prism2_ioctl_priv_hostapd()
-> 9291775 [3/3] hostap: Delete unnecessary initialisations for the variable "ret"
+From: SF Markus Elfring
+> Sent: 26 September 2016 16:45
+...
+> The script "checkpatch.pl" can point information out like the following.
 > 
-> Reason: The benefit is not clear.
+> WARNING: sizeof … should be sizeof(…)
+...
+> ---
+>  drivers/isdn/gigaset/common.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/isdn/gigaset/common.c b/drivers/isdn/gigaset/common.c
+> index 2e9382f..d901ed7 100644
+> --- a/drivers/isdn/gigaset/common.c
+> +++ b/drivers/isdn/gigaset/common.c
+> @@ -53,7 +53,7 @@ void gigaset_dbg_buffer(enum debuglevel level, const unsigned char *msg,
+>  {
+>  	unsigned char outbuf[80];
+>  	unsigned char c;
+> -	size_t space = sizeof outbuf - 1;
+> +	size_t space = sizeof(outbuf - 1);
 
-How do you think about to reduce the source code a bit at these places?
+wrong ...
+think that is 7 instead of 79.
 
-Regards,
-Markus
+	David
