@@ -1,50 +1,60 @@
-From: Nelson Chang <nelson.chang@mediatek.com>
-Subject: RE: [PATCH net-next 2/2] net: ethernet: mediatek: bug fix to
- disable HW LRO
-Date: Mon, 26 Sep 2016 19:43:45 +0800
-Message-ID: <1474890225.2669.4.camel@mtksdaap41>
+From: Baoyou Xie <baoyou.xie@linaro.org>
+Subject: [PATCH] vhost: mark symbols static in vhost.c
+Date: Mon, 26 Sep 2016 19:45:03 +0800
+Message-ID: <1474890303-3456-1-git-send-email-baoyou.xie@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
-        <linux-mediatek@lists.infradead.org>, <nelsonch.tw@gmail.com>
-To: <sergei.shtylyov@cogentembedded.com>, <john@phrozen.org>,
-        <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw01.mediatek.com ([210.61.82.183]:14323 "EHLO
-        mailgw01.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S932843AbcIZLnv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 07:43:51 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, arnd@arndb.de, netdev@vger.kernel.org,
+	tang.qiang007@zte.com.cn, xie.baoyou@zte.com.cn,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, han.fei@zte.com.cn,
+	baoyou.xie@linaro.org
+To: mst@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hi Sergei,
+We get 4 warnings when building kernel with W=1:
+drivers/vhost/vhost.c:52:23: warning: no previous prototype for 'vhost_umem_interval_tree_insert' [-Wmissing-prototypes]
+drivers/vhost/vhost.c:52:23: warning: no previous prototype for 'vhost_umem_interval_tree_remove' [-Wmissing-prototypes]
+drivers/vhost/vhost.c:52:23: warning: no previous prototype for 'vhost_umem_interval_tree_iter_first' [-Wmissing-prototypes]
+drivers/vhost/vhost.c:52:23: warning: no previous prototype for 'vhost_umem_interval_tree_iter_next' [-Wmissing-prototypes]
 
-Because these modifications are both related to LRO relinquishments, I
-put them in a single patch.
+In fact, these functions are defined in the
+macro 'INTERVAL_TREE_DEFINE' in include/linux/interval_tree_generic.h
+and don't need a declaration, but can be made static.
 
+so this patch marks these functions with 'static' by modifying
+the macro.
 
-Nelson
+Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
+---
+ drivers/vhost/vhost.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
------Original Message-----
-From: Sergei Shtylyov [mailto:sergei.shtylyov@cogentembedded.com] 
-Sent: Monday, September 26, 2016 7:21 PM
-To: Nelson Chang (張家祥); john@phrozen.org; davem@davemloft.net
-Cc: nbd@openwrt.org; netdev@vger.kernel.org;
-linux-mediatek@lists.infradead.org; nelsonch.tw@gmail.com
-Subject: Re: [PATCH net-next 2/2] net: ethernet: mediatek: bug fix to
-disable HW LRO
-
-Hello.
-
-On 9/26/2016 9:33 AM, Nelson Chang wrote:
-
-> (1) Modify the register settings for LRO relinquishments
-> (2) Jump out from the waiting loop while LRO relinquishments are done
-
-    Why this is done in a single patch?
-
-> Signed-off-by: Nelson Chang <nelson.chang@mediatek.com>
-[...]
-
-MBR, Sergei
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index c6f2d89..99c6d0d 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -48,8 +48,8 @@ enum {
+ #define vhost_avail_event(vq) ((__virtio16 __user *)&vq->used->ring[vq->num])
+ 
+ INTERVAL_TREE_DEFINE(struct vhost_umem_node,
+-		     rb, __u64, __subtree_last,
+-		     START, LAST, , vhost_umem_interval_tree);
++		     rb, __u64, __subtree_last, START, LAST,
++		     static, vhost_umem_interval_tree);
+ 
+ #ifdef CONFIG_VHOST_CROSS_ENDIAN_LEGACY
+ static void vhost_disable_cross_endian(struct vhost_virtqueue *vq)
+-- 
+2.7.4
