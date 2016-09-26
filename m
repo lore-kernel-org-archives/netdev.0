@@ -1,70 +1,105 @@
 From: Stefan Wahren <stefan.wahren@i2se.com>
-Subject: [PATCH RFC v2 net-next 0/8] net: qualcomm: add QCA7000 UART driver
-Date: Mon, 26 Sep 2016 13:07:58 +0200
-Message-ID: <1474888086-514-1-git-send-email-stefan.wahren@i2se.com>
+Subject: [PATCH RFC v2 net-next 3/8] net: qualcomm: move qcaspi_tx_cmd to qca_spi.c
+Date: Mon, 26 Sep 2016 13:08:01 +0200
+Message-ID: <1474888086-514-4-git-send-email-stefan.wahren@i2se.com>
+References: <1474888086-514-1-git-send-email-stefan.wahren@i2se.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         Stefan Wahren <stefan.wahren@i2se.com>
 To: "David S. Miller" <davem@davemloft.net>,
         Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
         Jiri Slaby <jslaby@suse.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1474888086-514-1-git-send-email-stefan.wahren@i2se.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The Qualcomm QCA7000 HomePlug GreenPHY supports two interfaces:
-UART and SPI. This patch series adds the missing support for UART.
+The function qcaspi_tx_cmd() is only called from qca_spi.c. So we better
+move it there.
 
-This driver based on the Qualcomm code [1], but contains some changes:
-* use random MAC address per default
-* use net_device_stats from device
-* share frame decoding between SPI and UART driver
-* improve error handling
-* reimplement tty_wakeup with work queue (based on slcan)
+Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
+---
+ drivers/net/ethernet/qualcomm/qca_7k.c  | 24 ------------------------
+ drivers/net/ethernet/qualcomm/qca_7k.h  |  1 -
+ drivers/net/ethernet/qualcomm/qca_spi.c | 24 ++++++++++++++++++++++++
+ 3 files changed, 24 insertions(+), 25 deletions(-)
 
-The patches 1 - 3 are just for clean up and are not related to
-the UART support. Patches 4 - 7 prepare the existing QCA7000
-code for UART support. The last patch contains the new driver.
-
-In order to test the driver a modified slattach in userspace is also
-required. A prepared busybox (includes slattach) can be found here [2].
-
-The code itself has been tested on a Freescale i.MX28 board.
-
-Changes in v2:
-  * fix build issue by using netif_trans_update() and dev_trans_start()
-
-[1] - https://github.com/IoE/qca7000
-[2] - https://github.com/lategoodbye/busybox/commits/qca7k_support_1_24
-
-Stefan Wahren (8):
-  net: qualcomm: remove unnecessary includes
-  net: qca_debug: use net_device_ops instead of direct call
-  net: qualcomm: move qcaspi_tx_cmd to qca_spi.c
-  net: qualcomm: rename qca_framing.c to qca_common.c
-  net: qualcomm: move MTU handling to qca_common
-  net: qualcomm: prepare frame decoding for UART driver
-  net: qualcomm: make qca_common a separate kernel module
-  net: qualcomm: add QCA7000 UART driver
-
- drivers/net/ethernet/qualcomm/Kconfig       |  20 +-
- drivers/net/ethernet/qualcomm/Makefile      |   7 +-
- drivers/net/ethernet/qualcomm/qca_7k.c      |  28 --
- drivers/net/ethernet/qualcomm/qca_7k.h      |   1 -
- drivers/net/ethernet/qualcomm/qca_common.c  | 178 +++++++++++
- drivers/net/ethernet/qualcomm/qca_common.h  | 147 +++++++++
- drivers/net/ethernet/qualcomm/qca_debug.c   |   5 +-
- drivers/net/ethernet/qualcomm/qca_framing.c | 156 ----------
- drivers/net/ethernet/qualcomm/qca_framing.h | 134 ---------
- drivers/net/ethernet/qualcomm/qca_spi.c     |  41 ++-
- drivers/net/ethernet/qualcomm/qca_spi.h     |   5 +-
- drivers/net/ethernet/qualcomm/qca_uart.c    | 447 ++++++++++++++++++++++++++++
- include/uapi/linux/tty.h                    |   1 +
- 13 files changed, 828 insertions(+), 342 deletions(-)
- create mode 100644 drivers/net/ethernet/qualcomm/qca_common.c
- create mode 100644 drivers/net/ethernet/qualcomm/qca_common.h
- delete mode 100644 drivers/net/ethernet/qualcomm/qca_framing.c
- delete mode 100644 drivers/net/ethernet/qualcomm/qca_framing.h
- create mode 100644 drivers/net/ethernet/qualcomm/qca_uart.c
-
+diff --git a/drivers/net/ethernet/qualcomm/qca_7k.c b/drivers/net/ethernet/qualcomm/qca_7k.c
+index 557d53c..aa90a1d 100644
+--- a/drivers/net/ethernet/qualcomm/qca_7k.c
++++ b/drivers/net/ethernet/qualcomm/qca_7k.c
+@@ -119,27 +119,3 @@ qcaspi_write_register(struct qcaspi *qca, u16 reg, u16 value)
+ 
+ 	return ret;
+ }
+-
+-int
+-qcaspi_tx_cmd(struct qcaspi *qca, u16 cmd)
+-{
+-	__be16 tx_data;
+-	struct spi_message *msg = &qca->spi_msg1;
+-	struct spi_transfer *transfer = &qca->spi_xfer1;
+-	int ret;
+-
+-	tx_data = cpu_to_be16(cmd);
+-	transfer->len = sizeof(tx_data);
+-	transfer->tx_buf = &tx_data;
+-	transfer->rx_buf = NULL;
+-
+-	ret = spi_sync(qca->spi_dev, msg);
+-
+-	if (!ret)
+-		ret = msg->status;
+-
+-	if (ret)
+-		qcaspi_spi_error(qca);
+-
+-	return ret;
+-}
+diff --git a/drivers/net/ethernet/qualcomm/qca_7k.h b/drivers/net/ethernet/qualcomm/qca_7k.h
+index 1cad851..b390b1f 100644
+--- a/drivers/net/ethernet/qualcomm/qca_7k.h
++++ b/drivers/net/ethernet/qualcomm/qca_7k.h
+@@ -67,6 +67,5 @@
+ void qcaspi_spi_error(struct qcaspi *qca);
+ int qcaspi_read_register(struct qcaspi *qca, u16 reg, u16 *result);
+ int qcaspi_write_register(struct qcaspi *qca, u16 reg, u16 value);
+-int qcaspi_tx_cmd(struct qcaspi *qca, u16 cmd);
+ 
+ #endif /* _QCA_7K_H */
+diff --git a/drivers/net/ethernet/qualcomm/qca_spi.c b/drivers/net/ethernet/qualcomm/qca_spi.c
+index 6e2add9..5bcac62 100644
+--- a/drivers/net/ethernet/qualcomm/qca_spi.c
++++ b/drivers/net/ethernet/qualcomm/qca_spi.c
+@@ -192,6 +192,30 @@ qcaspi_read_legacy(struct qcaspi *qca, u8 *dst, u32 len)
+ 	return len;
+ }
+ 
++int
++qcaspi_tx_cmd(struct qcaspi *qca, u16 cmd)
++{
++	__be16 tx_data;
++	struct spi_message *msg = &qca->spi_msg1;
++	struct spi_transfer *transfer = &qca->spi_xfer1;
++	int ret;
++
++	tx_data = cpu_to_be16(cmd);
++	transfer->len = sizeof(tx_data);
++	transfer->tx_buf = &tx_data;
++	transfer->rx_buf = NULL;
++
++	ret = spi_sync(qca->spi_dev, msg);
++
++	if (!ret)
++		ret = msg->status;
++
++	if (ret)
++		qcaspi_spi_error(qca);
++
++	return ret;
++}
++
+ static int
+ qcaspi_tx_frame(struct qcaspi *qca, struct sk_buff *skb)
+ {
 -- 
 2.1.4
