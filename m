@@ -1,74 +1,88 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: [PATCH resend] sh_eth: add R8A7743/5 support
-Date: Tue, 27 Sep 2016 01:23:26 +0300
-Message-ID: <1654835.SEcvPVx4OQ@wasted.cogentembedded.com>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: [PATCH v3] net: ip, diag -- Add diag interface for raw sockets
+Date: Tue, 27 Sep 2016 01:38:28 +0300
+Message-ID: <20160926223828.GL1876@uranus.lan>
+References: <999f0ddb-82e4-ea07-b52a-59d08bc7816d@cumulusnetworks.com>
+ <20160916070623.GD1867@uranus.lan>
+ <20160916190000.GA18116@uranus.lan>
+ <59e12627-7043-fd20-0d68-899ab43b0e71@cumulusnetworks.com>
+ <20160916193927.GB18116@uranus.lan>
+ <d943c6b7-0f06-3823-58d2-6f79f17c3d59@cumulusnetworks.com>
+ <20160916195252.GC18116@uranus.lan>
+ <6464ac16-a15b-384e-ffb1-3ee84cdce313@cumulusnetworks.com>
+ <20160916200722.GA26044@uranus.lan>
+ <20160920211343.GI26044@uranus.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-renesas-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+        avagin@openvz.org, stephen@networkplumber.org
+To: David Ahern <dsa@cumulusnetworks.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160920211343.GI26044@uranus.lan>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add support for the first two members of the Renesas RZ/G family, RZ/G1M/E
-(also known as  R8A7743/5). The Ether core is the same as in the R-Car gen2
-SoCs, so will share the code/data with them...
+On Wed, Sep 21, 2016 at 12:13:43AM +0300, Cyrill Gorcunov wrote:
+> On Fri, Sep 16, 2016 at 11:07:22PM +0300, Cyrill Gorcunov wrote:
+> > > It may well be a ss bug / problem. As I mentioned I am always seeing 255 for the protocol which
+> > 
+> > It is rather not addressed in ss. I mean, look, when we send out a diag packet
+> > the kernel look ups for a handler, which for raw protocol we register as
+> > 
+> > static const struct inet_diag_handler raw_diag_handler = {
+> > 	.dump= raw_diag_dump,
+> > 	.dump_one= raw_diag_dump_one,
+> > 	.idiag_get_info= raw_diag_get_info,
+> > 	.idiag_type= IPPROTO_RAW,
+> > 	.idiag_info_size= 0,
+> > #ifdef CONFIG_INET_DIAG_DESTROY
+> > 	.destroy= raw_diag_destroy,
+> > #endif
+> > };
+> > 
+> > so if we patch ss and ask for IPPROTO_ICMP in netlink packet the
+> > kernel simply won't find anything. Thus I think we need (well, I need)
+> > to extend the patch and register IPPROTO_ICMP diag type, then
+> > extend ss as well. (If only I didn't miss somethin obvious).
+> > 
+> > > is odd since ss does a dump and takes the matches and invokes the kill.
+> > > Thanks for taking the time to do the kill piece.
+> 
+> Sorry for delay in reply (I got flu unexpectedly). You know, it eventually
+> become uneasy to implement handling for sock-raw because they are special.
+> They described as ipproto-ip in net/ipv4/af_inet.c, so it matches any
+> protocol specified with the socket call. In turn inet-diag module handled
+> predefined protocols only, in particular IPPROTO_RAW in our case. Thus
+> to fecth some real protocol sitting in raw sockets hashes we need some
+> kind of additional argument passed in the request. I guess we may
+> use @idiag_ext field for this sake? Or require @idiag_ext to have
+> INET_DIAG_PROTOCOL bit set and then fetch real protocol from
+> additional attribute? Sounds ok?
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Something like
 
----
-The patch is against the DaveM's 'net-next.git' repo.
-
-Re-sending with the DT maintainers/list included this time...
-
- Documentation/devicetree/bindings/net/sh_eth.txt |    2 ++
- drivers/net/ethernet/renesas/Kconfig             |    2 +-
- drivers/net/ethernet/renesas/sh_eth.c            |    2 ++
- 3 files changed, 5 insertions(+), 1 deletion(-)
-
-Index: net-next/Documentation/devicetree/bindings/net/sh_eth.txt
+Index: linux-ml.git/include/uapi/linux/inet_diag.h
 ===================================================================
---- net-next.orig/Documentation/devicetree/bindings/net/sh_eth.txt
-+++ net-next/Documentation/devicetree/bindings/net/sh_eth.txt
-@@ -5,6 +5,8 @@ interface contains.
- 
- Required properties:
- - compatible: "renesas,gether-r8a7740" if the device is a part of R8A7740 SoC.
-+	      "renesas,ether-r8a7743"  if the device is a part of R8A7743 SoC.
-+	      "renesas,ether-r8a7745"  if the device is a part of R8A7745 SoC.
- 	      "renesas,ether-r8a7778"  if the device is a part of R8A7778 SoC.
- 	      "renesas,ether-r8a7779"  if the device is a part of R8A7779 SoC.
- 	      "renesas,ether-r8a7790"  if the device is a part of R8A7790 SoC.
-Index: net-next/drivers/net/ethernet/renesas/Kconfig
-===================================================================
---- net-next.orig/drivers/net/ethernet/renesas/Kconfig
-+++ net-next/drivers/net/ethernet/renesas/Kconfig
-@@ -27,7 +27,7 @@ config SH_ETH
- 	  Renesas SuperH Ethernet device driver.
- 	  This driver supporting CPUs are:
- 		- SH7619, SH7710, SH7712, SH7724, SH7734, SH7763, SH7757,
--		  R8A7740, R8A777x and R8A779x.
-+		  R8A7740, R8A774x, R8A777x and R8A779x.
- 
- config RAVB
- 	tristate "Renesas Ethernet AVB support"
-Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
-===================================================================
---- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
-+++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-@@ -2959,6 +2959,8 @@ static struct sh_eth_plat_data *sh_eth_p
- 
- static const struct of_device_id sh_eth_match_table[] = {
- 	{ .compatible = "renesas,gether-r8a7740", .data = &r8a7740_data },
-+	{ .compatible = "renesas,ether-r8a7743", .data = &r8a779x_data },
-+	{ .compatible = "renesas,ether-r8a7745", .data = &r8a779x_data },
- 	{ .compatible = "renesas,ether-r8a7778", .data = &r8a777x_data },
- 	{ .compatible = "renesas,ether-r8a7779", .data = &r8a777x_data },
- 	{ .compatible = "renesas,ether-r8a7790", .data = &r8a779x_data },
+--- linux-ml.git.orig/include/uapi/linux/inet_diag.h    2016-09-11 20:56:18.191584145 +0300
++++ linux-ml.git/include/uapi/linux/inet_diag.h 2016-09-27 01:34:08.413172394 +0300
+@@ -38,7 +38,7 @@ struct inet_diag_req_v2 {
+        __u8    sdiag_family;
+        __u8    sdiag_protocol;
+        __u8    idiag_ext;
+-       __u8    pad;
++       __u8    sdiag_raw_protocol;     /* SOCK_RAW only, @pad for others */
+        __u32   idiag_states;
+        struct inet_diag_sockid id;
+ };
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+and in raw-diag module we will use @sdiag_raw_protocol instead of
+@sdiag_protocol field. Didn't cover ss tool source code yet but
+I think the idea is seen. Still not sure if start using @pad here
+is a good idea (it's uapi), maybe beter to ask nla attribute which would
+come right afterh the inet_diag_req_v2 message?
+
+	Cyrill
