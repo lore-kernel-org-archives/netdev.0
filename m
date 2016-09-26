@@ -1,79 +1,71 @@
-From: Allan Chou <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
-Subject: [PATCH v2] Net Driver: Add Cypress GX3 VID=04b4 PID=3610.
-Date: Mon, 26 Sep 2016 15:48:03 -0600
-Message-ID: <271e26e7350f418bad08761cab439005@Mail06.usask.ca>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH] sh_eth: add R8A7743/5 support
+Date: Tue, 27 Sep 2016 01:07:01 +0300
+Message-ID: <1707101.iYqqKafBon@wasted.cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Allan Chou <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>, Chris Roth <chris.roth-/KKvz3x1pcI@public.gmane.org>
-To: <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+To: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f42.google.com ([209.85.215.42]:35929 "EHLO
+        mail-lf0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751972AbcIZWHJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 18:07:09 -0400
+Received: by mail-lf0-f42.google.com with SMTP id g62so160462348lfe.3
+        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 15:07:08 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Chris Roth <chris.roth-/KKvz3x1pcI@public.gmane.org>
+Add support for the first two members of the Renesas RZ/G family, RZ/G1M/E
+(also known as  R8A7743/5). The Ether core is the same as in the R-Car gen2
+SoCs, so will share the code/data with them...
 
-Add support for Cypress GX3 SuperSpeed to Gigabit Ethernet
-Bridge Controller (Vendor=04b4 ProdID=3610).
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-Patch verified on x64 linux kernel 4.7.4 system with the
-Kensington SD4600P USB-C Universal Dock with Power, which uses the
-Cypress GX3 SuperSpeed to Gigabit Ethernet Bridge Controller.
-
-A similar patch was signed-off and tested-by Allan Chou
-<allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org> on 2015-12-01.
-
-Allan verified his similar patch on x86 Linux kernel 4.1.6 system
-with Cypress GX3 SuperSpeed to Gigabit Ethernet Bridge Controller.
-
-Tested-by: Allan Chou <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
-Tested-by: Chris Roth <chris.roth-/KKvz3x1pcI@public.gmane.org>
-
-Signed-off-by: Allan Chou <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
-Signed-off-by: Chris Roth <chris.roth-/KKvz3x1pcI@public.gmane.org>
 ---
- drivers/net/usb/ax88179_178a.c | 17 +++++++++++++++++
- 1 file changed, 17 insertions(+)
+The patch is against the DaveM's 'net-next.git' repo.
 
-diff --git a/drivers/net/usb/ax88179_178a.c b/drivers/net/usb/ax88179_178a.c
-index e6338c1..8a6675d 100644
---- a/drivers/net/usb/ax88179_178a.c
-+++ b/drivers/net/usb/ax88179_178a.c
-@@ -1656,6 +1656,19 @@ static const struct driver_info ax88178a_info = {
- 	.tx_fixup = ax88179_tx_fixup,
- };
+ Documentation/devicetree/bindings/net/sh_eth.txt |    2 ++
+ drivers/net/ethernet/renesas/Kconfig             |    2 +-
+ drivers/net/ethernet/renesas/sh_eth.c            |    2 ++
+ 3 files changed, 5 insertions(+), 1 deletion(-)
+
+Index: net-next/Documentation/devicetree/bindings/net/sh_eth.txt
+===================================================================
+--- net-next.orig/Documentation/devicetree/bindings/net/sh_eth.txt
++++ net-next/Documentation/devicetree/bindings/net/sh_eth.txt
+@@ -5,6 +5,8 @@ interface contains.
  
-+static const struct driver_info cypress_GX3_info = {
-+	.description = "Cypress GX3 SuperSpeed to Gigabit Ethernet Controller",
-+	.bind = ax88179_bind,
-+	.unbind = ax88179_unbind,
-+	.status = ax88179_status,
-+	.link_reset = ax88179_link_reset,
-+	.reset = ax88179_reset,
-+	.stop = ax88179_stop,
-+	.flags = FLAG_ETHER | FLAG_FRAMING_AX,
-+	.rx_fixup = ax88179_rx_fixup,
-+	.tx_fixup = ax88179_tx_fixup,
-+};
-+
- static const struct driver_info dlink_dub1312_info = {
- 	.description = "D-Link DUB-1312 USB 3.0 to Gigabit Ethernet Adapter",
- 	.bind = ax88179_bind,
-@@ -1718,6 +1731,10 @@ static const struct usb_device_id products[] = {
- 	USB_DEVICE(0x0b95, 0x178a),
- 	.driver_info = (unsigned long)&ax88178a_info,
- }, {
-+	/* Cypress GX3 SuperSpeed to Gigabit Ethernet Bridge Controller */
-+	USB_DEVICE(0x04b4, 0x3610),
-+	.driver_info = (unsigned long)&cypress_GX3_info,
-+}, {
- 	/* D-Link DUB-1312 USB 3.0 to Gigabit Ethernet Adapter */
- 	USB_DEVICE(0x2001, 0x4a00),
- 	.driver_info = (unsigned long)&dlink_dub1312_info,
--- 
-2.7.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ Required properties:
+ - compatible: "renesas,gether-r8a7740" if the device is a part of R8A7740 SoC.
++	      "renesas,ether-r8a7743"  if the device is a part of R8A7743 SoC.
++	      "renesas,ether-r8a7745"  if the device is a part of R8A7745 SoC.
+ 	      "renesas,ether-r8a7778"  if the device is a part of R8A7778 SoC.
+ 	      "renesas,ether-r8a7779"  if the device is a part of R8A7779 SoC.
+ 	      "renesas,ether-r8a7790"  if the device is a part of R8A7790 SoC.
+Index: net-next/drivers/net/ethernet/renesas/Kconfig
+===================================================================
+--- net-next.orig/drivers/net/ethernet/renesas/Kconfig
++++ net-next/drivers/net/ethernet/renesas/Kconfig
+@@ -27,7 +27,7 @@ config SH_ETH
+ 	  Renesas SuperH Ethernet device driver.
+ 	  This driver supporting CPUs are:
+ 		- SH7619, SH7710, SH7712, SH7724, SH7734, SH7763, SH7757,
+-		  R8A7740, R8A777x and R8A779x.
++		  R8A7740, R8A774x, R8A777x and R8A779x.
+ 
+ config RAVB
+ 	tristate "Renesas Ethernet AVB support"
+Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
+===================================================================
+--- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
++++ net-next/drivers/net/ethernet/renesas/sh_eth.c
+@@ -2959,6 +2959,8 @@ static struct sh_eth_plat_data *sh_eth_p
+ 
+ static const struct of_device_id sh_eth_match_table[] = {
+ 	{ .compatible = "renesas,gether-r8a7740", .data = &r8a7740_data },
++	{ .compatible = "renesas,ether-r8a7743", .data = &r8a779x_data },
++	{ .compatible = "renesas,ether-r8a7745", .data = &r8a779x_data },
+ 	{ .compatible = "renesas,ether-r8a7778", .data = &r8a777x_data },
+ 	{ .compatible = "renesas,ether-r8a7779", .data = &r8a777x_data },
+ 	{ .compatible = "renesas,ether-r8a7790", .data = &r8a779x_data },
