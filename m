@@ -1,68 +1,87 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net 1/5] sctp: move sent_count to the memory hole in sctp_chunk
-Date: Mon, 26 Sep 2016 17:47:50 +0800
-Message-ID: <03a642a76d02e8536404aa27561c44e348f3e3a0.1474883200.git.lucien.xin@gmail.com>
+Subject: [PATCH net 2/5] sctp: reuse sent_count to avoid retransmitted chunks for RTT measurements
+Date: Mon, 26 Sep 2016 17:47:51 +0800
+Message-ID: <e8146a7075544ccb2631117f507cfd51e20b4cde.1474883200.git.lucien.xin@gmail.com>
 References: <cover.1474883200.git.lucien.xin@gmail.com>
+ <03a642a76d02e8536404aa27561c44e348f3e3a0.1474883200.git.lucien.xin@gmail.com>
 Cc: davem@davemloft.net,
         Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
         Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:35842 "EHLO
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:33213 "EHLO
         mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1030209AbcIZJsC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 05:48:02 -0400
-In-Reply-To: <cover.1474883200.git.lucien.xin@gmail.com>
+        with ESMTP id S1030209AbcIZJsF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 05:48:05 -0400
+In-Reply-To: <03a642a76d02e8536404aa27561c44e348f3e3a0.1474883200.git.lucien.xin@gmail.com>
 In-Reply-To: <cover.1474883200.git.lucien.xin@gmail.com>
 References: <cover.1474883200.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now pahole sctp_chunk, it has 2 memory holes:
-   struct sctp_chunk {
-	struct list_head           list;
-	atomic_t                   refcnt;
-	/* XXX 4 bytes hole, try to pack */
-	...
-	long unsigned int          prsctp_param;
-	int                        sent_count;
-	/* XXX 4 bytes hole, try to pack */
+Now sctp uses chunk->resent to record if a chunk is retransmitted, for
+RTT measurements with retransmitted DATA chunks. chunk->sent_count was
+introduced to record how many times one chunk has been sent for prsctp
+RTX policy before. We actually can know if one chunk is retransmitted
+by checking chunk->sent_count is greater than 1.
 
-This patch is to move up sent_count to fill the 1st one and eliminate
-the 2nd one.
+This patch is to remove resent from sctp_chunk and reuse sent_count
+to avoid retransmitted chunks for RTT measurements.
 
-It's not just another struct compaction, it also fixes the "netperf-
-Throughput_Mbps -37.2% regression" issue when overloading the CPU.
-
-Fixes: a6c2f792873a ("sctp: implement prsctp TTL policy")
 Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- include/net/sctp/structs.h | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ include/net/sctp/structs.h | 1 -
+ net/sctp/output.c          | 3 ++-
+ net/sctp/outqueue.c        | 4 +---
+ 3 files changed, 3 insertions(+), 5 deletions(-)
 
 diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index ce93c4b..4f097f5 100644
+index 4f097f5..81a5faa 100644
 --- a/include/net/sctp/structs.h
 +++ b/include/net/sctp/structs.h
-@@ -554,6 +554,9 @@ struct sctp_chunk {
+@@ -647,7 +647,6 @@ struct sctp_chunk {
+ #define SCTP_NEED_FRTX 0x1
+ #define SCTP_DONT_FRTX 0x2
+ 	__u16	rtt_in_progress:1,	/* This chunk used for RTT calc? */
+-		resent:1,		/* Has this chunk ever been resent. */
+ 		has_tsn:1,		/* Does this chunk have a TSN yet? */
+ 		has_ssn:1,		/* Does this chunk have a SSN yet? */
+ 		singleton:1,		/* Only chunk in the packet? */
+diff --git a/net/sctp/output.c b/net/sctp/output.c
+index 31b7bc3..483d2ed 100644
+--- a/net/sctp/output.c
++++ b/net/sctp/output.c
+@@ -547,7 +547,8 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
+ 				 * for a given destination transport address.
+ 				 */
  
- 	atomic_t refcnt;
+-				if (!chunk->resent && !tp->rto_pending) {
++				if (chunk->sent_count == 1 &&
++				    !tp->rto_pending) {
+ 					chunk->rtt_in_progress = 1;
+ 					tp->rto_pending = 1;
+ 				}
+diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+index 72e54a4..2a629fa 100644
+--- a/net/sctp/outqueue.c
++++ b/net/sctp/outqueue.c
+@@ -536,8 +536,6 @@ void sctp_retransmit_mark(struct sctp_outq *q,
+ 				transport->rto_pending = 0;
+ 			}
  
-+	/* How many times this chunk have been sent, for prsctp RTX policy */
-+	int sent_count;
-+
- 	/* This is our link to the per-transport transmitted list.  */
- 	struct list_head transmitted_list;
- 
-@@ -610,9 +613,6 @@ struct sctp_chunk {
- 	 */
- 	unsigned long prsctp_param;
- 
--	/* How many times this chunk have been sent, for prsctp RTX policy */
--	int sent_count;
+-			chunk->resent = 1;
 -
- 	/* Which association does this belong to?  */
- 	struct sctp_association *asoc;
- 
+ 			/* Move the chunk to the retransmit queue. The chunks
+ 			 * on the retransmit queue are always kept in order.
+ 			 */
+@@ -1467,7 +1465,7 @@ static void sctp_check_transmitted(struct sctp_outq *q,
+ 				 * instance).
+ 				 */
+ 				if (!tchunk->tsn_gap_acked &&
+-				    !tchunk->resent &&
++				    tchunk->sent_count == 1 &&
+ 				    tchunk->rtt_in_progress) {
+ 					tchunk->rtt_in_progress = 0;
+ 					rtt = jiffies - tchunk->sent_at;
 -- 
 2.1.0
