@@ -1,68 +1,48 @@
-From: Shmulik Ladkani <shmulik.ladkani@ravellosystems.com>
-Subject: Re: [PATCH net-next 4/4] net/sched: act_mirred: Implement ingress
- actions
-Date: Tue, 27 Sep 2016 17:18:04 +0300
-Message-ID: <20160927171804.5288347d@pixies>
-References: <20160927.015606.437705429903770747.davem@davemloft.net>
-        <20160927110711.12555f4e@pixies>
-        <57EA4C66.8070907@iogearbox.net>
-        <20160927.094441.1957543068015677016.davem@davemloft.net>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: Re: [Gigaset307x-common] ISDN-Gigaset: Release memory in
+ gigaset_initcs() after an allocation failure
+Date: Tue, 27 Sep 2016 16:35:45 +0200
+Message-ID: <1474986945.1654610.738520185.4722B74E@webmail.messagingengine.com>
+References: <566ABCD9.1060404@users.sourceforge.net>
+ <6d4bbb77-914f-19b8-a1a9-2731d1158612@users.sourceforge.net>
+ <6409b3b0-3b7a-1139-f040-7b1a61611187@users.sourceforge.net>
+ <1474924434.8546.29.camel@tiscali.nl>
+ <0d02085e-842c-4be9-f706-c43b38ce9095@users.sourceforge.net>
+ <1474966121.9970.5.camel@tiscali.nl>
+ <ad12e1a0-f5d5-176a-7d37-be2f3cb0af5d@users.sourceforge.net>
+ <1474971962.1601897.738261385.73EB49E0@webmail.messagingengine.com>
+ <5974a2c5-2739-cd69-6e37-04a645bc08d7@users.sourceforge.net>
+ <baa46a3d-1f73-2f7e-6402-98763b159739@linux-pingi.de>
+ <02ad1fea-33f6-a38a-fd91-16bc0c351bdd@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, xiyou.wangcong@gmail.com, edumazet@google.com,
-        netdev@vger.kernel.org, shmulik.ladkani@gmail.com
-To: David Miller <davem@davemloft.net>, daniel@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:36444 "EHLO
-        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932624AbcI0OSK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 10:18:10 -0400
-Received: by mail-wm0-f45.google.com with SMTP id w84so178756565wmg.1
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 07:18:09 -0700 (PDT)
-In-Reply-To: <20160927.094441.1957543068015677016.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Karsten Keil <isdn@linux-pingi.de>,
+        Paul Bolle <pebolle@tiscali.nl>,
+        gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org,
+        LKML <linux-kernel@vger.kernel.org>,
+        Julia Lawall <julia.lawall@lip6.fr>
+To: SF Markus Elfring <elfring@users.sourceforge.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <02ad1fea-33f6-a38a-fd91-16bc0c351bdd@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 27 Sep 2016 09:44:41 -0400 (EDT), davem@davemloft.net wrote:
-> From: Daniel Borkmann <daniel@iogearbox.net>
-> Date: Tue, 27 Sep 2016 12:39:34 +0200
+On Tue, Sep 27, 2016, at 14:52, SF Markus Elfring wrote:
+> >> * Is it still correct nowadays that the function "gigaset_initcs" did not
+> >>   call the function "kfree" after a later function call failed?
+> > 
+> > Yes, if it is handled in another place, Paul already did show you the place.
 > 
-> > Any reason why dev_forward_skb() is not preferred over direct
-> > netif_receive_skb() you're using? It would, for example, implicitly
-> > assure that pkt_type is always PACKET_HOST, etc.
-> 
-> dev_forward_skb() will pull the ethernet header.
-> 
-> And since a direct call to netif_receive_skb() will not, one of these
-> two choices won't work properly.
+> To which source code place do you refer here?
 
-In the patch, I'm issuing a skb_pull_rcsum() prior the netif_receive_skb,
-snip:
+Obviously the one Paul pointed out to you in detail in his mail dated
+Mon, 26 Sep 2016 23:13:54 +0200.
 
-+	/* If action's target direction differs than filter's direction,
-+	 * and devices expect a mac header on xmit, then mac push/pull is
-+	 * needed.
-+	 */
-+	if (at != tcf_mirred_act_direction(m->tcfm_eaction) &&
-+	    m->tcfm_mac_header_xmit) {
-+		if (at & AT_EGRESS) {
-+			/* caught at egress, act ingress: pull mac */
-+			mac_len = skb_network_header(skb) - skb_mac_header(skb);
-+			skb_pull_rcsum(skb2, mac_len);
+HTH,
+Tilman
 
-Existing *egress* mir/red already supported pairing two non-eth devices.
-Therefore I allow it for the new *ingress* mir/red as well.
-
-Now, following this premise, the skb_pull_rcsum() shown above is executed
-for devices whose xmit is mac_header based.
-
-I've tested both ARPHRD_ETHER devices and some non ARPHRD_ETHER devices.
-
-(an *existing* symmetric skb_push_rcsum() is invoked if packet is caught at
- ingress and redirected for egress on a mac_header xmit device)
-
-This was the reason for picking netif_receive_skb() over dev_forward_skb().
-
-Regards,
-Shmulik
+-- 
+Tilman Schmidt
+tilman@imap.cc
