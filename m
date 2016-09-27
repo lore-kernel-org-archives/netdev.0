@@ -1,42 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] VSOCK: Don't dec ack backlog twice for rejected
-	connections
-Date: Tue, 27 Sep 2016 07:59:56 -0400 (EDT)
-Message-ID: <20160927.075956.93420092875299733.davem@davemloft.net>
-References: <1474959593-15311-1-git-send-email-jhansen@vmware.com>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: ath10k: Spelling and miscellaneous neatening
+Date: Tue, 27 Sep 2016 14:02:27 +0200
+Message-ID: <760f0e202bb94944b995b12d97c1f158@euamsexm01a.eu.qualcomm.com>
+References: <95a6b65277914d88178ed2b15e182455067cca60.1472490319.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: pv-drivers@vmware.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, stefanha@redhat.com,
-	gregkh@linuxfoundation.org
-To: jhansen@vmware.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1474959593-15311-1-git-send-email-jhansen@vmware.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <linux-wireless@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, <ath10k@lists.infradead.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wolverine02.qualcomm.com ([199.106.114.251]:3463 "EHLO
+        wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932841AbcI0MCf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 08:02:35 -0400
+In-Reply-To: <95a6b65277914d88178ed2b15e182455067cca60.1472490319.git.joe@perches.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jorgen Hansen <jhansen@vmware.com>
-Date: Mon, 26 Sep 2016 23:59:53 -0700
-
-> If a pending socket is marked as rejected, we will decrease the
-> sk_ack_backlog twice. So don't decrement it for rejected sockets
-> in vsock_pending_work().
+Joe Perches <joe@perches.com> wrote:
+> Correct some trivial comment typos.
+> Remove unnecessary parentheses in a long line.
+> Convert a return; before the end of a void function definition to just ;
 > 
-> Testing of the rejected socket path was done through code
-> modifications.
-> 
-> Reported-by: Stefan Hajnoczi <stefanha@redhat.com>
-> Signed-off-by: Jorgen Hansen <jhansen@vmware.com>
-> Reviewed-by: Adit Ranadive <aditr@vmware.com>
-> Reviewed-by: Aditya Sarwade <asarwade@vmware.com>
+> Signed-off-by: Joe Perches <joe@perches.com>
+> Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
 
-Applied, thanks.
+Patch applied to ath-next branch of ath.git, thanks.
+
+e13dbead976d ath10k: spelling and miscellaneous neatening
+
+-- 
+https://patchwork.kernel.org/patch/9304171/
+
+Documentation about submitting wireless patches and checking status
+from patchwork:
+
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
