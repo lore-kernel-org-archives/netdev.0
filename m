@@ -1,53 +1,55 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v4 4/7] ipv6 addrconf: add new sysctl
- 'router_solicitation_max_interval'
-Date: Tue, 27 Sep 2016 11:49:47 +0200
-Message-ID: <8e332a23-5653-1e70-7c74-e7bcbbe0884a@stressinduktion.org>
-References: <20160925.060423.854801855957024790.davem@davemloft.net>
- <1474801390-6891-1-git-send-email-zenczykowski@gmail.com>
- <1474801390-6891-5-git-send-email-zenczykowski@gmail.com>
- <87d7f248-4d95-4253-78ae-6dd110db6330@stressinduktion.org>
- <CANP3RGfNGgw9H5Hsn7sgadHu5+kBcGfhY6Y_iTKNEjoL9gL7xg@mail.gmail.com>
+From: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Subject: [PATCH v5 1/7] ipv6 addrconf: enable use of proc_dointvec_minmax in addrconf_sysctl
+Date: Tue, 27 Sep 2016 02:52:37 -0700
+Message-ID: <1474969963-17402-2-git-send-email-zenczykowski@gmail.com>
+References: <CANP3RGfHPZLHFnp4Rq8_dRNCro6Uh8O8767NgoGu7gvzu5h9BQ@mail.gmail.com>
+ <1474969963-17402-1-git-send-email-zenczykowski@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Linux NetDev <netdev@vger.kernel.org>,
-        Erik Kline <ek@google.com>,
-        Lorenzo Colitti <lorenzo@google.com>
-To: =?UTF-8?Q?Maciej_=c5=bbenczykowski?= <maze@google.com>
+Cc: netdev@vger.kernel.org, Erik Kline <ek@google.com>,
+        Lorenzo Colitti <lorenzo@google.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:57876 "EHLO
-        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S932222AbcI0Jtt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 05:49:49 -0400
-In-Reply-To: <CANP3RGfNGgw9H5Hsn7sgadHu5+kBcGfhY6Y_iTKNEjoL9gL7xg@mail.gmail.com>
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:34856 "EHLO
+        mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932352AbcI0Jw5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 05:52:57 -0400
+Received: by mail-pa0-f67.google.com with SMTP id j3so505731paj.2
+        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 02:52:57 -0700 (PDT)
+In-Reply-To: <1474969963-17402-1-git-send-email-zenczykowski@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 27.09.2016 04:30, Maciej Żenczykowski wrote:
->> Is seconds granular enough?
-> 
-> The only reason why one would ever want to go into fractions of
-> seconds would be some sort of unittesting with very low delays.
-> 
-> In any normal environment the max is going to be tens if not hundreds
-> or thousands of seconds.
-> 
-> Also note that the delay and interval (ie. not max interval) are also
-> currently exported in seconds, so having more granularity for
-> max_seconds is kind of pointless.
-> 
-> I have been considering whether I could make proc_dointvec_jiffies
-> accept floating point input (and output) though... although that seems
-> a little harder and probably out of scope of this change.
+From: Maciej Żenczykowski <maze@google.com>
 
-Good point. Using ms should actually be easy, instead of
-proc_dointvec_jiffies you can use proc_dointvec_ms_jiffies.
+Signed-off-by: Maciej Żenczykowski <maze@google.com>
+---
+ net/ipv6/addrconf.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
 
-It seems good practice to add a _ms then to the sysctl, too.
-
-I am fine with both ways.
-
-Bye,
-Hannes
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 2f1f5d439788..11fa1a5564d4 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -6044,8 +6044,14 @@ static int __addrconf_sysctl_register(struct net *net, char *dev_name,
+ 
+ 	for (i = 0; table[i].data; i++) {
+ 		table[i].data += (char *)p - (char *)&ipv6_devconf;
+-		table[i].extra1 = idev; /* embedded; no ref */
+-		table[i].extra2 = net;
++		/* If one of these is already set, then it is not safe to
++		 * overwrite either of them: this makes proc_dointvec_minmax
++		 * usable.
++		 */
++		if (!table[i].extra1 && !table[i].extra2) {
++			table[i].extra1 = idev; /* embedded; no ref */
++			table[i].extra2 = net;
++		}
+ 	}
+ 
+ 	snprintf(path, sizeof(path), "net/ipv6/conf/%s", dev_name);
+-- 
+2.8.0.rc3.226.g39d4020
