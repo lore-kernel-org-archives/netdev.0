@@ -1,76 +1,48 @@
-From: Jesper Dangaard Brouer via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Explaining RX-stages for XDP
-Date: Tue, 27 Sep 2016 11:32:37 +0200
-Message-ID: <20160927113237.7138c097@redhat.com>
-Reply-To: Jesper Dangaard Brouer <brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: Re: ISDN-Gigaset: Release memory in gigaset_initcs() after an
+ allocation failure
+Date: Tue, 27 Sep 2016 11:34:01 +0200
+Message-ID: <ad12e1a0-f5d5-176a-7d37-be2f3cb0af5d@users.sourceforge.net>
+References: <566ABCD9.1060404@users.sourceforge.net>
+ <6d4bbb77-914f-19b8-a1a9-2731d1158612@users.sourceforge.net>
+ <6409b3b0-3b7a-1139-f040-7b1a61611187@users.sourceforge.net>
+ <1474924434.8546.29.camel@tiscali.nl>
+ <0d02085e-842c-4be9-f706-c43b38ce9095@users.sourceforge.net>
+ <1474966121.9970.5.camel@tiscali.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
-	"iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org" <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
-	John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Daniel Borkmann <borkmann-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
-To: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Cc: gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
+        Karsten Keil <isdn@linux-pingi.de>,
+        LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org,
+        Julia Lawall <julia.lawall@lip6.fr>
+To: Paul Bolle <pebolle@tiscali.nl>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <1474966121.9970.5.camel@tiscali.nl>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+>> Will it matter here if the function "kfree" will be called for the
+>> data structure members "bcs" and "inbuf" after a later function call
+>> failed within the implementation of "gigaset_initcs"?
+> 
+> My translation of this question is: could you please hold my hand while
+> I read the code of a driver I do not use - a driver for hardware that I
+> don't even have, and therefor cannot really test - after I submitted a
+> patch that appears to be broken?
 
-Let me try in a calm way (not like [1]) to explain how I imagine that
-the XDP processing RX-stage should be implemented. As I've pointed out
-before[2], I'm proposing splitting up the driver into RX-stages.  This
-is a mental-model change, I hope you can follow my "inception" attempt.
-
-The basic concept behind this idea is, if the RX-ring contains
-multiple "ready" packets, then the kernel was too slow, processing
-incoming packets. Thus, switch into more efficient mode, which is a
-"packet-vector" mode.
-
-Today, our XDP micro-benchmarks looks amazing, and they are!  But once
-real-life intermixed traffic is used, then we loose the XDP I-cache
-benefit.  XDP is meant for DoS protection, and an attacker can easily
-construct intermixed traffic.  Why not fix this architecturally?
-
-Most importantly concept: If XDP return XDP_PASS, do NOT pass the
-packet up the network stack immediately (that would flush I-cache).
-Instead store the packet for the next RX-stage.  Basically splitting
-the packet-vector into two packet-vectors, one for network-stack and
-one for XDP.  Thus, intermixed XDP vs. netstack not longer have effect
-on XDP performance.
-
-The reason for also creating an XDP packet-vector, is to move the
-XDP_TX transmit code out of the XDP processing stage (and future
-features).  This maximize I-cache availability to the eBPF program,
-and make eBPF performance more uniform across drivers.
+I got the impression that the exception handling  was incomplete in the
+implementation of the function "gigaset_initcs".
+Does anybody (besides me) care for improving the software situation there?
 
 
-Inception:
- * Instead of individual packets, see it as a RX packet-vector.
- * XDP should be seen as a stage *before* the network stack gets called.
+> My answer to that question is: no, sorry, I won't do that.
 
-If your mind can handle it: I'm NOT proposing a RX-vector of 64-packets.
-I actually want N-packet per vector (8-16).  As the NIC HW RX process
-runs concurrently, and by the time it takes to process N-packets, more
-packets have had a chance to arrive in the RX-ring queue.
+I find that the process has just started once more to clarify in which
+directions this software module could evolve.
 
--- 
-Best regards,
-  Jesper Dangaard Brouertho
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+Do we discuss a potential memory leak under special conditions here?
 
-[1] https://mid.mail-archive.com/netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org/msg127043.html
-
-[2] http://lists.openwall.net/netdev/2016/01/15/51  
-
-[3] http://lists.openwall.net/netdev/2016/04/19/89
+Regards,
+Markus
