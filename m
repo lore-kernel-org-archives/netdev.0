@@ -1,71 +1,80 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: [PATCH 4.9] brcmfmac: use correct skb freeing helper when deleting flowring
-Date: Tue, 27 Sep 2016 15:08:20 +0300
-Message-ID: <8760phy28b.fsf@kamboji.qca.qualcomm.com>
+From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH V2 4.9] brcmfmac: use correct skb freeing helper when deleting flowring
+Date: Tue, 27 Sep 2016 14:11:04 +0200
+Message-ID: <20160927121104.5771-1-zajec5@gmail.com>
 References: <20160927091428.19223-1-zajec5@gmail.com>
-        <86fd0b60-0f73-484b-1788-3ec740672232@broadcom.com>
-        <87inthy441.fsf@kamboji.qca.qualcomm.com>
-        <CACna6rwUR_GidhEFNTN+8mGQRpBdUzeM1-0NY65k6-McX7xGVg@mail.gmail.com>
-        <CACna6rxDb_KMwGTFKu1Mf9azmk_PLO0aLR3foRtkqyywa1DNVQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Arend Van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Arend van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
         Franky Lin <franky.lin-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
         Hante Meuleman <hante.meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
         Pieter-Paul Giesberts <pieter-paul.giesberts-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
         Franky Lin <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        "linux-wireless\@vger.kernel.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "open list\:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
-        <brcm80211-dev-list.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        =?utf-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <rafal-g1n6cQUeyibVItvQsEIGlw@public.gmane.org>
-To: =?utf-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        brcm80211-dev-list.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal-g1n6cQUeyibVItvQsEIGlw@public.gmane.org>
+To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CACna6rxDb_KMwGTFKu1Mf9azmk_PLO0aLR3foRtkqyywa1DNVQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-        (=?utf-8?Q?=22Rafa=C5=82_Mi=C5=82ecki=22's?= message of "Tue, 27 Sep 2016
- 13:58:56 +0200")
+In-Reply-To: <20160927091428.19223-1-zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Rafa=C5=82 Mi=C5=82ecki <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
+From: Rafał Miłecki <rafal-g1n6cQUeyibVItvQsEIGlw@public.gmane.org>
 
->>>>> Kalle: this isn't important enough for 4.8 as it's too late for that.
->>>>>
->>>>> I'd like to get it for 4.9 however, as this fixes bug that could lead
->>>>> to WARNING on every add_key/del_key call. We was struggling with these
->>>>> WARNINGs for some time and this fixes one of two problems causing the=
-m.
->>>
->>> Ok, I'll queue this for 4.9.
->>>
->>>> Please mark it for stable as well.
->>>
->>> I can add that. Any ideas how old releases stable releases should this
->>> go to?
->>
->> I was analyzing this.
->> 1) This patch uses brcmf_get_ifp which is available in 4.4+ only.
->> 2) It applies cleanly to 4.5+ only due to 32f90caa7debd ("brcmfmac:
->> Increase nr of supported flowrings.")
->> 3) 4.4 would also require applying to the patch without broadcom/ subdir
->>
->> That said I suggest 4.5+. Any objections?
->
-> Let me see if patchwork with pick Cc tag as it does for others.
->
-> Cc: stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org # 4.5+
+Flowrings contain skbs waiting for transmission that were passed to us
+by netif. It means we checked every one of them looking for 802.1x
+Ethernet type. When deleting flowring we have to use freeing function
+that will check for 802.1x type as well.
 
-An excellent idea but no luck:
+Freeing skbs without a proper check was leading to counter not being
+properly decreased. This was triggering a WARNING every time
+brcmf_netdev_wait_pend8021x was called.
 
-Signed-off-by: Rafa? Mi?ecki <rafal-g1n6cQUeyibVItvQsEIGlw@public.gmane.org>
+Signed-off-by: Rafał Miłecki <rafal-g1n6cQUeyibVItvQsEIGlw@public.gmane.org>
 Acked-by: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Cc: stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org # 4.5+
+---
+V2: Add Cc for stable 4.5+. It doesn't apply cleanly to 4.4 and is not
+    possible for 4.3- due to missing brcmf_get_ifp.
+---
+ drivers/net/wireless/broadcom/brcm80211/brcmfmac/flowring.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
-I'll add this to my patchwork wishlist though, I think it would be a
-really useful feature to have.
-
-(The question marks are because of my buggy copy paste, ignore those)
-
---=20
-Kalle Valo
+diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/flowring.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/flowring.c
+index b16b367..d0b738d 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/flowring.c
++++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/flowring.c
+@@ -234,13 +234,20 @@ static void brcmf_flowring_block(struct brcmf_flowring *flow, u16 flowid,
+ 
+ void brcmf_flowring_delete(struct brcmf_flowring *flow, u16 flowid)
+ {
++	struct brcmf_bus *bus_if = dev_get_drvdata(flow->dev);
+ 	struct brcmf_flowring_ring *ring;
++	struct brcmf_if *ifp;
+ 	u16 hash_idx;
++	u8 ifidx;
+ 	struct sk_buff *skb;
+ 
+ 	ring = flow->rings[flowid];
+ 	if (!ring)
+ 		return;
++
++	ifidx = brcmf_flowring_ifidx_get(flow, flowid);
++	ifp = brcmf_get_ifp(bus_if->drvr, ifidx);
++
+ 	brcmf_flowring_block(flow, flowid, false);
+ 	hash_idx = ring->hash_id;
+ 	flow->hash[hash_idx].ifidx = BRCMF_FLOWRING_INVALID_IFIDX;
+@@ -249,7 +256,7 @@ void brcmf_flowring_delete(struct brcmf_flowring *flow, u16 flowid)
+ 
+ 	skb = skb_dequeue(&ring->skblist);
+ 	while (skb) {
+-		brcmu_pkt_buf_free_skb(skb);
++		brcmf_txfinalize(ifp, skb, false);
+ 		skb = skb_dequeue(&ring->skblist);
+ 	}
+ 
+-- 
+2.9.3
