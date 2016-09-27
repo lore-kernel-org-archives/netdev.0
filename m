@@ -1,94 +1,38 @@
-From: Vlastimil Babka <vbabka@suse.cz>
-Subject: [PATCH v3] fs/select: add vmalloc fallback for select(2)
-Date: Tue, 27 Sep 2016 10:45:36 +0200
-Message-ID: <20160927084536.5923-1-vbabka@suse.cz>
-References: <20160922164359.9035-1-vbabka@suse.cz>
-Cc: linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-mm@kvack.org, Michal Hocko <mhocko@kernel.org>,
-        netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-        David Laight <David.Laight@ACULAB.COM>,
-        Hillf Danton <hillf.zj@alibaba-inc.com>,
-        Nicholas Piggin <npiggin@gmail.com>,
-        Jason Baron <jbaron@akamai.com>,
-        Vlastimil Babka <vbabka@suse.cz>
-To: Alexander Viro <viro@zeniv.linux.org.uk>,
-        Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160922164359.9035-1-vbabka@suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: ISDN-Gigaset: Release memory in gigaset_initcs() after an
+ allocation failure
+Date: Tue, 27 Sep 2016 10:48:41 +0200
+Message-ID: <1474966121.9970.5.camel@tiscali.nl>
+References: <566ABCD9.1060404@users.sourceforge.net>
+         <6d4bbb77-914f-19b8-a1a9-2731d1158612@users.sourceforge.net>
+         <6409b3b0-3b7a-1139-f040-7b1a61611187@users.sourceforge.net>
+         <1474924434.8546.29.camel@tiscali.nl>
+         <0d02085e-842c-4be9-f706-c43b38ce9095@users.sourceforge.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
+        Karsten Keil <isdn@linux-pingi.de>,
+        LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org,
+        Julia Lawall <julia.lawall@lip6.fr>
+To: SF Markus Elfring <elfring@users.sourceforge.net>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <0d02085e-842c-4be9-f706-c43b38ce9095@users.sourceforge.net>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The select(2) syscall performs a kmalloc(size, GFP_KERNEL) where size grows
-with the number of fds passed. We had a customer report page allocation
-failures of order-4 for this allocation. This is a costly order, so it might
-easily fail, as the VM expects such allocation to have a lower-order fallback.
+On Tue, 2016-09-27 at 07:20 +0200, SF Markus Elfring wrote:
+> Will it matter here if the function "kfree" will be called for the
+> data structure members "bcs" and "inbuf" after a later function call
+> failed within the implementation of "gigaset_initcs"?
 
-Such trivial fallback is vmalloc(), as the memory doesn't have to be physically
-contiguous and the allocation is temporary for the duration of the syscall
-only. There were some concerns, whether this would have negative impact on the
-system by exposing vmalloc() to userspace. Although an excessive use of vmalloc
-can cause some system wide performance issues - TLB flushes etc. - a large
-order allocation is not for free either and an excessive reclaim/compaction can
-have a similar effect. Also note that the size is effectively limited by
-RLIMIT_NOFILE which defaults to 1024 on the systems I checked. That means the
-bitmaps will fit well within single page and thus the vmalloc() fallback could
-be only excercised for processes where root allows a higher limit.
+My translation of this question is: could you please hold my hand while
+I read the code of a driver I do not use - a driver for hardware that I
+don't even have, and therefor cannot really test - after I submitted a
+patch that appears to be broken?
 
-Note that the poll(2) syscall seems to use a linked list of order-0 pages, so
-it doesn't need this kind of fallback.
+My answer to that question is: no, sorry, I won't do that.
 
-[eric.dumazet@gmail.com: fix failure path logic]
-[akpm@linux-foundation.org: use proper type for size]
-Signed-off-by: Vlastimil Babka <vbabka@suse.cz>
----
- fs/select.c | 14 +++++++++++---
- 1 file changed, 11 insertions(+), 3 deletions(-)
 
-diff --git a/fs/select.c b/fs/select.c
-index 8ed9da50896a..3d4f85defeab 100644
---- a/fs/select.c
-+++ b/fs/select.c
-@@ -29,6 +29,7 @@
- #include <linux/sched/rt.h>
- #include <linux/freezer.h>
- #include <net/busy_poll.h>
-+#include <linux/vmalloc.h>
- 
- #include <asm/uaccess.h>
- 
-@@ -554,7 +555,7 @@ int core_sys_select(int n, fd_set __user *inp, fd_set __user *outp,
- 	fd_set_bits fds;
- 	void *bits;
- 	int ret, max_fds;
--	unsigned int size;
-+	size_t size, alloc_size;
- 	struct fdtable *fdt;
- 	/* Allocate small arguments on the stack to save memory and be faster */
- 	long stack_fds[SELECT_STACK_ALLOC/sizeof(long)];
-@@ -581,7 +582,14 @@ int core_sys_select(int n, fd_set __user *inp, fd_set __user *outp,
- 	if (size > sizeof(stack_fds) / 6) {
- 		/* Not enough space in on-stack array; must use kmalloc */
- 		ret = -ENOMEM;
--		bits = kmalloc(6 * size, GFP_KERNEL);
-+		if (size > (SIZE_MAX / 6))
-+			goto out_nofds;
-+
-+		alloc_size = 6 * size;
-+		bits = kmalloc(alloc_size, GFP_KERNEL|__GFP_NOWARN);
-+		if (!bits && alloc_size > PAGE_SIZE)
-+			bits = vmalloc(alloc_size);
-+
- 		if (!bits)
- 			goto out_nofds;
- 	}
-@@ -618,7 +626,7 @@ int core_sys_select(int n, fd_set __user *inp, fd_set __user *outp,
- 
- out:
- 	if (bits != stack_fds)
--		kfree(bits);
-+		kvfree(bits);
- out_nofds:
- 	return ret;
- }
--- 
-2.10.0
+Paul Bolle
