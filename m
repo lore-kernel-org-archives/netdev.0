@@ -1,37 +1,53 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: ISDN-Gigaset: Release memory in gigaset_initcs() after an
- allocation failure
-Date: Tue, 27 Sep 2016 11:48:37 +0200
-Message-ID: <1474969717.9970.20.camel@tiscali.nl>
-References: <566ABCD9.1060404@users.sourceforge.net>
-         <6d4bbb77-914f-19b8-a1a9-2731d1158612@users.sourceforge.net>
-         <6409b3b0-3b7a-1139-f040-7b1a61611187@users.sourceforge.net>
-         <1474924434.8546.29.camel@tiscali.nl>
-         <0d02085e-842c-4be9-f706-c43b38ce9095@users.sourceforge.net>
-         <1474966121.9970.5.camel@tiscali.nl>
-         <ad12e1a0-f5d5-176a-7d37-be2f3cb0af5d@users.sourceforge.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v4 4/7] ipv6 addrconf: add new sysctl
+ 'router_solicitation_max_interval'
+Date: Tue, 27 Sep 2016 11:49:47 +0200
+Message-ID: <8e332a23-5653-1e70-7c74-e7bcbbe0884a@stressinduktion.org>
+References: <20160925.060423.854801855957024790.davem@davemloft.net>
+ <1474801390-6891-1-git-send-email-zenczykowski@gmail.com>
+ <1474801390-6891-5-git-send-email-zenczykowski@gmail.com>
+ <87d7f248-4d95-4253-78ae-6dd110db6330@stressinduktion.org>
+ <CANP3RGfNGgw9H5Hsn7sgadHu5+kBcGfhY6Y_iTKNEjoL9gL7xg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 8bit
-Cc: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>,
-        gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
-        Karsten Keil <isdn@linux-pingi.de>,
-        LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org,
-        Julia Lawall <julia.lawall@lip6.fr>
-To: SF Markus Elfring <elfring@users.sourceforge.net>
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Linux NetDev <netdev@vger.kernel.org>,
+        Erik Kline <ek@google.com>,
+        Lorenzo Colitti <lorenzo@google.com>
+To: =?UTF-8?Q?Maciej_=c5=bbenczykowski?= <maze@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lb3-smtp-cloud3.xs4all.net ([194.109.24.30]:41142 "EHLO
-        lb3-smtp-cloud3.xs4all.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S933110AbcI0Jsn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 05:48:43 -0400
-In-Reply-To: <ad12e1a0-f5d5-176a-7d37-be2f3cb0af5d@users.sourceforge.net>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:57876 "EHLO
+        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S932222AbcI0Jtt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 05:49:49 -0400
+In-Reply-To: <CANP3RGfNGgw9H5Hsn7sgadHu5+kBcGfhY6Y_iTKNEjoL9gL7xg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-You're in Eliza mode again.
+On 27.09.2016 04:30, Maciej Żenczykowski wrote:
+>> Is seconds granular enough?
+> 
+> The only reason why one would ever want to go into fractions of
+> seconds would be some sort of unittesting with very low delays.
+> 
+> In any normal environment the max is going to be tens if not hundreds
+> or thousands of seconds.
+> 
+> Also note that the delay and interval (ie. not max interval) are also
+> currently exported in seconds, so having more granularity for
+> max_seconds is kind of pointless.
+> 
+> I have been considering whether I could make proc_dointvec_jiffies
+> accept floating point input (and output) though... although that seems
+> a little harder and probably out of scope of this change.
 
-(Hat tip to Björn Mork, https://lkml.org/lkml/2016/1/4/259).
+Good point. Using ms should actually be easy, instead of
+proc_dointvec_jiffies you can use proc_dointvec_ms_jiffies.
 
+It seems good practice to add a _ms then to the sysctl, too.
 
-Paul Bolle
+I am fine with both ways.
+
+Bye,
+Hannes
