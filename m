@@ -1,56 +1,132 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: Re: [RFC PATCH net-next 2/2] sfc: report 4-tuple UDP hashing to
- ethtool, if it's enabled
-Date: Tue, 27 Sep 2016 18:12:13 +0000
-Message-ID: <BL2PR07MB23067E952300940F9D8FDE108DCC0@BL2PR07MB2306.namprd07.prod.outlook.com>
-References: <cc07d60a-189c-8475-ecb3-b612ff13bd5a@solarflare.com>,<8341c601-674a-74ff-c6dd-689c19b3ce7f@solarflare.com>
+From: Bjorn Helgaas <helgaas@kernel.org>
+Subject: Re: [net-next 5/5] PCI: disable FLR for 82579 device
+Date: Tue, 27 Sep 2016 13:17:02 -0500
+Message-ID: <20160927181702.GA7275@localhost>
+References: <1474612741-75681-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1474612741-75681-6-git-send-email-jeffrey.t.kirsher@intel.com>
+ <20160923140136.GC1514@localhost>
+ <1474664726.2389.7.camel@intel.com>
+ <176f2366-e225-75fb-8cad-909a8f7e808c@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: "bkenward@solarflare.com" <bkenward@solarflare.com>
-To: Edward Cree <ecree@solarflare.com>,
-        "linux-net-drivers@solarflare.com" <linux-net-drivers@solarflare.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        linux-pci@vger.kernel.org, davem@davemloft.net,
+        bhelgaas@google.com, netdev@vger.kernel.org, nhorman@redhat.com,
+        sassmann@redhat.com, jogreene@redhat.com,
+        guru.anbalagane@oracle.com
+To: "Neftin, Sasha" <sasha.neftin@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0070.outbound.protection.outlook.com ([104.47.32.70]:20736
-        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S934935AbcI0SMZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 27 Sep 2016 14:12:25 -0400
-In-Reply-To: <8341c601-674a-74ff-c6dd-689c19b3ce7f@solarflare.com>
-Content-Language: en-US
+Received: from mail.kernel.org ([198.145.29.136]:38264 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933709AbcI0SRI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 27 Sep 2016 14:17:08 -0400
+Content-Disposition: inline
+In-Reply-To: <176f2366-e225-75fb-8cad-909a8f7e808c@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 info->data =3D 0;
-> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 switch (info->flow_type)=
- {
-> +=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 case UDP_V4_FLOW:
-> +=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 if (e=
-fx->rx_hash_udp_4tuple)
-> +=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
-=A0=A0=A0=A0=A0=A0 /* fall through */
-> +=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 /* el=
-se fall further! */
-> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 case TCP_V4_FLOW:
-> -=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 info-=
->data |=3D RXH_L4_B_0_1 | RXH_L4_B_2_3;
-> +=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
-=A0=A0=A0=A0=A0=A0 info->data |=3D RXH_L4_B_0_1 | RXH_L4_B_2_3;
-> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 =
-/* fall through */
-> -=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 case UDP_V4_FLOW:
-> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 case SCTP_V4_FLOW:
-> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 case AH_ESP_V4_FLOW:
-> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 case IPV4_FLOW:
-> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 =
-info->data |=3D RXH_IP_SRC | RXH_IP_DST;
-> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 =
-min_revision =3D EFX_REV_FALCON_B0;
-> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 =
-break;
+On Sun, Sep 25, 2016 at 10:02:43AM +0300, Neftin, Sasha wrote:
+> On 9/24/2016 12:05 AM, Jeff Kirsher wrote:
+> >On Fri, 2016-09-23 at 09:01 -0500, Bjorn Helgaas wrote:
+> >>On Thu, Sep 22, 2016 at 11:39:01PM -0700, Jeff Kirsher wrote:
+> >>>From: Sasha Neftin <sasha.neftin@intel.com>
+> >>>
+> >>>82579 has a problem reattaching itself after the device is detached.
+> >>>The bug was reported by Redhat. The suggested fix is to disable
+> >>>FLR capability in PCIe configuration space.
+> >>>
+> >>>Reproduction:
+> >>>Attach the device to a VM, then detach and try to attach again.
+> >>>
+> >>>Fix:
+> >>>Disable FLR capability to prevent the 82579 from hanging.
+> >>Is there a bugzilla or other reference URL to include here?  Should
+> >>this be marked for stable?
+> >So the author is in Israel, meaning it is their weekend now.  I do not
+> >believe Sasha monitors email over the weekend, so a response to your
+> >questions won't happen for a few days.
+> >
+> >I tried searching my archives for more information, but had no luck finding
+> >any additional information.
+> >
+> >>>Signed-off-by: Sasha Neftin <sasha.neftin@intel.com>
+> >>>Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+> >>>Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> >>>---
+> >>>  drivers/pci/quirks.c | 21 +++++++++++++++++++++
+> >>>  1 file changed, 21 insertions(+)
+> >>>
+> >>>diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+> >>>index 44e0ff3..59fba6e 100644
+> >>>--- a/drivers/pci/quirks.c
+> >>>+++ b/drivers/pci/quirks.c
+> >>>@@ -4431,3 +4431,24 @@ static void quirk_intel_qat_vf_cap(struct
+> >>>pci_dev *pdev)
+> >>>  	}
+> >>>  }
+> >>>  DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x443,
+> >>>quirk_intel_qat_vf_cap);
+> >>>+/*
+> >>>+ * Workaround FLR issues for 82579
+> >>>+ * This code disables the FLR (Function Level Reset) via PCIe, in
+> >>>order
+> >>>+ * to workaround a bug found while using device passthrough, where the
+> >>>+ * interface would become non-responsive.
+> >>>+ * NOTE: the FLR bit is Read/Write Once (RWO) in config space, so if
+> >>>+ * the BIOS or kernel writes this register * then this workaround will
+> >>>+ * not work.
+> >>This doesn't sound like a root cause.  Is the issue a hardware
+> >>erratum?  Linux PCI core bug?  VFIO bug?  Device firmware bug?
+> >>
+> >>The changelog suggests that the problem only affects passthrough,
+> >>which suggests some sort of kernel bug related to how passthrough is
+> >>implemented.
 
-Well, you sure fulfilled your cover letter's promise. ;-)
+If this bug affects all scenarios, not just passthrough, the changelog
+should not mention passthrough.
 
-Do you really prefer this conditional mayham over copy-pasting some lines?=
+> >>>+ */
+> >>>+static void quirk_intel_flr_cap_dis(struct pci_dev *dev)
+> >>>+{
+> >>>+	int pos = pci_find_capability(dev, PCI_CAP_ID_AF);
+> >>>+	if (pos) {
+> >>>+		u8 cap;
+> >>>+		pci_read_config_byte(dev, pos + PCI_AF_CAP, &cap);
+> >>>+		cap = cap & (~PCI_AF_CAP_FLR);
+> >>>+		pci_write_config_byte(dev, pos + PCI_AF_CAP, cap);
+> >>>+	}
+> >>>+}
+> >>>+DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x1502,
+> >>>quirk_intel_flr_cap_dis);
+> >>>+DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x1503,
+> >>>quirk_intel_flr_cap_dis);
+> >>>-- 
+> >>>2.7.4
+> >>>
+> >>>--
+> >>>To unsubscribe from this list: send the line "unsubscribe linux-pci" in
+> >>>the body of a message to majordomo@vger.kernel.org
+> >>>More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> Hello,
+> 
+> Original bugzilla thread could be found here:
+> https://bugzilla.redhat.com/show_bug.cgi?format=multiple&id=966840
+
+That bugzilla is private and I can't read it.
+
+> This is our HW bug, exist only in 82579 devices. More new devices
+> have no such problem. We have found root cause and suggested this
+> solution. 
+
+Is there an erratum you can reference?
+
+> This solution should work for a 95% of cases, so I do not
+> think that this is fragile. For another cases possible solution is
+> get up working system and manually disable FLR, before VM start use
+> our adapter.
+
+I don't think a 95% solution is sufficient.  Can you use the
+pci_dev_specific_reset() framework to make a 100% solution?
+
+Bjorn
