@@ -1,47 +1,43 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 4/4] net/sched: act_mirred: Implement ingress
- actions
-Date: Tue, 27 Sep 2016 16:47:09 +0200
-Message-ID: <57EA866D.9050507@iogearbox.net>
-References: <20160927.015606.437705429903770747.davem@davemloft.net>    <20160927110711.12555f4e@pixies>        <57EA4C66.8070907@iogearbox.net>        <20160927.094441.1957543068015677016.davem@davemloft.net> <20160927171804.5288347d@pixies>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [PATCH v3 net-next] net: phy: Add Edge-rate driver for Microsemi
+ PHYs.
+Date: Tue, 27 Sep 2016 16:58:49 +0200
+Message-ID: <20160927145849.GK28432@lunn.ch>
+References: <1474984075-12312-1-git-send-email-Raju.Lakkaraju@microsemi.com>
+ <20160927141633.GJ28432@lunn.ch>
+ <20160927142659.GC10776@microsemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, xiyou.wangcong@gmail.com, edumazet@google.com,
-        netdev@vger.kernel.org, shmulik.ladkani@gmail.com
-To: Shmulik Ladkani <shmulik.ladkani@ravellosystems.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:45093 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751263AbcI0OrW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 10:47:22 -0400
-In-Reply-To: <20160927171804.5288347d@pixies>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
+To: "Allan W. Nielsen" <allan.nielsen-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20160927142659.GC10776-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 09/27/2016 04:18 PM, Shmulik Ladkani wrote:
-> On Tue, 27 Sep 2016 09:44:41 -0400 (EDT), davem@davemloft.net wrote:
->> From: Daniel Borkmann <daniel@iogearbox.net>
->> Date: Tue, 27 Sep 2016 12:39:34 +0200
->>
->>> Any reason why dev_forward_skb() is not preferred over direct
->>> netif_receive_skb() you're using? It would, for example, implicitly
->>> assure that pkt_type is always PACKET_HOST, etc.
->>
->> dev_forward_skb() will pull the ethernet header.
->>
->> And since a direct call to netif_receive_skb() will not, one of these
->> two choices won't work properly.
->
-> In the patch, I'm issuing a skb_pull_rcsum() prior the netif_receive_skb,
-> snip:
->
-[...]
->
-> Existing *egress* mir/red already supported pairing two non-eth devices.
-> Therefore I allow it for the new *ingress* mir/red as well.
-[...]
+On Tue, Sep 27, 2016 at 04:26:59PM +0200, Allan W. Nielsen wrote:
+> Hi Andrew,
+> 
+> > > +Optional properties:
+> > > +- vsc8531,edge-rate  : Edge rate sets the drive strength of the MAC
+> > > +                       interface output signals.  Changing the drive
+> > > +                       strength will affect the edge rate of the output
+> > > +                       signal.
+> > 
+> > Are we specifying a rate or a strength? It is called edge-rate, so it
+> > expect it to be a rate, mV/pS or something similar.
+> I do not know - sorry.
 
-Yeah, makes sense then. Should skb->pkt_type become an issue, you might
-probably just use act_skbedit for such cases.
+The text needs to be consistent with the property name. The text
+suggests this setting affects the drive strength. As a result of the
+drive strength, the edge rate will differ. Cause and effect.
+
+So maybe the correct units here is mA?
+
+	Andrew
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
