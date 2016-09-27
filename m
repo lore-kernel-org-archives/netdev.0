@@ -1,48 +1,46 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: Re: [Gigaset307x-common] ISDN-Gigaset: Release memory in
- gigaset_initcs() after an allocation failure
-Date: Tue, 27 Sep 2016 16:35:45 +0200
-Message-ID: <1474986945.1654610.738520185.4722B74E@webmail.messagingengine.com>
-References: <566ABCD9.1060404@users.sourceforge.net>
- <6d4bbb77-914f-19b8-a1a9-2731d1158612@users.sourceforge.net>
- <6409b3b0-3b7a-1139-f040-7b1a61611187@users.sourceforge.net>
- <1474924434.8546.29.camel@tiscali.nl>
- <0d02085e-842c-4be9-f706-c43b38ce9095@users.sourceforge.net>
- <1474966121.9970.5.camel@tiscali.nl>
- <ad12e1a0-f5d5-176a-7d37-be2f3cb0af5d@users.sourceforge.net>
- <1474971962.1601897.738261385.73EB49E0@webmail.messagingengine.com>
- <5974a2c5-2739-cd69-6e37-04a645bc08d7@users.sourceforge.net>
- <baa46a3d-1f73-2f7e-6402-98763b159739@linux-pingi.de>
- <02ad1fea-33f6-a38a-fd91-16bc0c351bdd@users.sourceforge.net>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: RE: [PATCH RFC 1/3] net: Add dev_set_env_hdr_len to accept envelope
+ frames
+Date: Tue, 27 Sep 2016 14:23:43 +0000
+Message-ID: <BL2PR07MB2306030D4912AD8F574BAF9D8DCC0@BL2PR07MB2306.namprd07.prod.outlook.com>
+References: <1474966541-4420-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+ <1474966541-4420-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Karsten Keil <isdn@linux-pingi.de>,
-        Paul Bolle <pebolle@tiscali.nl>,
-        gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org,
-        LKML <linux-kernel@vger.kernel.org>,
-        Julia Lawall <julia.lawall@lip6.fr>
-To: SF Markus Elfring <elfring@users.sourceforge.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <02ad1fea-33f6-a38a-fd91-16bc0c351bdd@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Patrick McHardy <kaber@trash.net>,
+        "Stephen Hemminger" <stephen@networkplumber.org>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-dm3nam03on0066.outbound.protection.outlook.com ([104.47.41.66]:30624
+        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S933202AbcI0OjS (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 27 Sep 2016 10:39:18 -0400
+In-Reply-To: <1474966541-4420-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 27, 2016, at 14:52, SF Markus Elfring wrote:
-> >> * Is it still correct nowadays that the function "gigaset_initcs" did not
-> >>   call the function "kfree" after a later function call failed?
-> > 
-> > Yes, if it is handled in another place, Paul already did show you the place.
-> 
-> To which source code place do you refer here?
+> +/* return envelope header length */
+> +static inline int netif_get_env_hdr_len(struct net_device *dev) {
+> +	if (dev->netdev_ops->ndo_set_env_hdr_len)
+> +		return dev->env_hdr_len;
+> +
+> +	if (netif_reduces_vlan_mtu(dev))
+> +		return 0;
+> +
+> +	return 4; /* VLAN_HLEN */
+> +}
 
-Obviously the one Paul pointed out to you in detail in his mail dated
-Mon, 26 Sep 2016 23:13:54 +0200.
+Why claim that `4' is the default?
+What's the benefit of propagating this value to userspace if
+driver doesn't actually support it?
 
-HTH,
-Tilman
-
--- 
-Tilman Schmidt
-tilman@imap.cc
+Assuming this *is* a good default [meaning your analysis indicated
+basically every driver has at least so many octets reserved]
+perhaps we should consider initializing the env_hdr_len in some
+common function [e.g., in setup_ether() next to the mtu] to this value?
