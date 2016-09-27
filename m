@@ -1,40 +1,63 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next V2] net/sched: pkt_cls: change tc actions order
- to be as the user sets
-Date: Tue, 27 Sep 2016 09:29:23 -0700
-Message-ID: <CAM_iQpWXpTsXUewMSv5VBFrq1yLgy5du+Lrszi_FQGZi=zQSPw@mail.gmail.com>
-References: <1474963791-3717-1-git-send-email-hadarh@mellanox.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] tcp: Change txhash on every SYN and RTO
+ retransmit
+Date: Tue, 27 Sep 2016 09:29:50 -0700
+Message-ID: <1474993790.28155.60.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20160927160629.1174360-1-brakmo@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>
-To: Hadar Hen Zion <hadarh@mellanox.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>
+To: Lawrence Brakmo <brakmo@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:34368 "EHLO
-        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752565AbcI0Q3p (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 12:29:45 -0400
-Received: by mail-io0-f193.google.com with SMTP id y139so1198200ioy.1
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 09:29:44 -0700 (PDT)
-In-Reply-To: <1474963791-3717-1-git-send-email-hadarh@mellanox.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:36484 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933655AbcI0Q3w (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 12:29:52 -0400
+Received: by mail-pf0-f194.google.com with SMTP id n24so938665pfb.3
+        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 09:29:52 -0700 (PDT)
+In-Reply-To: <20160927160629.1174360-1-brakmo@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 27, 2016 at 1:09 AM, Hadar Hen Zion <hadarh@mellanox.com> wrote:
-> Currently the created tc actions list is reversed against the order
-> set by the user.
-> Change the actions list order to be the same as was set by the user.
->
-> This patch doesn't affect dump actions behavior.
-> For dumping, action->order parameter is used so the list order doesn't
-> matter.
->
-> Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
-> Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+On Tue, 2016-09-27 at 09:06 -0700, Lawrence Brakmo wrote:
+> The current code changes txhash (flowlables) on every retransmitted
+> SYN/ACK, but only after the 2nd retransmitted SYN and only after
+> tcp_retries1 RTO retransmits.
+> 
+> With this patch:
+> 1) txhash is changed with every SYN retransmist
+> 2) adds the option for the txhash to be changed before tcp_retries1
+>    RTO retransmits. A new sysctl tcp_rto_txhash_prob represents the
+>    probability that txhash will be changed. The default value is 0
+>    which maintains previous behavior and a value of 100 will always
+>    change it.
 
-Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
+...
 
+> @@ -213,6 +215,11 @@ static int tcp_write_timeout(struct sock *sk)
+>  			tcp_mtu_probing(icsk, sk);
+>  
+>  			dst_negative_advice(sk);
+> +		} else if (sk->sk_txhash && sysctl_tcp_rto_txhash_prob > 0) {
+> +			u32 v = prandom_u32() % 100;
+> +
+> +			if (v < sysctl_tcp_rto_txhash_prob)
+> +				sk_set_txhash(sk);
+>  
 
-Thanks for updating changelog!
+Write timeouts are rare events and sk_txhash should already be set.
+
+Also prandom_u32_max() is a bit faster (no divide, and even no multiply
+for 100 which is 5*5*4, compiler can emit 2 lea instructions )
+
+I would suggest not using all these tests and instead be very simple :
+
+ 	} else if (prandom_u32_max(100) < sysctl_tcp_rto_txhash_prob) {
+		sk_set_txhash(sk);
+	}
+
+Finally, adding a new sysctl requires a Documentation update
+( Documentation/networking/ip-sysctl.txt )
+
+Thanks.
