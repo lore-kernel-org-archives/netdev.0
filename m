@@ -1,46 +1,44 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [PATCH RFC 1/3] net: Add dev_set_env_hdr_len to accept envelope
- frames
-Date: Tue, 27 Sep 2016 14:23:43 +0000
-Message-ID: <BL2PR07MB2306030D4912AD8F574BAF9D8DCC0@BL2PR07MB2306.namprd07.prod.outlook.com>
-References: <1474966541-4420-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
- <1474966541-4420-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
+Subject: Re: [PATCH v3 net-next] net: phy: Add Edge-rate driver for Microsemi
+ PHYs.
+Date: Tue, 27 Sep 2016 16:26:59 +0200
+Message-ID: <20160927142659.GC10776@microsemi.com>
+References: <1474984075-12312-1-git-send-email-Raju.Lakkaraju@microsemi.com>
+ <20160927141633.GJ28432@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Patrick McHardy <kaber@trash.net>,
-        "Stephen Hemminger" <stephen@networkplumber.org>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Cc: <netdev@vger.kernel.org>, <devicetree@vger.kernel.org>,
+        <f.fainelli@gmail.com>,
+        Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-dm3nam03on0066.outbound.protection.outlook.com ([104.47.41.66]:30624
-        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
+Received: from mail-co1nam03on0087.outbound.protection.outlook.com ([104.47.40.87]:48306
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S933202AbcI0OjS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 27 Sep 2016 10:39:18 -0400
-In-Reply-To: <1474966541-4420-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-Content-Language: en-US
+        id S933520AbcI0OnV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 27 Sep 2016 10:43:21 -0400
+Content-Disposition: inline
+In-Reply-To: <20160927141633.GJ28432@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> +/* return envelope header length */
-> +static inline int netif_get_env_hdr_len(struct net_device *dev) {
-> +	if (dev->netdev_ops->ndo_set_env_hdr_len)
-> +		return dev->env_hdr_len;
-> +
-> +	if (netif_reduces_vlan_mtu(dev))
-> +		return 0;
-> +
-> +	return 4; /* VLAN_HLEN */
-> +}
+Hi Andrew,
 
-Why claim that `4' is the default?
-What's the benefit of propagating this value to userspace if
-driver doesn't actually support it?
+> > +Optional properties:
+> > +- vsc8531,edge-rate  : Edge rate sets the drive strength of the MAC
+> > +                       interface output signals.  Changing the drive
+> > +                       strength will affect the edge rate of the output
+> > +                       signal.
+> 
+> Are we specifying a rate or a strength? It is called edge-rate, so it
+> expect it to be a rate, mV/pS or something similar.
+I do not know - sorry.
 
-Assuming this *is* a good default [meaning your analysis indicated
-basically every driver has at least so many octets reserved]
-perhaps we should consider initializing the env_hdr_len in some
-common function [e.g., in setup_ether() next to the mtu] to this value?
+If it is a hard requirement to document these settings using physical units then
+we need to requist some help from the HW team.
+
+I will forward this to the HW team - but it will properly take a few days to get
+a decent answer.
+
+Best regards
+Allan W. Nielsen
