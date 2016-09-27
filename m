@@ -1,66 +1,31 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 2/3] net: mpls: Fixups for GSO
-Date: Mon, 26 Sep 2016 20:04:06 -0600
-Message-ID: <363ba109-1951-1018-060f-25df33c717e0@cumulusnetworks.com>
-References: <1471626542-13335-1-git-send-email-dsa@cumulusnetworks.com>
- <1471626542-13335-3-git-send-email-dsa@cumulusnetworks.com>
- <20160822122122.GA8689@penelope.isobedori.kobe.vergenet.net>
- <dcf3df40-3914-37c6-55dc-e5c3de7530b5@cumulusnetworks.com>
- <20160822145134.GA26491@penelope.isobedori.kobe.vergenet.net>
- <3297517c-2889-19fe-5aa4-89e1d14eadca@cumulusnetworks.com>
- <20160824072002.GA27254@penelope.isobedori.kobe.vergenet.net>
- <CAOrHB_BEn2D_iUgkqPD8ixhjJtnaLpYkANxL+Au7wO=8oKmGag@mail.gmail.com>
- <586321df-72c6-0dee-4ce6-22ca2a0860fb@cumulusnetworks.com>
- <20160926175622.3b00d478@griffin> <20160926190259.3b878aa5@griffin>
+From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Subject: Re: [PATCH v2 3/7] ipv6 addrconf: rtr_solicits == -1 means unlimited
+Date: Tue, 27 Sep 2016 11:23:15 +0900
+Message-ID: <CANP3RGdqvWsRRW=UFnC=z+1QDSajsfmswjs+BZB8jB+1NkGiqQ@mail.gmail.com>
+References: <20160925.053302.1895311145903319224.davem@davemloft.net>
+ <1474797596-13320-1-git-send-email-zenczykowski@gmail.com>
+ <1474797596-13320-3-git-send-email-zenczykowski@gmail.com> <CAKD1Yr2MHqFMmJyf89pWzopcr07ziVcHqUB+oNWdphKx95nGDg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: pravin shelar <pshelar@ovn.org>,
-        Simon Horman <simon.horman@netronome.com>,
-        Pravin B Shelar <pshelar@nicira.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>, buytenh@wantstofly.org,
-        "Eric W. Biederman" <ebiederm@xmission.com>, rshearma@brocade.com,
-        tom@herbertland.com, Thomas Graf <tgraf@suug.ch>,
-        olivier.dugeon@orange.com,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        roopa@cumulusnetworks.com
-To: Jiri Benc <jbenc@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S . Miller" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Erik Kline <ek@google.com>
+To: Lorenzo Colitti <lorenzo@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:34950 "EHLO
-        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934017AbcI0CEJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 22:04:09 -0400
-Received: by mail-pf0-f180.google.com with SMTP id s13so37279128pfd.2
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 19:04:09 -0700 (PDT)
-In-Reply-To: <20160926190259.3b878aa5@griffin>
+Received: from mail-yw0-f177.google.com ([209.85.161.177]:34820 "EHLO
+        mail-yw0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753989AbcI0CXR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 22:23:17 -0400
+Received: by mail-yw0-f177.google.com with SMTP id u82so202532ywc.2
+        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 19:23:16 -0700 (PDT)
+In-Reply-To: <CAKD1Yr2MHqFMmJyf89pWzopcr07ziVcHqUB+oNWdphKx95nGDg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/26/16 11:02 AM, Jiri Benc wrote:
-> On Mon, 26 Sep 2016 17:56:22 +0200, Jiri Benc wrote:
->> After push_mpls, network_header points to the start of MPLS headers.
->> Which I understand was the point of this patch. However, push_mpls also
->> calls invalidate_flow_key. Meaning that, depending on actions, we may
->> end up calling key_extract soon after. And key_extract sets the network
->> header *after* the MPLS headers.
+> Given that some of this patch checks for == -1, and some of it checks
+> for != 0... is it possible that setting the value to something
+> unexpected like -3 will cause any issues to the stack? (Other than
+> just rendering IPv6 unusable on this interface, which seems like a
+> given.)
 
-you know this code better than me, but key_extract pulls the eth header and then sets network header. If MPLS labels are present then it is the labels that the network_header now points to. How did come to the conclusion it is after the labels?
-
->>
->> That means that on output, for otherwise identical packet,
->> network_header can point before or after MPLS headers based on what
->> actions happened to be executed (recirculation, mainly).
->>
->> If I'm not misreading the code or missing something, this can't be
->> right.
->>
->> mpls_gso_segment does not care, it resets the network_header anyway.
->> What about drivers? What is the correct behavior?
-> 
-> Answering to myself: it breaks skb_mac_gso_segment. Seems we need to
-> fix key_extract to set network_header to the beginning of MPLS headers.
-> I'll prepare a patch.
-> 
->  Jiri
-> 
+You shouldn't be able to set it to -3, that's what the extra1 is for...
