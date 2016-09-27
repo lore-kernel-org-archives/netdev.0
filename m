@@ -1,36 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 2/7] proc: Reduce cache miss in snmp_seq_show
-Date: Tue, 27 Sep 2016 09:45:51 -0400 (EDT)
-Message-ID: <20160927.094551.1178979867316917587.davem@davemloft.net>
-References: <1474877355-12920-1-git-send-email-hejianet@gmail.com>
-        <1474877355-12920-3-git-send-email-hejianet@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-        vyasevich@gmail.com, nhorman@tuxdriver.com,
-        steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
-        marcelo.leitner@gmail.com
-To: hejianet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1474877355-12920-3-git-send-email-hejianet@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Amir Levy <amir.jer.levy@intel.com>
+Subject: [PATCH v7 1/8] thunderbolt: Macro rename
+Date: Tue, 27 Sep 2016 16:43:34 +0300
+Message-ID: <1474983821-2313-2-git-send-email-amir.jer.levy@intel.com>
+References: <1474983821-2313-1-git-send-email-amir.jer.levy@intel.com>
+Cc: andreas.noever@gmail.com, bhelgaas@google.com, corbet@lwn.net,
+        linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org,
+        netdev@vger.kernel.org, linux-doc@vger.kernel.org,
+        mario_limonciello@dell.com, thunderbolt-linux@intel.com,
+        mika.westerberg@intel.com, tomas.winkler@intel.com,
+        xiong.y.zhang@intel.com, Amir Levy <amir.jer.levy@intel.com>
+To: gregkh@linuxfoundation.org
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1474983821-2313-1-git-send-email-amir.jer.levy@intel.com>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jia He <hejianet@gmail.com>
-Date: Mon, 26 Sep 2016 16:09:10 +0800
+This first patch updates the NHI Thunderbolt controller registers file to
+reflect that it is not only for Cactus Ridge.
+No functional change intended.
 
-> +static int snmp_seq_show_tcp_udp(struct seq_file *seq, void *v)
-> +{
-> +	int i;
-> +	unsigned long buff[TCPUDP_MIB_MAX];
-> +	struct net *net = seq->private;
+Signed-off-by: Amir Levy <amir.jer.levy@intel.com>
+Signed-off-by: Andreas Noever <andreas.noever@gmail.com>
+---
+ drivers/thunderbolt/nhi_regs.h | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-Please always order local variables from longest to shortest
-line.
+diff --git a/drivers/thunderbolt/nhi_regs.h b/drivers/thunderbolt/nhi_regs.h
+index 86b996c..75cf069 100644
+--- a/drivers/thunderbolt/nhi_regs.h
++++ b/drivers/thunderbolt/nhi_regs.h
+@@ -1,11 +1,11 @@
+ /*
+- * Thunderbolt Cactus Ridge driver - NHI registers
++ * Thunderbolt driver - NHI registers
+  *
+  * Copyright (c) 2014 Andreas Noever <andreas.noever@gmail.com>
+  */
+ 
+-#ifndef DSL3510_REGS_H_
+-#define DSL3510_REGS_H_
++#ifndef NHI_REGS_H_
++#define NHI_REGS_H_
+ 
+ #include <linux/types.h>
+ 
+-- 
+2.7.4
 
-Please audit your entire patch series for this problem.
-
-Thanks.
