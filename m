@@ -1,45 +1,88 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] net: fec: updates to align IP header
-Date: Tue, 27 Sep 2016 07:40:06 -0400 (EDT)
-Message-ID: <20160927.074006.1952862778935087880.davem@davemloft.net>
-References: <AM4PR0401MB22609D8151C2B63CA7768A1AFFCB0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
-        <1474728139-9335-1-git-send-email-eric@nelint.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] fs/select: add vmalloc fallback for select(2)
+Date: Tue, 27 Sep 2016 11:37:24 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB010A97D@AcuExch.aculab.com>
+References: <20160922152831.24165-1-vbabka@suse.cz>
+        <006101d21565$b60a8a70$221f9f50$@alibaba-inc.com>
+        <20160923172434.7ad8f2e0@roar.ozlabs.ibm.com>
+        <57E55CBB.5060309@akamai.com>
+        <5014387d-43da-03f6-a74b-2dc4fbf4fe32@suse.cz>
+ <20160927212458.3ab42b41@roar.ozlabs.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux@arm.linux.org.uk, andrew@lunn.ch,
-        fugang.duan@nxp.com, otavio@ossystems.com.br, edumazet@google.com,
-        troy.kisky@boundarydevices.com, u.kleine-koenig@pengutronix.de
-To: eric@nelint.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46084 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752768AbcI0LkN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 07:40:13 -0400
-In-Reply-To: <1474728139-9335-1-git-send-email-eric@nelint.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: quoted-printable
+Cc: Jason Baron <jbaron@akamai.com>, Hillf Danton <hillf.zj@alibaba-inc.com>,
+	'Alexander Viro' <viro@zeniv.linux.org.uk>, "linux-fsdevel@vger.kernel.org"
+	<linux-fsdevel@vger.kernel.org>, "linux-kernel@vger.kernel.org"
+	<linux-kernel@vger.kernel.org>, "linux-mm@kvack.org" <linux-mm@kvack.org>,
+	'Michal Hocko' <mhocko@kernel.org>, "netdev@vger.kernel.org"
+	<netdev@vger.kernel.org>, Eric Dumazet <eric.dumazet@gmail.com>
+To: 'Nicholas Piggin' <npiggin@gmail.com>, Vlastimil Babka <vbabka@suse.cz>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20160927212458.3ab42b41@roar.ozlabs.ibm.com>
+Content-Language: en-US
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Nelson <eric@nelint.com>
-Date: Sat, 24 Sep 2016 07:42:16 -0700
+From: Nicholas Piggin
+> Sent: 27 September 2016 12:25
+> On Tue, 27 Sep 2016 10:44:04 +0200
+> Vlastimil Babka <vbabka@suse.cz> wrote:
+>=20
+> > On 09/23/2016 06:47 PM, Jason Baron wrote:
+> > > Hi,
+> > >
+> > > On 09/23/2016 03:24 AM, Nicholas Piggin wrote:
+> > >> On Fri, 23 Sep 2016 14:42:53 +0800
+> > >> "Hillf Danton" <hillf.zj@alibaba-inc.com> wrote:
+> > >>
+> > >>>>
+> > >>>> The select(2) syscall performs a kmalloc(size, GFP_KERNEL) where s=
+ize grows
+> > >>>> with the number of fds passed. We had a customer report page alloc=
+ation
+> > >>>> failures of order-4 for this allocation. This is a costly order, s=
+o it might
+> > >>>> easily fail, as the VM expects such allocation to have a lower-ord=
+er fallback.
+> > >>>>
+> > >>>> Such trivial fallback is vmalloc(), as the memory doesn't have to =
+be
+> > >>>> physically contiguous. Also the allocation is temporary for the du=
+ration of the
+> > >>>> syscall, so it's unlikely to stress vmalloc too much.
+> > >>>>
+> > >>>> Note that the poll(2) syscall seems to use a linked list of order-=
+0 pages, so
+> > >>>> it doesn't need this kind of fallback.
+> > >>
+> > >> How about something like this? (untested)
+> >
+> > This pushes the limit further, but might just delay the problem. Could =
+be an
+> > optimization on top if there's enough interest, though.
+>=20
+> What's your customer doing with those selects? If they care at all about
+> performance, I doubt they want select to attempt order-4 allocations, fai=
+l,
+> then use vmalloc :)
 
-> This patch series is the outcome of investigation into very high
-> numbers of alignment faults on kernel 4.1.33 from the linux-fslc
-> tree:
->     https://github.com/freescale/linux-fslc/tree/4.1-1.0.x-imx
-> 
-> The first two patches remove support for the receive accelerator (RACC) from
-> the i.MX25 and i.MX27 SoCs which don't support the function.
-> 
-> The third patch enables hardware alignment of the ethernet packet payload
-> (and especially the IP header) to prevent alignment faults in the IP stack.
-> 
-> Testing on i.MX6UL on the 4.1.33 kernel showed that this patch removed
-> on the order of 70k alignment faults during a 100MiB transfer using 
-> wget.
-> 
-> Testing on an i.MX6Q (SABRE Lite) board on net-next (4.8.0-rc7) showed
-> a much more modest improvement from 10's of faults, and it's not clear
-> why that's the case.
+If they care about performance they shouldn't be passing select() lists tha=
+t
+are anywhere near that large.
+If the number of actual fd is small - use poll().
 
-Series applied and queued up for -stable.
+Otherwise you want one of the 'event' mechanisms in order to avoid setting
+the markers on every fd after every event (can't remember how you do that
+in Linux).
+
+At least this isn't SYSV - poll() was O(n^2) in the number of fd
+(because the fd were on a linked list).
+
+	David
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
