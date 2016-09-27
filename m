@@ -1,62 +1,46 @@
-From: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next V2] net/sched: pkt_cls: change tc actions order
- to be as the user sets
-Date: Tue, 27 Sep 2016 12:15:22 +0300
-Message-ID: <CAJL1qvFE4QU9eHiPfqGjq6hufceUnN8Sth6vFaaFnNvpRHL4+w@mail.gmail.com>
-References: <1474963791-3717-1-git-send-email-hadarh@mellanox.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v5 13/16] IB/pvrdma: Add the main driver module for
+ PVRDMA
+Date: Tue, 27 Sep 2016 09:21:27 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB010A6EA@AcuExch.aculab.com>
+References: <cover.1474759181.git.aditr@vmware.com>
+ <8db982c37a0a96b37df02826564474a216922f25.1474759181.git.aditr@vmware.com>
+ <20160926072739.GB6352@yuval-lap.Home>
+ <651b18ee-55ca-0c72-af9c-c55c42b57fd1@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>
-To: Hadar Hen Zion <hadarh@mellanox.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "dledford@redhat.com" <dledford@redhat.com>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        "pv-drivers@vmware.com" <pv-drivers@vmware.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+        "jhansen@vmware.com" <jhansen@vmware.com>,
+        "asarwade@vmware.com" <asarwade@vmware.com>,
+        "georgezhang@vmware.com" <georgezhang@vmware.com>,
+        "bryantan@vmware.com" <bryantan@vmware.com>
+To: 'Adit Ranadive' <aditr@vmware.com>,
+        Yuval Shaia <yuval.shaia@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f65.google.com ([209.85.218.65]:35652 "EHLO
-        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932672AbcI0JPY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 05:15:24 -0400
-Received: by mail-oi0-f65.google.com with SMTP id n202so490353oig.2
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 02:15:23 -0700 (PDT)
-In-Reply-To: <1474963791-3717-1-git-send-email-hadarh@mellanox.com>
+Received: from smtp-out4.electric.net ([192.162.216.181]:52087 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932849AbcI0JYf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 05:24:35 -0400
+In-Reply-To: <651b18ee-55ca-0c72-af9c-c55c42b57fd1@vmware.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 27, 2016 at 11:09 AM, Hadar Hen Zion <hadarh@mellanox.com> wrote:
-> Currently the created tc actions list is reversed against the order
-> set by the user.
-> Change the actions list order to be the same as was set by the user.
->
-> This patch doesn't affect dump actions behavior.
-> For dumping, action->order parameter is used so the list order doesn't
-> matter.
->
-> Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
-> Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
-
-
-Changes from V1:
-- Add a comment to the change log
-
-
-> ---
->  include/net/pkt_cls.h | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-> index 5ccaa4b..767b03a 100644
-> --- a/include/net/pkt_cls.h
-> +++ b/include/net/pkt_cls.h
-> @@ -123,7 +123,7 @@ static inline void tcf_exts_to_list(const struct tcf_exts *exts,
->         for (i = 0; i < exts->nr_actions; i++) {
->                 struct tc_action *a = exts->actions[i];
->
-> -               list_add(&a->list, actions);
-> +               list_add_tail(&a->list, actions);
->         }
->  #endif
->  }
-> --
-> 1.8.3.1
->
+RnJvbTogQWRpdCBSYW5hZGl2ZQ0KPiBTZW50OiAyNiBTZXB0ZW1iZXIgMjAxNiAxOToxNQ0KPiBP
+biBNb24sIFNlcCAyNiwgMjAxNiBhdCAwMDoyNzo0MEFNIC0wNzAwLCBZdXZhbCBTaGFpYSB3cm90
+ZToNCj4gPiBPbiBTYXQsIFNlcCAyNCwgMjAxNiBhdCAwNDoyMTozN1BNIC0wNzAwLCBBZGl0IFJh
+bmFkaXZlIHdyb3RlOg0KPiA+ID4gKw0KPiA+ID4gKwkvKiBDdXJyZW50bHksIHRoZSBkcml2ZXIg
+b25seSBzdXBwb3J0cyBSb0NFIG1vZGUuICovDQo+ID4gPiArCWlmIChkZXYtPmRzci0+Y2Fwcy5t
+b2RlICE9IFBWUkRNQV9ERVZJQ0VfTU9ERV9ST0NFKSB7DQo+ID4gPiArCQlkZXZfZXJyKCZwZGV2
+LT5kZXYsICJ1bnN1cHBvcnRlZCB0cmFuc3BvcnQgJWRcbiIsDQo+ID4gPiArCQkJZGV2LT5kc3It
+PmNhcHMubW9kZSk7DQo+ID4gPiArCQlyZXQgPSAtRUlOVkFMOw0KPiA+DQo+ID4gVGhpcyBpcyBz
+b21lIGZhdGFsIGVycm9yIHdpdGggdGhlIGRldmljZSwgbm90IHRoYXQgc29tZXRoaW5nIHdyb25n
+IHdpdGggdGhlDQo+ID4gZnVuY3Rpb24ncyBhcmd1bWVudC4NCj4gPiBTdWdnZXN0aW5nIHRvIHJl
+cGxhY2Ugd2l0aCAtRUZBVUxULg0KPiA+DQo+IA0KPiBUaGFua3MsIHdpbGwgZml4IHRoaXMgb25l
+IGFuZCB0aGUgb3RoZXJzIGhlcmUuDQoNCldvbid0IEVGQVVMVCBnZW5lcmF0ZSBTSUdTRUdWID8N
+Cg0KCURhdmlkDQoNCg==
