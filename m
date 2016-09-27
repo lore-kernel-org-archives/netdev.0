@@ -1,67 +1,33 @@
-From: Aaron Conole <aconole@bytheb.org>
-Subject: [PATCH nf-next v2 2/2] nf_set_hooks_head: acommodate different kconfig
-Date: Tue, 27 Sep 2016 09:38:35 -0400
-Message-ID: <1474983515-4115-3-git-send-email-aconole@bytheb.org>
-References: <1474983515-4115-1-git-send-email-aconole@bytheb.org>
-Cc: Florian Westphal <fw@strlen.de>,
-        Pablo Neira Ayuso <pablo@netfilter.org>
-To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] net: ethernet: mediatek: some bug fixes
+ for PDAM and HW LRO
+Date: Tue, 27 Sep 2016 09:42:24 -0400 (EDT)
+Message-ID: <20160927.094224.1540701192272023517.davem@davemloft.net>
+References: <1474871630-4134-1-git-send-email-nelson.chang@mediatek.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: john@phrozen.org, nbd@openwrt.org, netdev@vger.kernel.org,
+        linux-mediatek@lists.infradead.org, nelsonch.tw@gmail.com
+To: nelson.chang@mediatek.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:33852 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752826AbcI0Niq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 09:38:46 -0400
-Received: by mail-qt0-f193.google.com with SMTP id t63so405006qtd.1
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 06:38:45 -0700 (PDT)
-In-Reply-To: <1474983515-4115-1-git-send-email-aconole@bytheb.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:47440 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752768AbcI0Nmb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 09:42:31 -0400
+In-Reply-To: <1474871630-4134-1-git-send-email-nelson.chang@mediatek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When CONFIG_NETFILTER_INGRESS is unset (or no), we need to handle
-the request for registration properly by dropping the hook.  This
-releases the entry during the set.
+From: Nelson Chang <nelson.chang@mediatek.com>
+Date: Mon, 26 Sep 2016 14:33:48 +0800
 
-Signed-off-by: Aaron Conole <aconole@bytheb.org>
----
- net/netfilter/core.c | 15 +++++++++++----
- 1 file changed, 11 insertions(+), 4 deletions(-)
+> 1) Add to stop PDMA while stopping the frame engine
+> 2) Modify the register settings for LRO relinquishments
+> 3) Jump out from the waiting loop while LRO relinquishments are done
 
-diff --git a/net/netfilter/core.c b/net/netfilter/core.c
-index e58e420..61e8a9d 100644
---- a/net/netfilter/core.c
-+++ b/net/netfilter/core.c
-@@ -90,10 +90,12 @@ static void nf_set_hooks_head(struct net *net, const struct nf_hook_ops *reg,
- {
- 	switch (reg->pf) {
- 	case NFPROTO_NETDEV:
-+#ifdef CONFIG_NETFILTER_INGRESS
- 		/* We already checked in nf_register_net_hook() that this is
- 		 * used from ingress.
- 		 */
- 		rcu_assign_pointer(reg->dev->nf_hooks_ingress, entry);
-+#endif
- 		break;
- 	default:
- 		rcu_assign_pointer(net->nf.hooks[reg->pf][reg->hooknum],
-@@ -107,10 +109,15 @@ int nf_register_net_hook(struct net *net, const struct nf_hook_ops *reg)
- 	struct nf_hook_entry *hooks_entry;
- 	struct nf_hook_entry *entry;
- 
--	if (reg->pf == NFPROTO_NETDEV &&
--	    (reg->hooknum != NF_NETDEV_INGRESS ||
--	     !reg->dev || dev_net(reg->dev) != net))
--		return -EINVAL;
-+	if (reg->pf == NFPROTO_NETDEV) {
-+#ifndef CONFIG_NETFILTER_INGRESS
-+		if (reg->hooknum == NF_NETDEV_INGRESS)
-+			return -EOPNOTSUPP;
-+#endif
-+		if (reg->hooknum != NF_NETDEV_INGRESS ||
-+		    !reg->dev || dev_net(reg->dev) != net)
-+			return -EINVAL;
-+	}
- 
- 	entry = kmalloc(sizeof(*entry), GFP_KERNEL);
- 	if (!entry)
--- 
-2.7.4
+Series applied, but like Sergei I think you should have split patch
+#2 into two separate patches.
+
+You even list the changes individually here in your header
+posting.
