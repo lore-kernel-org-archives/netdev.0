@@ -1,158 +1,83 @@
-From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [PATCH v2 net-next] tcp: Change txhash on every SYN and RTO retransmit
-Date: Tue, 27 Sep 2016 14:23:48 -0700
-Message-ID: <20160927212348.2058710-1-brakmo@fb.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next 4/4] net/sched: act_mirred: Implement
+ ingress actions
+Date: Tue, 27 Sep 2016 14:27:13 -0700
+Message-ID: <1475011633.28155.68.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1475009975-30332-1-git-send-email-shmulik.ladkani@gmail.com>
+         <1475009975-30332-5-git-send-email-shmulik.ladkani@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Kernel Team <kernel-team@fb.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Yuchung Cheng <ycheng@google.com>
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        WANG Cong <xiyou.wangcong@gmail.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
+To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:38946 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752144AbcI0VXv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 17:23:51 -0400
-Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8RLJh7c011049
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 14:23:50 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 25qw8fhr2h-1
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 14:23:50 -0700
-Received: from facebook.com (2401:db00:11:d025:face:0:13:0)     by
- mx-out.facebook.com (10.212.236.87) with ESMTP id
- ae1a5f5484f811e6a6e40002c9521c9e-46aeca50 for <netdev@vger.kernel.org>;        Tue,
- 27 Sep 2016 14:23:49 -0700
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34988 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752336AbcI0V1P (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 17:27:15 -0400
+Received: by mail-pf0-f194.google.com with SMTP id 6so1207658pfl.2
+        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 14:27:15 -0700 (PDT)
+In-Reply-To: <1475009975-30332-5-git-send-email-shmulik.ladkani@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The current code changes txhash (flowlables) on every retransmitted
-SYN/ACK, but only after the 2nd retransmitted SYN and only after
-tcp_retries1 RTO retransmits.
+On Tue, 2016-09-27 at 23:59 +0300, Shmulik Ladkani wrote:
+> Up until now, 'action mirred' supported only egress actions (either
+> TCA_EGRESS_REDIR or TCA_EGRESS_MIRROR).
+> 
+> This patch implements the corresponding ingress actions
+> TCA_INGRESS_REDIR and TCA_INGRESS_MIRROR.
 
-With this patch:
-1) txhash is changed with every SYN retransmits
-2) adds the option for the txhash to be changed before tcp_retries1
-   RTO retransmits. A new sysctl tcp_rto_txhash_prob represents the
-   probability that txhash will be changed. The default value is 0
-   which maintains previous behavior and a value of 100 will always
-   change it.
 
-The result is that we can start re-routing around failed (or very
-congested paths) as soon as possible. Otherwise application health
-checks may fail and the connection may be terminated before we start
-to change txhash.
+> -		if (m->tcfm_mac_header_xmit)
+> +	/* If action's target direction differs than filter's direction,
+> +	 * and devices expect a mac header on xmit, then mac push/pull is
+> +	 * needed.
+> +	 */
+> +	if (at != tcf_mirred_act_direction(m->tcfm_eaction) &&
 
-v2: Added sysctl documentation and cleaned code
+Note that m->tcfm_eaction is read here.
 
-Tested with packetdrill tests
+> +	    m->tcfm_mac_header_xmit) {
+> +		if (at & AT_EGRESS) {
+> +			/* caught at egress, act ingress: pull mac */
+> +			mac_len = skb_network_header(skb) - skb_mac_header(skb);
+> +			skb_pull_rcsum(skb2, mac_len);
+> +		} else {
+> +			/* caught at ingress, act egress: push mac */
+>  			skb_push_rcsum(skb2, skb->mac_len);
+> +		}
+>  	}
+>  
+>  	/* mirror is always swallowed */
+> -	if (m->tcfm_eaction != TCA_EGRESS_MIRROR)
+> +	if (tcf_mirred_is_act_redirect(m->tcfm_eaction))
+>  		skb2->tc_verd = SET_TC_FROM(skb2->tc_verd, at);
+>  
+>  	skb2->skb_iif = skb->dev->ifindex;
+>  	skb2->dev = dev;
+> -	err = dev_queue_xmit(skb2);
 
-Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
----
- Documentation/networking/ip-sysctl.txt | 11 +++++++++++
- include/net/tcp.h                      |  1 +
- net/ipv4/sysctl_net_ipv4.c             | 10 ++++++++++
- net/ipv4/tcp_input.c                   |  2 ++
- net/ipv4/tcp_timer.c                   |  4 ++++
- 5 files changed, 28 insertions(+)
+Note that m->tcfm_eaction is read another time here.
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 3db8c67..0e7f9ac 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -472,6 +472,17 @@ tcp_max_reordering - INTEGER
- 	if paths are using per packet load balancing (like bonding rr mode)
- 	Default: 300
- 
-+tcp_rto_txhash_prob - INTEGER
-+	Probability [0 to 100] that we will recalculate txhash when a
-+	packet is resent due to an RTO and the RTO for this packet has
-+	fired less than tcp_retries1 times. It is always recalculated
-+	after tcp_retries_times.
-+
-+	Setting it to 100 helps re-route around failed (or very congested
-+	paths) as soon as possible. Otherwise application health checks may
-+	fail and the connection may be terminated before the txhash has
-+	a chance to change.
-+
- tcp_retrans_collapse - BOOLEAN
- 	Bug-to-bug compatibility with some broken printers.
- 	On retransmit try to send bigger packets to work around bugs in
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index f83b7f2..406d474 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -271,6 +271,7 @@ extern int sysctl_tcp_autocorking;
- extern int sysctl_tcp_invalid_ratelimit;
- extern int sysctl_tcp_pacing_ss_ratio;
- extern int sysctl_tcp_pacing_ca_ratio;
-+extern int sysctl_tcp_rto_txhash_prob;
- 
- extern atomic_long_t tcp_memory_allocated;
- extern struct percpu_counter tcp_sockets_allocated;
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 1cb67de..0b185a1 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -28,6 +28,7 @@
- static int zero;
- static int one = 1;
- static int four = 4;
-+static int hundred = 100;
- static int thousand = 1000;
- static int gso_max_segs = GSO_MAX_SEGS;
- static int tcp_retr1_max = 255;
-@@ -624,6 +625,15 @@ static struct ctl_table ipv4_table[] = {
- 		.proc_handler	= proc_dointvec_ms_jiffies,
- 	},
- 	{
-+		.procname	= "tcp_rto_txhash_prob",
-+		.data		= &sysctl_tcp_rto_txhash_prob,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &zero,
-+		.extra2		= &hundred,
-+	},
-+	{
- 		.procname	= "icmp_msgs_per_sec",
- 		.data		= &sysctl_icmp_msgs_per_sec,
- 		.maxlen		= sizeof(int),
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 8c6ad2d..2fea29d 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -101,6 +101,8 @@ int sysctl_tcp_moderate_rcvbuf __read_mostly = 1;
- int sysctl_tcp_early_retrans __read_mostly = 3;
- int sysctl_tcp_invalid_ratelimit __read_mostly = HZ/2;
- 
-+int sysctl_tcp_rto_txhash_prob __read_mostly = 100;
-+
- #define FLAG_DATA		0x01 /* Incoming frame contained data.		*/
- #define FLAG_WIN_UPDATE		0x02 /* Incoming ACK was a window update.	*/
- #define FLAG_DATA_ACKED		0x04 /* This ACK acknowledged new data.		*/
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index f712b41..8bdb215 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -192,6 +192,8 @@ static int tcp_write_timeout(struct sock *sk)
- 			if (tp->syn_data && icsk->icsk_retransmits == 1)
- 				NET_INC_STATS(sock_net(sk),
- 					      LINUX_MIB_TCPFASTOPENACTIVEFAIL);
-+		} else if (!tp->syn_data && !tp->syn_fastopen) {
-+			sk_rethink_txhash(sk);
- 		}
- 		retry_until = icsk->icsk_syn_retries ? : net->ipv4.sysctl_tcp_syn_retries;
- 		syn_set = true;
-@@ -213,6 +215,8 @@ static int tcp_write_timeout(struct sock *sk)
- 			tcp_mtu_probing(icsk, sk);
- 
- 			dst_negative_advice(sk);
-+		} else if (prandom_u32_max(100) < sysctl_tcp_rto_txhash_prob) {
-+			sk_rethink_txhash(sk);
- 		}
- 
- 		retry_until = net->ipv4.sysctl_tcp_retries2;
--- 
-2.9.3
+> +	if (tcf_mirred_act_direction(m->tcfm_eaction) & AT_EGRESS)
+> +		err = dev_queue_xmit(skb2);
+> +	else
+> +		netif_receive_skb(skb2);
+>  
+
+Since this runs lockless, another cpu might change m->tcfm_eaction in
+the middle, and you could call dev_queue_xmit(skb2) while the skb2 was
+prepared for the opposite action.
+
+I guess some drivers could crash, because they expect to find a MAC
+header.
+
+If not, a comment would be nice.
+
+Thanks.
