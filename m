@@ -1,66 +1,61 @@
-From: Arend Van Spriel <arend.vanspriel@broadcom.com>
-Subject: Re: [PATCH] brcmfmac: replace WARNING on timeout with a simple error
- message
-Date: Tue, 27 Sep 2016 13:25:33 +0200
-Message-ID: <a084ce54-9b96-fbdc-34b1-7c6429bed24e@broadcom.com>
-References: <20160927101224.3534-1-zajec5@gmail.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH 4.9] brcmfmac: use correct skb freeing helper when deleting flowring
+Date: Tue, 27 Sep 2016 14:27:42 +0300
+Message-ID: <87inthy441.fsf@kamboji.qca.qualcomm.com>
+References: <20160927091428.19223-1-zajec5@gmail.com>
+        <86fd0b60-0f73-484b-1788-3ec740672232@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Franky Lin <franky.lin@broadcom.com>,
+Content-Transfer-Encoding: quoted-printable
+Cc: =?utf-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5@gmail.com>,
+        Franky Lin <franky.lin@broadcom.com>,
         Hante Meuleman <hante.meuleman@broadcom.com>,
         Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
         Franky Lin <frankyl@broadcom.com>,
         linux-wireless@vger.kernel.org,
         brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org,
-        =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal@milecki.pl>
-To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
-        Kalle Valo <kvalo@codeaurora.org>
+        =?utf-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <rafal@milecki.pl>
+To: Arend Van Spriel <arend.vanspriel@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:36376 "EHLO
-        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753702AbcI0LZz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 07:25:55 -0400
-Received: by mail-pf0-f176.google.com with SMTP id q2so4989541pfj.3
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 04:25:54 -0700 (PDT)
-In-Reply-To: <20160927101224.3534-1-zajec5@gmail.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:51080 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932356AbcI0L1u (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 07:27:50 -0400
+In-Reply-To: <86fd0b60-0f73-484b-1788-3ec740672232@broadcom.com> (Arend Van
+        Spriel's message of "Tue, 27 Sep 2016 12:05:09 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 27-9-2016 12:12, Rafał Miłecki wrote:
-> From: Rafał Miłecki <rafal@milecki.pl>
-> 
-> Even with timeout increased to 950 ms we get WARNINGs from time to time.
-> It mostly happens on A-MPDU stalls (e.g. when station goes out of
-> range). It may take up to 5-10 secods for the firmware to recover and
-> for that time it doesn't process packets.
-> 
-> It's still useful to have a message on time out as it may indicate some
-> firmware problem and incorrect key update. Raising a WARNING however
-> wasn't really that necessary, it doesn't point to any driver bug anymore
-> and backtrace wasn't much useful.
+Arend Van Spriel <arend.vanspriel@broadcom.com> writes:
 
-Indeed the interesting part would be in another context. So:
+> On 27-9-2016 11:14, Rafa=C5=82 Mi=C5=82ecki wrote:
+>> From: Rafa=C5=82 Mi=C5=82ecki <rafal@milecki.pl>
+>>=20
+>> Flowrings contain skbs waiting for transmission that were passed to us
+>> by netif. It means we checked every one of them looking for 802.1x
+>> Ethernet type. When deleting flowring we have to use freeing function
+>> that will check for 802.1x type as well.
+>>=20
+>> Freeing skbs without a proper check was leading to counter not being
+>> properly decreased. This was triggering a WARNING every time
+>> brcmf_netdev_wait_pend8021x was called.
+>
+> Acked-by: Arend van Spriel <arend@broadcom.com>
+>> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <rafal@milecki.pl>
+>> ---
+>> Kalle: this isn't important enough for 4.8 as it's too late for that.
+>>=20
+>> I'd like to get it for 4.9 however, as this fixes bug that could lead
+>> to WARNING on every add_key/del_key call. We was struggling with these
+>> WARNINGs for some time and this fixes one of two problems causing them.
 
-Acked-by: Arend van Spriel <arend.vanspriel@broadcom.com>
-> Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
-> ---
->  drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
-> index 6d046ba..9e6f60a 100644
-> --- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
-> +++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
-> @@ -1161,7 +1161,8 @@ int brcmf_netdev_wait_pend8021x(struct brcmf_if *ifp)
->  				 !brcmf_get_pend_8021x_cnt(ifp),
->  				 MAX_WAIT_FOR_8021X_TX);
->  
-> -	WARN_ON(!err);
-> +	if (!err)
-> +		brcmf_err("Timed out waiting for no pending 802.1x packets\n");
->  
->  	return !err;
->  }
-> 
+Ok, I'll queue this for 4.9.
+
+> Please mark it for stable as well.
+
+I can add that. Any ideas how old releases stable releases should this
+go to?
+
+--=20
+Kalle Valo
