@@ -1,81 +1,61 @@
-From: <chris.roth@usask.ca>
-Subject: [PATCH v3] Net Driver: Add Cypress GX3 VID=04b4 PID=3610.
-Date: Tue, 27 Sep 2016 09:57:50 -0600
-Message-ID: <ff932915b6fc47489095c2ad7fa6ede5@Mail08.usask.ca>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Chris Roth <chris.roth@usask.ca>, Allan Chou <allan@asix.com.tw>
-To: <linux-usb@vger.kernel.org>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
+From: Florian Westphal <fw@strlen.de>
+Subject: [RFC 1/3] xfrm: state: do not acquire lock in get_mtu helpers
+Date: Tue, 27 Sep 2016 18:05:21 +0200
+Message-ID: <1474992323-11327-2-git-send-email-fw@strlen.de>
+References: <1474992323-11327-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail08.usask.ca ([128.233.195.240]:58209 "EHLO mail.usask.ca"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S933854AbcI0P57 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 27 Sep 2016 11:57:59 -0400
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:53292 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S934325AbcI0QFd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 12:05:33 -0400
+In-Reply-To: <1474992323-11327-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chris Roth <chris.roth@usask.ca>
+Once flow cache is removed the mtu initialisation happens for every skb
+that gets an xfrm attached to it.
 
->From Allan Chou <allan@asix.com.tw>
-From: Chris Roth <chris.roth@usask.ca>
+It is not obvious why this lock is required -- the caller holds
+reference on the state struct.
 
-Add support for Cypress GX3 SuperSpeed to Gigabit Ethernet
-Bridge Controller (Vendor=04b4 ProdID=3610).
+xfrm_init_state already has been called (else private data accessed
+by type->get_mtu() would not be set up).
 
-Patch verified on x64 linux kernel 4.7.4 system with the
-Kensington SD4600P USB-C Universal Dock with Power, which uses the
-Cypress GX3 SuperSpeed to Gigabit Ethernet Bridge Controller.
+So just remove the lock -- the race on the state (DEAD?) doesn't
+matter (could change right after dropping the lock too).
 
-A similar patch was signed-off and tested-by Allan Chou
-<allan@asix.com.tw> on 2015-12-01.
-
-Allan verified his similar patch on x86 Linux kernel 4.1.6 system
-with Cypress GX3 SuperSpeed to Gigabit Ethernet Bridge Controller.
-
-Tested-by: Allan Chou <allan@asix.com.tw>
-Tested-by: Chris Roth <chris.roth@usask.ca>
-
-Signed-off-by: Allan Chou <allan@asix.com.tw>
-Signed-off-by: Chris Roth <chris.roth@usask.ca>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- drivers/net/usb/ax88179_178a.c | 17 +++++++++++++++++
- 1 file changed, 17 insertions(+)
+ net/xfrm/xfrm_state.c | 13 +++++--------
+ 1 file changed, 5 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/usb/ax88179_178a.c b/drivers/net/usb/ax88179_178a.c
-index e6338c1..8a6675d 100644
---- a/drivers/net/usb/ax88179_178a.c
-+++ b/drivers/net/usb/ax88179_178a.c
-@@ -1656,6 +1656,19 @@ static const struct driver_info ax88178a_info = {
- 	.tx_fixup = ax88179_tx_fixup,
- };
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index f9a255457a1d..bf5969aa7dc2 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -2008,16 +2008,13 @@ EXPORT_SYMBOL(xfrm_state_delete_tunnel);
  
-+static const struct driver_info cypress_GX3_info = {
-+	.description = "Cypress GX3 SuperSpeed to Gigabit Ethernet Controller",
-+	.bind = ax88179_bind,
-+	.unbind = ax88179_unbind,
-+	.status = ax88179_status,
-+	.link_reset = ax88179_link_reset,
-+	.reset = ax88179_reset,
-+	.stop = ax88179_stop,
-+	.flags = FLAG_ETHER | FLAG_FRAMING_AX,
-+	.rx_fixup = ax88179_rx_fixup,
-+	.tx_fixup = ax88179_tx_fixup,
-+};
+ int xfrm_state_mtu(struct xfrm_state *x, int mtu)
+ {
+-	int res;
++	const struct xfrm_type *type = READ_ONCE(x->type);
+ 
+-	spin_lock_bh(&x->lock);
+ 	if (x->km.state == XFRM_STATE_VALID &&
+-	    x->type && x->type->get_mtu)
+-		res = x->type->get_mtu(x, mtu);
+-	else
+-		res = mtu - x->props.header_len;
+-	spin_unlock_bh(&x->lock);
+-	return res;
++	    type && type->get_mtu)
++		return type->get_mtu(x, mtu);
 +
- static const struct driver_info dlink_dub1312_info = {
- 	.description = "D-Link DUB-1312 USB 3.0 to Gigabit Ethernet Adapter",
- 	.bind = ax88179_bind,
-@@ -1718,6 +1731,10 @@ static const struct usb_device_id products[] = {
- 	USB_DEVICE(0x0b95, 0x178a),
- 	.driver_info = (unsigned long)&ax88178a_info,
- }, {
-+	/* Cypress GX3 SuperSpeed to Gigabit Ethernet Bridge Controller */
-+	USB_DEVICE(0x04b4, 0x3610),
-+	.driver_info = (unsigned long)&cypress_GX3_info,
-+}, {
- 	/* D-Link DUB-1312 USB 3.0 to Gigabit Ethernet Adapter */
- 	USB_DEVICE(0x2001, 0x4a00),
- 	.driver_info = (unsigned long)&dlink_dub1312_info,
++	return mtu - x->props.header_len;
+ }
+ 
+ int __xfrm_init_state(struct xfrm_state *x, bool init_replay)
 -- 
-2.7.4
+2.7.3
