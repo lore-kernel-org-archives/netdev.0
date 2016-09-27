@@ -1,48 +1,59 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: Re: ISDN-Gigaset: Release memory in gigaset_initcs() after an
- allocation failure
-Date: Tue, 27 Sep 2016 11:34:01 +0200
-Message-ID: <ad12e1a0-f5d5-176a-7d37-be2f3cb0af5d@users.sourceforge.net>
-References: <566ABCD9.1060404@users.sourceforge.net>
- <6d4bbb77-914f-19b8-a1a9-2731d1158612@users.sourceforge.net>
- <6409b3b0-3b7a-1139-f040-7b1a61611187@users.sourceforge.net>
- <1474924434.8546.29.camel@tiscali.nl>
- <0d02085e-842c-4be9-f706-c43b38ce9095@users.sourceforge.net>
- <1474966121.9970.5.camel@tiscali.nl>
+From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>
+Subject: Re: [PATCH v4 5/7] ipv6 addrconf: implement RFC7559 router
+ solicitation backoff
+Date: Tue, 27 Sep 2016 18:42:17 +0900
+Message-ID: <CANP3RGfHPZLHFnp4Rq8_dRNCro6Uh8O8767NgoGu7gvzu5h9BQ@mail.gmail.com>
+References: <20160925.060423.854801855957024790.davem@davemloft.net>
+ <1474801390-6891-1-git-send-email-zenczykowski@gmail.com> <1474801390-6891-6-git-send-email-zenczykowski@gmail.com>
+ <f249b2b1-e19f-bbc6-d02e-b256fd369c16@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
-        Karsten Keil <isdn@linux-pingi.de>,
-        LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org,
-        Julia Lawall <julia.lawall@lip6.fr>
-To: Paul Bolle <pebolle@tiscali.nl>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <1474966121.9970.5.camel@tiscali.nl>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Linux NetDev <netdev@vger.kernel.org>,
+        Erik Kline <ek@google.com>,
+        Lorenzo Colitti <lorenzo@google.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f179.google.com ([209.85.161.179]:36820 "EHLO
+        mail-yw0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752345AbcI0JmT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 05:42:19 -0400
+Received: by mail-yw0-f179.google.com with SMTP id t67so4713921ywg.3
+        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 02:42:19 -0700 (PDT)
+In-Reply-To: <f249b2b1-e19f-bbc6-d02e-b256fd369c16@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->> Will it matter here if the function "kfree" will be called for the
->> data structure members "bcs" and "inbuf" after a later function call
->> failed within the implementation of "gigaset_initcs"?
-> 
-> My translation of this question is: could you please hold my hand while
-> I read the code of a driver I do not use - a driver for hardware that I
-> don't even have, and therefor cannot really test - after I submitted a
-> patch that appears to be broken?
+> Please just use do_div here and go back to the first version of the
+> patch. Variable names could be more aligned with the RFC maybe?
 
-I got the impression that the exception handling  was incomplete in the
-implementation of the function "gigaset_initcs".
-Does anybody (besides me) care for improving the software situation there?
+So I tried:
 
+static inline s32 rfc3315_s14_backoff_init(s32 irt)
+ {
+       /* multiply 'initial retransmission time' by 0.9 .. 1.1 */
+       u64 tmp = (900000 + prandom_u32() % 200001) * (u64)irt;
+       do_div(tmp, 1000000);
+       return (s32)tmp;
+ }
 
-> My answer to that question is: no, sorry, I won't do that.
+static inline s32 rfc3315_s14_backoff_update(s32 rt, s32 mrt)
+ {
+       /* multiply 'retransmission timeout' by 1.9 .. 2.1 */
+       u64 tmp = (1900000 + prandom_u32() % 200001) * (u64)rt;
+       do_div(tmp, 1000000);
+       if ((s32)tmp > mrt) {
+               /* multiply 'maximum retransmission time' by 0.9 .. 1.1 */
+               tmp = (900000 + prandom_u32() % 200001) * (u64)mrt;
+               do_div(tmp, 1000000);
+        }
+       return (s32)tmp;
+}
 
-I find that the process has just started once more to clarify in which
-directions this software module could evolve.
+but then building for i386 I get:
 
-Do we discuss a potential memory leak under special conditions here?
+ERROR: "__udivdi3" [net/netfilter/xt_hashlimit.ko] undefined!
 
-Regards,
-Markus
+which happens even at net-next/master itself.
+
+Anyway, I'll resubmit assuming the above is what you're looking for...
