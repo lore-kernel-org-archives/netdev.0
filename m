@@ -1,108 +1,90 @@
-From: "R. Parameswaran" <parameswaran.r7@gmail.com>
-Subject: Re: [PATCH net v2] L2TP:Adjust intf MTU,factor underlay L3,overlay
- L2
-Date: Tue, 27 Sep 2016 12:17:21 -0700 (PDT)
-Message-ID: <alpine.DEB.2.11.1609271210350.25517@duvvury48.eng.vyatta.net>
-References: <alpine.DEB.2.11.1609221341500.6975@duvvury30.eng.vyatta.net> <20160927.033153.1066118008027608891.davem@davemloft.net>
+From: pravin shelar <pshelar@ovn.org>
+Subject: Re: [PATCH net] net: skbuff: Fix incorrect skb->mac_len adjustment in skb_vlan_push()
+Date: Tue, 27 Sep 2016 13:04:35 -0700
+Message-ID: <CAOrHB_C6H8AqqfLDvj296LnnLC7dLX5724cxGXujLTbgSBf50A@mail.gmail.com>
+References: <1474997505-5059-1-git-send-email-shmulik.ladkani@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: parameswaran.r7@gmail.com, kleptog@svana.org, jchapman@katalix.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        nprachan@brocade.com, rshearma@brocade.com, dfawcus@brocade.com,
-        stephen@networkplumber.org, acme@redhat.com, lboccass@brocade.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160927.033153.1066118008027608891.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay3-d.mail.gandi.net ([217.70.183.195]:51224 "EHLO
+        relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933331AbcI0UEj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 16:04:39 -0400
+Received: from mfilter17-d.gandi.net (mfilter17-d.gandi.net [217.70.178.145])
+        by relay3-d.mail.gandi.net (Postfix) with ESMTP id 521C7A80C8
+        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 22:04:38 +0200 (CEST)
+Received: from relay3-d.mail.gandi.net ([IPv6:::ffff:217.70.183.195])
+        by mfilter17-d.gandi.net (mfilter17-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+        with ESMTP id o8Z0lnLeiK_o for <netdev@vger.kernel.org>;
+        Tue, 27 Sep 2016 22:04:36 +0200 (CEST)
+Received: from mail-it0-f52.google.com (mail-it0-f52.google.com [209.85.214.52])
+        (Authenticated sender: pshelar@ovn.org)
+        by relay3-d.mail.gandi.net (Postfix) with ESMTPSA id AFF52A80CE
+        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 22:04:36 +0200 (CEST)
+Received: by mail-it0-f52.google.com with SMTP id j69so25096367itb.0
+        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 13:04:36 -0700 (PDT)
+In-Reply-To: <1474997505-5059-1-git-send-email-shmulik.ladkani@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, Sep 27, 2016 at 10:31 AM, Shmulik Ladkani
+<shmulik.ladkani@gmail.com> wrote:
+> In case 'skb_vlan_push' is called on an skb with a hw-accel vlan tag
+> already present, the existing hw-accel tag is inserted into payload, and
+> the new given tag is placed as new hw-accel tag.
+>
+> After the insertion:
+>  - 'mac_header' is adjusted to point to the new start of the vlan_ethhdr
+>  - 'data' is adjusted to point to the vlan_hdr portion
+>    (since packet's payload is the inner 802.1q)
+>
+> However, 'mac_len' is incorrectly incremented with additional VLAN_HLEN
+> bytes, resulting in a total value of 18 bytes.
+>
+> Meaning, when issuing 'skb_push(skb, skb->mac_len)' the data points
+> to random content, 4 bytes PRIOR the ethhdr location.
+>
+> This is problematic, as many constructs in the stack are issuing
+> 'skb_push(skb, skb->mac_len)' prior xmit to a device (e.g tcf_mirred,
+> tcf_bpf, nf_dup_netdev_egress), resulting in bogus frames being
+> xmitted (having random 4 bytes at start of frame).
+>
+> For example:
+>
+>  # ip l add dev d0 type dummy
+>  # tc filter add dev eth0 parent ffff: pref 1 basic \
+>      action vlan push protocol 802.1ad id 5 pipe \
+>      action mirred egress redirect dev d0
+>
+> Any 802.1q (hw-accel) tagged frames arriving on eth0 are xmitted as
+> bogus frames on d0; whereas the expected behavior is having QinQ frames.
+>
+> Fix, removing the unnecessary VLAN_HLEN adjustment of mac_len.
+>
+> Fixes: 93515d53b1 ("net: move vlan pop/push functions into common code")
+> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+> Cc: Pravin Shelar <pshelar@ovn.org>
+> Cc: Jiri Pirko <jiri@mellanox.com>
+> ---
+>
+>  - David, if patch ok, suggest this goes to -stable
+>
+>  - Pravin, original push_vlan() code in openvswitch/actions.c prior Jiri
+>    has moved it into skbuff.c had the following comment:
+>         /* Update mac_len for subsequent MPLS actions */
+>         skb->mac_len += VLAN_HLEN;
+>    Can you please acknowlegde OvS code is also ok with suggested change?
+>
 
-Hi David,
-
-Thanks for the reply, please see inline:
-
-On Tue, 27 Sep 2016, David Miller wrote:
-
-> From: "R. Parameswaran" <parameswaran.r7@gmail.com>
-> Date: Thu, 22 Sep 2016 13:52:43 -0700 (PDT)
-> 
-> > From ed585bdd6d3d2b3dec58d414f514cd764d89159d Mon Sep 17 00:00:00 2001
-> > From: "R. Parameswaran" <rparames@brocade.com>
-> > Date: Thu, 22 Sep 2016 13:19:25 -0700
-> > Subject: [PATCH] L2TP:Adjust intf MTU,factor underlay L3,overlay L2
-> > 
-> > Take into account all of the tunnel encapsulation headers when setting
-> > up the MTU on the L2TP logical interface device. Otherwise, packets
-> > created by the applications on top of the L2TP layer are larger
-> > than they ought to be, relative to the underlay MTU, leading to
-> > needless fragmentation once the outer IP encap is added.
-> > 
-> > Specifically, take into account the (outer, underlay) IP header
-> > imposed on the encapsulated L2TP packet, and the Layer 2 header
-> > imposed on the inner IP packet prior to L2TP encapsulation.
-> > 
-> > Do not assume an Ethernet (non-jumbo) underlay. Use the PMTU mechanism
-> > and the dst entry in the L2TP tunnel socket to directly pull up
-> > the underlay MTU (as the baseline number on top of which the
-> > encapsulation headers are factored in).  Fall back to Ethernet MTU
-> > if this fails.
-> > 
-> > Signed-off-by: R. Parameswaran <rparames@brocade.com>
-> > 
-> > Reviewed-by: "N. Prachanda" <nprachan@brocade.com>,
-> > Reviewed-by: "R. Shearman" <rshearma@brocade.com>,
-> > Reviewed-by: "D. Fawcus" <dfawcus@brocade.com>
-> 
-> I have to ask, how do other tunnels over UDP such as VXLAN handle
-> this problem?
-> 
-
-Specific to Vxlan, it appears to behave similarly.  I haven't functionally 
-tested fragmentation on vxlan interfaces, but looking at the
-code, it seems to account for the headers involved:
-
-
-When the vxlan interface is created, from vxlan_dev_create(), in 
-vxlan_setup(), it initially starts off with an ethernet MTU:
-
-vxlan_setup(struct net_device *dev)
-{
-...
-...
-        ether_setup(dev); <<<<<<< Will set device MTU to 1500
-
-
-Later, in vxlan_dev_configure(), called from vxlan_dev_create(), it gets 
-adjusted to account for the headers:
-
-vxlan_dev_configure():
-...
- if (!conf->mtu)
-                        dev->mtu = lowerdev->mtu - (use_ipv6 ? 
-VXLAN6_HEADROOM : VXLAN_HEADROOM);
-
-
-where VXLAN_HEADROOM is defined as follows: 
-
-/* IP header + UDP + VXLAN + Ethernet header */
-#define VXLAN_HEADROOM (20 + 8 + 8 + 14)
-/* IPv6 header + UDP + VXLAN + Ethernet header */
-#define VXLAN6_HEADROOM (40 + 8 + 8 + 14)
-
-
-This seems to match what I see with hand config:
-
-sudo ip link add vxlan0 type vxlan id 42 group 239.1.1.1 dev eth0 dstport 
-4789 <<<< (eth0 has an MTU of 1500)
-
-
-sudo ip -d link show vxlan0
-36: vxlan0: <BROADCAST,MULTICAST> mtu 1450 qdisc noop state DOWN mode 
-DEFAULT group default <<<< (1450 = 1500 -50)
-    link/ether e2:b8:2d:f4:f7:ae brd ff:ff:ff:ff:ff:ff promiscuity 0
-    vxlan id 42 group 239.1.1.1 dev eth0 srcport 32768 61000 dstport 4789 
-ageing 300
-
-thanks,
-
-Ramkumar
+OVS MPLS does depends on mac-len to track MPLS header (ref
+skb_mpls_header()). Therefore vlan header changes needs to update
+mac-len. But after commit 48d2ab609b6bb ("net: mpls: Fixups for GSO")
+it does not need to use mac-len to track MPLS header.
+To keep simple fix for stable, we can move the skb mac-len adjustment
+to OVS module. Later on patch can remove this MPLS dependency on
+mac-len for net-next branch.
