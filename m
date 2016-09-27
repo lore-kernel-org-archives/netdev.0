@@ -1,60 +1,66 @@
-From: Nicholas Piggin <npiggin@gmail.com>
-Subject: Re: [PATCH] fs/select: add vmalloc fallback for select(2)
-Date: Tue, 27 Sep 2016 21:24:58 +1000
-Message-ID: <20160927212458.3ab42b41@roar.ozlabs.ibm.com>
-References: <20160922152831.24165-1-vbabka@suse.cz>
-	<006101d21565$b60a8a70$221f9f50$@alibaba-inc.com>
-	<20160923172434.7ad8f2e0@roar.ozlabs.ibm.com>
-	<57E55CBB.5060309@akamai.com>
-	<5014387d-43da-03f6-a74b-2dc4fbf4fe32@suse.cz>
+From: Arend Van Spriel <arend.vanspriel@broadcom.com>
+Subject: Re: [PATCH] brcmfmac: replace WARNING on timeout with a simple error
+ message
+Date: Tue, 27 Sep 2016 13:25:33 +0200
+Message-ID: <a084ce54-9b96-fbdc-34b1-7c6429bed24e@broadcom.com>
+References: <20160927101224.3534-1-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jason Baron <jbaron@akamai.com>, Hillf Danton
- <hillf.zj@alibaba-inc.com>, 'Alexander Viro' <viro@zeniv.linux.org.uk>,
- linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
- linux-mm@kvack.org, 'Michal Hocko' <mhocko@kernel.org>,
- netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
-To: Vlastimil Babka <vbabka@suse.cz>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <5014387d-43da-03f6-a74b-2dc4fbf4fe32@suse.cz>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Franky Lin <franky.lin@broadcom.com>,
+        Hante Meuleman <hante.meuleman@broadcom.com>,
+        Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
+        Franky Lin <frankyl@broadcom.com>,
+        linux-wireless@vger.kernel.org,
+        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal@milecki.pl>
+To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
+        Kalle Valo <kvalo@codeaurora.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:36376 "EHLO
+        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753702AbcI0LZz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 07:25:55 -0400
+Received: by mail-pf0-f176.google.com with SMTP id q2so4989541pfj.3
+        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 04:25:54 -0700 (PDT)
+In-Reply-To: <20160927101224.3534-1-zajec5@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 27 Sep 2016 10:44:04 +0200
-Vlastimil Babka <vbabka@suse.cz> wrote:
-
-> On 09/23/2016 06:47 PM, Jason Baron wrote:
-> > Hi,
-> >
-> > On 09/23/2016 03:24 AM, Nicholas Piggin wrote:  
-> >> On Fri, 23 Sep 2016 14:42:53 +0800
-> >> "Hillf Danton" <hillf.zj@alibaba-inc.com> wrote:
-> >>  
-> >>>>
-> >>>> The select(2) syscall performs a kmalloc(size, GFP_KERNEL) where size grows
-> >>>> with the number of fds passed. We had a customer report page allocation
-> >>>> failures of order-4 for this allocation. This is a costly order, so it might
-> >>>> easily fail, as the VM expects such allocation to have a lower-order fallback.
-> >>>>
-> >>>> Such trivial fallback is vmalloc(), as the memory doesn't have to be
-> >>>> physically contiguous. Also the allocation is temporary for the duration of the
-> >>>> syscall, so it's unlikely to stress vmalloc too much.
-> >>>>
-> >>>> Note that the poll(2) syscall seems to use a linked list of order-0 pages, so
-> >>>> it doesn't need this kind of fallback.  
-> >>
-> >> How about something like this? (untested)  
+On 27-9-2016 12:12, Rafał Miłecki wrote:
+> From: Rafał Miłecki <rafal@milecki.pl>
 > 
-> This pushes the limit further, but might just delay the problem. Could be an 
-> optimization on top if there's enough interest, though.
+> Even with timeout increased to 950 ms we get WARNINGs from time to time.
+> It mostly happens on A-MPDU stalls (e.g. when station goes out of
+> range). It may take up to 5-10 secods for the firmware to recover and
+> for that time it doesn't process packets.
+> 
+> It's still useful to have a message on time out as it may indicate some
+> firmware problem and incorrect key update. Raising a WARNING however
+> wasn't really that necessary, it doesn't point to any driver bug anymore
+> and backtrace wasn't much useful.
 
-What's your customer doing with those selects? If they care at all about
-performance, I doubt they want select to attempt order-4 allocations, fail,
-then use vmalloc :)
+Indeed the interesting part would be in another context. So:
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Acked-by: Arend van Spriel <arend.vanspriel@broadcom.com>
+> Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
+> ---
+>  drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
+> index 6d046ba..9e6f60a 100644
+> --- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
+> +++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
+> @@ -1161,7 +1161,8 @@ int brcmf_netdev_wait_pend8021x(struct brcmf_if *ifp)
+>  				 !brcmf_get_pend_8021x_cnt(ifp),
+>  				 MAX_WAIT_FOR_8021X_TX);
+>  
+> -	WARN_ON(!err);
+> +	if (!err)
+> +		brcmf_err("Timed out waiting for no pending 802.1x packets\n");
+>  
+>  	return !err;
+>  }
+> 
