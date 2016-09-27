@@ -1,8 +1,8 @@
 From: Zach Brown <zach.brown@ni.com>
-Subject: [RFC v2 4/4] phy,
- leds: add support for led triggers on phy link state change
-Date: Tue, 27 Sep 2016 16:51:51 -0500
-Message-ID: <1475013111-18942-5-git-send-email-zach.brown@ni.com>
+Subject: [RFC v2 1/4] skge: Change LED_OFF to LED_REG_OFF in marvel skge
+ driver to avoid conflicts with leds namespace
+Date: Tue, 27 Sep 2016 16:51:48 -0500
+Message-ID: <1475013111-18942-2-git-send-email-zach.brown@ni.com>
 References: <1475013111-18942-1-git-send-email-zach.brown@ni.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,325 +24,54 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-From: Josh Cartwright <josh.cartwright@ni.com>
+Adding led support for phy causes namespace conflicts for some
+phy drivers.
 
-Create an option CONFIG_LED_TRIGGER_PHY (default n), which will
-create a set of led triggers for each instantiated PHY device.  There is
-one LED trigger per link-speed, per-phy.
+The marvel skge driver declared an enum for representing the states of
+Link LED Register. The enum contained constant LED_OFF which conflicted
+with declartation found in linux/leds.h.
+LED_OFF changed to LED_REG_OFF
 
-This allows for a user to configure their system to allow a set of LEDs
-to represent link state changes on the phy.
-
-Signed-off-by: Josh Cartwright <josh.cartwright@ni.com>
-Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
 Signed-off-by: Zach Brown <zach.brown@ni.com>
 ---
- drivers/net/phy/Kconfig            |  13 +++-
- drivers/net/phy/Makefile           |   1 +
- drivers/net/phy/phy.c              |   1 +
- drivers/net/phy/phy_device.c       |   4 ++
- drivers/net/phy/phy_led_triggers.c | 121 +++++++++++++++++++++++++++++++++++++
- include/linux/phy.h                |   9 +++
- include/linux/phy_led_triggers.h   |  52 ++++++++++++++++
- 7 files changed, 200 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/phy/phy_led_triggers.c
- create mode 100644 include/linux/phy_led_triggers.h
+ drivers/net/ethernet/marvell/skge.c | 4 ++--
+ drivers/net/ethernet/marvell/skge.h | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 1c3e07c..f233625 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -25,6 +25,18 @@ config MDIO_BCM_IPROC
- 	  This module provides a driver for the MDIO busses found in the
- 	  Broadcom iProc SoC's.
+diff --git a/drivers/net/ethernet/marvell/skge.c b/drivers/net/ethernet/marvell/skge.c
+index 7173836..ff5a087 100644
+--- a/drivers/net/ethernet/marvell/skge.c
++++ b/drivers/net/ethernet/marvell/skge.c
+@@ -1062,7 +1062,7 @@ static void skge_link_up(struct skge_port *skge)
  
-+config LED_TRIGGER_PHY
-+	bool "Support LED triggers for tracking link state"
-+	depends on LEDS_TRIGGERS
-+	---help---
-+	  Adds support for a set of LED trigger events per-PHY.  Link
-+	  state change will trigger the events, for consumption by an
-+	  LED class driver.  There are triggers for each link speed,
-+	  and are of the form:
-+	       <mii bus id>:<phy>:<speed>
-+
-+	  Where speed is one of: 10Mbps, 100Mbps, 1Gbps, 2.5Gbps, or 10Gbps.
-+
- config MDIO_BCM_UNIMAC
- 	tristate "Broadcom UniMAC MDIO bus controller"
- 	depends on HAS_IOMEM
-@@ -40,7 +52,6 @@ config MDIO_BITBANG
- 	  This module implements the MDIO bus protocol in software,
- 	  for use by low level drivers that export the ability to
- 	  drive the relevant pins.
--
- 	  If in doubt, say N.
- 
- config MDIO_BUS_MUX
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index e58667d..86d12cd 100644
---- a/drivers/net/phy/Makefile
-+++ b/drivers/net/phy/Makefile
-@@ -2,6 +2,7 @@
- 
- libphy-y			:= phy.o phy_device.o mdio_bus.o mdio_device.o
- libphy-$(CONFIG_SWPHY)		+= swphy.o
-+libphy-$(CONFIG_LED_TRIGGER_PHY)	+= phy_led_triggers.o
- 
- obj-$(CONFIG_PHYLIB)		+= libphy.o
- 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index f5721db..e5f9fee7 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -896,6 +896,7 @@ EXPORT_SYMBOL(phy_start);
- static void phy_adjust_link(struct phy_device *phydev)
+ static void skge_link_down(struct skge_port *skge)
  {
- 	phydev->adjust_link(phydev->attached_dev);
-+	phy_led_trigger_change_speed(phydev);
- }
+-	skge_write8(skge->hw, SK_REG(skge->port, LNK_LED_REG), LED_OFF);
++	skge_write8(skge->hw, SK_REG(skge->port, LNK_LED_REG), LED_REG_OFF);
+ 	netif_carrier_off(skge->netdev);
+ 	netif_stop_queue(skge->netdev);
  
- /**
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index e977ba9..4671c13 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -30,6 +30,7 @@
- #include <linux/mii.h>
- #include <linux/ethtool.h>
- #include <linux/phy.h>
-+#include <linux/phy_led_triggers.h>
- #include <linux/mdio.h>
- #include <linux/io.h>
- #include <linux/uaccess.h>
-@@ -57,6 +58,7 @@ static void phy_mdio_device_free(struct mdio_device *mdiodev)
+@@ -2668,7 +2668,7 @@ static int skge_down(struct net_device *dev)
+ 	if (hw->ports == 1)
+ 		free_irq(hw->pdev->irq, hw);
  
- static void phy_device_release(struct device *dev)
- {
-+	phy_led_triggers_unregister(to_phy_device(dev));
- 	kfree(to_phy_device(dev));
- }
+-	skge_write8(skge->hw, SK_REG(skge->port, LNK_LED_REG), LED_OFF);
++	skge_write8(skge->hw, SK_REG(skge->port, LNK_LED_REG), LED_REG_OFF);
+ 	if (is_genesis(hw))
+ 		genesis_stop(skge);
+ 	else
+diff --git a/drivers/net/ethernet/marvell/skge.h b/drivers/net/ethernet/marvell/skge.h
+index a2eb341..ec054d3 100644
+--- a/drivers/net/ethernet/marvell/skge.h
++++ b/drivers/net/ethernet/marvell/skge.h
+@@ -663,7 +663,7 @@ enum {
+ 	LED_SYNC_ON	= 1<<3,	/* Use Sync Wire to switch LED */
+ 	LED_SYNC_OFF	= 1<<2,	/* Disable Sync Wire Input */
+ 	LED_ON	= 1<<1,	/* switch LED on */
+-	LED_OFF	= 1<<0,	/* switch LED off */
++	LED_REG_OFF	= 1<<0,	/* switch LED off */
+ };
  
-@@ -345,6 +347,8 @@ struct phy_device *phy_device_create(struct mii_bus *bus, int addr, int phy_id,
- 
- 	dev->state = PHY_DOWN;
- 
-+	phy_led_triggers_register(dev);
-+
- 	mutex_init(&dev->lock);
- 	INIT_DELAYED_WORK(&dev->state_queue, phy_state_machine);
- 	INIT_WORK(&dev->phy_queue, phy_change);
-diff --git a/drivers/net/phy/phy_led_triggers.c b/drivers/net/phy/phy_led_triggers.c
-new file mode 100644
-index 0000000..32326d7
---- /dev/null
-+++ b/drivers/net/phy/phy_led_triggers.c
-@@ -0,0 +1,121 @@
-+/* Copyright (C) 2016 National Instruments Corp.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+  * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+#include <linux/leds.h>
-+#include <linux/phy.h>
-+#include <linux/netdevice.h>
-+
-+static struct phy_led_trigger *phy_speed_to_led_trigger(struct phy_device *phy,
-+							unsigned int speed)
-+{
-+	switch (speed) {
-+	case SPEED_10:
-+		return &phy->phy_led_trigger[0];
-+	case SPEED_100:
-+		return &phy->phy_led_trigger[1];
-+	case SPEED_1000:
-+		return &phy->phy_led_trigger[2];
-+	case SPEED_2500:
-+		return &phy->phy_led_trigger[3];
-+	case SPEED_10000:
-+		return &phy->phy_led_trigger[4];
-+	default:
-+		return NULL;
-+	}
-+}
-+
-+void phy_led_trigger_change_speed(struct phy_device *phy)
-+{
-+	struct phy_led_trigger *plt;
-+
-+	if (!phy->link)
-+		goto out_change_speed;
-+
-+	if (phy->speed == 0)
-+		return;
-+
-+	plt = phy_speed_to_led_trigger(phy, phy->speed);
-+	if (!plt) {
-+		netdev_alert(phy->attached_dev,
-+			     "Unsupported trigger speed %u (update phy_led_trigger.c)\n",
-+			     phy->speed);
-+		goto out_change_speed;
-+	}
-+
-+	if (plt != phy->last_triggered) {
-+		led_trigger_event(&phy->last_triggered->trigger, LED_OFF);
-+		led_trigger_event(&plt->trigger, LED_FULL);
-+		phy->last_triggered = plt;
-+	}
-+	return;
-+
-+out_change_speed:
-+	if (phy->last_triggered) {
-+		led_trigger_event(&phy->last_triggered->trigger,
-+				  LED_OFF);
-+		phy->last_triggered = NULL;
-+	}
-+}
-+EXPORT_SYMBOL_GPL(phy_led_trigger_change_speed);
-+
-+static int phy_led_trigger_register(struct phy_device *phy,
-+				    struct phy_led_trigger *plt, int i)
-+{
-+	static const char * const name_suffix[] = {
-+		"10Mbps",
-+		"100Mbps",
-+		"1Gbps",
-+		"2.5Gbps",
-+		"10Gbps",
-+	};
-+	snprintf(plt->name, sizeof(plt->name), PHY_ID_FMT ":%s",
-+		 phy->mdio.bus->id, phy->mdio.addr, name_suffix[i]);
-+	plt->trigger.name = plt->name;
-+	return led_trigger_register(&plt->trigger);
-+}
-+
-+static void phy_led_trigger_unregister(struct phy_led_trigger *plt)
-+{
-+	led_trigger_unregister(&plt->trigger);
-+}
-+
-+int phy_led_triggers_register(struct phy_device *phy)
-+{
-+	int i, err;
-+
-+	for (i = 0; i < ARRAY_SIZE(phy->phy_led_trigger); i++) {
-+		err = phy_led_trigger_register(phy, &phy->phy_led_trigger[i],
-+					       i);
-+		if (err)
-+			goto out_unreg;
-+	}
-+
-+	phy->last_triggered = NULL;
-+	phy_led_trigger_change_speed(phy);
-+
-+	return 0;
-+
-+out_unreg:
-+	while (i--)
-+		phy_led_trigger_unregister(&phy->phy_led_trigger[i]);
-+	return err;
-+}
-+EXPORT_SYMBOL_GPL(phy_led_triggers_register);
-+
-+void phy_led_triggers_unregister(struct phy_device *phy)
-+{
-+	int i;
-+
-+	for (i = 0; i < ARRAY_SIZE(phy->phy_led_trigger); i++)
-+		phy_led_trigger_unregister(&phy->phy_led_trigger[i]);
-+}
-+EXPORT_SYMBOL_GPL(phy_led_triggers_unregister);
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 2d24b28..32a756b 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -25,6 +25,7 @@
- #include <linux/timer.h>
- #include <linux/workqueue.h>
- #include <linux/mod_devicetable.h>
-+#include <linux/phy_led_triggers.h>
- 
- #include <linux/atomic.h>
- 
-@@ -402,6 +403,14 @@ struct phy_device {
- 
- 	int link_timeout;
- 
-+#ifdef CONFIG_LED_TRIGGER_PHY
-+	/*
-+	 * A led_trigger per SPEED_*
-+	 */
-+	struct phy_led_trigger phy_led_trigger[PHY_LINK_LED_MAX_TRIGGERS];
-+	struct phy_led_trigger *last_triggered;
-+#endif
-+
- 	/*
- 	 * Interrupt number for this PHY
- 	 * -1 means no interrupt
-diff --git a/include/linux/phy_led_triggers.h b/include/linux/phy_led_triggers.h
-new file mode 100644
-index 0000000..dfea5d6
---- /dev/null
-+++ b/include/linux/phy_led_triggers.h
-@@ -0,0 +1,52 @@
-+/* Copyright (C) 2016 National Instruments Corp.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+#ifndef __PHY_LED_TRIGGERS
-+#define __PHY_LED_TRIGGERS
-+
-+struct phy_device;
-+
-+#ifdef CONFIG_LED_TRIGGER_PHY
-+
-+#include <linux/leds.h>
-+#include <linux/phy.h>
-+
-+#define PHY_LINK_LED_MAX_TRIGGERS	5
-+#define PHY_LED_TRIGGER_SPEED_SUFFIX_SIZE	7
-+#define PHY_MII_BUS_ID_SIZE	(20 - 3)
-+
-+#define PHY_LINK_LED_TRIGGER_NAME_SIZE (PHY_MII_BUS_ID_SIZE + \
-+				       FIELD_SIZEOF(struct mdio_device, addr)+\
-+				       PHY_LED_TRIGGER_SPEED_SUFFIX_SIZE)
-+
-+struct phy_led_trigger {
-+	struct led_trigger trigger;
-+	char name[PHY_LINK_LED_TRIGGER_NAME_SIZE];
-+};
-+
-+
-+extern int phy_led_triggers_register(struct phy_device *phy);
-+extern void phy_led_triggers_unregister(struct phy_device *phy);
-+extern void phy_led_trigger_change_speed(struct phy_device *phy);
-+
-+#else
-+
-+static inline int phy_led_triggers_register(struct phy_device *phy)
-+{
-+	return 0;
-+}
-+static inline void phy_led_triggers_unregister(struct phy_device *phy) { }
-+static inline void phy_led_trigger_change_speed(struct phy_device *phy) { }
-+
-+#endif
-+
-+#endif
+ /* Receive GMAC FIFO (YUKON) */
 -- 
 2.7.4
