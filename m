@@ -1,26 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 5/5] ISDN-Gigaset: Enclose two expressions for the
- sizeof operator by parentheses
-Date: Mon, 26 Sep 2016 20:10:37 -0400 (EDT)
-Message-ID: <20160926.201037.1525211304203135037.davem@davemloft.net>
-References: <063D6719AE5E284EB5DD2968C1650D6DB0109E63@AcuExch.aculab.com>
-        <1474907003.2238.13.camel@perches.com>
-        <f9dd122f-b0ed-0398-2a13-4d31693356fa@users.sourceforge.net>
+Subject: Re: [PATCH] net: tg3: use new api ethtool_{get|set}_link_ksettings
+Date: Mon, 26 Sep 2016 20:17:33 -0400 (EDT)
+Message-ID: <20160926.201733.2276112302187319503.davem@davemloft.net>
+References: <1474839084-10883-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, David.Laight@ACULAB.COM,
-        gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
-        isdn@linux-pingi.de, pebolle@tiscali.nl,
-        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-        julia.lawall@lip6.fr
-To: elfring@users.sourceforge.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <f9dd122f-b0ed-0398-2a13-4d31693356fa@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: siva.kallam@broadcom.com, prashant@broadcom.com,
+        mchan@broadcom.com, f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: tremyfr@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:40616 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753844AbcI0ARk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 20:17:40 -0400
+In-Reply-To: <1474839084-10883-1-git-send-email-tremyfr@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Philippe Reynes <tremyfr@gmail.com>
+Date: Sun, 25 Sep 2016 23:31:24 +0200
 
-When you need to make changes to patches that are part of a series,
-you must resubmit the entire series, not just the things that
-are changes.
+> The ethtool api {get|set}_settings is deprecated.
+> We move this driver to new api {get|set}_link_ksettings.
+> 
+> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+
+Applied, thanks.
