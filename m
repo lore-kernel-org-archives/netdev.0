@@ -1,76 +1,46 @@
-From: Vlastimil Babka <vbabka@suse.cz>
-Subject: Re: [PATCH v2] fs/select: add vmalloc fallback for select(2)
-Date: Tue, 27 Sep 2016 10:06:24 +0200
-Message-ID: <91be8fd4-6600-d58d-d77a-d06ebed79f7e@suse.cz>
-References: <20160922164359.9035-1-vbabka@suse.cz>
- <20160926170105.517f74cd67ecdd5ef73e1865@linux-foundation.org>
+From: Shmulik Ladkani <shmulik.ladkani@ravellosystems.com>
+Subject: Re: [PATCH net-next 4/4] net/sched: act_mirred: Implement ingress
+ actions
+Date: Tue, 27 Sep 2016 11:07:11 +0300
+Message-ID: <20160927110711.12555f4e@pixies>
+References: <1474550512-7552-1-git-send-email-shmulik.ladkani@gmail.com>
+        <1474550512-7552-5-git-send-email-shmulik.ladkani@gmail.com>
+        <20160927.015606.437705429903770747.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Alexander Viro <viro@zeniv.linux.org.uk>, linux-fsdevel@vger.kernel.org,
- linux-kernel@vger.kernel.org, linux-mm@kvack.org,
- Michal Hocko <mhocko@kernel.org>, netdev@vger.kernel.org,
- Eric Dumazet <eric.dumazet@gmail.com>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20160926170105.517f74cd67ecdd5ef73e1865@linux-foundation.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: jhs@mojatatu.com, xiyou.wangcong@gmail.com, edumazet@google.com,
+        netdev@vger.kernel.org, shmulik.ladkani@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f181.google.com ([209.85.220.181]:35201 "EHLO
+        mail-qk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754133AbcI0IH2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 04:07:28 -0400
+Received: by mail-qk0-f181.google.com with SMTP id t7so8189393qkh.2
+        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 01:07:28 -0700 (PDT)
+In-Reply-To: <20160927.015606.437705429903770747.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/27/2016 02:01 AM, Andrew Morton wrote:
-> On Thu, 22 Sep 2016 18:43:59 +0200 Vlastimil Babka <vbabka@suse.cz> wrote:
->
->> The select(2) syscall performs a kmalloc(size, GFP_KERNEL) where size grows
->> with the number of fds passed. We had a customer report page allocation
->> failures of order-4 for this allocation. This is a costly order, so it might
->> easily fail, as the VM expects such allocation to have a lower-order fallback.
->>
->> Such trivial fallback is vmalloc(), as the memory doesn't have to be
->> physically contiguous. Also the allocation is temporary for the duration of the
->> syscall, so it's unlikely to stress vmalloc too much.
->>
->> Note that the poll(2) syscall seems to use a linked list of order-0 pages, so
->> it doesn't need this kind of fallback.
->>
->> ...
->>
->> --- a/fs/select.c
->> +++ b/fs/select.c
->> @@ -29,6 +29,7 @@
->>  #include <linux/sched/rt.h>
->>  #include <linux/freezer.h>
->>  #include <net/busy_poll.h>
->> +#include <linux/vmalloc.h>
->>
->>  #include <asm/uaccess.h>
->>
->> @@ -558,6 +559,7 @@ int core_sys_select(int n, fd_set __user *inp, fd_set __user *outp,
->>  	struct fdtable *fdt;
->>  	/* Allocate small arguments on the stack to save memory and be faster */
->>  	long stack_fds[SELECT_STACK_ALLOC/sizeof(long)];
->> +	unsigned long alloc_size;
->>
->>  	ret = -EINVAL;
->>  	if (n < 0)
->> @@ -580,8 +582,12 @@ int core_sys_select(int n, fd_set __user *inp, fd_set __user *outp,
->>  	bits = stack_fds;
->>  	if (size > sizeof(stack_fds) / 6) {
->>  		/* Not enough space in on-stack array; must use kmalloc */
->> +		alloc_size = 6 * size;
->
-> Well.  `size' is `unsigned'.  The multiplication will be done as 32-bit
-> so there was no point in making `alloc_size' unsigned long.
+Hi David,
 
-Uh, right. Thanks.
+On Tue, 27 Sep 2016 01:56:06 -0400 (EDT), davem@davemloft.net wrote:
+> The discussion on this patch has ventured off into what to do about
+> recursion.
+> 
+> But it unclear to me where this specific patch, and this series,
+> stands right now.  Someone please clear this up for me.
 
-> So can we tighten up the types in this function?  size_t might make
-> sense, but vmalloc() takes a ulong.
+Status:
+ - Series adds "ingress redirect/mirror" support
+ - Positive feedback for the feature
+ - So far no comments regarding code itself
+ - Questions raised regarding "recursion handling"
+   Expressed that existing mirred code (i.e egress redirect) is *already*
+   loop-unsafe (and also, some non-tc netdev constructs, as exampled by
+   others).
+   Discussion then wandered to "recursion handling".
 
-Let's do size_t then, as the conversion to ulong is safe.
-
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Regards,
+Shmulik	
