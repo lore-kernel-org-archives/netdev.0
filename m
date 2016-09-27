@@ -1,35 +1,48 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>
-Subject: Re: [PATCH v5 3/7] ipv6 addrconf: rtr_solicits == -1 means unlimited
-Date: Tue, 27 Sep 2016 19:39:24 +0900
-Message-ID: <CANP3RGd9KguL9__r+EbiJFOsLD=Z+of+R5z-sRPXEu8jhS6DUA@mail.gmail.com>
-References: <CANP3RGfHPZLHFnp4Rq8_dRNCro6Uh8O8767NgoGu7gvzu5h9BQ@mail.gmail.com>
- <1474969963-17402-1-git-send-email-zenczykowski@gmail.com>
- <1474969963-17402-4-git-send-email-zenczykowski@gmail.com> <fb240cbb-09ab-69c4-2b4c-44a50e5a308c@miraclelinux.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 4/4] net/sched: act_mirred: Implement ingress
+ actions
+Date: Tue, 27 Sep 2016 12:39:34 +0200
+Message-ID: <57EA4C66.8070907@iogearbox.net>
+References: <1474550512-7552-1-git-send-email-shmulik.ladkani@gmail.com>        <1474550512-7552-5-git-send-email-shmulik.ladkani@gmail.com>        <20160927.015606.437705429903770747.davem@davemloft.net> <20160927110711.12555f4e@pixies>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Linux NetDev <netdev@vger.kernel.org>,
-        Erik Kline <ek@google.com>,
-        Lorenzo Colitti <lorenzo@google.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jhs@mojatatu.com, xiyou.wangcong@gmail.com, edumazet@google.com,
+        netdev@vger.kernel.org, shmulik.ladkani@gmail.com
+To: Shmulik Ladkani <shmulik.ladkani@ravellosystems.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f171.google.com ([209.85.161.171]:35146 "EHLO
-        mail-yw0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753411AbcI0Kj0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 06:39:26 -0400
-Received: by mail-yw0-f171.google.com with SMTP id i129so4650231ywe.2
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 03:39:26 -0700 (PDT)
-In-Reply-To: <fb240cbb-09ab-69c4-2b4c-44a50e5a308c@miraclelinux.com>
+Received: from www62.your-server.de ([213.133.104.62]:50978 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753244AbcI0Kji (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 06:39:38 -0400
+In-Reply-To: <20160927110711.12555f4e@pixies>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-That wouldn't really simplify much.
+On 09/27/2016 10:07 AM, Shmulik Ladkani wrote:
+> Hi David,
+>
+> On Tue, 27 Sep 2016 01:56:06 -0400 (EDT), davem@davemloft.net wrote:
+>> The discussion on this patch has ventured off into what to do about
+>> recursion.
+>>
+>> But it unclear to me where this specific patch, and this series,
+>> stands right now.  Someone please clear this up for me.
+>
+> Status:
+>   - Series adds "ingress redirect/mirror" support
+>   - Positive feedback for the feature
+>   - So far no comments regarding code itself
+>   - Questions raised regarding "recursion handling"
+>     Expressed that existing mirred code (i.e egress redirect) is *already*
+>     loop-unsafe (and also, some non-tc netdev constructs, as exampled by
+>     others).
+>     Discussion then wandered to "recursion handling".
 
-This change currently has 5 lines.
-3 of those would be needed anyway if we were to define anything < 0 to
-mean infinite.
+Any reason why dev_forward_skb() is not preferred over direct
+netif_receive_skb() you're using? It would, for example, implicitly
+assure that pkt_type is always PACKET_HOST, etc.
 
-Yes, you could get rid of the two lines with minus_one in them, but
-this way we can also use -2 to mean something else in the future if we
-ever want to.
+Thanks,
+Daniel
