@@ -1,283 +1,42 @@
-From: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net-next v2 1/3] net/socket: factor out helpers for memory and queue manipulation
-Date: Tue, 27 Sep 2016 18:58:00 +0200
-Message-ID: <792fb9ec24103e7da3722147aea57cdaa91f032c.1474995024.git.pabeni@redhat.com>
-References: <cover.1474995024.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
-        Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-        Alexander Duyck <aduyck-nYU0QVwCCFFWk0Htik3J/w@public.gmane.org>,
-        Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
-        Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
-        Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <cover.1474995024.git.pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Nelson Chang <nelson.chang@mediatek.com>
+Subject: RE: [PATCH net-next 0/2] net: ethernet: mediatek: some bug fixes
+ for PDAM and HW LRO
+Date: Wed, 28 Sep 2016 01:16:25 +0800
+Message-ID: <1474996585.11000.2.camel@mtksdaap41>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: <john@phrozen.org>, <nbd@openwrt.org>, <netdev@vger.kernel.org>,
+        <linux-mediatek@lists.infradead.org>, <nelsonch.tw@gmail.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailgw02.mediatek.com ([210.61.82.184]:14605 "EHLO
+        mailgw02.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1755255AbcI0RQu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 13:16:50 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Basic sock operations that udp code can use with its own
-memory accounting schema. No functional change is introduced
-in the existing APIs.
+Got it. I'll notice that for later patches.
+Thanks David.
 
-v1 -> v2:
-  - avoid export sock_rmem_free
+-----Original Message-----
+From: David Miller [mailto:davem@davemloft.net] 
+Sent: Tuesday, September 27, 2016 9:42 PM
+To: Nelson Chang (張家祥)
+Cc: john@phrozen.org; nbd@openwrt.org; netdev@vger.kernel.org;
+linux-mediatek@lists.infradead.org; nelsonch.tw@gmail.com
+Subject: Re: [PATCH net-next 0/2] net: ethernet: mediatek: some bug
+fixes for PDAM and HW LRO
 
-Signed-off-by: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
----
- include/net/sock.h  |  5 +++
- net/core/datagram.c | 36 ++++++++++++--------
- net/core/sock.c     | 96 +++++++++++++++++++++++++++++++++++------------------
- 3 files changed, 91 insertions(+), 46 deletions(-)
+From: Nelson Chang <nelson.chang@mediatek.com>
+Date: Mon, 26 Sep 2016 14:33:48 +0800
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index ebf75db..7e42922 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1274,7 +1274,9 @@ static inline struct inode *SOCK_INODE(struct socket *socket)
- /*
-  * Functions for memory accounting
-  */
-+int __sk_mem_raise_allocated(struct sock *sk, int size, int amt, int kind);
- int __sk_mem_schedule(struct sock *sk, int size, int kind);
-+void __sk_mem_reduce_allocated(struct sock *sk, int amount);
- void __sk_mem_reclaim(struct sock *sk, int amount);
- 
- #define SK_MEM_QUANTUM ((int)PAGE_SIZE)
-@@ -1950,6 +1952,9 @@ void sk_reset_timer(struct sock *sk, struct timer_list *timer,
- 
- void sk_stop_timer(struct sock *sk, struct timer_list *timer);
- 
-+int __sk_queue_drop_skb(struct sock *sk, struct sk_buff *skb,
-+			unsigned int flags);
-+void __sock_enqueue_skb(struct sock *sk, struct sk_buff *skb);
- int __sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb);
- int sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb);
- 
-diff --git a/net/core/datagram.c b/net/core/datagram.c
-index b7de71f..bfb973a 100644
---- a/net/core/datagram.c
-+++ b/net/core/datagram.c
-@@ -323,6 +323,27 @@ void __skb_free_datagram_locked(struct sock *sk, struct sk_buff *skb, int len)
- }
- EXPORT_SYMBOL(__skb_free_datagram_locked);
- 
-+int __sk_queue_drop_skb(struct sock *sk, struct sk_buff *skb,
-+			unsigned int flags)
-+{
-+	int err = 0;
-+
-+	if (flags & MSG_PEEK) {
-+		err = -ENOENT;
-+		spin_lock_bh(&sk->sk_receive_queue.lock);
-+		if (skb == skb_peek(&sk->sk_receive_queue)) {
-+			__skb_unlink(skb, &sk->sk_receive_queue);
-+			atomic_dec(&skb->users);
-+			err = 0;
-+		}
-+		spin_unlock_bh(&sk->sk_receive_queue.lock);
-+	}
-+
-+	atomic_inc(&sk->sk_drops);
-+	return err;
-+}
-+EXPORT_SYMBOL(__sk_queue_drop_skb);
-+
- /**
-  *	skb_kill_datagram - Free a datagram skbuff forcibly
-  *	@sk: socket
-@@ -346,23 +367,10 @@ EXPORT_SYMBOL(__skb_free_datagram_locked);
- 
- int skb_kill_datagram(struct sock *sk, struct sk_buff *skb, unsigned int flags)
- {
--	int err = 0;
--
--	if (flags & MSG_PEEK) {
--		err = -ENOENT;
--		spin_lock_bh(&sk->sk_receive_queue.lock);
--		if (skb == skb_peek(&sk->sk_receive_queue)) {
--			__skb_unlink(skb, &sk->sk_receive_queue);
--			atomic_dec(&skb->users);
--			err = 0;
--		}
--		spin_unlock_bh(&sk->sk_receive_queue.lock);
--	}
-+	int err = __sk_queue_drop_skb(sk, skb, flags);
- 
- 	kfree_skb(skb);
--	atomic_inc(&sk->sk_drops);
- 	sk_mem_reclaim_partial(sk);
--
- 	return err;
- }
- EXPORT_SYMBOL(skb_kill_datagram);
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 038e660..102f4d1 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -405,24 +405,12 @@ static void sock_disable_timestamp(struct sock *sk, unsigned long flags)
- }
- 
- 
--int __sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
-+void __sock_enqueue_skb(struct sock *sk, struct sk_buff *skb)
- {
- 	unsigned long flags;
- 	struct sk_buff_head *list = &sk->sk_receive_queue;
- 
--	if (atomic_read(&sk->sk_rmem_alloc) >= sk->sk_rcvbuf) {
--		atomic_inc(&sk->sk_drops);
--		trace_sock_rcvqueue_full(sk, skb);
--		return -ENOMEM;
--	}
--
--	if (!sk_rmem_schedule(sk, skb, skb->truesize)) {
--		atomic_inc(&sk->sk_drops);
--		return -ENOBUFS;
--	}
--
- 	skb->dev = NULL;
--	skb_set_owner_r(skb, sk);
- 
- 	/* we escape from rcu protected region, make sure we dont leak
- 	 * a norefcounted dst
-@@ -436,6 +424,24 @@ int __sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- 
- 	if (!sock_flag(sk, SOCK_DEAD))
- 		sk->sk_data_ready(sk);
-+}
-+EXPORT_SYMBOL(__sock_enqueue_skb);
-+
-+int __sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
-+{
-+	if (atomic_read(&sk->sk_rmem_alloc) >= sk->sk_rcvbuf) {
-+		atomic_inc(&sk->sk_drops);
-+		trace_sock_rcvqueue_full(sk, skb);
-+		return -ENOMEM;
-+	}
-+
-+	if (!sk_rmem_schedule(sk, skb, skb->truesize)) {
-+		atomic_inc(&sk->sk_drops);
-+		return -ENOBUFS;
-+	}
-+
-+	skb_set_owner_r(skb, sk);
-+	__sock_enqueue_skb(sk, skb);
- 	return 0;
- }
- EXPORT_SYMBOL(__sock_queue_rcv_skb);
-@@ -2091,24 +2097,18 @@ int sk_wait_data(struct sock *sk, long *timeo, const struct sk_buff *skb)
- EXPORT_SYMBOL(sk_wait_data);
- 
- /**
-- *	__sk_mem_schedule - increase sk_forward_alloc and memory_allocated
-+ *	__sk_mem_raise_allocated - increase memory_allocated
-  *	@sk: socket
-  *	@size: memory size to allocate
-+ *	@amt: pages to allocate
-  *	@kind: allocation type
-  *
-- *	If kind is SK_MEM_SEND, it means wmem allocation. Otherwise it means
-- *	rmem allocation. This function assumes that protocols which have
-- *	memory_pressure use sk_wmem_queued as write buffer accounting.
-+ *	Similar to __sk_mem_schedule(), but does not update sk_forward_alloc
-  */
--int __sk_mem_schedule(struct sock *sk, int size, int kind)
-+int __sk_mem_raise_allocated(struct sock *sk, int size, int amt, int kind)
- {
- 	struct proto *prot = sk->sk_prot;
--	int amt = sk_mem_pages(size);
--	long allocated;
--
--	sk->sk_forward_alloc += amt * SK_MEM_QUANTUM;
--
--	allocated = sk_memory_allocated_add(sk, amt);
-+	long allocated = sk_memory_allocated_add(sk, amt);
- 
- 	if (mem_cgroup_sockets_enabled && sk->sk_memcg &&
- 	    !mem_cgroup_charge_skmem(sk->sk_memcg, amt))
-@@ -2169,9 +2169,6 @@ suppress_allocation:
- 
- 	trace_sock_exceed_buf_limit(sk, prot, allocated);
- 
--	/* Alas. Undo changes. */
--	sk->sk_forward_alloc -= amt * SK_MEM_QUANTUM;
--
- 	sk_memory_allocated_sub(sk, amt);
- 
- 	if (mem_cgroup_sockets_enabled && sk->sk_memcg)
-@@ -2179,18 +2176,40 @@ suppress_allocation:
- 
- 	return 0;
- }
-+EXPORT_SYMBOL(__sk_mem_raise_allocated);
-+
-+/**
-+ *	__sk_mem_schedule - increase sk_forward_alloc and memory_allocated
-+ *	@sk: socket
-+ *	@size: memory size to allocate
-+ *	@kind: allocation type
-+ *
-+ *	If kind is SK_MEM_SEND, it means wmem allocation. Otherwise it means
-+ *	rmem allocation. This function assumes that protocols which have
-+ *	memory_pressure use sk_wmem_queued as write buffer accounting.
-+ */
-+int __sk_mem_schedule(struct sock *sk, int size, int kind)
-+{
-+	int ret, amt = sk_mem_pages(size);
-+
-+	sk->sk_forward_alloc += amt << SK_MEM_QUANTUM_SHIFT;
-+	ret = __sk_mem_raise_allocated(sk, size, amt, kind);
-+	if (!ret)
-+		sk->sk_forward_alloc -= amt << SK_MEM_QUANTUM_SHIFT;
-+	return ret;
-+}
- EXPORT_SYMBOL(__sk_mem_schedule);
- 
- /**
-- *	__sk_mem_reclaim - reclaim memory_allocated
-+ *	__sk_mem_reduce_allocated - reclaim memory_allocated
-  *	@sk: socket
-- *	@amount: number of bytes (rounded down to a SK_MEM_QUANTUM multiple)
-+ *	@amount: number of quanta
-+ *
-+ *	Similar to __sk_mem_reclaim(), but does not update sk_forward_alloc
-  */
--void __sk_mem_reclaim(struct sock *sk, int amount)
-+void __sk_mem_reduce_allocated(struct sock *sk, int amount)
- {
--	amount >>= SK_MEM_QUANTUM_SHIFT;
- 	sk_memory_allocated_sub(sk, amount);
--	sk->sk_forward_alloc -= amount << SK_MEM_QUANTUM_SHIFT;
- 
- 	if (mem_cgroup_sockets_enabled && sk->sk_memcg)
- 		mem_cgroup_uncharge_skmem(sk->sk_memcg, amount);
-@@ -2199,6 +2218,19 @@ void __sk_mem_reclaim(struct sock *sk, int amount)
- 	    (sk_memory_allocated(sk) < sk_prot_mem_limits(sk, 0)))
- 		sk_leave_memory_pressure(sk);
- }
-+EXPORT_SYMBOL(__sk_mem_reduce_allocated);
-+
-+/**
-+ *	__sk_mem_reclaim - reclaim sk_forward_alloc and memory_allocated
-+ *	@sk: socket
-+ *	@amount: number of bytes (rounded down to a SK_MEM_QUANTUM multiple)
-+ */
-+void __sk_mem_reclaim(struct sock *sk, int amount)
-+{
-+	amount >>= SK_MEM_QUANTUM_SHIFT;
-+	sk->sk_forward_alloc -= amount << SK_MEM_QUANTUM_SHIFT;
-+	__sk_mem_reduce_allocated(sk, amount);
-+}
- EXPORT_SYMBOL(__sk_mem_reclaim);
- 
- int sk_set_peek_off(struct sock *sk, int val)
--- 
-1.8.3.1
+> 1) Add to stop PDMA while stopping the frame engine
+> 2) Modify the register settings for LRO relinquishments
+> 3) Jump out from the waiting loop while LRO relinquishments are done
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Series applied, but like Sergei I think you should have split patch
+#2 into two separate patches.
+
+You even list the changes individually here in your header posting.
