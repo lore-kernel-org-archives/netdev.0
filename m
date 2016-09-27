@@ -1,104 +1,85 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: Re: [PATCH net] tg3: Avoid NULL pointer dereference in tg3_io_error_detected()
-Date: Tue, 27 Sep 2016 14:42:43 -0700
-Message-ID: <CACKFLimZPJf2Ca2eNoR3tFzoFB5ySsEVqv_3N9_XUHz+GTFkFA@mail.gmail.com>
-References: <1475006728-15307-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
- <CACKFLi=MVovAMnZwTe3Swb1+hgy+h9CfTURPVrZsM0MJGV9Khw@mail.gmail.com> <57EAE435.4000905@linux.vnet.ibm.com>
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: Re: [PATCH v2 net-next 4/4] net/sched: act_mirred: Implement
+ ingress actions
+Date: Wed, 28 Sep 2016 00:42:44 +0300
+Message-ID: <20160928004244.6b362f56@halley>
+References: <1475009975-30332-1-git-send-email-shmulik.ladkani@gmail.com>
+        <1475009975-30332-5-git-send-email-shmulik.ladkani@gmail.com>
+        <1475011633.28155.68.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Siva Reddy Kallam <siva.kallam@broadcom.com>,
-        Prashant Sreedharan <prashant@broadcom.com>,
-        Michael Chan <mchan@broadcom.com>,
-        Netdev <netdev@vger.kernel.org>,
-        Milton Miller <miltonm@us.ibm.com>
-To: "Guilherme G. Piccoli" <gpiccoli@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        WANG Cong <xiyou.wangcong@gmail.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f51.google.com ([209.85.218.51]:35841 "EHLO
-        mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752336AbcI0Vmp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 17:42:45 -0400
-Received: by mail-oi0-f51.google.com with SMTP id t83so31373789oie.3
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 14:42:45 -0700 (PDT)
-In-Reply-To: <57EAE435.4000905@linux.vnet.ibm.com>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:35078 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752336AbcI0Vmz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 17:42:55 -0400
+Received: by mail-wm0-f68.google.com with SMTP id b4so3090280wmb.2
+        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 14:42:54 -0700 (PDT)
+In-Reply-To: <1475011633.28155.68.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 27, 2016 at 2:27 PM, Guilherme G. Piccoli
-<gpiccoli@linux.vnet.ibm.com> wrote:
-> On 09/27/2016 05:58 PM, Michael Chan wrote:
->>
->> On Tue, Sep 27, 2016 at 1:05 PM, Guilherme G. Piccoli
->> <gpiccoli@linux.vnet.ibm.com> wrote:
->>>
->>> From: Milton Miller <miltonm@us.ibm.com>
->>>
->>> While the driver is probing the adapter, an error may occur before the
->>> netdev structure is allocated and attached to pci_dev. In this case,
->>> not only netdev isn't available, but the tg3 private structure is also
->>> not available as it is just math from the NULL pointer, so dereferences
->>> must be skipped.
->>>
->>> The following trace is seen when the error is triggered:
->>>
->>>    [1.402247] Unable to handle kernel paging request for data at address
->>> 0x00001a99
->>>    [1.402410] Faulting instruction address: 0xc0000000007e33f8
->>>    [1.402450] Oops: Kernel access of bad area, sig: 11 [#1]
->>>    [1.402481] SMP NR_CPUS=2048 NUMA PowerNV
->>>    [1.402513] Modules linked in:
->>>    [1.402545] CPU: 0 PID: 651 Comm: eehd Not tainted 4.4.0-36-generic
->>> #55-Ubuntu
->>>    [1.402591] task: c000001fe4e42a20 ti: c000001fe4e88000 task.ti:
->>> c000001fe4e88000
->>>    [1.402742] NIP: c0000000007e33f8 LR: c0000000007e3164 CTR:
->>> c000000000595ea0
->>>    [1.402787] REGS: c000001fe4e8b790 TRAP: 0300   Not tainted
->>> (4.4.0-36-generic)
->>>    [1.402832] MSR: 9000000100009033 <SF,HV,EE,ME,IR,DR,RI,LE>  CR:
->>> 28000422  XER: 20000000
->>>    [1.403058] CFAR: c000000000008468 DAR: 0000000000001a99 DSISR:
->>> 42000000 SOFTE: 1
->>>    GPR00: c0000000007e3164 c000001fe4e8ba10 c0000000015c5e00
->>> 0000000000000000
->>>    GPR04: 0000000000000001 0000000000000000 0000000000000039
->>> 0000000000000299
->>>    GPR08: 0000000000000000 0000000000000001 c000001fe4e88000
->>> 0000000000000006
->>>    GPR12: 0000000000000000 c00000000fb40000 c0000000000e6558
->>> c000003ca1bffd00
->>>    GPR16: 0000000000000000 0000000000000000 0000000000000000
->>> 0000000000000000
->>>    GPR20: 0000000000000000 0000000000000000 0000000000000000
->>> c000000000d52768
->>>    GPR24: c000000000d52740 0000000000000100 c000003ca1b52000
->>> 0000000000000002
->>>    GPR28: 0000000000000900 0000000000000000 c00000000152a0c0
->>> c000003ca1b52000
->>>    [1.404226] NIP [c0000000007e33f8] tg3_io_error_detected+0x308/0x340
->>>    [1.404265] LR [c0000000007e3164] tg3_io_error_detected+0x74/0x340
->>>
->>> This patch avoids the NULL pointer dereference by moving the access after
->>> the netdev NULL pointer check on tg3_io_error_detected().
->>>
->>> Fixes: 0486a063b1ff ("tg3: prevent ifup/ifdown during PCI error
->>> recovery")
->>> Fixes: dfc8f370316b ("net/tg3: Release IRQs on permanent error")
->>> Tested-by: Guilherme G. Piccoli <gpiccoli@linux.vnet.ibm.com>
->>> Signed-off-by: Milton Miller <miltonm@us.ibm.com>
->>> Signed-off-by: Guilherme G. Piccoli <gpiccoli@linux.vnet.ibm.com>
->>
->>
->> Looks good.  Do we need to add !netdev check in tg3_io_resume()?
->
->
-> Thanks Michael. It's a good point - I didn't trigger any error without the
-> check, but looking at error handlers, every one seems to have this check
-> except tg3_io_resume().
->
-> Do you want us to send a v2 including this check? Or maybe another patch?
->
+Hi,
 
-I think v2 should be fine.  The additional check is very much related
-to the v1 patch.
+On Tue, 27 Sep 2016 14:27:13 -0700 Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2016-09-27 at 23:59 +0300, Shmulik Ladkani wrote:
+> > Up until now, 'action mirred' supported only egress actions (either
+> > TCA_EGRESS_REDIR or TCA_EGRESS_MIRROR).
+> > 
+> > This patch implements the corresponding ingress actions
+> > TCA_INGRESS_REDIR and TCA_INGRESS_MIRROR.  
+> 
+> 
+> > -		if (m->tcfm_mac_header_xmit)
+> > +	/* If action's target direction differs than filter's direction,
+> > +	 * and devices expect a mac header on xmit, then mac push/pull is
+> > +	 * needed.
+> > +	 */
+> > +	if (at != tcf_mirred_act_direction(m->tcfm_eaction) &&  
+> 
+> Note that m->tcfm_eaction is read here.
+> 
+> > +	    m->tcfm_mac_header_xmit) {
+> > +		if (at & AT_EGRESS) {
+> > +			/* caught at egress, act ingress: pull mac */
+> > +			mac_len = skb_network_header(skb) - skb_mac_header(skb);
+> > +			skb_pull_rcsum(skb2, mac_len);
+> > +		} else {
+> > +			/* caught at ingress, act egress: push mac */
+> >  			skb_push_rcsum(skb2, skb->mac_len);
+> > +		}
+> >  	}
+> >  
+> >  	/* mirror is always swallowed */
+> > -	if (m->tcfm_eaction != TCA_EGRESS_MIRROR)
+> > +	if (tcf_mirred_is_act_redirect(m->tcfm_eaction))
+> >  		skb2->tc_verd = SET_TC_FROM(skb2->tc_verd, at);
+> >  
+> >  	skb2->skb_iif = skb->dev->ifindex;
+> >  	skb2->dev = dev;
+> > -	err = dev_queue_xmit(skb2);  
+> 
+> Note that m->tcfm_eaction is read another time here.
+> 
+> > +	if (tcf_mirred_act_direction(m->tcfm_eaction) & AT_EGRESS)
+> > +		err = dev_queue_xmit(skb2);
+> > +	else
+> > +		netif_receive_skb(skb2);
+> >    
+> 
+> Since this runs lockless, another cpu might change m->tcfm_eaction in
+> the middle, and you could call dev_queue_xmit(skb2) while the skb2 was
+> prepared for the opposite action.
 
-I will ACK it once you send v2.  Thanks.
+Thanks Eric.
+
+I assume adding a READ_ONCE(m->tcfm_eaction) at beggining of section,
+and using the read value, will solve this specific inconsistency?
