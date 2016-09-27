@@ -1,132 +1,72 @@
-From: Bjorn Helgaas <helgaas@kernel.org>
-Subject: Re: [net-next 5/5] PCI: disable FLR for 82579 device
-Date: Tue, 27 Sep 2016 13:17:02 -0500
-Message-ID: <20160927181702.GA7275@localhost>
-References: <1474612741-75681-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1474612741-75681-6-git-send-email-jeffrey.t.kirsher@intel.com>
- <20160923140136.GC1514@localhost>
- <1474664726.2389.7.camel@intel.com>
- <176f2366-e225-75fb-8cad-909a8f7e808c@intel.com>
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: Re: [PATCH net-next 1/4] net/sched: act_mirred: Rename tcfm_ok_push
+ to tcfm_mac_header_xmit
+Date: Tue, 27 Sep 2016 21:24:20 +0300
+Message-ID: <20160927212420.4677e0f2@halley>
+References: <1474550512-7552-1-git-send-email-shmulik.ladkani@gmail.com>
+        <1474550512-7552-2-git-send-email-shmulik.ladkani@gmail.com>
+        <57EA4A3C.8000508@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        linux-pci@vger.kernel.org, davem@davemloft.net,
-        bhelgaas@google.com, netdev@vger.kernel.org, nhorman@redhat.com,
-        sassmann@redhat.com, jogreene@redhat.com,
-        guru.anbalagane@oracle.com
-To: "Neftin, Sasha" <sasha.neftin@intel.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        WANG Cong <xiyou.wangcong@gmail.com>,
+        Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+        Shmulik Ladkani <shmulik.ladkani@gmail.com>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:38264 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933709AbcI0SRI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 27 Sep 2016 14:17:08 -0400
-Content-Disposition: inline
-In-Reply-To: <176f2366-e225-75fb-8cad-909a8f7e808c@intel.com>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:36050 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934832AbcI0SY1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 14:24:27 -0400
+Received: by mail-wm0-f66.google.com with SMTP id b184so2403092wma.3
+        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 11:24:26 -0700 (PDT)
+In-Reply-To: <57EA4A3C.8000508@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Sep 25, 2016 at 10:02:43AM +0300, Neftin, Sasha wrote:
-> On 9/24/2016 12:05 AM, Jeff Kirsher wrote:
-> >On Fri, 2016-09-23 at 09:01 -0500, Bjorn Helgaas wrote:
-> >>On Thu, Sep 22, 2016 at 11:39:01PM -0700, Jeff Kirsher wrote:
-> >>>From: Sasha Neftin <sasha.neftin@intel.com>
-> >>>
-> >>>82579 has a problem reattaching itself after the device is detached.
-> >>>The bug was reported by Redhat. The suggested fix is to disable
-> >>>FLR capability in PCIe configuration space.
-> >>>
-> >>>Reproduction:
-> >>>Attach the device to a VM, then detach and try to attach again.
-> >>>
-> >>>Fix:
-> >>>Disable FLR capability to prevent the 82579 from hanging.
-> >>Is there a bugzilla or other reference URL to include here?  Should
-> >>this be marked for stable?
-> >So the author is in Israel, meaning it is their weekend now.  I do not
-> >believe Sasha monitors email over the weekend, so a response to your
-> >questions won't happen for a few days.
+Hi,
+
+On Tue, 27 Sep 2016 12:30:20 +0200 Daniel Borkmann <daniel@iogearbox.net> wrote:
+> On 09/22/2016 03:21 PM, Shmulik Ladkani wrote:
+> > From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 > >
-> >I tried searching my archives for more information, but had no luck finding
-> >any additional information.
+> > 'tcfm_ok_push' specifies whether a mac_len sized push is needed upon
+> > egress to the target device (if action is performed at ingress).
 > >
-> >>>Signed-off-by: Sasha Neftin <sasha.neftin@intel.com>
-> >>>Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-> >>>Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> >>>---
-> >>>  drivers/pci/quirks.c | 21 +++++++++++++++++++++
-> >>>  1 file changed, 21 insertions(+)
-> >>>
-> >>>diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-> >>>index 44e0ff3..59fba6e 100644
-> >>>--- a/drivers/pci/quirks.c
-> >>>+++ b/drivers/pci/quirks.c
-> >>>@@ -4431,3 +4431,24 @@ static void quirk_intel_qat_vf_cap(struct
-> >>>pci_dev *pdev)
-> >>>  	}
-> >>>  }
-> >>>  DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x443,
-> >>>quirk_intel_qat_vf_cap);
-> >>>+/*
-> >>>+ * Workaround FLR issues for 82579
-> >>>+ * This code disables the FLR (Function Level Reset) via PCIe, in
-> >>>order
-> >>>+ * to workaround a bug found while using device passthrough, where the
-> >>>+ * interface would become non-responsive.
-> >>>+ * NOTE: the FLR bit is Read/Write Once (RWO) in config space, so if
-> >>>+ * the BIOS or kernel writes this register * then this workaround will
-> >>>+ * not work.
-> >>This doesn't sound like a root cause.  Is the issue a hardware
-> >>erratum?  Linux PCI core bug?  VFIO bug?  Device firmware bug?
-> >>
-> >>The changelog suggests that the problem only affects passthrough,
-> >>which suggests some sort of kernel bug related to how passthrough is
-> >>implemented.
-
-If this bug affects all scenarios, not just passthrough, the changelog
-should not mention passthrough.
-
-> >>>+ */
-> >>>+static void quirk_intel_flr_cap_dis(struct pci_dev *dev)
-> >>>+{
-> >>>+	int pos = pci_find_capability(dev, PCI_CAP_ID_AF);
-> >>>+	if (pos) {
-> >>>+		u8 cap;
-> >>>+		pci_read_config_byte(dev, pos + PCI_AF_CAP, &cap);
-> >>>+		cap = cap & (~PCI_AF_CAP_FLR);
-> >>>+		pci_write_config_byte(dev, pos + PCI_AF_CAP, cap);
-> >>>+	}
-> >>>+}
-> >>>+DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x1502,
-> >>>quirk_intel_flr_cap_dis);
-> >>>+DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x1503,
-> >>>quirk_intel_flr_cap_dis);
-> >>>-- 
-> >>>2.7.4
-> >>>
-> >>>--
-> >>>To unsubscribe from this list: send the line "unsubscribe linux-pci" in
-> >>>the body of a message to majordomo@vger.kernel.org
-> >>>More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > Rename it to 'tcfm_mac_header_xmit' as this is actually an attribute of
+> > the target device.
+> > This allows to decouple the attribute from the action to be taken.
+> >
+> > Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+> > ---
+> >   include/net/tc_act/tc_mirred.h |  2 +-
+> >   net/sched/act_mirred.c         | 10 +++++-----
+> >   2 files changed, 6 insertions(+), 6 deletions(-)
+> >
+> > diff --git a/include/net/tc_act/tc_mirred.h b/include/net/tc_act/tc_mirred.h
+> > index 62770ad..5275158 100644
+> > --- a/include/net/tc_act/tc_mirred.h
+> > +++ b/include/net/tc_act/tc_mirred.h
+> > @@ -8,7 +8,7 @@ struct tcf_mirred {
+> >   	struct tc_action	common;
+> >   	int			tcfm_eaction;
+> >   	int			tcfm_ifindex;
+> > -	int			tcfm_ok_push;
+> > +	int			tcfm_mac_header_xmit;  
 > 
-> Hello,
-> 
-> Original bugzilla thread could be found here:
-> https://bugzilla.redhat.com/show_bug.cgi?format=multiple&id=966840
+> Since you already touch this here and in patch 2/4 anyway, maybe
+> make that a bool along the way?
 
-That bugzilla is private and I can't read it.
+Ok.
+(Thought of it, but my urge to lessen the diff eventually won)
 
-> This is our HW bug, exist only in 82579 devices. More new devices
-> have no such problem. We have found root cause and suggested this
-> solution. 
+> Perhaps instead of tcfm_mac_header_xmit, tcfm_mac_header_push
+> might be a better name?
 
-Is there an erratum you can reference?
+Don't think so.
 
-> This solution should work for a 95% of cases, so I do not
-> think that this is fragile. For another cases possible solution is
-> get up working system and manually disable FLR, before VM start use
-> our adapter.
-
-I don't think a 95% solution is sufficient.  Can you use the
-pci_dev_specific_reset() framework to make a 100% solution?
-
-Bjorn
+Eventually this serves as the decision to either push or pull, so prefer
+not to name it as the action (push/pull) but rather what is target
+device's property (xmits at mh?).
