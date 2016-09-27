@@ -1,43 +1,60 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: Re: [PATCH 3/5] ISDN-Gigaset: Delete an error message for a failed
- memory allocation
-Date: Tue, 27 Sep 2016 12:57:31 +0200
-Message-ID: <1474973851.1608488.738293513.6CA62927@webmail.messagingengine.com>
-References: <566ABCD9.1060404@users.sourceforge.net>
- <6d4bbb77-914f-19b8-a1a9-2731d1158612@users.sourceforge.net>
- <64f7ba12-1b0e-9fac-9b2e-d22e7fb3fcc7@users.sourceforge.net>
+From: Nicholas Piggin <npiggin@gmail.com>
+Subject: Re: [PATCH] fs/select: add vmalloc fallback for select(2)
+Date: Tue, 27 Sep 2016 21:24:58 +1000
+Message-ID: <20160927212458.3ab42b41@roar.ozlabs.ibm.com>
+References: <20160922152831.24165-1-vbabka@suse.cz>
+	<006101d21565$b60a8a70$221f9f50$@alibaba-inc.com>
+	<20160923172434.7ad8f2e0@roar.ozlabs.ibm.com>
+	<57E55CBB.5060309@akamai.com>
+	<5014387d-43da-03f6-a74b-2dc4fbf4fe32@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
-        Karsten Keil <isdn@linux-pingi.de>,
-        Paul Bolle <pebolle@tiscali.nl>,
-        LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org,
-        Julia Lawall <julia.lawall@lip6.fr>,
-        Wolfram Sang <wsa@the-dreams.de>
-To: SF Markus Elfring <elfring@users.sourceforge.net>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <64f7ba12-1b0e-9fac-9b2e-d22e7fb3fcc7@users.sourceforge.net>
-Sender: kernel-janitors-owner@vger.kernel.org
+Cc: Jason Baron <jbaron@akamai.com>, Hillf Danton
+ <hillf.zj@alibaba-inc.com>, 'Alexander Viro' <viro@zeniv.linux.org.uk>,
+ linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
+ linux-mm@kvack.org, 'Michal Hocko' <mhocko@kernel.org>,
+ netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
+To: Vlastimil Babka <vbabka@suse.cz>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <5014387d-43da-03f6-a74b-2dc4fbf4fe32@suse.cz>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 26, 2016, at 17:42, SF Markus Elfring wrote:
-> From: Markus Elfring <elfring@users.sourceforge.net>
-> Date: Mon, 26 Sep 2016 15:35:47 +0200
-> 
-> Omit an extra message for a memory allocation failure in this function.
-> 
-> Link:
-> http://events.linuxfoundation.org/sites/events/files/slides/LCJ16-Refactor_Strings-WSang_0.pdf
-> 
-> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+On Tue, 27 Sep 2016 10:44:04 +0200
+Vlastimil Babka <vbabka@suse.cz> wrote:
 
-The patch is fine but the link in the commit message is irrelevant.
-Please remove it.
-(Yes, I read through the whole presentation to verify that. It was fun,
-even.)
+> On 09/23/2016 06:47 PM, Jason Baron wrote:
+> > Hi,
+> >
+> > On 09/23/2016 03:24 AM, Nicholas Piggin wrote:  
+> >> On Fri, 23 Sep 2016 14:42:53 +0800
+> >> "Hillf Danton" <hillf.zj@alibaba-inc.com> wrote:
+> >>  
+> >>>>
+> >>>> The select(2) syscall performs a kmalloc(size, GFP_KERNEL) where size grows
+> >>>> with the number of fds passed. We had a customer report page allocation
+> >>>> failures of order-4 for this allocation. This is a costly order, so it might
+> >>>> easily fail, as the VM expects such allocation to have a lower-order fallback.
+> >>>>
+> >>>> Such trivial fallback is vmalloc(), as the memory doesn't have to be
+> >>>> physically contiguous. Also the allocation is temporary for the duration of the
+> >>>> syscall, so it's unlikely to stress vmalloc too much.
+> >>>>
+> >>>> Note that the poll(2) syscall seems to use a linked list of order-0 pages, so
+> >>>> it doesn't need this kind of fallback.  
+> >>
+> >> How about something like this? (untested)  
+> 
+> This pushes the limit further, but might just delay the problem. Could be an 
+> optimization on top if there's enough interest, though.
 
--- 
-Tilman Schmidt
-tilman@imap.cc
+What's your customer doing with those selects? If they care at all about
+performance, I doubt they want select to attempt order-4 allocations, fail,
+then use vmalloc :)
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
