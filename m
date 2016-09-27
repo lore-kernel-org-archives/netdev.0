@@ -1,63 +1,65 @@
-From: Gao Feng <fgao@ikuai8.com>
-Subject: Re: [PATCH nf-next] netfilter: xt_osf: Use explicit member assignment
- to avoid implicit no padding rule
-Date: Tue, 27 Sep 2016 14:10:44 +0800
-Message-ID: <CA+6hz4rCM=PSdzS9LTsVahg=hBHtQEExn86Tn+1HV4XX_LGurA@mail.gmail.com>
-References: <1474951193-3486-1-git-send-email-fgao@ikuai8.com>
- <CAML_gOcQt3MuDw3JAXYab1bKFaRuKgVO4jBaM22NOCShVoKmeA@mail.gmail.com>
- <CA+6hz4rZ5GF3MuVrywA87xQ-idq9iCL-cmmgA0sLwuHUp2PEbA@mail.gmail.com> <CAML_gOcVWerP2keCiqeTUt5QN-gbqATpTUsK-xPX=RnJoc8OBQ@mail.gmail.com>
+From: Jorgen Hansen <jhansen@vmware.com>
+Subject: [PATCH] VSOCK: Don't dec ack backlog twice for rejected connections
+Date: Mon, 26 Sep 2016 23:59:53 -0700
+Message-ID: <1474959593-15311-1-git-send-email-jhansen@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Netfilter Developer Mailing List
-        <netfilter-devel@vger.kernel.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Liping Zhang <zlpnobody@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <CAML_gOcVWerP2keCiqeTUt5QN-gbqATpTUsK-xPX=RnJoc8OBQ@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <gregkh@linuxfoundation.org>, <davem@davemloft.net>,
+        <pv-drivers@vmware.com>, <stefanha@redhat.com>,
+        Jorgen Hansen <jhansen@vmware.com>
+To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <virtualization@lists.linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ex13-edg-ou-001.vmware.com ([208.91.0.189]:37511 "EHLO
+        EX13-EDG-OU-001.vmware.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752303AbcI0G7y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 02:59:54 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Liping,
+If a pending socket is marked as rejected, we will decrease the
+sk_ack_backlog twice. So don't decrement it for rejected sockets
+in vsock_pending_work().
 
-On Tue, Sep 27, 2016 at 2:05 PM, Liping Zhang <zlpnobody@gmail.com> wrote:
-> Hi Feng,
->
-> 2016-09-27 14:00 GMT+08:00 Gao Feng <fgao@ikuai8.com>:
->> Hi Liping,
->>
->>>
->>> This xt_osf_user_finger{} is carefully designed, no padding now, and
->>> will not be changed in the future, otherwise backward compatibility will
->>> be broken.
->>
->> Yes, there is no padding now. So it is ok to use memcmp now.
->> I am afraid the struct would be modified for other requirements.
->
-> This is structure was passed by netlink attribute, so modify it will
-> break backward compatibility.
+Testing of the rejected socket path was done through code
+modifications.
 
-Reasonable.
-Thanks Liping.
+Reported-by: Stefan Hajnoczi <stefanha@redhat.com>
+Signed-off-by: Jorgen Hansen <jhansen@vmware.com>
+Reviewed-by: Adit Ranadive <aditr@vmware.com>
+Reviewed-by: Aditya Sarwade <asarwade@vmware.com>
+---
+ net/vmw_vsock/af_vsock.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-Regards
-Feng
-
->
->>
->> If it is never changed forever, it is ok certainly.
->>
->>>
->>> I don't think this convert is necessary, actually it is a little ugly, and will
->>> increase the maintenance burden.
->>
->> I just want the codes don't depend any implicit rule.
->>
->> It is a tradeoff. If never change, needn't do any convert.
->> If may change, the memcmp is a little dangerous.
->>
->> Regards
->> Feng
-
-
+diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
+index 17dbbe6..8a398b3 100644
+--- a/net/vmw_vsock/af_vsock.c
++++ b/net/vmw_vsock/af_vsock.c
+@@ -465,6 +465,8 @@ void vsock_pending_work(struct work_struct *work)
+ 
+ 	if (vsock_is_pending(sk)) {
+ 		vsock_remove_pending(listener, sk);
++
++		listener->sk_ack_backlog--;
+ 	} else if (!vsk->rejected) {
+ 		/* We are not on the pending list and accept() did not reject
+ 		 * us, so we must have been accepted by our user process.  We
+@@ -475,8 +477,6 @@ void vsock_pending_work(struct work_struct *work)
+ 		goto out;
+ 	}
+ 
+-	listener->sk_ack_backlog--;
+-
+ 	/* We need to remove ourself from the global connected sockets list so
+ 	 * incoming packets can't find this socket, and to reduce the reference
+ 	 * count.
+@@ -2010,5 +2010,5 @@ EXPORT_SYMBOL_GPL(vsock_core_get_transport);
+ 
+ MODULE_AUTHOR("VMware, Inc.");
+ MODULE_DESCRIPTION("VMware Virtual Socket Family");
+-MODULE_VERSION("1.0.1.0-k");
++MODULE_VERSION("1.0.2.0-k");
+ MODULE_LICENSE("GPL v2");
+-- 
+1.7.0
