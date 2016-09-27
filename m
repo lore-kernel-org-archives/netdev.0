@@ -1,100 +1,128 @@
-From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Subject: Re: [PATCH v5 3/7] ipv6 addrconf: rtr_solicits == -1 means unlimited
-Date: Tue, 27 Sep 2016 19:20:49 +0900
-Message-ID: <fb240cbb-09ab-69c4-2b4c-44a50e5a308c@miraclelinux.com>
-References: <CANP3RGfHPZLHFnp4Rq8_dRNCro6Uh8O8767NgoGu7gvzu5h9BQ@mail.gmail.com>
- <1474969963-17402-1-git-send-email-zenczykowski@gmail.com>
- <1474969963-17402-4-git-send-email-zenczykowski@gmail.com>
+From: Michal Hocko <mhocko@kernel.org>
+Subject: Re: [PATCH v3] fs/select: add vmalloc fallback for select(2)
+Date: Tue, 27 Sep 2016 12:22:00 +0200
+Message-ID: <20160927102200.GA2278@dhcp22.suse.cz>
+References: <20160922164359.9035-1-vbabka@suse.cz>
+ <20160927084536.5923-1-vbabka@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: hideaki.yoshifuji@miraclelinux.com, netdev@vger.kernel.org,
-        Erik Kline <ek@google.com>,
-        Lorenzo Colitti <lorenzo@google.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: =?UTF-8?Q?Maciej_=c5=bbenczykowski?= <zenczykowski@gmail.com>,
-        =?UTF-8?Q?Maciej_=c5=bbenczykowski?= <maze@google.com>,
-        "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:33532 "EHLO
-        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754198AbcI0KUy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 06:20:54 -0400
-Received: by mail-pf0-f172.google.com with SMTP id 21so4511573pfy.0
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 03:20:54 -0700 (PDT)
-In-Reply-To: <1474969963-17402-4-git-send-email-zenczykowski@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexander Viro <viro@zeniv.linux.org.uk>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-mm@kvack.org, netdev@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	David Laight <David.Laight@ACULAB.COM>,
+	Hillf Danton <hillf.zj@alibaba-inc.com>,
+	Nicholas Piggin <npiggin@gmail.com>,
+	Jason Baron <jbaron@akamai.com>
+To: Vlastimil Babka <vbabka@suse.cz>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20160927084536.5923-1-vbabka@suse.cz>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-
-
-Maciej Żenczykowski wrote:
-> From: Maciej Żenczykowski <maze@google.com>
+On Tue 27-09-16 10:45:36, Vlastimil Babka wrote:
+> The select(2) syscall performs a kmalloc(size, GFP_KERNEL) where size grows
+> with the number of fds passed. We had a customer report page allocation
+> failures of order-4 for this allocation. This is a costly order, so it might
+> easily fail, as the VM expects such allocation to have a lower-order fallback.
 > 
-> This allows setting /proc/sys/net/ipv6/conf/*/router_solicitations
-> to -1 meaning an unlimited number of retransmits.
+> Such trivial fallback is vmalloc(), as the memory doesn't have to be physically
+> contiguous and the allocation is temporary for the duration of the syscall
+> only. There were some concerns, whether this would have negative impact on the
+> system by exposing vmalloc() to userspace. Although an excessive use of vmalloc
+> can cause some system wide performance issues - TLB flushes etc. - a large
+> order allocation is not for free either and an excessive reclaim/compaction can
+> have a similar effect. Also note that the size is effectively limited by
+> RLIMIT_NOFILE which defaults to 1024 on the systems I checked. That means the
+> bitmaps will fit well within single page and thus the vmalloc() fallback could
+> be only excercised for processes where root allows a higher limit.
 > 
+> Note that the poll(2) syscall seems to use a linked list of order-0 pages, so
+> it doesn't need this kind of fallback.
+> 
+> [eric.dumazet@gmail.com: fix failure path logic]
+> [akpm@linux-foundation.org: use proper type for size]
+> Signed-off-by: Vlastimil Babka <vbabka@suse.cz>
 
-We could say "< 0 means infinite" and we can reduce changes here.
+Yes this makes sense to me. It could be argued that this could be
+simplified to not rely on high order allocations at all but this is
+simple enough (and backportable to stable trees) and should work
+reasonably well.
 
---yoshfuji
+So FWIW
+Acked-by: Michal Hocko <mhocko@suse.com>
 
-> Signed-off-by: Maciej Żenczykowski <maze@google.com>
+I would even argue to use __GFP_NORETRY for size > PAGE_SIZE because
+giving a userspace an access to high order pages which can invoke OOM
+killer is not a great idea. Something for a separate patch though.
+
 > ---
->  net/ipv6/addrconf.c | 10 ++++++----
->  1 file changed, 6 insertions(+), 4 deletions(-)
+>  fs/select.c | 14 +++++++++++---
+>  1 file changed, 11 insertions(+), 3 deletions(-)
 > 
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index 8bd2d06eefe7..1e59c0034916 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -3687,7 +3687,7 @@ static void addrconf_rs_timer(unsigned long data)
->  	if (idev->if_flags & IF_RA_RCVD)
->  		goto out;
+> diff --git a/fs/select.c b/fs/select.c
+> index 8ed9da50896a..3d4f85defeab 100644
+> --- a/fs/select.c
+> +++ b/fs/select.c
+> @@ -29,6 +29,7 @@
+>  #include <linux/sched/rt.h>
+>  #include <linux/freezer.h>
+>  #include <net/busy_poll.h>
+> +#include <linux/vmalloc.h>
 >  
-> -	if (idev->rs_probes++ < idev->cnf.rtr_solicits) {
-> +	if (idev->rs_probes++ < idev->cnf.rtr_solicits || idev->cnf.rtr_solicits == -1) {
->  		write_unlock(&idev->lock);
->  		if (!ipv6_get_lladdr(dev, &lladdr, IFA_F_TENTATIVE))
->  			ndisc_send_rs(dev, &lladdr,
-> @@ -3949,7 +3949,7 @@ static void addrconf_dad_completed(struct inet6_ifaddr *ifp)
->  	send_mld = ifp->scope == IFA_LINK && ipv6_lonely_lladdr(ifp);
->  	send_rs = send_mld &&
->  		  ipv6_accept_ra(ifp->idev) &&
-> -		  ifp->idev->cnf.rtr_solicits > 0 &&
-> +		  ifp->idev->cnf.rtr_solicits != 0 &&
->  		  (dev->flags&IFF_LOOPBACK) == 0;
->  	read_unlock_bh(&ifp->idev->lock);
+>  #include <asm/uaccess.h>
 >  
-> @@ -5099,7 +5099,7 @@ static int inet6_set_iftoken(struct inet6_dev *idev, struct in6_addr *token)
->  		return -EINVAL;
->  	if (!ipv6_accept_ra(idev))
->  		return -EINVAL;
-> -	if (idev->cnf.rtr_solicits <= 0)
-> +	if (idev->cnf.rtr_solicits == 0)
->  		return -EINVAL;
+> @@ -554,7 +555,7 @@ int core_sys_select(int n, fd_set __user *inp, fd_set __user *outp,
+>  	fd_set_bits fds;
+>  	void *bits;
+>  	int ret, max_fds;
+> -	unsigned int size;
+> +	size_t size, alloc_size;
+>  	struct fdtable *fdt;
+>  	/* Allocate small arguments on the stack to save memory and be faster */
+>  	long stack_fds[SELECT_STACK_ALLOC/sizeof(long)];
+> @@ -581,7 +582,14 @@ int core_sys_select(int n, fd_set __user *inp, fd_set __user *outp,
+>  	if (size > sizeof(stack_fds) / 6) {
+>  		/* Not enough space in on-stack array; must use kmalloc */
+>  		ret = -ENOMEM;
+> -		bits = kmalloc(6 * size, GFP_KERNEL);
+> +		if (size > (SIZE_MAX / 6))
+> +			goto out_nofds;
+> +
+> +		alloc_size = 6 * size;
+> +		bits = kmalloc(alloc_size, GFP_KERNEL|__GFP_NOWARN);
+> +		if (!bits && alloc_size > PAGE_SIZE)
+> +			bits = vmalloc(alloc_size);
+> +
+>  		if (!bits)
+>  			goto out_nofds;
+>  	}
+> @@ -618,7 +626,7 @@ int core_sys_select(int n, fd_set __user *inp, fd_set __user *outp,
 >  
->  	write_lock_bh(&idev->lock);
-> @@ -5699,6 +5699,7 @@ int addrconf_sysctl_ignore_routes_with_linkdown(struct ctl_table *ctl,
+>  out:
+>  	if (bits != stack_fds)
+> -		kfree(bits);
+> +		kvfree(bits);
+>  out_nofds:
 >  	return ret;
 >  }
->  
-> +static const int minus_one = -1;
->  static const int one = 1;
->  static const int two_five_five = 255;
->  
-> @@ -5759,7 +5760,8 @@ static const struct ctl_table addrconf_sysctl[] = {
->  		.data		= &ipv6_devconf.rtr_solicits,
->  		.maxlen		= sizeof(int),
->  		.mode		= 0644,
-> -		.proc_handler	= proc_dointvec,
-> +		.proc_handler	= proc_dointvec_minmax,
-> +		.extra1		= (void *)&minus_one,
->  	},
->  	{
->  		.procname	= "router_solicitation_interval",
+> -- 
+> 2.10.0
 > 
+> --
+> To unsubscribe, send a message with 'unsubscribe linux-mm' in
+> the body to majordomo@kvack.org.  For more info on Linux MM,
+> see: http://www.linux-mm.org/ .
+> Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
 
 -- 
-Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
-Technical Division, MIRACLE LINUX CORPORATION
+Michal Hocko
+SUSE Labs
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
