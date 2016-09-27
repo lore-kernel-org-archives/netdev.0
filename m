@@ -1,49 +1,64 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next 2/3] net: mpls: Fixups for GSO
-Date: Tue, 27 Sep 2016 09:45:36 +0200
-Message-ID: <20160927094536.392c5045@griffin>
-References: <1471626542-13335-1-git-send-email-dsa@cumulusnetworks.com>
-        <1471626542-13335-3-git-send-email-dsa@cumulusnetworks.com>
-        <20160822122122.GA8689@penelope.isobedori.kobe.vergenet.net>
-        <dcf3df40-3914-37c6-55dc-e5c3de7530b5@cumulusnetworks.com>
-        <20160822145134.GA26491@penelope.isobedori.kobe.vergenet.net>
-        <3297517c-2889-19fe-5aa4-89e1d14eadca@cumulusnetworks.com>
-        <20160824072002.GA27254@penelope.isobedori.kobe.vergenet.net>
-        <CAOrHB_BEn2D_iUgkqPD8ixhjJtnaLpYkANxL+Au7wO=8oKmGag@mail.gmail.com>
-        <586321df-72c6-0dee-4ce6-22ca2a0860fb@cumulusnetworks.com>
-        <20160926175622.3b00d478@griffin>
-        <20160926190259.3b878aa5@griffin>
-        <363ba109-1951-1018-060f-25df33c717e0@cumulusnetworks.com>
+From: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next] net/sched: pkt_cls: change tc actions order to
+ be as the user sets
+Date: Tue, 27 Sep 2016 10:46:59 +0300
+Message-ID: <CAJL1qvGy+sxLrspwXb+mZM_F=u3qu6AQPQ6tffGg4n6K8nMtVA@mail.gmail.com>
+References: <1474812524-29089-1-git-send-email-hadarh@mellanox.com>
+ <19723e0f-50b0-77fa-2884-c5bb6e182df9@mojatatu.com> <CAM_iQpVBhckM4f43T0Lc2Bt28nVFBAjORHt5d=1_m9AfoPJtSg@mail.gmail.com>
+ <CAJL1qvGnPsjbzp9Z_6GkXzJqrxAAgYY6uE_0mCWb=H-EhcB8-A@mail.gmail.com> <CAM_iQpUxCU3S3sryGxnWBQKs6bOeVP49JotdFRur69-VV4+HzA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: pravin shelar <pshelar@ovn.org>,
-        Simon Horman <simon.horman@netronome.com>,
-        Pravin B Shelar <pshelar@nicira.com>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
         Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>, buytenh@wantstofly.org,
-        "Eric W. Biederman" <ebiederm@xmission.com>, rshearma@brocade.com,
-        tom@herbertland.com, Thomas Graf <tgraf@suug.ch>,
-        olivier.dugeon@orange.com,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        roopa@cumulusnetworks.com
-To: David Ahern <dsa@cumulusnetworks.com>
+        Or Gerlitz <ogerlitz@mellanox.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44478 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751237AbcI0Hpo (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 27 Sep 2016 03:45:44 -0400
-In-Reply-To: <363ba109-1951-1018-060f-25df33c717e0@cumulusnetworks.com>
+Received: from mail-oi0-f48.google.com ([209.85.218.48]:34092 "EHLO
+        mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751237AbcI0HrA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 03:47:00 -0400
+Received: by mail-oi0-f48.google.com with SMTP id a62so6378237oib.1
+        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 00:47:00 -0700 (PDT)
+In-Reply-To: <CAM_iQpUxCU3S3sryGxnWBQKs6bOeVP49JotdFRur69-VV4+HzA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 26 Sep 2016 20:04:06 -0600, David Ahern wrote:
-> you know this code better than me, but key_extract pulls the eth
-> header and then sets network header. If MPLS labels are present then
-> it is the labels that the network_header now points to. How did come
-> to the conclusion it is after the labels?
+On Mon, Sep 26, 2016 at 11:34 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> On Sun, Sep 25, 2016 at 11:02 PM, Hadar Hen Zion
+> <hadarh@dev.mellanox.co.il> wrote:
+>> On Mon, Sep 26, 2016 at 7:31 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>>> On Sun, Sep 25, 2016 at 7:39 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+>>>> On 16-09-25 10:08 AM, Hadar Hen Zion wrote:
+>>>>>
+>>>>> Currently the created tc actions list is reversed against the order
+>>>>> set by the user.
+>>>>> Change the actions list order to be the same as was set by the user.
+>>>>>
+>>>>
+>>>>
+>>>> Did something break? It seems to matter most for dumping. But even that
+>>>> didnt breaking. Looking at the latest net tree, i tried:
+>>>>
+>>>
+>>> The reason is we use action->order as an nested attribute, so
+>>> the order in the list doesn't matter, only action->order itself matters.
+>>
+>> The order in the list matters for offload drivers who use the
+>> "tcf_exts_to_list" function and action->order parameter isn't usable
+>> for them.
+>> Why not keeping the actions in the same order as the user? isn't it
+>> more elegant?
+>
+> I don't object this patch since it affects offloading, I just explained
+> why it doesn't affect dumping.
+>
+> Please add this to your changelog, to make it obvious.
 
-Look ~100 lines below that, to "if (eth_p_mpls(key->eth.type))".
-There's a while loop advancing network header.
+Sure, I'll add it.
 
- Jiri
+Hadar
+
+>
+> Thanks!
