@@ -1,51 +1,56 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH v2] Net Driver: Add Cypress GX3 VID=04b4 PID=3610.
-Date: Tue, 27 Sep 2016 17:40:26 +0200
-Message-ID: <20160927154026.GA887@kroah.com>
-References: <271e26e7350f418bad08761cab439005@Mail06.usask.ca>
- <CAPZMiRa6=So14ic8SMSkbHdrVH8-7vA1+Wg_hWJoAgr8G_mhyw@mail.gmail.com>
+From: Shaohua Li <shli@fb.com>
+Subject: [PATCH trival -resend 1/2] bpf: clean up put_cpu_var usage
+Date: Tue, 27 Sep 2016 08:42:41 -0700
+Message-ID: <7ffd1960225e024a738e4c372f091bb49096e294.1474990741.git.shli@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Chris Roth <chris.roth@usask.ca>
+Content-Type: text/plain
+Cc: "David S . Miller" <davem@davemloft.net>,
+        <akpm@linux-foundation.org>, Tejun Heo <tj@kernel.org>,
+        Alexei Starovoitov <ast@kernel.org>
+To: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:40182 "EHLO
-        mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932297AbcI0PkX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 11:40:23 -0400
-Content-Disposition: inline
-In-Reply-To: <CAPZMiRa6=So14ic8SMSkbHdrVH8-7vA1+Wg_hWJoAgr8G_mhyw@mail.gmail.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:59415 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S933632AbcI0Pmo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 11:42:44 -0400
+Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8RFdduu006992
+        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 08:42:44 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0a-00082601.pphosted.com with ESMTP id 25qpgua0gm-1
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 08:42:44 -0700
+Received: from facebook.com (2401:db00:11:d0a2:face:0:39:0)     by
+ mx-out.facebook.com (10.212.232.63) with ESMTP id
+ 076026be84c911e6a55c0002c992ebde-33af6a50 for <netdev@vger.kernel.org>;        Tue,
+ 27 Sep 2016 08:42:42 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 26, 2016 at 03:56:59PM -0600, Chris Roth wrote:
-> I'm not sure what I'm doing wrong:
-> 
-> I'm trying to get the from statement to read original author (Allan
-> Chou) first, and then me (Chris Roth) second. I've used the following
-> two commands:
-> 
-> git format-patch -o /tmp/ --subject-prefix="PATCH v2" --from="Allan
-> Chou <allan@asix.com.tw>" HEAD^
-> 
-> and
-> 
-> git send-email --to linux-usb@vger.kernel.org --to
-> netdev@vger.kernel.org --to linux-kernel@vger.kernel.org --from="Allan
-> Chou <allan@asix.com.tw>"
-> /tmp/0001-Net-Driver-Add-Cypress-GX3-VID-04b4-PID-3610.patch
-> 
-> I thought that adding the --from portions to the git format-patch and
-> git send-email commands would force the addition of Allan to the top
-> of the patch, but it hasn't. Can anyone tell me specifically how I
-> need to change these commands in order to get the desired result? Then
-> I'll submit a PATCH v3.
+put_cpu_var takes the percpu data, not the data returned from
+get_cpu_var.
 
-Take the patch that you have, hand-edit it with your favorite editor to
-have the correct headers and signed-off-by and other fields, and then
-use git send-email without the --from line, and you should be fine.
+This doesn't change the behavior.
 
-thanks,
+Cc: Tejun Heo <tj@kernel.org>
+Cc: Alexei Starovoitov <ast@kernel.org>
+Signed-off-by: Shaohua Li <shli@fb.com>
+---
+ kernel/bpf/core.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-greg k-h
+diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
+index 7b7baae..aa6d981 100644
+--- a/kernel/bpf/core.c
++++ b/kernel/bpf/core.c
+@@ -1031,7 +1031,7 @@ BPF_CALL_0(bpf_user_rnd_u32)
+ 
+ 	state = &get_cpu_var(bpf_user_rnd_state);
+ 	res = prandom_u32_state(state);
+-	put_cpu_var(state);
++	put_cpu_var(bpf_user_rnd_state);
+ 
+ 	return res;
+ }
+-- 
+2.9.3
