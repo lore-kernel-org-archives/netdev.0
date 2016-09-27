@@ -1,62 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v4] net: ip, diag -- Add diag interface for raw sockets
-Date: Tue, 27 Sep 2016 08:39:59 -0700
-Message-ID: <1474990799.28155.54.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160927150831.GN1876@uranus.lan>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH v2] Net Driver: Add Cypress GX3 VID=04b4 PID=3610.
+Date: Tue, 27 Sep 2016 17:40:26 +0200
+Message-ID: <20160927154026.GA887@kroah.com>
+References: <271e26e7350f418bad08761cab439005@Mail06.usask.ca>
+ <CAPZMiRa6=So14ic8SMSkbHdrVH8-7vA1+Wg_hWJoAgr8G_mhyw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, avagin@openvz.org, stephen@networkplumber.org
-To: Cyrill Gorcunov <gorcunov@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Chris Roth <chris.roth@usask.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f67.google.com ([209.85.220.67]:34251 "EHLO
-        mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932297AbcI0PkC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 11:40:02 -0400
-In-Reply-To: <20160927150831.GN1876@uranus.lan>
+Received: from mail.linuxfoundation.org ([140.211.169.12]:40182 "EHLO
+        mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932297AbcI0PkX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 11:40:23 -0400
+Content-Disposition: inline
+In-Reply-To: <CAPZMiRa6=So14ic8SMSkbHdrVH8-7vA1+Wg_hWJoAgr8G_mhyw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-09-27 at 18:08 +0300, Cyrill Gorcunov wrote:
+On Mon, Sep 26, 2016 at 03:56:59PM -0600, Chris Roth wrote:
+> I'm not sure what I'm doing wrong:
+> 
+> I'm trying to get the from statement to read original author (Allan
+> Chou) first, and then me (Chris Roth) second. I've used the following
+> two commands:
+> 
+> git format-patch -o /tmp/ --subject-prefix="PATCH v2" --from="Allan
+> Chou <allan@asix.com.tw>" HEAD^
+> 
+> and
+> 
+> git send-email --to linux-usb@vger.kernel.org --to
+> netdev@vger.kernel.org --to linux-kernel@vger.kernel.org --from="Allan
+> Chou <allan@asix.com.tw>"
+> /tmp/0001-Net-Driver-Add-Cypress-GX3-VID-04b4-PID-3610.patch
+> 
+> I thought that adding the --from portions to the git format-patch and
+> git send-email commands would force the addition of Allan to the top
+> of the patch, but it hasn't. Can anyone tell me specifically how I
+> need to change these commands in order to get the desired result? Then
+> I'll submit a PATCH v3.
 
-> +static struct sock *raw_sock_get(struct net *net, const struct inet_diag_req_v2 *r)
-> +{
-> +	struct raw_hashinfo *hashinfo = raw_get_hashinfo(r);
-> +	struct sock *sk = NULL, *s;
-> +	int slot;
-> +
-> +	if (IS_ERR(hashinfo))
-> +		return ERR_CAST(hashinfo);
-> +
-> +	read_lock(&hashinfo->lock);
-> +	for (slot = 0; slot < RAW_HTABLE_SIZE; slot++) {
-> +		sk_for_each(s, &hashinfo->ht[slot]) {
-> +			sk = raw_lookup(net, s, r);
-> +			if (sk)
-> +				break;
-> +		}
-> +	}
-> +	if (sk && !atomic_inc_not_zero(&sk->sk_refcnt))
-> +		sk = NULL;
+Take the patch that you have, hand-edit it with your favorite editor to
+have the correct headers and signed-off-by and other fields, and then
+use git send-email without the --from line, and you should be fine.
 
-Minor detail, but note that raw sockets do not use rcu (yet)
+thanks,
 
-Since you have read_lock(&hashinfo->lock), no writer can suddenly change
-sk->sk_refcnt to a zero value.
-
-Therefore, a mere "sock_hold(sk)" should be enough to get a reference on
-the socket.
-
-Using atomic_inc_not_zero() also works, but might distract/confuse the
-next guy trying to understand this code ;)
-
-
-
-> +	read_unlock(&hashinfo->lock);
-> +
-> +	return sk ? sk : ERR_PTR(-ENOENT);
-> +}
-> +
+greg k-h
