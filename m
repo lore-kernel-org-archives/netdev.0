@@ -1,55 +1,43 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [V2,
- 4.9] brcmfmac: use correct skb freeing helper when deleting flowring
-Date: Tue, 27 Sep 2016 15:48:19 +0000 (UTC)
-Message-ID: <20160927154819.309F561405@smtp.codeaurora.org>
-References: <20160927121104.5771-1-zajec5@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: Arend van Spriel <arend.vanspriel@broadcom.com>,
-        Franky Lin <franky.lin@broadcom.com>,
-        Hante Meuleman <hante.meuleman@broadcom.com>,
-        Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
-        Franky Lin <frankyl@broadcom.com>,
-        linux-wireless@vger.kernel.org,
-        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal@milecki.pl>
-To: =?utf-8?b?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH ipsec-next] xfrm: remove unused helper
+Date: Tue, 27 Sep 2016 17:53:58 +0200
+Message-ID: <1474991638-10666-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:43212 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932674AbcI0PsT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 11:48:19 -0400
-In-Reply-To: <20160927121104.5771-1-zajec5@gmail.com>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:53264 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S932181AbcI0Pxt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 11:53:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rafał Miłecki wrote:
-> From: Rafał Miłecki <rafal@milecki.pl>
-> 
-> Flowrings contain skbs waiting for transmission that were passed to us
-> by netif. It means we checked every one of them looking for 802.1x
-> Ethernet type. When deleting flowring we have to use freeing function
-> that will check for 802.1x type as well.
-> 
-> Freeing skbs without a proper check was leading to counter not being
-> properly decreased. This was triggering a WARNING every time
-> brcmf_netdev_wait_pend8021x was called.
-> 
-> Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
-> Acked-by: Arend van Spriel <arend@broadcom.com>
-> Cc: stable@vger.kernel.org # 4.5+
+Not used anymore since 2009 (9e0d57fd6dad37,
+'xfrm: SAD entries do not expire correctly after suspend-resume').
 
-Patch applied to wireless-drivers-next.git, thanks.
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ net/xfrm/xfrm_state.c | 8 --------
+ 1 file changed, 8 deletions(-)
 
-7f00ee2bbc63 brcmfmac: use correct skb freeing helper when deleting flowring
-
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index bf5969aa7dc2..9ca9a30c3fcf 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -388,14 +388,6 @@ static void xfrm_state_gc_task(struct work_struct *work)
+ 		xfrm_state_gc_destroy(x);
+ }
+ 
+-static inline unsigned long make_jiffies(long secs)
+-{
+-	if (secs >= (MAX_SCHEDULE_TIMEOUT-1)/HZ)
+-		return MAX_SCHEDULE_TIMEOUT-1;
+-	else
+-		return secs*HZ;
+-}
+-
+ static enum hrtimer_restart xfrm_timer_handler(struct hrtimer *me)
+ {
+ 	struct tasklet_hrtimer *thr = container_of(me, struct tasklet_hrtimer, timer);
 -- 
-https://patchwork.kernel.org/patch/9351797/
-
-Documentation about submitting wireless patches and checking status
-from patchwork:
-
-https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+2.7.3
