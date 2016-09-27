@@ -1,45 +1,64 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: Re: [Gigaset307x-common] ISDN-Gigaset: Release memory in
- gigaset_initcs() after an allocation failure
-Date: Tue, 27 Sep 2016 13:32:38 +0200
-Message-ID: <5974a2c5-2739-cd69-6e37-04a645bc08d7@users.sourceforge.net>
-References: <566ABCD9.1060404@users.sourceforge.net>
- <6d4bbb77-914f-19b8-a1a9-2731d1158612@users.sourceforge.net>
- <6409b3b0-3b7a-1139-f040-7b1a61611187@users.sourceforge.net>
- <1474924434.8546.29.camel@tiscali.nl>
- <0d02085e-842c-4be9-f706-c43b38ce9095@users.sourceforge.net>
- <1474966121.9970.5.camel@tiscali.nl>
- <ad12e1a0-f5d5-176a-7d37-be2f3cb0af5d@users.sourceforge.net>
- <1474971962.1601897.738261385.73EB49E0@webmail.messagingengine.com>
+From: Arend Van Spriel <arend.vanspriel@broadcom.com>
+Subject: Re: [PATCH 4.9] brcmfmac: use correct skb freeing helper when
+ deleting flowring
+Date: Tue, 27 Sep 2016 13:33:17 +0200
+Message-ID: <c0e00728-e869-d39f-515f-2b540f1e47cc@broadcom.com>
+References: <20160927091428.19223-1-zajec5@gmail.com>
+ <86fd0b60-0f73-484b-1788-3ec740672232@broadcom.com>
+ <87inthy441.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Paul Bolle <pebolle@tiscali.nl>,
-        Karsten Keil <isdn@linux-pingi.de>,
-        gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org,
-        LKML <linux-kernel@vger.kernel.org>,
-        Julia Lawall <julia.lawall@lip6.fr>
-To: Tilman Schmidt <tilman@imap.cc>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.web.de ([217.72.192.78]:52317 "EHLO mout.web.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753520AbcI0LdE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 27 Sep 2016 07:33:04 -0400
-In-Reply-To: <1474971962.1601897.738261385.73EB49E0@webmail.messagingengine.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
+        Franky Lin <franky.lin@broadcom.com>,
+        Hante Meuleman <hante.meuleman@broadcom.com>,
+        Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
+        Franky Lin <frankyl@broadcom.com>,
+        linux-wireless@vger.kernel.org,
+        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal@milecki.pl>
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87inthy441.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->> I got the impression that the exception handling  was incomplete in the
->> implementation of the function "gigaset_initcs".
+On 27-9-2016 13:27, Kalle Valo wrote:
+> Arend Van Spriel <arend.vanspriel@broadcom.com> writes:
 > 
-> That impression is wrong. Careful reading of the code will confirm that.
+>> On 27-9-2016 11:14, Rafał Miłecki wrote:
+>>> From: Rafał Miłecki <rafal@milecki.pl>
+>>>
+>>> Flowrings contain skbs waiting for transmission that were passed to us
+>>> by netif. It means we checked every one of them looking for 802.1x
+>>> Ethernet type. When deleting flowring we have to use freeing function
+>>> that will check for 802.1x type as well.
+>>>
+>>> Freeing skbs without a proper check was leading to counter not being
+>>> properly decreased. This was triggering a WARNING every time
+>>> brcmf_netdev_wait_pend8021x was called.
+>>
+>> Acked-by: Arend van Spriel <arend@broadcom.com>
+>>> Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
+>>> ---
+>>> Kalle: this isn't important enough for 4.8 as it's too late for that.
+>>>
+>>> I'd like to get it for 4.9 however, as this fixes bug that could lead
+>>> to WARNING on every add_key/del_key call. We was struggling with these
+>>> WARNINGs for some time and this fixes one of two problems causing them.
+> 
+> Ok, I'll queue this for 4.9.
+> 
+>> Please mark it for stable as well.
+> 
+> I can add that. Any ideas how old releases stable releases should this
+> go to?
 
-* Is it still correct nowadays that the function "gigaset_initcs" did not
-  call the function "kfree" after a later function call failed?
-
-* Do you expect that allocated memory will be automatically reclaimed
-  after it would return a null pointer?
+Not sure if the vendor directory move causes issues as stable can not
+fallback to three-way merge. I assumed it would so my last stable tag
+was only for 4.7 and I took care of older kernels at later time with
+backported patch. I can do that for this one as well.
 
 Regards,
-Markus
+Arend
