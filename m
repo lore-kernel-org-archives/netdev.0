@@ -1,90 +1,104 @@
-From: pravin shelar <pshelar@ovn.org>
-Subject: Re: [PATCH net] net: skbuff: Fix incorrect skb->mac_len adjustment in skb_vlan_push()
-Date: Tue, 27 Sep 2016 13:04:35 -0700
-Message-ID: <CAOrHB_C6H8AqqfLDvj296LnnLC7dLX5724cxGXujLTbgSBf50A@mail.gmail.com>
-References: <1474997505-5059-1-git-send-email-shmulik.ladkani@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+From: "Guilherme G. Piccoli" <gpiccoli@linux.vnet.ibm.com>
+Subject: [PATCH net] tg3: Avoid NULL pointer dereference in tg3_io_error_detected()
+Date: Tue, 27 Sep 2016 17:05:28 -0300
+Message-ID: <1475006728-15307-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
+Cc: netdev@vger.kernel.org, gpiccoli@linux.vnet.ibm.com,
+        Milton Miller <miltonm@us.ibm.com>
+To: siva.kallam@broadcom.com, prashant@broadcom.com, mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay3-d.mail.gandi.net ([217.70.183.195]:51224 "EHLO
-        relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933331AbcI0UEj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 16:04:39 -0400
-Received: from mfilter17-d.gandi.net (mfilter17-d.gandi.net [217.70.178.145])
-        by relay3-d.mail.gandi.net (Postfix) with ESMTP id 521C7A80C8
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 22:04:38 +0200 (CEST)
-Received: from relay3-d.mail.gandi.net ([IPv6:::ffff:217.70.183.195])
-        by mfilter17-d.gandi.net (mfilter17-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id o8Z0lnLeiK_o for <netdev@vger.kernel.org>;
-        Tue, 27 Sep 2016 22:04:36 +0200 (CEST)
-Received: from mail-it0-f52.google.com (mail-it0-f52.google.com [209.85.214.52])
-        (Authenticated sender: pshelar@ovn.org)
-        by relay3-d.mail.gandi.net (Postfix) with ESMTPSA id AFF52A80CE
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 22:04:36 +0200 (CEST)
-Received: by mail-it0-f52.google.com with SMTP id j69so25096367itb.0
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 13:04:36 -0700 (PDT)
-In-Reply-To: <1474997505-5059-1-git-send-email-shmulik.ladkani@gmail.com>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:37525 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S932573AbcI0UFm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 16:05:42 -0400
+Received: from pps.filterd (m0098420.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8RK2tnP141263
+        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 16:05:41 -0400
+Received: from e24smtp02.br.ibm.com (e24smtp02.br.ibm.com [32.104.18.86])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 25qv5x9hk0-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 16:05:41 -0400
+Received: from localhost
+        by e24smtp02.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <gpiccoli@linux.vnet.ibm.com>;
+        Tue, 27 Sep 2016 17:05:39 -0300
+Received: from d24relay04.br.ibm.com (d24relay04.br.ibm.com [9.18.232.146])
+        by d24dlp01.br.ibm.com (Postfix) with ESMTP id E6794352005F
+        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 16:05:12 -0400 (EDT)
+Received: from d24av01.br.ibm.com (d24av01.br.ibm.com [9.8.31.91])
+        by d24relay04.br.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u8RK5bjT21627132
+        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 17:05:37 -0300
+Received: from d24av01.br.ibm.com (localhost [127.0.0.1])
+        by d24av01.br.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u8RK5aZq024842
+        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 17:05:37 -0300
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 27, 2016 at 10:31 AM, Shmulik Ladkani
-<shmulik.ladkani@gmail.com> wrote:
-> In case 'skb_vlan_push' is called on an skb with a hw-accel vlan tag
-> already present, the existing hw-accel tag is inserted into payload, and
-> the new given tag is placed as new hw-accel tag.
->
-> After the insertion:
->  - 'mac_header' is adjusted to point to the new start of the vlan_ethhdr
->  - 'data' is adjusted to point to the vlan_hdr portion
->    (since packet's payload is the inner 802.1q)
->
-> However, 'mac_len' is incorrectly incremented with additional VLAN_HLEN
-> bytes, resulting in a total value of 18 bytes.
->
-> Meaning, when issuing 'skb_push(skb, skb->mac_len)' the data points
-> to random content, 4 bytes PRIOR the ethhdr location.
->
-> This is problematic, as many constructs in the stack are issuing
-> 'skb_push(skb, skb->mac_len)' prior xmit to a device (e.g tcf_mirred,
-> tcf_bpf, nf_dup_netdev_egress), resulting in bogus frames being
-> xmitted (having random 4 bytes at start of frame).
->
-> For example:
->
->  # ip l add dev d0 type dummy
->  # tc filter add dev eth0 parent ffff: pref 1 basic \
->      action vlan push protocol 802.1ad id 5 pipe \
->      action mirred egress redirect dev d0
->
-> Any 802.1q (hw-accel) tagged frames arriving on eth0 are xmitted as
-> bogus frames on d0; whereas the expected behavior is having QinQ frames.
->
-> Fix, removing the unnecessary VLAN_HLEN adjustment of mac_len.
->
-> Fixes: 93515d53b1 ("net: move vlan pop/push functions into common code")
-> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-> Cc: Pravin Shelar <pshelar@ovn.org>
-> Cc: Jiri Pirko <jiri@mellanox.com>
-> ---
->
->  - David, if patch ok, suggest this goes to -stable
->
->  - Pravin, original push_vlan() code in openvswitch/actions.c prior Jiri
->    has moved it into skbuff.c had the following comment:
->         /* Update mac_len for subsequent MPLS actions */
->         skb->mac_len += VLAN_HLEN;
->    Can you please acknowlegde OvS code is also ok with suggested change?
->
+From: Milton Miller <miltonm@us.ibm.com>
 
-OVS MPLS does depends on mac-len to track MPLS header (ref
-skb_mpls_header()). Therefore vlan header changes needs to update
-mac-len. But after commit 48d2ab609b6bb ("net: mpls: Fixups for GSO")
-it does not need to use mac-len to track MPLS header.
-To keep simple fix for stable, we can move the skb mac-len adjustment
-to OVS module. Later on patch can remove this MPLS dependency on
-mac-len for net-next branch.
+While the driver is probing the adapter, an error may occur before the
+netdev structure is allocated and attached to pci_dev. In this case,
+not only netdev isn't available, but the tg3 private structure is also
+not available as it is just math from the NULL pointer, so dereferences
+must be skipped.
+
+The following trace is seen when the error is triggered:
+
+  [1.402247] Unable to handle kernel paging request for data at address 0x00001a99
+  [1.402410] Faulting instruction address: 0xc0000000007e33f8
+  [1.402450] Oops: Kernel access of bad area, sig: 11 [#1]
+  [1.402481] SMP NR_CPUS=2048 NUMA PowerNV
+  [1.402513] Modules linked in:
+  [1.402545] CPU: 0 PID: 651 Comm: eehd Not tainted 4.4.0-36-generic #55-Ubuntu
+  [1.402591] task: c000001fe4e42a20 ti: c000001fe4e88000 task.ti: c000001fe4e88000
+  [1.402742] NIP: c0000000007e33f8 LR: c0000000007e3164 CTR: c000000000595ea0
+  [1.402787] REGS: c000001fe4e8b790 TRAP: 0300   Not tainted  (4.4.0-36-generic)
+  [1.402832] MSR: 9000000100009033 <SF,HV,EE,ME,IR,DR,RI,LE>  CR: 28000422  XER: 20000000
+  [1.403058] CFAR: c000000000008468 DAR: 0000000000001a99 DSISR: 42000000 SOFTE: 1
+  GPR00: c0000000007e3164 c000001fe4e8ba10 c0000000015c5e00 0000000000000000
+  GPR04: 0000000000000001 0000000000000000 0000000000000039 0000000000000299
+  GPR08: 0000000000000000 0000000000000001 c000001fe4e88000 0000000000000006
+  GPR12: 0000000000000000 c00000000fb40000 c0000000000e6558 c000003ca1bffd00
+  GPR16: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+  GPR20: 0000000000000000 0000000000000000 0000000000000000 c000000000d52768
+  GPR24: c000000000d52740 0000000000000100 c000003ca1b52000 0000000000000002
+  GPR28: 0000000000000900 0000000000000000 c00000000152a0c0 c000003ca1b52000
+  [1.404226] NIP [c0000000007e33f8] tg3_io_error_detected+0x308/0x340
+  [1.404265] LR [c0000000007e3164] tg3_io_error_detected+0x74/0x340
+
+This patch avoids the NULL pointer dereference by moving the access after
+the netdev NULL pointer check on tg3_io_error_detected().
+
+Fixes: 0486a063b1ff ("tg3: prevent ifup/ifdown during PCI error recovery")
+Fixes: dfc8f370316b ("net/tg3: Release IRQs on permanent error")
+Tested-by: Guilherme G. Piccoli <gpiccoli@linux.vnet.ibm.com>
+Signed-off-by: Milton Miller <miltonm@us.ibm.com>
+Signed-off-by: Guilherme G. Piccoli <gpiccoli@linux.vnet.ibm.com>
+---
+ drivers/net/ethernet/broadcom/tg3.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index a2551bc..3a5fce7 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -18122,14 +18122,14 @@ static pci_ers_result_t tg3_io_error_detected(struct pci_dev *pdev,
+ 
+ 	rtnl_lock();
+ 
+-	/* We needn't recover from permanent error */
+-	if (state == pci_channel_io_frozen)
+-		tp->pcierr_recovery = true;
+-
+ 	/* We probably don't have netdev yet */
+ 	if (!netdev || !netif_running(netdev))
+ 		goto done;
+ 
++	/* We needn't recover from permanent error */
++	if (state == pci_channel_io_frozen)
++		tp->pcierr_recovery = true;
++
+ 	tg3_phy_stop(tp);
+ 
+ 	tg3_netif_stop(tp);
+-- 
+2.1.0
