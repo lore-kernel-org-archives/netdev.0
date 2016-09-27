@@ -1,51 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next 0/3] net: bcmgenet: only use new api
- ethtool_{get|set}_link_ksettings
-Date: Tue, 27 Sep 2016 07:43:42 -0400 (EDT)
-Message-ID: <20160927.074342.1048165536305147870.davem@davemloft.net>
-References: <1474921917-4773-1-git-send-email-tremyfr@gmail.com>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: [PATCH 4.9] brcmfmac: use correct skb freeing helper when
+ deleting flowring
+Date: Tue, 27 Sep 2016 13:44:43 +0200
+Message-ID: <CACna6rwUR_GidhEFNTN+8mGQRpBdUzeM1-0NY65k6-McX7xGVg@mail.gmail.com>
+References: <20160927091428.19223-1-zajec5@gmail.com> <86fd0b60-0f73-484b-1788-3ec740672232@broadcom.com>
+ <87inthy441.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, jaedon.shin@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: tremyfr@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Arend Van Spriel <arend.vanspriel@broadcom.com>,
+        Franky Lin <franky.lin@broadcom.com>,
+        Hante Meuleman <hante.meuleman@broadcom.com>,
+        Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
+        Franky Lin <frankyl@broadcom.com>,
+        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+        "open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
+        <brcm80211-dev-list.pdl@broadcom.com>,
+        Network Development <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal@milecki.pl>
+To: Kalle Valo <kvalo@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46152 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932192AbcI0Lnp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 07:43:45 -0400
-In-Reply-To: <1474921917-4773-1-git-send-email-tremyfr@gmail.com>
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:36838 "EHLO
+        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932192AbcI0Low (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 07:44:52 -0400
+In-Reply-To: <87inthy441.fsf@kamboji.qca.qualcomm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Philippe Reynes <tremyfr@gmail.com>
-Date: Mon, 26 Sep 2016 22:31:54 +0200
+On 27 September 2016 at 13:27, Kalle Valo <kvalo@codeaurora.org> wrote:
+> Arend Van Spriel <arend.vanspriel@broadcom.com> writes:
+>
+>> On 27-9-2016 11:14, Rafa=C5=82 Mi=C5=82ecki wrote:
+>>> From: Rafa=C5=82 Mi=C5=82ecki <rafal@milecki.pl>
+>>>
+>>> Flowrings contain skbs waiting for transmission that were passed to us
+>>> by netif. It means we checked every one of them looking for 802.1x
+>>> Ethernet type. When deleting flowring we have to use freeing function
+>>> that will check for 802.1x type as well.
+>>>
+>>> Freeing skbs without a proper check was leading to counter not being
+>>> properly decreased. This was triggering a WARNING every time
+>>> brcmf_netdev_wait_pend8021x was called.
+>>
+>> Acked-by: Arend van Spriel <arend@broadcom.com>
+>>> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <rafal@milecki.pl>
+>>> ---
+>>> Kalle: this isn't important enough for 4.8 as it's too late for that.
+>>>
+>>> I'd like to get it for 4.9 however, as this fixes bug that could lead
+>>> to WARNING on every add_key/del_key call. We was struggling with these
+>>> WARNINGs for some time and this fixes one of two problems causing them.
+>
+> Ok, I'll queue this for 4.9.
+>
+>> Please mark it for stable as well.
+>
+> I can add that. Any ideas how old releases stable releases should this
+> go to?
 
-> Some times ago, a serie of patches were committed :
-> - commit 62469c76007e ("net: ethernet: bcmgenet: use phydev from struct net_device")
-> - commit 6b352ebccbcf ("net: ethernet: broadcom: bcmgenet: use new api ethtool_{get|set}_link_ksettings")
-> The first patch add a regression on this driver, so it should be reverted.
-> As the second patch depend on the former, it should be reverted too.
-> 
-> The first patch is buggy because there is a "trick" in this driver.
-> The structure phydev is kept in the private data when the interface
-> go down, and used when the interface go up to enable the phy before
-> the function phy_connect is called.
-> 
-> I don't have this hardware, neither the datasheet. So I won't
-> update the driver to avoid this trick.
-> 
-> But the real goal of the first serie was to move to the new api
-> ethtool_{get|set}_link_ksettings. So I provide a new version of
-> the patch without the "cleaning" of driver to use the phydev
-> store in the net_device structure.
-> 
-> Changelog:
-> v3:
-> - use priv instead of dev (so all the code use the same phydev)
-> v2:
-> - use Florian Fainelli patches for the revert instead of Jaedon Shin
-> - simply use net: bcmgenet: for the prefix of the patch
+I was analyzing this.
+1) This patch uses brcmf_get_ifp which is available in 4.4+ only.
+2) It applies cleanly to 4.5+ only due to 32f90caa7debd ("brcmfmac:
+Increase nr of supported flowrings.")
+3) 4.4 would also require applying to the patch without broadcom/ subdir
 
-Series applied, thanks.
+That said I suggest 4.5+. Any objections?
+
+--=20
+Rafa=C5=82
