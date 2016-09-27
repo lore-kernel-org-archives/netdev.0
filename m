@@ -1,100 +1,56 @@
-From: pravin shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
-Subject: Re: [PATCH net-next v11 5/6] openvswitch: add layer 3
- flow/port support
-Date: Mon, 26 Sep 2016 21:09:11 -0700
-Message-ID: <CAOrHB_Bwv2Ssh81Gw7hjT5SST-Z+8-ebyTfAYEsW0gT_TacXTQ@mail.gmail.com>
-References: <1467827996-32547-1-git-send-email-simon.horman@netronome.com>
- <1467827996-32547-6-git-send-email-simon.horman@netronome.com>
- <CAOrHB_BYD40ZkWbU0dvhPOCcaCVgooksOUkejxyFoagyoiBTNw@mail.gmail.com>
- <20160713073152.GC29661@penelope.isobedori.kobe.vergenet.net>
- <CAOrHB_A1ri6fouFH0H4KpEqg1icCmz+U1tcgn-5BoryX5pb1gw@mail.gmail.com>
- <20160926185306.164bc044@griffin>
+From: Liping Zhang <zlpnobody@gmail.com>
+Subject: Re: [PATCH v3 2/2] netfilter: Create revision 2 of xt_hashlimit to
+ support higher pps rates
+Date: Tue, 27 Sep 2016 12:15:54 +0800
+Message-ID: <CAML_gOdcrnmuHkxA1xAb2HDXHpo+=+sw+oJBfKXF3ijApsjTqg@mail.gmail.com>
+References: <20160922164344.GB20423@akamai.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20160926185306.164bc044@griffin>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>, johunt@akamai.com,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, pai.vishwain@gmail.com
+To: Vishwanath Pai <vpai@akamai.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20160922164344.GB20423@akamai.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gTW9uLCBTZXAgMjYsIDIwMTYgYXQgOTo1MyBBTSwgSmlyaSBCZW5jIDxqYmVuY0ByZWRoYXQu
-Y29tPiB3cm90ZToKPiBSZXZpdmluZyBhIHZlcnkgb2xkIHRocmVhZCwgc29ycnkuIFNpbW9uIGhh
-bmRlZCB0aGlzIG92ZXIgdG8gbWUsIEknbQo+IHByZXBhcmluZyB2MTIuCj4KPiBPbiBGcmksIDE1
-IEp1bCAyMDE2IDE0OjA3OjM3IC0wNzAwLCBwcmF2aW4gc2hlbGFyIHdyb3RlOgo+PiBJIGFtIG5v
-dCBzdXJlIGlmIHlvdSBjYW4gdXNlIG9ubHkgbWFjX2xlbiB0byBkZXRlY3QgTDMgcGFja2V0LiBU
-aGlzCj4+IGRvZXMgbm90IHdvcmsgd2l0aCBNUExTIHBhY2tldHMsIG1hY19sZW4gaXMgdXNlZCB0
-byBhY2NvdW50IE1QTFMKPj4gaGVhZGVycyBwdXNoZWQgb24gc2tiLiBUaGVyZWZvcmUgaW4gY2Fz
-ZSBvZiBhIE1QTFMgaGVhZGVyIG9uIEwzCj4+IHBhY2tldCwgbWFjX2xlbiB3b3VsZCBiZSBub24g
-emVybyBhbmQgd2UgaGF2ZSB0byBsb29rIGF0IGVpdGhlcgo+PiBtYWNfaGVhZGVyIG9yIHNvbWUg
-b3RoZXIgbWV0YWRhdGEgbGlrZSBpc19sYXllcjMgZmxhZyBmcm9tIGtleSB0bwo+PiBjaGVjayBm
-b3IgTDMgcGFja2V0Lgo+Cj4gSSB3ZW50IHRocm91Z2ggdGhlIHJlbGV2YW50IGNvZGUgcGF0aHMg
-YW5kIEkgZG9uJ3Qgc2VlIGFueSBwcm9ibGVtIGluCj4gdXNpbmcgbWFjX2xlbiBmb3IgdGhhdC4g
-TVBMUyBHU08gc2VlbXMgdG8gd29yayBjb3JyZWN0bHkuIFRoZSBrZXJuZWwKPiBNUExTIGNvZGUg
-ZXhwZWN0cyBtYWNfbGVuIHRvIGJlIGp1c3QgdGhlIEwyIGhlYWRlciBsZW4sIGV4Y2x1ZGluZyBN
-UExTLgo+IFRoZSBzYW1lIGlzIHRoZSBjYXNlIGZvciBvcGVudnN3aXRjaCAoeW91J3JlIG5vdCBj
-b3JyZWN0IHRoYXQgIm1hY19sZW4KPiBpcyB1c2VkIHRvIGFjY291bnQgTVBMUyBoZWFkZXJzIHB1
-c2hlZCBvbiBza2IiLCBhdCBsZWFzdCBub3Qgd2l0aCB0aGUKPiBjdXJyZW50IGNvZGUpLiBJbiBu
-byBwbGFjZSBJIHNlZSBhbnkgcHJvYmxlbSB3aXRoIG1hY19sZW4gYmVpbmcgMCwgdGhlCj4gY2Fs
-Y3VsYXRpb25zIGp1c3QgbmljZWx5IHdvcmsuCj4KPiBXaGF0IHdhcyB5b3VyIGNvbmNlcm4gd2l0
-aCB0aGF0LCBQcmF2aW4/Cj4KPiBJbiBhbm90aGVyIG1haWwgaW4gdGhpcyB0aHJlYWQgeW91IG1l
-bnRpb25lZCBza2JfbXBsc19oZWFkZXIuIFRoYXQgb25lCj4gd29ya3MgY29ycmVjdGx5IHdpdGgg
-bWFjX2xlbiA9PSAwIGlmIG1hY19oZWFkZXIgcG9pbnRzIHRvIHRoZSBiZWdpbm5pbmcKPiBvZiB0
-aGUgcGFja2V0Lgo+Cj4gWW91IGFsc28gd3JvdGU6Cj4KPj4gSSB3YXMgdGhpbmtpbmcgaW4gb3Zl
-cmFsbCBuZXR3b3JraW5nIHN0YWNrIHJhdGhlciB0aGFuIGp1c3Qgb3ZzCj4+IGRhdGFwYXRoLiBJ
-IHRoaW5rIHdlIHNob3VsZCBoYXZlIGNvbnNpc3RlbnQgbWV0aG9kIG9mIGRldGVjdGluZyBMMwo+
-PiBwYWNrZXQuIEFzIGNvbW1lbnRlZCBpbiBwcmV2aW91cyBtYWlsIGl0IGNvdWxkIGJlIGFjaGll
-dmVkIHVzaW5nCj4+IHNrYi1wcm90b2NvbCBhbmQgZGV2aWNlIHR5cGUuCj4KPiBBZ2FpbiwgbWFj
-X2xlbiA9PSAwIHdvcmtzIGNvcnJlY3RseSBhbmQgY29uc2lzdGVudGx5LCBwcm92aWRlZCB0aGF0
-Cj4gYm90aCBtYWNfaGVhZGVyIGFuZCBuZXR3b3JrX2hlYWRlciBwb2ludCB0byB0aGUgc2FtZSBw
-bGFjZS4gSW4gY2FzZSBvZgo+IGEgTVBMUyBwYWNrZXQgaXQgd291bGQgYmUgdGhlIGJlZ2lubmlu
-ZyBvZiBNUExTIGhlYWRlcnMuCj4KPj4gPiAtLS0gYS9pbmNsdWRlL25ldC9tcGxzLmgKPj4gPiAr
-KysgYi9pbmNsdWRlL25ldC9tcGxzLmgKPj4gPiBAQCAtMzQsNiArMzQsOCBAQCBzdGF0aWMgaW5s
-aW5lIGJvb2wgZXRoX3BfbXBscyhfX2JlMTYgZXRoX3R5cGUpCj4+ID4gICAqLwo+PiA+ICBzdGF0
-aWMgaW5saW5lIHVuc2lnbmVkIGNoYXIgKnNrYl9tcGxzX2hlYWRlcihzdHJ1Y3Qgc2tfYnVmZiAq
-c2tiKQo+PiA+ICB7Cj4+ID4gLSAgICAgICByZXR1cm4gc2tiX21hY19oZWFkZXIoc2tiKSArIHNr
-Yi0+bWFjX2xlbjsKPj4gPiArICAgICAgIHJldHVybiBza2JfbWFjX2hlYWRlcl93YXNfc2V0KHNr
-YikgPwo+PiA+ICsgICAgICAgICAgICAgICBza2JfbWFjX2hlYWRlcihza2IpICsgc2tiLT5tYWNf
-bGVuIDoKPj4gPiArICAgICAgICAgICAgICAgc2tiLT5kYXRhOwo+PiA+ICB9Cj4+Cj4+IFRoaXMg
-ZnVuY3Rpb24gaXMgYWxzbyBjYWxsZWQgZnJvbSBHU08gbGF5ZXIuCj4KPiBJIGRvbid0IHNlZSBp
-dCB1c2VkIGFueXdoZXJlIG91dHNpZGUgb2Ygb3BlbnZzd2l0Y2guIE5vdCBldmVuIHdoZW4KPiBn
-cmVwcGluZyBnaXQgaGlzdG9yeS4gSSBtYXkgYmUgbWlzc2luZyBzb21ldGhpbmcsIHRob3VnaC4K
-Pgo+PiBpc3N1ZSBpcyBpbiBHU08gbGF5ZXIsIGl0Cj4+IGRvZXMgcmVzZXQgbWFjIGhlYWRlciBh
-bmQgbWFjIGxlbmd0aCBhbmQgdGhlbiBjYWxscyBtcGxzLWdzby1oYW5kbGVyLgo+PiBTbyBhbGwg
-c3Vic2VxdWVudCBjaGVjayBmb3IgTDMgcGFja2V0IGZhaWxzLgo+PiBTbyBmYXIgd2UgaGF2ZSBl
-eHBsb3JlZCB0aHJlZSBkaWZmZXJlbnQgd2F5cyB0byBkZXRlY3QgTDMgcGFja2V0IGJ1dAo+PiBl
-YWNoIGhhcyBpdHMgb3duIGlzc3VlLgo+PiAxLiBza2IgbWFjIGhlYWRlciA6IEdTTyBjYW4gcmVz
-ZXQgbWFjIGhlYWRlci4KPj4gMi4gc2tiIG1hYyBsZW5ndGggOiBNUExTIHVzZXMgbWFjX2xlbiB0
-byBhY2NvdW50IGZvciBNUExTIGhlYWRlcgo+PiBsZW5ndGggYWxvbmcgd2l0aCBMMiBoZWFkZXIK
-Pgo+IEl0IGRvZXMgbm90IGFwcGVhciB0byBiZSB0aGUgY2FzZS4gT3IgYXQgbGVhc3Qgbm90IGFu
-eW1vcmUuCj4KPj4gMy4gc2tiIHByb3RvY29sOiBFVEhfUF9URUIgaXMgbm90IHNldCBmb3IgYWxs
-IEwyIGZyYW1lcywgbmV0d29ya2luZwo+PiBzdGFjayBpcyBub3QgcmVhZHkgdG8gaGFuZGxlIHRo
-aXMgdHlwZSBmb3IgZ2l2ZW4gc2tiLgo+Pgo+PiBTbyBub25lIG9mIHRoZW0gd29ya3MgY29uc2lz
-dGVudGx5LiBJIHRoaW5rIHRoZSBvbmx5IG9wdGlvbiB0byBkZXRlY3QKPj4gTDMgcGFja2V0IHJl
-bGlhYmx5IChhbmQgd2l0aG91dCBhZGRpbmcgZmllbGQgdG8gc2tiKSBpcyB0byB1c2UKPj4gc2ti
-LXByb3RvY29sIGFsb25nIHdpdGggQVJQSFJEX05PTkUgZGV2aWNlIHR5cGUuIElmIEFSUEhSRF9O
-T05FIHR5cGUKPj4gZGV2aWNlIGdlbmVyYXRlcyBMMiBwYWNrZXQgaXQgbmVlZHMgdG8gc2V0IHBy
-b3RvY29sIHRvIEVUSF9QX1RFQi4gU29tZQo+PiBuZXR3b3JraW5nIHN0YWNrIGZ1bmN0aW9uIGFs
-c28gbmVlZHMgdG8gYmUgZml4ZWQgdG8gaGFuZGxlIHRoaXMKPj4gcHJvdG9jb2wgdHlwZSwgZS5n
-LiB2bGFuX2dldF9wcm90b2NvbCgpLCBicl9kZXZfcXVldWVfcHVzaF94bWl0KCksCj4+IGV0Yy4K
-Pgo+IEFsbCBvZiB0aGlzIHNhaWQsIEknbSBub3Qgb3Bwb3NlZCB0byB1c2luZyB0aGUgc2tiX2V0
-aF9oZWFkZXJfcHJlc2VudAo+IGhlbHBlciBhbmQgY2hlY2tpbmcgdGhlIGRldmljZSB0eXBlLCBp
-dCB3b3Jrcy4gSSBqdXN0IHdhbnQgdG8gdW5kZXJzdGFuZAo+IHdoZXRoZXIgSSBtaXNzZWQgc29t
-ZSBwcm9ibGVtIHdpdGggbWFjX2xlbi4gU2VlbXMgdG8gbWFrZSBzb21lIHRoaW5ncwo+IHNpbXBs
-ZXIgaWYgd2UgY291bGQgdXNlIG1hY19sZW4uCj4KCkFmdGVyIGNvbW1pdCA0OGQyYWI2MDliNmJi
-ICgibmV0OiBtcGxzOiBGaXh1cHMgZm9yIEdTTyIpIE1QTFMgZG9lcyBub3QKbmVlZCB0byB1c2Ug
-c2tiIG1hYy1sZW4gdG8gdHJhY2sgdGhlIGhlYWRlciwgc28gdXNpbmcgbWFjLWxlbiB0ZXN0IGZv
-cgpMMyBwYWNrZXQgZGV0ZWN0aW9uIHdvdWxkIHJlc3VsdCBpbiBiZXR0ZXIgYW5kIGNsZWFuZXIg
-c29sdXRpb24uCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-CmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gu
-b3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+Hi Vishwanath,
+
+2016-09-23 0:43 GMT+08:00 Vishwanath Pai <vpai@akamai.com>:
+>
+>  /* Precision saver. */
+> -static u32 user2credits(u32 user)
+> +static u64 user2credits(u64 user, int revision)
+>  {
+> -       /* If multiplying would overflow... */
+> -       if (user > 0xFFFFFFFF / (HZ*CREDITS_PER_JIFFY_v1))
+> -               /* Divide first. */
+> -               return (user / XT_HASHLIMIT_SCALE_v1) *\
+> -                                       HZ * CREDITS_PER_JIFFY_v1;
+> +       if (revision == 1) {
+> +               /* If multiplying would overflow... */
+> +               if (user > 0xFFFFFFFF / (HZ*CREDITS_PER_JIFFY_v1))
+> +                       /* Divide first. */
+> +                       return (user / XT_HASHLIMIT_SCALE_v1) *\
+> +                                               HZ * CREDITS_PER_JIFFY_v1;
+> +
+> +               return (user * HZ * CREDITS_PER_JIFFY_v1) \
+> +                                               / XT_HASHLIMIT_SCALE_v1;
+> +       } else {
+> +               if (user > 0xFFFFFFFFFFFFFFFF / (HZ*CREDITS_PER_JIFFY))
+> +                       return (user / XT_HASHLIMIT_SCALE) *\
+> +                                               HZ * CREDITS_PER_JIFFY;
+>
+> -       return (user * HZ * CREDITS_PER_JIFFY_v1) / XT_HASHLIMIT_SCALE_v1;
+> +               return (user * HZ * CREDITS_PER_JIFFY) / XT_HASHLIMIT_SCALE;
+> +       }
+>  }
+>
+
+In my memory, 64-bit division operation should be replaced by
+div_u64 or div64_u64, otherwise on some 32-bit architecture
+systems, link error will happen. Something like this:
+... undefined reference to `__udivdi3'.
