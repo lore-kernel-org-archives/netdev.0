@@ -1,30 +1,51 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH 4/5] ISDN-Gigaset: Release memory in gigaset_initcs()
- after an allocation failure
-Date: Tue, 27 Sep 2016 10:30:56 +0300
-Message-ID: <20160927073056.GW13620@mwanda>
-References: <566ABCD9.1060404@users.sourceforge.net>
- <6d4bbb77-914f-19b8-a1a9-2731d1158612@users.sourceforge.net>
- <6409b3b0-3b7a-1139-f040-7b1a61611187@users.sourceforge.net>
- <1474924434.8546.29.camel@tiscali.nl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v2] L2TP:Adjust intf MTU,factor underlay L3,overlay
+ L2
+Date: Tue, 27 Sep 2016 03:31:53 -0400 (EDT)
+Message-ID: <20160927.033153.1066118008027608891.davem@davemloft.net>
+References: <alpine.DEB.2.11.1609221341500.6975@duvvury30.eng.vyatta.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: SF Markus Elfring <elfring@users.sourceforge.net>,
-        gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
-        Karsten Keil <isdn@linux-pingi.de>,
-        LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org,
-        Julia Lawall <julia.lawall@lip6.fr>
-To: Paul Bolle <pebolle@tiscali.nl>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1474924434.8546.29.camel@tiscali.nl>
-Sender: kernel-janitors-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kleptog@svana.org, jchapman@katalix.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, nprachan@brocade.com,
+        rshearma@brocade.com, dfawcus@brocade.com,
+        stephen@networkplumber.org, acme@redhat.com, lboccass@brocade.com
+To: parameswaran.r7@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.11.1609221341500.6975@duvvury30.eng.vyatta.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ah well...  Someone else discovered the double free bug first and gave
-it away.  Reassuring, I guess.
+From: "R. Parameswaran" <parameswaran.r7@gmail.com>
+Date: Thu, 22 Sep 2016 13:52:43 -0700 (PDT)
 
-regards,
-dan carpenter
+> From ed585bdd6d3d2b3dec58d414f514cd764d89159d Mon Sep 17 00:00:00 2001
+> From: "R. Parameswaran" <rparames@brocade.com>
+> Date: Thu, 22 Sep 2016 13:19:25 -0700
+> Subject: [PATCH] L2TP:Adjust intf MTU,factor underlay L3,overlay L2
+> 
+> Take into account all of the tunnel encapsulation headers when setting
+> up the MTU on the L2TP logical interface device. Otherwise, packets
+> created by the applications on top of the L2TP layer are larger
+> than they ought to be, relative to the underlay MTU, leading to
+> needless fragmentation once the outer IP encap is added.
+> 
+> Specifically, take into account the (outer, underlay) IP header
+> imposed on the encapsulated L2TP packet, and the Layer 2 header
+> imposed on the inner IP packet prior to L2TP encapsulation.
+> 
+> Do not assume an Ethernet (non-jumbo) underlay. Use the PMTU mechanism
+> and the dst entry in the L2TP tunnel socket to directly pull up
+> the underlay MTU (as the baseline number on top of which the
+> encapsulation headers are factored in).  Fall back to Ethernet MTU
+> if this fails.
+> 
+> Signed-off-by: R. Parameswaran <rparames@brocade.com>
+> 
+> Reviewed-by: "N. Prachanda" <nprachan@brocade.com>,
+> Reviewed-by: "R. Shearman" <rshearma@brocade.com>,
+> Reviewed-by: "D. Fawcus" <dfawcus@brocade.com>
 
+I have to ask, how do other tunnels over UDP such as VXLAN handle
+this problem?
