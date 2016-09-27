@@ -1,46 +1,46 @@
-From: Shmulik Ladkani <shmulik.ladkani@ravellosystems.com>
-Subject: Re: [PATCH net-next 4/4] net/sched: act_mirred: Implement ingress
- actions
-Date: Tue, 27 Sep 2016 11:07:11 +0300
-Message-ID: <20160927110711.12555f4e@pixies>
-References: <1474550512-7552-1-git-send-email-shmulik.ladkani@gmail.com>
-        <1474550512-7552-5-git-send-email-shmulik.ladkani@gmail.com>
-        <20160927.015606.437705429903770747.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, xiyou.wangcong@gmail.com, edumazet@google.com,
-        netdev@vger.kernel.org, shmulik.ladkani@gmail.com
-To: David Miller <davem@davemloft.net>
+From: Hadar Hen Zion <hadarh@mellanox.com>
+Subject: [PATCH net-next V2] net/sched: pkt_cls: change tc actions order to be as the user sets
+Date: Tue, 27 Sep 2016 11:09:51 +0300
+Message-ID: <1474963791-3717-1-git-send-email-hadarh@mellanox.com>
+Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f181.google.com ([209.85.220.181]:35201 "EHLO
-        mail-qk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754133AbcI0IH2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 04:07:28 -0400
-Received: by mail-qk0-f181.google.com with SMTP id t7so8189393qkh.2
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 01:07:28 -0700 (PDT)
-In-Reply-To: <20160927.015606.437705429903770747.davem@davemloft.net>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:53851 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751750AbcI0IKM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 04:10:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+Currently the created tc actions list is reversed against the order
+set by the user.
+Change the actions list order to be the same as was set by the user.
 
-On Tue, 27 Sep 2016 01:56:06 -0400 (EDT), davem@davemloft.net wrote:
-> The discussion on this patch has ventured off into what to do about
-> recursion.
-> 
-> But it unclear to me where this specific patch, and this series,
-> stands right now.  Someone please clear this up for me.
+This patch doesn't affect dump actions behavior.
+For dumping, action->order parameter is used so the list order doesn't
+matter.
 
-Status:
- - Series adds "ingress redirect/mirror" support
- - Positive feedback for the feature
- - So far no comments regarding code itself
- - Questions raised regarding "recursion handling"
-   Expressed that existing mirred code (i.e egress redirect) is *already*
-   loop-unsafe (and also, some non-tc netdev constructs, as exampled by
-   others).
-   Discussion then wandered to "recursion handling".
+Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+---
+ include/net/pkt_cls.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Regards,
-Shmulik	
+diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+index 5ccaa4b..767b03a 100644
+--- a/include/net/pkt_cls.h
++++ b/include/net/pkt_cls.h
+@@ -123,7 +123,7 @@ static inline void tcf_exts_to_list(const struct tcf_exts *exts,
+ 	for (i = 0; i < exts->nr_actions; i++) {
+ 		struct tc_action *a = exts->actions[i];
+ 
+-		list_add(&a->list, actions);
++		list_add_tail(&a->list, actions);
+ 	}
+ #endif
+ }
+-- 
+1.8.3.1
