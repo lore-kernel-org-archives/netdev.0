@@ -1,52 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: hns: mark symbols static where possible
-Date: Tue, 27 Sep 2016 07:50:14 -0400 (EDT)
-Message-ID: <20160927.075014.320869544955826394.davem@davemloft.net>
-References: <1474881218-21219-1-git-send-email-baoyou.xie@linaro.org>
+From: Vlastimil Babka <vbabka@suse.cz>
+Subject: Re: [PATCH] fs/select: add vmalloc fallback for select(2)
+Date: Tue, 27 Sep 2016 13:51:03 +0200
+Message-ID: <92d1ec2c-3246-bd1f-eae5-53ca425ab315@suse.cz>
+References: <20160922152831.24165-1-vbabka@suse.cz>
+ <006101d21565$b60a8a70$221f9f50$@alibaba-inc.com>
+ <20160923172434.7ad8f2e0@roar.ozlabs.ibm.com> <57E55CBB.5060309@akamai.com>
+ <5014387d-43da-03f6-a74b-2dc4fbf4fe32@suse.cz>
+ <20160927212458.3ab42b41@roar.ozlabs.ibm.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB010A97D@AcuExch.aculab.com>
+ <20160927214229.2b0b49ac@roar.ozlabs.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: yisen.zhuang@huawei.com, yankejian@huawei.com,
-        huangdaode@hisilicon.com, lisheng011@huawei.com,
-        lipeng321@huawei.com, xieqianqian@huawei.com, fabf@skynet.be,
-        colin.king@canonical.com, geliangtang@163.com, arnd@arndb.de,
-        andrew@lunn.ch, chenny.xu@huawei.com, xypron.glpk@gmx.de,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        xie.baoyou@zte.com.cn, han.fei@zte.com.cn, tang.qiang007@zte.com.cn
-To: baoyou.xie@linaro.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46262 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932240AbcI0Lu0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 07:50:26 -0400
-In-Reply-To: <1474881218-21219-1-git-send-email-baoyou.xie@linaro.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jason Baron <jbaron@akamai.com>, Hillf Danton <hillf.zj@alibaba-inc.com>,
+ 'Alexander Viro' <viro@zeniv.linux.org.uk>,
+ "linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "linux-mm@kvack.org" <linux-mm@kvack.org>, 'Michal Hocko'
+ <mhocko@kernel.org>, "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ Eric Dumazet <eric.dumazet@gmail.com>
+To: Nicholas Piggin <npiggin@gmail.com>,
+ David Laight <David.Laight@ACULAB.COM>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20160927214229.2b0b49ac@roar.ozlabs.ibm.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Baoyou Xie <baoyou.xie@linaro.org>
-Date: Mon, 26 Sep 2016 17:13:38 +0800
+On 09/27/2016 01:42 PM, Nicholas Piggin wrote:
+> On Tue, 27 Sep 2016 11:37:24 +0000
+> David Laight <David.Laight@ACULAB.COM> wrote:
+>
+>> From: Nicholas Piggin
+>> > Sent: 27 September 2016 12:25
+>> > On Tue, 27 Sep 2016 10:44:04 +0200
+>> > Vlastimil Babka <vbabka@suse.cz> wrote:
+>> >
+>> >
+>> > What's your customer doing with those selects? If they care at all about
+>> > performance, I doubt they want select to attempt order-4 allocations, fail,
+>> > then use vmalloc :)
+>>
+>> If they care about performance they shouldn't be passing select() lists that
+>> are anywhere near that large.
+>> If the number of actual fd is small - use poll().
+>
+> Right. Presumably it's some old app they're still using, no?
 
-> We get a few warnings when building kernel with W=1:
-> drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:76:21: warning: no previous prototype for 'hns_ae_get_handle' [-Wmissing-prototypes]
-> drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:274:6: warning: no previous prototype for 'hns_ae_stop' [-Wmissing-prototypes]
-> drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:302:6: warning: no previous prototype for 'hns_ae_toggle_ring_irq' [-Wmissing-prototypes]
-> drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:490:6: warning: no previous prototype for 'hns_ae_update_stats' [-Wmissing-prototypes]
-> drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:573:6: warning: no previous prototype for 'hns_ae_get_stats' [-Wmissing-prototypes]
-> drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:605:6: warning: no previous prototype for 'hns_ae_get_strings' [-Wmissing-prototypes]
-> drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:638:5: warning: no previous prototype for 'hns_ae_get_sset_count' [-Wmissing-prototypes]
-> drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:687:6: warning: no previous prototype for 'hns_ae_update_led_status' [-Wmissing-prototypes]
-> drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:698:5: warning: no previous prototype for 'hns_ae_cpld_set_led_id' [-Wmissing-prototypes]
-> drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:710:6: warning: no previous prototype for 'hns_ae_get_regs' [-Wmissing-prototypes]
-> drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:735:5: warning: no previous prototype for 'hns_ae_get_regs_len' [-Wmissing-prototypes]
-> ....
-> 
-> In fact, these functions are only used in the file in which they are
-> declared and don't need a declaration, but can be made static.
-> so this patch marks these functions with 'static'.
-> 
-> Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
+Process name suggests it's part of db2 database. It seems it has to implement 
+its own interface to select() syscall, because glibc itself seems to have a 
+FD_SETSIZE limit of 1024, which is probably why this wasn't an issue for all the 
+years...
 
-This still doesn't apply to the net-next tree.
 
-If you aren't actually building your patch against the net-next
-tree, don't bother submitting these patches any more.
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
