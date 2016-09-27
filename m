@@ -1,90 +1,158 @@
-From: "Guilherme G. Piccoli" <gpiccoli@linux.vnet.ibm.com>
-Subject: [PATCH net] i40e: avoid NULL pointer dereference and recursive errors on early PCI error
-Date: Tue, 27 Sep 2016 18:14:31 -0300
-Message-ID: <1475010871-31682-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
-Cc: netdev@vger.kernel.org, gpiccoli@linux.vnet.ibm.com
-To: jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org
+From: Lawrence Brakmo <brakmo@fb.com>
+Subject: [PATCH v2 net-next] tcp: Change txhash on every SYN and RTO retransmit
+Date: Tue, 27 Sep 2016 14:23:48 -0700
+Message-ID: <20160927212348.2058710-1-brakmo@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Kernel Team <kernel-team@fb.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Yuchung Cheng <ycheng@google.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:43809 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752060AbcI0VOv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 17:14:51 -0400
-Received: from pps.filterd (m0098414.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8RLDDUh072012
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 17:14:50 -0400
-Received: from e24smtp05.br.ibm.com (e24smtp05.br.ibm.com [32.104.18.26])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 25qt4ajk44-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 17:14:50 -0400
-Received: from localhost
-        by e24smtp05.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <gpiccoli@linux.vnet.ibm.com>;
-        Tue, 27 Sep 2016 18:14:48 -0300
-Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
-        by d24dlp01.br.ibm.com (Postfix) with ESMTP id 1921B3520068
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 17:14:20 -0400 (EDT)
-Received: from d24av03.br.ibm.com (d24av03.br.ibm.com [9.8.31.95])
-        by d24relay01.br.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u8RLEiKV4505686
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 18:14:44 -0300
-Received: from d24av03.br.ibm.com (localhost [127.0.0.1])
-        by d24av03.br.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u8RLEhc4005894
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 18:14:44 -0300
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:38946 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752144AbcI0VXv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 17:23:51 -0400
+Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8RLJh7c011049
+        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 14:23:50 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0a-00082601.pphosted.com with ESMTP id 25qw8fhr2h-1
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 14:23:50 -0700
+Received: from facebook.com (2401:db00:11:d025:face:0:13:0)     by
+ mx-out.facebook.com (10.212.236.87) with ESMTP id
+ ae1a5f5484f811e6a6e40002c9521c9e-46aeca50 for <netdev@vger.kernel.org>;        Tue,
+ 27 Sep 2016 14:23:49 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Although rare, it's possible to hit PCI error early on device
-probe, meaning possibly some structs are not entirely initialized,
-and some might even be completely uninitialized, leading to NULL
-pointer dereference.
+The current code changes txhash (flowlables) on every retransmitted
+SYN/ACK, but only after the 2nd retransmitted SYN and only after
+tcp_retries1 RTO retransmits.
 
-The i40e driver currently presents a "bad" behavior if device hits
-such early PCI error: firstly, the struct i40e_pf might not be
-attached to pci_dev yet, leading to a NULL pointer dereference on
-access to pf->state.
+With this patch:
+1) txhash is changed with every SYN retransmits
+2) adds the option for the txhash to be changed before tcp_retries1
+   RTO retransmits. A new sysctl tcp_rto_txhash_prob represents the
+   probability that txhash will be changed. The default value is 0
+   which maintains previous behavior and a value of 100 will always
+   change it.
 
-Even checking if the struct is NULL and avoiding the access in that
-case isn't enough, since the driver cannot recover from PCI error
-that early; in our experiments we saw multiple failures on kernel
-log, like:
+The result is that we can start re-routing around failed (or very
+congested paths) as soon as possible. Otherwise application health
+checks may fail and the connection may be terminated before we start
+to change txhash.
 
-  [549.664] i40e 0007:01:00.1: Initial pf_reset failed: -15
-  [549.664] i40e: probe of 0007:01:00.1 failed with error -15
-  [...]
-  [871.644] i40e 0007:01:00.1: The driver for the device stopped because the
-  device firmware failed to init. Try updating your NVM image.
-  [871.644] i40e: probe of 0007:01:00.1 failed with error -32
-  [...]
-  [872.516] i40e 0007:01:00.0: ARQ: Unknown event 0x0000 ignored
+v2: Added sysctl documentation and cleaned code
 
-Between the first probe failure (error -15) and the second (error -32)
-another PCI error happened due to the first bad probe. Also, driver
-started to flood console with those ARQ event messages.
+Tested with packetdrill tests
 
-This patch will prevent these issues by allowing error recovery
-mechanism to remove the failed device from the system instead of
-trying to recover from early PCI errors during device probe.
-
-Signed-off-by: Guilherme G. Piccoli <gpiccoli@linux.vnet.ibm.com>
+Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ Documentation/networking/ip-sysctl.txt | 11 +++++++++++
+ include/net/tcp.h                      |  1 +
+ net/ipv4/sysctl_net_ipv4.c             | 10 ++++++++++
+ net/ipv4/tcp_input.c                   |  2 ++
+ net/ipv4/tcp_timer.c                   |  4 ++++
+ 5 files changed, 28 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index d0b3a1b..dad15b6 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -11360,6 +11360,12 @@ static pci_ers_result_t i40e_pci_error_detected(struct pci_dev *pdev,
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 3db8c67..0e7f9ac 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -472,6 +472,17 @@ tcp_max_reordering - INTEGER
+ 	if paths are using per packet load balancing (like bonding rr mode)
+ 	Default: 300
  
- 	dev_info(&pdev->dev, "%s: error %d\n", __func__, error);
- 
-+	if (!pf) {
-+		dev_info(&pdev->dev,
-+			 "Cannot recover - error happened during device probe\n");
-+		return PCI_ERS_RESULT_DISCONNECT;
-+	}
++tcp_rto_txhash_prob - INTEGER
++	Probability [0 to 100] that we will recalculate txhash when a
++	packet is resent due to an RTO and the RTO for this packet has
++	fired less than tcp_retries1 times. It is always recalculated
++	after tcp_retries_times.
 +
- 	/* shutdown all operations */
- 	if (!test_bit(__I40E_SUSPENDED, &pf->state)) {
- 		rtnl_lock();
++	Setting it to 100 helps re-route around failed (or very congested
++	paths) as soon as possible. Otherwise application health checks may
++	fail and the connection may be terminated before the txhash has
++	a chance to change.
++
+ tcp_retrans_collapse - BOOLEAN
+ 	Bug-to-bug compatibility with some broken printers.
+ 	On retransmit try to send bigger packets to work around bugs in
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index f83b7f2..406d474 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -271,6 +271,7 @@ extern int sysctl_tcp_autocorking;
+ extern int sysctl_tcp_invalid_ratelimit;
+ extern int sysctl_tcp_pacing_ss_ratio;
+ extern int sysctl_tcp_pacing_ca_ratio;
++extern int sysctl_tcp_rto_txhash_prob;
+ 
+ extern atomic_long_t tcp_memory_allocated;
+ extern struct percpu_counter tcp_sockets_allocated;
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 1cb67de..0b185a1 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -28,6 +28,7 @@
+ static int zero;
+ static int one = 1;
+ static int four = 4;
++static int hundred = 100;
+ static int thousand = 1000;
+ static int gso_max_segs = GSO_MAX_SEGS;
+ static int tcp_retr1_max = 255;
+@@ -624,6 +625,15 @@ static struct ctl_table ipv4_table[] = {
+ 		.proc_handler	= proc_dointvec_ms_jiffies,
+ 	},
+ 	{
++		.procname	= "tcp_rto_txhash_prob",
++		.data		= &sysctl_tcp_rto_txhash_prob,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec_minmax,
++		.extra1		= &zero,
++		.extra2		= &hundred,
++	},
++	{
+ 		.procname	= "icmp_msgs_per_sec",
+ 		.data		= &sysctl_icmp_msgs_per_sec,
+ 		.maxlen		= sizeof(int),
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 8c6ad2d..2fea29d 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -101,6 +101,8 @@ int sysctl_tcp_moderate_rcvbuf __read_mostly = 1;
+ int sysctl_tcp_early_retrans __read_mostly = 3;
+ int sysctl_tcp_invalid_ratelimit __read_mostly = HZ/2;
+ 
++int sysctl_tcp_rto_txhash_prob __read_mostly = 100;
++
+ #define FLAG_DATA		0x01 /* Incoming frame contained data.		*/
+ #define FLAG_WIN_UPDATE		0x02 /* Incoming ACK was a window update.	*/
+ #define FLAG_DATA_ACKED		0x04 /* This ACK acknowledged new data.		*/
+diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+index f712b41..8bdb215 100644
+--- a/net/ipv4/tcp_timer.c
++++ b/net/ipv4/tcp_timer.c
+@@ -192,6 +192,8 @@ static int tcp_write_timeout(struct sock *sk)
+ 			if (tp->syn_data && icsk->icsk_retransmits == 1)
+ 				NET_INC_STATS(sock_net(sk),
+ 					      LINUX_MIB_TCPFASTOPENACTIVEFAIL);
++		} else if (!tp->syn_data && !tp->syn_fastopen) {
++			sk_rethink_txhash(sk);
+ 		}
+ 		retry_until = icsk->icsk_syn_retries ? : net->ipv4.sysctl_tcp_syn_retries;
+ 		syn_set = true;
+@@ -213,6 +215,8 @@ static int tcp_write_timeout(struct sock *sk)
+ 			tcp_mtu_probing(icsk, sk);
+ 
+ 			dst_negative_advice(sk);
++		} else if (prandom_u32_max(100) < sysctl_tcp_rto_txhash_prob) {
++			sk_rethink_txhash(sk);
+ 		}
+ 
+ 		retry_until = net->ipv4.sysctl_tcp_retries2;
 -- 
-2.1.0
+2.9.3
