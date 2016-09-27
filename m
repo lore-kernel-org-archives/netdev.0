@@ -1,60 +1,62 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: Re: [PATCH 4/5] ISDN-Gigaset: Release memory in gigaset_initcs()
- after an allocation failure
-Date: Tue, 27 Sep 2016 17:10:23 +0200
-Message-ID: <e2f7c915-45f0-0716-4a58-2da9a79a0335@users.sourceforge.net>
-References: <566ABCD9.1060404@users.sourceforge.net>
- <6d4bbb77-914f-19b8-a1a9-2731d1158612@users.sourceforge.net>
- <6409b3b0-3b7a-1139-f040-7b1a61611187@users.sourceforge.net>
- <1474924434.8546.29.camel@tiscali.nl>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v4] net: ip, diag -- Add diag interface for raw sockets
+Date: Tue, 27 Sep 2016 08:39:59 -0700
+Message-ID: <1474990799.28155.54.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20160927150831.GN1876@uranus.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
-        Karsten Keil <isdn@linux-pingi.de>,
-        LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org,
-        Julia Lawall <julia.lawall@lip6.fr>,
-        Tilman Schmidt <tilman@imap.cc>
-To: Paul Bolle <pebolle@tiscali.nl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1474924434.8546.29.camel@tiscali.nl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, avagin@openvz.org, stephen@networkplumber.org
+To: Cyrill Gorcunov <gorcunov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:34251 "EHLO
+        mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932297AbcI0PkC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 11:40:02 -0400
+In-Reply-To: <20160927150831.GN1876@uranus.lan>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->> @@ -772,8 +775,9 @@ struct cardstate *gigaset_initcs(struct gigaset_driver *drv, int channels,
->>  
->>  	gig_dbg(DEBUG_INIT, "cs initialized");
->>  	return cs;
->> -
->> -error:
->> +free_bcs:
->> +	kfree(cs->bcs);
->> +report_failure:
->>  	gig_dbg(DEBUG_INIT, "failed");
->>  	gigaset_freecs(cs);
-> 
-> gigaset_freecs() is not a function I look at for the fun of it. But
-> still, in it we find:
-> 
-> 	case 0: /* error in basic setup */
-> 		[...]
-> 		kfree(cs->inbuf);
-> 		kfree(cs->bcs);
-> 
-> As far as I can tell we will call those two kfree()'s if we jump to
-> "error". So, contrary to your analysis, I don't think we leak cs->bcs.
+On Tue, 2016-09-27 at 18:08 +0300, Cyrill Gorcunov wrote:
 
-You are right.
+> +static struct sock *raw_sock_get(struct net *net, const struct inet_diag_req_v2 *r)
+> +{
+> +	struct raw_hashinfo *hashinfo = raw_get_hashinfo(r);
+> +	struct sock *sk = NULL, *s;
+> +	int slot;
+> +
+> +	if (IS_ERR(hashinfo))
+> +		return ERR_CAST(hashinfo);
+> +
+> +	read_lock(&hashinfo->lock);
+> +	for (slot = 0; slot < RAW_HTABLE_SIZE; slot++) {
+> +		sk_for_each(s, &hashinfo->ht[slot]) {
+> +			sk = raw_lookup(net, s, r);
+> +			if (sk)
+> +				break;
+> +		}
+> +	}
+> +	if (sk && !atomic_inc_not_zero(&sk->sk_refcnt))
+> +		sk = NULL;
 
-Thanks that you pointed this source code place out again.
+Minor detail, but note that raw sockets do not use rcu (yet)
 
-I imagined that the exception handling implementation could be more direct
-somehow for a while. But this function takes extra care for data synchronisation
-by a mutex.
+Since you have read_lock(&hashinfo->lock), no writer can suddenly change
+sk->sk_refcnt to a zero value.
 
-Now I recognise also that this proposed update step "4" was inappropriate.
-I'm sorry for the confusion I introduced here.
+Therefore, a mere "sock_hold(sk)" should be enough to get a reference on
+the socket.
 
-Regards,
-Markus
+Using atomic_inc_not_zero() also works, but might distract/confuse the
+next guy trying to understand this code ;)
+
+
+
+> +	read_unlock(&hashinfo->lock);
+> +
+> +	return sk ? sk : ERR_PTR(-ENOENT);
+> +}
+> +
