@@ -1,63 +1,54 @@
-From: Vishwanath Pai <pai.vishwain@gmail.com>
-Subject: Re: [PATCH v3 2/2] netfilter: Create revision 2 of xt_hashlimit to
- support higher pps rates
-Date: Tue, 27 Sep 2016 03:35:15 -0400
-Message-ID: <CAGt3NP83Xw0rC8dfcU8GJ0UdJGxkkbS-oD96nHDkdtQuHHrQfA@mail.gmail.com>
-References: <20160922164344.GB20423@akamai.com> <CAML_gOdcrnmuHkxA1xAb2HDXHpo+=+sw+oJBfKXF3ijApsjTqg@mail.gmail.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH resend] sh_eth: add R8A7743/5 support
+Date: Tue, 27 Sep 2016 09:35:42 +0200
+Message-ID: <CAMuHMdWq_714eP2q7V6AgopKu-mNx0GLUzyemad2H_ZcFt15ug@mail.gmail.com>
+References: <1654835.SEcvPVx4OQ@wasted.cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Vishwanath Pai <vpai@akamai.com>,
-        Patrick McHardy <kaber@trash.net>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        Josh Hunt <johunt@akamai.com>, netfilter-devel@vger.kernel.org,
-        coreteam@netfilter.org, netdev@vger.kernel.org
-To: Liping Zhang <zlpnobody@gmail.com>,
-        Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <CAML_gOdcrnmuHkxA1xAb2HDXHpo+=+sw+oJBfKXF3ijApsjTqg@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Linux-Renesas <linux-renesas-soc@vger.kernel.org>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <1654835.SEcvPVx4OQ@wasted.cogentembedded.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 27, 2016 at 12:15 AM, Liping Zhang <zlpnobody@gmail.com> wrote:
-> Hi Vishwanath,
->
-> 2016-09-23 0:43 GMT+08:00 Vishwanath Pai <vpai@akamai.com>:
->>
->>  /* Precision saver. */
->> -static u32 user2credits(u32 user)
->> +static u64 user2credits(u64 user, int revision)
->>  {
->> -       /* If multiplying would overflow... */
->> -       if (user > 0xFFFFFFFF / (HZ*CREDITS_PER_JIFFY_v1))
->> -               /* Divide first. */
->> -               return (user / XT_HASHLIMIT_SCALE_v1) *\
->> -                                       HZ * CREDITS_PER_JIFFY_v1;
->> +       if (revision == 1) {
->> +               /* If multiplying would overflow... */
->> +               if (user > 0xFFFFFFFF / (HZ*CREDITS_PER_JIFFY_v1))
->> +                       /* Divide first. */
->> +                       return (user / XT_HASHLIMIT_SCALE_v1) *\
->> +                                               HZ * CREDITS_PER_JIFFY_v1;
->> +
->> +               return (user * HZ * CREDITS_PER_JIFFY_v1) \
->> +                                               / XT_HASHLIMIT_SCALE_v1;
->> +       } else {
->> +               if (user > 0xFFFFFFFFFFFFFFFF / (HZ*CREDITS_PER_JIFFY))
->> +                       return (user / XT_HASHLIMIT_SCALE) *\
->> +                                               HZ * CREDITS_PER_JIFFY;
->>
->> -       return (user * HZ * CREDITS_PER_JIFFY_v1) / XT_HASHLIMIT_SCALE_v1;
->> +               return (user * HZ * CREDITS_PER_JIFFY) / XT_HASHLIMIT_SCALE;
->> +       }
->>  }
->>
->
-> In my memory, 64-bit division operation should be replaced by
-> div_u64 or div64_u64, otherwise on some 32-bit architecture
-> systems, link error will happen. Something like this:
-> ... undefined reference to `__udivdi3'.
+Hi Sergei,
 
-I did not know that, thanks for pointing it out. I will send a patch
-to fix this.
+On Tue, Sep 27, 2016 at 12:23 AM, Sergei Shtylyov
+<sergei.shtylyov@cogentembedded.com> wrote:
+> Add support for the first two members of the Renesas RZ/G family, RZ/G1M/E
+> (also known as  R8A7743/5). The Ether core is the same as in the R-Car gen2
+> SoCs, so will share the code/data with them...
+>
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
--Vishwanath
+> --- net-next.orig/drivers/net/ethernet/renesas/Kconfig
+> +++ net-next/drivers/net/ethernet/renesas/Kconfig
+> @@ -27,7 +27,7 @@ config SH_ETH
+>           Renesas SuperH Ethernet device driver.
+>           This driver supporting CPUs are:
+>                 - SH7619, SH7710, SH7712, SH7724, SH7734, SH7763, SH7757,
+> -                 R8A7740, R8A777x and R8A779x.
+> +                 R8A7740, R8A774x, R8A777x and R8A779x.
+
+Surely "R8A7740" is covered by "R8A774x"? :-)
+However, the "x" is not a real wildcard (also for '7x and '9x), as the driver
+doesn't support all possible values of "x".
+
+Apart from that:
+Acked-by: Geert Uytterhoeven <geert+renesas@glider.be>
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
