@@ -1,31 +1,17 @@
 From: Shaohua Li <shli@fb.com>
-Subject: [PATCH trival -resend 1/2] bpf: clean up put_cpu_var usage
-Date: Tue, 27 Sep 2016 08:42:41 -0700
-Message-ID: <7ffd1960225e024a738e4c372f091bb49096e294.1474990741.git.shli@fb.com>
+Subject: [PATCH trival -resend 2/2] lib: clean up put_cpu_var usage
+Date: Tue, 27 Sep 2016 08:42:42 -0700
+Message-ID: <935eea817a8d13d9223e09b4ca11e0508aee8437.1474990741.git.shli@fb.com>
+References: <7ffd1960225e024a738e4c372f091bb49096e294.1474990741.git.shli@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: "David S . Miller" <davem@davemloft.net>,
-        <akpm@linux-foundation.org>, Tejun Heo <tj@kernel.org>,
-        Alexei Starovoitov <ast@kernel.org>
+        <akpm@linux-foundation.org>, Tejun Heo <tj@kernel.org>
 To: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:59415 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S933632AbcI0Pmo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 11:42:44 -0400
-Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8RFdduu006992
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 08:42:44 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 25qpgua0gm-1
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 08:42:44 -0700
-Received: from facebook.com (2401:db00:11:d0a2:face:0:39:0)     by
- mx-out.facebook.com (10.212.232.63) with ESMTP id
- 076026be84c911e6a55c0002c992ebde-33af6a50 for <netdev@vger.kernel.org>;        Tue,
- 27 Sep 2016 08:42:42 -0700
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <7ffd1960225e024a738e4c372f091bb49096e294.1474990741.git.shli@fb.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 put_cpu_var takes the percpu data, not the data returned from
 get_cpu_var.
@@ -33,24 +19,32 @@ get_cpu_var.
 This doesn't change the behavior.
 
 Cc: Tejun Heo <tj@kernel.org>
-Cc: Alexei Starovoitov <ast@kernel.org>
 Signed-off-by: Shaohua Li <shli@fb.com>
 ---
- kernel/bpf/core.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ lib/random32.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
-index 7b7baae..aa6d981 100644
---- a/kernel/bpf/core.c
-+++ b/kernel/bpf/core.c
-@@ -1031,7 +1031,7 @@ BPF_CALL_0(bpf_user_rnd_u32)
+diff --git a/lib/random32.c b/lib/random32.c
+index a309235..fa594b1 100644
+--- a/lib/random32.c
++++ b/lib/random32.c
+@@ -81,7 +81,7 @@ u32 prandom_u32(void)
+ 	u32 res;
  
- 	state = &get_cpu_var(bpf_user_rnd_state);
  	res = prandom_u32_state(state);
 -	put_cpu_var(state);
-+	put_cpu_var(bpf_user_rnd_state);
++	put_cpu_var(net_rand_state);
  
  	return res;
  }
+@@ -128,7 +128,7 @@ void prandom_bytes(void *buf, size_t bytes)
+ 	struct rnd_state *state = &get_cpu_var(net_rand_state);
+ 
+ 	prandom_bytes_state(state, buf, bytes);
+-	put_cpu_var(state);
++	put_cpu_var(net_rand_state);
+ }
+ EXPORT_SYMBOL(prandom_bytes);
+ 
 -- 
 2.9.3
