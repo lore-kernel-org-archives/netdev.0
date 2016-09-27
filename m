@@ -1,38 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next 4/4] net/sched: act_mirred: Implement
- ingress actions
-Date: Tue, 27 Sep 2016 15:32:29 -0700
-Message-ID: <1475015549.28155.86.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1475009975-30332-1-git-send-email-shmulik.ladkani@gmail.com>
-         <1475009975-30332-5-git-send-email-shmulik.ladkani@gmail.com>
-         <1475011633.28155.68.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20160928004244.6b362f56@halley>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: Re: [Intel-wired-lan] [PATCH net] i40e: avoid NULL pointer
+ dereference and recursive errors on early PCI error
+Date: Tue, 27 Sep 2016 22:41:59 +0000
+Message-ID: <1475016118.22933.1.camel@intel.com>
+References: <1475010871-31682-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        WANG Cong <xiyou.wangcong@gmail.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
-To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "gpiccoli@linux.vnet.ibm.com" <gpiccoli@linux.vnet.ibm.com>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:34097 "EHLO
-        mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753049AbcI0Wcc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 18:32:32 -0400
-Received: by mail-pa0-f54.google.com with SMTP id gp7so9750638pac.1
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 15:32:32 -0700 (PDT)
-In-Reply-To: <20160928004244.6b362f56@halley>
+Received: from mga06.intel.com ([134.134.136.31]:50400 "EHLO mga06.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754514AbcI0WmB (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 27 Sep 2016 18:42:01 -0400
+In-Reply-To: <1475010871-31682-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
+Content-Language: en-US
+Content-ID: <1D9A315637C7214EAC37A05C871876F2@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-09-28 at 00:42 +0300, Shmulik Ladkani wrote:
-
-> Thanks Eric.
-> 
-> I assume adding a READ_ONCE(m->tcfm_eaction) at beggining of section,
-> and using the read value, will solve this specific inconsistency?
-
-Sure, adding a READ_ONCE() might work, if done properly ;)
+T24gVHVlLCAyMDE2LTA5LTI3IGF0IDE4OjE0IC0wMzAwLCBHdWlsaGVybWUgRy4gUGljY29saSB3
+cm90ZToNCj4gQWx0aG91Z2ggcmFyZSwgaXQncyBwb3NzaWJsZSB0byBoaXQgUENJIGVycm9yIGVh
+cmx5IG9uIGRldmljZQ0KPiBwcm9iZSwgbWVhbmluZyBwb3NzaWJseSBzb21lIHN0cnVjdHMgYXJl
+IG5vdCBlbnRpcmVseSBpbml0aWFsaXplZCwNCj4gYW5kIHNvbWUgbWlnaHQgZXZlbiBiZSBjb21w
+bGV0ZWx5IHVuaW5pdGlhbGl6ZWQsIGxlYWRpbmcgdG8gTlVMTA0KPiBwb2ludGVyIGRlcmVmZXJl
+bmNlLg0KPiANCj4gVGhlIGk0MGUgZHJpdmVyIGN1cnJlbnRseSBwcmVzZW50cyBhICJiYWQiIGJl
+aGF2aW9yIGlmIGRldmljZSBoaXRzDQo+IHN1Y2ggZWFybHkgUENJIGVycm9yOiBmaXJzdGx5LCB0
+aGUgc3RydWN0IGk0MGVfcGYgbWlnaHQgbm90IGJlDQo+IGF0dGFjaGVkIHRvIHBjaV9kZXYgeWV0
+LCBsZWFkaW5nIHRvIGEgTlVMTCBwb2ludGVyIGRlcmVmZXJlbmNlIG9uDQo+IGFjY2VzcyB0byBw
+Zi0+c3RhdGUuDQo+IA0KDQpPb3BzISBOaWNlIGZpbmQhDQoNCj4gRXZlbiBjaGVja2luZyBpZiB0
+aGUgc3RydWN0IGlzIE5VTEwgYW5kIGF2b2lkaW5nIHRoZSBhY2Nlc3MgaW4gdGhhdA0KPiBjYXNl
+IGlzbid0IGVub3VnaCwgc2luY2UgdGhlIGRyaXZlciBjYW5ub3QgcmVjb3ZlciBmcm9tIFBDSSBl
+cnJvcg0KPiB0aGF0IGVhcmx5OyBpbiBvdXIgZXhwZXJpbWVudHMgd2Ugc2F3IG11bHRpcGxlIGZh
+aWx1cmVzIG9uIGtlcm5lbA0KPiBsb2csIGxpa2U6DQo+IA0KPiDCoCBbNTQ5LjY2NF0gaTQwZSAw
+MDA3OjAxOjAwLjE6IEluaXRpYWwgcGZfcmVzZXQgZmFpbGVkOiAtMTUNCj4gwqAgWzU0OS42NjRd
+IGk0MGU6IHByb2JlIG9mIDAwMDc6MDE6MDAuMSBmYWlsZWQgd2l0aCBlcnJvciAtMTUNCj4gwqAg
+Wy4uLl0NCj4gwqAgWzg3MS42NDRdIGk0MGUgMDAwNzowMTowMC4xOiBUaGUgZHJpdmVyIGZvciB0
+aGUgZGV2aWNlIHN0b3BwZWQNCj4gYmVjYXVzZSB0aGUNCj4gwqAgZGV2aWNlIGZpcm13YXJlIGZh
+aWxlZCB0byBpbml0LiBUcnkgdXBkYXRpbmcgeW91ciBOVk0gaW1hZ2UuDQo+IMKgIFs4NzEuNjQ0
+XSBpNDBlOiBwcm9iZSBvZiAwMDA3OjAxOjAwLjEgZmFpbGVkIHdpdGggZXJyb3IgLTMyDQo+IMKg
+IFsuLi5dDQo+IMKgIFs4NzIuNTE2XSBpNDBlIDAwMDc6MDE6MDAuMDogQVJROiBVbmtub3duIGV2
+ZW50IDB4MDAwMCBpZ25vcmVkDQo+IA0KPiBCZXR3ZWVuIHRoZSBmaXJzdCBwcm9iZSBmYWlsdXJl
+IChlcnJvciAtMTUpIGFuZCB0aGUgc2Vjb25kIChlcnJvcg0KPiAtMzIpDQo+IGFub3RoZXIgUENJ
+IGVycm9yIGhhcHBlbmVkIGR1ZSB0byB0aGUgZmlyc3QgYmFkIHByb2JlLiBBbHNvLCBkcml2ZXIN
+Cj4gc3RhcnRlZCB0byBmbG9vZCBjb25zb2xlIHdpdGggdGhvc2UgQVJRIGV2ZW50IG1lc3NhZ2Vz
+Lg0KPiANCj4gVGhpcyBwYXRjaCB3aWxsIHByZXZlbnQgdGhlc2UgaXNzdWVzIGJ5IGFsbG93aW5n
+IGVycm9yIHJlY292ZXJ5DQo+IG1lY2hhbmlzbSB0byByZW1vdmUgdGhlIGZhaWxlZCBkZXZpY2Ug
+ZnJvbSB0aGUgc3lzdGVtIGluc3RlYWQgb2YNCj4gdHJ5aW5nIHRvIHJlY292ZXIgZnJvbSBlYXJs
+eSBQQ0kgZXJyb3JzIGR1cmluZyBkZXZpY2UgcHJvYmUuDQo+IA0KDQpUaGlzIHNlZW1zIHJlYXNv
+bmFibGUuDQoNCj4gU2lnbmVkLW9mZi1ieTogR3VpbGhlcm1lIEcuIFBpY2NvbGkgPGdwaWNjb2xp
+QGxpbnV4LnZuZXQuaWJtLmNvbT4NCj4gLS0tDQo+IMKgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50
+ZWwvaTQwZS9pNDBlX21haW4uYyB8IDYgKysrKysrDQo+IMKgMSBmaWxlIGNoYW5nZWQsIDYgaW5z
+ZXJ0aW9ucygrKQ0KPiANCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVs
+L2k0MGUvaTQwZV9tYWluLmMNCj4gYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBlL2k0
+MGVfbWFpbi5jDQo+IGluZGV4IGQwYjNhMWIuLmRhZDE1YjYgMTAwNjQ0DQo+IC0tLSBhL2RyaXZl
+cnMvbmV0L2V0aGVybmV0L2ludGVsL2k0MGUvaTQwZV9tYWluLmMNCj4gKysrIGIvZHJpdmVycy9u
+ZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlX21haW4uYw0KPiBAQCAtMTEzNjAsNiArMTEzNjAs
+MTIgQEAgc3RhdGljIHBjaV9lcnNfcmVzdWx0X3QNCj4gaTQwZV9wY2lfZXJyb3JfZGV0ZWN0ZWQo
+c3RydWN0IHBjaV9kZXYgKnBkZXYsDQo+IMKgDQo+IMKgCWRldl9pbmZvKCZwZGV2LT5kZXYsICIl
+czogZXJyb3IgJWRcbiIsIF9fZnVuY19fLCBlcnJvcik7DQo+IMKgDQo+ICsJaWYgKCFwZikgew0K
+PiArCQlkZXZfaW5mbygmcGRldi0+ZGV2LA0KPiArCQkJwqAiQ2Fubm90IHJlY292ZXIgLSBlcnJv
+ciBoYXBwZW5lZCBkdXJpbmcNCj4gZGV2aWNlIHByb2JlXG4iKTsNCj4gKwkJcmV0dXJuIFBDSV9F
+UlNfUkVTVUxUX0RJU0NPTk5FQ1Q7DQo+ICsJfQ0KPiArDQoNCkxvb2tzIGdvb2QgdG8gbWUuDQoN
+CkFja2VkLWJ5OiBKYWNvYiBLZWxsZXIgPGphY29iLmUua2VsbGVyQGludGVsLmNvbT4NCg0KVGhh
+bmtzIGZvciB0aGUgYnVnIGZpeCBhbmQgZGV0YWlsZWQgZXhwbGFuYXRpb24hDQoNClJlZ2FyZHMs
+DQpKYWtlDQoNCj4gwqAJLyogc2h1dGRvd24gYWxsIG9wZXJhdGlvbnMgKi8NCj4gwqAJaWYgKCF0
+ZXN0X2JpdChfX0k0MEVfU1VTUEVOREVELCAmcGYtPnN0YXRlKSkgew0KPiDCoAkJcnRubF9sb2Nr
+KCk7DQo=
