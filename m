@@ -1,61 +1,100 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] igb: Realign bad indentation
-Date: Mon, 26 Sep 2016 20:46:25 -0700
-Message-ID: <ef9cc22163546101c34fbade622455422549f43c.1474947967.git.joe@perches.com>
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0102.hostedemail.com ([216.40.44.102]:48328 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1754520AbcI0Dq3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 23:46:29 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: pravin shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
+Subject: Re: [PATCH net-next v11 5/6] openvswitch: add layer 3
+ flow/port support
+Date: Mon, 26 Sep 2016 21:09:11 -0700
+Message-ID: <CAOrHB_Bwv2Ssh81Gw7hjT5SST-Z+8-ebyTfAYEsW0gT_TacXTQ@mail.gmail.com>
+References: <1467827996-32547-1-git-send-email-simon.horman@netronome.com>
+ <1467827996-32547-6-git-send-email-simon.horman@netronome.com>
+ <CAOrHB_BYD40ZkWbU0dvhPOCcaCVgooksOUkejxyFoagyoiBTNw@mail.gmail.com>
+ <20160713073152.GC29661@penelope.isobedori.kobe.vergenet.net>
+ <CAOrHB_A1ri6fouFH0H4KpEqg1icCmz+U1tcgn-5BoryX5pb1gw@mail.gmail.com>
+ <20160926185306.164bc044@griffin>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20160926185306.164bc044@griffin>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Statements should start on tabstops.
-
-Use a single statement and test instead of multiple tests.
-
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/ethernet/intel/igb/e1000_mac.c | 15 ++++++---------
- 1 file changed, 6 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/igb/e1000_mac.c b/drivers/net/ethernet/intel/igb/e1000_mac.c
-index 5010e2232c50..5eff82678f0b 100644
---- a/drivers/net/ethernet/intel/igb/e1000_mac.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_mac.c
-@@ -792,15 +792,13 @@ static s32 igb_set_default_fc(struct e1000_hw *hw)
- 	 * control setting, then the variable hw->fc will
- 	 * be initialized based on a value in the EEPROM.
- 	 */
--	if (hw->mac.type == e1000_i350) {
-+	if (hw->mac.type == e1000_i350)
- 		lan_offset = NVM_82580_LAN_FUNC_OFFSET(hw->bus.func);
--		ret_val = hw->nvm.ops.read(hw, NVM_INIT_CONTROL2_REG
--					   + lan_offset, 1, &nvm_data);
--	 } else {
--		ret_val = hw->nvm.ops.read(hw, NVM_INIT_CONTROL2_REG,
--					   1, &nvm_data);
--	 }
-+	else
-+		lan_offset = 0;
- 
-+	ret_val = hw->nvm.ops.read(hw, NVM_INIT_CONTROL2_REG + lan_offset,
-+				   1, &nvm_data);
- 	if (ret_val) {
- 		hw_dbg("NVM Read Error\n");
- 		goto out;
-@@ -808,8 +806,7 @@ static s32 igb_set_default_fc(struct e1000_hw *hw)
- 
- 	if ((nvm_data & NVM_WORD0F_PAUSE_MASK) == 0)
- 		hw->fc.requested_mode = e1000_fc_none;
--	else if ((nvm_data & NVM_WORD0F_PAUSE_MASK) ==
--		 NVM_WORD0F_ASM_DIR)
-+	else if ((nvm_data & NVM_WORD0F_PAUSE_MASK) == NVM_WORD0F_ASM_DIR)
- 		hw->fc.requested_mode = e1000_fc_tx_pause;
- 	else
- 		hw->fc.requested_mode = e1000_fc_full;
--- 
-2.10.0.rc2.1.g053435c
+T24gTW9uLCBTZXAgMjYsIDIwMTYgYXQgOTo1MyBBTSwgSmlyaSBCZW5jIDxqYmVuY0ByZWRoYXQu
+Y29tPiB3cm90ZToKPiBSZXZpdmluZyBhIHZlcnkgb2xkIHRocmVhZCwgc29ycnkuIFNpbW9uIGhh
+bmRlZCB0aGlzIG92ZXIgdG8gbWUsIEknbQo+IHByZXBhcmluZyB2MTIuCj4KPiBPbiBGcmksIDE1
+IEp1bCAyMDE2IDE0OjA3OjM3IC0wNzAwLCBwcmF2aW4gc2hlbGFyIHdyb3RlOgo+PiBJIGFtIG5v
+dCBzdXJlIGlmIHlvdSBjYW4gdXNlIG9ubHkgbWFjX2xlbiB0byBkZXRlY3QgTDMgcGFja2V0LiBU
+aGlzCj4+IGRvZXMgbm90IHdvcmsgd2l0aCBNUExTIHBhY2tldHMsIG1hY19sZW4gaXMgdXNlZCB0
+byBhY2NvdW50IE1QTFMKPj4gaGVhZGVycyBwdXNoZWQgb24gc2tiLiBUaGVyZWZvcmUgaW4gY2Fz
+ZSBvZiBhIE1QTFMgaGVhZGVyIG9uIEwzCj4+IHBhY2tldCwgbWFjX2xlbiB3b3VsZCBiZSBub24g
+emVybyBhbmQgd2UgaGF2ZSB0byBsb29rIGF0IGVpdGhlcgo+PiBtYWNfaGVhZGVyIG9yIHNvbWUg
+b3RoZXIgbWV0YWRhdGEgbGlrZSBpc19sYXllcjMgZmxhZyBmcm9tIGtleSB0bwo+PiBjaGVjayBm
+b3IgTDMgcGFja2V0Lgo+Cj4gSSB3ZW50IHRocm91Z2ggdGhlIHJlbGV2YW50IGNvZGUgcGF0aHMg
+YW5kIEkgZG9uJ3Qgc2VlIGFueSBwcm9ibGVtIGluCj4gdXNpbmcgbWFjX2xlbiBmb3IgdGhhdC4g
+TVBMUyBHU08gc2VlbXMgdG8gd29yayBjb3JyZWN0bHkuIFRoZSBrZXJuZWwKPiBNUExTIGNvZGUg
+ZXhwZWN0cyBtYWNfbGVuIHRvIGJlIGp1c3QgdGhlIEwyIGhlYWRlciBsZW4sIGV4Y2x1ZGluZyBN
+UExTLgo+IFRoZSBzYW1lIGlzIHRoZSBjYXNlIGZvciBvcGVudnN3aXRjaCAoeW91J3JlIG5vdCBj
+b3JyZWN0IHRoYXQgIm1hY19sZW4KPiBpcyB1c2VkIHRvIGFjY291bnQgTVBMUyBoZWFkZXJzIHB1
+c2hlZCBvbiBza2IiLCBhdCBsZWFzdCBub3Qgd2l0aCB0aGUKPiBjdXJyZW50IGNvZGUpLiBJbiBu
+byBwbGFjZSBJIHNlZSBhbnkgcHJvYmxlbSB3aXRoIG1hY19sZW4gYmVpbmcgMCwgdGhlCj4gY2Fs
+Y3VsYXRpb25zIGp1c3QgbmljZWx5IHdvcmsuCj4KPiBXaGF0IHdhcyB5b3VyIGNvbmNlcm4gd2l0
+aCB0aGF0LCBQcmF2aW4/Cj4KPiBJbiBhbm90aGVyIG1haWwgaW4gdGhpcyB0aHJlYWQgeW91IG1l
+bnRpb25lZCBza2JfbXBsc19oZWFkZXIuIFRoYXQgb25lCj4gd29ya3MgY29ycmVjdGx5IHdpdGgg
+bWFjX2xlbiA9PSAwIGlmIG1hY19oZWFkZXIgcG9pbnRzIHRvIHRoZSBiZWdpbm5pbmcKPiBvZiB0
+aGUgcGFja2V0Lgo+Cj4gWW91IGFsc28gd3JvdGU6Cj4KPj4gSSB3YXMgdGhpbmtpbmcgaW4gb3Zl
+cmFsbCBuZXR3b3JraW5nIHN0YWNrIHJhdGhlciB0aGFuIGp1c3Qgb3ZzCj4+IGRhdGFwYXRoLiBJ
+IHRoaW5rIHdlIHNob3VsZCBoYXZlIGNvbnNpc3RlbnQgbWV0aG9kIG9mIGRldGVjdGluZyBMMwo+
+PiBwYWNrZXQuIEFzIGNvbW1lbnRlZCBpbiBwcmV2aW91cyBtYWlsIGl0IGNvdWxkIGJlIGFjaGll
+dmVkIHVzaW5nCj4+IHNrYi1wcm90b2NvbCBhbmQgZGV2aWNlIHR5cGUuCj4KPiBBZ2FpbiwgbWFj
+X2xlbiA9PSAwIHdvcmtzIGNvcnJlY3RseSBhbmQgY29uc2lzdGVudGx5LCBwcm92aWRlZCB0aGF0
+Cj4gYm90aCBtYWNfaGVhZGVyIGFuZCBuZXR3b3JrX2hlYWRlciBwb2ludCB0byB0aGUgc2FtZSBw
+bGFjZS4gSW4gY2FzZSBvZgo+IGEgTVBMUyBwYWNrZXQgaXQgd291bGQgYmUgdGhlIGJlZ2lubmlu
+ZyBvZiBNUExTIGhlYWRlcnMuCj4KPj4gPiAtLS0gYS9pbmNsdWRlL25ldC9tcGxzLmgKPj4gPiAr
+KysgYi9pbmNsdWRlL25ldC9tcGxzLmgKPj4gPiBAQCAtMzQsNiArMzQsOCBAQCBzdGF0aWMgaW5s
+aW5lIGJvb2wgZXRoX3BfbXBscyhfX2JlMTYgZXRoX3R5cGUpCj4+ID4gICAqLwo+PiA+ICBzdGF0
+aWMgaW5saW5lIHVuc2lnbmVkIGNoYXIgKnNrYl9tcGxzX2hlYWRlcihzdHJ1Y3Qgc2tfYnVmZiAq
+c2tiKQo+PiA+ICB7Cj4+ID4gLSAgICAgICByZXR1cm4gc2tiX21hY19oZWFkZXIoc2tiKSArIHNr
+Yi0+bWFjX2xlbjsKPj4gPiArICAgICAgIHJldHVybiBza2JfbWFjX2hlYWRlcl93YXNfc2V0KHNr
+YikgPwo+PiA+ICsgICAgICAgICAgICAgICBza2JfbWFjX2hlYWRlcihza2IpICsgc2tiLT5tYWNf
+bGVuIDoKPj4gPiArICAgICAgICAgICAgICAgc2tiLT5kYXRhOwo+PiA+ICB9Cj4+Cj4+IFRoaXMg
+ZnVuY3Rpb24gaXMgYWxzbyBjYWxsZWQgZnJvbSBHU08gbGF5ZXIuCj4KPiBJIGRvbid0IHNlZSBp
+dCB1c2VkIGFueXdoZXJlIG91dHNpZGUgb2Ygb3BlbnZzd2l0Y2guIE5vdCBldmVuIHdoZW4KPiBn
+cmVwcGluZyBnaXQgaGlzdG9yeS4gSSBtYXkgYmUgbWlzc2luZyBzb21ldGhpbmcsIHRob3VnaC4K
+Pgo+PiBpc3N1ZSBpcyBpbiBHU08gbGF5ZXIsIGl0Cj4+IGRvZXMgcmVzZXQgbWFjIGhlYWRlciBh
+bmQgbWFjIGxlbmd0aCBhbmQgdGhlbiBjYWxscyBtcGxzLWdzby1oYW5kbGVyLgo+PiBTbyBhbGwg
+c3Vic2VxdWVudCBjaGVjayBmb3IgTDMgcGFja2V0IGZhaWxzLgo+PiBTbyBmYXIgd2UgaGF2ZSBl
+eHBsb3JlZCB0aHJlZSBkaWZmZXJlbnQgd2F5cyB0byBkZXRlY3QgTDMgcGFja2V0IGJ1dAo+PiBl
+YWNoIGhhcyBpdHMgb3duIGlzc3VlLgo+PiAxLiBza2IgbWFjIGhlYWRlciA6IEdTTyBjYW4gcmVz
+ZXQgbWFjIGhlYWRlci4KPj4gMi4gc2tiIG1hYyBsZW5ndGggOiBNUExTIHVzZXMgbWFjX2xlbiB0
+byBhY2NvdW50IGZvciBNUExTIGhlYWRlcgo+PiBsZW5ndGggYWxvbmcgd2l0aCBMMiBoZWFkZXIK
+Pgo+IEl0IGRvZXMgbm90IGFwcGVhciB0byBiZSB0aGUgY2FzZS4gT3IgYXQgbGVhc3Qgbm90IGFu
+eW1vcmUuCj4KPj4gMy4gc2tiIHByb3RvY29sOiBFVEhfUF9URUIgaXMgbm90IHNldCBmb3IgYWxs
+IEwyIGZyYW1lcywgbmV0d29ya2luZwo+PiBzdGFjayBpcyBub3QgcmVhZHkgdG8gaGFuZGxlIHRo
+aXMgdHlwZSBmb3IgZ2l2ZW4gc2tiLgo+Pgo+PiBTbyBub25lIG9mIHRoZW0gd29ya3MgY29uc2lz
+dGVudGx5LiBJIHRoaW5rIHRoZSBvbmx5IG9wdGlvbiB0byBkZXRlY3QKPj4gTDMgcGFja2V0IHJl
+bGlhYmx5IChhbmQgd2l0aG91dCBhZGRpbmcgZmllbGQgdG8gc2tiKSBpcyB0byB1c2UKPj4gc2ti
+LXByb3RvY29sIGFsb25nIHdpdGggQVJQSFJEX05PTkUgZGV2aWNlIHR5cGUuIElmIEFSUEhSRF9O
+T05FIHR5cGUKPj4gZGV2aWNlIGdlbmVyYXRlcyBMMiBwYWNrZXQgaXQgbmVlZHMgdG8gc2V0IHBy
+b3RvY29sIHRvIEVUSF9QX1RFQi4gU29tZQo+PiBuZXR3b3JraW5nIHN0YWNrIGZ1bmN0aW9uIGFs
+c28gbmVlZHMgdG8gYmUgZml4ZWQgdG8gaGFuZGxlIHRoaXMKPj4gcHJvdG9jb2wgdHlwZSwgZS5n
+LiB2bGFuX2dldF9wcm90b2NvbCgpLCBicl9kZXZfcXVldWVfcHVzaF94bWl0KCksCj4+IGV0Yy4K
+Pgo+IEFsbCBvZiB0aGlzIHNhaWQsIEknbSBub3Qgb3Bwb3NlZCB0byB1c2luZyB0aGUgc2tiX2V0
+aF9oZWFkZXJfcHJlc2VudAo+IGhlbHBlciBhbmQgY2hlY2tpbmcgdGhlIGRldmljZSB0eXBlLCBp
+dCB3b3Jrcy4gSSBqdXN0IHdhbnQgdG8gdW5kZXJzdGFuZAo+IHdoZXRoZXIgSSBtaXNzZWQgc29t
+ZSBwcm9ibGVtIHdpdGggbWFjX2xlbi4gU2VlbXMgdG8gbWFrZSBzb21lIHRoaW5ncwo+IHNpbXBs
+ZXIgaWYgd2UgY291bGQgdXNlIG1hY19sZW4uCj4KCkFmdGVyIGNvbW1pdCA0OGQyYWI2MDliNmJi
+ICgibmV0OiBtcGxzOiBGaXh1cHMgZm9yIEdTTyIpIE1QTFMgZG9lcyBub3QKbmVlZCB0byB1c2Ug
+c2tiIG1hYy1sZW4gdG8gdHJhY2sgdGhlIGhlYWRlciwgc28gdXNpbmcgbWFjLWxlbiB0ZXN0IGZv
+cgpMMyBwYWNrZXQgZGV0ZWN0aW9uIHdvdWxkIHJlc3VsdCBpbiBiZXR0ZXIgYW5kIGNsZWFuZXIg
+c29sdXRpb24uCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+CmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gu
+b3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
