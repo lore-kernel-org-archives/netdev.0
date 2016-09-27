@@ -1,62 +1,105 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: Re: [Gigaset307x-common] ISDN-Gigaset: Release memory in
- gigaset_initcs() after an allocation failure
-Date: Tue, 27 Sep 2016 12:26:02 +0200
-Message-ID: <1474971962.1601897.738261385.73EB49E0@webmail.messagingengine.com>
-References: <566ABCD9.1060404@users.sourceforge.net>
- <6d4bbb77-914f-19b8-a1a9-2731d1158612@users.sourceforge.net>
- <6409b3b0-3b7a-1139-f040-7b1a61611187@users.sourceforge.net>
- <1474924434.8546.29.camel@tiscali.nl>
- <0d02085e-842c-4be9-f706-c43b38ce9095@users.sourceforge.net>
- <1474966121.9970.5.camel@tiscali.nl>
- <ad12e1a0-f5d5-176a-7d37-be2f3cb0af5d@users.sourceforge.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 1/4] net/sched: act_mirred: Rename tcfm_ok_push
+ to tcfm_mac_header_xmit
+Date: Tue, 27 Sep 2016 12:30:20 +0200
+Message-ID: <57EA4A3C.8000508@iogearbox.net>
+References: <1474550512-7552-1-git-send-email-shmulik.ladkani@gmail.com> <1474550512-7552-2-git-send-email-shmulik.ladkani@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Paul Bolle <pebolle@tiscali.nl>,
-        Karsten Keil <isdn@linux-pingi.de>,
-        gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org,
-        LKML <linux-kernel@vger.kernel.org>,
-        Julia Lawall <julia.lawall@lip6.fr>
-To: SF Markus Elfring <elfring@users.sourceforge.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <ad12e1a0-f5d5-176a-7d37-be2f3cb0af5d@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+        WANG Cong <xiyou.wangcong@gmail.com>,
+        Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+        Shmulik Ladkani <shmulik.ladkani@gmail.com>
+To: Shmulik Ladkani <shmulik.ladkani@ravellosystems.com>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:49994 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932674AbcI0KaZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 06:30:25 -0400
+In-Reply-To: <1474550512-7552-2-git-send-email-shmulik.ladkani@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 09/22/2016 03:21 PM, Shmulik Ladkani wrote:
+> From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+>
+> 'tcfm_ok_push' specifies whether a mac_len sized push is needed upon
+> egress to the target device (if action is performed at ingress).
+>
+> Rename it to 'tcfm_mac_header_xmit' as this is actually an attribute of
+> the target device.
+> This allows to decouple the attribute from the action to be taken.
+>
+> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+> ---
+>   include/net/tc_act/tc_mirred.h |  2 +-
+>   net/sched/act_mirred.c         | 10 +++++-----
+>   2 files changed, 6 insertions(+), 6 deletions(-)
+>
+> diff --git a/include/net/tc_act/tc_mirred.h b/include/net/tc_act/tc_mirred.h
+> index 62770ad..5275158 100644
+> --- a/include/net/tc_act/tc_mirred.h
+> +++ b/include/net/tc_act/tc_mirred.h
+> @@ -8,7 +8,7 @@ struct tcf_mirred {
+>   	struct tc_action	common;
+>   	int			tcfm_eaction;
+>   	int			tcfm_ifindex;
+> -	int			tcfm_ok_push;
+> +	int			tcfm_mac_header_xmit;
 
-as longtime maintainer of the code in question I feel compelled to chime
-in at this point.
+Since you already touch this here and in patch 2/4 anyway, maybe
+make that a bool along the way?
 
-On Tue, Sep 27, 2016, at 11:34, SF Markus Elfring wrote:
-> >> Will it matter here if the function "kfree" will be called for the
-> >> data structure members "bcs" and "inbuf" after a later function call
-> >> failed within the implementation of "gigaset_initcs"?
-> > 
-> > My translation of this question is: could you please hold my hand while
-> > I read the code of a driver I do not use - a driver for hardware that I
-> > don't even have, and therefor cannot really test - after I submitted a
-> > patch that appears to be broken?
-> 
-> I got the impression that the exception handling  was incomplete in the
-> implementation of the function "gigaset_initcs".
+Perhaps instead of tcfm_mac_header_xmit, tcfm_mac_header_push
+might be a better name?
 
-That impression is wrong. Careful reading of the code will confirm that.
-
-> Does anybody (besides me) care for improving the software situation
-> there?
-
-There's no urgent need for improvement. The code is stable and there's
-no demonstrated bug to be fixed.
-You could improve the coding style, but that is of secondary importance,
-and if you want to do that, as a minimum you have to make sure that you
-don't introduce new bugs.
-
-Thanks,
-Tilman
-
--- 
-Tilman Schmidt
-tilman@imap.cc
+>   	struct net_device __rcu	*tcfm_dev;
+>   	struct list_head	tcfm_list;
+>   };
+> diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
+> index 667dc38..7b03b13 100644
+> --- a/net/sched/act_mirred.c
+> +++ b/net/sched/act_mirred.c
+> @@ -63,7 +63,7 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
+>   	struct tc_mirred *parm;
+>   	struct tcf_mirred *m;
+>   	struct net_device *dev;
+> -	int ret, ok_push = 0;
+> +	int ret, mac_header_xmit = 0;
+>   	bool exists = false;
+>
+>   	if (nla == NULL)
+> @@ -102,10 +102,10 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
+>   		case ARPHRD_IPGRE:
+>   		case ARPHRD_VOID:
+>   		case ARPHRD_NONE:
+> -			ok_push = 0;
+> +			mac_header_xmit = 0;
+>   			break;
+>   		default:
+> -			ok_push = 1;
+> +			mac_header_xmit = 1;
+>   			break;
+>   		}
+>   	} else {
+> @@ -136,7 +136,7 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
+>   			dev_put(rcu_dereference_protected(m->tcfm_dev, 1));
+>   		dev_hold(dev);
+>   		rcu_assign_pointer(m->tcfm_dev, dev);
+> -		m->tcfm_ok_push = ok_push;
+> +		m->tcfm_mac_header_xmit = mac_header_xmit;
+>   	}
+>
+>   	if (ret == ACT_P_CREATED) {
+> @@ -181,7 +181,7 @@ static int tcf_mirred(struct sk_buff *skb, const struct tc_action *a,
+>   		goto out;
+>
+>   	if (!(at & AT_EGRESS)) {
+> -		if (m->tcfm_ok_push)
+> +		if (m->tcfm_mac_header_xmit)
+>   			skb_push_rcsum(skb2, skb->mac_len);
+>   	}
+>
+>
