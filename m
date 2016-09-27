@@ -1,50 +1,42 @@
-From: Shaohua Li <shli@fb.com>
-Subject: [PATCH trival -resend 2/2] lib: clean up put_cpu_var usage
-Date: Tue, 27 Sep 2016 08:42:42 -0700
-Message-ID: <935eea817a8d13d9223e09b4ca11e0508aee8437.1474990741.git.shli@fb.com>
-References: <7ffd1960225e024a738e4c372f091bb49096e294.1474990741.git.shli@fb.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: rtlwifi: Add switch variable to 'switch case not processed'
+ messages
+Date: Tue, 27 Sep 2016 15:45:33 +0000 (UTC)
+Message-ID: <20160927154534.1881C616FE@smtp.codeaurora.org>
+References: <d091f73a6adf3bdaa09ab0399c22a9fdfe9b188c.1474654979.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S . Miller" <davem@davemloft.net>,
-        <akpm@linux-foundation.org>, Tejun Heo <tj@kernel.org>
-To: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <7ffd1960225e024a738e4c372f091bb49096e294.1474990741.git.shli@fb.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Larry Finger <Larry.Finger@lwfinger.net>,
+        Jean Delvare <jdelvare@suse.de>,
+        Chaoming Li <chaoming_li@realsil.com.cn>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:42765 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933122AbcI0Ppf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 11:45:35 -0400
+In-Reply-To: <d091f73a6adf3bdaa09ab0399c22a9fdfe9b188c.1474654979.git.joe@perches.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-put_cpu_var takes the percpu data, not the data returned from
-get_cpu_var.
+Joe Perches <joe@perches.com> wrote:
+> Help along debugging by showing what switch/case variable is not
+> being processed in these messages.
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
+> Acked-by: Larry Finger <Larry.Finger@lwfinger.net>
 
-This doesn't change the behavior.
+Patch applied to wireless-drivers-next.git, thanks.
 
-Cc: Tejun Heo <tj@kernel.org>
-Signed-off-by: Shaohua Li <shli@fb.com>
----
- lib/random32.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ad5748893b27 rtlwifi: Add switch variable to 'switch case not processed' messages
 
-diff --git a/lib/random32.c b/lib/random32.c
-index a309235..fa594b1 100644
---- a/lib/random32.c
-+++ b/lib/random32.c
-@@ -81,7 +81,7 @@ u32 prandom_u32(void)
- 	u32 res;
- 
- 	res = prandom_u32_state(state);
--	put_cpu_var(state);
-+	put_cpu_var(net_rand_state);
- 
- 	return res;
- }
-@@ -128,7 +128,7 @@ void prandom_bytes(void *buf, size_t bytes)
- 	struct rnd_state *state = &get_cpu_var(net_rand_state);
- 
- 	prandom_bytes_state(state, buf, bytes);
--	put_cpu_var(state);
-+	put_cpu_var(net_rand_state);
- }
- EXPORT_SYMBOL(prandom_bytes);
- 
 -- 
-2.9.3
+https://patchwork.kernel.org/patch/9348573/
+
+Documentation about submitting wireless patches and checking status
+from patchwork:
+
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
