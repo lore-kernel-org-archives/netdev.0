@@ -1,72 +1,52 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: [PATCH 4.9] brcmfmac: use correct skb freeing helper when
- deleting flowring
-Date: Tue, 27 Sep 2016 13:44:43 +0200
-Message-ID: <CACna6rwUR_GidhEFNTN+8mGQRpBdUzeM1-0NY65k6-McX7xGVg@mail.gmail.com>
-References: <20160927091428.19223-1-zajec5@gmail.com> <86fd0b60-0f73-484b-1788-3ec740672232@broadcom.com>
- <87inthy441.fsf@kamboji.qca.qualcomm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] net: hns: mark symbols static where possible
+Date: Tue, 27 Sep 2016 07:50:14 -0400 (EDT)
+Message-ID: <20160927.075014.320869544955826394.davem@davemloft.net>
+References: <1474881218-21219-1-git-send-email-baoyou.xie@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Arend Van Spriel <arend.vanspriel@broadcom.com>,
-        Franky Lin <franky.lin@broadcom.com>,
-        Hante Meuleman <hante.meuleman@broadcom.com>,
-        Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
-        Franky Lin <frankyl@broadcom.com>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
-        <brcm80211-dev-list.pdl@broadcom.com>,
-        Network Development <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal@milecki.pl>
-To: Kalle Valo <kvalo@codeaurora.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yisen.zhuang@huawei.com, yankejian@huawei.com,
+        huangdaode@hisilicon.com, lisheng011@huawei.com,
+        lipeng321@huawei.com, xieqianqian@huawei.com, fabf@skynet.be,
+        colin.king@canonical.com, geliangtang@163.com, arnd@arndb.de,
+        andrew@lunn.ch, chenny.xu@huawei.com, xypron.glpk@gmx.de,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        xie.baoyou@zte.com.cn, han.fei@zte.com.cn, tang.qiang007@zte.com.cn
+To: baoyou.xie@linaro.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:36838 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932192AbcI0Low (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 07:44:52 -0400
-In-Reply-To: <87inthy441.fsf@kamboji.qca.qualcomm.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:46262 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932240AbcI0Lu0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 07:50:26 -0400
+In-Reply-To: <1474881218-21219-1-git-send-email-baoyou.xie@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 27 September 2016 at 13:27, Kalle Valo <kvalo@codeaurora.org> wrote:
-> Arend Van Spriel <arend.vanspriel@broadcom.com> writes:
->
->> On 27-9-2016 11:14, Rafa=C5=82 Mi=C5=82ecki wrote:
->>> From: Rafa=C5=82 Mi=C5=82ecki <rafal@milecki.pl>
->>>
->>> Flowrings contain skbs waiting for transmission that were passed to us
->>> by netif. It means we checked every one of them looking for 802.1x
->>> Ethernet type. When deleting flowring we have to use freeing function
->>> that will check for 802.1x type as well.
->>>
->>> Freeing skbs without a proper check was leading to counter not being
->>> properly decreased. This was triggering a WARNING every time
->>> brcmf_netdev_wait_pend8021x was called.
->>
->> Acked-by: Arend van Spriel <arend@broadcom.com>
->>> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <rafal@milecki.pl>
->>> ---
->>> Kalle: this isn't important enough for 4.8 as it's too late for that.
->>>
->>> I'd like to get it for 4.9 however, as this fixes bug that could lead
->>> to WARNING on every add_key/del_key call. We was struggling with these
->>> WARNINGs for some time and this fixes one of two problems causing them.
->
-> Ok, I'll queue this for 4.9.
->
->> Please mark it for stable as well.
->
-> I can add that. Any ideas how old releases stable releases should this
-> go to?
+From: Baoyou Xie <baoyou.xie@linaro.org>
+Date: Mon, 26 Sep 2016 17:13:38 +0800
 
-I was analyzing this.
-1) This patch uses brcmf_get_ifp which is available in 4.4+ only.
-2) It applies cleanly to 4.5+ only due to 32f90caa7debd ("brcmfmac:
-Increase nr of supported flowrings.")
-3) 4.4 would also require applying to the patch without broadcom/ subdir
+> We get a few warnings when building kernel with W=1:
+> drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:76:21: warning: no previous prototype for 'hns_ae_get_handle' [-Wmissing-prototypes]
+> drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:274:6: warning: no previous prototype for 'hns_ae_stop' [-Wmissing-prototypes]
+> drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:302:6: warning: no previous prototype for 'hns_ae_toggle_ring_irq' [-Wmissing-prototypes]
+> drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:490:6: warning: no previous prototype for 'hns_ae_update_stats' [-Wmissing-prototypes]
+> drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:573:6: warning: no previous prototype for 'hns_ae_get_stats' [-Wmissing-prototypes]
+> drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:605:6: warning: no previous prototype for 'hns_ae_get_strings' [-Wmissing-prototypes]
+> drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:638:5: warning: no previous prototype for 'hns_ae_get_sset_count' [-Wmissing-prototypes]
+> drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:687:6: warning: no previous prototype for 'hns_ae_update_led_status' [-Wmissing-prototypes]
+> drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:698:5: warning: no previous prototype for 'hns_ae_cpld_set_led_id' [-Wmissing-prototypes]
+> drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:710:6: warning: no previous prototype for 'hns_ae_get_regs' [-Wmissing-prototypes]
+> drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c:735:5: warning: no previous prototype for 'hns_ae_get_regs_len' [-Wmissing-prototypes]
+> ....
+> 
+> In fact, these functions are only used in the file in which they are
+> declared and don't need a declaration, but can be made static.
+> so this patch marks these functions with 'static'.
+> 
+> Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
 
-That said I suggest 4.5+. Any objections?
+This still doesn't apply to the net-next tree.
 
---=20
-Rafa=C5=82
+If you aren't actually building your patch against the net-next
+tree, don't bother submitting these patches any more.
