@@ -1,81 +1,42 @@
-From: fgao@ikuai8.com
-Subject: [PATCH nf-next] netfilter: xt_osf: Use explicit member assignment to avoid implicit no padding rule
-Date: Tue, 27 Sep 2016 12:39:53 +0800
-Message-ID: <1474951193-3486-1-git-send-email-fgao@ikuai8.com>
-Cc: gfree.wind@gmail.com, Gao Feng <fgao@ikuai8.com>
-To: pablo@netfilter.org, kaber@trash.net,
-        netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: Re: ISDN-Gigaset: Fine-tuning for three function implementations
+Date: Tue, 27 Sep 2016 07:10:23 +0200
+Message-ID: <fa9deafb-9ff4-f419-333b-5af70cab72b2@users.sourceforge.net>
+References: <566ABCD9.1060404@users.sourceforge.net>
+ <6d4bbb77-914f-19b8-a1a9-2731d1158612@users.sourceforge.net>
+ <1474922316.8546.1.camel@tiscali.nl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
+        Karsten Keil <isdn@linux-pingi.de>,
+        LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org,
+        Julia Lawall <julia.lawall@lip6.fr>
+To: Paul Bolle <pebolle@tiscali.nl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.web.de ([212.227.17.12]:56478 "EHLO mout.web.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751865AbcI0FK5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 27 Sep 2016 01:10:57 -0400
+In-Reply-To: <1474922316.8546.1.camel@tiscali.nl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <fgao@ikuai8.com>
+>>   Use kmalloc_array() in two functions
+>>   Improve another size determination in gigaset_initcs()
+>>   Delete an error message for a failed memory allocation
+>>   Release memory in gigaset_initcs() after an allocation failure
+> 
+> Which "static source code analysis" was used for that discovery?
 
-Current xt_osf codes use memcmp to check if two user fingers are same,
-so it depends on that the struct xt_osf_user_finger is no padding.
-It is one implicit rule, and is not good to maintain.
+Are you eventually asking more for the development tools which were involved here?
 
-Now use zero memory and assign the members explicitly.
+* Coccinelle software
 
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
----
- net/netfilter/xt_osf.c | 32 ++++++++++++++++++++++++++++++--
- 1 file changed, 30 insertions(+), 2 deletions(-)
+* Script "checkpatch.pl"
 
-diff --git a/net/netfilter/xt_osf.c b/net/netfilter/xt_osf.c
-index 2455b69..9793670 100644
---- a/net/netfilter/xt_osf.c
-+++ b/net/netfilter/xt_osf.c
-@@ -61,6 +61,34 @@ static const struct nla_policy xt_osf_policy[OSF_ATTR_MAX + 1] = {
- 	[OSF_ATTR_FINGER]	= { .len = sizeof(struct xt_osf_user_finger) },
- };
- 
-+static void copy_user_finger(struct xt_osf_user_finger *dst,
-+			     const struct xt_osf_user_finger *src)
-+{
-+#define OSF_COPY_MEMBER(mem)	dst->mem = src->mem
-+
-+	int i;
-+
-+	OSF_COPY_MEMBER(wss.wc);
-+	OSF_COPY_MEMBER(wss.val);
-+
-+	OSF_COPY_MEMBER(ttl);
-+	OSF_COPY_MEMBER(df);
-+	OSF_COPY_MEMBER(ss);
-+	OSF_COPY_MEMBER(mss);
-+	OSF_COPY_MEMBER(opt_num);
-+
-+	memcpy(dst->genre, src->genre, sizeof(dst->genre));
-+	memcpy(dst->version, src->version, sizeof(dst->version));
-+	memcpy(dst->subtype, src->subtype, sizeof(dst->subtype));
-+
-+	for (i = 0; i < MAX_IPOPTLEN; ++i) {
-+		OSF_COPY_MEMBER(opt[i].kind);
-+		OSF_COPY_MEMBER(opt[i].length);
-+		OSF_COPY_MEMBER(opt[i].wc.wc);
-+		OSF_COPY_MEMBER(opt[i].wc.val);
-+	}
-+}
-+
- static int xt_osf_add_callback(struct net *net, struct sock *ctnl,
- 			       struct sk_buff *skb, const struct nlmsghdr *nlh,
- 			       const struct nlattr * const osf_attrs[])
-@@ -77,11 +105,11 @@ static int xt_osf_add_callback(struct net *net, struct sock *ctnl,
- 
- 	f = nla_data(osf_attrs[OSF_ATTR_FINGER]);
- 
--	kf = kmalloc(sizeof(struct xt_osf_finger), GFP_KERNEL);
-+	kf = kzalloc(sizeof(*kf), GFP_KERNEL);
- 	if (!kf)
- 		return -ENOMEM;
- 
--	memcpy(&kf->finger, f, sizeof(struct xt_osf_user_finger));
-+	copy_user_finger(&kf->finger, f);
- 
- 	list_for_each_entry(sf, &xt_osf_fingers[!!f->df], finger_entry) {
- 		if (memcmp(&sf->finger, f, sizeof(struct xt_osf_user_finger)))
--- 
-1.9.1
+* My own eyes with help of a current text editor and its programming support
 
-
+Regards,
+Markus
