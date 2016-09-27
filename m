@@ -1,43 +1,81 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH ipsec-next] xfrm: remove unused helper
-Date: Tue, 27 Sep 2016 17:53:58 +0200
-Message-ID: <1474991638-10666-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: <netdev@vger.kernel.org>
+From: <chris.roth@usask.ca>
+Subject: [PATCH v3] Net Driver: Add Cypress GX3 VID=04b4 PID=3610.
+Date: Tue, 27 Sep 2016 09:57:50 -0600
+Message-ID: <ff932915b6fc47489095c2ad7fa6ede5@Mail08.usask.ca>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Chris Roth <chris.roth@usask.ca>, Allan Chou <allan@asix.com.tw>
+To: <linux-usb@vger.kernel.org>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:53264 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S932181AbcI0Pxt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 11:53:49 -0400
+Received: from mail08.usask.ca ([128.233.195.240]:58209 "EHLO mail.usask.ca"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S933854AbcI0P57 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 27 Sep 2016 11:57:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Not used anymore since 2009 (9e0d57fd6dad37,
-'xfrm: SAD entries do not expire correctly after suspend-resume').
+From: Chris Roth <chris.roth@usask.ca>
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
+>From Allan Chou <allan@asix.com.tw>
+From: Chris Roth <chris.roth@usask.ca>
+
+Add support for Cypress GX3 SuperSpeed to Gigabit Ethernet
+Bridge Controller (Vendor=04b4 ProdID=3610).
+
+Patch verified on x64 linux kernel 4.7.4 system with the
+Kensington SD4600P USB-C Universal Dock with Power, which uses the
+Cypress GX3 SuperSpeed to Gigabit Ethernet Bridge Controller.
+
+A similar patch was signed-off and tested-by Allan Chou
+<allan@asix.com.tw> on 2015-12-01.
+
+Allan verified his similar patch on x86 Linux kernel 4.1.6 system
+with Cypress GX3 SuperSpeed to Gigabit Ethernet Bridge Controller.
+
+Tested-by: Allan Chou <allan@asix.com.tw>
+Tested-by: Chris Roth <chris.roth@usask.ca>
+
+Signed-off-by: Allan Chou <allan@asix.com.tw>
+Signed-off-by: Chris Roth <chris.roth@usask.ca>
 ---
- net/xfrm/xfrm_state.c | 8 --------
- 1 file changed, 8 deletions(-)
+ drivers/net/usb/ax88179_178a.c | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
 
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index bf5969aa7dc2..9ca9a30c3fcf 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -388,14 +388,6 @@ static void xfrm_state_gc_task(struct work_struct *work)
- 		xfrm_state_gc_destroy(x);
- }
+diff --git a/drivers/net/usb/ax88179_178a.c b/drivers/net/usb/ax88179_178a.c
+index e6338c1..8a6675d 100644
+--- a/drivers/net/usb/ax88179_178a.c
++++ b/drivers/net/usb/ax88179_178a.c
+@@ -1656,6 +1656,19 @@ static const struct driver_info ax88178a_info = {
+ 	.tx_fixup = ax88179_tx_fixup,
+ };
  
--static inline unsigned long make_jiffies(long secs)
--{
--	if (secs >= (MAX_SCHEDULE_TIMEOUT-1)/HZ)
--		return MAX_SCHEDULE_TIMEOUT-1;
--	else
--		return secs*HZ;
--}
--
- static enum hrtimer_restart xfrm_timer_handler(struct hrtimer *me)
- {
- 	struct tasklet_hrtimer *thr = container_of(me, struct tasklet_hrtimer, timer);
++static const struct driver_info cypress_GX3_info = {
++	.description = "Cypress GX3 SuperSpeed to Gigabit Ethernet Controller",
++	.bind = ax88179_bind,
++	.unbind = ax88179_unbind,
++	.status = ax88179_status,
++	.link_reset = ax88179_link_reset,
++	.reset = ax88179_reset,
++	.stop = ax88179_stop,
++	.flags = FLAG_ETHER | FLAG_FRAMING_AX,
++	.rx_fixup = ax88179_rx_fixup,
++	.tx_fixup = ax88179_tx_fixup,
++};
++
+ static const struct driver_info dlink_dub1312_info = {
+ 	.description = "D-Link DUB-1312 USB 3.0 to Gigabit Ethernet Adapter",
+ 	.bind = ax88179_bind,
+@@ -1718,6 +1731,10 @@ static const struct usb_device_id products[] = {
+ 	USB_DEVICE(0x0b95, 0x178a),
+ 	.driver_info = (unsigned long)&ax88178a_info,
+ }, {
++	/* Cypress GX3 SuperSpeed to Gigabit Ethernet Bridge Controller */
++	USB_DEVICE(0x04b4, 0x3610),
++	.driver_info = (unsigned long)&cypress_GX3_info,
++}, {
+ 	/* D-Link DUB-1312 USB 3.0 to Gigabit Ethernet Adapter */
+ 	USB_DEVICE(0x2001, 0x4a00),
+ 	.driver_info = (unsigned long)&dlink_dub1312_info,
 -- 
-2.7.3
+2.7.4
