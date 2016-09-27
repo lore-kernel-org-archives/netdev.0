@@ -1,75 +1,51 @@
-From: Nicholas Piggin <npiggin@gmail.com>
-Subject: Re: [PATCH] fs/select: add vmalloc fallback for select(2)
-Date: Tue, 27 Sep 2016 21:42:29 +1000
-Message-ID: <20160927214229.2b0b49ac@roar.ozlabs.ibm.com>
-References: <20160922152831.24165-1-vbabka@suse.cz>
-	<006101d21565$b60a8a70$221f9f50$@alibaba-inc.com>
-	<20160923172434.7ad8f2e0@roar.ozlabs.ibm.com>
-	<57E55CBB.5060309@akamai.com>
-	<5014387d-43da-03f6-a74b-2dc4fbf4fe32@suse.cz>
-	<20160927212458.3ab42b41@roar.ozlabs.ibm.com>
-	<063D6719AE5E284EB5DD2968C1650D6DB010A97D@AcuExch.aculab.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 net-next 0/3] net: bcmgenet: only use new api
+ ethtool_{get|set}_link_ksettings
+Date: Tue, 27 Sep 2016 07:43:42 -0400 (EDT)
+Message-ID: <20160927.074342.1048165536305147870.davem@davemloft.net>
+References: <1474921917-4773-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Vlastimil Babka <vbabka@suse.cz>, Jason Baron <jbaron@akamai.com>, Hillf
- Danton <hillf.zj@alibaba-inc.com>, 'Alexander Viro'
- <viro@zeniv.linux.org.uk>, "linux-fsdevel@vger.kernel.org"
- <linux-fsdevel@vger.kernel.org>, "linux-kernel@vger.kernel.org"
- <linux-kernel@vger.kernel.org>, "linux-mm@kvack.org" <linux-mm@kvack.org>,
- 'Michal Hocko' <mhocko@kernel.org>, "netdev@vger.kernel.org"
- <netdev@vger.kernel.org>, Eric Dumazet <eric.dumazet@gmail.com>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB010A97D@AcuExch.aculab.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: f.fainelli@gmail.com, jaedon.shin@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: tremyfr@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:46152 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932192AbcI0Lnp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 07:43:45 -0400
+In-Reply-To: <1474921917-4773-1-git-send-email-tremyfr@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 27 Sep 2016 11:37:24 +0000
-David Laight <David.Laight@ACULAB.COM> wrote:
+From: Philippe Reynes <tremyfr@gmail.com>
+Date: Mon, 26 Sep 2016 22:31:54 +0200
 
-> From: Nicholas Piggin
-> > Sent: 27 September 2016 12:25
-> > On Tue, 27 Sep 2016 10:44:04 +0200
-> > Vlastimil Babka <vbabka@suse.cz> wrote:
-> >   
-> > > On 09/23/2016 06:47 PM, Jason Baron wrote:  
-> > > > Hi,
-> > > >
-> > > > On 09/23/2016 03:24 AM, Nicholas Piggin wrote:  
-> > > >> On Fri, 23 Sep 2016 14:42:53 +0800
-> > > >> "Hillf Danton" <hillf.zj@alibaba-inc.com> wrote:
-> > > >>  
-> > > >>>>
-> > > >>>> The select(2) syscall performs a kmalloc(size, GFP_KERNEL) where size grows
-> > > >>>> with the number of fds passed. We had a customer report page allocation
-> > > >>>> failures of order-4 for this allocation. This is a costly order, so it might
-> > > >>>> easily fail, as the VM expects such allocation to have a lower-order fallback.
-> > > >>>>
-> > > >>>> Such trivial fallback is vmalloc(), as the memory doesn't have to be
-> > > >>>> physically contiguous. Also the allocation is temporary for the duration of the
-> > > >>>> syscall, so it's unlikely to stress vmalloc too much.
-> > > >>>>
-> > > >>>> Note that the poll(2) syscall seems to use a linked list of order-0 pages, so
-> > > >>>> it doesn't need this kind of fallback.  
-> > > >>
-> > > >> How about something like this? (untested)  
-> > >
-> > > This pushes the limit further, but might just delay the problem. Could be an
-> > > optimization on top if there's enough interest, though.  
-> > 
-> > What's your customer doing with those selects? If they care at all about
-> > performance, I doubt they want select to attempt order-4 allocations, fail,
-> > then use vmalloc :)  
+> Some times ago, a serie of patches were committed :
+> - commit 62469c76007e ("net: ethernet: bcmgenet: use phydev from struct net_device")
+> - commit 6b352ebccbcf ("net: ethernet: broadcom: bcmgenet: use new api ethtool_{get|set}_link_ksettings")
+> The first patch add a regression on this driver, so it should be reverted.
+> As the second patch depend on the former, it should be reverted too.
 > 
-> If they care about performance they shouldn't be passing select() lists that
-> are anywhere near that large.
-> If the number of actual fd is small - use poll().
+> The first patch is buggy because there is a "trick" in this driver.
+> The structure phydev is kept in the private data when the interface
+> go down, and used when the interface go up to enable the phy before
+> the function phy_connect is called.
+> 
+> I don't have this hardware, neither the datasheet. So I won't
+> update the driver to avoid this trick.
+> 
+> But the real goal of the first serie was to move to the new api
+> ethtool_{get|set}_link_ksettings. So I provide a new version of
+> the patch without the "cleaning" of driver to use the phydev
+> store in the net_device structure.
+> 
+> Changelog:
+> v3:
+> - use priv instead of dev (so all the code use the same phydev)
+> v2:
+> - use Florian Fainelli patches for the revert instead of Jaedon Shin
+> - simply use net: bcmgenet: for the prefix of the patch
 
-Right. Presumably it's some old app they're still using, no?
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Series applied, thanks.
