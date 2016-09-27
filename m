@@ -1,30 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: tg3: use new api ethtool_{get|set}_link_ksettings
-Date: Mon, 26 Sep 2016 20:17:33 -0400 (EDT)
-Message-ID: <20160926.201733.2276112302187319503.davem@davemloft.net>
-References: <1474839084-10883-1-git-send-email-tremyfr@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] fs/select: add vmalloc fallback for select(2)
+Date: Mon, 26 Sep 2016 18:38:44 -0700
+Message-ID: <1474940324.28155.44.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20160922164359.9035-1-vbabka@suse.cz>
+	 <20160926170105.517f74cd67ecdd5ef73e1865@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: siva.kallam@broadcom.com, prashant@broadcom.com,
-        mchan@broadcom.com, f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: tremyfr@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40616 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753844AbcI0ARk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 20:17:40 -0400
-In-Reply-To: <1474839084-10883-1-git-send-email-tremyfr@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Vlastimil Babka <vbabka@suse.cz>, Alexander Viro
+ <viro@zeniv.linux.org.uk>,  linux-fsdevel@vger.kernel.org,
+ linux-kernel@vger.kernel.org, linux-mm@kvack.org,  Michal Hocko
+ <mhocko@kernel.org>, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20160926170105.517f74cd67ecdd5ef73e1865@linux-foundation.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Philippe Reynes <tremyfr@gmail.com>
-Date: Sun, 25 Sep 2016 23:31:24 +0200
+On Mon, 2016-09-26 at 17:01 -0700, Andrew Morton wrote:
 
-> The ethtool api {get|set}_settings is deprecated.
-> We move this driver to new api {get|set}_link_ksettings.
-> 
-> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+> I don't share Eric's concerns about performance here.  If the vmalloc()
+> is called, we're about to write to that quite large amount of memory
+> which we just allocated, and the vmalloc() overhead will be relatively
+> low.
 
-Applied, thanks.
+I did not care of the performance of this particular select() system
+call really, but other cpus because of more TLB invalidations.
+
+At least CONFIG_DEBUG_PAGEALLOC=y builds should be impacted, but maybe
+we do not care.
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
