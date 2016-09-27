@@ -1,39 +1,67 @@
 From: Aaron Conole <aconole@bytheb.org>
-Subject: [PATCH nf-next v2 1/2] netfilter: Fix potential null pointer dereference
-Date: Tue, 27 Sep 2016 09:38:34 -0400
-Message-ID: <1474983515-4115-2-git-send-email-aconole@bytheb.org>
+Subject: [PATCH nf-next v2 2/2] nf_set_hooks_head: acommodate different kconfig
+Date: Tue, 27 Sep 2016 09:38:35 -0400
+Message-ID: <1474983515-4115-3-git-send-email-aconole@bytheb.org>
 References: <1474983515-4115-1-git-send-email-aconole@bytheb.org>
 Cc: Florian Westphal <fw@strlen.de>,
         Pablo Neira Ayuso <pablo@netfilter.org>
 To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:33852 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752826AbcI0Niq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 09:38:46 -0400
+Received: by mail-qt0-f193.google.com with SMTP id t63so405006qtd.1
+        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 06:38:45 -0700 (PDT)
 In-Reply-To: <1474983515-4115-1-git-send-email-aconole@bytheb.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-It's possible for nf_hook_entry_head to return NULL if two
-nf_unregister_net_hook calls happen simultaneously with a single hook
-entry in the list.  This fix ensures that no null pointer dereference
-could occur when such a race happens.
+When CONFIG_NETFILTER_INGRESS is unset (or no), we need to handle
+the request for registration properly by dropping the hook.  This
+releases the entry during the set.
 
 Signed-off-by: Aaron Conole <aconole@bytheb.org>
 ---
- net/netfilter/core.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/netfilter/core.c | 15 +++++++++++----
+ 1 file changed, 11 insertions(+), 4 deletions(-)
 
 diff --git a/net/netfilter/core.c b/net/netfilter/core.c
-index 360c63d..e58e420 100644
+index e58e420..61e8a9d 100644
 --- a/net/netfilter/core.c
 +++ b/net/netfilter/core.c
-@@ -160,7 +160,7 @@ void nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
+@@ -90,10 +90,12 @@ static void nf_set_hooks_head(struct net *net, const struct nf_hook_ops *reg,
+ {
+ 	switch (reg->pf) {
+ 	case NFPROTO_NETDEV:
++#ifdef CONFIG_NETFILTER_INGRESS
+ 		/* We already checked in nf_register_net_hook() that this is
+ 		 * used from ingress.
+ 		 */
+ 		rcu_assign_pointer(reg->dev->nf_hooks_ingress, entry);
++#endif
+ 		break;
+ 	default:
+ 		rcu_assign_pointer(net->nf.hooks[reg->pf][reg->hooknum],
+@@ -107,10 +109,15 @@ int nf_register_net_hook(struct net *net, const struct nf_hook_ops *reg)
+ 	struct nf_hook_entry *hooks_entry;
+ 	struct nf_hook_entry *entry;
  
- 	mutex_lock(&nf_hook_mutex);
- 	hooks_entry = nf_hook_entry_head(net, reg);
--	if (hooks_entry->orig_ops == reg) {
-+	if (hooks_entry && hooks_entry->orig_ops == reg) {
- 		nf_set_hooks_head(net, reg,
- 				  nf_entry_dereference(hooks_entry->next));
- 		goto unlock;
+-	if (reg->pf == NFPROTO_NETDEV &&
+-	    (reg->hooknum != NF_NETDEV_INGRESS ||
+-	     !reg->dev || dev_net(reg->dev) != net))
+-		return -EINVAL;
++	if (reg->pf == NFPROTO_NETDEV) {
++#ifndef CONFIG_NETFILTER_INGRESS
++		if (reg->hooknum == NF_NETDEV_INGRESS)
++			return -EOPNOTSUPP;
++#endif
++		if (reg->hooknum != NF_NETDEV_INGRESS ||
++		    !reg->dev || dev_net(reg->dev) != net)
++			return -EINVAL;
++	}
+ 
+ 	entry = kmalloc(sizeof(*entry), GFP_KERNEL);
+ 	if (!entry)
 -- 
 2.7.4
-
