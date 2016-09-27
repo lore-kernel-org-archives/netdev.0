@@ -1,142 +1,108 @@
-From: Alex Williamson <alex.williamson@redhat.com>
-Subject: Re: [net-next 5/5] PCI: disable FLR for 82579 device
-Date: Tue, 27 Sep 2016 13:13:35 -0600
-Message-ID: <20160927131335.2edd72cb@t450s.home>
-References: <1474612741-75681-1-git-send-email-jeffrey.t.kirsher@intel.com>
-        <1474612741-75681-6-git-send-email-jeffrey.t.kirsher@intel.com>
-        <20160923140136.GC1514@localhost>
-        <1474664726.2389.7.camel@intel.com>
-        <176f2366-e225-75fb-8cad-909a8f7e808c@intel.com>
-        <20160927181702.GA7275@localhost>
+From: "R. Parameswaran" <parameswaran.r7@gmail.com>
+Subject: Re: [PATCH net v2] L2TP:Adjust intf MTU,factor underlay L3,overlay
+ L2
+Date: Tue, 27 Sep 2016 12:17:21 -0700 (PDT)
+Message-ID: <alpine.DEB.2.11.1609271210350.25517@duvvury48.eng.vyatta.net>
+References: <alpine.DEB.2.11.1609221341500.6975@duvvury30.eng.vyatta.net> <20160927.033153.1066118008027608891.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Neftin, Sasha" <sasha.neftin@intel.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        linux-pci@vger.kernel.org, davem@davemloft.net,
-        bhelgaas@google.com, netdev@vger.kernel.org, nhorman@redhat.com,
-        sassmann@redhat.com, jogreene@redhat.com,
-        guru.anbalagane@oracle.com
-To: Bjorn Helgaas <helgaas@kernel.org>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20160927181702.GA7275@localhost>
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: parameswaran.r7@gmail.com, kleptog@svana.org, jchapman@katalix.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        nprachan@brocade.com, rshearma@brocade.com, dfawcus@brocade.com,
+        stephen@networkplumber.org, acme@redhat.com, lboccass@brocade.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160927.033153.1066118008027608891.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 27 Sep 2016 13:17:02 -0500
-Bjorn Helgaas <helgaas@kernel.org> wrote:
 
-> On Sun, Sep 25, 2016 at 10:02:43AM +0300, Neftin, Sasha wrote:
-> > On 9/24/2016 12:05 AM, Jeff Kirsher wrote:  
-> > >On Fri, 2016-09-23 at 09:01 -0500, Bjorn Helgaas wrote:  
-> > >>On Thu, Sep 22, 2016 at 11:39:01PM -0700, Jeff Kirsher wrote:  
-> > >>>From: Sasha Neftin <sasha.neftin@intel.com>
-> > >>>
-> > >>>82579 has a problem reattaching itself after the device is detached.
-> > >>>The bug was reported by Redhat. The suggested fix is to disable
-> > >>>FLR capability in PCIe configuration space.
-> > >>>
-> > >>>Reproduction:
-> > >>>Attach the device to a VM, then detach and try to attach again.
-> > >>>
-> > >>>Fix:
-> > >>>Disable FLR capability to prevent the 82579 from hanging.  
-> > >>Is there a bugzilla or other reference URL to include here?  Should
-> > >>this be marked for stable?  
-> > >So the author is in Israel, meaning it is their weekend now.  I do not
-> > >believe Sasha monitors email over the weekend, so a response to your
-> > >questions won't happen for a few days.
-> > >
-> > >I tried searching my archives for more information, but had no luck finding
-> > >any additional information.
-> > >  
-> > >>>Signed-off-by: Sasha Neftin <sasha.neftin@intel.com>
-> > >>>Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-> > >>>Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > >>>---
-> > >>>  drivers/pci/quirks.c | 21 +++++++++++++++++++++
-> > >>>  1 file changed, 21 insertions(+)
-> > >>>
-> > >>>diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-> > >>>index 44e0ff3..59fba6e 100644
-> > >>>--- a/drivers/pci/quirks.c
-> > >>>+++ b/drivers/pci/quirks.c
-> > >>>@@ -4431,3 +4431,24 @@ static void quirk_intel_qat_vf_cap(struct
-> > >>>pci_dev *pdev)
-> > >>>  	}
-> > >>>  }
-> > >>>  DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x443,
-> > >>>quirk_intel_qat_vf_cap);
-> > >>>+/*
-> > >>>+ * Workaround FLR issues for 82579
-> > >>>+ * This code disables the FLR (Function Level Reset) via PCIe, in
-> > >>>order
-> > >>>+ * to workaround a bug found while using device passthrough, where the
-> > >>>+ * interface would become non-responsive.
-> > >>>+ * NOTE: the FLR bit is Read/Write Once (RWO) in config space, so if
-> > >>>+ * the BIOS or kernel writes this register * then this workaround will
-> > >>>+ * not work.  
-> > >>This doesn't sound like a root cause.  Is the issue a hardware
-> > >>erratum?  Linux PCI core bug?  VFIO bug?  Device firmware bug?
-> > >>
-> > >>The changelog suggests that the problem only affects passthrough,
-> > >>which suggests some sort of kernel bug related to how passthrough is
-> > >>implemented.  
+Hi David,
+
+Thanks for the reply, please see inline:
+
+On Tue, 27 Sep 2016, David Miller wrote:
+
+> From: "R. Parameswaran" <parameswaran.r7@gmail.com>
+> Date: Thu, 22 Sep 2016 13:52:43 -0700 (PDT)
 > 
-> If this bug affects all scenarios, not just passthrough, the changelog
-> should not mention passthrough.
-> 
-> > >>>+ */
-> > >>>+static void quirk_intel_flr_cap_dis(struct pci_dev *dev)
-> > >>>+{
-> > >>>+	int pos = pci_find_capability(dev, PCI_CAP_ID_AF);
-> > >>>+	if (pos) {
-> > >>>+		u8 cap;
-> > >>>+		pci_read_config_byte(dev, pos + PCI_AF_CAP, &cap);
-> > >>>+		cap = cap & (~PCI_AF_CAP_FLR);
-> > >>>+		pci_write_config_byte(dev, pos + PCI_AF_CAP, cap);
-> > >>>+	}
-> > >>>+}
-> > >>>+DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x1502,
-> > >>>quirk_intel_flr_cap_dis);
-> > >>>+DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x1503,
-> > >>>quirk_intel_flr_cap_dis);
-> > >>>-- 
-> > >>>2.7.4
-> > >>>
-> > >>>--
-> > >>>To unsubscribe from this list: send the line "unsubscribe linux-pci" in
-> > >>>the body of a message to majordomo@vger.kernel.org
-> > >>>More majordomo info at  http://vger.kernel.org/majordomo-info.html  
+> > From ed585bdd6d3d2b3dec58d414f514cd764d89159d Mon Sep 17 00:00:00 2001
+> > From: "R. Parameswaran" <rparames@brocade.com>
+> > Date: Thu, 22 Sep 2016 13:19:25 -0700
+> > Subject: [PATCH] L2TP:Adjust intf MTU,factor underlay L3,overlay L2
 > > 
-> > Hello,
+> > Take into account all of the tunnel encapsulation headers when setting
+> > up the MTU on the L2TP logical interface device. Otherwise, packets
+> > created by the applications on top of the L2TP layer are larger
+> > than they ought to be, relative to the underlay MTU, leading to
+> > needless fragmentation once the outer IP encap is added.
 > > 
-> > Original bugzilla thread could be found here:
-> > https://bugzilla.redhat.com/show_bug.cgi?format=multiple&id=966840  
+> > Specifically, take into account the (outer, underlay) IP header
+> > imposed on the encapsulated L2TP packet, and the Layer 2 header
+> > imposed on the inner IP packet prior to L2TP encapsulation.
+> > 
+> > Do not assume an Ethernet (non-jumbo) underlay. Use the PMTU mechanism
+> > and the dst entry in the L2TP tunnel socket to directly pull up
+> > the underlay MTU (as the baseline number on top of which the
+> > encapsulation headers are factored in).  Fall back to Ethernet MTU
+> > if this fails.
+> > 
+> > Signed-off-by: R. Parameswaran <rparames@brocade.com>
+> > 
+> > Reviewed-by: "N. Prachanda" <nprachan@brocade.com>,
+> > Reviewed-by: "R. Shearman" <rshearma@brocade.com>,
+> > Reviewed-by: "D. Fawcus" <dfawcus@brocade.com>
 > 
-> That bugzilla is private and I can't read it.
+> I have to ask, how do other tunnels over UDP such as VXLAN handle
+> this problem?
+> 
 
-Hmm, I can, but I don't see anything in it that supports this.  Is that
-really the right bz?  It's the right hardware, but has all sorts of FUD
-about the version of various other components in the stack.
- 
-> > This is our HW bug, exist only in 82579 devices. More new devices
-> > have no such problem. We have found root cause and suggested this
-> > solution.   
-> 
-> Is there an erratum you can reference?
-> 
-> > This solution should work for a 95% of cases, so I do not
-> > think that this is fragile. For another cases possible solution is
-> > get up working system and manually disable FLR, before VM start use
-> > our adapter.  
-> 
-> I don't think a 95% solution is sufficient.  Can you use the
-> pci_dev_specific_reset() framework to make a 100% solution?
+Specific to Vxlan, it appears to behave similarly.  I haven't functionally 
+tested fragmentation on vxlan interfaces, but looking at the
+code, it seems to account for the headers involved:
 
-Right, plus when this does work I suspect it removes the one mechanism
-we have to reset the device, which depending on how obscure the failure
-scenario is, isn't a clear cut improvement for device assignment.
-Thanks,
 
-Alex
+When the vxlan interface is created, from vxlan_dev_create(), in 
+vxlan_setup(), it initially starts off with an ethernet MTU:
+
+vxlan_setup(struct net_device *dev)
+{
+...
+...
+        ether_setup(dev); <<<<<<< Will set device MTU to 1500
+
+
+Later, in vxlan_dev_configure(), called from vxlan_dev_create(), it gets 
+adjusted to account for the headers:
+
+vxlan_dev_configure():
+...
+ if (!conf->mtu)
+                        dev->mtu = lowerdev->mtu - (use_ipv6 ? 
+VXLAN6_HEADROOM : VXLAN_HEADROOM);
+
+
+where VXLAN_HEADROOM is defined as follows: 
+
+/* IP header + UDP + VXLAN + Ethernet header */
+#define VXLAN_HEADROOM (20 + 8 + 8 + 14)
+/* IPv6 header + UDP + VXLAN + Ethernet header */
+#define VXLAN6_HEADROOM (40 + 8 + 8 + 14)
+
+
+This seems to match what I see with hand config:
+
+sudo ip link add vxlan0 type vxlan id 42 group 239.1.1.1 dev eth0 dstport 
+4789 <<<< (eth0 has an MTU of 1500)
+
+
+sudo ip -d link show vxlan0
+36: vxlan0: <BROADCAST,MULTICAST> mtu 1450 qdisc noop state DOWN mode 
+DEFAULT group default <<<< (1450 = 1500 -50)
+    link/ether e2:b8:2d:f4:f7:ae brd ff:ff:ff:ff:ff:ff promiscuity 0
+    vxlan id 42 group 239.1.1.1 dev eth0 srcport 32768 61000 dstport 4789 
+ageing 300
+
+thanks,
+
+Ramkumar
