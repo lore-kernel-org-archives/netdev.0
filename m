@@ -1,67 +1,56 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next v2 3/3] udp: use it's own memory accounting
- schema
-Date: Tue, 27 Sep 2016 11:42:14 -0700
-Message-ID: <1475001734.28155.62.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <cover.1474995024.git.pabeni@redhat.com>
-         <bc55b0885e0f93895c211168561a6b3403bade10.1474995024.git.pabeni@redhat.com>
+From: Adit Ranadive <aditr@vmware.com>
+Subject: Re: [PATCH v5 13/16] IB/pvrdma: Add the main driver module for PVRDMA
+Date: Tue, 27 Sep 2016 11:50:44 -0700
+Message-ID: <979bf690-1566-8674-5c46-4108006fb32a@vmware.com>
+References: <cover.1474759181.git.aditr@vmware.com>
+ <8db982c37a0a96b37df02826564474a216922f25.1474759181.git.aditr@vmware.com>
+ <20160926072739.GB6352@yuval-lap.Home>
+ <651b18ee-55ca-0c72-af9c-c55c42b57fd1@vmware.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB010A6EA@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
-        Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-        Alexander Duyck <aduyck-nYU0QVwCCFFWk0Htik3J/w@public.gmane.org>,
-        Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
-        Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
-        Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <bc55b0885e0f93895c211168561a6b3403bade10.1474995024.git.pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: "dledford@redhat.com" <dledford@redhat.com>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        "pv-drivers@vmware.com" <pv-drivers@vmware.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+        "jhansen@vmware.com" <jhansen@vmware.com>,
+        "asarwade@vmware.com" <asarwade@vmware.com>,
+        "georgezhang@vmware.com" <georgezhang@vmware.com>,
+        "bryantan@vmware.com" <bryantan@vmware.com>
+To: David Laight <David.Laight@ACULAB.COM>,
+        Yuval Shaia <yuval.shaia@oracle.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB010A6EA@AcuExch.aculab.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-09-27 at 18:58 +0200, Paolo Abeni wrote:
-
-
+On Tue, Sep 27, 2016 at 09:21:27AM +0000, David Laight wrote:
+> From: Adit Ranadive
+> > Sent: 26 September 2016 19:15
+> > On Mon, Sep 26, 2016 at 00:27:40AM -0700, Yuval Shaia wrote:
+> > > On Sat, Sep 24, 2016 at 04:21:37PM -0700, Adit Ranadive wrote:
+> > > > +
+> > > > +	/* Currently, the driver only supports RoCE mode. */
+> > > > +	if (dev->dsr->caps.mode != PVRDMA_DEVICE_MODE_ROCE) {
+> > > > +		dev_err(&pdev->dev, "unsupported transport %d\n",
+> > > > +			dev->dsr->caps.mode);
+> > > > +		ret = -EINVAL;
+> > >
+> > > This is some fatal error with the device, not that something wrong with the
+> > > function's argument.
+> > > Suggesting to replace with -EFAULT.
+> > >
+> > 
+> > Thanks, will fix this one and the others here.
 > 
-> Since the new memory accounting model does not require socket
-> locking, remove the lock on enqueue and free and avoid using the
-> backlog on enqueue.
+> Won't EFAULT generate SIGSEGV ?
 
+Since this is called at module load time, wouldn't the module load fail with
+this error rather than generate a SIGSEGV?
 
-...
+I'm slightly unclear about what would if it is compiled into the kernel though
+I think it should fail with the error.
 
->  	__UDP_INC_STATS(sock_net(sk), UDP_MIB_CSUMERRORS, is_udplite);
-> @@ -2345,6 +2325,7 @@ struct proto udp_prot = {
->  	.connect	   = ip4_datagram_connect,
->  	.disconnect	   = udp_disconnect,
->  	.ioctl		   = udp_ioctl,
-> +	.init		   = udp_init_sock,
->  	.destroy	   = udp_destroy_sock,
->  	.setsockopt	   = udp_setsockopt,
->  	.getsockopt	   = udp_getsockopt,
-> @@ -2357,7 +2338,10 @@ struct proto udp_prot = {
->  	.unhash		   = udp_lib_unhash,
->  	.rehash		   = udp_v4_rehash,
->  	.get_port	   = udp_v4_get_port,
-> +	.enter_memory_pressure = udp_enter_memory_pressure,
-> +	.sockets_allocated = &udp_sockets_allocated,
->  	.memory_allocated  = &udp_memory_allocated,
-> +	.memory_pressure   = &udp_memory_pressure,
->  	.sysctl_mem	   = sysctl_udp_mem,
->  	.sysctl_wmem	   = &sysctl_udp_wmem_min,
->  	.sysctl_rmem	   = &sysctl_udp_rmem_min,
-
-
-I find disturbing you did not remove 
-
-	.backlog_rcv       = __udp_queue_rcv_skb,
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The only other error value to return here that could make sense is EIO.
