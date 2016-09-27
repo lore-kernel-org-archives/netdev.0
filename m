@@ -1,61 +1,82 @@
-From: Mark Brown <broonie@kernel.org>
-Subject: Re: [PATCH v2] net: hns: mark symbols static where possible
-Date: Tue, 27 Sep 2016 09:46:06 -0700
-Message-ID: <20160927164606.i2uulqvidbtyxxru@sirena.org.uk>
-References: <1474881218-21219-1-git-send-email-baoyou.xie@linaro.org>
- <20160927.075014.320869544955826394.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="aa3sxgatjxeexm47"
-Cc: baoyou.xie@linaro.org, yisen.zhuang@huawei.com,
-        yankejian@huawei.com, huangdaode@hisilicon.com,
-        lisheng011@huawei.com, lipeng321@huawei.com,
-        xieqianqian@huawei.com, fabf@skynet.be, colin.king@canonical.com,
-        geliangtang@163.com, arnd@arndb.de, andrew@lunn.ch,
-        chenny.xu@huawei.com, xypron.glpk@gmx.de, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, xie.baoyou@zte.com.cn,
-        han.fei@zte.com.cn, tang.qiang007@zte.com.cn
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mezzanine.sirena.org.uk ([106.187.55.193]:35150 "EHLO
-        mezzanine.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933655AbcI0Qqh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 12:46:37 -0400
-Content-Disposition: inline
-In-Reply-To: <20160927.075014.320869544955826394.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rajat Jain <rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Subject: (unknown)
+Date: Tue, 27 Sep 2016 09:50:52 -0700
+Message-ID: <1474995052-122337-1-git-send-email-rajatja@google.com>
+Cc: Wei-Ning Huang <wnhuang-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        Brian Norris <briannorris-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        Eric Caruso <ejcaruso-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, rajatxjain-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        Rajat Jain <rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+To: Amitkumar Karwar <akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        Nishant Sarmukadam <nishants-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Subject: 
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+From: Wei-Ning Huang <wnhuang-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
 
---aa3sxgatjxeexm47
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Date: Thu, 17 Mar 2016 11:43:16 +0800
+Subject: [PATCH] mwifiex: report wakeup for wowlan
 
-On Tue, Sep 27, 2016 at 07:50:14AM -0400, David Miller wrote:
+Enable notifying wakeup source to the PM core. This allow darkresume to
+correctly track wakeup source and mark mwifiex_plt as 'automatic' wakeup
+source.
 
-> This still doesn't apply to the net-next tree.
+Signed-off-by: Wei-Ning Huang <wnhuang-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Rajat Jain <rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Tested-by: Wei-Ning Huang <wnhuang-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Reviewed-by: Eric Caruso <ejcaruso-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+---
+ drivers/net/wireless/marvell/mwifiex/sdio.c | 8 ++++++++
+ drivers/net/wireless/marvell/mwifiex/sdio.h | 1 +
+ 2 files changed, 9 insertions(+)
 
-> If you aren't actually building your patch against the net-next
-> tree, don't bother submitting these patches any more.
-
-Baoyou, Dave is referring to his git tree at:
-
-   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
-
-(see MAINTAINERS)
-
---aa3sxgatjxeexm47
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAABCAAGBQJX6qJNAAoJECTWi3JdVIfQ5vMH/1J2eBgVdR2iyFvQop7jgppD
-Hg0iDgiglGyLoFTeypQ4VOTGGB3bgH2Q/HRZPaArCEj7UChyNcCyv7GmVWAFx7uH
-ZtYtcszAo0RvKxkqROvqgg/H7r7mzL+1wzz/oSpy5jUGcgj4j4alzzYwAmVSNwZw
-F0xf+2JUqCNH4dcJIi5OIhhbeLfp+jJeclRFIK7ied9JGIdthXeynABLM+LMRfW8
-LqBVFvPCn24kJ166/pXPnKLNb7i1BiFu3vwFuYGA7g0qv2QkFY4SJQETZKIVnP/W
-BxZuUF6v5XIex2NlU6pcB3yfuqpk3beLv3H/TGAeDrgcztgaSoaNiMaDFU2XzXo=
-=t5xl
------END PGP SIGNATURE-----
-
---aa3sxgatjxeexm47--
+diff --git a/drivers/net/wireless/marvell/mwifiex/sdio.c b/drivers/net/wireless/marvell/mwifiex/sdio.c
+index d3e1561..a5f63e4 100644
+--- a/drivers/net/wireless/marvell/mwifiex/sdio.c
++++ b/drivers/net/wireless/marvell/mwifiex/sdio.c
+@@ -89,6 +89,9 @@ static irqreturn_t mwifiex_wake_irq_wifi(int irq, void *priv)
+ 		disable_irq_nosync(irq);
+ 	}
+ 
++	/* Notify PM core we are wakeup source */
++	pm_wakeup_event(cfg->dev, 0);
++
+ 	return IRQ_HANDLED;
+ }
+ 
+@@ -112,6 +115,7 @@ static int mwifiex_sdio_probe_of(struct device *dev, struct sdio_mmc_card *card)
+ 					  GFP_KERNEL);
+ 	cfg = card->plt_wake_cfg;
+ 	if (cfg && card->plt_of_node) {
++		cfg->dev = dev;
+ 		cfg->irq_wifi = irq_of_parse_and_map(card->plt_of_node, 0);
+ 		if (!cfg->irq_wifi) {
+ 			dev_dbg(dev,
+@@ -130,6 +134,10 @@ static int mwifiex_sdio_probe_of(struct device *dev, struct sdio_mmc_card *card)
+ 		}
+ 	}
+ 
++	ret = device_init_wakeup(dev, true);
++	if (ret)
++		dev_err(dev, "fail to init wakeup for mwifiex");
++
+ 	return 0;
+ }
+ 
+diff --git a/drivers/net/wireless/marvell/mwifiex/sdio.h b/drivers/net/wireless/marvell/mwifiex/sdio.h
+index db837f1..07cdd23 100644
+--- a/drivers/net/wireless/marvell/mwifiex/sdio.h
++++ b/drivers/net/wireless/marvell/mwifiex/sdio.h
+@@ -155,6 +155,7 @@
+ } while (0)
+ 
+ struct mwifiex_plt_wake_cfg {
++	struct device *dev;
+ 	int irq_wifi;
+ 	bool wake_by_wifi;
+ };
+-- 
+2.8.0.rc3.226.g39d4020
