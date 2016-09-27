@@ -1,82 +1,65 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: [PATCH net] net: skbuff: Fix incorrect skb->mac_len adjustment in skb_vlan_push()
-Date: Tue, 27 Sep 2016 20:31:45 +0300
-Message-ID: <1474997505-5059-1-git-send-email-shmulik.ladkani@gmail.com>
-Cc: Jiri Pirko <jiri@mellanox.com>,
-        Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-        Shmulik Ladkani <shmulik.ladkani@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>,
-        Pravin Shelar <pshelar@ovn.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH resend] sh_eth: add R8A7743/5 support
+Date: Tue, 27 Sep 2016 21:08:56 +0300
+Message-ID: <b04bbb5d-fda2-f11b-1ff7-1502dcc31e53@cogentembedded.com>
+References: <1654835.SEcvPVx4OQ@wasted.cogentembedded.com>
+ <CAMuHMdWq_714eP2q7V6AgopKu-mNx0GLUzyemad2H_ZcFt15ug@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Linux-Renesas <linux-renesas-soc@vger.kernel.org>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34069 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751064AbcI0RcQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 13:32:16 -0400
-Received: by mail-wm0-f68.google.com with SMTP id l132so2197558wmf.1
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 10:32:15 -0700 (PDT)
+Received: from mail-lf0-f48.google.com ([209.85.215.48]:36720 "EHLO
+        mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935703AbcI0SJB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 14:09:01 -0400
+Received: by mail-lf0-f48.google.com with SMTP id g62so31324825lfe.3
+        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 11:09:00 -0700 (PDT)
+In-Reply-To: <CAMuHMdWq_714eP2q7V6AgopKu-mNx0GLUzyemad2H_ZcFt15ug@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In case 'skb_vlan_push' is called on an skb with a hw-accel vlan tag
-already present, the existing hw-accel tag is inserted into payload, and
-the new given tag is placed as new hw-accel tag.
+On 09/27/2016 10:35 AM, Geert Uytterhoeven wrote:
 
-After the insertion:
- - 'mac_header' is adjusted to point to the new start of the vlan_ethhdr
- - 'data' is adjusted to point to the vlan_hdr portion
-   (since packet's payload is the inner 802.1q)
+>> Add support for the first two members of the Renesas RZ/G family, RZ/G1M/E
+>> (also known as  R8A7743/5). The Ether core is the same as in the R-Car gen2
+>> SoCs, so will share the code/data with them...
+>>
+>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>
+>> --- net-next.orig/drivers/net/ethernet/renesas/Kconfig
+>> +++ net-next/drivers/net/ethernet/renesas/Kconfig
+>> @@ -27,7 +27,7 @@ config SH_ETH
+>>           Renesas SuperH Ethernet device driver.
+>>           This driver supporting CPUs are:
+>>                 - SH7619, SH7710, SH7712, SH7724, SH7734, SH7763, SH7757,
+>> -                 R8A7740, R8A777x and R8A779x.
+>> +                 R8A7740, R8A774x, R8A777x and R8A779x.
+>
+> Surely "R8A7740" is covered by "R8A774x"? :-)
 
-However, 'mac_len' is incorrectly incremented with additional VLAN_HLEN
-bytes, resulting in a total value of 18 bytes.
+    It should be, yes -- but 7740 has completely different Ether core than the 
+RZ/G family. I can fix this if you want...
 
-Meaning, when issuing 'skb_push(skb, skb->mac_len)' the data points
-to random content, 4 bytes PRIOR the ethhdr location.
+> However, the "x" is not a real wildcard (also for '7x and '9x), as the driver
+> doesn't support all possible values of "x".
 
-This is problematic, as many constructs in the stack are issuing
-'skb_push(skb, skb->mac_len)' prior xmit to a device (e.g tcf_mirred,
-tcf_bpf, nf_dup_netdev_egress), resulting in bogus frames being
-xmitted (having random 4 bytes at start of frame).
+    Well, I think for 779x it does, provided that the Ether core exists at all.
+For 777x it doesn't support the SH flavour of 7778 indeed but it's not 
+supported by the kernel at all...
 
-For example:
+> Apart from that:
+> Acked-by: Geert Uytterhoeven <geert+renesas@glider.be>
 
- # ip l add dev d0 type dummy
- # tc filter add dev eth0 parent ffff: pref 1 basic \
-     action vlan push protocol 802.1ad id 5 pipe \
-     action mirred egress redirect dev d0
+   Thank you. :-)
 
-Any 802.1q (hw-accel) tagged frames arriving on eth0 are xmitted as
-bogus frames on d0; whereas the expected behavior is having QinQ frames.
+> Gr{oetje,eeting}s,
+>
+>                         Geert
 
-Fix, removing the unnecessary VLAN_HLEN adjustment of mac_len.
-
-Fixes: 93515d53b1 ("net: move vlan pop/push functions into common code")
-Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Cc: Pravin Shelar <pshelar@ovn.org>
-Cc: Jiri Pirko <jiri@mellanox.com>
----
-
- - David, if patch ok, suggest this goes to -stable
-
- - Pravin, original push_vlan() code in openvswitch/actions.c prior Jiri
-   has moved it into skbuff.c had the following comment:
-        /* Update mac_len for subsequent MPLS actions */
-        skb->mac_len += VLAN_HLEN;
-   Can you please acknowlegde OvS code is also ok with suggested change?
-
- net/core/skbuff.c | 1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index d36c754895..0cf961868b 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -4607,7 +4607,6 @@ int skb_vlan_push(struct sk_buff *skb, __be16 vlan_proto, u16 vlan_tci)
- 		}
- 
- 		skb->protocol = skb->vlan_proto;
--		skb->mac_len += VLAN_HLEN;
- 
- 		skb_postpush_rcsum(skb, skb->data + (2 * ETH_ALEN), VLAN_HLEN);
- 		__skb_pull(skb, offset);
--- 
-2.7.4
+MBR, Sergei
