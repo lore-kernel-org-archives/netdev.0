@@ -1,64 +1,66 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH v3] net: ip, diag -- Add diag interface for raw sockets
-Date: Mon, 26 Sep 2016 19:54:37 -0600
-Message-ID: <fd77837c-433c-5010-7d07-68b0bf3e3d22@cumulusnetworks.com>
-References: <999f0ddb-82e4-ea07-b52a-59d08bc7816d@cumulusnetworks.com>
- <20160916070623.GD1867@uranus.lan> <20160916190000.GA18116@uranus.lan>
- <59e12627-7043-fd20-0d68-899ab43b0e71@cumulusnetworks.com>
- <20160916193927.GB18116@uranus.lan>
- <d943c6b7-0f06-3823-58d2-6f79f17c3d59@cumulusnetworks.com>
- <20160916195252.GC18116@uranus.lan>
- <6464ac16-a15b-384e-ffb1-3ee84cdce313@cumulusnetworks.com>
- <20160916200722.GA26044@uranus.lan> <20160920211343.GI26044@uranus.lan>
- <20160926223828.GL1876@uranus.lan>
+Subject: Re: [PATCH net-next 2/3] net: mpls: Fixups for GSO
+Date: Mon, 26 Sep 2016 20:04:06 -0600
+Message-ID: <363ba109-1951-1018-060f-25df33c717e0@cumulusnetworks.com>
+References: <1471626542-13335-1-git-send-email-dsa@cumulusnetworks.com>
+ <1471626542-13335-3-git-send-email-dsa@cumulusnetworks.com>
+ <20160822122122.GA8689@penelope.isobedori.kobe.vergenet.net>
+ <dcf3df40-3914-37c6-55dc-e5c3de7530b5@cumulusnetworks.com>
+ <20160822145134.GA26491@penelope.isobedori.kobe.vergenet.net>
+ <3297517c-2889-19fe-5aa4-89e1d14eadca@cumulusnetworks.com>
+ <20160824072002.GA27254@penelope.isobedori.kobe.vergenet.net>
+ <CAOrHB_BEn2D_iUgkqPD8ixhjJtnaLpYkANxL+Au7wO=8oKmGag@mail.gmail.com>
+ <586321df-72c6-0dee-4ce6-22ca2a0860fb@cumulusnetworks.com>
+ <20160926175622.3b00d478@griffin> <20160926190259.3b878aa5@griffin>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-        avagin@openvz.org, stephen@networkplumber.org
-To: Cyrill Gorcunov <gorcunov@gmail.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
+Cc: pravin shelar <pshelar@ovn.org>,
+        Simon Horman <simon.horman@netronome.com>,
+        Pravin B Shelar <pshelar@nicira.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>, buytenh@wantstofly.org,
+        "Eric W. Biederman" <ebiederm@xmission.com>, rshearma@brocade.com,
+        tom@herbertland.com, Thomas Graf <tgraf@suug.ch>,
+        olivier.dugeon@orange.com,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        roopa@cumulusnetworks.com
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:33330 "EHLO
-        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933035AbcI0Byk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 21:54:40 -0400
-Received: by mail-pf0-f177.google.com with SMTP id 21so71593100pfy.0
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 18:54:40 -0700 (PDT)
-In-Reply-To: <20160926223828.GL1876@uranus.lan>
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:34950 "EHLO
+        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934017AbcI0CEJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 22:04:09 -0400
+Received: by mail-pf0-f180.google.com with SMTP id s13so37279128pfd.2
+        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 19:04:09 -0700 (PDT)
+In-Reply-To: <20160926190259.3b878aa5@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/26/16 4:38 PM, Cyrill Gorcunov wrote:
-> Something like
+On 9/26/16 11:02 AM, Jiri Benc wrote:
+> On Mon, 26 Sep 2016 17:56:22 +0200, Jiri Benc wrote:
+>> After push_mpls, network_header points to the start of MPLS headers.
+>> Which I understand was the point of this patch. However, push_mpls also
+>> calls invalidate_flow_key. Meaning that, depending on actions, we may
+>> end up calling key_extract soon after. And key_extract sets the network
+>> header *after* the MPLS headers.
+
+you know this code better than me, but key_extract pulls the eth header and then sets network header. If MPLS labels are present then it is the labels that the network_header now points to. How did come to the conclusion it is after the labels?
+
+>>
+>> That means that on output, for otherwise identical packet,
+>> network_header can point before or after MPLS headers based on what
+>> actions happened to be executed (recirculation, mainly).
+>>
+>> If I'm not misreading the code or missing something, this can't be
+>> right.
+>>
+>> mpls_gso_segment does not care, it resets the network_header anyway.
+>> What about drivers? What is the correct behavior?
 > 
-> Index: linux-ml.git/include/uapi/linux/inet_diag.h
-> ===================================================================
-> --- linux-ml.git.orig/include/uapi/linux/inet_diag.h    2016-09-11 20:56:18.191584145 +0300
-> +++ linux-ml.git/include/uapi/linux/inet_diag.h 2016-09-27 01:34:08.413172394 +0300
-> @@ -38,7 +38,7 @@ struct inet_diag_req_v2 {
->         __u8    sdiag_family;
->         __u8    sdiag_protocol;
->         __u8    idiag_ext;
-> -       __u8    pad;
-> +       __u8    sdiag_raw_protocol;     /* SOCK_RAW only, @pad for others */
-
-Seems like that should be a union to keep the API.
-
-
->         __u32   idiag_states;
->         struct inet_diag_sockid id;
->  };
+> Answering to myself: it breaks skb_mac_gso_segment. Seems we need to
+> fix key_extract to set network_header to the beginning of MPLS headers.
+> I'll prepare a patch.
 > 
-> and in raw-diag module we will use @sdiag_raw_protocol instead of
-> @sdiag_protocol field. Didn't cover ss tool source code yet but
-> I think the idea is seen. Still not sure if start using @pad here
-> is a good idea (it's uapi), maybe beter to ask nla attribute which would
-> come right afterh the inet_diag_req_v2 message?
+>  Jiri
 > 
-
-seems reasonable to me since 2 protocols need to be sent to the kernel.
-
-Alternatively, sdiag_protocol could be the actual protocol and the pad union be a flag field with say bit 0 = INET_DIAG_FLAG_SOCK_RAW. Allows other overrides in the future if needed.
