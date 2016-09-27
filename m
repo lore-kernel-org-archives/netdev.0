@@ -1,79 +1,62 @@
-From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-Subject: [PATCH 4.9] brcmfmac: use correct skb freeing helper when deleting flowring
-Date: Tue, 27 Sep 2016 11:14:28 +0200
-Message-ID: <20160927091428.19223-1-zajec5@gmail.com>
+From: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next V2] net/sched: pkt_cls: change tc actions order
+ to be as the user sets
+Date: Tue, 27 Sep 2016 12:15:22 +0300
+Message-ID: <CAJL1qvFE4QU9eHiPfqGjq6hufceUnN8Sth6vFaaFnNvpRHL4+w@mail.gmail.com>
+References: <1474963791-3717-1-git-send-email-hadarh@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Arend van Spriel <arend.vanspriel@broadcom.com>,
-        Franky Lin <franky.lin@broadcom.com>,
-        Hante Meuleman <hante.meuleman@broadcom.com>,
-        Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
-        Franky Lin <frankyl@broadcom.com>,
-        linux-wireless@vger.kernel.org,
-        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal@milecki.pl>
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>
+To: Hadar Hen Zion <hadarh@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f65.google.com ([209.85.218.65]:35652 "EHLO
+        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932672AbcI0JPY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 05:15:24 -0400
+Received: by mail-oi0-f65.google.com with SMTP id n202so490353oig.2
+        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 02:15:23 -0700 (PDT)
+In-Reply-To: <1474963791-3717-1-git-send-email-hadarh@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rafał Miłecki <rafal@milecki.pl>
+On Tue, Sep 27, 2016 at 11:09 AM, Hadar Hen Zion <hadarh@mellanox.com> wrote:
+> Currently the created tc actions list is reversed against the order
+> set by the user.
+> Change the actions list order to be the same as was set by the user.
+>
+> This patch doesn't affect dump actions behavior.
+> For dumping, action->order parameter is used so the list order doesn't
+> matter.
+>
+> Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+> Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Flowrings contain skbs waiting for transmission that were passed to us
-by netif. It means we checked every one of them looking for 802.1x
-Ethernet type. When deleting flowring we have to use freeing function
-that will check for 802.1x type as well.
 
-Freeing skbs without a proper check was leading to counter not being
-properly decreased. This was triggering a WARNING every time
-brcmf_netdev_wait_pend8021x was called.
+Changes from V1:
+- Add a comment to the change log
 
-Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
----
-Kalle: this isn't important enough for 4.8 as it's too late for that.
 
-I'd like to get it for 4.9 however, as this fixes bug that could lead
-to WARNING on every add_key/del_key call. We was struggling with these
-WARNINGs for some time and this fixes one of two problems causing them.
----
- drivers/net/wireless/broadcom/brcm80211/brcmfmac/flowring.c | 9 ++++++++-
- 1 file changed, 8 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/flowring.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/flowring.c
-index b16b367..d0b738d 100644
---- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/flowring.c
-+++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/flowring.c
-@@ -234,13 +234,20 @@ static void brcmf_flowring_block(struct brcmf_flowring *flow, u16 flowid,
- 
- void brcmf_flowring_delete(struct brcmf_flowring *flow, u16 flowid)
- {
-+	struct brcmf_bus *bus_if = dev_get_drvdata(flow->dev);
- 	struct brcmf_flowring_ring *ring;
-+	struct brcmf_if *ifp;
- 	u16 hash_idx;
-+	u8 ifidx;
- 	struct sk_buff *skb;
- 
- 	ring = flow->rings[flowid];
- 	if (!ring)
- 		return;
-+
-+	ifidx = brcmf_flowring_ifidx_get(flow, flowid);
-+	ifp = brcmf_get_ifp(bus_if->drvr, ifidx);
-+
- 	brcmf_flowring_block(flow, flowid, false);
- 	hash_idx = ring->hash_id;
- 	flow->hash[hash_idx].ifidx = BRCMF_FLOWRING_INVALID_IFIDX;
-@@ -249,7 +256,7 @@ void brcmf_flowring_delete(struct brcmf_flowring *flow, u16 flowid)
- 
- 	skb = skb_dequeue(&ring->skblist);
- 	while (skb) {
--		brcmu_pkt_buf_free_skb(skb);
-+		brcmf_txfinalize(ifp, skb, false);
- 		skb = skb_dequeue(&ring->skblist);
- 	}
- 
--- 
-2.9.3
+> ---
+>  include/net/pkt_cls.h | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+> index 5ccaa4b..767b03a 100644
+> --- a/include/net/pkt_cls.h
+> +++ b/include/net/pkt_cls.h
+> @@ -123,7 +123,7 @@ static inline void tcf_exts_to_list(const struct tcf_exts *exts,
+>         for (i = 0; i < exts->nr_actions; i++) {
+>                 struct tc_action *a = exts->actions[i];
+>
+> -               list_add(&a->list, actions);
+> +               list_add_tail(&a->list, actions);
+>         }
+>  #endif
+>  }
+> --
+> 1.8.3.1
+>
