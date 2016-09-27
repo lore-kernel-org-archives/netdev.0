@@ -1,465 +1,830 @@
 From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH V2 net-next 04/15] smc: introduce SMC as an IB-client
-Date: Tue, 27 Sep 2016 18:41:45 +0200
-Message-ID: <20160927164156.26184-5-ubraun@linux.vnet.ibm.com>
+Subject: [PATCH V2 net-next 11/15] smc: connection data control (CDC)
+Date: Tue, 27 Sep 2016 18:41:52 +0200
+Message-ID: <20160927164156.26184-12-ubraun@linux.vnet.ibm.com>
 References: <20160927164156.26184-1-ubraun@linux.vnet.ibm.com>
 Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
         schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
         utz.bacher@de.ibm.com, ubraun@linux.vnet.ibm.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:41929 "EHLO
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:42054 "EHLO
         mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S934453AbcI0QmK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 12:42:10 -0400
+        by vger.kernel.org with ESMTP id S935178AbcI0QmO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 12:42:14 -0400
 Received: from pps.filterd (m0098416.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8RGcTjr108343
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 12:42:09 -0400
-Received: from e06smtp14.uk.ibm.com (e06smtp14.uk.ibm.com [195.75.94.110])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 25qu8541kr-1
+        by mx0b-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8RGcSo1108311
+        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 12:42:13 -0400
+Received: from e06smtp10.uk.ibm.com (e06smtp10.uk.ibm.com [195.75.94.106])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 25qu8541rs-1
         (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 12:42:09 -0400
+        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 12:42:13 -0400
 Received: from localhost
-        by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        by e06smtp10.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-        Tue, 27 Sep 2016 17:42:07 +0100
+        Tue, 27 Sep 2016 17:42:10 +0100
 In-Reply-To: <20160927164156.26184-1-ubraun@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* create a list of SMC IB-devices (IB-devices mentioned in PNET table)
-* determine RoCE device and port belonging to used internal TCP interface
-  according to the PNET table definitions
+send and receive CDC messages (via IB message send and CQE)
 
 Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
 ---
- net/smc/Makefile   |   2 +-
- net/smc/af_smc.c   |  10 ++++
- net/smc/smc.h      |   5 ++
- net/smc/smc_ib.c   | 157 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- net/smc/smc_ib.h   |  40 ++++++++++++++
- net/smc/smc_pnet.c |  98 +++++++++++++++++++++++++++++++++
- net/smc/smc_pnet.h |   7 +++
- 7 files changed, 318 insertions(+), 1 deletion(-)
- create mode 100644 net/smc/smc_ib.c
- create mode 100644 net/smc/smc_ib.h
+ net/smc/Makefile   |   1 +
+ net/smc/af_smc.c   |   8 ++
+ net/smc/smc.h      |  97 ++++++++++++++++++
+ net/smc/smc_cdc.c  | 288 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ net/smc/smc_cdc.h  | 216 ++++++++++++++++++++++++++++++++++++++++
+ net/smc/smc_core.c |   9 ++
+ net/smc/smc_wr.c   |  19 ++++
+ net/smc/smc_wr.h   |   8 ++
+ 8 files changed, 646 insertions(+)
+ create mode 100644 net/smc/smc_cdc.c
+ create mode 100644 net/smc/smc_cdc.h
 
 diff --git a/net/smc/Makefile b/net/smc/Makefile
-index 64dab53..50f39ff 100644
+index 73320bf..ec0fd03 100644
 --- a/net/smc/Makefile
 +++ b/net/smc/Makefile
-@@ -1,2 +1,2 @@
+@@ -1,2 +1,3 @@
  obj-$(CONFIG_SMC)	+= smc.o
--smc-y := af_smc.o smc_pnet.o
-+smc-y := af_smc.o smc_pnet.o smc_ib.o
+ smc-y := af_smc.o smc_pnet.o smc_ib.o smc_clc.o smc_core.o smc_wr.o smc_llc.o
++smc-y += smc_cdc.o
 diff --git a/net/smc/af_smc.c b/net/smc/af_smc.c
-index e6bbadc..2fa3042 100644
+index 5cddce0..af82d28 100644
 --- a/net/smc/af_smc.c
 +++ b/net/smc/af_smc.c
-@@ -20,6 +20,7 @@
- #include <net/sock.h>
- 
+@@ -32,6 +32,7 @@
  #include "smc.h"
-+#include "smc_ib.h"
+ #include "smc_clc.h"
+ #include "smc_llc.h"
++#include "smc_cdc.h"
+ #include "smc_core.h"
+ #include "smc_ib.h"
  #include "smc_pnet.h"
- 
- static void smc_set_keepalive(struct sock *sk, int val)
-@@ -605,8 +606,16 @@ static int __init smc_init(void)
- 		goto out_proto;
+@@ -292,6 +293,7 @@ static void smc_conn_save_peer_info(struct smc_sock *smc,
+ 				    struct smc_clc_msg_accept_confirm *clc)
+ {
+ 	smc->conn.peer_conn_idx = clc->conn_idx;
++	smc->conn.local_tx_ctrl.token = ntohl(clc->rmbe_alert_token);
+ 	smc->conn.peer_rmbe_len = smc_uncompress_bufsize(clc->rmbe_size);
+ 	atomic_set(&smc->conn.peer_rmbe_space, smc->conn.peer_rmbe_len);
+ }
+@@ -1212,6 +1214,12 @@ static int __init smc_init(void)
+ 		goto out_pnet;
  	}
  
-+	rc = smc_ib_register_client();
++	rc = smc_cdc_init();
 +	if (rc) {
-+		pr_err("%s: ib_register fails with %d\n", __func__, rc);
-+		goto out_sock;
++		pr_err("%s: smc_cdc_init fails with %d\n", __func__, rc);
++		goto out_pnet;
 +	}
 +
- 	return 0;
- 
-+out_sock:
-+	sock_unregister(PF_SMC);
- out_proto:
- 	proto_unregister(&smc_proto);
- out_pnet:
-@@ -616,6 +625,7 @@ out_pnet:
- 
- static void __exit smc_exit(void)
- {
-+	smc_ib_unregister_client();
- 	sock_unregister(PF_SMC);
- 	proto_unregister(&smc_proto);
- 	smc_pnet_exit();
+ 	rc = proto_register(&smc_proto, 1);
+ 	if (rc) {
+ 		pr_err("%s: proto_register fails with %d\n", __func__, rc);
 diff --git a/net/smc/smc.h b/net/smc/smc.h
-index 46f562d..a882f64 100644
+index 6b70962..65147da 100644
 --- a/net/smc/smc.h
 +++ b/net/smc/smc.h
-@@ -33,4 +33,9 @@ static inline struct smc_sock *smc_sk(const struct sock *sk)
- {
- 	return (struct smc_sock *)sk;
- }
+@@ -18,6 +18,10 @@
+ 
+ #define SMCPROTO_SMC		0	/* SMC protocol */
+ 
++#ifdef ATOMIC64_INIT
++#define KERNEL_HAS_ATOMIC64
++#endif
 +
-+#define SMC_SYSTEMID_LEN		8
+ enum smc_state {		/* possible states of an SMC socket */
+ 	SMC_ACTIVE	= 1,
+ 	SMC_INIT	= 2,
+@@ -31,6 +35,67 @@ struct smc_wr_rx_hdr {	/* common prefix part of LLC and CDC to demultiplex */
+ 	u8			type;
+ } __packed;
+ 
++struct smc_cdc_conn_state_flags {
++#if defined(__BIG_ENDIAN_BITFIELD)
++	u8	peer_done_writing : 1;	/* Sending done indicator */
++	u8	peer_conn_closed : 1;	/* Peer connection closed indicator */
++	u8	peer_conn_abort : 1;	/* Abnormal close indicator */
++	u8	reserved : 5;
++#elif defined(__LITTLE_ENDIAN_BITFIELD)
++	u8	reserved : 5;
++	u8	peer_conn_abort : 1;
++	u8	peer_conn_closed : 1;
++	u8	peer_done_writing : 1;
++#endif
++} __packed;
 +
-+extern u8	local_systemid[SMC_SYSTEMID_LEN]; /* unique system identifier */
++struct smc_cdc_producer_flags {
++#if defined(__BIG_ENDIAN_BITFIELD)
++	u8	write_blocked : 1;	/* Writing Blocked, no rx buf space */
++	u8	urg_data_pending : 1;	/* Urgent Data Pending */
++	u8	urg_data_present : 1;	/* Urgent Data Present */
++	u8	cons_curs_upd_req : 1;	/* cursor update requested */
++	u8	failover_validation : 1;/* message replay due to failover */
++	u8	reserved : 3;
++#elif defined(__LITTLE_ENDIAN_BITFIELD)
++	u8	reserved : 3;
++	u8	failover_validation : 1;
++	u8	cons_curs_upd_req : 1;
++	u8	urg_data_present : 1;
++	u8	urg_data_pending : 1;
++	u8	write_blocked : 1;
++#endif
++} __packed;
 +
- #endif	/* _SMC_H */
-diff --git a/net/smc/smc_ib.c b/net/smc/smc_ib.c
++/* in host byte order */
++union smc_host_cursor {	/* SMC cursor - an offset in an RMBE */
++	struct {
++		u16	reserved;
++		u16	wrap;		/* window wrap sequence number */
++		u32	count;		/* cursor (= offset) part */
++	};
++#ifdef KERNEL_HAS_ATOMIC64
++	atomic64_t		acurs;	/* for atomic processing */
++#else
++	u64			acurs;	/* for atomic processing */
++#endif
++} __aligned(8);
++
++/* in host byte order, except for flag bitfields in network byte order */
++struct smc_host_cdc_msg {		/* Connection Data Control message */
++	struct smc_wr_rx_hdr		common; /* .type = 0xFE */
++	u8				len;	/* length = 44 */
++	u16				seqno;	/* connection seq # */
++	u32				token;	/* alert_token */
++	union smc_host_cursor		prod;		/* producer cursor */
++	union smc_host_cursor		cons;		/* consumer cursor,
++							 * piggy backed "ack"
++							 */
++	struct smc_cdc_producer_flags	prod_flags;	/* conn. tx/rx status */
++	struct smc_cdc_conn_state_flags	conn_state_flags; /* peer conn. status*/
++	u8				reserved[18];
++} __packed __aligned(8);
++
+ struct smc_connection {
+ 	struct rb_node		alert_node;
+ 	struct smc_link_group	*lgr;		/* link group of connection */
+@@ -47,6 +112,38 @@ struct smc_connection {
+ 	struct smc_buf_desc	*rmb_desc;	/* RMBE descriptor */
+ 	int			rmbe_size;	/* RMBE size <== sock rmem */
+ 	int			rmbe_size_short;/* compressed notation */
++
++	struct smc_host_cdc_msg	local_tx_ctrl;	/* host byte order staging
++						 * buffer for CDC msg send
++						 * .prod cf. TCP snd_nxt
++						 * .cons cf. TCP sends ack
++						 */
++	union smc_host_cursor	tx_curs_prep;	/* tx - prepared data
++						 * snd_max..wmem_alloc
++						 */
++	union smc_host_cursor	tx_curs_sent;	/* tx - sent data
++						 * snd_nxt ?
++						 */
++	union smc_host_cursor	tx_curs_fin;	/* tx - confirmed by peer
++						 * snd-wnd-begin ?
++						 */
++	atomic_t		sndbuf_space;	/* remaining space in sndbuf */
++	u16			tx_cdc_seq;	/* sequence # for CDC send */
++	spinlock_t		send_lock;	/* protect wr_sends */
++
++	struct smc_host_cdc_msg	local_rx_ctrl;	/* filled during event_handl.
++						 * .prod cf. TCP rcv_nxt
++						 * .cons cf. TCP snd_una
++						 */
++	union smc_host_cursor	rx_curs_confirmed; /* confirmed to peer
++						      * source of snd_una ?
++						      */
++	atomic_t		bytes_to_rcv;	/* arrived data,
++						 * not yet received
++						 */
++#ifndef KERNEL_HAS_ATOMIC64
++	spinlock_t		acurs_lock;	/* protect cursors */
++#endif
+ };
+ 
+ struct smc_sock {				/* smc sock container */
+diff --git a/net/smc/smc_cdc.c b/net/smc/smc_cdc.c
 new file mode 100644
-index 0000000..8b6bb50
+index 0000000..ddd6a2d
 --- /dev/null
-+++ b/net/smc/smc_ib.c
-@@ -0,0 +1,157 @@
-+/*
-+ *  Shared Memory Communications over RDMA (SMC-R) and RoCE
-+ *
-+ *  IB infrastructure:
-+ *  Establish SMC-R as an Infiniband Client to be notified about added and
-+ *  removed IB devices of type RDMA.
-+ *  Determine device and port characteristics for these IB devices.
-+ *
-+ *  Copyright IBM Corp. 2016
-+ *
-+ *  Author(s):  Ursula Braun <ubraun@linux.vnet.ibm.com>
-+ */
-+
-+#include <linux/random.h>
-+#include <rdma/ib_verbs.h>
-+
-+#include "smc_pnet.h"
-+#include "smc_ib.h"
-+#include "smc.h"
-+
-+struct smc_ib_devices smc_ib_devices = {	/* smc-registered ib devices */
-+	.lock = __SPIN_LOCK_UNLOCKED(smc_ib_devices.lock),
-+	.list = LIST_HEAD_INIT(smc_ib_devices.list),
-+};
-+
-+#define SMC_LOCAL_SYSTEMID_RESET	"%%%%%%%"
-+
-+u8 local_systemid[SMC_SYSTEMID_LEN] = SMC_LOCAL_SYSTEMID_RESET;	/* unique system
-+								 * identifier
-+								 */
-+
-+static int smc_ib_fill_gid_and_mac(struct smc_ib_device *smcibdev, u8 ibport)
-+{
-+	struct net_device *ndev;
-+	int rc;
-+
-+	rc = ib_query_gid(smcibdev->ibdev, ibport, 0,
-+			  &smcibdev->gid[ibport - 1], NULL);
-+	/* the SMC protocol requires specification of the roce MAC address;
-+	 * if net_device cannot be determined, it can be derived from gid 0
-+	 */
-+	ndev = smcibdev->ibdev->get_netdev(smcibdev->ibdev, ibport);
-+	if (ndev) {
-+		memcpy(&smcibdev->mac, ndev->dev_addr, ETH_ALEN);
-+	} else if (!rc) {
-+		memcpy(&smcibdev->mac[ibport - 1][0],
-+		       &smcibdev->gid[ibport - 1].raw[8], 3);
-+		memcpy(&smcibdev->mac[ibport - 1][3],
-+		       &smcibdev->gid[ibport - 1].raw[13], 3);
-+		smcibdev->mac[ibport - 1][0] &= ~0x02;
-+	}
-+	return rc;
-+}
-+
-+/* Create an identifier unique for this instance of SMC-R.
-+ * The MAC-address of the first active registered IB device
-+ * plus a random 2-byte number is used to create this identifier.
-+ * This name is delivered to the peer during connection initialization.
-+ */
-+static inline void smc_ib_define_local_systemid(struct smc_ib_device *smcibdev,
-+						u8 ibport)
-+{
-+	memcpy(&local_systemid[2], &smcibdev->mac[ibport - 1],
-+	       sizeof(smcibdev->mac[ibport - 1]));
-+	get_random_bytes(&local_systemid[0], 2);
-+}
-+
-+bool smc_ib_port_active(struct smc_ib_device *smcibdev, u8 ibport)
-+{
-+	return smcibdev->pattr[ibport - 1].state == IB_PORT_ACTIVE;
-+}
-+
-+int smc_ib_remember_port_attr(struct smc_ib_device *smcibdev, u8 ibport)
-+{
-+	int rc;
-+
-+	memset(&smcibdev->pattr[ibport - 1], 0,
-+	       sizeof(smcibdev->pattr[ibport - 1]));
-+	rc = ib_query_port(smcibdev->ibdev, ibport,
-+			   &smcibdev->pattr[ibport - 1]);
-+	if (rc)
-+		goto out;
-+	rc = smc_ib_fill_gid_and_mac(smcibdev, ibport);
-+	if (rc)
-+		goto out;
-+	if (!strncmp(local_systemid, SMC_LOCAL_SYSTEMID_RESET,
-+		     sizeof(local_systemid)) &&
-+	    smc_ib_port_active(smcibdev, ibport))
-+		/* create unique system identifier */
-+		smc_ib_define_local_systemid(smcibdev, ibport);
-+out:
-+	return rc;
-+}
-+
-+static struct ib_client smc_ib_client;
-+
-+/* callback function for ib_register_client() */
-+static void smc_ib_add_dev(struct ib_device *ibdev)
-+{
-+	struct smc_ib_device *smcibdev;
-+	int i;
-+
-+	if (ibdev->node_type != RDMA_NODE_IB_CA)
-+		return;
-+
-+	smcibdev = kzalloc(sizeof(*smcibdev), GFP_KERNEL);
-+	if (!smcibdev)
-+		return;
-+
-+	smcibdev->ibdev = ibdev;
-+
-+	for (i = 1; i <= SMC_MAX_PORTS; i++) {
-+		if (smc_pnet_exists_in_table(smcibdev, i) &&
-+		    !smcibdev->initialized) {
-+			/* dev hotplug: ib device and port is in pnet table */
-+			if (smc_ib_remember_port_attr(smcibdev, i)) {
-+				kfree(smcibdev);
-+				return;
-+			}
-+			smcibdev->initialized = 1;
-+			break;
-+		}
-+	}
-+	spin_lock(&smc_ib_devices.lock);
-+	list_add_tail(&smcibdev->list, &smc_ib_devices.list);
-+	spin_unlock(&smc_ib_devices.lock);
-+	ib_set_client_data(ibdev, &smc_ib_client, smcibdev);
-+}
-+
-+/* callback function for ib_register_client() */
-+static void smc_ib_remove_dev(struct ib_device *ibdev, void *client_data)
-+{
-+	struct smc_ib_device *smcibdev;
-+
-+	smcibdev = ib_get_client_data(ibdev, &smc_ib_client);
-+	ib_set_client_data(ibdev, &smc_ib_client, NULL);
-+	spin_lock(&smc_ib_devices.lock);
-+	list_del_init(&smcibdev->list); /* remove from smc_ib_devices */
-+	spin_unlock(&smc_ib_devices.lock);
-+	kfree(smcibdev);
-+}
-+
-+static struct ib_client smc_ib_client = {
-+	.name	= "smc_ib",
-+	.add	= smc_ib_add_dev,
-+	.remove = smc_ib_remove_dev,
-+};
-+
-+int __init smc_ib_register_client(void)
-+{
-+	return ib_register_client(&smc_ib_client);
-+}
-+
-+void smc_ib_unregister_client(void)
-+{
-+	ib_unregister_client(&smc_ib_client);
-+}
-diff --git a/net/smc/smc_ib.h b/net/smc/smc_ib.h
-new file mode 100644
-index 0000000..a1ca04f
---- /dev/null
-+++ b/net/smc/smc_ib.h
-@@ -0,0 +1,40 @@
++++ b/net/smc/smc_cdc.c
+@@ -0,0 +1,288 @@
 +/*
 + * Shared Memory Communications over RDMA (SMC-R) and RoCE
 + *
-+ *  Definitions for IB environment
++ * Connection Data Control (CDC)
++ * handles flow control
 + *
-+ *  Copyright IBM Corp. 2016
++ * Copyright IBM Corp. 2016
 + *
-+ *  Author(s):  Ursula Braun <Ursula Braun@linux.vnet.ibm.com>
++ * Author(s):  Ursula Braun <ubraun@linux.vnet.ibm.com>
 + */
 +
-+#ifndef _SMC_IB_H
-+#define _SMC_IB_H
++#include <linux/spinlock.h>
 +
-+#include <rdma/ib_verbs.h>
++#include "smc.h"
++#include "smc_wr.h"
++#include "smc_cdc.h"
 +
-+#define SMC_MAX_PORTS			2	/* Max # of ports */
-+#define SMC_GID_SIZE			sizeof(union ib_gid)
++/********************************** send *************************************/
 +
-+struct smc_ib_devices {			/* list of smc ib devices definition */
-+	struct list_head	list;
-+	spinlock_t		lock;	/* protects list of smc ib devices */
++struct smc_cdc_tx_pend {
++	struct smc_connection	*conn;		/* socket connection */
++	union smc_host_cursor	cursor;	/* tx sndbuf cursor sent */
++	union smc_host_cursor	p_cursor;	/* rx RMBE cursor produced */
++	u16			ctrl_seq;	/* conn. tx sequence # */
 +};
 +
-+extern struct smc_ib_devices	smc_ib_devices; /* list of smc ib devices */
-+
-+struct smc_ib_device {				/* ib-device infos for smc */
-+	struct list_head	list;
-+	struct ib_device	*ibdev;
-+	struct ib_port_attr	pattr[SMC_MAX_PORTS];	/* ib dev. port attrs */
-+	char			mac[SMC_MAX_PORTS][6]; /* mac address per port*/
-+	union ib_gid		gid[SMC_MAX_PORTS]; /* gid per port */
-+	u8			initialized : 1; /* ib dev CQ, evthdl done */
-+};
-+
-+int smc_ib_register_client(void) __init;
-+void smc_ib_unregister_client(void);
-+bool smc_ib_port_active(struct smc_ib_device *, u8);
-+int smc_ib_remember_port_attr(struct smc_ib_device *, u8);
-+
-+#endif
-diff --git a/net/smc/smc_pnet.c b/net/smc/smc_pnet.c
-index 1d41375..ee4876d 100644
---- a/net/smc/smc_pnet.c
-+++ b/net/smc/smc_pnet.c
-@@ -18,6 +18,7 @@
- 
- #include <rdma/ib_verbs.h>
- 
-+#include "smc_ib.h"
- #include "smc_pnet.h"
- 
- #define SMC_MAX_PNET_ID_LEN	16	/* Max. length of PNET id */
-@@ -185,6 +186,8 @@ static bool smc_pnet_same_ibname(struct smc_pnetentry *a, char *name, u8 ibport)
- static int smc_pnet_add_ib(struct smc_pnetentry *pnetelem, char *name,
- 			   u8 ibport)
- {
-+	struct smc_ib_device *smcibdev = NULL;
-+	struct smc_ib_device *dev;
- 	struct smc_pnetentry *p;
- 	int rc = -EEXIST;
- 
-@@ -196,10 +199,32 @@ static int smc_pnet_add_ib(struct smc_pnetentry *pnetelem, char *name,
- 	if (pnetelem->ib_name[0] == '\0') {
- 		strncpy(pnetelem->ib_name, name, sizeof(pnetelem->ib_name));
- 		pnetelem->ib_port = ibport;
-+		spin_lock(&smc_ib_devices.lock);
-+		/* using string ib_name, search smcibdev in global list */
-+		list_for_each_entry(dev, &smc_ib_devices.list, list) {
-+			if (!strncmp(dev->ibdev->name, pnetelem->ib_name,
-+				     sizeof(pnetelem->ib_name))) {
-+				smcibdev = dev;
-+				break;
-+			}
-+		}
-+		spin_unlock(&smc_ib_devices.lock);
- 		rc = 0;
- 	}
- out:
- 	write_unlock(&smc_pnettable.lock);
-+	if (smcibdev && !smcibdev->initialized) {
-+		/* ib dev already existed [dev coldplug].
-+		 * Complements: smc_ib_add_dev() [dev hotplug],
-+		 * smc_ib_global_event_handler() [port hotplug].
-+		 * Function call chain can sleep so outside of our locks.
-+		 */
-+		rc = smc_ib_remember_port_attr(smcibdev,
-+					       pnetelem->ib_port);
-+		if (rc)
-+			return rc;
-+		smcibdev->initialized = 1;
-+	}
- 	return rc;
- }
- 
-@@ -508,3 +533,76 @@ bad1:
- bad0:
- 	return rc;
- }
-+
-+/* Scan the pnet table and find an IB device given the pnetid entry.
-+ * Return infiniband device and port number if an active port is found.
-+ * This function is called under smc_pnettable.lock.
-+ */
-+static void smc_pnet_ib_dev_by_pnet(struct smc_pnetentry *pnetelem,
-+				    struct smc_ib_device **smcibdev, u8 *ibport)
++/* handler for send/transmission completion of a CDC msg */
++static void smc_cdc_tx_handler(struct smc_wr_tx_pend_priv *pnd_snd,
++			       struct smc_link *link,
++			       enum ib_wc_status wc_status)
 +{
-+	struct smc_ib_device *dev;
++	struct smc_cdc_tx_pend *cdcpend = (struct smc_cdc_tx_pend *)pnd_snd;
++	struct smc_sock *smc;
++	int diff;
 +
-+	*smcibdev = NULL;
-+	*ibport = 0;
-+	spin_lock(&smc_ib_devices.lock);
-+	/* using string ib->ib_name, search ibdev in global list */
-+	list_for_each_entry(dev, &smc_ib_devices.list, list) {
-+		if (!strncmp(dev->ibdev->name, pnetelem->ib_name,
-+			     sizeof(pnetelem->ib_name)) &&
-+		    smc_ib_port_active(dev, pnetelem->ib_port)) {
-+			*smcibdev = dev;
-+			*ibport = pnetelem->ib_port;
-+			break;
-+		}
-+	}
-+	spin_unlock(&smc_ib_devices.lock);
-+}
-+
-+/* PNET table analysis for a given sock:
-+ * determine ib_device and port belonging to used internal TCP socket
-+ * ethernet interface.
-+ */
-+void smc_pnet_find_roce_resource(struct sock *sk,
-+				 struct smc_ib_device **smcibdev, u8 *ibport)
-+{
-+	struct dst_entry *dst = sk_dst_get(sk);
-+	struct smc_pnetentry *pnetelem;
-+
-+	*smcibdev = NULL;
-+	*ibport = 0;
-+
-+	if (!dst)
++	if (!cdcpend->conn)
++		/* already dismissed */
 +		return;
-+	if (!dst->dev)
-+		goto out_rel;
-+	read_lock(&smc_pnettable.lock);
-+	list_for_each_entry(pnetelem, &smc_pnettable.pnetlist, list) {
-+		if (!strncmp(dst->dev->name, pnetelem->if_name, IFNAMSIZ)) {
-+			smc_pnet_ib_dev_by_pnet(pnetelem, smcibdev, ibport);
-+			break;
-+		}
++
++	smc = container_of(cdcpend->conn, struct smc_sock, conn);
++	bh_lock_sock(&smc->sk);
++	if (!wc_status) {
++		diff = smc_curs_diff(cdcpend->conn->sndbuf_size,
++				     &cdcpend->conn->tx_curs_fin,
++				     &cdcpend->cursor);
++		/* sndbuf_space is decreased in smc_sendmsg */
++		smp_mb__before_atomic();
++		atomic_add(diff, &cdcpend->conn->sndbuf_space);
++		/* guarantee 0 <= sndbuf_space <= sndbuf_size */
++		smp_mb__after_atomic();
++		smc_curs_write(&cdcpend->conn->tx_curs_fin,
++			       smc_curs_read(&cdcpend->cursor, cdcpend->conn),
++			       cdcpend->conn);
 +	}
-+	read_unlock(&smc_pnettable.lock);
-+out_rel:
-+	dst_release(dst);
++	/* subsequent patch: wake if send buffer space available */
++	bh_unlock_sock(&smc->sk);
 +}
 +
-+/* Returns true if a specific ib_device and port is in the PNET table. */
-+bool smc_pnet_exists_in_table(struct smc_ib_device *smcibdev, u8 ibport)
++int smc_cdc_get_free_slot(struct smc_link *link,
++			  struct smc_wr_buf **wr_buf,
++			  struct smc_cdc_tx_pend **pend)
 +{
-+	struct smc_pnetentry *pnetelem;
-+	int rc = false;
++	return smc_wr_tx_get_free_slot(link, smc_cdc_tx_handler, wr_buf,
++				       (struct smc_wr_tx_pend_priv **)pend);
++}
 +
-+	read_lock(&smc_pnettable.lock);
-+	list_for_each_entry(pnetelem, &smc_pnettable.pnetlist, list) {
-+		if (!strncmp(smcibdev->ibdev->name, pnetelem->ib_name,
-+			     IB_DEVICE_NAME_MAX) &&
-+		    ibport == pnetelem->ib_port) {
-+			rc = true;
-+			break;
-+		}
-+	}
-+	read_unlock(&smc_pnettable.lock);
++static inline void smc_cdc_add_pending_send(struct smc_connection *conn,
++					    struct smc_cdc_tx_pend *pend)
++{
++	BUILD_BUG_ON_MSG(
++		sizeof(struct smc_cdc_msg) > SMC_WR_BUF_SIZE,
++		"must increase SMC_WR_BUF_SIZE to at least sizeof(struct smc_cdc_msg)");
++	BUILD_BUG_ON_MSG(
++		sizeof(struct smc_cdc_msg) != SMC_WR_TX_SIZE,
++		"must adapt SMC_WR_TX_SIZE to sizeof(struct smc_cdc_msg); if not all smc_wr upper layer protocols use the same message size any more, must start to set link->wr_tx_sges[i].length on each individual smc_wr_tx_send()");
++	BUILD_BUG_ON_MSG(
++		sizeof(struct smc_cdc_tx_pend) > SMC_WR_TX_PEND_PRIV_SIZE,
++		"must increase SMC_WR_TX_PEND_PRIV_SIZE to at least sizeof(struct smc_cdc_tx_pend)");
++	pend->conn = conn;
++	pend->cursor = conn->tx_curs_sent;
++	pend->p_cursor = conn->local_tx_ctrl.prod;
++	pend->ctrl_seq = conn->tx_cdc_seq;
++}
++
++int smc_cdc_msg_send(struct smc_connection *conn,
++		     struct smc_wr_buf *wr_buf,
++		     struct smc_cdc_tx_pend *pend)
++{
++	struct smc_link *link;
++	int rc;
++
++	link = &conn->lgr->lnk[SMC_SINGLE_LINK];
++
++	smc_cdc_add_pending_send(conn, pend);
++
++	conn->tx_cdc_seq++;
++	conn->local_tx_ctrl.seqno = conn->tx_cdc_seq;
++	smc_host_msg_to_cdc((struct smc_cdc_msg *)wr_buf,
++			    &conn->local_tx_ctrl, conn);
++	rc = smc_wr_tx_send(link, (struct smc_wr_tx_pend_priv *)pend);
++	if (!rc)
++		smc_curs_write(&conn->rx_curs_confirmed,
++			       smc_curs_read(&conn->local_tx_ctrl.cons, conn),
++			       conn);
++
 +	return rc;
 +}
-diff --git a/net/smc/smc_pnet.h b/net/smc/smc_pnet.h
-index 34f85f6..1ff35df 100644
---- a/net/smc/smc_pnet.h
-+++ b/net/smc/smc_pnet.h
-@@ -13,6 +13,13 @@
- 
- #define SMC_MAX_PORTS		2	/* Max # of ports */
- 
-+#include <net/sock.h>
 +
-+struct smc_ib_device;
++int smc_cdc_get_slot_and_msg_send(struct smc_connection *conn)
++{
++	struct smc_cdc_tx_pend *pend;
++	struct smc_wr_buf *wr_buf;
++	int rc;
 +
-+bool smc_pnet_exists_in_table(struct smc_ib_device *, u8);
-+void smc_pnet_find_roce_resource(struct sock *, struct smc_ib_device **, u8 *);
++	rc = smc_cdc_get_free_slot(&conn->lgr->lnk[SMC_SINGLE_LINK], &wr_buf,
++				   &pend);
++	if (rc)
++		return rc;
 +
- int smc_pnet_init(void) __init;
- void smc_pnet_exit(void);
++	return smc_cdc_msg_send(conn, wr_buf, pend);
++}
++
++static bool smc_cdc_tx_filter(struct smc_wr_tx_pend_priv *tx_pend,
++			      unsigned long data)
++{
++	struct smc_connection *conn = (struct smc_connection *)data;
++	struct smc_cdc_tx_pend *cdc_pend =
++		(struct smc_cdc_tx_pend *)tx_pend;
++
++	return cdc_pend->conn == conn;
++}
++
++static void smc_cdc_tx_dismisser(struct smc_wr_tx_pend_priv *tx_pend)
++{
++	struct smc_cdc_tx_pend *cdc_pend =
++		(struct smc_cdc_tx_pend *)tx_pend;
++
++	cdc_pend->conn = NULL;
++}
++
++void smc_cdc_tx_dismiss_slots(struct smc_connection *conn)
++{
++	struct smc_link *link = &conn->lgr->lnk[SMC_SINGLE_LINK];
++
++	smc_wr_tx_dismiss_slots(link, SMC_CDC_MSG_TYPE,
++				smc_cdc_tx_filter, smc_cdc_tx_dismisser,
++				(unsigned long)conn);
++}
++
++/********************************* receive ***********************************/
++
++static inline bool smc_cdc_before(u16 seq1, u16 seq2)
++{
++	return (s16)(seq1 - seq2) < 0;
++}
++
++static void smc_cdc_msg_recv_action(struct smc_sock *smc,
++				    struct smc_link *link,
++				    struct smc_cdc_msg *cdc)
++{
++	union smc_host_cursor cons_old, prod_old;
++	struct smc_connection *conn = &smc->conn;
++	int diff_cons, diff_prod;
++
++	if (!cdc->prod_flags.failover_validation) {
++		if (smc_cdc_before(ntohs(cdc->seqno),
++				   conn->local_rx_ctrl.seqno))
++			/* received seqno is old */
++			return;
++	}
++	smc_curs_write(&prod_old,
++		       smc_curs_read(&conn->local_rx_ctrl.prod, conn),
++		       conn);
++	smc_curs_write(&cons_old,
++		       smc_curs_read(&conn->local_rx_ctrl.cons, conn),
++		       conn);
++	smc_cdc_msg_to_host(&conn->local_rx_ctrl, cdc, conn);
++
++	diff_cons = smc_curs_diff(conn->peer_rmbe_len, &cons_old,
++				  &conn->local_rx_ctrl.cons);
++	if (diff_cons) {
++		/* peer_rmbe_space is decreased during data transfer with RDMA
++		 * write
++		 */
++		smp_mb__before_atomic();
++		atomic_add(diff_cons, &conn->peer_rmbe_space);
++		/* guarantee 0 <= peer_rmbe_space <= peer_rmbe_len */
++		smp_mb__after_atomic();
++	}
++
++	diff_prod = smc_curs_diff(conn->rmbe_size, &prod_old,
++				  &conn->local_rx_ctrl.prod);
++	if (diff_prod) {
++		/* bytes_to_rcv is decreased in smc_recvmsg */
++		smp_mb__before_atomic();
++		atomic_add(diff_prod, &conn->bytes_to_rcv);
++		/* guarantee 0 <= bytes_to_rcv <= rmbe_size */
++		smp_mb__after_atomic();
++	}
++
++	if (conn->local_rx_ctrl.conn_state_flags.peer_conn_abort)
++		smc->sk.sk_err = ECONNRESET;
++	if (smc_cdc_rxed_any_close_or_senddone(conn)) {
++		smc->sk.sk_shutdown |= RCV_SHUTDOWN;
++		sock_set_flag(&smc->sk, SOCK_DONE);
++
++		/* subsequent patch: terminate connection */
++	}
++
++	/* piggy backed tx info */
++	/* subsequent patch: wake receivers if receive buffer space available */
++
++	/* subsequent patch: trigger socket release if connection closed */
++
++	/* socket connected but not accepted */
++	if (!smc->sk.sk_socket)
++		return;
++
++	/* data available */
++	/* subsequent patch: send delayed ack, wake receivers */
++}
++
++/* called under tasklet context */
++static inline void smc_cdc_msg_recv(struct smc_cdc_msg *cdc,
++				    struct smc_link *link, u64 wr_id)
++{
++	struct smc_link_group *lgr = container_of(link, struct smc_link_group,
++						  lnk[SMC_SINGLE_LINK]);
++	struct smc_connection *connection;
++	struct smc_sock *smc;
++
++	/* lookup connection */
++	read_lock_bh(&lgr->conns_lock);
++	connection = smc_lgr_find_conn(ntohl(cdc->token), lgr);
++	if (!connection) {
++		read_unlock_bh(&lgr->conns_lock);
++		return;
++	}
++	smc = container_of(connection, struct smc_sock, conn);
++	if (smc->sk.sk_state == SMC_CLOSED) {
++		read_unlock_bh(&lgr->conns_lock);
++		return;
++	}
++	sock_hold(&smc->sk);
++	read_unlock_bh(&lgr->conns_lock);
++	bh_lock_sock(&smc->sk);
++	smc_cdc_msg_recv_action(smc, link, cdc);
++	bh_unlock_sock(&smc->sk);
++	sock_put(&smc->sk); /* no free sk in softirq-context */
++}
++
++/***************************** init, exit, misc ******************************/
++
++static void smc_cdc_rx_handler(struct ib_wc *wc, void *buf)
++{
++	struct smc_link *link = (struct smc_link *)wc->qp->qp_context;
++	struct smc_cdc_msg *cdc = buf;
++
++	if (wc->byte_len < sizeof(*cdc))
++		return; /* short message */
++	if (cdc->len != sizeof(*cdc))
++		return; /* invalid message */
++	smc_cdc_msg_recv(cdc, link, wc->wr_id);
++}
++
++static struct smc_wr_rx_handler smc_cdc_rx_handlers[] = {
++	{
++		.handler	= smc_cdc_rx_handler,
++		.type		= SMC_CDC_MSG_TYPE
++	},
++	{
++		.handler	= NULL,
++	}
++};
++
++int __init smc_cdc_init(void)
++{
++	struct smc_wr_rx_handler *handler;
++	int rc = 0;
++
++	for (handler = smc_cdc_rx_handlers; handler->handler; handler++) {
++		INIT_HLIST_NODE(&handler->list);
++		rc = smc_wr_rx_register_handler(handler);
++		if (rc)
++			break;
++	}
++	return rc;
++}
+diff --git a/net/smc/smc_cdc.h b/net/smc/smc_cdc.h
+new file mode 100644
+index 0000000..9ecca56
+--- /dev/null
++++ b/net/smc/smc_cdc.h
+@@ -0,0 +1,216 @@
++/*
++ * Shared Memory Communications over RDMA (SMC-R) and RoCE
++ *
++ * Connection Data Control (CDC)
++ *
++ * Copyright IBM Corp. 2016
++ *
++ * Author(s):  Ursula Braun <ubraun@linux.vnet.ibm.com>
++ */
++
++#ifndef SMC_CDC_H
++#define SMC_CDC_H
++
++#include <linux/kernel.h> /* max_t */
++#include <linux/compiler.h> /* __packed */
++#include <linux/atomic.h> /* xchg */
++
++#include "smc.h"
++#include "smc_core.h"
++#include "smc_wr.h"
++
++#define	SMC_CDC_MSG_TYPE		0xFE
++
++/* in network byte order */
++union smc_cdc_cursor {		/* SMC cursor */
++	struct {
++		__be16	reserved;
++		__be16	wrap;
++		__be32	count;
++	};
++#ifdef KERNEL_HAS_ATOMIC64
++	atomic64_t	acurs;		/* for atomic processing */
++#else
++	u64		acurs;		/* for atomic processing */
++#endif
++} __packed __aligned(8);
++
++/* in network byte order */
++struct smc_cdc_msg {
++	struct smc_wr_rx_hdr		common; /* .type = 0xFE */
++	u8				len;	/* 44 */
++	__be16				seqno;
++	__be32				token;
++	union smc_cdc_cursor		prod;
++	union smc_cdc_cursor		cons;	/* piggy backed "ack" */
++	struct smc_cdc_producer_flags	prod_flags;
++	struct smc_cdc_conn_state_flags	conn_state_flags;
++	u8				reserved[18];
++} __packed;
++
++static inline bool smc_cdc_rxed_any_close(struct smc_connection *conn)
++{
++	return conn->local_rx_ctrl.conn_state_flags.peer_conn_abort ||
++	       conn->local_rx_ctrl.conn_state_flags.peer_conn_closed;
++}
++
++static inline bool smc_cdc_rxed_any_close_or_senddone(
++	struct smc_connection *conn)
++{
++	return smc_cdc_rxed_any_close(conn) ||
++	       conn->local_rx_ctrl.conn_state_flags.peer_done_writing;
++}
++
++static inline void smc_curs_add(int size, union smc_host_cursor *curs,
++				int value)
++{
++	curs->count += value;
++	if (curs->count >= size) {
++		curs->wrap++;
++		curs->count -= size;
++	}
++}
++
++/* SMC cursors are 8 bytes long and require atomic reading and writing */
++static inline u64 smc_curs_read(union smc_host_cursor *curs,
++				struct smc_connection *conn)
++{
++#ifndef KERNEL_HAS_ATOMIC64
++	unsigned long flags;
++	u64 ret;
++
++	spin_lock_irqsave(&conn->acurs_lock, flags);
++	ret = curs->acurs;
++	spin_unlock_irqrestore(&conn->acurs_lock, flags);
++	return ret;
++#else
++	return atomic64_read(&curs->acurs);
++#endif
++}
++
++static inline u64 smc_curs_read_net(union smc_cdc_cursor *curs,
++				    struct smc_connection *conn)
++{
++#ifndef KERNEL_HAS_ATOMIC64
++	unsigned long flags;
++	u64 ret;
++
++	spin_lock_irqsave(&conn->acurs_lock, flags);
++	ret = curs->acurs;
++	spin_unlock_irqrestore(&conn->acurs_lock, flags);
++	return ret;
++#else
++	return atomic64_read(&curs->acurs);
++#endif
++}
++
++static inline void smc_curs_write(union smc_host_cursor *curs, u64 val,
++				  struct smc_connection *conn)
++{
++#ifndef KERNEL_HAS_ATOMIC64
++	unsigned long flags;
++
++	spin_lock_irqsave(&conn->acurs_lock, flags);
++	curs->acurs = val;
++	spin_unlock_irqrestore(&conn->acurs_lock, flags);
++#else
++	atomic64_set(&curs->acurs, val);
++#endif
++}
++
++static inline void smc_curs_write_net(union smc_cdc_cursor *curs, u64 val,
++				      struct smc_connection *conn)
++{
++#ifndef KERNEL_HAS_ATOMIC64
++	unsigned long flags;
++
++	spin_lock_irqsave(&conn->acurs_lock, flags);
++	curs->acurs = val;
++	spin_unlock_irqrestore(&conn->acurs_lock, flags);
++#else
++	atomic64_set(&curs->acurs, val);
++#endif
++}
++
++/* calculate cursor difference between old and new, where old <= new */
++static inline int smc_curs_diff(unsigned int size,
++				union smc_host_cursor *old,
++				union smc_host_cursor *new)
++{
++	if (old->wrap != new->wrap)
++		return max_t(int, 0,
++			     ((size - old->count) + new->count));
++
++	return max_t(int, 0, (new->count - old->count));
++}
++
++static inline void smc_host_cursor_to_cdc(union smc_cdc_cursor *peer,
++					  union smc_host_cursor *local,
++					  struct smc_connection *conn)
++{
++	union smc_host_cursor temp;
++
++	smc_curs_write(&temp, smc_curs_read(local, conn), conn);
++	peer->count = htonl(temp.count);
++	peer->wrap = htons(temp.wrap);
++	/* peer->reserved = htons(0); must be ensured by caller */
++}
++
++static inline void smc_host_msg_to_cdc(struct smc_cdc_msg *peer,
++				       struct smc_host_cdc_msg *local,
++				       struct smc_connection *conn)
++{
++	peer->common.type = local->common.type;
++	peer->len = local->len;
++	peer->seqno = htons(local->seqno);
++	peer->token = htonl(local->token);
++	smc_host_cursor_to_cdc(&peer->prod, &local->prod, conn);
++	smc_host_cursor_to_cdc(&peer->cons, &local->cons, conn);
++	peer->prod_flags = local->prod_flags;
++	peer->conn_state_flags = local->conn_state_flags;
++}
++
++static inline void smc_cdc_cursor_to_host(union smc_host_cursor *local,
++					  union smc_cdc_cursor *peer,
++					  struct smc_connection *conn)
++{
++	union smc_host_cursor temp, old;
++	union smc_cdc_cursor net;
++
++	smc_curs_write(&old, smc_curs_read(local, conn), conn);
++	smc_curs_write_net(&net, smc_curs_read_net(peer, conn), conn);
++	temp.count = ntohl(net.count);
++	temp.wrap = ntohs(net.wrap);
++	if ((old.wrap > temp.wrap) && temp.wrap)
++		return;
++	if ((old.wrap == temp.wrap) &&
++	    (old.count > temp.count))
++		return;
++	smc_curs_write(local, smc_curs_read(&temp, conn), conn);
++}
++
++static inline void smc_cdc_msg_to_host(struct smc_host_cdc_msg *local,
++				       struct smc_cdc_msg *peer,
++				       struct smc_connection *conn)
++{
++	local->common.type = peer->common.type;
++	local->len = peer->len;
++	local->seqno = ntohs(peer->seqno);
++	local->token = ntohl(peer->token);
++	smc_cdc_cursor_to_host(&local->prod, &peer->prod, conn);
++	smc_cdc_cursor_to_host(&local->cons, &peer->cons, conn);
++	local->prod_flags = peer->prod_flags;
++	local->conn_state_flags = peer->conn_state_flags;
++}
++
++struct smc_cdc_tx_pend;
++
++int smc_cdc_get_free_slot(struct smc_link *, struct smc_wr_buf **,
++			  struct smc_cdc_tx_pend **);
++void smc_cdc_tx_dismiss_slots(struct smc_connection *);
++int smc_cdc_msg_send(struct smc_connection *, struct smc_wr_buf *,
++		     struct smc_cdc_tx_pend *);
++int smc_cdc_get_slot_and_msg_send(struct smc_connection *);
++int smc_cdc_init(void) __init;
++
++#endif /* SMC_CDC_H */
+diff --git a/net/smc/smc_core.c b/net/smc/smc_core.c
+index 1202d16..cb42d63 100644
+--- a/net/smc/smc_core.c
++++ b/net/smc/smc_core.c
+@@ -22,6 +22,7 @@
+ #include "smc_ib.h"
+ #include "smc_wr.h"
+ #include "smc_llc.h"
++#include "smc_cdc.h"
  
+ #define SMC_LGR_NUM_INCR	256
+ #define SMC_LGR_FREE_DELAY	(600 * HZ)
+@@ -230,6 +231,7 @@ void smc_conn_free(struct smc_connection *conn)
+ 
+ 	if (!lgr)
+ 		return;
++	smc_cdc_tx_dismiss_slots(conn);
+ 	smc_lgr_unregister_conn(conn);
+ 	smc_rmb_unuse(conn);
+ 	smc_sndbuf_unuse(conn);
+@@ -461,6 +463,11 @@ int smc_conn_create(struct smc_sock *smc, __be32 peer_in_addr,
+ 		smc_lgr_register_conn(conn); /* add smc conn to lgr */
+ 		rc = smc_link_determine_gid(conn->lgr);
+ 	}
++	conn->local_tx_ctrl.common.type = SMC_CDC_MSG_TYPE;
++	conn->local_tx_ctrl.len = sizeof(struct smc_cdc_msg);
++#ifndef KERNEL_HAS_ATOMIC64
++	spin_lock_init(&conn->acurs_lock);
++#endif
+ 
+ out:
+ 	return rc ? rc : local_contact;
+@@ -561,6 +568,7 @@ int smc_sndbuf_create(struct smc_sock *smc)
+ 		conn->sndbuf_desc = sndbuf_desc;
+ 		conn->sndbuf_size = tmp_bufsize;
+ 		smc->sk.sk_sndbuf = tmp_bufsize * 2;
++		atomic_set(&conn->sndbuf_space, tmp_bufsize);
+ 		return 0;
+ 	} else {
+ 		return -ENOMEM;
+@@ -637,6 +645,7 @@ int smc_rmb_create(struct smc_sock *smc)
+ 		conn->rmbe_size = tmp_bufsize;
+ 		conn->rmbe_size_short = tmp_bufsize_short;
+ 		smc->sk.sk_rcvbuf = tmp_bufsize * 2;
++		atomic_set(&conn->bytes_to_rcv, 0);
+ 		return 0;
+ 	} else {
+ 		return -ENOMEM;
+diff --git a/net/smc/smc_wr.c b/net/smc/smc_wr.c
+index 92edbd3..d0f34af 100644
+--- a/net/smc/smc_wr.c
++++ b/net/smc/smc_wr.c
+@@ -235,6 +235,25 @@ int smc_wr_tx_send(struct smc_link *link, struct smc_wr_tx_pend_priv *priv)
+ 	return rc;
+ }
+ 
++void smc_wr_tx_dismiss_slots(struct smc_link *link, u8 wr_rx_hdr_type,
++			     smc_wr_tx_filter filter,
++			     smc_wr_tx_dismisser dismisser,
++			     unsigned long data)
++{
++	struct smc_wr_tx_pend_priv *tx_pend;
++	struct smc_wr_rx_hdr *wr_rx;
++	int i;
++
++	for_each_set_bit(i, link->wr_tx_mask, link->wr_tx_cnt) {
++		wr_rx = (struct smc_wr_rx_hdr *)&link->wr_rx_bufs[i];
++		if (wr_rx->type != wr_rx_hdr_type)
++			continue;
++		tx_pend = &link->wr_tx_pends[i].priv;
++		if (filter(tx_pend, data))
++			dismisser(tx_pend);
++	}
++}
++
+ /****************************** receive queue ********************************/
+ 
+ int smc_wr_rx_register_handler(struct smc_wr_rx_handler *handler)
+diff --git a/net/smc/smc_wr.h b/net/smc/smc_wr.h
+index 95eb900..783e1e3 100644
+--- a/net/smc/smc_wr.h
++++ b/net/smc/smc_wr.h
+@@ -36,6 +36,11 @@ typedef void (*smc_wr_tx_handler)(struct smc_wr_tx_pend_priv *,
+ 				  struct smc_link *,
+ 				  enum ib_wc_status);
+ 
++typedef bool (*smc_wr_tx_filter)(struct smc_wr_tx_pend_priv *,
++				 unsigned long);
++
++typedef void (*smc_wr_tx_dismisser)(struct smc_wr_tx_pend_priv *);
++
+ struct smc_wr_rx_handler {
+ 	struct hlist_node	list;	/* hash table collision resolution */
+ 	void			(*handler)(struct ib_wc *, void *);
+@@ -85,6 +90,9 @@ int smc_wr_tx_get_free_slot(struct smc_link *, smc_wr_tx_handler,
+ int smc_wr_tx_put_slot(struct smc_link *, struct smc_wr_tx_pend_priv *);
+ int smc_wr_tx_send(struct smc_link *, struct smc_wr_tx_pend_priv *);
+ void smc_wr_tx_cq_handler(struct ib_cq *, void *);
++void smc_wr_tx_dismiss_slots(struct smc_link *, u8,
++			     smc_wr_tx_filter, smc_wr_tx_dismisser,
++			     unsigned long);
+ 
+ int smc_wr_rx_register_handler(struct smc_wr_rx_handler *);
+ int smc_wr_rx_post_init(struct smc_link *);
 -- 
 2.8.4
