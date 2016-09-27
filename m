@@ -1,59 +1,37 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>
-Subject: Re: [PATCH v4 5/7] ipv6 addrconf: implement RFC7559 router
- solicitation backoff
-Date: Tue, 27 Sep 2016 18:42:17 +0900
-Message-ID: <CANP3RGfHPZLHFnp4Rq8_dRNCro6Uh8O8767NgoGu7gvzu5h9BQ@mail.gmail.com>
-References: <20160925.060423.854801855957024790.davem@davemloft.net>
- <1474801390-6891-1-git-send-email-zenczykowski@gmail.com> <1474801390-6891-6-git-send-email-zenczykowski@gmail.com>
- <f249b2b1-e19f-bbc6-d02e-b256fd369c16@stressinduktion.org>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: ISDN-Gigaset: Release memory in gigaset_initcs() after an
+ allocation failure
+Date: Tue, 27 Sep 2016 11:48:37 +0200
+Message-ID: <1474969717.9970.20.camel@tiscali.nl>
+References: <566ABCD9.1060404@users.sourceforge.net>
+         <6d4bbb77-914f-19b8-a1a9-2731d1158612@users.sourceforge.net>
+         <6409b3b0-3b7a-1139-f040-7b1a61611187@users.sourceforge.net>
+         <1474924434.8546.29.camel@tiscali.nl>
+         <0d02085e-842c-4be9-f706-c43b38ce9095@users.sourceforge.net>
+         <1474966121.9970.5.camel@tiscali.nl>
+         <ad12e1a0-f5d5-176a-7d37-be2f3cb0af5d@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Linux NetDev <netdev@vger.kernel.org>,
-        Erik Kline <ek@google.com>,
-        Lorenzo Colitti <lorenzo@google.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>,
+        gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
+        Karsten Keil <isdn@linux-pingi.de>,
+        LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org,
+        Julia Lawall <julia.lawall@lip6.fr>
+To: SF Markus Elfring <elfring@users.sourceforge.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f179.google.com ([209.85.161.179]:36820 "EHLO
-        mail-yw0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752345AbcI0JmT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 05:42:19 -0400
-Received: by mail-yw0-f179.google.com with SMTP id t67so4713921ywg.3
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 02:42:19 -0700 (PDT)
-In-Reply-To: <f249b2b1-e19f-bbc6-d02e-b256fd369c16@stressinduktion.org>
+Received: from lb3-smtp-cloud3.xs4all.net ([194.109.24.30]:41142 "EHLO
+        lb3-smtp-cloud3.xs4all.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S933110AbcI0Jsn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 05:48:43 -0400
+In-Reply-To: <ad12e1a0-f5d5-176a-7d37-be2f3cb0af5d@users.sourceforge.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Please just use do_div here and go back to the first version of the
-> patch. Variable names could be more aligned with the RFC maybe?
+You're in Eliza mode again.
 
-So I tried:
+(Hat tip to Björn Mork, https://lkml.org/lkml/2016/1/4/259).
 
-static inline s32 rfc3315_s14_backoff_init(s32 irt)
- {
-       /* multiply 'initial retransmission time' by 0.9 .. 1.1 */
-       u64 tmp = (900000 + prandom_u32() % 200001) * (u64)irt;
-       do_div(tmp, 1000000);
-       return (s32)tmp;
- }
 
-static inline s32 rfc3315_s14_backoff_update(s32 rt, s32 mrt)
- {
-       /* multiply 'retransmission timeout' by 1.9 .. 2.1 */
-       u64 tmp = (1900000 + prandom_u32() % 200001) * (u64)rt;
-       do_div(tmp, 1000000);
-       if ((s32)tmp > mrt) {
-               /* multiply 'maximum retransmission time' by 0.9 .. 1.1 */
-               tmp = (900000 + prandom_u32() % 200001) * (u64)mrt;
-               do_div(tmp, 1000000);
-        }
-       return (s32)tmp;
-}
-
-but then building for i386 I get:
-
-ERROR: "__udivdi3" [net/netfilter/xt_hashlimit.ko] undefined!
-
-which happens even at net-next/master itself.
-
-Anyway, I'll resubmit assuming the above is what you're looking for...
+Paul Bolle
