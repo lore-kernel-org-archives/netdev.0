@@ -1,64 +1,75 @@
-From: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next] net/sched: pkt_cls: change tc actions order to
- be as the user sets
-Date: Tue, 27 Sep 2016 10:46:59 +0300
-Message-ID: <CAJL1qvGy+sxLrspwXb+mZM_F=u3qu6AQPQ6tffGg4n6K8nMtVA@mail.gmail.com>
-References: <1474812524-29089-1-git-send-email-hadarh@mellanox.com>
- <19723e0f-50b0-77fa-2884-c5bb6e182df9@mojatatu.com> <CAM_iQpVBhckM4f43T0Lc2Bt28nVFBAjORHt5d=1_m9AfoPJtSg@mail.gmail.com>
- <CAJL1qvGnPsjbzp9Z_6GkXzJqrxAAgYY6uE_0mCWb=H-EhcB8-A@mail.gmail.com> <CAM_iQpUxCU3S3sryGxnWBQKs6bOeVP49JotdFRur69-VV4+HzA@mail.gmail.com>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: [PATCH v3] net: ip, diag -- Add diag interface for raw sockets
+Date: Tue, 27 Sep 2016 10:48:12 +0300
+Message-ID: <20160927074812.GM1876@uranus.lan>
+References: <20160916190000.GA18116@uranus.lan>
+ <59e12627-7043-fd20-0d68-899ab43b0e71@cumulusnetworks.com>
+ <20160916193927.GB18116@uranus.lan>
+ <d943c6b7-0f06-3823-58d2-6f79f17c3d59@cumulusnetworks.com>
+ <20160916195252.GC18116@uranus.lan>
+ <6464ac16-a15b-384e-ffb1-3ee84cdce313@cumulusnetworks.com>
+ <20160916200722.GA26044@uranus.lan>
+ <20160920211343.GI26044@uranus.lan>
+ <20160926223828.GL1876@uranus.lan>
+ <fd77837c-433c-5010-7d07-68b0bf3e3d22@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Or Gerlitz <ogerlitz@mellanox.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, avagin@openvz.org, stephen@networkplumber.org
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f48.google.com ([209.85.218.48]:34092 "EHLO
-        mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751237AbcI0HrA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 03:47:00 -0400
-Received: by mail-oi0-f48.google.com with SMTP id a62so6378237oib.1
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 00:47:00 -0700 (PDT)
-In-Reply-To: <CAM_iQpUxCU3S3sryGxnWBQKs6bOeVP49JotdFRur69-VV4+HzA@mail.gmail.com>
+Received: from mail-lf0-f65.google.com ([209.85.215.65]:36315 "EHLO
+        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753663AbcI0HsQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 03:48:16 -0400
+Content-Disposition: inline
+In-Reply-To: <fd77837c-433c-5010-7d07-68b0bf3e3d22@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 26, 2016 at 11:34 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Sun, Sep 25, 2016 at 11:02 PM, Hadar Hen Zion
-> <hadarh@dev.mellanox.co.il> wrote:
->> On Mon, Sep 26, 2016 at 7:31 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
->>> On Sun, Sep 25, 2016 at 7:39 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
->>>> On 16-09-25 10:08 AM, Hadar Hen Zion wrote:
->>>>>
->>>>> Currently the created tc actions list is reversed against the order
->>>>> set by the user.
->>>>> Change the actions list order to be the same as was set by the user.
->>>>>
->>>>
->>>>
->>>> Did something break? It seems to matter most for dumping. But even that
->>>> didnt breaking. Looking at the latest net tree, i tried:
->>>>
->>>
->>> The reason is we use action->order as an nested attribute, so
->>> the order in the list doesn't matter, only action->order itself matters.
->>
->> The order in the list matters for offload drivers who use the
->> "tcf_exts_to_list" function and action->order parameter isn't usable
->> for them.
->> Why not keeping the actions in the same order as the user? isn't it
->> more elegant?
->
-> I don't object this patch since it affects offloading, I just explained
-> why it doesn't affect dumping.
->
-> Please add this to your changelog, to make it obvious.
+On Mon, Sep 26, 2016 at 07:54:37PM -0600, David Ahern wrote:
+> On 9/26/16 4:38 PM, Cyrill Gorcunov wrote:
+> > Something like
+> > 
+> > Index: linux-ml.git/include/uapi/linux/inet_diag.h
+> > ===================================================================
+> > --- linux-ml.git.orig/include/uapi/linux/inet_diag.h    2016-09-11 20:56:18.191584145 +0300
+> > +++ linux-ml.git/include/uapi/linux/inet_diag.h 2016-09-27 01:34:08.413172394 +0300
+> > @@ -38,7 +38,7 @@ struct inet_diag_req_v2 {
+> >         __u8    sdiag_family;
+> >         __u8    sdiag_protocol;
+> >         __u8    idiag_ext;
+> > -       __u8    pad;
+> > +       __u8    sdiag_raw_protocol;     /* SOCK_RAW only, @pad for others */
+> 
+> Seems like that should be a union to keep the API.
 
-Sure, I'll add it.
+Is anonymous union (which is not part of c99) are acceptable in uapi?
+Initially I declared it as union but then scratched my head if this
+would be acceptable.
 
-Hadar
+> 
+> 
+> >         __u32   idiag_states;
+> >         struct inet_diag_sockid id;
+> >  };
+> > 
+> > and in raw-diag module we will use @sdiag_raw_protocol instead of
+> > @sdiag_protocol field. Didn't cover ss tool source code yet but
+> > I think the idea is seen. Still not sure if start using @pad here
+> > is a good idea (it's uapi), maybe beter to ask nla attribute which would
+> > come right afterh the inet_diag_req_v2 message?
+> > 
+> 
+> seems reasonable to me since 2 protocols need to be sent to the kernel.
+> 
+> Alternatively, sdiag_protocol could be the actual protocol and the pad union be a flag field
+> with say bit 0 = INET_DIAG_FLAG_SOCK_RAW. Allows other overrides in the future if needed.
 
->
-> Thanks!
+The @sdiag_protocol used for matching in diag module handler, so no, I think
+we should not change this semantics. I would stick with @pad usage and if
+anonymous unions are acceptable this would be just great.
+
+	Cyrill
