@@ -1,39 +1,40 @@
-From: Erik Kline <ek@google.com>
-Subject: Re: [PATCH v2 3/7] ipv6 addrconf: rtr_solicits == -1 means unlimited
-Date: Tue, 27 Sep 2016 11:25:16 +0900
-Message-ID: <CAAedzxpof8zBLL5AvKQLZVMoof63fAsds+7bTL9hNAdQgEbE8Q@mail.gmail.com>
-References: <20160925.053302.1895311145903319224.davem@davemloft.net>
- <1474797596-13320-1-git-send-email-zenczykowski@gmail.com>
- <1474797596-13320-3-git-send-email-zenczykowski@gmail.com>
- <CAKD1Yr2MHqFMmJyf89pWzopcr07ziVcHqUB+oNWdphKx95nGDg@mail.gmail.com> <CANP3RGdqvWsRRW=UFnC=z+1QDSajsfmswjs+BZB8jB+1NkGiqQ@mail.gmail.com>
+From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>
+Subject: Re: [PATCH v4 4/7] ipv6 addrconf: add new sysctl 'router_solicitation_max_interval'
+Date: Tue, 27 Sep 2016 11:30:50 +0900
+Message-ID: <CANP3RGfNGgw9H5Hsn7sgadHu5+kBcGfhY6Y_iTKNEjoL9gL7xg@mail.gmail.com>
+References: <20160925.060423.854801855957024790.davem@davemloft.net>
+ <1474801390-6891-1-git-send-email-zenczykowski@gmail.com> <1474801390-6891-5-git-send-email-zenczykowski@gmail.com>
+ <87d7f248-4d95-4253-78ae-6dd110db6330@stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Lorenzo Colitti <lorenzo@google.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Linux NetDev <netdev@vger.kernel.org>,
+        Erik Kline <ek@google.com>,
+        Lorenzo Colitti <lorenzo@google.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f43.google.com ([209.85.215.43]:35452 "EHLO
-        mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753492AbcI0CZi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 22:25:38 -0400
-Received: by mail-lf0-f43.google.com with SMTP id l131so757974lfl.2
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 19:25:37 -0700 (PDT)
-In-Reply-To: <CANP3RGdqvWsRRW=UFnC=z+1QDSajsfmswjs+BZB8jB+1NkGiqQ@mail.gmail.com>
+Received: from mail-yw0-f176.google.com ([209.85.161.176]:36538 "EHLO
+        mail-yw0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752793AbcI0CbI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2016 22:31:08 -0400
+Received: by mail-yw0-f176.google.com with SMTP id t67so264115ywg.3
+        for <netdev@vger.kernel.org>; Mon, 26 Sep 2016 19:31:07 -0700 (PDT)
+In-Reply-To: <87d7f248-4d95-4253-78ae-6dd110db6330@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 27 September 2016 at 11:23, Maciej =C5=BBenczykowski
-<zenczykowski@gmail.com> wrote:
->> Given that some of this patch checks for =3D=3D -1, and some of it check=
-s
->> for !=3D 0... is it possible that setting the value to something
->> unexpected like -3 will cause any issues to the stack? (Other than
->> just rendering IPv6 unusable on this interface, which seems like a
->> given.)
->
-> You shouldn't be able to set it to -3, that's what the extra1 is for...
+> Is seconds granular enough?
 
-the proc_dointvec_minmax reference with &minus_one means you shouldn't
-be able to set it below -1.
+The only reason why one would ever want to go into fractions of
+seconds would be some sort of unittesting with very low delays.
+
+In any normal environment the max is going to be tens if not hundreds
+or thousands of seconds.
+
+Also note that the delay and interval (ie. not max interval) are also
+currently exported in seconds, so having more granularity for
+max_seconds is kind of pointless.
+
+I have been considering whether I could make proc_dointvec_jiffies
+accept floating point input (and output) though... although that seems
+a little harder and probably out of scope of this change.
