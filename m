@@ -1,64 +1,45 @@
-From: Arend Van Spriel <arend.vanspriel@broadcom.com>
-Subject: Re: [PATCH 4.9] brcmfmac: use correct skb freeing helper when
- deleting flowring
-Date: Tue, 27 Sep 2016 13:33:17 +0200
-Message-ID: <c0e00728-e869-d39f-515f-2b540f1e47cc@broadcom.com>
-References: <20160927091428.19223-1-zajec5@gmail.com>
- <86fd0b60-0f73-484b-1788-3ec740672232@broadcom.com>
- <87inthy441.fsf@kamboji.qca.qualcomm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/3] net: fec: updates to align IP header
+Date: Tue, 27 Sep 2016 07:40:06 -0400 (EDT)
+Message-ID: <20160927.074006.1952862778935087880.davem@davemloft.net>
+References: <AM4PR0401MB22609D8151C2B63CA7768A1AFFCB0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+        <1474728139-9335-1-git-send-email-eric@nelint.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
-        Franky Lin <franky.lin@broadcom.com>,
-        Hante Meuleman <hante.meuleman@broadcom.com>,
-        Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
-        Franky Lin <frankyl@broadcom.com>,
-        linux-wireless@vger.kernel.org,
-        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal@milecki.pl>
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87inthy441.fsf@kamboji.qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux@arm.linux.org.uk, andrew@lunn.ch,
+        fugang.duan@nxp.com, otavio@ossystems.com.br, edumazet@google.com,
+        troy.kisky@boundarydevices.com, u.kleine-koenig@pengutronix.de
+To: eric@nelint.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:46084 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752768AbcI0LkN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 07:40:13 -0400
+In-Reply-To: <1474728139-9335-1-git-send-email-eric@nelint.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 27-9-2016 13:27, Kalle Valo wrote:
-> Arend Van Spriel <arend.vanspriel@broadcom.com> writes:
-> 
->> On 27-9-2016 11:14, Rafał Miłecki wrote:
->>> From: Rafał Miłecki <rafal@milecki.pl>
->>>
->>> Flowrings contain skbs waiting for transmission that were passed to us
->>> by netif. It means we checked every one of them looking for 802.1x
->>> Ethernet type. When deleting flowring we have to use freeing function
->>> that will check for 802.1x type as well.
->>>
->>> Freeing skbs without a proper check was leading to counter not being
->>> properly decreased. This was triggering a WARNING every time
->>> brcmf_netdev_wait_pend8021x was called.
->>
->> Acked-by: Arend van Spriel <arend@broadcom.com>
->>> Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
->>> ---
->>> Kalle: this isn't important enough for 4.8 as it's too late for that.
->>>
->>> I'd like to get it for 4.9 however, as this fixes bug that could lead
->>> to WARNING on every add_key/del_key call. We was struggling with these
->>> WARNINGs for some time and this fixes one of two problems causing them.
-> 
-> Ok, I'll queue this for 4.9.
-> 
->> Please mark it for stable as well.
-> 
-> I can add that. Any ideas how old releases stable releases should this
-> go to?
+From: Eric Nelson <eric@nelint.com>
+Date: Sat, 24 Sep 2016 07:42:16 -0700
 
-Not sure if the vendor directory move causes issues as stable can not
-fallback to three-way merge. I assumed it would so my last stable tag
-was only for 4.7 and I took care of older kernels at later time with
-backported patch. I can do that for this one as well.
+> This patch series is the outcome of investigation into very high
+> numbers of alignment faults on kernel 4.1.33 from the linux-fslc
+> tree:
+>     https://github.com/freescale/linux-fslc/tree/4.1-1.0.x-imx
+> 
+> The first two patches remove support for the receive accelerator (RACC) from
+> the i.MX25 and i.MX27 SoCs which don't support the function.
+> 
+> The third patch enables hardware alignment of the ethernet packet payload
+> (and especially the IP header) to prevent alignment faults in the IP stack.
+> 
+> Testing on i.MX6UL on the 4.1.33 kernel showed that this patch removed
+> on the order of 70k alignment faults during a 100MiB transfer using 
+> wget.
+> 
+> Testing on an i.MX6Q (SABRE Lite) board on net-next (4.8.0-rc7) showed
+> a much more modest improvement from 10's of faults, and it's not clear
+> why that's the case.
 
-Regards,
-Arend
+Series applied and queued up for -stable.
