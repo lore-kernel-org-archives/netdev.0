@@ -1,50 +1,94 @@
-From: Bjorn Helgaas <helgaas@kernel.org>
-Subject: Re: [PATCH v5 00/16] Add Paravirtual RDMA Driver
-Date: Mon, 26 Sep 2016 17:42:23 -0500
-Message-ID: <20160926224223.GA3309@localhost>
-References: <cover.1474759181.git.aditr@vmware.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH v2] fs/select: add vmalloc fallback for select(2)
+Date: Mon, 26 Sep 2016 17:01:05 -0700
+Message-ID: <20160926170105.517f74cd67ecdd5ef73e1865@linux-foundation.org>
+References: <20160922164359.9035-1-vbabka@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dledford@redhat.com, linux-rdma@vger.kernel.org,
-        pv-drivers@vmware.com, netdev@vger.kernel.org,
-        linux-pci@vger.kernel.org, jhansen@vmware.com, asarwade@vmware.com,
-        georgezhang@vmware.com, bryantan@vmware.com
-To: Adit Ranadive <aditr@vmware.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <cover.1474759181.git.aditr@vmware.com>
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Viro <viro@zeniv.linux.org.uk>, linux-fsdevel@vger.kernel.org,
+ linux-kernel@vger.kernel.org, linux-mm@kvack.org, Michal Hocko
+ <mhocko@kernel.org>, netdev@vger.kernel.org, Eric Dumazet
+ <eric.dumazet@gmail.com>
+To: Vlastimil Babka <vbabka@suse.cz>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20160922164359.9035-1-vbabka@suse.cz>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Sep 24, 2016 at 04:21:24PM -0700, Adit Ranadive wrote:
->  MAINTAINERS                                    |    9 +
->  drivers/infiniband/Kconfig                     |    1 +
->  drivers/infiniband/hw/Makefile                 |    1 +
->  drivers/infiniband/hw/pvrdma/Kconfig           |    7 +
->  drivers/infiniband/hw/pvrdma/Makefile          |    3 +
->  drivers/infiniband/hw/pvrdma/pvrdma.h          |  473 +++++++++
->  drivers/infiniband/hw/pvrdma/pvrdma_cmd.c      |  117 +++
->  drivers/infiniband/hw/pvrdma/pvrdma_cq.c       |  426 +++++++++
->  drivers/infiniband/hw/pvrdma/pvrdma_defs.h     |  301 ++++++
->  drivers/infiniband/hw/pvrdma/pvrdma_dev_api.h  |  342 +++++++
->  drivers/infiniband/hw/pvrdma/pvrdma_doorbell.c |  127 +++
->  drivers/infiniband/hw/pvrdma/pvrdma_ib_verbs.h |  444 +++++++++
->  drivers/infiniband/hw/pvrdma/pvrdma_main.c     | 1220 ++++++++++++++++++++++++
->  drivers/infiniband/hw/pvrdma/pvrdma_misc.c     |  304 ++++++
->  drivers/infiniband/hw/pvrdma/pvrdma_mr.c       |  334 +++++++
->  drivers/infiniband/hw/pvrdma/pvrdma_qp.c       |  973 +++++++++++++++++++
->  drivers/infiniband/hw/pvrdma/pvrdma_verbs.c    |  577 +++++++++++
->  drivers/infiniband/hw/pvrdma/pvrdma_verbs.h    |  108 +++
->  drivers/net/vmxnet3/vmxnet3_int.h              |    3 +-
->  include/linux/pci_ids.h                        |    1 +
->  include/uapi/rdma/Kbuild                       |    2 +
->  include/uapi/rdma/pvrdma-abi.h                 |   99 ++
->  include/uapi/rdma/pvrdma-uapi.h                |  255 +++++
+On Thu, 22 Sep 2016 18:43:59 +0200 Vlastimil Babka <vbabka@suse.cz> wrote:
 
-Hi Adit,
+> The select(2) syscall performs a kmalloc(size, GFP_KERNEL) where size grows
+> with the number of fds passed. We had a customer report page allocation
+> failures of order-4 for this allocation. This is a costly order, so it might
+> easily fail, as the VM expects such allocation to have a lower-order fallback.
+> 
+> Such trivial fallback is vmalloc(), as the memory doesn't have to be
+> physically contiguous. Also the allocation is temporary for the duration of the
+> syscall, so it's unlikely to stress vmalloc too much.
+> 
+> Note that the poll(2) syscall seems to use a linked list of order-0 pages, so
+> it doesn't need this kind of fallback.
+> 
+> ...
+>
+> --- a/fs/select.c
+> +++ b/fs/select.c
+> @@ -29,6 +29,7 @@
+>  #include <linux/sched/rt.h>
+>  #include <linux/freezer.h>
+>  #include <net/busy_poll.h>
+> +#include <linux/vmalloc.h>
+>  
+>  #include <asm/uaccess.h>
+>  
+> @@ -558,6 +559,7 @@ int core_sys_select(int n, fd_set __user *inp, fd_set __user *outp,
+>  	struct fdtable *fdt;
+>  	/* Allocate small arguments on the stack to save memory and be faster */
+>  	long stack_fds[SELECT_STACK_ALLOC/sizeof(long)];
+> +	unsigned long alloc_size;
+>  
+>  	ret = -EINVAL;
+>  	if (n < 0)
+> @@ -580,8 +582,12 @@ int core_sys_select(int n, fd_set __user *inp, fd_set __user *outp,
+>  	bits = stack_fds;
+>  	if (size > sizeof(stack_fds) / 6) {
+>  		/* Not enough space in on-stack array; must use kmalloc */
+> +		alloc_size = 6 * size;
 
-You don't need to cc linux-pci just because of the one-line change to
-pci_ids.h.  I've already acked that, and the rest is just noise to the
-main linux-pci audience.
+Well.  `size' is `unsigned'.  The multiplication will be done as 32-bit
+so there was no point in making `alloc_size' unsigned long.
 
-Bjorn
+So can we tighten up the types in this function?  size_t might make
+sense, but vmalloc() takes a ulong.
+
+>  		ret = -ENOMEM;
+> -		bits = kmalloc(6 * size, GFP_KERNEL);
+> +		bits = kmalloc(alloc_size, GFP_KERNEL|__GFP_NOWARN);
+> +		if (!bits && alloc_size > PAGE_SIZE)
+> +			bits = vmalloc(alloc_size);
+
+I don't share Eric's concerns about performance here.  If the vmalloc()
+is called, we're about to write to that quite large amount of memory
+which we just allocated, and the vmalloc() overhead will be relatively
+low.
+
+>  		if (!bits)
+>  			goto out_nofds;
+>  	}
+> @@ -618,7 +624,7 @@ int core_sys_select(int n, fd_set __user *inp, fd_set __user *outp,
+>  
+>  out:
+>  	if (bits != stack_fds)
+> -		kfree(bits);
+> +		kvfree(bits);
+>  out_nofds:
+>  	return ret;
+
+It otherwise looks OK to me.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
