@@ -1,184 +1,314 @@
-From: Amir Levy <amir.jer.levy@intel.com>
-Subject: [PATCH v7 2/8] thunderbolt: Updating the register definitions
-Date: Tue, 27 Sep 2016 16:43:35 +0300
-Message-ID: <1474983821-2313-3-git-send-email-amir.jer.levy@intel.com>
-References: <1474983821-2313-1-git-send-email-amir.jer.levy@intel.com>
-Cc: andreas.noever@gmail.com, bhelgaas@google.com, corbet@lwn.net,
-        linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org,
-        netdev@vger.kernel.org, linux-doc@vger.kernel.org,
-        mario_limonciello@dell.com, thunderbolt-linux@intel.com,
-        mika.westerberg@intel.com, tomas.winkler@intel.com,
-        xiong.y.zhang@intel.com, Amir Levy <amir.jer.levy@intel.com>
-To: gregkh@linuxfoundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1474983821-2313-1-git-send-email-amir.jer.levy@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Subject: [PATCH v3 net-next] net: phy: Add Edge-rate driver for Microsemi PHYs.
+Date: Tue, 27 Sep 2016 19:17:55 +0530
+Message-ID: <1474984075-12312-1-git-send-email-Raju.Lakkaraju@microsemi.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <f.fainelli@gmail.com>, <Allan.Nielsen@microsemi.com>,
+        <andrew@lunn.ch>, Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+To: <netdev@vger.kernel.org>, <devicetree@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-cys01nam02on0086.outbound.protection.outlook.com ([104.47.37.86]:20608
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S934109AbcI0Ns0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 27 Sep 2016 09:48:26 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Adding more Thunderbolt(TM) register definitions
-and some helper macros.
+From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 
-Signed-off-by: Amir Levy <amir.jer.levy@intel.com>
+All the review comments updated and resending for review.
+
+Edge-rate:
+As system and networking speeds increase, a signal's output transition,
+also know as the edge rate or slew rate (V/ns), takes on greater importance
+because high-speed signals come with a price. That price is an assortment of
+interference problems like ringing on the line, signal overshoot and
+undershoot, extended signal settling times, crosstalk noise, transmission
+line reflections, false signal detection by the receiving device and
+electromagnetic interference (EMI) -- all of which can negate the potential
+gains designers are seeking when they try to increase system speeds through
+the use of higher performance logic devices. The fact is, faster signaling
+edge rates can cause a higher level of electrical noise or other type of
+interference that can actually lead to slower line speeds and lower maximum
+system frequencies. This parameter allow the board designers to change the 
+driving strange, and thereby change the EMI behavioral.
+
+Edge-rate value get from Device Tree.
+
+Tested on Beaglebone Black with VSC 8531 PHY.
+
+Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+
 ---
- drivers/thunderbolt/nhi_regs.h | 109 +++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 109 insertions(+)
+Change set:
+v1:
+- Initial version of Edge-rate driver add by using IOCTL.
+v2: 
+- Changed edge-rate parameter to Device Tree with magic number.
+v3: 
+- Added Device Tree documentati0n and edge-rate parameter table.
+  Added probe function initialize the vsc8531 private data structure.
+---
 
-diff --git a/drivers/thunderbolt/nhi_regs.h b/drivers/thunderbolt/nhi_regs.h
-index 75cf069..b8e961f 100644
---- a/drivers/thunderbolt/nhi_regs.h
-+++ b/drivers/thunderbolt/nhi_regs.h
-@@ -9,6 +9,11 @@
- 
- #include <linux/types.h>
- 
-+#define NHI_MMIO_BAR 0
+ .../devicetree/bindings/net/mscc-phy-vsc8531.txt   | 61 ++++++++++++++++
+ drivers/net/phy/mscc.c                             | 85 ++++++++++++++++++++++
+ include/dt-bindings/net/mscc-phy-vsc8531.h         | 23 ++++++
+ 3 files changed, 169 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
+ create mode 100644 include/dt-bindings/net/mscc-phy-vsc8531.h
+
+diff --git a/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt b/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
+new file mode 100644
+index 0000000..7ba3855
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
+@@ -0,0 +1,61 @@
++* Microsemi - vsc8531 Giga bit ethernet phy
 +
-+#define TBT_RING_MIN_NUM_BUFFERS	2
-+#define TBT_RING_MAX_FRAME_SIZE		(4 * 1024)
++Required properties:
++- compatible	: Should contain phy id as "ethernet-phy-idAAAA.BBBB"
++		  If the phy's identifier is known then the list may contain an entry
++		  of the form: "ethernet-phy-idAAAA.BBBB" where
++		  AAAA - The value of the 16 bit Phy Identifier 1 register as
++			 4 hex digits. This is the chip vendor OUI bits 3:18
++		  BBBB - The value of the 16 bit Phy Identifier 2 register as
++			 4 hex digits. This is the chip vendor OUI bits 19:24,
++			 followed by 10 bits of a vendor specific ID.
++- reg		: The ID number for the phy, usually a small integer
 +
- enum ring_flags {
- 	RING_FLAG_ISOCH_ENABLE = 1 << 27, /* TX only? */
- 	RING_FLAG_E2E_FLOW_CONTROL = 1 << 28,
-@@ -39,6 +44,33 @@ struct ring_desc {
- 	u32 time; /* write zero */
- } __packed;
++Optional properties:
++- vsc8531,edge-rate	: Edge rate sets the drive strength of the MAC
++			  interface output signals.  Changing the drive
++			  strength will affect the edge rate of the output
++			  signal.  The goal of this setting is to help
++			  reduce electrical emission (EMI) by being able
++			  to reprogram drive strength and in effect slow
++			  down the edge rate if desired.  Table 5 shows the
++			  impact to the edge rate per VDDMAC supply for each
++			  drive strength setting. Default edge rate is set as
++			  Fastest edge rate (i.e. 7).
++			  Ref: Table:1 - Edge rate change below.
++
++Note: see dt-bindings/net/mscc-vsc8531.h for applicable values
++
++Table: 1 - Edge rate change
++-----------------------------------------------------------------------------|
++|                             Edge Rate Change (VDDMAC)                      |
++|									     |
++| Reg Setting	3.3V		2.5V		1.8V		1.5V         |
++|----------------------------------------------------------------------------|
++| 111 		Default		Deafult		Default		Default      |
++| (Fastest)					(recommended)	(recommended)|
++|----------------------------------------------------------------------------|
++| 110		-2%		-3%		-5%		-6%          |
++|----------------------------------------------------------------------------|
++| 101		-4%		-6%		-9%		-14%         |
++|----------------------------------------------------------------------------|
++| 100		-7%		-10%		-16%		-21%         |
++|		(recommended)	(recommended)                                |
++|----------------------------------------------------------------------------|
++| 011		-10%		-14%		-23%		-29%         |
++|----------------------------------------------------------------------------|
++| 010		-17%		-23%		-35%		-42%         |
++|----------------------------------------------------------------------------|
++| 001		-29%		-37%		-52%		-58%         |
++|----------------------------------------------------------------------------|
++| 000		-53%		-63%		-76%		-77%         |
++| (slowest)								     |
++|----------------------------------------------------------------------------|
++
++Example:
++
++        vsc8531_0: ethernet-phy@0 {
++                compatible = "ethernet-phy-id0007.0570";
++                reg = <0>;
++                vsc8531,edge-rate = /bits/ 8 <MSCC_EDGE_RATE_CNTL_FASTEST>;
++        };
+diff --git a/drivers/net/phy/mscc.c b/drivers/net/phy/mscc.c
+index d350deb..de29354 100644
+--- a/drivers/net/phy/mscc.c
++++ b/drivers/net/phy/mscc.c
+@@ -11,6 +11,8 @@
+ #include <linux/mdio.h>
+ #include <linux/mii.h>
+ #include <linux/phy.h>
++#include <linux/of.h>
++#include <dt-bindings/net/mscc-phy-vsc8531.h>
  
-+/**
-+ * struct tbt_buf_desc - TX/RX ring buffer descriptor.
-+ * This is same as struct ring_desc, but without the use of bitfields and
-+ * with explicit endianity.
-+ */
-+struct tbt_buf_desc {
-+	__le64 phys;
-+	__le32 attributes;
-+	__le32 time;
+ enum rgmii_rx_clock_delay {
+ 	RGMII_RX_CLK_DELAY_0_2_NS = 0,
+@@ -37,6 +39,10 @@ enum rgmii_rx_clock_delay {
+ #define MII_VSC85XX_INT_MASK_MASK	  0xa000
+ #define MII_VSC85XX_INT_STATUS		  26
+ 
++#define MSCC_PHY_WOL_MAC_CONTROL          27
++#define EDGE_RATE_CNTL_POS                5
++#define EDGE_RATE_CNTL_MASK               0x00E0
++
+ #define MSCC_EXT_PAGE_ACCESS		  31
+ #define MSCC_PHY_PAGE_STANDARD		  0x0000 /* Standard registers */
+ #define MSCC_PHY_PAGE_EXTENDED_2	  0x0002 /* Extended reg - page 2 */
+@@ -50,6 +56,10 @@ enum rgmii_rx_clock_delay {
+ #define PHY_ID_VSC8531			  0x00070570
+ #define PHY_ID_VSC8541			  0x00070770
+ 
++struct vsc8531_private {
++	u8 edge_rate;
 +};
 +
-+#define DESC_ATTR_LEN_SHIFT		0
-+#define DESC_ATTR_LEN_MASK		GENMASK(11, DESC_ATTR_LEN_SHIFT)
-+#define DESC_ATTR_EOF_SHIFT		12
-+#define DESC_ATTR_EOF_MASK		GENMASK(15, DESC_ATTR_EOF_SHIFT)
-+#define DESC_ATTR_SOF_SHIFT		16
-+#define DESC_ATTR_SOF_MASK		GENMASK(19, DESC_ATTR_SOF_SHIFT)
-+#define DESC_ATTR_TX_ISOCH_DMA_EN	BIT(20)	/* TX */
-+#define DESC_ATTR_RX_CRC_ERR		BIT(20)	/* RX after use */
-+#define DESC_ATTR_DESC_DONE		BIT(21)
-+#define DESC_ATTR_REQ_STS		BIT(22)	/* TX and RX before use */
-+#define DESC_ATTR_RX_BUF_OVRN_ERR	BIT(22)	/* RX after use */
-+#define DESC_ATTR_INT_EN		BIT(23)
-+#define DESC_ATTR_OFFSET_SHIFT		24
-+#define DESC_ATTR_OFFSET_MASK		GENMASK(31, DESC_ATTR_OFFSET_SHIFT)
-+
-+
- /* NHI registers in bar 0 */
+ static int vsc85xx_phy_page_set(struct phy_device *phydev, u8 page)
+ {
+ 	int rc;
+@@ -58,6 +68,30 @@ static int vsc85xx_phy_page_set(struct phy_device *phydev, u8 page)
+ 	return rc;
+ }
  
- /*
-@@ -60,6 +92,30 @@ struct ring_desc {
-  */
- #define REG_RX_RING_BASE	0x08000
++static int vsc85xx_edge_rate_cntl_set(struct phy_device *phydev,
++				      u8 edge_rate)
++{
++	int rc;
++	u16 reg_val;
++
++	mutex_lock(&phydev->lock);
++	rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_EXTENDED_2);
++	if (rc != 0)
++		goto out_unlock;
++	reg_val = phy_read(phydev, MSCC_PHY_WOL_MAC_CONTROL);
++	reg_val &= ~(EDGE_RATE_CNTL_MASK);
++	reg_val |= (edge_rate << EDGE_RATE_CNTL_POS);
++	rc = phy_write(phydev, MSCC_PHY_WOL_MAC_CONTROL, reg_val);
++	if (rc != 0)
++		goto out_unlock;
++	rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_STANDARD);
++
++out_unlock:
++	mutex_unlock(&phydev->lock);
++
++	return rc;
++}
++
+ static int vsc85xx_mac_if_set(struct phy_device *phydev,
+ 			      phy_interface_t interface)
+ {
+@@ -116,9 +150,41 @@ out_unlock:
+ 	return rc;
+ }
  
-+#define REG_RING_STEP			16
-+#define REG_RING_PHYS_LO_OFFSET		0
-+#define REG_RING_PHYS_HI_OFFSET		4
-+#define REG_RING_CONS_PROD_OFFSET	8	/* cons - RO, prod - RW */
-+#define REG_RING_CONS_SHIFT		0
-+#define REG_RING_CONS_MASK		GENMASK(15, REG_RING_CONS_SHIFT)
-+#define REG_RING_PROD_SHIFT		16
-+#define REG_RING_PROD_MASK		GENMASK(31, REG_RING_PROD_SHIFT)
-+#define REG_RING_SIZE_OFFSET		12
-+#define REG_RING_SIZE_SHIFT		0
-+#define REG_RING_SIZE_MASK		GENMASK(15, REG_RING_SIZE_SHIFT)
-+#define REG_RING_BUF_SIZE_SHIFT		16
-+#define REG_RING_BUF_SIZE_MASK		GENMASK(27, REG_RING_BUF_SIZE_SHIFT)
++#ifdef CONFIG_OF_MDIO
++static int vsc8531_of_init(struct phy_device *phydev)
++{
++	int rc;
++	struct vsc8531_private *vsc8531 = phydev->priv;
++	struct device *dev = &phydev->mdio.dev;
++	struct device_node *of_node = dev->of_node;
 +
-+#define TBT_RING_CONS_PROD_REG(iobase, ringbase, ringnumber) \
-+			      ((iobase) + (ringbase) + \
-+			      ((ringnumber) * REG_RING_STEP) + \
-+			      REG_RING_CONS_PROD_OFFSET)
++	if (!of_node)
++		return -ENODEV;
 +
-+#define TBT_REG_RING_PROD_EXTRACT(val) (((val) & REG_RING_PROD_MASK) >> \
-+				       REG_RING_PROD_SHIFT)
++	rc = of_property_read_u8(of_node, "vsc8531,edge-rate",
++				 &vsc8531->edge_rate);
++	if (rc == -EINVAL) {
++		vsc8531->edge_rate = MSCC_EDGE_RATE_CNTL_FASTEST;
++		rc = 0;
++	}
 +
-+#define TBT_REG_RING_CONS_EXTRACT(val) (((val) & REG_RING_CONS_MASK) >> \
-+				       REG_RING_CONS_SHIFT)
- /*
-  * 32 bytes per entry, one entry for every hop (REG_HOP_COUNT)
-  * 00: enum_ring_flags
-@@ -77,6 +133,19 @@ struct ring_desc {
-  * ..: unknown
-  */
- #define REG_RX_OPTIONS_BASE	0x29800
-+#define REG_RX_OPTS_TX_E2E_HOP_ID_SHIFT	12
-+#define REG_RX_OPTS_TX_E2E_HOP_ID_MASK	\
-+				GENMASK(22, REG_RX_OPTS_TX_E2E_HOP_ID_SHIFT)
-+#define REG_RX_OPTS_MASK_OFFSET		4
-+#define REG_RX_OPTS_MASK_EOF_SHIFT	0
-+#define REG_RX_OPTS_MASK_EOF_MASK	GENMASK(15, REG_RX_OPTS_MASK_EOF_SHIFT)
-+#define REG_RX_OPTS_MASK_SOF_SHIFT	16
-+#define REG_RX_OPTS_MASK_SOF_MASK	GENMASK(31, REG_RX_OPTS_MASK_SOF_SHIFT)
++	return rc;
++}
++#else
++static int vsc8531_of_init(struct phy_device *phydev)
++{
++	return 0;
++}
++#endif /* CONFIG_OF_MDIO */
 +
-+#define REG_OPTS_STEP			32
-+#define REG_OPTS_E2E_EN			BIT(28)
-+#define REG_OPTS_RAW			BIT(30)
-+#define REG_OPTS_VALID			BIT(31)
+ static int vsc85xx_config_init(struct phy_device *phydev)
+ {
+ 	int rc;
++	struct vsc8531_private *vsc8531 = phydev->priv;
++
++	rc = vsc8531_of_init(phydev);
++	if (rc)
++		return rc;
  
- /*
-  * three bitfields: tx, rx, rx overflow
-@@ -86,6 +155,7 @@ struct ring_desc {
-  */
- #define REG_RING_NOTIFY_BASE	0x37800
- #define RING_NOTIFY_REG_COUNT(nhi) ((31 + 3 * nhi->hop_count) / 32)
-+#define REG_RING_NOTIFY_STEP	4
+ 	rc = vsc85xx_default_config(phydev);
+ 	if (rc)
+@@ -128,6 +194,10 @@ static int vsc85xx_config_init(struct phy_device *phydev)
+ 	if (rc)
+ 		return rc;
  
- /*
-  * two bitfields: rx, tx
-@@ -94,8 +164,47 @@ struct ring_desc {
-  */
- #define REG_RING_INTERRUPT_BASE	0x38200
- #define RING_INTERRUPT_REG_COUNT(nhi) ((31 + 2 * nhi->hop_count) / 32)
-+#define REG_RING_INT_TX_PROCESSED(ring_num)		BIT(ring_num)
-+#define REG_RING_INT_RX_PROCESSED(ring_num, num_paths)	BIT((ring_num) + \
-+							    (num_paths))
-+#define RING_INT_DISABLE(base, val) iowrite32( \
-+			ioread32((base) + REG_RING_INTERRUPT_BASE) & ~(val), \
-+			(base) + REG_RING_INTERRUPT_BASE)
-+#define RING_INT_ENABLE(base, val) iowrite32( \
-+			ioread32((base) + REG_RING_INTERRUPT_BASE) | (val), \
-+			(base) + REG_RING_INTERRUPT_BASE)
-+#define RING_INT_DISABLE_TX(base, ring_num) \
-+	RING_INT_DISABLE(base, REG_RING_INT_TX_PROCESSED(ring_num))
-+#define RING_INT_DISABLE_RX(base, ring_num, num_paths) \
-+	RING_INT_DISABLE(base, REG_RING_INT_RX_PROCESSED(ring_num, num_paths))
-+#define RING_INT_ENABLE_TX(base, ring_num) \
-+	RING_INT_ENABLE(base, REG_RING_INT_TX_PROCESSED(ring_num))
-+#define RING_INT_ENABLE_RX(base, ring_num, num_paths) \
-+	RING_INT_ENABLE(base, REG_RING_INT_RX_PROCESSED(ring_num, num_paths))
-+#define RING_INT_DISABLE_TX_RX(base, ring_num, num_paths) \
-+	RING_INT_DISABLE(base, REG_RING_INT_TX_PROCESSED(ring_num) | \
-+			       REG_RING_INT_RX_PROCESSED(ring_num, num_paths))
++	rc = vsc85xx_edge_rate_cntl_set(phydev, vsc8531->edge_rate);
++	if (rc)
++		return rc;
 +
-+#define REG_RING_INTERRUPT_STEP	4
-+
-+#define REG_INT_THROTTLING_RATE	0x38c00
-+#define REG_INT_THROTTLING_RATE_STEP	4
-+#define NUM_INT_VECTORS			16
-+
-+#define REG_INT_VEC_ALLOC_BASE	0x38c40
-+#define REG_INT_VEC_ALLOC_STEP		4
-+#define REG_INT_VEC_ALLOC_FIELD_BITS	4
-+#define REG_INT_VEC_ALLOC_FIELD_MASK	(BIT(REG_INT_VEC_ALLOC_FIELD_BITS) - 1)
-+#define REG_INT_VEC_ALLOC_PER_REG	((BITS_PER_BYTE * sizeof(u32)) / \
-+					 REG_INT_VEC_ALLOC_FIELD_BITS)
+ 	rc = genphy_config_init(phydev);
  
- /* The last 11 bits contain the number of hops supported by the NHI port. */
- #define REG_HOP_COUNT		0x39640
-+#define REG_HOP_COUNT_TOTAL_PATHS_MASK	GENMASK(10, 0)
-+
-+#define REG_HOST_INTERFACE_RST	0x39858
-+
-+#define REG_DMA_MISC		0x39864
-+#define REG_DMA_MISC_INT_AUTO_CLEAR	BIT(2)
+ 	return rc;
+@@ -160,6 +230,19 @@ static int vsc85xx_config_intr(struct phy_device *phydev)
+ 	return rc;
+ }
  
- #endif
++static int vsc85xx_probe(struct phy_device *phydev)
++{
++	struct vsc8531_private *vsc8531;
++
++	vsc8531 = devm_kzalloc(&phydev->mdio.dev, sizeof(*vsc8531), GFP_KERNEL);
++	if (!vsc8531)
++		return -ENOMEM;
++
++	phydev->priv = vsc8531;
++
++	return 0;
++}
++
+ /* Microsemi VSC85xx PHYs */
+ static struct phy_driver vsc85xx_driver[] = {
+ {
+@@ -177,6 +260,7 @@ static struct phy_driver vsc85xx_driver[] = {
+ 	.config_intr    = &vsc85xx_config_intr,
+ 	.suspend	= &genphy_suspend,
+ 	.resume		= &genphy_resume,
++	.probe          = &vsc85xx_probe,
+ },
+ {
+ 	.phy_id		= PHY_ID_VSC8541,
+@@ -193,6 +277,7 @@ static struct phy_driver vsc85xx_driver[] = {
+ 	.config_intr    = &vsc85xx_config_intr,
+ 	.suspend	= &genphy_suspend,
+ 	.resume		= &genphy_resume,
++	.probe          = &vsc85xx_probe,
+ }
+ 
+ };
+diff --git a/include/dt-bindings/net/mscc-phy-vsc8531.h b/include/dt-bindings/net/mscc-phy-vsc8531.h
+new file mode 100644
+index 0000000..e245f40
+--- /dev/null
++++ b/include/dt-bindings/net/mscc-phy-vsc8531.h
+@@ -0,0 +1,23 @@
++/*
++ * Device Tree constants for Microsemi VSC8531 PHY
++ *
++ * Author: Nagaraju Lakkaraju
++ *
++ * License: Dual MIT/GPL
++ * Copyright (c) 2016 Microsemi Corporation
++ */
++
++#ifndef _DT_BINDINGS_MSCC_VSC8531_H
++#define _DT_BINDINGS_MSCC_VSC8531_H
++
++/* MAC interface Edge rate control pad */
++#define MSCC_EDGE_RATE_CNTL_SLOWEST      0
++#define MSCC_EDGE_RATE_CNTL_PLUS_1       1
++#define MSCC_EDGE_RATE_CNTL_PLUS_2       2
++#define MSCC_EDGE_RATE_CNTL_PLUS_3       3
++#define MSCC_EDGE_RATE_CNTL_PLUS_4       4
++#define MSCC_EDGE_RATE_CNTL_PLUS_5       5
++#define MSCC_EDGE_RATE_CNTL_PLUS_6       6
++#define MSCC_EDGE_RATE_CNTL_FASTEST      7
++
++#endif
 -- 
 2.7.4
