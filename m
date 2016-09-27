@@ -1,68 +1,50 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: Re: [PATCH net] tg3: Avoid NULL pointer dereference in tg3_io_error_detected()
-Date: Tue, 27 Sep 2016 13:58:13 -0700
-Message-ID: <CACKFLi=MVovAMnZwTe3Swb1+hgy+h9CfTURPVrZsM0MJGV9Khw@mail.gmail.com>
-References: <1475006728-15307-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Siva Reddy Kallam <siva.kallam@broadcom.com>,
-        Prashant Sreedharan <prashant@broadcom.com>,
-        Michael Chan <mchan@broadcom.com>,
-        Netdev <netdev@vger.kernel.org>,
-        Milton Miller <miltonm@us.ibm.com>
-To: "Guilherme G. Piccoli" <gpiccoli@linux.vnet.ibm.com>
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: [PATCH v2 net-next 0/4] act_mirred: Ingress actions support
+Date: Tue, 27 Sep 2016 23:59:31 +0300
+Message-ID: <1475009975-30332-1-git-send-email-shmulik.ladkani@gmail.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+        WANG Cong <xiyou.wangcong@gmail.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+        Shmulik Ladkani <shmulik.ladkani@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f53.google.com ([209.85.218.53]:33527 "EHLO
-        mail-oi0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752586AbcI0U6P (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 16:58:15 -0400
-Received: by mail-oi0-f53.google.com with SMTP id r126so30206755oib.0
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 13:58:14 -0700 (PDT)
-In-Reply-To: <1475006728-15307-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:33162 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965015AbcI0VAE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 17:00:04 -0400
+Received: by mail-wm0-f65.google.com with SMTP id w84so2946014wmg.0
+        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 14:00:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 27, 2016 at 1:05 PM, Guilherme G. Piccoli
-<gpiccoli@linux.vnet.ibm.com> wrote:
-> From: Milton Miller <miltonm@us.ibm.com>
->
-> While the driver is probing the adapter, an error may occur before the
-> netdev structure is allocated and attached to pci_dev. In this case,
-> not only netdev isn't available, but the tg3 private structure is also
-> not available as it is just math from the NULL pointer, so dereferences
-> must be skipped.
->
-> The following trace is seen when the error is triggered:
->
->   [1.402247] Unable to handle kernel paging request for data at address 0x00001a99
->   [1.402410] Faulting instruction address: 0xc0000000007e33f8
->   [1.402450] Oops: Kernel access of bad area, sig: 11 [#1]
->   [1.402481] SMP NR_CPUS=2048 NUMA PowerNV
->   [1.402513] Modules linked in:
->   [1.402545] CPU: 0 PID: 651 Comm: eehd Not tainted 4.4.0-36-generic #55-Ubuntu
->   [1.402591] task: c000001fe4e42a20 ti: c000001fe4e88000 task.ti: c000001fe4e88000
->   [1.402742] NIP: c0000000007e33f8 LR: c0000000007e3164 CTR: c000000000595ea0
->   [1.402787] REGS: c000001fe4e8b790 TRAP: 0300   Not tainted  (4.4.0-36-generic)
->   [1.402832] MSR: 9000000100009033 <SF,HV,EE,ME,IR,DR,RI,LE>  CR: 28000422  XER: 20000000
->   [1.403058] CFAR: c000000000008468 DAR: 0000000000001a99 DSISR: 42000000 SOFTE: 1
->   GPR00: c0000000007e3164 c000001fe4e8ba10 c0000000015c5e00 0000000000000000
->   GPR04: 0000000000000001 0000000000000000 0000000000000039 0000000000000299
->   GPR08: 0000000000000000 0000000000000001 c000001fe4e88000 0000000000000006
->   GPR12: 0000000000000000 c00000000fb40000 c0000000000e6558 c000003ca1bffd00
->   GPR16: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
->   GPR20: 0000000000000000 0000000000000000 0000000000000000 c000000000d52768
->   GPR24: c000000000d52740 0000000000000100 c000003ca1b52000 0000000000000002
->   GPR28: 0000000000000900 0000000000000000 c00000000152a0c0 c000003ca1b52000
->   [1.404226] NIP [c0000000007e33f8] tg3_io_error_detected+0x308/0x340
->   [1.404265] LR [c0000000007e3164] tg3_io_error_detected+0x74/0x340
->
-> This patch avoids the NULL pointer dereference by moving the access after
-> the netdev NULL pointer check on tg3_io_error_detected().
->
-> Fixes: 0486a063b1ff ("tg3: prevent ifup/ifdown during PCI error recovery")
-> Fixes: dfc8f370316b ("net/tg3: Release IRQs on permanent error")
-> Tested-by: Guilherme G. Piccoli <gpiccoli@linux.vnet.ibm.com>
-> Signed-off-by: Milton Miller <miltonm@us.ibm.com>
-> Signed-off-by: Guilherme G. Piccoli <gpiccoli@linux.vnet.ibm.com>
+This patch series implements action mirred 'ingress' actions
+TCA_INGRESS_REDIR and TCA_INGRESS_MIRROR.
 
-Looks good.  Do we need to add !netdev check in tg3_io_resume()?
+This allows attaching filters whose target is to hand matching skbs into
+the rx processing of a specified device.
+
+v2:
+  in 1/4, declare tcfm_mac_header_xmit as bool instead of int
+
+Shmulik Ladkani (4):
+  net/sched: act_mirred: Rename tcfm_ok_push to tcfm_mac_header_xmit and
+    make it a bool
+  net/sched: act_mirred: Refactor detection whether dev needs xmit at
+    mac header
+  net/sched: tc_mirred: Rename public predicates
+    'is_tcf_mirred_redirect' and 'is_tcf_mirred_mirror'
+  net/sched: act_mirred: Implement ingress actions
+
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c  |  2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |  2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c    |  2 +-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |  4 +-
+ .../net/ethernet/netronome/nfp/nfp_net_offload.c   |  2 +-
+ include/net/tc_act/tc_mirred.h                     |  6 +-
+ net/sched/act_mirred.c                             | 81 ++++++++++++++++------
+ 7 files changed, 70 insertions(+), 29 deletions(-)
+
+-- 
+2.7.4
