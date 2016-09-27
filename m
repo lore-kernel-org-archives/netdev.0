@@ -1,90 +1,64 @@
-From: Arend Van Spriel <arend.vanspriel@broadcom.com>
-Subject: Re: [PATCH 4.9] brcmfmac: use correct skb freeing helper when
- deleting flowring
-Date: Tue, 27 Sep 2016 12:05:09 +0200
-Message-ID: <86fd0b60-0f73-484b-1788-3ec740672232@broadcom.com>
-References: <20160927091428.19223-1-zajec5@gmail.com>
+From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>
+Subject: Re: [PATCH v4 4/7] ipv6 addrconf: add new sysctl 'router_solicitation_max_interval'
+Date: Tue, 27 Sep 2016 19:08:44 +0900
+Message-ID: <CANP3RGfOXN59CiSpPj-BfGuYDguDOqL95_tDxDOB4=4sfuR94Q@mail.gmail.com>
+References: <20160925.060423.854801855957024790.davem@davemloft.net>
+ <1474801390-6891-1-git-send-email-zenczykowski@gmail.com> <1474801390-6891-5-git-send-email-zenczykowski@gmail.com>
+ <87d7f248-4d95-4253-78ae-6dd110db6330@stressinduktion.org>
+ <CANP3RGfNGgw9H5Hsn7sgadHu5+kBcGfhY6Y_iTKNEjoL9gL7xg@mail.gmail.com> <8e332a23-5653-1e70-7c74-e7bcbbe0884a@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Franky Lin <franky.lin@broadcom.com>,
-        Hante Meuleman <hante.meuleman@broadcom.com>,
-        Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
-        Franky Lin <frankyl@broadcom.com>,
-        linux-wireless@vger.kernel.org,
-        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal@milecki.pl>
-To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
-        Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160927091428.19223-1-zajec5@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Linux NetDev <netdev@vger.kernel.org>,
+        Erik Kline <ek@google.com>,
+        Lorenzo Colitti <lorenzo@google.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f179.google.com ([209.85.161.179]:36703 "EHLO
+        mail-yw0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753111AbcI0KIp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 06:08:45 -0400
+Received: by mail-yw0-f179.google.com with SMTP id t67so5037188ywg.3
+        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 03:08:45 -0700 (PDT)
+In-Reply-To: <8e332a23-5653-1e70-7c74-e7bcbbe0884a@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 27-9-2016 11:14, Rafał Miłecki wrote:
-> From: Rafał Miłecki <rafal@milecki.pl>
-> 
-> Flowrings contain skbs waiting for transmission that were passed to us
-> by netif. It means we checked every one of them looking for 802.1x
-> Ethernet type. When deleting flowring we have to use freeing function
-> that will check for 802.1x type as well.
-> 
-> Freeing skbs without a proper check was leading to counter not being
-> properly decreased. This was triggering a WARNING every time
-> brcmf_netdev_wait_pend8021x was called.
+> Good point. Using ms should actually be easy, instead of
+> proc_dointvec_jiffies you can use proc_dointvec_ms_jiffies.
 
-Acked-by: Arend van Spriel <arend@broadcom.com>
-> Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
-> ---
-> Kalle: this isn't important enough for 4.8 as it's too late for that.
-> 
-> I'd like to get it for 4.9 however, as this fixes bug that could lead
-> to WARNING on every add_key/del_key call. We was struggling with these
-> WARNINGs for some time and this fixes one of two problems causing them.
+Yes, I'm aware of this, but 'proc_dointvec_ms_jiffies' seems to be a
+bit of a hack, and especially for large settings like this exporting
+them to userspace in units of ms instead of seconds seems to impose
+unnecessary cognitive burden on the user.
 
-Please mark it for stable as well.
+(furthermore the other two related settings are exported as seconds)
 
-> ---
->  drivers/net/wireless/broadcom/brcm80211/brcmfmac/flowring.c | 9 ++++++++-
->  1 file changed, 8 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/flowring.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/flowring.c
-> index b16b367..d0b738d 100644
-> --- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/flowring.c
-> +++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/flowring.c
-> @@ -234,13 +234,20 @@ static void brcmf_flowring_block(struct brcmf_flowring *flow, u16 flowid,
->  
->  void brcmf_flowring_delete(struct brcmf_flowring *flow, u16 flowid)
->  {
-> +	struct brcmf_bus *bus_if = dev_get_drvdata(flow->dev);
->  	struct brcmf_flowring_ring *ring;
-> +	struct brcmf_if *ifp;
->  	u16 hash_idx;
-> +	u8 ifidx;
->  	struct sk_buff *skb;
->  
->  	ring = flow->rings[flowid];
->  	if (!ring)
->  		return;
-> +
-> +	ifidx = brcmf_flowring_ifidx_get(flow, flowid);
-> +	ifp = brcmf_get_ifp(bus_if->drvr, ifidx);
-> +
->  	brcmf_flowring_block(flow, flowid, false);
->  	hash_idx = ring->hash_id;
->  	flow->hash[hash_idx].ifidx = BRCMF_FLOWRING_INVALID_IFIDX;
+> It seems good practice to add a _ms then to the sysctl, too.
 
-I am not very familiar with flowring code, but I suppose this is just
-initializing the entry for later use, right?
+If we wanted to do that, we'd have to add _ms versions of
+router_solicitation_{delay,interval}.
+This seems like pointless duplication - since we can't actually delete
+the older seconds one.
 
-> @@ -249,7 +256,7 @@ void brcmf_flowring_delete(struct brcmf_flowring *flow, u16 flowid)
->  
->  	skb = skb_dequeue(&ring->skblist);
->  	while (skb) {
-> -		brcmu_pkt_buf_free_skb(skb);
-> +		brcmf_txfinalize(ifp, skb, false);
->  		skb = skb_dequeue(&ring->skblist);
->  	}
->  
-> 
+There isn't really any real world scenario I can think of (besides
+unit-testing) where ms granularity would be useful.
+
+If we were to actually fix proc_dointvec_jiffies to accept fractional
+seconds, we'd fix all of these interfaces in one fell swoop...
+
+I took a look at what this would take, and there doesn't really appear
+to be a nice way to do it :-(
+The lower level conversion functions get a character buffer and
+convert it to/from an int (or maybe long).
+
+We'd either need to switch these over to take a void* or add an
+entirely separate implementation of proc_dointvec_jiffies...
+
+(at which point it could probably also parse units (ns, us, ms, s, m,
+h, d) on input if we wanted to...)
+
+> I am fine with both ways.
+
+I'm going to leave this as is (especially since I send out v5 before I
+saw your comment)
