@@ -1,65 +1,56 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH resend] sh_eth: add R8A7743/5 support
-Date: Tue, 27 Sep 2016 21:08:56 +0300
-Message-ID: <b04bbb5d-fda2-f11b-1ff7-1502dcc31e53@cogentembedded.com>
-References: <1654835.SEcvPVx4OQ@wasted.cogentembedded.com>
- <CAMuHMdWq_714eP2q7V6AgopKu-mNx0GLUzyemad2H_ZcFt15ug@mail.gmail.com>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: Re: [RFC PATCH net-next 2/2] sfc: report 4-tuple UDP hashing to
+ ethtool, if it's enabled
+Date: Tue, 27 Sep 2016 18:12:13 +0000
+Message-ID: <BL2PR07MB23067E952300940F9D8FDE108DCC0@BL2PR07MB2306.namprd07.prod.outlook.com>
+References: <cc07d60a-189c-8475-ecb3-b612ff13bd5a@solarflare.com>,<8341c601-674a-74ff-c6dd-689c19b3ce7f@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Linux-Renesas <linux-renesas-soc@vger.kernel.org>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: "bkenward@solarflare.com" <bkenward@solarflare.com>
+To: Edward Cree <ecree@solarflare.com>,
+        "linux-net-drivers@solarflare.com" <linux-net-drivers@solarflare.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f48.google.com ([209.85.215.48]:36720 "EHLO
-        mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935703AbcI0SJB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 14:09:01 -0400
-Received: by mail-lf0-f48.google.com with SMTP id g62so31324825lfe.3
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 11:09:00 -0700 (PDT)
-In-Reply-To: <CAMuHMdWq_714eP2q7V6AgopKu-mNx0GLUzyemad2H_ZcFt15ug@mail.gmail.com>
+Received: from mail-sn1nam01on0070.outbound.protection.outlook.com ([104.47.32.70]:20736
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S934935AbcI0SMZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 27 Sep 2016 14:12:25 -0400
+In-Reply-To: <8341c601-674a-74ff-c6dd-689c19b3ce7f@solarflare.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/27/2016 10:35 AM, Geert Uytterhoeven wrote:
+> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 info->data =3D 0;
+> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 switch (info->flow_type)=
+ {
+> +=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 case UDP_V4_FLOW:
+> +=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 if (e=
+fx->rx_hash_udp_4tuple)
+> +=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=A0=A0=A0=A0=A0=A0 /* fall through */
+> +=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 /* el=
+se fall further! */
+> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 case TCP_V4_FLOW:
+> -=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 info-=
+>data |=3D RXH_L4_B_0_1 | RXH_L4_B_2_3;
+> +=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=A0=A0=A0=A0=A0=A0 info->data |=3D RXH_L4_B_0_1 | RXH_L4_B_2_3;
+> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 =
+/* fall through */
+> -=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 case UDP_V4_FLOW:
+> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 case SCTP_V4_FLOW:
+> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 case AH_ESP_V4_FLOW:
+> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 case IPV4_FLOW:
+> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 =
+info->data |=3D RXH_IP_SRC | RXH_IP_DST;
+> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 =
+min_revision =3D EFX_REV_FALCON_B0;
+> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 =
+break;
 
->> Add support for the first two members of the Renesas RZ/G family, RZ/G1M/E
->> (also known as  R8A7743/5). The Ether core is the same as in the R-Car gen2
->> SoCs, so will share the code/data with them...
->>
->> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->
->> --- net-next.orig/drivers/net/ethernet/renesas/Kconfig
->> +++ net-next/drivers/net/ethernet/renesas/Kconfig
->> @@ -27,7 +27,7 @@ config SH_ETH
->>           Renesas SuperH Ethernet device driver.
->>           This driver supporting CPUs are:
->>                 - SH7619, SH7710, SH7712, SH7724, SH7734, SH7763, SH7757,
->> -                 R8A7740, R8A777x and R8A779x.
->> +                 R8A7740, R8A774x, R8A777x and R8A779x.
->
-> Surely "R8A7740" is covered by "R8A774x"? :-)
+Well, you sure fulfilled your cover letter's promise. ;-)
 
-    It should be, yes -- but 7740 has completely different Ether core than the 
-RZ/G family. I can fix this if you want...
-
-> However, the "x" is not a real wildcard (also for '7x and '9x), as the driver
-> doesn't support all possible values of "x".
-
-    Well, I think for 779x it does, provided that the Ether core exists at all.
-For 777x it doesn't support the SH flavour of 7778 indeed but it's not 
-supported by the kernel at all...
-
-> Apart from that:
-> Acked-by: Geert Uytterhoeven <geert+renesas@glider.be>
-
-   Thank you. :-)
-
-> Gr{oetje,eeting}s,
->
->                         Geert
-
-MBR, Sergei
+Do you really prefer this conditional mayham over copy-pasting some lines?=
