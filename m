@@ -1,10 +1,12 @@
 From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: Re: ISDN-Gigaset: Fine-tuning for three function implementations
-Date: Tue, 27 Sep 2016 07:10:23 +0200
-Message-ID: <fa9deafb-9ff4-f419-333b-5af70cab72b2@users.sourceforge.net>
+Subject: Re: ISDN-Gigaset: Release memory in gigaset_initcs() after an
+ allocation failure
+Date: Tue, 27 Sep 2016 07:20:26 +0200
+Message-ID: <0d02085e-842c-4be9-f706-c43b38ce9095@users.sourceforge.net>
 References: <566ABCD9.1060404@users.sourceforge.net>
  <6d4bbb77-914f-19b8-a1a9-2731d1158612@users.sourceforge.net>
- <1474922316.8546.1.camel@tiscali.nl>
+ <6409b3b0-3b7a-1139-f040-7b1a61611187@users.sourceforge.net>
+ <1474924434.8546.29.camel@tiscali.nl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
@@ -14,29 +16,20 @@ Cc: gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
         kernel-janitors@vger.kernel.org,
         Julia Lawall <julia.lawall@lip6.fr>
 To: Paul Bolle <pebolle@tiscali.nl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.web.de ([212.227.17.12]:56478 "EHLO mout.web.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751865AbcI0FK5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 27 Sep 2016 01:10:57 -0400
-In-Reply-To: <1474922316.8546.1.camel@tiscali.nl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1474924434.8546.29.camel@tiscali.nl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->>   Use kmalloc_array() in two functions
->>   Improve another size determination in gigaset_initcs()
->>   Delete an error message for a failed memory allocation
->>   Release memory in gigaset_initcs() after an allocation failure
+>> Memory was not released (as it would be expected) when one call
+>> of further resource reservations failed.
 > 
-> Which "static source code analysis" was used for that discovery?
+> This was the only thing in this series that triggered more than a,
+> very uninspired, "meh" on first read.
 
-Are you eventually asking more for the development tools which were involved here?
-
-* Coccinelle software
-
-* Script "checkpatch.pl"
-
-* My own eyes with help of a current text editor and its programming support
+Will it matter here if the function "kfree" will be called for the
+data structure members "bcs" and "inbuf" after a later function call
+failed within the implementation of "gigaset_initcs"?
 
 Regards,
 Markus
