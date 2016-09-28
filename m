@@ -1,103 +1,114 @@
-From: Amitkumar Karwar <akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
-Subject: RE: [PATCH v2] mwifiex: report wakeup for wowlan
-Date: Wed, 28 Sep 2016 13:59:35 +0000
-Message-ID: <014d46607eb34a3cbf61faafd7586905@SC-EXCH04.marvell.com>
-References: <1474995364-123069-1-git-send-email-rajatja@google.com>
- <1475027104-17423-1-git-send-email-rajatja@google.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v2 net] net: skbuff: skb_vlan_push: Fix wrong unwinding
+ of skb->data after __vlan_insert_tag call
+Date: Wed, 28 Sep 2016 16:43:38 +0200
+Message-ID: <57EBD71A.90104@iogearbox.net>
+References: <1475053721-27676-1-git-send-email-shmulik.ladkani@gmail.com>       <57EB9BE0.4080903@iogearbox.net> <20160928145644.662ecc04@pixies>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Wei-Ning Huang <wnhuang-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        Brian Norris <briannorris-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        Eric Caruso <ejcaruso-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-        "rajatxjain-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <rajatxjain-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Rajat Jain <rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        Nishant Sarmukadam <nishants-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-        "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1475027104-17423-1-git-send-email-rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Content-Language: en-US
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Pravin Shelar <pshelar@ovn.org>, netdev@vger.kernel.org,
+        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+        Jiri Pirko <jiri@mellanox.com>
+To: Shmulik Ladkani <shmulik.ladkani@ravellosystems.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:35421 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932409AbcI1Ono (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 10:43:44 -0400
+In-Reply-To: <20160928145644.662ecc04@pixies>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From: Rajat Jain [mailto:rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org]
-> Sent: Wednesday, September 28, 2016 7:15 AM
-> To: Amitkumar Karwar; Nishant Sarmukadam; Kalle Valo; linux-
-> wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Cc: Rajat Jain; Wei-Ning Huang; Brian Norris; Eric Caruso;
-> rajatxjain-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-> Subject: [PATCH v2] mwifiex: report wakeup for wowlan
-> 
-> Enable notifying wakeup source to the PM core in case of a wake on
-> wireless LAN event.
-> 
-> Signed-off-by: Wei-Ning Huang <wnhuang-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Rajat Jain <rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-> Tested-by: Wei-Ning Huang <wnhuang-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-> Reviewed-by: Eric Caruso <ejcaruso-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-> ---
-> v2: Fix the commit log
-> 
->  drivers/net/wireless/marvell/mwifiex/sdio.c | 8 ++++++++
-> drivers/net/wireless/marvell/mwifiex/sdio.h | 1 +
->  2 files changed, 9 insertions(+)
-> 
-> diff --git a/drivers/net/wireless/marvell/mwifiex/sdio.c
-> b/drivers/net/wireless/marvell/mwifiex/sdio.c
-> index d3e1561..a5f63e4 100644
-> --- a/drivers/net/wireless/marvell/mwifiex/sdio.c
-> +++ b/drivers/net/wireless/marvell/mwifiex/sdio.c
-> @@ -89,6 +89,9 @@ static irqreturn_t mwifiex_wake_irq_wifi(int irq, void
-> *priv)
->  		disable_irq_nosync(irq);
->  	}
-> 
-> +	/* Notify PM core we are wakeup source */
-> +	pm_wakeup_event(cfg->dev, 0);
-> +
->  	return IRQ_HANDLED;
->  }
-> 
-> @@ -112,6 +115,7 @@ static int mwifiex_sdio_probe_of(struct device *dev,
-> struct sdio_mmc_card *card)
->  					  GFP_KERNEL);
->  	cfg = card->plt_wake_cfg;
->  	if (cfg && card->plt_of_node) {
-> +		cfg->dev = dev;
->  		cfg->irq_wifi = irq_of_parse_and_map(card->plt_of_node, 0);
->  		if (!cfg->irq_wifi) {
->  			dev_dbg(dev,
-> @@ -130,6 +134,10 @@ static int mwifiex_sdio_probe_of(struct device
-> *dev, struct sdio_mmc_card *card)
->  		}
->  	}
-> 
-> +	ret = device_init_wakeup(dev, true);
-> +	if (ret)
-> +		dev_err(dev, "fail to init wakeup for mwifiex");
-> +
->  	return 0;
->  }
-> 
-> diff --git a/drivers/net/wireless/marvell/mwifiex/sdio.h
-> b/drivers/net/wireless/marvell/mwifiex/sdio.h
-> index db837f1..07cdd23 100644
-> --- a/drivers/net/wireless/marvell/mwifiex/sdio.h
-> +++ b/drivers/net/wireless/marvell/mwifiex/sdio.h
-> @@ -155,6 +155,7 @@
->  } while (0)
-> 
->  struct mwifiex_plt_wake_cfg {
-> +	struct device *dev;
->  	int irq_wifi;
->  	bool wake_by_wifi;
->  };
-> --
-> 2.8.0.rc3.226.g39d4020
+On 09/28/2016 01:56 PM, Shmulik Ladkani wrote:
+> On Wed, 28 Sep 2016 12:30:56 +0200, daniel@iogearbox.net wrote:
+>>> @@ -4608,6 +4608,8 @@ int skb_vlan_push(struct sk_buff *skb, __be16 vlan_proto, u16 vlan_tci)
+>>>
+>>>    		skb->protocol = skb->vlan_proto;
+>>>    		skb->mac_len += VLAN_HLEN;
+>>> +		if (offset)
+>>> +			offset += VLAN_HLEN;
+>>>
+>>>    		skb_postpush_rcsum(skb, skb->data + (2 * ETH_ALEN), VLAN_HLEN);
+>>>    		__skb_pull(skb, offset);
+>>
+>> This looks much better indeed than your v1 of this patch.
+>
+> Yep, after some meditation and history digging I happened to notice I
+> was barking at the wrong tree.
+>
+>> So the issue might only be visible to act_vlan as the other remaining user of
+>> skb_vlan_push().
+>
+> Yes, this is correct. I'll amend the log message to express that.
+> The bug occurs for callers of skb_vlan_push() whose data is not
+> pointing at mac_header.
+>
+>> My only question would be:
+>> what about __skb_vlan_pop(), wouldn't that then need the same adjustment
+>> a la offset -= VLAN_HLEN?
+>
+> Well, theoretically, yes; but caller may expect 2 different things:
+>
+> (assuming tags are in-payload)
+>
+> (1) suppose upon entry we have
+>
+>      DA,SA,0x8100,TCI,0x0800,
+>      ^                ^
+>      mac_hdr          data
+>
+> initial offset is 18, and after current unwinding code we'll get
 
-Acked-by: Amitkumar Karwar <akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
+You mean data points after the 0x0800, right?
 
-Regards,
-Amitkumar
+>
+>      DA,SA,0x0800,4_bytes,
+>      ^                    ^
+>      mac_hdr              data
+>
+> which is probably incorrect, adjustment 'offset -= VLAN_HLEN' is needed.
+>
+> (2) suppose upon entry we have
+>
+>      DA,SA,0x8100,TCI,0x0800
+>      ^            ^
+>      mac_hdr      data
+>
+> initial offset is 14, and after current unwinding code we'll get
+>
+>      DA,SA,0x0800,
+>      ^            ^
+>      mac_hdr      data
+>
+> which is probably what user has intended.
+> (had we adjusted offset to be 10, 'data' would point into SA)
+>
+>  From test I've made using act_vlan upon ingress on QinQ tags, existing call
+> provides data as in (2).
+>
+> Thoughts?
+
+Yeah, so we likely end up at 2) because of things like eth_type_trans()
+that would only pull ETH_HLEN.
+
+Couldn't we end up with 1) for the act_vlan case when we'd have the
+offset-adjusted skb_vlan_push() fix from here, where we'd then redirect
+to ingress where skb_vlan_pop() would be called? If I'm not missing
+something, skb_vlan_push() would then point to the data location of 1)
+and with your other proposed direct netif_receive_skb() patch, no
+further skb->data adjustments would be done, right?
+
+Another potential issue (but unrelated to this fix here) I just noticed
+is, whether act_vlan might have the same problem as we fixed in 8065694e6519
+("bpf: fix checksum for vlan push/pop helper"). So potentially, we could
+end up fixing CHECKSUM_COMPLETE wrongly on ingress, since these 14 bytes
+are already pulled out of the sum at that point.
+
+> Should we adjust "offset" back, only if resulting offset is >=14 ?
+
+If also the checksum one might end up as an issue, maybe it's just best
+to go through the pain and do the push/pull for data plus csum, so both
+skb_vlan_*() functions see the frame starting from mac header temporarily?
+Jiri, any thoughts?
