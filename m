@@ -1,74 +1,47 @@
-From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Subject: Re: [PATCH v3 net-next] net: phy: Add Edge-rate driver for Microsemi
- PHYs.
-Date: Wed, 28 Sep 2016 16:39:54 +0530
-Message-ID: <20160928110953.GA22063@microsemi.com>
-References: <1474984075-12312-1-git-send-email-Raju.Lakkaraju@microsemi.com>
- <20160927141633.GJ28432@lunn.ch>
-Reply-To: <Raju.Lakkaraju@microsemi.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCHv2 net 0/5] sctp: some fixes of prsctp polices
+Date: Wed, 28 Sep 2016 08:22:42 -0300
+Message-ID: <20160928112242.GA4008@localhost.localdomain>
+References: <cover.1475059350.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <devicetree@vger.kernel.org>,
-        <f.fainelli@gmail.com>, <Allan.Nielsen@microsemi.com>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        davem@davemloft.net, Vlad Yasevich <vyasevich@gmail.com>,
+        daniel@iogearbox.net
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0078.outbound.protection.outlook.com ([104.47.33.78]:59501
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752630AbcI1LKe (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 28 Sep 2016 07:10:34 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:44932 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752809AbcI1LWq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 28 Sep 2016 07:22:46 -0400
 Content-Disposition: inline
-In-Reply-To: <20160927141633.GJ28432@lunn.ch>
+In-Reply-To: <cover.1475059350.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
-
-Thank you for review and valuable comments.
-
-Thanks,
-Raju.
-On Tue, Sep 27, 2016 at 04:16:33PM +0200, Andrew Lunn wrote:
-> EXTERNAL EMAIL
+On Wed, Sep 28, 2016 at 06:46:27PM +0800, Xin Long wrote:
+> This patchset is to improve some codes about prsctp polices, and also
+> to fix some issues.
 > 
+> v1->v2:
+>   - wrap the check of chunk->sent_count in a macro:
+>     sctp_chunk_retransmitted in patch 2/5.
 > 
-> > index 0000000..7ba3855
-> > --- /dev/null
-> > +++ b/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
-> > @@ -0,0 +1,61 @@
-> > +* Microsemi - vsc8531 Giga bit ethernet phy
-> > +
-> > +Required properties:
-> > +- compatible : Should contain phy id as "ethernet-phy-idAAAA.BBBB"
-> > +               If the phy's identifier is known then the list may contain an entry
-> > +               of the form: "ethernet-phy-idAAAA.BBBB" where
-> > +               AAAA - The value of the 16 bit Phy Identifier 1 register as
-> > +                      4 hex digits. This is the chip vendor OUI bits 3:18
-> > +               BBBB - The value of the 16 bit Phy Identifier 2 register as
-> > +                      4 hex digits. This is the chip vendor OUI bits 19:24,
-> > +                      followed by 10 bits of a vendor specific ID.
-> > +- reg                : The ID number for the phy, usually a small integer
+> Xin Long (5):
+>   sctp: move sent_count to the memory hole in sctp_chunk
+>   sctp: reuse sent_count to avoid retransmitted chunks for RTT
+>     measurements
+>   sctp: remove prsctp_param from sctp_chunk
+>   sctp: change to check peer prsctp_capable when using prsctp polices
+>   sctp: remove the old ttl expires policy
 > 
-> Please don't copy phy.txt. Just refer to it. Use text like:
-> 
-> The PHY device uses the binding described in
-> Documentation/devicetree/bindings/net/phy.txt
-> 
-> It may additionally have the following properties
+>  include/net/sctp/structs.h | 16 ++++------------
+>  net/sctp/chunk.c           | 31 ++++++++++---------------------
+>  net/sctp/output.c          |  6 ++----
+>  net/sctp/outqueue.c        | 16 +++++++---------
+>  net/sctp/sm_make_chunk.c   | 15 ---------------
+>  5 files changed, 23 insertions(+), 61 deletions(-)
 > 
 
-Accepted. 
-
-> > +Optional properties:
-> > +- vsc8531,edge-rate  : Edge rate sets the drive strength of the MAC
-> > +                       interface output signals.  Changing the drive
-> > +                       strength will affect the edge rate of the output
-> > +                       signal.
-> 
-> Are we specifying a rate or a strength? It is called edge-rate, so it
-> expect it to be a rate, mV/pS or something similar.
-> 
-
-Accepted.
-
->        Andrew
+Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Thanks
