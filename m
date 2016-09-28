@@ -1,78 +1,50 @@
-From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [PATCH v4 net-next] tcp: Change txhash on every SYN and RTO retransmit
-Date: Tue, 27 Sep 2016 19:03:37 -0700
-Message-ID: <20160928020337.3057238-1-brakmo@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Kernel Team <kernel-team@fb.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Yuchung Cheng <ycheng@google.com>,
-        Neal Cardwell <ncardwell@google.com>
-To: netdev <netdev@vger.kernel.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 1/4] igb: fix non static symbol warning
+Date: Tue, 27 Sep 2016 19:04:58 -0700
+Message-ID: <1475028301-122700-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1475028301-122700-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        guru.anbalagane@oracle.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:33207 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1754696AbcI1CDm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 22:03:42 -0400
-Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
-        by m0001303.ppops.net (8.16.0.17/8.16.0.17) with SMTP id u8S21o06006433
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 19:03:41 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by m0001303.ppops.net with ESMTP id 25ptb9nh4a-1
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2016 19:03:41 -0700
-Received: from facebook.com (2401:db00:11:d025:face:0:13:0)     by
- mx-out.facebook.com (10.223.101.97) with ESMTP id
- c55c1f32851f11e6a41624be0595f910-d6cf3a50 for <netdev@vger.kernel.org>;        Tue,
- 27 Sep 2016 19:03:38 -0700
+Received: from mga04.intel.com ([192.55.52.120]:12751 "EHLO mga04.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755074AbcI1CFD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 27 Sep 2016 22:05:03 -0400
+In-Reply-To: <1475028301-122700-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The current code changes txhash (flowlables) on every retransmitted
-SYN/ACK, but only after the 2nd retransmitted SYN and only after
-tcp_retries1 RTO retransmits.
+From: Wei Yongjun <weiyongjun1@huawei.com>
 
-With this patch:
-1) txhash is changed with every SYN retransmits
-2) txhash is changed with every RTO.
+Fixes the following sparse warning:
 
-The result is that we can start re-routing around failed (or very
-congested paths) as soon as possible. Otherwise application health
-checks may fail and the connection may be terminated before we start
-to change txhash.
+drivers/net/ethernet/intel/igb/igb_ethtool.c:2707:5: warning:
+ symbol 'igb_rxnfc_write_vlan_prio_filter' was not declared. Should it be static?
 
-v4: Removed sysctl, txhash is changed for all RTOs
-v3: Removed text saying default value of sysctl is 0 (it is 100)
-v2: Added sysctl documentation and cleaned code
-
-Tested with packetdrill tests
-
-Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
+Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- net/ipv4/tcp_timer.c | 4 ++++
- 1 file changed, 4 insertions(+)
+ drivers/net/ethernet/intel/igb/igb_ethtool.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index f712b41..3ea1cf8 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -192,6 +192,8 @@ static int tcp_write_timeout(struct sock *sk)
- 			if (tp->syn_data && icsk->icsk_retransmits == 1)
- 				NET_INC_STATS(sock_net(sk),
- 					      LINUX_MIB_TCPFASTOPENACTIVEFAIL);
-+		} else if (!tp->syn_data && !tp->syn_fastopen) {
-+			sk_rethink_txhash(sk);
- 		}
- 		retry_until = icsk->icsk_syn_retries ? : net->ipv4.sysctl_tcp_syn_retries;
- 		syn_set = true;
-@@ -213,6 +215,8 @@ static int tcp_write_timeout(struct sock *sk)
- 			tcp_mtu_probing(icsk, sk);
+diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+index 0c33eca..737b664 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
++++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+@@ -2704,8 +2704,8 @@ static int igb_rxnfc_write_etype_filter(struct igb_adapter *adapter,
+ 	return 0;
+ }
  
- 			dst_negative_advice(sk);
-+		} else {
-+			sk_rethink_txhash(sk);
- 		}
- 
- 		retry_until = net->ipv4.sysctl_tcp_retries2;
+-int igb_rxnfc_write_vlan_prio_filter(struct igb_adapter *adapter,
+-				     struct igb_nfc_filter *input)
++static int igb_rxnfc_write_vlan_prio_filter(struct igb_adapter *adapter,
++					    struct igb_nfc_filter *input)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	u8 vlan_priority;
 -- 
-2.9.3
+2.7.4
