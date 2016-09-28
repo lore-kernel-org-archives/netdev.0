@@ -1,79 +1,67 @@
-From: Rajat Jain <rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH v2] mwifiex: report wakeup for wowlan
-Date: Tue, 27 Sep 2016 18:45:04 -0700
-Message-ID: <1475027104-17423-1-git-send-email-rajatja@google.com>
-References: <1474995364-123069-1-git-send-email-rajatja@google.com>
-Cc: Rajat Jain <rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        Wei-Ning Huang <wnhuang-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        Brian Norris <briannorris-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        Eric Caruso <ejcaruso-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, rajatxjain-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: Amitkumar Karwar <akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-        Nishant Sarmukadam <nishants-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1474995364-123069-1-git-send-email-rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next 0/5][pull request] 1GbE Intel Wired LAN Driver
+ Updates 2016-09-22
+Date: Tue, 27 Sep 2016 18:50:16 -0700
+Message-ID: <1475027416.6522.35.camel@intel.com>
+References: <1474612741-75681-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+        protocol="application/pgp-signature"; boundary="=-bEmJuvbPJPra4ffM9zn8"
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, guru.anbalagane@oracle.com,
+        bhelgaas@google.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga06.intel.com ([134.134.136.31]:14689 "EHLO mga06.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933579AbcI1BuS (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 27 Sep 2016 21:50:18 -0400
+In-Reply-To: <1474612741-75681-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Enable notifying wakeup source to the PM core in case of
-a wake on wireless LAN event.
 
-Signed-off-by: Wei-Ning Huang <wnhuang-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Rajat Jain <rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Tested-by: Wei-Ning Huang <wnhuang-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Reviewed-by: Eric Caruso <ejcaruso-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
----
-v2: Fix the commit log
+--=-bEmJuvbPJPra4ffM9zn8
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
- drivers/net/wireless/marvell/mwifiex/sdio.c | 8 ++++++++
- drivers/net/wireless/marvell/mwifiex/sdio.h | 1 +
- 2 files changed, 9 insertions(+)
+On Thu, 2016-09-22 at 23:38 -0700, Jeff Kirsher wrote:
+> This series contains updates to igb, igbvf and PCI quirks.
+>=20
+> Wei Yongjun makes a function static to shut up sparse.
+>=20
+> Todd bumps the igb and igbvf version, which is long overdue.
+>=20
+> Jake fixes an issue where the PPS SYS_WRAP interrupt was not re-enabled
+> after a reset, which resulted in disabling of the PPS signaling.
+>=20
+> Sasha adds a quirk for 82579 devices, which was reported by Red Hat.
+> The issue is that 82579 has a problem reattaching itself after being
+> detached, so disable the FLR capability in PCIe configuration space.
 
-diff --git a/drivers/net/wireless/marvell/mwifiex/sdio.c b/drivers/net/wireless/marvell/mwifiex/sdio.c
-index d3e1561..a5f63e4 100644
---- a/drivers/net/wireless/marvell/mwifiex/sdio.c
-+++ b/drivers/net/wireless/marvell/mwifiex/sdio.c
-@@ -89,6 +89,9 @@ static irqreturn_t mwifiex_wake_irq_wifi(int irq, void *priv)
- 		disable_irq_nosync(irq);
- 	}
- 
-+	/* Notify PM core we are wakeup source */
-+	pm_wakeup_event(cfg->dev, 0);
-+
- 	return IRQ_HANDLED;
- }
- 
-@@ -112,6 +115,7 @@ static int mwifiex_sdio_probe_of(struct device *dev, struct sdio_mmc_card *card)
- 					  GFP_KERNEL);
- 	cfg = card->plt_wake_cfg;
- 	if (cfg && card->plt_of_node) {
-+		cfg->dev = dev;
- 		cfg->irq_wifi = irq_of_parse_and_map(card->plt_of_node, 0);
- 		if (!cfg->irq_wifi) {
- 			dev_dbg(dev,
-@@ -130,6 +134,10 @@ static int mwifiex_sdio_probe_of(struct device *dev, struct sdio_mmc_card *card)
- 		}
- 	}
- 
-+	ret = device_init_wakeup(dev, true);
-+	if (ret)
-+		dev_err(dev, "fail to init wakeup for mwifiex");
-+
- 	return 0;
- }
- 
-diff --git a/drivers/net/wireless/marvell/mwifiex/sdio.h b/drivers/net/wireless/marvell/mwifiex/sdio.h
-index db837f1..07cdd23 100644
---- a/drivers/net/wireless/marvell/mwifiex/sdio.h
-+++ b/drivers/net/wireless/marvell/mwifiex/sdio.h
-@@ -155,6 +155,7 @@
- } while (0)
- 
- struct mwifiex_plt_wake_cfg {
-+	struct device *dev;
- 	int irq_wifi;
- 	bool wake_by_wifi;
- };
--- 
-2.8.0.rc3.226.g39d4020
+Based on feedback, I will drop patch 5 in the series and re-submit the
+series, while Alex and Sasha re-work the PCI quirk patch.
+--=-bEmJuvbPJPra4ffM9zn8
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJX6yHYAAoJEOVv75VaS+3OSGgP/iDZmPGEs4ruFVdjpCt+/rIj
+9YwVYHXAcJxrlnNvNsGjOiDpBe7bDn/wvK17lFjgmS0+yXbucYhdHaK/w3KCVrk1
+xTA/DcMdg1UncPupjCNU4CCLMrwN4LCP18qbfubTGjHg/zc1f3+q61Q4f5QTdhxJ
+AT63I2phxdkcunZQU7bXOVJ5j4fz/9D44D5kAYiemNvVq8NfIQRZ0EdU2MUDhLOu
+lCyEM1gBx8yJSF9oULLoqeCJiBJWpqF0qrtm1KihVGjp20g+gmaqF2h2ZjLsqSQI
+qYxTeMKH3/egCMpsm7KdwKxo0kP2qDwNeLJ5rqhQ66bfOZD+X3sSWSl729e3Q9/X
+kqhpq6j5sxaqz+c/tZYwFNDCjXsq9d2ocZ7oqcPALD3eSiqwSavePqpw22lq4dB8
+PdfGPZ43Js0uOb7U6/YmpGFRB2KNSS0yDMZyA67AiZ9tN5VBiVtV+ErTO3C5Ei1H
+FQaLKGSaAa9FQzcO8L6M4CKmQXeImhYWHHfaZtV99v2Vwn2rdjsvmJextSuWYITV
+kpVxdhGNpEMjAXW78d8n2oSiAx9WWAaB7uwYkgidpO8wJ1i7CjnpPRnWDoPNOsrb
+lzk5uIxwDJOYMKLbnVfFTQZw4SXNHmaaOFnFmI/HYgp9wzI69YU3x6vE57/Ry+Mm
+uWQpcAa/7CGSfIEO2108
+=CN9l
+-----END PGP SIGNATURE-----
+
+--=-bEmJuvbPJPra4ffM9zn8--
