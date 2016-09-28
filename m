@@ -1,174 +1,322 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH/RFC 08/12] rocker: Support Open vSwitch (-like) flow stats in OF-DPA world
-Date: Wed, 28 Sep 2016 14:42:58 +0200
-Message-ID: <1475066582-1971-9-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH/RFC 07/12] rocker: switchdev Add Open vSwitch (-like) flow support to OF-DPA world
+Date: Wed, 28 Sep 2016 14:42:57 +0200
+Message-ID: <1475066582-1971-8-git-send-email-simon.horman@netronome.com>
 References: <1475066582-1971-1-git-send-email-simon.horman@netronome.com>
 Cc: Simon Horman <simon.horman@netronome.com>
 To: netdev@vger.kernel.org, dev@openvswitch.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:35450 "EHLO
-        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752839AbcI1MnT (ORCPT
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:37633 "EHLO
+        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932335AbcI1MnT (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 08:43:19 -0400
-Received: by mail-wm0-f48.google.com with SMTP id l132so234066586wmf.0
-        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 05:43:19 -0700 (PDT)
+Received: by mail-wm0-f53.google.com with SMTP id b130so69645084wmc.0
+        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 05:43:18 -0700 (PDT)
 In-Reply-To: <1475066582-1971-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Prototype an implementation of the new switchdev_port_obj_get SDO for the
-SWITCHDEV_OBJ_OVS_FLOW object type. This allows retrieval of statistics for
-Open vSwitch (-like) flows which have been programmed into hardware.
+Prototype programming of Open vSwitch (-like) flows into hardware
+by implementing SWITCHDEV_OBJ_OVS_FLOW type objects in the
+rocker_port_obj_{add,del} SDO, a new object type that
+was added by an earlier patch in that forms part of this prototype.
+
+A very limited subset of flows are accepted by this implementation,
+however, it is sufficient for a working ping test: the ICMP packets are
+programmed into hardware although the ARP packets are not.
+
+Follow-up patches in this prototype will modify the Open vSwitch kernel
+datapath to call the new SDOs and thus make use of the changes in this
+patch.
 
 Signed-off-by: Simon Horman <simon.horman@netronome.com>
 ---
- drivers/net/ethernet/rocker/rocker_hw.h    |  4 ++
- drivers/net/ethernet/rocker/rocker_ofdpa.c | 92 ++++++++++++++++++++++++++++--
- 2 files changed, 92 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/rocker/rocker_ofdpa.c | 261 +++++++++++++++++++++++++++++
+ 1 file changed, 261 insertions(+)
 
-diff --git a/drivers/net/ethernet/rocker/rocker_hw.h b/drivers/net/ethernet/rocker/rocker_hw.h
-index 2adfe88859f2..0a9d33bc80a0 100644
---- a/drivers/net/ethernet/rocker/rocker_hw.h
-+++ b/drivers/net/ethernet/rocker/rocker_hw.h
-@@ -373,6 +373,10 @@ enum {
- 	ROCKER_TLV_OF_DPA_FLOW_STAT_RX_PKTS,	/* u64 */
- 	ROCKER_TLV_OF_DPA_FLOW_STAT_TX_PKTS,	/* u64 */
- 
-+	ROCKER_TLV_OF_DPA_FLOW_STAT_RX_BYTES,	/* u64 */
-+	ROCKER_TLV_OF_DPA_FLOW_STAT_TX_BYTES,	/* u64 */
-+	ROCKER_TLV_OF_DPA_FLOW_STAT_IDLE,	/* u64 */
-+
- 	__ROCKER_TLV_OF_DPA_FLOW_STAT_MAX,
- 	ROCKER_TLV_OF_DPA_FLOW_STAT_MAX = __ROCKER_TLV_OF_DPA_FLOW_STAT_MAX - 1,
- };
 diff --git a/drivers/net/ethernet/rocker/rocker_ofdpa.c b/drivers/net/ethernet/rocker/rocker_ofdpa.c
-index 6669f2ba2f97..3b441359a3a7 100644
+index fcad907baecf..6669f2ba2f97 100644
 --- a/drivers/net/ethernet/rocker/rocker_ofdpa.c
 +++ b/drivers/net/ethernet/rocker/rocker_ofdpa.c
-@@ -619,9 +619,9 @@ static int ofdpa_cmd_flow_tbl_add(const struct rocker_port *rocker_port,
- 	return 0;
+@@ -19,6 +19,7 @@
+ #include <linux/inetdevice.h>
+ #include <linux/if_vlan.h>
+ #include <linux/if_bridge.h>
++#include <linux/sw_flow.h>
+ #include <net/neighbour.h>
+ #include <net/switchdev.h>
+ #include <net/ip_fib.h>
+@@ -2795,6 +2796,264 @@ static int ofdpa_port_obj_fdb_dump(const struct rocker_port *rocker_port,
+ 	return err;
  }
  
--static int ofdpa_cmd_flow_tbl_del(const struct rocker_port *rocker_port,
--				  struct rocker_desc_info *desc_info,
--				  void *priv)
-+static int ofdpa_cmd_flow_tbl_prep(const struct rocker_port *rocker_port,
-+				   struct rocker_desc_info *desc_info,
-+				   void *priv)
- {
- 	const struct ofdpa_flow_tbl_entry *entry = priv;
- 	struct rocker_tlv *cmd_info;
-@@ -884,7 +884,7 @@ static int ofdpa_flow_tbl_del(struct ofdpa_port *ofdpa_port,
- 		if (!switchdev_trans_ph_prepare(trans))
- 			err = rocker_cmd_exec(ofdpa_port->rocker_port,
- 					      ofdpa_flags_nowait(flags),
--					      ofdpa_cmd_flow_tbl_del,
-+					      ofdpa_cmd_flow_tbl_prep,
- 					      found, NULL, NULL);
- 		ofdpa_kfree(trans, found);
- 	}
-@@ -3038,6 +3038,82 @@ static int ofdpa_port_obj_sw_flow_del(struct rocker_port *rocker_port,
- 	return ofdpa_flow_tbl_del(ofdpa_port, trans, flags, entry);
- }
- 
++#if IS_ENABLED(CONFIG_OPENVSWITCH)
++
 +static int
-+ofdpa_cmd_flow_tbl_get_stats_proc(const struct rocker_port *rocker_port,
-+				const struct rocker_desc_info *desc_info,
-+				void *priv)
++ofdpa_port_sw_flow_actions(struct ofdpa_port *ofdpa_port,
++			   const struct switchdev_obj_sw_flow *flow,
++			   struct ofdpa_flow_tbl_key *out_key)
 +{
-+	const struct rocker_tlv *info_attrs[ROCKER_TLV_OF_DPA_FLOW_STAT_MAX + 1];
-+	const struct rocker_tlv *attrs[ROCKER_TLV_CMD_MAX + 1];
-+	struct switchdev_obj_stats *stats = priv;
++	int rem, err, out_ifindex = -1, len = flow->actions.len;
++	const struct nlattr *a, *attr = flow->actions.actions;
++	struct net_device *out_dev, *dev = ofdpa_port->dev;
++	struct rocker_port *out_rocker_port;
++	struct ofdpa_port *out_ofdpa_port;
++	__be16 vlan_id;
++	u32 out_pport;
 +
-+	rocker_tlv_parse_desc(attrs, ROCKER_TLV_CMD_MAX, desc_info);
-+	if (!attrs[ROCKER_TLV_CMD_INFO])
-+		return -EIO;
++	for (a = attr, rem = len; rem > 0; a = nla_next(a, &rem)) {
++		int type = nla_type(a);
 +
-+	rocker_tlv_parse_nested(info_attrs, ROCKER_TLV_OF_DPA_FLOW_STAT_MAX,
-+			       attrs[ROCKER_TLV_CMD_INFO]);
++		switch (type) {
++		case OVS_ACTION_ATTR_OUTPUT:
++			/* Only unicast is supported at this time */
++			if (out_ifindex >= 0)
++				return -ENOTSUPP;
++			out_ifindex = nla_get_u32(a);
++			break;
 +
-+	if (info_attrs[ROCKER_TLV_OF_DPA_FLOW_STAT_RX_PKTS])
-+		stats->rx_packets = rocker_tlv_get_u64(info_attrs[ROCKER_TLV_OF_DPA_FLOW_STAT_RX_PKTS]);
-+	if (info_attrs[ROCKER_TLV_OF_DPA_FLOW_STAT_RX_BYTES])
-+		stats->rx_bytes = rocker_tlv_get_u64(info_attrs[ROCKER_TLV_OF_DPA_FLOW_STAT_RX_BYTES]);
-+	if (info_attrs[ROCKER_TLV_OF_DPA_FLOW_STAT_IDLE]) {
-+		u64 idle_ms;
++		case OVS_ACTION_ATTR_POP_VLAN:
++		case OVS_ACTION_ATTR_PUSH_VLAN:
++		case OVS_ACTION_ATTR_SET:
++		case OVS_ACTION_ATTR_USERSPACE:
++		case OVS_ACTION_ATTR_HASH:
++		case OVS_ACTION_ATTR_RECIRC:
++		case OVS_ACTION_ATTR_PUSH_MPLS:
++		case OVS_ACTION_ATTR_POP_MPLS:
++		case OVS_ACTION_ATTR_SET_MASKED:
++		case OVS_ACTION_ATTR_SAMPLE:
++			return -ENOTSUPP;
 +
-+		idle_ms = rocker_tlv_get_u64(info_attrs[ROCKER_TLV_OF_DPA_FLOW_STAT_IDLE]);
-+		stats->last_used = jiffies - (idle_ms * HZ / 1000);
++		case OVS_ACTION_ATTR_UNSPEC:
++		default:
++			return -EINVAL;
++		}
 +	}
++
++	/* No output */
++	if (out_ifindex == -1)
++		return -ENOTSUPP;
++
++	out_dev = dev_get_by_index(dev_net(dev), out_ifindex);
++	if (!out_dev)
++		return -EINVAL;
++
++	/* It is invalid to output to the input port */
++	if (dev == out_dev) {
++		err = -EINVAL;
++		goto err;
++	}
++
++	/* Only support flows whose input and output port are on
++	 * the same rocker switch.
++	 */
++	if (!rocker_port_dev_cmp_rocker(dev, out_dev)) {
++		err = -ENOTSUPP;
++		goto err;
++	}
++
++	out_rocker_port = netdev_priv(out_dev);
++	out_ofdpa_port = out_rocker_port->wpriv;
++	out_pport = out_ofdpa_port->pport;
++	vlan_id = out_ofdpa_port->internal_vlan_id;
++	out_key->acl.group_id = ROCKER_GROUP_L2_INTERFACE(vlan_id, out_pport);
++
++	err = 0;
++err:
++	dev_put(out_dev);
++	return err;
++}
++
++static int ofdpa_port_sw_flow_match(struct ofdpa_port *ofdpa_port,
++				    const struct switchdev_obj_sw_flow *flow,
++				    struct ofdpa_flow_tbl_key *out_key)
++{
++	const struct sw_flow_key *mask = flow->mask;
++	const struct sw_flow_key *key = flow->key;
++	const u8 *eth_dst = NULL, *eth_dst_mask = NULL;
++	u64 key_allowed, key_required;
++
++	key_required =
++		BIT_ULL(OVS_KEY_ATTR_IN_PORT) |
++		BIT_ULL(OVS_KEY_ATTR_ETHERNET) |
++		BIT_ULL(OVS_KEY_ATTR_ETHERTYPE);
++
++	/* TODO: Support more key fields as per those
++	 * permitted in the OF-DPA ACL Flow Table.
++	 */
++	key_allowed = key_required |
++		BIT_ULL(OVS_KEY_ATTR_PRIORITY) |	/* Only zero */
++		BIT_ULL(OVS_KEY_ATTR_IPV4) |
++		BIT_ULL(OVS_KEY_ATTR_ICMP) |
++		BIT_ULL(OVS_KEY_ATTR_SKB_MARK) |	/* Only zero */
++		BIT_ULL(OVS_KEY_ATTR_TUNNEL) |		/* Only zero */
++		BIT_ULL(OVS_KEY_ATTR_DP_HASH) |		/* Only zero */
++		BIT_ULL(OVS_KEY_ATTR_RECIRC_ID);	/* Only zero */
++
++	if ((flow->attrs & key_required) != key_required ||
++	    (flow->attrs & key_allowed) != flow->attrs)
++		return -ENOTSUPP;
++
++	/* Only support zero/no skb priority */
++	if (flow->attrs | BIT_ULL(OVS_KEY_ATTR_PRIORITY) &&
++	    key->phy.priority)
++		return -ENOTSUPP;
++
++	/* Only support zero/no tunnel id */
++	if (flow->attrs | BIT_ULL(OVS_KEY_ATTR_TUNNEL) &&
++	    key->tun_key.tun_id != cpu_to_be64(0))
++		return -ENOTSUPP;
++
++	/* Only support zero/no skb mark */
++	if (flow->attrs | BIT_ULL(OVS_KEY_ATTR_SKB_MARK) && key->phy.skb_mark)
++		return -ENOTSUPP;
++
++	/* Only support zero/no dp hash */
++	if (flow->attrs | BIT_ULL(OVS_KEY_ATTR_DP_HASH) && key->ovs_flow_hash)
++		return -ENOTSUPP;
++
++	/* Only support zero/no recirculation id */
++	if (flow->attrs | BIT_ULL(OVS_KEY_ATTR_RECIRC_ID) && key->recirc_id)
++		return -ENOTSUPP;
++
++	/* The OF-DPA ACL table requires an unmasked match on ethernet type */
++	if (mask->eth.type != cpu_to_be16(0xffff))
++		return -ENOTSUPP;
++
++	if (flow->attrs | BIT_ULL(OVS_KEY_ATTR_IPV4)) {
++		if (mask->ip.frag)
++			/* There is no IP frag match in OF-DPA */
++			return -ENOTSUPP;
++		if (mask->ipv4.addr.src != cpu_to_be32(0) ||
++		    mask->ipv4.addr.dst != cpu_to_be32(0))
++			/* Rocker doesn't implement these matches */
++			return -ENOTSUPP;
++		out_key->acl.ip_proto = key->ip.proto;
++		out_key->acl.ip_proto_mask = mask->ip.proto;
++		out_key->acl.ip_tos = key->ip.tos;
++		out_key->acl.ip_tos_mask = mask->ip.tos;
++	}
++
++	if (flow->attrs | BIT_ULL(OVS_KEY_ATTR_ICMP) &&
++	   (mask->tp.src != cpu_to_be16(0) || mask->tp.dst != cpu_to_be16(0)))
++		/* Rocker doesn't implement these matches */
++		return -ENOTSUPP;
++
++	out_key->acl.in_pport = ofdpa_port->pport;
++	out_key->acl.in_pport_mask = mask->phy.in_port;
++	ether_addr_copy(out_key->acl.eth_src, key->eth.src);
++	ether_addr_copy(out_key->acl.eth_src_mask, mask->eth.src);
++	ether_addr_copy(out_key->acl.eth_dst, key->eth.dst);
++	ether_addr_copy(out_key->acl.eth_dst_mask, mask->eth.dst);
++	out_key->acl.eth_type = key->eth.type;
++
++	if (!ether_addr_equal(out_key->acl.eth_dst, zero_mac)) {
++		eth_dst = key->eth.dst;
++		eth_dst_mask = mask->eth.dst;
++	}
++
++	out_key->acl.vlan_id = ofdpa_port->internal_vlan_id;
++	out_key->acl.vlan_id_mask = htons(0xffff);
++	out_key->priority = OFDPA_PRIORITY_ACL_CTRL;
 +
 +	return 0;
 +}
 +
-+static int ofdpa_flow_tbl_get_stats(struct ofdpa_port *ofdpa_port,
-+				    struct ofdpa_flow_tbl_entry *match,
-+				    struct switchdev_obj_stats *stats)
++static struct ofdpa_flow_tbl_entry *
++ofdpa_port_sw_flow_entry(struct ofdpa_port *ofdpa_port,
++			 struct switchdev_trans *trans,
++			 const struct switchdev_obj_sw_flow *flow)
 +{
-+	struct ofdpa *ofdpa = ofdpa_port->ofdpa;
-+	struct ofdpa_flow_tbl_entry *found;
-+	size_t key_len = match->key_len ? match->key_len : sizeof(found->key);
-+	unsigned long lock_flags;
-+	int err = 0;
++	struct ofdpa_flow_tbl_entry *entry;
++	int flags = 0;
++	int err;
 +
-+	match->key_crc32 = crc32(~0, &match->key, key_len);
++	entry = ofdpa_kzalloc(trans, flags, sizeof(*entry));
++	if (!entry)
++		return ERR_PTR(-ENOMEM);
 +
-+	spin_lock_irqsave(&ofdpa->flow_tbl_lock, lock_flags);
++	entry->key.tbl_id = ROCKER_OF_DPA_TABLE_ID_ACL_POLICY;
++	entry->key_len = offsetof(struct ofdpa_flow_tbl_key, acl.group_id);
 +
-+	found = ofdpa_flow_tbl_find(ofdpa, match);
++	err = ofdpa_port_sw_flow_match(ofdpa_port, flow, &entry->key);
++	if (err)
++		goto err;
 +
-+	if (found)
-+		found->cmd = ROCKER_TLV_CMD_TYPE_OF_DPA_GROUP_GET_STATS;
++	return entry;
 +
-+	spin_unlock_irqrestore(&ofdpa->flow_tbl_lock, lock_flags);
-+
-+	ofdpa_kfree(NULL, match);
-+
-+	if (found) {
-+		err = rocker_cmd_exec(ofdpa_port->rocker_port, 0,
-+				      ofdpa_cmd_flow_tbl_prep, found,
-+				      ofdpa_cmd_flow_tbl_get_stats_proc, stats);
-+	}
-+
-+	return err;
++err:
++	ofdpa_kfree(trans, entry);
++	return ERR_PTR(err);
 +}
 +
-+static int ofdpa_port_obj_sw_flow_get_stats(struct rocker_port *rocker_port,
-+				     const struct switchdev_obj_sw_flow *flow)
++static int ofdpa_port_obj_sw_flow_add(struct rocker_port *rocker_port,
++				      const struct switchdev_obj_sw_flow *flow,
++				      struct switchdev_trans *trans)
 +{
 +	struct ofdpa_port *ofdpa_port = rocker_port->wpriv;
-+	struct switchdev_trans *trans = NULL;
 +	struct ofdpa_flow_tbl_entry *entry;
++	int err, flags = 0;
++
++	if (!ofdpa_port_is_ovsed(ofdpa_port))
++		return -EINVAL;
 +
 +	entry = ofdpa_port_sw_flow_entry(ofdpa_port, trans, flow);
 +	if (IS_ERR(entry))
 +		return PTR_ERR(entry);
 +
-+	return ofdpa_flow_tbl_get_stats(ofdpa_port, entry, flow->stats);
++	err = ofdpa_port_sw_flow_actions(ofdpa_port, flow, &entry->key);
++	if (err) {
++		ofdpa_kfree(trans, entry);
++		return err;
++	}
++
++	return ofdpa_flow_tbl_add(ofdpa_port, trans, flags, entry);
 +}
 +
- #else
- 
- static int ofdpa_port_obj_sw_flow_add(struct rocker_port *rocker_port,
-@@ -3052,6 +3128,13 @@ static int ofdpa_port_obj_sw_flow_del(struct rocker_port *rocker_port,
- 	return -ENOTSUPP;
- }
- 
-+static int ofdpa_port_obj_ovs_flow_get_stats(struct rocker_port *rocker_port,
-+				     const struct switchdev_obj_ovs_flow *flow)
++static int ofdpa_port_obj_sw_flow_del(struct rocker_port *rocker_port,
++				       const struct switchdev_obj_sw_flow *flow)
 +{
++	struct ofdpa_port *ofdpa_port = rocker_port->wpriv;
++	struct switchdev_trans *trans = NULL;
++	struct ofdpa_flow_tbl_entry *entry;
++	int flags = 0;
++
++	if (!ofdpa_port_is_ovsed(ofdpa_port))
++		return -EINVAL;
++
++	entry = ofdpa_port_sw_flow_entry(ofdpa_port, trans, flow);
++	if (IS_ERR(entry))
++		return PTR_ERR(entry);
++
++	return ofdpa_flow_tbl_del(ofdpa_port, trans, flags, entry);
++}
++
++#else
++
++static int ofdpa_port_obj_sw_flow_add(struct rocker_port *rocker_port,
++				       const struct switchdev_obj_sw_flow *flow,
++				       struct switchdev_trans *trans) {
++	return -ENOTSUPP;
++}
++
++static int ofdpa_port_obj_sw_flow_del(struct rocker_port *rocker_port,
++				       const struct switchdev_obj_sw_flow *flow)
 +{
 +	return -ENOTSUPP;
 +}
 +
- #endif
- 
++#endif
++
  static int ofdpa_port_bridge_join(struct ofdpa_port *ofdpa_port,
-@@ -3207,6 +3290,7 @@ struct rocker_world_ops rocker_ofdpa_ops = {
+ 				  struct net_device *bridge)
+ {
+@@ -2946,6 +3205,8 @@ struct rocker_world_ops rocker_ofdpa_ops = {
+ 	.port_obj_fdb_add = ofdpa_port_obj_fdb_add,
+ 	.port_obj_fdb_del = ofdpa_port_obj_fdb_del,
  	.port_obj_fdb_dump = ofdpa_port_obj_fdb_dump,
- 	.port_obj_sw_flow_add = ofdpa_port_obj_sw_flow_add,
- 	.port_obj_sw_flow_del = ofdpa_port_obj_sw_flow_del,
-+	.port_obj_sw_flow_get_stats = ofdpa_port_obj_sw_flow_get_stats,
++	.port_obj_sw_flow_add = ofdpa_port_obj_sw_flow_add,
++	.port_obj_sw_flow_del = ofdpa_port_obj_sw_flow_del,
  	.port_master_linked = ofdpa_port_master_linked,
  	.port_master_unlinked = ofdpa_port_master_unlinked,
  	.port_neigh_update = ofdpa_port_neigh_update,
