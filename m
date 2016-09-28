@@ -1,137 +1,61 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCHv2 net 5/5] sctp: remove the old ttl expires policy
-Date: Wed, 28 Sep 2016 18:46:32 +0800
-Message-ID: <6cfcc552275974d6c37eee9b3d032377f8de54a1.1475059350.git.lucien.xin@gmail.com>
-References: <cover.1475059350.git.lucien.xin@gmail.com>
- <03a642a76d02e8536404aa27561c44e348f3e3a0.1475059350.git.lucien.xin@gmail.com>
- <ca37ab66bfd8b97078ff8e3645bc7c1e909396e8.1475059350.git.lucien.xin@gmail.com>
- <da30a54fd8b6674e6cf6f013a3633d59aaeea020.1475059350.git.lucien.xin@gmail.com>
- <7a83f44a517780fd7bc60caa49479fbc7e606936.1475059350.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:36646 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753050AbcI1Kq4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 06:46:56 -0400
-In-Reply-To: <7a83f44a517780fd7bc60caa49479fbc7e606936.1475059350.git.lucien.xin@gmail.com>
-In-Reply-To: <cover.1475059350.git.lucien.xin@gmail.com>
-References: <cover.1475059350.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: [PATCH v5] net: ip, diag -- Add diag interface for raw sockets
+Date: Wed, 28 Sep 2016 13:51:47 +0300
+Message-ID: <20160928105147.GV1876@uranus.lan>
+References: <20160928090357.GT1876@uranus.lan>
+ <caef7649-9d25-6429-eeab-96c027d6cbc2@mojatatu.com>
+ <20160928101726.GU1876@uranus.lan>
+ <8293413c-a81d-f7ff-24f0-8f58ce877116@mojatatu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, avagin@openvz.org, stephen@networkplumber.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <8293413c-a81d-f7ff-24f0-8f58ce877116@mojatatu.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The prsctp polices include ttl expires policy already, we should remove
-the old ttl expires codes, and just adjust the new polices' codes to be
-compatible with the old one for users.
+On Wed, Sep 28, 2016 at 06:43:01AM -0400, Jamal Hadi Salim wrote:
+...
+> > 
+> > Someone may have set it to zero explicitly on source level, and the
+> > compilation will fail on new kernel then. So no, keeping the name
+> > is reasonable.
+> > 
+> 
+> I dont know how compilation will fail but you may be right with note:
+> that is not how pads have been used in the past. They are supposed to
+> cosmetic annotation which indicates "here's a hole; use it in the
+> future if you are looking to add something". And someone in the
+> future can claim them. I am not sure if MBZ philosophy applies.
 
-This patch is to remove all the old expires codes, and if prsctp polices
-are not set, it will still set msg's expires_at and check the expires in
-sctp_check_abandoned.
+This structure is uapi, so anyone has complete rights to reference
+@pad in the userspace programs. Sure it would be more clear to remove
+the @pad completely, but if we choose so I think it's better to do
+on top instead and then if someone complain we can easily revert
+the single trivial commit instead of this big patch.
 
-Note that asoc->prsctp_enable is set by default, so users can't feel any
-difference even if they use the old expires api in userspace.
+> 
+> > > Should you not just rename it?
+> > > Also I notice when things like __raw_v4_lookup() are claiming it is unsigned
+> > > short instead of a u8?
+> > 
+> > The protocol is still up to 255 for a while, is it expected that IPPROTO_MAX
+> > will be increased in more-less near future? Of course I can drop the idea
+> > of using @pad here and switch to some extended reauest but prefer to stick
+> > with simplier solution. Hm?
+> > 
+> 
+> Ok. If i understood correctly it was already unsigned short before your
+> patch -so i agree it doesnt matter. Maybe just put a comment to express
+> that if ever protocol goes above 255 it wont be sufficient.
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- include/net/sctp/structs.h |  1 -
- net/sctp/chunk.c           | 32 ++++++++------------------------
- net/sctp/output.c          |  3 ---
- 3 files changed, 8 insertions(+), 28 deletions(-)
-
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 49a4d37..2463354 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -530,7 +530,6 @@ struct sctp_datamsg {
- 	/* Did the messenge fail to send? */
- 	int send_error;
- 	u8 send_failed:1,
--	   can_abandon:1,   /* can chunks from this message can be abandoned. */
- 	   can_delay;	    /* should this message be Nagle delayed */
- };
- 
-diff --git a/net/sctp/chunk.c b/net/sctp/chunk.c
-index 0a3dbec..8d366fc 100644
---- a/net/sctp/chunk.c
-+++ b/net/sctp/chunk.c
-@@ -52,7 +52,6 @@ static void sctp_datamsg_init(struct sctp_datamsg *msg)
- 	atomic_set(&msg->refcnt, 1);
- 	msg->send_failed = 0;
- 	msg->send_error = 0;
--	msg->can_abandon = 0;
- 	msg->can_delay = 1;
- 	msg->expires_at = 0;
- 	INIT_LIST_HEAD(&msg->chunks);
-@@ -169,20 +168,11 @@ struct sctp_datamsg *sctp_datamsg_from_user(struct sctp_association *asoc,
- 	/* Note: Calculate this outside of the loop, so that all fragments
- 	 * have the same expiration.
- 	 */
--	if (sinfo->sinfo_timetolive) {
--		/* sinfo_timetolive is in milliseconds */
-+	if (asoc->peer.prsctp_capable && sinfo->sinfo_timetolive &&
-+	    (SCTP_PR_TTL_ENABLED(sinfo->sinfo_flags) ||
-+	     !SCTP_PR_POLICY(sinfo->sinfo_flags)))
- 		msg->expires_at = jiffies +
- 				    msecs_to_jiffies(sinfo->sinfo_timetolive);
--		msg->can_abandon = 1;
--
--		pr_debug("%s: msg:%p expires_at:%ld jiffies:%ld\n", __func__,
--			 msg, msg->expires_at, jiffies);
--	}
--
--	if (asoc->peer.prsctp_capable &&
--	    SCTP_PR_TTL_ENABLED(sinfo->sinfo_flags))
--		msg->expires_at =
--			jiffies + msecs_to_jiffies(sinfo->sinfo_timetolive);
- 
- 	/* This is the biggest possible DATA chunk that can fit into
- 	 * the packet
-@@ -340,18 +330,8 @@ errout:
- /* Check whether this message has expired. */
- int sctp_chunk_abandoned(struct sctp_chunk *chunk)
- {
--	if (!chunk->asoc->peer.prsctp_capable ||
--	    !SCTP_PR_POLICY(chunk->sinfo.sinfo_flags)) {
--		struct sctp_datamsg *msg = chunk->msg;
--
--		if (!msg->can_abandon)
--			return 0;
--
--		if (time_after(jiffies, msg->expires_at))
--			return 1;
--
-+	if (!chunk->asoc->peer.prsctp_capable)
- 		return 0;
--	}
- 
- 	if (SCTP_PR_TTL_ENABLED(chunk->sinfo.sinfo_flags) &&
- 	    time_after(jiffies, chunk->msg->expires_at)) {
-@@ -364,6 +344,10 @@ int sctp_chunk_abandoned(struct sctp_chunk *chunk)
- 		   chunk->sent_count > chunk->sinfo.sinfo_timetolive) {
- 		chunk->asoc->abandoned_sent[SCTP_PR_INDEX(RTX)]++;
- 		return 1;
-+	} else if (!SCTP_PR_POLICY(chunk->sinfo.sinfo_flags) &&
-+		   chunk->msg->expires_at &&
-+		   time_after(jiffies, chunk->msg->expires_at)) {
-+		return 1;
- 	}
- 	/* PRIO policy is processed by sendmsg, not here */
- 
-diff --git a/net/sctp/output.c b/net/sctp/output.c
-index db01620..a5b8dad 100644
---- a/net/sctp/output.c
-+++ b/net/sctp/output.c
-@@ -868,9 +868,6 @@ static void sctp_packet_append_data(struct sctp_packet *packet,
- 		rwnd = 0;
- 
- 	asoc->peer.rwnd = rwnd;
--	/* Has been accepted for transmission. */
--	if (!asoc->peer.prsctp_capable)
--		chunk->msg->can_abandon = 0;
- 	sctp_chunk_assign_tsn(chunk);
- 	sctp_chunk_assign_ssn(chunk);
- }
--- 
-2.1.0
+If protocol goes over u8 then complete inet_diag_req_v2 structure will
+have to be reworked becaue @sdiag_protocol is u8 as well. IOW, once
+someone liftup IPPROTO_MAX > 255, he will notice the problem immediately
+because diag for such module simply stop working properly.
