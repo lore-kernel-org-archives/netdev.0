@@ -1,240 +1,119 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: [PATCH 3/3] [v2] net: qcom/emac: initial ACPI support
-Date: Wed, 28 Sep 2016 11:58:44 -0500
-Message-ID: <1475081924-12362-4-git-send-email-timur@codeaurora.org>
-References: <1475081924-12362-1-git-send-email-timur@codeaurora.org>
-To: netdev@vger.kernel.org, linaro-acpi@lists.linaro.org,
-        linux-arm-kernel@lists.infradead.org, shankerd@codeaurora.org,
-        vikrams@codeaurora.org, davem@davemloft.net
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH net-next] net/vxlan: Avoid unaligned access in
+ vxlan_build_skb()
+Date: Wed, 28 Sep 2016 13:03:46 -0400
+Message-ID: <20160928170346.GA9263@oracle.com>
+References: <20160920190929.57ddaeb0@griffin>
+ <20160922.015242.735026657310158125.davem@davemloft.net>
+ <20160922213010.GA32052@oracle.com>
+ <20160923.080618.678103827885223586.davem@davemloft.net>
+ <CAKgT0UcoDb5T9xwfAq83cNwU=XAKZxf0TmPiJZQyHFPr82zggg@mail.gmail.com>
+ <20160923172059.GB2484@oracle.com>
+ <CAKgT0UeB5n3g4f1v_2nenjcayAi=eOPFSC7132ihXTZOztHRkw@mail.gmail.com>
+ <20160923234134.GA6397@oracle.com>
+ <CAKgT0Uenb+D44D4g2SieNDf3+P_wnv2WYSBZ+NU_87e011PRjA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Netdev <netdev@vger.kernel.org>, sowmini.varadhan@oracle.com
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:53691 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932797AbcI1Q6v (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 12:58:51 -0400
-In-Reply-To: <1475081924-12362-1-git-send-email-timur@codeaurora.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:33729 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933039AbcI1RDy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 13:03:54 -0400
+Content-Disposition: inline
+In-Reply-To: <CAKgT0Uenb+D44D4g2SieNDf3+P_wnv2WYSBZ+NU_87e011PRjA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for reading addresses, interrupts, and _DSD properties
-from ACPI tables, just like with device tree.  The HID for the
-EMAC device itself is QCOM8070.  The internal PHY is represented
-by a child node with a HID of QCOM8071.
+On (09/23/16 17:43), Alexander Duyck wrote:
+> > On (09/23/16 10:38), Alexander Duyck wrote:
+          ;
+> >> almost think of it as us doing something like the inverse of
+> >> pskb_pull_tail.  The general idea here is we want to actually leave
+> >> the data in skb->data, but just reference it from frag[0] so that we
+> >> don't accidentally pull in the 2 byte padding for alignment when
+> >> transmitting the frame.
 
-The EMAC also has some complex clock initialization requirements
-that are not represented by this patch.  This will be addressed
-in a future patch.
+Some additional findings..
 
-Signed-off-by: Timur Tabi <timur@codeaurora.org>
----
- drivers/net/ethernet/qualcomm/emac/emac-phy.c   | 37 ++++++++++---
- drivers/net/ethernet/qualcomm/emac/emac-sgmii.c | 72 ++++++++++++++++++-------
- drivers/net/ethernet/qualcomm/emac/emac.c       | 12 +++++
- 3 files changed, 95 insertions(+), 26 deletions(-)
+Just to recap how we got here: for the Rx path, the inner packet has
+been set up as an ethernet frame with the IP header at an aligned address
+when it hits vxlan_build_skb.  But that means the (inner) mac address
+was offset by NET_IP_ALIGN so vxlan_build_skb needs to pad the data
+by NET_IP_ALIGN to make the vxh outer ip header align. 
 
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac-phy.c b/drivers/net/ethernet/qualcomm/emac/emac-phy.c
-index c412ba9..da4e90d 100644
---- a/drivers/net/ethernet/qualcomm/emac/emac-phy.c
-+++ b/drivers/net/ethernet/qualcomm/emac/emac-phy.c
-@@ -19,6 +19,7 @@
- #include <linux/of_mdio.h>
- #include <linux/phy.h>
- #include <linux/iopoll.h>
-+#include <linux/acpi.h>
- #include "emac.h"
- #include "emac-mac.h"
- #include "emac-phy.h"
-@@ -167,7 +168,6 @@ static int emac_mdio_write(struct mii_bus *bus, int addr, int regnum, u16 val)
- int emac_phy_config(struct platform_device *pdev, struct emac_adapter *adpt)
- {
- 	struct device_node *np = pdev->dev.of_node;
--	struct device_node *phy_np;
- 	struct mii_bus *mii_bus;
- 	int ret;
+Then we'd need to do something like the suggestion above (keep some
+pointers in frag[0]?  do the reverse of a pskb_expand_head to push out
+the inner ip header to the skb_frag_t?), to have the driver skip over the
+pad.. 
+
+I tried the following for a hack, and it takes care of the tx side
+unaligned access, though, clearly, the memmove needs to be avoided
+
+@@ -1750,10 +1825,38 @@ static int vxlan_build_skb(struct sk_buff *skb, struct d
+        if (err)
+                goto out_free;
  
-@@ -183,14 +183,37 @@ int emac_phy_config(struct platform_device *pdev, struct emac_adapter *adpt)
- 	mii_bus->parent = &pdev->dev;
- 	mii_bus->priv = adpt;
- 
--	ret = of_mdiobus_register(mii_bus, np);
--	if (ret) {
--		dev_err(&pdev->dev, "could not register mdio bus\n");
--		return ret;
-+	if (has_acpi_companion(&pdev->dev)) {
-+		u32 phy_addr;
 +
-+		ret = mdiobus_register(mii_bus);
-+		if (ret) {
-+			dev_err(&pdev->dev, "could not register mdio bus\n");
-+			return ret;
-+		}
-+		ret = device_property_read_u32(&pdev->dev, "phy-channel",
-+					       &phy_addr);
-+		if (ret)
-+			/* If we can't read a valid phy address, then assume
-+			 * that there is only one phy on this mdio bus.
-+			 */
-+			adpt->phydev = phy_find_first(mii_bus);
-+		else
-+			adpt->phydev = mdiobus_get_phy(mii_bus, phy_addr);
++#if (NET_IP_ALIGN != 0) 
++       {
++               unsigned char *data;
 +
-+	} else {
-+		struct device_node *phy_np;
-+
-+		ret = of_mdiobus_register(mii_bus, np);
-+		if (ret) {
-+			dev_err(&pdev->dev, "could not register mdio bus\n");
-+			return ret;
-+		}
-+
-+		phy_np = of_parse_phandle(np, "phy-handle", 0);
-+		adpt->phydev = of_phy_find_device(phy_np);
- 	}
- 
--	phy_np = of_parse_phandle(np, "phy-handle", 0);
--	adpt->phydev = of_phy_find_device(phy_np);
- 	if (!adpt->phydev) {
- 		dev_err(&pdev->dev, "could not find external phy\n");
- 		mdiobus_unregister(mii_bus);
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c b/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c
-index ad0e420..3d2c05a 100644
---- a/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c
-+++ b/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c
-@@ -14,6 +14,7 @@
-  */
- 
- #include <linux/iopoll.h>
-+#include <linux/acpi.h>
- #include <linux/of_device.h>
- #include "emac.h"
- #include "emac-mac.h"
-@@ -662,6 +663,24 @@ void emac_sgmii_reset(struct emac_adapter *adpt)
- 	clk_set_rate(adpt->clk[EMAC_CLK_HIGH_SPEED], 125000000);
- }
- 
-+static int emac_sgmii_acpi_match(struct device *dev, void *data)
-+{
-+	static const struct acpi_device_id match_table[] = {
-+		{
-+			.id = "QCOM8071",
-+			.driver_data = (kernel_ulong_t)emac_sgmii_init_v2,
-+		},
-+		{}
-+	};
-+	const struct acpi_device_id *id = acpi_match_device(match_table, dev);
-+	emac_sgmii_initialize *initialize = data;
-+
-+	if (id)
-+		*initialize = (emac_sgmii_initialize)id->driver_data;
-+
-+	return !!id;
-+}
-+
- static const struct of_device_id emac_sgmii_dt_match[] = {
- 	{
- 		.compatible = "qcom,fsm9900-emac-sgmii",
-@@ -679,30 +698,45 @@ int emac_sgmii_config(struct platform_device *pdev, struct emac_adapter *adpt)
- 	struct platform_device *sgmii_pdev = NULL;
- 	struct emac_phy *phy = &adpt->phy;
- 	struct resource *res;
--	const struct of_device_id *match;
--	struct device_node *np;
- 	int ret;
- 
--	np = of_parse_phandle(pdev->dev.of_node, "internal-phy", 0);
--	if (!np) {
--		dev_err(&pdev->dev, "missing internal-phy property\n");
--		return -ENODEV;
--	}
-+	if (has_acpi_companion(&pdev->dev)) {
-+		struct device *dev;
- 
--	sgmii_pdev = of_find_device_by_node(np);
--	if (!sgmii_pdev) {
--		dev_err(&pdev->dev, "invalid internal-phy property\n");
--		return -ENODEV;
--	}
-+		dev = device_find_child(&pdev->dev, &phy->initialize,
-+					emac_sgmii_acpi_match);
- 
--	match = of_match_device(emac_sgmii_dt_match, &sgmii_pdev->dev);
--	if (!match) {
--		dev_err(&pdev->dev, "unrecognized internal phy node\n");
--		ret = -ENODEV;
--		goto error_put_device;
--	}
-+		if (!dev) {
-+			dev_err(&pdev->dev, "cannot find internal phy node\n");
-+			return -ENODEV;
-+		}
- 
--	phy->initialize = (emac_sgmii_initialize)match->data;
-+		sgmii_pdev = to_platform_device(dev);
-+	} else {
-+		const struct of_device_id *match;
-+		struct device_node *np;
-+
-+		np = of_parse_phandle(pdev->dev.of_node, "internal-phy", 0);
-+		if (!np) {
-+			dev_err(&pdev->dev, "missing internal-phy property\n");
-+			return -ENODEV;
-+		}
-+
-+		sgmii_pdev = of_find_device_by_node(np);
-+		if (!sgmii_pdev) {
-+			dev_err(&pdev->dev, "invalid internal-phy property\n");
-+			return -ENODEV;
-+		}
-+
-+		match = of_match_device(emac_sgmii_dt_match, &sgmii_pdev->dev);
-+		if (!match) {
-+			dev_err(&pdev->dev, "unrecognized internal phy node\n");
-+			ret = -ENODEV;
-+			goto error_put_device;
-+		}
-+
-+		phy->initialize = (emac_sgmii_initialize)match->data;
-+	}
- 
- 	/* Base address is the first address */
- 	res = platform_get_resource(sgmii_pdev, IORESOURCE_MEM, 0);
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac.c b/drivers/net/ethernet/qualcomm/emac/emac.c
-index 551df1c..9bf3b2b 100644
---- a/drivers/net/ethernet/qualcomm/emac/emac.c
-+++ b/drivers/net/ethernet/qualcomm/emac/emac.c
-@@ -22,6 +22,7 @@
- #include <linux/of_device.h>
- #include <linux/phy.h>
- #include <linux/platform_device.h>
-+#include <linux/acpi.h>
- #include "emac.h"
- #include "emac-mac.h"
- #include "emac-phy.h"
-@@ -575,6 +576,16 @@ static const struct of_device_id emac_dt_match[] = {
- 	{}
- };
- 
-+#if IS_ENABLED(CONFIG_ACPI)
-+static const struct acpi_device_id emac_acpi_match[] = {
-+	{
-+		.id = "QCOM8070",
-+	},
-+	{}
-+};
-+MODULE_DEVICE_TABLE(acpi, emac_acpi_match);
++               /* inner packet is an ethernet frame that was set up
++                * so that the IP header is aligned. But that means the
++                * mac address was offset by NET_IP_ALIGN, so we need
++                * to move things up so that the vxh and outer ip header
++                * are now aligned
++                * XXX The Alexander Duyck idea was to only do the
++                * extra __skb_push() for NET_IP_ALIGN, and avoid the
++                * extram memmove and ->inner* adjustments. Plus keep
++                * additional pointers in frag[0] and have the driver pick
++                * up pointers from frag[0] .. need to investigate
++                * that suggestion further.
++                */
++               data = skb->data;
++               skb->data -= NET_IP_ALIGN;
++               memmove(skb->data, data, skb_headlen(skb));
++               skb->inner_network_header -= NET_IP_ALIGN;
++               skb->inner_mac_header -= NET_IP_ALIGN;
++               skb->inner_transport_header -= NET_IP_ALIGN;
++       }
 +#endif
-+
- static int emac_probe(struct platform_device *pdev)
- {
- 	struct net_device *netdev;
-@@ -734,6 +745,7 @@ static struct platform_driver emac_platform_driver = {
- 	.driver = {
- 		.name		= "qcom-emac",
- 		.of_match_table = emac_dt_match,
-+		.acpi_match_table = ACPI_PTR(emac_acpi_match),
- 	},
- };
+        vxh = (struct vxlanhdr *) __skb_push(skb, sizeof(*vxh));
+        vxh->vx_flags = VXLAN_HF_VNI;
+        vxh->vx_vni = vxlan_vni_field(vni);
+
+In the general case (when the skb passed to vxlan_build_skb is already
+non-linear), wouldn't we end up having to shift all the frags by 1 and/or
+do some type of memory copy of the inner packet? However, I think
+there are some clever things we can do in general, to avoid the memmove..
+
+I also looked at the Rx path. Here the suggestion was:
+"we should only pull the outer headers from the page frag, and then
+ when the time is right we drop the outer headers and pull the inner
+ headers from the page frag.  That way we can keep all the headers
+ aligned."
+I hacked up ixgbe_add_rx_frag to always only create nonlinear skb's, 
+i.e., always avoid the
+   memcpy(__skb_put(skb, size), va, ALIGN(size, sizeof(long)));
+and then I end up with 
+- ixgbe_clean_rx_irq copies outer header ether/ip/udp headers
+  into linear part as needed, 
+- then udp_gro_receive -> vxlan_gro_receive pulls up vxlan header
+  into linear part, and then..
+- eth_gro_receive pulls up another 34 bytes for the eth + ip header.
+  This last pull ends up being unaligned. 
+I dont know if we can safely drop the outer ip headers at this point
+(have not tried this yet, and I'm not sure we can do this in all udp
+encaps cases..)
+
+one other possibility is to set up the inner frame as part of the 
+->frag_list (note, this is *not* skb_frag_t). I suspect that is going
+to cause other inefficiencies.
+
+but, as tom has been saying all along, a big part of this problem is that
+we are tripping up on the ethernet header in the middle of an
+IP packet. Unfortunately I dont think the ietf is going to agree
+to never ever do that, so I'm not sure we can win that architectural battle.
  
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
