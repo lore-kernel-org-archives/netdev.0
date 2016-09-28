@@ -1,54 +1,27 @@
-From: Liping Zhang <zlpnobody@gmail.com>
-Subject: Re: [PATCH nf-next v2 1/2] netfilter: Fix potential null pointer dereference
-Date: Wed, 28 Sep 2016 11:13:07 +0800
-Message-ID: <CAML_gOeqjO--cPu=vt+ed14NqXP1uU41J0RDg5Up7xM79SCWjQ@mail.gmail.com>
-References: <1474983515-4115-1-git-send-email-aconole@bytheb.org>
- <1474983515-4115-2-git-send-email-aconole@bytheb.org> <CA+6hz4q_Fjc7mVZq7RG+RnioXFnD0w8Ows0AqwEy-5CJ7zg0yQ@mail.gmail.com>
- <CAML_gOeTZhaWXffe0UqXRP_e=-+1vCs_z9ynrG7XJeUnmOs-6A@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next v2 0/4][pull request] 1GbE Intel Wired LAN Driver
+ Updates 2016-09-27
+Date: Tue, 27 Sep 2016 23:22:43 -0400 (EDT)
+Message-ID: <20160927.232243.1943185478831072874.davem@davemloft.net>
+References: <1475028301-122700-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Aaron Conole <aconole@bytheb.org>,
-        Netfilter Developer Mailing List
-        <netfilter-devel@vger.kernel.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Florian Westphal <fw@strlen.de>,
-        Pablo Neira Ayuso <pablo@netfilter.org>
-To: Feng Gao <gfree.wind@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <CAML_gOeTZhaWXffe0UqXRP_e=-+1vCs_z9ynrG7XJeUnmOs-6A@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, guru.anbalagane@oracle.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56564 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752183AbcI1DXP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 23:23:15 -0400
+In-Reply-To: <1475028301-122700-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2016-09-28 11:08 GMT+08:00 Liping Zhang <zlpnobody@gmail.com>:
-> Hi Feng,
->
-> 2016-09-28 9:23 GMT+08:00 Feng Gao <gfree.wind@gmail.com>:
->> Hi Aaraon,
->>
->> On Tue, Sep 27, 2016 at 9:38 PM, Aaron Conole <aconole@bytheb.org> wrote:
->>> It's possible for nf_hook_entry_head to return NULL if two
->>> nf_unregister_net_hook calls happen simultaneously with a single hook
->>
->> The critical region of nf_unregister_net_hook is protected by &nf_hook_mutex.
->> When it would be called simultaneously?
->
-> This is unrelated to race condition.
->
-> Suppose that only the last nf_hook_entry exist, and two callers want to do
-> un-register work.
->
-> The first one will remove it successfully, after the end of the work, the
-> second one will enter the critical section, but it will see the NULL pointer.
-> Because the last nf_hook_entry was already removed by the first one.
->
->>
->> Regards
->> Feng
->>
->>> entry in the list.  This fix ensures that no null pointer dereference
->>> could occur when such a race happens.
->>>
->>> Signed-off-by: Aaron Conole <aconole@bytheb.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue, 27 Sep 2016 19:04:57 -0700
 
-I read the commit log again, I think the description here is a
-little confusing indeed.
+> This series contains updates to igb and igbvf.
+
+Pulled, thanks Jeff.
