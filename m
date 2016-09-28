@@ -1,30 +1,32 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCHv2 net 0/5] sctp: some fixes of prsctp polices
-Date: Thu, 29 Sep 2016 00:29:30 +0800
-Message-ID: <CADvbK_fAgk3hvEaR4zZjuH_ch9AbLkM3pSk_B7bHGmrpnsZRvQ@mail.gmail.com>
-References: <cover.1475059350.git.lucien.xin@gmail.com> <20160928.081303.661512609700070565.davem@davemloft.net>
- <CADvbK_eKrZaGf0uDsCBdkWCw9e51W-HVL=_WLsR4RaSKjNmqqA@mail.gmail.com> <20160928.111716.1982951742537758888.davem@davemloft.net>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: Re: ISDN-Gigaset: Fine-tuning for three function implementations
+Date: Wed, 28 Sep 2016 18:50:11 +0200
+Message-ID: <15e9e3f5-ef06-fb3d-4d6a-3df9c0378a2b@users.sourceforge.net>
+References: <566ABCD9.1060404@users.sourceforge.net>
+ <6d4bbb77-914f-19b8-a1a9-2731d1158612@users.sourceforge.net>
+ <1475063766.16606.39.camel@tiscali.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Vladislav Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f181.google.com ([209.85.220.181]:35426 "EHLO
-        mail-qk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932916AbcI1Q3b (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 12:29:31 -0400
-In-Reply-To: <20160928.111716.1982951742537758888.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
+        Karsten Keil <isdn@linux-pingi.de>,
+        LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org,
+        Julia Lawall <julia.lawall@lip6.fr>
+To: Paul Bolle <pebolle@tiscali.nl>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1475063766.16606.39.camel@tiscali.nl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->
-> That doesn't matter.  This happens all the time.
->
-> The way you handle this is you submit patch #1 targetting 'net' and
-> wait for it to get into 'net' and propagate into 'net-next'.  When
-> that happens you can submit patches #2-5 as a second patch series
-> targetting 'net-next'.
+> Two of the five patches introduced bugs. The rest of the series isn't
+> free of various nits either. Of course, I was in no mood to be lenient
+> when I looked at those three patches.
+> 
+> I won't take any of these patches, sorry.
 
-Thanks, will reorganize them.
+Would you like to look once more into an improved patch series for this
+software module a bit later?
+
+Regards,
+Markus
