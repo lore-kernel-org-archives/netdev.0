@@ -1,169 +1,44 @@
-From: "Neftin, Sasha" <sasha.neftin@intel.com>
-Subject: RE: [net-next 5/5] PCI: disable FLR for 82579 device
-Date: Wed, 28 Sep 2016 15:33:52 +0000
-Message-ID: <630A6B92B7EDEB45A87E20D3D286660153E14465@hasmsx109.ger.corp.intel.com>
-References: <1474612741-75681-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1474612741-75681-6-git-send-email-jeffrey.t.kirsher@intel.com>
- <20160923140136.GC1514@localhost> <1474664726.2389.7.camel@intel.com>
- <176f2366-e225-75fb-8cad-909a8f7e808c@intel.com>
- <20160927181702.GA7275@localhost> <20160927131335.2edd72cb@t450s.home>
- <CAKgT0UczaC-5z9GB74xhU11iWLu5_n75najKzBZcvk1T3C16Og@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Bjorn Helgaas <helgaas@kernel.org>,
-        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        "Bjorn Helgaas" <bhelgaas@google.com>,
-        Netdev <netdev@vger.kernel.org>,
-        Neil Horman <nhorman@redhat.com>,
-        "sassmann@redhat.com" <sassmann@redhat.com>,
-        "John Greene" <jogreene@redhat.com>,
-        "guru.anbalagane@oracle.com" <guru.anbalagane@oracle.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>,
-        Alex Williamson <alex.williamson@redhat.com>,
-        "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-        "Ruinskiy, Dima" <dima.ruinskiy@intel.com>,
-        "Avargil, Raanan" <raanan.avargil@intel.com>,
-        "Neftin, Sasha" <sasha.neftin@intel.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <CAKgT0UczaC-5z9GB74xhU11iWLu5_n75najKzBZcvk1T3C16Og@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
+From: Aaron Conole <aconole@bytheb.org>
+Subject: [PATCH nf-next v4 1/2] netfilter: Fix potential null pointer dereference
+Date: Wed, 28 Sep 2016 11:35:14 -0400
+Message-ID: <1475076915-5920-2-git-send-email-aconole@bytheb.org>
+References: <1475076915-5920-1-git-send-email-aconole@bytheb.org>
+Cc: Florian Westphal <fw@strlen.de>,
+        Pablo Neira Ayuso <pablo@netfilter.org>
+To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1475076915-5920-1-git-send-email-aconole@bytheb.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-DQpTaW5jZSBJIHdvcmtlZCB3aXRoIFNhc2hhIG9uIHRoaXMgSSB3aWxsIHByb3ZpZGUgYSBiaXQg
-b2YgaW5mb3JtYXRpb24gZnJvbSB3aGF0IEkgdW5kZXJzdGFuZCBvZiB0aGlzIGJ1ZyBhcyB3ZWxs
-Lg0KDQpPbiBUdWUsIFNlcCAyNywgMjAxNiBhdCAxMjoxMyBQTSwgQWxleCBXaWxsaWFtc29uIDxh
-bGV4LndpbGxpYW1zb25AcmVkaGF0LmNvbT4gd3JvdGU6DQo+IE9uIFR1ZSwgMjcgU2VwIDIwMTYg
-MTM6MTc6MDIgLTA1MDANCj4gQmpvcm4gSGVsZ2FhcyA8aGVsZ2Fhc0BrZXJuZWwub3JnPiB3cm90
-ZToNCj4NCj4+IE9uIFN1biwgU2VwIDI1LCAyMDE2IGF0IDEwOjAyOjQzQU0gKzAzMDAsIE5lZnRp
-biwgU2FzaGEgd3JvdGU6DQo+PiA+IE9uIDkvMjQvMjAxNiAxMjowNSBBTSwgSmVmZiBLaXJzaGVy
-IHdyb3RlOg0KPj4gPiA+T24gRnJpLCAyMDE2LTA5LTIzIGF0IDA5OjAxIC0wNTAwLCBCam9ybiBI
-ZWxnYWFzIHdyb3RlOg0KPj4gPiA+Pk9uIFRodSwgU2VwIDIyLCAyMDE2IGF0IDExOjM5OjAxUE0g
-LTA3MDAsIEplZmYgS2lyc2hlciB3cm90ZToNCj4+ID4gPj4+RnJvbTogU2FzaGEgTmVmdGluIDxz
-YXNoYS5uZWZ0aW5AaW50ZWwuY29tPg0KPj4gPiA+Pj4NCj4+ID4gPj4+ODI1NzkgaGFzIGEgcHJv
-YmxlbSByZWF0dGFjaGluZyBpdHNlbGYgYWZ0ZXIgdGhlIGRldmljZSBpcyBkZXRhY2hlZC4NCj4+
-ID4gPj4+VGhlIGJ1ZyB3YXMgcmVwb3J0ZWQgYnkgUmVkaGF0LiBUaGUgc3VnZ2VzdGVkIGZpeCBp
-cyB0byBkaXNhYmxlIA0KPj4gPiA+Pj5GTFIgY2FwYWJpbGl0eSBpbiBQQ0llIGNvbmZpZ3VyYXRp
-b24gc3BhY2UuDQo+PiA+ID4+Pg0KPj4gPiA+Pj5SZXByb2R1Y3Rpb246DQo+PiA+ID4+PkF0dGFj
-aCB0aGUgZGV2aWNlIHRvIGEgVk0sIHRoZW4gZGV0YWNoIGFuZCB0cnkgdG8gYXR0YWNoIGFnYWlu
-Lg0KPj4gPiA+Pj4NCj4+ID4gPj4+Rml4Og0KPj4gPiA+Pj5EaXNhYmxlIEZMUiBjYXBhYmlsaXR5
-IHRvIHByZXZlbnQgdGhlIDgyNTc5IGZyb20gaGFuZ2luZy4NCj4+ID4gPj5JcyB0aGVyZSBhIGJ1
-Z3ppbGxhIG9yIG90aGVyIHJlZmVyZW5jZSBVUkwgdG8gaW5jbHVkZSBoZXJlPyAgDQo+PiA+ID4+
-U2hvdWxkIHRoaXMgYmUgbWFya2VkIGZvciBzdGFibGU/DQo+PiA+ID5TbyB0aGUgYXV0aG9yIGlz
-IGluIElzcmFlbCwgbWVhbmluZyBpdCBpcyB0aGVpciB3ZWVrZW5kIG5vdy4gIEkgZG8gDQo+PiA+
-ID5ub3QgYmVsaWV2ZSBTYXNoYSBtb25pdG9ycyBlbWFpbCBvdmVyIHRoZSB3ZWVrZW5kLCBzbyBh
-IHJlc3BvbnNlIA0KPj4gPiA+dG8geW91ciBxdWVzdGlvbnMgd29uJ3QgaGFwcGVuIGZvciBhIGZl
-dyBkYXlzLg0KPj4gPiA+DQo+PiA+ID5JIHRyaWVkIHNlYXJjaGluZyBteSBhcmNoaXZlcyBmb3Ig
-bW9yZSBpbmZvcm1hdGlvbiwgYnV0IGhhZCBubyANCj4+ID4gPmx1Y2sgZmluZGluZyBhbnkgYWRk
-aXRpb25hbCBpbmZvcm1hdGlvbi4NCj4+ID4gPg0KDQpJIGFncmVlIHRoYXQgd2UgZG8gcHJvYmFi
-bHkgbmVlZCB0byB1cGRhdGUgdGhlIHBhdGNoIGRlc2NyaXB0aW9uIHNpbmNlIGl0IGlzbid0IGV4
-YWN0bHkgY2xlYXIgd2hhdCB0aGlzIGlzIGZpeGluZyBvciB3aGF0IHdhcyBhY3R1YWxseSBicm9r
-ZW4uDQoNCj4+ID4gPj4+U2lnbmVkLW9mZi1ieTogU2FzaGEgTmVmdGluIDxzYXNoYS5uZWZ0aW5A
-aW50ZWwuY29tPg0KPj4gPiA+Pj5UZXN0ZWQtYnk6IEFhcm9uIEJyb3duIDxhYXJvbi5mLmJyb3du
-QGludGVsLmNvbT4NCj4+ID4gPj4+U2lnbmVkLW9mZi1ieTogSmVmZiBLaXJzaGVyIDxqZWZmcmV5
-LnQua2lyc2hlckBpbnRlbC5jb20+DQo+PiA+ID4+Pi0tLQ0KPj4gPiA+Pj4gIGRyaXZlcnMvcGNp
-L3F1aXJrcy5jIHwgMjEgKysrKysrKysrKysrKysrKysrKysrDQo+PiA+ID4+PiAgMSBmaWxlIGNo
-YW5nZWQsIDIxIGluc2VydGlvbnMoKykNCj4+ID4gPj4+DQo+PiA+ID4+PmRpZmYgLS1naXQgYS9k
-cml2ZXJzL3BjaS9xdWlya3MuYyBiL2RyaXZlcnMvcGNpL3F1aXJrcy5jIGluZGV4IA0KPj4gPiA+
-Pj40NGUwZmYzLi41OWZiYTZlIDEwMDY0NA0KPj4gPiA+Pj4tLS0gYS9kcml2ZXJzL3BjaS9xdWly
-a3MuYw0KPj4gPiA+Pj4rKysgYi9kcml2ZXJzL3BjaS9xdWlya3MuYw0KPj4gPiA+Pj5AQCAtNDQz
-MSwzICs0NDMxLDI0IEBAIHN0YXRpYyB2b2lkIHF1aXJrX2ludGVsX3FhdF92Zl9jYXAoc3RydWN0
-IA0KPj4gPiA+Pj5wY2lfZGV2ICpwZGV2KQ0KPj4gPiA+Pj4gICAgICAgICB9DQo+PiA+ID4+PiAg
-fQ0KPj4gPiA+Pj4gIERFQ0xBUkVfUENJX0ZJWFVQX0VBUkxZKFBDSV9WRU5ET1JfSURfSU5URUws
-IDB4NDQzLCANCj4+ID4gPj4+cXVpcmtfaW50ZWxfcWF0X3ZmX2NhcCk7DQo+PiA+ID4+PisvKg0K
-Pj4gPiA+Pj4rICogV29ya2Fyb3VuZCBGTFIgaXNzdWVzIGZvciA4MjU3OQ0KPj4gPiA+Pj4rICog
-VGhpcyBjb2RlIGRpc2FibGVzIHRoZSBGTFIgKEZ1bmN0aW9uIExldmVsIFJlc2V0KSB2aWEgUENJ
-ZSwgDQo+PiA+ID4+Pitpbg0KPj4gPiA+Pj5vcmRlcg0KPj4gPiA+Pj4rICogdG8gd29ya2Fyb3Vu
-ZCBhIGJ1ZyBmb3VuZCB3aGlsZSB1c2luZyBkZXZpY2UgcGFzc3Rocm91Z2gsIA0KPj4gPiA+Pj4r
-IHdoZXJlIHRoZQ0KPj4gPiA+Pj4rICogaW50ZXJmYWNlIHdvdWxkIGJlY29tZSBub24tcmVzcG9u
-c2l2ZS4NCj4+ID4gPj4+KyAqIE5PVEU6IHRoZSBGTFIgYml0IGlzIFJlYWQvV3JpdGUgT25jZSAo
-UldPKSBpbiBjb25maWcgc3BhY2UsIA0KPj4gPiA+Pj4rIHNvIGlmDQo+PiA+ID4+PisgKiB0aGUg
-QklPUyBvciBrZXJuZWwgd3JpdGVzIHRoaXMgcmVnaXN0ZXIgKiB0aGVuIHRoaXMgDQo+PiA+ID4+
-Pisgd29ya2Fyb3VuZCB3aWxsDQo+PiA+ID4+PisgKiBub3Qgd29yay4NCj4+ID4gPj5UaGlzIGRv
-ZXNuJ3Qgc291bmQgbGlrZSBhIHJvb3QgY2F1c2UuICBJcyB0aGUgaXNzdWUgYSBoYXJkd2FyZSAN
-Cj4+ID4gPj5lcnJhdHVtPyAgTGludXggUENJIGNvcmUgYnVnPyAgVkZJTyBidWc/ICBEZXZpY2Ug
-ZmlybXdhcmUgYnVnPw0KPj4gPiA+Pg0KPj4gPiA+PlRoZSBjaGFuZ2Vsb2cgc3VnZ2VzdHMgdGhh
-dCB0aGUgcHJvYmxlbSBvbmx5IGFmZmVjdHMgcGFzc3Rocm91Z2gsIA0KPj4gPiA+PndoaWNoIHN1
-Z2dlc3RzIHNvbWUgc29ydCBvZiBrZXJuZWwgYnVnIHJlbGF0ZWQgdG8gaG93IHBhc3N0aHJvdWdo
-IA0KPj4gPiA+PmlzIGltcGxlbWVudGVkLg0KPj4NCj4+IElmIHRoaXMgYnVnIGFmZmVjdHMgYWxs
-IHNjZW5hcmlvcywgbm90IGp1c3QgcGFzc3Rocm91Z2gsIHRoZSANCj4+IGNoYW5nZWxvZyBzaG91
-bGQgbm90IG1lbnRpb24gcGFzc3Rocm91Z2guDQo+Pg0KPj4gPiA+Pj4rICovDQo+PiA+ID4+Pitz
-dGF0aWMgdm9pZCBxdWlya19pbnRlbF9mbHJfY2FwX2RpcyhzdHJ1Y3QgcGNpX2RldiAqZGV2KSB7
-DQo+PiA+ID4+PisgICAgICAgIGludCBwb3MgPSBwY2lfZmluZF9jYXBhYmlsaXR5KGRldiwgUENJ
-X0NBUF9JRF9BRik7DQo+PiA+ID4+PisgICAgICAgIGlmIChwb3MpIHsNCj4+ID4gPj4+KyAgICAg
-ICAgICAgICAgICB1OCBjYXA7DQo+PiA+ID4+PisgICAgICAgICAgICAgICAgcGNpX3JlYWRfY29u
-ZmlnX2J5dGUoZGV2LCBwb3MgKyBQQ0lfQUZfQ0FQLCAmY2FwKTsNCj4+ID4gPj4+KyAgICAgICAg
-ICAgICAgICBjYXAgPSBjYXAgJiAoflBDSV9BRl9DQVBfRkxSKTsNCj4+ID4gPj4+KyAgICAgICAg
-ICAgICAgICBwY2lfd3JpdGVfY29uZmlnX2J5dGUoZGV2LCBwb3MgKyBQQ0lfQUZfQ0FQLCBjYXAp
-Ow0KPj4gPiA+Pj4rICAgICAgICB9DQo+PiA+ID4+Pit9DQo+PiA+ID4+PitERUNMQVJFX1BDSV9G
-SVhVUF9FQVJMWShQQ0lfVkVORE9SX0lEX0lOVEVMLCAweDE1MDIsDQo+PiA+ID4+PnF1aXJrX2lu
-dGVsX2Zscl9jYXBfZGlzKTsNCj4+ID4gPj4+K0RFQ0xBUkVfUENJX0ZJWFVQX0VBUkxZKFBDSV9W
-RU5ET1JfSURfSU5URUwsIDB4MTUwMywNCj4+ID4gPj4+cXVpcmtfaW50ZWxfZmxyX2NhcF9kaXMp
-Ow0KPj4gPiA+Pj4tLQ0KPj4gPiA+Pj4yLjcuNA0KPj4gPiA+Pj4NCj4+ID4gPj4+LS0NCj4+ID4g
-Pj4+VG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2Ny
-aWJlIA0KPj4gPiA+Pj5saW51eC1wY2kiIGluIHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpv
-cmRvbW9Admdlci5rZXJuZWwub3JnIA0KPj4gPiA+Pj5Nb3JlIG1ham9yZG9tbyBpbmZvIGF0ICAN
-Cj4+ID4gPj4+aHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1sDQo+PiA+
-DQo+PiA+IEhlbGxvLA0KPj4gPg0KPj4gPiBPcmlnaW5hbCBidWd6aWxsYSB0aHJlYWQgY291bGQg
-YmUgZm91bmQgaGVyZToNCj4+ID4gaHR0cHM6Ly9idWd6aWxsYS5yZWRoYXQuY29tL3Nob3dfYnVn
-LmNnaT9mb3JtYXQ9bXVsdGlwbGUmaWQ9OTY2ODQwDQo+Pg0KPj4gVGhhdCBidWd6aWxsYSBpcyBw
-cml2YXRlIGFuZCBJIGNhbid0IHJlYWQgaXQuDQo+DQo+IEhtbSwgSSBjYW4sIGJ1dCBJIGRvbid0
-IHNlZSBhbnl0aGluZyBpbiBpdCB0aGF0IHN1cHBvcnRzIHRoaXMuICBJcyANCj4gdGhhdCByZWFs
-bHkgdGhlIHJpZ2h0IGJ6PyAgSXQncyB0aGUgcmlnaHQgaGFyZHdhcmUsIGJ1dCBoYXMgYWxsIHNv
-cnRzIA0KPiBvZiBGVUQgYWJvdXQgdGhlIHZlcnNpb24gb2YgdmFyaW91cyBvdGhlciBjb21wb25l
-bnRzIGluIHRoZSBzdGFjay4NCg0KSXQgbG9va3MgbGlrZSB3ZSBoYWQgYSBsb2NhbCBjb3B5IG9m
-IHRoZSBidWd6aWxsYSBzYXZlZCBoZXJlLCB0aG91Z2ggaXQgb25seSBnb2VzIHVwIHRvIGNvbW1l
-bnQgMTMgd2hpY2ggaXMgd2hlcmUgSSB0aGluayB3ZSBzdGFydGVkIHdvcmtpbmcgdGhpcyBvbiBv
-dXIgc2lkZS4gIEkgYmVsaWV2ZSB3aGF0IHRoaXMgcGF0Y2ggaXMgYXR0ZW1wdGluZyB0byByZXNv
-bHZlIGlzIHJlbGF0ZWQgdG8gY29tbWVudCA4IHdoZXJlIHRoZSBkcml2ZXIgcmV0dXJuZWQgInBy
-b2JlIG9mDQowMDAwOjAwOjE5LjAgZmFpbGVkIHdpdGggZXJyb3Ig4oCQMiIgaW5zdGVhZCBvZiBj
-b3JyZWN0bHkgcHJvYmluZyB0aGUgaW50ZXJmYWNlLg0KDQpTbyB0aGUgYnVnIGFzIHJlcG9ydGVk
-IHdhcyB0aGF0IGUxMDAwZSBoYWQgYSBwcm9ibGVtIHJlYXR0YWNoaW5nIGl0c2VsZiB0byB0aGUg
-UEhZIGFmdGVyIGl0IHdhcyBhdHRhY2hlZCB0byBhIFZNLiAgU2FzaGEsIHBsZWFzZSBmZWVsIGZy
-ZWUgdG8gY29ycmVjdCBtZSBpZiBJIGhhdmUgdGhpcyBiaXQgd3JvbmcuICBJIGhhZCBiZWVuIHRv
-bGQgdGhlIHByb2JsZW0gd2FzIHRoZSBGTFIgZnVuY3Rpb25hbGl0eSB3YXNuJ3QgZnVsbHkgaW1w
-bGVtZW50ZWQgc28gdGhhdCB3YXMgd2h5IHRoZXkgd2VyZSB3YW50aW5nIHRvIGRlZmVhdHVyZSBp
-dC4gIEkgaGFkIGFzc3VtZWQgdGhhdCB0aGVyZSB3YXMgc3VwcG9ydCBmb3IgYSByZXNldCBvbiBE
-MC0+RDMtPkQwLCBidXQgSSBqdXN0IHJlYWxpemVkIHRoYXQgcHJvYmFibHkgaXNuJ3QgdGhlIGNh
-c2Ugc2luY2UgaXQgbG9va3MgbGlrZSBteSBsb2NhbCBzeXN0ZW0gc2V0cyB0aGUgTm9Tb2Z0UlNU
-IGJpdC4NCg0KPj4gPiBUaGlzIGlzIG91ciBIVyBidWcsIGV4aXN0IG9ubHkgaW4gODI1NzkgZGV2
-aWNlcy4gTW9yZSBuZXcgZGV2aWNlcyANCj4+ID4gaGF2ZSBubyBzdWNoIHByb2JsZW0uIFdlIGhh
-dmUgZm91bmQgcm9vdCBjYXVzZSBhbmQgc3VnZ2VzdGVkIHRoaXMgDQo+PiA+IHNvbHV0aW9uLg0K
-Pj4NCj4+IElzIHRoZXJlIGFuIGVycmF0dW0geW91IGNhbiByZWZlcmVuY2U/DQo+Pg0KPj4gPiBU
-aGlzIHNvbHV0aW9uIHNob3VsZCB3b3JrIGZvciBhIDk1JSBvZiBjYXNlcywgc28gSSBkbyBub3Qg
-dGhpbmsgDQo+PiA+IHRoYXQgdGhpcyBpcyBmcmFnaWxlLiBGb3IgYW5vdGhlciBjYXNlcyBwb3Nz
-aWJsZSBzb2x1dGlvbiBpcyBnZXQgdXAgDQo+PiA+IHdvcmtpbmcgc3lzdGVtIGFuZCBtYW51YWxs
-eSBkaXNhYmxlIEZMUiwgYmVmb3JlIFZNIHN0YXJ0IHVzZSBvdXIgDQo+PiA+IGFkYXB0ZXIuDQo+
-Pg0KPj4gSSBkb24ndCB0aGluayBhIDk1JSBzb2x1dGlvbiBpcyBzdWZmaWNpZW50LiAgQ2FuIHlv
-dSB1c2UgdGhlDQo+PiBwY2lfZGV2X3NwZWNpZmljX3Jlc2V0KCkgZnJhbWV3b3JrIHRvIG1ha2Ug
-YSAxMDAlIHNvbHV0aW9uPw0KDQpJIGNhbiB0cnkgd29ya2luZyB3aXRoIFNhc2hhIG9uIHRoaXMg
-dG8gc2VlIHdoYXQgd2UgY2FuIGRvLg0KDQo+IFJpZ2h0LCBwbHVzIHdoZW4gdGhpcyBkb2VzIHdv
-cmsgSSBzdXNwZWN0IGl0IHJlbW92ZXMgdGhlIG9uZSBtZWNoYW5pc20gDQo+IHdlIGhhdmUgdG8g
-cmVzZXQgdGhlIGRldmljZSwgd2hpY2ggZGVwZW5kaW5nIG9uIGhvdyBvYnNjdXJlIHRoZSANCj4g
-ZmFpbHVyZSBzY2VuYXJpbyBpcywgaXNuJ3QgYSBjbGVhciBjdXQgaW1wcm92ZW1lbnQgZm9yIGRl
-dmljZSBhc3NpZ25tZW50Lg0KPiBUaGFua3MsDQo+DQo+IEFsZXgNCg0KSSdsbCB3b3JrIHdpdGgg
-U2FzaGEgdG8gc2VlIHdoYXQgd2UgY2FuIGRvLiAgT2RkcyBhcmUgdGhlcmUgaXMgc29tZSBzb3J0
-IG9mIHByb2JsZW0gYmV0d2VlbiB0aGUgTUFDL1BIWSB0aGF0IG5lZWRzIHRvIGJlIHJlc29sdmVk
-IHdoZW4gd2UgcGVyZm9ybSB0aGUgZnVuY3Rpb24gbGV2ZWwgcmVzZXQgc28gd2Ugd2lsbCBwcm9i
-YWJseSBuZWVkIHRvIGFkZCBjb2RlIHNvIHRoYXQgd2UgcmVzZXQgdGhlIHBhcnQgYW5kIHJlLWVz
-dGFibGlzaCB0aGUgbGluayB3aXRoIHRoZSBQSFkgYWZ0ZXIgdGhlIHJlc2V0Lg0KDQotIEFsZXgN
-Cg0KDQpIZWxsbywNCkkgd291bGQgbGlrZSBjbGFyaWZ5IGEgZmV3IHBvaW50cy4NCg0KMS4gODI1
-NzkgY2xpZW50IGRldmljZXMgZG8gbm90IHN1cHBvcnQgZnVuY3Rpb25hbCBsZXZlbCByZXNldCAo
-RkxSKS4gVW5mb3J0dW5hdGVseSwgaXQgYWR2ZXJ0aXNlcyBGTFIgY2FwYWJpbGl0eSAtICB0aGlz
-IGlzIGEgYnVnLiBTbywgd2hlbiBWTSBzb2Z0d2FyZSBldmVuIGFjY2lkZW50YWxseSB0cmllcyB0
-byBhY2Nlc3MgRkxSLCB0aGF0IGNhdXNlcyBvdXIgZGV2aWNlIHRvIGhhbmcuIFRvIGVsaW1pbmF0
-ZSB0aGlzIHByb2JsZW0gd2UgZGVjaWRlZCB0byBkaXNhYmxlIEZMUiB2aWEgZHJpdmVycy9wY2kv
-cXVpcmtzLmMgDQpJbiBwcmV2aW91cyBlLW1haWwgSSB3cm90ZSB0aGF0IHRoZSBzb2x1dGlvbiBz
-aG91bGQgd29yayBmb3IgYSA5NSUgb2YgY2FzZXMuIENhc2VzIHdoZXJlIGl0IG1pZ2h0IG5vdCB3
-b3JrIGlmIEJJT1Mgd3JpdGVzIEZMUiBjYXBhYmlsaXR5IGJlZm9yZSB0aGUgT1MgKEluIDgyNTc5
-IGRldmljZSBGTFIgY2FwYWJpbGl0eSBpcyBSV08gLSByZWFkIHdyaXRlIG9uY2UpLiBCdXQgdGhp
-cyBpcyBhIHZlcnkgd2VpcmQgc2NlbmFyaW8sIHNvIHByb2JhYmx5IHRoZSB3b3JrYXJvdW5kIHdp
-bGwgd29yayBjbG9zZSB0byAxMDAlLiBBbHNvLCBJIHdvdWxkIGxpa2UgdG8gYWRkIHRoYXQgd2Ug
-aGF2ZSBydW4gbG90cyBvZiB0ZXN0cyBvdmVyIDgyNTc5IGluIG91ciBsYWIgYW5kIGVuc3VyZWQg
-dGhhdCBhbGwgZmxvd3Mgd29yayBwcm9wZXJseS4NCg0KMi4gRDAtPkQzLUQwIGZsb3cgaXMgbm90
-IGFmZmVjdGVkIGFuZCBpcyBpbiBmYWN0IHN1cHBvcnRlZCBieSA4MjU3OS4NCg0KMy4gSSB3aWxs
-IGxvb2sgZm9yIGFuIGVycmF0dW0gZXhwbGFpbmluZyB0aGlzLg0KDQpUaGFua3MsDQpTYXNoYQ0K
-DQoNCg0KDQoNCg==
+It's possible for nf_hook_entry_head to return NULL.  If two
+nf_unregister_net_hook calls happen simultaneously with a single hook
+entry in the list, both will enter the nf_hook_mutex critical section.
+The first will successfully delete the head, but the second will see
+this NULL pointer and attempt to dereference.
+
+This fix ensures that no null pointer dereference could occur when such
+a condition happens.
+
+Fixes: e3b37f11e6e4 ("netfilter: replace list_head with single linked list")
+Signed-off-by: Aaron Conole <aconole@bytheb.org>
+---
+ net/netfilter/core.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index 360c63d..e58e420 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -160,7 +160,7 @@ void nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
+ 
+ 	mutex_lock(&nf_hook_mutex);
+ 	hooks_entry = nf_hook_entry_head(net, reg);
+-	if (hooks_entry->orig_ops == reg) {
++	if (hooks_entry && hooks_entry->orig_ops == reg) {
+ 		nf_set_hooks_head(net, reg,
+ 				  nf_entry_dereference(hooks_entry->next));
+ 		goto unlock;
+-- 
+2.7.4
+
