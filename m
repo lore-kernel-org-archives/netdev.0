@@ -1,98 +1,59 @@
-From: Shmulik Ladkani <shmulik.ladkani@ravellosystems.com>
-Subject: Re: [PATCH v2 net] net: skbuff: skb_vlan_push: Fix wrong unwinding
- of skb->data after __vlan_insert_tag call
-Date: Wed, 28 Sep 2016 14:56:44 +0300
-Message-ID: <20160928145644.662ecc04@pixies>
-References: <1475053721-27676-1-git-send-email-shmulik.ladkani@gmail.com>
-        <57EB9BE0.4080903@iogearbox.net>
+From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Subject: [PATCH net-next 0/2] net: phy: Add WoL and Auto Mdix drivers for Microsemi PHYs.
+Date: Wed, 28 Sep 2016 17:31:16 +0530
+Message-ID: <1475064078-22310-1-git-send-email-Raju.Lakkaraju@microsemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Pravin Shelar <pshelar@ovn.org>, netdev@vger.kernel.org,
-        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-        Jiri Pirko <jiri@mellanox.com>
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain
+Cc: <f.fainelli@gmail.com>, <Allan.Nielsen@microsemi.com>,
+        <andrew@lunn.ch>, Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:35591 "EHLO
-        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932211AbcI1L4t (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 07:56:49 -0400
-Received: by mail-wm0-f43.google.com with SMTP id l132so231785413wmf.0
-        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 04:56:48 -0700 (PDT)
-In-Reply-To: <57EB9BE0.4080903@iogearbox.net>
+Received: from mail-sn1nam02on0082.outbound.protection.outlook.com ([104.47.36.82]:35551
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753844AbcI1MBw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 28 Sep 2016 08:01:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 
-On Wed, 28 Sep 2016 12:30:56 +0200, daniel@iogearbox.net wrote:
-> > @@ -4608,6 +4608,8 @@ int skb_vlan_push(struct sk_buff *skb, __be16 vla=
-n_proto, u16 vlan_tci)
-> >
-> >   		skb->protocol =3D skb->vlan_proto;
-> >   		skb->mac_len +=3D VLAN_HLEN;
-> > +		if (offset)
-> > +			offset +=3D VLAN_HLEN;
-> >
-> >   		skb_postpush_rcsum(skb, skb->data + (2 * ETH_ALEN), VLAN_HLEN);
-> >   		__skb_pull(skb, offset);
->=20
-> This looks much better indeed than your v1 of this patch.
+This series adds support to the Wake-on-LAN and Auto/Mdi-x set drivers
+for Microsemi PHYs.
 
-Yep, after some meditation and history digging I happened to notice I
-was barking at the wrong tree.
+Patch 1/2:
+        Wake-on-LAN (WoL) is an Ethernet networking standard that allows
+        a computer/device to be turned on or awakened by a network message.
+        VSC8531 PHY can support this feature configure by driver set function.
+        WoL status get by driver get function.
 
-> So the issue might only be visible to act_vlan as the other remaining use=
-r of
-> skb_vlan_push().=20
+Patch 2/2:
+        To connect two ports of the same configuration (MDI to MDI or
+        MDI-X to MDI-X) with a 10/100/1000 Mbit/s connection, an
+        Ethernet crossover cable is needed to cross over the transmit
+        and receive signals in the cable, so that they are matched at
+        the connector level.
+        When connecting an MDI port to an MDI-X port a straight through
+        cable is used while to connect two MDI ports or two MDI-X ports
+        a crossover cable must be used. Conventionally MDI is used on end
+        devices while MDI-X is used on hubs and switches
 
-Yes, this is correct. I'll amend the log message to express that.
-The bug occurs for callers of skb_vlan_push() whose data is not
-pointing at mac_header.
+        Auto MDI-X automatically detects the required cable connection
+        type and configures the connection appropriately, removing the
+        need for crossover cables to interconnect switches or connecting
+        PCs peer-to-peer.
 
-> My only question would be:
-> what about __skb_vlan_pop(), wouldn't that then need the same adjustment
-> a la offset -=3D VLAN_HLEN?
+        VSC8531 PHY supports Auto MDI-x, MDI and MDI-X configuraion by
+        driver set loopback function.
 
-Well, theoretically, yes; but caller may expect 2 different things:
+Tested on Beaglebone Black with VSC 8531 PHY.
 
-(assuming tags are in-payload)
+Raju Lakkaraju (2):
+  net: phy: Add Wake-on-LAN driver for Microsemi PHYs.
+  net: phy: Add PHY Auto/Mdi/Mdix set driver for Microsemi PHYs.
 
-(1) suppose upon entry we have
+ drivers/net/phy/mscc.c | 204 ++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 202 insertions(+), 2 deletions(-)
 
-    DA,SA,0x8100,TCI,0x0800,
-    ^                ^
-    mac_hdr          data
-
-initial offset is 18, and after current unwinding code we'll get
-
-    DA,SA,0x0800,4_bytes,
-    ^                    ^
-    mac_hdr              data
-
-which is probably incorrect, adjustment 'offset -=3D VLAN_HLEN' is needed.
-
-(2) suppose upon entry we have
-
-    DA,SA,0x8100,TCI,0x0800
-    ^            ^
-    mac_hdr      data
-
-initial offset is 14, and after current unwinding code we'll get
-
-    DA,SA,0x0800,
-    ^            ^
-    mac_hdr      data
-
-which is probably what user has intended.
-(had we adjusted offset to be 10, 'data' would point into SA)
-
-=46rom test I've made using act_vlan upon ingress on QinQ tags, existing call
-provides data as in (2).
-
-Thoughts?
-Should we adjust "offset" back, only if resulting offset is >=3D14 ?
-
-Thanks,
-Shmulik
+-- 
+2.7.4
