@@ -1,89 +1,71 @@
-From: "Frans van de Wiel" <fvdw@fvdw.eu>
-Subject: mv643xxx_eth driver, failed to linearize skb with tiny unaligned fragment
-Date: Wed, 28 Sep 2016 22:37:23 +0200
-Message-ID: <9ABBF443071A48919A5E612F97EE0B09@FransW7>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH RFC 2/6] net: phy: Use threaded IRQ, to allow IRQ from
+ sleeping devices
+Date: Wed, 28 Sep 2016 23:16:32 +0200
+Message-ID: <20160928211632.GA32406@lunn.ch>
+References: <1475051544-18561-1-git-send-email-andrew@lunn.ch>
+ <1475051544-18561-3-git-send-email-andrew@lunn.ch>
+ <b93c08b9-1ed0-19d4-bd77-53a4958da97e@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-        format=flowed;
-        charset="utf-8";
-        reply-type=original
-Content-Transfer-Encoding: 8bit
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev <netdev@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from isp-bos-01.edutel.nl ([88.159.1.157]:48869 "EHLO
-        isp-bos-01.edutel.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752124AbcI1Ups (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 16:45:48 -0400
-Received: from isp-aos-04 (unknown [IPv6:2a01:670:100:11::1:4])
-        by isp-bos-01.edutel.nl (Postfix) with ESMTPS id 85F21611DD
-        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 22:37:47 +0200 (CEST)
-Received: from [88.159.113.169] (helo=FransW7)
-        by isp-aos-04 with esmtpsa (TLS1.2:DHE_RSA_AES_256_CBC_SHA1:256)
-        (Exim 4.82)
-        (envelope-from <fvdw@fvdw.eu>)
-        id 1bpLbg-000072-9k
-        for netdev@vger.kernel.org; Wed, 28 Sep 2016 22:37:47 +0200
+Received: from vps0.lunn.ch ([178.209.37.122]:35437 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753204AbcI1VQg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 28 Sep 2016 17:16:36 -0400
+Content-Disposition: inline
+In-Reply-To: <b93c08b9-1ed0-19d4-bd77-53a4958da97e@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We compiled kernel 4.6.6 for our nas devices running on ARM kirkwood cpu’s. 
-These nas devices have only 256 MB of RAM so limited memory resources
-When we fully load the cpu and are copying files via the interface we get 
-frequently this “ error” message in dmesg log
+On Wed, Sep 28, 2016 at 02:38:03PM +0300, Sergei Shtylyov wrote:
+> Hello.
+> 
+> On 9/28/2016 11:32 AM, Andrew Lunn wrote:
+> 
+> >The interrupt lines from PHYs maybe connected to I2C bus expanders, or
+> >from switches on MDIO busses. Such interrupts are sourced from devices
+> >which sleep, so use threaded interrupts. Threaded interrupts require
+> >that the interrupt requester also uses the threaded API. Change the
+> >phylib to use the threaded API, which is backwards compatible with
+> >none-threaded IRQs.
+> >
+> >Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> >---
+> > drivers/net/phy/phy.c | 7 +++----
+> > 1 file changed, 3 insertions(+), 4 deletions(-)
+> >
+> >diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+> >index c6f66832a1a6..5c29ed72f721 100644
+> >--- a/drivers/net/phy/phy.c
+> >+++ b/drivers/net/phy/phy.c
+> >@@ -722,10 +722,9 @@ phy_err:
+> > int phy_start_interrupts(struct phy_device *phydev)
+> > {
+> > 	atomic_set(&phydev->irq_disable, 0);
+> >-	if (request_irq(phydev->irq, phy_interrupt,
+> >-				IRQF_SHARED,
+> >-				"phy_interrupt",
+> >-				phydev) < 0) {
+> >+	if (request_threaded_irq(phydev->irq, NULL, phy_interrupt,
+> >+				 IRQF_ONESHOT, "phy_interrupt",
+> 
+>    What about IRQF_SHARED?
 
-[ 1978.149929] mv643xx_eth_port mv643xx_eth_port.0 eth0: failed to linearize 
-skb with tiny unaligned fragment
-[ 1978.150138] mv643xx_eth_port mv643xx_eth_port.0 eth0: failed to linearize 
-skb with tiny unaligned fragment
-[ 1978.150318] mv643xx_eth_port mv643xx_eth_port.0 eth0: failed to linearize 
-skb with tiny unaligned fragment
-[ 1978.150360] mv643xx_eth_port mv643xx_eth_port.0 eth0: failed to linearize 
-skb with tiny unaligned fragment
+IRQF_ONESHOT | IRQF_SHARED does work.
 
-...
+However, it requires all uses of the interrupt use the same flags.
+The commit messages suggests IRQF_SHARED is there because of boards
+which have multiple PHYs using one IRQ. That case will work, since all
+PHYs will be using this code.
 
-CPU[|||||||||||||||||||||||||||||||||||98.9%]     Tasks: 29, 0 thr; 2 
-running
-  Mem[||||||||||||||||||||||||||||||||30/244MB]     Load average: 1.36 1.29 
-0.92
-  Swp[                                 0/511MB]     Uptime: 00:38:11
+What will be an issue is if the sharing is between a PHY and something
+else. That something else will also need to use IRQF_ONESHOT.  Anybody
+know if this situation actually exists?
 
-We analyzed the driver code code and think that it does not seems to be an 
-error but a warning, this we want to verify and if this warning can be taken 
-out without risk
-
-The message originates from this part of the code of the driver
-
-1023 if (has_tiny_unaligned_frags(skb) && __skb_linearize(skb)) {
-1024                 netdev_printk(KERN_DEBUG, dev,
-1025                               "failed to linearize skb with tiny 
-unaligned fragment\n");
-1026                 return NETDEV_TX_BUSY;
-1027         }
-
-__skb_linearize is set in skbuff.h and comments are useful
-
-static inline int __skb_linearize(struct sk_buff *skb)
-1636 {
-1637         return __pskb_pull_tail(skb, skb->data_len) ? 0 : -ENOMEM;
-1638 }
-1639
-1640 /**
-1641  *      skb_linearize - convert paged skb to linear one
-1642  *      @skb: buffer to linarize
-1643  *
-1644  *      If there is no free memory -ENOMEM is returned, otherwise zero
-1645  *      is returned and the old skb data released.
-1646  */
-1647 static inline int skb_linearize(struct sk_buff *skb)
-1648 {
-
-So return a false state (0) if there is enough free memory and true on the 
-other case.
-
-Please to note mv643xx_eth.c returns also a busy state. So I assume on this 
-case the driver repeats this step up to success
-
-So in my opinion, this is not an error message but a warning and does not 
-mean corrupted data and I think is should be possible to remove it.
-Is conclusion is correct ?
+Thanks
+     Andrew
