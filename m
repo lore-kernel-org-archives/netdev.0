@@ -1,47 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v5] net: ip, diag -- Add diag interface for raw sockets
-Date: Wed, 28 Sep 2016 06:49:51 -0700
-Message-ID: <1475070591.28155.103.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160928090357.GT1876@uranus.lan>
-         <caef7649-9d25-6429-eeab-96c027d6cbc2@mojatatu.com>
-         <20160928101726.GU1876@uranus.lan>
-         <8293413c-a81d-f7ff-24f0-8f58ce877116@mojatatu.com>
-         <20160928105147.GV1876@uranus.lan>
-         <484dedaf-4e81-9a5a-ffb8-2c65b373c3a0@mojatatu.com>
-         <20160928112703.GW1876@uranus.lan>
-         <1475067432.28155.90.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20160928130357.GC1876@uranus.lan>
-         <1475069348.28155.98.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20160928134309.GE1876@uranus.lan>
+From: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH/RFC 00/12] Programming Open vSwitch (-like)
+ flows into hardware using SwitchDev
+Date: Wed, 28 Sep 2016 16:54:40 +0300
+Message-ID: <CAJ3xEMh0Wp6sXN1AxuZjnqycp6SkY732E4O9CRWip5Bydxuj2w@mail.gmail.com>
+References: <1475066582-1971-1-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-        David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, avagin@openvz.org, stephen@networkplumber.org
-To: Cyrill Gorcunov <gorcunov@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160928134309.GE1876@uranus.lan>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Rony Efraim <ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1475066582-1971-1-git-send-email-simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2016-09-28 at 16:43 +0300, Cyrill Gorcunov wrote:
-> On Wed, Sep 28, 2016 at 06:29:08AM -0700, Eric Dumazet wrote:
-> > > 
-> > > Oh, crap :( I've been looking into uapi headers, found that we
-> > > use anonymous unions (for example include/uapi/linux/bcache.h)
-> > > and thought it will be safe (and my test builds didn't fail).
-> > > Are you happen to know which gcc versions cant do that?
-> > 
-> > The most recent example I have in mind is a kbuild bot report on the
-> > recent TCP BBR patches. We had to rework the patch to avoid the problem.
-> > 
-> > If I remember well, this was a gcc-4.7, but not on x86.
-> 
-> 4.7 is pretty widespread, so I've to think...
-
-Sorry, 4.4.7 it was
-
-https://www.mail-archive.com/netdev@vger.kernel.org/msg128714.html
+T24gV2VkLCBTZXAgMjgsIDIwMTYgYXQgMzo0MiBQTSwgU2ltb24gSG9ybWFuCjxzaW1vbi5ob3Jt
+YW5AbmV0cm9ub21lLmNvbT4gd3JvdGU6Cgo+IEEgZGlmZmVyZW50IGFwcHJvYWNoLCBub3QgaW1w
+bGVtZW50ZWQgYnkgdGhpcyBwYXRjaC1zZXQsIGlzIGZvciB1c2VyLXNwYWNlCj4gdG8gcHJvZ3Jh
+bSBmbG93cyBpbnRvIGhhcmR3YXJlIGJ5IHNvbWUgb3RoZXIgbWVhbnMsIGZvciBleGFtcGxlIFRD
+LCBhbmQvb3IKPiB0aGUgKGtlcm5lbCkgZGF0YXBhdGguCgpSaWdodCwgYW5kIHdlJ3ZlIHN1Ym1p
+dHRlZCB0aGF0IGNvZGUgdG8gdGhlIE9WUyBjb21tdW5pdHkgMjRoIGFnbyBbMV0uCgpUaGlzIHdh
+cyBkb25lIGFsb25nIHRoZSBmZWVkYmFjayB3ZSd2ZSBnb3QgZm9yIHRoZSBsYXN0IHR3byB5ZWFy
+cyAoc2luY2UKdGhlICBMUEMgMjAxNCBuZXR3b3JraW5nIG1pY3JvLWNvbmYpLiBJdCBhbGxvd3Mg
+b2ZmbG9hZGluZyBmcm9tCm11bHRpcGxlIHVzZXItc3BhY2UKYXBwbGljYXRpb25zIHRocm91Z2gg
+YSBzaW5nbGUgVUFQSSAtLSB0aGUgVEMgb25lIChjdXJyZW50bHkgd2UgZGlkCmZsb3dlciwgYnV0
+IHRoZSBPVlNECnBhdGNoIHNldCBjYW4gYmUgZXh0ZW5kZWQgdG8gdXNlIHdoYXRldmVyIFRDIG9m
+ZmxvYWRzIGFyZSBzdXBwb3J0ZWQgYnkKdGhlIHBvcnQgZHJpdmVyLAplLmcgVTMyLCBlQlBGKSBh
+bmQgaW50ZWdyYXRpb24gd2l0aCAzcmQgcGFydHkgcG9saWN5IG1vZHVsZXMgIHJ1bm5pbmcKaW4g
+dXNlci1zcGFjZS4KCkxldHMgaGVhciBwZW9wbGUgb3BpbmlvbnMgYW5kIHNlZSB3aGVyZSB3ZSBn
+byBmcm9tIG5vdy4KCj4gSSBiZWxpZXZlIHRoYXQgYXBwcm9hY2ggZG9lcyBub3QgY29uZmxpY3Qg
+d2l0aCB0aGlzIG9uZS4KPiAgQW5kIHRoZXJlIGlzIHNvbWUgc2NvcGUgdG8gc2hhcmUgaW5mcmFz
+dHJ1Y3R1cmUgaW4gdGhlIGtlcm5lbAoKbWF5YmUsIHBvc3NpYmx5CgpXZSd2ZSBoYXZpbmcgYSB0
+YWxrIGluIG5ldGRldiAxLjIgb24gb2ZmbG9hZGluZyBIVyBvZmZsb2FkaW5nIG9mIE9WUwphbmQg
+c2ltaWxhciBhcHBsaWNhdGlvbnMsCkkgd291bGQgZW5jb3VyYWdlIHBlb3BsZSB0byBjb21lIGFu
+ZCBhcHByb2FjaCBtZSBhbmQvb3IgUm9ueSBFZnJhaW0KZnJvbSBNZWxsYW5veCBiZWZvcmUvYWZ0
+ZXIKdGhlIHRhbGsgdG8gZGlzY3VzcyB0aGF0IEYyRiwgd291bGQgbG92ZSB0byBnZXQgZmVlZGJh
+Y2tzLCBhbmQgYWxzbyBoZXJlLi4uCgpPci4KClsxXSBwb2ludGVycyB0byBwYXRjaGVzIGltcGxl
+bWVudGluZyB0aGUgMm5kIGFwcHJvYWNoCgpjb3Zlci1sZXR0ZXIgaHR0cDovL29wZW52c3dpdGNo
+Lm9yZy9waXBlcm1haWwvZGV2LzIwMTYtU2VwdGVtYmVyLzA3OTk1Mi5odG1sCgpwYXRjaGVzCgpo
+dHRwczovL3BhdGNod29yay5vemxhYnMub3JnL3BhdGNoLzY3NTU2MC8KaHR0cHM6Ly9wYXRjaHdv
+cmsub3psYWJzLm9yZy9wYXRjaC82NzU1NjcvCmh0dHBzOi8vcGF0Y2h3b3JrLm96bGFicy5vcmcv
+cGF0Y2gvNjc1NTY1LwpodHRwczovL3BhdGNod29yay5vemxhYnMub3JnL3BhdGNoLzY3NTU1OS8K
+aHR0cHM6Ly9wYXRjaHdvcmsub3psYWJzLm9yZy9wYXRjaC82NzU1NjQvCmh0dHBzOi8vcGF0Y2h3
+b3JrLm96bGFicy5vcmcvcGF0Y2gvNjc1NTYzLwpodHRwczovL3BhdGNod29yay5vemxhYnMub3Jn
+L3BhdGNoLzY3NTU2OC8KaHR0cHM6Ly9wYXRjaHdvcmsub3psYWJzLm9yZy9wYXRjaC82NzU1NjYv
+Cmh0dHBzOi8vcGF0Y2h3b3JrLm96bGFicy5vcmcvcGF0Y2gvNjc1NTYyLwoKWzJdIGh0dHA6Ly93
+d3cubmV0ZGV2Y29uZi5vcmcvMS4yL3Nlc3Npb24uaHRtbD9yb255LWVmcmFpbS0xCl9fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QK
+ZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGlu
+Zm8vZGV2Cg==
