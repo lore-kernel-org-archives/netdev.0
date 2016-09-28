@@ -1,59 +1,55 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH net-next] net/vxlan: Avoid unaligned access in
- vxlan_build_skb()
-Date: Wed, 28 Sep 2016 15:56:44 -0400
-Message-ID: <20160928195644.GA10249@oracle.com>
-References: <20160922.015242.735026657310158125.davem@davemloft.net>
- <20160922213010.GA32052@oracle.com>
- <20160923.080618.678103827885223586.davem@davemloft.net>
- <CAKgT0UcoDb5T9xwfAq83cNwU=XAKZxf0TmPiJZQyHFPr82zggg@mail.gmail.com>
- <20160923172059.GB2484@oracle.com>
- <CAKgT0UeB5n3g4f1v_2nenjcayAi=eOPFSC7132ihXTZOztHRkw@mail.gmail.com>
- <20160923234134.GA6397@oracle.com>
- <CAKgT0Uenb+D44D4g2SieNDf3+P_wnv2WYSBZ+NU_87e011PRjA@mail.gmail.com>
- <20160928170346.GA9263@oracle.com>
- <CAKgT0UeEFoA8EQN0Fgn656mFDqC6BdnrUqUfQAJSgEwRBUxBZw@mail.gmail.com>
+From: Vlastimil Babka <vbabka@suse.cz>
+Subject: Re: [PATCH] fs/select: add vmalloc fallback for select(2)
+Date: Wed, 28 Sep 2016 22:04:50 +0200
+Message-ID: <32941b8b-ec1a-fc5c-90aa-e2372680f1b3@suse.cz>
+References: <20160922152831.24165-1-vbabka@suse.cz>
+ <006101d21565$b60a8a70$221f9f50$@alibaba-inc.com>
+ <20160923172434.7ad8f2e0@roar.ozlabs.ibm.com> <57E55CBB.5060309@akamai.com>
+ <5014387d-43da-03f6-a74b-2dc4fbf4fe32@suse.cz>
+ <20160927212458.3ab42b41@roar.ozlabs.ibm.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB010A97D@AcuExch.aculab.com>
+ <20160927214229.2b0b49ac@roar.ozlabs.ibm.com>
+ <92d1ec2c-3246-bd1f-eae5-53ca425ab315@suse.cz>
+ <063D6719AE5E284EB5DD2968C1650D6DB010AAC6@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Jason Baron <jbaron@akamai.com>,
+        Hillf Danton <hillf.zj@alibaba-inc.com>,
+        'Alexander Viro' <viro@zeniv.linux.org.uk>,
+        "linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-mm@kvack.org" <linux-mm@kvack.org>,
+        'Michal Hocko' <mhocko@kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: David Laight <David.Laight@ACULAB.COM>,
+        Nicholas Piggin <npiggin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:39721 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753091AbcI1T4x (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 15:56:53 -0400
-Content-Disposition: inline
-In-Reply-To: <CAKgT0UeEFoA8EQN0Fgn656mFDqC6BdnrUqUfQAJSgEwRBUxBZw@mail.gmail.com>
+Received: from mx2.suse.de ([195.135.220.15]:56458 "EHLO mx2.suse.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752032AbcI1UFY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 28 Sep 2016 16:05:24 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB010AAC6@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On (09/28/16 11:08), Alexander Duyck wrote:
-> > - then udp_gro_receive -> vxlan_gro_receive pulls up vxlan header
-> >   into linear part, and then..
+On 09/28/2016 06:30 PM, David Laight wrote:
+> From: Vlastimil Babka
+>> Sent: 27 September 2016 12:51
+> ...
+>> Process name suggests it's part of db2 database. It seems it has to implement
+>> its own interface to select() syscall, because glibc itself seems to have a
+>> FD_SETSIZE limit of 1024, which is probably why this wasn't an issue for all the
+>> years...
 > 
-> This is the point where we need to stop, drop the existing headers,
-> call skb_reserve(NET_IP_ALIGN), and then pick back up where we left
-> off.  We just have to make sure the skbuff isn't shared.
-  :
-> In general the interface behind the tunnel shouldn't need to know
-> about any of the data in front of the tunnel, so you should be able to
-> drop the original header offsets and reset things if you want so you
-> could overwrite the old headers.
+> ISTR the canonical way to increase the size being to set FD_SETSIZE
+> to a larger value before including any of the headers.
+> 
+> Or doesn't that work with linux and glibc ??
 
-Except that some of these encapsulations may be doing things like
-[inner-mac, outer-ip] fdb learning, so we may not be able to lose
-the outer headers at this early point in all cases.
+Doesn't seem so.
 
-> If I am not mistaken I think the multi-buffer approach is the approach
-> taken by other OSes, although for us it is more difficult since we
-
-yes, I think that's approximately what gets done with mblk/mbufs
-(with pullups as needed). But as you point out, this type of
-->frag_list chaining is a non-trivial change.
-
-> I'm sure we are all going to be talking about this in great detail
-> next week at netdev/netconf.. :-)
-
-Agree.
-
---Sowmini
+> 
+> 	David
+> 
