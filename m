@@ -1,73 +1,33 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net-next v2 3/3] udp: use it's own memory accounting
- schema
-Date: Wed, 28 Sep 2016 09:43:33 +0200
-Message-ID: <1475048613.4693.1.camel@redhat.com>
-References: <cover.1474995024.git.pabeni@redhat.com>
-         <bc55b0885e0f93895c211168561a6b3403bade10.1474995024.git.pabeni@redhat.com>
-         <1475001734.28155.62.camel@edumazet-glaptop3.roam.corp.google.com>
+From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>
+Subject: Re: [PATCH] ipv6 addrconf: implement RFC7559 router solicitation backoff
+Date: Wed, 28 Sep 2016 16:46:05 +0900
+Message-ID: <CANP3RGe4jMRhepM5v2Dg4Kq3Rxj=tA7WJEMcD_83DLYcEgujMA@mail.gmail.com>
+References: <1475045878-30455-1-git-send-email-zenczykowski@gmail.com> <1475048569.3276913.739336609.4398C277@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        James Morris <jmorris@namei.org>,
-        Trond Myklebust <trond.myklebust@primarydata.com>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Edward Cree <ecree@solarflare.com>, linux-nfs@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Linux NetDev <netdev@vger.kernel.org>,
+        Erik Kline <ek@google.com>,
+        Lorenzo Colitti <lorenzo@google.com>,
+        Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33132 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751414AbcI1Hni (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 28 Sep 2016 03:43:38 -0400
-In-Reply-To: <1475001734.28155.62.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-yb0-f173.google.com ([209.85.213.173]:36823 "EHLO
+        mail-yb0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751836AbcI1HqG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 03:46:06 -0400
+Received: by mail-yb0-f173.google.com with SMTP id z8so2596356ybh.3
+        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 00:46:06 -0700 (PDT)
+In-Reply-To: <1475048569.3276913.739336609.4398C277@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-09-27 at 11:42 -0700, Eric Dumazet wrote:
-> On Tue, 2016-09-27 at 18:58 +0200, Paolo Abeni wrote:
-> 
-> 
-> > 
-> > Since the new memory accounting model does not require socket
-> > locking, remove the lock on enqueue and free and avoid using the
-> > backlog on enqueue.
-> 
-> 
-> ...
-> 
-> >  	__UDP_INC_STATS(sock_net(sk), UDP_MIB_CSUMERRORS, is_udplite);
-> > @@ -2345,6 +2325,7 @@ struct proto udp_prot = {
-> >  	.connect	   = ip4_datagram_connect,
-> >  	.disconnect	   = udp_disconnect,
-> >  	.ioctl		   = udp_ioctl,
-> > +	.init		   = udp_init_sock,
-> >  	.destroy	   = udp_destroy_sock,
-> >  	.setsockopt	   = udp_setsockopt,
-> >  	.getsockopt	   = udp_getsockopt,
-> > @@ -2357,7 +2338,10 @@ struct proto udp_prot = {
-> >  	.unhash		   = udp_lib_unhash,
-> >  	.rehash		   = udp_v4_rehash,
-> >  	.get_port	   = udp_v4_get_port,
-> > +	.enter_memory_pressure = udp_enter_memory_pressure,
-> > +	.sockets_allocated = &udp_sockets_allocated,
-> >  	.memory_allocated  = &udp_memory_allocated,
-> > +	.memory_pressure   = &udp_memory_pressure,
-> >  	.sysctl_mem	   = sysctl_udp_mem,
-> >  	.sysctl_wmem	   = &sysctl_udp_wmem_min,
-> >  	.sysctl_rmem	   = &sysctl_udp_rmem_min,
-> 
-> 
-> I find disturbing you did not remove 
-> 
-> 	.backlog_rcv       = __udp_queue_rcv_skb,
+I'm not sure what line you're referring to.
 
-oops, left-over. I'll remove it in v3.
+There are *no* outright jiffies or msecs in this patch, with the
+exception of the (3600*HZ) line which is already obvious enough.
 
-Thank you for pointing it out,
-
-Paolo
+The 900000 200001 1900000 1000000 constants are not jiffies nor
+miliseconds, they're simply numbers, such that 900000/1000000 = 0.9
+and 200001/1000000 =~ 0.2 (the +1 is to deal with 0) and
+1900000/1000000 = 1.9
