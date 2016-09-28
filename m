@@ -1,46 +1,43 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [PATCH v5] net: ip, diag -- Add diag interface for raw sockets
-Date: Wed, 28 Sep 2016 16:09:26 +0300
-Message-ID: <20160928130926.GD1876@uranus.lan>
-References: <20160928090357.GT1876@uranus.lan>
- <caef7649-9d25-6429-eeab-96c027d6cbc2@mojatatu.com>
- <20160928101726.GU1876@uranus.lan>
- <8293413c-a81d-f7ff-24f0-8f58ce877116@mojatatu.com>
- <20160928105147.GV1876@uranus.lan>
- <484dedaf-4e81-9a5a-ffb8-2c65b373c3a0@mojatatu.com>
- <20160928112703.GW1876@uranus.lan>
- <1475067432.28155.90.camel@edumazet-glaptop3.roam.corp.google.com>
- <1475067731.28155.92.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-        David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, avagin@openvz.org, stephen@networkplumber.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f65.google.com ([209.85.215.65]:36260 "EHLO
-        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932172AbcI1NJa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 09:09:30 -0400
-Content-Disposition: inline
-In-Reply-To: <1475067731.28155.92.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Aaron Conole <aconole@bytheb.org>
+Subject: [PATCH nf-next v3 1/2] netfilter: Fix potential null pointer dereference
+Date: Wed, 28 Sep 2016 09:12:47 -0400
+Message-ID: <1475068368-3109-2-git-send-email-aconole@bytheb.org>
+References: <1475068368-3109-1-git-send-email-aconole@bytheb.org>
+Cc: Florian Westphal <fw@strlen.de>,
+        Pablo Neira Ayuso <pablo@netfilter.org>
+To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1475068368-3109-1-git-send-email-aconole@bytheb.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 28, 2016 at 06:02:11AM -0700, Eric Dumazet wrote:
-> 
-> This is a bit different of course, since struct tc_fq_qd_stats is only
-> one way : Kernel produces the content and gives it to user space.
-> 
-> User space should probably not need to initialize such a structure, but
-> who knows what a programmer can write ;)
+It's possible for nf_hook_entry_head to return NULL.  If two
+nf_unregister_net_hook calls happen simultaneously with a single hook
+entry in the list, both will enter the nf_hook_mutex critical section.
+The first will successfully delete the head, but the second will see
+this NULL pointer and attempt to dereference.
 
-It's the same issue as I have: the users may have initialized tc_fq_qd_stats for
-some reson. But since nobody complained yet about such change -- it is a good
-sign of catching the luck :)
+This fix ensures that no null pointer dereference could occur when such
+a condition happens.
 
-You know at the moment I'm not sure how to be then -- either leave it as
-uninon, either rename it (via patch on top), or even simply require the
-protocol to be passed as additional data in netlink packet...
+Signed-off-by: Aaron Conole <aconole@bytheb.org>
+---
+ net/netfilter/core.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index 360c63d..e58e420 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -160,7 +160,7 @@ void nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
+ 
+ 	mutex_lock(&nf_hook_mutex);
+ 	hooks_entry = nf_hook_entry_head(net, reg);
+-	if (hooks_entry->orig_ops == reg) {
++	if (hooks_entry && hooks_entry->orig_ops == reg) {
+ 		nf_set_hooks_head(net, reg,
+ 				  nf_entry_dereference(hooks_entry->next));
+ 		goto unlock;
+-- 
+2.7.4
+
