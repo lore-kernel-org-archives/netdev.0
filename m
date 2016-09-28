@@ -1,51 +1,103 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] fs/select: add vmalloc fallback for select(2)
-Date: Wed, 28 Sep 2016 16:30:16 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB010AAC6@AcuExch.aculab.com>
-References: <20160922152831.24165-1-vbabka@suse.cz>
- <006101d21565$b60a8a70$221f9f50$@alibaba-inc.com>
- <20160923172434.7ad8f2e0@roar.ozlabs.ibm.com> <57E55CBB.5060309@akamai.com>
- <5014387d-43da-03f6-a74b-2dc4fbf4fe32@suse.cz>
- <20160927212458.3ab42b41@roar.ozlabs.ibm.com>
- <063D6719AE5E284EB5DD2968C1650D6DB010A97D@AcuExch.aculab.com>
- <20160927214229.2b0b49ac@roar.ozlabs.ibm.com>
- <92d1ec2c-3246-bd1f-eae5-53ca425ab315@suse.cz>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: Re: [PATCH 1/5] ISDN-Gigaset: Use kmalloc_array() in two functions
+Date: Wed, 28 Sep 2016 18:38:10 +0200
+Message-ID: <1a101dea-006f-f507-54e5-5d05ccd996ec@users.sourceforge.net>
+References: <566ABCD9.1060404@users.sourceforge.net>
+ <6d4bbb77-914f-19b8-a1a9-2731d1158612@users.sourceforge.net>
+ <4fb300f1-ff02-7983-464f-fcbca5919dac@users.sourceforge.net>
+ <1475062635.16606.27.camel@tiscali.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: quoted-printable
-Cc: Jason Baron <jbaron@akamai.com>, Hillf Danton <hillf.zj@alibaba-inc.com>,
-	'Alexander Viro' <viro@zeniv.linux.org.uk>, "linux-fsdevel@vger.kernel.org"
-	<linux-fsdevel@vger.kernel.org>, "linux-kernel@vger.kernel.org"
-	<linux-kernel@vger.kernel.org>, "linux-mm@kvack.org" <linux-mm@kvack.org>,
-	'Michal Hocko' <mhocko@kernel.org>, "netdev@vger.kernel.org"
-	<netdev@vger.kernel.org>, Eric Dumazet <eric.dumazet@gmail.com>
-To: 'Vlastimil Babka' <vbabka@suse.cz>, Nicholas Piggin <npiggin@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <92d1ec2c-3246-bd1f-eae5-53ca425ab315@suse.cz>
-Content-Language: en-US
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
+        Karsten Keil <isdn@linux-pingi.de>,
+        LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org,
+        Julia Lawall <julia.lawall@lip6.fr>
+To: Paul Bolle <pebolle@tiscali.nl>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <1475062635.16606.27.camel@tiscali.nl>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Vlastimil Babka
-> Sent: 27 September 2016 12:51
-...
-> Process name suggests it's part of db2 database. It seems it has to imple=
-ment
-> its own interface to select() syscall, because glibc itself seems to have=
- a
-> FD_SETSIZE limit of 1024, which is probably why this wasn't an issue for =
-all the
-> years...
+>> * Multiplications for the size determination of memory allocations
+>>   indicated that array data structures should be processed.
+>>   Thus use the corresponding function "kmalloc_array".
+> 
+> Was the current code incorrect?
 
-ISTR the canonical way to increase the size being to set FD_SETSIZE
-to a larger value before including any of the headers.
+I suggest to use a safer interface for array allocations.
 
-Or doesn't that work with linux and glibc ??
 
-	David
+> What makes kmalloc_array() better?
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+1. How do you think about the safety checks that this function provides?
+
+2. Will you be also affected by further software evolution here?
+   2016-07-26
+   mm: faster kmalloc_array(), kcalloc()
+   https://git.kernel.org/cgit/linux/kernel/git/next/linux-next.git/commit/?id=91c6a05f72a996bee5133e76374ab3ad7d3b9b72
+
+
+> I'm not going to change code just because some checker suggests to do so.
+
+The script "checkpatch.pl" can point information out like the following.
+
+WARNING: Prefer kmalloc_array over kmalloc with multiply
+
+
+>>   This issue was detected by using the Coccinelle software.
+> 
+> So? And which coccinelle script was actually used?
+
+How do you think about to look into related information sources?
+https://github.com/coccinelle/coccinelle/issues/81
+
+Would you like to experiment any further with an excerpt?
+
+
+@replacement1@
+expression count, target;
+type T;
+@@
+ target =
+-         kmalloc(sizeof(T) * (count)
++         kmalloc_array(count, sizeof(T)
+                        , ...);
+
+@replacement2@
+expression count, pointer, target;
+@@
+ target =
+-         kmalloc(sizeof(*pointer) * (count)
++         kmalloc_array(count, sizeof(*pointer)
+                        , ...);
+
+
+> I couldn't spot a coccinelle script doing that in the current tree.
+
+This is true for such a software update opportunity.
+
+
+>> * Replace the specification of a data structure by a pointer dereference
+>>   to make the corresponding size determination a bit safer according to
+>>   the Linux coding style convention.
+> 
+> I'm not happy with you mixing this with the above, less trivial, change.
+
+I find that it is a useful combination. - A parameter is adjusted together
+with a special function name.
+
+
+>> -	drv->cs = kmalloc(minors * sizeof *drv->cs, GFP_KERNEL);
+>> +	drv->cs = kmalloc_array(minors, sizeof(*drv->cs), GFP_KERNEL);
+> 
+> For "minors" the same holds as for "channels", above.
+> 
+> And you snuck in a parentheses change. That should have probably been
+> merged with 5/5.
+
+Would you prefer to add them in another update step?
+
+Regards,
+Markus
