@@ -1,359 +1,159 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH] Add netdev all_adj_list refcnt propagation to fix panic
-Date: Wed, 28 Sep 2016 11:06:51 -0700
-Message-ID: <1475086011-5588-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: vfalico@gmail.com, nikolay@cumulusnetworks.com,
-        David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org, acollins@cradlepoint.com,
-        davem@davemloft.net
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH net-next] net/vxlan: Avoid unaligned access in vxlan_build_skb()
+Date: Wed, 28 Sep 2016 11:08:09 -0700
+Message-ID: <CAKgT0UeEFoA8EQN0Fgn656mFDqC6BdnrUqUfQAJSgEwRBUxBZw@mail.gmail.com>
+References: <20160920190929.57ddaeb0@griffin> <20160922.015242.735026657310158125.davem@davemloft.net>
+ <20160922213010.GA32052@oracle.com> <20160923.080618.678103827885223586.davem@davemloft.net>
+ <CAKgT0UcoDb5T9xwfAq83cNwU=XAKZxf0TmPiJZQyHFPr82zggg@mail.gmail.com>
+ <20160923172059.GB2484@oracle.com> <CAKgT0UeB5n3g4f1v_2nenjcayAi=eOPFSC7132ihXTZOztHRkw@mail.gmail.com>
+ <20160923234134.GA6397@oracle.com> <CAKgT0Uenb+D44D4g2SieNDf3+P_wnv2WYSBZ+NU_87e011PRjA@mail.gmail.com>
+ <20160928170346.GA9263@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:33181 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750714AbcI1SG5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 14:06:57 -0400
-Received: by mail-pf0-f182.google.com with SMTP id 21so19834347pfy.0
-        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 11:06:57 -0700 (PDT)
+Received: from mail-io0-f195.google.com ([209.85.223.195]:34162 "EHLO
+        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750714AbcI1SIL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 14:08:11 -0400
+Received: by mail-io0-f195.google.com with SMTP id g22so1527070ioj.1
+        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 11:08:10 -0700 (PDT)
+In-Reply-To: <20160928170346.GA9263@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Collins posted this patch as RFC in March:
-    http://patchwork.ozlabs.org/patch/603101/
+On Wed, Sep 28, 2016 at 10:03 AM, Sowmini Varadhan
+<sowmini.varadhan@oracle.com> wrote:
+> On (09/23/16 17:43), Alexander Duyck wrote:
+>> > On (09/23/16 10:38), Alexander Duyck wrote:
+>           ;
+>> >> almost think of it as us doing something like the inverse of
+>> >> pskb_pull_tail.  The general idea here is we want to actually leave
+>> >> the data in skb->data, but just reference it from frag[0] so that we
+>> >> don't accidentally pull in the 2 byte padding for alignment when
+>> >> transmitting the frame.
+>
+> Some additional findings..
+>
+> Just to recap how we got here: for the Rx path, the inner packet has
+> been set up as an ethernet frame with the IP header at an aligned address
+> when it hits vxlan_build_skb.  But that means the (inner) mac address
+> was offset by NET_IP_ALIGN so vxlan_build_skb needs to pad the data
+> by NET_IP_ALIGN to make the vxh outer ip header align.
+>
+> Then we'd need to do something like the suggestion above (keep some
+> pointers in frag[0]?  do the reverse of a pskb_expand_head to push out
+> the inner ip header to the skb_frag_t?), to have the driver skip over the
+> pad..
+>
+> I tried the following for a hack, and it takes care of the tx side
+> unaligned access, though, clearly, the memmove needs to be avoided
+>
+> @@ -1750,10 +1825,38 @@ static int vxlan_build_skb(struct sk_buff *skb, struct d
+>         if (err)
+>                 goto out_free;
+>
+> +
+> +#if (NET_IP_ALIGN != 0)
+> +       {
+> +               unsigned char *data;
+> +
+> +               /* inner packet is an ethernet frame that was set up
+> +                * so that the IP header is aligned. But that means the
+> +                * mac address was offset by NET_IP_ALIGN, so we need
+> +                * to move things up so that the vxh and outer ip header
+> +                * are now aligned
+> +                * XXX The Alexander Duyck idea was to only do the
+> +                * extra __skb_push() for NET_IP_ALIGN, and avoid the
+> +                * extram memmove and ->inner* adjustments. Plus keep
+> +                * additional pointers in frag[0] and have the driver pick
+> +                * up pointers from frag[0] .. need to investigate
+> +                * that suggestion further.
+> +                */
+> +               data = skb->data;
+> +               skb->data -= NET_IP_ALIGN;
+> +               memmove(skb->data, data, skb_headlen(skb));
+> +               skb->inner_network_header -= NET_IP_ALIGN;
+> +               skb->inner_mac_header -= NET_IP_ALIGN;
+> +               skb->inner_transport_header -= NET_IP_ALIGN;
+> +       }
+> +#endif
+>         vxh = (struct vxlanhdr *) __skb_push(skb, sizeof(*vxh));
+>         vxh->vx_flags = VXLAN_HF_VNI;
+>         vxh->vx_vni = vxlan_vni_field(vni);
+>
+> In the general case (when the skb passed to vxlan_build_skb is already
+> non-linear), wouldn't we end up having to shift all the frags by 1 and/or
+> do some type of memory copy of the inner packet? However, I think
+> there are some clever things we can do in general, to avoid the memmove..
 
-It has apparently fallen through the cracks and never applied.
+Right, basically my idea was to just skip the memmove, pull the data
+out and add pointers to this spot in the fraglist.  Doing that you
+should be pulling tail back so it is equal to data.  Then you just do
+an skb_reserve(skb, -NET_IP_ALIGN) and you should be all set to start
+adding outer headers.  The problem is you end up having to disable any
+offsets such as GSO or checksum offload since you can't really use the
+inner header offsets anymore.
 
-It solves a refcnt problem (thanks Nik for pointing out this patch)
-with stacked devices that involves macvlan on a bridge, a bond into
-the bridge, and the bridge and macvlan are enslaved to a vrf:
+> I also looked at the Rx path. Here the suggestion was:
+> "we should only pull the outer headers from the page frag, and then
+>  when the time is right we drop the outer headers and pull the inner
+>  headers from the page frag.  That way we can keep all the headers
+>  aligned."
+> I hacked up ixgbe_add_rx_frag to always only create nonlinear skb's,
+> i.e., always avoid the
+>    memcpy(__skb_put(skb, size), va, ALIGN(size, sizeof(long)));
+> and then I end up with
+> - ixgbe_clean_rx_irq copies outer header ether/ip/udp headers
+>   into linear part as needed,
+> - then udp_gro_receive -> vxlan_gro_receive pulls up vxlan header
+>   into linear part, and then..
 
-        +--------+
-        |  myvrf |
-        +--------+
-          |    |
-          |  +---------+
-          |  | macvlan |
-          |  +---------+
-          |    |
-      +----------+
-      |  bridge  |
-      +----------+
-          |
-      +--------+
-      | bond0  |
-      +--------+
-          |
-      +--------+
-      |  swp3  |
-      +--------+
+This is the point where we need to stop, drop the existing headers,
+call skb_reserve(NET_IP_ALIGN), and then pick back up where we left
+off.  We just have to make sure the skbuff isn't shared.
 
-Deleting bond0 hangs waiting for bond0 to become free. The splat in dmesg
-is:
+> - eth_gro_receive pulls up another 34 bytes for the eth + ip header.
+>   This last pull ends up being unaligned.
+> I dont know if we can safely drop the outer ip headers at this point
+> (have not tried this yet, and I'm not sure we can do this in all udp
+> encaps cases..)
 
-[  206.485340] ------------[ cut here ]------------
-[  206.486052] WARNING: CPU: 0 PID: 746 at /home/dsa/kernel-3.git/net/core/dev.c:6772 rollback_registered_many+0x28a/0x2da
-[  206.487563] Modules linked in: macvlan bonding bridge stp llc vrf
-[  206.488946] CPU: 0 PID: 746 Comm: ifdown Not tainted 4.8.0-rc7+ #144
-[  206.489768] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.7.5-20140531_083030-gandalf 04/01/2014
-[  206.490973]  0000000000000000 ffff88003b3a3ca8 ffffffff81287ad3 0000000000000000
-[  206.491939]  0000000000000000 ffff88003b3a3ce8 ffffffff8104f19d 00001a743b3a3b58
-[  206.492914]  ffff88003c93e000 ffff88003b3a3d48 ffff88003c877400 ffff88003b3a3d48
-[  206.493873] Call Trace:
-[  206.494184]  [<ffffffff81287ad3>] dump_stack+0x81/0xb6
-[  206.494805]  [<ffffffff8104f19d>] __warn+0xc5/0xe0
-[  206.495382]  [<ffffffff8104f265>] warn_slowpath_null+0x18/0x1a
-[  206.496094]  [<ffffffff81412703>] rollback_registered_many+0x28a/0x2da
-[  206.496888]  [<ffffffff8141277c>] rollback_registered+0x29/0x36
-[  206.497596]  [<ffffffff81412950>] unregister_netdevice_queue+0x6a/0xa6
-[  206.498383]  [<ffffffffa004ff10>] bonding_store_bonds+0x132/0x186 [bonding]
-[  206.499209]  [<ffffffff8133baff>] class_attr_store+0x1e/0x20
-[  206.499893]  [<ffffffff811c21ce>] sysfs_kf_write+0x44/0x4b
-[  206.500558]  [<ffffffff811c14cb>] kernfs_fop_write+0x113/0x15d
-[  206.501269]  [<ffffffff8116216b>] __vfs_write+0x21/0xa0
-[  206.501897]  [<ffffffff810833cf>] ? percpu_down_read+0x4e/0x7a
-[  206.502595]  [<ffffffff81164f25>] ? __sb_start_write+0x5a/0xab
-[  206.503302]  [<ffffffff81164f25>] ? __sb_start_write+0x5a/0xab
-[  206.504015]  [<ffffffff81162d7f>] vfs_write+0xa2/0xc6
-[  206.504637]  [<ffffffff8116397a>] SyS_write+0x4b/0x79
-[  206.505251]  [<ffffffff8150833c>] entry_SYSCALL_64_fastpath+0x1f/0xbd
-[  206.506054] ---[ end trace a578aa9ea7e7176a ]---
-[  206.512017] PF_BRIDGE: RTM_SETLINK with unknown ifindex
-[  216.765567] unregister_netdevice: waiting for bond0 to become free. Usage count = 1
+In general the interface behind the tunnel shouldn't need to know
+about any of the data in front of the tunnel, so you should be able to
+drop the original header offsets and reset things if you want so you
+could overwrite the old headers.
 
-The splate is from this line in rollback_registered_many():
+> one other possibility is to set up the inner frame as part of the
+> ->frag_list (note, this is *not* skb_frag_t). I suspect that is going
+> to cause other inefficiencies.
 
-                WARN_ON(netdev_has_any_upper_dev(dev));
-  ---
+Actually I'm kind of wondering if this might not be the way to go
+myself.  The overhead for making this kind of transition is sure to be
+ugly though as it would require us to update a number of drivers to
+support transmitting a fraglist, and we would have to update all the
+header manipulation code so that we could realize that inner and outer
+header existed in two separate buffers.  One advantage though would be
+that we could get rid of all the "inner_" header bits from the sk_buff
+since we could just use the header offsets stored in the frame hanging
+off of the frag_list.
 
-This is the original commit message from Andrew:
+> but, as tom has been saying all along, a big part of this problem is that
+> we are tripping up on the ethernet header in the middle of an
+> IP packet. Unfortunately I dont think the ietf is going to agree
+> to never ever do that, so I'm not sure we can win that architectural battle.
 
-This is an RFC patch to fix a relatively easily reproducible kernel
-panic related to the all_adj_list handling for netdevs in recent kernels.
+If I am not mistaken I think the multi-buffer approach is the approach
+taken by other OSes, although for us it is more difficult since we
+have the scatter-gather list that is frags, and then the chained
+buffer list which is frag_list.  The other gotcha is determining how
+many hardware vendors can support having the headers split over 2 DMA
+requests.  I know in the case of i40e we would have to update the
+driver so that the workaround to avoid exceeding 8 descriptors would
+have to factor in the inner headers being split off.
 
-This is more to generate discussion than anything else.  I don't
-particularly like this approach, I'm hoping someone has a better idea.
+I'm sure we are all going to be talking about this in great detail
+next week at netdev/netconf.. :-)
 
-The following sequence of commands will reproduce the issue:
-
-ip link add link eth0 name eth0.100 type vlan id 100
-ip link add link eth0 name eth0.200 type vlan id 200
-ip link add name testbr type bridge
-ip link set eth0.100 master testbr
-ip link set eth0.200 master testbr
-ip link add link testbr mac0 type macvlan
-ip link delete dev testbr
-
-This creates an upper/lower tree of (excuse the poor ASCII art):
-
-            /---eth0.100-eth0
-mac0-testbr-
-            \---eth0.200-eth0
-
-When testbr is deleted, the all_adj_lists are walked, and eth0 is deleted twice from
-the mac0 list. Unfortunately, during setup in __netdev_upper_dev_link, only one
-reference to eth0 is added, so this results in a panic.
-
-This change adds reference count propagation so things are handled properly.
-
-Matthias Schiffer reported a similar crash in batman-adv:
-
-https://github.com/freifunk-gluon/gluon/issues/680
-https://www.open-mesh.org/issues/247
-
-which this patch also seems to resolve.
-
-Patch is from Andrew Collins <acollins@cradlepoint.com>, but did not have
-a formal sign-off. The patch applies to top of tree, so no change made on
-my part I just pulled it off the web.
-
-From: Andrew Collins <acollins@cradlepoint.com>
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- net/core/dev.c | 69 ++++++++++++++++++++++++++++++++--------------------------
- 1 file changed, 38 insertions(+), 31 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index c0c291f721d6..84963c99763a 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5589,6 +5589,7 @@ static inline bool netdev_adjacent_is_neigh_list(struct net_device *dev,
- 
- static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 					struct net_device *adj_dev,
-+					u16 ref_nr,
- 					struct list_head *dev_list,
- 					void *private, bool master)
- {
-@@ -5598,7 +5599,7 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 	adj = __netdev_find_adj(adj_dev, dev_list);
- 
- 	if (adj) {
--		adj->ref_nr++;
-+		adj->ref_nr += ref_nr;
- 		return 0;
- 	}
- 
-@@ -5608,7 +5609,7 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 
- 	adj->dev = adj_dev;
- 	adj->master = master;
--	adj->ref_nr = 1;
-+	adj->ref_nr = ref_nr;
- 	adj->private = private;
- 	dev_hold(adj_dev);
- 
-@@ -5647,6 +5648,7 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 
- static void __netdev_adjacent_dev_remove(struct net_device *dev,
- 					 struct net_device *adj_dev,
-+					 u16 ref_nr,
- 					 struct list_head *dev_list)
- {
- 	struct netdev_adjacent *adj;
-@@ -5659,10 +5661,10 @@ static void __netdev_adjacent_dev_remove(struct net_device *dev,
- 		BUG();
- 	}
- 
--	if (adj->ref_nr > 1) {
--		pr_debug("%s to %s ref_nr-- = %d\n", dev->name, adj_dev->name,
--			 adj->ref_nr-1);
--		adj->ref_nr--;
-+	if (adj->ref_nr > ref_nr) {
-+		pr_debug("%s to %s ref_nr-%d = %d\n", dev->name, adj_dev->name,
-+			 ref_nr, adj->ref_nr - ref_nr);
-+		adj->ref_nr -= ref_nr;
- 		return;
- 	}
- 
-@@ -5681,21 +5683,22 @@ static void __netdev_adjacent_dev_remove(struct net_device *dev,
- 
- static int __netdev_adjacent_dev_link_lists(struct net_device *dev,
- 					    struct net_device *upper_dev,
-+					    u16 ref_nr,
- 					    struct list_head *up_list,
- 					    struct list_head *down_list,
- 					    void *private, bool master)
- {
- 	int ret;
- 
--	ret = __netdev_adjacent_dev_insert(dev, upper_dev, up_list, private,
--					   master);
-+	ret = __netdev_adjacent_dev_insert(dev, upper_dev, ref_nr, up_list,
-+					   private, master);
- 	if (ret)
- 		return ret;
- 
--	ret = __netdev_adjacent_dev_insert(upper_dev, dev, down_list, private,
--					   false);
-+	ret = __netdev_adjacent_dev_insert(upper_dev, dev, ref_nr, down_list,
-+					   private, false);
- 	if (ret) {
--		__netdev_adjacent_dev_remove(dev, upper_dev, up_list);
-+		__netdev_adjacent_dev_remove(dev, upper_dev, ref_nr, up_list);
- 		return ret;
- 	}
- 
-@@ -5703,9 +5706,10 @@ static int __netdev_adjacent_dev_link_lists(struct net_device *dev,
- }
- 
- static int __netdev_adjacent_dev_link(struct net_device *dev,
--				      struct net_device *upper_dev)
-+				      struct net_device *upper_dev,
-+				      u16 ref_nr)
- {
--	return __netdev_adjacent_dev_link_lists(dev, upper_dev,
-+	return __netdev_adjacent_dev_link_lists(dev, upper_dev, ref_nr,
- 						&dev->all_adj_list.upper,
- 						&upper_dev->all_adj_list.lower,
- 						NULL, false);
-@@ -5713,17 +5717,19 @@ static int __netdev_adjacent_dev_link(struct net_device *dev,
- 
- static void __netdev_adjacent_dev_unlink_lists(struct net_device *dev,
- 					       struct net_device *upper_dev,
-+					       u16 ref_nr,
- 					       struct list_head *up_list,
- 					       struct list_head *down_list)
- {
--	__netdev_adjacent_dev_remove(dev, upper_dev, up_list);
--	__netdev_adjacent_dev_remove(upper_dev, dev, down_list);
-+	__netdev_adjacent_dev_remove(dev, upper_dev, ref_nr, up_list);
-+	__netdev_adjacent_dev_remove(upper_dev, dev, ref_nr, down_list);
- }
- 
- static void __netdev_adjacent_dev_unlink(struct net_device *dev,
--					 struct net_device *upper_dev)
-+					 struct net_device *upper_dev,
-+					 u16 ref_nr)
- {
--	__netdev_adjacent_dev_unlink_lists(dev, upper_dev,
-+	__netdev_adjacent_dev_unlink_lists(dev, upper_dev, ref_nr,
- 					   &dev->all_adj_list.upper,
- 					   &upper_dev->all_adj_list.lower);
- }
-@@ -5732,17 +5738,17 @@ static int __netdev_adjacent_dev_link_neighbour(struct net_device *dev,
- 						struct net_device *upper_dev,
- 						void *private, bool master)
- {
--	int ret = __netdev_adjacent_dev_link(dev, upper_dev);
-+	int ret = __netdev_adjacent_dev_link(dev, upper_dev, 1);
- 
- 	if (ret)
- 		return ret;
- 
--	ret = __netdev_adjacent_dev_link_lists(dev, upper_dev,
-+	ret = __netdev_adjacent_dev_link_lists(dev, upper_dev, 1,
- 					       &dev->adj_list.upper,
- 					       &upper_dev->adj_list.lower,
- 					       private, master);
- 	if (ret) {
--		__netdev_adjacent_dev_unlink(dev, upper_dev);
-+		__netdev_adjacent_dev_unlink(dev, upper_dev, 1);
- 		return ret;
- 	}
- 
-@@ -5752,8 +5758,8 @@ static int __netdev_adjacent_dev_link_neighbour(struct net_device *dev,
- static void __netdev_adjacent_dev_unlink_neighbour(struct net_device *dev,
- 						   struct net_device *upper_dev)
- {
--	__netdev_adjacent_dev_unlink(dev, upper_dev);
--	__netdev_adjacent_dev_unlink_lists(dev, upper_dev,
-+	__netdev_adjacent_dev_unlink(dev, upper_dev, 1);
-+	__netdev_adjacent_dev_unlink_lists(dev, upper_dev, 1,
- 					   &dev->adj_list.upper,
- 					   &upper_dev->adj_list.lower);
- }
-@@ -5806,7 +5812,8 @@ static int __netdev_upper_dev_link(struct net_device *dev,
- 		list_for_each_entry(j, &upper_dev->all_adj_list.upper, list) {
- 			pr_debug("Interlinking %s with %s, non-neighbour\n",
- 				 i->dev->name, j->dev->name);
--			ret = __netdev_adjacent_dev_link(i->dev, j->dev);
-+			ret = __netdev_adjacent_dev_link(i->dev, j->dev,
-+							 i->ref_nr);
- 			if (ret)
- 				goto rollback_mesh;
- 		}
-@@ -5816,7 +5823,7 @@ static int __netdev_upper_dev_link(struct net_device *dev,
- 	list_for_each_entry(i, &upper_dev->all_adj_list.upper, list) {
- 		pr_debug("linking %s's upper device %s with %s\n",
- 			 upper_dev->name, i->dev->name, dev->name);
--		ret = __netdev_adjacent_dev_link(dev, i->dev);
-+		ret = __netdev_adjacent_dev_link(dev, i->dev, i->ref_nr);
- 		if (ret)
- 			goto rollback_upper_mesh;
- 	}
-@@ -5825,7 +5832,7 @@ static int __netdev_upper_dev_link(struct net_device *dev,
- 	list_for_each_entry(i, &dev->all_adj_list.lower, list) {
- 		pr_debug("linking %s's lower device %s with %s\n", dev->name,
- 			 i->dev->name, upper_dev->name);
--		ret = __netdev_adjacent_dev_link(i->dev, upper_dev);
-+		ret = __netdev_adjacent_dev_link(i->dev, upper_dev, i->ref_nr);
- 		if (ret)
- 			goto rollback_lower_mesh;
- 	}
-@@ -5843,7 +5850,7 @@ static int __netdev_upper_dev_link(struct net_device *dev,
- 	list_for_each_entry(i, &dev->all_adj_list.lower, list) {
- 		if (i == to_i)
- 			break;
--		__netdev_adjacent_dev_unlink(i->dev, upper_dev);
-+		__netdev_adjacent_dev_unlink(i->dev, upper_dev, i->ref_nr);
- 	}
- 
- 	i = NULL;
-@@ -5853,7 +5860,7 @@ static int __netdev_upper_dev_link(struct net_device *dev,
- 	list_for_each_entry(i, &upper_dev->all_adj_list.upper, list) {
- 		if (i == to_i)
- 			break;
--		__netdev_adjacent_dev_unlink(dev, i->dev);
-+		__netdev_adjacent_dev_unlink(dev, i->dev, i->ref_nr);
- 	}
- 
- 	i = j = NULL;
-@@ -5865,7 +5872,7 @@ static int __netdev_upper_dev_link(struct net_device *dev,
- 		list_for_each_entry(j, &upper_dev->all_adj_list.upper, list) {
- 			if (i == to_i && j == to_j)
- 				break;
--			__netdev_adjacent_dev_unlink(i->dev, j->dev);
-+			__netdev_adjacent_dev_unlink(i->dev, j->dev, i->ref_nr);
- 		}
- 		if (i == to_i)
- 			break;
-@@ -5945,16 +5952,16 @@ void netdev_upper_dev_unlink(struct net_device *dev,
- 	 */
- 	list_for_each_entry(i, &dev->all_adj_list.lower, list)
- 		list_for_each_entry(j, &upper_dev->all_adj_list.upper, list)
--			__netdev_adjacent_dev_unlink(i->dev, j->dev);
-+			__netdev_adjacent_dev_unlink(i->dev, j->dev, i->ref_nr);
- 
- 	/* remove also the devices itself from lower/upper device
- 	 * list
- 	 */
- 	list_for_each_entry(i, &dev->all_adj_list.lower, list)
--		__netdev_adjacent_dev_unlink(i->dev, upper_dev);
-+		__netdev_adjacent_dev_unlink(i->dev, upper_dev, i->ref_nr);
- 
- 	list_for_each_entry(i, &upper_dev->all_adj_list.upper, list)
--		__netdev_adjacent_dev_unlink(dev, i->dev);
-+		__netdev_adjacent_dev_unlink(dev, i->dev, i->ref_nr);
- 
- 	call_netdevice_notifiers_info(NETDEV_CHANGEUPPER, dev,
- 				      &changeupper_info.info);
--- 
-2.1.4
+- Alex
