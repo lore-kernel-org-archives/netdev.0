@@ -1,103 +1,87 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: Re: [PATCH 1/5] ISDN-Gigaset: Use kmalloc_array() in two functions
-Date: Wed, 28 Sep 2016 18:38:10 +0200
-Message-ID: <1a101dea-006f-f507-54e5-5d05ccd996ec@users.sourceforge.net>
-References: <566ABCD9.1060404@users.sourceforge.net>
- <6d4bbb77-914f-19b8-a1a9-2731d1158612@users.sourceforge.net>
- <4fb300f1-ff02-7983-464f-fcbca5919dac@users.sourceforge.net>
- <1475062635.16606.27.camel@tiscali.nl>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 3/3] net: fec: align IP header in hardware
+Date: Wed, 28 Sep 2016 16:42:58 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB010A73F@AcuExch.aculab.com>
+References: <AM4PR0401MB22609D8151C2B63CA7768A1AFFCB0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+ <1474728139-9335-1-git-send-email-eric@nelint.com>
+ <1474728139-9335-4-git-send-email-eric@nelint.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB0109865@AcuExch.aculab.com>
+ <4d199f32-092c-1c0a-7a01-6d0d317ef676@nelint.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
-        Karsten Keil <isdn@linux-pingi.de>,
-        LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org,
-        Julia Lawall <julia.lawall@lip6.fr>
-To: Paul Bolle <pebolle@tiscali.nl>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <1475062635.16606.27.camel@tiscali.nl>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux@arm.linux.org.uk" <linux@arm.linux.org.uk>,
+        "andrew@lunn.ch" <andrew@lunn.ch>,
+        "fugang.duan@nxp.com" <fugang.duan@nxp.com>,
+        "otavio@ossystems.com.br" <otavio@ossystems.com.br>,
+        "edumazet@google.com" <edumazet@google.com>,
+        "troy.kisky@boundarydevices.com" <troy.kisky@boundarydevices.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "u.kleine-koenig@pengutronix.de" <u.kleine-koenig@pengutronix.de>
+To: 'Eric Nelson' <eric@nelint.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out6.electric.net ([192.162.217.187]:53664 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934006AbcI1QqF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 12:46:05 -0400
+In-Reply-To: <4d199f32-092c-1c0a-7a01-6d0d317ef676@nelint.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->> * Multiplications for the size determination of memory allocations
->>   indicated that array data structures should be processed.
->>   Thus use the corresponding function "kmalloc_array".
+From: Eric Nelson
+> Sent: 26 September 2016 19:40
+> Hi David,
 > 
-> Was the current code incorrect?
-
-I suggest to use a safer interface for array allocations.
-
-
-> What makes kmalloc_array() better?
-
-1. How do you think about the safety checks that this function provides?
-
-2. Will you be also affected by further software evolution here?
-   2016-07-26
-   mm: faster kmalloc_array(), kcalloc()
-   https://git.kernel.org/cgit/linux/kernel/git/next/linux-next.git/commit/?id=91c6a05f72a996bee5133e76374ab3ad7d3b9b72
-
-
-> I'm not going to change code just because some checker suggests to do so.
-
-The script "checkpatch.pl" can point information out like the following.
-
-WARNING: Prefer kmalloc_array over kmalloc with multiply
-
-
->>   This issue was detected by using the Coccinelle software.
+> On 09/26/2016 02:26 AM, David Laight wrote:
+> > From: Eric Nelson
+> >> Sent: 24 September 2016 15:42
+> >> The FEC receive accelerator (RACC) supports shifting the data payload of
+> >> received packets by 16-bits, which aligns the payload (IP header) on a
+> >> 4-byte boundary, which is, if not required, at least strongly suggested
+> >> by the Linux networking layer.
+> > ...
+> >> +		/* align IP header */
+> >> +		val |= FEC_RACC_SHIFT16;
+> >
+> > I can't help feeling that there needs to be corresponding
+> > changes to increase the buffer size by 2 (maybe for large mtu)
+> > and to discard two bytes from the frame length.
+> >
 > 
-> So? And which coccinelle script was actually used?
-
-How do you think about to look into related information sources?
-https://github.com/coccinelle/coccinelle/issues/81
-
-Would you like to experiment any further with an excerpt?
-
-
-@replacement1@
-expression count, target;
-type T;
-@@
- target =
--         kmalloc(sizeof(T) * (count)
-+         kmalloc_array(count, sizeof(T)
-                        , ...);
-
-@replacement2@
-expression count, pointer, target;
-@@
- target =
--         kmalloc(sizeof(*pointer) * (count)
-+         kmalloc_array(count, sizeof(*pointer)
-                        , ...);
-
-
-> I couldn't spot a coccinelle script doing that in the current tree.
-
-This is true for such a software update opportunity.
-
-
->> * Replace the specification of a data structure by a pointer dereference
->>   to make the corresponding size determination a bit safer according to
->>   the Linux coding style convention.
+> In the normal case, the fec driver over-allocates all receive packets to
+> be of size FEC_ENET_RX_FRSIZE (2048) minus the value of rx_align,
+> which is either 0x0f (ARM) or 0x03 (PPC).
 > 
-> I'm not happy with you mixing this with the above, less trivial, change.
-
-I find that it is a useful combination. - A parameter is adjusted together
-with a special function name.
-
-
->> -	drv->cs = kmalloc(minors * sizeof *drv->cs, GFP_KERNEL);
->> +	drv->cs = kmalloc_array(minors, sizeof(*drv->cs), GFP_KERNEL);
+> If the frame length is less than rx_copybreak (typically 256), then
+> the frame length from the receive buffer descriptor is used to
+> control the allocation size for a copied buffer, and this will include
+> the two bytes of padding if RACC_SHIFT16 is set.
 > 
-> For "minors" the same holds as for "channels", above.
-> 
-> And you snuck in a parentheses change. That should have probably been
-> merged with 5/5.
+> > If probably ought to be predicated on NET_IP_ALIGN as well.
+> >
+> Can you elaborate?
 
-Would you prefer to add them in another update step?
+>From reading this it seems that the effect of FEC_RACC_SHIFT16 is to
+add two bytes of 'junk' to the start of every receive frame.
 
-Regards,
-Markus
+In the 'copybreak' case the new skb would need to be 2 bytes shorter
+than the length reported by the hardware, and the data copied from
+2 bytes into the dma buffer.
+
+The extra 2 bytes also mean the that maximum mtu that can be received
+into a buffer is two bytes less.
+If someone sets the mtu to (say) 9k for jumbo frames this might matter.
+Even with fixed 2048 byte buffers it reduces the maximum value the mtu
+can be set to by 2.
+
+Now if NET_IP_ALIGN is zero then it is fine for the rx frame to start
+on a 4n boundary, and the skb are likely to be allocated that way.
+In this case you don't want to extra two bytes of 'junk'.
+
+OTOH if NET_IP_ALIGN is 2 then you need to 'fiddle' things so that
+the data is dma'd to offset -2 in the skb and then ensure that the
+end of frame is set correctly.
+
+	David
