@@ -1,22 +1,46 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>
-Subject: Re: [PATCH v2] netfilter: xt_hashlimit: Fix link error in 32bit arch
- because of 64bit division
-Date: Wed, 28 Sep 2016 11:32:02 +0900
-Message-ID: <CANP3RGeJbCf=1Y+R-3NiZx+QWbXX14fxp+41AAG0NWd73S8bfg@mail.gmail.com>
-References: <20160927135718.GA31297@akamai.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFC net-next] bnx2x: avoid printing unnecessary
+ messages during register dump
+Date: Tue, 27 Sep 2016 22:43:49 -0400 (EDT)
+Message-ID: <20160927.224349.354006077948089224.davem@davemloft.net>
+References: <1475001234-25933-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>, johunt@akamai.com,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        Linux NetDev <netdev@vger.kernel.org>, pai.vishwain@gmail.com,
-        kaber@trash.net, kadlec@blackhole.kfki.hu, zlpnobody@gmail.com,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: Vishwanath Pai <vpai@akamai.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20160927135718.GA31297@akamai.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ariel.elior@qlogic.com, Yuval.Mintz@qlogic.com,
+        netdev@vger.kernel.org
+To: gpiccoli@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56212 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753937AbcI1Cnw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2016 22:43:52 -0400
+In-Reply-To: <1475001234-25933-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I don't think you actually need the backslashes since this ain't in a
-MACRO definition context.
+From: "Guilherme G. Piccoli" <gpiccoli@linux.vnet.ibm.com>
+Date: Tue, 27 Sep 2016 15:33:54 -0300
+
+> The bnx2x driver prints multiple error messages during register dump,
+> with "ethtool -d" for example. The driver even warn that many messages
+> might be seen during the register dump, but they are harmless. A typical
+> kernel log after register dump looks like this:
+> 
+>   [9.375] bnx2x: [bnx2x_get_regs:987(net0)]Generating register dump. Might trigger harmless GRC timeouts
+>   [9.439] bnx2x: [bnx2x_attn_int_deasserted3:4342(net0)]LATCHED attention 0x04000000 (masked)
+>   [9.439] bnx2x: [bnx2x_attn_int_deasserted3:4346(net0)]GRC time-out 0x010580cd
+>   [...]
+> 
+> The notation [...] means that some messages were supressed - in our
+> tests we saw 78 more "LATCHED attention" and "GRC time-out" messages,
+> supressed here.
+> 
+> This patch avoid these messages to be printed on register dump instead
+> of just warn they are harmless.
+> 
+> Signed-off-by: Guilherme G. Piccoli <gpiccoli@linux.vnet.ibm.com>
+
+Although "ethtool -d" is really a debugging facility, I still think that
+serious care should be placed into arranging what gets dumped in such
+a way that such access timeouts and errors are minimized.
