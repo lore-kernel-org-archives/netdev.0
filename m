@@ -1,7 +1,7 @@
 From: Rajat Jain <rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH] mwifiex: report wakeup for wowlan
-Date: Tue, 27 Sep 2016 18:41:52 -0700
-Message-ID: <1475026912-16265-1-git-send-email-rajatja@google.com>
+Subject: [PATCH v2] mwifiex: report wakeup for wowlan
+Date: Tue, 27 Sep 2016 18:45:04 -0700
+Message-ID: <1475027104-17423-1-git-send-email-rajatja@google.com>
 References: <1474995364-123069-1-git-send-email-rajatja@google.com>
 Cc: Rajat Jain <rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
         Wei-Ning Huang <wnhuang-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
@@ -16,15 +16,16 @@ In-Reply-To: <1474995364-123069-1-git-send-email-rajatja-hpIqsD4AKlfQT0dZR+AlfA@
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Enable notifying wakeup source to the PM core. This allow darkresume to
-correctly track wakeup source and mark mwifiex_plt as 'automatic' wakeup
-source.
+Enable notifying wakeup source to the PM core in case of
+a wake on wireless LAN event.
 
 Signed-off-by: Wei-Ning Huang <wnhuang-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Rajat Jain <rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
 Tested-by: Wei-Ning Huang <wnhuang-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
 Reviewed-by: Eric Caruso <ejcaruso-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
 ---
+v2: Fix the commit log
+
  drivers/net/wireless/marvell/mwifiex/sdio.c | 8 ++++++++
  drivers/net/wireless/marvell/mwifiex/sdio.h | 1 +
  2 files changed, 9 insertions(+)
