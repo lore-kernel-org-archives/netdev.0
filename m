@@ -1,46 +1,45 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH RFC 3/6] net: phy: Threaded interrupts allow some
- simplification
-Date: Wed, 28 Sep 2016 14:46:27 +0300
-Message-ID: <7997d337-cd0f-ab39-1f53-df996063932b@cogentembedded.com>
-References: <1475051544-18561-1-git-send-email-andrew@lunn.ch>
- <1475051544-18561-4-git-send-email-andrew@lunn.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv6 addrconf: enable use of proc_dointvec_minmax in
+ addrconf_sysctl
+Date: Wed, 28 Sep 2016 07:49:01 -0400 (EDT)
+Message-ID: <20160928.074901.901607987499248966.davem@davemloft.net>
+References: <1474978605-28116-1-git-send-email-zenczykowski@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Content-Type: Text/Plain; charset=iso-8859-2
+Content-Transfer-Encoding: 8BIT
+Cc: maze@google.com, netdev@vger.kernel.org, ek@google.com,
+        lorenzo@google.com, hannes@stressinduktion.org
+To: zenczykowski@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f45.google.com ([209.85.215.45]:35979 "EHLO
-        mail-lf0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753550AbcI1Lqb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 07:46:31 -0400
-Received: by mail-lf0-f45.google.com with SMTP id g62so48336815lfe.3
-        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 04:46:30 -0700 (PDT)
-In-Reply-To: <1475051544-18561-4-git-send-email-andrew@lunn.ch>
+Received: from shards.monkeyblade.net ([184.105.139.130]:33432 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752957AbcI1LtL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 07:49:11 -0400
+In-Reply-To: <1474978605-28116-1-git-send-email-zenczykowski@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Maciej ¯enczykowski <zenczykowski@gmail.com>
+Date: Tue, 27 Sep 2016 05:16:45 -0700
 
-On 9/28/2016 11:32 AM, Andrew Lunn wrote:
+> From: Maciej ¯enczykowski <maze@google.com>
+> 
+> Signed-off-by: Maciej ¯enczykowski <maze@google.com>
 
-> The PHY interrupts are now handled in a threaded interrupt handler,
-> which can sleep. The work queue is no longer needed, phy_change() can
-> be called directly. Additionally, none of the callers of
-> phy_mac_interrupt() did so in interrupt context, so fully remove the
+I was about to ask you to submit this patch alongside an actual
+addition of a proc_dointvec_minmax user to the table.
 
-    I did intend to call it from interrupt context (from the ravb driver).
+But upon second checking there is one, indirectly via
+addrconf_sysctl_mtu().
 
-> work queue, and document that phy_mac_interrupt() should not be called
-> in interrupt context.
+I should never have to search and figure things out like that.  It
+should be obvious or explained in the commit message.
 
-    It was intentionally made callable from the interrupt context, I'd prefer 
-if you wouldn't change that.
+You must explain in detail what the dependency is, why you
+have to make this change, how you made it, and why you made
+it that way.
 
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-[...]
+Especially in this case, your empty commit message is really
+not appropriate.
 
-MBR, Sergei
+Thanks.
