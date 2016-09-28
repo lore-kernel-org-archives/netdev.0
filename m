@@ -1,61 +1,51 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH iproute2-next] tc: fq: display unthrottle latency
-Date: Wed, 28 Sep 2016 06:23:15 -0700
-Message-ID: <1475068995.28155.96.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH v5] net: ip, diag -- Add diag interface for raw sockets
+Date: Wed, 28 Sep 2016 06:29:08 -0700
+Message-ID: <1475069348.28155.98.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20160928090357.GT1876@uranus.lan>
+         <caef7649-9d25-6429-eeab-96c027d6cbc2@mojatatu.com>
+         <20160928101726.GU1876@uranus.lan>
+         <8293413c-a81d-f7ff-24f0-8f58ce877116@mojatatu.com>
+         <20160928105147.GV1876@uranus.lan>
+         <484dedaf-4e81-9a5a-ffb8-2c65b373c3a0@mojatatu.com>
+         <20160928112703.GW1876@uranus.lan>
+         <1475067432.28155.90.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20160928130357.GC1876@uranus.lan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f67.google.com ([209.85.220.67]:34189 "EHLO
-        mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932642AbcI1NXR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 09:23:17 -0400
-Received: by mail-pa0-f67.google.com with SMTP id r9so1419502paz.1
-        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 06:23:17 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+        David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, avagin@openvz.org, stephen@networkplumber.org
+To: Cyrill Gorcunov <gorcunov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160928130357.GC1876@uranus.lan>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Wed, 2016-09-28 at 16:03 +0300, Cyrill Gorcunov wrote:
+> On Wed, Sep 28, 2016 at 05:57:12AM -0700, Eric Dumazet wrote:
+> ...
+> > Note that some programs could fail to compile with the added union
+> > anyway.
+> > 
+> > Some gcc versions are unable to compile a static init with an union
+> > 
+> > struct inet_diag_req_v2 foo = { .pad = 0, sdiag_family = AF_INET, };
+> > 
+> > When I cooked my recent fq commit I simply removed a pad and replaced
+> > it :
+> > 
+> > git show fefa569a9d4bc4 -- include
+> 
+> Oh, crap :( I've been looking into uapi headers, found that we
+> use anonymous unions (for example include/uapi/linux/bcache.h)
+> and thought it will be safe (and my test builds didn't fail).
+> Are you happen to know which gcc versions cant do that?
 
-In linux-4.9 fq packet scheduler got a new stat :
+The most recent example I have in mind is a kbuild bot report on the
+recent TCP BBR patches. We had to rework the patch to avoid the problem.
 
-unthrottle_latency in nano second units.
-
-Gives a good indication of system load or timer implementation
-latencies.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- include/linux/pkt_sched.h |    2 +-
- tc/q_fq.c                 |    3 +++
- 2 files changed, 4 insertions(+), 1 deletion(-)
-
-diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
-index f8e39db..df7451d 100644
---- a/include/linux/pkt_sched.h
-+++ b/include/linux/pkt_sched.h
-@@ -811,7 +811,7 @@ struct tc_fq_qd_stats {
- 	__u32	flows;
- 	__u32	inactive_flows;
- 	__u32	throttled_flows;
--	__u32	pad;
-+	__u32	unthrottle_latency_ns;
- };
- 
- /* Heavy-Hitter Filter */
-diff --git a/tc/q_fq.c b/tc/q_fq.c
-index 90147a6..c9efbfc 100644
---- a/tc/q_fq.c
-+++ b/tc/q_fq.c
-@@ -312,6 +312,9 @@ static int fq_print_xstats(struct qdisc_util *qu, FILE *f,
- 
- 	fprintf(f, ", %llu throttled", st->throttled);
- 
-+	if (st->unthrottle_latency_ns)
-+		fprintf(f, ", %u ns latency", st->unthrottle_latency_ns);
-+
- 	if (st->flows_plimit)
- 		fprintf(f, ", %llu flows_plimit", st->flows_plimit);
- 
+If I remember well, this was a gcc-4.7, but not on x86.
