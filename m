@@ -1,51 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v5] net: ip, diag -- Add diag interface for raw sockets
-Date: Wed, 28 Sep 2016 06:29:08 -0700
-Message-ID: <1475069348.28155.98.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160928090357.GT1876@uranus.lan>
-         <caef7649-9d25-6429-eeab-96c027d6cbc2@mojatatu.com>
-         <20160928101726.GU1876@uranus.lan>
-         <8293413c-a81d-f7ff-24f0-8f58ce877116@mojatatu.com>
-         <20160928105147.GV1876@uranus.lan>
-         <484dedaf-4e81-9a5a-ffb8-2c65b373c3a0@mojatatu.com>
-         <20160928112703.GW1876@uranus.lan>
-         <1475067432.28155.90.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20160928130357.GC1876@uranus.lan>
+From: Aaron Conole <aconole@bytheb.org>
+Subject: Re: [PATCH nf-next v2 1/2] netfilter: Fix potential null pointer dereference
+Date: Wed, 28 Sep 2016 09:30:36 -0400
+Message-ID: <f7tponokv7n.fsf@redhat.com>
+References: <1474983515-4115-1-git-send-email-aconole@bytheb.org>
+        <1474983515-4115-2-git-send-email-aconole@bytheb.org>
+        <CA+6hz4q_Fjc7mVZq7RG+RnioXFnD0w8Ows0AqwEy-5CJ7zg0yQ@mail.gmail.com>
+        <CAML_gOeTZhaWXffe0UqXRP_e=-+1vCs_z9ynrG7XJeUnmOs-6A@mail.gmail.com>
+        <CAML_gOeqjO--cPu=vt+ed14NqXP1uU41J0RDg5Up7xM79SCWjQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-        David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, avagin@openvz.org, stephen@networkplumber.org
-To: Cyrill Gorcunov <gorcunov@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160928130357.GC1876@uranus.lan>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: Feng Gao <gfree.wind@gmail.com>,
+        Netfilter Developer Mailing List
+        <netfilter-devel@vger.kernel.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Florian Westphal <fw@strlen.de>,
+        Pablo Neira Ayuso <pablo@netfilter.org>
+To: Liping Zhang <zlpnobody@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <CAML_gOeqjO--cPu=vt+ed14NqXP1uU41J0RDg5Up7xM79SCWjQ@mail.gmail.com>
+        (Liping Zhang's message of "Wed, 28 Sep 2016 11:13:07 +0800")
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2016-09-28 at 16:03 +0300, Cyrill Gorcunov wrote:
-> On Wed, Sep 28, 2016 at 05:57:12AM -0700, Eric Dumazet wrote:
-> ...
-> > Note that some programs could fail to compile with the added union
-> > anyway.
-> > 
-> > Some gcc versions are unable to compile a static init with an union
-> > 
-> > struct inet_diag_req_v2 foo = { .pad = 0, sdiag_family = AF_INET, };
-> > 
-> > When I cooked my recent fq commit I simply removed a pad and replaced
-> > it :
-> > 
-> > git show fefa569a9d4bc4 -- include
-> 
-> Oh, crap :( I've been looking into uapi headers, found that we
-> use anonymous unions (for example include/uapi/linux/bcache.h)
-> and thought it will be safe (and my test builds didn't fail).
-> Are you happen to know which gcc versions cant do that?
+Liping Zhang <zlpnobody@gmail.com> writes:
 
-The most recent example I have in mind is a kbuild bot report on the
-recent TCP BBR patches. We had to rework the patch to avoid the problem.
+> 2016-09-28 11:08 GMT+08:00 Liping Zhang <zlpnobody@gmail.com>:
+>> Hi Feng,
+>>
+>> 2016-09-28 9:23 GMT+08:00 Feng Gao <gfree.wind@gmail.com>:
+>>> Hi Aaraon,
+>>>
+>>> On Tue, Sep 27, 2016 at 9:38 PM, Aaron Conole <aconole@bytheb.org> wrote:
+>>>> It's possible for nf_hook_entry_head to return NULL if two
+>>>> nf_unregister_net_hook calls happen simultaneously with a single hook
+>>>
+>>> The critical region of nf_unregister_net_hook is protected by &nf_hook_mutex.
+>>> When it would be called simultaneously?
+>>
+>> This is unrelated to race condition.
+>>
+>> Suppose that only the last nf_hook_entry exist, and two callers want to do
+>> un-register work.
+>>
+>> The first one will remove it successfully, after the end of the work, the
+>> second one will enter the critical section, but it will see the NULL pointer.
+>> Because the last nf_hook_entry was already removed by the first one.
+>>
+>>>
+>>> Regards
+>>> Feng
+>>>
+>>>> entry in the list.  This fix ensures that no null pointer dereference
+>>>> could occur when such a race happens.
+>>>>
+>>>> Signed-off-by: Aaron Conole <aconole@bytheb.org>
+>
+> I read the commit log again, I think the description here is a
+> little confusing indeed.
 
-If I remember well, this was a gcc-4.7, but not on x86.
+Sorry about that.  I've posted a new description which describes the
+situation better.  I hope it helps.
+
+-Aaron
