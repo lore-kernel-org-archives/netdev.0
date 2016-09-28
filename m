@@ -1,115 +1,75 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v2 net] net: skbuff: skb_vlan_push: Fix wrong unwinding
- of skb->data after __vlan_insert_tag call
-Date: Wed, 28 Sep 2016 12:30:56 +0200
-Message-ID: <57EB9BE0.4080903@iogearbox.net>
-References: <1475053721-27676-1-git-send-email-shmulik.ladkani@gmail.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH v5] net: ip, diag -- Add diag interface for raw sockets
+Date: Wed, 28 Sep 2016 06:43:01 -0400
+Message-ID: <8293413c-a81d-f7ff-24f0-8f58ce877116@mojatatu.com>
+References: <20160928090357.GT1876@uranus.lan>
+ <caef7649-9d25-6429-eeab-96c027d6cbc2@mojatatu.com>
+ <20160928101726.GU1876@uranus.lan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-        Jiri Pirko <jiri@mellanox.com>
-To: Shmulik Ladkani <shmulik.ladkani@ravellosystems.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Pravin Shelar <pshelar@ovn.org>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, avagin@openvz.org, stephen@networkplumber.org
+To: Cyrill Gorcunov <gorcunov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:43341 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752116AbcI1KbB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 06:31:01 -0400
-In-Reply-To: <1475053721-27676-1-git-send-email-shmulik.ladkani@gmail.com>
+Received: from mail-io0-f193.google.com ([209.85.223.193]:36794 "EHLO
+        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932226AbcI1KnF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 06:43:05 -0400
+Received: by mail-io0-f193.google.com with SMTP id z135so2813274ioe.3
+        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 03:43:04 -0700 (PDT)
+In-Reply-To: <20160928101726.GU1876@uranus.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/28/2016 11:08 AM, Shmulik Ladkani wrote:
-> From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+On 16-09-28 06:17 AM, Cyrill Gorcunov wrote:
+> On Wed, Sep 28, 2016 at 06:08:00AM -0400, Jamal Hadi Salim wrote:
+> ...
+>>> @@ -38,7 +38,10 @@ struct inet_diag_req_v2 {
+>>>  	__u8	sdiag_family;
+>>>  	__u8	sdiag_protocol;
+>>>  	__u8	idiag_ext;
+>>> -	__u8	pad;
+>>> +	union {
+>>> +		__u8	pad;
+>>> +		__u8	sdiag_raw_protocol;	/* SOCK_RAW only, @pad for others */
+>>> +	};
+>>
+>>
+>> Above looks funny. Why is it a union? pad is for exposing a byte-hole
+>> for padding/alignment reasons and i doubt anybody is using it.
 >
-> In case 'skb_vlan_push' is called on an skb with a hw-accel vlan tag
-> present, the existing hw-accel tag is inserted into the payload, and
-> the new given tag is placed as new hw-accel tag.
+> Someone may have set it to zero explicitly on source level, and the
+> compilation will fail on new kernel then. So no, keeping the name
+> is reasonable.
 >
-> In order to insert the existing hw-accel tag, 'skb_vlan_push' adjusts
-> the 'data' pointer at the mac_header (if needed), invokes __vlan_insert_tag,
-> and finally re-adjusts 'data' back to its original position (according
-> to the remembered "adjustment offset").
->
-> However, successful '__vlan_insert_tag' pushes 4 more bytes at start of
-> frame.
-> Alas, the remembered "adjustment offset" is NOT fixed to account for
-> these additional 4 bytes, so the subsequent '__skb_pull(skb, offset)'
-> fails to unwind 'data' back to its original location.
->
-> Since 'skb->mac_len' IS fixed to account for the additional 4 bytes
-> (incremented to a total of 18 bytes), any access to
-> 'skb->data - skb->mac_len' points to bytes PRIOR start of frame.
->
-> This is problematic, as many constructs in the stack are issuing
-> 'skb_push(skb, skb->mac_len)' prior xmit to a device (e.g tcf_mirred,
-> tcf_bpf, nf_dup_netdev_egress), resulting in bogus frames being
-> xmitted (having random 4 bytes at start of frame).
->
-> For example:
->
->   # ip l add dev d0 type dummy
->   # tc filter add dev eth0 parent ffff: pref 1 basic \
->       action vlan push protocol 802.1ad id 5 pipe \
->       action mirred egress redirect dev d0
->
->   Any 802.1q (hw-accel) tagged frames arriving on eth0 are xmitted as
->   bogus frames on d0; whereas the expected behavior is having QinQ frames.
->
-> Fix, by properly accouting the additionally pushed 4 bytes (in the case
-> where an adjustment to point at mac_header was done).
->
-> Fixes: 93515d53b1 ("net: move vlan pop/push functions into common code")
-> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-> Cc: Pravin Shelar <pshelar@ovn.org>
-> Cc: Jiri Pirko <jiri@mellanox.com>
-> ---
->   v2: Instead of reducing mac_len by 4 bytes, which was found incorrect,
->       fix the problem of wrong unwinding of 'skb->data'
->
->   David, if patch ok, suggest this goes to -stable
->
->   net/core/skbuff.c | 2 ++
->   1 file changed, 2 insertions(+)
->
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index d36c754..3926b79 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -4608,6 +4608,8 @@ int skb_vlan_push(struct sk_buff *skb, __be16 vlan_proto, u16 vlan_tci)
->
->   		skb->protocol = skb->vlan_proto;
->   		skb->mac_len += VLAN_HLEN;
-> +		if (offset)
-> +			offset += VLAN_HLEN;
->
->   		skb_postpush_rcsum(skb, skb->data + (2 * ETH_ALEN), VLAN_HLEN);
->   		__skb_pull(skb, offset);
 
-This looks much better indeed than your v1 of this patch.
+I dont know how compilation will fail but you may be right with note:
+that is not how pads have been used in the past. They are supposed to
+cosmetic annotation which indicates "here's a hole; use it in the
+future if you are looking to add something". And someone in the
+future can claim them. I am not sure if MBZ philosophy applies.
 
-v1 would have definitely changed existing behavior for the cls_bpf/act_bpf
-case. Both start at the beginning of mac header from ingress and egress side.
-So when frame comes in on ingress, skb->data points to start of net header,
-we then do __skb_push(skb, skb->mac_len) before running BPF prog, and after
-return from BPF prog again __skb_pull(skb, skb->mac_len) to return to original
-location. Thus in skb_vlan_push() from BPF helper call offset is always 0;
-perhaps similar in ovs case.
+>> Should you not just rename it?
+>> Also I notice when things like __raw_v4_lookup() are claiming it is unsigned
+>> short instead of a u8?
+>
+> The protocol is still up to 255 for a while, is it expected that IPPROTO_MAX
+> will be increased in more-less near future? Of course I can drop the idea
+> of using @pad here and switch to some extended reauest but prefer to stick
+> with simplier solution. Hm?
+>
 
-With the removed skb->mac_len adjustment in skb_vlan_push() from your v1, we
-would then have pointed into vlan header on return to stack instead of net
-header location as we do currently.
+Ok. If i understood correctly it was already unsigned short before your
+patch -so i agree it doesnt matter. Maybe just put a comment to express
+that if ever protocol goes above 255 it wont be sufficient.
 
-So the issue might only be visible to act_vlan as the other remaining user of
-skb_vlan_push(). Above fix looks better to me. So if we don't start at the
-mac header yet, we need to do the __skb_push()/__skb_pull() adjustment from
-there, and since we expand mac header, we need to take these 4 bytes into
-account as well for returning to original location. My only question would
-be: what about __skb_vlan_pop(), wouldn't that then need the same adjustment
-a la offset -= VLAN_HLEN?
 
-Thanks,
-Daniel
+
+cheers,
+jamal
+
+PS:- sorry for butting in the discussion - i blame it on coffee.
