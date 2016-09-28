@@ -1,7 +1,7 @@
 From: Jia He <hejianet@gmail.com>
-Subject: [PATCH v5 6/7] ipv6: Remove useless parameter in __snmp6_fill_statsdev
-Date: Wed, 28 Sep 2016 14:22:27 +0800
-Message-ID: <1475043748-18161-7-git-send-email-hejianet@gmail.com>
+Subject: [PATCH v5 7/7] net: Suppress the "Comparison to NULL could be written" warnings
+Date: Wed, 28 Sep 2016 14:22:28 +0800
+Message-ID: <1475043748-18161-8-git-send-email-hejianet@gmail.com>
 References: <1475043748-18161-1-git-send-email-hejianet@gmail.com>
 Cc: linux-sctp@vger.kernel.org, linux-kernel@vger.kernel.org,
         davem@davemloft.net, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
@@ -14,58 +14,149 @@ Cc: linux-sctp@vger.kernel.org, linux-kernel@vger.kernel.org,
         Herbert Xu <herbert@gondor.apana.org.au>,
         marcelo.leitner@gmail.com, Jia He <hejianet@gmail.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:34640 "EHLO
-        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752984AbcI1GXQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 02:23:16 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1475043748-18161-1-git-send-email-hejianet@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The parameter items(always ICMP6_MIB_MAX) is useless for __snmp6_fill_statsdev.
+This is to suppress the checkpatch.pl warning "Comparison to NULL
+could be written". No functional changes here.
 
 Signed-off-by: Jia He <hejianet@gmail.com>
 ---
- net/ipv6/addrconf.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ net/ipv4/proc.c | 32 ++++++++++++++++----------------
+ net/sctp/proc.c |  2 +-
+ 2 files changed, 17 insertions(+), 17 deletions(-)
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 2f1f5d4..35d4baa 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4961,18 +4961,18 @@ static inline size_t inet6_if_nlmsg_size(void)
+diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
+index e01f4df..1a7a773 100644
+--- a/net/ipv4/proc.c
++++ b/net/ipv4/proc.c
+@@ -357,22 +357,22 @@ static void icmp_put(struct seq_file *seq)
+ 	atomic_long_t *ptr = net->mib.icmpmsg_statistics->mibs;
+ 
+ 	seq_puts(seq, "\nIcmp: InMsgs InErrors InCsumErrors");
+-	for (i = 0; icmpmibmap[i].name != NULL; i++)
++	for (i = 0; icmpmibmap[i].name; i++)
+ 		seq_printf(seq, " In%s", icmpmibmap[i].name);
+ 	seq_puts(seq, " OutMsgs OutErrors");
+-	for (i = 0; icmpmibmap[i].name != NULL; i++)
++	for (i = 0; icmpmibmap[i].name; i++)
+ 		seq_printf(seq, " Out%s", icmpmibmap[i].name);
+ 	seq_printf(seq, "\nIcmp: %lu %lu %lu",
+ 		snmp_fold_field(net->mib.icmp_statistics, ICMP_MIB_INMSGS),
+ 		snmp_fold_field(net->mib.icmp_statistics, ICMP_MIB_INERRORS),
+ 		snmp_fold_field(net->mib.icmp_statistics, ICMP_MIB_CSUMERRORS));
+-	for (i = 0; icmpmibmap[i].name != NULL; i++)
++	for (i = 0; icmpmibmap[i].name; i++)
+ 		seq_printf(seq, " %lu",
+ 			   atomic_long_read(ptr + icmpmibmap[i].index));
+ 	seq_printf(seq, " %lu %lu",
+ 		snmp_fold_field(net->mib.icmp_statistics, ICMP_MIB_OUTMSGS),
+ 		snmp_fold_field(net->mib.icmp_statistics, ICMP_MIB_OUTERRORS));
+-	for (i = 0; icmpmibmap[i].name != NULL; i++)
++	for (i = 0; icmpmibmap[i].name; i++)
+ 		seq_printf(seq, " %lu",
+ 			   atomic_long_read(ptr + (icmpmibmap[i].index | 0x100)));
  }
+@@ -389,7 +389,7 @@ static int snmp_seq_show_ipstats(struct seq_file *seq, void *v)
+ 	memset(buff64, 0, IPSTATS_MIB_MAX * sizeof(u64));
  
- static inline void __snmp6_fill_statsdev(u64 *stats, atomic_long_t *mib,
--				      int items, int bytes)
-+					int bytes)
- {
- 	int i;
--	int pad = bytes - sizeof(u64) * items;
-+	int pad = bytes - sizeof(u64) * ICMP6_MIB_MAX;
- 	BUG_ON(pad < 0);
+ 	seq_puts(seq, "Ip: Forwarding DefaultTTL");
+-	for (i = 0; snmp4_ipstats_list[i].name != NULL; i++)
++	for (i = 0; snmp4_ipstats_list[i].name; i++)
+ 		seq_printf(seq, " %s", snmp4_ipstats_list[i].name);
  
- 	/* Use put_unaligned() because stats may not be aligned for u64. */
--	put_unaligned(items, &stats[0]);
--	for (i = 1; i < items; i++)
-+	put_unaligned(ICMP6_MIB_MAX, &stats[0]);
-+	for (i = 1; i < ICMP6_MIB_MAX; i++)
- 		put_unaligned(atomic_long_read(&mib[i]), &stats[i]);
+ 	seq_printf(seq, "\nIp: %d %d",
+@@ -400,7 +400,7 @@ static int snmp_seq_show_ipstats(struct seq_file *seq, void *v)
+ 	snmp_get_cpu_field64_batch(buff64, snmp4_ipstats_list,
+ 				   net->mib.ip_statistics,
+ 				   offsetof(struct ipstats_mib, syncp));
+-	for (i = 0; snmp4_ipstats_list[i].name != NULL; i++)
++	for (i = 0; snmp4_ipstats_list[i].name; i++)
+ 		seq_printf(seq, " %llu", buff64[i]);
  
--	memset(&stats[items], 0, pad);
-+	memset(&stats[ICMP6_MIB_MAX], 0, pad);
- }
+ 	return 0;
+@@ -415,13 +415,13 @@ static int snmp_seq_show_tcp_udp(struct seq_file *seq, void *v)
+ 	memset(buff, 0, TCPUDP_MIB_MAX * sizeof(unsigned long));
  
- static inline void __snmp6_fill_stats64(u64 *stats, void __percpu *mib,
-@@ -5005,7 +5005,7 @@ static void snmp6_fill_stats(u64 *stats, struct inet6_dev *idev, int attrtype,
- 				     offsetof(struct ipstats_mib, syncp));
- 		break;
- 	case IFLA_INET6_ICMP6STATS:
--		__snmp6_fill_statsdev(stats, idev->stats.icmpv6dev->mibs, ICMP6_MIB_MAX, bytes);
-+		__snmp6_fill_statsdev(stats, idev->stats.icmpv6dev->mibs, bytes);
- 		break;
- 	}
- }
+ 	seq_puts(seq, "\nTcp:");
+-	for (i = 0; snmp4_tcp_list[i].name != NULL; i++)
++	for (i = 0; snmp4_tcp_list[i].name; i++)
+ 		seq_printf(seq, " %s", snmp4_tcp_list[i].name);
+ 
+ 	seq_puts(seq, "\nTcp:");
+ 	snmp_get_cpu_field_batch(buff, snmp4_tcp_list,
+ 				 net->mib.tcp_statistics);
+-	for (i = 0; snmp4_tcp_list[i].name != NULL; i++) {
++	for (i = 0; snmp4_tcp_list[i].name; i++) {
+ 		/* MaxConn field is signed, RFC 2012 */
+ 		if (snmp4_tcp_list[i].entry == TCP_MIB_MAXCONN)
+ 			seq_printf(seq, " %ld", buff[i]);
+@@ -434,10 +434,10 @@ static int snmp_seq_show_tcp_udp(struct seq_file *seq, void *v)
+ 	snmp_get_cpu_field_batch(buff, snmp4_udp_list,
+ 				 net->mib.udp_statistics);
+ 	seq_puts(seq, "\nUdp:");
+-	for (i = 0; snmp4_udp_list[i].name != NULL; i++)
++	for (i = 0; snmp4_udp_list[i].name; i++)
+ 		seq_printf(seq, " %s", snmp4_udp_list[i].name);
+ 	seq_puts(seq, "\nUdp:");
+-	for (i = 0; snmp4_udp_list[i].name != NULL; i++)
++	for (i = 0; snmp4_udp_list[i].name; i++)
+ 		seq_printf(seq, " %lu", buff[i]);
+ 
+ 	memset(buff, 0, TCPUDP_MIB_MAX * sizeof(unsigned long));
+@@ -446,10 +446,10 @@ static int snmp_seq_show_tcp_udp(struct seq_file *seq, void *v)
+ 	seq_puts(seq, "\nUdpLite:");
+ 	snmp_get_cpu_field_batch(buff, snmp4_udp_list,
+ 				 net->mib.udplite_statistics);
+-	for (i = 0; snmp4_udp_list[i].name != NULL; i++)
++	for (i = 0; snmp4_udp_list[i].name; i++)
+ 		seq_printf(seq, " %s", snmp4_udp_list[i].name);
+ 	seq_puts(seq, "\nUdpLite:");
+-	for (i = 0; snmp4_udp_list[i].name != NULL; i++)
++	for (i = 0; snmp4_udp_list[i].name; i++)
+ 		seq_printf(seq, " %lu", buff[i]);
+ 
+ 	seq_putc(seq, '\n');
+@@ -492,21 +492,21 @@ static int netstat_seq_show(struct seq_file *seq, void *v)
+ 	struct net *net = seq->private;
+ 
+ 	seq_puts(seq, "TcpExt:");
+-	for (i = 0; snmp4_net_list[i].name != NULL; i++)
++	for (i = 0; snmp4_net_list[i].name; i++)
+ 		seq_printf(seq, " %s", snmp4_net_list[i].name);
+ 
+ 	seq_puts(seq, "\nTcpExt:");
+-	for (i = 0; snmp4_net_list[i].name != NULL; i++)
++	for (i = 0; snmp4_net_list[i].name; i++)
+ 		seq_printf(seq, " %lu",
+ 			   snmp_fold_field(net->mib.net_statistics,
+ 					   snmp4_net_list[i].entry));
+ 
+ 	seq_puts(seq, "\nIpExt:");
+-	for (i = 0; snmp4_ipextstats_list[i].name != NULL; i++)
++	for (i = 0; snmp4_ipextstats_list[i].name; i++)
+ 		seq_printf(seq, " %s", snmp4_ipextstats_list[i].name);
+ 
+ 	seq_puts(seq, "\nIpExt:");
+-	for (i = 0; snmp4_ipextstats_list[i].name != NULL; i++)
++	for (i = 0; snmp4_ipextstats_list[i].name; i++)
+ 		seq_printf(seq, " %llu",
+ 			   snmp_fold_field64(net->mib.ip_statistics,
+ 					     snmp4_ipextstats_list[i].entry,
+diff --git a/net/sctp/proc.c b/net/sctp/proc.c
+index 9e7f4a7..16d7f3f 100644
+--- a/net/sctp/proc.c
++++ b/net/sctp/proc.c
+@@ -81,7 +81,7 @@ static int sctp_snmp_seq_show(struct seq_file *seq, void *v)
+ 
+ 	snmp_get_cpu_field_batch(buff, sctp_snmp_list,
+ 				 net->sctp.sctp_statistics);
+-	for (i = 0; sctp_snmp_list[i].name != NULL; i++)
++	for (i = 0; sctp_snmp_list[i].name; i++)
+ 		seq_printf(seq, "%-32s\t%ld\n", sctp_snmp_list[i].name,
+ 						buff[i]);
+ 
 -- 
 2.5.5
