@@ -1,187 +1,58 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net-next 5/5] PCI: disable FLR for 82579 device
-Date: Tue, 27 Sep 2016 17:26:50 -0700
-Message-ID: <CAKgT0UczaC-5z9GB74xhU11iWLu5_n75najKzBZcvk1T3C16Og@mail.gmail.com>
-References: <1474612741-75681-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1474612741-75681-6-git-send-email-jeffrey.t.kirsher@intel.com>
- <20160923140136.GC1514@localhost> <1474664726.2389.7.camel@intel.com>
- <176f2366-e225-75fb-8cad-909a8f7e808c@intel.com> <20160927181702.GA7275@localhost>
- <20160927131335.2edd72cb@t450s.home>
+From: Feng Gao <gfree.wind@gmail.com>
+Subject: Re: [PATCH nf-next v2 1/2] netfilter: Fix potential null pointer dereference
+Date: Wed, 28 Sep 2016 09:23:34 +0800
+Message-ID: <CA+6hz4q_Fjc7mVZq7RG+RnioXFnD0w8Ows0AqwEy-5CJ7zg0yQ@mail.gmail.com>
+References: <1474983515-4115-1-git-send-email-aconole@bytheb.org> <1474983515-4115-2-git-send-email-aconole@bytheb.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Bjorn Helgaas <helgaas@kernel.org>,
-        "Neftin, Sasha" <sasha.neftin@intel.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Bjorn Helgaas <bhelgaas@google.com>,
-        Netdev <netdev@vger.kernel.org>,
-        Neil Horman <nhorman@redhat.com>, sassmann@redhat.com,
-        John Greene <jogreene@redhat.com>, guru.anbalagane@oracle.com
-To: Alex Williamson <alex.williamson@redhat.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20160927131335.2edd72cb@t450s.home>
-Sender: linux-pci-owner@vger.kernel.org
+Cc: Netfilter Developer Mailing List
+        <netfilter-devel@vger.kernel.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Florian Westphal <fw@strlen.de>,
+        Pablo Neira Ayuso <pablo@netfilter.org>
+To: Aaron Conole <aconole@bytheb.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1474983515-4115-2-git-send-email-aconole@bytheb.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Since I worked with Sasha on this I will provide a bit of information
-from what I understand of this bug as well.
+Hi Aaraon,
 
-On Tue, Sep 27, 2016 at 12:13 PM, Alex Williamson
-<alex.williamson@redhat.com> wrote:
-> On Tue, 27 Sep 2016 13:17:02 -0500
-> Bjorn Helgaas <helgaas@kernel.org> wrote:
+On Tue, Sep 27, 2016 at 9:38 PM, Aaron Conole <aconole@bytheb.org> wrote:
+> It's possible for nf_hook_entry_head to return NULL if two
+> nf_unregister_net_hook calls happen simultaneously with a single hook
+
+The critical region of nf_unregister_net_hook is protected by &nf_hook_mutex.
+When it would be called simultaneously?
+
+Regards
+Feng
+
+> entry in the list.  This fix ensures that no null pointer dereference
+> could occur when such a race happens.
 >
->> On Sun, Sep 25, 2016 at 10:02:43AM +0300, Neftin, Sasha wrote:
->> > On 9/24/2016 12:05 AM, Jeff Kirsher wrote:
->> > >On Fri, 2016-09-23 at 09:01 -0500, Bjorn Helgaas wrote:
->> > >>On Thu, Sep 22, 2016 at 11:39:01PM -0700, Jeff Kirsher wrote:
->> > >>>From: Sasha Neftin <sasha.neftin@intel.com>
->> > >>>
->> > >>>82579 has a problem reattaching itself after the device is detached=
-.
->> > >>>The bug was reported by Redhat. The suggested fix is to disable
->> > >>>FLR capability in PCIe configuration space.
->> > >>>
->> > >>>Reproduction:
->> > >>>Attach the device to a VM, then detach and try to attach again.
->> > >>>
->> > >>>Fix:
->> > >>>Disable FLR capability to prevent the 82579 from hanging.
->> > >>Is there a bugzilla or other reference URL to include here?  Should
->> > >>this be marked for stable?
->> > >So the author is in Israel, meaning it is their weekend now.  I do no=
-t
->> > >believe Sasha monitors email over the weekend, so a response to your
->> > >questions won't happen for a few days.
->> > >
->> > >I tried searching my archives for more information, but had no luck f=
-inding
->> > >any additional information.
->> > >
-
-I agree that we do probably need to update the patch description since
-it isn't exactly clear what this is fixing or what was actually
-broken.
-
->> > >>>Signed-off-by: Sasha Neftin <sasha.neftin@intel.com>
->> > >>>Tested-by: Aaron Brown <aaron.f.brown@intel.com>
->> > >>>Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->> > >>>---
->> > >>>  drivers/pci/quirks.c | 21 +++++++++++++++++++++
->> > >>>  1 file changed, 21 insertions(+)
->> > >>>
->> > >>>diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
->> > >>>index 44e0ff3..59fba6e 100644
->> > >>>--- a/drivers/pci/quirks.c
->> > >>>+++ b/drivers/pci/quirks.c
->> > >>>@@ -4431,3 +4431,24 @@ static void quirk_intel_qat_vf_cap(struct
->> > >>>pci_dev *pdev)
->> > >>>         }
->> > >>>  }
->> > >>>  DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x443,
->> > >>>quirk_intel_qat_vf_cap);
->> > >>>+/*
->> > >>>+ * Workaround FLR issues for 82579
->> > >>>+ * This code disables the FLR (Function Level Reset) via PCIe, in
->> > >>>order
->> > >>>+ * to workaround a bug found while using device passthrough, where=
- the
->> > >>>+ * interface would become non-responsive.
->> > >>>+ * NOTE: the FLR bit is Read/Write Once (RWO) in config space, so =
-if
->> > >>>+ * the BIOS or kernel writes this register * then this workaround =
-will
->> > >>>+ * not work.
->> > >>This doesn't sound like a root cause.  Is the issue a hardware
->> > >>erratum?  Linux PCI core bug?  VFIO bug?  Device firmware bug?
->> > >>
->> > >>The changelog suggests that the problem only affects passthrough,
->> > >>which suggests some sort of kernel bug related to how passthrough is
->> > >>implemented.
->>
->> If this bug affects all scenarios, not just passthrough, the changelog
->> should not mention passthrough.
->>
->> > >>>+ */
->> > >>>+static void quirk_intel_flr_cap_dis(struct pci_dev *dev)
->> > >>>+{
->> > >>>+        int pos =3D pci_find_capability(dev, PCI_CAP_ID_AF);
->> > >>>+        if (pos) {
->> > >>>+                u8 cap;
->> > >>>+                pci_read_config_byte(dev, pos + PCI_AF_CAP, &cap);
->> > >>>+                cap =3D cap & (~PCI_AF_CAP_FLR);
->> > >>>+                pci_write_config_byte(dev, pos + PCI_AF_CAP, cap);
->> > >>>+        }
->> > >>>+}
->> > >>>+DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x1502,
->> > >>>quirk_intel_flr_cap_dis);
->> > >>>+DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x1503,
->> > >>>quirk_intel_flr_cap_dis);
->> > >>>--
->> > >>>2.7.4
->> > >>>
->> > >>>--
->> > >>>To unsubscribe from this list: send the line "unsubscribe linux-pci=
-" in
->> > >>>the body of a message to majordomo@vger.kernel.org
->> > >>>More majordomo info at  http://vger.kernel.org/majordomo-info.html
->> >
->> > Hello,
->> >
->> > Original bugzilla thread could be found here:
->> > https://bugzilla.redhat.com/show_bug.cgi?format=3Dmultiple&id=3D966840
->>
->> That bugzilla is private and I can't read it.
+> Signed-off-by: Aaron Conole <aconole@bytheb.org>
+> ---
+>  net/netfilter/core.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 >
-> Hmm, I can, but I don't see anything in it that supports this.  Is that
-> really the right bz?  It's the right hardware, but has all sorts of FUD
-> about the version of various other components in the stack.
-
-It looks like we had a local copy of the bugzilla saved here, though
-it only goes up to comment 13 which is where I think we started
-working this on our side.  I believe what this patch is attempting to
-resolve is related to comment 8 where the driver returned "probe of
-0000:00:19.0 failed with error =E2=80=902" instead of correctly probing the
-interface.
-
-So the bug as reported was that e1000e had a problem reattaching
-itself to the PHY after it was attached to a VM.  Sasha, please feel
-free to correct me if I have this bit wrong.  I had been told the
-problem was the FLR functionality wasn't fully implemented so that was
-why they were wanting to defeature it.  I had assumed that there was
-support for a reset on D0->D3->D0, but I just realized that probably
-isn't the case since it looks like my local system sets the NoSoftRST
-bit.
-
->> > This is our HW bug, exist only in 82579 devices. More new devices
->> > have no such problem. We have found root cause and suggested this
->> > solution.
->>
->> Is there an erratum you can reference?
->>
->> > This solution should work for a 95% of cases, so I do not
->> > think that this is fragile. For another cases possible solution is
->> > get up working system and manually disable FLR, before VM start use
->> > our adapter.
->>
->> I don't think a 95% solution is sufficient.  Can you use the
->> pci_dev_specific_reset() framework to make a 100% solution?
-
-I can try working with Sasha on this to see what we can do.
-
-> Right, plus when this does work I suspect it removes the one mechanism
-> we have to reset the device, which depending on how obscure the failure
-> scenario is, isn't a clear cut improvement for device assignment.
-> Thanks,
+> diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+> index 360c63d..e58e420 100644
+> --- a/net/netfilter/core.c
+> +++ b/net/netfilter/core.c
+> @@ -160,7 +160,7 @@ void nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
 >
-> Alex
-
-I'll work with Sasha to see what we can do.  Odds are there is some
-sort of problem between the MAC/PHY that needs to be resolved when we
-perform the function level reset so we will probably need to add code
-so that we reset the part and re-establish the link with the PHY after
-the reset.
-
-- Alex
+>         mutex_lock(&nf_hook_mutex);
+>         hooks_entry = nf_hook_entry_head(net, reg);
+> -       if (hooks_entry->orig_ops == reg) {
+> +       if (hooks_entry && hooks_entry->orig_ops == reg) {
+>                 nf_set_hooks_head(net, reg,
+>                                   nf_entry_dereference(hooks_entry->next));
+>                 goto unlock;
+> --
+> 2.7.4
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
