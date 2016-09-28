@@ -1,62 +1,61 @@
-From: Aaron Conole <aconole@bytheb.org>
-Subject: [PATCH nf-next v3 2/2] nf_set_hooks_head: accommodate different kconfig
-Date: Wed, 28 Sep 2016 09:12:48 -0400
-Message-ID: <1475068368-3109-3-git-send-email-aconole@bytheb.org>
-References: <1475068368-3109-1-git-send-email-aconole@bytheb.org>
-Cc: Florian Westphal <fw@strlen.de>,
-        Pablo Neira Ayuso <pablo@netfilter.org>
-To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1475068368-3109-1-git-send-email-aconole@bytheb.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH iproute2-next] tc: fq: display unthrottle latency
+Date: Wed, 28 Sep 2016 06:23:15 -0700
+Message-ID: <1475068995.28155.96.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:34189 "EHLO
+        mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932642AbcI1NXR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 09:23:17 -0400
+Received: by mail-pa0-f67.google.com with SMTP id r9so1419502paz.1
+        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 06:23:17 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When CONFIG_NETFILTER_INGRESS is unset (or no), we need to handle
-the request for registration properly by dropping the hook.  This
-releases the entry during the set.
+From: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Aaron Conole <aconole@bytheb.org>
+In linux-4.9 fq packet scheduler got a new stat :
+
+unthrottle_latency in nano second units.
+
+Gives a good indication of system load or timer implementation
+latencies.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- net/netfilter/core.c | 15 +++++++++++----
- 1 file changed, 11 insertions(+), 4 deletions(-)
+ include/linux/pkt_sched.h |    2 +-
+ tc/q_fq.c                 |    3 +++
+ 2 files changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/net/netfilter/core.c b/net/netfilter/core.c
-index e58e420..61e8a9d 100644
---- a/net/netfilter/core.c
-+++ b/net/netfilter/core.c
-@@ -90,10 +90,12 @@ static void nf_set_hooks_head(struct net *net, const struct nf_hook_ops *reg,
- {
- 	switch (reg->pf) {
- 	case NFPROTO_NETDEV:
-+#ifdef CONFIG_NETFILTER_INGRESS
- 		/* We already checked in nf_register_net_hook() that this is
- 		 * used from ingress.
- 		 */
- 		rcu_assign_pointer(reg->dev->nf_hooks_ingress, entry);
-+#endif
- 		break;
- 	default:
- 		rcu_assign_pointer(net->nf.hooks[reg->pf][reg->hooknum],
-@@ -107,10 +109,15 @@ int nf_register_net_hook(struct net *net, const struct nf_hook_ops *reg)
- 	struct nf_hook_entry *hooks_entry;
- 	struct nf_hook_entry *entry;
+diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
+index f8e39db..df7451d 100644
+--- a/include/linux/pkt_sched.h
++++ b/include/linux/pkt_sched.h
+@@ -811,7 +811,7 @@ struct tc_fq_qd_stats {
+ 	__u32	flows;
+ 	__u32	inactive_flows;
+ 	__u32	throttled_flows;
+-	__u32	pad;
++	__u32	unthrottle_latency_ns;
+ };
  
--	if (reg->pf == NFPROTO_NETDEV &&
--	    (reg->hooknum != NF_NETDEV_INGRESS ||
--	     !reg->dev || dev_net(reg->dev) != net))
--		return -EINVAL;
-+	if (reg->pf == NFPROTO_NETDEV) {
-+#ifndef CONFIG_NETFILTER_INGRESS
-+		if (reg->hooknum == NF_NETDEV_INGRESS)
-+			return -EOPNOTSUPP;
-+#endif
-+		if (reg->hooknum != NF_NETDEV_INGRESS ||
-+		    !reg->dev || dev_net(reg->dev) != net)
-+			return -EINVAL;
-+	}
+ /* Heavy-Hitter Filter */
+diff --git a/tc/q_fq.c b/tc/q_fq.c
+index 90147a6..c9efbfc 100644
+--- a/tc/q_fq.c
++++ b/tc/q_fq.c
+@@ -312,6 +312,9 @@ static int fq_print_xstats(struct qdisc_util *qu, FILE *f,
  
- 	entry = kmalloc(sizeof(*entry), GFP_KERNEL);
- 	if (!entry)
--- 
-2.7.4
-
+ 	fprintf(f, ", %llu throttled", st->throttled);
+ 
++	if (st->unthrottle_latency_ns)
++		fprintf(f, ", %u ns latency", st->unthrottle_latency_ns);
++
+ 	if (st->flows_plimit)
+ 		fprintf(f, ", %llu flows_plimit", st->flows_plimit);
+ 
