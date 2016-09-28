@@ -1,61 +1,104 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH v5] net: ip, diag -- Add diag interface for raw sockets
-Date: Wed, 28 Sep 2016 08:38:26 -0400
-Message-ID: <df4fcadf-2442-7ad9-ca38-769842f7a7cb@mojatatu.com>
-References: <20160928112703.GW1876@uranus.lan>
- <20160928.080701.1194277590163223525.davem@davemloft.net>
- <60b2e075-e852-f0c2-c188-631f547791d5@mojatatu.com>
- <20160928.081646.1634500099795129398.davem@davemloft.net>
- <70b51ac5-a7d1-8b52-90c4-7f80ec8ad4d5@mojatatu.com>
+From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Subject: [PATCH/RFC 00/12] Programming Open vSwitch (-like) flows
+	into hardware using SwitchDev
+Date: Wed, 28 Sep 2016 14:42:50 +0200
+Message-ID: <1475066582-1971-1-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: gorcunov@gmail.com, eric.dumazet@gmail.com,
-        dsa@cumulusnetworks.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-        avagin@openvz.org, stephen@networkplumber.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:33830 "EHLO
-        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932273AbcI1Mi3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 08:38:29 -0400
-Received: by mail-io0-f193.google.com with SMTP id g22so696836ioj.1
-        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 05:38:28 -0700 (PDT)
-In-Reply-To: <70b51ac5-a7d1-8b52-90c4-7f80ec8ad4d5@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On 16-09-28 08:27 AM, Jamal Hadi Salim wrote:
-> On 16-09-28 08:16 AM, David Miller wrote:
->> From: Jamal Hadi Salim <jhs@mojatatu.com>
->> Date: Wed, 28 Sep 2016 08:09:28 -0400
->>
->>> On 16-09-28 08:07 AM, David Miller wrote:
->>>
->>>> Right, it would be legal for an existing user to have code that
->>>> explicitly initializes every member of the structure, including 'pad'.
->>>> So we have to keep that member around, at a minimum, for their sake.
->>>>
->>>
->>> I think we need to start labelling any new pad fields added as
->>> "Not UAPI. Do not fsck fondle this".
->>
->> They must initialize it to zero.
->>
->
-> What if in the future actually meant to use 0 for
-> something?;-> For example in Cyrill's case it means PROTO_IP
-> Not sure if it useful to interpret or not but it is part of the
-> enum for protocols.
-
-I just tested with: socket(AF_INET, SOCK_RAW, 0);
-
-and got back: EPROTONOSUPPORT
-
-So in this case doesnt matter. But my point stands i.e 0 could mean
-something.
-
-cheers,
-jamal
+VGhpcyBzZXJpZXMgcHJvdmlkZXMgYSBwcm90b3R5cGUgb2YgcHJvZ3JhbW1pbmcgT3BlbiB2U3dp
+dGNoICgtbGlrZSkgZmxvd3MKaW50byBoYXJkd2FyZSB1c2luZyBTd2l0Y2hEZXYuIEl0IGlzIGEg
+cmV3b3JrIG9mIGFuIGFwcHJvYWNoIHdoaWNoIEkKcHJldmlvdXNseSBwb3N0ZWQgaW4gMjAxNC4g
+QW4gTmV0cm9ub21lIGhhcyBiZWVuIHVzaW5nIGluIHJlYWwgd29ybGQKcHJvZHVjdHMgZm9yIHNv
+bWUgdGltZSBub3cuCgpTaW5jZSB0aGF0IHRpbWUgdXBzdHJlYW0gc3VwcG9ydCBmb3Igb2ZmbG9h
+ZGluZyBmbG93cyBldm9sdmVkIHNvbWV3aGF0IGFzCndlIGNhbiBzZWUgaW4gYm90aCB0aGUgcHJv
+dmlzaW9uIGZvciBUQyB0byBvZmZsb2FkIGNsYXNzaWZpZXJzIHRvIGhhcmR3YXJlCmFuZCBldm9s
+dXRpb24gb2YgZUJQRi4gQW5kIHdpdGggTmV0ZGV2IDEuMiBhcHByb2FjaGluZyBpdCBzZWVtcyB0
+aW1lbHkKdG8gcmV2aXNpdCB0aGlzIGFwcHJvYWNoLgoKSW4gdGhpcyBhcHByb2FjaCBmbG93cyBh
+cmUgcHJvZ3JhbW1lZCBpbnRvIGhhcmR3YXJlIGJ5IHRoZSBrZXJuZWwgYW5kCnRoZSB1c2VyIHBy
+b3ZpZGVkIGJ5IHRoaXMgcGF0Y2hzZXQgaXMgdGhlIE9wZW4gdlN3aXRjaCBrZXJuZWwgZGF0YXBh
+dGguCkJ5IGRlZmF1bHQgdGhlIGltcGxlbWVudGF0aW9uIHRyaWVzIHRvIHByb2dyYW0gZmxvd3Mg
+aW50byBoYXJkd2FyZSBhbmQKc29mdHdhcmUgYnV0IG9ubHkgZmFpbHMgaWYgdGhlIGxhdHRlciBp
+cyBub3Qgc3VjY2Vzc2Z1bC4KCkFuIG5ldGxpbmsgYXR0cmlidXRlLCBPVlNfRkxPV19BVFRSX0hX
+X1NUQVRVUywgaXMgcHJvdmlkZWQgdG8gYWxsb3cKdXNlci1zcGFjZSB0byBkZXRlcm1pbmUgaWYg
+YSBmbG93IHdhcyBwcm9ncmFtbWVkIGludG8gaGFyZHdhcmUgb3Igbm90LgoKVXNlci1zcGFjZSBt
+YXkgYXNrIGZvciBhIGZsb3cgdG8gbm90IGJlIHByb2dyYW1tZWQgaW50byBoYXJkd2FyZSB1c2lu
+ZwpPVlNfRkxPV19IV19SRVFfU0tJUF9IVy4gVGhlcmUgaXMgYWxzbyBzY29wZSB0byBza2lwIGFk
+ZGluZyBmbG93cyBpbnRvCnNvZnR3YXJlIC0gdGhhdCBpcyBvbmx5IHByb2dyYW0gdGhlbSBpbnRv
+IGhhcmR3YXJlIGJ1dCB0aGF0IGlzIG5vdAppbXBsZW1lbnRlZCBhdCB0aGlzIHRpbWUuCgpUaGlz
+IHNob3VsZCBhbGxvdyBleGlzdGluZyB1c2VycyBvZiB0aGF0IGRhdGFwYXRoLCBpbmNsdWRpbmcg
+YnV0IG5vdApsaW1pdGVkIHRvIHRoZSBPcGVuIHZTd2l0Y2ggdXNlci1zcGFjZSwgdG8gdXNlIHRo
+ZXNlIG9mZmxvYWRzIHdpdGggbGl0dGxlCm9yIG5vIG1vZGlmaWNhdGlvbi4KClN3aXRjaERldiB3
+YXMgY2hvc2VuIGZvciB0aGlzIGltcGxlbWVudGF0aW9uIGFzIGl0IGFscmVhZHkgcHJvdmlkZXMK
+b2ZmbG9hZCBvZiBGREIgYW5kIEZJQiBlbnRyaWVzLCB3aGljaCBhcmUgdG8gc29tZSBleHRlbnQg
+Zmxvd3MuIFNvIG92ZXJhbGwKdGhlIGFwcHJvYWNoIHRha2VuIGhlcmUgaXMgdG8gYWRkIGEgbmV3
+IHR5cGUgb2YgZmxvdyB0byBTd2l0Y2hEZXYuCk90aGVyIG9wdGlvbnMgaW5jbHVkZSBORE9zIGFu
+ZCBjYWxsaW5nIGludG8gVEMsIG5laXRoZXIgb2Ygd2hpY2gKSSBoYXZlIHByb3RvdHlwZWQgYnV0
+IGJvdGggb2Ygd2hpY2ggc2VlbSBlbnRpcmVseSByZWFzb25hYmxlIHRvIG1lLgoKClRoaXMgcHJv
+dG90eXBlIGNvbnNpc3RzIG9mIHRocmVlIHBhcnRzOgoqIFVwZGF0ZXMgdG8gU3dpdGNoRGV2IHRv
+IGFkZCBzdXBwb3J0IGZvciBhIG5ldyBmbG93IG9iamVjdAoqIEltcGxlbWVudGF0aW9uIG9mIHN1
+cHBvcnQgZm9yIHRoZSBuZXcgZmxvdyBvYmplY3QgaW4gUm9ja2VyIGFuZAogIGl0cyBPRi1EUEEg
+d29ybGQuCiAgLSBUaGlzIGlzIHRvIHByb3ZpZGUgYSB3b3JraW5nIGV4YW1wbGUsIGluIHByYWN0
+aWNlIE9GLURQQSBzZWVtcwogICAgZXh0cmVtZWx5IGxpbWl0ZWQgaW4gdGVybXMgb2YgaXRzIGNh
+cGFjaXR5IHRvIG9mZmxvYWQKICAgIE9wZW4gdlN3aXRjaCAoLWxpa2UpIGZsb3dzKQoqIFVwZGF0
+ZXMgdG8gdGhlIE9wZW4gdlN3aXRjaCBkYXRhcGF0aCB0byB1c2UgdGhlIG5ldyBTd2l0Y2hEZXYg
+ZmxvdwogIG9iamVjdHMKClRoZXJlIGFyZSBhbHNvIG1pbm9yIGVuaGFuY2VtZW50cyB0b3QgaGUg
+UWVtdSBpbXBsZW1lbnRhdGlvbiB0byByb2NrZXIKdG8gYWRkIGJ5dGUgYW5kIGlkbGUtdGltZSBz
+dGF0aXN0aWNzIHRvIE9GLURQQSBmbG93cy4gVGhpcyBtb3ZlcyB0aGUKaW1wbGVtZW50YXRpb24g
+b3V0IG9mIHRoZSBzY29wZSBvZiBPRi1EUEEgYnV0IHdoZXJlIHRoZSBiZXN0IG1lY2hhbmlzbQpJ
+IGNhbWUgdXAgdG8gZXhlcmNpc2UgdGhpcyBhcHByb2FjaC4KClRoZXkgYXJlIGhlcmU6IGh0dHBz
+Oi8vZ2l0aHViLmNvbS9ob3Jtcy9xZW11IHJvY2tlci1zdGF0cy0yMDE2MDkyNgoKTm8gY2hhbmdl
+cyB0byB0aGUgT3BlbiB2U3dpdGNoIHVzZXItc3BhY2UgYXJlIHJlcXVpcmVkIHRvIGV4ZXJjaXNl
+IHRoaXMKY29kZS4KCgpBIGRpZmZlcmVudCBhcHByb2FjaCwgbm90IGltcGxlbWVudGVkIGJ5IHRo
+aXMgcGF0Y2gtc2V0LCBpcyBmb3IgdXNlci1zcGFjZQp0byBwcm9ncmFtIGZsb3dzIGludG8gaGFy
+ZHdhcmUgYnkgc29tZSBvdGhlciBtZWFucywgZm9yIGV4YW1wbGUgVEMsIGFuZC9vcgp0aGUgKGtl
+cm5lbCkgZGF0YXBhdGguIEkgYmVsaWV2ZSB0aGF0IGFwcHJvYWNoIGRvZXMgbm90IGNvbmZsaWN0
+IHdpdGggdGhpcwpvbmUuIEFuZCB0aGVyZSBpcyBzb21lIHNjb3BlIHRvIHNoYXJlIGluZnJhc3Ry
+dWN0dXJlIGluIHRoZSBrZXJuZWwuCgoKU2ltb24gSG9ybWFuICgxMik6CiAgc3dfZmxvdzogbWFr
+ZSBzdHJ1Y3Qgc3dfZmxvd19rZXkgYXZhaWxhYmxlIG91dHNpZGUgb2YgbmV0L29wZW52c3dpdGNo
+LwogIHN3aXRjaGRldjogQWRkIE9wZW4gdlN3aXRjaCAoLWxpa2UpIGZsb3cgb2JqZWN0IHN1cHBv
+cnQKICBzd2l0Y2hkZXY6IEFkZCBzdXBwb3J0IGZvciBnZXR0aW5nIHBvcnQgb2JqZWN0IGRldGFp
+bHMKICByb2NrZXI6IEFkZCBPcGVuIHZTd2l0Y2ggKC1saWtlKSBmbG93IHN1cHBvcnQKICByb2Nr
+ZXI6IFN1cHBvcnQgT3BlbiB2U3dpdGNoICgtbGlrZSkgZmxvdyBzdGF0cwogIHJvY2tlcjogQWRk
+IGhlbHBlciB0byBjaGVjayBwb3J0cyBiZWxvbmcgdG8gdGhlIHNhbWUgcm9ja2VyIHN3aXRjaAog
+IHJvY2tlcjogc3dpdGNoZGV2IEFkZCBPcGVuIHZTd2l0Y2ggKC1saWtlKSBmbG93IHN1cHBvcnQg
+dG8gT0YtRFBBCiAgICB3b3JsZAogIHJvY2tlcjogU3VwcG9ydCBPcGVuIHZTd2l0Y2ggKC1saWtl
+KSBmbG93IHN0YXRzIGluIE9GLURQQSB3b3JsZAogIG9wZW52c3dpdGNoOiBBZGQga2V5X2F0dHJz
+IHRvIHN0cnVjdCBzd19mbG93X21hdGNoCiAgb3BlbnZzd2l0Y2g6IG1ha2UgZ2V0X2RwX3JjdSgp
+IGF2YWlsYWJsZSBvdXRzaWRlIGRhdGFwYXRoLmMKICBvcGVudnN3aXRjaDogU3VwcG9ydCBwcm9n
+cmFtbWluZyBvZiBmbG93cyBpbnRvIGhhcmR3YXJlCiAgaGFjazogcm9ja2VyOiBubyBpcCBmcmFn
+IG1hdGNoCgogZHJpdmVycy9uZXQvZXRoZXJuZXQvcm9ja2VyL3JvY2tlci5oICAgICAgIHwgIDEx
+ICsKIGRyaXZlcnMvbmV0L2V0aGVybmV0L3JvY2tlci9yb2NrZXJfaHcuaCAgICB8ICAgNCArCiBk
+cml2ZXJzL25ldC9ldGhlcm5ldC9yb2NrZXIvcm9ja2VyX21haW4uYyAgfCAgNzUgKysrKysrKwog
+ZHJpdmVycy9uZXQvZXRoZXJuZXQvcm9ja2VyL3JvY2tlcl9vZmRwYS5jIHwgMzUwICsrKysrKysr
+KysrKysrKysrKysrKysrKysrKystCiBpbmNsdWRlL2xpbnV4L3N3X2Zsb3cuaCAgICAgICAgICAg
+ICAgICAgICAgfCAxMDAgKysrKysrKysrCiBpbmNsdWRlL25ldC9zd2l0Y2hkZXYuaCAgICAgICAg
+ICAgICAgICAgICAgfCAgNzQgKysrKysrCiBpbmNsdWRlL3VhcGkvbGludXgvb3BlbnZzd2l0Y2gu
+aCAgICAgICAgICAgfCAgMzYgKysrCiBuZXQvb3BlbnZzd2l0Y2gvZGF0YXBhdGguYyAgICAgICAg
+ICAgICAgICAgfCAgNzcgKysrKysrLQogbmV0L29wZW52c3dpdGNoL2RhdGFwYXRoLmggICAgICAg
+ICAgICAgICAgIHwgICAyICsKIG5ldC9vcGVudnN3aXRjaC9mbG93LmMgICAgICAgICAgICAgICAg
+ICAgICB8IDE3MyArKysrKysrKysrKysrKwogbmV0L29wZW52c3dpdGNoL2Zsb3cuaCAgICAgICAg
+ICAgICAgICAgICAgIHwgMTM1ICsrKysrLS0tLS0tCiBuZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRs
+aW5rLmMgICAgICAgICAgICAgfCAgNTYgKysrKy0KIG5ldC9vcGVudnN3aXRjaC9mbG93X25ldGxp
+bmsuaCAgICAgICAgICAgICB8ICAgMyArCiBuZXQvb3BlbnZzd2l0Y2gvdnBvcnQtbmV0ZGV2LmMg
+ICAgICAgICAgICAgfCAgMzkgKysrKwogbmV0L3N3aXRjaGRldi9zd2l0Y2hkZXYuYyAgICAgICAg
+ICAgICAgICAgIHwgMTE5ICsrKysrKysrKysKIDE1IGZpbGVzIGNoYW5nZWQsIDExNjUgaW5zZXJ0
+aW9ucygrKSwgODkgZGVsZXRpb25zKC0pCiBjcmVhdGUgbW9kZSAxMDA2NDQgaW5jbHVkZS9saW51
+eC9zd19mbG93LmgKCi0tIAoyLjcuMC5yYzMuMjA3LmcwYWM1MzQ0CgpfX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVu
+dnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
