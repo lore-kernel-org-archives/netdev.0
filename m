@@ -1,60 +1,103 @@
-From: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH/RFC 00/12] Programming Open vSwitch (-like)
- flows into hardware using SwitchDev
-Date: Wed, 28 Sep 2016 16:54:40 +0300
-Message-ID: <CAJ3xEMh0Wp6sXN1AxuZjnqycp6SkY732E4O9CRWip5Bydxuj2w@mail.gmail.com>
-References: <1475066582-1971-1-git-send-email-simon.horman@netronome.com>
+From: Amitkumar Karwar <akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
+Subject: RE: [PATCH v2] mwifiex: report wakeup for wowlan
+Date: Wed, 28 Sep 2016 13:59:35 +0000
+Message-ID: <014d46607eb34a3cbf61faafd7586905@SC-EXCH04.marvell.com>
+References: <1474995364-123069-1-git-send-email-rajatja@google.com>
+ <1475027104-17423-1-git-send-email-rajatja@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Rony Efraim <ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1475066582-1971-1-git-send-email-simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Wei-Ning Huang <wnhuang-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        Brian Norris <briannorris-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        Eric Caruso <ejcaruso-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+        "rajatxjain-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <rajatxjain-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Rajat Jain <rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        Nishant Sarmukadam <nishants-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+        "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1475027104-17423-1-git-send-email-rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Content-Language: en-US
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-T24gV2VkLCBTZXAgMjgsIDIwMTYgYXQgMzo0MiBQTSwgU2ltb24gSG9ybWFuCjxzaW1vbi5ob3Jt
-YW5AbmV0cm9ub21lLmNvbT4gd3JvdGU6Cgo+IEEgZGlmZmVyZW50IGFwcHJvYWNoLCBub3QgaW1w
-bGVtZW50ZWQgYnkgdGhpcyBwYXRjaC1zZXQsIGlzIGZvciB1c2VyLXNwYWNlCj4gdG8gcHJvZ3Jh
-bSBmbG93cyBpbnRvIGhhcmR3YXJlIGJ5IHNvbWUgb3RoZXIgbWVhbnMsIGZvciBleGFtcGxlIFRD
-LCBhbmQvb3IKPiB0aGUgKGtlcm5lbCkgZGF0YXBhdGguCgpSaWdodCwgYW5kIHdlJ3ZlIHN1Ym1p
-dHRlZCB0aGF0IGNvZGUgdG8gdGhlIE9WUyBjb21tdW5pdHkgMjRoIGFnbyBbMV0uCgpUaGlzIHdh
-cyBkb25lIGFsb25nIHRoZSBmZWVkYmFjayB3ZSd2ZSBnb3QgZm9yIHRoZSBsYXN0IHR3byB5ZWFy
-cyAoc2luY2UKdGhlICBMUEMgMjAxNCBuZXR3b3JraW5nIG1pY3JvLWNvbmYpLiBJdCBhbGxvd3Mg
-b2ZmbG9hZGluZyBmcm9tCm11bHRpcGxlIHVzZXItc3BhY2UKYXBwbGljYXRpb25zIHRocm91Z2gg
-YSBzaW5nbGUgVUFQSSAtLSB0aGUgVEMgb25lIChjdXJyZW50bHkgd2UgZGlkCmZsb3dlciwgYnV0
-IHRoZSBPVlNECnBhdGNoIHNldCBjYW4gYmUgZXh0ZW5kZWQgdG8gdXNlIHdoYXRldmVyIFRDIG9m
-ZmxvYWRzIGFyZSBzdXBwb3J0ZWQgYnkKdGhlIHBvcnQgZHJpdmVyLAplLmcgVTMyLCBlQlBGKSBh
-bmQgaW50ZWdyYXRpb24gd2l0aCAzcmQgcGFydHkgcG9saWN5IG1vZHVsZXMgIHJ1bm5pbmcKaW4g
-dXNlci1zcGFjZS4KCkxldHMgaGVhciBwZW9wbGUgb3BpbmlvbnMgYW5kIHNlZSB3aGVyZSB3ZSBn
-byBmcm9tIG5vdy4KCj4gSSBiZWxpZXZlIHRoYXQgYXBwcm9hY2ggZG9lcyBub3QgY29uZmxpY3Qg
-d2l0aCB0aGlzIG9uZS4KPiAgQW5kIHRoZXJlIGlzIHNvbWUgc2NvcGUgdG8gc2hhcmUgaW5mcmFz
-dHJ1Y3R1cmUgaW4gdGhlIGtlcm5lbAoKbWF5YmUsIHBvc3NpYmx5CgpXZSd2ZSBoYXZpbmcgYSB0
-YWxrIGluIG5ldGRldiAxLjIgb24gb2ZmbG9hZGluZyBIVyBvZmZsb2FkaW5nIG9mIE9WUwphbmQg
-c2ltaWxhciBhcHBsaWNhdGlvbnMsCkkgd291bGQgZW5jb3VyYWdlIHBlb3BsZSB0byBjb21lIGFu
-ZCBhcHByb2FjaCBtZSBhbmQvb3IgUm9ueSBFZnJhaW0KZnJvbSBNZWxsYW5veCBiZWZvcmUvYWZ0
-ZXIKdGhlIHRhbGsgdG8gZGlzY3VzcyB0aGF0IEYyRiwgd291bGQgbG92ZSB0byBnZXQgZmVlZGJh
-Y2tzLCBhbmQgYWxzbyBoZXJlLi4uCgpPci4KClsxXSBwb2ludGVycyB0byBwYXRjaGVzIGltcGxl
-bWVudGluZyB0aGUgMm5kIGFwcHJvYWNoCgpjb3Zlci1sZXR0ZXIgaHR0cDovL29wZW52c3dpdGNo
-Lm9yZy9waXBlcm1haWwvZGV2LzIwMTYtU2VwdGVtYmVyLzA3OTk1Mi5odG1sCgpwYXRjaGVzCgpo
-dHRwczovL3BhdGNod29yay5vemxhYnMub3JnL3BhdGNoLzY3NTU2MC8KaHR0cHM6Ly9wYXRjaHdv
-cmsub3psYWJzLm9yZy9wYXRjaC82NzU1NjcvCmh0dHBzOi8vcGF0Y2h3b3JrLm96bGFicy5vcmcv
-cGF0Y2gvNjc1NTY1LwpodHRwczovL3BhdGNod29yay5vemxhYnMub3JnL3BhdGNoLzY3NTU1OS8K
-aHR0cHM6Ly9wYXRjaHdvcmsub3psYWJzLm9yZy9wYXRjaC82NzU1NjQvCmh0dHBzOi8vcGF0Y2h3
-b3JrLm96bGFicy5vcmcvcGF0Y2gvNjc1NTYzLwpodHRwczovL3BhdGNod29yay5vemxhYnMub3Jn
-L3BhdGNoLzY3NTU2OC8KaHR0cHM6Ly9wYXRjaHdvcmsub3psYWJzLm9yZy9wYXRjaC82NzU1NjYv
-Cmh0dHBzOi8vcGF0Y2h3b3JrLm96bGFicy5vcmcvcGF0Y2gvNjc1NTYyLwoKWzJdIGh0dHA6Ly93
-d3cubmV0ZGV2Y29uZi5vcmcvMS4yL3Nlc3Npb24uaHRtbD9yb255LWVmcmFpbS0xCl9fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QK
-ZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGlu
-Zm8vZGV2Cg==
+> From: Rajat Jain [mailto:rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org]
+> Sent: Wednesday, September 28, 2016 7:15 AM
+> To: Amitkumar Karwar; Nishant Sarmukadam; Kalle Valo; linux-
+> wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Cc: Rajat Jain; Wei-Ning Huang; Brian Norris; Eric Caruso;
+> rajatxjain-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+> Subject: [PATCH v2] mwifiex: report wakeup for wowlan
+> 
+> Enable notifying wakeup source to the PM core in case of a wake on
+> wireless LAN event.
+> 
+> Signed-off-by: Wei-Ning Huang <wnhuang-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Rajat Jain <rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+> Tested-by: Wei-Ning Huang <wnhuang-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+> Reviewed-by: Eric Caruso <ejcaruso-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+> ---
+> v2: Fix the commit log
+> 
+>  drivers/net/wireless/marvell/mwifiex/sdio.c | 8 ++++++++
+> drivers/net/wireless/marvell/mwifiex/sdio.h | 1 +
+>  2 files changed, 9 insertions(+)
+> 
+> diff --git a/drivers/net/wireless/marvell/mwifiex/sdio.c
+> b/drivers/net/wireless/marvell/mwifiex/sdio.c
+> index d3e1561..a5f63e4 100644
+> --- a/drivers/net/wireless/marvell/mwifiex/sdio.c
+> +++ b/drivers/net/wireless/marvell/mwifiex/sdio.c
+> @@ -89,6 +89,9 @@ static irqreturn_t mwifiex_wake_irq_wifi(int irq, void
+> *priv)
+>  		disable_irq_nosync(irq);
+>  	}
+> 
+> +	/* Notify PM core we are wakeup source */
+> +	pm_wakeup_event(cfg->dev, 0);
+> +
+>  	return IRQ_HANDLED;
+>  }
+> 
+> @@ -112,6 +115,7 @@ static int mwifiex_sdio_probe_of(struct device *dev,
+> struct sdio_mmc_card *card)
+>  					  GFP_KERNEL);
+>  	cfg = card->plt_wake_cfg;
+>  	if (cfg && card->plt_of_node) {
+> +		cfg->dev = dev;
+>  		cfg->irq_wifi = irq_of_parse_and_map(card->plt_of_node, 0);
+>  		if (!cfg->irq_wifi) {
+>  			dev_dbg(dev,
+> @@ -130,6 +134,10 @@ static int mwifiex_sdio_probe_of(struct device
+> *dev, struct sdio_mmc_card *card)
+>  		}
+>  	}
+> 
+> +	ret = device_init_wakeup(dev, true);
+> +	if (ret)
+> +		dev_err(dev, "fail to init wakeup for mwifiex");
+> +
+>  	return 0;
+>  }
+> 
+> diff --git a/drivers/net/wireless/marvell/mwifiex/sdio.h
+> b/drivers/net/wireless/marvell/mwifiex/sdio.h
+> index db837f1..07cdd23 100644
+> --- a/drivers/net/wireless/marvell/mwifiex/sdio.h
+> +++ b/drivers/net/wireless/marvell/mwifiex/sdio.h
+> @@ -155,6 +155,7 @@
+>  } while (0)
+> 
+>  struct mwifiex_plt_wake_cfg {
+> +	struct device *dev;
+>  	int irq_wifi;
+>  	bool wake_by_wifi;
+>  };
+> --
+> 2.8.0.rc3.226.g39d4020
+
+Acked-by: Amitkumar Karwar <akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
+
+Regards,
+Amitkumar
