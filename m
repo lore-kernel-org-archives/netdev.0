@@ -1,104 +1,174 @@
-From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Subject: [PATCH/RFC 00/12] Programming Open vSwitch (-like) flows
-	into hardware using SwitchDev
-Date: Wed, 28 Sep 2016 14:42:50 +0200
-Message-ID: <1475066582-1971-1-git-send-email-simon.horman@netronome.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Simon Horman <simon.horman@netronome.com>
+Subject: [PATCH/RFC 02/12] switchdev: Add Open vSwitch (-like) flow object support
+Date: Wed, 28 Sep 2016 14:42:52 +0200
+Message-ID: <1475066582-1971-3-git-send-email-simon.horman@netronome.com>
+References: <1475066582-1971-1-git-send-email-simon.horman@netronome.com>
+Cc: Simon Horman <simon.horman@netronome.com>
+To: netdev@vger.kernel.org, dev@openvswitch.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:36136 "EHLO
+        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752839AbcI1MnM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 08:43:12 -0400
+Received: by mail-wm0-f44.google.com with SMTP id w84so233849236wmg.1
+        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 05:43:11 -0700 (PDT)
+In-Reply-To: <1475066582-1971-1-git-send-email-simon.horman@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhpcyBzZXJpZXMgcHJvdmlkZXMgYSBwcm90b3R5cGUgb2YgcHJvZ3JhbW1pbmcgT3BlbiB2U3dp
-dGNoICgtbGlrZSkgZmxvd3MKaW50byBoYXJkd2FyZSB1c2luZyBTd2l0Y2hEZXYuIEl0IGlzIGEg
-cmV3b3JrIG9mIGFuIGFwcHJvYWNoIHdoaWNoIEkKcHJldmlvdXNseSBwb3N0ZWQgaW4gMjAxNC4g
-QW4gTmV0cm9ub21lIGhhcyBiZWVuIHVzaW5nIGluIHJlYWwgd29ybGQKcHJvZHVjdHMgZm9yIHNv
-bWUgdGltZSBub3cuCgpTaW5jZSB0aGF0IHRpbWUgdXBzdHJlYW0gc3VwcG9ydCBmb3Igb2ZmbG9h
-ZGluZyBmbG93cyBldm9sdmVkIHNvbWV3aGF0IGFzCndlIGNhbiBzZWUgaW4gYm90aCB0aGUgcHJv
-dmlzaW9uIGZvciBUQyB0byBvZmZsb2FkIGNsYXNzaWZpZXJzIHRvIGhhcmR3YXJlCmFuZCBldm9s
-dXRpb24gb2YgZUJQRi4gQW5kIHdpdGggTmV0ZGV2IDEuMiBhcHByb2FjaGluZyBpdCBzZWVtcyB0
-aW1lbHkKdG8gcmV2aXNpdCB0aGlzIGFwcHJvYWNoLgoKSW4gdGhpcyBhcHByb2FjaCBmbG93cyBh
-cmUgcHJvZ3JhbW1lZCBpbnRvIGhhcmR3YXJlIGJ5IHRoZSBrZXJuZWwgYW5kCnRoZSB1c2VyIHBy
-b3ZpZGVkIGJ5IHRoaXMgcGF0Y2hzZXQgaXMgdGhlIE9wZW4gdlN3aXRjaCBrZXJuZWwgZGF0YXBh
-dGguCkJ5IGRlZmF1bHQgdGhlIGltcGxlbWVudGF0aW9uIHRyaWVzIHRvIHByb2dyYW0gZmxvd3Mg
-aW50byBoYXJkd2FyZSBhbmQKc29mdHdhcmUgYnV0IG9ubHkgZmFpbHMgaWYgdGhlIGxhdHRlciBp
-cyBub3Qgc3VjY2Vzc2Z1bC4KCkFuIG5ldGxpbmsgYXR0cmlidXRlLCBPVlNfRkxPV19BVFRSX0hX
-X1NUQVRVUywgaXMgcHJvdmlkZWQgdG8gYWxsb3cKdXNlci1zcGFjZSB0byBkZXRlcm1pbmUgaWYg
-YSBmbG93IHdhcyBwcm9ncmFtbWVkIGludG8gaGFyZHdhcmUgb3Igbm90LgoKVXNlci1zcGFjZSBt
-YXkgYXNrIGZvciBhIGZsb3cgdG8gbm90IGJlIHByb2dyYW1tZWQgaW50byBoYXJkd2FyZSB1c2lu
-ZwpPVlNfRkxPV19IV19SRVFfU0tJUF9IVy4gVGhlcmUgaXMgYWxzbyBzY29wZSB0byBza2lwIGFk
-ZGluZyBmbG93cyBpbnRvCnNvZnR3YXJlIC0gdGhhdCBpcyBvbmx5IHByb2dyYW0gdGhlbSBpbnRv
-IGhhcmR3YXJlIGJ1dCB0aGF0IGlzIG5vdAppbXBsZW1lbnRlZCBhdCB0aGlzIHRpbWUuCgpUaGlz
-IHNob3VsZCBhbGxvdyBleGlzdGluZyB1c2VycyBvZiB0aGF0IGRhdGFwYXRoLCBpbmNsdWRpbmcg
-YnV0IG5vdApsaW1pdGVkIHRvIHRoZSBPcGVuIHZTd2l0Y2ggdXNlci1zcGFjZSwgdG8gdXNlIHRo
-ZXNlIG9mZmxvYWRzIHdpdGggbGl0dGxlCm9yIG5vIG1vZGlmaWNhdGlvbi4KClN3aXRjaERldiB3
-YXMgY2hvc2VuIGZvciB0aGlzIGltcGxlbWVudGF0aW9uIGFzIGl0IGFscmVhZHkgcHJvdmlkZXMK
-b2ZmbG9hZCBvZiBGREIgYW5kIEZJQiBlbnRyaWVzLCB3aGljaCBhcmUgdG8gc29tZSBleHRlbnQg
-Zmxvd3MuIFNvIG92ZXJhbGwKdGhlIGFwcHJvYWNoIHRha2VuIGhlcmUgaXMgdG8gYWRkIGEgbmV3
-IHR5cGUgb2YgZmxvdyB0byBTd2l0Y2hEZXYuCk90aGVyIG9wdGlvbnMgaW5jbHVkZSBORE9zIGFu
-ZCBjYWxsaW5nIGludG8gVEMsIG5laXRoZXIgb2Ygd2hpY2gKSSBoYXZlIHByb3RvdHlwZWQgYnV0
-IGJvdGggb2Ygd2hpY2ggc2VlbSBlbnRpcmVseSByZWFzb25hYmxlIHRvIG1lLgoKClRoaXMgcHJv
-dG90eXBlIGNvbnNpc3RzIG9mIHRocmVlIHBhcnRzOgoqIFVwZGF0ZXMgdG8gU3dpdGNoRGV2IHRv
-IGFkZCBzdXBwb3J0IGZvciBhIG5ldyBmbG93IG9iamVjdAoqIEltcGxlbWVudGF0aW9uIG9mIHN1
-cHBvcnQgZm9yIHRoZSBuZXcgZmxvdyBvYmplY3QgaW4gUm9ja2VyIGFuZAogIGl0cyBPRi1EUEEg
-d29ybGQuCiAgLSBUaGlzIGlzIHRvIHByb3ZpZGUgYSB3b3JraW5nIGV4YW1wbGUsIGluIHByYWN0
-aWNlIE9GLURQQSBzZWVtcwogICAgZXh0cmVtZWx5IGxpbWl0ZWQgaW4gdGVybXMgb2YgaXRzIGNh
-cGFjaXR5IHRvIG9mZmxvYWQKICAgIE9wZW4gdlN3aXRjaCAoLWxpa2UpIGZsb3dzKQoqIFVwZGF0
-ZXMgdG8gdGhlIE9wZW4gdlN3aXRjaCBkYXRhcGF0aCB0byB1c2UgdGhlIG5ldyBTd2l0Y2hEZXYg
-ZmxvdwogIG9iamVjdHMKClRoZXJlIGFyZSBhbHNvIG1pbm9yIGVuaGFuY2VtZW50cyB0b3QgaGUg
-UWVtdSBpbXBsZW1lbnRhdGlvbiB0byByb2NrZXIKdG8gYWRkIGJ5dGUgYW5kIGlkbGUtdGltZSBz
-dGF0aXN0aWNzIHRvIE9GLURQQSBmbG93cy4gVGhpcyBtb3ZlcyB0aGUKaW1wbGVtZW50YXRpb24g
-b3V0IG9mIHRoZSBzY29wZSBvZiBPRi1EUEEgYnV0IHdoZXJlIHRoZSBiZXN0IG1lY2hhbmlzbQpJ
-IGNhbWUgdXAgdG8gZXhlcmNpc2UgdGhpcyBhcHByb2FjaC4KClRoZXkgYXJlIGhlcmU6IGh0dHBz
-Oi8vZ2l0aHViLmNvbS9ob3Jtcy9xZW11IHJvY2tlci1zdGF0cy0yMDE2MDkyNgoKTm8gY2hhbmdl
-cyB0byB0aGUgT3BlbiB2U3dpdGNoIHVzZXItc3BhY2UgYXJlIHJlcXVpcmVkIHRvIGV4ZXJjaXNl
-IHRoaXMKY29kZS4KCgpBIGRpZmZlcmVudCBhcHByb2FjaCwgbm90IGltcGxlbWVudGVkIGJ5IHRo
-aXMgcGF0Y2gtc2V0LCBpcyBmb3IgdXNlci1zcGFjZQp0byBwcm9ncmFtIGZsb3dzIGludG8gaGFy
-ZHdhcmUgYnkgc29tZSBvdGhlciBtZWFucywgZm9yIGV4YW1wbGUgVEMsIGFuZC9vcgp0aGUgKGtl
-cm5lbCkgZGF0YXBhdGguIEkgYmVsaWV2ZSB0aGF0IGFwcHJvYWNoIGRvZXMgbm90IGNvbmZsaWN0
-IHdpdGggdGhpcwpvbmUuIEFuZCB0aGVyZSBpcyBzb21lIHNjb3BlIHRvIHNoYXJlIGluZnJhc3Ry
-dWN0dXJlIGluIHRoZSBrZXJuZWwuCgoKU2ltb24gSG9ybWFuICgxMik6CiAgc3dfZmxvdzogbWFr
-ZSBzdHJ1Y3Qgc3dfZmxvd19rZXkgYXZhaWxhYmxlIG91dHNpZGUgb2YgbmV0L29wZW52c3dpdGNo
-LwogIHN3aXRjaGRldjogQWRkIE9wZW4gdlN3aXRjaCAoLWxpa2UpIGZsb3cgb2JqZWN0IHN1cHBv
-cnQKICBzd2l0Y2hkZXY6IEFkZCBzdXBwb3J0IGZvciBnZXR0aW5nIHBvcnQgb2JqZWN0IGRldGFp
-bHMKICByb2NrZXI6IEFkZCBPcGVuIHZTd2l0Y2ggKC1saWtlKSBmbG93IHN1cHBvcnQKICByb2Nr
-ZXI6IFN1cHBvcnQgT3BlbiB2U3dpdGNoICgtbGlrZSkgZmxvdyBzdGF0cwogIHJvY2tlcjogQWRk
-IGhlbHBlciB0byBjaGVjayBwb3J0cyBiZWxvbmcgdG8gdGhlIHNhbWUgcm9ja2VyIHN3aXRjaAog
-IHJvY2tlcjogc3dpdGNoZGV2IEFkZCBPcGVuIHZTd2l0Y2ggKC1saWtlKSBmbG93IHN1cHBvcnQg
-dG8gT0YtRFBBCiAgICB3b3JsZAogIHJvY2tlcjogU3VwcG9ydCBPcGVuIHZTd2l0Y2ggKC1saWtl
-KSBmbG93IHN0YXRzIGluIE9GLURQQSB3b3JsZAogIG9wZW52c3dpdGNoOiBBZGQga2V5X2F0dHJz
-IHRvIHN0cnVjdCBzd19mbG93X21hdGNoCiAgb3BlbnZzd2l0Y2g6IG1ha2UgZ2V0X2RwX3JjdSgp
-IGF2YWlsYWJsZSBvdXRzaWRlIGRhdGFwYXRoLmMKICBvcGVudnN3aXRjaDogU3VwcG9ydCBwcm9n
-cmFtbWluZyBvZiBmbG93cyBpbnRvIGhhcmR3YXJlCiAgaGFjazogcm9ja2VyOiBubyBpcCBmcmFn
-IG1hdGNoCgogZHJpdmVycy9uZXQvZXRoZXJuZXQvcm9ja2VyL3JvY2tlci5oICAgICAgIHwgIDEx
-ICsKIGRyaXZlcnMvbmV0L2V0aGVybmV0L3JvY2tlci9yb2NrZXJfaHcuaCAgICB8ICAgNCArCiBk
-cml2ZXJzL25ldC9ldGhlcm5ldC9yb2NrZXIvcm9ja2VyX21haW4uYyAgfCAgNzUgKysrKysrKwog
-ZHJpdmVycy9uZXQvZXRoZXJuZXQvcm9ja2VyL3JvY2tlcl9vZmRwYS5jIHwgMzUwICsrKysrKysr
-KysrKysrKysrKysrKysrKysrKystCiBpbmNsdWRlL2xpbnV4L3N3X2Zsb3cuaCAgICAgICAgICAg
-ICAgICAgICAgfCAxMDAgKysrKysrKysrCiBpbmNsdWRlL25ldC9zd2l0Y2hkZXYuaCAgICAgICAg
-ICAgICAgICAgICAgfCAgNzQgKysrKysrCiBpbmNsdWRlL3VhcGkvbGludXgvb3BlbnZzd2l0Y2gu
-aCAgICAgICAgICAgfCAgMzYgKysrCiBuZXQvb3BlbnZzd2l0Y2gvZGF0YXBhdGguYyAgICAgICAg
-ICAgICAgICAgfCAgNzcgKysrKysrLQogbmV0L29wZW52c3dpdGNoL2RhdGFwYXRoLmggICAgICAg
-ICAgICAgICAgIHwgICAyICsKIG5ldC9vcGVudnN3aXRjaC9mbG93LmMgICAgICAgICAgICAgICAg
-ICAgICB8IDE3MyArKysrKysrKysrKysrKwogbmV0L29wZW52c3dpdGNoL2Zsb3cuaCAgICAgICAg
-ICAgICAgICAgICAgIHwgMTM1ICsrKysrLS0tLS0tCiBuZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRs
-aW5rLmMgICAgICAgICAgICAgfCAgNTYgKysrKy0KIG5ldC9vcGVudnN3aXRjaC9mbG93X25ldGxp
-bmsuaCAgICAgICAgICAgICB8ICAgMyArCiBuZXQvb3BlbnZzd2l0Y2gvdnBvcnQtbmV0ZGV2LmMg
-ICAgICAgICAgICAgfCAgMzkgKysrKwogbmV0L3N3aXRjaGRldi9zd2l0Y2hkZXYuYyAgICAgICAg
-ICAgICAgICAgIHwgMTE5ICsrKysrKysrKysKIDE1IGZpbGVzIGNoYW5nZWQsIDExNjUgaW5zZXJ0
-aW9ucygrKSwgODkgZGVsZXRpb25zKC0pCiBjcmVhdGUgbW9kZSAxMDA2NDQgaW5jbHVkZS9saW51
-eC9zd19mbG93LmgKCi0tIAoyLjcuMC5yYzMuMjA3LmcwYWM1MzQ0CgpfX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVu
-dnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+The motivation of this patch is to provide objects for Open vSwitch (-like)
+flows so that they may be programmed into hardware using switchdev.
+
+The structures used here may well prove to be too Open vSwitch centric, but
+the purpose of the prototype of which this patch is part is to explore if
+switchdev is an appropriate mechanism for programming Open vSwitch (-like)
+flows into hardware. The data structures can be tweaked/reworked as needed.
+
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
+---
+ include/net/switchdev.h   | 39 +++++++++++++++++++++++++++++++
+ net/switchdev/switchdev.c | 58 +++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 97 insertions(+)
+
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index 729fe1534160..8eda96e46f98 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -71,6 +71,7 @@ enum switchdev_obj_id {
+ 	SWITCHDEV_OBJ_ID_IPV4_FIB,
+ 	SWITCHDEV_OBJ_ID_PORT_FDB,
+ 	SWITCHDEV_OBJ_ID_PORT_MDB,
++	SWITCHDEV_OBJ_SW_FLOW,
+ };
+ 
+ struct switchdev_obj {
+@@ -128,6 +129,19 @@ struct switchdev_obj_port_mdb {
+ #define SWITCHDEV_OBJ_PORT_MDB(obj) \
+ 	container_of(obj, struct switchdev_obj_port_mdb, obj)
+ 
++/* SWITCHDEV_OBJ_ID_PORT_SW_FLOW */
++struct switchdev_obj_sw_flow {
++	struct switchdev_obj obj;
++	const struct sw_flow_key *key;
++	const struct sw_flow_key *mask;
++	u64 attrs;
++	const struct nlattr *actions;
++	u32 actions_len;
++};
++
++#define SWITCHDEV_OBJ_SW_FLOW(obj) \
++	container_of(obj, struct switchdev_obj_sw_flow, obj)
++
+ void switchdev_trans_item_enqueue(struct switchdev_trans *trans,
+ 				  void *data, void (*destructor)(void const *),
+ 				  struct switchdev_trans_item *tritem);
+@@ -223,6 +237,13 @@ int switchdev_port_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
+ int switchdev_port_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
+ 			    struct net_device *dev,
+ 			    struct net_device *filter_dev, int *idx);
++int switchdev_sw_flow_add(struct net_device *dev,
++			  const struct sw_flow_key *key,
++			  const struct sw_flow_key *mask, u64 attrs,
++			  const struct nlattr *actions, u32 actions_len);
++int switchdev_sw_flow_del(struct net_device *dev,
++			  const struct sw_flow_key *key,
++			  const struct sw_flow_key *mask, u64 attrs);
+ void switchdev_port_fwd_mark_set(struct net_device *dev,
+ 				 struct net_device *group_dev,
+ 				 bool joining);
+@@ -347,6 +368,24 @@ static inline int switchdev_port_fdb_dump(struct sk_buff *skb,
+        return *idx;
+ }
+ 
++static inline int switchdev_sw_flow_add(struct net_device *dev,
++					const struct sw_flow_key *key,
++					const struct sw_flow_key *mask,
++					u64 attrs,
++					const struct nlattr *actions,
++					u32 actions_len)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline int switchdev_sw_flow_del(struct net_device *dev,
++					const struct sw_flow_key *key,
++					const struct sw_flow_key *mask,
++					u64 attrs)
++{
++	return -EOPNOTSUPP;
++}
++
+ static inline bool switchdev_port_same_parent_id(struct net_device *a,
+ 						 struct net_device *b)
+ {
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index 10b819308439..db96c3345129 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -1286,6 +1286,64 @@ void switchdev_fib_ipv4_abort(struct fib_info *fi)
+ }
+ EXPORT_SYMBOL_GPL(switchdev_fib_ipv4_abort);
+ 
++/**
++ *	switchdev_sw_flow_add - Program a flow into a switch port
++ *
++ *	@dev: port device
++ *      @key: flow key
++ *      @mask: flow mask
++ *      @attrs: attributes present in key
++ *	@actions: actions of the flow
++ *	@actions_len: length of @actions
++ *
++ *	Program a flow into a port device where the flow is expressed as
++ *	an Open vSwitch flow key, mask, attributes, and actions
++ */
++int switchdev_sw_flow_add(struct net_device *dev,
++			  const struct sw_flow_key *key,
++			  const struct sw_flow_key *mask,
++			  u64 attrs, const struct nlattr *actions,
++			  u32 actions_len)
++{
++	struct switchdev_obj_sw_flow sw_flow = {
++		.obj.id = SWITCHDEV_OBJ_SW_FLOW,
++		.key = key,
++		.mask = mask,
++		.attrs = attrs,
++		.actions = actions,
++		.actions_len = actions_len,
++	};
++
++	return switchdev_port_obj_add(dev, &sw_flow.obj);
++}
++EXPORT_SYMBOL_GPL(switchdev_sw_flow_add);
++
++/**
++ *	switchdev_sw_flow_del - Delete flow from switch
++ *
++ *	@dev: port device
++ *      @key: flow key
++ *      @mask: flow mask
++ *      @attrs: attributes present in key
++ *
++ *	Delete a flow from a device where the flow is expressed as
++ *	an Open vSwitch flow key, mask and attributes.
++ */
++int switchdev_sw_flow_del(struct net_device *dev,
++			  const struct sw_flow_key *key,
++			  const struct sw_flow_key *mask, u64 attrs)
++{
++	struct switchdev_obj_sw_flow sw_flow = {
++		.obj.id = SWITCHDEV_OBJ_SW_FLOW,
++		.key = key,
++		.mask = mask,
++		.attrs = attrs,
++	};
++
++	return switchdev_port_obj_del(dev, &sw_flow.obj);
++}
++EXPORT_SYMBOL_GPL(switchdev_sw_flow_del);
++
+ bool switchdev_port_same_parent_id(struct net_device *a,
+ 				   struct net_device *b)
+ {
+-- 
+2.7.0.rc3.207.g0ac5344
