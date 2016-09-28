@@ -1,39 +1,35 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH v5] net: ip, diag -- Add diag interface for raw sockets
-Date: Wed, 28 Sep 2016 08:09:28 -0400
-Message-ID: <60b2e075-e852-f0c2-c188-631f547791d5@mojatatu.com>
-References: <20160928105147.GV1876@uranus.lan>
- <484dedaf-4e81-9a5a-ffb8-2c65b373c3a0@mojatatu.com>
- <20160928112703.GW1876@uranus.lan>
- <20160928.080701.1194277590163223525.davem@davemloft.net>
+Date: Wed, 28 Sep 2016 08:09:24 -0400 (EDT)
+Message-ID: <20160928.080924.262829446101549341.davem@davemloft.net>
+References: <484dedaf-4e81-9a5a-ffb8-2c65b373c3a0@mojatatu.com>
+        <20160928112703.GW1876@uranus.lan>
+        <696ed966-991c-30f7-9a1c-d91a94c9304c@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, dsa@cumulusnetworks.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, avagin@openvz.org, stephen@networkplumber.org
-To: David Miller <davem@davemloft.net>, gorcunov@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:33567 "EHLO
-        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753442AbcI1MJc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 08:09:32 -0400
-Received: by mail-io0-f195.google.com with SMTP id r145so3028702ior.0
-        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 05:09:31 -0700 (PDT)
-In-Reply-To: <20160928.080701.1194277590163223525.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: gorcunov@gmail.com, eric.dumazet@gmail.com,
+        dsa@cumulusnetworks.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+        avagin@openvz.org, stephen@networkplumber.org
+To: jhs@mojatatu.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <696ed966-991c-30f7-9a1c-d91a94c9304c@mojatatu.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16-09-28 08:07 AM, David Miller wrote:
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Date: Wed, 28 Sep 2016 08:06:51 -0400
 
-> Right, it would be legal for an existing user to have code that
-> explicitly initializes every member of the structure, including 'pad'.
-> So we have to keep that member around, at a minimum, for their sake.
->
+> I understood well your point;-> Maybe my response was not clear:
+> _nobody should be fscking fondling pad fields_ setting them or
+> otherwise.
 
-I think we need to start labelling any new pad fields added as
-"Not UAPI. Do not fsck fondle this".
+Especially considering potential future uses of the field, existing
+users absolutely must zero out the field.
 
-cheers,
-jamal
+Whether this is via a memset() of the entire structure or via
+an explicit initialization to zero is their choice.
+
+So setting 'pad' is in fact valid.
