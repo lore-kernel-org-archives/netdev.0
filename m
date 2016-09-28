@@ -1,87 +1,64 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: [PATCH 1/5] ISDN-Gigaset: Use kmalloc_array() in two functions
-Date: Wed, 28 Sep 2016 13:37:15 +0200
-Message-ID: <1475062635.16606.27.camel@tiscali.nl>
-References: <566ABCD9.1060404@users.sourceforge.net>
-         <6d4bbb77-914f-19b8-a1a9-2731d1158612@users.sourceforge.net>
-         <4fb300f1-ff02-7983-464f-fcbca5919dac@users.sourceforge.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH RFC 2/6] net: phy: Use threaded IRQ, to allow IRQ from
+ sleeping devices
+Date: Wed, 28 Sep 2016 14:38:03 +0300
+Message-ID: <b93c08b9-1ed0-19d4-bd77-53a4958da97e@cogentembedded.com>
+References: <1475051544-18561-1-git-send-email-andrew@lunn.ch>
+ <1475051544-18561-3-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
-        Karsten Keil <isdn@linux-pingi.de>,
-        LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org,
-        Julia Lawall <julia.lawall@lip6.fr>
-To: SF Markus Elfring <elfring@users.sourceforge.net>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <4fb300f1-ff02-7983-464f-fcbca5919dac@users.sourceforge.net>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f52.google.com ([209.85.215.52]:35765 "EHLO
+        mail-lf0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753296AbcI1LiG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 07:38:06 -0400
+Received: by mail-lf0-f52.google.com with SMTP id l131so48444556lfl.2
+        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 04:38:05 -0700 (PDT)
+In-Reply-To: <1475051544-18561-3-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-09-26 at 17:38 +0200, SF Markus Elfring wrote:
-> * Multiplications for the size determination of memory allocations
->   indicated that array data structures should be processed.
->   Thus use the corresponding function "kmalloc_array".
+Hello.
 
-Was the current code incorrect? What makes kmalloc_array() better? None
-of this is obvious to me.
+On 9/28/2016 11:32 AM, Andrew Lunn wrote:
 
-I'm not going to change code just because some checker suggests to do
-so.
+> The interrupt lines from PHYs maybe connected to I2C bus expanders, or
+> from switches on MDIO busses. Such interrupts are sourced from devices
+> which sleep, so use threaded interrupts. Threaded interrupts require
+> that the interrupt requester also uses the threaded API. Change the
+> phylib to use the threaded API, which is backwards compatible with
+> none-threaded IRQs.
+>
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> ---
+>  drivers/net/phy/phy.c | 7 +++----
+>  1 file changed, 3 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+> index c6f66832a1a6..5c29ed72f721 100644
+> --- a/drivers/net/phy/phy.c
+> +++ b/drivers/net/phy/phy.c
+> @@ -722,10 +722,9 @@ phy_err:
+>  int phy_start_interrupts(struct phy_device *phydev)
+>  {
+>  	atomic_set(&phydev->irq_disable, 0);
+> -	if (request_irq(phydev->irq, phy_interrupt,
+> -				IRQF_SHARED,
+> -				"phy_interrupt",
+> -				phydev) < 0) {
+> +	if (request_threaded_irq(phydev->irq, NULL, phy_interrupt,
+> +				 IRQF_ONESHOT, "phy_interrupt",
 
->   This issue was detected by using the Coccinelle software.
+    What about IRQF_SHARED?
 
-So? And which coccinelle script was actually used? I couldn't spot a
-coccinelle script doing that in the current tree.
+> +				 phydev) < 0) {
+>  		pr_warn("%s: Can't get IRQ %d (PHY)\n",
+>  			phydev->mdio.bus->name, phydev->irq);
+>  		phydev->irq = PHY_POLL;
 
-> * Replace the specification of a data structure by a pointer dereference
->   to make the corresponding size determination a bit safer according to
->   the Linux coding style convention.
-
-I'm not happy with you mixing this with the above, less trivial,
-change.
-
-> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
-
-> --- a/drivers/isdn/gigaset/common.c
-> +++ b/drivers/isdn/gigaset/common.c
-> @@ -709,8 +709,7 @@ struct cardstate *gigaset_initcs(struct gigaset_driver *drv, int channels,
->  
->  	cs->mode = M_UNKNOWN;
->  	cs->mstate = MS_UNINITIALIZED;
-> -
-
-Unrelated whitespace change.
-
-> -	cs->bcs = kmalloc(channels * sizeof(struct bc_state), GFP_KERNEL);
-> +	cs->bcs = kmalloc_array(channels, sizeof(*cs->bcs), GFP_KERNEL);
-
-For the record: "channels" is basically hardcoded in the three gigaset
-hardware drivers.
-
->  	cs->inbuf = kmalloc(sizeof(struct inbuf_t), GFP_KERNEL);
->  	if (!cs->bcs || !cs->inbuf) {
->  		pr_err("out of memory\n");
-> @@ -1089,8 +1088,7 @@ struct gigaset_driver
-> *gigaset_initdriver(unsigned minor, unsigned minors,
->  	drv->ops = ops;
->  	drv->owner = owner;
->  	INIT_LIST_HEAD(&drv->list);
-> -
-
-Again unrelated whitespace change.
-
-> -	drv->cs = kmalloc(minors * sizeof *drv->cs, GFP_KERNEL);
-> +	drv->cs = kmalloc_array(minors, sizeof(*drv->cs), GFP_KERNEL);
-
-For "minors" the same holds as for "channels", above.
-
-And you snuck in a parentheses change. That should have probably been
-merged with 5/5.
-
->  	if (!drv->cs)
->  		goto error;
-
-
-Paul Bolle
+MBR, Sergei
