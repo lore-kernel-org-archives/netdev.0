@@ -1,35 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5] net: ip, diag -- Add diag interface for raw sockets
-Date: Wed, 28 Sep 2016 08:09:24 -0400 (EDT)
-Message-ID: <20160928.080924.262829446101549341.davem@davemloft.net>
-References: <484dedaf-4e81-9a5a-ffb8-2c65b373c3a0@mojatatu.com>
-        <20160928112703.GW1876@uranus.lan>
-        <696ed966-991c-30f7-9a1c-d91a94c9304c@mojatatu.com>
+Subject: Re: [PATCHv2 net 0/5] sctp: some fixes of prsctp polices
+Date: Wed, 28 Sep 2016 08:13:03 -0400 (EDT)
+Message-ID: <20160928.081303.661512609700070565.davem@davemloft.net>
+References: <cover.1475059350.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gorcunov@gmail.com, eric.dumazet@gmail.com,
-        dsa@cumulusnetworks.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-        avagin@openvz.org, stephen@networkplumber.org
-To: jhs@mojatatu.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <696ed966-991c-30f7-9a1c-d91a94c9304c@mojatatu.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        marcelo.leitner@gmail.com, vyasevich@gmail.com,
+        daniel@iogearbox.net
+To: lucien.xin@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:33706 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751742AbcI1MNL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 08:13:11 -0400
+In-Reply-To: <cover.1475059350.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Date: Wed, 28 Sep 2016 08:06:51 -0400
+From: Xin Long <lucien.xin@gmail.com>
+Date: Wed, 28 Sep 2016 18:46:27 +0800
 
-> I understood well your point;-> Maybe my response was not clear:
-> _nobody should be fscking fondling pad fields_ setting them or
-> otherwise.
+> This patchset is to improve some codes about prsctp polices, and also
+> to fix some issues.
+> 
+> v1->v2:
+>   - wrap the check of chunk->sent_count in a macro:
+>     sctp_chunk_retransmitted in patch 2/5.
 
-Especially considering potential future uses of the field, existing
-users absolutely must zero out the field.
+This series is a mix of bug fixes (patch #1) which should be targetting
+'net' and simplifications/cleanups (patch #2-5) which should be targetting
+'net-next'.
 
-Whether this is via a memset() of the entire structure or via
-an explicit initialization to zero is their choice.
-
-So setting 'pad' is in fact valid.
+Please do not mix things up like this, and submit patches targetting
+the appropriate tree.
