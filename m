@@ -1,61 +1,69 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [PATCH v5] net: ip, diag -- Add diag interface for raw sockets
-Date: Wed, 28 Sep 2016 13:51:47 +0300
-Message-ID: <20160928105147.GV1876@uranus.lan>
-References: <20160928090357.GT1876@uranus.lan>
- <caef7649-9d25-6429-eeab-96c027d6cbc2@mojatatu.com>
- <20160928101726.GU1876@uranus.lan>
- <8293413c-a81d-f7ff-24f0-8f58ce877116@mojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, avagin@openvz.org, stephen@networkplumber.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <8293413c-a81d-f7ff-24f0-8f58ce877116@mojatatu.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH net-next v3 0/3] udp: refactor memory accounting
+Date: Wed, 28 Sep 2016 12:52:50 +0200
+Message-ID: <cover.1475048434.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
+        Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+        Alexander Duyck <aduyck-nYU0QVwCCFFWk0Htik3J/w@public.gmane.org>,
+        Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
+        Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+        Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 28, 2016 at 06:43:01AM -0400, Jamal Hadi Salim wrote:
-...
-> > 
-> > Someone may have set it to zero explicitly on source level, and the
-> > compilation will fail on new kernel then. So no, keeping the name
-> > is reasonable.
-> > 
-> 
-> I dont know how compilation will fail but you may be right with note:
-> that is not how pads have been used in the past. They are supposed to
-> cosmetic annotation which indicates "here's a hole; use it in the
-> future if you are looking to add something". And someone in the
-> future can claim them. I am not sure if MBZ philosophy applies.
+This patch series refactor the udp memory accounting, replacing the
+generic implementation with a custom one, in order to remove the needs for
+locking the socket on the enqueue and dequeue operations. The socket backlog
+usage is dropped, as well.
 
-This structure is uapi, so anyone has complete rights to reference
-@pad in the userspace programs. Sure it would be more clear to remove
-the @pad completely, but if we choose so I think it's better to do
-on top instead and then if someone complain we can easily revert
-the single trivial commit instead of this big patch.
+The first patch factor out core pieces of some queue and memory management
+socket helpers, so that they can later be used by the udp memory accounting
+functions.
+The second patch adds the memory account helpers, without using them.
+The third patch replacse the old rx memory accounting path for udp over ipv4 and
+udp over ipv6. In kernel UDP users are updated, as well.
 
-> 
-> > > Should you not just rename it?
-> > > Also I notice when things like __raw_v4_lookup() are claiming it is unsigned
-> > > short instead of a u8?
-> > 
-> > The protocol is still up to 255 for a while, is it expected that IPPROTO_MAX
-> > will be increased in more-less near future? Of course I can drop the idea
-> > of using @pad here and switch to some extended reauest but prefer to stick
-> > with simplier solution. Hm?
-> > 
-> 
-> Ok. If i understood correctly it was already unsigned short before your
-> patch -so i agree it doesnt matter. Maybe just put a comment to express
-> that if ever protocol goes above 255 it wont be sufficient.
+The memory accounting schema is described in detail in the individual patch
+commit message.
 
-If protocol goes over u8 then complete inet_diag_req_v2 structure will
-have to be reworked becaue @sdiag_protocol is u8 as well. IOW, once
-someone liftup IPPROTO_MAX > 255, he will notice the problem immediately
-because diag for such module simply stop working properly.
+The performance gain depends on the specific scenario; with few flows (and
+little contention in the original code) the differences are in the noise range,
+while with several flows contending the same socket, the measured speed-up
+is relevant (e.g. even over 100% in case of extreme contention)
+
+v2 -> v3:
+ - do not set the now unsed backlog_rcv callback
+
+v1 -> v2:
+ - changed slighly the memory accounting schema, we now perform lazy reclaim
+ - fixed forward_alloc updating issue
+ - fixed memory counter integer overflows
+
+Paolo Abeni (3):
+  net/socket: factor out helpers for memory and queue manipulation
+  udp: implement memory accounting helpers
+  udp: use it's own memory accounting schema
+
+ include/linux/udp.h   |   2 +
+ include/net/sock.h    |   5 ++
+ include/net/udp.h     |   7 ++
+ net/core/datagram.c   |  36 ++++++----
+ net/core/sock.c       |  96 ++++++++++++++++++---------
+ net/ipv4/udp.c        | 179 ++++++++++++++++++++++++++++++++++++++++++--------
+ net/ipv6/udp.c        |  33 ++++------
+ net/sunrpc/svcsock.c  |  20 ++++--
+ net/sunrpc/xprtsock.c |   2 +-
+ 9 files changed, 279 insertions(+), 101 deletions(-)
+
+-- 
+1.8.3.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
