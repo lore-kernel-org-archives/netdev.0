@@ -1,49 +1,86 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [RFC v2 2/4] staging: rtl8712: Change _LED_STATE enum in rtl871x
- driver to avoid conflicts with LED namespace
-Date: Wed, 28 Sep 2016 11:27:41 +0200
-Message-ID: <20160928092741.GA16646@kroah.com>
-References: <1475013111-18942-1-git-send-email-zach.brown@ni.com>
- <1475013111-18942-3-git-send-email-zach.brown@ni.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, florian.c.schilhabel@googlemail.com,
- f.fainelli@gmail.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- mlindner@marvell.com, Larry.Finger@lwfinger.net
-To: Zach Brown <zach.brown@ni.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <1475013111-18942-3-git-send-email-zach.brown@ni.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+From: Shmulik Ladkani <shmulik.ladkani@ravellosystems.com>
+Subject: [PATCH v2 net] net: skbuff: skb_vlan_push: Fix wrong unwinding of skb->data after __vlan_insert_tag call
+Date: Wed, 28 Sep 2016 12:08:41 +0300
+Message-ID: <1475053721-27676-1-git-send-email-shmulik.ladkani@gmail.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+        Jiri Pirko <jiri@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Pravin Shelar <pshelar@ovn.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:35053 "EHLO
+        mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752626AbcI1JIq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 05:08:46 -0400
+Received: by mail-wm0-f54.google.com with SMTP id l132so223828383wmf.0
+        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 02:08:45 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 27, 2016 at 04:51:49PM -0500, Zach Brown wrote:
-> Adding led support for phy causes namespace conflicts for some
-> phy drivers.
-> 
-> The rtl871 driver declared an enum for representing LED states. The enum
-> contains constant LED_OFF which conflicted with declaration found in
-> linux/leds.h. LED_OFF changed to LED_STATE_OFF
-> In order to avoid a possible future collision LED_ON was changed to
-> LED_STATE_ON as well.
-> 
-> Signed-off-by: Zach Brown <zach.brown@ni.com>
-> ---
->  drivers/staging/rtl8712/rtl8712_led.c | 388 +++++++++++++++++-----------------
->  1 file changed, 194 insertions(+), 194 deletions(-)
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 
-Ick, messy.  I'll be glad to take this patch now to make your life
-easier in the future.
+In case 'skb_vlan_push' is called on an skb with a hw-accel vlan tag
+present, the existing hw-accel tag is inserted into the payload, and
+the new given tag is placed as new hw-accel tag.
 
-thanks,
+In order to insert the existing hw-accel tag, 'skb_vlan_push' adjusts
+the 'data' pointer at the mac_header (if needed), invokes __vlan_insert_tag,
+and finally re-adjusts 'data' back to its original position (according
+to the remembered "adjustment offset").
 
-greg k-h
+However, successful '__vlan_insert_tag' pushes 4 more bytes at start of
+frame.
+Alas, the remembered "adjustment offset" is NOT fixed to account for
+these additional 4 bytes, so the subsequent '__skb_pull(skb, offset)'
+fails to unwind 'data' back to its original location.
+
+Since 'skb->mac_len' IS fixed to account for the additional 4 bytes
+(incremented to a total of 18 bytes), any access to
+'skb->data - skb->mac_len' points to bytes PRIOR start of frame.
+
+This is problematic, as many constructs in the stack are issuing
+'skb_push(skb, skb->mac_len)' prior xmit to a device (e.g tcf_mirred,
+tcf_bpf, nf_dup_netdev_egress), resulting in bogus frames being
+xmitted (having random 4 bytes at start of frame).
+
+For example:
+
+ # ip l add dev d0 type dummy
+ # tc filter add dev eth0 parent ffff: pref 1 basic \
+     action vlan push protocol 802.1ad id 5 pipe \
+     action mirred egress redirect dev d0
+
+ Any 802.1q (hw-accel) tagged frames arriving on eth0 are xmitted as
+ bogus frames on d0; whereas the expected behavior is having QinQ frames.
+
+Fix, by properly accouting the additionally pushed 4 bytes (in the case
+where an adjustment to point at mac_header was done).
+
+Fixes: 93515d53b1 ("net: move vlan pop/push functions into common code")
+Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Cc: Pravin Shelar <pshelar@ovn.org>
+Cc: Jiri Pirko <jiri@mellanox.com>
+---
+ v2: Instead of reducing mac_len by 4 bytes, which was found incorrect,
+     fix the problem of wrong unwinding of 'skb->data'
+
+ David, if patch ok, suggest this goes to -stable
+   
+ net/core/skbuff.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index d36c754..3926b79 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -4608,6 +4608,8 @@ int skb_vlan_push(struct sk_buff *skb, __be16 vlan_proto, u16 vlan_tci)
+ 
+ 		skb->protocol = skb->vlan_proto;
+ 		skb->mac_len += VLAN_HLEN;
++		if (offset)
++			offset += VLAN_HLEN;
+ 
+ 		skb_postpush_rcsum(skb, skb->data + (2 * ETH_ALEN), VLAN_HLEN);
+ 		__skb_pull(skb, offset);
+-- 
+1.9.1
