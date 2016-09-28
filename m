@@ -1,57 +1,58 @@
-From: marcelo.leitner@gmail.com
-Subject: Re: [PATCHv2 net 0/5] sctp: some fixes of prsctp polices
-Date: Wed, 28 Sep 2016 12:44:06 -0300
-Message-ID: <20160928154406.GB4008@localhost.localdomain>
-References: <cover.1475059350.git.lucien.xin@gmail.com>
- <20160928.081303.661512609700070565.davem@davemloft.net>
- <CADvbK_eKrZaGf0uDsCBdkWCw9e51W-HVL=_WLsR4RaSKjNmqqA@mail.gmail.com>
- <20160928.111716.1982951742537758888.davem@davemloft.net>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Local variable ordering (was Re: [PATCH v5 0/7] Reduce cache miss for
+ snmp_fold_field)
+Date: Wed, 28 Sep 2016 16:58:22 +0100
+Message-ID: <5734f230-eafa-45a1-9635-98721f872b38@solarflare.com>
+References: <1475043748-18161-1-git-send-email-hejianet@gmail.com>
+ <20160928.050817.110671274247345232.davem@davemloft.net>
+ <c44daa11-dc57-84fa-35cc-40ee0fe293f3@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lucien.xin@gmail.com, netdev@vger.kernel.org,
-        linux-sctp@vger.kernel.org, vyasevich@gmail.com,
-        daniel@iogearbox.net
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-sctp@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, <kuznet@ms2.inr.ac.ru>,
+        <jmorris@namei.org>, <yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
+        <vyasevich@gmail.com>, <nhorman@tuxdriver.com>,
+        <steffen.klassert@secunet.com>, <herbert@gondor.apana.org.au>,
+        <marcelo.leitner@gmail.com>
+To: hejianet <hejianet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56556 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932767AbcI1PoW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 28 Sep 2016 11:44:22 -0400
-Content-Disposition: inline
-In-Reply-To: <20160928.111716.1982951742537758888.davem@davemloft.net>
+Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:29905 "EHLO
+        nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S932892AbcI1P6p (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 11:58:45 -0400
+In-Reply-To: <c44daa11-dc57-84fa-35cc-40ee0fe293f3@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 28, 2016 at 11:17:16AM -0400, David Miller wrote:
-> From: Xin Long <lucien.xin@gmail.com>
-> Date: Wed, 28 Sep 2016 20:35:40 +0800
-> 
-> >>
-> >>> This patchset is to improve some codes about prsctp polices, and also
-> >>> to fix some issues.
-> >>>
-> >>> v1->v2:
-> >>>   - wrap the check of chunk->sent_count in a macro:
-> >>>     sctp_chunk_retransmitted in patch 2/5.
-> >>
-> >> This series is a mix of bug fixes (patch #1) which should be targetting
-> >> 'net' and simplifications/cleanups (patch #2-5) which should be targetting
-> >> 'net-next'.
-> >>
-> >> Please do not mix things up like this, and submit patches targetting
-> >> the appropriate tree.
-> >>
-> > understand, I wanted to divide them.
-> > but this patchset is special, the following patches
-> > depend on patch 1/5.
-> 
-> That doesn't matter.  This happens all the time.
-> 
-> The way you handle this is you submit patch #1 targetting 'net' and
-> wait for it to get into 'net' and propagate into 'net-next'.  When
-> that happens you can submit patches #2-5 as a second patch series
-> targetting 'net-next'.
+On 28/09/16 14:45, hejianet wrote:
+>
+>
+> On 9/28/16 5:08 PM, David Miller wrote:
+>> From: Jia He <hejianet@gmail.com>
+>> Date: Wed, 28 Sep 2016 14:22:21 +0800
+>>
+>>> v5:
+>>> - order local variables from longest to shortest line
+>> I still see many cases where this problem still exists.  Please
+>> do not resubmit this patch series until you fix all of them.
+>>
+>> Patch #2:
+>>
+>> -static int snmp_seq_show(struct seq_file *seq, void *v)
+>> +static int snmp_seq_show_ipstats(struct seq_file *seq, void *v)
+>>   {
+>>       int i;
+>> +    u64 buff64[IPSTATS_MIB_MAX];
+>>       struct net *net = seq->private;
+>>
+>> The order should be "net" then "buff64" then "i".
+> Sorry for my bad eyesight and quick hand :(
+> B.R.
+> Jia
+A few months back I wrote a script to help find these:
+https://github.com/ecree-solarflare/xmastree
+It can check a source file or a patch.
+Posting in the hope that people will find it useful.
 
-Thanks for your patience for explaining this, David, appreciated.
-
-  Marcelo
+-Ed
