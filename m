@@ -1,35 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] mlx5: Add ndo_poll_controller() implementation
-Date: Wed, 28 Sep 2016 04:54:09 -0400 (EDT)
-Message-ID: <20160928.045409.1002159444377863778.davem@davemloft.net>
-References: <CALzJLG8o3dfPJR-2iaWb-s7r65r51HhgTs5Srf92-Tx0sZCSHw@mail.gmail.com>
-        <df7c9e07a041523e13be905d00e74007ecb88c6b.1475014333.git.calvinowens@fb.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH resend] sh_eth: add R8A7743/5 support
+Date: Wed, 28 Sep 2016 05:02:11 -0400 (EDT)
+Message-ID: <20160928.050211.83034155475168918.davem@davemloft.net>
+References: <1654835.SEcvPVx4OQ@wasted.cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: saeedm@mellanox.com, matanb@mellanox.com, leonro@mellanox.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel-team@fb.com, saeedm@dev.mellanox.co.il
-To: calvinowens@fb.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59206 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751521AbcI1IyM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 04:54:12 -0400
-In-Reply-To: <df7c9e07a041523e13be905d00e74007ecb88c6b.1475014333.git.calvinowens@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-renesas-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1654835.SEcvPVx4OQ-gHKXc3Y1Z8zGSmamagVegGFoWSdPRAKMAL8bYrjMMd8@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Calvin Owens <calvinowens@fb.com>
-Date: Tue, 27 Sep 2016 15:23:27 -0700
+From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Date: Tue, 27 Sep 2016 01:23:26 +0300
 
-> This implements ndo_poll_controller in net_device_ops callback for mlx5,
-> which is necessary to use netconsole with this driver.
+> Add support for the first two members of the Renesas RZ/G family, RZ/G1M/E
+> (also known as  R8A7743/5). The Ether core is the same as in the R-Car gen2
+> SoCs, so will share the code/data with them...
 > 
-> Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-> Signed-off-by: Calvin Owens <calvinowens@fb.com>
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+> 
 > ---
-> Changes in v2:
-> 	* Only iterate channels to avoid redundant napi_schedule() calls
+> The patch is against the DaveM's 'net-next.git' repo.
+> 
+> Re-sending with the DT maintainers/list included this time...
 
-This doesn't apply cleanly to net-next, please respin.
+Applied, thanks Sergei.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
