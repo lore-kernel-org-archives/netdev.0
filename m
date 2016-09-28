@@ -1,176 +1,57 @@
-From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Subject: [PATCH net-next 2/2] net: phy: Add PHY Auto/Mdi/Mdix set driver for Microsemi PHYs.
-Date: Wed, 28 Sep 2016 17:31:18 +0530
-Message-ID: <1475064078-22310-3-git-send-email-Raju.Lakkaraju@microsemi.com>
-References: <1475064078-22310-1-git-send-email-Raju.Lakkaraju@microsemi.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH v5] net: ip, diag -- Add diag interface for raw sockets
+Date: Wed, 28 Sep 2016 08:06:51 -0400
+Message-ID: <696ed966-991c-30f7-9a1c-d91a94c9304c@mojatatu.com>
+References: <20160928090357.GT1876@uranus.lan>
+ <caef7649-9d25-6429-eeab-96c027d6cbc2@mojatatu.com>
+ <20160928101726.GU1876@uranus.lan>
+ <8293413c-a81d-f7ff-24f0-8f58ce877116@mojatatu.com>
+ <20160928105147.GV1876@uranus.lan>
+ <484dedaf-4e81-9a5a-ffb8-2c65b373c3a0@mojatatu.com>
+ <20160928112703.GW1876@uranus.lan>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <f.fainelli@gmail.com>, <Allan.Nielsen@microsemi.com>,
-        <andrew@lunn.ch>, Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-cys01nam02on0070.outbound.protection.outlook.com ([104.47.37.70]:64448
-        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753907AbcI1MCE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 28 Sep 2016 08:02:04 -0400
-In-Reply-To: <1475064078-22310-1-git-send-email-Raju.Lakkaraju@microsemi.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, avagin@openvz.org, stephen@networkplumber.org
+To: Cyrill Gorcunov <gorcunov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160928112703.GW1876@uranus.lan>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+On 16-09-28 07:27 AM, Cyrill Gorcunov wrote:
+> On Wed, Sep 28, 2016 at 07:06:26AM -0400, Jamal Hadi Salim wrote:
+>>>
+>>> This structure is uapi, so anyone has complete rights to reference
+>>> @pad in the userspace programs. Sure it would be more clear to remove
+>>> the @pad completely, but if we choose so I think it's better to do
+>>> on top instead and then if someone complain we can easily revert
+>>> the single trivial commit instead of this big patch.
+>>
+>> I am conflicted.
+>> A field labelled "pad" does not appear to be valid as "UAPI". It is
+>> a cosmetic indicator. If you did sizeof() with or without it being
+>> present the value doesnt change.
+>
+> I think you miss the point what I'm trying to say: currently end-user
+> may have reference to this member (for any reason) and his program
+> will compile and run. If we change the name the compilation procedure
+> fails and this will break API. Yes, referrning @pad is bad idea for
+> userspace code, and yes (!) better to simply rename it but lets do
+> that later, on top, so that if we break something in userspace
+> we could easily revert the oneline change.
+>
 
-To connect two ports of the same configuration (MDI to MDI or
-MDI-X to MDI-X) with a 10/100/1000 Mbit/s connection, an
-Ethernet crossover cable is needed to cross over the transmit
-and receive signals in the cable, so that they are matched at
-the connector level.
-When connecting an MDI port to an MDI-X port a straight through
-cable is used while to connect two MDI ports or two MDI-X ports
-a crossover cable must be used. Conventionally MDI is used on end
-devices while MDI-X is used on hubs and switches
 
-Auto MDI-X automatically detects the required cable connection
-type and configures the connection appropriately, removing the
-need for crossover cables to interconnect switches or connecting
-PCs peer-to-peer.
+I understood well your point;-> Maybe my response was not clear:
+_nobody should be fscking fondling pad fields_ setting them or
+otherwise.
+Maybe let these programs fail. I asked if you knew any such app which
+did anything with a pad field.
 
-VSC8531 PHY supports Auto MDI-x, MDI and MDI-X configuraion by
-driver set mdix function.
-
-Tested on Beaglebone Black with VSC 8531 PHY.
-
-Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
----
- drivers/net/phy/mscc.c | 72 ++++++++++++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 70 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/phy/mscc.c b/drivers/net/phy/mscc.c
-index ca6ea23..dbf8434 100644
---- a/drivers/net/phy/mscc.c
-+++ b/drivers/net/phy/mscc.c
-@@ -26,6 +26,11 @@ enum rgmii_rx_clock_delay {
- 
- /* Microsemi VSC85xx PHY registers */
- /* IEEE 802. Std Registers */
-+#define MSCC_PHY_BYPASS_CONTROL		  18
-+#define DISABLE_HP_AUTO_MDIX_MASK	  0x0080
-+#define DISABLE_PAIR_SWAP_CORR_MASK	  0x0020
-+#define DISABLE_POLARITY_CORR_MASK	  0x0010
-+
- #define MSCC_PHY_EXT_PHY_CNTL_1           23
- #define MAC_IF_SELECTION_MASK             0x1800
- #define MAC_IF_SELECTION_GMII             0
-@@ -41,8 +46,16 @@ enum rgmii_rx_clock_delay {
- 
- #define MSCC_EXT_PAGE_ACCESS		  31
- #define MSCC_PHY_PAGE_STANDARD		  0x0000 /* Standard registers */
-+#define MSCC_PHY_PAGE_EXTENDED		  0x0001 /* Extended registers */
- #define MSCC_PHY_PAGE_EXTENDED_2	  0x0002 /* Extended reg - page 2 */
- 
-+/* Extended Page 1 Registers */
-+#define MSCC_PHY_EXT_MODE_CNTL		  19
-+#define FORCE_MDI_CROSSOVER_MASK	  0x000C
-+#define FORCE_MDI_CROSSOVER_MDIX	  0x000C
-+#define FORCE_MDI_CROSSOVER_MDI		  0x0008
-+#define FORCE_MDI_CROSSOVER_NORMAL	  0x0000
-+
- /* Extended Page 2 Registers */
- #define MSCC_PHY_RGMII_CNTL		  20
- #define RGMII_RX_CLK_DELAY_MASK		  0x0070
-@@ -73,6 +86,47 @@ static int vsc85xx_phy_page_set(struct phy_device *phydev, u8 page)
- 	return rc;
- }
- 
-+static int vsc85xx_mdix_set(struct phy_device *phydev,
-+			    u8 mdix)
-+{
-+	int rc;
-+	u16 reg_val;
-+
-+	reg_val = phy_read(phydev, MSCC_PHY_BYPASS_CONTROL);
-+	if ((mdix == ETH_TP_MDI) || (mdix == ETH_TP_MDI_X)) {
-+		reg_val |= (DISABLE_PAIR_SWAP_CORR_MASK |
-+			    DISABLE_POLARITY_CORR_MASK  |
-+			    DISABLE_HP_AUTO_MDIX_MASK);
-+	} else {
-+		reg_val &= ~(DISABLE_PAIR_SWAP_CORR_MASK |
-+			     DISABLE_POLARITY_CORR_MASK  |
-+			     DISABLE_HP_AUTO_MDIX_MASK);
-+	}
-+	rc = phy_write(phydev, MSCC_PHY_BYPASS_CONTROL, reg_val);
-+	if (rc != 0)
-+		goto out_unlock;
-+
-+	rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_EXTENDED);
-+	if (rc != 0)
-+		goto out_unlock;
-+
-+	reg_val = phy_read(phydev, MSCC_PHY_EXT_MODE_CNTL);
-+	reg_val &= ~(FORCE_MDI_CROSSOVER_MASK);
-+	if (mdix == ETH_TP_MDI)
-+		reg_val |= FORCE_MDI_CROSSOVER_MDI;
-+	else if (mdix == ETH_TP_MDI_X)
-+		reg_val |= FORCE_MDI_CROSSOVER_MDIX;
-+	rc = phy_write(phydev, MSCC_PHY_EXT_MODE_CNTL, reg_val);
-+	if (rc != 0)
-+		goto out_unlock;
-+
-+	rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_STANDARD);
-+
-+out_unlock:
-+
-+	return rc;
-+}
-+
- static int vsc85xx_wol_set(struct phy_device *phydev,
- 			   struct ethtool_wolinfo *wol)
- {
-@@ -227,6 +281,7 @@ static int vsc85xx_default_config(struct phy_device *phydev)
- 	int rc;
- 	u16 reg_val;
- 
-+	phydev->mdix = ETH_TP_MDI_AUTO;
- 	mutex_lock(&phydev->lock);
- 	rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_EXTENDED_2);
- 	if (rc != 0)
-@@ -288,6 +343,19 @@ static int vsc85xx_config_intr(struct phy_device *phydev)
- 	return rc;
- }
- 
-+static int vsc85xx_config_aneg(struct phy_device *phydev)
-+{
-+	int rc;
-+
-+	rc = vsc85xx_mdix_set(phydev, phydev->mdix);
-+	if (rc < 0)
-+		return rc;
-+
-+	rc = genphy_config_aneg(phydev);
-+
-+	return rc;
-+}
-+
- /* Microsemi VSC85xx PHYs */
- static struct phy_driver vsc85xx_driver[] = {
- {
-@@ -298,7 +366,7 @@ static struct phy_driver vsc85xx_driver[] = {
- 	.flags		= PHY_HAS_INTERRUPT,
- 	.soft_reset	= &genphy_soft_reset,
- 	.config_init    = &vsc85xx_config_init,
--	.config_aneg    = &genphy_config_aneg,
-+	.config_aneg    = &vsc85xx_config_aneg,
- 	.aneg_done	= &genphy_aneg_done,
- 	.read_status    = &genphy_read_status,
- 	.ack_interrupt  = &vsc85xx_ack_interrupt,
-@@ -316,7 +384,7 @@ static struct phy_driver vsc85xx_driver[] = {
- 	.flags		= PHY_HAS_INTERRUPT,
- 	.soft_reset	= &genphy_soft_reset,
- 	.config_init    = &vsc85xx_config_init,
--	.config_aneg    = &genphy_config_aneg,
-+	.config_aneg    = &vsc85xx_config_aneg,
- 	.aneg_done	= &genphy_aneg_done,
- 	.read_status    = &genphy_read_status,
- 	.ack_interrupt  = &vsc85xx_ack_interrupt,
--- 
-2.7.4
+cheers,
+jamal
