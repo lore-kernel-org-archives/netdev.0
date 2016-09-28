@@ -1,70 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5 0/7] Reduce cache miss for snmp_fold_field
-Date: Wed, 28 Sep 2016 05:08:17 -0400 (EDT)
-Message-ID: <20160928.050817.110671274247345232.davem@davemloft.net>
-References: <1475043748-18161-1-git-send-email-hejianet@gmail.com>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: ath6kl: fix return value in ath6kl_wmi_set_pvb_cmd
+Date: Wed, 28 Sep 2016 12:01:41 +0200
+Message-ID: <30b5c8aa25144295b86244424860d80e@euamsexm01a.eu.qualcomm.com>
+References: <20160918063024.2535-1-chaehyun.lim@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-        vyasevich@gmail.com, nhorman@tuxdriver.com,
-        steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
-        marcelo.leitner@gmail.com
-To: hejianet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1475043748-18161-1-git-send-email-hejianet@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: <linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
+        Chaehyun Lim <chaehyun.lim@gmail.com>
+To: Chaehyun Lim <chaehyun.lim@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wolverine02.qualcomm.com ([199.106.114.251]:44672 "EHLO
+        wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751888AbcI1KBu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 06:01:50 -0400
+In-Reply-To: <20160918063024.2535-1-chaehyun.lim@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jia He <hejianet@gmail.com>
-Date: Wed, 28 Sep 2016 14:22:21 +0800
+Chaehyun Lim <chaehyun.lim@gmail.com> wrote:
+> When building with W=1, we got one warning as belows:
+> drivers/net/wireless/ath/ath6kl/wmi.c:3509:6: warning: variable ‘ret’
+> set but not used [-Wunused-but-set-variable]
+> 
+> At the end of ath6kl_wmi_set_pvb_cmd, it is returned by 0 regardless of
+> return value of ath6kl_wmi_cmd_send.
+> This patch fixes return value from 0 to ret that has result of
+> ath6kl_wmi_cmd_send execution.
+> 
+> Signed-off-by: Chaehyun Lim <chaehyun.lim@gmail.com>
 
-> v5:
-> - order local variables from longest to shortest line
+Patch applied to ath-next branch of ath.git, thanks.
 
-I still see many cases where this problem still exists.  Please
-do not resubmit this patch series until you fix all of them.
+b93015057e31 ath6kl: fix return value in ath6kl_wmi_set_pvb_cmd
 
-Patch #2:
+-- 
+https://patchwork.kernel.org/patch/9337611/
 
--static int snmp_seq_show(struct seq_file *seq, void *v)
-+static int snmp_seq_show_ipstats(struct seq_file *seq, void *v)
- {
- 	int i;
-+	u64 buff64[IPSTATS_MIB_MAX];
- 	struct net *net = seq->private;
+Documentation about submitting wireless patches and checking status
+from patchwork:
 
-The order should be "net" then "buff64" then "i".
-
-+static int snmp_seq_show_tcp_udp(struct seq_file *seq, void *v)
-+{
-+	int i;
-+	struct net *net = seq->private;
-+	unsigned long buff[TCPUDP_MIB_MAX];
-
-The order should be "buff", "net", then "i".
-
-Patch #3:
-
-@@ -192,13 +197,19 @@ static void snmp6_seq_show_item(struct seq_file *seq, void __percpu *pcpumib,
- 				const struct snmp_mib *itemlist)
- {
- 	int i;
--	unsigned long val;
--
- ...
-+	unsigned long buff[SNMP_MIB_MAX];
-
-The order should be "buff" then "i".
-
-@@ -206,10 +217,13 @@ static void snmp6_seq_show_item64(struct seq_file *seq, void __percpu *mib,
- 				  const struct snmp_mib *itemlist, size_t syncpoff)
- {
- 	int i;
-+	u64 buff64[SNMP_MIB_MAX];
-
-Likewise.
-
-I cannot be any more explicit in my request than this.
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
