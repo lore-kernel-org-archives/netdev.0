@@ -1,61 +1,59 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH RFC 2/6] net: phy: Use threaded IRQ, to allow IRQ from
- sleeping devices
-Date: Wed, 28 Sep 2016 14:24:56 +0200
-Message-ID: <20160928122456.GA22809@lunn.ch>
-References: <1475051544-18561-1-git-send-email-andrew@lunn.ch>
- <1475051544-18561-3-git-send-email-andrew@lunn.ch>
- <b93c08b9-1ed0-19d4-bd77-53a4958da97e@cogentembedded.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH v5] net: ip, diag -- Add diag interface for raw sockets
+Date: Wed, 28 Sep 2016 08:27:24 -0400
+Message-ID: <70b51ac5-a7d1-8b52-90c4-7f80ec8ad4d5@mojatatu.com>
+References: <20160928112703.GW1876@uranus.lan>
+ <20160928.080701.1194277590163223525.davem@davemloft.net>
+ <60b2e075-e852-f0c2-c188-631f547791d5@mojatatu.com>
+ <20160928.081646.1634500099795129398.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev <netdev@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: gorcunov@gmail.com, eric.dumazet@gmail.com,
+        dsa@cumulusnetworks.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+        avagin@openvz.org, stephen@networkplumber.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:35093 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932211AbcI1MY7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 28 Sep 2016 08:24:59 -0400
-Content-Disposition: inline
-In-Reply-To: <b93c08b9-1ed0-19d4-bd77-53a4958da97e@cogentembedded.com>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:33174 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932242AbcI1M11 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 08:27:27 -0400
+Received: by mail-io0-f194.google.com with SMTP id r145so3075026ior.0
+        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 05:27:27 -0700 (PDT)
+In-Reply-To: <20160928.081646.1634500099795129398.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 28, 2016 at 02:38:03PM +0300, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 9/28/2016 11:32 AM, Andrew Lunn wrote:
-> 
-> >The interrupt lines from PHYs maybe connected to I2C bus expanders, or
-> >from switches on MDIO busses. Such interrupts are sourced from devices
-> >which sleep, so use threaded interrupts. Threaded interrupts require
-> >that the interrupt requester also uses the threaded API. Change the
-> >phylib to use the threaded API, which is backwards compatible with
-> >none-threaded IRQs.
-> >
-> >Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-> >---
-> > drivers/net/phy/phy.c | 7 +++----
-> > 1 file changed, 3 insertions(+), 4 deletions(-)
-> >
-> >diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-> >index c6f66832a1a6..5c29ed72f721 100644
-> >--- a/drivers/net/phy/phy.c
-> >+++ b/drivers/net/phy/phy.c
-> >@@ -722,10 +722,9 @@ phy_err:
-> > int phy_start_interrupts(struct phy_device *phydev)
-> > {
-> > 	atomic_set(&phydev->irq_disable, 0);
-> >-	if (request_irq(phydev->irq, phy_interrupt,
-> >-				IRQF_SHARED,
-> >-				"phy_interrupt",
-> >-				phydev) < 0) {
-> >+	if (request_threaded_irq(phydev->irq, NULL, phy_interrupt,
-> >+				 IRQF_ONESHOT, "phy_interrupt",
-> 
->    What about IRQF_SHARED?
+On 16-09-28 08:16 AM, David Miller wrote:
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
+> Date: Wed, 28 Sep 2016 08:09:28 -0400
+>
+>> On 16-09-28 08:07 AM, David Miller wrote:
+>>
+>>> Right, it would be legal for an existing user to have code that
+>>> explicitly initializes every member of the structure, including 'pad'.
+>>> So we have to keep that member around, at a minimum, for their sake.
+>>>
+>>
+>> I think we need to start labelling any new pad fields added as
+>> "Not UAPI. Do not fsck fondle this".
+>
+> They must initialize it to zero.
+>
 
-I will check if you can have a shared oneshot.
+What if in the future actually meant to use 0 for
+something?;-> For example in Cyrill's case it means PROTO_IP
+Not sure if it useful to interpret or not but it is part of the
+enum for protocols.
 
-  Andrew
+Maybe we shouldnt be adding pad fields in these netlink
+structure definitions then one can liberally add new ones.
+Note: inet_diag somewhere has a netlink structure that
+has a hole. I pointed it out to Eric D. and he said we cant
+add it now because it would break ABI.
+So where do we draw the line for future extensions?
+
+cheers,
+jamal
