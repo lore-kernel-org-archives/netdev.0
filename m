@@ -1,70 +1,86 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH/RFC 06/12] rocker: Add helper to check ports belong to the same rocker switch
-Date: Wed, 28 Sep 2016 14:42:56 +0200
-Message-ID: <1475066582-1971-7-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH/RFC 09/12] openvswitch: Add key_attrs to struct sw_flow_match
+Date: Wed, 28 Sep 2016 14:42:59 +0200
+Message-ID: <1475066582-1971-10-git-send-email-simon.horman@netronome.com>
 References: <1475066582-1971-1-git-send-email-simon.horman@netronome.com>
 Cc: Simon Horman <simon.horman@netronome.com>
 To: netdev@vger.kernel.org, dev@openvswitch.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f42.google.com ([209.85.215.42]:33150 "EHLO
-        mail-lf0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932295AbcI1MnR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 08:43:17 -0400
-Received: by mail-lf0-f42.google.com with SMTP id b71so50890721lfg.0
-        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 05:43:17 -0700 (PDT)
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:37676 "EHLO
+        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932366AbcI1MnV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 08:43:21 -0400
+Received: by mail-wm0-f46.google.com with SMTP id b130so69647047wmc.0
+        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 05:43:20 -0700 (PDT)
 In-Reply-To: <1475066582-1971-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This will be used by a follow-up patch to add Add Open vSwitch (-like) flow
-support to the OF-DPA rocker world.
+This is in preparation for using key_attrs outside of their current context
+to allow quickly checking which attributes are set. This is in turn in
+preparation for prototyping programming Open vSwitch (-like) flows into
+hardware.
 
 Signed-off-by: Simon Horman <simon.horman@netronome.com>
 ---
- drivers/net/ethernet/rocker/rocker.h      |  4 ++++
- drivers/net/ethernet/rocker/rocker_main.c | 15 +++++++++++++++
- 2 files changed, 19 insertions(+)
+ net/openvswitch/flow.h         |  1 +
+ net/openvswitch/flow_netlink.c | 14 +++++++++-----
+ 2 files changed, 10 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/rocker/rocker.h b/drivers/net/ethernet/rocker/rocker.h
-index 332adce701fa..4b4a7d2af774 100644
---- a/drivers/net/ethernet/rocker/rocker.h
-+++ b/drivers/net/ethernet/rocker/rocker.h
-@@ -85,6 +85,10 @@ int rocker_cmd_exec(struct rocker_port *rocker_port, bool nowait,
- int rocker_port_set_learning(struct rocker_port *rocker_port,
- 			     bool learning);
+diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
+index 0c70c3532469..eb6bb7908e2d 100644
+--- a/net/openvswitch/flow.h
++++ b/net/openvswitch/flow.h
+@@ -72,6 +72,7 @@ struct sw_flow_match {
+ 	struct sw_flow_key *key;
+ 	struct sw_flow_key_range range;
+ 	struct sw_flow_mask *mask;
++	u64 key_attrs;
+ };
  
-+/* True if a and b are ports on the same rocker switch */
-+bool rocker_port_dev_cmp_rocker(const struct net_device *a,
-+				const struct net_device *b);
-+
- struct rocker_world_ops {
- 	const char *kind;
- 	size_t priv_size;
-diff --git a/drivers/net/ethernet/rocker/rocker_main.c b/drivers/net/ethernet/rocker/rocker_main.c
-index 6c6a486cced6..02101f88dc08 100644
---- a/drivers/net/ethernet/rocker/rocker_main.c
-+++ b/drivers/net/ethernet/rocker/rocker_main.c
-@@ -2859,6 +2859,21 @@ static bool rocker_port_dev_check(const struct net_device *dev)
- 	return dev->netdev_ops == &rocker_port_netdev_ops;
- }
+ #define MAX_UFID_LENGTH 16 /* 128 bits */
+diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+index ae25ded82b3b..89c20bdc2cc7 100644
+--- a/net/openvswitch/flow_netlink.c
++++ b/net/openvswitch/flow_netlink.c
+@@ -121,10 +121,13 @@ static void update_range(struct sw_flow_match *match,
+ 	} while (0)
  
-+bool rocker_port_dev_cmp_rocker(const struct net_device *a,
-+				const struct net_device *b)
-+{
-+	struct rocker_port *rocker_port_a, *rocker_port_b;
-+
-+	if (!rocker_port_dev_check(a) || !rocker_port_dev_check(b))
-+		return false;
-+
-+
-+	rocker_port_a = netdev_priv(a);
-+	rocker_port_b = netdev_priv(b);
-+
-+	return rocker_port_a->rocker == rocker_port_b->rocker;
-+}
-+
- static int rocker_netdevice_event(struct notifier_block *unused,
- 				  unsigned long event, void *ptr)
+ static bool match_validate(const struct sw_flow_match *match,
+-			   u64 key_attrs, u64 mask_attrs, bool log)
++			   u64 mask_attrs, bool log)
  {
+ 	u64 key_expected = 1 << OVS_KEY_ATTR_ETHERNET;
+-	u64 mask_allowed = key_attrs;  /* At most allow all key attributes */
++	u64 mask_allowed;
++
++	/* At most allow all key attributes */
++	mask_allowed = match->key_attrs;
+ 
+ 	/* The following mask attributes allowed only if they
+ 	 * pass the validation tests. */
+@@ -237,10 +240,10 @@ static bool match_validate(const struct sw_flow_match *match,
+ 		}
+ 	}
+ 
+-	if ((key_attrs & key_expected) != key_expected) {
++	if ((match->key_attrs & key_expected) != key_expected) {
+ 		/* Key attributes check failed. */
+ 		OVS_NLERR(log, "Missing key (keys=%llx, expected=%llx)",
+-			  (unsigned long long)key_attrs,
++			  (unsigned long long)match->key_attrs,
+ 			  (unsigned long long)key_expected);
+ 		return false;
+ 	}
+@@ -1399,7 +1402,8 @@ int ovs_nla_get_match(struct net *net, struct sw_flow_match *match,
+ 			goto free_newmask;
+ 	}
+ 
+-	if (!match_validate(match, key_attrs, mask_attrs, log))
++	match->key_attrs = key_attrs;
++	if (!match_validate(match, mask_attrs, log))
+ 		err = -EINVAL;
+ 
+ free_newmask:
 -- 
 2.7.0.rc3.207.g0ac5344
