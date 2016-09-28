@@ -1,48 +1,70 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [PATCH v5] net: ip, diag -- Add diag interface for raw sockets
-Date: Wed, 28 Sep 2016 13:17:26 +0300
-Message-ID: <20160928101726.GU1876@uranus.lan>
-References: <20160928090357.GT1876@uranus.lan>
- <caef7649-9d25-6429-eeab-96c027d6cbc2@mojatatu.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH RFC 1/6] net: dsa: mv88e6xxx: Implement interrupt support.
+Date: Wed, 28 Sep 2016 12:22:20 +0200
+Message-ID: <20160928102220.GC19407@lunn.ch>
+References: <1475051544-18561-1-git-send-email-andrew@lunn.ch>
+ <1475051544-18561-2-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, avagin@openvz.org, stephen@networkplumber.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:34995 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750977AbcI1KWY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 28 Sep 2016 06:22:24 -0400
 Content-Disposition: inline
-In-Reply-To: <caef7649-9d25-6429-eeab-96c027d6cbc2@mojatatu.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1475051544-18561-2-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 28, 2016 at 06:08:00AM -0400, Jamal Hadi Salim wrote:
-...
-> > @@ -38,7 +38,10 @@ struct inet_diag_req_v2 {
-> >  	__u8	sdiag_family;
-> >  	__u8	sdiag_protocol;
-> >  	__u8	idiag_ext;
-> > -	__u8	pad;
-> > +	union {
-> > +		__u8	pad;
-> > +		__u8	sdiag_raw_protocol;	/* SOCK_RAW only, @pad for others */
-> > +	};
-> 
-> 
-> Above looks funny. Why is it a union? pad is for exposing a byte-hole
-> for padding/alignment reasons and i doubt anybody is using it.
+The cover email got rejected, because i used MV88E6XXX in the subject
+line, and it did not like the XXX.
 
-Someone may have set it to zero explicitly on source level, and the
-compilation will fail on new kernel then. So no, keeping the name
-is reasonable.
+----------------------------------------------------------------------
 
-> Should you not just rename it?
-> Also I notice when things like __raw_v4_lookup() are claiming it is unsigned
-> short instead of a u8?
+>From 838e38d8079341ffdeb98c3c1bf043627c24cfc2 Mon Sep 17 00:00:00 2001
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Wed, 28 Sep 2016 03:23:04 -0500
+Subject: [PATCH RFC 0/6] Interrupt support for MV88E6XYZ
 
-The protocol is still up to 255 for a while, is it expected that IPPROTO_MAX
-will be increased in more-less near future? Of course I can drop the idea
-of using @pad here and switch to some extended reauest but prefer to stick
-with simplier solution. Hm?
+NOT FOR MERGING
+
+This RFC patchset add interrupt controller support to the MV88E6XXX.
+This allows access to the interrupts the internal PHY generate. These
+interrupts can then be associated to a PHY device in the device tree
+and used by the PHY lib, rather than polling.
+
+An earlier version of these patches were posted many moons ago. They
+have been rebased onto net-next and adapted to the new structure of
+the driver. However, still outstanding is if this is the correct way
+to implement this feature, via an IRQ domain made available in the
+device tree, and then using the standard PHY binding. This was
+questioned last time, and never really resolved.
+
+Comment welcome.
+
+	Andrew
+
+Andrew Lunn (6):
+  net: dsa: mv88e6xxx: Implement interrupt support.
+  net: phy: Use threaded IRQ, to allow IRQ from sleeping devices
+  net: phy: Threaded interrupts allow some simplification
+  net: phy: Use phy name when requesting the interrupt
+  net: phy: Trigger state machine on state change and not polling.
+  arm: vf610: zii devel b: Add support for switch interrupts
+
+ .../devicetree/bindings/net/dsa/marvell.txt        |  21 +-
+ arch/arm/boot/dts/vf610-zii-dev-rev-b.dts          |  51 +++++
+ drivers/net/dsa/mv88e6xxx/chip.c                   | 247 ++++++++++++++++++++-
+ drivers/net/dsa/mv88e6xxx/global2.c                | 140 +++++++++++-
+ drivers/net/dsa/mv88e6xxx/global2.h                |  11 +
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h              |  32 ++-
+ drivers/net/phy/phy.c                              |  66 +++---
+ drivers/net/phy/phy_device.c                       |   1 -
+ include/linux/phy.h                                |   4 +-
+ 9 files changed, 529 insertions(+), 44 deletions(-)
+
+-- 
+2.9.3
