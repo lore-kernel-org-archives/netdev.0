@@ -1,41 +1,71 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [PATCH v5] net: ip, diag -- Add diag interface for raw sockets
-Date: Wed, 28 Sep 2016 17:55:23 +0300
-Message-ID: <20160928145523.GF1876@uranus.lan>
-References: <20160928101726.GU1876@uranus.lan>
- <8293413c-a81d-f7ff-24f0-8f58ce877116@mojatatu.com>
- <20160928105147.GV1876@uranus.lan>
- <484dedaf-4e81-9a5a-ffb8-2c65b373c3a0@mojatatu.com>
- <20160928112703.GW1876@uranus.lan>
- <1475067432.28155.90.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160928130357.GC1876@uranus.lan>
- <1475069348.28155.98.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160928134309.GE1876@uranus.lan>
- <1475070591.28155.103.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Aaron Conole <aconole@redhat.com>
+Subject: Re: [PATCH nf-next v3 1/2] netfilter: Fix potential null pointer dereference
+Date: Wed, 28 Sep 2016 10:56:31 -0400
+Message-ID: <f7ty42chy3k.fsf@redhat.com>
+References: <1475068368-3109-1-git-send-email-aconole@bytheb.org>
+        <1475068368-3109-2-git-send-email-aconole@bytheb.org>
+        <1475069735.28155.102.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-        David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, avagin@openvz.org, stephen@networkplumber.org
+Content-Type: text/plain
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+        Florian Westphal <fw@strlen.de>,
+        Pablo Neira Ayuso <pablo@netfilter.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f47.google.com ([209.85.215.47]:33192 "EHLO
-        mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932319AbcI1Oz1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 10:55:27 -0400
-Content-Disposition: inline
-In-Reply-To: <1475070591.28155.103.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1475069735.28155.102.camel@edumazet-glaptop3.roam.corp.google.com>
+        (Eric Dumazet's message of "Wed, 28 Sep 2016 06:35:35 -0700")
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 28, 2016 at 06:49:51AM -0700, Eric Dumazet wrote:
-> > 
-> > 4.7 is pretty widespread, so I've to think...
-> 
-> Sorry, 4.4.7 it was
-> 
-> https://www.mail-archive.com/netdev@vger.kernel.org/msg128714.html
+Eric Dumazet <eric.dumazet@gmail.com> writes:
 
-Ah, thanks for info!
+> On Wed, 2016-09-28 at 09:12 -0400, Aaron Conole wrote:
+>> It's possible for nf_hook_entry_head to return NULL.  If two
+>> nf_unregister_net_hook calls happen simultaneously with a single hook
+>> entry in the list, both will enter the nf_hook_mutex critical section.
+>> The first will successfully delete the head, but the second will see
+>> this NULL pointer and attempt to dereference.
+>> 
+>> This fix ensures that no null pointer dereference could occur when such
+>> a condition happens.
+>> 
+>> Signed-off-by: Aaron Conole <aconole@bytheb.org>
+>> ---
+>>  net/netfilter/core.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>> 
+>> diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+>> index 360c63d..e58e420 100644
+>> --- a/net/netfilter/core.c
+>> +++ b/net/netfilter/core.c
+>> @@ -160,7 +160,7 @@ void nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
+>>  
+>>  	mutex_lock(&nf_hook_mutex);
+>>  	hooks_entry = nf_hook_entry_head(net, reg);
+>> -	if (hooks_entry->orig_ops == reg) {
+>> +	if (hooks_entry && hooks_entry->orig_ops == reg) {
+>>  		nf_set_hooks_head(net, reg,
+>>  				  nf_entry_dereference(hooks_entry->next));
+>>  		goto unlock;
+>
+> When was the bug added exactly ?
+
+Sunday, on the nf-next tree.
+
+> For all bug fixes, you need to add a Fixes: tag.
+>
+> Like :
+>
+> Fixes: e3b37f11e6e4 ("netfilter: replace list_head with single linked list")
+
+I would but it's in nf-next tree, and I'm not sure how pulls go.  If
+they are done via patch imports, then the sha sums will be wrong and the
+commit message will be misleading.  If the sums are preserved, then I
+can resubmit with this information.
+
+> So that 100 different people in stable teams do not have to do the
+> archeology themselves ...
+>
+> Thanks.
+
+Thanks for the review, Eric.
