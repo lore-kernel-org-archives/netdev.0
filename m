@@ -1,43 +1,81 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6 addrconf: enable use of proc_dointvec_minmax in
- addrconf_sysctl
-Date: Wed, 28 Sep 2016 11:21:53 -0400 (EDT)
-Message-ID: <20160928.112153.1904927986517775222.davem@davemloft.net>
-References: <20160928.074901.901607987499248966.davem@davemloft.net>
-        <20160928.075204.140017839812712683.davem@davemloft.net>
-        <CAHo-Oowk-YN2bHkWWKe_yAWsXQtybu3CZ+beXTiAO9914vouyg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH nf-next v3 1/2] netfilter: Fix potential null pointer
+ dereference
+Date: Wed, 28 Sep 2016 08:30:03 -0700
+Message-ID: <1475076603.28155.105.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1475068368-3109-1-git-send-email-aconole@bytheb.org>
+         <1475068368-3109-2-git-send-email-aconole@bytheb.org>
+         <1475069735.28155.102.camel@edumazet-glaptop3.roam.corp.google.com>
+         <f7ty42chy3k.fsf@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: 8BIT
-Cc: hannes@stressinduktion.org, ek@google.com, lorenzo@google.com,
-        netdev@vger.kernel.org
-To: zenczykowski@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36500 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932532AbcI1PV5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 11:21:57 -0400
-In-Reply-To: <CAHo-Oowk-YN2bHkWWKe_yAWsXQtybu3CZ+beXTiAO9914vouyg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+        Florian Westphal <fw@strlen.de>,
+        Pablo Neira Ayuso <pablo@netfilter.org>
+To: Aaron Conole <aconole@redhat.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <f7ty42chy3k.fsf@redhat.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Maciej ¯enczykowski <zenczykowski@gmail.com>
-Date: Wed, 28 Sep 2016 22:23:10 +0900
+On Wed, 2016-09-28 at 10:56 -0400, Aaron Conole wrote:
+> Eric Dumazet <eric.dumazet@gmail.com> writes:
+> 
+> > On Wed, 2016-09-28 at 09:12 -0400, Aaron Conole wrote:
+> >> It's possible for nf_hook_entry_head to return NULL.  If two
+> >> nf_unregister_net_hook calls happen simultaneously with a single hook
+> >> entry in the list, both will enter the nf_hook_mutex critical section.
+> >> The first will successfully delete the head, but the second will see
+> >> this NULL pointer and attempt to dereference.
+> >> 
+> >> This fix ensures that no null pointer dereference could occur when such
+> >> a condition happens.
+> >> 
+> >> Signed-off-by: Aaron Conole <aconole@bytheb.org>
+> >> ---
+> >>  net/netfilter/core.c | 2 +-
+> >>  1 file changed, 1 insertion(+), 1 deletion(-)
+> >> 
+> >> diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+> >> index 360c63d..e58e420 100644
+> >> --- a/net/netfilter/core.c
+> >> +++ b/net/netfilter/core.c
+> >> @@ -160,7 +160,7 @@ void nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
+> >>  
+> >>  	mutex_lock(&nf_hook_mutex);
+> >>  	hooks_entry = nf_hook_entry_head(net, reg);
+> >> -	if (hooks_entry->orig_ops == reg) {
+> >> +	if (hooks_entry && hooks_entry->orig_ops == reg) {
+> >>  		nf_set_hooks_head(net, reg,
+> >>  				  nf_entry_dereference(hooks_entry->next));
+> >>  		goto unlock;
+> >
+> > When was the bug added exactly ?
+> 
+> Sunday, on the nf-next tree.
+> 
+> > For all bug fixes, you need to add a Fixes: tag.
+> >
+> > Like :
+> >
+> > Fixes: e3b37f11e6e4 ("netfilter: replace list_head with single linked list")
+> 
+> I would but it's in nf-next tree, and I'm not sure how pulls go.  If
+> they are done via patch imports, then the sha sums will be wrong and the
+> commit message will be misleading.  If the sums are preserved, then I
+> can resubmit with this information.
+> 
 
-> Anyway, enough, I give up, this isn't worth my time, and it's also not
-> worth your time.
-> I removed the dependency from the other patches and squashed them all into
-> 1 to make reviewing easier.
+I gave the (12 digits) sha-1 as present in David Miller net-next tree.
 
-Splitting things up is sometimes warranted, but you have to keep
-together the things that strongly need each other.
+https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=e3b37f11e6e4e6b6f02cc762f182ce233d2c1c9d
 
-And new facilities require examples of their use.  They really do.
 
-I simply can't look at your patch and empty commit message and figure
-out why you needed to do what you were doing.
+This wont change, because David never rebases his tree under normal
+operations.
 
-Any developer should be able to look at a patch being proposed and be
-able to understand it standing upon on it's own.  This means they
-shouldn't have to know what happened in this discussion thread or that
-one in order to evaluate and audit the patch properly.
+Thanks.
+
+
+
