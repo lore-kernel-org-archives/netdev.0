@@ -1,41 +1,45 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH v5] net: ip, diag -- Add diag interface for raw sockets
-Date: Wed, 28 Sep 2016 15:57:53 +0300
-Message-ID: <20160928125753.GB1876@uranus.lan>
-References: <20160928112703.GW1876@uranus.lan>
- <20160928.080701.1194277590163223525.davem@davemloft.net>
- <60b2e075-e852-f0c2-c188-631f547791d5@mojatatu.com>
- <20160928.081646.1634500099795129398.davem@davemloft.net>
- <70b51ac5-a7d1-8b52-90c4-7f80ec8ad4d5@mojatatu.com>
- <20160928124520.GZ1876@uranus.lan>
- <5c1cff4e-25bc-5356-a8f8-f5fa44b2a439@mojatatu.com>
+Date: Wed, 28 Sep 2016 06:02:11 -0700
+Message-ID: <1475067731.28155.92.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20160928090357.GT1876@uranus.lan>
+         <caef7649-9d25-6429-eeab-96c027d6cbc2@mojatatu.com>
+         <20160928101726.GU1876@uranus.lan>
+         <8293413c-a81d-f7ff-24f0-8f58ce877116@mojatatu.com>
+         <20160928105147.GV1876@uranus.lan>
+         <484dedaf-4e81-9a5a-ffb8-2c65b373c3a0@mojatatu.com>
+         <20160928112703.GW1876@uranus.lan>
+         <1475067432.28155.90.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-        dsa@cumulusnetworks.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-        avagin@openvz.org, stephen@networkplumber.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f65.google.com ([209.85.215.65]:36308 "EHLO
-        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932124AbcI1M54 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 08:57:56 -0400
-Content-Disposition: inline
-In-Reply-To: <5c1cff4e-25bc-5356-a8f8-f5fa44b2a439@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+        David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, avagin@openvz.org, stephen@networkplumber.org
+To: Cyrill Gorcunov <gorcunov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1475067432.28155.90.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 28, 2016 at 08:50:31AM -0400, Jamal Hadi Salim wrote:
+On Wed, 2016-09-28 at 05:57 -0700, Eric Dumazet wrote:
+
+> Note that some programs could fail to compile with the added union
+> anyway.
 > 
-> struct tcp_info.
+> Some gcc versions are unable to compile a static init with an union
+> 
+> struct inet_diag_req_v2 foo = { .pad = 0, sdiag_family = AF_INET, };
+> 
+> When I cooked my recent fq commit I simply removed a pad and replaced
+> it :
+> 
+> git show fefa569a9d4bc4 -- include
 
-Yeah I see. As I said naming pads will be safe but to do so we
-will have to compile on every arch we support and make sure the
-implicit pad remains here.
+This is a bit different of course, since struct tc_fq_qd_stats is only
+one way : Kernel produces the content and gives it to user space.
 
-> Sorry - i didnt mean to drag this for long; but the more i think
-> about it, the union is a pragmatic approach.
-
-Sure, lets keep it as is.
+User space should probably not need to initialize such a structure, but
+who knows what a programmer can write ;)
