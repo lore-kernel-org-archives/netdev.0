@@ -1,71 +1,54 @@
-From: Aaron Conole <aconole@redhat.com>
-Subject: Re: [PATCH nf-next v3 1/2] netfilter: Fix potential null pointer dereference
-Date: Wed, 28 Sep 2016 10:56:31 -0400
-Message-ID: <f7ty42chy3k.fsf@redhat.com>
-References: <1475068368-3109-1-git-send-email-aconole@bytheb.org>
-        <1475068368-3109-2-git-send-email-aconole@bytheb.org>
-        <1475069735.28155.102.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: [RFC PATCH net-next 2/2] sfc: report 4-tuple UDP hashing to
+ ethtool, if it's enabled
+Date: Wed, 28 Sep 2016 15:56:52 +0100
+Message-ID: <e517e28f-9737-59cd-5e0b-96849ab3b198@solarflare.com>
+References: <cc07d60a-189c-8475-ecb3-b612ff13bd5a@solarflare.com>
+ <8341c601-674a-74ff-c6dd-689c19b3ce7f@solarflare.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB010CF9F@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-        Florian Westphal <fw@strlen.de>,
-        Pablo Neira Ayuso <pablo@netfilter.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1475069735.28155.102.camel@edumazet-glaptop3.roam.corp.google.com>
-        (Eric Dumazet's message of "Wed, 28 Sep 2016 06:35:35 -0700")
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: "bkenward@solarflare.com" <bkenward@solarflare.com>
+To: David Laight <David.Laight@ACULAB.COM>,
+        "linux-net-drivers@solarflare.com" <linux-net-drivers@solarflare.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:5726 "EHLO
+        nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S932848AbcI1O5L (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 10:57:11 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB010CF9F@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> writes:
+On 28/09/16 10:12, David Laight wrote:
+> If you invert the above and add a goto...
+> 			if (!efx->rx_hash_udp_4tuple)
+> 				goto set_ip;
+I don't mind gotos...
+>>  		case SCTP_V4_FLOW:
+>>  		case AH_ESP_V4_FLOW:
+>>  		case IPV4_FLOW:
+>     set_ip:
+...but this adds a label where we effectively already have one.
+I wish C allowed goto case labels.
+> It might look better.
+> 	David
 
-> On Wed, 2016-09-28 at 09:12 -0400, Aaron Conole wrote:
->> It's possible for nf_hook_entry_head to return NULL.  If two
->> nf_unregister_net_hook calls happen simultaneously with a single hook
->> entry in the list, both will enter the nf_hook_mutex critical section.
->> The first will successfully delete the head, but the second will see
->> this NULL pointer and attempt to dereference.
->> 
->> This fix ensures that no null pointer dereference could occur when such
->> a condition happens.
->> 
->> Signed-off-by: Aaron Conole <aconole@bytheb.org>
->> ---
->>  net/netfilter/core.c | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->> 
->> diff --git a/net/netfilter/core.c b/net/netfilter/core.c
->> index 360c63d..e58e420 100644
->> --- a/net/netfilter/core.c
->> +++ b/net/netfilter/core.c
->> @@ -160,7 +160,7 @@ void nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
->>  
->>  	mutex_lock(&nf_hook_mutex);
->>  	hooks_entry = nf_hook_entry_head(net, reg);
->> -	if (hooks_entry->orig_ops == reg) {
->> +	if (hooks_entry && hooks_entry->orig_ops == reg) {
->>  		nf_set_hooks_head(net, reg,
->>  				  nf_entry_dereference(hooks_entry->next));
->>  		goto unlock;
->
-> When was the bug added exactly ?
+It just bugs me that it would have this unnecessary goto and label.
 
-Sunday, on the nf-next tree.
+Alternate ways to maybe make it look better, or not:
 
-> For all bug fixes, you need to add a Fixes: tag.
->
-> Like :
->
-> Fixes: e3b37f11e6e4 ("netfilter: replace list_head with single linked list")
+* Remove the /* else fall further */ comment, does this make the
+  indentation more or less confusing?
+* Include braces on the if, even though there's only one statement
+  inside.
 
-I would but it's in nf-next tree, and I'm not sure how pulls go.  If
-they are done via patch imports, then the sha sums will be wrong and the
-commit message will be misleading.  If the sums are preserved, then I
-can resubmit with this information.
+Also, how strong are people's reaction to this?  If it's just "I
+personally wouldn't do it that way", then I'm tempted to go ahead
+anyway.  But if it's "NAK NAK NAK burn the heretic", that's
+another matter.
 
-> So that 100 different people in stable teams do not have to do the
-> archeology themselves ...
->
-> Thanks.
-
-Thanks for the review, Eric.
+-Ed
