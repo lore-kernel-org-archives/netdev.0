@@ -1,33 +1,63 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>
-Subject: Re: [PATCH] ipv6 addrconf: implement RFC7559 router solicitation backoff
-Date: Wed, 28 Sep 2016 16:46:05 +0900
-Message-ID: <CANP3RGe4jMRhepM5v2Dg4Kq3Rxj=tA7WJEMcD_83DLYcEgujMA@mail.gmail.com>
-References: <1475045878-30455-1-git-send-email-zenczykowski@gmail.com> <1475048569.3276913.739336609.4398C277@webmail.messagingengine.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v2] L2TP:Adjust intf MTU,factor underlay L3,overlay
+ L2
+Date: Wed, 28 Sep 2016 03:48:41 -0400 (EDT)
+Message-ID: <20160928.034841.997752666320557327.davem@davemloft.net>
+References: <alpine.DEB.2.11.1609221341500.6975@duvvury30.eng.vyatta.net>
+        <20160927.033153.1066118008027608891.davem@davemloft.net>
+        <alpine.DEB.2.11.1609271210350.25517@duvvury48.eng.vyatta.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Linux NetDev <netdev@vger.kernel.org>,
-        Erik Kline <ek@google.com>,
-        Lorenzo Colitti <lorenzo@google.com>,
-        Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yb0-f173.google.com ([209.85.213.173]:36823 "EHLO
-        mail-yb0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751836AbcI1HqG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 03:46:06 -0400
-Received: by mail-yb0-f173.google.com with SMTP id z8so2596356ybh.3
-        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 00:46:06 -0700 (PDT)
-In-Reply-To: <1475048569.3276913.739336609.4398C277@webmail.messagingengine.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kleptog@svana.org, jchapman@katalix.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, nprachan@brocade.com,
+        rshearma@brocade.com, dfawcus@brocade.com,
+        stephen@networkplumber.org, acme@redhat.com, lboccass@brocade.com
+To: parameswaran.r7@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.11.1609271210350.25517@duvvury48.eng.vyatta.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I'm not sure what line you're referring to.
+From: "R. Parameswaran" <parameswaran.r7@gmail.com>
+Date: Tue, 27 Sep 2016 12:17:21 -0700 (PDT)
 
-There are *no* outright jiffies or msecs in this patch, with the
-exception of the (3600*HZ) line which is already obvious enough.
+> Later, in vxlan_dev_configure(), called from vxlan_dev_create(), it gets 
+> adjusted to account for the headers:
+> 
+> vxlan_dev_configure():
+> ...
+>  if (!conf->mtu)
+>                         dev->mtu = lowerdev->mtu - (use_ipv6 ? 
+> VXLAN6_HEADROOM : VXLAN_HEADROOM);
+> 
+> 
+> where VXLAN_HEADROOM is defined as follows: 
+> 
+> /* IP header + UDP + VXLAN + Ethernet header */
+> #define VXLAN_HEADROOM (20 + 8 + 8 + 14)
+> /* IPv6 header + UDP + VXLAN + Ethernet header */
+> #define VXLAN6_HEADROOM (40 + 8 + 8 + 14)
 
-The 900000 200001 1900000 1000000 constants are not jiffies nor
-miliseconds, they're simply numbers, such that 900000/1000000 = 0.9
-and 200001/1000000 =~ 0.2 (the +1 is to deal with 0) and
-1900000/1000000 = 1.9
+Right but I don't see it going through the effort to make use of the
+PMTU like you are.
+
+I have another strong concern related to this.  There seems to be no
+mechanism used to propagate any PMTU events into the device's MTU.
+
+Because if there is a limiting nexthop in the route to the other end
+of the UDP tunnel, you won't learn the PMTU until you (or some other
+entity on the machine) actually starts sending traffic to the tunnel's
+endpoint.
+
+If the PMTU events aren't propagated into the tunnel's MTU or similar
+I think this is an ad-hoc solution.
+
+I would suggest that you either:
+
+1) Do what VXLAN appears to do an ignore the PMTu
+
+2) Add code to handle PMTU events that land on the UDP tunnel
+   socket.
+
+Thanks.
