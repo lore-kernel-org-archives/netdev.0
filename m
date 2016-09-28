@@ -1,87 +1,89 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 2/2] net: phy: Add PHY Auto/Mdi/Mdix set driver
- for Microsemi PHYs.
-Date: Wed, 28 Sep 2016 22:24:51 +0200
-Message-ID: <20160928202451.GC30728@lunn.ch>
-References: <1475064078-22310-1-git-send-email-Raju.Lakkaraju@microsemi.com>
- <1475064078-22310-3-git-send-email-Raju.Lakkaraju@microsemi.com>
+From: "Frans van de Wiel" <fvdw@fvdw.eu>
+Subject: mv643xxx_eth driver, failed to linearize skb with tiny unaligned fragment
+Date: Wed, 28 Sep 2016 22:37:23 +0200
+Message-ID: <9ABBF443071A48919A5E612F97EE0B09@FransW7>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
-        Allan.Nielsen@microsemi.com
-To: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Content-Type: text/plain;
+        format=flowed;
+        charset="utf-8";
+        reply-type=original
+Content-Transfer-Encoding: 8bit
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:35419 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752784AbcI1UYz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 28 Sep 2016 16:24:55 -0400
-Content-Disposition: inline
-In-Reply-To: <1475064078-22310-3-git-send-email-Raju.Lakkaraju@microsemi.com>
+Received: from isp-bos-01.edutel.nl ([88.159.1.157]:48869 "EHLO
+        isp-bos-01.edutel.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752124AbcI1Ups (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 16:45:48 -0400
+Received: from isp-aos-04 (unknown [IPv6:2a01:670:100:11::1:4])
+        by isp-bos-01.edutel.nl (Postfix) with ESMTPS id 85F21611DD
+        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 22:37:47 +0200 (CEST)
+Received: from [88.159.113.169] (helo=FransW7)
+        by isp-aos-04 with esmtpsa (TLS1.2:DHE_RSA_AES_256_CBC_SHA1:256)
+        (Exim 4.82)
+        (envelope-from <fvdw@fvdw.eu>)
+        id 1bpLbg-000072-9k
+        for netdev@vger.kernel.org; Wed, 28 Sep 2016 22:37:47 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> +	reg_val = phy_read(phydev, MSCC_PHY_BYPASS_CONTROL);
-> +	if ((mdix == ETH_TP_MDI) || (mdix == ETH_TP_MDI_X)) {
-> +		reg_val |= (DISABLE_PAIR_SWAP_CORR_MASK |
-> +			    DISABLE_POLARITY_CORR_MASK  |
-> +			    DISABLE_HP_AUTO_MDIX_MASK);
-> +	} else {
-> +		reg_val &= ~(DISABLE_PAIR_SWAP_CORR_MASK |
-> +			     DISABLE_POLARITY_CORR_MASK  |
-> +			     DISABLE_HP_AUTO_MDIX_MASK);
-> +	}
-> +	rc = phy_write(phydev, MSCC_PHY_BYPASS_CONTROL, reg_val);
-> +	if (rc != 0)
-> +		goto out_unlock;
-> +
-> +	rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_EXTENDED);
-> +	if (rc != 0)
-> +		goto out_unlock;
-> +
-> +	reg_val = phy_read(phydev, MSCC_PHY_EXT_MODE_CNTL);
-> +	reg_val &= ~(FORCE_MDI_CROSSOVER_MASK);
-> +	if (mdix == ETH_TP_MDI)
-> +		reg_val |= FORCE_MDI_CROSSOVER_MDI;
-> +	else if (mdix == ETH_TP_MDI_X)
-> +		reg_val |= FORCE_MDI_CROSSOVER_MDIX;
-> +	rc = phy_write(phydev, MSCC_PHY_EXT_MODE_CNTL, reg_val);
-> +	if (rc != 0)
-> +		goto out_unlock;
-> +
-> +	rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_STANDARD);
-> +
-> +out_unlock:
+We compiled kernel 4.6.6 for our nas devices running on ARM kirkwood cpu’s. 
+These nas devices have only 256 MB of RAM so limited memory resources
+When we fully load the cpu and are copying files via the interface we get 
+frequently this “ error” message in dmesg log
 
-out_unlock seems a bit of an odd name, since you are not unlocking
-anything.
+[ 1978.149929] mv643xx_eth_port mv643xx_eth_port.0 eth0: failed to linearize 
+skb with tiny unaligned fragment
+[ 1978.150138] mv643xx_eth_port mv643xx_eth_port.0 eth0: failed to linearize 
+skb with tiny unaligned fragment
+[ 1978.150318] mv643xx_eth_port mv643xx_eth_port.0 eth0: failed to linearize 
+skb with tiny unaligned fragment
+[ 1978.150360] mv643xx_eth_port mv643xx_eth_port.0 eth0: failed to linearize 
+skb with tiny unaligned fragment
 
-I also wonder if you should try to reset to MSCC_PHY_PAGE_STANDARD in
-the error condition?
+...
 
-> +
-> +	return rc;
-> +}
-> +
->  static int vsc85xx_wol_set(struct phy_device *phydev,
->  			   struct ethtool_wolinfo *wol)
->  {
-> @@ -227,6 +281,7 @@ static int vsc85xx_default_config(struct phy_device *phydev)
->  	int rc;
->  	u16 reg_val;
->  
-> +	phydev->mdix = ETH_TP_MDI_AUTO;
+CPU[|||||||||||||||||||||||||||||||||||98.9%]     Tasks: 29, 0 thr; 2 
+running
+  Mem[||||||||||||||||||||||||||||||||30/244MB]     Load average: 1.36 1.29 
+0.92
+  Swp[                                 0/511MB]     Uptime: 00:38:11
 
-Humm, interesting. The only other driver supporting mdix is the
-Marvell one. It does not do this, it leaves it to its default value of
-ETH_TP_MDI_INVALID. It does however interpret ETH_TP_MDI_INVALID as
-meaning as ETH_TP_MDI_AUTO.
+We analyzed the driver code code and think that it does not seems to be an 
+error but a warning, this we want to verify and if this warning can be taken 
+out without risk
 
-There needs to be consistency here. You either need to do the same as
-the Marvell driver, or you need to modify the Marvell driver to also
-set phydev->mdix to ETH_TP_MDI_AUTO.
+The message originates from this part of the code of the driver
 
-I don't yet know which of these two is the right thing to do.
+1023 if (has_tiny_unaligned_frags(skb) && __skb_linearize(skb)) {
+1024                 netdev_printk(KERN_DEBUG, dev,
+1025                               "failed to linearize skb with tiny 
+unaligned fragment\n");
+1026                 return NETDEV_TX_BUSY;
+1027         }
 
-Florian?
+__skb_linearize is set in skbuff.h and comments are useful
 
-	Andrew
+static inline int __skb_linearize(struct sk_buff *skb)
+1636 {
+1637         return __pskb_pull_tail(skb, skb->data_len) ? 0 : -ENOMEM;
+1638 }
+1639
+1640 /**
+1641  *      skb_linearize - convert paged skb to linear one
+1642  *      @skb: buffer to linarize
+1643  *
+1644  *      If there is no free memory -ENOMEM is returned, otherwise zero
+1645  *      is returned and the old skb data released.
+1646  */
+1647 static inline int skb_linearize(struct sk_buff *skb)
+1648 {
+
+So return a false state (0) if there is enough free memory and true on the 
+other case.
+
+Please to note mv643xx_eth.c returns also a busy state. So I assume on this 
+case the driver repeats this step up to success
+
+So in my opinion, this is not an error message but a warning and does not 
+mean corrupted data and I think is should be possible to remove it.
+Is conclusion is correct ?
