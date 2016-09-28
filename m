@@ -1,67 +1,247 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: Re: [PATCH 3/3] net: fec: align IP header in hardware
-Date: Wed, 28 Sep 2016 18:25:30 +0100
-Message-ID: <20160928172530.GM1041@n2100.armlinux.org.uk>
-References: <AM4PR0401MB22609D8151C2B63CA7768A1AFFCB0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
- <1474728139-9335-1-git-send-email-eric@nelint.com>
- <1474728139-9335-4-git-send-email-eric@nelint.com>
- <063D6719AE5E284EB5DD2968C1650D6DB0109865@AcuExch.aculab.com>
- <4d199f32-092c-1c0a-7a01-6d0d317ef676@nelint.com>
- <063D6719AE5E284EB5DD2968C1650D6DB010A73F@AcuExch.aculab.com>
- <5cf173c4-84e0-f309-f356-35b114cc166e@nelint.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 1/2] net: phy: Add Wake-on-LAN driver for
+ Microsemi PHYs.
+Date: Wed, 28 Sep 2016 10:37:07 -0700
+Message-ID: <74356bf4-9567-f948-65c1-54fad381423d@gmail.com>
+References: <1475064078-22310-1-git-send-email-Raju.Lakkaraju@microsemi.com>
+ <1475064078-22310-2-git-send-email-Raju.Lakkaraju@microsemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Laight <David.Laight@ACULAB.COM>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "andrew@lunn.ch" <andrew@lunn.ch>,
-        "fugang.duan@nxp.com" <fugang.duan@nxp.com>,
-        "otavio@ossystems.com.br" <otavio@ossystems.com.br>,
-        "edumazet@google.com" <edumazet@google.com>,
-        "troy.kisky@boundarydevices.com" <troy.kisky@boundarydevices.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "u.kleine-koenig@pengutronix.de" <u.kleine-koenig@pengutronix.de>
-To: Eric Nelson <eric@nelint.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Allan.Nielsen@microsemi.com, andrew@lunn.ch
+To: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:46294 "EHLO
-        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932977AbcI1RZo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 13:25:44 -0400
-Content-Disposition: inline
-In-Reply-To: <5cf173c4-84e0-f309-f356-35b114cc166e@nelint.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:34171 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932777AbcI1RhJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 13:37:09 -0400
+Received: by mail-pf0-f195.google.com with SMTP id 21so2419338pfy.1
+        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 10:37:09 -0700 (PDT)
+In-Reply-To: <1475064078-22310-2-git-send-email-Raju.Lakkaraju@microsemi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 28, 2016 at 10:14:52AM -0700, Eric Nelson wrote:
-> Thanks David,
+On 09/28/2016 05:01 AM, Raju Lakkaraju wrote:
+> From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 > 
-> On 09/28/2016 09:42 AM, David Laight wrote:
-> > From reading this it seems that the effect of FEC_RACC_SHIFT16 is to
-> > add two bytes of 'junk' to the start of every receive frame.
+> Wake-on-LAN (WoL) is an Ethernet networking standard that allows
+> a computer/device to be turned on or awakened by a network message.
+> VSC8531 PHY can support this feature configure by driver set function.
+> WoL status get by driver get function.
 > 
-> That's right. Two bytes of junk between the MAC header and the
-> IP header.
+> Tested on Beaglebone Black with VSC 8531 PHY.
+> 
+> Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+> ---
+>  drivers/net/phy/mscc.c | 132 +++++++++++++++++++++++++++++++++++++++++++++++++
+>  1 file changed, 132 insertions(+)
+> 
+> diff --git a/drivers/net/phy/mscc.c b/drivers/net/phy/mscc.c
+> index d350deb..ca6ea23 100644
+> --- a/drivers/net/phy/mscc.c
+> +++ b/drivers/net/phy/mscc.c
+> @@ -11,6 +11,7 @@
+>  #include <linux/mdio.h>
+>  #include <linux/mii.h>
+>  #include <linux/phy.h>
+> +#include <linux/netdevice.h>
+>  
+>  enum rgmii_rx_clock_delay {
+>  	RGMII_RX_CLK_DELAY_0_2_NS = 0,
+> @@ -35,6 +36,7 @@ enum rgmii_rx_clock_delay {
+>  
+>  #define MII_VSC85XX_INT_MASK		  25
+>  #define MII_VSC85XX_INT_MASK_MASK	  0xa000
+> +#define MII_VSC85XX_INT_MASK_WOL	  0x0040
+>  #define MII_VSC85XX_INT_STATUS		  26
+>  
+>  #define MSCC_EXT_PAGE_ACCESS		  31
+> @@ -46,6 +48,19 @@ enum rgmii_rx_clock_delay {
+>  #define RGMII_RX_CLK_DELAY_MASK		  0x0070
+>  #define RGMII_RX_CLK_DELAY_POS		  4
+>  
+> +#define MSCC_PHY_WOL_LOWER_MAC_ADDR	  21
+> +#define MSCC_PHY_WOL_MID_MAC_ADDR	  22
+> +#define MSCC_PHY_WOL_UPPER_MAC_ADDR	  23
+> +#define MSCC_PHY_WOL_LOWER_PASSWD	  24
+> +#define MSCC_PHY_WOL_MID_PASSWD		  25
+> +#define MSCC_PHY_WOL_UPPER_PASSWD	  26
+> +
+> +#define MSCC_PHY_WOL_MAC_CONTROL	  27
+> +#define EDGE_RATE_CNTL_POS		  5
+> +#define EDGE_RATE_CNTL_MASK		  0x00E0
+> +#define SECURE_ON_ENABLE		  0x8000
+> +#define SECURE_ON_PASSWD_LEN_4		  0x4000
+> +
+>  /* Microsemi PHY ID's */
+>  #define PHY_ID_VSC8531			  0x00070570
+>  #define PHY_ID_VSC8541			  0x00070770
+> @@ -58,6 +73,119 @@ static int vsc85xx_phy_page_set(struct phy_device *phydev, u8 page)
+>  	return rc;
+>  }
+>  
+> +static int vsc85xx_wol_set(struct phy_device *phydev,
+> +			   struct ethtool_wolinfo *wol)
+> +{
+> +	int rc;
+> +	u16 reg_val;
+> +	struct ethtool_wolinfo *wol_conf = wol;
+> +
+> +	mutex_lock(&phydev->lock);
 
-That's wrong.  FEC_RACC_SHIFT16 adds two bytes to the _beginning_ of
-the packet, not in the middle of the packet:
+This mutex is used here because you are using an indirect page access,
+right? This is not to protect against multiple calls of wol_set from
+different executing threads?
 
-   7      RX FIFO Shift-16
- SHIFT16
-          When this field is set, the actual frame data starts at bit 16
-          of the first word read from the RX FIFO aligning the Ethernet
-          payload on a 32-bit boundary.
+> +	rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_EXTENDED_2);
+> +	if (rc != 0)
+> +		goto out_unlock;
+> +
+> +	if (wol->wolopts & WAKE_MAGIC) {
+> +		/* Store the device address for the magic packet */
+> +		reg_val = phydev->attached_dev->dev_addr[4] << 8;
+> +		reg_val |= phydev->attached_dev->dev_addr[5];
+> +		phy_write(phydev, MSCC_PHY_WOL_LOWER_MAC_ADDR, reg_val);
+> +		reg_val = phydev->attached_dev->dev_addr[2] << 8;
+> +		reg_val |= phydev->attached_dev->dev_addr[3];
+> +		phy_write(phydev, MSCC_PHY_WOL_MID_MAC_ADDR, reg_val);
+> +		reg_val = phydev->attached_dev->dev_addr[0] << 8;
+> +		reg_val |= phydev->attached_dev->dev_addr[1];
+> +		phy_write(phydev, MSCC_PHY_WOL_UPPER_MAC_ADDR, reg_val);
+> +	} else {
+> +		phy_write(phydev, MSCC_PHY_WOL_LOWER_MAC_ADDR, 0);
+> +		phy_write(phydev, MSCC_PHY_WOL_MID_MAC_ADDR, 0);
+> +		phy_write(phydev, MSCC_PHY_WOL_UPPER_MAC_ADDR, 0);
+> +	}
+> +
+> +	reg_val = phy_read(phydev, MSCC_PHY_WOL_MAC_CONTROL);
+> +	if (wol_conf->wolopts & WAKE_MAGICSECURE)
+> +		reg_val |= SECURE_ON_ENABLE;
+> +	else
+> +		reg_val &= ~SECURE_ON_ENABLE;
+> +	phy_write(phydev, MSCC_PHY_WOL_MAC_CONTROL, reg_val);
+> +
+> +	if (wol_conf->wolopts & WAKE_MAGICSECURE) {
+> +		reg_val = wol_conf->sopass[4] << 8;
+> +		reg_val |= wol_conf->sopass[5];
+> +		phy_write(phydev, MSCC_PHY_WOL_LOWER_PASSWD, reg_val);
+> +		reg_val = wol_conf->sopass[2] << 8;
+> +		reg_val |= wol_conf->sopass[3];
+> +		phy_write(phydev, MSCC_PHY_WOL_MID_PASSWD, reg_val);
+> +		reg_val = wol_conf->sopass[0] << 8;
+> +		reg_val |= wol_conf->sopass[1];
+> +		phy_write(phydev, MSCC_PHY_WOL_UPPER_PASSWD, reg_val);
+> +	} else {
+> +		phy_write(phydev, MSCC_PHY_WOL_LOWER_PASSWD, 0);
+> +		phy_write(phydev, MSCC_PHY_WOL_MID_PASSWD, 0);
+> +		phy_write(phydev, MSCC_PHY_WOL_UPPER_PASSWD, 0);
+> +	}
 
-          NOTE: This function only affects the FIFO storage and has no
-                influence on the statistics, which use the actual length
-                of the frame received.
+How about making the code a little simpler in both cases with something
+like this the following:
 
-          0    Disabled.
-          1    Instructs the MAC to write two additional bytes in front
-               of each frame received into the RX FIFO.
+	u16 pwd = { };
+	unsigned int i;
 
-*in front* of the frame - that's before the Ethernet header.  Not between
-the ethernet and IP headers.
+	if (wol_conf->wolopts & WAKE_MAGICECURE)
+		for (i = 0; i < ARRAY_SIZE(pwd); i++)
+			pwd[i] = wol_conf->so_pass[5 - (i * 2 + 1)] << 8|
+				 wol_conf->so_pass[5 - i * 2 ]
+
+	phy_write(phydev, MSCC_PHY_WOL_LOWER_PASSWD, pwd[0]);
+	phy_write(phydev, MSCC_PHY_WOL_MID_PASSWD, pwd[1]);
+	phy_write(phydev, MSCC_PHY_WOL_UPPER_PASSWD, pwd[2]);
+
+> +
+> +	rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_STANDARD);
+> +	if (rc != 0)
+> +		goto out_unlock;
+> +
+> +	if (wol->wolopts & WAKE_MAGIC) {
+
+Don't you also need to check WAKE_MAGICSECURE here as well? Or is the
+interrupt going to be generated only if there is no password defined?
+
+> +		/* Enable the WOL interrupt */
+> +		reg_val = phy_read(phydev, MII_VSC85XX_INT_MASK);
+> +		reg_val |= MII_VSC85XX_INT_MASK_WOL;
+> +		rc = phy_write(phydev, MII_VSC85XX_INT_MASK, reg_val);
+> +		if (rc != 0)
+> +			goto out_unlock;
+> +	} else {
+> +		/* Disable the WOL interrupt */
+> +		reg_val = phy_read(phydev, MII_VSC85XX_INT_MASK);
+> +		reg_val &= (~MII_VSC85XX_INT_MASK_WOL);
+> +		rc = phy_write(phydev, MII_VSC85XX_INT_MASK, reg_val);
+> +		if (rc != 0)
+> +			goto out_unlock;
+> +	}
+> +	/* Clear WOL iterrupt status */
+> +	reg_val = phy_read(phydev, MII_VSC85XX_INT_STATUS);
+> +
+> +out_unlock:
+> +	mutex_unlock(&phydev->lock);
+> +
+> +	return rc;
+> +}
+> +
+> +static void vsc85xx_wol_get(struct phy_device *phydev,
+> +			    struct ethtool_wolinfo *wol)
+> +{
+> +	int rc;
+> +	u16 reg_val;
+> +	struct ethtool_wolinfo *wol_conf = wol;
+> +
+> +	mutex_lock(&phydev->lock);
+> +	rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_EXTENDED_2);
+> +	if (rc != 0)
+> +		goto out_unlock;
+> +
+> +	reg_val = phy_read(phydev, MSCC_PHY_WOL_MAC_CONTROL);
+> +	if (reg_val & SECURE_ON_ENABLE)
+> +		wol_conf->wolopts |= WAKE_MAGICSECURE;
+> +	if (wol_conf->wolopts & WAKE_MAGICSECURE) {
+> +		reg_val = phy_read(phydev, MSCC_PHY_WOL_LOWER_PASSWD);
+> +		wol_conf->sopass[5] = reg_val & 0x00ff;
+> +		wol_conf->sopass[4] = (reg_val & 0xff00) >> 8;
+> +		reg_val = phy_read(phydev, MSCC_PHY_WOL_MID_PASSWD);
+> +		wol_conf->sopass[3] = reg_val & 0x00ff;
+> +		wol_conf->sopass[2] = (reg_val & 0xff00) >> 8;
+> +		reg_val = phy_read(phydev, MSCC_PHY_WOL_UPPER_PASSWD);
+> +		wol_conf->sopass[1] = reg_val & 0x00ff;
+> +		wol_conf->sopass[0] = (reg_val & 0xff00) >> 8;
+> +	}
+> +
+> +	rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_STANDARD);
+> +
+> +out_unlock:
+> +	mutex_unlock(&phydev->lock);
+> +}
+> +
+>  static int vsc85xx_mac_if_set(struct phy_device *phydev,
+>  			      phy_interface_t interface)
+>  {
+> @@ -177,6 +305,8 @@ static struct phy_driver vsc85xx_driver[] = {
+>  	.config_intr    = &vsc85xx_config_intr,
+>  	.suspend	= &genphy_suspend,
+>  	.resume		= &genphy_resume,
+> +	.set_wol        = &vsc85xx_wol_set,
+> +	.get_wol        = &vsc85xx_wol_get,
+>  },
+>  {
+>  	.phy_id		= PHY_ID_VSC8541,
+> @@ -193,6 +323,8 @@ static struct phy_driver vsc85xx_driver[] = {
+>  	.config_intr    = &vsc85xx_config_intr,
+>  	.suspend	= &genphy_suspend,
+>  	.resume		= &genphy_resume,
+> +	.set_wol        = &vsc85xx_wol_set,
+> +	.get_wol        = &vsc85xx_wol_get,
+>  }
+>  
+>  };
+> 
+
 
 -- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+Florian
