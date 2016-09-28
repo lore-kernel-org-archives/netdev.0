@@ -1,48 +1,63 @@
-From: Lawrence Brakmo <brakmo@fb.com>
-Subject: Re: [PATCH v3 net-next] tcp: Change txhash on every SYN and RTO
- retransmit
-Date: Wed, 28 Sep 2016 05:07:16 +0000
-Message-ID: <D4109D86.1F361%brakmo@fb.com>
-References: <20160927233123.2447232-1-brakmo@fb.com>
- <CAK6E8=dDXd9PFA=AojMOsTOXTm_KkczB2_4G3vPuQLC2Ni5QsQ@mail.gmail.com>
- <CADVnQykozyJ3nnHz956aXnT9c+cEqUmf0HMqSHjbKQXWiMoSTA@mail.gmail.com>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH RFC 1/3] net: Add dev_set_env_hdr_len to accept envelope
+ frames
+Date: Wed, 28 Sep 2016 15:09:12 +0900
+Message-ID: <5fc51b89-4ab2-f98e-6847-530f4ed4b434@lab.ntt.co.jp>
+References: <1474966541-4420-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+ <1474966541-4420-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+ <BL2PR07MB2306030D4912AD8F574BAF9D8DCC0@BL2PR07MB2306.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev <netdev@vger.kernel.org>, Kernel Team <Kernel-team@fb.com>,
-        "Eric Dumazet" <eric.dumazet@gmail.com>
-To: Neal Cardwell <ncardwell@google.com>,
-        Yuchung Cheng <ycheng@google.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+To: "Mintz, Yuval" <Yuval.Mintz@cavium.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:55158 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751652AbcI1FHZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 01:07:25 -0400
-In-Reply-To: <CADVnQykozyJ3nnHz956aXnT9c+cEqUmf0HMqSHjbKQXWiMoSTA@mail.gmail.com>
-Content-Language: en-US
-Content-ID: <4AE4E15BEE9AF24D9983B5D229A581E9@namprd15.prod.outlook.com>
+Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:43430 "EHLO
+        tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751696AbcI1GKC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 02:10:02 -0400
+In-Reply-To: <BL2PR07MB2306030D4912AD8F574BAF9D8DCC0@BL2PR07MB2306.namprd07.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Neal and Yuchung, thank you for the feedback. I=B9ve submitted v4 with your
-recommended changes.
+On 2016/09/27 23:23, Mintz, Yuval wrote:
+>> +/* return envelope header length */
+>> +static inline int netif_get_env_hdr_len(struct net_device *dev) {
+>> +	if (dev->netdev_ops->ndo_set_env_hdr_len)
+>> +		return dev->env_hdr_len;
+>> +
+>> +	if (netif_reduces_vlan_mtu(dev))
+>> +		return 0;
+>> +
+>> +	return 4; /* VLAN_HLEN */
+>> +}
+> 
+
+Thank you for taking a look at this.
+
+> Why claim that `4' is the default?
+> What's the benefit of propagating this value to userspace if
+> driver doesn't actually support it?
+
+I'm sorry, this is a leftover from previous draft when I was not aware
+of type 2-2 drivers (that do not allow over-MTU-sized packets other than
+vlan-tagged ones). Now I'm thinking we should not include
+IFLA_ENV_HDR_LEN in response of GETLINK if it is not supported.
+I'll delete current logic from next version.
+
+> 
+> Assuming this *is* a good default [meaning your analysis indicated
+> basically every driver has at least so many octets reserved]
+> perhaps we should consider initializing the env_hdr_len in some
+> common function [e.g., in setup_ether() next to the mtu] to this value?
+
+I actually tried it first and realized it is difficult, since so many
+drivers use their own initializer instead of ether_setup(). Anyway, I'm
+going not to expose envhdrlen when it is not supported.
 
 Thanks,
-Larry
-
-On 9/27/16, 6:28 PM, "Neal Cardwell" <ncardwell@google.com> wrote:
-
->On Tue, Sep 27, 2016 at 8:18 PM, Yuchung Cheng <ycheng@google.com> wrote:
->> On Tue, Sep 27, 2016 at 4:31 PM, Lawrence Brakmo <brakmo@fb.com> wrote:
->>> @@ -213,6 +215,8 @@ static int tcp_write_timeout(struct sock *sk)
->>>                         tcp_mtu_probing(icsk, sk);
->>>
->>>                         dst_negative_advice(sk);
->>> +               } else if (prandom_u32_max(100) <
->>>sysctl_tcp_rto_txhash_prob) {
->> The sysctl is not really needed but that's just my opinion.
->
->I agree that it sounds nice to simplify by not having a sysctl for
->this and always calling sk_rethink_txhash() here.
->
->neal
+Toshiaki Makita
