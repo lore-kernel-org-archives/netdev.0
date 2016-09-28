@@ -1,7 +1,7 @@
 From: Jia He <hejianet@gmail.com>
-Subject: [PATCH v5 3/7] proc: Reduce cache miss in snmp6_seq_show
-Date: Wed, 28 Sep 2016 14:22:24 +0800
-Message-ID: <1475043748-18161-4-git-send-email-hejianet@gmail.com>
+Subject: [PATCH v5 4/7] proc: Reduce cache miss in sctp_snmp_seq_show
+Date: Wed, 28 Sep 2016 14:22:25 +0800
+Message-ID: <1475043748-18161-5-git-send-email-hejianet@gmail.com>
 References: <1475043748-18161-1-git-send-email-hejianet@gmail.com>
 Cc: linux-sctp@vger.kernel.org, linux-kernel@vger.kernel.org,
         davem@davemloft.net, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
@@ -15,10 +15,10 @@ Cc: linux-sctp@vger.kernel.org, linux-kernel@vger.kernel.org,
         marcelo.leitner@gmail.com, Jia He <hejianet@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:33417 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753223AbcI1GXA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 02:23:00 -0400
+Received: from mail-io0-f196.google.com ([209.85.223.196]:33447 "EHLO
+        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753340AbcI1GXG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 02:23:06 -0400
 In-Reply-To: <1475043748-18161-1-git-send-email-hejianet@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -28,67 +28,33 @@ aggregate the data by going through all the items of each cpu sequentially.
 
 Signed-off-by: Jia He <hejianet@gmail.com>
 ---
- net/ipv6/proc.c | 32 +++++++++++++++++++++++---------
- 1 file changed, 23 insertions(+), 9 deletions(-)
+ net/sctp/proc.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv6/proc.c b/net/ipv6/proc.c
-index 679253d0..e047701 100644
---- a/net/ipv6/proc.c
-+++ b/net/ipv6/proc.c
-@@ -30,6 +30,11 @@
- #include <net/transp_v6.h>
- #include <net/ipv6.h>
- 
-+#define MAX4(a, b, c, d) \
-+	max_t(u32, max_t(u32, a, b), max_t(u32, c, d))
-+#define SNMP_MIB_MAX MAX4(UDP_MIB_MAX, TCP_MIB_MAX, \
-+			IPSTATS_MIB_MAX, ICMP_MIB_MAX)
-+
- static int sockstat6_seq_show(struct seq_file *seq, void *v)
+diff --git a/net/sctp/proc.c b/net/sctp/proc.c
+index ef8ba77..9e7f4a7 100644
+--- a/net/sctp/proc.c
++++ b/net/sctp/proc.c
+@@ -73,13 +73,17 @@ static const struct snmp_mib sctp_snmp_list[] = {
+ /* Display sctp snmp mib statistics(/proc/net/sctp/snmp). */
+ static int sctp_snmp_seq_show(struct seq_file *seq, void *v)
  {
- 	struct net *net = seq->private;
-@@ -192,13 +197,19 @@ static void snmp6_seq_show_item(struct seq_file *seq, void __percpu *pcpumib,
- 				const struct snmp_mib *itemlist)
- {
+-	struct net *net = seq->private;
  	int i;
--	unsigned long val;
--
--	for (i = 0; itemlist[i].name; i++) {
--		val = pcpumib ?
--			snmp_fold_field(pcpumib, itemlist[i].entry) :
--			atomic_long_read(smib + itemlist[i].entry);
--		seq_printf(seq, "%-32s\t%lu\n", itemlist[i].name, val);
-+	unsigned long buff[SNMP_MIB_MAX];
++	struct net *net = seq->private;
++	unsigned long buff[SCTP_MIB_MAX];
 +
-+	if (pcpumib) {
-+		memset(buff, 0, sizeof(unsigned long) * SNMP_MIB_MAX);
-+
-+		snmp_get_cpu_field_batch(buff, itemlist, pcpumib);
-+		for (i = 0; itemlist[i].name; i++)
-+			seq_printf(seq, "%-32s\t%lu\n",
-+				   itemlist[i].name, buff[i]);
-+	} else {
-+		for (i = 0; itemlist[i].name; i++)
-+			seq_printf(seq, "%-32s\t%lu\n", itemlist[i].name,
-+				   atomic_long_read(smib + itemlist[i].entry));
- 	}
++	memset(buff, 0, sizeof(unsigned long) * SCTP_MIB_MAX);
+ 
++	snmp_get_cpu_field_batch(buff, sctp_snmp_list,
++				 net->sctp.sctp_statistics);
+ 	for (i = 0; sctp_snmp_list[i].name != NULL; i++)
+ 		seq_printf(seq, "%-32s\t%ld\n", sctp_snmp_list[i].name,
+-			   snmp_fold_field(net->sctp.sctp_statistics,
+-				      sctp_snmp_list[i].entry));
++						buff[i]);
+ 
+ 	return 0;
  }
- 
-@@ -206,10 +217,13 @@ static void snmp6_seq_show_item64(struct seq_file *seq, void __percpu *mib,
- 				  const struct snmp_mib *itemlist, size_t syncpoff)
- {
- 	int i;
-+	u64 buff64[SNMP_MIB_MAX];
-+
-+	memset(buff64, 0, sizeof(unsigned long) * SNMP_MIB_MAX);
- 
-+	snmp_get_cpu_field64_batch(buff64, itemlist, mib, syncpoff);
- 	for (i = 0; itemlist[i].name; i++)
--		seq_printf(seq, "%-32s\t%llu\n", itemlist[i].name,
--			   snmp_fold_field64(mib, itemlist[i].entry, syncpoff));
-+		seq_printf(seq, "%-32s\t%llu\n", itemlist[i].name, buff64[i]);
- }
- 
- static int snmp6_seq_show(struct seq_file *seq, void *v)
 -- 
 2.5.5
