@@ -1,37 +1,49 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [RFC PATCH net-next 2/2] sfc: report 4-tuple UDP hashing to
- ethtool, if it's enabled
-Date: Wed, 28 Sep 2016 09:12:22 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB010CF9F@AcuExch.aculab.com>
-References: <cc07d60a-189c-8475-ecb3-b612ff13bd5a@solarflare.com>
- <8341c601-674a-74ff-c6dd-689c19b3ce7f@solarflare.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [RFC v2 2/4] staging: rtl8712: Change _LED_STATE enum in rtl871x
+ driver to avoid conflicts with LED namespace
+Date: Wed, 28 Sep 2016 11:27:41 +0200
+Message-ID: <20160928092741.GA16646@kroah.com>
+References: <1475013111-18942-1-git-send-email-zach.brown@ni.com>
+ <1475013111-18942-3-git-send-email-zach.brown@ni.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "bkenward@solarflare.com" <bkenward@solarflare.com>
-To: 'Edward Cree' <ecree@solarflare.com>,
-        "linux-net-drivers@solarflare.com" <linux-net-drivers@solarflare.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.191]:61588 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752298AbcI1JPa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 05:15:30 -0400
-In-Reply-To: <8341c601-674a-74ff-c6dd-689c19b3ce7f@solarflare.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, florian.c.schilhabel@googlemail.com,
+ f.fainelli@gmail.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ mlindner@marvell.com, Larry.Finger@lwfinger.net
+To: Zach Brown <zach.brown@ni.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <1475013111-18942-3-git-send-email-zach.brown@ni.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogRWR3YXJkIENyZWUNCj4gU2VudDogMjcgU2VwdGVtYmVyIDIwMTYgMTc6MzYNCi4uLg0K
-PiArCQljYXNlIFVEUF9WNF9GTE9XOg0KPiArCQkJaWYgKGVmeC0+cnhfaGFzaF91ZHBfNHR1cGxl
-KQ0KPiArCQkJCS8qIGZhbGwgdGhyb3VnaCAqLw0KPiArCQkJLyogZWxzZSBmYWxsIGZ1cnRoZXIh
-ICovDQoNCklmIHlvdSBpbnZlcnQgdGhlIGFib3ZlIGFuZCBhZGQgYSBnb3RvLi4uDQoJCQlpZiAo
-IWVmeC0+cnhfaGFzaF91ZHBfNHR1cGxlKQ0KCQkJCWdvdG8gc2V0X2lwOw0KDQo+ICAJCWNhc2Ug
-VENQX1Y0X0ZMT1c6DQo+IC0JCQlpbmZvLT5kYXRhIHw9IFJYSF9MNF9CXzBfMSB8IFJYSF9MNF9C
-XzJfMzsNCj4gKwkJCQlpbmZvLT5kYXRhIHw9IFJYSF9MNF9CXzBfMSB8IFJYSF9MNF9CXzJfMzsN
-Cj4gIAkJCS8qIGZhbGwgdGhyb3VnaCAqLw0KPiAtCQljYXNlIFVEUF9WNF9GTE9XOg0KPiAgCQlj
-YXNlIFNDVFBfVjRfRkxPVzoNCj4gIAkJY2FzZSBBSF9FU1BfVjRfRkxPVzoNCj4gIAkJY2FzZSBJ
-UFY0X0ZMT1c6DQogICAgc2V0X2lwOg0KPiAgCQkJaW5mby0+ZGF0YSB8PSBSWEhfSVBfU1JDIHwg
-UlhIX0lQX0RTVDsNCj4gIAkJCW1pbl9yZXZpc2lvbiA9IEVGWF9SRVZfRkFMQ09OX0IwOw0KPiAg
-CQkJYnJlYWs7DQoNCkl0IG1pZ2h0IGxvb2sgYmV0dGVyLg0KDQoJRGF2aWQNCg0K
+On Tue, Sep 27, 2016 at 04:51:49PM -0500, Zach Brown wrote:
+> Adding led support for phy causes namespace conflicts for some
+> phy drivers.
+> 
+> The rtl871 driver declared an enum for representing LED states. The enum
+> contains constant LED_OFF which conflicted with declaration found in
+> linux/leds.h. LED_OFF changed to LED_STATE_OFF
+> In order to avoid a possible future collision LED_ON was changed to
+> LED_STATE_ON as well.
+> 
+> Signed-off-by: Zach Brown <zach.brown@ni.com>
+> ---
+>  drivers/staging/rtl8712/rtl8712_led.c | 388 +++++++++++++++++-----------------
+>  1 file changed, 194 insertions(+), 194 deletions(-)
+
+Ick, messy.  I'll be glad to take this patch now to make your life
+easier in the future.
+
+thanks,
+
+greg k-h
