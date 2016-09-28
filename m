@@ -1,53 +1,41 @@
 From: Cyrill Gorcunov <gorcunov@gmail.com>
 Subject: Re: [PATCH v5] net: ip, diag -- Add diag interface for raw sockets
-Date: Wed, 28 Sep 2016 15:18:33 +0300
-Message-ID: <20160928121833.GX1876@uranus.lan>
-References: <20160928105147.GV1876@uranus.lan>
+Date: Wed, 28 Sep 2016 15:21:57 +0300
+Message-ID: <20160928122156.GY1876@uranus.lan>
+References: <20160928090357.GT1876@uranus.lan>
+ <caef7649-9d25-6429-eeab-96c027d6cbc2@mojatatu.com>
+ <20160928101726.GU1876@uranus.lan>
+ <8293413c-a81d-f7ff-24f0-8f58ce877116@mojatatu.com>
+ <20160928105147.GV1876@uranus.lan>
  <484dedaf-4e81-9a5a-ffb8-2c65b373c3a0@mojatatu.com>
  <20160928112703.GW1876@uranus.lan>
- <20160928.080701.1194277590163223525.davem@davemloft.net>
+ <696ed966-991c-30f7-9a1c-d91a94c9304c@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jhs@mojatatu.com, eric.dumazet@gmail.com, dsa@cumulusnetworks.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
         kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
         kaber@trash.net, avagin@openvz.org, stephen@networkplumber.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f68.google.com ([209.85.215.68]:33323 "EHLO
+        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932179AbcI1MWA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 08:22:00 -0400
 Content-Disposition: inline
-In-Reply-To: <20160928.080701.1194277590163223525.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <696ed966-991c-30f7-9a1c-d91a94c9304c@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 28, 2016 at 08:07:01AM -0400, David Miller wrote:
-...
-> > 
-> > I think you miss the point what I'm trying to say: currently end-user
-> > may have reference to this member (for any reason) and his program
-> > will compile and run. If we change the name the compilation procedure
-> > fails and this will break API. Yes, referrning @pad is bad idea for
-> > userspace code, and yes (!) better to simply rename it but lets do
-> > that later, on top, so that if we break something in userspace
-> > we could easily revert the oneline change.
+On Wed, Sep 28, 2016 at 08:06:51AM -0400, Jamal Hadi Salim wrote:
 > 
-> Right, it would be legal for an existing user to have code that
-> explicitly initializes every member of the structure, including 'pad'.
-> So we have to keep that member around, at a minimum, for their sake.
+> I understood well your point;-> Maybe my response was not clear:
+> _nobody should be fscking fondling pad fields_ setting them or
+> otherwise.
+> Maybe let these programs fail. I asked if you knew any such app which
+> did anything with a pad field.
 
-+1
-
-> 
-> >> BTW: There is at least one major structure in inet diag has a hole
-> >> today and doesnt have a padding indicator.
-> >> 
-> >> > If protocol goes over u8 then complete inet_diag_req_v2 structure will
-> >> > have to be reworked becaue @sdiag_protocol is u8 as well. IOW, once
-> >> > someone liftup IPPROTO_MAX > 255, he will notice the problem immediately
-> >> > because diag for such module simply stop working properly.
-> 
-> Indeed, we need a 16-bit value here.
-
-Yes, and we will need inet_diag_req_v3 for this sake ;) I think
-we can even introduce it early and convert _v2 to _v3 transparently
-inside kernel. I could start working on such change if people agreed
-(but a bit latter, on the next week probably)
+Nope, I don't know such programs. criu and iproute2 both zeroify
+this strcuture explicitly by whole. But who knows where else this
+structure used in userspace world.
