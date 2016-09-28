@@ -1,98 +1,70 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH/RFC 05/12] rocker: Support Open vSwitch (-like) flow stats
-Date: Wed, 28 Sep 2016 14:42:55 +0200
-Message-ID: <1475066582-1971-6-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH/RFC 06/12] rocker: Add helper to check ports belong to the same rocker switch
+Date: Wed, 28 Sep 2016 14:42:56 +0200
+Message-ID: <1475066582-1971-7-git-send-email-simon.horman@netronome.com>
 References: <1475066582-1971-1-git-send-email-simon.horman@netronome.com>
 Cc: Simon Horman <simon.horman@netronome.com>
 To: netdev@vger.kernel.org, dev@openvswitch.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:36210 "EHLO
-        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932268AbcI1MnQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 08:43:16 -0400
-Received: by mail-wm0-f41.google.com with SMTP id w84so233852497wmg.1
-        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 05:43:15 -0700 (PDT)
+Received: from mail-lf0-f42.google.com ([209.85.215.42]:33150 "EHLO
+        mail-lf0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932295AbcI1MnR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 08:43:17 -0400
+Received: by mail-lf0-f42.google.com with SMTP id b71so50890721lfg.0
+        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 05:43:17 -0700 (PDT)
 In-Reply-To: <1475066582-1971-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Prototype an implementation of the new switchdev_port_obj_get SDO for the
-SWITCHDEV_OBJ_OVS_FLOW object type. This allows retrieval of
-statistics for Open vSwitch (-like) flows which have been programmed into
-hardware.
+This will be used by a follow-up patch to add Add Open vSwitch (-like) flow
+support to the OF-DPA rocker world.
 
 Signed-off-by: Simon Horman <simon.horman@netronome.com>
 ---
- drivers/net/ethernet/rocker/rocker.h      |  2 ++
- drivers/net/ethernet/rocker/rocker_main.c | 30 ++++++++++++++++++++++++++++++
- 2 files changed, 32 insertions(+)
+ drivers/net/ethernet/rocker/rocker.h      |  4 ++++
+ drivers/net/ethernet/rocker/rocker_main.c | 15 +++++++++++++++
+ 2 files changed, 19 insertions(+)
 
 diff --git a/drivers/net/ethernet/rocker/rocker.h b/drivers/net/ethernet/rocker/rocker.h
-index ebcc863fd25e..332adce701fa 100644
+index 332adce701fa..4b4a7d2af774 100644
 --- a/drivers/net/ethernet/rocker/rocker.h
 +++ b/drivers/net/ethernet/rocker/rocker.h
-@@ -122,6 +122,8 @@ struct rocker_world_ops {
- 				    struct switchdev_trans *trans);
- 	int (*port_obj_sw_flow_del)(struct rocker_port *rocker_port,
- 				    const struct switchdev_obj_sw_flow *sw_flow);
-+	int (*port_obj_sw_flow_get_stats)(struct rocker_port *rocker_port,
-+					  const struct switchdev_obj_sw_flow *sw_flow);
- 	int (*port_obj_fib4_add)(struct rocker_port *rocker_port,
- 				 const struct switchdev_obj_ipv4_fib *fib4,
- 				 struct switchdev_trans *trans);
+@@ -85,6 +85,10 @@ int rocker_cmd_exec(struct rocker_port *rocker_port, bool nowait,
+ int rocker_port_set_learning(struct rocker_port *rocker_port,
+ 			     bool learning);
+ 
++/* True if a and b are ports on the same rocker switch */
++bool rocker_port_dev_cmp_rocker(const struct net_device *a,
++				const struct net_device *b);
++
+ struct rocker_world_ops {
+ 	const char *kind;
+ 	size_t priv_size;
 diff --git a/drivers/net/ethernet/rocker/rocker_main.c b/drivers/net/ethernet/rocker/rocker_main.c
-index e019772689a6..6c6a486cced6 100644
+index 6c6a486cced6..02101f88dc08 100644
 --- a/drivers/net/ethernet/rocker/rocker_main.c
 +++ b/drivers/net/ethernet/rocker/rocker_main.c
-@@ -1703,6 +1703,16 @@ static int rocker_world_port_obj_sw_flow_del(struct rocker_port *rocker_port,
- 	return wops->port_obj_sw_flow_del(rocker_port, sw_flow);
+@@ -2859,6 +2859,21 @@ static bool rocker_port_dev_check(const struct net_device *dev)
+ 	return dev->netdev_ops == &rocker_port_netdev_ops;
  }
  
-+static int rocker_world_port_obj_sw_flow_get_stats(struct rocker_port *rocker_port,
-+				const struct switchdev_obj_sw_flow *sw_flow)
++bool rocker_port_dev_cmp_rocker(const struct net_device *a,
++				const struct net_device *b)
 +{
-+	struct rocker_world_ops *wops = rocker_port->rocker->wops;
++	struct rocker_port *rocker_port_a, *rocker_port_b;
 +
-+	if (!wops->port_obj_sw_flow_get_stats)
-+		return -EOPNOTSUPP;
-+	return wops->port_obj_sw_flow_get_stats(rocker_port, sw_flow);
++	if (!rocker_port_dev_check(a) || !rocker_port_dev_check(b))
++		return false;
++
++
++	rocker_port_a = netdev_priv(a);
++	rocker_port_b = netdev_priv(b);
++
++	return rocker_port_a->rocker == rocker_port_b->rocker;
 +}
 +
- static int rocker_world_port_master_linked(struct rocker_port *rocker_port,
- 					   struct net_device *master)
+ static int rocker_netdevice_event(struct notifier_block *unused,
+ 				  unsigned long event, void *ptr)
  {
-@@ -2197,12 +2207,32 @@ static int rocker_port_obj_dump(struct net_device *dev,
- 	return err;
- }
- 
-+static int rocker_port_obj_get(struct net_device *dev,
-+			       struct switchdev_obj *obj)
-+{
-+	struct rocker_port *rocker_port = netdev_priv(dev);
-+	int err = 0;
-+
-+	switch (obj->id) {
-+	case SWITCHDEV_OBJ_SW_FLOW:
-+		err = rocker_world_port_obj_sw_flow_get_stats(rocker_port,
-+						 SWITCHDEV_OBJ_SW_FLOW(obj));
-+		break;
-+	default:
-+		err = -EOPNOTSUPP;
-+		break;
-+	}
-+
-+	return err;
-+}
-+
- static const struct switchdev_ops rocker_port_switchdev_ops = {
- 	.switchdev_port_attr_get	= rocker_port_attr_get,
- 	.switchdev_port_attr_set	= rocker_port_attr_set,
- 	.switchdev_port_obj_add		= rocker_port_obj_add,
- 	.switchdev_port_obj_del		= rocker_port_obj_del,
- 	.switchdev_port_obj_dump	= rocker_port_obj_dump,
-+	.switchdev_port_obj_get		= rocker_port_obj_get,
- };
- 
- /********************
 -- 
 2.7.0.rc3.207.g0ac5344
