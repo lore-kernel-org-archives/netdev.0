@@ -1,102 +1,177 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCHv3 net 3/3] sctp: change to check peer prsctp_capable when using prsctp polices
-Date: Thu, 29 Sep 2016 02:37:28 +0800
-Message-ID: <a47d73f795713d26e2a8f41cce639b2ff71466d6.1475087147.git.lucien.xin@gmail.com>
-References: <cover.1475087147.git.lucien.xin@gmail.com>
- <03a642a76d02e8536404aa27561c44e348f3e3a0.1475087147.git.lucien.xin@gmail.com>
- <0c3d4e6034f7f77fd341cf5baf116bc91a43bdf8.1475087147.git.lucien.xin@gmail.com>
+Subject: [PATCH net] sctp: fix the issue sctp_diag uses lock_sock in rcu_read_lock
+Date: Thu, 29 Sep 2016 02:55:44 +0800
+Message-ID: <bd1a86ba935ffa02392b6c1271e7c06433967856.1475088944.git.lucien.xin@gmail.com>
 Cc: davem@davemloft.net,
         Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
         Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f67.google.com ([209.85.220.67]:35001 "EHLO
-        mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754371AbcI1Shn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 14:37:43 -0400
-In-Reply-To: <0c3d4e6034f7f77fd341cf5baf116bc91a43bdf8.1475087147.git.lucien.xin@gmail.com>
-In-Reply-To: <cover.1475087147.git.lucien.xin@gmail.com>
-References: <cover.1475087147.git.lucien.xin@gmail.com>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:35055 "EHLO
+        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751451AbcI1Szu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 14:55:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now before using prsctp polices, sctp uses asoc->prsctp_enable to
-check if prsctp is enabled. However asoc->prsctp_enable is set only
-means local host support prsctp, sctp should not abandon packet if
-peer host doesn't enable prsctp.
+When sctp dumps all the ep->assocs, it needs to lock_sock first,
+but now it locks sock in rcu_read_lock, and lock_sock may sleep,
+which would break rcu_read_lock.
 
-So this patch is to use asoc->peer.prsctp_capable to check if prsctp
-is enabled on both side, instead of asoc->prsctp_enable, as asoc's
-peer.prsctp_capable is set only when local and peer both enable prsctp.
+This patch is to get and hold one sock when traversing the list.
+After that and get out of rcu_read_lock, lock and dump it. Then
+it will traverse the list again to get the next one until all
+sctp socks are dumped.
 
-Fixes: a6c2f792873a ("sctp: implement prsctp TTL policy")
+For sctp_diag_dump_one, it fixes this issue by holding asoc and
+moving cb() out of rcu_read_lock in sctp_transport_lookup_process.
+
+Fixes: 8f840e47f190 ("sctp: add the sctp_diag.c file")
 Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- net/sctp/chunk.c    | 4 ++--
- net/sctp/outqueue.c | 8 ++++----
- 2 files changed, 6 insertions(+), 6 deletions(-)
+ net/sctp/sctp_diag.c | 58 ++++++++++++++++++++++++++++++++++++----------------
+ net/sctp/socket.c    | 10 ++++++---
+ 2 files changed, 47 insertions(+), 21 deletions(-)
 
-diff --git a/net/sctp/chunk.c b/net/sctp/chunk.c
-index 14990e2..0a3dbec 100644
---- a/net/sctp/chunk.c
-+++ b/net/sctp/chunk.c
-@@ -179,7 +179,7 @@ struct sctp_datamsg *sctp_datamsg_from_user(struct sctp_association *asoc,
- 			 msg, msg->expires_at, jiffies);
- 	}
+diff --git a/net/sctp/sctp_diag.c b/net/sctp/sctp_diag.c
+index f3508aa..cef0cee 100644
+--- a/net/sctp/sctp_diag.c
++++ b/net/sctp/sctp_diag.c
+@@ -272,28 +272,17 @@ out:
+ 	return err;
+ }
  
--	if (asoc->prsctp_enable &&
-+	if (asoc->peer.prsctp_capable &&
- 	    SCTP_PR_TTL_ENABLED(sinfo->sinfo_flags))
- 		msg->expires_at =
- 			jiffies + msecs_to_jiffies(sinfo->sinfo_timetolive);
-@@ -340,7 +340,7 @@ errout:
- /* Check whether this message has expired. */
- int sctp_chunk_abandoned(struct sctp_chunk *chunk)
+-static int sctp_tsp_dump(struct sctp_transport *tsp, void *p)
++static int sctp_sock_dump(struct sock *sk, void *p)
  {
--	if (!chunk->asoc->prsctp_enable ||
-+	if (!chunk->asoc->peer.prsctp_capable ||
- 	    !SCTP_PR_POLICY(chunk->sinfo.sinfo_flags)) {
- 		struct sctp_datamsg *msg = chunk->msg;
+-	struct sctp_endpoint *ep = tsp->asoc->ep;
++	struct sctp_endpoint *ep = sctp_sk(sk)->ep;
+ 	struct sctp_comm_param *commp = p;
+-	struct sock *sk = ep->base.sk;
+ 	struct sk_buff *skb = commp->skb;
+ 	struct netlink_callback *cb = commp->cb;
+ 	const struct inet_diag_req_v2 *r = commp->r;
+-	struct sctp_association *assoc =
+-		list_entry(ep->asocs.next, struct sctp_association, asocs);
++	struct sctp_association *assoc;
+ 	int err = 0;
  
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index e084f35..107233d 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -326,7 +326,7 @@ int sctp_outq_tail(struct sctp_outq *q, struct sctp_chunk *chunk, gfp_t gfp)
+-	/* find the ep only once through the transports by this condition */
+-	if (tsp->asoc != assoc)
+-		goto out;
+-
+-	if (r->sdiag_family != AF_UNSPEC && sk->sk_family != r->sdiag_family)
+-		goto out;
+-
+ 	lock_sock(sk);
+-	if (sk != assoc->base.sk)
+-		goto release;
+ 	list_for_each_entry(assoc, &ep->asocs, asocs) {
+ 		if (cb->args[4] < cb->args[1])
+ 			goto next;
+@@ -312,7 +301,7 @@ static int sctp_tsp_dump(struct sctp_transport *tsp, void *p)
+ 					cb->nlh->nlmsg_seq,
+ 					NLM_F_MULTI, cb->nlh) < 0) {
+ 			cb->args[3] = 1;
+-			err = 2;
++			err = 1;
+ 			goto release;
+ 		}
+ 		cb->args[3] = 1;
+@@ -321,7 +310,7 @@ static int sctp_tsp_dump(struct sctp_transport *tsp, void *p)
+ 					sk_user_ns(NETLINK_CB(cb->skb).sk),
+ 					NETLINK_CB(cb->skb).portid,
+ 					cb->nlh->nlmsg_seq, 0, cb->nlh) < 0) {
+-			err = 2;
++			err = 1;
+ 			goto release;
+ 		}
+ next:
+@@ -333,10 +322,35 @@ next:
+ 	cb->args[4] = 0;
+ release:
+ 	release_sock(sk);
++	sock_put(sk);
+ 	return err;
++}
++
++static int sctp_get_sock(struct sctp_transport *tsp, void *p)
++{
++	struct sctp_endpoint *ep = tsp->asoc->ep;
++	struct sctp_comm_param *commp = p;
++	struct sock *sk = ep->base.sk;
++	struct netlink_callback *cb = commp->cb;
++	const struct inet_diag_req_v2 *r = commp->r;
++	struct sctp_association *assoc =
++		list_entry(ep->asocs.next, struct sctp_association, asocs);
++
++	/* find the ep only once through the transports by this condition */
++	if (tsp->asoc != assoc)
++		goto out;
++
++	if (r->sdiag_family != AF_UNSPEC && sk->sk_family != r->sdiag_family)
++		goto out;
++
++	sock_hold(sk);
++	cb->args[5] = (long)sk;
++
++	return 1;
++
+ out:
+ 	cb->args[2]++;
+-	return err;
++	return 0;
+ }
  
- 			sctp_chunk_hold(chunk);
- 			sctp_outq_tail_data(q, chunk);
--			if (chunk->asoc->prsctp_enable &&
-+			if (chunk->asoc->peer.prsctp_capable &&
- 			    SCTP_PR_PRIO_ENABLED(chunk->sinfo.sinfo_flags))
- 				chunk->asoc->sent_cnt_removable++;
- 			if (chunk->chunk_hdr->flags & SCTP_DATA_UNORDERED)
-@@ -442,7 +442,7 @@ void sctp_prsctp_prune(struct sctp_association *asoc,
+ static int sctp_ep_dump(struct sctp_endpoint *ep, void *p)
+@@ -472,10 +486,18 @@ skip:
+ 	 * 2 : to record the transport pos of this time's traversal
+ 	 * 3 : to mark if we have dumped the ep info of the current asoc
+ 	 * 4 : to work as a temporary variable to traversal list
++	 * 5 : to save the sk we get from travelsing the tsp list.
+ 	 */
+ 	if (!(idiag_states & ~(TCPF_LISTEN | TCPF_CLOSE)))
+ 		goto done;
+-	sctp_for_each_transport(sctp_tsp_dump, net, cb->args[2], &commp);
++
++next:
++	cb->args[5] = 0;
++	sctp_for_each_transport(sctp_get_sock, net, cb->args[2], &commp);
++
++	if (cb->args[5] && !sctp_sock_dump((struct sock *)cb->args[5], &commp))
++		goto next;
++
+ done:
+ 	cb->args[1] = cb->args[4];
+ 	cb->args[4] = 0;
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 9fc417a..8ed2d99 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -4469,17 +4469,21 @@ int sctp_transport_lookup_process(int (*cb)(struct sctp_transport *, void *),
+ 				  const union sctp_addr *paddr, void *p)
  {
  	struct sctp_transport *transport;
+-	int err = 0;
++	int err = -ENOENT;
  
--	if (!asoc->prsctp_enable || !asoc->sent_cnt_removable)
-+	if (!asoc->peer.prsctp_capable || !asoc->sent_cnt_removable)
- 		return;
+ 	rcu_read_lock();
+ 	transport = sctp_addrs_lookup_transport(net, laddr, paddr);
+ 	if (!transport || !sctp_transport_hold(transport))
+ 		goto out;
+-	err = cb(transport, p);
++
++	sctp_association_hold(transport->asoc);
+ 	sctp_transport_put(transport);
  
- 	msg_len = sctp_prsctp_prune_sent(asoc, sinfo,
-@@ -1055,7 +1055,7 @@ static int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout, gfp_t gfp)
- 
- 				/* Mark as failed send. */
- 				sctp_chunk_fail(chunk, SCTP_ERROR_INV_STRM);
--				if (asoc->prsctp_enable &&
-+				if (asoc->peer.prsctp_capable &&
- 				    SCTP_PR_PRIO_ENABLED(chunk->sinfo.sinfo_flags))
- 					asoc->sent_cnt_removable--;
- 				sctp_chunk_free(chunk);
-@@ -1347,7 +1347,7 @@ int sctp_outq_sack(struct sctp_outq *q, struct sctp_chunk *chunk)
- 		tsn = ntohl(tchunk->subh.data_hdr->tsn);
- 		if (TSN_lte(tsn, ctsn)) {
- 			list_del_init(&tchunk->transmitted_list);
--			if (asoc->prsctp_enable &&
-+			if (asoc->peer.prsctp_capable &&
- 			    SCTP_PR_PRIO_ENABLED(chunk->sinfo.sinfo_flags))
- 				asoc->sent_cnt_removable--;
- 			sctp_chunk_free(tchunk);
+-out:
+ 	rcu_read_unlock();
++	err = cb(transport, p);
++	sctp_association_put(transport->asoc);
++
++out:
+ 	return err;
+ }
+ EXPORT_SYMBOL_GPL(sctp_transport_lookup_process);
 -- 
 2.1.0
