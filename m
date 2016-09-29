@@ -1,147 +1,122 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: [PATCH v3 net-next 4/4] net/sched: act_mirred: Implement ingress actions
-Date: Thu, 29 Sep 2016 14:03:32 +0300
-Message-ID: <1475147012-15538-5-git-send-email-shmulik.ladkani@gmail.com>
-References: <1475147012-15538-1-git-send-email-shmulik.ladkani@gmail.com>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-        WANG Cong <xiyou.wangcong@gmail.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: David Miller <davem@davemloft.net>
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: [RFC] net: store port/representative id in metadata_dst
+Date: Thu, 29 Sep 2016 12:10:04 +0100
+Message-ID: <20160929121004.1db2d543@jkicinski-Precision-T1700>
+References: <1474572417-15907-1-git-send-email-jakub.kicinski@netronome.com>
+        <20160923063429.GA1821@nanopsycho.orion>
+        <20160923110609.2f221f99@griffin>
+        <20160923135512.64e5d5e9@jkicinski-Precision-T1700>
+        <57E53ADE.10806@gmail.com>
+        <20160923162907.7fd5314e@jkicinski-Precision-T1700>
+        <57E564F3.5010107@intel.com>
+        <20160923211728.4c2f05ab@jkicinski-Precision-T1700>
+        <57E58FA6.3050001@gmail.com>
+        <20160923214544.6a3cd0ff@laptop>
+        <57E59CA8.30007@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jakub Kicinski <jakub.kicinski@netronome.com>,
+        "Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
+        Jiri Benc <jbenc@redhat.com>, Jiri Pirko <jiri@resnulli.us>,
+        netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>,
+        ogerlitz@mellanox.com, ast@kernel.org, daniel@iogearbox.net,
+        simon.horman@netronome.com, Paolo Abeni <pabeni@redhat.com>,
+        Pravin B Shelar <pshelar@nicira.com>,
+        hannes@stressinduktion.org
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:35919 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753162AbcI2LET (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 07:04:19 -0400
-Received: by mail-wm0-f66.google.com with SMTP id b184so10148536wma.3
-        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 04:04:18 -0700 (PDT)
-In-Reply-To: <1475147012-15538-1-git-send-email-shmulik.ladkani@gmail.com>
+Received: from mx3.wp.pl ([212.77.101.10]:22771 "EHLO mx3.wp.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752725AbcI2LKQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 29 Sep 2016 07:10:16 -0400
+In-Reply-To: <57E59CA8.30007@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Up until now, 'action mirred' supported only egress actions (either
-TCA_EGRESS_REDIR or TCA_EGRESS_MIRROR).
+On Fri, 23 Sep 2016 14:20:40 -0700, John Fastabend wrote:
+> On 16-09-23 01:45 PM, Jakub Kicinski wrote:
+> > On Fri, 23 Sep 2016 13:25:10 -0700, John Fastabend wrote:  
+> >> On 16-09-23 01:17 PM, Jakub Kicinski wrote:  
+> >>> On Fri, 23 Sep 2016 10:22:59 -0700, Samudrala, Sridhar wrote:    
+> >>>> On 9/23/2016 8:29 AM, Jakub Kicinski wrote:    
+> >>  [...]  
+> >>  [...]    
+> >>>>
+> >>>> The 'accel' parameter in dev_queue_xmit_accel() is currently only passed
+> >>>> to ndo_select_queue() via netdev_pick_tx() and is used to select the tx 
+> >>>> queue.
+> >>>> Also, it is not passed all the way to the driver specific xmit routine.  
+> >>>> Doesn't it require
+> >>>> changing all the driver xmit routines if we want to pass this parameter?
+> >>>>    
+> >>  [...]    
+> >>>>
+> >>>> Yes.  The VFPR netdevs don't have any HW queues associated with them and 
+> >>>> we would like
+> >>>> to use the PF queues for the xmit.
+> >>>> I was also looking into some way of passing the port id via skb 
+> >>>> parameter to the
+> >>>> dev_queue_xmit() call so that the PF xmit routine can do a directed 
+> >>>> transmit to a specifc VF.
+> >>>> Is skb->cb an option to pass this info?
+> >>>> dst_metadata approach would work  too if it is acceptable.    
+> >>>
+> >>> I don't think we can trust skb->cb to be set to anything meaningful
+> >>> when the skb is received by the lower device.   
+> >>
+> >> Agreed. I wouldn't recommend using skb->cb. How about passing it through
+> >> dev_queue_xmit_accel() through to the driver?
+> >>
+> >> If you pass the metadata through the dev_queue_xmit_accel() handle tx
+> >> queue  selection would work using normal mechanisms (xps, select_queue,
+> >> cls  hook, etc.). If you wanted to pick some specific queue based on
+> >> policy the policy could be loaded into one of those hooks.  
+> > 
+> > Do you mean without extending how accel is handled by
+> > dev_queue_xmit_accel() today?  If my goal is to not have extra HW
+> > queues then I don't see how I could mux in the lower dev without extra
+> > locking (as I tried to explain two emails ago).  Sorry for being slow
+> > here :(
+> >   
+> 
+> Not slow here I think I was overly optimistic...
+> 
+> Yeh let me try this, roughly the current flow is,
+> 
+>    dev_queue_xmit_accel(struct sk_buff *skb, void *accel_priv);
+>    __dev_queue_xmit(skb, accel_priv);
+>    netdev_pick_tx(dev, skb, accel_priv);
+> 	ndo_select_queue(dev, skb, accel_priv, ...);
+>    [...]
+>    q->enqueue();
+>    [...]
+>    dev_hard_start_xmit();
+>    [...]
+>     <driver code here>
+> 
+> So in this flow the VFR netdev driver handles its xmit routine by
+> calling dev_queue_xmit_accel after setting skb->dev to the physical
+> device and passing a cookie via accel that the select_queue() routine
+> can use to pick a tx queue. The rest of the stack q->enqueue() and
+> friends will ensure that locking and qdisc is handled correctly.
+> 
+> But accel_priv was lost at queue selection and so its not being passed
+> down to the driver so no way to set your descriptor bits or whatever
+> needed to push to the VF. I was sort of thinking we could map it from
+> the select_queue routine but I can't figure out how to do that either.
+> 
+> The metadata idea doesn't seem that bad now that I've spent some more
+> time going through it. Either that or hijack some field in the skb but
+> I think that might be worse than the proposal here.
+> 
+> I'm trying to think up some other alternative now and will let you know
+> if I think of anything clever but got nothing at the moment.
+	
+Cool, I'm happy to discuss this further at netdev but it seems like
+there is no strong opposition so far?
 
-This patch implements the corresponding ingress actions
-TCA_INGRESS_REDIR and TCA_INGRESS_MIRROR.
-
-This allows attaching filters whose target is to hand matching skbs into
-the rx processing of a specified device.
-
-Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
----
- v3: Addressed non coherency due to reading m->tcfm_eaction multiple times,
-     as spotted by Eric Dumazet
-
- net/sched/act_mirred.c | 51 ++++++++++++++++++++++++++++++++++++++++++++------
- 1 file changed, 45 insertions(+), 6 deletions(-)
-
-diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
-index 69dcce8c75..22dcfd68e6 100644
---- a/net/sched/act_mirred.c
-+++ b/net/sched/act_mirred.c
-@@ -33,6 +33,25 @@
- static LIST_HEAD(mirred_list);
- static DEFINE_SPINLOCK(mirred_list_lock);
- 
-+static bool tcf_mirred_is_act_redirect(int action)
-+{
-+	return action == TCA_EGRESS_REDIR || action == TCA_INGRESS_REDIR;
-+}
-+
-+static u32 tcf_mirred_act_direction(int action)
-+{
-+	switch (action) {
-+	case TCA_EGRESS_REDIR:
-+	case TCA_EGRESS_MIRROR:
-+		return AT_EGRESS;
-+	case TCA_INGRESS_REDIR:
-+	case TCA_INGRESS_MIRROR:
-+		return AT_INGRESS;
-+	default:
-+		BUG();
-+	}
-+}
-+
- static void tcf_mirred_release(struct tc_action *a, int bind)
- {
- 	struct tcf_mirred *m = to_mirred(a);
-@@ -97,6 +116,8 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
- 	switch (parm->eaction) {
- 	case TCA_EGRESS_MIRROR:
- 	case TCA_EGRESS_REDIR:
-+	case TCA_INGRESS_REDIR:
-+	case TCA_INGRESS_MIRROR:
- 		break;
- 	default:
- 		if (exists)
-@@ -156,15 +177,20 @@ static int tcf_mirred(struct sk_buff *skb, const struct tc_action *a,
- 		      struct tcf_result *res)
- {
- 	struct tcf_mirred *m = to_mirred(a);
-+	bool m_mac_header_xmit;
- 	struct net_device *dev;
- 	struct sk_buff *skb2;
--	int retval, err;
-+	int retval, err = 0;
-+	int m_eaction;
-+	int mac_len;
- 	u32 at;
- 
- 	tcf_lastuse_update(&m->tcf_tm);
- 	bstats_cpu_update(this_cpu_ptr(m->common.cpu_bstats), skb);
- 
- 	rcu_read_lock();
-+	m_mac_header_xmit = READ_ONCE(m->tcfm_mac_header_xmit);
-+	m_eaction = READ_ONCE(m->tcfm_eaction);
- 	retval = READ_ONCE(m->tcf_action);
- 	dev = rcu_dereference(m->tcfm_dev);
- 	if (unlikely(!dev)) {
-@@ -183,23 +209,36 @@ static int tcf_mirred(struct sk_buff *skb, const struct tc_action *a,
- 	if (!skb2)
- 		goto out;
- 
--	if (!(at & AT_EGRESS)) {
--		if (m->tcfm_mac_header_xmit)
-+	/* If action's target direction differs than filter's direction,
-+	 * and devices expect a mac header on xmit, then mac push/pull is
-+	 * needed.
-+	 */
-+	if (at != tcf_mirred_act_direction(m_eaction) && m_mac_header_xmit) {
-+		if (at & AT_EGRESS) {
-+			/* caught at egress, act ingress: pull mac */
-+			mac_len = skb_network_header(skb) - skb_mac_header(skb);
-+			skb_pull_rcsum(skb2, mac_len);
-+		} else {
-+			/* caught at ingress, act egress: push mac */
- 			skb_push_rcsum(skb2, skb->mac_len);
-+		}
- 	}
- 
- 	/* mirror is always swallowed */
--	if (m->tcfm_eaction != TCA_EGRESS_MIRROR)
-+	if (tcf_mirred_is_act_redirect(m_eaction))
- 		skb2->tc_verd = SET_TC_FROM(skb2->tc_verd, at);
- 
- 	skb2->skb_iif = skb->dev->ifindex;
- 	skb2->dev = dev;
--	err = dev_queue_xmit(skb2);
-+	if (tcf_mirred_act_direction(m_eaction) & AT_EGRESS)
-+		err = dev_queue_xmit(skb2);
-+	else
-+		netif_receive_skb(skb2);
- 
- 	if (err) {
- out:
- 		qstats_overlimit_inc(this_cpu_ptr(m->common.cpu_qstats));
--		if (m->tcfm_eaction != TCA_EGRESS_MIRROR)
-+		if (tcf_mirred_is_act_redirect(m_eaction))
- 			retval = TC_ACT_SHOT;
- 	}
- 	rcu_read_unlock();
--- 
-2.7.4
+FWIW in the example I gave I didn't do refcounting on the dst but I
+think that's incorrect since we don't have control over lifetime of
+redirected/stolen skbs.
