@@ -1,110 +1,52 @@
-From: Miklos Szeredi <mszeredi@redhat.com>
-Subject: [PATCH] af_unix: fix garbage collect vs. MSG_PEEK
-Date: Thu, 29 Sep 2016 14:09:14 +0200
-Message-ID: <1475150954-10152-1-git-send-email-mszeredi@redhat.com>
-Cc: linux-kernel@vger.kernel.org, hannes@stressinduktion.org,
-        kernel@kyup.com, davem@davemloft.net
-To: netdev@vger.kernel.org
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net v2] L2TP:Adjust intf MTU,factor underlay L3,overlay
+ L2
+Date: Thu, 29 Sep 2016 14:21:55 +0200
+Message-ID: <20160929142155.49f9cf0a@griffin>
+References: <alpine.DEB.2.11.1609221341500.6975@duvvury30.eng.vyatta.net>
+        <20160927.033153.1066118008027608891.davem@davemloft.net>
+        <alpine.DEB.2.11.1609271210350.25517@duvvury48.eng.vyatta.net>
+        <20160928.034841.997752666320557327.davem@davemloft.net>
+        <alpine.DEB.2.11.1609281857050.17015@duvvury48.eng.vyatta.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, kleptog@svana.org,
+        jchapman@katalix.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, nprachan@brocade.com,
+        rshearma@brocade.com, dfawcus@brocade.com,
+        stephen@networkplumber.org, acme@redhat.com, lboccass@brocade.com
+To: "R. Parameswaran" <parameswaran.r7@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:37031 "EHLO
-        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753830AbcI2MJS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 08:09:18 -0400
-Received: by mail-wm0-f48.google.com with SMTP id b130so128352063wmc.0
-        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 05:09:17 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:46864 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755432AbcI2MWB (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 29 Sep 2016 08:22:01 -0400
+In-Reply-To: <alpine.DEB.2.11.1609281857050.17015@duvvury48.eng.vyatta.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Gc assumes that in-flight sockets that don't have an external ref can't
-gain one while unix_gc_lock is held.  That is true because
-unix_notinflight() will be called before detaching fds, which takes
-unix_gc_lock.
+On Wed, 28 Sep 2016 19:36:45 -0700 (PDT), R. Parameswaran wrote:
+> I'd like to point out one difference with VXLAN - in VXLAN, the 
+> local physical interface is directly specified at the time of 
+> creation of the tunnel, and the data structure seems to have the ifindex 
+> of the local interface with which it is able to directly pull up the 
+> underlay interface device. Whereas in L2TP, we only have the IP
+> address of the remote tunnel end-point and thus only the socket and the 
+> dst from which we need to derive this. 
 
-Only MSG_PEEK was somehow overlooked.  That one also clones the fds, also
-keeping them in the skb.  But through MSG_PEEK an external reference can
-definitely be gained without ever touching unix_gc_lock.
+Strictly speaking, VXLAN *may* know the underlying interface. It can
+also be set up with just local and remote IP address, or even worse, in
+metadata mode where we don't know the address nor the interface until
+we get a packet (and each packet may have those different).
 
-This patch adds unix_gc_barrier() that waits for a garbage collect run to
-finish (if there is one), before actually installing the peeked in-flight
-files to file descriptors.  This prevents problems from a pure in-flight
-socket having its buffers modified while the garbage collect is taking
-place.
+MTU wise, those cases are not accommodated for in the kernel. The vxlan
+interface gets MTU of 1500 and it's up to the administrator to set it
+correctly.
 
-Signed-off-by: Miklos Szeredi <mszeredi@redhat.com>
-Cc: <stable@vger.kernel.org>
----
- include/net/af_unix.h |  1 +
- net/unix/af_unix.c    | 15 +++++++++++++--
- net/unix/garbage.c    |  5 +++++
- 3 files changed, 19 insertions(+), 2 deletions(-)
+Btw, PMTU events won't help with the metadata mode. And even in
+"normal" mode, it's not clear what should be done - the tunnel
+interface may be in a bridge, thus there may be other interfaces that
+depend on the same MTU, up to inside VMs.
 
-diff --git a/include/net/af_unix.h b/include/net/af_unix.h
-index fd60eccb59a6..f73ce09da2b4 100644
---- a/include/net/af_unix.h
-+++ b/include/net/af_unix.h
-@@ -10,6 +10,7 @@ void unix_inflight(struct user_struct *user, struct file *fp);
- void unix_notinflight(struct user_struct *user, struct file *fp);
- void unix_gc(void);
- void wait_for_unix_gc(void);
-+void unix_gc_barrier(void);
- struct sock *unix_get_socket(struct file *filp);
- struct sock *unix_peer_get(struct sock *);
- 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 8309687a56b0..cece344b41b8 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -1550,6 +1550,17 @@ static int unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
- 	return max_level;
- }
- 
-+static void unix_peek_fds(struct scm_cookie *scm, struct sk_buff *skb)
-+{
-+	scm->fp = scm_fp_dup(UNIXCB(skb).fp);
-+	/*
-+	 * During garbage collection it is assumed that in-flight sockets don't
-+	 * get a new external reference.  So we need to wait until current run
-+	 * finishes.
-+	 */
-+	unix_gc_barrier();
-+}
-+
- static int unix_scm_to_skb(struct scm_cookie *scm, struct sk_buff *skb, bool send_fds)
- {
- 	int err = 0;
-@@ -2182,7 +2193,7 @@ static int unix_dgram_recvmsg(struct socket *sock, struct msghdr *msg,
- 		sk_peek_offset_fwd(sk, size);
- 
- 		if (UNIXCB(skb).fp)
--			scm.fp = scm_fp_dup(UNIXCB(skb).fp);
-+			unix_peek_fds(&scm, skb);
- 	}
- 	err = (flags & MSG_TRUNC) ? skb->len - skip : size;
- 
-@@ -2422,7 +2433,7 @@ unlock:
- 			/* It is questionable, see note in unix_dgram_recvmsg.
- 			 */
- 			if (UNIXCB(skb).fp)
--				scm.fp = scm_fp_dup(UNIXCB(skb).fp);
-+				unix_peek_fds(&scm, skb);
- 
- 			sk_peek_offset_fwd(sk, chunk);
- 
-diff --git a/net/unix/garbage.c b/net/unix/garbage.c
-index 6a0d48525fcf..d4fb6ff8024d 100644
---- a/net/unix/garbage.c
-+++ b/net/unix/garbage.c
-@@ -266,6 +266,11 @@ void wait_for_unix_gc(void)
- 	wait_event(unix_gc_wait, gc_in_progress == false);
- }
- 
-+void unix_gc_barrier(void)
-+{
-+	spin_unlock_wait(&unix_gc_lock);
-+}
-+
- /* The external entry point: unix_gc() */
- void unix_gc(void)
- {
--- 
-2.5.5
+ Jiri
