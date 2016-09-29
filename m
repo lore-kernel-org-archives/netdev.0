@@ -1,59 +1,108 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH RFC 5/6] net: phy: Trigger state machine on state change
- and not polling.
-Date: Thu, 29 Sep 2016 09:08:40 +0200
-Message-ID: <20160929070840.GB7234@lunn.ch>
-References: <1475051544-18561-1-git-send-email-andrew@lunn.ch>
- <1475051544-18561-6-git-send-email-andrew@lunn.ch>
- <de3b7050-4346-1a7a-4a27-feb8bb8affc4@gmail.com>
+From: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Subject: [PATCH] ipv6 addrconf: remove addrconf_sysctl_hop_limit()
+Date: Thu, 29 Sep 2016 00:33:43 -0700
+Message-ID: <1475134423-23635-1-git-send-email-zenczykowski@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev <netdev@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, Erik Kline <ek@google.com>,
+        Lorenzo Colitti <lorenzo@google.com>
+To: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:35721 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932301AbcI2HIp (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 29 Sep 2016 03:08:45 -0400
-Content-Disposition: inline
-In-Reply-To: <de3b7050-4346-1a7a-4a27-feb8bb8affc4@gmail.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:36616 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754816AbcI2HeB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 03:34:01 -0400
+Received: by mail-pf0-f195.google.com with SMTP id n24so3192536pfb.3
+        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 00:34:00 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 28, 2016 at 02:31:54PM -0700, Florian Fainelli wrote:
-> On 09/28/2016 01:32 AM, Andrew Lunn wrote:
-> > The phy_start() is used to indicate the PHY is now ready to do its
-> > work. The state is changed, normally to PHY_UP which means that both
-> > the MAC and the PHY are ready.
-> > 
-> > If the phy driver is using polling, when the next poll happens, the
-> > state machine notices the PHY is now in PHY_UP, and kicks off
-> > auto-negotiation, if needed.
-> > 
-> > If however, the PHY is using interrupts, there is no polling. The phy
-> > is stuck in PHY_UP until the next interrupt comes along. And there is
-> > no reason for the PHY to interrupt.
-> > 
-> > Have phy_start() schedule the state machine to run, which both speeds
-> > up the polling use case, and makes the interrupt use case actually
-> > work.
-> > 
-> > This problems exists whenever there is a state change which will not
-> > cause an interrupt. Trigger the state machine in these cases,
-> > e.g. phy_error().
-> > 
-> > Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-> 
-> No particular objections, this should also fix this:
-> 
-> http://lists.openwall.net/netdev/2016/05/17/147
+From: Maciej Żenczykowski <maze@google.com>
 
-Hi Florian
+This is an effective no-op in terms of user observable behaviour.
 
-Yes, i was thinking it probably should have a fixes: tag and be a
-separate patch. The hard part will be figuring out when this actually
-broke, or does it go all the way back to when interrupt support was
-added?
+By preventing the overwrite of non-null extra1/extra2 fields
+in addrconf_sysctl() we can enable the use of proc_dointvec_minmax().
 
-	Andrew
+This allows us to eliminate the constant min/max (1..255) trampoline
+function that is addrconf_sysctl_hop_limit().
+
+This is nice because it simplifies the code, and allows future
+sysctls with constant min/max limits to also not require trampolines.
+
+We still can't eliminate the trampoline for mtu because it isn't
+actually a constant (it depends on other tunables of the device)
+and thus requires at-write-time logic to enforce range.
+
+Signed-off-by: Maciej Żenczykowski <maze@google.com>
+---
+ net/ipv6/addrconf.c | 31 ++++++++++++++-----------------
+ 1 file changed, 14 insertions(+), 17 deletions(-)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 2f1f5d439788..8bd2d06eefe7 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -5467,20 +5467,6 @@ int addrconf_sysctl_forward(struct ctl_table *ctl, int write,
+ }
+ 
+ static
+-int addrconf_sysctl_hop_limit(struct ctl_table *ctl, int write,
+-                              void __user *buffer, size_t *lenp, loff_t *ppos)
+-{
+-	struct ctl_table lctl;
+-	int min_hl = 1, max_hl = 255;
+-
+-	lctl = *ctl;
+-	lctl.extra1 = &min_hl;
+-	lctl.extra2 = &max_hl;
+-
+-	return proc_dointvec_minmax(&lctl, write, buffer, lenp, ppos);
+-}
+-
+-static
+ int addrconf_sysctl_mtu(struct ctl_table *ctl, int write,
+ 			void __user *buffer, size_t *lenp, loff_t *ppos)
+ {
+@@ -5713,6 +5699,9 @@ int addrconf_sysctl_ignore_routes_with_linkdown(struct ctl_table *ctl,
+ 	return ret;
+ }
+ 
++static const int one = 1;
++static const int two_five_five = 255;
++
+ static const struct ctl_table addrconf_sysctl[] = {
+ 	{
+ 		.procname	= "forwarding",
+@@ -5726,7 +5715,9 @@ static const struct ctl_table addrconf_sysctl[] = {
+ 		.data		= &ipv6_devconf.hop_limit,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= addrconf_sysctl_hop_limit,
++		.proc_handler	= proc_dointvec_minmax,
++		.extra1		= (void *)&one,
++		.extra2		= (void *)&two_five_five,
+ 	},
+ 	{
+ 		.procname	= "mtu",
+@@ -6044,8 +6035,14 @@ static int __addrconf_sysctl_register(struct net *net, char *dev_name,
+ 
+ 	for (i = 0; table[i].data; i++) {
+ 		table[i].data += (char *)p - (char *)&ipv6_devconf;
+-		table[i].extra1 = idev; /* embedded; no ref */
+-		table[i].extra2 = net;
++		/* If one of these is already set, then it is not safe to
++		 * overwrite either of them: this makes proc_dointvec_minmax
++		 * usable.
++		 */
++		if (!table[i].extra1 && !table[i].extra2) {
++			table[i].extra1 = idev; /* embedded; no ref */
++			table[i].extra2 = net;
++		}
+ 	}
+ 
+ 	snprintf(path, sizeof(path), "net/ipv6/conf/%s", dev_name);
+-- 
+2.8.0.rc3.226.g39d4020
