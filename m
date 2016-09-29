@@ -1,7 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 5/6] rxrpc: Request more ACKs in slow-start mode
-Date: Thu, 29 Sep 2016 23:16:02 +0100
-Message-ID: <147518736231.29235.14244285344986790864.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 6/6] rxrpc: Note serial number being ACK'd in the
+ congestion management trace
+Date: Thu, 29 Sep 2016 23:16:09 +0100
+Message-ID: <147518736931.29235.14617168752414952894.stgit@warthog.procyon.org.uk>
 References: <147518732742.29235.11597637573731081178.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,33 +11,58 @@ Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
         linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37584 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:41492 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934970AbcI2WQE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 29 Sep 2016 18:16:04 -0400
+        id S934976AbcI2WQL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 29 Sep 2016 18:16:11 -0400
 In-Reply-To: <147518732742.29235.11597637573731081178.stgit@warthog.procyon.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Set the request-ACK on more DATA packets whilst we're in slow start mode so
-that we get sufficient ACKs back to supply information to configure the
-window.
+Note the serial number of the packet being ACK'd in the congestion
+management trace rather than the serial number of the ACK packet.  Whilst
+the serial number of the ACK packet is useful for matching ACK packet in
+the output of wireshark, the serial number that the ACK is in response to
+is of more use in working out how different trace lines relate.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/output.c |    1 +
- 1 file changed, 1 insertion(+)
+ net/rxrpc/input.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/net/rxrpc/output.c b/net/rxrpc/output.c
-index ac9a58b619a6..0d47db886f6e 100644
---- a/net/rxrpc/output.c
-+++ b/net/rxrpc/output.c
-@@ -284,6 +284,7 @@ int rxrpc_send_data_packet(struct rxrpc_call *call, struct sk_buff *skb,
- 	 * ACKs if a DATA packet appears to have been lost.
- 	 */
- 	if (retrans ||
-+	    call->cong_mode == RXRPC_CALL_SLOW_START ||
- 	    (call->peer->rtt_usage < 3 && sp->hdr.seq & 1) ||
- 	    ktime_before(ktime_add_ms(call->peer->rtt_last_req, 1000),
- 			 ktime_get_real()))
+diff --git a/net/rxrpc/input.c b/net/rxrpc/input.c
+index 094720dd1eaf..1461d30583c9 100644
+--- a/net/rxrpc/input.c
++++ b/net/rxrpc/input.c
+@@ -41,10 +41,10 @@ static void rxrpc_proto_abort(const char *why,
+  */
+ static void rxrpc_congestion_management(struct rxrpc_call *call,
+ 					struct sk_buff *skb,
+-					struct rxrpc_ack_summary *summary)
++					struct rxrpc_ack_summary *summary,
++					rxrpc_serial_t acked_serial)
+ {
+ 	enum rxrpc_congest_change change = rxrpc_cong_no_change;
+-	struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
+ 	unsigned int cumulative_acks = call->cong_cumul_acks;
+ 	unsigned int cwnd = call->cong_cwnd;
+ 	bool resend = false;
+@@ -172,7 +172,7 @@ out_no_clear_ca:
+ 		cwnd = RXRPC_RXTX_BUFF_SIZE - 1;
+ 	call->cong_cwnd = cwnd;
+ 	call->cong_cumul_acks = cumulative_acks;
+-	trace_rxrpc_congest(call, summary, sp->hdr.serial, change);
++	trace_rxrpc_congest(call, summary, acked_serial, change);
+ 	if (resend && !test_and_set_bit(RXRPC_CALL_EV_RESEND, &call->events))
+ 		rxrpc_queue_call(call);
+ 	return;
+@@ -848,7 +848,7 @@ static void rxrpc_input_ack(struct rxrpc_call *call, struct sk_buff *skb,
+ 				  false, true,
+ 				  rxrpc_propose_ack_ping_for_lost_reply);
+ 
+-	return rxrpc_congestion_management(call, skb, &summary);
++	return rxrpc_congestion_management(call, skb, &summary, acked_serial);
+ }
+ 
+ /*
