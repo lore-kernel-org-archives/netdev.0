@@ -1,47 +1,64 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH RFC iproute2] iplink: Support envhdrlen
-Date: Thu, 29 Sep 2016 14:49:44 +0200
-Message-ID: <20160929144944.609d5434@griffin>
-References: <1474966541-4420-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-        <1474966541-4420-5-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH v2 net-next 4/5] xps_flows: XPS for packets that don't
+ have a socket
+Date: Thu, 29 Sep 2016 08:53:48 -0400
+Message-ID: <CALx6S36FsjSioksB+O7Lp7-7PcC8iMc9LWqWiFr8RzFJ=GkKGQ@mail.gmail.com>
+References: <20160929035428.204355-1-tom@herbertland.com> <20160929035428.204355-5-tom@herbertland.com>
+ <1475124851.28155.135.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Kernel Team <kernel-team@fb.com>,
+        Rick Jones <rick.jones2@hpe.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50054 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752479AbcI2Mts (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 29 Sep 2016 08:49:48 -0400
-In-Reply-To: <1474966541-4420-5-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:35350 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750700AbcI2Mxu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 08:53:50 -0400
+Received: by mail-qt0-f193.google.com with SMTP id 38so2248746qte.2
+        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 05:53:50 -0700 (PDT)
+In-Reply-To: <1475124851.28155.135.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 27 Sep 2016 17:55:40 +0900, Toshiaki Makita wrote:
-> This adds support for envhdrlen.
-> 
-> Example:
->  # ip link set eno1 envhdrlen 8
+On Thu, Sep 29, 2016 at 12:54 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2016-09-28 at 20:54 -0700, Tom Herbert wrote:
+>> xps_flows maintains a per device flow table that is indexed by the
+>> skbuff hash. The table is only consulted when there is no queue saved in
+>> a transmit socket for an skbuff.
+>>
+>> Each entry in the flow table contains a queue index and a queue
+>> pointer. The queue pointer is set when a queue is chosen using a
+>> flow table entry. This pointer is set to the head pointer in the
+>> transmit queue (which is maintained by BQL).
+>>
+>> The new function get_xps_flows_index that looks up flows in the
+>> xps_flows table. The entry returned gives the last queue a matching flow
+>> used. The returned queue is compared against the normal XPS queue. If
+>> they are different, then we only switch if the tail pointer in the TX
+>> queue has advanced past the pointer saved in the entry. In this
+>> way OOO should be avoided when XPS wants to use a different queue.
+>
+> There is something I do not understand with this.
+>
+> If this OOO avoidance is tied to BQL, it means that packets sitting in a
+> qdisc wont be part of the detection.
+>
+> So packets of flow X could possibly be queued on multiple qdiscs.
+>
+Hi Eric,
 
-I don't see why this should be user visible, let alone requiring user
-to set it. This should be transparent, kernel should compute the value
-as needed based on the configuration and set it up. Requiring the
-administrator to pick up a calculator and sum up all the vlan, mpls and
-whatever header lengths is silly.
+I'm not sure I understand your concern. If packets for flow X can be
+queued on multiple qdiscs wouldn't that mean that flow will be subject
+to ooo transmission regardless of this patch? In other words here
+we're trying to keep packets for the flow in order as they are emitted
+from the qdiscs which we assume maintains ordering of packets in a
+flow.
 
-I realize that we currently have no easy way to do that. Especially
-with lwtunnels and stuff line MPLS where we don't easily know the
-number of tags. But every uAPI we introduce will have to be supported
-forever and going a particular way just because it is easy to implement
-is not sustainable.
+Tom
 
-At the very least, it should be configurable from the other direction.
-I.e. telling which interfaces can be used by vlans or MPLS (if it
-cannot be inferred automatically) and configuring maximum number of
-tags on the given vlan/mpls/whatever interface/route/whatever.
-
- Jiri
+>
+>
