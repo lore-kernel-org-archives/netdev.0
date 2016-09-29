@@ -1,99 +1,128 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: mv643xxx_eth driver, failed to linearize skb with tiny
- unaligned fragment
-Date: Wed, 28 Sep 2016 16:04:42 -0700
-Message-ID: <1475103882.28155.119.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <9ABBF443071A48919A5E612F97EE0B09@FransW7>
+From: Jay Smith <jay@kentik.com>
+Subject: UDP wierdness around skb_copy_and_csum_datagram_msg()
+Date: Wed, 28 Sep 2016 17:18:09 -0700
+Message-ID: <CAA3=++__5iwkyyCvSCWJS_b=pBXg=CTYikGgLSh40dkDaY82vg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org,
-        Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-To: Frans van de Wiel <fvdw@fvdw.eu>
+Content-Type: multipart/mixed; boundary=001a113bd5e29d5c76053d9a69d5
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:33531 "EHLO
-        mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932539AbcI1XEo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 19:04:44 -0400
-Received: by mail-pa0-f47.google.com with SMTP id cd13so17705984pac.0
-        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 16:04:44 -0700 (PDT)
-In-Reply-To: <9ABBF443071A48919A5E612F97EE0B09@FransW7>
+Received: from mail-it0-f53.google.com ([209.85.214.53]:36623 "EHLO
+        mail-it0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752463AbcI2ASK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 20:18:10 -0400
+Received: by mail-it0-f53.google.com with SMTP id u134so81680118itb.1
+        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 17:18:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-09-28 at 22:37 +0200, Frans van de Wiel wrote:
-> We compiled kernel 4.6.6 for our nas devices running on ARM kirkwood cpu’s. 
-> These nas devices have only 256 MB of RAM so limited memory resources
-> When we fully load the cpu and are copying files via the interface we get 
-> frequently this “ error” message in dmesg log
-> 
-> [ 1978.149929] mv643xx_eth_port mv643xx_eth_port.0 eth0: failed to linearize 
-> skb with tiny unaligned fragment
-> [ 1978.150138] mv643xx_eth_port mv643xx_eth_port.0 eth0: failed to linearize 
-> skb with tiny unaligned fragment
-> [ 1978.150318] mv643xx_eth_port mv643xx_eth_port.0 eth0: failed to linearize 
-> skb with tiny unaligned fragment
-> [ 1978.150360] mv643xx_eth_port mv643xx_eth_port.0 eth0: failed to linearize 
-> skb with tiny unaligned fragment
-> 
-> ...
-> 
-> CPU[|||||||||||||||||||||||||||||||||||98.9%]     Tasks: 29, 0 thr; 2 
-> running
->   Mem[||||||||||||||||||||||||||||||||30/244MB]     Load average: 1.36 1.29 
-> 0.92
->   Swp[                                 0/511MB]     Uptime: 00:38:11
-> 
-> We analyzed the driver code code and think that it does not seems to be an 
-> error but a warning, this we want to verify and if this warning can be taken 
-> out without risk
-> 
-> The message originates from this part of the code of the driver
-> 
-> 1023 if (has_tiny_unaligned_frags(skb) && __skb_linearize(skb)) {
-> 1024                 netdev_printk(KERN_DEBUG, dev,
-> 1025                               "failed to linearize skb with tiny 
-> unaligned fragment\n");
-> 1026                 return NETDEV_TX_BUSY;
-> 1027         }
-> 
-> __skb_linearize is set in skbuff.h and comments are useful
-> 
-> static inline int __skb_linearize(struct sk_buff *skb)
-> 1636 {
-> 1637         return __pskb_pull_tail(skb, skb->data_len) ? 0 : -ENOMEM;
-> 1638 }
-> 1639
-> 1640 /**
-> 1641  *      skb_linearize - convert paged skb to linear one
-> 1642  *      @skb: buffer to linarize
-> 1643  *
-> 1644  *      If there is no free memory -ENOMEM is returned, otherwise zero
-> 1645  *      is returned and the old skb data released.
-> 1646  */
-> 1647 static inline int skb_linearize(struct sk_buff *skb)
-> 1648 {
-> 
-> So return a false state (0) if there is enough free memory and true on the 
-> other case.
-> 
-> Please to note mv643xx_eth.c returns also a busy state. So I assume on this 
-> case the driver repeats this step up to success
-> 
-> So in my opinion, this is not an error message but a warning and does not 
-> mean corrupted data and I think is should be possible to remove it.
-> Is conclusion is correct ?
+--001a113bd5e29d5c76053d9a69d5
+Content-Type: text/plain; charset=UTF-8
 
-Well, linearizing an skb only because one fragment is tiny and not
-aligned is unfortunate.
+I've spent the last week or so trying to track down a recurring
+problem I'm seeing with UDP datagram handling.  I'm new to the
+internals of the Linux network stack, but it appears to me that
+there's a substantial error in recent kernels' handling of UDP
+checksum errors.
 
-This driver should copy the ~7 bytes into temp storage instead.
+The behavior I'm seeing:  I have a UDP server that receives lots of
+datagrams from many devices on a single port. A small number of those
+devices occasionally send packets with bad UDP checksums.  After I
+receive one of these bad packets, the next recvmsg() made on the
+socket returns data from the bad-checksum packet, but the
+source-address and length of the next (good) packet that arrived at
+the port.
 
-It would be faster, and would avoid dropping packet when the (possibly
-huge) allocation fails.
+I believe this issue was introduced between linux 3.18 and 3.19, by a
+set of changes to net/core/datagram.c that made
+skb_copy_and_csum_datagram_msg() and related functions use the
+iov_iter structure to copy data to user buffers.  In the case where
+those functions copy a datagram and then conclude that the checksum is
+invalid, they don't remove the already-copied data from the user's
+iovec; when udp_recvmsg() calls skb_copy_and_csum_datagram_msg() for a
+second time, looking at the next datagram on the queue, that second
+datagram's data is appended to the first datagram's.  So when
+recvmsg() returns to the user, the return value and msg_name reflect
+the second datagram, but the first bytes in the user's iovec come from
+the first (bad) datagram.
 
-Strange thing is that txq_submit_tso() can happily present 'tiny frags'
-after segmentation is done on a 'big frag', so I wonder if the
-has_tiny_unaligned_frags() is really needed.
+(I've attached a test program that demonstrates the problem.  Note
+that it sees correct behavior unless the bad-checksum packet has > 68
+bytes of UDP data; otherwise, the packet doesn't make it past the
+CHECKSUM_BREAK test, and never enters
+skp_copy_and_csum_datagram_msg().)
 
-If this is needed, then a fix in txq_submit_tso() is also needed.
+The fix for UDP seems pretty simple; the iov_iter's iov_offset member
+just needs to be set back to zero on a checksum failure.  But it looks
+like skb_copy_and_csum_datagram_msg() is also called from tcp_input.c,
+where I assume that multiple sk_buffs can be copied-and-csum'd into
+the same iov -- if that's right, it seems like iov_iter needs some
+additional state to support rolling-back the most recent copy without
+losing previous ones.
+
+Any thoughts?
+
+--001a113bd5e29d5c76053d9a69d5
+Content-Type: text/x-csrc; charset=US-ASCII; name="csumtest.c"
+Content-Disposition: attachment; filename="csumtest.c"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_itnlcwoi0
+
+I2luY2x1ZGUgPHN0cmluZy5oPgojaW5jbHVkZSA8dW5pc3RkLmg+CiNpbmNsdWRlIDxuZXRkYi5o
+PgojaW5jbHVkZSA8ZXJybm8uaD4KI2luY2x1ZGUgPHN0ZGlvLmg+CiNpbmNsdWRlIDxzdGRsaWIu
+aD4KI2luY2x1ZGUgPHN5cy9zb2NrZXQuaD4KI2luY2x1ZGUgPG5ldGluZXQvaW4uaD4KI2luY2x1
+ZGUgPHN5cy91aW8uaD4KI2luY2x1ZGUgPGFycGEvaW5ldC5oPgoKI2luY2x1ZGUgPG5ldGluZXQv
+dWRwLmg+CgoKaW50IG1haW4oaW50IGFyZ2MsIGNoYXIgKiphcmd2KQp7CiAgaW50IHJldDsKCiAg
+aWYgKGFyZ2MgPCAyKSB7CiAgICBmcHJpbnRmKHN0ZGVyciwgIlVzYWdlOiBjc3VtdGVzdCA8Ynl0
+ZXMtaW4tYmFkLXBhY2tldD5cbiIpOwogICAgZXhpdCgxKTsKICB9CgogIHN0cnVjdCBzb2NrYWRk
+cl9pbiBhZGRyOwogIHNvY2tsZW5fdCBhZGRyTGVuID0gc2l6ZW9mKGFkZHIpOyAgCiAgYWRkci5z
+aW5fZmFtaWx5ID0gQUZfSU5FVDsKICBhZGRyLnNpbl9hZGRyLnNfYWRkciA9IGluZXRfYWRkcigi
+MTI3LjAuMC4xIik7CiAgYWRkci5zaW5fcG9ydCA9IGh0b25zKDApOwoKICBpbnQgbGlzdGVuID0g
+c29ja2V0KEFGX0lORVQsIFNPQ0tfREdSQU0sIElQUFJPVE9fVURQKTsKICBpZiAobGlzdGVuIDwg
+MCkKICB7CiAgICBmcHJpbnRmKHN0ZGVyciwgImZhaWxlZCB0byBjcmVhdGUgbGlzdGVuaW5nIHNv
+Y2tldCAoZXJyPSVkOiAlcylcbiIsIGVycm5vLCBzdHJlcnJvcihlcnJubykpOwogICAgZXhpdCgx
+KTsKICB9CgogIHJldCA9IGJpbmQobGlzdGVuLCAoc3RydWN0IHNvY2thZGRyICopICZhZGRyLCBh
+ZGRyTGVuKTsKICBpZiAocmV0ICE9IDApCiAgewogICAgZnByaW50ZihzdGRlcnIsICJmYWlsZWQg
+dG8gYmluZCBsaXN0ZW5pbmcgc29ja2V0IHNvY2tldCAoZXJyPSVkOiAlcylcbiIsIGVycm5vLCBz
+dHJlcnJvcihlcnJubykpOwogICAgZXhpdCgxKTsKICB9CgogIHJldCA9IGdldHNvY2tuYW1lKGxp
+c3RlbiwgKHN0cnVjdCBzb2NrYWRkciAqKSAmYWRkciwgJmFkZHJMZW4pOwogIGlmIChyZXQgIT0g
+MCkKICB7CiAgICBmcHJpbnRmKHN0ZGVyciwgImdldHNvY2tuYW1lIGZhaWxlZCBmb3IgbGlzdGVu
+aW5nIHNvY2tldCBzb2NrZXQgKGVycj0lZDogJXMpXG4iLCBlcnJubywgc3RyZXJyb3IoZXJybm8p
+KTsKICAgIGV4aXQoMSk7CiAgfQogIGVsc2UKICB7CiAgICBwcmludGYoImxpc3RlbmluZyBvbiBw
+b3J0ICVkXG4iLCBudG9ocyhhZGRyLnNpbl9wb3J0KSk7CiAgfQoKCiAgCiAgLy8gU2VuZCBhIHBh
+Y2tldCB3aXRoIGRlbGliZXJhdGVseSBiYWQgY2hlY2tzdW0KICBjaGFyIHJhd0J1Zls0MDk2XTsK
+ICBtZW1zZXQocmF3QnVmLCAwLCA0MDk2KTsKICBzdHJ1Y3QgdWRwaGRyICp1ZHBoID0gKHN0cnVj
+dCB1ZHBoZHIgKikgcmF3QnVmOwoKICAvLyBTZW5kIGFzIFVEUCBkYXRhIHRoZSBzdHJpbmcgIkJB
+RCBEQVRBIiwgcmVwZWF0ZWQgYXMgbmVjZXNzYXJ5CiAgLy8gdG8gZmlsbCB0aGUgbnVtYmVyIG9m
+IGJ5dGVzIHJlcXVlc3RlZCBvbiB0aGUgY29tbWFuZC1saW5lCiAgY2hhciAqZGF0YSA9IHJhd0J1
+ZiArIHNpemVvZihzdHJ1Y3QgdWRwaGRyKTsKICBpbnQgYmFkQnl0ZXMgPSBhdG9pKGFyZ3ZbMV0p
+OwogIGludCBpOwogIGZvciAoaSA9IDA7IGkgPCBiYWRCeXRlczsgaSArPSA4KQogIHsKICAgIHN0
+cm5jcHkoZGF0YSArIGksICJCQUQgREFUQSIsIDgpOwogIH0KCiAgLy8gVURQIGhlYWRlcnMgY29u
+dGFpbiBhIGJvZ3VzIGNoZWNrc3VtLCBidXQgYXJlIG90aGVyd2lzZSByZWFzb25hYmxlCiAgdWRw
+aC0+Y2hlY2sgPSBodG9ucygweGJhZGQpOwogIHVkcGgtPnNvdXJjZSA9IGh0b25zKDE4KTsKICB1
+ZHBoLT5kZXN0ID0gYWRkci5zaW5fcG9ydDsKICB1ZHBoLT5sZW4gPSBodG9ucyhzaXplb2Yoc3Ry
+dWN0IHVkcGhkcikgKyBiYWRCeXRlcyk7CgogIGludCByYXcgPSBzb2NrZXQoQUZfSU5FVCwgU09D
+S19SQVcsIElQUFJPVE9fVURQKTsKICByZXQgPSBzZW5kdG8ocmF3LCByYXdCdWYsCgkgICAgICAg
+c2l6ZW9mKHN0cnVjdCB1ZHBoZHIpICsgYmFkQnl0ZXMsIDAsCgkgICAgICAgKHN0cnVjdCBzb2Nr
+YWRkciAqKSAmYWRkciwgYWRkckxlbik7CiAgaWYgKHJldCA8IDApCiAgewogICAgZnByaW50Zihz
+dGRlcnIsICJyYXcgc2VuZCBmYWlsZWQgKGVycj0lZDogJXMpXG4iLCBlcnJubywgc3RyZXJyb3Io
+ZXJybm8pKTsKICAgIGV4aXQoMSk7CiAgfQogIAogIAogIC8vIFNlbmQgYSBzZWNvbmQsIGxlZ2l0
+aW1hdGUgVURQIHBhY2tldAogIGludCBjb29rZWQgPSBzb2NrZXQoQUZfSU5FVCwgU09DS19ER1JB
+TSwgSVBQUk9UT19VRFApOwogIGNoYXIgKnNlY29uZCA9ICJHb29kIGRhdGEiOwogIHJldCA9IHNl
+bmR0byhjb29rZWQsIHNlY29uZCwgc3RybGVuKHNlY29uZCksIDAsCgkgICAgICAgKHN0cnVjdCBz
+b2NrYWRkciAqKSAmYWRkciwgYWRkckxlbik7CiAgaWYgKHJldCA8IDApCiAgewogICAgZnByaW50
+ZihzdGRlcnIsICJzZWNvbmQgY29va2VkIHNlbmQgZmFpbGVkIChlcnI9JWQ6ICVzKVxuIiwgZXJy
+bm8sIHN0cmVycm9yKGVycm5vKSk7CiAgICBleGl0KDEpOwogIH0KCiAgLy8gUmVhZCB3aGF0J3Mg
+cXVldWVkIHVwIGZvciB1cy4KICB3aGlsZSAoMSkKICB7CiAgICBzdHJ1Y3QgbXNnaGRyIG1zZzsK
+ICAgIHN0cnVjdCBpb3ZlYyAgaW92OwogICAgY2hhciByZWFkQnVmWzQwOTZdOwogICAgc3NpemVf
+dCBieXRlczsKICAgIAogICAgbWVtc2V0KHJlYWRCdWYsIDAsIDQwOTYpOwogICAgCiAgICBpb3Yu
+aW92X2Jhc2UgPSByZWFkQnVmOwogICAgaW92Lmlvdl9sZW4gPSBzaXplb2YocmVhZEJ1Zik7Cgog
+ICAgbXNnLm1zZ19uYW1lID0gTlVMTDsKICAgIG1zZy5tc2dfbmFtZWxlbiA9IDA7CiAgICBtc2cu
+bXNnX2lvdiA9ICZpb3Y7CiAgICBtc2cubXNnX2lvdmxlbiA9IDE7CiAgICBtc2cubXNnX2NvbnRy
+b2wgPSBOVUxMOwogICAgbXNnLm1zZ19jb250cm9sbGVuID0gMDsKICAgIG1zZy5tc2dfZmxhZ3Mg
+PSAwOwogICAgCiAgICBieXRlcyA9IHJlY3Ztc2cobGlzdGVuLCAmbXNnLCAwKTsKICAgIGlmIChi
+eXRlcyA8IDApCiAgICB7CiAgICAgIGZwcmludGYoc3RkZXJyLCAiZ2V0c29ja25hbWUgZmFpbGVk
+IGZvciBsaXN0ZW5pbmcgc29ja2V0IHNvY2tldCAoZXJyPSVkOiAlcylcbiIsIGVycm5vLCBzdHJl
+cnJvcihlcnJubykpOwogICAgICBleGl0KDEpOwogICAgfQoKICAgIHByaW50ZigicmVjdm1zZyBy
+ZXR1cm5lZCAlbGQgYnl0ZXM6ICVzXG4iLCBieXRlcywgcmVhZEJ1Zik7CgogICAgaWYgKGJ5dGVz
+ID09IDkpCiAgICAgIGJyZWFrOwogIH0KfQo=
+--001a113bd5e29d5c76053d9a69d5--
