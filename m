@@ -1,153 +1,81 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 3/3] net: fec: align IP header in hardware
-Date: Thu, 29 Sep 2016 11:07:26 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB010E25C@AcuExch.aculab.com>
-References: <AM4PR0401MB22609D8151C2B63CA7768A1AFFCB0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
- <1474728139-9335-1-git-send-email-eric@nelint.com>
- <1474728139-9335-4-git-send-email-eric@nelint.com>
- <063D6719AE5E284EB5DD2968C1650D6DB0109865@AcuExch.aculab.com>
- <4d199f32-092c-1c0a-7a01-6d0d317ef676@nelint.com>
- <063D6719AE5E284EB5DD2968C1650D6DB010A73F@AcuExch.aculab.com>
- <5cf173c4-84e0-f309-f356-35b114cc166e@nelint.com>
+From: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Subject: Re: [PATCH net-next 1/8] net/ncsi: Avoid unused-value build warning
+ from ia64-linux-gcc
+Date: Thu, 29 Sep 2016 21:40:39 +1000
+Message-ID: <20160929114039.GA13381@gwshan>
+References: <1475125395-8459-1-git-send-email-gwshan@linux.vnet.ibm.com>
+ <1475125395-8459-2-git-send-email-gwshan@linux.vnet.ibm.com>
+ <20160929.015404.76401694814645494.davem@davemloft.net>
+Reply-To: Gavin Shan <gwshan@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux@arm.linux.org.uk" <linux@arm.linux.org.uk>,
-        "andrew@lunn.ch" <andrew@lunn.ch>,
-        "fugang.duan@nxp.com" <fugang.duan@nxp.com>,
-        "otavio@ossystems.com.br" <otavio@ossystems.com.br>,
-        "edumazet@google.com" <edumazet@google.com>,
-        "troy.kisky@boundarydevices.com" <troy.kisky@boundarydevices.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "u.kleine-koenig@pengutronix.de" <u.kleine-koenig@pengutronix.de>
-To: 'Eric Nelson' <eric@nelint.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: gwshan@linux.vnet.ibm.com, netdev@vger.kernel.org, joel@jms.id.au,
+        yuvali@mellanox.com, benh@kernel.crashing.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.195]:62266 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753431AbcI2LKh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 07:10:37 -0400
-In-Reply-To: <5cf173c4-84e0-f309-f356-35b114cc166e@nelint.com>
-Content-Language: en-US
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:52233 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1755041AbcI2Lkl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 07:40:41 -0400
+Received: from pps.filterd (m0098399.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8TBbo7x092840
+        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 07:40:40 -0400
+Received: from e28smtp08.in.ibm.com (e28smtp08.in.ibm.com [125.16.236.8])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 25rwkh3b2p-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 07:40:40 -0400
+Received: from localhost
+        by e28smtp08.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
+        Thu, 29 Sep 2016 17:10:36 +0530
+Received: from d28relay06.in.ibm.com (d28relay06.in.ibm.com [9.184.220.150])
+        by d28dlp01.in.ibm.com (Postfix) with ESMTP id 3E8E9E0040
+        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 17:10:03 +0530 (IST)
+Received: from d28av03.in.ibm.com (d28av03.in.ibm.com [9.184.220.65])
+        by d28relay06.in.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u8TBeYqd38928438
+        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 17:10:34 +0530
+Received: from d28av03.in.ibm.com (localhost [127.0.0.1])
+        by d28av03.in.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u8TBeUSk005715
+        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 17:10:33 +0530
+Content-Disposition: inline
+In-Reply-To: <20160929.015404.76401694814645494.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Nelson
-> Sent: 28 September 2016 18:15
-> On 09/28/2016 09:42 AM, David Laight wrote:
-> > From: Eric Nelson
-> >> Sent: 26 September 2016 19:40
-> >> Hi David,
-> >>
-> >> On 09/26/2016 02:26 AM, David Laight wrote:
-> >>> From: Eric Nelson
-> >>>> Sent: 24 September 2016 15:42
-> >>>> The FEC receive accelerator (RACC) supports shifting the data payload of
-> >>>> received packets by 16-bits, which aligns the payload (IP header) on a
-> >>>> 4-byte boundary, which is, if not required, at least strongly suggested
-> >>>> by the Linux networking layer.
-> >>> ...
-> >>>> +		/* align IP header */
-> >>>> +		val |= FEC_RACC_SHIFT16;
-> >>>
-> >>> I can't help feeling that there needs to be corresponding
-> >>> changes to increase the buffer size by 2 (maybe for large mtu)
-> >>> and to discard two bytes from the frame length.
-> >>>
-> >>
-> >> In the normal case, the fec driver over-allocates all receive packets to
-> >> be of size FEC_ENET_RX_FRSIZE (2048) minus the value of rx_align,
-> >> which is either 0x0f (ARM) or 0x03 (PPC).
-> >>
-> >> If the frame length is less than rx_copybreak (typically 256), then
-> >> the frame length from the receive buffer descriptor is used to
-> >> control the allocation size for a copied buffer, and this will include
-> >> the two bytes of padding if RACC_SHIFT16 is set.
-> >>
-> >>> If probably ought to be predicated on NET_IP_ALIGN as well.
-> >>>
-> >> Can you elaborate?
-> >
-> > From reading this it seems that the effect of FEC_RACC_SHIFT16 is to
-> > add two bytes of 'junk' to the start of every receive frame.
-> >
-> 
-> That's right. Two bytes of junk between the MAC header and the
-> IP header.
-> 
-> > In the 'copybreak' case the new skb would need to be 2 bytes shorter
-> > than the length reported by the hardware, and the data copied from
-> > 2 bytes into the dma buffer.
-> >
-> 
-> As it stands, the skb allocated by the copybreak routine will include
-> the two bytes of padding, and the call to skb_pull_inline will ignore
-> them.
+On Thu, Sep 29, 2016 at 01:54:04AM -0400, David Miller wrote:
+>From: Gavin Shan <gwshan@linux.vnet.ibm.com>
+>Date: Thu, 29 Sep 2016 15:03:08 +1000
+>
+>> This replaces the atomic access to NCSI channel's state with READ_ONCE()
+>> and WRITE_ONCE() to avoid the above build warning. We needn't hold the
+>> channel's lock when updating its state as well. No logical changes
+>> introduced.
+>
+>I don't understand this.
+>
+>If it's important to take the lock for the list add/del, then it must
+>be important to make the state change appear atomic wrt. that lock as
+>well.
+>
+>Can parallel threads of control enter these functions which change the
+>state?  If so, then you need to make the state changes under the lock.
+>In fact, you probably have to make the state tests under the locks as
+>well.
+>
+>If not, please explain what prevents it from happening.
+>
 
-Ok, I didn't see that call being added by this patch.
+Dave, thanks for your comments. I think it's occasionally working on
+AST2400 and AST2500 platforms. It's reasonable to grab the lock before
+fetching or updating the NCSI channel's state. Adding and removing the
+channel from the list also need taking the lock as well. I will modify
+the code accordingly in next revision.
 
-> > The extra 2 bytes also mean the that maximum mtu that can be received
-> > into a buffer is two bytes less.
-> >
-> 
-> Right, but I think the max is already high enough that this isn't a
-> problem.
-> 
-> > If someone sets the mtu to (say) 9k for jumbo frames this might matter.
-> > Even with fixed 2048 byte buffers it reduces the maximum value the mtu
-> > can be set to by 2.
-> >
-> 
-> As far as I can tell, the fec driver doesn't support jumbo frames, and
-> the max frame length is currently hard-coded at PKT_MAXBUF_SIZE (1522).
-> 
-> This is well within the 2048-byte allocation, even with optional headers
-> for VLAN etc.
+AST2400/AST2500 has single CPU. The channel's state (and the linked
+list) are changed in softirq context (packet Rx handler or timer),
+meaning they are not accessed in parallel mode. However, NCSI stack
+cannot make assumption to be run on single CPU platforms only. So
+yes, we need the lock to protect them.
 
-Hmm...
-That (probably) means all the skb the driver allocates are actually 4k.
-It would be much better to reduce the size so that the entire skb
-(with packet buffer) is less than 2k.
-
-> > Now if NET_IP_ALIGN is zero then it is fine for the rx frame to start
-> > on a 4n boundary, and the skb are likely to be allocated that way.
-> > In this case you don't want to extra two bytes of 'junk'.
-> >
-> NET_IP_ALIGN is defaulting to 2 by the conditional in skbuff.h
-
-Even though it is always currently set is isn't really ideal to have
-a driver that breaks if it isn't set.
-This could easily happen at some point in the future if the ethernet
-logic is put with a different cpu.
-
-
-> > OTOH if NET_IP_ALIGN is 2 then you need to 'fiddle' things so that
-> > the data is dma'd to offset -2 in the skb and then ensure that the
-> > end of frame is set correctly.
-> >
-> 
-> That's what the RACC SHIFT16 bit does.
-
-No, that causes the ethernet controller to add 2 bytes to the frame.
-You then need to change the dma target address to match.
-Otherwise if a new version of the silicon stops ignoring the low
-address with the frame will be misaligned in the buffer.
-
-The receive frame length will also (probably) be 2 larger than the
-actual frame - so you need to set the end point correctly as well.
-IP will probably ignore the 2 bytes of pad I think you are generating.
-
-> The FEC hardware isn't capable of DMA'ing to an un-aligned address.
-> On ARM, it requires 64-bit alignment, but suggests 128-bit alignment.
-> 
-> On other (PPC?) architectures, it requires 32-bit alignment. This is
-> handled by the rx_align field.
-
-That isn't entirely relevant.
-If the kernel is being built with NET_IP_ALIGN set to 0 you should
-align the destination mac address on a 4n boundary
-(Or rather the skb are likely to be allocated that way).
-If it causes misaligned memory reads later on that is a different problem.
-The MAC driver has aligned the frames as it was told to.
-
-	David
+Thanks,
+Gavin
