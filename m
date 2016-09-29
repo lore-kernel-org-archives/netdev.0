@@ -1,106 +1,28 @@
-From: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next v3 2/3] udp: implement memory accounting helpers
-Date: Thu, 29 Sep 2016 11:31:54 +0200
-Message-ID: <1475141514.4676.28.camel@redhat.com>
-References: <cover.1475048434.git.pabeni@redhat.com>
-         <6f445861ef2ce2e626a1df4946bc3f43f3d43e3f.1475048434.git.pabeni@redhat.com>
-         <1475113378.28155.124.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Erik Kline <ek@google.com>
+Subject: Re: [PATCH] ipv6 addrconf: implement RFC7559 router solicitation backoff
+Date: Thu, 29 Sep 2016 18:56:45 +0900
+Message-ID: <CAAedzxo0=BsOV6SF9a+9DuiQ7AtQnWx-JyxJaPXmU_HHzee5Hw@mail.gmail.com>
+References: <1475045878-30455-1-git-send-email-zenczykowski@gmail.com>
+ <1475048569.3276913.739336609.4398C277@webmail.messagingengine.com> <CANP3RGe4jMRhepM5v2Dg4Kq3Rxj=tA7WJEMcD_83DLYcEgujMA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
-        Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-        Alexander Duyck <aduyck-nYU0QVwCCFFWk0Htik3J/w@public.gmane.org>,
-        Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
-        Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
-        Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1475113378.28155.124.camel-XN9IlZ5yJG9HTL0Zs8A6p+yfmBU6pStAUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        "David S . Miller" <davem@davemloft.net>,
+        Linux NetDev <netdev@vger.kernel.org>,
+        Lorenzo Colitti <lorenzo@google.com>,
+        Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
+To: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:38088 "EHLO
+        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751919AbcI2J5I (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 05:57:08 -0400
+Received: by mail-wm0-f50.google.com with SMTP id w72so15983559wmf.1
+        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 02:57:07 -0700 (PDT)
+In-Reply-To: <CANP3RGe4jMRhepM5v2Dg4Kq3Rxj=tA7WJEMcD_83DLYcEgujMA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-09-28 at 18:42 -0700, Eric Dumazet wrote:
-> On Wed, 2016-09-28 at 12:52 +0200, Paolo Abeni wrote:
-> 
-> > +static void udp_rmem_release(struct sock *sk, int partial)
-> > +{
-> > +	struct udp_sock *up = udp_sk(sk);
-> > +	int fwd, amt;
-> > +
-> > +	if (partial && !udp_under_memory_pressure(sk))
-> > +		return;
-> > +
-> > +	/* we can have concurrent release; if we catch any conflict
-> > +	 * we let only one of them do the work
-> > +	 */
-> > +	if (atomic_dec_if_positive(&up->can_reclaim) < 0)
-> > +		return;
-> > +
-> > +	fwd = __udp_forward(up, atomic_read(&sk->sk_rmem_alloc));
-> > +	if (fwd < SK_MEM_QUANTUM + partial) {
-> > +		atomic_inc(&up->can_reclaim);
-> > +		return;
-> > +	}
-> > +
-> > +	amt = (fwd - partial) & ~(SK_MEM_QUANTUM - 1);
-> > +	atomic_sub(amt, &up->mem_allocated);
-> > +	atomic_inc(&up->can_reclaim);
-> > +
-> > +	__sk_mem_reduce_allocated(sk, amt >> SK_MEM_QUANTUM_SHIFT);
-> > +	sk->sk_forward_alloc = fwd - amt;
-> > +}
-> 
-> 
-> This is racy... all these atomics make me nervous...
+Passes my local unittest for this behaviour.
 
-Ah, perhaps I got it: if we have a concurrent memory scheduling, we
-could end up with a value of mem_allocated below the real need. 
-
-That mismatch will not drift: at worst we can end up with mem_allocated
-being single SK_MEM_QUANTUM below what is strictly needed.
-
-A possible alternative could be:
-
-static void udp_rmem_release(struct sock *sk, int partial)
-{
-	struct udp_sock *up = udp_sk(sk);
-	int fwd, amt, alloc_old, alloc;
-
-	if (partial && !udp_under_memory_pressure(sk))
-		return;
-
-	alloc = atomic_read(&up->mem_allocated);
-	fwd = alloc - atomic_read(&sk->sk_rmem_alloc);
-	if (fwd < SK_MEM_QUANTUM + partial)
-		return;
-
-	amt = (fwd - partial) & ~(SK_MEM_QUANTUM - 1);
-	alloc_old = atomic_cmpxchg(&up->mem_allocated, alloc, alloc - amt);
-	/* if a concurrent update is detected, just do nothing; if said update
-	 * is due to another memory release, that release take care of
-	 * reclaiming the memory for us, too.
-	 * Otherwise we will be able to release on later dequeue, since
-	 * we will eventually stop colliding with the writer when it will
-	 * consume all the fwd allocated memory
-	 */
-	if (alloc_old != alloc)
-		return;
-
-	__sk_mem_reduce_allocated(sk, amt >> SK_MEM_QUANTUM_SHIFT);
-	sk->sk_forward_alloc = fwd - amt;
-}
-
-which is even more lazy in reclaiming but should never underestimate the
-needed forward allocation, and under pressure should eventually free the
-needed memory.
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: Erik Kline <ek@google.com>
