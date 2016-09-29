@@ -1,7 +1,7 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v2 net-next 5/5] xps: Documentation for transmit socketles flow steering
-Date: Wed, 28 Sep 2016 20:54:28 -0700
-Message-ID: <20160929035428.204355-6-tom@herbertland.com>
+Subject: [PATCH v2 net-next 3/5] net: Add xps_dev_flow_table_cnt
+Date: Wed, 28 Sep 2016 20:54:26 -0700
+Message-ID: <20160929035428.204355-4-tom@herbertland.com>
 References: <20160929035428.204355-1-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,90 +9,182 @@ Cc: <kernel-team@fb.com>, <rick.jones2@hpe.com>,
         <alexander.duyck@gmail.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:36302 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:55781 "EHLO
         mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752970AbcI2Dyu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 23:54:50 -0400
-Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8T3snKG006572
-        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 20:54:49 -0700
+        by vger.kernel.org with ESMTP id S1752213AbcI2Dys (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 23:54:48 -0400
+Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8T3o2x9025916
+        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 20:54:47 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 25rqcu1r5h-1
+        by mx0a-00082601.pphosted.com with ESMTP id 25rpgyj6tc-2
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 20:54:49 -0700
+        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 20:54:47 -0700
 Received: from facebook.com (2401:db00:21:6030:face:0:92:0)     by
- mx-out.facebook.com (10.103.99.97) with ESMTP  id
- 7703804485f811e680da0002c9931860-f0dfaa50 for <netdev@vger.kernel.org>;        Wed,
- 28 Sep 2016 20:54:47 -0700
+ mx-out.facebook.com (10.102.107.97) with ESMTP id
+ 75e1e43085f811e6a7270002c99331b0-179f9a50 for <netdev@vger.kernel.org>;        Wed,
+ 28 Sep 2016 20:54:45 -0700
 In-Reply-To: <20160929035428.204355-1-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Add infrastructure and definitions to create XFS flow tables. This
+creates the new sys entry /sys/class/net/eth*/xps_dev_flow_table_cnt
+
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- Documentation/ABI/testing/sysfs-class-net |  8 ++++++++
- Documentation/networking/scaling.txt      | 26 ++++++++++++++++++++++++++
- 2 files changed, 34 insertions(+)
+ include/linux/netdevice.h | 24 +++++++++++++
+ net/core/net-sysfs.c      | 89 +++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 113 insertions(+)
 
-diff --git a/Documentation/ABI/testing/sysfs-class-net b/Documentation/ABI/testing/sysfs-class-net
-index 668604f..0d2a6a9 100644
---- a/Documentation/ABI/testing/sysfs-class-net
-+++ b/Documentation/ABI/testing/sysfs-class-net
-@@ -251,3 +251,11 @@ Contact:	netdev@vger.kernel.org
- Description:
- 		Indicates the unique physical switch identifier of a switch this
- 		port belongs to, as a string.
-+
-+What:		/sys/class/net/<iface>/xps_dev_flow_table_cnt
-+Date:		October 2016
-+KernelVersion:	4.8
-+Contact:	netdev@vger.kernel.org
-+Description:
-+		Indicates the number of entries in the XPS socketless flow
-+		table.
-diff --git a/Documentation/networking/scaling.txt b/Documentation/networking/scaling.txt
-index 59f4db2..7f9590c 100644
---- a/Documentation/networking/scaling.txt
-+++ b/Documentation/networking/scaling.txt
-@@ -400,6 +400,26 @@ transport layer is responsible for setting ooo_okay appropriately. TCP,
- for instance, sets the flag when all data for a connection has been
- acknowledged.
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 9567107..60063b3 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -736,6 +736,27 @@ struct xps_dev_maps {
+     (nr_cpu_ids * sizeof(struct xps_map *)))
+ #endif /* CONFIG_XPS */
  
-+XPS: Transmit Socketless Flow Steering
-+======================================
++#ifdef CONFIG_XPS_FLOWS
++struct xps_dev_flow {
++	union {
++		u64	v64;
++		struct {
++			int		queue_index;
++			unsigned int	queue_ptr;
++		};
++	};
++};
 +
-+Not all flows have an associated socket in which the transmit queue and
-+ooo information can be saved. For instance, packets being transmitted over
-+OVS for VMs do not have a socket that is visible to the kernel. To allow
-+XPS to be effectively used a flow hash table is employed to save queue and
-+ooo information for such socketless flows.
++struct xps_dev_flow_table {
++	unsigned int mask;
++	struct rcu_head rcu;
++	struct xps_dev_flow flows[0];
++};
++#define XPS_DEV_FLOW_TABLE_SIZE(_num) (sizeof(struct xps_dev_flow_table) + \
++	((_num) * sizeof(struct xps_dev_flow)))
 +
-+The idea is that transmit queues are saved for socketless flows in a
-+flow table that is indexed by skbuff hash. The flow table entries have
-+two values: the queue_index and the head cnt of packets from the TX
-+queue. When a packet is being sent without an associated socket the
-+hash table is consulted which returns the queue_index to use. The
-+returned queue is compared to the queue that would be selected by XPS.
-+If they are are different the XPS queue is selected only if the tail cnt
-+in the TX queue advances beyond the recorded head cnt. This checks if
-+sending the packet on the new queue could cause ooo packets for the
-+flow.
++#endif /* CONFIG_XPS_FLOWS */
 +
- ==== XPS Configuration
+ #define TC_MAX_QUEUE	16
+ #define TC_BITMASK	15
+ /* HW offloaded queuing disciplines txq count and offset maps */
+@@ -1825,6 +1846,9 @@ struct net_device {
+ #ifdef CONFIG_XPS
+ 	struct xps_dev_maps __rcu *xps_maps;
+ #endif
++#ifdef CONFIG_XPS_FLOWS
++	struct xps_dev_flow_table __rcu *xps_flow_table;
++#endif
+ #ifdef CONFIG_NET_CLS_ACT
+ 	struct tcf_proto __rcu  *egress_cl_list;
+ #endif
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index ab7b0b6..0d00b9c 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -503,6 +503,92 @@ static ssize_t phys_switch_id_show(struct device *dev,
+ }
+ static DEVICE_ATTR_RO(phys_switch_id);
  
- XPS is only available if the kconfig symbol CONFIG_XPS is enabled (on by
-@@ -409,6 +429,12 @@ queue is configured using the sysfs file entry:
- 
- /sys/class/net/<dev>/queues/tx-<n>/xps_cpus
- 
-+Transmit socketless flow steering is enabled by setting the number of
-+entries in the XPS flow table. This is configured in the sysfs file
-+entry:
++#ifdef CONFIG_XPS_FLOWS
++static void xps_dev_flow_table_release(struct rcu_head *rcu)
++{
++	struct xps_dev_flow_table *table = container_of(rcu,
++	    struct xps_dev_flow_table, rcu);
++	vfree(table);
++}
 +
-+/sys/class/net/<dev>/xps_dev_flow_table_cnt
++static int change_xps_dev_flow_table_cnt(struct net_device *dev,
++					 unsigned long count)
++{
++	unsigned long mask;
++	struct xps_dev_flow_table *table, *old_table;
++	static DEFINE_SPINLOCK(xps_dev_flow_lock);
 +
- == Suggested Configuration
- 
- For a network device with a single transmission queue, XPS configuration
++	if (!capable(CAP_NET_ADMIN))
++		return -EPERM;
++
++	if (count) {
++		mask = count - 1;
++		/* mask = roundup_pow_of_two(count) - 1;
++		 * without overflows...
++		 */
++		while ((mask | (mask >> 1)) != mask)
++			mask |= (mask >> 1);
++		/* On 64 bit arches, must check mask fits in table->mask (u32),
++		 * and on 32bit arches, must check
++		 * XPS_DEV_FLOW_TABLE_SIZE(mask + 1) doesn't overflow.
++		 */
++#if BITS_PER_LONG > 32
++		if (mask > (unsigned long)(u32)mask)
++			return -EINVAL;
++#else
++		if (mask > (ULONG_MAX - XPS_DEV_FLOW_TABLE_SIZE(1))
++				/ sizeof(struct xps_dev_flow)) {
++			/* Enforce a limit to prevent overflow */
++			return -EINVAL;
++		}
++#endif
++		table = vmalloc(XPS_DEV_FLOW_TABLE_SIZE(mask + 1));
++		if (!table)
++			return -ENOMEM;
++
++		table->mask = mask;
++		for (count = 0; count <= mask; count++)
++			table->flows[count].queue_index = -1;
++	} else
++		table = NULL;
++
++	spin_lock(&xps_dev_flow_lock);
++	old_table = rcu_dereference_protected(dev->xps_flow_table,
++					      lockdep_is_held(&xps_dev_flow_lock));
++	rcu_assign_pointer(dev->xps_flow_table, table);
++	spin_unlock(&xps_dev_flow_lock);
++
++	if (old_table)
++		call_rcu(&old_table->rcu, xps_dev_flow_table_release);
++
++	return 0;
++}
++
++static ssize_t xps_dev_flow_table_cnt_store(struct device *dev,
++					    struct device_attribute *attr,
++					    const char *buf, size_t len)
++{
++	return netdev_store(dev, attr, buf, len, change_xps_dev_flow_table_cnt);
++}
++
++static ssize_t xps_dev_flow_table_cnt_show(struct device *dev,
++			    struct device_attribute *attr, char *buf)
++{
++	struct net_device *netdev = to_net_dev(dev);
++	struct xps_dev_flow_table *table;
++	unsigned int cnt = 0;
++
++	rcu_read_lock();
++	table = rcu_dereference(netdev->xps_flow_table);
++	if (table)
++		cnt = table->mask + 1;
++	rcu_read_unlock();
++
++	return sprintf(buf, fmt_dec, cnt);
++}
++DEVICE_ATTR_RW(xps_dev_flow_table_cnt);
++#endif /* CONFIG_XPS_FLOWS */
++
+ static struct attribute *net_class_attrs[] = {
+ 	&dev_attr_netdev_group.attr,
+ 	&dev_attr_type.attr,
+@@ -531,6 +617,9 @@ static struct attribute *net_class_attrs[] = {
+ 	&dev_attr_phys_port_name.attr,
+ 	&dev_attr_phys_switch_id.attr,
+ 	&dev_attr_proto_down.attr,
++#ifdef CONFIG_XPS_FLOWS
++	&dev_attr_xps_dev_flow_table_cnt.attr,
++#endif
+ 	NULL,
+ };
+ ATTRIBUTE_GROUPS(net_class);
 -- 
 2.9.3
