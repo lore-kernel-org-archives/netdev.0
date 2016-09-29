@@ -1,46 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next 4/5] xps_flows: XPS for packets that don't
- have a socket
-Date: Thu, 29 Sep 2016 07:51:35 -0700
-Message-ID: <1475160695.28155.168.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160929035428.204355-1-tom@herbertland.com>
-         <20160929035428.204355-5-tom@herbertland.com>
-         <1475124851.28155.135.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CALx6S36FsjSioksB+O7Lp7-7PcC8iMc9LWqWiFr8RzFJ=GkKGQ@mail.gmail.com>
-         <1475155080.28155.159.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CALx6S344d16SVhO+FhXpyL09k4vSuv45F-bff-nMeqS4H=p+tw@mail.gmail.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH net-next v3 2/3] udp: implement memory accounting helpers
+Date: Thu, 29 Sep 2016 16:59:07 +0200
+Message-ID: <1475161147.4676.70.camel@redhat.com>
+References: <cover.1475048434.git.pabeni@redhat.com>
+         <6f445861ef2ce2e626a1df4946bc3f43f3d43e3f.1475048434.git.pabeni@redhat.com>
+         <1475113378.28155.124.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1475141514.4676.28.camel@redhat.com>
+         <1475155472.28155.164.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1475157674.4676.52.camel@redhat.com>
+         <1475158408.28155.166.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1475159680.4676.65.camel@redhat.com>
+         <CANn89iKc=GEesKcB3OG5_wFBnZWiCBLCDkz3k5FgJFVDw-rOyQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Kernel Team <kernel-team@fb.com>,
-        Rick Jones <rick.jones2@hpe.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>
-To: Tom Herbert <tom@herbertland.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        netdev <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        James Morris <jmorris@namei.org>,
+        Trond Myklebust <trond.myklebust@primarydata.com>,
+        Alexander Duyck <aduyck@mirantis.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Tom Herbert <tom@herbertland.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Edward Cree <ecree@solarflare.com>, linux-nfs@vger.kernel.org
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:36741 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933608AbcI2Ovh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 10:51:37 -0400
-Received: by mail-pf0-f194.google.com with SMTP id n24so3665945pfb.3
-        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 07:51:37 -0700 (PDT)
-In-Reply-To: <CALx6S344d16SVhO+FhXpyL09k4vSuv45F-bff-nMeqS4H=p+tw@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:52398 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932221AbcI2O7L (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 29 Sep 2016 10:59:11 -0400
+In-Reply-To: <CANn89iKc=GEesKcB3OG5_wFBnZWiCBLCDkz3k5FgJFVDw-rOyQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-09-29 at 10:08 -0400, Tom Herbert wrote:
-
-> It addresses  the issue that Rick Jones pointed out was happening with
-> XPS. When packets are sent for a flow that has no socket and XPS is
-> enabled then each packet uses the XPS queue based on the running CPU.
-> Since the thread sending on a flow can be rescheduled on different
-> CPUs this is creating ooo packets. In this case the ooo is being
-> caused by interaction with XPS.
+On Thu, 2016-09-29 at 07:49 -0700, Eric Dumazet wrote:
+> On Thu, Sep 29, 2016 at 7:34 AM, Paolo Abeni <pabeni@redhat.com> wrote:
+> > On Thu, 2016-09-29 at 07:13 -0700, Eric Dumazet wrote:
+> >> On Thu, 2016-09-29 at 16:01 +0200, Paolo Abeni wrote:
+> >>
+> >> > When we reach __sk_mem_reduce_allocated() we are sure we can free the
+> >> > specified amount of memory, so we only need to ensure consistent
+> >> > sk_prot->memory_allocated updates. The current atomic operation suffices
+> >> > to this.
+> >>
+> >> Then why are you updating sk->sk_forward_alloc using racy operations ?
+> >>
+> >> If this is not needed or racy, do not do it.
+> >
+> > Thank you for all the feedback.
+> >
+> > The actual forward allocated memory value is:
+> >
+> > atomic_read(&up->mem_allocated) - atomic_read(&sk->sk_rmem_alloc).
+> >
+> > sk_forward_alloc is updated only to hint to the user space the forward
+> > allocated memory value via the diag interface.
+> >
+> > If such information is not needed we can drop the update, and
+> > sk_forward_alloc will always be seen as 0 even when the socket has some
+> > forward allocation.
 > 
+> The information is needed and we want an accurate one, really.
+> 
+> Think about debugging on a live server, some stuck or mad sockets ;)
+> 
+> Please consider adding a proper accessor, able to deal with the UDP
+> peculiarities.
 
-Nope, your patch does not address the problem properly.
+Nice suggestion, thanks! I'll try that in v4. Perhaps is worth adding a
+struct proto helper for this ?
 
-I am not sure I want to spend more time explaining the issue.
+I'm sorry, but I'll not be in Tokyo, so I'll probably produce some
+traffic on netdev in the meanwhile.
 
-Lets talk about this in Tokyo next week.
+Cheers,
+
+Paolo
