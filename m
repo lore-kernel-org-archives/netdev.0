@@ -1,98 +1,114 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v2 net-next 4/5] xps_flows: XPS for packets that don't
- have a socket
-Date: Thu, 29 Sep 2016 16:26:30 -0400
-Message-ID: <CALx6S34xHzoSNHvmFLsUyge=eptWpv2rRPspd22C=97vKRmHrA@mail.gmail.com>
-References: <20160929035428.204355-1-tom@herbertland.com> <20160929035428.204355-5-tom@herbertland.com>
- <1475124851.28155.135.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALx6S36FsjSioksB+O7Lp7-7PcC8iMc9LWqWiFr8RzFJ=GkKGQ@mail.gmail.com>
- <1475155080.28155.159.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALx6S344d16SVhO+FhXpyL09k4vSuv45F-bff-nMeqS4H=p+tw@mail.gmail.com>
- <1475160695.28155.168.camel@edumazet-glaptop3.roam.corp.google.com> <1475162142.28155.188.camel@edumazet-glaptop3.roam.corp.google.com>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] brcmfmac: implement more accurate skb tracking
+Date: Thu, 29 Sep 2016 23:57:23 +0200
+Message-ID: <CACna6rxg5r=YWh7m1TYAhD5OrG3+KXAWMihs9mgh-EBVfKvt+g@mail.gmail.com>
+References: <20160926102348.8695-1-zajec5@gmail.com> <09084e8b-829d-9a13-ae16-a493438216ac@broadcom.com>
+ <CACna6rwnLb3sEPmdx6uhYMstVn04WbP2xzznsjnwgguEXn04=w@mail.gmail.com>
+ <CACna6ryNLOqrwsa9KFueUdqStxjP7KoRyvsn6eynLc6Y7Ug_sw@mail.gmail.com> <0a070079-e3af-ab5c-0485-744bec8b3d86@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Kernel Team <kernel-team@fb.com>,
-        Rick Jones <rick.jones2@hpe.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f169.google.com ([209.85.216.169]:35177 "EHLO
-        mail-qt0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755449AbcI2Ucl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 16:32:41 -0400
-Received: by mail-qt0-f169.google.com with SMTP id 30so17536046qth.2
-        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 13:32:41 -0700 (PDT)
-In-Reply-To: <1475162142.28155.188.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
+Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+        Franky Lin <franky.lin-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Hante Meuleman <hante.meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Pieter-Paul Giesberts <pieter-paul.giesberts-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Franky Lin <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
+        <brcm80211-dev-list.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal-g1n6cQUeyibVItvQsEIGlw@public.gmane.org>
+To: Arend Van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <0a070079-e3af-ab5c-0485-744bec8b3d86-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 29, 2016 at 11:15 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2016-09-29 at 07:51 -0700, Eric Dumazet wrote:
->> On Thu, 2016-09-29 at 10:08 -0400, Tom Herbert wrote:
+On 27 September 2016 at 11:24, Arend Van Spriel
+<arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org> wrote:
+> On 26-9-2016 14:38, Rafa=C5=82 Mi=C5=82ecki wrote:
+>> On 26 September 2016 at 14:13, Rafa=C5=82 Mi=C5=82ecki <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org=
+> wrote:
+>>> On 26 September 2016 at 13:46, Arend Van Spriel
+>>> <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org> wrote:
+>>>> On 26-9-2016 12:23, Rafa=C5=82 Mi=C5=82ecki wrote:
+>>>>> From: Rafa=C5=82 Mi=C5=82ecki <rafal-g1n6cQUeyibVItvQsEIGlw@public.gmane.org>
+>>>>>
+>>>>> We need to track 802.1x packets to know if there are any pending ones
+>>>>> for transmission. This is required for performing key update in the
+>>>>> firmware.
+>>>>
+>>>> The problem we are trying to solve is a pretty old one. The problem is
+>>>> that wpa_supplicant uses two separate code paths: EAPOL messaging
+>>>> through data path and key configuration though nl80211.
+>>>
+>>> Can I find it described/reported somewhere?
+>>>
+>>>
+>>>>> Unfortunately our old tracking code wasn't very accurate. It was
+>>>>> treating skb as pending as soon as it was passed by the netif. Actual
+>>>>> handling packet to the firmware was happening later as brcmfmac
+>>>>> internally queues them and uses its own worker(s).
+>>>>
+>>>> That does not seem right. As soon as we get a 1x packet we need to wai=
+t
+>>>> with key configuration regardless whether it is still in the driver or
+>>>> handed over to firmware already.
+>>>
+>>> OK, thanks.
 >>
->> > It addresses  the issue that Rick Jones pointed out was happening with
->> > XPS. When packets are sent for a flow that has no socket and XPS is
->> > enabled then each packet uses the XPS queue based on the running CPU.
->> > Since the thread sending on a flow can be rescheduled on different
->> > CPUs this is creating ooo packets. In this case the ooo is being
->> > caused by interaction with XPS.
->> >
+>> Actually, it's not OK. I was trying to report/describe/discuss this
+>> problem for over a week. I couldn't get much of answer from you.
 >>
->> Nope, your patch does not address the problem properly.
->>
->> I am not sure I want to spend more time explaining the issue.
->>
->> Lets talk about this in Tokyo next week.
->>
+>> I had to come with a patch I worked on for quite some time. Only then
+>> you decided to react and reply with a reason for a nack. I see this
+>> patch may be wrong (but it's still hard to know what's going wrong
+>> without a proper hostapd bug report). I'd expect you to somehow work &
+>> communicate with open source community.
 >
-> Just as a reminder, sorry to bother you, stating some obvious facts for
-> both of us. We have public exchanges, so we also need to re-explain how
-> things work.
->
-> Queue selection on xmit happens before we hit the qdisc and its delays.
->
-> So when you access txq->dql.num_completed_ops and
-> txq->dql.num_enqueue_ops you can observe values that do not change for a
-> while.
->
-> Say a thread runs on a VM, and sends 2 packets P1, P2 on the same flow
-> (skb_get_hash() returns the same value for these 2 packets)
->
-> P1 is sent on behalf of CPU 1, we pickup queue txq1, and queue the
-> packet on its qdisc . Transmit does not happen because of some
-> constraints like rate limiting or scheduling constraints.
->
-> P2 is sent on behalf of CPU 2, we pickup queue txq2, notice that prior
-> packet chose txq1. We check txq1->dql and decide it is fine to use txq2,
-> since the dql params of txq1 were not changed yet.
->
-> ( txq->dql.num_completed_ops == ent.queue_ptr )
->
-> Note that in RFS case, we have the guarantee that we observe 'live
-> queues' since they are the per cpu backlog.
->
-> So input_queue_head_incr() and input_queue_tail_incr_save() are
-> correctly doing the OOO prevention, because a queued packet immediately
-> changes the state.
->
-> So really your patch works if you have no qdisc, or a non congested
-> qdisc. (Think if P1 is dropped by a full pfifo or pfifo_fast : We really
-> want to avoid steering P2, P3, ..., PN on this full pfifo while maybe
-> other txq are idle). Strange attractors are back (check commit
-> 9b462d02d6dd6 )
->
-Understood.
+> We do or at least make an honest attempt, but there is more on our plate
+> so responses may be delayed. It also does not help when you get anal and
+> preachy when we do respond. Also not OK. In this case the delay is
+> caused because I had to pick up the thread(s) as Hante is on vacation
+> (he needed a break :-p ). However, you started sending patches so I
+> decided to look at and respond to those. Sorry if you felt like we left
+> you hanging to dry.
 
-> You could avoid (ab)using BQL with a different method, grabbing
-> skb->destructor for the packets that are socketless
->
-> The hash table would simply track the sum of skb->truesize to allow flow
-> migration. This would be self contained and not intrusive.
->
-Okay, will look that.
+I believe I get easily irritated due to my communication experience I
+got so far :(
 
->
->
->
+
+Over a year ago I reported brcmfmac can't recover from failed
+register_netdev(ice). This bug remains unfixed.
+
+In 2014 I reported problem with 80 MHz support. I didn't have hardware
+to fix & test it on my own (you weren't able/allowed to send me one of
+your PCIe cards). In remained broken until I fixed it year later.
+
+You missed my crash bug report about caused by missing eth_type_trans
+and came with patch on your own a month later.
+
+Earlier this year I reported you problem with BCM4366 and multiple
+interfaces. I didn't get much help. 3 months later I came with patch
+to workaround the problem but you said there's a better way to do
+this. It took me 2 weeks to figure out a new wlioctl API for that
+while all I needed was a simple hint on "interface_remove".
+
+Right now I'm waiting to get any answer from you about 4366c0
+firmware. It's still less than 2 weeks since I asked for it, but a
+simple ETA would be nice. I'm actually not sure if I should report
+more problems to you to don't distract you from pending things.
+
+Problems with brcmf_netdev_wait_pend8021x were reported multiples
+times for last few months. When I finally got time for that it took me
+a week to debug them.
+
+
+As you can see, it takes me months to get help on some things. And in
+few cases I never got much help at all. Yes, I was hoping to have you
+more involved into brcmfmac development and problems solving. I guess
+things didn't meet my expectations and I got grumpy & preachy.
+
+--=20
+Rafa=C5=82
