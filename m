@@ -1,81 +1,38 @@
-From: Gavin Shan <gwshan@linux.vnet.ibm.com>
-Subject: Re: [PATCH net-next 1/8] net/ncsi: Avoid unused-value build warning
- from ia64-linux-gcc
-Date: Thu, 29 Sep 2016 21:40:39 +1000
-Message-ID: <20160929114039.GA13381@gwshan>
-References: <1475125395-8459-1-git-send-email-gwshan@linux.vnet.ibm.com>
- <1475125395-8459-2-git-send-email-gwshan@linux.vnet.ibm.com>
- <20160929.015404.76401694814645494.davem@davemloft.net>
-Reply-To: Gavin Shan <gwshan@linux.vnet.ibm.com>
+From: "Jorgen S. Hansen" <jhansen@vmware.com>
+Subject: Request for backport to 4.4 stable
+Date: Thu, 29 Sep 2016 12:02:15 +0000
+Message-ID: <BY2PR0501MB205628A0C48C3F674E31A482DACE0@BY2PR0501MB2056.namprd05.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: gwshan@linux.vnet.ibm.com, netdev@vger.kernel.org, joel@jms.id.au,
-        yuvali@mellanox.com, benh@kernel.crashing.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:52233 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1755041AbcI2Lkl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 07:40:41 -0400
-Received: from pps.filterd (m0098399.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8TBbo7x092840
-        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 07:40:40 -0400
-Received: from e28smtp08.in.ibm.com (e28smtp08.in.ibm.com [125.16.236.8])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 25rwkh3b2p-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 07:40:40 -0400
-Received: from localhost
-        by e28smtp08.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
-        Thu, 29 Sep 2016 17:10:36 +0530
-Received: from d28relay06.in.ibm.com (d28relay06.in.ibm.com [9.184.220.150])
-        by d28dlp01.in.ibm.com (Postfix) with ESMTP id 3E8E9E0040
-        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 17:10:03 +0530 (IST)
-Received: from d28av03.in.ibm.com (d28av03.in.ibm.com [9.184.220.65])
-        by d28relay06.in.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u8TBeYqd38928438
-        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 17:10:34 +0530
-Received: from d28av03.in.ibm.com (localhost [127.0.0.1])
-        by d28av03.in.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u8TBeUSk005715
-        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 17:10:33 +0530
-Content-Disposition: inline
-In-Reply-To: <20160929.015404.76401694814645494.davem@davemloft.net>
+Received: from ex13-edg-ou-001.vmware.com ([208.91.0.189]:50897 "EHLO
+        EX13-EDG-OU-001.vmware.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1755338AbcI2MCT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 08:02:19 -0400
+Received: from EX13-CAS-005.vmware.com (ex13-cas-005.vmware.com [10.113.191.55])
+        by sc9-mailhost1.vmware.com (Postfix) with ESMTP id 2099A18389
+        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 05:02:18 -0700 (PDT)
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 29, 2016 at 01:54:04AM -0400, David Miller wrote:
->From: Gavin Shan <gwshan@linux.vnet.ibm.com>
->Date: Thu, 29 Sep 2016 15:03:08 +1000
->
->> This replaces the atomic access to NCSI channel's state with READ_ONCE()
->> and WRITE_ONCE() to avoid the above build warning. We needn't hold the
->> channel's lock when updating its state as well. No logical changes
->> introduced.
->
->I don't understand this.
->
->If it's important to take the lock for the list add/del, then it must
->be important to make the state change appear atomic wrt. that lock as
->well.
->
->Can parallel threads of control enter these functions which change the
->state?  If so, then you need to make the state changes under the lock.
->In fact, you probably have to make the state tests under the locks as
->well.
->
->If not, please explain what prevents it from happening.
->
+Hello,
 
-Dave, thanks for your comments. I think it's occasionally working on
-AST2400 and AST2500 platforms. It's reasonable to grab the lock before
-fetching or updating the NCSI channel's state. Adding and removing the
-channel from the list also need taking the lock as well. I will modify
-the code accordingly in next revision.
+It would be great if the following commit could be backported to 4.4 stable=
+. The commit fixes a bug that was introduced in 4.3 and fixed in 4.6. The b=
+ug may cause wrongful termination of vSocket connections, if there is more =
+than one active vSocket connection in a given VM. This affects VMware servi=
+ces running inside VMs:
 
-AST2400/AST2500 has single CPU. The channel's state (and the linked
-list) are changed in softirq context (packet Rx handler or timer),
-meaning they are not accessed in parallel mode. However, NCSI stack
-cannot make assumption to be run on single CPU platforms only. So
-yes, we need the lock to protect them.
+commit	8ab18d71de8b07d2c4d6f984b718418c09ea45c5=20
+
+VSOCK: Detach QP check should filter out non matching QPs.
+
+The check in vmci_transport_peer_detach_cb should only allow a
+detach when the qp handle of the transport matches the one in
+the detach message.
 
 Thanks,
-Gavin
+J=F8rgen
