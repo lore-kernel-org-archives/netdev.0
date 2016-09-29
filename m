@@ -1,155 +1,156 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v2 net-next 2/5] dql: Add counters for number of queuing and completion operations
-Date: Wed, 28 Sep 2016 20:54:25 -0700
-Message-ID: <20160929035428.204355-3-tom@herbertland.com>
-References: <20160929035428.204355-1-tom@herbertland.com>
+Subject: [PATCH v2 net-next 0/5]  xps_flows: XPS flow steering when there is no socket
+Date: Wed, 28 Sep 2016 20:54:23 -0700
+Message-ID: <20160929035428.204355-1-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>, <rick.jones2@hpe.com>,
         <alexander.duyck@gmail.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:38575 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751438AbcI2Dyr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 23:54:47 -0400
-Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
-        by mx0b-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8T3q4wk019914
-        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 20:54:45 -0700
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:37945 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750700AbcI2Dym (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 23:54:42 -0400
+Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8T3s8e0018385
+        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 20:54:41 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0b-00082601.pphosted.com with ESMTP id 25qc9140vw-1
+        by mx0a-00082601.pphosted.com with ESMTP id 25rm8vkec2-2
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 20:54:45 -0700
+        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 20:54:41 -0700
 Received: from facebook.com (2401:db00:21:6030:face:0:92:0)     by
- mx-out.facebook.com (10.103.99.97) with ESMTP  id
- 750b614485f811e6acfa0002c9931860-4a68f6d0 for <netdev@vger.kernel.org>;        Wed,
- 28 Sep 2016 20:54:44 -0700
-In-Reply-To: <20160929035428.204355-1-tom@herbertland.com>
+ mx-out.facebook.com (10.212.236.87) with ESMTP id
+ 7204da8e85f811e6b4050002c9521c9e-4f2f1a50 for <netdev@vger.kernel.org>;        Wed,
+ 28 Sep 2016 20:54:39 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add two new counters to struct dql that are num_enqueue_ops and
-num_completed_ops. num_enqueue_ops is incremented by one in each call to
-dql_queued. num_enqueue_ops is incremented in dql_completed which takes
-an argument indicating number of operations completed. These counters
-are only intended for statistics and do not impact the BQL algorithm.
+This patch set introduces transmit flow steering for socketless packets.
+The idea is that we record the transmit queues in a flow table that is
+indexed by skbuff hash.  The flow table entries have two values: the
+queue_index and the head cnt of packets from the TX queue. We only allow
+a queue to change for a flow if the tail cnt in the TX queue advances
+beyond the recorded head cnt. That is the condition that should indicate
+that all outstanding packets for the flow have completed transmission so
+the queue can change.
 
-We add a new sysfs entry in byte_queue_limits named inflight_pkts.
-This provides the number of packets in flight for the queue by
-dql->num_enqueue_ops - dql->num_completed_ops.
+Tracking the inflight queue is performed as part of DQL. Two fields are
+added to the dql structure: num_enqueue_ops and num_completed_ops.
+num_enqueue_ops incremented in dql_queued and num_completed_ops is
+incremented in dql_completed by the number of operations completed (a
+new argument to the function).
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
----
- include/linux/dynamic_queue_limits.h |  7 ++++++-
- include/linux/netdevice.h            |  2 +-
- lib/dynamic_queue_limits.c           |  3 ++-
- net/core/net-sysfs.c                 | 14 ++++++++++++++
- 4 files changed, 23 insertions(+), 3 deletions(-)
+This patch set creates /sys/class/net/eth*/xps_dev_flow_table_cnt
+which number of entries in the XPS flow table.
 
-diff --git a/include/linux/dynamic_queue_limits.h b/include/linux/dynamic_queue_limits.h
-index a4be703..b6a4804 100644
---- a/include/linux/dynamic_queue_limits.h
-+++ b/include/linux/dynamic_queue_limits.h
-@@ -43,6 +43,8 @@ struct dql {
- 	unsigned int	adj_limit;		/* limit + num_completed */
- 	unsigned int	last_obj_cnt;		/* Count at last queuing */
- 
-+	unsigned int	num_enqueue_ops;	/* Number of queue operations */
-+
- 	/* Fields accessed only by completion path (dql_completed) */
- 
- 	unsigned int	limit ____cacheline_aligned_in_smp; /* Current limit */
-@@ -55,6 +57,8 @@ struct dql {
- 	unsigned int	lowest_slack;		/* Lowest slack found */
- 	unsigned long	slack_start_time;	/* Time slacks seen */
- 
-+	unsigned int	num_completed_ops;	/* Number of complete ops */
-+
- 	/* Configuration */
- 	unsigned int	max_limit;		/* Max limit */
- 	unsigned int	min_limit;		/* Minimum limit */
-@@ -83,6 +87,7 @@ static inline void dql_queued(struct dql *dql, unsigned int count)
- 	barrier();
- 
- 	dql->num_queued += count;
-+	dql->num_enqueue_ops++;
- }
- 
- /* Returns how many objects can be queued, < 0 indicates over limit. */
-@@ -92,7 +97,7 @@ static inline int dql_avail(const struct dql *dql)
- }
- 
- /* Record number of completed objects and recalculate the limit. */
--void dql_completed(struct dql *dql, unsigned int count);
-+void dql_completed(struct dql *dql, unsigned int count, unsigned int ops);
- 
- /* Reset dql state */
- void dql_reset(struct dql *dql);
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 136ae6bb..9567107 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -3015,7 +3015,7 @@ static inline void netdev_tx_completed_queue(struct netdev_queue *dev_queue,
- 	if (unlikely(!bytes))
- 		return;
- 
--	dql_completed(&dev_queue->dql, bytes);
-+	dql_completed(&dev_queue->dql, bytes, pkts);
- 
- 	/*
- 	 * Without the memory barrier there is a small possiblity that
-diff --git a/lib/dynamic_queue_limits.c b/lib/dynamic_queue_limits.c
-index f346715..d5e7a27 100644
---- a/lib/dynamic_queue_limits.c
-+++ b/lib/dynamic_queue_limits.c
-@@ -14,7 +14,7 @@
- #define AFTER_EQ(A, B) ((int)((A) - (B)) >= 0)
- 
- /* Records completed count and recalculates the queue limit */
--void dql_completed(struct dql *dql, unsigned int count)
-+void dql_completed(struct dql *dql, unsigned int count, unsigned int ops)
- {
- 	unsigned int inprogress, prev_inprogress, limit;
- 	unsigned int ovlimit, completed, num_queued;
-@@ -108,6 +108,7 @@ void dql_completed(struct dql *dql, unsigned int count)
- 	dql->prev_ovlimit = ovlimit;
- 	dql->prev_last_obj_cnt = dql->last_obj_cnt;
- 	dql->num_completed = completed;
-+	dql->num_completed_ops += ops;
- 	dql->prev_num_queued = num_queued;
- }
- EXPORT_SYMBOL(dql_completed);
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 6e4f347..ab7b0b6 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -1147,6 +1147,19 @@ static ssize_t bql_show_inflight(struct netdev_queue *queue,
- static struct netdev_queue_attribute bql_inflight_attribute =
- 	__ATTR(inflight, S_IRUGO, bql_show_inflight, NULL);
- 
-+static ssize_t bql_show_inflight_pkts(struct netdev_queue *queue,
-+				      struct netdev_queue_attribute *attr,
-+				      char *buf)
-+{
-+	struct dql *dql = &queue->dql;
-+
-+	return sprintf(buf, "%u\n",
-+		       dql->num_enqueue_ops - dql->num_completed_ops);
-+}
-+
-+static struct netdev_queue_attribute bql_inflight_pkts_attribute =
-+	__ATTR(inflight_pkts, S_IRUGO, bql_show_inflight_pkts, NULL);
-+
- #define BQL_ATTR(NAME, FIELD)						\
- static ssize_t bql_show_ ## NAME(struct netdev_queue *queue,		\
- 				 struct netdev_queue_attribute *attr,	\
-@@ -1176,6 +1189,7 @@ static struct attribute *dql_attrs[] = {
- 	&bql_limit_min_attribute.attr,
- 	&bql_hold_time_attribute.attr,
- 	&bql_inflight_attribute.attr,
-+	&bql_inflight_pkts_attribute.attr,
- 	NULL
- };
- 
+Note that the functionality here is technically best effort (for
+instance we don't obtain a lock while processing a flow table entry).
+Under high load it is possible that OOO packets can still be generated
+due to XPS if two threads are hammering on the same flow table entry.
+The assumption of these patches is that OOO packets are not the end of
+the world and these should prevent OOO in most common use cases with
+XPS.
+
+This is a followup to previous RFC version. Fixes from RFC are:
+
+  - Move counters to DQL
+  - Fixed typo
+  - Simplified get flow index funtion
+  - Fixed sysfs flow_table_cnt to properly use DEVICE_ATTR_RW
+  - Renamed the mechanism
+
+V2:
+  - Added documentation in scaling.txt and sysfs documentation
+  - Call skb_tx_hash directly from get_xps_queue. This allows
+    the socketless transmit flow steering to work properly if
+    a flow is bouncing between non-XPS and XPS CPUS. (suggested
+    by Alexander Duyck).
+  - Added a whold bunch of tested results provided by Rick Jones
+    (Thanks Rick!)
+
+Tested:
+  Manually forced all packets to go through the xps_flows path.
+  Observed that some flows were deferred to change queues because
+  packets were in flight witht the flow bucket.
+
+Testing done by Rick Jones:
+
+  Here is a quick look at performance tests for the result of trying the
+  prototype fix for the packet reordering problem with VMs sending over
+  an XPS-configured NIC.  In particular, the Emulex/Avago/Broadcom
+  Skyhawk.  The fix was applied to a 4.4 kernel.
+
+  Before: 3884 Mbit/s
+  After: 8897 Mbit/s
+
+  That was from a VM on a node with a Skyhawk and 2 E5-2640 processors
+  to baremetal E5-2640 with a BE3.  Physical MTU was 1500, the VM's
+  vNIC's MTU was 1400.  Systems were HPE ProLiants in OS Control Mode
+  for power management, with the "performance" frequency governor
+  loaded. An OpenStack Mitaka setup with Distributed Virtual Router.
+
+  We had some other NIC types in the setup as well.  XPS was also
+  enabled on the ConnectX3-Pro.  It was not enabled on the 82599ES (a
+  function of the kernel being used, which had it disabled from the
+  first reports of XPS negatively affecting VM traffic at the beginning
+  of the year)
+
+  Average Mbit/s From NIC type To Bare Metal BE3:
+
+   NIC Type,
+   CPU on VM Host            Before        After
+  ------------------------------------------------
+  ConnectX-3 Pro,E5-2670v3    9224         9271
+  BE3, E5-2640                9016         9022
+  82599, E5-2640              9192         9003
+  BCM57840, E5-2640           9213         9153
+  Skyhawk, E5-2640            3884         8897
+
+  For completeness:
+  Average Mbit/s To NIC type from Bare Metal BE3:
+
+  NIC Type,
+  CPU on VM Host            Before        After
+  ------------------------------------------------
+  ConnectX-3 Pro,E5-2670v3    9322         9144
+  BE3, E5-2640                9074         9017
+  82599, E5-2640              8670         8564
+  BCM57840, E5-2640           2468 *       7979
+  Skyhawk, E5-2640            8897         9269
+
+  * This is the Busted bnx2x NIC FW GRO implementation issue.  It was
+    not visible in the "After" because the system was setup to disable
+    the NIC FW GRO by the time it booted on the fix kernel.
+
+  Average Transactions/s Between NIC type and Bare Metal BE3:
+
+  NIC Type,
+  CPU on VM Host            Before        After
+  ------------------------------------------------
+  ConnectX-3 Pro,E5-2670v3   12421         12612
+  BE3, E5-2640                8178          8484
+  82599, E5-2640              8499          8549
+  BCM57840, E5-2640           8544          8560
+  Skyhawk, E5-2640            8537          8701
+
+Tom Herbert (5):
+  net: Set SW hash in skb_set_hash_from_sk
+  dql: Add counters for number of queuing and completion operations
+  net: Add xps_dev_flow_table_cnt
+  xps_flows: XPS for packets that don't have a socket
+  xps: Documentation for transmit socketles flow steering
+
+ Documentation/ABI/testing/sysfs-class-net |   8 +++
+ Documentation/networking/scaling.txt      |  26 ++++++++
+ include/linux/dynamic_queue_limits.h      |   7 +-
+ include/linux/netdevice.h                 |  26 +++++++-
+ include/net/sock.h                        |   6 +-
+ lib/dynamic_queue_limits.c                |   3 +-
+ net/Kconfig                               |   6 ++
+ net/core/dev.c                            |  87 +++++++++++++++++++------
+ net/core/net-sysfs.c                      | 103 ++++++++++++++++++++++++++++++
+ 9 files changed, 246 insertions(+), 26 deletions(-)
+
 -- 
 2.9.3
