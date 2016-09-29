@@ -1,7 +1,7 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v2 net-next 4/5] xps_flows: XPS for packets that don't have a socket
-Date: Wed, 28 Sep 2016 20:54:27 -0700
-Message-ID: <20160929035428.204355-5-tom@herbertland.com>
+Subject: [PATCH v2 net-next 5/5] xps: Documentation for transmit socketles flow steering
+Date: Wed, 28 Sep 2016 20:54:28 -0700
+Message-ID: <20160929035428.204355-6-tom@herbertland.com>
 References: <20160929035428.204355-1-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,189 +9,90 @@ Cc: <kernel-team@fb.com>, <rick.jones2@hpe.com>,
         <alexander.duyck@gmail.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:36299 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:36302 "EHLO
         mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752406AbcI2Dyt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 23:54:49 -0400
+        by vger.kernel.org with ESMTP id S1752970AbcI2Dyu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2016 23:54:50 -0400
 Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8T3smLd006565
-        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 20:54:48 -0700
+        by mx0a-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8T3snKG006572
+        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 20:54:49 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 25rqcu1r55-3
+        by mx0a-00082601.pphosted.com with ESMTP id 25rqcu1r5h-1
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 20:54:48 -0700
+        for <netdev@vger.kernel.org>; Wed, 28 Sep 2016 20:54:49 -0700
 Received: from facebook.com (2401:db00:21:6030:face:0:92:0)     by
- mx-out.facebook.com (10.212.236.87) with ESMTP id
- 76ce6a9e85f811e682630002c9521c9e-4b6dfa50 for <netdev@vger.kernel.org>;        Wed,
+ mx-out.facebook.com (10.103.99.97) with ESMTP  id
+ 7703804485f811e680da0002c9931860-f0dfaa50 for <netdev@vger.kernel.org>;        Wed,
  28 Sep 2016 20:54:47 -0700
 In-Reply-To: <20160929035428.204355-1-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-xps_flows maintains a per device flow table that is indexed by the
-skbuff hash. The table is only consulted when there is no queue saved in
-a transmit socket for an skbuff.
-
-Each entry in the flow table contains a queue index and a queue
-pointer. The queue pointer is set when a queue is chosen using a
-flow table entry. This pointer is set to the head pointer in the
-transmit queue (which is maintained by BQL).
-
-The new function get_xps_flows_index that looks up flows in the
-xps_flows table. The entry returned gives the last queue a matching flow
-used. The returned queue is compared against the normal XPS queue. If
-they are different, then we only switch if the tail pointer in the TX
-queue has advanced past the pointer saved in the entry. In this
-way OOO should be avoided when XPS wants to use a different queue.
-
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- net/Kconfig    |  6 ++++
- net/core/dev.c | 87 +++++++++++++++++++++++++++++++++++++++++++++-------------
- 2 files changed, 74 insertions(+), 19 deletions(-)
+ Documentation/ABI/testing/sysfs-class-net |  8 ++++++++
+ Documentation/networking/scaling.txt      | 26 ++++++++++++++++++++++++++
+ 2 files changed, 34 insertions(+)
 
-diff --git a/net/Kconfig b/net/Kconfig
-index 7b6cd34..f77fad1 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -255,6 +255,12 @@ config XPS
- 	depends on SMP
- 	default y
+diff --git a/Documentation/ABI/testing/sysfs-class-net b/Documentation/ABI/testing/sysfs-class-net
+index 668604f..0d2a6a9 100644
+--- a/Documentation/ABI/testing/sysfs-class-net
++++ b/Documentation/ABI/testing/sysfs-class-net
+@@ -251,3 +251,11 @@ Contact:	netdev@vger.kernel.org
+ Description:
+ 		Indicates the unique physical switch identifier of a switch this
+ 		port belongs to, as a string.
++
++What:		/sys/class/net/<iface>/xps_dev_flow_table_cnt
++Date:		October 2016
++KernelVersion:	4.8
++Contact:	netdev@vger.kernel.org
++Description:
++		Indicates the number of entries in the XPS socketless flow
++		table.
+diff --git a/Documentation/networking/scaling.txt b/Documentation/networking/scaling.txt
+index 59f4db2..7f9590c 100644
+--- a/Documentation/networking/scaling.txt
++++ b/Documentation/networking/scaling.txt
+@@ -400,6 +400,26 @@ transport layer is responsible for setting ooo_okay appropriately. TCP,
+ for instance, sets the flag when all data for a connection has been
+ acknowledged.
  
-+config XPS_FLOWS
-+	bool
-+	depends on XPS
-+	depends on BQL
-+	default y
++XPS: Transmit Socketless Flow Steering
++======================================
 +
- config HWBM
-        bool
++Not all flows have an associated socket in which the transmit queue and
++ooo information can be saved. For instance, packets being transmitted over
++OVS for VMs do not have a socket that is visible to the kernel. To allow
++XPS to be effectively used a flow hash table is employed to save queue and
++ooo information for such socketless flows.
++
++The idea is that transmit queues are saved for socketless flows in a
++flow table that is indexed by skbuff hash. The flow table entries have
++two values: the queue_index and the head cnt of packets from the TX
++queue. When a packet is being sent without an associated socket the
++hash table is consulted which returns the queue_index to use. The
++returned queue is compared to the queue that would be selected by XPS.
++If they are are different the XPS queue is selected only if the tail cnt
++in the TX queue advances beyond the recorded head cnt. This checks if
++sending the packet on the new queue could cause ooo packets for the
++flow.
++
+ ==== XPS Configuration
  
-diff --git a/net/core/dev.c b/net/core/dev.c
-index c0c291f..1ca08b9 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3210,6 +3210,7 @@ sch_handle_egress(struct sk_buff *skb, int *ret, struct net_device *dev)
- }
- #endif /* CONFIG_NET_EGRESS */
+ XPS is only available if the kconfig symbol CONFIG_XPS is enabled (on by
+@@ -409,6 +429,12 @@ queue is configured using the sysfs file entry:
  
-+/* Must be called with RCU read_lock */
- static inline int get_xps_queue(struct net_device *dev, struct sk_buff *skb)
- {
- #ifdef CONFIG_XPS
-@@ -3217,7 +3218,6 @@ static inline int get_xps_queue(struct net_device *dev, struct sk_buff *skb)
- 	struct xps_map *map;
- 	int queue_index = -1;
+ /sys/class/net/<dev>/queues/tx-<n>/xps_cpus
  
--	rcu_read_lock();
- 	dev_maps = rcu_dereference(dev->xps_maps);
- 	if (dev_maps) {
- 		map = rcu_dereference(
-@@ -3228,15 +3228,62 @@ static inline int get_xps_queue(struct net_device *dev, struct sk_buff *skb)
- 			else
- 				queue_index = map->queues[reciprocal_scale(skb_get_hash(skb),
- 									   map->len)];
--			if (unlikely(queue_index >= dev->real_num_tx_queues))
--				queue_index = -1;
-+			if (queue_index >= 0 &&
-+			    likely(queue_index < dev->real_num_tx_queues))
-+				return queue_index;
- 		}
- 	}
--	rcu_read_unlock();
-+#endif
-+	return skb_tx_hash(dev, skb);
-+}
++Transmit socketless flow steering is enabled by setting the number of
++entries in the XPS flow table. This is configured in the sysfs file
++entry:
 +
-+/* Must be called with RCU read_lock */
-+static int get_xps_flows_index(struct net_device *dev, struct sk_buff *skb)
-+{
-+#ifdef CONFIG_XPS_FLOWS
-+	struct xps_dev_flow_table *flow_table;
-+	struct xps_dev_flow ent;
-+	int queue_index;
-+	struct netdev_queue *txq;
-+	u32 hash;
++/sys/class/net/<dev>/xps_dev_flow_table_cnt
 +
-+	queue_index = get_xps_queue(dev, skb);
-+	if (queue_index < 0)
-+		return -1;
-+
-+	flow_table = rcu_dereference(dev->xps_flow_table);
-+	if (!flow_table)
-+		return queue_index;
-+
-+	hash = skb_get_hash(skb);
-+	if (!hash)
-+		return queue_index;
-+
-+	ent.v64 = flow_table->flows[hash & flow_table->mask].v64;
-+
-+	if (queue_index != ent.queue_index &&
-+	    ent.queue_index >= 0 &&
-+	    ent.queue_index < dev->real_num_tx_queues) {
-+		txq = netdev_get_tx_queue(dev, ent.queue_index);
-+		if ((int)(txq->dql.num_completed_ops - ent.queue_ptr) < 0)  {
-+			/* The current queue's tail has not advanced beyond the
-+			 * last packet that was enqueued using the table entry.
-+			 * We can't change queues without risking OOO. Stick
-+			 * with the queue listed in the flow table.
-+			 */
-+			queue_index = ent.queue_index;
-+		}
-+	}
-+
-+	/* Save the updated entry */
-+	txq = netdev_get_tx_queue(dev, queue_index);
-+	ent.queue_index = queue_index;
-+	ent.queue_ptr = txq->dql.num_enqueue_ops;
-+	flow_table->flows[hash & flow_table->mask].v64 = ent.v64;
+ == Suggested Configuration
  
- 	return queue_index;
- #else
--	return -1;
-+	return get_xps_queue(dev, skb);
- #endif
- }
- 
-@@ -3244,22 +3291,24 @@ static u16 __netdev_pick_tx(struct net_device *dev, struct sk_buff *skb)
- {
- 	struct sock *sk = skb->sk;
- 	int queue_index = sk_tx_queue_get(sk);
--
--	if (queue_index < 0 || skb->ooo_okay ||
--	    queue_index >= dev->real_num_tx_queues) {
--		int new_index = get_xps_queue(dev, skb);
--		if (new_index < 0)
--			new_index = skb_tx_hash(dev, skb);
--
--		if (queue_index != new_index && sk &&
--		    sk_fullsock(sk) &&
--		    rcu_access_pointer(sk->sk_dst_cache))
--			sk_tx_queue_set(sk, new_index);
--
--		queue_index = new_index;
-+	int new_index;
-+
-+	if (queue_index < 0) {
-+		/* Socket did not provide a queue index, try xps_flows */
-+		new_index = get_xps_flows_index(dev, skb);
-+	} else if (skb->ooo_okay || queue_index >= dev->real_num_tx_queues) {
-+		/* Queue index in socket, see if we can find a better one */
-+		new_index = get_xps_queue(dev, skb);
-+	} else {
-+		/* Valid queue in socket and can't send OOO. Just return it */
-+		return queue_index;
- 	}
- 
--	return queue_index;
-+	if (queue_index != new_index && sk && sk_fullsock(sk) &&
-+	    rcu_access_pointer(sk->sk_dst_cache))
-+		sk_tx_queue_set(sk, new_index);
-+
-+	return new_index;
- }
- 
- struct netdev_queue *netdev_pick_tx(struct net_device *dev,
+ For a network device with a single transmission queue, XPS configuration
 -- 
 2.9.3
