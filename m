@@ -1,37 +1,59 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: net-next tree broken with CONFIG_NETFILTER_INGRESS=n
-Date: Thu, 29 Sep 2016 08:23:03 +0200
-Message-ID: <E3004E95-F774-457E-9BA8-FA29A72BE035@holtmann.org>
-Mime-Version: 1.0 (Mac OS X Mail 10.0 \(3226\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-To: Network Development <netdev@vger.kernel.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH RFC 5/6] net: phy: Trigger state machine on state change
+ and not polling.
+Date: Thu, 29 Sep 2016 09:08:40 +0200
+Message-ID: <20160929070840.GB7234@lunn.ch>
+References: <1475051544-18561-1-git-send-email-andrew@lunn.ch>
+ <1475051544-18561-6-git-send-email-andrew@lunn.ch>
+ <de3b7050-4346-1a7a-4a27-feb8bb8affc4@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from coyote.holtmann.net ([212.227.132.17]:42724 "EHLO
-        mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751038AbcI2GXH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 02:23:07 -0400
-Received: from marcel-macbook.fritz.box (dslb-178-003-132-147.178.003.pools.vodafone-ip.de [178.3.132.147])
-        by mail.holtmann.org (Postfix) with ESMTPSA id 1BE91CF351
-        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 08:26:38 +0200 (CEST)
+Received: from vps0.lunn.ch ([178.209.37.122]:35721 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932301AbcI2HIp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 29 Sep 2016 03:08:45 -0400
+Content-Disposition: inline
+In-Reply-To: <de3b7050-4346-1a7a-4a27-feb8bb8affc4@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+On Wed, Sep 28, 2016 at 02:31:54PM -0700, Florian Fainelli wrote:
+> On 09/28/2016 01:32 AM, Andrew Lunn wrote:
+> > The phy_start() is used to indicate the PHY is now ready to do its
+> > work. The state is changed, normally to PHY_UP which means that both
+> > the MAC and the PHY are ready.
+> > 
+> > If the phy driver is using polling, when the next poll happens, the
+> > state machine notices the PHY is now in PHY_UP, and kicks off
+> > auto-negotiation, if needed.
+> > 
+> > If however, the PHY is using interrupts, there is no polling. The phy
+> > is stuck in PHY_UP until the next interrupt comes along. And there is
+> > no reason for the PHY to interrupt.
+> > 
+> > Have phy_start() schedule the state machine to run, which both speeds
+> > up the polling use case, and makes the interrupt use case actually
+> > work.
+> > 
+> > This problems exists whenever there is a state change which will not
+> > cause an interrupt. Trigger the state machine in these cases,
+> > e.g. phy_error().
+> > 
+> > Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> 
+> No particular objections, this should also fix this:
+> 
+> http://lists.openwall.net/netdev/2016/05/17/147
 
-the net-next tree is broken since a few days now when CONFIG_NETFILTER_INGRESS=n is set.
+Hi Florian
 
-  CC      net/netfilter/core.o
-In file included from ./include/linux/linkage.h:4:0,
-                 from ./include/linux/kernel.h:6,
-                 from net/netfilter/core.c:10:
-net/netfilter/core.c: In function ‘nf_set_hooks_head’:
-net/netfilter/core.c:96:30: error: ‘struct net_device’ has no member named ‘nf_hooks_ingress’
-   rcu_assign_pointer(reg->dev->nf_hooks_ingress, entry);
-                              ^
-./include/linux/compiler.h:299:17: note: in definition of macro ‘WRITE_ONCE’
-  union { typeof(x) __val; char __c[1]; } __u = \
-                 ^
-Regards
+Yes, i was thinking it probably should have a fixes: tag and be a
+separate patch. The hard part will be figuring out when this actually
+broke, or does it go all the way back to when interrupt support was
+added?
 
-Marcel
+	Andrew
