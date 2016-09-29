@@ -1,52 +1,47 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net v2] L2TP:Adjust intf MTU,factor underlay L3,overlay
- L2
-Date: Thu, 29 Sep 2016 14:21:55 +0200
-Message-ID: <20160929142155.49f9cf0a@griffin>
-References: <alpine.DEB.2.11.1609221341500.6975@duvvury30.eng.vyatta.net>
-        <20160927.033153.1066118008027608891.davem@davemloft.net>
-        <alpine.DEB.2.11.1609271210350.25517@duvvury48.eng.vyatta.net>
-        <20160928.034841.997752666320557327.davem@davemloft.net>
-        <alpine.DEB.2.11.1609281857050.17015@duvvury48.eng.vyatta.net>
+Subject: Re: [PATCH RFC iproute2] iplink: Support envhdrlen
+Date: Thu, 29 Sep 2016 14:49:44 +0200
+Message-ID: <20160929144944.609d5434@griffin>
+References: <1474966541-4420-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+        <1474966541-4420-5-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, kleptog@svana.org,
-        jchapman@katalix.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, nprachan@brocade.com,
-        rshearma@brocade.com, dfawcus@brocade.com,
-        stephen@networkplumber.org, acme@redhat.com, lboccass@brocade.com
-To: "R. Parameswaran" <parameswaran.r7@gmail.com>
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46864 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:50054 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755432AbcI2MWB (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 29 Sep 2016 08:22:01 -0400
-In-Reply-To: <alpine.DEB.2.11.1609281857050.17015@duvvury48.eng.vyatta.net>
+        id S1752479AbcI2Mts (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 29 Sep 2016 08:49:48 -0400
+In-Reply-To: <1474966541-4420-5-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 28 Sep 2016 19:36:45 -0700 (PDT), R. Parameswaran wrote:
-> I'd like to point out one difference with VXLAN - in VXLAN, the 
-> local physical interface is directly specified at the time of 
-> creation of the tunnel, and the data structure seems to have the ifindex 
-> of the local interface with which it is able to directly pull up the 
-> underlay interface device. Whereas in L2TP, we only have the IP
-> address of the remote tunnel end-point and thus only the socket and the 
-> dst from which we need to derive this. 
+On Tue, 27 Sep 2016 17:55:40 +0900, Toshiaki Makita wrote:
+> This adds support for envhdrlen.
+> 
+> Example:
+>  # ip link set eno1 envhdrlen 8
 
-Strictly speaking, VXLAN *may* know the underlying interface. It can
-also be set up with just local and remote IP address, or even worse, in
-metadata mode where we don't know the address nor the interface until
-we get a packet (and each packet may have those different).
+I don't see why this should be user visible, let alone requiring user
+to set it. This should be transparent, kernel should compute the value
+as needed based on the configuration and set it up. Requiring the
+administrator to pick up a calculator and sum up all the vlan, mpls and
+whatever header lengths is silly.
 
-MTU wise, those cases are not accommodated for in the kernel. The vxlan
-interface gets MTU of 1500 and it's up to the administrator to set it
-correctly.
+I realize that we currently have no easy way to do that. Especially
+with lwtunnels and stuff line MPLS where we don't easily know the
+number of tags. But every uAPI we introduce will have to be supported
+forever and going a particular way just because it is easy to implement
+is not sustainable.
 
-Btw, PMTU events won't help with the metadata mode. And even in
-"normal" mode, it's not clear what should be done - the tunnel
-interface may be in a bridge, thus there may be other interfaces that
-depend on the same MTU, up to inside VMs.
+At the very least, it should be configurable from the other direction.
+I.e. telling which interfaces can be used by vlans or MPLS (if it
+cannot be inferred automatically) and configuring maximum number of
+tags on the given vlan/mpls/whatever interface/route/whatever.
 
  Jiri
