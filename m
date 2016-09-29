@@ -1,91 +1,126 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next 4/5] xps_flows: XPS for packets that don't
- have a socket
-Date: Thu, 29 Sep 2016 08:15:42 -0700
-Message-ID: <1475162142.28155.188.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160929035428.204355-1-tom@herbertland.com>
-         <20160929035428.204355-5-tom@herbertland.com>
-         <1475124851.28155.135.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CALx6S36FsjSioksB+O7Lp7-7PcC8iMc9LWqWiFr8RzFJ=GkKGQ@mail.gmail.com>
-         <1475155080.28155.159.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CALx6S344d16SVhO+FhXpyL09k4vSuv45F-bff-nMeqS4H=p+tw@mail.gmail.com>
-         <1475160695.28155.168.camel@edumazet-glaptop3.roam.corp.google.com>
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: [PATCH net v2] L2TP:Adjust intf MTU,factor underlay L3,overlay L2
+Date: Thu, 29 Sep 2016 16:18:47 +0100
+Message-ID: <57ED30D7.6000009@katalix.com>
+References: <alpine.DEB.2.11.1609221341500.6975@duvvury30.eng.vyatta.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Kernel Team <kernel-team@fb.com>,
-        Rick Jones <rick.jones2@hpe.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:33108 "EHLO
-        mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751710AbcI2PPp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 11:15:45 -0400
-Received: by mail-pa0-f68.google.com with SMTP id oz2so3570631pac.0
-        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 08:15:44 -0700 (PDT)
-In-Reply-To: <1475160695.28155.168.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: kleptog@svana.org, netdev@vger.kernel.org, davem@redhat.com,
+        linux-kernel@vger.kernel.org, nprachan@brocade.com,
+        rshearma@brocade.com, dfawcus@brocade.com,
+        stephen@networkplumber.org, acme@redhat.com, lboccass@brocade.com
+To: "R. Parameswaran" <parameswaran.r7@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.11.1609221341500.6975@duvvury30.eng.vyatta.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-09-29 at 07:51 -0700, Eric Dumazet wrote:
-> On Thu, 2016-09-29 at 10:08 -0400, Tom Herbert wrote:
-> 
-> > It addresses  the issue that Rick Jones pointed out was happening with
-> > XPS. When packets are sent for a flow that has no socket and XPS is
-> > enabled then each packet uses the XPS queue based on the running CPU.
-> > Since the thread sending on a flow can be rescheduled on different
-> > CPUs this is creating ooo packets. In this case the ooo is being
-> > caused by interaction with XPS.
-> > 
-> 
-> Nope, your patch does not address the problem properly.
-> 
-> I am not sure I want to spend more time explaining the issue.
-> 
-> Lets talk about this in Tokyo next week.
-> 
+On 22/09/16 21:52, R. Parameswaran wrote:
+> From ed585bdd6d3d2b3dec58d414f514cd764d89159d Mon Sep 17 00:00:00 2001
+> From: "R. Parameswaran" <rparames@brocade.com>
+> Date: Thu, 22 Sep 2016 13:19:25 -0700
+> Subject: [PATCH] L2TP:Adjust intf MTU,factor underlay L3,overlay L2
+>
+> Take into account all of the tunnel encapsulation headers when setting
+> up the MTU on the L2TP logical interface device. Otherwise, packets
+> created by the applications on top of the L2TP layer are larger
+> than they ought to be, relative to the underlay MTU, leading to
+> needless fragmentation once the outer IP encap is added.
+>
+> Specifically, take into account the (outer, underlay) IP header
+> imposed on the encapsulated L2TP packet, and the Layer 2 header
+> imposed on the inner IP packet prior to L2TP encapsulation.
+>
+> Do not assume an Ethernet (non-jumbo) underlay. Use the PMTU mechanism
+> and the dst entry in the L2TP tunnel socket to directly pull up
+> the underlay MTU (as the baseline number on top of which the
+> encapsulation headers are factored in).  Fall back to Ethernet MTU
+> if this fails.
+>
+> Signed-off-by: R. Parameswaran <rparames@brocade.com>
+>
+> Reviewed-by: "N. Prachanda" <nprachan@brocade.com>,
+> Reviewed-by: "R. Shearman" <rshearma@brocade.com>,
+> Reviewed-by: "D. Fawcus" <dfawcus@brocade.com>
+> ---
+>  net/l2tp/l2tp_eth.c | 48 ++++++++++++++++++++++++++++++++++++++++++++----
+>  1 file changed, 44 insertions(+), 4 deletions(-)
+>
+> diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
+> index 57fc5a4..dbcd6bd 100644
+> --- a/net/l2tp/l2tp_eth.c
+> +++ b/net/l2tp/l2tp_eth.c
+> @@ -30,6 +30,9 @@
+>  #include <net/xfrm.h>
+>  #include <net/net_namespace.h>
+>  #include <net/netns/generic.h>
+> +#include <linux/ip.h>
+> +#include <linux/ipv6.h>
+> +#include <linux/udp.h>
+>  
+>  #include "l2tp_core.h"
+>  
+> @@ -206,6 +209,46 @@ static void l2tp_eth_show(struct seq_file *m, void *arg)
+>  }
+>  #endif
+>  
+> +static void l2tp_eth_adjust_mtu(struct l2tp_tunnel *tunnel,
+> +				struct l2tp_session *session,
+> +				struct net_device *dev)
+> +{
+> +	unsigned int overhead = 0;
+> +	struct dst_entry *dst;
+> +
+> +	if (session->mtu != 0) {
+> +		dev->mtu = session->mtu;
+> +		dev->needed_headroom += session->hdr_len;
+> +		if (tunnel->encap == L2TP_ENCAPTYPE_UDP)
+> +			dev->needed_headroom += sizeof(struct udphdr);
+> +		return;
+> +	}
+> +	overhead = session->hdr_len;
+> +	/* Adjust MTU, factor overhead - underlay L3 hdr, overlay L2 hdr*/
+> +	if (tunnel->sock->sk_family == AF_INET)
+> +		overhead += (ETH_HLEN + sizeof(struct iphdr));
+> +	else if (tunnel->sock->sk_family == AF_INET6)
+> +		overhead += (ETH_HLEN + sizeof(struct ipv6hdr));
+What about options in the IP header? If certain options are set on the
+socket, the IP header may be larger.
 
-Just as a reminder, sorry to bother you, stating some obvious facts for
-both of us. We have public exchanges, so we also need to re-explain how
-things work.
-
-Queue selection on xmit happens before we hit the qdisc and its delays.
-
-So when you access txq->dql.num_completed_ops and
-txq->dql.num_enqueue_ops you can observe values that do not change for a
-while.
-
-Say a thread runs on a VM, and sends 2 packets P1, P2 on the same flow
-(skb_get_hash() returns the same value for these 2 packets)
-
-P1 is sent on behalf of CPU 1, we pickup queue txq1, and queue the
-packet on its qdisc . Transmit does not happen because of some
-constraints like rate limiting or scheduling constraints.
-
-P2 is sent on behalf of CPU 2, we pickup queue txq2, notice that prior
-packet chose txq1. We check txq1->dql and decide it is fine to use txq2,
-since the dql params of txq1 were not changed yet.
-
-( txq->dql.num_completed_ops == ent.queue_ptr )
-
-Note that in RFS case, we have the guarantee that we observe 'live
-queues' since they are the per cpu backlog.
-
-So input_queue_head_incr() and input_queue_tail_incr_save() are
-correctly doing the OOO prevention, because a queued packet immediately
-changes the state.
-
-So really your patch works if you have no qdisc, or a non congested
-qdisc. (Think if P1 is dropped by a full pfifo or pfifo_fast : We really
-want to avoid steering P2, P3, ..., PN on this full pfifo while maybe
-other txq are idle). Strange attractors are back (check commit
-9b462d02d6dd6 )
-
-You could avoid (ab)using BQL with a different method, grabbing
-skb->destructor for the packets that are socketless
-
-The hash table would simply track the sum of skb->truesize to allow flow
-migration. This would be self contained and not intrusive.
+> +	/* Additionally, if the encap is UDP, account for UDP header size */
+> +	if (tunnel->encap == L2TP_ENCAPTYPE_UDP)
+> +		overhead += sizeof(struct udphdr);
+> +	/* If PMTU discovery was enabled, use discovered MTU on L2TP device */
+> +	dst = sk_dst_get(tunnel->sock);
+> +	if (dst) {
+> +		u32 pmtu = dst_mtu(dst);
+> +
+> +		if (pmtu != 0)
+> +			dev->mtu = pmtu;
+> +		dst_release(dst);
+> +	}
+> +	/* else (no PMTUD) L2TP dev MTU defaulted to Ethernet MTU in caller */
+> +	session->mtu = dev->mtu - overhead;
+> +	dev->mtu = session->mtu;
+> +	dev->needed_headroom += session->hdr_len;
+> +	if (tunnel->encap == L2TP_ENCAPTYPE_UDP)
+> +		dev->needed_headroom += sizeof(struct udphdr);
+> +}
+> +
+>  static int l2tp_eth_create(struct net *net, u32 tunnel_id, u32 session_id, u32 peer_session_id, struct l2tp_session_cfg *cfg)
+>  {
+>  	struct net_device *dev;
+> @@ -255,11 +298,8 @@ static int l2tp_eth_create(struct net *net, u32 tunnel_id, u32 session_id, u32 p
+>  	}
+>  
+>  	dev_net_set(dev, net);
+> -	if (session->mtu == 0)
+> -		session->mtu = dev->mtu - session->hdr_len;
+> -	dev->mtu = session->mtu;
+> -	dev->needed_headroom += session->hdr_len;
+>  
+> +	l2tp_eth_adjust_mtu(tunnel, session, dev);
+>  	priv = netdev_priv(dev);
+>  	priv->dev = dev;
+>  	priv->session = session;
