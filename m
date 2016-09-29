@@ -1,70 +1,123 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 00/10] net: dsa: mv88e6xxx: Global (1) cosmetics
-Date: Thu, 29 Sep 2016 12:21:52 -0400
-Message-ID: <20160929162202.10685-1-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 07/10] net: dsa: mv88e6xxx: rename mv88e6xxx_ops
+Date: Thu, 29 Sep 2016 12:21:59 -0400
+Message-ID: <20160929162202.10685-8-vivien.didelot@savoirfairelinux.com>
+References: <20160929162202.10685-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
         Andrew Lunn <andrew@lunn.ch>,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:48781 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755602AbcI2QW2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 12:22:28 -0400
+In-Reply-To: <20160929162202.10685-1-vivien.didelot@savoirfairelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The Global (1) internal SMI device of Marvell switches is a set of
-registers providing support to different units for MAC addresses (ATU),
-VLANs (VTU), PHY polling (PPU), etc.
+The mv88e6xxx_ops is used to describe how to access the chip registers.
+It can be through SMI (via an MDIO bus), or via another interface such
+as crafted remote management frames.
 
-Chips (like 88E6060) may use a different address for it, or have
-subtleties in the units (e.g. different number of databases, changing
-how registers must be accessed), making it hard to maintain properly.
+The correct BUS operations structure is chosen at runtime, depending on
+the chip address and connectivity.
 
-This patchset is a first step to polish the Global (1) support, with no
-functional changes though. Here's basically what it does:
+We will need the mv88e6xxx_ops name for future chip-wide operation
+structure, thus rename mv88e6xxx_ops to more explicit mv88e6xxx_bus_ops.
 
-  - add helpers to access Global1 registers (same for Global2)
-  - remove a few family checks (VTU/STU FID registers)
-  - s/mv88e6xxx_vtu_stu_entry/mv88e6xxx_vtu_entry/
-  - add a per-chip mv88e6xxx_ops structure of function pointers:
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6xxx/chip.c      | 10 +++++-----
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  8 ++++----
+ 2 files changed, 9 insertions(+), 9 deletions(-)
 
-  struct mv88e6xxx_ops {
-        int (*get_eeprom)(struct mv88e6xxx_chip *chip,
-                          struct ethtool_eeprom *eeprom, u8 *data);
-        int (*set_eeprom)(struct mv88e6xxx_chip *chip,
-                          struct ethtool_eeprom *eeprom, u8 *data);
-
-        int (*set_switch_mac)(struct mv88e6xxx_chip *chip, u8 *addr);
-
-        int (*phy_read)(struct mv88e6xxx_chip *chip, int addr, int reg,
-                        u16 *val);
-        int (*phy_write)(struct mv88e6xxx_chip *chip, int addr, int reg,
-                         u16 val);
-  };
-
-Future patchsets will add ATU/VTU ops, software reset, etc.
-
-Vivien Didelot (10):
-  net: dsa: mv88e6xxx: add global1 helpers
-  net: dsa: mv88e6xxx: abstract REG_GLOBAL2
-  net: dsa: mv88e6xxx: add flags for FID registers
-  net: dsa: mv88e6xxx: expose mv88e6xxx_num_databases
-  net: dsa: mv88e6xxx: add mv88e6xxx_num_ports helper
-  net: dsa: mv88e6xxx: rename mv88e6xxx_vtu_stu_entry
-  net: dsa: mv88e6xxx: rename mv88e6xxx_ops
-  net: dsa: mv88e6xxx: add chip-wide ops
-  net: dsa: mv88e6xxx: add set_switch_mac to ops
-  net: dsa: mv88e6xxx: add eeprom ops
-
- drivers/net/dsa/mv88e6xxx/Makefile    |   1 +
- drivers/net/dsa/mv88e6xxx/chip.c      | 804 +++++++++++++++++++---------------
- drivers/net/dsa/mv88e6xxx/global1.c   |  34 ++
- drivers/net/dsa/mv88e6xxx/global1.h   |  23 +
- drivers/net/dsa/mv88e6xxx/global2.c   |  86 ++--
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 102 +++--
- 6 files changed, 607 insertions(+), 443 deletions(-)
- create mode 100644 drivers/net/dsa/mv88e6xxx/global1.c
- create mode 100644 drivers/net/dsa/mv88e6xxx/global1.h
-
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index d805661..ad31d3e 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -98,7 +98,7 @@ static int mv88e6xxx_smi_single_chip_write(struct mv88e6xxx_chip *chip,
+ 	return 0;
+ }
+ 
+-static const struct mv88e6xxx_ops mv88e6xxx_smi_single_chip_ops = {
++static const struct mv88e6xxx_bus_ops mv88e6xxx_smi_single_chip_ops = {
+ 	.read = mv88e6xxx_smi_single_chip_read,
+ 	.write = mv88e6xxx_smi_single_chip_write,
+ };
+@@ -180,7 +180,7 @@ static int mv88e6xxx_smi_multi_chip_write(struct mv88e6xxx_chip *chip,
+ 	return 0;
+ }
+ 
+-static const struct mv88e6xxx_ops mv88e6xxx_smi_multi_chip_ops = {
++static const struct mv88e6xxx_bus_ops mv88e6xxx_smi_multi_chip_ops = {
+ 	.read = mv88e6xxx_smi_multi_chip_read,
+ 	.write = mv88e6xxx_smi_multi_chip_write,
+ };
+@@ -515,7 +515,7 @@ static int mv88e6xxx_phy_ppu_write(struct mv88e6xxx_chip *chip, int addr,
+ 	return err;
+ }
+ 
+-static const struct mv88e6xxx_ops mv88e6xxx_phy_ppu_ops = {
++static const struct mv88e6xxx_bus_ops mv88e6xxx_phy_ppu_ops = {
+ 	.read = mv88e6xxx_phy_ppu_read,
+ 	.write = mv88e6xxx_phy_ppu_write,
+ };
+@@ -3479,12 +3479,12 @@ static struct mv88e6xxx_chip *mv88e6xxx_alloc_chip(struct device *dev)
+ 	return chip;
+ }
+ 
+-static const struct mv88e6xxx_ops mv88e6xxx_g2_smi_phy_ops = {
++static const struct mv88e6xxx_bus_ops mv88e6xxx_g2_smi_phy_ops = {
+ 	.read = mv88e6xxx_g2_smi_phy_read,
+ 	.write = mv88e6xxx_g2_smi_phy_write,
+ };
+ 
+-static const struct mv88e6xxx_ops mv88e6xxx_phy_ops = {
++static const struct mv88e6xxx_bus_ops mv88e6xxx_phy_ops = {
+ 	.read = mv88e6xxx_read,
+ 	.write = mv88e6xxx_write,
+ };
+diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+index ee7873a..b9ef769 100644
+--- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+@@ -648,7 +648,7 @@ struct mv88e6xxx_vtu_entry {
+ 	u8	data[DSA_MAX_PORTS];
+ };
+ 
+-struct mv88e6xxx_ops;
++struct mv88e6xxx_bus_ops;
+ 
+ struct mv88e6xxx_priv_port {
+ 	struct net_device *bridge_dev;
+@@ -669,14 +669,14 @@ struct mv88e6xxx_chip {
+ 	/* The MII bus and the address on the bus that is used to
+ 	 * communication with the switch
+ 	 */
+-	const struct mv88e6xxx_ops *smi_ops;
++	const struct mv88e6xxx_bus_ops *smi_ops;
+ 	struct mii_bus *bus;
+ 	int sw_addr;
+ 
+ 	/* Handles automatic disabling and re-enabling of the PHY
+ 	 * polling unit.
+ 	 */
+-	const struct mv88e6xxx_ops *phy_ops;
++	const struct mv88e6xxx_bus_ops *phy_ops;
+ 	struct mutex		ppu_mutex;
+ 	int			ppu_disabled;
+ 	struct work_struct	ppu_work;
+@@ -705,7 +705,7 @@ struct mv88e6xxx_chip {
+ 	struct mii_bus *mdio_bus;
+ };
+ 
+-struct mv88e6xxx_ops {
++struct mv88e6xxx_bus_ops {
+ 	int (*read)(struct mv88e6xxx_chip *chip, int addr, int reg, u16 *val);
+ 	int (*write)(struct mv88e6xxx_chip *chip, int addr, int reg, u16 val);
+ };
 -- 
 2.10.0
