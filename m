@@ -1,108 +1,82 @@
-From: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: [PATCH] ipv6 addrconf: remove addrconf_sysctl_hop_limit()
-Date: Thu, 29 Sep 2016 00:33:43 -0700
-Message-ID: <1475134423-23635-1-git-send-email-zenczykowski@gmail.com>
+From: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next v3 2/3] udp: implement memory accounting helpers
+Date: Thu, 29 Sep 2016 09:34:42 +0200
+Message-ID: <1475134482.4676.11.camel@redhat.com>
+References: <cover.1475048434.git.pabeni@redhat.com>
+         <6f445861ef2ce2e626a1df4946bc3f43f3d43e3f.1475048434.git.pabeni@redhat.com>
+         <1475113378.28155.124.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, Erik Kline <ek@google.com>,
-        Lorenzo Colitti <lorenzo@google.com>
-To: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
-        "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:36616 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754816AbcI2HeB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 03:34:01 -0400
-Received: by mail-pf0-f195.google.com with SMTP id n24so3192536pfb.3
-        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 00:34:00 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
+        Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+        Alexander Duyck <aduyck-nYU0QVwCCFFWk0Htik3J/w@public.gmane.org>,
+        Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
+        Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+        Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1475113378.28155.124.camel-XN9IlZ5yJG9HTL0Zs8A6p+yfmBU6pStAUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Maciej Żenczykowski <maze@google.com>
+Hi Eric,
 
-This is an effective no-op in terms of user observable behaviour.
+On Wed, 2016-09-28 at 18:42 -0700, Eric Dumazet wrote:
+> On Wed, 2016-09-28 at 12:52 +0200, Paolo Abeni wrote:
+> 
+> > +static void udp_rmem_release(struct sock *sk, int partial)
+> > +{
+> > +	struct udp_sock *up = udp_sk(sk);
+> > +	int fwd, amt;
+> > +
+> > +	if (partial && !udp_under_memory_pressure(sk))
+> > +		return;
+> > +
+> > +	/* we can have concurrent release; if we catch any conflict
+> > +	 * we let only one of them do the work
+> > +	 */
+> > +	if (atomic_dec_if_positive(&up->can_reclaim) < 0)
+> > +		return;
+> > +
+> > +	fwd = __udp_forward(up, atomic_read(&sk->sk_rmem_alloc));
+> > +	if (fwd < SK_MEM_QUANTUM + partial) {
+> > +		atomic_inc(&up->can_reclaim);
+> > +		return;
+> > +	}
+> > +
+> > +	amt = (fwd - partial) & ~(SK_MEM_QUANTUM - 1);
+> > +	atomic_sub(amt, &up->mem_allocated);
+> > +	atomic_inc(&up->can_reclaim);
+> > +
+> > +	__sk_mem_reduce_allocated(sk, amt >> SK_MEM_QUANTUM_SHIFT);
+> > +	sk->sk_forward_alloc = fwd - amt;
+> > +}
 
-By preventing the overwrite of non-null extra1/extra2 fields
-in addrconf_sysctl() we can enable the use of proc_dointvec_minmax().
+Thank you for reviewing this!
 
-This allows us to eliminate the constant min/max (1..255) trampoline
-function that is addrconf_sysctl_hop_limit().
+> This is racy... 
 
-This is nice because it simplifies the code, and allows future
-sysctls with constant min/max limits to also not require trampolines.
+Could you please elaborate? 
 
-We still can't eliminate the trampoline for mtu because it isn't
-actually a constant (it depends on other tunables of the device)
-and thus requires at-write-time logic to enforce range.
+> all these atomics make me nervous...
 
-Signed-off-by: Maciej Żenczykowski <maze@google.com>
----
- net/ipv6/addrconf.c | 31 ++++++++++++++-----------------
- 1 file changed, 14 insertions(+), 17 deletions(-)
+I'd like to drop some of them if possible.
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 2f1f5d439788..8bd2d06eefe7 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -5467,20 +5467,6 @@ int addrconf_sysctl_forward(struct ctl_table *ctl, int write,
- }
- 
- static
--int addrconf_sysctl_hop_limit(struct ctl_table *ctl, int write,
--                              void __user *buffer, size_t *lenp, loff_t *ppos)
--{
--	struct ctl_table lctl;
--	int min_hl = 1, max_hl = 255;
--
--	lctl = *ctl;
--	lctl.extra1 = &min_hl;
--	lctl.extra2 = &max_hl;
--
--	return proc_dointvec_minmax(&lctl, write, buffer, lenp, ppos);
--}
--
--static
- int addrconf_sysctl_mtu(struct ctl_table *ctl, int write,
- 			void __user *buffer, size_t *lenp, loff_t *ppos)
- {
-@@ -5713,6 +5699,9 @@ int addrconf_sysctl_ignore_routes_with_linkdown(struct ctl_table *ctl,
- 	return ret;
- }
- 
-+static const int one = 1;
-+static const int two_five_five = 255;
-+
- static const struct ctl_table addrconf_sysctl[] = {
- 	{
- 		.procname	= "forwarding",
-@@ -5726,7 +5715,9 @@ static const struct ctl_table addrconf_sysctl[] = {
- 		.data		= &ipv6_devconf.hop_limit,
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
--		.proc_handler	= addrconf_sysctl_hop_limit,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= (void *)&one,
-+		.extra2		= (void *)&two_five_five,
- 	},
- 	{
- 		.procname	= "mtu",
-@@ -6044,8 +6035,14 @@ static int __addrconf_sysctl_register(struct net *net, char *dev_name,
- 
- 	for (i = 0; table[i].data; i++) {
- 		table[i].data += (char *)p - (char *)&ipv6_devconf;
--		table[i].extra1 = idev; /* embedded; no ref */
--		table[i].extra2 = net;
-+		/* If one of these is already set, then it is not safe to
-+		 * overwrite either of them: this makes proc_dointvec_minmax
-+		 * usable.
-+		 */
-+		if (!table[i].extra1 && !table[i].extra2) {
-+			table[i].extra1 = idev; /* embedded; no ref */
-+			table[i].extra2 = net;
-+		}
- 	}
- 
- 	snprintf(path, sizeof(path), "net/ipv6/conf/%s", dev_name);
--- 
-2.8.0.rc3.226.g39d4020
+atomic_inc(&up->can_reclaim);
+
+could probably be replaced with atomic_set(&up->can_reclaim, 1) since we
+don't have concurrent processes doing that and can_reclaim.counter is
+known to be 0 at that point.
+Performance wise the impact is minimal, since in normal condition we do
+the reclaim only on socket shutdown.
+
+Paolo
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
