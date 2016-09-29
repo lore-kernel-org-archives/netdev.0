@@ -1,95 +1,138 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next 4/5] xps_flows: XPS for packets that don't
- have a socket
-Date: Thu, 29 Sep 2016 06:18:00 -0700
-Message-ID: <1475155080.28155.159.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160929035428.204355-1-tom@herbertland.com>
-         <20160929035428.204355-5-tom@herbertland.com>
-         <1475124851.28155.135.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CALx6S36FsjSioksB+O7Lp7-7PcC8iMc9LWqWiFr8RzFJ=GkKGQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next v3 2/3] udp: implement memory accounting helpers
+Date: Thu, 29 Sep 2016 06:24:32 -0700
+Message-ID: <1475155472.28155.164.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <cover.1475048434.git.pabeni@redhat.com>
+         <6f445861ef2ce2e626a1df4946bc3f43f3d43e3f.1475048434.git.pabeni@redhat.com>
+         <1475113378.28155.124.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1475141514.4676.28.camel@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Kernel Team <kernel-team@fb.com>,
-        Rick Jones <rick.jones2@hpe.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:34200 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752596AbcI2NSd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 09:18:33 -0400
-Received: by mail-pf0-f196.google.com with SMTP id 21so3607302pfy.1
-        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 06:18:04 -0700 (PDT)
-In-Reply-To: <CALx6S36FsjSioksB+O7Lp7-7PcC8iMc9LWqWiFr8RzFJ=GkKGQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
+        Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+        Alexander Duyck <aduyck-nYU0QVwCCFFWk0Htik3J/w@public.gmane.org>,
+        Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
+        Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+        Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1475141514.4676.28.camel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-09-29 at 08:53 -0400, Tom Herbert wrote:
-> On Thu, Sep 29, 2016 at 12:54 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > On Wed, 2016-09-28 at 20:54 -0700, Tom Herbert wrote:
-> >> xps_flows maintains a per device flow table that is indexed by the
-> >> skbuff hash. The table is only consulted when there is no queue saved in
-> >> a transmit socket for an skbuff.
-> >>
-> >> Each entry in the flow table contains a queue index and a queue
-> >> pointer. The queue pointer is set when a queue is chosen using a
-> >> flow table entry. This pointer is set to the head pointer in the
-> >> transmit queue (which is maintained by BQL).
-> >>
-> >> The new function get_xps_flows_index that looks up flows in the
-> >> xps_flows table. The entry returned gives the last queue a matching flow
-> >> used. The returned queue is compared against the normal XPS queue. If
-> >> they are different, then we only switch if the tail pointer in the TX
-> >> queue has advanced past the pointer saved in the entry. In this
-> >> way OOO should be avoided when XPS wants to use a different queue.
-> >
-> > There is something I do not understand with this.
-> >
-> > If this OOO avoidance is tied to BQL, it means that packets sitting in a
-> > qdisc wont be part of the detection.
-> >
-> > So packets of flow X could possibly be queued on multiple qdiscs.
-> >
-> Hi Eric,
+On Thu, 2016-09-29 at 11:31 +0200, Paolo Abeni wrote:
+> On Wed, 2016-09-28 at 18:42 -0700, Eric Dumazet wrote:
+> > On Wed, 2016-09-28 at 12:52 +0200, Paolo Abeni wrote:
+> > 
+> > > +static void udp_rmem_release(struct sock *sk, int partial)
+> > > +{
+> > > +	struct udp_sock *up = udp_sk(sk);
+> > > +	int fwd, amt;
+> > > +
+> > > +	if (partial && !udp_under_memory_pressure(sk))
+> > > +		return;
+> > > +
+> > > +	/* we can have concurrent release; if we catch any conflict
+> > > +	 * we let only one of them do the work
+> > > +	 */
+> > > +	if (atomic_dec_if_positive(&up->can_reclaim) < 0)
+> > > +		return;
+> > > +
+> > > +	fwd = __udp_forward(up, atomic_read(&sk->sk_rmem_alloc));
+> > > +	if (fwd < SK_MEM_QUANTUM + partial) {
+> > > +		atomic_inc(&up->can_reclaim);
+> > > +		return;
+> > > +	}
+> > > +
+> > > +	amt = (fwd - partial) & ~(SK_MEM_QUANTUM - 1);
+> > > +	atomic_sub(amt, &up->mem_allocated);
+> > > +	atomic_inc(&up->can_reclaim);
+> > > +
+> > > +	__sk_mem_reduce_allocated(sk, amt >> SK_MEM_QUANTUM_SHIFT);
+> > > +	sk->sk_forward_alloc = fwd - amt;
+> > > +}
+> > 
+> > 
+> > This is racy... all these atomics make me nervous...
 > 
-> I'm not sure I understand your concern. If packets for flow X can be
-> queued on multiple qdiscs wouldn't that mean that flow will be subject
-> to ooo transmission regardless of this patch? In other words here
-> we're trying to keep packets for the flow in order as they are emitted
-> from the qdiscs which we assume maintains ordering of packets in a
-> flow.
+> Ah, perhaps I got it: if we have a concurrent memory scheduling, we
+> could end up with a value of mem_allocated below the real need. 
+> 
+> That mismatch will not drift: at worst we can end up with mem_allocated
+> being single SK_MEM_QUANTUM below what is strictly needed.
+> 
+> A possible alternative could be:
+> 
+> static void udp_rmem_release(struct sock *sk, int partial)
+> {
+> 	struct udp_sock *up = udp_sk(sk);
+> 	int fwd, amt, alloc_old, alloc;
+> 
+> 	if (partial && !udp_under_memory_pressure(sk))
+> 		return;
+> 
+> 	alloc = atomic_read(&up->mem_allocated);
+> 	fwd = alloc - atomic_read(&sk->sk_rmem_alloc);
+> 	if (fwd < SK_MEM_QUANTUM + partial)
+> 		return;
+> 
+> 	amt = (fwd - partial) & ~(SK_MEM_QUANTUM - 1);
+> 	alloc_old = atomic_cmpxchg(&up->mem_allocated, alloc, alloc - amt);
+> 	/* if a concurrent update is detected, just do nothing; if said update
+> 	 * is due to another memory release, that release take care of
+> 	 * reclaiming the memory for us, too.
+> 	 * Otherwise we will be able to release on later dequeue, since
+> 	 * we will eventually stop colliding with the writer when it will
+> 	 * consume all the fwd allocated memory
+> 	 */
+> 	if (alloc_old != alloc)
+> 		return;
+> 
+> 	__sk_mem_reduce_allocated(sk, amt >> SK_MEM_QUANTUM_SHIFT);
+> 	sk->sk_forward_alloc = fwd - amt;
 
-Well, then what this patch series is solving ?
+Can still be done from multiple cpus.
 
-You have a producer of packets running on 8 vcpus in a VM.
+Add some ndelay() or udelay() before to simulate fact that current cpu
+could be interrupted by an NMI handler (perf for example)... or hard IRQ
+handler...
 
-Packets are exiting the VM and need to be queued on a mq NIC in the
-hypervisor.
+Then make sure your tests involve 16 concurrent cpus dealing with one
+udp socket...
 
-Flow X can be scheduled on any of these 8 vcpus, so XPS is currently
-selecting different TXQ.
-
-Your patch aims to detect this and steer packets to one TXQ, but not
-using a static hash() % num_real_queues (as RSS would have done on a NIC
-at RX), but trying to please XPS (as : selecting a queue close to the
-CPU producing the packet. VM with one vcpu, and cpu bounded, would
-really be happy to not spread packets all over the queues)
-
-Your mechanism relies on counters updated at the time packets are given
-to the NIC, not at the time packets are given to the txq (and eventually
-sit for a while in the qdisc right before BQL layer)
-
-dev_queue_xmit() is not talking to the device directly...
+> }
+> 
+> which is even more lazy in reclaiming but should never underestimate the
+> needed forward allocation, and under pressure should eventually free the
+> needed memory.
 
 
-All I am saying is that the producer/consumer counters you added are not
-at the right place.
+If this code is rarely used, why don't you simply use a real spinlock,
+so that we do not have to worry about all this ?
 
-You tried hard to not change the drivers, by adding something to
-existing BQL. But packets can sit in a qdisc for a while...
+A spinlock  acquisition/release is a _single_ locked operation.
+Faster than the 3 atomic you got in last version.
+spinlock code (ticket or MCS) avoids starvation.
 
-So you added 2 potential cache lines misses per outgoing packet, but
-with no guarantee that OOO are really avoided.
+Then, you can safely update multiple fields in the socket.
+
+And you get nice lockdep support as a bonus.
+
+cmpxchg() is fine when a single field need an exclusion. But there you
+have multiple fields to update at once :
+
+sk_memory_allocated_add() and sk_memory_allocated_sub() can work using 
+atomic_long_add_return() and atomic_long_sub() because their caller owns
+the socket lock and can safely update sk->sk_forward_alloc without
+additional locking, but UDP wont have this luxury after your patches.
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
