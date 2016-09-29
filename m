@@ -1,113 +1,48 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v2 net-next 4/5] xps_flows: XPS for packets that don't
- have a socket
-Date: Thu, 29 Sep 2016 10:08:14 -0400
-Message-ID: <CALx6S344d16SVhO+FhXpyL09k4vSuv45F-bff-nMeqS4H=p+tw@mail.gmail.com>
-References: <20160929035428.204355-1-tom@herbertland.com> <20160929035428.204355-5-tom@herbertland.com>
- <1475124851.28155.135.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALx6S36FsjSioksB+O7Lp7-7PcC8iMc9LWqWiFr8RzFJ=GkKGQ@mail.gmail.com> <1475155080.28155.159.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next v3 2/3] udp: implement memory accounting helpers
+Date: Thu, 29 Sep 2016 07:13:28 -0700
+Message-ID: <1475158408.28155.166.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <cover.1475048434.git.pabeni@redhat.com>
+         <6f445861ef2ce2e626a1df4946bc3f43f3d43e3f.1475048434.git.pabeni@redhat.com>
+         <1475113378.28155.124.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1475141514.4676.28.camel@redhat.com>
+         <1475155472.28155.164.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1475157674.4676.52.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Kernel Team <kernel-team@fb.com>,
-        Rick Jones <rick.jones2@hpe.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f176.google.com ([209.85.220.176]:35129 "EHLO
-        mail-qk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753571AbcI2OIQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 10:08:16 -0400
-Received: by mail-qk0-f176.google.com with SMTP id t7so78164551qkh.2
-        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 07:08:15 -0700 (PDT)
-In-Reply-To: <1475155080.28155.159.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
+        Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+        Alexander Duyck <aduyck-nYU0QVwCCFFWk0Htik3J/w@public.gmane.org>,
+        Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
+        Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+        Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1475157674.4676.52.camel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 29, 2016 at 9:18 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2016-09-29 at 08:53 -0400, Tom Herbert wrote:
->> On Thu, Sep 29, 2016 at 12:54 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> > On Wed, 2016-09-28 at 20:54 -0700, Tom Herbert wrote:
->> >> xps_flows maintains a per device flow table that is indexed by the
->> >> skbuff hash. The table is only consulted when there is no queue saved in
->> >> a transmit socket for an skbuff.
->> >>
->> >> Each entry in the flow table contains a queue index and a queue
->> >> pointer. The queue pointer is set when a queue is chosen using a
->> >> flow table entry. This pointer is set to the head pointer in the
->> >> transmit queue (which is maintained by BQL).
->> >>
->> >> The new function get_xps_flows_index that looks up flows in the
->> >> xps_flows table. The entry returned gives the last queue a matching flow
->> >> used. The returned queue is compared against the normal XPS queue. If
->> >> they are different, then we only switch if the tail pointer in the TX
->> >> queue has advanced past the pointer saved in the entry. In this
->> >> way OOO should be avoided when XPS wants to use a different queue.
->> >
->> > There is something I do not understand with this.
->> >
->> > If this OOO avoidance is tied to BQL, it means that packets sitting in a
->> > qdisc wont be part of the detection.
->> >
->> > So packets of flow X could possibly be queued on multiple qdiscs.
->> >
->> Hi Eric,
->>
->> I'm not sure I understand your concern. If packets for flow X can be
->> queued on multiple qdiscs wouldn't that mean that flow will be subject
->> to ooo transmission regardless of this patch? In other words here
->> we're trying to keep packets for the flow in order as they are emitted
->> from the qdiscs which we assume maintains ordering of packets in a
->> flow.
->
-> Well, then what this patch series is solving ?
->
-It addresses  the issue that Rick Jones pointed out was happening with
-XPS. When packets are sent for a flow that has no socket and XPS is
-enabled then each packet uses the XPS queue based on the running CPU.
-Since the thread sending on a flow can be rescheduled on different
-CPUs this is creating ooo packets. In this case the ooo is being
-caused by interaction with XPS.
+On Thu, 2016-09-29 at 16:01 +0200, Paolo Abeni wrote:
 
-> You have a producer of packets running on 8 vcpus in a VM.
->
-> Packets are exiting the VM and need to be queued on a mq NIC in the
-> hypervisor.
->
-> Flow X can be scheduled on any of these 8 vcpus, so XPS is currently
-> selecting different TXQ.
->
-> Your patch aims to detect this and steer packets to one TXQ, but not
-> using a static hash() % num_real_queues (as RSS would have done on a NIC
-> at RX), but trying to please XPS (as : selecting a queue close to the
-> CPU producing the packet. VM with one vcpu, and cpu bounded, would
-> really be happy to not spread packets all over the queues)
->
-You're not describing this patch, you're describing how XPS works in
-the first place. This patch is done to make socketless packets work
-well with XPS. If all you want is a static hash() % num_real_queues
-then just disable XPS to get that.
+> When we reach __sk_mem_reduce_allocated() we are sure we can free the
+> specified amount of memory, so we only need to ensure consistent
+> sk_prot->memory_allocated updates. The current atomic operation suffices
+> to this.
 
-> Your mechanism relies on counters updated at the time packets are given
-> to the NIC, not at the time packets are given to the txq (and eventually
-> sit for a while in the qdisc right before BQL layer)
->
-> dev_queue_xmit() is not talking to the device directly...
->
->
-> All I am saying is that the producer/consumer counters you added are not
-> at the right place.
->
-> You tried hard to not change the drivers, by adding something to
-> existing BQL. But packets can sit in a qdisc for a while...
->
-But again, this patch is to prevent ooo being caused by an interaction
-with XPS. It does not address ooo being caused by qdiscs or VMs, but
-then I don't see that as being the issue reported by Rick.
+Then why are you updating sk->sk_forward_alloc using racy operations ?
 
-> So you added 2 potential cache lines misses per outgoing packet, but
-> with no guarantee that OOO are really avoided.
->
->
->
+If this is not needed or racy, do not do it.
+
+So that we can remove this annoying thing that a dynamic checker could
+very well detect.
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
