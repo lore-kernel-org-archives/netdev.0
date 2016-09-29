@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 06/10] net: dsa: mv88e6xxx: rename mv88e6xxx_vtu_stu_entry
-Date: Thu, 29 Sep 2016 12:21:58 -0400
-Message-ID: <20160929162202.10685-7-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 10/10] net: dsa: mv88e6xxx: add eeprom ops
+Date: Thu, 29 Sep 2016 12:22:02 -0400
+Message-ID: <20160929162202.10685-11-vivien.didelot@savoirfairelinux.com>
 References: <20160929162202.10685-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,222 +14,180 @@ In-Reply-To: <20160929162202.10685-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The STU (if the switch has one) is abstracted and accessed through the
-VTU operations and data registers.
-
-Thus rename the mv88e6xxx_vtu_stu_entry struct to mv88e6xxx_vtu_entry.
+Remove EEPROM flags in favor of new {get,set}_eeprom chip-wide
+functions in the mv88e6xxx_ops structure.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c      | 46 +++++++++++++++++------------------
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  5 +---
- 2 files changed, 24 insertions(+), 27 deletions(-)
+ drivers/net/dsa/mv88e6xxx/chip.c      | 34 +++++++++++++++++++++-------------
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 16 +++++-----------
+ 2 files changed, 26 insertions(+), 24 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 9056d9e..d805661 100644
+index e40b71b..883fd98 100644
 --- a/drivers/net/dsa/mv88e6xxx/chip.c
 +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -1265,7 +1265,7 @@ static int _mv88e6xxx_vtu_stu_flush(struct mv88e6xxx_chip *chip)
- }
- 
- static int _mv88e6xxx_vtu_stu_data_read(struct mv88e6xxx_chip *chip,
--					struct mv88e6xxx_vtu_stu_entry *entry,
-+					struct mv88e6xxx_vtu_entry *entry,
- 					unsigned int nibble_offset)
- {
- 	u16 regs[3];
-@@ -1290,19 +1290,19 @@ static int _mv88e6xxx_vtu_stu_data_read(struct mv88e6xxx_chip *chip,
- }
- 
- static int mv88e6xxx_vtu_data_read(struct mv88e6xxx_chip *chip,
--				   struct mv88e6xxx_vtu_stu_entry *entry)
-+				   struct mv88e6xxx_vtu_entry *entry)
- {
- 	return _mv88e6xxx_vtu_stu_data_read(chip, entry, 0);
- }
- 
- static int mv88e6xxx_stu_data_read(struct mv88e6xxx_chip *chip,
--				   struct mv88e6xxx_vtu_stu_entry *entry)
-+				   struct mv88e6xxx_vtu_entry *entry)
- {
- 	return _mv88e6xxx_vtu_stu_data_read(chip, entry, 2);
- }
- 
- static int _mv88e6xxx_vtu_stu_data_write(struct mv88e6xxx_chip *chip,
--					 struct mv88e6xxx_vtu_stu_entry *entry,
-+					 struct mv88e6xxx_vtu_entry *entry,
- 					 unsigned int nibble_offset)
- {
- 	u16 regs[3] = { 0 };
-@@ -1327,13 +1327,13 @@ static int _mv88e6xxx_vtu_stu_data_write(struct mv88e6xxx_chip *chip,
- }
- 
- static int mv88e6xxx_vtu_data_write(struct mv88e6xxx_chip *chip,
--				    struct mv88e6xxx_vtu_stu_entry *entry)
-+				    struct mv88e6xxx_vtu_entry *entry)
- {
- 	return _mv88e6xxx_vtu_stu_data_write(chip, entry, 0);
- }
- 
- static int mv88e6xxx_stu_data_write(struct mv88e6xxx_chip *chip,
--				    struct mv88e6xxx_vtu_stu_entry *entry)
-+				    struct mv88e6xxx_vtu_entry *entry)
- {
- 	return _mv88e6xxx_vtu_stu_data_write(chip, entry, 2);
- }
-@@ -1345,9 +1345,9 @@ static int _mv88e6xxx_vtu_vid_write(struct mv88e6xxx_chip *chip, u16 vid)
- }
- 
- static int _mv88e6xxx_vtu_getnext(struct mv88e6xxx_chip *chip,
--				  struct mv88e6xxx_vtu_stu_entry *entry)
-+				  struct mv88e6xxx_vtu_entry *entry)
- {
--	struct mv88e6xxx_vtu_stu_entry next = { 0 };
-+	struct mv88e6xxx_vtu_entry next = { 0 };
- 	u16 val;
- 	int err;
- 
-@@ -1407,7 +1407,7 @@ static int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, int port,
- 				    int (*cb)(struct switchdev_obj *obj))
- {
+@@ -3168,13 +3168,11 @@ static int mv88e6xxx_get_eeprom(struct dsa_switch *ds,
  	struct mv88e6xxx_chip *chip = ds->priv;
--	struct mv88e6xxx_vtu_stu_entry next;
-+	struct mv88e6xxx_vtu_entry next;
- 	u16 pvid;
  	int err;
  
-@@ -1458,7 +1458,7 @@ unlock:
- }
++	if (!chip->info->ops->get_eeprom)
++		return -EOPNOTSUPP;
++
+ 	mutex_lock(&chip->reg_lock);
+-
+-	if (mv88e6xxx_has(chip, MV88E6XXX_FLAGS_EEPROM16))
+-		err = mv88e6xxx_g2_get_eeprom16(chip, eeprom, data);
+-	else
+-		err = -EOPNOTSUPP;
+-
++	err = chip->info->ops->get_eeprom(chip, eeprom, data);
+ 	mutex_unlock(&chip->reg_lock);
  
- static int _mv88e6xxx_vtu_loadpurge(struct mv88e6xxx_chip *chip,
--				    struct mv88e6xxx_vtu_stu_entry *entry)
-+				    struct mv88e6xxx_vtu_entry *entry)
- {
- 	u16 op = GLOBAL_VTU_OP_VTU_LOAD_PURGE;
- 	u16 reg = 0;
-@@ -1507,9 +1507,9 @@ loadpurge:
- }
- 
- static int _mv88e6xxx_stu_getnext(struct mv88e6xxx_chip *chip, u8 sid,
--				  struct mv88e6xxx_vtu_stu_entry *entry)
-+				  struct mv88e6xxx_vtu_entry *entry)
- {
--	struct mv88e6xxx_vtu_stu_entry next = { 0 };
-+	struct mv88e6xxx_vtu_entry next = { 0 };
- 	u16 val;
- 	int err;
- 
-@@ -1549,7 +1549,7 @@ static int _mv88e6xxx_stu_getnext(struct mv88e6xxx_chip *chip, u8 sid,
- }
- 
- static int _mv88e6xxx_stu_loadpurge(struct mv88e6xxx_chip *chip,
--				    struct mv88e6xxx_vtu_stu_entry *entry)
-+				    struct mv88e6xxx_vtu_entry *entry)
- {
- 	u16 reg = 0;
- 	int err;
-@@ -1652,7 +1652,7 @@ static int _mv88e6xxx_port_fid_set(struct mv88e6xxx_chip *chip,
- static int _mv88e6xxx_fid_new(struct mv88e6xxx_chip *chip, u16 *fid)
- {
- 	DECLARE_BITMAP(fid_bitmap, MV88E6XXX_N_FID);
--	struct mv88e6xxx_vtu_stu_entry vlan;
-+	struct mv88e6xxx_vtu_entry vlan;
- 	int i, err;
- 
- 	bitmap_zero(fid_bitmap, MV88E6XXX_N_FID);
-@@ -1694,10 +1694,10 @@ static int _mv88e6xxx_fid_new(struct mv88e6xxx_chip *chip, u16 *fid)
- }
- 
- static int _mv88e6xxx_vtu_new(struct mv88e6xxx_chip *chip, u16 vid,
--			      struct mv88e6xxx_vtu_stu_entry *entry)
-+			      struct mv88e6xxx_vtu_entry *entry)
- {
- 	struct dsa_switch *ds = chip->ds;
--	struct mv88e6xxx_vtu_stu_entry vlan = {
-+	struct mv88e6xxx_vtu_entry vlan = {
- 		.valid = true,
- 		.vid = vid,
- 	};
-@@ -1715,7 +1715,7 @@ static int _mv88e6xxx_vtu_new(struct mv88e6xxx_chip *chip, u16 vid,
- 
- 	if (mv88e6xxx_6097_family(chip) || mv88e6xxx_6165_family(chip) ||
- 	    mv88e6xxx_6351_family(chip) || mv88e6xxx_6352_family(chip)) {
--		struct mv88e6xxx_vtu_stu_entry vstp;
-+		struct mv88e6xxx_vtu_entry vstp;
- 
- 		/* Adding a VTU entry requires a valid STU entry. As VSTP is not
- 		 * implemented, only one STU entry is needed to cover all VTU
-@@ -1742,7 +1742,7 @@ static int _mv88e6xxx_vtu_new(struct mv88e6xxx_chip *chip, u16 vid,
- }
- 
- static int _mv88e6xxx_vtu_get(struct mv88e6xxx_chip *chip, u16 vid,
--			      struct mv88e6xxx_vtu_stu_entry *entry, bool creat)
-+			      struct mv88e6xxx_vtu_entry *entry, bool creat)
- {
- 	int err;
- 
-@@ -1774,7 +1774,7 @@ static int mv88e6xxx_port_check_hw_vlan(struct dsa_switch *ds, int port,
- 					u16 vid_begin, u16 vid_end)
- {
+ 	if (err)
+@@ -3191,16 +3189,14 @@ static int mv88e6xxx_set_eeprom(struct dsa_switch *ds,
  	struct mv88e6xxx_chip *chip = ds->priv;
--	struct mv88e6xxx_vtu_stu_entry vlan;
-+	struct mv88e6xxx_vtu_entry vlan;
- 	int i, err;
- 
- 	if (!vid_begin)
-@@ -1899,7 +1899,7 @@ mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, int port,
- static int _mv88e6xxx_port_vlan_add(struct mv88e6xxx_chip *chip, int port,
- 				    u16 vid, bool untagged)
- {
--	struct mv88e6xxx_vtu_stu_entry vlan;
-+	struct mv88e6xxx_vtu_entry vlan;
  	int err;
  
- 	err = _mv88e6xxx_vtu_get(chip, vid, &vlan, true);
-@@ -1944,7 +1944,7 @@ static int _mv88e6xxx_port_vlan_del(struct mv88e6xxx_chip *chip,
- 				    int port, u16 vid)
- {
- 	struct dsa_switch *ds = chip->ds;
--	struct mv88e6xxx_vtu_stu_entry vlan;
-+	struct mv88e6xxx_vtu_entry vlan;
- 	int i, err;
++	if (!chip->info->ops->set_eeprom)
++		return -EOPNOTSUPP;
++
+ 	if (eeprom->magic != 0xc3ec4951)
+ 		return -EINVAL;
  
- 	err = _mv88e6xxx_vtu_get(chip, vid, &vlan, false);
-@@ -2103,7 +2103,7 @@ static int mv88e6xxx_port_db_load_purge(struct mv88e6xxx_chip *chip, int port,
- 					const unsigned char *addr, u16 vid,
- 					u8 state)
- {
--	struct mv88e6xxx_vtu_stu_entry vlan;
-+	struct mv88e6xxx_vtu_entry vlan;
- 	struct mv88e6xxx_atu_entry entry;
- 	int err;
+ 	mutex_lock(&chip->reg_lock);
+-
+-	if (mv88e6xxx_has(chip, MV88E6XXX_FLAGS_EEPROM16))
+-		err = mv88e6xxx_g2_set_eeprom16(chip, eeprom, data);
+-	else
+-		err = -EOPNOTSUPP;
+-
++	err = chip->info->ops->set_eeprom(chip, eeprom, data);
+ 	mutex_unlock(&chip->reg_lock);
  
-@@ -2278,7 +2278,7 @@ static int mv88e6xxx_port_db_dump(struct mv88e6xxx_chip *chip, int port,
- 				  struct switchdev_obj *obj,
- 				  int (*cb)(struct switchdev_obj *obj))
- {
--	struct mv88e6xxx_vtu_stu_entry vlan = {
-+	struct mv88e6xxx_vtu_entry vlan = {
- 		.vid = GLOBAL_VTU_VID_MASK, /* all ones */
- 	};
- 	u16 fid;
-diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-index cf639ed..ee7873a 100644
---- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-@@ -640,12 +640,9 @@ struct mv88e6xxx_atu_entry {
- 	u8	mac[ETH_ALEN];
+ 	return err;
+@@ -3249,6 +3245,8 @@ static const struct mv88e6xxx_ops mv88e6171_ops = {
  };
  
--struct mv88e6xxx_vtu_stu_entry {
--	/* VTU only */
-+struct mv88e6xxx_vtu_entry {
- 	u16	vid;
- 	u16	fid;
+ static const struct mv88e6xxx_ops mv88e6172_ops = {
++	.get_eeprom = mv88e6xxx_g2_get_eeprom16,
++	.set_eeprom = mv88e6xxx_g2_set_eeprom16,
+ 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
+ 	.phy_read = mv88e6xxx_g2_smi_phy_read,
+ 	.phy_write = mv88e6xxx_g2_smi_phy_write,
+@@ -3261,6 +3259,8 @@ static const struct mv88e6xxx_ops mv88e6175_ops = {
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6176_ops = {
++	.get_eeprom = mv88e6xxx_g2_get_eeprom16,
++	.set_eeprom = mv88e6xxx_g2_set_eeprom16,
+ 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
+ 	.phy_read = mv88e6xxx_g2_smi_phy_read,
+ 	.phy_write = mv88e6xxx_g2_smi_phy_write,
+@@ -3273,18 +3273,24 @@ static const struct mv88e6xxx_ops mv88e6185_ops = {
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6240_ops = {
++	.get_eeprom = mv88e6xxx_g2_get_eeprom16,
++	.set_eeprom = mv88e6xxx_g2_set_eeprom16,
+ 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
+ 	.phy_read = mv88e6xxx_g2_smi_phy_read,
+ 	.phy_write = mv88e6xxx_g2_smi_phy_write,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6320_ops = {
++	.get_eeprom = mv88e6xxx_g2_get_eeprom16,
++	.set_eeprom = mv88e6xxx_g2_set_eeprom16,
+ 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
+ 	.phy_read = mv88e6xxx_g2_smi_phy_read,
+ 	.phy_write = mv88e6xxx_g2_smi_phy_write,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6321_ops = {
++	.get_eeprom = mv88e6xxx_g2_get_eeprom16,
++	.set_eeprom = mv88e6xxx_g2_set_eeprom16,
+ 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
+ 	.phy_read = mv88e6xxx_g2_smi_phy_read,
+ 	.phy_write = mv88e6xxx_g2_smi_phy_write,
+@@ -3303,6 +3309,8 @@ static const struct mv88e6xxx_ops mv88e6351_ops = {
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6352_ops = {
++	.get_eeprom = mv88e6xxx_g2_get_eeprom16,
++	.set_eeprom = mv88e6xxx_g2_set_eeprom16,
+ 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
+ 	.phy_read = mv88e6xxx_g2_smi_phy_read,
+ 	.phy_write = mv88e6xxx_g2_smi_phy_write,
+@@ -3825,7 +3833,7 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
+ 	if (IS_ERR(chip->reset))
+ 		return PTR_ERR(chip->reset);
+ 
+-	if (mv88e6xxx_has(chip, MV88E6XXX_FLAGS_EEPROM16) &&
++	if (chip->info->ops->get_eeprom &&
+ 	    !of_property_read_u32(np, "eeprom-length", &eeprom_len))
+ 		chip->eeprom_len = eeprom_len;
+ 
+diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+index d04184c..e572121 100644
+--- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+@@ -424,8 +424,6 @@ enum mv88e6xxx_cap {
+ 	MV88E6XXX_CAP_G2_PVT_ADDR,	/* (0x0b) Cross Chip Port VLAN Addr */
+ 	MV88E6XXX_CAP_G2_PVT_DATA,	/* (0x0c) Cross Chip Port VLAN Data */
+ 	MV88E6XXX_CAP_G2_POT,		/* (0x0f) Priority Override Table */
+-	MV88E6XXX_CAP_G2_EEPROM_CMD,	/* (0x14) EEPROM Command */
+-	MV88E6XXX_CAP_G2_EEPROM_DATA,	/* (0x15) EEPROM Data */
+ 
+ 	/* PHY Polling Unit.
+ 	 * See GLOBAL_CONTROL_PPU_ENABLE and GLOBAL_STATUS_PPU_POLLING.
+@@ -473,8 +471,6 @@ enum mv88e6xxx_cap {
+ #define MV88E6XXX_FLAG_G2_PVT_ADDR	BIT_ULL(MV88E6XXX_CAP_G2_PVT_ADDR)
+ #define MV88E6XXX_FLAG_G2_PVT_DATA	BIT_ULL(MV88E6XXX_CAP_G2_PVT_DATA)
+ #define MV88E6XXX_FLAG_G2_POT		BIT_ULL(MV88E6XXX_CAP_G2_POT)
+-#define MV88E6XXX_FLAG_G2_EEPROM_CMD	BIT_ULL(MV88E6XXX_CAP_G2_EEPROM_CMD)
+-#define MV88E6XXX_FLAG_G2_EEPROM_DATA	BIT_ULL(MV88E6XXX_CAP_G2_EEPROM_DATA)
+ 
+ #define MV88E6XXX_FLAG_PPU		BIT_ULL(MV88E6XXX_CAP_PPU)
+ #define MV88E6XXX_FLAG_PPU_ACTIVE	BIT_ULL(MV88E6XXX_CAP_PPU_ACTIVE)
+@@ -483,11 +479,6 @@ enum mv88e6xxx_cap {
+ #define MV88E6XXX_FLAG_TEMP_LIMIT	BIT_ULL(MV88E6XXX_CAP_TEMP_LIMIT)
+ #define MV88E6XXX_FLAG_VTU		BIT_ULL(MV88E6XXX_CAP_VTU)
+ 
+-/* EEPROM Programming via Global2 with 16-bit data */
+-#define MV88E6XXX_FLAGS_EEPROM16	\
+-	(MV88E6XXX_FLAG_G2_EEPROM_CMD |	\
+-	 MV88E6XXX_FLAG_G2_EEPROM_DATA)
 -
--	/* VTU and STU */
- 	u8	sid;
- 	bool	valid;
- 	u8	data[DSA_MAX_PORTS];
+ /* Ingress Rate Limit unit */
+ #define MV88E6XXX_FLAGS_IRL		\
+ 	(MV88E6XXX_FLAG_G2_IRL_CMD |	\
+@@ -561,7 +552,6 @@ enum mv88e6xxx_cap {
+ 	 MV88E6XXX_FLAG_TEMP |		\
+ 	 MV88E6XXX_FLAG_TEMP_LIMIT |	\
+ 	 MV88E6XXX_FLAG_VTU |		\
+-	 MV88E6XXX_FLAGS_EEPROM16 |	\
+ 	 MV88E6XXX_FLAGS_IRL |		\
+ 	 MV88E6XXX_FLAGS_MULTI_CHIP |	\
+ 	 MV88E6XXX_FLAGS_PVT)
+@@ -596,7 +586,6 @@ enum mv88e6xxx_cap {
+ 	 MV88E6XXX_FLAG_TEMP |		\
+ 	 MV88E6XXX_FLAG_TEMP_LIMIT |	\
+ 	 MV88E6XXX_FLAG_VTU |		\
+-	 MV88E6XXX_FLAGS_EEPROM16 |	\
+ 	 MV88E6XXX_FLAGS_IRL |		\
+ 	 MV88E6XXX_FLAGS_MULTI_CHIP |	\
+ 	 MV88E6XXX_FLAGS_PVT |		\
+@@ -696,6 +685,11 @@ struct mv88e6xxx_bus_ops {
+ };
+ 
+ struct mv88e6xxx_ops {
++	int (*get_eeprom)(struct mv88e6xxx_chip *chip,
++			  struct ethtool_eeprom *eeprom, u8 *data);
++	int (*set_eeprom)(struct mv88e6xxx_chip *chip,
++			  struct ethtool_eeprom *eeprom, u8 *data);
++
+ 	int (*set_switch_mac)(struct mv88e6xxx_chip *chip, u8 *addr);
+ 
+ 	int (*phy_read)(struct mv88e6xxx_chip *chip, int addr, int reg,
 -- 
 2.10.0
