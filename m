@@ -1,154 +1,113 @@
-From: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next v3 2/3] udp: implement memory accounting helpers
-Date: Thu, 29 Sep 2016 16:01:14 +0200
-Message-ID: <1475157674.4676.52.camel@redhat.com>
-References: <cover.1475048434.git.pabeni@redhat.com>
-         <6f445861ef2ce2e626a1df4946bc3f43f3d43e3f.1475048434.git.pabeni@redhat.com>
-         <1475113378.28155.124.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1475141514.4676.28.camel@redhat.com>
-         <1475155472.28155.164.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
-        Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-        Alexander Duyck <aduyck-nYU0QVwCCFFWk0Htik3J/w@public.gmane.org>,
-        Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
-        Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
-        Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1475155472.28155.164.camel-XN9IlZ5yJG9HTL0Zs8A6p+yfmBU6pStAUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net] net: pktgen: fix pkt_size
+Date: Thu, 29 Sep 2016 16:04:11 +0200
+Message-ID: <c518daf73fb1c6d0835ee9ff05ce6b4d20972145.1475154278.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Bogdan Hamciuc <bogdan.hamciuc@freescale.com>,
+        Ben Greear <greearb@candelatech.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:59618 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754607AbcI2OEp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 29 Sep 2016 10:04:45 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-09-29 at 06:24 -0700, Eric Dumazet wrote:
-> On Thu, 2016-09-29 at 11:31 +0200, Paolo Abeni wrote:
-> > On Wed, 2016-09-28 at 18:42 -0700, Eric Dumazet wrote:
-> > > On Wed, 2016-09-28 at 12:52 +0200, Paolo Abeni wrote:
-> > > 
-> > > > +static void udp_rmem_release(struct sock *sk, int partial)
-> > > > +{
-> > > > +	struct udp_sock *up = udp_sk(sk);
-> > > > +	int fwd, amt;
-> > > > +
-> > > > +	if (partial && !udp_under_memory_pressure(sk))
-> > > > +		return;
-> > > > +
-> > > > +	/* we can have concurrent release; if we catch any conflict
-> > > > +	 * we let only one of them do the work
-> > > > +	 */
-> > > > +	if (atomic_dec_if_positive(&up->can_reclaim) < 0)
-> > > > +		return;
-> > > > +
-> > > > +	fwd = __udp_forward(up, atomic_read(&sk->sk_rmem_alloc));
-> > > > +	if (fwd < SK_MEM_QUANTUM + partial) {
-> > > > +		atomic_inc(&up->can_reclaim);
-> > > > +		return;
-> > > > +	}
-> > > > +
-> > > > +	amt = (fwd - partial) & ~(SK_MEM_QUANTUM - 1);
-> > > > +	atomic_sub(amt, &up->mem_allocated);
-> > > > +	atomic_inc(&up->can_reclaim);
-> > > > +
-> > > > +	__sk_mem_reduce_allocated(sk, amt >> SK_MEM_QUANTUM_SHIFT);
-> > > > +	sk->sk_forward_alloc = fwd - amt;
-> > > > +}
-> > > 
-> > > 
-> > > This is racy... all these atomics make me nervous...
-> > 
-> > Ah, perhaps I got it: if we have a concurrent memory scheduling, we
-> > could end up with a value of mem_allocated below the real need. 
-> > 
-> > That mismatch will not drift: at worst we can end up with mem_allocated
-> > being single SK_MEM_QUANTUM below what is strictly needed.
-> > 
-> > A possible alternative could be:
-> > 
-> > static void udp_rmem_release(struct sock *sk, int partial)
-> > {
-> > 	struct udp_sock *up = udp_sk(sk);
-> > 	int fwd, amt, alloc_old, alloc;
-> > 
-> > 	if (partial && !udp_under_memory_pressure(sk))
-> > 		return;
-> > 
-> > 	alloc = atomic_read(&up->mem_allocated);
-> > 	fwd = alloc - atomic_read(&sk->sk_rmem_alloc);
-> > 	if (fwd < SK_MEM_QUANTUM + partial)
-> > 		return;
-> > 
-> > 	amt = (fwd - partial) & ~(SK_MEM_QUANTUM - 1);
-> > 	alloc_old = atomic_cmpxchg(&up->mem_allocated, alloc, alloc - amt);
-> > 	/* if a concurrent update is detected, just do nothing; if said update
-> > 	 * is due to another memory release, that release take care of
-> > 	 * reclaiming the memory for us, too.
-> > 	 * Otherwise we will be able to release on later dequeue, since
-> > 	 * we will eventually stop colliding with the writer when it will
-> > 	 * consume all the fwd allocated memory
-> > 	 */
-> > 	if (alloc_old != alloc)
-> > 		return;
-> > 
-> > 	__sk_mem_reduce_allocated(sk, amt >> SK_MEM_QUANTUM_SHIFT);
-> > 	sk->sk_forward_alloc = fwd - amt;
-> 
-> Can still be done from multiple cpus.
-> 
-> Add some ndelay() or udelay() before to simulate fact that current cpu
-> could be interrupted by an NMI handler (perf for example)... or hard IRQ
-> handler...
-> 
-> Then make sure your tests involve 16 concurrent cpus dealing with one
-> udp socket...
+The commit 879c7220e828 ("net: pktgen: Observe needed_headroom
+of the device") increased the 'pkt_overhead' field value by
+LL_RESERVED_SPACE.
+As a side effect the generated packet size, computed as:
 
-Thank you again reviewing this.
+	/* Eth + IPh + UDPh + mpls */
+	datalen = pkt_dev->cur_pkt_size - 14 - 20 - 8 -
+		  pkt_dev->pkt_overhead;
 
-I'm working to this sort of tests right now.
+is decreased by the same value.
+The above changed slightly the behavior of existing pktgen users,
+and made the interface somewhat inconsistent.
+Fix it by restoring the previous pkt_overhead value and using
+LL_RESERVED_SPACE as extralen in skb allocation.
+Also, change pktgen_alloc_skb() to only partially reserve
+the headroom to allow the caller to prefetch from ll header
+start.
 
-> 
-> > }
-> > 
-> > which is even more lazy in reclaiming but should never underestimate the
-> > needed forward allocation, and under pressure should eventually free the
-> > needed memory.
-> 
-> 
-> If this code is rarely used, why don't you simply use a real spinlock,
-> so that we do not have to worry about all this ?
-> 
-> A spinlock  acquisition/release is a _single_ locked operation.
-> Faster than the 3 atomic you got in last version.
-> spinlock code (ticket or MCS) avoids starvation.
+Fixes: 879c7220e828 ("net: pktgen: Observe needed_headroom of the device")
+Suggested-by: Ben Greear <greearb@candelatech.com>
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+---
+ net/core/pktgen.c | 21 ++++++++++-----------
+ 1 file changed, 10 insertions(+), 11 deletions(-)
 
-I'd like to avoid adding a lock, if possible, to avoid any possible
-source of contention.
-
-> Then, you can safely update multiple fields in the socket.
-> 
-> And you get nice lockdep support as a bonus.
-> 
-> cmpxchg() is fine when a single field need an exclusion. But there you
-> have multiple fields to update at once :
-> 
-> sk_memory_allocated_add() and sk_memory_allocated_sub() can work using 
-> atomic_long_add_return() and atomic_long_sub() because their caller owns
-> the socket lock and can safely update sk->sk_forward_alloc without
-> additional locking, but UDP wont have this luxury after your patches.
-
-When we reach __sk_mem_reduce_allocated() we are sure we can free the
-specified amount of memory, so we only need to ensure consistent
-sk_prot->memory_allocated updates. The current atomic operation suffices
-to this.
-
-Paolo
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index bbd118b..5c9b397 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -2286,7 +2286,7 @@ out:
+ 
+ static inline void set_pkt_overhead(struct pktgen_dev *pkt_dev)
+ {
+-	pkt_dev->pkt_overhead = LL_RESERVED_SPACE(pkt_dev->odev);
++	pkt_dev->pkt_overhead = 0;
+ 	pkt_dev->pkt_overhead += pkt_dev->nr_labels*sizeof(u32);
+ 	pkt_dev->pkt_overhead += VLAN_TAG_SIZE(pkt_dev);
+ 	pkt_dev->pkt_overhead += SVLAN_TAG_SIZE(pkt_dev);
+@@ -2777,13 +2777,13 @@ static void pktgen_finalize_skb(struct pktgen_dev *pkt_dev, struct sk_buff *skb,
+ }
+ 
+ static struct sk_buff *pktgen_alloc_skb(struct net_device *dev,
+-					struct pktgen_dev *pkt_dev,
+-					unsigned int extralen)
++					struct pktgen_dev *pkt_dev)
+ {
++	unsigned int extralen = LL_RESERVED_SPACE(dev);
+ 	struct sk_buff *skb = NULL;
+-	unsigned int size = pkt_dev->cur_pkt_size + 64 + extralen +
+-			    pkt_dev->pkt_overhead;
++	unsigned int size;
+ 
++	size = pkt_dev->cur_pkt_size + 64 + extralen + pkt_dev->pkt_overhead;
+ 	if (pkt_dev->flags & F_NODE) {
+ 		int node = pkt_dev->node >= 0 ? pkt_dev->node : numa_node_id();
+ 
+@@ -2796,8 +2796,9 @@ static struct sk_buff *pktgen_alloc_skb(struct net_device *dev,
+ 		 skb = __netdev_alloc_skb(dev, size, GFP_NOWAIT);
+ 	}
+ 
++	/* the caller prefetch from skb->data and reserve for the mac hdr */
+ 	if (likely(skb))
+-		skb_reserve(skb, LL_RESERVED_SPACE(dev));
++		skb_reserve(skb, extralen - 16);
+ 
+ 	return skb;
+ }
+@@ -2830,16 +2831,14 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
+ 	mod_cur_headers(pkt_dev);
+ 	queue_map = pkt_dev->cur_queue_map;
+ 
+-	datalen = (odev->hard_header_len + 16) & ~0xf;
+-
+-	skb = pktgen_alloc_skb(odev, pkt_dev, datalen);
++	skb = pktgen_alloc_skb(odev, pkt_dev);
+ 	if (!skb) {
+ 		sprintf(pkt_dev->result, "No memory");
+ 		return NULL;
+ 	}
+ 
+ 	prefetchw(skb->data);
+-	skb_reserve(skb, datalen);
++	skb_reserve(skb, 16);
+ 
+ 	/*  Reserve for ethernet and IP header  */
+ 	eth = (__u8 *) skb_push(skb, 14);
+@@ -2959,7 +2958,7 @@ static struct sk_buff *fill_packet_ipv6(struct net_device *odev,
+ 	mod_cur_headers(pkt_dev);
+ 	queue_map = pkt_dev->cur_queue_map;
+ 
+-	skb = pktgen_alloc_skb(odev, pkt_dev, 16);
++	skb = pktgen_alloc_skb(odev, pkt_dev);
+ 	if (!skb) {
+ 		sprintf(pkt_dev->result, "No memory");
+ 		return NULL;
+-- 
+1.8.3.1
