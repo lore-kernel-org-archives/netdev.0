@@ -1,34 +1,51 @@
-From: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
-Subject: Re: pull-request: wireless-drivers-next 2016-09-29
-Date: Thu, 29 Sep 2016 20:21:17 +0200
-Message-ID: <20160929182117.GA18734@salvia>
-References: <87ponmve2v.fsf@kamboji.qca.qualcomm.com>
+From: Mark Brown <broonie@kernel.org>
+Subject: Re: next-20160929 build: 2 failures 4 warnings (next-20160929)
+Date: Thu, 29 Sep 2016 11:47:37 -0700
+Message-ID: <20160929184737.ragquwy2tmhxo5bn@sirena.org.uk>
+References: <E1bpZhb-0002Oz-OQ@optimist>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="r3uavwzpl3blzqiv"
+Cc: kernel-build-reports@lists.linaro.org,
+        linaro-kernel@lists.linaro.org, linux-next@vger.kernel.org,
+        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Vishwanath Pai <vpai@akamai.com>, Joshua Hunt <johunt@akamai.com>,
+        Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <linux-next-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <87ponmve2v.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <E1bpZhb-0002Oz-OQ@optimist>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 29, 2016 at 07:57:28PM +0300, Kalle Valo wrote:
-> Hi Dave,
-> 
-> this should be the last wireless-drivers-next pull request for 4.9, from
-> now on only important bugfixes. Nothing really special stands out,
-> iwlwifi being most active but other drivers also getting attention. More
-> details in the signed tag. Please let me know if there are any problems.
-> 
-> Or actually I had one problem. While doing a test merge I noticed that
-> net-next fails to compile for me, but I don't think this is anything
-> wireless related:
-> 
->   CC      net/netfilter/core.o
-> net/netfilter/core.c: In function 'nf_set_hooks_head':
-> net/netfilter/core.c:96:149: error: 'struct net_device' has no member named 'nf_hooks_ingress'
 
-That's my problem, will be sending a pull request to fix this asap,
-thanks.
+--r3uavwzpl3blzqiv
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+On Thu, Sep 29, 2016 at 12:40:35PM +0100, Build bot for Mark Brown wrote:
+
+For the past couple of days -next has been failing to build an ARM
+allmodconfig due to:
+
+> 	arm-allmodconfig
+> ERROR: "__aeabi_uldivmod" [net/netfilter/xt_hashlimit.ko] undefined!
+
+which appears to be triggered by 11d5f15723c9 (netfilter: xt_hashlimit:
+Create revision 2 to support higher pps rates) introducing a division of
+a 64 bit number which should be done using do_div().
+
+--r3uavwzpl3blzqiv
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAABCAAGBQJX7WHIAAoJECTWi3JdVIfQ5KUH/339abZCS8frqbj8neJs8s6t
+ISnhEV/EcOvwbAsTdNaDs3PVlNTic2DmGInY+mQ/FdQRk8j4n/5sNE3YgoYexFyj
+caw49S5dvwnrsMWVGNXd6BRwxtVJY9ae2jWPONaSUCWoiI1ZzEwrYhGgD/nJQFFR
+dkw5ohOAKaipfA8AsiF50F/AxERI0w0mYDGdG5sHN+C9B1yu42idA11DU6XtMW76
+cYxL+dWkTgIayP/tw3Wl7O6AvUcLojUfwTkDliaizFN45YCeFDoaKvIY8CXM8Yya
+iDHvkjK694JHW0iCZMLqtzaMg5HTWhD3PYVhf+NLApYRHLvMtiFihNqYJppfm+g=
+=hOF6
+-----END PGP SIGNATURE-----
+
+--r3uavwzpl3blzqiv--
