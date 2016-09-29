@@ -1,58 +1,52 @@
 From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: [PATCH v2 net-next 4/4] net/sched: act_mirred: Implement
- ingress actions
-Date: Thu, 29 Sep 2016 13:35:36 +0300
-Message-ID: <20160929133536.79de5ae6@halley>
-References: <1475009975-30332-1-git-send-email-shmulik.ladkani@gmail.com>
-        <1475009975-30332-5-git-send-email-shmulik.ladkani@gmail.com>
-        <1475011633.28155.68.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
+Subject: [PATCH v3 net-next 0/4] act_mirred: Ingress actions support
+Date: Thu, 29 Sep 2016 14:03:28 +0300
+Message-ID: <1475147012-15538-1-git-send-email-shmulik.ladkani@gmail.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
         WANG Cong <xiyou.wangcong@gmail.com>,
         Eric Dumazet <edumazet@google.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+        Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+        Shmulik Ladkani <shmulik.ladkani@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:35355 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755335AbcI2Kfo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 06:35:44 -0400
-Received: by mail-wm0-f66.google.com with SMTP id b4so10071898wmb.2
-        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 03:35:43 -0700 (PDT)
-In-Reply-To: <1475011633.28155.68.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:33143 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752549AbcI2LDw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 07:03:52 -0400
+Received: by mail-wm0-f68.google.com with SMTP id w84so10129568wmg.0
+        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 04:03:51 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+This patch series implements action mirred 'ingress' actions
+TCA_INGRESS_REDIR and TCA_INGRESS_MIRROR.
 
-On Tue, 27 Sep 2016 14:27:13 -0700 Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> 
-> Since this runs lockless, another cpu might change m->tcfm_eaction in
-> the middle, and you could call dev_queue_xmit(skb2) while the skb2 was
-> prepared for the opposite action.
+This allows attaching filters whose target is to hand matching skbs into
+the rx processing of a specified device.
 
-Well, seem members of 'struct tcf_mirred' are out of sync wrt to each
-other, even in existing code, regadless this patch:
+v3:
+  in 4/4, addressed non coherency due to reading m->tcfm_eaction multiple
+  times, as spotted by Eric Dumazet
+v2:
+  in 1/4, declare tcfm_mac_header_xmit as bool instead of int
 
-- 'tcfm_dev' may be assigned, but 'tcfm_ok_push' not yet updated,
-  may result in skb_push_rcsum being called/not called
+Shmulik Ladkani (4):
+  net/sched: act_mirred: Rename tcfm_ok_push to tcfm_mac_header_xmit and
+    make it a bool
+  net/sched: act_mirred: Refactor detection whether dev needs xmit at
+    mac header
+  net/sched: tc_mirred: Rename public predicates
+    'is_tcf_mirred_redirect' and 'is_tcf_mirred_mirror'
+  net/sched: act_mirred: Implement ingress actions
 
-- 'tcfm_eaction' is changed, in between "mirror is always swallowed" to
-  the final 'out:' label,
-  may result in wrong tc_verd assigned (or lack of assignment)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c  |  2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |  2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c    |  2 +-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |  4 +-
+ .../net/ethernet/netronome/nfp/nfp_net_offload.c   |  2 +-
+ include/net/tc_act/tc_mirred.h                     |  6 +-
+ net/sched/act_mirred.c                             | 84 ++++++++++++++++------
+ 7 files changed, 73 insertions(+), 29 deletions(-)
 
-Seems the whole "params" need be rcu_dereferenced, like in
-tunnel_key_act, or like your suggestion in
-  https://patchwork.ozlabs.org/patch/667680/.
-
-I'm gonna fix the new problem you pointed out, by reading-once
-'tcfm_eaction' early (right when tcfm_dev is dereferenced) knowing this
-is just "keeping things as is wrt running lockless", without introducing
-any new non-coherent code.
-
-Thanks,
-Shmulik
+-- 
+2.7.4
