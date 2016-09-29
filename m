@@ -1,90 +1,152 @@
-From: "Guilherme G. Piccoli" <gpiccoli@linux.vnet.ibm.com>
-Subject: Re: [PATCH RFC net-next] bnx2x: avoid printing unnecessary messages
- during register dump
-Date: Thu, 29 Sep 2016 13:19:39 -0300
-Message-ID: <57ED3F1B.2040602@linux.vnet.ibm.com>
-References: <1475001234-25933-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
- <20160927.224349.354006077948089224.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, ariel.elior@qlogic.com,
-        Yuval.Mintz@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:50706 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1755412AbcI2QTt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 12:19:49 -0400
-Received: from pps.filterd (m0098396.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8TGIxd1088441
-        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 12:19:49 -0400
-Received: from e24smtp01.br.ibm.com (e24smtp01.br.ibm.com [32.104.18.85])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 25s25swace-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 12:19:48 -0400
-Received: from localhost
-        by e24smtp01.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <gpiccoli@linux.vnet.ibm.com>;
-        Thu, 29 Sep 2016 13:19:46 -0300
-Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
-        by d24dlp01.br.ibm.com (Postfix) with ESMTP id 278F5352005F
-        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 12:19:19 -0400 (EDT)
-Received: from d24av03.br.ibm.com (d24av03.br.ibm.com [9.8.31.95])
-        by d24relay01.br.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u8TGJhAT4960354
-        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 13:19:43 -0300
-Received: from d24av03.br.ibm.com (localhost [127.0.0.1])
-        by d24av03.br.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u8TGJhW7007908
-        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 13:19:43 -0300
-In-Reply-To: <20160927.224349.354006077948089224.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 03/10] net: dsa: mv88e6xxx: add flags for FID registers
+Date: Thu, 29 Sep 2016 12:21:55 -0400
+Message-ID: <20160929162202.10685-4-vivien.didelot@savoirfairelinux.com>
+References: <20160929162202.10685-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160929162202.10685-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Add flags to describe the presence of Global 1 ATU FID register (0x01)
+and VTU FID register (0x02), instead of checking families.
 
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6xxx/chip.c      | 16 +++-------------
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 24 ++++++++++++++++++++----
+ 2 files changed, 23 insertions(+), 17 deletions(-)
 
-On 09/27/2016 11:43 PM, David Miller wrote:
-> From: "Guilherme G. Piccoli" <gpiccoli@linux.vnet.ibm.com>
-> Date: Tue, 27 Sep 2016 15:33:54 -0300
-> 
->> The bnx2x driver prints multiple error messages during register dump,
->> with "ethtool -d" for example. The driver even warn that many messages
->> might be seen during the register dump, but they are harmless. A typical
->> kernel log after register dump looks like this:
->>
->>   [9.375] bnx2x: [bnx2x_get_regs:987(net0)]Generating register dump. Might trigger harmless GRC timeouts
->>   [9.439] bnx2x: [bnx2x_attn_int_deasserted3:4342(net0)]LATCHED attention 0x04000000 (masked)
->>   [9.439] bnx2x: [bnx2x_attn_int_deasserted3:4346(net0)]GRC time-out 0x010580cd
->>   [...]
->>
->> The notation [...] means that some messages were supressed - in our
->> tests we saw 78 more "LATCHED attention" and "GRC time-out" messages,
->> supressed here.
->>
->> This patch avoid these messages to be printed on register dump instead
->> of just warn they are harmless.
->>
->> Signed-off-by: Guilherme G. Piccoli <gpiccoli@linux.vnet.ibm.com>
-> 
-> Although "ethtool -d" is really a debugging facility, I still think that
-> serious care should be placed into arranging what gets dumped in such
-> a way that such access timeouts and errors are minimized.
-> 
-
-David, thanks for your comment. I confess I didn't understand your
-statement quite well. You say we shouldn't dump registers that will
-cause timeouts, that's it?
-
-If yes, I guess this is a valid point. We will however loose some debug
-information (as you mentioned, 'ethtool -d' is a debug facility). Now,
-since I'm no expert in QLogic adapter hw/fw, I want to ask Yuval/Ariel
-why those timeouts are hit anyway. Are they completely harmless?
-
-In my understanding/opinion, hiding the messages entirely (as this patch
-does) OR avoid the timeouts by disabling some registers' dump are both
-better alternatives than the current behavior of the driver.
-
-Thanks,
-
-
-
-Guilherme
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index 98dee2c..b7eecc9 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -565,16 +565,6 @@ static unsigned int mv88e6xxx_num_databases(struct mv88e6xxx_chip *chip)
+ 	return chip->info->num_databases;
+ }
+ 
+-static bool mv88e6xxx_has_fid_reg(struct mv88e6xxx_chip *chip)
+-{
+-	/* Does the device have dedicated FID registers for ATU and VTU ops? */
+-	if (mv88e6xxx_6097_family(chip) || mv88e6xxx_6165_family(chip) ||
+-	    mv88e6xxx_6351_family(chip) || mv88e6xxx_6352_family(chip))
+-		return true;
+-
+-	return false;
+-}
+-
+ /* We expect the switch to perform auto negotiation if there is a real
+  * phy. However, in the case of a fixed link phy, we force the port
+  * settings from the fixed link settings.
+@@ -978,7 +968,7 @@ static int _mv88e6xxx_atu_cmd(struct mv88e6xxx_chip *chip, u16 fid, u16 cmd)
+ 	u16 val;
+ 	int err;
+ 
+-	if (mv88e6xxx_has_fid_reg(chip)) {
++	if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_G1_ATU_FID)) {
+ 		err = mv88e6xxx_g1_write(chip, GLOBAL_ATU_FID, fid);
+ 		if (err)
+ 			return err;
+@@ -1386,7 +1376,7 @@ static int _mv88e6xxx_vtu_getnext(struct mv88e6xxx_chip *chip,
+ 		if (err)
+ 			return err;
+ 
+-		if (mv88e6xxx_has_fid_reg(chip)) {
++		if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_G1_VTU_FID)) {
+ 			err = mv88e6xxx_g1_read(chip, GLOBAL_VTU_FID, &val);
+ 			if (err)
+ 				return err;
+@@ -1498,7 +1488,7 @@ static int _mv88e6xxx_vtu_loadpurge(struct mv88e6xxx_chip *chip,
+ 			return err;
+ 	}
+ 
+-	if (mv88e6xxx_has_fid_reg(chip)) {
++	if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_G1_VTU_FID)) {
+ 		reg = entry->fid & GLOBAL_VTU_FID_MASK;
+ 		err = mv88e6xxx_g1_write(chip, GLOBAL_VTU_FID, reg);
+ 		if (err)
+diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+index 2f10108..6c8584f 100644
+--- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+@@ -170,8 +170,8 @@
+ #define GLOBAL_MAC_01		0x01
+ #define GLOBAL_MAC_23		0x02
+ #define GLOBAL_MAC_45		0x03
+-#define GLOBAL_ATU_FID		0x01	/* 6097 6165 6351 6352 */
+-#define GLOBAL_VTU_FID		0x02	/* 6097 6165 6351 6352 */
++#define GLOBAL_ATU_FID		0x01
++#define GLOBAL_VTU_FID		0x02
+ #define GLOBAL_VTU_FID_MASK	0xfff
+ #define GLOBAL_VTU_SID		0x03	/* 6097 6165 6351 6352 */
+ #define GLOBAL_VTU_SID_MASK	0x3f
+@@ -408,6 +408,11 @@ enum mv88e6xxx_cap {
+ 	 */
+ 	MV88E6XXX_CAP_SERDES,
+ 
++	/* Switch Global (1) Registers.
++	 */
++	MV88E6XXX_CAP_G1_ATU_FID,	/* (0x01) ATU FID Register */
++	MV88E6XXX_CAP_G1_VTU_FID,	/* (0x02) VTU FID Register */
++
+ 	/* Switch Global 2 Registers.
+ 	 * The device contains a second set of global 16-bit registers.
+ 	 */
+@@ -460,6 +465,9 @@ enum mv88e6xxx_cap {
+ 
+ #define MV88E6XXX_FLAG_SERDES		BIT_ULL(MV88E6XXX_CAP_SERDES)
+ 
++#define MV88E6XXX_FLAG_G1_ATU_FID	BIT_ULL(MV88E6XXX_CAP_G1_ATU_FID)
++#define MV88E6XXX_FLAG_G1_VTU_FID	BIT_ULL(MV88E6XXX_CAP_G1_VTU_FID)
++
+ #define MV88E6XXX_FLAG_GLOBAL2		BIT_ULL(MV88E6XXX_CAP_GLOBAL2)
+ #define MV88E6XXX_FLAG_G2_MGMT_EN_2X	BIT_ULL(MV88E6XXX_CAP_G2_MGMT_EN_2X)
+ #define MV88E6XXX_FLAG_G2_MGMT_EN_0X	BIT_ULL(MV88E6XXX_CAP_G2_MGMT_EN_0X)
+@@ -519,7 +527,9 @@ enum mv88e6xxx_cap {
+ 	 MV88E6XXX_FLAGS_MULTI_CHIP)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6097	\
+-	(MV88E6XXX_FLAG_GLOBAL2 |	\
++	(MV88E6XXX_FLAG_G1_ATU_FID |	\
++	 MV88E6XXX_FLAG_G1_VTU_FID |	\
++	 MV88E6XXX_FLAG_GLOBAL2 |	\
+ 	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
+ 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
+ 	 MV88E6XXX_FLAG_G2_POT |	\
+@@ -531,7 +541,9 @@ enum mv88e6xxx_cap {
+ 	 MV88E6XXX_FLAGS_PVT)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6165	\
+-	(MV88E6XXX_FLAG_GLOBAL2 |	\
++	(MV88E6XXX_FLAG_G1_ATU_FID |	\
++	 MV88E6XXX_FLAG_G1_VTU_FID |	\
++	 MV88E6XXX_FLAG_GLOBAL2 |	\
+ 	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
+ 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
+ 	 MV88E6XXX_FLAG_G2_SWITCH_MAC |	\
+@@ -570,6 +582,8 @@ enum mv88e6xxx_cap {
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6351	\
+ 	(MV88E6XXX_FLAG_EDSA |		\
++	 MV88E6XXX_FLAG_G1_ATU_FID |	\
++	 MV88E6XXX_FLAG_G1_VTU_FID |	\
+ 	 MV88E6XXX_FLAG_GLOBAL2 |	\
+ 	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
+ 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
+@@ -587,6 +601,8 @@ enum mv88e6xxx_cap {
+ #define MV88E6XXX_FLAGS_FAMILY_6352	\
+ 	(MV88E6XXX_FLAG_EDSA |		\
+ 	 MV88E6XXX_FLAG_EEE |		\
++	 MV88E6XXX_FLAG_G1_ATU_FID |	\
++	 MV88E6XXX_FLAG_G1_VTU_FID |	\
+ 	 MV88E6XXX_FLAG_GLOBAL2 |	\
+ 	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
+ 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
+-- 
+2.10.0
