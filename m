@@ -1,82 +1,145 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH/RFC 00/12] Programming Open vSwitch (-like) flows into
- hardware using SwitchDev
-Date: Thu, 29 Sep 2016 10:09:05 +0200
-Message-ID: <20160929080904.GA24113@penelope.isobedori.kobe.vergenet.net>
-References: <1475066582-1971-1-git-send-email-simon.horman@netronome.com>
- <CAJ3xEMh0Wp6sXN1AxuZjnqycp6SkY732E4O9CRWip5Bydxuj2w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-        "dev@openvswitch.org" <dev@openvswitch.org>,
-        Rony Efraim <ronye@mellanox.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: [PATCH v3 net 2/2] net: skbuff: Limit skb_vlan_pop/push() to expect skb->data at mac header
+Date: Thu, 29 Sep 2016 12:10:41 +0300
+Message-ID: <1475140241-23586-2-git-send-email-shmulik.ladkani@gmail.com>
+References: <1475140241-23586-1-git-send-email-shmulik.ladkani@gmail.com>
+Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
+        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Pravin Shelar <pshelar@ovn.org>, Jiri Pirko <jiri@mellanox.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:35358 "EHLO
-        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751220AbcI2IJI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 04:09:08 -0400
-Received: by mail-wm0-f47.google.com with SMTP id b4so10737724wmb.0
-        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 01:09:08 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAJ3xEMh0Wp6sXN1AxuZjnqycp6SkY732E4O9CRWip5Bydxuj2w@mail.gmail.com>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:34130 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933484AbcI2JLI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 05:11:08 -0400
+Received: by mail-wm0-f66.google.com with SMTP id w72so1054156wmf.1
+        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 02:11:07 -0700 (PDT)
+In-Reply-To: <1475140241-23586-1-git-send-email-shmulik.ladkani@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Or,
+skb_vlan_pop/push were too generic, trying to support the cases where
+skb->data is at mac header, and cases where skb->data is arbitrarily
+elsewhere.
 
-On Wed, Sep 28, 2016 at 04:54:40PM +0300, Or Gerlitz wrote:
-> On Wed, Sep 28, 2016 at 3:42 PM, Simon Horman
-> <simon.horman@netronome.com> wrote:
-> 
-> > A different approach, not implemented by this patch-set, is for user-space
-> > to program flows into hardware by some other means, for example TC, and/or
-> > the (kernel) datapath.
-> 
-> Right, and we've submitted that code to the OVS community 24h ago [1].
-> 
-> This was done along the feedback we've got for the last two years (since
-> the  LPC 2014 networking micro-conf). It allows offloading from
-> multiple user-space
-> applications through a single UAPI -- the TC one (currently we did
-> flower, but the OVSD
-> patch set can be extended to use whatever TC offloads are supported by
-> the port driver,
-> e.g U32, eBPF) and integration with 3rd party policy modules  running
-> in user-space.
-> 
-> Lets hear people opinions and see where we go from now.
-> 
-> > I believe that approach does not conflict with this one.
-> >  And there is some scope to share infrastructure in the kernel
-> 
-> maybe, possibly
-> 
-> We've having a talk in netdev 1.2 on offloading HW offloading of OVS
-> and similar applications,
-> I would encourage people to come and approach me and/or Rony Efraim
-> from Mellanox before/after
-> the talk to discuss that F2F, would love to get feedbacks, and also here...
+Supporting an arbitrary skb->data was complex and bogus:
+ - It failed to unwind skb->data to its original location post actual
+   pop/push.
+   (Also, semantic is not well defined for unwinding: If data was into
+    the eth header, need to use same offset from start; But if data was
+    at network header or beyond, need to adjust the original offset
+    according to the push/pull)
+ - It mangled the rcsum post actual push/pop, without taking into account
+   that the eth bytes might already have been pulled out of the csum.
 
-Thanks for putting my post in context with the work you mention.
-I am looking forward to some F2F discussions next week.
+Most callers (ovs, bpf) already had their skb->data at mac_header upon
+invoking skb_vlan_pop/push.
+Last caller that failed to do so (act_vlan) has been recently fixed.
 
-> Or.
-> 
-> [1] pointers to patches implementing the 2nd approach
-> 
-> cover-letter http://openvswitch.org/pipermail/dev/2016-September/079952.html
-> 
-> patches
-> 
-> https://patchwork.ozlabs.org/patch/675560/
-> https://patchwork.ozlabs.org/patch/675567/
-> https://patchwork.ozlabs.org/patch/675565/
-> https://patchwork.ozlabs.org/patch/675559/
-> https://patchwork.ozlabs.org/patch/675564/
-> https://patchwork.ozlabs.org/patch/675563/
-> https://patchwork.ozlabs.org/patch/675568/
-> https://patchwork.ozlabs.org/patch/675566/
-> https://patchwork.ozlabs.org/patch/675562/
-> 
-> [2] http://www.netdevconf.org/1.2/session.html?rony-efraim-1
+Therefore, to simplify things, no longer support arbitrary skb->data
+inputs for skb_vlan_pop/push().
+
+skb->data is expected to be exactly at mac_header; WARN otherwise.
+
+Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>
+Cc: Pravin Shelar <pshelar@ovn.org>
+Cc: Jiri Pirko <jiri@mellanox.com>
+---
+ v3: Instead of correcting unwinding of skb->data in skb_vlan_pop/push,
+     just kill the support for arbitraray skb->data inputs, and assume
+     given skb->data always points at mac_header.
+     Fix act_vlan, the sole user not adehering to this assumption.
+
+ v2: Instead of reducing mac_len by 4 bytes, which was found incorrect,
+     fix the problem of wrong unwinding of 'skb->data'
+
+ net/core/skbuff.c | 37 ++++++++++++++++++++++---------------
+ 1 file changed, 22 insertions(+), 15 deletions(-)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 3864b4b68f..8c38263cdf 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -4478,13 +4478,18 @@ EXPORT_SYMBOL(skb_ensure_writable);
+ static int __skb_vlan_pop(struct sk_buff *skb, u16 *vlan_tci)
+ {
+ 	struct vlan_hdr *vhdr;
+-	unsigned int offset = skb->data - skb_mac_header(skb);
++	int offset = skb->data - skb_mac_header(skb);
+ 	int err;
+ 
+-	__skb_push(skb, offset);
++	if (WARN_ONCE(offset,
++		      "__skb_vlan_pop got skb with skb->data not at mac header (offset %d)\n",
++		      offset)) {
++		return -EINVAL;
++	}
++
+ 	err = skb_ensure_writable(skb, VLAN_ETH_HLEN);
+ 	if (unlikely(err))
+-		goto pull;
++		return err;
+ 
+ 	skb_postpull_rcsum(skb, skb->data + (2 * ETH_ALEN), VLAN_HLEN);
+ 
+@@ -4501,12 +4506,13 @@ static int __skb_vlan_pop(struct sk_buff *skb, u16 *vlan_tci)
+ 		skb_set_network_header(skb, ETH_HLEN);
+ 
+ 	skb_reset_mac_len(skb);
+-pull:
+-	__skb_pull(skb, offset);
+ 
+ 	return err;
+ }
+ 
++/* Pop a vlan tag either from hwaccel or from payload.
++ * Expects skb->data at mac header.
++ */
+ int skb_vlan_pop(struct sk_buff *skb)
+ {
+ 	u16 vlan_tci;
+@@ -4541,29 +4547,30 @@ int skb_vlan_pop(struct sk_buff *skb)
+ }
+ EXPORT_SYMBOL(skb_vlan_pop);
+ 
++/* Push a vlan tag either into hwaccel or into payload (if hwaccel tag present).
++ * Expects skb->data at mac header.
++ */
+ int skb_vlan_push(struct sk_buff *skb, __be16 vlan_proto, u16 vlan_tci)
+ {
+ 	if (skb_vlan_tag_present(skb)) {
+-		unsigned int offset = skb->data - skb_mac_header(skb);
++		int offset = skb->data - skb_mac_header(skb);
+ 		int err;
+ 
+-		/* __vlan_insert_tag expect skb->data pointing to mac header.
+-		 * So change skb->data before calling it and change back to
+-		 * original position later
+-		 */
+-		__skb_push(skb, offset);
++		if (WARN_ONCE(offset,
++			      "skb_vlan_push got skb with skb->data not at mac header (offset %d)\n",
++			      offset)) {
++			return -EINVAL;
++		}
++
+ 		err = __vlan_insert_tag(skb, skb->vlan_proto,
+ 					skb_vlan_tag_get(skb));
+-		if (err) {
+-			__skb_pull(skb, offset);
++		if (err)
+ 			return err;
+-		}
+ 
+ 		skb->protocol = skb->vlan_proto;
+ 		skb->mac_len += VLAN_HLEN;
+ 
+ 		skb_postpush_rcsum(skb, skb->data + (2 * ETH_ALEN), VLAN_HLEN);
+-		__skb_pull(skb, offset);
+ 	}
+ 	__vlan_hwaccel_put_tag(skb, vlan_proto, vlan_tci);
+ 	return 0;
+-- 
+2.7.4
