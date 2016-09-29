@@ -1,8 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 3/6] rxrpc: When activating client conn channels,
- do state check inside lock
-Date: Thu, 29 Sep 2016 23:15:48 +0100
-Message-ID: <147518734848.29235.10081904206033928537.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 4/6] rxrpc: Reduce the rxrpc_local::services list
+ to a pointer
+Date: Thu, 29 Sep 2016 23:15:55 +0100
+Message-ID: <147518735533.29235.2910247307985125845.stgit@warthog.procyon.org.uk>
 References: <147518732742.29235.11597637573731081178.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,92 +10,168 @@ Content-Transfer-Encoding: 7bit
 Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
         linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48410 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934927AbcI2WPv (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 29 Sep 2016 18:15:51 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <147518732742.29235.11597637573731081178.stgit@warthog.procyon.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In rxrpc_activate_channels(), the connection cache state is checked outside
-of the lock, which means it can change whilst we're waking calls up,
-thereby changing whether or not we're allowed to wake calls up.
+Reduce the rxrpc_local::services list to just a pointer as we don't permit
+multiple service endpoints to bind to a single transport endpoints (this is
+excluded by rxrpc_lookup_local()).
 
-Fix this by moving the check inside the locked region.  The check to see if
-all the channels are currently busy can stay outside of the locked region.
-
-Whilst we're at it:
-
- (1) Split the locked section out into its own function so that we can call
-     it from other places in a later patch.
-
- (2) Determine the mask of channels dependent on the state as we're going
-     to add another state in a later patch that will restrict the number of
-     simultaneous calls to 1 on a connection.
+The reason we don't allow this is that if you send a request to an AFS
+filesystem service, it will try to talk back to your cache manager on the
+port you sent from (this is how file change notifications are handled).  To
+prevent someone from stealing your CM callbacks, we don't let AF_RXRPC
+sockets share a UDP socket if at least one of them has a service bound.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/conn_client.c |   36 +++++++++++++++++++++++++-----------
- 1 file changed, 25 insertions(+), 11 deletions(-)
+ net/rxrpc/af_rxrpc.c     |   21 ++++++++-------------
+ net/rxrpc/ar-internal.h  |    3 +--
+ net/rxrpc/call_accept.c  |    8 ++++----
+ net/rxrpc/local_object.c |    3 +--
+ net/rxrpc/security.c     |    8 ++++----
+ 5 files changed, 18 insertions(+), 25 deletions(-)
 
-diff --git a/net/rxrpc/conn_client.c b/net/rxrpc/conn_client.c
-index f5ee8bfa5bef..60ef9605167e 100644
---- a/net/rxrpc/conn_client.c
-+++ b/net/rxrpc/conn_client.c
-@@ -576,28 +576,42 @@ static void rxrpc_activate_one_channel(struct rxrpc_connection *conn,
- }
+diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
+index 8dbf7bed2cc4..44c9c2b0b190 100644
+--- a/net/rxrpc/af_rxrpc.c
++++ b/net/rxrpc/af_rxrpc.c
+@@ -136,7 +136,8 @@ static int rxrpc_bind(struct socket *sock, struct sockaddr *saddr, int len)
+ 	struct sockaddr_rxrpc *srx = (struct sockaddr_rxrpc *)saddr;
+ 	struct sock *sk = sock->sk;
+ 	struct rxrpc_local *local;
+-	struct rxrpc_sock *rx = rxrpc_sk(sk), *prx;
++	struct rxrpc_sock *rx = rxrpc_sk(sk);
++	u16 service_id = srx->srx_service;
+ 	int ret;
  
- /*
-+ * Assign channels and callNumbers to waiting calls with channel_lock
-+ * held by caller.
-+ */
-+static void rxrpc_activate_channels_locked(struct rxrpc_connection *conn)
-+{
-+	u8 avail, mask;
-+
-+	switch (conn->cache_state) {
-+	case RXRPC_CONN_CLIENT_ACTIVE:
-+		mask = RXRPC_ACTIVE_CHANS_MASK;
-+		break;
-+	default:
-+		return;
-+	}
-+
-+	while (!list_empty(&conn->waiting_calls) &&
-+	       (avail = ~conn->active_chans,
-+		avail &= mask,
-+		avail != 0))
-+		rxrpc_activate_one_channel(conn, __ffs(avail));
-+}
-+
-+/*
-  * Assign channels and callNumbers to waiting calls.
-  */
- static void rxrpc_activate_channels(struct rxrpc_connection *conn)
- {
--	unsigned char mask;
+ 	_enter("%p,%p,%d", rx, saddr, len);
+@@ -160,15 +161,12 @@ static int rxrpc_bind(struct socket *sock, struct sockaddr *saddr, int len)
+ 		goto error_unlock;
+ 	}
+ 
+-	if (rx->srx.srx_service) {
++	if (service_id) {
+ 		write_lock(&local->services_lock);
+-		hlist_for_each_entry(prx, &local->services, listen_link) {
+-			if (prx->srx.srx_service == rx->srx.srx_service)
+-				goto service_in_use;
+-		}
 -
- 	_enter("%d", conn->debug_id);
++		if (rcu_access_pointer(local->service))
++			goto service_in_use;
+ 		rx->local = local;
+-		hlist_add_head_rcu(&rx->listen_link, &local->services);
++		rcu_assign_pointer(local->service, rx);
+ 		write_unlock(&local->services_lock);
  
- 	trace_rxrpc_client(conn, -1, rxrpc_client_activate_chans);
+ 		rx->sk.sk_state = RXRPC_SERVER_BOUND;
+@@ -599,7 +597,6 @@ static int rxrpc_create(struct net *net, struct socket *sock, int protocol,
+ 	rx->family = protocol;
+ 	rx->calls = RB_ROOT;
  
--	if (conn->cache_state != RXRPC_CONN_CLIENT_ACTIVE ||
--	    conn->active_chans == RXRPC_ACTIVE_CHANS_MASK)
-+	if (conn->active_chans == RXRPC_ACTIVE_CHANS_MASK)
- 		return;
+-	INIT_HLIST_NODE(&rx->listen_link);
+ 	spin_lock_init(&rx->incoming_lock);
+ 	INIT_LIST_HEAD(&rx->sock_calls);
+ 	INIT_LIST_HEAD(&rx->to_be_accepted);
+@@ -681,11 +678,9 @@ static int rxrpc_release_sock(struct sock *sk)
+ 	sk->sk_state = RXRPC_CLOSE;
+ 	spin_unlock_bh(&sk->sk_receive_queue.lock);
  
- 	spin_lock(&conn->channel_lock);
+-	ASSERTCMP(rx->listen_link.next, !=, LIST_POISON1);
 -
--	while (!list_empty(&conn->waiting_calls) &&
--	       (mask = ~conn->active_chans,
--		mask &= RXRPC_ACTIVE_CHANS_MASK,
--		mask != 0))
--		rxrpc_activate_one_channel(conn, __ffs(mask));
--
-+	rxrpc_activate_channels_locked(conn);
- 	spin_unlock(&conn->channel_lock);
- 	_leave("");
- }
+-	if (!hlist_unhashed(&rx->listen_link)) {
++	if (rx->local && rx->local->service == rx) {
+ 		write_lock(&rx->local->services_lock);
+-		hlist_del_rcu(&rx->listen_link);
++		rx->local->service = NULL;
+ 		write_unlock(&rx->local->services_lock);
+ 	}
+ 
+diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
+index 6aadaa7d8b43..539db54697f9 100644
+--- a/net/rxrpc/ar-internal.h
++++ b/net/rxrpc/ar-internal.h
+@@ -93,7 +93,6 @@ struct rxrpc_sock {
+ 	rxrpc_notify_new_call_t	notify_new_call; /* Func to notify of new call */
+ 	rxrpc_discard_new_call_t discard_new_call; /* Func to discard a new call */
+ 	struct rxrpc_local	*local;		/* local endpoint */
+-	struct hlist_node	listen_link;	/* link in the local endpoint's listen list */
+ 	struct rxrpc_backlog	*backlog;	/* Preallocation for services */
+ 	spinlock_t		incoming_lock;	/* Incoming call vs service shutdown lock */
+ 	struct list_head	sock_calls;	/* List of calls owned by this socket */
+@@ -216,7 +215,7 @@ struct rxrpc_local {
+ 	struct list_head	link;
+ 	struct socket		*socket;	/* my UDP socket */
+ 	struct work_struct	processor;
+-	struct hlist_head	services;	/* services listening on this endpoint */
++	struct rxrpc_sock __rcu	*service;	/* Service(s) listening on this endpoint */
+ 	struct rw_semaphore	defrag_sem;	/* control re-enablement of IP DF bit */
+ 	struct sk_buff_head	reject_queue;	/* packets awaiting rejection */
+ 	struct sk_buff_head	event_queue;	/* endpoint event packets awaiting processing */
+diff --git a/net/rxrpc/call_accept.c b/net/rxrpc/call_accept.c
+index a8d39d7cf42c..3cac231d8405 100644
+--- a/net/rxrpc/call_accept.c
++++ b/net/rxrpc/call_accept.c
+@@ -331,14 +331,14 @@ struct rxrpc_call *rxrpc_new_incoming_call(struct rxrpc_local *local,
+ 	struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
+ 	struct rxrpc_sock *rx;
+ 	struct rxrpc_call *call;
++	u16 service_id = sp->hdr.serviceId;
+ 
+ 	_enter("");
+ 
+ 	/* Get the socket providing the service */
+-	hlist_for_each_entry_rcu_bh(rx, &local->services, listen_link) {
+-		if (rx->srx.srx_service == sp->hdr.serviceId)
+-			goto found_service;
+-	}
++	rx = rcu_dereference(local->service);
++	if (service_id == rx->srx.srx_service)
++		goto found_service;
+ 
+ 	trace_rxrpc_abort("INV", sp->hdr.cid, sp->hdr.callNumber, sp->hdr.seq,
+ 			  RX_INVALID_OPERATION, EOPNOTSUPP);
+diff --git a/net/rxrpc/local_object.c b/net/rxrpc/local_object.c
+index e3fad80b0795..ff4864d550b8 100644
+--- a/net/rxrpc/local_object.c
++++ b/net/rxrpc/local_object.c
+@@ -86,7 +86,6 @@ static struct rxrpc_local *rxrpc_alloc_local(const struct sockaddr_rxrpc *srx)
+ 		atomic_set(&local->usage, 1);
+ 		INIT_LIST_HEAD(&local->link);
+ 		INIT_WORK(&local->processor, rxrpc_local_processor);
+-		INIT_HLIST_HEAD(&local->services);
+ 		init_rwsem(&local->defrag_sem);
+ 		skb_queue_head_init(&local->reject_queue);
+ 		skb_queue_head_init(&local->event_queue);
+@@ -292,7 +291,7 @@ static void rxrpc_local_destroyer(struct rxrpc_local *local)
+ 	mutex_unlock(&rxrpc_local_mutex);
+ 
+ 	ASSERT(RB_EMPTY_ROOT(&local->client_conns));
+-	ASSERT(hlist_empty(&local->services));
++	ASSERT(!local->service);
+ 
+ 	if (socket) {
+ 		local->socket = NULL;
+diff --git a/net/rxrpc/security.c b/net/rxrpc/security.c
+index 82d8134e9287..7d921e56e715 100644
+--- a/net/rxrpc/security.c
++++ b/net/rxrpc/security.c
+@@ -131,10 +131,10 @@ int rxrpc_init_server_conn_security(struct rxrpc_connection *conn)
+ 
+ 	/* find the service */
+ 	read_lock(&local->services_lock);
+-	hlist_for_each_entry(rx, &local->services, listen_link) {
+-		if (rx->srx.srx_service == conn->params.service_id)
+-			goto found_service;
+-	}
++	rx = rcu_dereference_protected(local->service,
++				       lockdep_is_held(&local->services_lock));
++	if (rx && rx->srx.srx_service == conn->params.service_id)
++		goto found_service;
+ 
+ 	/* the service appears to have died */
+ 	read_unlock(&local->services_lock);
