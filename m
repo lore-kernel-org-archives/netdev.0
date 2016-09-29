@@ -1,47 +1,66 @@
-From: Vishwanath Pai <vpai@akamai.com>
-Subject: Re: next-20160929 build: 2 failures 4 warnings (next-20160929)
-Date: Thu, 29 Sep 2016 15:08:58 -0400
-Message-ID: <57ED66CA.3090903@akamai.com>
-References: <E1bpZhb-0002Oz-OQ@optimist>
- <20160929184737.ragquwy2tmhxo5bn@sirena.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Joshua Hunt <johunt@akamai.com>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        kernel-build-reports@lists.linaro.org,
-        linaro-kernel@lists.linaro.org, linux-next@vger.kernel.org,
-        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Mark Brown <broonie@kernel.org>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: [PATCH net-next 1/2] openvswitch: mpls: set network header correctly on key extract
+Date: Thu, 29 Sep 2016 21:19:47 +0200
+Message-ID: <170be69b8496bf37e90915e2f05af0464d5f09c6.1475176437.git.jbenc@redhat.com>
+References: <cover.1475176437.git.jbenc@redhat.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>,
+        pravin shelar <pshelar@ovn.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay07.akamai.com ([23.79.238.175]:21679 "EHLO
-        prod-mail-xrelay07.akamai.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751670AbcI2TJG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 15:09:06 -0400
-In-Reply-To: <20160929184737.ragquwy2tmhxo5bn@sirena.org.uk>
+Received: from mx1.redhat.com ([209.132.183.28]:58274 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755461AbcI2TUK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 29 Sep 2016 15:20:10 -0400
+In-Reply-To: <cover.1475176437.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/29/2016 02:47 PM, Mark Brown wrote:
-> On Thu, Sep 29, 2016 at 12:40:35PM +0100, Build bot for Mark Brown wrote:
-> 
-> For the past couple of days -next has been failing to build an ARM
-> allmodconfig due to:
-> 
->> 	arm-allmodconfig
->> ERROR: "__aeabi_uldivmod" [net/netfilter/xt_hashlimit.ko] undefined!
-> 
-> which appears to be triggered by 11d5f15723c9 (netfilter: xt_hashlimit:
-> Create revision 2 to support higher pps rates) introducing a division of
-> a 64 bit number which should be done using do_div().
-> 
+After the 48d2ab609b6b ("net: mpls: Fixups for GSO"), MPLS handling in
+openvswitch was changed to have network header pointing to the start of the
+MPLS headers and inner_network_header pointing after the MPLS headers.
 
-I have sent a patch for this a couple of days ago to netdev, it hasn't
-made it to net-next yet. Here's the latest one:
+However, key_extract was missed by the mentioned commit, causing incorrect
+headers to be set when a MPLS packet just enters the bridge or after it is
+recirculated.
 
-[PATCH net-next v3] netfilter: xt_hashlimit: Fix link error in 32bit
-arch because of 64bit division
+Fixes: 48d2ab609b6b ("net: mpls: Fixups for GSO")
+Signed-off-by: Jiri Benc <jbenc@redhat.com>
+---
+ net/openvswitch/flow.c | 11 +++--------
+ 1 file changed, 3 insertions(+), 8 deletions(-)
 
-This should fix the link error.
-
--Vishwanath
+diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+index 634cc10d6dee..c8c82e109c68 100644
+--- a/net/openvswitch/flow.c
++++ b/net/openvswitch/flow.c
+@@ -633,12 +633,7 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
+ 	} else if (eth_p_mpls(key->eth.type)) {
+ 		size_t stack_len = MPLS_HLEN;
+ 
+-		/* In the presence of an MPLS label stack the end of the L2
+-		 * header and the beginning of the L3 header differ.
+-		 *
+-		 * Advance network_header to the beginning of the L3
+-		 * header. mac_len corresponds to the end of the L2 header.
+-		 */
++		skb_set_inner_network_header(skb, skb->mac_len);
+ 		while (1) {
+ 			__be32 lse;
+ 
+@@ -646,12 +641,12 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
+ 			if (unlikely(error))
+ 				return 0;
+ 
+-			memcpy(&lse, skb_network_header(skb), MPLS_HLEN);
++			memcpy(&lse, skb_inner_network_header(skb), MPLS_HLEN);
+ 
+ 			if (stack_len == MPLS_HLEN)
+ 				memcpy(&key->mpls.top_lse, &lse, MPLS_HLEN);
+ 
+-			skb_set_network_header(skb, skb->mac_len + stack_len);
++			skb_set_inner_network_header(skb, skb->mac_len + stack_len);
+ 			if (lse & htonl(MPLS_LS_S_MASK))
+ 				break;
+ 
+-- 
+1.8.3.1
