@@ -1,44 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/8] net/ncsi: Avoid unused-value build
- warning from ia64-linux-gcc
-Date: Thu, 29 Sep 2016 01:54:04 -0400 (EDT)
-Message-ID: <20160929.015404.76401694814645494.davem@davemloft.net>
-References: <1475125395-8459-1-git-send-email-gwshan@linux.vnet.ibm.com>
-        <1475125395-8459-2-git-send-email-gwshan@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, joel@jms.id.au, yuvali@mellanox.com,
-        benh@kernel.crashing.org
-To: gwshan@linux.vnet.ibm.com
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: net-next tree broken with CONFIG_NETFILTER_INGRESS=n
+Date: Thu, 29 Sep 2016 08:23:03 +0200
+Message-ID: <E3004E95-F774-457E-9BA8-FA29A72BE035@holtmann.org>
+Mime-Version: 1.0 (Mac OS X Mail 10.0 \(3226\))
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+To: Network Development <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45596 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752887AbcI2FyI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 01:54:08 -0400
-In-Reply-To: <1475125395-8459-2-git-send-email-gwshan@linux.vnet.ibm.com>
+Received: from coyote.holtmann.net ([212.227.132.17]:42724 "EHLO
+        mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751038AbcI2GXH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 02:23:07 -0400
+Received: from marcel-macbook.fritz.box (dslb-178-003-132-147.178.003.pools.vodafone-ip.de [178.3.132.147])
+        by mail.holtmann.org (Postfix) with ESMTPSA id 1BE91CF351
+        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 08:26:38 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gavin Shan <gwshan@linux.vnet.ibm.com>
-Date: Thu, 29 Sep 2016 15:03:08 +1000
+Hi Dave,
 
-> This replaces the atomic access to NCSI channel's state with READ_ONCE()
-> and WRITE_ONCE() to avoid the above build warning. We needn't hold the
-> channel's lock when updating its state as well. No logical changes
-> introduced.
+the net-next tree is broken since a few days now when CONFIG_NETFILTER_INGRESS=n is set.
 
-I don't understand this.
+  CC      net/netfilter/core.o
+In file included from ./include/linux/linkage.h:4:0,
+                 from ./include/linux/kernel.h:6,
+                 from net/netfilter/core.c:10:
+net/netfilter/core.c: In function ‘nf_set_hooks_head’:
+net/netfilter/core.c:96:30: error: ‘struct net_device’ has no member named ‘nf_hooks_ingress’
+   rcu_assign_pointer(reg->dev->nf_hooks_ingress, entry);
+                              ^
+./include/linux/compiler.h:299:17: note: in definition of macro ‘WRITE_ONCE’
+  union { typeof(x) __val; char __c[1]; } __u = \
+                 ^
+Regards
 
-If it's important to take the lock for the list add/del, then it must
-be important to make the state change appear atomic wrt. that lock as
-well.
-
-Can parallel threads of control enter these functions which change the
-state?  If so, then you need to make the state changes under the lock.
-In fact, you probably have to make the state tests under the locks as
-well.
-
-If not, please explain what prevents it from happening.
-
-Thanks.
+Marcel
