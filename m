@@ -1,7 +1,7 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH V2 for-next 7/8] net: hns: bug fix about broadcast/multicast packets
-Date: Thu, 29 Sep 2016 18:09:15 +0100
-Message-ID: <20160929170916.631972-8-salil.mehta@huawei.com>
+Subject: [PATCH V2 for-next 5/8] net: hns: fix port not available after testing loopback
+Date: Thu, 29 Sep 2016 18:09:13 +0100
+Message-ID: <20160929170916.631972-6-salil.mehta@huawei.com>
 References: <20160929170916.631972-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,69 +9,95 @@ Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
         <xavier.huwei@huawei.com>, <oulijun@huawei.com>,
         <mehta.salil.lnk@gmail.com>, <linux-rdma@vger.kernel.org>,
         <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <linuxarm@huawei.com>, Daode Huang <huangdaode@hisilicon.com>
+        <linuxarm@huawei.com>, Kejian Yan <yankejian@huawei.com>
 To: <dledford@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:41383 "EHLO
-        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934495AbcI2RLf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 13:11:35 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20160929170916.631972-1-salil.mehta@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daode Huang <huangdaode@hisilicon.com>
+From: Kejian Yan <yankejian@huawei.com>
 
-When the dsaf mode receives a broadcast packet, it will filter
-the packet by comparing the received queue number and destination
-queue number(get from forwarding table), if they are the same,
-the packet will be filtered. Otherwise, the packet will be loopback.
-So this patch select queue 0 to send broadcast and multicast packets.
+After running command "ethtool -t eth0", eth0 can not be connected to
+network. It is caused by the changing the inner loopback register and
+this register cannot be changed when hns connected to network. The
+routine of setting this register needs to be removed and using promisc
+mode to let the packet looped back pass by dsaf mode.
 
-Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
-Reviewed-by: Yisen Zhuang <yisen.zhuang@huawei.com>
+Reported-by: Jun He <hjat2005@huawei.com>
+Signed-off-by: Kejian Yan <yankejian@huawei.com>
+Reviewed-by: Yisen Zhaung <yisen.zhuang@huawei.com>
 Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
 ---
-PATCH v2: Addressed comments by David Miller
-          Link: https://lkml.org/lkml/2016/9/28/390
-PATCH V1: Initial Submit
----
- drivers/net/ethernet/hisilicon/hns/hns_enet.c |   16 ++++++++++++++++
- 1 file changed, 16 insertions(+)
+ drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c  |    3 ---
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c |   10 ----------
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |    1 -
+ drivers/net/ethernet/hisilicon/hns/hns_ethtool.c   |    7 +++++++
+ 4 files changed, 7 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-index 09ed237..5494e0e 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-@@ -1597,6 +1597,21 @@ struct rtnl_link_stats64 *hns_nic_get_stats64(struct net_device *ndev,
- 	return stats;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
+index e28d960..e0f9cdc 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
+@@ -678,9 +678,6 @@ static int hns_ae_config_loopback(struct hnae_handle *handle,
+ 		ret = -EINVAL;
+ 	}
+ 
+-	if (!ret)
+-		hns_dsaf_set_inner_lb(mac_cb->dsaf_dev, mac_cb->mac_id, en);
+-
+ 	return ret;
  }
  
-+static u16
-+hns_nic_select_queue(struct net_device *ndev, struct sk_buff *skb,
-+		     void *accel_priv, select_queue_fallback_t fallback)
-+{
-+	struct ethhdr *eth_hdr = (struct ethhdr *)skb->data;
-+	struct hns_nic_priv *priv = netdev_priv(ndev);
-+
-+	/* fix hardware broadcast/multicast packets queue loopback */
-+	if (!AE_IS_VER1(priv->enet_ver) &&
-+	    is_multicast_ether_addr(eth_hdr->h_dest))
-+		return 0;
-+	else
-+		return fallback(ndev, skb);
-+}
-+
- static const struct net_device_ops hns_nic_netdev_ops = {
- 	.ndo_open = hns_nic_net_open,
- 	.ndo_stop = hns_nic_net_stop,
-@@ -1612,6 +1627,7 @@ static const struct net_device_ops hns_nic_netdev_ops = {
- 	.ndo_poll_controller = hns_nic_poll_controller,
- #endif
- 	.ndo_set_rx_mode = hns_nic_set_rx_mode,
-+	.ndo_select_queue = hns_nic_select_queue,
- };
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+index 9283bc6..827d8fb 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+@@ -768,16 +768,6 @@ void hns_dsaf_set_promisc_mode(struct dsaf_device *dsaf_dev, u32 en)
+ 				 DSAF_CFG_MIX_MODE_S, !!en);
+ }
  
- static void hns_nic_update_link_status(struct net_device *netdev)
+-void hns_dsaf_set_inner_lb(struct dsaf_device *dsaf_dev, u32 mac_id, u32 en)
+-{
+-	if (AE_IS_VER1(dsaf_dev->dsaf_ver) ||
+-	    dsaf_dev->mac_cb[mac_id]->mac_type == HNAE_PORT_DEBUG)
+-		return;
+-
+-	dsaf_set_dev_bit(dsaf_dev, DSAFV2_SERDES_LBK_0_REG + 4 * mac_id,
+-			 DSAFV2_SERDES_LBK_EN_B, !!en);
+-}
+-
+ /**
+  * hns_dsaf_tbl_stat_en - tbl
+  * @dsaf_id: dsa fabric id
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
+index 35df187..c494fc5 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
+@@ -466,6 +466,5 @@ void hns_dsaf_get_rx_mac_pause_en(struct dsaf_device *dsaf_dev, int mac_id,
+ 				  u32 *en);
+ int hns_dsaf_set_rx_mac_pause_en(struct dsaf_device *dsaf_dev, int mac_id,
+ 				 u32 en);
+-void hns_dsaf_set_inner_lb(struct dsaf_device *dsaf_dev, u32 mac_id, u32 en);
+ 
+ #endif /* __HNS_DSAF_MAIN_H__ */
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+index ab33487..fa91ce3 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+@@ -342,6 +342,13 @@ static int __lb_setup(struct net_device *ndev,
+ 		break;
+ 	}
+ 
++	if (!ret) {
++		if (loop == MAC_LOOP_NONE)
++			h->dev->ops->set_promisc_mode(
++				h, ndev->flags & IFF_PROMISC);
++		else
++			h->dev->ops->set_promisc_mode(h, 1);
++	}
+ 	return ret;
+ }
+ 
 -- 
 1.7.9.5
