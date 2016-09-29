@@ -1,428 +1,118 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 08/10] net: dsa: mv88e6xxx: add chip-wide ops
-Date: Thu, 29 Sep 2016 12:22:00 -0400
-Message-ID: <20160929162202.10685-9-vivien.didelot@savoirfairelinux.com>
-References: <20160929162202.10685-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
+From: "Guilherme G. Piccoli" <gpiccoli@linux.vnet.ibm.com>
+Subject: [PATCH net v2] tg3: Avoid NULL pointer dereference in tg3_io_error_detected()
+Date: Thu, 29 Sep 2016 13:24:08 -0300
+Message-ID: <1475166248-8665-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
+Cc: netdev@vger.kernel.org, gpiccoli@linux.vnet.ibm.com,
+        Milton Miller <miltonm@us.ibm.com>
+To: siva.kallam@broadcom.com, prashant@broadcom.com, mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:48864 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755705AbcI2QWi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 12:22:38 -0400
-In-Reply-To: <20160929162202.10685-1-vivien.didelot@savoirfairelinux.com>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:58836 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1755768AbcI2QYi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 12:24:38 -0400
+Received: from pps.filterd (m0098396.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u8TGOAG6102707
+        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 12:24:38 -0400
+Received: from e24smtp01.br.ibm.com (e24smtp01.br.ibm.com [32.104.18.85])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 25s25swg1j-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 12:24:38 -0400
+Received: from localhost
+        by e24smtp01.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <gpiccoli@linux.vnet.ibm.com>;
+        Thu, 29 Sep 2016 13:24:34 -0300
+Received: from d24relay03.br.ibm.com (d24relay03.br.ibm.com [9.18.232.225])
+        by d24dlp02.br.ibm.com (Postfix) with ESMTP id C5B451DC0054
+        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 12:24:32 -0400 (EDT)
+Received: from d24av05.br.ibm.com (d24av05.br.ibm.com [9.18.232.44])
+        by d24relay03.br.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u8TGOWqS35979436
+        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 13:24:32 -0300
+Received: from d24av05.br.ibm.com (localhost [127.0.0.1])
+        by d24av05.br.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u8TGOWOe009796
+        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 13:24:32 -0300
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Introduce a mv88e6xxx_ops structure to describe supported chip-wide
-functions and assign the correct variant to the chip models.
+From: Milton Miller <miltonm@us.ibm.com>
 
-For the moment, add only PHY access routines. This allows to get rid of
-the PHY ops structures and the usage of PHY flags.
+While the driver is probing the adapter, an error may occur before the
+netdev structure is allocated and attached to pci_dev. In this case,
+not only netdev isn't available, but the tg3 private structure is also
+not available as it is just math from the NULL pointer, so dereferences
+must be skipped.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+The following trace is seen when the error is triggered:
+
+  [1.402247] Unable to handle kernel paging request for data at address 0x00001a99
+  [1.402410] Faulting instruction address: 0xc0000000007e33f8
+  [1.402450] Oops: Kernel access of bad area, sig: 11 [#1]
+  [1.402481] SMP NR_CPUS=2048 NUMA PowerNV
+  [1.402513] Modules linked in:
+  [1.402545] CPU: 0 PID: 651 Comm: eehd Not tainted 4.4.0-36-generic #55-Ubuntu
+  [1.402591] task: c000001fe4e42a20 ti: c000001fe4e88000 task.ti: c000001fe4e88000
+  [1.402742] NIP: c0000000007e33f8 LR: c0000000007e3164 CTR: c000000000595ea0
+  [1.402787] REGS: c000001fe4e8b790 TRAP: 0300   Not tainted  (4.4.0-36-generic)
+  [1.402832] MSR: 9000000100009033 <SF,HV,EE,ME,IR,DR,RI,LE>  CR: 28000422  XER: 20000000
+  [1.403058] CFAR: c000000000008468 DAR: 0000000000001a99 DSISR: 42000000 SOFTE: 1
+  GPR00: c0000000007e3164 c000001fe4e8ba10 c0000000015c5e00 0000000000000000
+  GPR04: 0000000000000001 0000000000000000 0000000000000039 0000000000000299
+  GPR08: 0000000000000000 0000000000000001 c000001fe4e88000 0000000000000006
+  GPR12: 0000000000000000 c00000000fb40000 c0000000000e6558 c000003ca1bffd00
+  GPR16: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+  GPR20: 0000000000000000 0000000000000000 0000000000000000 c000000000d52768
+  GPR24: c000000000d52740 0000000000000100 c000003ca1b52000 0000000000000002
+  GPR28: 0000000000000900 0000000000000000 c00000000152a0c0 c000003ca1b52000
+  [1.404226] NIP [c0000000007e33f8] tg3_io_error_detected+0x308/0x340
+  [1.404265] LR [c0000000007e3164] tg3_io_error_detected+0x74/0x340
+
+This patch avoids the NULL pointer dereference by moving the access after
+the netdev NULL pointer check on tg3_io_error_detected(). Also, we add a
+check for netdev being NULL on tg3_io_resume() [suggested by Michael Chan].
+
+Fixes: 0486a063b1ff ("tg3: prevent ifup/ifdown during PCI error recovery")
+Fixes: dfc8f370316b ("net/tg3: Release IRQs on permanent error")
+Tested-by: Guilherme G. Piccoli <gpiccoli@linux.vnet.ibm.com>
+Signed-off-by: Milton Miller <miltonm@us.ibm.com>
+Signed-off-by: Guilherme G. Piccoli <gpiccoli@linux.vnet.ibm.com>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c      | 136 +++++++++++++++++++++++++++-------
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  28 ++++---
- 2 files changed, 121 insertions(+), 43 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index ad31d3e..83a3769 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -238,10 +238,10 @@ static int mv88e6xxx_phy_read(struct mv88e6xxx_chip *chip, int phy,
- {
- 	int addr = phy; /* PHY devices addresses start at 0x0 */
+  * v2 changelog: added netdev NULL check on tg3_io_resume() as per
+    Michael Chan's suggestion.
+
+ drivers/net/ethernet/broadcom/tg3.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index a2551bc..ea967df 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -18122,14 +18122,14 @@ static pci_ers_result_t tg3_io_error_detected(struct pci_dev *pdev,
  
--	if (!chip->phy_ops)
-+	if (!chip->info->ops->phy_read)
- 		return -EOPNOTSUPP;
+ 	rtnl_lock();
  
--	return chip->phy_ops->read(chip, addr, reg, val);
-+	return chip->info->ops->phy_read(chip, addr, reg, val);
- }
- 
- static int mv88e6xxx_phy_write(struct mv88e6xxx_chip *chip, int phy,
-@@ -249,10 +249,10 @@ static int mv88e6xxx_phy_write(struct mv88e6xxx_chip *chip, int phy,
- {
- 	int addr = phy; /* PHY devices addresses start at 0x0 */
- 
--	if (!chip->phy_ops)
-+	if (!chip->info->ops->phy_write)
- 		return -EOPNOTSUPP;
- 
--	return chip->phy_ops->write(chip, addr, reg, val);
-+	return chip->info->ops->phy_write(chip, addr, reg, val);
- }
- 
- static int mv88e6xxx_phy_page_get(struct mv88e6xxx_chip *chip, int phy, u8 page)
-@@ -515,11 +515,6 @@ static int mv88e6xxx_phy_ppu_write(struct mv88e6xxx_chip *chip, int addr,
- 	return err;
- }
- 
--static const struct mv88e6xxx_bus_ops mv88e6xxx_phy_ppu_ops = {
--	.read = mv88e6xxx_phy_ppu_read,
--	.write = mv88e6xxx_phy_ppu_write,
--};
+-	/* We needn't recover from permanent error */
+-	if (state == pci_channel_io_frozen)
+-		tp->pcierr_recovery = true;
 -
- static bool mv88e6xxx_6065_family(struct mv88e6xxx_chip *chip)
- {
- 	return chip->info->family == MV88E6XXX_FAMILY_6065;
-@@ -3214,6 +3209,91 @@ static int mv88e6xxx_set_eeprom(struct dsa_switch *ds,
- 	return err;
- }
+ 	/* We probably don't have netdev yet */
+ 	if (!netdev || !netif_running(netdev))
+ 		goto done;
  
-+static const struct mv88e6xxx_ops mv88e6085_ops = {
-+	.phy_read = mv88e6xxx_phy_ppu_read,
-+	.phy_write = mv88e6xxx_phy_ppu_write,
-+};
++	/* We needn't recover from permanent error */
++	if (state == pci_channel_io_frozen)
++		tp->pcierr_recovery = true;
 +
-+static const struct mv88e6xxx_ops mv88e6095_ops = {
-+	.phy_read = mv88e6xxx_phy_ppu_read,
-+	.phy_write = mv88e6xxx_phy_ppu_write,
-+};
-+
-+static const struct mv88e6xxx_ops mv88e6123_ops = {
-+	.phy_read = mv88e6xxx_read,
-+	.phy_write = mv88e6xxx_write,
-+};
-+
-+static const struct mv88e6xxx_ops mv88e6131_ops = {
-+	.phy_read = mv88e6xxx_phy_ppu_read,
-+	.phy_write = mv88e6xxx_phy_ppu_write,
-+};
-+
-+static const struct mv88e6xxx_ops mv88e6161_ops = {
-+	.phy_read = mv88e6xxx_read,
-+	.phy_write = mv88e6xxx_write,
-+};
-+
-+static const struct mv88e6xxx_ops mv88e6165_ops = {
-+	.phy_read = mv88e6xxx_read,
-+	.phy_write = mv88e6xxx_write,
-+};
-+
-+static const struct mv88e6xxx_ops mv88e6171_ops = {
-+	.phy_read = mv88e6xxx_g2_smi_phy_read,
-+	.phy_write = mv88e6xxx_g2_smi_phy_write,
-+};
-+
-+static const struct mv88e6xxx_ops mv88e6172_ops = {
-+	.phy_read = mv88e6xxx_g2_smi_phy_read,
-+	.phy_write = mv88e6xxx_g2_smi_phy_write,
-+};
-+
-+static const struct mv88e6xxx_ops mv88e6175_ops = {
-+	.phy_read = mv88e6xxx_g2_smi_phy_read,
-+	.phy_write = mv88e6xxx_g2_smi_phy_write,
-+};
-+
-+static const struct mv88e6xxx_ops mv88e6176_ops = {
-+	.phy_read = mv88e6xxx_g2_smi_phy_read,
-+	.phy_write = mv88e6xxx_g2_smi_phy_write,
-+};
-+
-+static const struct mv88e6xxx_ops mv88e6185_ops = {
-+	.phy_read = mv88e6xxx_phy_ppu_read,
-+	.phy_write = mv88e6xxx_phy_ppu_write,
-+};
-+
-+static const struct mv88e6xxx_ops mv88e6240_ops = {
-+	.phy_read = mv88e6xxx_g2_smi_phy_read,
-+	.phy_write = mv88e6xxx_g2_smi_phy_write,
-+};
-+
-+static const struct mv88e6xxx_ops mv88e6320_ops = {
-+	.phy_read = mv88e6xxx_g2_smi_phy_read,
-+	.phy_write = mv88e6xxx_g2_smi_phy_write,
-+};
-+
-+static const struct mv88e6xxx_ops mv88e6321_ops = {
-+	.phy_read = mv88e6xxx_g2_smi_phy_read,
-+	.phy_write = mv88e6xxx_g2_smi_phy_write,
-+};
-+
-+static const struct mv88e6xxx_ops mv88e6350_ops = {
-+	.phy_read = mv88e6xxx_g2_smi_phy_read,
-+	.phy_write = mv88e6xxx_g2_smi_phy_write,
-+};
-+
-+static const struct mv88e6xxx_ops mv88e6351_ops = {
-+	.phy_read = mv88e6xxx_g2_smi_phy_read,
-+	.phy_write = mv88e6xxx_g2_smi_phy_write,
-+};
-+
-+static const struct mv88e6xxx_ops mv88e6352_ops = {
-+	.phy_read = mv88e6xxx_g2_smi_phy_read,
-+	.phy_write = mv88e6xxx_g2_smi_phy_write,
-+};
-+
- static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 	[MV88E6085] = {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6085,
-@@ -3225,6 +3305,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6097,
-+		.ops = &mv88e6085_ops,
- 	},
+ 	tg3_phy_stop(tp);
  
- 	[MV88E6095] = {
-@@ -3237,6 +3318,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6095,
-+		.ops = &mv88e6095_ops,
- 	},
+ 	tg3_netif_stop(tp);
+@@ -18226,7 +18226,7 @@ static void tg3_io_resume(struct pci_dev *pdev)
  
- 	[MV88E6123] = {
-@@ -3249,6 +3331,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6165,
-+		.ops = &mv88e6123_ops,
- 	},
+ 	rtnl_lock();
  
- 	[MV88E6131] = {
-@@ -3261,6 +3344,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6185,
-+		.ops = &mv88e6131_ops,
- 	},
+-	if (!netif_running(netdev))
++	if (!netdev || !netif_running(netdev))
+ 		goto done;
  
- 	[MV88E6161] = {
-@@ -3273,6 +3357,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6165,
-+		.ops = &mv88e6161_ops,
- 	},
- 
- 	[MV88E6165] = {
-@@ -3285,6 +3370,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6165,
-+		.ops = &mv88e6165_ops,
- 	},
- 
- 	[MV88E6171] = {
-@@ -3297,6 +3383,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6351,
-+		.ops = &mv88e6171_ops,
- 	},
- 
- 	[MV88E6172] = {
-@@ -3309,6 +3396,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6352,
-+		.ops = &mv88e6172_ops,
- 	},
- 
- 	[MV88E6175] = {
-@@ -3321,6 +3409,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6351,
-+		.ops = &mv88e6175_ops,
- 	},
- 
- 	[MV88E6176] = {
-@@ -3333,6 +3422,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6352,
-+		.ops = &mv88e6176_ops,
- 	},
- 
- 	[MV88E6185] = {
-@@ -3345,6 +3435,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6185,
-+		.ops = &mv88e6185_ops,
- 	},
- 
- 	[MV88E6240] = {
-@@ -3357,6 +3448,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6352,
-+		.ops = &mv88e6240_ops,
- 	},
- 
- 	[MV88E6320] = {
-@@ -3369,6 +3461,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6320,
-+		.ops = &mv88e6320_ops,
- 	},
- 
- 	[MV88E6321] = {
-@@ -3381,6 +3474,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6320,
-+		.ops = &mv88e6321_ops,
- 	},
- 
- 	[MV88E6350] = {
-@@ -3393,6 +3487,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6351,
-+		.ops = &mv88e6350_ops,
- 	},
- 
- 	[MV88E6351] = {
-@@ -3405,6 +3500,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6351,
-+		.ops = &mv88e6351_ops,
- 	},
- 
- 	[MV88E6352] = {
-@@ -3417,6 +3513,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6352,
-+		.ops = &mv88e6352_ops,
- 	},
- };
- 
-@@ -3479,33 +3576,16 @@ static struct mv88e6xxx_chip *mv88e6xxx_alloc_chip(struct device *dev)
- 	return chip;
- }
- 
--static const struct mv88e6xxx_bus_ops mv88e6xxx_g2_smi_phy_ops = {
--	.read = mv88e6xxx_g2_smi_phy_read,
--	.write = mv88e6xxx_g2_smi_phy_write,
--};
--
--static const struct mv88e6xxx_bus_ops mv88e6xxx_phy_ops = {
--	.read = mv88e6xxx_read,
--	.write = mv88e6xxx_write,
--};
--
- static void mv88e6xxx_phy_init(struct mv88e6xxx_chip *chip)
- {
--	if (mv88e6xxx_has(chip, MV88E6XXX_FLAGS_SMI_PHY)) {
--		chip->phy_ops = &mv88e6xxx_g2_smi_phy_ops;
--	} else if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_PPU)) {
--		chip->phy_ops = &mv88e6xxx_phy_ppu_ops;
-+	if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_PPU))
- 		mv88e6xxx_ppu_state_init(chip);
--	} else {
--		chip->phy_ops = &mv88e6xxx_phy_ops;
--	}
- }
- 
- static void mv88e6xxx_phy_destroy(struct mv88e6xxx_chip *chip)
- {
--	if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_PPU)) {
-+	if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_PPU))
- 		mv88e6xxx_ppu_state_destroy(chip);
--	}
- }
- 
- static int mv88e6xxx_smi_init(struct mv88e6xxx_chip *chip,
-diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-index b9ef769..8e12902 100644
---- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-@@ -427,8 +427,6 @@ enum mv88e6xxx_cap {
- 	MV88E6XXX_CAP_G2_POT,		/* (0x0f) Priority Override Table */
- 	MV88E6XXX_CAP_G2_EEPROM_CMD,	/* (0x14) EEPROM Command */
- 	MV88E6XXX_CAP_G2_EEPROM_DATA,	/* (0x15) EEPROM Data */
--	MV88E6XXX_CAP_G2_SMI_PHY_CMD,	/* (0x18) SMI PHY Command */
--	MV88E6XXX_CAP_G2_SMI_PHY_DATA,	/* (0x19) SMI PHY Data */
- 
- 	/* PHY Polling Unit.
- 	 * See GLOBAL_CONTROL_PPU_ENABLE and GLOBAL_STATUS_PPU_POLLING.
-@@ -479,8 +477,6 @@ enum mv88e6xxx_cap {
- #define MV88E6XXX_FLAG_G2_POT		BIT_ULL(MV88E6XXX_CAP_G2_POT)
- #define MV88E6XXX_FLAG_G2_EEPROM_CMD	BIT_ULL(MV88E6XXX_CAP_G2_EEPROM_CMD)
- #define MV88E6XXX_FLAG_G2_EEPROM_DATA	BIT_ULL(MV88E6XXX_CAP_G2_EEPROM_DATA)
--#define MV88E6XXX_FLAG_G2_SMI_PHY_CMD	BIT_ULL(MV88E6XXX_CAP_G2_SMI_PHY_CMD)
--#define MV88E6XXX_FLAG_G2_SMI_PHY_DATA	BIT_ULL(MV88E6XXX_CAP_G2_SMI_PHY_DATA)
- 
- #define MV88E6XXX_FLAG_PPU		BIT_ULL(MV88E6XXX_CAP_PPU)
- #define MV88E6XXX_FLAG_PPU_ACTIVE	BIT_ULL(MV88E6XXX_CAP_PPU_ACTIVE)
-@@ -514,11 +510,6 @@ enum mv88e6xxx_cap {
- 	(MV88E6XXX_FLAG_PHY_PAGE |	\
- 	 MV88E6XXX_FLAG_SERDES)
- 
--/* Indirect PHY access via Global2 SMI PHY registers */
--#define MV88E6XXX_FLAGS_SMI_PHY		\
--	(MV88E6XXX_FLAG_G2_SMI_PHY_CMD |\
--	 MV88E6XXX_FLAG_G2_SMI_PHY_DATA)
--
- #define MV88E6XXX_FLAGS_FAMILY_6095	\
- 	(MV88E6XXX_FLAG_GLOBAL2 |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
-@@ -577,8 +568,7 @@ enum mv88e6xxx_cap {
- 	 MV88E6XXX_FLAGS_EEPROM16 |	\
- 	 MV88E6XXX_FLAGS_IRL |		\
- 	 MV88E6XXX_FLAGS_MULTI_CHIP |	\
--	 MV88E6XXX_FLAGS_PVT |		\
--	 MV88E6XXX_FLAGS_SMI_PHY)
-+	 MV88E6XXX_FLAGS_PVT)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6351	\
- 	(MV88E6XXX_FLAG_EDSA |		\
-@@ -595,8 +585,7 @@ enum mv88e6xxx_cap {
- 	 MV88E6XXX_FLAG_VTU |		\
- 	 MV88E6XXX_FLAGS_IRL |		\
- 	 MV88E6XXX_FLAGS_MULTI_CHIP |	\
--	 MV88E6XXX_FLAGS_PVT |		\
--	 MV88E6XXX_FLAGS_SMI_PHY)
-+	 MV88E6XXX_FLAGS_PVT)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6352	\
- 	(MV88E6XXX_FLAG_EDSA |		\
-@@ -617,8 +606,9 @@ enum mv88e6xxx_cap {
- 	 MV88E6XXX_FLAGS_IRL |		\
- 	 MV88E6XXX_FLAGS_MULTI_CHIP |	\
- 	 MV88E6XXX_FLAGS_PVT |		\
--	 MV88E6XXX_FLAGS_SERDES |	\
--	 MV88E6XXX_FLAGS_SMI_PHY)
-+	 MV88E6XXX_FLAGS_SERDES)
-+
-+struct mv88e6xxx_ops;
- 
- struct mv88e6xxx_info {
- 	enum mv88e6xxx_family family;
-@@ -630,6 +620,7 @@ struct mv88e6xxx_info {
- 	unsigned int global1_addr;
- 	unsigned int age_time_coeff;
- 	unsigned long long flags;
-+	const struct mv88e6xxx_ops *ops;
- };
- 
- struct mv88e6xxx_atu_entry {
-@@ -710,6 +701,13 @@ struct mv88e6xxx_bus_ops {
- 	int (*write)(struct mv88e6xxx_chip *chip, int addr, int reg, u16 val);
- };
- 
-+struct mv88e6xxx_ops {
-+	int (*phy_read)(struct mv88e6xxx_chip *chip, int addr, int reg,
-+			u16 *val);
-+	int (*phy_write)(struct mv88e6xxx_chip *chip, int addr, int reg,
-+			 u16 val);
-+};
-+
- enum stat_type {
- 	BANK0,
- 	BANK1,
+ 	tg3_full_lock(tp, 0);
 -- 
-2.10.0
+2.1.0
