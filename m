@@ -1,69 +1,163 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: Re: [PATCH net v2] tg3: Avoid NULL pointer dereference in tg3_io_error_detected()
-Date: Thu, 29 Sep 2016 10:41:53 -0700
-Message-ID: <CACKFLi=yE2xGPXud8bLqU9SRZRPAi=oVrvThyBG2g26xxxY0vg@mail.gmail.com>
-References: <1475166248-8665-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: [net-next PATCH] i40e: Clean up handling of msg_enable flags and
+ debug parameter
+Date: Thu, 29 Sep 2016 08:05:53 -0400
+Message-ID: <20160929115832.42066.71367.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Siva Reddy Kallam <siva.kallam@broadcom.com>,
-        Prashant Sreedharan <prashant@broadcom.com>,
-        Michael Chan <mchan@broadcom.com>,
-        Netdev <netdev@vger.kernel.org>,
-        Milton Miller <miltonm@us.ibm.com>
-To: "Guilherme G. Piccoli" <gpiccoli@linux.vnet.ibm.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, linville@tuxdriver.com
+To: sassmann@kpanic.de, intel-wired-lan@lists.osuosl.org,
+        jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f175.google.com ([209.85.217.175]:33895 "EHLO
-        mail-ua0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934123AbcI2Rlz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 13:41:55 -0400
-Received: by mail-ua0-f175.google.com with SMTP id l16so53909864uaa.1
-        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 10:41:55 -0700 (PDT)
-In-Reply-To: <1475166248-8665-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
+Received: from mga06.intel.com ([134.134.136.31]:58095 "EHLO mga06.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934465AbcI2SFx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 29 Sep 2016 14:05:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 29, 2016 at 9:24 AM, Guilherme G. Piccoli
-<gpiccoli@linux.vnet.ibm.com> wrote:
-> From: Milton Miller <miltonm@us.ibm.com>
->
-> While the driver is probing the adapter, an error may occur before the
-> netdev structure is allocated and attached to pci_dev. In this case,
-> not only netdev isn't available, but the tg3 private structure is also
-> not available as it is just math from the NULL pointer, so dereferences
-> must be skipped.
->
-> The following trace is seen when the error is triggered:
->
->   [1.402247] Unable to handle kernel paging request for data at address 0x00001a99
->   [1.402410] Faulting instruction address: 0xc0000000007e33f8
->   [1.402450] Oops: Kernel access of bad area, sig: 11 [#1]
->   [1.402481] SMP NR_CPUS=2048 NUMA PowerNV
->   [1.402513] Modules linked in:
->   [1.402545] CPU: 0 PID: 651 Comm: eehd Not tainted 4.4.0-36-generic #55-Ubuntu
->   [1.402591] task: c000001fe4e42a20 ti: c000001fe4e88000 task.ti: c000001fe4e88000
->   [1.402742] NIP: c0000000007e33f8 LR: c0000000007e3164 CTR: c000000000595ea0
->   [1.402787] REGS: c000001fe4e8b790 TRAP: 0300   Not tainted  (4.4.0-36-generic)
->   [1.402832] MSR: 9000000100009033 <SF,HV,EE,ME,IR,DR,RI,LE>  CR: 28000422  XER: 20000000
->   [1.403058] CFAR: c000000000008468 DAR: 0000000000001a99 DSISR: 42000000 SOFTE: 1
->   GPR00: c0000000007e3164 c000001fe4e8ba10 c0000000015c5e00 0000000000000000
->   GPR04: 0000000000000001 0000000000000000 0000000000000039 0000000000000299
->   GPR08: 0000000000000000 0000000000000001 c000001fe4e88000 0000000000000006
->   GPR12: 0000000000000000 c00000000fb40000 c0000000000e6558 c000003ca1bffd00
->   GPR16: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
->   GPR20: 0000000000000000 0000000000000000 0000000000000000 c000000000d52768
->   GPR24: c000000000d52740 0000000000000100 c000003ca1b52000 0000000000000002
->   GPR28: 0000000000000900 0000000000000000 c00000000152a0c0 c000003ca1b52000
->   [1.404226] NIP [c0000000007e33f8] tg3_io_error_detected+0x308/0x340
->   [1.404265] LR [c0000000007e3164] tg3_io_error_detected+0x74/0x340
->
-> This patch avoids the NULL pointer dereference by moving the access after
-> the netdev NULL pointer check on tg3_io_error_detected(). Also, we add a
-> check for netdev being NULL on tg3_io_resume() [suggested by Michael Chan].
->
-> Fixes: 0486a063b1ff ("tg3: prevent ifup/ifdown during PCI error recovery")
-> Fixes: dfc8f370316b ("net/tg3: Release IRQs on permanent error")
-> Tested-by: Guilherme G. Piccoli <gpiccoli@linux.vnet.ibm.com>
-> Signed-off-by: Milton Miller <miltonm@us.ibm.com>
-> Signed-off-by: Guilherme G. Piccoli <gpiccoli@linux.vnet.ibm.com>
+So the i40e driver had a really convoluted configuration for how to handle
+the debug flags contained in msg_enable.  Part of the issue is that the
+driver has its own 32 bit mask that it was using to track a separate set of
+debug features.  From what I can tell it was trying to use the upper 4 bits
+to determine if the value was meant to represent a bit-mask or the numeric
+value provided by debug level.
 
-Acked-by: Michael Chan <michael.chan@broadcom.com>
+What this patch does is clean this up by compressing those 4 bits into bit
+31, as a result we just have to perform a check against the value being
+negative to determine if we are looking at a debug level (positive), or a
+debug mask (negative).  The debug level will populate the msg_level, and
+the debug mask will populate the debug_mask in the hardware struct.
+
+I added similar logic for ethtool.  If the value being provided has bit 31
+set we assume the value being provided is a debug mask, otherwise we assume
+it is a msg_enable mask.  For displaying we only provide the msg_enable,
+and if debug_mask is in use we will print it to the dmesg log.
+
+Lastly I removed the debugfs interface.  It is redundant with what we
+already have in ethtool and really doesn't belong anyway.
+
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+---
+
+So I am running this through a slightly different process than standard
+because there are some items here that might be objectionable so I want to
+have that ironed out before I deal with the out-of-tree Intel driver.
+
+I just want to verify if this fix for this will work for net-next or if I
+need to look at taking a different approach.  Once I get the go-no-go, I
+will back-port this into the out-of-tree i40e driver.
+
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c |   18 ---------------
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c |    7 +++++-
+ drivers/net/ethernet/intel/i40e/i40e_main.c    |   28 ++++++++++++------------
+ 3 files changed, 20 insertions(+), 33 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+index 0c1875b..acb0f13 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+@@ -1210,24 +1210,6 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
+ 			dev_info(&pf->pdev->dev,
+ 				 "dump debug fwdata <cluster_id> <table_id> <index>\n");
+ 		}
+-
+-	} else if (strncmp(cmd_buf, "msg_enable", 10) == 0) {
+-		u32 level;
+-		cnt = sscanf(&cmd_buf[10], "%i", &level);
+-		if (cnt) {
+-			if (I40E_DEBUG_USER & level) {
+-				pf->hw.debug_mask = level;
+-				dev_info(&pf->pdev->dev,
+-					 "set hw.debug_mask = 0x%08x\n",
+-					 pf->hw.debug_mask);
+-			}
+-			pf->msg_enable = level;
+-			dev_info(&pf->pdev->dev, "set msg_enable = 0x%08x\n",
+-				 pf->msg_enable);
+-		} else {
+-			dev_info(&pf->pdev->dev, "msg_enable = 0x%08x\n",
+-				 pf->msg_enable);
+-		}
+ 	} else if (strncmp(cmd_buf, "pfr", 3) == 0) {
+ 		dev_info(&pf->pdev->dev, "debugfs: forcing PFR\n");
+ 		i40e_do_reset_safe(pf, BIT(__I40E_PF_RESET_REQUESTED));
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index e79a920..b133a77 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -978,6 +978,10 @@ static u32 i40e_get_msglevel(struct net_device *netdev)
+ {
+ 	struct i40e_netdev_priv *np = netdev_priv(netdev);
+ 	struct i40e_pf *pf = np->vsi->back;
++	u32 debug_mask = pf->hw.debug_mask;
++
++	if (debug_mask)
++		netdev_info(netdev, "i40e debug_mask: 0x%08X\n", debug_mask);
+ 
+ 	return pf->msg_enable;
+ }
+@@ -989,7 +993,8 @@ static void i40e_set_msglevel(struct net_device *netdev, u32 data)
+ 
+ 	if (I40E_DEBUG_USER & data)
+ 		pf->hw.debug_mask = data;
+-	pf->msg_enable = data;
++	else
++		pf->msg_enable = data;
+ }
+ 
+ static int i40e_get_regs_len(struct net_device *netdev)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index b93fa2a..b24c6eb 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -93,8 +93,8 @@ MODULE_DEVICE_TABLE(pci, i40e_pci_tbl);
+ 
+ #define I40E_MAX_VF_COUNT 128
+ static int debug = -1;
+-module_param(debug, int, 0);
+-MODULE_PARM_DESC(debug, "Debug level (0=none,...,16=all)");
++module_param(debug, uint, 0);
++MODULE_PARM_DESC(debug, "Debug level (0=none,...,16=all), Debug mask (0x8XXXXXXX)");
+ 
+ MODULE_AUTHOR("Intel Corporation, <e1000-devel@lists.sourceforge.net>");
+ MODULE_DESCRIPTION("Intel(R) Ethernet Connection XL710 Network Driver");
+@@ -8481,14 +8481,12 @@ static int i40e_sw_init(struct i40e_pf *pf)
+ 	int err = 0;
+ 	int size;
+ 
+-	pf->msg_enable = netif_msg_init(I40E_DEFAULT_MSG_ENABLE,
+-				(NETIF_MSG_DRV|NETIF_MSG_PROBE|NETIF_MSG_LINK));
+-	if (debug != -1 && debug != I40E_DEFAULT_MSG_ENABLE) {
+-		if (I40E_DEBUG_USER & debug)
+-			pf->hw.debug_mask = debug;
+-		pf->msg_enable = netif_msg_init((debug & ~I40E_DEBUG_USER),
+-						I40E_DEFAULT_MSG_ENABLE);
+-	}
++	pf->msg_enable = netif_msg_init(debug,
++					NETIF_MSG_DRV |
++					NETIF_MSG_PROBE |
++					NETIF_MSG_LINK);
++	if (debug < -1)
++		pf->hw.debug_mask = debug;
+ 
+ 	/* Set default capability flags */
+ 	pf->flags = I40E_FLAG_RX_CSUM_ENABLED |
+@@ -10790,10 +10788,12 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	mutex_init(&hw->aq.asq_mutex);
+ 	mutex_init(&hw->aq.arq_mutex);
+ 
+-	if (debug != -1) {
+-		pf->msg_enable = pf->hw.debug_mask;
+-		pf->msg_enable = debug;
+-	}
++	pf->msg_enable = netif_msg_init(debug,
++					NETIF_MSG_DRV |
++					NETIF_MSG_PROBE |
++					NETIF_MSG_LINK);
++	if (debug < -1)
++		pf->hw.debug_mask = debug;
+ 
+ 	/* do a special CORER for clearing PXE mode once at init */
+ 	if (hw->revision_id == 0 &&
