@@ -1,122 +1,153 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: Re: [RFC] net: store port/representative id in metadata_dst
-Date: Thu, 29 Sep 2016 12:10:04 +0100
-Message-ID: <20160929121004.1db2d543@jkicinski-Precision-T1700>
-References: <1474572417-15907-1-git-send-email-jakub.kicinski@netronome.com>
-        <20160923063429.GA1821@nanopsycho.orion>
-        <20160923110609.2f221f99@griffin>
-        <20160923135512.64e5d5e9@jkicinski-Precision-T1700>
-        <57E53ADE.10806@gmail.com>
-        <20160923162907.7fd5314e@jkicinski-Precision-T1700>
-        <57E564F3.5010107@intel.com>
-        <20160923211728.4c2f05ab@jkicinski-Precision-T1700>
-        <57E58FA6.3050001@gmail.com>
-        <20160923214544.6a3cd0ff@laptop>
-        <57E59CA8.30007@gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 3/3] net: fec: align IP header in hardware
+Date: Thu, 29 Sep 2016 11:07:26 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB010E25C@AcuExch.aculab.com>
+References: <AM4PR0401MB22609D8151C2B63CA7768A1AFFCB0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+ <1474728139-9335-1-git-send-email-eric@nelint.com>
+ <1474728139-9335-4-git-send-email-eric@nelint.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB0109865@AcuExch.aculab.com>
+ <4d199f32-092c-1c0a-7a01-6d0d317ef676@nelint.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB010A73F@AcuExch.aculab.com>
+ <5cf173c4-84e0-f309-f356-35b114cc166e@nelint.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jakub Kicinski <jakub.kicinski@netronome.com>,
-        "Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
-        Jiri Benc <jbenc@redhat.com>, Jiri Pirko <jiri@resnulli.us>,
-        netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>,
-        ogerlitz@mellanox.com, ast@kernel.org, daniel@iogearbox.net,
-        simon.horman@netronome.com, Paolo Abeni <pabeni@redhat.com>,
-        Pravin B Shelar <pshelar@nicira.com>,
-        hannes@stressinduktion.org
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux@arm.linux.org.uk" <linux@arm.linux.org.uk>,
+        "andrew@lunn.ch" <andrew@lunn.ch>,
+        "fugang.duan@nxp.com" <fugang.duan@nxp.com>,
+        "otavio@ossystems.com.br" <otavio@ossystems.com.br>,
+        "edumazet@google.com" <edumazet@google.com>,
+        "troy.kisky@boundarydevices.com" <troy.kisky@boundarydevices.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "u.kleine-koenig@pengutronix.de" <u.kleine-koenig@pengutronix.de>
+To: 'Eric Nelson' <eric@nelint.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.wp.pl ([212.77.101.10]:22771 "EHLO mx3.wp.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752725AbcI2LKQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 29 Sep 2016 07:10:16 -0400
-In-Reply-To: <57E59CA8.30007@gmail.com>
+Received: from smtp-out4.electric.net ([192.162.216.195]:62266 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753431AbcI2LKh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 07:10:37 -0400
+In-Reply-To: <5cf173c4-84e0-f309-f356-35b114cc166e@nelint.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 23 Sep 2016 14:20:40 -0700, John Fastabend wrote:
-> On 16-09-23 01:45 PM, Jakub Kicinski wrote:
-> > On Fri, 23 Sep 2016 13:25:10 -0700, John Fastabend wrote:  
-> >> On 16-09-23 01:17 PM, Jakub Kicinski wrote:  
-> >>> On Fri, 23 Sep 2016 10:22:59 -0700, Samudrala, Sridhar wrote:    
-> >>>> On 9/23/2016 8:29 AM, Jakub Kicinski wrote:    
-> >>  [...]  
-> >>  [...]    
-> >>>>
-> >>>> The 'accel' parameter in dev_queue_xmit_accel() is currently only passed
-> >>>> to ndo_select_queue() via netdev_pick_tx() and is used to select the tx 
-> >>>> queue.
-> >>>> Also, it is not passed all the way to the driver specific xmit routine.  
-> >>>> Doesn't it require
-> >>>> changing all the driver xmit routines if we want to pass this parameter?
-> >>>>    
-> >>  [...]    
-> >>>>
-> >>>> Yes.  The VFPR netdevs don't have any HW queues associated with them and 
-> >>>> we would like
-> >>>> to use the PF queues for the xmit.
-> >>>> I was also looking into some way of passing the port id via skb 
-> >>>> parameter to the
-> >>>> dev_queue_xmit() call so that the PF xmit routine can do a directed 
-> >>>> transmit to a specifc VF.
-> >>>> Is skb->cb an option to pass this info?
-> >>>> dst_metadata approach would work  too if it is acceptable.    
+From: Eric Nelson
+> Sent: 28 September 2016 18:15
+> On 09/28/2016 09:42 AM, David Laight wrote:
+> > From: Eric Nelson
+> >> Sent: 26 September 2016 19:40
+> >> Hi David,
+> >>
+> >> On 09/26/2016 02:26 AM, David Laight wrote:
+> >>> From: Eric Nelson
+> >>>> Sent: 24 September 2016 15:42
+> >>>> The FEC receive accelerator (RACC) supports shifting the data payload of
+> >>>> received packets by 16-bits, which aligns the payload (IP header) on a
+> >>>> 4-byte boundary, which is, if not required, at least strongly suggested
+> >>>> by the Linux networking layer.
+> >>> ...
+> >>>> +		/* align IP header */
+> >>>> +		val |= FEC_RACC_SHIFT16;
 > >>>
-> >>> I don't think we can trust skb->cb to be set to anything meaningful
-> >>> when the skb is received by the lower device.   
+> >>> I can't help feeling that there needs to be corresponding
+> >>> changes to increase the buffer size by 2 (maybe for large mtu)
+> >>> and to discard two bytes from the frame length.
+> >>>
 > >>
-> >> Agreed. I wouldn't recommend using skb->cb. How about passing it through
-> >> dev_queue_xmit_accel() through to the driver?
+> >> In the normal case, the fec driver over-allocates all receive packets to
+> >> be of size FEC_ENET_RX_FRSIZE (2048) minus the value of rx_align,
+> >> which is either 0x0f (ARM) or 0x03 (PPC).
 > >>
-> >> If you pass the metadata through the dev_queue_xmit_accel() handle tx
-> >> queue  selection would work using normal mechanisms (xps, select_queue,
-> >> cls  hook, etc.). If you wanted to pick some specific queue based on
-> >> policy the policy could be loaded into one of those hooks.  
-> > 
-> > Do you mean without extending how accel is handled by
-> > dev_queue_xmit_accel() today?  If my goal is to not have extra HW
-> > queues then I don't see how I could mux in the lower dev without extra
-> > locking (as I tried to explain two emails ago).  Sorry for being slow
-> > here :(
-> >   
+> >> If the frame length is less than rx_copybreak (typically 256), then
+> >> the frame length from the receive buffer descriptor is used to
+> >> control the allocation size for a copied buffer, and this will include
+> >> the two bytes of padding if RACC_SHIFT16 is set.
+> >>
+> >>> If probably ought to be predicated on NET_IP_ALIGN as well.
+> >>>
+> >> Can you elaborate?
+> >
+> > From reading this it seems that the effect of FEC_RACC_SHIFT16 is to
+> > add two bytes of 'junk' to the start of every receive frame.
+> >
 > 
-> Not slow here I think I was overly optimistic...
+> That's right. Two bytes of junk between the MAC header and the
+> IP header.
 > 
-> Yeh let me try this, roughly the current flow is,
+> > In the 'copybreak' case the new skb would need to be 2 bytes shorter
+> > than the length reported by the hardware, and the data copied from
+> > 2 bytes into the dma buffer.
+> >
 > 
->    dev_queue_xmit_accel(struct sk_buff *skb, void *accel_priv);
->    __dev_queue_xmit(skb, accel_priv);
->    netdev_pick_tx(dev, skb, accel_priv);
-> 	ndo_select_queue(dev, skb, accel_priv, ...);
->    [...]
->    q->enqueue();
->    [...]
->    dev_hard_start_xmit();
->    [...]
->     <driver code here>
-> 
-> So in this flow the VFR netdev driver handles its xmit routine by
-> calling dev_queue_xmit_accel after setting skb->dev to the physical
-> device and passing a cookie via accel that the select_queue() routine
-> can use to pick a tx queue. The rest of the stack q->enqueue() and
-> friends will ensure that locking and qdisc is handled correctly.
-> 
-> But accel_priv was lost at queue selection and so its not being passed
-> down to the driver so no way to set your descriptor bits or whatever
-> needed to push to the VF. I was sort of thinking we could map it from
-> the select_queue routine but I can't figure out how to do that either.
-> 
-> The metadata idea doesn't seem that bad now that I've spent some more
-> time going through it. Either that or hijack some field in the skb but
-> I think that might be worse than the proposal here.
-> 
-> I'm trying to think up some other alternative now and will let you know
-> if I think of anything clever but got nothing at the moment.
-	
-Cool, I'm happy to discuss this further at netdev but it seems like
-there is no strong opposition so far?
+> As it stands, the skb allocated by the copybreak routine will include
+> the two bytes of padding, and the call to skb_pull_inline will ignore
+> them.
 
-FWIW in the example I gave I didn't do refcounting on the dst but I
-think that's incorrect since we don't have control over lifetime of
-redirected/stolen skbs.
+Ok, I didn't see that call being added by this patch.
+
+> > The extra 2 bytes also mean the that maximum mtu that can be received
+> > into a buffer is two bytes less.
+> >
+> 
+> Right, but I think the max is already high enough that this isn't a
+> problem.
+> 
+> > If someone sets the mtu to (say) 9k for jumbo frames this might matter.
+> > Even with fixed 2048 byte buffers it reduces the maximum value the mtu
+> > can be set to by 2.
+> >
+> 
+> As far as I can tell, the fec driver doesn't support jumbo frames, and
+> the max frame length is currently hard-coded at PKT_MAXBUF_SIZE (1522).
+> 
+> This is well within the 2048-byte allocation, even with optional headers
+> for VLAN etc.
+
+Hmm...
+That (probably) means all the skb the driver allocates are actually 4k.
+It would be much better to reduce the size so that the entire skb
+(with packet buffer) is less than 2k.
+
+> > Now if NET_IP_ALIGN is zero then it is fine for the rx frame to start
+> > on a 4n boundary, and the skb are likely to be allocated that way.
+> > In this case you don't want to extra two bytes of 'junk'.
+> >
+> NET_IP_ALIGN is defaulting to 2 by the conditional in skbuff.h
+
+Even though it is always currently set is isn't really ideal to have
+a driver that breaks if it isn't set.
+This could easily happen at some point in the future if the ethernet
+logic is put with a different cpu.
+
+
+> > OTOH if NET_IP_ALIGN is 2 then you need to 'fiddle' things so that
+> > the data is dma'd to offset -2 in the skb and then ensure that the
+> > end of frame is set correctly.
+> >
+> 
+> That's what the RACC SHIFT16 bit does.
+
+No, that causes the ethernet controller to add 2 bytes to the frame.
+You then need to change the dma target address to match.
+Otherwise if a new version of the silicon stops ignoring the low
+address with the frame will be misaligned in the buffer.
+
+The receive frame length will also (probably) be 2 larger than the
+actual frame - so you need to set the end point correctly as well.
+IP will probably ignore the 2 bytes of pad I think you are generating.
+
+> The FEC hardware isn't capable of DMA'ing to an un-aligned address.
+> On ARM, it requires 64-bit alignment, but suggests 128-bit alignment.
+> 
+> On other (PPC?) architectures, it requires 32-bit alignment. This is
+> handled by the rx_align field.
+
+That isn't entirely relevant.
+If the kernel is being built with NET_IP_ALIGN set to 0 you should
+align the destination mac address on a 4n boundary
+(Or rather the skb are likely to be allocated that way).
+If it causes misaligned memory reads later on that is a different problem.
+The MAC driver has aligned the frames as it was told to.
+
+	David
