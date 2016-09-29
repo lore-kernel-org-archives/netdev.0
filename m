@@ -1,46 +1,106 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: [PATCH v3 net 1/2] net/sched: act_vlan: Push skb->data to
- mac_header prior calling skb_vlan_*() functions
-Date: Thu, 29 Sep 2016 12:20:35 +0300
-Message-ID: <20160929122035.56447ce2@halley>
-References: <1475140241-23586-1-git-send-email-shmulik.ladkani@gmail.com>
+From: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next v3 2/3] udp: implement memory accounting helpers
+Date: Thu, 29 Sep 2016 11:31:54 +0200
+Message-ID: <1475141514.4676.28.camel@redhat.com>
+References: <cover.1475048434.git.pabeni@redhat.com>
+         <6f445861ef2ce2e626a1df4946bc3f43f3d43e3f.1475048434.git.pabeni@redhat.com>
+         <1475113378.28155.124.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Pravin Shelar <pshelar@ovn.org>, Jiri Pirko <jiri@mellanox.com>
-To: "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:38024 "EHLO
-        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932451AbcI2JUo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 05:20:44 -0400
-Received: by mail-wm0-f43.google.com with SMTP id w72so14062515wmf.1
-        for <netdev@vger.kernel.org>; Thu, 29 Sep 2016 02:20:43 -0700 (PDT)
-In-Reply-To: <1475140241-23586-1-git-send-email-shmulik.ladkani@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
+        Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+        Alexander Duyck <aduyck-nYU0QVwCCFFWk0Htik3J/w@public.gmane.org>,
+        Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
+        Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+        Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1475113378.28155.124.camel-XN9IlZ5yJG9HTL0Zs8A6p+yfmBU6pStAUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-David,
-
-On Thu, 29 Sep 2016 12:10:40 +0300 Shmulik Ladkani <shmulik.ladkani@gmail.com> wrote:
-> This patch fixes act_vlan to point to the mac_header prior calling
-> skb_vlan_*() functions, as other callers do.
+On Wed, 2016-09-28 at 18:42 -0700, Eric Dumazet wrote:
+> On Wed, 2016-09-28 at 12:52 +0200, Paolo Abeni wrote:
 > 
+> > +static void udp_rmem_release(struct sock *sk, int partial)
+> > +{
+> > +	struct udp_sock *up = udp_sk(sk);
+> > +	int fwd, amt;
+> > +
+> > +	if (partial && !udp_under_memory_pressure(sk))
+> > +		return;
+> > +
+> > +	/* we can have concurrent release; if we catch any conflict
+> > +	 * we let only one of them do the work
+> > +	 */
+> > +	if (atomic_dec_if_positive(&up->can_reclaim) < 0)
+> > +		return;
+> > +
+> > +	fwd = __udp_forward(up, atomic_read(&sk->sk_rmem_alloc));
+> > +	if (fwd < SK_MEM_QUANTUM + partial) {
+> > +		atomic_inc(&up->can_reclaim);
+> > +		return;
+> > +	}
+> > +
+> > +	amt = (fwd - partial) & ~(SK_MEM_QUANTUM - 1);
+> > +	atomic_sub(amt, &up->mem_allocated);
+> > +	atomic_inc(&up->can_reclaim);
+> > +
+> > +	__sk_mem_reduce_allocated(sk, amt >> SK_MEM_QUANTUM_SHIFT);
+> > +	sk->sk_forward_alloc = fwd - amt;
+> > +}
+> 
+> 
+> This is racy... all these atomics make me nervous...
 
-This 1/2 patch fixes the problem detailed in [1] for act_vlan,
-last known caller of skb_vlan_*() with skb->data not at mac_header.
+Ah, perhaps I got it: if we have a concurrent memory scheduling, we
+could end up with a value of mem_allocated below the real need. 
 
-I think it's a good candidate for -stable; it fixes the observed bug and
-it is rather focused.
+That mismatch will not drift: at worst we can end up with mem_allocated
+being single SK_MEM_QUANTUM below what is strictly needed.
 
-Subsequent 2/2 patch hermetically seals the future possibility that one
-might call skb_vlan_*() with skb->data not at mac_header.
+A possible alternative could be:
 
-This might go to stable as well, but not strictly required.
+static void udp_rmem_release(struct sock *sk, int partial)
+{
+	struct udp_sock *up = udp_sk(sk);
+	int fwd, amt, alloc_old, alloc;
 
-Thanks,
-Shmulik
+	if (partial && !udp_under_memory_pressure(sk))
+		return;
 
-[1] https://patchwork.ozlabs.org/patch/676111/
+	alloc = atomic_read(&up->mem_allocated);
+	fwd = alloc - atomic_read(&sk->sk_rmem_alloc);
+	if (fwd < SK_MEM_QUANTUM + partial)
+		return;
+
+	amt = (fwd - partial) & ~(SK_MEM_QUANTUM - 1);
+	alloc_old = atomic_cmpxchg(&up->mem_allocated, alloc, alloc - amt);
+	/* if a concurrent update is detected, just do nothing; if said update
+	 * is due to another memory release, that release take care of
+	 * reclaiming the memory for us, too.
+	 * Otherwise we will be able to release on later dequeue, since
+	 * we will eventually stop colliding with the writer when it will
+	 * consume all the fwd allocated memory
+	 */
+	if (alloc_old != alloc)
+		return;
+
+	__sk_mem_reduce_allocated(sk, amt >> SK_MEM_QUANTUM_SHIFT);
+	sk->sk_forward_alloc = fwd - amt;
+}
+
+which is even more lazy in reclaiming but should never underestimate the
+needed forward allocation, and under pressure should eventually free the
+needed memory.
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
