@@ -1,85 +1,65 @@
-From: pravin shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
-Subject: Re: [PATCH/RFC 00/12] Programming Open vSwitch (-like)
- flows into hardware using SwitchDev
-Date: Fri, 30 Sep 2016 15:12:58 -0700
-Message-ID: <CAOrHB_CG6wJ4t1zTaFZ8Uq5Ltoiqx+ctk-ZhqZ0sy3tF5-YXVQ@mail.gmail.com>
-References: <1475066582-1971-1-git-send-email-simon.horman@netronome.com>
- <CAJ3xEMh0Wp6sXN1AxuZjnqycp6SkY732E4O9CRWip5Bydxuj2w@mail.gmail.com>
- <20160929080904.GA24113@penelope.isobedori.kobe.vergenet.net>
+From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Subject: [PATCH] net: Use ns_capable_noaudit() when determining net sysctl
+ permissions
+Date: Fri, 30 Sep 2016 15:24:31 -0700
+Message-ID: <20160930222431.GA30208@dtor-ws>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Rony Efraim <ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
- Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20160929080904.GA24113-ucRxlxcrRFEsysjaEhV7d2ey4e3TpSOZIxS8c3vjKQDk1uMJSBkQmQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Tyler Hicks <tyhicks@canonical.com>,
+        "Serge E. Hallyn" <serge.hallyn@ubuntu.com>,
+        James Morris <james.l.morris@oracle.com>,
+        "Eric W. Biederman" <ebiederm@xmission.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:36594 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932687AbcI3WYg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2016 18:24:36 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVGh1LCBTZXAgMjksIDIwMTYgYXQgMTowOSBBTSwgU2ltb24gSG9ybWFuCjxzaW1vbi5ob3Jt
-YW5AbmV0cm9ub21lLmNvbT4gd3JvdGU6Cj4gSGkgT3IsCj4KPiBPbiBXZWQsIFNlcCAyOCwgMjAx
-NiBhdCAwNDo1NDo0MFBNICswMzAwLCBPciBHZXJsaXR6IHdyb3RlOgo+PiBPbiBXZWQsIFNlcCAy
-OCwgMjAxNiBhdCAzOjQyIFBNLCBTaW1vbiBIb3JtYW4KPj4gPHNpbW9uLmhvcm1hbkBuZXRyb25v
-bWUuY29tPiB3cm90ZToKPj4KPj4gPiBBIGRpZmZlcmVudCBhcHByb2FjaCwgbm90IGltcGxlbWVu
-dGVkIGJ5IHRoaXMgcGF0Y2gtc2V0LCBpcyBmb3IgdXNlci1zcGFjZQo+PiA+IHRvIHByb2dyYW0g
-Zmxvd3MgaW50byBoYXJkd2FyZSBieSBzb21lIG90aGVyIG1lYW5zLCBmb3IgZXhhbXBsZSBUQywg
-YW5kL29yCj4+ID4gdGhlIChrZXJuZWwpIGRhdGFwYXRoLgo+Pgo+PiBSaWdodCwgYW5kIHdlJ3Zl
-IHN1Ym1pdHRlZCB0aGF0IGNvZGUgdG8gdGhlIE9WUyBjb21tdW5pdHkgMjRoIGFnbyBbMV0uCj4+
-Cj4+IFRoaXMgd2FzIGRvbmUgYWxvbmcgdGhlIGZlZWRiYWNrIHdlJ3ZlIGdvdCBmb3IgdGhlIGxh
-c3QgdHdvIHllYXJzIChzaW5jZQo+PiB0aGUgIExQQyAyMDE0IG5ldHdvcmtpbmcgbWljcm8tY29u
-ZikuIEl0IGFsbG93cyBvZmZsb2FkaW5nIGZyb20KPj4gbXVsdGlwbGUgdXNlci1zcGFjZQo+PiBh
-cHBsaWNhdGlvbnMgdGhyb3VnaCBhIHNpbmdsZSBVQVBJIC0tIHRoZSBUQyBvbmUgKGN1cnJlbnRs
-eSB3ZSBkaWQKPj4gZmxvd2VyLCBidXQgdGhlIE9WU0QKPj4gcGF0Y2ggc2V0IGNhbiBiZSBleHRl
-bmRlZCB0byB1c2Ugd2hhdGV2ZXIgVEMgb2ZmbG9hZHMgYXJlIHN1cHBvcnRlZCBieQo+PiB0aGUg
-cG9ydCBkcml2ZXIsCj4+IGUuZyBVMzIsIGVCUEYpIGFuZCBpbnRlZ3JhdGlvbiB3aXRoIDNyZCBw
-YXJ0eSBwb2xpY3kgbW9kdWxlcyAgcnVubmluZwo+PiBpbiB1c2VyLXNwYWNlLgo+Pgo+PiBMZXRz
-IGhlYXIgcGVvcGxlIG9waW5pb25zIGFuZCBzZWUgd2hlcmUgd2UgZ28gZnJvbSBub3cuCj4+Cj4+
-ID4gSSBiZWxpZXZlIHRoYXQgYXBwcm9hY2ggZG9lcyBub3QgY29uZmxpY3Qgd2l0aCB0aGlzIG9u
-ZS4KPj4gPiAgQW5kIHRoZXJlIGlzIHNvbWUgc2NvcGUgdG8gc2hhcmUgaW5mcmFzdHJ1Y3R1cmUg
-aW4gdGhlIGtlcm5lbAo+Pgo+PiBtYXliZSwgcG9zc2libHkKPj4KPj4gV2UndmUgaGF2aW5nIGEg
-dGFsayBpbiBuZXRkZXYgMS4yIG9uIG9mZmxvYWRpbmcgSFcgb2ZmbG9hZGluZyBvZiBPVlMKPj4g
-YW5kIHNpbWlsYXIgYXBwbGljYXRpb25zLAo+PiBJIHdvdWxkIGVuY291cmFnZSBwZW9wbGUgdG8g
-Y29tZSBhbmQgYXBwcm9hY2ggbWUgYW5kL29yIFJvbnkgRWZyYWltCj4+IGZyb20gTWVsbGFub3gg
-YmVmb3JlL2FmdGVyCj4+IHRoZSB0YWxrIHRvIGRpc2N1c3MgdGhhdCBGMkYsIHdvdWxkIGxvdmUg
-dG8gZ2V0IGZlZWRiYWNrcywgYW5kIGFsc28gaGVyZS4uLgo+Cj4gVGhhbmtzIGZvciBwdXR0aW5n
-IG15IHBvc3QgaW4gY29udGV4dCB3aXRoIHRoZSB3b3JrIHlvdSBtZW50aW9uLgo+IEkgYW0gbG9v
-a2luZyBmb3J3YXJkIHRvIHNvbWUgRjJGIGRpc2N1c3Npb25zIG5leHQgd2Vlay4KPgoKSSB3aWxs
-IG5vdCBiZSBhYmxlIHRvIGNvbWUgdG8gbmV0ZGV2IGNvbmZlcmVuY2UsIHNvIEkgd2FudGVkIHRv
-IHBvc3QKbXkgdGhvdWdodHMgaGVyZS4KSSB3b3VsZCBsaWtlIHRvIHRoYW5rIGZvciBzaGFyaW5n
-IHRoZSBjb2RlLiBCdXQgSSBzZWUgc29tZSBpc3N1ZXMgd2l0aAp0aGlzIGRlc2lnbiBmb3IgZmxv
-dyBvZmZsb2FkaW5nLgoKMS4gVGhpcyBhZGRzIE9WUyBzcGVjaWZpYyBmbG93IGJhc2VkIG9mZmxv
-YWRpbmcgcGllY2UgdG8gc3dpdGNoZGV2CnJhdGhlciB0aGFuIGFkZGluZyBnZW5lcmljIG9uZS4g
-QW55IHN3aXRjaGRldiBmbG93IGJhc2VkIG9mZmxvYWRzCndvdWxkIGJlIGF2YWlsYWJsZSB0byBP
-VlMgb25seS4gQW55IG90aGVyIHNvZnR3YXJlIHN3aXRjaCBjYW4gbm90IG1ha2UKdXNlIG9mIGl0
-LgoyLiBUaGlzIGNvbXBsaWNhdGVzIE9WUyBrZXJuZWwgbW9kdWxlIGJ5IGFkZGluZyBoYXJkd2Fy
-ZSByZWxhdGVkIHN0YXRlCmluIGRhdGFwYXRoLiBPVlMgZGF0YXBhdGggaXMgc3VwcG9zZSB0byBi
-ZSBzb2Z0d2FyZSBzd2l0Y2guCjMuIFNpbmNlIHRoaXMgc3dpdGNoZGV2IG9mZmxvYWQgaXMgY29u
-dHJvbGxlZCBieSBPVlMga2VybmVsIG1vZHVsZSwKYW55IG5ldyBBUEkgZXhwb3NlZCBieSBzd2l0
-Y2hkZXYgd291bGQgbmVlZCBzb21lIGNoYW5nZXMgdG8gT1ZTIGtlcm5lbAptb2R1bGUgYW5kIHBv
-c3NpYmx5IE9WUyBBUEkuCjQuIFRoZXJlIGlzIHByb2plY3QgZ29pbmcgb24gdG8gcmV3cml0ZSBP
-VlMga2VybmVsIG1vZHVsZSBpbiBlQlBGLgpUaHVzIHBsdWdnaW5nIGluIGhhcmR3YXJlIG9mZmxv
-YWQgaW4gdGhlIE9WUyBrZXJuZWwgbW9kdWxlIG1ha2UgaXQKb2Jzb2xldGUgb25jZSB3ZSBtb3Zl
-IHRvIG5ldyBpbXBsZW1lbnRhdGlvbi4gV2Ugd291bGQgbmVlZCB0byByZXdyaXRlCmhhcmR3YXJl
-IG9mZmxvYWQgYWdhaW4gZm9yIGVCUEYgT1ZTLgo1LiBPVlMga2VybmVsIG1vZHVsZSBoYXMgbXVj
-aCBsZXNzIGNvbnRleHQgdGhhbiB1c2Vyc3BhY2UuIFNvCnVzZXJzcGFjZSBiYXNlZCBBUEkgY2Fu
-IHVzZSB0aGUgY29udGV4dCBhbmQgY2FuIGJlIG1vcmUgZWZmZWN0aXZlIHdoZW4Kb2ZmbG9hZGlu
-ZyBhIGZsb3cgdG8gbGltaXRlZCBvZmZsb2FkaW5nIHJlc291cmNlcy4KNi4gVGhpcyBwYXRjaCBo
-YXMgYWxzbyBpbmNyZWFzZWQgc3RydWN0IGZsb3cgc2l6ZSBidXQgbW9zdCBvZiB1c2Vycwp3b3Vs
-ZCBub3QgYmUgdXNpbmcgc3dpdGNoZGV2IG9mZmxvYWRzLgo3LiBUaGlzIGNvdWxkIGJlIGEganVz
-dCBhIGJ1ZywgYnV0IHBhdGNoIDExIGNoYW5nZXMgT1ZTX0ZMT1dfQ01EX1NFVApBUEkgd2hlcmUg
-ZmxvdyBrZXkgaGFzIGNoYW5nZWQgYSByZXF1aXJlZCBwYXJhbWV0ZXIgZnJvbSBvcHRpb25hbC4K
-CldoeSBub3QgYWxsb3cgc3dpdGNoZGV2IG9mZmxvYWQgQVBJIGZvciB1c2Vyc3BhY2Ugc2ltaWxh
-ciB0byBUQyBmbG93ZXIKb2ZmbG9hZD8gb3Igd2UgY291bGQgdXNlIGZsb3dlciBBUEkgZm9yIHN3
-aXRjaGRldiBmbG93IG9mZmxvYWQuCgpUaGFua3MsClByYXZpbi4KX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZz
-d2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+From: Tyler Hicks <tyhicks@canonical.com>
+
+The capability check should not be audited since it is only being used
+to determine the inode permissions. A failed check does not indicate a
+violation of security policy but, when an LSM is enabled, a denial audit
+message was being generated.
+
+The denial audit message caused confusion for some application authors
+because root-running Go applications always triggered the denial. To
+prevent this confusion, the capability check in net_ctl_permissions() is
+switched to the noaudit variant.
+
+BugLink: https://launchpad.net/bugs/1465724
+
+Signed-off-by: Tyler Hicks <tyhicks@canonical.com>
+Acked-by: Serge E. Hallyn <serge.hallyn@ubuntu.com>
+Signed-off-by: James Morris <james.l.morris@oracle.com>
+[dtor: reapplied after e79c6a4fc923 ("net: make net namespace sysctls
+belong to container's owner") accidentally reverted the change.]
+Signed-off-by: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+---
+ net/sysctl_net.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/sysctl_net.c b/net/sysctl_net.c
+index c5d37f4..9199813 100644
+--- a/net/sysctl_net.c
++++ b/net/sysctl_net.c
+@@ -44,7 +44,7 @@ static int net_ctl_permissions(struct ctl_table_header *head,
+ 	struct net *net = container_of(head->set, struct net, sysctls);
+ 
+ 	/* Allow network administrator to have same access as root. */
+-	if (ns_capable(net->user_ns, CAP_NET_ADMIN)) {
++	if (ns_capable_noaudit(net->user_ns, CAP_NET_ADMIN)) {
+ 		int mode = (table->mode >> 6) & 7;
+ 		return (mode << 6) | (mode << 3) | mode;
+ 	}
+-- 
+2.8.0.rc3.226.g39d4020
+
+
+-- 
+Dmitry
