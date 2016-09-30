@@ -1,55 +1,70 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: [PATCH 1/2] net/mlx5e: shut up maybe-uninitialized warning
-Date: Fri, 30 Sep 2016 18:17:09 +0200
-Message-ID: <20160930161734.70928-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Amir Vadai <amirva-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Maor Gottlieb <maorg-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH 2/2] mlxsw: spectrum_router: avoid potential uninitialized data usage
+Date: Fri, 30 Sep 2016 18:17:10 +0200
+Message-ID: <20160930161734.70928-2-arnd@arndb.de>
+References: <20160930161734.70928-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        Yotam Gigi <yotamg@mellanox.com>,
+        Nogah Frankel <nogahf@mellanox.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Jiri Pirko <jiri@mellanox.com>, Ido Schimmel <idosch@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.17.13]:56240 "EHLO
+        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933082AbcI3QSA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2016 12:18:00 -0400
+In-Reply-To: <20160930161734.70928-1-arnd@arndb.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Build-testing this driver with -Wmaybe-uninitialized gives a new false-positive
-warning that I can't really explain:
+If fi->fib_nhs is zero, the router interface pointer is uninitialized, as shown by
+this warning:
 
-drivers/net/ethernet/mellanox/mlx5/core/en_tc.c: In function 'mlx5e_configure_flower':
-drivers/net/ethernet/mellanox/mlx5/core/en_tc.c:509:3: error: 'old_attr' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c: In function 'mlxsw_sp_router_fib_event':
+drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c:1674:21: error: 'r' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c:1643:23: note: 'r' was declared here
 
-It's obvious from the code that 'old_attr' is initialized whenever 'old'
-is non-NULL here. The warning appears with all versions I tested from gcc-4.7
-through gcc-6.1, and I could not come up with a way to rewrite the function
-in a more readable way that avoids the warning, so I'm adding another
-initialization to shut it up.
+This changes the loop so we handle the case the same way as finding no router
+interface pointer attached to one of the nexthops to ensure we always
+trap here instead of using uninitialized data.
 
-Fixes: 8b32580df1cb ("net/mlx5e: Add TC vlan action for SRIOV offloads")
-Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Fixes: b45f64d16d45 ("mlxsw: spectrum_router: Use FIB notifications instead of switchdev calls")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-index a350b7171e3d..ce8c54d18906 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-@@ -451,7 +451,7 @@ int mlx5e_configure_flower(struct mlx5e_priv *priv, __be16 protocol,
- 	struct mlx5e_tc_flow *flow;
- 	struct mlx5_flow_spec *spec;
- 	struct mlx5_flow_rule *old = NULL;
--	struct mlx5_esw_flow_attr *old_attr;
-+	struct mlx5_esw_flow_attr *old_attr = NULL;
- 	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index 48d50efec5e2..78fc557d6dd7 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -1640,7 +1640,7 @@ mlxsw_sp_router_fib4_entry_init(struct mlxsw_sp *mlxsw_sp,
+ 				struct mlxsw_sp_fib_entry *fib_entry)
+ {
+ 	struct fib_info *fi = fen_info->fi;
+-	struct mlxsw_sp_rif *r;
++	struct mlxsw_sp_rif *r = NULL;
+ 	int nhsel;
+ 	int err;
  
- 	if (esw && esw->mode == SRIOV_OFFLOADS)
+@@ -1664,11 +1664,15 @@ mlxsw_sp_router_fib4_entry_init(struct mlxsw_sp *mlxsw_sp,
+ 			 * to us. Set trap and pass the packets for
+ 			 * this prefix to kernel.
+ 			 */
+-			fib_entry->type = MLXSW_SP_FIB_ENTRY_TYPE_TRAP;
+-			return 0;
++			break;
+ 		}
+ 	}
+ 
++	if (!r) {
++		fib_entry->type = MLXSW_SP_FIB_ENTRY_TYPE_TRAP;
++		return 0;
++	}
++
+ 	if (fi->fib_scope != RT_SCOPE_UNIVERSE) {
+ 		fib_entry->type = MLXSW_SP_FIB_ENTRY_TYPE_LOCAL;
+ 		fib_entry->rif = r->rif;
 -- 
 2.9.0
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
