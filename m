@@ -1,36 +1,56 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 3/3] mac80211: Set lower memory limit for non-VHT devices
-Date: Fri, 30 Sep 2016 13:33:50 +0200
-Message-ID: <1475235230.17481.43.camel@sipsolutions.net>
-References: <20160923195911.4572-1-toke@toke.dk>
-         <20160923195911.4572-4-toke@toke.dk> (sfid-20160923_215935_754766_6EB4EDBF)
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-To: Toke =?ISO-8859-1?Q?H=F8iland-J=F8rgensen?= <toke@toke.dk>,
-        make-wifi-fast@lists.bufferbloat.net,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:42459 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932731AbcI3Ldz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 30 Sep 2016 07:33:55 -0400
-In-Reply-To: <20160923195911.4572-4-toke@toke.dk> (sfid-20160923_215935_754766_6EB4EDBF)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Thumshirn <jthumshirn@suse.de>
+Subject: [PATCH 1/3] cw1200: Don't leak memory if krealloc failes
+Date: Fri, 30 Sep 2016 14:11:35 +0200
+Message-ID: <1475237495-15030-1-git-send-email-jthumshirn@suse.de>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Johannes Thumshirn <jthumshirn@suse.de>
+To: Solomon Peachy <pizza@shaftnet.org>,
+        Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2016-09-23 at 21:59 +0200, Toke Høiland-Jørgensen wrote:
-> Small devices can run out of memory from queueing too many packets.
-> If VHT is not supported by the PHY, having more than 4 MBytes of
-> total queue in the TXQ intermediate queues is not needed, and so we
-> can safely limit the memory usage in these cases and avoid OOM.
+The call to krealloc() in wsm_buf_reserve() directly assigns the newly
+returned memory to buf->begin. This is all fine except when krealloc()
+failes we loose the ability to free the old memory pointed to by
+buf->begin. If we just create a temporary variable to assign memory to
+and assign the memory to it we can mitigate the memory leak.
 
-I kinda see the logic here - we really don't need to queue as much if
-we can't possibly transmit it out quickly - but it seems to me we
-should also throw in some kind of limit that's relative to the amount
-of memory you have on the system?
+Signed-off-by: Johannes Thumshirn <jthumshirn@suse.de>
+---
+ drivers/net/wireless/st/cw1200/wsm.c | 16 +++++++++-------
+ 1 file changed, 9 insertions(+), 7 deletions(-)
 
-I've applied these anyway though. I just don't like your assumption (b)
-much as the rationale for it.
-
-johannes
+diff --git a/drivers/net/wireless/st/cw1200/wsm.c b/drivers/net/wireless/st/cw1200/wsm.c
+index 680d60e..12fad99 100644
+--- a/drivers/net/wireless/st/cw1200/wsm.c
++++ b/drivers/net/wireless/st/cw1200/wsm.c
+@@ -1807,16 +1807,18 @@ static int wsm_buf_reserve(struct wsm_buf *buf, size_t extra_size)
+ {
+ 	size_t pos = buf->data - buf->begin;
+ 	size_t size = pos + extra_size;
++	u8 *tmp;
+ 
+ 	size = round_up(size, FWLOAD_BLOCK_SIZE);
+ 
+-	buf->begin = krealloc(buf->begin, size, GFP_KERNEL | GFP_DMA);
+-	if (buf->begin) {
+-		buf->data = &buf->begin[pos];
+-		buf->end = &buf->begin[size];
+-		return 0;
+-	} else {
+-		buf->end = buf->data = buf->begin;
++	tmp = krealloc(buf->begin, size, GFP_KERNEL | GFP_DMA);
++	if (tmp) {
++		wsm_buf_deinit(buf);
+ 		return -ENOMEM;
+ 	}
++
++	buf->begin = tmp;
++	buf->data = &buf->begin[pos];
++	buf->end = &buf->begin[size];
++	return 0;
+ }
+-- 
+1.8.5.6
