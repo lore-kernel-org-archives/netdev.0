@@ -1,44 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6 addrconf: implement RFC7559 router solicitation
- backoff
-Date: Fri, 30 Sep 2016 01:54:47 -0400 (EDT)
-Message-ID: <20160930.015447.181630823844188041.davem@davemloft.net>
-References: <1475045878-30455-1-git-send-email-zenczykowski@gmail.com>
+Subject: Re: [PATCH v8 0/8] thunderbolt: Introducing Thunderbolt(TM)
+ Networking
+Date: Fri, 30 Sep 2016 01:55:55 -0400 (EDT)
+Message-ID: <20160930.015555.2177533749954623343.davem@davemloft.net>
+References: <1475073870-2126-1-git-send-email-amir.jer.levy@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: 8BIT
-Cc: maze@google.com, netdev@vger.kernel.org, ek@google.com,
-        lorenzo@google.com, hannes@stressinduktion.org,
-        hideaki.yoshifuji@miraclelinux.com
-To: zenczykowski@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36760 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935714AbcI3FzC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2016 01:55:02 -0400
-In-Reply-To: <1475045878-30455-1-git-send-email-zenczykowski@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: gregkh@linuxfoundation.org, andreas.noever@gmail.com,
+        bhelgaas@google.com, corbet@lwn.net, linux-kernel@vger.kernel.org,
+        linux-pci@vger.kernel.org, netdev@vger.kernel.org,
+        linux-doc@vger.kernel.org, mario_limonciello@dell.com,
+        thunderbolt-linux@intel.com, mika.westerberg@intel.com,
+        tomas.winkler@intel.com, xiong.y.zhang@intel.com
+To: amir.jer.levy@intel.com
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1475073870-2126-1-git-send-email-amir.jer.levy@intel.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Maciej ¯enczykowski <zenczykowski@gmail.com>
-Date: Tue, 27 Sep 2016 23:57:58 -0700
+From: Amir Levy <amir.jer.levy@intel.com>
+Date: Wed, 28 Sep 2016 17:44:22 +0300
 
-> From: Maciej ¯enczykowski <maze@google.com>
-> 
-> This implements:
->   https://tools.ietf.org/html/rfc7559
-> 
-> Backoff is performed according to RFC3315 section 14:
->   https://tools.ietf.org/html/rfc3315#section-14
-> 
-> We allow setting /proc/sys/net/ipv6/conf/*/router_solicitations
-> to a negative value meaning an unlimited number of retransmits,
-> and we make this the new default (inline with the RFC).
-> 
-> We also add a new setting:
->   /proc/sys/net/ipv6/conf/*/router_solicitation_max_interval
-> defaulting to 1 hour (per RFC recommendation).
-> 
-> Signed-off-by: Maciej ¯enczykowski <maze@google.com>
+> This driver enables Thunderbolt Networking on non-Apple platforms
+> running Linux.
 
-Applied to net-next, thanks.
+Greg, any idea where this should get merged once fully vetted?  I can
+take it through the net-next tree, but I'm fine with another more
+appropriate tree taking it as well.
+
+Thanks!
