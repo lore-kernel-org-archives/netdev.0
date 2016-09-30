@@ -1,36 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 for-next 0/8] Bug Fixes and Code Improvement in HNS
- driver
-Date: Fri, 30 Sep 2016 01:33:41 -0400 (EDT)
-Message-ID: <20160930.013341.118711534087556597.davem@davemloft.net>
-References: <20160929170916.631972-1-salil.mehta@huawei.com>
+Subject: Re: [PATCH net-next 0/6] rxrpc: Fixes and adjustments
+Date: Fri, 30 Sep 2016 01:46:58 -0400 (EDT)
+Message-ID: <20160930.014658.1817742122751898185.davem@davemloft.net>
+References: <147518732742.29235.11597637573731081178.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dledford@redhat.com, yisen.zhuang@huawei.com,
-        xavier.huwei@huawei.com, oulijun@huawei.com,
-        mehta.salil.lnk@gmail.com, linux-rdma@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linuxarm@huawei.com
-To: salil.mehta@huawei.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160929170916.631972-1-salil.mehta@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: dhowells@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36730 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934349AbcI3FrH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2016 01:47:07 -0400
+In-Reply-To: <147518732742.29235.11597637573731081178.stgit@warthog.procyon.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Salil Mehta <salil.mehta@huawei.com>
-Date: Thu, 29 Sep 2016 18:09:08 +0100
+From: David Howells <dhowells@redhat.com>
+Date: Thu, 29 Sep 2016 23:15:27 +0100
 
-> This patch-set introduces fix to some Bugs, potential problems
-> and code improvements identified during internal review and
-> testing of Hisilicon Network Subsystem driver.
+> This set of patches contains some fixes and adjustments:
+ ...
+> The patches can be found here also:
 > 
-> Submit Change
-> V1->V2: This addresses the feedbacks provided by David Miller
->         and Doug Ledford
+> 	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-rewrite
+> 
+> Tagged thusly:
+> 
+> 	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
+> 	rxrpc-rewrite-20160929
 
-So Doug my understanding is if this makes it through review
-this is going to be merged into your tree, you prepare a
-branch for me, and then I pull from that?
-
-Thanks in advance.
+Pulled, thanks David.
