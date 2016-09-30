@@ -1,13 +1,13 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 2/3] netfilter: hide reference to nf_hooks_ingress
-Date: Fri, 30 Sep 2016 18:05:35 +0200
-Message-ID: <20160930160559.4102745-2-arnd@arndb.de>
+Subject: [PATCH 3/3] netfilter: xt_hashlimit: uses div_u64 for division
+Date: Fri, 30 Sep 2016 18:05:36 +0200
+Message-ID: <20160930160559.4102745-3-arnd@arndb.de>
 References: <20160930160559.4102745-1-arnd@arndb.de>
 Cc: Arnd Bergmann <arnd@arndb.de>, Patrick McHardy <kaber@trash.net>,
         Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
         "David S. Miller" <davem@davemloft.net>,
-        Aaron Conole <aconole@bytheb.org>,
-        Florian Westphal <fw@strlen.de>,
+        Joshua Hunt <johunt@akamai.com>,
+        Vishwanath Pai <vpai@akamai.com>,
         netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
         netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Pablo Neira Ayuso <pablo@netfilter.org>
@@ -16,38 +16,66 @@ In-Reply-To: <20160930160559.4102745-1-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-A recent cleanup added an unconditional reference to the nf_hooks_ingress pointer,
-but that fails when CONFIG_NETFILTER_INGRESS is disabled and that member is
-not present in net_device:
+The newly added support for high-resolution pps rates introduced multiple 64-bit
+division operations in one function, which fails on all 32-bit architectures:
 
-net/netfilter/core.c: In function 'nf_set_hooks_head':
-net/netfilter/core.c:96:30: error: 'struct net_device' has no member named 'nf_hooks_ingress'
+net/netfilter/xt_hashlimit.o: In function `user2credits':
+xt_hashlimit.c:(.text.user2credits+0x3c): undefined reference to `__aeabi_uldivmod'
+xt_hashlimit.c:(.text.user2credits+0x68): undefined reference to `__aeabi_uldivmod'
+xt_hashlimit.c:(.text.user2credits+0x88): undefined reference to `__aeabi_uldivmod'
 
-This avoids the build error by simply enclosing the assignment in an #ifdef,
-which may or may not be the correct fix.
+This replaces the division with an explicit call to div_u64 for version 2
+to documents that this is a slow operation, and reverts back to 32-bit arguments
+for the version 1 data to restore the original faster 32-bit division.
 
-Fixes: e3b37f11e6e4 ("netfilter: replace list_head with single linked list")
+With both changes combined, we no longer get a link error.
+
+Fixes: 11d5f15723c9 ("netfilter: xt_hashlimit: Create revision 2 to support higher pps rates")
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- net/netfilter/core.c | 2 ++
- 1 file changed, 2 insertions(+)
+Vishwanath Pai already sent a patch for this, and I did my version independently.
+The difference is that his version also the more expensive division for the
+version 1 variant that doesn't need it.
 
-diff --git a/net/netfilter/core.c b/net/netfilter/core.c
-index 576a9c0406a9..5ccff1d9f209 100644
---- a/net/netfilter/core.c
-+++ b/net/netfilter/core.c
-@@ -90,10 +90,12 @@ static void nf_set_hooks_head(struct net *net, const struct nf_hook_ops *reg,
+See also http://patchwork.ozlabs.org/patch/676713/
+---
+ net/netfilter/xt_hashlimit.c | 17 ++++++++++-------
+ 1 file changed, 10 insertions(+), 7 deletions(-)
+
+diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+index 44a095ecc7b7..3d5525df6eb3 100644
+--- a/net/netfilter/xt_hashlimit.c
++++ b/net/netfilter/xt_hashlimit.c
+@@ -464,20 +464,23 @@ static u32 xt_hashlimit_len_to_chunks(u32 len)
+ static u64 user2credits(u64 user, int revision)
  {
- 	switch (reg->pf) {
- 	case NFPROTO_NETDEV:
-+#ifdef CONFIG_NETFILTER_INGRESS
- 		/* We already checked in nf_register_net_hook() that this is
- 		 * used from ingress.
- 		 */
- 		rcu_assign_pointer(reg->dev->nf_hooks_ingress, entry);
-+#endif
- 		break;
- 	default:
- 		rcu_assign_pointer(net->nf.hooks[reg->pf][reg->hooknum],
+ 	if (revision == 1) {
++		u32 user32 = user; /* use 32-bit division */
++
+ 		/* If multiplying would overflow... */
+-		if (user > 0xFFFFFFFF / (HZ*CREDITS_PER_JIFFY_v1))
++		if (user32 > 0xFFFFFFFF / (HZ*CREDITS_PER_JIFFY_v1))
+ 			/* Divide first. */
+-			return (user / XT_HASHLIMIT_SCALE) *\
++			return (user32 / XT_HASHLIMIT_SCALE) *
+ 						HZ * CREDITS_PER_JIFFY_v1;
+ 
+-		return (user * HZ * CREDITS_PER_JIFFY_v1) \
+-						/ XT_HASHLIMIT_SCALE;
++		return (user32 * HZ * CREDITS_PER_JIFFY_v1) /
++						XT_HASHLIMIT_SCALE;
+ 	} else {
+ 		if (user > 0xFFFFFFFFFFFFFFFF / (HZ*CREDITS_PER_JIFFY))
+-			return (user / XT_HASHLIMIT_SCALE_v2) *\
+-						HZ * CREDITS_PER_JIFFY;
++			return div_u64_u64(user, XT_HASHLIMIT_SCALE_v2) *
++					   HZ * CREDITS_PER_JIFFY;
+ 
+-		return (user * HZ * CREDITS_PER_JIFFY) / XT_HASHLIMIT_SCALE_v2;
++		return div_u64_u64(user * HZ * CREDITS_PER_JIFFY,
++				   XT_HASHLIMIT_SCALE_v2);
+ 	}
+ }
+ 
 -- 
 2.9.0
