@@ -1,37 +1,39 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 5/7] rxrpc: Remove error from struct rxrpc_skb_priv
- as it is unused
-Date: Fri, 30 Sep 2016 22:40:46 +0100
-Message-ID: <147527164637.28826.8465450126479236164.stgit@warthog.procyon.org.uk>
-References: <147527161156.28826.2148784664652062075.stgit@warthog.procyon.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Subject: [PATCH] net: mvmdio: do not clk_disable_unprepare() NULL clock
+Date: Sat,  1 Oct 2016 00:56:37 +0300
+Message-ID: <1475272598-6554-1-git-send-email-khoroshilov@ispras.ru>
+Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <147527161156.28826.2148784664652062075.stgit@warthog.procyon.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove error from struct rxrpc_skb_priv as it is no longer used.
+There is no need to clk_disable_unprepare(dev->clk)
+before it was initialized.
 
-Signed-off-by: David Howells <dhowells@redhat.com>
+Found by Linux Driver Verification project (linuxtesting.org).
+
+Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
 ---
+ drivers/net/ethernet/marvell/mvmdio.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
- net/rxrpc/ar-internal.h |    1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index fd64a2bd1072..141c1458e719 100644
---- a/net/rxrpc/ar-internal.h
-+++ b/net/rxrpc/ar-internal.h
-@@ -145,7 +145,6 @@ struct rxrpc_skb_priv {
- 	};
- 	union {
- 		int		remain;		/* amount of space remaining for next write */
--		u32		error;		/* network error code */
- 	};
+diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
+index 8982c882af1b..a0d1b084ecec 100644
+--- a/drivers/net/ethernet/marvell/mvmdio.c
++++ b/drivers/net/ethernet/marvell/mvmdio.c
+@@ -211,8 +211,7 @@ static int orion_mdio_probe(struct platform_device *pdev)
+ 	dev->regs = devm_ioremap(&pdev->dev, r->start, resource_size(r));
+ 	if (!dev->regs) {
+ 		dev_err(&pdev->dev, "Unable to remap SMI register\n");
+-		ret = -ENODEV;
+-		goto out_mdio;
++		return -ENODEV;
+ 	}
  
- 	struct rxrpc_host_header hdr;		/* RxRPC packet header from this packet */
+ 	init_waitqueue_head(&dev->smi_busy_wait);
+-- 
+2.7.4
