@@ -1,38 +1,36 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull-request: wireless-drivers-next 2016-09-29
-Date: Fri, 30 Sep 2016 01:32:45 -0400 (EDT)
-Message-ID: <20160930.013245.1474369794552343595.davem@davemloft.net>
-References: <87ponmve2v.fsf@kamboji.qca.qualcomm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V2 for-next 0/8] Bug Fixes and Code Improvement in HNS
+ driver
+Date: Fri, 30 Sep 2016 01:33:41 -0400 (EDT)
+Message-ID: <20160930.013341.118711534087556597.davem@davemloft.net>
+References: <20160929170916.631972-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87ponmve2v.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: dledford@redhat.com, yisen.zhuang@huawei.com,
+        xavier.huwei@huawei.com, oulijun@huawei.com,
+        mehta.salil.lnk@gmail.com, linux-rdma@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linuxarm@huawei.com
+To: salil.mehta@huawei.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160929170916.631972-1-salil.mehta@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Date: Thu, 29 Sep 2016 19:57:28 +0300
+From: Salil Mehta <salil.mehta@huawei.com>
+Date: Thu, 29 Sep 2016 18:09:08 +0100
 
-> this should be the last wireless-drivers-next pull request for 4.9, from
-> now on only important bugfixes. Nothing really special stands out,
-> iwlwifi being most active but other drivers also getting attention. More
-> details in the signed tag. Please let me know if there are any problems.
-
-Pulled, thanks Kalle.
-
-> Or actually I had one problem. While doing a test merge I noticed that
-> net-next fails to compile for me, but I don't think this is anything
-> wireless related:
+> This patch-set introduces fix to some Bugs, potential problems
+> and code improvements identified during internal review and
+> testing of Hisilicon Network Subsystem driver.
 > 
->   CC      net/netfilter/core.o
-> net/netfilter/core.c: In function 'nf_set_hooks_head':
-> net/netfilter/core.c:96:149: error: 'struct net_device' has no member named 'nf_hooks_ingress'
+> Submit Change
+> V1->V2: This addresses the feedbacks provided by David Miller
+>         and Doug Ledford
 
-Yes, I am aware of this build issue and will tackle it myself if someone
-doesn't beat me to it.
+So Doug my understanding is if this makes it through review
+this is going to be merged into your tree, you prepare a
+branch for me, and then I pull from that?
 
-Thanks again.
+Thanks in advance.
