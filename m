@@ -1,119 +1,62 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: pull-request: mac80211-next 2016-09-30
-Date: Fri, 30 Sep 2016 18:14:36 +0200
-Message-ID: <1475252077-6165-1-git-send-email-johannes@sipsolutions.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:43871 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933037AbcI3QOt (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 30 Sep 2016 12:14:49 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] cxgb4: unexport cxgb4_dcb_enabled
+Date: Fri, 30 Sep 2016 18:15:33 +0200
+Message-ID: <20160930161544.41614-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>,
+        Nicholas Bellinger <nab@linux-iscsi.org>,
+        Varun Prakash <varun@chelsio.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Hariprasad S <hariprasad@chelsio.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+A recent cleanup marked cxgb4_dcb_enabled as 'static', which is correct, but this ignored
+how the symbol is also exported. In addition, the export can be compiled out when modules
+are disabled, causing a harmless compiler warning in configurations for which it is not
+used at all:
 
-Last pull request before the merge window, since it's about to open :)
-It seems that everyone finally agreed on the NAN (neighbor awareness
-networking) APIs, so we have that, along with some other things.
+drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c:282:12: error: 'cxgb4_dcb_enabled' defined but not used [-Werror=unused-function]
 
-Let me know if there's any problem.
+This removes the export and moves the function into the correct #ifdef so we only build
+it when there are users.
 
-Thanks,
-johannes
+Fixes: 50935857f878 ("cxgb4: mark symbols static where possible")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
 
-
-
-The following changes since commit c13ed534b8db543e4d8ead3885f4b06585a5771c:
-
-  Merge tag 'mac80211-next-for-davem-2016-09-16' of git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211-next (2016-09-18 22:29:08 -0400)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211-next.git tags/mac80211-next-for-davem-2016-09-30
-
-for you to fetch changes up to bb42f2d13ffcd0baed7547b37d05add51fcd50e1:
-
-  mac80211: Move reorder-sensitive TX handlers to after TXQ dequeue (2016-09-30 14:46:57 +0200)
-
-----------------------------------------------------------------
-This time around, we have
- * Neighbor Awareness Networking (NAN) APIs
- * a fix for a previous patch that caused memory corruption
-   in wireless extensions key settings
- * beacon rate configuration for AP and mesh
- * memory limits for mac80211's internal TXQs
- * a (fairly involved) fix for the TXQ vs. crypto problems
- * direct cfg80211 driver API for WEP keys
-
-----------------------------------------------------------------
-Ayala Beker (9):
-      cfg80211: add start / stop NAN commands
-      mac80211: add boilerplate code for start / stop NAN
-      cfg80211: add add_nan_func / del_nan_func
-      cfg80211: allow the user space to change current NAN configuration
-      cfg80211: provide a function to report a match for NAN
-      cfg80211: Provide an API to report NAN function termination
-      mac80211: implement nan_change_conf
-      mac80211: Implement add_nan_func and rm_nan_func
-      mac80211: Add API to report NAN function match
-
-David Spinadel (1):
-      cfg80211: Add support for static WEP in the driver
-
-Johannes Berg (2):
-      cfg80211: add checks for beacon rate, extend to mesh
-      cfg80211: wext: really don't store non-WEP keys
-
-Pedersen, Thomas (2):
-      mac80211: add offset_tsf driver op and use it for mesh
-      mac80211: mesh: decrease max drift
-
-Purushottam Kushwaha (1):
-      cfg80211: Add support to configure a beacon data rate
-
-Toke Høiland-Jørgensen (5):
-      mac80211: Move ieee802111_tx_dequeue() to later in tx.c
-      fq.h: Port memory limit mechanism from fq_codel
-      mac80211: Export fq memory limit information in debugfs
-      mac80211: Set lower memory limit for non-VHT devices
-      mac80211: Move reorder-sensitive TX handlers to after TXQ dequeue
-
- include/net/cfg80211.h        |  223 +++++++-
- include/net/fq.h              |    3 +
- include/net/fq_impl.h         |    7 +-
- include/net/mac80211.h        |   75 +++
- include/uapi/linux/nl80211.h  |  270 ++++++++-
- net/mac80211/cfg.c            |  208 +++++++
- net/mac80211/chan.c           |    6 +
- net/mac80211/debugfs.c        |    8 +
- net/mac80211/debugfs_netdev.c |   12 +-
- net/mac80211/driver-ops.c     |   15 +
- net/mac80211/driver-ops.h     |   83 +++
- net/mac80211/ieee80211_i.h    |   26 +
- net/mac80211/iface.c          |   28 +-
- net/mac80211/main.c           |    8 +
- net/mac80211/mesh_sync.c      |   12 +-
- net/mac80211/offchannel.c     |    4 +-
- net/mac80211/rx.c             |    7 +-
- net/mac80211/sta_info.c       |   10 +-
- net/mac80211/trace.h          |  159 ++++++
- net/mac80211/tx.c             |  351 ++++++++----
- net/mac80211/util.c           |   61 ++-
- net/wireless/chan.c           |    2 +
- net/wireless/core.c           |   35 ++
- net/wireless/core.h           |    7 +-
- net/wireless/ibss.c           |    5 +-
- net/wireless/mlme.c           |    1 +
- net/wireless/nl80211.c        | 1220 ++++++++++++++++++++++++++++++++---------
- net/wireless/rdev-ops.h       |   58 ++
- net/wireless/sme.c            |    6 +-
- net/wireless/trace.h          |   90 +++
- net/wireless/util.c           |   30 +-
- net/wireless/wext-compat.c    |   14 +-
- net/wireless/wext-sme.c       |    2 +-
- 33 files changed, 2648 insertions(+), 398 deletions(-)
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index c8a5c434ad2c..59f3772eb49d 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -277,11 +277,9 @@ static void dcb_tx_queue_prio_enable(struct net_device *dev, int enable)
+ 			txq->dcb_prio = value;
+ 	}
+ }
+-#endif /* CONFIG_CHELSIO_T4_DCB */
+ 
+ static int cxgb4_dcb_enabled(const struct net_device *dev)
+ {
+-#ifdef CONFIG_CHELSIO_T4_DCB
+ 	struct port_info *pi = netdev_priv(dev);
+ 
+ 	if (!pi->dcb.enabled)
+@@ -289,11 +287,8 @@ static int cxgb4_dcb_enabled(const struct net_device *dev)
+ 
+ 	return ((pi->dcb.state == CXGB4_DCB_STATE_FW_ALLSYNCED) ||
+ 		(pi->dcb.state == CXGB4_DCB_STATE_HOST));
+-#else
+-	return 0;
+-#endif
+ }
+-EXPORT_SYMBOL(cxgb4_dcb_enabled);
++#endif /* CONFIG_CHELSIO_T4_DCB */
+ 
+ void t4_os_link_changed(struct adapter *adapter, int port_id, int link_stat)
+ {
+-- 
+2.9.0
