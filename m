@@ -1,32 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v8 0/8] thunderbolt: Introducing Thunderbolt(TM)
- Networking
-Date: Fri, 30 Sep 2016 01:55:55 -0400 (EDT)
-Message-ID: <20160930.015555.2177533749954623343.davem@davemloft.net>
-References: <1475073870-2126-1-git-send-email-amir.jer.levy@intel.com>
+Subject: Re: [PATCH v1] mlx4: remove unused fields
+Date: Fri, 30 Sep 2016 01:57:09 -0400 (EDT)
+Message-ID: <20160930.015709.1828493203935150678.davem@davemloft.net>
+References: <1475085604-101493-1-git-send-email-ddecotig@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, andreas.noever@gmail.com,
-        bhelgaas@google.com, corbet@lwn.net, linux-kernel@vger.kernel.org,
-        linux-pci@vger.kernel.org, netdev@vger.kernel.org,
-        linux-doc@vger.kernel.org, mario_limonciello@dell.com,
-        thunderbolt-linux@intel.com, mika.westerberg@intel.com,
-        tomas.winkler@intel.com, xiong.y.zhang@intel.com
-To: amir.jer.levy@intel.com
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1475073870-2126-1-git-send-email-amir.jer.levy@intel.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: yishaih@mellanox.com, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
+        edumazet@google.com, decot@googlers.com
+To: ddecotig@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36790 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935602AbcI3F5O (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2016 01:57:14 -0400
+In-Reply-To: <1475085604-101493-1-git-send-email-ddecotig@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Amir Levy <amir.jer.levy@intel.com>
-Date: Wed, 28 Sep 2016 17:44:22 +0300
+From: David Decotigny <ddecotig@gmail.com>
+Date: Wed, 28 Sep 2016 11:00:04 -0700
 
-> This driver enables Thunderbolt Networking on non-Apple platforms
-> running Linux.
+> From: David Decotigny <decot@googlers.com>
+> 
+> This also can address following UBSAN warnings:
+> [   36.640343] ================================================================================
+> [   36.648772] UBSAN: Undefined behaviour in drivers/net/ethernet/mellanox/mlx4/fw.c:857:26
+> [   36.656853] shift exponent 64 is too large for 32-bit type 'int'
+> [   36.663348] ================================================================================
+> [   36.671783] ================================================================================
+> [   36.680213] UBSAN: Undefined behaviour in drivers/net/ethernet/mellanox/mlx4/fw.c:861:27
+> [   36.688297] shift exponent 35 is too large for 32-bit type 'int'
+> [   36.694702] ================================================================================
+> 
+> Tested:
+>   reboot with UBSAN, no warning.
+> 
+> Signed-off-by: David Decotigny <decot@googlers.com>
 
-Greg, any idea where this should get merged once fully vetted?  I can
-take it through the net-next tree, but I'm fine with another more
-appropriate tree taking it as well.
-
-Thanks!
+Applied to net-next, thanks.
