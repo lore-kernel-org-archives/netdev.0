@@ -1,199 +1,363 @@
 From: Baoyou Xie <baoyou.xie@linaro.org>
-Subject: [PATCH 1/2] qed: mark symbols static where possible
-Date: Fri, 30 Sep 2016 15:56:29 +0800
-Message-ID: <1475222189-19092-1-git-send-email-baoyou.xie@linaro.org>
+Subject: [PATCH 2/2] qed: remove unused function in qed_cxt.c
+Date: Fri, 30 Sep 2016 16:02:54 +0800
+Message-ID: <1475222574-19280-1-git-send-email-baoyou.xie@linaro.org>
 Cc: everest-linux-l2@qlogic.com, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org, arnd@arndb.de, baoyou.xie@linaro.org,
         xie.baoyou@zte.com.cn, han.fei@zte.com.cn, tang.qiang007@zte.com.cn
 To: Yuval.Mintz@qlogic.com, Ariel.Elior@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:33119 "EHLO
-        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751035AbcI3H4p (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2016 03:56:45 -0400
-Received: by mail-pf0-f176.google.com with SMTP id 21so37851296pfy.0
-        for <netdev@vger.kernel.org>; Fri, 30 Sep 2016 00:56:45 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We get 12 warnings when building kernel with W=1:
-drivers/net/ethernet/qlogic/qed/qed_cxt.c:346:6: warning: no previous prototype for 'qed_cxt_set_srq_count' [-Wmissing-prototypes]
-drivers/net/ethernet/qlogic/qed/qed_cxt.c:353:5: warning: no previous prototype for 'qed_cxt_get_srq_count' [-Wmissing-prototypes]
-drivers/net/ethernet/qlogic/qed/qed_cxt.c:389:5: warning: no previous prototype for 'qed_cxt_get_proto_cid_start' [-Wmissing-prototypes]
-drivers/net/ethernet/qlogic/qed/qed_cxt.c:395:5: warning: no previous prototype for 'qed_cxt_get_proto_tid_count' [-Wmissing-prototypes]
-drivers/net/ethernet/qlogic/qed/qed_cxt.c:1801:6: warning: no previous prototype for 'qed_rdma_set_pf_params' [-Wmissing-prototypes]
-drivers/net/ethernet/qlogic/qed/qed_debug.c:4031:17: warning: no previous prototype for 'qed_mcp_trace_dump' [-Wmissing-prototypes]
-drivers/net/ethernet/qlogic/qed/qed_debug.c:4133:17: warning: no previous prototype for 'qed_reg_fifo_dump' [-Wmissing-prototypes]
-drivers/net/ethernet/qlogic/qed/qed_debug.c:4195:17: warning: no previous prototype for 'qed_igu_fifo_dump' [-Wmissing-prototypes]
-drivers/net/ethernet/qlogic/qed/qed_debug.c:4258:17: warning: no previous prototype for 'qed_protection_override_dump' [-Wmissing-prototypes]
-drivers/net/ethernet/qlogic/qed/qed_debug.c:6342:17: warning: no previous prototype for 'qed_print_idle_chk_results_wrapper' [-Wmissing-prototypes]
-drivers/net/ethernet/qlogic/qed/qed_debug.c:6416:17: warning: no previous prototype for 'format_feature' [-Wmissing-prototypes]
-drivers/net/ethernet/qlogic/qed/qed_debug.c:6483:17: warning: no previous prototype for 'qed_dbg_dump' [-Wmissing-prototypes]
+We get 3 warnings when building kernel with W=1:
+drivers/net/ethernet/qlogic/qed/qed_cxt.c:1941:1: warning: no previous prototype for 'qed_cxt_dynamic_ilt_alloc' [-Wmissing-prototypes]
+drivers/net/ethernet/qlogic/qed/qed_cxt.c:2158:5: warning: no previous prototype for 'qed_cxt_free_proto_ilt' [-Wmissing-prototypes]
+drivers/net/ethernet/qlogic/qed/qed_cxt.c:2186:5: warning: no previous prototype for 'qed_cxt_get_task_ctx' [-Wmissing-prototypes]
 
-In fact, these functions are only used in the file in which they are
-declared and don't need a declaration, but can be made static.
-So this patch marks these functions with 'static'.
+In fact, these functions are unused in
+drivers/net/ethernet/qlogic/qed/qed_cxt.c, but should be removed.
+
+So this patch removes these unused functions.
 
 Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
 ---
- drivers/net/ethernet/qlogic/qed/qed_cxt.c   | 16 ++++-----
- drivers/net/ethernet/qlogic/qed/qed_debug.c | 51 +++++++++++++++--------------
- 2 files changed, 35 insertions(+), 32 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_cxt.c | 319 ------------------------------
+ 1 file changed, 319 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_cxt.c b/drivers/net/ethernet/qlogic/qed/qed_cxt.c
-index dd579b2..d7e9b14 100644
+index d7e9b14..f12c7ea 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_cxt.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_cxt.c
-@@ -343,14 +343,14 @@ static struct qed_tid_seg *qed_cxt_tid_seg_info(struct qed_hwfn *p_hwfn,
- 	return NULL;
- }
- 
--void qed_cxt_set_srq_count(struct qed_hwfn *p_hwfn, u32 num_srqs)
-+static void qed_cxt_set_srq_count(struct qed_hwfn *p_hwfn, u32 num_srqs)
- {
- 	struct qed_cxt_mngr *p_mgr = p_hwfn->p_cxt_mngr;
- 
- 	p_mgr->srq_count = num_srqs;
- }
- 
--u32 qed_cxt_get_srq_count(struct qed_hwfn *p_hwfn)
-+static u32 qed_cxt_get_srq_count(struct qed_hwfn *p_hwfn)
- {
- 	struct qed_cxt_mngr *p_mgr = p_hwfn->p_cxt_mngr;
- 
-@@ -386,14 +386,14 @@ u32 qed_cxt_get_proto_cid_count(struct qed_hwfn *p_hwfn,
+@@ -386,24 +386,6 @@ u32 qed_cxt_get_proto_cid_count(struct qed_hwfn *p_hwfn,
  	return p_hwfn->p_cxt_mngr->conn_cfg[type].cid_count;
  }
  
--u32 qed_cxt_get_proto_cid_start(struct qed_hwfn *p_hwfn,
--				enum protocol_type type)
-+static u32 qed_cxt_get_proto_cid_start(struct qed_hwfn *p_hwfn,
-+				       enum protocol_type type)
- {
- 	return p_hwfn->p_cxt_mngr->acquired[type].start_cid;
- }
+-static u32 qed_cxt_get_proto_cid_start(struct qed_hwfn *p_hwfn,
+-				       enum protocol_type type)
+-{
+-	return p_hwfn->p_cxt_mngr->acquired[type].start_cid;
+-}
+-
+-static u32 qed_cxt_get_proto_tid_count(struct qed_hwfn *p_hwfn,
+-				       enum protocol_type type)
+-{
+-	u32 cnt = 0;
+-	int i;
+-
+-	for (i = 0; i < TASK_SEGMENTS; i++)
+-		cnt += p_hwfn->p_cxt_mngr->conn_cfg[type].tid_seg[i].count;
+-
+-	return cnt;
+-}
+-
+ static void qed_cxt_set_proto_tid_count(struct qed_hwfn *p_hwfn,
+ 					enum protocol_type proto,
+ 					u8 seg,
+@@ -1933,304 +1915,3 @@ int qed_cxt_get_tid_mem_info(struct qed_hwfn *p_hwfn,
  
--u32 qed_cxt_get_proto_tid_count(struct qed_hwfn *p_hwfn,
--				enum protocol_type type)
-+static u32 qed_cxt_get_proto_tid_count(struct qed_hwfn *p_hwfn,
-+				       enum protocol_type type)
- {
- 	u32 cnt = 0;
- 	int i;
-@@ -1798,8 +1798,8 @@ int qed_cxt_get_cid_info(struct qed_hwfn *p_hwfn, struct qed_cxt_info *p_info)
  	return 0;
  }
- 
--void qed_rdma_set_pf_params(struct qed_hwfn *p_hwfn,
--			    struct qed_rdma_pf_params *p_params)
-+static void qed_rdma_set_pf_params(struct qed_hwfn *p_hwfn,
-+				   struct qed_rdma_pf_params *p_params)
- {
- 	u32 num_cons, num_tasks, num_qps, num_mrs, num_srqs;
- 	enum protocol_type proto;
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_debug.c b/drivers/net/ethernet/qlogic/qed/qed_debug.c
-index 88e7d5b..6f1d54e 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_debug.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_debug.c
-@@ -4028,10 +4028,10 @@ static enum dbg_status qed_mcp_trace_read_meta(struct qed_hwfn *p_hwfn,
- }
- 
- /* Dump MCP Trace */
--enum dbg_status qed_mcp_trace_dump(struct qed_hwfn *p_hwfn,
--				   struct qed_ptt *p_ptt,
--				   u32 *dump_buf,
--				   bool dump, u32 *num_dumped_dwords)
-+static enum dbg_status qed_mcp_trace_dump(struct qed_hwfn *p_hwfn,
-+					  struct qed_ptt *p_ptt,
-+					  u32 *dump_buf,
-+					  bool dump, u32 *num_dumped_dwords)
- {
- 	u32 trace_data_grc_addr, trace_data_size_bytes, trace_data_size_dwords;
- 	u32 trace_meta_size_dwords, running_bundle_id, offset = 0;
-@@ -4130,10 +4130,10 @@ enum dbg_status qed_mcp_trace_dump(struct qed_hwfn *p_hwfn,
- }
- 
- /* Dump GRC FIFO */
--enum dbg_status qed_reg_fifo_dump(struct qed_hwfn *p_hwfn,
--				  struct qed_ptt *p_ptt,
--				  u32 *dump_buf,
--				  bool dump, u32 *num_dumped_dwords)
-+static enum dbg_status qed_reg_fifo_dump(struct qed_hwfn *p_hwfn,
-+					 struct qed_ptt *p_ptt,
-+					 u32 *dump_buf,
-+					 bool dump, u32 *num_dumped_dwords)
- {
- 	u32 offset = 0, dwords_read, size_param_offset;
- 	bool fifo_has_data;
-@@ -4192,10 +4192,10 @@ enum dbg_status qed_reg_fifo_dump(struct qed_hwfn *p_hwfn,
- }
- 
- /* Dump IGU FIFO */
--enum dbg_status qed_igu_fifo_dump(struct qed_hwfn *p_hwfn,
--				  struct qed_ptt *p_ptt,
--				  u32 *dump_buf,
--				  bool dump, u32 *num_dumped_dwords)
-+static enum dbg_status qed_igu_fifo_dump(struct qed_hwfn *p_hwfn,
-+					 struct qed_ptt *p_ptt,
-+					 u32 *dump_buf,
-+					 bool dump, u32 *num_dumped_dwords)
- {
- 	u32 offset = 0, dwords_read, size_param_offset;
- 	bool fifo_has_data;
-@@ -4255,10 +4255,11 @@ enum dbg_status qed_igu_fifo_dump(struct qed_hwfn *p_hwfn,
- }
- 
- /* Protection Override dump */
--enum dbg_status qed_protection_override_dump(struct qed_hwfn *p_hwfn,
--					     struct qed_ptt *p_ptt,
--					     u32 *dump_buf,
--					     bool dump, u32 *num_dumped_dwords)
-+static enum
-+dbg_status qed_protection_override_dump(struct qed_hwfn *p_hwfn,
-+					struct qed_ptt *p_ptt,
-+					u32 *dump_buf,
-+					bool dump, u32 *num_dumped_dwords)
- {
- 	u32 offset = 0, size_param_offset, override_window_dwords;
- 
-@@ -6339,10 +6340,11 @@ enum dbg_status qed_print_fw_asserts_results(struct qed_hwfn *p_hwfn,
- }
- 
- /* Wrapper for unifying the idle_chk and mcp_trace api */
--enum dbg_status qed_print_idle_chk_results_wrapper(struct qed_hwfn *p_hwfn,
--						   u32 *dump_buf,
--						   u32 num_dumped_dwords,
--						   char *results_buf)
-+static enum
-+dbg_status qed_print_idle_chk_results_wrapper(struct qed_hwfn *p_hwfn,
-+					      u32 *dump_buf,
-+					      u32 num_dumped_dwords,
-+					      char *results_buf)
- {
- 	u32 num_errors, num_warnnings;
- 
-@@ -6413,8 +6415,8 @@ static void qed_dbg_print_feature(u8 *p_text_buf, u32 text_size)
- 
- #define QED_RESULTS_BUF_MIN_SIZE 16
- /* Generic function for decoding debug feature info */
--enum dbg_status format_feature(struct qed_hwfn *p_hwfn,
--			       enum qed_dbg_features feature_idx)
-+static enum dbg_status format_feature(struct qed_hwfn *p_hwfn,
-+				      enum qed_dbg_features feature_idx)
- {
- 	struct qed_dbg_feature *feature =
- 	    &p_hwfn->cdev->dbg_params.features[feature_idx];
-@@ -6480,8 +6482,9 @@ enum dbg_status format_feature(struct qed_hwfn *p_hwfn,
- }
- 
- /* Generic function for performing the dump of a debug feature. */
--enum dbg_status qed_dbg_dump(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
--			     enum qed_dbg_features feature_idx)
-+static enum
-+dbg_status qed_dbg_dump(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
-+			enum qed_dbg_features feature_idx)
- {
- 	struct qed_dbg_feature *feature =
- 	    &p_hwfn->cdev->dbg_params.features[feature_idx];
+-
+-/* This function is very RoCE oriented, if another protocol in the future
+- * will want this feature we'll need to modify the function to be more generic
+- */
+-int
+-qed_cxt_dynamic_ilt_alloc(struct qed_hwfn *p_hwfn,
+-			  enum qed_cxt_elem_type elem_type, u32 iid)
+-{
+-	u32 reg_offset, shadow_line, elem_size, hw_p_size, elems_per_p, line;
+-	struct qed_ilt_client_cfg *p_cli;
+-	struct qed_ilt_cli_blk *p_blk;
+-	struct qed_ptt *p_ptt;
+-	dma_addr_t p_phys;
+-	u64 ilt_hw_entry;
+-	void *p_virt;
+-	int rc = 0;
+-
+-	switch (elem_type) {
+-	case QED_ELEM_CXT:
+-		p_cli = &p_hwfn->p_cxt_mngr->clients[ILT_CLI_CDUC];
+-		elem_size = CONN_CXT_SIZE(p_hwfn);
+-		p_blk = &p_cli->pf_blks[CDUC_BLK];
+-		break;
+-	case QED_ELEM_SRQ:
+-		p_cli = &p_hwfn->p_cxt_mngr->clients[ILT_CLI_TSDM];
+-		elem_size = SRQ_CXT_SIZE;
+-		p_blk = &p_cli->pf_blks[SRQ_BLK];
+-		break;
+-	case QED_ELEM_TASK:
+-		p_cli = &p_hwfn->p_cxt_mngr->clients[ILT_CLI_CDUT];
+-		elem_size = TYPE1_TASK_CXT_SIZE(p_hwfn);
+-		p_blk = &p_cli->pf_blks[CDUT_SEG_BLK(QED_CXT_ROCE_TID_SEG)];
+-		break;
+-	default:
+-		DP_NOTICE(p_hwfn, "-EINVALID elem type = %d", elem_type);
+-		return -EINVAL;
+-	}
+-
+-	/* Calculate line in ilt */
+-	hw_p_size = p_cli->p_size.val;
+-	elems_per_p = ILT_PAGE_IN_BYTES(hw_p_size) / elem_size;
+-	line = p_blk->start_line + (iid / elems_per_p);
+-	shadow_line = line - p_hwfn->p_cxt_mngr->pf_start_line;
+-
+-	/* If line is already allocated, do nothing, otherwise allocate it and
+-	 * write it to the PSWRQ2 registers.
+-	 * This section can be run in parallel from different contexts and thus
+-	 * a mutex protection is needed.
+-	 */
+-
+-	mutex_lock(&p_hwfn->p_cxt_mngr->mutex);
+-
+-	if (p_hwfn->p_cxt_mngr->ilt_shadow[shadow_line].p_virt)
+-		goto out0;
+-
+-	p_ptt = qed_ptt_acquire(p_hwfn);
+-	if (!p_ptt) {
+-		DP_NOTICE(p_hwfn,
+-			  "QED_TIME_OUT on ptt acquire - dynamic allocation");
+-		rc = -EBUSY;
+-		goto out0;
+-	}
+-
+-	p_virt = dma_alloc_coherent(&p_hwfn->cdev->pdev->dev,
+-				    p_blk->real_size_in_page,
+-				    &p_phys, GFP_KERNEL);
+-	if (!p_virt) {
+-		rc = -ENOMEM;
+-		goto out1;
+-	}
+-	memset(p_virt, 0, p_blk->real_size_in_page);
+-
+-	/* configuration of refTagMask to 0xF is required for RoCE DIF MR only,
+-	 * to compensate for a HW bug, but it is configured even if DIF is not
+-	 * enabled. This is harmless and allows us to avoid a dedicated API. We
+-	 * configure the field for all of the contexts on the newly allocated
+-	 * page.
+-	 */
+-	if (elem_type == QED_ELEM_TASK) {
+-		u32 elem_i;
+-		u8 *elem_start = (u8 *)p_virt;
+-		union type1_task_context *elem;
+-
+-		for (elem_i = 0; elem_i < elems_per_p; elem_i++) {
+-			elem = (union type1_task_context *)elem_start;
+-			SET_FIELD(elem->roce_ctx.tdif_context.flags1,
+-				  TDIF_TASK_CONTEXT_REFTAGMASK, 0xf);
+-			elem_start += TYPE1_TASK_CXT_SIZE(p_hwfn);
+-		}
+-	}
+-
+-	p_hwfn->p_cxt_mngr->ilt_shadow[shadow_line].p_virt = p_virt;
+-	p_hwfn->p_cxt_mngr->ilt_shadow[shadow_line].p_phys = p_phys;
+-	p_hwfn->p_cxt_mngr->ilt_shadow[shadow_line].size =
+-	    p_blk->real_size_in_page;
+-
+-	/* compute absolute offset */
+-	reg_offset = PSWRQ2_REG_ILT_MEMORY +
+-	    (line * ILT_REG_SIZE_IN_BYTES * ILT_ENTRY_IN_REGS);
+-
+-	ilt_hw_entry = 0;
+-	SET_FIELD(ilt_hw_entry, ILT_ENTRY_VALID, 1ULL);
+-	SET_FIELD(ilt_hw_entry,
+-		  ILT_ENTRY_PHY_ADDR,
+-		  (p_hwfn->p_cxt_mngr->ilt_shadow[shadow_line].p_phys >> 12));
+-
+-	/* Write via DMAE since the PSWRQ2_REG_ILT_MEMORY line is a wide-bus */
+-	qed_dmae_host2grc(p_hwfn, p_ptt, (u64) (uintptr_t)&ilt_hw_entry,
+-			  reg_offset, sizeof(ilt_hw_entry) / sizeof(u32), 0);
+-
+-	if (elem_type == QED_ELEM_CXT) {
+-		u32 last_cid_allocated = (1 + (iid / elems_per_p)) *
+-		    elems_per_p;
+-
+-		/* Update the relevant register in the parser */
+-		qed_wr(p_hwfn, p_ptt, PRS_REG_ROCE_DEST_QP_MAX_PF,
+-		       last_cid_allocated - 1);
+-
+-		if (!p_hwfn->b_rdma_enabled_in_prs) {
+-			/* Enable RoCE search */
+-			qed_wr(p_hwfn, p_ptt, p_hwfn->rdma_prs_search_reg, 1);
+-			p_hwfn->b_rdma_enabled_in_prs = true;
+-		}
+-	}
+-
+-out1:
+-	qed_ptt_release(p_hwfn, p_ptt);
+-out0:
+-	mutex_unlock(&p_hwfn->p_cxt_mngr->mutex);
+-
+-	return rc;
+-}
+-
+-/* This function is very RoCE oriented, if another protocol in the future
+- * will want this feature we'll need to modify the function to be more generic
+- */
+-static int
+-qed_cxt_free_ilt_range(struct qed_hwfn *p_hwfn,
+-		       enum qed_cxt_elem_type elem_type,
+-		       u32 start_iid, u32 count)
+-{
+-	u32 start_line, end_line, shadow_start_line, shadow_end_line;
+-	u32 reg_offset, elem_size, hw_p_size, elems_per_p;
+-	struct qed_ilt_client_cfg *p_cli;
+-	struct qed_ilt_cli_blk *p_blk;
+-	u32 end_iid = start_iid + count;
+-	struct qed_ptt *p_ptt;
+-	u64 ilt_hw_entry = 0;
+-	u32 i;
+-
+-	switch (elem_type) {
+-	case QED_ELEM_CXT:
+-		p_cli = &p_hwfn->p_cxt_mngr->clients[ILT_CLI_CDUC];
+-		elem_size = CONN_CXT_SIZE(p_hwfn);
+-		p_blk = &p_cli->pf_blks[CDUC_BLK];
+-		break;
+-	case QED_ELEM_SRQ:
+-		p_cli = &p_hwfn->p_cxt_mngr->clients[ILT_CLI_TSDM];
+-		elem_size = SRQ_CXT_SIZE;
+-		p_blk = &p_cli->pf_blks[SRQ_BLK];
+-		break;
+-	case QED_ELEM_TASK:
+-		p_cli = &p_hwfn->p_cxt_mngr->clients[ILT_CLI_CDUT];
+-		elem_size = TYPE1_TASK_CXT_SIZE(p_hwfn);
+-		p_blk = &p_cli->pf_blks[CDUT_SEG_BLK(QED_CXT_ROCE_TID_SEG)];
+-		break;
+-	default:
+-		DP_NOTICE(p_hwfn, "-EINVALID elem type = %d", elem_type);
+-		return -EINVAL;
+-	}
+-
+-	/* Calculate line in ilt */
+-	hw_p_size = p_cli->p_size.val;
+-	elems_per_p = ILT_PAGE_IN_BYTES(hw_p_size) / elem_size;
+-	start_line = p_blk->start_line + (start_iid / elems_per_p);
+-	end_line = p_blk->start_line + (end_iid / elems_per_p);
+-	if (((end_iid + 1) / elems_per_p) != (end_iid / elems_per_p))
+-		end_line--;
+-
+-	shadow_start_line = start_line - p_hwfn->p_cxt_mngr->pf_start_line;
+-	shadow_end_line = end_line - p_hwfn->p_cxt_mngr->pf_start_line;
+-
+-	p_ptt = qed_ptt_acquire(p_hwfn);
+-	if (!p_ptt) {
+-		DP_NOTICE(p_hwfn,
+-			  "QED_TIME_OUT on ptt acquire - dynamic allocation");
+-		return -EBUSY;
+-	}
+-
+-	for (i = shadow_start_line; i < shadow_end_line; i++) {
+-		if (!p_hwfn->p_cxt_mngr->ilt_shadow[i].p_virt)
+-			continue;
+-
+-		dma_free_coherent(&p_hwfn->cdev->pdev->dev,
+-				  p_hwfn->p_cxt_mngr->ilt_shadow[i].size,
+-				  p_hwfn->p_cxt_mngr->ilt_shadow[i].p_virt,
+-				  p_hwfn->p_cxt_mngr->ilt_shadow[i].p_phys);
+-
+-		p_hwfn->p_cxt_mngr->ilt_shadow[i].p_virt = NULL;
+-		p_hwfn->p_cxt_mngr->ilt_shadow[i].p_phys = 0;
+-		p_hwfn->p_cxt_mngr->ilt_shadow[i].size = 0;
+-
+-		/* compute absolute offset */
+-		reg_offset = PSWRQ2_REG_ILT_MEMORY +
+-		    ((start_line++) * ILT_REG_SIZE_IN_BYTES *
+-		     ILT_ENTRY_IN_REGS);
+-
+-		/* Write via DMAE since the PSWRQ2_REG_ILT_MEMORY line is a
+-		 * wide-bus.
+-		 */
+-		qed_dmae_host2grc(p_hwfn, p_ptt,
+-				  (u64) (uintptr_t) &ilt_hw_entry,
+-				  reg_offset,
+-				  sizeof(ilt_hw_entry) / sizeof(u32),
+-				  0);
+-	}
+-
+-	qed_ptt_release(p_hwfn, p_ptt);
+-
+-	return 0;
+-}
+-
+-int qed_cxt_free_proto_ilt(struct qed_hwfn *p_hwfn, enum protocol_type proto)
+-{
+-	int rc;
+-	u32 cid;
+-
+-	/* Free Connection CXT */
+-	rc = qed_cxt_free_ilt_range(p_hwfn, QED_ELEM_CXT,
+-				    qed_cxt_get_proto_cid_start(p_hwfn,
+-								proto),
+-				    qed_cxt_get_proto_cid_count(p_hwfn,
+-								proto, &cid));
+-
+-	if (rc)
+-		return rc;
+-
+-	/* Free Task CXT */
+-	rc = qed_cxt_free_ilt_range(p_hwfn, QED_ELEM_TASK, 0,
+-				    qed_cxt_get_proto_tid_count(p_hwfn, proto));
+-	if (rc)
+-		return rc;
+-
+-	/* Free TSDM CXT */
+-	rc = qed_cxt_free_ilt_range(p_hwfn, QED_ELEM_SRQ, 0,
+-				    qed_cxt_get_srq_count(p_hwfn));
+-
+-	return rc;
+-}
+-
+-int qed_cxt_get_task_ctx(struct qed_hwfn *p_hwfn,
+-			 u32 tid, u8 ctx_type, void **pp_task_ctx)
+-{
+-	struct qed_cxt_mngr *p_mngr = p_hwfn->p_cxt_mngr;
+-	struct qed_ilt_client_cfg *p_cli;
+-	struct qed_ilt_cli_blk *p_seg;
+-	struct qed_tid_seg *p_seg_info;
+-	u32 proto, seg;
+-	u32 total_lines;
+-	u32 tid_size, ilt_idx;
+-	u32 num_tids_per_block;
+-
+-	/* Verify the personality */
+-	switch (p_hwfn->hw_info.personality) {
+-	case QED_PCI_ISCSI:
+-		proto = PROTOCOLID_ISCSI;
+-		seg = QED_CXT_ISCSI_TID_SEG;
+-		break;
+-	default:
+-		return -EINVAL;
+-	}
+-
+-	p_cli = &p_mngr->clients[ILT_CLI_CDUT];
+-	if (!p_cli->active)
+-		return -EINVAL;
+-
+-	p_seg_info = &p_mngr->conn_cfg[proto].tid_seg[seg];
+-
+-	if (ctx_type == QED_CTX_WORKING_MEM) {
+-		p_seg = &p_cli->pf_blks[CDUT_SEG_BLK(seg)];
+-	} else if (ctx_type == QED_CTX_FL_MEM) {
+-		if (!p_seg_info->has_fl_mem)
+-			return -EINVAL;
+-		p_seg = &p_cli->pf_blks[CDUT_FL_SEG_BLK(seg, PF)];
+-	} else {
+-		return -EINVAL;
+-	}
+-	total_lines = DIV_ROUND_UP(p_seg->total_size, p_seg->real_size_in_page);
+-	tid_size = p_mngr->task_type_size[p_seg_info->type];
+-	num_tids_per_block = p_seg->real_size_in_page / tid_size;
+-
+-	if (total_lines < tid / num_tids_per_block)
+-		return -EINVAL;
+-
+-	ilt_idx = tid / num_tids_per_block + p_seg->start_line -
+-		  p_mngr->pf_start_line;
+-	*pp_task_ctx = (u8 *)p_mngr->ilt_shadow[ilt_idx].p_virt +
+-		       (tid % num_tids_per_block) * tid_size;
+-
+-	return 0;
+-}
 -- 
 2.7.4
