@@ -1,7 +1,7 @@
 From: Jia He <hejianet@gmail.com>
-Subject: [PATCH v6 6/7] ipv6: Remove useless parameter in __snmp6_fill_statsdev
-Date: Fri, 30 Sep 2016 11:29:03 +0800
-Message-ID: <1475206144-23228-7-git-send-email-hejianet@gmail.com>
+Subject: [PATCH v6 2/7] proc: Reduce cache miss in snmp_seq_show
+Date: Fri, 30 Sep 2016 11:28:59 +0800
+Message-ID: <1475206144-23228-3-git-send-email-hejianet@gmail.com>
 References: <1475206144-23228-1-git-send-email-hejianet@gmail.com>
 Cc: linux-sctp@vger.kernel.org, linux-kernel@vger.kernel.org,
         davem@davemloft.net, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
@@ -14,58 +14,150 @@ Cc: linux-sctp@vger.kernel.org, linux-kernel@vger.kernel.org,
         Herbert Xu <herbert@gondor.apana.org.au>,
         marcelo.leitner@gmail.com, Jia He <hejianet@gmail.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f68.google.com ([209.85.214.68]:33662 "EHLO
-        mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935896AbcI3D3s (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 23:29:48 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1475206144-23228-1-git-send-email-hejianet@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The parameter items(is always ICMP6_MIB_MAX) is useless for __snmp6_fill_statsdev
+This is to use the generic interfaces snmp_get_cpu_field{,64}_batch to
+aggregate the data by going through all the items of each cpu sequentially.
+Then snmp_seq_show is split into 2 parts to avoid build warning "the frame
+size" larger than 1024.
 
 Signed-off-by: Jia He <hejianet@gmail.com>
 ---
- net/ipv6/addrconf.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ net/ipv4/proc.c | 70 ++++++++++++++++++++++++++++++++++++++-------------------
+ 1 file changed, 47 insertions(+), 23 deletions(-)
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 2f1f5d4..35d4baa 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4961,18 +4961,18 @@ static inline size_t inet6_if_nlmsg_size(void)
- }
+diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
+index 9f665b6..9d7a39a 100644
+--- a/net/ipv4/proc.c
++++ b/net/ipv4/proc.c
+@@ -46,6 +46,8 @@
+ #include <net/sock.h>
+ #include <net/raw.h>
  
- static inline void __snmp6_fill_statsdev(u64 *stats, atomic_long_t *mib,
--				      int items, int bytes)
-+					int bytes)
++#define TCPUDP_MIB_MAX max_t(u32, UDP_MIB_MAX, TCP_MIB_MAX)
++
+ /*
+  *	Report socket allocation statistics [mea@utu.fi]
+  */
+@@ -378,13 +380,15 @@ static void icmp_put(struct seq_file *seq)
+ /*
+  *	Called from the PROCfs module. This outputs /proc/net/snmp.
+  */
+-static int snmp_seq_show(struct seq_file *seq, void *v)
++static int snmp_seq_show_ipstats(struct seq_file *seq, void *v)
  {
- 	int i;
--	int pad = bytes - sizeof(u64) * items;
-+	int pad = bytes - sizeof(u64) * ICMP6_MIB_MAX;
- 	BUG_ON(pad < 0);
+-	int i;
+ 	struct net *net = seq->private;
++	u64 buff64[IPSTATS_MIB_MAX];
++	int i;
  
- 	/* Use put_unaligned() because stats may not be aligned for u64. */
--	put_unaligned(items, &stats[0]);
--	for (i = 1; i < items; i++)
-+	put_unaligned(ICMP6_MIB_MAX, &stats[0]);
-+	for (i = 1; i < ICMP6_MIB_MAX; i++)
- 		put_unaligned(atomic_long_read(&mib[i]), &stats[i]);
+-	seq_puts(seq, "Ip: Forwarding DefaultTTL");
++	memset(buff64, 0, IPSTATS_MIB_MAX * sizeof(u64));
  
--	memset(&stats[items], 0, pad);
-+	memset(&stats[ICMP6_MIB_MAX], 0, pad);
- }
++	seq_puts(seq, "Ip: Forwarding DefaultTTL");
+ 	for (i = 0; snmp4_ipstats_list[i].name != NULL; i++)
+ 		seq_printf(seq, " %s", snmp4_ipstats_list[i].name);
  
- static inline void __snmp6_fill_stats64(u64 *stats, void __percpu *mib,
-@@ -5005,7 +5005,7 @@ static void snmp6_fill_stats(u64 *stats, struct inet6_dev *idev, int attrtype,
- 				     offsetof(struct ipstats_mib, syncp));
- 		break;
- 	case IFLA_INET6_ICMP6STATS:
--		__snmp6_fill_statsdev(stats, idev->stats.icmpv6dev->mibs, ICMP6_MIB_MAX, bytes);
-+		__snmp6_fill_statsdev(stats, idev->stats.icmpv6dev->mibs, bytes);
- 		break;
+@@ -393,57 +397,77 @@ static int snmp_seq_show(struct seq_file *seq, void *v)
+ 		   net->ipv4.sysctl_ip_default_ttl);
+ 
+ 	BUILD_BUG_ON(offsetof(struct ipstats_mib, mibs) != 0);
++	snmp_get_cpu_field64_batch(buff64, snmp4_ipstats_list,
++				   net->mib.ip_statistics,
++				   offsetof(struct ipstats_mib, syncp));
+ 	for (i = 0; snmp4_ipstats_list[i].name != NULL; i++)
+-		seq_printf(seq, " %llu",
+-			   snmp_fold_field64(net->mib.ip_statistics,
+-					     snmp4_ipstats_list[i].entry,
+-					     offsetof(struct ipstats_mib, syncp)));
++		seq_printf(seq, " %llu", buff64[i]);
+ 
+-	icmp_put(seq);	/* RFC 2011 compatibility */
+-	icmpmsg_put(seq);
++	return 0;
++}
++
++static int snmp_seq_show_tcp_udp(struct seq_file *seq, void *v)
++{
++	unsigned long buff[TCPUDP_MIB_MAX];
++	struct net *net = seq->private;
++	int i;
++
++	memset(buff, 0, TCPUDP_MIB_MAX * sizeof(unsigned long));
+ 
+ 	seq_puts(seq, "\nTcp:");
+ 	for (i = 0; snmp4_tcp_list[i].name != NULL; i++)
+ 		seq_printf(seq, " %s", snmp4_tcp_list[i].name);
+ 
+ 	seq_puts(seq, "\nTcp:");
++	snmp_get_cpu_field_batch(buff, snmp4_tcp_list,
++				 net->mib.tcp_statistics);
+ 	for (i = 0; snmp4_tcp_list[i].name != NULL; i++) {
+ 		/* MaxConn field is signed, RFC 2012 */
+ 		if (snmp4_tcp_list[i].entry == TCP_MIB_MAXCONN)
+-			seq_printf(seq, " %ld",
+-				   snmp_fold_field(net->mib.tcp_statistics,
+-						   snmp4_tcp_list[i].entry));
++			seq_printf(seq, " %ld", buff[i]);
+ 		else
+-			seq_printf(seq, " %lu",
+-				   snmp_fold_field(net->mib.tcp_statistics,
+-						   snmp4_tcp_list[i].entry));
++			seq_printf(seq, " %lu", buff[i]);
  	}
+ 
++	memset(buff, 0, TCPUDP_MIB_MAX * sizeof(unsigned long));
++
++	snmp_get_cpu_field_batch(buff, snmp4_udp_list,
++				 net->mib.udp_statistics);
+ 	seq_puts(seq, "\nUdp:");
+ 	for (i = 0; snmp4_udp_list[i].name != NULL; i++)
+ 		seq_printf(seq, " %s", snmp4_udp_list[i].name);
+-
+ 	seq_puts(seq, "\nUdp:");
+ 	for (i = 0; snmp4_udp_list[i].name != NULL; i++)
+-		seq_printf(seq, " %lu",
+-			   snmp_fold_field(net->mib.udp_statistics,
+-					   snmp4_udp_list[i].entry));
++		seq_printf(seq, " %lu", buff[i]);
++
++	memset(buff, 0, TCPUDP_MIB_MAX * sizeof(unsigned long));
+ 
+ 	/* the UDP and UDP-Lite MIBs are the same */
+ 	seq_puts(seq, "\nUdpLite:");
++	snmp_get_cpu_field_batch(buff, snmp4_udp_list,
++				 net->mib.udplite_statistics);
+ 	for (i = 0; snmp4_udp_list[i].name != NULL; i++)
+ 		seq_printf(seq, " %s", snmp4_udp_list[i].name);
+-
+ 	seq_puts(seq, "\nUdpLite:");
+ 	for (i = 0; snmp4_udp_list[i].name != NULL; i++)
+-		seq_printf(seq, " %lu",
+-			   snmp_fold_field(net->mib.udplite_statistics,
+-					   snmp4_udp_list[i].entry));
++		seq_printf(seq, " %lu", buff[i]);
+ 
+ 	seq_putc(seq, '\n');
+ 	return 0;
  }
+ 
++static int snmp_seq_show(struct seq_file *seq, void *v)
++{
++	snmp_seq_show_ipstats(seq, v);
++
++	icmp_put(seq);	/* RFC 2011 compatibility */
++	icmpmsg_put(seq);
++
++	snmp_seq_show_tcp_udp(seq, v);
++
++	return 0;
++}
++
+ static int snmp_seq_open(struct inode *inode, struct file *file)
+ {
+ 	return single_open_net(inode, file, snmp_seq_show);
 -- 
 2.5.5
