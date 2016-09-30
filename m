@@ -1,47 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 3/3] net: make net namespace sysctls belong to
- container's owner
-Date: Fri, 30 Sep 2016 01:21:27 -0400 (EDT)
-Message-ID: <20160930.012127.347186046201932283.davem@davemloft.net>
-References: <1470864962-25056-1-git-send-email-dmitry.torokhov@gmail.com>
-        <1470864962-25056-4-git-send-email-dmitry.torokhov@gmail.com>
-        <CAKdAkRRsVaAupFx+DpjX8VSHS9_ws2WVA47eQoCU-DT1w0JK5w@mail.gmail.com>
+Subject: Re: [PATCH RFC net-next] bnx2x: avoid printing unnecessary
+ messages during register dump
+Date: Fri, 30 Sep 2016 01:22:50 -0400 (EDT)
+Message-ID: <20160930.012250.1203085597428305997.davem@davemloft.net>
+References: <1475001234-25933-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
+        <20160927.224349.354006077948089224.davem@davemloft.net>
+        <57ED3F1B.2040602@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: viro@zeniv.linux.org.uk, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org, ebiederm@xmission.com
-To: dmitry.torokhov@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAKdAkRRsVaAupFx+DpjX8VSHS9_ws2WVA47eQoCU-DT1w0JK5w@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ariel.elior@qlogic.com, Yuval.Mintz@qlogic.com,
+        netdev@vger.kernel.org
+To: gpiccoli@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36528 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932836AbcI3FWz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2016 01:22:55 -0400
+In-Reply-To: <57ED3F1B.2040602@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Date: Thu, 29 Sep 2016 08:46:05 -0700
+From: "Guilherme G. Piccoli" <gpiccoli@linux.vnet.ibm.com>
+Date: Thu, 29 Sep 2016 13:19:39 -0300
 
-> Hi David,
-> 
-> On Wed, Aug 10, 2016 at 2:36 PM, Dmitry Torokhov
-> <dmitry.torokhov@gmail.com> wrote:
->> If net namespace is attached to a user namespace let's make container's
->> root owner of sysctls affecting said network namespace instead of global
->> root.
->>
->> This also allows us to clean up net_ctl_permissions() because we do not
->> need to fudge permissions anymore for the container's owner since it now
->> owns the objects in question.
->>
->> Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
->> Signed-off-by: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-> 
-> I was looking at linux-next today, and I noticed that, when you merged
-> my patch, you basically reverted the following commit:
-> 
-> commit d6e0d306449bcb5fa3c80e7a3edf11d45abf9ae9
-> Author: Tyler Hicks <tyhicks@canonical.com>
-> Date:   Thu Jun 2 23:43:22 2016 -0500
-> 
->     net: Use ns_capable_noaudit() when determining net sysctl permissions
+> David, thanks for your comment. I confess I didn't understand your
+> statement quite well. You say we shouldn't dump registers that will
+> cause timeouts, that's it?
 
-Please send me a fixup patch for this, sorry.
+Yes, basically.
+
+If this happened infrequently for one or two registers maybe
+that would be OK, but this seems to timeout on many registers
+especially if the device is up and operational during the
+"ethtool -d", and that's a bit much.
