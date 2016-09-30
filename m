@@ -1,62 +1,55 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] cxgb4: unexport cxgb4_dcb_enabled
-Date: Fri, 30 Sep 2016 18:15:33 +0200
-Message-ID: <20160930161544.41614-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>,
-        Nicholas Bellinger <nab@linux-iscsi.org>,
-        Varun Prakash <varun@chelsio.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Hariprasad S <hariprasad@chelsio.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: [PATCH 1/2] net/mlx5e: shut up maybe-uninitialized warning
+Date: Fri, 30 Sep 2016 18:17:09 +0200
+Message-ID: <20160930161734.70928-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Amir Vadai <amirva-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Maor Gottlieb <maorg-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-A recent cleanup marked cxgb4_dcb_enabled as 'static', which is correct, but this ignored
-how the symbol is also exported. In addition, the export can be compiled out when modules
-are disabled, causing a harmless compiler warning in configurations for which it is not
-used at all:
+Build-testing this driver with -Wmaybe-uninitialized gives a new false-positive
+warning that I can't really explain:
 
-drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c:282:12: error: 'cxgb4_dcb_enabled' defined but not used [-Werror=unused-function]
+drivers/net/ethernet/mellanox/mlx5/core/en_tc.c: In function 'mlx5e_configure_flower':
+drivers/net/ethernet/mellanox/mlx5/core/en_tc.c:509:3: error: 'old_attr' may be used uninitialized in this function [-Werror=maybe-uninitialized]
 
-This removes the export and moves the function into the correct #ifdef so we only build
-it when there are users.
+It's obvious from the code that 'old_attr' is initialized whenever 'old'
+is non-NULL here. The warning appears with all versions I tested from gcc-4.7
+through gcc-6.1, and I could not come up with a way to rewrite the function
+in a more readable way that avoids the warning, so I'm adding another
+initialization to shut it up.
 
-Fixes: 50935857f878 ("cxgb4: mark symbols static where possible")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: 8b32580df1cb ("net/mlx5e: Add TC vlan action for SRIOV offloads")
+Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 7 +------
- 1 file changed, 1 insertion(+), 6 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index c8a5c434ad2c..59f3772eb49d 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -277,11 +277,9 @@ static void dcb_tx_queue_prio_enable(struct net_device *dev, int enable)
- 			txq->dcb_prio = value;
- 	}
- }
--#endif /* CONFIG_CHELSIO_T4_DCB */
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index a350b7171e3d..ce8c54d18906 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -451,7 +451,7 @@ int mlx5e_configure_flower(struct mlx5e_priv *priv, __be16 protocol,
+ 	struct mlx5e_tc_flow *flow;
+ 	struct mlx5_flow_spec *spec;
+ 	struct mlx5_flow_rule *old = NULL;
+-	struct mlx5_esw_flow_attr *old_attr;
++	struct mlx5_esw_flow_attr *old_attr = NULL;
+ 	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
  
- static int cxgb4_dcb_enabled(const struct net_device *dev)
- {
--#ifdef CONFIG_CHELSIO_T4_DCB
- 	struct port_info *pi = netdev_priv(dev);
- 
- 	if (!pi->dcb.enabled)
-@@ -289,11 +287,8 @@ static int cxgb4_dcb_enabled(const struct net_device *dev)
- 
- 	return ((pi->dcb.state == CXGB4_DCB_STATE_FW_ALLSYNCED) ||
- 		(pi->dcb.state == CXGB4_DCB_STATE_HOST));
--#else
--	return 0;
--#endif
- }
--EXPORT_SYMBOL(cxgb4_dcb_enabled);
-+#endif /* CONFIG_CHELSIO_T4_DCB */
- 
- void t4_os_link_changed(struct adapter *adapter, int port_id, int link_stat)
- {
+ 	if (esw && esw->mode == SRIOV_OFFLOADS)
 -- 
 2.9.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
