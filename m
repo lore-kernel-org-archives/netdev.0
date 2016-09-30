@@ -1,48 +1,60 @@
 From: Baoyou Xie <baoyou.xie@linaro.org>
-Subject: [PATCH 2/2] net: hns: add missing function declaration
-Date: Fri, 30 Sep 2016 15:41:55 +0800
-Message-ID: <1475221315-18602-1-git-send-email-baoyou.xie@linaro.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        baoyou.xie@linaro.org, xie.baoyou@zte.com.cn, han.fei@zte.com.cn,
-        tang.qiang007@zte.com.cn
-To: yisen.zhuang@huawei.com, salil.mehta@huawei.com,
-        davem@davemloft.net, huangdaode@hisilicon.com,
-        lisheng011@huawei.com, xieqianqian@huawei.com, fabf@skynet.be,
-        oulijun@huawei.com, arnd@arndb.de, vinod.koul@intel.com,
-        lipeng321@huawei.com, andrew@lunn.ch, tremyfr@gmail.com,
-        chenny.xu@huawei.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: [PATCH] net: ethernet: mediatek: mark symbols static where possible
+Date: Fri, 30 Sep 2016 15:48:50 +0800
+Message-ID: <1475221730-18773-1-git-send-email-baoyou.xie@linaro.org>
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-mediatek@lists.infradead.org, linux-kernel@vger.kernel.org,
+        arnd@arndb.de, baoyou.xie@linaro.org, xie.baoyou@zte.com.cn,
+        han.fei@zte.com.cn, tang.qiang007@zte.com.cn
+To: nbd@openwrt.org, blogic@openwrt.org, matthias.bgg@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:35583 "EHLO
+        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751020AbcI3HtM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2016 03:49:12 -0400
+Received: by mail-pf0-f174.google.com with SMTP id s13so37705326pfd.2
+        for <netdev@vger.kernel.org>; Fri, 30 Sep 2016 00:49:12 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We get 1 warning when building kernel with W=1:
-drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c:2784:5: warning: no previous prototype for 'hns_dsaf_roce_reset' [-Wmissing-prototypes]
+We get 2 warnings when building kernel with W=1:
+drivers/net/ethernet/mediatek/mtk_eth_soc.c:2041:5: warning: no previous prototype for 'mtk_get_link_ksettings' [-Wmissing-prototypes]
+drivers/net/ethernet/mediatek/mtk_eth_soc.c:2052:5: warning: no previous prototype for 'mtk_set_link_ksettings' [-Wmissing-prototypes]
 
-In fact, this function is not declared in any file, but should be
-declared in a header file. thus can be recognized in other file.
-
-so this patch adds the missing function declaration into
-drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h.
+In fact, these functions are only used in the file in which they are
+declared and don't need a declaration, but can be made static.
+So this patch marks these functions with 'static'.
 
 Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h | 3 +++
- 1 file changed, 3 insertions(+)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-index f3681d5..c655ecb 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-@@ -449,7 +449,10 @@ void hns_dsaf_srst_chns(struct dsaf_device *dsaf_dev, u32 msk, bool enable);
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+index ddf20a0..ad4ab97 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -2038,8 +2038,8 @@ static int mtk_cleanup(struct mtk_eth *eth)
+ 	return 0;
+ }
  
- void hns_dsaf_roce_srst(struct dsaf_device *dsaf_dev, bool enable);
+-int mtk_get_link_ksettings(struct net_device *ndev,
+-			   struct ethtool_link_ksettings *cmd)
++static int mtk_get_link_ksettings(struct net_device *ndev,
++				  struct ethtool_link_ksettings *cmd)
+ {
+ 	struct mtk_mac *mac = netdev_priv(ndev);
  
-+int hns_dsaf_roce_reset(struct fwnode_handle *dsaf_fwnode, bool enable);
-+
- int hns_dsaf_ae_init(struct dsaf_device *dsaf_dev);
-+
- void hns_dsaf_ae_uninit(struct dsaf_device *dsaf_dev);
+@@ -2049,8 +2049,8 @@ int mtk_get_link_ksettings(struct net_device *ndev,
+ 	return phy_ethtool_ksettings_get(ndev->phydev, cmd);
+ }
  
- void hns_dsaf_update_stats(struct dsaf_device *dsaf_dev, u32 inode_num);
+-int mtk_set_link_ksettings(struct net_device *ndev,
+-			   const struct ethtool_link_ksettings *cmd)
++static int mtk_set_link_ksettings(struct net_device *ndev,
++				  const struct ethtool_link_ksettings *cmd)
+ {
+ 	struct mtk_mac *mac = netdev_priv(ndev);
+ 
 -- 
 2.7.4
