@@ -1,26 +1,41 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH ipsec-next] xfrm: remove unused helper
-Date: Fri, 30 Sep 2016 09:26:01 +0200
-Message-ID: <20160930072601.GJ31137@gauss.secunet.com>
-References: <1474991638-10666-1-git-send-email-fw@strlen.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:34947 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752451AbcI3H0H (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 30 Sep 2016 03:26:07 -0400
-Content-Disposition: inline
-In-Reply-To: <1474991638-10666-1-git-send-email-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Baoyou Xie <baoyou.xie@linaro.org>
+Subject: [PATCH] cxgb4: mark cxgb_setup_tc() static
+Date: Fri, 30 Sep 2016 15:34:25 +0800
+Message-ID: <1475220865-18321-1-git-send-email-baoyou.xie@linaro.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        arnd@arndb.de, baoyou.xie@linaro.org, xie.baoyou@zte.com.cn,
+        han.fei@zte.com.cn, tang.qiang007@zte.com.cn
+To: hariprasad@chelsio.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 27, 2016 at 05:53:58PM +0200, Florian Westphal wrote:
-> Not used anymore since 2009 (9e0d57fd6dad37,
-> 'xfrm: SAD entries do not expire correctly after suspend-resume').
-> 
-> Signed-off-by: Florian Westphal <fw@strlen.de>
+We get 1 warning when building kernel with W=1:
+drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c:2715:5: warning: no previous prototype for 'cxgb_setup_tc' [-Wmissing-prototypes]
 
-Applied to ipsec-next, thanks!
+In fact, this function is only used in the file in which it is
+declared and don't need a declaration, but can be made static.
+so this patch marks this function with 'static'.
+
+Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index c8a5c43..08e69d3 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -2712,8 +2712,8 @@ static int cxgb_set_tx_maxrate(struct net_device *dev, int index, u32 rate)
+ 	return err;
+ }
+ 
+-int cxgb_setup_tc(struct net_device *dev, u32 handle, __be16 proto,
+-		  struct tc_to_netdev *tc)
++static int cxgb_setup_tc(struct net_device *dev, u32 handle, __be16 proto,
++			 struct tc_to_netdev *tc)
+ {
+ 	struct port_info *pi = netdev2pinfo(dev);
+ 	struct adapter *adap = netdev2adap(dev);
+-- 
+2.7.4
