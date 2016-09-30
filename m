@@ -1,59 +1,47 @@
-From: Jia He <hejianet@gmail.com>
-Subject: [PATCH v6 4/7] proc: Reduce cache miss in sctp_snmp_seq_show
-Date: Fri, 30 Sep 2016 11:29:01 +0800
-Message-ID: <1475206144-23228-5-git-send-email-hejianet@gmail.com>
-References: <1475206144-23228-1-git-send-email-hejianet@gmail.com>
-Cc: linux-sctp@vger.kernel.org, linux-kernel@vger.kernel.org,
-        davem@davemloft.net, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        marcelo.leitner@gmail.com, Jia He <hejianet@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f67.google.com ([209.85.214.67]:34249 "EHLO
-        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935716AbcI3D3i (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 23:29:38 -0400
-In-Reply-To: <1475206144-23228-1-git-send-email-hejianet@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 3/3] net: make net namespace sysctls belong to
+ container's owner
+Date: Fri, 30 Sep 2016 01:21:27 -0400 (EDT)
+Message-ID: <20160930.012127.347186046201932283.davem@davemloft.net>
+References: <1470864962-25056-1-git-send-email-dmitry.torokhov@gmail.com>
+        <1470864962-25056-4-git-send-email-dmitry.torokhov@gmail.com>
+        <CAKdAkRRsVaAupFx+DpjX8VSHS9_ws2WVA47eQoCU-DT1w0JK5w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: viro@zeniv.linux.org.uk, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org, ebiederm@xmission.com
+To: dmitry.torokhov@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAKdAkRRsVaAupFx+DpjX8VSHS9_ws2WVA47eQoCU-DT1w0JK5w@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is to use the generic interfaces snmp_get_cpu_field{,64}_batch to
-aggregate the data by going through all the items of each cpu sequentially.
+From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Date: Thu, 29 Sep 2016 08:46:05 -0700
 
-Signed-off-by: Jia He <hejianet@gmail.com>
----
- net/sctp/proc.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+> Hi David,
+> 
+> On Wed, Aug 10, 2016 at 2:36 PM, Dmitry Torokhov
+> <dmitry.torokhov@gmail.com> wrote:
+>> If net namespace is attached to a user namespace let's make container's
+>> root owner of sysctls affecting said network namespace instead of global
+>> root.
+>>
+>> This also allows us to clean up net_ctl_permissions() because we do not
+>> need to fudge permissions anymore for the container's owner since it now
+>> owns the objects in question.
+>>
+>> Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+>> Signed-off-by: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+> 
+> I was looking at linux-next today, and I noticed that, when you merged
+> my patch, you basically reverted the following commit:
+> 
+> commit d6e0d306449bcb5fa3c80e7a3edf11d45abf9ae9
+> Author: Tyler Hicks <tyhicks@canonical.com>
+> Date:   Thu Jun 2 23:43:22 2016 -0500
+> 
+>     net: Use ns_capable_noaudit() when determining net sysctl permissions
 
-diff --git a/net/sctp/proc.c b/net/sctp/proc.c
-index ef8ba77..09e16c2 100644
---- a/net/sctp/proc.c
-+++ b/net/sctp/proc.c
-@@ -73,13 +73,17 @@ static const struct snmp_mib sctp_snmp_list[] = {
- /* Display sctp snmp mib statistics(/proc/net/sctp/snmp). */
- static int sctp_snmp_seq_show(struct seq_file *seq, void *v)
- {
-+	unsigned long buff[SCTP_MIB_MAX];
- 	struct net *net = seq->private;
- 	int i;
- 
-+	memset(buff, 0, sizeof(unsigned long) * SCTP_MIB_MAX);
-+
-+	snmp_get_cpu_field_batch(buff, sctp_snmp_list,
-+				 net->sctp.sctp_statistics);
- 	for (i = 0; sctp_snmp_list[i].name != NULL; i++)
- 		seq_printf(seq, "%-32s\t%ld\n", sctp_snmp_list[i].name,
--			   snmp_fold_field(net->sctp.sctp_statistics,
--				      sctp_snmp_list[i].entry));
-+						buff[i]);
- 
- 	return 0;
- }
--- 
-2.5.5
+Please send me a fixup patch for this, sorry.
