@@ -1,28 +1,42 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [PATCH 0/7] ethtool: misc fixes for Coverity issues
-Date: Fri, 30 Sep 2016 15:56:14 -0400
-Message-ID: <1475265381-28937-1-git-send-email-linville@tuxdriver.com>
+Subject: [PATCH 1/7] ethtool: avoid NULL pointer dereference in do_permaddr
+Date: Fri, 30 Sep 2016 15:56:15 -0400
+Message-ID: <1475265381-28937-2-git-send-email-linville@tuxdriver.com>
+References: <1475265381-28937-1-git-send-email-linville@tuxdriver.com>
 Cc: "John W. Linville" <linville@tuxdriver.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:38659 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:38660 "EHLO
         smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752017AbcI3UAX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2016 16:00:23 -0400
+        with ESMTP id S1751027AbcI3UAV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2016 16:00:21 -0400
+In-Reply-To: <1475265381-28937-1-git-send-email-linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I requested a Coverity scan of the current ethtool sources. There
-weren't many issues identified, but it was non-zero.
+Coverity issue: 1363118
+Fixes: fef1c4a19703 ("ethtool: add get permanent address option")
 
-Most/all of the resource leak issues can be explained away as
-unimportant due to the fact that ethtool invocations are short-term
-processes. Nevertheless, I prefer to have those issues "fixed" both
-to avoid them as distractions and just to promote better coding
-practices overall.
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+---
+ ethtool.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-These are "fresh off the press" -- I'll re-review them again before
-applying and pushing them. I appreciate any extra eyeballs that can
-review them as well.
-
-John
+diff --git a/ethtool.c b/ethtool.c
+index 6287b559c699..aa3ef5ed2f75 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -3941,6 +3941,11 @@ static int do_permaddr(struct cmd_context *ctx)
+ 	struct ethtool_perm_addr *epaddr;
+ 
+ 	epaddr = malloc(sizeof(struct ethtool_perm_addr) + MAX_ADDR_LEN);
++	if (!epaddr) {
++		perror("Cannot allocate memory for operation");
++		return 1;
++	}
++
+ 	epaddr->cmd = ETHTOOL_GPERMADDR;
+ 	epaddr->size = MAX_ADDR_LEN;
+ 
+-- 
+2.7.4
