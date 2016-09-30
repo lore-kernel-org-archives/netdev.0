@@ -1,65 +1,45 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 3/3] netfilter: xt_hashlimit: uses div_u64 for division
-Date: Fri, 30 Sep 2016 19:39:54 +0200
-Message-ID: <201609301939.55089.arnd@arndb.de>
-References: <20160930160559.4102745-1-arnd@arndb.de> <20160930160559.4102745-3-arnd@arndb.de> <1475253522.28155.195.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH nf-next v4 2/2] nf_set_hooks_head: accommodate different
+ kconfig
+Date: Fri, 30 Sep 2016 19:43:16 +0200
+Message-ID: <20160930174316.GD1176@salvia>
+References: <1475076915-5920-1-git-send-email-aconole@bytheb.org>
+ <1475076915-5920-3-git-send-email-aconole@bytheb.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        "David S. Miller" <davem@davemloft.net>,
-        Joshua Hunt <johunt@akamai.com>,
-        Vishwanath Pai <vpai@akamai.com>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1475253522.28155.195.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+        Florian Westphal <fw@strlen.de>
+To: Aaron Conole <aconole@bytheb.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:59962 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933039AbcI3Rn3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 30 Sep 2016 13:43:29 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 2D3EAE3A0A
+        for <netdev@vger.kernel.org>; Fri, 30 Sep 2016 19:43:26 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 1B1E0BAC24
+        for <netdev@vger.kernel.org>; Fri, 30 Sep 2016 19:43:26 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id EFFB2BAC28
+        for <netdev@vger.kernel.org>; Fri, 30 Sep 2016 19:43:23 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <1475076915-5920-3-git-send-email-aconole@bytheb.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 30 September 2016, Eric Dumazet wrote:
-> On Fri, 2016-09-30 at 18:05 +0200, Arnd Bergmann wrote:
-> >  net/netfilter/xt_hashlimit.c | 17 ++++++++++-------
-> >  1 file changed, 10 insertions(+), 7 deletions(-)
-> > 
-> > diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
-> > index 44a095ecc7b7..3d5525df6eb3 100644
-> > --- a/net/netfilter/xt_hashlimit.c
-> > +++ b/net/netfilter/xt_hashlimit.c
-> > @@ -464,20 +464,23 @@ static u32 xt_hashlimit_len_to_chunks(u32 len)
-> >  static u64 user2credits(u64 user, int revision)
-> >  {
-> >  	if (revision == 1) {
-> > +		u32 user32 = user; /* use 32-bit division */
-> > +
-> 
-> This looks dangerous to me. Have you really tried all possible cases ?
+On Wed, Sep 28, 2016 at 11:35:15AM -0400, Aaron Conole wrote:
+> When CONFIG_NETFILTER_INGRESS is unset (or no), we need to handle
+> the request for registration properly by dropping the hook.  This
+> releases the entry during the set.
 
-Yes, I'm pretty certain about that: The 11d5f15723c9 patch that introduced this
-kept the existing implementation for the revision==1 case, except for changing
-the types.
+Also applied.
 
-> Caller (even if using revision == 1) does
-> user2credits(cfg->avg * cfg->burst, revision);
-> 
-> Since this is not a fast path, I would prefer to keep the 64bit divide.
->
-> Vishwanath version looks safer.
+I have renamed the subject to:
 
-Ok, fair enough. I couldn't tell how much of a fast path this
-was, and it's more a general issue that I see with other developers
-blindly using div_u64() whenever getting this link error.
+        netfilter: accommodate different kconfig in nf_set_hooks_head()
 
-Since I already had the patch by the time I saw the other one
-(which is also at v3 and got comments), I just sent it out along
-with the other two patches I had for netfilter.
+to make it look similar to what we have in the history.
 
-I also ended up introducing a typo in a last-minute change, so I'll let
-Vishwanath and you work out the best implementation and withdraw my
-version.
-
-	Arnd
+Thanks.
