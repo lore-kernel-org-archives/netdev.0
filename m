@@ -1,8 +1,7 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 6/7] rxrpc: Keep the call timeouts as ktimes rather
- than jiffies
-Date: Fri, 30 Sep 2016 22:40:53 +0100
-Message-ID: <147527165322.28826.7909122920668177113.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 7/7] rxrpc: Fix the call timer handling
+Date: Fri, 30 Sep 2016 22:41:00 +0100
+Message-ID: <147527166041.28826.12555941295774387849.stgit@warthog.procyon.org.uk>
 References: <147527161156.28826.2148784664652062075.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,444 +9,126 @@ Content-Transfer-Encoding: 7bit
 Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
         linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56198 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933898AbcI3Vkz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 30 Sep 2016 17:40:55 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <147527161156.28826.2148784664652062075.stgit@warthog.procyon.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Keep that call timeouts as ktimes rather than jiffies so that they can be
-expressed as functions of RTT.
+The call timer's concept of a call timeout (of which there are three) that
+is inactive is that it is the timeout has the same expiration time as the
+call expiration timeout (the expiration timer is never inactive).  However,
+I'm not resetting the timeouts when they expire, leading to repeated
+processing of expired timeouts when other timeout events occur.
+
+Fix this by:
+
+ (1) Move the timer expiry detection into rxrpc_set_timer() inside the
+     locked section.  This means that if a timeout is set that will expire
+     immediately, we deal with it immediately.
+
+ (2) If a timeout is at or before now then it has expired.  When an expiry
+     is detected, an event is raised, the timeout is automatically
+     inactivated and the event processor is queued.
+
+ (3) If a timeout is at or after the expiry timeout then it is inactive.
+     Inactive timeouts do not contribute to the timer setting.
+
+ (4) The call timer callback can now just call rxrpc_set_timer() to handle
+     things.
+
+ (5) The call processor work function now checks the event flags rather
+     than checking the timeouts directly.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- include/trace/events/rxrpc.h |   25 +++++++-------
- net/rxrpc/ar-internal.h      |    8 ++---
- net/rxrpc/call_event.c       |   73 ++++++++++++++++++++++--------------------
- net/rxrpc/call_object.c      |   16 +++------
- net/rxrpc/input.c            |    3 +-
- net/rxrpc/misc.c             |   15 ++++++---
- net/rxrpc/sendmsg.c          |    8 ++---
- net/rxrpc/sysctl.c           |    8 ++---
- 8 files changed, 82 insertions(+), 74 deletions(-)
+ net/rxrpc/call_event.c  |   26 ++++++++++++++++++--------
+ net/rxrpc/call_object.c |    7 ++-----
+ 2 files changed, 20 insertions(+), 13 deletions(-)
 
-diff --git a/include/trace/events/rxrpc.h b/include/trace/events/rxrpc.h
-index 67f03946ea4a..0383e5e9a0f3 100644
---- a/include/trace/events/rxrpc.h
-+++ b/include/trace/events/rxrpc.h
-@@ -453,17 +453,18 @@ TRACE_EVENT(rxrpc_rtt_rx,
- 
- TRACE_EVENT(rxrpc_timer,
- 	    TP_PROTO(struct rxrpc_call *call, enum rxrpc_timer_trace why,
--		     unsigned long now),
-+		     ktime_t now, unsigned long now_j),
- 
--	    TP_ARGS(call, why, now),
-+	    TP_ARGS(call, why, now, now_j),
- 
- 	    TP_STRUCT__entry(
- 		    __field(struct rxrpc_call *,		call		)
- 		    __field(enum rxrpc_timer_trace,		why		)
--		    __field(unsigned long,			now		)
--		    __field(unsigned long,			expire_at	)
--		    __field(unsigned long,			ack_at		)
--		    __field(unsigned long,			resend_at	)
-+		    __field_struct(ktime_t,			now		)
-+		    __field_struct(ktime_t,			expire_at	)
-+		    __field_struct(ktime_t,			ack_at		)
-+		    __field_struct(ktime_t,			resend_at	)
-+		    __field(unsigned long,			now_j		)
- 		    __field(unsigned long,			timer		)
- 			     ),
- 
-@@ -474,17 +475,17 @@ TRACE_EVENT(rxrpc_timer,
- 		    __entry->expire_at	= call->expire_at;
- 		    __entry->ack_at	= call->ack_at;
- 		    __entry->resend_at	= call->resend_at;
-+		    __entry->now_j	= now_j;
- 		    __entry->timer	= call->timer.expires;
- 			   ),
- 
--	    TP_printk("c=%p %s now=%lx x=%ld a=%ld r=%ld t=%ld",
-+	    TP_printk("c=%p %s x=%lld a=%lld r=%lld t=%ld",
- 		      __entry->call,
- 		      rxrpc_timer_traces[__entry->why],
--		      __entry->now,
--		      __entry->expire_at - __entry->now,
--		      __entry->ack_at - __entry->now,
--		      __entry->resend_at - __entry->now,
--		      __entry->timer - __entry->now)
-+		      ktime_to_ns(ktime_sub(__entry->expire_at, __entry->now)),
-+		      ktime_to_ns(ktime_sub(__entry->ack_at, __entry->now)),
-+		      ktime_to_ns(ktime_sub(__entry->resend_at, __entry->now)),
-+		      __entry->timer - __entry->now_j)
- 	    );
- 
- TRACE_EVENT(rxrpc_rx_lose,
-diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index 141c1458e719..d38dffd78085 100644
---- a/net/rxrpc/ar-internal.h
-+++ b/net/rxrpc/ar-internal.h
-@@ -464,9 +464,9 @@ struct rxrpc_call {
- 	struct rxrpc_connection	*conn;		/* connection carrying call */
- 	struct rxrpc_peer	*peer;		/* Peer record for remote address */
- 	struct rxrpc_sock __rcu	*socket;	/* socket responsible */
--	unsigned long		ack_at;		/* When deferred ACK needs to happen */
--	unsigned long		resend_at;	/* When next resend needs to happen */
--	unsigned long		expire_at;	/* When the call times out */
-+	ktime_t			ack_at;		/* When deferred ACK needs to happen */
-+	ktime_t			resend_at;	/* When next resend needs to happen */
-+	ktime_t			expire_at;	/* When the call times out */
- 	struct timer_list	timer;		/* Combined event timer */
- 	struct work_struct	processor;	/* Event processor */
- 	rxrpc_notify_rx_t	notify_rx;	/* kernel service Rx notification function */
-@@ -805,7 +805,7 @@ int rxrpc_reject_call(struct rxrpc_sock *);
- /*
-  * call_event.c
-  */
--void rxrpc_set_timer(struct rxrpc_call *, enum rxrpc_timer_trace);
-+void rxrpc_set_timer(struct rxrpc_call *, enum rxrpc_timer_trace, ktime_t);
- void rxrpc_propose_ACK(struct rxrpc_call *, u8, u16, u32, bool, bool,
- 		       enum rxrpc_propose_ack_trace);
- void rxrpc_process_call(struct work_struct *);
 diff --git a/net/rxrpc/call_event.c b/net/rxrpc/call_event.c
-index 1f6c7633b964..9ff3bb3ffb41 100644
+index 9ff3bb3ffb41..4f00476630b9 100644
 --- a/net/rxrpc/call_event.c
 +++ b/net/rxrpc/call_event.c
-@@ -24,28 +24,40 @@
- /*
-  * Set the timer
-  */
--void rxrpc_set_timer(struct rxrpc_call *call, enum rxrpc_timer_trace why)
-+void rxrpc_set_timer(struct rxrpc_call *call, enum rxrpc_timer_trace why,
-+		     ktime_t now)
+@@ -29,6 +29,7 @@ void rxrpc_set_timer(struct rxrpc_call *call, enum rxrpc_timer_trace why,
  {
--	unsigned long t, now = jiffies;
-+	unsigned long t_j, now_j = jiffies;
-+	ktime_t t;
+ 	unsigned long t_j, now_j = jiffies;
+ 	ktime_t t;
++	bool queue = false;
  
  	read_lock_bh(&call->state_lock);
  
- 	if (call->state < RXRPC_CALL_COMPLETE) {
- 		t = call->expire_at;
--		if (time_before_eq(t, now))
-+		if (!ktime_after(t, now))
+@@ -37,13 +38,21 @@ void rxrpc_set_timer(struct rxrpc_call *call, enum rxrpc_timer_trace why,
+ 		if (!ktime_after(t, now))
  			goto out;
  
--		if (time_after(call->resend_at, now) &&
--		    time_before(call->resend_at, t))
-+		if (ktime_after(call->resend_at, now) &&
-+		    ktime_before(call->resend_at, t))
+-		if (ktime_after(call->resend_at, now) &&
+-		    ktime_before(call->resend_at, t))
++		if (!ktime_after(call->resend_at, now)) {
++			call->resend_at = call->expire_at;
++			if (!test_and_set_bit(RXRPC_CALL_EV_RESEND, &call->events))
++				queue = true;
++		} else if (ktime_before(call->resend_at, t)) {
  			t = call->resend_at;
++		}
  
--		if (time_after(call->ack_at, now) &&
--		    time_before(call->ack_at, t))
-+		if (ktime_after(call->ack_at, now) &&
-+		    ktime_before(call->ack_at, t))
+-		if (ktime_after(call->ack_at, now) &&
+-		    ktime_before(call->ack_at, t))
++		if (!ktime_after(call->ack_at, now)) {
++			call->ack_at = call->expire_at;
++			if (!test_and_set_bit(RXRPC_CALL_EV_ACK, &call->events))
++				queue = true;
++		} else if (ktime_before(call->ack_at, t)) {
  			t = call->ack_at;
++		}
  
--		if (call->timer.expires != t || !timer_pending(&call->timer)) {
--			mod_timer(&call->timer, t);
--			trace_rxrpc_timer(call, why, now);
-+		t_j = nsecs_to_jiffies(ktime_to_ns(ktime_sub(t, now)));
-+		t_j += jiffies;
-+
-+		/* We have to make sure that the calculated jiffies value falls
-+		 * at or after the nsec value, or we may loop ceaselessly
-+		 * because the timer times out, but we haven't reached the nsec
-+		 * timeout yet.
-+		 */
-+		t_j++;
-+
-+		if (call->timer.expires != t_j || !timer_pending(&call->timer)) {
-+			mod_timer(&call->timer, t_j);
-+			trace_rxrpc_timer(call, why, now, now_j);
+ 		t_j = nsecs_to_jiffies(ktime_to_ns(ktime_sub(t, now)));
+ 		t_j += jiffies;
+@@ -59,6 +68,9 @@ void rxrpc_set_timer(struct rxrpc_call *call, enum rxrpc_timer_trace why,
+ 			mod_timer(&call->timer, t_j);
+ 			trace_rxrpc_timer(call, why, now, now_j);
  		}
++
++		if (queue)
++			rxrpc_queue_call(call);
  	}
  
-@@ -62,7 +74,8 @@ static void __rxrpc_propose_ACK(struct rxrpc_call *call, u8 ack_reason,
- 				enum rxrpc_propose_ack_trace why)
- {
- 	enum rxrpc_propose_ack_outcome outcome = rxrpc_propose_ack_use;
--	unsigned long now, ack_at, expiry = rxrpc_soft_ack_delay;
-+	unsigned int expiry = rxrpc_soft_ack_delay;
-+	ktime_t now, ack_at;
- 	s8 prior = rxrpc_ack_priority[ack_reason];
- 
- 	/* Update DELAY, IDLE, REQUESTED and PING_RESPONSE ACK serial
-@@ -111,7 +124,6 @@ static void __rxrpc_propose_ACK(struct rxrpc_call *call, u8 ack_reason,
- 		break;
- 	}
- 
--	now = jiffies;
- 	if (test_bit(RXRPC_CALL_EV_ACK, &call->events)) {
- 		_debug("already scheduled");
- 	} else if (immediate || expiry == 0) {
-@@ -120,11 +132,11 @@ static void __rxrpc_propose_ACK(struct rxrpc_call *call, u8 ack_reason,
- 		    background)
- 			rxrpc_queue_call(call);
- 	} else {
--		ack_at = now + expiry;
--		_debug("deferred ACK %ld < %ld", expiry, call->ack_at - now);
--		if (time_before(ack_at, call->ack_at)) {
-+		now = ktime_get_real();
-+		ack_at = ktime_add_ms(now, expiry);
-+		if (ktime_before(ack_at, call->ack_at)) {
- 			call->ack_at = ack_at;
--			rxrpc_set_timer(call, rxrpc_timer_set_for_ack);
-+			rxrpc_set_timer(call, rxrpc_timer_set_for_ack, now);
- 		}
- 	}
- 
-@@ -157,12 +169,12 @@ static void rxrpc_congestion_timeout(struct rxrpc_call *call)
- /*
-  * Perform retransmission of NAK'd and unack'd packets.
-  */
--static void rxrpc_resend(struct rxrpc_call *call)
-+static void rxrpc_resend(struct rxrpc_call *call, ktime_t now)
- {
- 	struct rxrpc_skb_priv *sp;
- 	struct sk_buff *skb;
- 	rxrpc_seq_t cursor, seq, top;
--	ktime_t now = ktime_get_real(), max_age, oldest, resend_at, ack_ts;
-+	ktime_t max_age, oldest, ack_ts;
- 	int ix;
- 	u8 annotation, anno_type, retrans = 0, unacked = 0;
- 
-@@ -212,14 +224,7 @@ static void rxrpc_resend(struct rxrpc_call *call)
- 				       ktime_to_ns(ktime_sub(skb->tstamp, max_age)));
- 	}
- 
--	resend_at = ktime_add_ms(oldest, rxrpc_resend_timeout);
--	call->resend_at = jiffies +
--		nsecs_to_jiffies(ktime_to_ns(ktime_sub(resend_at, now))) +
--		1; /* We have to make sure that the calculated jiffies value
--		    * falls at or after the nsec value, or we shall loop
--		    * ceaselessly because the timer times out, but we haven't
--		    * reached the nsec timeout yet.
--		    */
-+	call->resend_at = ktime_add_ms(oldest, rxrpc_resend_timeout);
- 
- 	if (unacked)
- 		rxrpc_congestion_timeout(call);
-@@ -229,7 +234,7 @@ static void rxrpc_resend(struct rxrpc_call *call)
- 	 * retransmitting data.
- 	 */
- 	if (!retrans) {
--		rxrpc_set_timer(call, rxrpc_timer_set_for_resend);
-+		rxrpc_set_timer(call, rxrpc_timer_set_for_resend, now);
- 		spin_unlock_bh(&call->lock);
- 		ack_ts = ktime_sub(now, call->acks_latest_ts);
- 		if (ktime_to_ns(ack_ts) < call->peer->rtt)
-@@ -301,7 +306,7 @@ void rxrpc_process_call(struct work_struct *work)
- {
- 	struct rxrpc_call *call =
- 		container_of(work, struct rxrpc_call, processor);
--	unsigned long now;
-+	ktime_t now;
- 
- 	rxrpc_see_call(call);
- 
-@@ -320,15 +325,15 @@ recheck_state:
- 		goto out_put;
- 	}
- 
--	now = jiffies;
--	if (time_after_eq(now, call->expire_at)) {
-+	now = ktime_get_real();
-+	if (ktime_before(call->expire_at, now)) {
- 		rxrpc_abort_call("EXP", call, 0, RX_CALL_TIMEOUT, ETIME);
- 		set_bit(RXRPC_CALL_EV_ABORT, &call->events);
+ out:
+@@ -332,8 +344,7 @@ recheck_state:
  		goto recheck_state;
  	}
  
- 	if (test_and_clear_bit(RXRPC_CALL_EV_ACK, &call->events) ||
--	    time_after_eq(now, call->ack_at)) {
-+	    ktime_before(call->ack_at, now)) {
+-	if (test_and_clear_bit(RXRPC_CALL_EV_ACK, &call->events) ||
+-	    ktime_before(call->ack_at, now)) {
++	if (test_and_clear_bit(RXRPC_CALL_EV_ACK, &call->events)) {
  		call->ack_at = call->expire_at;
  		if (call->ackr_reason) {
  			rxrpc_send_call_packet(call, RXRPC_PACKET_TYPE_ACK);
-@@ -337,12 +342,12 @@ recheck_state:
- 	}
- 
- 	if (test_and_clear_bit(RXRPC_CALL_EV_RESEND, &call->events) ||
--	    time_after_eq(now, call->resend_at)) {
--		rxrpc_resend(call);
-+	    ktime_before(call->resend_at, now)) {
-+		rxrpc_resend(call, now);
- 		goto recheck_state;
- 	}
- 
--	rxrpc_set_timer(call, rxrpc_timer_set_for_resend);
-+	rxrpc_set_timer(call, rxrpc_timer_set_for_resend, now);
- 
- 	/* other events may have been raised since we started checking */
- 	if (call->events && call->state < RXRPC_CALL_COMPLETE) {
-diff --git a/net/rxrpc/call_object.c b/net/rxrpc/call_object.c
-index d4b3293b78fa..456ab752d473 100644
---- a/net/rxrpc/call_object.c
-+++ b/net/rxrpc/call_object.c
-@@ -19,11 +19,6 @@
- #include <net/af_rxrpc.h>
- #include "ar-internal.h"
- 
--/*
-- * Maximum lifetime of a call (in jiffies).
-- */
--unsigned int rxrpc_max_call_lifetime = 60 * HZ;
--
- const char *const rxrpc_call_states[NR__RXRPC_CALL_STATES] = {
- 	[RXRPC_CALL_UNINITIALISED]		= "Uninit  ",
- 	[RXRPC_CALL_CLIENT_AWAIT_CONN]		= "ClWtConn",
-@@ -77,7 +72,8 @@ static void rxrpc_call_timer_expired(unsigned long _call)
- 	_enter("%d", call->debug_id);
- 
- 	if (call->state < RXRPC_CALL_COMPLETE) {
--		trace_rxrpc_timer(call, rxrpc_timer_expired, jiffies);
-+		trace_rxrpc_timer(call, rxrpc_timer_expired,
-+				  ktime_get_real(), jiffies);
- 		rxrpc_queue_call(call);
- 	}
- }
-@@ -207,14 +203,14 @@ static struct rxrpc_call *rxrpc_alloc_client_call(struct sockaddr_rxrpc *srx,
-  */
- static void rxrpc_start_call_timer(struct rxrpc_call *call)
- {
--	unsigned long expire_at;
-+	ktime_t now = ktime_get_real(), expire_at;
- 
--	expire_at = jiffies + rxrpc_max_call_lifetime;
-+	expire_at = ktime_add_ms(now, rxrpc_max_call_lifetime);
- 	call->expire_at = expire_at;
- 	call->ack_at = expire_at;
- 	call->resend_at = expire_at;
--	call->timer.expires = expire_at + 1;
--	rxrpc_set_timer(call, rxrpc_timer_begin);
-+	call->timer.expires = jiffies + LONG_MAX / 2;
-+	rxrpc_set_timer(call, rxrpc_timer_begin, now);
- }
- 
- /*
-diff --git a/net/rxrpc/input.c b/net/rxrpc/input.c
-index 5ba35b4a907b..3ad9f75031e3 100644
---- a/net/rxrpc/input.c
-+++ b/net/rxrpc/input.c
-@@ -328,7 +328,8 @@ static bool rxrpc_receiving_reply(struct rxrpc_call *call)
- 		call->resend_at = call->expire_at;
- 		call->ack_at = call->expire_at;
- 		spin_unlock_bh(&call->lock);
--		rxrpc_set_timer(call, rxrpc_timer_init_for_reply);
-+		rxrpc_set_timer(call, rxrpc_timer_init_for_reply,
-+				ktime_get_real());
- 	}
- 
- 	if (!test_bit(RXRPC_CALL_TX_LAST, &call->flags))
-diff --git a/net/rxrpc/misc.c b/net/rxrpc/misc.c
-index 47dddacdbb91..9d1c721bc4e8 100644
---- a/net/rxrpc/misc.c
-+++ b/net/rxrpc/misc.c
-@@ -21,28 +21,33 @@
- unsigned int rxrpc_max_backlog __read_mostly = 10;
- 
- /*
-+ * Maximum lifetime of a call (in mx).
-+ */
-+unsigned int rxrpc_max_call_lifetime = 60 * 1000;
-+
-+/*
-  * How long to wait before scheduling ACK generation after seeing a
-- * packet with RXRPC_REQUEST_ACK set (in jiffies).
-+ * packet with RXRPC_REQUEST_ACK set (in ms).
-  */
- unsigned int rxrpc_requested_ack_delay = 1;
- 
- /*
-- * How long to wait before scheduling an ACK with subtype DELAY (in jiffies).
-+ * How long to wait before scheduling an ACK with subtype DELAY (in ms).
-  *
-  * We use this when we've received new data packets.  If those packets aren't
-  * all consumed within this time we will send a DELAY ACK if an ACK was not
-  * requested to let the sender know it doesn't need to resend.
-  */
--unsigned int rxrpc_soft_ack_delay = 1 * HZ;
-+unsigned int rxrpc_soft_ack_delay = 1 * 1000;
- 
- /*
-- * How long to wait before scheduling an ACK with subtype IDLE (in jiffies).
-+ * How long to wait before scheduling an ACK with subtype IDLE (in ms).
-  *
-  * We use this when we've consumed some previously soft-ACK'd packets when
-  * further packets aren't immediately received to decide when to send an IDLE
-  * ACK let the other end know that it can free up its Tx buffer space.
-  */
--unsigned int rxrpc_idle_ack_delay = 0.5 * HZ;
-+unsigned int rxrpc_idle_ack_delay = 0.5 * 1000;
- 
- /*
-  * Receive window size in packets.  This indicates the maximum number of
-diff --git a/net/rxrpc/sendmsg.c b/net/rxrpc/sendmsg.c
-index d8dfdce874d8..3322543d460a 100644
---- a/net/rxrpc/sendmsg.c
-+++ b/net/rxrpc/sendmsg.c
-@@ -149,13 +149,13 @@ static void rxrpc_queue_packet(struct rxrpc_call *call, struct sk_buff *skb,
- 		_debug("need instant resend %d", ret);
- 		rxrpc_instant_resend(call, ix);
- 	} else {
--		unsigned long resend_at;
-+		ktime_t now = ktime_get_real(), resend_at;
- 
--		resend_at = jiffies + msecs_to_jiffies(rxrpc_resend_timeout);
-+		resend_at = ktime_add_ms(now, rxrpc_resend_timeout);
- 
--		if (time_before(resend_at, call->resend_at)) {
-+		if (ktime_before(resend_at, call->resend_at)) {
- 			call->resend_at = resend_at;
--			rxrpc_set_timer(call, rxrpc_timer_set_for_send);
-+			rxrpc_set_timer(call, rxrpc_timer_set_for_send, now);
+@@ -341,8 +352,7 @@ recheck_state:
  		}
  	}
  
-diff --git a/net/rxrpc/sysctl.c b/net/rxrpc/sysctl.c
-index 13d1df03ebac..34c706d2f79c 100644
---- a/net/rxrpc/sysctl.c
-+++ b/net/rxrpc/sysctl.c
-@@ -35,7 +35,7 @@ static struct ctl_table rxrpc_sysctl_table[] = {
- 		.data		= &rxrpc_requested_ack_delay,
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec_ms_jiffies,
-+		.proc_handler	= proc_dointvec,
- 		.extra1		= (void *)&zero,
- 	},
- 	{
-@@ -43,7 +43,7 @@ static struct ctl_table rxrpc_sysctl_table[] = {
- 		.data		= &rxrpc_soft_ack_delay,
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec_ms_jiffies,
-+		.proc_handler	= proc_dointvec,
- 		.extra1		= (void *)&one,
- 	},
- 	{
-@@ -51,7 +51,7 @@ static struct ctl_table rxrpc_sysctl_table[] = {
- 		.data		= &rxrpc_idle_ack_delay,
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec_ms_jiffies,
-+		.proc_handler	= proc_dointvec,
- 		.extra1		= (void *)&one,
- 	},
- 	{
-@@ -85,7 +85,7 @@ static struct ctl_table rxrpc_sysctl_table[] = {
- 		.data		= &rxrpc_max_call_lifetime,
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec_jiffies,
-+		.proc_handler	= proc_dointvec,
- 		.extra1		= (void *)&one,
- 	},
+-	if (test_and_clear_bit(RXRPC_CALL_EV_RESEND, &call->events) ||
+-	    ktime_before(call->resend_at, now)) {
++	if (test_and_clear_bit(RXRPC_CALL_EV_RESEND, &call->events)) {
+ 		rxrpc_resend(call, now);
+ 		goto recheck_state;
+ 	}
+diff --git a/net/rxrpc/call_object.c b/net/rxrpc/call_object.c
+index 456ab752d473..364b42dc3dce 100644
+--- a/net/rxrpc/call_object.c
++++ b/net/rxrpc/call_object.c
+@@ -71,11 +71,8 @@ static void rxrpc_call_timer_expired(unsigned long _call)
  
+ 	_enter("%d", call->debug_id);
+ 
+-	if (call->state < RXRPC_CALL_COMPLETE) {
+-		trace_rxrpc_timer(call, rxrpc_timer_expired,
+-				  ktime_get_real(), jiffies);
+-		rxrpc_queue_call(call);
+-	}
++	if (call->state < RXRPC_CALL_COMPLETE)
++		rxrpc_set_timer(call, rxrpc_timer_expired, ktime_get_real());
+ }
+ 
+ /*
