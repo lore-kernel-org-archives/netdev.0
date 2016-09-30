@@ -1,57 +1,69 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] net: rtnl: avoid uninitialized data in IFLA_VF_VLAN_LIST handling
-Date: Fri, 30 Sep 2016 18:38:05 +0200
-Message-ID: <201609301838.05349.arnd@arndb.de>
-References: <20160930161416.18660-1-arnd@arndb.de> <CANn89iK2FQufz4NCan1y0dQME2RUOzc3NXXhqYd418ctHNc6fA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 3/3] netfilter: xt_hashlimit: uses div_u64 for division
+Date: Fri, 30 Sep 2016 09:38:42 -0700
+Message-ID: <1475253522.28155.195.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20160930160559.4102745-1-arnd@arndb.de>
+         <20160930160559.4102745-3-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>,
-        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Nogah Frankel <nogahf@mellanox.com>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Moshe Shemesh <moshe@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.131]:53815 "EHLO
-        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932988AbcI3Qic (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2016 12:38:32 -0400
-In-Reply-To: <CANn89iK2FQufz4NCan1y0dQME2RUOzc3NXXhqYd418ctHNc6fA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>,
+        Joshua Hunt <johunt@akamai.com>,
+        Vishwanath Pai <vpai@akamai.com>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160930160559.4102745-3-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Friday 30 September 2016, Eric Dumazet wrote:
-> > @@ -1753,6 +1753,9 @@ static int do_setvfinfo(struct net_device *dev, struct nlattr **tb)
-> >
-> >                         len++;
-> >                 }
-> > +               if (len == 0)
-> > +                       return -EINVAL;
-> > +
-> >                 err = ops->ndo_set_vf_vlan(dev, ivvl[0]->vf, ivvl[0]->vlan,
-> >                                            ivvl[0]->qos, ivvl[0]->vlan_proto);
-> >                 if (err < 0)
-> > --
-> > 2.9.0
-> >
+On Fri, 2016-09-30 at 18:05 +0200, Arnd Bergmann wrote:
+> The newly added support for high-resolution pps rates introduced multiple 64-bit
+> division operations in one function, which fails on all 32-bit architectures:
 > 
-> So, if I read this code, we build an array, but call ndo_set_vf_vlan()
-> only using first element ?
+> net/netfilter/xt_hashlimit.o: In function `user2credits':
+> xt_hashlimit.c:(.text.user2credits+0x3c): undefined reference to `__aeabi_uldivmod'
+> xt_hashlimit.c:(.text.user2credits+0x68): undefined reference to `__aeabi_uldivmod'
+> xt_hashlimit.c:(.text.user2credits+0x88): undefined reference to `__aeabi_uldivmod'
 > 
-> Looks like the bug should be fixed in a different way.
+> This replaces the division with an explicit call to div_u64 for version 2
+> to documents that this is a slow operation, and reverts back to 32-bit arguments
+> for the version 1 data to restore the original faster 32-bit division.
+> 
+> With both changes combined, we no longer get a link error.
+> 
+> Fixes: 11d5f15723c9 ("netfilter: xt_hashlimit: Create revision 2 to support higher pps rates")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> ---
+> Vishwanath Pai already sent a patch for this, and I did my version independently.
+> The difference is that his version also the more expensive division for the
+> version 1 variant that doesn't need it.
+> 
+> See also http://patchwork.ozlabs.org/patch/676713/
+> ---
+>  net/netfilter/xt_hashlimit.c | 17 ++++++++++-------
+>  1 file changed, 10 insertions(+), 7 deletions(-)
+> 
+> diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+> index 44a095ecc7b7..3d5525df6eb3 100644
+> --- a/net/netfilter/xt_hashlimit.c
+> +++ b/net/netfilter/xt_hashlimit.c
+> @@ -464,20 +464,23 @@ static u32 xt_hashlimit_len_to_chunks(u32 len)
+>  static u64 user2credits(u64 user, int revision)
+>  {
+>  	if (revision == 1) {
+> +		u32 user32 = user; /* use 32-bit division */
+> +
 
-I was wondering about this too, but didn't understand enough about it to say
-if it was intentional or not. I just realized that I forgot to add Moshe and Tariq
-on Cc (I relied on scripts/get_maintainer.pl, but didn't double-check).
-I've added them to Cc now, hope they can clarify this.
+This looks dangerous to me. Have you really tried all possible cases ?
 
-	Arnd
+Caller (even if using revision == 1) does
+user2credits(cfg->avg * cfg->burst, revision);
+
+Since this is not a fast path, I would prefer to keep the 64bit divide.
+
+Vishwanath version looks safer.
