@@ -1,49 +1,45 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH] net: rtnl: avoid uninitialized data in IFLA_VF_VLAN_LIST handling
-Date: Fri, 30 Sep 2016 23:12:40 +0300
-Message-ID: <CAJ3xEMih26x2BFgokoapX6_gXSAh+wwRNS1i-vjsBifthiM20A@mail.gmail.com>
-References: <20160930161416.18660-1-arnd@arndb.de>
+From: Greg <gvrose8192@gmail.com>
+Subject: Re: [PATCH 0/7] ethtool: misc fixes for Coverity issues
+Date: Fri, 30 Sep 2016 13:26:04 -0700
+Message-ID: <1475267164.3279.4.camel@gmail.com>
+References: <1475265381-28937-1-git-send-email-linville@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>,
-        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Nogah Frankel <nogahf@mellanox.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Linux Kernel <linux-kernel@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>, Moshe Shemesh <moshe@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f42.google.com ([209.85.218.42]:36523 "EHLO
-        mail-oi0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750703AbcI3UMm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2016 16:12:42 -0400
-In-Reply-To: <20160930161416.18660-1-arnd@arndb.de>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:33591 "EHLO
+        mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750703AbcI3U0G (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2016 16:26:06 -0400
+Received: by mail-pa0-f43.google.com with SMTP id cd13so38430399pac.0
+        for <netdev@vger.kernel.org>; Fri, 30 Sep 2016 13:26:06 -0700 (PDT)
+In-Reply-To: <1475265381-28937-1-git-send-email-linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 30, 2016 at 7:13 PM, Arnd Bergmann <arnd@arndb.de> wrote:
-> With the newly added support for IFLA_VF_VLAN_LIST netlink messages,
-> we get a warning about potential uninitialized variable use in
-> the parsing of the user input when enabling the -Wmaybe-uninitialized
-> warning:
->
-> net/core/rtnetlink.c: In function 'do_setvfinfo':
-> net/core/rtnetlink.c:1756:9: error: 'ivvl$' may be used uninitialized in this function [-Werror=maybe-uninitialized]
->
-> I have not been able to prove whether it is possible to arrive in
-> this code with an empty IFLA_VF_VLAN_LIST block, but if we do,
-> then ndo_set_vf_vlan gets called with uninitialized arguments.
->
-> This adds an explicit check for an empty list, making it obvious
-> to the reader and the compiler that this cannot happen.
->
-> Fixes: 79aab093a0b5 ("net: Update API for VF vlan protocol 802.1ad support")
-Added the authors of the above patch
+On Fri, 2016-09-30 at 15:56 -0400, John W. Linville wrote:
+> I requested a Coverity scan of the current ethtool sources. There
+> weren't many issues identified, but it was non-zero.
+> 
+> Most/all of the resource leak issues can be explained away as
+> unimportant due to the fact that ethtool invocations are short-term
+> processes. Nevertheless, I prefer to have those issues "fixed" both
+> to avoid them as distractions and just to promote better coding
+> practices overall.
 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+The patch series looks good to me.
+
+Reviewed-by: Greg Rose <grose@lightfleet.com>
+
+> 
+> These are "fresh off the press" -- I'll re-review them again before
+> applying and pushing them. I appreciate any extra eyeballs that can
+> review them as well.
+> 
+> John
+> --
+> John W. Linville		Someday the world will need a hero, and you
+> linville@tuxdriver.com			might be all we have.  Be ready.
+> 
