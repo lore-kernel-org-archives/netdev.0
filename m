@@ -1,8 +1,7 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 1/7] rxrpc: Actually display the tx_data trace
- retransmission note
-Date: Fri, 30 Sep 2016 22:40:18 +0100
-Message-ID: <147527161870.28826.15533380797413095818.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 3/7] rxrpc: Reduce ssthresh to peer's receive window
+Date: Fri, 30 Sep 2016 22:40:32 +0100
+Message-ID: <147527163239.28826.14579823068242526142.stgit@warthog.procyon.org.uk>
 References: <147527161156.28826.2148784664652062075.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,35 +9,35 @@ Content-Transfer-Encoding: 7bit
 Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
         linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:60926 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933483AbcI3Vke (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 30 Sep 2016 17:40:34 -0400
 In-Reply-To: <147527161156.28826.2148784664652062075.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Actually display in the tx_data trace the retransmission note added in a
-previous patch.
+When we receive an ACK from the peer that tells us what the peer's receive
+window (rwind) is, we should reduce ssthresh to rwind if rwind is smaller
+than ssthresh.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- include/trace/events/rxrpc.h |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/rxrpc/input.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/include/trace/events/rxrpc.h b/include/trace/events/rxrpc.h
-index 8ba8d76e856a..67f03946ea4a 100644
---- a/include/trace/events/rxrpc.h
-+++ b/include/trace/events/rxrpc.h
-@@ -280,11 +280,12 @@ TRACE_EVENT(rxrpc_tx_data,
- 		    __entry->lose = lose;
- 			   ),
+diff --git a/net/rxrpc/input.c b/net/rxrpc/input.c
+index 21746f0f7ae0..7993473e56bb 100644
+--- a/net/rxrpc/input.c
++++ b/net/rxrpc/input.c
+@@ -658,6 +658,8 @@ static void rxrpc_input_ackinfo(struct rxrpc_call *call, struct sk_buff *skb,
+ 	if (rwind > RXRPC_RXTX_BUFF_SIZE - 1)
+ 		rwind = RXRPC_RXTX_BUFF_SIZE - 1;
+ 	call->tx_winsize = rwind;
++	if (call->cong_ssthresh > rwind)
++		call->cong_ssthresh = rwind;
  
--	    TP_printk("c=%p DATA %08x q=%08x fl=%02x%s",
-+	    TP_printk("c=%p DATA %08x q=%08x fl=%02x%s%s",
- 		      __entry->call,
- 		      __entry->serial,
- 		      __entry->seq,
- 		      __entry->flags,
-+		      __entry->retrans ? " *RETRANS*" : "",
- 		      __entry->lose ? " *LOSE*" : "")
- 	    );
+ 	mtu = min(ntohl(ackinfo->rxMTU), ntohl(ackinfo->maxMTU));
  
