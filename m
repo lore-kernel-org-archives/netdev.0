@@ -1,54 +1,50 @@
-From: Vishwanath Pai <vpai@akamai.com>
-Subject: Re: [PATCH net-next v3] netfilter: xt_hashlimit: Fix link error in
- 32bit arch because of 64bit division
-Date: Fri, 30 Sep 2016 13:58:03 -0400
-Message-ID: <57EEA7AB.3010301@akamai.com>
-References: <20160929173950.GA27689@akamai.com> <20160930174650.GE1176@salvia>
+From: Ido Schimmel <idosch@idosch.org>
+Subject: Re: [PATCH 2/2] mlxsw: spectrum_router: avoid potential
+ uninitialized data usage
+Date: Fri, 30 Sep 2016 20:57:00 +0300
+Message-ID: <20160930175700.GA641@splinter>
+References: <20160930161734.70928-1-arnd@arndb.de>
+ <20160930161734.70928-2-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: johunt@akamai.com, netfilter-devel@vger.kernel.org,
-        coreteam@netfilter.org, netdev@vger.kernel.org,
-        pai.vishwain@gmail.com, kaber@trash.net, kadlec@blackhole.kfki.hu,
-        zlpnobody@gmail.com, hannes@stressinduktion.org, maze@google.com,
-        eric.dumazet@gmail.com, akpm@linux-foundation.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jiri@mellanox.com>, Ido Schimmel <idosch@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Yotam Gigi <yotamg@mellanox.com>,
+        Nogah Frankel <nogahf@mellanox.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay07.akamai.com ([23.79.238.175]:41051 "EHLO
-        prod-mail-xrelay07.akamai.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S932430AbcI3R6E (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2016 13:58:04 -0400
-In-Reply-To: <20160930174650.GE1176@salvia>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:53489 "EHLO
+        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S933150AbcI3SDQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2016 14:03:16 -0400
+Content-Disposition: inline
+In-Reply-To: <20160930161734.70928-2-arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/30/2016 01:46 PM, Pablo Neira Ayuso wrote:
-> On Thu, Sep 29, 2016 at 01:39:50PM -0400, Vishwanath Pai wrote:
->> v2:
->> Remove unnecessary div64_u64 around constants
->>
->> v3:
->> remove backslashes
->>
->> --
->>
->> Fix link error in 32bit arch because of 64bit division
->>
->> Division of 64bit integers will cause linker error undefined reference
->> to `__udivdi3'. Fix this by replacing divisions with div64_64
+On Fri, Sep 30, 2016 at 06:17:10PM +0200, Arnd Bergmann wrote:
+> If fi->fib_nhs is zero, the router interface pointer is uninitialized, as shown by
+> this warning:
 > 
-> Applied, thanks Pai.
+> drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c: In function 'mlxsw_sp_router_fib_event':
+> drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c:1674:21: error: 'r' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c:1643:23: note: 'r' was declared here
 > 
->> Signed-off-by: Vishwanath Pai <vpai@akamai.com>
->> Fixes: 11d5f15723c9 ("netfilter: xt_hashlimit: Create revision 2 to ...")
->>
->> ---
+> This changes the loop so we handle the case the same way as finding no router
+> interface pointer attached to one of the nexthops to ensure we always
+> trap here instead of using uninitialized data.
 > 
-> Please, next time place the versioning information here, otherwise git
-> am takes the wrong description here.
-> 
+> Fixes: b45f64d16d45 ("mlxsw: spectrum_router: Use FIB notifications instead of switchdev calls")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Thank you. And sorry about, I did not realize git am would put that into
-the description.
+For net-next:
+Acked-by: Ido Schimmel <idosch@mellanox.com>
 
--Vishwanath
+BTW, which flags did you pass to generate this error? I can only
+reproduce this with EXTRA_CFLAGS="-Wmaybe-uninitialized -Werror", but
+for some reason EXTRA_CFLAGS="-Wall -Werror" is silent. Any idea why? I
+would like to add this to my git hooks and avoid these errors in the
+future :)
+
+Thanks!
