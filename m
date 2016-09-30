@@ -1,7 +1,7 @@
 From: Jia He <hejianet@gmail.com>
-Subject: [PATCH v6 3/7] proc: Reduce cache miss in snmp6_seq_show
-Date: Fri, 30 Sep 2016 11:29:00 +0800
-Message-ID: <1475206144-23228-4-git-send-email-hejianet@gmail.com>
+Subject: [PATCH v6 6/7] ipv6: Remove useless parameter in __snmp6_fill_statsdev
+Date: Fri, 30 Sep 2016 11:29:03 +0800
+Message-ID: <1475206144-23228-7-git-send-email-hejianet@gmail.com>
 References: <1475206144-23228-1-git-send-email-hejianet@gmail.com>
 Cc: linux-sctp@vger.kernel.org, linux-kernel@vger.kernel.org,
         davem@davemloft.net, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
@@ -15,80 +15,57 @@ Cc: linux-sctp@vger.kernel.org, linux-kernel@vger.kernel.org,
         marcelo.leitner@gmail.com, Jia He <hejianet@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f65.google.com ([209.85.214.65]:35218 "EHLO
-        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935649AbcI3D3d (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 23:29:33 -0400
+Received: from mail-it0-f68.google.com ([209.85.214.68]:33662 "EHLO
+        mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935896AbcI3D3s (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2016 23:29:48 -0400
 In-Reply-To: <1475206144-23228-1-git-send-email-hejianet@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is to use the generic interfaces snmp_get_cpu_field{,64}_batch to
-aggregate the data by going through all the items of each cpu sequentially.
+The parameter items(is always ICMP6_MIB_MAX) is useless for __snmp6_fill_statsdev
 
 Signed-off-by: Jia He <hejianet@gmail.com>
 ---
- net/ipv6/proc.c | 30 ++++++++++++++++++++++--------
- 1 file changed, 22 insertions(+), 8 deletions(-)
+ net/ipv6/addrconf.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/net/ipv6/proc.c b/net/ipv6/proc.c
-index 679253d0..cc8e3ae 100644
---- a/net/ipv6/proc.c
-+++ b/net/ipv6/proc.c
-@@ -30,6 +30,11 @@
- #include <net/transp_v6.h>
- #include <net/ipv6.h>
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 2f1f5d4..35d4baa 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -4961,18 +4961,18 @@ static inline size_t inet6_if_nlmsg_size(void)
+ }
  
-+#define MAX4(a, b, c, d) \
-+	max_t(u32, max_t(u32, a, b), max_t(u32, c, d))
-+#define SNMP_MIB_MAX MAX4(UDP_MIB_MAX, TCP_MIB_MAX, \
-+			IPSTATS_MIB_MAX, ICMP_MIB_MAX)
-+
- static int sockstat6_seq_show(struct seq_file *seq, void *v)
+ static inline void __snmp6_fill_statsdev(u64 *stats, atomic_long_t *mib,
+-				      int items, int bytes)
++					int bytes)
  {
- 	struct net *net = seq->private;
-@@ -191,25 +196,34 @@ static void snmp6_seq_show_item(struct seq_file *seq, void __percpu *pcpumib,
- 				atomic_long_t *smib,
- 				const struct snmp_mib *itemlist)
- {
-+	unsigned long buff[SNMP_MIB_MAX];
  	int i;
--	unsigned long val;
+-	int pad = bytes - sizeof(u64) * items;
++	int pad = bytes - sizeof(u64) * ICMP6_MIB_MAX;
+ 	BUG_ON(pad < 0);
  
--	for (i = 0; itemlist[i].name; i++) {
--		val = pcpumib ?
--			snmp_fold_field(pcpumib, itemlist[i].entry) :
--			atomic_long_read(smib + itemlist[i].entry);
--		seq_printf(seq, "%-32s\t%lu\n", itemlist[i].name, val);
-+	if (pcpumib) {
-+		memset(buff, 0, sizeof(unsigned long) * SNMP_MIB_MAX);
-+
-+		snmp_get_cpu_field_batch(buff, itemlist, pcpumib);
-+		for (i = 0; itemlist[i].name; i++)
-+			seq_printf(seq, "%-32s\t%lu\n",
-+				   itemlist[i].name, buff[i]);
-+	} else {
-+		for (i = 0; itemlist[i].name; i++)
-+			seq_printf(seq, "%-32s\t%lu\n", itemlist[i].name,
-+				   atomic_long_read(smib + itemlist[i].entry));
+ 	/* Use put_unaligned() because stats may not be aligned for u64. */
+-	put_unaligned(items, &stats[0]);
+-	for (i = 1; i < items; i++)
++	put_unaligned(ICMP6_MIB_MAX, &stats[0]);
++	for (i = 1; i < ICMP6_MIB_MAX; i++)
+ 		put_unaligned(atomic_long_read(&mib[i]), &stats[i]);
+ 
+-	memset(&stats[items], 0, pad);
++	memset(&stats[ICMP6_MIB_MAX], 0, pad);
+ }
+ 
+ static inline void __snmp6_fill_stats64(u64 *stats, void __percpu *mib,
+@@ -5005,7 +5005,7 @@ static void snmp6_fill_stats(u64 *stats, struct inet6_dev *idev, int attrtype,
+ 				     offsetof(struct ipstats_mib, syncp));
+ 		break;
+ 	case IFLA_INET6_ICMP6STATS:
+-		__snmp6_fill_statsdev(stats, idev->stats.icmpv6dev->mibs, ICMP6_MIB_MAX, bytes);
++		__snmp6_fill_statsdev(stats, idev->stats.icmpv6dev->mibs, bytes);
+ 		break;
  	}
  }
- 
- static void snmp6_seq_show_item64(struct seq_file *seq, void __percpu *mib,
- 				  const struct snmp_mib *itemlist, size_t syncpoff)
- {
-+	u64 buff64[SNMP_MIB_MAX];
- 	int i;
- 
-+	memset(buff64, 0, sizeof(unsigned long) * SNMP_MIB_MAX);
-+
-+	snmp_get_cpu_field64_batch(buff64, itemlist, mib, syncpoff);
- 	for (i = 0; itemlist[i].name; i++)
--		seq_printf(seq, "%-32s\t%llu\n", itemlist[i].name,
--			   snmp_fold_field64(mib, itemlist[i].entry, syncpoff));
-+		seq_printf(seq, "%-32s\t%llu\n", itemlist[i].name, buff64[i]);
- }
- 
- static int snmp6_seq_show(struct seq_file *seq, void *v)
 -- 
 2.5.5
