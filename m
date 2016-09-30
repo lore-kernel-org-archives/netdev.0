@@ -1,35 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/6] rxrpc: Fixes and adjustments
-Date: Fri, 30 Sep 2016 01:46:58 -0400 (EDT)
-Message-ID: <20160930.014658.1817742122751898185.davem@davemloft.net>
-References: <147518732742.29235.11597637573731081178.stgit@warthog.procyon.org.uk>
+Subject: Re: [PATCH] ipv6 addrconf: implement RFC7559 router solicitation
+ backoff
+Date: Fri, 30 Sep 2016 01:54:47 -0400 (EDT)
+Message-ID: <20160930.015447.181630823844188041.davem@davemloft.net>
+References: <1475045878-30455-1-git-send-email-zenczykowski@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: dhowells@redhat.com
+Content-Type: Text/Plain; charset=iso-8859-2
+Content-Transfer-Encoding: 8BIT
+Cc: maze@google.com, netdev@vger.kernel.org, ek@google.com,
+        lorenzo@google.com, hannes@stressinduktion.org,
+        hideaki.yoshifuji@miraclelinux.com
+To: zenczykowski@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36730 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:36760 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934349AbcI3FrH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2016 01:47:07 -0400
-In-Reply-To: <147518732742.29235.11597637573731081178.stgit@warthog.procyon.org.uk>
+        with ESMTP id S935714AbcI3FzC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2016 01:55:02 -0400
+In-Reply-To: <1475045878-30455-1-git-send-email-zenczykowski@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Howells <dhowells@redhat.com>
-Date: Thu, 29 Sep 2016 23:15:27 +0100
+From: Maciej ¯enczykowski <zenczykowski@gmail.com>
+Date: Tue, 27 Sep 2016 23:57:58 -0700
 
-> This set of patches contains some fixes and adjustments:
- ...
-> The patches can be found here also:
+> From: Maciej ¯enczykowski <maze@google.com>
 > 
-> 	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-rewrite
+> This implements:
+>   https://tools.ietf.org/html/rfc7559
 > 
-> Tagged thusly:
+> Backoff is performed according to RFC3315 section 14:
+>   https://tools.ietf.org/html/rfc3315#section-14
 > 
-> 	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
-> 	rxrpc-rewrite-20160929
+> We allow setting /proc/sys/net/ipv6/conf/*/router_solicitations
+> to a negative value meaning an unlimited number of retransmits,
+> and we make this the new default (inline with the RFC).
+> 
+> We also add a new setting:
+>   /proc/sys/net/ipv6/conf/*/router_solicitation_max_interval
+> defaulting to 1 hour (per RFC recommendation).
+> 
+> Signed-off-by: Maciej ¯enczykowski <maze@google.com>
 
-Pulled, thanks David.
+Applied to net-next, thanks.
