@@ -1,38 +1,32 @@
-From: Aaron Conole <aconole@bytheb.org>
-Subject: Re: [PATCH 2/3] netfilter: hide reference to nf_hooks_ingress
-Date: Fri, 30 Sep 2016 13:06:40 -0400
-Message-ID: <f7toa35pba7.fsf@redhat.com>
-References: <20160930160559.4102745-1-arnd@arndb.de>
-        <20160930160559.4102745-2-arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Westphal <fw@strlen.de>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160930160559.4102745-2-arnd@arndb.de> (Arnd Bergmann's message
-        of "Fri, 30 Sep 2016 18:05:35 +0200")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Benc <jbenc@redhat.com>
+Subject: [PATCH net-next v2 0/3] openvswitch: mpls fix and clean up
+Date: Fri, 30 Sep 2016 19:08:04 +0200
+Message-ID: <cover.1475255100.git.jbenc@redhat.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>,
+        pravin shelar <pshelar@ovn.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:36684 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932539AbcI3RJD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 30 Sep 2016 13:09:03 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Arnd Bergmann <arnd@arndb.de> writes:
+Convert to the new mpls skb layout the last remaining place in openvswitch,
+forgotten on the mpls GSO rework. The GSO rework also allows for some
+cleanup in the third patch.
 
-> A recent cleanup added an unconditional reference to the nf_hooks_ingress pointer,
-> but that fails when CONFIG_NETFILTER_INGRESS is disabled and that member is
-> not present in net_device:
->
-> net/netfilter/core.c: In function 'nf_set_hooks_head':
-> net/netfilter/core.c:96:30: error: 'struct net_device' has no member named 'nf_hooks_ingress'
->
-> This avoids the build error by simply enclosing the assignment in an #ifdef,
-> which may or may not be the correct fix.
+Jiri Benc (3):
+  openvswitch: mpls: set network header correctly on key extract
+  mpls: move mpls_hdr to a common location
+  openvswitch: use mpls_hdr
 
-NAK, it's not the right fix.  The entry being set may be leaked with only this
-hunk.  I've posted a complete fix for this.
+ include/net/mpls.h        | 15 ++++++---------
+ net/mpls/internal.h       | 10 +---------
+ net/openvswitch/actions.c | 24 ++++++++++++------------
+ net/openvswitch/flow.c    | 11 +++--------
+ 4 files changed, 22 insertions(+), 38 deletions(-)
 
-Sorry that it was broken.
+-- 
+1.8.3.1
