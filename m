@@ -1,62 +1,70 @@
-From: Jakub Sitnicki <jkbs@redhat.com>
-Subject: Re: [PATCH v2 net-next 1/2] net: centralize net_device min/max MTU checking
-Date: Fri, 30 Sep 2016 11:37:24 +0200
-Message-ID: <87intdwwx7.fsf@redhat.com>
-References: <20160928222053.33697-2-jarod@redhat.com>
+From: Gavin Schenk <g.schenk@eckelmann.de>
+Subject: [PATCH v2] net: fec: set mac address unconditionally
+Date: Fri, 30 Sep 2016 11:46:10 +0200
+Message-ID: <1475228770-17504-1-git-send-email-g.schenk@eckelmann.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-kernel@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jarod Wilson <jarod@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: <netdev@vger.kernel.org>, <kernel@pengutronix.de>,
+        Gavin Schenk <g.schenk@eckelmann.de>
+To: <fugang.duan@nxp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:38437 "EHLO
-        mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932173AbcI3Jh1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2016 05:37:27 -0400
-Received: by mail-wm0-f54.google.com with SMTP id p138so13855690wmb.1
-        for <netdev@vger.kernel.org>; Fri, 30 Sep 2016 02:37:27 -0700 (PDT)
-In-reply-to: <20160928222053.33697-2-jarod@redhat.com>
+Received: from Mail.eckelmann.de ([217.19.183.89]:59281 "EHLO
+        mail.eckelmann.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932413AbcI3J4u (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2016 05:56:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 28, 2016 at 10:20 PM GMT, Jarod Wilson wrote:
-> While looking into an MTU issue with sfc, I started noticing that almost
-> every NIC driver with an ndo_change_mtu function implemented almost
-> exactly the same range checks, and in many cases, that was the only
-> practical thing their ndo_change_mtu function was doing. Quite a few
-> drivers have either 68, 64, 60 or 46 as their minimum MTU value checked,
-> and then various sizes from 1500 to 65535 for their maximum MTU value. We
-> can remove a whole lot of redundant code here if we simple store min_mtu
-> and max_mtu in net_device, and check against those in net/core/dev.c's
-> dev_set_mtu().
->
-> In theory, there should be zero functional change with this patch, it just
-> puts the infrastructure in place. Subsequent patches will attempt to start
-> using said infrastructure, with theoretically zero change in
-> functionality.
->
-> CC: "David S. Miller" <davem@davemloft.net>
-> CC: netdev@vger.kernel.org
-> Signed-off-by: Jarod Wilson <jarod@redhat.com>
-> ---
+If the mac address origin is not dt, you can only safely assign a mac
+address after "link up" of the device. If the link is off the clocks are
+disabled and because of issues assigning registers when clocks are off the
+new mac address cannot be written in .ndo_set_mac_address() on some soc's.
+This fix sets the mac address unconditionally in fec_restart(...) and
+ensures consistency between fec registers and the network layer.
 
-[...]
+Signed-off-by: Gavin Schenk <g.schenk@eckelmann.de>
+Acked-by: Fugang Duan <fugang.duan@nxp.com>
+Acked-by: Uwe Kleine-König <u.kleine-koenig@pengutronix.de>
+Fixes: 9638d19e4816 ("net: fec: add netif status check before set mac address")
+---
+Changes since (implicit) v1:
+- reword commit log as suggested by Uwe
+- added Acks
 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index c0c291f..5343799 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -6493,9 +6493,17 @@ int dev_set_mtu(struct net_device *dev, int new_mtu)
->  	if (new_mtu == dev->mtu)
->  		return 0;
->  
-> -	/*	MTU must be positive.	 */
-> -	if (new_mtu < 0)
-> +	if (new_mtu < dev->min_mtu) {
+ drivers/net/ethernet/freescale/fec_main.c | 12 +++++-------
+ 1 file changed, 5 insertions(+), 7 deletions(-)
 
-Ouch, integral promotions. Looks like you need to keep the < 0 check.
-Otherwise new_mtu gets promoted to unsigned int and negative values will
-pass the check.
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 2a03857cca18..bdabea6cd981 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -903,13 +903,11 @@ fec_restart(struct net_device *ndev)
+ 	 * enet-mac reset will reset mac address registers too,
+ 	 * so need to reconfigure it.
+ 	 */
+-	if (fep->quirks & FEC_QUIRK_ENET_MAC) {
+-		memcpy(&temp_mac, ndev->dev_addr, ETH_ALEN);
+-		writel((__force u32)cpu_to_be32(temp_mac[0]),
+-		       fep->hwp + FEC_ADDR_LOW);
+-		writel((__force u32)cpu_to_be32(temp_mac[1]),
+-		       fep->hwp + FEC_ADDR_HIGH);
+-	}
++	memcpy(&temp_mac, ndev->dev_addr, ETH_ALEN);
++	writel((__force u32)cpu_to_be32(temp_mac[0]),
++	       fep->hwp + FEC_ADDR_LOW);
++	writel((__force u32)cpu_to_be32(temp_mac[1]),
++	       fep->hwp + FEC_ADDR_HIGH);
+ 
+ 	/* Clear any outstanding interrupt. */
+ 	writel(0xffffffff, fep->hwp + FEC_IEVENT);
+-- 
+1.9.1
 
-Thanks,
-Jakub
+
+Eckelmann AG
+Vorstand: Dipl.-Ing. Peter Frankenbach (Sprecher) Dipl.-Wi.-Ing. Philipp Eckelmann
+Dr.-Ing. Frank-Thomas Mellert Dr.-Ing. Marco Münchhof Dr.-Ing. Frank Uhlemann
+Vorsitzender des Aufsichtsrats: Hubertus G. Krossa
+Sitz der Gesellschaft: Berliner Str. 161, 65205 Wiesbaden, Amtsgericht Wiesbaden HRB 12636
+http://www.eckelmann.de 
