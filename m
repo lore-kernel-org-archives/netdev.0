@@ -1,152 +1,78 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [net-next PATCH v2] i40e: Clean up handling of msglevel flags and
- debug parameter
-Date: Fri, 30 Sep 2016 06:42:22 -0400
-Message-ID: <20160930104149.8147.10913.stgit@ahduyck-blue-test.jf.intel.com>
+From: Toshiaki Makita <toshiaki.makita1@gmail.com>
+Subject: Re: [PATCH RFC iproute2] iplink: Support envhdrlen
+Date: Sat, 1 Oct 2016 01:49:53 +0900
+Message-ID: <9ed8fc87-85ba-c25f-1212-127aba0e9272@gmail.com>
+References: <1474966541-4420-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+ <1474966541-4420-5-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+ <20160929144944.609d5434@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linville@tuxdriver.com
-To: sassmann@kpanic.de, intel-wired-lan@lists.osuosl.org,
-        jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Jiri Benc <jbenc@redhat.com>,
+        Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([134.134.136.100]:34340 "EHLO mga07.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933113AbcI3Qm2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 30 Sep 2016 12:42:28 -0400
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:35974 "EHLO
+        mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932646AbcI3Qt4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2016 12:49:56 -0400
+Received: by mail-pa0-f68.google.com with SMTP id cd13so3177293pac.3
+        for <netdev@vger.kernel.org>; Fri, 30 Sep 2016 09:49:56 -0700 (PDT)
+In-Reply-To: <20160929144944.609d5434@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-So the i40e driver had a really convoluted configuration for how to handle
-the debug flags contained in msg_level.  Part of the issue is that the
-driver has its own 32 bit mask that it was using to track a separate set of
-debug features.  From what I can tell it was trying to use the upper 4 bits
-to determine if the value was meant to represent a bit-mask or the numeric
-value provided by debug level.
+On 16/09/29 (木) 21:49, Jiri Benc wrote:
+> On Tue, 27 Sep 2016 17:55:40 +0900, Toshiaki Makita wrote:
+>> This adds support for envhdrlen.
+>>
+>> Example:
+>>  # ip link set eno1 envhdrlen 8
 
-What this patch does is clean this up by compressing those 4 bits into bit
-31, as a result we just have to perform a check against the value being
-negative to determine if we are looking at a debug level (positive), or a
-debug mask (negative).  The debug level will populate the msg_level, and
-the debug mask will populate the debug_mask in the hardware struct.
+Thank you for taking a look at this.
 
-I added similar logic for ethtool.  If the value being provided has bit 31
-set we assume the value being provided is a debug mask, otherwise we assume
-it is a msg_enable mask.  For displaying we only provide the msg_enable,
-and if debug_mask is in use we will print it to the dmesg log.
+> I don't see why this should be user visible, let alone requiring user
+> to set it. This should be transparent, kernel should compute the value
+> as needed based on the configuration and set it up. Requiring the
+> administrator to pick up a calculator and sum up all the vlan, mpls and
+> whatever header lengths is silly.
 
-Lastly I removed the debugfs interface.  It is redundant with what we
-already have in ethtool and really doesn't belong anyway.
+I'm thinking both in-kernel automation (for VLAN) and users' manual 
+operation are necessary. In fact, as I stated in the cover letter, my 
+first implementation was an automation-based approach. Actually 
+automation is advanced form of this feature so I'm proposing this very 
+basic feature first.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
----
+> I realize that we currently have no easy way to do that. Especially
+> with lwtunnels and stuff line MPLS where we don't easily know the
+> number of tags. But every uAPI we introduce will have to be supported
+> forever and going a particular way just because it is easy to implement
+> is not sustainable.
 
-v2: Consolidated setup for msg_enable and hw.debug_mask to one point in probe.
+It may be possible for MPLS lwtunnel to notify underlying device of 
+needed header length. But at this point MPLS does not allow encapsulated 
+packets to be greater than MTU of underlying device. So how to determine 
+if someone wants to leverage envhdrlen instead? Add a knob to lwtunnel 
+layer? Then, add another knob to l2tp, iptunnel, or anything like that? 
+At least full-automation does not look possible other than VLAN (which 
+by default requires envhdrlen expansion), so anyway manual operation is 
+needed in some form.
+Another use-case is reducing envhdrlen. We can expand it on creating 
+VLAN device automatically, but cannot decrease the size because there 
+could be other consumers of envhdrlen.
 
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c |   18 ------------------
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c |    7 ++++++-
- drivers/net/ethernet/intel/i40e/i40e_main.c    |   23 ++++++++---------------
- 3 files changed, 14 insertions(+), 34 deletions(-)
+> At the very least, it should be configurable from the other direction.
+> I.e. telling which interfaces can be used by vlans or MPLS (if it
+> cannot be inferred automatically) and configuring maximum number of
+> tags on the given vlan/mpls/whatever interface/route/whatever.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-index 0c1875b..acb0f13 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-@@ -1210,24 +1210,6 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
- 			dev_info(&pf->pdev->dev,
- 				 "dump debug fwdata <cluster_id> <table_id> <index>\n");
- 		}
--
--	} else if (strncmp(cmd_buf, "msg_enable", 10) == 0) {
--		u32 level;
--		cnt = sscanf(&cmd_buf[10], "%i", &level);
--		if (cnt) {
--			if (I40E_DEBUG_USER & level) {
--				pf->hw.debug_mask = level;
--				dev_info(&pf->pdev->dev,
--					 "set hw.debug_mask = 0x%08x\n",
--					 pf->hw.debug_mask);
--			}
--			pf->msg_enable = level;
--			dev_info(&pf->pdev->dev, "set msg_enable = 0x%08x\n",
--				 pf->msg_enable);
--		} else {
--			dev_info(&pf->pdev->dev, "msg_enable = 0x%08x\n",
--				 pf->msg_enable);
--		}
- 	} else if (strncmp(cmd_buf, "pfr", 3) == 0) {
- 		dev_info(&pf->pdev->dev, "debugfs: forcing PFR\n");
- 		i40e_do_reset_safe(pf, BIT(__I40E_PF_RESET_REQUESTED));
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index e79a920..b133a77 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -978,6 +978,10 @@ static u32 i40e_get_msglevel(struct net_device *netdev)
- {
- 	struct i40e_netdev_priv *np = netdev_priv(netdev);
- 	struct i40e_pf *pf = np->vsi->back;
-+	u32 debug_mask = pf->hw.debug_mask;
-+
-+	if (debug_mask)
-+		netdev_info(netdev, "i40e debug_mask: 0x%08X\n", debug_mask);
- 
- 	return pf->msg_enable;
- }
-@@ -989,7 +993,8 @@ static void i40e_set_msglevel(struct net_device *netdev, u32 data)
- 
- 	if (I40E_DEBUG_USER & data)
- 		pf->hw.debug_mask = data;
--	pf->msg_enable = data;
-+	else
-+		pf->msg_enable = data;
- }
- 
- static int i40e_get_regs_len(struct net_device *netdev)
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index b93fa2a..c5417aa 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -93,8 +93,8 @@ MODULE_DEVICE_TABLE(pci, i40e_pci_tbl);
- 
- #define I40E_MAX_VF_COUNT 128
- static int debug = -1;
--module_param(debug, int, 0);
--MODULE_PARM_DESC(debug, "Debug level (0=none,...,16=all)");
-+module_param(debug, uint, 0);
-+MODULE_PARM_DESC(debug, "Debug level (0=none,...,16=all), Debug mask (0x8XXXXXXX)");
- 
- MODULE_AUTHOR("Intel Corporation, <e1000-devel@lists.sourceforge.net>");
- MODULE_DESCRIPTION("Intel(R) Ethernet Connection XL710 Network Driver");
-@@ -8481,15 +8481,6 @@ static int i40e_sw_init(struct i40e_pf *pf)
- 	int err = 0;
- 	int size;
- 
--	pf->msg_enable = netif_msg_init(I40E_DEFAULT_MSG_ENABLE,
--				(NETIF_MSG_DRV|NETIF_MSG_PROBE|NETIF_MSG_LINK));
--	if (debug != -1 && debug != I40E_DEFAULT_MSG_ENABLE) {
--		if (I40E_DEBUG_USER & debug)
--			pf->hw.debug_mask = debug;
--		pf->msg_enable = netif_msg_init((debug & ~I40E_DEBUG_USER),
--						I40E_DEFAULT_MSG_ENABLE);
--	}
--
- 	/* Set default capability flags */
- 	pf->flags = I40E_FLAG_RX_CSUM_ENABLED |
- 		    I40E_FLAG_MSI_ENABLED     |
-@@ -10790,10 +10781,12 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	mutex_init(&hw->aq.asq_mutex);
- 	mutex_init(&hw->aq.arq_mutex);
- 
--	if (debug != -1) {
--		pf->msg_enable = pf->hw.debug_mask;
--		pf->msg_enable = debug;
--	}
-+	pf->msg_enable = netif_msg_init(debug,
-+					NETIF_MSG_DRV |
-+					NETIF_MSG_PROBE |
-+					NETIF_MSG_LINK);
-+	if (debug < -1)
-+		pf->hw.debug_mask = debug;
- 
- 	/* do a special CORER for clearing PXE mode once at init */
- 	if (hw->revision_id == 0 &&
+Probably I don't get your point...
+Are you suggesting something like this?
+$ ip link set eth0.10.20 expand-realdev-envhdrlen
+or like this?
+$ ip link set eth0 allowed-vlan-tags 2
+
+Toshiaki Makita
