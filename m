@@ -1,70 +1,67 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 2/2] mlxsw: spectrum_router: avoid potential uninitialized data usage
-Date: Fri, 30 Sep 2016 18:17:10 +0200
-Message-ID: <20160930161734.70928-2-arnd@arndb.de>
-References: <20160930161734.70928-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        Yotam Gigi <yotamg@mellanox.com>,
-        Nogah Frankel <nogahf@mellanox.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Jiri Pirko <jiri@mellanox.com>, Ido Schimmel <idosch@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.13]:56240 "EHLO
-        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933082AbcI3QSA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2016 12:18:00 -0400
-In-Reply-To: <20160930161734.70928-1-arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [PATCH] net: rtnl: avoid uninitialized data in IFLA_VF_VLAN_LIST handling
+Date: Fri, 30 Sep 2016 09:23:55 -0700
+Message-ID: <CANn89iK2FQufz4NCan1y0dQME2RUOzc3NXXhqYd418ctHNc6fA@mail.gmail.com>
+References: <20160930161416.18660-1-arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>,
+        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Nogah Frankel <nogahf@mellanox.com>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160930161416.18660-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If fi->fib_nhs is zero, the router interface pointer is uninitialized, as shown by
-this warning:
+On Fri, Sep 30, 2016 at 9:13 AM, Arnd Bergmann <arnd@arndb.de> wrote:
+> With the newly added support for IFLA_VF_VLAN_LIST netlink messages,
+> we get a warning about potential uninitialized variable use in
+> the parsing of the user input when enabling the -Wmaybe-uninitialized
+> warning:
+>
+> net/core/rtnetlink.c: In function 'do_setvfinfo':
+> net/core/rtnetlink.c:1756:9: error: 'ivvl$' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+>
+> I have not been able to prove whether it is possible to arrive in
+> this code with an empty IFLA_VF_VLAN_LIST block, but if we do,
+> then ndo_set_vf_vlan gets called with uninitialized arguments.
+>
+> This adds an explicit check for an empty list, making it obvious
+> to the reader and the compiler that this cannot happen.
+>
+> Fixes: 79aab093a0b5 ("net: Update API for VF vlan protocol 802.1ad support")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> ---
+>  net/core/rtnetlink.c | 3 +++
+>  1 file changed, 3 insertions(+)
+>
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index 3ac8946bf244..b06d2f46b83e 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -1753,6 +1753,9 @@ static int do_setvfinfo(struct net_device *dev, struct nlattr **tb)
+>
+>                         len++;
+>                 }
+> +               if (len == 0)
+> +                       return -EINVAL;
+> +
+>                 err = ops->ndo_set_vf_vlan(dev, ivvl[0]->vf, ivvl[0]->vlan,
+>                                            ivvl[0]->qos, ivvl[0]->vlan_proto);
+>                 if (err < 0)
+> --
+> 2.9.0
+>
 
-drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c: In function 'mlxsw_sp_router_fib_event':
-drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c:1674:21: error: 'r' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c:1643:23: note: 'r' was declared here
+So, if I read this code, we build an array, but call ndo_set_vf_vlan()
+only using first element ?
 
-This changes the loop so we handle the case the same way as finding no router
-interface pointer attached to one of the nexthops to ensure we always
-trap here instead of using uninitialized data.
-
-Fixes: b45f64d16d45 ("mlxsw: spectrum_router: Use FIB notifications instead of switchdev calls")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 10 +++++++---
- 1 file changed, 7 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 48d50efec5e2..78fc557d6dd7 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -1640,7 +1640,7 @@ mlxsw_sp_router_fib4_entry_init(struct mlxsw_sp *mlxsw_sp,
- 				struct mlxsw_sp_fib_entry *fib_entry)
- {
- 	struct fib_info *fi = fen_info->fi;
--	struct mlxsw_sp_rif *r;
-+	struct mlxsw_sp_rif *r = NULL;
- 	int nhsel;
- 	int err;
- 
-@@ -1664,11 +1664,15 @@ mlxsw_sp_router_fib4_entry_init(struct mlxsw_sp *mlxsw_sp,
- 			 * to us. Set trap and pass the packets for
- 			 * this prefix to kernel.
- 			 */
--			fib_entry->type = MLXSW_SP_FIB_ENTRY_TYPE_TRAP;
--			return 0;
-+			break;
- 		}
- 	}
- 
-+	if (!r) {
-+		fib_entry->type = MLXSW_SP_FIB_ENTRY_TYPE_TRAP;
-+		return 0;
-+	}
-+
- 	if (fi->fib_scope != RT_SCOPE_UNIVERSE) {
- 		fib_entry->type = MLXSW_SP_FIB_ENTRY_TYPE_LOCAL;
- 		fib_entry->rif = r->rif;
--- 
-2.9.0
+Looks like the bug should be fixed in a different way.
