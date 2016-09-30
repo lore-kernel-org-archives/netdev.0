@@ -1,56 +1,34 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net-next v3] netfilter: xt_hashlimit: Fix link error in
- 32bit arch because of 64bit division
-Date: Fri, 30 Sep 2016 19:46:50 +0200
-Message-ID: <20160930174650.GE1176@salvia>
-References: <20160929173950.GA27689@akamai.com>
+Subject: Re: [PATCH 1/3] netfilter: nf_tables: avoid uninitialized variable
+ warning
+Date: Fri, 30 Sep 2016 19:47:49 +0200
+Message-ID: <20160930174749.GF1176@salvia>
+References: <20160930160559.4102745-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: johunt@akamai.com, netfilter-devel@vger.kernel.org,
-        coreteam@netfilter.org, netdev@vger.kernel.org,
-        pai.vishwain@gmail.com, kaber@trash.net, kadlec@blackhole.kfki.hu,
-        zlpnobody@gmail.com, hannes@stressinduktion.org, maze@google.com,
-        eric.dumazet@gmail.com, akpm@linux-foundation.org
-To: Vishwanath Pai <vpai@akamai.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:60626 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932887AbcI3RrA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 30 Sep 2016 13:47:00 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 5307AE3A1B
-        for <netdev@vger.kernel.org>; Fri, 30 Sep 2016 19:46:57 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 3F426DA850
-        for <netdev@vger.kernel.org>; Fri, 30 Sep 2016 19:46:57 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 123AFDA853
-        for <netdev@vger.kernel.org>; Fri, 30 Sep 2016 19:46:55 +0200 (CEST)
+Cc: Patrick McHardy <kaber@trash.net>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20160929173950.GA27689@akamai.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20160930160559.4102745-1-arnd@arndb.de>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 29, 2016 at 01:39:50PM -0400, Vishwanath Pai wrote:
-> v2:
-> Remove unnecessary div64_u64 around constants
+On Fri, Sep 30, 2016 at 06:05:34PM +0200, Arnd Bergmann wrote:
+> The newly added nft_range_eval() function handles the two possible
+> nft range operations, but as the compiler warning points out,
+> any unexpected value would lead to the 'mismatch' variable being
+> used without being initialized:
 > 
-> v3:
-> remove backslashes
+> net/netfilter/nft_range.c: In function 'nft_range_eval':
+> net/netfilter/nft_range.c:45:5: error: 'mismatch' may be used uninitialized in this function [-Werror=maybe-uninitialized]
 > 
-> --
-> 
-> Fix link error in 32bit arch because of 64bit division
-> 
-> Division of 64bit integers will cause linker error undefined reference
-> to `__udivdi3'. Fix this by replacing divisions with div64_64
+> This can be trivially avoided by added a 'default:' clause.
 
-Applied, thanks Pai.
+Applied this patch, I took Aaron's and Pai's patches instead.
 
-> Signed-off-by: Vishwanath Pai <vpai@akamai.com>
-> Fixes: 11d5f15723c9 ("netfilter: xt_hashlimit: Create revision 2 to ...")
-> 
-> ---
-
-Please, next time place the versioning information here, otherwise git
-am takes the wrong description here.
+Thanks anyway for following up on this issue Arnd.
