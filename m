@@ -1,645 +1,492 @@
-From: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
-Subject: [PATCH net-next 2/7] qede: Add qedr framework
-Date: Sat, 1 Oct 2016 21:59:56 +0300
-Message-ID: <1475348401-31392-3-git-send-email-Yuval.Mintz@caviumnetworks.com>
+From: Yuval Mintz <Yuval.Mintz-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
+Subject: [PATCH net-next 4/7] qed: PD,PKEY and CQ verb support
+Date: Sat, 1 Oct 2016 21:59:58 +0300
+Message-ID: <1475348401-31392-5-git-send-email-Yuval.Mintz@caviumnetworks.com>
 References: <1475348401-31392-1-git-send-email-Yuval.Mintz@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <linux-rdma@vger.kernel.org>, <Ram.Amrani@caviumnetworks.com>,
-        <Michal.Kalderon@caviumnetworks.com>,
-        <Ariel.Elior@caviumnetworks.com>, <dledford@redhat.com>,
-        Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:43243 "EHLO
-        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751790AbcJATAd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 1 Oct 2016 15:00:33 -0400
-In-Reply-To: <1475348401-31392-1-git-send-email-Yuval.Mintz@caviumnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <Ram.Amrani-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>,
+        <Michal.Kalderon-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>,
+        <Ariel.Elior-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>, <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Yuval Mintz <Yuval.Mintz-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1475348401-31392-1-git-send-email-Yuval.Mintz-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Ram Amrani <Ram.Amrani@caviumnetworks.com>
+From: Ram Amrani <Ram.Amrani-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
 
-Adds a skeletal implementation of the qede RoCE driver -
-The qedr has some dependencies of the state of the underlying base
-interface. This adds some logic required with mutual registrations
-and the ability to pass updates on 'intresting' events.
+Add support for the configurations of the protection domain and
+completion queues.
 
-Signed-off-by: Ram Amrani <Ram.Amrani@caviumnetworks.com>
-Signed-off-by: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
+Signed-off-by: Ram Amrani <Ram.Amrani-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
+Signed-off-by: Yuval Mintz <Yuval.Mintz-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
 ---
- drivers/net/ethernet/qlogic/Kconfig          |  18 +-
- drivers/net/ethernet/qlogic/qede/Makefile    |   1 +
- drivers/net/ethernet/qlogic/qede/qede.h      |   9 +
- drivers/net/ethernet/qlogic/qede/qede_main.c |  35 ++-
- drivers/net/ethernet/qlogic/qede/qede_roce.c | 314 +++++++++++++++++++++++++++
- include/linux/qed/qed_if.h                   |   3 +-
- include/linux/qed/qede_roce.h                |  88 ++++++++
- 7 files changed, 451 insertions(+), 17 deletions(-)
- create mode 100644 drivers/net/ethernet/qlogic/qede/qede_roce.c
- create mode 100644 include/linux/qed/qede_roce.h
+ drivers/net/ethernet/qlogic/qed/qed_roce.c | 324 +++++++++++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_roce.h |  21 ++
+ include/linux/qed/qed_roce_if.h            |  30 +++
+ 3 files changed, 375 insertions(+)
 
-diff --git a/drivers/net/ethernet/qlogic/Kconfig b/drivers/net/ethernet/qlogic/Kconfig
-index 9eb3b19..0df1391f9 100644
---- a/drivers/net/ethernet/qlogic/Kconfig
-+++ b/drivers/net/ethernet/qlogic/Kconfig
-@@ -89,12 +89,7 @@ config QED
- 	  This enables the support for ...
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_roce.c b/drivers/net/ethernet/qlogic/qed/qed_roce.c
+index 4c53b85..f955164 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_roce.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_roce.c
+@@ -663,6 +663,22 @@ int qed_rdma_add_user(void *rdma_cxt,
+ 	return rc;
+ }
  
- config QED_LL2
--	bool "Qlogic QED Light L2 interface"
--	default n
--	depends on QED
--	---help---
--	This enables support for Light L2 interface which is required
--	by all qed protocol drivers other than qede.
-+	bool
- 
- config QED_SRIOV
- 	bool "QLogic QED 25/40/100Gb SR-IOV support"
-@@ -112,4 +107,15 @@ config QEDE
- 	---help---
- 	  This enables the support for ...
- 
-+config INFINIBAND_QEDR
-+	tristate "QLogic qede RoCE sources [debug]"
-+	depends on QEDE && 64BIT
-+	select QED_LL2
-+	default n
-+	---help---
-+	  This provides a temporary node that allows the compilation
-+	  and logical testing of the InfiniBand over Ethernet support
-+	  for QLogic QED. This would be replaced by the 'real' option
-+	  once the QEDR driver is added [+relocated].
++struct qed_rdma_port *qed_rdma_query_port(void *rdma_cxt)
++{
++	struct qed_hwfn *p_hwfn = (struct qed_hwfn *)rdma_cxt;
++	struct qed_rdma_port *p_port = p_hwfn->p_rdma_info->port;
 +
- endif # NET_VENDOR_QLOGIC
-diff --git a/drivers/net/ethernet/qlogic/qede/Makefile b/drivers/net/ethernet/qlogic/qede/Makefile
-index 74a4985..28dc589 100644
---- a/drivers/net/ethernet/qlogic/qede/Makefile
-+++ b/drivers/net/ethernet/qlogic/qede/Makefile
-@@ -2,3 +2,4 @@ obj-$(CONFIG_QEDE) := qede.o
- 
- qede-y := qede_main.o qede_ethtool.o
- qede-$(CONFIG_DCB) += qede_dcbnl.o
-+qede-$(CONFIG_INFINIBAND_QEDR) += qede_roce.o
-diff --git a/drivers/net/ethernet/qlogic/qede/qede.h b/drivers/net/ethernet/qlogic/qede/qede.h
-index e01adce..28c0e9f 100644
---- a/drivers/net/ethernet/qlogic/qede/qede.h
-+++ b/drivers/net/ethernet/qlogic/qede/qede.h
-@@ -106,6 +106,13 @@ struct qede_vlan {
- 	bool configured;
- };
- 
-+struct qede_rdma_dev {
-+	struct qedr_dev *qedr_dev;
-+	struct list_head entry;
-+	struct list_head roce_event_list;
-+	struct workqueue_struct *roce_wq;
-+};
++	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "RDMA Query port\n");
 +
- struct qede_dev {
- 	struct qed_dev			*cdev;
- 	struct net_device		*ndev;
-@@ -185,6 +192,8 @@ struct qede_dev {
- 	unsigned long			sp_flags;
- 	u16				vxlan_dst_port;
- 	u16				geneve_dst_port;
++	/* Link may have changed */
++	p_port->port_state = p_hwfn->mcp_info->link_output.link_up ?
++			     QED_RDMA_PORT_UP : QED_RDMA_PORT_DOWN;
 +
-+	struct qede_rdma_dev		rdma_info;
- };
- 
- enum QEDE_STATE {
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index 0e198fe..343038c 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_main.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -36,7 +36,7 @@
- #include <linux/random.h>
- #include <net/ip6_checksum.h>
- #include <linux/bitops.h>
--
-+#include <linux/qed/qede_roce.h>
- #include "qede.h"
- 
- static char version[] =
-@@ -193,8 +193,7 @@ static int qede_netdev_event(struct notifier_block *this, unsigned long event,
- 	struct ethtool_drvinfo drvinfo;
- 	struct qede_dev *edev;
- 
--	/* Currently only support name change */
--	if (event != NETDEV_CHANGENAME)
-+	if (event != NETDEV_CHANGENAME && event != NETDEV_CHANGEADDR)
- 		goto done;
- 
- 	/* Check whether this is a qede device */
-@@ -207,11 +206,18 @@ static int qede_netdev_event(struct notifier_block *this, unsigned long event,
- 		goto done;
- 	edev = netdev_priv(ndev);
- 
--	/* Notify qed of the name change */
--	if (!edev->ops || !edev->ops->common)
--		goto done;
--	edev->ops->common->set_id(edev->cdev, edev->ndev->name,
--				  "qede");
-+	switch (event) {
-+	case NETDEV_CHANGENAME:
-+		/* Notify qed of the name change */
-+		if (!edev->ops || !edev->ops->common)
-+			goto done;
-+		edev->ops->common->set_id(edev->cdev, edev->ndev->name, "qede");
-+		break;
-+	case NETDEV_CHANGEADDR:
-+		edev = netdev_priv(ndev);
-+		qede_roce_event_changeaddr(edev);
-+		break;
-+	}
- 
- done:
- 	return NOTIFY_DONE;
-@@ -2545,10 +2551,14 @@ static int __qede_probe(struct pci_dev *pdev, u32 dp_module, u8 dp_level,
- 
- 	qede_init_ndev(edev);
- 
-+	rc = qede_roce_dev_add(edev);
-+	if (rc)
-+		goto err3;
++	p_port->link_speed = p_hwfn->mcp_info->link_output.speed;
 +
- 	rc = register_netdev(edev->ndev);
- 	if (rc) {
- 		DP_NOTICE(edev, "Cannot register net-device\n");
--		goto err3;
-+		goto err4;
- 	}
- 
- 	edev->ops->common->set_id(cdev, edev->ndev->name, DRV_MODULE_VERSION);
-@@ -2568,6 +2578,8 @@ static int __qede_probe(struct pci_dev *pdev, u32 dp_module, u8 dp_level,
- 
++	return p_port;
++}
++
+ struct qed_rdma_device *qed_rdma_query_device(void *rdma_cxt)
+ {
+ 	struct qed_hwfn *p_hwfn = (struct qed_hwfn *)rdma_cxt;
+@@ -788,6 +804,309 @@ static int qed_rdma_get_int(struct qed_dev *cdev, struct qed_int_info *info)
  	return 0;
+ }
  
-+err4:
-+	qede_roce_dev_remove(edev);
- err3:
- 	free_netdev(edev->ndev);
- err2:
-@@ -2614,8 +2626,11 @@ static void __qede_remove(struct pci_dev *pdev, enum qede_remove_mode mode)
- 	DP_INFO(edev, "Starting qede_remove\n");
- 
- 	cancel_delayed_work_sync(&edev->sp_task);
-+
- 	unregister_netdev(ndev);
- 
-+	qede_roce_dev_remove(edev);
-+
- 	edev->ops->common->set_power_state(cdev, PCI_D0);
- 
- 	pci_set_drvdata(pdev, NULL);
-@@ -3512,6 +3527,7 @@ static void qede_unload(struct qede_dev *edev, enum qede_unload_mode mode)
- 
- 	DP_INFO(edev, "Starting qede unload\n");
- 
-+	qede_roce_dev_event_close(edev);
- 	mutex_lock(&edev->qede_lock);
- 	edev->state = QEDE_STATE_CLOSED;
- 
-@@ -3612,6 +3628,7 @@ static int qede_load(struct qede_dev *edev, enum qede_load_mode mode)
- 	/* Query whether link is already-up */
- 	memset(&link_output, 0, sizeof(link_output));
- 	edev->ops->common->get_link(edev->cdev, &link_output);
-+	qede_roce_dev_event_open(edev);
- 	qede_link_update(edev, &link_output);
- 
- 	DP_INFO(edev, "Ending successfully qede load\n");
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_roce.c b/drivers/net/ethernet/qlogic/qede/qede_roce.c
-new file mode 100644
-index 0000000..9867f96
---- /dev/null
-+++ b/drivers/net/ethernet/qlogic/qede/qede_roce.c
-@@ -0,0 +1,314 @@
-+/* QLogic qedr NIC Driver
-+ * Copyright (c) 2015-2016  QLogic Corporation
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+#include <linux/pci.h>
-+#include <linux/netdevice.h>
-+#include <linux/list.h>
-+#include <linux/mutex.h>
-+#include <linux/qed/qede_roce.h>
-+#include "qede.h"
-+
-+static struct qedr_driver *qedr_drv;
-+static LIST_HEAD(qedr_dev_list);
-+static DEFINE_MUTEX(qedr_dev_list_lock);
-+
-+bool qede_roce_supported(struct qede_dev *dev)
++int qed_rdma_alloc_pd(void *rdma_cxt, u16 *pd)
 +{
-+	return dev->dev_info.common.rdma_supported;
++	struct qed_hwfn *p_hwfn = (struct qed_hwfn *)rdma_cxt;
++	u32 returned_id;
++	int rc;
++
++	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "Alloc PD\n");
++
++	/* Allocates an unused protection domain */
++	spin_lock_bh(&p_hwfn->p_rdma_info->lock);
++	rc = qed_rdma_bmap_alloc_id(p_hwfn,
++				    &p_hwfn->p_rdma_info->pd_map, &returned_id);
++	spin_unlock_bh(&p_hwfn->p_rdma_info->lock);
++
++	*pd = (u16)returned_id;
++
++	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "Alloc PD - done, rc = %d\n", rc);
++	return rc;
 +}
 +
-+static void _qede_roce_dev_add(struct qede_dev *edev)
++void qed_rdma_free_pd(void *rdma_cxt, u16 pd)
 +{
-+	if (!qedr_drv)
-+		return;
++	struct qed_hwfn *p_hwfn = (struct qed_hwfn *)rdma_cxt;
 +
-+	edev->rdma_info.qedr_dev = qedr_drv->add(edev->cdev, edev->pdev,
-+						 edev->ndev);
++	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "pd = %08x\n", pd);
++
++	/* Returns a previously allocated protection domain for reuse */
++	spin_lock_bh(&p_hwfn->p_rdma_info->lock);
++	qed_bmap_release_id(p_hwfn, &p_hwfn->p_rdma_info->pd_map, pd);
++	spin_unlock_bh(&p_hwfn->p_rdma_info->lock);
 +}
 +
-+static int qede_roce_create_wq(struct qede_dev *edev)
++static enum qed_rdma_toggle_bit
++qed_rdma_toggle_bit_create_resize_cq(struct qed_hwfn *p_hwfn, u16 icid)
 +{
-+	INIT_LIST_HEAD(&edev->rdma_info.roce_event_list);
-+	edev->rdma_info.roce_wq = create_singlethread_workqueue("roce_wq");
-+	if (!edev->rdma_info.roce_wq) {
-+		DP_NOTICE(edev, "qedr: Could not create workqueue\n");
-+		return -ENOMEM;
++	struct qed_rdma_info *p_info = p_hwfn->p_rdma_info;
++	enum qed_rdma_toggle_bit toggle_bit;
++	u32 bmap_id;
++
++	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "icid = %08x\n", icid);
++
++	/* the function toggle the bit that is related to a given icid
++	 * and returns the new toggle bit's value
++	 */
++	bmap_id = icid - qed_cxt_get_proto_cid_start(p_hwfn, p_info->proto);
++
++	spin_lock_bh(&p_info->lock);
++	toggle_bit = !test_and_change_bit(bmap_id,
++					  p_info->toggle_bits.bitmap);
++	spin_unlock_bh(&p_info->lock);
++
++	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "QED_RDMA_TOGGLE_BIT_= %d\n",
++		   toggle_bit);
++
++	return toggle_bit;
++}
++
++int qed_rdma_create_cq(void *rdma_cxt,
++		       struct qed_rdma_create_cq_in_params *params, u16 *icid)
++{
++	struct qed_hwfn *p_hwfn = (struct qed_hwfn *)rdma_cxt;
++	struct qed_rdma_info *p_info = p_hwfn->p_rdma_info;
++	struct rdma_create_cq_ramrod_data *p_ramrod;
++	enum qed_rdma_toggle_bit toggle_bit;
++	struct qed_sp_init_data init_data;
++	struct qed_spq_entry *p_ent;
++	u32 returned_id, start_cid;
++	int rc;
++
++	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "cq_handle = %08x%08x\n",
++		   params->cq_handle_hi, params->cq_handle_lo);
++
++	/* Allocate icid */
++	spin_lock_bh(&p_info->lock);
++	rc = qed_rdma_bmap_alloc_id(p_hwfn,
++				    &p_info->cq_map, &returned_id);
++	spin_unlock_bh(&p_info->lock);
++
++	if (rc) {
++		DP_NOTICE(p_hwfn, "Can't create CQ, rc = %d\n", rc);
++		return rc;
 +	}
 +
-+	return 0;
-+}
++	start_cid = qed_cxt_get_proto_cid_start(p_hwfn,
++						p_info->proto);
++	*icid = returned_id + start_cid;
 +
-+static void qede_roce_cleanup_event(struct qede_dev *edev)
-+{
-+	struct list_head *head = &edev->rdma_info.roce_event_list;
-+	struct qede_roce_event_work *event_node;
++	/* Check if icid requires a page allocation */
++	rc = qed_cxt_dynamic_ilt_alloc(p_hwfn, QED_ELEM_CXT, *icid);
++	if (rc)
++		goto err;
 +
-+	flush_workqueue(edev->rdma_info.roce_wq);
-+	while (!list_empty(head)) {
-+		event_node = list_entry(head->next, struct qede_roce_event_work,
-+					list);
-+		cancel_work_sync(&event_node->work);
-+		list_del(&event_node->list);
-+		kfree(event_node);
++	/* Get SPQ entry */
++	memset(&init_data, 0, sizeof(init_data));
++	init_data.cid = *icid;
++	init_data.opaque_fid = p_hwfn->hw_info.opaque_fid;
++	init_data.comp_mode = QED_SPQ_MODE_EBLOCK;
++
++	/* Send create CQ ramrod */
++	rc = qed_sp_init_request(p_hwfn, &p_ent,
++				 RDMA_RAMROD_CREATE_CQ,
++				 p_info->proto, &init_data);
++	if (rc)
++		goto err;
++
++	p_ramrod = &p_ent->ramrod.rdma_create_cq;
++
++	p_ramrod->cq_handle.hi = cpu_to_le32(params->cq_handle_hi);
++	p_ramrod->cq_handle.lo = cpu_to_le32(params->cq_handle_lo);
++	p_ramrod->dpi = cpu_to_le16(params->dpi);
++	p_ramrod->is_two_level_pbl = params->pbl_two_level;
++	p_ramrod->max_cqes = cpu_to_le32(params->cq_size);
++	DMA_REGPAIR_LE(p_ramrod->pbl_addr, params->pbl_ptr);
++	p_ramrod->pbl_num_pages = cpu_to_le16(params->pbl_num_pages);
++	p_ramrod->cnq_id = (u8)RESC_START(p_hwfn, QED_RDMA_CNQ_RAM) +
++			   params->cnq_id;
++	p_ramrod->int_timeout = params->int_timeout;
++
++	/* toggle the bit for every resize or create cq for a given icid */
++	toggle_bit = qed_rdma_toggle_bit_create_resize_cq(p_hwfn, *icid);
++
++	p_ramrod->toggle_bit = toggle_bit;
++
++	rc = qed_spq_post(p_hwfn, p_ent, NULL);
++	if (rc) {
++		/* restore toggle bit */
++		qed_rdma_toggle_bit_create_resize_cq(p_hwfn, *icid);
++		goto err;
 +	}
-+}
 +
-+static void qede_roce_destroy_wq(struct qede_dev *edev)
-+{
-+	qede_roce_cleanup_event(edev);
-+	destroy_workqueue(edev->rdma_info.roce_wq);
-+}
++	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "Created CQ, rc = %d\n", rc);
++	return rc;
 +
-+int qede_roce_dev_add(struct qede_dev *edev)
-+{
-+	int rc = 0;
-+
-+	if (qede_roce_supported(edev)) {
-+		rc = qede_roce_create_wq(edev);
-+		if (rc)
-+			return rc;
-+
-+		INIT_LIST_HEAD(&edev->rdma_info.entry);
-+		mutex_lock(&qedr_dev_list_lock);
-+		list_add_tail(&edev->rdma_info.entry, &qedr_dev_list);
-+		_qede_roce_dev_add(edev);
-+		mutex_unlock(&qedr_dev_list_lock);
-+	}
++err:
++	/* release allocated icid */
++	qed_bmap_release_id(p_hwfn, &p_info->cq_map, returned_id);
++	DP_NOTICE(p_hwfn, "Create CQ failed, rc = %d\n", rc);
 +
 +	return rc;
 +}
 +
-+static void _qede_roce_dev_remove(struct qede_dev *edev)
++int qed_rdma_resize_cq(void *rdma_cxt,
++		       struct qed_rdma_resize_cq_in_params *in_params,
++		       struct qed_rdma_resize_cq_out_params *out_params)
 +{
-+	if (qedr_drv && qedr_drv->remove && edev->rdma_info.qedr_dev)
-+		qedr_drv->remove(edev->rdma_info.qedr_dev);
-+	edev->rdma_info.qedr_dev = NULL;
-+}
++	struct qed_hwfn *p_hwfn = (struct qed_hwfn *)rdma_cxt;
++	struct rdma_resize_cq_output_params *p_ramrod_res;
++	struct rdma_resize_cq_ramrod_data *p_ramrod;
++	enum qed_rdma_toggle_bit toggle_bit;
++	struct qed_sp_init_data init_data;
++	struct qed_spq_entry *p_ent;
++	dma_addr_t ramrod_res_phys;
++	u8 fw_return_code;
++	int rc = -ENOMEM;
 +
-+void qede_roce_dev_remove(struct qede_dev *edev)
-+{
-+	if (!qede_roce_supported(edev))
-+		return;
++	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "icid = %08x\n", in_params->icid);
 +
-+	qede_roce_destroy_wq(edev);
-+	mutex_lock(&qedr_dev_list_lock);
-+	_qede_roce_dev_remove(edev);
-+	list_del(&edev->rdma_info.entry);
-+	mutex_unlock(&qedr_dev_list_lock);
-+}
-+
-+static void _qede_roce_dev_open(struct qede_dev *edev)
-+{
-+	if (qedr_drv && edev->rdma_info.qedr_dev && qedr_drv->notify)
-+		qedr_drv->notify(edev->rdma_info.qedr_dev, QEDE_UP);
-+}
-+
-+static void qede_roce_dev_open(struct qede_dev *edev)
-+{
-+	if (!qede_roce_supported(edev))
-+		return;
-+
-+	mutex_lock(&qedr_dev_list_lock);
-+	_qede_roce_dev_open(edev);
-+	mutex_unlock(&qedr_dev_list_lock);
-+}
-+
-+static void _qede_roce_dev_close(struct qede_dev *edev)
-+{
-+	if (qedr_drv && edev->rdma_info.qedr_dev && qedr_drv->notify)
-+		qedr_drv->notify(edev->rdma_info.qedr_dev, QEDE_DOWN);
-+}
-+
-+static void qede_roce_dev_close(struct qede_dev *edev)
-+{
-+	if (!qede_roce_supported(edev))
-+		return;
-+
-+	mutex_lock(&qedr_dev_list_lock);
-+	_qede_roce_dev_close(edev);
-+	mutex_unlock(&qedr_dev_list_lock);
-+}
-+
-+static void qede_roce_dev_shutdown(struct qede_dev *edev)
-+{
-+	if (!qede_roce_supported(edev))
-+		return;
-+
-+	mutex_lock(&qedr_dev_list_lock);
-+	if (qedr_drv && edev->rdma_info.qedr_dev && qedr_drv->notify)
-+		qedr_drv->notify(edev->rdma_info.qedr_dev, QEDE_CLOSE);
-+	mutex_unlock(&qedr_dev_list_lock);
-+}
-+
-+int qede_roce_register_driver(struct qedr_driver *drv)
-+{
-+	struct qede_dev *edev;
-+	u8 qedr_counter = 0;
-+
-+	mutex_lock(&qedr_dev_list_lock);
-+	if (qedr_drv) {
-+		mutex_unlock(&qedr_dev_list_lock);
-+		return -EINVAL;
-+	}
-+	qedr_drv = drv;
-+
-+	list_for_each_entry(edev, &qedr_dev_list, rdma_info.entry) {
-+		struct net_device *ndev;
-+
-+		qedr_counter++;
-+		_qede_roce_dev_add(edev);
-+		ndev = edev->ndev;
-+		if (netif_running(ndev) && netif_oper_up(ndev))
-+			_qede_roce_dev_open(edev);
-+	}
-+	mutex_unlock(&qedr_dev_list_lock);
-+
-+	DP_INFO(edev, "qedr: discovered and registered %d RoCE funcs\n",
-+		qedr_counter);
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL(qede_roce_register_driver);
-+
-+void qede_roce_unregister_driver(struct qedr_driver *drv)
-+{
-+	struct qede_dev *edev;
-+
-+	mutex_lock(&qedr_dev_list_lock);
-+	list_for_each_entry(edev, &qedr_dev_list, rdma_info.entry) {
-+		if (edev->rdma_info.qedr_dev)
-+			_qede_roce_dev_remove(edev);
-+	}
-+	qedr_drv = NULL;
-+	mutex_unlock(&qedr_dev_list_lock);
-+}
-+EXPORT_SYMBOL(qede_roce_unregister_driver);
-+
-+static void qede_roce_changeaddr(struct qede_dev *edev)
-+{
-+	if (!qede_roce_supported(edev))
-+		return;
-+
-+	if (qedr_drv && edev->rdma_info.qedr_dev && qedr_drv->notify)
-+		qedr_drv->notify(edev->rdma_info.qedr_dev, QEDE_CHANGE_ADDR);
-+}
-+
-+struct qede_roce_event_work *qede_roce_get_free_event_node(struct qede_dev
-+							   *edev)
-+{
-+	struct qede_roce_event_work *event_node = NULL;
-+	struct list_head *list_node = NULL;
-+	bool found = false;
-+
-+	list_for_each(list_node, &edev->rdma_info.roce_event_list) {
-+		event_node = list_entry(list_node, struct qede_roce_event_work,
-+					list);
-+		if (!work_pending(&event_node->work)) {
-+			found = true;
-+			break;
-+		}
++	p_ramrod_res =
++	    (struct rdma_resize_cq_output_params *)
++	    dma_alloc_coherent(&p_hwfn->cdev->pdev->dev,
++			       sizeof(struct rdma_resize_cq_output_params),
++			       &ramrod_res_phys, GFP_KERNEL);
++	if (!p_ramrod_res) {
++		DP_NOTICE(p_hwfn,
++			  "qed resize cq failed: cannot allocate memory (ramrod)\n");
++		return rc;
 +	}
 +
-+	if (!found) {
-+		event_node = kzalloc(sizeof(*event_node), GFP_KERNEL);
-+		if (!event_node) {
-+			DP_NOTICE(edev,
-+				  "qedr: Could not allocate memory for roce work\n");
-+			return NULL;
-+		}
-+		list_add_tail(&event_node->list,
-+			      &edev->rdma_info.roce_event_list);
++	/* Get SPQ entry */
++	memset(&init_data, 0, sizeof(init_data));
++	init_data.cid = in_params->icid;
++	init_data.opaque_fid = p_hwfn->hw_info.opaque_fid;
++	init_data.comp_mode = QED_SPQ_MODE_EBLOCK;
++
++	rc = qed_sp_init_request(p_hwfn, &p_ent,
++				 RDMA_RAMROD_RESIZE_CQ,
++				 p_hwfn->p_rdma_info->proto, &init_data);
++	if (rc)
++		goto err;
++
++	p_ramrod = &p_ent->ramrod.rdma_resize_cq;
++
++	p_ramrod->flags = 0;
++
++	/* toggle the bit for every resize or create cq for a given icid */
++	toggle_bit = qed_rdma_toggle_bit_create_resize_cq(p_hwfn,
++							  in_params->icid);
++
++	SET_FIELD(p_ramrod->flags,
++		  RDMA_RESIZE_CQ_RAMROD_DATA_TOGGLE_BIT, toggle_bit);
++
++	SET_FIELD(p_ramrod->flags,
++		  RDMA_RESIZE_CQ_RAMROD_DATA_IS_TWO_LEVEL_PBL,
++		  in_params->pbl_two_level);
++
++	p_ramrod->pbl_log_page_size = in_params->pbl_page_size_log - 12;
++	p_ramrod->pbl_num_pages = cpu_to_le16(in_params->pbl_num_pages);
++	p_ramrod->max_cqes = cpu_to_le32(in_params->cq_size);
++	DMA_REGPAIR_LE(p_ramrod->pbl_addr, in_params->pbl_ptr);
++	DMA_REGPAIR_LE(p_ramrod->output_params_addr, ramrod_res_phys);
++
++	rc = qed_spq_post(p_hwfn, p_ent, &fw_return_code);
++	if (rc)
++		goto err;
++
++	if (fw_return_code != RDMA_RETURN_OK) {
++		DP_NOTICE(p_hwfn, "fw_return_code = %d\n", fw_return_code);
++		rc = -EINVAL;
++		goto err;
 +	}
 +
-+	return event_node;
++	out_params->prod = le32_to_cpu(p_ramrod_res->old_cq_prod);
++	out_params->cons = le32_to_cpu(p_ramrod_res->old_cq_cons);
++
++	dma_free_coherent(&p_hwfn->cdev->pdev->dev,
++			  sizeof(struct rdma_resize_cq_output_params),
++			  p_ramrod_res, ramrod_res_phys);
++
++	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "Resized CQ, rc = %d\n", rc);
++
++	return rc;
++
++err:	dma_free_coherent(&p_hwfn->cdev->pdev->dev,
++			  sizeof(struct rdma_resize_cq_output_params),
++			  p_ramrod_res, ramrod_res_phys);
++	DP_NOTICE(p_hwfn, "Resized CQ, Failed - rc = %d\n", rc);
++
++	return rc;
 +}
 +
-+static void qede_roce_handle_event(struct work_struct *work)
++int qed_rdma_destroy_cq(void *rdma_cxt,
++			struct qed_rdma_destroy_cq_in_params *in_params,
++			struct qed_rdma_destroy_cq_out_params *out_params)
 +{
-+	struct qede_roce_event_work *event_node;
-+	enum qede_roce_event event;
-+	struct qede_dev *edev;
++	struct qed_hwfn *p_hwfn = (struct qed_hwfn *)rdma_cxt;
++	struct rdma_destroy_cq_output_params *p_ramrod_res;
++	struct rdma_destroy_cq_ramrod_data *p_ramrod;
++	struct qed_sp_init_data init_data;
++	struct qed_spq_entry *p_ent;
++	dma_addr_t ramrod_res_phys;
++	int rc = -ENOMEM;
 +
-+	event_node = container_of(work, struct qede_roce_event_work, work);
-+	event = event_node->event;
-+	edev = event_node->ptr;
++	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "icid = %08x\n", in_params->icid);
 +
-+	switch (event) {
-+	case QEDE_UP:
-+		qede_roce_dev_open(edev);
-+		break;
-+	case QEDE_DOWN:
-+		qede_roce_dev_close(edev);
-+		break;
-+	case QEDE_CLOSE:
-+		qede_roce_dev_shutdown(edev);
-+		break;
-+	case QEDE_CHANGE_ADDR:
-+		qede_roce_changeaddr(edev);
-+		break;
-+	default:
-+		DP_NOTICE(edev, "Invalid roce event %d", event);
++	p_ramrod_res =
++	    (struct rdma_destroy_cq_output_params *)
++	    dma_alloc_coherent(&p_hwfn->cdev->pdev->dev,
++			       sizeof(struct rdma_destroy_cq_output_params),
++			       &ramrod_res_phys, GFP_KERNEL);
++	if (!p_ramrod_res) {
++		DP_NOTICE(p_hwfn,
++			  "qed destroy cq failed: cannot allocate memory (ramrod)\n");
++		return rc;
 +	}
++
++	/* Get SPQ entry */
++	memset(&init_data, 0, sizeof(init_data));
++	init_data.cid = in_params->icid;
++	init_data.opaque_fid = p_hwfn->hw_info.opaque_fid;
++	init_data.comp_mode = QED_SPQ_MODE_EBLOCK;
++
++	/* Send destroy CQ ramrod */
++	rc = qed_sp_init_request(p_hwfn, &p_ent,
++				 RDMA_RAMROD_DESTROY_CQ,
++				 p_hwfn->p_rdma_info->proto, &init_data);
++	if (rc)
++		goto err;
++
++	p_ramrod = &p_ent->ramrod.rdma_destroy_cq;
++	DMA_REGPAIR_LE(p_ramrod->output_params_addr, ramrod_res_phys);
++
++	rc = qed_spq_post(p_hwfn, p_ent, NULL);
++	if (rc)
++		goto err;
++
++	out_params->num_cq_notif = le16_to_cpu(p_ramrod_res->cnq_num);
++
++	dma_free_coherent(&p_hwfn->cdev->pdev->dev,
++			  sizeof(struct rdma_destroy_cq_output_params),
++			  p_ramrod_res, ramrod_res_phys);
++
++	/* Free icid */
++	spin_lock_bh(&p_hwfn->p_rdma_info->lock);
++
++	qed_bmap_release_id(p_hwfn,
++			    &p_hwfn->p_rdma_info->cq_map,
++			    (in_params->icid -
++			     qed_cxt_get_proto_cid_start(p_hwfn,
++							 p_hwfn->
++							 p_rdma_info->proto)));
++
++	spin_unlock_bh(&p_hwfn->p_rdma_info->lock);
++
++	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "Destroyed CQ, rc = %d\n", rc);
++	return rc;
++
++err:	dma_free_coherent(&p_hwfn->cdev->pdev->dev,
++			  sizeof(struct rdma_destroy_cq_output_params),
++			  p_ramrod_res, ramrod_res_phys);
++
++	return rc;
 +}
 +
-+static void qede_roce_add_event(struct qede_dev *edev,
-+				enum qede_roce_event event)
-+{
-+	struct qede_roce_event_work *event_node;
-+
-+	if (!edev->rdma_info.qedr_dev)
-+		return;
-+
-+	event_node = qede_roce_get_free_event_node(edev);
-+	if (!event_node)
-+		return;
-+
-+	event_node->event = event;
-+	event_node->ptr = edev;
-+
-+	INIT_WORK(&event_node->work, qede_roce_handle_event);
-+	queue_work(edev->rdma_info.roce_wq, &event_node->work);
-+}
-+
-+void qede_roce_dev_event_open(struct qede_dev *edev)
-+{
-+	qede_roce_add_event(edev, QEDE_UP);
-+}
-+
-+void qede_roce_dev_event_close(struct qede_dev *edev)
-+{
-+	qede_roce_add_event(edev, QEDE_DOWN);
-+}
-+
-+void qede_roce_event_changeaddr(struct qede_dev *edev)
-+{
-+	qede_roce_add_event(edev, QEDE_CHANGE_ADDR);
-+}
-diff --git a/include/linux/qed/qed_if.h b/include/linux/qed/qed_if.h
-index c2d74e8..e313742 100644
---- a/include/linux/qed/qed_if.h
-+++ b/include/linux/qed/qed_if.h
-@@ -260,11 +260,10 @@ struct qed_dev_info {
- 	/* MFW version */
- 	u32		mfw_rev;
- 
--	bool rdma_supported;
--
- 	u32		flash_size;
- 	u8		mf_mode;
- 	bool		tx_switching;
-+	bool		rdma_supported;
+ static void *qed_rdma_get_rdma_ctx(struct qed_dev *cdev)
+ {
+ 	return QED_LEADING_HWFN(cdev);
+@@ -871,12 +1190,17 @@ static const struct qed_rdma_ops qed_rdma_ops_pass = {
+ 	.rdma_add_user = &qed_rdma_add_user,
+ 	.rdma_remove_user = &qed_rdma_remove_user,
+ 	.rdma_stop = &qed_rdma_stop,
++	.rdma_query_port = &qed_rdma_query_port,
+ 	.rdma_query_device = &qed_rdma_query_device,
+ 	.rdma_get_start_sb = &qed_rdma_get_sb_start,
+ 	.rdma_get_rdma_int = &qed_rdma_get_int,
+ 	.rdma_set_rdma_int = &qed_rdma_set_int,
+ 	.rdma_get_min_cnq_msix = &qed_rdma_get_min_cnq_msix,
+ 	.rdma_cnq_prod_update = &qed_rdma_cnq_prod_update,
++	.rdma_alloc_pd = &qed_rdma_alloc_pd,
++	.rdma_dealloc_pd = &qed_rdma_free_pd,
++	.rdma_create_cq = &qed_rdma_create_cq,
++	.rdma_destroy_cq = &qed_rdma_destroy_cq,
  };
  
- enum qed_sb_type {
-diff --git a/include/linux/qed/qede_roce.h b/include/linux/qed/qede_roce.h
-new file mode 100644
-index 0000000..99fbe6d
---- /dev/null
-+++ b/include/linux/qed/qede_roce.h
-@@ -0,0 +1,88 @@
-+/* QLogic qedr NIC Driver
-+ * Copyright (c) 2015-2016  QLogic Corporation
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+#ifndef QEDE_ROCE_H
-+#define QEDE_ROCE_H
-+
-+struct qedr_dev;
-+struct qed_dev;
-+struct qede_dev;
-+
-+enum qede_roce_event {
-+	QEDE_UP,
-+	QEDE_DOWN,
-+	QEDE_CHANGE_ADDR,
-+	QEDE_CLOSE
+ const struct qed_rdma_ops *qed_get_rdma_ops()
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_roce.h b/drivers/net/ethernet/qlogic/qed/qed_roce.h
+index e550481..1fe7370 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_roce.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_roce.h
+@@ -94,6 +94,26 @@ struct qed_rdma_info {
+ 	enum protocol_type proto;
+ };
+ 
++struct qed_rdma_resize_cq_in_params {
++	u16 icid;
++	u32 cq_size;
++	bool pbl_two_level;
++	u64 pbl_ptr;
++	u16 pbl_num_pages;
++	u8 pbl_page_size_log;
 +};
 +
-+struct qede_roce_event_work {
-+	struct list_head list;
-+	struct work_struct work;
-+	void *ptr;
-+	enum qede_roce_event event;
++struct qed_rdma_resize_cq_out_params {
++	u32 prod;
++	u32 cons;
 +};
 +
-+struct qedr_driver {
-+	unsigned char name[32];
-+
-+	struct qedr_dev* (*add)(struct qed_dev *, struct pci_dev *,
-+				struct net_device *);
-+
-+	void (*remove)(struct qedr_dev *);
-+	void (*notify)(struct qedr_dev *, enum qede_roce_event);
++struct qed_rdma_resize_cnq_in_params {
++	u32 cnq_id;
++	u32 pbl_page_size_log;
++	u64 pbl_ptr;
 +};
 +
-+/* APIs for RoCE driver to register callback handlers,
-+ * which will be invoked when device is added, removed, ifup, ifdown
-+ */
-+int qede_roce_register_driver(struct qedr_driver *drv);
-+void qede_roce_unregister_driver(struct qedr_driver *drv);
+ int
+ qed_rdma_add_user(void *rdma_cxt,
+ 		  struct qed_rdma_add_user_out_params *out_params);
+@@ -102,6 +122,7 @@ int qed_rdma_alloc_tid(void *rdma_cxt, u32 *tid);
+ int qed_rdma_deregister_tid(void *rdma_cxt, u32 tid);
+ void qed_rdma_free_tid(void *rdma_cxt, u32 tid);
+ struct qed_rdma_device *qed_rdma_query_device(void *rdma_cxt);
++struct qed_rdma_port *qed_rdma_query_port(void *rdma_cxt);
+ int
+ qed_rdma_register_tid(void *rdma_cxt,
+ 		      struct qed_rdma_register_tid_in_params *params);
+diff --git a/include/linux/qed/qed_roce_if.h b/include/linux/qed/qed_roce_if.h
+index 0f7d527..b559b1c 100644
+--- a/include/linux/qed/qed_roce_if.h
++++ b/include/linux/qed/qed_roce_if.h
+@@ -263,6 +263,19 @@ struct qed_rdma_register_tid_in_params {
+ 	u64 dif_runt_addr;
+ };
+ 
++struct qed_rdma_create_cq_in_params {
++	u32 cq_handle_lo;
++	u32 cq_handle_hi;
++	u32 cq_size;
++	u16 dpi;
++	bool pbl_two_level;
++	u64 pbl_ptr;
++	u16 pbl_num_pages;
++	u8 pbl_page_size_log;
++	u8 cnq_id;
++	u16 int_timeout;
++};
 +
-+bool qede_roce_supported(struct qede_dev *dev);
+ struct qed_rdma_create_srq_in_params {
+ 	u64 pbl_base_addr;
+ 	u64 prod_pair_addr;
+@@ -271,6 +284,14 @@ struct qed_rdma_create_srq_in_params {
+ 	u16 page_size;
+ };
+ 
++struct qed_rdma_destroy_cq_in_params {
++	u16 icid;
++};
 +
-+#if IS_ENABLED(CONFIG_INFINIBAND_QEDR)
-+int qede_roce_dev_add(struct qede_dev *dev);
-+void qede_roce_dev_event_open(struct qede_dev *dev);
-+void qede_roce_dev_event_close(struct qede_dev *dev);
-+void qede_roce_dev_remove(struct qede_dev *dev);
-+void qede_roce_event_changeaddr(struct qede_dev *qedr);
-+#else
-+static inline int qede_roce_dev_add(struct qede_dev *dev)
-+{
-+	return 0;
-+}
++struct qed_rdma_destroy_cq_out_params {
++	u16 num_cq_notif;
++};
 +
-+static inline void qede_roce_dev_event_open(struct qede_dev *dev) {}
-+static inline void qede_roce_dev_event_close(struct qede_dev *dev) {}
-+static inline void qede_roce_dev_remove(struct qede_dev *dev) {}
-+static inline void qede_roce_event_changeaddr(struct qede_dev *qedr) {}
-+#endif
-+#endif
+ struct qed_rdma_create_srq_out_params {
+ 	u16 srq_id;
+ };
+@@ -332,12 +353,21 @@ struct qed_rdma_ops {
+ 	void (*rdma_remove_user)(void *rdma_cxt, u16 dpi);
+ 	int (*rdma_stop)(void *rdma_cxt);
+ 	struct qed_rdma_device* (*rdma_query_device)(void *rdma_cxt);
++	struct qed_rdma_port* (*rdma_query_port)(void *rdma_cxt);
+ 	int (*rdma_get_start_sb)(struct qed_dev *cdev);
+ 	int (*rdma_get_min_cnq_msix)(struct qed_dev *cdev);
+ 	void (*rdma_cnq_prod_update)(void *rdma_cxt, u8 cnq_index, u16 prod);
+ 	int (*rdma_get_rdma_int)(struct qed_dev *cdev,
+ 				 struct qed_int_info *info);
+ 	int (*rdma_set_rdma_int)(struct qed_dev *cdev, u16 cnt);
++	int (*rdma_alloc_pd)(void *rdma_cxt, u16 *pd);
++	void (*rdma_dealloc_pd)(void *rdma_cxt, u16 pd);
++	int (*rdma_create_cq)(void *rdma_cxt,
++			      struct qed_rdma_create_cq_in_params *params,
++			      u16 *icid);
++	int (*rdma_destroy_cq)(void *rdma_cxt,
++			       struct qed_rdma_destroy_cq_in_params *iparams,
++			       struct qed_rdma_destroy_cq_out_params *oparams);
+ };
+ 
+ const struct qed_rdma_ops *qed_get_rdma_ops(void);
 -- 
 1.9.3
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
