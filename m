@@ -1,37 +1,50 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 2/2] mlxsw: spectrum_router: avoid potential uninitialized data usage
-Date: Sat, 1 Oct 2016 05:36:30 +0200
-Message-ID: <201610010536.30927.arnd@arndb.de>
-References: <20160930161734.70928-1-arnd@arndb.de> <20160930161734.70928-2-arnd@arndb.de> <20160930175700.GA641@splinter>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: Use ns_capable_noaudit() when determining net
+ sysctl permissions
+Date: Sat, 01 Oct 2016 03:25:04 -0400 (EDT)
+Message-ID: <20161001.032504.1254372735513201320.davem@davemloft.net>
+References: <20160930222431.GA30208@dtor-ws>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@mellanox.com>, Ido Schimmel <idosch@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Yotam Gigi <yotamg@mellanox.com>,
-        Nogah Frankel <nogahf@mellanox.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Ido Schimmel <idosch@idosch.org>
+Cc: tyhicks@canonical.com, serge.hallyn@ubuntu.com,
+        james.l.morris@oracle.com, ebiederm@xmission.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: dmitry.torokhov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.187]:62741 "EHLO
-        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751721AbcJADne (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2016 23:43:34 -0400
-In-Reply-To: <20160930175700.GA641@splinter>
+Received: from shards.monkeyblade.net ([184.105.139.130]:51994 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750845AbcJAHZR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 1 Oct 2016 03:25:17 -0400
+In-Reply-To: <20160930222431.GA30208@dtor-ws>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 30 September 2016, Ido Schimmel wrote:
-> BTW, which flags did you pass to generate this error? I can only
-> reproduce this with EXTRA_CFLAGS="-Wmaybe-uninitialized -Werror", but
-> for some reason EXTRA_CFLAGS="-Wall -Werror" is silent. Any idea why? I
-> would like to add this to my git hooks and avoid these errors in the
-> future :)
+From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Date: Fri, 30 Sep 2016 15:24:31 -0700
 
-Linus disabled the warning for v4.8. I've just talked to him today about this
-warning in particular, and hope that we can find a way to enable it by
-default again in the future, as a lot of possible bugs get introduced,
-but certain compiler versions also produce a lot of false positives.
+> From: Tyler Hicks <tyhicks@canonical.com>
+> 
+> The capability check should not be audited since it is only being used
+> to determine the inode permissions. A failed check does not indicate a
+> violation of security policy but, when an LSM is enabled, a denial audit
+> message was being generated.
+> 
+> The denial audit message caused confusion for some application authors
+> because root-running Go applications always triggered the denial. To
+> prevent this confusion, the capability check in net_ctl_permissions() is
+> switched to the noaudit variant.
+> 
+> BugLink: https://launchpad.net/bugs/1465724
+> 
+> Signed-off-by: Tyler Hicks <tyhicks@canonical.com>
+> Acked-by: Serge E. Hallyn <serge.hallyn@ubuntu.com>
+> Signed-off-by: James Morris <james.l.morris@oracle.com>
+> [dtor: reapplied after e79c6a4fc923 ("net: make net namespace sysctls
+> belong to container's owner") accidentally reverted the change.]
+> Signed-off-by: Dmitry Torokhov <dmitry.torokhov@gmail.com>
 
-	Arnd
+Applied, but please be clear in the future what tree a patch
+is targetting, in this case 'net-next'.
+
+You can indicate this in the Subject line "[PATCH net-next]".
