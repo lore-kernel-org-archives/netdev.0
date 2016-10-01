@@ -1,45 +1,43 @@
-From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-Subject: Re: stmmac/RTL8211F/Meson GXBB: TX throughput problems
-Date: Sat, 1 Oct 2016 22:26:25 +0200
-Message-ID: <CAFBinCC0ihYvf9xYkS3cvLFURs5=gynWoLUnNjeVxA0t0u_f1A@mail.gmail.com>
-References: <CAFBinCALSL_-izJ2tEsAjevAw90kGNTrQ3na3D1YV8f1dS1=Xg@mail.gmail.com>
- <ce15ad26-2d07-655d-b813-947ad86696ac@st.com>
+From: Jes Sorensen <Jes.Sorensen@redhat.com>
+Subject: Re: [PATCH] realtek: rtl8xxxu: Use const init arrays
+Date: Sat, 01 Oct 2016 16:32:17 -0400
+Message-ID: <wrfjponj4xpq.fsf@redhat.com>
+References: <459bf15427d92cd052fb2fe080438fd97a8a6cd8.1475343483.git.joe@perches.com>
+        <wrfj37kf6gvd.fsf@redhat.com> <1475352058.1996.1.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, linux-amlogic@lists.infradead.org,
-        Alexandre Torgue <alexandre.torgue@st.com>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:38855 "EHLO
-        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751120AbcJAU0r (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 1 Oct 2016 16:26:47 -0400
-Received: by mail-wm0-f45.google.com with SMTP id p138so83354679wmb.1
-        for <netdev@vger.kernel.org>; Sat, 01 Oct 2016 13:26:46 -0700 (PDT)
-In-Reply-To: <ce15ad26-2d07-655d-b813-947ad86696ac@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1475352058.1996.1.camel@perches.com> (Joe Perches's message of
+        "Sat, 01 Oct 2016 13:00:58 -0700")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 14, 2016 at 5:30 PM, Giuseppe CAVALLARO
-<peppe.cavallaro@st.com> wrote:
-> as rule of thumb, I can only suggest you to see the RXDLY and TXDLY
-> and if you have (or need!) the resistor on PCB to have the 2ns of
-> extra delay. This can impact on RGMII case (1G).
-> Indeed, if this is true, I should expect some problem also when ping.
-I did a simple ping-test:
+Joe Perches <joe@perches.com> writes:
+> On Sat, 2016-10-01 at 14:53 -0400, Jes Sorensen wrote:
+>> Joe Perches <joe@perches.com> writes:
+>> > Make the init arrays const to reduce data.
+>> > $ size drivers/net/wireless/realtek/rtl8xxxu/built-in.o*
+>> > (allyesconfig: x86-32)
+>> >    text	   data	    bss	    dec	    hex	filename
+>> >   80107 13651 58 93816 16e78
+>> > drivers/net/wireless/realtek/rtl8xxxu/built-in.o.new
+>> >   65303 28435 58 93796 16e64
+>> > drivers/net/wireless/realtek/rtl8xxxu/built-in.o.old
+>> In total you grow the kernel by 20 bytes. You reduce the data segment
+>> substantially while growing the text segment instead.
+>
+> No, not really.   The alignment boundaries move a bit for
+> this particular compilation.  It could go the other way for
+> a different compiler version or set of CONFIG options.
+>
+> What's important is multiple pages of .data move to .rodata.
 
-device to computer:
-50 packets transmitted, 50 received, 0% packet loss, time 50170ms
-rtt min/avg/max/mdev = 0.457/0.659/0.779/0.083 ms
+Your output shows it moving to the text segment - if it's in a different
+segment, eg. rodata, you should use output demonstrating that to justify
+the change.
 
-computer to device:
-50 packets transmitted, 50 received, 0% packet loss, time 49001ms
-rtt min/avg/max/mdev = 0.483/0.629/1.356/0.114 ms
-
-both running simultaneously, device to computer:
-51 packets transmitted, 50 received, 1% packet loss, time 51182ms
-rtt min/avg/max/mdev = 0.459/0.648/0.729/0.082 ms
-
-both running simultaneously, computer to device:
-50 packets transmitted, 38 received, 24% packet loss, time 48997ms
-rtt min/avg/max/mdev = 0.482/0.594/0.640/0.053 ms
+Jes
