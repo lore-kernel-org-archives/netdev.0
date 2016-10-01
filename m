@@ -1,36 +1,55 @@
-From: Jes Sorensen <Jes.Sorensen@redhat.com>
-Subject: Re: [PATCH] realtek: rtl8xxxu: Use const init arrays
-Date: Sat, 01 Oct 2016 14:53:10 -0400
-Message-ID: <wrfj37kf6gvd.fsf@redhat.com>
-References: <459bf15427d92cd052fb2fe080438fd97a8a6cd8.1475343483.git.joe@perches.com>
+From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Subject: Re: [PATCH] net: Use ns_capable_noaudit() when determining net
+ sysctl permissions
+Date: Sat, 1 Oct 2016 11:59:02 -0700
+Message-ID: <20161001185902.GA12313@dtor-ws>
+References: <20160930222431.GA30208@dtor-ws>
+ <20161001.032504.1254372735513201320.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: tyhicks@canonical.com, serge.hallyn@ubuntu.com,
+        james.l.morris@oracle.com, ebiederm@xmission.com,
         netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <459bf15427d92cd052fb2fe080438fd97a8a6cd8.1475343483.git.joe@perches.com>
-        (Joe Perches's message of "Sat, 1 Oct 2016 10:39:25 -0700")
+Content-Disposition: inline
+In-Reply-To: <20161001.032504.1254372735513201320.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Joe Perches <joe@perches.com> writes:
-> Make the init arrays const to reduce data.
->
-> $ size drivers/net/wireless/realtek/rtl8xxxu/built-in.o* (allyesconfig: x86-32)
->    text	   data	    bss	    dec	    hex	filename
->   80107	  13651	     58	  93816	  16e78	drivers/net/wireless/realtek/rtl8xxxu/built-in.o.new
->   65303	  28435	     58	  93796	  16e64	drivers/net/wireless/realtek/rtl8xxxu/built-in.o.old
->
-> Signed-off-by: Joe Perches <joe@perches.com>
+On Sat, Oct 01, 2016 at 03:25:04AM -0400, David Miller wrote:
+> From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+> Date: Fri, 30 Sep 2016 15:24:31 -0700
+> 
+> > From: Tyler Hicks <tyhicks@canonical.com>
+> > 
+> > The capability check should not be audited since it is only being used
+> > to determine the inode permissions. A failed check does not indicate a
+> > violation of security policy but, when an LSM is enabled, a denial audit
+> > message was being generated.
+> > 
+> > The denial audit message caused confusion for some application authors
+> > because root-running Go applications always triggered the denial. To
+> > prevent this confusion, the capability check in net_ctl_permissions() is
+> > switched to the noaudit variant.
+> > 
+> > BugLink: https://launchpad.net/bugs/1465724
+> > 
+> > Signed-off-by: Tyler Hicks <tyhicks@canonical.com>
+> > Acked-by: Serge E. Hallyn <serge.hallyn@ubuntu.com>
+> > Signed-off-by: James Morris <james.l.morris@oracle.com>
+> > [dtor: reapplied after e79c6a4fc923 ("net: make net namespace sysctls
+> > belong to container's owner") accidentally reverted the change.]
+> > Signed-off-by: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+> 
+> Applied, but please be clear in the future what tree a patch
+> is targetting, in this case 'net-next'.
+> 
+> You can indicate this in the Subject line "[PATCH net-next]".
 
-In total you grow the kernel by 20 bytes. You reduce the data segment
-substantially while growing the text segment instead.
+Sorry, will do next time.
 
-If any architecture replicates the text segment onto individual numa
-nodes, this would actually be a real loss rather than a win. Some archs
-used to do this, not sure if they are doing it anymore.
+Thanks.
 
-I am not against this patch, but I am not sure it's really a win either.
-
-Jes
+-- 
+Dmitry
