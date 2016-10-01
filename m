@@ -1,66 +1,30 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH -next] net: qcom/emac: fix return value check in emac_sgmii_config()
-Date: Sat,  1 Oct 2016 09:12:29 +0000
-Message-ID: <1475313149-15233-1-git-send-email-weiyj.lk@gmail.com>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [PATCH] rxrpc: split up rxrpc_send_call_packet()
+Date: Sat, 01 Oct 2016 10:15:15 +0100
+Message-ID: <8568.1475313315@warthog.procyon.org.uk>
+References: <201610010540.58123.arnd@arndb.de> <12692.1475278509@warthog.procyon.org.uk> <20160930161218.4178124-1-arnd@arndb.de> <16139.1475279560@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org
-To: Timur Tabi <timur@codeaurora.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: dhowells@redhat.com, "David S. Miller" <davem@davemloft.net>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f67.google.com ([209.85.220.67]:36342 "EHLO
-        mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751055AbcJAJMf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 1 Oct 2016 05:12:35 -0400
-Received: by mail-pa0-f67.google.com with SMTP id cd13so4002013pac.3
-        for <netdev@vger.kernel.org>; Sat, 01 Oct 2016 02:12:35 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:55182 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750934AbcJAJPS (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 1 Oct 2016 05:15:18 -0400
+In-Reply-To: <201610010540.58123.arnd@arndb.de>
+Content-ID: <8567.1475313315.1@warthog.procyon.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <weiyongjun1@huawei.com>
+Arnd Bergmann <arnd@arndb.de> wrote:
 
-In case of error, the function ioremap() returns NULL pointer
-not ERR_PTR(). The IS_ERR() test in the return value check
-should be replaced with NULL test.
+> Yes, good idea. We could probably share the part of the two functions that
+> sets the contents of the msg and pkt variables by moving it into a third
+> function, but I'm not sure if that actually improves readability or just
+> reduces the number of lines.
 
-Also add check for return value of platform_get_resource().
+And the ACK-sending function is about to get a bit more complex :-(
 
-Fixes: 54e19bc74f33 ("net: qcom/emac: do not use devm on internal
-phy pdev")
-Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
----
- drivers/net/ethernet/qualcomm/emac/emac-sgmii.c | 13 +++++++++----
- 1 file changed, 9 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c b/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c
-index 3d2c05a..75c1b53 100644
---- a/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c
-+++ b/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c
-@@ -740,9 +740,14 @@ int emac_sgmii_config(struct platform_device *pdev, struct emac_adapter *adpt)
- 
- 	/* Base address is the first address */
- 	res = platform_get_resource(sgmii_pdev, IORESOURCE_MEM, 0);
-+	if (!res) {
-+		ret = -EINVAL;
-+		goto error_put_device;
-+	}
-+
- 	phy->base = ioremap(res->start, resource_size(res));
--	if (IS_ERR(phy->base)) {
--		ret = PTR_ERR(phy->base);
-+	if (!phy->base) {
-+		ret = -ENOMEM;
- 		goto error_put_device;
- 	}
- 
-@@ -750,8 +755,8 @@ int emac_sgmii_config(struct platform_device *pdev, struct emac_adapter *adpt)
- 	res = platform_get_resource(sgmii_pdev, IORESOURCE_MEM, 1);
- 	if (res) {
- 		phy->digital = ioremap(res->start, resource_size(res));
--		if (IS_ERR(phy->digital)) {
--			ret = PTR_ERR(phy->digital);
-+		if (!phy->digital) {
-+			ret = -ENOMEM;
- 			goto error_unmap_base;
- 		}
- 	}
+David
