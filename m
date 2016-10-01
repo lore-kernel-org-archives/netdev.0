@@ -1,40 +1,66 @@
-From: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH/RFC 00/12] Programming Open vSwitch (-like)
- flows into hardware using SwitchDev
-Date: Sat, 1 Oct 2016 12:05:10 +0300
-Message-ID: <CAJ3xEMiL65HDzoa3uT1f-xUBuNYRUSDQ8DrYkJntFnbb6svi8g@mail.gmail.com>
-References: <1475066582-1971-1-git-send-email-simon.horman@netronome.com>
- <CAJ3xEMh0Wp6sXN1AxuZjnqycp6SkY732E4O9CRWip5Bydxuj2w@mail.gmail.com>
- <20160929080904.GA24113@penelope.isobedori.kobe.vergenet.net>
- <CAOrHB_CG6wJ4t1zTaFZ8Uq5Ltoiqx+ctk-ZhqZ0sy3tF5-YXVQ@mail.gmail.com>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH -next] net: qcom/emac: fix return value check in emac_sgmii_config()
+Date: Sat,  1 Oct 2016 09:12:29 +0000
+Message-ID: <1475313149-15233-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>, Rony Efraim <ronye-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
- Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: pravin shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <CAOrHB_CG6wJ4t1zTaFZ8Uq5Ltoiqx+ctk-ZhqZ0sy3tF5-YXVQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org
+To: Timur Tabi <timur@codeaurora.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:36342 "EHLO
+        mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751055AbcJAJMf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 1 Oct 2016 05:12:35 -0400
+Received: by mail-pa0-f67.google.com with SMTP id cd13so4002013pac.3
+        for <netdev@vger.kernel.org>; Sat, 01 Oct 2016 02:12:35 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gU2F0LCBPY3QgMSwgMjAxNiBhdCAxOjEyIEFNLCBwcmF2aW4gc2hlbGFyIDxwc2hlbGFyQG92
-bi5vcmc+IHdyb3RlOgoKWy4uLl0KCj4gV2h5IG5vdCBhbGxvdyBzd2l0Y2hkZXYgb2ZmbG9hZCBB
-UEkgZm9yIHVzZXJzcGFjZSBzaW1pbGFyIHRvIFRDIGZsb3dlcgo+IG9mZmxvYWQ/IG9yIHdlIGNv
-dWxkIHVzZSBmbG93ZXIgQVBJIGZvciBzd2l0Y2hkZXYgZmxvdyBvZmZsb2FkLgoKSGkgUHJhdmlu
-LAoKQ291bGQgeW91IGFsc28gc2hhcmUgeW91ciB0aG91Z2h0cyBvbiB0aGUgUkZDIHdlJ3ZlIHBv
-c3RlZCBjb3VwbGUgb2YKZGF5cyBhZ28gdG8gdGhlIE9WUyBkZXZlbCBtYWlsaW5nIGxpc3Q/IHRo
-ZSBvZmZsb2FkaW5nIHRoZXJlIFsxXSBpcwpmcm9tIE9WU0QgdXNpbmcgVEMvRmxvd2VyCgpPci4K
-ClsxXSBodHRwOi8vb3BlbnZzd2l0Y2gub3JnL3BpcGVybWFpbC9kZXYvMjAxNi1TZXB0ZW1iZXIv
-MDc5OTUyLmh0bWwKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRj
-aC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+From: Wei Yongjun <weiyongjun1@huawei.com>
+
+In case of error, the function ioremap() returns NULL pointer
+not ERR_PTR(). The IS_ERR() test in the return value check
+should be replaced with NULL test.
+
+Also add check for return value of platform_get_resource().
+
+Fixes: 54e19bc74f33 ("net: qcom/emac: do not use devm on internal
+phy pdev")
+Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+---
+ drivers/net/ethernet/qualcomm/emac/emac-sgmii.c | 13 +++++++++----
+ 1 file changed, 9 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c b/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c
+index 3d2c05a..75c1b53 100644
+--- a/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c
++++ b/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c
+@@ -740,9 +740,14 @@ int emac_sgmii_config(struct platform_device *pdev, struct emac_adapter *adpt)
+ 
+ 	/* Base address is the first address */
+ 	res = platform_get_resource(sgmii_pdev, IORESOURCE_MEM, 0);
++	if (!res) {
++		ret = -EINVAL;
++		goto error_put_device;
++	}
++
+ 	phy->base = ioremap(res->start, resource_size(res));
+-	if (IS_ERR(phy->base)) {
+-		ret = PTR_ERR(phy->base);
++	if (!phy->base) {
++		ret = -ENOMEM;
+ 		goto error_put_device;
+ 	}
+ 
+@@ -750,8 +755,8 @@ int emac_sgmii_config(struct platform_device *pdev, struct emac_adapter *adpt)
+ 	res = platform_get_resource(sgmii_pdev, IORESOURCE_MEM, 1);
+ 	if (res) {
+ 		phy->digital = ioremap(res->start, resource_size(res));
+-		if (IS_ERR(phy->digital)) {
+-			ret = PTR_ERR(phy->digital);
++		if (!phy->digital) {
++			ret = -ENOMEM;
+ 			goto error_unmap_base;
+ 		}
+ 	}
