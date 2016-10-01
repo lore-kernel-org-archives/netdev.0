@@ -1,46 +1,37 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] rxrpc: split up rxrpc_send_call_packet()
-Date: Sat, 1 Oct 2016 05:40:58 +0200
-Message-ID: <201610010540.58123.arnd@arndb.de>
-References: <12692.1475278509@warthog.procyon.org.uk> <20160930161218.4178124-1-arnd@arndb.de> <16139.1475279560@warthog.procyon.org.uk>
+Subject: Re: [PATCH 2/2] mlxsw: spectrum_router: avoid potential uninitialized data usage
+Date: Sat, 1 Oct 2016 05:36:30 +0200
+Message-ID: <201610010536.30927.arnd@arndb.de>
+References: <20160930161734.70928-1-arnd@arndb.de> <20160930161734.70928-2-arnd@arndb.de> <20160930175700.GA641@splinter>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+Cc: Jiri Pirko <jiri@mellanox.com>, Ido Schimmel <idosch@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Yotam Gigi <yotamg@mellanox.com>,
+        Nogah Frankel <nogahf@mellanox.com>, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
-To: David Howells <dhowells@redhat.com>
+To: Ido Schimmel <idosch@idosch.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.187]:54971 "EHLO
+Received: from mout.kundenserver.de ([212.227.126.187]:62741 "EHLO
         mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750908AbcJADlO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2016 23:41:14 -0400
-In-Reply-To: <16139.1475279560@warthog.procyon.org.uk>
+        with ESMTP id S1751721AbcJADne (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2016 23:43:34 -0400
+In-Reply-To: <20160930175700.GA641@splinter>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Saturday 01 October 2016, David Howells wrote:
-> commit 35510eefc29e2757c1ac46218cded2e505093fc2
-> Author: David Howells <dhowells@redhat.com>
-> Date:   Sat Oct 1 00:35:15 2016 +0100
-> 
->     rxrpc: Split rxrpc_send_call_packet()
->     
->     Split rxrpc_send_data_packet() to separate ACK generation (which is more
->     complicated) from ABORT generation.  This simplifies the code a bit and
->     avoids the following warning:
->     
->     In file included from ../net/rxrpc/output.c:20:0:
->     net/rxrpc/output.c: In function 'rxrpc_send_call_packet':
->     net/rxrpc/ar-internal.h:1187:27: error: 'top' may be used uninitialized in this function [-Werror=maybe-uninitialized]
->     net/rxrpc/output.c:103:24: note: 'top' was declared here
->     net/rxrpc/output.c:225:25: error: 'hard_ack' may be used uninitialized in this function [-Werror=maybe-uninitialized]
->     
->     Reported-by: Arnd Bergmann <arnd@arndb.de>
->     Signed-off-by: David Howells <dhowells@redhat.com>
+On Friday 30 September 2016, Ido Schimmel wrote:
+> BTW, which flags did you pass to generate this error? I can only
+> reproduce this with EXTRA_CFLAGS="-Wmaybe-uninitialized -Werror", but
+> for some reason EXTRA_CFLAGS="-Wall -Werror" is silent. Any idea why? I
+> would like to add this to my git hooks and avoid these errors in the
+> future :)
 
-Yes, good idea. We could probably share the part of the two functions that sets the
-contents of the msg and pkt variables by moving it into a third function, but I'm
-not sure if that actually improves readability or just reduces the number of lines.
+Linus disabled the warning for v4.8. I've just talked to him today about this
+warning in particular, and hope that we can find a way to enable it by
+default again in the future, as a lot of possible bugs get introduced,
+but certain compiler versions also produce a lot of false positives.
 
-	Arnd 
+	Arnd
