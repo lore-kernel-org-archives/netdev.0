@@ -1,813 +1,408 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [RFC PATCH net-next 1/5] bpf: LRU List
-Date: Sat, 1 Oct 2016 20:58:29 -0700
-Message-ID: <1475380713-4106095-1-git-send-email-kafai@fb.com>
+Subject: [RFC PATCH net-next 3/5] bpf: ADD BPF_MAP_TYPE_LRU_HASH
+Date: Sat, 1 Oct 2016 20:58:31 -0700
+Message-ID: <1475380713-4106095-3-git-send-email-kafai@fb.com>
+References: <1475380713-4106095-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: FB Kernel Team <kernel-team@fb.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:43460 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751388AbcJBD6g (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 1 Oct 2016 23:58:36 -0400
-Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u923soNn011576
-        for <netdev@vger.kernel.org>; Sat, 1 Oct 2016 20:58:36 -0700
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:36124 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751628AbcJBD6i (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 1 Oct 2016 23:58:38 -0400
+Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
+        by m0001303.ppops.net (8.16.0.17/8.16.0.17) with SMTP id u923vW3t008894
+        for <netdev@vger.kernel.org>; Sat, 1 Oct 2016 20:58:37 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 25tau5axe1-1
+        by m0001303.ppops.net with ESMTP id 25t8tb3ep3-1
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Sat, 01 Oct 2016 20:58:35 -0700
+        for <netdev@vger.kernel.org>; Sat, 01 Oct 2016 20:58:37 -0700
 Received: from facebook.com (2401:db00:11:d0a6:face:0:33:0)     by
- mx-out.facebook.com (10.212.232.63) with ESMTP id
- 7d5e0b72885411e683a70002c992ebde-399fba50 for <netdev@vger.kernel.org>;        Sat,
+ mx-out.facebook.com (10.212.236.89) with ESMTP id
+ 7d731aa8885411e6832a0002c95209d8-ed83b6d0 for <netdev@vger.kernel.org>;        Sat,
  01 Oct 2016 20:58:34 -0700
+In-Reply-To: <1475380713-4106095-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Introduce bpf_lru_list which will provide LRU capability to
-the bpf_htab in the later patch.
-
-General Thoughts:
-1. Target use case.  Read is more often than update.
-   (i.e. bpf_lookup_elem() is more often than bpf_update_elem()).
-   If bpf_prog does a bpf_lookup_elem() first and then an in-place
-   update, it still counts as a read operation to the LRU list concern.
-2. It may be useful to think of it as a LRU cache
-3. Optimize the read case
-   3.1 No lock in read case
-   3.2 The LRU maintenance is only done during bpf_update_elem()
-4. If there is a percpu LRU list, it will lose the system-wise LRU
-   property.  A completely isolated percpu LRU list has the best
-   performance but the memory utilization is not ideal considering
-   the work load may be imbalance.
-5. Hence, this patch starts the LRU implementation with a global LRU
-   list with batched operations before accessing the global LRU list.
-6. There is a percpu list which is named 'struct bpf_lru_locallist' in
-   the code.  The local list is to batch enough operations before
-   acquiring the lock of the global LRU list.  More details on this later.
-
-Global LRU List:
-1. It has three sub-lists: active-list, inactive-list and free-list.
-2. The two list idea, active and inactive, is borrowed from the
-   page cache.
-3. All nodes are pre-allocated and all sit at the free-list (of the
-   global LRU list) at the beginning.  The pre-allocated reasoning
-   is similar to the existing BPF_MAP_TYPE_HASH.  However,
-   opting-out prealloc (BPF_F_NO_PREALLOC) is not supported in
-   the LRU map.
-
-Active/Inactive List (of the global LRU list):
-1. The active list, as its name says it, maintains the active set of
-   the nodes.  We can think of it as the working set or more frequently
-   accessed nodes.  The access frequency is approximated by a ref-bit.
-   The ref-bit is set during the bpf_lookup_elem().
-2. The inactive list, as its name also says it, maintains a less
-   active set of nodes.  They are the candidates to be removed
-   from the bpf_htab when we are running out of free nodes.
-3. The ordering of these two lists is acting as a rough clock.
-   The tail of the inactive list is the older nodes and
-   should be released first if the bpf_htab needs free element.
-
-Rotating the Active/Inactive List (of the global LRU list):
-1. It is the basic operation to maintain the LRU property of
-   the global list.
-2. The active list is only rotated when the inactive list is running
-   low.  This idea is similar to the current page cache.
-   Inactive running low is currently defined as
-   "# of inactive < # of active".
-3. The active list rotation always starts from the tail.  It moves
-   node without ref-bit set to the head of the inactive list.
-   It moves node with ref-bit set back to the head of the active
-   list and then clears its ref-bit.
-4. The inactive rotation is pretty simply.
-   It walks the inactive list and moves the nodes back to the head of
-   active list if its ref-bit is set. The ref-bit is cleared after moving
-   to the active list.
-   If the node does not have ref-bit set, it just leave it as it is
-   because it is already in the inactive list.
-
-Shrinking the Inactive List (of the global LRU list):
-1. Shrinking is the operation to get free nodes when the bpf_htab is
-   full.
-2. It usually only shrinks the inactive list to get free nodes.
-3. During shrinking, it will walk the inactive list from the tail,
-   delete the nodes without ref-bit set from bpf_htab.
-4. If no free node found after step (3), it will forcefully get
-   one node from the tail of inactive or active list.  Forcefully is
-   in the sense that it ignores the ref-bit.
-
-Local List:
-1. Each CPU has a 'struct bpf_lru_locallist'.  The purpose is to
-   batch enough operations before acquiring the lock of the
-   global LRU.
-2. A local list has two sub-lists, free-list and pending-list.
-3. During bpf_update_elem(), it will try to get from the free-list
-   of (the current CPU local list).
-4. If the local free-list is empty, it will acquire from the
-   global LRU list.  The global LRU list can either satisfy it
-   by its global free-list or by shrinking the global inactive
-   list.  Since we have acquired the global LRU list lock,
-   it will try to get at most LOCAL_FREE_TARGET elements
-   to the local free list.
-5. When a new element is added to the bpf_htab, it will
-   first sit at the pending-list (of the local list) first.
-   The pending-list will be flushed to the global LRU list
-   when it needs to acquire free nodes from the global list
-   next time.
+Provide a LRU version of the existing BPF_MAP_TYPE_HASH.
 
 Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 ---
- kernel/bpf/Makefile       |   2 +-
- kernel/bpf/bpf_lru_list.c | 585 ++++++++++++++++++++++++++++++++++++++++++++++
- kernel/bpf/bpf_lru_list.h |  74 ++++++
- 3 files changed, 660 insertions(+), 1 deletion(-)
- create mode 100644 kernel/bpf/bpf_lru_list.c
- create mode 100644 kernel/bpf/bpf_lru_list.h
+ include/uapi/linux/bpf.h |   1 +
+ kernel/bpf/hashtab.c     | 234 ++++++++++++++++++++++++++++++++++++++++++++---
+ 2 files changed, 222 insertions(+), 13 deletions(-)
 
-diff --git a/kernel/bpf/Makefile b/kernel/bpf/Makefile
-index eed911d..c4d89d6 100644
---- a/kernel/bpf/Makefile
-+++ b/kernel/bpf/Makefile
-@@ -1,7 +1,7 @@
- obj-y := core.o
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index f896dfa..c153ff8 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -85,6 +85,7 @@ enum bpf_map_type {
+ 	BPF_MAP_TYPE_PERCPU_ARRAY,
+ 	BPF_MAP_TYPE_STACK_TRACE,
+ 	BPF_MAP_TYPE_CGROUP_ARRAY,
++	BPF_MAP_TYPE_LRU_HASH,
+ };
  
- obj-$(CONFIG_BPF_SYSCALL) += syscall.o verifier.o inode.o helpers.o
--obj-$(CONFIG_BPF_SYSCALL) += hashtab.o arraymap.o percpu_freelist.o
-+obj-$(CONFIG_BPF_SYSCALL) += hashtab.o arraymap.o percpu_freelist.o bpf_lru_list.o
- ifeq ($(CONFIG_PERF_EVENTS),y)
- obj-$(CONFIG_BPF_SYSCALL) += stackmap.o
- endif
-diff --git a/kernel/bpf/bpf_lru_list.c b/kernel/bpf/bpf_lru_list.c
-new file mode 100644
-index 0000000..4581872
---- /dev/null
-+++ b/kernel/bpf/bpf_lru_list.c
-@@ -0,0 +1,585 @@
-+/* Copyright (c) 2016 Facebook
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ */
-+#include <linux/cpumask.h>
-+#include <linux/spinlock.h>
-+#include <linux/percpu.h>
-+
+ enum bpf_prog_type {
+diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
+index a5e3915..1493d98 100644
+--- a/kernel/bpf/hashtab.c
++++ b/kernel/bpf/hashtab.c
+@@ -15,6 +15,7 @@
+ #include <linux/filter.h>
+ #include <linux/vmalloc.h>
+ #include "percpu_freelist.h"
 +#include "bpf_lru_list.h"
+ 
+ struct bucket {
+ 	struct hlist_head head;
+@@ -25,7 +26,10 @@ struct bpf_htab {
+ 	struct bpf_map map;
+ 	struct bucket *buckets;
+ 	void *elems;
+-	struct pcpu_freelist freelist;
++	union {
++		struct pcpu_freelist freelist;
++		struct bpf_lru lru;
++	};
+ 	void __percpu *extra_elems;
+ 	atomic_t count;	/* number of elements in this hashtable */
+ 	u32 n_buckets;	/* number of hash buckets */
+@@ -48,11 +52,19 @@ struct htab_elem {
+ 	union {
+ 		struct rcu_head rcu;
+ 		enum extra_elem_state state;
++		struct bpf_lru_node lru_node;
+ 	};
+ 	u32 hash;
+ 	char key[0] __aligned(8);
+ };
+ 
++static bool htab_lru_map_delete_node(void *arg, struct bpf_lru_node *node);
 +
-+/* The max number of elements to process when walking a list */
-+#define MAX_WALKS			(128)
-+
-+/* Whenever we acquire the global LRU's lock to get free nodes,
-+ * we try to get LOCAL_FREE_TARGET number of free elements to
-+ * the local list.
-+ */
-+#define LOCAL_FREE_TARGET		(128)
-+
-+/* Helpers to get the local list index */
-+#define LOCAL_LIST_IDX(t)	((t) - BPF_LOCAL_LIST_T_OFFSET)
-+#define LOCAL_FREE_LIST_IDX	LOCAL_LIST_IDX(BPF_LRU_LOCAL_LIST_T_FREE)
-+#define LOCAL_PENDING_LIST_IDX	LOCAL_LIST_IDX(BPF_LRU_LOCAL_LIST_T_PENDING)
-+#define IS_LOCAL_LIST_TYPE(t)	((t) >= BPF_LOCAL_LIST_T_OFFSET)
-+
-+static int get_next_cpu(int cpu)
++static bool htab_is_lru(const struct bpf_htab *htab)
 +{
-+	cpu = cpumask_next(cpu, cpu_possible_mask);
-+	if (cpu >= nr_cpu_ids)
-+		cpu = cpumask_first(cpu_possible_mask);
-+	return cpu;
++	return htab->map.map_type == BPF_MAP_TYPE_LRU_HASH;
 +}
 +
-+/* Local list helpers */
-+static struct list_head *local_free_list(struct bpf_lru_locallist *loc_l)
+ static inline void htab_elem_set_ptr(struct htab_elem *l, u32 key_size,
+ 				     void __percpu *pptr)
+ {
+@@ -87,7 +99,22 @@ free_elems:
+ 	vfree(htab->elems);
+ }
+ 
+-static int prealloc_elems_and_freelist(struct bpf_htab *htab)
++static struct htab_elem *prealloc_lru_pop(struct bpf_htab *htab, void *key,
++					  u32 hash)
 +{
-+	return &loc_l->lists[LOCAL_FREE_LIST_IDX];
-+}
++	struct bpf_lru_node *node = bpf_lru_pop_free(&htab->lru, hash);
++	struct htab_elem *l;
 +
-+static struct list_head *local_pending_list(struct bpf_lru_locallist *loc_l)
-+{
-+	return &loc_l->lists[LOCAL_PENDING_LIST_IDX];
-+}
-+
-+/* bpf_lru_node helpers */
-+static bool bpf_lru_node_is_ref(const struct bpf_lru_node *node)
-+{
-+	return node->ref;
-+}
-+
-+static void bpf_lru_list_count_inc(struct bpf_lru_list *l,
-+				   enum bpf_lru_list_type type)
-+{
-+	if (type < NR_BPF_LRU_LIST_COUNT)
-+		l->counts[type]++;
-+}
-+
-+static void bpf_lru_list_count_dec(struct bpf_lru_list *l,
-+				   enum bpf_lru_list_type type)
-+{
-+	if (type < NR_BPF_LRU_LIST_COUNT)
-+		l->counts[type]--;
-+}
-+
-+/* Move nodes out of the global LRU list to the local free list.
-+ *
-+ * @l: The global LRU list
-+ * @loc_l: The local list
-+ * @node: The node which is already in the global LRU list
-+ */
-+static void __bpf_lru_node_move_out(struct bpf_lru_list *l,
-+				    struct bpf_lru_locallist *loc_l,
-+				    struct bpf_lru_node *node)
-+{
-+	if (WARN_ON_ONCE(IS_LOCAL_LIST_TYPE(node->type)))
-+		return;
-+
-+	/* If the removing node is the next_inactive_rotation candidate,
-+	 * move the next_inactive_rotation pointer also.
-+	 */
-+	if (&node->list == l->next_inactive_rotation)
-+		l->next_inactive_rotation = l->next_inactive_rotation->prev;
-+
-+	bpf_lru_list_count_dec(l, node->type);
-+
-+	node->type = BPF_LRU_LOCAL_LIST_T_FREE;
-+	node->cpu = loc_l->cpu;
-+	list_move(&node->list, local_free_list(loc_l));
-+}
-+
-+/* Move nodes from local list to the global LRU list
-+ *
-+ * @l: The global LRU list
-+ * @node: The node which is already in the local list
-+ * @tgt_type: The target list type
-+ */
-+static void __bpf_lru_node_move_in(struct bpf_lru_list *l,
-+				   struct bpf_lru_node *node,
-+				   enum bpf_lru_list_type tgt_type)
-+{
-+	if (WARN_ON_ONCE(!IS_LOCAL_LIST_TYPE(node->type)) ||
-+	    WARN_ON_ONCE(IS_LOCAL_LIST_TYPE(tgt_type)))
-+		return;
-+
-+	bpf_lru_list_count_inc(l, tgt_type);
-+	node->type = tgt_type;
-+	node->ref = 0;
-+	list_move(&node->list, &l->lists[tgt_type]);
-+}
-+
-+/* Move nodes between or within active and inactive list (like
-+ * active to inactive, inactive to active or tail of active back to
-+ * the head of active).
-+ *
-+ * @l: The global LRU list
-+ * @node: A node which is already in the global LRU list
-+ * @tgt_type: The target list type
-+ */
-+static void __bpf_lru_node_move(struct bpf_lru_list *l,
-+				struct bpf_lru_node *node,
-+				enum bpf_lru_list_type tgt_type)
-+{
-+	if (WARN_ON_ONCE(IS_LOCAL_LIST_TYPE(node->type)) ||
-+	    WARN_ON_ONCE(IS_LOCAL_LIST_TYPE(tgt_type)))
-+		return;
-+
-+	if (node->type != tgt_type) {
-+		bpf_lru_list_count_dec(l, node->type);
-+		bpf_lru_list_count_inc(l, tgt_type);
-+		node->type = tgt_type;
-+	}
-+	node->ref = 0;
-+
-+	/* If the moving node is the next_inactive_rotation candidate,
-+	 * move the next_inactive_rotation pointer also.
-+	 */
-+	if (&node->list == l->next_inactive_rotation)
-+		l->next_inactive_rotation = l->next_inactive_rotation->prev;
-+
-+	list_move(&node->list, &l->lists[tgt_type]);
-+}
-+
-+static bool bpf_lru_list_inactive_low(const struct bpf_lru_list *l)
-+{
-+	return l->counts[BPF_LRU_LIST_T_INACTIVE] <
-+		l->counts[BPF_LRU_LIST_T_ACTIVE];
-+}
-+
-+/* Rotate the active list (of the global LRU list):
-+ * 1. Start from tail
-+ * 2. If the node has the ref bit set, it will be rotated
-+ *    back to the head of active list with the ref bit cleared.
-+ *    Give this node one more chance to survive in the active list.
-+ * 3. If the ref bit is not set, move it to the head of the
-+ *    inactive list.
-+ * 4. It will at most scan MAX_WALKS nodes
-+ */
-+static void __bpf_lru_list_rotate_active(struct bpf_lru_list *l)
-+{
-+	struct list_head *active = &l->lists[BPF_LRU_LIST_T_ACTIVE];
-+	struct bpf_lru_node *node, *tmp_node, *first_node;
-+	int i = 0;
-+
-+	first_node = list_first_entry(active, struct bpf_lru_node, list);
-+	list_for_each_entry_safe_reverse(node, tmp_node, active, list) {
-+		if (bpf_lru_node_is_ref(node))
-+			__bpf_lru_node_move(l, node, BPF_LRU_LIST_T_ACTIVE);
-+		else
-+			__bpf_lru_node_move(l, node, BPF_LRU_LIST_T_INACTIVE);
-+
-+		if (++i == MAX_WALKS || node == first_node)
-+			break;
-+	}
-+}
-+
-+/* Rotate the inactive list (of the global LRU list).  It starts from the
-+ * next_inactive_rotation.
-+ * 1. If the node has ref bit set, it will be moved to the head
-+ *    of active list with the ref bit cleared.
-+ * 2. If the node does not have ref bit set, it will leave it
-+ *    at its current location (i.e. do nothing) so that it can
-+ *    be considered during the next inactive_shrink.
-+ * 3. It will at most scan MAX_WALKS nodes.
-+ */
-+static void __bpf_lru_list_rotate_inactive(struct bpf_lru_list *l)
-+{
-+	struct list_head *inactive = &l->lists[BPF_LRU_LIST_T_INACTIVE];
-+	struct list_head *cur, *next, *last;
-+	struct bpf_lru_node *node;
-+	unsigned int i = 0;
-+
-+	if (list_empty(inactive))
-+		return;
-+
-+	last = l->next_inactive_rotation->next;
-+	if (last == inactive)
-+		last = last->next;
-+
-+	cur = l->next_inactive_rotation;
-+	while (i < MAX_WALKS) {
-+		if (cur == inactive) {
-+			cur = cur->prev;
-+			continue;
-+		}
-+
-+		node = list_entry(cur, struct bpf_lru_node, list);
-+		next = cur->prev;
-+		if (bpf_lru_node_is_ref(node))
-+			__bpf_lru_node_move(l, node, BPF_LRU_LIST_T_ACTIVE);
-+		if (cur == last)
-+			break;
-+		cur = next;
-+		i++;
-+	}
-+
-+	l->next_inactive_rotation = next;
-+}
-+
-+/* Shrink the inactive list (of the global LRU list)
-+ * It starts from the tail of the inactive list and only
-+ * move the nodes without the ref bit set to the
-+ * free list (of the percpu _local_ list).
-+ */
-+static unsigned int __bpf_lru_list_shrink_inactive(struct bpf_lru *lru,
-+					   struct bpf_lru_locallist *loc_l,
-+					   unsigned int tgt_nshrink)
-+{
-+	struct bpf_lru_list *l = &lru->lru_list;
-+	struct list_head *inactive = &l->lists[BPF_LRU_LIST_T_INACTIVE];
-+	struct bpf_lru_node *node, *tmp_node, *first_node;
-+	unsigned int nshrinked = 0;
-+	int i = 0;
-+
-+	first_node = list_first_entry(inactive, struct bpf_lru_node, list);
-+	list_for_each_entry_safe_reverse(node, tmp_node, inactive, list) {
-+		if (bpf_lru_node_is_ref(node))
-+			__bpf_lru_node_move(l, node, BPF_LRU_LIST_T_ACTIVE);
-+		else if (lru->del_from_htab(lru->del_arg, node)) {
-+			__bpf_lru_node_move_out(l, loc_l, node);
-+			if (++nshrinked == tgt_nshrink)
-+				break;
-+		}
-+
-+		if (++i == MAX_WALKS)
-+			break;
-+	}
-+
-+	return nshrinked;
-+}
-+
-+/* 1. Rotate the active list (if needed)
-+ * 2. Always rotate the inactive list
-+ */
-+static void __bpf_lru_list_rotate(struct bpf_lru_list *l)
-+{
-+	if (bpf_lru_list_inactive_low(l))
-+		__bpf_lru_list_rotate_active(l);
-+
-+	__bpf_lru_list_rotate_inactive(l);
-+}
-+
-+/* Calls __bpf_lru_list_shrink_inactive() to shrink some
-+ * ref-bit-cleared nodes and move them to the
-+ * free list (of a _local_ list).
-+ *
-+ * If the _local_ list has no free nodes after calling
-+ * __bpf_lru_list_shrink_inactive().  It will just remove
-+ * one node from either inactive or active list without
-+ * honoring the ref-bit.  It prefers inactive list to active
-+ * list in this situation.
-+ */
-+static unsigned int __bpf_lru_list_shrink(struct bpf_lru *lru,
-+				  struct bpf_lru_locallist *loc_l,
-+				  unsigned int tgt_nshrink)
-+{
-+	struct bpf_lru_list *l = &lru->lru_list;
-+	struct bpf_lru_node *node, *tmp_node;
-+	struct list_head *force_shrink_list;
-+	unsigned int nshrinked;
-+
-+	nshrinked = __bpf_lru_list_shrink_inactive(lru, loc_l, tgt_nshrink);
-+	if (nshrinked)
-+		return nshrinked;
-+
-+	/* Do a force shrink by ignoring the reference bit */
-+	if (!list_empty(&l->lists[BPF_LRU_LIST_T_INACTIVE]))
-+		force_shrink_list = &l->lists[BPF_LRU_LIST_T_INACTIVE];
-+	else
-+		force_shrink_list = &l->lists[BPF_LRU_LIST_T_ACTIVE];
-+
-+	list_for_each_entry_safe_reverse(node, tmp_node, force_shrink_list,
-+					 list) {
-+		if (lru->del_from_htab(lru->del_arg, node)) {
-+			__bpf_lru_node_move_out(l, loc_l, node);
-+			return 1;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+static unsigned int __bpf_lru_list_get_free(struct bpf_lru_list *l,
-+				    struct bpf_lru_locallist *loc_l,
-+				    unsigned int tgt_nfree)
-+{
-+	struct bpf_lru_node *node, *tmp_node;
-+	unsigned int nfree = 0;
-+
-+	list_for_each_entry_safe(node, tmp_node, &l->lists[BPF_LRU_LIST_T_FREE],
-+				 list) {
-+		__bpf_lru_node_move_out(l, loc_l, node);
-+
-+		if (++nfree == tgt_nfree)
-+			break;
-+	}
-+
-+	return nfree;
-+}
-+
-+static void __local_list_flush(struct bpf_lru_list *l,
-+			       struct bpf_lru_locallist *loc_l)
-+{
-+	struct bpf_lru_node *node, *tmp_node;
-+
-+	list_for_each_entry_safe_reverse(node, tmp_node,
-+					 local_pending_list(loc_l), list) {
-+		if (bpf_lru_node_is_ref(node))
-+			__bpf_lru_node_move_in(l, node, BPF_LRU_LIST_T_ACTIVE);
-+		else
-+			__bpf_lru_node_move_in(l, node,
-+					       BPF_LRU_LIST_T_INACTIVE);
-+	}
-+}
-+
-+static void bpf_lru_list_push_free(struct bpf_lru_list *l,
-+				   struct bpf_lru_node *node)
-+{
-+	unsigned long flags;
-+
-+	if (WARN_ON_ONCE(IS_LOCAL_LIST_TYPE(node->type)))
-+		return;
-+
-+	raw_spin_lock_irqsave(&l->lock, flags);
-+	__bpf_lru_node_move(l, node, BPF_LRU_LIST_T_FREE);
-+	raw_spin_unlock_irqrestore(&l->lock, flags);
-+}
-+
-+static void bpf_lru_list_pop_free(struct bpf_lru *lru,
-+				  struct bpf_lru_locallist *loc_l)
-+{
-+	struct bpf_lru_list *l = &lru->lru_list;
-+	unsigned int nfree;
-+
-+	raw_spin_lock(&l->lock);
-+
-+	__local_list_flush(l, loc_l);
-+
-+	__bpf_lru_list_rotate(l);
-+
-+	nfree = __bpf_lru_list_get_free(l, loc_l, LOCAL_FREE_TARGET);
-+	if (nfree < LOCAL_FREE_TARGET)
-+		__bpf_lru_list_shrink(lru, loc_l, LOCAL_FREE_TARGET - nfree);
-+
-+	raw_spin_unlock(&l->lock);
-+}
-+
-+static void __local_list_add_pending(struct bpf_lru *lru,
-+				     struct bpf_lru_locallist *loc_l,
-+				     struct bpf_lru_node *node,
-+				     u32 hash)
-+{
-+	*(u32 *)((void *)node + lru->hash_offset) = hash;
-+	node->type = BPF_LRU_LOCAL_LIST_T_PENDING;
-+	node->ref = 0;
-+	list_add(&node->list, local_pending_list(loc_l));
-+}
-+
-+struct bpf_lru_node *__local_list_pop_free(struct bpf_lru_locallist *loc_l)
-+{
-+	struct bpf_lru_node *node;
-+
-+	node = list_first_entry_or_null(local_free_list(loc_l),
-+					struct bpf_lru_node,
-+					list);
-+	if (node)
-+		list_del(&node->list);
-+
-+	return node;
-+}
-+
-+struct bpf_lru_node *__local_list_pop_pending(struct bpf_lru *lru,
-+					      struct bpf_lru_locallist *loc_l)
-+{
-+	struct bpf_lru_node *node;
-+	bool force = false;
-+
-+ignore_ref:
-+	/* Get from the tail (i.e. older element) of the pending list. */
-+	list_for_each_entry_reverse(node, local_pending_list(loc_l),
-+				    list) {
-+		if ((!bpf_lru_node_is_ref(node) || force) &&
-+		    lru->del_from_htab(lru->del_arg, node)) {
-+			list_del(&node->list);
-+			return node;
-+		}
-+	}
-+
-+	if (!force) {
-+		force = true;
-+		goto ignore_ref;
++	if (node) {
++		l = container_of(node, struct htab_elem, lru_node);
++		memcpy(l->key, key, htab->map.key_size);
++		return l;
 +	}
 +
 +	return NULL;
 +}
 +
-+struct bpf_lru_node *bpf_lru_pop_free(struct bpf_lru *lru, u32 hash)
++static int prealloc_init(struct bpf_htab *htab)
+ {
+ 	int err = -ENOMEM, i;
+ 
+@@ -110,12 +137,26 @@ static int prealloc_elems_and_freelist(struct bpf_htab *htab)
+ 	}
+ 
+ skip_percpu_elems:
+-	err = pcpu_freelist_init(&htab->freelist);
++	if (htab_is_lru(htab))
++		err = bpf_lru_init(&htab->lru,
++				   offsetof(struct htab_elem, hash) -
++				   offsetof(struct htab_elem, lru_node),
++				   htab_lru_map_delete_node,
++				   htab);
++	else
++		err = pcpu_freelist_init(&htab->freelist);
++
+ 	if (err)
+ 		goto free_elems;
+ 
+-	pcpu_freelist_populate(&htab->freelist, htab->elems, htab->elem_size,
+-			       htab->map.max_entries);
++	if (htab_is_lru(htab))
++		bpf_lru_populate(&htab->lru, htab->elems,
++				 offsetof(struct htab_elem, lru_node),
++				 htab->elem_size, htab->map.max_entries);
++	else
++		pcpu_freelist_populate(&htab->freelist, htab->elems,
++				       htab->elem_size, htab->map.max_entries);
++
+ 	return 0;
+ 
+ free_elems:
+@@ -123,6 +164,16 @@ free_elems:
+ 	return err;
+ }
+ 
++static void prealloc_destroy(struct bpf_htab *htab)
 +{
-+	struct bpf_lru_locallist *loc_l, *steal_loc_l;
-+	struct bpf_lru_node *node;
-+	int steal, first_steal;
-+	unsigned long flags;
++	htab_free_elems(htab);
 +
-+	loc_l = this_cpu_ptr(lru->local_list);
-+
-+	raw_spin_lock_irqsave(&loc_l->lock, flags);
-+
-+	node = __local_list_pop_free(loc_l);
-+	if (!node) {
-+		bpf_lru_list_pop_free(lru, loc_l);
-+		node = __local_list_pop_free(loc_l);
-+	}
-+
-+	if (node)
-+		__local_list_add_pending(lru, loc_l, node, hash);
-+
-+	raw_spin_unlock_irqrestore(&loc_l->lock, flags);
-+
-+	if (node)
-+		return node;
-+
-+	/* No free nodes found from the local free list and
-+	 * the global LRU list.
-+	 *
-+	 * Steal from the local free/pending list of the
-+	 * current CPU and remote CPU in RR.  It starts
-+	 * with the loc_l->next_steal CPU.
-+	 */
-+
-+	first_steal = loc_l->next_steal;
-+	steal = first_steal;
-+	do {
-+		steal_loc_l = per_cpu_ptr(lru->local_list, steal);
-+
-+		raw_spin_lock_irqsave(&steal_loc_l->lock, flags);
-+
-+		node = __local_list_pop_free(steal_loc_l);
-+		if (!node)
-+			node = __local_list_pop_pending(lru, steal_loc_l);
-+
-+		raw_spin_unlock_irqrestore(&steal_loc_l->lock, flags);
-+
-+		steal = get_next_cpu(steal);
-+	} while (!node && steal != first_steal);
-+
-+	loc_l->next_steal = steal;
-+
-+	if (node) {
-+		raw_spin_lock_irqsave(&loc_l->lock, flags);
-+		__local_list_add_pending(lru, loc_l, node, hash);
-+		raw_spin_unlock_irqrestore(&loc_l->lock, flags);
-+	}
-+
-+	return node;
++	if (htab_is_lru(htab))
++		bpf_lru_destroy(&htab->lru);
++	else
++		pcpu_freelist_destroy(&htab->freelist);
 +}
 +
-+void bpf_lru_push_free(struct bpf_lru *lru, struct bpf_lru_node *node)
+ static int alloc_extra_elems(struct bpf_htab *htab)
+ {
+ 	void __percpu *pptr;
+@@ -144,6 +195,8 @@ static int alloc_extra_elems(struct bpf_htab *htab)
+ static struct bpf_map *htab_map_alloc(union bpf_attr *attr)
+ {
+ 	bool percpu = attr->map_type == BPF_MAP_TYPE_PERCPU_HASH;
++	bool lru = attr->map_type == BPF_MAP_TYPE_LRU_HASH;
++	bool prealloc = !(attr->map_flags & BPF_F_NO_PREALLOC);
+ 	struct bpf_htab *htab;
+ 	int err, i;
+ 	u64 cost;
+@@ -152,6 +205,9 @@ static struct bpf_map *htab_map_alloc(union bpf_attr *attr)
+ 		/* reserved bits should not be used */
+ 		return ERR_PTR(-EINVAL);
+ 
++	if (lru && !prealloc)
++		return ERR_PTR(-ENOTSUPP);
++
+ 	htab = kzalloc(sizeof(*htab), GFP_USER);
+ 	if (!htab)
+ 		return ERR_PTR(-ENOMEM);
+@@ -241,14 +297,14 @@ static struct bpf_map *htab_map_alloc(union bpf_attr *attr)
+ 		raw_spin_lock_init(&htab->buckets[i].lock);
+ 	}
+ 
+-	if (!percpu) {
++	if (!percpu && !lru) {
+ 		err = alloc_extra_elems(htab);
+ 		if (err)
+ 			goto free_buckets;
+ 	}
+ 
+-	if (!(attr->map_flags & BPF_F_NO_PREALLOC)) {
+-		err = prealloc_elems_and_freelist(htab);
++	if (prealloc) {
++		err = prealloc_init(htab);
+ 		if (err)
+ 			goto free_extra_elems;
+ 	}
+@@ -323,6 +379,47 @@ static void *htab_map_lookup_elem(struct bpf_map *map, void *key)
+ 	return NULL;
+ }
+ 
++static void *htab_lru_map_lookup_elem(struct bpf_map *map, void *key)
 +{
++	struct htab_elem *l = __htab_map_lookup_elem(map, key);
++
++	if (l) {
++		bpf_lru_node_set_ref(&l->lru_node);
++		return l->key + round_up(map->key_size, 8);
++	}
++
++	return NULL;
++}
++
++/* It is called from the bpf_lru_list when the LRU needs to delete
++ * older elements from the htab.
++ */
++static bool htab_lru_map_delete_node(void *arg, struct bpf_lru_node *node)
++{
++	struct bpf_htab *htab = (struct bpf_htab *)arg;
++	struct htab_elem *l, *tgt_l;
++	struct hlist_head *head;
 +	unsigned long flags;
++	struct bucket *b;
 +
-+	if (WARN_ON_ONCE(node->type == BPF_LRU_LIST_T_FREE) ||
-+	    WARN_ON_ONCE(node->type == BPF_LRU_LOCAL_LIST_T_FREE))
-+		return;
++	tgt_l = container_of(node, struct htab_elem, lru_node);
++	b = __select_bucket(htab, tgt_l->hash);
++	head = &b->head;
 +
-+	if (node->type == BPF_LRU_LOCAL_LIST_T_PENDING) {
-+		struct bpf_lru_locallist *loc_l;
++	raw_spin_lock_irqsave(&b->lock, flags);
 +
-+		loc_l = per_cpu_ptr(lru->local_list, node->cpu);
-+
-+		raw_spin_lock_irqsave(&loc_l->lock, flags);
-+
-+		if (unlikely(node->type != BPF_LRU_LOCAL_LIST_T_PENDING)) {
-+			raw_spin_unlock_irqrestore(&loc_l->lock, flags);
-+			goto check_lru_list;
++	hlist_for_each_entry_rcu(l, head, hash_node)
++		if (l == tgt_l) {
++			hlist_del_rcu(&l->hash_node);
++			break;
 +		}
 +
-+		node->type = BPF_LRU_LOCAL_LIST_T_FREE;
-+		node->ref = 0;
-+		list_move(&node->list, local_free_list(loc_l));
 +
-+		raw_spin_unlock_irqrestore(&loc_l->lock, flags);
-+		return;
-+	}
++	raw_spin_unlock_irqrestore(&b->lock, flags);
 +
-+check_lru_list:
-+	bpf_lru_list_push_free(&lru->lru_list, node);
++	return l == tgt_l;
 +}
 +
-+void bpf_lru_populate(struct bpf_lru *lru, void *buf, u32 node_offset,
-+		      u32 elem_size, u32 nr_elems)
+ /* Called from syscall */
+ static int htab_map_get_next_key(struct bpf_map *map, void *key, void *next_key)
+ {
+@@ -579,6 +676,70 @@ err:
+ 	return ret;
+ }
+ 
++static int htab_lru_map_update_elem(struct bpf_map *map, void *key, void *value,
++				    u64 map_flags)
 +{
-+	struct bpf_lru_list *l = &lru->lru_list;
-+	u32 i;
++	struct bpf_htab *htab = container_of(map, struct bpf_htab, map);
++	struct htab_elem *l_new, *l_old = NULL;
++	struct hlist_head *head;
++	unsigned long flags;
++	struct bucket *b;
++	u32 key_size, hash;
++	int ret;
 +
-+	for (i = 0; i < nr_elems; i++) {
-+		struct bpf_lru_node *node;
++	if (unlikely(map_flags > BPF_EXIST))
++		/* unknown flags */
++		return -EINVAL;
 +
-+		node = (struct bpf_lru_node *)(buf + node_offset);
-+		node->type = BPF_LRU_LIST_T_FREE;
-+		node->ref = 0;
-+		list_add(&node->list, &l->lists[BPF_LRU_LIST_T_FREE]);
-+		buf += elem_size;
-+	}
-+}
++	WARN_ON_ONCE(!rcu_read_lock_held());
 +
-+static void bpf_lru_locallist_init(struct bpf_lru_locallist *loc_l, int cpu)
-+{
-+	int i;
++	key_size = map->key_size;
 +
-+	for (i = 0; i < NR_BPF_LRU_LOCAL_LIST_T; i++)
-+		INIT_LIST_HEAD(&loc_l->lists[i]);
++	hash = htab_map_hash(key, key_size);
 +
-+	loc_l->cpu = cpu;
-+	loc_l->next_steal = cpu;
++	b = __select_bucket(htab, hash);
++	head = &b->head;
 +
-+	raw_spin_lock_init(&loc_l->lock);
-+}
-+
-+static void bpf_lru_list_init(struct bpf_lru_list *l)
-+{
-+	int i;
-+
-+	for (i = 0; i < NR_BPF_LRU_LIST_T; i++)
-+		INIT_LIST_HEAD(&l->lists[i]);
-+
-+	for (i = 0; i < NR_BPF_LRU_LIST_COUNT; i++)
-+		l->counts[i] = 0;
-+
-+	l->next_inactive_rotation = &l->lists[BPF_LRU_LIST_T_INACTIVE];
-+
-+	raw_spin_lock_init(&l->lock);
-+}
-+
-+int bpf_lru_init(struct bpf_lru *lru,
-+		 u32 hash_offset,
-+		 del_from_htab_func del_from_htab,
-+		 void *del_arg)
-+{
-+	int cpu;
-+
-+	lru->local_list = alloc_percpu(struct bpf_lru_locallist);
-+	if (!lru->local_list)
++	/* For LRU, we need to alloc before taking bucket's
++	 * spinlock because getting free nodes from LRU may need
++	 * to remove older elements from htab and this removal
++	 * operation will need a bucket lock.
++	 */
++	l_new = prealloc_lru_pop(htab, key, hash);
++	if (!l_new)
 +		return -ENOMEM;
++	memcpy(l_new->key + round_up(map->key_size, 8), value, map->value_size);
 +
-+	for_each_possible_cpu(cpu) {
-+		struct bpf_lru_locallist *loc_l;
++	/* bpf_map_update_elem() can be called in_irq() */
++	raw_spin_lock_irqsave(&b->lock, flags);
 +
-+		loc_l = per_cpu_ptr(lru->local_list, cpu);
-+		bpf_lru_locallist_init(loc_l, cpu);
++	l_old = lookup_elem_raw(head, hash, key, key_size);
++
++	ret = check_flags(htab, l_old, map_flags);
++	if (ret)
++		goto err;
++
++	/* add new element to the head of the list, so that
++	 * concurrent search will find it before old elem
++	 */
++	hlist_add_head_rcu(&l_new->hash_node, head);
++	if (l_old) {
++		bpf_lru_node_set_ref(&l_new->lru_node);
++		hlist_del_rcu(&l_old->hash_node);
++	}
++	ret = 0;
++
++err:
++	raw_spin_unlock_irqrestore(&b->lock, flags);
++
++	if (ret)
++		bpf_lru_push_free(&htab->lru, &l_new->lru_node);
++	else if (l_old)
++		bpf_lru_push_free(&htab->lru, &l_old->lru_node);
++
++	return ret;
++}
++
+ static int __htab_percpu_map_update_elem(struct bpf_map *map, void *key,
+ 					 void *value, u64 map_flags,
+ 					 bool onallcpus)
+@@ -671,6 +832,39 @@ static int htab_map_delete_elem(struct bpf_map *map, void *key)
+ 	return ret;
+ }
+ 
++static int htab_lru_map_delete_elem(struct bpf_map *map, void *key)
++{
++	struct bpf_htab *htab = container_of(map, struct bpf_htab, map);
++	struct hlist_head *head;
++	struct bucket *b;
++	struct htab_elem *l;
++	unsigned long flags;
++	u32 hash, key_size;
++	int ret = -ENOENT;
++
++	WARN_ON_ONCE(!rcu_read_lock_held());
++
++	key_size = map->key_size;
++
++	hash = htab_map_hash(key, key_size);
++	b = __select_bucket(htab, hash);
++	head = &b->head;
++
++	raw_spin_lock_irqsave(&b->lock, flags);
++
++	l = lookup_elem_raw(head, hash, key, key_size);
++
++	if (l) {
++		hlist_del_rcu(&l->hash_node);
++		ret = 0;
 +	}
 +
-+	bpf_lru_list_init(&lru->lru_list);
-+
-+	lru->del_from_htab = del_from_htab;
-+	lru->del_arg = del_arg;
-+	lru->hash_offset = hash_offset;
-+
-+	return 0;
++	raw_spin_unlock_irqrestore(&b->lock, flags);
++	if (l)
++		bpf_lru_push_free(&htab->lru, &l->lru_node);
++	return ret;
 +}
 +
-+void bpf_lru_destroy(struct bpf_lru *lru)
-+{
-+	free_percpu(lru->local_list);
-+}
-diff --git a/kernel/bpf/bpf_lru_list.h b/kernel/bpf/bpf_lru_list.h
-new file mode 100644
-index 0000000..dfe46cd
---- /dev/null
-+++ b/kernel/bpf/bpf_lru_list.h
-@@ -0,0 +1,74 @@
-+/* Copyright (c) 2016 Facebook
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ */
-+#ifndef __BPF_LRU_LIST_H_
-+#define __BPF_LRU_LIST_H_
+ static void delete_all_elements(struct bpf_htab *htab)
+ {
+ 	int i;
+@@ -702,12 +896,11 @@ static void htab_map_free(struct bpf_map *map)
+ 	 * not have executed. Wait for them.
+ 	 */
+ 	rcu_barrier();
+-	if (htab->map.map_flags & BPF_F_NO_PREALLOC) {
++	if (htab->map.map_flags & BPF_F_NO_PREALLOC)
+ 		delete_all_elements(htab);
+-	} else {
+-		htab_free_elems(htab);
+-		pcpu_freelist_destroy(&htab->freelist);
+-	}
++	else
++		prealloc_destroy(htab);
 +
-+#include <linux/list.h>
-+#include <linux/spinlock_types.h>
-+
-+#define NR_BPF_LRU_LIST_T	(3)
-+#define NR_BPF_LRU_LIST_COUNT	(2)
-+#define NR_BPF_LRU_LOCAL_LIST_T (2)
-+#define BPF_LOCAL_LIST_T_OFFSET NR_BPF_LRU_LIST_T
-+
-+enum bpf_lru_list_type {
-+	BPF_LRU_LIST_T_ACTIVE,
-+	BPF_LRU_LIST_T_INACTIVE,
-+	BPF_LRU_LIST_T_FREE,
-+	BPF_LRU_LOCAL_LIST_T_FREE,
-+	BPF_LRU_LOCAL_LIST_T_PENDING,
+ 	free_percpu(htab->extra_elems);
+ 	kvfree(htab->buckets);
+ 	kfree(htab);
+@@ -727,6 +920,20 @@ static struct bpf_map_type_list htab_type __read_mostly = {
+ 	.type = BPF_MAP_TYPE_HASH,
+ };
+ 
++static const struct bpf_map_ops htab_lru_ops = {
++	.map_alloc = htab_map_alloc,
++	.map_free = htab_map_free,
++	.map_get_next_key = htab_map_get_next_key,
++	.map_lookup_elem = htab_lru_map_lookup_elem,
++	.map_update_elem = htab_lru_map_update_elem,
++	.map_delete_elem = htab_lru_map_delete_elem,
 +};
 +
-+struct bpf_lru_node {
-+	struct list_head list;
-+	u16 cpu;
-+	u8 type;
-+	u8 ref;
++static struct bpf_map_type_list htab_lru_type __read_mostly = {
++	.ops = &htab_lru_ops,
++	.type = BPF_MAP_TYPE_LRU_HASH,
 +};
 +
-+struct bpf_lru_list {
-+	struct list_head lists[NR_BPF_LRU_LIST_T];
-+	unsigned int counts[BPF_LRU_LIST_T_FREE];
-+	/* The next inacitve list rotation starts from here */
-+	struct list_head *next_inactive_rotation;
-+	raw_spinlock_t lock ____cacheline_aligned_in_smp;
-+};
-+
-+struct bpf_lru_locallist {
-+	struct list_head lists[NR_BPF_LRU_LOCAL_LIST_T];
-+	u16 cpu;
-+	u16 next_steal;
-+	raw_spinlock_t lock;
-+};
-+
-+typedef bool (*del_from_htab_func)(void *arg, struct bpf_lru_node *node);
-+
-+struct bpf_lru {
-+	struct bpf_lru_list lru_list;
-+	struct bpf_lru_locallist __percpu *local_list;
-+	del_from_htab_func del_from_htab;
-+	void *del_arg;
-+	unsigned int hash_offset;
-+};
-+
-+static inline void bpf_lru_node_set_ref(struct bpf_lru_node *node)
-+{
-+	node->ref = 1;
-+}
-+
-+int bpf_lru_init(struct bpf_lru *lru,
-+		 u32 hash,
-+		 del_from_htab_func del_from_htab,
-+		 void *delete_arg);
-+void bpf_lru_populate(struct bpf_lru *lru, void *buf, u32 node_offset,
-+		      u32 elem_size, u32 nr_elems);
-+void bpf_lru_destroy(struct bpf_lru *lru);
-+struct bpf_lru_node *bpf_lru_pop_free(struct bpf_lru *lru, u32 hash);
-+void bpf_lru_push_free(struct bpf_lru *lru, struct bpf_lru_node *node);
-+void bpf_lru_promote(struct bpf_lru *lru, struct bpf_lru_node *node);
-+
-+#endif
+ /* Called from eBPF program */
+ static void *htab_percpu_map_lookup_elem(struct bpf_map *map, void *key)
+ {
+@@ -797,6 +1004,7 @@ static int __init register_htab_map(void)
+ {
+ 	bpf_register_map_type(&htab_type);
+ 	bpf_register_map_type(&htab_percpu_type);
++	bpf_register_map_type(&htab_lru_type);
+ 	return 0;
+ }
+ late_initcall(register_htab_map);
 -- 
 2.5.1
