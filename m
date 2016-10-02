@@ -1,47 +1,45 @@
-From: Louie Lu <louie.lu@hopebaytech.com>
-Subject: Assertion faileda at samples/bpf/test_maps
-Date: Sun, 2 Oct 2016 14:55:42 +0800
-Message-ID: <CAEQ0BR4j65Upa_ZLo6yC1khOprvXx1_iVxCKuSxbn+Df1mo_OQ@mail.gmail.com>
+From: Helge Deller <deller@gmx.de>
+Subject: Re: rhashtable - rhashtable_insert_fast failed
+Date: Sun, 2 Oct 2016 11:49:24 +0200
+Message-ID: <57F0D824.9090406@gmx.de>
+References: <5751E702.5040909@gmx.de> <20160604073527.GE29740@orbyte.nwl.cc>
+ <20160606035718.GA19559@gondor.apana.org.au> <5756D69E.1080402@gmx.de>
+ <20160607141656.GB2237@gondor.apana.org.au> <5756DE80.4040705@gmx.de>
+ <20160608023957.GA12209@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Phil Sutter <phil@nwl.cc>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Thomas Graf <tgraf@suug.ch>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f173.google.com ([209.85.161.173]:33947 "EHLO
-        mail-yw0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750864AbcJBGzo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 2 Oct 2016 02:55:44 -0400
-Received: by mail-yw0-f173.google.com with SMTP id g192so91881822ywh.1
-        for <netdev@vger.kernel.org>; Sat, 01 Oct 2016 23:55:43 -0700 (PDT)
+Received: from mout.gmx.net ([212.227.17.21]:49410 "EHLO mout.gmx.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750831AbcJBJtl (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 2 Oct 2016 05:49:41 -0400
+In-Reply-To: <20160608023957.GA12209@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi everyone,
+Hi Herbert,
 
-I'm now playing net-next samples/bpf things, and I found that
-test_maps will give an assertion
+On 08.06.2016 04:39, Herbert Xu wrote:
+> On Tue, Jun 07, 2016 at 04:47:28PM +0200, Helge Deller wrote:
+>> On 07.06.2016 16:16, Herbert Xu wrote:
+>>> On Tue, Jun 07, 2016 at 04:13:50PM +0200, Helge Deller wrote:
+>>>>
+>>>> What warnings do you mean specifically? Some specific CONFIG_ option ?
+>>>
+>>> Look for GFP_NOWARN in lib/rhashtable.c and delete it.
+>>
+>> Ok, removed it.
+>> It generates a kernel warning: 
+> 
+> Thanks.  This is exactly the problem that I'm yet to fix, namely
+> we're trying to allocate a hash table that's too big to be done
+> using physically contiguous memory.
 
-```
-test_maps: /home/grd/linux/net-next/samples/bpf/test_maps.c:146:
-test_percpu_hashmap_sanity: Assertion `bpf_lookup_elem(map_fd, &key,
-value) == -1 && errno == ENOENT' failed.
-[1]    20706 abort (core dumped)  ./test_maps
-```
+I'm still seeing this problem with v4.8-rc8
 
-I've done the check at [[iovisor-dev] Assertion fails at
-samples/bpf/test_maps](http://lists.iovisor.org/pipermail/iovisor-dev/2016-June/000281.html)
-which tells me to set ulimit to unlimited or patching by setrlimit().
-
-The problem is bpf_lookup_elem return -1, and errno return 0.
-
-I'm using Intel(R) Core(TM) i7-2640M and net-next commit:
-803783849fed11, 4.8.0-rc7-ARCH-02283-g8037838.
-
-And, a strange this is when I done this at QEMU, test_maps perform
-will and pass the test.
-
-Is that my hardware problem or something else?
-
-
-Thanks.
-
-Louie Lu.
+Helge
