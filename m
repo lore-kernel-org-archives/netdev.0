@@ -1,201 +1,103 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH 2/2] net: stmmac: use new api ethtool_{get|set}_link_ksettings
-Date: Sun,  2 Oct 2016 22:07:51 +0200
-Message-ID: <1475438871-26735-2-git-send-email-tremyfr@gmail.com>
-References: <1475438871-26735-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        davem@davemloft.net
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with Linus' tree
+Date: Mon, 3 Oct 2016 09:32:13 +1100
+Message-ID: <20161003093213.59af5d22@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Xin Long <lucien.xin@gmail.com>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1475438871-26735-1-git-send-email-tremyfr@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+Hi all,
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |   97 +++++++++++--------
- 1 files changed, 56 insertions(+), 41 deletions(-)
+Today's linux-next merge of the net-next tree got a conflict in:
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-index ac823bf..3fe9340 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-@@ -269,8 +269,8 @@ static void stmmac_ethtool_getdrvinfo(struct net_device *dev,
- 	strlcpy(info->version, DRV_MODULE_VERSION, sizeof(info->version));
- }
- 
--static int stmmac_ethtool_getsettings(struct net_device *dev,
--				      struct ethtool_cmd *cmd)
-+static int stmmac_ethtool_get_link_ksettings(struct net_device *dev,
-+					     struct ethtool_link_ksettings *cmd)
- {
- 	struct stmmac_priv *priv = netdev_priv(dev);
- 	struct phy_device *phy = dev->phydev;
-@@ -279,15 +279,16 @@ static int stmmac_ethtool_getsettings(struct net_device *dev,
- 	if (priv->hw->pcs & STMMAC_PCS_RGMII ||
- 	    priv->hw->pcs & STMMAC_PCS_SGMII) {
- 		struct rgmii_adv adv;
-+		u32 supported, advertising, lp_advertising;
- 
- 		if (!priv->xstats.pcs_link) {
--			ethtool_cmd_speed_set(cmd, SPEED_UNKNOWN);
--			cmd->duplex = DUPLEX_UNKNOWN;
-+			cmd->base.speed = SPEED_UNKNOWN;
-+			cmd->base.duplex = DUPLEX_UNKNOWN;
- 			return 0;
- 		}
--		cmd->duplex = priv->xstats.pcs_duplex;
-+		cmd->base.duplex = priv->xstats.pcs_duplex;
- 
--		ethtool_cmd_speed_set(cmd, priv->xstats.pcs_speed);
-+		cmd->base.speed = priv->xstats.pcs_speed;
- 
- 		/* Get and convert ADV/LP_ADV from the HW AN registers */
- 		if (!priv->hw->mac->pcs_get_adv_lp)
-@@ -297,45 +298,59 @@ static int stmmac_ethtool_getsettings(struct net_device *dev,
- 
- 		/* Encoding of PSE bits is defined in 802.3z, 37.2.1.4 */
- 
-+		ethtool_convert_link_mode_to_legacy_u32(
-+			&supported, cmd->link_modes.supported);
-+		ethtool_convert_link_mode_to_legacy_u32(
-+			&advertising, cmd->link_modes.advertising);
-+		ethtool_convert_link_mode_to_legacy_u32(
-+			&lp_advertising, cmd->link_modes.lp_advertising);
-+
- 		if (adv.pause & STMMAC_PCS_PAUSE)
--			cmd->advertising |= ADVERTISED_Pause;
-+			advertising |= ADVERTISED_Pause;
- 		if (adv.pause & STMMAC_PCS_ASYM_PAUSE)
--			cmd->advertising |= ADVERTISED_Asym_Pause;
-+			advertising |= ADVERTISED_Asym_Pause;
- 		if (adv.lp_pause & STMMAC_PCS_PAUSE)
--			cmd->lp_advertising |= ADVERTISED_Pause;
-+			lp_advertising |= ADVERTISED_Pause;
- 		if (adv.lp_pause & STMMAC_PCS_ASYM_PAUSE)
--			cmd->lp_advertising |= ADVERTISED_Asym_Pause;
-+			lp_advertising |= ADVERTISED_Asym_Pause;
- 
- 		/* Reg49[3] always set because ANE is always supported */
--		cmd->autoneg = ADVERTISED_Autoneg;
--		cmd->supported |= SUPPORTED_Autoneg;
--		cmd->advertising |= ADVERTISED_Autoneg;
--		cmd->lp_advertising |= ADVERTISED_Autoneg;
-+		cmd->base.autoneg = ADVERTISED_Autoneg;
-+		supported |= SUPPORTED_Autoneg;
-+		advertising |= ADVERTISED_Autoneg;
-+		lp_advertising |= ADVERTISED_Autoneg;
- 
- 		if (adv.duplex) {
--			cmd->supported |= (SUPPORTED_1000baseT_Full |
--					   SUPPORTED_100baseT_Full |
--					   SUPPORTED_10baseT_Full);
--			cmd->advertising |= (ADVERTISED_1000baseT_Full |
--					     ADVERTISED_100baseT_Full |
--					     ADVERTISED_10baseT_Full);
-+			supported |= (SUPPORTED_1000baseT_Full |
-+				      SUPPORTED_100baseT_Full |
-+				      SUPPORTED_10baseT_Full);
-+			advertising |= (ADVERTISED_1000baseT_Full |
-+					ADVERTISED_100baseT_Full |
-+					ADVERTISED_10baseT_Full);
- 		} else {
--			cmd->supported |= (SUPPORTED_1000baseT_Half |
--					   SUPPORTED_100baseT_Half |
--					   SUPPORTED_10baseT_Half);
--			cmd->advertising |= (ADVERTISED_1000baseT_Half |
--					     ADVERTISED_100baseT_Half |
--					     ADVERTISED_10baseT_Half);
-+			supported |= (SUPPORTED_1000baseT_Half |
-+				      SUPPORTED_100baseT_Half |
-+				      SUPPORTED_10baseT_Half);
-+			advertising |= (ADVERTISED_1000baseT_Half |
-+					ADVERTISED_100baseT_Half |
-+					ADVERTISED_10baseT_Half);
- 		}
- 		if (adv.lp_duplex)
--			cmd->lp_advertising |= (ADVERTISED_1000baseT_Full |
--						ADVERTISED_100baseT_Full |
--						ADVERTISED_10baseT_Full);
-+			lp_advertising |= (ADVERTISED_1000baseT_Full |
-+					   ADVERTISED_100baseT_Full |
-+					   ADVERTISED_10baseT_Full);
- 		else
--			cmd->lp_advertising |= (ADVERTISED_1000baseT_Half |
--						ADVERTISED_100baseT_Half |
--						ADVERTISED_10baseT_Half);
--		cmd->port = PORT_OTHER;
-+			lp_advertising |= (ADVERTISED_1000baseT_Half |
-+					   ADVERTISED_100baseT_Half |
-+					   ADVERTISED_10baseT_Half);
-+		cmd->base.port = PORT_OTHER;
-+
-+		ethtool_convert_legacy_u32_to_link_mode(
-+			cmd->link_modes.supported, supported);
-+		ethtool_convert_legacy_u32_to_link_mode(
-+			cmd->link_modes.advertising, advertising);
-+		ethtool_convert_legacy_u32_to_link_mode(
-+			cmd->link_modes.lp_advertising, lp_advertising);
- 
- 		return 0;
- 	}
-@@ -350,13 +365,13 @@ static int stmmac_ethtool_getsettings(struct net_device *dev,
- 		"link speed / duplex setting\n", dev->name);
- 		return -EBUSY;
- 	}
--	cmd->transceiver = XCVR_INTERNAL;
--	rc = phy_ethtool_gset(phy, cmd);
-+	rc = phy_ethtool_ksettings_get(phy, cmd);
- 	return rc;
- }
- 
--static int stmmac_ethtool_setsettings(struct net_device *dev,
--				      struct ethtool_cmd *cmd)
-+static int
-+stmmac_ethtool_set_link_ksettings(struct net_device *dev,
-+				  const struct ethtool_link_ksettings *cmd)
- {
- 	struct stmmac_priv *priv = netdev_priv(dev);
- 	struct phy_device *phy = dev->phydev;
-@@ -367,7 +382,7 @@ static int stmmac_ethtool_setsettings(struct net_device *dev,
- 		u32 mask = ADVERTISED_Autoneg | ADVERTISED_Pause;
- 
- 		/* Only support ANE */
--		if (cmd->autoneg != AUTONEG_ENABLE)
-+		if (cmd->base.autoneg != AUTONEG_ENABLE)
- 			return -EINVAL;
- 
- 		mask &= (ADVERTISED_1000baseT_Half |
-@@ -389,7 +404,7 @@ static int stmmac_ethtool_setsettings(struct net_device *dev,
- 	}
- 
- 	spin_lock(&priv->lock);
--	rc = phy_ethtool_sset(phy, cmd);
-+	rc = phy_ethtool_ksettings_set(phy, cmd);
- 	spin_unlock(&priv->lock);
- 
- 	return rc;
-@@ -850,8 +865,6 @@ static int stmmac_set_tunable(struct net_device *dev,
- static const struct ethtool_ops stmmac_ethtool_ops = {
- 	.begin = stmmac_check_if_running,
- 	.get_drvinfo = stmmac_ethtool_getdrvinfo,
--	.get_settings = stmmac_ethtool_getsettings,
--	.set_settings = stmmac_ethtool_setsettings,
- 	.get_msglevel = stmmac_ethtool_getmsglevel,
- 	.set_msglevel = stmmac_ethtool_setmsglevel,
- 	.get_regs = stmmac_ethtool_gregs,
-@@ -871,6 +884,8 @@ static const struct ethtool_ops stmmac_ethtool_ops = {
- 	.set_coalesce = stmmac_set_coalesce,
- 	.get_tunable = stmmac_get_tunable,
- 	.set_tunable = stmmac_set_tunable,
-+	.get_link_ksettings = stmmac_ethtool_get_link_ksettings,
-+	.set_link_ksettings = stmmac_ethtool_set_link_ksettings,
- };
- 
- void stmmac_set_ethtool_ops(struct net_device *netdev)
+  net/sctp/outqueue.c
+
+between commit:
+
+  be4947bf46cb ("sctp: change to check peer prsctp_capable when using prsctp polices")
+
+from Linus' tree and commit:
+
+  2c89791eeb6f ("sctp: remove the unnecessary state check in sctp_outq_tail")
+
+from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
+
 -- 
-1.7.4.4
+Cheers,
+Stephen Rothwell
+
+diff --cc net/sctp/outqueue.c
+index 107233da5cc9,3ec6da8bbb53..000000000000
+--- a/net/sctp/outqueue.c
++++ b/net/sctp/outqueue.c
+@@@ -299,42 -298,19 +298,19 @@@ void sctp_outq_tail(struct sctp_outq *q
+  	 * immediately.
+  	 */
+  	if (sctp_chunk_is_data(chunk)) {
+- 		/* Is it OK to queue data chunks?  */
+- 		/* From 9. Termination of Association
+- 		 *
+- 		 * When either endpoint performs a shutdown, the
+- 		 * association on each peer will stop accepting new
+- 		 * data from its user and only deliver data in queue
+- 		 * at the time of sending or receiving the SHUTDOWN
+- 		 * chunk.
+- 		 */
+- 		switch (q->asoc->state) {
+- 		case SCTP_STATE_CLOSED:
+- 		case SCTP_STATE_SHUTDOWN_PENDING:
+- 		case SCTP_STATE_SHUTDOWN_SENT:
+- 		case SCTP_STATE_SHUTDOWN_RECEIVED:
+- 		case SCTP_STATE_SHUTDOWN_ACK_SENT:
+- 			/* Cannot send after transport endpoint shutdown */
+- 			error = -ESHUTDOWN;
+- 			break;
+- 
+- 		default:
+- 			pr_debug("%s: outqueueing: outq:%p, chunk:%p[%s])\n",
+- 				 __func__, q, chunk, chunk && chunk->chunk_hdr ?
+- 				 sctp_cname(SCTP_ST_CHUNK(chunk->chunk_hdr->type)) :
+- 				 "illegal chunk");
+- 
+- 			sctp_chunk_hold(chunk);
+- 			sctp_outq_tail_data(q, chunk);
+- 			if (chunk->asoc->peer.prsctp_capable &&
+- 			    SCTP_PR_PRIO_ENABLED(chunk->sinfo.sinfo_flags))
+- 				chunk->asoc->sent_cnt_removable++;
+- 			if (chunk->chunk_hdr->flags & SCTP_DATA_UNORDERED)
+- 				SCTP_INC_STATS(net, SCTP_MIB_OUTUNORDERCHUNKS);
+- 			else
+- 				SCTP_INC_STATS(net, SCTP_MIB_OUTORDERCHUNKS);
+- 			break;
+- 		}
++ 		pr_debug("%s: outqueueing: outq:%p, chunk:%p[%s])\n",
++ 			 __func__, q, chunk, chunk && chunk->chunk_hdr ?
++ 			 sctp_cname(SCTP_ST_CHUNK(chunk->chunk_hdr->type)) :
++ 			 "illegal chunk");
++ 
++ 		sctp_outq_tail_data(q, chunk);
+ -		if (chunk->asoc->prsctp_enable &&
+++		if (chunk->asoc->peer.prsctp_capable &&
++ 		    SCTP_PR_PRIO_ENABLED(chunk->sinfo.sinfo_flags))
++ 			chunk->asoc->sent_cnt_removable++;
++ 		if (chunk->chunk_hdr->flags & SCTP_DATA_UNORDERED)
++ 			SCTP_INC_STATS(net, SCTP_MIB_OUTUNORDERCHUNKS);
++ 		else
++ 			SCTP_INC_STATS(net, SCTP_MIB_OUTORDERCHUNKS);
+  	} else {
+  		list_add_tail(&chunk->list, &q->control_chunk_list);
+  		SCTP_INC_STATS(net, SCTP_MIB_OUTCTRLCHUNKS);
