@@ -1,199 +1,126 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH 2/2] net: mv643xx_eth: use new api ethtool_{get|set}_link_ksettings
-Date: Sun,  2 Oct 2016 12:06:49 +0200
-Message-ID: <1475402809-11593-2-git-send-email-tremyfr@gmail.com>
-References: <1475402809-11593-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: sebastian.hesselbarth@gmail.com, davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Sun, 02 Oct 2016 09:01:57 -0400 (EDT)
+Message-ID: <20161002.090157.261210264494797792.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34283 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750912AbcJBKG7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 2 Oct 2016 06:06:59 -0400
-In-Reply-To: <1475402809-11593-1-git-send-email-tremyfr@gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:51334 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751006AbcJBNCL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 2 Oct 2016 09:02:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/marvell/mv643xx_eth.c |   84 +++++++++++++++++----------
- 1 files changed, 53 insertions(+), 31 deletions(-)
+1) Fix wrong TCP checksums on MTU probing when checksum offloading is
+   disabled, from Douglas Caetano dos Santos.
 
-diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-index ae7370d..18e6bb6 100644
---- a/drivers/net/ethernet/marvell/mv643xx_eth.c
-+++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-@@ -1495,56 +1495,69 @@ static const struct mv643xx_eth_stats mv643xx_eth_stats[] = {
- };
- 
- static int
--mv643xx_eth_get_settings_phy(struct mv643xx_eth_private *mp,
--			     struct ethtool_cmd *cmd)
-+mv643xx_eth_get_link_ksettings_phy(struct mv643xx_eth_private *mp,
-+				   struct ethtool_link_ksettings *cmd)
- {
- 	struct net_device *dev = mp->dev;
- 	int err;
-+	u32 supported, advertising;
- 
- 	err = phy_read_status(dev->phydev);
- 	if (err == 0)
--		err = phy_ethtool_gset(dev->phydev, cmd);
-+		err = phy_ethtool_ksettings_get(dev->phydev, cmd);
- 
- 	/*
- 	 * The MAC does not support 1000baseT_Half.
- 	 */
--	cmd->supported &= ~SUPPORTED_1000baseT_Half;
--	cmd->advertising &= ~ADVERTISED_1000baseT_Half;
-+	ethtool_convert_link_mode_to_legacy_u32(&supported,
-+						cmd->link_modes.supported);
-+	ethtool_convert_link_mode_to_legacy_u32(&advertising,
-+						cmd->link_modes.advertising);
-+	supported &= ~SUPPORTED_1000baseT_Half;
-+	advertising &= ~ADVERTISED_1000baseT_Half;
-+	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
-+						supported);
-+	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising,
-+						advertising);
- 
- 	return err;
- }
- 
- static int
--mv643xx_eth_get_settings_phyless(struct mv643xx_eth_private *mp,
--				 struct ethtool_cmd *cmd)
-+mv643xx_eth_get_link_ksettings_phyless(struct mv643xx_eth_private *mp,
-+				       struct ethtool_link_ksettings *cmd)
- {
- 	u32 port_status;
-+	u32 supported, advertising;
- 
- 	port_status = rdlp(mp, PORT_STATUS);
- 
--	cmd->supported = SUPPORTED_MII;
--	cmd->advertising = ADVERTISED_MII;
-+	supported = SUPPORTED_MII;
-+	advertising = ADVERTISED_MII;
- 	switch (port_status & PORT_SPEED_MASK) {
- 	case PORT_SPEED_10:
--		ethtool_cmd_speed_set(cmd, SPEED_10);
-+		cmd->base.speed = SPEED_10;
- 		break;
- 	case PORT_SPEED_100:
--		ethtool_cmd_speed_set(cmd, SPEED_100);
-+		cmd->base.speed = SPEED_100;
- 		break;
- 	case PORT_SPEED_1000:
--		ethtool_cmd_speed_set(cmd, SPEED_1000);
-+		cmd->base.speed = SPEED_1000;
- 		break;
- 	default:
--		cmd->speed = -1;
-+		cmd->base.speed = -1;
- 		break;
- 	}
--	cmd->duplex = (port_status & FULL_DUPLEX) ? DUPLEX_FULL : DUPLEX_HALF;
--	cmd->port = PORT_MII;
--	cmd->phy_address = 0;
--	cmd->transceiver = XCVR_INTERNAL;
--	cmd->autoneg = AUTONEG_DISABLE;
--	cmd->maxtxpkt = 1;
--	cmd->maxrxpkt = 1;
-+	cmd->base.duplex = (port_status & FULL_DUPLEX) ?
-+		DUPLEX_FULL : DUPLEX_HALF;
-+	cmd->base.port = PORT_MII;
-+	cmd->base.phy_address = 0;
-+	cmd->base.autoneg = AUTONEG_DISABLE;
-+
-+	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
-+						supported);
-+	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising,
-+						advertising);
- 
- 	return 0;
- }
-@@ -1576,19 +1589,23 @@ mv643xx_eth_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
- }
- 
- static int
--mv643xx_eth_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+mv643xx_eth_get_link_ksettings(struct net_device *dev,
-+			       struct ethtool_link_ksettings *cmd)
- {
- 	struct mv643xx_eth_private *mp = netdev_priv(dev);
- 
- 	if (dev->phydev)
--		return mv643xx_eth_get_settings_phy(mp, cmd);
-+		return mv643xx_eth_get_link_ksettings_phy(mp, cmd);
- 	else
--		return mv643xx_eth_get_settings_phyless(mp, cmd);
-+		return mv643xx_eth_get_link_ksettings_phyless(mp, cmd);
- }
- 
- static int
--mv643xx_eth_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+mv643xx_eth_set_link_ksettings(struct net_device *dev,
-+			       const struct ethtool_link_ksettings *cmd)
- {
-+	struct ethtool_link_ksettings c = *cmd;
-+	u32 advertising;
- 	int ret;
- 
- 	if (!dev->phydev)
-@@ -1597,9 +1614,13 @@ mv643xx_eth_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	/*
- 	 * The MAC does not support 1000baseT_Half.
- 	 */
--	cmd->advertising &= ~ADVERTISED_1000baseT_Half;
-+	ethtool_convert_link_mode_to_legacy_u32(&advertising,
-+						c.link_modes.advertising);
-+	advertising &= ~ADVERTISED_1000baseT_Half;
-+	ethtool_convert_legacy_u32_to_link_mode(c.link_modes.advertising,
-+						advertising);
- 
--	ret = phy_ethtool_sset(dev->phydev, cmd);
-+	ret = phy_ethtool_ksettings_set(dev->phydev, &c);
- 	if (!ret)
- 		mv643xx_eth_adjust_link(dev);
- 	return ret;
-@@ -1746,8 +1767,6 @@ static int mv643xx_eth_get_sset_count(struct net_device *dev, int sset)
- }
- 
- static const struct ethtool_ops mv643xx_eth_ethtool_ops = {
--	.get_settings		= mv643xx_eth_get_settings,
--	.set_settings		= mv643xx_eth_set_settings,
- 	.get_drvinfo		= mv643xx_eth_get_drvinfo,
- 	.nway_reset		= mv643xx_eth_nway_reset,
- 	.get_link		= ethtool_op_get_link,
-@@ -1761,6 +1780,8 @@ static const struct ethtool_ops mv643xx_eth_ethtool_ops = {
- 	.get_ts_info		= ethtool_op_get_ts_info,
- 	.get_wol                = mv643xx_eth_get_wol,
- 	.set_wol                = mv643xx_eth_set_wol,
-+	.get_link_ksettings	= mv643xx_eth_get_link_ksettings,
-+	.set_link_ksettings	= mv643xx_eth_set_link_ksettings,
- };
- 
- 
-@@ -2328,11 +2349,12 @@ static void port_start(struct mv643xx_eth_private *mp)
- 	 * Perform PHY reset, if there is a PHY.
- 	 */
- 	if (dev->phydev) {
--		struct ethtool_cmd cmd;
-+		struct ethtool_link_ksettings cmd;
- 
--		mv643xx_eth_get_settings(dev, &cmd);
-+		mv643xx_eth_get_link_ksettings(dev, &cmd);
- 		phy_init_hw(dev->phydev);
--		mv643xx_eth_set_settings(dev, &cmd);
-+		mv643xx_eth_set_link_ksettings(
-+			dev, (const struct ethtool_link_ksettings *)&cmd);
- 		phy_start(dev->phydev);
- 	}
- 
--- 
-1.7.4.4
+2) Fix qdisc backlog updates in qfq and sfb schedulers, from Cong Wang.
+
+3) Route lookup flow key protocol value is wrong in ip6gre_xmit_other(),
+   fix from Lance Richardson.
+
+4) Scheduling while atomic in multicast routing code of ipv4 and ipv6,
+   fix from Nikolay Aleksandrov.
+
+5) Fix packet alignment in fec driver, from Eric Nelson.
+
+6) Fix perf regression in sctp due to struct layout and cache misses,
+   from Xin Long.
+
+Please pull, thanks a lot!
+
+The following changes since commit b1f2beb87bb034bb209773807994279f90cace78:
+
+  Merge tag 'media/v4.8-7' of git://git.kernel.org/pub/scm/linux/kernel/git/mchehab/linux-media (2016-09-22 09:04:49 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git 
+
+for you to fetch changes up to 1cceda7849809a8857fd9f26efe8846506c710e1:
+
+  sctp: fix the issue sctp_diag uses lock_sock in rcu_read_lock (2016-09-30 02:08:57 -0400)
+
+----------------------------------------------------------------
+David S. Miller (4):
+      Merge tag 'linux-can-fixes-for-4.8-20160922' of git://git.kernel.org/.../mkl/linux-can
+      Merge branch 'fec-align'
+      Merge branch 'act_ife-fixes'
+      Merge branch 'sctp-fixes'
+
+Douglas Caetano dos Santos (1):
+      tcp: fix wrong checksum calculation on MTU probing
+
+Eric Dumazet (1):
+      tcp: fix a compile error in DBGUNDO()
+
+Eric Nelson (3):
+      net: fec: remove QUIRK_HAS_RACC from i.mx25
+      net: fec: remove QUIRK_HAS_RACC from i.mx27
+      net: fec: align IP header in hardware
+
+Florian Fainelli (1):
+      Revert "net: ethernet: bcmgenet: use phydev from struct net_device"
+
+Jorgen Hansen (1):
+      VSOCK: Don't dec ack backlog twice for rejected connections
+
+Lance Richardson (1):
+      ip6_gre: fix flowi6_proto value in ip6gre_xmit_other()
+
+Milton Miller (1):
+      tg3: Avoid NULL pointer dereference in tg3_io_error_detected()
+
+Nikolay Aleksandrov (1):
+      ipmr, ip6mr: fix scheduling while atomic and a deadlock with ipmr_get_route
+
+Sergei Miroshnichenko (1):
+      can: dev: fix deadlock reported after bus-off
+
+WANG Cong (2):
+      sch_qfq: keep backlog updated with qlen
+      sch_sfb: keep backlog updated with qlen
+
+Xin Long (4):
+      sctp: move sent_count to the memory hole in sctp_chunk
+      sctp: remove prsctp_param from sctp_chunk
+      sctp: change to check peer prsctp_capable when using prsctp polices
+      sctp: fix the issue sctp_diag uses lock_sock in rcu_read_lock
+
+Yotam Gigi (2):
+      act_ife: Fix external mac header on encode
+      act_ife: Fix false encoding
+
+ drivers/net/can/dev.c                          | 27 +++++++++++++++++----------
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 45 +++++++++++++++++++++++++--------------------
+ drivers/net/ethernet/broadcom/genet/bcmgenet.h |  1 +
+ drivers/net/ethernet/broadcom/genet/bcmmii.c   | 24 +++++++++++++-----------
+ drivers/net/ethernet/broadcom/tg3.c            | 10 +++++-----
+ drivers/net/ethernet/freescale/fec_main.c      | 15 ++++++++++++---
+ include/linux/can/dev.h                        |  3 ++-
+ include/linux/mroute.h                         |  2 +-
+ include/linux/mroute6.h                        |  2 +-
+ include/net/sctp/structs.h                     | 13 +++----------
+ net/ipv4/ipmr.c                                |  3 ++-
+ net/ipv4/route.c                               |  3 ++-
+ net/ipv4/tcp_input.c                           |  3 +--
+ net/ipv4/tcp_output.c                          | 12 +++++++-----
+ net/ipv6/ip6_gre.c                             |  1 -
+ net/ipv6/ip6mr.c                               |  5 +++--
+ net/ipv6/route.c                               |  4 +++-
+ net/sched/act_ife.c                            |  7 +++----
+ net/sched/sch_qfq.c                            |  3 +++
+ net/sched/sch_sfb.c                            |  3 +++
+ net/sctp/chunk.c                               | 11 ++++++++---
+ net/sctp/outqueue.c                            | 12 ++++++------
+ net/sctp/sctp_diag.c                           | 58 ++++++++++++++++++++++++++++++++++++++++------------------
+ net/sctp/sm_make_chunk.c                       | 15 ---------------
+ net/sctp/socket.c                              | 10 +++++++---
+ net/vmw_vsock/af_vsock.c                       |  6 +++---
+ 26 files changed, 171 insertions(+), 127 deletions(-)
