@@ -1,57 +1,47 @@
-From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-Subject: [PATCH] ptp: Fix resource leak in case of error
-Date: Sun,  2 Oct 2016 09:04:16 +0200
-Message-ID: <1475391856-15046-1-git-send-email-christophe.jaillet@wanadoo.fr>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel-janitors@vger.kernel.org,
-        Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-To: richardcochran@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Louie Lu <louie.lu@hopebaytech.com>
+Subject: Assertion faileda at samples/bpf/test_maps
+Date: Sun, 2 Oct 2016 14:55:42 +0800
+Message-ID: <CAEQ0BR4j65Upa_ZLo6yC1khOprvXx1_iVxCKuSxbn+Df1mo_OQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f173.google.com ([209.85.161.173]:33947 "EHLO
+        mail-yw0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750864AbcJBGzo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 2 Oct 2016 02:55:44 -0400
+Received: by mail-yw0-f173.google.com with SMTP id g192so91881822ywh.1
+        for <netdev@vger.kernel.org>; Sat, 01 Oct 2016 23:55:43 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-A call to 'ida_simple_remove()' is missing in the error handling path.
+Hi everyone,
 
-This as been spotted with the following coccinelle script which tries to
-detect missing 'ida_simple_remove()' call in error handling paths.
+I'm now playing net-next samples/bpf things, and I found that
+test_maps will give an assertion
 
-///////////////
-@@
-expression x;
-identifier l;
-@@
+```
+test_maps: /home/grd/linux/net-next/samples/bpf/test_maps.c:146:
+test_percpu_hashmap_sanity: Assertion `bpf_lookup_elem(map_fd, &key,
+value) == -1 && errno == ENOENT' failed.
+[1]    20706 abort (core dumped)  ./test_maps
+```
 
-*   x = ida_simple_get(...);
-    ...
-    if (...) {
-    ...
-    }
-    ...
-    if (...) {
-       ...
-       goto l;
-    }
-    ...
-*   l: ... when != ida_simple_remove(...);
+I've done the check at [[iovisor-dev] Assertion fails at
+samples/bpf/test_maps](http://lists.iovisor.org/pipermail/iovisor-dev/2016-June/000281.html)
+which tells me to set ulimit to unlimited or patching by setrlimit().
 
-Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
----
-Compile-tested only
----
- drivers/ptp/ptp_clock.c | 1 +
- 1 file changed, 1 insertion(+)
+The problem is bpf_lookup_elem return -1, and errno return 0.
 
-diff --git a/drivers/ptp/ptp_clock.c b/drivers/ptp/ptp_clock.c
-index 2e481b9e8ea5..86280b7e41f3 100644
---- a/drivers/ptp/ptp_clock.c
-+++ b/drivers/ptp/ptp_clock.c
-@@ -263,6 +263,7 @@ struct ptp_clock *ptp_clock_register(struct ptp_clock_info *info,
- no_device:
- 	mutex_destroy(&ptp->tsevq_mux);
- 	mutex_destroy(&ptp->pincfg_mux);
-+	ida_simple_remove(&ptp_clocks_map, index);
- no_slot:
- 	kfree(ptp);
- no_memory:
--- 
-2.7.4
+I'm using Intel(R) Core(TM) i7-2640M and net-next commit:
+803783849fed11, 4.8.0-rc7-ARCH-02283-g8037838.
+
+And, a strange this is when I done this at QEMU, test_maps perform
+will and pass the test.
+
+Is that my hardware problem or something else?
+
+
+Thanks.
+
+Louie Lu.
