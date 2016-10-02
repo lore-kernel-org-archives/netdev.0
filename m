@@ -1,31 +1,32 @@
 From: Stephen Rothwell <sfr@canb.auug.org.au>
 Subject: linux-next: manual merge of the net-next tree with Linus' tree
-Date: Mon, 3 Oct 2016 09:32:13 +1100
-Message-ID: <20161003093213.59af5d22@canb.auug.org.au>
+Date: Mon, 3 Oct 2016 09:37:08 +1100
+Message-ID: <20161003093708.6cecf656@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Xin Long <lucien.xin@gmail.com>
+        Xin Long <lucien.xin@gmail.com>,
+        Lorenzo Colitti <lorenzo@google.com>
 To: David Miller <davem@davemloft.net>,
         Networking <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi all,
 
 Today's linux-next merge of the net-next tree got a conflict in:
 
-  net/sctp/outqueue.c
+  net/sctp/sctp_diag.c
 
 between commit:
 
-  be4947bf46cb ("sctp: change to check peer prsctp_capable when using prsctp polices")
+  1cceda784980 ("sctp: fix the issue sctp_diag uses lock_sock in rcu_read_lock")
 
 from Linus' tree and commit:
 
-  2c89791eeb6f ("sctp: remove the unnecessary state check in sctp_outq_tail")
+  d545caca827b ("net: inet: diag: expose the socket mark to privileged processes.")
 
 from the net-next tree.
 
@@ -40,64 +41,32 @@ complex conflicts.
 Cheers,
 Stephen Rothwell
 
-diff --cc net/sctp/outqueue.c
-index 107233da5cc9,3ec6da8bbb53..000000000000
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@@ -299,42 -298,19 +298,19 @@@ void sctp_outq_tail(struct sctp_outq *q
-  	 * immediately.
-  	 */
-  	if (sctp_chunk_is_data(chunk)) {
-- 		/* Is it OK to queue data chunks?  */
-- 		/* From 9. Termination of Association
-- 		 *
-- 		 * When either endpoint performs a shutdown, the
-- 		 * association on each peer will stop accepting new
-- 		 * data from its user and only deliver data in queue
-- 		 * at the time of sending or receiving the SHUTDOWN
-- 		 * chunk.
-- 		 */
-- 		switch (q->asoc->state) {
-- 		case SCTP_STATE_CLOSED:
-- 		case SCTP_STATE_SHUTDOWN_PENDING:
-- 		case SCTP_STATE_SHUTDOWN_SENT:
-- 		case SCTP_STATE_SHUTDOWN_RECEIVED:
-- 		case SCTP_STATE_SHUTDOWN_ACK_SENT:
-- 			/* Cannot send after transport endpoint shutdown */
-- 			error = -ESHUTDOWN;
-- 			break;
-- 
-- 		default:
-- 			pr_debug("%s: outqueueing: outq:%p, chunk:%p[%s])\n",
-- 				 __func__, q, chunk, chunk && chunk->chunk_hdr ?
-- 				 sctp_cname(SCTP_ST_CHUNK(chunk->chunk_hdr->type)) :
-- 				 "illegal chunk");
-- 
-- 			sctp_chunk_hold(chunk);
-- 			sctp_outq_tail_data(q, chunk);
-- 			if (chunk->asoc->peer.prsctp_capable &&
-- 			    SCTP_PR_PRIO_ENABLED(chunk->sinfo.sinfo_flags))
-- 				chunk->asoc->sent_cnt_removable++;
-- 			if (chunk->chunk_hdr->flags & SCTP_DATA_UNORDERED)
-- 				SCTP_INC_STATS(net, SCTP_MIB_OUTUNORDERCHUNKS);
-- 			else
-- 				SCTP_INC_STATS(net, SCTP_MIB_OUTORDERCHUNKS);
-- 			break;
-- 		}
-+ 		pr_debug("%s: outqueueing: outq:%p, chunk:%p[%s])\n",
-+ 			 __func__, q, chunk, chunk && chunk->chunk_hdr ?
-+ 			 sctp_cname(SCTP_ST_CHUNK(chunk->chunk_hdr->type)) :
-+ 			 "illegal chunk");
-+ 
-+ 		sctp_outq_tail_data(q, chunk);
- -		if (chunk->asoc->prsctp_enable &&
-++		if (chunk->asoc->peer.prsctp_capable &&
-+ 		    SCTP_PR_PRIO_ENABLED(chunk->sinfo.sinfo_flags))
-+ 			chunk->asoc->sent_cnt_removable++;
-+ 		if (chunk->chunk_hdr->flags & SCTP_DATA_UNORDERED)
-+ 			SCTP_INC_STATS(net, SCTP_MIB_OUTUNORDERCHUNKS);
-+ 		else
-+ 			SCTP_INC_STATS(net, SCTP_MIB_OUTORDERCHUNKS);
-  	} else {
-  		list_add_tail(&chunk->list, &q->control_chunk_list);
-  		SCTP_INC_STATS(net, SCTP_MIB_OUTCTRLCHUNKS);
+diff --cc net/sctp/sctp_diag.c
+index cef0cee182d4,807158e32f5f..000000000000
+--- a/net/sctp/sctp_diag.c
++++ b/net/sctp/sctp_diag.c
+@@@ -299,9 -314,10 +303,10 @@@ static int sctp_sock_dump(struct sock *
+  					sk_user_ns(NETLINK_CB(cb->skb).sk),
+  					NETLINK_CB(cb->skb).portid,
+  					cb->nlh->nlmsg_seq,
+- 					NLM_F_MULTI, cb->nlh) < 0) {
++ 					NLM_F_MULTI, cb->nlh,
++ 					commp->net_admin) < 0) {
+  			cb->args[3] = 1;
+ -			err = 2;
+ +			err = 1;
+  			goto release;
+  		}
+  		cb->args[3] = 1;
+@@@ -309,8 -325,9 +314,9 @@@
+  		if (inet_sctp_diag_fill(sk, assoc, skb, r,
+  					sk_user_ns(NETLINK_CB(cb->skb).sk),
+  					NETLINK_CB(cb->skb).portid,
+- 					cb->nlh->nlmsg_seq, 0, cb->nlh) < 0) {
++ 					cb->nlh->nlmsg_seq, 0, cb->nlh,
++ 					commp->net_admin) < 0) {
+ -			err = 2;
+ +			err = 1;
+  			goto release;
+  		}
+  next:
