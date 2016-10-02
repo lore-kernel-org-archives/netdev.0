@@ -1,126 +1,81 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Sun, 02 Oct 2016 09:01:57 -0400 (EDT)
-Message-ID: <20161002.090157.261210264494797792.davem@davemloft.net>
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: Re: [PATCH] net: rtnl: avoid uninitialized data in IFLA_VF_VLAN_LIST
+ handling
+Date: Sun, 2 Oct 2016 12:03:37 +0300
+Message-ID: <86297d37-c01a-070a-fe26-b8f160cb0e5b@mellanox.com>
+References: <20160930161416.18660-1-arnd@arndb.de>
+ <CANn89iK2FQufz4NCan1y0dQME2RUOzc3NXXhqYd418ctHNc6fA@mail.gmail.com>
+ <201609301838.05349.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>,
+        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        "Hannes Frederic Sowa" <hannes@stressinduktion.org>,
+        Nogah Frankel <nogahf@mellanox.com>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        "Moshe Shemesh" <moshe@mellanox.com>
+To: Arnd Bergmann <arnd@arndb.de>, Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51334 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751006AbcJBNCL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 2 Oct 2016 09:02:11 -0400
+Received: from mail-db5eur01on0076.outbound.protection.outlook.com ([104.47.2.76]:10592
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750856AbcJBTgb (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 2 Oct 2016 15:36:31 -0400
+In-Reply-To: <201609301838.05349.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Arnd,
 
-1) Fix wrong TCP checksums on MTU probing when checksum offloading is
-   disabled, from Douglas Caetano dos Santos.
 
-2) Fix qdisc backlog updates in qfq and sfb schedulers, from Cong Wang.
+On 30/09/2016 7:38 PM, Arnd Bergmann wrote:
+> On Friday 30 September 2016, Eric Dumazet wrote:
+>>> @@ -1753,6 +1753,9 @@ static int do_setvfinfo(struct net_device *dev, struct nlattr **tb)
+>>>
+>>>                          len++;
+>>>                  }
+>>> +               if (len == 0)
+>>> +                       return -EINVAL;
+>>> +
+>>>                  err = ops->ndo_set_vf_vlan(dev, ivvl[0]->vf, ivvl[0]->vlan,
+>>>                                             ivvl[0]->qos, ivvl[0]->vlan_proto);
+>>>                  if (err < 0)
+>>> --
+>>> 2.9.0
+>>>
+Reviewed-by: Moshe Shemesh <moshe@mellanox.com>
 
-3) Route lookup flow key protocol value is wrong in ip6gre_xmit_other(),
-   fix from Lance Richardson.
+Thanks for the fix, I will add the flag to my makefile.
+>> So, if I read this code, we build an array, but call ndo_set_vf_vlan()
+>> only using first element ?
+>>
+>> Looks like the bug should be fixed in a different way.
+> I was wondering about this too, but didn't understand enough about it to say
+> if it was intentional or not.
+It is intentional.
+The change we need here is the option to set the VF vlan protocol, so 
+our hw will insert either S-TAG or C-TAG per VF. The previous version of 
+this patch didn't use any array.
+Then we got a comment, which makes sense, that the new UAPI interface 
+should be able to support a future driver that might want to set both 
+S-TAG and C-TAG per VF.
+We could have used a single struct on kernel side instead of a list of 
+size 1, but this would cause bad/not scalable code in the parsing stage.
+As the UAPI is a list, in the parsing stage we thought it is more 
+correct to use the constant MAX_VLAN_LIST_LEN and iterate as of a 
+general case, even though currently the list size is one.
 
-4) Scheduling while atomic in multicast routing code of ipv4 and ipv6,
-   fix from Nikolay Aleksandrov.
+>   I just realized that I forgot to add Moshe and Tariq
+> on Cc (I relied on scripts/get_maintainer.pl, but didn't double-check).
+> I've added them to Cc now, hope they can clarify this.
+>
+> 	Arnd
 
-5) Fix packet alignment in fec driver, from Eric Nelson.
-
-6) Fix perf regression in sctp due to struct layout and cache misses,
-   from Xin Long.
-
-Please pull, thanks a lot!
-
-The following changes since commit b1f2beb87bb034bb209773807994279f90cace78:
-
-  Merge tag 'media/v4.8-7' of git://git.kernel.org/pub/scm/linux/kernel/git/mchehab/linux-media (2016-09-22 09:04:49 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git 
-
-for you to fetch changes up to 1cceda7849809a8857fd9f26efe8846506c710e1:
-
-  sctp: fix the issue sctp_diag uses lock_sock in rcu_read_lock (2016-09-30 02:08:57 -0400)
-
-----------------------------------------------------------------
-David S. Miller (4):
-      Merge tag 'linux-can-fixes-for-4.8-20160922' of git://git.kernel.org/.../mkl/linux-can
-      Merge branch 'fec-align'
-      Merge branch 'act_ife-fixes'
-      Merge branch 'sctp-fixes'
-
-Douglas Caetano dos Santos (1):
-      tcp: fix wrong checksum calculation on MTU probing
-
-Eric Dumazet (1):
-      tcp: fix a compile error in DBGUNDO()
-
-Eric Nelson (3):
-      net: fec: remove QUIRK_HAS_RACC from i.mx25
-      net: fec: remove QUIRK_HAS_RACC from i.mx27
-      net: fec: align IP header in hardware
-
-Florian Fainelli (1):
-      Revert "net: ethernet: bcmgenet: use phydev from struct net_device"
-
-Jorgen Hansen (1):
-      VSOCK: Don't dec ack backlog twice for rejected connections
-
-Lance Richardson (1):
-      ip6_gre: fix flowi6_proto value in ip6gre_xmit_other()
-
-Milton Miller (1):
-      tg3: Avoid NULL pointer dereference in tg3_io_error_detected()
-
-Nikolay Aleksandrov (1):
-      ipmr, ip6mr: fix scheduling while atomic and a deadlock with ipmr_get_route
-
-Sergei Miroshnichenko (1):
-      can: dev: fix deadlock reported after bus-off
-
-WANG Cong (2):
-      sch_qfq: keep backlog updated with qlen
-      sch_sfb: keep backlog updated with qlen
-
-Xin Long (4):
-      sctp: move sent_count to the memory hole in sctp_chunk
-      sctp: remove prsctp_param from sctp_chunk
-      sctp: change to check peer prsctp_capable when using prsctp polices
-      sctp: fix the issue sctp_diag uses lock_sock in rcu_read_lock
-
-Yotam Gigi (2):
-      act_ife: Fix external mac header on encode
-      act_ife: Fix false encoding
-
- drivers/net/can/dev.c                          | 27 +++++++++++++++++----------
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 45 +++++++++++++++++++++++++--------------------
- drivers/net/ethernet/broadcom/genet/bcmgenet.h |  1 +
- drivers/net/ethernet/broadcom/genet/bcmmii.c   | 24 +++++++++++++-----------
- drivers/net/ethernet/broadcom/tg3.c            | 10 +++++-----
- drivers/net/ethernet/freescale/fec_main.c      | 15 ++++++++++++---
- include/linux/can/dev.h                        |  3 ++-
- include/linux/mroute.h                         |  2 +-
- include/linux/mroute6.h                        |  2 +-
- include/net/sctp/structs.h                     | 13 +++----------
- net/ipv4/ipmr.c                                |  3 ++-
- net/ipv4/route.c                               |  3 ++-
- net/ipv4/tcp_input.c                           |  3 +--
- net/ipv4/tcp_output.c                          | 12 +++++++-----
- net/ipv6/ip6_gre.c                             |  1 -
- net/ipv6/ip6mr.c                               |  5 +++--
- net/ipv6/route.c                               |  4 +++-
- net/sched/act_ife.c                            |  7 +++----
- net/sched/sch_qfq.c                            |  3 +++
- net/sched/sch_sfb.c                            |  3 +++
- net/sctp/chunk.c                               | 11 ++++++++---
- net/sctp/outqueue.c                            | 12 ++++++------
- net/sctp/sctp_diag.c                           | 58 ++++++++++++++++++++++++++++++++++++++++------------------
- net/sctp/sm_make_chunk.c                       | 15 ---------------
- net/sctp/socket.c                              | 10 +++++++---
- net/vmw_vsock/af_vsock.c                       |  6 +++---
- 26 files changed, 171 insertions(+), 127 deletions(-)
+Regards,
+Moshe and Tariq
