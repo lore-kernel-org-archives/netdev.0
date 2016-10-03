@@ -1,101 +1,113 @@
-From: Mike Looijmans <mike.looijmans@topic.nl>
-Subject: [PATCH] phy: micrel.c: Support ksz9031 energy-detect power-down mode
-Date: Mon,  3 Oct 2016 15:04:30 +0200
-Message-ID: <1475499870-11465-1-git-send-email-mike.looijmans@topic.nl>
-Cc: devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-        f.fainelli@gmail.com, Mike Looijmans <mike.looijmans@topic.nl>
-To: netdev@vger.kernel.org
+From: Greg <gvrose8192@gmail.com>
+Subject: Re: [PATCH net v2] net: pktgen: fix pkt_size
+Date: Mon, 03 Oct 2016 06:56:58 -0700
+Message-ID: <1475503018.3279.5.camel@gmail.com>
+References: <5277a40b08c491bd4ff8f6e3276718848f7406e8.1475246890.git.pabeni@redhat.com>
+         <1475249960.3279.1.camel@gmail.com> <1475345120.6330.21.camel@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Bogdan Hamciuc <bogdan.hamciuc@freescale.com>,
+        Ben Greear <greearb@candelatech.com>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atl4mhfb01.myregisteredsite.com ([209.17.115.55]:38940 "EHLO
-        atl4mhfb01.myregisteredsite.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752558AbcJCNKD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2016 09:10:03 -0400
-Received: from atl4mhob22.registeredsite.com (atl4mhob22.registeredsite.com [209.17.115.116])
-        by atl4mhfb01.myregisteredsite.com (8.14.4/8.14.4) with ESMTP id u93D4do1028693
-        for <netdev@vger.kernel.org>; Mon, 3 Oct 2016 09:04:39 -0400
-Received: from mailpod.hostingplatform.com ([10.30.71.210])
-        by atl4mhob22.registeredsite.com (8.14.4/8.14.4) with ESMTP id u93D4Y0F128330
-        for <netdev@vger.kernel.org>; Mon, 3 Oct 2016 09:04:34 -0400
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:34454 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751664AbcJCN5B (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2016 09:57:01 -0400
+Received: by mail-pf0-f195.google.com with SMTP id 190so3017491pfv.1
+        for <netdev@vger.kernel.org>; Mon, 03 Oct 2016 06:57:00 -0700 (PDT)
+In-Reply-To: <1475345120.6330.21.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Set bit 0 in register 1C.23 to enable the EDPD feature of the
-KSZ9031 PHY. This reduces power consumption when the link is
-down. To use this, set "enable-edpd" in the devicetree.
+On Sat, 2016-10-01 at 20:05 +0200, Paolo Abeni wrote:
+> On Fri, 2016-09-30 at 08:39 -0700, Greg wrote:
+> > On Fri, 2016-09-30 at 16:56 +0200, Paolo Abeni wrote:
+> > > The commit 879c7220e828 ("net: pktgen: Observe needed_headroom
+> > > of the device") increased the 'pkt_overhead' field value by
+> > > LL_RESERVED_SPACE.
+> > > As a side effect the generated packet size, computed as:
+> > > 
+> > > 	/* Eth + IPh + UDPh + mpls */
+> > > 	datalen = pkt_dev->cur_pkt_size - 14 - 20 - 8 -
+> > > 		  pkt_dev->pkt_overhead;
+> > > 
+> > > is decreased by the same value.
+> > > The above changed slightly the behavior of existing pktgen users,
+> > > and made the procfs interface somewhat inconsistent.
+> > > Fix it by restoring the previous pkt_overhead value and using
+> > > LL_RESERVED_SPACE as extralen in skb allocation.
+> > > Also, change pktgen_alloc_skb() to only partially reserve
+> > > the headroom to allow the caller to prefetch from ll header
+> > > start.
+> > > 
+> > > v1 -> v2:
+> > >  - fixed some typos in the comments
+> > > 
+> > > Fixes: 879c7220e828 ("net: pktgen: Observe needed_headroom of the device")
+> > > Suggested-by: Ben Greear <greearb@candelatech.com>
+> > > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> > > ---
+> > >  net/core/pktgen.c | 21 ++++++++++-----------
+> > >  1 file changed, 10 insertions(+), 11 deletions(-)
+> > > 
+> > > diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+> > > index bbd118b..5219a9e 100644
+> > > --- a/net/core/pktgen.c
+> > > +++ b/net/core/pktgen.c
+> > > @@ -2286,7 +2286,7 @@ out:
+> > >  
+> > >  static inline void set_pkt_overhead(struct pktgen_dev *pkt_dev)
+> > >  {
+> > > -	pkt_dev->pkt_overhead = LL_RESERVED_SPACE(pkt_dev->odev);
+> > > +	pkt_dev->pkt_overhead = 0;
+> > >  	pkt_dev->pkt_overhead += pkt_dev->nr_labels*sizeof(u32);
+> > >  	pkt_dev->pkt_overhead += VLAN_TAG_SIZE(pkt_dev);
+> > >  	pkt_dev->pkt_overhead += SVLAN_TAG_SIZE(pkt_dev);
+> > > @@ -2777,13 +2777,13 @@ static void pktgen_finalize_skb(struct pktgen_dev *pkt_dev, struct sk_buff *skb,
+> > >  }
+> > >  
+> > >  static struct sk_buff *pktgen_alloc_skb(struct net_device *dev,
+> > > -					struct pktgen_dev *pkt_dev,
+> > > -					unsigned int extralen)
+> > > +					struct pktgen_dev *pkt_dev)
+> > >  {
+> > > +	unsigned int extralen = LL_RESERVED_SPACE(dev);
+> > >  	struct sk_buff *skb = NULL;
+> > > -	unsigned int size = pkt_dev->cur_pkt_size + 64 + extralen +
+> > > -			    pkt_dev->pkt_overhead;
+> > > +	unsigned int size;
+> > >  
+> > > +	size = pkt_dev->cur_pkt_size + 64 + extralen + pkt_dev->pkt_overhead;
+> > >  	if (pkt_dev->flags & F_NODE) {
+> > >  		int node = pkt_dev->node >= 0 ? pkt_dev->node : numa_node_id();
+> > >  
+> > > @@ -2796,8 +2796,9 @@ static struct sk_buff *pktgen_alloc_skb(struct net_device *dev,
+> > >  		 skb = __netdev_alloc_skb(dev, size, GFP_NOWAIT);
+> > >  	}
+> > >  
+> > > +	/* the caller pre-fetches from skb->data and reserves for the mac hdr */
+> > >  	if (likely(skb))
+> > > -		skb_reserve(skb, LL_RESERVED_SPACE(dev));
+> > > +		skb_reserve(skb, extralen - 16);
+> > 
+> > Is the 16 here the same as HD_DATA_MOD?
+> > 
+> > Magic numbers...
+> 
+> This magic numbers comes from the current code (the extralen argument),
+> this patch just move it around. I can send a v3 using a define for it,
+> if really needed, but it seems more a separated clean-up. 
 
-Signed-off-by: Mike Looijmans <mike.looijmans@topic.nl>
----
- .../devicetree/bindings/net/micrel-ksz90x1.txt        |  6 ++++++
- drivers/net/phy/micrel.c                              | 19 +++++++++++++++++++
- 2 files changed, 25 insertions(+)
+Sure, sounds good.  Looks like Dave applied it.
 
-diff --git a/Documentation/devicetree/bindings/net/micrel-ksz90x1.txt b/Documentation/devicetree/bindings/net/micrel-ksz90x1.txt
-index f9c32ad..fbec6f8 100644
---- a/Documentation/devicetree/bindings/net/micrel-ksz90x1.txt
-+++ b/Documentation/devicetree/bindings/net/micrel-ksz90x1.txt
-@@ -56,6 +56,11 @@ KSZ9031:
-       - txd2-skew-ps : Skew control of TX data 2 pad
-       - txd3-skew-ps : Skew control of TX data 3 pad
- 
-+    Boolean:
-+
-+      - enable-edpd : Not related to timing. Specify this property to enable
-+                      energy-detect power-down mode in the PHY.
-+
- Examples:
- 
- 	mdio {
-@@ -64,6 +69,7 @@ Examples:
- 			rxdv-skew-ps = <0>;
- 			txc-skew-ps = <3000>;
- 			txen-skew-ps = <0>;
-+			enable-edpd;
- 			reg = <0>;
- 		};
- 	};
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index 4516c8a..0a365b4 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -409,6 +409,10 @@ static int ksz9021_config_init(struct phy_device *phydev)
- #define MII_KSZ9031RN_TX_DATA_PAD_SKEW	6
- #define MII_KSZ9031RN_CLK_PAD_SKEW	8
- 
-+/* MMD Address 0x1C */
-+#define MII_KSZ9031RN_EDPD		0x23
-+#define MII_KSZ9031RN_EDPD_ENABLE	BIT(0)
-+
- static int ksz9031_extended_write(struct phy_device *phydev,
- 				  u8 mode, u32 dev_addr, u32 regnum, u16 val)
- {
-@@ -480,6 +484,18 @@ static int ksz9031_center_flp_timing(struct phy_device *phydev)
- 	return genphy_restart_aneg(phydev);
- }
- 
-+/* Enable energy-detect power-down mode */
-+static int ksz9031_enable_edpd(struct phy_device *phydev)
-+{
-+	int reg;
-+
-+	reg = ksz9031_extended_read(phydev, OP_DATA, 0x1C, MII_KSZ9031RN_EDPD);
-+	if (reg < 0)
-+		return reg;
-+	return ksz9031_extended_write(phydev, OP_DATA, 0x1C, MII_KSZ9031RN_EDPD,
-+				      reg | MII_KSZ9031RN_EDPD_ENABLE);
-+}
-+
- static int ksz9031_config_init(struct phy_device *phydev)
- {
- 	const struct device *dev = &phydev->mdio.dev;
-@@ -522,6 +538,9 @@ static int ksz9031_config_init(struct phy_device *phydev)
- 		ksz9031_of_load_skew_values(phydev, of_node,
- 				MII_KSZ9031RN_TX_DATA_PAD_SKEW, 4,
- 				tx_data_skews, 4);
-+
-+		if (of_property_read_bool(of_node, "enable-edpd"))
-+			ksz9031_enable_edpd(phydev);
- 	}
- 
- 	return ksz9031_center_flp_timing(phydev);
--- 
-1.9.1
+- Greg
+
+> 
+> Thank you,
+> 
+> Paolo
+> 
