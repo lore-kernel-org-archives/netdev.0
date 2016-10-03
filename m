@@ -1,42 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: rtnl: avoid uninitialized data in
- IFLA_VF_VLAN_LIST handling
-Date: Mon, 03 Oct 2016 01:32:25 -0400 (EDT)
-Message-ID: <20161003.013225.2126712838089878159.davem@davemloft.net>
-References: <20160930161416.18660-1-arnd@arndb.de>
+Subject: Re: [PATCH] cxgb4: unexport cxgb4_dcb_enabled
+Date: Mon, 03 Oct 2016 01:33:41 -0400 (EDT)
+Message-ID: <20161003.013341.169534682220012853.davem@davemloft.net>
+References: <20160930161544.41614-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: roopa@cumulusnetworks.com, nicolas.dichtel@6wind.com,
-        nikolay@cumulusnetworks.com, jiri@mellanox.com,
-        edumazet@google.com, bblanco@plumgrid.com,
-        hannes@stressinduktion.org, nogahf@mellanox.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: hariprasad@chelsio.com, rahul.lakkireddy@chelsio.com,
+        nab@linux-iscsi.org, varun@chelsio.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
 To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160930161416.18660-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:38430 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751252AbcJCFdo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2016 01:33:44 -0400
+In-Reply-To: <20160930161544.41614-1-arnd@arndb.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Arnd Bergmann <arnd@arndb.de>
-Date: Fri, 30 Sep 2016 18:13:49 +0200
+Date: Fri, 30 Sep 2016 18:15:33 +0200
 
-> With the newly added support for IFLA_VF_VLAN_LIST netlink messages,
-> we get a warning about potential uninitialized variable use in
-> the parsing of the user input when enabling the -Wmaybe-uninitialized
-> warning:
+> A recent cleanup marked cxgb4_dcb_enabled as 'static', which is correct, but this ignored
+> how the symbol is also exported. In addition, the export can be compiled out when modules
+> are disabled, causing a harmless compiler warning in configurations for which it is not
+> used at all:
 > 
-> net/core/rtnetlink.c: In function 'do_setvfinfo':
-> net/core/rtnetlink.c:1756:9: error: 'ivvl$' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c:282:12: error: 'cxgb4_dcb_enabled' defined but not used [-Werror=unused-function]
 > 
-> I have not been able to prove whether it is possible to arrive in
-> this code with an empty IFLA_VF_VLAN_LIST block, but if we do,
-> then ndo_set_vf_vlan gets called with uninitialized arguments.
+> This removes the export and moves the function into the correct #ifdef so we only build
+> it when there are users.
 > 
-> This adds an explicit check for an empty list, making it obvious
-> to the reader and the compiler that this cannot happen.
-> 
-> Fixes: 79aab093a0b5 ("net: Update API for VF vlan protocol 802.1ad support")
+> Fixes: 50935857f878 ("cxgb4: mark symbols static where possible")
 > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Applied, thanks.
+Applied.
