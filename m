@@ -1,41 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Add netdev all_adj_list refcnt propagation to fix panic
-Date: Sun, 02 Oct 2016 20:17:31 -0400 (EDT)
-Message-ID: <20161002.201731.2191796054736402577.davem@davemloft.net>
-References: <1475086011-5588-1-git-send-email-dsa@cumulusnetworks.com>
-        <715a8d0a-9245-fd83-bf58-70f863c721f7@cradlepoint.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net] Panic when tc_lookup_action_n finds a partially
+ initialized action.
+Date: Sun, 2 Oct 2016 21:18:06 -0400
+Message-ID: <92102cf9-9f27-3a9f-06b6-f45201dbc55c@mojatatu.com>
+References: <20161002031349.GB2635@templeofstupid.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: dsa@cumulusnetworks.com, netdev@vger.kernel.org, vfalico@gmail.com,
-        nikolay@cumulusnetworks.com
-To: acollins@cradlepoint.com
+Cc: netdev@vger.kernel.org, Cong Wang <xiyou.wangcong@gmail.com>
+To: Krister Johansen <kjlx@templeofstupid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36202 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751621AbcJCAST (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 2 Oct 2016 20:18:19 -0400
-In-Reply-To: <715a8d0a-9245-fd83-bf58-70f863c721f7@cradlepoint.com>
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:35480 "EHLO
+        mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751873AbcJCBTW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 2 Oct 2016 21:19:22 -0400
+Received: by mail-pa0-f68.google.com with SMTP id t6so4119204pae.2
+        for <netdev@vger.kernel.org>; Sun, 02 Oct 2016 18:19:21 -0700 (PDT)
+In-Reply-To: <20161002031349.GB2635@templeofstupid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Collins <acollins@cradlepoint.com>
-Date: Wed, 28 Sep 2016 13:04:42 -0600
+On 16-10-01 11:13 PM, Krister Johansen wrote:
+> A tc_action_ops structure is visibile as soon as it is placed in the
+> act_base list.  When tcf_regsiter_action adds an item to this list and
+> drops act_mod_lock, registration is not complete until
+> register_pernet_subsys() finishes.
+>
+> If two threads attempt to modify a tc action in a way that triggers a
+> module load, the thread that wins the race ends up defeferencing a NULL
+> pointer after tcf_action_init_1() invokes a_o->init().  In the
+> particular case that this submitter encountered, the panic occurred in
+> tcf_gact_init() when net_generic() returned a NULL tc_action_net
+> pointer.  The gact_net_id needed to fetch the correct pointer was not
+> yet set, because the register_pernet_subsys() call was pending in
+> another thread.
+>
+> Fixes: ddf97ccdd7cb ("net_sched: add network namespace support for tc actions")
+> Signed-off-by: Krister Johansen <kjlx@templeofstupid.com>
 
-> On 09/28/2016 12:06 PM, David Ahern wrote:
->> Andrew Collins posted this patch as RFC in March:
->>     http://patchwork.ozlabs.org/patch/603101/
->>
->> It has apparently fallen through the cracks and never applied.
->>
->> It solves a refcnt problem (thanks Nik for pointing out this patch)
-> 
-> I have been running the patch in production for the past few months
-> without issue, in spite of my concerns about the potential side
-> effects of the change.  That said, I suspect my use cases are a subset
-> of yours.
-> 
-> If nobody has a better fix yet, I'm happy to respin this patch as
-> non-RFC with proper signoff.
+Looks reasonable to me but will let Cong a closer look since he added
+that code.
 
-Please do so.
+cheers,
+jamal
