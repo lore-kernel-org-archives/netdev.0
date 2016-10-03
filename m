@@ -1,46 +1,59 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 1/2] fm10k: use generic ethtool_op_get_ts_info callback
-Date: Sun,  2 Oct 2016 23:40:42 -0700
-Message-ID: <1475476843-23405-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1475476843-23405-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        guru.anbalagane@oracle.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Subject: [PATCH] ipv6 addrconf: disallow rtr_solicits < -1
+Date: Sun,  2 Oct 2016 23:41:57 -0700
+Message-ID: <1475476917-17382-1-git-send-email-zenczykowski@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, Erik Kline <ek@google.com>,
+        Lorenzo Colitti <lorenzo@google.com>
+To: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:41818 "EHLO mga09.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751830AbcJCGkq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 3 Oct 2016 02:40:46 -0400
-In-Reply-To: <1475476843-23405-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:36557 "EHLO
+        mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751375AbcJCGmE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2016 02:42:04 -0400
+Received: by mail-pa0-f67.google.com with SMTP id cd13so6223614pac.3
+        for <netdev@vger.kernel.org>; Sun, 02 Oct 2016 23:42:04 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Maciej Żenczykowski <maze@google.com>
 
-This generic callback is for drivers which have software Tx timestamp
-support enabled. Without this, PTP applications requesting software
-timestamps may complain that the requested mode is not supported.
+This disallows setting /proc/sys/net/ipv6/conf/*/router_solicitations
+to values below -1.
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+-1 continues to mean an unlimited number of retransmits.
+
+Note: this depends on 'ipv6 addrconf: remove addrconf_sysctl_hop_limit()'
+
+Signed-off-by: Maciej Żenczykowski <maze@google.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c | 1 +
- 1 file changed, 1 insertion(+)
+ net/ipv6/addrconf.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-index adb7cb4..5241e08 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-@@ -1182,6 +1182,7 @@ static const struct ethtool_ops fm10k_ethtool_ops = {
- 	.set_rxfh		= fm10k_set_rssh,
- 	.get_channels		= fm10k_get_channels,
- 	.set_channels		= fm10k_set_channels,
-+	.get_ts_info		= ethtool_op_get_ts_info,
- };
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index cbd9343751a2..511b76e6a50e 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -5729,6 +5729,7 @@ int addrconf_sysctl_ignore_routes_with_linkdown(struct ctl_table *ctl,
+ 	return ret;
+ }
  
- void fm10k_set_ethtool_ops(struct net_device *dev)
++static const int minus_one = -1;
+ static const int one = 1;
+ static const int two_five_five = 255;
+ 
+@@ -5789,7 +5790,8 @@ static const struct ctl_table addrconf_sysctl[] = {
+ 		.data		= &ipv6_devconf.rtr_solicits,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec,
++		.proc_handler	= proc_dointvec_minmax,
++		.extra1		= (void *)&minus_one,
+ 	},
+ 	{
+ 		.procname	= "router_solicitation_interval",
 -- 
-2.7.4
+2.8.0.rc3.226.g39d4020
