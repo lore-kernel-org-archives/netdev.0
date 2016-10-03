@@ -1,49 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] net: pktgen: fix pkt_size
-Date: Mon, 03 Oct 2016 01:30:28 -0400 (EDT)
-Message-ID: <20161003.013028.1884210069858462849.davem@davemloft.net>
-References: <5277a40b08c491bd4ff8f6e3276718848f7406e8.1475246890.git.pabeni@redhat.com>
+Subject: Re: [PATCH] net: rtnl: avoid uninitialized data in
+ IFLA_VF_VLAN_LIST handling
+Date: Mon, 03 Oct 2016 01:32:25 -0400 (EDT)
+Message-ID: <20161003.013225.2126712838089878159.davem@davemloft.net>
+References: <20160930161416.18660-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bogdan.hamciuc@freescale.com,
-        greearb@candelatech.com, sergei.shtylyov@cogentembedded.com
-To: pabeni@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38380 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750890AbcJCFac (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2016 01:30:32 -0400
-In-Reply-To: <5277a40b08c491bd4ff8f6e3276718848f7406e8.1475246890.git.pabeni@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: roopa@cumulusnetworks.com, nicolas.dichtel@6wind.com,
+        nikolay@cumulusnetworks.com, jiri@mellanox.com,
+        edumazet@google.com, bblanco@plumgrid.com,
+        hannes@stressinduktion.org, nogahf@mellanox.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160930161416.18660-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Paolo Abeni <pabeni@redhat.com>
-Date: Fri, 30 Sep 2016 16:56:45 +0200
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Fri, 30 Sep 2016 18:13:49 +0200
 
-> The commit 879c7220e828 ("net: pktgen: Observe needed_headroom
-> of the device") increased the 'pkt_overhead' field value by
-> LL_RESERVED_SPACE.
-> As a side effect the generated packet size, computed as:
+> With the newly added support for IFLA_VF_VLAN_LIST netlink messages,
+> we get a warning about potential uninitialized variable use in
+> the parsing of the user input when enabling the -Wmaybe-uninitialized
+> warning:
 > 
-> 	/* Eth + IPh + UDPh + mpls */
-> 	datalen = pkt_dev->cur_pkt_size - 14 - 20 - 8 -
-> 		  pkt_dev->pkt_overhead;
+> net/core/rtnetlink.c: In function 'do_setvfinfo':
+> net/core/rtnetlink.c:1756:9: error: 'ivvl$' may be used uninitialized in this function [-Werror=maybe-uninitialized]
 > 
-> is decreased by the same value.
-> The above changed slightly the behavior of existing pktgen users,
-> and made the procfs interface somewhat inconsistent.
-> Fix it by restoring the previous pkt_overhead value and using
-> LL_RESERVED_SPACE as extralen in skb allocation.
-> Also, change pktgen_alloc_skb() to only partially reserve
-> the headroom to allow the caller to prefetch from ll header
-> start.
+> I have not been able to prove whether it is possible to arrive in
+> this code with an empty IFLA_VF_VLAN_LIST block, but if we do,
+> then ndo_set_vf_vlan gets called with uninitialized arguments.
 > 
-> v1 -> v2:
->  - fixed some typos in the comments
+> This adds an explicit check for an empty list, making it obvious
+> to the reader and the compiler that this cannot happen.
 > 
-> Fixes: 879c7220e828 ("net: pktgen: Observe needed_headroom of the device")
-> Suggested-by: Ben Greear <greearb@candelatech.com>
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> Fixes: 79aab093a0b5 ("net: Update API for VF vlan protocol 802.1ad support")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Applied and queued up for -stable.
+Applied, thanks.
