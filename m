@@ -1,282 +1,124 @@
-From: Andrew Collins <acollins@cradlepoint.com>
-Subject: [PATCH net] Add netdev all_adj_list refcnt propagation to fix panic
-Date: Mon, 3 Oct 2016 13:43:02 -0600
-Message-ID: <1475523782-6358-1-git-send-email-acollins@cradlepoint.com>
+From: Arnaldo Carvalho de Melo <acme@kernel.org>
+Subject: Re: net: vrf: Handle ipv6 multicast and link-local addresses
+Date: Mon, 3 Oct 2016 16:59:53 -0300
+Message-ID: <20161003195953.GD12073@kernel.org>
+References: <20160727215224.EB4E26611D4@gitolite.kernel.org>
+ <CAMuHMdU6zpowkWgUW0+8Fhx7BmwTn=FvVBoTKXUgNzLeBpFrHg@mail.gmail.com>
+ <1d0eb1d8-708f-2238-37c9-b75004804065@cumulusnetworks.com>
+ <CAMuHMdWGX3owP=xr-hhr6gE9PFRFc55Rzsc1M1JVoFLHdmuUYQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <dsa@cumulusnetworks.com>, <netdev@vger.kernel.org>,
-        <vfalico@gmail.com>, <nikolay@cumulusnetworks.com>,
-        Andrew Collins <acollins@cradlepoint.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: David Ahern <dsa@cumulusnetworks.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0120.outbound.protection.outlook.com ([104.47.40.120]:8465
-        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752118AbcJCT57 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 3 Oct 2016 15:57:59 -0400
+Received: from mail.kernel.org ([198.145.29.136]:59458 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751388AbcJCUAH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 3 Oct 2016 16:00:07 -0400
+Content-Disposition: inline
+In-Reply-To: <CAMuHMdWGX3owP=xr-hhr6gE9PFRFc55Rzsc1M1JVoFLHdmuUYQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a respin of a patch to fix a relatively easily reproducible kernel
-panic related to the all_adj_list handling for netdevs in recent kernels.
+Em Wed, Aug 03, 2016 at 10:27:44PM +0200, Geert Uytterhoeven escreveu:
+> On Wed, Aug 3, 2016 at 10:11 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
+> > On 8/3/16 1:57 PM, Geert Uytterhoeven wrote:
+> >>> +static void vrf_ip6_input_dst(struct sk_buff *skb, struct net_device *vrf_dev,
+> >>> > +                             int ifindex)
+> >>> > +{
+> >>> > +       const struct ipv6hdr *iph = ipv6_hdr(skb);
+> >>> > +       struct flowi6 fl6 = {
+> >>> > +               .daddr          = iph->daddr,
+> >>> > +               .saddr          = iph->saddr,
+> >>> > +               .flowlabel      = ip6_flowinfo(iph),
+> >> The above assignment causes the following compiler warning with
+> >> m68k-linux-gnu-gcc-4.1:
+> >>
+> >>     drivers/net/vrf.c: In function ‘vrf_ip6_input_dst’:
+> >>     drivers/net/vrf.c:870: warning: initialized field with
+> >> side-effects overwritten
+> >>     drivers/net/vrf.c:870: warning: (near initialization for ‘fl6’)
+> >>
+> >> Unfortunately I have no idea what it means, nor do I see what's wrong
+> >> with the code.
+> >
+> > no idea. Fields are initialized once and left and right data types are the same.
+> >
+> > Can you remove one line at a time? Line 870 is ".flowi6_proto   = iph->nexthdr," but all of the flowi6 macros are unique references to unique fields in flowi_common. The flowlabel line you point out is a unique field as well.
+> 
+> The only thing that seems to matter is assigning the result of the call to
+> ip6_flowinfo() to .flowlabel. Assigning a constant makes the warning go away.
+> 
+> Yeah, the 870 line number is funny, as it doesn't point to the offending line.
+> 
+> > Can you run pahole on file that did compile? e.g.,
+> >
+> > pahole -C 'flowi6' net/ipv6/route.o
+> >
+> > and get the common struct too:
+> >
+> > pahole -C 'flowi_common' net/ipv6/route.o
+> 
+> No output. Perhaps pahole doesn't play well with cross-compiling?
 
-The following sequence of commands will reproduce the issue:
+Can you send me this net/ipv6/route.o file? It should work as long as
+CONFIG_DEBUG_INFO was used to build this cross kernel.
 
-ip link add link eth0 name eth0.100 type vlan id 100
-ip link add link eth0 name eth0.200 type vlan id 200
-ip link add name testbr type bridge
-ip link set eth0.100 master testbr
-ip link set eth0.200 master testbr
-ip link add link testbr mac0 type macvlan
-ip link delete dev testbr
+For instance, here cross compiling perf tools for s390 from a ubuntu
+16.04 container running on a fedora 24 host, I get:
 
-This creates an upper/lower tree of (excuse the poor ASCII art):
+[root@jouet 14.04.4]# file /var/lib/docker/devicemapper/mnt/b7ba22999d88feebc42de2ea17fe27e94febf228439fccf2b84c0c9e1ccd8af7/rootfs/tmp/build/perf/perf
+/var/lib/docker/devicemapper/mnt/b7ba22999d88feebc42de2ea17fe27e94febf228439fccf2b84c0c9e1ccd8af7/rootfs/tmp/build/perf/perf: ELF 64-bit MSB shared object, IBM S/390, version 1 (SYSV), dynamically linked, interpreter /lib/ld64.so.1, for GNU/Linux 3.2.0, BuildID[sha1]=22b27009c61130ed5727bcaf9ad0813d414b8c5a, not stripped
+[root@jouet 14.04.4]#
 
-            /---eth0.100-eth0
-mac0-testbr-
-            \---eth0.200-eth0
+Thus a s/390 object, that I then process from a x86_64 pahole:
 
-When testbr is deleted, the all_adj_lists are walked, and eth0 is deleted twice from
-the mac0 list. Unfortunately, during setup in __netdev_upper_dev_link, only one
-reference to eth0 is added, so this results in a panic.
+[root@jouet 14.04.4]# file /home/acme/git/pahole/build/pahole
+/home/acme/git/pahole/build/pahole: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 2.6.32, BuildID[sha1]=c90855d4ffa815bf0dddb3463bc45aea4855d0e2, not stripped
+[root@jouet 14.04.4]# 
 
-This change adds reference count propagation so things are handled properly.
+Giving these results:
 
-Matthias Schiffer reported a similar crash in batman-adv:
+[root@jouet 14.04.4]# pahole -C sockaddr_in6 /var/lib/docker/devicemapper/mnt/b7ba22999d88feebc42de2ea17fe27e94febf228439fccf2b84c0c9e1ccd8af7/rootfs/tmp/build/perf/perf
+struct sockaddr_in6 {
+	sa_family_t                sin6_family;          /*     0     2 */
+	in_port_t                  sin6_port;            /*     2     2 */
+	uint32_t                   sin6_flowinfo;        /*     4     4 */
+	struct in6_addr            sin6_addr;            /*     8    16 */
+	uint32_t                   sin6_scope_id;        /*    24     4 */
 
-https://github.com/freifunk-gluon/gluon/issues/680
-https://www.open-mesh.org/issues/247
+	/* size: 28, cachelines: 1, members: 5 */
+	/* last cacheline: 28 bytes */
+};
+[root@jouet 14.04.4]#
 
-which this patch also seems to resolve.
+Expanding types:
 
-Signed-off-by: Andrew Collins <acollins@cradlepoint.com>
----
- net/core/dev.c | 68 ++++++++++++++++++++++++++++++++--------------------------
- 1 file changed, 37 insertions(+), 31 deletions(-)
+[root@jouet 14.04.4]# pahole --expand_types -C sockaddr_in6 /var/lib/docker/devicemapper/mnt/b7ba22999d88feebc42de2ea17fe27e94febf228439fccf2b84c0c9e1ccd8af7/rootfs/tmp/build/perf/perf
+struct sockaddr_in6 {
+	/* typedef sa_family_t */ short unsigned int         sin6_family;                /*     0     2 */
+	/* typedef in_port_t -> uint16_t */ short unsigned int         sin6_port;        /*     2     2 */
+	/* typedef uint32_t */ unsigned int               sin6_flowinfo;                 /*     4     4 */
+	struct in6_addr {
+		union {
+			/* typedef uint8_t */ unsigned char __u6_addr8[16];              /*          16 */
+			/* typedef uint16_t */ short unsigned int __u6_addr16[8];        /*          16 */
+			/* typedef uint32_t */ unsigned int __u6_addr32[4];              /*          16 */
+		} __in6_u;                                                               /*     8    16 */
+	} sin6_addr; /*     8    16 */
+	/* typedef uint32_t */ unsigned int               sin6_scope_id;                 /*    24     4 */
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index ea63120..1da79ef 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5578,6 +5578,7 @@ static inline bool netdev_adjacent_is_neigh_list(struct net_device *dev,
- 
- static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 					struct net_device *adj_dev,
-+					u16 ref_nr,
- 					struct list_head *dev_list,
- 					void *private, bool master)
- {
-@@ -5587,7 +5588,7 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 	adj = __netdev_find_adj(adj_dev, dev_list);
- 
- 	if (adj) {
--		adj->ref_nr++;
-+		adj->ref_nr += ref_nr;
- 		return 0;
- 	}
- 
-@@ -5597,7 +5598,7 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 
- 	adj->dev = adj_dev;
- 	adj->master = master;
--	adj->ref_nr = 1;
-+	adj->ref_nr = ref_nr;
- 	adj->private = private;
- 	dev_hold(adj_dev);
- 
-@@ -5636,6 +5637,7 @@ free_adj:
- 
- static void __netdev_adjacent_dev_remove(struct net_device *dev,
- 					 struct net_device *adj_dev,
-+					 u16 ref_nr,
- 					 struct list_head *dev_list)
- {
- 	struct netdev_adjacent *adj;
-@@ -5648,10 +5650,10 @@ static void __netdev_adjacent_dev_remove(struct net_device *dev,
- 		BUG();
- 	}
- 
--	if (adj->ref_nr > 1) {
--		pr_debug("%s to %s ref_nr-- = %d\n", dev->name, adj_dev->name,
--			 adj->ref_nr-1);
--		adj->ref_nr--;
-+	if (adj->ref_nr > ref_nr) {
-+		pr_debug("%s to %s ref_nr-%d = %d\n", dev->name, adj_dev->name,
-+			 ref_nr, adj->ref_nr-ref_nr);
-+		adj->ref_nr -= ref_nr;
- 		return;
- 	}
- 
-@@ -5670,21 +5672,22 @@ static void __netdev_adjacent_dev_remove(struct net_device *dev,
- 
- static int __netdev_adjacent_dev_link_lists(struct net_device *dev,
- 					    struct net_device *upper_dev,
-+					    u16 ref_nr,
- 					    struct list_head *up_list,
- 					    struct list_head *down_list,
- 					    void *private, bool master)
- {
- 	int ret;
- 
--	ret = __netdev_adjacent_dev_insert(dev, upper_dev, up_list, private,
--					   master);
-+	ret = __netdev_adjacent_dev_insert(dev, upper_dev, ref_nr, up_list,
-+					   private, master);
- 	if (ret)
- 		return ret;
- 
--	ret = __netdev_adjacent_dev_insert(upper_dev, dev, down_list, private,
--					   false);
-+	ret = __netdev_adjacent_dev_insert(upper_dev, dev, ref_nr, down_list,
-+					   private, false);
- 	if (ret) {
--		__netdev_adjacent_dev_remove(dev, upper_dev, up_list);
-+		__netdev_adjacent_dev_remove(dev, upper_dev, ref_nr, up_list);
- 		return ret;
- 	}
- 
-@@ -5692,9 +5695,10 @@ static int __netdev_adjacent_dev_link_lists(struct net_device *dev,
- }
- 
- static int __netdev_adjacent_dev_link(struct net_device *dev,
--				      struct net_device *upper_dev)
-+				      struct net_device *upper_dev,
-+				      u16 ref_nr)
- {
--	return __netdev_adjacent_dev_link_lists(dev, upper_dev,
-+	return __netdev_adjacent_dev_link_lists(dev, upper_dev, ref_nr,
- 						&dev->all_adj_list.upper,
- 						&upper_dev->all_adj_list.lower,
- 						NULL, false);
-@@ -5702,17 +5706,19 @@ static int __netdev_adjacent_dev_link(struct net_device *dev,
- 
- static void __netdev_adjacent_dev_unlink_lists(struct net_device *dev,
- 					       struct net_device *upper_dev,
-+					       u16 ref_nr,
- 					       struct list_head *up_list,
- 					       struct list_head *down_list)
- {
--	__netdev_adjacent_dev_remove(dev, upper_dev, up_list);
--	__netdev_adjacent_dev_remove(upper_dev, dev, down_list);
-+	__netdev_adjacent_dev_remove(dev, upper_dev, ref_nr, up_list);
-+	__netdev_adjacent_dev_remove(upper_dev, dev, ref_nr, down_list);
- }
- 
- static void __netdev_adjacent_dev_unlink(struct net_device *dev,
--					 struct net_device *upper_dev)
-+					 struct net_device *upper_dev,
-+					 u16 ref_nr)
- {
--	__netdev_adjacent_dev_unlink_lists(dev, upper_dev,
-+	__netdev_adjacent_dev_unlink_lists(dev, upper_dev, ref_nr,
- 					   &dev->all_adj_list.upper,
- 					   &upper_dev->all_adj_list.lower);
- }
-@@ -5721,17 +5727,17 @@ static int __netdev_adjacent_dev_link_neighbour(struct net_device *dev,
- 						struct net_device *upper_dev,
- 						void *private, bool master)
- {
--	int ret = __netdev_adjacent_dev_link(dev, upper_dev);
-+	int ret = __netdev_adjacent_dev_link(dev, upper_dev, 1);
- 
- 	if (ret)
- 		return ret;
- 
--	ret = __netdev_adjacent_dev_link_lists(dev, upper_dev,
-+	ret = __netdev_adjacent_dev_link_lists(dev, upper_dev, 1,
- 					       &dev->adj_list.upper,
- 					       &upper_dev->adj_list.lower,
- 					       private, master);
- 	if (ret) {
--		__netdev_adjacent_dev_unlink(dev, upper_dev);
-+		__netdev_adjacent_dev_unlink(dev, upper_dev, 1);
- 		return ret;
- 	}
- 
-@@ -5741,8 +5747,8 @@ static int __netdev_adjacent_dev_link_neighbour(struct net_device *dev,
- static void __netdev_adjacent_dev_unlink_neighbour(struct net_device *dev,
- 						   struct net_device *upper_dev)
- {
--	__netdev_adjacent_dev_unlink(dev, upper_dev);
--	__netdev_adjacent_dev_unlink_lists(dev, upper_dev,
-+	__netdev_adjacent_dev_unlink(dev, upper_dev, 1);
-+	__netdev_adjacent_dev_unlink_lists(dev, upper_dev, 1,
- 					   &dev->adj_list.upper,
- 					   &upper_dev->adj_list.lower);
- }
-@@ -5795,7 +5801,7 @@ static int __netdev_upper_dev_link(struct net_device *dev,
- 		list_for_each_entry(j, &upper_dev->all_adj_list.upper, list) {
- 			pr_debug("Interlinking %s with %s, non-neighbour\n",
- 				 i->dev->name, j->dev->name);
--			ret = __netdev_adjacent_dev_link(i->dev, j->dev);
-+			ret = __netdev_adjacent_dev_link(i->dev, j->dev, i->ref_nr);
- 			if (ret)
- 				goto rollback_mesh;
- 		}
-@@ -5805,7 +5811,7 @@ static int __netdev_upper_dev_link(struct net_device *dev,
- 	list_for_each_entry(i, &upper_dev->all_adj_list.upper, list) {
- 		pr_debug("linking %s's upper device %s with %s\n",
- 			 upper_dev->name, i->dev->name, dev->name);
--		ret = __netdev_adjacent_dev_link(dev, i->dev);
-+		ret = __netdev_adjacent_dev_link(dev, i->dev, i->ref_nr);
- 		if (ret)
- 			goto rollback_upper_mesh;
- 	}
-@@ -5814,7 +5820,7 @@ static int __netdev_upper_dev_link(struct net_device *dev,
- 	list_for_each_entry(i, &dev->all_adj_list.lower, list) {
- 		pr_debug("linking %s's lower device %s with %s\n", dev->name,
- 			 i->dev->name, upper_dev->name);
--		ret = __netdev_adjacent_dev_link(i->dev, upper_dev);
-+		ret = __netdev_adjacent_dev_link(i->dev, upper_dev, i->ref_nr);
- 		if (ret)
- 			goto rollback_lower_mesh;
- 	}
-@@ -5832,7 +5838,7 @@ rollback_lower_mesh:
- 	list_for_each_entry(i, &dev->all_adj_list.lower, list) {
- 		if (i == to_i)
- 			break;
--		__netdev_adjacent_dev_unlink(i->dev, upper_dev);
-+		__netdev_adjacent_dev_unlink(i->dev, upper_dev, i->ref_nr);
- 	}
- 
- 	i = NULL;
-@@ -5842,7 +5848,7 @@ rollback_upper_mesh:
- 	list_for_each_entry(i, &upper_dev->all_adj_list.upper, list) {
- 		if (i == to_i)
- 			break;
--		__netdev_adjacent_dev_unlink(dev, i->dev);
-+		__netdev_adjacent_dev_unlink(dev, i->dev, i->ref_nr);
- 	}
- 
- 	i = j = NULL;
-@@ -5854,7 +5860,7 @@ rollback_mesh:
- 		list_for_each_entry(j, &upper_dev->all_adj_list.upper, list) {
- 			if (i == to_i && j == to_j)
- 				break;
--			__netdev_adjacent_dev_unlink(i->dev, j->dev);
-+			__netdev_adjacent_dev_unlink(i->dev, j->dev, i->ref_nr);
- 		}
- 		if (i == to_i)
- 			break;
-@@ -5934,16 +5940,16 @@ void netdev_upper_dev_unlink(struct net_device *dev,
- 	 */
- 	list_for_each_entry(i, &dev->all_adj_list.lower, list)
- 		list_for_each_entry(j, &upper_dev->all_adj_list.upper, list)
--			__netdev_adjacent_dev_unlink(i->dev, j->dev);
-+			__netdev_adjacent_dev_unlink(i->dev, j->dev, i->ref_nr);
- 
- 	/* remove also the devices itself from lower/upper device
- 	 * list
- 	 */
- 	list_for_each_entry(i, &dev->all_adj_list.lower, list)
--		__netdev_adjacent_dev_unlink(i->dev, upper_dev);
-+		__netdev_adjacent_dev_unlink(i->dev, upper_dev, i->ref_nr);
- 
- 	list_for_each_entry(i, &upper_dev->all_adj_list.upper, list)
--		__netdev_adjacent_dev_unlink(dev, i->dev);
-+		__netdev_adjacent_dev_unlink(dev, i->dev, i->ref_nr);
- 
- 	call_netdevice_notifiers_info(NETDEV_CHANGEUPPER, dev,
- 				      &changeupper_info.info);
--- 
-2.7.4
+	/* size: 28, cachelines: 1, members: 5 */
+	/* last cacheline: 28 bytes */
+};
+[root@jouet 14.04.4]#
+
+etc.
+
+Guess I need to put together a m68k target for building the perf tools (and
+test pahole & friends on such objects)... :-)
+
+- Arnaldo
