@@ -1,31 +1,51 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH] ipv6 addrconf: disallow rtr_solicits < -1
-Date: Mon, 3 Oct 2016 13:05:14 -0700
-Message-ID: <CAM_iQpXPaasqZujSB36XDCW643H3NHcUMcUn59mU2LZiOcbYPA@mail.gmail.com>
-References: <1475476917-17382-1-git-send-email-zenczykowski@gmail.com>
- <CAM_iQpUaXf6crCbbe3+MKsuchJGBE5hnQEDibgFe-MtBoe2v7A@mail.gmail.com> <CANP3RGe2-hpmnQJnGP6JSwNM1YgL-6mKPF8z-GcFaFu7yQtapQ@mail.gmail.com>
+From: "Baron, Jason" <jbaron@akamai.com>
+Subject: Re: [PATCH v2 net-next 0/2] bnx2x: page allocation failure
+Date: Mon, 3 Oct 2016 20:24:32 +0000
+Message-ID: <C6EA6A20-ECFC-43B5-B720-DC14CD212E7A@akamai.com>
+References: <cover.1474577624.git.jbaron@akamai.com>
+ <20160926.094606.142250516441125849.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: quoted-printable
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Erik Kline <ek@google.com>,
-        Lorenzo Colitti <lorenzo@google.com>
-To: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Ariel.Elior@qlogic.com" <Ariel.Elior@qlogic.com>,
+        "Yuval.Mintz@qlogic.com" <Yuval.Mintz@qlogic.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f44.google.com ([209.85.214.44]:37812 "EHLO
-        mail-it0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751779AbcJCUFf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2016 16:05:35 -0400
-Received: by mail-it0-f44.google.com with SMTP id j69so129989975itb.0
-        for <netdev@vger.kernel.org>; Mon, 03 Oct 2016 13:05:35 -0700 (PDT)
-In-Reply-To: <CANP3RGe2-hpmnQJnGP6JSwNM1YgL-6mKPF8z-GcFaFu7yQtapQ@mail.gmail.com>
+Received: from prod-mail-xrelay07.akamai.com ([23.79.238.175]:24664 "EHLO
+        prod-mail-xrelay07.akamai.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751625AbcJCUYe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2016 16:24:34 -0400
+In-Reply-To: <20160926.094606.142250516441125849.davem@davemloft.net>
+Content-Language: en-US
+Content-ID: <F3BBADD259AF65489E473EF94482B59C@akamai.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 3, 2016 at 1:01 PM, Maciej =C5=BBenczykowski
-<zenczykowski@gmail.com> wrote:
-> It is if you don't want build warnings about discarding 'const' qualifier=
-.
 
-Why do you need to mark it as const? We don't do this in sysctl_net_ipv4.c.
+
+> On Sep 26, 2016, at 9:46 AM, David Miller <davem@davemloft.net> wrote:
+>=20
+> From: Jason Baron <jbaron@akamai.com>
+> Date: Thu, 22 Sep 2016 17:12:24 -0400
+>=20
+>> While configuring ~500 multicast addrs, we ran into high order
+>> page allocation failures. They don't need to be high order, and
+>> thus I'm proposing to split them into at most PAGE_SIZE allocations.
+>>=20
+>> Below is a sample failure.
+> ...
+>> v2:
+>> -make use of list_next_entry()
+>> -only use PAGE_SIZE allocations
+>=20
+> Series applied, thanks Jason.
+
+Hi David,
+
+I have a small correction for 2/2. Can I post a v3? Or should I just send t=
+he incremental at this point?
+
+Thanks,
+
+-Jason=
