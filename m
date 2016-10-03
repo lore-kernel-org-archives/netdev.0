@@ -1,45 +1,61 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net] Panic when tc_lookup_action_n finds a partially
- initialized action.
-Date: Sun, 2 Oct 2016 21:18:06 -0400
-Message-ID: <92102cf9-9f27-3a9f-06b6-f45201dbc55c@mojatatu.com>
-References: <20161002031349.GB2635@templeofstupid.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 1/2] net: centralize net_device min/max MTU
+ checking
+Date: Sun, 02 Oct 2016 22:43:22 -0400 (EDT)
+Message-ID: <20161002.224322.740109807229746275.davem@davemloft.net>
+References: <20160928222053.33697-2-jarod@redhat.com>
+        <87intdwwx7.fsf@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Cong Wang <xiyou.wangcong@gmail.com>
-To: Krister Johansen <kjlx@templeofstupid.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:35480 "EHLO
-        mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751873AbcJCBTW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 2 Oct 2016 21:19:22 -0400
-Received: by mail-pa0-f68.google.com with SMTP id t6so4119204pae.2
-        for <netdev@vger.kernel.org>; Sun, 02 Oct 2016 18:19:21 -0700 (PDT)
-In-Reply-To: <20161002031349.GB2635@templeofstupid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jarod@redhat.com, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: jkbs@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87intdwwx7.fsf@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16-10-01 11:13 PM, Krister Johansen wrote:
-> A tc_action_ops structure is visibile as soon as it is placed in the
-> act_base list.  When tcf_regsiter_action adds an item to this list and
-> drops act_mod_lock, registration is not complete until
-> register_pernet_subsys() finishes.
->
-> If two threads attempt to modify a tc action in a way that triggers a
-> module load, the thread that wins the race ends up defeferencing a NULL
-> pointer after tcf_action_init_1() invokes a_o->init().  In the
-> particular case that this submitter encountered, the panic occurred in
-> tcf_gact_init() when net_generic() returned a NULL tc_action_net
-> pointer.  The gact_net_id needed to fetch the correct pointer was not
-> yet set, because the register_pernet_subsys() call was pending in
-> another thread.
->
-> Fixes: ddf97ccdd7cb ("net_sched: add network namespace support for tc actions")
-> Signed-off-by: Krister Johansen <kjlx@templeofstupid.com>
+From: Jakub Sitnicki <jkbs@redhat.com>
+Date: Fri, 30 Sep 2016 11:37:24 +0200
 
-Looks reasonable to me but will let Cong a closer look since he added
-that code.
+> On Wed, Sep 28, 2016 at 10:20 PM GMT, Jarod Wilson wrote:
+>> While looking into an MTU issue with sfc, I started noticing that almost
+>> every NIC driver with an ndo_change_mtu function implemented almost
+>> exactly the same range checks, and in many cases, that was the only
+>> practical thing their ndo_change_mtu function was doing. Quite a few
+>> drivers have either 68, 64, 60 or 46 as their minimum MTU value checked,
+>> and then various sizes from 1500 to 65535 for their maximum MTU value. We
+>> can remove a whole lot of redundant code here if we simple store min_mtu
+>> and max_mtu in net_device, and check against those in net/core/dev.c's
+>> dev_set_mtu().
+>>
+>> In theory, there should be zero functional change with this patch, it just
+>> puts the infrastructure in place. Subsequent patches will attempt to start
+>> using said infrastructure, with theoretically zero change in
+>> functionality.
+>>
+>> CC: "David S. Miller" <davem@davemloft.net>
+>> CC: netdev@vger.kernel.org
+>> Signed-off-by: Jarod Wilson <jarod@redhat.com>
+>> ---
+> 
+> [...]
+> 
+>> diff --git a/net/core/dev.c b/net/core/dev.c
+>> index c0c291f..5343799 100644
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+>> @@ -6493,9 +6493,17 @@ int dev_set_mtu(struct net_device *dev, int new_mtu)
+>>  	if (new_mtu == dev->mtu)
+>>  		return 0;
+>>  
+>> -	/*	MTU must be positive.	 */
+>> -	if (new_mtu < 0)
+>> +	if (new_mtu < dev->min_mtu) {
+> 
+> Ouch, integral promotions. Looks like you need to keep the < 0 check.
+> Otherwise new_mtu gets promoted to unsigned int and negative values will
+> pass the check.
 
-cheers,
-jamal
+Agreed, the < 0 test must be reintroduced.
