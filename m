@@ -1,62 +1,41 @@
 From: Robert Jarzmik <robert.jarzmik-GANU6spQydw@public.gmane.org>
 Subject: Re: [PATCH 3/3] net: smsc911x: add u16 workaround for pxa platforms
-Date: Mon, 03 Oct 2016 18:11:23 +0200
-Message-ID: <87oa319zv8.fsf@belgarion.home>
+Date: Mon, 03 Oct 2016 18:14:39 +0200
+Message-ID: <87k2dp9zps.fsf@belgarion.home>
 References: <1475485553-18747-1-git-send-email-robert.jarzmik@free.fr>
         <1475485553-18747-3-git-send-email-robert.jarzmik@free.fr>
-        <20161003154624.GG7632@leverpostej>
+        <5b835e36-d53b-7510-25fb-649abc7df775@arm.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Nicolas Pitre <nico-vtqb6HGKxmzR7s880joybQ@public.gmane.org>,
+Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Nicolas Pitre <nico-vtqb6HGKxmzR7s880joybQ@public.gmane.org>,
         Russell King - ARM Linux <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
         Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
         devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
+To: Jeremy Linton <jeremy.linton-5wv7dgnIgG8@public.gmane.org>
 Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161003154624.GG7632@leverpostej> (Mark Rutland's message of
-        "Mon, 3 Oct 2016 16:46:25 +0100")
+In-Reply-To: <5b835e36-d53b-7510-25fb-649abc7df775-5wv7dgnIgG8@public.gmane.org> (Jeremy Linton's
+        message of "Mon, 3 Oct 2016 10:21:15 -0500")
 Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org> writes:
+Jeremy Linton <jeremy.linton-5wv7dgnIgG8@public.gmane.org> writes:
 
-> On Mon, Oct 03, 2016 at 11:05:53AM +0200, Robert Jarzmik wrote:
+> Hi Robert,
+>
+> On 10/03/2016 04:05 AM, Robert Jarzmik wrote:
 >> Add a workaround for mainstone, idp and stargate2 boards, for u16 writes
 >> which must be aligned on 32 bits addresses.
->> 
+>>
 >> Signed-off-by: Robert Jarzmik <robert.jarzmik-GANU6spQydw@public.gmane.org>
 >> ---
 >>  Documentation/devicetree/bindings/net/smsc911x.txt | 2 ++
 >>  1 file changed, 2 insertions(+)
->> 
->> diff --git a/Documentation/devicetree/bindings/net/smsc911x.txt b/Documentation/devicetree/bindings/net/smsc911x.txt
->> index 3fed3c124411..224965b7453c 100644
->> --- a/Documentation/devicetree/bindings/net/smsc911x.txt
->> +++ b/Documentation/devicetree/bindings/net/smsc911x.txt
->> @@ -13,6 +13,8 @@ Optional properties:
->>  - reg-io-width : Specify the size (in bytes) of the IO accesses that
->>    should be performed on the device.  Valid value for SMSC LAN is
->>    2 or 4.  If it's omitted or invalid, the size would be 2.
->> +- reg-u16-align4 : Boolean, put in place the workaround the force all
->> +  		   u16 writes to be 32 bits aligned
 >
-> This property name and description is confusing.
->
-> How exactly does this differ from having reg-io-width = <4>, which is
-> documented immediately above?
-
-reg-io-width specifies the IO size, ie. how many data lines are physically
-connected from the system bus to the lan adapter.
-
-reg-u16-align4 tells that a specific hardware doesn't support 16 bit writes not
-being 32 bits aligned, or said differently that a "store" 16 bits wide on an
-address of the format 4*n + 2 deserves a special handling in the driver, while a
-store 16 bits wide on an address of the format 4*n can follow the simple casual
-case.
-
-I'm pretty open to any name you might suggest, these 3 hardwares I know of are
-really crazy, you can see them in patch 1/3, in the _SMC_outw_align4() function
-...
+> I think this might be the wrong doc file. I think you want the
+> smsc-lan91c111.txt file.
+Ah yes, thanks for spoting that.
 
 Cheers.
 
