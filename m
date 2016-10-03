@@ -1,72 +1,41 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with Linus' tree
-Date: Mon, 3 Oct 2016 09:37:08 +1100
-Message-ID: <20161003093708.6cecf656@canb.auug.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Add netdev all_adj_list refcnt propagation to fix panic
+Date: Sun, 02 Oct 2016 20:17:31 -0400 (EDT)
+Message-ID: <20161002.201731.2191796054736402577.davem@davemloft.net>
+References: <1475086011-5588-1-git-send-email-dsa@cumulusnetworks.com>
+        <715a8d0a-9245-fd83-bf58-70f863c721f7@cradlepoint.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Xin Long <lucien.xin@gmail.com>,
-        Lorenzo Colitti <lorenzo@google.com>
-To: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dsa@cumulusnetworks.com, netdev@vger.kernel.org, vfalico@gmail.com,
+        nikolay@cumulusnetworks.com
+To: acollins@cradlepoint.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36202 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751621AbcJCAST (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 2 Oct 2016 20:18:19 -0400
+In-Reply-To: <715a8d0a-9245-fd83-bf58-70f863c721f7@cradlepoint.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+From: Andrew Collins <acollins@cradlepoint.com>
+Date: Wed, 28 Sep 2016 13:04:42 -0600
 
-Today's linux-next merge of the net-next tree got a conflict in:
+> On 09/28/2016 12:06 PM, David Ahern wrote:
+>> Andrew Collins posted this patch as RFC in March:
+>>     http://patchwork.ozlabs.org/patch/603101/
+>>
+>> It has apparently fallen through the cracks and never applied.
+>>
+>> It solves a refcnt problem (thanks Nik for pointing out this patch)
+> 
+> I have been running the patch in production for the past few months
+> without issue, in spite of my concerns about the potential side
+> effects of the change.  That said, I suspect my use cases are a subset
+> of yours.
+> 
+> If nobody has a better fix yet, I'm happy to respin this patch as
+> non-RFC with proper signoff.
 
-  net/sctp/sctp_diag.c
-
-between commit:
-
-  1cceda784980 ("sctp: fix the issue sctp_diag uses lock_sock in rcu_read_lock")
-
-from Linus' tree and commit:
-
-  d545caca827b ("net: inet: diag: expose the socket mark to privileged processes.")
-
-from the net-next tree.
-
-I fixed it up (see below) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
-
--- 
-Cheers,
-Stephen Rothwell
-
-diff --cc net/sctp/sctp_diag.c
-index cef0cee182d4,807158e32f5f..000000000000
---- a/net/sctp/sctp_diag.c
-+++ b/net/sctp/sctp_diag.c
-@@@ -299,9 -314,10 +303,10 @@@ static int sctp_sock_dump(struct sock *
-  					sk_user_ns(NETLINK_CB(cb->skb).sk),
-  					NETLINK_CB(cb->skb).portid,
-  					cb->nlh->nlmsg_seq,
-- 					NLM_F_MULTI, cb->nlh) < 0) {
-+ 					NLM_F_MULTI, cb->nlh,
-+ 					commp->net_admin) < 0) {
-  			cb->args[3] = 1;
- -			err = 2;
- +			err = 1;
-  			goto release;
-  		}
-  		cb->args[3] = 1;
-@@@ -309,8 -325,9 +314,9 @@@
-  		if (inet_sctp_diag_fill(sk, assoc, skb, r,
-  					sk_user_ns(NETLINK_CB(cb->skb).sk),
-  					NETLINK_CB(cb->skb).portid,
-- 					cb->nlh->nlmsg_seq, 0, cb->nlh) < 0) {
-+ 					cb->nlh->nlmsg_seq, 0, cb->nlh,
-+ 					commp->net_admin) < 0) {
- -			err = 2;
- +			err = 1;
-  			goto release;
-  		}
-  next:
+Please do so.
