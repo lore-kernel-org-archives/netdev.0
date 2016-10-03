@@ -1,71 +1,32 @@
-From: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
-Subject: Re: [PATCH v4 net-next] net: phy: Add Edge-rate driver for Microsemi
- PHYs.
-Date: Mon, 3 Oct 2016 14:53:35 +0530
-Message-ID: <20161003092333.GA24705@microsemi.com>
-References: <1475062449-22168-1-git-send-email-Raju.Lakkaraju@microsemi.com>
- <20160928161653.GA25553@lunn.ch>
- <20161003072043.GA24259@microsemi.com>
- <20161003075656.GC18219@lunn.ch>
-Reply-To: <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: pull-request: mac80211-next 2016-09-30
+Date: Mon, 03 Oct 2016 12:07:00 +0200
+Message-ID: <1475489220.5817.0.camel@sipsolutions.net>
+References: <1475252077-6165-1-git-send-email-johannes@sipsolutions.net>
+         <20161003.015401.1915647209236695770.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <Allan.Nielsen-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
-To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20161003075656.GC18219-g2DYL2Zd6BY@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:33775 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751660AbcJCKHE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 3 Oct 2016 06:07:04 -0400
+In-Reply-To: <20161003.015401.1915647209236695770.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
-
-
-On Mon, Oct 03, 2016 at 09:56:56AM +0200, Andrew Lunn wrote:
-> EXTERNAL EMAIL
-> 
-> 
-> > > > +        vsc8531_0: ethernet-phy@0 {
-> > > > +                compatible = "ethernet-phy-id0007.0570";
-> > > > +                vsc8531,vddmac               = /bits/ 16 <MSCC_VDDMAC_3300>;
-> > > > +                vsc8531,edge-slowdown        = /bits/ 8  <17>;
-> > >
-> > > No, real values please:
-> > >
-> > >                 vsc8531,vddmac          = <2000>;
-> > >                 vsc8531,edge-slowdown   = <21>;
-> > >
-> > > The driver should then do the maths to figure out the nearest magic
-> > > value to write to the register, or complain the settings are out of
-> > > range with an -EINVAL.
-> 
-> I think you missed my point. Notice my example does not use values
-> from the table. Is there a reason not to use the PHY with 2000mv? Or
-> does it break when you don't use one of the 4 listed voltages?
-> 
-As per PHY data sheet, It should use one of the voltage in list.
-i.e. 3.3V (3300 mV) or 2.5V (2500 mV) or 1.8V (1800 mV) or 1.5V (1500).
-Other voltages are not accepted. Drivr considers default as 3.3V (3300 mV).
-
-> I was wanting you to implement some formula, which given the voltage
-> and percentage slowdown, returns the magic number. Hence the comment:
+On Mon, 2016-10-03 at 01:54 -0400, David Miller wrote:
+> 
+> Could you please look into this and send me a new pull request with
+> the conflicts resolved?
 > 
 
-Based on Voltage selection and percentage slowdown, Driver pick the
-magic number from Edge rate table.
+Sure, will do (tomorrow, we have a holiday today).
 
-> > > FYI: No floating point maths are allowed in the kernel.
-> 
-> You need to do integer arithmetic, which is why i suggested mV, not V.
-> 
-I understood your suggestion and used voltage in milli Volts.
+Would you prefer I send you the merge resolution for your tree, or just
+pull in net for a new pull request?
 
->   Andrew
-
-Thanks,
-Raju.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+johannes
