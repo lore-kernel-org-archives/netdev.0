@@ -1,113 +1,105 @@
-From: Pravin Shelar <pshelar@ovn.org>
-Subject: Re: [PATCH net-next] openvswitch: correctly fragment packet with mpls headers
-Date: Mon, 3 Oct 2016 11:04:46 -0700
-Message-ID: <CAOrHB_Dh=OPUTbbN7QYo9Nz4cV99-k_fT4z7jSOEcnFEDKXQEg@mail.gmail.com>
-References: <b0cb6efc9bfda8381af880f10fa6b3447f7d3d5d.1475512190.git.jbenc@redhat.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] Panic when tc_lookup_action_n finds a partially
+ initialized action.
+Date: Mon, 3 Oct 2016 11:22:33 -0700
+Message-ID: <CAM_iQpX1a1=3PmMAwMRDXpL3qjAskQ990FdxgyCg4T5p4=8G7Q@mail.gmail.com>
+References: <20161002031349.GB2635@templeofstupid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        David Ahern <dsa@cumulusnetworks.com>
-To: Jiri Benc <jbenc@redhat.com>
+Content-Type: multipart/mixed; boundary=001a1141f2a6490c58053dfa08a9
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Krister Johansen <kjlx@templeofstupid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay4-d.mail.gandi.net ([217.70.183.196]:35098 "EHLO
-        relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752545AbcJCSEw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2016 14:04:52 -0400
-Received: from mfilter30-d.gandi.net (mfilter30-d.gandi.net [217.70.178.161])
-        by relay4-d.mail.gandi.net (Postfix) with ESMTP id E86E81720A1
-        for <netdev@vger.kernel.org>; Mon,  3 Oct 2016 20:04:49 +0200 (CEST)
-Received: from relay4-d.mail.gandi.net ([IPv6:::ffff:217.70.183.196])
-        by mfilter30-d.gandi.net (mfilter30-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id v5bS6nkpNRxT for <netdev@vger.kernel.org>;
-        Mon,  3 Oct 2016 20:04:48 +0200 (CEST)
-Received: from mail-it0-f41.google.com (mail-it0-f41.google.com [209.85.214.41])
-        (Authenticated sender: pshelar@ovn.org)
-        by relay4-d.mail.gandi.net (Postfix) with ESMTPSA id 63D2E1720B4
-        for <netdev@vger.kernel.org>; Mon,  3 Oct 2016 20:04:48 +0200 (CEST)
-Received: by mail-it0-f41.google.com with SMTP id r192so122857104ita.0
-        for <netdev@vger.kernel.org>; Mon, 03 Oct 2016 11:04:48 -0700 (PDT)
-In-Reply-To: <b0cb6efc9bfda8381af880f10fa6b3447f7d3d5d.1475512190.git.jbenc@redhat.com>
+Received: from mail-io0-f195.google.com ([209.85.223.195]:36300 "EHLO
+        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752597AbcJCSWy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2016 14:22:54 -0400
+Received: by mail-io0-f195.google.com with SMTP id z135so7354936ioe.3
+        for <netdev@vger.kernel.org>; Mon, 03 Oct 2016 11:22:54 -0700 (PDT)
+In-Reply-To: <20161002031349.GB2635@templeofstupid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 3, 2016 at 9:33 AM, Jiri Benc <jbenc@redhat.com> wrote:
-> If mpls headers were pushed to a defragmented packet, the refragmentation no
-> longer works correctly after 48d2ab609b6b ("net: mpls: Fixups for GSO"). The
-> network header has to be shifted after the mpls headers for the
-> fragmentation and restored afterwards.
->
-> Fixes: 48d2ab609b6b ("net: mpls: Fixups for GSO")
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
-> ---
->  net/openvswitch/actions.c | 26 +++++++++++++++++++++-----
->  1 file changed, 21 insertions(+), 5 deletions(-)
->
-> diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-> index 4e03f64709bc..370b2ba3df4c 100644
-> --- a/net/openvswitch/actions.c
-> +++ b/net/openvswitch/actions.c
-> @@ -62,7 +62,8 @@ struct ovs_frag_data {
->         struct vport *vport;
->         struct ovs_skb_cb cb;
->         __be16 inner_protocol;
-> -       __u16 vlan_tci;
-> +       u16 network_offset;     /* valid only if inner_protocol is set */
-> +       u16 vlan_tci;
->         __be16 vlan_proto;
->         unsigned int l2_len;
->         u8 l2_data[MAX_L2_LEN];
-> @@ -656,7 +657,6 @@ static int ovs_vport_output(struct net *net, struct sock *sk, struct sk_buff *sk
->
->         __skb_dst_copy(skb, data->dst);
->         *OVS_CB(skb) = data->cb;
-> -       skb->inner_protocol = data->inner_protocol;
->         skb->vlan_tci = data->vlan_tci;
->         skb->vlan_proto = data->vlan_proto;
->
-> @@ -666,6 +666,13 @@ static int ovs_vport_output(struct net *net, struct sock *sk, struct sk_buff *sk
->         skb_postpush_rcsum(skb, skb->data, data->l2_len);
->         skb_reset_mac_header(skb);
->
-> +       if (data->inner_protocol) {
-> +               skb->inner_protocol = data->inner_protocol;
-> +               skb->inner_network_header = skb->network_header;
-> +               skb_set_network_header(skb, data->network_offset);
-> +       }
-> +       skb_reset_mac_len(skb);
-> +
->         ovs_vport_send(vport, skb);
->         return 0;
->  }
-> @@ -684,7 +691,8 @@ static struct dst_ops ovs_dst_ops = {
->  /* prepare_frag() is called once per (larger-than-MTU) frame; its inverse is
->   * ovs_vport_output(), which is called once per fragmented packet.
->   */
-> -static void prepare_frag(struct vport *vport, struct sk_buff *skb)
-> +static void prepare_frag(struct vport *vport, struct sk_buff *skb,
-> +                        u16 orig_network_offset)
->  {
->         unsigned int hlen = skb_network_offset(skb);
->         struct ovs_frag_data *data;
-> @@ -694,6 +702,7 @@ static void prepare_frag(struct vport *vport, struct sk_buff *skb)
->         data->vport = vport;
->         data->cb = *OVS_CB(skb);
->         data->inner_protocol = skb->inner_protocol;
-> +       data->network_offset = orig_network_offset;
->         data->vlan_tci = skb->vlan_tci;
->         data->vlan_proto = skb->vlan_proto;
->         data->l2_len = hlen;
-> @@ -706,6 +715,13 @@ static void prepare_frag(struct vport *vport, struct sk_buff *skb)
->  static void ovs_fragment(struct net *net, struct vport *vport,
->                          struct sk_buff *skb, u16 mru, __be16 ethertype)
->  {
-> +       u16 orig_network_offset = 0;
-> +
-> +       if (skb->inner_protocol) {
-> +               orig_network_offset = skb_network_offset(skb);
-> +               skb->network_header = skb->inner_network_header;
-> +       }
-> +
-This is not correct way to detect MPLS packet. inner_protocol can be
-set by any tunnel device for using tunnel offloads. So this would
-break the fragmentation for encapsulated packets. How about using
-eth_p_mpls() as done in do-output()?
+--001a1141f2a6490c58053dfa08a9
+Content-Type: text/plain; charset=UTF-8
+
+On Sat, Oct 1, 2016 at 8:13 PM, Krister Johansen
+<kjlx@templeofstupid.com> wrote:
+> A tc_action_ops structure is visibile as soon as it is placed in the
+> act_base list.  When tcf_regsiter_action adds an item to this list and
+> drops act_mod_lock, registration is not complete until
+> register_pernet_subsys() finishes.
+
+Hmm, good catch, but does the fix have to be so complicated?
+
+How about moving register_pernet_subsys() under act_mod_lock?
+Similar is needed for unregister too of course. This also means
+we need to convert act_mod_lock to a mutex which allows blocking.
+Fortunately, we don't have to take act_mod_lock in any atomic context.
+
+Please try the attached patch. I also convert the read path to RCU
+to avoid a possible deadlock. A quick test shows no lockdep splat.
+
+Thanks!
+
+--001a1141f2a6490c58053dfa08a9
+Content-Type: text/plain; charset=US-ASCII; name="act_api.diff"
+Content-Disposition: attachment; filename="act_api.diff"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_itudvc7r0
+
+ZGlmZiAtLWdpdCBhL25ldC9zY2hlZC9hY3RfYXBpLmMgYi9uZXQvc2NoZWQvYWN0X2FwaS5jCmlu
+ZGV4IGQwOWQwNjguLjRhYWM4NDYgMTAwNjQ0Ci0tLSBhL25ldC9zY2hlZC9hY3RfYXBpLmMKKysr
+IGIvbmV0L3NjaGVkL2FjdF9hcGkuYwpAQCAtMzMwLDcgKzMzMCwyMiBAQCB2b2lkIHRjZl9oYXNo
+aW5mb19kZXN0cm95KGNvbnN0IHN0cnVjdCB0Y19hY3Rpb25fb3BzICpvcHMsCiBFWFBPUlRfU1lN
+Qk9MKHRjZl9oYXNoaW5mb19kZXN0cm95KTsKIAogc3RhdGljIExJU1RfSEVBRChhY3RfYmFzZSk7
+Ci1zdGF0aWMgREVGSU5FX1JXTE9DSyhhY3RfbW9kX2xvY2spOworc3RhdGljIERFRklORV9NVVRF
+WChhY3RfbW9kX2xvY2spOworCitzdGF0aWMgaW50IF9fdGNmX3VucmVnaXN0ZXJfYWN0aW9uKHN0
+cnVjdCB0Y19hY3Rpb25fb3BzICphY3QpCit7CisJc3RydWN0IHRjX2FjdGlvbl9vcHMgKmE7CisJ
+aW50IGVyciA9IC1FTk9FTlQ7CisKKwlsaXN0X2Zvcl9lYWNoX2VudHJ5KGEsICZhY3RfYmFzZSwg
+aGVhZCkgeworCQlpZiAoYSA9PSBhY3QpIHsKKwkJCWxpc3RfZGVsX3JjdSgmYWN0LT5oZWFkKTsK
+KwkJCWVyciA9IDA7CisJCQlicmVhazsKKwkJfQorCX0KKwlyZXR1cm4gZXJyOworfQogCiBpbnQg
+dGNmX3JlZ2lzdGVyX2FjdGlvbihzdHJ1Y3QgdGNfYWN0aW9uX29wcyAqYWN0LAogCQkJc3RydWN0
+IHBlcm5ldF9vcGVyYXRpb25zICpvcHMpCkBAIC0zNDEsMjIgKzM1NiwyMyBAQCBpbnQgdGNmX3Jl
+Z2lzdGVyX2FjdGlvbihzdHJ1Y3QgdGNfYWN0aW9uX29wcyAqYWN0LAogCWlmICghYWN0LT5hY3Qg
+fHwgIWFjdC0+ZHVtcCB8fCAhYWN0LT5pbml0IHx8ICFhY3QtPndhbGsgfHwgIWFjdC0+bG9va3Vw
+KQogCQlyZXR1cm4gLUVJTlZBTDsKIAotCXdyaXRlX2xvY2soJmFjdF9tb2RfbG9jayk7CisJbXV0
+ZXhfbG9jaygmYWN0X21vZF9sb2NrKTsKIAlsaXN0X2Zvcl9lYWNoX2VudHJ5KGEsICZhY3RfYmFz
+ZSwgaGVhZCkgewogCQlpZiAoYWN0LT50eXBlID09IGEtPnR5cGUgfHwgKHN0cmNtcChhY3QtPmtp
+bmQsIGEtPmtpbmQpID09IDApKSB7Ci0JCQl3cml0ZV91bmxvY2soJmFjdF9tb2RfbG9jayk7CisJ
+CQltdXRleF91bmxvY2soJmFjdF9tb2RfbG9jayk7CiAJCQlyZXR1cm4gLUVFWElTVDsKIAkJfQog
+CX0KLQlsaXN0X2FkZF90YWlsKCZhY3QtPmhlYWQsICZhY3RfYmFzZSk7Ci0Jd3JpdGVfdW5sb2Nr
+KCZhY3RfbW9kX2xvY2spOworCWxpc3RfYWRkX3RhaWxfcmN1KCZhY3QtPmhlYWQsICZhY3RfYmFz
+ZSk7CiAKIAlyZXQgPSByZWdpc3Rlcl9wZXJuZXRfc3Vic3lzKG9wcyk7CiAJaWYgKHJldCkgewot
+CQl0Y2ZfdW5yZWdpc3Rlcl9hY3Rpb24oYWN0LCBvcHMpOworCQlfX3RjZl91bnJlZ2lzdGVyX2Fj
+dGlvbihhY3QpOworCQltdXRleF91bmxvY2soJmFjdF9tb2RfbG9jayk7CiAJCXJldHVybiByZXQ7
+CiAJfQogCisJbXV0ZXhfdW5sb2NrKCZhY3RfbW9kX2xvY2spOwogCXJldHVybiAwOwogfQogRVhQ
+T1JUX1NZTUJPTCh0Y2ZfcmVnaXN0ZXJfYWN0aW9uKTsKQEAgLTM2NCwyMCArMzgwLDEzIEBAIEVY
+UE9SVF9TWU1CT0wodGNmX3JlZ2lzdGVyX2FjdGlvbik7CiBpbnQgdGNmX3VucmVnaXN0ZXJfYWN0
+aW9uKHN0cnVjdCB0Y19hY3Rpb25fb3BzICphY3QsCiAJCQkgIHN0cnVjdCBwZXJuZXRfb3BlcmF0
+aW9ucyAqb3BzKQogewotCXN0cnVjdCB0Y19hY3Rpb25fb3BzICphOwogCWludCBlcnIgPSAtRU5P
+RU5UOwogCisJbXV0ZXhfbG9jaygmYWN0X21vZF9sb2NrKTsKIAl1bnJlZ2lzdGVyX3Blcm5ldF9z
+dWJzeXMob3BzKTsKKwllcnIgPSBfX3RjZl91bnJlZ2lzdGVyX2FjdGlvbihhY3QpOworCW11dGV4
+X3VubG9jaygmYWN0X21vZF9sb2NrKTsKIAotCXdyaXRlX2xvY2soJmFjdF9tb2RfbG9jayk7Ci0J
+bGlzdF9mb3JfZWFjaF9lbnRyeShhLCAmYWN0X2Jhc2UsIGhlYWQpIHsKLQkJaWYgKGEgPT0gYWN0
+KSB7Ci0JCQlsaXN0X2RlbCgmYWN0LT5oZWFkKTsKLQkJCWVyciA9IDA7Ci0JCQlicmVhazsKLQkJ
+fQotCX0KLQl3cml0ZV91bmxvY2soJmFjdF9tb2RfbG9jayk7CiAJcmV0dXJuIGVycjsKIH0KIEVY
+UE9SVF9TWU1CT0wodGNmX3VucmVnaXN0ZXJfYWN0aW9uKTsKQEAgLTM4OCwxNSArMzk3LDE1IEBA
+IHN0YXRpYyBzdHJ1Y3QgdGNfYWN0aW9uX29wcyAqdGNfbG9va3VwX2FjdGlvbl9uKGNoYXIgKmtp
+bmQpCiAJc3RydWN0IHRjX2FjdGlvbl9vcHMgKmEsICpyZXMgPSBOVUxMOwogCiAJaWYgKGtpbmQp
+IHsKLQkJcmVhZF9sb2NrKCZhY3RfbW9kX2xvY2spOwotCQlsaXN0X2Zvcl9lYWNoX2VudHJ5KGEs
+ICZhY3RfYmFzZSwgaGVhZCkgeworCQlyY3VfcmVhZF9sb2NrKCk7CisJCWxpc3RfZm9yX2VhY2hf
+ZW50cnlfcmN1KGEsICZhY3RfYmFzZSwgaGVhZCkgewogCQkJaWYgKHN0cmNtcChraW5kLCBhLT5r
+aW5kKSA9PSAwKSB7CiAJCQkJaWYgKHRyeV9tb2R1bGVfZ2V0KGEtPm93bmVyKSkKIAkJCQkJcmVz
+ID0gYTsKIAkJCQlicmVhazsKIAkJCX0KIAkJfQotCQlyZWFkX3VubG9jaygmYWN0X21vZF9sb2Nr
+KTsKKwkJcmN1X3JlYWRfdW5sb2NrKCk7CiAJfQogCXJldHVybiByZXM7CiB9CkBAIC00MDcsMTUg
+KzQxNiwxNSBAQCBzdGF0aWMgc3RydWN0IHRjX2FjdGlvbl9vcHMgKnRjX2xvb2t1cF9hY3Rpb24o
+c3RydWN0IG5sYXR0ciAqa2luZCkKIAlzdHJ1Y3QgdGNfYWN0aW9uX29wcyAqYSwgKnJlcyA9IE5V
+TEw7CiAKIAlpZiAoa2luZCkgewotCQlyZWFkX2xvY2soJmFjdF9tb2RfbG9jayk7Ci0JCWxpc3Rf
+Zm9yX2VhY2hfZW50cnkoYSwgJmFjdF9iYXNlLCBoZWFkKSB7CisJCXJjdV9yZWFkX2xvY2soKTsK
+KwkJbGlzdF9mb3JfZWFjaF9lbnRyeV9yY3UoYSwgJmFjdF9iYXNlLCBoZWFkKSB7CiAJCQlpZiAo
+bmxhX3N0cmNtcChraW5kLCBhLT5raW5kKSA9PSAwKSB7CiAJCQkJaWYgKHRyeV9tb2R1bGVfZ2V0
+KGEtPm93bmVyKSkKIAkJCQkJcmVzID0gYTsKIAkJCQlicmVhazsKIAkJCX0KIAkJfQotCQlyZWFk
+X3VubG9jaygmYWN0X21vZF9sb2NrKTsKKwkJcmN1X3JlYWRfdW5sb2NrKCk7CiAJfQogCXJldHVy
+biByZXM7CiB9Cg==
+--001a1141f2a6490c58053dfa08a9--
