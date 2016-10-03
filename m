@@ -1,24 +1,23 @@
-From: info@fundacaolibertas.com.br
-Subject: Get a safe loan within 48/hours
-Date: Sat, 01 Oct 2016 18:34:23 +0530
-Message-ID: <20161001130848.EC1BB196A1E@mail.fundacaolibertas.com.br>
-Reply-To: mathewraymond1@gmail.com
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH] ptp: Fix resource leak in case of error
+Date: Mon, 3 Oct 2016 16:04:42 +0200
+Message-ID: <20161003140442.GA13116@localhost.localdomain>
+References: <1475391856-15046-1-git-send-email-christophe.jaillet@wanadoo.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-To: Recipients <info@fundacaolibertas.com.br>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.fundacaolibertas.com.br ([200.251.41.34]:53321 "EHLO
-        mail.fundacaolibertas.com.br" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751817AbcJCN6Y (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2016 09:58:24 -0400
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1475391856-15046-1-git-send-email-christophe.jaillet@wanadoo.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- I am Mr.Mathew Raymond I give out affordable loan at 2% interest rate, Contact us with your (1)Names: (2) Country: (3)Amount needed as loan: (4) Loan duration: (5)Cell-Phone number: Visit our Via Email: mathewraymond1@gmail.com
+On Sun, Oct 02, 2016 at 09:04:16AM +0200, Christophe JAILLET wrote:
+> A call to 'ida_simple_remove()' is missing in the error handling path.
+> 
+> This as been spotted with the following coccinelle script which tries to
+> detect missing 'ida_simple_remove()' call in error handling paths.
 
-Regard
-Mr.Mathew Raymond
-Managing Director
-Mathew Raymond Loan Firm.
+Acked-by: Richard Cochran <richardcochran@gmail.com>
