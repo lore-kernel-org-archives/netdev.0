@@ -1,59 +1,48 @@
-From: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: [PATCH] ipv6 addrconf: disallow rtr_solicits < -1
-Date: Sun,  2 Oct 2016 23:41:57 -0700
-Message-ID: <1475476917-17382-1-git-send-email-zenczykowski@gmail.com>
+From: Credit Suisse Bank England <werberthfurtado@detran.ma.gov.br>
+Subject: Credit Suisse Bank England
+Date: Mon, 3 Oct 2016 03:14:44 -0300 (BRT)
+Message-ID: <618696250.150026.1475475284116.JavaMail.root@detran.ma.gov.br>
+Reply-To: Chris Williams <chriswilliams-creditsuisse@mail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, Erik Kline <ek@google.com>,
-        Lorenzo Colitti <lorenzo@google.com>
-To: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
-        "David S . Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f67.google.com ([209.85.220.67]:36557 "EHLO
-        mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751375AbcJCGmE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2016 02:42:04 -0400
-Received: by mail-pa0-f67.google.com with SMTP id cd13so6223614pac.3
-        for <netdev@vger.kernel.org>; Sun, 02 Oct 2016 23:42:04 -0700 (PDT)
+Received: from mail3.seati.ma.gov.br ([201.18.153.129]:45413 "EHLO
+        mail3.seati.ma.gov.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751583AbcJCGvz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2016 02:51:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Maciej Żenczykowski <maze@google.com>
+Guten Tag, wie geht es Ihnen heute? Ich habe Ihre E-Mail-Kontakt aus Ihrem Land Business Directory und beschlossen, mit Ihnen in Verbindung zu diesem Business-Vorschlag. Ich bin Herr Chris Williams der Investment Banking Abteilung der Credit Suisse Bank One Cabot Square, London E14 4QJ, Großbritannien. Ich bin Kontaktaufnahme mit Ihnen in Bezug auf ein Geschäft Vorschlag, die von einer immensen Vorteil für uns beide sein wird.
 
-This disallows setting /proc/sys/net/ipv6/conf/*/router_solicitations
-to values below -1.
+In meiner Abteilung, entdeckte ich eine verlassene Summe von £ 17,5 Mio. GBP (Siebzehn Millionen fünfhunderttausend britische Pfund Sterling) in einem Konto, das zu einem unserer ausländischen Kunden verstorbenen Herrn Brodskij Nikolai, ein russischer Geschäftsmann, der ein Opfer war, gehört der Malaysia Airlines Flight 370 (MH370 / MAS370), die im Süden der indische Ozean auf 8. März 2014 auf dem Weg von Kuala Lumpur international Airport abgestürzt zu Beijing Capital International Airport zu töten alle an Bord.
 
--1 continues to mean an unlimited number of retransmits.
+Informieren Sie sich über den untenstehenden Link für die Passagierliste:
 
-Note: this depends on 'ipv6 addrconf: remove addrconf_sysctl_hop_limit()'
 
-Signed-off-by: Maciej Żenczykowski <maze@google.com>
----
- net/ipv6/addrconf.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+http://online.wsj.com/news/articles/SB10001424052702303369904579427230127866184
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index cbd9343751a2..511b76e6a50e 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -5729,6 +5729,7 @@ int addrconf_sysctl_ignore_routes_with_linkdown(struct ctl_table *ctl,
- 	return ret;
- }
- 
-+static const int minus_one = -1;
- static const int one = 1;
- static const int two_five_five = 255;
- 
-@@ -5789,7 +5790,8 @@ static const struct ctl_table addrconf_sysctl[] = {
- 		.data		= &ipv6_devconf.rtr_solicits,
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= (void *)&minus_one,
- 	},
- 	{
- 		.procname	= "router_solicitation_interval",
--- 
-2.8.0.rc3.226.g39d4020
+MR Brodskij Nikolai Nummer 7 auf der Liste, Seit seinem Tod unserer Bank hat für die nächsten Angehörigen zu kommen für die Behauptung seiner Gelder und Güter schätzten die Summe von £ 17,5 Mio. GBP, aber niemand hat so, ich persönlich getan gewartet , waren nicht erfolgreich bei der Suche nach einer seiner Verwandten. Ich suche Ihre Zustimmung an Sie an die Bank, wie die nächsten Angehörigen des Verstorbenen zu präsentieren, so dass die Erlöse aus diesem Konto bei £ 17,5 Mio. GBP an Sie gezahlt werden bewertet.
+
+
+Der Deal wird in diesem Verhältnis aufgeteilt: 55% für mich und 45% zu Ihnen. Ich habe in meinem Besitz alle notwendigen und wichtigen Dokumente, die in diesem Geschäft verwendet werden kann. Ich brauche Ihre ehrliche Zusammenarbeit, Verschwiegenheit und Vertrauen, damit wir sehen diese Verhandlung durch. Ich garantiere Ihnen 100% Erfolg in diesem Geschäft, wenden Sie sich bitte sicher sein, dass Sie das Angebot unter einer legitimen Anordnung, die Sie aus der Verletzung des Gesetzes sowohl hier als auch in Großbritannien und in Ihrem Land zu schützen wird ausgeführt.
+
+Wenn Sie in der Lage, dem Umgang mit diesem Angebot sind, bitte zurück zu mir mit folgenden Angaben, damit wir fortfahren:
+
+1. Ihr vollständiger Name:
+2. Telefonnummer:
+3. Kontakt-Adresse:
+4. Alter:
+5. Geschlecht:
+6. Beruf:
+7. Ihre Nationalität:
+
+
+Nachdem durch eine methodische Suche gegangen, entschied ich mich, Sie zu kontaktieren hoffen, dass Sie diesen Vorschlag interessant, Bitte auf Ihrer Bestätigung dieser Nachricht und geben Sie Ihr Interesse, ich will dich mit mehr Informationen liefern zu finden.
+
+Ihre Zustimmung zu dieser E-Mail und Business-Vorschlag wird sehr geschätzt werden.
+
+Freundliche Grüße,
+Chris Williams
