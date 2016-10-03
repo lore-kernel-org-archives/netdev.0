@@ -1,37 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netfilter: bridge: clarify bridge/netfilter
-	message
-Date: Sun, 02 Oct 2016 22:44:30 -0400 (EDT)
-Message-ID: <20161002.224430.154500634033567062.davem@davemloft.net>
-References: <20160928220528.17478-1-stefan@agner.ch>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, pablo@netfilter.org
-To: stefan@agner.ch
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20160928220528.17478-1-stefan@agner.ch>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Benjamin Poirier <bpoirier@suse.com>
+Subject: [PATCH] vmxnet3: Wake queue from reset work
+Date: Mon,  3 Oct 2016 10:47:50 +0800
+Message-ID: <20161003024750.30015-1-bpoirier@suse.com>
+Cc: Shrikrishna Khare <skhare@vmware.com>,
+        "VMware, Inc." <pv-drivers@vmware.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.suse.de ([195.135.220.15]:38738 "EHLO mx2.suse.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751389AbcJCCsI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 2 Oct 2016 22:48:08 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Agner <stefan@agner.ch>
-Date: Wed, 28 Sep 2016 15:05:28 -0700
+vmxnet3_reset_work() expects tx queues to be stopped (via
+vmxnet3_quiesce_dev -> netif_tx_disable). However, this races with the
+netif_wake_queue() call in netif_tx_timeout() such that the driver's
+start_xmit routine may be called unexpectedly, triggering one of the BUG_ON
+in vmxnet3_map_pkt with a stack trace like this:
 
-> When using bridge without bridge netfilter enabled the message
-> displayed is rather confusing and leads to belive that a deprecated
-> feature is in use. Use IS_MODULE to be explicit that the message only
-> affects users which use bridge netfilter as module and reword the
-> message.
-> 
-> Signed-off-by: Stefan Agner <stefan@agner.ch>
+RIP: 0010:[<ffffffffa00cf4bc>] vmxnet3_map_pkt+0x3ac/0x4c0 [vmxnet3]
+ [<ffffffffa00cf7e0>] vmxnet3_tq_xmit+0x210/0x4e0 [vmxnet3]
+ [<ffffffff813ab144>] dev_hard_start_xmit+0x2e4/0x4c0
+ [<ffffffff813c956e>] sch_direct_xmit+0x17e/0x1e0
+ [<ffffffff813c96a7>] __qdisc_run+0xd7/0x130
+ [<ffffffff813a6a7a>] net_tx_action+0x10a/0x200
+ [<ffffffff810691df>] __do_softirq+0x11f/0x260
+ [<ffffffff81472fdc>] call_softirq+0x1c/0x30
+ [<ffffffff81004695>] do_softirq+0x65/0xa0
+ [<ffffffff81069b89>] local_bh_enable_ip+0x99/0xa0
+ [<ffffffffa031ff36>] destroy_conntrack+0x96/0x110 [nf_conntrack]
+ [<ffffffff813d65e2>] nf_conntrack_destroy+0x12/0x20
+ [<ffffffff8139c6d5>] skb_release_head_state+0xb5/0xf0
+ [<ffffffff8139d299>] skb_release_all+0x9/0x20
+ [<ffffffff8139cfe9>] __kfree_skb+0x9/0x90
+ [<ffffffffa00d0069>] vmxnet3_quiesce_dev+0x209/0x340 [vmxnet3]
+ [<ffffffffa00d020a>] vmxnet3_reset_work+0x6a/0xa0 [vmxnet3]
+ [<ffffffff8107d7cc>] process_one_work+0x16c/0x350
+ [<ffffffff810804fa>] worker_thread+0x17a/0x410
+ [<ffffffff810848c6>] kthread+0x96/0xa0
+ [<ffffffff81472ee4>] kernel_thread_helper+0x4/0x10
 
-Applied to net-next, thanks.
+Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
+---
+ drivers/net/vmxnet3/vmxnet3_drv.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index 4244b9d..515f7aa 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -3186,7 +3186,6 @@ vmxnet3_tx_timeout(struct net_device *netdev)
+ 
+ 	netdev_err(adapter->netdev, "tx hang\n");
+ 	schedule_work(&adapter->work);
+-	netif_wake_queue(adapter->netdev);
+ }
+ 
+ 
+@@ -3213,6 +3212,7 @@ vmxnet3_reset_work(struct work_struct *data)
+ 	}
+ 	rtnl_unlock();
+ 
++	netif_wake_queue(adapter->netdev);
+ 	clear_bit(VMXNET3_STATE_BIT_RESETTING, &adapter->state);
+ }
+ 
+-- 
+2.9.3
