@@ -1,269 +1,209 @@
 From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH v2 1/2] net: stmmac: use phydev from struct net_device
-Date: Mon,  3 Oct 2016 08:28:19 +0200
-Message-ID: <1475476100-28219-1-git-send-email-tremyfr@gmail.com>
+Subject: [PATCH v2 2/2] net: stmmac: use new api ethtool_{get|set}_link_ksettings
+Date: Mon,  3 Oct 2016 08:28:20 +0200
+Message-ID: <1475476100-28219-2-git-send-email-tremyfr@gmail.com>
+References: <1475476100-28219-1-git-send-email-tremyfr@gmail.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         Philippe Reynes <tremyfr@gmail.com>
 To: peppe.cavallaro@st.com, alexandre.torgue@st.com,
         davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:33900 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751454AbcJCG2g (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2016 02:28:36 -0400
+In-Reply-To: <1475476100-28219-1-git-send-email-tremyfr@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The private structure contain a pointer to phydev, but the structure
-net_device already contain such pointer. So we can remove the pointer
-phydev in the private structure, and update the driver to use the
-one contained in struct net_device.
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
 Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
-
 Changelog:
 v2:
-- remove useless variable priv in function stmmac_ioctl
+- no change on this patch
 
- .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    |    4 +-
- drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    1 -
- .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |   18 ++++----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |   40 +++++++++----------
- 4 files changed, 30 insertions(+), 33 deletions(-)
+ .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |   97 +++++++++++--------
+ 1 files changed, 56 insertions(+), 41 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-index bec6963..5ad1dfb 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-@@ -367,8 +367,8 @@ static int socfpga_dwmac_resume(struct device *dev)
- 	 * control register 0, and can be modified by the phy driver
- 	 * framework.
- 	 */
--	if (priv->phydev)
--		phy_resume(priv->phydev);
-+	if (ndev->phydev)
-+		phy_resume(ndev->phydev);
- 
- 	return stmmac_resume(dev);
- }
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index 8dc9056..f94e028 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -90,7 +90,6 @@ struct stmmac_priv {
- 	struct mac_device_info *hw;
- 	spinlock_t lock;
- 
--	struct phy_device *phydev ____cacheline_aligned_in_smp;
- 	int oldlink;
- 	int speed;
- 	int oldduplex;
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-index 1e06173..ac823bf 100644
+index ac823bf..3fe9340 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-@@ -273,7 +273,7 @@ static int stmmac_ethtool_getsettings(struct net_device *dev,
- 				      struct ethtool_cmd *cmd)
+@@ -269,8 +269,8 @@ static void stmmac_ethtool_getdrvinfo(struct net_device *dev,
+ 	strlcpy(info->version, DRV_MODULE_VERSION, sizeof(info->version));
+ }
+ 
+-static int stmmac_ethtool_getsettings(struct net_device *dev,
+-				      struct ethtool_cmd *cmd)
++static int stmmac_ethtool_get_link_ksettings(struct net_device *dev,
++					     struct ethtool_link_ksettings *cmd)
  {
  	struct stmmac_priv *priv = netdev_priv(dev);
--	struct phy_device *phy = priv->phydev;
-+	struct phy_device *phy = dev->phydev;
- 	int rc;
- 
+ 	struct phy_device *phy = dev->phydev;
+@@ -279,15 +279,16 @@ static int stmmac_ethtool_getsettings(struct net_device *dev,
  	if (priv->hw->pcs & STMMAC_PCS_RGMII ||
-@@ -359,7 +359,7 @@ static int stmmac_ethtool_setsettings(struct net_device *dev,
- 				      struct ethtool_cmd *cmd)
- {
- 	struct stmmac_priv *priv = netdev_priv(dev);
--	struct phy_device *phy = priv->phydev;
-+	struct phy_device *phy = dev->phydev;
- 	int rc;
+ 	    priv->hw->pcs & STMMAC_PCS_SGMII) {
+ 		struct rgmii_adv adv;
++		u32 supported, advertising, lp_advertising;
  
- 	if (priv->hw->pcs & STMMAC_PCS_RGMII ||
-@@ -468,12 +468,12 @@ stmmac_get_pauseparam(struct net_device *netdev,
- 		if (!adv_lp.pause)
- 			return;
- 	} else {
--		if (!(priv->phydev->supported & SUPPORTED_Pause) ||
--		    !(priv->phydev->supported & SUPPORTED_Asym_Pause))
-+		if (!(netdev->phydev->supported & SUPPORTED_Pause) ||
-+		    !(netdev->phydev->supported & SUPPORTED_Asym_Pause))
- 			return;
- 	}
- 
--	pause->autoneg = priv->phydev->autoneg;
-+	pause->autoneg = netdev->phydev->autoneg;
- 
- 	if (priv->flow_ctrl & FLOW_RX)
- 		pause->rx_pause = 1;
-@@ -487,7 +487,7 @@ stmmac_set_pauseparam(struct net_device *netdev,
- 		      struct ethtool_pauseparam *pause)
- {
- 	struct stmmac_priv *priv = netdev_priv(netdev);
--	struct phy_device *phy = priv->phydev;
-+	struct phy_device *phy = netdev->phydev;
- 	int new_pause = FLOW_OFF;
- 
- 	if (priv->hw->pcs && priv->hw->mac->pcs_get_adv_lp) {
-@@ -547,7 +547,7 @@ static void stmmac_get_ethtool_stats(struct net_device *dev,
- 			}
+ 		if (!priv->xstats.pcs_link) {
+-			ethtool_cmd_speed_set(cmd, SPEED_UNKNOWN);
+-			cmd->duplex = DUPLEX_UNKNOWN;
++			cmd->base.speed = SPEED_UNKNOWN;
++			cmd->base.duplex = DUPLEX_UNKNOWN;
+ 			return 0;
  		}
- 		if (priv->eee_enabled) {
--			int val = phy_get_eee_err(priv->phydev);
-+			int val = phy_get_eee_err(dev->phydev);
- 			if (val)
- 				priv->xstats.phy_eee_wakeup_error_n = val;
+-		cmd->duplex = priv->xstats.pcs_duplex;
++		cmd->base.duplex = priv->xstats.pcs_duplex;
+ 
+-		ethtool_cmd_speed_set(cmd, priv->xstats.pcs_speed);
++		cmd->base.speed = priv->xstats.pcs_speed;
+ 
+ 		/* Get and convert ADV/LP_ADV from the HW AN registers */
+ 		if (!priv->hw->mac->pcs_get_adv_lp)
+@@ -297,45 +298,59 @@ static int stmmac_ethtool_getsettings(struct net_device *dev,
+ 
+ 		/* Encoding of PSE bits is defined in 802.3z, 37.2.1.4 */
+ 
++		ethtool_convert_link_mode_to_legacy_u32(
++			&supported, cmd->link_modes.supported);
++		ethtool_convert_link_mode_to_legacy_u32(
++			&advertising, cmd->link_modes.advertising);
++		ethtool_convert_link_mode_to_legacy_u32(
++			&lp_advertising, cmd->link_modes.lp_advertising);
++
+ 		if (adv.pause & STMMAC_PCS_PAUSE)
+-			cmd->advertising |= ADVERTISED_Pause;
++			advertising |= ADVERTISED_Pause;
+ 		if (adv.pause & STMMAC_PCS_ASYM_PAUSE)
+-			cmd->advertising |= ADVERTISED_Asym_Pause;
++			advertising |= ADVERTISED_Asym_Pause;
+ 		if (adv.lp_pause & STMMAC_PCS_PAUSE)
+-			cmd->lp_advertising |= ADVERTISED_Pause;
++			lp_advertising |= ADVERTISED_Pause;
+ 		if (adv.lp_pause & STMMAC_PCS_ASYM_PAUSE)
+-			cmd->lp_advertising |= ADVERTISED_Asym_Pause;
++			lp_advertising |= ADVERTISED_Asym_Pause;
+ 
+ 		/* Reg49[3] always set because ANE is always supported */
+-		cmd->autoneg = ADVERTISED_Autoneg;
+-		cmd->supported |= SUPPORTED_Autoneg;
+-		cmd->advertising |= ADVERTISED_Autoneg;
+-		cmd->lp_advertising |= ADVERTISED_Autoneg;
++		cmd->base.autoneg = ADVERTISED_Autoneg;
++		supported |= SUPPORTED_Autoneg;
++		advertising |= ADVERTISED_Autoneg;
++		lp_advertising |= ADVERTISED_Autoneg;
+ 
+ 		if (adv.duplex) {
+-			cmd->supported |= (SUPPORTED_1000baseT_Full |
+-					   SUPPORTED_100baseT_Full |
+-					   SUPPORTED_10baseT_Full);
+-			cmd->advertising |= (ADVERTISED_1000baseT_Full |
+-					     ADVERTISED_100baseT_Full |
+-					     ADVERTISED_10baseT_Full);
++			supported |= (SUPPORTED_1000baseT_Full |
++				      SUPPORTED_100baseT_Full |
++				      SUPPORTED_10baseT_Full);
++			advertising |= (ADVERTISED_1000baseT_Full |
++					ADVERTISED_100baseT_Full |
++					ADVERTISED_10baseT_Full);
+ 		} else {
+-			cmd->supported |= (SUPPORTED_1000baseT_Half |
+-					   SUPPORTED_100baseT_Half |
+-					   SUPPORTED_10baseT_Half);
+-			cmd->advertising |= (ADVERTISED_1000baseT_Half |
+-					     ADVERTISED_100baseT_Half |
+-					     ADVERTISED_10baseT_Half);
++			supported |= (SUPPORTED_1000baseT_Half |
++				      SUPPORTED_100baseT_Half |
++				      SUPPORTED_10baseT_Half);
++			advertising |= (ADVERTISED_1000baseT_Half |
++					ADVERTISED_100baseT_Half |
++					ADVERTISED_10baseT_Half);
  		}
-@@ -666,7 +666,7 @@ static int stmmac_ethtool_op_get_eee(struct net_device *dev,
- 	edata->eee_active = priv->eee_active;
- 	edata->tx_lpi_timer = priv->tx_lpi_timer;
+ 		if (adv.lp_duplex)
+-			cmd->lp_advertising |= (ADVERTISED_1000baseT_Full |
+-						ADVERTISED_100baseT_Full |
+-						ADVERTISED_10baseT_Full);
++			lp_advertising |= (ADVERTISED_1000baseT_Full |
++					   ADVERTISED_100baseT_Full |
++					   ADVERTISED_10baseT_Full);
+ 		else
+-			cmd->lp_advertising |= (ADVERTISED_1000baseT_Half |
+-						ADVERTISED_100baseT_Half |
+-						ADVERTISED_10baseT_Half);
+-		cmd->port = PORT_OTHER;
++			lp_advertising |= (ADVERTISED_1000baseT_Half |
++					   ADVERTISED_100baseT_Half |
++					   ADVERTISED_10baseT_Half);
++		cmd->base.port = PORT_OTHER;
++
++		ethtool_convert_legacy_u32_to_link_mode(
++			cmd->link_modes.supported, supported);
++		ethtool_convert_legacy_u32_to_link_mode(
++			cmd->link_modes.advertising, advertising);
++		ethtool_convert_legacy_u32_to_link_mode(
++			cmd->link_modes.lp_advertising, lp_advertising);
  
--	return phy_ethtool_get_eee(priv->phydev, edata);
-+	return phy_ethtool_get_eee(dev->phydev, edata);
- }
- 
- static int stmmac_ethtool_op_set_eee(struct net_device *dev,
-@@ -691,7 +691,7 @@ static int stmmac_ethtool_op_set_eee(struct net_device *dev,
- 		priv->tx_lpi_timer = edata->tx_lpi_timer;
- 	}
- 
--	return phy_ethtool_set_eee(priv->phydev, edata);
-+	return phy_ethtool_set_eee(dev->phydev, edata);
- }
- 
- static u32 stmmac_usec2riwt(u32 usec, struct stmmac_priv *priv)
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 4c8c60a..1a06c87 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -221,7 +221,8 @@ static inline u32 stmmac_rx_dirty(struct stmmac_priv *priv)
-  */
- static inline void stmmac_hw_fix_mac_speed(struct stmmac_priv *priv)
- {
--	struct phy_device *phydev = priv->phydev;
-+	struct net_device *ndev = priv->dev;
-+	struct phy_device *phydev = ndev->phydev;
- 
- 	if (likely(priv->plat->fix_mac_speed))
- 		priv->plat->fix_mac_speed(priv->plat->bsp_priv, phydev->speed);
-@@ -279,6 +280,7 @@ static void stmmac_eee_ctrl_timer(unsigned long arg)
-  */
- bool stmmac_eee_init(struct stmmac_priv *priv)
- {
-+	struct net_device *ndev = priv->dev;
- 	unsigned long flags;
- 	bool ret = false;
- 
-@@ -295,7 +297,7 @@ bool stmmac_eee_init(struct stmmac_priv *priv)
- 		int tx_lpi_timer = priv->tx_lpi_timer;
- 
- 		/* Check if the PHY supports EEE */
--		if (phy_init_eee(priv->phydev, 1)) {
-+		if (phy_init_eee(ndev->phydev, 1)) {
- 			/* To manage at run-time if the EEE cannot be supported
- 			 * anymore (for example because the lp caps have been
- 			 * changed).
-@@ -327,7 +329,7 @@ bool stmmac_eee_init(struct stmmac_priv *priv)
- 						     tx_lpi_timer);
- 		}
- 		/* Set HW EEE according to the speed */
--		priv->hw->mac->set_eee_pls(priv->hw, priv->phydev->link);
-+		priv->hw->mac->set_eee_pls(priv->hw, ndev->phydev->link);
- 
- 		ret = true;
- 		spin_unlock_irqrestore(&priv->lock, flags);
-@@ -691,7 +693,7 @@ static void stmmac_release_ptp(struct stmmac_priv *priv)
- static void stmmac_adjust_link(struct net_device *dev)
- {
- 	struct stmmac_priv *priv = netdev_priv(dev);
--	struct phy_device *phydev = priv->phydev;
-+	struct phy_device *phydev = dev->phydev;
- 	unsigned long flags;
- 	int new_state = 0;
- 	unsigned int fc = priv->flow_ctrl, pause_time = priv->pause;
-@@ -874,8 +876,6 @@ static int stmmac_init_phy(struct net_device *dev)
- 	pr_debug("stmmac_init_phy:  %s: attached to PHY (UID 0x%x)"
- 		 " Link = %d\n", dev->name, phydev->phy_id, phydev->link);
- 
--	priv->phydev = phydev;
--
- 	return 0;
- }
- 
-@@ -1800,8 +1800,8 @@ static int stmmac_open(struct net_device *dev)
- 
- 	stmmac_init_tx_coalesce(priv);
- 
--	if (priv->phydev)
--		phy_start(priv->phydev);
-+	if (dev->phydev)
-+		phy_start(dev->phydev);
- 
- 	/* Request the IRQ lines */
- 	ret = request_irq(dev->irq, stmmac_interrupt,
-@@ -1848,8 +1848,8 @@ wolirq_error:
- init_error:
- 	free_dma_desc_resources(priv);
- dma_desc_error:
--	if (priv->phydev)
--		phy_disconnect(priv->phydev);
-+	if (dev->phydev)
-+		phy_disconnect(dev->phydev);
- 
- 	return ret;
- }
-@@ -1868,10 +1868,9 @@ static int stmmac_release(struct net_device *dev)
- 		del_timer_sync(&priv->eee_ctrl_timer);
- 
- 	/* Stop and disconnect the PHY */
--	if (priv->phydev) {
--		phy_stop(priv->phydev);
--		phy_disconnect(priv->phydev);
--		priv->phydev = NULL;
-+	if (dev->phydev) {
-+		phy_stop(dev->phydev);
-+		phy_disconnect(dev->phydev);
- 	}
- 
- 	netif_stop_queue(dev);
-@@ -2863,7 +2862,6 @@ static void stmmac_poll_controller(struct net_device *dev)
-  */
- static int stmmac_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- {
--	struct stmmac_priv *priv = netdev_priv(dev);
- 	int ret = -EOPNOTSUPP;
- 
- 	if (!netif_running(dev))
-@@ -2873,9 +2871,9 @@ static int stmmac_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 	case SIOCGMIIPHY:
- 	case SIOCGMIIREG:
- 	case SIOCSMIIREG:
--		if (!priv->phydev)
-+		if (!dev->phydev)
- 			return -EINVAL;
--		ret = phy_mii_ioctl(priv->phydev, rq, cmd);
-+		ret = phy_mii_ioctl(dev->phydev, rq, cmd);
- 		break;
- 	case SIOCSHWTSTAMP:
- 		ret = stmmac_hwtstamp_ioctl(dev, rq);
-@@ -3428,8 +3426,8 @@ int stmmac_suspend(struct device *dev)
- 	if (!ndev || !netif_running(ndev))
  		return 0;
- 
--	if (priv->phydev)
--		phy_stop(priv->phydev);
-+	if (ndev->phydev)
-+		phy_stop(ndev->phydev);
- 
- 	spin_lock_irqsave(&priv->lock, flags);
- 
-@@ -3523,8 +3521,8 @@ int stmmac_resume(struct device *dev)
- 
- 	spin_unlock_irqrestore(&priv->lock, flags);
- 
--	if (priv->phydev)
--		phy_start(priv->phydev);
-+	if (ndev->phydev)
-+		phy_start(ndev->phydev);
- 
- 	return 0;
+ 	}
+@@ -350,13 +365,13 @@ static int stmmac_ethtool_getsettings(struct net_device *dev,
+ 		"link speed / duplex setting\n", dev->name);
+ 		return -EBUSY;
+ 	}
+-	cmd->transceiver = XCVR_INTERNAL;
+-	rc = phy_ethtool_gset(phy, cmd);
++	rc = phy_ethtool_ksettings_get(phy, cmd);
+ 	return rc;
  }
+ 
+-static int stmmac_ethtool_setsettings(struct net_device *dev,
+-				      struct ethtool_cmd *cmd)
++static int
++stmmac_ethtool_set_link_ksettings(struct net_device *dev,
++				  const struct ethtool_link_ksettings *cmd)
+ {
+ 	struct stmmac_priv *priv = netdev_priv(dev);
+ 	struct phy_device *phy = dev->phydev;
+@@ -367,7 +382,7 @@ static int stmmac_ethtool_setsettings(struct net_device *dev,
+ 		u32 mask = ADVERTISED_Autoneg | ADVERTISED_Pause;
+ 
+ 		/* Only support ANE */
+-		if (cmd->autoneg != AUTONEG_ENABLE)
++		if (cmd->base.autoneg != AUTONEG_ENABLE)
+ 			return -EINVAL;
+ 
+ 		mask &= (ADVERTISED_1000baseT_Half |
+@@ -389,7 +404,7 @@ static int stmmac_ethtool_setsettings(struct net_device *dev,
+ 	}
+ 
+ 	spin_lock(&priv->lock);
+-	rc = phy_ethtool_sset(phy, cmd);
++	rc = phy_ethtool_ksettings_set(phy, cmd);
+ 	spin_unlock(&priv->lock);
+ 
+ 	return rc;
+@@ -850,8 +865,6 @@ static int stmmac_set_tunable(struct net_device *dev,
+ static const struct ethtool_ops stmmac_ethtool_ops = {
+ 	.begin = stmmac_check_if_running,
+ 	.get_drvinfo = stmmac_ethtool_getdrvinfo,
+-	.get_settings = stmmac_ethtool_getsettings,
+-	.set_settings = stmmac_ethtool_setsettings,
+ 	.get_msglevel = stmmac_ethtool_getmsglevel,
+ 	.set_msglevel = stmmac_ethtool_setmsglevel,
+ 	.get_regs = stmmac_ethtool_gregs,
+@@ -871,6 +884,8 @@ static const struct ethtool_ops stmmac_ethtool_ops = {
+ 	.set_coalesce = stmmac_set_coalesce,
+ 	.get_tunable = stmmac_get_tunable,
+ 	.set_tunable = stmmac_set_tunable,
++	.get_link_ksettings = stmmac_ethtool_get_link_ksettings,
++	.set_link_ksettings = stmmac_ethtool_set_link_ksettings,
+ };
+ 
+ void stmmac_set_ethtool_ops(struct net_device *netdev)
 -- 
 1.7.4.4
