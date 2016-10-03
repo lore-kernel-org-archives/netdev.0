@@ -1,41 +1,282 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH] ipv6 addrconf: disallow rtr_solicits < -1
-Date: Mon, 3 Oct 2016 12:49:45 -0700
-Message-ID: <CAM_iQpUaXf6crCbbe3+MKsuchJGBE5hnQEDibgFe-MtBoe2v7A@mail.gmail.com>
-References: <1475476917-17382-1-git-send-email-zenczykowski@gmail.com>
+From: Andrew Collins <acollins@cradlepoint.com>
+Subject: [PATCH net] Add netdev all_adj_list refcnt propagation to fix panic
+Date: Mon, 3 Oct 2016 13:43:02 -0600
+Message-ID: <1475523782-6358-1-git-send-email-acollins@cradlepoint.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Erik Kline <ek@google.com>,
-        Lorenzo Colitti <lorenzo@google.com>
-To: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Content-Type: text/plain
+Cc: <dsa@cumulusnetworks.com>, <netdev@vger.kernel.org>,
+        <vfalico@gmail.com>, <nikolay@cumulusnetworks.com>,
+        Andrew Collins <acollins@cradlepoint.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f173.google.com ([209.85.223.173]:34814 "EHLO
-        mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751621AbcJCTuG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2016 15:50:06 -0400
-Received: by mail-io0-f173.google.com with SMTP id r30so6943424ioi.1
-        for <netdev@vger.kernel.org>; Mon, 03 Oct 2016 12:50:06 -0700 (PDT)
-In-Reply-To: <1475476917-17382-1-git-send-email-zenczykowski@gmail.com>
+Received: from mail-co1nam03on0120.outbound.protection.outlook.com ([104.47.40.120]:8465
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752118AbcJCT57 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 3 Oct 2016 15:57:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 2, 2016 at 11:41 PM, Maciej =C5=BBenczykowski
-<zenczykowski@gmail.com> wrote:
-> +static const int minus_one =3D -1;
->  static const int one =3D 1;
->  static const int two_five_five =3D 255;
->
-> @@ -5789,7 +5790,8 @@ static const struct ctl_table addrconf_sysctl[] =3D=
- {
->                 .data           =3D &ipv6_devconf.rtr_solicits,
->                 .maxlen         =3D sizeof(int),
->                 .mode           =3D 0644,
-> -               .proc_handler   =3D proc_dointvec,
-> +               .proc_handler   =3D proc_dointvec_minmax,
-> +               .extra1         =3D (void *)&minus_one,
+This is a respin of a patch to fix a relatively easily reproducible kernel
+panic related to the all_adj_list handling for netdevs in recent kernels.
 
-The cast is not necessary.
+The following sequence of commands will reproduce the issue:
+
+ip link add link eth0 name eth0.100 type vlan id 100
+ip link add link eth0 name eth0.200 type vlan id 200
+ip link add name testbr type bridge
+ip link set eth0.100 master testbr
+ip link set eth0.200 master testbr
+ip link add link testbr mac0 type macvlan
+ip link delete dev testbr
+
+This creates an upper/lower tree of (excuse the poor ASCII art):
+
+            /---eth0.100-eth0
+mac0-testbr-
+            \---eth0.200-eth0
+
+When testbr is deleted, the all_adj_lists are walked, and eth0 is deleted twice from
+the mac0 list. Unfortunately, during setup in __netdev_upper_dev_link, only one
+reference to eth0 is added, so this results in a panic.
+
+This change adds reference count propagation so things are handled properly.
+
+Matthias Schiffer reported a similar crash in batman-adv:
+
+https://github.com/freifunk-gluon/gluon/issues/680
+https://www.open-mesh.org/issues/247
+
+which this patch also seems to resolve.
+
+Signed-off-by: Andrew Collins <acollins@cradlepoint.com>
+---
+ net/core/dev.c | 68 ++++++++++++++++++++++++++++++++--------------------------
+ 1 file changed, 37 insertions(+), 31 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index ea63120..1da79ef 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5578,6 +5578,7 @@ static inline bool netdev_adjacent_is_neigh_list(struct net_device *dev,
+ 
+ static int __netdev_adjacent_dev_insert(struct net_device *dev,
+ 					struct net_device *adj_dev,
++					u16 ref_nr,
+ 					struct list_head *dev_list,
+ 					void *private, bool master)
+ {
+@@ -5587,7 +5588,7 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
+ 	adj = __netdev_find_adj(adj_dev, dev_list);
+ 
+ 	if (adj) {
+-		adj->ref_nr++;
++		adj->ref_nr += ref_nr;
+ 		return 0;
+ 	}
+ 
+@@ -5597,7 +5598,7 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
+ 
+ 	adj->dev = adj_dev;
+ 	adj->master = master;
+-	adj->ref_nr = 1;
++	adj->ref_nr = ref_nr;
+ 	adj->private = private;
+ 	dev_hold(adj_dev);
+ 
+@@ -5636,6 +5637,7 @@ free_adj:
+ 
+ static void __netdev_adjacent_dev_remove(struct net_device *dev,
+ 					 struct net_device *adj_dev,
++					 u16 ref_nr,
+ 					 struct list_head *dev_list)
+ {
+ 	struct netdev_adjacent *adj;
+@@ -5648,10 +5650,10 @@ static void __netdev_adjacent_dev_remove(struct net_device *dev,
+ 		BUG();
+ 	}
+ 
+-	if (adj->ref_nr > 1) {
+-		pr_debug("%s to %s ref_nr-- = %d\n", dev->name, adj_dev->name,
+-			 adj->ref_nr-1);
+-		adj->ref_nr--;
++	if (adj->ref_nr > ref_nr) {
++		pr_debug("%s to %s ref_nr-%d = %d\n", dev->name, adj_dev->name,
++			 ref_nr, adj->ref_nr-ref_nr);
++		adj->ref_nr -= ref_nr;
+ 		return;
+ 	}
+ 
+@@ -5670,21 +5672,22 @@ static void __netdev_adjacent_dev_remove(struct net_device *dev,
+ 
+ static int __netdev_adjacent_dev_link_lists(struct net_device *dev,
+ 					    struct net_device *upper_dev,
++					    u16 ref_nr,
+ 					    struct list_head *up_list,
+ 					    struct list_head *down_list,
+ 					    void *private, bool master)
+ {
+ 	int ret;
+ 
+-	ret = __netdev_adjacent_dev_insert(dev, upper_dev, up_list, private,
+-					   master);
++	ret = __netdev_adjacent_dev_insert(dev, upper_dev, ref_nr, up_list,
++					   private, master);
+ 	if (ret)
+ 		return ret;
+ 
+-	ret = __netdev_adjacent_dev_insert(upper_dev, dev, down_list, private,
+-					   false);
++	ret = __netdev_adjacent_dev_insert(upper_dev, dev, ref_nr, down_list,
++					   private, false);
+ 	if (ret) {
+-		__netdev_adjacent_dev_remove(dev, upper_dev, up_list);
++		__netdev_adjacent_dev_remove(dev, upper_dev, ref_nr, up_list);
+ 		return ret;
+ 	}
+ 
+@@ -5692,9 +5695,10 @@ static int __netdev_adjacent_dev_link_lists(struct net_device *dev,
+ }
+ 
+ static int __netdev_adjacent_dev_link(struct net_device *dev,
+-				      struct net_device *upper_dev)
++				      struct net_device *upper_dev,
++				      u16 ref_nr)
+ {
+-	return __netdev_adjacent_dev_link_lists(dev, upper_dev,
++	return __netdev_adjacent_dev_link_lists(dev, upper_dev, ref_nr,
+ 						&dev->all_adj_list.upper,
+ 						&upper_dev->all_adj_list.lower,
+ 						NULL, false);
+@@ -5702,17 +5706,19 @@ static int __netdev_adjacent_dev_link(struct net_device *dev,
+ 
+ static void __netdev_adjacent_dev_unlink_lists(struct net_device *dev,
+ 					       struct net_device *upper_dev,
++					       u16 ref_nr,
+ 					       struct list_head *up_list,
+ 					       struct list_head *down_list)
+ {
+-	__netdev_adjacent_dev_remove(dev, upper_dev, up_list);
+-	__netdev_adjacent_dev_remove(upper_dev, dev, down_list);
++	__netdev_adjacent_dev_remove(dev, upper_dev, ref_nr, up_list);
++	__netdev_adjacent_dev_remove(upper_dev, dev, ref_nr, down_list);
+ }
+ 
+ static void __netdev_adjacent_dev_unlink(struct net_device *dev,
+-					 struct net_device *upper_dev)
++					 struct net_device *upper_dev,
++					 u16 ref_nr)
+ {
+-	__netdev_adjacent_dev_unlink_lists(dev, upper_dev,
++	__netdev_adjacent_dev_unlink_lists(dev, upper_dev, ref_nr,
+ 					   &dev->all_adj_list.upper,
+ 					   &upper_dev->all_adj_list.lower);
+ }
+@@ -5721,17 +5727,17 @@ static int __netdev_adjacent_dev_link_neighbour(struct net_device *dev,
+ 						struct net_device *upper_dev,
+ 						void *private, bool master)
+ {
+-	int ret = __netdev_adjacent_dev_link(dev, upper_dev);
++	int ret = __netdev_adjacent_dev_link(dev, upper_dev, 1);
+ 
+ 	if (ret)
+ 		return ret;
+ 
+-	ret = __netdev_adjacent_dev_link_lists(dev, upper_dev,
++	ret = __netdev_adjacent_dev_link_lists(dev, upper_dev, 1,
+ 					       &dev->adj_list.upper,
+ 					       &upper_dev->adj_list.lower,
+ 					       private, master);
+ 	if (ret) {
+-		__netdev_adjacent_dev_unlink(dev, upper_dev);
++		__netdev_adjacent_dev_unlink(dev, upper_dev, 1);
+ 		return ret;
+ 	}
+ 
+@@ -5741,8 +5747,8 @@ static int __netdev_adjacent_dev_link_neighbour(struct net_device *dev,
+ static void __netdev_adjacent_dev_unlink_neighbour(struct net_device *dev,
+ 						   struct net_device *upper_dev)
+ {
+-	__netdev_adjacent_dev_unlink(dev, upper_dev);
+-	__netdev_adjacent_dev_unlink_lists(dev, upper_dev,
++	__netdev_adjacent_dev_unlink(dev, upper_dev, 1);
++	__netdev_adjacent_dev_unlink_lists(dev, upper_dev, 1,
+ 					   &dev->adj_list.upper,
+ 					   &upper_dev->adj_list.lower);
+ }
+@@ -5795,7 +5801,7 @@ static int __netdev_upper_dev_link(struct net_device *dev,
+ 		list_for_each_entry(j, &upper_dev->all_adj_list.upper, list) {
+ 			pr_debug("Interlinking %s with %s, non-neighbour\n",
+ 				 i->dev->name, j->dev->name);
+-			ret = __netdev_adjacent_dev_link(i->dev, j->dev);
++			ret = __netdev_adjacent_dev_link(i->dev, j->dev, i->ref_nr);
+ 			if (ret)
+ 				goto rollback_mesh;
+ 		}
+@@ -5805,7 +5811,7 @@ static int __netdev_upper_dev_link(struct net_device *dev,
+ 	list_for_each_entry(i, &upper_dev->all_adj_list.upper, list) {
+ 		pr_debug("linking %s's upper device %s with %s\n",
+ 			 upper_dev->name, i->dev->name, dev->name);
+-		ret = __netdev_adjacent_dev_link(dev, i->dev);
++		ret = __netdev_adjacent_dev_link(dev, i->dev, i->ref_nr);
+ 		if (ret)
+ 			goto rollback_upper_mesh;
+ 	}
+@@ -5814,7 +5820,7 @@ static int __netdev_upper_dev_link(struct net_device *dev,
+ 	list_for_each_entry(i, &dev->all_adj_list.lower, list) {
+ 		pr_debug("linking %s's lower device %s with %s\n", dev->name,
+ 			 i->dev->name, upper_dev->name);
+-		ret = __netdev_adjacent_dev_link(i->dev, upper_dev);
++		ret = __netdev_adjacent_dev_link(i->dev, upper_dev, i->ref_nr);
+ 		if (ret)
+ 			goto rollback_lower_mesh;
+ 	}
+@@ -5832,7 +5838,7 @@ rollback_lower_mesh:
+ 	list_for_each_entry(i, &dev->all_adj_list.lower, list) {
+ 		if (i == to_i)
+ 			break;
+-		__netdev_adjacent_dev_unlink(i->dev, upper_dev);
++		__netdev_adjacent_dev_unlink(i->dev, upper_dev, i->ref_nr);
+ 	}
+ 
+ 	i = NULL;
+@@ -5842,7 +5848,7 @@ rollback_upper_mesh:
+ 	list_for_each_entry(i, &upper_dev->all_adj_list.upper, list) {
+ 		if (i == to_i)
+ 			break;
+-		__netdev_adjacent_dev_unlink(dev, i->dev);
++		__netdev_adjacent_dev_unlink(dev, i->dev, i->ref_nr);
+ 	}
+ 
+ 	i = j = NULL;
+@@ -5854,7 +5860,7 @@ rollback_mesh:
+ 		list_for_each_entry(j, &upper_dev->all_adj_list.upper, list) {
+ 			if (i == to_i && j == to_j)
+ 				break;
+-			__netdev_adjacent_dev_unlink(i->dev, j->dev);
++			__netdev_adjacent_dev_unlink(i->dev, j->dev, i->ref_nr);
+ 		}
+ 		if (i == to_i)
+ 			break;
+@@ -5934,16 +5940,16 @@ void netdev_upper_dev_unlink(struct net_device *dev,
+ 	 */
+ 	list_for_each_entry(i, &dev->all_adj_list.lower, list)
+ 		list_for_each_entry(j, &upper_dev->all_adj_list.upper, list)
+-			__netdev_adjacent_dev_unlink(i->dev, j->dev);
++			__netdev_adjacent_dev_unlink(i->dev, j->dev, i->ref_nr);
+ 
+ 	/* remove also the devices itself from lower/upper device
+ 	 * list
+ 	 */
+ 	list_for_each_entry(i, &dev->all_adj_list.lower, list)
+-		__netdev_adjacent_dev_unlink(i->dev, upper_dev);
++		__netdev_adjacent_dev_unlink(i->dev, upper_dev, i->ref_nr);
+ 
+ 	list_for_each_entry(i, &upper_dev->all_adj_list.upper, list)
+-		__netdev_adjacent_dev_unlink(dev, i->dev);
++		__netdev_adjacent_dev_unlink(dev, i->dev, i->ref_nr);
+ 
+ 	call_netdevice_notifiers_info(NETDEV_CHANGEUPPER, dev,
+ 				      &changeupper_info.info);
+-- 
+2.7.4
