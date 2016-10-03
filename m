@@ -1,356 +1,75 @@
-From: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
-Subject: [PATCH v5 net-next] net: phy: Add Edge-rate driver for Microsemi PHYs.
-Date: Mon, 3 Oct 2016 12:53:13 +0530
-Message-ID: <1475479393-24308-1-git-send-email-Raju.Lakkaraju@microsemi.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <Allan.Nielsen-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>,
-        <andrew-g2DYL2Zd6BY@public.gmane.org>, Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
-To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next] i40e: avoid NULL pointer dereference and recursive errors on early PCI error
+Date: Mon,  3 Oct 2016 00:31:12 -0700
+Message-ID: <1475479872-112822-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Guilherme G Piccoli <gpiccoli@linux.vnet.ibm.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, guru.anbalagane@oracle.com,
+        stable@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
+From: Guilherme G Piccoli <gpiccoli@linux.vnet.ibm.com>
 
-Edge-rate:
-As system and networking speeds increase, a signal's output transition,
-also know as the edge rate or slew rate (V/ns), takes on greater importance
-because high-speed signals come with a price. That price is an assortment of
-interference problems like ringing on the line, signal overshoot and
-undershoot, extended signal settling times, crosstalk noise, transmission
-line reflections, false signal detection by the receiving device and
-electromagnetic interference (EMI) -- all of which can negate the potential
-gains designers are seeking when they try to increase system speeds through
-the use of higher performance logic devices. The fact is, faster signaling
-edge rates can cause a higher level of electrical noise or other type of
-interference that can actually lead to slower line speeds and lower maximum
-system frequencies. This parameter allow the board designers to change the
-driving strange, and thereby change the EMI behavioral.
+Although rare, it's possible to hit PCI error early on device
+probe, meaning possibly some structs are not entirely initialized,
+and some might even be completely uninitialized, leading to NULL
+pointer dereference.
 
-Edge-rate parameters (vddmac, edge-slowdown) get from Device Tree.
+The i40e driver currently presents a "bad" behavior if device hits
+such early PCI error: firstly, the struct i40e_pf might not be
+attached to pci_dev yet, leading to a NULL pointer dereference on
+access to pf->state.
 
-Tested on Beaglebone Black with VSC 8531 PHY.
+Even checking if the struct is NULL and avoiding the access in that
+case isn't enough, since the driver cannot recover from PCI error
+that early; in our experiments we saw multiple failures on kernel
+log, like:
 
-Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
+  [549.664] i40e 0007:01:00.1: Initial pf_reset failed: -15
+  [549.664] i40e: probe of 0007:01:00.1 failed with error -15
+  [...]
+  [871.644] i40e 0007:01:00.1: The driver for the device stopped because the
+  device firmware failed to init. Try updating your NVM image.
+  [871.644] i40e: probe of 0007:01:00.1 failed with error -32
+  [...]
+  [872.516] i40e 0007:01:00.0: ARQ: Unknown event 0x0000 ignored
 
+Between the first probe failure (error -15) and the second (error -32)
+another PCI error happened due to the first bad probe. Also, driver
+started to flood console with those ARQ event messages.
+
+This patch will prevent these issues by allowing error recovery
+mechanism to remove the failed device from the system instead of
+trying to recover from early PCI errors during device probe.
+
+CC: <stable@vger.kernel.org>
+Signed-off-by: Guilherme G Piccoli <gpiccoli@linux.vnet.ibm.com>
+Acked-by: Jacob Keller <jacob.e.keller@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
-All the review comments updated and resending for review.
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-Change set:
-v1:
-- Initial version of Edge-rate driver add by using IOCTL.
-v2:
-- Changed edge-rate parameter to Device Tree with magic number.
-v3:
-- Added Device Tree documentati0n and edge-rate parameter table.
-  Added probe function initialize the vsc8531 private data structure.
-v4:
-- As per review comment, Device Tree parameters (vddmac, edge-slowdown)
-  added.
-v5:
-- As per review comment, Device Tree Document parameters (vddmac, 
-  edge-slowdown) real numbers added. Table number changed from 5 to 1.
-
----
-
- .../devicetree/bindings/net/mscc-phy-vsc8531.txt   |  58 ++++++++++
- drivers/net/phy/mscc.c                             | 125 +++++++++++++++++++++
- include/dt-bindings/net/mscc-phy-vsc8531.h         |  21 ++++
- 3 files changed, 204 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
- create mode 100644 include/dt-bindings/net/mscc-phy-vsc8531.h
-
-diff --git a/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt b/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
-new file mode 100644
-index 0000000..99c7eb0
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
-@@ -0,0 +1,58 @@
-+* Microsemi - vsc8531 Giga bit ethernet phy
-+
-+Required properties:
-+- compatible	: Should contain phy id as "ethernet-phy-idAAAA.BBBB"
-+		  The PHY device uses the binding described in
-+		  Documentation/devicetree/bindings/net/phy.txt
-+
-+Optional properties:
-+- vsc8531,vddmac	: The vddmac in mV.
-+- vsc8531,edge-slowdown	: % the edge should be slowed down relative to
-+			  the fastest possible edge time. Native sign
-+			  need not enter.
-+			  Edge rate sets the drive strength of the MAC
-+			  interface output signals.  Changing the drive
-+			  strength will affect the edge rate of the output
-+			  signal.  The goal of this setting is to help
-+			  reduce electrical emission (EMI) by being able
-+			  to reprogram drive strength and in effect slow
-+			  down the edge rate if desired.  Table 1 shows the
-+			  impact to the edge rate per VDDMAC supply for each
-+			  drive strength setting.
-+			  Ref: Table:1 - Edge rate change below.
-+
-+Note: see dt-bindings/net/mscc-phy-vsc8531.h for applicable values
-+
-+Table: 1 - Edge rate change
-+----------------------------------------------------------------|
-+| 		Edge Rate Change (VDDMAC)			|
-+|								|
-+| 3300 mV	2500 mV		1800 mV		1500 mV		|
-+|---------------------------------------------------------------|
-+| Default	Deafult		Default		Default		|
-+| (Fastest)			(recommended)	(recommended)	|
-+|---------------------------------------------------------------|
-+| -2%		-3%		-5%		-6%		|
-+|---------------------------------------------------------------|
-+| -4%		-6%		-9%		-14%		|
-+|---------------------------------------------------------------|
-+| -7%		-10%		-16%		-21%		|
-+|(recommended)	(recommended)					|
-+|---------------------------------------------------------------|
-+| -10%		-14%		-23%		-29%		|
-+|---------------------------------------------------------------|
-+| -17%		-23%		-35%		-42%		|
-+|---------------------------------------------------------------|
-+| -29%		-37%		-52%		-58%		|
-+|---------------------------------------------------------------|
-+| -53%		-63%		-76%		-77%		|
-+| (slowest)							|
-+|---------------------------------------------------------------|
-+
-+Example:
-+
-+        vsc8531_0: ethernet-phy@0 {
-+                compatible = "ethernet-phy-id0007.0570";
-+                vsc8531,vddmac		= <3300>;
-+                vsc8531,edge-slowdown	= <21>;
-+        };
-diff --git a/drivers/net/phy/mscc.c b/drivers/net/phy/mscc.c
-index d350deb..a17573e 100644
---- a/drivers/net/phy/mscc.c
-+++ b/drivers/net/phy/mscc.c
-@@ -11,6 +11,8 @@
- #include <linux/mdio.h>
- #include <linux/mii.h>
- #include <linux/phy.h>
-+#include <linux/of.h>
-+#include <dt-bindings/net/mscc-phy-vsc8531.h>
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 8176596..efc0a36 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -11382,6 +11382,12 @@ static pci_ers_result_t i40e_pci_error_detected(struct pci_dev *pdev,
  
- enum rgmii_rx_clock_delay {
- 	RGMII_RX_CLK_DELAY_0_2_NS = 0,
-@@ -37,6 +39,10 @@ enum rgmii_rx_clock_delay {
- #define MII_VSC85XX_INT_MASK_MASK	  0xa000
- #define MII_VSC85XX_INT_STATUS		  26
+ 	dev_info(&pdev->dev, "%s: error %d\n", __func__, error);
  
-+#define MSCC_PHY_WOL_MAC_CONTROL          27
-+#define EDGE_RATE_CNTL_POS                5
-+#define EDGE_RATE_CNTL_MASK               0x00E0
-+
- #define MSCC_EXT_PAGE_ACCESS		  31
- #define MSCC_PHY_PAGE_STANDARD		  0x0000 /* Standard registers */
- #define MSCC_PHY_PAGE_EXTENDED_2	  0x0002 /* Extended reg - page 2 */
-@@ -50,6 +56,23 @@ enum rgmii_rx_clock_delay {
- #define PHY_ID_VSC8531			  0x00070570
- #define PHY_ID_VSC8541			  0x00070770
- 
-+struct edge_rate_table {
-+	u16 vddmac;
-+	int slowdown[MSCC_SLOWDOWN_MAX];
-+};
-+
-+struct edge_rate_table edge_table[MSCC_VDDMAC_MAX] = {
-+	{3300, { 0, -2, -4,  -7,  -10, -17, -29, -53} },
-+	{2500, { 0, -3, -6,  -10, -14, -23, -37, -63} },
-+	{1800, { 0, -5, -9,  -16, -23, -35, -52, -76} },
-+	{1500, { 0, -6, -14, -21, -29, -42, -58, -77} },
-+};
-+
-+struct vsc8531_private {
-+	u8 edge_slowdown;
-+	u16 vddmac;
-+};
-+
- static int vsc85xx_phy_page_set(struct phy_device *phydev, u8 page)
- {
- 	int rc;
-@@ -58,6 +81,51 @@ static int vsc85xx_phy_page_set(struct phy_device *phydev, u8 page)
- 	return rc;
- }
- 
-+static u8 edge_rate_magic_get(u16 vddmac,
-+			      int slowdown)
-+{
-+	int rc = (MSCC_SLOWDOWN_MAX - 1);
-+	u8 vdd;
-+	u8 sd;
-+
-+	for (vdd = 0; vdd < MSCC_VDDMAC_MAX; vdd++) {
-+		if (edge_table[vdd].vddmac == vddmac) {
-+			for (sd = 0; sd < MSCC_SLOWDOWN_MAX; sd++) {
-+				if (edge_table[vdd].slowdown[sd] <= slowdown) {
-+					rc = (MSCC_SLOWDOWN_MAX - sd - 1);
-+					break;
-+				}
-+			}
-+		}
++	if (!pf) {
++		dev_info(&pdev->dev,
++			 "Cannot recover - error happened during device probe\n");
++		return PCI_ERS_RESULT_DISCONNECT;
 +	}
 +
-+	return rc;
-+}
-+
-+static int vsc85xx_edge_rate_cntl_set(struct phy_device *phydev,
-+				      u8 edge_rate)
-+{
-+	int rc;
-+	u16 reg_val;
-+
-+	mutex_lock(&phydev->lock);
-+	rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_EXTENDED_2);
-+	if (rc != 0)
-+		goto out_unlock;
-+	reg_val = phy_read(phydev, MSCC_PHY_WOL_MAC_CONTROL);
-+	reg_val &= ~(EDGE_RATE_CNTL_MASK);
-+	reg_val |= (edge_rate << EDGE_RATE_CNTL_POS);
-+	rc = phy_write(phydev, MSCC_PHY_WOL_MAC_CONTROL, reg_val);
-+	if (rc != 0)
-+		goto out_unlock;
-+	rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_STANDARD);
-+
-+out_unlock:
-+	mutex_unlock(&phydev->lock);
-+
-+	return rc;
-+}
-+
- static int vsc85xx_mac_if_set(struct phy_device *phydev,
- 			      phy_interface_t interface)
- {
-@@ -116,9 +184,45 @@ out_unlock:
- 	return rc;
- }
- 
-+#ifdef CONFIG_OF_MDIO
-+static int vsc8531_of_init(struct phy_device *phydev)
-+{
-+	int rc;
-+	struct vsc8531_private *vsc8531 = phydev->priv;
-+	struct device *dev = &phydev->mdio.dev;
-+	struct device_node *of_node = dev->of_node;
-+
-+	if (!of_node)
-+		return -ENODEV;
-+
-+	rc = of_property_read_u16(of_node, "vsc8531,vddmac",
-+				  &vsc8531->vddmac);
-+	if (rc == -EINVAL)
-+		vsc8531->vddmac = MSCC_VDDMAC_3300;
-+	rc = of_property_read_u8(of_node, "vsc8531,edge-slowdown",
-+				 &vsc8531->edge_slowdown);
-+	if (rc == -EINVAL)
-+		vsc8531->edge_slowdown = 0;
-+
-+	rc = 0;
-+	return rc;
-+}
-+#else
-+static int vsc8531_of_init(struct phy_device *phydev)
-+{
-+	return 0;
-+}
-+#endif /* CONFIG_OF_MDIO */
-+
- static int vsc85xx_config_init(struct phy_device *phydev)
- {
- 	int rc;
-+	struct vsc8531_private *vsc8531 = phydev->priv;
-+	u8 edge_rate;
-+
-+	rc = vsc8531_of_init(phydev);
-+	if (rc)
-+		return rc;
- 
- 	rc = vsc85xx_default_config(phydev);
- 	if (rc)
-@@ -128,6 +232,12 @@ static int vsc85xx_config_init(struct phy_device *phydev)
- 	if (rc)
- 		return rc;
- 
-+	edge_rate = edge_rate_magic_get(vsc8531->vddmac,
-+					-(int)vsc8531->edge_slowdown);
-+	rc = vsc85xx_edge_rate_cntl_set(phydev, edge_rate);
-+	if (rc)
-+		return rc;
-+
- 	rc = genphy_config_init(phydev);
- 
- 	return rc;
-@@ -160,6 +270,19 @@ static int vsc85xx_config_intr(struct phy_device *phydev)
- 	return rc;
- }
- 
-+static int vsc85xx_probe(struct phy_device *phydev)
-+{
-+	struct vsc8531_private *vsc8531;
-+
-+	vsc8531 = devm_kzalloc(&phydev->mdio.dev, sizeof(*vsc8531), GFP_KERNEL);
-+	if (!vsc8531)
-+		return -ENOMEM;
-+
-+	phydev->priv = vsc8531;
-+
-+	return 0;
-+}
-+
- /* Microsemi VSC85xx PHYs */
- static struct phy_driver vsc85xx_driver[] = {
- {
-@@ -177,6 +300,7 @@ static struct phy_driver vsc85xx_driver[] = {
- 	.config_intr    = &vsc85xx_config_intr,
- 	.suspend	= &genphy_suspend,
- 	.resume		= &genphy_resume,
-+	.probe          = &vsc85xx_probe,
- },
- {
- 	.phy_id		= PHY_ID_VSC8541,
-@@ -193,6 +317,7 @@ static struct phy_driver vsc85xx_driver[] = {
- 	.config_intr    = &vsc85xx_config_intr,
- 	.suspend	= &genphy_suspend,
- 	.resume		= &genphy_resume,
-+	.probe          = &vsc85xx_probe,
- }
- 
- };
-diff --git a/include/dt-bindings/net/mscc-phy-vsc8531.h b/include/dt-bindings/net/mscc-phy-vsc8531.h
-new file mode 100644
-index 0000000..2383dd2
---- /dev/null
-+++ b/include/dt-bindings/net/mscc-phy-vsc8531.h
-@@ -0,0 +1,21 @@
-+/*
-+ * Device Tree constants for Microsemi VSC8531 PHY
-+ *
-+ * Author: Nagaraju Lakkaraju
-+ *
-+ * License: Dual MIT/GPL
-+ * Copyright (c) 2016 Microsemi Corporation
-+ */
-+
-+#ifndef _DT_BINDINGS_MSCC_VSC8531_H
-+#define _DT_BINDINGS_MSCC_VSC8531_H
-+
-+/* MAC interface Edge rate control VDDMAC in milli Volts */
-+#define MSCC_VDDMAC_3300		 3300
-+#define MSCC_VDDMAC_2500		 2500
-+#define MSCC_VDDMAC_1800		 1800
-+#define MSCC_VDDMAC_1500		 1500
-+#define MSCC_VDDMAC_MAX			 4
-+#define MSCC_SLOWDOWN_MAX		 8
-+
-+#endif
+ 	/* shutdown all operations */
+ 	if (!test_bit(__I40E_SUSPENDED, &pf->state)) {
+ 		rtnl_lock();
 -- 
 2.7.4
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
