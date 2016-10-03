@@ -1,81 +1,89 @@
-From: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
-Subject: Re: [PATCH 3/3] net: smsc911x: add u16 workaround for pxa platforms
-Date: Mon, 3 Oct 2016 17:42:29 +0100
-Message-ID: <20161003164228.GA15313@leverpostej>
-References: <1475485553-18747-1-git-send-email-robert.jarzmik@free.fr>
- <1475485553-18747-3-git-send-email-robert.jarzmik@free.fr>
- <20161003154624.GG7632@leverpostej>
- <20161003160913.GQ1041@n2100.armlinux.org.uk>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 3/3] net: fec: align IP header in hardware
+Date: Mon, 3 Oct 2016 16:42:05 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB01E2073@AcuExch.aculab.com>
+References: <1474728139-9335-1-git-send-email-eric@nelint.com>
+ <1474728139-9335-4-git-send-email-eric@nelint.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB0109865@AcuExch.aculab.com>
+ <4d199f32-092c-1c0a-7a01-6d0d317ef676@nelint.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB010A73F@AcuExch.aculab.com>
+ <5cf173c4-84e0-f309-f356-35b114cc166e@nelint.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB010E25C@AcuExch.aculab.com>
+ <af74a33e-a164-bd2f-4c63-24a128d1ffb5@nelint.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB010FE38@AcuExch.aculab.com>
+ <638d2aa0-eb4a-dd4b-e516-d7ad89eca627@nelint.com>
+ <20161001195215.GP1041@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Robert Jarzmik <robert.jarzmik-GANU6spQydw@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Nicolas Pitre <nico-vtqb6HGKxmzR7s880joybQ@public.gmane.org>,
-        Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Russell King - ARM Linux <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20161003160913.GQ1041-l+eeeJia6m9URfEZ8mYm6t73F7V6hmMc@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "andrew@lunn.ch" <andrew@lunn.ch>,
+        "fugang.duan@nxp.com" <fugang.duan@nxp.com>,
+        "otavio@ossystems.com.br" <otavio@ossystems.com.br>,
+        "edumazet@google.com" <edumazet@google.com>,
+        "troy.kisky@boundarydevices.com" <troy.kisky@boundarydevices.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "u.kleine-koenig@pengutronix.de" <u.kleine-koenig@pengutronix.de>
+To: 'Russell King - ARM Linux' <linux@armlinux.org.uk>,
+        Eric Nelson <eric@nelint.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out6.electric.net ([192.162.217.192]:63651 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752249AbcJCQob (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2016 12:44:31 -0400
+In-Reply-To: <20161001195215.GP1041@n2100.armlinux.org.uk>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 03, 2016 at 05:09:13PM +0100, Russell King - ARM Linux wrote:
-> Please note that the binding doc for smsc,lan91c111.txt is slightly wrong
-> on two counts:
+From: Russell King - ARM Linux
+> Sent: 01 October 2016 20:52
+> On Fri, Sep 30, 2016 at 07:16:12AM -0700, Eric Nelson wrote:
+> > On ARM, the CPU can't handle misaligned memory cycles without
+> > taking an alignment fault and NET_IP_ALIGN is set to 2.
 > 
-> 1) compatible property:
+> Let's get this right...  With Linux on MMU parts:
 > 
-> compatible = "smsc,lan91c111";
+> On ARMv6+, unaligned memory cycles using the LDR, LDRH and corresponding
+> store instructions are handled in hardware without any exception being
+> raised.
 > 
-> vs the code:
+> On pre-ARMv6, such instructions raise an alignment exception, and we fix
+> up the load/store manually.
+
+I'm not sure that is a good idea but...
+
+> Where things behave the same is with the LDM (load multiple) and STM
+> (store multiple) instructions.  Hardware does not fix these up if they
+> are unaligned: it is expected that the base address will always be
+> aligned to a 32-bit word.
 > 
-> static const struct of_device_id smc91x_match[] = {
->         { .compatible = "smsc,lan91c94", },
->         { .compatible = "smsc,lan91c111", },
->         {},
-> };
-> MODULE_DEVICE_TABLE(of, smc91x_match);
+> For some reason, the compiler guys have decided it's okay to use these
+> instructions as an optimisation, and I see no way to disable this
+> behaviour.
+...
+> The issue with the networking layer is that it passes around structure
+> pointers which may not be "naturally aligned" - technically it goes
+> against the C standard specs.  However, you'll find it hard to argue
+> against this, so we have to accept that the networking people expect
+> it to work.
+
+I think it 'only' casts misaligned pointers to structure on systems
+where unaligned accesses are allowed.
+It is almost impossible to do a 'realignment copy' on (for example) sparc.
+
+> The optimisation that the C compiler uses (using LDM to access multiple
+> 32-bit consecutive words) is legal and efficient when the structure
+> pointers are aligned as it expects, but that all breaks if the pointer
+> is not so aligned.  So, raising it as a bug against the C compiler isn't
+> going to work either.
 > 
-> So the binding document needs to mention that smsc,lan91c94 is a valid
-> compatible for this device.
+> What may work is to raise a feature request with compiler people to have
+> a mechanism to disable the LDM/STM optimisation for code where we know
+> that pointers may not be naturally aligned.
 
-Yes, it should.
+What happens is the relevant structures are marked 'packed'?
+If the compiler still generates LDM/STM that is a bug.
+Assuming the compiler is targeting v6+ it shouldn't generate byte accesses.
 
-> 2) reg-io-width property:
-> 
-> - reg-io-width : Mask of sizes (in bytes) of the IO accesses that
->   are supported on the device.  Valid value for SMSC LAN91c111 are
->   1, 2 or 4.  If it's omitted or invalid, the size would be 2 meaning
->   16-bit access only.
- 
-> Moreover, look at the property name vs the binding description.  It's
-> property name says it's a width, but the description says it's a mask
-> of sizes - these really aren't the same thing.  Once you start
-> specifying these other legal masks, it makes a nonsense of the "width"
-> part of the name.  It's too late to try and fix this now though.
-
-Indeed, as-is this is nonsense. :(
-
-The best we can do here is to add a big fat notice regarding the
-misnaming; adding a new property is only giong to cause more confusion.
-
-> The binding document really needs to get fixed - I'll try to cook up a
-> patch during this week to correct these points, but it probably needs
-> coordination if others are going to be changing this as well.
-
-Thanks for handling both of these.
-
-Given the historical rate of change of the binding document, I suspect
-the stuff for pxa platforms is going to be the only potential conflict.
-
-Either all of that can go via the DT tree (independent of any new code),
-or we can ack the whole lot and it can all go via the net tree in one
-go.
-
-Thanks,
-Mark.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	David
