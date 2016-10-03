@@ -1,105 +1,116 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net] Panic when tc_lookup_action_n finds a partially
- initialized action.
-Date: Mon, 3 Oct 2016 11:22:33 -0700
-Message-ID: <CAM_iQpX1a1=3PmMAwMRDXpL3qjAskQ990FdxgyCg4T5p4=8G7Q@mail.gmail.com>
-References: <20161002031349.GB2635@templeofstupid.com>
+From: Eric Nelson <eric@nelint.com>
+Subject: Re: [PATCH 3/3] net: fec: align IP header in hardware
+Date: Mon, 3 Oct 2016 20:48:32 +0200
+Message-ID: <326383a0-9879-3cb0-8836-1508adfe5980@nelint.com>
+References: <1474728139-9335-1-git-send-email-eric@nelint.com>
+ <1474728139-9335-4-git-send-email-eric@nelint.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB0109865@AcuExch.aculab.com>
+ <4d199f32-092c-1c0a-7a01-6d0d317ef676@nelint.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB010A73F@AcuExch.aculab.com>
+ <5cf173c4-84e0-f309-f356-35b114cc166e@nelint.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB010E25C@AcuExch.aculab.com>
+ <af74a33e-a164-bd2f-4c63-24a128d1ffb5@nelint.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB010FE38@AcuExch.aculab.com>
+ <638d2aa0-eb4a-dd4b-e516-d7ad89eca627@nelint.com>
+ <20161001195215.GP1041@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001a1141f2a6490c58053dfa08a9
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Krister Johansen <kjlx@templeofstupid.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: David Laight <David.Laight@ACULAB.COM>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "andrew@lunn.ch" <andrew@lunn.ch>,
+        "fugang.duan@nxp.com" <fugang.duan@nxp.com>,
+        "otavio@ossystems.com.br" <otavio@ossystems.com.br>,
+        "edumazet@google.com" <edumazet@google.com>,
+        "troy.kisky@boundarydevices.com" <troy.kisky@boundarydevices.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "u.kleine-koenig@pengutronix.de" <u.kleine-koenig@pengutronix.de>
+To: Russell King - ARM Linux <linux@armlinux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:36300 "EHLO
-        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752597AbcJCSWy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2016 14:22:54 -0400
-Received: by mail-io0-f195.google.com with SMTP id z135so7354936ioe.3
-        for <netdev@vger.kernel.org>; Mon, 03 Oct 2016 11:22:54 -0700 (PDT)
-In-Reply-To: <20161002031349.GB2635@templeofstupid.com>
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:35443 "EHLO
+        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752367AbcJCSsi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2016 14:48:38 -0400
+Received: by mail-wm0-f50.google.com with SMTP id f193so124447969wmg.0
+        for <netdev@vger.kernel.org>; Mon, 03 Oct 2016 11:48:37 -0700 (PDT)
+In-Reply-To: <20161001195215.GP1041@n2100.armlinux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---001a1141f2a6490c58053dfa08a9
-Content-Type: text/plain; charset=UTF-8
+Hi Russell,
 
-On Sat, Oct 1, 2016 at 8:13 PM, Krister Johansen
-<kjlx@templeofstupid.com> wrote:
-> A tc_action_ops structure is visibile as soon as it is placed in the
-> act_base list.  When tcf_regsiter_action adds an item to this list and
-> drops act_mod_lock, registration is not complete until
-> register_pernet_subsys() finishes.
+On 10/01/2016 09:52 PM, Russell King - ARM Linux wrote:
+> On Fri, Sep 30, 2016 at 07:16:12AM -0700, Eric Nelson wrote:
+>> On ARM, the CPU can't handle misaligned memory cycles without
+>> taking an alignment fault and NET_IP_ALIGN is set to 2.
+> 
+> Let's get this right...  With Linux on MMU parts:
+> 
+> On ARMv6+, unaligned memory cycles using the LDR, LDRH and corresponding
+> store instructions are handled in hardware without any exception being
+> raised.
+> 
+> On pre-ARMv6, such instructions raise an alignment exception, and we fix
+> up the load/store manually.
+> 
+> Where things behave the same is with the LDM (load multiple) and STM
+> (store multiple) instructions.  Hardware does not fix these up if they
+> are unaligned: it is expected that the base address will always be
+> aligned to a 32-bit word.
+> 
 
-Hmm, good catch, but does the fix have to be so complicated?
+Thanks for the clarification. This helps me understand why I didn't
+see the exceptions that Eric warned about:
 
-How about moving register_pernet_subsys() under act_mod_lock?
-Similar is needed for unregister too of course. This also means
-we need to convert act_mod_lock to a mutex which allows blocking.
-Fortunately, we don't have to take act_mod_lock in any atomic context.
+https://www.spinics.net/lists/netdev/msg397012.html
 
-Please try the attached patch. I also convert the read path to RCU
-to avoid a possible deadlock. A quick test shows no lockdep splat.
+> For some reason, the compiler guys have decided it's okay to use these
+> instructions as an optimisation, and I see no way to disable this
+> behaviour.
+> 
+>> On ARM, we have CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS=y
+>> but I find it hard to believe that taking alignment faults is more
+>> efficient than adding two bytes to the start of the frame.
+> 
+> ... see above, hence why CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS is set.
+> It's only when the compiler decides to do silly things that things go
+> wrong.  However, net code does not care about that configuration
+> setting, so it's irrelevant to this discussion.
+> 
 
-Thanks!
+The obfuscated optimization in ip_gro_receive doesn't help by
+reading two 16-bit values as a __be32:
 
---001a1141f2a6490c58053dfa08a9
-Content-Type: text/plain; charset=US-ASCII; name="act_api.diff"
-Content-Disposition: attachment; filename="act_api.diff"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_itudvc7r0
+id = ntohl(*(__be32 *)&iph->id);
+flush = (u16)((ntohl(*(__be32 *)iph) ^ skb_gro_len(skb)) | (id & ~IP_DF));
+id >>= 16;
 
-ZGlmZiAtLWdpdCBhL25ldC9zY2hlZC9hY3RfYXBpLmMgYi9uZXQvc2NoZWQvYWN0X2FwaS5jCmlu
-ZGV4IGQwOWQwNjguLjRhYWM4NDYgMTAwNjQ0Ci0tLSBhL25ldC9zY2hlZC9hY3RfYXBpLmMKKysr
-IGIvbmV0L3NjaGVkL2FjdF9hcGkuYwpAQCAtMzMwLDcgKzMzMCwyMiBAQCB2b2lkIHRjZl9oYXNo
-aW5mb19kZXN0cm95KGNvbnN0IHN0cnVjdCB0Y19hY3Rpb25fb3BzICpvcHMsCiBFWFBPUlRfU1lN
-Qk9MKHRjZl9oYXNoaW5mb19kZXN0cm95KTsKIAogc3RhdGljIExJU1RfSEVBRChhY3RfYmFzZSk7
-Ci1zdGF0aWMgREVGSU5FX1JXTE9DSyhhY3RfbW9kX2xvY2spOworc3RhdGljIERFRklORV9NVVRF
-WChhY3RfbW9kX2xvY2spOworCitzdGF0aWMgaW50IF9fdGNmX3VucmVnaXN0ZXJfYWN0aW9uKHN0
-cnVjdCB0Y19hY3Rpb25fb3BzICphY3QpCit7CisJc3RydWN0IHRjX2FjdGlvbl9vcHMgKmE7CisJ
-aW50IGVyciA9IC1FTk9FTlQ7CisKKwlsaXN0X2Zvcl9lYWNoX2VudHJ5KGEsICZhY3RfYmFzZSwg
-aGVhZCkgeworCQlpZiAoYSA9PSBhY3QpIHsKKwkJCWxpc3RfZGVsX3JjdSgmYWN0LT5oZWFkKTsK
-KwkJCWVyciA9IDA7CisJCQlicmVhazsKKwkJfQorCX0KKwlyZXR1cm4gZXJyOworfQogCiBpbnQg
-dGNmX3JlZ2lzdGVyX2FjdGlvbihzdHJ1Y3QgdGNfYWN0aW9uX29wcyAqYWN0LAogCQkJc3RydWN0
-IHBlcm5ldF9vcGVyYXRpb25zICpvcHMpCkBAIC0zNDEsMjIgKzM1NiwyMyBAQCBpbnQgdGNmX3Jl
-Z2lzdGVyX2FjdGlvbihzdHJ1Y3QgdGNfYWN0aW9uX29wcyAqYWN0LAogCWlmICghYWN0LT5hY3Qg
-fHwgIWFjdC0+ZHVtcCB8fCAhYWN0LT5pbml0IHx8ICFhY3QtPndhbGsgfHwgIWFjdC0+bG9va3Vw
-KQogCQlyZXR1cm4gLUVJTlZBTDsKIAotCXdyaXRlX2xvY2soJmFjdF9tb2RfbG9jayk7CisJbXV0
-ZXhfbG9jaygmYWN0X21vZF9sb2NrKTsKIAlsaXN0X2Zvcl9lYWNoX2VudHJ5KGEsICZhY3RfYmFz
-ZSwgaGVhZCkgewogCQlpZiAoYWN0LT50eXBlID09IGEtPnR5cGUgfHwgKHN0cmNtcChhY3QtPmtp
-bmQsIGEtPmtpbmQpID09IDApKSB7Ci0JCQl3cml0ZV91bmxvY2soJmFjdF9tb2RfbG9jayk7CisJ
-CQltdXRleF91bmxvY2soJmFjdF9tb2RfbG9jayk7CiAJCQlyZXR1cm4gLUVFWElTVDsKIAkJfQog
-CX0KLQlsaXN0X2FkZF90YWlsKCZhY3QtPmhlYWQsICZhY3RfYmFzZSk7Ci0Jd3JpdGVfdW5sb2Nr
-KCZhY3RfbW9kX2xvY2spOworCWxpc3RfYWRkX3RhaWxfcmN1KCZhY3QtPmhlYWQsICZhY3RfYmFz
-ZSk7CiAKIAlyZXQgPSByZWdpc3Rlcl9wZXJuZXRfc3Vic3lzKG9wcyk7CiAJaWYgKHJldCkgewot
-CQl0Y2ZfdW5yZWdpc3Rlcl9hY3Rpb24oYWN0LCBvcHMpOworCQlfX3RjZl91bnJlZ2lzdGVyX2Fj
-dGlvbihhY3QpOworCQltdXRleF91bmxvY2soJmFjdF9tb2RfbG9jayk7CiAJCXJldHVybiByZXQ7
-CiAJfQogCisJbXV0ZXhfdW5sb2NrKCZhY3RfbW9kX2xvY2spOwogCXJldHVybiAwOwogfQogRVhQ
-T1JUX1NZTUJPTCh0Y2ZfcmVnaXN0ZXJfYWN0aW9uKTsKQEAgLTM2NCwyMCArMzgwLDEzIEBAIEVY
-UE9SVF9TWU1CT0wodGNmX3JlZ2lzdGVyX2FjdGlvbik7CiBpbnQgdGNmX3VucmVnaXN0ZXJfYWN0
-aW9uKHN0cnVjdCB0Y19hY3Rpb25fb3BzICphY3QsCiAJCQkgIHN0cnVjdCBwZXJuZXRfb3BlcmF0
-aW9ucyAqb3BzKQogewotCXN0cnVjdCB0Y19hY3Rpb25fb3BzICphOwogCWludCBlcnIgPSAtRU5P
-RU5UOwogCisJbXV0ZXhfbG9jaygmYWN0X21vZF9sb2NrKTsKIAl1bnJlZ2lzdGVyX3Blcm5ldF9z
-dWJzeXMob3BzKTsKKwllcnIgPSBfX3RjZl91bnJlZ2lzdGVyX2FjdGlvbihhY3QpOworCW11dGV4
-X3VubG9jaygmYWN0X21vZF9sb2NrKTsKIAotCXdyaXRlX2xvY2soJmFjdF9tb2RfbG9jayk7Ci0J
-bGlzdF9mb3JfZWFjaF9lbnRyeShhLCAmYWN0X2Jhc2UsIGhlYWQpIHsKLQkJaWYgKGEgPT0gYWN0
-KSB7Ci0JCQlsaXN0X2RlbCgmYWN0LT5oZWFkKTsKLQkJCWVyciA9IDA7Ci0JCQlicmVhazsKLQkJ
-fQotCX0KLQl3cml0ZV91bmxvY2soJmFjdF9tb2RfbG9jayk7CiAJcmV0dXJuIGVycjsKIH0KIEVY
-UE9SVF9TWU1CT0wodGNmX3VucmVnaXN0ZXJfYWN0aW9uKTsKQEAgLTM4OCwxNSArMzk3LDE1IEBA
-IHN0YXRpYyBzdHJ1Y3QgdGNfYWN0aW9uX29wcyAqdGNfbG9va3VwX2FjdGlvbl9uKGNoYXIgKmtp
-bmQpCiAJc3RydWN0IHRjX2FjdGlvbl9vcHMgKmEsICpyZXMgPSBOVUxMOwogCiAJaWYgKGtpbmQp
-IHsKLQkJcmVhZF9sb2NrKCZhY3RfbW9kX2xvY2spOwotCQlsaXN0X2Zvcl9lYWNoX2VudHJ5KGEs
-ICZhY3RfYmFzZSwgaGVhZCkgeworCQlyY3VfcmVhZF9sb2NrKCk7CisJCWxpc3RfZm9yX2VhY2hf
-ZW50cnlfcmN1KGEsICZhY3RfYmFzZSwgaGVhZCkgewogCQkJaWYgKHN0cmNtcChraW5kLCBhLT5r
-aW5kKSA9PSAwKSB7CiAJCQkJaWYgKHRyeV9tb2R1bGVfZ2V0KGEtPm93bmVyKSkKIAkJCQkJcmVz
-ID0gYTsKIAkJCQlicmVhazsKIAkJCX0KIAkJfQotCQlyZWFkX3VubG9jaygmYWN0X21vZF9sb2Nr
-KTsKKwkJcmN1X3JlYWRfdW5sb2NrKCk7CiAJfQogCXJldHVybiByZXM7CiB9CkBAIC00MDcsMTUg
-KzQxNiwxNSBAQCBzdGF0aWMgc3RydWN0IHRjX2FjdGlvbl9vcHMgKnRjX2xvb2t1cF9hY3Rpb24o
-c3RydWN0IG5sYXR0ciAqa2luZCkKIAlzdHJ1Y3QgdGNfYWN0aW9uX29wcyAqYSwgKnJlcyA9IE5V
-TEw7CiAKIAlpZiAoa2luZCkgewotCQlyZWFkX2xvY2soJmFjdF9tb2RfbG9jayk7Ci0JCWxpc3Rf
-Zm9yX2VhY2hfZW50cnkoYSwgJmFjdF9iYXNlLCBoZWFkKSB7CisJCXJjdV9yZWFkX2xvY2soKTsK
-KwkJbGlzdF9mb3JfZWFjaF9lbnRyeV9yY3UoYSwgJmFjdF9iYXNlLCBoZWFkKSB7CiAJCQlpZiAo
-bmxhX3N0cmNtcChraW5kLCBhLT5raW5kKSA9PSAwKSB7CiAJCQkJaWYgKHRyeV9tb2R1bGVfZ2V0
-KGEtPm93bmVyKSkKIAkJCQkJcmVzID0gYTsKIAkJCQlicmVhazsKIAkJCX0KIAkJfQotCQlyZWFk
-X3VubG9jaygmYWN0X21vZF9sb2NrKTsKKwkJcmN1X3JlYWRfdW5sb2NrKCk7CiAJfQogCXJldHVy
-biByZXM7CiB9Cg==
---001a1141f2a6490c58053dfa08a9--
+> The issue with the networking layer is that it passes around structure
+> pointers which may not be "naturally aligned" - technically it goes
+> against the C standard specs.  However, you'll find it hard to argue
+> against this, so we have to accept that the networking people expect
+> it to work.
+> 
+> The optimisation that the C compiler uses (using LDM to access multiple
+> 32-bit consecutive words) is legal and efficient when the structure
+> pointers are aligned as it expects, but that all breaks if the pointer
+> is not so aligned.  So, raising it as a bug against the C compiler isn't
+> going to work either.
+> 
+> What may work is to raise a feature request with compiler people to have
+> a mechanism to disable the LDM/STM optimisation for code where we know
+> that pointers may not be naturally aligned.
+> 
+
+Agreed, but that's a long path even if the compiler folks agree
+immediately.
+
+It's probably to just fix the driver with known issues for now.
+
+Did you have any comments on the patch? I tried to pull what I found
+from your patch set, but only the enabling of the SHIFT16 bit.
+
+Please advise,
+
+
+Eric
