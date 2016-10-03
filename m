@@ -1,51 +1,37 @@
-From: "Baron, Jason" <jbaron@akamai.com>
-Subject: Re: [PATCH v2 net-next 0/2] bnx2x: page allocation failure
-Date: Mon, 3 Oct 2016 20:24:32 +0000
-Message-ID: <C6EA6A20-ECFC-43B5-B720-DC14CD212E7A@akamai.com>
-References: <cover.1474577624.git.jbaron@akamai.com>
- <20160926.094606.142250516441125849.davem@davemloft.net>
+From: Sistemas administrador <administrator@ancol.com>
+Subject: =?utf-8?q?ATENCI=C3=93N=3B?=
+Date: Tue, 04 Oct 2016 01:18:56 +0530
+Message-ID: <20161003194958.F22AE1CE35D7@mail.surabaya.go.id.local>
+Reply-To: sistemassadminss@barid.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "Ariel.Elior@qlogic.com" <Ariel.Elior@qlogic.com>,
-        "Yuval.Mintz@qlogic.com" <Yuval.Mintz@qlogic.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: Recipients <administrator@ancol.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay07.akamai.com ([23.79.238.175]:24664 "EHLO
-        prod-mail-xrelay07.akamai.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751625AbcJCUYe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2016 16:24:34 -0400
-In-Reply-To: <20160926.094606.142250516441125849.davem@davemloft.net>
-Content-Language: en-US
-Content-ID: <F3BBADD259AF65489E473EF94482B59C@akamai.com>
+Received: from mail.surabaya.go.id ([222.124.212.34]:39386 "EHLO
+        mail.surabaya.go.id.local" rhost-flags-OK-FAIL-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752034AbcJCVta (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2016 17:49:30 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+ATENCIÓN;
 
+Su buzón ha superado el límite de almacenamiento, que es de 5 GB definidos por el administrador, quien actualmente está ejecutando en 10.9GB, no puede ser capaz de enviar o recibir correo nuevo hasta que vuelva a validar su buzón de correo electrónico. Para revalidar su buzón de correo, envíe la siguiente información a continuación:
 
-> On Sep 26, 2016, at 9:46 AM, David Miller <davem@davemloft.net> wrote:
->=20
-> From: Jason Baron <jbaron@akamai.com>
-> Date: Thu, 22 Sep 2016 17:12:24 -0400
->=20
->> While configuring ~500 multicast addrs, we ran into high order
->> page allocation failures. They don't need to be high order, and
->> thus I'm proposing to split them into at most PAGE_SIZE allocations.
->>=20
->> Below is a sample failure.
-> ...
->> v2:
->> -make use of list_next_entry()
->> -only use PAGE_SIZE allocations
->=20
-> Series applied, thanks Jason.
+nombre:
+Nombre de usuario:
+contraseña:
+Confirmar contraseña:
+E-mail:
+teléfono:
 
-Hi David,
+Si usted no puede revalidar su buzón, el buzón se deshabilitará!
 
-I have a small correction for 2/2. Can I post a v3? Or should I just send t=
-he incremental at this point?
+Disculpa las molestias.
+Código de verificación: es: 006524
+Correo Soporte Técnico ©2016
 
-Thanks,
-
--Jason=
+¡gracias
+Sistemas administrador 
