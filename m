@@ -1,37 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] net: qcom/emac: fix return value check in
- emac_sgmii_config()
-Date: Mon, 03 Oct 2016 21:53:38 -0400 (EDT)
-Message-ID: <20161003.215338.665781390718403445.davem@davemloft.net>
-References: <1475313149-15233-1-git-send-email-weiyj.lk@gmail.com>
+Subject: Re: [PATCH] ptp: Fix resource leak in case of error
+Date: Mon, 03 Oct 2016 21:54:37 -0400 (EDT)
+Message-ID: <20161003.215437.766104609153539683.davem@davemloft.net>
+References: <1475391856-15046-1-git-send-email-christophe.jaillet@wanadoo.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: timur@codeaurora.org, weiyongjun1@huawei.com,
-        netdev@vger.kernel.org
-To: weiyj.lk@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52792 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751259AbcJDBxl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2016 21:53:41 -0400
-In-Reply-To: <1475313149-15233-1-git-send-email-weiyj.lk@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: richardcochran@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: christophe.jaillet@wanadoo.fr
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1475391856-15046-1-git-send-email-christophe.jaillet@wanadoo.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Date: Sat,  1 Oct 2016 09:12:29 +0000
+From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Date: Sun,  2 Oct 2016 09:04:16 +0200
 
-> From: Wei Yongjun <weiyongjun1@huawei.com>
+> A call to 'ida_simple_remove()' is missing in the error handling path.
 > 
-> In case of error, the function ioremap() returns NULL pointer
-> not ERR_PTR(). The IS_ERR() test in the return value check
-> should be replaced with NULL test.
-> 
-> Also add check for return value of platform_get_resource().
-> 
-> Fixes: 54e19bc74f33 ("net: qcom/emac: do not use devm on internal
-> phy pdev")
-> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+> This as been spotted with the following coccinelle script which tries to
+> detect missing 'ida_simple_remove()' call in error handling paths.
+ ...
+> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
 
-Applied, thanks.
+Applied.
