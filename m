@@ -1,60 +1,86 @@
-From: Justin Piszcz <jpiszcz@lucidpixels.com>
-Subject: kernel v4.8: iptables logs are truncated with the 4.8 kernel?
-Date: Tue, 4 Oct 2016 18:02:17 -0400
-Message-ID: <CAO9zADwLwLLvxmqiLzxK9A5+--ZnvewMzmUvQ4xdm8HHeFNOsA@mail.gmail.com>
+From: Alex Sidorenko <alexandre.sidorenko@hpe.com>
+Subject: A bug in team driver
+Date: Tue, 04 Oct 2016 18:30:08 -0400
+Message-ID: <3444639.ILgt5kU9OR@zbook>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g2t2353.austin.hpe.com ([15.233.44.26]:37771 "EHLO
+        g2t2353.austin.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750940AbcJDWaL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 18:30:11 -0400
+Received: from g2t2360.austin.hpecorp.net (g2t2360.austin.hpecorp.net [16.196.225.135])
+        by g2t2353.austin.hpe.com (Postfix) with ESMTP id E8FF56E
+        for <netdev@vger.kernel.org>; Tue,  4 Oct 2016 22:30:09 +0000 (UTC)
+Received: from zbook.localnet (ospra1.fc.hp.com [16.79.38.118])
+        by g2t2360.austin.hpecorp.net (Postfix) with ESMTP id C005456
+        for <netdev@vger.kernel.org>; Tue,  4 Oct 2016 22:30:09 +0000 (UTC)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+The problem was found on RHEL7.2 but is still present in the latest upstream kernel (according to visual sources inspection).
 
-kernel 4.8 with ulogd-2.0.5- IPs are no longer logged:
+While using roundrobin runner we have noticed that after sending on team0 about 2.1 billion packets we started seeing 50% packet drop on team0 
+(according to 'netstat -i'). This number suggested 'signed int' overflow and indeed, inspecting the sources I have noticed the following in 
 
-Oct  4 17:51:30 atom INPUT_BLOCK IN=eth1 OUT=
-MAC=00:1b:21:9c:3b:fa:3e:94:d5:d2:49:1e:08:00 LEN=0 TOS=00 PREC=0x00
-TTL=0 ID=0 PROTO=0 MARK=0
-Oct  4 17:51:31 atom INPUT_BLOCK IN=eth1 OUT=
-MAC=00:1b:21:9c:3b:fa:3e:94:d5:d2:49:1e:08:00 LEN=0 TOS=00 PREC=0x00
-TTL=0 ID=0 PROTO=0 MARK=0
-Oct  4 17:51:32 atom INPUT_BLOCK IN=eth1 OUT=
-MAC=00:1b:21:9c:3b:fa:3e:94:d5:d2:49:1e:08:00 LEN=0 TOS=00 PREC=0x00
-TTL=0 ID=0 PROTO=0 MARK=0
+drivers/net/team/team_mode_roundrobin.c
+---------------------------------------
+struct rr_priv {
+	unsigned int sent_packets;                        <--------- unsigned int
+};
 
-(reboot back to kernel 4.7, works fine)
+static struct rr_priv *rr_priv(struct team *team)
+{
+	return (struct rr_priv *) &team->mode_priv;
+}
 
-kernel 4.7 with ulogd-2.0.5:
-Oct  4 17:56:44 atom INPUT_BLOCK IN=eth1 OUT=
-MAC=00:1b:21:9c:3b:fa:3e:94:d5:d2:49:1e:08:00 SRC=74.125.22.125
-DST=1.2.3.4 LEN=397 TOS=00 PREC=0x00 TTL=48 ID=58093 PROTO=TCP
-SPT=5222 DPT=19804 SEQ=2032644254 ACK=2273184383 WINDOW=55272 ACK PSH
-URGP=0 MARK=0
-Oct  4 17:56:45 atom INPUT_BLOCK IN=eth1 OUT=
-MAC=00:1b:21:9c:3b:fa:3e:94:d5:d2:49:1e:08:00 SRC=74.125.22.125
-DST=1.2.3.4 LEN=397 TOS=00 PREC=0x00 TTL=48 ID=58725 PROTO=TCP
-SPT=5222 DPT=19804 SEQ=2032644254 ACK=2273184383 WINDOW=55272 ACK PSH
-URGP=0 MARK=0
+static bool rr_transmit(struct team *team, struct sk_buff *skb)
+{
+	struct team_port *port;
+	int port_index;
 
-Looks like there were some changes in the 4.8 kernel regarding ulogd,
-has anyone else run into this problem?
+	port_index = team_num_to_port_index(team,
+					    rr_priv(team)->sent_packets++);
+---
 
-                } ulog;
-+               if ((li->u.ulog.flags & NF_LOG_F_COPY_LEN) &&
-+                   (li->u.ulog.copy_len < data_len))
-+                       data_len = li->u.ulog.copy_len;
-                li->u.ulog.group = ntohs(nla_get_be16(tb[NFTA_LOG_GROUP]));
-+                       li->u.ulog.flags |= NF_LOG_F_COPY_LEN;
-                        li->u.ulog.copy_len =
-                if (nla_put_be16(skb, NFTA_LOG_GROUP, htons(li->u.ulog.group)))
--               if (li->u.ulog.copy_len) {
-+               if (li->u.ulog.flags & NF_LOG_F_COPY_LEN) {
-                                         htonl(li->u.ulog.copy_len)))
-        li.u.ulog.group      = info->group;
-        li.u.ulog.qthreshold = info->threshold;
-+               li.u.ulog.flags |= NF_LOG_F_COPY_LEN;
 
-Thanks,
+we have 'unsigned int sent_packets' but we call team_num_to_port_index where 'num' is 'int'
 
-Justin.
+include/linux/if_team.h
+-----------------------
+static inline int team_num_to_port_index(struct team *team, int num)    <-- signed int
+{
+	int en_port_count = ACCESS_ONCE(team->en_port_count);
+
+	if (unlikely(!en_port_count))
+		return 0;
+	return num % en_port_count;
+}
+
+
+As soon as sent_packets becomes larger than MAXINT (=2**31-1), team_num_to_port_index() can return negative number as num becomes negative and remainder 
+(num % en_port_count) is either 0 or negative. This leads to looking up incorrect hash-bucket and dropping packets.
+
+We have easily duplicated this in roundrobin mode with two ports. After reaching 2**31 packets sent on team0 every second packet was dropped.
+
+Rebuilding the kernel after changing 
+
+team_num_to_port_index(struct team *team, int num) -> team_num_to_port_index(struct team *team, unsigned int num)
+
+and running the test again does not show packet drop anymore.
+
+The same subroutine is used in team_mode_loadbalance.c:lb_hash_select_tx_port but we pass 'unsigned char hash' to team_num_to_port_index(), so there should be no overflow. I did not test that mode in my tests.
+
+Regards,
+Alex
+
+
+
+-- 
+
+------------------------------------------------------------------
+Alex Sidorenko	email: asid@hpe.com
+ERT  Linux 	Hewlett-Packard Enterprise (Canada)
+------------------------------------------------------------------
