@@ -1,105 +1,83 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [Xen-devel] [PATCH v2 net-next 5/7] xen-netback: process guest rx
- packets in batches
-Date: Tue, 4 Oct 2016 14:02:21 +0000
-Message-ID: <3aa2a451167d47fa820dd61843a4bbee@AMSPEX02CL03.citrite.net>
-References: <1475573358-32414-1-git-send-email-paul.durrant@citrix.com>
- <1475573358-32414-6-git-send-email-paul.durrant@citrix.com>
- <20161004124744.GC30836@localhost.localdomain>
+From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Subject: Re: [PATCH net-next 1/2] net: phy: Add Wake-on-LAN driver for
+ Microsemi PHYs.
+Date: Tue, 4 Oct 2016 19:42:51 +0530
+Message-ID: <20161004141250.GA29274@microsemi.com>
+References: <1475064078-22310-1-git-send-email-Raju.Lakkaraju@microsemi.com>
+ <1475064078-22310-2-git-send-email-Raju.Lakkaraju@microsemi.com>
+ <20160928162705.GB25553@lunn.ch>
+Reply-To: <Raju.Lakkaraju@microsemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-        Wei Liu <wei.liu2@citrix.com>,
-        David Vrabel <david.vrabel@citrix.com>
-To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Cc: <netdev@vger.kernel.org>, <f.fainelli@gmail.com>,
+        <Allan.Nielsen@microsemi.com>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([185.25.65.24]:61789 "EHLO
-        SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751521AbcJDOK6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 10:10:58 -0400
-In-Reply-To: <20161004124744.GC30836@localhost.localdomain>
-Content-Language: en-US
+Received: from mail-dm3nam03on0055.outbound.protection.outlook.com ([104.47.41.55]:3040
+        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750781AbcJDONj (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 4 Oct 2016 10:13:39 -0400
+Content-Disposition: inline
+In-Reply-To: <20160928162705.GB25553@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Konrad Rzeszutek Wilk [mailto:konrad.wilk@oracle.com]
-> Sent: 04 October 2016 13:48
-> To: Paul Durrant <Paul.Durrant@citrix.com>
-> Cc: netdev@vger.kernel.org; xen-devel@lists.xenproject.org; Wei Liu
-> <wei.liu2@citrix.com>; David Vrabel <david.vrabel@citrix.com>
-> Subject: Re: [Xen-devel] [PATCH v2 net-next 5/7] xen-netback: process
-> guest rx packets in batches
-> 
-> On Tue, Oct 04, 2016 at 10:29:16AM +0100, Paul Durrant wrote:
-> > From: David Vrabel <david.vrabel@citrix.com>
-> >
-> > Instead of only placing one skb on the guest rx ring at a time,
-> > process a batch of up-to 64.  This improves performance by ~10% in some
-> tests.
+Hi Andrew,
 
-I believe the tests are mainly throughput tests, but David would know the specifics.
+Thank you for code review and valuable comments.
 
+On Wed, Sep 28, 2016 at 06:27:05PM +0200, Andrew Lunn wrote:
+> EXTERNAL EMAIL
 > 
-> And does it regress latency workloads?
+> 
+> > +#define MSCC_PHY_WOL_MAC_CONTROL       27
+> > +#define EDGE_RATE_CNTL_POS             5
+> > +#define EDGE_RATE_CNTL_MASK            0x00E0
+> 
+> This patch does not require these two #defines.
+> 
+> Please indicate in the cover note if the patches depends on other
+> patches in order to cleanly apply. Or if these patches are going to
+> conflict with some other patches.
 > 
 
-It shouldn't, although I have not run ping-pong tests to verify. If packets are only placed on the vif queue singly though then the batching should have no effect, since rx_action will complete and do the push as before.
+Accepted. I will remove those 2 defines.
 
-  Paul
-
-> What are those 'some tests' you speak off?
-> 
-> Thanks.
-> >
-> > Signed-off-by: David Vrabel <david.vrabel@citrix.com> [re-based]
-> > Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
-> > ---
-> > Cc: Wei Liu <wei.liu2@citrix.com>
-> > ---
-> >  drivers/net/xen-netback/rx.c | 15 ++++++++++++++-
-> >  1 file changed, 14 insertions(+), 1 deletion(-)
-> >
-> > diff --git a/drivers/net/xen-netback/rx.c
-> > b/drivers/net/xen-netback/rx.c index 9548709..ae822b8 100644
-> > --- a/drivers/net/xen-netback/rx.c
-> > +++ b/drivers/net/xen-netback/rx.c
-> > @@ -399,7 +399,7 @@ static void xenvif_rx_extra_slot(struct
-> xenvif_queue *queue,
-> >  	BUG();
-> >  }
-> >
-> > -void xenvif_rx_action(struct xenvif_queue *queue)
-> > +void xenvif_rx_skb(struct xenvif_queue *queue)
-> >  {
-> >  	struct xenvif_pkt_state pkt;
-> >
-> > @@ -425,6 +425,19 @@ void xenvif_rx_action(struct xenvif_queue
-> *queue)
-> >  	xenvif_rx_complete(queue, &pkt);
-> >  }
-> >
-> > +#define RX_BATCH_SIZE 64
+> > +     reg_val = phy_read(phydev, MSCC_PHY_WOL_MAC_CONTROL);
+> > +     if (wol_conf->wolopts & WAKE_MAGICSECURE)
+> > +             reg_val |= SECURE_ON_ENABLE;
+> > +     else
+> > +             reg_val &= ~SECURE_ON_ENABLE;
+> > +     phy_write(phydev, MSCC_PHY_WOL_MAC_CONTROL, reg_val);
 > > +
-> > +void xenvif_rx_action(struct xenvif_queue *queue) {
-> > +	unsigned int work_done = 0;
-> > +
-> > +	while (xenvif_rx_ring_slots_available(queue) &&
-> > +	       work_done < RX_BATCH_SIZE) {
-> > +		xenvif_rx_skb(queue);
-> > +		work_done++;
-> > +	}
-> > +}
-> > +
-> >  static bool xenvif_rx_queue_stalled(struct xenvif_queue *queue)  {
-> >  	RING_IDX prod, cons;
-> > --
-> > 2.1.4
-> >
-> >
-> > _______________________________________________
-> > Xen-devel mailing list
-> > Xen-devel@lists.xen.org
-> > https://lists.xen.org/xen-devel
+> > +     if (wol_conf->wolopts & WAKE_MAGICSECURE) {
+> > +             reg_val = wol_conf->sopass[4] << 8;
+> > +             reg_val |= wol_conf->sopass[5];
+> > +             phy_write(phydev, MSCC_PHY_WOL_LOWER_PASSWD, reg_val);
+> > +             reg_val = wol_conf->sopass[2] << 8;
+> > +             reg_val |= wol_conf->sopass[3];
+> > +             phy_write(phydev, MSCC_PHY_WOL_MID_PASSWD, reg_val);
+> > +             reg_val = wol_conf->sopass[0] << 8;
+> > +             reg_val |= wol_conf->sopass[1];
+> > +             phy_write(phydev, MSCC_PHY_WOL_UPPER_PASSWD, reg_val);
+> > +     } else {
+> > +             phy_write(phydev, MSCC_PHY_WOL_LOWER_PASSWD, 0);
+> > +             phy_write(phydev, MSCC_PHY_WOL_MID_PASSWD, 0);
+> > +             phy_write(phydev, MSCC_PHY_WOL_UPPER_PASSWD, 0);
+> > +     }
+> 
+> Wouldn't it be better to set the password, and then enable the
+> password feature?
+> 
+
+Accepted. I will change.
+
+> I don't know much about WOL. Hopefully Florian will add further
+> comments.
+> 
+>          Andrew
+
+---
+Thanks,
+Raju.
