@@ -1,13 +1,12 @@
 From: Madalin Bucur <madalin.bucur@nxp.com>
 Subject: [net-next 00/13] fsl/fman: cleanup and small fixes
-Date: Tue, 4 Oct 2016 10:30:24 +0300
-Message-ID: <1475566237-4948-1-git-send-email-madalin.bucur@nxp.com>
+Date: Tue, 4 Oct 2016 10:32:46 +0300
+Message-ID: <1475566379-5078-1-git-send-email-madalin.bucur@nxp.com>
 Reply-To: madalin.bucur@nxp.com
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: linuxdev.baldrick@gmail.com, Madalin Bucur <madalin.bucur@nxp.com>,
- linuxppc-dev@lists.ozlabs.org, davem@davemloft.net,
- linux-kernel@vger.kernel.org
+Cc: linuxdev.baldrick@gmail.com, linuxppc-dev@lists.ozlabs.org,
+ davem@davemloft.net, linux-kernel@vger.kernel.org
 To: <netdev@vger.kernel.org>
 Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
