@@ -1,58 +1,85 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [v2] mwifiex: report wakeup for wowlan
-Date: Tue, 04 Oct 2016 15:46:03 +0300
-Message-ID: <87vax8p9is.fsf@kamboji.qca.qualcomm.com>
-References: <1475027104-17423-1-git-send-email-rajatja@google.com>
-        <20161003130407.4D94161803@smtp.codeaurora.org>
-        <CACK8Z6Fe34xdvd5-=3dNmqKXYC=Qr9+kpG46eCV7uFArLW+yyQ@mail.gmail.com>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: [Xen-devel] [PATCH v2 net-next 5/7] xen-netback: process guest
+ rx packets in batches
+Date: Tue, 4 Oct 2016 08:47:44 -0400
+Message-ID: <20161004124744.GC30836@localhost.localdomain>
+References: <1475573358-32414-1-git-send-email-paul.durrant@citrix.com>
+ <1475573358-32414-6-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Amitkumar Karwar <akarwar@marvell.com>,
-        Nishant Sarmukadam <nishants@marvell.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        Wei-Ning Huang <wnhuang@google.com>,
-        Brian Norris <briannorris@google.com>,
-        Eric Caruso <ejcaruso@chromium.org>,
-        Rajat Jain <rajatxjain@gmail.com>
-To: Rajat Jain <rajatja@google.com>
+Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
+        Wei Liu <wei.liu2@citrix.com>,
+        David Vrabel <david.vrabel@citrix.com>
+To: Paul Durrant <paul.durrant@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:46043 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751549AbcJDMqN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 08:46:13 -0400
-In-Reply-To: <CACK8Z6Fe34xdvd5-=3dNmqKXYC=Qr9+kpG46eCV7uFArLW+yyQ@mail.gmail.com>
-        (Rajat Jain's message of "Mon, 3 Oct 2016 17:16:19 -0700")
+Received: from aserp1040.oracle.com ([141.146.126.69]:45251 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753442AbcJDMrt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 08:47:49 -0400
+Content-Disposition: inline
+In-Reply-To: <1475573358-32414-6-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rajat Jain <rajatja@google.com> writes:
+On Tue, Oct 04, 2016 at 10:29:16AM +0100, Paul Durrant wrote:
+> From: David Vrabel <david.vrabel@citrix.com>
+> 
+> Instead of only placing one skb on the guest rx ring at a time, process
+> a batch of up-to 64.  This improves performance by ~10% in some tests.
 
-> Hello Kalie,
->
-> On Mon, Oct 3, 2016 at 6:04 AM, Kalle Valo <kvalo@codeaurora.org> wrote:
->> Rajat Jain <rajatja@google.com> wrote:
->>> Enable notifying wakeup source to the PM core in case of
->>> a wake on wireless LAN event.
->>>
->>> Signed-off-by: Wei-Ning Huang <wnhuang@google.com>
->>> Signed-off-by: Rajat Jain <rajatja@google.com>
->>> Tested-by: Wei-Ning Huang <wnhuang@chromium.org>
->>> Reviewed-by: Eric Caruso <ejcaruso@chromium.org>
->>> Acked-by: Amitkumar Karwar <akarwar@marvell.com>
->>
->> The commit log doesn't give any background info. Does this fix a bug or
->> why is it needed?
->
-> Some of chromeos' features (called "darkresume" in chromeos
-> terminology) use and track the wake up sources using the wakeup
-> attributes in sysfs. Since the wireless device can wake up the host,
-> hence we wanted to add it as a wakeup source to the system, and in the
-> case of an actual wakeup event, trigger to the PM core that it was
-> indeed caused by the device and it increments the different counters
-> etc. In the absence of this patch,  the feature wasn't working very
-> well (as it was apparently confused about the cause of wake up).
+And does it regress latency workloads?
 
-Thanks, makes sense. Please add that to the commit and send v3.
+What are those 'some tests' you speak off?
 
--- 
-Kalle Valo
+Thanks.
+> 
+> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+> [re-based]
+> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+> ---
+> Cc: Wei Liu <wei.liu2@citrix.com>
+> ---
+>  drivers/net/xen-netback/rx.c | 15 ++++++++++++++-
+>  1 file changed, 14 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/xen-netback/rx.c b/drivers/net/xen-netback/rx.c
+> index 9548709..ae822b8 100644
+> --- a/drivers/net/xen-netback/rx.c
+> +++ b/drivers/net/xen-netback/rx.c
+> @@ -399,7 +399,7 @@ static void xenvif_rx_extra_slot(struct xenvif_queue *queue,
+>  	BUG();
+>  }
+>  
+> -void xenvif_rx_action(struct xenvif_queue *queue)
+> +void xenvif_rx_skb(struct xenvif_queue *queue)
+>  {
+>  	struct xenvif_pkt_state pkt;
+>  
+> @@ -425,6 +425,19 @@ void xenvif_rx_action(struct xenvif_queue *queue)
+>  	xenvif_rx_complete(queue, &pkt);
+>  }
+>  
+> +#define RX_BATCH_SIZE 64
+> +
+> +void xenvif_rx_action(struct xenvif_queue *queue)
+> +{
+> +	unsigned int work_done = 0;
+> +
+> +	while (xenvif_rx_ring_slots_available(queue) &&
+> +	       work_done < RX_BATCH_SIZE) {
+> +		xenvif_rx_skb(queue);
+> +		work_done++;
+> +	}
+> +}
+> +
+>  static bool xenvif_rx_queue_stalled(struct xenvif_queue *queue)
+>  {
+>  	RING_IDX prod, cons;
+> -- 
+> 2.1.4
+> 
+> 
+> _______________________________________________
+> Xen-devel mailing list
+> Xen-devel@lists.xen.org
+> https://lists.xen.org/xen-devel
