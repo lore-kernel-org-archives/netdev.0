@@ -1,62 +1,136 @@
-From: Lance Richardson <lrichard@redhat.com>
-Subject: Re: [PATCH net] vti6: flush x-netns xfrm cache when vti interface
- is removed
-Date: Mon, 3 Oct 2016 22:19:01 -0400 (EDT)
-Message-ID: <296031074.628156.1475547541859.JavaMail.zimbra@redhat.com>
-References: <1475226667-22404-1-git-send-email-nicolas.dichtel@6wind.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net,
-        steffen klassert <steffen.klassert@secunet.com>,
-        netdev@vger.kernel.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 2/3] i40e: fix MSI-X vector redistribution if hw limit is reached
+Date: Mon,  3 Oct 2016 19:25:02 -0700
+Message-ID: <1475547903-22168-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1475547903-22168-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Stefan Assmann <sassmann@kpanic.de>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        guru.anbalagane@oracle.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx5-phx2.redhat.com ([209.132.183.37]:33935 "EHLO
-        mx5-phx2.redhat.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751662AbcJDCTJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2016 22:19:09 -0400
-In-Reply-To: <1475226667-22404-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from mga11.intel.com ([192.55.52.93]:52990 "EHLO mga11.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751662AbcJDCZG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 3 Oct 2016 22:25:06 -0400
+In-Reply-To: <1475547903-22168-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: "Nicolas Dichtel" <nicolas.dichtel@6wind.com>
-> To: davem@davemloft.net, "steffen klassert" <steffen.klassert@secunet.com>
-> Cc: netdev@vger.kernel.org, "Nicolas Dichtel" <nicolas.dichtel@6wind.com>, "Lance Richardson" <lrichard@redhat.com>
-> Sent: Friday, September 30, 2016 5:11:07 AM
-> Subject: [PATCH net] vti6: flush x-netns xfrm cache when vti interface is removed
-> 
-> This is the same fix than commit a5d0dc810abf ("vti: flush x-netns xfrm
-> cache when vti interface is removed")
-> 
-> This patch fixes a refcnt problem when a x-netns vti6 interface is removed:
-> unregister_netdevice: waiting for vti6_test to become free. Usage count = 1
-> 
-> Here is a script to reproduce the problem:
-> 
-> ip link set dev ntfp2 up
-> ip addr add dev ntfp2 2001::1/64
-> ip link add vti6_test type vti6 local 2001::1 remote 2001::2 key 1
-> ip netns add secure
-> ip link set vti6_test netns secure
-> ip netns exec secure ip link set vti6_test up
-> ip netns exec secure ip link s lo up
-> ip netns exec secure ip addr add dev vti6_test 2003::1/64
-> ip -6 xfrm policy add dir out tmpl src 2001::1 dst 2001::2 proto esp \
-> 	   mode tunnel mark 1
-> ip -6 xfrm policy add dir in tmpl src 2001::2 dst 2001::1 proto esp \
-> 	   mode tunnel mark 1
-> ip xfrm state add src 2001::1 dst 2001::2 proto esp spi 1 mode tunnel \
-> 	   enc des3_ede 0x112233445566778811223344556677881122334455667788 mark 1
-> ip xfrm state add src 2001::2 dst 2001::1 proto esp spi 1 mode tunnel \
-> 	   enc des3_ede 0x112233445566778811223344556677881122334455667788 mark 1
-> ip netns exec secure  ping6 -c 4 2003::2
-> ip netns del secure
-> 
-> CC: Lance Richardson <lrichard@redhat.com>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> ---
+From: Stefan Assmann <sassmann@kpanic.de>
 
-Looks good, corresponds closely to the ipv4 version of the fix.
+The driver allocates 1 vector per CPU thread and the current hardware
+limit for vectors is 129 per PF. On systems with 128 or more threads
+this currently means all vectors are used by the PF leaving no room for
+additional features like VMDq, iWARP, etc...
+The code that should redistribute the vectors in this case is broken and
+never triggers. Fixed the code so that it actually triggers if the
+hardware limit is reached and adjust the number of queue pairs
+accordingly.
+Also the number of initially requested iWARP vectors was not properly
+saved when the vector limit was reached, and therefore always zero.
 
-Acked-by: Lance Richardson <lrichard@redhat.com>
+Comparison with debug statement.
+Before:
+i40e 0000:2d:00.0: VMDq disabled, not enough MSI-X vectors
+i40e 0000:2d:00.0: IWARP disabled, not enough MSI-X vectors
+i40e 00.0 MSI-X vector distribution: PF 128, VMDq 0, FDSB 0, iWARP 0
+After:
+i40e 0000:2d:00.0: MSI-X vector limit reached, attempting to redistribute vectors
+i40e 00.0 MSI-X vector distribution: PF 78, VMDq 8, FDSB 0, iWARP 42
+
+Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 38 +++++++++++++++++------------
+ 1 file changed, 22 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 66d2ca0..ca7dd43 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -7661,6 +7661,8 @@ static int i40e_init_msix(struct i40e_pf *pf)
+ #endif
+ 	/* can we reserve enough for iWARP? */
+ 	if (pf->flags & I40E_FLAG_IWARP_ENABLED) {
++		iwarp_requested = pf->num_iwarp_msix;
++
+ 		if (!vectors_left)
+ 			pf->num_iwarp_msix = 0;
+ 		else if (vectors_left < pf->num_iwarp_msix)
+@@ -7702,21 +7704,6 @@ static int i40e_init_msix(struct i40e_pf *pf)
+ 		pf->msix_entries[i].entry = i;
+ 	v_actual = i40e_reserve_msix_vectors(pf, v_budget);
+ 
+-	if (v_actual != v_budget) {
+-		/* If we have limited resources, we will start with no vectors
+-		 * for the special features and then allocate vectors to some
+-		 * of these features based on the policy and at the end disable
+-		 * the features that did not get any vectors.
+-		 */
+-		iwarp_requested = pf->num_iwarp_msix;
+-		pf->num_iwarp_msix = 0;
+-#ifdef I40E_FCOE
+-		pf->num_fcoe_qps = 0;
+-		pf->num_fcoe_msix = 0;
+-#endif
+-		pf->num_vmdq_msix = 0;
+-	}
+-
+ 	if (v_actual < I40E_MIN_MSIX) {
+ 		pf->flags &= ~I40E_FLAG_MSIX_ENABLED;
+ 		kfree(pf->msix_entries);
+@@ -7730,9 +7717,16 @@ static int i40e_init_msix(struct i40e_pf *pf)
+ 		pf->num_lan_qps = 1;
+ 		pf->num_lan_msix = 1;
+ 
+-	} else if (v_actual != v_budget) {
++	} else if (!vectors_left) {
++		/* If we have limited resources, we will start with no vectors
++		 * for the special features and then allocate vectors to some
++		 * of these features based on the policy and at the end disable
++		 * the features that did not get any vectors.
++		 */
+ 		int vec;
+ 
++		dev_info(&pf->pdev->dev,
++			 "MSI-X vector limit reached, attempting to redistribute vectors\n");
+ 		/* reserve the misc vector */
+ 		vec = v_actual - 1;
+ 
+@@ -7740,6 +7734,10 @@ static int i40e_init_msix(struct i40e_pf *pf)
+ 		pf->num_vmdq_msix = 1;    /* force VMDqs to only one vector */
+ 		pf->num_vmdq_vsis = 1;
+ 		pf->num_vmdq_qps = 1;
++#ifdef I40E_FCOE
++		pf->num_fcoe_qps = 0;
++		pf->num_fcoe_msix = 0;
++#endif
+ 		pf->flags &= ~I40E_FLAG_FD_SB_ENABLED;
+ 
+ 		/* partition out the remaining vectors */
+@@ -7775,6 +7773,7 @@ static int i40e_init_msix(struct i40e_pf *pf)
+ 			pf->num_lan_msix = min_t(int,
+ 			       (vec - (pf->num_iwarp_msix + pf->num_vmdq_vsis)),
+ 							      pf->num_lan_msix);
++			pf->num_lan_qps = pf->num_lan_msix;
+ #ifdef I40E_FCOE
+ 			/* give one vector to FCoE */
+ 			if (pf->flags & I40E_FLAG_FCOE_ENABLED) {
+@@ -7804,6 +7803,13 @@ static int i40e_init_msix(struct i40e_pf *pf)
+ 		pf->flags &= ~I40E_FLAG_FCOE_ENABLED;
+ 	}
+ #endif
++	i40e_debug(&pf->hw, I40E_DEBUG_INIT,
++		   "MSI-X vector distribution: PF %d, VMDq %d, FDSB %d, iWARP %d\n",
++		   pf->num_lan_msix,
++		   pf->num_vmdq_msix * pf->num_vmdq_vsis,
++		   pf->num_fdsb_msix,
++		   pf->num_iwarp_msix);
++
+ 	return v_actual;
+ }
+ 
+-- 
+2.7.4
