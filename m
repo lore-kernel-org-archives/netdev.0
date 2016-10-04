@@ -1,106 +1,90 @@
-From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Subject: Re: [PATCH v6 net-next] net: phy: Add Edge-rate driver for Microsemi
- PHYs.
-Date: Tue, 4 Oct 2016 17:56:50 +0530
-Message-ID: <20161004122648.GA12301@microsemi.com>
-References: <1475581272-12093-1-git-send-email-Raju.Lakkaraju@microsemi.com>
- <20161004115132.GG11677@lunn.ch>
-Reply-To: <Raju.Lakkaraju@microsemi.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <devicetree@vger.kernel.org>,
-        <f.fainelli@gmail.com>, <Allan.Nielsen@microsemi.com>
-To: Andrew Lunn <andrew@lunn.ch>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: [PATCH net-next 1/2] openvswitch: remove nonreachable code in vlan parsing
+Date: Tue,  4 Oct 2016 14:30:01 +0200
+Message-ID: <cfc3e476bc30c1e15506e80955bf43563de3c16c.1475583870.git.jbenc@redhat.com>
+References: <cover.1475583870.git.jbenc@redhat.com>
+Cc: pravin shelar <pshelar@ovn.org>, Eric Garver <e@erig.me>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-cys01nam02on0073.outbound.protection.outlook.com ([104.47.37.73]:25312
-        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751892AbcJDM1o (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 4 Oct 2016 08:27:44 -0400
-Content-Disposition: inline
-In-Reply-To: <20161004115132.GG11677@lunn.ch>
+Received: from mx1.redhat.com ([209.132.183.28]:57084 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753298AbcJDMaR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 4 Oct 2016 08:30:17 -0400
+In-Reply-To: <cover.1475583870.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+It can never happen that there's a vlan tag in the packet but not in
+skb->vlan_tci. This is ensured in __netif_receive_skb_core and honored by
+skb_vlan_push and skb_vlan_pop. The code dealing with such case is a dead
+code.
 
-Thank you for review comment.
-In another thread, I wrote my comment as below.
+Moreover, the likely() statement around skb_vlan_tag_present is bogus. This
+code is called whenever flow key is being extracted from the packet. The
+packet may be as likely vlan tagged as not.
 
------------------------------------------------------------------
-> In edge_table, remove the -'s and call edge_rate_magic_get with 
-> positive values. The table is also missing "static const".
-> edge_rate_magic_get is missing its prefix, so keeping the name space 
-> clean.
-> 
+Fixes: 018c1dda5ff1 ("openvswitch: 802.1AD Flow handling, actions, vlan parsing, netlink attributes")
+Signed-off-by: Jiri Benc <jbenc@redhat.com>
+---
+ net/openvswitch/flow.c | 28 ++++++++--------------------
+ 1 file changed, 8 insertions(+), 20 deletions(-)
 
-I will add "static const" to table and also add prefix vsc85xx_ to edge_rate_magic_get function.
-
-Regarding remove the -'s in table, PHY data sheet descript the concept of edge rate with table. I would like to keep the same table in driver.
-
-> Since you are using real values, you can remove mscc-phy-vsc8531.h.
--------------------------------------------------------------------------
-
-But I did not see your comment. I though you accepted to keep the table
-as in PHY Data sheet. 
-
-Is any thing wrong if i keep in table with '-' (minus) values?
-
-Thanks,
-Raju.
-
-On Tue, Oct 04, 2016 at 01:51:32PM +0200, Andrew Lunn wrote:
-> EXTERNAL EMAIL
-> 
-> 
-> On Tue, Oct 04, 2016 at 05:11:12PM +0530, Raju Lakkaraju wrote:
-> > From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-> >
-> > Edge-rate:
-> > As system and networking speeds increase, a signal's output transition,
-> > also know as the edge rate or slew rate (V/ns), takes on greater importance
-> > because high-speed signals come with a price. That price is an assortment of
-> > interference problems like ringing on the line, signal overshoot and
-> > undershoot, extended signal settling times, crosstalk noise, transmission
-> > line reflections, false signal detection by the receiving device and
-> > electromagnetic interference (EMI) -- all of which can negate the potential
-> > gains designers are seeking when they try to increase system speeds through
-> > the use of higher performance logic devices. The fact is, faster signaling
-> > edge rates can cause a higher level of electrical noise or other type of
-> > interference that can actually lead to slower line speeds and lower maximum
-> > system frequencies. This parameter allow the board designers to change the
-> > driving strange, and thereby change the EMI behavioral.
-> >
-> > Edge-rate parameters (vddmac, edge-slowdown) get from Device Tree.
-> >
-> > Tested on Beaglebone Black with VSC 8531 PHY.
-> >
-> > Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-> >
-> > ---
-> > All the review comments updated and resending for review.
-> >
-> > Change set:
-> > v1:
-> > - Initial version of Edge-rate driver add by using IOCTL.
-> > v2:
-> > - Changed edge-rate parameter to Device Tree with magic number.
-> > v3:
-> > - Added Device Tree documentati0n and edge-rate parameter table.
-> >   Added probe function initialize the vsc8531 private data structure.
-> > v4:
-> > - As per review comment, Device Tree parameters (vddmac, edge-slowdown)
-> >   added.
-> > v5:
-> > - As per review comment, Device Tree Document parameters (vddmac,
-> >   edge-slowdown) real numbers added. Table number changed from 5 to 1.
-> > v6:
-> > - As per review comment, Removed Device Tree header file. Removed MACROs
-> >   and add ARRAYSIZE
-> 
-> But you ignored my request to make the table values positive, and to
-> enforce an exact match in the table.
-> 
-> NACK
-> 
->         Andrew
+diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+index c8c82e109c68..d88c0a55b783 100644
+--- a/net/openvswitch/flow.c
++++ b/net/openvswitch/flow.c
+@@ -308,9 +308,7 @@ static bool icmp6hdr_ok(struct sk_buff *skb)
+ 
+ /**
+  * Parse vlan tag from vlan header.
+- * Returns ERROR on memory error.
+- * Returns 0 if it encounters a non-vlan or incomplete packet.
+- * Returns 1 after successfully parsing vlan tag.
++ * Returns ERROR on memory error, 0 otherwise.
+  */
+ static int parse_vlan_tag(struct sk_buff *skb, struct vlan_head *key_vh)
+ {
+@@ -331,34 +329,24 @@ static int parse_vlan_tag(struct sk_buff *skb, struct vlan_head *key_vh)
+ 	key_vh->tpid = vh->tpid;
+ 
+ 	__skb_pull(skb, sizeof(struct vlan_head));
+-	return 1;
++	return 0;
+ }
+ 
+ static int parse_vlan(struct sk_buff *skb, struct sw_flow_key *key)
+ {
+-	int res;
+-
+ 	key->eth.vlan.tci = 0;
+ 	key->eth.vlan.tpid = 0;
+ 	key->eth.cvlan.tci = 0;
+ 	key->eth.cvlan.tpid = 0;
+ 
+-	if (likely(skb_vlan_tag_present(skb))) {
+-		key->eth.vlan.tci = htons(skb->vlan_tci);
+-		key->eth.vlan.tpid = skb->vlan_proto;
+-	} else {
+-		/* Parse outer vlan tag in the non-accelerated case. */
+-		res = parse_vlan_tag(skb, &key->eth.vlan);
+-		if (res <= 0)
+-			return res;
+-	}
++	if (!skb_vlan_tag_present(skb))
++		return 0;
+ 
+-	/* Parse inner vlan tag. */
+-	res = parse_vlan_tag(skb, &key->eth.cvlan);
+-	if (res <= 0)
+-		return res;
++	key->eth.vlan.tci = htons(skb->vlan_tci);
++	key->eth.vlan.tpid = skb->vlan_proto;
+ 
+-	return 0;
++	/* Parse inner vlan tag. */
++	return parse_vlan_tag(skb, &key->eth.cvlan);
+ }
+ 
+ static __be16 parse_ethertype(struct sk_buff *skb)
+-- 
+1.8.3.1
