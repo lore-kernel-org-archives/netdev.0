@@ -1,48 +1,33 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v5 net-next] net: phy: Add Edge-rate driver for
- Microsemi PHYs.
-Date: Tue, 04 Oct 2016 00:48:59 -0400 (EDT)
-Message-ID: <20161004.004859.1105270097322633239.davem@davemloft.net>
-References: <1475479393-24308-1-git-send-email-Raju.Lakkaraju@microsemi.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/7] xen-netback: guest rx side refactor
+Date: Tue, 04 Oct 2016 00:51:50 -0400 (EDT)
+Message-ID: <20161004.005150.162970316361904440.davem@davemloft.net>
+References: <1475479872-23717-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Allan.Nielsen-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org
-To: Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1475479393-24308-1-git-send-email-Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org
+To: paul.durrant@citrix.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54448 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752154AbcJDEvy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 00:51:54 -0400
+In-Reply-To: <1475479872-23717-1-git-send-email-paul.durrant@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
-Date: Mon, 3 Oct 2016 12:53:13 +0530
+From: Paul Durrant <paul.durrant@citrix.com>
+Date: Mon, 3 Oct 2016 08:31:05 +0100
 
-> From: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
+> This series refactors the guest rx side of xen-netback:
 > 
-> Edge-rate:
-> As system and networking speeds increase, a signal's output transition,
-> also know as the edge rate or slew rate (V/ns), takes on greater importance
-> because high-speed signals come with a price. That price is an assortment of
-> interference problems like ringing on the line, signal overshoot and
-> undershoot, extended signal settling times, crosstalk noise, transmission
-> line reflections, false signal detection by the receiving device and
-> electromagnetic interference (EMI) -- all of which can negate the potential
-> gains designers are seeking when they try to increase system speeds through
-> the use of higher performance logic devices. The fact is, faster signaling
-> edge rates can cause a higher level of electrical noise or other type of
-> interference that can actually lead to slower line speeds and lower maximum
-> system frequencies. This parameter allow the board designers to change the
-> driving strange, and thereby change the EMI behavioral.
+> - The code is moved into its own source module.
 > 
-> Edge-rate parameters (vddmac, edge-slowdown) get from Device Tree.
+> - The prefix variant of GSO handling is retired (since it is no longer
+>   in common use, and alternatives exist).
 > 
-> Tested on Beaglebone Black with VSC 8531 PHY.
-> 
-> Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
+> - The code is then simplified and modifications made to improve
+>   performance.
 
-Applied, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This doesn't apply cleanly to net-next, please respin.
