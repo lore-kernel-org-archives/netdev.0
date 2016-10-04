@@ -1,128 +1,141 @@
 From: Gavin Shan <gwshan@linux.vnet.ibm.com>
-Subject: [PATCH v2 net-next 2/8] net/ncsi: Introduce NCSI_RESERVED_CHANNEL
-Date: Tue,  4 Oct 2016 11:25:48 +1100
-Message-ID: <1475540754-31169-3-git-send-email-gwshan@linux.vnet.ibm.com>
+Subject: [PATCH v2 net-next 7/8] net/ncsi: Introduce ncsi_stop_dev()
+Date: Tue,  4 Oct 2016 11:25:53 +1100
+Message-ID: <1475540754-31169-8-git-send-email-gwshan@linux.vnet.ibm.com>
 References: <1475540754-31169-1-git-send-email-gwshan@linux.vnet.ibm.com>
 Cc: davem@davemloft.net, joel@jms.id.au, yuvali@mellanox.com,
         benh@kernel.crashing.org, Gavin Shan <gwshan@linux.vnet.ibm.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:59691 "EHLO
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:39619 "EHLO
         mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752046AbcJDAZ2 (ORCPT
+        by vger.kernel.org with ESMTP id S1752027AbcJDAZ2 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2016 20:25:28 -0400
-Received: from pps.filterd (m0098409.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u940MuiE005602
+Received: from pps.filterd (m0098410.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u940Mr90144135
         for <netdev@vger.kernel.org>; Mon, 3 Oct 2016 20:25:28 -0400
 Received: from e23smtp02.au.ibm.com (e23smtp02.au.ibm.com [202.81.31.144])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 25uy9kn2da-1
+        by mx0a-001b2d01.pphosted.com with ESMTP id 25uy9kd31f-1
         (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 03 Oct 2016 20:25:28 -0400
+        for <netdev@vger.kernel.org>; Mon, 03 Oct 2016 20:25:27 -0400
 Received: from localhost
         by e23smtp02.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
         Tue, 4 Oct 2016 10:25:25 +1000
-Received: from d23relay08.au.ibm.com (d23relay08.au.ibm.com [9.185.71.33])
-        by d23dlp03.au.ibm.com (Postfix) with ESMTP id F3954357805E
-        for <netdev@vger.kernel.org>; Tue,  4 Oct 2016 11:25:21 +1100 (EST)
-Received: from d23av01.au.ibm.com (d23av01.au.ibm.com [9.190.234.96])
-        by d23relay08.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u940PLbp60555400
-        for <netdev@vger.kernel.org>; Tue, 4 Oct 2016 11:25:21 +1100
-Received: from d23av01.au.ibm.com (localhost [127.0.0.1])
-        by d23av01.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u940PKbV031424
-        for <netdev@vger.kernel.org>; Tue, 4 Oct 2016 11:25:21 +1100
+Received: from d23relay09.au.ibm.com (d23relay09.au.ibm.com [9.185.63.181])
+        by d23dlp03.au.ibm.com (Postfix) with ESMTP id 5305F357805A
+        for <netdev@vger.kernel.org>; Tue,  4 Oct 2016 11:25:23 +1100 (EST)
+Received: from d23av06.au.ibm.com (d23av06.au.ibm.com [9.190.235.151])
+        by d23relay09.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u940PNbt63963370
+        for <netdev@vger.kernel.org>; Tue, 4 Oct 2016 11:25:23 +1100
+Received: from d23av06.au.ibm.com (localhost [127.0.0.1])
+        by d23av06.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u940PML9023624
+        for <netdev@vger.kernel.org>; Tue, 4 Oct 2016 11:25:23 +1100
 In-Reply-To: <1475540754-31169-1-git-send-email-gwshan@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This defines NCSI_RESERVED_CHANNEL as the reserved NCSI channel
-ID (0x1f). No logical changes introduced.
+This introduces ncsi_stop_dev(), as counterpart to ncsi_start_dev(),
+to stop the NCSI device so that it can be reenabled in future. This
+API should be called when the network device driver is going to
+shutdown the device. There are 3 things done in the function: Stop
+the channel monitoring; Reset channels to inactive state; Report
+NCSI link down.
 
 Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
 Reviewed-by: Joel Stanley <joel@jms.id.au>
 ---
- net/ncsi/internal.h    |  1 +
- net/ncsi/ncsi-manage.c | 14 +++++++-------
- 2 files changed, 8 insertions(+), 7 deletions(-)
+ include/net/ncsi.h     |  5 +++++
+ net/ncsi/ncsi-manage.c | 37 ++++++++++++++++++++++++-------------
+ 2 files changed, 29 insertions(+), 13 deletions(-)
 
-diff --git a/net/ncsi/internal.h b/net/ncsi/internal.h
-index 33738c0..66dc851 100644
---- a/net/ncsi/internal.h
-+++ b/net/ncsi/internal.h
-@@ -170,6 +170,7 @@ struct ncsi_package;
+diff --git a/include/net/ncsi.h b/include/net/ncsi.h
+index 1dbf42f..68680ba 100644
+--- a/include/net/ncsi.h
++++ b/include/net/ncsi.h
+@@ -31,6 +31,7 @@ struct ncsi_dev {
+ struct ncsi_dev *ncsi_register_dev(struct net_device *dev,
+ 				   void (*notifier)(struct ncsi_dev *nd));
+ int ncsi_start_dev(struct ncsi_dev *nd);
++void ncsi_stop_dev(struct ncsi_dev *nd);
+ void ncsi_unregister_dev(struct ncsi_dev *nd);
+ #else /* !CONFIG_NET_NCSI */
+ static inline struct ncsi_dev *ncsi_register_dev(struct net_device *dev,
+@@ -44,6 +45,10 @@ static inline int ncsi_start_dev(struct ncsi_dev *nd)
+ 	return -ENOTTY;
+ }
  
- #define NCSI_PACKAGE_SHIFT	5
- #define NCSI_PACKAGE_INDEX(c)	(((c) >> NCSI_PACKAGE_SHIFT) & 0x7)
-+#define NCSI_RESERVED_CHANNEL	0x1f
- #define NCSI_CHANNEL_INDEX(c)	((c) & ((1 << NCSI_PACKAGE_SHIFT) - 1))
- #define NCSI_TO_CHANNEL(p, c)	(((p) << NCSI_PACKAGE_SHIFT) | (c))
- 
++static void ncsi_stop_dev(struct ncsi_dev *nd)
++{
++}
++
+ static inline void ncsi_unregister_dev(struct ncsi_dev *nd)
+ {
+ }
 diff --git a/net/ncsi/ncsi-manage.c b/net/ncsi/ncsi-manage.c
-index a26ce51..97c99be 100644
+index 4742c7c..5e509e5 100644
 --- a/net/ncsi/ncsi-manage.c
 +++ b/net/ncsi/ncsi-manage.c
-@@ -542,7 +542,7 @@ static void ncsi_suspend_channel(struct ncsi_dev_priv *ndp)
- 		nca.package = np->id;
- 		if (nd->state == ncsi_dev_state_suspend_select) {
- 			nca.type = NCSI_PKT_CMD_SP;
--			nca.channel = 0x1f;
-+			nca.channel = NCSI_RESERVED_CHANNEL;
- 			if (ndp->flags & NCSI_DEV_HWA)
- 				nca.bytes[0] = 0;
- 			else
-@@ -559,7 +559,7 @@ static void ncsi_suspend_channel(struct ncsi_dev_priv *ndp)
- 			nd->state = ncsi_dev_state_suspend_deselect;
- 		} else if (nd->state == ncsi_dev_state_suspend_deselect) {
- 			nca.type = NCSI_PKT_CMD_DP;
--			nca.channel = 0x1f;
-+			nca.channel = NCSI_RESERVED_CHANNEL;
- 			nd->state = ncsi_dev_state_suspend_done;
+@@ -1187,11 +1187,7 @@ EXPORT_SYMBOL_GPL(ncsi_register_dev);
+ int ncsi_start_dev(struct ncsi_dev *nd)
+ {
+ 	struct ncsi_dev_priv *ndp = TO_NCSI_DEV_PRIV(nd);
+-	struct ncsi_package *np;
+-	struct ncsi_channel *nc;
+-	unsigned long flags;
+-	bool chained;
+-	int old_state, ret;
++	int ret;
+ 
+ 	if (nd->state != ncsi_dev_state_registered &&
+ 	    nd->state != ncsi_dev_state_functional)
+@@ -1203,9 +1199,29 @@ int ncsi_start_dev(struct ncsi_dev *nd)
+ 		return 0;
+ 	}
+ 
+-	/* Reset channel's state and start over */
++	if (ndp->flags & NCSI_DEV_HWA)
++		ret = ncsi_enable_hwa(ndp);
++	else
++		ret = ncsi_choose_active_channel(ndp);
++
++	return ret;
++}
++EXPORT_SYMBOL_GPL(ncsi_start_dev);
++
++void ncsi_stop_dev(struct ncsi_dev *nd)
++{
++	struct ncsi_dev_priv *ndp = TO_NCSI_DEV_PRIV(nd);
++	struct ncsi_package *np;
++	struct ncsi_channel *nc;
++	bool chained;
++	int old_state;
++	unsigned long flags;
++
++	/* Stop the channel monitor and reset channel's state */
+ 	NCSI_FOR_EACH_PACKAGE(ndp, np) {
+ 		NCSI_FOR_EACH_CHANNEL(np, nc) {
++			ncsi_stop_channel_monitor(nc);
++
+ 			spin_lock_irqsave(&nc->lock, flags);
+ 			chained = !list_empty(&nc->link);
+ 			old_state = nc->state;
+@@ -1217,14 +1233,9 @@ int ncsi_start_dev(struct ncsi_dev *nd)
  		}
+ 	}
  
-@@ -608,7 +608,7 @@ static void ncsi_configure_channel(struct ncsi_dev_priv *ndp)
- 		else
- 			nca.bytes[0] = 1;
- 		nca.package = np->id;
--		nca.channel = 0x1f;
-+		nca.channel = NCSI_RESERVED_CHANNEL;
- 		ret = ncsi_xmit_cmd(&nca);
- 		if (ret)
- 			goto error;
-@@ -834,7 +834,7 @@ static void ncsi_probe_channel(struct ncsi_dev_priv *ndp)
+-	if (ndp->flags & NCSI_DEV_HWA)
+-		ret = ncsi_enable_hwa(ndp);
+-	else
+-		ret = ncsi_choose_active_channel(ndp);
+-
+-	return ret;
++	ncsi_report_link(ndp, true);
+ }
+-EXPORT_SYMBOL_GPL(ncsi_start_dev);
++EXPORT_SYMBOL_GPL(ncsi_stop_dev);
  
- 		/* Deselect all possible packages */
- 		nca.type = NCSI_PKT_CMD_DP;
--		nca.channel = 0x1f;
-+		nca.channel = NCSI_RESERVED_CHANNEL;
- 		for (index = 0; index < 8; index++) {
- 			nca.package = index;
- 			ret = ncsi_xmit_cmd(&nca);
-@@ -850,7 +850,7 @@ static void ncsi_probe_channel(struct ncsi_dev_priv *ndp)
- 		/* Select all possible packages */
- 		nca.type = NCSI_PKT_CMD_SP;
- 		nca.bytes[0] = 1;
--		nca.channel = 0x1f;
-+		nca.channel = NCSI_RESERVED_CHANNEL;
- 		for (index = 0; index < 8; index++) {
- 			nca.package = index;
- 			ret = ncsi_xmit_cmd(&nca);
-@@ -903,7 +903,7 @@ static void ncsi_probe_channel(struct ncsi_dev_priv *ndp)
- 		nca.type = NCSI_PKT_CMD_SP;
- 		nca.bytes[0] = 1;
- 		nca.package = ndp->active_package->id;
--		nca.channel = 0x1f;
-+		nca.channel = NCSI_RESERVED_CHANNEL;
- 		ret = ncsi_xmit_cmd(&nca);
- 		if (ret)
- 			goto error;
-@@ -960,7 +960,7 @@ static void ncsi_probe_channel(struct ncsi_dev_priv *ndp)
- 		/* Deselect the active package */
- 		nca.type = NCSI_PKT_CMD_DP;
- 		nca.package = ndp->active_package->id;
--		nca.channel = 0x1f;
-+		nca.channel = NCSI_RESERVED_CHANNEL;
- 		ret = ncsi_xmit_cmd(&nca);
- 		if (ret)
- 			goto error;
+ void ncsi_unregister_dev(struct ncsi_dev *nd)
+ {
 -- 
 2.1.0
