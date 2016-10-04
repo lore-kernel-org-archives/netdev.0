@@ -1,36 +1,61 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v5 net-next] net: phy: Add Edge-rate driver for
- Microsemi PHYs.
-Date: Tue, 04 Oct 2016 03:01:34 -0400 (EDT)
-Message-ID: <20161004.030134.1142321103427028880.davem@davemloft.net>
-References: <1475479393-24308-1-git-send-email-Raju.Lakkaraju@microsemi.com>
-        <20161004.004859.1105270097322633239.davem@davemloft.net>
-        <20161004065401.GA6097@lunn.ch>
+From: Madalin Bucur <madalin.bucur@nxp.com>
+Subject: [net-next 01/13] fsl/fman: split lines over 80 characters
+Date: Tue, 4 Oct 2016 10:30:25 +0300
+Message-ID: <1475566237-4948-2-git-send-email-madalin.bucur@nxp.com>
+References: <1475566237-4948-1-git-send-email-madalin.bucur@nxp.com>
+Reply-To: madalin.bucur@nxp.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        Allan.Nielsen-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org
-To: andrew-g2DYL2Zd6BY@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161004065401.GA6097-g2DYL2Zd6BY@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain
+Cc: linuxdev.baldrick@gmail.com, Madalin Bucur <madalin.bucur@nxp.com>,
+ linuxppc-dev@lists.ozlabs.org, davem@davemloft.net,
+ linux-kernel@vger.kernel.org
+To: <netdev@vger.kernel.org>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <1475566237-4948-1-git-send-email-madalin.bucur@nxp.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Date: Tue, 4 Oct 2016 08:54:01 +0200
+Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
+---
+ drivers/net/ethernet/freescale/fman/fman_muram.c | 3 ++-
+ drivers/net/ethernet/freescale/fman/fman_muram.h | 3 ++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
-> Oh dear. It was not ready for acceptance yet. I guess you missed all
-> the discussion because it was attached to the previous version of the
-> patch.
-> 
-> Raju you now need to submit fixup patches relative to the version
-> David has accepted, to fix the issues we were discussing.
-
-My bad, I'm trying to queue everything up for the merge window
-pull request.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/freescale/fman/fman_muram.c b/drivers/net/ethernet/freescale/fman/fman_muram.c
+index 47394c4..5ec94d2 100644
+--- a/drivers/net/ethernet/freescale/fman/fman_muram.c
++++ b/drivers/net/ethernet/freescale/fman/fman_muram.c
+@@ -150,7 +150,8 @@ unsigned long fman_muram_alloc(struct muram_info *muram, size_t size)
+  *
+  * Free an allocated memory from FM-MURAM partition.
+  */
+-void fman_muram_free_mem(struct muram_info *muram, unsigned long offset, size_t size)
++void fman_muram_free_mem(struct muram_info *muram, unsigned long offset,
++			 size_t size)
+ {
+ 	unsigned long addr = fman_muram_offset_to_vbase(muram, offset);
+ 
+diff --git a/drivers/net/ethernet/freescale/fman/fman_muram.h b/drivers/net/ethernet/freescale/fman/fman_muram.h
+index 889649a..453bf84 100644
+--- a/drivers/net/ethernet/freescale/fman/fman_muram.h
++++ b/drivers/net/ethernet/freescale/fman/fman_muram.h
+@@ -46,6 +46,7 @@ unsigned long fman_muram_offset_to_vbase(struct muram_info *muram,
+ 
+ unsigned long fman_muram_alloc(struct muram_info *muram, size_t size);
+ 
+-void fman_muram_free_mem(struct muram_info *muram, unsigned long offset, size_t size);
++void fman_muram_free_mem(struct muram_info *muram, unsigned long offset,
++			 size_t size);
+ 
+ #endif /* __FM_MURAM_EXT */
+-- 
+2.1.0
