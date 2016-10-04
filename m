@@ -1,41 +1,38 @@
 From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] net: ps3_gelic: Add missing \n to end of deb_dbg message
-Date: Tue,  4 Oct 2016 12:15:54 +0100
-Message-ID: <20161004111554.11881-1-colin.king@canonical.com>
+Subject: [PATCH] i40e: Add missing \n to end of dev_err message
+Date: Tue,  4 Oct 2016 12:20:16 +0100
+Message-ID: <20161004112016.12011-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8bit
 Cc: linux-kernel@vger.kernel.org
-To: Geoff Levand <geoff@infradead.org>,
-        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        Paul Mackerras <paulus@samba.org>,
-        Michael Ellerman <mpe@ellerman.id.au>, netdev@vger.kernel.org,
-        linuxppc-dev@lists.ozlabs.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Colin Ian King <colin.king@canonical.com>
 
-Trival fix, dev_dbg message is missing a \n, so add it.
+Trival fix, dev_err message is missing a \n, so add it.
 
 Signed-off-by: Colin Ian King <colin.king@canonical.com>
 ---
- drivers/net/ethernet/toshiba/ps3_gelic_net.c | 2 +-
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/toshiba/ps3_gelic_net.c b/drivers/net/ethernet/toshiba/ps3_gelic_net.c
-index bc258d7..272f2b1 100644
---- a/drivers/net/ethernet/toshiba/ps3_gelic_net.c
-+++ b/drivers/net/ethernet/toshiba/ps3_gelic_net.c
-@@ -1769,7 +1769,7 @@ static int ps3_gelic_driver_probe(struct ps3_system_bus_device *dev)
- 	gelic_ether_setup_netdev_ops(netdev, &card->napi);
- 	result = gelic_net_setup_netdev(netdev, card);
- 	if (result) {
--		dev_dbg(&dev->core, "%s: setup_netdev failed %d",
-+		dev_dbg(&dev->core, "%s: setup_netdev failed %d\n",
- 			__func__, result);
- 		goto fail_setup_netdev;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 54b8ee2..64e54a5 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -2940,7 +2940,7 @@ int i40e_ndo_set_vf_bw(struct net_device *netdev, int vf_id, int min_tx_rate,
  	}
+ 
+ 	if (max_tx_rate > speed) {
+-		dev_err(&pf->pdev->dev, "Invalid max tx rate %d specified for VF %d.",
++		dev_err(&pf->pdev->dev, "Invalid max tx rate %d specified for VF %d.\n",
+ 			max_tx_rate, vf->vf_id);
+ 		ret = -EINVAL;
+ 		goto error;
 -- 
 2.9.3
