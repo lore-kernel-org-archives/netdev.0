@@ -1,57 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/7] qed*: Add qedr infrastructure support
-Date: Mon, 03 Oct 2016 23:24:46 -0400 (EDT)
-Message-ID: <20161003.232446.1827173235395776859.davem@davemloft.net>
-References: <1475348401-31392-1-git-send-email-Yuval.Mintz@caviumnetworks.com>
+Subject: Re: [net-next 0/3][pull request] 40GbE Intel Wired LAN Driver
+ Updates 2016-10-03
+Date: Mon, 03 Oct 2016 23:29:19 -0400 (EDT)
+Message-ID: <20161003.232919.2196032099553351277.davem@davemloft.net>
+References: <1475547903-22168-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        Ram.Amrani@caviumnetworks.com, Michal.Kalderon@caviumnetworks.com,
-        Ariel.Elior@caviumnetworks.com, dledford@redhat.com
-To: Yuval.Mintz@caviumnetworks.com
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, guru.anbalagane@oracle.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:53576 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:53628 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750890AbcJDDYw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2016 23:24:52 -0400
-In-Reply-To: <1475348401-31392-1-git-send-email-Yuval.Mintz@caviumnetworks.com>
+        with ESMTP id S1754059AbcJDD3Z (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2016 23:29:25 -0400
+In-Reply-To: <1475547903-22168-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
-Date: Sat, 1 Oct 2016 21:59:54 +0300
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Mon,  3 Oct 2016 19:25:00 -0700
 
-> In the last couple of weeks we've been sending RFCs for the qedr
-> driver - the RoCE driver for QLogic FastLinQ 4xxxx line of adapters.
-> Latest RFC can be found at [1].
+> This series contains fixes to i40e only.
 > 
-> At Doug's advice [2], we've decided to split the series into two:
->  - first part contains the qed backbone that's necessary for all the
-> configurations relating to the qedr driver, as well as the qede
-> infrastructure that is used for communication between the qedr and qede.
->  - Second part consists of the actual qedr driver and introduces almost
-> no changes to qed/qede.
+> Stefan Assmann provides the changes in this series to resolve an issue
+> where when we run out of MSIx vectors, iWARP gets disabled automatically.
+> First adds a check for "no vectors left" during MSIx vector allocation
+> for VMDq, which will prevent more vectors being allocated than available.
+> Then fixed the MSIx vector redistribution when we reach the hardware limit
+> for vectors so that additional features like VMDq, iWARP, etc do not get
+> starved for vectors because the PF is hogging all the resources.  Lastly,
+> fix the issue for flow director by moving the check for the reaching the
+> vector limit earlier in the code so that a decision can be made on
+> disabling flow director.
 > 
-> This is the first of said two parts. The second half would be sent
-> later this week.
-> 
-> The only 'oddity' in the devision are the Kconfig options - 
-> As this series introduces both LL2 and QEDR-based logic in qed/qede,
-> I wanted to add the CONFIG_INFINIBAND_QEDR option here [with default n].
-> Otherwise, a lot of the code introduced would be dead-code [won't even
-> be compiled] until qedr is accepted.
-> As a result I've placed the config option in an odd place - under
-> qlogic's Kconfig. The second series would then remove that option
-> and add it in its correct place under the infiniband Kconfig.
-> [I'm fine with pushing it there to begin with, but I didn't want to
-> 'contaminate' non-qlogic configuration files with half-baked options].
-> 
-> Dave - I don't think you were E-mailed with Doug's suggestion.
-> I think the notion was to have the two halves accepted side-by-side,
-> but actually the first has no dependency issues, so it's also
-> possible to simply take this first to net-next, and push the qedr
-> into rdma once it's merged. But it's basically up to you and Doug;
-> We'd align with whatever suits you best.
+> The following are changes since commit b9118b7221ebb12156d2b08d4d5647bc6076d6bb:
+>   ptp: Fix resource leak in case of error
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
 
-I'll take this, series applied, thanks.
+Pulled, thanks Jeff.
