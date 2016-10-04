@@ -1,59 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] Add netdev all_adj_list refcnt propagation to fix
- panic
-Date: Tue, 04 Oct 2016 02:06:28 -0400 (EDT)
-Message-ID: <20161004.020628.353742496666781216.davem@davemloft.net>
-References: <1475523782-6358-1-git-send-email-acollins@cradlepoint.com>
+Subject: Re: [PATCH v2 net-next 0/8] net/ncsi: NCSI Improvment and bug fixes
+Date: Tue, 04 Oct 2016 02:13:25 -0400 (EDT)
+Message-ID: <20161004.021325.1301099883976987002.davem@davemloft.net>
+References: <1475540754-31169-1-git-send-email-gwshan@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dsa@cumulusnetworks.com, netdev@vger.kernel.org, vfalico@gmail.com,
-        nikolay@cumulusnetworks.com
-To: acollins@cradlepoint.com
+Cc: netdev@vger.kernel.org, joel@jms.id.au, yuvali@mellanox.com,
+        benh@kernel.crashing.org
+To: gwshan@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54832 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:54880 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752123AbcJDGGh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 02:06:37 -0400
-In-Reply-To: <1475523782-6358-1-git-send-email-acollins@cradlepoint.com>
+        with ESMTP id S1751836AbcJDGN3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 02:13:29 -0400
+In-Reply-To: <1475540754-31169-1-git-send-email-gwshan@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Collins <acollins@cradlepoint.com>
-Date: Mon, 3 Oct 2016 13:43:02 -0600
+From: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Date: Tue,  4 Oct 2016 11:25:46 +1100
 
-> This is a respin of a patch to fix a relatively easily reproducible kernel
-> panic related to the all_adj_list handling for netdevs in recent kernels.
+> This series of patches improves NCSI stack according to the comments
+> I received after the NCSI code was merged to 4.8.rc1:
 > 
-> The following sequence of commands will reproduce the issue:
+>   * PATCH[1/8] fixes the build warning caused by xchg() with ia64-linux-gcc.
+>     The atomic operations are removed. The NCSI's lock should be taken when
+>     reading or updating its state and chained state.
+>   * Channel ID (0x1f) is the reserved one and it cannot be valid channel ID.
+>     So we needn't try to probe channel whose ID is 0x1f. PATCH[2/8] and
+>     PATCH[3/8] are addressing this issue.
+>   * The request IDs are assigned in round-robin fashion, but it's broken.
+>     PATCH[4/8] make it work.
+>   * PATCH[5/8] and PATCH[6/8] reworks the channel monitoring to improve the
+>     code readability and its robustness.
+>   * PATCH[7/8] and PATCH[8/8] introduces ncsi_stop_dev() so that the network
+>     device can be closed and opened afterwards. No error will be seen.
 > 
-> ip link add link eth0 name eth0.100 type vlan id 100
-> ip link add link eth0 name eth0.200 type vlan id 200
-> ip link add name testbr type bridge
-> ip link set eth0.100 master testbr
-> ip link set eth0.200 master testbr
-> ip link add link testbr mac0 type macvlan
-> ip link delete dev testbr
-> 
-> This creates an upper/lower tree of (excuse the poor ASCII art):
-> 
->             /---eth0.100-eth0
-> mac0-testbr-
->             \---eth0.200-eth0
-> 
-> When testbr is deleted, the all_adj_lists are walked, and eth0 is deleted twice from
-> the mac0 list. Unfortunately, during setup in __netdev_upper_dev_link, only one
-> reference to eth0 is added, so this results in a panic.
-> 
-> This change adds reference count propagation so things are handled properly.
-> 
-> Matthias Schiffer reported a similar crash in batman-adv:
-> 
-> https://github.com/freifunk-gluon/gluon/issues/680
-> https://www.open-mesh.org/issues/247
-> 
-> which this patch also seems to resolve.
-> 
-> Signed-off-by: Andrew Collins <acollins@cradlepoint.com>
+> Changelog
+> =========
+> v2:
+>   * The NCSI's lock is taken when reading or updating its state as the
+>     {READ,WRITE}_ONCE() isn't reliable.
 
-Applied and queued up for -stable, thanks.
+Series applied, thanks.
