@@ -1,31 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vmxnet3: Wake queue from reset work
-Date: Tue, 04 Oct 2016 00:36:40 -0400 (EDT)
-Message-ID: <20161004.003640.2123697293503989553.davem@davemloft.net>
-References: <20161003024750.30015-1-bpoirier@suse.com>
+Subject: Re: [PATCH] ipv6 addrconf: disallow rtr_solicits < -1
+Date: Tue, 04 Oct 2016 00:38:31 -0400 (EDT)
+Message-ID: <20161004.003831.2056791273400961514.davem@davemloft.net>
+References: <1475476917-17382-1-git-send-email-zenczykowski@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, skhare@vmware.com, pv-drivers@vmware.com
-To: bpoirier@suse.com
+Content-Type: Text/Plain; charset=iso-8859-2
+Content-Transfer-Encoding: 8BIT
+Cc: maze@google.com, netdev@vger.kernel.org, ek@google.com,
+        lorenzo@google.com
+To: zenczykowski@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54252 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:54330 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751150AbcJDEgw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 00:36:52 -0400
-In-Reply-To: <20161003024750.30015-1-bpoirier@suse.com>
+        with ESMTP id S1750780AbcJDEij (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 00:38:39 -0400
+In-Reply-To: <1475476917-17382-1-git-send-email-zenczykowski@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Benjamin Poirier <bpoirier@suse.com>
-Date: Mon,  3 Oct 2016 10:47:50 +0800
+From: Maciej ¯enczykowski <zenczykowski@gmail.com>
+Date: Sun,  2 Oct 2016 23:41:57 -0700
 
-> vmxnet3_reset_work() expects tx queues to be stopped (via
-> vmxnet3_quiesce_dev -> netif_tx_disable). However, this races with the
-> netif_wake_queue() call in netif_tx_timeout() such that the driver's
-> start_xmit routine may be called unexpectedly, triggering one of the BUG_ON
-> in vmxnet3_map_pkt with a stack trace like this:
- ...
-> Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
+> From: Maciej ¯enczykowski <maze@google.com>
+> 
+> This disallows setting /proc/sys/net/ipv6/conf/*/router_solicitations
+> to values below -1.
+> 
+> -1 continues to mean an unlimited number of retransmits.
+> 
+> Note: this depends on 'ipv6 addrconf: remove addrconf_sysctl_hop_limit()'
+> 
+> Signed-off-by: Maciej ¯enczykowski <maze@google.com>
 
-Applied, thanks.
+Please remove the const qualifier and the casts to be consistent
+with how we handle this elsewhere.
+
+Thanks.
