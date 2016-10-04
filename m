@@ -1,47 +1,45 @@
 From: Madalin Bucur <madalin.bucur@nxp.com>
-Subject: [net-next 12/13] fsl/fman: remove leftover comment
-Date: Tue, 4 Oct 2016 10:32:58 +0300
-Message-ID: <1475566379-5078-13-git-send-email-madalin.bucur@nxp.com>
+Subject: [net-next 11/13] fsl/fman: fix return value checking
+Date: Tue, 4 Oct 2016 10:32:57 +0300
+Message-ID: <1475566379-5078-12-git-send-email-madalin.bucur@nxp.com>
 References: <1475566379-5078-1-git-send-email-madalin.bucur@nxp.com>
-Reply-To: madalin.bucur@nxp.com
+Reply-To: <madalin.bucur@nxp.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: linuxdev.baldrick@gmail.com, linuxppc-dev@lists.ozlabs.org,
- davem@davemloft.net, linux-kernel@vger.kernel.org
+Cc: <davem@davemloft.net>, <linuxppc-dev@lists.ozlabs.org>,
+        <linux-kernel@vger.kernel.org>, <linuxdev.baldrick@gmail.com>
 To: <netdev@vger.kernel.org>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1475566379-5078-1-git-send-email-madalin.bucur@nxp.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
 ---
- drivers/net/ethernet/freescale/fman/fman_mac.h | 4 ----
- 1 file changed, 4 deletions(-)
+ drivers/net/ethernet/freescale/fman/fman.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fman/fman_mac.h b/drivers/net/ethernet/freescale/fman/fman_mac.h
-index ddf0260..dd6d052 100644
---- a/drivers/net/ethernet/freescale/fman/fman_mac.h
-+++ b/drivers/net/ethernet/freescale/fman/fman_mac.h
-@@ -191,10 +191,6 @@ struct fman_mac_params {
- 	u16 max_speed;
- 	/* A handle to the FM object this port related to */
- 	void *fm;
--	/* MDIO exceptions interrupt source - not valid for all
--	 * MACs; MUST be set to 0 for MACs that don't have
--	 * mdio-irq, or for polling
--	 */
- 	void *dev_id; /* device cookie used by the exception cbs */
- 	fman_mac_exception_cb *event_cb;    /* MDIO Events Callback Routine */
- 	fman_mac_exception_cb *exception_cb;/* Exception Callback Routine */
+diff --git a/drivers/net/ethernet/freescale/fman/fman.c b/drivers/net/ethernet/freescale/fman/fman.c
+index 1fc1049..dafd9e1 100644
+--- a/drivers/net/ethernet/freescale/fman/fman.c
++++ b/drivers/net/ethernet/freescale/fman/fman.c
+@@ -618,7 +618,7 @@ struct fman {
+ 	unsigned long cam_offset;
+ 	size_t cam_size;
+ 	/* Fifo in MURAM */
+-	int fifo_offset;
++	unsigned long fifo_offset;
+ 	size_t fifo_size;
+ 
+ 	u32 liodn_base[64];
+@@ -2036,7 +2036,7 @@ static int fman_init(struct fman *fman)
+ 	/* allocate MURAM for FIFO according to total size */
+ 	fman->fifo_offset = fman_muram_alloc(fman->muram,
+ 					     fman->state->total_fifo_size);
+-	if (IS_ERR_VALUE(fman->cam_offset)) {
++	if (IS_ERR_VALUE(fman->fifo_offset)) {
+ 		free_init_resources(fman);
+ 		dev_err(fman->dev, "%s: MURAM alloc for BMI FIFO failed\n",
+ 			__func__);
 -- 
 2.1.0
