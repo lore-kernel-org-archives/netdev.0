@@ -1,10 +1,10 @@
 From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [Xen-devel] [PATCH v2 net-next 5/7] xen-netback: process guest
- rx packets in batches
-Date: Tue, 4 Oct 2016 08:47:44 -0400
-Message-ID: <20161004124744.GC30836@localhost.localdomain>
+Subject: Re: [Xen-devel] [PATCH v2 net-next 4/7] xen-netback: immediately
+ wake tx queue when guest rx queue has space
+Date: Tue, 4 Oct 2016 08:48:55 -0400
+Message-ID: <20161004124854.GD30836@localhost.localdomain>
 References: <1475573358-32414-1-git-send-email-paul.durrant@citrix.com>
- <1475573358-32414-6-git-send-email-paul.durrant@citrix.com>
+ <1475573358-32414-5-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
@@ -12,26 +12,23 @@ Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
         David Vrabel <david.vrabel@citrix.com>
 To: Paul Durrant <paul.durrant@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:45251 "EHLO
+Received: from aserp1040.oracle.com ([141.146.126.69]:46067 "EHLO
         aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753442AbcJDMrt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 08:47:49 -0400
+        with ESMTP id S1752074AbcJDMtC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 08:49:02 -0400
 Content-Disposition: inline
-In-Reply-To: <1475573358-32414-6-git-send-email-paul.durrant@citrix.com>
+In-Reply-To: <1475573358-32414-5-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 04, 2016 at 10:29:16AM +0100, Paul Durrant wrote:
+On Tue, Oct 04, 2016 at 02:29:15AM -0700, Paul Durrant wrote:
 > From: David Vrabel <david.vrabel@citrix.com>
 > 
-> Instead of only placing one skb on the guest rx ring at a time, process
-> a batch of up-to 64.  This improves performance by ~10% in some tests.
+> When an skb is removed from the guest rx queue, immediately wake the
+> tx queue, instead of after processing them.
 
-And does it regress latency workloads?
+Please, could the description explain why?
 
-What are those 'some tests' you speak off?
-
-Thanks.
 > 
 > Signed-off-by: David Vrabel <david.vrabel@citrix.com>
 > [re-based]
@@ -39,42 +36,58 @@ Thanks.
 > ---
 > Cc: Wei Liu <wei.liu2@citrix.com>
 > ---
->  drivers/net/xen-netback/rx.c | 15 ++++++++++++++-
->  1 file changed, 14 insertions(+), 1 deletion(-)
+>  drivers/net/xen-netback/rx.c | 24 ++++++++----------------
+>  1 file changed, 8 insertions(+), 16 deletions(-)
 > 
 > diff --git a/drivers/net/xen-netback/rx.c b/drivers/net/xen-netback/rx.c
-> index 9548709..ae822b8 100644
+> index b0ce4c6..9548709 100644
 > --- a/drivers/net/xen-netback/rx.c
 > +++ b/drivers/net/xen-netback/rx.c
-> @@ -399,7 +399,7 @@ static void xenvif_rx_extra_slot(struct xenvif_queue *queue,
->  	BUG();
->  }
+> @@ -92,27 +92,21 @@ static struct sk_buff *xenvif_rx_dequeue(struct xenvif_queue *queue)
+>  	spin_lock_irq(&queue->rx_queue.lock);
 >  
-> -void xenvif_rx_action(struct xenvif_queue *queue)
-> +void xenvif_rx_skb(struct xenvif_queue *queue)
->  {
->  	struct xenvif_pkt_state pkt;
->  
-> @@ -425,6 +425,19 @@ void xenvif_rx_action(struct xenvif_queue *queue)
->  	xenvif_rx_complete(queue, &pkt);
->  }
->  
-> +#define RX_BATCH_SIZE 64
+>  	skb = __skb_dequeue(&queue->rx_queue);
+> -	if (skb)
+> +	if (skb) {
+>  		queue->rx_queue_len -= skb->len;
+> +		if (queue->rx_queue_len < queue->rx_queue_max) {
+> +			struct netdev_queue *txq;
 > +
-> +void xenvif_rx_action(struct xenvif_queue *queue)
-> +{
-> +	unsigned int work_done = 0;
-> +
-> +	while (xenvif_rx_ring_slots_available(queue) &&
-> +	       work_done < RX_BATCH_SIZE) {
-> +		xenvif_rx_skb(queue);
-> +		work_done++;
+> +			txq = netdev_get_tx_queue(queue->vif->dev, queue->id);
+> +			netif_tx_wake_queue(txq);
+> +		}
 > +	}
-> +}
-> +
->  static bool xenvif_rx_queue_stalled(struct xenvif_queue *queue)
+>  
+>  	spin_unlock_irq(&queue->rx_queue.lock);
+>  
+>  	return skb;
+>  }
+>  
+> -static void xenvif_rx_queue_maybe_wake(struct xenvif_queue *queue)
+> -{
+> -	spin_lock_irq(&queue->rx_queue.lock);
+> -
+> -	if (queue->rx_queue_len < queue->rx_queue_max) {
+> -		struct net_device *dev = queue->vif->dev;
+> -
+> -		netif_tx_wake_queue(netdev_get_tx_queue(dev, queue->id));
+> -	}
+> -
+> -	spin_unlock_irq(&queue->rx_queue.lock);
+> -}
+> -
+>  static void xenvif_rx_queue_purge(struct xenvif_queue *queue)
 >  {
->  	RING_IDX prod, cons;
+>  	struct sk_buff *skb;
+> @@ -585,8 +579,6 @@ int xenvif_kthread_guest_rx(void *data)
+>  		 */
+>  		xenvif_rx_queue_drop_expired(queue);
+>  
+> -		xenvif_rx_queue_maybe_wake(queue);
+> -
+>  		cond_resched();
+>  	}
+>  
 > -- 
 > 2.1.4
 > 
