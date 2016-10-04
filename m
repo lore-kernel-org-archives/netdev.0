@@ -1,47 +1,42 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH net-next 0/7] xen-netback: guest rx side refactor
-Date: Tue, 4 Oct 2016 08:26:01 +0000
-Message-ID: <06f09250258a46c4bb8f07835bdb7ad1@AMSPEX02CL03.citrite.net>
-References: <1475479872-23717-1-git-send-email-paul.durrant@citrix.com>
- <20161004.005150.162970316361904440.davem@davemloft.net>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next] openvswitch: correctly fragment packet with
+ mpls headers
+Date: Tue, 4 Oct 2016 11:28:04 +0200
+Message-ID: <20161004112804.04f25140@griffin>
+References: <b0cb6efc9bfda8381af880f10fa6b3447f7d3d5d.1475512190.git.jbenc@redhat.com>
+        <CAOrHB_Dh=OPUTbbN7QYo9Nz4cV99-k_fT4z7jSOEcnFEDKXQEg@mail.gmail.com>
+        <20161004102458.1241605f@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        David Ahern <dsa@cumulusnetworks.com>
+To: Pravin Shelar <pshelar@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([185.25.65.24]:55932 "EHLO
-        SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752197AbcJDI0H (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 04:26:07 -0400
-In-Reply-To: <20161004.005150.162970316361904440.davem@davemloft.net>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:47234 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751711AbcJDJ2I (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 4 Oct 2016 05:28:08 -0400
+In-Reply-To: <20161004102458.1241605f@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: 04 October 2016 05:52
-> To: Paul Durrant <Paul.Durrant@citrix.com>
-> Cc: netdev@vger.kernel.org; xen-devel@lists.xenproject.org
-> Subject: Re: [PATCH net-next 0/7] xen-netback: guest rx side refactor
+On Tue, 4 Oct 2016 10:24:58 +0200, Jiri Benc wrote:
+> On Mon, 3 Oct 2016 11:04:46 -0700, Pravin Shelar wrote:
+> > This is not correct way to detect MPLS packet. inner_protocol can be
+> > set by any tunnel device for using tunnel offloads. So this would
+> > break the fragmentation for encapsulated packets.
 > 
-> From: Paul Durrant <paul.durrant@citrix.com>
-> Date: Mon, 3 Oct 2016 08:31:05 +0100
-> 
-> > This series refactors the guest rx side of xen-netback:
-> >
-> > - The code is moved into its own source module.
-> >
-> > - The prefix variant of GSO handling is retired (since it is no longer
-> >   in common use, and alternatives exist).
-> >
-> > - The code is then simplified and modifications made to improve
-> >   performance.
-> 
-> This doesn't apply cleanly to net-next, please respin.
+> You're right, stupid me.
 
-Sure. V2 coming up.
+Actually, too little caffeine in the morning. I actually did consider
+this and I believe my patch is correct. It doesn't matter what the
+encapsulation is, we want to fragment the *inner* packet. And this is
+exactly what this patch does.
 
-  Paul
+Besides, the only case is MPLS anyway. I'm not aware of any code path
+that could lead us to here, set inner protocol and not be MPLS. But
+even if it is, it should work, provided the encapsulation header is
+identical for all fragments and smaller than MAX_L2_LEN.
+
+ Jiri
