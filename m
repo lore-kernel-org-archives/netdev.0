@@ -1,69 +1,53 @@
 From: Paul Durrant <paul.durrant@citrix.com>
-Subject: [PATCH v2 net-next 5/7] xen-netback: process guest rx packets in batches
-Date: Tue, 4 Oct 2016 10:29:16 +0100
-Message-ID: <1475573358-32414-6-git-send-email-paul.durrant@citrix.com>
-References: <1475573358-32414-1-git-send-email-paul.durrant@citrix.com>
+Subject: [PATCH v2 net-next 0/7] xen-netback: guest rx side refactor
+Date: Tue, 4 Oct 2016 10:29:11 +0100
+Message-ID: <1475573358-32414-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: David Vrabel <david.vrabel@citrix.com>,
-        Paul Durrant <paul.durrant@citrix.com>,
-        Wei Liu <wei.liu2@citrix.com>
+Cc: Paul Durrant <paul.durrant@citrix.com>
 To: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from smtp02.citrix.com ([66.165.176.63]:54781 "EHLO
         SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932196AbcJDJtJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 05:49:09 -0400
-In-Reply-To: <1475573358-32414-1-git-send-email-paul.durrant@citrix.com>
+        with ESMTP id S1752757AbcJDJtG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 05:49:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Vrabel <david.vrabel@citrix.com>
+This series refactors the guest rx side of xen-netback:
 
-Instead of only placing one skb on the guest rx ring at a time, process
-a batch of up-to 64.  This improves performance by ~10% in some tests.
+- The code is moved into its own source module.
 
-Signed-off-by: David Vrabel <david.vrabel@citrix.com>
-[re-based]
-Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
----
-Cc: Wei Liu <wei.liu2@citrix.com>
----
- drivers/net/xen-netback/rx.c | 15 ++++++++++++++-
- 1 file changed, 14 insertions(+), 1 deletion(-)
+- The prefix variant of GSO handling is retired (since it is no longer
+  in common use, and alternatives exist).
 
-diff --git a/drivers/net/xen-netback/rx.c b/drivers/net/xen-netback/rx.c
-index 9548709..ae822b8 100644
---- a/drivers/net/xen-netback/rx.c
-+++ b/drivers/net/xen-netback/rx.c
-@@ -399,7 +399,7 @@ static void xenvif_rx_extra_slot(struct xenvif_queue *queue,
- 	BUG();
- }
- 
--void xenvif_rx_action(struct xenvif_queue *queue)
-+void xenvif_rx_skb(struct xenvif_queue *queue)
- {
- 	struct xenvif_pkt_state pkt;
- 
-@@ -425,6 +425,19 @@ void xenvif_rx_action(struct xenvif_queue *queue)
- 	xenvif_rx_complete(queue, &pkt);
- }
- 
-+#define RX_BATCH_SIZE 64
-+
-+void xenvif_rx_action(struct xenvif_queue *queue)
-+{
-+	unsigned int work_done = 0;
-+
-+	while (xenvif_rx_ring_slots_available(queue) &&
-+	       work_done < RX_BATCH_SIZE) {
-+		xenvif_rx_skb(queue);
-+		work_done++;
-+	}
-+}
-+
- static bool xenvif_rx_queue_stalled(struct xenvif_queue *queue)
- {
- 	RING_IDX prod, cons;
+- The code is then simplified and modifications made to improve
+  performance.
+
+v2:
+- Rebased onto refreshed net-next
+
+David Vrabel (4):
+  xen-netback: refactor guest rx
+  xen-netback: immediately wake tx queue when guest rx queue has space
+  xen-netback: process guest rx packets in batches
+  xen-netback: batch copies for multiple to-guest rx packets
+
+Paul Durrant (2):
+  xen-netback: separate guest side rx code into separate module
+  xen-netback: retire guest rx side prefix GSO feature
+
+Ross Lagerwall (1):
+  xen/netback: add fraglist support for to-guest rx
+
+ drivers/net/xen-netback/Makefile    |   2 +-
+ drivers/net/xen-netback/common.h    |  25 +-
+ drivers/net/xen-netback/interface.c |   6 +-
+ drivers/net/xen-netback/netback.c   | 754 ------------------------------------
+ drivers/net/xen-netback/rx.c        | 628 ++++++++++++++++++++++++++++++
+ drivers/net/xen-netback/xenbus.c    |  21 -
+ 6 files changed, 643 insertions(+), 793 deletions(-)
+ create mode 100644 drivers/net/xen-netback/rx.c
+
 -- 
 2.1.4
