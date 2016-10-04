@@ -1,42 +1,42 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [net-next 08/13] fsl/fman: check pcsphy pointer before use
-Date: Tue, 4 Oct 2016 14:44:12 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB01E2ED3@AcuExch.aculab.com>
-References: <1475566379-5078-1-git-send-email-madalin.bucur@nxp.com>
- <1475566379-5078-9-git-send-email-madalin.bucur@nxp.com>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [PATCH v2 net-next 5/7] xen-netback: process guest rx
+ packets in batches
+Date: Tue, 4 Oct 2016 15:51:04 +0100
+Message-ID: <f26482a6-5f6f-126e-ae72-6dfcbbafd58c@citrix.com>
+References: <1475573358-32414-1-git-send-email-paul.durrant@citrix.com>
+ <1475573358-32414-6-git-send-email-paul.durrant@citrix.com>
+ <20161004124744.GC30836@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "linuxdev.baldrick@gmail.com" <linuxdev.baldrick@gmail.com>,
-        "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "'madalin.bucur@nxp.com'" <madalin.bucur@nxp.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1475566379-5078-9-git-send-email-madalin.bucur@nxp.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, Wei Liu <wei.liu2@citrix.com>,
+        David Vrabel <david.vrabel@citrix.com>,
+        <xen-devel@lists.xenproject.org>
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+        Paul Durrant <paul.durrant@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:16053 "EHLO SMTP.CITRIX.COM"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751527AbcJDOvk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 4 Oct 2016 10:51:40 -0400
+In-Reply-To: <20161004124744.GC30836@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Madalin Bucur
-> Sent: 04 October 2016 08:33
-> Subject: [net-next 08/13] fsl/fman: check pcsphy pointer before use
-..
-> --- a/drivers/net/ethernet/freescale/fman/fman_memac.c
-> +++ b/drivers/net/ethernet/freescale/fman/fman_memac.c
-> @@ -507,6 +507,9 @@ static void setup_sgmii_internal_phy(struct fman_mac *memac,
->  {
->  	u16 tmp_reg16;
+On 04/10/16 13:47, Konrad Rzeszutek Wilk wrote:
+> On Tue, Oct 04, 2016 at 10:29:16AM +0100, Paul Durrant wrote:
+>> From: David Vrabel <david.vrabel@citrix.com>
+>>
+>> Instead of only placing one skb on the guest rx ring at a time, process
+>> a batch of up-to 64.  This improves performance by ~10% in some tests.
 > 
-> +	if (WARN_ON(!memac->pcsphy))
-> +		return;
-> +
+> And does it regress latency workloads?
 
-Why?
+No. Because the loop outside of these batches is only checking for a
+fatal error condition or a disconnection.
 
-Either it can validly be NULL in which case you don't want the message.
-Or it shouldn't be NULL in which case you need to find and fix the bug.
-The later kernel OOPS will make the bug much easier to find.
+> What are those 'some tests' you speak off?
 
-	David
+I think it was aggregate intrahost, but I don't remember exactly.
+
+David
