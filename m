@@ -1,83 +1,110 @@
-From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Subject: Re: [PATCH net-next 1/2] net: phy: Add Wake-on-LAN driver for
- Microsemi PHYs.
-Date: Tue, 4 Oct 2016 19:42:51 +0530
-Message-ID: <20161004141250.GA29274@microsemi.com>
-References: <1475064078-22310-1-git-send-email-Raju.Lakkaraju@microsemi.com>
- <1475064078-22310-2-git-send-email-Raju.Lakkaraju@microsemi.com>
- <20160928162705.GB25553@lunn.ch>
-Reply-To: <Raju.Lakkaraju@microsemi.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH 2/7] ethtool: avoid resource leak of strings in
+ do_gprivflags
+Date: Tue, 4 Oct 2016 10:02:24 -0400
+Message-ID: <20161004140223.GA12675@tuxdriver.com>
+References: <1475265381-28937-1-git-send-email-linville@tuxdriver.com>
+ <1475265381-28937-3-git-send-email-linville@tuxdriver.com>
+ <20161003175426.GC43474@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <f.fainelli@gmail.com>,
-        <Allan.Nielsen@microsemi.com>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Jarod Wilson <jarod@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-dm3nam03on0055.outbound.protection.outlook.com ([104.47.41.55]:3040
-        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750781AbcJDONj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 4 Oct 2016 10:13:39 -0400
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:43348 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751862AbcJDOPR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 10:15:17 -0400
 Content-Disposition: inline
-In-Reply-To: <20160928162705.GB25553@lunn.ch>
+In-Reply-To: <20161003175426.GC43474@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+On Mon, Oct 03, 2016 at 01:54:26PM -0400, Jarod Wilson wrote:
+> On Fri, Sep 30, 2016 at 03:56:16PM -0400, John W. Linville wrote:
+> > Coverity issue: 1363119
+> > Fixes: e1ee596326ae ("Add support for querying and setting private flags")
+> > 
+> > Signed-off-by: John W. Linville <linville@tuxdriver.com>
+> > ---
+> >  ethtool.c | 18 +++++++++++++-----
+> >  1 file changed, 13 insertions(+), 5 deletions(-)
+> > 
+> > diff --git a/ethtool.c b/ethtool.c
+> > index aa3ef5ed2f75..0885a61097ad 100644
+> > --- a/ethtool.c
+> > +++ b/ethtool.c
+> > @@ -4205,7 +4205,7 @@ static int do_gprivflags(struct cmd_context *ctx)
+> >  	struct ethtool_gstrings *strings;
+> >  	struct ethtool_value flags;
+> >  	unsigned int i;
+> > -	int max_len = 0, cur_len;
+> > +	int max_len = 0, cur_len, rc;
+> >  
+> >  	if (ctx->argc != 0)
+> >  		exit_bad_args();
+> > @@ -4215,11 +4215,13 @@ static int do_gprivflags(struct cmd_context *ctx)
+> >  				1);
+> >  	if (!strings) {
+> >  		perror("Cannot get private flag names");
+> > -		return 1;
+> > +		rc = 1;
+> > +		goto err;
+> 
+> This goto looks redundant, since all you're doing at err is re-checking if
+> strings is non-null to free it.
 
-Thank you for code review and valuable comments.
+True, the original return is just as good there. And since strings
+is non-NULL for everything after that, the NULL check at error can
+be eliminated as well...
 
-On Wed, Sep 28, 2016 at 06:27:05PM +0200, Andrew Lunn wrote:
-> EXTERNAL EMAIL
-> 
-> 
-> > +#define MSCC_PHY_WOL_MAC_CONTROL       27
-> > +#define EDGE_RATE_CNTL_POS             5
-> > +#define EDGE_RATE_CNTL_MASK            0x00E0
-> 
-> This patch does not require these two #defines.
-> 
-> Please indicate in the cover note if the patches depends on other
-> patches in order to cleanly apply. Or if these patches are going to
-> conflict with some other patches.
-> 
+Thanks!
 
-Accepted. I will remove those 2 defines.
+John
 
-> > +     reg_val = phy_read(phydev, MSCC_PHY_WOL_MAC_CONTROL);
-> > +     if (wol_conf->wolopts & WAKE_MAGICSECURE)
-> > +             reg_val |= SECURE_ON_ENABLE;
-> > +     else
-> > +             reg_val &= ~SECURE_ON_ENABLE;
-> > +     phy_write(phydev, MSCC_PHY_WOL_MAC_CONTROL, reg_val);
+> >  	if (strings->len == 0) {
+> >  		fprintf(stderr, "No private flags defined\n");
+> > -		return 1;
+> > +		rc = 1;
+> > +		goto err;
+> >  	}
+> >  	if (strings->len > 32) {
+> >  		/* ETHTOOL_GPFLAGS can only cover 32 flags */
+> > @@ -4230,7 +4232,8 @@ static int do_gprivflags(struct cmd_context *ctx)
+> >  	flags.cmd = ETHTOOL_GPFLAGS;
+> >  	if (send_ioctl(ctx, &flags)) {
+> >  		perror("Cannot get private flags");
+> > -		return 1;
+> > +		rc = 1;
+> > +		goto err;
+> >  	}
+> >  
+> >  	/* Find longest string and align all strings accordingly */
+> > @@ -4248,7 +4251,12 @@ static int do_gprivflags(struct cmd_context *ctx)
+> >  		       (const char *)strings->data + i * ETH_GSTRING_LEN,
+> >  		       (flags.data & (1U << i)) ? "on" : "off");
+> >  
+> > -	return 0;
+> > +	rc = 0;
 > > +
-> > +     if (wol_conf->wolopts & WAKE_MAGICSECURE) {
-> > +             reg_val = wol_conf->sopass[4] << 8;
-> > +             reg_val |= wol_conf->sopass[5];
-> > +             phy_write(phydev, MSCC_PHY_WOL_LOWER_PASSWD, reg_val);
-> > +             reg_val = wol_conf->sopass[2] << 8;
-> > +             reg_val |= wol_conf->sopass[3];
-> > +             phy_write(phydev, MSCC_PHY_WOL_MID_PASSWD, reg_val);
-> > +             reg_val = wol_conf->sopass[0] << 8;
-> > +             reg_val |= wol_conf->sopass[1];
-> > +             phy_write(phydev, MSCC_PHY_WOL_UPPER_PASSWD, reg_val);
-> > +     } else {
-> > +             phy_write(phydev, MSCC_PHY_WOL_LOWER_PASSWD, 0);
-> > +             phy_write(phydev, MSCC_PHY_WOL_MID_PASSWD, 0);
-> > +             phy_write(phydev, MSCC_PHY_WOL_UPPER_PASSWD, 0);
-> > +     }
+> > +err:
+> > +	if (strings)
+> > +		free(strings);
+> > +	return rc;
+> >  }
+> >  
+> >  static int do_sprivflags(struct cmd_context *ctx)
+> > -- 
+> > 2.7.4
+> > 
 > 
-> Wouldn't it be better to set the password, and then enable the
-> password feature?
+> -- 
+> Jarod Wilson
+> jarod@redhat.com
+> 
+> 
 > 
 
-Accepted. I will change.
-
-> I don't know much about WOL. Hopefully Florian will add further
-> comments.
-> 
->          Andrew
-
----
-Thanks,
-Raju.
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
