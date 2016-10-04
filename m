@@ -1,31 +1,36 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH v4 2/2] libxt_hashlimit: Create revision 2 of
- xt_hashlimit to support higher pps rates
-Date: Tue, 4 Oct 2016 08:57:57 +0200
-Message-ID: <20161004065757.GB13023@salvia>
-References: <20160926190852.GB10252@akamai.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v5 net-next] net: phy: Add Edge-rate driver for
+ Microsemi PHYs.
+Date: Tue, 04 Oct 2016 03:01:34 -0400 (EDT)
+Message-ID: <20161004.030134.1142321103427028880.davem@davemloft.net>
+References: <1475479393-24308-1-git-send-email-Raju.Lakkaraju@microsemi.com>
+        <20161004.004859.1105270097322633239.davem@davemloft.net>
+        <20161004065401.GA6097@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kaber@trash.net, kadlec@blackhole.kfki.hu, johunt@akamai.com,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, pai.vishwain@gmail.com
-To: Vishwanath Pai <vpai@akamai.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160926190852.GB10252@akamai.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        Allan.Nielsen-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org
+To: andrew-g2DYL2Zd6BY@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20161004065401.GA6097-g2DYL2Zd6BY@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 26, 2016 at 03:08:52PM -0400, Vishwanath Pai wrote:
-> libxt_hashlimit: Create revision 2 of xt_hashlimit to support higher pps
-> rates
-> 
-> Create a new revision for the hashlimit iptables extension module. Rev 2
-> will support higher pps of upto 1 million, Version 1 supports only 10k.
-> 
-> To support this we have to increase the size of the variables avg and
-> burst in hashlimit_cfg to 64-bit. Create two new structs hashlimit_cfg2
-> and xt_hashlimit_mtinfo2 and also create newer versions of all the
-> functions for match, checkentry and destory.
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Date: Tue, 4 Oct 2016 08:54:01 +0200
 
-Also applied, thanks.
+> Oh dear. It was not ready for acceptance yet. I guess you missed all
+> the discussion because it was attached to the previous version of the
+> patch.
+> 
+> Raju you now need to submit fixup patches relative to the version
+> David has accepted, to fix the issues we were discussing.
+
+My bad, I'm trying to queue everything up for the merge window
+pull request.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
