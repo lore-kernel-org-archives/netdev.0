@@ -1,50 +1,41 @@
 From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] net: axienet: Add missing \n to end of dev_err messages
-Date: Tue,  4 Oct 2016 12:11:41 +0100
-Message-ID: <20161004111141.11768-1-colin.king@canonical.com>
+Subject: [PATCH] net: ps3_gelic: Add missing \n to end of deb_dbg message
+Date: Tue,  4 Oct 2016 12:15:54 +0100
+Message-ID: <20161004111554.11881-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8bit
 Cc: linux-kernel@vger.kernel.org
-To: Anirudha Sarangi <anirudh@xilinx.com>,
-        John Linn <John.Linn@xilinx.com>,
-        Michal Simek <michal.simek@xilinx.com>,
-        =?UTF-8?q?S=C3=B6ren=20Brinkmann?= <soren.brinkmann@xilinx.com>,
-        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Geoff Levand <geoff@infradead.org>,
+        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+        Paul Mackerras <paulus@samba.org>,
+        Michael Ellerman <mpe@ellerman.id.au>, netdev@vger.kernel.org,
+        linuxppc-dev@lists.ozlabs.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Colin Ian King <colin.king@canonical.com>
 
-Trival fix, dev_err messages are missing a \n, so add it.
+Trival fix, dev_dbg message is missing a \n, so add it.
 
 Signed-off-by: Colin Ian King <colin.king@canonical.com>
 ---
- drivers/net/ethernet/xilinx/xilinx_axienet_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/toshiba/ps3_gelic_net.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-index 69e2a83..35f9f97 100644
---- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-+++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-@@ -818,7 +818,7 @@ static irqreturn_t axienet_tx_irq(int irq, void *_ndev)
- 		goto out;
+diff --git a/drivers/net/ethernet/toshiba/ps3_gelic_net.c b/drivers/net/ethernet/toshiba/ps3_gelic_net.c
+index bc258d7..272f2b1 100644
+--- a/drivers/net/ethernet/toshiba/ps3_gelic_net.c
++++ b/drivers/net/ethernet/toshiba/ps3_gelic_net.c
+@@ -1769,7 +1769,7 @@ static int ps3_gelic_driver_probe(struct ps3_system_bus_device *dev)
+ 	gelic_ether_setup_netdev_ops(netdev, &card->napi);
+ 	result = gelic_net_setup_netdev(netdev, card);
+ 	if (result) {
+-		dev_dbg(&dev->core, "%s: setup_netdev failed %d",
++		dev_dbg(&dev->core, "%s: setup_netdev failed %d\n",
+ 			__func__, result);
+ 		goto fail_setup_netdev;
  	}
- 	if (!(status & XAXIDMA_IRQ_ALL_MASK))
--		dev_err(&ndev->dev, "No interrupts asserted in Tx path");
-+		dev_err(&ndev->dev, "No interrupts asserted in Tx path\n");
- 	if (status & XAXIDMA_IRQ_ERROR_MASK) {
- 		dev_err(&ndev->dev, "DMA Tx error 0x%x\n", status);
- 		dev_err(&ndev->dev, "Current BD is at: 0x%x\n",
-@@ -867,7 +867,7 @@ static irqreturn_t axienet_rx_irq(int irq, void *_ndev)
- 		goto out;
- 	}
- 	if (!(status & XAXIDMA_IRQ_ALL_MASK))
--		dev_err(&ndev->dev, "No interrupts asserted in Rx path");
-+		dev_err(&ndev->dev, "No interrupts asserted in Rx path\n");
- 	if (status & XAXIDMA_IRQ_ERROR_MASK) {
- 		dev_err(&ndev->dev, "DMA Rx error 0x%x\n", status);
- 		dev_err(&ndev->dev, "Current BD is at: 0x%x\n",
 -- 
 2.9.3
