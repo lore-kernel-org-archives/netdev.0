@@ -1,7 +1,7 @@
 From: Madalin Bucur <madalin.bucur@nxp.com>
-Subject: [net-next 03/13] fsl/fman: small fixes
-Date: Tue, 4 Oct 2016 10:32:49 +0300
-Message-ID: <1475566379-5078-4-git-send-email-madalin.bucur@nxp.com>
+Subject: [net-next 04/13] fsl/fman: use of_get_phy_mode()
+Date: Tue, 4 Oct 2016 10:32:50 +0300
+Message-ID: <1475566379-5078-5-git-send-email-madalin.bucur@nxp.com>
 References: <1475566379-5078-1-git-send-email-madalin.bucur@nxp.com>
 Reply-To: madalin.bucur@nxp.com
 Mime-Version: 1.0
@@ -25,78 +25,72 @@ List-Id: netdev.vger.kernel.org
 
 From: Madalin Bucur <madalin.bucur@freescale.com>
 
-Make module params static, proper NULL checks, remove __iomem label
-when misused.
-
 Signed-off-by: Madalin Bucur <madalin.bucur@freescale.com>
 ---
- drivers/net/ethernet/freescale/fman/fman.c      | 6 +++---
- drivers/net/ethernet/freescale/fman/fman_port.c | 8 +++++---
- 2 files changed, 8 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/freescale/fman/mac.c | 33 ++-----------------------------
+ 1 file changed, 2 insertions(+), 31 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fman/fman.c b/drivers/net/ethernet/freescale/fman/fman.c
-index ef5f228..fb25748 100644
---- a/drivers/net/ethernet/freescale/fman/fman.c
-+++ b/drivers/net/ethernet/freescale/fman/fman.c
-@@ -2462,7 +2462,7 @@ EXPORT_SYMBOL(fman_get_mem_region);
-  * particular forwarding scenarios that add extra headers to the
-  * forwarded frame.
-  */
--int fsl_fm_rx_extra_headroom = FSL_FM_RX_EXTRA_HEADROOM;
-+static int fsl_fm_rx_extra_headroom = FSL_FM_RX_EXTRA_HEADROOM;
- module_param(fsl_fm_rx_extra_headroom, int, 0);
- MODULE_PARM_DESC(fsl_fm_rx_extra_headroom, "Extra headroom for Rx buffers");
+diff --git a/drivers/net/ethernet/freescale/fman/mac.c b/drivers/net/ethernet/freescale/fman/mac.c
+index e33d9d2..f94fad7 100644
+--- a/drivers/net/ethernet/freescale/fman/mac.c
++++ b/drivers/net/ethernet/freescale/fman/mac.c
+@@ -583,31 +583,6 @@ static void setup_memac(struct mac_device *mac_dev)
  
-@@ -2475,7 +2475,7 @@ MODULE_PARM_DESC(fsl_fm_rx_extra_headroom, "Extra headroom for Rx buffers");
-  * Could be overridden once, at boot-time, via the
-  * fm_set_max_frm() callback.
-  */
--int fsl_fm_max_frm = FSL_FM_MAX_FRAME_SIZE;
-+static int fsl_fm_max_frm = FSL_FM_MAX_FRAME_SIZE;
- module_param(fsl_fm_max_frm, int, 0);
- MODULE_PARM_DESC(fsl_fm_max_frm, "Maximum frame size, across all interfaces");
+ static DEFINE_MUTEX(eth_lock);
  
-@@ -2868,7 +2868,7 @@ static struct fman *read_dts_node(struct platform_device *of_dev)
+-static const char phy_str[][11] = {
+-	[PHY_INTERFACE_MODE_MII]		= "mii",
+-	[PHY_INTERFACE_MODE_GMII]		= "gmii",
+-	[PHY_INTERFACE_MODE_SGMII]		= "sgmii",
+-	[PHY_INTERFACE_MODE_TBI]		= "tbi",
+-	[PHY_INTERFACE_MODE_RMII]		= "rmii",
+-	[PHY_INTERFACE_MODE_RGMII]		= "rgmii",
+-	[PHY_INTERFACE_MODE_RGMII_ID]		= "rgmii-id",
+-	[PHY_INTERFACE_MODE_RGMII_RXID]	= "rgmii-rxid",
+-	[PHY_INTERFACE_MODE_RGMII_TXID]	= "rgmii-txid",
+-	[PHY_INTERFACE_MODE_RTBI]		= "rtbi",
+-	[PHY_INTERFACE_MODE_XGMII]		= "xgmii"
+-};
+-
+-static phy_interface_t __pure __attribute__((nonnull)) str2phy(const char *str)
+-{
+-	int i;
+-
+-	for (i = 0; i < ARRAY_SIZE(phy_str); i++)
+-		if (strcmp(str, phy_str[i]) == 0)
+-			return (phy_interface_t)i;
+-
+-	return PHY_INTERFACE_MODE_MII;
+-}
+-
+ static const u16 phy2speed[] = {
+ 	[PHY_INTERFACE_MODE_MII]		= SPEED_100,
+ 	[PHY_INTERFACE_MODE_GMII]		= SPEED_1000,
+@@ -686,7 +661,6 @@ static int mac_probe(struct platform_device *_of_dev)
+ 	struct resource		 res;
+ 	struct mac_priv_s	*priv;
+ 	const u8		*mac_addr;
+-	const char		*char_prop;
+ 	const u32		*u32_prop;
+ 	u8			fman_id;
  
- 	fman->dts_params.base_addr =
- 		devm_ioremap(&of_dev->dev, phys_base_addr, mem_size);
--	if (fman->dts_params.base_addr == 0) {
-+	if (!fman->dts_params.base_addr) {
- 		dev_err(&of_dev->dev, "%s: devm_ioremap() failed\n", __func__);
- 		goto fman_free;
+@@ -870,15 +844,12 @@ static int mac_probe(struct platform_device *_of_dev)
  	}
-diff --git a/drivers/net/ethernet/freescale/fman/fman_port.c b/drivers/net/ethernet/freescale/fman/fman_port.c
-index 6de808e..8b043e7 100644
---- a/drivers/net/ethernet/freescale/fman/fman_port.c
-+++ b/drivers/net/ethernet/freescale/fman/fman_port.c
-@@ -1477,7 +1477,8 @@ EXPORT_SYMBOL(fman_port_cfg_buf_prefix_content);
-  */
- int fman_port_disable(struct fman_port *port)
- {
--	u32 __iomem *bmi_cfg_reg, *bmi_status_reg, tmp;
-+	u32 __iomem *bmi_cfg_reg, *bmi_status_reg;
-+	u32 tmp;
- 	bool rx_port, failure = false;
- 	int count;
  
-@@ -1553,7 +1554,8 @@ EXPORT_SYMBOL(fman_port_disable);
-  */
- int fman_port_enable(struct fman_port *port)
- {
--	u32 __iomem *bmi_cfg_reg, tmp;
-+	u32 __iomem *bmi_cfg_reg;
-+	u32 tmp;
- 	bool rx_port;
+ 	/* Get the PHY connection type */
+-	char_prop = (const char *)of_get_property(mac_node,
+-						  "phy-connection-type", NULL);
+-	if (!char_prop) {
++	priv->phy_if = of_get_phy_mode(mac_node);
++	if (priv->phy_if < 0) {
+ 		dev_warn(dev,
+ 			 "of_get_property(%s, phy-connection-type) failed. Defaulting to MII\n",
+ 			 mac_node->full_name);
+ 		priv->phy_if = PHY_INTERFACE_MODE_MII;
+-	} else {
+-		priv->phy_if = str2phy(char_prop);
+ 	}
  
- 	if (!is_init_done(port->cfg))
-@@ -1743,7 +1745,7 @@ static int fman_port_probe(struct platform_device *of_dev)
- 
- 	port->dts_params.base_addr = devm_ioremap(port->dev, res.start,
- 						  resource_size(&res));
--	if (port->dts_params.base_addr == 0)
-+	if (!port->dts_params.base_addr)
- 		dev_err(port->dev, "%s: devm_ioremap() failed\n", __func__);
- 
- 	dev_set_drvdata(&of_dev->dev, port);
+ 	priv->speed		= phy2speed[priv->phy_if];
 -- 
 2.1.0
