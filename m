@@ -1,97 +1,77 @@
-From: <rrmarketing@chinesport.it>
-Subject: 19077 netdev
-Date: Tue, 04 Oct 2016 09:51:30 -0000
-Message-ID: <147557469040.13761.6657227397585012148@mtu-net.ru>
+From: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
+Subject: Re: [PATCH v5 net-next] net: phy: Add Edge-rate driver for Microsemi
+ PHYs.
+Date: Tue, 4 Oct 2016 15:33:45 +0530
+Message-ID: <20161004100344.GA31709@microsemi.com>
+References: <1475479393-24308-1-git-send-email-Raju.Lakkaraju@microsemi.com>
+ <20161004.004859.1105270097322633239.davem@davemloft.net>
+ <20161004065401.GA6097@lunn.ch>
+Reply-To: <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: application/zip; name="INFO_782456047579_netdev.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ppp91-79-214-139.pppoe.mtu-net.ru ([91.79.214.139]:59067 "HELO
-        mtu-net.ru" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-        id S1754226AbcJDJvf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 4 Oct 2016 05:51:35 -0400
-Content-Disposition: attachment
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        <Allan.Nielsen-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
+To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20161004065401.GA6097-g2DYL2Zd6BY@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-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
+Hi Andrew,
+
+Thank you for comments. I will fix and send the patch.
+
+Thanks,
+Raju.
+
+On Tue, Oct 04, 2016 at 08:54:01AM +0200, Andrew Lunn wrote:
+> EXTERNAL EMAIL
+> 
+> 
+> On Tue, Oct 04, 2016 at 12:48:59AM -0400, David Miller wrote:
+> > From: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
+> > Date: Mon, 3 Oct 2016 12:53:13 +0530
+> >
+> > > From: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
+> > >
+> > > Edge-rate:
+> > > As system and networking speeds increase, a signal's output transition,
+> > > also know as the edge rate or slew rate (V/ns), takes on greater importance
+> > > because high-speed signals come with a price. That price is an assortment of
+> > > interference problems like ringing on the line, signal overshoot and
+> > > undershoot, extended signal settling times, crosstalk noise, transmission
+> > > line reflections, false signal detection by the receiving device and
+> > > electromagnetic interference (EMI) -- all of which can negate the potential
+> > > gains designers are seeking when they try to increase system speeds through
+> > > the use of higher performance logic devices. The fact is, faster signaling
+> > > edge rates can cause a higher level of electrical noise or other type of
+> > > interference that can actually lead to slower line speeds and lower maximum
+> > > system frequencies. This parameter allow the board designers to change the
+> > > driving strange, and thereby change the EMI behavioral.
+> > >
+> > > Edge-rate parameters (vddmac, edge-slowdown) get from Device Tree.
+> > >
+> > > Tested on Beaglebone Black with VSC 8531 PHY.
+> > >
+> > > Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
+> >
+> > Applied, thanks.
+> 
+> Oh dear. It was not ready for acceptance yet. I guess you missed all
+> the discussion because it was attached to the previous version of the
+> patch.
+> 
+> Raju you now need to submit fixup patches relative to the version
+> David has accepted, to fix the issues we were discussing.
+> 
+
+Accepted.
+
+>       Andrew
+> 
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
