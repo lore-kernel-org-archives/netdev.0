@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 2/3] i40e: fix MSI-X vector redistribution if hw limit is reached
-Date: Mon,  3 Oct 2016 19:25:02 -0700
-Message-ID: <1475547903-22168-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 1/3] i40e: check if vectors are already depleted when doing VMDq allocation
+Date: Mon,  3 Oct 2016 19:25:01 -0700
+Message-ID: <1475547903-22168-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1475547903-22168-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Stefan Assmann <sassmann@kpanic.de>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -11,126 +11,63 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:52990 "EHLO mga11.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751662AbcJDCZG (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 3 Oct 2016 22:25:06 -0400
+        id S1751702AbcJDCZF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 3 Oct 2016 22:25:05 -0400
 In-Reply-To: <1475547903-22168-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Stefan Assmann <sassmann@kpanic.de>
 
-The driver allocates 1 vector per CPU thread and the current hardware
-limit for vectors is 129 per PF. On systems with 128 or more threads
-this currently means all vectors are used by the PF leaving no room for
-additional features like VMDq, iWARP, etc...
-The code that should redistribute the vectors in this case is broken and
-never triggers. Fixed the code so that it actually triggers if the
-hardware limit is reached and adjust the number of queue pairs
-accordingly.
-Also the number of initially requested iWARP vectors was not properly
-saved when the vector limit was reached, and therefore always zero.
-
-Comparison with debug statement.
-Before:
-i40e 0000:2d:00.0: VMDq disabled, not enough MSI-X vectors
-i40e 0000:2d:00.0: IWARP disabled, not enough MSI-X vectors
-i40e 00.0 MSI-X vector distribution: PF 128, VMDq 0, FDSB 0, iWARP 0
-After:
-i40e 0000:2d:00.0: MSI-X vector limit reached, attempting to redistribute vectors
-i40e 00.0 MSI-X vector distribution: PF 78, VMDq 8, FDSB 0, iWARP 42
+During MSI-X vector allocation for VMDq, a check for "no vectors left"
+was missing, add it. This prevents more vectors to be allocated than
+available.
 
 Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 38 +++++++++++++++++------------
- 1 file changed, 22 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 27 ++++++++++++++++-----------
+ 1 file changed, 16 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 66d2ca0..ca7dd43 100644
+index 8176596..66d2ca0 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -7661,6 +7661,8 @@ static int i40e_init_msix(struct i40e_pf *pf)
- #endif
- 	/* can we reserve enough for iWARP? */
- 	if (pf->flags & I40E_FLAG_IWARP_ENABLED) {
-+		iwarp_requested = pf->num_iwarp_msix;
-+
- 		if (!vectors_left)
- 			pf->num_iwarp_msix = 0;
- 		else if (vectors_left < pf->num_iwarp_msix)
-@@ -7702,21 +7704,6 @@ static int i40e_init_msix(struct i40e_pf *pf)
- 		pf->msix_entries[i].entry = i;
- 	v_actual = i40e_reserve_msix_vectors(pf, v_budget);
+@@ -7674,18 +7674,23 @@ static int i40e_init_msix(struct i40e_pf *pf)
+ 		int vmdq_vecs_wanted = pf->num_vmdq_vsis * pf->num_vmdq_qps;
+ 		int vmdq_vecs = min_t(int, vectors_left, vmdq_vecs_wanted);
  
--	if (v_actual != v_budget) {
--		/* If we have limited resources, we will start with no vectors
--		 * for the special features and then allocate vectors to some
--		 * of these features based on the policy and at the end disable
--		 * the features that did not get any vectors.
+-		/* if we're short on vectors for what's desired, we limit
+-		 * the queues per vmdq.  If this is still more than are
+-		 * available, the user will need to change the number of
+-		 * queues/vectors used by the PF later with the ethtool
+-		 * channels command
 -		 */
--		iwarp_requested = pf->num_iwarp_msix;
--		pf->num_iwarp_msix = 0;
--#ifdef I40E_FCOE
--		pf->num_fcoe_qps = 0;
--		pf->num_fcoe_msix = 0;
--#endif
--		pf->num_vmdq_msix = 0;
--	}
--
- 	if (v_actual < I40E_MIN_MSIX) {
- 		pf->flags &= ~I40E_FLAG_MSIX_ENABLED;
- 		kfree(pf->msix_entries);
-@@ -7730,9 +7717,16 @@ static int i40e_init_msix(struct i40e_pf *pf)
- 		pf->num_lan_qps = 1;
- 		pf->num_lan_msix = 1;
+-		if (vmdq_vecs < vmdq_vecs_wanted)
+-			pf->num_vmdq_qps = 1;
+-		pf->num_vmdq_msix = pf->num_vmdq_qps;
++		if (!vectors_left) {
++			pf->num_vmdq_msix = 0;
++			pf->num_vmdq_qps = 0;
++		} else {
++			/* if we're short on vectors for what's desired, we limit
++			 * the queues per vmdq.  If this is still more than are
++			 * available, the user will need to change the number of
++			 * queues/vectors used by the PF later with the ethtool
++			 * channels command
++			 */
++			if (vmdq_vecs < vmdq_vecs_wanted)
++				pf->num_vmdq_qps = 1;
++			pf->num_vmdq_msix = pf->num_vmdq_qps;
  
--	} else if (v_actual != v_budget) {
-+	} else if (!vectors_left) {
-+		/* If we have limited resources, we will start with no vectors
-+		 * for the special features and then allocate vectors to some
-+		 * of these features based on the policy and at the end disable
-+		 * the features that did not get any vectors.
-+		 */
- 		int vec;
- 
-+		dev_info(&pf->pdev->dev,
-+			 "MSI-X vector limit reached, attempting to redistribute vectors\n");
- 		/* reserve the misc vector */
- 		vec = v_actual - 1;
- 
-@@ -7740,6 +7734,10 @@ static int i40e_init_msix(struct i40e_pf *pf)
- 		pf->num_vmdq_msix = 1;    /* force VMDqs to only one vector */
- 		pf->num_vmdq_vsis = 1;
- 		pf->num_vmdq_qps = 1;
-+#ifdef I40E_FCOE
-+		pf->num_fcoe_qps = 0;
-+		pf->num_fcoe_msix = 0;
-+#endif
- 		pf->flags &= ~I40E_FLAG_FD_SB_ENABLED;
- 
- 		/* partition out the remaining vectors */
-@@ -7775,6 +7773,7 @@ static int i40e_init_msix(struct i40e_pf *pf)
- 			pf->num_lan_msix = min_t(int,
- 			       (vec - (pf->num_iwarp_msix + pf->num_vmdq_vsis)),
- 							      pf->num_lan_msix);
-+			pf->num_lan_qps = pf->num_lan_msix;
- #ifdef I40E_FCOE
- 			/* give one vector to FCoE */
- 			if (pf->flags & I40E_FLAG_FCOE_ENABLED) {
-@@ -7804,6 +7803,13 @@ static int i40e_init_msix(struct i40e_pf *pf)
- 		pf->flags &= ~I40E_FLAG_FCOE_ENABLED;
+-		v_budget += vmdq_vecs;
+-		vectors_left -= vmdq_vecs;
++			v_budget += vmdq_vecs;
++			vectors_left -= vmdq_vecs;
++		}
  	}
- #endif
-+	i40e_debug(&pf->hw, I40E_DEBUG_INIT,
-+		   "MSI-X vector distribution: PF %d, VMDq %d, FDSB %d, iWARP %d\n",
-+		   pf->num_lan_msix,
-+		   pf->num_vmdq_msix * pf->num_vmdq_vsis,
-+		   pf->num_fdsb_msix,
-+		   pf->num_iwarp_msix);
-+
- 	return v_actual;
- }
  
+ 	pf->msix_entries = kcalloc(v_budget, sizeof(struct msix_entry),
 -- 
 2.7.4
