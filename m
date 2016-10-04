@@ -1,46 +1,56 @@
-From: Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>
-Subject: [PATCH][RESEND] dt-bindings: net: renesas-ravb: Add support for R8A7796 RAVB
-Date: Tue,  4 Oct 2016 19:45:46 +0300
-Message-ID: <1475599546-29209-1-git-send-email-laurent.pinchart+renesas@ideasonboard.com>
-Cc: linux-renesas-soc@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Pravin Shelar <pshelar@ovn.org>
+Subject: Re: [PATCH net-next] openvswitch: correctly fragment packet with mpls headers
+Date: Tue, 4 Oct 2016 09:53:25 -0700
+Message-ID: <CAOrHB_C55GM=AfYj43VJ-hPRZfwFxm_+8Ls2+7mck2Js1fy9-w@mail.gmail.com>
+References: <b0cb6efc9bfda8381af880f10fa6b3447f7d3d5d.1475512190.git.jbenc@redhat.com>
+ <CAOrHB_Dh=OPUTbbN7QYo9Nz4cV99-k_fT4z7jSOEcnFEDKXQEg@mail.gmail.com>
+ <20161004102458.1241605f@griffin> <20161004112804.04f25140@griffin>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        David Ahern <dsa@cumulusnetworks.com>
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay3-d.mail.gandi.net ([217.70.183.195]:49703 "EHLO
+        relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752027AbcJDQxb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 12:53:31 -0400
+Received: from mfilter49-d.gandi.net (mfilter49-d.gandi.net [217.70.178.180])
+        by relay3-d.mail.gandi.net (Postfix) with ESMTP id BF6E3A80E5
+        for <netdev@vger.kernel.org>; Tue,  4 Oct 2016 18:53:28 +0200 (CEST)
+Received: from relay3-d.mail.gandi.net ([IPv6:::ffff:217.70.183.195])
+        by mfilter49-d.gandi.net (mfilter49-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+        with ESMTP id oog2BaNOKaPU for <netdev@vger.kernel.org>;
+        Tue,  4 Oct 2016 18:53:27 +0200 (CEST)
+Received: from mail-io0-f175.google.com (mail-io0-f175.google.com [209.85.223.175])
+        (Authenticated sender: pshelar@ovn.org)
+        by relay3-d.mail.gandi.net (Postfix) with ESMTPSA id 3A80FA80C0
+        for <netdev@vger.kernel.org>; Tue,  4 Oct 2016 18:53:27 +0200 (CEST)
+Received: by mail-io0-f175.google.com with SMTP id i202so78641295ioi.2
+        for <netdev@vger.kernel.org>; Tue, 04 Oct 2016 09:53:27 -0700 (PDT)
+In-Reply-To: <20161004112804.04f25140@griffin>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add a new compatible string for the R8A7796 (M3-W) RAVB.
+On Tue, Oct 4, 2016 at 2:28 AM, Jiri Benc <jbenc@redhat.com> wrote:
+> On Tue, 4 Oct 2016 10:24:58 +0200, Jiri Benc wrote:
+>> On Mon, 3 Oct 2016 11:04:46 -0700, Pravin Shelar wrote:
+>> > This is not correct way to detect MPLS packet. inner_protocol can be
+>> > set by any tunnel device for using tunnel offloads. So this would
+>> > break the fragmentation for encapsulated packets.
+>>
+>> You're right, stupid me.
+>
+> Actually, too little caffeine in the morning. I actually did consider
+> this and I believe my patch is correct. It doesn't matter what the
+> encapsulation is, we want to fragment the *inner* packet. And this is
+> exactly what this patch does.
+>
+> Besides, the only case is MPLS anyway. I'm not aware of any code path
+> that could lead us to here, set inner protocol and not be MPLS. But
+> even if it is, it should work, provided the encapsulation header is
+> identical for all fragments and smaller than MAX_L2_LEN.
+>
 
-Signed-off-by: Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>
-Reviewed-by: Geert Uytterhoeven <geert+renesas@glider.be>
----
- Documentation/devicetree/bindings/net/renesas,ravb.txt | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-The patch has been posted to the linux-renesas-soc mailing list only, adding
-the netdev mailing list to get it upstreamed.
-
-diff --git a/Documentation/devicetree/bindings/net/renesas,ravb.txt b/Documentation/devicetree/bindings/net/renesas,ravb.txt
-index c8ac222eac67..b519503be51a 100644
---- a/Documentation/devicetree/bindings/net/renesas,ravb.txt
-+++ b/Documentation/devicetree/bindings/net/renesas,ravb.txt
-@@ -10,6 +10,7 @@ Required properties:
- 	      "renesas,etheravb-r8a7793" if the device is a part of R8A7793 SoC.
- 	      "renesas,etheravb-r8a7794" if the device is a part of R8A7794 SoC.
- 	      "renesas,etheravb-r8a7795" if the device is a part of R8A7795 SoC.
-+	      "renesas,etheravb-r8a7796" if the device is a part of R8A7796 SoC.
- 	      "renesas,etheravb-rcar-gen2" for generic R-Car Gen 2 compatible interface.
- 	      "renesas,etheravb-rcar-gen3" for generic R-Car Gen 3 compatible interface.
- 
-@@ -33,7 +34,7 @@ Optional properties:
- - interrupt-parent: the phandle for the interrupt controller that services
- 		    interrupts for this device.
- - interrupt-names: A list of interrupt names.
--		   For the R8A7795 SoC this property is mandatory;
-+		   For the R8A779[56] SoCs this property is mandatory;
- 		   it should include one entry per channel, named "ch%u",
- 		   where %u is the channel number ranging from 0 to 24.
- 		   For other SoCs this property is optional; if present
--- 
-Regards,
-
-Laurent Pinchart
+This code can be executed on encapsulated geneve or vxlan packets. So
+in that case encapsulation header would not be same for all fragments.
