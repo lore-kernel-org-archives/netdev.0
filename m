@@ -1,48 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] af_unix: fix garbage collect vs. MSG_PEEK
-Date: Mon, 03 Oct 2016 21:51:03 -0400 (EDT)
-Message-ID: <20161003.215103.2267442887041931968.davem@davemloft.net>
-References: <1475150954-10152-1-git-send-email-mszeredi@redhat.com>
+Subject: Re: [PATCH v3] net: hns: mark symbols static where possible
+Date: Mon, 03 Oct 2016 21:52:00 -0400 (EDT)
+Message-ID: <20161003.215200.2029190598743365433.davem@davemloft.net>
+References: <1475309726-21334-1-git-send-email-baoyou.xie@linaro.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        hannes@stressinduktion.org, kernel@kyup.com
-To: mszeredi@redhat.com
+Cc: yisen.zhuang@huawei.com, salil.mehta@huawei.com,
+        yankejian@huawei.com, huangdaode@hisilicon.com,
+        lisheng011@huawei.com, xieqianqian@huawei.com, fabf@skynet.be,
+        lipeng321@huawei.com, colin.king@canonical.com,
+        simon.horman@netronome.com, arnd@arndb.de, andrew@lunn.ch,
+        ivecera@redhat.com, chenny.xu@huawei.com, xypron.glpk@gmx.de,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        xie.baoyou@zte.com.cn, han.fei@zte.com.cn, tang.qiang007@zte.com.cn
+To: baoyou.xie@linaro.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1475150954-10152-1-git-send-email-mszeredi@redhat.com>
+In-Reply-To: <1475309726-21334-1-git-send-email-baoyou.xie@linaro.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Miklos Szeredi <mszeredi@redhat.com>
-Date: Thu, 29 Sep 2016 14:09:14 +0200
+From: Baoyou Xie <baoyou.xie@linaro.org>
+Date: Sat,  1 Oct 2016 16:15:26 +0800
 
-> @@ -1550,6 +1550,17 @@ static int unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
->  	return max_level;
->  }
->  
-> +static void unix_peek_fds(struct scm_cookie *scm, struct sk_buff *skb)
-> +{
-> +	scm->fp = scm_fp_dup(UNIXCB(skb).fp);
-> +	/*
-> +	 * During garbage collection it is assumed that in-flight sockets don't
-> +	 * get a new external reference.  So we need to wait until current run
-> +	 * finishes.
-> +	 */
-> +	unix_gc_barrier();
-> +}
+> We get a few warnings when building kernel with W=1:
  ...
-> @@ -266,6 +266,11 @@ void wait_for_unix_gc(void)
->  	wait_event(unix_gc_wait, gc_in_progress == false);
->  }
->  
-> +void unix_gc_barrier(void)
-> +{
-> +	spin_unlock_wait(&unix_gc_lock);
-> +}
+> In fact, these functions are only used in the file in which they are
+> declared and don't need a declaration, but can be made static.
+> So this patch marks these functions with 'static'.
+> 
+> Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
 
-Can you explain why wait_for_unix_gc() isn't appropriate?  I'm a little
-bit uncomfortable with a spinlock wait like this, and would rather see
-something like the existing helper used.
-
-Thanks.
+Still doesn't apply to net-next.
