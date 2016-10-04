@@ -1,71 +1,79 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH v2 4/4] ARM: dts: dra72-evm-revc: fix correct phy delay
-Date: Tue, 4 Oct 2016 15:14:56 +0200
-Message-ID: <20161004131456.GN11677@lunn.ch>
-References: <20161004125607.10569-1-mugunthanvnm@ti.com>
- <20161004125607.10569-5-mugunthanvnm@ti.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [net-next PATCH] drivers: net: cpsw-phy-sel: add support to configure rgmii internal delay
+Date: Tue, 4 Oct 2016 19:07:29 +0530
+Message-ID: <20161004133729.12564-1-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Tony Lindgren <tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>,
-        Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
-To: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20161004125607.10569-5-mugunthanvnm-l0cyMroinI0@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Grygorii Strashko <grygorii.strashko@ti.com>,
+        <linux-omap@vger.kernel.org>, Sekhar Nori <nsekhar@ti.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Mugunthan V N <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from devils.ext.ti.com ([198.47.26.153]:36431 "EHLO
+        devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750908AbcJDNhw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 09:37:52 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 04, 2016 at 06:26:07PM +0530, Mugunthan V N wrote:
-> The current delay settings of the phy are not the optimal value,
-> fix it with correct values.
+Add support to enable CPSW RGMII internal delay (id mode) bits
+when rgmii internal delay is configured in phy.
 
-This should be a separate patch, since it has nothing to do with impedance.
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+---
+ drivers/net/ethernet/ti/cpsw-phy-sel.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
 
-     Andrew
-
-> 
-> Signed-off-by: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
-> ---
->  arch/arm/boot/dts/dra72-evm-revc.dts | 8 ++++----
->  1 file changed, 4 insertions(+), 4 deletions(-)
-> 
-> diff --git a/arch/arm/boot/dts/dra72-evm-revc.dts b/arch/arm/boot/dts/dra72-evm-revc.dts
-> index d626cd7..8472a8c 100644
-> --- a/arch/arm/boot/dts/dra72-evm-revc.dts
-> +++ b/arch/arm/boot/dts/dra72-evm-revc.dts
-> @@ -59,16 +59,16 @@
->  &davinci_mdio {
->  	dp83867_0: ethernet-phy@2 {
->  		reg = <2>;
-> -		ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
-> -		ti,tx-internal-delay = <DP83867_RGMIIDCTL_1_NS>;
-> +		ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_25_NS>;
-> +		ti,tx-internal-delay = <DP83867_RGMIIDCTL_250_PS>;
->  		ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_8_B_NIB>;
->  		ti,min-output-imepdance;
->  	};
->  
->  	dp83867_1: ethernet-phy@3 {
->  		reg = <3>;
-> -		ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
-> -		ti,tx-internal-delay = <DP83867_RGMIIDCTL_1_NS>;
-> +		ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_25_NS>;
-> +		ti,tx-internal-delay = <DP83867_RGMIIDCTL_250_PS>;
->  		ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_8_B_NIB>;
->  		ti,min-output-imepdance;
->  	};
-> -- 
-> 2.10.0.372.g6fe1b14
-> 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/ti/cpsw-phy-sel.c b/drivers/net/ethernet/ti/cpsw-phy-sel.c
+index c3e85ac..054a8dd 100644
+--- a/drivers/net/ethernet/ti/cpsw-phy-sel.c
++++ b/drivers/net/ethernet/ti/cpsw-phy-sel.c
+@@ -30,6 +30,8 @@
+ 
+ #define AM33XX_GMII_SEL_RMII2_IO_CLK_EN	BIT(7)
+ #define AM33XX_GMII_SEL_RMII1_IO_CLK_EN	BIT(6)
++#define AM33XX_GMII_SEL_RGMII2_IDMODE	BIT(5)
++#define AM33XX_GMII_SEL_RGMII1_IDMODE	BIT(4)
+ 
+ #define GMII_SEL_MODE_MASK		0x3
+ 
+@@ -48,6 +50,7 @@ static void cpsw_gmii_sel_am3352(struct cpsw_phy_sel_priv *priv,
+ 	u32 reg;
+ 	u32 mask;
+ 	u32 mode = 0;
++	bool rgmii_id = false;
+ 
+ 	reg = readl(priv->gmii_sel);
+ 
+@@ -57,10 +60,14 @@ static void cpsw_gmii_sel_am3352(struct cpsw_phy_sel_priv *priv,
+ 		break;
+ 
+ 	case PHY_INTERFACE_MODE_RGMII:
++		mode = AM33XX_GMII_SEL_MODE_RGMII;
++		break;
++
+ 	case PHY_INTERFACE_MODE_RGMII_ID:
+ 	case PHY_INTERFACE_MODE_RGMII_RXID:
+ 	case PHY_INTERFACE_MODE_RGMII_TXID:
+ 		mode = AM33XX_GMII_SEL_MODE_RGMII;
++		rgmii_id = true;
+ 		break;
+ 
+ 	default:
+@@ -83,6 +90,13 @@ static void cpsw_gmii_sel_am3352(struct cpsw_phy_sel_priv *priv,
+ 			mode |= AM33XX_GMII_SEL_RMII2_IO_CLK_EN;
+ 	}
+ 
++	if (rgmii_id) {
++		if (slave == 0)
++			mode |= AM33XX_GMII_SEL_RGMII1_IDMODE;
++		else
++			mode |= AM33XX_GMII_SEL_RGMII2_IDMODE;
++	}
++
+ 	reg &= ~mask;
+ 	reg |= mode;
+ 
+-- 
+2.10.0.372.g6fe1b14
