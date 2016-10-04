@@ -1,79 +1,59 @@
-From: Mike Looijmans <mike.looijmans@topic.nl>
-Subject: [PATCH v2] phy: micrel.c: Enable ksz9031 energy-detect power-down mode
-Date: Tue,  4 Oct 2016 07:52:04 +0200
-Message-ID: <1475560324-23346-1-git-send-email-mike.looijmans@topic.nl>
-References: <1475499870-11465-1-git-send-email-mike.looijmans@topic.nl>
-Cc: f.fainelli@gmail.com, linux-kernel@vger.kernel.org,
-        Mike Looijmans <mike.looijmans@topic.nl>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] Add netdev all_adj_list refcnt propagation to fix
+ panic
+Date: Tue, 04 Oct 2016 02:06:28 -0400 (EDT)
+Message-ID: <20161004.020628.353742496666781216.davem@davemloft.net>
+References: <1475523782-6358-1-git-send-email-acollins@cradlepoint.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dsa@cumulusnetworks.com, netdev@vger.kernel.org, vfalico@gmail.com,
+        nikolay@cumulusnetworks.com
+To: acollins@cradlepoint.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atl4mhob12.myregisteredsite.com ([209.17.115.50]:48556 "EHLO
-        atl4mhob12.myregisteredsite.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752014AbcJDFwR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 01:52:17 -0400
-Received: from mailpod.hostingplatform.com ([10.30.71.206])
-        by atl4mhob12.myregisteredsite.com (8.14.4/8.14.4) with ESMTP id u945qC8h029638
-        for <netdev@vger.kernel.org>; Tue, 4 Oct 2016 01:52:14 -0400
-In-Reply-To: <1475499870-11465-1-git-send-email-mike.looijmans@topic.nl>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54832 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752123AbcJDGGh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 02:06:37 -0400
+In-Reply-To: <1475523782-6358-1-git-send-email-acollins@cradlepoint.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Set bit 0 in register 1C.23 to enable the EDPD feature of the
-KSZ9031 PHY. This reduces power consumption when the link is
-down.
+From: Andrew Collins <acollins@cradlepoint.com>
+Date: Mon, 3 Oct 2016 13:43:02 -0600
 
-Signed-off-by: Mike Looijmans <mike.looijmans@topic.nl>
----
-v2: Unconditionally enable EDPD mode
+> This is a respin of a patch to fix a relatively easily reproducible kernel
+> panic related to the all_adj_list handling for netdevs in recent kernels.
+> 
+> The following sequence of commands will reproduce the issue:
+> 
+> ip link add link eth0 name eth0.100 type vlan id 100
+> ip link add link eth0 name eth0.200 type vlan id 200
+> ip link add name testbr type bridge
+> ip link set eth0.100 master testbr
+> ip link set eth0.200 master testbr
+> ip link add link testbr mac0 type macvlan
+> ip link delete dev testbr
+> 
+> This creates an upper/lower tree of (excuse the poor ASCII art):
+> 
+>             /---eth0.100-eth0
+> mac0-testbr-
+>             \---eth0.200-eth0
+> 
+> When testbr is deleted, the all_adj_lists are walked, and eth0 is deleted twice from
+> the mac0 list. Unfortunately, during setup in __netdev_upper_dev_link, only one
+> reference to eth0 is added, so this results in a panic.
+> 
+> This change adds reference count propagation so things are handled properly.
+> 
+> Matthias Schiffer reported a similar crash in batman-adv:
+> 
+> https://github.com/freifunk-gluon/gluon/issues/680
+> https://www.open-mesh.org/issues/247
+> 
+> which this patch also seems to resolve.
+> 
+> Signed-off-by: Andrew Collins <acollins@cradlepoint.com>
 
- drivers/net/phy/micrel.c | 21 +++++++++++++++++++++
- 1 file changed, 21 insertions(+)
-
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index 885ac9c..081df68 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -439,6 +439,10 @@ static int ksz9021_config_init(struct phy_device *phydev)
- #define MII_KSZ9031RN_TX_DATA_PAD_SKEW	6
- #define MII_KSZ9031RN_CLK_PAD_SKEW	8
- 
-+/* MMD Address 0x1C */
-+#define MII_KSZ9031RN_EDPD		0x23
-+#define MII_KSZ9031RN_EDPD_ENABLE	BIT(0)
-+
- static int ksz9031_extended_write(struct phy_device *phydev,
- 				  u8 mode, u32 dev_addr, u32 regnum, u16 val)
- {
-@@ -510,6 +514,18 @@ static int ksz9031_center_flp_timing(struct phy_device *phydev)
- 	return genphy_restart_aneg(phydev);
- }
- 
-+/* Enable energy-detect power-down mode */
-+static int ksz9031_enable_edpd(struct phy_device *phydev)
-+{
-+	int reg;
-+
-+	reg = ksz9031_extended_read(phydev, OP_DATA, 0x1C, MII_KSZ9031RN_EDPD);
-+	if (reg < 0)
-+		return reg;
-+	return ksz9031_extended_write(phydev, OP_DATA, 0x1C, MII_KSZ9031RN_EDPD,
-+				      reg | MII_KSZ9031RN_EDPD_ENABLE);
-+}
-+
- static int ksz9031_config_init(struct phy_device *phydev)
- {
- 	const struct device *dev = &phydev->mdio.dev;
-@@ -525,6 +541,11 @@ static int ksz9031_config_init(struct phy_device *phydev)
- 	};
- 	static const char *control_skews[2] = {"txen-skew-ps", "rxdv-skew-ps"};
- 	const struct device *dev_walker;
-+	int result;
-+
-+	result = ksz9031_enable_edpd(phydev);
-+	if (result < 0)
-+		return result;
- 
- 	/* The Micrel driver has a deprecated option to place phy OF
- 	 * properties in the MAC node. Walk up the tree of devices to
--- 
-1.9.1
+Applied and queued up for -stable, thanks.
