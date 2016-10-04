@@ -1,7 +1,7 @@
 From: Madalin Bucur <madalin.bucur@nxp.com>
-Subject: [net-next 06/13] fsl/fman: return a phy_dev pointer from init
-Date: Tue, 4 Oct 2016 10:32:52 +0300
-Message-ID: <1475566379-5078-7-git-send-email-madalin.bucur@nxp.com>
+Subject: [net-next 09/13] fsl/fman: check of_get_phy_mode() return value
+Date: Tue, 4 Oct 2016 10:32:55 +0300
+Message-ID: <1475566379-5078-10-git-send-email-madalin.bucur@nxp.com>
 References: <1475566379-5078-1-git-send-email-madalin.bucur@nxp.com>
 Reply-To: madalin.bucur@nxp.com
 Mime-Version: 1.0
@@ -23,82 +23,43 @@ Sender: "Linuxppc-dev"
  <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
+For unknown compatibles avoid crashing and default to SGMII.
+
 Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
 ---
- drivers/net/ethernet/freescale/fman/mac.c | 22 +++++++++++-----------
- drivers/net/ethernet/freescale/fman/mac.h |  3 ++-
- 2 files changed, 13 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/freescale/fman/mac.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/fman/mac.c b/drivers/net/ethernet/freescale/fman/mac.c
-index dc04e61..e4378c2 100644
+index e4378c2..8fe6b3e 100644
 --- a/drivers/net/ethernet/freescale/fman/mac.c
 +++ b/drivers/net/ethernet/freescale/fman/mac.c
-@@ -469,9 +469,9 @@ static void adjust_link_memac(struct net_device *net_dev)
- /* Initializes driver's PHY state, and attaches to the PHY.
-  * Returns 0 on success.
-  */
--static int init_phy(struct net_device *net_dev,
--		    struct mac_device *mac_dev,
--		    void (*adj_lnk)(struct net_device *))
-+static struct phy_device *init_phy(struct net_device *net_dev,
-+				   struct mac_device *mac_dev,
-+				   void (*adj_lnk)(struct net_device *))
- {
- 	struct phy_device	*phy_dev;
- 	struct mac_priv_s	*priv = mac_dev->priv;
-@@ -480,7 +480,7 @@ static int init_phy(struct net_device *net_dev,
- 				 priv->phy_if);
- 	if (!phy_dev) {
- 		netdev_err(net_dev, "Could not connect to PHY\n");
--		return -ENODEV;
-+		return NULL;
+@@ -663,6 +663,7 @@ static int mac_probe(struct platform_device *_of_dev)
+ 	const u8		*mac_addr;
+ 	u32			 val;
+ 	u8			fman_id;
++	int			phy_if;
+ 
+ 	dev = &_of_dev->dev;
+ 	mac_node = dev->of_node;
+@@ -842,13 +843,14 @@ static int mac_probe(struct platform_device *_of_dev)
  	}
  
- 	/* Remove any features not supported by the controller */
-@@ -493,23 +493,23 @@ static int init_phy(struct net_device *net_dev,
+ 	/* Get the PHY connection type */
+-	priv->phy_if = of_get_phy_mode(mac_node);
+-	if (priv->phy_if < 0) {
++	phy_if = of_get_phy_mode(mac_node);
++	if (phy_if < 0) {
+ 		dev_warn(dev,
+-			 "of_get_phy_mode() for %s failed. Defaulting to MII\n",
++			 "of_get_phy_mode() for %s failed. Defaulting to SGMII\n",
+ 			 mac_node->full_name);
+-		priv->phy_if = PHY_INTERFACE_MODE_MII;
++		phy_if = PHY_INTERFACE_MODE_SGMII;
+ 	}
++	priv->phy_if = phy_if;
  
- 	mac_dev->phy_dev = phy_dev;
- 
--	return 0;
-+	return phy_dev;
- }
- 
--static int dtsec_init_phy(struct net_device *net_dev,
--			  struct mac_device *mac_dev)
-+static struct phy_device *dtsec_init_phy(struct net_device *net_dev,
-+					 struct mac_device *mac_dev)
- {
- 	return init_phy(net_dev, mac_dev, &adjust_link_dtsec);
- }
- 
--static int tgec_init_phy(struct net_device *net_dev,
--			 struct mac_device *mac_dev)
-+static struct phy_device *tgec_init_phy(struct net_device *net_dev,
-+					struct mac_device *mac_dev)
- {
- 	return init_phy(net_dev, mac_dev, adjust_link_void);
- }
- 
--static int memac_init_phy(struct net_device *net_dev,
--			  struct mac_device *mac_dev)
-+static struct phy_device *memac_init_phy(struct net_device *net_dev,
-+					 struct mac_device *mac_dev)
- {
- 	return init_phy(net_dev, mac_dev, &adjust_link_memac);
- }
-diff --git a/drivers/net/ethernet/freescale/fman/mac.h b/drivers/net/ethernet/freescale/fman/mac.h
-index 0211cc9..d7313f0 100644
---- a/drivers/net/ethernet/freescale/fman/mac.h
-+++ b/drivers/net/ethernet/freescale/fman/mac.h
-@@ -58,7 +58,8 @@ struct mac_device {
- 	bool tx_pause_active;
- 	bool promisc;
- 
--	int (*init_phy)(struct net_device *net_dev, struct mac_device *mac_dev);
-+	struct phy_device *(*init_phy)(struct net_device *net_dev,
-+				       struct mac_device *mac_dev);
- 	int (*init)(struct mac_device *mac_dev);
- 	int (*start)(struct mac_device *mac_dev);
- 	int (*stop)(struct mac_device *mac_dev);
+ 	priv->speed		= phy2speed[priv->phy_if];
+ 	priv->max_speed		= priv->speed;
 -- 
 2.1.0
