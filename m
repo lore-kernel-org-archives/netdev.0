@@ -1,65 +1,51 @@
-From: Madalin Bucur <madalin.bucur@nxp.com>
-Subject: [net-next 09/13] fsl/fman: check of_get_phy_mode() return value
-Date: Tue, 4 Oct 2016 10:32:55 +0300
-Message-ID: <1475566379-5078-10-git-send-email-madalin.bucur@nxp.com>
-References: <1475566379-5078-1-git-send-email-madalin.bucur@nxp.com>
-Reply-To: madalin.bucur@nxp.com
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linuxdev.baldrick@gmail.com, linuxppc-dev@lists.ozlabs.org,
- davem@davemloft.net, linux-kernel@vger.kernel.org
-To: <netdev@vger.kernel.org>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <1475566379-5078-1-git-send-email-madalin.bucur@nxp.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net 2/2] mlxsw: switchx2: Fix misuse of hard_header_len
+Date: Tue,  4 Oct 2016 09:46:05 +0200
+Message-ID: <1475567165-3362-3-git-send-email-jiri@resnulli.us>
+References: <1475567165-3362-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
+        eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:32928 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753096AbcJDHqL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 03:46:11 -0400
+Received: by mail-wm0-f65.google.com with SMTP id p138so18248771wmb.0
+        for <netdev@vger.kernel.org>; Tue, 04 Oct 2016 00:46:10 -0700 (PDT)
+In-Reply-To: <1475567165-3362-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-For unknown compatibles avoid crashing and default to SGMII.
+From: Yotam Gigi <yotamg@mellanox.com>
 
-Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
+In order to specify that the mlxsw switchx2 driver needs additional
+headroom for packets, there have been use of the hard_header_len field of
+the netdevice struct.
+
+This commit changes that to use needed_headroom instead, as this is the
+correct way to do that.
+
+Fixes: 31557f0f9755 ("mlxsw: Introduce Mellanox SwitchX-2 ASIC support")
+Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+Acked-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/freescale/fman/mac.c | 10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/switchx2.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/freescale/fman/mac.c b/drivers/net/ethernet/freescale/fman/mac.c
-index e4378c2..8fe6b3e 100644
---- a/drivers/net/ethernet/freescale/fman/mac.c
-+++ b/drivers/net/ethernet/freescale/fman/mac.c
-@@ -663,6 +663,7 @@ static int mac_probe(struct platform_device *_of_dev)
- 	const u8		*mac_addr;
- 	u32			 val;
- 	u8			fman_id;
-+	int			phy_if;
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
+index 377daa4..b2c5721 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
+@@ -997,7 +997,7 @@ static int mlxsw_sx_port_create(struct mlxsw_sx *mlxsw_sx, u8 local_port)
+ 	/* Each packet needs to have a Tx header (metadata) on top all other
+ 	 * headers.
+ 	 */
+-	dev->hard_header_len += MLXSW_TXHDR_LEN;
++	dev->needed_headroom = MLXSW_TXHDR_LEN;
  
- 	dev = &_of_dev->dev;
- 	mac_node = dev->of_node;
-@@ -842,13 +843,14 @@ static int mac_probe(struct platform_device *_of_dev)
- 	}
- 
- 	/* Get the PHY connection type */
--	priv->phy_if = of_get_phy_mode(mac_node);
--	if (priv->phy_if < 0) {
-+	phy_if = of_get_phy_mode(mac_node);
-+	if (phy_if < 0) {
- 		dev_warn(dev,
--			 "of_get_phy_mode() for %s failed. Defaulting to MII\n",
-+			 "of_get_phy_mode() for %s failed. Defaulting to SGMII\n",
- 			 mac_node->full_name);
--		priv->phy_if = PHY_INTERFACE_MODE_MII;
-+		phy_if = PHY_INTERFACE_MODE_SGMII;
- 	}
-+	priv->phy_if = phy_if;
- 
- 	priv->speed		= phy2speed[priv->phy_if];
- 	priv->max_speed		= priv->speed;
+ 	err = mlxsw_sx_port_module_check(mlxsw_sx_port, &usable);
+ 	if (err) {
 -- 
-2.1.0
+2.5.5
