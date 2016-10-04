@@ -1,31 +1,42 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v7 net-next] net: phy: Add Edge-rate driver for Microsemi
- PHYs.
-Date: Tue, 4 Oct 2016 16:34:50 +0200
-Message-ID: <20161004143450.GP11677@lunn.ch>
-References: <1475589845-29182-1-git-send-email-Raju.Lakkaraju@microsemi.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [net-next 08/13] fsl/fman: check pcsphy pointer before use
+Date: Tue, 4 Oct 2016 14:44:12 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB01E2ED3@AcuExch.aculab.com>
+References: <1475566379-5078-1-git-send-email-madalin.bucur@nxp.com>
+ <1475566379-5078-9-git-send-email-madalin.bucur@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        f.fainelli@gmail.com, Allan.Nielsen@microsemi.com
-To: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:38696 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751919AbcJDOey (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 4 Oct 2016 10:34:54 -0400
-Content-Disposition: inline
-In-Reply-To: <1475589845-29182-1-git-send-email-Raju.Lakkaraju@microsemi.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "linuxdev.baldrick@gmail.com" <linuxdev.baldrick@gmail.com>,
+        "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "'madalin.bucur@nxp.com'" <madalin.bucur@nxp.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1475566379-5078-9-git-send-email-madalin.bucur@nxp.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> v7:
-> - As per review comment, Removed '-'s (minus) sign in Edge rate table. 
+From: Madalin Bucur
+> Sent: 04 October 2016 08:33
+> Subject: [net-next 08/13] fsl/fman: check pcsphy pointer before use
+..
+> --- a/drivers/net/ethernet/freescale/fman/fman_memac.c
+> +++ b/drivers/net/ethernet/freescale/fman/fman_memac.c
+> @@ -507,6 +507,9 @@ static void setup_sgmii_internal_phy(struct fman_mac *memac,
+>  {
+>  	u16 tmp_reg16;
+> 
+> +	if (WARN_ON(!memac->pcsphy))
+> +		return;
+> +
 
-Still no exact match on the table. 
+Why?
 
-So if i specify a voltage of 3301, 53% slowdown it looks i will
-actually get 0% slowdown and no error message. That is not very
-helpful.
+Either it can validly be NULL in which case you don't want the message.
+Or it shouldn't be NULL in which case you need to find and fix the bug.
+The later kernel OOPS will make the bug much easier to find.
 
-	Andrew
+	David
