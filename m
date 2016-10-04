@@ -1,48 +1,136 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 6/6] mISDN: remove unused function
-Date: Sat, 24 Sep 2016 10:42:14 +0200
-Message-ID: <6975809.FmUs8oxeay@wuerfel>
-References: <1474694882-25427-1-git-send-email-baoyou.xie@linaro.org>
+From: Jose Antonio Delgado Alfonso <jose.delgado@aoifes.com>
+Subject: [ISSUE: mv88e6xxx]: Down/Up link and not forwarding
+Date: Tue, 4 Oct 2016 17:13:35 +0200
+Message-ID: <b115f9d1-4706-e3a8-e739-96d801dc524b@aoifes.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: isdn@linux-pingi.de, davem@davemloft.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, xie.baoyou@zte.com.cn
-To: Baoyou Xie <baoyou.xie@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1474694882-25427-1-git-send-email-baoyou.xie@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-relay-02-9.dondominio.net ([31.214.176.42]:43219 "EHLO
+        smtp-relay-02-9.dondominio.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751969AbcJDPRx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 11:17:53 -0400
+Received: from mail-node.dondominio.com
+        by smtp-relay.dondominio.com (Postfix) with ESMTP id 4939F42D14
+        for <netdev@vger.kernel.org>; Tue,  4 Oct 2016 17:12:44 +0200 (CEST)
+Received: from [192.168.100.105] (unknown [217.130.92.197])
+        (using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+        (No client certificate requested)
+        (Authenticated sender: jose.delgado@aoifes.com)
+        by mail-node.dondominio.com (Postfix) with ESMTPSA id D2F3C41780
+        for <netdev@vger.kernel.org>; Tue,  4 Oct 2016 17:12:43 +0200 (CEST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Saturday, September 24, 2016 1:28:02 PM CEST Baoyou Xie wrote:
-> diff --git a/drivers/isdn/mISDN/layer2.c b/drivers/isdn/mISDN/layer2.c
-> index f6ab6027..2519510 100644
-> --- a/drivers/isdn/mISDN/layer2.c
-> +++ b/drivers/isdn/mISDN/layer2.c
-> @@ -459,15 +459,6 @@ IsDISC(u_char *data)
->         return (data[0] & 0xef) == DISC;
->  }
->  
-> -inline int
-> -IsRR(u_char *data, struct layer2 *l2)
-> -{
-> -       if (test_bit(FLG_MOD128, &l2->flag))
-> -               return data[0] == RR;
-> -       else
-> -               return (data[0] & 0xf) == 1;
-> -}
-> -
->  static inline int
->  IsSFrame(u_char *data, struct layer2 *l2)
->  {
-> -- 
-> 
+We are working in an ARMv7 embedded system running kernel 4.1 but
+including patches to upgrade dsa/mv88e6xxx to kernel version 4.3
+(5acf4d0, Wed, 27 May 2015 15:32:15 -0700) "[PATCH] blk: rq_data_dir()
+should not return a boolean."
 
-This is not wrong, but it might be nicer to just
-make this one as 'static inline' as well like the other
-ones for consistency.
+This is the schema of the system.
 
-Note that static inline functions don't cause a warning
-when they are unused.
+    +---------------------+ eth0
+    |                     +--+
+    |                     |  |
+    |   Embedded system   +--+
+    |                     |
+    |       ARMv7         |
+    |                     | Marvell 88E8057(sky2)          
++------------------+
+    |                     +--+                          
++--+                  +--+ eth1@marvell
+    |                     |  +---------------------------+ 
+|                  |  +-------+
+    |                     +--+         CPU port          +--+   
+mv88e6176     +--+
+    +------+--+-----------+                                
+|                  |
+emulated   |  |                                            
+|                  |
+GPIO-MDIO  +--+                                         
++--+                  +--+ eth2@marvell
+             +-------------------------------------------+ 
+|                  |  +-------+
+                              MDIO                      
++--+                  +--+
+                                                           
++------------------+
 
-	Arnd
+There is a bridge (br-lan) which includes eth0/eth1/eth2
+
+>From time to time, We are seeing a link down and up of about 1s.
+Following the message that kernel sends.
+
+[  312.769399] dsa dsa@0 eth2: Link is Down
+[  312.773372] br-lan: port 3(eth2) entered disabled state
+[  312.947274] dsa dsa@0 eth2: link up, 100 Mb/s, full duplex, flow
+control disabled
+[  312.963807] br-lan: port 3(eth2) entered forwarding state
+[  312.969276] br-lan: port 3(eth2) entered forwarding state
+[  313.777815] dsa dsa@0 eth2: Link is Up - 100Mbps/Full - flow control
+rx/tx
+[  314.966277] br-lan: port 3(eth2) entered forwarding state
+
+Moreover, under a reboot loop test which consists in booting the system,
+ping the unit and, if it responds, reboot again, we found that the
+bridge does not forward packages after many reboots.
+Looking into 88e6176 registers we saw the following
+
+    GLOBAL GLOBAL2   0    1    2    3    4    5    6 
+ 0:  c820       0  de0f 5d0f 500f 500f 500f 4e07 4007
+ 1:     3       0    3e    3    3    3    3    3    3
+ 2:     0    ffff     0    0    0    0    0    0    0
+ 3:     0    ffff  1761 1761 1761 1761 1761 1761 1761
+ 4:  6000     258  373f  433  430  433  433  433  433
+ 5:  1000    c12f     0    0    0    0    0    0    0
+ 6:  c000    1f0f  101e 3005 3003 4001 5001 6001 7001
+ 7:     0    707f     0    0    0    0    0    0    0
+ 8:     0    7800  2480 2480 2480 2480 2480 2480 2480
+ 9:     0    1600     1    1    1    1    1    1    1
+ a:   148       0     0    0    0    0    0    0    0
+ b:  6000    1000     1    2    4    8   10   20   40
+ c:     0      22     0    0    0    0    0    0    0
+ d:  ffff     507     0    0    0    0    0    0    0
+ e:  ffff      36     0    0    0    0    0    0    0
+ f:  ffff     f00  dada dada dada dada dada dada dada
+10:     0       0     0    0    0    0    0    0    0
+11:     0       0     0    0    0    0    0    0    0
+12:  5555       0     0    0    0    0    0    0    0
+13:  5555       0   34d 8b18  54d    0    0    0    0
+14:  aaaa     400     0    0    0    0    0    0    0
+15:  aaaa       0     0    0    0    0    0    0    0
+16:  ffff       0    33   33   33   33   33   33    0
+17:  ffff       0     0    0    0    0    0    0    0
+18:  fa41    1884  3210 3210 3210 3210 3210 3210 3210
+19:     0     5e1  7654 7654 7654 7654 7654 7654 7654
+1a:     0       0     0    0    0    0    0    0    0
+1b:   1fc    f869  8000 8000 8000 8000 8000 8000 8000
+1c:     0    4c00     0    0    0    0    0    0    0
+1d:  5ce0       0     0    0    0    0    0    0    0
+1e:     0       0     0    0    0    0    0    0    0
+1f:     0       0     0    0    0    0    0    0    0
+
+The main difference is GLOBAL2 5th register. When the unit is just
+initialized, the driver sets this register to 00ff, however, when the
+issue happens, its value is c12f.
+We got a patch which allows us to set registers values. If we change
+c12f to 00ff the ping works, otherwise, ping does not work. We do not
+know who is changing the register value. Apparently, driver does not.
+
+Weirderif possible, sometimes even global2 5th register is set to 00ff
+and bridge does not forward packages either. We have not sorted out
+which other register is affecting.
+
+Finally, The weirdest behaviour we are seeing is that the unit does not
+detect a link change, register 0 of ports 1 and 2 do not update their
+status.
+
+Have you experienced a similar issue in your side?
+
+Is it possible that those micro-outage could be the reason of bad
+settings in Global2 5th register?
+
+Have you fixed this issues in a newer Linux kernel version?
+
+Thanks in advance.
