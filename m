@@ -1,62 +1,131 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [PATCH v2 1/4] net: phy: dp83867: Add documentation for optional
- impedance control
-Date: Tue, 4 Oct 2016 18:26:04 +0530
-Message-ID: <20161004125607.10569-2-mugunthanvnm@ti.com>
-References: <20161004125607.10569-1-mugunthanvnm@ti.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH][V2] net: hns: Add missing \n to end of dev_err messages, tidy up text
+Date: Tue,  4 Oct 2016 13:57:01 +0100
+Message-ID: <20161004125701.13032-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org,
- Florian Fainelli <f.fainelli@gmail.com>, Mugunthan V N <mugunthanvnm@ti.com>,
- Tony Lindgren <tony@atomide.com>, Sekhar Nori <nsekhar@ti.com>,
- linux-kernel@vger.kernel.org, Russell King <linux@armlinux.org.uk>,
- Rob Herring <robh+dt@kernel.org>, linux-omap@vger.kernel.org,
- David Miller <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org
-To: <netdev@vger.kernel.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20161004125607.10569-1-mugunthanvnm@ti.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org
+To: Yisen Zhuang <yisen.zhuang@huawei.com>,
+        Salil Mehta <salil.mehta@huawei.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Kejian Yan <yankejian@huawei.com>,
+        Daode Huang <huangdaode@hisilicon.com>,
+        lipeng <lipeng321@huawei.com>, Lisheng <lisheng011@huawei.com>,
+        netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add documention of ti,impedance-control which can be used to
-correct MAC impedance mismatch using phy extended registers.
+From: Colin Ian King <colin.king@canonical.com>
 
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+Trival fix, dev_err messages are missing a \n, so add it. Also
+fix grammer, spelling mistake and add white spaces to various
+error messages.
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
 ---
- Documentation/devicetree/bindings/net/ti,dp83867.txt | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c | 22 +++++++++++-----------
+ 1 file changed, 11 insertions(+), 11 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/ti,dp83867.txt b/Documentation/devicetree/bindings/net/ti,dp83867.txt
-index 5d21141..85bf945 100644
---- a/Documentation/devicetree/bindings/net/ti,dp83867.txt
-+++ b/Documentation/devicetree/bindings/net/ti,dp83867.txt
-@@ -9,6 +9,18 @@ Required properties:
- 	- ti,fifo-depth - Transmitt FIFO depth- see dt-bindings/net/ti-dp83867.h
- 		for applicable values
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
+index a834774..751c126 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
+@@ -126,7 +126,7 @@ void hns_mac_adjust_link(struct hns_mac_cb *mac_cb, int speed, int duplex)
+ 			(enum mac_speed)speed, duplex);
+ 		if (ret) {
+ 			dev_err(mac_cb->dev,
+-				"adjust_link failed,%s mac%d ret = %#x!\n",
++				"adjust_link failed, %s mac%d ret = %#x!\n",
+ 				mac_cb->dsaf_dev->ae_dev.name,
+ 				mac_cb->mac_id, ret);
+ 			return;
+@@ -149,7 +149,7 @@ static int hns_mac_get_inner_port_num(struct hns_mac_cb *mac_cb,
+ 	if (mac_cb->dsaf_dev->dsaf_mode <= DSAF_MODE_ENABLE) {
+ 		if (mac_cb->mac_id != DSAF_MAX_PORT_NUM) {
+ 			dev_err(mac_cb->dev,
+-				"input invalid,%s mac%d vmid%d !\n",
++				"input invalid, %s mac%d vmid%d !\n",
+ 				mac_cb->dsaf_dev->ae_dev.name,
+ 				mac_cb->mac_id, vmid);
+ 			return -EINVAL;
+@@ -157,19 +157,19 @@ static int hns_mac_get_inner_port_num(struct hns_mac_cb *mac_cb,
+ 	} else if (mac_cb->dsaf_dev->dsaf_mode < DSAF_MODE_MAX) {
+ 		if (mac_cb->mac_id >= DSAF_MAX_PORT_NUM) {
+ 			dev_err(mac_cb->dev,
+-				"input invalid,%s mac%d vmid%d!\n",
++				"input invalid, %s mac%d vmid%d!\n",
+ 				mac_cb->dsaf_dev->ae_dev.name,
+ 				mac_cb->mac_id, vmid);
+ 			return -EINVAL;
+ 		}
+ 	} else {
+-		dev_err(mac_cb->dev, "dsaf mode invalid,%s mac%d!\n",
++		dev_err(mac_cb->dev, "dsaf mode invalid, %s mac%d!\n",
+ 			mac_cb->dsaf_dev->ae_dev.name, mac_cb->mac_id);
+ 		return -EINVAL;
+ 	}
  
-+Optional property:
-+	- ti,min-output-impedance - MAC Interface Impedance control to set
-+				    the programmable output impedance to
-+				    minimum value (35 ohms).
-+	- ti,max-output-impedance - MAC Interface Impedance control to set
-+				    the programmable output impedance to
-+				    maximum value (70 ohms).
-+
-+Note: ti,min-output-impedance and ti,max-output-impedance are mutually
-+      exclusive. When both properties are present ti,max-output-impedance
-+      takes precedence.
-+
- Default child nodes are standard Ethernet PHY device
- nodes as described in Documentation/devicetree/bindings/net/phy.txt
+ 	if (vmid >= mac_cb->dsaf_dev->rcb_common[0]->max_vfn) {
+-		dev_err(mac_cb->dev, "input invalid,%s mac%d vmid%d !\n",
++		dev_err(mac_cb->dev, "input invalid, %s mac%d vmid%d !\n",
+ 			mac_cb->dsaf_dev->ae_dev.name, mac_cb->mac_id, vmid);
+ 		return -EINVAL;
+ 	}
+@@ -196,7 +196,7 @@ static int hns_mac_get_inner_port_num(struct hns_mac_cb *mac_cb,
+ 		tmp_port = vmid;
+ 		break;
+ 	default:
+-		dev_err(mac_cb->dev, "dsaf mode invalid,%s mac%d!\n",
++		dev_err(mac_cb->dev, "dsaf mode invalid, %s mac%d!\n",
+ 			mac_cb->dsaf_dev->ae_dev.name, mac_cb->mac_id);
+ 		return -EINVAL;
+ 	}
+@@ -275,7 +275,7 @@ int hns_mac_set_multi(struct hns_mac_cb *mac_cb,
+ 			ret = hns_dsaf_add_mac_mc_port(dsaf_dev, &mac_entry);
+ 		if (ret) {
+ 			dev_err(dsaf_dev->dev,
+-				"set mac mc port failed,%s mac%d ret = %#x!\n",
++				"set mac mc port failed, %s mac%d ret = %#x!\n",
+ 				mac_cb->dsaf_dev->ae_dev.name,
+ 				mac_cb->mac_id, ret);
+ 			return ret;
+@@ -305,7 +305,7 @@ int hns_mac_del_mac(struct hns_mac_cb *mac_cb, u32 vfn, char *mac)
+ 		old_mac = &mac_cb->addr_entry_idx[vfn];
+ 	} else {
+ 		dev_err(mac_cb->dev,
+-			"vf queue is too large,%s mac%d queue = %#x!\n",
++			"vf queue is too large, %s mac%d queue = %#x!\n",
+ 			mac_cb->dsaf_dev->ae_dev.name, mac_cb->mac_id, vfn);
+ 		return -EINVAL;
+ 	}
+@@ -547,7 +547,7 @@ int hns_mac_set_autoneg(struct hns_mac_cb *mac_cb, u8 enable)
+ 	struct mac_driver *mac_ctrl_drv = hns_mac_get_drv(mac_cb);
  
+ 	if (mac_cb->phy_if == PHY_INTERFACE_MODE_XGMII && enable) {
+-		dev_err(mac_cb->dev, "enable autoneg is not allowed!");
++		dev_err(mac_cb->dev, "enabling autoneg is not allowed!\n");
+ 		return -ENOTSUPP;
+ 	}
+ 
+@@ -571,7 +571,7 @@ int hns_mac_set_pauseparam(struct hns_mac_cb *mac_cb, u32 rx_en, u32 tx_en)
+ 
+ 	if (mac_cb->mac_type == HNAE_PORT_DEBUG) {
+ 		if (is_ver1 && (tx_en || rx_en)) {
+-			dev_err(mac_cb->dev, "macv1 cann't enable tx/rx_pause!");
++			dev_err(mac_cb->dev, "macv1 can't enable tx/rx_pause!\n");
+ 			return -EINVAL;
+ 		}
+ 	}
+@@ -941,7 +941,7 @@ int hns_mac_get_cfg(struct dsaf_device *dsaf_dev, struct hns_mac_cb *mac_cb)
+ 	ret = hns_mac_get_mode(mac_cb->phy_if);
+ 	if (ret < 0) {
+ 		dev_err(dsaf_dev->dev,
+-			"hns_mac_get_mode failed,mac%d ret = %#x!\n",
++			"hns_mac_get_mode failed, mac%d ret = %#x!\n",
+ 			mac_cb->mac_id, ret);
+ 		return ret;
+ 	}
 -- 
-2.10.0.372.g6fe1b14
+2.9.3
