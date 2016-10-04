@@ -1,79 +1,220 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [net-next PATCH] drivers: net: cpsw-phy-sel: add support to configure rgmii internal delay
-Date: Tue, 4 Oct 2016 19:07:29 +0530
-Message-ID: <20161004133729.12564-1-mugunthanvnm@ti.com>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [Xen-devel] [PATCH v2 net-next 2/7] xen-netback: retire guest rx
+ side prefix GSO feature
+Date: Tue, 4 Oct 2016 13:35:41 +0000
+Message-ID: <6af51a0a84cf41d5a31168b3e8626fcd@AMSPEX02CL03.citrite.net>
+References: <1475573358-32414-1-git-send-email-paul.durrant@citrix.com>
+ <1475573358-32414-3-git-send-email-paul.durrant@citrix.com>
+ <20161004125205.GE30836@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Grygorii Strashko <grygorii.strashko@ti.com>,
-        <linux-omap@vger.kernel.org>, Sekhar Nori <nsekhar@ti.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Mugunthan V N <mugunthanvnm@ti.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+        Wei Liu <wei.liu2@citrix.com>
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+        "annie.li@oracle.com" <annie.li@oracle.com>,
+        "joao.m.martins@oracle.com" <joao.m.martins@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:36431 "EHLO
-        devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750908AbcJDNhw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 09:37:52 -0400
+Received: from smtp.ctxuk.citrix.com ([185.25.65.24]:6181 "EHLO
+        SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753873AbcJDNmq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 09:42:46 -0400
+In-Reply-To: <20161004125205.GE30836@localhost.localdomain>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support to enable CPSW RGMII internal delay (id mode) bits
-when rgmii internal delay is configured in phy.
+> -----Original Message-----
+> From: Konrad Rzeszutek Wilk [mailto:konrad.wilk@oracle.com]
+> Sent: 04 October 2016 13:52
+> To: Paul Durrant <Paul.Durrant@citrix.com>; annie.li@oracle.com;
+> joao.m.martins@oracle.com
+> Cc: netdev@vger.kernel.org; xen-devel@lists.xenproject.org; Wei Liu
+> <wei.liu2@citrix.com>
+> Subject: Re: [Xen-devel] [PATCH v2 net-next 2/7] xen-netback: retire guest
+> rx side prefix GSO feature
+> 
+> On Tue, Oct 04, 2016 at 10:29:13AM +0100, Paul Durrant wrote:
+> > As far as I am aware only very old Windows network frontends make use
+> > of this style of passing GSO packets from backend to frontend. These
+> > frontends can easily be replaced by the freely available Xen Project
+> > Windows PV network frontend, which uses the 'default' mechanism for
+> > passing GSO packets, which is also used by all Linux frontends.
+> 
+> It is not that simple. Some companies have extra juice in their Windows
+> frontends so can't easily swap over to the Xen Project one.
 
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
----
- drivers/net/ethernet/ti/cpsw-phy-sel.c | 14 ++++++++++++++
- 1 file changed, 14 insertions(+)
+Ok, then those frontends will continue to work, but they won't get GSO packets any more. Prefix GSO has never been specified in the canonical netif header and so has been in a limbo state forever so such frontends have always been on borrowed time and only just happened to work against a linux backend. If someone wants to actually specify prefix GSO properly then it could be added back in, but it should not be necessary now that the RX side req<->rsp identity relation is documented (http://xenbits.xen.org/gitweb/?p=xen.git;a=blob;f=xen/include/public/io/netif.h;hb=HEAD#l729).
 
-diff --git a/drivers/net/ethernet/ti/cpsw-phy-sel.c b/drivers/net/ethernet/ti/cpsw-phy-sel.c
-index c3e85ac..054a8dd 100644
---- a/drivers/net/ethernet/ti/cpsw-phy-sel.c
-+++ b/drivers/net/ethernet/ti/cpsw-phy-sel.c
-@@ -30,6 +30,8 @@
- 
- #define AM33XX_GMII_SEL_RMII2_IO_CLK_EN	BIT(7)
- #define AM33XX_GMII_SEL_RMII1_IO_CLK_EN	BIT(6)
-+#define AM33XX_GMII_SEL_RGMII2_IDMODE	BIT(5)
-+#define AM33XX_GMII_SEL_RGMII1_IDMODE	BIT(4)
- 
- #define GMII_SEL_MODE_MASK		0x3
- 
-@@ -48,6 +50,7 @@ static void cpsw_gmii_sel_am3352(struct cpsw_phy_sel_priv *priv,
- 	u32 reg;
- 	u32 mask;
- 	u32 mode = 0;
-+	bool rgmii_id = false;
- 
- 	reg = readl(priv->gmii_sel);
- 
-@@ -57,10 +60,14 @@ static void cpsw_gmii_sel_am3352(struct cpsw_phy_sel_priv *priv,
- 		break;
- 
- 	case PHY_INTERFACE_MODE_RGMII:
-+		mode = AM33XX_GMII_SEL_MODE_RGMII;
-+		break;
-+
- 	case PHY_INTERFACE_MODE_RGMII_ID:
- 	case PHY_INTERFACE_MODE_RGMII_RXID:
- 	case PHY_INTERFACE_MODE_RGMII_TXID:
- 		mode = AM33XX_GMII_SEL_MODE_RGMII;
-+		rgmii_id = true;
- 		break;
- 
- 	default:
-@@ -83,6 +90,13 @@ static void cpsw_gmii_sel_am3352(struct cpsw_phy_sel_priv *priv,
- 			mode |= AM33XX_GMII_SEL_RMII2_IO_CLK_EN;
- 	}
- 
-+	if (rgmii_id) {
-+		if (slave == 0)
-+			mode |= AM33XX_GMII_SEL_RGMII1_IDMODE;
-+		else
-+			mode |= AM33XX_GMII_SEL_RGMII2_IDMODE;
-+	}
-+
- 	reg &= ~mask;
- 	reg |= mode;
- 
--- 
-2.10.0.372.g6fe1b14
+> 
+> Either way CC-ing Annie
+> 
+> Also would it make sense to CC the FreeBSD and NetBSD maintainers of their
+> PV drivers just to make sure? (Or has that been confirmed)
+> 
+
+I could do that, but I'd hope that they would be subscribed to xen-devel and will chime in if there's likely to be a problem.
+
+> >
+> > NOTE: Removal of this feature will not cause breakage in old Windows
+> >       frontends. They simply will no longer receive GSO packets - the
+> >       packets instead being fragmented in the backend.
+> 
+> Did you also test this with SuSE/Novell Windows PV drivers?
+> 
+
+No, I don't have copies of these. Internal XenServer testing has not shown up any issues with 'legacy' PV drivers though (which do still have the prefix GSO code in).
+
+  Paul
+
+> Thanks.
+> >
+> > Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+> > ---
+> > Cc: Wei Liu <wei.liu2@citrix.com>
+> > ---
+> >  drivers/net/xen-netback/common.h    |  1 -
+> >  drivers/net/xen-netback/interface.c |  4 ++--
+> >  drivers/net/xen-netback/rx.c        | 26 --------------------------
+> >  drivers/net/xen-netback/xenbus.c    | 21 ---------------------
+> >  4 files changed, 2 insertions(+), 50 deletions(-)
+> >
+> > diff --git a/drivers/net/xen-netback/common.h
+> > b/drivers/net/xen-netback/common.h
+> > index b38fb2c..0ba5910 100644
+> > --- a/drivers/net/xen-netback/common.h
+> > +++ b/drivers/net/xen-netback/common.h
+> > @@ -260,7 +260,6 @@ struct xenvif {
+> >
+> >  	/* Frontend feature information. */
+> >  	int gso_mask;
+> > -	int gso_prefix_mask;
+> >
+> >  	u8 can_sg:1;
+> >  	u8 ip_csum:1;
+> > diff --git a/drivers/net/xen-netback/interface.c
+> > b/drivers/net/xen-netback/interface.c
+> > index fb50c6d..211d542 100644
+> > --- a/drivers/net/xen-netback/interface.c
+> > +++ b/drivers/net/xen-netback/interface.c
+> > @@ -319,9 +319,9 @@ static netdev_features_t
+> > xenvif_fix_features(struct net_device *dev,
+> >
+> >  	if (!vif->can_sg)
+> >  		features &= ~NETIF_F_SG;
+> > -	if (~(vif->gso_mask | vif->gso_prefix_mask) & GSO_BIT(TCPV4))
+> > +	if (~(vif->gso_mask) & GSO_BIT(TCPV4))
+> >  		features &= ~NETIF_F_TSO;
+> > -	if (~(vif->gso_mask | vif->gso_prefix_mask) & GSO_BIT(TCPV6))
+> > +	if (~(vif->gso_mask) & GSO_BIT(TCPV6))
+> >  		features &= ~NETIF_F_TSO6;
+> >  	if (!vif->ip_csum)
+> >  		features &= ~NETIF_F_IP_CSUM;
+> > diff --git a/drivers/net/xen-netback/rx.c
+> > b/drivers/net/xen-netback/rx.c index 03836aa..6bd7d6e 100644
+> > --- a/drivers/net/xen-netback/rx.c
+> > +++ b/drivers/net/xen-netback/rx.c
+> > @@ -347,16 +347,6 @@ static int xenvif_gop_skb(struct sk_buff *skb,
+> >  			gso_type = XEN_NETIF_GSO_TYPE_TCPV6;
+> >  	}
+> >
+> > -	/* Set up a GSO prefix descriptor, if necessary */
+> > -	if ((1 << gso_type) & vif->gso_prefix_mask) {
+> > -		RING_COPY_REQUEST(&queue->rx, queue->rx.req_cons++,
+> &req);
+> > -		meta = npo->meta + npo->meta_prod++;
+> > -		meta->gso_type = gso_type;
+> > -		meta->gso_size = skb_shinfo(skb)->gso_size;
+> > -		meta->size = 0;
+> > -		meta->id = req.id;
+> > -	}
+> > -
+> >  	RING_COPY_REQUEST(&queue->rx, queue->rx.req_cons++, &req);
+> >  	meta = npo->meta + npo->meta_prod++;
+> >
+> > @@ -511,22 +501,6 @@ static void xenvif_rx_action(struct xenvif_queue
+> *queue)
+> >  	while ((skb = __skb_dequeue(&rxq)) != NULL) {
+> >  		struct xen_netif_extra_info *extra = NULL;
+> >
+> > -		if ((1 << queue->meta[npo.meta_cons].gso_type) &
+> > -		    vif->gso_prefix_mask) {
+> > -			resp = RING_GET_RESPONSE(&queue->rx,
+> > -						 queue->rx.rsp_prod_pvt++);
+> > -
+> > -			resp->flags = XEN_NETRXF_gso_prefix |
+> > -				      XEN_NETRXF_more_data;
+> > -
+> > -			resp->offset = queue-
+> >meta[npo.meta_cons].gso_size;
+> > -			resp->id = queue->meta[npo.meta_cons].id;
+> > -			resp->status = XENVIF_RX_CB(skb)-
+> >meta_slots_used;
+> > -
+> > -			npo.meta_cons++;
+> > -			XENVIF_RX_CB(skb)->meta_slots_used--;
+> > -		}
+> > -
+> >  		queue->stats.tx_bytes += skb->len;
+> >  		queue->stats.tx_packets++;
+> >
+> > diff --git a/drivers/net/xen-netback/xenbus.c
+> > b/drivers/net/xen-netback/xenbus.c
+> > index daf4c78..7056404 100644
+> > --- a/drivers/net/xen-netback/xenbus.c
+> > +++ b/drivers/net/xen-netback/xenbus.c
+> > @@ -1135,7 +1135,6 @@ static int read_xenbus_vif_flags(struct
+> backend_info *be)
+> >  	vif->can_sg = !!val;
+> >
+> >  	vif->gso_mask = 0;
+> > -	vif->gso_prefix_mask = 0;
+> >
+> >  	if (xenbus_scanf(XBT_NIL, dev->otherend, "feature-gso-tcpv4",
+> >  			 "%d", &val) < 0)
+> > @@ -1143,32 +1142,12 @@ static int read_xenbus_vif_flags(struct
+> backend_info *be)
+> >  	if (val)
+> >  		vif->gso_mask |= GSO_BIT(TCPV4);
+> >
+> > -	if (xenbus_scanf(XBT_NIL, dev->otherend, "feature-gso-tcpv4-
+> prefix",
+> > -			 "%d", &val) < 0)
+> > -		val = 0;
+> > -	if (val)
+> > -		vif->gso_prefix_mask |= GSO_BIT(TCPV4);
+> > -
+> >  	if (xenbus_scanf(XBT_NIL, dev->otherend, "feature-gso-tcpv6",
+> >  			 "%d", &val) < 0)
+> >  		val = 0;
+> >  	if (val)
+> >  		vif->gso_mask |= GSO_BIT(TCPV6);
+> >
+> > -	if (xenbus_scanf(XBT_NIL, dev->otherend, "feature-gso-tcpv6-
+> prefix",
+> > -			 "%d", &val) < 0)
+> > -		val = 0;
+> > -	if (val)
+> > -		vif->gso_prefix_mask |= GSO_BIT(TCPV6);
+> > -
+> > -	if (vif->gso_mask & vif->gso_prefix_mask) {
+> > -		xenbus_dev_fatal(dev, err,
+> > -				 "%s: gso and gso prefix flags are not "
+> > -				 "mutually exclusive",
+> > -				 dev->otherend);
+> > -		return -EOPNOTSUPP;
+> > -	}
+> > -
+> >  	if (xenbus_scanf(XBT_NIL, dev->otherend, "feature-no-csum-
+> offload",
+> >  			 "%d", &val) < 0)
+> >  		val = 0;
+> > --
+> > 2.1.4
+> >
+> >
+> > _______________________________________________
+> > Xen-devel mailing list
+> > Xen-devel@lists.xen.org
+> > https://lists.xen.org/xen-devel
