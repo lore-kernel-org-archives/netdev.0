@@ -1,38 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6 addrconf: disallow rtr_solicits < -1
-Date: Tue, 04 Oct 2016 00:38:31 -0400 (EDT)
-Message-ID: <20161004.003831.2056791273400961514.davem@davemloft.net>
-References: <1475476917-17382-1-git-send-email-zenczykowski@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v5 net-next] net: phy: Add Edge-rate driver for
+ Microsemi PHYs.
+Date: Tue, 04 Oct 2016 00:48:59 -0400 (EDT)
+Message-ID: <20161004.004859.1105270097322633239.davem@davemloft.net>
+References: <1475479393-24308-1-git-send-email-Raju.Lakkaraju@microsemi.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: 8BIT
-Cc: maze@google.com, netdev@vger.kernel.org, ek@google.com,
-        lorenzo@google.com
-To: zenczykowski@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54330 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750780AbcJDEij (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 00:38:39 -0400
-In-Reply-To: <1475476917-17382-1-git-send-email-zenczykowski@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Allan.Nielsen-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org
+To: Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1475479393-24308-1-git-send-email-Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Maciej ¯enczykowski <zenczykowski@gmail.com>
-Date: Sun,  2 Oct 2016 23:41:57 -0700
+From: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
+Date: Mon, 3 Oct 2016 12:53:13 +0530
 
-> From: Maciej ¯enczykowski <maze@google.com>
+> From: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
 > 
-> This disallows setting /proc/sys/net/ipv6/conf/*/router_solicitations
-> to values below -1.
+> Edge-rate:
+> As system and networking speeds increase, a signal's output transition,
+> also know as the edge rate or slew rate (V/ns), takes on greater importance
+> because high-speed signals come with a price. That price is an assortment of
+> interference problems like ringing on the line, signal overshoot and
+> undershoot, extended signal settling times, crosstalk noise, transmission
+> line reflections, false signal detection by the receiving device and
+> electromagnetic interference (EMI) -- all of which can negate the potential
+> gains designers are seeking when they try to increase system speeds through
+> the use of higher performance logic devices. The fact is, faster signaling
+> edge rates can cause a higher level of electrical noise or other type of
+> interference that can actually lead to slower line speeds and lower maximum
+> system frequencies. This parameter allow the board designers to change the
+> driving strange, and thereby change the EMI behavioral.
 > 
-> -1 continues to mean an unlimited number of retransmits.
+> Edge-rate parameters (vddmac, edge-slowdown) get from Device Tree.
 > 
-> Note: this depends on 'ipv6 addrconf: remove addrconf_sysctl_hop_limit()'
+> Tested on Beaglebone Black with VSC 8531 PHY.
 > 
-> Signed-off-by: Maciej ¯enczykowski <maze@google.com>
+> Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
 
-Please remove the const qualifier and the casts to be consistent
-with how we handle this elsewhere.
-
-Thanks.
+Applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
