@@ -1,98 +1,57 @@
-From: "R. Parameswaran" <parameswaran.r7@gmail.com>
-Subject: Re: [PATCH net v2] L2TP:Adjust intf MTU,factor underlay L3,overlay
- L2
-Date: Mon, 3 Oct 2016 20:12:14 -0700 (PDT)
-Message-ID: <alpine.DEB.2.11.1610031954330.2198@duvvury48.eng.vyatta.net>
-References: <alpine.DEB.2.11.1609221341500.6975@duvvury30.eng.vyatta.net> <57ED30D7.6000009@katalix.com> <alpine.DEB.2.11.1609291913070.8509@duvvury48.eng.vyatta.net> <1cec5be4-0719-0dca-d3c6-8c794c867672@katalix.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/7] qed*: Add qedr infrastructure support
+Date: Mon, 03 Oct 2016 23:24:46 -0400 (EDT)
+Message-ID: <20161003.232446.1827173235395776859.davem@davemloft.net>
+References: <1475348401-31392-1-git-send-email-Yuval.Mintz@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "R. Parameswaran" <parameswaran.r7@gmail.com>, kleptog@svana.org,
-        netdev@vger.kernel.org, davem@redhat.com,
-        linux-kernel@vger.kernel.org, nprachan@brocade.com,
-        rshearma@brocade.com, dfawcus@brocade.com,
-        stephen@networkplumber.org, acme@redhat.com, lboccass@brocade.com,
-        bhong@brocade.com
-To: James Chapman <jchapman@katalix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1cec5be4-0719-0dca-d3c6-8c794c867672@katalix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        Ram.Amrani@caviumnetworks.com, Michal.Kalderon@caviumnetworks.com,
+        Ariel.Elior@caviumnetworks.com, dledford@redhat.com
+To: Yuval.Mintz@caviumnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:53576 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750890AbcJDDYw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2016 23:24:52 -0400
+In-Reply-To: <1475348401-31392-1-git-send-email-Yuval.Mintz@caviumnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
+Date: Sat, 1 Oct 2016 21:59:54 +0300
 
-
-Hi James, 
-
-Please see inline, thanks for the reply:
-
-On Sat, 1 Oct 2016, James Chapman wrote:
-
-> On 30/09/16 03:39, R. Parameswaran wrote:
-> >
-> >>> +	/* Adjust MTU, factor overhead - underlay L3 hdr, overlay L2 hdr*/
-> >>> +	if (tunnel->sock->sk_family == AF_INET)
-> >>> +		overhead += (ETH_HLEN + sizeof(struct iphdr));
-> >>> +	else if (tunnel->sock->sk_family == AF_INET6)
-> >>> +		overhead += (ETH_HLEN + sizeof(struct ipv6hdr));
-> >> What about options in the IP header? If certain options are set on the
-> >> socket, the IP header may be larger.
-> >>
-> > Thanks for the reply - It looks like IP options can only be 
-> > enabled through setsockopt on an application's socket (if there's any 
-> > other way to turn on IP options, please let me know - didn't see any 
-> > sysctl setting for transmit). This scenario would come 
-> > into picture when an application opens a raw IP or UDP socket such that it 
-> > routes into the L2TP logical interface.
+> In the last couple of weeks we've been sending RFCs for the qedr
+> driver - the RoCE driver for QLogic FastLinQ 4xxxx line of adapters.
+> Latest RFC can be found at [1].
 > 
-> No. An L2TP daemon (userspace) will open a socket for each tunnel that
-> it creates. Control and data packets use the same socket, which is the
-> socket used by this code. It may set any options on its sockets. L2TP
-> tunnel sockets can be created either by an L2TP daemon (managed tunnels)
-> or by ip l2tp commands (unmanaged tunnels).
+> At Doug's advice [2], we've decided to split the series into two:
+>  - first part contains the qed backbone that's necessary for all the
+> configurations relating to the qedr driver, as well as the qede
+> infrastructure that is used for communication between the qedr and qede.
+>  - Second part consists of the actual qedr driver and introduces almost
+> no changes to qed/qede.
 > 
-
-One Q I have is whether it would be sufficient to solve this for the
-common case (i.e no IP options) and have an expectation that the 
-administrator will explicitly provision the mtu using the 'ip link ... 
-mtu'  command when dealing with infrequent occurences like IP options? 
-
-But looking at the code, it looks to be possible to pick up whether 
-options are enabled and how long the options are, from the ip_options struct 
-embedded in the tunnel socket. If you want me to, I can repost the patch
-with this change (will need a few days) - please let me know if this is 
-what you had in mind.
-
-thanks,
-
-Ramkumar
-
-
-
-> > If you take the case of a plain IP (ethernet) interface, even if an
-> > application opened a socket turning on IP options, it would not change
-> > the MTU of the underlying interface, and it would not affect other 
-> > applications transacting packets on the same interface. I know its not an 
-> > exact parallel to this case, but since the IP option control is per 
-> > application, we probably should not factor it into the L2TP logical interface?
-> > We cannot affect other applications/processes running on the same L2TP 
-> > tunnel. Also, since the application  using IP options knows that it has turned 
-> > on IP options, maybe we can count on it to factor the size of the options 
-> > into the size of the payload it sends into the socket, or set the mtu on the 
-> > L2TP interface through config? 
+> This is the first of said two parts. The second half would be sent
+> later this week.
 > 
-> No. See above.
+> The only 'oddity' in the devision are the Kconfig options - 
+> As this series introduces both LL2 and QEDR-based logic in qed/qede,
+> I wanted to add the CONFIG_INFINIBAND_QEDR option here [with default n].
+> Otherwise, a lot of the code introduced would be dead-code [won't even
+> be compiled] until qedr is accepted.
+> As a result I've placed the config option in an odd place - under
+> qlogic's Kconfig. The second series would then remove that option
+> and add it in its correct place under the infiniband Kconfig.
+> [I'm fine with pushing it there to begin with, but I didn't want to
+> 'contaminate' non-qlogic configuration files with half-baked options].
 > 
-> >
-> > Other than this, I don't see keepalives or anything else in which the 
-> > kernel will source its own packet into the L2TP interface, outside of 
-> > an application injected packet - if there is something like that, please
-> > let me know. The user space L2TP daemon would probably fall in the 
-> > category of applications.
-> >
-> > thanks,
-> >
-> > Ramkumar 
-> >
-> >
-> 
-> 
-> 
+> Dave - I don't think you were E-mailed with Doug's suggestion.
+> I think the notion was to have the two halves accepted side-by-side,
+> but actually the first has no dependency issues, so it's also
+> possible to simply take this first to net-next, and push the qedr
+> into rdma once it's merged. But it's basically up to you and Doug;
+> We'd align with whatever suits you best.
+
+I'll take this, series applied, thanks.
