@@ -1,8 +1,7 @@
 From: Madalin Bucur <madalin.bucur@nxp.com>
-Subject: [net-next 01/13] fsl/fman: split lines over 80 characters
-Date: Tue, 4 Oct 2016 10:30:25 +0300
-Message-ID: <1475566237-4948-2-git-send-email-madalin.bucur@nxp.com>
-References: <1475566237-4948-1-git-send-email-madalin.bucur@nxp.com>
+Subject: [net-next 00/13] fsl/fman: cleanup and small fixes
+Date: Tue, 4 Oct 2016 10:30:24 +0300
+Message-ID: <1475566237-4948-1-git-send-email-madalin.bucur@nxp.com>
 Reply-To: madalin.bucur@nxp.com
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,7 +10,6 @@ Cc: linuxdev.baldrick@gmail.com, Madalin Bucur <madalin.bucur@nxp.com>,
  linux-kernel@vger.kernel.org
 To: <netdev@vger.kernel.org>
 Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <1475566237-4948-1-git-send-email-madalin.bucur@nxp.com>
 List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
  <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
 List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
@@ -24,38 +22,43 @@ Sender: "Linuxppc-dev"
  <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
----
- drivers/net/ethernet/freescale/fman/fman_muram.c | 3 ++-
- drivers/net/ethernet/freescale/fman/fman_muram.h | 3 ++-
- 2 files changed, 4 insertions(+), 2 deletions(-)
+This series contains fixes for the DPAA FMan driver.
+Adding myself as maintainer of the driver.
 
-diff --git a/drivers/net/ethernet/freescale/fman/fman_muram.c b/drivers/net/ethernet/freescale/fman/fman_muram.c
-index 47394c4..5ec94d2 100644
---- a/drivers/net/ethernet/freescale/fman/fman_muram.c
-+++ b/drivers/net/ethernet/freescale/fman/fman_muram.c
-@@ -150,7 +150,8 @@ unsigned long fman_muram_alloc(struct muram_info *muram, size_t size)
-  *
-  * Free an allocated memory from FM-MURAM partition.
-  */
--void fman_muram_free_mem(struct muram_info *muram, unsigned long offset, size_t size)
-+void fman_muram_free_mem(struct muram_info *muram, unsigned long offset,
-+			 size_t size)
- {
- 	unsigned long addr = fman_muram_offset_to_vbase(muram, offset);
- 
-diff --git a/drivers/net/ethernet/freescale/fman/fman_muram.h b/drivers/net/ethernet/freescale/fman/fman_muram.h
-index 889649a..453bf84 100644
---- a/drivers/net/ethernet/freescale/fman/fman_muram.h
-+++ b/drivers/net/ethernet/freescale/fman/fman_muram.h
-@@ -46,6 +46,7 @@ unsigned long fman_muram_offset_to_vbase(struct muram_info *muram,
- 
- unsigned long fman_muram_alloc(struct muram_info *muram, size_t size);
- 
--void fman_muram_free_mem(struct muram_info *muram, unsigned long offset, size_t size);
-+void fman_muram_free_mem(struct muram_info *muram, unsigned long offset,
-+			 size_t size);
- 
- #endif /* __FM_MURAM_EXT */
+The following are changes since commit a4cc96d1f0170b779c32c6b2cc58764f5d2cdef0
+ net: phy: Add Edge-rate driver for Microsemi PHYs.
+and are available on the fman-next branch in the git repository at
+ git://git.freescale.com/ppc/upstream/linux.git
+
+Igal Liberman (1):
+  fsl/fman: fix loadable module compilation
+
+Madalin Bucur (12):
+  fsl/fman: split lines over 80 characters
+  fsl/fman: small fixes
+  fsl/fman: use of_get_phy_mode()
+  fsl/fman: simplify device tree reads
+  fsl/fman: return a phy_dev pointer from init
+  fsl/fman: MEMAC may use QSGMII PHY interface mode
+  fsl/fman: check pcsphy pointer before use
+  fsl/fman: check of_get_phy_mode() return value
+  fsl/fman: simplify redundant condition
+  fsl/fman: fix return value checking
+  fsl/fman: remove leftover comment
+  MAINTAINERS: net: add entry for Freescale QorIQ DPAA FMan driver
+
+ MAINTAINERS                                      |  7 ++
+ drivers/net/ethernet/freescale/fman/Makefile     | 10 +--
+ drivers/net/ethernet/freescale/fman/fman.c       | 78 ++++++++++++++--------
+ drivers/net/ethernet/freescale/fman/fman_mac.h   |  4 --
+ drivers/net/ethernet/freescale/fman/fman_memac.c |  6 +-
+ drivers/net/ethernet/freescale/fman/fman_muram.c |  3 +-
+ drivers/net/ethernet/freescale/fman/fman_muram.h |  3 +-
+ drivers/net/ethernet/freescale/fman/fman_port.c  | 55 ++++++++++------
+ drivers/net/ethernet/freescale/fman/fman_sp.c    |  3 +
+ drivers/net/ethernet/freescale/fman/mac.c        | 83 ++++++++----------------
+ drivers/net/ethernet/freescale/fman/mac.h        |  3 +-
+ 11 files changed, 139 insertions(+), 116 deletions(-)
+
 -- 
 2.1.0
