@@ -1,197 +1,120 @@
-From: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
-Subject: [PATCH v6 net-next] net: phy: Add Edge-rate driver for Microsemi PHYs.
-Date: Tue, 4 Oct 2016 17:11:12 +0530
-Message-ID: <1475581272-12093-1-git-send-email-Raju.Lakkaraju@microsemi.com>
+From: Doug Ledford <dledford@redhat.com>
+Subject: Re: [PATCH net-next 0/7] qed*: Add qedr infrastructure support
+Date: Tue, 4 Oct 2016 08:04:20 -0400
+Message-ID: <ad89ec53-2355-e466-0ceb-92da51cc2a62@redhat.com>
+References: <1475348401-31392-1-git-send-email-Yuval.Mintz@caviumnetworks.com>
+ <20161003.232446.1827173235395776859.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <Allan.Nielsen-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>,
-        <andrew-g2DYL2Zd6BY@public.gmane.org>, Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
-To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="K8AW0gIhlqQXNNs1c3WHBlgMhF9Rjmehh"
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        Ram.Amrani@caviumnetworks.com, Michal.Kalderon@caviumnetworks.com,
+        Ariel.Elior@caviumnetworks.com
+To: David Miller <davem@davemloft.net>, Yuval.Mintz@caviumnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:37828 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752870AbcJDMEh (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 4 Oct 2016 08:04:37 -0400
+In-Reply-To: <20161003.232446.1827173235395776859.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--K8AW0gIhlqQXNNs1c3WHBlgMhF9Rjmehh
+Content-Type: multipart/mixed; boundary="5xiNfpCbXsSsfhnHolv0uSB8uxAEReMlh";
+ protected-headers="v1"
+From: Doug Ledford <dledford@redhat.com>
+To: David Miller <davem@davemloft.net>, Yuval.Mintz@caviumnetworks.com
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+ Ram.Amrani@caviumnetworks.com, Michal.Kalderon@caviumnetworks.com,
+ Ariel.Elior@caviumnetworks.com
+Message-ID: <ad89ec53-2355-e466-0ceb-92da51cc2a62@redhat.com>
+Subject: Re: [PATCH net-next 0/7] qed*: Add qedr infrastructure support
+References: <1475348401-31392-1-git-send-email-Yuval.Mintz@caviumnetworks.com>
+ <20161003.232446.1827173235395776859.davem@davemloft.net>
+In-Reply-To: <20161003.232446.1827173235395776859.davem@davemloft.net>
 
-Edge-rate:
-As system and networking speeds increase, a signal's output transition,
-also know as the edge rate or slew rate (V/ns), takes on greater importance
-because high-speed signals come with a price. That price is an assortment of
-interference problems like ringing on the line, signal overshoot and
-undershoot, extended signal settling times, crosstalk noise, transmission
-line reflections, false signal detection by the receiving device and
-electromagnetic interference (EMI) -- all of which can negate the potential
-gains designers are seeking when they try to increase system speeds through
-the use of higher performance logic devices. The fact is, faster signaling
-edge rates can cause a higher level of electrical noise or other type of
-interference that can actually lead to slower line speeds and lower maximum
-system frequencies. This parameter allow the board designers to change the
-driving strange, and thereby change the EMI behavioral.
+--5xiNfpCbXsSsfhnHolv0uSB8uxAEReMlh
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: quoted-printable
 
-Edge-rate parameters (vddmac, edge-slowdown) get from Device Tree.
+On 10/3/2016 11:24 PM, David Miller wrote:
+> From: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
+> Date: Sat, 1 Oct 2016 21:59:54 +0300
+>=20
+>> In the last couple of weeks we've been sending RFCs for the qedr
+>> driver - the RoCE driver for QLogic FastLinQ 4xxxx line of adapters.
+>> Latest RFC can be found at [1].
+>>
+>> At Doug's advice [2], we've decided to split the series into two:
+>>  - first part contains the qed backbone that's necessary for all the
+>> configurations relating to the qedr driver, as well as the qede
+>> infrastructure that is used for communication between the qedr and qed=
+e.
+>>  - Second part consists of the actual qedr driver and introduces almos=
+t
+>> no changes to qed/qede.
+>>
+>> This is the first of said two parts. The second half would be sent
+>> later this week.
+>>
+>> The only 'oddity' in the devision are the Kconfig options -=20
+>> As this series introduces both LL2 and QEDR-based logic in qed/qede,
+>> I wanted to add the CONFIG_INFINIBAND_QEDR option here [with default n=
+].
+>> Otherwise, a lot of the code introduced would be dead-code [won't even=
 
-Tested on Beaglebone Black with VSC 8531 PHY.
+>> be compiled] until qedr is accepted.
+>> As a result I've placed the config option in an odd place - under
+>> qlogic's Kconfig. The second series would then remove that option
+>> and add it in its correct place under the infiniband Kconfig.
+>> [I'm fine with pushing it there to begin with, but I didn't want to
+>> 'contaminate' non-qlogic configuration files with half-baked options].=
 
-Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
+>>
+>> Dave - I don't think you were E-mailed with Doug's suggestion.
+>> I think the notion was to have the two halves accepted side-by-side,
+>> but actually the first has no dependency issues, so it's also
+>> possible to simply take this first to net-next, and push the qedr
+>> into rdma once it's merged. But it's basically up to you and Doug;
+>> We'd align with whatever suits you best.
+>=20
+> I'll take this, series applied, thanks.
+>=20
 
----
-All the review comments updated and resending for review.
+Are you going to merge this in 4.9 or is this going into net-next?
 
-Change set:
-v1:
-- Initial version of Edge-rate driver add by using IOCTL.
-v2:
-- Changed edge-rate parameter to Device Tree with magic number.
-v3:
-- Added Device Tree documentati0n and edge-rate parameter table.
-  Added probe function initialize the vsc8531 private data structure.
-v4:
-- As per review comment, Device Tree parameters (vddmac, edge-slowdown)
-  added.
-v5:
-- As per review comment, Device Tree Document parameters (vddmac, 
-  edge-slowdown) real numbers added. Table number changed from 5 to 1.
-v6:
-- As per review comment, Removed Device Tree header file. Removed MACROs
-  and add ARRAYSIZE 
+--=20
+Doug Ledford <dledford@redhat.com>
+    GPG Key ID: 0E572FDD
 
----
 
- .../devicetree/bindings/net/mscc-phy-vsc8531.txt   |  3 ++-
- drivers/net/phy/mscc.c                             | 29 ++++++++++++----------
- include/dt-bindings/net/mscc-phy-vsc8531.h         | 21 ----------------
- 3 files changed, 18 insertions(+), 35 deletions(-)
- delete mode 100644 include/dt-bindings/net/mscc-phy-vsc8531.h
+--5xiNfpCbXsSsfhnHolv0uSB8uxAEReMlh--
 
-diff --git a/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt b/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
-index 99c7eb0..241841c 100644
---- a/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
-+++ b/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
-@@ -18,7 +18,8 @@ Optional properties:
- 			  to reprogram drive strength and in effect slow
- 			  down the edge rate if desired.  Table 1 shows the
- 			  impact to the edge rate per VDDMAC supply for each
--			  drive strength setting.
-+			  drive strength setting. VDDMAC supply voltage
-+			  should be one of the value in Table-1 first row.
- 			  Ref: Table:1 - Edge rate change below.
- 
- Note: see dt-bindings/net/mscc-phy-vsc8531.h for applicable values
-diff --git a/drivers/net/phy/mscc.c b/drivers/net/phy/mscc.c
-index a17573e..e25786e 100644
---- a/drivers/net/phy/mscc.c
-+++ b/drivers/net/phy/mscc.c
-@@ -12,7 +12,6 @@
- #include <linux/mii.h>
- #include <linux/phy.h>
- #include <linux/of.h>
--#include <dt-bindings/net/mscc-phy-vsc8531.h>
- 
- enum rgmii_rx_clock_delay {
- 	RGMII_RX_CLK_DELAY_0_2_NS = 0,
-@@ -56,12 +55,14 @@ enum rgmii_rx_clock_delay {
- #define PHY_ID_VSC8531			  0x00070570
- #define PHY_ID_VSC8541			  0x00070770
- 
-+#define MSCC_SLOWDOWN_MAX		  8
-+
- struct edge_rate_table {
- 	u16 vddmac;
- 	int slowdown[MSCC_SLOWDOWN_MAX];
- };
- 
--struct edge_rate_table edge_table[MSCC_VDDMAC_MAX] = {
-+static const struct edge_rate_table edge_table[] = {
- 	{3300, { 0, -2, -4,  -7,  -10, -17, -29, -53} },
- 	{2500, { 0, -3, -6,  -10, -14, -23, -37, -63} },
- 	{1800, { 0, -5, -9,  -16, -23, -35, -52, -76} },
-@@ -81,18 +82,21 @@ static int vsc85xx_phy_page_set(struct phy_device *phydev, u8 page)
- 	return rc;
- }
- 
--static u8 edge_rate_magic_get(u16 vddmac,
--			      int slowdown)
-+static u8 vsc85xx_edge_rate_magic_get(u16 vddmac,
-+				      int slowdown)
- {
--	int rc = (MSCC_SLOWDOWN_MAX - 1);
-+	int rc = (ARRAY_SIZE(edge_table[0].slowdown) - 1);
- 	u8 vdd;
- 	u8 sd;
- 
--	for (vdd = 0; vdd < MSCC_VDDMAC_MAX; vdd++) {
-+	for (vdd = 0; vdd < ARRAY_SIZE(edge_table); vdd++) {
- 		if (edge_table[vdd].vddmac == vddmac) {
--			for (sd = 0; sd < MSCC_SLOWDOWN_MAX; sd++) {
-+			for (sd = 0;
-+			     sd < ARRAY_SIZE(edge_table[0].slowdown);
-+			     sd++) {
- 				if (edge_table[vdd].slowdown[sd] <= slowdown) {
--					rc = (MSCC_SLOWDOWN_MAX - sd - 1);
-+					rc = (ARRAY_SIZE(edge_table[0].slowdown)
-+					      - sd - 1);
- 					break;
- 				}
- 			}
-@@ -198,14 +202,13 @@ static int vsc8531_of_init(struct phy_device *phydev)
- 	rc = of_property_read_u16(of_node, "vsc8531,vddmac",
- 				  &vsc8531->vddmac);
- 	if (rc == -EINVAL)
--		vsc8531->vddmac = MSCC_VDDMAC_3300;
-+		vsc8531->vddmac = 3300;
- 	rc = of_property_read_u8(of_node, "vsc8531,edge-slowdown",
- 				 &vsc8531->edge_slowdown);
- 	if (rc == -EINVAL)
- 		vsc8531->edge_slowdown = 0;
- 
--	rc = 0;
--	return rc;
-+	return 0;
- }
- #else
- static int vsc8531_of_init(struct phy_device *phydev)
-@@ -232,8 +235,8 @@ static int vsc85xx_config_init(struct phy_device *phydev)
- 	if (rc)
- 		return rc;
- 
--	edge_rate = edge_rate_magic_get(vsc8531->vddmac,
--					-(int)vsc8531->edge_slowdown);
-+	edge_rate = vsc85xx_edge_rate_magic_get(vsc8531->vddmac,
-+						-(int)vsc8531->edge_slowdown);
- 	rc = vsc85xx_edge_rate_cntl_set(phydev, edge_rate);
- 	if (rc)
- 		return rc;
-diff --git a/include/dt-bindings/net/mscc-phy-vsc8531.h b/include/dt-bindings/net/mscc-phy-vsc8531.h
-deleted file mode 100644
-index 2383dd2..0000000
---- a/include/dt-bindings/net/mscc-phy-vsc8531.h
-+++ /dev/null
-@@ -1,21 +0,0 @@
--/*
-- * Device Tree constants for Microsemi VSC8531 PHY
-- *
-- * Author: Nagaraju Lakkaraju
-- *
-- * License: Dual MIT/GPL
-- * Copyright (c) 2016 Microsemi Corporation
-- */
--
--#ifndef _DT_BINDINGS_MSCC_VSC8531_H
--#define _DT_BINDINGS_MSCC_VSC8531_H
--
--/* MAC interface Edge rate control VDDMAC in milli Volts */
--#define MSCC_VDDMAC_3300		 3300
--#define MSCC_VDDMAC_2500		 2500
--#define MSCC_VDDMAC_1800		 1800
--#define MSCC_VDDMAC_1500		 1500
--#define MSCC_VDDMAC_MAX			 4
--#define MSCC_SLOWDOWN_MAX		 8
--
--#endif
--- 
-2.7.4
+--K8AW0gIhlqQXNNs1c3WHBlgMhF9Rjmehh
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+
+iQIcBAEBCAAGBQJX85rKAAoJELgmozMOVy/dPIQP/3w1XQAamw/tlCf2gyQUaABn
+1rmb6LCFtOcOC/RgDzoj3i1t53Zoy0bPWIWHJj5NkskImGlhAk5bwlRHA/4A67wx
+y+srdkUkzZHuhB7bpJFCcnIwdzpyXj3Z3EdOpQznBm8Sv8yU+y0z7JryWv+iI6VC
+LSFot4E6PliQ0YC4LaXoVeoyhVMoXzo85+dvOah6ZyhhTBL+z6BW7ly712kAZ1TK
+lasVNYVcg142YuUV0nbamD855nTuvooDMIPis9dmmGt+VGmWlMaqj6ntwJH9Ojyh
+0YKPD8a5n2V2L04HmRzAL7p0FjHdzJCPxb5dv55KNo8G8pBITMj8yEm8japsyUiB
++QRdDxIaUkeR5vBbdBB8JGjh5/oORwXtxKYJOyCkZpkA2WumX0Dz/pqaquskW78E
+LYD7WEhJ3xGBUK1lsttbVGB1jfcnUmiwQKJkKzoBkxnxg9wFH+G9SNX6kWI2mfPs
+VwFHlZ7DLVbtRLpT82tzFmL+7aqdMB+2r/gQvqk4v70JXTV7bfLc7qEbW035mjoF
+Q7t6LYcGTmmj6w78FdoiefWJeYY9FCBVgU3x4ixOXlS5ojj0ybKNBEY3xydEbtIn
+qvwhu01dJem8dpP0b/6WRW5GBwpP2QYpKR2ukXKuNwFRPPuj3ZbiZQ6S7Lrdb3vo
+az50Kyjy97ucWyTj0QkS
+=LM5k
+-----END PGP SIGNATURE-----
+
+--K8AW0gIhlqQXNNs1c3WHBlgMhF9Rjmehh--
