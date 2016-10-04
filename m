@@ -1,25 +1,27 @@
 From: Jose Antonio Delgado Alfonso <jose.delgado@aoifes.com>
 Subject: [ISSUE: mv88e6xxx]: Down/Up link and not forwarding
-Date: Tue, 4 Oct 2016 17:13:35 +0200
-Message-ID: <b115f9d1-4706-e3a8-e739-96d801dc524b@aoifes.com>
+Date: Tue, 4 Oct 2016 17:37:13 +0200
+Message-ID: <40e73820-6e67-5cde-b492-bfbcba64caeb@aoifes.com>
+References: <8e5e36d7-7618-2a4e-6aba-e65e41662d47@aoifes.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-relay-02-9.dondominio.net ([31.214.176.42]:43219 "EHLO
-        smtp-relay-02-9.dondominio.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751969AbcJDPRx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 11:17:53 -0400
+Received: from smtp-relay-02-6.dondominio.net ([31.214.176.39]:39240 "EHLO
+        smtp-relay-02-6.dondominio.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752652AbcJDPgY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 11:36:24 -0400
 Received: from mail-node.dondominio.com
-        by smtp-relay.dondominio.com (Postfix) with ESMTP id 4939F42D14
-        for <netdev@vger.kernel.org>; Tue,  4 Oct 2016 17:12:44 +0200 (CEST)
+        by smtp-relay.dondominio.com (Postfix) with ESMTP id 7ADED41956
+        for <netdev@vger.kernel.org>; Tue,  4 Oct 2016 17:36:21 +0200 (CEST)
 Received: from [192.168.100.105] (unknown [217.130.92.197])
         (using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
         (No client certificate requested)
         (Authenticated sender: jose.delgado@aoifes.com)
-        by mail-node.dondominio.com (Postfix) with ESMTPSA id D2F3C41780
-        for <netdev@vger.kernel.org>; Tue,  4 Oct 2016 17:12:43 +0200 (CEST)
+        by mail-node.dondominio.com (Postfix) with ESMTPSA id 3E458414D7
+        for <netdev@vger.kernel.org>; Tue,  4 Oct 2016 17:36:21 +0200 (CEST)
+In-Reply-To: <8e5e36d7-7618-2a4e-6aba-e65e41662d47@aoifes.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -30,32 +32,22 @@ should not return a boolean."
 
 This is the schema of the system.
 
-    +---------------------+ eth0
-    |                     +--+
-    |                     |  |
-    |   Embedded system   +--+
-    |                     |
-    |       ARMv7         |
-    |                     | Marvell 88E8057(sky2)          
-+------------------+
-    |                     +--+                          
-+--+                  +--+ eth1@marvell
-    |                     |  +---------------------------+ 
-|                  |  +-------+
-    |                     +--+         CPU port          +--+   
-mv88e6176     +--+
-    +------+--+-----------+                                
-|                  |
-emulated   |  |                                            
-|                  |
-GPIO-MDIO  +--+                                         
-+--+                  +--+ eth2@marvell
-             +-------------------------------------------+ 
-|                  |  +-------+
-                              MDIO                      
-+--+                  +--+
-                                                           
-+------------------+
+ +-------------------+ eth0
+ |                   +--+
+ |                   |  |
+ | Embedded system   +--+
+ |                   |
+ |      ARMv7        |
+ |                   | Marvell 88E8057(sky2)     +-------------+
+ |                   +--+                     +--+             +--+ eth1
+ |                   |  +---------------------+  |             |  +------+
+ |                   +--+      CPU port       +--+  mv88e6176  +--+
+ +------+--+---------+                           |             |
+emulated|  |                                     |             |
+GPIO    +--+                                  +--+             +--+ eth2
+MDIO      +-----------------------------------+  |             |  +------+
+                              MDIO            +--+             +--+
+                                                 +-------------+
 
 There is a bridge (br-lan) which includes eth0/eth1/eth2
 
