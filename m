@@ -1,205 +1,71 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH 3/3] mac80211: multicast to unicast conversion
-Date: Wed, 05 Oct 2016 12:19:51 +0200
-Message-ID: <1475662791.4994.39.camel@sipsolutions.net>
-References: <1475643324-2845-1-git-send-email-michael-dev@fami-braun.de>
-         <1475643324-2845-3-git-send-email-michael-dev@fami-braun.de>
+From: Meelis Roos <mroos@linux.ee>
+Subject: tg3 BUG: spinlock lockup suspected
+Date: Wed, 5 Oct 2016 15:06:46 +0300 (EEST)
+Message-ID: <alpine.LRH.2.20.1610051502240.23078@math.ut.ee>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, projekt-wlan-3kN+8DYepx7zMJDuovMtMLNAH6kLmebB@public.gmane.org,
-        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Michael Braun <michael-dev-1SGGS//iJ+Y38rf8aCqVIw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1475643324-2845-3-git-send-email-michael-dev-1SGGS//iJ+Y38rf8aCqVIw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=US-ASCII
+To: netdev@vger.kernel.org, sparclinux@vger.kernel.org
+Return-path: <sparclinux-owner@vger.kernel.org>
+Sender: sparclinux-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-+netdev
+I am testing 4.8 on my sparcs and got this on Sun V210 (sparc64). This 
+is reproducible. 4.8.0-rc3-00013 did not have this problem, will bisect 
+when I get some time.
 
-> IEEE802.11-2012 proposes directed multicast service (DMS) using A-
-> MSDU frames and a station initiated control protocol. It has the
-> advantage that the station can recover the destination multicast mac
-> address, but it is not backward compatible with non QOS stations and
-> does not enable the administrator of a BSS to force this mode of
-> operation within a BSS. Additionally, it would require both the ap
-> and the station to implement the control protocol, which is optional
-> on both ends. Furthermore, I've seen a few mobile phone stations
-> locally that indicate qos support but won't complete DHCP if their
-> broadcasts are encapsulated as A-MSDU. Though they work fine with
-> this series approach.
-
-Presumably those phones also don't even try to use DMS, right?
-
-> This patch therefore does not opt to implement DMS but instead just
-> replicates the packet and changes the destination address. As this
-> works fine with ARP, IPv4 and IPv6, it is limited to these protocols
-> and normal 802.11 multicast frames are send out for all other payload
-> protocols.
-
-How did you determine that it "works fine"?
-
-I see at least one undesirable impact of this, which DMS doesn't have;
-it breaks a client's MUST NOT requirement from RFC 1122:
-
-         An ICMP error message MUST NOT be sent as the result of
-         receiving:
+[   74.123859] tg3.c:v3.137 (May 11, 2014)
+[   74.123880] PCI: Enabling device: (0000:00:02.0), cmd 2
+[   74.315794] tg3 0000:00:02.0 (unnamed net_device) (uninitialized): Cannot get nvram lock, tg3_nvram_init failed
+[   74.656152] tg3 0000:00:02.0 eth0: Tigon3 [partno(none) rev 2003] (PCI:66MHz:64-bit) MAC address 00:03:ba:0a:f3:85
+[   74.656160] tg3 0000:00:02.0 eth0: attached PHY is 5704 (10/100/1000Base-T Ethernet) (WireSpeed[1], EEE[0])
+[   74.656167] tg3 0000:00:02.0 eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
+[   74.656172] tg3 0000:00:02.0 eth0: dma_rwctrl[763f0000] dma_mask[32-bit]
+[   74.656322] PCI: Enabling device: (0000:00:02.1), cmd 2
+[   74.845325] tg3 0000:00:02.1 (unnamed net_device) (uninitialized): Cannot get nvram lock, tg3_nvram_init failed
+[   75.184539] tg3 0000:00:02.1 eth1: Tigon3 [partno(none) rev 2003] (PCI:66MHz:64-bit) MAC address 00:03:ba:0a:f3:86
+[   75.184546] tg3 0000:00:02.1 eth1: attached PHY is 5704 (10/100/1000Base-T Ethernet) (WireSpeed[1], EEE[0])
+[   75.184551] tg3 0000:00:02.1 eth1: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
+[   75.184557] tg3 0000:00:02.1 eth1: dma_rwctrl[763f0000] dma_mask[32-bit]
+[   75.184708] PCI: Enabling device: (0003:00:02.0), cmd 2
+[   75.375322] tg3 0003:00:02.0 (unnamed net_device) (uninitialized): Cannot get nvram lock, tg3_nvram_init failed
+[   75.714681] tg3 0003:00:02.0 eth2: Tigon3 [partno(none) rev 2003] (PCI:66MHz:64-bit) MAC address 00:03:ba:0a:f3:87
+[   75.714688] tg3 0003:00:02.0 eth2: attached PHY is 5704 (10/100/1000Base-T Ethernet) (WireSpeed[1], EEE[0])
+[   75.714694] tg3 0003:00:02.0 eth2: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
+[   75.714699] tg3 0003:00:02.0 eth2: dma_rwctrl[763f0000] dma_mask[32-bit]
+[   75.714819] PCI: Enabling device: (0003:00:02.1), cmd 2
+[   75.905278] tg3 0003:00:02.1 (unnamed net_device) (uninitialized): Cannot get nvram lock, tg3_nvram_init failed
+[   76.244470] tg3 0003:00:02.1 eth3: Tigon3 [partno(none) rev 2003] (PCI:66MHz:64-bit) MAC address 00:03:ba:0a:f3:88
+[   76.244477] tg3 0003:00:02.1 eth3: attached PHY is 5704 (10/100/1000Base-T Ethernet) (WireSpeed[1], EEE[0])
+[   76.244482] tg3 0003:00:02.1 eth3: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
+[   76.244488] tg3 0003:00:02.1 eth3: dma_rwctrl[763f0000] dma_mask[32-bit]
+[   83.643317] tg3 0000:00:02.0 eth0: No firmware running
 [...]
-         *    a datagram sent as a link-layer broadcast, or
-[...]
+[   83.716570] BUG: spinlock lockup suspected on CPU#0, dhclient/1014
+[   83.797819]  lock: 0xfff000123c8e4a08, .magic: dead4ead, .owner: ip/1001, .owner_cpu: 1
+[   83.903130] CPU: 0 PID: 1014 Comm: dhclient Not tainted 4.8.0 #4
+[   83.982129] Call Trace:
+[   84.014160]  [00000000004b7220] spin_dump+0x60/0xa0
+[   84.078203]  [00000000004b73a0] do_raw_spin_lock+0xa0/0x120
+[   84.106344] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
+[   84.107193] ip (1001) used greatest stack depth: 2168 bytes left
+[   84.306955]  [000000000092c0d0] _raw_spin_lock_bh+0x30/0x40
+[   84.380188]  [00000000100822cc] tg3_get_stats64+0xc/0x80 [tg3]
+[   84.456885]  [00000000007fac8c] dev_get_stats+0x2c/0xc0
+[   84.525506]  [000000000081a4e8] dev_seq_printf_stats+0x8/0xe0
+[   84.600986]  [000000000081a5e4] dev_seq_show+0x24/0x40
+[   84.668467]  [00000000005cb6c4] seq_read+0x2c4/0x440
+[   84.733656]  [000000000060b97c] proc_reg_read+0x3c/0x80
+[   84.802282]  [00000000005a219c] __vfs_read+0x1c/0x140
+[   84.868613]  [00000000005a2310] vfs_read+0x50/0x100
+[   84.932662]  [00000000005a265c] SyS_read+0x3c/0xa0
+[   84.995573]  [00000000004061d4] linux_sparc_syscall32+0x34/0x60
+[   85.073748] * CPU[  0]: TSTATE[00000044f0001a22] TPC[00000000f79a16b0] TNPC[00000000f79a16b4] TASK[dhclient:1014]
+[   85.208732]              TPC[f79a16b0] O7[f79405c8] I7[0] RPC[0]
+[   85.287633]   CPU[  1]: TSTATE[0000004480001605] TPC[00000000004b26f0] TNPC[00000000004d0b0c] TASK[swapper/1:0]
+[   85.420338]              TPC[trace_hardirqs_off+0x10/0x20] O7[rcu_idle_enter+0x64/0xa0] I7[cpu_startup_entry+0x1b0/0x240] RPC[rest_init+0x178/0x1a0]
+[   85.664600] tg3 0000:00:02.0 eth0: Link is up at 100 Mbps, full duplex
+[   85.750515] tg3 0000:00:02.0 eth0: Flow control is off for TX and off for RX
+[   85.843994] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
 
-since the client can no longer realize that the datagram was in fact
-sent as a link-layer broadcast (or multicast).
-
->  include/net/cfg80211.h        |   5 ++
->  include/uapi/linux/nl80211.h  |   7 +++
->  net/mac80211/cfg.c            |  14 ++++++
->  net/mac80211/debugfs_netdev.c |  29 ++++++++++++
->  net/mac80211/ieee80211_i.h    |   1 +
->  net/mac80211/tx.c             | 103
-> ++++++++++++++++++++++++++++++++++++++++++
->  net/wireless/nl80211.c        |  33 ++++++++++++++
->  net/wireless/rdev-ops.h       |  11 +++++
->  net/wireless/trace.h          |  19 ++++++++
->  9 files changed, 222 insertions(+)
-
-You should split the patch into cfg80211 and mac80211, IMHO it's big
-enough to do that.
-
-> + * @set_ap_unicast: set the multicast to unicast flag for a AP
-> interface
-
-That API name isn't very descriptive, I'm sure we can do something
-better there.
-
-Also, perhaps we should structure this already like we would DMS, with
-a per-station toggle or even list of multicast addresses?
-
-> @@ -2261,6 +2266,8 @@ enum nl80211_attrs {
->  
->  	NL80211_ATTR_MESH_PEER_AID,
->  
-> +	NL80211_ATTR_UNICAST,
-
-missing docs, but likely doesn't matter after the comment above
-
-> +static int ieee80211_set_ap_unicast(struct wiphy *wiphy, struct
-> net_device *dev,
-> +				    const bool unicast)
-> +{
-> +	struct ieee80211_sub_if_data *sdata =
-> IEEE80211_DEV_TO_SUB_IF(dev);
-> +
-> +	if (sdata->vif.type != NL80211_IFTYPE_AP)
-> +		return -1;
-
-Was this not documented but also intended to apply to its dependent
-VLANs?
-
-> +static ssize_t
-> +ieee80211_if_fmt_unicast(const struct ieee80211_sub_if_data *sdata,
-> +			 char *buf, int buflen)
-> +{
-> +	const struct ieee80211_if_ap *ifap = &sdata->u.ap;
-> +
-> +	return snprintf(buf, buflen, "0x%x\n", ifap->unicast);
-> +}
-> +
-> +static ssize_t
-> +ieee80211_if_parse_unicast(struct ieee80211_sub_if_data *sdata,
-> +			   const char *buf, int buflen)
-> +{
-> +	struct ieee80211_if_ap *ifap = &sdata->u.ap;
-> +	u8 val;
-> +	int ret;
-> +
-> +	ret = kstrtou8(buf, 0, &val);
-> +	if (ret)
-> +		return ret;
-> +
-> +	ifap->unicast = val ? 1 : 0;
-> +
-> +	return buflen;
-> +}
-> +
-> +IEEE80211_IF_FILE_RW(unicast);
-
-No need for this, at least the setter, any more.
-
-> +/* Check if multicast to unicast conversion is needed and do it.
-> + * Returns 1 if skb was freed and should not be send out. */
-
-wrong comment style :)
-
-> +static int
-> +ieee80211_tx_multicast_to_unicast(struct ieee80211_sub_if_data
-> *sdata,
-> +				  struct sk_buff *skb,
-> u32  info_flags)
-> +{
-> +	struct ieee80211_local *local = sdata->local;
-> +	const struct ethhdr *eth = (void *)skb->data;
-> +	const struct vlan_ethhdr *ethvlan = (void *)skb->data;
-> +	struct sta_info *sta, *prev = NULL;
-> +	struct sk_buff *cloned_skb;
-> +	u16 ethertype;
-> +
-> +	/* multicast to unicast conversion only for AP interfaces */
-> +	switch (sdata->vif.type) {
-> +	case NL80211_IFTYPE_AP_VLAN:
-> +		sta = rcu_dereference(sdata->u.vlan.sta);
-> +		if (sta) /* 4addr */
-> +			return 0;
-> +	case NL80211_IFTYPE_AP:
-> +		break;
-> +	default:
-> +		return 0;
-> +	}
-> +
-> +	/* check runtime toggle for this bss */
-> +	if (!sdata->bss->unicast)
-> +		return 0;
-> +
-> +	/* check if this is a multicast frame */
-> +	if (!is_multicast_ether_addr(eth->h_dest))
-> +		return 0;
-
-That should probably come first, would make this far easier to read.
-
-> +		if (unlikely(!memcmp(eth->h_source, sta->sta.addr,
-> ETH_ALEN)))
-> +			/* do not send back to source */
-> +			continue;
-
-ether_addr_something, instead of memcmp?
-
-> +		if (unlikely(is_multicast_ether_addr(sta-
-> >sta.addr))) {
-> +			WARN_ONCE(1, "sta with multicast address
-> %pM",
-> +				  sta->sta.addr);
-> +			continue;
-> +		}
-
-Err, no, remove this... it cannot happen. We could move the check into
-cfg80211 from mac80211, but we surely shouldn't add it into the TX
-hotpath!
-
-> +		if (prev) {
-> +			cloned_skb = skb_clone(skb, GFP_ATOMIC);
-> +			if (likely(!ieee80211_change_da(cloned_skb,
-> prev)))
-> +				ieee80211_subif_start_xmit(cloned_sk
-> b,
-> +							   cloned_sk
-> b->dev);
-
-I'm not very happy with this recursion, but I guess it can't be avoided
-easily. However, you can easily call the more
-sensible __ieee80211_subif_start_xmit() instead of this one.
-
-> +	unicast = nla_data(info->attrs[NL80211_ATTR_UNICAST]);
-
-What's this supposed to mean?
-
-johannes
+-- 
+Meelis Roos (mroos@linux.ee)
