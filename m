@@ -1,7 +1,7 @@
 From: Nelson Chang <nelson.chang@mediatek.com>
-Subject: [PATCH net-next v2 RESEND 1/3] net: ethernet: mediatek: get the chip id by ETHDMASYS registers
-Date: Wed, 5 Oct 2016 20:32:20 +0800
-Message-ID: <1475670742-11498-2-git-send-email-nelson.chang@mediatek.com>
+Subject: [PATCH net-next v2 RESEND 3/3] net: ethernet: mediatek: remove hwlro property in the device tree
+Date: Wed, 5 Oct 2016 20:32:22 +0800
+Message-ID: <1475670742-11498-4-git-send-email-nelson.chang@mediatek.com>
 References: <1475670742-11498-1-git-send-email-nelson.chang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,92 +10,41 @@ Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
         Nelson Chang <nelson.chang@mediatek.com>
 To: <john@phrozen.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw01.mediatek.com ([210.61.82.183]:29131 "EHLO
+Received: from mailgw01.mediatek.com ([210.61.82.183]:46865 "EHLO
         mailgw01.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752359AbcJEMc3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2016 08:32:29 -0400
+        with ESMTP id S1752414AbcJEMca (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2016 08:32:30 -0400
 In-Reply-To: <1475670742-11498-1-git-send-email-nelson.chang@mediatek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver gets the chip id by ETHSYS_CHIPID0_3/ETHSYS_CHIPID4_7 registers
-in mtk_probe().
+Since the proper way to check the hw lro capability is by the chip id,
+hwlro property in the device tree should be removed.
 
 Signed-off-by: Nelson Chang <nelson.chang@mediatek.com>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 29 +++++++++++++++++++++++++++++
- drivers/net/ethernet/mediatek/mtk_eth_soc.h |  5 +++++
- 2 files changed, 34 insertions(+)
+ Documentation/devicetree/bindings/net/mediatek-net.txt | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index ad4ab97..0c67ab1 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -2323,6 +2323,31 @@ free_netdev:
- 	return err;
- }
+diff --git a/Documentation/devicetree/bindings/net/mediatek-net.txt b/Documentation/devicetree/bindings/net/mediatek-net.txt
+index f095257..c010faf 100644
+--- a/Documentation/devicetree/bindings/net/mediatek-net.txt
++++ b/Documentation/devicetree/bindings/net/mediatek-net.txt
+@@ -24,7 +24,6 @@ Required properties:
+ Optional properties:
+ - interrupt-parent: Should be the phandle for the interrupt controller
+   that services interrupts for this device
+-- mediatek,hwlro: the capability if the hardware supports LRO functions
  
-+static int mtk_get_chip_id(struct mtk_eth *eth, u32 *chip_id)
-+{
-+	u32 val[2], id[4];
-+
-+	regmap_read(eth->ethsys, ETHSYS_CHIPID0_3, &val[0]);
-+	regmap_read(eth->ethsys, ETHSYS_CHIPID4_7, &val[1]);
-+
-+	id[3] = ((val[0] >> 16) & 0xff) - '0';
-+	id[2] = ((val[0] >> 24) & 0xff) - '0';
-+	id[1] = (val[1] & 0xff) - '0';
-+	id[0] = ((val[1] >> 8) & 0xff) - '0';
-+
-+	*chip_id = (id[3] * 1000) + (id[2] * 100) +
-+		   (id[1] * 10) + id[0];
-+
-+	if (!(*chip_id)) {
-+		dev_err(eth->dev, "failed to get chip id\n");
-+		return -ENODEV;
-+	}
-+
-+	dev_info(eth->dev, "chip id = %d\n", *chip_id);
-+
-+	return 0;
-+}
-+
- static int mtk_probe(struct platform_device *pdev)
- {
- 	struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-@@ -2388,6 +2413,10 @@ static int mtk_probe(struct platform_device *pdev)
- 	if (err)
- 		return err;
+ * Ethernet MAC node
  
-+	err = mtk_get_chip_id(eth, &eth->chip_id);
-+	if (err)
-+		return err;
-+
- 	for_each_child_of_node(pdev->dev.of_node, mac_np) {
- 		if (!of_device_is_compatible(mac_np,
- 					     "mediatek,eth-mac"))
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-index 3003195..a5b422b 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-@@ -342,6 +342,10 @@
- #define GPIO_BIAS_CTRL		0xed0
- #define GPIO_DRV_SEL10		0xf00
+@@ -54,7 +53,6 @@ eth: ethernet@1b100000 {
+ 	reset-names = "eth";
+ 	mediatek,ethsys = <&ethsys>;
+ 	mediatek,pctl = <&syscfg_pctl_a>;
+-	mediatek,hwlro;
+ 	#address-cells = <1>;
+ 	#size-cells = <0>;
  
-+/* ethernet subsystem chip id register */
-+#define ETHSYS_CHIPID0_3	0x0
-+#define ETHSYS_CHIPID4_7	0x4
-+
- /* ethernet subsystem config register */
- #define ETHSYS_SYSCFG0		0x14
- #define SYSCFG0_GE_MASK		0x3
-@@ -534,6 +538,7 @@ struct mtk_eth {
- 	unsigned long			sysclk;
- 	struct regmap			*ethsys;
- 	struct regmap			*pctl;
-+	u32				chip_id;
- 	bool				hwlro;
- 	atomic_t			dma_refcnt;
- 	struct mtk_tx_ring		tx_ring;
 -- 
 1.9.1
