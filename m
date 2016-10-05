@@ -1,63 +1,72 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] bluetooth.h: __ variants of u8 and friends are not
- neccessary inside kernel
-Date: Wed, 05 Oct 2016 12:15:34 -0700
-Message-ID: <1475694934.1941.1.camel@perches.com>
-References: <20161003085640.GA8130@amd>
-         <368810F9-519C-44B5-85D4-1815273438BF@holtmann.org>
-         <1475689996.6105.11.camel@perches.com> <20161005191103.GA25972@amd>
+From: Eric Garver <e@erig.me>
+Subject: Re: [PATCH net-next v2 1/3] openvswitch: normalize vlan rx path
+Date: Wed, 5 Oct 2016 15:21:32 -0400
+Message-ID: <20161005192132.GR25403@egarver>
+References: <cover.1475672568.git.jbenc@redhat.com>
+ <c7f44c08104958c86c68d98f1e093d754b0ca61b.1475672569.git.jbenc@redhat.com>
+ <CAHsH6Gvha_Saq8SVaLhsXzNggAOwbdu6n5xLQD7HFhYweJMsmw@mail.gmail.com>
+ <20161005192319.713d92e1@griffin>
+ <CAHsH6GvO=F38jXo18=3n1+w+sojRtRcLgbdE9PrGbGyB4vmoEA@mail.gmail.com>
+ <20161005184426.GQ25403@egarver>
+ <20161005210709.79732b27@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Marcel Holtmann <marcel@holtmann.org>, trivial@kernel.org,
-        "Gustavo F. Padovan" <gustavo@padovan.org>,
-        Johan Hedberg <johan.hedberg@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Pavel Machek <pavel@ucw.cz>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eyal Birger <eyal.birger@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        pravin shelar <pshelar@ovn.org>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0017.hostedemail.com ([216.40.44.17]:52354 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1753002AbcJETPj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2016 15:15:39 -0400
-In-Reply-To: <20161005191103.GA25972@amd>
+Received: from mx1.redhat.com ([209.132.183.28]:39438 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753340AbcJETVe (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 5 Oct 2016 15:21:34 -0400
+Content-Disposition: inline
+In-Reply-To: <20161005210709.79732b27@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-10-05 at 21:11 +0200, Pavel Machek wrote:
-> On Wed 2016-10-05 10:53:16, Joe Perches wrote:
-> > On Wed, 2016-10-05 at 13:14 +0200, Marcel Holtmann wrote:
-> > > Hi Pavel,
-> > > 
-> > > > bluetooth.h is not part of user API, so __ variants are not neccessary
-> > > > here.
-> > > > 
-> > > > Signed-off-by: Pavel Machek <pavel@ucw.cz>
-> > > > 
-> > > > diff --git a/include/net/bluetooth/bluetooth.h b/include/net/bluetooth/bluetooth.h
+On Wed, Oct 05, 2016 at 09:07:09PM +0200, Jiri Benc wrote:
+> On Wed, 5 Oct 2016 14:44:26 -0400, Eric Garver wrote:
+> > On Wed, Oct 05, 2016 at 08:31:52PM +0300, Eyal Birger wrote:
+> > > Just seemed less future safe to keep a pointer to an old packet lying around.
 > > 
-> > []
-> > > > struct bt_skb_cb {
-> > > > -	__u8 pkt_type;
-> > > > -	__u8 force_active;
-> > > > -	__u16 expect;
-> > > > -	__u8 incoming:1;
-> > > > +	u8 pkt_type;
-> > > > +	u8 force_active;
-> > > > +	u16 expect;
-> > > > +	u8 incoming:1;
-> > > > 	union {
-> > > > 		struct l2cap_ctrl l2cap;
-> > > > 		struct hci_ctrl hci;
-> > 
-> > 
-> > trivia:
-> > 
-> > It's generally faster to use bool instead of u8 foo:1;
+> > I agree. Alternatively refresh the eth pointer.
 > 
-> Ok, but I'm not changing that in this patch.
-> (And actually, bool will take a lot more memory, right?)
+> Sorry guys, that just doesn't make sense. Everyone should know that
+> reloading of skb pointer means the former pointers to its data may
+> become invalid. Please point me to any place in the kernel where we
+> reload the data pointer "just because" even when not used.
+> 
 
-No worries, and bool is the same size as u8.
-> 
+How about this incremental change?
+
+
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 7ef02752d4ba..0dd36f353c53 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -562,7 +562,6 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
+ 	struct sw_flow *flow;
+ 	struct sw_flow_actions *sf_acts;
+ 	struct datapath *dp;
+-	struct ethhdr *eth;
+ 	struct vport *input_vport;
+ 	u16 mru = 0;
+ 	int len;
+@@ -584,14 +583,12 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
+ 	nla_memcpy(__skb_put(packet, len), a[OVS_PACKET_ATTR_PACKET], len);
+ 
+ 	skb_reset_mac_header(packet);
+-	eth = eth_hdr(packet);
+ 
+ 	/* Normally, setting the skb 'protocol' field would be handled by a
+ 	 * call to eth_type_trans(), but it assumes there's a sending
+ 	 * device, which we may not have. */
+-	if (eth_proto_is_802_3(eth->h_proto))
+-		packet->protocol = eth->h_proto;
+-	else
++	packet->protocol = eth_hdr(packet)->h_proto;
++	if (!eth_proto_is_802_3(packet->protocol))
+ 		packet->protocol = htons(ETH_P_802_2);
+ 
+ 	if (eth_type_vlan(packet->protocol)) {
