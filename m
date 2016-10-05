@@ -1,30 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net 0/2] mlxsw: Couple of fixes
-Date: Tue, 04 Oct 2016 20:29:27 -0400 (EDT)
-Message-ID: <20161004.202927.1650578832896717724.davem@davemloft.net>
-References: <1475567165-3362-1-git-send-email-jiri@resnulli.us>
+From: William Tu <u9012063@gmail.com>
+Subject: Re: Assertion faileda at samples/bpf/test_maps
+Date: Wed, 5 Oct 2016 09:48:52 +0900
+Message-ID: <CALDO+SYAxzzOTQu-Pgi6uPke0ojU46iS+0vk6cm5diytWca=EQ@mail.gmail.com>
+References: <CAEQ0BR4j65Upa_ZLo6yC1khOprvXx1_iVxCKuSxbn+Df1mo_OQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yotamg@mellanox.com, idosch@mellanox.com,
-        eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com
-To: jiri@resnulli.us
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Louie Lu <louie.lu@hopebaytech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57582 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750940AbcJEA3b (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 20:29:31 -0400
-In-Reply-To: <1475567165-3362-1-git-send-email-jiri@resnulli.us>
+Received: from mail-it0-f49.google.com ([209.85.214.49]:38812 "EHLO
+        mail-it0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751722AbcJEAtd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 20:49:33 -0400
+Received: by mail-it0-f49.google.com with SMTP id o19so144974071ito.1
+        for <netdev@vger.kernel.org>; Tue, 04 Oct 2016 17:49:33 -0700 (PDT)
+In-Reply-To: <CAEQ0BR4j65Upa_ZLo6yC1khOprvXx1_iVxCKuSxbn+Df1mo_OQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Tue,  4 Oct 2016 09:46:03 +0200
+Hi Louie,
 
-> Couple of fixes from Yotam.
+Can you check whether your num_possible_cpu == num_online_cpu?
+by doing:
+cat /sys/devices/system/cpu/possible
+and see how many cpu[0-9]
+ls /sys/devices/system/cpu/cpu*
 
-Series applied, thanks.
+There is a related discussion here:
+https://www.mail-archive.com/netdev@vger.kernel.org/msg121258.html
 
-Note that needed_headroom is a request, rather than a guarantee, so you
-may in some rare cases need to realloc your headroom if the kernel was
-not able to meet your request.
+Regards,
+William
+
+On Sun, Oct 2, 2016 at 3:55 PM, Louie Lu <louie.lu@hopebaytech.com> wrote:
+> Hi everyone,
+>
+> I'm now playing net-next samples/bpf things, and I found that
+> test_maps will give an assertion
+>
+> ```
+> test_maps: /home/grd/linux/net-next/samples/bpf/test_maps.c:146:
+> test_percpu_hashmap_sanity: Assertion `bpf_lookup_elem(map_fd, &key,
+> value) == -1 && errno == ENOENT' failed.
+> [1]    20706 abort (core dumped)  ./test_maps
+> ```
+>
+> I've done the check at [[iovisor-dev] Assertion fails at
+> samples/bpf/test_maps](http://lists.iovisor.org/pipermail/iovisor-dev/2016-June/000281.html)
+> which tells me to set ulimit to unlimited or patching by setrlimit().
+>
+> The problem is bpf_lookup_elem return -1, and errno return 0.
+>
+> I'm using Intel(R) Core(TM) i7-2640M and net-next commit:
+> 803783849fed11, 4.8.0-rc7-ARCH-02283-g8037838.
+>
+> And, a strange this is when I done this at QEMU, test_maps perform
+> will and pass the test.
+>
+> Is that my hardware problem or something else?
+>
+>
+> Thanks.
+>
+> Louie Lu.
