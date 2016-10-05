@@ -1,30 +1,24 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/7] rxrpc: More fixes and adjustments
-Date: Tue, 04 Oct 2016 20:10:51 -0400 (EDT)
-Message-ID: <20161004.201051.821616397135404483.davem@davemloft.net>
-References: <20161003.020236.1905952240188445872.davem@davemloft.net>
-        <147527161156.28826.2148784664652062075.stgit@warthog.procyon.org.uk>
-        <10083.1475596890@warthog.procyon.org.uk>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull-request: mac80211-next 2016-10-04
+Date: Tue, 04 Oct 2016 20:25:28 -0400 (EDT)
+Message-ID: <20161004.202528.768645047812953671.davem@davemloft.net>
+References: <1475567338-28291-1-git-send-email-johannes@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: dhowells@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <10083.1475596890@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1475567338-28291-1-git-send-email-johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: David Howells <dhowells@redhat.com>
-Date: Tue, 04 Oct 2016 17:01:30 +0100
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Date: Tue,  4 Oct 2016 09:31:28 +0200
 
-> What's the procedure for sending more fixes at this point?  Do I send them
-> against net-next, since net doesn't contain the things to be fixed yet, or do
-> I wait for net to catch up?
+> Here's a version with the conflicts resolved - had to jigger some
+> code around, but it's all described in the merge commit message.
+> 
+> Let me know if there's any problem.
 
-I'm sending Linus a pull request later today for the stuff in net-next,
-and once he takes that all the trees will be synced up and you can start
-sending fixes.
-
-Thanks.
+Pulled, thanks for resolving this.
