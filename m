@@ -1,35 +1,42 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: net-next tree broken with CONFIG_NETFILTER_INGRESS=n
-Date: Wed, 5 Oct 2016 10:51:45 +0200
-Message-ID: <20161005085145.GA10576@breakpoint.cc>
-References: <E3004E95-F774-457E-9BA8-FA29A72BE035@holtmann.org>
- <57588F77-89EA-4BAF-8B11-E45D22B49968@holtmann.org>
- <20161005.040137.1214181921027379179.davem@davemloft.net>
+From: Justin Piszcz <jpiszcz@lucidpixels.com>
+Subject: Re: kernel v4.8: iptables logs are truncated with the 4.8 kernel?
+Date: Wed, 5 Oct 2016 04:56:10 -0400
+Message-ID: <CAO9zADxo0T3=4JHTB4RQi7wG20iZoyP1=L-jrkx=n0RFObNBPg@mail.gmail.com>
+References: <CAO9zADwLwLLvxmqiLzxK9A5+--ZnvewMzmUvQ4xdm8HHeFNOsA@mail.gmail.com>
+ <CAML_gOcpW=9PEJiE=XoSTRJVjGqAb-DwsWv6JSzkEwp3ivOLfA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: marcel@holtmann.org, netdev@vger.kernel.org, aconole@bytheb.org,
-        fw@strlen.de, pablo@netfilter.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:45790 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752105AbcJEIwR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2016 04:52:17 -0400
-Content-Disposition: inline
-In-Reply-To: <20161005.040137.1214181921027379179.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-kernel@vger.kernel.org,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Liping Zhang <zlpnobody@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAML_gOcpW=9PEJiE=XoSTRJVjGqAb-DwsWv6JSzkEwp3ivOLfA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> wrote:
-> From: Marcel Holtmann <marcel@holtmann.org>
-> Date: Wed, 5 Oct 2016 09:48:42 +0200
-> 
-> > I really wonder what is going on here. Normally if you break the
-> > build, you fix it. However it seems nobody really cares enough. If I
-> > am not mistaken, then this patch broke it:
-> 
-> The people who can work on and merge the fix are travelling and
-> conferencing in Tokyo right now, that's why this wasn't fixed
-> instantaneously.
+On Tue, Oct 4, 2016 at 8:58 PM, Liping Zhang <zlpnobody@gmail.com> wrote:
+> Hi Justin,
+>
+> 2016-10-05 6:02 GMT+08:00 Justin Piszcz <jpiszcz@lucidpixels.com>:
+>> Hello,
+>>
 
-Seems the fix is rotting in nf-next....
+[ .. ]
+
+>
+> Which one are you using? iptables or nftables?
+# iptables -V
+iptables v1.6.0
+
+>
+> Could you please paste the related iptables/nftables rules here?
+
+Rules:
+
+  $IPTABLES -N INPUT_BLOCK
+  $IPTABLES -A INPUT_BLOCK -i eth1 -j NFLOG --nflog-group 2
+--nflog-prefix "INPUT_BLOCK"
+  $IPTABLES -A INPUT_BLOCK -j DROP
+  $IPTABLES -A INPUT -j INPUT_BLOCK
+
+Justin.
